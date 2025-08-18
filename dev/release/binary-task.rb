@@ -1431,6 +1431,7 @@ class BinaryTask
     [
       ["debian", "bookworm", "main"],
       ["debian", "trixie", "main"],
+      ["debian", "forky", "main"],
       ["ubuntu", "jammy", "main"],
       ["ubuntu", "noble", "main"],
     ]
@@ -1870,6 +1871,7 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
 
   def available_yum_targets
     [
+      ["almalinux", "10"],
       ["almalinux", "9"],
       ["almalinux", "8"],
       ["amazon-linux", "2023"],
@@ -2548,6 +2550,8 @@ class LocalBinaryTask < BinaryTask
     # Disable aarch64 targets by default for now
     # because they require some setups on host.
     [
+      "almalinux-10",
+      # "almalinux-10-aarch64",
       "almalinux-9",
       # "almalinux-9-aarch64",
       "almalinux-8",

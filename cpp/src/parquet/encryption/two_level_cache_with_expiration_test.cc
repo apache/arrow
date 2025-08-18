@@ -77,7 +77,7 @@ TEST_F(TwoLevelCacheWithExpirationTest, RemoveExpiration) {
   // lifetime2 will not be expired
   SleepFor(0.3);
   // now clear expired items from the cache
-  cache_.RemoveExpiredEntriesFromCache();
+  cache_.CheckCacheForExpiredTokens();
 
   // lifetime1 (with 2 items) is expired and has been removed from the cache.
   // Now the cache create a new object which has no item.
@@ -114,6 +114,14 @@ TEST_F(TwoLevelCacheWithExpirationTest, CleanupPeriodOk) {
   // lifetime2 is not expired and still contains 2 items.
   auto lifetime2 = cache_.GetOrCreateInternalCache("lifetime2", 3);
   ASSERT_EQ(lifetime2->size(), 2);
+
+  // The further process is added to test whether the timestamp is set correctly.
+  // CheckCacheForExpiredTokens() should be called at least twice to verify the
+  // correctness.
+  SleepFor(0.3);
+  cache_.CheckCacheForExpiredTokens(0.2);
+  lifetime2 = cache_.GetOrCreateInternalCache("lifetime2", 0.5);
+  ASSERT_EQ(lifetime2->size(), 0);
 }
 
 TEST_F(TwoLevelCacheWithExpirationTest, RemoveByToken) {

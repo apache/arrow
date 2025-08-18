@@ -107,6 +107,10 @@ macro(tsort_bool_option_dependencies)
 endmacro()
 
 macro(resolve_option_dependencies)
+  # Arrow Flight SQL ODBC is available only for Windows for now.
+  if(NOT MSVC_TOOLCHAIN)
+    set(ARROW_FLIGHT_SQL_ODBC OFF)
+  endif()
   if(MSVC_TOOLCHAIN)
     set(ARROW_USE_GLOG OFF)
   endif()
@@ -265,12 +269,7 @@ takes precedence over ccache if a storage backend is configured" ON)
   define_option(ARROW_LARGE_MEMORY_TESTS "Enable unit tests which use large memory" OFF)
 
   #----------------------------------------------------------------------
-  set_option_category("Lint")
-
-  define_option(ARROW_ONLY_LINT "Only define the lint and check-format targets" OFF)
-
-  define_option(ARROW_VERBOSE_LINT
-                "If off, 'quiet' flags will be passed to linting tools" OFF)
+  set_option_category("Coverage")
 
   define_option(ARROW_GENERATE_COVERAGE "Build with C++ code coverage enabled" OFF)
 
@@ -596,10 +595,6 @@ takes precedence over ccache if a storage backend is configured" ON)
 
   #----------------------------------------------------------------------
   set_option_category("Parquet")
-
-  define_option(PARQUET_MINIMAL_DEPENDENCY
-                "Depend only on Thirdparty headers to build libparquet.;\
-Always OFF if building binaries" OFF)
 
   define_option(PARQUET_BUILD_EXECUTABLES
                 "Build the Parquet executable CLI tools. Requires static libraries to be built."

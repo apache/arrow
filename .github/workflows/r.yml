@@ -78,7 +78,7 @@ jobs:
       UBUNTU: ${{ matrix.ubuntu }}
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           fetch-depth: 0
           submodules: recursive
@@ -150,7 +150,7 @@ jobs:
       R_TAG: ${{ matrix.config.tag }}
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           fetch-depth: 0
           submodules: recursive
@@ -196,7 +196,7 @@ jobs:
 
   windows-cpp:
     name: AMD64 Windows C++ RTools ${{ matrix.config.rtools }} ${{ matrix.config.arch }}
-    runs-on: windows-2019
+    runs-on: windows-2022
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     timeout-minutes: 90
     strategy:
@@ -207,7 +207,7 @@ jobs:
     steps:
       - run: git config --global core.autocrlf false
       - name: Checkout Arrow
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
       - name: Setup ccache
@@ -248,7 +248,7 @@ jobs:
   windows-r:
     needs: [windows-cpp]
     name: AMD64 Windows R ${{ matrix.config.rversion }}
-    runs-on: windows-2019
+    runs-on: windows-2022
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     timeout-minutes: 75
     strategy:
@@ -263,7 +263,7 @@ jobs:
     steps:
       - run: git config --global core.autocrlf false
       - name: Checkout Arrow
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
       # This must be done before r-lib/actions/setup-r because curl in
@@ -278,7 +278,7 @@ jobs:
           echo "$HOME/.local/bin" >> $GITHUB_PATH
       - run: mkdir r/windows
       - name: Download artifacts
-        uses: actions/download-artifact@v4.3.0
+        uses: actions/download-artifact@v5.0.0
         with:
           name: libarrow-rtools40-ucrt64.zip
           path: r/windows
@@ -331,24 +331,6 @@ jobs:
             check_dir = 'check',
             timeout = 3600
           )
-      - name: Run lintr
-        if: ${{ matrix.config.rversion == 'release' }}
-        env:
-          NOT_CRAN: "true"
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        shell: Rscript {0}
-        working-directory: r
-        run: |
-          Sys.setenv(
-            RWINLIB_LOCAL = file.path(Sys.getenv("GITHUB_WORKSPACE"), "r", "windows", "libarrow.zip"),
-            MAKEFLAGS = paste0("-j", parallel::detectCores()),
-            ARROW_R_DEV = TRUE,
-            "_R_CHECK_FORCE_SUGGESTS_" = FALSE
-          )
-          # we use pak for package installation since it is faster, safer and more convenient
-          pak::local_install()
-          pak::pak("lintr")
-          lintr::expect_lint_free()
       - name: Dump install logs
         shell: cmd
         run: cat r/check/arrow.Rcheck/00install.out

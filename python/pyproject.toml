@@ -65,6 +65,21 @@ test = [
     'pandas'
 ]
 
+[tool.numpydoc_validation]
+checks = [
+    "GL10",
+    "PR01",
+    "PR03",
+    "PR04",
+    "PR05",
+    "PR10",
+    "RT03",
+    "YD01",
+]
+exclude = [
+    '\._.*$',
+]
+
 [tool.setuptools]
 zip-safe=false
 include-package-data=true
@@ -81,4 +96,4 @@ root = '..'
 version_file = 'pyarrow/_generated_version.py'
 version_scheme = 'guess-next-dev'
 git_describe_command = 'git describe --dirty --tags --long --match "apache-arrow-[0-9]*.*"'
-fallback_version = '21.0.0a0'
+fallback_version = '22.0.0a0'

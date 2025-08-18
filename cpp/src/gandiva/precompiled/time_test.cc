@@ -363,6 +363,46 @@ TEST(TestTime, TimeStampTrunc) {
             StringToTimestamp("2000-02-28 00:00:00"));
   EXPECT_EQ(date_trunc_Week_timestamp(StringToTimestamp("2000-03-06 10:10:10")),
             StringToTimestamp("2000-03-06 00:00:00"));
+
+  // Test dates before epoch (1970-01-01)
+  EXPECT_EQ(date_trunc_Second_date64(StringToTimestamp("1969-12-31 23:45:15")),
+            StringToTimestamp("1969-12-31 23:45:15"));
+  EXPECT_EQ(date_trunc_Minute_date64(StringToTimestamp("1969-12-31 23:45:15")),
+            StringToTimestamp("1969-12-31 23:45:00"));
+  EXPECT_EQ(date_trunc_Hour_date64(StringToTimestamp("1969-12-31 23:45:15")),
+            StringToTimestamp("1969-12-31 23:00:00"));
+  EXPECT_EQ(date_trunc_Day_date64(StringToTimestamp("1969-12-31 23:45:15")),
+            StringToTimestamp("1969-12-31 00:00:00"));
+  EXPECT_EQ(date_trunc_Month_date64(StringToTimestamp("1969-12-31 23:45:15")),
+            StringToTimestamp("1969-12-01 00:00:00"));
+  EXPECT_EQ(date_trunc_Quarter_date64(StringToTimestamp("1969-12-31 23:45:15")),
+            StringToTimestamp("1969-10-01 00:00:00"));
+  EXPECT_EQ(date_trunc_Year_date64(StringToTimestamp("1969-12-31 23:45:15")),
+            StringToTimestamp("1969-01-01 00:00:00"));
+  EXPECT_EQ(date_trunc_Decade_date64(StringToTimestamp("1969-12-31 23:45:15")),
+            StringToTimestamp("1960-01-01 00:00:00"));
+
+  // Test date further in the past
+  EXPECT_EQ(date_trunc_Second_date64(StringToTimestamp("1930-05-15 12:34:56")),
+            StringToTimestamp("1930-05-15 12:34:56"));
+  EXPECT_EQ(date_trunc_Minute_date64(StringToTimestamp("1930-05-15 12:34:56")),
+            StringToTimestamp("1930-05-15 12:34:00"));
+  EXPECT_EQ(date_trunc_Hour_date64(StringToTimestamp("1930-05-15 12:34:56")),
+            StringToTimestamp("1930-05-15 12:00:00"));
+  EXPECT_EQ(date_trunc_Day_date64(StringToTimestamp("1930-05-15 12:34:56")),
+            StringToTimestamp("1930-05-15 00:00:00"));
+  EXPECT_EQ(date_trunc_Day_date64(StringToTimestamp("1940-02-29 12:00:00")),
+            StringToTimestamp("1940-02-29 00:00:00"));
+  EXPECT_EQ(date_trunc_Month_date64(StringToTimestamp("1930-05-15 12:34:56")),
+            StringToTimestamp("1930-05-01 00:00:00"));
+  EXPECT_EQ(date_trunc_Quarter_date64(StringToTimestamp("1930-05-15 12:34:56")),
+            StringToTimestamp("1930-04-01 00:00:00"));
+  EXPECT_EQ(date_trunc_Year_date64(StringToTimestamp("1930-05-15 12:34:56")),
+            StringToTimestamp("1930-01-01 00:00:00"));
+  EXPECT_EQ(date_trunc_Decade_date64(StringToTimestamp("1931-05-15 12:34:56")),
+            StringToTimestamp("1930-01-01 00:00:00"));
+  EXPECT_EQ(date_trunc_Century_date64(StringToTimestamp("1930-05-15 12:34:56")),
+            StringToTimestamp("1901-01-01 00:00:00"));
 }
 
 TEST(TestTime, TimeStampAdd) {

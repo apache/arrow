@@ -201,6 +201,7 @@ def test_option_class_equality(request):
         pc.WinsorizeOptions(0.05, 0.9),
         pc.WeekOptions(week_starts_monday=True, count_from_zero=False,
                        first_week_is_fully_in_year=False),
+        pc.ZeroFillOptions(4, "0"),
     ]
     # Timezone database might not be installed on Windows or Emscripten
     if request.config.pyarrow.is_enabled["timezone_data"]:
@@ -359,6 +360,49 @@ def test_sum_array(arrow_type):
     assert pc.sum(arr, min_count=0).as_py() == 0
 
 
+@pytest.mark.parametrize("arrow_type", [pa.decimal128(3, 2), pa.decimal256(3, 2)])
+def test_sum_decimal_array(arrow_type):
+    from decimal import Decimal
+    max_precision_type = (
+        pa.decimal128(38, arrow_type.scale)
+        if pa.types.is_decimal128(arrow_type)
+        else pa.decimal256(76, arrow_type.scale)
+    )
+    expected_sum = Decimal("5.79")
+    expected_sum_overflow = Decimal("10.00")
+    zero = Decimal("0.00")
+
+    # No overflow
+    arr = pa.array([Decimal("1.23"), Decimal("4.56")], type=arrow_type)
+    assert arr.sum().as_py() == expected_sum
+    assert arr.sum().type == max_precision_type
+
+    arr = pa.array([Decimal("1.23"), Decimal("4.56"), None], type=arrow_type)
+    assert arr.sum().as_py() == expected_sum
+    assert arr.sum().type == max_precision_type
+
+    # With overflow
+    arr = pa.array([Decimal("1.23"), Decimal("8.77")], type=arrow_type)
+    assert arr.sum().as_py() == expected_sum_overflow
+    assert arr.sum().type == max_precision_type
+
+    arr = pa.array([Decimal("1.23"), Decimal("8.77"), None], type=arrow_type)
+    assert arr.sum().as_py() == expected_sum_overflow
+    assert arr.sum().type == max_precision_type
+
+    arr = pa.array([None], type=arrow_type)
+    assert arr.sum().as_py() is None  # noqa: E711
+    assert arr.sum().type == max_precision_type  # noqa: E711
+    assert arr.sum(min_count=0).as_py() == zero
+    assert arr.sum(min_count=0).type == max_precision_type
+
+    arr = pa.array([], type=arrow_type)
+    assert arr.sum().as_py() is None  # noqa: E711
+    assert arr.sum().type == max_precision_type  # noqa: E711
+    assert arr.sum(min_count=0).as_py() == zero
+    assert arr.sum(min_count=0).type == max_precision_type
+
+
 @pytest.mark.parametrize('arrow_type', numerical_arrow_types)
 def test_sum_chunked_array(arrow_type):
     arr = pa.chunked_array([pa.array([1, 2, 3, 4], type=arrow_type)])
@@ -380,6 +424,48 @@ def test_sum_chunked_array(arrow_type):
     assert arr.num_chunks == 0
     assert pc.sum(arr).as_py() is None  # noqa: E711
     assert pc.sum(arr, min_count=0).as_py() == 0
+
+
+@pytest.mark.parametrize('arrow_type', [pa.decimal128(3, 2), pa.decimal256(3, 2)])
+def test_sum_chunked_array_decimal_type(arrow_type):
+    from decimal import Decimal
+    max_precision_type = (
+        pa.decimal128(38, arrow_type.scale)
+        if pa.types.is_decimal128(arrow_type)
+        else pa.decimal256(76, arrow_type.scale)
+    )
+    expected_sum = Decimal("5.79")
+    zero = Decimal("0.00")
+
+    arr = pa.chunked_array(
+        [
+            pa.array([Decimal("1.23"), Decimal("4.56")], type=arrow_type)
+        ]
+    )
+    assert pc.sum(arr).as_py() == expected_sum
+    assert pc.sum(arr).type == max_precision_type
+
+    arr = pa.chunked_array([
+        pa.array([Decimal("1.23")], type=arrow_type),
+        pa.array([Decimal("4.56")], type=arrow_type)
+    ])
+    assert pc.sum(arr).as_py() == expected_sum
+    assert pc.sum(arr).type == max_precision_type
+
+    arr = pa.chunked_array([
+        pa.array([Decimal("1.23")], type=arrow_type),
+        pa.array([], type=arrow_type),
+        pa.array([Decimal("4.56")], type=arrow_type)
+    ])
+    assert pc.sum(arr).as_py() == expected_sum
+    assert pc.sum(arr).type == max_precision_type
+
+    arr = pa.chunked_array((), type=arrow_type)
+    assert arr.num_chunks == 0
+    assert pc.sum(arr).as_py() is None  # noqa: E711
+    assert pc.sum(arr).type == max_precision_type
+    assert pc.sum(arr, min_count=0).as_py() == zero
+    assert pc.sum(arr, min_count=0).type == max_precision_type
 
 
 def test_mode_array():
@@ -1049,6 +1135,37 @@ def test_pad():
     assert pc.utf8_center(arr, 3).tolist() == [None, ' á ', 'abcd']
     assert pc.utf8_lpad(arr, 3).tolist() == [None, '  á', 'abcd']
     assert pc.utf8_rpad(arr, 3).tolist() == [None, 'á  ', 'abcd']
+
+
+def test_utf8_zfill():
+    assert pc.utf8_zfill is pc.utf8_zero_fill
+
+    # match str.zfill behavior
+    examples = ['A', 'AB', 'ABC', '', '-1', '+1', '1', None]
+    for width in range(0, 6):
+        arr = pa.array(examples)
+        result = pc.utf8_zero_fill(arr, width=width).to_pylist()
+        expected = [x.zfill(width) if x is not None else None for x in examples]
+        assert result == expected, f"Mismatch at width={width}: {result} vs {expected}"
+
+    # unicode padding character
+    arr = pa.array(["1", "-2", "+3"])
+    result = pc.utf8_zero_fill(arr, options=pc.ZeroFillOptions(
+        width=5, padding="💠")).to_pylist()
+    assert result == ["💠💠💠💠1", "-💠💠💠2", "+💠💠💠3"]
+
+    # custom ASCII padding character
+    arr = pa.array(["1", "-2", "+3"])
+    result = pc.utf8_zero_fill(arr, options=pc.ZeroFillOptions(
+        width=4, padding="x")).to_pylist()
+    assert result == ["xxx1", "-xx2", "+xx3"]
+
+    # multi-codepoint padding — should raise
+    arr = pa.array(["foo"])
+    with pytest.raises(pa.ArrowInvalid, match="Padding must be one codepoint"):
+        pc.utf8_zero_fill(arr, options=pc.ZeroFillOptions(width=4, padding="spam"))
+    with pytest.raises(pa.ArrowInvalid, match="Padding must be one codepoint"):
+        pc.utf8_zero_fill(arr, options=pc.ZeroFillOptions(width=4, padding=""))
 
 
 @pytest.mark.pandas
@@ -3786,19 +3903,42 @@ def test_list_slice_bad_parameters():
         pc.list_slice(arr, 0, 1, step=-1)
 
 
-def check_run_end_encode_decode(run_end_encode_opts=None):
-    arr = pa.array([1, 1, 1, 2, 2, 1, 1, 1, 1, 1, 3, 3, 3, 3, 3, 3, 3, 3, 3])
+def check_run_end_encode_decode(value_type, run_end_encode_opts=None):
+    values = [1, 1, 1, 2, 2, 1, 1, 1, 1, 1, 3, 3, 3, 3, 3, 3, 3, 3, 3]
+    arr = pa.array(values, type=value_type)
     encoded = pc.run_end_encode(arr, options=run_end_encode_opts)
     decoded = pc.run_end_decode(encoded)
     assert decoded.type == arr.type
     assert decoded.equals(arr)
 
 
-def test_run_end_encode():
-    check_run_end_encode_decode()
-    check_run_end_encode_decode(pc.RunEndEncodeOptions(pa.int16()))
-    check_run_end_encode_decode(pc.RunEndEncodeOptions('int32'))
-    check_run_end_encode_decode(pc.RunEndEncodeOptions(pa.int64()))
+@pytest.mark.parametrize(
+    "value_type",
+    (
+        pa.int8(),
+        pa.int16(),
+        pa.int32(),
+        pa.int64(),
+        pa.float16(),
+        pa.float32(),
+        pa.float64(),
+        pa.decimal32(4, 0),
+        pa.decimal64(4, 0),
+        pa.decimal128(4, 0),
+        pa.decimal256(4, 0),
+    ),
+)
+@pytest.mark.parametrize(
+    "option",
+    (
+        None,
+        pc.RunEndEncodeOptions(pa.int16()),
+        pc.RunEndEncodeOptions("int32"),
+        pc.RunEndEncodeOptions(pa.int64()),
+    ),
+)
+def test_run_end_encode(value_type, option):
+    check_run_end_encode_decode(value_type, option)
 
 
 def test_pairwise_diff():

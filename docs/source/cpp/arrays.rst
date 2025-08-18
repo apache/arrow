@@ -59,7 +59,7 @@ example a ``std::vector``.  Instead, several strategies can be used:
 
 .. note:: For cases where performance isn't important such as examples or tests,
           you may prefer to use the ``*FromJSONString`` helpers which can create
-          Arrays using a JSON text shorthand. See :ref:`fromjson_helpers`.
+          Arrays using a JSON text shorthand. See :ref:`fromjsonstring-helpers`.
 
 Using ArrayBuilder and its subclasses
 -------------------------------------
@@ -226,6 +226,8 @@ of arrays and chunked arrays, to obtain an array or chunked array referring
 to some logical subsequence of the data.  This is done by calling the
 :func:`arrow::Array::Slice` and :func:`arrow::ChunkedArray::Slice` methods,
 respectively.
+
+.. _fromjsonstring-helpers:
 
 FromJSONString Helpers
 ======================

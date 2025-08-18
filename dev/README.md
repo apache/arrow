@@ -56,7 +56,7 @@ for configuring your tokens: environment variables or a configuration file.
 #### Pass tokens via Environment Variables
 
 The merge script uses the GitHub REST API. You must set a
-`ARROW_GITHUB_API_TOKEN` environment variable to use a
+`GH_TOKEN` environment variable to use a
 [Personal Access Token](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/creating-a-personal-access-token).
 You need to add `workflow` scope to the Personal Access Token.
 

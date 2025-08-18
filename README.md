@@ -54,6 +54,7 @@ Major components of the project include:
  - [R libraries](https://github.com/apache/arrow/tree/main/r)
  - [Ruby libraries](https://github.com/apache/arrow/tree/main/ruby)
  - [Rust libraries](https://github.com/apache/arrow-rs) `↗`
+ - [Swift libraries](https://github.com/apache/arrow-swift) `↗`
 
 The `↗` icon denotes that this component of the project is maintained in a separate
 repository.

@@ -30,16 +30,6 @@
   - any-glob-to-any-file:
     - csharp/**/*
 
-"Component: Go":
-- changed-files:
-  - any-glob-to-any-file:
-    - go/**/*
-
-"Component: JavaScript":
-- changed-files:
-  - any-glob-to-any-file:
-    - js/**/*
-
 "Component: MATLAB":
 - changed-files:
   - any-glob-to-any-file:
@@ -59,11 +49,6 @@
 - changed-files:
   - any-glob-to-any-file:
     - ruby/**/*
-
-"Component: Swift":
-- changed-files:
-  - any-glob-to-any-file:
-    - swift/**/*
 
 "Component: FlightRPC":
 - changed-files:

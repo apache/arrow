@@ -46,7 +46,7 @@
 #include "arrow/util/iterator.h"
 #include "arrow/util/logging_internal.h"
 #include "arrow/util/macros.h"
-#include "arrow/util/map.h"
+#include "arrow/util/map_internal.h"
 #include "arrow/util/string.h"
 #include "arrow/util/task_group.h"
 #include "arrow/util/tracing_internal.h"
@@ -489,6 +489,8 @@ Status FileSystemDataset::Write(const FileSystemDatasetWriteOptions& write_optio
   return acero::DeclarationToStatus(std::move(plan), scanner->options()->use_threads);
 }
 
+namespace {
+
 Result<acero::ExecNode*> MakeWriteNode(acero::ExecPlan* plan,
                                        std::vector<acero::ExecNode*> inputs,
                                        const acero::ExecNodeOptions& options) {
@@ -556,8 +558,6 @@ Result<acero::ExecNode*> MakeWriteNode(acero::ExecPlan* plan,
 
   return node;
 }
-
-namespace {
 
 class TeeNode : public acero::MapNode {
  public:

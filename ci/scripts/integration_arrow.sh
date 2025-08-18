@@ -24,16 +24,16 @@ build_dir=${2}
 
 gold_dir=$arrow_dir/testing/data/arrow-ipc-stream/integration
 
-: ${ARROW_INTEGRATION_CPP:=ON}
-: ${ARROW_INTEGRATION_CSHARP:=ON}
+: "${ARROW_INTEGRATION_CPP:=ON}"
+: "${ARROW_INTEGRATION_CSHARP:=ON}"
 
-: ${ARCHERY_INTEGRATION_TARGET_IMPLEMENTATIONS:=cpp,csharp,js}
+: "${ARCHERY_INTEGRATION_TARGET_IMPLEMENTATIONS:=cpp,csharp}"
 export ARCHERY_INTEGRATION_TARGET_IMPLEMENTATIONS
 
-. ${arrow_dir}/ci/scripts/util_log.sh
+. "${arrow_dir}/ci/scripts/util_log.sh"
 
 github_actions_group_begin "Integration: Prepare: Archery"
-pip install -e $arrow_dir/dev/archery[integration]
+pip install -e "$arrow_dir/dev/archery[integration]"
 github_actions_group_end
 
 github_actions_group_begin "Integration: Prepare: Dependencies"
@@ -47,6 +47,7 @@ fi
 github_actions_group_end
 
 export ARROW_BUILD_ROOT=${build_dir}
+export ARROW_JS_ROOT=${build_dir}/js
 
 # Get more detailed context on crashes
 export PYTHONFAULTHANDLER=1
@@ -57,16 +58,19 @@ export PYTHONFAULTHANDLER=1
 export GOMEMLIMIT=200MiB
 export GODEBUG=gctrace=1,clobberfree=1
 
+ARCHERY_WITH_CPP=$([ "$ARROW_INTEGRATION_CPP" == "ON" ] && echo "1" || echo "0")
+ARCHERY_WITH_CSHARP=$([ "$ARROW_INTEGRATION_CSHARP" == "ON" ] && echo "1" || echo "0")
+
 # Rust can be enabled by exporting ARCHERY_INTEGRATION_WITH_RUST=1
 time archery integration \
     --run-c-data \
     --run-ipc \
     --run-flight \
-    --with-cpp=$([ "$ARROW_INTEGRATION_CPP" == "ON" ] && echo "1" || echo "0") \
-    --with-csharp=$([ "$ARROW_INTEGRATION_CSHARP" == "ON" ] && echo "1" || echo "0") \
-    --gold-dirs=$gold_dir/0.14.1 \
-    --gold-dirs=$gold_dir/0.17.1 \
-    --gold-dirs=$gold_dir/1.0.0-bigendian \
-    --gold-dirs=$gold_dir/1.0.0-littleendian \
-    --gold-dirs=$gold_dir/2.0.0-compression \
-    --gold-dirs=$gold_dir/4.0.0-shareddict \
+    --with-cpp="${ARCHERY_WITH_CPP}" \
+    --with-csharp="${ARCHERY_WITH_CSHARP}"\
+    --gold-dirs="$gold_dir/0.14.1" \
+    --gold-dirs="$gold_dir/0.17.1" \
+    --gold-dirs="$gold_dir/1.0.0-bigendian" \
+    --gold-dirs="$gold_dir/1.0.0-littleendian" \
+    --gold-dirs="$gold_dir/2.0.0-compression" \
+    --gold-dirs="$gold_dir/4.0.0-shareddict" \

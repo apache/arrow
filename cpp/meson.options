@@ -52,6 +52,13 @@ option(
 )
 
 option('json', type: 'feature', description: 'Build Arrow with JSON support')
+
+option(
+    'flight',
+    type: 'feature',
+    description: 'Build the Arrow Flight RPC System (requires GRPC, Protocol Buffers)',
+)
+
 option('git_id', type: 'string')
 option('git_description', type: 'string')
 
@@ -73,6 +80,13 @@ option(
     type: 'feature',
     description: 'Build Arrow with S3 support (requires the AWS SDK for C++)',
 )
+
+option(
+    'tensorflow',
+    type: 'feature',
+    description: 'Build Arrow with TensorFlow support enabled',
+)
+
 option('testing', type: 'feature', description: 'Build the Arrow testing libraries')
 option('tests', type: 'feature', description: 'Build the Arrow googletest unit tests')
 

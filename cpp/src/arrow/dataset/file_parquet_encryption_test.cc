@@ -34,18 +34,23 @@
 #include "arrow/testing/random.h"
 #include "arrow/type.h"
 #include "arrow/util/future.h"
+#include "arrow/util/secure_string.h"
 #include "arrow/util/thread_pool.h"
 #include "parquet/arrow/reader.h"
 #include "parquet/encryption/crypto_factory.h"
 #include "parquet/encryption/kms_client.h"
 #include "parquet/encryption/test_in_memory_kms.h"
 
-constexpr std::string_view kFooterKeyMasterKey = "0123456789012345";
+using arrow::util::SecureString;
+
+const SecureString kFooterKeyMasterKey("0123456789012345");
 constexpr std::string_view kFooterKeyMasterKeyId = "footer_key";
 constexpr std::string_view kFooterKeyName = "footer_key";
-constexpr std::string_view kColumnMasterKey = "1234567890123450";
+
+const SecureString kColumnMasterKey("1234567890123450");
 constexpr std::string_view kColumnMasterKeyId = "col_key";
 constexpr std::string_view kColumnName = "a";
+
 constexpr std::string_view kBaseDir = "";
 
 using arrow::internal::checked_pointer_cast;
@@ -157,7 +162,7 @@ class DatasetEncryptionTestBase : public testing::TestWithParam<T> {
       ASSERT_TRUE(GetParam().uniform_encryption);
       auto file_encryption_properties =
           std::make_unique<parquet::FileEncryptionProperties::Builder>(
-              std::string(kFooterKeyMasterKey))
+              kFooterKeyMasterKey)
               ->build();
       auto writer_properties = std::make_unique<parquet::WriterProperties::Builder>()
                                    ->encryption(file_encryption_properties)
@@ -233,7 +238,7 @@ class DatasetEncryptionTestBase : public testing::TestWithParam<T> {
       // Configure decryption keys via reader properties / file decryption properties.
       auto file_decryption_properties =
           std::make_unique<parquet::FileDecryptionProperties::Builder>()
-              ->footer_key(std::string(kFooterKeyMasterKey))
+              ->footer_key(kFooterKeyMasterKey)
               ->build();
       parquet_scan_options->reader_properties->file_decryption_properties(
           file_decryption_properties);
@@ -322,7 +327,7 @@ class DatasetEncryptionTestBase : public testing::TestWithParam<T> {
   std::shared_ptr<Partitioning> partitioning_;
   std::shared_ptr<parquet::encryption::CryptoFactory> crypto_factory_;
   std::shared_ptr<parquet::encryption::KmsConnectionConfig> kms_connection_config_;
-  std::unordered_map<std::string, std::string> key_map_;
+  std::unordered_map<std::string, SecureString> key_map_;
 };
 
 class DatasetEncryptionTest : public DatasetEncryptionTestBase<EncryptionTestParam> {
@@ -383,7 +388,7 @@ TEST_P(DatasetEncryptionTest, ReadSingleFile) {
     // Configure decryption keys via file decryption properties with static footer key.
     file_decryption_properties =
         std::make_unique<parquet::FileDecryptionProperties::Builder>()
-            ->footer_key(std::string(kFooterKeyMasterKey))
+            ->footer_key(kFooterKeyMasterKey)
             ->build();
   }
   auto reader_properties = parquet::default_reader_properties();

@@ -23,7 +23,7 @@ The ``arrow-substrait`` module implements support for the Substrait_ format,
 enabling conversion to and from Arrow objects.
 
 The ``arrow-dataset`` module can execute Substrait_ plans via the
-:doc:`Acero <../cpp/acero>` query engine.
+:doc:`Acero <../../cpp/acero>` query engine.
 
 .. contents::
 

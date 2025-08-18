@@ -45,6 +45,38 @@ arrow_components = {
             'array/validate.cc',
         ],
     },
+    'arrow_compute': {
+        'sources': [
+            'compute/api_aggregate.cc',
+            'compute/api_scalar.cc',
+            'compute/api_vector.cc',
+            'compute/cast.cc',
+            'compute/exec.cc',
+            'compute/expression.cc',
+            'compute/function.cc',
+            'compute/function_internal.cc',
+            'compute/kernel.cc',
+            'compute/ordering.cc',
+            'compute/registry.cc',
+            'compute/kernels/chunked_internal.cc',
+            'compute/kernels/codegen_internal.cc',
+            'compute/kernels/ree_util_internal.cc',
+            'compute/kernels/scalar_cast_boolean.cc',
+            'compute/kernels/scalar_cast_dictionary.cc',
+            'compute/kernels/scalar_cast_extension.cc',
+            'compute/kernels/scalar_cast_internal.cc',
+            'compute/kernels/scalar_cast_nested.cc',
+            'compute/kernels/scalar_cast_numeric.cc',
+            'compute/kernels/scalar_cast_string.cc',
+            'compute/kernels/scalar_cast_temporal.cc',
+            'compute/kernels/util_internal.cc',
+            'compute/kernels/vector_hash.cc',
+            'compute/kernels/vector_selection.cc',
+            'compute/kernels/vector_selection_filter_internal.cc',
+            'compute/kernels/vector_selection_internal.cc',
+            'compute/kernels/vector_selection_take_internal.cc',
+        ],
+    },
     'arrow_io': {
         'sources': [
             'io/buffered.cc',
@@ -167,7 +199,7 @@ arrow_util_srcs = [
     'util/mutex.cc',
     'util/ree_util.cc',
     'util/string.cc',
-    'util/string_builder.cc',
+    'util/string_util.cc',
     'util/task_group.cc',
     'util/tdigest.cc',
     'util/thread_pool.cc',
@@ -260,90 +292,11 @@ if needs_csv
     arrow_testing_srcs += ['csv/test_common.cc']
 endif
 
-arrow_compute_sources = [
-    'compute/api_aggregate.cc',
-    'compute/api_scalar.cc',
-    'compute/api_vector.cc',
-    'compute/cast.cc',
-    'compute/exec.cc',
-    'compute/expression.cc',
-    'compute/function.cc',
-    'compute/function_internal.cc',
-    'compute/kernel.cc',
-    'compute/ordering.cc',
-    'compute/registry.cc',
-    'compute/kernels/chunked_internal.cc',
-    'compute/kernels/codegen_internal.cc',
-    'compute/kernels/ree_util_internal.cc',
-    'compute/kernels/scalar_cast_boolean.cc',
-    'compute/kernels/scalar_cast_dictionary.cc',
-    'compute/kernels/scalar_cast_extension.cc',
-    'compute/kernels/scalar_cast_internal.cc',
-    'compute/kernels/scalar_cast_nested.cc',
-    'compute/kernels/scalar_cast_numeric.cc',
-    'compute/kernels/scalar_cast_string.cc',
-    'compute/kernels/scalar_cast_temporal.cc',
-    'compute/kernels/util_internal.cc',
-    'compute/kernels/vector_hash.cc',
-    'compute/kernels/vector_selection.cc',
-    'compute/kernels/vector_selection_filter_internal.cc',
-    'compute/kernels/vector_selection_internal.cc',
-    'compute/kernels/vector_selection_take_internal.cc',
-]
-
-if needs_compute
-    arrow_compute_sources += [
-        'compute/kernels/aggregate_basic.cc',
-        'compute/kernels/aggregate_mode.cc',
-        'compute/kernels/aggregate_pivot.cc',
-        'compute/kernels/aggregate_quantile.cc',
-        'compute/kernels/aggregate_tdigest.cc',
-        'compute/kernels/aggregate_var_std.cc',
-        'compute/kernels/hash_aggregate.cc',
-        'compute/kernels/hash_aggregate_numeric.cc',
-        'compute/kernels/hash_aggregate_pivot.cc',
-        'compute/kernels/pivot_internal.cc',
-        'compute/kernels/scalar_arithmetic.cc',
-        'compute/kernels/scalar_boolean.cc',
-        'compute/kernels/scalar_compare.cc',
-        'compute/kernels/scalar_if_else.cc',
-        'compute/kernels/scalar_nested.cc',
-        'compute/kernels/scalar_random.cc',
-        'compute/kernels/scalar_round.cc',
-        'compute/kernels/scalar_set_lookup.cc',
-        'compute/kernels/scalar_string_ascii.cc',
-        'compute/kernels/scalar_string_utf8.cc',
-        'compute/kernels/scalar_temporal_binary.cc',
-        'compute/kernels/scalar_temporal_unary.cc',
-        'compute/kernels/scalar_validity.cc',
-        'compute/kernels/vector_array_sort.cc',
-        'compute/kernels/vector_cumulative_ops.cc',
-        'compute/kernels/vector_nested.cc',
-        'compute/kernels/vector_pairwise.cc',
-        'compute/kernels/vector_rank.cc',
-        'compute/kernels/vector_replace.cc',
-        'compute/kernels/vector_run_end_encode.cc',
-        'compute/kernels/vector_select_k.cc',
-        'compute/kernels/vector_sort.cc',
-        'compute/kernels/vector_statistics.cc',
-        'compute/kernels/vector_swizzle.cc',
-        'compute/key_hash_internal.cc',
-        'compute/key_map_internal.cc',
-        'compute/light_array_internal.cc',
-        'compute/row/encode_internal.cc',
-        'compute/row/compare_internal.cc',
-        'compute/row/grouper.cc',
-        'compute/row/row_encoder_internal.cc',
-        'compute/row/row_internal.cc',
-        'compute/util.cc',
-        'compute/util_internal.cc',
-    ]
-endif
-
-arrow_components += {'arrow-compute': {'sources': arrow_compute_sources}}
-
 if needs_json or needs_integration
-    rapidjson_dep = dependency('rapidjson', include_type: 'system')
+    rapidjson_dep = dependency(
+        'RapidJSON',
+        fallback: ['rapidjson', 'rapidjson_dep'],
+    )
 else
     rapidjson_dep = disabler()
 endif
@@ -424,7 +377,10 @@ if needs_ipc
         'ipc/writer.cc',
     ]
 
-    flatbuffers_dep = dependency('flatbuffers')
+    flatbuffers_incdir = include_directories(
+        '../../thirdparty/flatbuffers/include',
+    )
+    flatbuffers_dep = declare_dependency(include_directories: flatbuffers_incdir)
     arrow_ipc_deps = [flatbuffers_dep]
 
     arrow_components += {
@@ -469,12 +425,80 @@ arrow_lib = library(
     include_directories: arrow_includes,
     dependencies: arrow_deps,
     install: true,
+    gnu_symbol_visibility: 'hidden',
+    cpp_shared_args: ['-DARROW_EXPORTING'],
 )
 
 arrow_dep = declare_dependency(
     include_directories: [include_dir],
     link_with: arrow_lib,
 )
+
+if needs_compute
+    arrow_compute_lib_sources = [
+        'compute/initialize.cc',
+        'compute/kernels/aggregate_basic.cc',
+        'compute/kernels/aggregate_mode.cc',
+        'compute/kernels/aggregate_pivot.cc',
+        'compute/kernels/aggregate_quantile.cc',
+        'compute/kernels/aggregate_tdigest.cc',
+        'compute/kernels/aggregate_var_std.cc',
+        'compute/kernels/hash_aggregate.cc',
+        'compute/kernels/hash_aggregate_numeric.cc',
+        'compute/kernels/hash_aggregate_pivot.cc',
+        'compute/kernels/pivot_internal.cc',
+        'compute/kernels/scalar_arithmetic.cc',
+        'compute/kernels/scalar_boolean.cc',
+        'compute/kernels/scalar_compare.cc',
+        'compute/kernels/scalar_if_else.cc',
+        'compute/kernels/scalar_nested.cc',
+        'compute/kernels/scalar_random.cc',
+        'compute/kernels/scalar_round.cc',
+        'compute/kernels/scalar_set_lookup.cc',
+        'compute/kernels/scalar_string_ascii.cc',
+        'compute/kernels/scalar_string_utf8.cc',
+        'compute/kernels/scalar_temporal_binary.cc',
+        'compute/kernels/scalar_temporal_unary.cc',
+        'compute/kernels/scalar_validity.cc',
+        'compute/kernels/util_internal.cc',
+        'compute/kernels/vector_array_sort.cc',
+        'compute/kernels/vector_cumulative_ops.cc',
+        'compute/kernels/vector_nested.cc',
+        'compute/kernels/vector_pairwise.cc',
+        'compute/kernels/vector_rank.cc',
+        'compute/kernels/vector_replace.cc',
+        'compute/kernels/vector_run_end_encode.cc',
+        'compute/kernels/vector_select_k.cc',
+        'compute/kernels/vector_sort.cc',
+        'compute/kernels/vector_statistics.cc',
+        'compute/kernels/vector_swizzle.cc',
+        'compute/key_hash_internal.cc',
+        'compute/key_map_internal.cc',
+        'compute/light_array_internal.cc',
+        'compute/row/encode_internal.cc',
+        'compute/row/compare_internal.cc',
+        'compute/row/grouper.cc',
+        'compute/row/row_encoder_internal.cc',
+        'compute/row/row_internal.cc',
+        'compute/util.cc',
+        'compute/util_internal.cc',
+    ]
+
+    arrow_compute_lib = library(
+        'arrow-compute',
+        sources: arrow_compute_lib_sources,
+        dependencies: arrow_dep,
+        install: true,
+        cpp_shared_args: ['-DARROW_COMPUTE_EXPORTING'],
+    )
+    arrow_compute_dep = declare_dependency(
+        link_with: arrow_compute_lib,
+        include_directories: include_dir,
+        dependencies: arrow_dep,
+    )
+else
+    arrow_compute_dep = disabler()
+endif
 
 # Meson does not allow you to glob for headers to install. See also
 # https://mesonbuild.com/FAQ.html#why-cant-i-specify-target-files-with-a-wildcard
@@ -548,20 +572,36 @@ else
     gmock_dep = disabler()
 endif
 
-arrow_test_lib = static_library(
-    'arrow_testing',
-    sources: arrow_testing_srcs,
-    dependencies: [arrow_dep, filesystem_dep, gmock_dep, gtest_main_dep],
-)
+if needs_testing
+    arrow_testing_lib = static_library(
+        'arrow_testing',
+        sources: arrow_testing_srcs,
+        dependencies: [arrow_dep, filesystem_dep, gmock_dep, gtest_dep],
+    )
+
+    arrow_testing_dep = declare_dependency(link_with: [arrow_testing_lib])
+else
+    arrow_testing_dep = disabler()
+endif
 
 if needs_tests
     arrow_test_dep = declare_dependency(
-        link_with: [arrow_test_lib],
-        dependencies: [arrow_dep, filesystem_dep, gmock_dep, gtest_main_dep],
+        dependencies: [
+            arrow_dep,
+            arrow_testing_dep,
+            filesystem_dep,
+            gmock_dep,
+            gtest_main_dep,
+        ],
     )
     arrow_test_dep_no_main = declare_dependency(
-        link_with: [arrow_test_lib],
-        dependencies: [arrow_dep, filesystem_dep, gmock_dep, gtest_dep],
+        dependencies: [
+            arrow_dep,
+            arrow_testing_dep,
+            filesystem_dep,
+            gmock_dep,
+            gtest_dep,
+        ],
     )
 else
     arrow_test_dep = disabler()
@@ -634,8 +674,12 @@ if needs_benchmarks
     )
 
     arrow_benchmark_dep = declare_dependency(
-        link_with: [arrow_test_lib],
-        dependencies: [arrow_dep, benchmark_main_dep, gtest_dep],
+        dependencies: [
+            arrow_dep,
+            arrow_testing_dep,
+            benchmark_main_dep,
+            gtest_dep,
+        ],
     )
 else
     arrow_benchmark_dep = disabler()
@@ -693,8 +737,9 @@ pkg.generate(
 subdir('testing')
 
 subdir('array')
-subdir('c')
 subdir('compute')
+subdir('c')
+subdir('extension')
 subdir('io')
 subdir('tensor')
 subdir('util')
@@ -717,10 +762,18 @@ if needs_filesystem
     subdir('filesystem')
 endif
 
+if needs_flight
+    subdir('flight')
+endif
+
 if needs_json
     subdir('json')
 endif
 
 if needs_ipc
     subdir('ipc')
+endif
+
+if get_option('tensorflow').enabled()
+    subdir('adapters/tensorflow')
 endif

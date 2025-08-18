@@ -63,10 +63,7 @@ jobs:
         env:
           GITHUB_TOKEN: {{ '${{ secrets.GITHUB_TOKEN }}' }}
         run: |
-          if [ "{{ linux_wheel_version }}" = "2014" ] && [ "{{ arch }}" = "arm64" ]; then
-            # We can't use NuGet on manylinux2014_aarch64 because Mono is old.
-            :
-          elif [ "{{ linux_wheel_kind }}" = "musllinux" ] && [ "{{ arch }}" = "arm64" ]; then
+          if [ "{{ linux_wheel_kind }}" = "musllinux" ] && [ "{{ arch }}" = "arm64" ]; then
             # We can't use NuGet on musl arm systems because the official NuGet binary for arm doesn't exist.
             :
           else

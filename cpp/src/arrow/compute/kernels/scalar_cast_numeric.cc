@@ -41,6 +41,8 @@ using util::Float16;
 namespace compute {
 namespace internal {
 
+namespace {
+
 Status CastIntegerToInteger(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
   const auto& options = checked_cast<const CastState*>(ctx->state())->options;
   if (!options.allow_int_overflow) {
@@ -275,6 +277,8 @@ Status CastIntegerToFloating(KernelContext* ctx, const ExecSpan& batch, ExecResu
                            out->array_span_mutable());
   return Status::OK();
 }
+
+}  // namespace
 
 // ----------------------------------------------------------------------
 // Boolean to number

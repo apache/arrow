@@ -2150,7 +2150,7 @@ std::vector<FieldPath> FieldRef::FindAll(const FieldVector& fields) const {
       auto maybe_field =
           FieldPathGetImpl::Get(&path, FieldSelector(fields_), &out_of_range_depth);
 
-      DCHECK_OK(maybe_field.status());
+      DCHECK_OK(maybe_field);
 
       if (maybe_field.ValueOrDie() != nullptr) {
         return {path};
@@ -2188,7 +2188,7 @@ std::vector<FieldPath> FieldRef::FindAll(const FieldVector& fields) const {
       void Add(const FieldPath& prefix, const FieldPath& suffix,
                const FieldVector& fields) {
         auto maybe_field = suffix.Get(fields);
-        DCHECK_OK(maybe_field.status());
+        DCHECK_OK(maybe_field);
         referents.push_back(std::move(maybe_field).ValueOrDie());
 
         std::vector<int> concatenated_indices(prefix.indices().size() +
@@ -2641,7 +2641,8 @@ Status SchemaBuilder::AddSchemas(const std::vector<std::shared_ptr<Schema>>& sch
 }
 
 Status SchemaBuilder::AddMetadata(const KeyValueMetadata& metadata) {
-  impl_->metadata_ = metadata.Copy();
+  impl_->metadata_ =
+      impl_->metadata_ ? impl_->metadata_->Merge(metadata) : metadata.Copy();
   return Status::OK();
 }
 
@@ -3225,12 +3226,6 @@ std::shared_ptr<DataType> map(std::shared_ptr<DataType> key_type,
                                    keys_sorted);
 }
 
-std::shared_ptr<DataType> map(std::shared_ptr<Field> key_field,
-                              std::shared_ptr<Field> item_field, bool keys_sorted) {
-  return std::make_shared<MapType>(std::move(key_field), std::move(item_field),
-                                   keys_sorted);
-}
-
 std::shared_ptr<DataType> fixed_size_list(std::shared_ptr<DataType> value_type,
                                           int32_t list_size) {
   return std::make_shared<FixedSizeListType>(std::move(value_type), list_size);
@@ -3288,6 +3283,8 @@ std::shared_ptr<DataType> dense_union(FieldVector child_fields,
   return std::make_shared<DenseUnionType>(std::move(child_fields), std::move(type_codes));
 }
 
+namespace {
+
 FieldVector FieldsFromArraysAndNames(std::vector<std::string> names,
                                      const ArrayVector& arrays) {
   FieldVector fields(arrays.size());
@@ -3306,6 +3303,8 @@ FieldVector FieldsFromArraysAndNames(std::vector<std::string> names,
   }
   return fields;
 }
+
+}  // namespace
 
 std::shared_ptr<DataType> sparse_union(const ArrayVector& children,
                                        std::vector<std::string> field_names,

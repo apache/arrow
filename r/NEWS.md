@@ -17,13 +17,52 @@
   under the License.
 -->
 
-# arrow 20.0.0.9000
+# arrow 21.0.0.9000
+
+# arrow 21.0.0.1
+
+##  Minor improvements and fixes
+
+- Patch bundled version of Thrift to prevent CRAN check failures (@kou, #47286)
+
+# arrow 21.0.0
+
+## New features
+
+- Support for Arrow's 32 and 64 bit Decimal types (#46720).
+- `hms::hms()` and `hms::as_hms()` bindings implemented to create and manipulate time of day variables (#46206).
+- `atan()`, `sinh()`, `cosh()`, `tanh()`, `asinh()`, `acosh()`, and `tanh()`, and `expm1()` bindings added (#44953).
 
 ## Minor improvements and fixes
 
-- Added bindings for atan, sinh, cosh, tanh, asinh, acosh, and tanh, and expm1 (#44953)
+- Expose an option `check_directory_existence_before_creation` in `S3FileSystem`
+  to reduce I/O calls on cloud storage (@HaochengLIU, #41998).
+- `case_when()` now correctly detects objects that are not in the global 
+  environment (@etiennebacher, #46667).
+- Negative fractional dates now correctly converted to integers by flooring values (#46873).
+- Backwards compatibility checks for legacy Arrow C++ versions have been removed 
+  from the R package (#46491). This shouldn't affect most users this package and would only impact you
+  if you were building the R package from source with different R package and Arrow C++ versions.
+- Require CMake 3.25 or greater in bundled build script for full-source builds (#46834). This shouldn't affect most users.
+
+# arrow 20.0.0.1
+
+## Minor improvements and fixes
+
+- Updated internal C++ code to comply with CRAN's gcc-UBSAN checks
+  ([#46394](https://github.com/apache/arrow/issues/46394))
 
 # arrow 20.0.0
+
+## Minor improvements and fixes
+
+- Binary Arrays now inherit from `blob::blob` in addition to `arrow_binary` when
+  [converted to R
+  objects](https://arrow.apache.org/docs/r/articles/data_types.html#translations-from-arrow-to-r).
+  This change is the first step in eventually deprecating the `arrow_binary`
+  class in favor of the `blob` class in the
+  [`blob`](https://cran.r-project.org/package=blob) package (See
+  [GH-45709](https://github.com/apache/arrow/issues/45709)).
 
 # arrow 19.0.1.1
 

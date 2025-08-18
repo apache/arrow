@@ -223,9 +223,7 @@ tasks:
 
 {############################## Wheel Linux ##################################}
 
-{% for wheel_kind, arch, version, platform_tag in [("manylinux", "amd64", "2014", "manylinux_2_17_x86_64.manylinux2014_x86_64"),
-                                                   ("manylinux", "amd64", "2-28", "manylinux_2_28_x86_64"),
-                                                   ("manylinux", "arm64", "2014", "manylinux_2_17_aarch64.manylinux2014_aarch64"),
+{% for wheel_kind, arch, version, platform_tag in [("manylinux", "amd64", "2-28", "manylinux_2_28_x86_64"),
                                                    ("manylinux", "arm64", "2-28", "manylinux_2_28_aarch64"),
                                                    ("musllinux", "amd64", "1-2", "musllinux_1_2_x86_64"),
                                                    ("musllinux", "arm64", "1-2", "musllinux_1_2_aarch64")] %}
@@ -298,6 +296,7 @@ tasks:
 
 {% for target in ["debian-bookworm",
                   "debian-trixie",
+                  "debian-forky",
                   "ubuntu-jammy",
                   "ubuntu-noble"] %}
   {% for architecture in ["amd64", "arm64"] %}
@@ -338,6 +337,9 @@ tasks:
       - libarrow-acero-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-acero{so_version}-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
       - libarrow-acero{so_version}_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-compute-dev_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-compute{so_version}-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libarrow-compute{so_version}_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-dataset-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-dataset-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-dataset-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
@@ -393,13 +395,13 @@ tasks:
   {% endfor %}
 {% endfor %}
 
-{% for target in ["almalinux-9",
+{% for target in ["almalinux-10",
+                  "almalinux-9",
                   "almalinux-8",
                   "amazon-linux-2023",
                   "centos-9-stream",
-                  "centos-8-stream",
                   "centos-7"] %}
-  {% set is_rhel7_based = (target in ["amazon-linux-2", "centos-7"]) %}
+  {% set is_rhel7_based = (target == "centos-7") %}
   {% for architecture
        in ["amd64", "arm64"]
        if not (target == "centos-7" and architecture == "arm64") %}
@@ -425,6 +427,11 @@ tasks:
       - arrow-acero-devel-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
     {% if not is_rhel7_based %}
       - arrow[0-9]+-acero-libs-debuginfo-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
+    {% endif %}
+      - arrow[0-9]+-compute-libs-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
+      - arrow-compute-devel-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
+    {% if not is_rhel7_based %}
+      - arrow[0-9]+-compute-libs-debuginfo-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
     {% endif %}
       - arrow[0-9]+-dataset-libs-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
       - arrow-dataset-devel-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
@@ -567,7 +574,6 @@ tasks:
   {% for target in ["cpp",
                     "csharp",
                     "integration",
-                    "js",
                     "python",
                     "ruby"] %}
   verify-rc-source-{{ target }}-linux-{{ distribution }}-{{ version }}-amd64:
@@ -597,7 +603,6 @@ tasks:
   {% for target in ["cpp",
                     "csharp",
                     "integration",
-                    "js",
                     "python",
                     "ruby"] %}
   verify-rc-source-{{ target }}-macos-amd64:
@@ -611,7 +616,6 @@ tasks:
   {% for target in ["cpp",
                     "csharp",
                     "integration",
-                    "js",
                     "python",
                     "ruby"] %}
   verify-rc-source-{{ target }}-macos-arm64:
@@ -635,11 +639,11 @@ tasks:
       env:
         PYARROW_TEST_GDB: "OFF"
       script: "verify-release-candidate.bat"
+      timeout: 120
 
 ############################## Docker tests ##################################
 
-{% for image in ["alpine-linux-cpp",
-                 "conda-cpp",
+{% for image in ["conda-cpp",
                  "debian-c-glib",
                  "ubuntu-c-glib",
                  "debian-ruby",
@@ -652,16 +656,6 @@ tasks:
         UBUNTU: 22.04
       image: {{ image }}
 {% endfor %}
-
-  test-conda-cpp-meson:
-    ci: github
-    template: docker-tests/github.linux.yml
-    params:
-      # ARROW_USE_CCACHE=OFF is for using sccache
-      flags: >-
-        -e ARROW_USE_CCACHE=OFF
-        -e ARROW_USE_MESON=ON
-      image: conda-cpp
 
   test-conda-cpp-valgrind:
     ci: github
@@ -773,12 +767,12 @@ tasks:
       flags: "-e CMAKE_CXX_STANDARD=20"
       image: debian-cpp
 
-  test-fedora-39-cpp:
+  test-fedora-42-cpp:
     ci: github
     template: docker-tests/github.linux.yml
     params:
       env:
-        FEDORA: 39
+        FEDORA: 42
       image: fedora-cpp
 
 {% for cpp_standard in [20] %}
@@ -913,12 +907,12 @@ tasks:
         UBUNTU: 24.04
       image: ubuntu-python
 
-  test-fedora-39-python-3:
+  test-fedora-42-python-3:
     ci: github
     template: docker-tests/github.linux.yml
     params:
       env:
-        FEDORA: 39
+        FEDORA: 42
       image: fedora-python
 
   test-r-linux-valgrind:
@@ -1020,7 +1014,7 @@ tasks:
 {% for r_org, r_image, r_tag in [("rhub", "ubuntu-release", "latest"),
                                  ("rocker", "r-ver", "latest"),
                                  ("rstudio", "r-base", "4.2-focal"),
-                                 ("rstudio", "r-base", "4.1-opensuse155")] %}
+                                 ("rstudio", "r-base", "4.1-focal")] %}
   test-r-{{ r_org }}-{{ r_image }}-{{ r_tag }}:
     ci: azure
     template: r/azure.linux.yml

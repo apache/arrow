@@ -856,7 +856,8 @@ register_bindings_hms <- function() {
         Expression$create("multiply_checked", days, 86400)
 
       return(numeric_to_time32(total_secs))
-    }
+    },
+    notes = "subsecond times not supported"
   )
 
   register_binding(
@@ -880,6 +881,7 @@ register_bindings_hms <- function() {
         )
         return(datetime_to_time32(as_date_time))
       }
-    }
+    },
+    notes = "subsecond times not supported"
   )
 }

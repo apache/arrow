@@ -20,6 +20,7 @@
 #include "arrow/dataset/parquet_encryption_config.h"
 #include "arrow/filesystem/localfs.h"
 #include "arrow/json/from_string.h"
+#include "arrow/util/secure_string.h"
 #include "parquet/encryption/crypto_factory.h"
 #include "parquet/encryption/test_in_memory_kms.h"
 
@@ -62,9 +63,9 @@ arrow::Result<std::shared_ptr<arrow::Table>> GetTable() {
 
 std::shared_ptr<parquet::encryption::CryptoFactory> GetCryptoFactory() {
   // Configure KMS.
-  std::unordered_map<std::string, std::string> key_map;
-  key_map.emplace("footerKeyId", "0123456789012345");
-  key_map.emplace("columnKeyId", "1234567890123456");
+  std::unordered_map<std::string, arrow::util::SecureString> key_map;
+  key_map.emplace("footerKeyId", arrow::util::SecureString("0123456789012345"));
+  key_map.emplace("columnKeyId", arrow::util::SecureString("1234567890123456"));
 
   auto crypto_factory = std::make_shared<parquet::encryption::CryptoFactory>();
   auto kms_client_factory =

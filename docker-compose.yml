@@ -135,7 +135,6 @@ x-hierarchy:
       - debian-ruby
     - debian-python:
       - debian-docs
-  - debian-js
   - fedora-cpp:
     - fedora-python
   - python-sdist
@@ -143,7 +142,6 @@ x-hierarchy:
     - ubuntu-cpp-static
     - ubuntu-c-glib:
       - ubuntu-ruby
-    - ubuntu-lint
     - ubuntu-python
     - ubuntu-python-sdist-test
     - ubuntu-python-313-freethreading
@@ -159,7 +157,6 @@ x-hierarchy:
   - ubuntu-cpp-thread-sanitizer
   - ubuntu-cpp-emscripten
   - ubuntu-r-valgrind
-  - ubuntu-swift
   - ubuntu-verify-rc
   - r
   - r-revdepcheck
@@ -167,7 +164,6 @@ x-hierarchy:
   # helper services
   - impala
   - postgres
-  - python-wheel-manylinux-2014
   - python-wheel-manylinux-2-28
   - python-wheel-musllinux-1-2
   - python-wheel-manylinux-test-imports
@@ -198,8 +194,6 @@ volumes:
     name: ${ARCH}-fedora-${FEDORA}-ccache
   maven-cache:
     name: maven-cache
-  python-wheel-manylinux2014-ccache:
-    name: python-wheel-manylinux2014-ccache
   python-wheel-manylinux-2-28-ccache:
     name: python-wheel-manylinux-2-28-ccache
   python-wheel-musllinux-1-2-ccache:
@@ -225,7 +219,7 @@ services:
     #   docker compose build alpine-linux-cpp
     #   docker compose run --rm alpine-linux-cpp
     # Parameters:
-    #   ALPINE_LINUX: 3.18
+    #   ALPINE_LINUX: 3.22
     #   ARCH: amd64, arm64v8, ...
     image: ${REPO}:${ARCH}-alpine-linux-${ALPINE_LINUX}-cpp
     build:
@@ -566,10 +560,11 @@ services:
 
   ubuntu-cuda-cpp:
     # Usage:
-    #   docker compose build cuda-cpp
-    #   docker compose run --rm cuda-cpp
+    #   docker compose build ubuntu-cuda-cpp
+    #   docker compose run --rm ubuntu-cuda-cpp
     # Parameters:
     #   ARCH: amd64
+    #   UBUNTU: 22.04, 24.04
     #   CUDA: <depends on your nvidia driver, should match system CUDA>
     image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cuda-${CUDA}-cpp
     build:
@@ -728,7 +723,7 @@ services:
     #   docker compose run --rm fedora-cpp
     # Parameters:
     #   ARCH: amd64, arm64v8, ...
-    #   FEDORA: 39
+    #   FEDORA: 42
     image: ${REPO}:${ARCH}-fedora-${FEDORA}-cpp
     build:
       context: .
@@ -952,13 +947,15 @@ services:
 
   ubuntu-cuda-python:
     # Usage:
-    #   docker compose build cuda-cpp
-    #   docker compose build cuda-python
-    #   docker compose run --rm cuda-python
+    #   docker compose build ubuntu-cuda-cpp
+    #   docker compose build ubuntu-cuda-python
+    #   docker compose run --rm ubuntu-cuda-python
     # Parameters:
     #   ARCH: amd64
     #   CUDA: <depends on your nvidia driver, should match system CUDA>
     #   UBUNTU: 22.04, 24.04
+    #   NUMBA: master, latest, <version>
+    #   NUMBA_CUDA: master, latest, <version>
     image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cuda-${CUDA}-python-3
     build:
       context: .
@@ -968,6 +965,7 @@ services:
       args:
         base: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cuda-${CUDA}-cpp
         numba: ${NUMBA}
+        numba_cuda: ${NUMBA_CUDA}
     shm_size: *shm-size
     environment:
       <<: [*common, *ccache, *sccache]
@@ -1041,21 +1039,6 @@ services:
     volumes: *ubuntu-volumes
     command: *python-command
 
-  ubuntu-swift:
-    # Usage:
-    #   docker compose build ubuntu-swift
-    #   docker compose run --rm ubuntu-swift
-    # Parameters:
-    image: ubuntu-swift
-    build:
-      context: .
-      dockerfile: ci/docker/ubuntu-swift.dockerfile
-    shm_size: *shm-size
-    volumes: *ubuntu-volumes
-    command: >
-      /bin/bash -c "/arrow/ci/scripts/swift_test.sh /arrow"
-
-
   fedora-python:
     # Usage:
     #   docker compose build fedora-cpp
@@ -1063,7 +1046,7 @@ services:
     #   docker compose run --rm fedora-python
     # Parameters:
     #   ARCH: amd64, arm64v8, ...
-    #   FEDORA: 39
+    #   FEDORA: 42
     image: ${REPO}:${ARCH}-fedora-${FEDORA}-python-3
     build:
       context: .
@@ -1155,31 +1138,6 @@ services:
     command: *python-command
 
   ############################ Python wheels ##################################
-
-  # See available versions at:
-  #    https://quay.io/repository/pypa/manylinux2014_x86_64?tab=tags
-  python-wheel-manylinux-2014:
-    image: ${REPO}:${ARCH}-python-${PYTHON}-wheel-manylinux-2014-vcpkg-${VCPKG}
-    build:
-      args:
-        arch: ${ARCH}
-        arch_short: ${ARCH_SHORT}
-        base: quay.io/pypa/manylinux2014_${ARCH_ALIAS}:2024-08-03-32dfa47
-        manylinux: 2014
-        python: ${PYTHON}
-        python_abi_tag: ${PYTHON_ABI_TAG}
-        vcpkg: ${VCPKG}
-      context: .
-      dockerfile: ci/docker/python-wheel-manylinux.dockerfile
-      cache_from:
-        - ${REPO}:${ARCH}-python-${PYTHON}-wheel-manylinux-2014-vcpkg-${VCPKG}
-      secrets: *vcpkg-build-secrets
-    environment:
-      <<: [*common, *ccache]
-    volumes:
-      - .:/arrow:delegated
-      - ${DOCKER_VOLUME_PREFIX}python-wheel-manylinux2014-ccache:/ccache:delegated
-    command: /arrow/ci/scripts/python_wheel_xlinux_build.sh
 
   # See available versions at:
   #    https://quay.io/repository/pypa/manylinux_2_28_x86_64?tab=tags
@@ -1703,11 +1661,13 @@ services:
         tz: ${TZ}
         r_prune_deps: ${R_PRUNE_DEPS}
     shm_size: *shm-size
+    # These environment variables are *not* set by CRAN, so we should be careful about adding
+    # to them. I.E. if we have to add something here to have CI pass, it will likely fail on CRAN.
     environment:
       <<: *common
       LIBARROW_DOWNLOAD: "false"
-      ARROW_SOURCE_HOME: "/arrow"
       ARROW_R_DEV: ${ARROW_R_DEV}
+      ARROW_SOURCE_HOME: "/arrow"
       ARROW_USE_PKG_CONFIG: "false"
     volumes:
       - .:/arrow:delegated
@@ -1767,31 +1727,6 @@ services:
     volumes: *ubuntu-volumes
     command: >
       /bin/bash -c "/arrow/ci/scripts/r_revdepcheck.sh /arrow"
-
-  ############################# JavaScript ####################################
-
-  debian-js:
-    # Usage:
-    #   docker compose build debian-js
-    #   docker compose run debian-js
-    image: ${REPO}:${ARCH}-debian-${DEBIAN}-js-${NODE}
-    build:
-      context: .
-      dockerfile: ci/docker/debian-${DEBIAN}-js.dockerfile
-      cache_from:
-        - ${REPO}:${ARCH}-debian-${DEBIAN}-js-${NODE}
-      args:
-        arch: ${ARCH}
-        node: ${NODE}
-    shm_size: *shm-size
-    volumes: *debian-volumes
-    environment:
-      <<: *common
-      BUILD_DOCS_JS: "ON"
-    command: &js-command >
-      /bin/bash -c "
-        /arrow/ci/scripts/js_build.sh /arrow /build &&
-        /arrow/ci/scripts/js_test.sh /arrow /build"
 
   #################################### C# #####################################
 
@@ -1876,15 +1811,14 @@ services:
       - SYS_ADMIN
     environment:
       <<: [*common, *ccache]
+      ARROW_AZURE: "ON"
       ARROW_CUDA: "ON"
       ARROW_CXX_FLAGS_DEBUG: "-g1"
       ARROW_C_FLAGS_DEBUG: "-g1"
       ARROW_HOME: "/tmp/local"
-      ARROW_JAVA_SKIP_GIT_PLUGIN:
       ARROW_SUBSTRAIT: "ON"
       BUILD_DOCS_C_GLIB: "ON"
       BUILD_DOCS_CPP: "ON"
-      BUILD_DOCS_JS: "ON"
       BUILD_DOCS_PYTHON: "ON"
       BUILD_DOCS_R: "ON"
     volumes: *debian-volumes
@@ -1895,36 +1829,7 @@ services:
         /arrow/ci/scripts/cpp_build.sh /arrow /build &&
         /arrow/ci/scripts/python_build.sh /arrow /build &&
         /arrow/ci/scripts/c_glib_build.sh /arrow /build &&
-        /arrow/ci/scripts/r_build.sh /arrow /build &&
-        /arrow/ci/scripts/js_build.sh /arrow /build"
-
-  ################################# Tools #####################################
-
-  ubuntu-lint:
-    # Usage:
-    #   docker compose build ubuntu-cpp
-    #   docker compose build ubuntu-lint
-    #   docker compose run ubuntu-lint
-    image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-lint
-    build:
-      context: .
-      dockerfile: ci/docker/linux-apt-lint.dockerfile
-      cache_from:
-        - ${REPO}:${ARCH}-ubuntu-${UBUNTU}-lint
-      args:
-        base: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp
-        clang_tools: ${CLANG_TOOLS}
-    environment:
-      <<: [*common, *ccache]
-    volumes: *ubuntu-volumes
-    command: >
-      /bin/bash -c "
-        git config --global --add safe.directory /arrow &&
-        python3 -m venv /build/pyvenv &&
-        source /build/pyvenv/bin/activate &&
-        pip install -U pip setuptools &&
-        pip install arrow/dev/archery[lint] &&
-        archery lint --all --no-clang-tidy --no-iwyu --no-numpydoc --src /arrow"
+        /arrow/ci/scripts/r_build.sh /arrow /build"
 
   ######################### Integration Tests #################################
 
