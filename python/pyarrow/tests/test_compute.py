@@ -1952,6 +1952,48 @@ def test_fill_null_chunked_array(arrow_type):
     assert result.equals(expected)
 
 
+def test_fill_null_windows_regression1():
+    arr = pa.array([True, False, False, False, False, None])
+    s = pa.scalar(True, type=pa.bool_())
+
+    result = pa.compute.call_function("coalesce", [arr, s])
+    expected = pa.array([True, False, False, False, False, True])
+
+    assert result.equals(expected)
+
+
+def test_fill_null_windows_regression2():
+    arr = pa.array([True, False, False, False, False, None])
+    s = True
+
+    result = pa.compute.call_function("coalesce", [arr, s])
+    expected = pa.array([True, False, False, False, False, True])
+
+    assert result.equals(expected)
+
+
+def test_fill_null_windows_regression4():
+    ty = pa.int64()
+    arr = pa.array([1, 2, 3, 4, 5, None], type=ty)
+    s = pa.scalar(42, type=ty)
+
+    result = pa.compute.call_function("coalesce", [arr, s])
+    expected = pa.array([1, 2, 3, 4, 5, 42], type=ty)
+
+    assert result.equals(expected)
+
+
+def test_fill_null_windows_regression5():
+    ty = pa.int32()
+    arr = pa.array([1, 2, 3, 4, 5, None], type=ty)
+    s = pa.scalar(42, type=ty)
+
+    result = pa.compute.call_function("coalesce", [arr, s])
+    expected = pa.array([1, 2, 3, 4, 5, 42], type=ty)
+
+    assert result.equals(expected)
+
+
 def test_logical():
     a = pa.array([True, False, False, None])
     b = pa.array([True, True, False, True])
