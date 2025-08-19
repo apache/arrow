@@ -35,11 +35,13 @@ class TestCacheKey {
 };
 
 TEST(TestCache, TestGetPut) {
-  Cache<TestCacheKey, std::string> cache(2);
-  cache.PutObjectCode(TestCacheKey(1), "hello");
-  cache.PutObjectCode(TestCacheKey(2), "world");
-  ASSERT_EQ(cache.GetObjectCode(TestCacheKey(1)), "hello");
-  ASSERT_EQ(cache.GetObjectCode(TestCacheKey(2)), "world");
+  Cache<TestCacheKey, std::shared_ptr<std::string>> cache(2);
+  auto hello = std::make_shared<std::string>("hello");
+  cache.PutObjectCode(TestCacheKey(1), hello);
+  auto world = std::make_shared<std::string>("world");
+  cache.PutObjectCode(TestCacheKey(2), world);
+  ASSERT_EQ(cache.GetObjectCode(TestCacheKey(1)), hello);
+  ASSERT_EQ(cache.GetObjectCode(TestCacheKey(2)), world);
 }
 
 namespace {

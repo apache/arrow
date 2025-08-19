@@ -114,10 +114,12 @@ def simple_ints_table():
 
 def simple_dicts_table():
     dict_values = pa.array(["foo", "baz", "quux"], type=pa.utf8())
+    new_dict_values = pa.array(["bar", "qux"], type=pa.utf8())
     data = [
         pa.chunked_array([
             pa.DictionaryArray.from_arrays([1, 0, None], dict_values),
-            pa.DictionaryArray.from_arrays([2, 1], dict_values)
+            pa.DictionaryArray.from_arrays([2, 1], dict_values),
+            pa.DictionaryArray.from_arrays([0, 1], new_dict_values)
         ])
     ]
     return pa.Table.from_arrays(data, names=['some_dicts'])

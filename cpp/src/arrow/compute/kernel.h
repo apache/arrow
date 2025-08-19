@@ -364,7 +364,7 @@ class ARROW_EXPORT KernelSignature {
                                                OutputType out_type,
                                                bool is_varargs = false);
 
-  /// \brief Return true if the signature if compatible with the list of input
+  /// \brief Return true if the signature is compatible with the list of input
   /// value descriptors.
   bool MatchesInputs(const std::vector<TypeHolder>& types) const;
 

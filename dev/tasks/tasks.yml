@@ -296,6 +296,7 @@ tasks:
 
 {% for target in ["debian-bookworm",
                   "debian-trixie",
+                  "debian-forky",
                   "ubuntu-jammy",
                   "ubuntu-noble"] %}
   {% for architecture in ["amd64", "arm64"] %}

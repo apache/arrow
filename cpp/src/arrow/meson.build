@@ -293,7 +293,10 @@ if needs_csv
 endif
 
 if needs_json or needs_integration
-    rapidjson_dep = dependency('rapidjson', include_type: 'system')
+    rapidjson_dep = dependency(
+        'RapidJSON',
+        fallback: ['rapidjson', 'rapidjson_dep'],
+    )
 else
     rapidjson_dep = disabler()
 endif
@@ -569,20 +572,36 @@ else
     gmock_dep = disabler()
 endif
 
-arrow_test_lib = static_library(
-    'arrow_testing',
-    sources: arrow_testing_srcs,
-    dependencies: [arrow_dep, filesystem_dep, gmock_dep, gtest_main_dep],
-)
+if needs_testing
+    arrow_testing_lib = static_library(
+        'arrow_testing',
+        sources: arrow_testing_srcs,
+        dependencies: [arrow_dep, filesystem_dep, gmock_dep, gtest_dep],
+    )
+
+    arrow_testing_dep = declare_dependency(link_with: [arrow_testing_lib])
+else
+    arrow_testing_dep = disabler()
+endif
 
 if needs_tests
     arrow_test_dep = declare_dependency(
-        link_with: [arrow_test_lib],
-        dependencies: [arrow_dep, filesystem_dep, gmock_dep, gtest_main_dep],
+        dependencies: [
+            arrow_dep,
+            arrow_testing_dep,
+            filesystem_dep,
+            gmock_dep,
+            gtest_main_dep,
+        ],
     )
     arrow_test_dep_no_main = declare_dependency(
-        link_with: [arrow_test_lib],
-        dependencies: [arrow_dep, filesystem_dep, gmock_dep, gtest_dep],
+        dependencies: [
+            arrow_dep,
+            arrow_testing_dep,
+            filesystem_dep,
+            gmock_dep,
+            gtest_dep,
+        ],
     )
 else
     arrow_test_dep = disabler()
@@ -655,8 +674,12 @@ if needs_benchmarks
     )
 
     arrow_benchmark_dep = declare_dependency(
-        link_with: [arrow_test_lib],
-        dependencies: [arrow_dep, benchmark_main_dep, gtest_dep],
+        dependencies: [
+            arrow_dep,
+            arrow_testing_dep,
+            benchmark_main_dep,
+            gtest_dep,
+        ],
     )
 else
     arrow_benchmark_dep = disabler()

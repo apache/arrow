@@ -32,4 +32,4 @@ rc=$2
 release_tag=apache-arrow-${version}
 release_candidate_tag=${release_tag}-rc${rc}
 git tag -a ${release_tag} ${release_candidate_tag} -m "[Release] Apache Arrow Release ${version}"
-git push apache ${release_tag}
+git push upstream ${release_tag}

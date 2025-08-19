@@ -52,6 +52,7 @@ ChunkedArray::ChunkedArray(std::shared_ptr<arrow::ChunkedArray> chunked_array)
     : chunked_array{std::move(chunked_array)} {
   // Register Proxy methods.
   REGISTER_METHOD(ChunkedArray, getNumElements);
+  REGISTER_METHOD(ChunkedArray, getNumNulls);
   REGISTER_METHOD(ChunkedArray, getNumChunks);
   REGISTER_METHOD(ChunkedArray, getChunk);
   REGISTER_METHOD(ChunkedArray, getType);
@@ -92,6 +93,13 @@ void ChunkedArray::getNumElements(libmexclass::proxy::method::Context& context) 
   mda::ArrayFactory factory;
   auto num_elements_mda = factory.createScalar(chunked_array->length());
   context.outputs[0] = num_elements_mda;
+}
+
+void ChunkedArray::getNumNulls(libmexclass::proxy::method::Context& context) {
+  namespace mda = ::matlab::data;
+  mda::ArrayFactory factory;
+  auto num_nulls_mda = factory.createScalar(chunked_array->null_count());
+  context.outputs[0] = num_nulls_mda;
 }
 
 void ChunkedArray::getNumChunks(libmexclass::proxy::method::Context& context) {

@@ -19,6 +19,12 @@
 
 # arrow 21.0.0.9000
 
+# arrow 21.0.0.1
+
+##  Minor improvements and fixes
+
+- Patch bundled version of Thrift to prevent CRAN check failures (@kou, #47286)
+
 # arrow 21.0.0
 
 ## New features

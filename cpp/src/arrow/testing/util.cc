@@ -90,6 +90,16 @@ void random_ascii(int64_t n, uint32_t seed, uint8_t* out) {
   rand_uniform_int(n, seed, static_cast<int32_t>('A'), static_cast<int32_t>('z'), out);
 }
 
+void random_alnum(int64_t n, uint32_t seed, uint8_t* out) {
+  static const char charset[] =
+      "0123456789"
+      "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+      "abcdefghijklmnopqrstuvwxyz";
+  pcg32_fast gen(seed);
+  std::uniform_int_distribution<uint32_t> d(0, sizeof(charset) - 2);
+  std::generate(out, out + n, [&d, &gen] { return charset[d(gen)]; });
+}
+
 int64_t CountNulls(const std::vector<uint8_t>& valid_bytes) {
   return static_cast<int64_t>(std::count(valid_bytes.cbegin(), valid_bytes.cend(), '\0'));
 }

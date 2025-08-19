@@ -815,7 +815,7 @@ def integration(with_all=False, random_seed=12345, **args):
 
 
 @archery.command()
-@click.option('--arrow-token', envvar='ARROW_GITHUB_TOKEN',
+@click.option('--arrow-token', envvar=['GH_TOKEN', 'ARROW_GITHUB_TOKEN'],
               help='OAuth token for responding comment in the arrow repo')
 @click.option('--committers-file', '-c', type=click.File('r', encoding='utf8'))
 @click.option('--event-name', '-n', required=True)

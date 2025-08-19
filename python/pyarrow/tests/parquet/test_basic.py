@@ -28,7 +28,7 @@ import pyarrow as pa
 from pyarrow import fs
 from pyarrow.tests import util
 from pyarrow.tests.parquet.common import (_check_roundtrip, _roundtrip_table,
-                                          _test_dataframe)
+                                          _test_table)
 
 try:
     import pyarrow.parquet as pq
@@ -76,20 +76,18 @@ def test_set_data_page_size():
         _check_roundtrip(t, data_page_size=target_page_size)
 
 
-@pytest.mark.pandas
+@pytest.mark.numpy
 def test_set_write_batch_size():
-    df = _test_dataframe(100)
-    table = pa.Table.from_pandas(df, preserve_index=False)
+    table = _test_table(100)
 
     _check_roundtrip(
         table, data_page_size=10, write_batch_size=1, version='2.4'
     )
 
 
-@pytest.mark.pandas
+@pytest.mark.numpy
 def test_set_dictionary_pagesize_limit():
-    df = _test_dataframe(100)
-    table = pa.Table.from_pandas(df, preserve_index=False)
+    table = _test_table(100)
 
     _check_roundtrip(table, dictionary_pagesize_limit=1,
                      data_page_size=10, version='2.4')

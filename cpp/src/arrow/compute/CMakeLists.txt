@@ -19,11 +19,6 @@ add_custom_target(arrow-compute-tests)
 
 arrow_install_all_headers("arrow/compute")
 
-if(ARROW_COMPUTE)
-  # pkg-config support
-  arrow_add_pkg_config("arrow-compute")
-endif()
-
 #
 # Unit tests
 #

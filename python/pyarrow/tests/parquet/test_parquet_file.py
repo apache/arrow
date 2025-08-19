@@ -348,6 +348,9 @@ def test_read_statistics():
     statistics = pq.ParquetFile(buf).read().columns[0].chunks[0].statistics
     assert statistics.null_count == 1
     assert statistics.distinct_count is None
+    # TODO: add tests for is_distinct_count_exact == None and True
+    # once Python API allows
+    assert statistics.is_distinct_count_exact is False
     assert statistics.min == -1
     assert statistics.is_min_exact
     assert statistics.max == 3

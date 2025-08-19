@@ -18,6 +18,8 @@
 # Tools for dealing with Arrow type metadata in Python
 
 
+from enum import IntEnum
+
 from pyarrow.lib import (is_boolean_value,  # noqa
                          is_integer_value,
                          is_float_value)
@@ -44,6 +46,85 @@ _UNION_TYPES = {lib.Type_SPARSE_UNION, lib.Type_DENSE_UNION}
 _NESTED_TYPES = {lib.Type_LIST, lib.Type_FIXED_SIZE_LIST, lib.Type_LARGE_LIST,
                  lib.Type_LIST_VIEW, lib.Type_LARGE_LIST_VIEW,
                  lib.Type_STRUCT, lib.Type_MAP} | _UNION_TYPES
+
+
+class TypesEnum(IntEnum):
+    """
+    An Enum that maps constant values to data types.
+    Exposes the underlying data types representation for type checking purposes.
+    Note that some of the types listed here are not supported by PyArrow yet:
+    INTERVAL_MONTHS and INTERVAL_DAY_TIME.
+
+    Examples
+    --------
+    >>> import pyarrow as pa
+    >>> from pyarrow.types import TypesEnum
+    >>> int8_field = pa.field('int8_field', pa.int8())
+    >>> int8_field.type.id == TypesEnum.INT8
+    True
+
+    >>> fixed_size_list = pa.list_(pa.uint16(), 3)
+    >>> fixed_size_list.id == TypesEnum.LIST
+    False
+
+    >>> fixed_size_list.id == TypesEnum.FIXED_SIZE_LIST
+    True
+    """
+
+    NA = lib.Type_NA
+    BOOL = lib.Type_BOOL
+
+    INT8 = lib.Type_INT8
+    INT16 = lib.Type_INT16
+    INT32 = lib.Type_INT32
+    INT64 = lib.Type_INT64
+
+    UINT8 = lib.Type_UINT8
+    UINT16 = lib.Type_UINT16
+    UINT32 = lib.Type_UINT32
+    UINT64 = lib.Type_UINT64
+
+    HALF_FLOAT = lib.Type_HALF_FLOAT
+    FLOAT = lib.Type_FLOAT
+    DOUBLE = lib.Type_DOUBLE
+
+    BINARY = lib.Type_BINARY
+    BINARY_VIEW = lib.Type_BINARY_VIEW
+    LARGE_BINARY = lib.Type_LARGE_BINARY
+    STRING = lib.Type_STRING
+    STRING_VIEW = lib.Type_STRING_VIEW
+    LARGE_STRING = lib.Type_LARGE_STRING
+    FIXED_SIZE_BINARY = lib.Type_FIXED_SIZE_BINARY
+
+    DECIMAL32 = lib.Type_DECIMAL32
+    DECIMAL64 = lib.Type_DECIMAL64
+    DECIMAL128 = lib.Type_DECIMAL128
+    DECIMAL256 = lib.Type_DECIMAL256
+
+    LIST = lib.Type_LIST
+    LARGE_LIST = lib.Type_LARGE_LIST
+    LIST_VIEW = lib.Type_LIST_VIEW
+    LARGE_LIST_VIEW = lib.Type_LARGE_LIST_VIEW
+    MAP = lib.Type_MAP
+    FIXED_SIZE_LIST = lib.Type_FIXED_SIZE_LIST
+
+    STRUCT = lib.Type_STRUCT
+    SPARSE_UNION = lib.Type_SPARSE_UNION
+    DENSE_UNION = lib.Type_DENSE_UNION
+    RUN_END_ENCODED = lib.Type_RUN_END_ENCODED
+
+    DATE32 = lib.Type_DATE32
+    DATE64 = lib.Type_DATE64
+    TIME32 = lib.Type_TIME32
+    TIME64 = lib.Type_TIME64
+    TIMESTAMP = lib.Type_TIMESTAMP
+
+    INTERVAL_MONTHS = lib.Type_INTERVAL_MONTHS
+    INTERVAL_DAY_TIME = lib.Type_INTERVAL_DAY_TIME
+    INTERVAL_MONTH_DAY_NANO = lib.Type_INTERVAL_MONTH_DAY_NANO
+
+    DURATION = lib.Type_DURATION
+    DICTIONARY = lib.Type_DICTIONARY
 
 
 @doc(datatype="null")

@@ -18,6 +18,7 @@
 #include <array>
 #include <cmath>
 #include <cstdint>
+#include <iomanip>
 #include <memory>
 #include <sstream>
 #include <string>
@@ -25,6 +26,8 @@
 #include "arrow/json/rapidjson_defs.h"  // IWYU pragma: keep
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/compression.h"
+#include "arrow/util/decimal.h"
+#include "arrow/util/float16.h"
 #include "arrow/util/logging_internal.h"
 
 #include <rapidjson/document.h>
@@ -96,9 +99,87 @@ bool PageCanUseChecksum(PageType::type pageType) {
   }
 }
 
-std::string FormatStatValue(Type::type parquet_type, ::std::string_view val) {
-  std::stringstream result;
+namespace {
 
+template <typename T>
+std::enable_if_t<std::is_arithmetic_v<T>, std::string> FormatNumericValue(
+    ::std::string_view val) {
+  std::stringstream result;
+  T value{};
+  std::memcpy(&value, val.data(), sizeof(T));
+  result << value;
+  return result.str();
+}
+
+std::string FormatDecimalValue(Type::type parquet_type, ::std::string_view val,
+                               const std::shared_ptr<const LogicalType>& logical_type) {
+  ARROW_DCHECK(logical_type != nullptr && logical_type->is_decimal());
+
+  const auto& decimal_type =
+      ::arrow::internal::checked_cast<const DecimalLogicalType&>(*logical_type);
+  const int32_t scale = decimal_type.scale();
+
+  std::stringstream result;
+  switch (parquet_type) {
+    case Type::INT32: {
+      int32_t int_value{};
+      std::memcpy(&int_value, val.data(), sizeof(int32_t));
+      ::arrow::Decimal128 decimal_value(int_value);
+      result << decimal_value.ToString(scale);
+      break;
+    }
+    case Type::INT64: {
+      int64_t long_value{};
+      std::memcpy(&long_value, val.data(), sizeof(int64_t));
+      ::arrow::Decimal128 decimal_value(long_value);
+      result << decimal_value.ToString(scale);
+      break;
+    }
+    case Type::FIXED_LEN_BYTE_ARRAY:
+    case Type::BYTE_ARRAY: {
+      auto decimal_result = ::arrow::Decimal128::FromBigEndian(
+          reinterpret_cast<const uint8_t*>(val.data()), static_cast<int32_t>(val.size()));
+      if (!decimal_result.ok()) {
+        throw ParquetException("Failed to parse decimal value: ",
+                               decimal_result.status().message());
+      }
+      result << decimal_result.ValueUnsafe().ToString(scale);
+      break;
+    }
+    default:
+      throw ParquetException("Unsupported decimal type: ", TypeToString(parquet_type));
+  }
+
+  return result.str();
+}
+
+std::string FormatNonUTF8Value(::std::string_view val) {
+  if (val.empty()) {
+    return "";
+  }
+
+  std::stringstream result;
+  result << "0x" << std::hex;
+  for (const auto& c : val) {
+    result << std::setw(2) << std::setfill('0')
+           << static_cast<int>(static_cast<unsigned char>(c));
+  }
+  return result.str();
+}
+
+std::string FormatFloat16Value(::std::string_view val) {
+  std::stringstream result;
+  auto float16 = ::arrow::util::Float16::FromLittleEndian(
+      reinterpret_cast<const uint8_t*>(val.data()));
+  result << float16.ToFloat();
+  return result.str();
+}
+
+}  // namespace
+
+std::string FormatStatValue(Type::type parquet_type, ::std::string_view val,
+                            const std::shared_ptr<const LogicalType>& logical_type) {
+  std::stringstream result;
   const char* bytes = val.data();
   switch (parquet_type) {
     case Type::BOOLEAN: {
@@ -108,28 +189,22 @@ std::string FormatStatValue(Type::type parquet_type, ::std::string_view val) {
       break;
     }
     case Type::INT32: {
-      int32_t value{};
-      std::memcpy(&value, bytes, sizeof(int32_t));
-      result << value;
-      break;
+      if (logical_type != nullptr && logical_type->is_decimal()) {
+        return FormatDecimalValue(parquet_type, val, logical_type);
+      }
+      return FormatNumericValue<int32_t>(val);
     }
     case Type::INT64: {
-      int64_t value{};
-      std::memcpy(&value, bytes, sizeof(int64_t));
-      result << value;
-      break;
+      if (logical_type != nullptr && logical_type->is_decimal()) {
+        return FormatDecimalValue(parquet_type, val, logical_type);
+      }
+      return FormatNumericValue<int64_t>(val);
     }
     case Type::DOUBLE: {
-      double value{};
-      std::memcpy(&value, bytes, sizeof(double));
-      result << value;
-      break;
+      return FormatNumericValue<double>(val);
     }
     case Type::FLOAT: {
-      float value{};
-      std::memcpy(&value, bytes, sizeof(float));
-      result << value;
-      break;
+      return FormatNumericValue<float>(val);
     }
     case Type::INT96: {
       std::array<int32_t, 3> values{};
@@ -139,8 +214,18 @@ std::string FormatStatValue(Type::type parquet_type, ::std::string_view val) {
     }
     case Type::BYTE_ARRAY:
     case Type::FIXED_LEN_BYTE_ARRAY: {
-      result << val;
-      break;
+      if (logical_type != nullptr) {
+        if (logical_type->is_decimal()) {
+          return FormatDecimalValue(parquet_type, val, logical_type);
+        }
+        if (logical_type->is_string()) {
+          return std::string(val);
+        }
+        if (logical_type->is_float16()) {
+          return FormatFloat16Value(val);
+        }
+      }
+      return FormatNonUTF8Value(val);
     }
     case Type::UNDEFINED:
     default:
@@ -1730,7 +1815,7 @@ format::LogicalType LogicalType::Impl::Geometry::ToThrift() const {
   format::LogicalType type;
   format::GeometryType geometry_type;
 
-  // Canonially export crs of "" as an unset CRS
+  // Canonically export crs of "" as an unset CRS
   if (!crs_.empty()) {
     geometry_type.__set_crs(crs_);
   }
@@ -1825,7 +1910,7 @@ format::LogicalType LogicalType::Impl::Geography::ToThrift() const {
   format::LogicalType type;
   format::GeographyType geography_type;
 
-  // Canonially export crs of "" as an unset CRS
+  // Canonically export crs of "" as an unset CRS
   if (!crs_.empty()) {
     geography_type.__set_crs(crs_);
   }

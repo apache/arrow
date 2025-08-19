@@ -62,7 +62,7 @@ jobs:
         with:
           python-version: 3
       - name: Checkout Arrow
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
       - name: Build
@@ -87,7 +87,7 @@ jobs:
         with:
           dotnet-version: ${{ matrix.dotnet }}
       - name: Checkout Arrow
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
       - name: Build
@@ -116,7 +116,7 @@ jobs:
         with:
           python-version: 3.12
       - name: Checkout Arrow
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
       - name: Build
@@ -137,7 +137,7 @@ jobs:
     steps:
       - name: Checkout for utilities
         if: github.ref_type == 'tag'
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           path: arrow
       - name: Download source archive
@@ -155,7 +155,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
       - name: Checkout
         if: github.ref_type != 'tag'
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
       - name: Prepare version

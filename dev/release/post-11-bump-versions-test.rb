@@ -28,6 +28,8 @@ class PostBumpVersionsTest < Test::Unit::TestCase
     Dir.mktmpdir do |dir|
       @test_git_repository = Pathname(dir) + "arrow"
       git("clone", @original_git_repository.to_s, @test_git_repository.to_s)
+      FileUtils.cp((top_dir + "dev" + "release" + ".env").to_s,
+                   (@test_git_repository + "dev" + "release").to_s)
       Dir.chdir(@test_git_repository) do
         unless git_tags.include?("apache-arrow-#{@release_version}")
           git("tag", "apache-arrow-#{@release_version}")
