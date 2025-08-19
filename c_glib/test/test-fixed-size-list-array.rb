@@ -28,9 +28,11 @@ class TestFixedSizeListArray < Test::Unit::TestCase
     end
 
     def test_new_array
-      array = Arrow::FixedSizeListArray.new(@value_array, @list_elem_size, @null_bitmap, @null_count)
+      array = Arrow::FixedSizeListArray.new(@value_array, @list_elem_size, @null_bitmap,
+                                            @null_count)
       assert_equal([@array_length, Arrow::UInt8DataType.new, @list_elem_size, @value_array],
-                   [array.length, array.value_data_type.field.data_type, array.value_data_type.list_size, array.values])
+                   [array.length, array.value_data_type.field.data_type,
+                    array.value_data_type.list_size, array.values])
     end
 
     def new_data_type
@@ -38,7 +40,8 @@ class TestFixedSizeListArray < Test::Unit::TestCase
 
       array = Arrow::FixedSizeListArray.new(@value_array, data_type, @null_bitmap, @null_count)
       assert_equal([@array_length, Arrow::UInt8DataType.new, @list_elem_size, @value_array],
-                   [array.length, array.value_data_type.field.data_type, array.value_data_type.list_size, array.values])
+                   [array.length, array.value_data_type.field.data_type,
+                    array.value_data_type.list_size, array.values])
     end
   end
 end
