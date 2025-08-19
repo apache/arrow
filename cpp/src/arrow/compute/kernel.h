@@ -358,6 +358,10 @@ class ARROW_EXPORT MatchConstraint {
   virtual bool Matches(const std::vector<TypeHolder>& types) const = 0;
 };
 
+/// \brief Convenience function to create a MatchConstraint from a match function.
+ARROW_EXPORT std::shared_ptr<MatchConstraint> MakeConstraint(
+    std::function<bool(const std::vector<TypeHolder>&)> matches);
+
 /// \brief Constraint that all input types are decimal types and have the same scale.
 ARROW_EXPORT std::shared_ptr<MatchConstraint> DecimalsHaveSameScale();
 

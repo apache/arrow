@@ -310,6 +310,24 @@ TEST(OutputType, Resolve) {
 // ----------------------------------------------------------------------
 // MatchConstraint
 
+TEST(MatchConstraint, ConvenienceMaker) {
+  {
+    auto always_match =
+        MakeConstraint([](const std::vector<TypeHolder>& types) { return true; });
+
+    ASSERT_TRUE(always_match->Matches({}));
+    ASSERT_TRUE(always_match->Matches({int8(), int16(), int32()}));
+  }
+
+  {
+    auto always_false =
+        MakeConstraint([](const std::vector<TypeHolder>& types) { return false; });
+
+    ASSERT_FALSE(always_false->Matches({}));
+    ASSERT_FALSE(always_false->Matches({int8(), int16(), int32()}));
+  }
+}
+
 TEST(MatchConstraint, DecimalsHaveSameScale) {
   auto c = DecimalsHaveSameScale();
   constexpr int32_t precision = 12, scale = 2;

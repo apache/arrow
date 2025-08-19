@@ -478,6 +478,25 @@ std::string OutputType::ToString() const {
 // ----------------------------------------------------------------------
 // MatchConstraint
 
+std::shared_ptr<MatchConstraint> MakeConstraint(
+    std::function<bool(const std::vector<TypeHolder>&)> matches) {
+  class FunctionMatchConstraint : public MatchConstraint {
+   public:
+    explicit FunctionMatchConstraint(
+        std::function<bool(const std::vector<TypeHolder>&)> matches)
+        : matches_(std::move(matches)) {}
+
+    bool Matches(const std::vector<TypeHolder>& types) const override {
+      return matches_(types);
+    }
+
+   private:
+    std::function<bool(const std::vector<TypeHolder>&)> matches_;
+  };
+
+  return std::make_shared<FunctionMatchConstraint>(std::move(matches));
+}
+
 std::shared_ptr<MatchConstraint> DecimalsHaveSameScale() {
   class DecimalsHaveSameScaleConstraint : public MatchConstraint {
    public:
