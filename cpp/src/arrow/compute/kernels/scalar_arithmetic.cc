@@ -598,10 +598,6 @@ Result<TypeHolder> ResolveDecimalAdditionOrSubtractionOutput(
       types,
       [](int32_t p1, int32_t s1, int32_t p2,
          int32_t s2) -> Result<std::pair<int32_t, int32_t>> {
-        if (s1 != s2) {
-          return Status::Invalid("Addition or subtraction of two decimal ",
-                                 "types scale1 != scale2. (", s1, s2, ").");
-        }
         DCHECK_EQ(s1, s2);
         const int32_t scale = s1;
         const int32_t precision = std::max(p1 - s1, p2 - s2) + scale + 1;
@@ -627,10 +623,6 @@ Result<TypeHolder> ResolveDecimalDivisionOutput(KernelContext*,
       types,
       [](int32_t p1, int32_t s1, int32_t p2,
          int32_t s2) -> Result<std::pair<int32_t, int32_t>> {
-        if (s1 < s2) {
-          return Status::Invalid("Division of two decimal types scale1 < scale2. ", "(",
-                                 s1, s2, ").");
-        }
         DCHECK_GE(s1, s2);
         const int32_t scale = s1 - s2;
         const int32_t precision = p1;
