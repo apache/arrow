@@ -46,16 +46,16 @@ module Arrow
       #   @return [Arrow::SortKey] A new suitable sort key.
       #
       # @since 4.0.0
-      def resolve(target, order=nil)
+      def resolve(target, order=nil, null_placement = nil)
         return target if target.is_a?(self)
-        new(target, order)
+        new(target, order, null_placement)
       end
 
       # @api private
       def try_convert(value)
         case value
         when Symbol, String
-          new(value.to_s, :ascending)
+          new(value.to_s, :ascending, :at_end)
         else
           nil
         end
@@ -139,10 +139,11 @@ module Arrow
     #     key.order  # => Arrow::SortOrder::DESCENDING
     #
     # @since 4.0.0
-    def initialize(target, order=nil)
-      target, order = normalize_target(target, order)
+    def initialize(target, order=nil, null_placement=nil)
+      target, order, null_placement = normalize_target(target, order, null_placement)
       order = normalize_order(order) || :ascending
-      initialize_raw(target, order)
+      null_placement = normalize_null_placement(null_placement) || :at_end
+      initialize_raw(target, order, null_placement)
     end
 
     # @return [String] The string representation of this sort key. You
@@ -156,32 +157,49 @@ module Arrow
     #
     # @since 4.0.0
     def to_s
-      if order == SortOrder::ASCENDING
+      result = if order == SortOrder::ASCENDING
         "+#{target}"
       else
         "-#{target}"
       end
+      if null_placement == NullPlacement::AT_START
+        result += "_at_start"
+      else
+        result += "_at_end"
+      end
+      return result
     end
 
     # For backward compatibility
     alias_method :name, :target
 
     private
-    def normalize_target(target, order)
+    def normalize_target(target, order, null_placement)
+      # for recreatable, we should remove suffix
+      if target.end_with?("_at_start")
+        suffix_length = "_at_start".length
+        target = target[0..-(suffix_length + 1)]
+      elsif target.end_with?("_at_end")
+        suffix_length = "_at_end".length
+        target = target[0..-(suffix_length + 1)]
+      end
+
       case target
       when Symbol
-        return target.to_s, order
+        return target.to_s, order, null_placement
       when String
-        return target, order if order
+        if order
+          return target, order, null_placement
+        end
         if target.start_with?("-")
-          return target[1..-1], order || :descending
+          return target[1..-1], order || :descending, null_placement || :at_end
         elsif target.start_with?("+")
-          return target[1..-1], order || :ascending
+          return target[1..-1], order || :ascending, null_placement || :at_end
         else
-          return target, order
+          return target, order, null_placement
         end
       else
-        return target, order
+        return target, order, null_placement
       end
     end
 
@@ -193,6 +211,17 @@ module Arrow
         :descending
       else
         order
+      end
+    end
+    
+    def normalize_null_placement(null_placement)
+      case null_placement
+      when :at_end, "at_end"
+        :at_end
+      when :at_start, "at_start"
+        :at_start
+      else
+        null_placement
       end
     end
   end
