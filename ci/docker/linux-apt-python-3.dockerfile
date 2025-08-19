@@ -33,9 +33,10 @@ RUN python3 -m venv ${ARROW_PYTHON_VENV} && \
 
 ARG numba
 ARG numba_cuda
+ARG cuda
 COPY ci/scripts/install_numba.sh /arrow/ci/scripts/
 RUN if [ "${numba}" != "" ]; then \
-        /arrow/ci/scripts/install_numba.sh ${numba} ${numba_cuda} \
+        /arrow/ci/scripts/install_numba.sh ${numba} ${numba_cuda} ${cuda} \
     ; fi
 
 ENV ARROW_ACERO=ON \
