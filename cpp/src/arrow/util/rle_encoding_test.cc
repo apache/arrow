@@ -860,9 +860,10 @@ TEST(BitRle, Overflow) {
 ///         For number greater than one, this ensure that the decoder intermediary state
 ///         is valid.
 template <typename Type, bool kSpaced, int32_t kParts>
-void CheckRoundTrip(const Array& data, int bit_width) {
+void CheckRoundTrip(const Array& data, int bit_width,
+                    std::shared_ptr<FloatArray> dict = {}) {
   using ArrayType = typename TypeTraits<Type>::ArrayType;
-  using T = typename Type::c_type;
+  using value_type = typename Type::c_type;
 
   int const data_size = static_cast<int>(data.length());
   int const data_values_count =
@@ -871,7 +872,7 @@ void CheckRoundTrip(const Array& data, int bit_width) {
   ASSERT_GE(kParts, 1);
   ASSERT_LE(kParts, data_size);
 
-  const T* data_values = static_cast<const ArrayType&>(data).raw_values();
+  const value_type* data_values = static_cast<const ArrayType&>(data).raw_values();
 
   // Encode the data into ``buffer`` using the encoder.
   std::vector<uint8_t> buffer(buffer_size);
@@ -890,8 +891,15 @@ void CheckRoundTrip(const Array& data, int bit_width) {
       << "All values input were not encoded successfully by the encoder";
 
   // On to verify batch read
-  RleBitPackedDecoder<T> decoder(buffer.data(), encoded_byte_size, bit_width);
-  std::vector<T> values_read(data_size);
+  RleBitPackedDecoder<value_type> decoder(buffer.data(), encoded_byte_size, bit_width);
+  // We will only use one of them depending on whether this is a dictonnary tests
+  std::vector<float> dict_read;
+  std::vector<value_type> values_read;
+  if (dict) {
+    dict_read.resize(data_size);
+  } else {
+    values_read.resize(data_size);
+  }
 
   // We will read the data in kParts calls to make sure intermediate states are valid
   int32_t actual_read_count = 0;
@@ -904,16 +912,30 @@ void CheckRoundTrip(const Array& data, int bit_width) {
     }
 
     auto* out = values_read.data() + requested_read_count;
+    auto* dict_out = dict_read.data() + requested_read_count;
 
     auto read = 0;
     if constexpr (kSpaced) {
       // We need to slice the input array get the proper null count and bitmap
       auto data_remaining = data.Slice(requested_read_count, to_read);
-      read = decoder.GetBatchSpaced(
-          to_read, static_cast<int32_t>(data_remaining->null_count()),
-          data_remaining->null_bitmap_data(), data_remaining->offset(), out);
+
+      if (dict) {
+        read = decoder.GetBatchWithDictSpaced(
+            dict->raw_values(), static_cast<int32_t>(dict->length()), dict_out, to_read,
+            static_cast<int32_t>(data_remaining->null_count()),
+            data_remaining->null_bitmap_data(), data_remaining->offset());
+      } else {
+        read = decoder.GetBatchSpaced(
+            to_read, static_cast<int32_t>(data_remaining->null_count()),
+            data_remaining->null_bitmap_data(), data_remaining->offset(), out);
+      }
     } else {
-      read = decoder.GetBatch(out, to_read);
+      if (dict) {
+        read = decoder.GetBatchWithDict(
+            dict->raw_values(), static_cast<int32_t>(dict->length()), dict_out, to_read);
+      } else {
+        read = decoder.GetBatch(out, to_read);
+      }
     }
     ASSERT_EQ(read, to_read) << "Decoder did not read as many values as requested";
 
@@ -926,9 +948,16 @@ void CheckRoundTrip(const Array& data, int bit_width) {
   // Verify the round trip: encoded-decoded values must equal the original one
   for (int64_t i = 0; i < data_size; ++i) {
     if (data.IsValid(i) || !kSpaced) {
-      EXPECT_EQ(values_read[i], data_values[i])
-          << "Encoded then decoded value at position " << i << " (" << values_read[i]
-          << ") differs from original value (" << data_values[i] << ")";
+      if (dict) {
+        EXPECT_EQ(dict_read.at(i), dict->Value(data_values[i]))
+            << "Encoded then decoded and mapped value at position " << i << " ("
+            << values_read[i] << ") differs from original value (" << data_values[i]
+            << " mapped to " << dict->Value(data_values[i]) << ")";
+      } else {
+        EXPECT_EQ(values_read.at(i), data_values[i])
+            << "Encoded then decoded value at position " << i << " (" << values_read.at(i)
+            << ") differs from original value (" << data_values[i] << ")";
+      }
     }
   }
 }
@@ -968,10 +997,8 @@ struct DataTestRleBitPacked {
   std::vector<std::variant<RandomPart, RepeatPart, NullPart>> parts;
   int32_t bit_width;
 
-  std::shared_ptr<::arrow::Array> MakeArray() const {
-    uint32_t kSeed = 1337;
-    ::arrow::random::RandomArrayGenerator rand(kSeed);
-
+  std::shared_ptr<::arrow::Array> MakeArray(
+      ::arrow::random::RandomArrayGenerator& rand) const {
     std::vector<std::shared_ptr<::arrow::Array>> arrays = {};
 
     for (auto const& dyn_part : parts) {
@@ -1029,10 +1056,10 @@ void DoTestGetBatchSpacedRoundtrip() {
       {
           {
               NullPart{/* size= */ 80},
-              RandomPart{/* max=*/7, /* size=*/800, /* null_proba= */ 0.01},
+              RandomPart{/* max=*/1023, /* size=*/800, /* null_proba= */ 0.01},
               NullPart{/* size= */ 1023},
           },
-          /* bit_width= */ 3,
+          /* bit_width= */ 11,
       },
       {
           {RepeatPart{/* value=*/13, /* size=*/100000}},
@@ -1068,17 +1095,31 @@ void DoTestGetBatchSpacedRoundtrip() {
       },
   };
 
+  ::arrow::random::RandomArrayGenerator rand(/* seed= */ 12);
+  // FRAGILE: Large enough so that it can be indexed by any value in all cases
+  auto dict = std::static_pointer_cast<arrow::FloatArray>(rand.Float32(20000, -1.0, 1.0));
+
   for (auto case_ : test_cases) {
     if (static_cast<std::size_t>(case_.bit_width) > sizeof(T)) {
       continue;
     }
 
-    auto array = case_.MakeArray();
+    auto array = case_.MakeArray(rand);
+
+    // Tests for GetBatch
     CheckRoundTrip<ArrowType, false, 1>(*array, case_.bit_width);
     CheckRoundTrip<ArrowType, false, 3>(*array, case_.bit_width);
+
+    // Tests for GetBatchSpaced
     CheckRoundTrip<ArrowType, true, 1>(*array, case_.bit_width);
     CheckRoundTrip<ArrowType, true, 7>(*array, case_.bit_width);
     CheckRoundTrip<ArrowType, true, 1>(*array->Slice(1), case_.bit_width);
+
+    // Cannot test GetBatchWithDict with this method since unknown null values
+
+    // Tests for GetBatchWithDictSpaced
+    CheckRoundTrip<ArrowType, true, 1>(*array, case_.bit_width, dict);
+    CheckRoundTrip<ArrowType, true, 5>(*array, case_.bit_width, dict);
   }
 }
 
