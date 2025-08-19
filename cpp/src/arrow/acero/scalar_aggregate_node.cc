@@ -229,6 +229,22 @@ Result<ExecNode*> ScalarAggregateNode::Make(ExecPlan* plan, std::vector<ExecNode
       std::move(args.states), std::move(out_ordering));
 }
 
+Status ScalarAggregateNode::Init() {
+  if (!ordering_.is_unordered()) {
+    constexpr size_t low_threshold = 4, high_threshold = 8;
+    std::unique_ptr<arrow::acero::BackpressureControl> backpressure_control =
+        std::make_unique<BackpressureController>(inputs_[0], this);
+    ARROW_ASSIGN_OR_RAISE(auto handler,
+                          BackpressureHandler::Make(this, low_threshold, high_threshold,
+                                                    std::move(backpressure_control)));
+
+    processor_ = acero::util::SerialSequencingQueue::Processor::MakeBackpressureWrapper(
+        this, std::move(handler), plan_, false);
+    sequencer_ = acero::util::SerialSequencingQueue::Make(processor_.get());
+  }
+  return Status::OK();
+}
+
 Status ScalarAggregateNode::DoConsume(const ExecSpan& batch, size_t thread_index) {
   for (size_t i = 0; i < kernels_.size(); ++i) {
     arrow::util::tracing::Span span;

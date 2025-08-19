@@ -30,6 +30,7 @@
 
 #include "arrow/acero/accumulation_queue.h"
 #include "arrow/acero/aggregate_node.h"
+#include "arrow/acero/backpressure_handler.h"
 #include "arrow/acero/exec_plan.h"
 #include "arrow/acero/options.h"
 #include "arrow/acero/query_context.h"
@@ -86,6 +87,20 @@ using compute::Segment;
 
 namespace acero {
 namespace aggregate {
+
+class BackpressureController : public BackpressureControl {
+ public:
+  BackpressureController(ExecNode* node, ExecNode* output)
+      : node_(node), output_(output) {}
+
+  void Pause() override { node_->PauseProducing(output_, ++backpressure_counter_); }
+  void Resume() override { node_->ResumeProducing(output_, ++backpressure_counter_); }
+
+ private:
+  ExecNode* node_;
+  ExecNode* output_;
+  std::atomic<int32_t> backpressure_counter_;
+};
 
 template <typename KernelType>
 struct AggregateNodeArgs {
@@ -185,11 +200,7 @@ class ScalarAggregateNode : public ExecNode,
         states_(std::move(states)),
         total_output_batches_(0),
         sequencer_(nullptr),
-        ordering_(std::move(ordering)) {
-    if (!ordering_.is_unordered()) {
-      sequencer_ = acero::util::SerialSequencingQueue::Make(this);
-    }
-  }
+        ordering_(std::move(ordering)) {}
 
   static Result<AggregateNodeArgs<ScalarAggregateKernel>> MakeAggregateNodeArgs(
       const std::shared_ptr<Schema>& input_schema, const std::vector<FieldRef>& keys,
@@ -200,6 +211,8 @@ class ScalarAggregateNode : public ExecNode,
                                 const ExecNodeOptions& options);
 
   const char* kind_name() const override { return "ScalarAggregateNode"; }
+
+  Status Init() override;
 
   Status DoConsume(const ExecSpan& batch, size_t thread_index);
 
@@ -254,6 +267,7 @@ class ScalarAggregateNode : public ExecNode,
   /// \brief Total number of output batches produced
   int64_t total_output_batches_;
   std::unique_ptr<acero::util::SerialSequencingQueue> sequencer_;
+  std::unique_ptr<Processor> processor_;
   Ordering ordering_;
 };
 
@@ -280,11 +294,7 @@ class GroupByNode : public ExecNode,
         agg_kernels_(std::move(agg_kernels)),
         total_output_batches_(0),
         sequencer_(nullptr),
-        ordering_(std::move(ordering)) {
-    if (!ordering_.is_unordered()) {
-      sequencer_ = acero::util::SerialSequencingQueue::Make(this);
-    }
-  }
+        ordering_(std::move(ordering)) {}
 
   Status Init() override;
 
@@ -383,6 +393,7 @@ class GroupByNode : public ExecNode,
   std::vector<ThreadLocalState> local_states_;
   ExecBatch out_data_;
   std::unique_ptr<acero::util::SerialSequencingQueue> sequencer_;
+  std::unique_ptr<Processor> processor_;
   Ordering ordering_;
 };
 

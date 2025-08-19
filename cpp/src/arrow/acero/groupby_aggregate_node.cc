@@ -65,6 +65,19 @@ namespace acero {
 namespace aggregate {
 
 Status GroupByNode::Init() {
+  if (!ordering_.is_unordered()) {
+    constexpr size_t low_threshold = 4, high_threshold = 8;
+    std::unique_ptr<arrow::acero::BackpressureControl> backpressure_control =
+        std::make_unique<BackpressureController>(inputs_[0], this);
+    ARROW_ASSIGN_OR_RAISE(auto handler,
+                          BackpressureHandler::Make(this, low_threshold, high_threshold,
+                                                    std::move(backpressure_control)));
+
+    processor_ = acero::util::SerialSequencingQueue::Processor::MakeBackpressureWrapper(
+        this, std::move(handler), plan_, false);
+    sequencer_ = acero::util::SerialSequencingQueue::Make(processor_.get());
+  }
+
   output_task_group_id_ = plan_->query_context()->RegisterTaskGroup(
       [this](size_t, int64_t task_id) { return OutputNthBatch(task_id); },
       [](size_t) { return Status::OK(); });
