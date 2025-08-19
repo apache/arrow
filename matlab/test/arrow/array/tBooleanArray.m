@@ -216,5 +216,27 @@ classdef tBooleanArray < matlab.unittest.TestCase
             % Test supplying more than two arrays to isequal
             tc.verifyFalse(isequal(array1, array1, array3, array4, array5)); 
         end
+
+        function TestNumNulls(tc)
+            % Verify the NumNulls property returns correct value.
+            
+            % array1 has 0 null values.
+            data1 = tc.MatlabArrayFcn([true false true false]);
+            array1 = tc.ArrowArrayConstructorFcn(data1);
+            tc.verifyEqual(array1.NumNulls, int64(0));
+
+            % array2 has 3 null values.
+            array2 = tc.ArrowArrayConstructorFcn(data1, Valid=3);
+            tc.verifyEqual(array2.NumNulls, int64(3));
+        end
+
+        function TestNumNullsNoSetter(tc)
+            % Verify the NumNulls property is read-only.
+
+            data = tc.MatlabArrayFcn([true false true false]);
+            array = tc.ArrowArrayConstructorFcn(data, Valid=[2 3]);
+            fcn = @() setfield(array, "NumNulls", 1);
+            tc.verifyError(fcn, "MATLAB:class:SetProhibited");            
+        end
     end
 end

@@ -1679,10 +1679,11 @@ _read_table_docstring = """
 
 Parameters
 ----------
-source : str, pyarrow.NativeFile, or file-like object
-    If a string passed, can be a single file name or directory name. For
-    file-like objects, only read a single file. Use pyarrow.BufferReader to
-    read a file contained in a bytes or buffer-like object.
+source : str, list of str, pyarrow.NativeFile, or file-like object
+    If a string is passed, can be a single file name or directory name. If a
+    list of strings is passed, should be file names. For file-like objects,
+    only read a single file. Use pyarrow.BufferReader to read a file contained
+    in a bytes or buffer-like object.
 columns : list
     If not None, only these columns will be read from the file. A column
     name may be a prefix of a nested field, e.g. 'a' will select 'a.b',

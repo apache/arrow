@@ -579,7 +579,8 @@ arrow::Status SetSessionOptionsRequest::Deserialize(std::string_view serialized,
 
 // SetSessionOptionsResult
 
-std::ostream& operator<<(std::ostream& os, const SetSessionOptionsResult::Error& e) {
+static std::ostream& operator<<(std::ostream& os,
+                                const SetSessionOptionsResult::Error& e) {
   os << '{' << e.value << '}';
   return os;
 }

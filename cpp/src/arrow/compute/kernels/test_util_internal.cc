@@ -172,6 +172,8 @@ void CheckScalar(std::string func_name, const DatumVector& inputs, Datum expecte
   }
 }
 
+namespace {
+
 Datum CheckDictionaryNonRecursive(const std::string& func_name, const DatumVector& args,
                                   bool result_is_encoded) {
   EXPECT_OK_AND_ASSIGN(Datum actual, CallFunction(func_name, args));
@@ -203,6 +205,8 @@ Datum CheckDictionaryNonRecursive(const std::string& func_name, const DatumVecto
   }
   return actual;
 }
+
+}  // namespace
 
 void CheckDictionary(const std::string& func_name, const DatumVector& args,
                      bool result_is_encoded) {

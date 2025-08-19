@@ -142,6 +142,94 @@ TEST_F(TestRecordBatch, ApproxEqualOptions) {
   EXPECT_TRUE(b1->ApproxEquals(*b2, options));
 }
 
+class TestRecordBatchEqualsSameAddress : public TestRecordBatch {};
+
+TEST_F(TestRecordBatchEqualsSameAddress, NonFloatType) {
+  auto f0 = field("f0", int32());
+  auto f1 = field("f1", int64());
+
+  auto schema = ::arrow::schema({f0, f1});
+
+  auto a0 = ArrayFromJSON(f0->type(), "[0, 1, 2]");
+  auto a1 = ArrayFromJSON(f1->type(), "[0, 1, 2]");
+
+  auto b0 = RecordBatch::Make(schema, 3, {a0, a1});
+  auto b1 = b0;
+
+  auto options = EqualOptions::Defaults();
+
+  ASSERT_TRUE(b0->Equals(*b1, true, options));
+  ASSERT_TRUE(b0->Equals(*b1, true, options.nans_equal(true)));
+
+  ASSERT_TRUE(b0->ApproxEquals(*b1, options));
+  ASSERT_TRUE(b0->ApproxEquals(*b1, options.nans_equal(true)));
+}
+
+TEST_F(TestRecordBatchEqualsSameAddress, NestedTypesWithoutFloatType) {
+  auto f0 = field("f0", int32());
+  auto f1 = field("f1", struct_({{"f2", int64()}, {"f3", int8()}}));
+
+  auto schema = ::arrow::schema({f0, f1});
+
+  auto a0 = ArrayFromJSON(f0->type(), "[0, 1, 2]");
+  auto a1 = ArrayFromJSON(
+      f1->type(), R"([{"f2": 1, "f3": 4}, {"f2": 2, "f3": 5}, {"f2":3, "f3": 6}])");
+
+  auto b0 = RecordBatch::Make(schema, 3, {a0, a1});
+  auto b1 = b0;
+
+  auto options = EqualOptions::Defaults();
+
+  ASSERT_TRUE(b0->Equals(*b1, true, options));
+  ASSERT_TRUE(b0->Equals(*b1, true, options.nans_equal(true)));
+
+  ASSERT_TRUE(b0->ApproxEquals(*b1, options));
+  ASSERT_TRUE(b0->ApproxEquals(*b1, options.nans_equal(true)));
+}
+
+TEST_F(TestRecordBatchEqualsSameAddress, FloatType) {
+  auto f0 = field("f0", int32());
+  auto f1 = field("f1", float64());
+
+  auto schema = ::arrow::schema({f0, f1});
+
+  auto a0 = ArrayFromJSON(f0->type(), "[0, 1, 2]");
+  auto a1 = ArrayFromJSON(f1->type(), "[0.0, 1.0, 2.0, NaN]");
+
+  auto b0 = RecordBatch::Make(schema, 3, {a0, a1});
+  auto b1 = b0;
+
+  auto options = EqualOptions::Defaults();
+
+  ASSERT_FALSE(b0->Equals(*b1, true, options));
+  ASSERT_TRUE(b0->Equals(*b1, true, options.nans_equal(true)));
+
+  ASSERT_FALSE(b0->ApproxEquals(*b1, options));
+  ASSERT_TRUE(b0->ApproxEquals(*b1, options.nans_equal(true)));
+}
+
+TEST_F(TestRecordBatchEqualsSameAddress, NestedTypesWithFloatType) {
+  auto f0 = field("f0", int32());
+  auto f1 = field("f1", struct_({{"f2", int64()}, {"f3", float32()}}));
+
+  auto schema = ::arrow::schema({f0, f1});
+
+  auto a0 = ArrayFromJSON(f0->type(), "[0, 1, 2]");
+  auto a1 = ArrayFromJSON(
+      f1->type(), R"([{"f2": 1, "f3": 4.0}, {"f2": 2, "f3": 4.0}, {"f2":3, "f3": NaN}])");
+
+  auto b0 = RecordBatch::Make(schema, 3, {a0, a1});
+  auto b1 = b0;
+
+  auto options = EqualOptions::Defaults();
+
+  ASSERT_FALSE(b0->Equals(*b1, true, options));
+  ASSERT_TRUE(b0->Equals(*b1, true, options.nans_equal(true)));
+
+  ASSERT_FALSE(b0->ApproxEquals(*b1, options));
+  ASSERT_TRUE(b0->ApproxEquals(*b1, options.nans_equal(true)));
+}
+
 TEST_F(TestRecordBatch, Validate) {
   const int length = 10;
 
@@ -1312,14 +1400,14 @@ TEST_F(TestRecordBatch, MakeStatisticsArrayNullCount) {
   AssertArraysEqual(*expected_statistics_array, *statistics_array, true);
 }
 
-TEST_F(TestRecordBatch, MakeStatisticsArrayDistinctCount) {
+TEST_F(TestRecordBatch, MakeStatisticsArrayDistinctCountExact) {
   auto schema =
       ::arrow::schema({field("no-statistics", boolean()), field("int32", int32())});
   auto no_statistics_array = ArrayFromJSON(boolean(), "[true, false, true]");
   auto int32_array_data = ArrayFromJSON(int32(), "[1, null, -1]")->data()->Copy();
   int32_array_data->statistics = std::make_shared<ArrayStatistics>();
   int32_array_data->statistics->null_count = 1;
-  int32_array_data->statistics->distinct_count = 2;
+  int32_array_data->statistics->distinct_count = static_cast<int64_t>(2);
   auto int32_array = MakeArray(std::move(int32_array_data));
   auto batch = RecordBatch::Make(schema, int32_array->length(),
                                  {no_statistics_array, int32_array});
@@ -1342,6 +1430,102 @@ TEST_F(TestRecordBatch, MakeStatisticsArrayDistinctCount) {
                                                 ArrayStatistics::ValueType{int64_t{1}},
                                                 ArrayStatistics::ValueType{int64_t{2}},
                                             }}));
+  AssertArraysEqual(*expected_statistics_array, *statistics_array, true);
+}
+
+TEST_F(TestRecordBatch, MakeStatisticsArrayDistinctCountApproximate) {
+  auto schema =
+      ::arrow::schema({field("no-statistics", boolean()), field("int32", int32())});
+  auto no_statistics_array = ArrayFromJSON(boolean(), "[true, false, true]");
+  auto int32_array_data = ArrayFromJSON(int32(), "[1, null, -1]")->data()->Copy();
+  int32_array_data->statistics = std::make_shared<ArrayStatistics>();
+  int32_array_data->statistics->null_count = 1;
+  int32_array_data->statistics->distinct_count = 2.0;
+  auto int32_array = MakeArray(std::move(int32_array_data));
+  auto batch = RecordBatch::Make(schema, int32_array->length(),
+                                 {no_statistics_array, int32_array});
+
+  ASSERT_OK_AND_ASSIGN(auto statistics_array, batch->MakeStatisticsArray());
+
+  ASSERT_OK_AND_ASSIGN(
+      auto expected_statistics_array,
+      MakeStatisticsArray("[null, 1]",
+                          {{
+                               ARROW_STATISTICS_KEY_ROW_COUNT_EXACT,
+                           },
+                           {
+                               ARROW_STATISTICS_KEY_NULL_COUNT_EXACT,
+                               ARROW_STATISTICS_KEY_DISTINCT_COUNT_APPROXIMATE,
+                           }},
+                          {{
+                               ArrayStatistics::ValueType{int64_t{3}},
+                           },
+                           {
+                               ArrayStatistics::ValueType{int64_t{1}},
+                               ArrayStatistics::ValueType{2.0},
+                           }}));
+  AssertArraysEqual(*expected_statistics_array, *statistics_array, true);
+}
+
+TEST_F(TestRecordBatch, MakeStatisticsArrayAverageByteWidthApproximate) {
+  auto schema =
+      ::arrow::schema({field("no-statistics", boolean()), field("utf8", utf8())});
+  auto no_statistics_array = ArrayFromJSON(boolean(), "[true, false, true]");
+  auto string_array = ArrayFromJSON(utf8(), R"(["aa", "bb", "ccc"])");
+  string_array->data()->statistics = std::make_shared<ArrayStatistics>();
+  string_array->data()->statistics->average_byte_width = 2.3;
+  auto batch = RecordBatch::Make(schema, string_array->length(),
+                                 {no_statistics_array, string_array});
+
+  ASSERT_OK_AND_ASSIGN(auto statistics_array, batch->MakeStatisticsArray());
+
+  ASSERT_OK_AND_ASSIGN(
+      auto expected_statistics_array,
+      MakeStatisticsArray("[null, 1]",
+                          {{
+                               ARROW_STATISTICS_KEY_ROW_COUNT_EXACT,
+                           },
+                           {
+                               ARROW_STATISTICS_KEY_AVERAGE_BYTE_WIDTH_APPROXIMATE,
+                           }},
+                          {{
+                               ArrayStatistics::ValueType{int64_t{3}},
+                           },
+                           {
+                               ArrayStatistics::ValueType{2.3},
+                           }}));
+  AssertArraysEqual(*expected_statistics_array, *statistics_array, true);
+}
+
+TEST_F(TestRecordBatch, MakeStatisticsArrayAverageByteWidthExact) {
+  auto schema =
+      ::arrow::schema({field("no-statistics", boolean()), field("float64", float64())});
+  auto no_statistics_array = ArrayFromJSON(boolean(), "[true, false, true]");
+  auto float_array = ArrayFromJSON(float64(), R"([1.0, 2.0, 3.0])");
+  float_array->data()->statistics = std::make_shared<ArrayStatistics>();
+  float_array->data()->statistics->average_byte_width = 8.0;
+  float_array->data()->statistics->is_average_byte_width_exact = true;
+
+  auto batch = RecordBatch::Make(schema, float_array->length(),
+                                 {no_statistics_array, float_array});
+
+  ASSERT_OK_AND_ASSIGN(auto statistics_array, batch->MakeStatisticsArray());
+
+  ASSERT_OK_AND_ASSIGN(
+      auto expected_statistics_array,
+      MakeStatisticsArray("[null, 1]",
+                          {{
+                               ARROW_STATISTICS_KEY_ROW_COUNT_EXACT,
+                           },
+                           {
+                               ARROW_STATISTICS_KEY_AVERAGE_BYTE_WIDTH_EXACT,
+                           }},
+                          {{
+                               ArrayStatistics::ValueType{int64_t{3}},
+                           },
+                           {
+                               ArrayStatistics::ValueType{8.0},
+                           }}));
   AssertArraysEqual(*expected_statistics_array, *statistics_array, true);
 }
 

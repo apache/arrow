@@ -1445,3 +1445,16 @@ def test_field_import_c_schema_interface():
     assert pa.field(wrapped_field, nullable=False).nullable is False
     result = pa.field(wrapped_field, metadata={"other": "meta"})
     assert result.metadata == {b"other": b"meta"}
+
+
+def test_types_enum():
+    # GH-47123: [Python] Add Enums to PyArrow Types
+    # Since not all the underlying types are implemented in PyArrow,
+    # test only the ones that were imported specifically for this Enum
+
+    import pyarrow.lib as lib
+
+    types_enum = types.TypesEnum
+
+    assert types_enum.INTERVAL_MONTHS.value == lib.Type_INTERVAL_MONTHS
+    assert types_enum.INTERVAL_DAY_TIME.value == lib.Type_INTERVAL_DAY_TIME

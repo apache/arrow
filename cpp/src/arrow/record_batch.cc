@@ -310,18 +310,57 @@ const std::string& RecordBatch::column_name(int i) const {
   return schema_->field(i)->name();
 }
 
+namespace {
+
+bool ContainFloatType(const std::shared_ptr<DataType>& type) {
+  if (is_floating(type->id())) {
+    return true;
+  }
+
+  for (const auto& field : type->fields()) {
+    if (ContainFloatType(field->type())) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+bool ContainFloatType(const Schema& schema) {
+  for (auto& field : schema.fields()) {
+    if (ContainFloatType(field->type())) {
+      return true;
+    }
+  }
+  return false;
+}
+
+bool CanIgnoreNaNInEquality(const RecordBatch& batch, const EqualOptions& opts) {
+  if (opts.nans_equal()) {
+    return true;
+  } else if (!ContainFloatType(*batch.schema())) {
+    return true;
+  } else {
+    return false;
+  }
+}
+
+}  // namespace
+
 bool RecordBatch::Equals(const RecordBatch& other, bool check_metadata,
                          const EqualOptions& opts) const {
-  if (num_columns() != other.num_columns() || num_rows_ != other.num_rows()) {
-    return false;
-  }
-
-  if (!schema_->Equals(*other.schema(), check_metadata)) {
-    return false;
-  }
-
-  if (device_type() != other.device_type()) {
-    return false;
+  if (this == &other) {
+    if (CanIgnoreNaNInEquality(*this, opts)) {
+      return true;
+    }
+  } else {
+    if (num_columns() != other.num_columns() || num_rows_ != other.num_rows()) {
+      return false;
+    } else if (!schema_->Equals(*other.schema(), check_metadata)) {
+      return false;
+    } else if (device_type() != other.device_type()) {
+      return false;
+    }
   }
 
   for (int i = 0; i < num_columns(); ++i) {
@@ -334,12 +373,16 @@ bool RecordBatch::Equals(const RecordBatch& other, bool check_metadata,
 }
 
 bool RecordBatch::ApproxEquals(const RecordBatch& other, const EqualOptions& opts) const {
-  if (num_columns() != other.num_columns() || num_rows_ != other.num_rows()) {
-    return false;
-  }
-
-  if (device_type() != other.device_type()) {
-    return false;
+  if (this == &other) {
+    if (CanIgnoreNaNInEquality(*this, opts)) {
+      return true;
+    }
+  } else {
+    if (num_columns() != other.num_columns() || num_rows_ != other.num_rows()) {
+      return false;
+    } else if (device_type() != other.device_type()) {
+      return false;
+    }
   }
 
   for (int i = 0; i < num_columns(); ++i) {
@@ -523,9 +566,29 @@ Status EnumerateStatistics(const RecordBatch& record_batch, OnStatistics on_stat
 
     if (column_statistics->distinct_count.has_value()) {
       statistics.nth_statistics++;
-      statistics.key = ARROW_STATISTICS_KEY_DISTINCT_COUNT_EXACT;
-      statistics.type = int64();
-      statistics.value = column_statistics->distinct_count.value();
+      if (std::holds_alternative<int64_t>(column_statistics->distinct_count.value())) {
+        statistics.key = ARROW_STATISTICS_KEY_DISTINCT_COUNT_EXACT;
+        statistics.type = int64();
+        statistics.value = std::get<int64_t>(column_statistics->distinct_count.value());
+      } else {
+        statistics.key = ARROW_STATISTICS_KEY_DISTINCT_COUNT_APPROXIMATE;
+        statistics.type = float64();
+        statistics.value = std::get<double>(column_statistics->distinct_count.value());
+      }
+
+      RETURN_NOT_OK(on_statistics(statistics));
+      statistics.start_new_column = false;
+    }
+
+    if (column_statistics->average_byte_width.has_value()) {
+      statistics.nth_statistics++;
+      if (column_statistics->is_average_byte_width_exact) {
+        statistics.key = ARROW_STATISTICS_KEY_AVERAGE_BYTE_WIDTH_EXACT;
+      } else {
+        statistics.key = ARROW_STATISTICS_KEY_AVERAGE_BYTE_WIDTH_APPROXIMATE;
+      }
+      statistics.type = float64();
+      statistics.value = column_statistics->average_byte_width.value();
       RETURN_NOT_OK(on_statistics(statistics));
       statistics.start_new_column = false;
     }
@@ -671,8 +734,10 @@ Result<std::shared_ptr<Array>> RecordBatch::MakeStatisticsArray(
     if (statistics.start_new_column) {
       RETURN_NOT_OK(builder.Append());
       if (statistics.nth_column.has_value()) {
+        // Add Columns
         RETURN_NOT_OK(columns_builder->Append(statistics.nth_column.value()));
       } else {
+        // Add RecordBatch
         RETURN_NOT_OK(columns_builder->AppendNull());
       }
       RETURN_NOT_OK(values_builder->Append());

@@ -1679,7 +1679,7 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
     }
   }
 
-  void ReserveValues(int64_t extra_values) {
+  virtual void ReserveValues(int64_t extra_values) {
     const int64_t new_values_capacity =
         UpdateCapacity(values_capacity_, values_written_, extra_values);
     if (new_values_capacity > values_capacity_) {
@@ -1963,6 +1963,12 @@ class FLBARecordReader final : public TypedRecordReader<FLBAType>,
     return ::arrow::ArrayVector{std::move(chunk)};
   }
 
+  void ReserveValues(int64_t extra_values) override {
+    ARROW_DCHECK(!uses_values_);
+    TypedRecordReader::ReserveValues(extra_values);
+    PARQUET_THROW_NOT_OK(array_builder_.Reserve(extra_values));
+  }
+
   void ReadValuesDense(int64_t values_to_read) override {
     int64_t num_decoded = this->current_decoder_->DecodeArrowNonNull(
         static_cast<int>(values_to_read), &array_builder_);
@@ -2035,6 +2041,12 @@ class ByteArrayChunkedRecordReader final : public TypedRecordReader<ByteArrayTyp
     }
     accumulator_.chunks = {};
     return result;
+  }
+
+  void ReserveValues(int64_t extra_values) override {
+    ARROW_DCHECK(!uses_values_);
+    TypedRecordReader::ReserveValues(extra_values);
+    PARQUET_THROW_NOT_OK(accumulator_.builder->Reserve(extra_values));
   }
 
   void ReadValuesDense(int64_t values_to_read) override {

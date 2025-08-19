@@ -22,6 +22,7 @@
 #include <unordered_map>
 
 #include "arrow/util/mutex.h"
+#include "arrow/util/secure_string.h"
 
 #include "parquet/exception.h"
 #include "parquet/platform.h"
@@ -79,14 +80,47 @@ class PARQUET_EXPORT KmsClient {
   static constexpr const char kKmsInstanceUrlDefault[] = "DEFAULT";
   static constexpr const char kKeyAccessTokenDefault[] = "DEFAULT";
 
-  /// Wraps a key - encrypts it with the master key, encodes the result
+  /// \brief Wraps a key.
+  ///
+  /// Encrypts it with the master key, encodes the result
   /// and potentially adds a KMS-specific metadata.
+  ///
+  /// \deprecated Deprecated since 22.0.0. Implement
+  ///             WrapKey(const SecureString&, const std::string&) instead.
+  ARROW_DEPRECATED(
+      "Deprecated in 22.0.0. "
+      "Implement WrapKey(const SecureString&, const std::string&) instead.")
   virtual std::string WrapKey(const std::string& key_bytes,
-                              const std::string& master_key_identifier) = 0;
+                              const std::string& master_key_identifier) {
+    throw ParquetException("Not implemented");
+  }
 
-  /// Decrypts (unwraps) a key with the master key.
+  /// \copydoc WrapKey(const std::string&, const std::string&)
+  virtual std::string WrapKey(const ::arrow::util::SecureString& key_bytes,
+                              const std::string& master_key_identifier) {
+    ARROW_SUPPRESS_DEPRECATION_WARNING
+    auto key = WrapKey(std::string(key_bytes.as_view()), master_key_identifier);
+    ARROW_UNSUPPRESS_DEPRECATION_WARNING
+    return key;
+  }
+
+  /// \brief Decrypts (unwraps) a key with the master key.
+  /// \deprecated Deprecated since 22.0.0. Implement UnWrapKey instead.
+  ARROW_DEPRECATED("Deprecated in 22.0.0. Implement UnWrapKey instead.")
   virtual std::string UnwrapKey(const std::string& wrapped_key,
-                                const std::string& master_key_identifier) = 0;
+                                const std::string& master_key_identifier) {
+    throw ParquetException("Not implemented");
+  }
+
+  /// \copydoc UnwrapKey(const std::string&, const std::string&)
+  virtual ::arrow::util::SecureString UnWrapKey(
+      const std::string& wrapped_key, const std::string& master_key_identifier) {
+    ARROW_SUPPRESS_DEPRECATION_WARNING
+    auto key = ::arrow::util::SecureString(UnwrapKey(wrapped_key, master_key_identifier));
+    ARROW_UNSUPPRESS_DEPRECATION_WARNING
+    return key;
+  }
+
   virtual ~KmsClient() {}
 };
 

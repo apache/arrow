@@ -100,26 +100,30 @@ detect_cuda() {
   return $((${n_gpus} < 1))
 }
 
-ARROW_DIST_URL='https://dist.apache.org/repos/dist/dev/arrow'
+ARROW_RC_URL="https://dist.apache.org/repos/dist/dev/arrow"
+ARROW_KEYS_URL="https://www.apache.org/dyn/closer.lua?action=download&filename=arrow/KEYS"
 
-download_dist_file() {
+download_file() {
   curl \
     --silent \
     --show-error \
     --fail \
     --location \
-    --remote-name $ARROW_DIST_URL/$1
+    --output "$2" \
+    "$1"
 }
 
 download_rc_file() {
-  download_dist_file apache-arrow-${VERSION}-rc${RC_NUMBER}/$1
+  download_file \
+    "${ARROW_RC_URL}/apache-arrow-${VERSION}-rc${RC_NUMBER}/$1" \
+    "$1"
 }
 
 import_gpg_keys() {
   if [ "${GPGKEYS_ALREADY_IMPORTED:-0}" -gt 0 ]; then
     return 0
   fi
-  download_dist_file KEYS
+  download_file "${ARROW_KEYS_URL}" KEYS
   gpg --import KEYS
 
   GPGKEYS_ALREADY_IMPORTED=1
@@ -212,6 +216,7 @@ test_apt() {
     "x86_64")
       for target in "debian:bookworm" \
                     "debian:trixie" \
+                    "debian:forky" \
                     "ubuntu:jammy" \
                     "ubuntu:noble"; do \
         if ! docker run \
@@ -231,6 +236,7 @@ test_apt() {
     "aarch64")
       for target in "arm64v8/debian:bookworm" \
                     "arm64v8/debian:trixie" \
+                    "arm64v8/debian:forky" \
                     "arm64v8/ubuntu:jammy" \
                     "arm64v8/ubuntu:noble"; do \
         if ! docker run \
@@ -776,11 +782,19 @@ ensure_source_directory() {
   elif [ "${SOURCE_KIND}" = "git" ]; then
     # Remote arrow repository, testing repositories must be cloned
     : ${SOURCE_REPOSITORY:="https://github.com/apache/arrow"}
-    echo "Verifying Arrow repository ${SOURCE_REPOSITORY} with revision checkout ${VERSION}"
+    case "${VERSION}" in
+      *.*.*)
+        revision="apache-arrow-${VERSION}"
+        ;;
+      *)
+        revision="${VERSION}"
+        ;;
+    esac
+    echo "Verifying Arrow repository ${SOURCE_REPOSITORY} with revision checkout ${revision}"
     export ARROW_SOURCE_DIR="${ARROW_TMPDIR}/arrow"
     if [ ! -d "${ARROW_SOURCE_DIR}" ]; then
       git clone --recurse-submodules $SOURCE_REPOSITORY $ARROW_SOURCE_DIR
-      git -C $ARROW_SOURCE_DIR checkout $VERSION
+      git -C $ARROW_SOURCE_DIR checkout "${revision}"
     fi
   else
     # Release tarball, testing repositories must be cloned separately
@@ -789,14 +803,6 @@ ensure_source_directory() {
     if [ ! -d "${ARROW_SOURCE_DIR}" ]; then
       pushd $ARROW_TMPDIR
       fetch_archive ${dist_name}
-      git clone https://github.com/${GITHUB_REPOSITORY}.git arrow
-      pushd arrow
-      dev/release/utils-create-release-tarball.sh ${VERSION} ${RC_NUMBER}
-      if ! cmp ${dist_name}.tar.gz ../${dist_name}.tar.gz; then
-        echo "Source archive isn't reproducible"
-        return 1
-      fi
-      popd
       tar xf ${dist_name}.tar.gz
       popd
     fi
@@ -844,6 +850,27 @@ test_source_distribution() {
   fi
 
   pushd $ARROW_SOURCE_DIR
+
+  if [ "${SOURCE_KIND}" = "tarball" ] && [ "${TEST_SOURCE_REPRODUCIBLE}" -gt 0 ]; then
+    pushd ..
+    git clone "https://github.com/${GITHUB_REPOSITORY}.git" arrow
+    pushd arrow
+    dev/release/utils-create-release-tarball.sh "${VERSION}" "${RC_NUMBER}"
+    tarball="apache-arrow-${VERSION}.tar.gz"
+    if ! cmp "${tarball}" "../${tarball}"; then
+      echo "Source archive isn't reproducible"
+      if ! tar --version | grep --quiet --fixed GNU && \
+          ! gtar --version | grep --quiet --fixed GNU; then
+        echo "We need GNU tar to verify reproducible build"
+      fi
+      if ! gzip --version | grep --quiet --fixed GNU; then
+        echo "We need GNU gzip to verify reproducible build"
+      fi
+      return 1
+    fi
+    popd
+    popd
+  fi
 
   if [ ${TEST_CSHARP} -gt 0 ]; then
     test_csharp
@@ -1033,6 +1060,7 @@ test_wheels() {
 : ${TEST_YUM:=${TEST_BINARIES}}
 
 # Source verification tasks
+: ${TEST_SOURCE_REPRODUCIBLE:=0}
 : ${TEST_CPP:=${TEST_SOURCE}}
 : ${TEST_CSHARP:=${TEST_SOURCE}}
 : ${TEST_GLIB:=${TEST_SOURCE}}

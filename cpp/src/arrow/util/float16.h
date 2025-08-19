@@ -178,6 +178,7 @@ class ARROW_EXPORT Float16 {
   }
 };
 
+static_assert(std::is_standard_layout_v<Float16>);
 static_assert(std::is_trivial_v<Float16>);
 static_assert(sizeof(Float16) == sizeof(uint16_t));
 

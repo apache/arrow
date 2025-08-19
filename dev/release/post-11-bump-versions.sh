@@ -53,9 +53,21 @@ esac
 
 if [ ${BUMP_UPDATE_LOCAL_DEFAULT_BRANCH} -gt 0 ]; then
   echo "Updating local default branch"
-  git fetch --all --prune --tags --force -j$(nproc)
+  case "$(uname)" in
+    Linux)
+      n_jobs=$(nproc)
+      ;;
+    Darwin)
+      n_jobs=$(sysctl -n hw.ncpu)
+      ;;
+    *)
+      n_jobs=${NPROC:-0} # see git-config, 0 means "reasonable default"
+      ;;
+  esac
+
+  git fetch --all --prune --tags --force -j"$n_jobs"
   git checkout ${DEFAULT_BRANCH}
-  git rebase apache/${DEFAULT_BRANCH}
+  git rebase upstream/${DEFAULT_BRANCH}
 fi
 
 if [ ${BUMP_VERSION_POST_TAG} -gt 0 ]; then
@@ -75,12 +87,12 @@ fi
 
 if [ ${BUMP_PUSH} -gt 0 ]; then
   echo "Pushing changes to the default branch in apache/arrow"
-  git push apache ${DEFAULT_BRANCH}
+  git push upstream ${DEFAULT_BRANCH}
 fi
 
 if [ ${BUMP_TAG} -gt 0 -a ${is_major_release} -gt 0 ]; then
   dev_tag=apache-arrow-${next_version}.dev
   echo "Tagging ${dev_tag}"
   git tag ${dev_tag} ${DEFAULT_BRANCH}
-  git push apache ${dev_tag}
+  git push upstream ${dev_tag}
 fi

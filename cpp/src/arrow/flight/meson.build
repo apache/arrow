@@ -135,6 +135,7 @@ if needs_testing
             'test_util.cc',
         ],
         dependencies: [arrow_test_dep, arrow_flight_dep, thread_dep],
+        gnu_symbol_visibility: 'hidden',
     )
 
     arrow_flight_test_dep = declare_dependency(
@@ -194,12 +195,12 @@ if needs_benchmarks
     executable(
         'arrow-flight-perf-server',
         sources: ['perf_server.cc'] + flight_proto_files,
-        dependencies: flight_test_dep_no_main,
+        dependencies: [flight_test_dep_no_main, arrow_testing_dep],
     )
 
     executable(
         'arrow-flight-benchmark',
         sources: ['flight_benchmark.cc'] + flight_proto_files,
-        dependencies: flight_test_dep_no_main,
+        dependencies: [flight_test_dep_no_main, arrow_testing_dep],
     )
 endif

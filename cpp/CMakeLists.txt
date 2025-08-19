@@ -61,6 +61,11 @@ cmake_policy(SET CMP0074 NEW)
 # option() honors normal variables.
 cmake_policy(SET CMP0077 NEW)
 
+# https://cmake.org/cmake/help/latest/policy/CMP0090.html
+#
+# export(PACKAGE) does nothing by default.
+cmake_policy(SET CMP0090 NEW)
+
 # https://cmake.org/cmake/help/latest/policy/CMP0091.html
 #
 # MSVC runtime library flags are selected by an abstraction.
@@ -91,7 +96,7 @@ if(POLICY CMP0170)
   cmake_policy(SET CMP0170 NEW)
 endif()
 
-set(ARROW_VERSION "21.0.0-SNAPSHOT")
+set(ARROW_VERSION "22.0.0-SNAPSHOT")
 
 string(REGEX MATCH "^[0-9]+\\.[0-9]+\\.[0-9]+" ARROW_BASE_VERSION "${ARROW_VERSION}")
 

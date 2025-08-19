@@ -37,6 +37,8 @@ using ::arrow::Result;
 using ::arrow::Status;
 using ::arrow::internal::checked_cast;
 
+namespace {
+
 Result<std::shared_ptr<ArrowType>> MakeArrowDecimal(const LogicalType& logical_type) {
   const auto& decimal = checked_cast<const DecimalLogicalType&>(logical_type);
   if (decimal.precision() <= ::arrow::Decimal128Type::kMaxPrecision) {
@@ -207,6 +209,8 @@ Result<std::shared_ptr<ArrowType>> FromFLBA(
                                     " for fixed-length binary array");
   }
 }
+
+}  // namespace
 
 ::arrow::Result<std::shared_ptr<ArrowType>> FromInt32(const LogicalType& logical_type) {
   switch (logical_type.type()) {

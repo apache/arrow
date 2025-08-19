@@ -22,6 +22,7 @@
 #include "arrow/array/builder_nested.h"
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/kernels/common_internal.h"
+#include "arrow/compute/registry_internal.h"
 #include "arrow/result.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/bit_block_counter.h"

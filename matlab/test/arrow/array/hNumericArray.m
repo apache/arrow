@@ -208,5 +208,28 @@ classdef hNumericArray < matlab.unittest.TestCase
             % Test supplying more than two arrays to isequal
             tc.verifyFalse(isequal(array1, array1, array3, array4, array5)); 
         end
+
+        function TestNumNulls(tc)
+            % Verify the NumNulls property returns correct value.
+            
+            % array1 has 0 null values.
+            data1 = tc.MatlabArrayFcn(1:10);
+            array1 = tc.ArrowArrayConstructorFcn(data1);
+            tc.verifyEqual(array1.NumNulls, int64(0));
+
+            % array2 has 8 null values.
+            array2 = tc.ArrowArrayConstructorFcn(data1, Valid=[1 4]);
+            tc.verifyEqual(array2.NumNulls, int64(8));
+        end
+
+        function TestNumNullsNoSetter(tc)
+            % Verify the NumNulls property is read-only.
+
+            data = tc.MatlabArrayFcn(1:10);
+            array = tc.ArrowArrayConstructorFcn(data);
+            fcn = @() setfield(array, "NumNulls", 1);
+            tc.verifyError(fcn, "MATLAB:class:SetProhibited");            
+        end
+
     end
 end

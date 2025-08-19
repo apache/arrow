@@ -118,6 +118,10 @@ This is the list of available ones and the respective targets created:
 +===============================================+========================================================+=====================================================+
 | ``find_package(ArrowCUDA REQUIRED)``          | ``ArrowCUDA::arrow_cuda_shared``                       | ``ArrowCUDA::arrow_cuda_static``                    |
 +-----------------------------------------------+--------------------------------------------------------+-----------------------------------------------------+
+| ``find_package(ArrowAcero REQUIRED)``         | ``ArrowAcero::arrow_acero_shared``                     | ``ArrowAcero::arrow_acero_static``                  |
++-----------------------------------------------+--------------------------------------------------------+-----------------------------------------------------+
+| ``find_package(ArrowCompute REQUIRED)``       | ``ArrowCompute::arrow_compute_shared``                 | ``ArrowCompute::arrow_compute_static``              |
++-----------------------------------------------+--------------------------------------------------------+-----------------------------------------------------+
 | ``find_package(ArrowDataset REQUIRED)``       | ``ArrowDataset::arrow_dataset_shared``                 | ``ArrowDataset::arrow_dataset_static``              |
 +-----------------------------------------------+--------------------------------------------------------+-----------------------------------------------------+
 | ``find_package(ArrowFlight REQUIRED)``        | ``ArrowFlight::arrow_flight_shared``                   | ``ArrowFlight::arrow_flight_static``                |

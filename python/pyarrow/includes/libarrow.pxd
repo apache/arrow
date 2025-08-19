@@ -66,7 +66,7 @@ cdef extern from "arrow/util/decimal.h" namespace "arrow" nogil:
 
 
 cdef extern from "arrow/config.h" namespace "arrow" nogil:
-    cdef cppclass CBuildInfo" arrow::BuildInfo":
+    cdef cppclass CCppBuildInfo "arrow::BuildInfo":
         int version
         int version_major
         int version_minor
@@ -82,7 +82,7 @@ cdef extern from "arrow/config.h" namespace "arrow" nogil:
         c_string package_kind
         c_string build_type
 
-    const CBuildInfo& GetBuildInfo()
+    const CCppBuildInfo& GetCppBuildInfo "arrow::GetBuildInfo"()
 
     cdef cppclass CRuntimeInfo" arrow::RuntimeInfo":
         c_string simd_level
@@ -102,6 +102,11 @@ cdef extern from "arrow/util/future.h" namespace "arrow" nogil:
 
 
 cdef extern from "<variant>" namespace "std" nogil:
+    cdef cppclass CArrayStatisticsCountType" std::variant<int64_t, double>":
+        CArrayStatisticsCountType()
+        CArrayStatisticsCountType(int64_t)
+        CArrayStatisticsCountType(double)
+
     cdef cppclass CArrayStatisticsValueType" std::variant<bool, int64_t, uint64_t, double, std::string>":
         CArrayStatisticsValueType()
         CArrayStatisticsValueType(c_bool)
@@ -142,6 +147,8 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         _Type_TIME64" arrow::Type::TIME64"
         _Type_DURATION" arrow::Type::DURATION"
         _Type_INTERVAL_MONTH_DAY_NANO" arrow::Type::INTERVAL_MONTH_DAY_NANO"
+        _Type_INTERVAL_DAY_TIME" arrow::Type::INTERVAL_DAY_TIME"
+        _Type_INTERVAL_MONTHS" arrow::Type::INTERVAL_MONTHS"
 
         _Type_BINARY" arrow::Type::BINARY"
         _Type_STRING" arrow::Type::STRING"
@@ -200,7 +207,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
     cdef cppclass CArrayStatistics" arrow::ArrayStatistics":
         optional[int64_t] null_count
-        optional[int64_t] distinct_count
+        optional[CArrayStatisticsCountType] distinct_count
         optional[CArrayStatisticsValueType] min
         c_bool is_min_exact
         optional[CArrayStatisticsValueType] max

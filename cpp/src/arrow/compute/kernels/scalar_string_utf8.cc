@@ -20,6 +20,7 @@
 #include <string>
 
 #include "arrow/compute/kernels/scalar_string_internal.h"
+#include "arrow/compute/registry_internal.h"
 #include "arrow/util/config.h"
 #include "arrow/util/logging_internal.h"
 #include "arrow/util/utf8_internal.h"

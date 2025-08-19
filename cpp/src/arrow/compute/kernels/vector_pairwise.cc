@@ -28,6 +28,7 @@
 #include "arrow/compute/kernels/base_arithmetic_internal.h"
 #include "arrow/compute/kernels/codegen_internal.h"
 #include "arrow/compute/registry.h"
+#include "arrow/compute/registry_internal.h"
 #include "arrow/compute/util.h"
 #include "arrow/status.h"
 #include "arrow/type.h"

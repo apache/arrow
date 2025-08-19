@@ -100,10 +100,14 @@ bool DictionaryMayHaveLogicalNulls(const ArrayData& data) {
   return ArraySpan(data).MayHaveLogicalNulls();
 }
 
+namespace {
+
 BufferSpan PackVariadicBuffers(util::span<const std::shared_ptr<Buffer>> buffers) {
   return {const_cast<uint8_t*>(reinterpret_cast<const uint8_t*>(buffers.data())),
           static_cast<int64_t>(buffers.size() * sizeof(std::shared_ptr<Buffer>))};
 }
+
+}  // namespace
 
 }  // namespace internal
 
