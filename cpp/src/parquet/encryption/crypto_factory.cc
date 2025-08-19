@@ -182,7 +182,7 @@ CryptoFactory::GetExternalFileEncryptionProperties(
       key_wrapper.GetEncryptionKeyMetadata(footer_key, external_encryption_config.footer_key, true);
   
   ExternalFileEncryptionProperties::Builder external_properties_builder =
-      ExternalFileEncryptionProperties::Builder(external_encryption_config.footer_key);
+      ExternalFileEncryptionProperties::Builder(footer_key);
   external_properties_builder.footer_key_metadata(footer_key_metadata);
   external_properties_builder.algorithm(external_encryption_config.encryption_algorithm);
 

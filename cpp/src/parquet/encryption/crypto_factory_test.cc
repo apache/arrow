@@ -84,7 +84,7 @@ TEST_F(CryptoFactoryTest, BasicEncryptionConfig) {
     config.column_keys = "kc1:col1,col2;kc2:col3,col4";
 
     auto properties = crypto_factory_.GetExternalFileEncryptionProperties(kms_config_, config);
-    EXPECT_EQ("kf", properties->footer_key());
+    EXPECT_EQ(16, properties->footer_key().size());
     EXPECT_TRUE(properties->footer_key_metadata().size() > 0);
     EXPECT_EQ(ParquetCipher::AES_GCM_V1, properties->algorithm().algorithm);
     EXPECT_FALSE(properties->encrypted_footer());
@@ -129,7 +129,7 @@ TEST_F(CryptoFactoryTest, ExternalEncryptionConfig) {
     };
 
     auto properties = crypto_factory_.GetExternalFileEncryptionProperties(kms_config_, config);
-    EXPECT_EQ("kf", properties->footer_key());
+    EXPECT_EQ(16, properties->footer_key().size());
     EXPECT_TRUE(properties->footer_key_metadata().size() > 0);
     EXPECT_EQ(ParquetCipher::AES_GCM_V1, properties->algorithm().algorithm);
     EXPECT_FALSE(properties->encrypted_footer());

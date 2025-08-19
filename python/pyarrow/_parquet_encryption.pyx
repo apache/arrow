@@ -181,7 +181,7 @@ cdef class EncryptionConfiguration(_Weakrefable):
         return self.configuration
 
 cdef class ExternalEncryptionConfiguration(EncryptionConfiguration):
-    """ExternalEncryptionConfiguration is a Cython extension class that inherits from EncryptionConfiguration."""
+    """ExternalEncryptionConfiguration inherits from EncryptionConfiguration."""
     __slots__ = ()
   
     def __init__(self, footer_key, *, column_keys=None,
@@ -190,6 +190,10 @@ cdef class ExternalEncryptionConfiguration(EncryptionConfiguration):
                  cache_lifetime=None, internal_key_material=None,
                  data_key_length_bits=None, per_column_encryption=None,
                  app_context=None, connection_config=None):
+
+        # Initialize pointer first so the get/set forwards work.
+        self.external_configuration.reset(
+            new CExternalEncryptionConfiguration(tobytes(footer_key)))
 
         super().__init__(footer_key,
             column_keys=column_keys,
@@ -200,8 +204,8 @@ cdef class ExternalEncryptionConfiguration(EncryptionConfiguration):
             internal_key_material=internal_key_material,
             data_key_length_bits=data_key_length_bits)
 
-        self.external_configuration.reset(
-            new CExternalEncryptionConfiguration(tobytes(footer_key)))
+        self.external_configuration.get().footer_key = \
+            self.configuration.get().footer_key
         
         if app_context is not None:
             self.app_context = app_context
@@ -209,6 +213,72 @@ cdef class ExternalEncryptionConfiguration(EncryptionConfiguration):
             self.connection_config = connection_config
         if per_column_encryption is not None:
             self.per_column_encryption = per_column_encryption
+
+    """ Forward all attributes get/set methods to the superclass """
+    """ The superclass already converts to/from bytes and does additional processing needed """
+    @property
+    def column_keys(self):
+        return EncryptionConfiguration.column_keys.__get__(self)
+
+    @column_keys.setter
+    def column_keys(self, dict value):
+        EncryptionConfiguration.column_keys.__set__(self, value)
+        self.external_configuration.get().column_keys = self.configuration.get().column_keys
+
+    @property
+    def encryption_algorithm(self):
+        return EncryptionConfiguration.encryption_algorithm.__get__(self)
+
+    @encryption_algorithm.setter
+    def encryption_algorithm(self, value):
+        EncryptionConfiguration.encryption_algorithm.__set__(self, value)
+        self.external_configuration.get().encryption_algorithm = \
+            self.configuration.get().encryption_algorithm
+
+    @property
+    def plaintext_footer(self):
+        return EncryptionConfiguration.plaintext_footer.__get__(self)
+
+    @plaintext_footer.setter
+    def plaintext_footer(self, value):
+        EncryptionConfiguration.plaintext_footer.__set__(self, value)
+        self.external_configuration.get().plaintext_footer = value
+
+    @property
+    def double_wrapping(self):
+        return EncryptionConfiguration.double_wrapping.__get__(self)
+
+    @double_wrapping.setter
+    def double_wrapping(self, value):
+        EncryptionConfiguration.double_wrapping.__set__(self, value)
+        self.external_configuration.get().double_wrapping = value
+
+    @property
+    def cache_lifetime(self):
+        return EncryptionConfiguration.cache_lifetime.__get__(self)
+
+    @cache_lifetime.setter
+    def cache_lifetime(self, value):
+        EncryptionConfiguration.cache_lifetime.__set__(self, value)
+        self.external_configuration.get().cache_lifetime_seconds = value.total_seconds()
+
+    @property
+    def internal_key_material(self):
+        return EncryptionConfiguration.internal_key_material.__get__(self)
+
+    @internal_key_material.setter
+    def internal_key_material(self, value):
+        EncryptionConfiguration.internal_key_material.__set__(self, value)
+        self.external_configuration.get().internal_key_material = value
+
+    @property
+    def data_key_length_bits(self):
+        return EncryptionConfiguration.data_key_length_bits.__get__(self)
+
+    @data_key_length_bits.setter
+    def data_key_length_bits(self, value):
+        EncryptionConfiguration.data_key_length_bits.__set__(self, value)
+        self.external_configuration.get().data_key_length_bits = value
 
     @property
     def app_context(self):

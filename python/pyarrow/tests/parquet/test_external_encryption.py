@@ -16,18 +16,41 @@
 # under the License.
 
 import pytest
-from datetime import  timedelta
-import pyarrow.parquet as pq
 import pyarrow.parquet.encryption as pe
-from pyarrow._parquet_encryption import CryptoFactory, KmsConnectionConfig, ExternalEncryptionConfiguration
+import re
+from datetime import  timedelta
 
+@pytest.fixture
+def dummy_kms_client():
+    class DummyKmsClient(pe.KmsClient):
+        def __init__(self, kms_connection_config):
+            super().__init__()
+
+        def wrap_key(self, key_bytes, master_key_identifier):
+            # dummy wrap just returns key_bytes
+            return key_bytes
+
+        def unwrap_key(self, wrapped_key, master_key_identifier):
+            # dummy unwrap just returns wrapped_key
+            return wrapped_key
+    return DummyKmsClient
+
+@pytest.fixture
+def kms_config():
+    return pe.KmsConnectionConfig(
+        custom_kms_conf={
+            "footer_key": "012footer_secret",
+            "key_1": "column_secret001",
+            "key_2": "column_secret002"
+        }
+    )
 
 @pytest.fixture
 def external_encryption_config():
     return pe.ExternalEncryptionConfiguration(
-        footer_key=b"0123456789abcdef",  # exactly 16 bytes
+        footer_key="footer_key",
         column_keys={
-            "col-key-id": ["a", "b"],
+            "key_1": ["a"],
         },
         encryption_algorithm="AES_GCM_V1",
         plaintext_footer=True,
@@ -36,13 +59,9 @@ def external_encryption_config():
         internal_key_material=True,
         data_key_length_bits=256,
         per_column_encryption={
-            "a": {
-                "encryption_algorithm": "AES_GCM_V1",
-                "encryption_key": "key_1"
-            },
             "b": {
                 "encryption_algorithm": "AES_GCM_CTR_V1",
-                "encryption_key": "key_n"
+                "encryption_key": "key_2"
             }
         },
         app_context={
@@ -81,7 +100,7 @@ def test_encryption_configuration_properties():
     config = pe.EncryptionConfiguration(
         footer_key="footer-key-name",
         column_keys={
-            "col-key-id": ["a", "b"],
+            "key_1": ["a"],
         },
         encryption_algorithm="AES_GCM_V1",
         plaintext_footer=True,
@@ -95,7 +114,7 @@ def test_encryption_configuration_properties():
 
     assert config.footer_key == "footer-key-name"
     assert config.column_keys == {
-        "col-key-id": ["a", "b"]
+        "key_1": ["a"]
     }
     assert config.encryption_algorithm == "AES_GCM_V1"
     assert config.plaintext_footer is True
@@ -109,9 +128,9 @@ def test_external_encryption_configuration_properties(external_encryption_config
 
     assert isinstance(external_encryption_config, pe.ExternalEncryptionConfiguration)
 
-    assert external_encryption_config.footer_key == "0123456789abcdef"
+    assert external_encryption_config.footer_key == "footer_key"
     assert external_encryption_config.column_keys == {
-        "col-key-id": ["a", "b"]
+        "key_1": ["a"]
     }
     assert external_encryption_config.encryption_algorithm == "AES_GCM_V1"
     assert external_encryption_config.plaintext_footer is True
@@ -133,13 +152,9 @@ def test_external_encryption_configuration_properties(external_encryption_config
     }
 
     assert external_encryption_config.per_column_encryption == {
-        "a": {
-            "encryption_algorithm": "AES_GCM_V1",
-            "encryption_key": "key_1"
-        },
         "b": {
             "encryption_algorithm": "AES_GCM_CTR_V1",
-            "encryption_key": "key_n"
+            "encryption_key": "key_2"
         }
     }
 
@@ -173,7 +188,7 @@ def test_external_encryption_per_column_encryption_new_algorithm():
         per_column_encryption={
             "a": {
                 "encryption_algorithm": "EXTERNAL_DBPA_V1",
-                "encryption_key": "some_key"
+                "encryption_key": "key_2"
             }
         }
     )
@@ -216,31 +231,24 @@ def test_external_encryption_rejects_none_values():
     with pytest.raises(ValueError, match="Connection config value cannot be None"):
         config.connection_config = None
 
-def test_external_file_encryption_properties_valid(external_encryption_config):
-    class DummyKmsClient(pe.KmsClient):
-        def __init__(self, kms_connection_config):
-            super().__init__()
+def test_external_file_encryption_properties_rejects_column_in_two_places(
+    dummy_kms_client, kms_config):
+     config = pe.ExternalEncryptionConfiguration(
+        footer_key="key",
+        column_keys={"key_1": ["a"]},
+        per_column_encryption={"a": {"encryption_algorithm": "AES_GCM_V1", "encryption_key": "key_2"}},
+     )
+     factory = pe.CryptoFactory(dummy_kms_client)
+     with pytest.raises(OSError, match=re.escape("Multiple keys defined for column [a]")):
+        factory.external_file_encryption_properties(kms_config, config)
 
-        def wrap_key(self, key_bytes, master_key_identifier):
-            # dummy wrap just returns key_bytes
-            return key_bytes
-
-        def unwrap_key(self, wrapped_key, master_key_identifier):
-            # dummy unwrap just returns wrapped_key
-            return wrapped_key
-    
-    kms_config = pe.KmsConnectionConfig(
-        custom_kms_conf={
-            "footer_key": "012footer_secret",
-            "orderid_key": "column_secret001",
-            "productid_key": "column_secret002"
-        }
-    )
-
-    factory = pe.CryptoFactory(DummyKmsClient)
+def test_external_file_encryption_properties_valid(
+    dummy_kms_client, kms_config, external_encryption_config):
+    factory = pe.CryptoFactory(dummy_kms_client)
     result = factory.external_file_encryption_properties(kms_config, external_encryption_config)
 
-    # Instead of isinstance, check class name and module dynamically because ExternalFileEncryptionProperties is not visbile
+    # Instead of isinstance, check class name and module dynamically because
+    # ExternalFileEncryptionProperties is not visible
     assert result.__class__.__name__ == "ExternalFileEncryptionProperties"
     assert result.__class__.__module__ == "pyarrow._parquet"
 

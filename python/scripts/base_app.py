@@ -114,6 +114,33 @@ def get_kms_connection_config():
         }
     )
 
+def get_external_encryption_config(plaintext_footer=True):
+    return ppe.ExternalEncryptionConfiguration(
+        footer_key = "footer_key",
+        column_keys = {
+            "productid_key": ["productId"]
+        },
+        encryption_algorithm = "AES_GCM_V1",
+        cache_lifetime=datetime.timedelta(minutes=2.0),
+        data_key_length_bits = 128,
+        plaintext_footer=plaintext_footer,
+        per_column_encryption = {
+            "orderId": {
+                "encryption_algorithm": "AES_GCM_V1",
+                "encryption_key": "orderid_key"
+            },
+        },
+        app_context = {
+            "user_id": "Picard1701",
+            "location": "Presidio"
+        },
+        connection_config = {
+            "EXTERNAL_DBPA_V1": {
+                "config_file": "path/to/config/file",
+                "config_file_decryption_key": "some_key"
+            }
+        }
+    )
 
 def get_encryption_config(plaintext_footer=True):
     return ppe.EncryptionConfiguration(
