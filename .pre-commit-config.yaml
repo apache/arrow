@@ -50,9 +50,11 @@ repos:
           )
         types: []
   - repo: https://github.com/pre-commit/mirrors-clang-format
-    rev: v14.0.6
+    rev: v20.1.8
     hooks:
       - id: clang-format
+        # Fixing pre-commit provided by CI Ubuntu 22
+        types_or: [c++, c, c#, cuda, java, javascript, json, objective-c, proto]
         name: C++ Format
         alias: cpp
         types_or:
@@ -93,17 +95,21 @@ repos:
           ?^cpp/thirdparty/|
           )
   - repo: https://github.com/pre-commit/mirrors-clang-format
-    rev: v14.0.6
+    rev: v20.1.8
     hooks:
       - id: clang-format
+        # Fixing pre-commit provided by CI Ubuntu 22
+        types_or: [c++, c, c#, cuda, java, javascript, json, objective-c, proto]
         alias: c-glib
         name: C/GLib Format
         files: >-
           ^c_glib/
   - repo: https://github.com/pre-commit/mirrors-clang-format
-    rev: v14.0.6
+    rev: v20.1.8
     hooks:
       - id: clang-format
+        # Fixing pre-commit provided by CI Ubuntu 22
+        types_or: [c++, c, c#, cuda, java, javascript, json, objective-c, proto]
         name: MATLAB (C++) Format
         alias: matlab-cpp-format
         files: >-
@@ -156,9 +162,11 @@ repos:
         files: >-
           ^python/
   - repo: https://github.com/pre-commit/mirrors-clang-format
-    rev: v14.0.6
+    rev: v20.1.8
     hooks:
       - id: clang-format
+        # Fixing pre-commit provided by CI Ubuntu 22
+        types_or: [c++, c, c#, cuda, java, javascript, json, objective-c, proto]
         alias: python
         name: Python (C++) Format
         files: >-
@@ -217,9 +225,11 @@ repos:
         files: >-
           ^r/.*\.(R|Rmd)$
   - repo: https://github.com/pre-commit/mirrors-clang-format
-    rev: v14.0.6
+    rev: v20.1.8
     hooks:
       - id: clang-format
+        # Fixing pre-commit provided by CI Ubuntu 22
+        types_or: [c++, c, c#, cuda, java, javascript, json, objective-c, proto]
         alias: r
         name: R (C++) Format
         files: >-
