@@ -145,7 +145,7 @@ class ARROW_ACERO_EXPORT SerialSequencingQueue {
     /// Wrapper for processor with backpressure
     ///
     /// This wrapper adds backpressure logic acting on number of sequenced batches.
-    //  Also batches are Processes on new scheduled tasks. The tasks will be scheduled on
+    //  Also batches are Processed on new scheduled tasks. The tasks will be scheduled on
     /// IO executor when requires_io==true.
     static std::unique_ptr<Processor> MakeBackpressureWrapper(Processor* processor,
                                                               BackpressureHandler handler,
