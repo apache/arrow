@@ -365,11 +365,9 @@ services:
     volumes: &debian-volumes
       - .:/arrow:delegated
       - ${DOCKER_VOLUME_PREFIX}debian-ccache:/ccache:delegated
-    # integration_skyhook.sh is a no-op unless skyhook is on.
     command: &cpp-command >
       /bin/bash -c "
         /arrow/ci/scripts/cpp_build.sh /arrow /build &&
-        /arrow/ci/scripts/integration_skyhook.sh /build &&
         /arrow/ci/scripts/cpp_test.sh /arrow /build"
 
   ubuntu-cpp:
