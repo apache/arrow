@@ -21,7 +21,7 @@
 #include <functional>
 #include <optional>
 #include <vector>
-
+#include "arrow/acero/backpressure_handler.h"
 #include "arrow/acero/visibility.h"
 #include "arrow/compute/exec.h"
 #include "arrow/result.h"
@@ -141,6 +141,11 @@ class ARROW_ACERO_EXPORT SerialSequencingQueue {
     /// TODO: Could add backpressure if needed but right now all uses of this should
     ///       be pretty fast and so are unlikely to block.
     virtual Status Process(ExecBatch batch) = 0;
+
+    static std::unique_ptr<Processor> MakeBackpressureWrapper(Processor* processor,
+                                                              BackpressureHandler handler,
+                                                              ExecPlan* plan,
+                                                              bool requires_io = true);
   };
 
   virtual ~SerialSequencingQueue() = default;

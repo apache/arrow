@@ -1739,8 +1739,29 @@ function(build_thrift)
   if(CMAKE_VERSION VERSION_LESS 3.26)
     message(FATAL_ERROR "Require CMake 3.26 or later for building bundled Apache Thrift")
   endif()
+  set(THRIFT_PATCH_COMMAND)
+  if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+    find_program(PATCH patch)
+    if(PATCH)
+      list(APPEND
+           THRIFT_PATCH_COMMAND
+           ${PATCH}
+           -p1
+           -i)
+    else()
+      find_program(GIT git)
+      if(GIT)
+        list(APPEND THRIFT_PATCH_COMMAND ${GIT} apply)
+      endif()
+    endif()
+    if(THRIFT_PATCH_COMMAND)
+      # https://github.com/apache/thrift/pull/3187
+      list(APPEND THRIFT_PATCH_COMMAND ${CMAKE_CURRENT_LIST_DIR}/thrift-3187.patch)
+    endif()
+  endif()
   fetchcontent_declare(thrift
                        ${FC_DECLARE_COMMON_OPTIONS}
+                       PATCH_COMMAND ${THRIFT_PATCH_COMMAND}
                        URL ${THRIFT_SOURCE_URL}
                        URL_HASH "SHA256=${ARROW_THRIFT_BUILD_SHA256_CHECKSUM}")
 
@@ -5034,6 +5055,8 @@ endif()
 # AWS SDK for C++
 
 function(build_awssdk)
+  list(APPEND CMAKE_MESSAGE_INDENT "AWS SDK for C++: ")
+
   message(STATUS "Building AWS SDK for C++ from source")
 
   # aws-c-common must be the first product because others depend on
@@ -5067,14 +5090,8 @@ function(build_awssdk)
     # AWS-C-CAL ->
     # AWS_C_CAL
     string(REGEX REPLACE "-" "_" BASE_VARIABLE_NAME "${BASE_VARIABLE_NAME}")
-    if(MINGW AND AWSSDK_PRODUCT STREQUAL "aws-c-common")
-      find_program(PATCH patch REQUIRED)
-      set(${BASE_VARIABLE_NAME}_PATCH_COMMAND
-          ${PATCH} -p1 -i ${CMAKE_CURRENT_LIST_DIR}/aws-c-common-1208.patch)
-    endif()
     fetchcontent_declare(${AWSSDK_PRODUCT}
                          ${FC_DECLARE_COMMON_OPTIONS} OVERRIDE_FIND_PACKAGE
-                         PATCH_COMMAND ${${BASE_VARIABLE_NAME}_PATCH_COMMAND}
                          URL ${${BASE_VARIABLE_NAME}_SOURCE_URL}
                          URL_HASH "SHA256=${ARROW_${BASE_VARIABLE_NAME}_BUILD_SHA256_CHECKSUM}"
     )
@@ -5144,9 +5161,9 @@ function(build_awssdk)
 
   # For aws-sdk-cpp
   #
-  # We need to use CACHE variables because aws-sdk-cpp < 12.0.0 uses
+  # We need to use CACHE variables because aws-sdk-cpp < 1.12.0 uses
   # CMP0077 OLD policy. We can use normal variables when we use
-  # aws-sdk-cpp >= 12.0.0.
+  # aws-sdk-cpp >= 1.12.0.
   set(AWS_SDK_WARNINGS_ARE_ERRORS
       OFF
       CACHE BOOL "" FORCE)
@@ -5171,12 +5188,15 @@ function(build_awssdk)
       OFF
       CACHE BOOL "" FORCE)
   if(NOT WIN32)
-    set(ZLIB_INCLUDE_DIR
-        "$<TARGET_PROPERTY:ZLIB::ZLIB,INTERFACE_INCLUDE_DIRECTORIES>"
-        CACHE STRING "" FORCE)
-    set(ZLIB_LIBRARY
-        "$<TARGET_FILE:ZLIB::ZLIB>"
-        CACHE STRING "" FORCE)
+    if(ZLIB_VENDORED)
+      # Use vendored zlib.
+      set(ZLIB_INCLUDE_DIR
+          "$<TARGET_PROPERTY:ZLIB::ZLIB,INTERFACE_INCLUDE_DIRECTORIES>"
+          CACHE STRING "" FORCE)
+      set(ZLIB_LIBRARY
+          "$<TARGET_FILE:ZLIB::ZLIB>"
+          CACHE STRING "" FORCE)
+    endif()
   endif()
   if(MINGW AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS "9")
     # This is for RTools 40. We can remove this after we dropped
@@ -5243,9 +5263,15 @@ function(build_awssdk)
   set(AWSSDK_LINK_LIBRARIES
       ${AWSSDK_LINK_LIBRARIES}
       PARENT_SCOPE)
+
+  list(POP_BACK CMAKE_MESSAGE_INDENT)
 endfunction()
 
 if(ARROW_S3)
+  if(NOT WIN32)
+    # This is for adding system curl dependency.
+    find_curl()
+  endif()
   # Keep this in sync with s3fs.cc
   resolve_dependency(AWSSDK
                      HAVE_ALT

@@ -339,6 +339,7 @@ repos:
           ?^ci/scripts/msys2_system_upgrade\.sh$|
           ?^ci/scripts/nanoarrow_build\.sh$|
           ?^ci/scripts/python_build_emscripten\.sh$|
+          ?^ci/scripts/python_build\.sh$|
           ?^ci/scripts/python_sdist_build\.sh$|
           ?^ci/scripts/python_wheel_unix_test\.sh$|
           ?^ci/scripts/r_build\.sh$|

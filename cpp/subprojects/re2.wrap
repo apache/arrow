@@ -16,16 +16,15 @@
 # under the License.
 
 [wrap-file]
-directory = benchmark-1.8.4
-source_url = https://github.com/google/benchmark/archive/refs/tags/v1.8.4.tar.gz
-source_filename = benchmark-1.8.4.tar.gz
-source_hash = 3e7059b6b11fb1bbe28e33e02519398ca94c1818874ebed18e504dc6f709be45
-patch_filename = google-benchmark_1.8.4-3_patch.zip
-patch_url = https://wrapdb.mesonbuild.com/v2/google-benchmark_1.8.4-3/get_patch
-patch_hash = 657aee778629725cf9104bbfc32dba0c9c6825d5202e600ad81c7251ae684468
-source_fallback_url = https://github.com/mesonbuild/wrapdb/releases/download/google-benchmark_1.8.4-3/benchmark-1.8.4.tar.gz
-wrapdb_version = 1.8.4-3
+directory = re2-2023-03-01
+source_url = https://github.com/google/re2/archive/2023-03-01.tar.gz
+source_filename = re2-2023-03-01.tar.gz
+source_hash = 7a9a4824958586980926a300b4717202485c4b4115ac031822e29aa4ef207e48
+patch_filename = re2_20230301-3_patch.zip
+patch_url = https://wrapdb.mesonbuild.com/v2/re2_20230301-3/get_patch
+patch_hash = 9d5036080272a886fee0dec9ea415129ae57ee6bad4b56991b29ed355c0d97e3
+source_fallback_url = https://github.com/mesonbuild/wrapdb/releases/download/re2_20230301-3/re2-2023-03-01.tar.gz
+wrapdb_version = 20230301-3
 
 [provide]
-benchmark = google_benchmark_dep
-benchmark-main = google_benchmark_main_dep
+re2 = re2_dep
