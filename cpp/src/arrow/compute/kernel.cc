@@ -536,10 +536,10 @@ class BinaryDecimalScaleComparisonConstraint : public MatchConstraint {
 
 }  // namespace
 
-std::shared_ptr<MatchConstraint> BinaryDecimalScaleComparisonGE() {
-  using BinaryDecimalScaleComparisonGEConstraint =
+std::shared_ptr<MatchConstraint> BinaryDecimalScale1GeScale2() {
+  using BinaryDecimalScale1GeScale2Constraint =
       BinaryDecimalScaleComparisonConstraint<std::greater_equal<>>;
-  static auto instance = std::make_shared<BinaryDecimalScaleComparisonGEConstraint>();
+  static auto instance = std::make_shared<BinaryDecimalScale1GeScale2Constraint>();
   return instance;
 }
 

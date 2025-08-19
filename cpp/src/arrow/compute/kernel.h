@@ -367,7 +367,7 @@ ARROW_EXPORT std::shared_ptr<MatchConstraint> DecimalsHaveSameScale();
 
 /// \brief Constraint that all binary input types are decimal types and the first type's
 /// scale >= the second type's.
-ARROW_EXPORT std::shared_ptr<MatchConstraint> BinaryDecimalScaleComparisonGE();
+ARROW_EXPORT std::shared_ptr<MatchConstraint> BinaryDecimalScale1GeScale2();
 
 /// \brief Holds the input types, optional match constraint and output type of the kernel.
 ///

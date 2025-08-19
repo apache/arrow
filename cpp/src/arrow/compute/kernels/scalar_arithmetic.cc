@@ -670,7 +670,7 @@ void AddDecimalBinaryKernels(const std::string& name, ScalarFunction* func) {
     out_type = OutputType(ResolveDecimalMultiplicationOutput);
   } else if (op == "divide") {
     out_type = OutputType(ResolveDecimalDivisionOutput);
-    constraint = BinaryDecimalScaleComparisonGE();
+    constraint = BinaryDecimalScale1GeScale2();
   } else {
     DCHECK(false);
   }
