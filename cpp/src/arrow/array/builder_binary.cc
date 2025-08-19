@@ -165,8 +165,10 @@ void FixedSizeBinaryBuilder::Reset() {
 Status FixedSizeBinaryBuilder::Resize(int64_t capacity) {
   RETURN_NOT_OK(CheckCapacity(capacity));
   int64_t dest_capacity_bytes;
-  if (ARROW_PREDICT_FALSE(MultiplyWithOverflow(capacity, byte_width_, &dest_capacity_bytes))) {
-    return Status::Invalid("Resize: capacity too large for byte width");
+  if (ARROW_PREDICT_FALSE(
+          MultiplyWithOverflow(capacity, byte_width_, &dest_capacity_bytes))) {
+    return Status::Invalid("Resize: capacity too large for byte width (requested: ",
+                           capacity, ", byte_width: ", byte_width_, ")");
   }
   RETURN_NOT_OK(byte_builder_.Resize(dest_capacity_bytes));
   return ArrayBuilder::Resize(capacity);
