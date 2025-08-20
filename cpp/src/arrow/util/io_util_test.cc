@@ -1123,5 +1123,16 @@ TEST(Memory, TotalMemory) {
 #endif
 }
 
+TEST(CpuAffinity, NumberOfCores) {
+  auto maybe_affinity_cores = GetNumAffinityCores();
+#ifdef __linux__
+  ASSERT_OK_AND_ASSIGN(auto affinity_cores, maybe_affinity_cores);
+  ASSERT_GE(affinity_cores, 1);
+  ASSERT_LE(affinity_cores, std::thread::hardware_concurrency());
+#else
+  ASSERT_RAISES(NotImplemented, maybe_affinity_cores);
+#endif
+}
+
 }  // namespace internal
 }  // namespace arrow

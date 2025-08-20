@@ -115,6 +115,7 @@
 #elif __linux__
 #  include <sys/sysinfo.h>
 #  include <fstream>
+#  include <limits>
 #endif
 
 #ifdef _WIN32
@@ -2216,6 +2217,22 @@ int64_t GetTotalMemoryBytes() {
   return static_cast<int64_t>(info.totalram * info.mem_unit);
 #else
   return 0;
+#endif
+}
+
+Result<int32_t> GetNumAffinityCores() {
+#if defined(__linux__)
+  cpu_set_t mask;
+  if (sched_getaffinity(0, sizeof(mask), &mask) == 0) {
+    auto count = CPU_COUNT(&mask);
+    if (count > 0 &&
+        static_cast<uint64_t>(count) < std::numeric_limits<uint32_t>::max()) {
+      return static_cast<uint32_t>(count);
+    }
+  }
+  return IOErrorFromErrno(errno, "Could not read the CPU affinity.");
+#else
+  return Status::NotImplemented("Only implemented for Linux");
 #endif
 }
 
