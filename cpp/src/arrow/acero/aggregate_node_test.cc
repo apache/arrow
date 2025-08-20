@@ -14,31 +14,36 @@
 // KIND, either express or implied.  See the License for the
 // specific language governing permissions and limitations
 // under the License.
-#include "arrow/acero/exec_plan.h"
-#include "arrow/acero/options.h"
-
 #include <gmock/gmock-matchers.h>
 #include <gtest/gtest.h>
+#include "arrow/acero/exec_plan.h"
+#include "arrow/acero/options.h"
+#include "arrow/status.h"
+#include "arrow/testing/future_util.h"
+#include "arrow/testing/generator.h"
+#include "arrow/testing/gtest_util.h"
+#include "arrow/testing/matchers.h"
+#include "arrow/testing/random.h"
 
+#include <algorithm>
+#include <cstddef>
 #include <cstdint>
 #include <iostream>
 #include <memory>
+#include <utility>
 #include <vector>
 
+#include "arrow/acero/aggregate_internal.h"
 #include "arrow/acero/test_nodes.h"
 #include "arrow/acero/test_util_internal.h"
-#include "arrow/compute/api_aggregate.h"
 #include "arrow/compute/ordering.h"
 #include "arrow/compute/test_util_internal.h"
 #include "arrow/result.h"
-#include "arrow/table.h"
-#include "arrow/testing/generator.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/string.h"
-
 namespace arrow {
 
 using compute::ExecBatchFromJSON;
@@ -506,7 +511,7 @@ TEST(ScalarAggregateNode, ParallelSegmentedAggregatorKeySorted) {
 
   static constexpr random::SeedType kTestSeed = 42;
   static constexpr int kMaxJitterMod = 3;
-
+  RegisterTestNodes();
   Ordering order({compute::SortKey("key1", compute::SortOrder::Ascending),
                   compute::SortKey("key3", compute::SortOrder::Ascending)});
 
@@ -528,6 +533,187 @@ TEST(ScalarAggregateNode, ParallelSegmentedAggregatorKeySorted) {
   auto expected_batch = TestExecBatches(
       {int64(), float64()}, {R"([[0 , 500]])", R"([[1 , 250]])", R"([[2 , 150]])"});
   AssertExecBatchesEqual(out_batches.schema, expected_batch, out_batches.batches);
+}
+
+class BackpressureTestExecNode;
+
+class BackpressureTestNodeOptions : public ExecNodeOptions {
+ public:
+  explicit BackpressureTestNodeOptions(Ordering order) : order_(std::move(order)) {
+    is_paused_ = std::make_shared<bool>(false);
+  }
+  std::shared_ptr<bool> is_paused_;
+  Ordering order_;
+  static constexpr std::string_view kName = "backpressure";
+  bool is_paused() { return *is_paused_; }
+};
+
+class BackpressureTestExecNode : public ExecNode {
+ public:
+  BackpressureTestExecNode(ExecPlan* plan, NodeVector inputs,
+                           std::shared_ptr<Schema> output_schema,
+                           const BackpressureTestNodeOptions& _options)
+      : ExecNode(plan, inputs, {"something"}, output_schema),
+        is_paused_(_options.is_paused_),
+        order_(std::move(_options.order_)),
+        options(_options) {}
+
+  static Result<ExecNode*> Make(ExecPlan* plan, std::vector<ExecNode*> inputs,
+                                const ExecNodeOptions& options) {
+    const BackpressureTestNodeOptions& bb =
+        static_cast<const BackpressureTestNodeOptions&>(options);
+    auto input = inputs[0];
+    return input->plan()->EmplaceNode<BackpressureTestExecNode>(
+        plan, inputs, inputs[0]->output_schema(), bb);
+  }
+
+  const char* kind_name() const override { return "BackpressureTestNode"; }
+
+  Status InputReceived(ExecNode* input, ExecBatch batch) override {
+    ++total_batches_;
+    ARROW_RETURN_NOT_OK(output_->InputReceived(this, std::move(batch)));
+    if (total_batches_ == total_batches_received)
+      return output_->InputFinished(this, total_batches_);
+    return Status::OK();
+  }
+  Status InputFinished(ExecNode* input, int total_batches) override {
+    (void)input;
+    total_batches_received = total_batches;
+    return Status::OK();
+  }
+  Status StartProducing() override { return Status::OK(); }
+
+  Status Init() { return Status::OK(); }
+
+  const Ordering& ordering() const override { return order_; }
+
+  Status DoConsume(const ExecSpan& batch, size_t thread_index) { return Status::OK(); }
+
+  void PauseProducing(ExecNode* output, int32_t counter) override {
+    inputs_[0]->PauseProducing(this, counter);
+    *is_paused_ = true;
+  }
+
+  void ResumeProducing(ExecNode* output, int32_t counter) override {
+    inputs_[0]->ResumeProducing(this, counter);
+    *is_paused_ = false;
+  }
+
+ protected:
+  Status StopProducingImpl() override { return Status::OK(); }
+
+ public:
+  int64_t total_batches_ = 0;
+  int64_t total_batches_received = 0;
+  std::shared_ptr<bool> is_paused_;
+  Ordering order_;
+  const BackpressureTestNodeOptions& options;
+};
+
+TEST(ExecPlanExecution, SequenceQueueBackpressure) {
+  static std::once_flag registered;
+  std::call_once(registered, [] {
+    ExecFactoryRegistry* registry = default_exec_factory_registry();
+    (void)registry->AddFactory(std::string(BackpressureTestNodeOptions::kName),
+                               BackpressureTestExecNode::Make);
+  });
+
+  std::vector<ExecBatch> batches =
+      gen::Gen({{"key1", gen::Step(0, 1)}, {"value", gen::Random(int32())}})
+          ->FailOnError()
+          ->ExecBatches(5, 30);
+
+  constexpr uint32_t kPauseIfAbove = 8;
+  constexpr uint32_t kResumeIfBelow = 4;
+  uint32_t pause_if_above_bytes =
+      kPauseIfAbove * static_cast<uint32_t>(batches[0].TotalBufferSize());
+  uint32_t resume_if_below_bytes =
+      kResumeIfBelow * static_cast<uint32_t>(batches[0].TotalBufferSize());
+
+  EXPECT_OK_AND_ASSIGN(std::shared_ptr<ExecPlan> plan, ExecPlan::Make());
+  PushGenerator<std::optional<ExecBatch>> batch_producer;
+  AsyncGenerator<std::optional<ExecBatch>> sink_gen;
+  Ordering order({compute::SortKey("key1", compute::SortOrder::Ascending)});
+  BackpressureTestNodeOptions options(order);
+
+  BackpressureMonitor* backpressure_monitor;
+  BackpressureOptions backpressure_options(resume_if_below_bytes, pause_if_above_bytes);
+  std::shared_ptr<Schema> schema_ =
+      schema({field("key1", int32()), field("value", int32())});
+  ARROW_EXPECT_OK(
+      acero::Declaration::Sequence(
+          {
+              {"source", SourceNodeOptions(schema_, batch_producer)},
+              {"backpressure", options},
+              {"aggregate",
+               AggregateNodeOptions{/*aggregates=*/
+                                    {{"mean", nullptr, "value", "mean(value)"}},
+                                    {},
+                                    {FieldRef("key1")}}},
+              {"sink", SinkNodeOptions{&sink_gen,
+                                       /*schema=*/nullptr, backpressure_options,
+                                       &backpressure_monitor}},
+          })
+          .AddToPlan(plan.get()));
+  plan->StartProducing();
+
+  // set indexes to match the order
+  for (size_t i = 0; i < batches.size(); ++i) {
+    batches[i].index = i;
+  }
+  // lets reverse first indexes to fill the SequenceQueue with
+  // enough batches to trigger the Backpressure when all the required indexes will be
+  // present in the SequenceQueue to emit the batches
+  std::reverse(batches.begin(), batches.begin() + kPauseIfAbove + 1);
+
+  // lets push few first batches
+  uint32_t count = 0;
+  for (; count < kPauseIfAbove; count++) {
+    batch_producer.producer().Push(batches[count]);
+  }
+  SleepABit();
+  // at this point there isn't a idex 0 in the queue so nothing happens.
+  ASSERT_FALSE(options.is_paused());
+  // we push the batch with 0 index to be processed
+  batch_producer.producer().Push(batches[count++]);
+  SleepABit();
+  // we let the precesses run
+  BusyWait(5, [&] { return options.is_paused(); });
+  SleepABit();
+  //  at this point Node shoule trigger backpressure Pause signal.
+  ASSERT_TRUE(options.is_paused());
+
+  // we give it some time to process the batches and wait for the backPressure release
+  // signal.
+  BusyWait(5, [&] { return !options.is_paused(); });
+  SleepABit();
+  ASSERT_FALSE(options.is_paused());
+
+  // we push the rest of the batches in order
+  for (uint32_t i = count; i < batches.size(); i++) {
+    batch_producer.producer().Push(batches[i]);
+  }
+  SleepABit();
+  BusyWait(5, [&] { return options.is_paused(); });
+  SleepABit();
+  // BackPressure should also be triggered since we will push like 20+ batches which
+  // will tiger the back pressure
+  ASSERT_TRUE(options.is_paused());
+
+  ASSERT_FINISHES_OK(sink_gen());
+  BusyWait(10, [&] { return !options.is_paused(); });
+  //  the BackPressure shoule be released here
+  ASSERT_FALSE(options.is_paused());
+
+  // Cleanup
+  batch_producer.producer().Push(IterationEnd<std::optional<ExecBatch>>());
+  plan->StopProducing();
+
+  auto fut = plan->finished();
+  ASSERT_TRUE(fut.Wait(kDefaultAssertFinishesWaitSeconds));
+  if (!fut.status().ok()) {
+    ASSERT_TRUE(fut.status().IsCancelled());
+  }
 }
 
 }  // namespace acero
