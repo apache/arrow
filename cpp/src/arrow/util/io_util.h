@@ -423,7 +423,7 @@ int64_t GetTotalMemoryBytes();
 ///
 /// This is only implemented on Linux.
 /// If a value is returned, it is guaranteed to be greater or equal to one.
-ARROW_EXPORT Result<uint32_t> GetNumAffinityCores();
+ARROW_EXPORT Result<int32_t> GetNumAffinityCores();
 
 /// \brief Load a dynamic library
 ///

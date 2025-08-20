@@ -1123,14 +1123,14 @@ TEST(Memory, TotalMemory) {
 #endif
 }
 
-TEST(CpuInfoTest, CpuAffinity) {
-  auto affinity_cores = GetNumAffinityCores();
-
+TEST(CpuAffinity, NumberOfCores) {
+  auto maybe_affinity_cores = GetNumAffinityCores();
 #ifdef __linux__
-  ASSERT_TRUE(affinity_cores.ok());
-  ASSERT_LE(affinity_cores.ValueOr(1u), std::thread::hardware_concurrency());
+  ASSERT_OK_AND_ASSIGN(auto affinity_cores, maybe_affinity_cores);
+  ASSERT_GE(affinity_cores, 1);
+  ASSERT_LE(affinity_cores, std::thread::hardware_concurrency());
 #else
-  ASSERT_FALSE(affinity_cores.ok());
+  ASSERT_RAISES(NotImplemented, maybe_affinity_cores);
 #endif
 }
 

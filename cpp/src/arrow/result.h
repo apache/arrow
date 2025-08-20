@@ -377,6 +377,7 @@ class [[nodiscard]] Result : public util::EqualityComparable<Result<T>> {
     return MoveValueUnsafe();
   }
 
+  /// Return a copy of the internally stored value or alternative if an error is stored.
   T ValueOr(T alternative) const& {
     if (!ok()) {
       return alternative;
