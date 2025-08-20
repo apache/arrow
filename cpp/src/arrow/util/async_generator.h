@@ -25,6 +25,7 @@
 #include <optional>
 #include <queue>
 
+#include "arrow/acero/backpressure_handler.h"
 #include "arrow/util/async_generator_fwd.h"
 #include "arrow/util/async_util.h"
 #include "arrow/util/functional.h"
@@ -854,10 +855,106 @@ class PushGenerator {
   struct State {
     State() {}
 
-    util::Mutex mutex;
+    virtual bool Push(Result<T> result) {
+      return PushUnlocked(std::move(result), mutex.Lock());
+    }
+
+    bool PushUnlocked(Result<T> result, util::Mutex::Guard lock) {
+      if (finished) {
+        // Closed early
+        return false;
+      }
+      if (consumer_fut.has_value()) {
+        auto fut = std::move(consumer_fut.value());
+        consumer_fut.reset();
+        lock.Unlock();  // unlock before potentially invoking a callback
+        fut.MarkFinished(std::move(result));
+      } else {
+        result_q.push_back(std::move(result));
+      }
+      return true;
+    }
+
+    bool Close() {
+      auto lock = mutex.Lock();
+      if (finished) {
+        // Already closed
+        return false;
+      }
+      finished = true;
+      if (consumer_fut.has_value()) {
+        auto fut = std::move(consumer_fut.value());
+        consumer_fut.reset();
+        lock.Unlock();  // unlock before potentially invoking a callback
+        fut.MarkFinished(IterationTraits<T>::End());
+      }
+      return true;
+    }
+
+    bool is_closed() const {
+      auto lock = mutex.Lock();
+      return finished;
+    }
+
+    /// Read an item from the queue
+    virtual Future<T> Pop() {
+      auto lock = mutex.Lock();
+      return PopUnlocked();
+    }
+
+    Future<T> PopUnlocked() {
+      assert(!consumer_fut.has_value());  // Non-reentrant
+      if (!result_q.empty()) {
+        auto fut = Future<T>::MakeFinished(std::move(result_q.front()));
+        result_q.pop_front();
+        return fut;
+      }
+      if (finished) {
+        return AsyncGeneratorEnd<T>();
+      }
+      auto fut = Future<T>::Make();
+      consumer_fut = fut;
+      return fut;
+    }
+
+    mutable util::Mutex mutex;
     std::deque<Result<T>> result_q;
     std::optional<Future<T>> consumer_fut;
     bool finished = false;
+  };
+
+  struct StateWithBackpressure : public State {
+    explicit StateWithBackpressure(acero::BackpressureHandler handler)
+        : handler_(handler) {}
+
+    struct DoHandle {
+      explicit DoHandle(StateWithBackpressure& state)
+          : state_(state), start_size_(state_.result_q.size()) {}
+
+      ~DoHandle() {
+        // unsynced access is safe since DoHandle is internally only used when the
+        // lock is held
+        size_t end_size = state_.result_q.size();
+        state_.handler_.Handle(start_size_, end_size);
+      }
+
+      StateWithBackpressure& state_;
+      size_t start_size_;
+    };
+
+    bool Push(Result<T> result) override {
+      auto lock = State::mutex.Lock();
+      DoHandle(*this);
+      return PushUnlocked(std::move(result), std::move(lock));
+    }
+
+    Future<T> Pop() override {
+      auto lock = State::mutex.Lock();
+      DoHandle(*this);
+      return State::PopUnlocked();
+    }
+
+    acero::BackpressureHandler handler_;
   };
 
  public:
@@ -877,20 +974,7 @@ class PushGenerator {
         // Generator was destroyed
         return false;
       }
-      auto lock = state->mutex.Lock();
-      if (state->finished) {
-        // Closed early
-        return false;
-      }
-      if (state->consumer_fut.has_value()) {
-        auto fut = std::move(state->consumer_fut.value());
-        state->consumer_fut.reset();
-        lock.Unlock();  // unlock before potentially invoking a callback
-        fut.MarkFinished(std::move(result));
-      } else {
-        state->result_q.push_back(std::move(result));
-      }
-      return true;
+      return state->Push(std::move(result));
     }
 
     /// \brief Tell the consumer we have finished producing
@@ -907,19 +991,7 @@ class PushGenerator {
         // Generator was destroyed
         return false;
       }
-      auto lock = state->mutex.Lock();
-      if (state->finished) {
-        // Already closed
-        return false;
-      }
-      state->finished = true;
-      if (state->consumer_fut.has_value()) {
-        auto fut = std::move(state->consumer_fut.value());
-        state->consumer_fut.reset();
-        lock.Unlock();  // unlock before potentially invoking a callback
-        fut.MarkFinished(IterationTraits<T>::End());
-      }
-      return true;
+      return state->Close();
     }
 
     /// Return whether the generator was closed or destroyed.
@@ -929,8 +1001,7 @@ class PushGenerator {
         // Generator was destroyed
         return true;
       }
-      auto lock = state->mutex.Lock();
-      return state->finished;
+      return state->is_closed();
     }
 
    private:
@@ -938,23 +1009,11 @@ class PushGenerator {
   };
 
   PushGenerator() : state_(std::make_shared<State>()) {}
+  explicit PushGenerator(acero::BackpressureHandler handler)
+      : state_(std::make_shared<StateWithBackpressure>(std::move(handler))) {}
 
   /// Read an item from the queue
-  Future<T> operator()() const {
-    auto lock = state_->mutex.Lock();
-    assert(!state_->consumer_fut.has_value());  // Non-reentrant
-    if (!state_->result_q.empty()) {
-      auto fut = Future<T>::MakeFinished(std::move(state_->result_q.front()));
-      state_->result_q.pop_front();
-      return fut;
-    }
-    if (state_->finished) {
-      return AsyncGeneratorEnd<T>();
-    }
-    auto fut = Future<T>::Make();
-    state_->consumer_fut = fut;
-    return fut;
-  }
+  Future<T> operator()() const { return state_->Pop(); }
 
   /// \brief Return producer-side interface
   ///
