@@ -158,6 +158,20 @@ def get_encryption_config(plaintext_footer=True):
 def get_decryption_config():
     return ppe.DecryptionConfiguration(cache_lifetime=datetime.timedelta(minutes=2.0))
 
+def get_external_decryption_config():
+    return ppe.ExternalDecryptionConfiguration(
+        cache_lifetime=datetime.timedelta(minutes=2.0),
+        app_context = {
+            "user_id": "Picard1701",
+            "location": "Presidio"
+        },
+        connection_config = {
+            "EXTERNAL_DBPA_V1": {
+                "config_file": "path/to/config/file",
+                "config_file_decryption_key": "some_key"
+            }
+        }
+)
 
 if __name__ == "__main__":
     create_and_encrypt_parquet()

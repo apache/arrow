@@ -419,13 +419,29 @@ cdef class ExternalDecryptionConfiguration(DecryptionConfiguration):
     __slots__ = ()
 
     def __init__(self, *, cache_lifetime=None, app_context=None, connection_config=None):
-        super().__init__(cache_lifetime=cache_lifetime)
+        # Initialize the pointer first so the get/set forwards work.
+        # Super init will run the setters/getters below so we need the pointer to exist.
         self.external_configuration.reset(new CExternalDecryptionConfiguration())
+        super().__init__(cache_lifetime=cache_lifetime)
+
+        self.external_configuration.get().cache_lifetime_seconds = \
+            self.configuration.get().cache_lifetime_seconds
 
         if app_context is not None:
             self.app_context = app_context
         if connection_config is not None:
             self.connection_config = connection_config
+    
+    """ Forward all attributes get/set methods to the superclass """
+    """ The superclass already converts to/from bytes and does additional processing needed """
+    @property
+    def cache_lifetime(self):
+        return DecryptionConfiguration.cache_lifetime.__get__(self)
+    
+    @cache_lifetime.setter
+    def cache_lifetime(self, value):
+        DecryptionConfiguration.cache_lifetime.__set__(self, value)
+        self.external_configuration.get().cache_lifetime_seconds = value.total_seconds()
 
     @property
     def app_context(self):
@@ -759,6 +775,39 @@ cdef class CryptoFactory(_Weakrefable):
             c_file_decryption_properties)
         return FileDecryptionProperties.wrap(file_decryption_properties)
 
+    def external_file_decryption_properties(
+            self,
+            KmsConnectionConfig kms_connection_config,
+            ExternalDecryptionConfiguration decryption_config):
+        """Create file decryption properties.
+        Parameters
+        ----------
+        kms_connection_config : KmsConnectionConfig
+            Configuration of connection to KMS
+        decryption_config : ExternalDecryptionConfiguration
+            Configuration of the decryption, such as cache timeout and the information on how to connect the external decryption service.
+        Returns
+        -------
+        file_decryption_properties : ExternalFileDecryptionProperties
+            File decryption properties.
+        """
+        cdef:
+            CExternalDecryptionConfiguration c_decryption_config
+            CResult[shared_ptr[CExternalFileDecryptionProperties]] \
+                c_file_decryption_properties
+        if decryption_config is None:
+            c_decryption_config = CExternalDecryptionConfiguration()
+        else:
+            c_decryption_config = deref(decryption_config.unwrap_external().get())
+        with nogil:
+            c_file_decryption_properties = \
+                self.factory.get().SafeGetExternalFileDecryptionProperties(
+                    deref(kms_connection_config.unwrap().get()),
+                    c_decryption_config)
+        file_decryption_properties = GetResultValue(
+            c_file_decryption_properties)
+        return ExternalFileDecryptionProperties.wrap_external(file_decryption_properties)
+
     def remove_cache_entries_for_token(self, access_token):
         self.factory.get().RemoveCacheEntriesForToken(tobytes(access_token))
 
@@ -800,4 +849,4 @@ cdef shared_ptr[CDecryptionConfiguration] pyarrow_unwrap_decryptionconfig(object
 cdef shared_ptr[CExternalDecryptionConfiguration] pyarrow_unwrap_external_decryptionconfig(object decryptionconfig) except *:
     if isinstance(decryptionconfig, ExternalDecryptionConfiguration):
         return (<ExternalDecryptionConfiguration> decryptionconfig).unwrap_external()
-    raise TypeError("Expected DecryptionConfiguration, got %s" % type(decryptionconfig))
+    raise TypeError("Expected ExternalDecryptionConfiguration, got %s" % type(decryptionconfig))
