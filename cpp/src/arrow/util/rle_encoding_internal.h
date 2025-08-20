@@ -381,15 +381,6 @@ class RleBitPackedDecoder {
   /// Return the number of values that are remaining in the current run.
   [[nodiscard]] bool ParseAndResetDecoder();
 
-  /// Utility methods for retrieving spaced values within a single run.
-  template <typename Converter>
-  [[nodiscard]] auto GetSpacedRun(Converter& converter, typename Converter::out_type* out,
-                                  values_count_type batch_size,
-                                  values_count_type null_count,
-                                  arrow::internal::BitRunReader& validity_reader,
-                                  arrow::internal::BitRun& validity_run)
-      -> std::pair<values_count_type, values_count_type>;
-
   /// Utility methods for retrieving spaced values.
   template <typename Converter>
   [[nodiscard]] values_count_type GetSpaced(Converter converter,
@@ -847,31 +838,6 @@ auto GetSpacedBitPacked(Converter& converter, typename Converter::out_type* out,
 
 template <typename T>
 template <typename Converter>
-[[nodiscard]] auto RleBitPackedDecoder<T>::GetSpacedRun(
-    Converter& converter, typename Converter::out_type* out, values_count_type batch_size,
-    values_count_type null_count, arrow::internal::BitRunReader& validity_reader,
-    arrow::internal::BitRun& validity_run)
-    -> std::pair<values_count_type, values_count_type> {
-  if (auto* rle_decoder = std::get_if<RleDecoder<value_type>>(&decoder_)) {
-    if (rle_decoder->Remaining() > 0) {
-      return internal::GetSpacedRle(converter, out, batch_size, null_count,
-                                    validity_reader, validity_run, *rle_decoder);
-    }
-  } else {
-    auto* bit_packed_decoder = std::get_if<BitPackedDecoder<value_type>>(&decoder_);
-    ARROW_DCHECK(bit_packed_decoder);  // Only two possibilities in the variant
-    if (bit_packed_decoder->Remaining() > 0) {
-      return internal::GetSpacedBitPacked(converter, out, batch_size, null_count,
-                                          validity_reader, validity_run,
-                                          *bit_packed_decoder);
-    }
-  }
-
-  return {0, 0};
-}
-
-template <typename T>
-template <typename Converter>
 auto RleBitPackedDecoder<T>::GetSpaced(
     Converter converter, typename Converter::out_type* out, values_count_type batch_size,
     const byte* validity_bits, int64_t validity_bits_offset, values_count_type null_count)
@@ -890,9 +856,33 @@ auto RleBitPackedDecoder<T>::GetSpaced(
   arrow::internal::BitRun validity_run = validity_reader.NextRun();
 
   while (batch.TotalRead() < batch_size) {
-    auto const [run_values_read, run_null_read] =
-        GetSpacedRun(converter, out, batch.TotalRemaining(), batch.NullRemaining(),
-                     validity_reader, validity_run);
+    values_count_type run_values_read = 0;
+    values_count_type run_null_read = 0;
+
+    if (auto* rle_decoder = std::get_if<RleDecoder<value_type>>(&decoder_)) {
+      if (rle_decoder->Remaining() > 0) {
+        std::tie(run_values_read, run_null_read) = internal::GetSpacedRle(
+            converter, out, batch.TotalRemaining(), batch.NullRemaining(),
+            validity_reader, validity_run, *rle_decoder);
+      } else if (!ParseAndResetDecoder()) {
+        // We try to get the next run from the batch, it will be read in the next loop.
+        // Otherwise there may be remaining null not greedily filled.
+        break;
+      }
+
+    } else {
+      auto* bit_packed_decoder = std::get_if<BitPackedDecoder<value_type>>(&decoder_);
+      ARROW_DCHECK(bit_packed_decoder);  // Only two possibilities in the variant
+      if (bit_packed_decoder->Remaining() > 0) {
+        std::tie(run_values_read, run_null_read) = internal::GetSpacedBitPacked(
+            converter, out, batch.TotalRemaining(), batch.NullRemaining(),
+            validity_reader, validity_run, *bit_packed_decoder);
+      } else if (!ParseAndResetDecoder()) {
+        // We try to get the next run from the batch, it will be read in the next loop.
+        // Otherwise there may be remaining null not greedily filled.
+        break;
+      }
+    }
 
     batch.AccrueReadNulls(run_null_read);
     batch.AccrueReadValues(run_values_read);
@@ -910,16 +900,6 @@ auto RleBitPackedDecoder<T>::GetSpaced(
       batch.AccrueReadNulls(batch.NullRemaining());
 
       break;
-    }
-
-    // Get the next run from the batch, it will be read in the next loop iteration.
-    // There could be no values read if it is only null remaining in the batch.
-    if (RunRemaining() == 0) {
-      auto success = ParseAndResetDecoder();
-      if (!success) {
-        // If there are no more run this is the end
-        break;
-      }
     }
   }
 
@@ -1054,23 +1034,37 @@ auto RleBitPackedDecoder<T>::GetBatchWithDict(const V* dictionary,
   };
 
   while (values_read < batch_size) {
-    auto const [run_values_read, run_null_read] =
-        GetSpacedRun(converter, out, batch_values_remaining(), /* null_count= */ 0,
-                     validity_reader, validity_run);
+    values_count_type run_values_read = 0;
+    values_count_type run_null_read = 0;
 
-    ARROW_DCHECK_EQ(run_null_read, 0);
+    if (auto* rle_decoder = std::get_if<RleDecoder<value_type>>(&decoder_)) {
+      if (rle_decoder->Remaining() > 0) {
+        std::tie(run_values_read, run_null_read) = internal::GetSpacedRle(
+            converter, out, batch_values_remaining(), /* null_count= */ 0,
+            validity_reader, validity_run, *rle_decoder);
+      } else if (!ParseAndResetDecoder()) {
+        // We try to get the next run from the batch, it will be read in the next loop.
+        // Otherwise there may be remaining null not greedily filled.
+        break;
+      }
 
-    values_read += run_values_read;
-    out += run_values_read;
-
-    // Get the next run from the batch, it will be read in the next loop iteration
-    if (ARROW_PREDICT_TRUE(RunRemaining() == 0)) {
-      auto success = ParseAndResetDecoder();
-      if (ARROW_PREDICT_FALSE(!success)) {
-        // If there are no more run this is the end
+    } else {
+      auto* bit_packed_decoder = std::get_if<BitPackedDecoder<value_type>>(&decoder_);
+      ARROW_DCHECK(bit_packed_decoder);  // Only two possibilities in the variant
+      if (bit_packed_decoder->Remaining() > 0) {
+        std::tie(run_values_read, run_null_read) = internal::GetSpacedBitPacked(
+            converter, out, batch_values_remaining(), /* null_count= */ 0,
+            validity_reader, validity_run, *bit_packed_decoder);
+      } else if (!ParseAndResetDecoder()) {
+        // We try to get the next run from the batch, it will be read in the next loop.
+        // Otherwise there may be remaining null not greedily filled.
         break;
       }
     }
+
+    ARROW_DCHECK_EQ(run_null_read, 0);
+    values_read += run_values_read;
+    out += run_values_read;
   }
 
   return values_read;
