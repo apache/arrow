@@ -795,7 +795,8 @@ Result<Datum> ExecuteScalarExpression(const Expression& expr, const ExecBatch& i
   RETURN_NOT_OK(executor->Init(&kernel_context, {kernel, types, options}));
 
   compute::detail::DatumAccumulator listener;
-  RETURN_NOT_OK(executor->Execute(ExecBatch(arguments, input_length), &listener));
+  RETURN_NOT_OK(executor->Execute(
+      ExecBatch(arguments, input_length, input.selection_vector), &listener));
   const auto out = executor->WrapResults(arguments, listener.values());
 #ifndef NDEBUG
   DCHECK_OK(executor->CheckResultType(out, call->function_name.c_str()));

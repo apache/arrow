@@ -411,6 +411,14 @@ Status Function::Validate() const {
 
 Status ScalarFunction::AddKernel(std::vector<InputType> in_types, OutputType out_type,
                                  ArrayKernelExec exec, KernelInit init) {
+  return AddKernel(std::move(in_types), std::move(out_type), std::move(exec),
+                   /*selective_exec=*/nullptr, std::move(init));
+}
+
+Status ScalarFunction::AddKernel(std::vector<InputType> in_types, OutputType out_type,
+                                 ArrayKernelExec exec,
+                                 ArrayKernelSelectiveExec selective_exec,
+                                 KernelInit init) {
   RETURN_NOT_OK(CheckArity(in_types.size()));
 
   if (arity_.is_varargs && in_types.size() != 1) {
@@ -418,7 +426,7 @@ Status ScalarFunction::AddKernel(std::vector<InputType> in_types, OutputType out
   }
   auto sig =
       KernelSignature::Make(std::move(in_types), std::move(out_type), arity_.is_varargs);
-  kernels_.emplace_back(std::move(sig), exec, init);
+  kernels_.emplace_back(std::move(sig), exec, selective_exec, init);
   return Status::OK();
 }
 

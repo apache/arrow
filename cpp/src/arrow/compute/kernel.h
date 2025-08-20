@@ -536,6 +536,9 @@ struct ARROW_EXPORT Kernel {
 /// employed this may not be possible.
 using ArrayKernelExec = Status (*)(KernelContext*, const ExecSpan&, ExecResult*);
 
+using ArrayKernelSelectiveExec = Status (*)(KernelContext*, const ExecSpan&,
+                                            const SelectionVectorSpan&, ExecResult*);
+
 /// \brief Kernel data structure for implementations of ScalarFunction. In
 /// addition to the members found in Kernel, contains the null handling
 /// and memory pre-allocation preferences.
@@ -543,18 +546,33 @@ struct ARROW_EXPORT ScalarKernel : public Kernel {
   ScalarKernel() = default;
 
   ScalarKernel(std::shared_ptr<KernelSignature> sig, ArrayKernelExec exec,
+               ArrayKernelSelectiveExec selective_exec, KernelInit init = NULLPTR)
+      : Kernel(std::move(sig), std::move(init)),
+        exec(std::move(exec)),
+        selective_exec(std::move(selective_exec)) {}
+
+  ScalarKernel(std::vector<InputType> in_types, OutputType out_type, ArrayKernelExec exec,
+               ArrayKernelSelectiveExec selective_exec, KernelInit init = NULLPTR)
+      : Kernel(std::move(in_types), std::move(out_type), std::move(init)),
+        exec(std::move(exec)),
+        selective_exec(std::move(selective_exec)) {}
+
+  ScalarKernel(std::shared_ptr<KernelSignature> sig, ArrayKernelExec exec,
                KernelInit init = NULLPTR)
-      : Kernel(std::move(sig), init), exec(exec) {}
+      : ScalarKernel(std::move(sig), std::move(exec), NULLPTR, std::move(init)) {}
 
   ScalarKernel(std::vector<InputType> in_types, OutputType out_type, ArrayKernelExec exec,
                KernelInit init = NULLPTR)
-      : Kernel(std::move(in_types), std::move(out_type), std::move(init)), exec(exec) {}
+      : ScalarKernel(std::move(in_types), std::move(out_type), std::move(exec), NULLPTR,
+                     std::move(init)) {}
 
   /// \brief Perform a single invocation of this kernel. Depending on the
   /// implementation, it may only write into preallocated memory, while in some
   /// cases it will allocate its own memory. Any required state is managed
   /// through the KernelContext.
   ArrayKernelExec exec;
+
+  ArrayKernelSelectiveExec selective_exec;
 
   /// \brief Writing execution results into larger contiguous allocations
   /// requires that the kernel be able to write into sliced output ArrayData*,
