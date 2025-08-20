@@ -68,18 +68,23 @@ std::vector<NativeFunction> GetArithmeticFunctionRegistry() {
       UNARY_SAFE_NULL_IF_NULL(castBIGINT, {}, decimal128, int64),
 
       // cast to float32
-      UNARY_CAST_TO_FLOAT32(int32), UNARY_CAST_TO_FLOAT32(int64),
+      UNARY_CAST_TO_FLOAT32(int32),
+      UNARY_CAST_TO_FLOAT32(int64),
       UNARY_CAST_TO_FLOAT32(float64),
 
       // cast to int32
-      UNARY_CAST_TO_INT32(float32), UNARY_CAST_TO_INT32(float64),
+      UNARY_CAST_TO_INT32(float32),
+      UNARY_CAST_TO_INT32(float64),
 
       // cast to int64
-      UNARY_CAST_TO_INT64(float32), UNARY_CAST_TO_INT64(float64),
+      UNARY_CAST_TO_INT64(float32),
+      UNARY_CAST_TO_INT64(float64),
 
       // cast to float64
-      UNARY_CAST_TO_FLOAT64(int32), UNARY_CAST_TO_FLOAT64(int64),
-      UNARY_CAST_TO_FLOAT64(float32), UNARY_CAST_TO_FLOAT64(decimal128),
+      UNARY_CAST_TO_FLOAT64(int32),
+      UNARY_CAST_TO_FLOAT64(int64),
+      UNARY_CAST_TO_FLOAT64(float32),
+      UNARY_CAST_TO_FLOAT64(decimal128),
 
       // cast to decimal
       UNARY_SAFE_NULL_IF_NULL(castDECIMAL, {"decimal"}, int32, decimal128),
@@ -98,7 +103,8 @@ std::vector<NativeFunction> GetArithmeticFunctionRegistry() {
       UNARY_SAFE_NULL_IF_NULL(castDATE, {}, date32, date64),
 
       // add/sub/multiply/divide/mod
-      BINARY_SYMMETRIC_FN(add, {}), BINARY_SYMMETRIC_FN(subtract, {}),
+      BINARY_SYMMETRIC_FN(add, {}),
+      BINARY_SYMMETRIC_FN(subtract, {}),
       BINARY_SYMMETRIC_FN(multiply, {}),
       NUMERIC_TYPES(BINARY_SYMMETRIC_UNSAFE_NULL_IF_NULL, divide, {}),
       BINARY_GENERIC_SAFE_NULL_IF_NULL(mod, {"modulo"}, int64, int32, int32),
@@ -226,7 +232,10 @@ std::vector<NativeFunction> GetArithmeticFunctionRegistry() {
 
       // binary representation of integer values
       UNARY_UNSAFE_NULL_IF_NULL(bin, {}, int32, utf8),
-      UNARY_UNSAFE_NULL_IF_NULL(bin, {}, int64, utf8)};
+      UNARY_UNSAFE_NULL_IF_NULL(bin, {}, int64, utf8),
+      NativeFunction("equal", {}, DataTypeVector{time64(), time64()}, boolean(),
+                     kResultNullIfNull, "equal_int64_int64"),
+  };
 
   return arithmetic_fn_registry_;
 }
