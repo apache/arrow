@@ -41,7 +41,7 @@ try:
 except ImportError:
     # Package is not installed, parse git tag at runtime
     try:
-        import setuptools_scm
+        import setuptools_scm  # type: ignore[import-untyped]
         # Code duplicated from setup.py to avoid a dependency on each other
 
         def parse_git(root, **kwargs):
@@ -49,16 +49,16 @@ except ImportError:
             Parse function for setuptools_scm that ignores tags for non-C++
             subprojects, e.g. apache-arrow-js-XXX tags.
             """
-            from setuptools_scm.git import parse
+            from setuptools_scm.git import parse  # type: ignore[import-untyped]
             kwargs['describe_command'] = \
                 "git describe --dirty --tags --long --match 'apache-arrow-[0-9]*.*'"
             return parse(root, **kwargs)
         __version__ = setuptools_scm.get_version('../',
                                                  parse=parse_git)
     except ImportError:
-        __version__ = None
+        __version__ = ""
 
-import pyarrow.lib as _lib
+import pyarrow.lib as _lib  # type: ignore[import-not-found]
 from pyarrow.lib import (BuildInfo, CppBuildInfo, RuntimeInfo, set_timezone_db_path,
                          MonthDayNano, VersionInfo, build_info, cpp_build_info,
                          cpp_version, cpp_version_info, runtime_info,

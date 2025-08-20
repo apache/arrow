@@ -346,7 +346,7 @@ def buffers_to_array(
     buffers: ColumnBuffers,
     data_type: Tuple[DtypeKind, int, str, str],
     length: int,
-    describe_null: ColumnNullType,
+    describe_null: tuple[ColumnNullType, int],
     offset: int = 0,
     allow_copy: bool = True,
 ) -> pa.Array:
@@ -383,14 +383,12 @@ def buffers_to_array(
     the returned PyArrow array is being used.
     """
     data_buff, _ = buffers["data"]
-    try:
-        validity_buff, validity_dtype = buffers["validity"]
-    except TypeError:
-        validity_buff = None
-    try:
-        offset_buff, offset_dtype = buffers["offsets"]
-    except TypeError:
-        offset_buff = None
+    validity_buff, validity_dtype = (
+        buffers["validity"] if buffers["validity"] else (None, None)
+    )
+    offset_buff, offset_dtype = (
+        buffers["offsets"] if buffers["offsets"] else (None, None)
+    )
 
     # Construct a pyarrow Buffer
     data_pa_buffer = pa.foreign_buffer(data_buff.ptr, data_buff.bufsize,
@@ -398,6 +396,7 @@ def buffers_to_array(
 
     # Construct a validity pyarrow Buffer, if applicable
     if validity_buff:
+        assert validity_dtype is not None
         validity_pa_buff = validity_buffer_from_mask(validity_buff,
                                                      validity_dtype,
                                                      describe_null,
@@ -416,6 +415,7 @@ def buffers_to_array(
     data_dtype = map_date_type(data_type)
 
     if offset_buff:
+        assert offset_dtype is not None
         _, offset_bit_width, _, _ = offset_dtype
         # If an offset buffer exists, construct an offset pyarrow Buffer
         # and add it to the construction of an array
@@ -450,7 +450,7 @@ def buffers_to_array(
 def validity_buffer_from_mask(
     validity_buff: BufferObject,
     validity_dtype: Dtype,
-    describe_null: ColumnNullType,
+    describe_null: tuple[ColumnNullType, int],
     length: int,
     offset: int = 0,
     allow_copy: bool = True,
@@ -513,7 +513,7 @@ def validity_buffer_from_mask(
                                               offset=offset)
 
         if sentinel_val == 1:
-            mask_bool = pc.invert(mask_bool)
+            mask_bool = pc.invert(mask_bool)  # type: ignore # (missing stubs)
 
         return mask_bool.buffers()[1]
 
@@ -529,7 +529,7 @@ def validity_buffer_from_mask(
 def validity_buffer_nan_sentinel(
     data_pa_buffer: BufferObject,
     data_type: Dtype,
-    describe_null: ColumnNullType,
+    describe_null: tuple[ColumnNullType, int],
     length: int,
     offset: int = 0,
     allow_copy: bool = True,
@@ -583,8 +583,8 @@ def validity_buffer_nan_sentinel(
                 [None, data_pa_buffer],
                 offset=offset,
             )
-            mask = pc.is_nan(pyarrow_data)
-            mask = pc.invert(mask)
+            mask = pc.is_nan(pyarrow_data)  # type: ignore # (missing stubs)
+            mask = pc.invert(mask)  # type: ignore # (missing stubs)
             return mask.buffers()[1]
 
     # Check for sentinel values
@@ -603,8 +603,9 @@ def validity_buffer_nan_sentinel(
                                              length,
                                              [None, data_pa_buffer],
                                              offset=offset)
-        sentinel_arr = pc.equal(pyarrow_data, sentinel_val)
-        mask_bool = pc.invert(sentinel_arr)
+        # typing ignores due to missing stubs
+        sentinel_arr = pc.equal(pyarrow_data, sentinel_val)  # type: ignore
+        mask_bool = pc.invert(sentinel_arr)  # type: ignore
         return mask_bool.buffers()[1]
 
     elif null_kind == ColumnNullType.NON_NULLABLE:

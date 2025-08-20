@@ -314,13 +314,20 @@ class _PyArrowColumn:
             kind = DtypeKind.CATEGORICAL
             arr = self._col
             indices_dtype = arr.indices.type
-            _, f_string = _PYARROW_KINDS.get(indices_dtype)
+            indices_dtype_tuple = _PYARROW_KINDS.get(indices_dtype)
+            if indices_dtype_tuple is None:
+                raise ValueError(
+                    f"Data type {indices_dtype} not supported by interchange protocol"
+                )
+            _, f_string = indices_dtype_tuple
             return kind, bit_width, f_string, Endianness.NATIVE
         else:
-            kind, f_string = _PYARROW_KINDS.get(dtype, (None, None))
-            if kind is None:
+            optional_kind, f_string = _PYARROW_KINDS.get(dtype, (None, ""))
+            if optional_kind is None:
                 raise ValueError(
-                    f"Data type {dtype} not supported by interchange protocol")
+                    f"Data type {dtype} not supported by interchange protocol"
+                )
+            kind = optional_kind
 
             return kind, bit_width, f_string, Endianness.NATIVE
 
@@ -379,7 +386,7 @@ class _PyArrowColumn:
             return ColumnNullType.USE_BITMASK, 0
 
     @property
-    def null_count(self) -> int:
+    def null_count(self) -> int | None:
         """
         Number of null elements, if known.
 
@@ -394,7 +401,7 @@ class _PyArrowColumn:
         """
         The metadata for the column. See `DataFrame.metadata` for more details.
         """
-        pass
+        return {}
 
     def num_chunks(self) -> int:
         """
@@ -486,6 +493,11 @@ class _PyArrowColumn:
             return _PyArrowBuffer(array.buffers()[1]), dtype
         elif n == 3:
             return _PyArrowBuffer(array.buffers()[2]), dtype
+        else:
+            raise ValueError(
+                "Column data buffer must have 2 or 3 buffers, "
+                f"but has {n} buffers: {array.buffers()}"
+            )
 
     def _get_validity_buffer(self) -> Tuple[_PyArrowBuffer, Any]:
         """
@@ -527,3 +539,8 @@ class _PyArrowColumn:
             else:
                 dtype = (DtypeKind.INT, 32, "i", Endianness.NATIVE)
             return _PyArrowBuffer(array.buffers()[1]), dtype
+        else:
+            raise ValueError(
+                "Column offsets buffer must have 2 or 3 buffers, "
+                f"but has {n} buffers: {array.buffers()}"
+            )

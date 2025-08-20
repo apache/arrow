@@ -21,7 +21,7 @@ FileSystem abstraction to interact with various local and remote filesystems.
 
 from pyarrow.util import _is_path_like, _stringify_path
 
-from pyarrow._fs import (  # noqa
+from pyarrow._fs import (  # type: ignore[import-not-found] # noqa
     FileSelector,
     FileType,
     FileInfo,
@@ -40,22 +40,22 @@ FileStats = FileInfo
 
 _not_imported = []
 try:
-    from pyarrow._azurefs import AzureFileSystem  # noqa
+    from pyarrow._azurefs import AzureFileSystem  # type: ignore[import-not-found] # noqa
 except ImportError:
     _not_imported.append("AzureFileSystem")
 
 try:
-    from pyarrow._hdfs import HadoopFileSystem  # noqa
+    from pyarrow._hdfs import HadoopFileSystem  # type: ignore[import-not-found] # noqa
 except ImportError:
     _not_imported.append("HadoopFileSystem")
 
 try:
-    from pyarrow._gcsfs import GcsFileSystem  # noqa
+    from pyarrow._gcsfs import GcsFileSystem  # type: ignore[import-not-found] # noqa
 except ImportError:
     _not_imported.append("GcsFileSystem")
 
 try:
-    from pyarrow._s3fs import (  # noqa
+    from pyarrow._s3fs import (  # type: ignore[import-not-found] # noqa
         AwsDefaultS3RetryStrategy, AwsStandardS3RetryStrategy,
         S3FileSystem, S3LogLevel, S3RetryStrategy, ensure_s3_initialized,
         finalize_s3, ensure_s3_finalized, initialize_s3, resolve_s3_region)
@@ -111,7 +111,7 @@ def _ensure_filesystem(filesystem, *, use_mmap=False):
     else:
         # handle fsspec-compatible filesystems
         try:
-            import fsspec
+            import fsspec  # type: ignore[import-untyped]
         except ImportError:
             pass
         else:

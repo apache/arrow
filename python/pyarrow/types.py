@@ -20,7 +20,7 @@
 
 from enum import IntEnum
 
-from pyarrow.lib import (is_boolean_value,  # noqa
+from pyarrow.lib import (is_boolean_value,  # type: ignore[import-not-found] # noqa
                          is_integer_value,
                          is_float_value)
 

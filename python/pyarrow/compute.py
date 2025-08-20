@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-from pyarrow._compute import (  # noqa
+from pyarrow._compute import (  # type: ignore[import-not-found] # noqa
     Function,
     FunctionOptions,
     FunctionRegistry,
@@ -251,7 +251,7 @@ def _make_generic_wrapper(func_name, func, options_class, arity):
                 return Expression._call(func_name, list(args))
             return func.call(args, None, memory_pool)
     else:
-        def wrapper(*args, memory_pool=None, options=None, **kwargs):
+        def wrapper(*args, memory_pool=None, options=None, **kwargs):  # type: ignore
             if arity is not Ellipsis:
                 if len(args) < arity:
                     raise TypeError(
