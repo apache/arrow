@@ -26,6 +26,7 @@
 #include <thread>
 #include <vector>
 
+#include "arrow/util/affinity.h"
 #include "arrow/util/atfork_internal.h"
 #include "arrow/util/config.h"
 #include "arrow/util/io_util.h"
@@ -735,7 +736,7 @@ int ThreadPool::DefaultCapacity() {
   int capacity, limit;
   capacity = ParseOMPEnvVar("OMP_NUM_THREADS");
   if (capacity == 0) {
-    capacity = std::thread::hardware_concurrency();
+    capacity = GetAffinityCpuCount();
   }
   limit = ParseOMPEnvVar("OMP_THREAD_LIMIT");
   if (limit > 0) {
