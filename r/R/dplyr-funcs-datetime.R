@@ -872,16 +872,18 @@ register_bindings_hms <- function() {
       }
 
       if (call_binding("is.character", x)) {
-        dash <- call_binding("gsub", ":", "-", x)
-        as_date_time_string <- call_binding("str_c", "1970-01-01", dash, sep = "-")
-        as_date_time <- Expression$create(
+        # Parse time strings using strptime with a time format
+        # Since strptime expects full datetime strings, we need to prefix with a dummy date
+        # Note: Arrow's strptime doesn't support subsecond precision for time parsing
+        prefixed_string <- call_binding("str_c", "1970-01-01 ", x)
+        parsed_datetime <- Expression$create(
           "strptime",
-          as_date_time_string,
-          options = list(format = "%Y-%m-%d-%H-%M-%S", unit = 0L)
+          prefixed_string,
+          options = list(format = "%Y-%m-%d %H:%M:%S", unit = 3L)
         )
-        return(datetime_to_time32(as_date_time))
+        return(datetime_to_time32(parsed_datetime))
       }
     },
-    notes = "subsecond times not supported"
+    notes = "subsecond precision not supported for character input"
   )
 }

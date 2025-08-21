@@ -3769,6 +3769,7 @@ test_that("hms::hms", {
 test_that("hms::as_hms", {
   test_df <- tibble(
     hms_string = c("0:7:45", "12:34:56"),
+    hms_subsec_string = c("0:7:45.1234", "12:34:56.12345"),
     int = c(30L, 75L),
     integerish_dbl = c(31, 76),
     dbl = c(31.2, 76.4),
@@ -3788,9 +3789,16 @@ test_that("hms::as_hms", {
     test_df
   )
 
+  # can only do millisecond precision
   expect_error(
     arrow_table(test_df) %>% mutate(y = hms::as_hms(nanosecs)) %>% collect(),
     "was truncated converting to int32"
+  )
+
+  # no subsecond precision with character strings
+  expect_error(
+    arrow_table(test_df) %>% mutate(y = hms::as_hms(hms_subsec_string)) %>% collect(),
+    "Failed to parse string"
   )
 
   skip_if_not_available("utf8proc")
