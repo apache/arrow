@@ -297,6 +297,9 @@ TEST(BackpressureConcurrentQueue, BackpressureTest) {
   queue.Push(11);
   ASSERT_TRUE(dummy_node.paused);
   ASSERT_FALSE(dummy_node.stopped);
+  queue.ForceShutdown();
+  ASSERT_FALSE(dummy_node.paused);
+  ASSERT_TRUE(dummy_node.stopped);
 }
 
 }  // namespace acero
