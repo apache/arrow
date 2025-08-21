@@ -683,7 +683,7 @@ class SortedMergeNode : public ExecNode {
   std::atomic<bool> cleanup_started{false};
 
   // Backpressure counter common to all input states
-  std::atomic<int32_t> backpressure_counter;
+  std::atomic<int32_t> backpressure_counter{0};
 
   std::atomic<int32_t> batches_produced{0};
 
