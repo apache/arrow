@@ -706,10 +706,6 @@ if(ARROW_GANDIVA)
   add_subdirectory(src/gandiva)
 endif()
 
-if(ARROW_SKYHOOK)
-  add_subdirectory(src/skyhook)
-endif()
-
 if(ARROW_BUILD_EXAMPLES)
   add_custom_target(runexample ctest -L example)
   add_subdirectory(examples/arrow)

@@ -16,7 +16,7 @@
 # under the License.
 
 ARG arch=amd64
-FROM ${arch}/alpine:3.18
+FROM ${arch}/alpine:3.22
 
 RUN apk add \
         apache-orc-dev \
@@ -40,8 +40,9 @@ RUN apk add \
         grpc-dev \
         gtest-dev \
         libxml2-dev \
-        llvm16-dev \
-        llvm16-static \
+        llvm-dev \
+        llvm-gtest \
+        llvm-static \
         lz4-dev \
         make \
         musl-locales \

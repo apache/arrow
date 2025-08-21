@@ -51,7 +51,7 @@ git checkout "${DEFAULT_BRANCH}"
 git clean -d -f -x
 git branch -D asf-site || :
 git checkout -b asf-site origin/asf-site
-git rebase apache/asf-site
+git rebase upstream/asf-site
 git branch -D "${branch_name}" || :
 git checkout -b "${branch_name}"
 # list and remove previous versioned docs

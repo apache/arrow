@@ -15,4 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-arrow_install_all_headers("skyhook/client")
+project('rapidjson', 'cpp')
+
+rapidjson_dep = declare_dependency(include_directories: 'include')
