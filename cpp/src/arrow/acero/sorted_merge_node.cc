@@ -452,6 +452,7 @@ class SortedMergeNode : public ExecNode {
 
   // handled by the backpressure controller
   void PauseProducing(ExecNode* output, int32_t counter) override {
+#ifdef ARROW_ENABLE_THREADING
     std::lock_guard<std::mutex> lg(backpressure_mutex_);
     if (counter <= last_backpressure_counter_) {
       return;
@@ -462,9 +463,11 @@ class SortedMergeNode : public ExecNode {
       return;
     }
     backpressure_future_ = Future<>::Make();
+#endif
   }
 
   void ResumeProducing(ExecNode* output, int32_t counter) override {
+#ifdef ARROW_ENABLE_THREADING
     Future<> to_finish;
     {
       std::lock_guard<std::mutex> lg(backpressure_mutex_);
@@ -479,6 +482,7 @@ class SortedMergeNode : public ExecNode {
       backpressure_future_ = Future<>::MakeFinished();
     }
     to_finish.MarkFinished();
+#endif
   }
 
  protected:
