@@ -21,6 +21,21 @@
 #include <mutex>
 namespace arrow::acero {
 
+// Generic backpressure controller for ExecNode
+class BackpressureController : public BackpressureControl {
+ public:
+  BackpressureController(ExecNode* node, ExecNode* output,
+                         std::atomic<int32_t>& backpressure_counter);
+
+  void Pause() override;
+  void Resume() override;
+
+ private:
+  ExecNode* node_;
+  ExecNode* output_;
+  std::atomic<int32_t>& backpressure_counter_;
+};
+
 // Provides infrastructure of combining multiple backpressure sources and propagate the
 // result into BackpressureControl There are two types of Source: strong - pause on any
 // strong Source within controller

@@ -16,7 +16,19 @@
 // under the License.
 
 #include "arrow/acero/backpressure.h"
+#include "arrow/acero/exec_plan.h"
+
 namespace arrow::acero {
+BackpressureController::BackpressureController(ExecNode* node, ExecNode* output,
+                                               std::atomic<int32_t>& backpressure_counter)
+    : node_(node), output_(output), backpressure_counter_(backpressure_counter) {}
+void BackpressureController::Pause() {
+  node_->PauseProducing(output_, ++backpressure_counter_);
+}
+void BackpressureController::Resume() {
+  node_->ResumeProducing(output_, ++backpressure_counter_);
+}
+
 BackpressureCombiner::BackpressureCombiner(
     std::unique_ptr<BackpressureControl> backpressure_control)
     : backpressure_control_(std::move(backpressure_control)) {}
