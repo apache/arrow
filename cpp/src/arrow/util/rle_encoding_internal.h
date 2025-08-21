@@ -677,11 +677,12 @@ template <typename T>
 constexpr auto max_size_for_v =
     static_cast<std::make_unsigned_t<T>>(std::numeric_limits<T>::max());
 
-template <typename Converter, typename values_count_type, typename value_type>
+template <typename Converter, typename BitRunReader, typename BitRun,
+          typename values_count_type, typename value_type>
 auto GetSpacedRle(Converter& converter, typename Converter::out_type* out,
                   values_count_type batch_size, values_count_type null_count,
-                  arrow::internal::BitRunReader& validity_reader,
-                  arrow::internal::BitRun& validity_run, RleDecoder<value_type>& decoder)
+                  BitRunReader&& validity_reader, BitRun&& validity_run,
+                  RleDecoder<value_type>& decoder)
     -> std::pair<values_count_type, values_count_type> {
   ARROW_DCHECK_GT(batch_size, 0);
   // The equality case is handled in the main loop in GetSpaced
@@ -748,11 +749,11 @@ static_assert(min(5) == 5);
 static_assert(min(5, 4, -1) == -1);
 static_assert(min(5, 41) == 5);
 
-template <typename Converter, typename values_count_type, typename value_type>
+template <typename Converter, typename BitRunReader, typename BitRun,
+          typename values_count_type, typename value_type>
 auto GetSpacedBitPacked(Converter& converter, typename Converter::out_type* out,
                         values_count_type batch_size, values_count_type null_count,
-                        arrow::internal::BitRunReader& validity_reader,
-                        arrow::internal::BitRun& validity_run,
+                        BitRunReader&& validity_reader, BitRun&& validity_run,
                         BitPackedDecoder<value_type>& decoder)
     -> std::pair<values_count_type, values_count_type> {
   ARROW_DCHECK_GT(batch_size, 0);
@@ -1007,6 +1008,17 @@ struct DictionaryConverter {
   }
 };
 
+/// Dummy imitation of BitRun that is all set.
+struct AllSetBitRun {
+  static constexpr bool set = true;
+  int64_t length = 0;
+};
+
+/// Dummy imitation of BitRunReader that should never be called.
+struct UnreachableBitRunReader {
+  constexpr static AllSetBitRun NextRun() { return {}; }
+};
+
 }  // namespace internal
 
 template <typename T>
@@ -1021,11 +1033,9 @@ auto RleBitPackedDecoder<T>::GetBatchWithDict(const V* dictionary,
 
   internal::DictionaryConverter<V, value_type> converter{dictionary, dictionary_length};
 
-  // BitRun is a lightweight class, we set it to a full run without nulls.
-  // In this way, the BitRunReader will never be called, and this code should not suffer
-  // from calling a method intended for spaced output.
-  arrow::internal::BitRunReader validity_reader{};  // Dummy, must not be used
-  arrow::internal::BitRun validity_run = {batch_size, /* set=*/true};
+  // Make lightweight BitRun class to reuse previous methods.
+  constexpr internal::UnreachableBitRunReader validity_reader{};
+  internal::AllSetBitRun validity_run = {batch_size};
 
   values_count_type values_read = 0;
   auto batch_values_remaining = [&]() {
