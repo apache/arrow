@@ -1972,7 +1972,7 @@ class MonitorBackpressureControl : public acero::BackpressureControl {
 };
 
 TEST(TestAsyncUtil, PushGeneratorBackpressure) {
-  std::atomic<bool> paused;
+  std::atomic<bool> paused{false};
   ASSERT_OK_AND_ASSIGN(auto handler,
                        acero::BackpressureHandler::Make(
                            4, 8, std::make_unique<MonitorBackpressureControl>(paused)));
