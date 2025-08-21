@@ -20,49 +20,55 @@
 #pragma once
 
 #include <forward_list>
+#include <memory>
 #include <mutex>
 #include <sstream>
 #include <thread>
 #include <unordered_map>
 #include <unordered_set>
+#include <utility>
 
+#include "arrow/acero/accumulation_queue.h"
 #include "arrow/acero/aggregate_node.h"
+#include "arrow/acero/backpressure_handler.h"
 #include "arrow/acero/exec_plan.h"
 #include "arrow/acero/options.h"
 #include "arrow/acero/query_context.h"
 #include "arrow/acero/util.h"
 #include "arrow/compute/exec.h"
 #include "arrow/compute/exec_internal.h"
+#include "arrow/compute/ordering.h"
 #include "arrow/compute/registry.h"
 #include "arrow/compute/row/grouper.h"
 #include "arrow/datum.h"
 #include "arrow/result.h"
+#include "arrow/type_fwd.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/thread_pool.h"
 #include "arrow/util/tracing_internal.h"
 
 // This file implements both regular and segmented group-by aggregation, which is a
-// generalization of ordered aggregation in which the key columns are not required to be
-// ordered.
+// generalization of ordered aggregation in which the key columns are not required to
+// be ordered.
 //
-// In (regular) group-by aggregation, the input rows are partitioned into groups using a
-// set of columns called keys, where in a given group each row has the same values for
-// these columns. In segmented group-by aggregation, a second set of columns called
-// segment-keys is used to refine the partitioning. However, segment-keys are different in
-// that they partition only consecutive rows into a single group. Such a partition of
-// consecutive rows is called a segment group. For example, consider a column X with
-// values [A, A, B, A] at row-indices [0, 1, 2, 3]. A regular group-by aggregation with
-// keys [X] yields a row-index partitioning [[0, 1, 3], [2]] whereas a segmented-group-by
-// aggregation with segment-keys [X] yields [[0, 1], [2], [3]].
+// In (regular) group-by aggregation, the input rows are partitioned into groups using
+// a set of columns called keys, where in a given group each row has the same values
+// for these columns. In segmented group-by aggregation, a second set of columns
+// called segment-keys is used to refine the partitioning. However, segment-keys are
+// different in that they partition only consecutive rows into a single group. Such a
+// partition of consecutive rows is called a segment group. For example, consider a
+// column X with values [A, A, B, A] at row-indices [0, 1, 2, 3]. A regular group-by
+// aggregation with keys [X] yields a row-index partitioning [[0, 1, 3], [2]] whereas
+// a segmented-group-by aggregation with segment-keys [X] yields [[0, 1], [2], [3]].
 //
-// The implementation first segments the input using the segment-keys, then groups by the
-// keys. When a segment group end is reached while scanning the input, output is pushed
-// and the accumulating state is cleared. If no segment-keys are given, then the entire
-// input is taken as one segment group. One batch per segment group is sent to output.
+// The implementation first segments the input using the segment-keys, then groups by
+// the keys. When a segment group end is reached while scanning the input, output is
+// pushed and the accumulating state is cleared. If no segment-keys are given, then
+// the entire input is taken as one segment group. One batch per segment group is sent
+// to output.
 
 namespace arrow {
-
 using internal::checked_cast;
 
 using compute::ExecSpan;
@@ -82,6 +88,20 @@ using compute::Segment;
 namespace acero {
 namespace aggregate {
 
+class BackpressureController : public BackpressureControl {
+ public:
+  BackpressureController(ExecNode* node, ExecNode* output)
+      : node_(node), output_(output) {}
+
+  void Pause() override { node_->PauseProducing(output_, ++backpressure_counter_); }
+  void Resume() override { node_->ResumeProducing(output_, ++backpressure_counter_); }
+
+ private:
+  ExecNode* node_;
+  ExecNode* output_;
+  std::atomic<int32_t> backpressure_counter_;
+};
+
 template <typename KernelType>
 struct AggregateNodeArgs {
   std::shared_ptr<Schema> output_schema;
@@ -93,6 +113,7 @@ struct AggregateNodeArgs {
   std::vector<const KernelType*> kernels;
   std::vector<std::vector<TypeHolder>> kernel_intypes;
   std::vector<std::vector<std::unique_ptr<KernelState>>> states;
+  bool requires_ordering;
 };
 
 std::vector<TypeHolder> ExtendWithGroupIdType(const std::vector<TypeHolder>& in_types);
@@ -155,17 +176,17 @@ Result<std::vector<Datum>> ExtractValues(const ExecBatch& input_batch,
 
 void PlaceFields(ExecBatch& batch, size_t base, std::vector<Datum>& values);
 
-class ScalarAggregateNode : public ExecNode, public TracedNode {
+class ScalarAggregateNode : public ExecNode,
+                            public TracedNode,
+                            public util::SerialSequencingQueue::Processor {
  public:
-  ScalarAggregateNode(ExecPlan* plan, std::vector<ExecNode*> inputs,
-                      std::shared_ptr<Schema> output_schema,
-                      std::unique_ptr<RowSegmenter> segmenter,
-                      std::vector<int> segment_field_ids,
-                      std::vector<std::vector<int>> target_fieldsets,
-                      std::vector<Aggregate> aggs,
-                      std::vector<const ScalarAggregateKernel*> kernels,
-                      std::vector<std::vector<TypeHolder>> kernel_intypes,
-                      std::vector<std::vector<std::unique_ptr<KernelState>>> states)
+  ScalarAggregateNode(
+      ExecPlan* plan, std::vector<ExecNode*> inputs,
+      std::shared_ptr<Schema> output_schema, std::unique_ptr<RowSegmenter> segmenter,
+      std::vector<int> segment_field_ids, std::vector<std::vector<int>> target_fieldsets,
+      std::vector<Aggregate> aggs, std::vector<const ScalarAggregateKernel*> kernels,
+      std::vector<std::vector<TypeHolder>> kernel_intypes,
+      std::vector<std::vector<std::unique_ptr<KernelState>>> states, Ordering ordering)
       : ExecNode(plan, std::move(inputs), {"target"},
                  /*output_schema=*/std::move(output_schema)),
         TracedNode(this),
@@ -176,21 +197,30 @@ class ScalarAggregateNode : public ExecNode, public TracedNode {
         aggs_(std::move(aggs)),
         kernels_(std::move(kernels)),
         kernel_intypes_(std::move(kernel_intypes)),
-        states_(std::move(states)) {}
+        states_(std::move(states)),
+        total_output_batches_(0),
+        sequencer_(nullptr),
+        ordering_(std::move(ordering)) {}
 
   static Result<AggregateNodeArgs<ScalarAggregateKernel>> MakeAggregateNodeArgs(
       const std::shared_ptr<Schema>& input_schema, const std::vector<FieldRef>& keys,
       const std::vector<FieldRef>& segment_keys, const std::vector<Aggregate>& aggs,
-      ExecContext* exec_ctx, size_t concurrency, bool is_cpu_parallel);
+      ExecContext* exec_ctx, size_t concurrency);
 
   static Result<ExecNode*> Make(ExecPlan* plan, std::vector<ExecNode*> inputs,
                                 const ExecNodeOptions& options);
 
   const char* kind_name() const override { return "ScalarAggregateNode"; }
 
+  Status Init() override;
+
   Status DoConsume(const ExecSpan& batch, size_t thread_index);
 
   Status InputReceived(ExecNode* input, ExecBatch batch) override;
+
+  const Ordering& ordering() const override { return ordering_; }
+
+  Status Process(ExecBatch batch) override;
 
   Status InputFinished(ExecNode* input, int total_batches) override;
 
@@ -235,10 +265,15 @@ class ScalarAggregateNode : public ExecNode, public TracedNode {
 
   AtomicCounter input_counter_;
   /// \brief Total number of output batches produced
-  int total_output_batches_ = 0;
+  int64_t total_output_batches_;
+  std::unique_ptr<acero::util::SerialSequencingQueue> sequencer_;
+  std::unique_ptr<Processor> processor_;
+  Ordering ordering_;
 };
 
-class GroupByNode : public ExecNode, public TracedNode {
+class GroupByNode : public ExecNode,
+                    public TracedNode,
+                    public util::SerialSequencingQueue::Processor {
  public:
   GroupByNode(ExecNode* input, std::shared_ptr<Schema> output_schema,
               std::vector<int> key_field_ids, std::vector<int> segment_key_field_ids,
@@ -246,7 +281,7 @@ class GroupByNode : public ExecNode, public TracedNode {
               std::vector<std::vector<TypeHolder>> agg_src_types,
               std::vector<std::vector<int>> agg_src_fieldsets,
               std::vector<Aggregate> aggs,
-              std::vector<const HashAggregateKernel*> agg_kernels)
+              std::vector<const HashAggregateKernel*> agg_kernels, Ordering ordering)
       : ExecNode(input->plan(), {input}, {"groupby"}, std::move(output_schema)),
         TracedNode(this),
         segmenter_(std::move(segmenter)),
@@ -256,14 +291,17 @@ class GroupByNode : public ExecNode, public TracedNode {
         agg_src_types_(std::move(agg_src_types)),
         agg_src_fieldsets_(std::move(agg_src_fieldsets)),
         aggs_(std::move(aggs)),
-        agg_kernels_(std::move(agg_kernels)) {}
+        agg_kernels_(std::move(agg_kernels)),
+        total_output_batches_(0),
+        sequencer_(nullptr),
+        ordering_(std::move(ordering)) {}
 
   Status Init() override;
 
   static Result<AggregateNodeArgs<HashAggregateKernel>> MakeAggregateNodeArgs(
       const std::shared_ptr<Schema>& input_schema, const std::vector<FieldRef>& keys,
       const std::vector<FieldRef>& segment_keys, const std::vector<Aggregate>& aggs,
-      ExecContext* ctx, const bool is_cpu_parallel);
+      ExecContext* ctx);
 
   static Result<ExecNode*> Make(ExecPlan* plan, std::vector<ExecNode*> inputs,
                                 const ExecNodeOptions& options);
@@ -284,6 +322,8 @@ class GroupByNode : public ExecNode, public TracedNode {
 
   Status InputReceived(ExecNode* input, ExecBatch batch) override;
 
+  Status Process(ExecBatch batch) override;
+
   Status InputFinished(ExecNode* input, int total_batches) override;
 
   Status StartProducing() override {
@@ -291,6 +331,8 @@ class GroupByNode : public ExecNode, public TracedNode {
     local_states_.resize(plan_->query_context()->max_concurrency());
     return Status::OK();
   }
+
+  const Ordering& ordering() const override { return ordering_; }
 
   void PauseProducing(ExecNode* output, int32_t counter) override {
     // TODO(ARROW-16260)
@@ -346,10 +388,13 @@ class GroupByNode : public ExecNode, public TracedNode {
 
   AtomicCounter input_counter_;
   /// \brief Total number of output batches produced
-  int total_output_batches_ = 0;
+  int64_t total_output_batches_;
 
   std::vector<ThreadLocalState> local_states_;
   ExecBatch out_data_;
+  std::unique_ptr<acero::util::SerialSequencingQueue> sequencer_;
+  std::unique_ptr<Processor> processor_;
+  Ordering ordering_;
 };
 
 }  // namespace aggregate
