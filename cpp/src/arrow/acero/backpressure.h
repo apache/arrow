@@ -22,7 +22,7 @@
 namespace arrow::acero {
 
 // Generic backpressure controller for ExecNode
-class BackpressureController : public BackpressureControl {
+class ARROW_ACERO_EXPORT BackpressureController : public BackpressureControl {
  public:
   BackpressureController(ExecNode* node, ExecNode* output,
                          std::atomic<int32_t>& backpressure_counter);
@@ -34,6 +34,18 @@ class BackpressureController : public BackpressureControl {
   ExecNode* node_;
   ExecNode* output_;
   std::atomic<int32_t>& backpressure_counter_;
+};
+
+template <typename T>
+class ARROW_ACERO_EXPORT BackpressureControlWrapper : public BackpressureControl {
+ public:
+  explicit BackpressureControlWrapper(T* obj) : obj_(obj) {}
+
+  void Pause() override { obj_->Pause(); }
+  void Resume() override { obj_->Resume(); }
+
+ private:
+  T* obj_;
 };
 
 // Provides infrastructure of combining multiple backpressure sources and propagate the

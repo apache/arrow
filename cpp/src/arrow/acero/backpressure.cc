@@ -64,7 +64,8 @@ void BackpressureCombiner::Resume(Source* output, bool strong_connection) {
 
 void BackpressureCombiner::UpdatePauseStateUnlocked() {
   bool should_be_paused =
-      strong_paused_count_ > 0 || weak_paused_count_ == weak_paused_.size();
+      strong_paused_count_ > 0 ||
+      (weak_paused_count_ > 0 && weak_paused_count_ == weak_paused_.size());
   if (should_be_paused) {
     if (!paused) {
       backpressure_control_->Pause();
