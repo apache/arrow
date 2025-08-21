@@ -349,6 +349,10 @@ bool CanIgnoreNaNInEquality(const RecordBatch& batch, const EqualOptions& opts) 
 
 bool RecordBatch::Equals(const RecordBatch& other, bool check_metadata,
                          const EqualOptions& opts) const {
+  return Equals(other, opts.use_metadata(check_metadata));
+}
+
+bool RecordBatch::Equals(const RecordBatch& other, const EqualOptions& opts) const {
   if (this == &other) {
     if (CanIgnoreNaNInEquality(*this, opts)) {
       return true;
@@ -356,7 +360,8 @@ bool RecordBatch::Equals(const RecordBatch& other, bool check_metadata,
   } else {
     if (num_columns() != other.num_columns() || num_rows_ != other.num_rows()) {
       return false;
-    } else if (!schema_->Equals(*other.schema(), check_metadata)) {
+    } else if (opts.use_schema() &&
+               !schema_->Equals(*other.schema(), opts.use_metadata())) {
       return false;
     } else if (device_type() != other.device_type()) {
       return false;
@@ -365,28 +370,6 @@ bool RecordBatch::Equals(const RecordBatch& other, bool check_metadata,
 
   for (int i = 0; i < num_columns(); ++i) {
     if (!column(i)->Equals(other.column(i), opts)) {
-      return false;
-    }
-  }
-
-  return true;
-}
-
-bool RecordBatch::ApproxEquals(const RecordBatch& other, const EqualOptions& opts) const {
-  if (this == &other) {
-    if (CanIgnoreNaNInEquality(*this, opts)) {
-      return true;
-    }
-  } else {
-    if (num_columns() != other.num_columns() || num_rows_ != other.num_rows()) {
-      return false;
-    } else if (device_type() != other.device_type()) {
-      return false;
-    }
-  }
-
-  for (int i = 0; i < num_columns(); ++i) {
-    if (!column(i)->ApproxEquals(other.column(i), opts)) {
       return false;
     }
   }
