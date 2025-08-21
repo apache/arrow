@@ -59,7 +59,7 @@
 #' dir.create(tf)
 #' on.exit(unlink(tf))
 #'
-#' write_dataset(mtcars, tf, partitioning="cyl")
+#' write_dataset(mtcars, tf, partitioning = "cyl")
 #'
 #' ds <- open_dataset(tf)
 #'
