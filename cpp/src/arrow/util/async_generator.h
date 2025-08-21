@@ -854,6 +854,7 @@ template <typename T>
 class PushGenerator {
   struct State {
     State() {}
+    virtual ~State() {}
 
     virtual bool Push(Result<T> result) {
       return PushUnlocked(std::move(result), mutex.Lock());
@@ -931,7 +932,7 @@ class PushGenerator {
       explicit DoHandle(StateWithBackpressure& state)
           : state_(state), start_size_(state_.result_q.size()) {}
 
-      ~DoHandle() {
+      virtual ~DoHandle() {
         // unsynced access is safe since DoHandle is internally only used when the
         // lock is held
         size_t end_size = state_.result_q.size();
