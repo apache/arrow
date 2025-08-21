@@ -1046,8 +1046,10 @@ class AsofJoinNode : public ExecNode {
           if (st.ok()) {
             st = output_->InputFinished(this, batches_produced_);
           }
-          for (const auto& s : state_) {
+          for (size_t i = 0; i < state_.size(); ++i) {
+            const auto& s = state_[i];
             s->ForceShutdown();
+            st &= inputs_[i]->StopProducing();
           }
         }));
   }
@@ -1499,8 +1501,11 @@ class AsofJoinNode : public ExecNode {
     if (st.ok()) {
       st = output_->InputFinished(this, batches_produced_);
     }
-    for (const auto& s : state_) {
-      st &= s->ForceShutdown();
+
+    for (size_t i = 0; i < state_.size(); ++i) {
+      const auto& s = state_[i];
+      s->ForceShutdown();
+      st &= inputs_[i]->StopProducing();
     }
   }
 
