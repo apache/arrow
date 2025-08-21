@@ -611,13 +611,15 @@ class BackpressureTestExecNode : public ExecNode {
 };
 
 TEST(ExecPlanExecution, SequenceQueueBackpressure) {
-  static std::once_flag registered;
-  std::call_once(registered, [] {
-    ExecFactoryRegistry* registry = default_exec_factory_registry();
-    (void)registry->AddFactory(std::string(BackpressureTestNodeOptions::kName),
-                               BackpressureTestExecNode::Make);
-  });
+  // static std::once_flag registered;
+  // std::call_once(registered, [] {
+  //   ExecFactoryRegistry* registry = default_exec_factory_registry();
+  //   (void)registry->AddFactory(std::string(BackpressureTestNodeOptions::kName),
+  //                              BackpressureTestExecNode::Make);
+  // });
 
+  // BackpressureCountingNode::Register();
+  RegisterTestNodes();
   std::vector<ExecBatch> batches =
       gen::Gen({{"key1", gen::Step(0, 1)}, {"value", gen::Random(int32())}})
           ->FailOnError()
@@ -634,7 +636,11 @@ TEST(ExecPlanExecution, SequenceQueueBackpressure) {
   PushGenerator<std::optional<ExecBatch>> batch_producer;
   AsyncGenerator<std::optional<ExecBatch>> sink_gen;
   Ordering order({compute::SortKey("key1", compute::SortOrder::Ascending)});
-  BackpressureTestNodeOptions options(order);
+
+  BackpressureCounters options;
+  BackpressureCountingNodeOptions opc(&options);
+
+  // BackpressureTestNodeOptions options(order);
 
   BackpressureMonitor* backpressure_monitor;
   BackpressureOptions backpressure_options(resume_if_below_bytes, pause_if_above_bytes);
@@ -643,8 +649,8 @@ TEST(ExecPlanExecution, SequenceQueueBackpressure) {
   ARROW_EXPECT_OK(
       acero::Declaration::Sequence(
           {
-              {"source", SourceNodeOptions(schema_, batch_producer)},
-              {"backpressure", options},
+              {"source", SourceNodeOptions(schema_, batch_producer, order)},
+              {"backpressure_count", opc},
               {"aggregate",
                AggregateNodeOptions{/*aggregates=*/
                                     {{"mean", nullptr, "value", "mean(value)"}},

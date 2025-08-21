@@ -16,6 +16,7 @@
 // under the License.
 
 #include "arrow/acero/test_nodes.h"
+#include "arrow/acero/map_node.h"
 
 #include <deque>
 #include <iostream>
@@ -356,6 +357,44 @@ struct GatedNode : public ExecNode, public TracedNode {
 
 }  // namespace
 
+namespace {
+
+struct BackpressureCountingNode : public MapNode {
+  static constexpr const char* kKindName = "BackpressureCountingNode";
+
+  BackpressureCountingNode(ExecPlan* plan, std::vector<ExecNode*> inputs,
+                           std::shared_ptr<Schema> output_schema,
+                           const BackpressureCountingNodeOptions& options)
+      : MapNode(plan, inputs, output_schema), counters(options.counters) {}
+
+  static Result<ExecNode*> Make(ExecPlan* plan, std::vector<ExecNode*> inputs,
+                                const ExecNodeOptions& options) {
+    RETURN_NOT_OK(ValidateExecNodeInputs(plan, inputs, 1, kKindName));
+    auto bp_options = static_cast<const BackpressureCountingNodeOptions&>(options);
+    return plan->EmplaceNode<BackpressureCountingNode>(
+        plan, inputs, inputs[0]->output_schema(), bp_options);
+  }
+
+  const char* kind_name() const override { return kKindName; }
+  Result<ExecBatch> ProcessBatch(ExecBatch batch) override { return batch; }
+
+  void PauseProducing(ExecNode* output, int32_t counter) override {
+    ++counters->pause_count;
+    counters->paused = true;
+    inputs()[0]->PauseProducing(this, counter);
+  }
+
+  void ResumeProducing(ExecNode* output, int32_t counter) override {
+    ++counters->resume_count;
+    counters->paused = false;
+    inputs()[0]->ResumeProducing(this, counter);
+  }
+
+  BackpressureCounters* counters;
+};
+
+}  // namespace
+
 void RegisterTestNodes() {
   static std::once_flag registered;
   std::call_once(registered, [] {
@@ -364,6 +403,8 @@ void RegisterTestNodes() {
         registry->AddFactory(std::string(JitterNodeOptions::kName), JitterNode::Make));
     DCHECK_OK(
         registry->AddFactory(std::string(GatedNodeOptions::kName), GatedNode::Make));
+    DCHECK_OK(registry->AddFactory(std::string(BackpressureCountingNodeOptions::kName),
+                                   BackpressureCountingNode::Make));
   });
 }
 

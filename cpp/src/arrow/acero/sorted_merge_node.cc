@@ -424,6 +424,24 @@ class SortedMergeNode : public ExecNode {
     return Status::OK();
   }
 
+  arrow::Status StopProducing() override {
+#ifdef ARROW_ENABLE_THREADING
+    Future<> to_finish;
+    {
+      std::lock_guard<std::mutex> lg(backpressure_mutex_);
+      if (!backpressure_future_.is_finished()) {
+        to_finish = backpressure_future_;
+        backpressure_future_ = Future<>::MakeFinished();
+      }
+    }
+    if (to_finish.is_valid()) {
+      to_finish.MarkFinished();
+    }
+#endif
+
+    return ExecNode::StopProducing();
+  }
+
   arrow::Status StopProducingImpl() override {
 #ifdef ARROW_ENABLE_THREADING
     process_queue.Clear();
@@ -433,8 +451,35 @@ class SortedMergeNode : public ExecNode {
   }
 
   // handled by the backpressure controller
-  void PauseProducing(arrow::acero::ExecNode* output, int32_t counter) override {}
-  void ResumeProducing(arrow::acero::ExecNode* output, int32_t counter) override {}
+  void PauseProducing(ExecNode* output, int32_t counter) override {
+    std::lock_guard<std::mutex> lg(backpressure_mutex_);
+    if (counter <= last_backpressure_counter_) {
+      return;
+    }
+    last_backpressure_counter_ = counter;
+    if (!backpressure_future_.is_finished()) {
+      // Could happen if we get something like Pause(1) Pause(3) Resume(2)
+      return;
+    }
+    backpressure_future_ = Future<>::Make();
+  }
+
+  void ResumeProducing(ExecNode* output, int32_t counter) override {
+    Future<> to_finish;
+    {
+      std::lock_guard<std::mutex> lg(backpressure_mutex_);
+      if (counter <= last_backpressure_counter_) {
+        return;
+      }
+      last_backpressure_counter_ = counter;
+      if (backpressure_future_.is_finished()) {
+        return;
+      }
+      to_finish = backpressure_future_;
+      backpressure_future_ = Future<>::MakeFinished();
+    }
+    to_finish.MarkFinished();
+  }
 
  protected:
   std::string ToStringExtra(int indent) const override {
@@ -605,6 +650,13 @@ class SortedMergeNode : public ExecNode {
 #ifdef ARROW_ENABLE_THREADING
   void EmitBatches() {
     while (true) {
+      Future<> to_wait;
+      {
+        std::lock_guard<std::mutex> lg(backpressure_mutex_);
+        to_wait = backpressure_future_;
+      }
+      to_wait.Wait();
+
       // Implementation note: If the queue is empty, we will block here
       if (process_queue.WaitAndPop() == kPoisonPill) {
         EndFromProcessThread();
@@ -641,6 +693,10 @@ class SortedMergeNode : public ExecNode {
   // Once StartProducing is called, we initialize this thread to poll the
   // input states and emit batches
   std::thread process_thread;
+
+  std::mutex backpressure_mutex_;
+  std::atomic<int32_t> last_backpressure_counter_{0};
+  Future<> backpressure_future_ = Future<>::MakeFinished();
 #endif
   arrow::Future<> process_task;
 
