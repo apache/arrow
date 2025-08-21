@@ -1962,4 +1962,36 @@ TEST(DefaultIfEmptyGenerator, Basics) {
       actual, CollectAsyncGenerator(MakeDefaultIfEmptyGenerator(gen, TestInt(42))));
   EXPECT_EQ(std::vector<TestInt>{42}, actual);
 }
+
+class MonitorBackpressureControl : public acero::BackpressureControl {
+ public:
+  explicit MonitorBackpressureControl(std::atomic<bool>& paused) : paused(paused) {}
+  virtual void Pause() { paused = true; }
+  virtual void Resume() { paused = false; }
+  std::atomic<bool>& paused;
+};
+
+TEST(TestAsyncUtil, PushGeneratorBackpressure) {
+  std::atomic<bool> paused;
+  ASSERT_OK_AND_ASSIGN(auto handler,
+                       acero::BackpressureHandler::Make(
+                           4, 8, std::make_unique<MonitorBackpressureControl>(paused)));
+
+  auto gen = PushGenerator<TestInt>(std::move(handler));
+  auto producer = gen.producer();
+  ASSERT_FALSE(paused);
+  for (int i = 1; i < 8; ++i) {
+    producer.Push(TestInt(i));
+    ASSERT_FALSE(paused);
+  }
+  producer.Push(TestInt(9));
+  ASSERT_TRUE(paused);
+  for (int i = 1; i < 8 - 4; ++i) {
+    ASSERT_OK(gen().result());
+    ASSERT_TRUE(paused);
+  }
+  ASSERT_OK(gen().result());
+  ASSERT_FALSE(paused);
+}
+
 }  // namespace arrow
