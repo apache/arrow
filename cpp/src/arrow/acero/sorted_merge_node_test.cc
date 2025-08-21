@@ -65,8 +65,9 @@ TEST(SortedMergeNode, Basic) {
   auto ops = OrderByNodeOptions(compute::Ordering({compute::SortKey("timestamp")}));
 
   Declaration sorted_merge{"sorted_merge", src_decls, ops};
-  // We can't use threads for sorted merging since it relies on
-  // ascending deterministic order of timestamps
+  // Now We can use threads for sorted merging since now it uses sequencer to assure
+  // deterministic order of timestamps, but for the sake of not modifying this test we
+  // won't use threads
   ASSERT_OK_AND_ASSIGN(auto output,
                        DeclarationToTable(sorted_merge, /*use_threads=*/false));
   ASSERT_EQ(output->num_rows(), 18);
@@ -80,6 +81,57 @@ TEST(SortedMergeNode, Basic) {
   auto output_col = output->column(0);
   ASSERT_OK_AND_ASSIGN(auto output_ts, Concatenate(output_col->chunks()));
 
+  AssertArraysEqual(*expected_ts, *output_ts);
+}
+
+TEST(SortedMergeNode, BasicThreaded) {
+  auto table1 = TestTable(
+      /*start=*/0,
+      /*step=*/2,
+      /*rows_per_batch=*/2,
+      /*num_batches=*/3);
+  auto table2 = TestTable(
+      /*start=*/1,
+      /*step=*/2,
+      /*rows_per_batch=*/3,
+      /*num_batches=*/2);
+  auto table3 = TestTable(
+      /*start=*/3,
+      /*step=*/3,
+      /*rows_per_batch=*/6,
+      /*num_batches=*/1);
+  static constexpr random::SeedType kTestSeed = 42;
+  static constexpr int kMaxJitterMod = 2;
+  RegisterTestNodes();
+  std::vector<Declaration::Input> src_decls;
+  src_decls.emplace_back(
+      Declaration("jitter", {Declaration("table_source", TableSourceNodeOptions(table1))},
+                  JitterNodeOptions(kTestSeed, kMaxJitterMod)));
+  src_decls.emplace_back(
+      Declaration("jitter", {Declaration("table_source", TableSourceNodeOptions(table2))},
+                  JitterNodeOptions(kTestSeed, kMaxJitterMod)));
+  src_decls.emplace_back(
+      Declaration("jitter", {Declaration("table_source", TableSourceNodeOptions(table3))},
+                  JitterNodeOptions(kTestSeed, kMaxJitterMod)));
+
+  auto ops = OrderByNodeOptions(compute::Ordering({compute::SortKey("timestamp")}));
+  Declaration sorted_merge{"sorted_merge", src_decls, ops};
+  // Now We can use threads for sorted merging since it uses sequencer to assure
+  // deterministic order of timestamps.
+  // To simulate wrong order usually caused by enabling threads we use jitter node which
+  // would previously break the output without using sequencer.
+  ASSERT_OK_AND_ASSIGN(auto output,
+                       DeclarationToTable(sorted_merge, /*use_threads=*/true));
+  ASSERT_EQ(output->num_rows(), 18);
+
+  ASSERT_OK_AND_ASSIGN(auto expected_ts_builder,
+                       MakeBuilder(int32(), default_memory_pool()));
+  for (auto i : {0, 1, 2, 3, 3, 4, 5, 6, 6, 7, 8, 9, 9, 10, 11, 12, 15, 18}) {
+    ASSERT_OK(expected_ts_builder->AppendScalar(*MakeScalar(i)));
+  }
+  ASSERT_OK_AND_ASSIGN(auto expected_ts, expected_ts_builder->Finish());
+  auto output_col = output->column(0);
+  ASSERT_OK_AND_ASSIGN(auto output_ts, Concatenate(output_col->chunks()));
   AssertArraysEqual(*expected_ts, *output_ts);
 }
 
