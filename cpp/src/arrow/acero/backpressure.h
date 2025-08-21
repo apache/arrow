@@ -37,7 +37,7 @@ class ARROW_ACERO_EXPORT BackpressureController : public BackpressureControl {
 };
 
 template <typename T>
-class ARROW_ACERO_EXPORT BackpressureControlWrapper : public BackpressureControl {
+class BackpressureControlWrapper : public BackpressureControl {
  public:
   explicit BackpressureControlWrapper(T* obj) : obj_(obj) {}
 
