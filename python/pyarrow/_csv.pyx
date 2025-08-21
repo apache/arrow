@@ -332,6 +332,26 @@ cdef class ReadOptions(_Weakrefable):
         except TypeError:
             return False
 
+    def __repr__(self):
+        return (f"<pyarrow.csv.ReadOptions "
+                f"use_threads={self.use_threads} "
+                f"block_size={self.block_size} "
+                f"skip_rows={self.skip_rows} "
+                f"skip_rows_after_names={self.skip_rows_after_names} "
+                f"column_names={self.column_names} "
+                f"autogenerate_column_names={self.autogenerate_column_names} "
+                f"encoding='{self.encoding}'>")
+
+    def __str__(self):
+        return (f"ReadOptions("
+                f"use_threads={self.use_threads}, "
+                f"block_size={self.block_size}, "
+                f"skip_rows={self.skip_rows}, "
+                f"skip_rows_after_names={self.skip_rows_after_names}, "
+                f"column_names={self.column_names}, "
+                f"autogenerate_column_names={self.autogenerate_column_names}, "
+                f"encoding='{self.encoding}')")
+
 
 cdef class ParseOptions(_Weakrefable):
     """
@@ -584,6 +604,24 @@ cdef class ParseOptions(_Weakrefable):
             return self.equals(other)
         except TypeError:
             return False
+
+    def __repr__(self):
+        return (f"<pyarrow.csv.ParseOptions "
+                f"delimiter={self.delimiter!r} "
+                f"quote_char={self.quote_char!r} "
+                f"double_quote={self.double_quote} "
+                f"escape_char={self.escape_char!r} "
+                f"newlines_in_values={self.newlines_in_values} "
+                f"ignore_empty_lines={self.ignore_empty_lines}>")
+
+    def __str__(self):
+        return (f"ParseOptions("
+                f"delimiter={self.delimiter!r}, "
+                f"quote_char={self.quote_char!r}, "
+                f"double_quote={self.double_quote}, "
+                f"escape_char={self.escape_char!r}, "
+                f"newlines_in_values={self.newlines_in_values}, "
+                f"ignore_empty_lines={self.ignore_empty_lines})")
 
 
 cdef class _ISO8601(_Weakrefable):
@@ -1108,6 +1146,38 @@ cdef class ConvertOptions(_Weakrefable):
         except TypeError:
             return False
 
+    def __repr__(self):
+        return (f"<pyarrow.csv.ConvertOptions "
+                f"check_utf8={self.check_utf8} "
+                f"column_types={self.column_types} "
+                f"null_values={self.null_values} "
+                f"true_values={self.true_values} "
+                f"false_values={self.false_values} "
+                f"decimal_point={self.decimal_point!r} "
+                f"strings_can_be_null={self.strings_can_be_null} "
+                f"quoted_strings_can_be_null={self.quoted_strings_can_be_null} "
+                f"include_columns={self.include_columns} "
+                f"include_missing_columns={self.include_missing_columns} "
+                f"auto_dict_encode={self.auto_dict_encode} "
+                f"auto_dict_max_cardinality={self.auto_dict_max_cardinality} "
+                f"timestamp_parsers={self.timestamp_parsers}>")
+
+    def __str__(self):
+        return (f"ConvertOptions("
+                f"check_utf8={self.check_utf8}, "
+                f"column_types={self.column_types}, "
+                f"null_values={self.null_values}, "
+                f"true_values={self.true_values}, "
+                f"false_values={self.false_values}, "
+                f"decimal_point={self.decimal_point!r}, "
+                f"strings_can_be_null={self.strings_can_be_null}, "
+                f"quoted_strings_can_be_null={self.quoted_strings_can_be_null}, "
+                f"include_columns={self.include_columns}, "
+                f"include_missing_columns={self.include_missing_columns}, "
+                f"auto_dict_encode={self.auto_dict_encode}, "
+                f"auto_dict_max_cardinality={self.auto_dict_max_cardinality}, "
+                f"timestamp_parsers={self.timestamp_parsers})")
+
 
 cdef _get_reader(input_file, ReadOptions read_options,
                  shared_ptr[CInputStream]* out):
@@ -1458,6 +1528,20 @@ cdef class WriteOptions(_Weakrefable):
 
     def validate(self):
         check_status(self.options.get().Validate())
+
+    def __repr__(self):
+        return (f"<pyarrow.csv.WriteOptions "
+                f"include_header={self.include_header} "
+                f"batch_size={self.batch_size} "
+                f"delimiter={self.delimiter!r} "
+                f"quoting_style='{self.quoting_style}'>")
+
+    def __str__(self):
+        return (f"WriteOptions("
+                f"include_header={self.include_header}, "
+                f"batch_size={self.batch_size}, "
+                f"delimiter={self.delimiter!r}, "
+                f"quoting_style='{self.quoting_style}')")
 
 
 cdef _get_write_options(WriteOptions write_options, CCSVWriteOptions* out):
