@@ -17,6 +17,7 @@
 
 #include "parquet/file_writer.h"
 
+#include <arrow/util/string.h>
 #include <memory>
 #include <ostream>
 #include <string>
@@ -39,6 +40,8 @@ using arrow::MemoryPool;
 using parquet::schema::GroupNode;
 
 namespace parquet {
+
+using ::arrow::internal::StartsWith;
 
 // ----------------------------------------------------------------------
 // RowGroupWriter public API
@@ -479,9 +482,40 @@ class FileSerializer : public ParquetFileWriter::Contents {
       // Unencrypted parquet files always start with PAR1
       PARQUET_THROW_NOT_OK(sink_->Write(kParquetMagic, 4));
     } else {
-      // make the file encryption encrypt this schema
-      // this modifies file_encryption_properties->encrypted_columns()
-      file_encryption_properties->EncryptSchema(schema_);
+      // Check that all columns in columnEncryptionProperties exist in the schema.
+      auto encrypted_columns = file_encryption_properties->encrypted_columns();
+      // if columnEncryptionProperties is empty, every column in file schema will be
+      // encrypted with footer key.
+      if (encrypted_columns.size() != 0) {
+        std::vector<std::string> column_path_vecs;
+        // First, save all column paths in schema.
+        for (int i = 0; i < num_columns(); i++) {
+          column_path_vecs.push_back(schema_.Column(i)->path()->ToDotString());
+        }
+        // we sort the column paths for std::lower_bound to work
+        std::sort(column_path_vecs.begin(), column_path_vecs.end());
+
+        for (const auto& elem : encrypted_columns) {
+          // Check if this column exists in schema.
+          auto it =
+              std::find(column_path_vecs.begin(), column_path_vecs.end(), elem.first);
+          if (it == column_path_vecs.end()) {
+            // this column does not exist in the schema, this might be a parent field
+            // like `a` while there are `a.key_value.key` and `a.key_value.value` in the
+            // schema Check if columns exist in schema with prefix `elem.first + "."`.
+            auto prefix = elem.first + ".";
+            auto it = std::lower_bound(column_path_vecs.begin(), column_path_vecs.end(),
+                                       prefix);
+            if (it == column_path_vecs.end() || !StartsWith(*it, prefix)) {
+              // no encrypted columns exist with this prefix
+              std::stringstream ss;
+              ss << "No encrypted column " << elem.first << " or columns with prefix "
+                 << prefix << " in file schema";
+              throw ParquetException(ss.str());
+            }
+          }
+        }
+      }
 
       file_encryptor_ = std::make_unique<InternalFileEncryptor>(
           file_encryption_properties, properties_->memory_pool());

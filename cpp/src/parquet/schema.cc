@@ -119,6 +119,13 @@ std::string ColumnPath::ToDotString() const {
 
 const std::vector<std::string>& ColumnPath::ToDotVector() const { return path_; }
 
+std::string ColumnPathPrefix::ToDotString() const {
+  std::stringstream ss;
+  ss << ColumnPath::ToDotString();
+  ss << ".";
+  return ss.str();
+}
+
 // ----------------------------------------------------------------------
 // Base node
 

@@ -459,15 +459,6 @@ class PARQUET_EXPORT FileEncryptionProperties {
     return encrypted_columns_;
   }
 
-  /// \brief Check and replace encrypted columns according to schema
-  ///
-  /// Checks all columns in encrypted_columns reference columns in the given schema.
-  /// Replaces parent fields in encrypted_columns with all their nested fields,
-  /// all using the same encrypion key.
-  /// Fields referenced by schema paths are replaced with the respective parquet paths.
-  /// These are usually identical, except for nested fields of lists and maps.
-  void EncryptSchema(const SchemaDescriptor& schema);
-
  private:
   EncryptionAlgorithm algorithm_;
   ::arrow::util::SecureString footer_key_;

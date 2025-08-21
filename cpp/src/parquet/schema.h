@@ -95,6 +95,18 @@ class PARQUET_EXPORT ColumnPath {
   std::vector<std::string> path_;
 };
 
+class PARQUET_EXPORT ColumnPathPrefix : public ColumnPath {
+ public:
+  ColumnPathPrefix() : ColumnPath() {}
+  explicit ColumnPathPrefix(const std::vector<std::string>& prefix)
+      : ColumnPath(prefix) {}
+  explicit ColumnPathPrefix(std::vector<std::string>&& prefix) : ColumnPath(prefix) {}
+  explicit ColumnPathPrefix(const ColumnPath& prefix)
+      : ColumnPath(prefix.ToDotVector()) {}
+
+  std::string ToDotString() const;
+};
+
 // Base class for logical schema types. A type has a name, repetition level,
 // and optionally a logical type (ConvertedType in Parquet metadata parlance)
 class PARQUET_EXPORT Node {
