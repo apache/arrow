@@ -16,7 +16,7 @@
 // under the License.
 
 #include "parquet/encryption/file_key_wrapper.h"
-#include "parquet/encryption/encryption_internal.h"
+#include "parquet/encryption/encryption_utils.h"
 #include "parquet/encryption/key_material.h"
 #include "parquet/encryption/key_metadata.h"
 #include "parquet/encryption/key_toolkit_internal.h"

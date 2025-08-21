@@ -108,3 +108,5 @@ java/.mvn/.develocity/
 # rat
 filtered_rat.txt
 rat.txt
+
+python/sample.parquet

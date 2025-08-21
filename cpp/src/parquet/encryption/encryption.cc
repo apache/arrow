@@ -25,7 +25,7 @@
 
 #include "arrow/util/logging_internal.h"
 #include "arrow/util/utf8.h"
-#include "parquet/encryption/encryption_internal.h"
+#include "parquet/encryption/encryption_utils.h"
 
 namespace parquet {
 

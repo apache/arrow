@@ -47,7 +47,7 @@
 #include "arrow/util/unreachable.h"
 #include "parquet/column_page.h"
 #include "parquet/encoding.h"
-#include "parquet/encryption/encryption_internal.h"
+#include "parquet/encryption/encryption_utils.h"
 #include "parquet/encryption/internal_file_decryptor.h"
 #include "parquet/level_comparison.h"
 #include "parquet/level_conversion.h"

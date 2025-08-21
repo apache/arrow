@@ -40,7 +40,7 @@
 #include "parquet/bloom_filter_reader.h"
 #include "parquet/column_reader.h"
 #include "parquet/column_scanner.h"
-#include "parquet/encryption/encryption_internal.h"
+#include "parquet/encryption/encryption_utils.h"
 #include "parquet/encryption/internal_file_decryptor.h"
 #include "parquet/exception.h"
 #include "parquet/file_writer.h"

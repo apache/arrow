@@ -47,7 +47,7 @@
 #include "arrow/visit_array_inline.h"
 #include "parquet/column_page.h"
 #include "parquet/encoding.h"
-#include "parquet/encryption/encryption_internal.h"
+#include "parquet/encryption/encryption_utils.h"
 #include "parquet/encryption/internal_file_encryptor.h"
 #include "parquet/level_conversion.h"
 #include "parquet/metadata.h"
