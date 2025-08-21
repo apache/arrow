@@ -31,7 +31,7 @@ class MonitorBackpressureControl : public acero::BackpressureControl {
 };
 
 TEST(BackpressureCombiner, Basic) {
-  std::atomic<bool> paused;
+  std::atomic<bool> paused{false};
   BackpressureCombiner combiner(std::make_unique<MonitorBackpressureControl>(paused));
 
   BackpressureCombiner::Source weak_source1(&combiner, false);
