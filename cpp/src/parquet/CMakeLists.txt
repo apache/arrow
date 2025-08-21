@@ -238,7 +238,7 @@ endif()
 
 if(PARQUET_REQUIRE_ENCRYPTION)
   list(APPEND PARQUET_SHARED_PRIVATE_LINK_LIBS ${ARROW_OPENSSL_LIBS})
-  set(PARQUET_SRCS ${PARQUET_SRCS} encryption/encryption_internal.cc
+  set(PARQUET_SRCS ${PARQUET_SRCS} encryption/aes_encryption.cc
                    encryption/encryption_utils.cc
                    encryption/openssl_internal.cc)
   # Encryption key management
@@ -255,7 +255,7 @@ if(PARQUET_REQUIRE_ENCRYPTION)
       encryption/key_toolkit_internal.cc
       encryption/local_wrap_kms_client.cc)
 else()
-  set(PARQUET_SRCS ${PARQUET_SRCS} encryption/encryption_internal_nossl.cc)
+  set(PARQUET_SRCS ${PARQUET_SRCS} encryption/aes_encryption_nossl.cc)
 endif()
 
 if(NOT PARQUET_MINIMAL_DEPENDENCY)
@@ -410,7 +410,7 @@ add_parquet_test(arrow-internals-test SOURCES arrow/path_internal_test.cc
 if(PARQUET_REQUIRE_ENCRYPTION)
   add_parquet_test(encryption-test
                    SOURCES
-                   encryption/encryption_internal_test.cc
+                   encryption/aes_encryption_test.cc
                    encryption/write_configurations_test.cc
                    encryption/read_configurations_test.cc
                    encryption/properties_test.cc

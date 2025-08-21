@@ -17,7 +17,8 @@
 
 #include <gtest/gtest.h>
 
-#include "parquet/encryption/encryption_internal.h"
+#include "parquet/encryption/aes_encryption.h"
+#include "parquet/encryption/encryption.h"
 
 namespace parquet::encryption::test {
 

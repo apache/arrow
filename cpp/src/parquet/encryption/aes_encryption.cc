@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "parquet/encryption/encryption_internal.h"
+#include "parquet/encryption/aes_encryption.h"
 
 #include <openssl/evp.h>
 #include <openssl/rand.h>

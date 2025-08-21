@@ -32,7 +32,7 @@
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging_internal.h"
 #include "arrow/util/pcg_random.h"
-#include "parquet/encryption/encryption_internal.h"
+#include "parquet/encryption/aes_encryption.h"
 #include "parquet/encryption/encryption_utils.h"
 #include "parquet/encryption/internal_file_decryptor.h"
 #include "parquet/exception.h"

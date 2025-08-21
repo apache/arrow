@@ -18,11 +18,8 @@
 #pragma once
 
 #include <memory>
-#include <string>
-#include <vector>
 
 #include "arrow/util/span.h"
-#include "parquet/properties.h"
 #include "parquet/types.h"
 
 using parquet::ParquetCipher;
