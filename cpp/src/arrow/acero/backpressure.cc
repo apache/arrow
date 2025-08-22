@@ -30,15 +30,13 @@ void BackpressureController::Resume() {
 }
 
 BackpressureCombiner::BackpressureCombiner(
-    std::unique_ptr<BackpressureControl> backpressure_control)
-    : backpressure_control_(std::move(backpressure_control)) {}
+    std::unique_ptr<BackpressureControl> backpressure_control, bool pause_on_any)
+    : pause_on_any_(pause_on_any),
+      backpressure_control_(std::move(backpressure_control)) {}
 
 // Called from Source nodes
-void BackpressureCombiner::Pause(Source* output, bool strong_connection) {
+void BackpressureCombiner::Pause(Source* output) {
   std::lock_guard<std::mutex> lg(mutex_);
-  auto& paused_ = strong_connection ? strong_paused_ : weak_paused_;
-  auto& paused_count_ = strong_connection ? strong_paused_count_ : weak_paused_count_;
-
   if (!paused_[output]) {
     paused_[output] = true;
     paused_count_++;
@@ -47,15 +45,12 @@ void BackpressureCombiner::Pause(Source* output, bool strong_connection) {
 }
 
 // Called from Source nodes
-void BackpressureCombiner::Resume(Source* output, bool strong_connection) {
+void BackpressureCombiner::Resume(Source* output) {
   std::lock_guard<std::mutex> lg(mutex_);
-  auto& paused_ = strong_connection ? strong_paused_ : weak_paused_;
-  auto& paused_count_ = strong_connection ? strong_paused_count_ : weak_paused_count_;
   if (paused_.find(output) == paused_.end()) {
     paused_[output] = false;
     UpdatePauseStateUnlocked();
-  }
-  if (paused_[output]) {
+  } else if (paused_[output]) {
     paused_[output] = false;
     paused_count_--;
     UpdatePauseStateUnlocked();
@@ -63,9 +58,10 @@ void BackpressureCombiner::Resume(Source* output, bool strong_connection) {
 }
 
 void BackpressureCombiner::UpdatePauseStateUnlocked() {
-  bool should_be_paused =
-      strong_paused_count_ > 0 ||
-      (weak_paused_count_ > 0 && weak_paused_count_ == weak_paused_.size());
+  bool should_be_paused = (paused_count_ > 0);
+  if (!pause_on_any_) {
+    should_be_paused = should_be_paused && (paused_count_ == paused_.size());
+  }
   if (should_be_paused) {
     if (!paused) {
       backpressure_control_->Pause();
@@ -79,25 +75,24 @@ void BackpressureCombiner::UpdatePauseStateUnlocked() {
   }
 }
 
-BackpressureCombiner::Source::Source(BackpressureCombiner* ctrl, bool strong_connection) {
+BackpressureCombiner::Source::Source(BackpressureCombiner* ctrl) {
   if (ctrl) {
-    AddController(ctrl, strong_connection);
+    AddController(ctrl);
   }
 }
 
-void BackpressureCombiner::Source::AddController(BackpressureCombiner* ctrl,
-                                                 bool strong_connection) {
-  ctrl->Resume(this, strong_connection);  // populate map in controller
-  connections_.push_back(Connection{ctrl, strong_connection});
+void BackpressureCombiner::Source::AddController(BackpressureCombiner* ctrl) {
+  ctrl->Resume(this);  // populate map in controller
+  connections_.push_back(ctrl);
 }
 void BackpressureCombiner::Source::Pause() {
   for (auto& conn_ : connections_) {
-    conn_.ctrl->Pause(this, conn_.strong);
+    conn_->Pause(this);
   }
 }
 void BackpressureCombiner::Source::Resume() {
   for (auto& conn_ : connections_) {
-    conn_.ctrl->Resume(this, conn_.strong);
+    conn_->Resume(this);
   }
 }
 

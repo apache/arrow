@@ -53,8 +53,8 @@ class BackpressureControlWrapper : public BackpressureControl {
 // strong Source within controller
 class ARROW_ACERO_EXPORT BackpressureCombiner {
  public:
-  explicit BackpressureCombiner(
-      std::unique_ptr<BackpressureControl> backpressure_control);
+  explicit BackpressureCombiner(std::unique_ptr<BackpressureControl> backpressure_control,
+                                bool pause_on_any = true);
 
   // Instances of Source can be used as usual BackpresureControl.
   // Source can be connected with one or more BackpressureCombiner
@@ -62,31 +62,26 @@ class ARROW_ACERO_EXPORT BackpressureCombiner {
    public:
     // strong - strong_connection=true
     // weak - strong_connection=false
-    explicit Source(BackpressureCombiner* ctrl = nullptr, bool strong_connection = true);
-    void AddController(BackpressureCombiner* ctrl, bool strong_connection = true);
+    explicit Source(BackpressureCombiner* ctrl = nullptr);
+    void AddController(BackpressureCombiner* ctrl);
     void Pause() override;
     void Resume() override;
 
    private:
-    struct Connection {
-      BackpressureCombiner* ctrl;
-      bool strong;
-    };
-    std::vector<Connection> connections_;
+    std::vector<BackpressureCombiner*> connections_;
   };
 
  private:
   friend class Source;
-  void Pause(Source* output, bool strong_connection);
-  void Resume(Source* output, bool strong_connection);
+  void Pause(Source* output);
+  void Resume(Source* output);
 
   void UpdatePauseStateUnlocked();
+  bool pause_on_any_;
   std::unique_ptr<BackpressureControl> backpressure_control_;
   std::mutex mutex_;
-  std::unordered_map<Source*, bool> strong_paused_;
-  std::unordered_map<Source*, bool> weak_paused_;
-  size_t strong_paused_count_{0};
-  size_t weak_paused_count_{0};
+  std::unordered_map<Source*, bool> paused_;
+  size_t paused_count_{0};
   bool paused{false};
 };
 

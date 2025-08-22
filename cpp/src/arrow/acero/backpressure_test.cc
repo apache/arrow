@@ -32,14 +32,17 @@ class MonitorBackpressureControl : public acero::BackpressureControl {
 
 TEST(BackpressureCombiner, Basic) {
   std::atomic<bool> paused{false};
-  BackpressureCombiner combiner(std::make_unique<MonitorBackpressureControl>(paused));
-
-  BackpressureCombiner::Source weak_source1(&combiner, false);
-  BackpressureCombiner::Source weak_source2;
-  weak_source2.AddController(&combiner, false);
-  BackpressureCombiner::Source strong_source1(&combiner);
+  BackpressureCombiner or_combiner(std::make_unique<MonitorBackpressureControl>(paused));
+  BackpressureCombiner::Source strong_source1(&or_combiner);
   BackpressureCombiner::Source strong_source2;
-  strong_source2.AddController(&combiner);
+  strong_source2.AddController(&or_combiner);
+
+  BackpressureCombiner and_combiner(
+      std::make_unique<BackpressureCombiner::Source>(&or_combiner),
+      /*pause_on_any=*/false);
+  BackpressureCombiner::Source weak_source1(&and_combiner);
+  BackpressureCombiner::Source weak_source2;
+  weak_source2.AddController(&and_combiner);
 
   // Any strong causes pause
   ASSERT_FALSE(paused);
@@ -102,11 +105,12 @@ TEST(BackpressureCombiner, OnlyStrong) {
 
 TEST(BackpressureCombiner, OnlyWeak) {
   std::atomic<bool> paused{false};
-  BackpressureCombiner combiner(std::make_unique<MonitorBackpressureControl>(paused));
+  BackpressureCombiner combiner(std::make_unique<MonitorBackpressureControl>(paused),
+                                false);
 
-  BackpressureCombiner::Source weak_source1(&combiner, false);
+  BackpressureCombiner::Source weak_source1(&combiner);
   BackpressureCombiner::Source weak_source2;
-  weak_source2.AddController(&combiner, false);
+  weak_source2.AddController(&combiner);
 
   // All weak cause pause
   ASSERT_FALSE(paused);
