@@ -2148,7 +2148,7 @@ garrow_fixed_size_list_array_new_data_type(GArrowArray *value_array,
  *
  * Returns: (transfer full): The element array.
  *
- *   It should be freed with g_free() when no longer needed.
+ *   It should be freed with g_object_unref() when no longer needed.
  *
  * Since: 22.0.0
  */
