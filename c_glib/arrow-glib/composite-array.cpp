@@ -2060,7 +2060,7 @@ garrow_fixed_size_list_array_class_init(GArrowFixedSizeListArrayClass *klass)
 
 /**
  * garrow_fixed_size_list_array_new_list_size
- * @value_array: The value of the fixed list size array.
+ * @value_array: The value of the fixed size list array.
  * @list_size: The list size of the fixed list size array.
  * @null_bitmap: (nullable): The bitmap that shows null elements. The
  *   N-th element is null when the N-th bit is 0, not null otherwise.
