@@ -75,7 +75,9 @@ fi
 # cmake is now a listed sys req.
 $PACKAGE_MANAGER install -y rsync cmake curl
 
-# Update clang version to latest available
+# Update clang version to latest available.
+# This is only for rhub/clang20. If we change the base image from rhub/clang20,
+# we need to update this part too.
 if [ "$R_UPDATE_CLANG" = true ]; then
   apt update -y
   apt install -y gnupg
