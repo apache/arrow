@@ -47,7 +47,7 @@ std::string PyKmsClient::WrapKey(const ::arrow::util::SecureString& key,
     const std::string& wrapped_key, const std::string& master_key_identifier) {
   arrow::util::SecureString unwrapped;
   auto st = SafeCallIntoPython([&]() -> Status {
-    vtable_.unwrap_key(handler_.obj(), wrapped_key, master_key_identifier, &unwrapped);
+    vtable_.unwrap_key(handler_.obj(), wrapped_key, master_key_identifier, unwrapped);
     return CheckPyError();
   });
   if (!st.ok()) {
