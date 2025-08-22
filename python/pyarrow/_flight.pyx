@@ -142,6 +142,13 @@ cdef class FlightCallOptions(_Weakrefable):
             return &((<FlightCallOptions> obj).options)
         raise TypeError(f"Expected a FlightCallOptions object, not '{type(obj)}'")
 
+    def __repr__(self):
+        return (f"<pyarrow.flight.FlightCallOptions "
+                f"timeout={self.options.timeout} "
+                f"write_options={self.options.write_options} "
+                f"headers={self.options.headers} "
+                f"read_options={self.options.read_options}>")
+
 
 _CertKeyPair = collections.namedtuple('_CertKeyPair', ['cert', 'key'])
 
