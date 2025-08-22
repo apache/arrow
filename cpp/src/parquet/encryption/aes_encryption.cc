@@ -316,6 +316,38 @@ int32_t AesEncryptor::CtrEncrypt(
   return length_buffer_length_ + buffer_size;
 }
 
+int32_t AesEncryptorFactory::MapKeyLenToEncryptorArrayIndex(int32_t key_len) {
+  if (key_len == 16)
+    return 0;
+  else if (key_len == 24)
+    return 1;
+  else if (key_len == 32)
+    return 2;
+  throw ParquetException("encryption key must be 16, 24 or 32 bytes in length");
+}
+
+AesEncryptor* AesEncryptorFactory::GetMetaAesEncryptor(
+    ParquetCipher::type alg_id, int32_t key_size) {
+  auto key_len = static_cast<int32_t>(key_size);
+  int index = MapKeyLenToEncryptorArrayIndex(key_len);
+
+  if (meta_encryptor_cache_[index] == nullptr) {
+    meta_encryptor_cache_[index] = AesEncryptor::Make(alg_id, key_len, true);
+  }
+  return meta_encryptor_cache_[index].get();
+}
+
+AesEncryptor* AesEncryptorFactory::GetDataAesEncryptor(
+    ParquetCipher::type alg_id, int32_t key_size) {
+  auto key_len = static_cast<int32_t>(key_size);
+  int index = MapKeyLenToEncryptorArrayIndex(key_len);
+
+  if (data_encryptor_cache_[index] == nullptr) {
+    data_encryptor_cache_[index] = AesEncryptor::Make(alg_id, key_len, false);
+  }
+  return data_encryptor_cache_[index].get();
+}
+
 AesDecryptor::AesDecryptor(
     ParquetCipher::type alg_id, int32_t key_len, bool metadata, bool contains_length)
     : AesCryptoContext(alg_id, key_len, metadata, contains_length) {}

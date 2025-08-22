@@ -22,13 +22,9 @@
 #include <string>
 
 #include "parquet/metadata.h"
+#include "parquet/encryption/decryptor_interface.h"
 
 namespace parquet {
-
-namespace encryption {
-class AesDecryptor;
-class AesEncryptor;
-}  // namespace encryption
 
 class ColumnCryptoMetaData;
 class FileDecryptionProperties;
@@ -38,7 +34,7 @@ class FileDecryptionProperties;
 // CAUTION: Decryptor objects are not thread-safe.
 class PARQUET_EXPORT Decryptor {
  public:
-  Decryptor(std::unique_ptr<encryption::AesDecryptor> decryptor, const std::string& key,
+  Decryptor(std::unique_ptr<encryption::DecryptorInterface> decryptor, const std::string& key,
             const std::string& file_aad, const std::string& aad,
             ::arrow::MemoryPool* pool);
   ~Decryptor();
@@ -53,7 +49,7 @@ class PARQUET_EXPORT Decryptor {
                   ::arrow::util::span<uint8_t> plaintext);
 
  private:
-  std::unique_ptr<encryption::AesDecryptor> aes_decryptor_;
+  std::unique_ptr<encryption::DecryptorInterface> decryptor_instance_;
   std::string key_;
   std::string file_aad_;
   std::string aad_;

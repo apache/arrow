@@ -23,20 +23,17 @@
 
 #include "parquet/encryption/aes_encryption.h"
 #include "parquet/encryption/encryption.h"
+#include "parquet/encryption/encryptor_interface.h"
 #include "parquet/metadata.h"
 
 namespace parquet {
-
-namespace encryption {
-class AesEncryptor;
-}  // namespace encryption
 
 class FileEncryptionProperties;
 class ColumnEncryptionProperties;
 
 class PARQUET_EXPORT Encryptor {
  public:
-  Encryptor(encryption::AesEncryptor* aes_encryptor, const std::string& key,
+  Encryptor(encryption::EncryptorInterface* encryptor_interface, const std::string& key,
             const std::string& file_aad, const std::string& aad,
             ::arrow::MemoryPool* pool);
   const std::string& file_aad() { return file_aad_; }
@@ -61,7 +58,7 @@ class PARQUET_EXPORT Encryptor {
   }
 
  private:
-  encryption::AesEncryptor* aes_encryptor_;
+  encryption::EncryptorInterface* encryptor_instance_;
   std::string key_;
   std::string file_aad_;
   std::string aad_;
@@ -89,24 +86,18 @@ class InternalFileEncryptor {
   std::shared_ptr<Encryptor> footer_signing_encryptor_;
   std::shared_ptr<Encryptor> footer_encryptor_;
 
-  // Key must be 16, 24 or 32 bytes in length. Thus there could be up to three
-  // types of meta_encryptors and data_encryptors.
-  std::unique_ptr<encryption::AesEncryptor> meta_encryptor_[3];
-  std::unique_ptr<encryption::AesEncryptor> data_encryptor_[3];
-
   ::arrow::MemoryPool* pool_;
+  encryption::AesEncryptorFactory aes_encryptor_factory_;
 
   std::shared_ptr<Encryptor> GetColumnEncryptor(
     const std::string& column_path, bool metadata,
     const ColumnChunkMetaDataBuilder* column_chunk_metadata = nullptr);
 
-  encryption::AesEncryptor* GetMetaAesEncryptor(ParquetCipher::type algorithm,
-                                                size_t key_len);
-  encryption::AesEncryptor* GetDataAesEncryptor(
+  encryption::EncryptorInterface* GetMetaEncryptor(ParquetCipher::type algorithm, size_t key_len);
+
+  encryption::EncryptorInterface* GetDataEncryptor(
     ParquetCipher::type algorithm, size_t key_len,
     const ColumnChunkMetaDataBuilder* column_chunk_metadata = nullptr);
-
-  int MapKeyLenToEncryptorArrayIndex(int32_t key_len) const;
 };
 
 }  // namespace parquet
