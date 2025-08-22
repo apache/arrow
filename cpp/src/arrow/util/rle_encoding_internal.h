@@ -592,14 +592,27 @@ auto RleBitPackedDecoder<T>::GetBatch(value_type* out, values_count_type batch_s
   values_count_type values_read = 0;
 
   while (values_read < batch_size) {
-    // Try to get as much as possible from current run
-    if (auto const read = RunGetBatch(out, batch_size - values_read); read > 0) {
-      values_read += read;
-      out += read;
-      // Get the next run from the batch, it will be read in the next loop iteration
-    } else if (!ParseAndResetDecoder()) {
-      // If there are no more run this is the end
-      break;
+    if (auto* rle_decoder = std::get_if<RleDecoder<value_type>>(&decoder_)) {
+      if (rle_decoder->Remaining() > 0) {
+        // Try to get as much as possible from current run
+        auto const read = rle_decoder->GetBatch(out, batch_size - values_read);
+        values_read += read;
+        out += read;
+      } else if (!ParseAndResetDecoder()) {
+        // We try to get the next run from the batch, it will be read in the next loop.
+        break;
+      }
+    } else {
+      auto* bit_packed_decoder = std::get_if<BitPackedDecoder<value_type>>(&decoder_);
+      ARROW_DCHECK(bit_packed_decoder);  // Only two possibilities in the variant
+      if (bit_packed_decoder->Remaining() > 0) {
+        auto const read = bit_packed_decoder->GetBatch(out, batch_size - values_read);
+        values_read += read;
+        out += read;
+      } else if (!ParseAndResetDecoder()) {
+        // We try to get the next run from the batch, it will be read in the next loop.
+        break;
+      }
     }
   }
 
@@ -1382,7 +1395,7 @@ constexpr bool RleDecoder<T>::Get(value_type* out_value) {
 template <typename T>
 auto RleDecoder<T>::GetBatch(value_type* out, values_count_type batch_size)
     -> values_count_type {
-  if (remaining_count_ == 0) {
+  if (ARROW_PREDICT_FALSE(remaining_count_ == 0)) {
     return 0;
   }
 
@@ -1438,7 +1451,7 @@ bool BitPackedDecoder<T>::Get(value_type* out_value) {
 template <typename T>
 auto BitPackedDecoder<T>::GetBatch(value_type* out, values_count_type batch_size)
     -> values_count_type {
-  if (remaining_count_ == 0) {
+  if (ARROW_PREDICT_FALSE(remaining_count_ == 0)) {
     return 0;
   }
 
