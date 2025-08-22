@@ -2536,3 +2536,28 @@ def test_headers_trailers():
         assert ("x-header-bin", b"header\x01value") in factory.headers
         assert ("x-trailer", "trailer-value") in factory.headers
         assert ("x-trailer-bin", b"trailer\x01value") in factory.headers
+
+
+def test_flight_dictionary_deltas_do_exchange():
+    class DeltaFlightServer(ConstantFlightServer):
+        def do_exchange(self, context, descriptor, reader, writer):
+            if descriptor.command == b'dict_deltas':
+                table = simple_dicts_table()
+                options = pa.ipc.IpcWriteOptions(emit_dictionary_deltas=True)
+                writer.begin(table.schema, options=options)
+                writer.write_table(table)
+
+    with DeltaFlightServer() as server, \
+            FlightClient(('localhost', server.port)) as client:
+
+        descriptor = flight.FlightDescriptor.for_command(b"dict_deltas")
+        writer, reader = client.do_exchange(descriptor,
+                                            options=flight.FlightCallOptions(
+                                                write_options=pa.ipc.IpcWriteOptions(
+                                                    emit_dictionary_deltas=True)
+                                            )
+                                            )
+
+        received_table = reader.read_all()
+        expected_table = simple_dicts_table()
+        assert received_table.equals(expected_table)
