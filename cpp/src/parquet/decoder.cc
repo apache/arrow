@@ -207,6 +207,10 @@ struct ArrowBinaryHelper<FLBAType, ::arrow::FixedSizeBinaryType> {
 
   Status AppendValue(const uint8_t* data, int32_t length,
                      std::optional<int64_t> estimated_remaining_data_length = {}) {
+    if (ARROW_PREDICT_FALSE(length != acc_->byte_width())) {
+      return Status::Invalid("FLBAType requires fixed-length values length to be ",
+                             acc_->byte_width(), "but got ", length);
+    }
     acc_->UnsafeAppend(data);
     return Status::OK();
   }
