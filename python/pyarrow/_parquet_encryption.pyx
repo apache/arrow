@@ -319,16 +319,15 @@ cdef void _cb_wrap_key(
 
 cdef void _cb_unwrap_key(
         handler, const c_string& wrapped_key,
-        const c_string& master_key_identifier, CSecureString* out) except *:
+        const c_string& master_key_identifier, CSecureString& out) except *:
+    cdef:
+        c_string cstr
+
     mkid_str = frombytes(master_key_identifier)
     wk_str = frombytes(wrapped_key)
     key = handler.unwrap_key(wk_str, mkid_str)
-
-    cdef:
-        c_string cstr = tobytes(key)
-        CSecureString css = CSecureString(move(cstr))
-
-    out[0] = css
+    cstr = tobytes(key)
+    out = CSecureString(move(cstr))
 
 
 cdef class KmsClient(_Weakrefable):

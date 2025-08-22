@@ -52,7 +52,7 @@ cdef extern from "parquet/encryption/kms_client.h" \
 ctypedef void CallbackWrapKey(
     object, const CSecureString&, const c_string&, c_string*)
 ctypedef void CallbackUnwrapKey(
-    object, const c_string&, const c_string&, CSecureString*)
+    object, const c_string&, const c_string&, CSecureString&)
 
 cdef extern from "parquet/encryption/kms_client_factory.h" \
         namespace "parquet::encryption" nogil:
