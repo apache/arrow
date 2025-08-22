@@ -18,16 +18,46 @@
 #pragma once
 
 #include <memory>
+#include <openssl/evp.h>
 
 #include "arrow/util/span.h"
+#include "parquet/encryption/encryptor_interface.h"
+#include "parquet/encryption/decryptor_interface.h"
 #include "parquet/types.h"
+#include "parquet/exception.h"
 
 using parquet::ParquetCipher;
 
 namespace parquet::encryption {
 
+class AesCryptoContext {
+ public:
+  AesCryptoContext(ParquetCipher::type alg_id, int32_t key_len, bool metadata,
+                   bool include_length);
+
+  virtual ~AesCryptoContext() = default;
+
+ protected:
+  static void DeleteCipherContext(EVP_CIPHER_CTX* ctx) { EVP_CIPHER_CTX_free(ctx); }
+
+  using CipherContext = std::unique_ptr<EVP_CIPHER_CTX, decltype(&DeleteCipherContext)>;
+
+  static CipherContext NewCipherContext() {
+    auto ctx = CipherContext(EVP_CIPHER_CTX_new(), DeleteCipherContext);
+    if (!ctx) {
+      throw ParquetException("Couldn't init cipher context");
+    }
+    return ctx;
+  }
+
+  int32_t aes_mode_;
+  int32_t key_length_;
+  int32_t ciphertext_size_delta_;
+  int32_t length_buffer_length_;
+};
+
 /// Performs AES encryption operations with GCM or CTR ciphers.
-class PARQUET_EXPORT AesEncryptor {
+class PARQUET_EXPORT AesEncryptor : public AesCryptoContext, public EncryptorInterface {
  public:
   /// Can serve one key length only. Possible values: 16, 24, 32 bytes.
   /// If write_length is true, prepend ciphertext length to the ciphertext
@@ -37,33 +67,46 @@ class PARQUET_EXPORT AesEncryptor {
   static std::unique_ptr<AesEncryptor> Make(ParquetCipher::type alg_id, int32_t key_len,
                                             bool metadata, bool write_length = true);
 
-  ~AesEncryptor();
+  ~AesEncryptor() = default;
+
+  /// Start of Encryptor Interface methods.
 
   /// The size of the ciphertext, for this cipher and the specified plaintext length.
-  [[nodiscard]] int32_t CiphertextLength(int64_t plaintext_len) const;
+  [[nodiscard]] int32_t CiphertextLength(int64_t plaintext_len) const override;
 
   /// Encrypts plaintext with the key and aad. Key length is passed only for validation.
   /// If different from value in constructor, exception will be thrown.
   int32_t Encrypt(::arrow::util::span<const uint8_t> plaintext,
                   ::arrow::util::span<const uint8_t> key,
                   ::arrow::util::span<const uint8_t> aad,
-                  ::arrow::util::span<uint8_t> ciphertext);
+                  ::arrow::util::span<uint8_t> ciphertext) override;
 
   /// Encrypts plaintext footer, in order to compute footer signature (tag).
   int32_t SignedFooterEncrypt(::arrow::util::span<const uint8_t> footer,
                               ::arrow::util::span<const uint8_t> key,
                               ::arrow::util::span<const uint8_t> aad,
                               ::arrow::util::span<const uint8_t> nonce,
-                              ::arrow::util::span<uint8_t> encrypted_footer);
+                              ::arrow::util::span<uint8_t> encrypted_footer) override;
+
+  /// End of Encryptor Interface methods.
 
  private:
-  // PIMPL Idiom
-  class AesEncryptorImpl;
-  std::unique_ptr<AesEncryptorImpl> impl_;
+   [[nodiscard]] CipherContext MakeCipherContext() const;
+
+   int32_t GcmEncrypt(::arrow::util::span<const uint8_t> plaintext,
+                      ::arrow::util::span<const uint8_t> key,
+                      ::arrow::util::span<const uint8_t> nonce,
+                      ::arrow::util::span<const uint8_t> aad,
+                      ::arrow::util::span<uint8_t> ciphertext);
+ 
+   int32_t CtrEncrypt(::arrow::util::span<const uint8_t> plaintext,
+                      ::arrow::util::span<const uint8_t> key,
+                      ::arrow::util::span<const uint8_t> nonce,
+                      ::arrow::util::span<uint8_t> ciphertext);
 };
 
 /// Performs AES decryption operations with GCM or CTR ciphers.
-class PARQUET_EXPORT AesDecryptor {
+class PARQUET_EXPORT AesDecryptor : public AesCryptoContext, public DecryptorInterface {
  public:
   /// \brief Construct an AesDecryptor
   ///
@@ -77,13 +120,15 @@ class PARQUET_EXPORT AesDecryptor {
   static std::unique_ptr<AesDecryptor> Make(ParquetCipher::type alg_id, int32_t key_len,
                                             bool metadata);
 
-  ~AesDecryptor();
+  ~AesDecryptor() = default;
+
+  /// Start of Decryptor Interface methods.
 
   /// The size of the plaintext, for this cipher and the specified ciphertext length.
-  [[nodiscard]] int32_t PlaintextLength(int32_t ciphertext_len) const;
+  [[nodiscard]] int32_t PlaintextLength(int32_t ciphertext_len) const override;
 
   /// The size of the ciphertext, for this cipher and the specified plaintext length.
-  [[nodiscard]] int32_t CiphertextLength(int32_t plaintext_len) const;
+  [[nodiscard]] int32_t CiphertextLength(int32_t plaintext_len) const override;
 
   /// Decrypts ciphertext with the key and aad. Key length is passed only for
   /// validation. If different from value in constructor, exception will be thrown.
@@ -92,12 +137,25 @@ class PARQUET_EXPORT AesDecryptor {
   int32_t Decrypt(::arrow::util::span<const uint8_t> ciphertext,
                   ::arrow::util::span<const uint8_t> key,
                   ::arrow::util::span<const uint8_t> aad,
-                  ::arrow::util::span<uint8_t> plaintext);
+                  ::arrow::util::span<uint8_t> plaintext) override;
+
+  /// End of Decryptor Interface methods.
 
  private:
-  // PIMPL Idiom
-  class AesDecryptorImpl;
-  std::unique_ptr<AesDecryptorImpl> impl_;
+    [[nodiscard]] CipherContext MakeCipherContext() const;
+
+    /// Get the actual ciphertext length, inclusive of the length buffer length,
+    /// and validate that the provided buffer size is large enough.
+    [[nodiscard]] int32_t GetCiphertextLength(::arrow::util::span<const uint8_t> ciphertext) const;
+
+    int32_t GcmDecrypt(::arrow::util::span<const uint8_t> ciphertext,
+                       ::arrow::util::span<const uint8_t> key,
+                       ::arrow::util::span<const uint8_t> aad,
+                       ::arrow::util::span<uint8_t> plaintext);
+  
+    int32_t CtrDecrypt(::arrow::util::span<const uint8_t> ciphertext,
+                       ::arrow::util::span<const uint8_t> key,
+                       ::arrow::util::span<uint8_t> plaintext);
 };
 
 }  // namespace parquet::encryption

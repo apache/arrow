@@ -32,7 +32,11 @@ class PARQUET_EXPORT DecryptorInterface {
   [[nodiscard]] virtual int32_t CiphertextLength(int32_t plaintext_len) const = 0;
 
   /// Decrypt the ciphertext and leave the results in the plaintext buffer.
+  /// Most implementations will require the key and aad to be provided, but it is up to
+  /// each decryptor whether to use them or not.
   virtual int32_t Decrypt(::arrow::util::span<const uint8_t> ciphertext,
+                          ::arrow::util::span<const uint8_t> key,
+                          ::arrow::util::span<const uint8_t> aad,
                           ::arrow::util::span<uint8_t> plaintext) = 0;
 };
 

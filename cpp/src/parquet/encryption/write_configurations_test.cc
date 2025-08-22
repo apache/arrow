@@ -243,8 +243,7 @@ TEST_F(TestEncryptionConfiguration, EncryptOneColumnAndUseExternalDBPA) {
                         "tmp_encrypt_one_column_and_use_external_dbpa.parquet.encrypted");
         FAIL() << "Expected ParquetException was not thrown";
     } catch (const parquet::ParquetException& e) {
-        EXPECT_STREQ("ExternalDataBatchProtectionAgent (DBPA) algorithm is not yet implemented", 
-            e.what());
+        EXPECT_STREQ("Crypto algorithm 2 is not supported", e.what());
     } 
 }
 

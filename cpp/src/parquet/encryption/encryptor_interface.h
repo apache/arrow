@@ -29,7 +29,11 @@ class PARQUET_EXPORT EncryptorInterface {
   [[nodiscard]]virtual int32_t CiphertextLength(int64_t plaintext_len) const = 0;
 
   /// Encrypt the plaintext and leave the results in the ciphertext buffer.
+  /// Most implementations will require the key and aad to be provided, but it is up to
+  /// each encryptor whether to use them or not.
   virtual int32_t Encrypt(::arrow::util::span<const uint8_t> plaintext,
+                          ::arrow::util::span<const uint8_t> key,
+                          ::arrow::util::span<const uint8_t> aad,
                           ::arrow::util::span<uint8_t> ciphertext) = 0;
 
   /// Encrypt footer metadata for signature verification purposes only.
