@@ -240,6 +240,7 @@ if(PARQUET_REQUIRE_ENCRYPTION)
   list(APPEND PARQUET_SHARED_PRIVATE_LINK_LIBS ${ARROW_OPENSSL_LIBS})
   set(PARQUET_SRCS ${PARQUET_SRCS} encryption/aes_encryption.cc
                    encryption/encryption_utils.cc
+                   encryption/external_dbpa_encryption.cc
                    encryption/openssl_internal.cc)
   # Encryption key management
   set(PARQUET_SRCS
@@ -411,6 +412,7 @@ if(PARQUET_REQUIRE_ENCRYPTION)
   add_parquet_test(encryption-test
                    SOURCES
                    encryption/aes_encryption_test.cc
+                   encryption/external_dbpa_encryption_test.cc
                    encryption/write_configurations_test.cc
                    encryption/read_configurations_test.cc
                    encryption/properties_test.cc
