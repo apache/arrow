@@ -49,15 +49,21 @@ class BackpressureControlWrapper : public BackpressureControl {
 };
 
 // Provides infrastructure of combining multiple backpressure sources and propagate the
-// result into BackpressureControl There are two types of Source: strong - pause on any
-// strong Source within controller
+// result into BackpressureControl There are two logic scheme of backpressure:
+// 1. Default pause_on_any=true - pause on any source is propagated - OR logic
+// 2. pause_on_any=false - pause is propagated only when all sources are paused - AND
+// logic
 class ARROW_ACERO_EXPORT BackpressureCombiner {
  public:
   explicit BackpressureCombiner(std::unique_ptr<BackpressureControl> backpressure_control,
                                 bool pause_on_any = true);
 
   // Instances of Source can be used as usual BackpresureControl.
-  // Source can be connected with one or more BackpressureCombiner
+  // That means that BackpressureCombiner::Source can use another BackpressureCombiner
+  // as backpressure_control
+  // This enabled building more complex backpressure logic using AND/OR operations.
+  // Source can also be connected with more BackpressureCombiners to facilitate
+  // propagation of backpressure to multiple inputs.
   class ARROW_ACERO_EXPORT Source : public BackpressureControl {
    public:
     // strong - strong_connection=true
