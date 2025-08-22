@@ -1822,19 +1822,25 @@ TEST_F(TestConvertArrowSchema, ParquetTimeAdjustedToUTC) {
 
   ArrowWriterProperties::Builder builder;
 
-  auto arrow_writer_properties = builder.enable_time_adjusted_to_utc()->build();
-  EXPECT_TRUE(arrow_writer_properties->write_time_adjusted_to_utc());
-  auto cases = make_cases_fcn(true);
+  auto arrow_writer_properties = builder.build();
+  // Verify write_time_adjusted_to_utc is false by default.
+  EXPECT_FALSE(arrow_writer_properties->write_time_adjusted_to_utc());
+  auto cases = make_cases_fcn(false);
   auto arrow_parquet_fields = make_fields_schema_fcn(cases);
   ASSERT_OK(ConvertSchema(arrow_parquet_fields.first, arrow_writer_properties));
   CheckFlatSchema(arrow_parquet_fields.second);
 
-  arrow_writer_properties = builder.disable_time_adjusted_to_utc()->build();
-  EXPECT_FALSE(arrow_writer_properties->write_time_adjusted_to_utc());
-  cases = make_cases_fcn(false);
+  arrow_writer_properties = builder.enable_time_adjusted_to_utc()->build();
+  // Verify write_time_adjusted_to_utc is true.
+  EXPECT_TRUE(arrow_writer_properties->write_time_adjusted_to_utc());
+  cases = make_cases_fcn(true);
   arrow_parquet_fields = make_fields_schema_fcn(cases);
   ASSERT_OK(ConvertSchema(arrow_parquet_fields.first, arrow_writer_properties));
   CheckFlatSchema(arrow_parquet_fields.second);
+
+  arrow_writer_properties = builder.disable_time_adjusted_to_utc()->build();
+  // Verify write_time_adjusted_to_utc is false.
+  EXPECT_FALSE(arrow_writer_properties->write_time_adjusted_to_utc());
 }
 
 class TestConvertRoundTrip : public ::testing::Test {
