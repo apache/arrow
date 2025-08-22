@@ -319,14 +319,14 @@ cdef void _cb_wrap_key(
 
 cdef void _cb_unwrap_key(
         handler, const c_string& wrapped_key,
-        const c_string& master_key_identifier, shared_ptr[CSecureString]* out) except *:
+        const c_string& master_key_identifier, CSecureString* out) except *:
     mkid_str = frombytes(master_key_identifier)
     wk_str = frombytes(wrapped_key)
     key = handler.unwrap_key(wk_str, mkid_str)
 
     cdef:
         c_string cstr = tobytes(key)
-        shared_ptr[CSecureString] css = shared_ptr[CSecureString](new CSecureString(move(cstr)))
+        CSecureString css = CSecureString(move(cstr))
 
     out[0] = css
 
