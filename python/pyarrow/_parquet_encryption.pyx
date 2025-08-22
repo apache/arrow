@@ -20,18 +20,13 @@
 
 from datetime import timedelta
 
+from cpython.bytes cimport PyBytes_FromStringAndSize
 from cython.operator cimport dereference as deref
 
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
 from pyarrow.lib cimport _Weakrefable
 from pyarrow.lib import tobytes, frombytes
-
-
-cdef extern from "Python.h":
-    # To let us get a PyObject* and avoid Cython auto-ref-counting
-    PyObject* PyBytes_FromStringAndSizeNative" PyBytes_FromStringAndSize"(
-        char *v, Py_ssize_t len) except NULL
 
 
 cdef ParquetCipher cipher_from_name(name):
@@ -310,8 +305,7 @@ cdef void _cb_wrap_key(
         const c_string& master_key_identifier, c_string* out) except *:
     cdef:
         cpp_string_view view = key.as_view()
-    key_bytes = PyObject_to_object(
-        PyBytes_FromStringAndSizeNative(view.data(), view.size()))
+    key_bytes = <bytes>PyBytes_FromStringAndSize(view.data(), view.size())
     mkid_str = frombytes(master_key_identifier)
     wrapped_key = handler.wrap_key(key_bytes, mkid_str)
     out[0] = tobytes(wrapped_key)
