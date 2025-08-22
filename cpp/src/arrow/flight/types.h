@@ -468,6 +468,38 @@ struct ARROW_FLIGHT_EXPORT FlightDescriptor
   }
 };
 
+/// \brief Data structure providing an opaque identifier or credential to use
+/// when requesting a data stream with the DoGet RPC
+struct ARROW_FLIGHT_EXPORT Ticket : public internal::BaseType<Ticket> {
+  std::string ticket;
+
+  Ticket() = default;
+  Ticket(std::string ticket)  // NOLINT runtime/explicit
+      : ticket(std::move(ticket)) {}
+
+  std::string ToString() const;
+  bool Equals(const Ticket& other) const;
+
+  using SuperT::Deserialize;
+  using SuperT::SerializeToString;
+
+  /// \brief Get the wire-format representation of this type.
+  ///
+  /// Useful when interoperating with non-Flight systems (e.g. REST
+  /// services) that may want to return Flight types.
+  ///
+  /// Use `SerializeToString()` if you want a Result-returning version.
+  arrow::Status SerializeToString(std::string* out) const;
+
+  /// \brief Parse the wire-format representation of this type.
+  ///
+  /// Useful when interoperating with non-Flight systems (e.g. REST
+  /// services) that may want to return Flight types.
+  ///
+  /// Use `Deserialize(serialized)` if you want a Result-returning version.
+  static arrow::Status Deserialize(std::string_view serialized, Ticket* out);
+};
+
 /// \brief A host location (a URI)
 struct ARROW_FLIGHT_EXPORT Location : public internal::BaseType<Location> {
  public:
@@ -537,37 +569,6 @@ struct ARROW_FLIGHT_EXPORT Location : public internal::BaseType<Location> {
   std::shared_ptr<arrow::util::Uri> uri_;
 };
 
-/// \brief Data structure providing an opaque identifier or credential to use
-/// when requesting a data stream with the DoGet RPC
-struct ARROW_FLIGHT_EXPORT Ticket : public internal::BaseType<Ticket> {
-  std::string ticket;
-
-  Ticket() = default;
-  Ticket(std::string ticket)  // NOLINT runtime/explicit
-      : ticket(std::move(ticket)) {}
-
-  std::string ToString() const;
-  bool Equals(const Ticket& other) const;
-
-  using SuperT::Deserialize;
-  using SuperT::SerializeToString;
-
-  /// \brief Get the wire-format representation of this type.
-  ///
-  /// Useful when interoperating with non-Flight systems (e.g. REST
-  /// services) that may want to return Flight types.
-  ///
-  /// Use `SerializeToString()` if you want a Result-returning version.
-  arrow::Status SerializeToString(std::string* out) const;
-
-  /// \brief Parse the wire-format representation of this type.
-  ///
-  /// Useful when interoperating with non-Flight systems (e.g. REST
-  /// services) that may want to return Flight types.
-  ///
-  /// Use `Deserialize(serialized)` if you want a Result-returning version.
-  static arrow::Status Deserialize(std::string_view serialized, Ticket* out);
-};
 
 /// \brief A flight ticket and list of locations where the ticket can be
 /// redeemed
@@ -883,6 +884,7 @@ struct ARROW_FLIGHT_EXPORT CancelFlightInfoResult
 
 ARROW_FLIGHT_EXPORT
 std::ostream& operator<<(std::ostream& os, CancelStatus status);
+
 
 // FlightData in Flight.proto maps to FlightPayload here.
 
