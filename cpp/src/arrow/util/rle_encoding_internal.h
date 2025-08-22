@@ -734,7 +734,7 @@ auto GetSpacedRle(Converter& converter, typename Converter::out_type* out,
       validity_run.length -= update_size;
     }
 
-    if (validity_run.length == 0) {
+    if (ARROW_PREDICT_TRUE(validity_run.length == 0)) {
       validity_run = validity_reader.NextRun();
     }
   }
