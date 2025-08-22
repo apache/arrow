@@ -303,8 +303,7 @@ cdef class KmsConnectionConfig(_Weakrefable):
 cdef void _cb_wrap_key(
         handler, const CSecureString& key,
         const c_string& master_key_identifier, c_string* out) except *:
-    cdef:
-        cpp_string_view view = key.as_view()
+    view = <cpp_string_view>key.as_view()
     key_bytes = <bytes>PyBytes_FromStringAndSize(view.data(), view.size())
     mkid_str = frombytes(master_key_identifier)
     wrapped_key = handler.wrap_key(key_bytes, mkid_str)
@@ -314,13 +313,10 @@ cdef void _cb_wrap_key(
 cdef void _cb_unwrap_key(
         handler, const c_string& wrapped_key,
         const c_string& master_key_identifier, CSecureString& out) except *:
-    cdef:
-        c_string cstr
-
     mkid_str = frombytes(master_key_identifier)
     wk_str = frombytes(wrapped_key)
     key = handler.unwrap_key(wk_str, mkid_str)
-    cstr = tobytes(key)
+    cstr = <c_string>tobytes(key)
     out = CSecureString(move(cstr))
 
 
