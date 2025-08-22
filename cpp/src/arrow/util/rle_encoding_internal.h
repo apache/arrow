@@ -741,7 +741,7 @@ auto GetSpacedRle(Converter& converter, typename Converter::out_type* out,
 
   value_type const value = decoder.Value();
   if (ARROW_PREDICT_FALSE(!converter.InputIsValid(value))) {
-    return {batch.ValuesRead(), batch.NullRead()};
+    return {0, 0};
   }
   converter.WriteRepeated(out, out + batch.TotalRead(), value);
   auto const actual_values_read = decoder.Advance(batch.ValuesRead());
