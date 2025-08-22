@@ -2091,11 +2091,14 @@ garrow_fixed_size_list_array_new_list_size(GArrowArray *value_array,
                                           arrow_null_bitmap,
                                           n_nulls);
 
-  garrow::check(error,
-                arrow_fixed_size_list_array_result,
-                "[fixed-size-list-array][new-list-size]");
-  std::shared_ptr<arrow::Array> arrow_array = *arrow_fixed_size_list_array_result;
-  return GARROW_FIXED_SIZE_LIST_ARRAY(garrow_array_new_raw(&arrow_array));
+  if (garrow::check(error,
+                   arrow_fixed_size_list_array_result,
+                   "[fixed-size-list-array][new-list-size]")) {
+    auto arrow_array = *arrow_fixed_size_list_array_result;
+    return GARROW_FIXED_SIZE_LIST_ARRAY(garrow_array_new_raw(&arrow_array));
+  } else {
+    return nullptr;
+  }
 }
 
 /**
