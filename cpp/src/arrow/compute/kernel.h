@@ -365,10 +365,6 @@ ARROW_EXPORT std::shared_ptr<MatchConstraint> MakeConstraint(
 /// \brief Constraint that all input types are decimal types and have the same scale.
 ARROW_EXPORT std::shared_ptr<MatchConstraint> DecimalsHaveSameScale();
 
-/// \brief Constraint that all binary input types are decimal types and the first type's
-/// scale >= the second type's.
-ARROW_EXPORT std::shared_ptr<MatchConstraint> BinaryDecimalScale1GeScale2();
-
 /// \brief Holds the input types, optional match constraint and output type of the kernel.
 ///
 /// VarArgs functions with minimum N arguments should pass up to N input types to be

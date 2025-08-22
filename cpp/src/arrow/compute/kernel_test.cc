@@ -341,23 +341,6 @@ TEST(MatchConstraint, DecimalsHaveSameScale) {
                            decimal128(precision, scale + 1)}));
 }
 
-TEST(MatchConstraint, BinaryDecimalScaleComparisonGE) {
-  auto c = BinaryDecimalScale1GeScale2();
-  constexpr int32_t precision = 12, small_scale = 2, big_scale = 3;
-  ASSERT_TRUE(
-      c->Matches({decimal128(precision, big_scale), decimal128(precision, small_scale)}));
-  ASSERT_TRUE(
-      c->Matches({decimal128(precision, big_scale), decimal256(precision, small_scale)}));
-  ASSERT_TRUE(
-      c->Matches({decimal256(precision, big_scale), decimal128(precision, small_scale)}));
-  ASSERT_TRUE(
-      c->Matches({decimal256(precision, big_scale), decimal256(precision, small_scale)}));
-  ASSERT_TRUE(c->Matches(
-      {decimal128(precision, small_scale), decimal128(precision, small_scale)}));
-  ASSERT_FALSE(
-      c->Matches({decimal128(precision, small_scale), decimal128(precision, big_scale)}));
-}
-
 // ----------------------------------------------------------------------
 // KernelSignature
 
@@ -476,26 +459,27 @@ TEST(KernelSignature, MatchesInputsWithConstraint) {
   auto small_scale_decimal = decimal128(precision, small_scale);
   auto big_scale_decimal = decimal128(precision, big_scale);
 
-  // No constraint.
-  KernelSignature sig_no_constraint({Type::DECIMAL128, Type::DECIMAL128}, boolean());
-  ASSERT_TRUE(
-      sig_no_constraint.MatchesInputs({small_scale_decimal, small_scale_decimal}));
-  ASSERT_TRUE(sig_no_constraint.MatchesInputs({small_scale_decimal, big_scale_decimal}));
-  ASSERT_TRUE(
-      sig_no_constraint.MatchesInputs({small_scale_decimal, small_scale_decimal}));
-  ASSERT_TRUE(sig_no_constraint.MatchesInputs({small_scale_decimal, big_scale_decimal}));
+  {
+    // No constraint.
+    KernelSignature sig_no_constraint({Type::DECIMAL128, Type::DECIMAL128}, boolean());
+    ASSERT_TRUE(
+        sig_no_constraint.MatchesInputs({small_scale_decimal, small_scale_decimal}));
+    ASSERT_TRUE(
+        sig_no_constraint.MatchesInputs({small_scale_decimal, big_scale_decimal}));
+    ASSERT_TRUE(
+        sig_no_constraint.MatchesInputs({small_scale_decimal, small_scale_decimal}));
+    ASSERT_TRUE(
+        sig_no_constraint.MatchesInputs({small_scale_decimal, big_scale_decimal}));
+  }
 
-  for (auto constraint : {DecimalsHaveSameScale(), BinaryDecimalScale1GeScale2()}) {
+  {
+    // All decimal types must have the same scale.
     KernelSignature sig({Type::DECIMAL128, Type::DECIMAL128}, boolean(),
-                        /*is_varargs=*/false, constraint);
-    ASSERT_EQ(constraint->Matches({small_scale_decimal, small_scale_decimal}),
-              sig.MatchesInputs({small_scale_decimal, small_scale_decimal}));
-    ASSERT_EQ(constraint->Matches({small_scale_decimal, big_scale_decimal}),
-              sig.MatchesInputs({small_scale_decimal, big_scale_decimal}));
-    ASSERT_EQ(constraint->Matches({big_scale_decimal, small_scale_decimal}),
-              sig.MatchesInputs({big_scale_decimal, small_scale_decimal}));
-    ASSERT_EQ(constraint->Matches({big_scale_decimal, big_scale_decimal}),
-              sig.MatchesInputs({big_scale_decimal, big_scale_decimal}));
+                        /*is_varargs=*/false, DecimalsHaveSameScale());
+    ASSERT_TRUE(sig.MatchesInputs({small_scale_decimal, small_scale_decimal}));
+    ASSERT_FALSE(sig.MatchesInputs({small_scale_decimal, big_scale_decimal}));
+    ASSERT_FALSE(sig.MatchesInputs({big_scale_decimal, small_scale_decimal}));
+    ASSERT_TRUE(sig.MatchesInputs({big_scale_decimal, big_scale_decimal}));
   }
 }
 
