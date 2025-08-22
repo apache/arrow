@@ -65,10 +65,12 @@ RUN `
   curl -SL --output vs_buildtools.exe https://aka.ms/vs/17/release/vs_buildtools.exe `
   && (start /w vs_buildtools.exe --quiet --wait --norestart --nocache `
   --installPath "%ProgramFiles(x86)%\Microsoft Visual Studio\2022\BuildTools" `
+  --add Microsoft.VisualStudio.Component.VC.CMake.Project `
   --add Microsoft.VisualStudio.Component.VC.CoreBuildTools `
+  --add Microsoft.VisualStudio.Component.VC.Llvm.Clang `
+  --add Microsoft.VisualStudio.Component.VC.Llvm.ClangToolset `
   --add Microsoft.VisualStudio.Component.VC.Tools.x86.x64 `
   --add Microsoft.VisualStudio.Component.Windows10SDK.20348 `
-  --add Microsoft.VisualStudio.Component.VC.CMake.Project `
   || IF "%ERRORLEVEL%"=="3010" EXIT 0) `
   && del /q vs_buildtools.exe
 
@@ -124,9 +126,5 @@ RUN vcpkg install `
   --clean-after-build `
   --x-install-root=%VCPKG_ROOT%\installed `
   --x-manifest-root=arrow/ci/vcpkg `
-  --x-feature=flight`
-  --x-feature=gcs`
-  --x-feature=json`
-  --x-feature=orc`
-  --x-feature=parquet`
-  --x-feature=s3
+  --x-feature=json `
+  --x-feature=parquet
