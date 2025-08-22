@@ -11,21 +11,21 @@
 namespace parquet::encryption {
 
 /// Call an external Data Batch Protection Agent (DBPA) to encrypt data.
-class ExternalDBPAEncryptor : public EncryptorInterface {
+class ExternalDBPAEncryptorAdapter : public EncryptorInterface {
  public:
-  explicit ExternalDBPAEncryptor(
+  explicit ExternalDBPAEncryptorAdapter(
       ParquetCipher::type algorithm, std::string column_name,
       std::string key_id, Type::type data_type, Compression::type compression_type,
       Encoding::type encoding_type, std::string app_context,
       std::map<std::string, std::string> connection_config);
 
-  static std::unique_ptr<ExternalDBPAEncryptor> Make(
+  static std::unique_ptr<ExternalDBPAEncryptorAdapter> Make(
       ParquetCipher::type algorithm, std::string column_name,
       std::string key_id, Type::type data_type, Compression::type compression_type,
       Encoding::type encoding_type, std::string app_context,
       std::map<std::string, std::string> connection_config);
 
-  ~ExternalDBPAEncryptor() = default;
+  ~ExternalDBPAEncryptorAdapter() = default;
 
   /// The size of the ciphertext, for this cipher and the specified plaintext length.
   [[nodiscard]] int32_t CiphertextLength(int64_t plaintext_len) const override;
@@ -59,21 +59,21 @@ class ExternalDBPAEncryptor : public EncryptorInterface {
 
 /// Call an external Data Batch Protection Agent (DBPA) to decrypt data.
 /// connection configuration provided.
-class ExternalDBPADecryptor : public DecryptorInterface {
+class ExternalDBPADecryptorAdapter : public DecryptorInterface {
  public:
-  explicit ExternalDBPADecryptor(
+  explicit ExternalDBPADecryptorAdapter(
       ParquetCipher::type algorithm, std::string column_name,
       std::string key_id, Type::type data_type, Compression::type compression_type,
       Encoding::type encoding_type, std::string app_context,
       std::map<std::string, std::string> connection_config);
 
-  static std::unique_ptr<ExternalDBPADecryptor> Make(
+  static std::unique_ptr<ExternalDBPADecryptorAdapter> Make(
       ParquetCipher::type algorithm, std::string column_name,
       std::string key_id, Type::type data_type, Compression::type compression_type,
       Encoding::type encoding_type, std::string app_context,
       std::map<std::string, std::string> connection_config);
   
-  ~ExternalDBPADecryptor() = default;
+  ~ExternalDBPADecryptorAdapter() = default;
 
   /// The size of the plaintext, for this cipher and the specified ciphertext length.
   [[nodiscard]] int32_t PlaintextLength(int32_t ciphertext_len) const override;

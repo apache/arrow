@@ -3,14 +3,14 @@
 #include <gtest/gtest.h>
 
 #include "parquet/encryption/encryption.h"
-#include "parquet/encryption/external_dbpa_encryption.h"
+#include "parquet/encryption/external_dbpa_encryption_adapter.h"
 
 /// TODO(sbrenes): Add proper testing. Right now we are just going to test that the
 /// encryptor and decryptor are created and that the plaintext is returned as the ciphertext.
 
 namespace parquet::encryption::test {
 
-class ExternalDBPAEncryptionTest : public ::testing::Test {
+class ExternalDBPAEncryptionAdapterTest : public ::testing::Test {
  protected:
   void SetUp() override {
     app_context_ = 
@@ -25,8 +25,9 @@ class ExternalDBPAEncryptionTest : public ::testing::Test {
       ParquetCipher::type algorithm, std::string column_name, std::string key_id, 
       Type::type data_type, Compression::type compression_type, Encoding::type encoding_type,
       std::string plaintext) {
-    ExternalDBPAEncryptor encryptor(algorithm, column_name, key_id, data_type, compression_type,
-                                    encoding_type, app_context_, connection_config_);
+    ExternalDBPAEncryptorAdapter encryptor(
+        algorithm, column_name, key_id, data_type, compression_type, encoding_type,
+        app_context_, connection_config_);
 
     int32_t expected_ciphertext_length = plaintext.size();
     int32_t actual_ciphertext_length = encryptor.CiphertextLength(plaintext.size());
@@ -40,8 +41,9 @@ class ExternalDBPAEncryptionTest : public ::testing::Test {
     std::string ciphertext_str(ciphertext_buffer.begin(), ciphertext_buffer.end());
     ASSERT_EQ(plaintext, ciphertext_str);
 
-    ExternalDBPADecryptor decryptor(algorithm, column_name, key_id, data_type, compression_type,
-                                    encoding_type, app_context_, connection_config_);
+    ExternalDBPADecryptorAdapter decryptor(algorithm, column_name, key_id, data_type,
+                                           compression_type, encoding_type, app_context_,
+                                           connection_config_);
 
     int32_t expected_plaintext_length = ciphertext_str.size();
     int32_t actual_plaintext_length = decryptor.PlaintextLength(ciphertext_str.size());
@@ -62,7 +64,7 @@ private:
  std::map<std::string, std::string> connection_config_;
 };
 
-TEST_F(ExternalDBPAEncryptionTest, RoundtripEncryptionSucceeds) {
+TEST_F(ExternalDBPAEncryptionAdapterTest, RoundtripEncryptionSucceeds) {
   ParquetCipher::type algorithm = ParquetCipher::EXTERNAL_DBPA_V1;
   std::string column_name = "employee_name";
   std::string key_id = "employee_name_key";
