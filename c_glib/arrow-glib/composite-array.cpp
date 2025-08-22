@@ -2082,7 +2082,7 @@ garrow_fixed_size_list_array_new_list_size(GArrowArray *value_array,
                                            gint64 n_nulls,
                                            GError **error)
 {
-  std::shared_ptr<arrow::Array> arrow_value_array = garrow_array_get_raw(value_array);
+  auto arrow_value_array = garrow_array_get_raw(value_array);
   auto arrow_null_bitmap = garrow_buffer_get_raw(null_bitmap);
 
   auto arrow_fixed_size_list_array_result =
