@@ -402,7 +402,7 @@ if [ "$_LIBARROW_FOUND" != "false" ] && [ "$_LIBARROW_FOUND" != "" ]; then
     set_pkg_vars ${_LIBARROW_FOUND}
   fi
 else
-  # To make it easier to debug which code path was taken add a specific 
+  # To make it easier to debug which code path was taken add a specific
   # message to the log in addition to the 'NOTE'
   echo "*** Failed to find Arrow C++ libraries."
 fi

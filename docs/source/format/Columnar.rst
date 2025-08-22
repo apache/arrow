@@ -482,7 +482,7 @@ will be represented as follows: ::
 Variable-size Binary View Layout
 --------------------------------
 
-.. note:: New in version Arrow Columnar Format 1.4
+.. note:: New in Arrow Columnar Format 1.4
 
 Each value in this layout consists of 0 or more bytes. These bytes'
 locations are indicated using a **views** buffer, which may point to one
@@ -628,7 +628,7 @@ will be represented as follows: ::
 ListView Layout
 ~~~~~~~~~~~~~~~
 
-.. note:: New in version Arrow Columnar Format 1.4
+.. note:: New in Arrow Columnar Format 1.4
 
 The ListView layout is defined by three buffers: a validity bitmap, an offsets
 buffer, and an additional sizes buffer. Sizes and offsets have the identical bit
@@ -1085,7 +1085,7 @@ below.
 Run-End Encoded Layout
 ----------------------
 
-.. note:: New in version Arrow Columnar Format 1.3
+.. note:: New in Arrow Columnar Format 1.3
 
 Run-end encoding (REE) is a variation of run-length encoding (RLE). These
 encodings are well-suited for representing data containing sequences of the
@@ -1360,7 +1360,7 @@ memory size rather than the padded size.
 Variadic buffers
 ----------------
 
-.. note:: New in version Arrow Columnar Format 1.4
+.. note:: New in Arrow Columnar Format 1.4
 
 Some types such as Utf8View are represented using a variable number of buffers.
 For each such Field in the pre-ordered flattened logical schema, there will be

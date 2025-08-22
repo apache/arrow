@@ -721,20 +721,6 @@ tasks:
       flags: -e CC=gcc-14 -e CXX=g++-14 -e RapidJSON_SOURCE=BUNDLED
       image: ubuntu-cpp
 
-  test-skyhook-integration:
-    ci: github
-    template: docker-tests/github.linux.yml
-    params:
-      env:
-        UBUNTU: 22.04
-      flags: >-
-        -e ARROW_AZURE=OFF
-        -e ARROW_GANDIVA=OFF
-        -e ARROW_GCS=OFF
-        -e ARROW_S3=OFF
-        -e ARROW_SKYHOOK=ON
-      image: ubuntu-cpp
-
 {% for debian_version in ["12"] %}
   test-debian-{{ debian_version }}-cpp-amd64:
     ci: github

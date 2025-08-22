@@ -308,6 +308,57 @@ TEST(OutputType, Resolve) {
 }
 
 // ----------------------------------------------------------------------
+// MatchConstraint
+
+TEST(MatchConstraint, ConvenienceMaker) {
+  {
+    auto always_match =
+        MakeConstraint([](const std::vector<TypeHolder>& types) { return true; });
+
+    ASSERT_TRUE(always_match->Matches({}));
+    ASSERT_TRUE(always_match->Matches({int8(), int16(), int32()}));
+  }
+
+  {
+    auto always_false =
+        MakeConstraint([](const std::vector<TypeHolder>& types) { return false; });
+
+    ASSERT_FALSE(always_false->Matches({}));
+    ASSERT_FALSE(always_false->Matches({int8(), int16(), int32()}));
+  }
+}
+
+TEST(MatchConstraint, DecimalsHaveSameScale) {
+  auto c = DecimalsHaveSameScale();
+  constexpr int32_t precision = 12, scale = 2;
+  ASSERT_TRUE(c->Matches({decimal128(precision, scale), decimal128(precision, scale)}));
+  ASSERT_TRUE(c->Matches({decimal128(precision, scale), decimal256(precision, scale)}));
+  ASSERT_TRUE(c->Matches({decimal256(precision, scale), decimal128(precision, scale)}));
+  ASSERT_TRUE(c->Matches({decimal256(precision, scale), decimal256(precision, scale)}));
+  ASSERT_FALSE(
+      c->Matches({decimal128(precision, scale), decimal128(precision, scale + 1)}));
+  ASSERT_FALSE(c->Matches({decimal128(precision, scale), decimal128(precision, scale),
+                           decimal128(precision, scale + 1)}));
+}
+
+TEST(MatchConstraint, BinaryDecimalScaleComparisonGE) {
+  auto c = BinaryDecimalScale1GeScale2();
+  constexpr int32_t precision = 12, small_scale = 2, big_scale = 3;
+  ASSERT_TRUE(
+      c->Matches({decimal128(precision, big_scale), decimal128(precision, small_scale)}));
+  ASSERT_TRUE(
+      c->Matches({decimal128(precision, big_scale), decimal256(precision, small_scale)}));
+  ASSERT_TRUE(
+      c->Matches({decimal256(precision, big_scale), decimal128(precision, small_scale)}));
+  ASSERT_TRUE(
+      c->Matches({decimal256(precision, big_scale), decimal256(precision, small_scale)}));
+  ASSERT_TRUE(c->Matches(
+      {decimal128(precision, small_scale), decimal128(precision, small_scale)}));
+  ASSERT_FALSE(
+      c->Matches({decimal128(precision, small_scale), decimal128(precision, big_scale)}));
+}
+
+// ----------------------------------------------------------------------
 // KernelSignature
 
 TEST(KernelSignature, Basics) {
@@ -416,6 +467,35 @@ TEST(KernelSignature, VarArgsMatchesInputs) {
     ASSERT_TRUE(sig.MatchesInputs(args));
     args.push_back(int32());
     ASSERT_FALSE(sig.MatchesInputs(args));
+  }
+}
+
+TEST(KernelSignature, MatchesInputsWithConstraint) {
+  constexpr int32_t precision = 12, small_scale = 2, big_scale = 3;
+
+  auto small_scale_decimal = decimal128(precision, small_scale);
+  auto big_scale_decimal = decimal128(precision, big_scale);
+
+  // No constraint.
+  KernelSignature sig_no_constraint({Type::DECIMAL128, Type::DECIMAL128}, boolean());
+  ASSERT_TRUE(
+      sig_no_constraint.MatchesInputs({small_scale_decimal, small_scale_decimal}));
+  ASSERT_TRUE(sig_no_constraint.MatchesInputs({small_scale_decimal, big_scale_decimal}));
+  ASSERT_TRUE(
+      sig_no_constraint.MatchesInputs({small_scale_decimal, small_scale_decimal}));
+  ASSERT_TRUE(sig_no_constraint.MatchesInputs({small_scale_decimal, big_scale_decimal}));
+
+  for (auto constraint : {DecimalsHaveSameScale(), BinaryDecimalScale1GeScale2()}) {
+    KernelSignature sig({Type::DECIMAL128, Type::DECIMAL128}, boolean(),
+                        /*is_varargs=*/false, constraint);
+    ASSERT_EQ(constraint->Matches({small_scale_decimal, small_scale_decimal}),
+              sig.MatchesInputs({small_scale_decimal, small_scale_decimal}));
+    ASSERT_EQ(constraint->Matches({small_scale_decimal, big_scale_decimal}),
+              sig.MatchesInputs({small_scale_decimal, big_scale_decimal}));
+    ASSERT_EQ(constraint->Matches({big_scale_decimal, small_scale_decimal}),
+              sig.MatchesInputs({big_scale_decimal, small_scale_decimal}));
+    ASSERT_EQ(constraint->Matches({big_scale_decimal, big_scale_decimal}),
+              sig.MatchesInputs({big_scale_decimal, big_scale_decimal}));
   }
 }
 
