@@ -2159,7 +2159,6 @@ garrow_fixed_size_list_array_get_values(GArrowFixedSizeListArray *array)
   auto arrow_fixed_size_list_array =
     std::static_pointer_cast<arrow::FixedSizeListArray>(arrow_array);
   auto arrow_value_array = arrow_fixed_size_list_array->values();
-
   return garrow_array_new_raw(&arrow_value_array);
 }
 G_END_DECLS
