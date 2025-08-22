@@ -1299,7 +1299,7 @@ inline auto RleBitPackedParser::PeekCount() const
   uint32_t run_len_type = 0;
   auto const header_bytes = bit_util::ParseLeadingLEB128(data_, kMaxSize, &run_len_type);
 
-  if (header_bytes == 0) {
+  if (ARROW_PREDICT_FALSE(header_bytes == 0)) {
     // Malfomrmed LEB128 data
     return {};
   }
