@@ -26,6 +26,7 @@
 #include "arrow/ipc/reader.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
+#include "arrow/util/logging_internal.h"
 
 namespace arrow {
 namespace flight {
@@ -167,20 +168,14 @@ class TransportMessagePayloadWriter : public ipc::internal::IpcPayloadWriter {
  public:
   TransportMessagePayloadWriter(ServerDataStream* stream,
                                 std::shared_ptr<Buffer>* app_metadata)
-      : stream_(stream), app_metadata_(app_metadata), first_payload_(true) {}
+      : stream_(stream), app_metadata_(app_metadata) {}
 
   Status Start() override { return Status::OK(); }
   Status WritePayload(const ipc::IpcPayload& ipc_payload) override {
     FlightPayload payload;
     payload.ipc_message = ipc_payload;
 
-    if (first_payload_) {
-      // First Flight message needs to encore the Flight descriptor
-      if (ipc_payload.type != ipc::MessageType::SCHEMA) {
-        return Status::Invalid("First IPC message should be schema");
-      }
-      first_payload_ = false;
-    } else if (ipc_payload.type == ipc::MessageType::RECORD_BATCH && *app_metadata_) {
+    if (ipc_payload.type == ipc::MessageType::RECORD_BATCH && *app_metadata_) {
       payload.app_metadata = std::move(*app_metadata_);
     }
     ARROW_ASSIGN_OR_RAISE(auto success, stream_->WriteData(payload));
@@ -198,7 +193,6 @@ class TransportMessagePayloadWriter : public ipc::internal::IpcPayloadWriter {
  private:
   ServerDataStream* stream_;
   std::shared_ptr<Buffer>* app_metadata_;
-  bool first_payload_;
 };
 
 class TransportMessageWriter final : public FlightMessageWriter {
@@ -232,7 +226,9 @@ class TransportMessageWriter final : public FlightMessageWriter {
     FlightPayload payload;
     payload.app_metadata = app_metadata;
     ARROW_ASSIGN_OR_RAISE(auto success, stream_->WriteData(payload));
-    // TODO: Client is not counting this message in stats, should we?
+    // Those messages are not written through the batch writer,
+    // count them separately for stats.
+    extra_metadata_messages_++;
     if (!success) {
       return Close();
     }
@@ -257,7 +253,12 @@ class TransportMessageWriter final : public FlightMessageWriter {
     return Status::OK();
   }
 
-  ipc::WriteStats stats() const override { return batch_writer_->stats(); }
+  ipc::WriteStats stats() const override {
+    ARROW_CHECK_NE(batch_writer_, nullptr);
+    auto write_stats = batch_writer_->stats();
+    write_stats.num_messages += extra_metadata_messages_;
+    return write_stats;
+  }
 
  private:
   Status CheckStarted() {
@@ -272,6 +273,7 @@ class TransportMessageWriter final : public FlightMessageWriter {
   std::shared_ptr<Buffer> app_metadata_;
   ::arrow::ipc::IpcWriteOptions ipc_options_;
   bool started_ = false;
+  int64_t extra_metadata_messages_ = 0;
 };
 
 /// \brief Adapt TransportDataStream to the FlightMetadataWriter
