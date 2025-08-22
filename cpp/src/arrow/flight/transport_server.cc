@@ -163,7 +163,9 @@ class TransportMessageReader final : public FlightMessageReader {
 
 /// \brief An IpcPayloadWriter for ServerDataStream.
 ///
-/// TODO: Fill details
+/// To support app_metadata and reuse the existing IPC infrastructure,
+/// this takes a pointer to a buffer to be combined with the IPC
+/// payload when writing a Flight payload.
 class TransportMessagePayloadWriter : public ipc::internal::IpcPayloadWriter {
  public:
   TransportMessagePayloadWriter(ServerDataStream* stream,
@@ -223,15 +225,15 @@ class TransportMessageWriter final : public FlightMessageWriter {
   }
 
   Status WriteMetadata(std::shared_ptr<Buffer> app_metadata) override {
-    FlightPayload payload;
+    FlightPayload payload{};
     payload.app_metadata = app_metadata;
     ARROW_ASSIGN_OR_RAISE(auto success, stream_->WriteData(payload));
-    // Those messages are not written through the batch writer,
-    // count them separately for stats.
-    extra_metadata_messages_++;
     if (!success) {
       return Close();
     }
+    // Those messages are not written through the batch writer,
+    // count them separately for stats.
+    extra_metadata_messages_++;
     return Status::OK();
   }
 
