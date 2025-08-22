@@ -35,7 +35,7 @@ class TestFixedSizeListArray < Test::Unit::TestCase
                     array.value_data_type.list_size, array.values])
     end
 
-    def new_data_type
+    def test_new_data_type
       data_type = Arrow::FixedSizeListDataType.new(Arrow::UInt8DataType.new, list_elem_size)
 
       array = Arrow::FixedSizeListArray.new(@value_array, data_type, @null_bitmap, @null_count)
