@@ -118,6 +118,7 @@ arrow_flight = library(
         thread_dep,
     ],
     cpp_args: '-DARROW_FLIGHT_EXPORTING',
+    gnu_symbol_visibility: 'inlineshidden',
 )
 
 arrow_flight_dep = declare_dependency(
@@ -135,7 +136,7 @@ if needs_testing
             'test_util.cc',
         ],
         dependencies: [arrow_test_dep, arrow_flight_dep, thread_dep],
-        gnu_symbol_visibility: 'hidden',
+        gnu_symbol_visibility: 'inlineshidden',
     )
 
     arrow_flight_test_dep = declare_dependency(
