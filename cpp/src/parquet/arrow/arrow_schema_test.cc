@@ -950,11 +950,7 @@ TEST_F(TestConvertParquetSchema, ParquetVariant) {
   auto arrow_metadata = ::arrow::field("metadata", ::arrow::binary(), /*nullable=*/false);
   auto arrow_value = ::arrow::field("value", ::arrow::binary(), /*nullable=*/false);
   auto arrow_variant = ::arrow::struct_({arrow_metadata, arrow_value});
-
-  // Register the variant extension type since it is not registered by default.
   auto variant_extension = std::make_shared<VariantExtensionType>(arrow_variant);
-  ASSERT_OK(::arrow::ExtensionTypeRegistry::GetGlobalRegistry()->RegisterType(
-      variant_extension));
 
   {
     // Parquet file does not contain Arrow schema.
@@ -965,29 +961,37 @@ TEST_F(TestConvertParquetSchema, ParquetVariant) {
     ASSERT_NO_FATAL_FAILURE(CheckFlatSchema(arrow_schema, /*check_metadata=*/true));
   }
 
-  {
+  for (bool register_extension : {true, false}) {
+    ::arrow::ExtensionTypeGuard guard(register_extension
+                                          ? ::arrow::DataTypeVector{variant_extension}
+                                          : ::arrow::DataTypeVector{});
+
     // Parquet file does not contain Arrow schema.
     // If Arrow extensions are enabled, field should be interpreted as Parquet Variant
-    // extension type.
+    // extension type if registered.
     ArrowReaderProperties props;
     props.set_arrow_extensions_enabled(true);
 
-    auto arrow_schema =
-        ::arrow::schema({::arrow::field("variant_unshredded", variant_extension)});
+    auto arrow_schema = ::arrow::schema({::arrow::field(
+        "variant_unshredded", register_extension ? variant_extension : arrow_variant)});
 
     ASSERT_OK(ConvertSchema(parquet_fields, /*metadata=*/nullptr, props));
     ASSERT_NO_FATAL_FAILURE(CheckFlatSchema(arrow_schema, /*check_metadata=*/true));
   }
 
-  {
+  for (bool register_extension : {true, false}) {
+    ::arrow::ExtensionTypeGuard guard(register_extension
+                                          ? ::arrow::DataTypeVector{variant_extension}
+                                          : ::arrow::DataTypeVector{});
+
     // Parquet file does contain Arrow schema.
     // Field should be interpreted as Parquet Variant extension even though
     // extensions are not enabled.
     ArrowReaderProperties props;
     props.set_arrow_extensions_enabled(false);
 
-    auto arrow_schema =
-        ::arrow::schema({::arrow::field("variant_unshredded", variant_extension)});
+    auto arrow_schema = ::arrow::schema({::arrow::field(
+        "variant_unshredded", register_extension ? variant_extension : arrow_variant)});
 
     std::shared_ptr<KeyValueMetadata> metadata;
     ASSERT_OK(ArrowSchemaToParquetMetadata(arrow_schema, metadata));
