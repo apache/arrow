@@ -1257,19 +1257,11 @@ class PARQUET_EXPORT ArrowWriterProperties {
       return this;
     }
 
-    /// \brief Write time32 and time64 columns whose isAdjustedToUTC field is true.
+    /// \brief Sets whether TIME annotations have isAdjustedTOUTC=false or isAdjustedToUTC=true.
     ///
-    /// \note Does not apply to timestamp columns.
-    Builder* enable_time_adjusted_to_utc() {
-      write_time_adjusted_to_utc_ = true;
-      return this;
-    }
-
-    /// \brief Write time32 and time64 columns with isAdjustedToUTC set to false.
-    ///
-    /// \note Does not apply to timestamp columns.
-    Builder* disable_time_adjusted_to_utc() {
-      write_time_adjusted_to_utc_ = false;
+    /// Default is false.
+    Builder* set_time_adjusted_to_utc(bool adjusted) {
+      write_time_adjusted_to_utc_ = adjusted;
       return this;
     }
 
