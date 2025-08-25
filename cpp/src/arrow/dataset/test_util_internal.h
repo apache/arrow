@@ -18,7 +18,6 @@
 #pragma once
 
 #include <algorithm>
-#include <ciso646>
 #include <functional>
 #include <memory>
 #include <ostream>
@@ -2140,8 +2139,8 @@ class WriteFileSystemDatasetMixin : public MakeFileSystemDatasetMixin {
         actual_struct = std::dynamic_pointer_cast<Array>(struct_array);
       }
 
-      auto expected_struct = arrow::ArrayFromJSON(
-          struct_(expected_physical_schema_->fields()), file_contents->second);
+      auto expected_struct = ArrayFromJSON(struct_(expected_physical_schema_->fields()),
+                                           file_contents->second);
 
       AssertArraysEqual(*expected_struct, *actual_struct, /*verbose=*/true);
     }

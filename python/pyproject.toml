@@ -56,7 +56,7 @@ Documentation = "https://arrow.apache.org/docs/python"
 Repository = "https://github.com/apache/arrow"
 Issues = "https://github.com/apache/arrow/issues"
 
-[project.optional-dependencies]
+[dependency-groups]
 test = [
     'pytest',
     'hypothesis',
@@ -96,4 +96,4 @@ root = '..'
 version_file = 'pyarrow/_generated_version.py'
 version_scheme = 'guess-next-dev'
 git_describe_command = 'git describe --dirty --tags --long --match "apache-arrow-[0-9]*.*"'
-fallback_version = '21.0.0a0'
+fallback_version = '22.0.0a0'

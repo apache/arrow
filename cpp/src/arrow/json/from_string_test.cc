@@ -149,9 +149,9 @@ template <typename T, typename C_TYPE = typename T::c_type>
 void AssertJSONScalar(const std::shared_ptr<DataType>& type, const std::string& json,
                       const bool is_valid, const C_TYPE value) {
   SCOPED_TRACE(json);
-  std::shared_ptr<Scalar> actual, expected;
+  std::shared_ptr<Scalar> expected;
 
-  ASSERT_OK(ScalarFromJSONString(type, json, &actual));
+  ASSERT_OK_AND_ASSIGN(auto actual, ScalarFromJSONString(type, json));
   if (is_valid) {
     ASSERT_OK_AND_ASSIGN(expected, MakeScalar(type, value));
   } else {
@@ -180,14 +180,14 @@ TEST(TestHelper, SafeSignedAdd) {
 }
 
 template <typename T>
-class TestIntegers : public ::testing::Test {
+class TestIntegersFromString : public ::testing::Test {
  public:
   std::shared_ptr<DataType> type() { return TypeTraits<T>::type_singleton(); }
 };
 
-TYPED_TEST_SUITE_P(TestIntegers);
+TYPED_TEST_SUITE_P(TestIntegersFromString);
 
-TYPED_TEST_P(TestIntegers, Basics) {
+TYPED_TEST_P(TestIntegersFromString, Basics) {
   using T = TypeParam;
   using c_type = typename T::c_type;
 
@@ -207,7 +207,7 @@ TYPED_TEST_P(TestIntegers, Basics) {
   AssertJSONArray<T>(type, json_string, {0, 1, max_val});
 }
 
-TYPED_TEST_P(TestIntegers, Errors) {
+TYPED_TEST_P(TestIntegersFromString, Errors) {
   std::shared_ptr<Array> array;
   auto type = this->type();
   ASSERT_RAISES(Invalid, ArrayFromJSONString(type, ""));
@@ -219,7 +219,7 @@ TYPED_TEST_P(TestIntegers, Errors) {
   ASSERT_RAISES(Invalid, ArrayFromJSONString(type, "[[0]]"));
 }
 
-TYPED_TEST_P(TestIntegers, OutOfBounds) {
+TYPED_TEST_P(TestIntegersFromString, OutOfBounds) {
   using T = TypeParam;
   using c_type = typename T::c_type;
 
@@ -247,7 +247,7 @@ TYPED_TEST_P(TestIntegers, OutOfBounds) {
   }
 }
 
-TYPED_TEST_P(TestIntegers, Dictionary) {
+TYPED_TEST_P(TestIntegersFromString, Dictionary) {
   std::shared_ptr<Array> array;
   std::shared_ptr<DataType> value_type = this->type();
 
@@ -261,19 +261,20 @@ TYPED_TEST_P(TestIntegers, Dictionary) {
                       /*values=*/"[1, 2, 3]");
 }
 
-REGISTER_TYPED_TEST_SUITE_P(TestIntegers, Basics, Errors, OutOfBounds, Dictionary);
+REGISTER_TYPED_TEST_SUITE_P(TestIntegersFromString, Basics, Errors, OutOfBounds,
+                            Dictionary);
 
-INSTANTIATE_TYPED_TEST_SUITE_P(TestInt8, TestIntegers, Int8Type);
-INSTANTIATE_TYPED_TEST_SUITE_P(TestInt16, TestIntegers, Int16Type);
-INSTANTIATE_TYPED_TEST_SUITE_P(TestInt32, TestIntegers, Int32Type);
-INSTANTIATE_TYPED_TEST_SUITE_P(TestInt64, TestIntegers, Int64Type);
-INSTANTIATE_TYPED_TEST_SUITE_P(TestUInt8, TestIntegers, UInt8Type);
-INSTANTIATE_TYPED_TEST_SUITE_P(TestUInt16, TestIntegers, UInt16Type);
-INSTANTIATE_TYPED_TEST_SUITE_P(TestUInt32, TestIntegers, UInt32Type);
-INSTANTIATE_TYPED_TEST_SUITE_P(TestUInt64, TestIntegers, UInt64Type);
+INSTANTIATE_TYPED_TEST_SUITE_P(TestInt8FromString, TestIntegersFromString, Int8Type);
+INSTANTIATE_TYPED_TEST_SUITE_P(TestInt16FromString, TestIntegersFromString, Int16Type);
+INSTANTIATE_TYPED_TEST_SUITE_P(TestInt32FromString, TestIntegersFromString, Int32Type);
+INSTANTIATE_TYPED_TEST_SUITE_P(TestInt64FromString, TestIntegersFromString, Int64Type);
+INSTANTIATE_TYPED_TEST_SUITE_P(TestUInt8FromString, TestIntegersFromString, UInt8Type);
+INSTANTIATE_TYPED_TEST_SUITE_P(TestUInt16FromString, TestIntegersFromString, UInt16Type);
+INSTANTIATE_TYPED_TEST_SUITE_P(TestUInt32FromString, TestIntegersFromString, UInt32Type);
+INSTANTIATE_TYPED_TEST_SUITE_P(TestUInt64FromString, TestIntegersFromString, UInt64Type);
 
 template <typename T>
-class TestStrings : public ::testing::Test {
+class TestStringsFromString : public ::testing::Test {
  public:
   std::shared_ptr<DataType> type() const {
     if constexpr (is_binary_view_like_type<T>::value) {
@@ -284,9 +285,9 @@ class TestStrings : public ::testing::Test {
   }
 };
 
-TYPED_TEST_SUITE_P(TestStrings);
+TYPED_TEST_SUITE_P(TestStringsFromString);
 
-TYPED_TEST_P(TestStrings, Basics) {
+TYPED_TEST_P(TestStringsFromString, Basics) {
   using T = TypeParam;
   auto type = this->type();
 
@@ -315,7 +316,7 @@ TYPED_TEST_P(TestStrings, Basics) {
   AssertJSONArray<T, std::string>(type, "[\"\\u0000\\u001f\"]", {s});
 }
 
-TYPED_TEST_P(TestStrings, Errors) {
+TYPED_TEST_P(TestStringsFromString, Errors) {
   auto type = this->type();
   std::shared_ptr<Array> array;
 
@@ -323,7 +324,7 @@ TYPED_TEST_P(TestStrings, Errors) {
   ASSERT_RAISES(Invalid, ArrayFromJSONString(type, "[[]]"));
 }
 
-TYPED_TEST_P(TestStrings, Dictionary) {
+TYPED_TEST_P(TestStringsFromString, Dictionary) {
   auto value_type = this->type();
 
   AssertJSONDictArray(int16(), value_type, R"(["foo", "bar", null, "bar", "foo"])",
@@ -331,16 +332,20 @@ TYPED_TEST_P(TestStrings, Dictionary) {
                       /*values=*/R"(["foo", "bar"])");
 }
 
-REGISTER_TYPED_TEST_SUITE_P(TestStrings, Basics, Errors, Dictionary);
+REGISTER_TYPED_TEST_SUITE_P(TestStringsFromString, Basics, Errors, Dictionary);
 
-INSTANTIATE_TYPED_TEST_SUITE_P(TestString, TestStrings, StringType);
-INSTANTIATE_TYPED_TEST_SUITE_P(TestBinary, TestStrings, BinaryType);
-INSTANTIATE_TYPED_TEST_SUITE_P(TestLargeString, TestStrings, LargeStringType);
-INSTANTIATE_TYPED_TEST_SUITE_P(TestLargeBinary, TestStrings, LargeBinaryType);
-INSTANTIATE_TYPED_TEST_SUITE_P(TestStringView, TestStrings, StringViewType);
-INSTANTIATE_TYPED_TEST_SUITE_P(TestBinaryView, TestStrings, BinaryViewType);
+INSTANTIATE_TYPED_TEST_SUITE_P(TestStringFromString, TestStringsFromString, StringType);
+INSTANTIATE_TYPED_TEST_SUITE_P(TestBinaryFromString, TestStringsFromString, BinaryType);
+INSTANTIATE_TYPED_TEST_SUITE_P(TestLargeStringFromString, TestStringsFromString,
+                               LargeStringType);
+INSTANTIATE_TYPED_TEST_SUITE_P(TestLargeBinaryFromString, TestStringsFromString,
+                               LargeBinaryType);
+INSTANTIATE_TYPED_TEST_SUITE_P(TestStringViewFromString, TestStringsFromString,
+                               StringViewType);
+INSTANTIATE_TYPED_TEST_SUITE_P(TestBinaryViewFromString, TestStringsFromString,
+                               BinaryViewType);
 
-TEST(TestNull, Basics) {
+TEST(TestNullFromString, Basics) {
   std::shared_ptr<DataType> type = null();
   std::shared_ptr<Array> expected, actual;
 
@@ -348,7 +353,7 @@ TEST(TestNull, Basics) {
   AssertJSONArray<NullType, std::nullptr_t>(type, "[null, null]", {nullptr, nullptr});
 }
 
-TEST(TestNull, Errors) {
+TEST(TestNullFromString, Errors) {
   std::shared_ptr<DataType> type = null();
   std::shared_ptr<Array> array;
 
@@ -357,7 +362,7 @@ TEST(TestNull, Errors) {
   ASSERT_RAISES(Invalid, ArrayFromJSONString(type, "[NaN]"));
 }
 
-TEST(TestBoolean, Basics) {
+TEST(TestBooleanFromString, Basics) {
   std::shared_ptr<DataType> type = boolean();
 
   AssertJSONArray<BooleanType, bool>(type, "[]", {});
@@ -370,7 +375,7 @@ TEST(TestBoolean, Basics) {
                                      {false, true, false});
 }
 
-TEST(TestBoolean, Errors) {
+TEST(TestBooleanFromString, Errors) {
   std::shared_ptr<DataType> type = boolean();
   std::shared_ptr<Array> array;
 
@@ -378,7 +383,33 @@ TEST(TestBoolean, Errors) {
   ASSERT_RAISES(Invalid, ArrayFromJSONString(type, "[\"true\"]"));
 }
 
-TEST(TestFloat, Basics) {
+TEST(TestHalfFloatFromString, Basics) {
+  std::shared_ptr<DataType> type = float16();
+  std::shared_ptr<Array> expected, actual;
+
+  AssertJSONArray<HalfFloatType>(type, "[]", {});
+  AssertJSONArray<HalfFloatType>(type, "[1, -1, 2.5, -2.5, 3e4, 3e-4]",
+                                 {15360, 48128, 16640, 49408, 30547, 3306});
+  AssertJSONArray<HalfFloatType>(type, "[0.0, -0.0, Inf, -Inf, null]",
+                                 {true, true, true, true, false},
+                                 {0, 32768, 31744, 64512, 0});
+
+  // Check NaN separately as AssertArraysEqual simply memcmp's array contents
+  // and NaNs can have many bit representations.
+  ASSERT_OK_AND_ASSIGN(actual, ArrayFromJSONString(type, "[NaN]"));
+  ASSERT_OK(actual->ValidateFull());
+  uint16_t value = checked_cast<const HalfFloatArray&>(*actual).Value(0);
+  ASSERT_TRUE(Float16::FromBits(value).is_nan());
+}
+
+TEST(TestHalfFloatFromString, Errors) {
+  std::shared_ptr<DataType> type = float16();
+  std::shared_ptr<Array> array;
+
+  ASSERT_RAISES(Invalid, ArrayFromJSONString(type, "[true]"));
+}
+
+TEST(TestFloatFromString, Basics) {
   std::shared_ptr<DataType> type = float32();
   std::shared_ptr<Array> expected, actual;
 
@@ -395,14 +426,14 @@ TEST(TestFloat, Basics) {
   ASSERT_TRUE(std::isnan(value));
 }
 
-TEST(TestFloat, Errors) {
+TEST(TestFloatFromString, Errors) {
   std::shared_ptr<DataType> type = float32();
   std::shared_ptr<Array> array;
 
   ASSERT_RAISES(Invalid, ArrayFromJSONString(type, "[true]"));
 }
 
-TEST(TestDouble, Basics) {
+TEST(TestDoubleFromString, Basics) {
   std::shared_ptr<DataType> type = float64();
   std::shared_ptr<Array> expected, actual;
 
@@ -417,14 +448,14 @@ TEST(TestDouble, Basics) {
   ASSERT_TRUE(std::isnan(value));
 }
 
-TEST(TestDouble, Errors) {
+TEST(TestDoubleFromString, Errors) {
   std::shared_ptr<DataType> type = float64();
   std::shared_ptr<Array> array;
 
   ASSERT_RAISES(Invalid, ArrayFromJSONString(type, "[true]"));
 }
 
-TEST(TestTimestamp, Basics) {
+TEST(TestTimestampFromString, Basics) {
   // Timestamp type
   auto type = timestamp(TimeUnit::SECOND);
   AssertJSONArray<TimestampType, int64_t>(
@@ -437,7 +468,7 @@ TEST(TestTimestamp, Basics) {
       {0, 951782400000000000LL, -2203977600000000000LL});
 }
 
-TEST(TestDate, Basics) {
+TEST(TestDateFromString, Basics) {
   auto type = date32();
   AssertJSONArray<Date32Type>(type, R"([5, null, 42])", {true, false, true}, {5, 0, 42});
   type = date64();
@@ -445,7 +476,7 @@ TEST(TestDate, Basics) {
                               {86400000, 0, 172800000});
 }
 
-TEST(TestTime, Basics) {
+TEST(TestTimeFromString, Basics) {
   auto type = time32(TimeUnit::SECOND);
   AssertJSONArray<Time32Type>(type, R"([5, null, 42])", {true, false, true}, {5, 0, 42});
   type = time32(TimeUnit::MILLI);
@@ -459,7 +490,7 @@ TEST(TestTime, Basics) {
                               {1, 0, 9999999999999LL});
 }
 
-TEST(TestDuration, Basics) {
+TEST(TestDurationFromString, Basics) {
   auto type = duration(TimeUnit::SECOND);
   AssertJSONArray<DurationType>(type, R"([null, -7777777777777, 9999999999999])",
                                 {false, true, true},
@@ -478,25 +509,25 @@ TEST(TestDuration, Basics) {
                                 {0, -7777777777777LL, 9999999999999LL});
 }
 
-TEST(TestMonthInterval, Basics) {
+TEST(TestMonthIntervalFromString, Basics) {
   auto type = month_interval();
   AssertJSONArray<MonthIntervalType>(type, R"([123, -456, null])", {true, true, false},
                                      {123, -456, 0});
 }
 
-TEST(TestDayTimeInterval, Basics) {
+TEST(TestDayTimeIntervalFromString, Basics) {
   auto type = day_time_interval();
   AssertJSONArray<DayTimeIntervalType>(type, R"([[1, -600], null])", {true, false},
                                        {{1, -600}, {}});
 }
 
-TEST(MonthDayNanoInterval, Basics) {
+TEST(MonthDayNanoIntervalFromString, Basics) {
   auto type = month_day_nano_interval();
   AssertJSONArray<MonthDayNanoIntervalType>(type, R"([[1, -600, 5000], null])",
                                             {true, false}, {{1, -600, 5000}, {}});
 }
 
-TEST(TestFixedSizeBinary, Basics) {
+TEST(TestFixedSizeBinaryFromString, Basics) {
   std::shared_ptr<DataType> type = fixed_size_binary(3);
   std::shared_ptr<Array> expected, actual;
 
@@ -510,7 +541,7 @@ TEST(TestFixedSizeBinary, Basics) {
   AssertJSONArray<FixedSizeBinaryType, std::string>(type, "[\"" + s + "\"]", {s});
 }
 
-TEST(TestFixedSizeBinary, Errors) {
+TEST(TestFixedSizeBinaryFromString, Errors) {
   std::shared_ptr<DataType> type = fixed_size_binary(3);
   std::shared_ptr<Array> array;
 
@@ -521,7 +552,7 @@ TEST(TestFixedSizeBinary, Errors) {
   ASSERT_RAISES(Invalid, ArrayFromJSONString(type, "[\"abcd\"]"));
 }
 
-TEST(TestFixedSizeBinary, Dictionary) {
+TEST(TestFixedSizeBinaryFromString, Dictionary) {
   std::shared_ptr<DataType> type = fixed_size_binary(3);
 
   AssertJSONDictArray(int8(), type, R"(["foo", "bar", "foo", null])",
@@ -566,23 +597,23 @@ void TestDecimalBasic(std::shared_ptr<DataType> type) {
   AssertArraysEqual(*expected, *actual);
 }
 
-TEST(TestDecimal32, Basics) {
+TEST(TestDecimal32FromString, Basics) {
   TestDecimalBasic<Decimal32, Decimal32Builder>(decimal32(8, 4));
 }
 
-TEST(TestDecimal64, Basics) {
+TEST(TestDecimal64FromString, Basics) {
   TestDecimalBasic<Decimal64, Decimal64Builder>(decimal64(10, 4));
 }
 
-TEST(TestDecimal128, Basics) {
+TEST(TestDecimal128FromString, Basics) {
   TestDecimalBasic<Decimal128, Decimal128Builder>(decimal128(10, 4));
 }
 
-TEST(TestDecimal256, Basics) {
+TEST(TestDecimal256FromString, Basics) {
   TestDecimalBasic<Decimal256, Decimal256Builder>(decimal256(10, 4));
 }
 
-TEST(TestDecimal, Errors) {
+TEST(TestDecimalFromString, Errors) {
   for (std::shared_ptr<DataType> type :
        {decimal32(8, 4), decimal64(10, 4), decimal128(10, 4), decimal256(10, 4)}) {
     std::shared_ptr<Array> array;
@@ -595,7 +626,7 @@ TEST(TestDecimal, Errors) {
   }
 }
 
-TEST(TestDecimal, Dictionary) {
+TEST(TestDecimalFromString, Dictionary) {
   for (std::shared_ptr<DataType> type :
        {decimal32(8, 2), decimal64(10, 2), decimal128(10, 2), decimal256(10, 2)}) {
     AssertJSONDictArray(int32(), type,
@@ -606,7 +637,7 @@ TEST(TestDecimal, Dictionary) {
 }
 
 template <typename T>
-class TestVarLengthListArray : public ::testing::Test {
+class TestVarLengthListFromString : public ::testing::Test {
  public:
   using TypeClass = T;
   using offset_type = typename TypeClass::offset_type;
@@ -798,17 +829,19 @@ class TestVarLengthListArray : public ::testing::Test {
   }
 };
 
-TYPED_TEST_SUITE(TestVarLengthListArray, ListAndListViewTypes);
+TYPED_TEST_SUITE(TestVarLengthListFromString, ListAndListViewTypes);
 
-TYPED_TEST(TestVarLengthListArray, IntegerList) { this->TestIntegerList(); }
+TYPED_TEST(TestVarLengthListFromString, IntegerList) { this->TestIntegerList(); }
 
-TYPED_TEST(TestVarLengthListArray, IntegerListErrors) { this->TestIntegerListErrors(); }
+TYPED_TEST(TestVarLengthListFromString, IntegerListErrors) {
+  this->TestIntegerListErrors();
+}
 
-TYPED_TEST(TestVarLengthListArray, NullList) { this->TestNullList(); }
+TYPED_TEST(TestVarLengthListFromString, NullList) { this->TestNullList(); }
 
-TYPED_TEST(TestVarLengthListArray, IntegerListList) { this->TestIntegerListList(); }
+TYPED_TEST(TestVarLengthListFromString, IntegerListList) { this->TestIntegerListList(); }
 
-TEST(TestMap, IntegerToInteger) {
+TEST(TestMapFromString, IntegerToInteger) {
   auto type = map(int16(), int16());
   std::shared_ptr<Array> expected, actual;
 
@@ -841,7 +874,7 @@ TEST(TestMap, IntegerToInteger) {
   ASSERT_ARRAYS_EQUAL(*actual, *expected);
 }
 
-TEST(TestMap, StringToInteger) {
+TEST(TestMapFromString, StringToInteger) {
   auto type = map(utf8(), int32());
   const char* input = R"(
 [
@@ -865,7 +898,7 @@ TEST(TestMap, StringToInteger) {
   ASSERT_ARRAYS_EQUAL(*actual, *expected);
 }
 
-TEST(TestMap, Errors) {
+TEST(TestMapFromString, Errors) {
   auto type = map(int16(), int16());
   std::shared_ptr<Array> array;
 
@@ -884,7 +917,7 @@ TEST(TestMap, Errors) {
   ASSERT_RAISES(Invalid, ArrayFromJSONString(type, "[[[0, 0.0]]]"));
 }
 
-TEST(TestMap, IntegerMapToStringList) {
+TEST(TestMapFromString, IntegerMapToStringList) {
   auto type = map(map(int16(), int16()), list(utf8()));
   std::shared_ptr<Array> expected, actual;
 
@@ -945,7 +978,7 @@ TEST(TestMap, IntegerMapToStringList) {
   ASSERT_ARRAYS_EQUAL(*actual, *expected);
 }
 
-TEST(TestFixedSizeList, IntegerList) {
+TEST(TestFixedSizeListFromString, IntegerList) {
   auto pool = default_memory_pool();
   auto type = fixed_size_list(int64(), 2);
   std::shared_ptr<Array> values, expected, actual;
@@ -987,7 +1020,7 @@ TEST(TestFixedSizeList, IntegerList) {
   AssertArraysEqual(*expected, *actual);
 }
 
-TEST(TestFixedSizeList, IntegerListErrors) {
+TEST(TestFixedSizeListFromString, IntegerListErrors) {
   std::shared_ptr<DataType> type = fixed_size_list(int64(), 2);
   std::shared_ptr<Array> array;
 
@@ -997,7 +1030,7 @@ TEST(TestFixedSizeList, IntegerListErrors) {
   ASSERT_RAISES(Invalid, ArrayFromJSONString(type, "[[9223372036854775808, 0]]"));
 }
 
-TEST(TestFixedSizeList, NullList) {
+TEST(TestFixedSizeListFromString, NullList) {
   auto pool = default_memory_pool();
   std::shared_ptr<DataType> type = fixed_size_list(null(), 2);
   std::shared_ptr<Array> values, expected, actual;
@@ -1032,7 +1065,7 @@ TEST(TestFixedSizeList, NullList) {
   AssertArraysEqual(*expected, *actual);
 }
 
-TEST(TestFixedSizeList, IntegerListList) {
+TEST(TestFixedSizeListFromString, IntegerListList) {
   auto pool = default_memory_pool();
   auto nested_type = fixed_size_list(uint8(), 2);
   std::shared_ptr<DataType> type = fixed_size_list(nested_type, 1);
@@ -1071,7 +1104,7 @@ TEST(TestFixedSizeList, IntegerListList) {
   AssertArraysEqual(*expected, *actual);
 }
 
-TEST(TestStruct, SimpleStruct) {
+TEST(TestStructFromString, SimpleStruct) {
   auto field_a = field("a", int8());
   auto field_b = field("b", boolean());
   std::shared_ptr<DataType> type = struct_({field_a, field_b});
@@ -1126,7 +1159,7 @@ TEST(TestStruct, SimpleStruct) {
   AssertArraysEqual(*expected, *actual);
 }
 
-TEST(TestStruct, NestedStruct) {
+TEST(TestStructFromString, NestedStruct) {
   auto field_a = field("a", int8());
   auto field_b = field("b", boolean());
   auto field_c = field("c", float64());
@@ -1173,7 +1206,7 @@ TEST(TestStruct, NestedStruct) {
   AssertArraysEqual(*expected, *actual);
 }
 
-TEST(TestStruct, Errors) {
+TEST(TestStructFromString, Errors) {
   auto field_a = field("a", int8());
   auto field_b = field("b", boolean());
   std::shared_ptr<DataType> type = struct_({field_a, field_b});
@@ -1187,7 +1220,7 @@ TEST(TestStruct, Errors) {
   ASSERT_RAISES(Invalid, ArrayFromJSONString(type, "[{\"c\": 0}]"));
 }
 
-TEST(TestDenseUnion, Basics) {
+TEST(TestDenseUnionFromString, Basics) {
   auto field_a = field("a", int8());
   auto field_b = field("b", boolean());
 
@@ -1218,7 +1251,7 @@ TEST(TestDenseUnion, Basics) {
   ASSERT_ARRAYS_EQUAL(*expected_b, *array->field(1));
 }
 
-TEST(TestSparseUnion, Basics) {
+TEST(TestSparseUnionFromString, Basics) {
   auto field_a = field("a", int8());
   auto field_b = field("b", boolean());
 
@@ -1241,7 +1274,7 @@ TEST(TestSparseUnion, Basics) {
   ASSERT_ARRAYS_EQUAL(*expected, *array);
 }
 
-TEST(TestDenseUnion, ListOfUnion) {
+TEST(TestDenseUnionFromString, ListOfUnion) {
   auto field_a = field("a", int8());
   auto field_b = field("b", boolean());
   auto union_type = dense_union({field_a, field_b}, {4, 8});
@@ -1280,7 +1313,7 @@ TEST(TestDenseUnion, ListOfUnion) {
   ASSERT_ARRAYS_EQUAL(*expected_b, *array_values->field(1));
 }
 
-TEST(TestSparseUnion, ListOfUnion) {
+TEST(TestSparseUnionFromString, ListOfUnion) {
   auto field_a = field("a", int8());
   auto field_b = field("b", boolean());
   auto union_type = sparse_union({field_a, field_b}, {4, 8});
@@ -1309,7 +1342,7 @@ TEST(TestSparseUnion, ListOfUnion) {
   ASSERT_ARRAYS_EQUAL(*expected, *array);
 }
 
-TEST(TestDenseUnion, UnionOfStructs) {
+TEST(TestDenseUnionFromString, UnionOfStructs) {
   std::vector<std::shared_ptr<Field>> fields = {
       field("ab", struct_({field("alpha", float64()), field("bravo", utf8())})),
       field("wtf", struct_({field("whiskey", int8()), field("tango", float64()),
@@ -1358,7 +1391,7 @@ TEST(TestDenseUnion, UnionOfStructs) {
   }
 }
 
-TEST(TestSparseUnion, UnionOfStructs) {
+TEST(TestSparseUnionFromString, UnionOfStructs) {
   std::vector<std::shared_ptr<Field>> fields = {
       field("ab", struct_({field("alpha", float64()), field("bravo", utf8())})),
       field("wtf", struct_({field("whiskey", int8()), field("tango", float64()),
@@ -1401,7 +1434,7 @@ TEST(TestSparseUnion, UnionOfStructs) {
   ASSERT_ARRAYS_EQUAL(*expected, *array);
 }
 
-TEST(TestDenseUnion, Errors) {
+TEST(TestDenseUnionFromString, Errors) {
   auto field_a = field("a", int8());
   auto field_b = field("b", boolean());
   std::shared_ptr<DataType> type = dense_union({field_a, field_b}, {4, 8});
@@ -1418,7 +1451,7 @@ TEST(TestDenseUnion, Errors) {
   ASSERT_RAISES(Invalid, ArrayFromJSONString(type, "[[8, true, 1]]"));
 }
 
-TEST(TestSparseUnion, Errors) {
+TEST(TestSparseUnionFromString, Errors) {
   auto field_a = field("a", int8());
   auto field_b = field("b", boolean());
   std::shared_ptr<DataType> type = sparse_union({field_a, field_b}, {4, 8});
@@ -1433,7 +1466,7 @@ TEST(TestSparseUnion, Errors) {
   ASSERT_RAISES(Invalid, ArrayFromJSONString(type, "[[8, true, 1]]"));
 }
 
-TEST(TestNestedDictionary, ListOfDict) {
+TEST(TestNestedDictionaryFromString, ListOfDict) {
   auto index_type = int8();
   auto value_type = utf8();
   auto dict_type = dictionary(index_type, value_type);
@@ -1455,7 +1488,7 @@ TEST(TestNestedDictionary, ListOfDict) {
   AssertArraysEqual(*expected, *array, /*verbose=*/true);
 }
 
-TEST(TestDictArrayFromJSON, Basics) {
+TEST(TestDictArrayFromJSONString, Basics) {
   auto type = dictionary(int32(), utf8());
   auto array =
       DictArrayFromJSON(type, "[null, 2, 1, 0]", R"(["whiskey", "tango", "foxtrot"])");
@@ -1469,37 +1502,35 @@ TEST(TestDictArrayFromJSON, Basics) {
                       *array);
 }
 
-TEST(TestDictArrayFromJSON, Errors) {
+TEST(TestDictArrayFromJSONString, Errors) {
   auto type = dictionary(int32(), utf8());
-  std::shared_ptr<Array> array;
 
-  ASSERT_RAISES(Invalid, DictArrayFromJSONString(type, "[\"not a valid index\"]",
-                                                 "[\"\"]", &array));
-  ASSERT_RAISES(Invalid, DictArrayFromJSONString(type, "[0, 1]", "[1]",
-                                                 &array));  // dict value isn't string
+  ASSERT_RAISES(Invalid,
+                DictArrayFromJSONString(type, "[\"not a valid index\"]", "[\"\"]"));
+  ASSERT_RAISES(Invalid, DictArrayFromJSONString(type, "[0, 1]",
+                                                 "[1]"));  // dict value isn't string
 }
 
-TEST(TestChunkedArrayFromJSON, Basics) {
+TEST(TestChunkedArrayFromJSONString, Basics) {
   auto type = int32();
-  std::shared_ptr<ChunkedArray> chunked_array;
-  ASSERT_OK(ChunkedArrayFromJSONString(type, {}, &chunked_array));
+  ASSERT_OK_AND_ASSIGN(auto chunked_array, ChunkedArrayFromJSONString(type, {}));
   ASSERT_OK(chunked_array->ValidateFull());
   ASSERT_EQ(chunked_array->num_chunks(), 0);
   AssertTypeEqual(type, chunked_array->type());
 
-  ASSERT_OK(ChunkedArrayFromJSONString(type, {"[1, 2]", "[3, null, 4]"}, &chunked_array));
-  ASSERT_OK(chunked_array->ValidateFull());
-  ASSERT_EQ(chunked_array->num_chunks(), 2);
+  ASSERT_OK_AND_ASSIGN(auto chunked_array_two,
+                       ChunkedArrayFromJSONString(type, {"[1, 2]", "[3, null, 4]"}));
+  ASSERT_OK(chunked_array_two->ValidateFull());
+  ASSERT_EQ(chunked_array_two->num_chunks(), 2);
   std::shared_ptr<Array> expected_chunk;
   ASSERT_OK_AND_ASSIGN(expected_chunk, ArrayFromJSONString(type, "[1, 2]"));
-  AssertArraysEqual(*expected_chunk, *chunked_array->chunk(0), /*verbose=*/true);
+  AssertArraysEqual(*expected_chunk, *chunked_array_two->chunk(0), /*verbose=*/true);
   ASSERT_OK_AND_ASSIGN(expected_chunk, ArrayFromJSONString(type, "[3, null, 4]"));
-  AssertArraysEqual(*expected_chunk, *chunked_array->chunk(1), /*verbose=*/true);
+  AssertArraysEqual(*expected_chunk, *chunked_array_two->chunk(1), /*verbose=*/true);
 }
 
-TEST(TestScalarFromJSON, Basics) {
+TEST(TestScalarFromJSONString, Basics) {
   // Sanity check for common types (not exhaustive)
-  std::shared_ptr<Scalar> scalar;
   AssertJSONScalar<Int64Type>(int64(), "4", true, 4);
   AssertJSONScalar<Int64Type>(int64(), "null", false, 0);
   AssertJSONScalar<StringType, std::shared_ptr<Buffer>>(utf8(), R"("")", true,
@@ -1516,25 +1547,22 @@ TEST(TestScalarFromJSON, Basics) {
   AssertJSONScalar<BooleanType, bool>(boolean(), "1", true, true);
   AssertJSONScalar<DoubleType>(float64(), "1.0", true, 1.0);
   AssertJSONScalar<DoubleType>(float64(), "-0.0", true, -0.0);
-  ASSERT_OK(ScalarFromJSONString(float64(), "NaN", &scalar));
-  ASSERT_TRUE(std::isnan(checked_cast<DoubleScalar&>(*scalar).value));
-  ASSERT_OK(ScalarFromJSONString(float64(), "Inf", &scalar));
-  ASSERT_TRUE(std::isinf(checked_cast<DoubleScalar&>(*scalar).value));
+  ASSERT_OK_AND_ASSIGN(auto nan_scalar, ScalarFromJSONString(float64(), "NaN"));
+  ASSERT_TRUE(std::isnan(checked_cast<DoubleScalar&>(*nan_scalar).value));
+  ASSERT_OK_AND_ASSIGN(auto inf_scalar, ScalarFromJSONString(float64(), "Inf"));
+  ASSERT_TRUE(std::isinf(checked_cast<DoubleScalar&>(*inf_scalar).value));
 }
 
-TEST(TestScalarFromJSON, Errors) {
-  std::shared_ptr<Scalar> scalar;
-  ASSERT_RAISES(Invalid, ScalarFromJSONString(int64(), "[0]", &scalar));
-  ASSERT_RAISES(Invalid, ScalarFromJSONString(int64(), "[9223372036854775808]", &scalar));
-  ASSERT_RAISES(Invalid,
-                ScalarFromJSONString(int64(), "[-9223372036854775809]", &scalar));
-  ASSERT_RAISES(Invalid,
-                ScalarFromJSONString(uint64(), "[18446744073709551616]", &scalar));
-  ASSERT_RAISES(Invalid, ScalarFromJSONString(uint64(), "[-1]", &scalar));
-  ASSERT_RAISES(Invalid, ScalarFromJSONString(binary(), "0", &scalar));
-  ASSERT_RAISES(Invalid, ScalarFromJSONString(binary(), "[]", &scalar));
-  ASSERT_RAISES(Invalid, ScalarFromJSONString(boolean(), "0.0", &scalar));
-  ASSERT_RAISES(Invalid, ScalarFromJSONString(boolean(), "\"true\"", &scalar));
+TEST(TestScalarFromJSONString, Errors) {
+  ASSERT_RAISES(Invalid, ScalarFromJSONString(int64(), "[0]"));
+  ASSERT_RAISES(Invalid, ScalarFromJSONString(int64(), "[9223372036854775808]"));
+  ASSERT_RAISES(Invalid, ScalarFromJSONString(int64(), "[-9223372036854775809]"));
+  ASSERT_RAISES(Invalid, ScalarFromJSONString(uint64(), "[18446744073709551616]"));
+  ASSERT_RAISES(Invalid, ScalarFromJSONString(uint64(), "[-1]"));
+  ASSERT_RAISES(Invalid, ScalarFromJSONString(binary(), "0"));
+  ASSERT_RAISES(Invalid, ScalarFromJSONString(binary(), "[]"));
+  ASSERT_RAISES(Invalid, ScalarFromJSONString(boolean(), "0.0"));
+  ASSERT_RAISES(Invalid, ScalarFromJSONString(boolean(), "\"true\""));
 }
 
 TEST(TestDictScalarFromJSONString, Basics) {
@@ -1553,12 +1581,11 @@ TEST(TestDictScalarFromJSONString, Basics) {
 
 TEST(TestDictScalarFromJSONString, Errors) {
   auto type = dictionary(int32(), utf8());
-  std::shared_ptr<Scalar> scalar;
 
-  ASSERT_RAISES(Invalid, DictScalarFromJSONString(type, "\"not a valid index\"", "[\"\"]",
-                                                  &scalar));
-  ASSERT_RAISES(Invalid, DictScalarFromJSONString(type, "0", "[1]",
-                                                  &scalar));  // dict value isn't string
+  ASSERT_RAISES(Invalid,
+                DictScalarFromJSONString(type, "\"not a valid index\"", "[\"\"]"));
+  ASSERT_RAISES(Invalid,
+                DictScalarFromJSONString(type, "0", "[1]"));  // dict value isn't string
 }
 
 }  // namespace json

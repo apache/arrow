@@ -536,6 +536,10 @@ compute__GetFunctionNames <- function() {
   .Call(`_arrow_compute__GetFunctionNames`)
 }
 
+compute__Initialize <- function() {
+  invisible(.Call(`_arrow_compute__Initialize`))
+}
+
 RegisterScalarUDF <- function(name, func_sexp) {
   invisible(.Call(`_arrow_RegisterScalarUDF`, name, func_sexp))
 }
@@ -918,6 +922,14 @@ Date64__initialize <- function() {
 
 Null__initialize <- function() {
   .Call(`_arrow_Null__initialize`)
+}
+
+Decimal32Type__initialize <- function(precision, scale) {
+  .Call(`_arrow_Decimal32Type__initialize`, precision, scale)
+}
+
+Decimal64Type__initialize <- function(precision, scale) {
+  .Call(`_arrow_Decimal64Type__initialize`, precision, scale)
 }
 
 Decimal128Type__initialize <- function(precision, scale) {

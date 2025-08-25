@@ -31,7 +31,7 @@ constexpr auto kSeed = 0x0ff1ce;
 static void NthToIndicesBenchmark(benchmark::State& state,
                                   const std::shared_ptr<Array>& values, int64_t n) {
   for (auto _ : state) {
-    ABORT_NOT_OK(NthToIndices(*values, n).status());
+    ABORT_NOT_OK(NthToIndices(*values, n));
   }
   state.SetItemsProcessed(state.iterations() * values->length());
 }

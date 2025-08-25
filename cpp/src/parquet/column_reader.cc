@@ -226,8 +226,7 @@ class SerializedPageReader : public PageReader {
         decompression_buffer_(AllocateBuffer(properties_.memory_pool(), 0)),
         page_ordinal_(0),
         seen_num_values_(0),
-        total_num_values_(total_num_values),
-        decryption_buffer_(AllocateBuffer(properties_.memory_pool(), 0)) {
+        total_num_values_(total_num_values) {
     if (crypto_ctx != nullptr) {
       crypto_ctx_ = *crypto_ctx;
       InitDecryption();
@@ -241,7 +240,7 @@ class SerializedPageReader : public PageReader {
   //
   // The returned Page contains references that aren't guaranteed to live
   // beyond the next call to NextPage(). SerializedPageReader reuses the
-  // decryption and decompression buffers internally, so if NextPage() is
+  // decompression buffer internally, so if NextPage() is
   // called then the content of previous page might be invalidated.
   std::shared_ptr<Page> NextPage() override;
 
@@ -304,8 +303,6 @@ class SerializedPageReader : public PageReader {
   // updated by only the page ordinal.
   std::string data_page_aad_;
   std::string data_page_header_aad_;
-  // Encryption
-  std::shared_ptr<ResizableBuffer> decryption_buffer_;
 };
 
 void SerializedPageReader::InitDecryption() {
@@ -477,14 +474,12 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
 
     // Decrypt it if we need to
     if (data_decryptor_ != nullptr) {
-      PARQUET_THROW_NOT_OK(
-          decryption_buffer_->Resize(data_decryptor_->PlaintextLength(compressed_len),
-                                     /*shrink_to_fit=*/false));
-      compressed_len =
-          data_decryptor_->Decrypt(page_buffer->span_as<uint8_t>(),
-                                   decryption_buffer_->mutable_span_as<uint8_t>());
+      auto decryption_buffer = AllocateBuffer(
+          properties_.memory_pool(), data_decryptor_->PlaintextLength(compressed_len));
+      compressed_len = data_decryptor_->Decrypt(
+          page_buffer->span_as<uint8_t>(), decryption_buffer->mutable_span_as<uint8_t>());
 
-      page_buffer = decryption_buffer_;
+      page_buffer = decryption_buffer;
     }
 
     if (page_type == PageType::DICTIONARY_PAGE) {
@@ -1227,8 +1222,10 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
     levels_position_ = 0;
     levels_capacity_ = 0;
     read_dense_for_nullable_ = read_dense_for_nullable;
-    // BYTE_ARRAY values are not stored in the `values_` buffer.
-    uses_values_ = descr->physical_type() != Type::BYTE_ARRAY;
+    // FIXED_LEN_BYTE_ARRAY and BYTE_ARRAY values are not stored in the `values_` buffer,
+    // they are read directly as Arrow.
+    uses_values_ = (descr->physical_type() != Type::BYTE_ARRAY &&
+                    descr->physical_type() != Type::FIXED_LEN_BYTE_ARRAY);
 
     if (uses_values_) {
       values_ = AllocateBuffer(pool);
@@ -1682,7 +1679,7 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
     }
   }
 
-  void ReserveValues(int64_t extra_values) {
+  virtual void ReserveValues(int64_t extra_values) {
     const int64_t new_values_capacity =
         UpdateCapacity(values_capacity_, values_written_, extra_values);
     if (new_values_capacity > values_capacity_) {
@@ -1956,81 +1953,41 @@ class FLBARecordReader final : public TypedRecordReader<FLBAType>,
                    ::arrow::MemoryPool* pool, bool read_dense_for_nullable)
       : TypedRecordReader<FLBAType>(descr, leaf_info, pool, read_dense_for_nullable),
         byte_width_(descr_->type_length()),
-        empty_(byte_width_, 0),
         type_(::arrow::fixed_size_binary(byte_width_)),
-        null_bitmap_builder_(pool),
-        data_builder_(pool) {
+        array_builder_(type_, pool) {
     ARROW_DCHECK_EQ(descr_->physical_type(), Type::FIXED_LEN_BYTE_ARRAY);
   }
 
   ::arrow::ArrayVector GetBuilderChunks() override {
-    const int64_t null_count = null_bitmap_builder_.false_count();
-    const int64_t length = null_bitmap_builder_.length();
-    ARROW_DCHECK_EQ(length * byte_width_, data_builder_.length());
-    PARQUET_ASSIGN_OR_THROW(auto data_buffer, data_builder_.Finish());
-    PARQUET_ASSIGN_OR_THROW(auto null_bitmap, null_bitmap_builder_.Finish());
-    auto chunk = std::make_shared<::arrow::FixedSizeBinaryArray>(
-        type_, length, data_buffer, null_bitmap, null_count);
-    return ::arrow::ArrayVector({std::move(chunk)});
+    PARQUET_ASSIGN_OR_THROW(auto chunk, array_builder_.Finish());
+    return ::arrow::ArrayVector{std::move(chunk)};
+  }
+
+  void ReserveValues(int64_t extra_values) override {
+    ARROW_DCHECK(!uses_values_);
+    TypedRecordReader::ReserveValues(extra_values);
+    PARQUET_THROW_NOT_OK(array_builder_.Reserve(extra_values));
   }
 
   void ReadValuesDense(int64_t values_to_read) override {
-    auto values = ValuesHead<FLBA>();
-    int64_t num_decoded =
-        this->current_decoder_->Decode(values, static_cast<int>(values_to_read));
+    int64_t num_decoded = this->current_decoder_->DecodeArrowNonNull(
+        static_cast<int>(values_to_read), &array_builder_);
     CheckNumberDecoded(num_decoded, values_to_read);
-
-    PARQUET_THROW_NOT_OK(null_bitmap_builder_.Reserve(num_decoded));
-    PARQUET_THROW_NOT_OK(data_builder_.Reserve(num_decoded * byte_width_));
-    UnsafeAppendDense(values, num_decoded);
     ResetValues();
   }
 
   void ReadValuesSpaced(int64_t values_to_read, int64_t null_count) override {
-    uint8_t* valid_bits = valid_bits_->mutable_data();
-    const int64_t valid_bits_offset = values_written_;
-    auto values = ValuesHead<FLBA>();
-
-    int64_t num_decoded = this->current_decoder_->DecodeSpaced(
-        values, static_cast<int>(values_to_read), static_cast<int>(null_count),
-        valid_bits, valid_bits_offset);
-    ARROW_DCHECK_EQ(num_decoded, values_to_read);
-
-    PARQUET_THROW_NOT_OK(null_bitmap_builder_.Reserve(num_decoded));
-    PARQUET_THROW_NOT_OK(data_builder_.Reserve(num_decoded * byte_width_));
-    if (null_count == 0) {
-      UnsafeAppendDense(values, num_decoded);
-    } else {
-      UnsafeAppendSpaced(values, num_decoded, valid_bits, valid_bits_offset);
-    }
+    int64_t num_decoded = this->current_decoder_->DecodeArrow(
+        static_cast<int>(values_to_read), static_cast<int>(null_count),
+        valid_bits_->mutable_data(), values_written_, &array_builder_);
+    CheckNumberDecoded(num_decoded, values_to_read - null_count);
     ResetValues();
-  }
-
-  void UnsafeAppendDense(const FLBA* values, int64_t num_decoded) {
-    null_bitmap_builder_.UnsafeAppend(num_decoded, /*value=*/true);
-    for (int64_t i = 0; i < num_decoded; i++) {
-      data_builder_.UnsafeAppend(values[i].ptr, byte_width_);
-    }
-  }
-
-  void UnsafeAppendSpaced(const FLBA* values, int64_t num_decoded,
-                          const uint8_t* valid_bits, int64_t valid_bits_offset) {
-    null_bitmap_builder_.UnsafeAppend(valid_bits, valid_bits_offset, num_decoded);
-    for (int64_t i = 0; i < num_decoded; i++) {
-      if (::arrow::bit_util::GetBit(valid_bits, valid_bits_offset + i)) {
-        data_builder_.UnsafeAppend(values[i].ptr, byte_width_);
-      } else {
-        data_builder_.UnsafeAppend(empty_.data(), byte_width_);
-      }
-    }
   }
 
  private:
   const int byte_width_;
-  const std::vector<uint8_t> empty_;
   std::shared_ptr<::arrow::DataType> type_;
-  ::arrow::TypedBufferBuilder<bool> null_bitmap_builder_;
-  ::arrow::BufferBuilder data_builder_;
+  ::arrow::FixedSizeBinaryBuilder array_builder_;
 };
 
 /// ByteArrayRecordReader reads variable length byte array values.
@@ -2084,6 +2041,12 @@ class ByteArrayChunkedRecordReader final : public TypedRecordReader<ByteArrayTyp
     }
     accumulator_.chunks = {};
     return result;
+  }
+
+  void ReserveValues(int64_t extra_values) override {
+    ARROW_DCHECK(!uses_values_);
+    TypedRecordReader::ReserveValues(extra_values);
+    PARQUET_THROW_NOT_OK(accumulator_.builder->Reserve(extra_values));
   }
 
   void ReadValuesDense(int64_t values_to_read) override {

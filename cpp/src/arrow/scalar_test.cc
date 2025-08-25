@@ -387,6 +387,14 @@ class TestRealScalar : public ::testing::Test {
     ASSERT_FALSE(scalar_zero_->ApproxEquals(*scalar_neg_zero_, options));
   }
 
+  void TestUseAtol() {
+    auto options = EqualOptions::Defaults().atol(0.2f);
+
+    ASSERT_FALSE(scalar_val_->Equals(*scalar_other_, options));
+    ASSERT_TRUE(scalar_val_->Equals(*scalar_other_, options.use_atol(true)));
+    ASSERT_TRUE(scalar_val_->ApproxEquals(*scalar_other_, options));
+  }
+
   void TestStructOf() {
     auto ty = struct_({field("float", type_)});
 
@@ -521,6 +529,8 @@ TYPED_TEST(TestRealScalar, NanEquals) { this->TestNanEquals(); }
 TYPED_TEST(TestRealScalar, SignedZeroEquals) { this->TestSignedZeroEquals(); }
 
 TYPED_TEST(TestRealScalar, ApproxEquals) { this->TestApproxEquals(); }
+
+TYPED_TEST(TestRealScalar, UseAtol) { this->TestUseAtol(); }
 
 TYPED_TEST(TestRealScalar, StructOf) { this->TestStructOf(); }
 
@@ -795,8 +805,8 @@ TEST(TestFixedSizeBinaryScalar, MakeScalar) {
   AssertParseScalar(type, std::string_view(data), FixedSizeBinaryScalar(buf, type));
 
   // Wrong length
-  ASSERT_RAISES(Invalid, MakeScalar(type, Buffer::FromString(data.substr(3))).status());
-  ASSERT_RAISES(Invalid, Scalar::Parse(type, std::string_view(data).substr(3)).status());
+  ASSERT_RAISES(Invalid, MakeScalar(type, Buffer::FromString(data.substr(3))));
+  ASSERT_RAISES(Invalid, Scalar::Parse(type, std::string_view(data).substr(3)));
 }
 
 TEST(TestFixedSizeBinaryScalar, ValidateErrors) {
@@ -1438,13 +1448,13 @@ TEST(TestStructScalar, FieldAccess) {
   ASSERT_OK_AND_ASSIGN(auto a, abc.field("a"));
   AssertScalarsEqual(*a, *abc.value[0]);
 
-  ASSERT_RAISES(Invalid, abc.field("b").status());
+  ASSERT_RAISES(Invalid, abc.field("b"));
 
   ASSERT_OK_AND_ASSIGN(auto b, abc.field(1));
   AssertScalarsEqual(*b, *abc.value[1]);
 
-  ASSERT_RAISES(Invalid, abc.field(5).status());
-  ASSERT_RAISES(Invalid, abc.field("c").status());
+  ASSERT_RAISES(Invalid, abc.field(5));
+  ASSERT_RAISES(Invalid, abc.field("c"));
 
   ASSERT_OK_AND_ASSIGN(auto d, abc.field("d"));
   ASSERT_TRUE(d->Equals(*MakeNullScalar(int64())));

@@ -15,22 +15,22 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/util/bpacking.h"
+#include "arrow/util/bpacking_internal.h"
 
-#include "arrow/util/bpacking64_default.h"
-#include "arrow/util/bpacking_default.h"
+#include "arrow/util/bpacking64_default_internal.h"
+#include "arrow/util/bpacking_default_internal.h"
 #include "arrow/util/cpu_info.h"
-#include "arrow/util/dispatch.h"
+#include "arrow/util/dispatch_internal.h"
 #include "arrow/util/logging_internal.h"
 
 #if defined(ARROW_HAVE_RUNTIME_AVX2)
-#  include "arrow/util/bpacking_avx2.h"
+#  include "arrow/util/bpacking_avx2_internal.h"
 #endif
 #if defined(ARROW_HAVE_RUNTIME_AVX512)
-#  include "arrow/util/bpacking_avx512.h"
+#  include "arrow/util/bpacking_avx512_internal.h"
 #endif
 #if defined(ARROW_HAVE_NEON)
-#  include "arrow/util/bpacking_neon.h"
+#  include "arrow/util/bpacking_neon_internal.h"
 #endif
 
 namespace arrow {

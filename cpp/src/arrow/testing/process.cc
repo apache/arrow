@@ -17,10 +17,10 @@
 
 #include "arrow/testing/process.h"
 #include "arrow/result.h"
+#include "arrow/util/config.h"
 
-#define BOOST_PROCESS_AVAILABLE
-#ifdef __EMSCRIPTEN__
-#  undef BOOST_PROCESS_AVAILABLE
+#ifdef ARROW_ENABLE_THREADING
+#  define BOOST_PROCESS_AVAILABLE
 #endif
 
 #ifdef BOOST_PROCESS_AVAILABLE
@@ -281,6 +281,8 @@ class Process::Impl {
 
 #  if defined(__linux__)
     path = filesystem::canonical("/proc/self/exe", error_code);
+#  elif defined(__FreeBSD__)
+    path = filesystem::canonical("/proc/curproc/file", error_code);
 #  elif defined(__APPLE__)
     char buf[PATH_MAX + 1];
     uint32_t bufsize = sizeof(buf);

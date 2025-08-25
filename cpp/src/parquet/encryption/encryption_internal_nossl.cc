@@ -20,10 +20,14 @@
 
 namespace parquet::encryption {
 
+namespace {
+
 void ThrowOpenSSLRequiredException() {
   throw ParquetException(
       "Calling encryption method in Arrow/Parquet built without OpenSSL");
 }
+
+}  // namespace
 
 class AesEncryptor::AesEncryptorImpl {};
 

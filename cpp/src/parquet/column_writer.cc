@@ -1176,7 +1176,7 @@ inline void DoInBatches(const int16_t* def_levels, const int16_t* rep_levels,
   while (offset < num_levels) {
     int64_t end_offset = std::min(offset + batch_size, num_levels);
 
-    // Find next record boundary (i.e. ref_level = 0)
+    // Find next record boundary (i.e. rep_level = 0)
     while (end_offset < num_levels && rep_levels[end_offset] != 0) {
       end_offset++;
     }
@@ -1196,19 +1196,22 @@ inline void DoInBatches(const int16_t* def_levels, const int16_t* rep_levels,
         last_record_begin_offset--;
       }
 
-      if (offset < last_record_begin_offset) {
+      if (offset <= last_record_begin_offset) {
         // We have found the beginning of last record and can check page size.
         action(offset, last_record_begin_offset - offset, /*check_page_size=*/true);
         offset = last_record_begin_offset;
       }
 
-      // There is no record boundary in this chunk and cannot check page size.
+      // Write remaining data after the record boundary,
+      // or all data if no boundary was found.
       action(offset, end_offset - offset, /*check_page_size=*/false);
     }
 
     offset = end_offset;
   }
 }
+
+namespace {
 
 bool DictionaryDirectWriteSupported(const ::arrow::Array& array) {
   DCHECK_EQ(array.type_id(), ::arrow::Type::DICTIONARY);
@@ -1229,6 +1232,8 @@ Status ConvertDictionaryToDense(const ::arrow::Array& array, MemoryPool* pool,
   *out = cast_output.make_array();
   return Status::OK();
 }
+
+}  // namespace
 
 template <typename ParquetType>
 class TypedColumnWriterImpl : public ColumnWriterImpl,
@@ -2008,7 +2013,7 @@ struct SerializeFunctor {
   Status Serialize(const ArrayType& array, ArrowWriteContext*, ParquetCType* out) {
     const ArrowCType* input = array.raw_values();
     if (array.null_count() > 0) {
-      for (int i = 0; i < array.length(); i++) {
+      for (int64_t i = 0; i < array.length(); i++) {
         out[i] = static_cast<ParquetCType>(input[i]);
       }
     } else {
@@ -2067,7 +2072,7 @@ Status TypedColumnWriterImpl<ParquetType>::WriteArrowSerialize(
 template <>
 struct SerializeFunctor<BooleanType, ::arrow::BooleanType> {
   Status Serialize(const ::arrow::BooleanArray& data, ArrowWriteContext*, bool* out) {
-    for (int i = 0; i < data.length(); i++) {
+    for (int64_t i = 0; i < data.length(); i++) {
       *out++ = data.Value(i);
     }
     return Status::OK();
@@ -2092,7 +2097,7 @@ template <>
 struct SerializeFunctor<Int32Type, ::arrow::Date64Type> {
   Status Serialize(const ::arrow::Date64Array& array, ArrowWriteContext*, int32_t* out) {
     const int64_t* input = array.raw_values();
-    for (int i = 0; i < array.length(); i++) {
+    for (int64_t i = 0; i < array.length(); i++) {
       *out++ = static_cast<int32_t>(*input++ / 86400000);
     }
     return Status::OK();
@@ -2146,7 +2151,7 @@ struct SerializeFunctor<Int32Type, ::arrow::Time32Type> {
     const int32_t* input = array.raw_values();
     const auto& type = static_cast<const ::arrow::Time32Type&>(*array.type());
     if (type.unit() == ::arrow::TimeUnit::SECOND) {
-      for (int i = 0; i < array.length(); i++) {
+      for (int64_t i = 0; i < array.length(); i++) {
         out[i] = input[i] * 1000;
       }
     } else {

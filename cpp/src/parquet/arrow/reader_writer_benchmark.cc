@@ -417,20 +417,32 @@ BENCHMARK_TEMPLATE2(BM_ReadColumn, true, BooleanType)
     ->Args({5, 10});
 
 //
-// Benchmark reading a PLAIN-encoded primitive column
+// Benchmark reading a non-dict-encoded primitive column
 //
 
-template <bool nullable, typename ParquetType>
-static void BM_ReadColumnPlain(::benchmark::State& state) {
+template <typename ParquetType>
+static void BenchmarkReadNonDictColumn(::benchmark::State& state, bool nullable,
+                                       Encoding::type encoding) {
   using c_type = typename ArrowType<ParquetType>::c_type;
 
   const std::vector<c_type> values(BENCHMARK_SIZE, static_cast<c_type>(42));
   std::shared_ptr<Table> table =
       TableFromVector<ParquetType>(values, /*nullable=*/nullable, state.range(0));
 
-  auto properties = WriterProperties::Builder().disable_dictionary()->build();
+  auto properties =
+      WriterProperties::Builder().disable_dictionary()->encoding(encoding)->build();
   BenchmarkReadTable(state, *table, properties, table->num_rows(),
                      BytesForItems<ParquetType>(table->num_rows()));
+}
+
+template <bool nullable, typename ParquetType>
+static void BM_ReadColumnPlain(::benchmark::State& state) {
+  BenchmarkReadNonDictColumn<ParquetType>(state, nullable, Encoding::PLAIN);
+}
+
+template <bool nullable, typename ParquetType>
+static void BM_ReadColumnByteStreamSplit(::benchmark::State& state) {
+  BenchmarkReadNonDictColumn<ParquetType>(state, nullable, Encoding::BYTE_STREAM_SPLIT);
 }
 
 BENCHMARK_TEMPLATE2(BM_ReadColumnPlain, false, Int32Type)
@@ -455,12 +467,24 @@ BENCHMARK_TEMPLATE2(BM_ReadColumnPlain, true, Float16LogicalType)
     ->Args({99})
     ->Args({100});
 
+BENCHMARK_TEMPLATE2(BM_ReadColumnByteStreamSplit, false, Float16LogicalType)
+    ->ArgNames({"null_probability"})
+    ->Args({kAlternatingOrNa});
+BENCHMARK_TEMPLATE2(BM_ReadColumnByteStreamSplit, true, Float16LogicalType)
+    ->ArgNames({"null_probability"})
+    ->Args({0})
+    ->Args({1})
+    ->Args({50})
+    ->Args({99})
+    ->Args({100});
+
 //
 // Benchmark reading binary column
 //
 
 static void BenchmarkReadBinaryColumn(::benchmark::State& state,
-                                      const std::shared_ptr<::arrow::DataType>& type) {
+                                      const std::shared_ptr<::arrow::DataType>& type,
+                                      Encoding::type encoding) {
   std::shared_ptr<Table> table =
       RandomStringTable(type, BENCHMARK_SIZE, state.range(1), state.range(0));
 
@@ -470,7 +494,9 @@ static void BenchmarkReadBinaryColumn(::benchmark::State& state,
   for (size_t i = 1; i < column.buffers.size(); ++i) {
     total_bytes += column.buffers[i]->size();
   }
-  BenchmarkReadTable(state, *table, table->num_rows(), total_bytes);
+
+  auto properties = WriterProperties::Builder().encoding(encoding)->build();
+  BenchmarkReadTable(state, *table, properties, table->num_rows(), total_bytes);
 }
 
 static void SetReadBinaryColumnArgs(benchmark::internal::Benchmark* b) {
@@ -487,16 +513,40 @@ static void SetReadBinaryColumnArgs(benchmark::internal::Benchmark* b) {
       ->Args({99, kInfiniteUniqueValues});
 }
 
+static void SetReadBinaryColumnArgsWithoutDictEncoding(
+    benchmark::internal::Benchmark* b) {
+  b->ArgNames({"null_probability", "unique_values"})
+      // Dict-encoding is already tested in the PLAIN benchmarks, so only exercise
+      // non-dict-encoding using high cardinality.
+      ->Args({0, kInfiniteUniqueValues})
+      ->Args({1, kInfiniteUniqueValues})
+      ->Args({50, kInfiniteUniqueValues})
+      ->Args({99, kInfiniteUniqueValues});
+}
+
 static void BM_ReadBinaryColumn(::benchmark::State& state) {
-  BenchmarkReadBinaryColumn(state, ::arrow::utf8());
+  BenchmarkReadBinaryColumn(state, ::arrow::utf8(), Encoding::PLAIN);
 }
 
 static void BM_ReadBinaryViewColumn(::benchmark::State& state) {
-  BenchmarkReadBinaryColumn(state, ::arrow::large_utf8());
+  BenchmarkReadBinaryColumn(state, ::arrow::large_utf8(), Encoding::PLAIN);
+}
+
+static void BM_ReadBinaryColumnDeltaByteArray(::benchmark::State& state) {
+  BenchmarkReadBinaryColumn(state, ::arrow::utf8(), Encoding::DELTA_BYTE_ARRAY);
+}
+
+static void BM_ReadBinaryViewColumnDeltaByteArray(::benchmark::State& state) {
+  BenchmarkReadBinaryColumn(state, ::arrow::large_utf8(), Encoding::DELTA_BYTE_ARRAY);
 }
 
 BENCHMARK(BM_ReadBinaryColumn)->Apply(SetReadBinaryColumnArgs);
 BENCHMARK(BM_ReadBinaryViewColumn)->Apply(SetReadBinaryColumnArgs);
+
+BENCHMARK(BM_ReadBinaryColumnDeltaByteArray)
+    ->Apply(SetReadBinaryColumnArgsWithoutDictEncoding);
+BENCHMARK(BM_ReadBinaryViewColumnDeltaByteArray)
+    ->Apply(SetReadBinaryColumnArgsWithoutDictEncoding);
 
 //
 // Benchmark reading a nested column

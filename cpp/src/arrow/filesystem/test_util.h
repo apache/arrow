@@ -25,7 +25,7 @@
 #include "arrow/filesystem/filesystem.h"
 #include "arrow/filesystem/mockfs.h"
 #include "arrow/testing/visibility.h"
-#include "arrow/util/counting_semaphore.h"
+#include "arrow/util/counting_semaphore_internal.h"
 
 namespace arrow {
 namespace fs {

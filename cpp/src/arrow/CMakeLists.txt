@@ -491,6 +491,7 @@ set(ARROW_UTIL_SRCS
     util/bitmap_ops.cc
     util/bpacking.cc
     util/byte_size.cc
+    util/byte_stream_split_internal.cc
     util/cancel.cc
     util/compression.cc
     util/counting_semaphore.cc
@@ -515,8 +516,9 @@ set(ARROW_UTIL_SRCS
     util/memory.cc
     util/mutex.cc
     util/ree_util.cc
+    util/secure_string.cc
     util/string.cc
-    util/string_builder.cc
+    util/string_util.cc
     util/task_group.cc
     util/tdigest.cc
     util/thread_pool.cc
@@ -528,6 +530,8 @@ set(ARROW_UTIL_SRCS
     util/uri.cc
     util/utf8.cc
     util/value_parsing.cc)
+
+append_runtime_avx2_src(ARROW_UTIL_SRCS util/byte_stream_split_internal_avx2.cc)
 
 append_runtime_avx2_src(ARROW_UTIL_SRCS util/bpacking_avx2.cc)
 append_runtime_avx512_src(ARROW_UTIL_SRCS util/bpacking_avx512.cc)
@@ -572,6 +576,11 @@ endif()
 if(ARROW_USE_GLOG)
   foreach(ARROW_UTIL_TARGET ${ARROW_UTIL_TARGETS})
     target_link_libraries(${ARROW_UTIL_TARGET} PRIVATE glog::glog)
+  endforeach()
+endif()
+if(ARROW_USE_OPENSSL)
+  foreach(ARROW_UTIL_TARGET ${ARROW_UTIL_TARGETS})
+    target_link_libraries(${ARROW_UTIL_TARGET} PRIVATE ${ARROW_OPENSSL_LIBS})
   endforeach()
 endif()
 if(ARROW_USE_XSIMD)
@@ -632,13 +641,13 @@ else()
 endif()
 
 set(ARROW_TESTING_SHARED_LINK_LIBS arrow_shared ${ARROW_GTEST_GTEST})
-set(ARROW_TESTING_SHARED_PRIVATE_LINK_LIBS arrow::flatbuffers RapidJSON Boost::process)
-set(ARROW_TESTING_STATIC_LINK_LIBS
-    arrow::flatbuffers
-    RapidJSON
-    Boost::process
-    arrow_static
-    ${ARROW_GTEST_GTEST})
+set(ARROW_TESTING_SHARED_PRIVATE_LINK_LIBS arrow::flatbuffers RapidJSON)
+set(ARROW_TESTING_STATIC_LINK_LIBS arrow::flatbuffers RapidJSON arrow_static
+                                   ${ARROW_GTEST_GTEST})
+if(ARROW_ENABLE_THREADING)
+  list(APPEND ARROW_TESTING_SHARED_PRIVATE_LINK_LIBS arrow::Boost::process)
+  list(APPEND ARROW_TESTING_STATIC_LINK_LIBS arrow::Boost::process)
+endif()
 set(ARROW_TESTING_SHARED_INSTALL_INTERFACE_LIBS Arrow::arrow_shared)
 set(ARROW_TESTING_STATIC_INSTALL_INTERFACE_LIBS Arrow::arrow_static)
 # that depend on gtest
@@ -718,7 +727,6 @@ set(ARROW_COMPUTE_SRCS
     compute/registry.cc
     compute/kernels/chunked_internal.cc
     compute/kernels/codegen_internal.cc
-    compute/kernels/ree_util_internal.cc
     compute/kernels/scalar_cast_boolean.cc
     compute/kernels/scalar_cast_dictionary.cc
     compute/kernels/scalar_cast_extension.cc
@@ -727,7 +735,6 @@ set(ARROW_COMPUTE_SRCS
     compute/kernels/scalar_cast_numeric.cc
     compute/kernels/scalar_cast_string.cc
     compute/kernels/scalar_cast_temporal.cc
-    compute/kernels/util_internal.cc
     compute/kernels/vector_hash.cc
     compute/kernels/vector_selection.cc
     compute/kernels/vector_selection_filter_internal.cc
@@ -735,9 +742,18 @@ set(ARROW_COMPUTE_SRCS
     compute/kernels/vector_selection_take_internal.cc)
 
 if(ARROW_COMPUTE)
+  # If libarrow_compute.a is only built, "pkg-config --cflags --libs
+  # arrow-compute" outputs build flags for static linking not shared
+  # linking. ARROW_COMPUTE_PC_* except ARROW_COMPUTE_PC_*_PRIVATE are for
+  # the static linking case.
+  if(NOT ARROW_BUILD_SHARED AND ARROW_BUILD_STATIC)
+    string(APPEND ARROW_COMPUTE_PC_CFLAGS "${ARROW_COMPUTE_PC_CFLAGS_PRIVATE}")
+    set(ARROW_COMPUTE_PC_CFLAGS_PRIVATE "")
+  endif()
   # Include the remaining kernels
   list(APPEND
-       ARROW_COMPUTE_SRCS
+       ARROW_COMPUTE_LIB_SRCS
+       compute/initialize.cc
        compute/kernels/aggregate_basic.cc
        compute/kernels/aggregate_mode.cc
        compute/kernels/aggregate_pivot.cc
@@ -748,6 +764,7 @@ if(ARROW_COMPUTE)
        compute/kernels/hash_aggregate_numeric.cc
        compute/kernels/hash_aggregate_pivot.cc
        compute/kernels/pivot_internal.cc
+       compute/kernels/ree_util_internal.cc
        compute/kernels/scalar_arithmetic.cc
        compute/kernels/scalar_boolean.cc
        compute/kernels/scalar_compare.cc
@@ -761,6 +778,7 @@ if(ARROW_COMPUTE)
        compute/kernels/scalar_temporal_binary.cc
        compute/kernels/scalar_temporal_unary.cc
        compute/kernels/scalar_validity.cc
+       compute/kernels/util_internal.cc
        compute/kernels/vector_array_sort.cc
        compute/kernels/vector_cumulative_ops.cc
        compute/kernels/vector_nested.cc
@@ -783,40 +801,89 @@ if(ARROW_COMPUTE)
        compute/util.cc
        compute/util_internal.cc)
 
-  append_runtime_avx2_src(ARROW_COMPUTE_SRCS compute/kernels/aggregate_basic_avx2.cc)
-  append_runtime_avx512_src(ARROW_COMPUTE_SRCS compute/kernels/aggregate_basic_avx512.cc)
-  append_runtime_avx2_src(ARROW_COMPUTE_SRCS compute/key_hash_internal_avx2.cc)
-  append_runtime_avx2_bmi2_src(ARROW_COMPUTE_SRCS compute/key_map_internal_avx2.cc)
-  append_runtime_avx2_src(ARROW_COMPUTE_SRCS compute/row/compare_internal_avx2.cc)
-  append_runtime_avx2_src(ARROW_COMPUTE_SRCS compute/row/encode_internal_avx2.cc)
-  append_runtime_avx2_bmi2_src(ARROW_COMPUTE_SRCS compute/util_avx2.cc)
+  append_runtime_avx2_src(ARROW_COMPUTE_LIB_SRCS compute/kernels/aggregate_basic_avx2.cc)
+  append_runtime_avx512_src(ARROW_COMPUTE_LIB_SRCS
+                            compute/kernels/aggregate_basic_avx512.cc)
+  append_runtime_avx2_src(ARROW_COMPUTE_LIB_SRCS compute/key_hash_internal_avx2.cc)
+  append_runtime_avx2_bmi2_src(ARROW_COMPUTE_LIB_SRCS compute/key_map_internal_avx2.cc)
+  append_runtime_avx2_src(ARROW_COMPUTE_LIB_SRCS compute/row/compare_internal_avx2.cc)
+  append_runtime_avx2_src(ARROW_COMPUTE_LIB_SRCS compute/row/encode_internal_avx2.cc)
+  append_runtime_avx2_bmi2_src(ARROW_COMPUTE_LIB_SRCS compute/util_avx2.cc)
 
-endif()
+  set(ARROW_COMPUTE_SHARED_PRIVATE_LINK_LIBS)
+  set(ARROW_COMPUTE_SHARED_LINK_LIBS)
+  set(ARROW_COMPUTE_STATIC_LINK_LIBS)
+  set(ARROW_COMPUTE_STATIC_INSTALL_INTERFACE_LIBS)
+  set(ARROW_COMPUTE_SHARED_INSTALL_INTERFACE_LIBS)
 
-arrow_add_object_library(ARROW_COMPUTE ${ARROW_COMPUTE_SRCS})
-if(ARROW_USE_BOOST)
-  foreach(ARROW_COMPUTE_TARGET ${ARROW_COMPUTE_TARGETS})
-    target_link_libraries(${ARROW_COMPUTE_TARGET} PRIVATE Boost::headers)
+  list(APPEND ARROW_COMPUTE_STATIC_INSTALL_INTERFACE_LIBS Arrow::arrow_static)
+  list(APPEND ARROW_COMPUTE_SHARED_INSTALL_INTERFACE_LIBS Arrow::arrow_shared)
+  list(APPEND ARROW_COMPUTE_STATIC_LINK_LIBS arrow_static)
+  list(APPEND ARROW_COMPUTE_SHARED_LINK_LIBS arrow_shared)
+
+  if(ARROW_USE_BOOST)
+    list(APPEND ARROW_COMPUTE_STATIC_LINK_LIBS Boost::headers)
+    list(APPEND ARROW_COMPUTE_SHARED_PRIVATE_LINK_LIBS Boost::headers)
+  endif()
+  if(ARROW_USE_XSIMD)
+    list(APPEND ARROW_COMPUTE_STATIC_LINK_LIBS ${ARROW_XSIMD})
+    list(APPEND ARROW_COMPUTE_SHARED_PRIVATE_LINK_LIBS ${ARROW_XSIMD})
+  endif()
+  if(ARROW_WITH_OPENTELEMETRY)
+    list(APPEND ARROW_COMPUTE_STATIC_LINK_LIBS ${ARROW_OPENTELEMETRY_LIBS})
+    list(APPEND ARROW_COMPUTE_SHARED_PRIVATE_LINK_LIBS ${ARROW_OPENTELEMETRY_LIBS})
+  endif()
+  if(ARROW_WITH_RE2)
+    list(APPEND ARROW_COMPUTE_STATIC_LINK_LIBS re2::re2)
+    list(APPEND ARROW_COMPUTE_SHARED_PRIVATE_LINK_LIBS re2::re2)
+  endif()
+  if(ARROW_WITH_UTF8PROC)
+    list(APPEND ARROW_COMPUTE_STATIC_LINK_LIBS utf8proc::utf8proc)
+    list(APPEND ARROW_COMPUTE_SHARED_PRIVATE_LINK_LIBS utf8proc::utf8proc)
+  endif()
+
+  add_arrow_lib(arrow_compute
+                CMAKE_PACKAGE_NAME
+                ArrowCompute
+                PKG_CONFIG_NAME
+                arrow-compute
+                SHARED_LINK_LIBS
+                ${ARROW_COMPUTE_SHARED_LINK_LIBS}
+                SHARED_PRIVATE_LINK_LIBS
+                ${ARROW_COMPUTE_SHARED_PRIVATE_LINK_LIBS}
+                SHARED_INSTALL_INTERFACE_LIBS
+                ${ARROW_COMPUTE_SHARED_INSTALL_INTERFACE_LIBS}
+                STATIC_LINK_LIBS
+                ${ARROW_COMPUTE_STATIC_LINK_LIBS}
+                STATIC_INSTALL_INTERFACE_LIBS
+                ${ARROW_COMPUTE_STATIC_INSTALL_INTERFACE_LIBS}
+                OUTPUTS
+                ARROW_COMPUTE_LIBRARIES
+                SOURCES
+                ${ARROW_COMPUTE_LIB_SRCS}
+                SHARED_LINK_FLAGS
+                ${ARROW_VERSION_SCRIPT_FLAGS} # Defined in cpp/arrow/CMakeLists.txt
+  )
+  foreach(LIB_TARGET ${ARROW_COMPUTE_LIBRARIES})
+    target_compile_definitions(${LIB_TARGET} PRIVATE ARROW_COMPUTE_EXPORTING)
   endforeach()
+
+  if(ARROW_BUILD_STATIC AND WIN32)
+    target_compile_definitions(arrow_compute_static PUBLIC ARROW_COMPUTE_STATIC)
+  endif()
 endif()
+
+arrow_add_object_library(ARROW_COMPUTE_CORE ${ARROW_COMPUTE_SRCS})
+
 if(ARROW_USE_XSIMD)
-  foreach(ARROW_COMPUTE_TARGET ${ARROW_COMPUTE_TARGETS})
-    target_link_libraries(${ARROW_COMPUTE_TARGET} PRIVATE ${ARROW_XSIMD})
+  foreach(ARROW_COMPUTE_CORE_TARGET ${ARROW_COMPUTE_CORE_TARGETS})
+    target_link_libraries(${ARROW_COMPUTE_CORE_TARGET} PRIVATE ${ARROW_XSIMD})
   endforeach()
 endif()
 if(ARROW_WITH_OPENTELEMETRY)
-  foreach(ARROW_COMPUTE_TARGET ${ARROW_COMPUTE_TARGETS})
-    target_link_libraries(${ARROW_COMPUTE_TARGET} PRIVATE ${ARROW_OPENTELEMETRY_LIBS})
-  endforeach()
-endif()
-if(ARROW_WITH_RE2)
-  foreach(ARROW_COMPUTE_TARGET ${ARROW_COMPUTE_TARGETS})
-    target_link_libraries(${ARROW_COMPUTE_TARGET} PRIVATE re2::re2)
-  endforeach()
-endif()
-if(ARROW_WITH_UTF8PROC)
-  foreach(ARROW_COMPUTE_TARGET ${ARROW_COMPUTE_TARGETS})
-    target_link_libraries(${ARROW_COMPUTE_TARGET} PRIVATE utf8proc::utf8proc)
+  foreach(ARROW_COMPUTE_CORE_TARGET ${ARROW_COMPUTE_CORE_TARGETS})
+    target_link_libraries(${ARROW_COMPUTE_CORE_TARGET}
+                          PRIVATE ${ARROW_OPENTELEMETRY_LIBS})
   endforeach()
 endif()
 
@@ -1025,7 +1092,7 @@ add_arrow_lib(arrow
               ${ARROW_SHARED_LINK_FLAGS}
               SHARED_PRIVATE_LINK_LIBS
               ${ARROW_ARRAY_TARGET_SHARED}
-              ${ARROW_COMPUTE_TARGET_SHARED}
+              ${ARROW_COMPUTE_CORE_TARGET_SHARED}
               ${ARROW_CSV_TARGET_SHARED}
               ${ARROW_FILESYSTEM_TARGET_SHARED}
               ${ARROW_INTEGRATION_TARGET_SHARED}
@@ -1041,7 +1108,7 @@ add_arrow_lib(arrow
               ${ARROW_SYSTEM_LINK_LIBS}
               STATIC_LINK_LIBS
               ${ARROW_ARRAY_TARGET_STATIC}
-              ${ARROW_COMPUTE_TARGET_STATIC}
+              ${ARROW_COMPUTE_CORE_TARGET_STATIC}
               ${ARROW_CSV_TARGET_STATIC}
               ${ARROW_FILESYSTEM_TARGET_STATIC}
               ${ARROW_INTEGRATION_TARGET_STATIC}

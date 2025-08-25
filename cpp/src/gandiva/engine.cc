@@ -115,10 +115,12 @@ namespace gandiva {
 extern const unsigned char kPrecompiledBitcode[];
 extern const size_t kPrecompiledBitcodeSize;
 
+namespace {
+
 std::once_flag llvm_init_once_flag;
-static bool llvm_init = false;
-static llvm::StringRef cpu_name;
-static std::vector<std::string> cpu_attrs;
+bool llvm_init = false;
+llvm::StringRef cpu_name;
+std::vector<std::string> cpu_attrs;
 std::once_flag register_exported_funcs_flag;
 
 template <typename T>
@@ -241,6 +243,29 @@ Result<std::unique_ptr<llvm::orc::LLJIT>> BuildJIT(
   return jit;
 }
 
+arrow::Status VerifyAndLinkModule(
+    llvm::Module& dest_module,
+    llvm::Expected<std::unique_ptr<llvm::Module>> src_module_or_error) {
+  ARROW_ASSIGN_OR_RAISE(
+      auto src_ir_module,
+      AsArrowResult(src_module_or_error, "Failed to verify and link module: "));
+
+  src_ir_module->setDataLayout(dest_module.getDataLayout());
+
+  std::string error_info;
+  llvm::raw_string_ostream error_stream(error_info);
+  ARROW_RETURN_IF(
+      llvm::verifyModule(*src_ir_module, &error_stream),
+      Status::CodeGenError("verify of IR Module failed: " + error_stream.str()));
+
+  ARROW_RETURN_IF(llvm::Linker::linkModules(dest_module, std::move(src_ir_module)),
+                  Status::CodeGenError("failed to link IR Modules"));
+
+  return Status::OK();
+}
+
+}  // namespace
+
 Status Engine::SetLLVMObjectCache(GandivaObjectCache& object_cache) {
   auto cached_buffer = object_cache.getObject(nullptr);
   if (cached_buffer) {
@@ -346,27 +371,6 @@ Result<std::unique_ptr<Engine>> Engine::Make(
 
   ARROW_RETURN_NOT_OK(engine->Init());
   return engine;
-}
-
-static arrow::Status VerifyAndLinkModule(
-    llvm::Module& dest_module,
-    llvm::Expected<std::unique_ptr<llvm::Module>> src_module_or_error) {
-  ARROW_ASSIGN_OR_RAISE(
-      auto src_ir_module,
-      AsArrowResult(src_module_or_error, "Failed to verify and link module: "));
-
-  src_ir_module->setDataLayout(dest_module.getDataLayout());
-
-  std::string error_info;
-  llvm::raw_string_ostream error_stream(error_info);
-  ARROW_RETURN_IF(
-      llvm::verifyModule(*src_ir_module, &error_stream),
-      Status::CodeGenError("verify of IR Module failed: " + error_stream.str()));
-
-  ARROW_RETURN_IF(llvm::Linker::linkModules(dest_module, std::move(src_ir_module)),
-                  Status::CodeGenError("failed to link IR Modules"));
-
-  return Status::OK();
 }
 
 llvm::Module* Engine::module() {

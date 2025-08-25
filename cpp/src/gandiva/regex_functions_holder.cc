@@ -23,10 +23,14 @@
 
 namespace gandiva {
 
+namespace {
+
 std::string& RemovePatternEscapeChars(const FunctionNode& node, std::string& pattern) {
   pattern.erase(std::remove(pattern.begin(), pattern.end(), '\\'), pattern.end());
   return pattern;
 }
+
+}  // namespace
 
 // Short-circuit pattern matches for the following common sub cases :
 // - starts_with, ends_with and is_substr

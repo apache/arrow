@@ -41,6 +41,8 @@
 #include "parquet/statistics.h"
 #include "parquet/thrift_internal.h"
 
+using ::arrow::util::SecureString;
+
 namespace parquet {
 
 const ApplicationVersion& ApplicationVersion::PARQUET_251_FIXED_VERSION() {
@@ -109,7 +111,9 @@ static std::shared_ptr<Statistics> MakeTypedColumnStats(
       metadata.statistics.__isset.null_count, metadata.statistics.__isset.distinct_count);
 }
 
-static std::shared_ptr<geospatial::GeoStatistics> MakeColumnGeometryStats(
+namespace {
+
+std::shared_ptr<geospatial::GeoStatistics> MakeColumnGeometryStats(
     const format::ColumnMetaData& metadata, const ColumnDescriptor* descr) {
   if (metadata.__isset.geospatial_statistics) {
     geospatial::EncodedGeoStatistics encoded_geo_stats =
@@ -122,7 +126,13 @@ static std::shared_ptr<geospatial::GeoStatistics> MakeColumnGeometryStats(
 
 std::shared_ptr<Statistics> MakeColumnStats(const format::ColumnMetaData& meta_data,
                                             const ColumnDescriptor* descr) {
-  switch (static_cast<Type::type>(meta_data.type)) {
+  auto metadata_type = LoadEnumSafe(&meta_data.type);
+  if (descr->physical_type() != metadata_type) {
+    throw ParquetException(
+        "ColumnMetaData type does not match ColumnDescriptor physical type: " +
+        TypeToString(metadata_type) + " vs. " + TypeToString(descr->physical_type()));
+  }
+  switch (metadata_type) {
     case Type::BOOLEAN:
       return MakeTypedColumnStats<BooleanType>(meta_data, descr);
     case Type::INT32:
@@ -177,6 +187,8 @@ void ToThriftKeyValueMetadata(const KeyValueMetadata& source, Metadata* metadata
   }
   metadata->__set_key_value_metadata(std::move(key_value_metadata));
 }
+
+}  // namespace
 
 // MetaData Accessor
 
@@ -792,8 +804,8 @@ class FileMetaData::FileMetaDataImpl {
                                              encryption::kNonceLength);
     auto tag = reinterpret_cast<const uint8_t*>(signature) + encryption::kNonceLength;
 
-    std::string key = file_decryptor_->GetFooterKey();
-    std::string aad = encryption::CreateFooterAad(file_decryptor_->file_aad());
+    const SecureString& key = file_decryptor_->GetFooterKey();
+    const std::string& aad = encryption::CreateFooterAad(file_decryptor_->file_aad());
 
     auto aes_encryptor = encryption::AesEncryptor::Make(file_decryptor_->algorithm(),
                                                         static_cast<int>(key.size()),
@@ -802,7 +814,7 @@ class FileMetaData::FileMetaDataImpl {
     std::shared_ptr<Buffer> encrypted_buffer = AllocateBuffer(
         file_decryptor_->pool(), aes_encryptor->CiphertextLength(serialized_len));
     int32_t encrypted_len = aes_encryptor->SignedFooterEncrypt(
-        serialized_data_span, str2span(key), str2span(aad), nonce,
+        serialized_data_span, key.as_span(), str2span(aad), nonce,
         encrypted_buffer->mutable_span_as<uint8_t>());
     return 0 ==
            memcmp(encrypted_buffer->data() + encrypted_len - encryption::kGcmTagLength,
@@ -1541,7 +1553,7 @@ bool ApplicationVersion::VersionEq(const ApplicationVersion& other_version) cons
 // parquet-mr/parquet-column/src/main/java/org/apache/parquet/CorruptStatistics.java
 // PARQUET-686 has more discussion on statistics
 bool ApplicationVersion::HasCorrectStatistics(Type::type col_type,
-                                              EncodedStatistics& statistics,
+                                              const EncodedStatistics& statistics,
                                               SortOrder::type sort_order) const {
   // parquet-cpp version 1.3.0 and parquet-mr 1.10.0 onwards stats are computed
   // correctly for all types

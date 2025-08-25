@@ -22,6 +22,7 @@
 #include <string>
 #include <vector>
 
+#include "arrow/util/secure_string.h"
 #include "parquet/schema.h"
 
 namespace parquet {
@@ -32,6 +33,7 @@ class AesEncryptor;
 }  // namespace encryption
 
 class ColumnCryptoMetaData;
+class DecryptionKeyRetriever;
 class FileDecryptionProperties;
 
 // An object handling decryption using well-known encryption parameters
@@ -39,8 +41,8 @@ class FileDecryptionProperties;
 // CAUTION: Decryptor objects are not thread-safe.
 class PARQUET_EXPORT Decryptor {
  public:
-  Decryptor(std::unique_ptr<encryption::AesDecryptor> decryptor, const std::string& key,
-            const std::string& file_aad, const std::string& aad,
+  Decryptor(std::unique_ptr<encryption::AesDecryptor> decryptor,
+            ::arrow::util::SecureString key, std::string file_aad, std::string aad,
             ::arrow::MemoryPool* pool);
   ~Decryptor();
 
@@ -55,7 +57,7 @@ class PARQUET_EXPORT Decryptor {
 
  private:
   std::unique_ptr<encryption::AesDecryptor> aes_decryptor_;
-  std::string key_;
+  ::arrow::util::SecureString key_;
   std::string file_aad_;
   std::string aad_;
   ::arrow::MemoryPool* pool_;
@@ -71,7 +73,7 @@ class InternalFileDecryptor {
 
   const std::string& file_aad() const { return file_aad_; }
 
-  std::string GetFooterKey();
+  const ::arrow::util::SecureString& GetFooterKey();
 
   ParquetCipher::type algorithm() const { return algorithm_; }
 
@@ -127,10 +129,14 @@ class InternalFileDecryptor {
 
   // Protects footer_key_ updates
   std::mutex mutex_;
-  std::string footer_key_;
+  ::arrow::util::SecureString footer_key_;
 
-  std::string GetColumnKey(const std::string& column_path,
-                           const std::string& column_key_metadata);
+  ::arrow::util::SecureString GetColumnKey(const std::string& column_path,
+                                           const std::string& column_key_metadata);
+
+  static ::arrow::util::SecureString RetrieveColumnKeyIfEmpty(
+      ::arrow::util::SecureString column_key, const std::string& column_key_metadata,
+      const std::shared_ptr<DecryptionKeyRetriever>& key_retriever);
 
   std::unique_ptr<Decryptor> GetFooterDecryptor(const std::string& aad, bool metadata);
 

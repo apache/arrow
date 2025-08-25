@@ -610,12 +610,11 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
       has_distinct_count_ = false;
     }
 
-    if (!encoded_min.empty()) {
+    if (has_min_max) {
       PlainDecode(encoded_min, &min_);
-    }
-    if (!encoded_max.empty()) {
       PlainDecode(encoded_max, &max_);
     }
+
     has_min_max_ = has_min_max;
   }
 
@@ -901,7 +900,10 @@ void TypedStatisticsImpl<DType>::PlainDecode(const std::string& src, T* dst) con
   auto decoder = MakeTypedDecoder<DType>(Encoding::PLAIN, descr_);
   decoder->SetData(1, reinterpret_cast<const uint8_t*>(src.c_str()),
                    static_cast<int>(src.size()));
-  decoder->Decode(dst, 1);
+  int decoded_values = decoder->Decode(dst, 1);
+  if (decoded_values != 1) {
+    throw ParquetException("Failed to decode statistic value from plain encoded string");
+  }
 }
 
 template <>

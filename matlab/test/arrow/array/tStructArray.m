@@ -142,6 +142,26 @@ classdef tStructArray < matlab.unittest.TestCase
             tc.verifyError(fcn, "MATLAB:class:SetProhibited");
         end
 
+        function NumNulls(tc)
+            % Verify the NumNulls property.
+            import arrow.array.StructArray
+
+            array1 = StructArray.fromArrays(tc.Float64Array, tc.StringArray);
+            tc.verifyEqual(array1.NumNulls, int64(0));
+
+            array2 = StructArray.fromArrays(tc.Float64Array, tc.StringArray, Valid=[1 3 5]);
+            tc.verifyEqual(array2.NumNulls, int64(2));
+        end
+
+        function NumNullsNoSetter(tc)
+            % Verify the NumNulls property is read-only.
+            import arrow.array.StructArray
+
+            array = StructArray.fromArrays(tc.Float64Array, tc.StringArray);
+            fcn = @() setfield(array, "NumNulls", 1);
+            tc.verifyError(fcn, "MATLAB:class:SetProhibited");
+        end
+
         function Type(tc)
             % Verify the Type property is set to the expected value.
             import arrow.array.StructArray

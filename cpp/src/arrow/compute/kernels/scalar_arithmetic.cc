@@ -29,6 +29,7 @@
 #include "arrow/compute/kernels/codegen_internal.h"
 #include "arrow/compute/kernels/common_internal.h"
 #include "arrow/compute/kernels/util_internal.h"
+#include "arrow/compute/registry_internal.h"
 #include "arrow/type.h"
 #include "arrow/type_fwd.h"
 #include "arrow/type_traits.h"
@@ -597,10 +598,6 @@ Result<TypeHolder> ResolveDecimalAdditionOrSubtractionOutput(
       types,
       [](int32_t p1, int32_t s1, int32_t p2,
          int32_t s2) -> Result<std::pair<int32_t, int32_t>> {
-        if (s1 != s2) {
-          return Status::Invalid("Addition or subtraction of two decimal ",
-                                 "types scale1 != scale2. (", s1, s2, ").");
-        }
         DCHECK_EQ(s1, s2);
         const int32_t scale = s1;
         const int32_t precision = std::max(p1 - s1, p2 - s2) + scale + 1;
@@ -626,10 +623,6 @@ Result<TypeHolder> ResolveDecimalDivisionOutput(KernelContext*,
       types,
       [](int32_t p1, int32_t s1, int32_t p2,
          int32_t s2) -> Result<std::pair<int32_t, int32_t>> {
-        if (s1 < s2) {
-          return Status::Invalid("Division of two decimal types scale1 < scale2. ", "(",
-                                 s1, s2, ").");
-        }
         DCHECK_GE(s1, s2);
         const int32_t scale = s1 - s2;
         const int32_t precision = p1;
@@ -668,13 +661,16 @@ void AddDecimalUnaryKernels(ScalarFunction* func) {
 template <typename Op>
 void AddDecimalBinaryKernels(const std::string& name, ScalarFunction* func) {
   OutputType out_type(null());
+  std::shared_ptr<MatchConstraint> constraint = nullptr;
   const std::string op = name.substr(0, name.find("_"));
   if (op == "add" || op == "subtract") {
     out_type = OutputType(ResolveDecimalAdditionOrSubtractionOutput);
+    constraint = DecimalsHaveSameScale();
   } else if (op == "multiply") {
     out_type = OutputType(ResolveDecimalMultiplicationOutput);
   } else if (op == "divide") {
     out_type = OutputType(ResolveDecimalDivisionOutput);
+    constraint = BinaryDecimalScale1GeScale2();
   } else {
     DCHECK(false);
   }
@@ -683,8 +679,18 @@ void AddDecimalBinaryKernels(const std::string& name, ScalarFunction* func) {
   auto in_type256 = InputType(Type::DECIMAL256);
   auto exec128 = ScalarBinaryNotNullEqualTypes<Decimal128Type, Decimal128Type, Op>::Exec;
   auto exec256 = ScalarBinaryNotNullEqualTypes<Decimal256Type, Decimal256Type, Op>::Exec;
-  DCHECK_OK(func->AddKernel({in_type128, in_type128}, out_type, exec128));
-  DCHECK_OK(func->AddKernel({in_type256, in_type256}, out_type, exec256));
+  DCHECK_OK(func->AddKernel({in_type128, in_type128}, out_type, exec128, /*init=*/nullptr,
+                            constraint));
+  DCHECK_OK(func->AddKernel({in_type256, in_type256}, out_type, exec256, /*init=*/nullptr,
+                            constraint));
+}
+
+template <typename Op>
+void AddHalfFloatUnaryKernel(ScalarFunction* func) {
+  OutputType out_type(FirstType);
+  auto in_type = InputType(Type::HALF_FLOAT);
+  auto exec = ScalarUnaryNotNull<HalfFloatType, HalfFloatType, Op>::Exec;
+  DCHECK_OK(func->AddKernel({in_type}, out_type, exec));
 }
 
 // Generate a kernel given an arithmetic functor
@@ -1695,6 +1701,7 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
   // ----------------------------------------------------------------------
   auto negate = MakeUnaryArithmeticFunction<Negate>("negate", negate_doc);
   AddDecimalUnaryKernels<Negate>(negate.get());
+  AddHalfFloatUnaryKernel<Negate>(negate.get());
 
   // Add neg(duration) -> duration
   for (auto unit : TimeUnit::values()) {
@@ -1708,6 +1715,7 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
   auto negate_checked = MakeUnarySignedArithmeticFunctionNotNull<NegateChecked>(
       "negate_checked", negate_checked_doc);
   AddDecimalUnaryKernels<NegateChecked>(negate_checked.get());
+  AddHalfFloatUnaryKernel<NegateChecked>(negate_checked.get());
 
   // Add neg_checked(duration) -> duration
   for (auto unit : TimeUnit::values()) {
@@ -1754,6 +1762,10 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
   for (auto unit : TimeUnit::values()) {
     auto exec = ScalarUnary<Int8Type, Int64Type, Sign>::Exec;
     DCHECK_OK(sign->AddKernel({duration(unit)}, int8(), std::move(exec)));
+  }
+  {
+    auto exec = ScalarUnary<HalfFloatType, HalfFloatType, Sign>::Exec;
+    DCHECK_OK(sign->AddKernel({InputType(Type::HALF_FLOAT)}, float16(), std::move(exec)));
   }
   DCHECK_OK(registry->AddFunction(std::move(sign)));
 

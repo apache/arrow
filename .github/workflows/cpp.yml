@@ -29,6 +29,7 @@ on:
       - '.github/workflows/cpp.yml'
       - 'ci/conda_env_*'
       - 'ci/docker/**'
+      - 'ci/scripts/ccache_setup.sh'
       - 'ci/scripts/cpp_*'
       - 'ci/scripts/install_azurite.sh'
       - 'ci/scripts/install_gcs_testbench.sh'
@@ -45,6 +46,7 @@ on:
       - '.github/workflows/cpp.yml'
       - 'ci/conda_env_*'
       - 'ci/docker/**'
+      - 'ci/scripts/ccache_setup.sh'
       - 'ci/scripts/cpp_*'
       - 'ci/scripts/install_azurite.sh'
       - 'ci/scripts/install_gcs_testbench.sh'
@@ -108,7 +110,7 @@ jobs:
       UBUNTU: ${{ matrix.ubuntu }}
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           fetch-depth: 0
           submodules: recursive
@@ -161,7 +163,7 @@ jobs:
     timeout-minutes: 45
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
           submodules: recursive
@@ -216,7 +218,7 @@ jobs:
           sysctl -a | grep cpu
           sysctl -a | grep "hw.optional"
       - name: Checkout Arrow
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
           submodules: recursive
@@ -332,7 +334,7 @@ jobs:
             /d 1 `
             /f
       - name: Checkout Arrow
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
           submodules: recursive
@@ -375,7 +377,7 @@ jobs:
 
   windows-mingw:
     name: AMD64 Windows MinGW ${{ matrix.msystem_upper }} C++
-    runs-on: windows-2019
+    runs-on: windows-2022
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     # Build may take 1h+ without cache.
     timeout-minutes: 120
@@ -429,7 +431,7 @@ jobs:
             /d 1 `
             /f
       - name: Checkout Arrow
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
           submodules: recursive

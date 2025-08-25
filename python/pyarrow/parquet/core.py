@@ -44,8 +44,8 @@ from pyarrow._parquet import (ParquetReader, Statistics,  # noqa
                               FileEncryptionProperties,
                               FileDecryptionProperties,
                               SortingColumn)
-from pyarrow.fs import (LocalFileSystem, FileSystem, FileType,
-                        _resolve_filesystem_and_path, _ensure_filesystem)
+from pyarrow.fs import (LocalFileSystem, FileType, _resolve_filesystem_and_path,
+                        _ensure_filesystem)
 from pyarrow.util import guid, _is_path_like, _stringify_path, _deprecate_api
 
 
@@ -225,6 +225,11 @@ class ParquetFile:
         If given, Parquet binary columns will be read as this datatype.
         This setting is ignored if a serialized Arrow schema is found in
         the Parquet metadata.
+    list_type : subclass of pyarrow.DataType, default None
+        If given, non-MAP repeated columns will be read as an instance of
+        this datatype (either pyarrow.ListType or pyarrow.LargeListType).
+        This setting is ignored if a serialized Arrow schema is found in
+        the Parquet metadata.
     memory_map : bool, default False
         If the source is a file path, use a memory map to read file, which can
         improve performance in some environments.
@@ -256,7 +261,7 @@ class ParquetFile:
         it will be parsed as an URI to determine the filesystem.
     page_checksum_verification : bool, default False
         If True, verify the checksum for each page read from the file.
-    arrow_extensions_enabled : bool, default False
+    arrow_extensions_enabled : bool, default True
         If True, read Parquet logical types as Arrow extension types where possible,
         (e.g., read JSON as the canonical `arrow.json` extension type or UUID as
         the canonical `arrow.uuid` extension type).
@@ -304,11 +309,12 @@ class ParquetFile:
     """
 
     def __init__(self, source, *, metadata=None, common_metadata=None,
-                 read_dictionary=None, binary_type=None, memory_map=False,
-                 buffer_size=0, pre_buffer=False, coerce_int96_timestamp_unit=None,
+                 read_dictionary=None, binary_type=None, list_type=None,
+                 memory_map=False, buffer_size=0, pre_buffer=False,
+                 coerce_int96_timestamp_unit=None,
                  decryption_properties=None, thrift_string_size_limit=None,
                  thrift_container_size_limit=None, filesystem=None,
-                 page_checksum_verification=False, arrow_extensions_enabled=False):
+                 page_checksum_verification=False, arrow_extensions_enabled=True):
 
         self._close_source = getattr(source, 'closed', True)
 
@@ -323,7 +329,7 @@ class ParquetFile:
             source, use_memory_map=memory_map,
             buffer_size=buffer_size, pre_buffer=pre_buffer,
             read_dictionary=read_dictionary, metadata=metadata,
-            binary_type=binary_type,
+            binary_type=binary_type, list_type=list_type,
             coerce_int96_timestamp_unit=coerce_int96_timestamp_unit,
             decryption_properties=decryption_properties,
             thrift_string_size_limit=thrift_string_size_limit,
@@ -573,6 +579,9 @@ class ParquetFile:
         4       5  Brittle stars
         5     100      Centipede
         """
+        if batch_size <= 0:
+            raise ValueError("batch_size must be greater than zero")
+
         if row_groups is None:
             row_groups = range(0, self.metadata.num_row_groups)
         column_indices = self._get_column_indices(
@@ -1102,9 +1111,9 @@ Examples
         ----------
         table_or_batch : {RecordBatch, Table}
         row_group_size : int, default None
-            Maximum number of rows in each written row group. If None,
-            the row group size will be the minimum of the input
-            table or batch length and 1024 * 1024.
+            Maximum number of rows in each written row group. If None, the row
+            group size will be the minimum of the number of rows in the
+            Table/RecordBatch and 1024 * 1024.
         """
         if isinstance(table_or_batch, pa.RecordBatch):
             self.write_batch(table_or_batch, row_group_size)
@@ -1123,8 +1132,8 @@ Examples
         row_group_size : int, default None
             Maximum number of rows in written row group. If None, the
             row group size will be the minimum of the RecordBatch
-            size and 1024 * 1024.  If set larger than 64Mi then 64Mi
-            will be used instead.
+            size (in rows) and 1024 * 1024. If set larger than 64 * 1024 * 1024
+            then 64 * 1024 * 1024 will be used instead.
         """
         table = pa.Table.from_batches([batch], batch.schema)
         self.write_table(table, row_group_size)
@@ -1138,9 +1147,9 @@ Examples
         table : Table
         row_group_size : int, default None
             Maximum number of rows in each written row group. If None,
-            the row group size will be the minimum of the Table size
-            and 1024 * 1024.  If set larger than 64Mi then 64Mi will
-            be used instead.
+            the row group size will be the minimum of the Table size (in rows)
+            and 1024 * 1024. If set larger than 64 * 1024 * 1024 then
+            64 * 1024 * 1024 will be used instead.
 
         """
         if self.schema_changed:
@@ -1200,6 +1209,11 @@ read_dictionary : list, default None
     file's schema to obtain the paths.
 binary_type : pyarrow.DataType, default None
     If given, Parquet binary columns will be read as this datatype.
+    This setting is ignored if a serialized Arrow schema is found in
+    the Parquet metadata.
+list_type : subclass of pyarrow.DataType, default None
+    If given, non-MAP repeated columns will be read as an instance of
+    this datatype (either pyarrow.ListType or pyarrow.LargeListType).
     This setting is ignored if a serialized Arrow schema is found in
     the Parquet metadata.
 memory_map : bool, default False
@@ -1310,7 +1324,7 @@ thrift_container_size_limit : int, default None
     sufficient for most Parquet files.
 page_checksum_verification : bool, default False
     If True, verify the page checksum for each page read from the file.
-arrow_extensions_enabled : bool, default False
+arrow_extensions_enabled : bool, default True
     If True, read Parquet logical types as Arrow extension types where possible,
     (e.g., read JSON as the canonical `arrow.json` extension type or UUID as
     the canonical `arrow.uuid` extension type).
@@ -1321,13 +1335,14 @@ Examples
 """
 
     def __init__(self, path_or_paths, filesystem=None, schema=None, *, filters=None,
-                 read_dictionary=None, binary_type=None, memory_map=False,
-                 buffer_size=None, partitioning="hive", ignore_prefixes=None,
+                 read_dictionary=None, binary_type=None, list_type=None,
+                 memory_map=False, buffer_size=None, partitioning="hive",
+                 ignore_prefixes=None,
                  pre_buffer=True, coerce_int96_timestamp_unit=None,
                  decryption_properties=None, thrift_string_size_limit=None,
                  thrift_container_size_limit=None,
                  page_checksum_verification=False,
-                 arrow_extensions_enabled=False):
+                 arrow_extensions_enabled=True):
         import pyarrow.dataset as ds
 
         # map format arguments
@@ -1339,6 +1354,7 @@ Examples
             "page_checksum_verification": page_checksum_verification,
             "arrow_extensions_enabled": arrow_extensions_enabled,
             "binary_type": binary_type,
+            "list_type": list_type,
         }
         if buffer_size:
             read_options.update(use_buffered_stream=True,
@@ -1379,14 +1395,9 @@ Examples
         self._base_dir = None
         if not isinstance(path_or_paths, list):
             if _is_path_like(path_or_paths):
-                path_or_paths = _stringify_path(path_or_paths)
-                if filesystem is None:
-                    # path might be a URI describing the FileSystem as well
-                    try:
-                        filesystem, path_or_paths = FileSystem.from_uri(
-                            path_or_paths)
-                    except ValueError:
-                        filesystem = LocalFileSystem(use_mmap=memory_map)
+                filesystem, path_or_paths = _resolve_filesystem_and_path(
+                    path_or_paths, filesystem, memory_map=memory_map
+                )
                 finfo = filesystem.get_file_info(path_or_paths)
                 if finfo.type == FileType.Directory:
                     self._base_dir = path_or_paths
@@ -1668,10 +1679,11 @@ _read_table_docstring = """
 
 Parameters
 ----------
-source : str, pyarrow.NativeFile, or file-like object
-    If a string passed, can be a single file name or directory name. For
-    file-like objects, only read a single file. Use pyarrow.BufferReader to
-    read a file contained in a bytes or buffer-like object.
+source : str, list of str, pyarrow.NativeFile, or file-like object
+    If a string is passed, can be a single file name or directory name. If a
+    list of strings is passed, should be file names. For file-like objects,
+    only read a single file. Use pyarrow.BufferReader to read a file contained
+    in a bytes or buffer-like object.
 columns : list
     If not None, only these columns will be read from the file. A column
     name may be a prefix of a nested field, e.g. 'a' will select 'a.b',
@@ -1726,7 +1738,7 @@ thrift_container_size_limit : int, default None
     sufficient for most Parquet files.
 page_checksum_verification : bool, default False
     If True, verify the checksum for each page read from the file.
-arrow_extensions_enabled : bool, default False
+arrow_extensions_enabled : bool, default True
     If True, read Parquet logical types as Arrow extension types where possible,
     (e.g., read JSON as the canonical `arrow.json` extension type or UUID as
     the canonical `arrow.uuid` extension type).
@@ -1819,13 +1831,14 @@ Read data from a single Parquet file:
 
 def read_table(source, *, columns=None, use_threads=True,
                schema=None, use_pandas_metadata=False, read_dictionary=None,
-               binary_type=None, memory_map=False, buffer_size=0, partitioning="hive",
-               filesystem=None, filters=None, ignore_prefixes=None,
-               pre_buffer=True, coerce_int96_timestamp_unit=None,
+               binary_type=None, list_type=None, memory_map=False, buffer_size=0,
+               partitioning="hive", filesystem=None, filters=None,
+               ignore_prefixes=None, pre_buffer=True,
+               coerce_int96_timestamp_unit=None,
                decryption_properties=None, thrift_string_size_limit=None,
                thrift_container_size_limit=None,
                page_checksum_verification=False,
-               arrow_extensions_enabled=False):
+               arrow_extensions_enabled=True):
 
     try:
         dataset = ParquetDataset(
@@ -1836,6 +1849,7 @@ def read_table(source, *, columns=None, use_threads=True,
             memory_map=memory_map,
             read_dictionary=read_dictionary,
             binary_type=binary_type,
+            list_type=list_type,
             buffer_size=buffer_size,
             filters=filters,
             ignore_prefixes=ignore_prefixes,
@@ -1872,6 +1886,7 @@ def read_table(source, *, columns=None, use_threads=True,
         dataset = ParquetFile(
             source, read_dictionary=read_dictionary,
             binary_type=binary_type,
+            list_type=list_type,
             memory_map=memory_map, buffer_size=buffer_size,
             pre_buffer=pre_buffer,
             coerce_int96_timestamp_unit=coerce_int96_timestamp_unit,
@@ -2017,10 +2032,11 @@ Parameters
 ----------
 table : pyarrow.Table
 where : string or pyarrow.NativeFile
-row_group_size : int
+row_group_size : int, default None
     Maximum number of rows in each written row group. If None, the
-    row group size will be the minimum of the Table size and
-    1024 * 1024.
+    row group size will be the minimum of the Table size (in rows)
+    and 1024 * 1024. If set larger than 64 * 1024 * 1024 then
+    64 * 1024 * 1024 will be used instead.
 {_parquet_writer_arg_docs}
 **kwargs : optional
     Additional options for ParquetWriter

@@ -42,7 +42,7 @@ git fetch --all --prune --tags --force
 
 branch=apache-arrow-${version}
 echo "Creating branch: ${branch}"
-git checkout master
+git checkout main
 git branch -D ${branch} || :
 git checkout -b ${branch}
 

@@ -17,11 +17,13 @@
 
 #pragma once
 
+#include <cassert>
 #include <map>
 #include <memory>
 #include <string>
 #include <utility>
 
+#include "arrow/util/secure_string.h"
 #include "parquet/exception.h"
 #include "parquet/schema.h"
 #include "parquet/types.h"
@@ -46,28 +48,56 @@ using ColumnPathToEncryptionPropertiesMap =
 
 class PARQUET_EXPORT DecryptionKeyRetriever {
  public:
-  virtual std::string GetKey(const std::string& key_metadata) = 0;
+  /// \brief Retrieve a key.
+  /// \deprecated Deprecated since 22.0.0.
+  ///             Implement GetKeyById(const std::string&) instead.
+  ARROW_DEPRECATED(
+      "Deprecated in 22.0.0. "
+      "Implement GetKeyById(const std::string&) instead.")
+  virtual std::string GetKey(const std::string& key_id) {
+    throw ParquetException("Not implemented");
+  }
+
+  /// \brief Retrieve a key by its id.
+  virtual ::arrow::util::SecureString GetKeyById(const std::string& key_id) {
+    ARROW_SUPPRESS_DEPRECATION_WARNING
+    auto key = ::arrow::util::SecureString(GetKey(key_id));
+    ARROW_UNSUPPRESS_DEPRECATION_WARNING
+    return key;
+  }
+
   virtual ~DecryptionKeyRetriever() {}
 };
 
 /// Simple integer key retriever
 class PARQUET_EXPORT IntegerKeyIdRetriever : public DecryptionKeyRetriever {
  public:
-  void PutKey(uint32_t key_id, const std::string& key);
-  std::string GetKey(const std::string& key_metadata) override;
+  void PutKey(uint32_t key_id, ::arrow::util::SecureString key);
+
+  ::arrow::util::SecureString GetKeyById(const std::string& key_id_string) override {
+    // key_id_string is string but for IntegerKeyIdRetriever it encodes
+    // a native-endian 32 bit unsigned integer key_id
+    uint32_t key_id;
+    assert(key_id_string.size() == sizeof(key_id));
+    memcpy(&key_id, key_id_string.data(), sizeof(key_id));
+
+    return GetKeyById(key_id);
+  }
+
+  ::arrow::util::SecureString GetKeyById(uint32_t key_id) { return key_map_.at(key_id); }
 
  private:
-  std::map<uint32_t, std::string> key_map_;
+  std::map<uint32_t, ::arrow::util::SecureString> key_map_;
 };
 
 // Simple string key retriever
 class PARQUET_EXPORT StringKeyIdRetriever : public DecryptionKeyRetriever {
  public:
-  void PutKey(const std::string& key_id, const std::string& key);
-  std::string GetKey(const std::string& key_metadata) override;
+  void PutKey(std::string key_id, ::arrow::util::SecureString key);
+  ::arrow::util::SecureString GetKeyById(const std::string& key_id) override;
 
  private:
-  std::map<std::string, std::string> key_map_;
+  std::map<std::string, ::arrow::util::SecureString> key_map_;
 };
 
 class PARQUET_EXPORT HiddenColumnException : public ParquetException {
@@ -102,28 +132,33 @@ class PARQUET_EXPORT ColumnEncryptionProperties {
   class PARQUET_EXPORT Builder {
    public:
     /// Convenience builder for encrypted columns.
-    explicit Builder(const std::string& name) : Builder(name, true) {}
+    explicit Builder(std::string name) : Builder(std::move(name), true) {}
 
     /// Convenience builder for encrypted columns.
-    explicit Builder(const std::shared_ptr<schema::ColumnPath>& path)
-        : Builder(path->ToDotString(), true) {}
+    explicit Builder(const schema::ColumnPath& path)
+        : Builder(path.ToDotString(), true) {}
 
     /// Set a column-specific key.
     /// If key is not set on an encrypted column, the column will
     /// be encrypted with the footer key.
     /// keyBytes Key length must be either 16, 24 or 32 bytes.
     /// Caller is responsible for wiping out the input key array.
+    /// \deprecated "Deprecated in 22.0.0. Use key(arrow::util::SecureString) instead."
+    ARROW_DEPRECATED("Deprecated in 22.0.0. Use key(arrow::util::SecureString) instead.")
     Builder* key(std::string column_key);
+
+    /// \copydoc key(std::string)
+    Builder* key(::arrow::util::SecureString column_key);
 
     /// Set a key retrieval metadata.
     /// use either key_metadata() or key_id(), not both
-    Builder* key_metadata(const std::string& key_metadata);
+    Builder* key_metadata(std::string key_metadata);
 
     /// A convenience function to set key metadata using a string id.
     /// Set a key retrieval metadata (converted from String).
     /// use either key_metadata() or key_id(), not both
     /// key_id will be converted to metadata (UTF-8 array).
-    Builder* key_id(const std::string& key_id);
+    Builder* key_id(std::string key_id);
 
     std::shared_ptr<ColumnEncryptionProperties> build() {
       return std::shared_ptr<ColumnEncryptionProperties>(
@@ -131,78 +166,65 @@ class PARQUET_EXPORT ColumnEncryptionProperties {
     }
 
    private:
-    const std::string column_path_;
+    std::string column_path_;
     bool encrypted_;
-    std::string key_;
+    ::arrow::util::SecureString key_;
     std::string key_metadata_;
 
-    Builder(const std::string path, bool encrypted)
-        : column_path_(path), encrypted_(encrypted) {}
+    Builder(std::string path, bool encrypted)
+        : column_path_(std::move(path)), encrypted_(encrypted) {}
   };
 
-  std::string column_path() const { return column_path_; }
+  const std::string& column_path() const { return column_path_; }
   bool is_encrypted() const { return encrypted_; }
   bool is_encrypted_with_footer_key() const { return encrypted_with_footer_key_; }
-  std::string key() const { return key_; }
-  std::string key_metadata() const { return key_metadata_; }
-
-  ColumnEncryptionProperties() = default;
-  ColumnEncryptionProperties(const ColumnEncryptionProperties& other) = default;
-  ColumnEncryptionProperties(ColumnEncryptionProperties&& other) = default;
-
-  ~ColumnEncryptionProperties() { key_.clear(); }
+  const ::arrow::util::SecureString& key() const { return key_; }
+  const std::string& key_metadata() const { return key_metadata_; }
 
  private:
-  const std::string column_path_;
+  std::string column_path_;
   bool encrypted_;
   bool encrypted_with_footer_key_;
-  std::string key_;
+  ::arrow::util::SecureString key_;
   std::string key_metadata_;
-  explicit ColumnEncryptionProperties(bool encrypted, const std::string& column_path,
-                                      const std::string& key,
-                                      const std::string& key_metadata);
+  explicit ColumnEncryptionProperties(bool encrypted, std::string column_path,
+                                      ::arrow::util::SecureString key,
+                                      std::string key_metadata);
 };
 
 class PARQUET_EXPORT ColumnDecryptionProperties {
  public:
   class PARQUET_EXPORT Builder {
    public:
-    explicit Builder(const std::string& name) : column_path_(name) {}
+    explicit Builder(std::string name) : column_path_(std::move(name)) {}
 
-    explicit Builder(const std::shared_ptr<schema::ColumnPath>& path)
-        : Builder(path->ToDotString()) {}
+    explicit Builder(const schema::ColumnPath& path) : Builder(path.ToDotString()) {}
 
     /// Set an explicit column key. If applied on a file that contains
     /// key metadata for this column the metadata will be ignored,
     /// the column will be decrypted with this key.
     /// key length must be either 16, 24 or 32 bytes.
-    Builder* key(const std::string& key);
+    Builder* key(::arrow::util::SecureString key);
 
     std::shared_ptr<ColumnDecryptionProperties> build();
 
    private:
-    const std::string column_path_;
-    std::string key_;
+    std::string column_path_;
+    ::arrow::util::SecureString key_;
   };
 
-  ColumnDecryptionProperties() = default;
-  ColumnDecryptionProperties(const ColumnDecryptionProperties& other) = default;
-  ColumnDecryptionProperties(ColumnDecryptionProperties&& other) = default;
-
-  ~ColumnDecryptionProperties() { key_.clear(); }
-
-  std::string column_path() const { return column_path_; }
-  std::string key() const { return key_; }
+  const std::string& column_path() const { return column_path_; }
+  const ::arrow::util::SecureString& key() const { return key_; }
 
  private:
-  const std::string column_path_;
-  std::string key_;
+  std::string column_path_;
+  ::arrow::util::SecureString key_;
 
   /// This class is only required for setting explicit column decryption keys -
   /// to override key retriever (or to provide keys when key metadata and/or
   /// key retriever are not available)
-  explicit ColumnDecryptionProperties(const std::string& column_path,
-                                      const std::string& key);
+  explicit ColumnDecryptionProperties(std::string column_path,
+                                      ::arrow::util::SecureString key);
 };
 
 class PARQUET_EXPORT AADPrefixVerifier {
@@ -237,7 +259,15 @@ class PARQUET_EXPORT FileDecryptionProperties {
     /// will be wiped out (array values set to 0).
     /// Caller is responsible for wiping out the input key array.
     /// param footerKey Key length must be either 16, 24 or 32 bytes.
-    Builder* footer_key(const std::string footer_key);
+    /// \deprecated Deprecated since 22.0.0.
+    ///             Use footer_key(arrow::util::SecureString) instead.
+    ARROW_DEPRECATED(
+        "Deprecated in 22.0.0. "
+        "Use footer_key(arrow::util::SecureString) instead.")
+    Builder* footer_key(std::string footer_key);
+
+    /// \copydoc footer_key(std::string footer_key)
+    Builder* footer_key(::arrow::util::SecureString footer_key);
 
     /// Set explicit column keys (decryption properties).
     /// Its also possible to set a key retriever on this property object.
@@ -246,7 +276,7 @@ class PARQUET_EXPORT FileDecryptionProperties {
     /// If an explicit key is available for a footer or a column,
     /// its key metadata will be ignored.
     Builder* column_keys(
-        const ColumnPathToDecryptionPropertiesMap& column_decryption_properties);
+        ColumnPathToDecryptionPropertiesMap column_decryption_properties);
 
     /// Set a key retriever callback. Its also possible to
     /// set explicit footer or column keys on this file property object.
@@ -254,7 +284,7 @@ class PARQUET_EXPORT FileDecryptionProperties {
     /// invocation of the retriever callback.
     /// If an explicit key is available for a footer or a column,
     /// its key metadata will be ignored.
-    Builder* key_retriever(const std::shared_ptr<DecryptionKeyRetriever>& key_retriever);
+    Builder* key_retriever(std::shared_ptr<DecryptionKeyRetriever> key_retriever);
 
     /// Skip integrity verification of plaintext footers.
     /// If not called, integrity of plaintext footers will be checked in runtime,
@@ -271,7 +301,7 @@ class PARQUET_EXPORT FileDecryptionProperties {
     /// A must when a prefix is used for file encryption, but not stored in file.
     /// If AAD prefix is stored in file, it will be compared to the explicitly
     /// supplied value and an exception will be thrown if they differ.
-    Builder* aad_prefix(const std::string& aad_prefix);
+    Builder* aad_prefix(std::string aad_prefix);
 
     /// Set callback for verification of AAD Prefixes stored in file.
     Builder* aad_prefix_verifier(std::shared_ptr<AADPrefixVerifier> aad_prefix_verifier);
@@ -294,7 +324,7 @@ class PARQUET_EXPORT FileDecryptionProperties {
     }
 
    private:
-    std::string footer_key_;
+    ::arrow::util::SecureString footer_key_;
     std::string aad_prefix_;
     std::shared_ptr<AADPrefixVerifier> aad_prefix_verifier_;
     ColumnPathToDecryptionPropertiesMap column_decryption_properties_;
@@ -304,13 +334,11 @@ class PARQUET_EXPORT FileDecryptionProperties {
     bool plaintext_files_allowed_;
   };
 
-  ~FileDecryptionProperties() { footer_key_.clear(); }
+  const ::arrow::util::SecureString& column_key(const std::string& column_path) const;
 
-  std::string column_key(const std::string& column_path) const;
+  const ::arrow::util::SecureString& footer_key() const { return footer_key_; }
 
-  std::string footer_key() const { return footer_key_; }
-
-  std::string aad_prefix() const { return aad_prefix_; }
+  const std::string& aad_prefix() const { return aad_prefix_; }
 
   const std::shared_ptr<DecryptionKeyRetriever>& key_retriever() const {
     return key_retriever_;
@@ -327,23 +355,20 @@ class PARQUET_EXPORT FileDecryptionProperties {
   }
 
  private:
-  std::string footer_key_;
+  ::arrow::util::SecureString footer_key_;
   std::string aad_prefix_;
   std::shared_ptr<AADPrefixVerifier> aad_prefix_verifier_;
-
-  const std::string empty_string_ = "";
   ColumnPathToDecryptionPropertiesMap column_decryption_properties_;
-
   std::shared_ptr<DecryptionKeyRetriever> key_retriever_;
   bool check_plaintext_footer_integrity_;
   bool plaintext_files_allowed_;
 
   FileDecryptionProperties(
-      const std::string& footer_key,
+      ::arrow::util::SecureString footer_key,
       std::shared_ptr<DecryptionKeyRetriever> key_retriever,
-      bool check_plaintext_footer_integrity, const std::string& aad_prefix,
+      bool check_plaintext_footer_integrity, std::string aad_prefix,
       std::shared_ptr<AADPrefixVerifier> aad_prefix_verifier,
-      const ColumnPathToDecryptionPropertiesMap& column_decryption_properties,
+      ColumnPathToDecryptionPropertiesMap column_decryption_properties,
       bool plaintext_files_allowed);
 };
 
@@ -351,10 +376,18 @@ class PARQUET_EXPORT FileEncryptionProperties {
  public:
   class PARQUET_EXPORT Builder {
    public:
-    explicit Builder(const std::string& footer_key)
+    /// \deprecated Deprecated since 22.0.0. Use Builder(arrow::util::SecureString)
+    /// instead.
+    ARROW_DEPRECATED(
+        "Deprecated in 22.0.0. "
+        "Use Builder(arrow::util::SecureString) instead")
+    explicit Builder(std::string footer_key)
+        : Builder(::arrow::util::SecureString(std::move(footer_key))) {}
+
+    explicit Builder(::arrow::util::SecureString footer_key)
         : parquet_cipher_(kDefaultEncryptionAlgorithm),
-          encrypted_footer_(kDefaultEncryptedFooter) {
-      footer_key_ = footer_key;
+          encrypted_footer_(kDefaultEncryptedFooter),
+          footer_key_(std::move(footer_key)) {
       store_aad_prefix_in_file_ = false;
     }
 
@@ -374,14 +407,14 @@ class PARQUET_EXPORT FileEncryptionProperties {
 
     /// Set a key retrieval metadata (converted from String).
     /// use either footer_key_metadata or footer_key_id, not both.
-    Builder* footer_key_id(const std::string& key_id);
+    Builder* footer_key_id(std::string key_id);
 
     /// Set a key retrieval metadata.
     /// use either footer_key_metadata or footer_key_id, not both.
-    Builder* footer_key_metadata(const std::string& footer_key_metadata);
+    Builder* footer_key_metadata(std::string footer_key_metadata);
 
     /// Set the file AAD Prefix.
-    Builder* aad_prefix(const std::string& aad_prefix);
+    Builder* aad_prefix(std::string aad_prefix);
 
     /// Skip storing AAD Prefix in file.
     /// If not called, and if AAD Prefix is set, it will be stored.
@@ -390,8 +423,7 @@ class PARQUET_EXPORT FileEncryptionProperties {
     /// Set the list of encrypted columns and their properties (keys etc).
     /// If not called, all columns will be encrypted with the footer key.
     /// If called, the file columns not in the list will be left unencrypted.
-    Builder* encrypted_columns(
-        const ColumnPathToEncryptionPropertiesMap& encrypted_columns);
+    Builder* encrypted_columns(ColumnPathToEncryptionPropertiesMap encrypted_columns);
 
     std::shared_ptr<FileEncryptionProperties> build() {
       return std::shared_ptr<FileEncryptionProperties>(new FileEncryptionProperties(
@@ -402,7 +434,7 @@ class PARQUET_EXPORT FileEncryptionProperties {
    private:
     ParquetCipher::type parquet_cipher_;
     bool encrypted_footer_;
-    std::string footer_key_;
+    ::arrow::util::SecureString footer_key_;
     std::string footer_key_metadata_;
 
     std::string aad_prefix_;
@@ -410,28 +442,26 @@ class PARQUET_EXPORT FileEncryptionProperties {
     ColumnPathToEncryptionPropertiesMap encrypted_columns_;
   };
 
-  ~FileEncryptionProperties() { footer_key_.clear(); }
-
   bool encrypted_footer() const { return encrypted_footer_; }
 
   EncryptionAlgorithm algorithm() const { return algorithm_; }
 
-  std::string footer_key() const { return footer_key_; }
+  const ::arrow::util::SecureString& footer_key() const { return footer_key_; }
 
-  std::string footer_key_metadata() const { return footer_key_metadata_; }
+  const std::string& footer_key_metadata() const { return footer_key_metadata_; }
 
-  std::string file_aad() const { return file_aad_; }
+  const std::string& file_aad() const { return file_aad_; }
 
   std::shared_ptr<ColumnEncryptionProperties> column_encryption_properties(
       const std::string& column_path);
 
-  ColumnPathToEncryptionPropertiesMap encrypted_columns() const {
+  const ColumnPathToEncryptionPropertiesMap& encrypted_columns() const {
     return encrypted_columns_;
   }
 
  private:
   EncryptionAlgorithm algorithm_;
-  std::string footer_key_;
+  ::arrow::util::SecureString footer_key_;
   std::string footer_key_metadata_;
   bool encrypted_footer_;
   std::string file_aad_;
@@ -439,10 +469,11 @@ class PARQUET_EXPORT FileEncryptionProperties {
   bool store_aad_prefix_in_file_;
   ColumnPathToEncryptionPropertiesMap encrypted_columns_;
 
-  FileEncryptionProperties(ParquetCipher::type cipher, const std::string& footer_key,
-                           const std::string& footer_key_metadata, bool encrypted_footer,
-                           const std::string& aad_prefix, bool store_aad_prefix_in_file,
-                           const ColumnPathToEncryptionPropertiesMap& encrypted_columns);
+  FileEncryptionProperties(ParquetCipher::type cipher,
+                           ::arrow::util::SecureString footer_key,
+                           std::string footer_key_metadata, bool encrypted_footer,
+                           std::string aad_prefix, bool store_aad_prefix_in_file,
+                           ColumnPathToEncryptionPropertiesMap encrypted_columns);
 };
 
 }  // namespace parquet

@@ -28,7 +28,8 @@ Compute Functions
 The generic Compute API
 =======================
 
-.. TODO: describe API and how to invoke compute functions
+.. seealso::
+   :doc:`Compute Functions API reference <api/compute>`
 
 Functions and function registry
 -------------------------------
@@ -41,6 +42,17 @@ whether the inputs are integral or floating-point).
 
 Functions are stored in a global :class:`FunctionRegistry` where
 they can be looked up by name.
+
+Compute Initialization
+----------------------
+
+The compute library requires a call to :func:`arrow::compute::Initialize`
+in order to register the individual functions into the global :class:`FunctionRegistry`,
+otherwise only the functions required for Arrow core functionality will be available.
+
+.. note::
+   The set of functions required for Arrow core functionality are an implementation detail
+   of the library, and should not be considered stable.
 
 Input shapes
 ------------
@@ -171,8 +183,7 @@ To avoid exhaustively listing supported types, the tables below use a number
 of general type categories:
 
 * "Numeric": Integer types (Int8, etc.) and Floating-point types (Float32,
-  Float64, sometimes Float16).  Some functions also accept Decimal128 and
-  Decimal256 input.
+  Float64, sometimes Float16).  Some functions also accept Decimal input.
 
 * "Temporal": Date types (Date32, Date64), Time types (Time32, Time64),
   Timestamp, Duration, Interval.
@@ -199,57 +210,57 @@ Aggregations
 Scalar aggregations operate on a (chunked) array or scalar value and reduce
 the input to a single output value.
 
-+--------------------+---------+-----------------------------------------------+------------------------+----------------------------------+-------+
-| Function name      | Arity   | Input types                                   | Output type            | Options class                    | Notes |
-+====================+=========+===============================================+========================+==================================+=======+
-| all                | Unary   | Boolean                                       | Scalar Boolean         | :struct:`ScalarAggregateOptions` | \(1)  |
-+--------------------+---------+-----------------------------------------------+------------------------+----------------------------------+-------+
-| any                | Unary   | Boolean                                       | Scalar Boolean         | :struct:`ScalarAggregateOptions` | \(1)  |
-+--------------------+---------+-----------------------------------------------+------------------------+----------------------------------+-------+
-| approximate_median | Unary   | Numeric                                       | Scalar Float64         | :struct:`ScalarAggregateOptions` |       |
-+--------------------+---------+-----------------------------------------------+------------------------+----------------------------------+-------+
-| count              | Unary   | Any                                           | Scalar Int64           | :struct:`CountOptions`           | \(2)  |
-+--------------------+---------+-----------------------------------------------+------------------------+----------------------------------+-------+
-| count_all          | Nullary |                                               | Scalar Int64           |                                  |       |
-+--------------------+---------+-----------------------------------------------+------------------------+----------------------------------+-------+
-| count_distinct     | Unary   | Non-nested types                              | Scalar Int64           | :struct:`CountOptions`           | \(2)  |
-+--------------------+---------+-----------------------------------------------+------------------------+----------------------------------+-------+
-| first              | Unary   | Numeric, Binary                               | Scalar Input type      | :struct:`ScalarAggregateOptions` | \(3)  |
-+--------------------+---------+-----------------------------------------------+------------------------+----------------------------------+-------+
-| first_last         | Unary   | Numeric, Binary                               | Scalar Struct          | :struct:`ScalarAggregateOptions` | \(3)  |
-+--------------------+---------+-----------------------------------------------+------------------------+----------------------------------+-------+
-| index              | Unary   | Any                                           | Scalar Int64           | :struct:`IndexOptions`           | \(4)  |
-+--------------------+---------+-----------------------------------------------+------------------------+----------------------------------+-------+
-| kurtosis           | Unary   | Numeric                                       | Scalar Float64         | :struct:`SkewOptions`            | \(11) |
-+--------------------+---------+-----------------------------------------------+------------------------+----------------------------------+-------+
-| last               | Unary   | Numeric, Binary                               | Scalar Input type      | :struct:`ScalarAggregateOptions` | \(3)  |
-+--------------------+---------+-----------------------------------------------+------------------------+----------------------------------+-------+
-| max                | Unary   | Non-nested types                              | Scalar Input type      | :struct:`ScalarAggregateOptions` |       |
-+--------------------+---------+-----------------------------------------------+------------------------+----------------------------------+-------+
-| mean               | Unary   | Numeric                                       | Scalar Decimal/Float64 | :struct:`ScalarAggregateOptions` | \(5)  |
-+--------------------+---------+-----------------------------------------------+------------------------+----------------------------------+-------+
-| min                | Unary   | Non-nested types                              | Scalar Input type      | :struct:`ScalarAggregateOptions` |       |
-+--------------------+---------+-----------------------------------------------+------------------------+----------------------------------+-------+
-| min_max            | Unary   | Non-nested types                              | Scalar Struct          | :struct:`ScalarAggregateOptions` | \(6)  |
-+--------------------+---------+-----------------------------------------------+------------------------+----------------------------------+-------+
-| mode               | Unary   | Numeric                                       | Struct                 | :struct:`ModeOptions`            | \(7)  |
-+--------------------+---------+-----------------------------------------------+------------------------+----------------------------------+-------+
-| pivot_wider        | Binary  | Binary, String, Integer (Arg 0); Any (Arg 1)  | Scalar Struct          | :struct:`PivotWiderOptions`      | \(8)  |
-+--------------------+---------+-----------------------------------------------+------------------------+----------------------------------+-------+
-| product            | Unary   | Numeric                                       | Scalar Numeric         | :struct:`ScalarAggregateOptions` | \(9)  |
-+--------------------+---------+-----------------------------------------------+------------------------+----------------------------------+-------+
-| quantile           | Unary   | Numeric                                       | Scalar Numeric         | :struct:`QuantileOptions`        | \(10) |
-+--------------------+---------+-----------------------------------------------+------------------------+----------------------------------+-------+
-| skew               | Unary   | Numeric                                       | Scalar Float64         | :struct:`SkewOptions`            | \(11) |
-+--------------------+---------+-----------------------------------------------+------------------------+----------------------------------+-------+
-| stddev             | Unary   | Numeric                                       | Scalar Float64         | :struct:`VarianceOptions`        | \(11) |
-+--------------------+---------+-----------------------------------------------+------------------------+----------------------------------+-------+
-| sum                | Unary   | Numeric                                       | Scalar Numeric         | :struct:`ScalarAggregateOptions` | \(9)  |
-+--------------------+---------+-----------------------------------------------+------------------------+----------------------------------+-------+
-| tdigest            | Unary   | Numeric                                       | Float64                | :struct:`TDigestOptions`         | \(12) |
-+--------------------+---------+-----------------------------------------------+------------------------+----------------------------------+-------+
-| variance           | Unary   | Numeric                                       | Scalar Float64         | :struct:`VarianceOptions`        | \(11) |
-+--------------------+---------+-----------------------------------------------+------------------------+----------------------------------+-------+
++--------------------+---------+-----------------------------------------------+------------------------+----------------------------------+------------+
+| Function name      | Arity   | Input types                                   | Output type            | Options class                    | Notes      |
++====================+=========+===============================================+========================+==================================+============+
+| all                | Unary   | Boolean                                       | Scalar Boolean         | :struct:`ScalarAggregateOptions` | \(1)       |
++--------------------+---------+-----------------------------------------------+------------------------+----------------------------------+------------+
+| any                | Unary   | Boolean                                       | Scalar Boolean         | :struct:`ScalarAggregateOptions` | \(1)       |
++--------------------+---------+-----------------------------------------------+------------------------+----------------------------------+------------+
+| approximate_median | Unary   | Numeric                                       | Scalar Float64         | :struct:`ScalarAggregateOptions` |            |
++--------------------+---------+-----------------------------------------------+------------------------+----------------------------------+------------+
+| count              | Unary   | Any                                           | Scalar Int64           | :struct:`CountOptions`           | \(2)       |
++--------------------+---------+-----------------------------------------------+------------------------+----------------------------------+------------+
+| count_all          | Nullary |                                               | Scalar Int64           |                                  |            |
++--------------------+---------+-----------------------------------------------+------------------------+----------------------------------+------------+
+| count_distinct     | Unary   | Non-nested types                              | Scalar Int64           | :struct:`CountOptions`           | \(2)       |
++--------------------+---------+-----------------------------------------------+------------------------+----------------------------------+------------+
+| first              | Unary   | Numeric, Binary                               | Scalar Input type      | :struct:`ScalarAggregateOptions` | \(3)       |
++--------------------+---------+-----------------------------------------------+------------------------+----------------------------------+------------+
+| first_last         | Unary   | Numeric, Binary                               | Scalar Struct          | :struct:`ScalarAggregateOptions` | \(3)       |
++--------------------+---------+-----------------------------------------------+------------------------+----------------------------------+------------+
+| index              | Unary   | Any                                           | Scalar Int64           | :struct:`IndexOptions`           | \(4)       |
++--------------------+---------+-----------------------------------------------+------------------------+----------------------------------+------------+
+| kurtosis           | Unary   | Numeric                                       | Scalar Float64         | :struct:`SkewOptions`            | \(12)      |
++--------------------+---------+-----------------------------------------------+------------------------+----------------------------------+------------+
+| last               | Unary   | Numeric, Binary                               | Scalar Input type      | :struct:`ScalarAggregateOptions` | \(3)       |
++--------------------+---------+-----------------------------------------------+------------------------+----------------------------------+------------+
+| max                | Unary   | Non-nested types                              | Scalar Input type      | :struct:`ScalarAggregateOptions` |            |
++--------------------+---------+-----------------------------------------------+------------------------+----------------------------------+------------+
+| mean               | Unary   | Numeric                                       | Scalar Decimal/Float64 | :struct:`ScalarAggregateOptions` | \(5)       |
++--------------------+---------+-----------------------------------------------+------------------------+----------------------------------+------------+
+| min                | Unary   | Non-nested types                              | Scalar Input type      | :struct:`ScalarAggregateOptions` |            |
++--------------------+---------+-----------------------------------------------+------------------------+----------------------------------+------------+
+| min_max            | Unary   | Non-nested types                              | Scalar Struct          | :struct:`ScalarAggregateOptions` | \(6)       |
++--------------------+---------+-----------------------------------------------+------------------------+----------------------------------+------------+
+| mode               | Unary   | Numeric                                       | Struct                 | :struct:`ModeOptions`            | \(7)       |
++--------------------+---------+-----------------------------------------------+------------------------+----------------------------------+------------+
+| pivot_wider        | Binary  | Binary, String, Integer (Arg 0); Any (Arg 1)  | Scalar Struct          | :struct:`PivotWiderOptions`      | \(8)       |
++--------------------+---------+-----------------------------------------------+------------------------+----------------------------------+------------+
+| product            | Unary   | Numeric                                       | Scalar Numeric         | :struct:`ScalarAggregateOptions` | \(9)       |
++--------------------+---------+-----------------------------------------------+------------------------+----------------------------------+------------+
+| quantile           | Unary   | Numeric                                       | Scalar Numeric         | :struct:`QuantileOptions`        | \(11)      |
++--------------------+---------+-----------------------------------------------+------------------------+----------------------------------+------------+
+| skew               | Unary   | Numeric                                       | Scalar Float64         | :struct:`SkewOptions`            | \(12)      |
++--------------------+---------+-----------------------------------------------+------------------------+----------------------------------+------------+
+| stddev             | Unary   | Numeric                                       | Scalar Float64         | :struct:`VarianceOptions`        | \(12)      |
++--------------------+---------+-----------------------------------------------+------------------------+----------------------------------+------------+
+| sum                | Unary   | Numeric                                       | Scalar Numeric         | :struct:`ScalarAggregateOptions` | \(9) \(10) |
++--------------------+---------+-----------------------------------------------+------------------------+----------------------------------+------------+
+| tdigest            | Unary   | Numeric                                       | Float64                | :struct:`TDigestOptions`         | \(13)      |
++--------------------+---------+-----------------------------------------------+------------------------+----------------------------------+------------+
+| variance           | Unary   | Numeric                                       | Scalar Float64         | :struct:`VarianceOptions`        | \(12)      |
++--------------------+---------+-----------------------------------------------+------------------------+----------------------------------+------------+
 
 * \(1) If null values are taken into account, by setting the
   ScalarAggregateOptions parameter skip_nulls = false, then `Kleene logic`_
@@ -285,11 +296,15 @@ the input to a single output value.
 * \(9) Output is Int64, UInt64, Float64, or Decimal128/256, depending on the
   input type.
 
-* \(10) Output is Float64 or input type, depending on QuantileOptions.
+* \(10) For Decimal input, the output precision is increased to the maximum
+  precision for the input type's width. For instance, an array of
+  ``decimal128(3, 2)`` will return a ``decimal128(38, 2)`` scalar.
 
-* \(11) Decimal arguments are cast to Float64 first.
+* \(11) Output is Float64 or input type, depending on QuantileOptions.
 
-* \(12) tdigest/t-digest computes approximate quantiles, and so only needs a
+* \(12) Decimal arguments are cast to Float64 first.
+
+* \(13) tdigest/t-digest computes approximate quantiles, and so only needs a
   fixed amount of memory. See the `reference implementation
   <https://github.com/tdunning/t-digest>`_ for details.
 
@@ -478,47 +493,47 @@ floating-point arguments will cast all arguments to floating-point, while mixed
 decimal and integer arguments will cast all arguments to decimals.
 Mixed time resolution temporal inputs will be cast to finest input resolution.
 
-+------------------+--------+-------------------------+---------------------------+-------+
-| Function name    | Arity  | Input types             | Output type               | Notes |
-+==================+========+=========================+===========================+=======+
-| abs              | Unary  | Numeric/Duration        | Numeric/Duration          |       |
-+------------------+--------+-------------------------+---------------------------+-------+
-| abs_checked      | Unary  | Numeric/Duration        | Numeric/Duration          |       |
-+------------------+--------+-------------------------+---------------------------+-------+
-| add              | Binary | Numeric/Temporal        | Numeric/Temporal          | \(1)  |
-+------------------+--------+-------------------------+---------------------------+-------+
-| add_checked      | Binary | Numeric/Temporal        | Numeric/Temporal          | \(1)  |
-+------------------+--------+-------------------------+---------------------------+-------+
-| divide           | Binary | Numeric/Temporal        | Numeric/Temporal          | \(1)  |
-+------------------+--------+-------------------------+---------------------------+-------+
-| divide_checked   | Binary | Numeric/Temporal        | Numeric/Temporal          | \(1)  |
-+------------------+--------+-------------------------+---------------------------+-------+
-| exp              | Unary  | Numeric                 | Float32/Float64           |       |
-+------------------+--------+-------------------------+---------------------------+-------+
-| expm1            | Unary  | Numeric                 | Float32/Float64           |       |
-+------------------+--------+-------------------------+---------------------------+-------+
-| multiply         | Binary | Numeric/Temporal        | Numeric/Temporal          | \(1)  |
-+------------------+--------+-------------------------+---------------------------+-------+
-| multiply_checked | Binary | Numeric/Temporal        | Numeric/Temporal          | \(1)  |
-+------------------+--------+-------------------------+---------------------------+-------+
-| negate           | Unary  | Numeric/Duration        | Numeric/Duration          |       |
-+------------------+--------+-------------------------+---------------------------+-------+
-| negate_checked   | Unary  | Signed Numeric/Duration | Signed Numeric/Duration   |       |
-+------------------+--------+-------------------------+---------------------------+-------+
-| power            | Binary | Numeric                 | Numeric                   |       |
-+------------------+--------+-------------------------+---------------------------+-------+
-| power_checked    | Binary | Numeric                 | Numeric                   |       |
-+------------------+--------+-------------------------+---------------------------+-------+
-| sign             | Unary  | Numeric/Duration        | Int8/Float32/Float64      | \(2)  |
-+------------------+--------+-------------------------+---------------------------+-------+
-| sqrt             | Unary  | Numeric                 | Numeric                   |       |
-+------------------+--------+-------------------------+---------------------------+-------+
-| sqrt_checked     | Unary  | Numeric                 | Numeric                   |       |
-+------------------+--------+-------------------------+---------------------------+-------+
-| subtract         | Binary | Numeric/Temporal        | Numeric/Temporal          | \(1)  |
-+------------------+--------+-------------------------+---------------------------+-------+
-| subtract_checked | Binary | Numeric/Temporal        | Numeric/Temporal          | \(1)  |
-+------------------+--------+-------------------------+---------------------------+-------+
++------------------+--------+-------------------------+-------------------------------+-------+
+| Function name    | Arity  | Input types             | Output type                   | Notes |
++==================+========+=========================+===============================+=======+
+| abs              | Unary  | Numeric/Duration        | Numeric/Duration              |       |
++------------------+--------+-------------------------+-------------------------------+-------+
+| abs_checked      | Unary  | Numeric/Duration        | Numeric/Duration              |       |
++------------------+--------+-------------------------+-------------------------------+-------+
+| add              | Binary | Numeric/Temporal        | Numeric/Temporal              | \(1)  |
++------------------+--------+-------------------------+-------------------------------+-------+
+| add_checked      | Binary | Numeric/Temporal        | Numeric/Temporal              | \(1)  |
++------------------+--------+-------------------------+-------------------------------+-------+
+| divide           | Binary | Numeric/Temporal        | Numeric/Temporal              | \(1)  |
++------------------+--------+-------------------------+-------------------------------+-------+
+| divide_checked   | Binary | Numeric/Temporal        | Numeric/Temporal              | \(1)  |
++------------------+--------+-------------------------+-------------------------------+-------+
+| exp              | Unary  | Numeric                 | Float32/Float64               |       |
++------------------+--------+-------------------------+-------------------------------+-------+
+| expm1            | Unary  | Numeric                 | Float32/Float64               |       |
++------------------+--------+-------------------------+-------------------------------+-------+
+| multiply         | Binary | Numeric/Temporal        | Numeric/Temporal              | \(1)  |
++------------------+--------+-------------------------+-------------------------------+-------+
+| multiply_checked | Binary | Numeric/Temporal        | Numeric/Temporal              | \(1)  |
++------------------+--------+-------------------------+-------------------------------+-------+
+| negate           | Unary  | Numeric/Duration        | Numeric/Duration              |       |
++------------------+--------+-------------------------+-------------------------------+-------+
+| negate_checked   | Unary  | Signed Numeric/Duration | Signed Numeric/Duration       |       |
++------------------+--------+-------------------------+-------------------------------+-------+
+| power            | Binary | Numeric                 | Numeric                       |       |
++------------------+--------+-------------------------+-------------------------------+-------+
+| power_checked    | Binary | Numeric                 | Numeric                       |       |
++------------------+--------+-------------------------+-------------------------------+-------+
+| sign             | Unary  | Numeric/Duration        | Int8/Float16/Float32/Float64  | \(2)  |
++------------------+--------+-------------------------+-------------------------------+-------+
+| sqrt             | Unary  | Numeric                 | Numeric                       |       |
++------------------+--------+-------------------------+-------------------------------+-------+
+| sqrt_checked     | Unary  | Numeric                 | Numeric                       |       |
++------------------+--------+-------------------------+-------------------------------+-------+
+| subtract         | Binary | Numeric/Temporal        | Numeric/Temporal              | \(1)  |
++------------------+--------+-------------------------+-------------------------------+-------+
+| subtract_checked | Binary | Numeric/Temporal        | Numeric/Temporal              | \(1)  |
++------------------+--------+-------------------------+-------------------------------+-------+
 
 * \(1) Precision and scale of computed DECIMAL results
 
@@ -1044,6 +1059,8 @@ order to center (center), right-align (lpad), or left-align (rpad) a string.
 | utf8_lpad                | Unary      | String-like             | String-like         | :struct:`PadOptions`                   |
 +--------------------------+------------+-------------------------+---------------------+----------------------------------------+
 | utf8_rpad                | Unary      | String-like             | String-like         | :struct:`PadOptions`                   |
++--------------------------+------------+-------------------------+---------------------+----------------------------------------+
+| utf8_zero_fill           | Unary      | String-like             | String-like         | :struct:`ZeroFillOptions`              |
 +--------------------------+------------+-------------------------+---------------------+----------------------------------------+
 
 String trimming

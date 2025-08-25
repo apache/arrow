@@ -77,6 +77,7 @@ repos:
         alias: cpp
         name: C++ Lint
         args:
+          - "--quiet"
           - "--verbose=2"
         types_or:
           - c++
@@ -196,9 +197,23 @@ repos:
         additional_dependencies:
           - cyclocomp
           - lintr
+          - testthat
         entry: |
-          Rscript r/tools/lint.R
+          Rscript -e "Sys.setenv(NOT_CRAN = 'TRUE'); lintr::expect_lint_free('r')"
         pass_filenames: false
+        files: >-
+          ^r/.*\.(R|Rmd)$
+  - repo: local
+    hooks:
+      - id: styler
+        alias: r
+        name: R Format
+        language: r
+        additional_dependencies:
+          - roxygen2
+          - styler
+        entry: |
+          Rscript -e "styler::style_file(commandArgs(TRUE)[1])"
         files: >-
           ^r/.*\.(R|Rmd)$
   - repo: https://github.com/pre-commit/mirrors-clang-format
@@ -286,9 +301,13 @@ repos:
           ?^c_glib/test/run-test\.sh$|
           ?^ci/scripts/c_glib_build\.sh$|
           ?^ci/scripts/c_glib_test\.sh$|
+          ?^ci/scripts/ccache_setup\.sh$|
+          ?^ci/scripts/conan_build\.sh$|
           ?^ci/scripts/conan_setup\.sh$|
+          ?^ci/scripts/cpp_test\.sh$|
           ?^ci/scripts/csharp_build\.sh$|
           ?^ci/scripts/csharp_pack\.sh$|
+          ?^ci/scripts/csharp_test\.sh$|
           ?^ci/scripts/download_tz_database\.sh$|
           ?^ci/scripts/install_azurite\.sh$|
           ?^ci/scripts/install_ccache\.sh$|
@@ -296,22 +315,33 @@ repos:
           ?^ci/scripts/install_chromedriver\.sh$|
           ?^ci/scripts/install_cmake\.sh$|
           ?^ci/scripts/install_conda\.sh$|
+          ?^ci/scripts/install_dask\.sh$|
           ?^ci/scripts/install_emscripten\.sh$|
+          ?^ci/scripts/install_gcs_testbench\.sh$|
           ?^ci/scripts/install_iwyu\.sh$|
+          ?^ci/scripts/install_minio\.sh$|
           ?^ci/scripts/install_ninja\.sh$|
+          ?^ci/scripts/install_numba\.sh$|
           ?^ci/scripts/install_numpy\.sh$|
           ?^ci/scripts/install_pandas\.sh$|
           ?^ci/scripts/install_python\.sh$|
+          ?^ci/scripts/install_sccache\.sh$|
           ?^ci/scripts/install_spark\.sh$|
           ?^ci/scripts/install_vcpkg\.sh$|
           ?^ci/scripts/integration_arrow_build\.sh$|
+          ?^ci/scripts/integration_arrow\.sh$|
           ?^ci/scripts/integration_dask\.sh$|
+          ?^ci/scripts/integration_hdfs\.sh$|
           ?^ci/scripts/integration_spark\.sh$|
           ?^ci/scripts/matlab_build\.sh$|
+          ?^ci/scripts/msys2_setup\.sh$|
           ?^ci/scripts/msys2_system_clean\.sh$|
           ?^ci/scripts/msys2_system_upgrade\.sh$|
           ?^ci/scripts/nanoarrow_build\.sh$|
+          ?^ci/scripts/python_build_emscripten\.sh$|
+          ?^ci/scripts/python_build\.sh$|
           ?^ci/scripts/python_sdist_build\.sh$|
+          ?^ci/scripts/python_sdist_test\.sh$|
           ?^ci/scripts/python_wheel_unix_test\.sh$|
           ?^ci/scripts/r_build\.sh$|
           ?^ci/scripts/r_revdepcheck\.sh$|
@@ -340,7 +370,10 @@ repos:
           ?^swift/gen-protobuffers\.sh$|
           )
   - repo: https://github.com/scop/pre-commit-shfmt
-    rev: v3.11.0-1
+    # v3.11.0-1 or later requires pre-commit 3.2.0 or later but Ubuntu
+    # 22.04 ships pre-commit 2.17.0. We can use update this rev after
+    # Ubuntu 22.04 reached EOL (June 2027).
+    rev: v3.10.0-1
     hooks:
       - id: shfmt
         alias: shell
