@@ -1259,15 +1259,15 @@ struct SchemaImporter {
       return f_parser_.Invalid();
     }
     if (prec_scale.size() == 2) {
-      type_ = decimal128(prec_scale[0], prec_scale[1]);
+      ARROW_ASSIGN_OR_RAISE(type_, Decimal128Type::Make(prec_scale[0], prec_scale[1]));
     } else if (prec_scale[2] == 32) {
-      type_ = decimal32(prec_scale[0], prec_scale[1]);
+      ARROW_ASSIGN_OR_RAISE(type_, Decimal32Type::Make(prec_scale[0], prec_scale[1]));
     } else if (prec_scale[2] == 64) {
-      type_ = decimal64(prec_scale[0], prec_scale[1]);
+      ARROW_ASSIGN_OR_RAISE(type_, Decimal64Type::Make(prec_scale[0], prec_scale[1]));
     } else if (prec_scale[2] == 128) {
-      type_ = decimal128(prec_scale[0], prec_scale[1]);
+      ARROW_ASSIGN_OR_RAISE(type_, Decimal128Type::Make(prec_scale[0], prec_scale[1]));
     } else if (prec_scale[2] == 256) {
-      type_ = decimal256(prec_scale[0], prec_scale[1]);
+      ARROW_ASSIGN_OR_RAISE(type_, Decimal256Type::Make(prec_scale[0], prec_scale[1]));
     } else {
       return f_parser_.Invalid();
     }
