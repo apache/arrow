@@ -141,6 +141,10 @@ TEST(SortedMergeNode, BasicThreaded) {
 }
 
 TEST(SortedMergeNode, PauseProducingSortedMerge) {
+#ifndef ARROW_ENABLE_THREADING
+  GTEST_SKIP() << "Test requires threading support";
+#endif
+
   RegisterTestNodes();
 
   int batch_size = 1;
