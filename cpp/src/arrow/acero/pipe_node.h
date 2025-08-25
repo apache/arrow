@@ -24,9 +24,9 @@
 
 namespace arrow {
 
-using internal::checked_cast;
-
+using arrow::util::Mutex;
 using compute::Ordering;
+using internal::checked_cast;
 
 namespace acero {
 class Pipe;
@@ -117,7 +117,7 @@ class ARROW_ACERO_EXPORT Pipe {
   PipeSource* sync_node_{NULLPTR};
   // backpressure
   std::unordered_map<PipeSource*, SourceState> state_;
-  util::Mutex mutex_;
+  Mutex mutex_;
   std::atomic_size_t paused_count_{0};
   std::unique_ptr<BackpressureControl> ctrl_;
   // stopProducing
