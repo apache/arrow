@@ -63,6 +63,7 @@ class FlightSqlResultSet : public ResultSet {
   ~FlightSqlResultSet() override;
 
   FlightSqlResultSet(FlightSqlClient& flight_sql_client,
+                     const arrow::flight::FlightClientOptions& client_options,
                      const arrow::flight::FlightCallOptions& call_options,
                      const std::shared_ptr<FlightInfo>& flight_info,
                      const std::shared_ptr<RecordBatchTransformer>& transformer,
@@ -73,8 +74,8 @@ class FlightSqlResultSet : public ResultSet {
 
   void Cancel() override;
 
-  bool GetData(int column_n, int16_t target_type, int precision, int scale, void* buffer,
-               size_t buffer_length, ssize_t* strlen_buffer) override;
+  SQLRETURN GetData(int column_n, int16_t target_type, int precision, int scale,
+                    void* buffer, size_t buffer_length, ssize_t* strlen_buffer) override;
 
   size_t Move(size_t rows, size_t bind_offset, size_t bind_type,
               uint16_t* row_status_array) override;

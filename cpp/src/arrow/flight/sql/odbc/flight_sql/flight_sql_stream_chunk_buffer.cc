@@ -21,38 +21,71 @@
 namespace driver {
 namespace flight_sql {
 
+using arrow::flight::FlightClient;
 using arrow::flight::FlightEndpoint;
 
 FlightStreamChunkBuffer::FlightStreamChunkBuffer(
     FlightSqlClient& flight_sql_client,
+    const arrow::flight::FlightClientOptions& client_options,
     const arrow::flight::FlightCallOptions& call_options,
     const std::shared_ptr<FlightInfo>& flight_info, size_t queue_capacity)
     : queue_(queue_capacity) {
-  // FIXME: Endpoint iteration should consider endpoints may be at different hosts
   for (const auto& endpoint : flight_info->endpoints()) {
     const arrow::flight::Ticket& ticket = endpoint.ticket;
 
-    auto result = flight_sql_client.DoGet(call_options, ticket);
+    arrow::Result<std::unique_ptr<FlightStreamReader>> result;
+    std::shared_ptr<FlightSqlClient> temp_flight_sql_client;
+    auto endpoint_locations = endpoint.locations;
+    if (endpoint_locations.empty()) {
+      // list of Locations needs to be empty to proceed
+      result = flight_sql_client.DoGet(call_options, ticket);
+    } else {
+      // If it is non-empty, the driver should create a FlightSqlClient to connect to one
+      // of the specified Locations directly.
+
+      // GH-47117: Currently a new FlightClient will be made for each partition that
+      // returns a non-empty Location, which is then disposed of. It may be better to
+      // cache clients because a server may report the same Locations. It would also be
+      // good to identify when the reported Location is the same as the original
+      // connection's Location and skip creating a FlightClient in that scenario.
+
+      std::unique_ptr<FlightClient> temp_flight_client;
+      ThrowIfNotOK(FlightClient::Connect(endpoint_locations[0], client_options)
+                       .Value(&temp_flight_client));
+      temp_flight_sql_client.reset(new FlightSqlClient(std::move(temp_flight_client)));
+
+      result = temp_flight_sql_client->DoGet(call_options, ticket);
+    }
+
     ThrowIfNotOK(result.status());
     std::shared_ptr<FlightStreamReader> stream_reader_ptr(std::move(result.ValueOrDie()));
 
-    BlockingQueue<Result<FlightStreamChunk>>::Supplier supplier = [=] {
+    BlockingQueue<std::pair<Result<FlightStreamChunk>,
+                            std::shared_ptr<FlightSqlClient>>>::Supplier supplier = [=] {
       auto result = stream_reader_ptr->Next();
       bool isNotOk = !result.ok();
       bool isNotEmpty = result.ok() && (result.ValueOrDie().data != nullptr);
 
-      return boost::make_optional(isNotOk || isNotEmpty, std::move(result));
+      // If result is valid, save the temp Flight SQL Client for future stream reader
+      // call. temp_flight_sql_client is intentionally null if the list of endpoint
+      // Locations is empty.
+      // After all data is fetched from reader, the temp client is closed.
+      return boost::make_optional(
+          isNotOk || isNotEmpty,
+          std::make_pair(std::move(result), temp_flight_sql_client));
     };
     queue_.AddProducer(std::move(supplier));
   }
 }
 
 bool FlightStreamChunkBuffer::GetNext(FlightStreamChunk* chunk) {
-  Result<FlightStreamChunk> result;
-  if (!queue_.Pop(&result)) {
+  std::pair<Result<FlightStreamChunk>, std::shared_ptr<FlightSqlClient>>
+      closeableEndpointStreamPair;
+  if (!queue_.Pop(&closeableEndpointStreamPair)) {
     return false;
   }
 
+  Result<FlightStreamChunk> result = closeableEndpointStreamPair.first;
   if (!result.status().ok()) {
     Close();
     throw odbcabstraction::DriverException(result.status().message());

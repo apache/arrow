@@ -98,10 +98,10 @@ Result<std::shared_ptr<RecordBatch>> Transform_inner(
     const auto& table_name = reader.GetTableName();
     const std::shared_ptr<Schema>& schema = reader.GetSchema();
     if (schema == nullptr) {
-      // TODO: Remove this if after fixing TODO on GetTablesReader::GetSchema()
-      // This is because of a problem on Dremio server, where complex types columns
-      // are being returned without the children types, so we are simply ignoring
-      // it by now.
+      // TODO: Test and build the driver against a server that returns
+      // complex types columns with the children
+      // types and handle the failure properly.
+      // https://github.com/apache/arrow/issues/46561
       continue;
     }
     for (int i = 0; i < schema->num_fields(); ++i) {
@@ -125,8 +125,8 @@ Result<std::shared_ptr<RecordBatch>> Transform_inner(
                            ? data_type_v3
                            : ConvertSqlDataTypeFromV3ToV2(data_type_v3);
 
-      // TODO: Use `metadata.GetTypeName()` when ARROW-16064 is merged.
-      const auto& type_name_result = field->metadata()->Get("ARROW:FLIGHT:SQL:TYPE_NAME");
+      const auto& type_name_result = metadata.GetTypeName();
+
       data.type_name = type_name_result.ok() ? type_name_result.ValueOrDie()
                                              : GetTypeNameFromSqlDataType(data_type_v3);
 

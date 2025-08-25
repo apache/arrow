@@ -69,10 +69,12 @@ TEST(MetadataSettingsTest, StringColumnLengthTest) {
   const int32_t expected_string_column_length = 100000;
 
   const Connection::ConnPropertyMap properties = {
-      {FlightSqlConnection::HOST, std::string("localhost")},        // expect not used
-      {FlightSqlConnection::PORT, std::string("32010")},            // expect not used
-      {FlightSqlConnection::USE_ENCRYPTION, std::string("false")},  // expect not used
-      {FlightSqlConnection::STRING_COLUMN_LENGTH,
+      {std::string(FlightSqlConnection::HOST),
+       std::string("localhost")},                                      // expect not used
+      {std::string(FlightSqlConnection::PORT), std::string("32010")},  // expect not used
+      {std::string(FlightSqlConnection::USE_ENCRYPTION),
+       std::string("false")},  // expect not used
+      {std::string(FlightSqlConnection::STRING_COLUMN_LENGTH),
        std::to_string(expected_string_column_length)},
   };
 
@@ -90,10 +92,10 @@ TEST(MetadataSettingsTest, UseWideCharTest) {
   connection.SetClosed(false);
 
   const Connection::ConnPropertyMap properties1 = {
-      {FlightSqlConnection::USE_WIDE_CHAR, std::string("true")},
+      {std::string(FlightSqlConnection::USE_WIDE_CHAR), std::string("true")},
   };
   const Connection::ConnPropertyMap properties2 = {
-      {FlightSqlConnection::USE_WIDE_CHAR, std::string("false")},
+      {std::string(FlightSqlConnection::USE_WIDE_CHAR), std::string("false")},
   };
 
   EXPECT_EQ(true, connection.GetUseWideChar(properties1));
@@ -105,9 +107,9 @@ TEST(MetadataSettingsTest, UseWideCharTest) {
 TEST(BuildLocationTests, ForTcp) {
   std::vector<std::string_view> missing_attr;
   Connection::ConnPropertyMap properties = {
-      {FlightSqlConnection::HOST, std::string("localhost")},
-      {FlightSqlConnection::PORT, std::string("32010")},
-      {FlightSqlConnection::USE_ENCRYPTION, std::string("false")},
+      {std::string(FlightSqlConnection::HOST), std::string("localhost")},
+      {std::string(FlightSqlConnection::PORT), std::string("32010")},
+      {std::string(FlightSqlConnection::USE_ENCRYPTION), std::string("false")},
   };
 
   const std::shared_ptr<FlightSqlSslConfig>& ssl_config =
@@ -117,8 +119,8 @@ TEST(BuildLocationTests, ForTcp) {
       FlightSqlConnection::BuildLocation(properties, missing_attr, ssl_config);
   const Location& actual_location2 = FlightSqlConnection::BuildLocation(
       {
-          {FlightSqlConnection::HOST, std::string("localhost")},
-          {FlightSqlConnection::PORT, std::string("32011")},
+          {std::string(FlightSqlConnection::HOST), std::string("localhost")},
+          {std::string(FlightSqlConnection::PORT), std::string("32011")},
       },
       missing_attr, ssl_config);
 
@@ -131,9 +133,9 @@ TEST(BuildLocationTests, ForTcp) {
 TEST(BuildLocationTests, ForTls) {
   std::vector<std::string_view> missing_attr;
   Connection::ConnPropertyMap properties = {
-      {FlightSqlConnection::HOST, std::string("localhost")},
-      {FlightSqlConnection::PORT, std::string("32010")},
-      {FlightSqlConnection::USE_ENCRYPTION, std::string("1")},
+      {std::string(FlightSqlConnection::HOST), std::string("localhost")},
+      {std::string(FlightSqlConnection::PORT), std::string("32010")},
+      {std::string(FlightSqlConnection::USE_ENCRYPTION), std::string("1")},
   };
 
   const std::shared_ptr<FlightSqlSslConfig>& ssl_config =
@@ -143,9 +145,9 @@ TEST(BuildLocationTests, ForTls) {
       FlightSqlConnection::BuildLocation(properties, missing_attr, ssl_config);
 
   Connection::ConnPropertyMap second_properties = {
-      {FlightSqlConnection::HOST, std::string("localhost")},
-      {FlightSqlConnection::PORT, std::string("32011")},
-      {FlightSqlConnection::USE_ENCRYPTION, std::string("1")},
+      {std::string(FlightSqlConnection::HOST), std::string("localhost")},
+      {std::string(FlightSqlConnection::PORT), std::string("32011")},
+      {std::string(FlightSqlConnection::USE_ENCRYPTION), std::string("1")},
   };
 
   const std::shared_ptr<FlightSqlSslConfig>& second_ssl_config =

@@ -44,7 +44,7 @@ class Window {
    * @param className Window class name.
    * @param title Window title.
    */
-  Window(Window* parent, const char* className, const char* title);
+  Window(Window* parent, const wchar_t* className, const wchar_t* title);
 
   /**
    * Constructor for the existing window.
@@ -102,7 +102,7 @@ class Window {
    * @return Auto pointer containing new window.
    */
   std::unique_ptr<Window> CreateGroupBox(int posX, int posY, int sizeX, int sizeY,
-                                         const char* title, int id);
+                                         const wchar_t* title, int id);
 
   /**
    * Create child label window.
@@ -116,7 +116,7 @@ class Window {
    * @return Auto pointer containing new window.
    */
   std::unique_ptr<Window> CreateLabel(int posX, int posY, int sizeX, int sizeY,
-                                      const char* title, int id);
+                                      const wchar_t* title, int id);
 
   /**
    * Create child Edit window.
@@ -131,7 +131,7 @@ class Window {
    * @return Auto pointer containing new window.
    */
   std::unique_ptr<Window> CreateEdit(int posX, int posY, int sizeX, int sizeY,
-                                     const char* title, int id, int style = 0);
+                                     const wchar_t* title, int id, int style = 0);
 
   /**
    * Create child button window.
@@ -146,7 +146,7 @@ class Window {
    * @return Auto pointer containing new window.
    */
   std::unique_ptr<Window> CreateButton(int posX, int posY, int sizeX, int sizeY,
-                                       const char* title, int id, int style = 0);
+                                       const wchar_t* title, int id, int style = 0);
 
   /**
    * Create child CheckBox window.
@@ -161,7 +161,7 @@ class Window {
    * @return Auto pointer containing new window.
    */
   std::unique_ptr<Window> CreateCheckBox(int posX, int posY, int sizeX, int sizeY,
-                                         const char* title, int id, bool state);
+                                         const wchar_t* title, int id, bool state);
 
   /**
    * Create child ComboBox window.
@@ -175,7 +175,7 @@ class Window {
    * @return Auto pointer containing new window.
    */
   std::unique_ptr<Window> CreateComboBox(int posX, int posY, int sizeX, int sizeY,
-                                         const char* title, int id);
+                                         const wchar_t* title, int id);
 
   /**
    * Show window.
@@ -201,15 +201,15 @@ class Window {
 
   void SetVisible(bool isVisible);
 
-  void ListAddColumn(const std::string& name, int index, int width);
+  void ListAddColumn(const std::wstring& name, int index, int width);
 
-  void ListAddItem(const std::vector<std::string>& items);
+  void ListAddItem(const std::vector<std::wstring>& items);
 
   void ListDeleteSelectedItem();
 
-  std::vector<std::vector<std::string> > ListGetAll();
+  std::vector<std::vector<std::wstring> > ListGetAll();
 
-  void AddTab(const std::string& name, int index);
+  void AddTab(const std::wstring& name, int index);
 
   bool IsTextEmpty() const;
 
@@ -218,14 +218,14 @@ class Window {
    *
    * @param text Text.
    */
-  void GetText(std::string& text) const;
+  void GetText(std::wstring& text) const;
 
   /**
    * Set window text.
    *
    * @param text Text.
    */
-  void SetText(const std::string& text) const;
+  void SetText(const std::wstring& text) const;
 
   /**
    * Get CheckBox state.
@@ -246,7 +246,7 @@ class Window {
    *
    * @param str String.
    */
-  void AddString(const std::string& str);
+  void AddString(const std::wstring& str);
 
   /**
    * Set current ComboBox selection.
@@ -285,10 +285,10 @@ class Window {
   void SetHandle(HWND value) { handle = value; }
 
   /** Window class name. */
-  std::string className;
+  std::wstring className;
 
   /** Window title. */
-  std::string title;
+  std::wstring title;
 
   /** Window handle. */
   HWND handle;

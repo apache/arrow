@@ -105,7 +105,7 @@ Result<std::shared_ptr<RecordBatch>> Transform_inner(
     data.literal_suffix = reader.GetLiteralSuffix();
 
     const auto& create_params = reader.GetCreateParams();
-    if (create_params) {
+    if (create_params && !create_params->empty()) {
       data.create_params = boost::algorithm::join(*create_params, ",");
     } else {
       data.create_params = nullopt;
@@ -114,6 +114,8 @@ Result<std::shared_ptr<RecordBatch>> Transform_inner(
     data.nullable = reader.GetNullable() ? odbcabstraction::NULLABILITY_NULLABLE
                                          : odbcabstraction::NULLABILITY_NO_NULLS;
     data.case_sensitive = reader.GetCaseSensitive();
+    // GH-47237 return SEARCHABILITY_LIKE_ONLY and SEARCHABILITY_ALL_EXPECT_LIKE for
+    // appropriate data types
     data.searchable = reader.GetSearchable() ? odbcabstraction::SEARCHABILITY_ALL
                                              : odbcabstraction::SEARCHABILITY_NONE;
     data.unsigned_attribute = reader.GetUnsignedAttribute();
@@ -122,9 +124,9 @@ Result<std::shared_ptr<RecordBatch>> Transform_inner(
     data.local_type_name = reader.GetLocalTypeName();
     data.minimum_scale = reader.GetMinimumScale();
     data.maximum_scale = reader.GetMaximumScale();
-    data.sql_data_type = EnsureRightSqlCharType(
+    data.sql_data_type = GetNonConciseDataType(EnsureRightSqlCharType(
         static_cast<odbcabstraction::SqlDataType>(reader.GetSqlDataType()),
-        metadata_settings_.use_wide_char_);
+        metadata_settings_.use_wide_char_));
     data.sql_datetime_sub =
         GetSqlDateTimeSubCode(static_cast<odbcabstraction::SqlDataType>(data.data_type));
     data.num_prec_radix = reader.GetNumPrecRadix();
