@@ -506,6 +506,9 @@ cdef extern from "parquet/api/writer.h" namespace "parquet" nogil:
             Builder* disable_content_defined_chunking()
             Builder* content_defined_chunking_options(CdcOptions options)
             shared_ptr[WriterProperties] build()
+        ParquetVersion version()
+        c_string created_by()
+        const ColumnProperties& default_column_properties() const
 
     cdef cppclass ArrowWriterProperties:
         cppclass Builder:
@@ -521,6 +524,8 @@ cdef extern from "parquet/api/writer.h" namespace "parquet" nogil:
             Builder* set_engine_version(ArrowWriterEngineVersion version)
             shared_ptr[ArrowWriterProperties] build()
         c_bool support_deprecated_int96_timestamps()
+        c_bool store_schema()
+        ArrowWriterEngineVersion engine_version()
 
 cdef extern from "parquet/arrow/reader.h" namespace "parquet::arrow" nogil:
     cdef cppclass FileReader:
@@ -590,7 +595,11 @@ cdef extern from "parquet/arrow/schema.h" namespace "parquet::arrow" nogil:
 
 
 cdef extern from "parquet/properties.h" namespace "parquet" nogil:
-    cdef enum ArrowWriterEngineVersion:
+    cdef cppclass ColumnProperties:
+        c_bool dictionary_enabled() const
+        c_bool statistics_enabled() const
+
+    cdef enum ArrowWriterEngineVersion "parquet::ArrowWriterProperties::EngineVersion":
         V1 "parquet::ArrowWriterProperties::V1",
         V2 "parquet::ArrowWriterProperties::V2"
 
@@ -617,6 +626,8 @@ cdef extern from "parquet/arrow/writer.h" namespace "parquet::arrow" nogil:
         CStatus AddKeyValueMetadata(const shared_ptr[const CKeyValueMetadata]& key_value_metadata)
 
         const shared_ptr[CFileMetaData] metadata() const
+        const WriterProperties& properties() const
+        const ArrowWriterProperties& arrow_properties() const
 
     CStatus WriteMetaDataFile(
         const CFileMetaData& file_metadata,
