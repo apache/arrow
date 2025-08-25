@@ -1024,6 +1024,14 @@ macro(prepare_fetchcontent)
   # We should remove it once we have updated the dependencies:
   # https://github.com/apache/arrow/issues/45985
   set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
+  # Use "NEW" for CMP0077 by default.
+  #
+  # https://cmake.org/cmake/help/latest/policy/CMP0077.html
+  #
+  # option() honors normal variables.
+  set(CMAKE_POLICY_DEFAULT_CMP0077
+      NEW
+      CACHE STRING "")
   set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "")
 
   if(MSVC)
@@ -4599,7 +4607,25 @@ target_include_directories(arrow::hadoop INTERFACE "${HADOOP_HOME}/include")
 # Apache ORC
 
 function(build_orc)
+  list(APPEND CMAKE_MESSAGE_INDENT "Apache ORC: ")
+
   message(STATUS "Building Apache ORC from source")
+
+  set(ORC_PATCHES)
+  if(MSVC)
+    # We can remove this once bundled Apache ORC is 2.2.1 or later.
+    list(APPEND ORC_PATCHES ${CMAKE_CURRENT_LIST_DIR}/orc-2345.patch)
+  endif()
+  if(Protobuf_VERSION VERSION_GREATER_EQUAL 32.0)
+    # We can remove this once bundled Apache ORC is 2.2.1 or later.
+    list(APPEND ORC_PATCHES ${CMAKE_CURRENT_LIST_DIR}/orc-2357.patch)
+  endif()
+  if(ORC_PATCHES)
+    find_program(PATCH patch REQUIRED)
+    set(ORC_PATCH_COMMAND ${PATCH} -p1 -i ${ORC_PATCHES})
+  else()
+    set(ORC_PATCH_COMMAND)
+  endif()
 
   if(LZ4_VENDORED)
     set(ORC_LZ4_TARGET lz4_static)
@@ -4615,34 +4641,23 @@ function(build_orc)
   if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.29)
     fetchcontent_declare(orc
                          ${FC_DECLARE_COMMON_OPTIONS}
+                         PATCH_COMMAND ${ORC_PATCH_COMMAND}
                          URL ${ORC_SOURCE_URL}
                          URL_HASH "SHA256=${ARROW_ORC_BUILD_SHA256_CHECKSUM}")
     prepare_fetchcontent()
 
     set(CMAKE_UNITY_BUILD FALSE)
 
-    set(ORC_PREFER_STATIC_LZ4
-        OFF
-        CACHE BOOL "" FORCE)
-    set(LZ4_HOME
-        "${ORC_LZ4_ROOT}"
-        CACHE STRING "" FORCE)
-    set(LZ4_INCLUDE_DIR
-        "${ORC_LZ4_INCLUDE_DIR}"
-        CACHE STRING "" FORCE)
-    set(LZ4_LIBRARY
-        ${ORC_LZ4_TARGET}
-        CACHE STRING "" FORCE)
+    set(ORC_PREFER_STATIC_LZ4 OFF)
+    set(LZ4_HOME "${ORC_LZ4_ROOT}")
+    set(LZ4_INCLUDE_DIR "${ORC_LZ4_INCLUDE_DIR}")
+    set(LZ4_LIBRARY ${ORC_LZ4_TARGET})
 
-    set(ORC_PREFER_STATIC_PROTOBUF
-        OFF
-        CACHE BOOL "" FORCE)
+    set(ORC_PREFER_STATIC_PROTOBUF OFF)
     get_target_property(PROTOBUF_INCLUDE_DIR ${ARROW_PROTOBUF_LIBPROTOBUF}
                         INTERFACE_INCLUDE_DIRECTORIES)
     get_filename_component(Protobuf_ROOT "${PROTOBUF_INCLUDE_DIR}" DIRECTORY)
-    set(PROTOBUF_HOME
-        ${Protobuf_ROOT}
-        CACHE STRING "" FORCE)
+    set(PROTOBUF_HOME ${Protobuf_ROOT})
     # ORC uses this.
     target_include_directories(${ARROW_PROTOBUF_LIBPROTOC}
                                INTERFACE "${PROTOBUF_INCLUDE_DIR}")
@@ -4650,63 +4665,38 @@ function(build_orc)
     set(PROTOBUF_LIBRARY ${ARROW_PROTOBUF_LIBPROTOBUF})
     set(PROTOC_LIBRARY ${ARROW_PROTOBUF_LIBPROTOC})
 
-    set(ORC_PREFER_STATIC_SNAPPY
-        OFF
-        CACHE BOOL "" FORCE)
+    set(ORC_PREFER_STATIC_SNAPPY OFF)
     get_target_property(SNAPPY_INCLUDE_DIR ${Snappy_TARGET} INTERFACE_INCLUDE_DIRECTORIES)
     get_filename_component(Snappy_ROOT "${SNAPPY_INCLUDE_DIR}" DIRECTORY)
-    set(SNAPPY_HOME
-        ${Snappy_ROOT}
-        CACHE STRING "" FORCE)
-    set(SNAPPY_LIBRARY
-        ${Snappy_TARGET}
-        CACHE STRING "" FORCE)
+    set(SNAPPY_HOME ${Snappy_ROOT})
+    set(SNAPPY_LIBRARY ${Snappy_TARGET})
 
-    set(ORC_PREFER_STATIC_ZLIB
-        OFF
-        CACHE BOOL "" FORCE)
+    set(ORC_PREFER_STATIC_ZLIB OFF)
     get_target_property(ZLIB_INCLUDE_DIR ZLIB::ZLIB INTERFACE_INCLUDE_DIRECTORIES)
     get_filename_component(ZLIB_ROOT "${ZLIB_INCLUDE_DIR}" DIRECTORY)
-    set(ZLIB_HOME
-        ${ZLIB_ROOT}
-        CACHE STRING "" FORCE)
-    # From CMake 3.21 onwards the set(CACHE) command does not remove any normal
-    # variable of the same name from the current scope. We have to manually remove
-    # the variable via unset to avoid ORC not finding the ZLIB_LIBRARY.
+    set(ZLIB_HOME ${ZLIB_ROOT})
+    # From CMake 3.21 onwards the set(CACHE) command does not remove
+    # any normal variable of the same name from the current scope. We
+    # have to manually remove the variable via unset to avoid ORC not
+    # finding the ZLIB_LIBRARY.
     unset(ZLIB_LIBRARY)
     set(ZLIB_LIBRARY
         ZLIB::ZLIB
         CACHE STRING "" FORCE)
 
-    set(ORC_PREFER_STATIC_ZSTD
-        OFF
-        CACHE BOOL "" FORCE)
+    set(ORC_PREFER_STATIC_ZSTD OFF)
     get_target_property(ZSTD_INCLUDE_DIR ${ARROW_ZSTD_LIBZSTD}
                         INTERFACE_INCLUDE_DIRECTORIES)
     get_filename_component(ZSTD_ROOT "${ZSTD_INCLUDE_DIR}" DIRECTORY)
-    set(ZSTD_HOME
-        ${ZSTD_ROOT}
-        CACHE STRING "" FORCE)
+    set(ZSTD_HOME ${ZSTD_ROOT})
     set(ZSTD_LIBRARY ${ARROW_ZSTD_LIBZSTD})
 
-    set(BUILD_CPP_TESTS
-        OFF
-        CACHE BOOL "" FORCE)
-    set(BUILD_JAVA
-        OFF
-        CACHE BOOL "" FORCE)
-    set(BUILD_LIBHDFSPP
-        OFF
-        CACHE BOOL "" FORCE)
-    set(BUILD_TOOLS
-        OFF
-        CACHE BOOL "" FORCE)
-    set(INSTALL_VENDORED_LIBS
-        OFF
-        CACHE BOOL "" FORCE)
-    set(STOP_BUILD_ON_WARNING
-        OFF
-        CACHE BOOL "" FORCE)
+    set(BUILD_CPP_TESTS OFF)
+    set(BUILD_JAVA OFF)
+    set(BUILD_LIBHDFSPP OFF)
+    set(BUILD_TOOLS OFF)
+    set(INSTALL_VENDORED_LIBS OFF)
+    set(STOP_BUILD_ON_WARNING OFF)
 
     fetchcontent_makeavailable(orc)
 
@@ -4769,8 +4759,6 @@ function(build_orc)
 
     externalproject_add(orc_ep
                         ${EP_COMMON_OPTIONS}
-                        URL ${ORC_SOURCE_URL}
-                        URL_HASH "SHA256=${ARROW_ORC_BUILD_SHA256_CHECKSUM}"
                         BUILD_BYPRODUCTS ${ORC_STATIC_LIB}
                         CMAKE_ARGS ${ORC_CMAKE_ARGS}
                         DEPENDS ${ARROW_PROTOBUF_LIBPROTOBUF}
@@ -4778,7 +4766,10 @@ function(build_orc)
                                 ${ARROW_ZSTD_LIBZSTD}
                                 ${Snappy_TARGET}
                                 ${ORC_LZ4_TARGET}
-                                ZLIB::ZLIB)
+                                ZLIB::ZLIB
+                        PATCH_COMMAND ${ORC_PATCH_COMMAND}
+                        URL ${ORC_SOURCE_URL}
+                        URL_HASH "SHA256=${ARROW_ORC_BUILD_SHA256_CHECKSUM}")
     add_library(orc::orc STATIC IMPORTED)
     set_target_properties(orc::orc PROPERTIES IMPORTED_LOCATION "${ORC_STATIC_LIB}")
     target_include_directories(orc::orc BEFORE INTERFACE "${ORC_INCLUDE_DIR}")
@@ -4806,6 +4797,8 @@ function(build_orc)
   set(ARROW_BUNDLED_STATIC_LIBS
       ${ARROW_BUNDLED_STATIC_LIBS}
       PARENT_SCOPE)
+
+  list(POP_BACK CMAKE_MESSAGE_INDENT)
 endfunction()
 
 if(ARROW_ORC)

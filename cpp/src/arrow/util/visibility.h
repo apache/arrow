@@ -36,7 +36,7 @@
 #    define ARROW_DLLIMPORT __declspec(dllimport)
 #  endif
 
-// _declspec(dllexport) even when the #included by a non-arrow source
+// _declspec(dllexport) even when #included by a non-arrow source
 #  define ARROW_FORCE_EXPORT ARROW_DLLEXPORT
 
 #  ifdef ARROW_STATIC

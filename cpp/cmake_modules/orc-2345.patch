@@ -1,0 +1,43 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+From a76249e13a6e364e0507a12cb71abaaf1647252e Mon Sep 17 00:00:00 2001
+From: Yuriy Chernyshov <thegeorg@yandex-team.com>
+Date: Thu, 31 Jul 2025 13:20:15 +0200
+Subject: [PATCH] Fix Windows build
+
+See
+https://learn.microsoft.com/en-us/cpp/c-runtime-library/reference/byteswap-uint64-byteswap-ulong-byteswap-ushort?view=msvc-170
+---
+ c++/src/Geospatial.cc | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/c++/src/Geospatial.cc b/c++/src/Geospatial.cc
+index 6d7d268703..2b110cacb6 100644
+--- a/c++/src/Geospatial.cc
++++ b/c++/src/Geospatial.cc
+@@ -66,8 +66,8 @@ namespace orc::geospatial {
+ 
+ #if defined(_MSC_VER)
+ #include <intrin.h>  // IWYU pragma: keep
+-#define ORC_BYTE_SWAP64 _byteSwap_uint64
+-#define ORC_BYTE_SWAP32 _byteSwap_ulong
++#define ORC_BYTE_SWAP64 _byteswap_uint64
++#define ORC_BYTE_SWAP32 _byteswap_ulong
+ #else
+ #define ORC_BYTE_SWAP64 __builtin_bswap64
+ #define ORC_BYTE_SWAP32 __builtin_bswap32

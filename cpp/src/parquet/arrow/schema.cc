@@ -591,6 +591,15 @@ Status GroupToStruct(const GroupNode& node, LevelInfo current_levels,
     arrow_fields.push_back(out->children[i].field);
   }
   auto struct_type = ::arrow::struct_(arrow_fields);
+  if (ctx->properties.get_arrow_extensions_enabled() &&
+      node.logical_type()->is_variant()) {
+    auto extension_type = ::arrow::GetExtensionType("parquet.variant");
+    if (extension_type) {
+      ARROW_ASSIGN_OR_RAISE(
+          struct_type,
+          extension_type->Deserialize(std::move(struct_type), /*serialized_data=*/""));
+    }
+  }
   out->field = ::arrow::field(node.name(), struct_type, node.is_optional(),
                               FieldIdMetadata(node.field_id()));
   out->level_info = current_levels;
