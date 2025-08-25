@@ -1642,6 +1642,23 @@ def test_filesystem_from_uri(uri, expected_klass, expected_path):
     assert path == expected_path
 
 
+def test_filesystem_from_uri_calling():
+    # Call using class staticmethod
+    fs, path = FileSystem.from_uri("file:/")
+    assert isinstance(fs, LocalFileSystem)
+    assert path == "/"
+
+    # Call using class staticmethod with explicit arguments
+    fs, path = FileSystem.from_uri(uri="file:/")
+    assert isinstance(fs, LocalFileSystem)
+    assert path == "/"
+
+    # Call using instance method passthrough
+    fs, path = LocalFileSystem().from_uri(uri="file:/")
+    assert isinstance(fs, LocalFileSystem)
+    assert path == "/"
+
+
 @pytest.mark.parametrize(
     'path',
     ['', '/', 'foo/bar', '/foo/bar', __file__]
