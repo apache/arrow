@@ -985,8 +985,8 @@ TEST_F(TestConvertParquetSchema, ParquetVariant) {
                                           : ::arrow::DataTypeVector{});
 
     // Parquet file does contain Arrow schema.
-    // Field should be interpreted as Parquet Variant extension even though
-    // extensions are not enabled.
+    // Field should be interpreted as Parquet Variant extension, if registered,
+    // even though extensions are not enabled.
     ArrowReaderProperties props;
     props.set_arrow_extensions_enabled(false);
 
