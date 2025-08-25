@@ -2072,6 +2072,15 @@ class DeltaByteArrayDecoderImpl : public TypedDecoderImpl<DType> {
     std::vector<ByteArray> values(num_values);
     const int num_valid_values = GetInternal(values.data(), num_values - null_count);
     DCHECK_EQ(num_values - null_count, num_valid_values);
+    if constexpr (std::is_same_v<DType, FLBAType>) {
+      // Checks all values
+      for (int i = 0; i < num_valid_values; i++) {
+        if (ARROW_PREDICT_FALSE(values[i].len != this->type_length_)) {
+          return Status::Invalid("FLBA type requires fixed-length ", this->type_length_,
+                                 " but got ", values[i].len);
+        }
+      }
+    }
 
     auto visit_binary_helper = [&](auto* helper) {
       auto values_ptr = reinterpret_cast<const ByteArray*>(values.data());
