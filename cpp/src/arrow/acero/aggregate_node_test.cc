@@ -573,7 +573,7 @@ class BackpressureTestExecNode : public ExecNode {
     ++total_batches_;
     ARROW_RETURN_NOT_OK(output_->InputReceived(this, std::move(batch)));
     if (total_batches_ == total_batches_received)
-      return output_->InputFinished(this, total_batches_);
+      return output_->InputFinished(this, static_cast<int>(total_batches_));
     return Status::OK();
   }
   Status InputFinished(ExecNode* input, int total_batches) override {
