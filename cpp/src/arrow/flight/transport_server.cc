@@ -232,8 +232,8 @@ class TransportMessageWriter final : public FlightMessageWriter {
       return Close();
     }
     // Those messages are not written through the batch writer,
-    // count them separately for stats.
-    extra_metadata_messages_++;
+    // count them separately to include them in the stats.
+    extra_messages_++;
     return Status::OK();
   }
 
@@ -258,7 +258,7 @@ class TransportMessageWriter final : public FlightMessageWriter {
   ipc::WriteStats stats() const override {
     ARROW_CHECK_NE(batch_writer_, nullptr);
     auto write_stats = batch_writer_->stats();
-    write_stats.num_messages += extra_metadata_messages_;
+    write_stats.num_messages += extra_messages_;
     return write_stats;
   }
 
@@ -275,7 +275,7 @@ class TransportMessageWriter final : public FlightMessageWriter {
   std::shared_ptr<Buffer> app_metadata_;
   ::arrow::ipc::IpcWriteOptions ipc_options_;
   bool started_ = false;
-  int64_t extra_metadata_messages_ = 0;
+  int64_t extra_messages_ = 0;
 };
 
 /// \brief Adapt TransportDataStream to the FlightMetadataWriter
