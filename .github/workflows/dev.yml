@@ -60,10 +60,10 @@ jobs:
       - name: Cache pre-commit
         uses: actions/cache@v4
         with:
-          path: |
-            ~/.cache/pre-commit
-            ~/.local/share/renv/cache
+          path: ~/.cache/pre-commit
           key: pre-commit-${{ hashFiles('.pre-commit-config.yaml') }}
+      - name: Install Air
+        uses: posit-dev/setup-air@63e80dedb6d275c94a3841e15e5ff8691e1ab237 # v1.0.0
       - name: Run pre-commit
         run: |
           pre-commit run --all-files --color=always --show-diff-on-failure
