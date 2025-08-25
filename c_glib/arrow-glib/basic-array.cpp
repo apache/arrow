@@ -3988,6 +3988,9 @@ garrow_array_new_raw_valist(std::shared_ptr<arrow::Array> *arrow_array,
       }
     }
     break;
+  case arrow::Type::type::FIXED_SIZE_LIST:
+    type = GARROW_TYPE_FIXED_SIZE_LIST_ARRAY;
+    break;
   case arrow::Type::type::RUN_END_ENCODED:
     type = GARROW_TYPE_RUN_END_ENCODED_ARRAY;
     break;
