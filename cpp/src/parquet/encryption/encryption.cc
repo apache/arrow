@@ -23,12 +23,16 @@
 #include <utility>
 
 #include "arrow/util/logging_internal.h"
+#include "arrow/util/string.h"
 #include "arrow/util/utf8.h"
 #include "parquet/encryption/encryption_internal.h"
 
 using ::arrow::util::SecureString;
 
 namespace parquet {
+
+using ::arrow::internal::EndsWith;
+using ::arrow::internal::StartsWith;
 
 // any empty SecureString key is interpreted as if no key is given
 // this instance is used when a SecureString reference is returned
@@ -278,8 +282,34 @@ FileEncryptionProperties::column_encryption_properties(const std::string& column
     auto builder = std::make_shared<ColumnEncryptionProperties::Builder>(column_path);
     return builder->build();
   }
-  if (encrypted_columns_.find(column_path) != encrypted_columns_.end()) {
-    return encrypted_columns_[column_path];
+  auto it = encrypted_columns_.find(column_path);
+  if (it != encrypted_columns_.end()) {
+    return it->second;
+  }
+
+  // We do not have an exact match of column_path in encrypted_columns_
+  // there might be a parent field / prefix in encrypted_columns_ that
+  // column_path might start with. We pick the largest such prefix.
+  it = encrypted_columns_.upper_bound(column_path);
+
+  // it now points to the first encrypted column after column_path
+  // we iterate reverse until we find the largest encrypted column that is a prefix of
+  // column_path we stop that iteration once we get before `root` where
+  // `column_path="root.*"` or `column_path="root"`
+  auto pos = column_path.find('.');
+  std::string root = column_path;
+  if (pos != std::string::npos) {
+    root = column_path.substr(0, pos);
+  }
+
+  while (it != encrypted_columns_.begin()) {
+    --it;
+    if (it->first.compare(root) < 0) {
+      break;
+    }
+    if (StartsWith(column_path, it->first + ".")) {
+      return it->second;
+    }
   }
 
   return nullptr;
