@@ -2542,13 +2542,17 @@ def test_flight_dictionary_deltas_do_exchange():
     class DeltaFlightServer(ConstantFlightServer):
         def do_exchange(self, context, descriptor, reader, writer):
             if descriptor.command == b'dict_deltas':
-                table = simple_dicts_table()
+                expected_table = simple_dicts_table()
+                received_table = reader.read_all()
+                assert received_table.equals(expected_table)
+
                 options = pa.ipc.IpcWriteOptions(emit_dictionary_deltas=True)
-                writer.begin(table.schema, options=options)
-                writer.write_table(table)
+                writer.begin(expected_table.schema, options=options)
+                writer.write_table(expected_table)
 
     with DeltaFlightServer() as server, \
             FlightClient(('localhost', server.port)) as client:
+        expected_table = simple_dicts_table()
 
         descriptor = flight.FlightDescriptor.for_command(b"dict_deltas")
         writer, reader = client.do_exchange(descriptor,
@@ -2557,7 +2561,12 @@ def test_flight_dictionary_deltas_do_exchange():
                                                     emit_dictionary_deltas=True)
                                             )
                                             )
+        # Send client table with dictionary updates (deltas should be sent)
+        with writer:
+            writer.begin(expected_table.schema, options=pa.ipc.IpcWriteOptions(
+                emit_dictionary_deltas=True))
+            writer.write_table(expected_table)
+            writer.done_writing()
+            received_table = reader.read_all()
 
-        received_table = reader.read_all()
-        expected_table = simple_dicts_table()
         assert received_table.equals(expected_table)

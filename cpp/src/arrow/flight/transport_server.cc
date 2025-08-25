@@ -206,17 +206,16 @@ class TransportMessageWriter final : public FlightMessageWriter {
 
   Status Begin(const std::shared_ptr<Schema>& schema,
                const ipc::IpcWriteOptions& options) override {
-    ipc_options_ = options;
     if (batch_writer_) {
       return Status::Invalid("This writer has already been started.");
     }
+    ipc_options_ = options;
     std::unique_ptr<ipc::internal::IpcPayloadWriter> payload_writer(
         new TransportMessagePayloadWriter(stream_, &app_metadata_));
 
     ARROW_ASSIGN_OR_RAISE(batch_writer_,
                           ipc::internal::OpenRecordBatchWriter(std::move(payload_writer),
                                                                schema, ipc_options_));
-    started_ = true;
     return Status::OK();
   }
 
@@ -264,7 +263,7 @@ class TransportMessageWriter final : public FlightMessageWriter {
 
  private:
   Status CheckStarted() {
-    if (!started_) {
+    if (!batch_writer_) {
       return Status::Invalid("This writer is not started. Call Begin() with a schema");
     }
     return Status::OK();
@@ -274,7 +273,6 @@ class TransportMessageWriter final : public FlightMessageWriter {
   std::unique_ptr<ipc::RecordBatchWriter> batch_writer_;
   std::shared_ptr<Buffer> app_metadata_;
   ::arrow::ipc::IpcWriteOptions ipc_options_;
-  bool started_ = false;
   int64_t extra_messages_ = 0;
 };
 
