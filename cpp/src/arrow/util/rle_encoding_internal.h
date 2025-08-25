@@ -838,74 +838,10 @@ static_assert(min(5, 41) == 5);
 
 template <typename Converter, typename BitRunReader, typename BitRun,
           typename values_count_type, typename value_type>
-auto GetSpacedBitPackedIdentity(Converter& converter, typename Converter::out_type* out,
-                                values_count_type batch_size,
-                                values_count_type null_count,
-                                BitRunReader&& validity_reader, BitRun&& validity_run,
-                                BitPackedDecoder<value_type>& decoder)
-    -> std::pair<values_count_type, values_count_type> {
-  ARROW_DCHECK_GT(batch_size, 0);
-  // The equality case is handled in the main loop in GetSpaced
-  ARROW_DCHECK_LT(null_count, batch_size);
-
-  auto batch = BatchCounter::FromBatchSizeAndNulls(batch_size, null_count);
-
-  values_count_type const values_available = decoder.Remaining();
-  ARROW_DCHECK_GT(values_available, 0);
-  auto run_values_remaining = [&]() {
-    auto out = values_available - batch.ValuesRead();
-    ARROW_DCHECK_GE(out, 0);
-    return out;
-  };
-
-  while (run_values_remaining() > 0 && batch.ValuesRemaining() > 0) {
-    ARROW_DCHECK_GE(validity_run.length, 0);
-    ARROW_DCHECK_LT(validity_run.length, max_size_for_v<values_count_type>);
-    ARROW_DCHECK_LE(validity_run.length, batch.TotalRemaining());
-    auto const validity_run_length = static_cast<values_count_type>(validity_run.length);
-
-    // Copy as much as possible from the buffer into the output while not exceeding
-    // validity run
-    if (validity_run.set) {
-      auto const requested_read = std::min(validity_run_length, run_values_remaining());
-      // Since this is identity, we can write directly to the output
-      auto const actual_read = decoder.GetBatch(out, requested_read);
-
-      if (ARROW_PREDICT_FALSE(!converter.InputIsValid(out, actual_read))) {
-        return {batch.ValuesRead(), batch.NullRead()};
-      }
-
-      batch.AccrueReadValues(actual_read);
-      out += actual_read;
-      validity_run.length -= actual_read;
-
-      // Simply write zeros in the output
-    } else {
-      auto const update_size = std::min(validity_run_length, batch.NullRemaining());
-      converter.WriteZero(out, out + update_size);
-      batch.AccrueReadNulls(update_size);
-      out += update_size;
-      validity_run.length -= update_size;
-    }
-
-    if (validity_run.length == 0) {
-      validity_run = validity_reader.NextRun();
-    }
-  }
-
-  ARROW_DCHECK_EQ(values_available - decoder.Remaining(), batch.ValuesRead());
-  ARROW_DCHECK_LE(batch.TotalRead(), batch_size);
-  ARROW_DCHECK_LE(batch.NullRead(), batch.NullCount());
-
-  return {batch.ValuesRead(), batch.NullRead()};
-}
-
-template <typename Converter, typename BitRunReader, typename BitRun,
-          typename values_count_type, typename value_type>
-auto GetSpacedBitPackedDefault(Converter& converter, typename Converter::out_type* out,
-                               values_count_type batch_size, values_count_type null_count,
-                               BitRunReader&& validity_reader, BitRun&& validity_run,
-                               BitPackedDecoder<value_type>& decoder)
+auto RunGetSpaced(Converter& converter, typename Converter::out_type* out,
+                  values_count_type batch_size, values_count_type null_count,
+                  BitRunReader&& validity_reader, BitRun&& validity_run,
+                  BitPackedDecoder<value_type>& decoder)
     -> std::pair<values_count_type, values_count_type> {
   ARROW_DCHECK_GT(batch_size, 0);
   // The equality case is handled in the main loop in GetSpaced
@@ -985,26 +921,6 @@ auto GetSpacedBitPackedDefault(Converter& converter, typename Converter::out_typ
   ARROW_DCHECK_LE(batch.NullRead(), batch.NullCount());
 
   return {batch.ValuesRead(), batch.NullRead()};
-}
-
-/// Overload for GetSpaced for a single run in a BitPackedDecoder
-template <typename Converter, typename BitRunReader, typename BitRun,
-          typename values_count_type, typename value_type>
-auto RunGetSpaced(Converter& converter, typename Converter::out_type* out,
-                  values_count_type batch_size, values_count_type null_count,
-                  BitRunReader&& validity_reader, BitRun&& validity_run,
-                  BitPackedDecoder<value_type>& decoder)
-    -> std::pair<values_count_type, values_count_type> {
-  if constexpr (Converter::kIsIdentity) {
-    // An optimization
-    return GetSpacedBitPackedIdentity(converter, out, batch_size, null_count,
-                                      std::forward<BitRunReader>(validity_reader),
-                                      std::forward<BitRun>(validity_run), decoder);
-  } else {
-    return GetSpacedBitPackedDefault(converter, out, batch_size, null_count,
-                                     std::forward<BitRunReader>(validity_reader),
-                                     std::forward<BitRun>(validity_run), decoder);
-  }
 }
 
 /// Overload for GetSpaced for a single run in a decoder variant
