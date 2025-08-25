@@ -940,6 +940,38 @@ struct ColumnMetaData {
   17: optional GeospatialStatistics geospatial_statistics;
 }
 
+struct AesGcmV1 {
+  /** AAD prefix **/
+  1: optional binary aad_prefix
+
+  /** Unique file identifier part of AAD suffix **/
+  2: optional binary aad_file_unique
+
+  /** In files encrypted with AAD prefix without storing it,
+   * readers must supply the prefix **/
+  3: optional bool supply_aad_prefix
+}
+
+struct AesGcmCtrV1 {
+  /** AAD prefix **/
+  1: optional binary aad_prefix
+
+  /** Unique file identifier part of AAD suffix **/
+  2: optional binary aad_file_unique
+
+  /** In files encrypted with AAD prefix without storing it,
+   * readers must supply the prefix **/
+  3: optional bool supply_aad_prefix
+}
+
+struct ExternalDBPAV1 {}
+
+union EncryptionAlgorithm {
+  1: AesGcmV1 AES_GCM_V1
+  2: AesGcmCtrV1 AES_GCM_CTR_V1
+  3: ExternalDBPAV1 EXTERNAL_DBPA_V1
+}
+
 struct EncryptionWithFooterKey {
 }
 
@@ -949,6 +981,9 @@ struct EncryptionWithColumnKey {
 
   /** Retrieval metadata of column encryption key **/
   2: optional binary key_metadata
+
+  /** Column specific encryption algorithm **/
+  3: optional EncryptionAlgorithm encryption_algorithm
 }
 
 union ColumnCryptoMetaData {
@@ -1211,38 +1246,6 @@ struct ColumnIndex {
     * Same as repetition_level_histograms except for definitions levels.
     **/
    7: optional list<i64> definition_level_histograms;
-}
-
-struct AesGcmV1 {
-  /** AAD prefix **/
-  1: optional binary aad_prefix
-
-  /** Unique file identifier part of AAD suffix **/
-  2: optional binary aad_file_unique
-
-  /** In files encrypted with AAD prefix without storing it,
-   * readers must supply the prefix **/
-  3: optional bool supply_aad_prefix
-}
-
-struct AesGcmCtrV1 {
-  /** AAD prefix **/
-  1: optional binary aad_prefix
-
-  /** Unique file identifier part of AAD suffix **/
-  2: optional binary aad_file_unique
-
-  /** In files encrypted with AAD prefix without storing it,
-   * readers must supply the prefix **/
-  3: optional bool supply_aad_prefix
-}
-
-struct ExternalDBPAV1 {}
-
-union EncryptionAlgorithm {
-  1: AesGcmV1 AES_GCM_V1
-  2: AesGcmCtrV1 AES_GCM_CTR_V1
-  3: ExternalDBPAV1 EXTERNAL_DBPA_V1
 }
 
 /**

@@ -22,7 +22,6 @@
 #include <memory>
 #include <optional>
 #include <string>
-#include <utility>
 #include <vector>
 
 #include "parquet/encryption/type_fwd.h"
@@ -86,6 +85,8 @@ class PARQUET_EXPORT ColumnCryptoMetaData {
   std::shared_ptr<schema::ColumnPath> path_in_schema() const;
   bool encrypted_with_footer_key() const;
   const std::string& key_metadata() const;
+  bool is_encryption_algorithm_set() const;
+  EncryptionAlgorithm encryption_algorithm() const;
 
  private:
   explicit ColumnCryptoMetaData(const uint8_t* metadata);

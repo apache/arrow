@@ -188,6 +188,12 @@ class ColumnCryptoMetaData::ColumnCryptoMetaDataImpl {
   const std::string& key_metadata() const {
     return crypto_metadata_->ENCRYPTION_WITH_COLUMN_KEY.key_metadata;
   }
+  bool is_encryption_algorithm_set() const {
+    return crypto_metadata_->ENCRYPTION_WITH_COLUMN_KEY.__isset.encryption_algorithm;
+  }
+  EncryptionAlgorithm encryption_algorithm() const {
+    return FromThrift(crypto_metadata_->ENCRYPTION_WITH_COLUMN_KEY.encryption_algorithm);
+  }
 
  private:
   const format::ColumnCryptoMetaData* crypto_metadata_;
@@ -212,6 +218,12 @@ bool ColumnCryptoMetaData::encrypted_with_footer_key() const {
 }
 const std::string& ColumnCryptoMetaData::key_metadata() const {
   return impl_->key_metadata();
+}
+bool ColumnCryptoMetaData::is_encryption_algorithm_set() const {
+  return impl_->is_encryption_algorithm_set();
+}
+EncryptionAlgorithm ColumnCryptoMetaData::encryption_algorithm() const {
+  return impl_->encryption_algorithm();
 }
 
 // ColumnChunk metadata
@@ -1650,6 +1662,12 @@ class ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilderImpl {
         format::EncryptionWithColumnKey eck;
         eck.__set_key_metadata(encrypt_md->key_metadata());
         eck.__set_path_in_schema(column_->path()->ToDotVector());
+        // check if column has its own encryption algorithm
+        if (encrypt_md->parquet_cipher().has_value()) {
+          EncryptionAlgorithm column_encryption_algorithm;
+          column_encryption_algorithm.algorithm = encrypt_md->parquet_cipher().value();
+          eck.__set_encryption_algorithm(ToThrift(column_encryption_algorithm));
+        }
         ccmd.__isset.ENCRYPTION_WITH_COLUMN_KEY = true;
         ccmd.__set_ENCRYPTION_WITH_COLUMN_KEY(eck);
       }
