@@ -142,10 +142,7 @@ if [ "${ARROW_USE_MESON:-OFF}" = "ON" ]; then
   meson setup \
     --prefix=${MESON_PREFIX:-${ARROW_HOME}} \
     --buildtype=${ARROW_BUILD_TYPE:-debug} \
-    -Dauto_features=enabled \
-    -Dfuzzing=disabled \
-    -Dgcs=disabled \
-    -Ds3=disabled \
+    ${MESON_SETUP_ARGS} \
     . \
     ${source_dir}
 
