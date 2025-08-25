@@ -739,7 +739,8 @@ set(ARROW_COMPUTE_SRCS
     compute/kernels/vector_selection.cc
     compute/kernels/vector_selection_filter_internal.cc
     compute/kernels/vector_selection_internal.cc
-    compute/kernels/vector_selection_take_internal.cc)
+    compute/kernels/vector_selection_take_internal.cc
+    compute/kernels/vector_swizzle.cc)
 
 if(ARROW_COMPUTE)
   # If libarrow_compute.a is only built, "pkg-config --cflags --libs
@@ -789,7 +790,6 @@ if(ARROW_COMPUTE)
        compute/kernels/vector_select_k.cc
        compute/kernels/vector_sort.cc
        compute/kernels/vector_statistics.cc
-       compute/kernels/vector_swizzle.cc
        compute/key_hash_internal.cc
        compute/key_map_internal.cc
        compute/light_array_internal.cc

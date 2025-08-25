@@ -54,7 +54,6 @@ Status RegisterComputeKernels() {
   internal::RegisterVectorRunEndDecode(registry);
   internal::RegisterVectorPairwise(registry);
   internal::RegisterVectorStatistics(registry);
-  internal::RegisterVectorSwizzle(registry);
 
   // Aggregate functions
   internal::RegisterHashAggregateBasic(registry);
