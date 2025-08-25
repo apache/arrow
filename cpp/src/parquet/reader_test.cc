@@ -1108,6 +1108,37 @@ class TestJSONWithLocalFile : public ::testing::Test {
   }
 };
 
+TEST_F(TestJSONWithLocalFile, JSONOutputWithStatistics) {
+  std::string json_output = R"###({
+  "FileName": "nested_lists.snappy.parquet",
+  "Version": "1.0",
+  "CreatedBy": "parquet-mr version 1.8.2 (build c6522788629e590a53eb79874b95f6c3ff11f16c)",
+  "TotalRows": "3",
+  "NumberOfRowGroups": "1",
+  "NumberOfRealColumns": "2",
+  "NumberOfColumns": "2",
+  "Columns": [
+     { "Id": "0", "Name": "a.list.element.list.element.list.element", "PhysicalType": "BYTE_ARRAY", "ConvertedType": "UTF8", "LogicalType": {"Type": "String"} },
+     { "Id": "1", "Name": "b", "PhysicalType": "INT32", "ConvertedType": "NONE", "LogicalType": {"Type": "None"} }
+  ],
+  "RowGroups": [
+     {
+       "Id": "0",  "TotalBytes": "155",  "TotalCompressedBytes": "0",  "Rows": "3",
+       "ColumnChunks": [
+          {"Id": "0", "Values": "18", "StatsSet": "False",
+           "Compression": "SNAPPY", "Encodings": "PLAIN_DICTIONARY(DICT_PAGE) PLAIN_DICTIONARY", "UncompressedSize": "103", "CompressedSize": "104" },
+          {"Id": "1", "Values": "3", "StatsSet": "True", "Stats": {"NumNulls": "0", "Max": "1", "Min": "1", "IsMaxValueExact": "unknown", "IsMinValueExact": "unknown" },
+           "Compression": "SNAPPY", "Encodings": "PLAIN_DICTIONARY(DICT_PAGE) PLAIN_DICTIONARY", "UncompressedSize": "52", "CompressedSize": "56" }
+        ]
+     }
+  ]
+}
+)###";
+
+  std::string json_content = ReadFromLocalFile("nested_lists.snappy.parquet");
+  ASSERT_EQ(json_output, json_content);
+}
+
 TEST_F(TestJSONWithLocalFile, JSONOutput) {
   std::string json_output = R"###({
   "FileName": "alltypes_plain.parquet",

@@ -353,7 +353,7 @@ void ParquetFilePrinter::JSONPrint(std::ostream& stream, std::list<int> selected
           if (stats->is_max_value_exact().has_value()) {
             stream << ", "
                    << R"("IsMaxValueExact": ")"
-                   << (stats->is_max_value_exact().value() ? "true" : "false") << "\"";
+                   << (stats->is_max_value_exact().value() ? "True" : "False") << "\"";
           } else {
             stream << ", "
                    << R"("IsMaxValueExact": "unknown")";
@@ -361,7 +361,7 @@ void ParquetFilePrinter::JSONPrint(std::ostream& stream, std::list<int> selected
           if (stats->is_min_value_exact().has_value()) {
             stream << ", "
                    << R"("IsMinValueExact": ")"
-                   << (stats->is_min_value_exact().value() ? "true" : "false") << "\"";
+                   << (stats->is_min_value_exact().value() ? "True" : "False") << "\"";
           } else {
             stream << ", "
                    << R"("IsMinValueExact": "unknown")";
