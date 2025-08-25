@@ -213,6 +213,26 @@ def test_read_options(pickle_module):
         opts.column_names = ('a', 'b')
         opts.validate()
 
+    expected_repr = ("<pyarrow.csv.ReadOptions("
+                     f"use_threads={opts.use_threads}, "
+                     f"block_size={opts.block_size}, "
+                     f"skip_rows={opts.skip_rows}, "
+                     f"skip_rows_after_names={opts.skip_rows_after_names}, "
+                     f"column_names={opts.column_names}, "
+                     f"autogenerate_column_names={opts.autogenerate_column_names}, "
+                     f"encoding='{opts.encoding}')>")
+    assert repr(opts) == expected_repr
+
+    expected_str = (f"ReadOptions("
+                    f"use_threads={opts.use_threads}, "
+                    f"block_size={opts.block_size}, "
+                    f"skip_rows={opts.skip_rows}, "
+                    f"skip_rows_after_names={opts.skip_rows_after_names}, "
+                    f"column_names={opts.column_names}, "
+                    f"autogenerate_column_names={opts.autogenerate_column_names}, "
+                    f"encoding='{opts.encoding}')")
+    assert str(opts) == expected_str
+
 
 def test_parse_options(pickle_module):
     cls = ParseOptions
@@ -272,6 +292,24 @@ def test_parse_options(pickle_module):
         opts = cls()
         opts.escape_char = "\r"
         opts.validate()
+
+    expected_repr = ("<pyarrow.csv.ParseOptions("
+                     f"delimiter={opts.delimiter!r}, "
+                     f"quote_char={opts.quote_char!r}, "
+                     f"double_quote={opts.double_quote}, "
+                     f"escape_char={opts.escape_char!r}, "
+                     f"newlines_in_values={opts.newlines_in_values}, "
+                     f"ignore_empty_lines={opts.ignore_empty_lines})>")
+    assert repr(opts) == expected_repr
+
+    expected_str = (f"ParseOptions("
+                    f"delimiter={opts.delimiter!r}, "
+                    f"quote_char={opts.quote_char!r}, "
+                    f"double_quote={opts.double_quote}, "
+                    f"escape_char={opts.escape_char!r}, "
+                    f"newlines_in_values={opts.newlines_in_values}, "
+                    f"ignore_empty_lines={opts.ignore_empty_lines})")
+    assert str(opts) == expected_str
 
 
 def test_convert_options(pickle_module):
@@ -354,6 +392,38 @@ def test_convert_options(pickle_module):
     assert opts.auto_dict_max_cardinality == 999
     assert opts.timestamp_parsers == [ISO8601, '%Y-%m-%d']
 
+    expected_repr = ("<pyarrow.csv.ConvertOptions("
+                     f"check_utf8={opts.check_utf8}, "
+                     f"column_types={opts.column_types}, "
+                     f"null_values={opts.null_values}, "
+                     f"true_values={opts.true_values}, "
+                     f"false_values={opts.false_values}, "
+                     f"decimal_point={opts.decimal_point!r}, "
+                     f"strings_can_be_null={opts.strings_can_be_null}, "
+                     f"quoted_strings_can_be_null={opts.quoted_strings_can_be_null}, "
+                     f"include_columns={opts.include_columns}, "
+                     f"include_missing_columns={opts.include_missing_columns}, "
+                     f"auto_dict_encode={opts.auto_dict_encode}, "
+                     f"auto_dict_max_cardinality={opts.auto_dict_max_cardinality}, "
+                     f"timestamp_parsers={opts.timestamp_parsers})>")
+    assert repr(opts) == expected_repr
+
+    expected_str = (f"ConvertOptions("
+                    f"check_utf8={opts.check_utf8}, "
+                    f"column_types={opts.column_types}, "
+                    f"null_values={opts.null_values}, "
+                    f"true_values={opts.true_values}, "
+                    f"false_values={opts.false_values}, "
+                    f"decimal_point={opts.decimal_point!r}, "
+                    f"strings_can_be_null={opts.strings_can_be_null}, "
+                    f"quoted_strings_can_be_null={opts.quoted_strings_can_be_null}, "
+                    f"include_columns={opts.include_columns}, "
+                    f"include_missing_columns={opts.include_missing_columns}, "
+                    f"auto_dict_encode={opts.auto_dict_encode}, "
+                    f"auto_dict_max_cardinality={opts.auto_dict_max_cardinality}, "
+                    f"timestamp_parsers={opts.timestamp_parsers})")
+    assert str(opts) == expected_str
+
 
 def test_write_options():
     cls = WriteOptions
@@ -377,6 +447,21 @@ def test_write_options():
         opts = cls()
         opts.batch_size = 0
         opts.validate()
+
+    expected_repr = ("<pyarrow.csv.WriteOptions("
+                     f"include_header={opts.include_header}, "
+                     f"batch_size={opts.batch_size}, "
+                     f"delimiter={opts.delimiter!r}, "
+                     f"quoting_style='{opts.quoting_style}')>")
+    assert repr(opts) == expected_repr
+
+    # Test str
+    expected_str = (f"WriteOptions("
+                    f"include_header={opts.include_header}, "
+                    f"batch_size={opts.batch_size}, "
+                    f"delimiter={opts.delimiter!r}, "
+                    f"quoting_style='{opts.quoting_style}')")
+    assert str(opts) == expected_str
 
 
 class BaseTestCSV(abc.ABC):
