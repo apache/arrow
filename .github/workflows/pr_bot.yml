@@ -73,7 +73,7 @@ jobs:
           curl -sL -o committers.yml $url
           echo "committers_path=$(pwd)/committers.yml" >> $GITHUB_OUTPUT
       - name: Checkout Arrow
-        uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           path: arrow
           repository: apache/arrow
@@ -89,7 +89,7 @@ jobs:
         run: pip install -e arrow/dev/archery[bot]
       - name: Handle PR workflow event
         env:
-          ARROW_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           if [ "${GITHUB_EVENT_NAME}" = "workflow_run" ]; then
             # workflow_run is executed on PR review. Update to original event.

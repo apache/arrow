@@ -221,7 +221,6 @@ else
     -DARROW_RUNTIME_SIMD_LEVEL=${ARROW_RUNTIME_SIMD_LEVEL:-MAX} \
     -DARROW_S3=${ARROW_S3:-OFF} \
     -DARROW_SIMD_LEVEL=${ARROW_SIMD_LEVEL:-DEFAULT} \
-    -DARROW_SKYHOOK=${ARROW_SKYHOOK:-OFF} \
     -DARROW_SUBSTRAIT=${ARROW_SUBSTRAIT:-OFF} \
     -DARROW_TEST_LINKAGE=${ARROW_TEST_LINKAGE:-shared} \
     -DARROW_TEST_MEMCHECK=${ARROW_TEST_MEMCHECK:-OFF} \
@@ -283,10 +282,18 @@ else
     ${source_dir}
 fi
 
+: ${ARROW_BUILD_PARALLEL:=$[${n_jobs} + 1]}
 if [ "${ARROW_USE_MESON:-OFF}" = "ON" ]; then
-  time meson install
+  time meson compile -j ${ARROW_BUILD_PARALLEL}
+  meson install
+  # Remove all added files in cpp/subprojects/ because they may have
+  # unreadable permissions on Docker host.
+  pushd "${source_dir}"
+  meson subprojects purge --confirm --include-cache
+  popd
 else
-  export CMAKE_BUILD_PARALLEL_LEVEL=${CMAKE_BUILD_PARALLEL_LEVEL:-$[${n_jobs} + 1]}
+  : ${CMAKE_BUILD_PARALLEL_LEVEL:=${ARROW_BUILD_PARALLEL}}
+  export CMAKE_BUILD_PARALLEL_LEVEL
   time cmake --build . --target install
 fi
 

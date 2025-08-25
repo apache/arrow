@@ -409,7 +409,7 @@ data is returned in by respecting the ``Accept`` header in the request.
 If multiple formats are requested and supported, the choice of which to
 use is server-specific. If none of the requested content-types are
 supported, the server may respond with either 406 (Not Acceptable),
-415 (Unsupported Media Type), or successfuly respond with a different
+415 (Unsupported Media Type), or successfully respond with a different
 format that it does support, along with the correct ``Content-Type``
 header.
 

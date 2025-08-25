@@ -424,6 +424,38 @@ cdef class FileSystem(_Weakrefable):
         return fs
 
     @staticmethod
+    def _fsspec_from_uri(uri):
+        """Instantiate FSSpecHandler and path for the given URI."""
+        try:
+            import fsspec
+        except ImportError:
+            raise ImportError(
+                "`fsspec` is required to handle `fsspec+<filesystem>://` and `hf://` URIs."
+            )
+        from .fs import FSSpecHandler
+
+        uri = uri.removeprefix("fsspec+")
+        fs, path = fsspec.url_to_fs(uri)
+        fs = PyFileSystem(FSSpecHandler(fs))
+
+        return fs, path
+
+    @staticmethod
+    def _native_from_uri(uri):
+        """Instantiate native FileSystem and path for the given URI."""
+        cdef:
+            c_string c_path
+            c_string c_uri
+            CResult[shared_ptr[CFileSystem]] result
+
+        if isinstance(uri, pathlib.Path):
+            # Make absolute
+            uri = uri.resolve().absolute()
+        c_uri = tobytes(_stringify_path(uri))
+        with nogil:
+            result = CFileSystemFromUriOrPath(c_uri, &c_path)
+        return FileSystem.wrap(GetResultValue(result)), frombytes(c_path)
+
     def from_uri(uri):
         """
         Create a new FileSystem from URI or Path.
@@ -458,19 +490,16 @@ cdef class FileSystem(_Weakrefable):
 
         >>> fs.FileSystem.from_uri("s3://usgs-landsat/collection02/")
         (<pyarrow._s3fs.S3FileSystem object at ...>, 'usgs-landsat/collection02')
-        """
-        cdef:
-            c_string c_path
-            c_string c_uri
-            CResult[shared_ptr[CFileSystem]] result
 
-        if isinstance(uri, pathlib.Path):
-            # Make absolute
-            uri = uri.resolve().absolute()
-        c_uri = tobytes(_stringify_path(uri))
-        with nogil:
-            result = CFileSystemFromUriOrPath(c_uri, &c_path)
-        return FileSystem.wrap(GetResultValue(result)), frombytes(c_path)
+        Or from an fsspec+ URI:
+
+        >>> fs.FileSystem.from_uri("fsspec+memory:///path/to/file")
+        (<pyarrow._fs.PyFileSystem object at ...>, '/path/to/file')
+        """
+        if isinstance(uri, str) and uri.startswith(("fsspec+", "hf://")):
+            return FileSystem._fsspec_from_uri(uri)
+        else:
+            return FileSystem._native_from_uri(uri)
 
     cdef init(self, const shared_ptr[CFileSystem]& wrapped):
         self.wrapped = wrapped
@@ -1016,7 +1045,7 @@ cdef class LocalFileSystem(FileSystem):
 
     Create a FileSystem object inferred from a URI of the saved file:
 
-    >>> local_new, path = fs.LocalFileSystem().from_uri('/tmp/local_fs.dat')
+    >>> local_new, path = fs.LocalFileSystem.from_uri('/tmp/local_fs.dat')
     >>> local_new
     <pyarrow._fs.LocalFileSystem object at ...
     >>> path

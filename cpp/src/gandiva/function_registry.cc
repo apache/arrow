@@ -32,7 +32,9 @@
 
 namespace gandiva {
 
-static constexpr uint32_t kMaxFunctionSignatures = 2048;
+namespace {
+
+constexpr uint32_t kMaxFunctionSignatures = 2048;
 
 // encapsulates an llvm memory buffer in an arrow buffer
 // this is needed because we don't expose the llvm memory buffer to the outside world in
@@ -47,6 +49,20 @@ class LLVMMemoryArrowBuffer : public arrow::Buffer {
  private:
   std::unique_ptr<llvm::MemoryBuffer> llvm_buffer_;
 };
+
+arrow::Result<std::unique_ptr<llvm::MemoryBuffer>> GetBufferFromFile(
+    const std::string& bitcode_file_path) {
+  auto buffer_or_error = llvm::MemoryBuffer::getFile(bitcode_file_path);
+
+  ARROW_RETURN_IF(!buffer_or_error,
+                  Status::IOError("Could not load module from bitcode file: ",
+                                  bitcode_file_path +
+                                      " Error: " + buffer_or_error.getError().message()));
+
+  return std::move(buffer_or_error.get());
+}
+
+}  // namespace
 
 FunctionRegistry::FunctionRegistry() { pc_registry_.reserve(kMaxFunctionSignatures); }
 
@@ -79,18 +95,6 @@ Status FunctionRegistry::Add(NativeFunction func) {
     pc_registry_map_.emplace(&func_signature, &last_func);
   }
   return arrow::Status::OK();
-}
-
-arrow::Result<std::unique_ptr<llvm::MemoryBuffer>> GetBufferFromFile(
-    const std::string& bitcode_file_path) {
-  auto buffer_or_error = llvm::MemoryBuffer::getFile(bitcode_file_path);
-
-  ARROW_RETURN_IF(!buffer_or_error,
-                  Status::IOError("Could not load module from bitcode file: ",
-                                  bitcode_file_path +
-                                      " Error: " + buffer_or_error.getError().message()));
-
-  return std::move(buffer_or_error.get());
 }
 
 Status FunctionRegistry::Register(const std::vector<NativeFunction>& funcs,

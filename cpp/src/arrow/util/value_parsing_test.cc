@@ -33,6 +33,22 @@ using util::Float16;
 
 namespace internal {
 
+template <typename T, typename E = void>
+struct ConversionValueTrait;
+
+template <typename T>
+struct ConversionValueTrait<T, enable_if_has_c_type<T>> {
+  using Type = typename T::c_type;
+};
+
+template <>
+struct ConversionValueTrait<HalfFloatType> {
+  using Type = Float16;
+};
+
+template <typename T>
+using ConversionValueType = typename ConversionValueTrait<T>::Type;
+
 template <typename T>
 void AssertValueEquals(T a, T b) {
   ASSERT_EQ(a, b);
@@ -52,30 +68,31 @@ void AssertValueEquals<double>(double a, double b) {
 
 template <typename T>
 void AssertConversion(StringConverter<T>* converter, const T& type, const std::string& s,
-                      typename T::c_type expected) {
+                      ConversionValueType<T> expected) {
   ARROW_SCOPED_TRACE("When converting: '", s, "', expecting: ", expected);
-  typename T::c_type out{};
+  ConversionValueType<T> out{};
   ASSERT_TRUE(converter->Convert(type, s.data(), s.length(), &out));
   AssertValueEquals(out, expected);
 }
 
 template <typename T>
 void AssertConversion(StringConverter<T>* converter, const std::string& s,
-                      typename T::c_type expected) {
+                      ConversionValueType<T> expected) {
   auto type = checked_pointer_cast<T>(TypeTraits<T>::type_singleton());
   AssertConversion(converter, *type, s, expected);
 }
 
 template <typename T>
-void AssertConversion(const T& type, const std::string& s, typename T::c_type expected) {
+void AssertConversion(const T& type, const std::string& s,
+                      ConversionValueType<T> expected) {
   ARROW_SCOPED_TRACE("When converting: '", s, "', expecting: ", expected);
-  typename T::c_type out{};
+  ConversionValueType<T> out{};
   ASSERT_TRUE(ParseValue(type, s.data(), s.length(), &out));
   AssertValueEquals(out, expected);
 }
 
 template <typename T>
-void AssertConversion(const std::string& s, typename T::c_type expected) {
+void AssertConversion(const std::string& s, ConversionValueType<T> expected) {
   auto type = checked_pointer_cast<T>(TypeTraits<T>::type_singleton());
   AssertConversion(*type, s, expected);
 }
@@ -83,7 +100,7 @@ void AssertConversion(const std::string& s, typename T::c_type expected) {
 template <typename T>
 void AssertConversionFails(StringConverter<T>* converter, const T& type,
                            const std::string& s) {
-  typename T::c_type out{};
+  ConversionValueType<T> out{};
   ASSERT_FALSE(converter->Convert(type, s.data(), s.length(), &out))
       << "Conversion should have failed for '" << s << "' (returned " << out << ")";
 }
@@ -96,7 +113,7 @@ void AssertConversionFails(StringConverter<T>* converter, const std::string& s) 
 
 template <typename T>
 void AssertConversionFails(const T& type, const std::string& s) {
-  typename T::c_type out{};
+  ConversionValueType<T> out{};
   ASSERT_FALSE(ParseValue(type, s.data(), s.length(), &out))
       << "Conversion should have failed for '" << s << "' (returned " << out << ")";
 }
@@ -157,21 +174,21 @@ TEST(StringConversion, ToDouble) {
 }
 
 TEST(StringConversion, ToHalfFloat) {
-  AssertConversion<HalfFloatType>("1.5", Float16(1.5f).bits());
-  AssertConversion<HalfFloatType>("0", Float16(0.0f).bits());
-  AssertConversion<HalfFloatType>("-0.0", Float16(-0.0f).bits());
-  AssertConversion<HalfFloatType>("-1e15", Float16(-1e15).bits());
-  AssertConversion<HalfFloatType>("+Infinity", 0x7c00);
-  AssertConversion<HalfFloatType>("-Infinity", 0xfc00);
-  AssertConversion<HalfFloatType>("Infinity", 0x7c00);
+  AssertConversion<HalfFloatType>("1.5", Float16(1.5f));
+  AssertConversion<HalfFloatType>("0", Float16(0.0f));
+  AssertConversion<HalfFloatType>("-0.0", Float16(-0.0f));
+  AssertConversion<HalfFloatType>("-1e15", Float16(-1e15));
+  AssertConversion<HalfFloatType>("+Infinity", Float16::FromBits(0x7c00));
+  AssertConversion<HalfFloatType>("-Infinity", Float16::FromBits(0xfc00));
+  AssertConversion<HalfFloatType>("Infinity", Float16::FromBits(0x7c00));
 
   AssertConversionFails<HalfFloatType>("");
   AssertConversionFails<HalfFloatType>("e");
   AssertConversionFails<HalfFloatType>("1,5");
 
   StringConverter<HalfFloatType> converter(/*decimal_point=*/',');
-  AssertConversion(&converter, "1,5", Float16(1.5f).bits());
-  AssertConversion(&converter, "0", Float16(0.0f).bits());
+  AssertConversion(&converter, "1,5", Float16(1.5f));
+  AssertConversion(&converter, "0", Float16(0.0f));
   AssertConversionFails(&converter, "1.5");
 }
 
@@ -207,11 +224,11 @@ TEST(StringConversion, ToHalfFloatLocale) {
   // French locale uses the comma as decimal point
   LocaleGuard locale_guard("fr_FR.UTF-8");
 
-  AssertConversion<HalfFloatType>("1.5", Float16(1.5).bits());
+  AssertConversion<HalfFloatType>("1.5", Float16(1.5));
   AssertConversionFails<HalfFloatType>("1,5");
 
   StringConverter<HalfFloatType> converter(/*decimal_point=*/'#');
-  AssertConversion(&converter, "1#5", Float16(1.5).bits());
+  AssertConversion(&converter, "1#5", Float16(1.5));
   AssertConversionFails(&converter, "1.5");
   AssertConversionFails(&converter, "1,5");
 }

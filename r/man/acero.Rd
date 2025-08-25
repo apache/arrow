@@ -9,7 +9,7 @@
 \description{
 The \code{arrow} package contains methods for 37 \code{dplyr} table functions, many of
 which are "verbs" that do transformations to one or more tables.
-The package also has mappings of 212 R functions to the corresponding
+The package also has mappings of 222 R functions to the corresponding
 functions in the Arrow compute library. These allow you to write code inside
 of \code{dplyr} methods that call R functions, including many in packages like
 \code{stringr} and \code{lubridate}, and they will get translated to Arrow and run
@@ -29,7 +29,7 @@ Table into an R \code{tibble}.
 \item \code{\link[dplyr:compute]{collect()}}
 \item \code{\link[dplyr:compute]{compute()}}
 \item \code{\link[dplyr:count]{count()}}
-\item \code{\link[dplyr:distinct]{distinct()}}: \code{.keep_all = TRUE} not supported
+\item \code{\link[dplyr:distinct]{distinct()}}: \code{.keep_all = TRUE} returns a non-missing value if present, only returning missing values if all are missing.
 \item \code{\link[dplyr:explain]{explain()}}
 \item \code{\link[dplyr:filter]{filter()}}
 \item \code{\link[dplyr:mutate-joins]{full_join()}}: the \code{copy} argument is ignored
@@ -71,7 +71,7 @@ can assume that the function works in Acero just as it does in R.
 Functions can be called either as \code{pkg::fun()} or just \code{fun()}, i.e. both
 \code{str_sub()} and \code{stringr::str_sub()} work.
 
-In addition to these functions, you can call any of Arrow's 262 compute
+In addition to these functions, you can call any of Arrow's 280 compute
 functions directly. Arrow has many functions that don't map to an existing R
 function. In other cases where there is an R function mapping, you can still
 call the Arrow function directly if you don't want the adaptations that the R
@@ -108,6 +108,7 @@ as \code{arrow_ascii_is_decimal}.
 \item \code{\link[=^]{^}}
 \item \code{\link[base:MathFun]{abs()}}
 \item \code{\link[base:Trig]{acos()}}
+\item \code{\link[base:Hyperbolic]{acosh()}}
 \item \code{\link[base:all]{all()}}
 \item \code{\link[base:any]{any()}}
 \item \code{\link[base:as.Date]{as.Date()}}: Multiple \code{tryFormats} not supported in Arrow.
@@ -119,14 +120,19 @@ Consider using the lubridate specialised parsing functions \code{ymd()}, \code{y
 \item \code{\link[base:logical]{as.logical()}}
 \item \code{\link[base:numeric]{as.numeric()}}
 \item \code{\link[base:Trig]{asin()}}
+\item \code{\link[base:Hyperbolic]{asinh()}}
+\item \code{\link[base:Trig]{atan()}}
+\item \code{\link[base:Hyperbolic]{atanh()}}
 \item \code{\link[base:Round]{ceiling()}}
 \item \code{\link[base:Trig]{cos()}}
+\item \code{\link[base:Hyperbolic]{cosh()}}
 \item \code{\link[base:data.frame]{data.frame()}}: \code{row.names} and \code{check.rows} arguments not supported;
 \code{stringsAsFactors} must be \code{FALSE}
 \item \code{\link[base:difftime]{difftime()}}: only supports \code{units = "secs"} (the default);
 \code{tz} argument not supported
 \item \code{\link[base:startsWith]{endsWith()}}
 \item \code{\link[base:Log]{exp()}}
+\item \code{\link[base:Log]{expm1()}}
 \item \code{\link[base:Round]{floor()}}
 \item \code{\link[base:format]{format()}}
 \item \code{\link[base:grep]{grepl()}}
@@ -160,6 +166,7 @@ Consider using the lubridate specialised parsing functions \code{ymd()}, \code{y
 \item \code{\link[base:Round]{round()}}
 \item \code{\link[base:sign]{sign()}}
 \item \code{\link[base:Trig]{sin()}}
+\item \code{\link[base:Hyperbolic]{sinh()}}
 \item \code{\link[base:MathFun]{sqrt()}}
 \item \code{\link[base:startsWith]{startsWith()}}
 \item \code{\link[base:strptime]{strftime()}}
@@ -172,6 +179,7 @@ Valid values are "s", "ms" (default), "us", "ns".
 \item \code{\link[base:substr]{substring()}}
 \item \code{\link[base:sum]{sum()}}
 \item \code{\link[base:Trig]{tan()}}
+\item \code{\link[base:Hyperbolic]{tanh()}}
 \item \code{\link[base:chartr]{tolower()}}
 \item \code{\link[base:chartr]{toupper()}}
 \item \code{\link[base:Round]{trunc()}}
@@ -198,6 +206,13 @@ Valid values are "s", "ms" (default), "us", "ns".
 \item \code{\link[dplyr:if_else]{if_else()}}
 \item \code{\link[dplyr:context]{n()}}
 \item \code{\link[dplyr:n_distinct]{n_distinct()}}
+}
+}
+
+\subsection{hms}{
+\itemize{
+\item \code{\link[hms:hms]{as_hms()}}
+\item \code{\link[hms:hms]{hms()}}
 }
 }
 
@@ -282,13 +297,6 @@ On Linux and OS X additionally a, A, b, B, Om, p, r are available.
 \item \code{\link[lubridate:ymd_hms]{ymd_hm()}}: \code{locale} argument not supported
 \item \code{\link[lubridate:ymd_hms]{ymd_hms()}}: \code{locale} argument not supported
 \item \code{\link[lubridate:ymd]{yq()}}: \code{locale} argument not supported
-}
-}
-
-\subsection{hms}{
-\itemize{
-\item \code{\link[hms:hms]{hms()}}: subsecond times not supported
-\item \code{\link[hms:hms]{hms()}}: subsecond times not supported
 }
 }
 

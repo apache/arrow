@@ -580,8 +580,10 @@ struct ArrayExportChecker {
       --expected_n_buffers;
       ++expected_buffers;
     }
-    bool has_variadic_buffer_sizes = expected_data.type->id() == Type::STRING_VIEW ||
-                                     expected_data.type->id() == Type::BINARY_VIEW;
+
+    bool has_variadic_buffer_sizes =
+        expected_data.type->storage_id() == Type::BINARY_VIEW ||
+        expected_data.type->storage_id() == Type::STRING_VIEW;
     ASSERT_EQ(c_export->n_buffers, expected_n_buffers + has_variadic_buffer_sizes);
     ASSERT_NE(c_export->buffers, nullptr);
 
@@ -957,6 +959,13 @@ TEST_F(TestArrayExport, BinaryViewMultipleBuffers) {
   TestPrimitive([&] {
     auto arr = MakeBinaryViewArrayWithMultipleDataBuffers();
     return arr->Slice(1, arr->length() - 2);
+  });
+}
+
+TEST_F(TestArrayExport, BinaryViewExtensionWithMultipleBuffers) {
+  TestPrimitive([&] {
+    auto storage = MakeBinaryViewArrayWithMultipleDataBuffers();
+    return BinaryViewExtensionType::WrapArray(binary_view_extension_type(), storage);
   });
 }
 

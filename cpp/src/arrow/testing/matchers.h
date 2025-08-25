@@ -250,7 +250,7 @@ class ErrorMatcher {
 
       bool MatchAndExplain(const Res& maybe_value,
                            testing::MatchResultListener* listener) const override {
-        const Status& status = internal::GenericToStatus(maybe_value);
+        const Status& status = ToStatus(maybe_value);
         testing::StringMatchResultListener value_listener;
 
         bool match = status.code() == code_;
@@ -294,7 +294,7 @@ class OkMatcher {
 
       bool MatchAndExplain(const Res& maybe_value,
                            testing::MatchResultListener* listener) const override {
-        const Status& status = internal::GenericToStatus(maybe_value);
+        const Status& status = ToStatus(maybe_value);
 
         const bool match = status.ok();
         *listener << "whose " << (match ? "non-error matches" : "error doesn't match");

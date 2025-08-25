@@ -19,7 +19,7 @@
 
 set -ex
 
-if [[ $# < 2 ]]; then
+if [[ $# -lt 2 ]]; then
   echo "Usage: $0 <Arrow dir> <build dir> [ctest args ...]"
   exit 1
 fi
@@ -84,7 +84,7 @@ if [ "${ARROW_EMSCRIPTEN:-OFF}" = "ON" ]; then
   n_jobs=1 # avoid spurious fails on emscripten due to loading too many big executables
 fi
 
-pushd ${build_dir}
+pushd "${build_dir}"
 
 if [ -z "${PYTHON}" ] && ! which python > /dev/null 2>&1; then
   export PYTHON="${PYTHON:-python3}"
@@ -92,21 +92,23 @@ fi
 if [ "${ARROW_USE_MESON:-OFF}" = "ON" ]; then
   ARROW_BUILD_EXAMPLES=OFF # TODO: Remove this
   meson test \
+    --no-rebuild \
     --print-errorlogs \
+    --suite arrow \
     "$@"
 else
   ctest \
     --label-regex unittest \
     --output-on-failure \
-    --parallel ${n_jobs} \
+    --parallel "${n_jobs}" \
     --repeat until-pass:3 \
-    --timeout ${ARROW_CTEST_TIMEOUT:-300} \
+    --timeout "${ARROW_CTEST_TIMEOUT:-300}" \
     "${ctest_options[@]}" \
     "$@"
 fi
 
 if [ "${ARROW_BUILD_EXAMPLES}" == "ON" ]; then
-    examples=$(find ${binary_output_dir} -executable -name "*example")
+    examples=$(find "${binary_output_dir}" -executable -name "*example")
     if [ "${examples}" == "" ]; then
         echo "=================="
         echo "No examples found!"
@@ -124,12 +126,15 @@ fi
 
 if [ "${ARROW_FUZZING}" == "ON" ]; then
     # Fuzzing regression tests
-    ${binary_output_dir}/arrow-ipc-stream-fuzz ${ARROW_TEST_DATA}/arrow-ipc-stream/crash-*
-    ${binary_output_dir}/arrow-ipc-stream-fuzz ${ARROW_TEST_DATA}/arrow-ipc-stream/*-testcase-*
-    ${binary_output_dir}/arrow-ipc-file-fuzz ${ARROW_TEST_DATA}/arrow-ipc-file/*-testcase-*
-    ${binary_output_dir}/arrow-ipc-tensor-stream-fuzz ${ARROW_TEST_DATA}/arrow-ipc-tensor-stream/*-testcase-*
+    # Some fuzz regression files may trigger huge memory allocations,
+    # let the allocator return null instead of aborting.
+    export ASAN_OPTIONS="$ASAN_OPTIONS allocator_may_return_null=1"
+    "${binary_output_dir}/arrow-ipc-stream-fuzz" "${ARROW_TEST_DATA}"/arrow-ipc-stream/crash-*
+    "${binary_output_dir}/arrow-ipc-stream-fuzz" "${ARROW_TEST_DATA}"/arrow-ipc-stream/*-testcase-*
+    "${binary_output_dir}/arrow-ipc-file-fuzz" "${ARROW_TEST_DATA}"/arrow-ipc-file/*-testcase-*
+    "${binary_output_dir}/arrow-ipc-tensor-stream-fuzz" "${ARROW_TEST_DATA}"/arrow-ipc-tensor-stream/*-testcase-*
     if [ "${ARROW_PARQUET}" == "ON" ]; then
-      ${binary_output_dir}/parquet-arrow-fuzz ${ARROW_TEST_DATA}/parquet/fuzzing/*-testcase-*
+      "${binary_output_dir}/parquet-arrow-fuzz" "${ARROW_TEST_DATA}"/parquet/fuzzing/*-testcase-*
     fi
 fi
 

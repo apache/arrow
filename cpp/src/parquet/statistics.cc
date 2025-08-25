@@ -526,10 +526,14 @@ std::pair<ByteArray, ByteArray> GetMinMaxBinaryHelper(
   if (::arrow::is_binary_like(values.type_id())) {
     ::arrow::VisitArraySpanInline<::arrow::BinaryType>(
         *values.data(), std::move(valid_func), std::move(null_func));
-  } else {
-    DCHECK(::arrow::is_large_binary_like(values.type_id()));
+  } else if (::arrow::is_large_binary_like(values.type_id())) {
     ::arrow::VisitArraySpanInline<::arrow::LargeBinaryType>(
         *values.data(), std::move(valid_func), std::move(null_func));
+  } else if (::arrow::is_binary_view_like(values.type_id())) {
+    ::arrow::VisitArraySpanInline<::arrow::BinaryViewType>(
+        *values.data(), std::move(valid_func), std::move(null_func));
+  } else {
+    throw ParquetException("Only binary-like data supported");
   }
 
   return {min, max};
@@ -606,12 +610,11 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
       has_distinct_count_ = false;
     }
 
-    if (!encoded_min.empty()) {
+    if (has_min_max) {
       PlainDecode(encoded_min, &min_);
-    }
-    if (!encoded_max.empty()) {
       PlainDecode(encoded_max, &max_);
     }
+
     has_min_max_ = has_min_max;
   }
 
@@ -897,7 +900,10 @@ void TypedStatisticsImpl<DType>::PlainDecode(const std::string& src, T* dst) con
   auto decoder = MakeTypedDecoder<DType>(Encoding::PLAIN, descr_);
   decoder->SetData(1, reinterpret_cast<const uint8_t*>(src.c_str()),
                    static_cast<int>(src.size()));
-  decoder->Decode(dst, 1);
+  int decoded_values = decoder->Decode(dst, 1);
+  if (decoded_values != 1) {
+    throw ParquetException("Failed to decode statistic value from plain encoded string");
+  }
 }
 
 template <>

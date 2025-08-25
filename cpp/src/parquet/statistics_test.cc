@@ -452,6 +452,13 @@ class TestStatistics : public PrimitiveTypedTest<TestType> {
     EXPECT_TRUE(expected_stats->HasMinMax());
     EXPECT_EQ(expected_stats->EncodeMin(), stats->EncodeMin());
     EXPECT_EQ(expected_stats->EncodeMax(), stats->EncodeMax());
+
+    std::shared_ptr<EncodedStatistics> enc_stats = column_chunk->encoded_statistics();
+    EXPECT_EQ(null_count, enc_stats->null_count);
+    EXPECT_TRUE(enc_stats->has_min);
+    EXPECT_TRUE(enc_stats->has_max);
+    EXPECT_EQ(expected_stats->EncodeMin(), enc_stats->min());
+    EXPECT_EQ(expected_stats->EncodeMax(), enc_stats->max());
   }
 };
 
@@ -800,6 +807,11 @@ void AssertStatsSet(const ApplicationVersion& version,
   stats.set_is_signed(false);
   metadata_builder->SetStatistics(stats);
   ASSERT_EQ(column_chunk->is_stats_set(), expected_is_set);
+  if (expected_is_set) {
+    ASSERT_TRUE(column_chunk->encoded_statistics() != nullptr);
+  } else {
+    ASSERT_TRUE(column_chunk->encoded_statistics() == nullptr);
+  }
 }
 
 // Statistics are restricted for few types in older parquet version

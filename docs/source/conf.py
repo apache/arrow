@@ -273,7 +273,9 @@ language = "en"
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
 # This patterns also effect to html_static_path and html_extra_path
-exclude_patterns = exclude_patterns + ['_build', 'Thumbs.db', '.DS_Store']
+exclude_patterns = exclude_patterns + ['_build', 'Thumbs.db', '.DS_Store',
+                                       'developers/cpp/img/async.md',
+                                       '**/README.md',]
 
 # The reST default role (used for this markup: `text`) to use for all
 # documents.
@@ -341,8 +343,7 @@ html_theme_options = {
       "image_light": "_static/arrow.png",
       "image_dark": "_static/arrow-dark.png",
     },
-    "header_links_before_dropdown": 2,
-    "header_dropdown_text": "Implementations",
+    "header_links_before_dropdown": 3,
     "navbar_align": "left",
     "navbar_end": ["kapa-ai-bot.html", "version-switcher", "theme-switcher", "navbar-icon-links"],
     "icon_links": [
@@ -429,6 +430,12 @@ html_css_files = ['theme_overrides.css']
 # html_sidebars = {
 #    '**': ['sidebar-logo.html', 'sidebar-search-bs.html', 'sidebar-nav-bs.html'],
 # }
+
+# Hide the primary sidebar (section navigation) for these pages
+html_sidebars = {
+    "implementations": [],
+    "status": [],
+}
 
 # The base URL which points to the root of the HTML documentation,
 # used for canonical url

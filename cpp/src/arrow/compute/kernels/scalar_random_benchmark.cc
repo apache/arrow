@@ -30,7 +30,7 @@ static void RandomKernel(benchmark::State& state, bool is_seed) {
   const auto options =
       is_seed ? RandomOptions::FromSeed(42) : RandomOptions::FromSystemRandom();
   for (auto _ : state) {
-    ABORT_NOT_OK(CallFunction("random", ExecBatch({}, length), &options).status());
+    ABORT_NOT_OK(CallFunction("random", ExecBatch({}, length), &options));
   }
   state.SetItemsProcessed(state.iterations() * length);
 }

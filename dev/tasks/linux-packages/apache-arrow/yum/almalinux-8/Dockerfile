@@ -63,4 +63,5 @@ RUN \
     vala \
     which \
     zlib-devel && \
-  dnf clean ${quiet} all
+  dnf clean ${quiet} all && \
+  ln -s pip3.9 /usr/bin/pip3

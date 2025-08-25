@@ -67,8 +67,6 @@ const std::shared_ptr<Schema> kBoringSchema = schema({
     field("ts_s_utc", timestamp(TimeUnit::SECOND, "UTC")),
 });
 
-#define EXPECT_OK ARROW_EXPECT_OK
-
 Expression cast(Expression argument, std::shared_ptr<DataType> to_type) {
   return call("cast", {std::move(argument)},
               compute::CastOptions::Safe(std::move(to_type)));
@@ -80,6 +78,16 @@ Expression true_unless_null(Expression argument) {
 
 Expression add(Expression l, Expression r) {
   return call("add", {std::move(l), std::move(r)});
+}
+
+std::string make_range_json(int start, int end) {
+  std::string result = "[";
+  for (int i = start; i <= end; ++i) {
+    if (i > start) result += ",";
+    result += std::to_string(i);
+  }
+  result += "]";
+  return result;
 }
 
 const auto no_change = std::nullopt;
@@ -945,13 +953,13 @@ TEST(Expression, ExecuteChunkedArray) {
   ExecBatch batch{inputs, 3};
 
   ASSERT_OK_AND_ASSIGN(Datum res, ExecuteScalarExpression(expr, batch));
+  ASSERT_TRUE(res.is_chunked_array());
 
-  AssertDatumsEqual(res, ArrayFromJSON(float64(),
-                                       R"([
+  AssertDatumsEqual(res, ChunkedArrayFromJSON(float64(), {R"([
     9.5,
     1,
     3.75
-  ])"));
+  ])"}));
 }
 
 TEST(Expression, ExecuteDictionaryTransparent) {
@@ -992,7 +1000,7 @@ TEST(Expression, ExecuteDictionaryTransparent) {
 void ExpectIdenticalIfUnchanged(Expression modified, Expression original) {
   if (modified == original) {
     // no change -> must be identical
-    EXPECT_TRUE(Identical(modified, original)) << "  " << original.ToString();
+    EXPECT_TRUE(Expression::Identical(modified, original)) << "  " << original.ToString();
   }
 }
 
@@ -1681,6 +1689,16 @@ TEST(Expression, SimplifyIsIn) {
     Simplify{is_in(field_ref("u32"), int64(), "[1,3,5,7,9]", null_matching)}
         .WithGuarantee(greater(field_ref("u32"), literal(3)))
         .Expect(is_in(field_ref("u32"), int64(), "[5,7,9]", null_matching));
+
+    Simplify{is_in(field_ref("u32"), int64(), make_range_json(1, 40), null_matching)}
+        .WithGuarantee(greater(field_ref("u32"), literal(10)))
+        .Expect(is_in(field_ref("u32"), int64(), make_range_json(11, 40), null_matching));
+
+    // For large ranges we don't do any simplification, see
+    // `kIsInSimplificationMaxValueSet` in expression.cc.
+    Simplify{is_in(field_ref("u32"), int64(), make_range_json(1, 100), null_matching)}
+        .WithGuarantee(greater(field_ref("u32"), literal(3)))
+        .ExpectUnchanged();
   }
 
   Simplify{

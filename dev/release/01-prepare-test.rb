@@ -28,6 +28,8 @@ class PrepareTest < Test::Unit::TestCase
     Dir.mktmpdir do |dir|
       @test_git_repository = Pathname(dir) + "arrow"
       git("clone", @original_git_repository.to_s, @test_git_repository.to_s)
+      FileUtils.cp((top_dir + "dev" + "release" + ".env").to_s,
+                   (@test_git_repository + "dev" + "release").to_s)
       Dir.chdir(@test_git_repository) do
         @release_branch = "testing-release-#{@release_version}-rc0"
         git("checkout", "-b", @release_branch, @current_commit)
@@ -218,13 +220,6 @@ class PrepareTest < Test::Unit::TestCase
       ]
     end
     expected_changes += [
-      {
-        path: "js/package.json",
-        hunks: [
-          ["-  \"version\": \"#{@snapshot_version}\"",
-           "+  \"version\": \"#{@release_version}\""],
-        ],
-      },
       {
         path: "matlab/CMakeLists.txt",
         hunks: [

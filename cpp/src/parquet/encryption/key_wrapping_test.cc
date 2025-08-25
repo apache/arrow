@@ -86,14 +86,14 @@ class KeyWrappingTest : public ::testing::Test {
     FileKeyUnwrapper unwrapper(&key_toolkit, kms_connection_config_,
                                cache_entry_lifetime_seconds, readable_file_path,
                                file_system);
-    std::string footer_key = unwrapper.GetKey(key_metadata_json_footer);
+    SecureString footer_key = unwrapper.GetKeyById(key_metadata_json_footer);
     ASSERT_EQ(footer_key, kFooterEncryptionKey);
 
-    std::string column_key = unwrapper.GetKey(key_metadata_json_column);
+    SecureString column_key = unwrapper.GetKeyById(key_metadata_json_column);
     ASSERT_EQ(column_key, kColumnEncryptionKey1);
   }
 
-  std::unordered_map<std::string, std::string> key_list_;
+  std::unordered_map<std::string, SecureString> key_list_;
   KmsConnectionConfig kms_connection_config_;
 };
 

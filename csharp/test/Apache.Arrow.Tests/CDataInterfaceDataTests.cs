@@ -110,5 +110,34 @@ namespace Apache.Arrow.Tests
             }
             CArrowArray.Free(cArray);
         }
+
+        [Fact]
+        public unsafe void ExportRecordBatch_LargerThan2GB_Succeeds()
+        {
+            RecordBatch GetTestRecordBatch()
+            {
+                const int rows = 50_000;
+                var doubles = new double[rows];
+                for (var i = 0; i < rows; ++i)
+                {
+                    doubles[i] = i * 1.1;
+                }
+
+                var batchBuilder = new RecordBatch.Builder();
+                for (var i = 0; i < 10_000; i++)
+                {
+                    batchBuilder.Append($"doubles{i}", true, ab => ab.Double(b => b.Append(doubles)));
+                }
+
+                return batchBuilder.Build();
+            }
+
+            RecordBatch batch = GetTestRecordBatch();
+
+            CArrowArray* cArray = CArrowArray.Create();
+            CArrowArrayExporter.ExportRecordBatch(batch, cArray);
+
+            CArrowArray.Free(cArray);
+        }
     }
 }

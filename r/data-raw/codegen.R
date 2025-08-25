@@ -191,6 +191,7 @@ static const R_CallMethodDef CallEntries[] = {
   arrow::r::altrep::Init_Altrep_classes(dll);
   #endif
 
+  _arrow_compute__Initialize();
 }
 \n'
 )

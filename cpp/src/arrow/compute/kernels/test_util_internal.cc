@@ -172,6 +172,8 @@ void CheckScalar(std::string func_name, const DatumVector& inputs, Datum expecte
   }
 }
 
+namespace {
+
 Datum CheckDictionaryNonRecursive(const std::string& func_name, const DatumVector& args,
                                   bool result_is_encoded) {
   EXPECT_OK_AND_ASSIGN(Datum actual, CallFunction(func_name, args));
@@ -203,6 +205,8 @@ Datum CheckDictionaryNonRecursive(const std::string& func_name, const DatumVecto
   }
   return actual;
 }
+
+}  // namespace
 
 void CheckDictionary(const std::string& func_name, const DatumVector& args,
                      bool result_is_encoded) {
@@ -281,6 +285,11 @@ void CheckScalarBinaryCommutative(std::string func_name, Datum left_input,
   CheckScalar(func_name, {right_input, left_input}, expected, options);
 }
 
+void CheckDispatchExact(std::string func_name, std::vector<TypeHolder> types) {
+  ASSERT_OK_AND_ASSIGN(auto function, GetFunctionRegistry()->GetFunction(func_name));
+  ASSERT_OK(function->DispatchExact(types));
+}
+
 void CheckDispatchBest(std::string func_name, std::vector<TypeHolder> original_values,
                        std::vector<TypeHolder> expected_equivalent_values) {
   ASSERT_OK_AND_ASSIGN(auto function, GetFunctionRegistry()->GetFunction(func_name));
@@ -300,6 +309,11 @@ void CheckDispatchBest(std::string func_name, std::vector<TypeHolder> original_v
   for (size_t i = 0; i < values.size(); i++) {
     AssertTypeEqual(*values[i], *expected_equivalent_values[i]);
   }
+}
+
+void CheckDispatchExactFails(std::string func_name, std::vector<TypeHolder> types) {
+  ASSERT_OK_AND_ASSIGN(auto function, GetFunctionRegistry()->GetFunction(func_name));
+  ASSERT_NOT_OK(function->DispatchExact(types));
 }
 
 void CheckDispatchFails(std::string func_name, std::vector<TypeHolder> types) {

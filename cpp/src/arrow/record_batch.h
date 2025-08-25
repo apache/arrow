@@ -390,7 +390,7 @@ class ARROW_EXPORT RecordBatchReader {
     }
 
     Result<std::shared_ptr<RecordBatch>> operator*() {
-      ARROW_RETURN_NOT_OK(batch_.status());
+      ARROW_RETURN_NOT_OK(batch_);
 
       return batch_;
     }

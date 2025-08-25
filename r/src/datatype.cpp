@@ -81,6 +81,10 @@ const char* r6_class_name<arrow::DataType>::get(
     case Type::DURATION:
       return "DurationType";
 
+    case Type::DECIMAL32:
+      return "Decimal32Type";
+    case Type::DECIMAL64:
+      return "Decimal64Type";
     case Type::DECIMAL128:
       return "Decimal128Type";
     case Type::DECIMAL256:
@@ -180,6 +184,20 @@ std::shared_ptr<arrow::DataType> Date64__initialize() { return arrow::date64(); 
 
 // [[arrow::export]]
 std::shared_ptr<arrow::DataType> Null__initialize() { return arrow::null(); }
+
+// [[arrow::export]]
+std::shared_ptr<arrow::DataType> Decimal32Type__initialize(int32_t precision,
+                                                           int32_t scale) {
+  // Use the builder that validates inputs
+  return ValueOrStop(arrow::Decimal32Type::Make(precision, scale));
+}
+
+// [[arrow::export]]
+std::shared_ptr<arrow::DataType> Decimal64Type__initialize(int32_t precision,
+                                                           int32_t scale) {
+  // Use the builder that validates inputs
+  return ValueOrStop(arrow::Decimal64Type::Make(precision, scale));
+}
 
 // [[arrow::export]]
 std::shared_ptr<arrow::DataType> Decimal128Type__initialize(int32_t precision,

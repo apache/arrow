@@ -24,7 +24,7 @@ import pyarrow as pa
 from pyarrow.lib import (IpcReadOptions, IpcWriteOptions, ReadStats, WriteStats,  # noqa
                          Message, MessageReader,
                          RecordBatchReader, _ReadPandasMixin,
-                         MetadataVersion,
+                         MetadataVersion, Alignment,
                          read_message, read_record_batch, read_schema,
                          read_tensor, write_tensor,
                          get_record_batch_size, get_tensor_size)

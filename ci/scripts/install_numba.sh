@@ -19,14 +19,18 @@
 
 set -e
 
-if [ "$#" -ne 1 ]; then
-  echo "Usage: $0 <numba version>"
+if [ "$#" -ne 1 ] && [ "$#" -ne 2 ]; then
+  echo "Usage: $0 <numba version> [numba-cuda version]"
   exit 1
 fi
 
 numba=$1
 
 if [ -n "${ARROW_PYTHON_VENV:-}" ]; then
+  # We don't need to follow this external file.
+  # See also: https://www.shellcheck.net/wiki/SC1091
+  #
+  # shellcheck source=/dev/null
   . "${ARROW_PYTHON_VENV}/bin/activate"
 fi
 
@@ -35,5 +39,19 @@ if [ "${numba}" = "master" ]; then
 elif [ "${numba}" = "latest" ]; then
   pip install numba
 else
-  pip install numba==${numba}
+  pip install "numba==${numba}"
+fi
+
+if [ "$#" -eq 1 ]; then
+  exit 0
+fi
+
+numba_cuda=$2
+
+if [ "${numba_cuda}" = "master" ]; then
+  pip install https://github.com/NVIDIA/numba-cuda/archive/main.tar.gz#egg=numba-cuda
+elif [ "${numba_cuda}" = "latest" ]; then
+  pip install numba-cuda
+else
+  pip install "numba-cuda==${numba_cuda}"
 fi

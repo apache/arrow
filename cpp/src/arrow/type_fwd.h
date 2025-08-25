@@ -242,11 +242,16 @@ _NUMERIC_TYPE_DECL(UInt8)
 _NUMERIC_TYPE_DECL(UInt16)
 _NUMERIC_TYPE_DECL(UInt32)
 _NUMERIC_TYPE_DECL(UInt64)
-_NUMERIC_TYPE_DECL(HalfFloat)
 _NUMERIC_TYPE_DECL(Float)
 _NUMERIC_TYPE_DECL(Double)
 
 #undef _NUMERIC_TYPE_DECL
+
+class HalfFloatType;
+using HalfFloatArray = NumericArray<HalfFloatType>;
+class HalfFloatBuilder;
+struct HalfFloatScalar;
+using HalfFloatTensor = NumericTensor<HalfFloatType>;
 
 enum class DateUnit : char { DAY = 0, MILLI = 1 };
 

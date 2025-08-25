@@ -1,3 +1,4 @@
+
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -116,7 +117,7 @@ cdef class ChunkedArray(_PandasConvertible):
         return f"{type_format}\n{self}"
 
     def to_string(self, *, int indent=0, int window=5, int container_window=2,
-                  c_bool skip_new_lines=False):
+                  c_bool skip_new_lines=False, int element_size_limit=100):
         """
         Render a "pretty-printed" string representation of the ChunkedArray
 
@@ -137,6 +138,8 @@ cdef class ChunkedArray(_PandasConvertible):
         skip_new_lines : bool
             If the array should be rendered as a single line of text
             or if each element should be on its own line.
+        element_size_limit : int, default 100
+            Maximum number of characters of a single element before it is truncated.
 
         Examples
         --------
@@ -153,6 +156,7 @@ cdef class ChunkedArray(_PandasConvertible):
             options = PrettyPrintOptions(indent, window)
             options.skip_new_lines = skip_new_lines
             options.container_window = container_window
+            options.element_size_limit = element_size_limit
             check_status(
                 PrettyPrint(
                     deref(self.chunked_array),
@@ -4510,6 +4514,9 @@ cdef class Table(_Tabular):
         All the underlying chunks in the ChunkedArray of each column are
         concatenated into zero or one chunk.
 
+        To avoid buffer overflow, binary columns may be combined into
+        multiple chunks. Chunks will have the maximum possible length.
+
         Parameters
         ----------
         memory_pool : MemoryPool, default None
@@ -5631,7 +5638,7 @@ cdef class Table(_Tabular):
 
     def join(self, right_table, keys, right_keys=None, join_type="left outer",
              left_suffix=None, right_suffix=None, coalesce_keys=True,
-             use_threads=True):
+             use_threads=True, filter_expression=None):
         """
         Perform a join between this table and another one.
 
@@ -5665,6 +5672,8 @@ cdef class Table(_Tabular):
             in the join result.
         use_threads : bool, default True
             Whether to use multithreading or not.
+        filter_expression : pyarrow.compute.Expression
+            Residual filter which is applied to matching row.
 
         Returns
         -------
@@ -5674,6 +5683,7 @@ cdef class Table(_Tabular):
         --------
         >>> import pandas as pd
         >>> import pyarrow as pa
+        >>> import pyarrow.compute as pc
         >>> df1 = pd.DataFrame({'id': [1, 2, 3],
         ...                     'year': [2020, 2022, 2019]})
         >>> df2 = pd.DataFrame({'id': [3, 4],
@@ -5724,7 +5734,7 @@ cdef class Table(_Tabular):
         n_legs: [[5,100]]
         animal: [["Brittle stars","Centipede"]]
 
-        Right anti join
+        Right anti join:
 
         >>> t1.join(t2, 'id', join_type="right anti")
         pyarrow.Table
@@ -5735,6 +5745,20 @@ cdef class Table(_Tabular):
         id: [[4]]
         n_legs: [[100]]
         animal: [["Centipede"]]
+
+        Inner join with intended mismatch filter expression:
+
+        >>> t1.join(t2, 'id', join_type="inner", filter_expression=pc.equal(pc.field("n_legs"), 100))
+        pyarrow.Table
+        id: int64
+        year: int64
+        n_legs: int64
+        animal: string
+        ----
+        id: []
+        year: []
+        n_legs: []
+        animal: []
         """
         self._assert_cpu()
         if right_keys is None:
@@ -5743,7 +5767,8 @@ cdef class Table(_Tabular):
             join_type, self, keys, right_table, right_keys,
             left_suffix=left_suffix, right_suffix=right_suffix,
             use_threads=use_threads, coalesce_keys=coalesce_keys,
-            output_type=Table
+            output_type=Table,
+            filter_expression=filter_expression,
         )
 
     def join_asof(self, right_table, on, by, tolerance, right_on=None, right_by=None):
@@ -5769,7 +5794,8 @@ cdef class Table(_Tabular):
             of the join operation left side.
 
             An inexact match is used on the "on" key, i.e. a row is considered a
-            match if and only if left_on - tolerance <= right_on <= left_on.
+            match if and only if ``right.on - left.on`` is in the range
+            ``[min(0, tolerance), max(0, tolerance)]``.
 
             The input dataset must be sorted by the "on" key. Must be a single
             field of a common type.
@@ -5781,12 +5807,15 @@ cdef class Table(_Tabular):
             only for the matches in these columns.
         tolerance : int
             The tolerance for inexact "on" key matching. A right row is considered
-            a match with the left row ``right.on - left.on <= tolerance``. The
-            ``tolerance`` may be:
+            a match with a left row if ``right.on - left.on`` is in the range
+            ``[min(0, tolerance), max(0, tolerance)]``. ``tolerance`` may be:
 
-            - negative, in which case a past-as-of-join occurs;
-            - or positive, in which case a future-as-of-join occurs;
-            - or zero, in which case an exact-as-of-join occurs.
+            - negative, in which case a past-as-of-join occurs
+              (match iff ``tolerance <= right.on - left.on <= 0``);
+            - or positive, in which case a future-as-of-join occurs
+              (match iff ``0 <= right.on - left.on <= tolerance``);
+            - or zero, in which case an exact-as-of-join occurs
+              (match iff ``right.on == left.on``).
 
             The tolerance is interpreted in the same units as the "on" key.
         right_on : str or list[str], default None
@@ -6282,12 +6311,9 @@ def concat_tables(tables, MemoryPool memory_pool=None, str promote_options="none
     for table in tables:
         c_tables.push_back(table.sp_table)
 
-    if promote_options == "permissive":
-        options.field_merge_options = CField.CMergeOptions.Permissive()
-    elif promote_options in {"default", "none"}:
-        options.field_merge_options = CField.CMergeOptions.Defaults()
-    else:
-        raise ValueError(f"Invalid promote options: {promote_options}")
+    options.field_merge_options = _parse_field_merge_options(
+        "default" if promote_options == "none" else promote_options
+    )
 
     with nogil:
         options.unify_schemas = promote_options != "none"

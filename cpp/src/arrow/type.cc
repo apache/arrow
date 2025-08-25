@@ -1329,9 +1329,9 @@ bool RunEndEncodedType::RunEndTypeValid(const DataType& run_end_type) {
 
 namespace {
 
-std::unordered_multimap<std::string, int> CreateNameToIndexMap(
+std::unordered_multimap<std::string_view, int> CreateNameToIndexMap(
     const FieldVector& fields) {
-  std::unordered_multimap<std::string, int> name_to_index;
+  std::unordered_multimap<std::string_view, int> name_to_index;
   for (size_t i = 0; i < fields.size(); ++i) {
     name_to_index.emplace(fields[i]->name(), static_cast<int>(i));
   }
@@ -1339,8 +1339,8 @@ std::unordered_multimap<std::string, int> CreateNameToIndexMap(
 }
 
 template <int NotFoundValue = -1, int DuplicateFoundValue = -1>
-int LookupNameIndex(const std::unordered_multimap<std::string, int>& name_to_index,
-                    const std::string& name) {
+int LookupNameIndex(const std::unordered_multimap<std::string_view, int>& name_to_index,
+                    std::string_view name) {
   auto p = name_to_index.equal_range(name);
   auto it = p.first;
   if (it == p.second) {
@@ -1362,7 +1362,7 @@ class StructType::Impl {
   explicit Impl(const FieldVector& fields)
       : name_to_index_(CreateNameToIndexMap(fields)) {}
 
-  const std::unordered_multimap<std::string, int> name_to_index_;
+  const std::unordered_multimap<std::string_view, int> name_to_index_;
 };
 
 StructType::StructType(const FieldVector& fields)
@@ -2150,7 +2150,7 @@ std::vector<FieldPath> FieldRef::FindAll(const FieldVector& fields) const {
       auto maybe_field =
           FieldPathGetImpl::Get(&path, FieldSelector(fields_), &out_of_range_depth);
 
-      DCHECK_OK(maybe_field.status());
+      DCHECK_OK(maybe_field);
 
       if (maybe_field.ValueOrDie() != nullptr) {
         return {path};
@@ -2188,7 +2188,7 @@ std::vector<FieldPath> FieldRef::FindAll(const FieldVector& fields) const {
       void Add(const FieldPath& prefix, const FieldPath& suffix,
                const FieldVector& fields) {
         auto maybe_field = suffix.Get(fields);
-        DCHECK_OK(maybe_field.status());
+        DCHECK_OK(maybe_field);
         referents.push_back(std::move(maybe_field).ValueOrDie());
 
         std::vector<int> concatenated_indices(prefix.indices().size() +
@@ -2279,7 +2279,7 @@ class Schema::Impl {
 
   FieldVector fields_;
   Endianness endianness_;
-  std::unordered_multimap<std::string, int> name_to_index_;
+  std::unordered_multimap<std::string_view, int> name_to_index_;
   std::shared_ptr<const KeyValueMetadata> metadata_;
 };
 
@@ -2363,16 +2363,16 @@ bool Schema::Equals(const std::shared_ptr<Schema>& other, bool check_metadata) c
   return Equals(*other, check_metadata);
 }
 
-std::shared_ptr<Field> Schema::GetFieldByName(const std::string& name) const {
+std::shared_ptr<Field> Schema::GetFieldByName(std::string_view name) const {
   int i = GetFieldIndex(name);
   return i == -1 ? nullptr : impl_->fields_[i];
 }
 
-int Schema::GetFieldIndex(const std::string& name) const {
+int Schema::GetFieldIndex(std::string_view name) const {
   return LookupNameIndex(impl_->name_to_index_, name);
 }
 
-std::vector<int> Schema::GetAllFieldIndices(const std::string& name) const {
+std::vector<int> Schema::GetAllFieldIndices(std::string_view name) const {
   std::vector<int> result;
   auto p = impl_->name_to_index_.equal_range(name);
   for (auto it = p.first; it != p.second; ++it) {
@@ -2384,7 +2384,7 @@ std::vector<int> Schema::GetAllFieldIndices(const std::string& name) const {
   return result;
 }
 
-Status Schema::CanReferenceFieldByName(const std::string& name) const {
+Status Schema::CanReferenceFieldByName(std::string_view name) const {
   if (GetFieldByName(name) == nullptr) {
     return Status::Invalid("Field named '", name,
                            "' not found or not unique in the schema.");
@@ -2399,7 +2399,7 @@ Status Schema::CanReferenceFieldsByNames(const std::vector<std::string>& names) 
   return Status::OK();
 }
 
-FieldVector Schema::GetAllFieldsByName(const std::string& name) const {
+FieldVector Schema::GetAllFieldsByName(std::string_view name) const {
   FieldVector result;
   auto p = impl_->name_to_index_.equal_range(name);
   for (auto it = p.first; it != p.second; ++it) {
@@ -2580,7 +2580,7 @@ class SchemaBuilder::Impl {
 
  private:
   FieldVector fields_;
-  std::unordered_multimap<std::string, int> name_to_index_;
+  std::unordered_multimap<std::string_view, int> name_to_index_;
   std::shared_ptr<const KeyValueMetadata> metadata_;
   ConflictPolicy policy_;
   Field::MergeOptions field_merge_options_;
@@ -2641,7 +2641,8 @@ Status SchemaBuilder::AddSchemas(const std::vector<std::shared_ptr<Schema>>& sch
 }
 
 Status SchemaBuilder::AddMetadata(const KeyValueMetadata& metadata) {
-  impl_->metadata_ = metadata.Copy();
+  impl_->metadata_ =
+      impl_->metadata_ ? impl_->metadata_->Merge(metadata) : metadata.Copy();
   return Status::OK();
 }
 
@@ -3225,12 +3226,6 @@ std::shared_ptr<DataType> map(std::shared_ptr<DataType> key_type,
                                    keys_sorted);
 }
 
-std::shared_ptr<DataType> map(std::shared_ptr<Field> key_field,
-                              std::shared_ptr<Field> item_field, bool keys_sorted) {
-  return std::make_shared<MapType>(std::move(key_field), std::move(item_field),
-                                   keys_sorted);
-}
-
 std::shared_ptr<DataType> fixed_size_list(std::shared_ptr<DataType> value_type,
                                           int32_t list_size) {
   return std::make_shared<FixedSizeListType>(std::move(value_type), list_size);
@@ -3288,6 +3283,8 @@ std::shared_ptr<DataType> dense_union(FieldVector child_fields,
   return std::make_shared<DenseUnionType>(std::move(child_fields), std::move(type_codes));
 }
 
+namespace {
+
 FieldVector FieldsFromArraysAndNames(std::vector<std::string> names,
                                      const ArrayVector& arrays) {
   FieldVector fields(arrays.size());
@@ -3306,6 +3303,8 @@ FieldVector FieldsFromArraysAndNames(std::vector<std::string> names,
   }
   return fields;
 }
+
+}  // namespace
 
 std::shared_ptr<DataType> sparse_union(const ArrayVector& children,
                                        std::vector<std::string> field_names,
