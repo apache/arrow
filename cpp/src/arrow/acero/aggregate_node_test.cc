@@ -649,7 +649,7 @@ TEST(ExecPlanExecution, SequenceQueueBackpressure) {
   ARROW_EXPECT_OK(
       acero::Declaration::Sequence(
           {
-              {"source", SourceNodeOptions(schema_, batch_producer, order)},
+              {"source", SourceNodeOptions(schema_, batch_producer)},
               {"backpressure", options},
               {"aggregate",
                AggregateNodeOptions{/*aggregates=*/
@@ -685,7 +685,6 @@ TEST(ExecPlanExecution, SequenceQueueBackpressure) {
   SleepABit();
   // we let the precesses run
   BusyWait(5, [&] { return options.is_paused(); });
-  SleepABit();
   //  at this point Node shoule trigger backpressure Pause signal.
   ASSERT_TRUE(options.is_paused());
 
@@ -701,7 +700,6 @@ TEST(ExecPlanExecution, SequenceQueueBackpressure) {
   }
   SleepABit();
   BusyWait(5, [&] { return options.is_paused(); });
-  SleepABit();
   // BackPressure should also be triggered since we will push like 20+ batches which
   // will tiger the back pressure
   ASSERT_TRUE(options.is_paused());

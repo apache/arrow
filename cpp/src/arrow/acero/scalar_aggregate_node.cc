@@ -230,13 +230,26 @@ Result<ExecNode*> ScalarAggregateNode::Make(ExecPlan* plan, std::vector<ExecNode
 }
 
 Status ScalarAggregateNode::Init() {
+  auto backpressure_controller_ =
+      std::make_unique<BackpressureController>(inputs_[0], this, backpressure_counter_);
+  backpressure_combiner_ =
+      std::make_unique<BackpressureCombiner>(std::move(backpressure_controller_));
+
+  if (segmenter_->key_types().size() == 0) {
+    backpressure_source_output_ = std::make_unique<BackpressureCombiner::Source>(nullptr);
+  } else {
+    backpressure_source_output_ =
+        std::make_unique<BackpressureCombiner::Source>(backpressure_combiner_.get());
+  }
+
   if (!ordering_.is_unordered()) {
+    auto backpressure_source_sequencer_ =
+        std::make_unique<BackpressureCombiner::Source>(backpressure_combiner_.get());
+
     constexpr size_t low_threshold = 4, high_threshold = 8;
-    std::unique_ptr<arrow::acero::BackpressureControl> backpressure_control =
-        std::make_unique<BackpressureController>(inputs_[0], this);
-    ARROW_ASSIGN_OR_RAISE(auto handler,
-                          BackpressureHandler::Make(this, low_threshold, high_threshold,
-                                                    std::move(backpressure_control)));
+    ARROW_ASSIGN_OR_RAISE(auto handler, BackpressureHandler::Make(
+                                            this, low_threshold, high_threshold,
+                                            std::move(backpressure_source_sequencer_)));
 
     processor_ = acero::util::SerialSequencingQueue::Processor::MakeBackpressureWrapper(
         this, std::move(handler), plan_, false);

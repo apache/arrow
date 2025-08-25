@@ -30,6 +30,7 @@
 
 #include "arrow/acero/accumulation_queue.h"
 #include "arrow/acero/aggregate_node.h"
+#include "arrow/acero/backpressure.h"
 #include "arrow/acero/backpressure_handler.h"
 #include "arrow/acero/exec_plan.h"
 #include "arrow/acero/options.h"
@@ -87,20 +88,6 @@ using compute::Segment;
 
 namespace acero {
 namespace aggregate {
-
-class BackpressureController : public BackpressureControl {
- public:
-  BackpressureController(ExecNode* node, ExecNode* output)
-      : node_(node), output_(output) {}
-
-  void Pause() override { node_->PauseProducing(output_, ++backpressure_counter_); }
-  void Resume() override { node_->ResumeProducing(output_, ++backpressure_counter_); }
-
- private:
-  ExecNode* node_;
-  ExecNode* output_;
-  std::atomic<int32_t> backpressure_counter_;
-};
 
 template <typename KernelType>
 struct AggregateNodeArgs {
@@ -230,11 +217,11 @@ class ScalarAggregateNode : public ExecNode,
   }
 
   void PauseProducing(ExecNode* output, int32_t counter) override {
-    inputs_[0]->PauseProducing(this, counter);
+    backpressure_source_output_->Pause();
   }
 
   void ResumeProducing(ExecNode* output, int32_t counter) override {
-    inputs_[0]->ResumeProducing(this, counter);
+    backpressure_source_output_->Resume();
   }
 
   Status StopProducingImpl() override { return Status::OK(); }
@@ -268,6 +255,9 @@ class ScalarAggregateNode : public ExecNode,
   int64_t total_output_batches_;
   std::unique_ptr<acero::util::SerialSequencingQueue> sequencer_;
   std::unique_ptr<Processor> processor_;
+  std::unique_ptr<BackpressureCombiner> backpressure_combiner_;
+  std::unique_ptr<BackpressureCombiner::Source> backpressure_source_output_;
+  std::atomic<int32_t> backpressure_counter_ = {0};
   Ordering ordering_;
 };
 
@@ -335,11 +325,13 @@ class GroupByNode : public ExecNode,
   const Ordering& ordering() const override { return ordering_; }
 
   void PauseProducing(ExecNode* output, int32_t counter) override {
+    backpressure_source_output_->Pause();
     // TODO(ARROW-16260)
     // Without spillover there is no way to handle backpressure in this node
   }
 
   void ResumeProducing(ExecNode* output, int32_t counter) override {
+    backpressure_source_output_->Resume();
     // TODO(ARROW-16260)
     // Without spillover there is no way to handle backpressure in this node
   }
@@ -394,6 +386,11 @@ class GroupByNode : public ExecNode,
   ExecBatch out_data_;
   std::unique_ptr<acero::util::SerialSequencingQueue> sequencer_;
   std::unique_ptr<Processor> processor_;
+
+  std::unique_ptr<BackpressureCombiner> backpressure_combiner_;
+  std::unique_ptr<BackpressureCombiner::Source> backpressure_source_output_;
+  std::atomic<int32_t> backpressure_counter_ = {0};
+
   Ordering ordering_;
 };
 
