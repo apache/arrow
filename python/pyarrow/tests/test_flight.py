@@ -114,12 +114,12 @@ def simple_ints_table():
 
 def simple_dicts_table():
     dict_values = pa.array(["foo", "baz", "quux"], type=pa.utf8())
-    new_dict_values = pa.array(["bar", "qux"], type=pa.utf8())
+    new_dict_values = pa.array(["foo", "baz", "quux", "new"], type=pa.utf8())
     data = [
         pa.chunked_array([
             pa.DictionaryArray.from_arrays([1, 0, None], dict_values),
             pa.DictionaryArray.from_arrays([2, 1], dict_values),
-            pa.DictionaryArray.from_arrays([0, 1], new_dict_values)
+            pa.DictionaryArray.from_arrays([0, 3], new_dict_values)
         ])
     ]
     return pa.Table.from_arrays(data, names=['some_dicts'])
@@ -2536,3 +2536,39 @@ def test_headers_trailers():
         assert ("x-header-bin", b"header\x01value") in factory.headers
         assert ("x-trailer", "trailer-value") in factory.headers
         assert ("x-trailer-bin", b"trailer\x01value") in factory.headers
+
+
+def test_flight_dictionary_deltas_do_exchange():
+    class DeltaFlightServer(ConstantFlightServer):
+        def do_exchange(self, context, descriptor, reader, writer):
+            if descriptor.command == b'dict_deltas':
+                expected_table = simple_dicts_table()
+                received_table = reader.read_all()
+                assert received_table.equals(expected_table)
+
+                options = pa.ipc.IpcWriteOptions(emit_dictionary_deltas=True)
+                writer.begin(expected_table.schema, options=options)
+                # TODO: GH-47422: Inspect ReaderStats once exposed and validate deltas
+                writer.write_table(expected_table)
+
+    with DeltaFlightServer() as server, \
+            FlightClient(('localhost', server.port)) as client:
+        expected_table = simple_dicts_table()
+
+        descriptor = flight.FlightDescriptor.for_command(b"dict_deltas")
+        writer, reader = client.do_exchange(descriptor,
+                                            options=flight.FlightCallOptions(
+                                                write_options=pa.ipc.IpcWriteOptions(
+                                                    emit_dictionary_deltas=True)
+                                            )
+                                            )
+        # Send client table with dictionary updates (deltas should be sent)
+        with writer:
+            writer.begin(expected_table.schema, options=pa.ipc.IpcWriteOptions(
+                emit_dictionary_deltas=True))
+            writer.write_table(expected_table)
+            writer.done_writing()
+            received_table = reader.read_all()
+
+        # TODO: GH-47422: Inspect ReaderStats once exposed and validate deltas
+        assert received_table.equals(expected_table)
