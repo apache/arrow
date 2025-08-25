@@ -1118,6 +1118,7 @@ ExecFactoryRegistry* default_exec_factory_registry() {
       internal::RegisterHashJoinNode(this);
       internal::RegisterAsofJoinNode(this);
       internal::RegisterSortedMergeNode(this);
+      internal::RegisterPipeNodes(this);
     }
 
     Result<Factory> GetFactory(const std::string& factory_name) override {
