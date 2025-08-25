@@ -2548,6 +2548,7 @@ def test_flight_dictionary_deltas_do_exchange():
 
                 options = pa.ipc.IpcWriteOptions(emit_dictionary_deltas=True)
                 writer.begin(expected_table.schema, options=options)
+                # TODO: GH-47422: Inspect ReaderStats once exposed and validate deltas
                 writer.write_table(expected_table)
 
     with DeltaFlightServer() as server, \
@@ -2569,4 +2570,5 @@ def test_flight_dictionary_deltas_do_exchange():
             writer.done_writing()
             received_table = reader.read_all()
 
+        # TODO: GH-47422: Inspect ReaderStats once exposed and validate deltas
         assert received_table.equals(expected_table)
