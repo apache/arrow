@@ -228,7 +228,9 @@ class TransportMessageWriter final : public FlightMessageWriter {
     payload.app_metadata = app_metadata;
     ARROW_ASSIGN_OR_RAISE(auto success, stream_->WriteData(payload));
     if (!success) {
-      return Close();
+      ARROW_RETURN_NOT_OK(Close());
+      return MakeFlightError(FlightStatusCode::Internal,
+                             "Could not write metadata to stream (client disconnect?)");
     }
     // Those messages are not written through the batch writer,
     // count them separately to include them in the stats.
