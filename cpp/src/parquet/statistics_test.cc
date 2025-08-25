@@ -320,9 +320,11 @@ class TestStatistics : public PrimitiveTypedTest<TestType> {
     std::string encoded_min = statistics1->EncodeMin();
     std::string encoded_max = statistics1->EncodeMax();
 
-    auto statistics2 = MakeStatistics<TestType>(this->schema_.Column(0), encoded_min,
-                                                encoded_max, this->values_.size(), 0, 0,
-                                                true, true, true, true, true);
+    auto statistics2 = MakeStatistics<TestType>(
+        this->schema_.Column(0), encoded_min, encoded_max, this->values_.size(),
+        /*null_count=*/0, /*distinct_count=*/0,
+        /*has_min_max=*/true, /*has_null_count=*/true, /*has_distinct_count=*/true,
+        /*is_min_value_exact=*/true, /*is_max_value_exact=*/true);
 
     auto statistics3 = MakeStatistics<TestType>(this->schema_.Column(0));
     std::vector<uint8_t> valid_bits(
@@ -332,18 +334,29 @@ class TestStatistics : public PrimitiveTypedTest<TestType> {
     std::string encoded_min_spaced = statistics3->EncodeMin();
     std::string encoded_max_spaced = statistics3->EncodeMax();
 
+    // Use old API without is_{min/max}_value_exact
+    auto statistics4 = MakeStatistics<TestType>(
+        this->schema_.Column(0), encoded_min, encoded_max, this->values_.size(),
+        /*null_count=*/0, /*distinct_count=*/0,
+        /*has_min_max=*/true, /*has_null_count=*/true, /*has_distinct_count=*/true);
     ASSERT_EQ(encoded_min, statistics2->EncodeMin());
     ASSERT_EQ(encoded_max, statistics2->EncodeMax());
     ASSERT_EQ(statistics1->min(), statistics2->min());
     ASSERT_EQ(statistics1->max(), statistics2->max());
-    ASSERT_EQ(statistics1->is_min_value_exact(), statistics2->is_min_value_exact());
-    ASSERT_EQ(statistics1->is_max_value_exact(), statistics2->is_max_value_exact());
+    ASSERT_EQ(statistics1->is_min_value_exact(), std::make_optional(true));
+    ASSERT_EQ(statistics1->is_max_value_exact(), std::make_optional(true));
+    ASSERT_EQ(statistics2->is_min_value_exact(), std::make_optional(true));
+    ASSERT_EQ(statistics2->is_max_value_exact(), std::make_optional(true));
     ASSERT_EQ(encoded_min_spaced, statistics2->EncodeMin());
     ASSERT_EQ(encoded_max_spaced, statistics2->EncodeMax());
     ASSERT_EQ(statistics3->min(), statistics2->min());
     ASSERT_EQ(statistics3->max(), statistics2->max());
-    ASSERT_EQ(statistics3->is_min_value_exact(), statistics2->is_min_value_exact());
-    ASSERT_EQ(statistics3->is_max_value_exact(), statistics2->is_max_value_exact());
+    ASSERT_EQ(statistics3->is_min_value_exact(), std::make_optional(true));
+    ASSERT_EQ(statistics3->is_max_value_exact(), std::make_optional(true));
+    ASSERT_EQ(statistics4->min(), statistics2->min());
+    ASSERT_EQ(statistics4->max(), statistics2->max());
+    ASSERT_EQ(statistics4->is_min_value_exact(), std::nullopt);
+    ASSERT_EQ(statistics4->is_max_value_exact(), std::nullopt);
   }
 
   void TestReset() {
@@ -556,9 +569,12 @@ void TestStatistics<ByteArrayType>::TestMinMaxEncode() {
             std::string(reinterpret_cast<const char*>(statistics1->max().ptr),
                         statistics1->max().len));
 
-  auto statistics2 = MakeStatistics<ByteArrayType>(this->schema_.Column(0), encoded_min,
-                                                   encoded_max, this->values_.size(), 0,
-                                                   0, true, true, true, true, true);
+  auto statistics2 = MakeStatistics<ByteArrayType>(
+      this->schema_.Column(0), encoded_min, encoded_max, this->values_.size(),
+      /*null_count=*/0,
+      /*distinct_count=*/0, /*has_min_max=*/true, /*has_null_count=*/true,
+      /*has_distinct_count=*/true, /*is_min_value_exact=*/true,
+      /*is_max_value_exact=*/true);
 
   ASSERT_EQ(encoded_min, statistics2->EncodeMin());
   ASSERT_EQ(encoded_max, statistics2->EncodeMax());
@@ -1648,7 +1664,7 @@ TEST(TestStatisticsSortOrderMinMax, Unsigned) {
 }
 
 // Test statistics for binary column with truncated max and min values
-TEST(TestStatisticsTruncatedMinMax, Unsigned) {
+TEST(TestEncodedStatistics, TruncatedMinMax) {
   std::string dir_string(test::get_data_dir());
   std::stringstream ss;
   ss << dir_string << "/binary_truncated_min_max.parquet";
