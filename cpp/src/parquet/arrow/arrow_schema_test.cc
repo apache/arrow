@@ -1794,31 +1794,34 @@ TEST_F(TestConvertArrowSchema, ParquetTimeAdjustedToUTC) {
     int physical_length;
   };
 
-  auto run_test = [this](const std::shared_ptr<ArrowWriterProperties>& arrow_writer_properties, bool time_adjusted_to_utc) {
-    std::vector<FieldConstructionArguments> cases = {
-        {"time32", ::arrow::time32(::arrow::TimeUnit::MILLI),
-         LogicalType::Time(time_adjusted_to_utc, LogicalType::TimeUnit::MILLIS),
-         ParquetType::INT32, -1},
-        {"time64(microsecond)", ::arrow::time64(::arrow::TimeUnit::MICRO),
-         LogicalType::Time(time_adjusted_to_utc, LogicalType::TimeUnit::MICROS),
-         ParquetType::INT64, -1},
-        {"time64(nanosecond)", ::arrow::time64(::arrow::TimeUnit::NANO),
-         LogicalType::Time(time_adjusted_to_utc, LogicalType::TimeUnit::NANOS),
-         ParquetType::INT64, -1}};
+  auto run_test =
+      [this](const std::shared_ptr<ArrowWriterProperties>& arrow_writer_properties,
+             bool time_adjusted_to_utc) {
+        std::vector<FieldConstructionArguments> cases = {
+            {"time32", ::arrow::time32(::arrow::TimeUnit::MILLI),
+             LogicalType::Time(time_adjusted_to_utc, LogicalType::TimeUnit::MILLIS),
+             ParquetType::INT32, -1},
+            {"time64(microsecond)", ::arrow::time64(::arrow::TimeUnit::MICRO),
+             LogicalType::Time(time_adjusted_to_utc, LogicalType::TimeUnit::MICROS),
+             ParquetType::INT64, -1},
+            {"time64(nanosecond)", ::arrow::time64(::arrow::TimeUnit::NANO),
+             LogicalType::Time(time_adjusted_to_utc, LogicalType::TimeUnit::NANOS),
+             ParquetType::INT64, -1}};
 
-    std::vector<std::shared_ptr<Field>> arrow_fields;
-    std::vector<NodePtr> parquet_fields;
-    for (const FieldConstructionArguments& c : cases) {
-      arrow_fields.push_back(::arrow::field(c.name, c.datatype, false));
-      parquet_fields.push_back(PrimitiveNode::Make(c.name, Repetition::REQUIRED,
-                                                   c.logical_type, c.physical_type,
-                                                   c.physical_length));
-    }
+        std::vector<std::shared_ptr<Field>> arrow_fields;
+        std::vector<NodePtr> parquet_fields;
+        for (const FieldConstructionArguments& c : cases) {
+          arrow_fields.push_back(::arrow::field(c.name, c.datatype, false));
+          parquet_fields.push_back(PrimitiveNode::Make(c.name, Repetition::REQUIRED,
+                                                       c.logical_type, c.physical_type,
+                                                       c.physical_length));
+        }
 
-    EXPECT_EQ(arrow_writer_properties->write_time_adjusted_to_utc(), time_adjusted_to_utc);
-    ASSERT_OK(ConvertSchema(arrow_fields, arrow_writer_properties));
-    CheckFlatSchema(parquet_fields);
-  };
+        EXPECT_EQ(arrow_writer_properties->write_time_adjusted_to_utc(),
+                  time_adjusted_to_utc);
+        ASSERT_OK(ConvertSchema(arrow_fields, arrow_writer_properties));
+        CheckFlatSchema(parquet_fields);
+      };
 
   // Verify write_time_adjusted_to_utc is false by default.
   ArrowWriterProperties::Builder builder;
@@ -1830,7 +1833,6 @@ TEST_F(TestConvertArrowSchema, ParquetTimeAdjustedToUTC) {
 
   arrow_writer_properties = builder.set_time_adjusted_to_utc(false)->build();
   run_test(arrow_writer_properties, false);
-
 }
 
 class TestConvertRoundTrip : public ::testing::Test {

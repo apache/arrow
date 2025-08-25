@@ -1257,7 +1257,8 @@ class PARQUET_EXPORT ArrowWriterProperties {
       return this;
     }
 
-    /// \brief Sets whether TIME annotations have isAdjustedTOUTC=false or isAdjustedToUTC=true.
+    /// \brief Sets whether TIME annotations have isAdjustedTOUTC=false or
+    /// isAdjustedToUTC=true.
     ///
     /// Default is false.
     Builder* set_time_adjusted_to_utc(bool adjusted) {
