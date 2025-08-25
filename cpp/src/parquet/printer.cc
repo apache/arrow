@@ -176,10 +176,10 @@ void ParquetFilePrinter::DebugPrint(std::ostream& stream, std::list<int> selecte
                 : "unknown";
         stream << ", Null Values: " << stats->null_count
                << ", Distinct Values: " << stats->distinct_count << std::endl
-               << "  Max (exact: " << max_exact
-               << "): " << FormatStatValue(descr->physical_type(), max, descr->logical_type())
-               << ", Min (exact: " << min_exact
-               << "): " << FormatStatValue(descr->physical_type(), min, descr->logical_type());
+               << "  Max (exact: " << max_exact << "): "
+               << FormatStatValue(descr->physical_type(), max, descr->logical_type())
+               << ", Min (exact: " << min_exact << "): "
+               << FormatStatValue(descr->physical_type(), min, descr->logical_type());
       } else {
         stream << "  Statistics Not Set";
       }
