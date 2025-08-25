@@ -182,8 +182,9 @@ class TransportMessagePayloadWriter : public ipc::internal::IpcPayloadWriter {
     }
     ARROW_ASSIGN_OR_RAISE(auto success, stream_->WriteData(payload));
     if (!success) {
-      return arrow::Status(arrow::StatusCode::IOError,
-                           "Could not write record batch to stream");
+      return MakeFlightError(
+          FlightStatusCode::Internal,
+          "Could not write record batch to stream (client disconnect?)");
     }
     return arrow::Status::OK();
   }
