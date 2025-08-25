@@ -45,7 +45,7 @@
   if you were building the R package from source with different R package and Arrow C++ versions.
 - Require CMake 3.25 or greater in bundled build script for full-source builds (#46834). This shouldn't affect most users.
 
-# arrow 20.0.0.1
+# arrow 20.0.0.2
 
 ## Minor improvements and fixes
 
