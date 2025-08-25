@@ -435,7 +435,7 @@ constexpr int32_t ParseLeadingLEB128(uint8_t const* data, int32_t max_data_size,
   // Read as many bytes as the could be for the give output
   for (int32_t i = 0; i < MaxLEB128ByteLenFor<Int>; i++) {
     // We have not finished reading a valid LEB128, yet we run out of data
-    if (i >= max_data_size) {
+    if (ARROW_PREDICT_FALSE(i >= max_data_size)) {
       return 0;
     }
 
