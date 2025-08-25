@@ -3,14 +3,14 @@
 #include <gtest/gtest.h>
 
 #include "parquet/encryption/encryption.h"
-#include "parquet/encryption/external_dbpa_encryption_adapter.h"
+#include "parquet/encryption/external_dbpa_encryption.h"
 
 /// TODO(sbrenes): Add proper testing. Right now we are just going to test that the
 /// encryptor and decryptor are created and that the plaintext is returned as the ciphertext.
 
 namespace parquet::encryption::test {
 
-class ExternalDBPAEncryptionAdapterTest : public ::testing::Test {
+class ExternalDBPAEncryptorAdapterTest : public ::testing::Test {
  protected:
   void SetUp() override {
     app_context_ = 
@@ -64,7 +64,7 @@ private:
  std::map<std::string, std::string> connection_config_;
 };
 
-TEST_F(ExternalDBPAEncryptionAdapterTest, RoundtripEncryptionSucceeds) {
+TEST_F(ExternalDBPAEncryptorAdapterTest, RoundtripEncryptionSucceeds) {
   ParquetCipher::type algorithm = ParquetCipher::EXTERNAL_DBPA_V1;
   std::string column_name = "employee_name";
   std::string key_id = "employee_name_key";

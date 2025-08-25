@@ -232,19 +232,21 @@ TEST_F(TestEncryptionConfiguration, EncryptOneColumnAndUseExternalDBPA) {
 
     encryption_cols[path_to_double_field_] = encryption_col_builder.build();
 
-    parquet::FileEncryptionProperties::Builder file_encryption_builder(
+    parquet::ExternalFileEncryptionProperties::Builder file_encryption_builder(
         kFooterEncryptionKey_);
+    file_encryption_builder.connection_config({
+            {parquet::ParquetCipher::EXTERNAL_DBPA_V1, {
+                {"file_path", "/tmp/test"},
+                {"other_config", "value"}
+            }}
+        });
 
-    try {
+    EXPECT_NO_THROW(
         this->EncryptFile(file_encryption_builder.footer_key_metadata("kf")
                             ->encrypted_columns(encryption_cols)
                             ->algorithm(parquet::ParquetCipher::EXTERNAL_DBPA_V1)
-                            ->build(),
-                        "tmp_encrypt_one_column_and_use_external_dbpa.parquet.encrypted");
-        FAIL() << "Expected ParquetException was not thrown";
-    } catch (const parquet::ParquetException& e) {
-        EXPECT_STREQ("Crypto algorithm 2 is not supported", e.what());
-    } 
+                            ->build_external(),
+                        "tmp_encrypt_one_column_and_use_external_dbpa.parquet.encrypted"));
 }
 
 // Set temp_dir before running the write/read tests. The encrypted files will

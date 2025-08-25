@@ -42,7 +42,7 @@ def write_parquet(table, location, encryption_config=None):
 
     if encryption_config:
         crypto_factory = ppe.CryptoFactory(kms_client_factory)
-        encryption_properties = crypto_factory.file_encryption_properties(
+        encryption_properties = crypto_factory.external_file_encryption_properties(
             get_kms_connection_config(), encryption_config)
 
     writer = pp.ParquetWriter(location, table.schema, encryption_properties=encryption_properties)
@@ -51,7 +51,7 @@ def write_parquet(table, location, encryption_config=None):
 
 def encrypted_data_and_footer_sample(data_table):
     parquet_path = "sample.parquet"
-    encryption_config = get_encryption_config()
+    encryption_config = get_external_encryption_config()
     write_parquet(data_table, parquet_path,
                   encryption_config=encryption_config)
     print(f"Written to [{parquet_path}]")
@@ -110,7 +110,8 @@ def get_kms_connection_config():
         custom_kms_conf={
             "footer_key": "012footer_secret",
             "orderid_key": "column_secret001",
-            "productid_key": "column_secret002"
+            "productid_key": "column_secret002",
+            "price_key": "column_secret003"
         }
     )
 
@@ -126,9 +127,13 @@ def get_external_encryption_config(plaintext_footer=True):
         plaintext_footer=plaintext_footer,
         per_column_encryption = {
             "orderId": {
-                "encryption_algorithm": "AES_GCM_V1",
+                "encryption_algorithm": "EXTERNAL_DBPA_V1",
                 "encryption_key": "orderid_key"
             },
+            "price": {
+                "encryption_algorithm": "AES_GCM_CTR_V1",
+                "encryption_key": "price_key"
+            }
         },
         app_context = {
             "user_id": "Picard1701",

@@ -515,7 +515,7 @@ class PARQUET_EXPORT FileEncryptionProperties {
     ColumnPathToEncryptionPropertiesMap encrypted_columns_;
   };
 
-  ~FileEncryptionProperties() { footer_key_.clear(); }
+  virtual ~FileEncryptionProperties() { footer_key_.clear(); }
 
   bool encrypted_footer() const { return encrypted_footer_; }
 

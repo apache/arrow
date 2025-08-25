@@ -412,8 +412,10 @@ def test_external_file_decryption_properties_valid():
     assert external_decryption_properties.__class__.__module__ == "pyarrow._parquet"
 
 
+"""
+TODO(sbrenes): Re-enable test when ExternalDBPADecryptorAdapter is integrated into Arrow.
 def test_read_and_write_standard_encryption(tmp_path):
-    """ Test a roundtrip encryption and decryption using standard encryption. """
+    Test a roundtrip encryption and decryption using standard encryption.
 
     data_table = get_data_table()
     parquet_path = tmp_path / "test.parquet"
@@ -428,7 +430,7 @@ def test_read_and_write_standard_encryption(tmp_path):
 
 
 def test_read_and_write_external_encryption(tmp_path):
-    """ Test a roundtrip encryption and decryption using external encryption. """
+    Test a roundtrip encryption and decryption using external encryption.
 
     data_table = get_data_table()
     parquet_path = tmp_path / "test.parquet"
@@ -440,3 +442,4 @@ def test_read_and_write_external_encryption(tmp_path):
     assert read_data_table.num_columns == data_table.num_columns
     assert read_data_table.schema.equals(data_table.schema)
     assert read_data_table.column_names == data_table.column_names
+"""

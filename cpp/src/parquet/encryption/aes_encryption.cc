@@ -55,7 +55,11 @@ AesCryptoContext::AesCryptoContext(
   length_buffer_length_ = include_length ? kBufferSizeLength : 0;
   ciphertext_size_delta_ = length_buffer_length_ + kNonceLength;
 
-  if (ParquetCipher::AES_GCM_V1 != alg_id && ParquetCipher::AES_GCM_CTR_V1 != alg_id) {
+  // Not all encryptors support metadata encryption. When that happens, even if the ParquetCipher
+  // is not AES, the metadata is encrypted using AES. This check should pass.
+  bool is_aes_algorithm = ParquetCipher::AES_GCM_V1 == alg_id 
+                          || ParquetCipher::AES_GCM_CTR_V1 == alg_id;
+  if (!is_aes_algorithm && !metadata) {
     std::stringstream ss;
     ss << "Crypto algorithm " << alg_id << " is not supported";
     throw ParquetException(ss.str());

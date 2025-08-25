@@ -112,6 +112,12 @@ InternalFileEncryptor::InternalFileEncryptor::GetColumnEncryptor(
   }
 
   ParquetCipher::type algorithm = properties_->algorithm().algorithm;
+  if (!metadata) {
+    // Column data encryption might specify a different algorithm
+    if (column_prop->parquet_cipher().has_value()) {
+      algorithm = column_prop->parquet_cipher().value();
+    }
+  }
   auto encryptor_instance = metadata ? GetMetaEncryptor(algorithm, key.size())
                                       : GetDataEncryptor(algorithm, key.size(),
                                                          column_chunk_metadata);
@@ -136,7 +142,15 @@ encryption::EncryptorInterface* InternalFileEncryptor::GetMetaEncryptor(
 encryption::EncryptorInterface* InternalFileEncryptor::GetDataEncryptor(
     ParquetCipher::type algorithm, size_t key_size,
     const ColumnChunkMetaDataBuilder* column_chunk_metadata) {
-  // TODO(sbrenes): Check encryption algorithm and return the appropriate encryptor interface.
+  if (algorithm == ParquetCipher::EXTERNAL_DBPA_V1) {
+    if (dynamic_cast<ExternalFileEncryptionProperties*>(properties_) == nullptr) {
+      throw ParquetException("External DBPA encryption requires ExternalFileEncryptionProperties.");
+    }
+
+    return external_dbpa_encryptor_factory_.GetEncryptor(
+        algorithm, column_chunk_metadata,
+        dynamic_cast<ExternalFileEncryptionProperties*>(properties_));
+  }
   return aes_encryptor_factory_.GetDataAesEncryptor(algorithm, key_size);
 }
 

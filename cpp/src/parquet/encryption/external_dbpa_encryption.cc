@@ -2,7 +2,7 @@
 
 #include <iostream>
 
-#include "parquet/encryption/external_dbpa_encryption_adapter.h"
+#include "parquet/encryption/external_dbpa_encryption.h"
 
 /// TODO(sbrenes): Add proper implementation. Right now we are just going to return
 /// the plaintext as the ciphertext.
@@ -68,6 +68,43 @@ int32_t ExternalDBPAEncryptorAdapter::CallExternalDBPA(
   std::cout << "*-*-*- END: ExternalDBPAEncryptor::Encrypt Hello World! *-*-*-\n" << std::endl;
 
   return ciphertext.size();
+}
+
+ExternalDBPAEncryptorAdapter* ExternalDBPAEncryptorAdapterFactory::GetEncryptor(
+    ParquetCipher::type algorithm, const ColumnChunkMetaDataBuilder* column_chunk_metadata,
+    ExternalFileEncryptionProperties* external_file_encryption_properties) {
+  if (column_chunk_metadata == nullptr) {
+    throw ParquetException("External DBPA encryption requires column chunk metadata");
+  }
+  auto column_path = column_chunk_metadata->descr()->path();
+  if (encryptor_cache_.find(column_path->ToDotString()) == encryptor_cache_.end()) {
+    auto connection_config = external_file_encryption_properties->connection_config();
+    if (connection_config.find(algorithm) == connection_config.end()) {
+      throw ParquetException("External DBPA encryption requires its connection configuration");
+    }
+
+    auto column_encryption_properties = external_file_encryption_properties
+        ->column_encryption_properties(column_path->ToDotString());
+    if (column_encryption_properties == nullptr) {
+      std::stringstream ss;
+      ss << "External DBPA encryption requires column encryption properties for column ["
+         << column_path->ToDotString() << "]";
+      throw ParquetException(ss.str());
+    }
+
+    auto data_type = column_chunk_metadata->descr()->physical_type();
+    auto compression_type = column_chunk_metadata->properties()->compression(column_path);
+    auto encoding_type = column_chunk_metadata->properties()->encoding(column_path);
+    auto app_context = external_file_encryption_properties->app_context();
+    auto connection_config_for_algorithm = connection_config.at(algorithm);
+    auto key_id = column_encryption_properties->key_metadata();
+
+    encryptor_cache_[column_path->ToDotString()] = ExternalDBPAEncryptorAdapter::Make(
+        algorithm, column_path->ToDotString(), key_id, data_type, compression_type,
+        encoding_type, app_context, connection_config_for_algorithm);
+  }
+
+  return encryptor_cache_[column_path->ToDotString()].get();
 }
 
 ExternalDBPADecryptorAdapter::ExternalDBPADecryptorAdapter(

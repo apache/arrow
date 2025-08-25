@@ -6,6 +6,7 @@
 
 #include "parquet/encryption/encryptor_interface.h"
 #include "parquet/encryption/decryptor_interface.h"
+#include "parquet/metadata.h"
 #include "parquet/types.h"
 
 namespace parquet::encryption {
@@ -55,6 +56,18 @@ class ExternalDBPAEncryptorAdapter : public EncryptorInterface {
     Encoding::type encoding_type_;
     std::string app_context_;
     std::map<std::string, std::string> connection_config_;
+};
+
+/// Factory for ExternalDBPAEncryptorAdapter instances. The cache exists while the write
+/// operation is open, and is used to guarantee the lifetime of the encryptor.
+class ExternalDBPAEncryptorAdapterFactory {
+  public:
+    ExternalDBPAEncryptorAdapter* GetEncryptor(
+      ParquetCipher::type algorithm, const ColumnChunkMetaDataBuilder* column_chunk_metadata,
+      ExternalFileEncryptionProperties* external_file_encryption_properties);
+
+  private:
+    std::map<std::string, std::unique_ptr<ExternalDBPAEncryptorAdapter>> encryptor_cache_;
 };
 
 /// Call an external Data Batch Protection Agent (DBPA) to decrypt data.
