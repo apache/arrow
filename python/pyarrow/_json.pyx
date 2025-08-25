@@ -106,9 +106,9 @@ cdef class ReadOptions(_Weakrefable):
             return False
 
     def __repr__(self):
-        return (f"<pyarrow.json.ReadOptions "
-                f"use_threads={self.use_threads} "
-                f"block_size={self.block_size}>")
+        return (f"<pyarrow.json.ReadOptions("
+                f"use_threads={self.use_threads}, "
+                f"block_size={self.block_size})>")
 
     def __str__(self):
         return (f"ReadOptions("
@@ -255,10 +255,10 @@ cdef class ParseOptions(_Weakrefable):
             return False
 
     def __repr__(self):
-        return (f"<pyarrow.json.ParseOptions "
-                f"explicit_schema={self.explicit_schema} "
-                f"newlines_in_values={self.newlines_in_values} "
-                f"unexpected_field_behavior='{self.unexpected_field_behavior}'>")
+        return (f"<pyarrow.json.ParseOptions("
+                f"explicit_schema={self.explicit_schema}, "
+                f"newlines_in_values={self.newlines_in_values}, "
+                f"unexpected_field_behavior='{self.unexpected_field_behavior}')>")
 
     def __str__(self):
         return (f"ParseOptions("
