@@ -167,7 +167,7 @@ Status FixedSizeBinaryBuilder::Resize(int64_t capacity) {
   int64_t dest_capacity_bytes;
   if (ARROW_PREDICT_FALSE(
           MultiplyWithOverflow(capacity, byte_width_, &dest_capacity_bytes))) {
-    return Status::CapacityError("Resize: capacity too large for byte width (requested: ",
+    return Status::CapacityError("Resize: capacity overflows (requested: ",
                                  capacity, ", byte_width: ", byte_width_, ")");
   }
   RETURN_NOT_OK(byte_builder_.Resize(dest_capacity_bytes));
