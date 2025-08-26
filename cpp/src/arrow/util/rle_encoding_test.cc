@@ -911,29 +911,30 @@ void CheckRoundTrip(const Array& data, int bit_width,
       to_read = remaining;
     }
 
-    auto* out = values_read.data() + requested_read_count;
-    auto* dict_out = dict_read.data() + requested_read_count;
-
     auto read = 0;
     if constexpr (kSpaced) {
       // We need to slice the input array get the proper null count and bitmap
       auto data_remaining = data.Slice(requested_read_count, to_read);
 
       if (dict) {
+        auto* out = dict_read.data() + requested_read_count;
         read = decoder.GetBatchWithDictSpaced(
-            dict->raw_values(), static_cast<int32_t>(dict->length()), dict_out, to_read,
+            dict->raw_values(), static_cast<int32_t>(dict->length()), out, to_read,
             static_cast<int32_t>(data_remaining->null_count()),
             data_remaining->null_bitmap_data(), data_remaining->offset());
       } else {
+        auto* out = values_read.data() + requested_read_count;
         read = decoder.GetBatchSpaced(
             to_read, static_cast<int32_t>(data_remaining->null_count()),
             data_remaining->null_bitmap_data(), data_remaining->offset(), out);
       }
     } else {
       if (dict) {
+        auto* out = dict_read.data() + requested_read_count;
         read = decoder.GetBatchWithDict(
-            dict->raw_values(), static_cast<int32_t>(dict->length()), dict_out, to_read);
+            dict->raw_values(), static_cast<int32_t>(dict->length()), out, to_read);
       } else {
+        auto* out = values_read.data() + requested_read_count;
         read = decoder.GetBatch(out, to_read);
       }
     }
