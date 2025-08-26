@@ -702,7 +702,6 @@ TEST_F(TestCookieParsing, CookieCache) {
 // Protobuf tests
 
 TEST(GrpcTransport, FlightDataDeserialize) {
-#ifndef _WIN32
   pb::FlightData raw;
   // Tack on known and unknown fields by hand here
   raw.GetReflection()->MutableUnknownFields(&raw)->AddFixed32(900, 1024);
@@ -725,9 +724,6 @@ TEST(GrpcTransport, FlightDataDeserialize) {
   ASSERT_EQ("data", out.body->ToString());
 
   grpc_slice_unref(slice);
-#else
-  GTEST_SKIP() << "Can't use Protobuf symbols on Windows";
-#endif
 }
 
 // ----------------------------------------------------------------------
