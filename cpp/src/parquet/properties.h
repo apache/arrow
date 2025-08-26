@@ -1257,10 +1257,10 @@ class PARQUET_EXPORT ArrowWriterProperties {
       return this;
     }
 
-    /// \brief Sets whether TIME annotations have isAdjustedTOUTC=false or
-    /// isAdjustedToUTC=true.
+    /// \brief Set the value of isAdjustedTOUTC when writing a TIME column
     ///
-    /// Default is false.
+    /// Default is false because Arrow TIME data is expressed in an unspecified timezone.
+    /// Note this setting doesn't affect TIMESTAMP data.
     Builder* set_time_adjusted_to_utc(bool adjusted) {
       write_time_adjusted_to_utc_ = adjusted;
       return this;
