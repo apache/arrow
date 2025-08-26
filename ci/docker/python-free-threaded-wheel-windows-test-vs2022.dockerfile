@@ -37,15 +37,13 @@ ENV PYTHON_CMD="py -${python}t"
 SHELL ["cmd", "/S", "/C"]
 RUN %PYTHON_CMD% -m pip install -U pip setuptools
 
-COPY python/requirements-wheel-test.txt C:/arrow/python/
+COPY python/requirements-wheel-test-3.13t.txt C:/arrow/python/
 # Cython and Pandas wheels for 3.13 free-threaded are not released yet
-# cffi does not support free-threaded CPython 3.13, remove findstr line with Python 3.14t!
-RUN findstr /V cffi C:/arrow/python/requirements-wheel-test.txt > C:/arrow/python/requirements-patched.txt ; \
-    %PYTHON_CMD% -m pip install \
+RUN %PYTHON_CMD% -m pip install \
     --extra-index-url https://pypi.anaconda.org/scientific-python-nightly-wheels/simple \
     --pre \
     --prefer-binary \
-    -r C:/arrow/python/requirements-patched.txt
+    -r C:/arrow/python/requirements-test.txt
 
 ENV PYTHON="${python}t"
 ENV PYTHON_GIL=0
