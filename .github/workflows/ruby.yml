@@ -157,11 +157,9 @@ jobs:
       - name: Install Homebrew Dependencies
         shell: bash
         run: |
-          # pkg-config formula is deprecated but it's still installed
-          # in GitHub Actions runner now. We can remove this once
-          # pkg-config formula is removed from GitHub Actions runner.
-          brew uninstall pkg-config || :
-          brew uninstall pkg-config@0.29.2 || :
+          # We can remove this once GitHub hosted runners include
+          # Meson 1.8.4 or later by default.
+          brew update
           brew bundle --file=cpp/Brewfile
           brew bundle --file=c_glib/Brewfile
           # For Meson.
