@@ -2066,8 +2066,8 @@ class DeltaByteArrayDecoderImpl : public TypedDecoderImpl<DType> {
     if constexpr (std::is_same_v<DType, FLBAType>) {
       // Checks all values
       for (int i = 0; i < max_values; i++) {
-        if (ARROW_PREDICT_FALSE(buffer[i].len != this->type_length_)) {
-          return Status::Invalid("FLBA type requires fixed-length ", this->type_length_,
+        if (buffer[i].len != static_cast<uint32_t>(this->type_length_)) {
+          throw ParquetException("FLBA type requires fixed-length ", this->type_length_,
                                  " but got ", buffer[i].len);
         }
       }
