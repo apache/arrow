@@ -1006,7 +1006,8 @@ class PARQUET_EXPORT ArrowReaderProperties {
         binary_type_(kArrowDefaultBinaryType),
         list_type_(kArrowDefaultListType),
         arrow_extensions_enabled_(false),
-        should_load_statistics_(false) {}
+        should_load_statistics_(false),
+        smallest_decimal_enabled_(false) {}
 
   /// \brief Set whether to use the IO thread pool to parse columns in parallel.
   ///
@@ -1126,6 +1127,15 @@ class PARQUET_EXPORT ArrowReaderProperties {
   /// Return whether loading statistics as much as possible.
   bool should_load_statistics() const { return should_load_statistics_; }
 
+  /// \brief Set whether infer Decimal32/64 from parquet.
+  /// 
+  /// Default is false.
+  void set_smallest_decimal_enabled(bool smallest_decimal_enable) {
+    smallest_decimal_enabled_ = smallest_decimal_enable;
+  }
+  /// Return whether infer Decimal32/64 from parquet.
+  bool smallest_decimal_enabled() const { return smallest_decimal_enabled_; }
+
  private:
   bool use_threads_;
   std::unordered_set<int> read_dict_indices_;
@@ -1138,6 +1148,7 @@ class PARQUET_EXPORT ArrowReaderProperties {
   ::arrow::Type::type list_type_;
   bool arrow_extensions_enabled_;
   bool should_load_statistics_;
+  bool smallest_decimal_enabled_;
 };
 
 /// EXPERIMENTAL: Constructs the default ArrowReaderProperties
