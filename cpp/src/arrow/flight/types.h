@@ -35,7 +35,6 @@
 #include "arrow/flight/type_fwd.h"
 #include "arrow/flight/visibility.h"
 #include "arrow/ipc/options.h"
-#include "arrow/ipc/reader.h"
 #include "arrow/ipc/writer.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
@@ -48,6 +47,7 @@ class Table;
 
 namespace ipc {
 class DictionaryMemo;
+struct ReadStats;
 }  // namespace ipc
 
 namespace util {
