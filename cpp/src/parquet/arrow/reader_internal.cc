@@ -725,12 +725,12 @@ struct DecimalConverter<DecimalArrayType, ByteArrayType> {
 /// small enough to fit in less 4 bytes or less than 8 bytes, respectively.
 /// This function implements the conversion from int32 and int64 arrays to decimal arrays.
 template <typename DecimalArrayType, typename ParquetIntegerType,
-          typename DecimalValue = typename DecimalTypeTrait<DecimalArrayType>::value,
           typename = ::arrow::enable_if_t<::arrow::internal::IsOneOf<
               ParquetIntegerType, Int32Type, Int64Type>::value>>
 static Status DecimalIntegerTransfer(RecordReader* reader, MemoryPool* pool,
                                      const std::shared_ptr<Field>& field, Datum* out) {
   using ArrayTypeClass = typename DecimalArrayType::TypeClass;
+  using DecimalValue = typename DecimalTypeTrait<DecimalArrayType>::value;
 
   // Decimal32, Decimal64, Decimal128 and Decimal256 are only Arrow constructs.  Parquet
   // does not specifically distinguish between decimal byte widths.
