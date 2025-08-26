@@ -3098,7 +3098,7 @@ TEST(ArrowReadWrite, Decimal32) {
 TEST(ArrowReadWrite, Decimal64) {
   using ::arrow::field;
 
-  auto type = ::arrow::decimal64(18, 4);
+  auto type = ::arrow::decimal64(8, 4);
 
   const char* json = R"(["1.0000", null, "-1.2345", "-1000.5678",
                          "-9999.9999", "9999.9999"])";
