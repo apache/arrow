@@ -426,6 +426,7 @@ constexpr int32_t WriteLEB128(Int value, uint8_t* out, int32_t max_out_size) {
 template <typename Int>
 constexpr int32_t ParseLeadingLEB128(uint8_t const* data, int32_t max_data_size,
                                      Int* out) {
+  constexpr auto kMaxBytes = static_cast<int32_t>(MaxLEB128ByteLenFor<Int>);
   constexpr uint8_t kLow7Mask = 0x7F;
   constexpr uint8_t kContinuationBit = 0x80;
 
@@ -433,7 +434,7 @@ constexpr int32_t ParseLeadingLEB128(uint8_t const* data, int32_t max_data_size,
   Int value = 0;
 
   // Read as many bytes as the could be for the give output
-  for (int32_t i = 0; i < MaxLEB128ByteLenFor<Int>; i++) {
+  for (int32_t i = 0; i < kMaxBytes; i++) {
     // We have not finished reading a valid LEB128, yet we run out of data
     if (ARROW_PREDICT_FALSE(i >= max_data_size)) {
       return 0;
@@ -441,7 +442,14 @@ constexpr int32_t ParseLeadingLEB128(uint8_t const* data, int32_t max_data_size,
 
     // Read the byte and set its 7 LSB to in the final value
     uint8_t const byte = data[i];
-    value |= static_cast<Int>(byte & kLow7Mask) << (7 * i);
+    auto const byte7 = static_cast<Int>(byte & kLow7Mask);
+    Int const shifted_byte = byte7 << (7 * i);
+    value |= shifted_byte;
+
+    // If we reach the last byte, there is a risk of overflowing the result
+    if (ARROW_PREDICT_FALSE((i == kMaxBytes - 1) && (shifted_byte >> (7 * i) != byte7))) {
+      return 0;
+    }
 
     // Check for lack of continuation flag in MSB
     if ((byte & kContinuationBit) == 0) {
