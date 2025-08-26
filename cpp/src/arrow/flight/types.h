@@ -35,6 +35,7 @@
 #include "arrow/flight/type_fwd.h"
 #include "arrow/flight/visibility.h"
 #include "arrow/ipc/options.h"
+#include "arrow/ipc/reader.h"
 #include "arrow/ipc/writer.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
@@ -1179,6 +1180,9 @@ class ARROW_FLIGHT_EXPORT MetadataRecordBatchReader {
 
   /// \brief Consume entire stream as a Table
   virtual arrow::Result<std::shared_ptr<Table>> ToTable();
+
+  /// \brief Return current read statistics
+  virtual arrow::ipc::ReadStats stats() const = 0;
 };
 
 /// \brief Convert a MetadataRecordBatchReader to a regular RecordBatchReader.
