@@ -2131,6 +2131,8 @@ struct SerializeFunctor<
     using DecimalValue = typename ::arrow::TypeTraits<ArrowType>::CType;
     DecimalValue decimal_value(in);
     if constexpr (std::is_same_v<ArrowType, ::arrow::Decimal256Type>) {
+      // Decimal256 does not provide ToInteger, but we are sure it fits in the target
+      // integer type.
       return static_cast<value_type>(decimal_value.low_bits());
     } else {
       value_type value = 0;
