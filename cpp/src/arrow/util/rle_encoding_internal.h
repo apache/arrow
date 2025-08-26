@@ -1426,11 +1426,12 @@ void RleDecoder<T>::Reset(run_type const& run) noexcept {
     // If we memcpy + FromLittleEndian, we have potential undefined behavior
     // if the bool value isn't 0 or 1.
     value_ = *run.RawDataPtr() & 1;
+  } else {
+    // Memcopy is required to avoid undefined behavior.
+    value_ = {};
+    std::memcpy(&value_, run.RawDataPtr(), run.RawDataSize());
+    value_ = ::arrow::bit_util::FromLittleEndian(value_);
   }
-  // Memcopy is required to avoid undefined behavior.
-  std::memset(&value_, 0, sizeof(value_type));
-  std::memcpy(&value_, run.RawDataPtr(), run.RawDataSize());
-  value_ = ::arrow::bit_util::FromLittleEndian(value_);
 }
 
 template <typename T>
