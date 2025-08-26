@@ -19,8 +19,8 @@
 
 set -e
 
-if [ "$#" -ne 1 ] && [ "$#" -ne 2 ]; then
-  echo "Usage: $0 <numba version> [numba-cuda version]"
+if [ "$#" -ne 1 ] && [ "$#" -ne 2 ] && [ "$#" -ne 3 ]; then
+  echo "Usage: $0 <numba version> [numba-cuda version] [cuda version]"
   exit 1
 fi
 
@@ -48,10 +48,21 @@ fi
 
 numba_cuda=$2
 
-if [ "${numba_cuda}" = "master" ]; then
-  pip install https://github.com/NVIDIA/numba-cuda/archive/main.tar.gz#egg=numba-cuda
-elif [ "${numba_cuda}" = "latest" ]; then
-  pip install numba-cuda
+if [ "$#" -eq 3 ]; then
+  cuda=$3
 else
-  pip install "numba-cuda==${numba_cuda}"
+  # Default to CUDA 11
+  cuda=11
+fi
+
+# Variants are cu11, cu12, etc. depending on CUDA version
+variant="cu${cuda%%.*}"
+
+if [ "${numba_cuda}" = "master" ]; then
+  pip install "numba-cuda[$variant] @ https://github.com/NVIDIA/numba-cuda/archive/main.tar.gz"
+elif [ "${numba_cuda}" = "latest" ]; then
+  pip install numba-cuda[$variant]
+else
+  echo installing for $variant
+  pip install "numba-cuda[$variant]==${numba_cuda}"
 fi
