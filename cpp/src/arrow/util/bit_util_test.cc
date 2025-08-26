@@ -2091,6 +2091,10 @@ TEST(BitStreamUtil, LEB128) {
   TestLEB128Decode(
       std::array<uint8_t, 10>{0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x01},
       18446744073709551615ULL, 10);
+  // int32_t with maximum size (31 bits of 1)
+  TestLEB128Decode(std::array<uint8_t, 5>{0xFF, 0xFF, 0xFF, 0xFF, 0x7},
+                   std::numeric_limits<int32_t>::max(), 5);
+
   // Error case: Truncated sequence (continuation bit set but no more data)
   TestLEB128Decode(std::array<uint8_t, 1>{0x80}, 0U, 0);
   // Error case: Input over the maximum number of bytes for a int32_t (5), but the
