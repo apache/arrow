@@ -51,6 +51,7 @@ arrow_acero_srcs = [
     'groupby_aggregate_node.cc',
     'aggregate_internal.cc',
     'asof_join_node.cc',
+    'backpressure.cc',
     'bloom_filter.cc',
     'exec_plan.cc',
     'fetch_node.cc',
@@ -74,6 +75,7 @@ arrow_acero_srcs = [
     'time_series_util.cc',
     'tpch_node.cc',
     'union_node.cc',
+    'pipe_node.cc',
     'util.cc',
 ]
 
@@ -89,6 +91,7 @@ arrow_acero_dep = declare_dependency(link_with: [arrow_acero_lib])
 arrow_acero_testing_sources = ['test_nodes.cc', 'test_util_internal.cc']
 
 arrow_acero_tests = {
+    'backpressure-test': {'sources': ['backpressure_test.cc']},
     'plan-test': {'sources': ['plan_test.cc', 'test_nodes_test.cc']},
     'source-node-test': {'sources': ['source_node_test.cc']},
     'fetch-node-test': {'sources': ['fetch_node_test.cc']},
