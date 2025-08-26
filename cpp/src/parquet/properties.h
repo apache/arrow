@@ -1128,7 +1128,7 @@ class PARQUET_EXPORT ArrowReaderProperties {
   bool should_load_statistics() const { return should_load_statistics_; }
 
   /// \brief Set whether infer Decimal32/64 from parquet.
-  /// 
+  ///
   /// Default is false.
   void set_smallest_decimal_enabled(bool smallest_decimal_enable) {
     smallest_decimal_enabled_ = smallest_decimal_enable;
