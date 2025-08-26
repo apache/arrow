@@ -36,7 +36,7 @@ except ImportError:
 import pytest
 import pyarrow as pa
 
-from pyarrow.lib import IpcReadOptions, tobytes
+from pyarrow.lib import IpcReadOptions, ReadStats, tobytes
 from pyarrow.util import find_free_port
 from pyarrow.tests import util
 
@@ -185,6 +185,7 @@ class MetadataFlightServer(FlightServerBase):
     def do_put(self, context, descriptor, reader, writer):
         counter = 0
         expected_data = [-10, -5, 0, 5, 10]
+        assert reader.stats.num_messages == 1
         for batch, buf in reader:
             assert batch.equals(pa.RecordBatch.from_arrays(
                 [pa.array([expected_data[counter]])],
@@ -195,6 +196,8 @@ class MetadataFlightServer(FlightServerBase):
             assert counter == client_counter
             writer.write(struct.pack('<i', counter))
             counter += 1
+        assert reader.stats.num_messages == 6
+        assert reader.stats.num_record_batches == 5
 
     @staticmethod
     def number_batches(table):
@@ -1170,8 +1173,17 @@ def test_flight_do_get_dicts():
 
     with ConstantFlightServer() as server, \
             flight.connect(('localhost', server.port)) as client:
-        data = client.do_get(flight.Ticket(b'dicts')).read_all()
+        reader = client.do_get(flight.Ticket(b'dicts'))
+        assert reader.stats.num_messages == 1
+        data = reader.read_all()
         assert data.equals(table)
+        assert reader.stats == ReadStats(
+            num_messages=6,
+            num_record_batches=3,
+            num_dictionary_batches=2,
+            num_dictionary_deltas=0,
+            num_replaced_dictionaries=1
+        )
 
 
 def test_flight_do_get_ticket():
@@ -2090,6 +2102,8 @@ def test_doexchange_put():
             assert chunk.data is None
             expected_buf = str(len(batches)).encode("utf-8")
             assert chunk.app_metadata == expected_buf
+            # TODO: Investigate segfault
+            # assert reader.stats == {}
 
 
 def test_doexchange_echo():
@@ -2539,36 +2553,60 @@ def test_headers_trailers():
 
 
 def test_flight_dictionary_deltas_do_exchange():
+    expected_dict_deltas_stats = ReadStats(
+        num_messages=6,
+        num_record_batches=3,
+        num_dictionary_batches=2,
+        num_dictionary_deltas=1,
+        num_replaced_dictionaries=0
+    )
+    expected_dict_replacement_stats = ReadStats(
+        num_messages=6,
+        num_record_batches=3,
+        num_dictionary_batches=2,
+        num_dictionary_deltas=0,
+        num_replaced_dictionaries=1
+    )
+
     class DeltaFlightServer(ConstantFlightServer):
         def do_exchange(self, context, descriptor, reader, writer):
+            expected_table = simple_dicts_table()
+            received_table = reader.read_all()
+            assert received_table.equals(expected_table)
             if descriptor.command == b'dict_deltas':
-                expected_table = simple_dicts_table()
-                received_table = reader.read_all()
-                assert received_table.equals(expected_table)
+                assert reader.stats == expected_dict_deltas_stats
 
                 options = pa.ipc.IpcWriteOptions(emit_dictionary_deltas=True)
                 writer.begin(expected_table.schema, options=options)
-                # TODO: GH-47422: Inspect ReaderStats once exposed and validate deltas
+                writer.write_table(expected_table)
+            if descriptor.command == b'dict_replacement':
+                assert reader.stats == expected_dict_replacement_stats
+
+                writer.begin(expected_table.schema)
                 writer.write_table(expected_table)
 
     with DeltaFlightServer() as server, \
             FlightClient(('localhost', server.port)) as client:
         expected_table = simple_dicts_table()
+        for command in [b"dict_deltas", b"dict_replacement"]:
+            descriptor = flight.FlightDescriptor.for_command(command)
+            writer, reader = client.do_exchange(
+                descriptor,
+                options=flight.FlightCallOptions(
+                    write_options=pa.ipc.IpcWriteOptions(
+                        emit_dictionary_deltas=True)
+                )
+            )
+            # Send client table with dictionary updates
+            with writer:
+                writer.begin(expected_table.schema, options=pa.ipc.IpcWriteOptions(
+                    emit_dictionary_deltas=(command == b"dict_deltas")))
+                writer.write_table(expected_table)
+                writer.done_writing()
+                received_table = reader.read_all()
 
-        descriptor = flight.FlightDescriptor.for_command(b"dict_deltas")
-        writer, reader = client.do_exchange(descriptor,
-                                            options=flight.FlightCallOptions(
-                                                write_options=pa.ipc.IpcWriteOptions(
-                                                    emit_dictionary_deltas=True)
-                                            )
-                                            )
-        # Send client table with dictionary updates (deltas should be sent)
-        with writer:
-            writer.begin(expected_table.schema, options=pa.ipc.IpcWriteOptions(
-                emit_dictionary_deltas=True))
-            writer.write_table(expected_table)
-            writer.done_writing()
-            received_table = reader.read_all()
-
-        # TODO: GH-47422: Inspect ReaderStats once exposed and validate deltas
-        assert received_table.equals(expected_table)
+            assert received_table.equals(expected_table)
+            if command == b"dict_deltas":
+                assert reader.stats == expected_dict_deltas_stats
+            elif command == b"dict_replacement":
+                assert reader.stats == expected_dict_replacement_stats

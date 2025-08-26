@@ -154,10 +154,15 @@ class TransportMessageReader final : public FlightMessageReader {
     return Status::OK();
   }
 
+  ipc::ReadStats stats() const override {
+    ARROW_CHECK_NE(batch_reader_, nullptr);
+    return batch_reader_->stats();
+  }
+
   FlightDescriptor descriptor_;
   std::shared_ptr<internal::PeekableFlightDataReader> peekable_reader_;
   std::shared_ptr<MemoryManager> memory_manager_;
-  std::shared_ptr<RecordBatchReader> batch_reader_;
+  std::shared_ptr<ipc::RecordBatchStreamReader> batch_reader_;
   std::shared_ptr<Buffer> app_metadata_;
 };
 

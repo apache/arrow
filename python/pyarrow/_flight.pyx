@@ -1118,6 +1118,19 @@ cdef class _MetadataRecordBatchReader(_Weakrefable, _ReadPandasMixin):
 
         return reader
 
+    @property
+    def stats(self):
+        """
+        Current Flight read statistics.
+
+        Returns
+        -------
+        ReadStats
+        """
+        if not self.reader:
+            raise ValueError("Operation on closed reader")
+        return _wrap_read_stats((<CMetadataRecordBatchReader*> self.reader.get()).stats())
+
 
 cdef class MetadataRecordBatchReader(_MetadataRecordBatchReader):
     """The base class for readers for Flight streams.
