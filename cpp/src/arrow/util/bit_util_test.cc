@@ -2093,6 +2093,9 @@ TEST(BitStreamUtil, LEB128) {
       18446744073709551615ULL, 10);
   // Error case: Truncated sequence (continuation bit set but no more data)
   TestLEB128Decode(std::array<uint8_t, 1>{0x80}, 0U, 0);
+  // Error case: Input over the maximum number of bytes for a int32_t (5), but the
+  // overflow none the less (7 * 5 = 35 bits of data).
+  TestLEB128Decode(std::array<uint8_t, 5>{0xFF, 0xFF, 0xFF, 0xFF, 0x7F}, int32_t{}, 0);
   // Error case: Oversized sequence for uint32_t (too many bytes)
   TestLEB128Decode(std::array<uint8_t, 6>{0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x01}, 0U, 0);
 }
