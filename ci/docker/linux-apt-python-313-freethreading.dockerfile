@@ -38,7 +38,7 @@ RUN ${ARROW_PYTHON_VENV}/bin/python -m pip install \
       --prefer-binary \
       --extra-index-url "https://pypi.anaconda.org/scientific-python-nightly-wheels/simple" \
       -r arrow/python/requirements-build.txt \
-      -r arrow/python/requirements-test.txt
+      -r arrow/python/requirements-test-3.13t.txt
 
 # We want to run the PyArrow test suite with the GIL disabled, but cffi
 # (more precisely, the `_cffi_backend` module) currently doesn't declare

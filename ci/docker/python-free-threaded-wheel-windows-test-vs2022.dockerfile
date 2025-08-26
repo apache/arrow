@@ -43,7 +43,7 @@ RUN %PYTHON_CMD% -m pip install \
     --extra-index-url https://pypi.anaconda.org/scientific-python-nightly-wheels/simple \
     --pre \
     --prefer-binary \
-    -r C:/arrow/python/requirements-test.txt
+    -r C:/arrow/python/requirements-wheel-test-3.13t.txt
 
 ENV PYTHON="${python}t"
 ENV PYTHON_GIL=0
