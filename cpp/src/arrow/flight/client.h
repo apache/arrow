@@ -142,6 +142,7 @@ class ARROW_FLIGHT_EXPORT FlightStreamReader : public MetadataRecordBatchReader 
   /// \brief Consume entire stream as a Table
   arrow::Result<std::shared_ptr<Table>> ToTable(const StopToken& stop_token);
 
+  using MetadataRecordBatchReader::stats;
   /// \brief Return current read statistics
   virtual arrow::ipc::ReadStats stats() const = 0;
 };
