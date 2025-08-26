@@ -3092,9 +3092,7 @@ TEST(ArrowReadWrite, Decimal32) {
   auto array = ::arrow::ArrayFromJSON(type, json);
   auto table = ::arrow::Table::Make(::arrow::schema({field("root", type)}), {array});
   auto props_store_schema = ArrowWriterProperties::Builder().store_schema()->build();
-  ArrowReaderProperties read_properties = default_arrow_reader_properties();
-  read_properties.set_smallest_decimal_enabled(true);
-  CheckSimpleRoundtrip(table, 2, props_store_schema, read_properties);
+  CheckSimpleRoundtrip(table, 2, props_store_schema);
 }
 
 TEST(ArrowReadWrite, Decimal64) {
@@ -3107,9 +3105,7 @@ TEST(ArrowReadWrite, Decimal64) {
   auto array = ::arrow::ArrayFromJSON(type, json);
   auto table = ::arrow::Table::Make(::arrow::schema({field("root", type)}), {array});
   auto props_store_schema = ArrowWriterProperties::Builder().store_schema()->build();
-  ArrowReaderProperties read_properties = default_arrow_reader_properties();
-  read_properties.set_smallest_decimal_enabled(true);
-  CheckSimpleRoundtrip(table, 2, props_store_schema, read_properties);
+  CheckSimpleRoundtrip(table, 2, props_store_schema);
 }
 
 TEST(ArrowReadWrite, Decimal256) {

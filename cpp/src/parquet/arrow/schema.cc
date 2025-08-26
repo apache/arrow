@@ -1078,29 +1078,10 @@ Result<bool> ApplyOriginalStorageMetadata(const Field& origin_field,
     modified = true;
   }
 
-  switch (origin_type->id()) {
-    case ::arrow::Type::DECIMAL256:
-      if (inferred_type->id() == ::arrow::Type::DECIMAL128) {
-        inferred->field = inferred->field->WithType(origin_type);
-        modified = true;
-        break;
-      }
-      [[fallthrough]];
-    case ::arrow::Type::DECIMAL128:
-      if (inferred_type->id() == ::arrow::Type::DECIMAL64) {
-        inferred->field = inferred->field->WithType(origin_type);
-        modified = true;
-        break;
-      }
-      [[fallthrough]];
-    case ::arrow::Type::DECIMAL64:
-      if (inferred_type->id() == ::arrow::Type::DECIMAL32) {
-        inferred->field = inferred->field->WithType(origin_type);
-        modified = true;
-      }
-      break;
-    default:
-      break;
+  if (::arrow::is_decimal(origin_type->id()) &&
+      ::arrow::is_decimal(inferred_type->id())) {
+    inferred->field = inferred->field->WithType(origin_type);
+    modified = true;
   }
 
   // Restore field metadata
