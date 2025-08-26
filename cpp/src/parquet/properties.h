@@ -1322,10 +1322,10 @@ class PARQUET_EXPORT ArrowWriterProperties {
   /// \brief Returns the executor used to write columns in parallel.
   ::arrow::internal::Executor* executor() const;
 
-    /// \brief The value of isAdjustedTOUTC when writing a TIME column
-    ///
-    /// Note this setting doesn't affect TIMESTAMP data.
-    bool write_time_adjusted_to_utc() const { return write_time_adjusted_to_utc_; }
+  /// \brief The value of isAdjustedTOUTC when writing a TIME column
+  ///
+  /// Note this setting doesn't affect TIMESTAMP data.
+  bool write_time_adjusted_to_utc() const { return write_time_adjusted_to_utc_; }
 
  private:
   explicit ArrowWriterProperties(bool write_nanos_as_int96,
