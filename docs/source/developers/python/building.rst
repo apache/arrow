@@ -83,7 +83,7 @@ Both methods are shown bellow for Linux and macOS. For Windows, only the
 Conda-based setup is currently documented, skipping some of the
 Linux/macOS-only packages.
 
-Note that in case you are not using conda on a Windows platform, Arrow C++ 
+Note that in case you are not using conda on a Windows platform, Arrow C++
 libraries need to be bundled with ``pyarrow``. For extra information see the
 Windows tab under the :ref:`pyarrow_build_section` section.
 
@@ -147,7 +147,7 @@ Windows tab under the :ref:`pyarrow_build_section` section.
          <https://conda.io/miniconda.html>`_, you cannot currently use a
          pip-based virtual environment. Please follow the conda-based development
          instructions instead.
-      
+
       Pull in the test data and setup the environment variables:
 
       .. code-block::
@@ -268,7 +268,7 @@ Build C++
       with any of the aforementioned presets will generate a debug build of Arrow.
 
       **Individual components**
-      
+
       The presets are provided as a convenience, but you may instead opt to
       specify the individual components:
 
@@ -454,7 +454,7 @@ Self-Contained Wheel
 If you're preparing a PyArrow wheel for distribution (e.g., for PyPI), you’ll
 need to build a self-contained wheel (including the Arrow and Parquet C++
 libraries). This ensures that all necessary native libraries are bundled inside
-the wheel, so users can install it without needing to have Arrow or Parquet 
+the wheel, so users can install it without needing to have Arrow or Parquet
 installed separately on their system.
 
 To do this, pass the ``--bundle-arrow-cpp`` option to the build command:
@@ -475,7 +475,7 @@ To install an editable PyArrow build, run the following command from the
 ``arrow/python`` directory:
 
 .. code-block::
-   
+
    pip install -e . --no-build-isolation``
 
 This creates an *editable install*, meaning changes to the Python source code
