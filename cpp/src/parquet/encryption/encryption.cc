@@ -288,26 +288,12 @@ FileEncryptionProperties::column_encryption_properties(const std::string& column
   }
 
   // We do not have an exact match of column_path in encrypted_columns_
-  // there might be a parent field / prefix in encrypted_columns_ that
-  // column_path might start with. We pick the largest such prefix.
-  it = encrypted_columns_.upper_bound(column_path);
-
-  // it now points to the first encrypted column after column_path
-  // we iterate reverse until we find the largest encrypted column that is a prefix of
-  // column_path we stop that iteration once we get before `root` where
-  // `column_path="root.*"` or `column_path="root"`
+  // there might be the root parent field in encrypted_columns_.
   auto pos = column_path.find('.');
-  std::string root = column_path;
   if (pos != std::string::npos) {
-    root = column_path.substr(0, pos);
-  }
-
-  while (it != encrypted_columns_.begin()) {
-    --it;
-    if (it->first.compare(root) < 0) {
-      break;
-    }
-    if (StartsWith(column_path, it->first + ".")) {
+    std::string root = column_path.substr(0, pos);
+    it = encrypted_columns_.find(root);
+    if (it != encrypted_columns_.end()) {
       return it->second;
     }
   }
