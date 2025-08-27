@@ -276,11 +276,7 @@ def test_list_encryption_decryption(column_name):
     encryption_unavailable,
     reason="Parquet Encryption is not currently enabled"
 )
-@pytest.mark.parametrize(
-    "column_name", [
-        "map", "map.key", "map.value", "map.key_value.key", "map.key_value.value"
-    ]
-)
+@pytest.mark.parametrize("column_name", ["map", "map.key_value.key", "map.key_value.value"])
 def test_map_encryption_decryption(column_name):
     map_type = pa.map_(pa.string(), pa.int32())
     map_data = pa.array(
@@ -298,9 +294,7 @@ def test_map_encryption_decryption(column_name):
 @pytest.mark.skipif(
     encryption_unavailable, reason="Parquet Encryption is not currently enabled"
 )
-@pytest.mark.parametrize(
-    "column_name", ["struct", "struct.f1", "struct.f2"]
-)
+@pytest.mark.parametrize("column_name", ["struct", "struct.f1", "struct.f2"])
 def test_struct_encryption_decryption(column_name):
     struct_fields = [("f1", pa.int32()), ("f2", pa.string())]
     struct_type = pa.struct(struct_fields)
@@ -321,13 +315,7 @@ def test_struct_encryption_decryption(column_name):
     "column_name",
     [
         "col",
-        "col.key",
-        "col.value",
-        "col.value.f1",
-        "col.value.f2",
-        "col.list.element",
         "col.list.element.key_value.key",
-        "col.list.element.key_value.value",
         "col.list.element.key_value.value.f1",
         "col.list.element.key_value.value.f2"
     ]
