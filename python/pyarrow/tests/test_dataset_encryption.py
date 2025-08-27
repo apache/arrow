@@ -276,7 +276,9 @@ def test_list_encryption_decryption(column_name):
     encryption_unavailable,
     reason="Parquet Encryption is not currently enabled"
 )
-@pytest.mark.parametrize("column_name", ["map", "map.key_value.key", "map.key_value.value"])
+@pytest.mark.parametrize(
+    "column_name", ["map", "map.key_value.key", "map.key_value.value"]
+)
 def test_map_encryption_decryption(column_name):
     map_type = pa.map_(pa.string(), pa.int32())
     map_data = pa.array(
