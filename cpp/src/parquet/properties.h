@@ -1133,7 +1133,11 @@ class PARQUET_EXPORT ArrowReaderProperties {
   void set_smallest_decimal_enabled(bool smallest_decimal_enable) {
     smallest_decimal_enabled_ = smallest_decimal_enable;
   }
-  /// Return whether infer Decimal32/64 from parquet.
+  /// \brief Return whether to infer Decimal32/64 from parquet.
+  ///
+  /// If `store_schema` is set, this flag does nothing and we always use decimal type in
+  /// metadata. If `store_schema` is not set, when this flag is true, we infer decimal
+  /// with small precision to Decimal32/Decimal64 instead of Decimal128.
   bool smallest_decimal_enabled() const { return smallest_decimal_enabled_; }
 
  private:

@@ -2533,8 +2533,16 @@ struct SerializeFunctor<
     } else {
       const auto* u64_in = reinterpret_cast<const uint64_t*>(in);
       auto p = reinterpret_cast<uint64_t*>(scratch);
-      for (int i = ArrowType::kByteWidth / 8 - 1; i >= 0; i--) {
-        *p++ = ::arrow::bit_util::ToBigEndian(u64_in[i]);
+      if constexpr (std::is_same_v<ArrowType, ::arrow::Decimal64Type>) {
+        *p++ = ::arrow::bit_util::ToBigEndian(u64_in[0]);
+      } else if constexpr (std::is_same_v<ArrowType, ::arrow::Decimal128Type>) {
+        *p++ = ::arrow::bit_util::ToBigEndian(u64_in[1]);
+        *p++ = ::arrow::bit_util::ToBigEndian(u64_in[0]);
+      } else if constexpr (std::is_same_v<ArrowType, ::arrow::Decimal256Type>) {
+        *p++ = ::arrow::bit_util::ToBigEndian(u64_in[3]);
+        *p++ = ::arrow::bit_util::ToBigEndian(u64_in[2]);
+        *p++ = ::arrow::bit_util::ToBigEndian(u64_in[1]);
+        *p++ = ::arrow::bit_util::ToBigEndian(u64_in[0]);
       }
       scratch = reinterpret_cast<uint8_t*>(p);
     }

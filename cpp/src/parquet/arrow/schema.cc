@@ -1080,8 +1080,14 @@ Result<bool> ApplyOriginalStorageMetadata(const Field& origin_field,
 
   if (::arrow::is_decimal(origin_type->id()) &&
       ::arrow::is_decimal(inferred_type->id())) {
-    inferred->field = inferred->field->WithType(origin_type);
-    modified = true;
+    auto& origin_decimal = checked_cast<const ::arrow::DecimalType&>(*origin_type);
+    auto& inferred_decimal = checked_cast<const ::arrow::DecimalType&>(*inferred_type);
+    if (!(origin_decimal.id() == inferred_decimal.id() &&
+          origin_decimal.scale() == inferred_decimal.scale() &&
+          origin_decimal.precision() <= inferred_decimal.precision())) {
+      inferred->field = inferred->field->WithType(origin_type);
+      modified = true;
+    }
   }
 
   // Restore field metadata
