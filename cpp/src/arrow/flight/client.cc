@@ -261,7 +261,9 @@ class ClientStreamReader : public FlightStreamReader {
   }
 
   arrow::ipc::ReadStats stats() const override {
-    ARROW_CHECK_NE(batch_reader_, nullptr);
+    if (batch_reader_ == nullptr) {
+      return ipc::ReadStats{};
+    }
     return batch_reader_->stats();
   }
 

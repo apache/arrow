@@ -424,6 +424,7 @@ class ExchangeFlightServer(FlightServerBase):
         self.options = options
 
     def do_exchange(self, context, descriptor, reader, writer):
+        assert reader.stats.num_messages == 0
         if descriptor.descriptor_type != flight.DescriptorType.CMD:
             raise pa.ArrowInvalid("Must provide a command descriptor")
         elif descriptor.command == b"echo":
@@ -452,11 +453,14 @@ class ExchangeFlightServer(FlightServerBase):
         for chunk in reader:
             if not chunk.data:
                 raise pa.ArrowInvalid("All chunks must have data.")
+            assert reader.stats.num_messages != 0
             num_batches += 1
+        assert reader.stats.num_record_batches == num_batches
         writer.write_metadata(str(num_batches).encode("utf-8"))
 
     def exchange_echo(self, context, reader, writer):
         """Run a simple echo server."""
+        assert reader.stats.num_messages == 0
         started = False
         for chunk in reader:
             if not started and chunk.data:
@@ -467,16 +471,19 @@ class ExchangeFlightServer(FlightServerBase):
             elif chunk.app_metadata:
                 writer.write_metadata(chunk.app_metadata)
             elif chunk.data:
+                assert reader.stats.num_messages != 0
                 writer.write_batch(chunk.data)
             else:
                 assert False, "Should not happen"
 
     def exchange_transform(self, context, reader, writer):
         """Sum rows in an uploaded table."""
+        assert reader.stats.num_messages == 0
         for field in reader.schema:
             if not pa.types.is_integer(field.type):
                 raise pa.ArrowInvalid("Invalid field: " + repr(field))
         table = reader.read_all()
+        assert reader.stats.num_messages != 0
         sums = [0] * table.num_rows
         for column in table:
             for row, value in enumerate(column):
@@ -2102,8 +2109,8 @@ def test_doexchange_put():
             assert chunk.data is None
             expected_buf = str(len(batches)).encode("utf-8")
             assert chunk.app_metadata == expected_buf
-            # TODO: Investigate segfault
-            # assert reader.stats == {}
+            # Metadata only message is not counted as an ipc data message
+            assert reader.stats.num_messages == 0
 
 
 def test_doexchange_echo():
@@ -2128,12 +2135,15 @@ def test_doexchange_echo():
 
             # Now write data without metadata.
             writer.begin(data.schema)
+            num_batches = 0
             for batch in batches:
                 writer.write_batch(batch)
                 assert reader.schema == data.schema
                 chunk = reader.read_chunk()
                 assert chunk.data == batch
                 assert chunk.app_metadata is None
+                num_batches += 1
+                assert reader.stats.num_record_batches == num_batches
 
             # And write data with metadata.
             for i, batch in enumerate(batches):
@@ -2142,6 +2152,7 @@ def test_doexchange_echo():
                 chunk = reader.read_chunk()
                 assert chunk.data == batch
                 assert chunk.app_metadata == buf
+                assert reader.stats.num_record_batches == num_batches + i + 1
 
 
 def test_doexchange_echo_v4():

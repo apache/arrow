@@ -137,6 +137,13 @@ class TransportMessageReader final : public FlightMessageReader {
     return out;
   }
 
+  ipc::ReadStats stats() const override {
+    if (batch_reader_ == nullptr) {
+      return ipc::ReadStats{};
+    }
+    return batch_reader_->stats();
+  }
+
  private:
   /// Ensure we are set up to read data.
   Status EnsureDataStarted() {
@@ -152,11 +159,6 @@ class TransportMessageReader final : public FlightMessageReader {
           batch_reader_, ipc::RecordBatchStreamReader::Open(std::move(message_reader)));
     }
     return Status::OK();
-  }
-
-  ipc::ReadStats stats() const override {
-    ARROW_CHECK_NE(batch_reader_, nullptr);
-    return batch_reader_->stats();
   }
 
   FlightDescriptor descriptor_;
