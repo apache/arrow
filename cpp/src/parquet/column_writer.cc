@@ -1152,29 +1152,31 @@ void ColumnWriterImpl::FlushBufferedDataPages() {
 
 template <typename Action, typename GetBufferedRows>
 inline void DoInBatches(const int16_t* def_levels, const int16_t* rep_levels,
-                        int64_t num_levels, int64_t batch_size, Action&& action,
-                        bool pages_change_on_record_boundaries, int64_t max_rows_per_page,
+                        int64_t num_levels, int64_t batch_size, int64_t max_rows_per_page,
+                        bool pages_change_on_record_boundaries, Action&& action,
                         GetBufferedRows&& curr_page_buffered_rows) {
   int64_t offset = 0;
   while (offset < num_levels) {
     int64_t min_batch_size = std::min(batch_size, num_levels - offset);
-    int64_t end_offset = num_levels;
-    int64_t check_page_limit_end_offset = -1;
+    int64_t end_offset = num_levels;           // end offset of the current batch
+    int64_t check_page_limit_end_offset = -1;  // offset to check page limit (if not -1)
 
     int64_t page_buffered_rows = curr_page_buffered_rows();
     ARROW_DCHECK_LE(page_buffered_rows, max_rows_per_page);
 
     if (!rep_levels) {
+      // If rep_levels is null, then we are writing a non-repeated column.
+      // In this case, every record contains only one level.
       min_batch_size = std::min(min_batch_size, max_rows_per_page - page_buffered_rows);
       end_offset = offset + min_batch_size;
       check_page_limit_end_offset = end_offset;
     } else {
-      int64_t last_record_begin_offset = -1;
       // Iterate rep_levels to find the shortest sequence that ends before a record
       // boundary (i.e. rep_levels == 0) with a size no less than min_batch_size
       for (int64_t i = offset; i < num_levels; ++i) {
         if (rep_levels[i] == 0) {
-          last_record_begin_offset = i;
+          // Use the beginning of last record to check page limit.
+          check_page_limit_end_offset = i;
           if (i - offset >= min_batch_size || page_buffered_rows >= max_rows_per_page) {
             end_offset = i;
             break;
@@ -1182,8 +1184,6 @@ inline void DoInBatches(const int16_t* def_levels, const int16_t* rep_levels,
           page_buffered_rows += 1;
         }
       }
-      // Use the beginning of last record to check page limit.
-      check_page_limit_end_offset = last_record_begin_offset;
     }
 
     ARROW_DCHECK_LE(offset, end_offset);
@@ -1319,9 +1319,8 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
       CheckDictionarySizeLimit();
     };
     DoInBatches(def_levels, rep_levels, num_values, properties_->write_batch_size(),
-                WriteChunk, pages_change_on_record_boundaries(),
-                properties_->max_rows_per_page(),
-                [this]() { return num_buffered_rows_; });
+                properties_->max_rows_per_page(), pages_change_on_record_boundaries(),
+                WriteChunk, [this]() { return num_buffered_rows_; });
     return value_offset;
   }
 
@@ -1371,9 +1370,8 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
       CheckDictionarySizeLimit();
     };
     DoInBatches(def_levels, rep_levels, num_values, properties_->write_batch_size(),
-                WriteChunk, pages_change_on_record_boundaries(),
-                properties_->max_rows_per_page(),
-                [this]() { return num_buffered_rows_; });
+                properties_->max_rows_per_page(), pages_change_on_record_boundaries(),
+                WriteChunk, [this]() { return num_buffered_rows_; });
   }
 
   Status WriteArrow(const int16_t* def_levels, const int16_t* rep_levels,
@@ -2002,10 +2000,10 @@ Status TypedColumnWriterImpl<ParquetType>::WriteArrowDictionary(
     return WriteDense();
   }
 
-  PARQUET_CATCH_NOT_OK(DoInBatches(
-      def_levels, rep_levels, num_levels, properties_->write_batch_size(),
-      WriteIndicesChunk, pages_change_on_record_boundaries(),
-      properties_->max_rows_per_page(), [this]() { return num_buffered_rows_; }));
+  PARQUET_CATCH_NOT_OK(
+      DoInBatches(def_levels, rep_levels, num_levels, properties_->write_batch_size(),
+                  properties_->max_rows_per_page(), pages_change_on_record_boundaries(),
+                  WriteIndicesChunk, [this]() { return num_buffered_rows_; }));
   return Status::OK();
 }
 
@@ -2448,10 +2446,10 @@ Status TypedColumnWriterImpl<ByteArrayType>::WriteArrowDense(
     value_offset += batch_num_spaced_values;
   };
 
-  PARQUET_CATCH_NOT_OK(DoInBatches(
-      def_levels, rep_levels, num_levels, properties_->write_batch_size(), WriteChunk,
-      pages_change_on_record_boundaries(), properties_->max_rows_per_page(),
-      [this]() { return num_buffered_rows_; }));
+  PARQUET_CATCH_NOT_OK(
+      DoInBatches(def_levels, rep_levels, num_levels, properties_->write_batch_size(),
+                  properties_->max_rows_per_page(), pages_change_on_record_boundaries(),
+                  WriteChunk, [this]() { return num_buffered_rows_; }));
   return Status::OK();
 }
 

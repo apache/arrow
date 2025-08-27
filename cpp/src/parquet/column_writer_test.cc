@@ -2159,16 +2159,21 @@ class TestColumnWriterMaxRowsPerPage : public TestPrimitiveWriter<TestType> {
     auto offset_index = row_group_page_index_reader->GetOffsetIndex(0);
     ASSERT_NE(offset_index, nullptr);
     size_t num_pages = offset_index->page_locations().size();
+    int64_t num_rows = 0;
     for (size_t j = 1; j < num_pages; ++j) {
       int64_t page_rows = offset_index->page_locations()[j].first_row_index -
                           offset_index->page_locations()[j - 1].first_row_index;
       EXPECT_LE(page_rows, max_rows_per_page);
+      num_rows += page_rows;
     }
     if (num_pages != 0) {
       int64_t last_page_rows = file_meta->RowGroup(0)->num_rows() -
                                offset_index->page_locations().back().first_row_index;
       EXPECT_LE(last_page_rows, max_rows_per_page);
+      num_rows += last_page_rows;
     }
+
+    EXPECT_EQ(num_rows, file_meta->RowGroup(0)->num_rows());
   }
 
  private:
