@@ -742,11 +742,15 @@ An example encryption configuration:
 .. note::
 
    Columns with nested fields (struct or map data types) can be encrypted as a whole, or only
-   individual fields. Configure an encryption key for the column name to encrypt all nested fields
-   with this key, or configure a key for individual fields.
+   individual fields. Configure an encryption key for the root column name to encrypt all nested
+   fields with this key, or configure a key for individual leaf nested fields.
 
-   Conventionally, the key and value fields of a map column ``m`` have the names ``m.key`` and
-   ``m.value``, respectively. An inner field ``f`` of a struct column ``s`` has the name ``s.f``.
+   Conventionally, the key and value fields of a map column ``m`` have the names
+   ``m.key_value.key`` and ``m.key_value.value``, respectively.
+   An inner field ``f`` of a struct column ``s`` has the name ``s.f``.
+
+   With above example, *all* inner fields are encrypted with the same key by configuring that key
+   for column ``m`` and ``s``, respectively.
 
 An example encryption configuration for columns with nested fields, where
 all columns are encrypted with the same key identified by ``column_key_id``:
@@ -782,7 +786,7 @@ some inner fields are encrypted with the same key identified by ``column_key_id`
    encryption_config = pe.EncryptionConfiguration(
       footer_key="footer_key_name",
       column_keys={
-         "column_key_id": [ "MapColumn.value", "StructColumn.f1" ],
+         "column_key_id": [ "MapColumn.key_value.value", "StructColumn.f1" ],
       },
    )
 

@@ -631,11 +631,15 @@ See the full `Parquet column encryption example <examples/parquet_column_encrypt
 .. note::
 
    Columns with nested fields (struct or map data types) can be encrypted as a whole, or only
-   individual fields. Configure an encryption key for the column name to encrypt all nested fields
-   with this key, or configure a key for individual fields.
+   individual fields. Configure an encryption key for the root column name to encrypt all nested
+   fields with this key, or configure a key for individual leaf nested fields.
 
-   Conventionally, the key and value fields of a map column ``m`` have the names ``m.key`` and
-   ``m.value``, respectively. An inner field ``f`` of a struct column ``s`` has the name ``s.f``.
+   Conventionally, the key and value fields of a map column ``m`` have the names
+   ``m.key_value.key`` and ``m.key_value.value``, respectively.
+   An inner field ``f`` of a struct column ``s`` has the name ``s.f``.
+
+   With above example, *all* inner fields are encrypted with the same key by configuring that key
+   for column ``m`` and ``s``, respectively.
 
 Miscellaneous
 -------------
