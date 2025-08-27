@@ -548,10 +548,10 @@ const auto kListFieldEncryptionTestParamValues =
     ::testing::Values(NestedFieldsEncryptionTestParam("a"),
                       NestedFieldsEncryptionTestParam("a.list.element"));
 
-const auto kMapFieldEncryptionTestParamValues = ::testing::Values(
-    NestedFieldsEncryptionTestParam("a"),
-    NestedFieldsEncryptionTestParam("a.key_value.key"),
-    NestedFieldsEncryptionTestParam("a.key_value.value"));
+const auto kMapFieldEncryptionTestParamValues =
+    ::testing::Values(NestedFieldsEncryptionTestParam("a"),
+                      NestedFieldsEncryptionTestParam("a.key_value.key"),
+                      NestedFieldsEncryptionTestParam("a.key_value.value"));
 
 const auto kStructFieldEncryptionTestParamValues = ::testing::Values(
     NestedFieldsEncryptionTestParam("a"), NestedFieldsEncryptionTestParam("a.f1"),

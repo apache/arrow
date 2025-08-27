@@ -497,13 +497,14 @@ class FileSerializer : public ParquetFileWriter::Contents {
           auto it = std::find(column_path_vec.begin(), column_path_vec.end(), elem.first);
           if (it == column_path_vec.end()) {
             // this column does not exist in the schema, this might be a root column name
-            // like `a` while there are `a.key_value.key` and `a.key_value.value` in the schema.
+            // like `a` while there are `a.key_value.key` and `a.key_value.value` in the
+            // schema.
             it = std::find(column_root_vec.begin(), column_root_vec.end(), elem.first);
             if (it == column_root_vec.end()) {
               // no encrypted columns exist with this root column name
               std::stringstream ss;
               ss << "Encrypted column " + elem.first + " not in file schema: ";
-              for (auto & cp : column_path_vec) {
+              for (auto& cp : column_path_vec) {
                 ss << cp << " ";
               }
               throw ParquetException(ss.str());
