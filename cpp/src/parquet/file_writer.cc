@@ -17,7 +17,6 @@
 
 #include "parquet/file_writer.h"
 
-#include <arrow/util/string.h>
 #include <memory>
 #include <ostream>
 #include <string>
@@ -40,8 +39,6 @@ using arrow::MemoryPool;
 using parquet::schema::GroupNode;
 
 namespace parquet {
-
-using ::arrow::internal::StartsWith;
 
 // ----------------------------------------------------------------------
 // RowGroupWriter public API

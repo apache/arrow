@@ -17,8 +17,6 @@
 
 #include "parquet/encryption/encryption.h"
 
-#include <string.h>
-
 #include <map>
 #include <utility>
 
@@ -30,9 +28,6 @@
 using ::arrow::util::SecureString;
 
 namespace parquet {
-
-using ::arrow::internal::EndsWith;
-using ::arrow::internal::StartsWith;
 
 // any empty SecureString key is interpreted as if no key is given
 // this instance is used when a SecureString reference is returned

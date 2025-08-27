@@ -68,25 +68,11 @@ std::shared_ptr<ColumnPath> ColumnPath::FromDotString(const std::string& dotstri
 }
 
 std::shared_ptr<ColumnPath> ColumnPath::FromNode(const Node& node) {
-  return FromNode(node, false);
-}
-
-std::shared_ptr<ColumnPath> ColumnPath::FromNode(const Node& node, bool schema_path) {
   // Build the path in reverse order as we traverse the nodes to the top
   std::vector<std::string> rpath_;
   const Node* cursor = &node;
   // The schema node is not part of the ColumnPath
   while (cursor->parent()) {
-    if (schema_path &&
-        (
-            // nested fields in arrow schema do not know these intermediate nodes
-            cursor->parent()->converted_type() == ConvertedType::MAP ||
-            cursor->parent()->converted_type() == ConvertedType::LIST ||
-            (cursor->parent()->parent() &&
-             cursor->parent()->parent()->converted_type() == ConvertedType::LIST))) {
-      cursor = cursor->parent();
-      continue;
-    }
     rpath_.push_back(cursor->name());
     cursor = cursor->parent();
   }
@@ -119,13 +105,6 @@ std::string ColumnPath::ToDotString() const {
 
 const std::vector<std::string>& ColumnPath::ToDotVector() const { return path_; }
 
-std::string ColumnPathPrefix::ToDotString() const {
-  std::stringstream ss;
-  ss << ColumnPath::ToDotString();
-  ss << ".";
-  return ss.str();
-}
-
 // ----------------------------------------------------------------------
 // Base node
 
@@ -133,10 +112,6 @@ const std::shared_ptr<ColumnPath> Node::path() const {
   // TODO(itaiin): Cache the result, or more precisely, cache ->ToDotString()
   //    since it is being used to access the leaf nodes
   return ColumnPath::FromNode(*this);
-}
-
-const std::shared_ptr<ColumnPath> Node::schema_path() const {
-  return ColumnPath::FromNode(*this, true);
 }
 
 bool Node::EqualsInternal(const Node* other) const {
@@ -984,10 +959,6 @@ int ColumnDescriptor::type_length() const { return primitive_node_->type_length(
 
 const std::shared_ptr<ColumnPath> ColumnDescriptor::path() const {
   return primitive_node_->path();
-}
-
-const std::shared_ptr<ColumnPath> ColumnDescriptor::schema_path() const {
-  return primitive_node_->schema_path();
 }
 
 }  // namespace parquet

@@ -84,8 +84,6 @@ class PARQUET_EXPORT ColumnPath {
 
   static std::shared_ptr<ColumnPath> FromDotString(const std::string& dotstring);
   static std::shared_ptr<ColumnPath> FromNode(const Node& node);
-  static std::shared_ptr<ColumnPath> FromNode(const Node& node,
-                                              bool filter_converted_types);
 
   std::shared_ptr<ColumnPath> extend(const std::string& node_name) const;
   std::string ToDotString() const;
@@ -93,18 +91,6 @@ class PARQUET_EXPORT ColumnPath {
 
  protected:
   std::vector<std::string> path_;
-};
-
-class PARQUET_EXPORT ColumnPathPrefix : public ColumnPath {
- public:
-  ColumnPathPrefix() : ColumnPath() {}
-  explicit ColumnPathPrefix(const std::vector<std::string>& prefix)
-      : ColumnPath(prefix) {}
-  explicit ColumnPathPrefix(std::vector<std::string>&& prefix) : ColumnPath(prefix) {}
-  explicit ColumnPathPrefix(const ColumnPath& prefix)
-      : ColumnPath(prefix.ToDotVector()) {}
-
-  std::string ToDotString() const;
 };
 
 // Base class for logical schema types. A type has a name, repetition level,
@@ -144,14 +130,7 @@ class PARQUET_EXPORT Node {
 
   const Node* parent() const { return parent_; }
 
-  /// \brief The path of this column in the Parquet schema
   const std::shared_ptr<ColumnPath> path() const;
-
-  /// \brief The path of this column in the corresponding Arrow schema
-  ///
-  /// This path differs from \ref parquet::schema::Node::path only for nested fields like
-  /// lists or maps.
-  const std::shared_ptr<ColumnPath> schema_path() const;
 
   virtual void ToParquet(void* element) const = 0;
 
@@ -405,14 +384,7 @@ class PARQUET_EXPORT ColumnDescriptor {
 
   const std::string& name() const { return primitive_node_->name(); }
 
-  /// \brief The path of this column in the Parquet schema
   const std::shared_ptr<schema::ColumnPath> path() const;
-
-  /// \brief The path of this column in the corresponding Arrow schema
-  ///
-  /// This path differs from \ref parquet::schema::Node::path only for nested fields like
-  /// lists or maps.
-  const std::shared_ptr<schema::ColumnPath> schema_path() const;
 
   const schema::NodePtr& schema_node() const { return node_; }
 
