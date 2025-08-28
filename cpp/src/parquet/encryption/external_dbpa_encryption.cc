@@ -109,19 +109,21 @@ ExternalDBPAEncryptorAdapter* ExternalDBPAEncryptorAdapterFactory::GetEncryptor(
 
 ExternalDBPADecryptorAdapter::ExternalDBPADecryptorAdapter(
     ParquetCipher::type algorithm, std::string column_name, std::string key_id,
-    Type::type data_type, Compression::type compression_type, Encoding::type encoding_type,
-    std::string app_context, std::map<std::string, std::string> connection_config)
+    Type::type data_type, Compression::type compression_type,
+    std::vector<Encoding::type> encoding_types, std::string app_context,
+    std::map<std::string, std::string> connection_config)
     : algorithm_(algorithm), column_name_(column_name), key_id_(key_id),
       data_type_(data_type), compression_type_(compression_type),
-      encoding_type_(encoding_type), app_context_(app_context),
+      encoding_types_(encoding_types), app_context_(app_context),
       connection_config_(connection_config) {}
 
 std::unique_ptr<ExternalDBPADecryptorAdapter> ExternalDBPADecryptorAdapter::Make(
     ParquetCipher::type algorithm, std::string column_name, std::string key_id,
-    Type::type data_type, Compression::type compression_type, Encoding::type encoding_type,
-    std::string app_context, std::map<std::string, std::string> connection_config) {
+    Type::type data_type, Compression::type compression_type,
+    std::vector<Encoding::type> encoding_types, std::string app_context,
+    std::map<std::string, std::string> connection_config) {
   return std::make_unique<ExternalDBPADecryptorAdapter>(
-      algorithm, column_name, key_id, data_type, compression_type, encoding_type,
+      algorithm, column_name, key_id, data_type, compression_type, encoding_types,
       app_context, connection_config);
 }
 
@@ -147,7 +149,11 @@ int32_t ExternalDBPADecryptorAdapter::CallExternalDBPA(
   std::cout << "Key ID: [" << key_id_ << "]" << std::endl;
   std::cout << "Data Type: [" << data_type_ << "]" << std::endl;
   std::cout << "Compression Type: [" << compression_type_ << "]" << std::endl;
-  std::cout << "Encoding Type: [" << encoding_type_ << "]" << std::endl;
+  std::cout << "Encoding Types: [";
+  for (const auto& encoding_type : encoding_types_) {
+    std::cout << encoding_type << "\n";
+  }
+  std::cout << "]" << std::endl;
   std::cout << "App Context: [" << app_context_ << "]" << std::endl;
   std::cout << "Connection Config:" << std::endl;
   for (const auto& [key, value] : connection_config_) {
@@ -164,5 +170,29 @@ int32_t ExternalDBPADecryptorAdapter::CallExternalDBPA(
 
   return plaintext.size();
 }
+
+std::unique_ptr<DecryptorInterface> ExternalDBPADecryptorAdapterFactory::GetDecryptor(
+  ParquetCipher::type algorithm, const ColumnCryptoMetaData* crypto_metadata,
+  const ColumnChunkMetaData* column_chunk_metadata,
+  ExternalFileDecryptionProperties* external_file_decryption_properties) {
+    if (column_chunk_metadata == nullptr || crypto_metadata == nullptr) {
+      throw ParquetException("External DBPA decryption requires column chunk and crypto metadata");
+    }
+    auto connection_config = external_file_decryption_properties->connection_config();
+    if (connection_config.find(algorithm) == connection_config.end()) {
+      throw ParquetException("External DBPA decryption requires its connection configuration");
+    }
+    auto column_path = column_chunk_metadata->descr()->path();
+    auto data_type = column_chunk_metadata->descr()->physical_type();
+    auto compression_type = column_chunk_metadata->compression();
+    auto encoding_types = column_chunk_metadata->encodings();
+    auto app_context = external_file_decryption_properties->app_context();
+    auto connection_config_for_algorithm = connection_config.at(algorithm);
+    auto key_metadata =crypto_metadata->key_metadata();
+
+    return ExternalDBPADecryptorAdapter::Make(
+        algorithm, column_path->ToDotString(), key_metadata, data_type, compression_type,
+        encoding_types, app_context, connection_config_for_algorithm);
+ }
 
 }  // namespace parquet::encryption

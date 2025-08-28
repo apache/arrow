@@ -63,7 +63,7 @@ def create_and_encrypt_parquet():
         "productId": [152, 268, 6548],
         "price": [3.25, 6.48, 2.12],
         "vat": [0.0, 0.2, 0.05]
-    }    
+    }
     data_table = pyarrow.Table.from_pydict(sample_data)
 
     print("\nPyarrow table created. Writing parquet.")
@@ -80,7 +80,7 @@ def read_and_print_parquet():
     print(metadata)
     print("\n")
 
-    decryption_config = get_decryption_config()
+    decryption_config = get_external_decryption_config()
     read_data_table = read_parquet(parquet_path,
                                    decryption_config=decryption_config)
     data_frame = read_data_table.to_pandas()
@@ -94,7 +94,7 @@ def read_parquet(location, decryption_config=None, read_metadata=False):
 
     if decryption_config:
         crypto_factory = ppe.CryptoFactory(kms_client_factory)
-        decryption_properties = crypto_factory.file_decryption_properties(
+        decryption_properties = crypto_factory.external_file_decryption_properties(
             get_kms_connection_config(), decryption_config)
     
     if read_metadata:
@@ -154,7 +154,7 @@ def get_encryption_config(plaintext_footer=True):
             "orderid_key": ["orderId"],
             "productid_key": ["productId"]
         },
-        encryption_algorithm = "AES_GCM_V1",
+        encryption_algorithm = "AES_GCM_CTR_V1",
         cache_lifetime=datetime.timedelta(minutes=2.0),
         data_key_length_bits = 128,
         plaintext_footer=plaintext_footer

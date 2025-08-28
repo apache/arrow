@@ -59,6 +59,8 @@
  *  - Decryption Configuration 4:   PlainText Footer mode - test legacy reads,
  *                                  read the footer + all non-encrypted columns.
  *                                  (pairs with encryption configuration 3)
+ *  - Decryption configuration 5:   External decryption configuration for use in per-column
+ *                                  test (pairs with encryption configuration 7).
  *
  * The encrypted parquet files that are read were encrypted using one of the
  * configurations below:
@@ -79,7 +81,10 @@
  *                                  identity storage in file metadata.
  *  - Encryption configuration 6:   Encrypt two columns and the footer, with different
  *                                  keys. Use the alternative (AES_GCM_CTR_V1) algorithm.
-
+ *  - Encryption configuration 7:   Encrypt three columns, one using the file level encryption
+ *                                  algorithm, and the other two columns using per-column
+ *                                  encryption algorithm (use 3 encryption algorithm total),
+ *                                  using plaintext footer mode.
  */
 
 namespace parquet::encryption::test {
@@ -165,6 +170,25 @@ class TestDecryptionConfiguration
     // Decryption Configuration 4: use plaintext footer mode, read only footer + plaintext
     // columns.
     vector_of_decryption_configurations_.push_back(NULL);
+
+    // Decryption configuration 5: External decryption configuration for use in per-column
+    // encryption.   
+    std::shared_ptr<parquet::StringKeyIdRetriever> string_kr5 =
+    std::make_shared<parquet::StringKeyIdRetriever>();
+    string_kr5->PutKey("kf", kFooterEncryptionKey_);
+    string_kr5->PutKey("kc1", kColumnEncryptionKey1_);
+    string_kr5->PutKey("kc2", kColumnEncryptionKey2_);
+    std::shared_ptr<parquet::DecryptionKeyRetriever> kr5 =
+    std::static_pointer_cast<parquet::StringKeyIdRetriever>(string_kr5);
+    parquet::ExternalFileDecryptionProperties::Builder file_decryption_builder_5;
+    file_decryption_builder_5.key_retriever(kr5);
+    file_decryption_builder_5.connection_config({
+      {parquet::ParquetCipher::EXTERNAL_DBPA_V1, {
+          {"file_path", "/tmp/test"},
+          {"other_config", "value"}
+      }}
+    });
+    vector_of_decryption_configurations_.push_back(file_decryption_builder_5.build_external());
   }
 
   void DecryptFileInternal(
@@ -224,6 +248,13 @@ class TestDecryptionConfiguration
     if (decryption_config_num == 4 && encryption_config_num != 3) {
       return;
     }
+
+    // decryption config 5 can only work when the encryption configuration is 7 and vice versa
+    if ((decryption_config_num == 5 && encryption_config_num != 7) || 
+        (decryption_config_num != 5 && encryption_config_num == 7)) {
+      return;
+    }
+
     EXPECT_NO_THROW(DecryptFile(file_name, decryption_config_num - 1));
     EXPECT_NO_THROW(DecryptPageIndex(file_name, decryption_config_num - 1));
   }
@@ -288,6 +319,7 @@ INSTANTIATE_TEST_SUITE_P(
         std::make_tuple(4, "encrypt_columns_and_footer_aad.parquet.encrypted"),
         std::make_tuple(
             5, "encrypt_columns_and_footer_disable_aad_storage.parquet.encrypted"),
-        std::make_tuple(6, "encrypt_columns_and_footer_ctr.parquet.encrypted")));
+        std::make_tuple(6, "encrypt_columns_and_footer_ctr.parquet.encrypted"),
+        std::make_tuple(7, "encrypt_with_per_column_encryption.parquet.encrypted")));
 
 }  // namespace parquet::encryption::test

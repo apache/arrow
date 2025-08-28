@@ -23,6 +23,7 @@
 
 #include "parquet/metadata.h"
 #include "parquet/encryption/decryptor_interface.h"
+#include "parquet/encryption/external_dbpa_encryption.h"
 
 namespace parquet {
 
@@ -84,18 +85,7 @@ class InternalFileDecryptor {
   // Get a Decryptor instance for column chunk metadata.
   std::unique_ptr<Decryptor> GetColumnMetaDecryptor(
       const std::string& column_path, const std::string& column_key_metadata,
-      const std::string& aad = "") {
-    return GetColumnDecryptor(column_path, column_key_metadata, aad, /*metadata=*/true);
-  }
-
-  // Get a Decryptor instance for column chunk data.
-  std::unique_ptr<Decryptor> GetColumnDataDecryptor(
-      const std::string& column_path, const std::string& column_key_metadata,
-      const ColumnChunkMetaData* column_chunk_metadata = nullptr,
-      const std::string& aad = "") {
-    return GetColumnDecryptor(
-      column_path, column_key_metadata, aad, /*metadata=*/false, column_chunk_metadata);
-  }
+      const std::string& aad = "");
 
   // Get a Decryptor factory for column chunk metadata.
   //
@@ -122,6 +112,7 @@ class InternalFileDecryptor {
   ParquetCipher::type algorithm_;
   std::string footer_key_metadata_;
   ::arrow::MemoryPool* pool_;
+  encryption::ExternalDBPADecryptorAdapterFactory external_dbpa_decryptor_factory_;
 
   // Protects footer_key_ updates
   std::mutex mutex_;
@@ -131,11 +122,6 @@ class InternalFileDecryptor {
                            const std::string& column_key_metadata);
 
   std::unique_ptr<Decryptor> GetFooterDecryptor(const std::string& aad, bool metadata);
-
-  std::unique_ptr<Decryptor> GetColumnDecryptor(
-    const std::string& column_path, const std::string& column_key_metadata,
-    const std::string& aad, bool metadata,
-    const ColumnChunkMetaData* column_chunk_metadata = nullptr);
 
   std::function<std::unique_ptr<Decryptor>()> GetColumnDecryptorFactory(
       const ColumnCryptoMetaData* crypto_metadata, const std::string& aad, bool metadata,

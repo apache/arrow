@@ -3,6 +3,7 @@
 #pragma once
 
 #include <map>
+#include <vector>
 
 #include "parquet/encryption/encryptor_interface.h"
 #include "parquet/encryption/decryptor_interface.h"
@@ -77,13 +78,13 @@ class ExternalDBPADecryptorAdapter : public DecryptorInterface {
   explicit ExternalDBPADecryptorAdapter(
       ParquetCipher::type algorithm, std::string column_name,
       std::string key_id, Type::type data_type, Compression::type compression_type,
-      Encoding::type encoding_type, std::string app_context,
+      std::vector<Encoding::type> encoding_types, std::string app_context,
       std::map<std::string, std::string> connection_config);
 
   static std::unique_ptr<ExternalDBPADecryptorAdapter> Make(
       ParquetCipher::type algorithm, std::string column_name,
       std::string key_id, Type::type data_type, Compression::type compression_type,
-      Encoding::type encoding_type, std::string app_context,
+      std::vector<Encoding::type> encoding_types, std::string app_context,
       std::map<std::string, std::string> connection_config);
   
   ~ExternalDBPADecryptorAdapter() = default;
@@ -111,9 +112,19 @@ class ExternalDBPADecryptorAdapter : public DecryptorInterface {
     std::string key_id_;
     Type::type data_type_;
     Compression::type compression_type_;
-    Encoding::type encoding_type_;
+    // Set of all encodings used for this column. Comes directly from the column chunk metadata.
+    std::vector<Encoding::type> encoding_types_;
     std::string app_context_;
     std::map<std::string, std::string> connection_config_;
+};
+
+/// Factory for ExternalDBPADecryptorAdapter instances. No cache exists for decryptors.
+class ExternalDBPADecryptorAdapterFactory {
+  public:
+    std::unique_ptr<DecryptorInterface> GetDecryptor(
+      ParquetCipher::type algorithm, const ColumnCryptoMetaData* crypto_metadata,
+      const ColumnChunkMetaData* column_chunk_metadata,
+      ExternalFileDecryptionProperties* external_file_decryption_properties);
 };
 
 }  // namespace parquet::encryption
