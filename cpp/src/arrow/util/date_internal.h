@@ -22,16 +22,15 @@
 namespace arrow::internal {
 
 namespace date = arrow_vendored::date;
-using std::chrono::minutes;
 
 // OffsetZone object is inspired by an example from date.h documentation:
 // https://howardhinnant.github.io/date/tz.html#Examples
 
 class OffsetZone {
-  minutes offset_;
+  std::chrono::minutes offset_;
 
  public:
-  explicit OffsetZone(minutes offset) : offset_{offset} {}
+  explicit OffsetZone(std::chrono::minutes offset) : offset_{offset} {}
 
   template <class Duration>
   date::local_time<Duration> to_local(date::sys_time<Duration> tp) const {
@@ -47,8 +46,8 @@ class OffsetZone {
 
   template <class Duration>
   date::sys_info get_info(date::sys_time<Duration> st) const {
-    return {date::sys_seconds::min(), date::sys_seconds::max(), offset_, minutes(0),
-            offset_ >= minutes(0) ? "+" + date::format("%H%M", offset_)
+    return {date::sys_seconds::min(), date::sys_seconds::max(), offset_, std::chrono::minutes(0),
+            offset_ >= std::chrono::minutes(0) ? "+" + date::format("%H%M", offset_)
                                   : "-" + date::format("%H%M", -offset_)};
   }
 
