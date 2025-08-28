@@ -3,6 +3,7 @@
 #include <iostream>
 
 #include "parquet/encryption/external_dbpa_encryption.h"
+#include "parquet/encryption/key_metadata.h"
 
 /// TODO(sbrenes): Add proper implementation. Right now we are just going to return
 /// the plaintext as the ciphertext.
@@ -97,7 +98,17 @@ ExternalDBPAEncryptorAdapter* ExternalDBPAEncryptorAdapterFactory::GetEncryptor(
     auto encoding_type = column_chunk_metadata->properties()->encoding(column_path);
     auto app_context = external_file_encryption_properties->app_context();
     auto connection_config_for_algorithm = connection_config.at(algorithm);
-    auto key_id = column_encryption_properties->key_metadata();
+
+    std::string key_id;
+    try {
+      auto key_metadata = KeyMetadata::Parse(column_encryption_properties->key_metadata());
+      key_id = key_metadata.key_material().master_key_id();
+    } catch (const ParquetException& e) {
+      // It is possible for the key metadata to only contain the key id itself, so if
+      // it cannot be parsed as valid JSON, send the key id as string for the ExternalDBPA
+      // to process.
+      key_id = column_encryption_properties->key_metadata();
+    }
 
     encryptor_cache_[column_path->ToDotString()] = ExternalDBPAEncryptorAdapter::Make(
         algorithm, column_path->ToDotString(), key_id, data_type, compression_type,
@@ -188,10 +199,20 @@ std::unique_ptr<DecryptorInterface> ExternalDBPADecryptorAdapterFactory::GetDecr
     auto encoding_types = column_chunk_metadata->encodings();
     auto app_context = external_file_decryption_properties->app_context();
     auto connection_config_for_algorithm = connection_config.at(algorithm);
-    auto key_metadata =crypto_metadata->key_metadata();
+
+    std::string key_id;
+    try {
+      auto key_metadata = KeyMetadata::Parse(crypto_metadata->key_metadata());
+      key_id = key_metadata.key_material().master_key_id();
+    } catch (const ParquetException& e) {
+      // It is possible for the key metadata to only contain the key id itself, so if
+      // it cannot be parsed as valid JSON, send the key id as string for the ExternalDBPA
+      // to process.
+      key_id = crypto_metadata->key_metadata();
+    }
 
     return ExternalDBPADecryptorAdapter::Make(
-        algorithm, column_path->ToDotString(), key_metadata, data_type, compression_type,
+        algorithm, column_path->ToDotString(), key_id, data_type, compression_type,
         encoding_types, app_context, connection_config_for_algorithm);
  }
 
