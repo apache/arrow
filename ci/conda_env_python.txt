@@ -20,7 +20,7 @@
 # Not a direct dependency of s3fs, but needed for our s3fs fixture
 boto3
 cffi
-cython>=3
+cython>=3.1
 cloudpickle
 fsspec
 hypothesis

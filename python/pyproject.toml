@@ -17,7 +17,7 @@
 
 [build-system]
 requires = [
-    "cython >= 3",
+    "cython >= 3.1",
     # Starting with NumPy 1.25, NumPy is (by default) as far back compatible
     # as oldest-support-numpy was (customizable with a NPY_TARGET_VERSION
     # define).  For older Python versions (where NumPy 1.25 is not yet available)
