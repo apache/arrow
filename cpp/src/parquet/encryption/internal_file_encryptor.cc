@@ -151,7 +151,7 @@ encryption::EncryptorInterface* InternalFileEncryptor::GetDataEncryptor(
         algorithm, column_chunk_metadata,
         dynamic_cast<ExternalFileEncryptionProperties*>(properties_));
   }
-  return aes_encryptor_factory_.GetDataAesEncryptor(algorithm, key_size);
+  return aes_encryptor_factory_.GetDataAesEncryptor(algorithm, static_cast<int32_t>(key_size));
 }
 
 }  // namespace parquet
