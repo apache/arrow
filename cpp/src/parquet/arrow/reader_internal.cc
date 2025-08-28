@@ -159,7 +159,8 @@ static Status FromInt32Statistics(const Int32Statistics& statistics,
                                   const LogicalType& logical_type,
                                   std::shared_ptr<::arrow::Scalar>* min,
                                   std::shared_ptr<::arrow::Scalar>* max) {
-  ARROW_ASSIGN_OR_RAISE(auto type, FromInt32(logical_type));
+  ARROW_ASSIGN_OR_RAISE(auto type,
+                        FromInt32(logical_type, default_arrow_reader_properties()));
 
   switch (logical_type.type()) {
     case LogicalType::Type::INT:
@@ -181,7 +182,8 @@ static Status FromInt64Statistics(const Int64Statistics& statistics,
                                   const LogicalType& logical_type,
                                   std::shared_ptr<::arrow::Scalar>* min,
                                   std::shared_ptr<::arrow::Scalar>* max) {
-  ARROW_ASSIGN_OR_RAISE(auto type, FromInt64(logical_type));
+  ARROW_ASSIGN_OR_RAISE(auto type,
+                        FromInt64(logical_type, default_arrow_reader_properties()));
 
   switch (logical_type.type()) {
     case LogicalType::Type::INT:
