@@ -2152,7 +2152,8 @@ def test_doexchange_echo():
                 chunk = reader.read_chunk()
                 assert chunk.data == batch
                 assert chunk.app_metadata == buf
-                assert reader.stats.num_record_batches == num_batches + i + 1
+                num_batches += 1
+                assert reader.stats.num_record_batches == num_batches
 
 
 def test_doexchange_echo_v4():
