@@ -433,7 +433,7 @@ Variant represents a value that may be one of:
 Particularly, this provides a way to represent semi-structured data which is stored as a
 `Parquet Variant <https://github.com/apache/parquet-format/blob/master/VariantEncoding.md>`__ value within Arrow columns in
 a lossless fashion. This also provides the ability to represent `shredded <https://github.com/apache/parquet-format/blob/master/VariantShredding.md>`__
-variant values. This will make it easy for systems to pass Variant data around without having to upgrade their Arrow version
+variant values. This will make it possible for systems to pass Variant data around without having to upgrade their Arrow version
 or otherwise require special handling unless they want to directly interact with the encoded variant data. See the previous links
 to the Parquet format specification for details on what the actual binary values should look like.
 
