@@ -33,10 +33,12 @@ Result<ArrowTimeZone> LocateZone(const std::string_view timezone) {
         if (arrow::internal::detail::ParseHH_MM(offset.c_str(), &zone_offset)) {
           break;
         }
+        [[fallthrough]];
       case 5:
         if (arrow::internal::detail::ParseHHMM(offset.c_str(), &zone_offset)) {
           break;
         }
+        [[fallthrough]];
       default:
         return Status::Invalid("Cannot locate or parse timezone '", timezone, "'");
     }
