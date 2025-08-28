@@ -797,23 +797,23 @@ Status TransferDecimal(RecordReader* reader, MemoryPool* pool,
 }
 
 template <typename DecimalArrayType, typename... Args>
-Status TransferDecimalTo(Type::type physical_type, Args... args) {
+Status TransferDecimalTo(Type::type physical_type, Args&&... args) {
   switch (physical_type) {
     case ::parquet::Type::INT32: {
       auto fn = DecimalIntegerTransfer<DecimalArrayType, Int32Type>;
-      RETURN_NOT_OK(fn(args...));
+      RETURN_NOT_OK(fn(std::forward<Args>(args)...));
     } break;
     case ::parquet::Type::INT64: {
       auto fn = DecimalIntegerTransfer<DecimalArrayType, Int64Type>;
-      RETURN_NOT_OK(fn(args...));
+      RETURN_NOT_OK(fn(std::forward<Args>(args)...));
     } break;
     case ::parquet::Type::BYTE_ARRAY: {
       auto fn = TransferDecimal<DecimalArrayType, ByteArrayType>;
-      RETURN_NOT_OK(fn(args...));
+      RETURN_NOT_OK(fn(std::forward<Args>(args)...));
     } break;
     case ::parquet::Type::FIXED_LEN_BYTE_ARRAY: {
       auto fn = TransferDecimal<DecimalArrayType, FLBAType>;
-      RETURN_NOT_OK(fn(args...));
+      RETURN_NOT_OK(fn(std::forward<Args>(args)...));
     } break;
     default:
       return Status::Invalid(

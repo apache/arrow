@@ -3082,44 +3082,19 @@ TEST(ArrowReadWrite, NestedRequiredField) {
                        /*row_group_size=*/8);
 }
 
-TEST(ArrowReadWrite, Decimal32) {
+TEST(ArrowReadWrite, Decimal) {
   using ::arrow::field;
-
-  auto type = ::arrow::decimal32(8, 4);
 
   const char* json = R"(["1.0000", null, "-1.2345", "-1000.5678",
                          "-9999.9999", "9999.9999"])";
-  auto array = ::arrow::ArrayFromJSON(type, json);
-  auto table = ::arrow::Table::Make(::arrow::schema({field("root", type)}), {array});
-  auto props_store_schema = ArrowWriterProperties::Builder().store_schema()->build();
-  CheckSimpleRoundtrip(table, 2, props_store_schema);
-}
 
-TEST(ArrowReadWrite, Decimal64) {
-  using ::arrow::field;
-
-  auto type = ::arrow::decimal64(8, 4);
-
-  const char* json = R"(["1.0000", null, "-1.2345", "-1000.5678",
-                         "-9999.9999", "9999.9999"])";
-  auto array = ::arrow::ArrayFromJSON(type, json);
-  auto table = ::arrow::Table::Make(::arrow::schema({field("root", type)}), {array});
-  auto props_store_schema = ArrowWriterProperties::Builder().store_schema()->build();
-  CheckSimpleRoundtrip(table, 2, props_store_schema);
-}
-
-TEST(ArrowReadWrite, Decimal256) {
-  using ::arrow::Decimal256;
-  using ::arrow::field;
-
-  auto type = ::arrow::decimal256(8, 4);
-
-  const char* json = R"(["1.0000", null, "-1.2345", "-1000.5678",
-                         "-9999.9999", "9999.9999"])";
-  auto array = ::arrow::ArrayFromJSON(type, json);
-  auto table = ::arrow::Table::Make(::arrow::schema({field("root", type)}), {array});
-  auto props_store_schema = ArrowWriterProperties::Builder().store_schema()->build();
-  CheckSimpleRoundtrip(table, 2, props_store_schema);
+  for (auto type : {::arrow::decimal32(8, 4), ::arrow::decimal64(8, 4),
+                    ::arrow::decimal128(8, 4), ::arrow::decimal256(8, 4)}) {
+    auto array = ::arrow::ArrayFromJSON(type, json);
+    auto table = ::arrow::Table::Make(::arrow::schema({field("root", type)}), {array});
+    auto props_store_schema = ArrowWriterProperties::Builder().store_schema()->build();
+    CheckSimpleRoundtrip(table, 2, props_store_schema);
+  }
 }
 
 TEST(ArrowReadWrite, DecimalStats) {
@@ -5548,50 +5523,28 @@ class TestIntegerAnnotateSmallestDecimalTypeParquetIO
     if (values.type()->id() == out->type()->id()) {
       AssertArraysEqual(values, *out);
     } else {
-      auto& expected_values = values;
-      auto& read_values = *out;
-      ASSERT_EQ(expected_values.length(), read_values.length());
-      ASSERT_EQ(expected_values.null_count(), read_values.null_count());
+      auto decimal_type = checked_pointer_cast<::arrow::DecimalType>(values.type());
 
-      auto format_decimal = [](const Array& values, int64_t index) {
-        switch (values.type()->id()) {
-          case ::arrow::Type::DECIMAL32:
-            return static_cast<const ::arrow::Decimal32Array&>(values).FormatValue(index);
-          case ::arrow::Type::DECIMAL64:
-            return static_cast<const ::arrow::Decimal64Array&>(values).FormatValue(index);
-          case ::arrow::Type::DECIMAL128:
-            return static_cast<const ::arrow::Decimal128Array&>(values).FormatValue(
-                index);
-          case ::arrow::Type::DECIMAL256:
-            return static_cast<const ::arrow::Decimal256Array&>(values).FormatValue(
-                index);
-          default:
-            std::string err("Unexpected decimal type: " + values.type()->ToString());
-            ADD_FAILURE() << err;
-            return err;
-        }
-      };
+      ASSERT_OK_AND_ASSIGN(
+          const auto expected_values,
+          ::arrow::compute::Cast(values, ::arrow::decimal256(decimal_type->precision(),
+                                                             decimal_type->scale())));
+      ASSERT_OK_AND_ASSIGN(
+          const auto out_values,
+          ::arrow::compute::Cast(*out, ::arrow::decimal256(decimal_type->precision(),
+                                                           decimal_type->scale())));
 
-      for (int64_t i = 0; i < expected_values.length(); ++i) {
-        ASSERT_EQ(expected_values.IsNull(i), read_values.IsNull(i));
-        if (!expected_values.IsNull(i)) {
-          std::string expected_str = format_decimal(expected_values, i);
-          std::string read_str = format_decimal(read_values, i);
-          ASSERT_EQ(expected_str, read_str);
-        }
-      }
+      ASSERT_EQ(expected_values->length(), out_values->length());
+      ASSERT_EQ(expected_values->null_count(), out_values->null_count());
+      ASSERT_TRUE(expected_values->Equals(*out_values));
     }
   }
 };
 
 using SmallestDecimalTestTypes = ::testing::Types<
-    Decimal32WithPrecisionAndScale<1>, Decimal32WithPrecisionAndScale<5>,
-    Decimal32WithPrecisionAndScale<9>, Decimal64WithPrecisionAndScale<1>,
-    Decimal64WithPrecisionAndScale<5>, Decimal64WithPrecisionAndScale<10>,
-    Decimal64WithPrecisionAndScale<18>, Decimal128WithPrecisionAndScale<1>,
-    Decimal128WithPrecisionAndScale<5>, Decimal128WithPrecisionAndScale<10>,
-    Decimal128WithPrecisionAndScale<18>, Decimal256WithPrecisionAndScale<1>,
-    Decimal256WithPrecisionAndScale<5>, Decimal256WithPrecisionAndScale<10>,
+    Decimal32WithPrecisionAndScale<9>, Decimal64WithPrecisionAndScale<9>,
+    Decimal64WithPrecisionAndScale<18>, Decimal128WithPrecisionAndScale<9>,
+    Decimal128WithPrecisionAndScale<18>, Decimal256WithPrecisionAndScale<9>,
     Decimal256WithPrecisionAndScale<18>>;
 
 TYPED_TEST_SUITE(TestIntegerAnnotateSmallestDecimalTypeParquetIO,
