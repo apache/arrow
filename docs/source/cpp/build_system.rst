@@ -125,7 +125,7 @@ This is the list of available packages:
 * Gandiva
 * Parquet
 
-Target specific to above packages follow a consistent naming pattern:
+Usage with find_package and target names follows a consistent naming pattern:
 
 * find_package usage: ``find_package(PackageName REQUIRED)``
 * shared target: ``PackageName::package_name_shared``
