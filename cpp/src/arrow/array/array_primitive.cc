@@ -38,6 +38,11 @@ PrimitiveArray::PrimitiveArray(const std::shared_ptr<DataType>& type, int64_t le
   SetData(ArrayData::Make(type, length, {null_bitmap, data}, null_count, offset));
 }
 
+void PrimitiveArray::SetData(const std::shared_ptr<ArrayData>& data) {
+  this->Array::SetData(data);
+  raw_values_ = data->GetValuesSafe<uint8_t>(1, /*offset=*/0);
+}
+
 // ----------------------------------------------------------------------
 // BooleanArray
 
