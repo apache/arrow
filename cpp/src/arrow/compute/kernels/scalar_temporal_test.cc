@@ -783,6 +783,8 @@ TEST_F(ScalarTemporalTest, TestZoned1) {
     auto hour = "[14, 13, 15, 18, 15, 16, 17, 18, 19, 21, 22, 23, 0, 14, 14, 15, null]";
     auto minute = "[30, 53, 41, 3, 35, 40, 45, 50, 55, 0, 5, 10, 15, 30, 30, 32, null]";
     if (timezone == "-09:30") {
+      // Prior to October 1st 1912 Pacific/Marquesas was on solar time (probably)
+      // and is on +09:30 since.
       minute = "[30, 53, 29, 3, 35, 40, 45, 50, 55, 0, 5, 10, 15, 30, 30, 32, null]";
     }
 
