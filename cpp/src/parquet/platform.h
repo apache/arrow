@@ -110,3 +110,7 @@ std::shared_ptr<ResizableBuffer> AllocateBuffer(
     ::arrow::MemoryPool* pool = ::arrow::default_memory_pool(), int64_t size = 0);
 
 }  // namespace parquet
+
+#if defined(_MSC_VER)
+#  pragma warning(pop)
+#endif
