@@ -131,12 +131,11 @@ Usage with find_package and target names follows a consistent naming pattern:
 * shared target: ``PackageName::package_name_shared``
 * static target: ``PackageName::package_name_static``
 
-Example, to use the ArrowFlightTesting package:
+For example, to use the ``ArrowCompute`` package:
 
-* Package Name: ``ArrowFlightTesting``
-* find_package Usage: ``find_package(ArrowFlightTesting REQUIRED)``
-* Shared Target: ``ArrowFlightTesting::arrow_flight_testing_shared``
-* Static Target: ``ArrowFlightTesting::arrow_flight_testing_static``
+* find_package Usage: ``find_package(ArrowCompute REQUIRED)``
+* Shared Target: ``ArrowCompute::arrow_compute_shared``
+* Static Target: ``ArrowCompute::arrow_compute_static``
 
 .. note::
    CMake is case-sensitive.  The names and variables listed above have to be
