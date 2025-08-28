@@ -39,6 +39,8 @@ Connection to the specific language development pages:
    .. tab-item:: Python
 
       * :ref:`python-development`
+      * :ref:`build_pyarrow`
+      * :ref:`develop_pyarrow`
 
    .. tab-item:: R
 
@@ -228,7 +230,7 @@ All participation in the Apache Arrow project is governed by the ASF's
    reviewing
    cpp/index
    java/index
-   python
+   python/index
    continuous_integration/index
    benchmarks
    documentation
