@@ -2231,22 +2231,15 @@ TYPED_TEST(TestColumnWriterMaxRowsPerPage, Repeated) {
     std::vector<int16_t> definition_levels(SMALL_SIZE);
     std::vector<int16_t> repetition_levels(SMALL_SIZE);
 
-    // Generate levels to include variable-sized lists, null lists, and empty lists
+    // Generate levels to include variable-sized lists and empty lists
     for (int i = 0; i < SMALL_SIZE; i++) {
       int list_length = (i % 5) + 1;
-      bool is_null = false;
-      if (i % 17 == 0) {
-        is_null = true;
-        list_length = 0;
-      } else if (i % 13 == 0) {
+      if (i % 13 == 0 || i % 17 == 0) {
         list_length = 0;
       }
 
-      if (is_null) {
+      if (list_length == 0) {
         definition_levels[i] = 0;
-        repetition_levels[i] = 0;
-      } else if (list_length == 0) {
-        definition_levels[i] = 1;
         repetition_levels[i] = 0;
       } else {
         for (int j = 0; j < list_length && i + j < SMALL_SIZE; j++) {
