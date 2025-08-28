@@ -124,6 +124,7 @@ class TransportMessageReader final : public FlightMessageReader {
       out.app_metadata = data->app_metadata;
       out.data = nullptr;
       peekable_reader_->Next(&data);
+      extra_messages_++;
       return out;
     }
 
@@ -138,10 +139,15 @@ class TransportMessageReader final : public FlightMessageReader {
   }
 
   ipc::ReadStats stats() const override {
+    ipc::ReadStats stats;
     if (batch_reader_ == nullptr) {
-      return ipc::ReadStats{};
+      stats = ipc::ReadStats{};
+      stats.num_messages = extra_messages_;
+      return stats;
     }
-    return batch_reader_->stats();
+    stats = batch_reader_->stats();
+    stats.num_messages += extra_messages_;
+    return stats;
   }
 
  private:
@@ -166,6 +172,7 @@ class TransportMessageReader final : public FlightMessageReader {
   std::shared_ptr<MemoryManager> memory_manager_;
   std::shared_ptr<ipc::RecordBatchStreamReader> batch_reader_;
   std::shared_ptr<Buffer> app_metadata_;
+  int64_t extra_messages_ = 0;
 };
 
 /// \brief An IpcPayloadWriter for ServerDataStream.

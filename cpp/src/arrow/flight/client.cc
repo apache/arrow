@@ -225,6 +225,7 @@ class ClientStreamReader : public FlightStreamReader {
       out.app_metadata = data->app_metadata;
       out.data = nullptr;
       peekable_reader_->Next(&data);
+      extra_messages_++;
       return out;
     }
 
@@ -261,10 +262,15 @@ class ClientStreamReader : public FlightStreamReader {
   }
 
   arrow::ipc::ReadStats stats() const override {
+    ipc::ReadStats stats;
     if (batch_reader_ == nullptr) {
-      return ipc::ReadStats{};
+      stats = ipc::ReadStats{};
+      stats.num_messages = extra_messages_;
+      return stats;
     }
-    return batch_reader_->stats();
+    stats = batch_reader_->stats();
+    stats.num_messages += extra_messages_;
+    return stats;
   }
 
   arrow::Result<std::shared_ptr<Table>> ToTable() override {
@@ -288,6 +294,7 @@ class ClientStreamReader : public FlightStreamReader {
   std::shared_ptr<internal::PeekableFlightDataReader> peekable_reader_;
   std::shared_ptr<ipc::RecordBatchStreamReader> batch_reader_;
   std::shared_ptr<Buffer> app_metadata_;
+  int64_t extra_messages_ = 0;
 };
 
 FlightMetadataReader::~FlightMetadataReader() = default;
@@ -468,6 +475,7 @@ class ClientStreamWriter : public FlightStreamWriter {
     if (!success) {
       return Close();
     }
+    extra_messages_++;
     return Status::OK();
   }
 
@@ -520,7 +528,9 @@ class ClientStreamWriter : public FlightStreamWriter {
 
   ipc::WriteStats stats() const override {
     ARROW_CHECK_NE(batch_writer_, nullptr);
-    return batch_writer_->stats();
+    auto write_stats = batch_writer_->stats();
+    write_stats.num_messages += extra_messages_;
+    return write_stats;
   }
 
  private:
@@ -538,6 +548,7 @@ class ClientStreamWriter : public FlightStreamWriter {
   bool closed_;
   // Close() is expected to be idempotent
   Status final_status_;
+  int64_t extra_messages_ = 0;
 
   // Temporary state to construct the IPC payload writer
   ipc::IpcWriteOptions write_options_;
