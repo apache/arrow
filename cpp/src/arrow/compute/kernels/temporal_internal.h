@@ -79,17 +79,17 @@ inline int64_t GetQuarter(const year_month_day& ymd) {
   return static_cast<int64_t>((static_cast<uint32_t>(ymd.month()) - 1) / 3);
 }
 
-static inline Result<ArrowTimeZone> LocateZone(const std::string& timezone) {
+static inline Result<ArrowTimeZone> LocateZone(const std::string_view timezone) {
   if (timezone[0] == '+' || timezone[0] == '-') {
     // Valid offset strings have to have 4 digits and a sign prefix.
     // Valid examples: +01:23 and -0123, invalid examples: 1:23, 123, 0123, 01:23.
     std::chrono::minutes zone_offset;
     if (timezone.length() == 6 &&
-        !arrow::internal::detail::ParseHH_MM(timezone.substr(1).c_str(), &zone_offset)) {
+        !arrow::internal::detail::ParseHH_MM(std::string(timezone.substr(1)).c_str(), &zone_offset)) {
       return Status::Invalid("Cannot locate or parse timezone '", timezone, "'");
     }
     if (timezone.length() == 5 &&
-        !arrow::internal::detail::ParseHHMM(timezone.substr(1).c_str(), &zone_offset)) {
+        !arrow::internal::detail::ParseHHMM(std::string(timezone.substr(1)).c_str(), &zone_offset)) {
       return Status::Invalid("Cannot locate or parse timezone '", timezone, "'");
     }
     zone_offset = timezone[0] == '-' ? -zone_offset : zone_offset;
@@ -185,12 +185,12 @@ struct ZonedLocalizer {
 template <typename Duration>
 struct TimestampFormatter {
   const char* format;
-  const ArrowTimeZone tz_;
+  const ArrowTimeZone tz;
   std::ostringstream bufstream;
 
-  explicit TimestampFormatter(const std::string& format, const ArrowTimeZone tz,
+  explicit TimestampFormatter(const std::string& format, const ArrowTimeZone time_zone,
                               const std::locale& locale)
-      : format(format.c_str()), tz_(tz) {
+      : format(format.c_str()), tz(time_zone) {
     bufstream.imbue(locale);
     // Propagate errors as C++ exceptions (to get an actual error message)
     bufstream.exceptions(std::ios::failbit | std::ios::badbit);
@@ -208,7 +208,7 @@ struct TimestampFormatter {
         return Status::Invalid("Failed formatting timestamp: ", ex.what());
       }
     };
-    RETURN_NOT_OK(ApplyTimeZone(tz_, timepoint, format_zoned_time));
+    RETURN_NOT_OK(ApplyTimeZone(tz, timepoint, format_zoned_time));
     return std::move(bufstream).str();
   }
 };
