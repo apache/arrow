@@ -67,6 +67,8 @@ auto ApplyTimeZone(const ArrowTimeZone& tz, local_time<Duration> lt,
           return c.has_value() ? func(zoned_time<Duration>{zone, lt, c.value()})
                                : func(zoned_time<Duration>{zone, lt});
         } else {
+          // Offset zone conversion to/from UTC is always unambiguous
+          // therefore `c` can be ignored.
           return func(zoned_time<Duration, const OffsetZone*>{&zone, lt});
         }
       },
