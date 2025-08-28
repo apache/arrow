@@ -1135,8 +1135,8 @@ class PARQUET_EXPORT ArrowReaderProperties {
   }
   /// \brief Return whether to infer Decimal32/64 from parquet.
   ///
-  /// When enabled, we will infer decimal with small precision to Decimal32/Decimal64 by
-  /// `smallest_decimal` instead of Decimal128 based on precision.
+  /// When enabled, decimal type will be inferred as the smallest DecimalType which is
+  /// able to represent that precision; otherwise always inferred as Decimal128.
   bool smallest_decimal_enabled() const { return smallest_decimal_enabled_; }
 
  private:
