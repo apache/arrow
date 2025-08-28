@@ -1901,6 +1901,11 @@ def test_fill_null():
     expected = pa.array(['a', 'bb', None])
     assert result.equals(expected)
 
+    arr = pa.array([True, False, False, False, False, None])
+    result = arr.fill_null(True)
+    expected = pa.array([True, False, False, False, False, True])
+    assert result.equals(expected)
+
 
 @pytest.mark.parametrize('arrow_type', numerical_arrow_types)
 def test_fill_null_array(arrow_type):
