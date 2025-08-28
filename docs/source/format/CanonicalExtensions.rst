@@ -430,7 +430,7 @@ Variant represents a value that may be one of:
 
 * Object: An unordered collection of string/Variant pairs (i.e. key/value pairs). An object may not contain duplicate keys
 
-Particularly, this provides a way to represent semi-structured data which is stored as a 
+Particularly, this provides a way to represent semi-structured data which is stored as a
 `Parquet Variant <https://github.com/apache/parquet-format/blob/master/VariantEncoding.md>`__ value within Arrow columns in
 a lossless fashion. This also provides the ability to represent `shredded <https://github.com/apache/parquet-format/blob/master/VariantShredding.md>`__
 variant values. This will make it easy for systems to pass Variant data around without having to upgrade their Arrow version
@@ -714,7 +714,7 @@ The data would then be stored in Arrow as follows: ::
 Shredding an Object
 '''''''''''''''''''
 
-Let's consider a simple JSON column of "events" which contain a field named ``event_type`` (a string) 
+Let's consider a simple JSON column of "events" which contain a field named ``event_type`` (a string)
 and a field named ``event_ts`` (a timestamp) that we wish to shred into separate columns, In Parquet,
 it could look something like this: ::
 
@@ -751,7 +751,7 @@ We can then, fairly easily, translate this into the expected extension storage t
   >
 
 If a field *does not exist* in the variant object value, then both the **value** and **typed_value** columns for that row
-will be null. If a field is *present*, but the value is null, then **value** must contain a Variant null: *basic type* 
+will be null. If a field is *present*, but the value is null, then **value** must contain a Variant null: *basic type*
 ``0`` (primitive) and *physical type* ``0`` (null).
 
 It is *invalid* for both **value** and **typed_value** to be non-null for a given index. A reader can choose not to error
@@ -797,7 +797,7 @@ To represent those values as a column of Variant values using the Variant extens
         |------------------------------------------|-------------------------|
         | 0, 2, 11, 24, 26, 35, 37, 39, 41, 43, 45 | unspecified (padding)   |
 
-      * Value buffer: (01 00 -> version 1 empty metadata, 
+      * Value buffer: (01 00 -> version 1 empty metadata,
                        01 01 00 XX ... -> Version 1, metadata with 1 elem, offset 0, offset XX == len(string), ... is dict string bytes)
 
         | Bytes 0-1 | Bytes 2-10        | Bytes 11-23           | Bytes 24-25 | Bytes 26-34       |
@@ -874,7 +874,7 @@ To represent those values as a column of Variant values using the Variant extens
                 | 0, 4, 9, 9, 9, 9, 9, 13, 13, 13, 13 | unspecified (padding)  |
 
               * Value buffer:
-              
+
                 | Bytes 0-3 | Bytes 4-8 | Bytes 9-12 | Bytes 13-63            |
                 |-----------|-----------|------------|------------------------|
                 | noop      | login     | noop       | unspecified (padding)  |
