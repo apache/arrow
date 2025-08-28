@@ -1129,7 +1129,8 @@ class PARQUET_EXPORT ArrowReaderProperties {
 
   /// \brief Set whether to infer Decimal32/64 from Parquet decimal logical types.
   ///
-  /// Default is false.
+  /// Default is false for compatibility, meaning that only Decimal128 and Decimal256
+  /// can be inferred.
   void set_smallest_decimal_enabled(bool smallest_decimal_enable) {
     smallest_decimal_enabled_ = smallest_decimal_enable;
   }
