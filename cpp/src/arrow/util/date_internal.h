@@ -46,9 +46,10 @@ class OffsetZone {
 
   template <class Duration>
   date::sys_info get_info(date::sys_time<Duration> st) const {
-    return {date::sys_seconds::min(), date::sys_seconds::max(), offset_, std::chrono::minutes(0),
+    return {date::sys_seconds::min(), date::sys_seconds::max(), offset_,
+            std::chrono::minutes(0),
             offset_ >= std::chrono::minutes(0) ? "+" + date::format("%H%M", offset_)
-                                  : "-" + date::format("%H%M", -offset_)};
+                                               : "-" + date::format("%H%M", -offset_)};
   }
 
   const OffsetZone* operator->() const { return this; }

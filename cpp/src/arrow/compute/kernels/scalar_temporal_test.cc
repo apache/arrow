@@ -901,31 +901,35 @@ TEST_F(ScalarTemporalTest, TestZoned2) {
 TEST_F(ScalarTemporalTest, TestNonexistentTimezone) {
   auto data_buffer = Buffer::Wrap(std::vector<int32_t>{1, 2, 3});
   auto null_buffer = Buffer::FromString("\xff");
-
-  for (auto u : TimeUnit::values()) {
-    auto ts_type = timestamp(u, "Mars/Mariner_Valley");
-    auto timestamp_array = std::make_shared<NumericArray<TimestampType>>(
-        ts_type, 2, data_buffer, null_buffer, 0);
-    ASSERT_RAISES(Invalid, Year(timestamp_array));
-    ASSERT_RAISES(Invalid, IsLeapYear(timestamp_array));
-    ASSERT_RAISES(Invalid, Month(timestamp_array));
-    ASSERT_RAISES(Invalid, Day(timestamp_array));
-    ASSERT_RAISES(Invalid, YearMonthDay(timestamp_array));
-    ASSERT_RAISES(Invalid, DayOfWeek(timestamp_array));
-    ASSERT_RAISES(Invalid, DayOfYear(timestamp_array));
-    ASSERT_RAISES(Invalid, IsDaylightSavings(timestamp_array));
-    ASSERT_RAISES(Invalid, USYear(timestamp_array));
-    ASSERT_RAISES(Invalid, ISOYear(timestamp_array));
-    ASSERT_RAISES(Invalid, Week(timestamp_array));
-    ASSERT_RAISES(Invalid, ISOCalendar(timestamp_array));
-    ASSERT_RAISES(Invalid, Quarter(timestamp_array));
-    ASSERT_RAISES(Invalid, Hour(timestamp_array));
-    ASSERT_RAISES(Invalid, Minute(timestamp_array));
-    ASSERT_RAISES(Invalid, Second(timestamp_array));
-    ASSERT_RAISES(Invalid, Millisecond(timestamp_array));
-    ASSERT_RAISES(Invalid, Microsecond(timestamp_array));
-    ASSERT_RAISES(Invalid, Nanosecond(timestamp_array));
-    ASSERT_RAISES(Invalid, Subsecond(timestamp_array));
+  auto nonexistent_timezones = {
+      "Mars/Mariner_Valley", "+25:00", "-25:00", "15:00", "5:00", "500",
+      "+05:00:00",           "+050000"};
+  for (auto timezone : nonexistent_timezones) {
+    for (auto u : TimeUnit::values()) {
+      auto ts_type = timestamp(u, timezone);
+      auto timestamp_array = std::make_shared<NumericArray<TimestampType>>(
+          ts_type, 2, data_buffer, null_buffer, 0);
+      ASSERT_RAISES(Invalid, Year(timestamp_array));
+      ASSERT_RAISES(Invalid, IsLeapYear(timestamp_array));
+      ASSERT_RAISES(Invalid, Month(timestamp_array));
+      ASSERT_RAISES(Invalid, Day(timestamp_array));
+      ASSERT_RAISES(Invalid, YearMonthDay(timestamp_array));
+      ASSERT_RAISES(Invalid, DayOfWeek(timestamp_array));
+      ASSERT_RAISES(Invalid, DayOfYear(timestamp_array));
+      ASSERT_RAISES(Invalid, IsDaylightSavings(timestamp_array));
+      ASSERT_RAISES(Invalid, USYear(timestamp_array));
+      ASSERT_RAISES(Invalid, ISOYear(timestamp_array));
+      ASSERT_RAISES(Invalid, Week(timestamp_array));
+      ASSERT_RAISES(Invalid, ISOCalendar(timestamp_array));
+      ASSERT_RAISES(Invalid, Quarter(timestamp_array));
+      ASSERT_RAISES(Invalid, Hour(timestamp_array));
+      ASSERT_RAISES(Invalid, Minute(timestamp_array));
+      ASSERT_RAISES(Invalid, Second(timestamp_array));
+      ASSERT_RAISES(Invalid, Millisecond(timestamp_array));
+      ASSERT_RAISES(Invalid, Microsecond(timestamp_array));
+      ASSERT_RAISES(Invalid, Nanosecond(timestamp_array));
+      ASSERT_RAISES(Invalid, Subsecond(timestamp_array));
+    }
   }
 }
 
@@ -1884,6 +1888,8 @@ TEST_F(ScalarTemporalTest, TestLocalTimestamp) {
     CheckScalarUnary("local_timestamp", timestamp(u, "Pacific/Marquesas"),
                      times_seconds_precision, timestamp(u), expected_local_marquesas);
     CheckScalarUnary("local_timestamp", timestamp(u, "-09:30"), times_seconds_precision,
+                     timestamp(u), expected_local_marquesas);
+    CheckScalarUnary("local_timestamp", timestamp(u, "-0930"), times_seconds_precision,
                      timestamp(u), expected_local_marquesas);
   }
 }
