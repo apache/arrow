@@ -1127,13 +1127,13 @@ class PARQUET_EXPORT ArrowReaderProperties {
   /// Return whether loading statistics as much as possible.
   bool should_load_statistics() const { return should_load_statistics_; }
 
-  /// \brief Set whether infer Decimal32/64 from parquet.
+  /// \brief Set whether to infer Decimal32/64 from Parquet decimal logical types.
   ///
   /// Default is false.
   void set_smallest_decimal_enabled(bool smallest_decimal_enable) {
     smallest_decimal_enabled_ = smallest_decimal_enable;
   }
-  /// \brief Return whether to infer Decimal32/64 from parquet.
+  /// \brief Set whether to infer Decimal32/64 from Parquet decimal logical types.
   ///
   /// When enabled, decimal type will be inferred as the smallest DecimalType which is
   /// able to represent that precision; otherwise always inferred as Decimal128.
