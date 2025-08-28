@@ -38,33 +38,5 @@
 #include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/logger.h"
 
 SQLRETURN SQL_API SQLAllocHandle(SQLSMALLINT type, SQLHANDLE parent, SQLHANDLE* result) {
-  return arrow::SQLAllocHandle(type, parent, result);
-}
-
-SQLRETURN SQL_API SQLAllocEnv(SQLHENV* env) {
-  return arrow::SQLAllocHandle(SQL_HANDLE_ENV, SQL_NULL_HANDLE, env);
-}
-
-SQLRETURN SQL_API SQLAllocConnect(SQLHENV env, SQLHDBC* conn) {
-  return arrow::SQLAllocHandle(SQL_HANDLE_DBC, env, conn);
-}
-
-SQLRETURN SQL_API SQLAllocStmt(SQLHDBC conn, SQLHSTMT* stmt) {
-  return arrow::SQLAllocHandle(SQL_HANDLE_STMT, conn, stmt);
-}
-
-SQLRETURN SQL_API SQLFreeHandle(SQLSMALLINT type, SQLHANDLE handle) {
-  return arrow::SQLFreeHandle(type, handle);
-}
-
-SQLRETURN SQL_API SQLFreeEnv(SQLHENV env) {
-  return arrow::SQLFreeHandle(SQL_HANDLE_ENV, env);
-}
-
-SQLRETURN SQL_API SQLFreeConnect(SQLHDBC conn) {
-  return arrow::SQLFreeHandle(SQL_HANDLE_DBC, conn);
-}
-
-SQLRETURN SQL_API SQLFreeStmt(SQLHSTMT stmt, SQLUSMALLINT option) {
-  return arrow::SQLFreeStmt(stmt, option);
+  return SQL_INVALID_HANDLE;
 }
