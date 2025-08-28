@@ -159,6 +159,8 @@ set(PARQUET_SRCS
     arrow/variant_internal.cc
     arrow/writer.cc
     bloom_filter.cc
+    bloom_filter_builder_internal.cc
+    bloom_filter_writer_internal.cc
     bloom_filter_reader.cc
     chunker_internal.cc
     column_reader.cc
@@ -372,8 +374,8 @@ set_source_files_properties(public_api_test.cc PROPERTIES SKIP_UNITY_BUILD_INCLU
 
 add_parquet_test(internals-test
                  SOURCES
-                 bloom_filter_reader_test.cc
                  bloom_filter_test.cc
+                 bloom_filter_reader_writer_test.cc
                  geospatial/statistics_test.cc
                  geospatial/util_internal_test.cc
                  metadata_test.cc
@@ -407,6 +409,8 @@ add_parquet_test(arrow-reader-writer-test
                  arrow/arrow_reader_writer_test.cc
                  arrow/arrow_statistics_test.cc
                  arrow/variant_test.cc)
+
+add_parquet_test(arrow-parquet-index-test SOURCES arrow/arrow_parquet_index_test.cc)
 
 add_parquet_test(arrow-internals-test SOURCES arrow/path_internal_test.cc
                  arrow/reconstruct_internal_test.cc)
