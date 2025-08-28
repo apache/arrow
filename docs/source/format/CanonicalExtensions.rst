@@ -45,7 +45,11 @@ types:
 
 * The specification text to be added *must* follow these requirements:
 
-  1) It *must* define a well-defined extension name starting with "``arrow.``".
+  1) It *must* define a well-defined extension name starting with an allowed prefix.
+     The currently allowed prefixes are:
+     * "``arrow.``" - For general-purpose canonical extension types.
+     * "``parquet.``" - For canonical extension types that are intended primarily for
+       interoperability with `Apache Parquet <https://parquet.apache.org/>`__ format.
 
   2) Its parameters, if any, *must* be described in the proposal.
 
