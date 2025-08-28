@@ -622,6 +622,45 @@ TEST(Expression, BindCall) {
                 add(cast(field_ref("i32"), float32()), literal(3.5F)));
 }
 
+static Status RegisterInvalidInit() {
+  const std::string name = "invalid_init";
+  struct CastableFunction : public ScalarFunction {
+    using ScalarFunction::ScalarFunction;
+
+    Result<const Kernel*> DispatchBest(std::vector<TypeHolder>* types) const override {
+      return Status::Invalid("Shouldn't call DispatchBest on this function");
+    }
+  };
+  auto func =
+      std::make_shared<CastableFunction>(name, Arity::Unary(), FunctionDoc::Empty());
+
+  auto func_exec = [](KernelContext*, const ExecSpan&, ExecResult*) -> Status {
+    return Status::OK();
+  };
+  auto func_init = [](KernelContext*,
+                      const KernelInitArgs&) -> Result<std::unique_ptr<KernelState>> {
+    return Status::Invalid("Invalid Init");
+  };
+
+  ScalarKernel kernel({int64()}, int64(), func_exec, func_init);
+  ARROW_RETURN_NOT_OK(func->AddKernel(kernel));
+
+  auto registry = GetFunctionRegistry();
+  ARROW_RETURN_NOT_OK(registry->AddFunction(std::move(func)));
+
+  return Status::OK();
+}
+
+// GH-47268: The bad status in call binding is discarded.
+TEST(Expression, BindCallError) {
+  ASSERT_OK(RegisterInvalidInit());
+  auto expr = call("invalid_init", {field_ref("i64")});
+  EXPECT_FALSE(expr.IsBound());
+
+  ASSERT_RAISES_WITH_MESSAGE(Invalid, "Invalid: Invalid Init",
+                             expr.Bind(*kBoringSchema).status());
+}
+
 TEST(Expression, BindWithAliasCasts) {
   auto fm = GetFunctionRegistry();
   EXPECT_OK(fm->AddAlias("alias_cast", "cast"));
