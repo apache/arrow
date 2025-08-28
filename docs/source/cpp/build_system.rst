@@ -128,8 +128,8 @@ This is the list of available packages:
 Usage with find_package and target names follows a consistent naming pattern:
 
 * find_package usage: ``find_package(PackageName REQUIRED)``
-* shared target: ``PackageName::package_name_shared``
-* static target: ``PackageName::package_name_static``
+* Shared Target: ``PackageName::package_name_shared``
+* Static Target: ``PackageName::package_name_static``
 
 For example, to use the ``ArrowCompute`` package:
 
