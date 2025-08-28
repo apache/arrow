@@ -1082,9 +1082,9 @@ Result<bool> ApplyOriginalStorageMetadata(const Field& origin_field,
       ::arrow::is_decimal(inferred_type->id())) {
     auto& origin_decimal = checked_cast<const ::arrow::DecimalType&>(*origin_type);
     auto& inferred_decimal = checked_cast<const ::arrow::DecimalType&>(*inferred_type);
-    ARROW_DCHECK_EQ(origin_decimal.scale(), inferred_decimal.scale());
-    ARROW_DCHECK_LE(origin_decimal.precision(), inferred_decimal.precision());
-    if (origin_type->id() != inferred_type->id()) {
+    if (origin_decimal.precision() == inferred_decimal.precision() &&
+        origin_decimal.scale() == inferred_decimal.scale() &&
+        origin_decimal.id() != inferred_decimal.id()) {
       inferred->field = inferred->field->WithType(origin_type);
       modified = true;
     }

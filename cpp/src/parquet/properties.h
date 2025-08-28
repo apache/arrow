@@ -1133,10 +1133,15 @@ class PARQUET_EXPORT ArrowReaderProperties {
   void set_smallest_decimal_enabled(bool smallest_decimal_enable) {
     smallest_decimal_enabled_ = smallest_decimal_enable;
   }
-  /// \brief Set whether to infer Decimal32/64 from Parquet decimal logical types.
+  /// \brief Whether to infer Decimal32/64 from Parquet decimal logical types.
   ///
-  /// When enabled, decimal type will be inferred as the smallest DecimalType which is
-  /// able to represent that precision; otherwise always inferred as Decimal128.
+  /// When enabled, Parquet decimal columns will be inferred as the smallest possible
+  /// Arrow Decimal type.
+  /// When disabled, Parquet decimal columns will be inferred as either Decimal128 or
+  /// Decimal256, but not Decimal32/64.
+  ///
+  /// Note: if an Arrow schema is found in the Parquet metadata, it will take priority and
+  /// this setting will be ignored.
   bool smallest_decimal_enabled() const { return smallest_decimal_enabled_; }
 
  private:
