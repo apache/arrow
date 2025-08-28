@@ -21,11 +21,13 @@
 #include <cstdint>
 
 #include "arrow/compute/api_scalar.h"
+#include "arrow/compute/kernels/codegen_internal.h"
+#include "arrow/util/checked_cast.h"
 #include "arrow/util/date_internal.h"
 #include "arrow/util/value_parsing.h"
 
 namespace arrow::compute::internal {
-
+using arrow::internal::checked_cast;
 using arrow::internal::OffsetZone;
 using arrow_vendored::date::choose;
 using arrow_vendored::date::days;
@@ -79,30 +81,7 @@ inline int64_t GetQuarter(const year_month_day& ymd) {
   return static_cast<int64_t>((static_cast<uint32_t>(ymd.month()) - 1) / 3);
 }
 
-static inline Result<ArrowTimeZone> LocateZone(const std::string_view timezone) {
-  if (timezone[0] == '+' || timezone[0] == '-') {
-    // Valid offset strings have to have 4 digits and a sign prefix.
-    // Valid examples: +01:23 and -0123, invalid examples: 1:23, 123, 0123, 01:23.
-    std::chrono::minutes zone_offset;
-    if (timezone.length() == 6 &&
-        !arrow::internal::detail::ParseHH_MM(std::string(timezone.substr(1)).c_str(), &zone_offset)) {
-      return Status::Invalid("Cannot locate or parse timezone '", timezone, "'");
-    }
-    if (timezone.length() == 5 &&
-        !arrow::internal::detail::ParseHHMM(std::string(timezone.substr(1)).c_str(), &zone_offset)) {
-      return Status::Invalid("Cannot locate or parse timezone '", timezone, "'");
-    }
-    zone_offset = timezone[0] == '-' ? -zone_offset : zone_offset;
-    return OffsetZone(zone_offset);
-  }
-
-  try {
-    return locate_zone(timezone);
-  } catch (const std::runtime_error& ex) {
-    return Status::Invalid("Cannot locate or parse timezone '", timezone,
-                           "': ", ex.what());
-  }
-}
+Result<ArrowTimeZone> LocateZone(const std::string_view timezone);
 
 static inline const std::string& GetInputTimezone(const DataType& type) {
   static const std::string no_timezone = "";
