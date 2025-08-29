@@ -29,6 +29,13 @@
 namespace driver {
 namespace flight_sql {
 
+/// \brief Case insensitive comparator that takes string_view
+struct CaseInsensitiveComparatorStrView {
+  bool operator()(const std::string_view& s1, const std::string_view& s2) const {
+    return boost::lexicographical_compare(s1, s2, boost::is_iless());
+  }
+};
+
 class FlightSqlSslConfig;
 
 /// \brief Create an instance of the FlightSqlSslConfig class, from the properties passed

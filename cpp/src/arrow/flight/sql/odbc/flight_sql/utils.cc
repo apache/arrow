@@ -59,6 +59,10 @@ odbcabstraction::SqlDataType GetDefaultSqlVarcharType(bool useWideChar) {
   return useWideChar ? odbcabstraction::SqlDataType_WVARCHAR
                      : odbcabstraction::SqlDataType_VARCHAR;
 }
+odbcabstraction::SqlDataType GetDefaultSqlLongVarcharType(bool useWideChar) {
+  return useWideChar ? odbcabstraction::SqlDataType_WLONGVARCHAR
+                     : odbcabstraction::SqlDataType_LONGVARCHAR;
+}
 odbcabstraction::CDataType GetDefaultCCharType(bool useWideChar) {
   return useWideChar ? odbcabstraction::CDataType_WCHAR : odbcabstraction::CDataType_CHAR;
 }
@@ -155,6 +159,9 @@ SqlDataType EnsureRightSqlCharType(SqlDataType data_type, bool useWideChar) {
     case odbcabstraction::SqlDataType_VARCHAR:
     case odbcabstraction::SqlDataType_WVARCHAR:
       return GetDefaultSqlVarcharType(useWideChar);
+    case odbcabstraction::SqlDataType_LONGVARCHAR:
+    case odbcabstraction::SqlDataType_WLONGVARCHAR:
+      return GetDefaultSqlLongVarcharType(useWideChar);
     default:
       return data_type;
   }

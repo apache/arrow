@@ -275,7 +275,9 @@ void ODBCDescriptor::GetHeaderField(SQLSMALLINT fieldIdentifier, SQLPOINTER valu
       GetAttribute(m_rowsProccessedPtr, value, bufferLength, outputLength);
       break;
     case SQL_DESC_COUNT: {
-      GetAttribute(m_highestOneBasedBoundRecord, value, bufferLength, outputLength);
+      // m_highestOneBasedBoundRecord equals number of records + 1
+      GetAttribute(static_cast<SQLSMALLINT>(m_highestOneBasedBoundRecord - 1), value,
+                   bufferLength, outputLength);
       break;
     }
     default:
@@ -311,52 +313,53 @@ void ODBCDescriptor::GetField(SQLSMALLINT recordNumber, SQLSMALLINT fieldIdentif
 
   // TODO: Restrict fields based on AppDescriptor IPD, and IRD.
 
+  bool lengthInBytes = true;
   SQLSMALLINT zeroBasedRecord = recordNumber - 1;
   const DescriptorRecord& record = m_records[zeroBasedRecord];
   switch (fieldIdentifier) {
     case SQL_DESC_BASE_COLUMN_NAME:
-      GetAttributeUTF8(record.m_baseColumnName, value, bufferLength, outputLength,
-                       GetDiagnostics());
+      GetAttributeSQLWCHAR(record.m_baseColumnName, lengthInBytes, value, bufferLength,
+                           outputLength, GetDiagnostics());
       break;
     case SQL_DESC_BASE_TABLE_NAME:
-      GetAttributeUTF8(record.m_baseTableName, value, bufferLength, outputLength,
-                       GetDiagnostics());
+      GetAttributeSQLWCHAR(record.m_baseTableName, lengthInBytes, value, bufferLength,
+                           outputLength, GetDiagnostics());
       break;
     case SQL_DESC_CATALOG_NAME:
-      GetAttributeUTF8(record.m_catalogName, value, bufferLength, outputLength,
-                       GetDiagnostics());
+      GetAttributeSQLWCHAR(record.m_catalogName, lengthInBytes, value, bufferLength,
+                           outputLength, GetDiagnostics());
       break;
     case SQL_DESC_LABEL:
-      GetAttributeUTF8(record.m_label, value, bufferLength, outputLength,
-                       GetDiagnostics());
+      GetAttributeSQLWCHAR(record.m_label, lengthInBytes, value, bufferLength,
+                           outputLength, GetDiagnostics());
       break;
     case SQL_DESC_LITERAL_PREFIX:
-      GetAttributeUTF8(record.m_literalPrefix, value, bufferLength, outputLength,
-                       GetDiagnostics());
+      GetAttributeSQLWCHAR(record.m_literalPrefix, lengthInBytes, value, bufferLength,
+                           outputLength, GetDiagnostics());
       break;
     case SQL_DESC_LITERAL_SUFFIX:
-      GetAttributeUTF8(record.m_literalSuffix, value, bufferLength, outputLength,
-                       GetDiagnostics());
+      GetAttributeSQLWCHAR(record.m_literalSuffix, lengthInBytes, value, bufferLength,
+                           outputLength, GetDiagnostics());
       break;
     case SQL_DESC_LOCAL_TYPE_NAME:
-      GetAttributeUTF8(record.m_localTypeName, value, bufferLength, outputLength,
-                       GetDiagnostics());
+      GetAttributeSQLWCHAR(record.m_localTypeName, lengthInBytes, value, bufferLength,
+                           outputLength, GetDiagnostics());
       break;
     case SQL_DESC_NAME:
-      GetAttributeUTF8(record.m_name, value, bufferLength, outputLength,
-                       GetDiagnostics());
+      GetAttributeSQLWCHAR(record.m_name, lengthInBytes, value, bufferLength,
+                           outputLength, GetDiagnostics());
       break;
     case SQL_DESC_SCHEMA_NAME:
-      GetAttributeUTF8(record.m_schemaName, value, bufferLength, outputLength,
-                       GetDiagnostics());
+      GetAttributeSQLWCHAR(record.m_schemaName, lengthInBytes, value, bufferLength,
+                           outputLength, GetDiagnostics());
       break;
     case SQL_DESC_TABLE_NAME:
-      GetAttributeUTF8(record.m_tableName, value, bufferLength, outputLength,
-                       GetDiagnostics());
+      GetAttributeSQLWCHAR(record.m_tableName, lengthInBytes, value, bufferLength,
+                           outputLength, GetDiagnostics());
       break;
     case SQL_DESC_TYPE_NAME:
-      GetAttributeUTF8(record.m_typeName, value, bufferLength, outputLength,
-                       GetDiagnostics());
+      GetAttributeSQLWCHAR(record.m_typeName, lengthInBytes, value, bufferLength,
+                           outputLength, GetDiagnostics());
       break;
 
     case SQL_DESC_DATA_PTR:
@@ -366,7 +369,7 @@ void ODBCDescriptor::GetField(SQLSMALLINT recordNumber, SQLSMALLINT fieldIdentif
     case SQL_DESC_OCTET_LENGTH_PTR:
       GetAttribute(record.m_indicatorPtr, value, bufferLength, outputLength);
       break;
-
+    case SQL_COLUMN_LENGTH:  // ODBC 2.0
     case SQL_DESC_LENGTH:
       GetAttribute(record.m_length, value, bufferLength, outputLength);
       break;
@@ -405,12 +408,14 @@ void ODBCDescriptor::GetField(SQLSMALLINT recordNumber, SQLSMALLINT fieldIdentif
     case SQL_DESC_PARAMETER_TYPE:
       GetAttribute(record.m_paramType, value, bufferLength, outputLength);
       break;
+    case SQL_COLUMN_PRECISION:  // ODBC 2.0
     case SQL_DESC_PRECISION:
       GetAttribute(record.m_precision, value, bufferLength, outputLength);
       break;
     case SQL_DESC_ROWVER:
       GetAttribute(record.m_rowVer, value, bufferLength, outputLength);
       break;
+    case SQL_COLUMN_SCALE:  // ODBC 2.0
     case SQL_DESC_SCALE:
       GetAttribute(record.m_scale, value, bufferLength, outputLength);
       break;
@@ -500,7 +505,8 @@ void ODBCDescriptor::PopulateFromResultSetMetadata(ResultSetMetadata* rsmd) {
     m_records[i].m_caseSensitive =
         rsmd->IsCaseSensitive(oneBasedIndex) ? SQL_TRUE : SQL_FALSE;
     m_records[i].m_datetimeIntervalPrecision;  // TODO - update when rsmd adds this
-    m_records[i].m_numPrecRadix = rsmd->GetNumPrecRadix(oneBasedIndex);
+    SQLINTEGER numPrecRadix = rsmd->GetNumPrecRadix(oneBasedIndex);
+    m_records[i].m_numPrecRadix = numPrecRadix > 0 ? numPrecRadix : 0;
     m_records[i].m_datetimeIntervalCode;  // TODO
     m_records[i].m_fixedPrecScale =
         rsmd->IsFixedPrecScale(oneBasedIndex) ? SQL_TRUE : SQL_FALSE;
@@ -510,8 +516,7 @@ void ODBCDescriptor::PopulateFromResultSetMetadata(ResultSetMetadata* rsmd) {
     m_records[i].m_rowVer = SQL_FALSE;
     m_records[i].m_scale = rsmd->GetScale(oneBasedIndex);
     m_records[i].m_searchable = rsmd->IsSearchable(oneBasedIndex);
-    m_records[i].m_type =
-        GetSqlTypeForODBCVersion(rsmd->GetDataType(oneBasedIndex), m_is2xConnection);
+    m_records[i].m_type = rsmd->GetDataType(oneBasedIndex);
     m_records[i].m_unnamed = m_records[i].m_name.empty() ? SQL_TRUE : SQL_FALSE;
     m_records[i].m_unsigned = rsmd->IsUnsigned(oneBasedIndex) ? SQL_TRUE : SQL_FALSE;
     m_records[i].m_updatable = rsmd->GetUpdatable(oneBasedIndex);

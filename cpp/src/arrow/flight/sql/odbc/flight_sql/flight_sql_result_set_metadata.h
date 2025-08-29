@@ -89,6 +89,7 @@ class FlightSqlResultSetMetadata : public odbcabstraction::ResultSetMetadata {
 
   odbcabstraction::Searchability IsSearchable(int column_position) override;
 
+  /// \brief Returns true if the column is unsigned (not numeric)
   bool IsUnsigned(int column_position) override;
 
   bool IsFixedPrecScale(int column_position) override;

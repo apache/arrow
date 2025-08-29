@@ -17,6 +17,8 @@
 
 #include "arrow/flight/sql/odbc/flight_sql/include/flight_sql/config/configuration.h"
 #include "arrow/flight/sql/odbc/flight_sql/flight_sql_connection.h"
+#include "arrow/result.h"
+#include "arrow/util/utf8.h"
 
 #include <odbcinst.h>
 #include <boost/range/adaptor/map.hpp>
@@ -27,7 +29,6 @@
 namespace driver {
 namespace flight_sql {
 namespace config {
-
 static const char DEFAULT_DSN[] = "Apache Arrow Flight SQL";
 static const char DEFAULT_ENABLE_ENCRYPTION[] = TRUE_STR;
 static const char DEFAULT_USE_CERT_STORE[] = TRUE_STR;
@@ -36,23 +37,27 @@ static const char DEFAULT_DISABLE_CERT_VERIFICATION[] = FALSE_STR;
 namespace {
 std::string ReadDsnString(const std::string& dsn, const std::string_view& key,
                           const std::string& dflt = "") {
-#define BUFFER_SIZE (1024)
-  std::vector<char> buf(BUFFER_SIZE);
+  std::wstring wDsn = arrow::util::UTF8ToWideString(dsn).ValueOr(L"");
+  std::wstring wKey = arrow::util::UTF8ToWideString(key).ValueOr(L"");
+  std::wstring wDflt = arrow::util::UTF8ToWideString(dflt).ValueOr(L"");
 
-  std::string key_str = std::string(key);
+#define BUFFER_SIZE (1024)
+  std::vector<wchar_t> buf(BUFFER_SIZE);
   int ret =
-      SQLGetPrivateProfileString(dsn.c_str(), key_str.c_str(), dflt.c_str(), buf.data(),
-                                 static_cast<int>(buf.size()), "ODBC.INI");
+      SQLGetPrivateProfileString(wDsn.c_str(), wKey.c_str(), wDflt.c_str(), buf.data(),
+                                 static_cast<int>(buf.size()), L"ODBC.INI");
 
   if (ret > BUFFER_SIZE) {
     // If there wasn't enough space, try again with the right size buffer.
     buf.resize(ret + 1);
     ret =
-        SQLGetPrivateProfileString(dsn.c_str(), key_str.c_str(), dflt.c_str(), buf.data(),
-                                   static_cast<int>(buf.size()), "ODBC.INI");
+        SQLGetPrivateProfileString(wDsn.c_str(), wKey.c_str(), wDflt.c_str(), buf.data(),
+                                   static_cast<int>(buf.size()), L"ODBC.INI");
   }
 
-  return std::string(buf.data(), ret);
+  std::wstring wResult = std::wstring(buf.data(), ret);
+  std::string result = arrow::util::WideStringToUTF8(wResult).ValueOr("");
+  return result;
 }
 
 void RemoveAllKnownKeys(std::vector<std::string>& keys) {
@@ -69,28 +74,32 @@ void RemoveAllKnownKeys(std::vector<std::string>& keys) {
 }
 
 std::vector<std::string> ReadAllKeys(const std::string& dsn) {
-  std::vector<char> buf(BUFFER_SIZE);
+  std::wstring wDsn = arrow::util::UTF8ToWideString(dsn).ValueOr(L"");
 
-  int ret = SQLGetPrivateProfileString(dsn.c_str(), NULL, "", buf.data(),
-                                       static_cast<int>(buf.size()), "ODBC.INI");
+  std::vector<wchar_t> buf(BUFFER_SIZE);
+
+  int ret = SQLGetPrivateProfileString(wDsn.c_str(), NULL, L"", buf.data(),
+                                       static_cast<int>(buf.size()), L"ODBC.INI");
 
   if (ret > BUFFER_SIZE) {
     // If there wasn't enough space, try again with the right size buffer.
     buf.resize(ret + 1);
-    ret = SQLGetPrivateProfileString(dsn.c_str(), NULL, "", buf.data(),
-                                     static_cast<int>(buf.size()), "ODBC.INI");
+    ret = SQLGetPrivateProfileString(wDsn.c_str(), NULL, L"", buf.data(),
+                                     static_cast<int>(buf.size()), L"ODBC.INI");
   }
 
   // When you pass NULL to SQLGetPrivateProfileString it gives back a \0 delimited list of
   // all the keys. The below loop simply tokenizes all the keys and places them into a
   // vector.
   std::vector<std::string> keys;
-  char* begin = buf.data();
+  wchar_t* begin = buf.data();
   while (begin && *begin != '\0') {
-    char* cur;
+    wchar_t* cur;
     for (cur = begin; *cur != '\0'; ++cur) {
     }
-    keys.emplace_back(begin, cur);
+
+    std::string key = arrow::util::WideStringToUTF8(std::wstring(begin, cur)).ValueOr("");
+    keys.emplace_back(key);
     begin = ++cur;
   }
   return keys;
@@ -142,11 +151,11 @@ void Configuration::LoadDsn(const std::string& dsn) {
 void Configuration::Clear() { this->properties.clear(); }
 
 bool Configuration::IsSet(const std::string_view& key) const {
-  return 0 != this->properties.count(key);
+  return 0 != this->properties.count(std::string(key));
 }
 
 const std::string& Configuration::Get(const std::string_view& key) const {
-  const auto itr = this->properties.find(key);
+  const auto itr = this->properties.find(std::string(key));
   if (itr == this->properties.cend()) {
     static const std::string empty("");
     return empty;
@@ -154,10 +163,23 @@ const std::string& Configuration::Get(const std::string_view& key) const {
   return itr->second;
 }
 
+void Configuration::Set(const std::string_view& key, const std::wstring& wValue) {
+  std::string value = arrow::util::WideStringToUTF8(wValue).ValueOr("");
+  Set(key, value);
+}
+
 void Configuration::Set(const std::string_view& key, const std::string& value) {
   const std::string copy = boost::trim_copy(value);
   if (!copy.empty()) {
-    this->properties[key] = value;
+    this->properties[std::string(key)] = value;
+  }
+}
+
+void Configuration::Emplace(const std::string_view& key, std::string&& value) {
+  const std::string copy = boost::trim_copy(value);
+  if (!copy.empty()) {
+    this->properties.emplace(
+        std::make_pair(std::move(std::string(key)), std::move(value)));
   }
 }
 
@@ -166,16 +188,15 @@ const driver::odbcabstraction::Connection::ConnPropertyMap& Configuration::GetPr
   return this->properties;
 }
 
-std::vector<std::string_view> Configuration::GetCustomKeys() const {
+std::vector<std::string> Configuration::GetCustomKeys() const {
   driver::odbcabstraction::Connection::ConnPropertyMap copyProps(properties);
   for (auto& key : FlightSqlConnection::ALL_KEYS) {
-    copyProps.erase(key);
+    copyProps.erase(std::string(key));
   }
-  std::vector<std::string_view> keys;
+  std::vector<std::string> keys;
   boost::copy(copyProps | boost::adaptors::map_keys, std::back_inserter(keys));
   return keys;
 }
-
 }  // namespace config
 }  // namespace flight_sql
 }  // namespace driver

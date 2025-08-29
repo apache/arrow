@@ -83,7 +83,7 @@ namespace {
 
 #if _WIN32 || _WIN64
 constexpr auto SYSTEM_TRUST_STORE_DEFAULT = true;
-constexpr auto STORES = {"CA", "MY", "ROOT", "SPC"};
+constexpr auto STORES = {L"CA", L"MY", L"ROOT", L"SPC"};
 
 inline std::string GetCerts() {
   std::string certs;
@@ -111,26 +111,28 @@ inline std::string GetCerts() { return ""; }
 
 #endif
 
-const std::set<std::string_view, odbcabstraction::CaseInsensitiveComparator>
-    BUILT_IN_PROPERTIES = {FlightSqlConnection::HOST,
-                           FlightSqlConnection::PORT,
-                           FlightSqlConnection::USER,
-                           FlightSqlConnection::USER_ID,
-                           FlightSqlConnection::UID,
-                           FlightSqlConnection::PASSWORD,
-                           FlightSqlConnection::PWD,
-                           FlightSqlConnection::TOKEN,
-                           FlightSqlConnection::USE_ENCRYPTION,
-                           FlightSqlConnection::DISABLE_CERTIFICATE_VERIFICATION,
-                           FlightSqlConnection::TRUSTED_CERTS,
-                           FlightSqlConnection::USE_SYSTEM_TRUST_STORE,
-                           FlightSqlConnection::STRING_COLUMN_LENGTH,
-                           FlightSqlConnection::USE_WIDE_CHAR};
+const std::set<std::string_view, CaseInsensitiveComparatorStrView> BUILT_IN_PROPERTIES = {
+    FlightSqlConnection::DRIVER,
+    FlightSqlConnection::DSN,
+    FlightSqlConnection::HOST,
+    FlightSqlConnection::PORT,
+    FlightSqlConnection::USER,
+    FlightSqlConnection::USER_ID,
+    FlightSqlConnection::UID,
+    FlightSqlConnection::PASSWORD,
+    FlightSqlConnection::PWD,
+    FlightSqlConnection::TOKEN,
+    FlightSqlConnection::USE_ENCRYPTION,
+    FlightSqlConnection::DISABLE_CERTIFICATE_VERIFICATION,
+    FlightSqlConnection::TRUSTED_CERTS,
+    FlightSqlConnection::USE_SYSTEM_TRUST_STORE,
+    FlightSqlConnection::STRING_COLUMN_LENGTH,
+    FlightSqlConnection::USE_WIDE_CHAR};
 
 Connection::ConnPropertyMap::const_iterator TrackMissingRequiredProperty(
     const std::string_view& property, const Connection::ConnPropertyMap& properties,
     std::vector<std::string_view>& missing_attr) {
-  auto prop_iter = properties.find(property);
+  auto prop_iter = properties.find(std::string(property));
   if (properties.end() == prop_iter) {
     missing_attr.push_back(property);
   }
@@ -149,7 +151,8 @@ std::shared_ptr<FlightSqlSslConfig> LoadFlightSslConfigs(
       AsBool(connPropertyMap, FlightSqlConnection::USE_SYSTEM_TRUST_STORE)
           .value_or(SYSTEM_TRUST_STORE_DEFAULT);
 
-  auto trusted_certs_iterator = connPropertyMap.find(FlightSqlConnection::TRUSTED_CERTS);
+  auto trusted_certs_iterator =
+      connPropertyMap.find(std::string(FlightSqlConnection::TRUSTED_CERTS));
   auto trusted_certs = trusted_certs_iterator != connPropertyMap.end()
                            ? trusted_certs_iterator->second
                            : "";
@@ -164,15 +167,18 @@ void FlightSqlConnection::Connect(const ConnPropertyMap& properties,
     auto flight_ssl_configs = LoadFlightSslConfigs(properties);
 
     Location location = BuildLocation(properties, missing_attr, flight_ssl_configs);
-    FlightClientOptions client_options =
+    client_options_ =
         BuildFlightClientOptions(properties, missing_attr, flight_ssl_configs);
 
     const std::shared_ptr<arrow::flight::ClientMiddlewareFactory>& cookie_factory =
         arrow::flight::GetCookieFactory();
-    client_options.middleware.push_back(cookie_factory);
+    client_options_.middleware.push_back(cookie_factory);
 
     std::unique_ptr<FlightClient> flight_client;
-    ThrowIfNotOK(FlightClient::Connect(location, client_options).Value(&flight_client));
+    ThrowIfNotOK(FlightClient::Connect(location, client_options_).Value(&flight_client));
+
+    PopulateMetadataSettings(properties);
+    PopulateCallOptions(properties);
 
     std::unique_ptr<FlightSqlAuthMethod> auth_method =
         FlightSqlAuthMethod::FromProperties(flight_client, properties);
@@ -187,9 +193,6 @@ void FlightSqlConnection::Connect(const ConnPropertyMap& properties,
 
     info_.SetProperty(SQL_USER_NAME, auth_method->GetUser());
     attribute_[CONNECTION_DEAD] = static_cast<uint32_t>(SQL_FALSE);
-
-    PopulateMetadataSettings(properties);
-    PopulateCallOptions(properties);
   } catch (...) {
     attribute_[CONNECTION_DEAD] = static_cast<uint32_t>(SQL_TRUE);
     sql_client_.reset();
@@ -376,7 +379,7 @@ void FlightSqlConnection::Close() {
 
 std::shared_ptr<Statement> FlightSqlConnection::CreateStatement() {
   return std::shared_ptr<Statement>(new FlightSqlStatement(
-      diagnostics_, *sql_client_, call_options_, metadata_settings_));
+      diagnostics_, *sql_client_, client_options_, call_options_, metadata_settings_));
 }
 
 bool FlightSqlConnection::SetAttribute(Connection::AttributeId attribute,
@@ -422,7 +425,7 @@ FlightSqlConnection::FlightSqlConnection(OdbcVersion odbc_version,
                                          const std::string& driver_version)
     : diagnostics_("Apache Arrow", "Flight SQL", odbc_version),
       odbc_version_(odbc_version),
-      info_(call_options_, sql_client_, driver_version),
+      info_(client_options_, call_options_, sql_client_, driver_version),
       closed_(true) {
   attribute_[CONNECTION_DEAD] = static_cast<uint32_t>(SQL_TRUE);
   attribute_[LOGIN_TIMEOUT] = static_cast<uint32_t>(0);
