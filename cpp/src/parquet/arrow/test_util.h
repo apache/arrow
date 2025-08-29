@@ -47,25 +47,27 @@ using ::arrow::Array;
 using ::arrow::ChunkedArray;
 using ::arrow::Status;
 
-template <int32_t PRECISION>
-struct Decimal128WithPrecisionAndScale {
-  static_assert(PRECISION >= 1 && PRECISION <= 38, "Invalid precision value");
-
-  using type = ::arrow::Decimal128Type;
-  static constexpr ::arrow::Type::type type_id = ::arrow::Decimal128Type::type_id;
+template <typename T, int32_t PRECISION, typename = ::arrow::enable_if_decimal<T>>
+struct DecimalWithPrecisionAndScale {
+  using type = T;
+  static_assert(PRECISION >= T::kMinPrecision && PRECISION <= T::kMaxPrecision,
+                "Invalid precision value");
+  static constexpr ::arrow::Type::type type_id = T::type_id;
   static constexpr int32_t precision = PRECISION;
   static constexpr int32_t scale = PRECISION - 1;
 };
-
 template <int32_t PRECISION>
-struct Decimal256WithPrecisionAndScale {
-  static_assert(PRECISION >= 1 && PRECISION <= 76, "Invalid precision value");
-
-  using type = ::arrow::Decimal256Type;
-  static constexpr ::arrow::Type::type type_id = ::arrow::Decimal256Type::type_id;
-  static constexpr int32_t precision = PRECISION;
-  static constexpr int32_t scale = PRECISION - 1;
-};
+using Decimal32WithPrecisionAndScale =
+    DecimalWithPrecisionAndScale<::arrow::Decimal32Type, PRECISION>;
+template <int32_t PRECISION>
+using Decimal64WithPrecisionAndScale =
+    DecimalWithPrecisionAndScale<::arrow::Decimal64Type, PRECISION>;
+template <int32_t PRECISION>
+using Decimal128WithPrecisionAndScale =
+    DecimalWithPrecisionAndScale<::arrow::Decimal128Type, PRECISION>;
+template <int32_t PRECISION>
+using Decimal256WithPrecisionAndScale =
+    DecimalWithPrecisionAndScale<::arrow::Decimal256Type, PRECISION>;
 
 template <class ArrowType>
 ::arrow::enable_if_floating_point<ArrowType, Status> NonNullArray(
@@ -155,45 +157,25 @@ static void random_decimals(int64_t n, uint32_t seed, int32_t precision, uint8_t
 }
 
 template <typename ArrowType, int32_t precision = ArrowType::precision>
-::arrow::enable_if_t<
-    std::is_same<ArrowType, Decimal128WithPrecisionAndScale<precision>>::value, Status>
+::arrow::enable_if_t<std::is_same_v<ArrowType, DecimalWithPrecisionAndScale<
+                                                   typename ArrowType::type, precision>>,
+                     Status>
 NonNullArray(size_t size, std::shared_ptr<Array>* out) {
   constexpr int32_t kDecimalPrecision = precision;
-  constexpr int32_t kDecimalScale = Decimal128WithPrecisionAndScale<precision>::scale;
+  constexpr int32_t kDecimalScale = ArrowType::scale;
 
-  const auto type = ::arrow::decimal128(kDecimalPrecision, kDecimalScale);
-  ::arrow::Decimal128Builder builder(type);
-  const int32_t byte_width =
-      static_cast<const ::arrow::Decimal128Type&>(*type).byte_width();
+  const auto type =
+      std::make_shared<typename ArrowType::type>(kDecimalPrecision, kDecimalScale);
+  const int32_t byte_width = type->byte_width();
 
   constexpr int32_t seed = 0;
 
   ARROW_ASSIGN_OR_RAISE(auto out_buf, ::arrow::AllocateBuffer(size * byte_width));
-  random_decimals<::arrow::Decimal128Type::kByteWidth>(size, seed, kDecimalPrecision,
-                                                       out_buf->mutable_data());
+  random_decimals<ArrowType::type::kByteWidth>(size, seed, kDecimalPrecision,
+                                               out_buf->mutable_data());
 
-  RETURN_NOT_OK(builder.AppendValues(out_buf->data(), size));
-  return builder.Finish(out);
-}
-
-template <typename ArrowType, int32_t precision = ArrowType::precision>
-::arrow::enable_if_t<
-    std::is_same<ArrowType, Decimal256WithPrecisionAndScale<precision>>::value, Status>
-NonNullArray(size_t size, std::shared_ptr<Array>* out) {
-  constexpr int32_t kDecimalPrecision = precision;
-  constexpr int32_t kDecimalScale = Decimal256WithPrecisionAndScale<precision>::scale;
-
-  const auto type = ::arrow::decimal256(kDecimalPrecision, kDecimalScale);
-  ::arrow::Decimal256Builder builder(type);
-  const int32_t byte_width =
-      static_cast<const ::arrow::Decimal256Type&>(*type).byte_width();
-
-  constexpr int32_t seed = 0;
-
-  ARROW_ASSIGN_OR_RAISE(auto out_buf, ::arrow::AllocateBuffer(size * byte_width));
-  random_decimals<::arrow::Decimal256Type::kByteWidth>(size, seed, kDecimalPrecision,
-                                                       out_buf->mutable_data());
-
+  using Builder = typename ::arrow::TypeTraits<typename ArrowType::type>::BuilderType;
+  Builder builder(type);
   RETURN_NOT_OK(builder.AppendValues(out_buf->data(), size));
   return builder.Finish(out);
 }
@@ -344,8 +326,9 @@ template <typename ArrowType>
 }
 
 template <typename ArrowType, int32_t precision = ArrowType::precision>
-::arrow::enable_if_t<
-    std::is_same<ArrowType, Decimal128WithPrecisionAndScale<precision>>::value, Status>
+::arrow::enable_if_t<std::is_same_v<ArrowType, DecimalWithPrecisionAndScale<
+                                                   typename ArrowType::type, precision>>,
+                     Status>
 NullableArray(size_t size, size_t num_nulls, uint32_t seed,
               std::shared_ptr<::arrow::Array>* out) {
   std::vector<uint8_t> valid_bytes(size, '\1');
@@ -355,44 +338,18 @@ NullableArray(size_t size, size_t num_nulls, uint32_t seed,
   }
 
   constexpr int32_t kDecimalPrecision = precision;
-  constexpr int32_t kDecimalScale = Decimal128WithPrecisionAndScale<precision>::scale;
-  const auto type = ::arrow::decimal128(kDecimalPrecision, kDecimalScale);
-  const int32_t byte_width =
-      static_cast<const ::arrow::Decimal128Type&>(*type).byte_width();
+  constexpr int32_t kDecimalScale = ArrowType::scale;
+
+  const auto type =
+      std::make_shared<typename ArrowType::type>(kDecimalPrecision, kDecimalScale);
+  const int32_t byte_width = type->byte_width();
 
   ARROW_ASSIGN_OR_RAISE(auto out_buf, ::arrow::AllocateBuffer(size * byte_width));
+  random_decimals<ArrowType::type::kByteWidth>(size, seed, precision,
+                                               out_buf->mutable_data());
 
-  random_decimals<::arrow::Decimal128Type::kByteWidth>(size, seed, precision,
-                                                       out_buf->mutable_data());
-
-  ::arrow::Decimal128Builder builder(type);
-  RETURN_NOT_OK(builder.AppendValues(out_buf->data(), size, valid_bytes.data()));
-  return builder.Finish(out);
-}
-
-template <typename ArrowType, int32_t precision = ArrowType::precision>
-::arrow::enable_if_t<
-    std::is_same<ArrowType, Decimal256WithPrecisionAndScale<precision>>::value, Status>
-NullableArray(size_t size, size_t num_nulls, uint32_t seed,
-              std::shared_ptr<::arrow::Array>* out) {
-  std::vector<uint8_t> valid_bytes(size, '\1');
-
-  for (size_t i = 0; i < num_nulls; ++i) {
-    valid_bytes[i * 2] = '\0';
-  }
-
-  constexpr int32_t kDecimalPrecision = precision;
-  constexpr int32_t kDecimalScale = Decimal256WithPrecisionAndScale<precision>::scale;
-  const auto type = ::arrow::decimal256(kDecimalPrecision, kDecimalScale);
-  const int32_t byte_width =
-      static_cast<const ::arrow::Decimal256Type&>(*type).byte_width();
-
-  ARROW_ASSIGN_OR_RAISE(auto out_buf, ::arrow::AllocateBuffer(size * byte_width));
-
-  random_decimals<::arrow::Decimal256Type::kByteWidth>(size, seed, precision,
-                                                       out_buf->mutable_data());
-
-  ::arrow::Decimal256Builder builder(type);
+  using Builder = typename ::arrow::TypeTraits<typename ArrowType::type>::BuilderType;
+  Builder builder(type);
   RETURN_NOT_OK(builder.AppendValues(out_buf->data(), size, valid_bytes.data()));
   return builder.Finish(out);
 }
