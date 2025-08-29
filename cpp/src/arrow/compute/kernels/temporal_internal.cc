@@ -17,8 +17,6 @@
 
 #include "arrow/compute/kernels/temporal_internal.h"
 
-#include "arrow/compute/function.h"
-
 namespace arrow::compute::internal {
 
 Result<ArrowTimeZone> LocateZone(const std::string_view timezone) {

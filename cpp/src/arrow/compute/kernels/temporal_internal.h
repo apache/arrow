@@ -22,7 +22,6 @@
 
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/kernels/codegen_internal.h"
-#include "arrow/util/checked_cast.h"
 #include "arrow/util/date_internal.h"
 #include "arrow/util/value_parsing.h"
 
