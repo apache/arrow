@@ -423,8 +423,8 @@ better zero-copy compatibility with various systems that also store booleans usi
 
 .. _variant_extension:
 
-Variant
-=======
+Parquet Variant
+===============
 
 Variant represents a value that may be one of:
 
@@ -478,9 +478,9 @@ Unshredded
 The simplest case, an unshredded variant always consists of **exactly** two fields: ``metadata`` and ``value``. Any of
 the following storage types are valid (not an exhaustive list):
 
-* ``struct<metadata: binary required, value: binary required>``
-* ``struct<value: binary optional, metadata: binary required>``
-* ``struct<metadata: dictionary<int8, binary> required, value: binary_view required>``
+* ``struct<metadata: binary non-nullable, value: binary nullable>``
+* ``struct<value: binary nullable, metadata: binary non-nullable>``
+* ``struct<metadata: dictionary<int8, binary> non-nullable, value: binary_view nullable>``
 
 Simple Shredding
 ''''''''''''''''
@@ -494,7 +494,7 @@ In Parquet, this could be represented as::
     optional int64 typed_value;
   }
 
-Thus the corresponding storage type for the ``parquet.variant`` Arrow extension type would be: ::
+Thus the corresponding storage type for the ``parquet.variant`` Arrow extension type would be::
 
   struct<
     metadata: binary required,
@@ -502,11 +502,11 @@ Thus the corresponding storage type for the ``parquet.variant`` Arrow extension 
     typed_value: int64 optional
   >
 
-If we suppose a series of measurements consisting of: ::
+If we suppose a series of measurements consisting of::
 
   34, null, "n/a", 100
 
-The data should be stored/represented in Arrow as: ::
+The data should be stored/represented in Arrow as::
 
   * Length: 4, Null count: 1
   * Validity Bitmap buffer:
@@ -566,9 +566,10 @@ The data should be stored/represented in Arrow as: ::
 
 .. note::
 
-  Notice that there is a variant ``literal null`` in the ``value`` array, this is due to the
-  `shredding specification <https://github.com/apache/parquet-format/blob/master/VariantShredding.md#value-shredding>`__
-  so that a consumer can tell the difference between a *missing* field and a **null** field.
+   Notice that there is a variant ``literal null`` in the ``value`` array, this is due to the
+   `shredding specification <https://github.com/apache/parquet-format/blob/master/VariantShredding.md#value-shredding>`__
+   so that a consumer can tell the difference between a *missing* field and a **null** field. A null
+   element must be encoded as a Variant null: *basic type* ``0`` (primitive) and *physical type* ``0`` (null).
 
 Shredding an Array
 ''''''''''''''''''
@@ -577,7 +578,7 @@ For our next example, we will represent a shredded array of strings. Let's consi
 
   ["comedy", "drama"], ["horror", null], ["comedy", "drama", "romance"], null
 
-Representing this shredded variant in Parquet could look like: ::
+Representing this shredded variant in Parquet could look like::
 
   optional group tags (VARIANT) {
     required binary metadata;
@@ -593,18 +594,17 @@ Representing this shredded variant in Parquet could look like: ::
   }
 
 The array structure for Variant encoding does not allow missing elements, so all elements of the array must
-be *non-nullable*. As such, either **typed_value** or **value** (*but not both!*) must be *non-null*. A null
-element must be encoded as a Variant null: *basic type* ``0`` (primitive) and *physical type* ``0`` (null).
+be *non-nullable*. As such, either **typed_value** or **value** (*but not both!*) must be *non-null*.
 
-The storage type to represent this in Arrow as a Variant extension type would be: ::
+The storage type to represent this in Arrow as a Variant extension type would be::
 
   struct<
-    metadata: binary required,
-    value: binary optional,
+    metadata: binary non-nullable,
+    value: binary nullable,
     typed_value: list<element: struct<
-      value: binary optional,
-      typed_value: string optional
-    > required> optional
+      value: binary nullable,
+      typed_value: string nullable
+    > required> nullable
   >
 
 .. note::
@@ -612,7 +612,7 @@ The storage type to represent this in Arrow as a Variant extension type would be
   As usual, **Binary** could also be **LargeBinary** or **BinaryView**, **String** could also be **LargeString** or **StringView**,
   and **List** could also be **LargeList** or **ListView**.
 
-The data would then be stored in Arrow as follows: ::
+The data would then be stored in Arrow as follows::
 
   * Length: 4, Null count: 1
   * Validity Bitmap buffer:
@@ -737,31 +737,30 @@ it could look something like this::
     }
   }
 
-We can then translate this into the expected extension storage type: ::
+We can then translate this into the expected extension storage type::
 
   struct<
-    metadata: binary required,
-    value: binary optional,
+    metadata: binary non-nullable,
+    value: binary nullable,
     typed_value: struct<
       event_type: struct<
-        value: binary optional,
-        typed_value: string optional
-      > required,
+        value: binary nullable,
+        typed_value: string nullable
+      > non-nullable,
       event_ts: struct<
-        value: binary optional,
-        typed_value: timestamp(us, UTC) optional
-      > required
-    > optional
+        value: binary nullable,
+        typed_value: timestamp(us, UTC) nullable
+      > non-nullable
+    > nullable
   >
 
 If a field *does not exist* in the variant object value, then both the **value** and **typed_value** columns for that row
-will be null. If a field is *present*, but the value is null, then **value** must contain a Variant null: *basic type*
-``0`` (primitive) and *physical type* ``0`` (null).
+will be null. If a field is *present*, but the value is null, then **value** must contain a Variant null.
 
 It is *invalid* for both **value** and **typed_value** to be non-null for a given index. A reader can choose not to error
 in this scenario, but if so it **must** use the value in the **typed_value** column for that index.
 
-Let's consider the following series of objects: ::
+Let's consider the following series of objects::
 
   {"event_type": "noop", "event_ts": 1729794114937}
 
@@ -783,7 +782,7 @@ Let's consider the following series of objects: ::
 
   *Entirely missing*
 
-To represent those values as a column of Variant values using the Variant extension type we get the following: ::
+To represent those values as a column of Variant values using the Variant extension type we get the following::
 
   * Length: 10, Null count: 1
   * Validity bitmap buffer:
@@ -928,7 +927,7 @@ Putting it all together
 As mentioned, the **typed_value** field associated with a Variant **value** can be of any shredded type. As a result,
 as long as we follow the original rules we can have an arbitrary number of nested levels based on how you want to
 shred the object. For example, we might have a few more fields alongside **event_type** to shred out. Possibly an object
-that looks like this: ::
+that looks like this::
 
   {
     "event_type": "login",
@@ -937,7 +936,7 @@ that looks like this: ::
     “tags”: [“foo”, “bar”, “baz”]
   }
 
-If we shred the extra fields out and represent it as Parquet it looks like: ::
+If we shred the extra fields out and represent it as Parquet it looks like::
 
   optional group event (VARIANT) {
     required binary metadata;
@@ -978,25 +977,25 @@ If we shred the extra fields out and represent it as Parquet it looks like: ::
     }
   }
 
-Finally, following the rules we set forth on constructing the Variant Extension Type storage type, we end up with: ::
+Finally, following the rules we set forth on constructing the Variant Extension Type storage type, we end up with::
 
   struct<
-    metadata: binary required,
-    value: binary optional,
+    metadata: binary non-nullable,
+    value: binary nullable,
     typed_value: struct<
-      event_type: struct<value: binary optional, typed_value: string optional> required,
-      event_ts: struct<value: binary optional, typed_value: timestamp(us, UTC) optional> required,
+      event_type: struct<value: binary nullable, typed_value: string nullable> non-nullable,
+      event_ts: struct<value: binary nullable, typed_value: timestamp(us, UTC) nullable> non-nullable,
       location: struct<
-        value: binary optional,
+        value: binary nullable,
         typed_value: struct<
-          longitude: struct<value: binary optional, typed_value: double optional> required,
-          latitude: struct<value: binary optional, typed_value: double optional> required
-        > optional> required,
+          longitude: struct<value: binary nullable, typed_value: double nullable> non-nullable,
+          latitude: struct<value: binary nullable, typed_value: double nullable> non-nullable
+        > nullable> non-nullable,
       tags: struct<
-          value: binary optional,
-          typed_value: list<struct<value: binary optional, typed_value: string optional> required> optional
-        > required
-    > optional
+          value: binary nullable,
+          typed_value: list<struct<value: binary nullable, typed_value: string nullable> non-nullable> nullable
+        > non-nullable
+    > nullable
   >
 
 
