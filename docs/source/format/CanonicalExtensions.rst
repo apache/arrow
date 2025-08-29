@@ -443,7 +443,7 @@ to the Parquet format specification for details on what the actual binary values
 
 * Extension name: ``parquet.variant``.
 
-* The storage type of this extension is a ``StructArray`` that obeys the following rules:
+* The storage type of this extension is a ``Struct`` that obeys the following rules:
 
   * A *non-nullable* field named ``metadata`` which is of type ``Binary``, ``LargeBinary``, or ``BinaryView``.
 
@@ -452,9 +452,9 @@ to the Parquet format specification for details on what the actual binary values
     * A field named ``value`` which is of type ``Binary``, ``LargeBinary``, or ``BinaryView``.
       *(unshredded variants consist of just the ``metadata`` and ``value`` fields only)*
 
-    * A field named ``typed_value`` which can be any *primitive type* or a ``List``, ``LargeList``, ``ListView`` or ``Struct``
+    * A field named ``typed_value`` which can be any :term:`primitive type` or a ``List``, ``LargeList``, ``ListView`` or ``Struct``
 
-      * If the ``typed_value`` field is a *nested* type, its elements **must** be *non-nullable* and **must** be a ``struct`` consisting of
+      * If the ``typed_value`` field is a *nested* type, its elements **must** be *non-nullable* and **must** be a ``Struct`` consisting of
         at least one (or both) of the following:
 
         * A field named ``value`` which is of type ``Binary``, ``LargeBinary``, or ``BinaryView``.
@@ -463,11 +463,11 @@ to the Parquet format specification for details on what the actual binary values
 
 .. note::
 
-  It is also *permissible* for the ``metadata`` field to be dictionary-encoded with an index type of ``int8``.
+   It is also *permissible* for the ``metadata`` field to be dictionary-encoded with an index type of ``int8``.
 
 .. note::
 
-  The fields may be in any order, and thus must be accessed by **name** not by *position*.
+   The fields may be in any order, and thus must be accessed by **name** not by *position*.
 
 Examples
 --------
@@ -485,7 +485,7 @@ the following storage types are valid (not an exhaustive list):
 Simple Shredding
 ''''''''''''''''
 
-Suppose a Variant field named *measurement* and we want to shred the ``int64`` values into a separate column for efficiency.
+Suppose we have a Variant field named *measurement* and we want to shred the ``int64`` values into a separate column for efficiency.
 In Parquet, this could be represented as::
 
   required group measurement (VARIANT) {
@@ -718,9 +718,9 @@ The data would then be stored in Arrow as follows: ::
 Shredding an Object
 '''''''''''''''''''
 
-Let's consider a simple JSON column of "events" which contain a field named ``event_type`` (a string)
+Let's consider a JSON column of "events" which contain a field named ``event_type`` (a string)
 and a field named ``event_ts`` (a timestamp) that we wish to shred into separate columns, In Parquet,
-it could look something like this: ::
+it could look something like this::
 
   optional group event (VARIANT) {
     required binary metadata;
@@ -737,7 +737,7 @@ it could look something like this: ::
     }
   }
 
-We can then, fairly easily, translate this into the expected extension storage type: ::
+We can then translate this into the expected extension storage type: ::
 
   struct<
     metadata: binary required,
@@ -926,7 +926,7 @@ Putting it all together
 '''''''''''''''''''''''
 
 As mentioned, the **typed_value** field associated with a Variant **value** can be of any shredded type. As a result,
-as long as we follow the original rules you can have an arbitrary number of nested levels based on how you want to
+as long as we follow the original rules we can have an arbitrary number of nested levels based on how you want to
 shred the object. For example, we might have a few more fields alongside **event_type** to shred out. Possibly an object
 that looks like this: ::
 
