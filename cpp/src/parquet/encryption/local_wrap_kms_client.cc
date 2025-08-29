@@ -84,7 +84,7 @@ std::string LocalWrapKmsClient::WrapKey(const SecureString& key_bytes,
   return LocalKeyWrap::CreateSerialized(encrypted_encoded_key);
 }
 
-SecureString LocalWrapKmsClient::UnWrapKey(const std::string& wrapped_key,
+SecureString LocalWrapKmsClient::UnwrapKey(const std::string& wrapped_key,
                                            const std::string& master_key_identifier) {
   LocalKeyWrap key_wrap = LocalKeyWrap::Parse(wrapped_key);
   const std::string& master_key_version = key_wrap.master_key_version();
