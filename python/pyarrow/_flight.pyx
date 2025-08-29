@@ -142,6 +142,29 @@ cdef class FlightCallOptions(_Weakrefable):
             return &((<FlightCallOptions> obj).options)
         raise TypeError(f"Expected a FlightCallOptions object, not '{type(obj)}'")
 
+    @property
+    def timeout(self):
+        if not hasattr(self, "timeout"):
+            raise ValueError(f"FlightCallOptions.timeout was not set")
+        return self.options.timeout.count()
+
+    @property
+    def headers(self):
+        if not hasattr(self, "headers"):
+            raise ValueError(f"FlightCallOptions.headers was not set")
+        return self.options.headers
+
+    @property
+    def read_options(self): ...
+
+    @property
+    def write_options(self): ...
+
+    def __repr__(self):
+        return (f"<pyarrow.flight.FlightCallOptions "
+                f"timeout={self.timeout} "
+                f"headers={self.headers}>")
+
 
 _CertKeyPair = collections.namedtuple('_CertKeyPair', ['cert', 'key'])
 
