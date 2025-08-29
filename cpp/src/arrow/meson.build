@@ -75,6 +75,7 @@ arrow_components = {
             'compute/kernels/vector_selection_filter_internal.cc',
             'compute/kernels/vector_selection_internal.cc',
             'compute/kernels/vector_selection_take_internal.cc',
+            'compute/kernels/vector_swizzle.cc',
         ],
     },
     'arrow_io': {
@@ -409,6 +410,22 @@ if needs_json
     }
 endif
 
+if needs_orc
+    orc_dep = dependency('orc')
+    arrow_components += {
+        'arrow_orc': {
+            'sources': files(
+                'adapters/orc/adapter.cc',
+                'adapters/orc/options.cc',
+                'adapters/orc/util.cc',
+            ),
+            'dependencies': [orc_dep],
+        },
+    }
+else
+    orc_dep = disabler()
+endif
+
 arrow_srcs = []
 include_dir = include_directories('..')
 arrow_includes = [include_dir]
@@ -471,7 +488,6 @@ if needs_compute
         'compute/kernels/vector_select_k.cc',
         'compute/kernels/vector_sort.cc',
         'compute/kernels/vector_statistics.cc',
-        'compute/kernels/vector_swizzle.cc',
         'compute/key_hash_internal.cc',
         'compute/key_map_internal.cc',
         'compute/light_array_internal.cc',
@@ -768,6 +784,10 @@ endif
 
 if needs_json
     subdir('json')
+endif
+
+if needs_orc
+    subdir('adapters/orc')
 endif
 
 if needs_ipc

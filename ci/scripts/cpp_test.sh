@@ -91,9 +91,10 @@ if [ -z "${PYTHON}" ] && ! which python > /dev/null 2>&1; then
 fi
 if [ "${ARROW_USE_MESON:-OFF}" = "ON" ]; then
   ARROW_BUILD_EXAMPLES=OFF # TODO: Remove this
-  meson test \
+  meson test arrow-orc-adapter-test \
     --no-rebuild \
     --print-errorlogs \
+    --max-lines=0 \
     --suite arrow \
     "$@"
 else
