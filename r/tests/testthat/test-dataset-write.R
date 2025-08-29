@@ -1016,3 +1016,45 @@ test_that("Dataset write wrappers can write flat files using readr::write_csv() 
     c("true", "false", "NOVALUE", "true", "false", "true", "false", "NOVALUE", "true", "false")
   )
 })
+
+test_that("write_dataset respects url_encode_hive_values parameter", {
+  skip_if_not_available("parquet")
+  
+  # Create test data with special characters that would be URL encoded
+  test_df <- data.frame(
+    value = c(1, 2, 3, 4),
+    category = c("test space", "test/slash", "test%percent", "normal"),
+    stringsAsFactors = FALSE
+  )
+  
+  # Test with URL encoding enabled (default)
+  dst_dir_encoded <- make_temp_dir()
+  write_dataset(test_df, dst_dir_encoded, partitioning = "category", hive_style = TRUE, url_encode_hive_values = TRUE)
+  
+  # Test with URL encoding disabled  
+  dst_dir_not_encoded <- make_temp_dir()
+  write_dataset(test_df, dst_dir_not_encoded, partitioning = "category", hive_style = TRUE, url_encode_hive_values = FALSE)
+  
+  # Check that the directories are different (encoded vs not encoded)
+  encoded_dirs <- list.dirs(dst_dir_encoded, recursive = FALSE)
+  not_encoded_dirs <- list.dirs(dst_dir_not_encoded, recursive = FALSE)
+  
+  # The encoded version should have URL-encoded directory names
+  expect_true(any(grepl("test%20space", encoded_dirs)))
+  expect_true(any(grepl("test%2Fslash", encoded_dirs))) 
+  expect_true(any(grepl("test%25percent", encoded_dirs)))
+  
+  # The non-encoded version should have raw directory names
+  expect_true(any(grepl("test space", not_encoded_dirs, fixed = TRUE)))
+  expect_true(any(grepl("test/slash", not_encoded_dirs, fixed = TRUE)))
+  expect_true(any(grepl("test%percent", not_encoded_dirs, fixed = TRUE)))
+  
+  # Both datasets should be readable and equivalent when loaded
+  ds_encoded <- open_dataset(dst_dir_encoded)
+  ds_not_encoded <- open_dataset(dst_dir_not_encoded)
+  
+  expect_equal(
+    arrange(ds_encoded %>% collect(), value),
+    arrange(ds_not_encoded %>% collect(), value)
+  )
+})

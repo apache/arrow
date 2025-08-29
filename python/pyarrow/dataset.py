@@ -813,7 +813,7 @@ RecordBatch or Table, iterable of RecordBatch, RecordBatchReader, or URI
         )
 
 
-def _ensure_write_partitioning(part, schema, flavor):
+def _ensure_write_partitioning(part, schema, flavor, url_encode_hive_values=True):
     if isinstance(part, PartitioningFactory):
         raise ValueError("A PartitioningFactory cannot be used. "
                          "Did you call the partitioning function "
@@ -824,15 +824,39 @@ def _ensure_write_partitioning(part, schema, flavor):
             "Providing a partitioning_flavor with "
             "a Partitioning object is not supported"
         )
+    elif isinstance(part, HivePartitioning):
+        # If a HivePartitioning object is passed directly, recreate it with the 
+        # desired segment_encoding based on url_encode_hive_values
+        desired_encoding = "uri" if url_encode_hive_values else "none"
+        part = HivePartitioning(
+            part.schema,
+            dictionaries=part.dictionaries,
+            segment_encoding=desired_encoding
+        )
     elif isinstance(part, (tuple, list)):
         # Name of fields were provided instead of a partitioning object.
         # Create a partitioning factory with those field names.
-        part = partitioning(
-            schema=pa.schema([schema.field(f) for f in part]),
-            flavor=flavor
-        )
+        if flavor == "hive":
+            # For Hive partitioning, we need to create HivePartitioning directly
+            # to control segment_encoding for URL encoding behavior
+            segment_encoding = "uri" if url_encode_hive_values else "none"
+            part = HivePartitioning(
+                pa.schema([schema.field(f) for f in part]),
+                segment_encoding=segment_encoding
+            )
+        else:
+            part = partitioning(
+                schema=pa.schema([schema.field(f) for f in part]),
+                flavor=flavor
+            )
     elif part is None:
-        part = partitioning(pa.schema([]), flavor=flavor)
+        if flavor == "hive":
+            # For Hive partitioning, we need to create HivePartitioning directly
+            # to control segment_encoding for URL encoding behavior
+            segment_encoding = "uri" if url_encode_hive_values else "none"
+            part = HivePartitioning(pa.schema([]), segment_encoding=segment_encoding)
+        else:
+            part = partitioning(pa.schema([]), flavor=flavor)
 
     if not isinstance(part, Partitioning):
         raise ValueError(
@@ -849,7 +873,8 @@ def write_dataset(data, base_dir, *, basename_template=None, format=None,
                   preserve_order=False, max_partitions=None, max_open_files=None,
                   max_rows_per_file=None, min_rows_per_group=None,
                   max_rows_per_group=None, file_visitor=None,
-                  existing_data_behavior='error', create_dir=True):
+                  existing_data_behavior='error', create_dir=True,
+                  url_encode_hive_values=True):
     """
     Write a dataset to a given format and partitioning.
 
@@ -957,6 +982,12 @@ Table/RecordBatch, or iterable of RecordBatch
     create_dir : bool, default True
         If False, directories will not be created.  This can be useful for
         filesystems that do not require directories.
+    url_encode_hive_values : bool, default True
+        When using Hive partitioning, whether to URL-encode partition values.
+        If True (default), special characters in partition values will be 
+        URL-encoded (e.g., "Product A/B" becomes "Product%20A%2FB").
+        If False, partition values will be used as-is in directory names.
+        This parameter only affects Hive-style partitioning.
     """
     from pyarrow.fs import _resolve_filesystem_and_path
 
@@ -1019,7 +1050,8 @@ Table/RecordBatch, or iterable of RecordBatch
         partitioning_schema = data.schema
     partitioning = _ensure_write_partitioning(partitioning,
                                               schema=partitioning_schema,
-                                              flavor=partitioning_flavor)
+                                              flavor=partitioning_flavor,
+                                              url_encode_hive_values=url_encode_hive_values)
 
     filesystem, base_dir = _resolve_filesystem_and_path(base_dir, filesystem)
 

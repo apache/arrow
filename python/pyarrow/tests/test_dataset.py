@@ -2383,6 +2383,67 @@ def test_hive_partitioning_dictionary_key(multisourcefs):
         assert actual == month_dictionary
 
 
+def test_hive_partitioning_url_encoding(tempdir):
+    # Test url_encode_hive_values parameter for write_dataset
+    table = pa.table({
+        'id': [1, 2, 3],
+        'category': ['Product A/B', 'Site C&D', 'Normal Item']
+    })
+    
+    # Test with URL encoding enabled (default)
+    encoded_dir = tempdir / 'encoded'
+    ds.write_dataset(table, encoded_dir, format='ipc', 
+                     partitioning=['category'], 
+                     partitioning_flavor='hive',
+                     url_encode_hive_values=True)
+    
+    # Check that directories are URL-encoded
+    dirs = [d.name for d in encoded_dir.iterdir() if d.is_dir()]
+    assert 'category=Product%20A%2FB' in dirs
+    assert 'category=Site%20C%26D' in dirs
+    assert 'category=Normal%20Item' in dirs
+    
+    # Test with URL encoding disabled
+    not_encoded_dir = tempdir / 'not_encoded'
+    ds.write_dataset(table, not_encoded_dir, format='ipc',
+                     partitioning=['category'], 
+                     partitioning_flavor='hive',
+                     url_encode_hive_values=False)
+    
+    # Check that directories are NOT URL-encoded
+    dirs = [d.name for d in not_encoded_dir.iterdir() if d.is_dir()]
+    assert 'category=Product A/B' in dirs
+    assert 'category=Site C&D' in dirs
+    assert 'category=Normal Item' in dirs
+    
+    # Test that both datasets can be read correctly
+    encoded_dataset = ds.dataset(encoded_dir, format='ipc', partitioning='hive')
+    not_encoded_dataset = ds.dataset(not_encoded_dir, format='ipc', partitioning='hive')
+    
+    # Both should read the same data
+    encoded_table = encoded_dataset.to_table().sort_by('id')
+    not_encoded_table = not_encoded_dataset.to_table().sort_by('id')
+    original_table = table.sort_by('id')
+    
+    assert encoded_table.equals(original_table)
+    assert not_encoded_table.equals(original_table)
+    
+    # Test with explicitly created HivePartitioning object
+    explicit_dir = tempdir / 'explicit'
+    partitioning = ds.HivePartitioning(
+        pa.schema([pa.field('category', pa.string())]),
+        segment_encoding='none'
+    )
+    ds.write_dataset(table, explicit_dir, format='ipc',
+                     partitioning=partitioning,
+                     url_encode_hive_values=False)  # Should be respected
+    
+    dirs = [d.name for d in explicit_dir.iterdir() if d.is_dir()]
+    assert 'category=Product A/B' in dirs
+    assert 'category=Site C&D' in dirs
+    assert 'category=Normal Item' in dirs
+
+
 def _create_single_file(base_dir, table=None, row_group_size=None):
     if table is None:
         table = pa.table({'a': range(9), 'b': [0.] * 4 + [1.] * 5})
