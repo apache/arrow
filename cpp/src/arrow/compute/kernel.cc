@@ -519,30 +519,6 @@ std::shared_ptr<MatchConstraint> DecimalsHaveSameScale() {
   return instance;
 }
 
-namespace {
-
-template <typename Op>
-class BinaryDecimalScaleComparisonConstraint : public MatchConstraint {
- public:
-  bool Matches(const std::vector<TypeHolder>& types) const override {
-    DCHECK_EQ(types.size(), 2);
-    DCHECK(is_decimal(types[0].id()));
-    DCHECK(is_decimal(types[1].id()));
-    const auto& ty0 = checked_cast<const DecimalType&>(*types[0].type);
-    const auto& ty1 = checked_cast<const DecimalType&>(*types[1].type);
-    return Op{}(ty0.scale(), ty1.scale());
-  }
-};
-
-}  // namespace
-
-std::shared_ptr<MatchConstraint> BinaryDecimalScale1GeScale2() {
-  using BinaryDecimalScale1GeScale2Constraint =
-      BinaryDecimalScaleComparisonConstraint<std::greater_equal<>>;
-  static auto instance = std::make_shared<BinaryDecimalScale1GeScale2Constraint>();
-  return instance;
-}
-
 // ----------------------------------------------------------------------
 // KernelSignature
 
