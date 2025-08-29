@@ -478,7 +478,7 @@ std::string OutputType::ToString() const {
 // ----------------------------------------------------------------------
 // MatchConstraint
 
-std::shared_ptr<MatchConstraint> MakeConstraint(
+std::shared_ptr<MatchConstraint> MatchConstraint::Make(
     std::function<bool(const std::vector<TypeHolder>&)> matches) {
   class FunctionMatchConstraint : public MatchConstraint {
    public:
