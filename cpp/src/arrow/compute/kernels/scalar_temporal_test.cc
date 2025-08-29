@@ -2188,17 +2188,17 @@ TEST_F(ScalarTemporalTest, StrftimeRoundtrip) {
   CheckScalarUnary("strftime", timestamp(TimeUnit::SECOND, "+04:30"), times_with_offsets,
                    utf8(), times_with_offsets, &options);
   CheckScalarUnary("strftime", timestamp(TimeUnit::SECOND, "+00:30"),
-      R"(["1970-01-01T00:00:00+0020"])", utf8(),
-      R"(["1970-01-01T00:10:00+0030"])", &options);
+                   R"(["1970-01-01T00:00:00+0020"])", utf8(),
+                   R"(["1970-01-01T00:10:00+0030"])", &options);
   CheckScalarUnary("strftime", timestamp(TimeUnit::SECOND, "-00:10"),
-    R"(["1970-01-01T00:20:00+0010"])", utf8(),
-    R"(["1970-01-01T00:00:00-0010"])", &options);
+                   R"(["1970-01-01T00:20:00+0010"])", utf8(),
+                   R"(["1970-01-01T00:00:00-0010"])", &options);
 
-  auto invalid_arr = ArrayFromJSON(timestamp(
-      TimeUnit::SECOND, "-00:10:00"), R"(["1970-01-01T00:20:00"])");
-  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
-                                  testing::HasSubstr("Cannot locate or parse timezone '-00:10:00'"),
-                                  Strftime(invalid_arr, options));
+  auto invalid_arr = ArrayFromJSON(timestamp(TimeUnit::SECOND, "-00:10:00"),
+                                   R"(["1970-01-01T00:20:00"])");
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, testing::HasSubstr("Cannot locate or parse timezone '-00:10:00'"),
+      Strftime(invalid_arr, options));
 }
 
 TEST_F(ScalarTemporalTest, StrftimeOtherLocale) {
