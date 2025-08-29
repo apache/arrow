@@ -440,12 +440,12 @@ TEST(TestExternalFileDecryptionProperties, SuperClassFieldsSetCorrectly) {
   std::shared_ptr<parquet::DecryptionKeyRetriever> kr1 =
       std::static_pointer_cast<parquet::StringKeyIdRetriever>(string_kr1);
   
-  parquet::ExternalFileDecryptionProperties::Builder* builder =
-      parquet::ExternalFileDecryptionProperties::Builder()
-          .footer_key(kFooterEncryptionKey)
-          ->plaintext_files_allowed()
-          ->key_retriever(kr1);
-  std::shared_ptr<parquet::ExternalFileDecryptionProperties> props = builder->build_external();
+
+  auto builder = parquet::ExternalFileDecryptionProperties::Builder();
+  builder.footer_key(kFooterEncryptionKey);
+  builder.plaintext_files_allowed();
+  builder.key_retriever(kr1);
+  std::shared_ptr<parquet::ExternalFileDecryptionProperties> props = builder.build_external();
 
   ASSERT_EQ(true, props->plaintext_files_allowed());
   ASSERT_EQ(kFooterEncryptionKey, props->footer_key());
@@ -474,13 +474,12 @@ TEST(TestExternalFileDecryptionProperties, SetExternalContextAndConfig) {
   inner_config["config_file"] = "path/to/config/file";
   connection_config[ParquetCipher::AES_GCM_CTR_V1] = inner_config;
 
-  ExternalFileDecryptionProperties::Builder builder;
+  auto builder = parquet::ExternalFileDecryptionProperties::Builder();
+  builder.footer_key(kFooterEncryptionKey);
   builder.app_context(app_context);
   builder.connection_config(connection_config);
-    
   std::shared_ptr<parquet::ExternalFileDecryptionProperties> props = builder.build_external();
   
-
   ASSERT_EQ(false, props->app_context().empty());
   ASSERT_EQ(app_context, props->app_context());
   ASSERT_EQ(false, props->connection_config().size() == 0);

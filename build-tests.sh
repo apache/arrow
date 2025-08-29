@@ -1,0 +1,16 @@
+cd /arrowdev/cpp/build
+
+cmake -GNinja \
+-DARROW_WITH_SNAPPY=ON \
+-DCMAKE_BUILD_TYPE=Debug \
+-DCMAKE_INSTALL_PREFIX=$(pwd)/install \
+-DARROW_PARQUET=ON \
+-DPARQUET_REQUIRE_ENCRYPTION=ON \
+-DARROW_PYTHON=ON \
+-DARROW_COMPUTE=ON \
+-DARROW_TESTING=ON \
+-DARROW_BUILD_TESTS=ON \
+ ..
+
+ninja install -j 4
+
