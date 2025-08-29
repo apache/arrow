@@ -202,6 +202,7 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
         CResult[shared_ptr[CSchema]] GetSchema()
         CResult[CFlightStreamChunk] Next()
         CResult[shared_ptr[CTable]] ToTable()
+        CIpcReadStats stats() const
 
     CResult[shared_ptr[CRecordBatchReader]] MakeRecordBatchReader\
         " arrow::flight::MakeRecordBatchReader"(

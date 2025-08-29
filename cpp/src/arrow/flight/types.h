@@ -47,6 +47,7 @@ class Table;
 
 namespace ipc {
 class DictionaryMemo;
+struct ReadStats;
 }  // namespace ipc
 
 namespace util {
@@ -1179,6 +1180,9 @@ class ARROW_FLIGHT_EXPORT MetadataRecordBatchReader {
 
   /// \brief Consume entire stream as a Table
   virtual arrow::Result<std::shared_ptr<Table>> ToTable();
+
+  /// \brief Return current read statistics
+  virtual arrow::ipc::ReadStats stats() const = 0;
 };
 
 /// \brief Convert a MetadataRecordBatchReader to a regular RecordBatchReader.
