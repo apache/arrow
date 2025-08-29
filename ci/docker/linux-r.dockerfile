@@ -33,6 +33,9 @@ ENV R_PRUNE_DEPS=${r_prune_deps}
 ARG r_custom_ccache=false
 ENV R_CUSTOM_CCACHE=${r_custom_ccache}
 
+ARG r_update_clang=false
+ENV R_UPDATE_CLANG=${r_update_clang}
+
 ARG tz="UTC"
 ENV TZ=${tz}
 

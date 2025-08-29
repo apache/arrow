@@ -1024,6 +1024,14 @@ macro(prepare_fetchcontent)
   # We should remove it once we have updated the dependencies:
   # https://github.com/apache/arrow/issues/45985
   set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
+  # Use "NEW" for CMP0077 by default.
+  #
+  # https://cmake.org/cmake/help/latest/policy/CMP0077.html
+  #
+  # option() honors normal variables.
+  set(CMAKE_POLICY_DEFAULT_CMP0077
+      NEW
+      CACHE STRING "")
   set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "")
 
   if(MSVC)
@@ -1403,15 +1411,6 @@ macro(build_snappy)
     )
   endforeach()
 
-  if(APPLE AND CMAKE_HOST_SYSTEM_VERSION VERSION_LESS 20)
-    # On macOS 10.13 we need to explicitly add <functional> to avoid a missing include error
-    # This can be removed once CRAN no longer checks on macOS 10.13
-    find_program(PATCH patch REQUIRED)
-    set(SNAPPY_PATCH_COMMAND ${PATCH} -p1 -i ${CMAKE_CURRENT_LIST_DIR}/snappy.diff)
-  else()
-    set(SNAPPY_PATCH_COMMAND)
-  endif()
-
   if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
     # ignore linker flag errors, as Snappy sets
     # -Werror -Wall, and Emscripten doesn't support -soname
@@ -1426,7 +1425,6 @@ macro(build_snappy)
                       INSTALL_DIR ${SNAPPY_PREFIX}
                       URL ${SNAPPY_SOURCE_URL}
                       URL_HASH "SHA256=${ARROW_SNAPPY_BUILD_SHA256_CHECKSUM}"
-                      PATCH_COMMAND ${SNAPPY_PATCH_COMMAND}
                       CMAKE_ARGS ${SNAPPY_CMAKE_ARGS}
                       BUILD_BYPRODUCTS "${SNAPPY_STATIC_LIB}")
 
@@ -1739,8 +1737,29 @@ function(build_thrift)
   if(CMAKE_VERSION VERSION_LESS 3.26)
     message(FATAL_ERROR "Require CMake 3.26 or later for building bundled Apache Thrift")
   endif()
+  set(THRIFT_PATCH_COMMAND)
+  if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+    find_program(PATCH patch)
+    if(PATCH)
+      list(APPEND
+           THRIFT_PATCH_COMMAND
+           ${PATCH}
+           -p1
+           -i)
+    else()
+      find_program(GIT git)
+      if(GIT)
+        list(APPEND THRIFT_PATCH_COMMAND ${GIT} apply)
+      endif()
+    endif()
+    if(THRIFT_PATCH_COMMAND)
+      # https://github.com/apache/thrift/pull/3187
+      list(APPEND THRIFT_PATCH_COMMAND ${CMAKE_CURRENT_LIST_DIR}/thrift-3187.patch)
+    endif()
+  endif()
   fetchcontent_declare(thrift
                        ${FC_DECLARE_COMMON_OPTIONS}
+                       PATCH_COMMAND ${THRIFT_PATCH_COMMAND}
                        URL ${THRIFT_SOURCE_URL}
                        URL_HASH "SHA256=${ARROW_THRIFT_BUILD_SHA256_CHECKSUM}")
 
@@ -4578,7 +4597,25 @@ target_include_directories(arrow::hadoop INTERFACE "${HADOOP_HOME}/include")
 # Apache ORC
 
 function(build_orc)
+  list(APPEND CMAKE_MESSAGE_INDENT "Apache ORC: ")
+
   message(STATUS "Building Apache ORC from source")
+
+  set(ORC_PATCHES)
+  if(MSVC)
+    # We can remove this once bundled Apache ORC is 2.2.1 or later.
+    list(APPEND ORC_PATCHES ${CMAKE_CURRENT_LIST_DIR}/orc-2345.patch)
+  endif()
+  if(Protobuf_VERSION VERSION_GREATER_EQUAL 32.0)
+    # We can remove this once bundled Apache ORC is 2.2.1 or later.
+    list(APPEND ORC_PATCHES ${CMAKE_CURRENT_LIST_DIR}/orc-2357.patch)
+  endif()
+  if(ORC_PATCHES)
+    find_program(PATCH patch REQUIRED)
+    set(ORC_PATCH_COMMAND ${PATCH} -p1 -i ${ORC_PATCHES})
+  else()
+    set(ORC_PATCH_COMMAND)
+  endif()
 
   if(LZ4_VENDORED)
     set(ORC_LZ4_TARGET lz4_static)
@@ -4594,34 +4631,23 @@ function(build_orc)
   if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.29)
     fetchcontent_declare(orc
                          ${FC_DECLARE_COMMON_OPTIONS}
+                         PATCH_COMMAND ${ORC_PATCH_COMMAND}
                          URL ${ORC_SOURCE_URL}
                          URL_HASH "SHA256=${ARROW_ORC_BUILD_SHA256_CHECKSUM}")
     prepare_fetchcontent()
 
     set(CMAKE_UNITY_BUILD FALSE)
 
-    set(ORC_PREFER_STATIC_LZ4
-        OFF
-        CACHE BOOL "" FORCE)
-    set(LZ4_HOME
-        "${ORC_LZ4_ROOT}"
-        CACHE STRING "" FORCE)
-    set(LZ4_INCLUDE_DIR
-        "${ORC_LZ4_INCLUDE_DIR}"
-        CACHE STRING "" FORCE)
-    set(LZ4_LIBRARY
-        ${ORC_LZ4_TARGET}
-        CACHE STRING "" FORCE)
+    set(ORC_PREFER_STATIC_LZ4 OFF)
+    set(LZ4_HOME "${ORC_LZ4_ROOT}")
+    set(LZ4_INCLUDE_DIR "${ORC_LZ4_INCLUDE_DIR}")
+    set(LZ4_LIBRARY ${ORC_LZ4_TARGET})
 
-    set(ORC_PREFER_STATIC_PROTOBUF
-        OFF
-        CACHE BOOL "" FORCE)
+    set(ORC_PREFER_STATIC_PROTOBUF OFF)
     get_target_property(PROTOBUF_INCLUDE_DIR ${ARROW_PROTOBUF_LIBPROTOBUF}
                         INTERFACE_INCLUDE_DIRECTORIES)
     get_filename_component(Protobuf_ROOT "${PROTOBUF_INCLUDE_DIR}" DIRECTORY)
-    set(PROTOBUF_HOME
-        ${Protobuf_ROOT}
-        CACHE STRING "" FORCE)
+    set(PROTOBUF_HOME ${Protobuf_ROOT})
     # ORC uses this.
     target_include_directories(${ARROW_PROTOBUF_LIBPROTOC}
                                INTERFACE "${PROTOBUF_INCLUDE_DIR}")
@@ -4629,63 +4655,38 @@ function(build_orc)
     set(PROTOBUF_LIBRARY ${ARROW_PROTOBUF_LIBPROTOBUF})
     set(PROTOC_LIBRARY ${ARROW_PROTOBUF_LIBPROTOC})
 
-    set(ORC_PREFER_STATIC_SNAPPY
-        OFF
-        CACHE BOOL "" FORCE)
+    set(ORC_PREFER_STATIC_SNAPPY OFF)
     get_target_property(SNAPPY_INCLUDE_DIR ${Snappy_TARGET} INTERFACE_INCLUDE_DIRECTORIES)
     get_filename_component(Snappy_ROOT "${SNAPPY_INCLUDE_DIR}" DIRECTORY)
-    set(SNAPPY_HOME
-        ${Snappy_ROOT}
-        CACHE STRING "" FORCE)
-    set(SNAPPY_LIBRARY
-        ${Snappy_TARGET}
-        CACHE STRING "" FORCE)
+    set(SNAPPY_HOME ${Snappy_ROOT})
+    set(SNAPPY_LIBRARY ${Snappy_TARGET})
 
-    set(ORC_PREFER_STATIC_ZLIB
-        OFF
-        CACHE BOOL "" FORCE)
+    set(ORC_PREFER_STATIC_ZLIB OFF)
     get_target_property(ZLIB_INCLUDE_DIR ZLIB::ZLIB INTERFACE_INCLUDE_DIRECTORIES)
     get_filename_component(ZLIB_ROOT "${ZLIB_INCLUDE_DIR}" DIRECTORY)
-    set(ZLIB_HOME
-        ${ZLIB_ROOT}
-        CACHE STRING "" FORCE)
-    # From CMake 3.21 onwards the set(CACHE) command does not remove any normal
-    # variable of the same name from the current scope. We have to manually remove
-    # the variable via unset to avoid ORC not finding the ZLIB_LIBRARY.
+    set(ZLIB_HOME ${ZLIB_ROOT})
+    # From CMake 3.21 onwards the set(CACHE) command does not remove
+    # any normal variable of the same name from the current scope. We
+    # have to manually remove the variable via unset to avoid ORC not
+    # finding the ZLIB_LIBRARY.
     unset(ZLIB_LIBRARY)
     set(ZLIB_LIBRARY
         ZLIB::ZLIB
         CACHE STRING "" FORCE)
 
-    set(ORC_PREFER_STATIC_ZSTD
-        OFF
-        CACHE BOOL "" FORCE)
+    set(ORC_PREFER_STATIC_ZSTD OFF)
     get_target_property(ZSTD_INCLUDE_DIR ${ARROW_ZSTD_LIBZSTD}
                         INTERFACE_INCLUDE_DIRECTORIES)
     get_filename_component(ZSTD_ROOT "${ZSTD_INCLUDE_DIR}" DIRECTORY)
-    set(ZSTD_HOME
-        ${ZSTD_ROOT}
-        CACHE STRING "" FORCE)
+    set(ZSTD_HOME ${ZSTD_ROOT})
     set(ZSTD_LIBRARY ${ARROW_ZSTD_LIBZSTD})
 
-    set(BUILD_CPP_TESTS
-        OFF
-        CACHE BOOL "" FORCE)
-    set(BUILD_JAVA
-        OFF
-        CACHE BOOL "" FORCE)
-    set(BUILD_LIBHDFSPP
-        OFF
-        CACHE BOOL "" FORCE)
-    set(BUILD_TOOLS
-        OFF
-        CACHE BOOL "" FORCE)
-    set(INSTALL_VENDORED_LIBS
-        OFF
-        CACHE BOOL "" FORCE)
-    set(STOP_BUILD_ON_WARNING
-        OFF
-        CACHE BOOL "" FORCE)
+    set(BUILD_CPP_TESTS OFF)
+    set(BUILD_JAVA OFF)
+    set(BUILD_LIBHDFSPP OFF)
+    set(BUILD_TOOLS OFF)
+    set(INSTALL_VENDORED_LIBS OFF)
+    set(STOP_BUILD_ON_WARNING OFF)
 
     fetchcontent_makeavailable(orc)
 
@@ -4748,8 +4749,6 @@ function(build_orc)
 
     externalproject_add(orc_ep
                         ${EP_COMMON_OPTIONS}
-                        URL ${ORC_SOURCE_URL}
-                        URL_HASH "SHA256=${ARROW_ORC_BUILD_SHA256_CHECKSUM}"
                         BUILD_BYPRODUCTS ${ORC_STATIC_LIB}
                         CMAKE_ARGS ${ORC_CMAKE_ARGS}
                         DEPENDS ${ARROW_PROTOBUF_LIBPROTOBUF}
@@ -4757,7 +4756,10 @@ function(build_orc)
                                 ${ARROW_ZSTD_LIBZSTD}
                                 ${Snappy_TARGET}
                                 ${ORC_LZ4_TARGET}
-                                ZLIB::ZLIB)
+                                ZLIB::ZLIB
+                        PATCH_COMMAND ${ORC_PATCH_COMMAND}
+                        URL ${ORC_SOURCE_URL}
+                        URL_HASH "SHA256=${ARROW_ORC_BUILD_SHA256_CHECKSUM}")
     add_library(orc::orc STATIC IMPORTED)
     set_target_properties(orc::orc PROPERTIES IMPORTED_LOCATION "${ORC_STATIC_LIB}")
     target_include_directories(orc::orc BEFORE INTERFACE "${ORC_INCLUDE_DIR}")
@@ -4785,6 +4787,8 @@ function(build_orc)
   set(ARROW_BUNDLED_STATIC_LIBS
       ${ARROW_BUNDLED_STATIC_LIBS}
       PARENT_SCOPE)
+
+  list(POP_BACK CMAKE_MESSAGE_INDENT)
 endfunction()
 
 if(ARROW_ORC)
@@ -5034,6 +5038,8 @@ endif()
 # AWS SDK for C++
 
 function(build_awssdk)
+  list(APPEND CMAKE_MESSAGE_INDENT "AWS SDK for C++: ")
+
   message(STATUS "Building AWS SDK for C++ from source")
 
   # aws-c-common must be the first product because others depend on
@@ -5067,14 +5073,8 @@ function(build_awssdk)
     # AWS-C-CAL ->
     # AWS_C_CAL
     string(REGEX REPLACE "-" "_" BASE_VARIABLE_NAME "${BASE_VARIABLE_NAME}")
-    if(MINGW AND AWSSDK_PRODUCT STREQUAL "aws-c-common")
-      find_program(PATCH patch REQUIRED)
-      set(${BASE_VARIABLE_NAME}_PATCH_COMMAND
-          ${PATCH} -p1 -i ${CMAKE_CURRENT_LIST_DIR}/aws-c-common-1208.patch)
-    endif()
     fetchcontent_declare(${AWSSDK_PRODUCT}
                          ${FC_DECLARE_COMMON_OPTIONS} OVERRIDE_FIND_PACKAGE
-                         PATCH_COMMAND ${${BASE_VARIABLE_NAME}_PATCH_COMMAND}
                          URL ${${BASE_VARIABLE_NAME}_SOURCE_URL}
                          URL_HASH "SHA256=${ARROW_${BASE_VARIABLE_NAME}_BUILD_SHA256_CHECKSUM}"
     )
@@ -5144,9 +5144,9 @@ function(build_awssdk)
 
   # For aws-sdk-cpp
   #
-  # We need to use CACHE variables because aws-sdk-cpp < 12.0.0 uses
+  # We need to use CACHE variables because aws-sdk-cpp < 1.12.0 uses
   # CMP0077 OLD policy. We can use normal variables when we use
-  # aws-sdk-cpp >= 12.0.0.
+  # aws-sdk-cpp >= 1.12.0.
   set(AWS_SDK_WARNINGS_ARE_ERRORS
       OFF
       CACHE BOOL "" FORCE)
@@ -5171,12 +5171,15 @@ function(build_awssdk)
       OFF
       CACHE BOOL "" FORCE)
   if(NOT WIN32)
-    set(ZLIB_INCLUDE_DIR
-        "$<TARGET_PROPERTY:ZLIB::ZLIB,INTERFACE_INCLUDE_DIRECTORIES>"
-        CACHE STRING "" FORCE)
-    set(ZLIB_LIBRARY
-        "$<TARGET_FILE:ZLIB::ZLIB>"
-        CACHE STRING "" FORCE)
+    if(ZLIB_VENDORED)
+      # Use vendored zlib.
+      set(ZLIB_INCLUDE_DIR
+          "$<TARGET_PROPERTY:ZLIB::ZLIB,INTERFACE_INCLUDE_DIRECTORIES>"
+          CACHE STRING "" FORCE)
+      set(ZLIB_LIBRARY
+          "$<TARGET_FILE:ZLIB::ZLIB>"
+          CACHE STRING "" FORCE)
+    endif()
   endif()
   if(MINGW AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS "9")
     # This is for RTools 40. We can remove this after we dropped
@@ -5243,9 +5246,15 @@ function(build_awssdk)
   set(AWSSDK_LINK_LIBRARIES
       ${AWSSDK_LINK_LIBRARIES}
       PARENT_SCOPE)
+
+  list(POP_BACK CMAKE_MESSAGE_INDENT)
 endfunction()
 
 if(ARROW_S3)
+  if(NOT WIN32)
+    # This is for adding system curl dependency.
+    find_curl()
+  endif()
   # Keep this in sync with s3fs.cc
   resolve_dependency(AWSSDK
                      HAVE_ALT

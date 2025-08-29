@@ -53,13 +53,17 @@ fi
 if [ -n "${PYARROW_VERSION:-}" ]; then
   sdist="${arrow_dir}/python/dist/pyarrow-${PYARROW_VERSION}.tar.gz"
 else
-  sdist=$(ls ${arrow_dir}/python/dist/pyarrow-*.tar.gz | sort -r | head -n1)
+  sdist=$(echo "${arrow_dir}"/python/dist/pyarrow-*.tar.gz | sort -r | head -n1)
 fi
 
 if [ -n "${ARROW_PYTHON_VENV:-}" ]; then
+  # We don't need to follow this external file.
+  # See also: https://www.shellcheck.net/wiki/SC1091
+  #
+  # shellcheck source=/dev/null
   . "${ARROW_PYTHON_VENV}/bin/activate"
 fi
 
-${PYTHON:-python} -m pip install ${sdist}
+${PYTHON:-python} -m pip install "${sdist}"
 
-pytest -r s ${PYTEST_ARGS:-} --pyargs pyarrow
+pytest -r s "${PYTEST_ARGS:-}" --pyargs pyarrow

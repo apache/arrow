@@ -19,6 +19,12 @@
 
 # arrow 21.0.0.9000
 
+# arrow 21.0.0.1
+
+##  Minor improvements and fixes
+
+- Patch bundled version of Thrift to prevent CRAN check failures (@kou, #47286)
+
 # arrow 21.0.0
 
 ## New features
@@ -39,7 +45,7 @@
   if you were building the R package from source with different R package and Arrow C++ versions.
 - Require CMake 3.25 or greater in bundled build script for full-source builds (#46834). This shouldn't affect most users.
 
-# arrow 20.0.0.1
+# arrow 20.0.0.2
 
 ## Minor improvements and fixes
 

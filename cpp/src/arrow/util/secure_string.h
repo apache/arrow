@@ -36,7 +36,7 @@ namespace arrow::util {
  */
 class ARROW_EXPORT SecureString {
  public:
-  SecureString() noexcept = default;
+  SecureString() = default;
   SecureString(SecureString&&) noexcept;
   SecureString(const SecureString&) = default;
   explicit SecureString(std::string&&) noexcept;
