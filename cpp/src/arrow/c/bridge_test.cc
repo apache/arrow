@@ -2357,6 +2357,34 @@ TEST_F(TestSchemaImport, DictionaryError) {
   CheckImportError();
 }
 
+TEST_F(TestSchemaImport, DecimalError) {
+  // Decimal precision out of bounds
+  FillPrimitive("d:0,10");
+  CheckImportError();
+  FillPrimitive("d:39,10");
+  CheckImportError();
+
+  FillPrimitive("d:0,4,32");
+  CheckImportError();
+  FillPrimitive("d:10,4,32");
+  CheckImportError();
+
+  FillPrimitive("d:0,4,64");
+  CheckImportError();
+  FillPrimitive("d:19,4,64");
+  CheckImportError();
+
+  FillPrimitive("d:0,10,128");
+  CheckImportError();
+  FillPrimitive("d:39,10,128");
+  CheckImportError();
+
+  FillPrimitive("d:0,4,256");
+  CheckImportError();
+  FillPrimitive("d:77,4,256");
+  CheckImportError();
+}
+
 TEST_F(TestSchemaImport, ExtensionError) {
   ExtensionTypeGuard guard(uuid());
 
