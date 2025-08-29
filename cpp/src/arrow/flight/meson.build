@@ -52,6 +52,22 @@ fs = import('fs')
 protoc = find_program('protoc')
 
 flight_proto_path = fs.parent(meson.project_source_root()) / 'format'
+
+# To ensure messages from proto files are created correctly, we need to
+# pass in dllexport_decl=<...> . Unfortunately, it doesn't appear that we
+# can just pass in dllexport_decl=ARROW_FLIGHT_EXPORT, as the visibility
+# macro won't be easily available to the generated proto file. See also
+# https://github.com/protocolbuffers/protobuf/issues/19422
+if cpp_compiler.get_id() == 'msvc'
+    if get_option('default_library') != 'static'
+        proto_visibility = 'dllexport_decl=__declspec(dllexport):'
+    else
+        proto_visibility = ''
+    endif
+else
+    proto_visibility = 'dllexport_decl=__attribute__((visibility("default"))):'
+endif
+
 flight_proto_files = custom_target(
     'arrow-flight-proto-files',
     input: [flight_proto_path / 'Flight.proto'],
@@ -59,7 +75,7 @@ flight_proto_files = custom_target(
     command: [
         protoc,
         '--proto_path=' + flight_proto_path,
-        '--cpp_out=' + meson.current_build_dir(),
+        '--cpp_out=@0@@1@'.format(proto_visibility, meson.current_build_dir()),
         '@INPUT@',
     ],
 )
@@ -117,7 +133,9 @@ arrow_flight = library(
         abseil_sync_dep,
         thread_dep,
     ],
-    cpp_args: '-DARROW_FLIGHT_EXPORTING',
+    cpp_shared_args: ['-DARROW_FLIGHT_EXPORTING'],
+    cpp_static_args: ['-DARROW_FLIGHT_STATIC'],
+    gnu_symbol_visibility: 'inlineshidden',
 )
 
 arrow_flight_dep = declare_dependency(
@@ -135,7 +153,9 @@ if needs_testing
             'test_util.cc',
         ],
         dependencies: [arrow_test_dep, arrow_flight_dep, thread_dep],
-        gnu_symbol_visibility: 'hidden',
+        cpp_shared_args: ['-DARROW_FLIGHT_EXPORTING'],
+        cpp_static_args: ['-DARROW_FLIGHT_STATIC'],
+        gnu_symbol_visibility: 'inlineshidden',
     )
 
     arrow_flight_test_dep = declare_dependency(
