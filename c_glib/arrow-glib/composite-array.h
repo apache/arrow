@@ -312,4 +312,34 @@ GARROW_AVAILABLE_IN_13_0
 gint64
 garrow_run_end_encoded_array_find_physical_length(GArrowRunEndEncodedArray *array);
 
+#define GARROW_TYPE_FIXED_SIZE_LIST_ARRAY (garrow_fixed_size_list_array_get_type())
+GARROW_AVAILABLE_IN_22_0
+G_DECLARE_DERIVABLE_TYPE(GArrowFixedSizeListArray,
+                         garrow_fixed_size_list_array,
+                         GARROW,
+                         FIXED_SIZE_LIST_ARRAY,
+                         GArrowArray)
+struct _GArrowFixedSizeListArrayClass
+{
+  GArrowArrayClass parent_class;
+};
+
+GArrowFixedSizeListArray *
+garrow_fixed_size_list_array_new_list_size(GArrowArray *value_array,
+                                           gint32 list_size,
+                                           GArrowBuffer *null_bitmap,
+                                           gint64 n_nulls,
+                                           GError **error);
+
+GARROW_AVAILABLE_IN_22_0
+GArrowFixedSizeListArray *
+garrow_fixed_size_list_array_new_data_type(GArrowArray *value_array,
+                                           GArrowDataType *data_type,
+                                           GArrowBuffer *null_bitmap,
+                                           gint64 n_nulls,
+                                           GError **error);
+
+GARROW_AVAILABLE_IN_22_0
+GArrowArray *
+garrow_fixed_size_list_array_get_values(GArrowFixedSizeListArray *array);
 G_END_DECLS
