@@ -16,6 +16,7 @@
 // under the License.
 
 #include <cmath>
+#include <initializer_list>
 #include <sstream>
 
 #include "arrow/builder.h"
