@@ -33,7 +33,7 @@ if needs_hdfs
     exc = executable(
         'arrow-io-hdfs-test',
         sources: 'hdfs_test.cc',
-        dependencies: [arrow_test_dep, filesystem_dep],
+        dependencies: [arrow_test_dep, boost_deps],
         implicit_include_directories: false,
         include_directories: [hdfs_incdir],
     )
