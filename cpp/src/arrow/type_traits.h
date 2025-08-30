@@ -317,6 +317,11 @@ struct TypeTraits<HalfFloatType> {
 };
 
 template <>
+struct CTypeTraits<util::Float16> : public TypeTraits<HalfFloatType> {
+  using ArrowType = HalfFloatType;
+};
+
+template <>
 struct TypeTraits<Decimal32Type> {
   using ArrayType = Decimal32Array;
   using BuilderType = Decimal32Builder;
