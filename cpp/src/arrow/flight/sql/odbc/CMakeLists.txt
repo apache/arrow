@@ -37,8 +37,6 @@ else()
   set(ODBCINST odbcinst)
 endif()
 
-add_definitions(-DUNICODE=1)
-
 include(FetchContent)
 fetchcontent_declare(spdlog
                      URL https://github.com/gabime/spdlog/archive/refs/tags/v1.15.3.zip
