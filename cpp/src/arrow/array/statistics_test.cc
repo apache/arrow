@@ -49,6 +49,22 @@ TEST(TestArrayStatistics, DistinctCountApproximate) {
   ASSERT_DOUBLE_EQ(29.0, std::get<double>(statistics.distinct_count.value()));
 }
 
+TEST(TestArrayStatistics, MaxByteWidthExact) {
+  ArrayStatistics statistics;
+  ASSERT_FALSE(statistics.max_byte_width.has_value());
+  statistics.max_byte_width = static_cast<int64_t>(5);
+  ASSERT_TRUE(statistics.max_byte_width.has_value());
+  ASSERT_EQ(5, std::get<int64_t>(statistics.max_byte_width.value()));
+}
+
+TEST(TestArrayStatistics, MaxByteWidthApproximate) {
+  ArrayStatistics statistics;
+  ASSERT_FALSE(statistics.max_byte_width.has_value());
+  statistics.max_byte_width = 5.0;
+  ASSERT_TRUE(statistics.max_byte_width.has_value());
+  ASSERT_DOUBLE_EQ(5.0, std::get<double>(statistics.max_byte_width.value()));
+}
+
 TEST(TestArrayStatistics, AverageByteWidth) {
   ArrayStatistics statistics;
   ASSERT_FALSE(statistics.average_byte_width.has_value());
@@ -105,6 +121,18 @@ TEST(TestArrayStatistics, Equals) {
   statistics1.distinct_count = 2930.5;
   ASSERT_NE(statistics1, statistics2);
   statistics2.distinct_count = 2930.5;
+  ASSERT_EQ(statistics1, statistics2);
+
+  // Test MAX_BYTE_WIDTH_EXACT
+  statistics1.max_byte_width = static_cast<int64_t>(5);
+  ASSERT_NE(statistics1, statistics2);
+  statistics2.max_byte_width = static_cast<int64_t>(5);
+  ASSERT_EQ(statistics1, statistics2);
+
+  // Test MAX_BYTE_WIDTH_APPROXIMATE
+  statistics1.max_byte_width = 5.0;
+  ASSERT_NE(statistics1, statistics2);
+  statistics2.max_byte_width = 5.0;
   ASSERT_EQ(statistics1, statistics2);
 
   statistics1.average_byte_width = 2.9;
