@@ -148,6 +148,21 @@ bool OptionalBitmapEquals(const std::shared_ptr<Buffer>& left, int64_t left_offs
                           int64_t length);
 
 /// \brief Do a "bitmap and" on right and left buffers starting at
+/// their respective bit-offsets for the given bit-length and return
+/// the result buffer starting at the given bit-offset.
+/// Both right and left buffers are optional. If one of the buffers is
+/// null the non-null bitmap is returned if out_offset and input_offset are
+/// compatible. If non-compatible a copy of the bitmap is performed.
+// If both right and left are null a nullptr is returned.
+ARROW_EXPORT
+Result<std::shared_ptr<Buffer>> OptionalBitmapAnd(MemoryPool* pool,
+                                                  const std::shared_ptr<Buffer>& left,
+                                                  int64_t left_offset,
+                                                  const std::shared_ptr<Buffer>& right,
+                                                  int64_t right_offset, int64_t length,
+                                                  int64_t out_offset);
+
+/// \brief Do a "bitmap and" on right and left buffers starting at
 /// their respective bit-offsets for the given bit-length and put
 /// the results in out_buffer starting at the given bit-offset.
 ///
