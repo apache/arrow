@@ -115,7 +115,7 @@ TEST_F(TestRecordBatchEqualOptions, MetadataAndSchema) {
   auto metadata = key_value_metadata({"foo"}, {"bar"});
 
   auto schema0_f0_f1_f2 = schema({f0, f1, f2});
-  auto schema1_f0_f1_f2_with_metadat = schema({f0, f1, f2}, metadata);
+  auto schema1_f0_f1_f2_with_metadata = schema({f0, f1, f2}, metadata);
   auto schema2_f0_f1_f2b = schema({f0, f1, f2b});
 
   random::RandomArrayGenerator gen(42);
@@ -126,8 +126,8 @@ TEST_F(TestRecordBatchEqualOptions, MetadataAndSchema) {
 
   // All RecordBatches have the same values but different schemas.
   auto b0_f0_f1_f2 = RecordBatch::Make(schema0_f0_f1_f2, length, {a0, a1, a2});
-  auto b1_f0_f1_f2_with_metadat =
-      RecordBatch::Make(schema1_f0_f1_f2_with_metadat, length, {a0, a1, a2});
+  auto b1_f0_f1_f2_with_metadata =
+      RecordBatch::Make(schema1_f0_f1_f2_with_metadata, length, {a0, a1, a2});
   auto b2_f0_f1_f2b = RecordBatch::Make(schema2_f0_f1_f2b, length, {a0, a1, a2});
 
   auto options = EqualOptions::Defaults();
@@ -138,21 +138,21 @@ TEST_F(TestRecordBatchEqualOptions, MetadataAndSchema) {
   ASSERT_TRUE(b0_f0_f1_f2->ApproxEquals(*b2_f0_f1_f2b, options.use_schema(true)));
 
   // Different metadata
-  ASSERT_TRUE(b0_f0_f1_f2->Equals(*b1_f0_f1_f2_with_metadat));
-  ASSERT_TRUE(b0_f0_f1_f2->Equals(*b1_f0_f1_f2_with_metadat, options));
-  ASSERT_FALSE(b0_f0_f1_f2->Equals(*b1_f0_f1_f2_with_metadat,
+  ASSERT_TRUE(b0_f0_f1_f2->Equals(*b1_f0_f1_f2_with_metadata));
+  ASSERT_TRUE(b0_f0_f1_f2->Equals(*b1_f0_f1_f2_with_metadata, options));
+  ASSERT_FALSE(b0_f0_f1_f2->Equals(*b1_f0_f1_f2_with_metadata,
                                    /*check_metadata=*/true));
-  ASSERT_FALSE(b0_f0_f1_f2->Equals(*b1_f0_f1_f2_with_metadat,
+  ASSERT_FALSE(b0_f0_f1_f2->Equals(*b1_f0_f1_f2_with_metadata,
                                    /*check_metadata=*/true, options.use_schema(true)));
-  ASSERT_TRUE(b0_f0_f1_f2->Equals(*b1_f0_f1_f2_with_metadat,
+  ASSERT_TRUE(b0_f0_f1_f2->Equals(*b1_f0_f1_f2_with_metadata,
                                   /*check_metadata=*/true, options.use_schema(false)));
-  ASSERT_TRUE(b0_f0_f1_f2->Equals(*b1_f0_f1_f2_with_metadat,
+  ASSERT_TRUE(b0_f0_f1_f2->Equals(*b1_f0_f1_f2_with_metadata,
                                   options.use_schema(true).use_metadata(false)));
-  ASSERT_FALSE(b0_f0_f1_f2->Equals(*b1_f0_f1_f2_with_metadat,
+  ASSERT_FALSE(b0_f0_f1_f2->Equals(*b1_f0_f1_f2_with_metadata,
                                    options.use_schema(true).use_metadata(true)));
-  ASSERT_TRUE(b0_f0_f1_f2->Equals(*b1_f0_f1_f2_with_metadat,
+  ASSERT_TRUE(b0_f0_f1_f2->Equals(*b1_f0_f1_f2_with_metadata,
                                   options.use_schema(false).use_metadata(true)));
-  ASSERT_TRUE(b0_f0_f1_f2->ApproxEquals(*b1_f0_f1_f2_with_metadat,
+  ASSERT_TRUE(b0_f0_f1_f2->ApproxEquals(*b1_f0_f1_f2_with_metadata,
                                         options.use_schema(true).use_metadata(true)));
 }
 
