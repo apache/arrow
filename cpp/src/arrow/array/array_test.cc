@@ -3911,6 +3911,7 @@ class TestArrayDataStatistics : public ::testing::Test {
     valids_ = {1, 0, 1, 1};
     null_count_ = std::count(valids_.begin(), valids_.end(), 0);
     distinct_count_ = 3.0;
+    max_byte_width_ = 4.0;
     average_byte_width_ = 4.0;
     null_buffer_ = *internal::BytesToBits(valids_);
     values_ = {1, 0, 3, -4};
@@ -3922,6 +3923,7 @@ class TestArrayDataStatistics : public ::testing::Test {
     data_->statistics = std::make_shared<ArrayStatistics>();
     data_->statistics->null_count = null_count_;
     data_->statistics->distinct_count = distinct_count_;
+    data_->statistics->max_byte_width = max_byte_width_;
     data_->statistics->average_byte_width = average_byte_width_;
     data_->statistics->is_average_byte_width_exact = true;
     data_->statistics->min = min_;
@@ -3934,6 +3936,7 @@ class TestArrayDataStatistics : public ::testing::Test {
   std::vector<uint8_t> valids_;
   size_t null_count_;
   double distinct_count_;
+  double max_byte_width_;
   double average_byte_width_;
   std::shared_ptr<Buffer> null_buffer_;
   std::vector<int32_t> values_;
@@ -3953,6 +3956,10 @@ TEST_F(TestArrayDataStatistics, MoveConstructor) {
   ASSERT_TRUE(moved_data.statistics->distinct_count.has_value());
   ASSERT_DOUBLE_EQ(distinct_count_,
                    std::get<double>(moved_data.statistics->distinct_count.value()));
+
+  ASSERT_TRUE(moved_data.statistics->max_byte_width.has_value());
+  ASSERT_DOUBLE_EQ(max_byte_width_,
+                   std::get<double>(moved_data.statistics->max_byte_width.value()));
 
   ASSERT_TRUE(moved_data.statistics->average_byte_width.has_value());
   ASSERT_DOUBLE_EQ(average_byte_width_,
@@ -3979,6 +3986,10 @@ TEST_F(TestArrayDataStatistics, CopyConstructor) {
   ASSERT_TRUE(copied_data.statistics->distinct_count.has_value());
   ASSERT_DOUBLE_EQ(distinct_count_,
                    std::get<double>(copied_data.statistics->distinct_count.value()));
+
+  ASSERT_TRUE(copied_data.statistics->max_byte_width.has_value());
+  ASSERT_DOUBLE_EQ(max_byte_width_,
+                   std::get<double>(copied_data.statistics->max_byte_width.value()));
 
   ASSERT_TRUE(copied_data.statistics->average_byte_width.has_value());
   ASSERT_DOUBLE_EQ(average_byte_width_,
@@ -4008,6 +4019,10 @@ TEST_F(TestArrayDataStatistics, MoveAssignment) {
   ASSERT_DOUBLE_EQ(distinct_count_,
                    std::get<double>(moved_data.statistics->distinct_count.value()));
 
+  ASSERT_TRUE(moved_data.statistics->max_byte_width.has_value());
+  ASSERT_DOUBLE_EQ(max_byte_width_,
+                   std::get<double>(moved_data.statistics->max_byte_width.value()));
+
   ASSERT_TRUE(moved_data.statistics->average_byte_width.has_value());
   ASSERT_DOUBLE_EQ(average_byte_width_,
                    moved_data.statistics->average_byte_width.value());
@@ -4034,6 +4049,10 @@ TEST_F(TestArrayDataStatistics, CopyAssignment) {
   ASSERT_TRUE(copied_data.statistics->distinct_count.has_value());
   ASSERT_DOUBLE_EQ(distinct_count_,
                    std::get<double>(copied_data.statistics->distinct_count.value()));
+
+  ASSERT_TRUE(copied_data.statistics->max_byte_width.has_value());
+  ASSERT_DOUBLE_EQ(max_byte_width_,
+                   std::get<double>(copied_data.statistics->max_byte_width.value()));
 
   ASSERT_TRUE(copied_data.statistics->average_byte_width.has_value());
   ASSERT_DOUBLE_EQ(average_byte_width_,

@@ -1538,6 +1538,73 @@ TEST_F(TestRecordBatch, MakeStatisticsArrayDistinctCountApproximate) {
   AssertArraysEqual(*expected_statistics_array, *statistics_array, true);
 }
 
+TEST_F(TestRecordBatch, MakeStatisticsArrayMaxByteWidthExact) {
+  auto schema =
+      ::arrow::schema({field("no-statistics", boolean()), field("utf8", utf8())});
+  auto no_statistics_array = ArrayFromJSON(boolean(), "[true, false, true]");
+  auto string_array_data = ArrayFromJSON(utf8(), R"(["aa", null, "c"])")->data()->Copy();
+  string_array_data->statistics = std::make_shared<ArrayStatistics>();
+  string_array_data->statistics->null_count = 1;
+  string_array_data->statistics->max_byte_width = static_cast<int64_t>(2);
+  auto string_array = MakeArray(std::move(string_array_data));
+  auto batch = RecordBatch::Make(schema, string_array->length(),
+                                 {no_statistics_array, string_array});
+
+  ASSERT_OK_AND_ASSIGN(auto statistics_array, batch->MakeStatisticsArray());
+
+  ASSERT_OK_AND_ASSIGN(auto expected_statistics_array,
+                       MakeStatisticsArray("[null, 1]",
+                                           {{
+                                                ARROW_STATISTICS_KEY_ROW_COUNT_EXACT,
+                                            },
+                                            {
+                                                ARROW_STATISTICS_KEY_NULL_COUNT_EXACT,
+                                                ARROW_STATISTICS_KEY_MAX_BYTE_WIDTH_EXACT,
+                                            }},
+                                           {{
+                                                ArrayStatistics::ValueType{int64_t{3}},
+                                            },
+                                            {
+                                                ArrayStatistics::ValueType{int64_t{1}},
+                                                ArrayStatistics::ValueType{int64_t{2}},
+                                            }}));
+  AssertArraysEqual(*expected_statistics_array, *statistics_array, true);
+}
+
+TEST_F(TestRecordBatch, MakeStatisticsArrayMaxByteWidthApproximate) {
+  auto schema =
+      ::arrow::schema({field("no-statistics", boolean()), field("utf8", utf8())});
+  auto no_statistics_array = ArrayFromJSON(boolean(), "[true, false, true]");
+  auto string_array_data = ArrayFromJSON(utf8(), R"(["aa", null, "c"])")->data()->Copy();
+  string_array_data->statistics = std::make_shared<ArrayStatistics>();
+  string_array_data->statistics->null_count = 1;
+  string_array_data->statistics->max_byte_width = 2.0;
+  auto string_array = MakeArray(std::move(string_array_data));
+  auto batch = RecordBatch::Make(schema, string_array->length(),
+                                 {no_statistics_array, string_array});
+
+  ASSERT_OK_AND_ASSIGN(auto statistics_array, batch->MakeStatisticsArray());
+
+  ASSERT_OK_AND_ASSIGN(
+      auto expected_statistics_array,
+      MakeStatisticsArray("[null, 1]",
+                          {{
+                               ARROW_STATISTICS_KEY_ROW_COUNT_EXACT,
+                           },
+                           {
+                               ARROW_STATISTICS_KEY_NULL_COUNT_EXACT,
+                               ARROW_STATISTICS_KEY_MAX_BYTE_WIDTH_APPROXIMATE,
+                           }},
+                          {{
+                               ArrayStatistics::ValueType{int64_t{3}},
+                           },
+                           {
+                               ArrayStatistics::ValueType{int64_t{1}},
+                               ArrayStatistics::ValueType{2.0},
+                           }}));
+  AssertArraysEqual(*expected_statistics_array, *statistics_array, true);
+}
+
 TEST_F(TestRecordBatch, MakeStatisticsArrayAverageByteWidthApproximate) {
   auto schema =
       ::arrow::schema({field("no-statistics", boolean()), field("utf8", utf8())});
