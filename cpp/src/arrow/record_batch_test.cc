@@ -40,6 +40,7 @@
 #include "arrow/array/util.h"
 #include "arrow/c/abi.h"
 #include "arrow/chunked_array.h"
+#include "arrow/compare.h"
 #include "arrow/config.h"
 #include "arrow/status.h"
 #include "arrow/table.h"
@@ -67,15 +68,55 @@ TEST_F(TestRecordBatch, Equals) {
   auto f0 = field("f0", int32());
   auto f1 = field("f1", uint8());
   auto f2 = field("f2", int16());
+
+  auto schema0_f0_f1_f2 = schema({f0, f1, f2});
+  auto schema1_f0_f1_f2 = schema({f0, f1, f2});
+  auto schema2_f0_f1 = schema({f0, f1});
+
+  random::RandomArrayGenerator gen(42);
+
+  auto a0 = gen.ArrayOf(int32(), length);
+  auto a1 = gen.ArrayOf(uint8(), length);
+  auto a2 = gen.ArrayOf(int16(), length);
+  auto a3 = a0->Slice(0, length / 2);
+  auto a4 = a1->Slice(0, length / 2);
+  auto a5 = gen.ArrayOf(int32(), length);
+  auto a6 = gen.ArrayOf(uint8(), length);
+
+  auto b0_a0_a1_a2 = RecordBatch::Make(schema0_f0_f1_f2, length, {a0, a1, a2});
+  auto b1_a0_a1_a2 = RecordBatch::Make(schema1_f0_f1_f2, length, {a0, a1, a2});
+  auto b2_a0_a1 = RecordBatch::Make(schema2_f0_f1, length, {a0, a1});
+  auto b3_a3_a4_half_rows = RecordBatch::Make(schema2_f0_f1, length / 2, {a3, a4});
+  auto b4_a5_a6 = RecordBatch::Make(schema2_f0_f1, length, {a5, a6});
+
+  // Same Values
+  ASSERT_TRUE(b0_a0_a1_a2->Equals(*b1_a0_a1_a2));
+
+  // Different number of columns
+  ASSERT_FALSE(b0_a0_a1_a2->Equals(*b2_a0_a1));
+
+  // Different number of rows
+  ASSERT_FALSE(b2_a0_a1->Equals(*b3_a3_a4_half_rows));
+
+  // Different values
+  ASSERT_FALSE(b2_a0_a1->Equals(*b4_a5_a6));
+}
+
+class TestRecordBatchEqualOptions : public TestRecordBatch {};
+
+TEST_F(TestRecordBatchEqualOptions, MetadataAndSchema) {
+  int length = 10;
+
+  auto f0 = field("f0", int32());
+  auto f1 = field("f1", uint8());
+  auto f2 = field("f2", int16());
   auto f2b = field("f2b", int16());
 
   auto metadata = key_value_metadata({"foo"}, {"bar"});
 
-  std::vector<std::shared_ptr<Field>> fields = {f0, f1, f2};
-  auto schema = ::arrow::schema({f0, f1, f2});
-  auto schema2 = ::arrow::schema({f0, f1});
-  auto schema3 = ::arrow::schema({f0, f1, f2}, metadata);
-  auto schema4 = ::arrow::schema({f0, f1, f2b});
+  auto schema0_f0_f1_f2 = schema({f0, f1, f2});
+  auto schema1_f0_f1_f2_with_metadat = schema({f0, f1, f2}, metadata);
+  auto schema2_f0_f1_f2b = schema({f0, f1, f2b});
 
   random::RandomArrayGenerator gen(42);
 
@@ -83,25 +124,39 @@ TEST_F(TestRecordBatch, Equals) {
   auto a1 = gen.ArrayOf(uint8(), length);
   auto a2 = gen.ArrayOf(int16(), length);
 
-  auto b1 = RecordBatch::Make(schema, length, {a0, a1, a2});
-  auto b2 = RecordBatch::Make(schema3, length, {a0, a1, a2});
-  auto b3 = RecordBatch::Make(schema2, length, {a0, a1});
-  auto b4 = RecordBatch::Make(schema, length, {a0, a1, a1});
-  auto b5 = RecordBatch::Make(schema4, length, {a0, a1, a2});
+  // All RecordBatches have the same values but different schemas.
+  auto b0_f0_f1_f2 = RecordBatch::Make(schema0_f0_f1_f2, length, {a0, a1, a2});
+  auto b1_f0_f1_f2_with_metadat =
+      RecordBatch::Make(schema1_f0_f1_f2_with_metadat, length, {a0, a1, a2});
+  auto b2_f0_f1_f2b = RecordBatch::Make(schema2_f0_f1_f2b, length, {a0, a1, a2});
 
-  ASSERT_TRUE(b1->Equals(*b1));
-  ASSERT_FALSE(b1->Equals(*b3));
-  ASSERT_FALSE(b1->Equals(*b4));
-
+  auto options = EqualOptions::Defaults();
   // Same values and types, but different field names
-  ASSERT_FALSE(b1->Equals(*b5));
+  ASSERT_FALSE(b0_f0_f1_f2->Equals(*b2_f0_f1_f2b));
+  ASSERT_TRUE(b0_f0_f1_f2->Equals(*b2_f0_f1_f2b, options.use_schema(false)));
+  ASSERT_TRUE(b0_f0_f1_f2->ApproxEquals(*b2_f0_f1_f2b));
+  ASSERT_TRUE(b0_f0_f1_f2->ApproxEquals(*b2_f0_f1_f2b, options.use_schema(true)));
 
   // Different metadata
-  ASSERT_TRUE(b1->Equals(*b2));
-  ASSERT_FALSE(b1->Equals(*b2, /*check_metadata=*/true));
+  ASSERT_TRUE(b0_f0_f1_f2->Equals(*b1_f0_f1_f2_with_metadat));
+  ASSERT_TRUE(b0_f0_f1_f2->Equals(*b1_f0_f1_f2_with_metadat, options));
+  ASSERT_FALSE(b0_f0_f1_f2->Equals(*b1_f0_f1_f2_with_metadat,
+                                   /*check_metadata=*/true));
+  ASSERT_FALSE(b0_f0_f1_f2->Equals(*b1_f0_f1_f2_with_metadat,
+                                   /*check_metadata=*/true, options.use_schema(true)));
+  ASSERT_TRUE(b0_f0_f1_f2->Equals(*b1_f0_f1_f2_with_metadat,
+                                  /*check_metadata=*/true, options.use_schema(false)));
+  ASSERT_TRUE(b0_f0_f1_f2->Equals(*b1_f0_f1_f2_with_metadat,
+                                  options.use_schema(true).use_metadata(false)));
+  ASSERT_FALSE(b0_f0_f1_f2->Equals(*b1_f0_f1_f2_with_metadat,
+                                   options.use_schema(true).use_metadata(true)));
+  ASSERT_TRUE(b0_f0_f1_f2->Equals(*b1_f0_f1_f2_with_metadat,
+                                  options.use_schema(false).use_metadata(true)));
+  ASSERT_TRUE(b0_f0_f1_f2->ApproxEquals(*b1_f0_f1_f2_with_metadat,
+                                        options.use_schema(true).use_metadata(true)));
 }
 
-TEST_F(TestRecordBatch, EqualOptions) {
+TEST_F(TestRecordBatchEqualOptions, NaN) {
   int length = 2;
   auto f = field("f", float64());
 
@@ -114,13 +169,27 @@ TEST_F(TestRecordBatch, EqualOptions) {
   auto b1 = RecordBatch::Make(schema, length, {array1});
   auto b2 = RecordBatch::Make(schema, length, {array2});
 
-  EXPECT_FALSE(b1->Equals(*b2, /*check_metadata=*/false,
-                          EqualOptions::Defaults().nans_equal(false)));
-  EXPECT_TRUE(b1->Equals(*b2, /*check_metadata=*/false,
-                         EqualOptions::Defaults().nans_equal(true)));
+  EXPECT_FALSE(b1->Equals(*b2, EqualOptions::Defaults().nans_equal(false)));
+  EXPECT_TRUE(b1->Equals(*b2, EqualOptions::Defaults().nans_equal(true)));
 }
 
-TEST_F(TestRecordBatch, ApproxEqualOptions) {
+TEST_F(TestRecordBatchEqualOptions, SignedZero) {
+  int length = 2;
+  auto f = field("f", float64());
+
+  auto schema = ::arrow::schema({f});
+
+  std::shared_ptr<Array> array1, array2;
+  ArrayFromVector<DoubleType>(float64(), {true, true}, {0.5, +0.0}, &array1);
+  ArrayFromVector<DoubleType>(float64(), {true, true}, {0.5, -0.0}, &array2);
+  auto b1 = RecordBatch::Make(schema, length, {array1});
+  auto b2 = RecordBatch::Make(schema, length, {array2});
+
+  ASSERT_FALSE(b1->Equals(*b2, EqualOptions::Defaults().signed_zeros_equal(false)));
+  ASSERT_TRUE(b1->Equals(*b2, EqualOptions::Defaults().signed_zeros_equal(true)));
+}
+
+TEST_F(TestRecordBatchEqualOptions, Approx) {
   int length = 2;
   auto f = field("f", float64());
 
@@ -137,8 +206,8 @@ TEST_F(TestRecordBatch, ApproxEqualOptions) {
   EXPECT_FALSE(b1->ApproxEquals(*b2, EqualOptions::Defaults().nans_equal(true)));
 
   auto options = EqualOptions::Defaults().nans_equal(true).atol(0.1);
-  EXPECT_FALSE(b1->Equals(*b2, false, options));
-  EXPECT_TRUE(b1->Equals(*b2, false, options.use_atol(true)));
+  EXPECT_FALSE(b1->Equals(*b2, options));
+  EXPECT_TRUE(b1->Equals(*b2, options.use_atol(true)));
   EXPECT_TRUE(b1->ApproxEquals(*b2, options));
 }
 
@@ -158,8 +227,8 @@ TEST_F(TestRecordBatchEqualsSameAddress, NonFloatType) {
 
   auto options = EqualOptions::Defaults();
 
-  ASSERT_TRUE(b0->Equals(*b1, true, options));
-  ASSERT_TRUE(b0->Equals(*b1, true, options.nans_equal(true)));
+  ASSERT_TRUE(b0->Equals(*b1, options));
+  ASSERT_TRUE(b0->Equals(*b1, options.nans_equal(true)));
 
   ASSERT_TRUE(b0->ApproxEquals(*b1, options));
   ASSERT_TRUE(b0->ApproxEquals(*b1, options.nans_equal(true)));
@@ -180,8 +249,8 @@ TEST_F(TestRecordBatchEqualsSameAddress, NestedTypesWithoutFloatType) {
 
   auto options = EqualOptions::Defaults();
 
-  ASSERT_TRUE(b0->Equals(*b1, true, options));
-  ASSERT_TRUE(b0->Equals(*b1, true, options.nans_equal(true)));
+  ASSERT_TRUE(b0->Equals(*b1, options));
+  ASSERT_TRUE(b0->Equals(*b1, options.nans_equal(true)));
 
   ASSERT_TRUE(b0->ApproxEquals(*b1, options));
   ASSERT_TRUE(b0->ApproxEquals(*b1, options.nans_equal(true)));
@@ -201,8 +270,8 @@ TEST_F(TestRecordBatchEqualsSameAddress, FloatType) {
 
   auto options = EqualOptions::Defaults();
 
-  ASSERT_FALSE(b0->Equals(*b1, true, options));
-  ASSERT_TRUE(b0->Equals(*b1, true, options.nans_equal(true)));
+  ASSERT_FALSE(b0->Equals(*b1, options));
+  ASSERT_TRUE(b0->Equals(*b1, options.nans_equal(true)));
 
   ASSERT_FALSE(b0->ApproxEquals(*b1, options));
   ASSERT_TRUE(b0->ApproxEquals(*b1, options.nans_equal(true)));
@@ -223,8 +292,8 @@ TEST_F(TestRecordBatchEqualsSameAddress, NestedTypesWithFloatType) {
 
   auto options = EqualOptions::Defaults();
 
-  ASSERT_FALSE(b0->Equals(*b1, true, options));
-  ASSERT_TRUE(b0->Equals(*b1, true, options.nans_equal(true)));
+  ASSERT_FALSE(b0->Equals(*b1, options));
+  ASSERT_TRUE(b0->Equals(*b1, options.nans_equal(true)));
 
   ASSERT_FALSE(b0->ApproxEquals(*b1, options));
   ASSERT_TRUE(b0->ApproxEquals(*b1, options.nans_equal(true)));
