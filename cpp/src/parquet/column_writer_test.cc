@@ -519,11 +519,10 @@ void TestPrimitiveWriter<ByteArrayType>::ReadColumnFully(Compression::type compr
   values_read_ = 0;
   while (values_read_ < total_values) {
     int64_t values_read_recently = 0;
-    reader_->ReadBatch(
-        static_cast<int>(this->values_out_.size()) - static_cast<int>(values_read_),
-        definition_levels_out_.data() + values_read_,
-        repetition_levels_out_.data() + values_read_,
-        this->values_out_ptr_ + values_read_, &values_read_recently);
+    reader_->ReadBatch(total_values - values_read_,
+                       definition_levels_out_.data() + values_read_,
+                       repetition_levels_out_.data() + values_read_,
+                       this->values_out_ptr_ + values_read_, &values_read_recently);
 
     // Compute the total length of the data
     int64_t total_length = 0;
