@@ -526,9 +526,9 @@ The data should be stored/represented in Arrow as::
 
       * Value buffer: (01 00 -> indicates version 1 empty metadata)
 
-        | Bytes 0-7          | Bytes 8-63               |
-        |--------------------|--------------------------|
-        | 01 00 01 00 01 00  | unspecified (padding)    |
+        | Bytes 0-7               | Bytes 8-63               |
+        |-------------------------|--------------------------|
+        | 01 00 01 00 01 00 01 00 | unspecified (padding)    |
 
     * field-1 array (`VarBinary`)
       * Length: 4, Null count: 2
