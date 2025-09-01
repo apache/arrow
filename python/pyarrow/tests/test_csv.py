@@ -455,7 +455,6 @@ def test_write_options():
                      f"quoting_style='{opts.quoting_style}')>")
     assert repr(opts) == expected_repr
 
-    # Test str
     expected_str = (f"WriteOptions("
                     f"include_header={opts.include_header}, "
                     f"batch_size={opts.batch_size}, "
