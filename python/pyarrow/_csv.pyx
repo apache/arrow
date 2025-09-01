@@ -612,7 +612,8 @@ cdef class ParseOptions(_Weakrefable):
                 f"double_quote={self.double_quote}, "
                 f"escape_char={self.escape_char!r}, "
                 f"newlines_in_values={self.newlines_in_values}, "
-                f"ignore_empty_lines={self.ignore_empty_lines})>")
+                f"ignore_empty_lines={self.ignore_empty_lines}, "
+                f"invalid_row_handler={self.invalid_row_handler})>")
 
     def __str__(self):
         return (f"ParseOptions("
@@ -621,7 +622,8 @@ cdef class ParseOptions(_Weakrefable):
                 f"double_quote={self.double_quote}, "
                 f"escape_char={self.escape_char!r}, "
                 f"newlines_in_values={self.newlines_in_values}, "
-                f"ignore_empty_lines={self.ignore_empty_lines})")
+                f"ignore_empty_lines={self.ignore_empty_lines}, "
+                f"invalid_row_handler={self.invalid_row_handler})")
 
 
 cdef class _ISO8601(_Weakrefable):
