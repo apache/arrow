@@ -636,7 +636,7 @@ The data would then be stored in Arrow as follows::
         |--------------------|--------------------------|
         | 01 00 01 00 01 00  | unspecified (padding)    |
 
-    * field-1 array (`VarBinary` Value)
+    * field-1 array (`VarBinary` value)
       * Length: 4, Null count: 1
       * Validity bitmap buffer:
 
