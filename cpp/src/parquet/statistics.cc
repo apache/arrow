@@ -336,6 +336,11 @@ CleanStatistic(std::pair<T, T> min_max, LogicalType::Type::type) {
   return min_max;
 }
 
+optional<std::pair<Int96, Int96>> CleanStatistic(std::pair<Int96, Int96> min_max,
+                                                 LogicalType::Type::type) {
+  return min_max;
+}
+
 // In case of floating point types, the following rules are applied (as per
 // upstream parquet-mr):
 // - If any of min/max is NaN, return nothing.
@@ -991,6 +996,8 @@ std::shared_ptr<Comparator> DoMakeComparator(Type::type physical_type,
       default:
         ParquetException::NYI("Unsigned Compare not implemented");
     }
+  } else if (SortOrder::UNKNOWN == sort_order) {
+    return nullptr;
   } else {
     throw ParquetException("UNKNOWN Sort Order");
   }
@@ -1104,6 +1111,7 @@ std::shared_ptr<Statistics> Statistics::Make(
     MAKE_STATS(BOOLEAN, BooleanType);
     MAKE_STATS(INT32, Int32Type);
     MAKE_STATS(INT64, Int64Type);
+    MAKE_STATS(INT96, Int96Type);
     MAKE_STATS(FLOAT, FloatType);
     MAKE_STATS(DOUBLE, DoubleType);
     MAKE_STATS(BYTE_ARRAY, ByteArrayType);

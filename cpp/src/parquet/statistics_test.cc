@@ -296,7 +296,7 @@ TEST(Comparison, UnknownSortOrder) {
                           ConvertedType::INTERVAL, 12);
   ColumnDescriptor descr(node, 0, 0);
 
-  ASSERT_THROW(Comparator::Make(&descr), ParquetException);
+  ASSERT_EQ(Comparator::Make(&descr), nullptr);
 }
 
 // ----------------------------------------------------------------------
