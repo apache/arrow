@@ -69,37 +69,39 @@ TEST_F(TestRecordBatch, Equals) {
   auto f1 = field("f1", uint8());
   auto f2 = field("f2", int16());
 
-  auto schema0_f0_f1_f2 = schema({f0, f1, f2});
-  auto schema1_f0_f1_f2 = schema({f0, f1, f2});
-  auto schema2_f0_f1 = schema({f0, f1});
+  auto schema = ::arrow::schema({f0, f1, f2});
+  auto schema_same = ::arrow::schema({f0, f1, f2});
+  auto schema_fewer_fields = ::arrow::schema({f0, f1});
 
   random::RandomArrayGenerator gen(42);
 
-  auto a0 = gen.ArrayOf(int32(), length);
-  auto a1 = gen.ArrayOf(uint8(), length);
-  auto a2 = gen.ArrayOf(int16(), length);
-  auto a3 = a0->Slice(0, length / 2);
-  auto a4 = a1->Slice(0, length / 2);
-  auto a5 = gen.ArrayOf(int32(), length);
-  auto a6 = gen.ArrayOf(uint8(), length);
+  auto a_f0 = gen.ArrayOf(int32(), length);
+  auto a_f1 = gen.ArrayOf(uint8(), length);
+  auto a_f2 = gen.ArrayOf(int16(), length);
+  auto a_f0_half = a_f0->Slice(0, length / 2);
+  auto a_f1_half = a_f1->Slice(0, length / 2);
+  auto a_f0_different = gen.ArrayOf(int32(), length);
+  auto a_f1_different = gen.ArrayOf(uint8(), length);
 
-  auto b0_a0_a1_a2 = RecordBatch::Make(schema0_f0_f1_f2, length, {a0, a1, a2});
-  auto b1_a0_a1_a2 = RecordBatch::Make(schema1_f0_f1_f2, length, {a0, a1, a2});
-  auto b2_a0_a1 = RecordBatch::Make(schema2_f0_f1, length, {a0, a1});
-  auto b3_a3_a4_half_rows = RecordBatch::Make(schema2_f0_f1, length / 2, {a3, a4});
-  auto b4_a5_a6 = RecordBatch::Make(schema2_f0_f1, length, {a5, a6});
+  auto b = RecordBatch::Make(schema, length, {a_f0, a_f1, a_f2});
+  auto b_same = RecordBatch::Make(schema_same, length, {a_f0, a_f1, a_f2});
+  auto b_fewer_fields = RecordBatch::Make(schema_fewer_fields, length, {a_f0, a_f1});
+  auto b_fewer_fields_half =
+      RecordBatch::Make(schema_fewer_fields, length / 2, {a_f0_half, a_f1_half});
+  auto b_fewer_fields_different =
+      RecordBatch::Make(schema_fewer_fields, length, {a_f0_different, a_f1_different});
 
   // Same Values
-  ASSERT_TRUE(b0_a0_a1_a2->Equals(*b1_a0_a1_a2));
+  ASSERT_TRUE(b->Equals(*b_same));
 
   // Different number of columns
-  ASSERT_FALSE(b0_a0_a1_a2->Equals(*b2_a0_a1));
+  ASSERT_FALSE(b->Equals(*b_fewer_fields));
 
   // Different number of rows
-  ASSERT_FALSE(b2_a0_a1->Equals(*b3_a3_a4_half_rows));
+  ASSERT_FALSE(b_fewer_fields->Equals(*b_fewer_fields_half));
 
   // Different values
-  ASSERT_FALSE(b2_a0_a1->Equals(*b4_a5_a6));
+  ASSERT_FALSE(b_fewer_fields->Equals(*b_fewer_fields_different));
 }
 
 class TestRecordBatchEqualOptions : public TestRecordBatch {};
@@ -114,46 +116,46 @@ TEST_F(TestRecordBatchEqualOptions, MetadataAndSchema) {
 
   auto metadata = key_value_metadata({"foo"}, {"bar"});
 
-  auto schema0_f0_f1_f2 = schema({f0, f1, f2});
-  auto schema1_f0_f1_f2_with_metadata = schema({f0, f1, f2}, metadata);
-  auto schema2_f0_f1_f2b = schema({f0, f1, f2b});
+  auto schema = ::arrow::schema({f0, f1, f2});
+  auto schema_with_metadata = ::arrow::schema({f0, f1, f2}, metadata);
+  auto schema_renamed_field = ::arrow::schema({f0, f1, f2b});
 
   random::RandomArrayGenerator gen(42);
 
-  auto a0 = gen.ArrayOf(int32(), length);
-  auto a1 = gen.ArrayOf(uint8(), length);
-  auto a2 = gen.ArrayOf(int16(), length);
+  auto a_f0 = gen.ArrayOf(int32(), length);
+  auto a_f1 = gen.ArrayOf(uint8(), length);
+  auto a_f2 = gen.ArrayOf(int16(), length);
+  auto a_f2b = a_f2;
 
   // All RecordBatches have the same values but different schemas.
-  auto b0_f0_f1_f2 = RecordBatch::Make(schema0_f0_f1_f2, length, {a0, a1, a2});
-  auto b1_f0_f1_f2_with_metadata =
-      RecordBatch::Make(schema1_f0_f1_f2_with_metadata, length, {a0, a1, a2});
-  auto b2_f0_f1_f2b = RecordBatch::Make(schema2_f0_f1_f2b, length, {a0, a1, a2});
+  auto b = RecordBatch::Make(schema, length, {a_f0, a_f1, a_f2});
+  auto b_with_metadata =
+      RecordBatch::Make(schema_with_metadata, length, {a_f0, a_f1, a_f2});
+  auto b_renamed_field =
+      RecordBatch::Make(schema_renamed_field, length, {a_f0, a_f1, a_f2b});
 
   auto options = EqualOptions::Defaults();
+
   // Same values and types, but different field names
-  ASSERT_FALSE(b0_f0_f1_f2->Equals(*b2_f0_f1_f2b));
-  ASSERT_TRUE(b0_f0_f1_f2->Equals(*b2_f0_f1_f2b, options.use_schema(false)));
-  ASSERT_TRUE(b0_f0_f1_f2->ApproxEquals(*b2_f0_f1_f2b));
-  ASSERT_TRUE(b0_f0_f1_f2->ApproxEquals(*b2_f0_f1_f2b, options.use_schema(true)));
+  ASSERT_FALSE(b->Equals(*b_renamed_field));
+  ASSERT_TRUE(b->Equals(*b_renamed_field, options.use_schema(false)));
+  ASSERT_TRUE(b->ApproxEquals(*b_renamed_field));
+  ASSERT_TRUE(b->ApproxEquals(*b_renamed_field, options.use_schema(true)));
 
   // Different metadata
-  ASSERT_TRUE(b0_f0_f1_f2->Equals(*b1_f0_f1_f2_with_metadata));
-  ASSERT_TRUE(b0_f0_f1_f2->Equals(*b1_f0_f1_f2_with_metadata, options));
-  ASSERT_FALSE(b0_f0_f1_f2->Equals(*b1_f0_f1_f2_with_metadata,
-                                   /*check_metadata=*/true));
-  ASSERT_FALSE(b0_f0_f1_f2->Equals(*b1_f0_f1_f2_with_metadata,
-                                   /*check_metadata=*/true, options.use_schema(true)));
-  ASSERT_TRUE(b0_f0_f1_f2->Equals(*b1_f0_f1_f2_with_metadata,
-                                  /*check_metadata=*/true, options.use_schema(false)));
-  ASSERT_TRUE(b0_f0_f1_f2->Equals(*b1_f0_f1_f2_with_metadata,
-                                  options.use_schema(true).use_metadata(false)));
-  ASSERT_FALSE(b0_f0_f1_f2->Equals(*b1_f0_f1_f2_with_metadata,
-                                   options.use_schema(true).use_metadata(true)));
-  ASSERT_TRUE(b0_f0_f1_f2->Equals(*b1_f0_f1_f2_with_metadata,
-                                  options.use_schema(false).use_metadata(true)));
-  ASSERT_TRUE(b0_f0_f1_f2->ApproxEquals(*b1_f0_f1_f2_with_metadata,
-                                        options.use_schema(true).use_metadata(true)));
+  ASSERT_TRUE(b->Equals(*b_with_metadata));
+  ASSERT_TRUE(b->Equals(*b_with_metadata, options));
+  ASSERT_FALSE(b->Equals(*b_with_metadata,
+                         /*check_metadata=*/true));
+  ASSERT_FALSE(b->Equals(*b_with_metadata,
+                         /*check_metadata=*/true, options.use_schema(true)));
+  ASSERT_TRUE(b->Equals(*b_with_metadata,
+                        /*check_metadata=*/true, options.use_schema(false)));
+  ASSERT_TRUE(b->Equals(*b_with_metadata, options.use_schema(true).use_metadata(false)));
+  ASSERT_FALSE(b->Equals(*b_with_metadata, options.use_schema(true).use_metadata(true)));
+  ASSERT_TRUE(b->Equals(*b_with_metadata, options.use_schema(false).use_metadata(true)));
+  ASSERT_TRUE(
+      b->ApproxEquals(*b_with_metadata, options.use_schema(true).use_metadata(true)));
 }
 
 TEST_F(TestRecordBatchEqualOptions, NaN) {
