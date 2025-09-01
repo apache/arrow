@@ -299,7 +299,8 @@ def test_parse_options(pickle_module):
                      f"double_quote={opts.double_quote}, "
                      f"escape_char={opts.escape_char!r}, "
                      f"newlines_in_values={opts.newlines_in_values}, "
-                     f"ignore_empty_lines={opts.ignore_empty_lines})>")
+                     f"ignore_empty_lines={opts.ignore_empty_lines}, "
+                     f"invalid_row_handler={opts.invalid_row_handler})>")
     assert repr(opts) == expected_repr
 
     expected_str = (f"ParseOptions("
@@ -308,7 +309,8 @@ def test_parse_options(pickle_module):
                     f"double_quote={opts.double_quote}, "
                     f"escape_char={opts.escape_char!r}, "
                     f"newlines_in_values={opts.newlines_in_values}, "
-                    f"ignore_empty_lines={opts.ignore_empty_lines})")
+                    f"ignore_empty_lines={opts.ignore_empty_lines}, "
+                    f"invalid_row_handler={opts.invalid_row_handler})")
     assert str(opts) == expected_str
 
 
