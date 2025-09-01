@@ -622,7 +622,7 @@ The data would then be stored in Arrow as follows::
     | 00000111                 | 0 (padding)   |
 
   * Children arrays:
-    * field-0 array (`VarBinary` Metadata)
+    * field-0 array (`VarBinary` metadata)
       * Length: 4, Null count: 0
       * Offsets buffer:
 
