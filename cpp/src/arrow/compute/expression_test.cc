@@ -673,16 +673,69 @@ TEST(Expression, BindWithAliasCasts) {
 }
 
 TEST(Expression, BindWithDecimalArithmeticOps) {
-  for (std::string arith_op : {"add", "subtract", "multiply", "divide"}) {
-    auto expr = call(arith_op, {field_ref("d1"), field_ref("d2")});
-    EXPECT_FALSE(expr.IsBound());
+  static const std::vector<std::pair<int, int>> scales = {{3, 9}, {6, 6}, {9, 3}};
 
-    static const std::vector<std::pair<int, int>> scales = {{3, 9}, {6, 6}, {9, 3}};
-    for (auto s : scales) {
-      auto schema = arrow::schema(
-          {field("d1", decimal256(30, s.first)), field("d2", decimal256(20, s.second))});
-      ExpectBindsTo(expr, no_change, &expr, *schema);
+  for (std::string suffix : {"", "_checked"}) {
+    for (std::string arith_op : {"add", "subtract", "multiply", "divide"}) {
+      std::string name = arith_op + suffix;
+      SCOPED_TRACE(name);
+
+      for (auto s : scales) {
+        auto schema = arrow::schema({field("d1", decimal256(30, s.first)),
+                                     field("d2", decimal256(20, s.second))});
+        auto expr = call(name, {field_ref("d1"), field_ref("d2")});
+        EXPECT_FALSE(expr.IsBound());
+        ExpectBindsTo(expr, no_change, &expr, *schema);
+      }
     }
+  }
+}
+
+TEST(Expression, BindWithDecimalDivision) {
+  auto expect_decimal_division_type = [](std::string name,
+                                         std::shared_ptr<DataType> dividend,
+                                         std::shared_ptr<DataType> divisor,
+                                         std::shared_ptr<DataType> expected) {
+    auto schema = arrow::schema({field("dividend", dividend), field("divisor", divisor)});
+    auto expr = call(name, {field_ref("dividend"), field_ref("divisor")});
+    ASSERT_OK_AND_ASSIGN(auto bound, expr.Bind(*schema));
+    EXPECT_TRUE(bound.IsBound());
+    EXPECT_TRUE(bound.type()->Equals(expected));
+  };
+
+  for (std::string name : {"divide", "divide_checked"}) {
+    SCOPED_TRACE(name);
+
+    expect_decimal_division_type(name, int64(), arrow::decimal128(1, 0),
+                                 decimal128(23, 4));
+    expect_decimal_division_type(name, arrow::decimal128(1, 0), int64(),
+                                 decimal128(21, 20));
+
+    expect_decimal_division_type(name, decimal128(2, 1), decimal128(2, 1),
+                                 decimal128(6, 4));
+    expect_decimal_division_type(name, decimal256(2, 1), decimal256(2, 1),
+                                 decimal256(6, 4));
+    expect_decimal_division_type(name, decimal128(2, 1), decimal256(2, 1),
+                                 decimal256(6, 4));
+    expect_decimal_division_type(name, decimal256(2, 1), decimal128(2, 1),
+                                 decimal256(6, 4));
+
+    expect_decimal_division_type(name, decimal128(2, 0), decimal128(2, 1),
+                                 decimal128(7, 4));
+    expect_decimal_division_type(name, decimal128(2, 1), decimal128(2, 0),
+                                 decimal128(5, 4));
+
+    // GH-39875: Expression call to decimal(3 ,2) / decimal(15, 2) wrong result type.
+    // decimal128(3, 2) / decimal128(15, 2)
+    // -> decimal128(19, 18) / decimal128(15, 2) = decimal128(19, 16)
+    expect_decimal_division_type(name, decimal128(3, 2), decimal128(15, 2),
+                                 decimal128(19, 16));
+
+    // GH-40911: Expression call to decimal(7 ,2) / decimal(6, 1) wrong result type.
+    // decimal128(7, 2) / decimal128(6, 1)
+    // -> decimal128(14, 9) / decimal128(6, 1) = decimal128(14, 8)
+    expect_decimal_division_type(name, decimal128(7, 2), decimal128(6, 1),
+                                 decimal128(14, 8));
   }
 }
 
