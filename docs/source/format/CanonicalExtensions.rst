@@ -467,7 +467,7 @@ to the Parquet format specification for details on what the actual binary values
 
 .. note::
 
-   The fields may be in any order, and thus must be accessed by **name** not by *position*.
+   The fields may be in any order, and thus must be accessed by **name** not by *position*. The field names are case sensitive.
 
 Examples
 --------
