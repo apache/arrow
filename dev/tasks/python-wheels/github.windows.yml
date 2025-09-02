@@ -90,7 +90,6 @@ jobs:
           archery docker run %TEST_IMAGE_PREFIX%-wheel-windows-test
 
       {{ macros.github_upload_releases("arrow/python/repaired_wheels/*.whl")|indent }}
-      {{ macros.github_upload_gemfury("arrow/python/repaired_wheels/*.whl")|indent }}
       {{ macros.github_upload_wheel_scientific_python("arrow/python/repaired_wheels/*.whl")|indent }}
 
       {% if arrow.is_default_branch() %}
