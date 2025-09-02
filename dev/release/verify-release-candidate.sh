@@ -918,7 +918,7 @@ test_linux_wheels() {
     local arch="x86_64"
   fi
 
-  local python_versions="${TEST_PYTHON_VERSIONS:-3.9 3.10 3.11 3.12 3.13}"
+  local python_versions="${TEST_PYTHON_VERSIONS:-3.10 3.11 3.12 3.13}"
   local platform_tags="${TEST_WHEEL_PLATFORM_TAGS:-manylinux_2_28_${arch}}"
 
   if [ "${SOURCE_KIND}" != "local" ]; then
@@ -957,11 +957,11 @@ test_macos_wheels() {
 
   # apple silicon processor
   if [ "$(uname -m)" = "arm64" ]; then
-    local python_versions="3.9 3.10 3.11 3.12 3.13"
+    local python_versions="3.10 3.11 3.12 3.13"
     local platform_tags="macosx_12_0_arm64"
     local check_flight=OFF
   else
-    local python_versions="3.9 3.10 3.11 3.12 3.13"
+    local python_versions="3.10 3.11 3.12 3.13"
     local platform_tags="macosx_12_0_x86_64"
   fi
 
