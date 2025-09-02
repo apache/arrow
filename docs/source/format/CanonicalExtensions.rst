@@ -470,7 +470,7 @@ to the Parquet format specification for details on what the actual binary values
 
 .. note::
 
-   It is also *permissible* for the ``metadata`` field to be dictionary-encoded with an index type of ``int8``.
+   It is also *permissible* for the ``metadata`` field to be dictionary-encoded with a preferred (*but not required*) index type of ``int8``.
 
 .. note::
 
