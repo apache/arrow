@@ -91,7 +91,7 @@ class EqualOptions {
 
   /// Return a new EqualOptions object with the "use_schema_" property changed.
   ///
-  /// Setting this option is false making the value of \ref EqualOptions::use_metadata_
+  /// Setting this option is false making the value of \ref EqualOptions::use_metadata
   /// is ignored.
   EqualOptions use_schema(bool v) const {
     auto res = EqualOptions(*this);
