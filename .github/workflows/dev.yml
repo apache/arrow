@@ -105,7 +105,7 @@ jobs:
         shell: bash
         run: |
           gem install test-unit
-          pip install "cython>=3" setuptools pytest requests setuptools-scm
+          pip install "cython>=3.1" setuptools pytest requests setuptools-scm
       - name: Run Release Test
         shell: bash
         run: |
