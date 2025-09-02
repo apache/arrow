@@ -124,7 +124,6 @@ class TransportMessageReader final : public FlightMessageReader {
       out.app_metadata = data->app_metadata;
       out.data = nullptr;
       peekable_reader_->Next(&data);
-      extra_messages_++;
       return out;
     }
 
@@ -139,15 +138,10 @@ class TransportMessageReader final : public FlightMessageReader {
   }
 
   ipc::ReadStats stats() const override {
-    ipc::ReadStats stats;
     if (batch_reader_ == nullptr) {
-      stats = ipc::ReadStats{};
-      stats.num_messages = extra_messages_;
-      return stats;
+      return ipc::ReadStats{};
     }
-    stats = batch_reader_->stats();
-    stats.num_messages += extra_messages_;
-    return stats;
+    return batch_reader_->stats();
   }
 
  private:
@@ -172,7 +166,6 @@ class TransportMessageReader final : public FlightMessageReader {
   std::shared_ptr<MemoryManager> memory_manager_;
   std::shared_ptr<ipc::RecordBatchStreamReader> batch_reader_;
   std::shared_ptr<Buffer> app_metadata_;
-  int64_t extra_messages_ = 0;
 };
 
 /// \brief An IpcPayloadWriter for ServerDataStream.
@@ -247,9 +240,6 @@ class TransportMessageWriter final : public FlightMessageWriter {
       return MakeFlightError(FlightStatusCode::Internal,
                              "Could not write metadata to stream (client disconnect?)");
     }
-    // Those messages are not written through the batch writer,
-    // count them separately to include them in the stats.
-    extra_messages_++;
     return Status::OK();
   }
 
@@ -273,9 +263,7 @@ class TransportMessageWriter final : public FlightMessageWriter {
 
   ipc::WriteStats stats() const override {
     ARROW_CHECK_NE(batch_writer_, nullptr);
-    auto write_stats = batch_writer_->stats();
-    write_stats.num_messages += extra_messages_;
-    return write_stats;
+    return batch_writer_->stats();
   }
 
  private:
@@ -290,7 +278,6 @@ class TransportMessageWriter final : public FlightMessageWriter {
   std::unique_ptr<ipc::RecordBatchWriter> batch_writer_;
   std::shared_ptr<Buffer> app_metadata_;
   ::arrow::ipc::IpcWriteOptions ipc_options_;
-  int64_t extra_messages_ = 0;
 };
 
 /// \brief Adapt TransportDataStream to the FlightMetadataWriter

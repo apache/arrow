@@ -2109,7 +2109,8 @@ def test_doexchange_put():
             assert chunk.data is None
             expected_buf = str(len(batches)).encode("utf-8")
             assert chunk.app_metadata == expected_buf
-            assert reader.stats.num_messages == 1
+            # Metadata only message is not counted as an ipc data message
+            assert reader.stats.num_messages == 0
 
 
 def test_doexchange_echo():
