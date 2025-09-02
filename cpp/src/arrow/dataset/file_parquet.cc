@@ -643,10 +643,9 @@ Result<RecordBatchGenerator> ParquetFileFormat::ScanBatchesAsync(
             kParquetTypeName, options.get(), default_fragment_scan_options));
     int batch_readahead = options->batch_readahead;
     int64_t rows_to_readahead = batch_readahead * options->batch_size;
-    // Use the executor in scan_options instead of always using the
-    // default CPU thread pool.
-    auto cpu_executor = options->exec_context.executor()
-                            ? options->exec_context.executor()
+    // Use the executor from scan options if provided.
+    auto cpu_executor = options->executor
+                            ? options->executor
                             : ::arrow::internal::GetCpuThreadPool();
     ARROW_ASSIGN_OR_RAISE(auto generator, reader->GetRecordBatchGenerator(
                                               reader, row_groups, column_projection,

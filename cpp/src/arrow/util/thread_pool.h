@@ -597,7 +597,8 @@ typename Fut::SyncType RunSynchronously(FnOnce<Fut(Executor*)> get_future,
 ///   using a potentially custom Executor
 /// \see IterateGenerator
 ///
-/// If `use_threads` is true, the global CPU executor will be used.  Each call to
+/// If `use_threads` is true, the custom executor or, if null,
+///   the global CPU executor will be used.  Each call to
 ///   the iterator will simply wait until the next item is available.  Tasks may run in
 ///   the background between calls.
 ///

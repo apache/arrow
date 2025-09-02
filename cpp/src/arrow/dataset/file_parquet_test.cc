@@ -22,7 +22,6 @@
 #include <utility>
 #include <vector>
 
-#include "arrow/acero/exec_plan.h"
 #include "arrow/compute/api_scalar.h"
 #include "arrow/dataset/dataset_internal.h"
 #include "arrow/dataset/parquet_encryption_config.h"
@@ -994,8 +993,7 @@ TEST_F(TestParquetFileFormat, MultithreadedComputeRegression) {
       auto options = std::make_shared<ScanOptions>();
       ASSERT_OK_AND_ASSIGN(auto thread_pool, arrow::internal::ThreadPool::Make(1));
       pools.emplace_back(thread_pool);
-      options->exec_context =
-          ::arrow::ExecContext(::arrow::default_memory_pool(), pools.back().get());
+      options->executor = pools.back().get();
       auto fragment_scan_options = std::make_shared<ParquetFragmentScanOptions>();
       fragment_scan_options->arrow_reader_properties->set_pre_buffer(true);
 
