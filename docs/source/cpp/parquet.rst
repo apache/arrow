@@ -494,7 +494,7 @@ physical type.
 * \(1) On the write side, the Parquet physical type INT32 is generated.
 
 * \(2) On the write side, a FIXED_LENGTH_BYTE_ARRAY is always emitted
-  except if `store_decimal_as_integer` is set to true.
+  except if ``store_decimal_as_integer`` is set to true.
 
 * \(3) On the write side, an Arrow Date64 is also mapped to a Parquet DATE INT32.
 
