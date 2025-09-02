@@ -323,28 +323,28 @@ TYPED_TEST(TestNumericScalar, MakeScalar) {
 template <typename T>
 class TestRealScalar : public ::testing::Test {
  public:
-  using CType = typename T::c_type;
+  using ValueType =
+      std::conditional_t<is_half_float_type<T>::value, Float16, typename T::c_type>;
   using ScalarType = typename TypeTraits<T>::ScalarType;
 
   void SetUp() {
     type_ = TypeTraits<T>::type_singleton();
 
-    scalar_val_ = std::make_shared<ScalarType>(RealToCType<T>(1));
+    scalar_val_ = std::make_shared<ScalarType>(static_cast<ValueType>(1));
     ASSERT_TRUE(scalar_val_->is_valid);
 
-    scalar_other_ = std::make_shared<ScalarType>(RealToCType<T>(1.1));
+    scalar_other_ = std::make_shared<ScalarType>(static_cast<ValueType>(1.1));
     ASSERT_TRUE(scalar_other_->is_valid);
 
-    scalar_zero_ = std::make_shared<ScalarType>(RealToCType<T>(0.0));
-    scalar_other_zero_ = std::make_shared<ScalarType>(RealToCType<T>(0.0));
-    scalar_neg_zero_ = std::make_shared<ScalarType>(RealToCType<T>(-0.0));
+    scalar_zero_ = std::make_shared<ScalarType>(static_cast<ValueType>(0.0));
+    scalar_other_zero_ = std::make_shared<ScalarType>(static_cast<ValueType>(0.0));
+    scalar_neg_zero_ = std::make_shared<ScalarType>(static_cast<ValueType>(-0.0));
 
-    const CType nan_value = RealToCType<T>(std::numeric_limits<double>::quiet_NaN());
+    const auto nan_value = std::numeric_limits<ValueType>::quiet_NaN();
     scalar_nan_ = std::make_shared<ScalarType>(nan_value);
     ASSERT_TRUE(scalar_nan_->is_valid);
 
-    const CType other_nan_value =
-        RealToCType<T>(std::numeric_limits<double>::quiet_NaN());
+    const auto other_nan_value = std::numeric_limits<ValueType>::quiet_NaN();
     scalar_other_nan_ = std::make_shared<ScalarType>(other_nan_value);
     ASSERT_TRUE(scalar_other_nan_->is_valid);
   }
