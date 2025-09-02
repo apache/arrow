@@ -104,7 +104,7 @@ class EqualOptions {
   /// This option only affects the Equals methods
   /// and has no effect on the ApproxEquals methods.
   ///
-  /// Note: This option is only considered when \ref arrow::EqualOptions::use_schema_ is
+  /// Note: This option is only considered when \ref arrow::EqualOptions::use_schema is
   /// set to true.
   bool use_metadata() const { return use_metadata_; }
 
