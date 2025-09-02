@@ -61,61 +61,79 @@ namespace random {
 
 namespace {
 
-template <typename ValueType, typename DistributionType, typename ArrowType = void>
+template <typename ValueType, typename DistributionType>
+struct GeneratorFactory {
+  GeneratorFactory(ValueType min, ValueType max) : min_(min), max_(max) {}
+
+  auto operator()(pcg32_fast* rng) const {
+    return [dist = DistributionType(min_, max_), rng]() mutable {
+      return static_cast<ValueType>(dist(*rng));
+    };
+  }
+
+ private:
+  ValueType min_;
+  ValueType max_;
+};
+
+template <typename DistributionType>
+struct GeneratorFactory<Float16, DistributionType> {
+  GeneratorFactory(Float16 min, Float16 max) : min_(min.ToFloat()), max_(max.ToFloat()) {}
+
+  auto operator()(pcg32_fast* rng) const {
+    return [dist = DistributionType(min_, max_), rng]() mutable {
+      return Float16(dist(*rng)).bits();
+    };
+  }
+
+ private:
+  float min_;
+  float max_;
+};
+
+template <typename ValueType, typename DistributionType>
 struct GenerateOptions {
+  static constexpr bool kIsHalfFloat = std::is_same_v<ValueType, Float16>;
+  using PhysicalType = std::conditional_t<kIsHalfFloat, HalfFloatType::c_type, ValueType>;
+  using FactoryType = GeneratorFactory<ValueType, DistributionType>;
+
   GenerateOptions(SeedType seed, ValueType min, ValueType max, double probability,
                   double nan_probability = 0.0)
-      : min_(min),
-        max_(max),
+      : generator_factory_(FactoryType(min, max)),
         seed_(seed),
         probability_(probability),
         nan_probability_(nan_probability) {}
 
   void GenerateData(uint8_t* buffer, size_t n) {
-    GenerateTypedData(reinterpret_cast<ValueType*>(buffer), n);
+    GenerateTypedData(reinterpret_cast<PhysicalType*>(buffer), n);
   }
 
   template <typename V>
-  typename std::enable_if<!std::is_floating_point<V>::value>::type GenerateTypedData(
-      V* data, size_t n) {
+  typename std::enable_if<!std::is_floating_point_v<V> && !kIsHalfFloat>::type
+  GenerateTypedData(V* data, size_t n) {
     GenerateTypedDataNoNan(data, n);
   }
 
   template <typename V>
-  typename std::enable_if<std::is_floating_point<V>::value>::type GenerateTypedData(
-      V* data, size_t n) {
+  typename std::enable_if<std::is_floating_point_v<V> || kIsHalfFloat>::type
+  GenerateTypedData(V* data, size_t n) {
     if (nan_probability_ == 0.0) {
       GenerateTypedDataNoNan(data, n);
       return;
     }
     pcg32_fast rng(seed_++);
-    DistributionType dist(min_, max_);
+    auto gen = generator_factory_(&rng);
     ::arrow::random::bernoulli_distribution nan_dist(nan_probability_);
-    const ValueType nan_value = std::numeric_limits<ValueType>::quiet_NaN();
+    const PhysicalType nan_value = get_nan();
 
-    // A static cast is required due to the int16 -> int8 handling.
-    std::generate(data, data + n, [&] {
-      return nan_dist(rng) ? nan_value : static_cast<ValueType>(dist(rng));
-    });
+    std::generate(data, data + n, [&] { return nan_dist(rng) ? nan_value : gen(); });
   }
 
-  void GenerateTypedDataNoNan(ValueType* data, size_t n) {
+  void GenerateTypedDataNoNan(PhysicalType* data, size_t n) {
     pcg32_fast rng(seed_++);
-    DistributionType dist(min_, max_);
+    auto gen = generator_factory_(&rng);
 
-    if constexpr (is_half_float_type<ArrowType>::value) {
-      // Special handling is required to prevent generating Float16 NaNs
-      std::generate(data, data + n, [&] {
-        Float16 f;
-        do {
-          f = Float16::FromBits(static_cast<ValueType>(dist(rng)));
-        } while (f.is_nan());
-        return f.bits();
-      });
-    } else {
-      // A static cast is required due to the int16 -> int8 handling.
-      std::generate(data, data + n, [&] { return static_cast<ValueType>(dist(rng)); });
-    }
+    std::generate(data, data + n, [&] { return gen(); });
   }
 
   void GenerateBitmap(uint8_t* buffer, size_t n, int64_t* null_count) {
@@ -134,8 +152,15 @@ struct GenerateOptions {
     if (null_count != nullptr) *null_count = count;
   }
 
-  ValueType min_;
-  ValueType max_;
+  static constexpr PhysicalType get_nan() {
+    if constexpr (kIsHalfFloat) {
+      return std::numeric_limits<ValueType>::quiet_NaN().bits();
+    } else {
+      return std::numeric_limits<ValueType>::quiet_NaN();
+    }
+  }
+
+  FactoryType generator_factory_;
   SeedType seed_;
   double probability_;
   double nan_probability_;
@@ -257,9 +282,16 @@ std::shared_ptr<Array> RandomArrayGenerator::Float16(int64_t size, uint16_t min,
                                                      double null_probability,
                                                      int64_t alignment,
                                                      MemoryPool* memory_pool) {
+  return this->Float16(size, Float16::FromBits(min), Float16::FromBits(max),
+                       null_probability, /*nan_probability=*/0, alignment, memory_pool);
+}
+
+std::shared_ptr<Array> RandomArrayGenerator::Float16(
+    int64_t size, util::Float16 min, util::Float16 max, double null_probability,
+    double nan_probability, int64_t alignment, MemoryPool* memory_pool) {
   using OptionType =
-      GenerateOptions<uint16_t, std::uniform_int_distribution<uint16_t>, HalfFloatType>;
-  OptionType options(seed(), min, max, null_probability, /*nan_probability=*/0);
+      GenerateOptions<util::Float16, ::arrow::random::uniform_real_distribution<float>>;
+  OptionType options(seed(), min, max, null_probability, nan_probability);
   return GenerateNumericArray<HalfFloatType, OptionType>(size, options, alignment,
                                                          memory_pool);
 }
@@ -1116,20 +1148,19 @@ std::shared_ptr<Array> RandomArrayGenerator::ArrayOf(const Field& field, int64_t
       GENERATE_FLOATING_CASE(DoubleType, Float64);
 
     case Type::type::HALF_FLOAT: {
-      using CType = HalfFloatType::c_type;
-      const CType min_value =
-          GetMetadata<CType>(field.metadata().get(), "min",
-                             std::numeric_limits<::arrow::util::Float16>::min().bits());
-      const CType max_value =
-          GetMetadata<CType>(field.metadata().get(), "max",
-                             std::numeric_limits<::arrow::util::Float16>::max().bits());
+      using ValueType = util::Float16;
+      const ValueType min_value = GetMetadata<ValueType>(
+          field.metadata().get(), "min", std::numeric_limits<ValueType>::min());
+      const ValueType max_value = GetMetadata<ValueType>(
+          field.metadata().get(), "max", std::numeric_limits<ValueType>::max());
       const double nan_probability =
           GetMetadata<double>(field.metadata().get(), "nan_probability", 0);
-      VALIDATE_MIN_MAX(Float16::FromBits(min_value), Float16::FromBits(max_value));
+      VALIDATE_MIN_MAX(min_value, max_value);
       VALIDATE_RANGE(nan_probability, 0.0, 1.0);
-      // TODO: New interface to allow passing `nan_probability`
-      return Float16(length, min_value, max_value, null_probability, alignment,
-                     memory_pool);
+      ARROW_LOG(INFO) << "min = " << min_value.ToFloat();
+      ARROW_LOG(INFO) << "max = " << max_value.ToFloat();
+      return Float16(length, min_value, max_value, null_probability, nan_probability,
+                     alignment, memory_pool);
     }
 
     case Type::type::STRING:
