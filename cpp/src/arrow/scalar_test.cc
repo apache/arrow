@@ -230,6 +230,11 @@ TYPED_TEST(TestNumericScalar, Basics) {
   T value = static_cast<T>(1);
 
   auto scalar_val = std::make_shared<ScalarType>(value);
+  if constexpr (is_half_float_type<TypeParam>::value) {
+    ASSERT_EQ(value, Float16::FromBits(scalar_val->value));
+  } else {
+    ASSERT_EQ(value, scalar_val->value);
+  }
   ASSERT_TRUE(scalar_val->is_valid);
   ASSERT_OK(scalar_val->ValidateFull());
 
@@ -241,11 +246,9 @@ TYPED_TEST(TestNumericScalar, Basics) {
   ASSERT_NE(*scalar_other, *scalar_val);
 
   if constexpr (is_half_float_type<TypeParam>::value) {
-    ASSERT_EQ(value, Float16::FromBits(scalar_val->value));
     scalar_val->value = other_value.bits();
     ASSERT_EQ(other_value, Float16::FromBits(scalar_val->value));
   } else {
-    ASSERT_EQ(value, scalar_val->value);
     scalar_val->value = other_value;
     ASSERT_EQ(other_value, scalar_val->value);
   }
@@ -294,7 +297,7 @@ TYPED_TEST(TestNumericScalar, Hashing) {
   std::unordered_set<std::shared_ptr<Scalar>, Scalar::Hash, Scalar::PtrsEqual> set;
   set.emplace(std::make_shared<ScalarType>());
   for (int i = 0; i < 10; ++i) {
-    set.emplace(std::make_shared<ScalarType>(static_cast<T>(i)));
+    ASSERT_TRUE(set.emplace(std::make_shared<ScalarType>(static_cast<T>(i))).second);
   }
 
   ASSERT_FALSE(set.emplace(std::make_shared<ScalarType>()).second);

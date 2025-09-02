@@ -979,7 +979,7 @@ struct MakeScalarImpl {
   // This isn't captured by the generic case above because `util::Float16` isn't implicity
   // convertible to `uint16_t` (HalfFloat's ValueType)
   template <typename T>
-  std::enable_if_t<std::is_same_v<std::remove_reference_t<ValueRef>, util::Float16> &&
+  std::enable_if_t<std::is_same_v<std::decay_t<ValueRef>, util::Float16> &&
                        is_half_float_type<T>::value,
                    Status>
   Visit(const T& t) {
