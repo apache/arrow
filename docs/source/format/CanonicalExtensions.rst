@@ -459,7 +459,14 @@ to the Parquet format specification for details on what the actual binary values
 
         * A field named ``value`` which is of type ``Binary``, ``LargeBinary``, or ``BinaryView``.
 
-        * A field named ``typed_value`` which follows these same rules for the ``typed_value`` field.
+        * A field named ``typed_value`` which follows the rules outlined above (this allows for arbitrarily nested data).
+* Extension type parameters:
+
+  This type does not have any parameters.
+
+* Description of the serialization:
+
+  Extension metadata is an empty string.
 
 .. note::
 
