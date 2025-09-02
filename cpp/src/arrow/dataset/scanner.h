@@ -108,7 +108,7 @@ struct ARROW_DS_EXPORT ScanOptions {
   /// Executor for any CPU tasks
   ///
   /// Note: The Executor will be ignored if use_threads is set to false
-  arrow::internal::Executor* executor = nullptr;
+  arrow::internal::Executor* cpu_executor = nullptr;
 
   /// If true the scanner will scan in parallel
   ///
@@ -467,7 +467,7 @@ class ARROW_DS_EXPORT Scanner {
   const std::shared_ptr<ScanOptions> scan_options_;
 
   ::arrow::internal::Executor* async_cpu_executor() const {
-    return scan_options_->executor ? scan_options_->executor
+    return scan_options_->cpu_executor ? scan_options_->cpu_executor
                                                   : ::arrow::internal::GetCpuThreadPool();
   }
 };

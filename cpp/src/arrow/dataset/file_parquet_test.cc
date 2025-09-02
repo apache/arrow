@@ -993,7 +993,7 @@ TEST_F(TestParquetFileFormat, MultithreadedComputeRegression) {
       auto options = std::make_shared<ScanOptions>();
       ASSERT_OK_AND_ASSIGN(auto thread_pool, arrow::internal::ThreadPool::Make(1));
       pools.emplace_back(thread_pool);
-      options->executor = pools.back().get();
+      options->cpu_executor = pools.back().get();
       auto fragment_scan_options = std::make_shared<ParquetFragmentScanOptions>();
       fragment_scan_options->arrow_reader_properties->set_pre_buffer(true);
 
