@@ -52,7 +52,7 @@
 # NOTE: You must update PYTHON_WHEEL_WINDOWS_IMAGE_REVISION in .env
 # when you update this file.
 
-FROM mcr.microsoft.com/windows/servercore:ltsc2022
+FROM mcr.microsoft.com/windows/servercore:ltsc2022-KB5051979
 
 # Ensure we in a command shell and not Powershell
 SHELL ["cmd", "/S", "/C"]
