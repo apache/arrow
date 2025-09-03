@@ -17,18 +17,21 @@
 
 #pragma once
 
-#include "arrow/util/endian.h"
 #include "arrow/util/visibility.h"
 
-#include <stdint.h>
+#include <cstdint>
 
-namespace arrow {
-namespace internal {
+namespace arrow::internal {
+
+/// The scalar 32 bit unpacking.
+int unpack32_default(const uint32_t* in, uint32_t* out, int batch_size, int num_bits);
+
+/// The scalar 64 bit unpacking.
+int unpack64_default(const uint8_t* in, uint64_t* out, int batch_size, int num_bits);
 
 ARROW_EXPORT
 int unpack32(const uint32_t* in, uint32_t* out, int batch_size, int num_bits);
 ARROW_EXPORT
 int unpack64(const uint8_t* in, uint64_t* out, int batch_size, int num_bits);
 
-}  // namespace internal
-}  // namespace arrow
+}  // namespace arrow::internal
