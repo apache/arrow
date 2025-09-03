@@ -2565,42 +2565,41 @@ def test_headers_trailers():
 
 
 def test_flight_dictionary_deltas_do_exchange():
-    expected_dict_deltas_stats = ReadStats(
-        num_messages=6,
-        num_record_batches=3,
-        num_dictionary_batches=2,
-        num_dictionary_deltas=1,
-        num_replaced_dictionaries=0
-    )
-    expected_dict_replacement_stats = ReadStats(
-        num_messages=6,
-        num_record_batches=3,
-        num_dictionary_batches=2,
-        num_dictionary_deltas=0,
-        num_replaced_dictionaries=1
-    )
+    expected_stats = {
+        'dict_deltas': ReadStats(
+            num_messages=6,
+            num_record_batches=3,
+            num_dictionary_batches=2,
+            num_dictionary_deltas=1,
+            num_replaced_dictionaries=0
+        ),
+        'dict_replacement': ReadStats(
+            num_messages=6,
+            num_record_batches=3,
+            num_dictionary_batches=2,
+            num_dictionary_deltas=0,
+            num_replaced_dictionaries=1
+        )
+    }
 
     class DeltaFlightServer(ConstantFlightServer):
         def do_exchange(self, context, descriptor, reader, writer):
             expected_table = simple_dicts_table()
             received_table = reader.read_all()
             assert received_table.equals(expected_table)
+            assert reader.stats == expected_stats[descriptor.command.decode()]
             if descriptor.command == b'dict_deltas':
-                assert reader.stats == expected_dict_deltas_stats
-
                 options = pa.ipc.IpcWriteOptions(emit_dictionary_deltas=True)
                 writer.begin(expected_table.schema, options=options)
                 writer.write_table(expected_table)
             if descriptor.command == b'dict_replacement':
-                assert reader.stats == expected_dict_replacement_stats
-
                 writer.begin(expected_table.schema)
                 writer.write_table(expected_table)
 
     with DeltaFlightServer() as server, \
             FlightClient(('localhost', server.port)) as client:
         expected_table = simple_dicts_table()
-        for command in [b"dict_deltas", b"dict_replacement"]:
+        for command in ["dict_deltas", "dict_replacement"]:
             descriptor = flight.FlightDescriptor.for_command(command)
             writer, reader = client.do_exchange(
                 descriptor,
@@ -2612,13 +2611,10 @@ def test_flight_dictionary_deltas_do_exchange():
             # Send client table with dictionary updates
             with writer:
                 writer.begin(expected_table.schema, options=pa.ipc.IpcWriteOptions(
-                    emit_dictionary_deltas=(command == b"dict_deltas")))
+                    emit_dictionary_deltas=(command == "dict_deltas")))
                 writer.write_table(expected_table)
                 writer.done_writing()
                 received_table = reader.read_all()
 
             assert received_table.equals(expected_table)
-            if command == b"dict_deltas":
-                assert reader.stats == expected_dict_deltas_stats
-            elif command == b"dict_replacement":
-                assert reader.stats == expected_dict_replacement_stats
+            assert reader.stats == expected_stats[command]
