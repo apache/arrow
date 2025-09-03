@@ -454,13 +454,13 @@ to the Parquet format specification for details on what the actual binary values
 
     * A field named ``typed_value`` which can be a :ref:`variant_primitive_type_mapping` or a ``List``, ``LargeList``, ``ListView`` or ``Struct``
 
-      * If the ``typed_value`` field is a ``List``, ``LargeList`` or ``ListView`` its elements **must** be *non-nullable* and **must** 
+      * If the ``typed_value`` field is a ``List``, ``LargeList`` or ``ListView`` its elements **must** be *non-nullable* and **must**
         be a ``Struct`` consisting of at least one (or both) of the following:
 
         * A field named ``value`` which is of type ``Binary``, ``LargeBinary``, or ``BinaryView``.
 
         * A field named ``typed_value`` which follows the rules outlined above (this allows for arbitrarily nested data).
-      
+
       * If the ``typed_value`` field is a ``Struct``, then its fields **must** be *non-nullable*, representing the fields being shredded
         from the objects, and **must** be a ``Struct`` consisting of at least one (or both) of the following:
 

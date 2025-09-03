@@ -98,7 +98,7 @@ The data should be stored/represented in Arrow as::
         |------------------|--------------------------|
         | 0, 0, 1, 5, 5    | unspecified (padding)    |
 
-      * Value buffer: (`00` -> null, 
+      * Value buffer: (`00` -> null,
         `0x13 0x6E 0x2F 0x61` -> variant encoding literal string "n/a")
 
         | Bytes 0-4              | Bytes 5-63               |
