@@ -742,7 +742,8 @@ TEST(Expression, BindWithDecimalDivision) {
 TEST(Expression, BindWithImplicitCasts) {
   auto exciting_schema = schema(
       {field("i64", int64()), field("dec128_3_2", decimal128(3, 2)),
-       field("dec128_5_3", decimal128(5, 3)), field("dec256_3_2", decimal256(3, 2)),
+       field("dec128_4_2", decimal128(4, 2)), field("dec128_5_3", decimal128(5, 3)),
+       field("dec256_3_2", decimal256(3, 2)), field("dec256_4_2", decimal256(4, 2)),
        field("dec256_5_3", decimal256(5, 3))});
   for (auto cmp : {equal, not_equal, less, less_equal, greater, greater_equal}) {
     // cast arguments to common numeric type
@@ -813,7 +814,25 @@ TEST(Expression, BindWithImplicitCasts) {
                   cmp(cast(field_ref("i64"), decimal128(21, 2)), field_ref("dec128_3_2")),
                   /*bound_out=*/nullptr, *exciting_schema);
 
-    // decimal128 decimal256 with different scales
+    // decimal decimal with different widths different precisions but same scale
+    ExpectBindsTo(
+        cmp(field_ref("dec128_3_2"), field_ref("dec256_4_2")),
+        cmp(cast(field_ref("dec128_3_2"), decimal256(3, 2)), field_ref("dec256_4_2")),
+        /*bound_out=*/nullptr, *exciting_schema);
+    ExpectBindsTo(
+        cmp(field_ref("dec256_4_2"), field_ref("dec128_3_2")),
+        cmp(field_ref("dec256_4_2"), cast(field_ref("dec128_3_2"), decimal256(3, 2))),
+        /*bound_out=*/nullptr, *exciting_schema);
+    ExpectBindsTo(
+        cmp(field_ref("dec128_4_2"), field_ref("dec256_3_2")),
+        cmp(cast(field_ref("dec128_4_2"), decimal256(4, 2)), field_ref("dec256_3_2")),
+        /*bound_out=*/nullptr, *exciting_schema);
+    ExpectBindsTo(
+        cmp(field_ref("dec256_3_2"), field_ref("dec128_4_2")),
+        cmp(field_ref("dec256_3_2"), cast(field_ref("dec128_4_2"), decimal256(4, 2))),
+        /*bound_out=*/nullptr, *exciting_schema);
+
+    // decimal decimal with different widths different scales
     ExpectBindsTo(
         cmp(field_ref("dec128_3_2"), field_ref("dec256_5_3")),
         cmp(cast(field_ref("dec128_3_2"), decimal256(4, 3)), field_ref("dec256_5_3")),
@@ -831,6 +850,20 @@ TEST(Expression, BindWithImplicitCasts) {
                       cast(field_ref("dec128_5_3"), decimal256(5, 3))),
                   /*bound_out=*/nullptr, *exciting_schema);
 
+    // decimal decimal with same width same precision but different scales (no cast)
+    ExpectBindsTo(cmp(field_ref("dec128_3_2"), field_ref("dec128_4_2")),
+                  cmp(field_ref("dec128_3_2"), field_ref("dec128_4_2")),
+                  /*bound_out=*/nullptr, *exciting_schema);
+    ExpectBindsTo(cmp(field_ref("dec128_4_2"), field_ref("dec128_3_2")),
+                  cmp(field_ref("dec128_4_2"), field_ref("dec128_3_2")),
+                  /*bound_out=*/nullptr, *exciting_schema);
+    ExpectBindsTo(cmp(field_ref("dec256_3_2"), field_ref("dec256_4_2")),
+                  cmp(field_ref("dec256_3_2"), field_ref("dec256_4_2")),
+                  /*bound_out=*/nullptr, *exciting_schema);
+    ExpectBindsTo(cmp(field_ref("dec256_4_2"), field_ref("dec256_3_2")),
+                  cmp(field_ref("dec256_4_2"), field_ref("dec256_3_2")),
+                  /*bound_out=*/nullptr, *exciting_schema);
+
     // decimal decimal with same width but different scales
     ExpectBindsTo(
         cmp(field_ref("dec128_3_2"), field_ref("dec128_5_3")),
@@ -839,6 +872,14 @@ TEST(Expression, BindWithImplicitCasts) {
     ExpectBindsTo(
         cmp(field_ref("dec128_5_3"), field_ref("dec128_3_2")),
         cmp(field_ref("dec128_5_3"), cast(field_ref("dec128_3_2"), decimal128(4, 3))),
+        /*bound_out=*/nullptr, *exciting_schema);
+    ExpectBindsTo(
+        cmp(field_ref("dec256_3_2"), field_ref("dec256_5_3")),
+        cmp(cast(field_ref("dec256_3_2"), decimal256(4, 3)), field_ref("dec256_5_3")),
+        /*bound_out=*/nullptr, *exciting_schema);
+    ExpectBindsTo(
+        cmp(field_ref("dec256_5_3"), field_ref("dec256_3_2")),
+        cmp(field_ref("dec256_5_3"), cast(field_ref("dec256_3_2"), decimal256(4, 3))),
         /*bound_out=*/nullptr, *exciting_schema);
   }
 
