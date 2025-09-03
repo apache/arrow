@@ -809,6 +809,51 @@ TEST(Expression, BindWithImplicitCasts) {
                 call("is_in", {cast(field_ref("dict_str"), utf8())}, in_a));
 }
 
+TEST(Expression, BindWithImplicitCastsForCaseWhenOnDecimal) {
+  auto exciting_schema = schema(
+      {field("a", struct_({field("", boolean())})),
+       field("dec128_20_3", decimal128(20, 3)), field("dec128_21_3", decimal128(21, 3)),
+       field("dec128_20_1", decimal128(20, 1)), field("dec128_21_1", decimal128(21, 1)),
+       field("dec256_20_3", decimal256(20, 3)), field("dec256_21_3", decimal256(21, 3)),
+       field("dec256_20_1", decimal256(20, 1)), field("dec256_21_1", decimal256(21, 1))});
+  ExpectBindsTo(call("case_when", {field_ref("a"), field_ref("dec128_20_3"),
+                                   field_ref("dec128_21_3")}),
+                call("case_when",
+                     {field_ref("a"), cast(field_ref("dec128_20_3"), decimal128(21, 3)),
+                      field_ref("dec128_21_3")}),
+                /*bound_out=*/nullptr, *exciting_schema);
+  ExpectBindsTo(call("case_when", {field_ref("a"), field_ref("dec128_20_1"),
+                                   field_ref("dec128_21_3")}),
+                call("case_when",
+                     {field_ref("a"), cast(field_ref("dec128_20_1"), decimal128(22, 3)),
+                      cast(field_ref("dec128_21_3"), decimal128(22, 3))}),
+                /*bound_out=*/nullptr, *exciting_schema);
+  ExpectBindsTo(call("case_when", {field_ref("a"), field_ref("dec128_20_3"),
+                                   field_ref("dec128_21_1")}),
+                call("case_when",
+                     {field_ref("a"), cast(field_ref("dec128_20_3"), decimal128(23, 3)),
+                      cast(field_ref("dec128_21_1"), decimal128(23, 3))}),
+                /*bound_out=*/nullptr, *exciting_schema);
+  ExpectBindsTo(call("case_when", {field_ref("a"), field_ref("dec128_20_3"),
+                                   field_ref("dec256_21_3")}),
+                call("case_when",
+                     {field_ref("a"), cast(field_ref("dec128_20_3"), decimal256(21, 3)),
+                      field_ref("dec256_21_3")}),
+                /*bound_out=*/nullptr, *exciting_schema);
+  ExpectBindsTo(call("case_when", {field_ref("a"), field_ref("dec256_20_1"),
+                                   field_ref("dec128_21_3")}),
+                call("case_when",
+                     {field_ref("a"), cast(field_ref("dec256_20_1"), decimal256(22, 3)),
+                      cast(field_ref("dec128_21_3"), decimal256(22, 3))}),
+                /*bound_out=*/nullptr, *exciting_schema);
+  ExpectBindsTo(call("case_when", {field_ref("a"), field_ref("dec256_20_3"),
+                                   field_ref("dec256_21_1")}),
+                call("case_when",
+                     {field_ref("a"), cast(field_ref("dec256_20_3"), decimal256(23, 3)),
+                      cast(field_ref("dec256_21_1"), decimal256(23, 3))}),
+                /*bound_out=*/nullptr, *exciting_schema);
+}
+
 TEST(Expression, BindNestedCall) {
   auto expr = add(field_ref("a"),
                   call("subtract", {call("multiply", {field_ref("b"), field_ref("c")}),
