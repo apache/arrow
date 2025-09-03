@@ -450,7 +450,7 @@ to the Parquet format specification for details on what the actual binary values
   * At least one (or both) of the following:
 
     * A field named ``value`` which is of type ``Binary``, ``LargeBinary``, or ``BinaryView``.
-      *(unshredded variants consist of just the ``metadata`` and ``value`` fields only)*
+      (unshredded variants consist of just the ``metadata`` and ``value`` fields only)
 
     * A field named ``typed_value`` which can be a :ref:`variant_primitive_type_mapping` or a ``List``, ``LargeList``, ``ListView`` or ``Struct``
 
