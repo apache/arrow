@@ -52,7 +52,7 @@
 # NOTE: You must update PYTHON_WHEEL_WINDOWS_IMAGE_REVISION in .env
 # when you update this file.
 
-FROM mcr.microsoft.com/windows/servercore:ltsc2022-KB5051979
+FROM mcr.microsoft.com/windows/servercore:ltsc2022
 
 # Ensure we in a command shell and not Powershell
 SHELL ["cmd", "/S", "/C"]
@@ -71,6 +71,7 @@ RUN `
   --add Microsoft.VisualStudio.Component.VC.CMake.Project `
   || IF "%ERRORLEVEL%"=="3010" EXIT 0) `
   && del /q vs_buildtools.exe
+RUN call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
 
 # Install choco CLI
 #
