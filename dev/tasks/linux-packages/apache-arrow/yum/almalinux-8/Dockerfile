@@ -51,8 +51,8 @@ RUN \
     ninja-build \
     openssl-devel \
     pkg-config \
-    python312 \
-    python312-pip \
+    python3.12 \
+    python3.12-pip \
     re2-devel \
     # rapidjson-devel \
     rpmdevtools \
