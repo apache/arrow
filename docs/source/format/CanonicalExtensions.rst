@@ -49,7 +49,7 @@ types:
      The currently allowed prefixes are:
      * "``arrow.``" - For general-purpose canonical extension types.
      * "``parquet.``" - For canonical extension types that are intended primarily for
-       interoperability with `Apache Parquet <https://parquet.apache.org/>`__ format.
+       interoperability with the `Apache Parquet <https://parquet.apache.org/>`__ format.
 
   2) Its parameters, if any, *must* be described in the proposal.
 
