@@ -460,6 +460,7 @@ to the Parquet format specification for details on what the actual binary values
         * A field named ``value`` which is of type ``Binary``, ``LargeBinary``, or ``BinaryView``.
 
         * A field named ``typed_value`` which follows the rules outlined above (this allows for arbitrarily nested data).
+
 * Extension type parameters:
 
   This type does not have any parameters.
@@ -504,9 +505,9 @@ In Parquet, this could be represented as::
 Thus the corresponding storage type for the ``parquet.variant`` Arrow extension type would be::
 
   struct<
-    metadata: binary required,
-    value: binary optional,
-    typed_value: int64 optional
+    metadata: binary non-nullable,
+    value: binary nullable,
+    typed_value: int64 nullable
   >
 
 If we suppose a series of measurements consisting of::
@@ -611,13 +612,13 @@ The storage type to represent this in Arrow as a Variant extension type would be
     typed_value: list<element: struct<
       value: binary nullable,
       typed_value: string nullable
-    > required> nullable
+    > non-nullable> nullable
   >
 
 .. note::
 
-  As usual, **Binary** could also be **LargeBinary** or **BinaryView**, **String** could also be **LargeString** or **StringView**,
-  and **List** could also be **LargeList** or **ListView**.
+   As usual, **Binary** could also be **LargeBinary** or **BinaryView**, **String** could also be **LargeString** or **StringView**,
+   and **List** could also be **LargeList** or **ListView**.
 
 The data would then be stored in Arrow as follows::
 
@@ -938,9 +939,9 @@ that looks like this::
 
   {
     "event_type": "login",
-    “event_ts”: 1729794114937,
-    “location”: { “longitude”: 1.5, “latitude”: 5.5 },
-    “tags”: [“foo”, “bar”, “baz”]
+    "event_ts": 1729794114937,
+    "location”: {"longitude": 1.5, "latitude": 5.5},
+    "tags": ["foo", "bar", "baz"]
   }
 
 If we shred the extra fields out and represent it as Parquet it looks like::
