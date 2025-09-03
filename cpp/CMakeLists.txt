@@ -351,6 +351,12 @@ endif()
 
 include(SetupCxxFlags)
 
+if(${CMAKE_CXX_FLAGS_DEBUG} MATCHES "-Og")
+  # GH-47475: xxhash fails inlining when -Og is used.
+  # See: https://github.com/Cyan4973/xxHash/issues/943
+  add_definitions(-DXXH_NO_INLINE_HINTS)
+endif()
+
 #
 # Linker flags
 #
