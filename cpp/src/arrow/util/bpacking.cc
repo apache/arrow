@@ -36,7 +36,9 @@
 namespace arrow {
 namespace internal {
 
-int unpack32_default(const uint32_t* in, uint32_t* out, int batch_size, int num_bits) {
+int unpack32_default(const uint8_t* in_, uint32_t* out, int batch_size, int num_bits) {
+  const uint32_t* in = reinterpret_cast<const uint32_t*>(in_);
+
   batch_size = batch_size / 32 * 32;
   int num_loops = batch_size / 32;
 
@@ -168,7 +170,7 @@ struct Unpack32DynamicFunction {
 
 }  // namespace
 
-int unpack32(const uint32_t* in, uint32_t* out, int batch_size, int num_bits) {
+int unpack32(const uint8_t* in, uint32_t* out, int batch_size, int num_bits) {
 #if defined(ARROW_HAVE_NEON)
   return unpack32_neon(in, out, batch_size, num_bits);
 #else

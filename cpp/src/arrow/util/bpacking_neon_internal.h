@@ -17,12 +17,10 @@
 
 #pragma once
 
-#include <stdint.h>
+#include <cstdint>
 
-namespace arrow {
-namespace internal {
+namespace arrow::internal {
 
-int unpack32_neon(const uint32_t* in, uint32_t* out, int batch_size, int num_bits);
+int unpack32_neon(const uint8_t* in, uint32_t* out, int batch_size, int num_bits);
 
-}  // namespace internal
-}  // namespace arrow
+}  // namespace arrow::internal
