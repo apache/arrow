@@ -1459,12 +1459,9 @@ struct CaseWhenFunction : ScalarFunction {
           DCHECK(std::all_of(types.begin() + 1, types.end(), [](const TypeHolder& type) {
             return is_decimal(type.id());
           }));
-          const auto& ty1 = checked_cast<const DecimalType&>(*types[1].type);
           return std::all_of(
-              types.begin() + 2, types.end(), [&ty1](const TypeHolder& type) {
-                const auto& ty = checked_cast<const DecimalType&>(*type.type);
-                return ty1.Equals(ty);
-              });
+              types.begin() + 2, types.end(),
+              [&types](const TypeHolder& type) { return type == types[1]; });
         });
     return constraint;
   }
