@@ -831,7 +831,7 @@ TEST(Expression, BindWithImplicitCasts) {
                       cast(field_ref("dec128_5_3"), decimal256(5, 3))),
                   /*bound_out=*/nullptr, *exciting_schema);
 
-    // decimal decimal with different scales
+    // decimal decimal with same width but different scales
     ExpectBindsTo(
         cmp(field_ref("dec128_3_2"), field_ref("dec128_5_3")),
         cmp(cast(field_ref("dec128_3_2"), decimal128(4, 3)), field_ref("dec128_5_3")),
