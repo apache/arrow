@@ -19,13 +19,11 @@
 #include "arrow/util/bpacking_simd256_generated_internal.h"
 #include "arrow/util/bpacking_simd_internal.h"
 
-namespace arrow {
-namespace internal {
+namespace arrow::internal {
 
-int unpack32_avx2(const uint32_t* in, uint32_t* out, int batch_size, int num_bits) {
-  return unpack32_specialized<UnpackBits256<DispatchLevel::AVX2>>(in, out, batch_size,
-                                                                  num_bits);
+int unpack32_avx2(const uint8_t* in, uint32_t* out, int batch_size, int num_bits) {
+  return unpack32_specialized<UnpackBits256<DispatchLevel::AVX2>>(
+      reinterpret_cast<const uint32_t*>(in), out, batch_size, num_bits);
 }
 
-}  // namespace internal
-}  // namespace arrow
+}  // namespace arrow::internal
