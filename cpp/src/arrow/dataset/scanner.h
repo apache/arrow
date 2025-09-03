@@ -468,7 +468,7 @@ class ARROW_DS_EXPORT Scanner {
 
   ::arrow::internal::Executor* async_cpu_executor() const {
     return scan_options_->cpu_executor ? scan_options_->cpu_executor
-                                                  : ::arrow::internal::GetCpuThreadPool();
+                                       : ::arrow::internal::GetCpuThreadPool();
   }
 };
 

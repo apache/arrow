@@ -360,9 +360,8 @@ class OneShotFragment : public Fragment {
     ARROW_ASSIGN_OR_RAISE(
         auto background_gen,
         MakeBackgroundGenerator(std::move(batch_it_), options->io_context.executor()));
-    auto cpu_executor = options->cpu_executor
-                            ? options->cpu_executor
-                            : ::arrow::internal::GetCpuThreadPool();
+    auto cpu_executor = options->cpu_executor ? options->cpu_executor
+                                              : ::arrow::internal::GetCpuThreadPool();
     return MakeTransferredGenerator(std::move(background_gen), cpu_executor);
   }
   std::string type_name() const override { return "one-shot"; }
