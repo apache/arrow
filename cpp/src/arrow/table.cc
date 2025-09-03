@@ -30,6 +30,7 @@
 #include "arrow/array/concatenate.h"
 #include "arrow/array/util.h"
 #include "arrow/chunked_array.h"
+#include "arrow/compare.h"
 #include "arrow/compute/cast.h"
 #include "arrow/pretty_print.h"
 #include "arrow/record_batch.h"
