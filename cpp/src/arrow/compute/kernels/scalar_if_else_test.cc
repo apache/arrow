@@ -1807,6 +1807,74 @@ TEST(TestCaseWhen, Decimal) {
   }
 }
 
+TEST(TestCaseWhen, DecimalPromotion) {
+  auto check_case_when_decimal_promotion =
+      [](std::shared_ptr<Scalar> body_true, std::shared_ptr<Scalar> body_false,
+         std::shared_ptr<Scalar> promoted_true, std::shared_ptr<Scalar> promoted_false) {
+        auto cond_true = ScalarFromJSON(boolean(), "true");
+        auto cond_false = ScalarFromJSON(boolean(), "false");
+        CheckScalar("case_when", {MakeStruct({cond_true}), body_true, body_false},
+                    promoted_true);
+        CheckScalar("case_when", {MakeStruct({cond_false}), body_true, body_false},
+                    promoted_false);
+      };
+
+  const std::vector<std::pair<int, int>> precisions = {{10, 20}, {15, 15}, {20, 10}};
+  const std::vector<std::pair<int, int>> scales = {{3, 9}, {6, 6}, {9, 3}};
+  for (auto p : precisions) {
+    for (auto s : scales) {
+      auto p1 = p.first;
+      auto s1 = s.first;
+      auto p2 = p.second;
+      auto s2 = s.second;
+
+      auto max_scale = std::max({s1, s2});
+      auto scale_up_1 = max_scale - s1;
+      auto scale_up_2 = max_scale - s2;
+      auto max_precision = std::max({p1 + scale_up_1, p2 + scale_up_2});
+
+      // Operand string: 444.777...
+      std::string str_d1 =
+          R"(")" + std::string(p1 - s1, '4') + "." + std::string(s1, '7') + R"(")";
+      std::string str_d2 =
+          R"(")" + std::string(p2 - s2, '4') + "." + std::string(s2, '7') + R"(")";
+
+      // Promoted string: 444.777...000
+      std::string str_d1_promoted = R"(")" + std::string(p1 - s1, '4') + "." +
+                                    std::string(s1, '7') +
+                                    std::string(max_scale - s1, '0') + R"(")";
+      std::string str_d2_promoted = R"(")" + std::string(p2 - s2, '4') + "." +
+                                    std::string(s2, '7') +
+                                    std::string(max_scale - s2, '0') + R"(")";
+
+      auto d128_1 = decimal128(p1, s1);
+      auto d128_2 = decimal128(p2, s2);
+      auto d256_1 = decimal256(p1, s1);
+      auto d256_2 = decimal256(p2, s2);
+      auto d128_promoted = decimal128(max_precision, max_scale);
+      auto d256_promoted = decimal256(max_precision, max_scale);
+
+      auto scalar128_1 = ScalarFromJSON(d128_1, str_d1);
+      auto scalar128_2 = ScalarFromJSON(d128_2, str_d2);
+      auto scalar256_1 = ScalarFromJSON(d256_1, str_d1);
+      auto scalar256_2 = ScalarFromJSON(d256_2, str_d2);
+      auto scalar128_d1_promoted = ScalarFromJSON(d128_promoted, str_d1_promoted);
+      auto scalar128_d2_promoted = ScalarFromJSON(d128_promoted, str_d2_promoted);
+      auto scalar256_d1_promoted = ScalarFromJSON(d256_promoted, str_d1_promoted);
+      auto scalar256_d2_promoted = ScalarFromJSON(d256_promoted, str_d2_promoted);
+
+      check_case_when_decimal_promotion(scalar128_1, scalar128_2, scalar128_d1_promoted,
+                                        scalar128_d2_promoted);
+      check_case_when_decimal_promotion(scalar128_1, scalar256_2, scalar256_d1_promoted,
+                                        scalar256_d2_promoted);
+      check_case_when_decimal_promotion(scalar256_1, scalar128_2, scalar256_d1_promoted,
+                                        scalar256_d2_promoted);
+      check_case_when_decimal_promotion(scalar256_1, scalar256_2, scalar256_d1_promoted,
+                                        scalar256_d2_promoted);
+    }
+  }
+}
+
 TEST(TestCaseWhen, FixedSizeBinary) {
   auto type = fixed_size_binary(3);
   auto cond_true = ScalarFromJSON(boolean(), "true");
@@ -2509,6 +2577,28 @@ TEST(TestCaseWhen, UnionBoolStringRandom) {
   }
 }
 
+TEST(TestCaseWhen, DispatchExact) {
+  // Decimal types with same (p, s)
+  CheckDispatchExact("case_when", {struct_({field("", boolean())}), decimal128(20, 3),
+                                   decimal128(20, 3)});
+  CheckDispatchExact("case_when", {struct_({field("", boolean())}), decimal256(20, 3),
+                                   decimal256(20, 3)});
+
+  // Decimal types with different (p, s)
+  CheckDispatchExactFails("case_when", {struct_({field("", boolean())}),
+                                        decimal128(20, 3), decimal128(21, 3)});
+  CheckDispatchExactFails("case_when", {struct_({field("", boolean())}),
+                                        decimal128(20, 1), decimal128(20, 3)});
+  CheckDispatchExactFails("case_when", {struct_({field("", boolean())}),
+                                        decimal128(20, 3), decimal256(20, 3)});
+  CheckDispatchExactFails("case_when", {struct_({field("", boolean())}),
+                                        decimal256(20, 3), decimal128(21, 3)});
+  CheckDispatchExactFails("case_when", {struct_({field("", boolean())}),
+                                        decimal256(20, 3), decimal256(21, 3)});
+  CheckDispatchExactFails("case_when", {struct_({field("", boolean())}),
+                                        decimal256(20, 1), decimal256(20, 3)});
+}
+
 TEST(TestCaseWhen, DispatchBest) {
   CheckDispatchBest("case_when", {struct_({field("", boolean())}), int64(), int32()},
                     {struct_({field("", boolean())}), int64(), int64()});
@@ -2559,6 +2649,32 @@ TEST(TestCaseWhen, DispatchBest) {
   CheckDispatchBest(
       "case_when", {struct_({field("", boolean())}), dictionary(int64(), utf8()), utf8()},
       {struct_({field("", boolean())}), utf8(), utf8()});
+
+  // Decimal promotion
+  CheckDispatchBest(
+      "case_when",
+      {struct_({field("", boolean())}), decimal128(20, 3), decimal128(21, 3)},
+      {struct_({field("", boolean())}), decimal128(21, 3), decimal128(21, 3)});
+  CheckDispatchBest(
+      "case_when",
+      {struct_({field("", boolean())}), decimal128(20, 1), decimal128(21, 3)},
+      {struct_({field("", boolean())}), decimal128(22, 3), decimal128(22, 3)});
+  CheckDispatchBest(
+      "case_when",
+      {struct_({field("", boolean())}), decimal128(20, 3), decimal128(21, 1)},
+      {struct_({field("", boolean())}), decimal128(23, 3), decimal128(23, 3)});
+  CheckDispatchBest(
+      "case_when",
+      {struct_({field("", boolean())}), decimal128(20, 3), decimal256(21, 3)},
+      {struct_({field("", boolean())}), decimal256(21, 3), decimal256(21, 3)});
+  CheckDispatchBest(
+      "case_when",
+      {struct_({field("", boolean())}), decimal256(20, 1), decimal128(21, 3)},
+      {struct_({field("", boolean())}), decimal256(22, 3), decimal256(22, 3)});
+  CheckDispatchBest(
+      "case_when",
+      {struct_({field("", boolean())}), decimal256(20, 3), decimal256(21, 1)},
+      {struct_({field("", boolean())}), decimal256(23, 3), decimal256(23, 3)});
 }
 
 template <typename Type>
