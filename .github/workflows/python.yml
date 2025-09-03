@@ -78,13 +78,13 @@ jobs:
             image: conda-python
             title: AMD64 Conda Python 3.11 Without Pandas
             python: "3.11"
-          - name: conda-python-3.10-pandas-1.1.3
+          - name: conda-python-3.10-pandas-1.3.4
             cache: conda-python-3.10
             image: conda-python-pandas
-            title: AMD64 Conda Python 3.10 Pandas 1.1.3
+            title: AMD64 Conda Python 3.10 Pandas 1.3.4
             python: "3.10"
-            pandas: "1.1.3"
-            numpy: 1.19.5
+            pandas: "1.3.4"
+            numpy: 1.21.2
           - name: conda-python-3.12-pandas-latest
             cache: conda-python-3.12
             image: conda-python-pandas
