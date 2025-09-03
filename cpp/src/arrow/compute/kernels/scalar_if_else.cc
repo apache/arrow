@@ -1455,7 +1455,7 @@ struct CaseWhenFunction : ScalarFunction {
   static std::shared_ptr<MatchConstraint> DecimalMatchConstraint() {
     static auto constraint =
         MatchConstraint::Make([](const std::vector<TypeHolder>& types) -> bool {
-          DCHECK_GE(types.size(), 3);
+          DCHECK_GE(types.size(), 2);
           DCHECK(std::all_of(types.begin() + 1, types.end(), [](const TypeHolder& type) {
             return is_decimal(type.id());
           }));
