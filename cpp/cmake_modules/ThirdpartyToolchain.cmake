@@ -4651,8 +4651,10 @@ function(build_orc)
     get_filename_component(Protobuf_ROOT "${PROTOBUF_INCLUDE_DIR}" DIRECTORY)
     set(PROTOBUF_HOME ${Protobuf_ROOT})
     # ORC uses this.
-    target_include_directories(${ARROW_PROTOBUF_LIBPROTOC}
-                               INTERFACE "${PROTOBUF_INCLUDE_DIR}")
+    if(PROTOBUF_VENDORED)
+      target_include_directories(${ARROW_PROTOBUF_LIBPROTOC}
+                                 INTERFACE "${PROTOBUF_INCLUDE_DIR}")
+    endif()
     set(PROTOBUF_EXECUTABLE ${ARROW_PROTOBUF_PROTOC})
     set(PROTOBUF_LIBRARY ${ARROW_PROTOBUF_LIBPROTOBUF})
     set(PROTOC_LIBRARY ${ARROW_PROTOBUF_LIBPROTOC})
