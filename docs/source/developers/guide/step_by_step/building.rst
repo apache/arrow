@@ -142,10 +142,6 @@ Building other Arrow libraries
 
          - :ref:`build_pyarrow`
 
-         Or
-
-         - :ref:`build_pyarrow_win`
-
       When you will make change to the code, you may need to recompile
       PyArrow or Arrow C++:
 

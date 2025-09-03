@@ -1,0 +1,9 @@
+cython
+hypothesis
+numpy~=2.1.0
+packaging
+pandas
+pytest
+pytz
+requests; sys_platform == 'win32'
+tzdata; sys_platform == 'win32'

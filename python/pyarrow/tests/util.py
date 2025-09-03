@@ -419,6 +419,9 @@ def _configure_s3_limited_user(s3_server, policy, username, password):
         # ... and a sample bucket for that user to write to
         _run_mc_command(mcdir, 'mb', 'myminio/existing-bucket',
                         '--ignore-existing')
+        # Create a protected bucket for testing no-delete-bucket policy
+        _run_mc_command(mcdir, 'mb', 'myminio/no-delete-bucket',
+                        '--ignore-existing')
 
     except FileNotFoundError:
         pytest.skip("Configuring limited s3 user failed")

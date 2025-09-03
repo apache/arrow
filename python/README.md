@@ -42,7 +42,7 @@ pip install pyarrow
 ```
 
 If you encounter any issues importing the pip wheels on Windows, you may need
-to install the [Visual C++ Redistributable for Visual Studio 2015][6].
+to install the latest [Visual C++ Redistributable for Visual Studio][6].
 
 ## Development
 
@@ -56,4 +56,4 @@ See [documentation build instructions][1] in the documentation subproject.
 [2]: https://github.com/apache/arrow/blob/main/docs/source/developers/python.rst
 [3]: https://github.com/pandas-dev/pandas
 [5]: https://arrow.apache.org/docs/latest/python/benchmarks.html
-[6]: https://www.microsoft.com/en-us/download/details.aspx?id=48145
+[6]: https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist?view=msvc-170#latest-microsoft-visual-c-redistributable-version

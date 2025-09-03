@@ -123,32 +123,6 @@ env:
       CROSSBOW_GITHUB_TOKEN: {{ '${{ secrets.CROSSBOW_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}' }}
 {% endmacro %}
 
-{%- macro github_upload_gemfury(pattern) -%}
-  {%- if arrow.is_default_branch() -%}
-  - name: Set up Ruby
-    uses: ruby/setup-ruby@v1
-    with:
-      ruby-version: "ruby"
-  - name: Install gemfury client
-    run: |
-      gem install gemfury
-  - name: Upload package to Gemfury
-    shell: bash
-    run: |
-      if $(fury versions --as=${CROSSBOW_GEMFURY_ORG} --api-token=${CROSSBOW_GEMFURY_TOKEN} pyarrow | grep --fixed-strings -q "{{ arrow.no_rc_version }}"); then
-        echo "Version {{ arrow.no_rc_version }} already exists. Avoid pushing version."
-      else
-        fury push \
-          --api-token=${CROSSBOW_GEMFURY_TOKEN} \
-          --as=${CROSSBOW_GEMFURY_ORG} \
-          {{ pattern }}
-      fi
-    env:
-      CROSSBOW_GEMFURY_TOKEN: {{ '${{ secrets.CROSSBOW_GEMFURY_TOKEN }}' }}
-      CROSSBOW_GEMFURY_ORG: {{ '${{ secrets.CROSSBOW_GEMFURY_ORG }}' }}
-  {% endif %}
-{% endmacro %}
-
 {%- macro github_upload_wheel_scientific_python(pattern) -%}
   {%- if arrow.is_default_branch() -%}
   - name: Upload wheel to Anaconda scientific-python

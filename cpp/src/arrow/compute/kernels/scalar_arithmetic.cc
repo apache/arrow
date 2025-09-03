@@ -670,7 +670,6 @@ void AddDecimalBinaryKernels(const std::string& name, ScalarFunction* func) {
     out_type = OutputType(ResolveDecimalMultiplicationOutput);
   } else if (op == "divide") {
     out_type = OutputType(ResolveDecimalDivisionOutput);
-    constraint = BinaryDecimalScale1GeScale2();
   } else {
     DCHECK(false);
   }
@@ -726,6 +725,17 @@ ArrayKernelExec GenerateArithmeticWithFixedIntOutType(detail::GetTypeId get_id) 
 
 struct ArithmeticFunction : ScalarFunction {
   using ScalarFunction::ScalarFunction;
+
+  Result<const Kernel*> DispatchExact(
+      const std::vector<TypeHolder>& types) const override {
+    if ((name_ == "divide" || name_ == "divide_checked") && HasDecimal(types)) {
+      // Decimal division ALWAYS scales up the dividend, so there will NEVER be an exact
+      // match.
+      return arrow::compute::detail::NoMatchingKernel(this, types);
+    }
+
+    return ScalarFunction::DispatchExact(types);
+  }
 
   Result<const Kernel*> DispatchBest(std::vector<TypeHolder>* types) const override {
     RETURN_NOT_OK(CheckArity(types->size()));
