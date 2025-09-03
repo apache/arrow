@@ -421,7 +421,7 @@ better zero-copy compatibility with various systems that also store booleans usi
 
   Metadata is an empty string.
 
-.. _variant_extension:
+.. _parquet_variant_extension:
 
 Parquet Variant
 ===============
