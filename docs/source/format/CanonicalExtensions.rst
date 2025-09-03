@@ -428,7 +428,7 @@ Parquet Variant
 
 Variant represents a value that may be one of:
 
-* Primitive: a type and corresponding value (e.g. INT, STRING)
+* Primitive: a type and corresponding value (e.g. ``INT``, ``STRING``)
 
 * Array: An ordered list of Variant values
 
