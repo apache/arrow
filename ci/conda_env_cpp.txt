@@ -40,7 +40,6 @@ make
 meson
 ninja
 nodejs
-orc
 pkg-config
 python
 rapidjson
