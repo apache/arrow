@@ -389,7 +389,7 @@ Result<TaggedRecordBatchIterator> AsyncScanner::ScanBatches() {
       [this](::arrow::internal::Executor* executor) {
         return ScanBatchesAsync(executor);
       },
-      scan_options_->use_threads, this->async_cpu_executor());
+      scan_options_->use_threads, scan_options_->cpu_executor);
 }
 
 Result<EnumeratedRecordBatchIterator> AsyncScanner::ScanBatchesUnordered() {
@@ -397,7 +397,7 @@ Result<EnumeratedRecordBatchIterator> AsyncScanner::ScanBatchesUnordered() {
       [this](::arrow::internal::Executor* executor) {
         return ScanBatchesUnorderedAsync(executor);
       },
-      scan_options_->use_threads, this->async_cpu_executor());
+      scan_options_->use_threads, scan_options_->cpu_executor);
 }
 
 Result<std::shared_ptr<Table>> AsyncScanner::ToTable() {
