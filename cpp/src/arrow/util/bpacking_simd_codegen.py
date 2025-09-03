@@ -22,106 +22,133 @@
 #   python bpacking_simd_codegen.py 256 > bpacking_simd256_generated_internal.h
 #   python bpacking_simd_codegen.py 512 > bpacking_simd512_generated_internal.h
 
-from functools import partial
 import sys
 from textwrap import dedent, indent
 
 
 class UnpackGenerator:
-
-    def __init__(self, simd_width):
+    def __init__(self, simd_width, out_width, out_type):
         self.simd_width = simd_width
-        if simd_width % 32 != 0:
-            raise("SIMD bit width should be a multiple of 32")
+        self.out_width = out_width
+        if simd_width % out_width != 0:
+            raise ("SIMD bit width should be a multiple of output width")
         self.simd_byte_width = simd_width // 8
+        self.out_byte_width = out_width // 8
+        self.out_type = out_type
 
     def print_unpack_bit0_func(self):
+        ty = self.out_type
         print(
-            "inline static const uint32_t* unpack0_32(const uint32_t* in, uint32_t* out) {")
-        print("  memset(out, 0x0, 32 * sizeof(*out));")
-        print("  out += 32;")
+            f"inline static const {ty}* unpack0_{self.out_width}(const {ty}* in, {ty}* out) {{"
+        )
+        print(f"  std::memset(out, 0x0, {self.out_width} * sizeof(*out));")
+        print(f"  out += {self.out_width};")
         print("")
         print("  return in;")
         print("}")
 
-
-    def print_unpack_bit32_func(self):
+    def print_unpack_bitmax_func(self):
+        ty = self.out_type
         print(
-            "inline static const uint32_t* unpack32_32(const uint32_t* in, uint32_t* out) {")
-        print("  memcpy(out, in, 32 * sizeof(*out));")
-        print("  in += 32;")
-        print("  out += 32;")
+            f"inline static const {ty}* unpack{self.out_width}_{self.out_width}(const {ty}* in, {ty}* out) {{"
+        )
+        print(f"  std::memcpy(out, in, {self.out_width} * sizeof(*out));")
+        print(f"  in += {self.out_width};")
+        print(f"  out += {self.out_width};")
         print("")
         print("  return in;")
         print("}")
 
     def print_unpack_bit_func(self, bit):
-        def p(code):
-            print(indent(code, prefix='  '))
+        def p(code, level=1):
+            print(indent(code, prefix="  " * level))
+
+        mask = (1 << bit) - 1
+        ty = self.out_type
+        bytes_per_batch = self.simd_byte_width
+        words_per_batch = bytes_per_batch // self.out_byte_width
+
+        print(
+            f"inline static const {ty}* unpack{bit}_{self.out_width}(const {ty}* in, {ty}* out) {{"
+        )
+        p(
+            dedent(f"""\
+            using simd_batch = xsimd::make_sized_batch_t<{ty}, {self.simd_width // self.out_width}>;
+
+            {ty} mask = 0x{mask:0x};
+
+            simd_batch masks(mask);
+            simd_batch words, shifts;
+            simd_batch results;
+            """)
+        )
+
+        def safe_load(index):
+            return f"SafeLoad<{ty}>(in + {index})"
+
+        def static_cast_as_needed(str):
+            if self.out_width < 32:
+                return f"static_cast<{ty}>({str})"
+            return str
 
         shift = 0
         shifts = []
         in_index = 0
         inls = []
-        mask = (1 << bit) - 1
-        bracket = "{"
 
-        print(f"inline static const uint32_t* unpack{bit}_32(const uint32_t* in, uint32_t* out) {{")
-        p(dedent(f"""\
-            uint32_t mask = 0x{mask:0x};
-
-            simd_batch masks(mask);
-            simd_batch words, shifts;
-            simd_batch results;
-            """))
-
-        def safe_load(index):
-            return f"SafeLoad<uint32_t>(in + {index})"
-
-        for i in range(32):
-            if shift + bit == 32:
+        for i in range(self.out_width):
+            if shift + bit == self.out_width:
                 shifts.append(shift)
                 inls.append(safe_load(in_index))
                 in_index += 1
                 shift = 0
-            elif shift + bit > 32:  # cross the boundary
+            elif shift + bit > self.out_width:  # cross the boundary
                 inls.append(
-                    f"{safe_load(in_index)} >> {shift} | {safe_load(in_index + 1)} << {32 - shift}")
+                    static_cast_as_needed(
+                        f"{safe_load(in_index)} >> {shift} "
+                        f"| {safe_load(in_index + 1)} << {self.out_width - shift}"
+                    )
+                )
                 in_index += 1
-                shift = bit - (32 - shift)
+                shift = bit - (self.out_width - shift)
                 shifts.append(0)  # zero shift
             else:
                 shifts.append(shift)
                 inls.append(safe_load(in_index))
                 shift += bit
 
-        bytes_per_batch = self.simd_byte_width
-        words_per_batch = bytes_per_batch // 4
-
         one_word_template = dedent("""\
-            words = simd_batch{{ {words} }};
             shifts = simd_batch{{ {shifts} }};
             results = (words >> shifts) & masks;
             results.store_unaligned(out);
             out += {words_per_batch};
             """)
 
-        for start in range(0, 32, words_per_batch):
-            stop = start + words_per_batch;
+        for start in range(0, self.out_width, words_per_batch):
+            stop = start + words_per_batch
             p(f"""// extract {bit}-bit bundles {start} to {stop - 1}""")
-            p(one_word_template.format(
-                words=", ".join(inls[start:stop]),
-                shifts=", ".join(map(str, shifts[start:stop])),
-                words_per_batch=words_per_batch))
+            p("words = simd_batch{")
+            for word_part in inls[start:stop]:
+                p(f"{word_part},", level=2)
+            p("};")
+            p(
+                one_word_template.format(
+                    shifts=", ".join(map(str, shifts[start:stop])),
+                    words_per_batch=words_per_batch,
+                )
+            )
 
-        p(dedent(f"""\
+        p(
+            dedent(f"""\
             in += {bit};
-            return in;"""))
+            return in;""")
+        )
         print("}")
 
 
 def print_copyright():
-    print(dedent("""\
+    print(
+        dedent("""\
         // Licensed to the Apache Software Foundation (ASF) under one
         // or more contributor license agreements.  See the NOTICE file
         // distributed with this work for additional information
@@ -138,7 +165,8 @@ def print_copyright():
         // KIND, either express or implied.  See the License for the
         // specific language governing permissions and limitations
         // under the License.
-        """))
+        """)
+    )
 
 
 def print_note():
@@ -146,7 +174,7 @@ def print_note():
     print()
 
 
-def main(simd_width):
+def main(simd_width, outputs):
     print_copyright()
     print_note()
 
@@ -156,7 +184,8 @@ def main(simd_width):
     # potential name collisions if there are several UnpackBits generations
     # with the same SIMD width on a given architecture.
 
-    print(dedent(f"""\
+    print(
+        dedent(f"""\
         #pragma once
 
         #include <cstdint>
@@ -167,37 +196,37 @@ def main(simd_width):
         #include "arrow/util/dispatch_internal.h"
         #include "arrow/util/ubsan.h"
 
-        namespace arrow {{
-        namespace internal {{
+        namespace arrow::internal {{
         namespace {{
 
         using ::arrow::util::SafeLoad;
 
         template <DispatchLevel level>
         struct {struct_name} {{
+        """)
+    )
 
-        using simd_batch = xsimd::make_sized_batch_t<uint32_t, {simd_width//32}>;
-        """))
-
-    gen = UnpackGenerator(simd_width)
-    gen.print_unpack_bit0_func()
-    print()
-    for i in range(1, 32):
-        gen.print_unpack_bit_func(i)
+    for out_width, out_type in outputs:
+        gen = UnpackGenerator(simd_width, out_width, out_type)
+        gen.print_unpack_bit0_func()
         print()
-    gen.print_unpack_bit32_func()
-    print()
+        for i in range(1, out_width):
+            gen.print_unpack_bit_func(i)
+            print()
+        gen.print_unpack_bitmax_func()
+        print()
 
-    print(dedent(f"""\
+    print(
+        dedent(f"""\
         }};  // struct {struct_name}
 
         }}  // namespace
-        }}  // namespace internal
-        }}  // namespace arrow
-        """))
+        }}  // namespace arrow::internal
+        """)
+    )
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     usage = f"""Usage: {__file__} <SIMD bit-width>"""
     if len(sys.argv) != 2:
         raise ValueError(usage)
@@ -206,4 +235,5 @@ if __name__ == '__main__':
     except ValueError:
         raise ValueError(usage)
 
-    main(simd_width)
+    outputs = [(16, "uint16_t"), (32, "uint32_t")]
+    main(simd_width, outputs)
