@@ -43,6 +43,9 @@ if [ ! -z "${CONDA_PREFIX}" ] && [ "${ARROW_EMSCRIPTEN:-OFF}" = "OFF" ]; then
   fi
   export ARROW_CMAKE_ARGS
   export ARROW_GANDIVA_PC_CXX_FLAGS=$(echo | ${CXX} -E -Wp,-v -xc++ - 2>&1 | grep '^ ' | awk '{print "-isystem;" substr($1, 1)}' | tr '\n' ';')
+
+  export LIBRARY_PATH="${CONDA_PREFIX}/lib"
+  export CPLUS_INCLUDE_PATH="${CONDA_PREFIX}/include"
 elif [ -x "$(command -v xcrun)" ]; then
   export ARROW_GANDIVA_PC_CXX_FLAGS="-isysroot;$(xcrun --show-sdk-path)"
 fi

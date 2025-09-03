@@ -473,7 +473,22 @@ if needs_json
 endif
 
 if needs_orc
-    orc_dep = dependency('orc')
+    # not all versions of orc installed via conda distribute
+    # cmake/pkgconfig information, so they are undetectable
+    # without custom logic
+    orc_headers = ['orc/orc-config.hh']
+    orc_lib = cpp_compiler.find_library(
+        'orc',
+        has_headers: orc_headers,
+        required: false,
+    )
+
+    if orc_lib.found()
+        orc_dep = declare_dependency(dependencies: orc_lib)
+    else
+        orc_dep = dependency('orc')
+    endif
+
     arrow_components += {
         'arrow_orc': {
             'sources': files(
