@@ -51,8 +51,8 @@ RUN \
     ninja-build \
     openssl-devel \
     pkg-config \
-    python39 \
-    python39-pip \
+    python312 \
+    python312-pip \
     re2-devel \
     # rapidjson-devel \
     rpmdevtools \
@@ -64,4 +64,4 @@ RUN \
     which \
     zlib-devel && \
   dnf clean ${quiet} all && \
-  ln -s pip3.9 /usr/bin/pip3
+  ln -s pip3.12 /usr/bin/pip3
