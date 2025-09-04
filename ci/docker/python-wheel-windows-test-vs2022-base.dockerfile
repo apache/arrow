@@ -37,6 +37,8 @@ RUN `
     --add Microsoft.VisualStudio.Component.VC.Tools.x86.x64 `
     --add Microsoft.VisualStudio.Component.Windows10SDK.20348 `
     --add Microsoft.VisualStudio.Component.VC.CMake.Project `
+    --add Microsoft.VisualStudio.Workload.VCTools ^ `
+    --add Microsoft.VisualStudio.Workload.VisualStudioExtensionBuildTools ^ `
     || IF "%ERRORLEVEL%"=="3010" EXIT 0) `
     && del /q vs_buildtools.exe
 
