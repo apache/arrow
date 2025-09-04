@@ -534,6 +534,7 @@ Result<std::shared_ptr<Table>> PromoteTableToSchema(const std::shared_ptr<Table>
 
   return Table::Make(schema, std::move(columns));
 }
+
 namespace {
 
 bool ContainFloat(const std::shared_ptr<DataType>& type) {

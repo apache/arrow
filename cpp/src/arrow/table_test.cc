@@ -153,18 +153,16 @@ TEST_F(TestTable, AllColumnsAndFields) {
   ASSERT_EQ(0, fields.size());
 }
 
-class TestTableEquality : public TestTable {};
-
-TEST_F(TestTableEquality, Equals) {
+TEST(TestTableEquality, Equals) {
   const int length = 10;
 
   auto f0 = field("f0", int32());
   auto f1 = field("f1", uint8());
   auto f2 = field("f2", int16());
 
-  schema_ = schema({f0, f1, f2});
-  auto schema_same = schema({f0, f1, f2});
-  auto schema_fewer_fields = schema({f0, f1});
+  auto schema = ::arrow::schema({f0, f1, f2});
+  auto schema_same = ::arrow::schema({f0, f1, f2});
+  auto schema_fewer_fields = ::arrow::schema({f0, f1});
 
   random::RandomArrayGenerator gen(42);
 
@@ -178,7 +176,7 @@ TEST_F(TestTableEquality, Equals) {
   auto a_f1_different = gen.ArrayOf(uint8(), length);
   auto a_f2_different = gen.ArrayOf(uint16(), length);
 
-  table_ = Table::Make(schema_, {a_f0, a_f1, a_f2}, length);
+  auto table = Table::Make(schema, {a_f0, a_f1, a_f2}, length);
   auto table_same = Table::Make(schema_same, {a_f0, a_f1, a_f2}, length);
   auto table_fewer_fields = Table::Make(schema_fewer_fields, {a_f0, a_f1}, length);
   auto table_half =
@@ -187,19 +185,19 @@ TEST_F(TestTableEquality, Equals) {
       schema_fewer_fields, {a_f0_different, a_f1_different, a_f2_different}, length);
 
   // Same Values
-  ASSERT_TRUE(table_->Equals(*table_same));
+  ASSERT_TRUE(table->Equals(*table_same));
 
   // Different number of columns
-  ASSERT_FALSE(table_->Equals(*table_fewer_fields));
+  ASSERT_FALSE(table->Equals(*table_fewer_fields));
 
   // Different number of rows
-  ASSERT_FALSE(table_->Equals(*table_half));
+  ASSERT_FALSE(table->Equals(*table_half));
 
   // Different values
-  ASSERT_FALSE(table_->Equals(*table_different));
+  ASSERT_FALSE(table->Equals(*table_different));
 }
 
-TEST_F(TestTableEquality, MetadataAndSchema) {
+TEST(TestTableEquality, MetadataAndSchema) {
   int length = 10;
 
   auto f0 = field("f0", int32());
@@ -209,9 +207,9 @@ TEST_F(TestTableEquality, MetadataAndSchema) {
 
   auto metadata = key_value_metadata({"foo"}, {"bar"});
 
-  schema_ = schema({f0, f1, f2});
-  auto schema_with_metadata = schema_->WithMetadata(metadata);
-  auto schema_renamed_field = schema({f0, f1, f2b});
+  auto schema = ::arrow::schema({f0, f1, f2});
+  auto schema_with_metadata = schema->WithMetadata(metadata);
+  auto schema_renamed_field = ::arrow::schema({f0, f1, f2b});
 
   random::RandomArrayGenerator gen(42);
 
@@ -221,7 +219,7 @@ TEST_F(TestTableEquality, MetadataAndSchema) {
   auto a_f2b = a_f2;
 
   // All Tables have the same values but different schemas.
-  auto table = Table::Make(schema_, {a_f0, a_f1, a_f2}, length);
+  auto table = Table::Make(schema, {a_f0, a_f1, a_f2}, length);
   auto table_with_metadata =
       Table::Make(schema_with_metadata, {a_f0, a_f1, a_f2}, length);
   auto table_renamed_field =
@@ -250,137 +248,130 @@ TEST_F(TestTableEquality, MetadataAndSchema) {
       table->Equals(*table_with_metadata, options.use_schema(false).use_metadata(true)));
 }
 
-class TestTableEqualityFloatType : public TestTableEquality {};
+TEST(TestTableEqualityFloatType, SameValue) {
+  auto schema = ::arrow::schema({field("f0", int32()), field("f1", float64())});
+  auto table = TableFromJSON(
+      schema, {R"([{"f0": 1, "f1": 4.0}, {"f0": 2, "f1": 5.0}, {"f0": 3, "f1": 6.0}])"});
 
-TEST_F(TestTableEqualityFloatType, SameValue) {
-  schema_ = schema({field("f0", int32()), field("f1", float64())});
-  table_ = TableFromJSON(
-      schema_, {R"([{"f0": 1, "f1": 4.0}, {"f0": 2, "f1": 5.0}, {"f0": 3, "f1": 6.0}])"});
-
-  auto other_schema = schema({field("f0", int32()), field("f1", float64())});
+  auto other_schema = ::arrow::schema({field("f0", int32()), field("f1", float64())});
   auto other = TableFromJSON(
-      schema_, {R"([{"f0": 1, "f1": 4.0}, {"f0": 2, "f1": 5.0}, {"f0": 3, "f1": 6.0}])"});
-  ASSERT_TRUE(table_->Equals(*other));
+      schema, {R"([{"f0": 1, "f1": 4.0}, {"f0": 2, "f1": 5.0}, {"f0": 3, "f1": 6.0}])"});
+  ASSERT_TRUE(table->Equals(*other));
 }
 
-TEST_F(TestTableEqualityFloatType, SingedZero) {
-  schema_ = schema({field("f0", int32()), field("f1", float64())});
-  table_ = TableFromJSON(
-      schema_,
-      {R"([{"f0": 1, "f1": 4.0}, {"f0": 2, "f1": -0.0}, {"f0": 3, "f1": 0.0}])"});
+TEST(TestTableEqualityFloatType, SingedZero) {
+  auto schema = ::arrow::schema({field("f0", int32()), field("f1", float64())});
+  auto table = TableFromJSON(
+      schema, {R"([{"f0": 1, "f1": 4.0}, {"f0": 2, "f1": -0.0}, {"f0": 3, "f1": 0.0}])"});
 
-  auto other_schema = schema({field("f0", int32()), field("f1", float64())});
+  auto other_schema = ::arrow::schema({field("f0", int32()), field("f1", float64())});
   auto other = TableFromJSON(
-      schema_,
-      {R"([{"f0": 1, "f1": 4.0}, {"f0": 2, "f1": 0.0}, {"f0": 3, "f1": -0.0}])"});
+      schema, {R"([{"f0": 1, "f1": 4.0}, {"f0": 2, "f1": 0.0}, {"f0": 3, "f1": -0.0}])"});
   auto options = EqualOptions::Defaults();
 
-  ASSERT_TRUE(table_->Equals(*other, false, options));
-  ASSERT_FALSE(table_->Equals(*other, false, options.signed_zeros_equal(false)));
+  ASSERT_TRUE(table->Equals(*other, false, options));
+  ASSERT_FALSE(table->Equals(*other, false, options.signed_zeros_equal(false)));
 }
 
-TEST_F(TestTableEqualityFloatType, Infinity) {
-  schema_ = schema({field("f0", int32()), field("f1", float64())});
-  table_ = TableFromJSON(
-      schema_, {R"([{"f0": 1, "f1": 4.0}, {"f0": 2, "f1": 5.0}, {"f0": 3, "f1": Inf}])"});
+TEST(TestTableEqualityFloatType, Infinity) {
+  auto schema = ::arrow::schema({field("f0", int32()), field("f1", float64())});
+  auto table = TableFromJSON(
+      schema, {R"([{"f0": 1, "f1": 4.0}, {"f0": 2, "f1": 5.0}, {"f0": 3, "f1": Inf}])"});
 
-  auto other_schema = schema({field("f0", int32()), field("f1", float64())});
+  auto other_schema = ::arrow::schema({field("f0", int32()), field("f1", float64())});
   auto other_with_negative_inf = TableFromJSON(
-      schema_,
-      {R"([{"f0": 1, "f1": 4.0}, {"f0": 2, "f1": 5.0}, {"f0": 3, "f1": -Inf}])"});
+      schema, {R"([{"f0": 1, "f1": 4.0}, {"f0": 2, "f1": 5.0}, {"f0": 3, "f1": -Inf}])"});
 
   auto other_with_positive_inf = TableFromJSON(
-      schema_, {R"([{"f0": 1, "f1": 4.0}, {"f0": 2, "f1": 5.0}, {"f0": 3, "f1": Inf}])"});
-  ASSERT_FALSE(table_->Equals(*other_with_negative_inf));
-  ASSERT_TRUE(table_->Equals(*other_with_positive_inf));
+      schema, {R"([{"f0": 1, "f1": 4.0}, {"f0": 2, "f1": 5.0}, {"f0": 3, "f1": Inf}])"});
+  ASSERT_FALSE(table->Equals(*other_with_negative_inf));
+  ASSERT_TRUE(table->Equals(*other_with_positive_inf));
 }
 
-TEST_F(TestTableEqualityFloatType, NaN) {
-  schema_ = schema({field("f0", int32()), field("f1", float64())});
-  table_ = TableFromJSON(
-      schema_, {R"([{"f0": 1, "f1": 4.0}, {"f0": 2, "f1": NaN}, {"f0": 3, "f1": 6.0}])"});
+TEST(TestTableEqualityFloatType, NaN) {
+  auto schema = ::arrow::schema({field("f0", int32()), field("f1", float64())});
+  auto table = TableFromJSON(
+      schema, {R"([{"f0": 1, "f1": 4.0}, {"f0": 2, "f1": NaN}, {"f0": 3, "f1": 6.0}])"});
 
-  auto other_schema = schema({field("f0", int32()), field("f1", float64())});
+  auto other_schema = ::arrow::schema({field("f0", int32()), field("f1", float64())});
   auto other = TableFromJSON(
-      schema_, {R"([{"f0": 1, "f1": 4.0}, {"f0": 2, "f1": NaN}, {"f0": 3, "f1": 6.0}])"});
+      schema, {R"([{"f0": 1, "f1": 4.0}, {"f0": 2, "f1": NaN}, {"f0": 3, "f1": 6.0}])"});
   auto options = EqualOptions::Defaults();
 
-  ASSERT_FALSE(table_->Equals(*other, false, options));
-  ASSERT_TRUE(table_->Equals(*other, false, options.nans_equal(true)));
+  ASSERT_FALSE(table->Equals(*other, false, options));
+  ASSERT_TRUE(table->Equals(*other, false, options.nans_equal(true)));
 }
 
-TEST_F(TestTableEqualityFloatType, Approximate) {
-  schema_ = schema({field("f0", int32()), field("f1", float64())});
-  table_ = TableFromJSON(
-      schema_,
+TEST(TestTableEqualityFloatType, Approximate) {
+  auto schema = ::arrow::schema({field("f0", int32()), field("f1", float64())});
+  auto table = TableFromJSON(
+      schema,
       {R"([{"f0": 1, "f1": 4.0001}, {"f0": 2, "f1": 5.0001}, {"f0": 3, "f1": 6.0001}])"});
 
-  auto other_schema = schema({field("f0", int32()), field("f1", float64())});
+  auto other_schema = ::arrow::schema({field("f0", int32()), field("f1", float64())});
   auto other = TableFromJSON(
-      schema_, {R"([{"f0": 1, "f1": 4.0}, {"f0": 2, "f1": 5.0}, {"f0": 3, "f1": 6.0}])"});
+      schema, {R"([{"f0": 1, "f1": 4.0}, {"f0": 2, "f1": 5.0}, {"f0": 3, "f1": 6.0}])"});
 
   auto options = EqualOptions::Defaults();
-  ASSERT_FALSE(table_->Equals(*other, false, options));
+  ASSERT_FALSE(table->Equals(*other, false, options));
 
   options = options.use_atol(true).atol(1e-3);
-  ASSERT_TRUE(table_->Equals(*other, false, options));
+  ASSERT_TRUE(table->Equals(*other, false, options));
 
   options = options.use_atol(true).atol(1e-5);
-  ASSERT_FALSE(table_->Equals(*other, false, options));
+  ASSERT_FALSE(table->Equals(*other, false, options));
 }
 
-class TestTableEqualitySameAddress : public TestTableEquality {};
+TEST(TestTableEqualitySameAddress, NonFloatType) {
+  auto schema = ::arrow::schema({field("f0", int32()), field("f1", uint8())});
+  auto table = TableFromJSON(
+      schema, {R"([{"f0": 1, "f1": 4}, {"f0": 2, "f1": 5}, {"f0": 3, "f1": 6}])"});
 
-TEST_F(TestTableEqualitySameAddress, NonFloatType) {
-  schema_ = schema({field("f0", int32()), field("f1", uint8())});
-  table_ = TableFromJSON(
-      schema_, {R"([{"f0": 1, "f1": 4}, {"f0": 2, "f1": 5}, {"f0": 3, "f1": 6}])"});
-
-  auto other = table_;
+  auto other = table;
   auto options = EqualOptions::Defaults();
 
-  ASSERT_TRUE(table_->Equals(*other, false, options));
-  ASSERT_TRUE(table_->Equals(*other, false, options.nans_equal(true)));
+  ASSERT_TRUE(table->Equals(*other, false, options));
+  ASSERT_TRUE(table->Equals(*other, false, options.nans_equal(true)));
 }
 
-TEST_F(TestTableEqualitySameAddress, NestedTypesWithoutFloatType) {
-  schema_ = schema(
+TEST(TestTableEqualitySameAddress, NestedTypesWithoutFloatType) {
+  auto schema = ::arrow::schema(
       {field("f0", int32()), field("f1", struct_({{"f2", utf8()}, {"f3", int64()}}))});
-  table_ = TableFromJSON(
-      schema_,
+  auto table = TableFromJSON(
+      schema,
       {R"([{"f0": 1, "f1": {"f2": "4", "f3": 7}}, {"f0": 2, "f1": {"f2": "5", "f3": 8}}, {"f0": 3, "f1": {"f2" : "6", "f3": 9}}])"});
 
-  auto other = table_;
+  auto other = table;
   auto options = EqualOptions::Defaults();
 
-  ASSERT_TRUE(table_->Equals(*other, false, options));
-  ASSERT_TRUE(table_->Equals(*other, false, options.nans_equal(true)));
+  ASSERT_TRUE(table->Equals(*other, false, options));
+  ASSERT_TRUE(table->Equals(*other, false, options.nans_equal(true)));
 }
 
-TEST_F(TestTableEqualitySameAddress, FloatType) {
-  schema_ = schema({field("f0", int32()), field("f1", float64())});
-  table_ = TableFromJSON(
-      schema_, {R"([{"f0": 1, "f1": 4.0}, {"f0": 2, "f1": NaN}, {"f0": 3, "f1": 6.0}])"});
+TEST(TestTableEqualitySameAddress, FloatType) {
+  auto schema = ::arrow::schema({field("f0", int32()), field("f1", float64())});
+  auto table = TableFromJSON(
+      schema, {R"([{"f0": 1, "f1": 4.0}, {"f0": 2, "f1": NaN}, {"f0": 3, "f1": 6.0}])"});
 
-  auto other = table_;
+  auto other = table;
   auto options = EqualOptions::Defaults();
 
-  ASSERT_FALSE(table_->Equals(*other, false, options));
-  ASSERT_TRUE(table_->Equals(*other, false, options.nans_equal(true)));
+  ASSERT_FALSE(table->Equals(*other, false, options));
+  ASSERT_TRUE(table->Equals(*other, false, options.nans_equal(true)));
 }
 
-TEST_F(TestTableEqualitySameAddress, NestedTypesWithFloatType) {
-  schema_ = schema(
+TEST(TestTableEqualitySameAddress, NestedTypesWithFloatType) {
+  auto schema = ::arrow::schema(
       {field("f0", int32()), field("f1", struct_({{"f2", utf8()}, {"f3", float64()}}))});
-  table_ = TableFromJSON(
-      schema_,
+  auto table = TableFromJSON(
+      schema,
       {R"([{"f0": 1, "f1": {"f2": "4", "f3":  7.0}}, {"f0": 2, "f1": {"f2": "5", "f3": NaN}}, {"f0": 3,"f1": {"f2" : "6", "f3": 9.0}}])"});
 
-  auto other = table_;
+  auto other = table;
   auto options = EqualOptions::Defaults();
 
-  ASSERT_FALSE(table_->Equals(*other, false, options));
-  ASSERT_TRUE(table_->Equals(*other, false, options.nans_equal(true)));
+  ASSERT_FALSE(table->Equals(*other, false, options));
+  ASSERT_TRUE(table->Equals(*other, false, options.nans_equal(true)));
 }
 
 TEST_F(TestTable, MakeEmpty) {

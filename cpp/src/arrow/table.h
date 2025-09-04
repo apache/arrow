@@ -206,18 +206,18 @@ class ARROW_EXPORT Table {
 
   /// \brief Determine if two tables are equal
   ///
-  /// \param[in] other the Table to compare with
+  /// \param[in] other the table to compare with
   /// \param[in] opts the options for equality comparisons
-  /// \return true if tables are equal
+  /// \return true if two tables are equal
   bool Equals(const Table& other, const EqualOptions& opts) const;
 
   /// \brief Determine if two tables are equal
   ///
-  /// \param[in] other the Table to compare with
+  /// \param[in] other the table to compare with
   /// \param[in] check_metadata if true, the schema metadata will be compared,
   ///            regardless of the value set in \ref EqualOptions::use_metadata
   /// \param[in] opts the options for equality comparisons
-  /// \return true if tables are equal
+  /// \return true if two tables are equal
   bool Equals(const Table& other, bool check_metadata = false,
               const EqualOptions& opts = EqualOptions::Defaults()) const {
     return Equals(other, opts.use_metadata(check_metadata));
