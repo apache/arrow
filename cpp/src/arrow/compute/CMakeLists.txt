@@ -47,6 +47,7 @@ if(ARROW_TESTING AND ARROW_COMPUTE)
     target_link_libraries(arrow_compute_testing
                           PUBLIC $<TARGET_OBJECTS:arrow_compute_core_testing>
                           PUBLIC ${ARROW_GTEST_GTEST_MAIN})
+    target_compile_definitions(arrow_compute_testing PRIVATE COMPILED_BY_CMAKE)
   else()
     target_link_libraries(arrow_compute_testing
                           PUBLIC $<TARGET_OBJECTS:arrow_compute_core_testing>
