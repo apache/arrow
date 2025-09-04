@@ -15,13 +15,15 @@ index 60fd5b587a..35616dc6f5 100644
 +            string(STRIP "${file}" file_stripped)
 +
 +            # Print filename
-+            message(STATUS "Build Failed. Content of ${file_stripped}:")
++            message(STATUS "===")
++            message(STATUS "=== Build Failed. Content of ${file_stripped}:")
 +
 +            # Read the content of the file
 +            file(READ ${file_stripped} file_content)
 +
 +            # Print the content
 +            message(STATUS "${file_content}")
++            message(STATUS "=== End of content of ${file_stripped}")
 +        endforeach()
 +        # ---
          message(FATAL_ERROR
