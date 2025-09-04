@@ -145,7 +145,7 @@ jobs:
       - name: Install OpenSSL and ZLIB
         shell: powershell
         run: |
-          choco install --no-progress --yes openssl
+          choco install --no-progress --yes openssl zlib
       - name: Build Arrow C++
         shell: cmd
         run: |
