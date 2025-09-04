@@ -203,14 +203,9 @@ TEST(TestScalar, IdentityCast) {
   */
 }
 
-template <typename ARROW_TYPE>
-struct NumericHelper {
-  using ArgType = typename ARROW_TYPE::c_type;
-};
-template <>
-struct NumericHelper<HalfFloatType> {
-  using ArgType = Float16;
-};
+template <typename ArrowType>
+using NumericArgType = std::conditional_t<is_half_float_type<ArrowType>::value, Float16,
+                                          typename ArrowType::c_type>;
 
 template <typename T>
 class TestNumericScalar : public ::testing::Test {
@@ -224,7 +219,7 @@ using NumericArrowTypesPlusHalfFloat =
 TYPED_TEST_SUITE(TestNumericScalar, NumericArrowTypesPlusHalfFloat);
 
 TYPED_TEST(TestNumericScalar, Basics) {
-  using T = typename NumericHelper<TypeParam>::ArgType;
+  using T = NumericArgType<TypeParam>;
   using ScalarType = typename TypeTraits<TypeParam>::ScalarType;
 
   T value = static_cast<T>(1);
@@ -291,7 +286,7 @@ TYPED_TEST(TestNumericScalar, Basics) {
 }
 
 TYPED_TEST(TestNumericScalar, Hashing) {
-  using T = typename NumericHelper<TypeParam>::ArgType;
+  using T = NumericArgType<TypeParam>;
   using ScalarType = typename TypeTraits<TypeParam>::ScalarType;
 
   std::unordered_set<std::shared_ptr<Scalar>, Scalar::Hash, Scalar::PtrsEqual> set;
@@ -307,7 +302,7 @@ TYPED_TEST(TestNumericScalar, Hashing) {
 }
 
 TYPED_TEST(TestNumericScalar, MakeScalar) {
-  using T = typename NumericHelper<TypeParam>::ArgType;
+  using T = NumericArgType<TypeParam>;
   using ScalarType = typename TypeTraits<TypeParam>::ScalarType;
   auto type = TypeTraits<TypeParam>::type_singleton();
 
@@ -323,8 +318,7 @@ TYPED_TEST(TestNumericScalar, MakeScalar) {
 template <typename T>
 class TestRealScalar : public ::testing::Test {
  public:
-  using ValueType =
-      std::conditional_t<is_half_float_type<T>::value, Float16, typename T::c_type>;
+  using ValueType = NumericArgType<T>;
   using ScalarType = typename TypeTraits<T>::ScalarType;
 
   void SetUp() {

@@ -2120,10 +2120,13 @@ void CheckSliceApproxEquals() {
   ASSERT_TRUE(slice1->ApproxEquals(slice2));
 }
 
+template <typename ArrowType>
+using NumericArgType = std::conditional_t<is_half_float_type<ArrowType>::value, Float16,
+                                          typename ArrowType::c_type>;
+
 template <typename TYPE>
 void CheckFloatingNanEquality() {
-  using V =
-      std::conditional_t<is_half_float_type<TYPE>::value, Float16, typename TYPE::c_type>;
+  using V = NumericArgType<TYPE>;
   std::shared_ptr<Array> a, b;
   std::shared_ptr<DataType> type = TypeTraits<TYPE>::type_singleton();
 
@@ -2184,8 +2187,7 @@ void CheckFloatingNanEquality() {
 
 template <typename TYPE>
 void CheckFloatingInfinityEquality() {
-  using V =
-      std::conditional_t<is_half_float_type<TYPE>::value, Float16, typename TYPE::c_type>;
+  using V = NumericArgType<TYPE>;
   std::shared_ptr<Array> a, b;
   std::shared_ptr<DataType> type = TypeTraits<TYPE>::type_singleton();
 
@@ -2253,8 +2255,7 @@ void CheckFloatingInfinityEquality() {
 
 template <typename TYPE>
 void CheckFloatingZeroEquality() {
-  using V =
-      std::conditional_t<is_half_float_type<TYPE>::value, Float16, typename TYPE::c_type>;
+  using V = NumericArgType<TYPE>;
   std::shared_ptr<Array> a, b;
   std::shared_ptr<DataType> type = TypeTraits<TYPE>::type_singleton();
 
