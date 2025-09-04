@@ -54,7 +54,7 @@ using ::testing::Pair;
 using ::testing::UnorderedElementsAre;
 using ::testing::UnorderedElementsAreArray;
 
-auto const* kLoremIpsum = R"""(
+const auto* kLoremIpsum = R"""(
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor
 incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis
 nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
@@ -227,7 +227,7 @@ class GcsIntegrationTest : public ::testing::Test {
     constexpr auto kFilesPerFolder = 2;
     auto base_dir = internal::ConcatAbstractPath(PreexistingBucketPath(), "b");
     auto result = Hierarchy{base_dir, {}};
-    for (auto const* f : kTestFolders) {
+    for (const auto* f : kTestFolders) {
       const auto folder = internal::ConcatAbstractPath(PreexistingBucketPath(), f);
       RETURN_NOT_OK(fs->CreateDir(folder, true));
       result.contents.push_back(arrow::fs::Dir(folder));
@@ -246,7 +246,7 @@ class GcsIntegrationTest : public ::testing::Test {
   std::vector<arrow::fs::FileInfo> static CleanupDirectoryNames(
       std::vector<arrow::fs::FileInfo> expected) {
     std::transform(expected.begin(), expected.end(), expected.begin(),
-                   [](FileInfo const& info) {
+                   [](const FileInfo& info) {
                      if (!info.IsDirectory()) return info;
                      return Dir(std::string(internal::RemoveTrailingSlash(info.path())));
                    });
@@ -255,7 +255,7 @@ class GcsIntegrationTest : public ::testing::Test {
 
  private:
   std::string RandomChars(std::size_t count) {
-    auto const fillers = std::string("abcdefghijlkmnopqrstuvwxyz0123456789");
+    const auto fillers = std::string("abcdefghijlkmnopqrstuvwxyz0123456789");
     std::uniform_int_distribution<std::size_t> d(0, fillers.size() - 1);
     std::string s;
     std::generate_n(std::back_inserter(s), count, [&] { return fillers[d(generator_)]; });
@@ -423,7 +423,7 @@ TEST(GcsFileSystem, OptionsAsGoogleCloudOptions) {
   a.retry_limit_seconds = 40.5;
   a.project_id = "test-only-invalid-project-id";
 
-  auto const o1 = internal::AsGoogleCloudOptions(a);
+  const auto o1 = internal::AsGoogleCloudOptions(a);
   EXPECT_TRUE(o1.has<google::cloud::UnifiedCredentialsOption>());
   EXPECT_TRUE(o1.has<gcs::RetryPolicyOption>());
   EXPECT_EQ(o1.get<gcs::RestEndpointOption>(), "http://localhost:8080");
@@ -434,7 +434,7 @@ TEST(GcsFileSystem, OptionsAsGoogleCloudOptions) {
   a.retry_limit_seconds.reset();
   a.project_id.reset();
 
-  auto const o2 = internal::AsGoogleCloudOptions(a);
+  const auto o2 = internal::AsGoogleCloudOptions(a);
   EXPECT_TRUE(o2.has<google::cloud::UnifiedCredentialsOption>());
   EXPECT_FALSE(o2.has<gcs::RetryPolicyOption>());
   EXPECT_FALSE(o2.has<gcs::RestEndpointOption>());
@@ -885,7 +885,7 @@ TEST_F(GcsIntegrationTest, DeleteDirSuccess) {
   ASSERT_OK(fs->DeleteDir(hierarchy.base_dir));
   arrow::fs::AssertFileInfo(fs.get(), PreexistingBucketName(), FileType::Directory);
   arrow::fs::AssertFileInfo(fs.get(), PreexistingObjectPath(), FileType::File);
-  for (auto const& info : hierarchy.contents) {
+  for (const auto& info : hierarchy.contents) {
     const auto expected_type = fs::internal::IsAncestorOf(hierarchy.base_dir, info.path())
                                    ? FileType::NotFound
                                    : info.type();
@@ -912,7 +912,7 @@ TEST_F(GcsIntegrationTest, DeleteDirContentsSuccess) {
   arrow::fs::AssertFileInfo(fs.get(), hierarchy.base_dir, FileType::Directory);
   arrow::fs::AssertFileInfo(fs.get(), PreexistingBucketName(), FileType::Directory);
   arrow::fs::AssertFileInfo(fs.get(), PreexistingObjectPath(), FileType::File);
-  for (auto const& info : hierarchy.contents) {
+  for (const auto& info : hierarchy.contents) {
     auto expected_type = FileType::NotFound;
     if (info.path() == hierarchy.base_dir ||
         !fs::internal::IsAncestorOf(hierarchy.base_dir, info.path())) {
@@ -1296,7 +1296,7 @@ TEST_F(GcsIntegrationTest, OpenInputFileMixedReadVsReadAt) {
       PreexistingBucketPath() + "OpenInputFileMixedReadVsReadAt/object-name";
   std::shared_ptr<io::OutputStream> output;
   ASSERT_OK_AND_ASSIGN(output, fs->OpenOutputStream(path, {}));
-  for (auto const& line : lines) {
+  for (const auto& line : lines) {
     ASSERT_OK(output->Write(line.data(), line.size()));
   }
   ASSERT_OK(output->Close());
@@ -1320,8 +1320,8 @@ TEST_F(GcsIntegrationTest, OpenInputFileMixedReadVsReadAt) {
     }
 
     // Verify random reads interleave too.
-    auto const index = RandomIndex(kLineCount);
-    auto const position = index * kLineWidth;
+    const auto index = RandomIndex(kLineCount);
+    const auto position = index * kLineWidth;
     ASSERT_OK_AND_ASSIGN(size, file->ReadAt(position, buffer.size(), buffer.data()));
     EXPECT_EQ(size, kLineWidth);
     auto actual = std::string{buffer.begin(), buffer.end()};
@@ -1347,7 +1347,7 @@ TEST_F(GcsIntegrationTest, OpenInputFileRandomSeek) {
   const auto path = PreexistingBucketPath() + "OpenInputFileRandomSeek/object-name";
   std::shared_ptr<io::OutputStream> output;
   ASSERT_OK_AND_ASSIGN(output, fs->OpenOutputStream(path, {}));
-  for (auto const& line : lines) {
+  for (const auto& line : lines) {
     ASSERT_OK(output->Write(line.data(), line.size()));
   }
   ASSERT_OK(output->Close());
@@ -1357,8 +1357,8 @@ TEST_F(GcsIntegrationTest, OpenInputFileRandomSeek) {
   for (int i = 0; i != 32; ++i) {
     SCOPED_TRACE("Iteration " + std::to_string(i));
     // Verify sequential reads work as expected.
-    auto const index = RandomIndex(kLineCount);
-    auto const position = index * kLineWidth;
+    const auto index = RandomIndex(kLineCount);
+    const auto position = index * kLineWidth;
     ASSERT_OK(file->Seek(position));
     ASSERT_OK_AND_ASSIGN(auto actual, file->Read(kLineWidth));
     EXPECT_EQ(lines[index], actual->ToString());
@@ -1395,7 +1395,7 @@ TEST_F(GcsIntegrationTest, OpenInputFileInfo) {
   auto constexpr kStart = 16;
   ASSERT_OK_AND_ASSIGN(size, file->ReadAt(kStart, buffer.size(), buffer.data()));
 
-  auto const expected = std::string(kLoremIpsum).substr(kStart);
+  const auto expected = std::string(kLoremIpsum).substr(kStart);
   EXPECT_EQ(std::string(buffer.data(), size), expected);
 }
 
