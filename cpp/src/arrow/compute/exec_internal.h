@@ -66,12 +66,15 @@ class ARROW_EXPORT ExecSpanIterator {
   /// with a blank ExecSpan after the first iteration, it will not
   /// work correctly (maybe we will change this later). Return false
   /// if the iteration is exhausted
-  bool Next(ExecSpan* span);
+  bool Next(ExecSpan* span, SelectionVectorSpan* selection_span = NULLPTR);
 
   int64_t length() const { return length_; }
+  int64_t selection_length() const { return selection_length_; }
   int64_t position() const { return position_; }
+  int64_t selection_position() const { return selection_position_; }
 
   bool have_all_scalars() const { return have_all_scalars_; }
+  bool have_selection_vector() const { return selection_vector_ != NULLPTR; }
 
  private:
   ExecSpanIterator(const std::vector<Datum>& args, int64_t length, int64_t max_chunksize);
@@ -83,6 +86,7 @@ class ARROW_EXPORT ExecSpanIterator {
   bool have_all_scalars_ = false;
   bool promote_if_all_scalars_ = true;
   const std::vector<Datum>* args_;
+  SelectionVector* selection_vector_ = NULLPTR;
   std::vector<int> chunk_indexes_;
   std::vector<int64_t> value_positions_;
 
@@ -93,6 +97,8 @@ class ARROW_EXPORT ExecSpanIterator {
   std::vector<int64_t> value_offsets_;
   int64_t position_ = 0;
   int64_t length_ = 0;
+  int64_t selection_length_ = 0;
+  int64_t selection_position_ = 0;
   int64_t max_chunksize_;
 };
 
