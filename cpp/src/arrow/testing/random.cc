@@ -1157,8 +1157,6 @@ std::shared_ptr<Array> RandomArrayGenerator::ArrayOf(const Field& field, int64_t
           GetMetadata<double>(field.metadata().get(), "nan_probability", 0);
       VALIDATE_MIN_MAX(min_value, max_value);
       VALIDATE_RANGE(nan_probability, 0.0, 1.0);
-      ARROW_LOG(INFO) << "min = " << min_value.ToFloat();
-      ARROW_LOG(INFO) << "max = " << max_value.ToFloat();
       return Float16(length, min_value, max_value, null_probability, nan_probability,
                      alignment, memory_pool);
     }
