@@ -402,6 +402,9 @@ arrow_add_object_library(ARROW_ARRAY
                          array/statistics.cc
                          array/util.cc
                          array/validate.cc)
+foreach(target ${ARROW_ARRAY_TARGETS})
+  target_link_libraries(${target} PRIVATE arrow::xxhash)
+endforeach()
 
 arrow_add_object_library(ARROW_IO
                          io/buffered.cc
@@ -865,6 +868,7 @@ if(ARROW_COMPUTE)
                 ${ARROW_VERSION_SCRIPT_FLAGS} # Defined in cpp/arrow/CMakeLists.txt
   )
   foreach(LIB_TARGET ${ARROW_COMPUTE_LIBRARIES})
+    target_link_libraries(${LIB_TARGET} PRIVATE arrow::xxhash)
     target_compile_definitions(${LIB_TARGET} PRIVATE ARROW_COMPUTE_EXPORTING)
   endforeach()
 
@@ -874,6 +878,9 @@ if(ARROW_COMPUTE)
 endif()
 
 arrow_add_object_library(ARROW_COMPUTE_CORE ${ARROW_COMPUTE_SRCS})
+foreach(target ${ARROW_COMPUTE_CORE_TARGETS})
+  target_link_libraries(${target} PRIVATE arrow::xxhash)
+endforeach()
 
 if(ARROW_USE_XSIMD)
   foreach(ARROW_COMPUTE_CORE_TARGET ${ARROW_COMPUTE_CORE_TARGETS})
@@ -1167,6 +1174,7 @@ if(ARROW_BUILD_STATIC AND WIN32)
 endif()
 
 foreach(LIB_TARGET ${ARROW_LIBRARIES})
+  target_link_libraries(${LIB_TARGET} PRIVATE arrow::xxhash)
   target_compile_definitions(${LIB_TARGET} PRIVATE ARROW_EXPORTING)
   # C++17 is required to compile against Arrow C++ headers and libraries
   target_compile_features(${LIB_TARGET} PUBLIC cxx_std_17)
