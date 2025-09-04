@@ -171,6 +171,7 @@ InternalFileDecryptor::GetColumnMetaDecryptorFactory(
   }
   return file_descryptor->GetColumnDecryptorFactory(crypto_metadata, aad,
                                                     /*metadata=*/true);
+                                                    
 }
 
 std::function<std::unique_ptr<Decryptor>()>

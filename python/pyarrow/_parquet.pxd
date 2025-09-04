@@ -47,6 +47,7 @@ cdef shared_ptr[WriterProperties] _create_writer_properties(
     compression_level=*,
     use_byte_stream_split=*,
     column_encoding=*,
+    
     data_page_version=*,
     FileEncryptionProperties encryption_properties=*,
     write_batch_size=*,
