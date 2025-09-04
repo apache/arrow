@@ -66,7 +66,6 @@ RUN `
   && (start /w vs_buildtools.exe --quiet --wait --norestart --nocache `
   --installPath "%ProgramFiles(x86)%\Microsoft Visual Studio\2022\BuildTools" `
   --includeRecommended ^ `
-  --add Microsoft.VisualStudio.Component.Windows10SDK.20348 `
   --add Microsoft.VisualStudio.Workload.VCTools ^ `
   || IF "%ERRORLEVEL%"=="3010" EXIT 0) `
   && del /q vs_buildtools.exe
