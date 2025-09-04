@@ -644,7 +644,7 @@ TEST(TestAdapterReadWrite, ThrowWhenTZDBUnavaiable) {
   }
 #ifdef _WIN32
   GTEST_SKIP() << "GH-47489: Expected error is not thrown on Windows";
-#endif    
+#endif
 
   EnvVarGuard tzdir_guard("TZDIR", "/wrong/path");
   const char* expect_str = "IANA time zone database is unavailable but required by ORC";
