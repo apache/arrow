@@ -18,7 +18,7 @@
 [build-system]
 requires = [
     "cython >= 3.1",
-    "numpy>=1.25; python_version>='3.9'",
+    "numpy>=1.25",
     # configuring setuptools_scm in pyproject.toml requires
     # versions released after 2022
     "setuptools_scm[toml]>=8",
