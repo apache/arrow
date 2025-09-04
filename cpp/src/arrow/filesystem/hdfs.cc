@@ -363,8 +363,12 @@ Result<HdfsOptions> HdfsOptions::FromUri(const Uri& uri) {
     options_map.emplace(kv.first, kv.second);
   }
 
+  // Special case host = "default" or "hdfs://default" as stated by #25324.
   std::string host;
-  host = uri.scheme() + "://" + uri.host();
+  if (uri.host() == "default")
+    host = uri.host();
+  else
+    host = uri.scheme() + "://" + uri.host();
 
   // configure endpoint
   const auto port = uri.port();
