@@ -351,7 +351,7 @@ BasicDecimal128 Divide(int64_t context, const BasicDecimalScalar128& x,
                        const BasicDecimalScalar128& y, int32_t out_precision,
                        int32_t out_scale, bool* overflow) {
   if (y.value() == 0) {
-    char const* err_msg = "divide by zero error";
+    const char* err_msg = "divide by zero error";
     gdv_fn_context_set_error_msg(context, err_msg);
     return 0;
   }
@@ -396,7 +396,7 @@ BasicDecimal128 Mod(int64_t context, const BasicDecimalScalar128& x,
                     const BasicDecimalScalar128& y, int32_t out_precision,
                     int32_t out_scale, bool* overflow) {
   if (y.value() == 0) {
-    char const* err_msg = "divide by zero error";
+    const char* err_msg = "divide by zero error";
     gdv_fn_context_set_error_msg(context, err_msg);
     return 0;
   }

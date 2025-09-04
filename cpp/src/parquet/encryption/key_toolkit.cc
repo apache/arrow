@@ -87,7 +87,7 @@ void KeyToolkit::RotateMasterKeys(
                                             std::string(KeyMaterial::kFooterKeyIdInFile));
 
   // Rotate column keys
-  for (auto const& key_id_in_file : file_key_id_set) {
+  for (const auto& key_id_in_file : file_key_id_set) {
     if (key_id_in_file == std::string(KeyMaterial::kFooterKeyIdInFile)) {
       continue;
     }

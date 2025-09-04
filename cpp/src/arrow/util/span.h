@@ -90,7 +90,7 @@ writing code which would break when it is replaced by std::span.)");
     return out;
   }
 
-  constexpr bool operator==(span const& other) const {
+  constexpr bool operator==(const span& other) const {
     if (size_ != other.size_) return false;
 
     if constexpr (std::is_integral_v<T>) {
@@ -106,7 +106,7 @@ writing code which would break when it is replaced by std::span.)");
       return true;
     }
   }
-  constexpr bool operator!=(span const& other) const { return !(*this == other); }
+  constexpr bool operator!=(const span& other) const { return !(*this == other); }
 
  private:
   T* data_{};
@@ -121,7 +121,7 @@ span(T*, size_t) -> span<T>;
 
 template <typename T>
 constexpr span<std::byte const> as_bytes(span<T> s) {
-  return {reinterpret_cast<std::byte const*>(s.data()), s.size_bytes()};
+  return {reinterpret_cast<const std::byte*>(s.data()), s.size_bytes()};
 }
 
 template <typename T>

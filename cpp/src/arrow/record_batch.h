@@ -381,8 +381,8 @@ class ARROW_EXPORT RecordBatchReader {
     using iterator_category = std::input_iterator_tag;
     using difference_type = std::ptrdiff_t;
     using value_type = std::shared_ptr<RecordBatch>;
-    using pointer = value_type const*;
-    using reference = value_type const&;
+    using pointer = const value_type*;
+    using reference = const value_type&;
 
     RecordBatchReaderIterator() : batch_(RecordBatchEnd()), reader_(NULLPTR) {}
 

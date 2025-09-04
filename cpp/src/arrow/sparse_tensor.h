@@ -208,14 +208,14 @@ Status ValidateSparseCSXIndex(const std::shared_ptr<DataType>& indptr_type,
                               const std::shared_ptr<DataType>& indices_type,
                               const std::vector<int64_t>& indptr_shape,
                               const std::vector<int64_t>& indices_shape,
-                              char const* type_name);
+                              const char* type_name);
 
 ARROW_EXPORT
 void CheckSparseCSXIndexValidity(const std::shared_ptr<DataType>& indptr_type,
                                  const std::shared_ptr<DataType>& indices_type,
                                  const std::vector<int64_t>& indptr_shape,
                                  const std::vector<int64_t>& indices_shape,
-                                 char const* type_name);
+                                 const char* type_name);
 
 template <typename SparseIndexType, SparseMatrixCompressedAxis COMPRESSED_AXIS>
 class SparseCSXIndex : public SparseIndexBase<SparseIndexType> {
@@ -344,7 +344,7 @@ class ARROW_EXPORT SparseCSRIndex
       internal::SparseCSXIndex<SparseCSRIndex, internal::SparseMatrixCompressedAxis::ROW>;
 
   static constexpr SparseTensorFormat::type format_id = SparseTensorFormat::CSR;
-  static constexpr char const* kTypeName = "SparseCSRIndex";
+  static constexpr const char* kTypeName = "SparseCSRIndex";
 
   using SparseCSXIndex::kCompressedAxis;
   using SparseCSXIndex::Make;
@@ -375,7 +375,7 @@ class ARROW_EXPORT SparseCSCIndex
                                internal::SparseMatrixCompressedAxis::COLUMN>;
 
   static constexpr SparseTensorFormat::type format_id = SparseTensorFormat::CSC;
-  static constexpr char const* kTypeName = "SparseCSCIndex";
+  static constexpr const char* kTypeName = "SparseCSCIndex";
 
   using SparseCSXIndex::kCompressedAxis;
   using SparseCSXIndex::Make;
@@ -398,7 +398,7 @@ class ARROW_EXPORT SparseCSCIndex
 class ARROW_EXPORT SparseCSFIndex : public internal::SparseIndexBase<SparseCSFIndex> {
  public:
   static constexpr SparseTensorFormat::type format_id = SparseTensorFormat::CSF;
-  static constexpr char const* kTypeName = "SparseCSFIndex";
+  static constexpr const char* kTypeName = "SparseCSFIndex";
 
   /// \brief Make SparseCSFIndex from raw properties
   static Result<std::shared_ptr<SparseCSFIndex>> Make(

@@ -41,14 +41,14 @@ namespace compute {
 class ARROW_EXPORT ArithmeticOptions : public FunctionOptions {
  public:
   explicit ArithmeticOptions(bool check_overflow = false);
-  static constexpr char const kTypeName[] = "ArithmeticOptions";
+  static constexpr const char kTypeName[] = "ArithmeticOptions";
   bool check_overflow;
 };
 
 class ARROW_EXPORT ElementWiseAggregateOptions : public FunctionOptions {
  public:
   explicit ElementWiseAggregateOptions(bool skip_nulls = true);
-  static constexpr char const kTypeName[] = "ElementWiseAggregateOptions";
+  static constexpr const char kTypeName[] = "ElementWiseAggregateOptions";
   static ElementWiseAggregateOptions Defaults() { return ElementWiseAggregateOptions{}; }
   bool skip_nulls;
 };
@@ -83,7 +83,7 @@ class ARROW_EXPORT RoundOptions : public FunctionOptions {
  public:
   explicit RoundOptions(int64_t ndigits = 0,
                         RoundMode round_mode = RoundMode::HALF_TO_EVEN);
-  static constexpr char const kTypeName[] = "RoundOptions";
+  static constexpr const char kTypeName[] = "RoundOptions";
   static RoundOptions Defaults() { return RoundOptions(); }
   /// Rounding precision (number of digits to round to)
   int64_t ndigits;
@@ -94,7 +94,7 @@ class ARROW_EXPORT RoundOptions : public FunctionOptions {
 class ARROW_EXPORT RoundBinaryOptions : public FunctionOptions {
  public:
   explicit RoundBinaryOptions(RoundMode round_mode = RoundMode::HALF_TO_EVEN);
-  static constexpr char const kTypeName[] = "RoundBinaryOptions";
+  static constexpr const char kTypeName[] = "RoundBinaryOptions";
   static RoundBinaryOptions Defaults() { return RoundBinaryOptions(); }
   /// Rounding and tie-breaking mode
   RoundMode round_mode;
@@ -120,7 +120,7 @@ class ARROW_EXPORT RoundTemporalOptions : public FunctionOptions {
                                 bool week_starts_monday = true,
                                 bool ceil_is_strictly_greater = false,
                                 bool calendar_based_origin = false);
-  static constexpr char const kTypeName[] = "RoundTemporalOptions";
+  static constexpr const char kTypeName[] = "RoundTemporalOptions";
   static RoundTemporalOptions Defaults() { return RoundTemporalOptions(); }
 
   /// Number of units to round to
@@ -156,7 +156,7 @@ class ARROW_EXPORT RoundToMultipleOptions : public FunctionOptions {
                                   RoundMode round_mode = RoundMode::HALF_TO_EVEN);
   explicit RoundToMultipleOptions(std::shared_ptr<Scalar> multiple,
                                   RoundMode round_mode = RoundMode::HALF_TO_EVEN);
-  static constexpr char const kTypeName[] = "RoundToMultipleOptions";
+  static constexpr const char kTypeName[] = "RoundToMultipleOptions";
   static RoundToMultipleOptions Defaults() { return RoundToMultipleOptions(); }
   /// Rounding scale (multiple to round to).
   ///
@@ -182,7 +182,7 @@ class ARROW_EXPORT JoinOptions : public FunctionOptions {
   };
   explicit JoinOptions(NullHandlingBehavior null_handling = EMIT_NULL,
                        std::string null_replacement = "");
-  static constexpr char const kTypeName[] = "JoinOptions";
+  static constexpr const char kTypeName[] = "JoinOptions";
   static JoinOptions Defaults() { return JoinOptions(); }
   NullHandlingBehavior null_handling;
   std::string null_replacement;
@@ -192,7 +192,7 @@ class ARROW_EXPORT MatchSubstringOptions : public FunctionOptions {
  public:
   explicit MatchSubstringOptions(std::string pattern, bool ignore_case = false);
   MatchSubstringOptions();
-  static constexpr char const kTypeName[] = "MatchSubstringOptions";
+  static constexpr const char kTypeName[] = "MatchSubstringOptions";
 
   /// The exact substring (or regex, depending on kernel) to look for inside input values.
   std::string pattern;
@@ -203,7 +203,7 @@ class ARROW_EXPORT MatchSubstringOptions : public FunctionOptions {
 class ARROW_EXPORT SplitOptions : public FunctionOptions {
  public:
   explicit SplitOptions(int64_t max_splits = -1, bool reverse = false);
-  static constexpr char const kTypeName[] = "SplitOptions";
+  static constexpr const char kTypeName[] = "SplitOptions";
 
   /// Maximum number of splits allowed, or unlimited when -1
   int64_t max_splits;
@@ -216,7 +216,7 @@ class ARROW_EXPORT SplitPatternOptions : public FunctionOptions {
   explicit SplitPatternOptions(std::string pattern, int64_t max_splits = -1,
                                bool reverse = false);
   SplitPatternOptions();
-  static constexpr char const kTypeName[] = "SplitPatternOptions";
+  static constexpr const char kTypeName[] = "SplitPatternOptions";
 
   /// The exact substring to split on.
   std::string pattern;
@@ -230,7 +230,7 @@ class ARROW_EXPORT ReplaceSliceOptions : public FunctionOptions {
  public:
   explicit ReplaceSliceOptions(int64_t start, int64_t stop, std::string replacement);
   ReplaceSliceOptions();
-  static constexpr char const kTypeName[] = "ReplaceSliceOptions";
+  static constexpr const char kTypeName[] = "ReplaceSliceOptions";
 
   /// Index to start slicing at
   int64_t start;
@@ -245,7 +245,7 @@ class ARROW_EXPORT ReplaceSubstringOptions : public FunctionOptions {
   explicit ReplaceSubstringOptions(std::string pattern, std::string replacement,
                                    int64_t max_replacements = -1);
   ReplaceSubstringOptions();
-  static constexpr char const kTypeName[] = "ReplaceSubstringOptions";
+  static constexpr const char kTypeName[] = "ReplaceSubstringOptions";
 
   /// Pattern to match, literal, or regular expression depending on which kernel is used
   std::string pattern;
@@ -259,7 +259,7 @@ class ARROW_EXPORT ExtractRegexOptions : public FunctionOptions {
  public:
   explicit ExtractRegexOptions(std::string pattern);
   ExtractRegexOptions();
-  static constexpr char const kTypeName[] = "ExtractRegexOptions";
+  static constexpr const char kTypeName[] = "ExtractRegexOptions";
 
   /// Regular expression with named capture fields
   std::string pattern;
@@ -269,7 +269,7 @@ class ARROW_EXPORT ExtractRegexSpanOptions : public FunctionOptions {
  public:
   explicit ExtractRegexSpanOptions(std::string pattern);
   ExtractRegexSpanOptions();
-  static constexpr char const kTypeName[] = "ExtractRegexSpanOptions";
+  static constexpr const char kTypeName[] = "ExtractRegexSpanOptions";
 
   /// Regular expression with named capture fields
   std::string pattern;
@@ -303,7 +303,7 @@ class ARROW_EXPORT SetLookupOptions : public FunctionOptions {
   // DEPRECATED(will be removed after removing of skip_nulls)
   explicit SetLookupOptions(Datum value_set, bool skip_nulls);
 
-  static constexpr char const kTypeName[] = "SetLookupOptions";
+  static constexpr const char kTypeName[] = "SetLookupOptions";
 
   /// The set of values to look up input values into.
   Datum value_set;
@@ -330,7 +330,7 @@ class ARROW_EXPORT StructFieldOptions : public FunctionOptions {
   explicit StructFieldOptions(std::initializer_list<int>);
   explicit StructFieldOptions(FieldRef field_ref);
   StructFieldOptions();
-  static constexpr char const kTypeName[] = "StructFieldOptions";
+  static constexpr const char kTypeName[] = "StructFieldOptions";
 
   /// The FieldRef specifying what to extract from struct or union.
   FieldRef field_ref;
@@ -341,7 +341,7 @@ class ARROW_EXPORT StrptimeOptions : public FunctionOptions {
   explicit StrptimeOptions(std::string format, TimeUnit::type unit,
                            bool error_is_null = false);
   StrptimeOptions();
-  static constexpr char const kTypeName[] = "StrptimeOptions";
+  static constexpr const char kTypeName[] = "StrptimeOptions";
 
   /// The desired format string.
   std::string format;
@@ -356,7 +356,7 @@ class ARROW_EXPORT StrftimeOptions : public FunctionOptions {
   explicit StrftimeOptions(std::string format, std::string locale = "C");
   StrftimeOptions();
 
-  static constexpr char const kTypeName[] = "StrftimeOptions";
+  static constexpr const char kTypeName[] = "StrftimeOptions";
 
   static constexpr const char* kDefaultFormat = "%Y-%m-%dT%H:%M:%S";
 
@@ -371,7 +371,7 @@ class ARROW_EXPORT PadOptions : public FunctionOptions {
   explicit PadOptions(int64_t width, std::string padding = " ",
                       bool lean_left_on_odd_padding = true);
   PadOptions();
-  static constexpr char const kTypeName[] = "PadOptions";
+  static constexpr const char kTypeName[] = "PadOptions";
 
   /// The desired string length.
   int64_t width;
@@ -387,7 +387,7 @@ class ARROW_EXPORT ZeroFillOptions : public FunctionOptions {
  public:
   explicit ZeroFillOptions(int64_t width, std::string padding = "0");
   ZeroFillOptions();
-  static constexpr char const kTypeName[] = "ZeroFillOptions";
+  static constexpr const char kTypeName[] = "ZeroFillOptions";
 
   /// The desired string length.
   int64_t width;
@@ -399,7 +399,7 @@ class ARROW_EXPORT TrimOptions : public FunctionOptions {
  public:
   explicit TrimOptions(std::string characters);
   TrimOptions();
-  static constexpr char const kTypeName[] = "TrimOptions";
+  static constexpr const char kTypeName[] = "TrimOptions";
 
   /// The individual characters to be trimmed from the string.
   std::string characters;
@@ -410,7 +410,7 @@ class ARROW_EXPORT SliceOptions : public FunctionOptions {
   explicit SliceOptions(int64_t start, int64_t stop = std::numeric_limits<int64_t>::max(),
                         int64_t step = 1);
   SliceOptions();
-  static constexpr char const kTypeName[] = "SliceOptions";
+  static constexpr const char kTypeName[] = "SliceOptions";
   int64_t start, stop, step;
 };
 
@@ -420,7 +420,7 @@ class ARROW_EXPORT ListSliceOptions : public FunctionOptions {
                             int64_t step = 1,
                             std::optional<bool> return_fixed_size_list = std::nullopt);
   ListSliceOptions();
-  static constexpr char const kTypeName[] = "ListSliceOptions";
+  static constexpr const char kTypeName[] = "ListSliceOptions";
   /// The start of list slicing.
   int64_t start;
   /// Optional stop of list slicing. If not set, then slice to end. (NotImplemented)
@@ -436,7 +436,7 @@ class ARROW_EXPORT ListSliceOptions : public FunctionOptions {
 class ARROW_EXPORT NullOptions : public FunctionOptions {
  public:
   explicit NullOptions(bool nan_is_null = false);
-  static constexpr char const kTypeName[] = "NullOptions";
+  static constexpr const char kTypeName[] = "NullOptions";
   static NullOptions Defaults() { return NullOptions{}; }
 
   bool nan_is_null;
@@ -463,7 +463,7 @@ class ARROW_EXPORT MakeStructOptions : public FunctionOptions {
                     std::vector<std::shared_ptr<const KeyValueMetadata>> m);
   explicit MakeStructOptions(std::vector<std::string> n);
   MakeStructOptions();
-  static constexpr char const kTypeName[] = "MakeStructOptions";
+  static constexpr const char kTypeName[] = "MakeStructOptions";
 
   /// Names for wrapped columns
   std::vector<std::string> field_names;
@@ -478,7 +478,7 @@ class ARROW_EXPORT MakeStructOptions : public FunctionOptions {
 struct ARROW_EXPORT DayOfWeekOptions : public FunctionOptions {
  public:
   explicit DayOfWeekOptions(bool count_from_zero = true, uint32_t week_start = 1);
-  static constexpr char const kTypeName[] = "DayOfWeekOptions";
+  static constexpr const char kTypeName[] = "DayOfWeekOptions";
   static DayOfWeekOptions Defaults() { return DayOfWeekOptions(); }
 
   /// Number days from 0 if true and from 1 if false
@@ -511,7 +511,7 @@ struct ARROW_EXPORT AssumeTimezoneOptions : public FunctionOptions {
                                  Ambiguous ambiguous = AMBIGUOUS_RAISE,
                                  Nonexistent nonexistent = NONEXISTENT_RAISE);
   AssumeTimezoneOptions();
-  static constexpr char const kTypeName[] = "AssumeTimezoneOptions";
+  static constexpr const char kTypeName[] = "AssumeTimezoneOptions";
 
   /// Timezone to convert timestamps from
   std::string timezone;
@@ -526,7 +526,7 @@ struct ARROW_EXPORT WeekOptions : public FunctionOptions {
  public:
   explicit WeekOptions(bool week_starts_monday = true, bool count_from_zero = false,
                        bool first_week_is_fully_in_year = false);
-  static constexpr char const kTypeName[] = "WeekOptions";
+  static constexpr const char kTypeName[] = "WeekOptions";
   static WeekOptions Defaults() { return WeekOptions{}; }
   static WeekOptions ISODefaults() {
     return WeekOptions{/*week_starts_monday*/ true,
@@ -555,7 +555,7 @@ struct ARROW_EXPORT Utf8NormalizeOptions : public FunctionOptions {
 
   explicit Utf8NormalizeOptions(Form form = NFC);
   static Utf8NormalizeOptions Defaults() { return Utf8NormalizeOptions(); }
-  static constexpr char const kTypeName[] = "Utf8NormalizeOptions";
+  static constexpr const char kTypeName[] = "Utf8NormalizeOptions";
 
   /// The Unicode normalization form to apply
   Form form;
@@ -570,7 +570,7 @@ class ARROW_EXPORT RandomOptions : public FunctionOptions {
 
   RandomOptions(Initializer initializer, uint64_t seed);
   RandomOptions();
-  static constexpr char const kTypeName[] = "RandomOptions";
+  static constexpr const char kTypeName[] = "RandomOptions";
   static RandomOptions Defaults() { return RandomOptions(); }
 
   /// The type of initialization for random number generation - system or provided seed.
@@ -594,7 +594,7 @@ class ARROW_EXPORT MapLookupOptions : public FunctionOptions {
   explicit MapLookupOptions(std::shared_ptr<Scalar> query_key, Occurrence occurrence);
   MapLookupOptions();
 
-  constexpr static char const kTypeName[] = "MapLookupOptions";
+  constexpr static const char kTypeName[] = "MapLookupOptions";
 
   /// The key to lookup in the map
   std::shared_ptr<Scalar> query_key;

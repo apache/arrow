@@ -203,7 +203,7 @@ Result<std::pair<std::shared_ptr<DataType>, bool>> FromProto(
     case substrait::Type::kMap: {
       const auto& map = type.map();
 
-      static const std::array<char const*, 4> kMissing = {"key and value", "value", "key",
+      static const std::array<const char*, 4> kMissing = {"key and value", "value", "key",
                                                           nullptr};
       if (auto missing = kMissing[map.has_key() + map.has_value() * 2]) {
         return Status::Invalid("While converting to MapType encountered missing ",

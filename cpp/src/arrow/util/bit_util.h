@@ -333,7 +333,7 @@ void ClearBitmap(uint8_t* data, int64_t offset, int64_t length);
 /// ex:
 /// ref: https://stackoverflow.com/a/59523400
 template <typename Word>
-constexpr Word PrecedingWordBitmask(unsigned int const i) {
+constexpr Word PrecedingWordBitmask(const unsigned int i) {
   return static_cast<Word>(static_cast<Word>(i < sizeof(Word) * 8)
                            << (i & (sizeof(Word) * 8 - 1))) -
          1;
