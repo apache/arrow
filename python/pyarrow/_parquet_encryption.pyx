@@ -86,7 +86,7 @@ cdef class EncryptionConfiguration(_Weakrefable):
         """
         List of columns to encrypt, with master key IDs.
         """
-        
+        column_keys_str = frombytes(self.configuration.get().column_keys)
         column_keys_str = frombytes(self.configuration.get().column_keys)
         # Convert from "masterKeyID:colName,colName;masterKeyID:colName..."
         # (see HIVE-21848) to dictionary of master key ID to column name lists

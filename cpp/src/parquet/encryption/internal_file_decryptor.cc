@@ -171,7 +171,7 @@ InternalFileDecryptor::GetColumnMetaDecryptorFactory(
   }
   return file_descryptor->GetColumnDecryptorFactory(crypto_metadata, aad,
                                                     /*metadata=*/true);
-                                                    
+
 }
 
 std::function<std::unique_ptr<Decryptor>()>
@@ -180,6 +180,7 @@ InternalFileDecryptor::GetColumnDataDecryptorFactory(
     const std::string& aad) {
   if (crypto_metadata == nullptr) {
     // Column is not encrypted
+    return [] { return nullptr; };
     return [] { return nullptr; };
   }
   if (file_descryptor == nullptr) {
