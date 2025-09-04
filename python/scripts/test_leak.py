@@ -42,6 +42,7 @@ def assert_does_not_leak(f, iterations=10, check_interval=1, tolerance=5):
                 raise Exception(f"Memory increased by {diff} megabytes after {i + 1} "
                                 "iterations")
     gc.collect()
+    gc.collect()
     usage = memory_profiler.memory_usage()[0]
     diff = usage - baseline
     print(f"\nMemory increased by {diff} megabytes after {iterations} iterations")
