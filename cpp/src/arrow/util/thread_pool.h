@@ -606,9 +606,6 @@ typename Fut::SyncType RunSynchronously(FnOnce<Fut(Executor*)> get_future,
 ///   the iterator will use the calling thread to do enough work to generate one item.
 ///   Tasks will be left in a queue until the next call and no work will be done between
 ///   calls.
-///
-/// If `executor` is null, then the default CPU thread pool will be used.
-/// If `executor` is not null, then it will be used.
 template <typename T>
 Iterator<T> IterateSynchronously(
     FnOnce<Result<std::function<Future<T>()>>(Executor*)> get_gen, bool use_threads,
