@@ -77,7 +77,7 @@ jobs:
       ARROW_DATASET: ON
       ARROW_FLIGHT: ON
       ARROW_FLIGHT_SQL: ON
-      ARROW_GCS: ON
+      ARROW_GCS: OFF
       ARROW_HDFS: ON
       ARROW_HOME: /usr
       ARROW_JEMALLOC: OFF
