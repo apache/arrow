@@ -68,7 +68,6 @@ RUN `
   --includeRecommended ^ `
   --add Microsoft.VisualStudio.Component.Windows10SDK.20348 `
   --add Microsoft.VisualStudio.Workload.VCTools ^ `
-  --add Microsoft.VisualStudio.Workload.VisualStudioExtensionBuildTools ^ `
   || IF "%ERRORLEVEL%"=="3010" EXIT 0) `
   && del /q vs_buildtools.exe
 
