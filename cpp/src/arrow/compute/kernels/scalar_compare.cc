@@ -20,6 +20,7 @@
 #include <limits>
 #include <optional>
 
+#include "arrow/compare_internal.h"
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/kernels/common_internal.h"
 #include "arrow/compute/registry_internal.h"
@@ -52,6 +53,43 @@ struct NotEqual {
   static constexpr T Call(KernelContext*, const Arg0& left, const Arg1& right, Status*) {
     static_assert(std::is_same<T, bool>::value && std::is_same<Arg0, Arg1>::value, "");
     return left != right;
+  }
+};
+
+struct ListEqual {
+  template <typename T, typename Arg0, typename Arg1>
+  static T Call(KernelContext*, const Arg0& left, const Arg1& right, Status*) {
+    static_assert(std::is_same<T, bool>::value && std::is_same<Arg0, Arg1>::value, "");
+
+    if (left.length != right.length) {
+      return false;
+    } else {
+      // The offsets are hard-coded to zero because the scalar unboxing and
+      // array iteration routines already set the offset from the list parent
+      RangeDataEqualsImpl range_comparer{
+          EqualOptions::Defaults(), false, left, right, 0, 0, left.length,
+      };
+      return range_comparer.Compare();
+    }
+  }
+};
+
+struct ListNotEqual {
+  template <typename T, typename Arg0, typename Arg1>
+  static T Call(KernelContext*, const Arg0& left, const Arg1& right, Status*) {
+    static_assert(std::is_same<T, bool>::value && std::is_same<Arg0, Arg1>::value, "");
+
+    if (left.length != right.length) {
+      return true;
+    } else {
+      RangeDataEqualsImpl range_comparer{
+          // The offsets are hard-coded to zero because the scalar unboxing and
+          // array iteration routines already set the offset from the list parent
+          EqualOptions::Defaults(), false, left, right, 0, 0, left.length,
+      };
+
+      return !range_comparer.Compare();
+    }
   }
 };
 
@@ -445,6 +483,24 @@ std::shared_ptr<ScalarFunction> MakeCompareFunction(std::string name, FunctionDo
         applicator::ScalarBinaryEqualTypes<BooleanType, FixedSizeBinaryType, Op>::Exec;
     auto ty = InputType(Type::FIXED_SIZE_BINARY);
     DCHECK_OK(func->AddKernel({ty, ty}, boolean(), std::move(exec)));
+  }
+
+  if constexpr (std::is_same_v<Op, Equal>) {
+    for (const auto id : {Type::LIST, Type::LARGE_LIST}) {
+      auto exec =
+          GenerateList<applicator::ScalarBinaryEqualTypes, BooleanType, ListEqual>(id);
+      DCHECK_OK(
+          func->AddKernel({InputType(id), InputType(id)}, boolean(), std::move(exec)));
+    }
+  }
+
+  if constexpr (std::is_same_v<Op, NotEqual>) {
+    for (const auto id : {Type::LIST, Type::LARGE_LIST}) {
+      auto exec =
+          GenerateList<applicator::ScalarBinaryEqualTypes, BooleanType, ListNotEqual>(id);
+      DCHECK_OK(
+          func->AddKernel({InputType(id), InputType(id)}, boolean(), std::move(exec)));
+    }
   }
 
   return func;

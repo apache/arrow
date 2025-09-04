@@ -353,6 +353,7 @@ set(ARROW_SRCS
     chunked_array.cc
     chunk_resolver.cc
     compare.cc
+    compare_internal.cc
     config.cc
     datum.cc
     device.cc
