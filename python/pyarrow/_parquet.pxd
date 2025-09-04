@@ -46,7 +46,7 @@ cdef shared_ptr[WriterProperties] _create_writer_properties(
     data_page_size=*,
     compression_level=*,
     use_byte_stream_split=*,
-    column_encoding=*,
+    column_encoding=*, 
     data_page_version=*,
     FileEncryptionProperties encryption_properties=*,
     write_batch_size=*,
@@ -145,6 +145,7 @@ cdef class FileDecryptionProperties:
             shared_ptr[CFileDecryptionProperties] properties):
 
         result = FileDecryptionProperties()
+        result.properties = properties
         result.properties = properties
         return result
 

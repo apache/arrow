@@ -40,6 +40,7 @@ cdef class EncryptionConfiguration(_Weakrefable):
 
 cdef class DecryptionConfiguration(_Weakrefable):
     cdef shared_ptr[CDecryptionConfiguration] configuration
+    
     cdef inline shared_ptr[CDecryptionConfiguration] unwrap(self) nogil
 
 cdef class KmsConnectionConfig(_Weakrefable):

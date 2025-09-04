@@ -64,6 +64,7 @@ class VaultClient(pe.KmsClient):
                           data={'plaintext': base64.b64encode(key_bytes)})
         r.raise_for_status()
         r_dict = r.json()
+        r_dict = r.json()
         wrapped_key = r_dict['data']['ciphertext']
         return wrapped_key
 
