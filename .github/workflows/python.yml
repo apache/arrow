@@ -148,11 +148,12 @@ jobs:
         with:
           python-version: 3.12
       - name: Build PyArrow
-        shell: bash
+        shell: cmd
         run: |
           call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
           bash -c "ci/scripts/python_build.sh $(pwd) $(pwd)/build"
       - name: Test PyArrow
-        shell: bash
+        shell: cmd
         run: |
+          bash -c "ci/scripts/python_build.sh $(pwd) $(pwd)/build"
           ci/scripts/python_test.sh $(pwd) $(pwd)/build
