@@ -68,32 +68,26 @@ jobs:
             simd-level: AVX2
             title: AMD64 Windows 2022 MSVC AVX2
     env:
-      ARROW_ACERO: ON
       ARROW_BOOST_USE_SHARED: OFF
-      ARROW_BUILD_BENCHMARKS: OFF
+      ARROW_BUILD_BENCHMARKS: ON
       ARROW_BUILD_SHARED: ON
       ARROW_BUILD_STATIC: OFF
-      ARROW_BUILD_TESTS: OFF
+      ARROW_BUILD_TESTS: ON
       ARROW_DATASET: ON
-      ARROW_DEPENDENCY_SOURCE: VCPKG
-      ARROW_FLIGHT: ON
-      ARROW_FLIGHT_SQL: ON
-      ARROW_GCS: OFF
+      ARROW_FLIGHT: OFF
       ARROW_HDFS: ON
       ARROW_HOME: /usr
       ARROW_JEMALLOC: OFF
-      ARROW_JSON: ON
       ARROW_MIMALLOC: ON
       ARROW_ORC: ON
       ARROW_PARQUET: ON
       ARROW_SIMD_LEVEL: ${{ matrix.simd-level }}
       ARROW_SUBSTRAIT: ON
-      ARROW_S3: ON
       ARROW_USE_GLOG: OFF
       ARROW_VERBOSE_THIRDPARTY_BUILD: OFF
       ARROW_WITH_BROTLI: OFF
       ARROW_WITH_BZ2: OFF
-      ARROW_WITH_LZ4: ON
+      ARROW_WITH_LZ4: OFF
       ARROW_WITH_OPENTELEMETRY: OFF
       ARROW_WITH_SNAPPY: ON
       ARROW_WITH_ZLIB: ON
@@ -104,7 +98,6 @@ jobs:
       CMAKE_INSTALL_LIBDIR: bin
       CMAKE_INSTALL_PREFIX: /usr
       CMAKE_UNITY_BUILD: ON
-      VCPKG_DEFAULT_TRIPLET: x64-windows
     steps:
       - name: Disable Crash Dialogs
         run: |
@@ -143,27 +136,11 @@ jobs:
           restore-keys: cpp-ccache-windows-${{ env.CACHE_VERSION }}-
         env:
           # We can invalidate the current cache by updating this.
-          CACHE_VERSION: "2022-09-13"
-      - name: Checkout vcpkg
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
-        with:
-          fetch-depth: 0
-          path: vcpkg
-          repository: microsoft/vcpkg
-      - name: Bootstrap vcpkg
-        run: |
-          vcpkg\bootstrap-vcpkg.bat
-          $VCPKG_ROOT = $(Resolve-Path -LiteralPath "vcpkg").ToString()
-          Write-Output ${VCPKG_ROOT} | `
-            Out-File -FilePath ${Env:GITHUB_PATH} -Encoding utf8 -Append
-          Write-Output "VCPKG_ROOT=${VCPKG_ROOT}" | `
-            Out-File -FilePath ${Env:GITHUB_ENV} -Encoding utf8 -Append
-      - name: Build C++
+          CACHE_VERSION: "2025-09-05"
+      - name: Build
         shell: cmd
         run: |
-          set VCPKG_ROOT_KEEP=%VCPKG_ROOT%
           call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
-          set VCPKG_ROOT=%VCPKG_ROOT_KEEP%
           bash -c "ci/scripts/cpp_build.sh $(pwd) $(pwd)/build"
       - name: Set up Python
         uses: actions/setup-python@v5.6.0
@@ -173,17 +150,9 @@ jobs:
       - name: Build PyArrow
         shell: bash
         run: |
-          # For ORC
-          pip install --no-deps --no-build-isolation -vv --editable .
-          export TZDIR=/c/msys64/usr/share/zoneinfo
-          ci/scripts/cpp_test.sh $(pwd) $(pwd)/build
-      - name: Install Google Cloud Storage Testbench
-        shell: bash
-        run: |
-          ci/scripts/install_gcs_testbench.sh default
+          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
+          bash -c "ci/scripts/python_build.sh $(pwd) $(pwd)/build"
       - name: Test PyArrow
         shell: bash
         run: |
-          export ARROW_TEST_DATA=/arrow-testing
-          export TZDIR=/c/msys64/usr/share/zoneinfo
           ci/scripts/python_test.sh $(pwd) $(pwd)/build
