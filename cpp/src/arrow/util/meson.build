@@ -50,7 +50,7 @@ conf_data.set('ARROW_JEMALLOC_VENDORED', false)
 conf_data.set('ARROW_JSON', needs_json)
 conf_data.set('ARROW_MIMALLOC', false)
 conf_data.set('ARROW_ORC', false)
-conf_data.set('ARROW_PARQUET', false)
+conf_data.set('ARROW_PARQUET', needs_parquet)
 conf_data.set('ARROW_SUBSTRAIT', false)
 conf_data.set('ARROW_AZURE', false)
 conf_data.set('ARROW_ENABLE_THREADING', true)
@@ -73,7 +73,7 @@ conf_data.set('ARROW_WITH_UCX', false)
 conf_data.set('ARROW_WITH_UTF8PROC', false)
 conf_data.set('ARROW_WITH_ZLIB', needs_zlib)
 conf_data.set('ARROW_WITH_ZSTD', needs_zstd)
-conf_data.set('PARQUET_REQUIRE_ENCRYPTION', false)
+conf_data.set('PARQUET_REQUIRE_ENCRYPTION', needs_parquet_encryption)
 
 configure_file(
     input: 'config.h.cmake',
