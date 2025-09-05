@@ -485,17 +485,30 @@ class FileSerializer : public ParquetFileWriter::Contents {
       // encrypted with footer key.
       if (encrypted_columns.size() != 0) {
         std::vector<std::string> column_path_vec;
-        // First, save all column paths in schema.
+        std::vector<std::string> column_root_vec;
+        // First, save all column paths and root column names in schema.
         for (int i = 0; i < num_columns(); i++) {
           column_path_vec.push_back(schema_.Column(i)->path()->ToDotString());
+          column_root_vec.push_back(schema_.Column(i)->path()->ToDotVector().at(0));
         }
-        // Check if column exists in schema.
+
         for (const auto& elem : encrypted_columns) {
+          // Check if this column exists in schema.
           auto it = std::find(column_path_vec.begin(), column_path_vec.end(), elem.first);
           if (it == column_path_vec.end()) {
-            std::stringstream ss;
-            ss << "Encrypted column " + elem.first + " not in file schema";
-            throw ParquetException(ss.str());
+            // this column does not exist in the schema, this might be a root column name
+            // like `a` while there are `a.key_value.key` and `a.key_value.value` in the
+            // schema.
+            it = std::find(column_root_vec.begin(), column_root_vec.end(), elem.first);
+            if (it == column_root_vec.end()) {
+              // no encrypted columns exist with this root column name
+              std::stringstream ss;
+              ss << "Encrypted column " + elem.first + " not in file schema: ";
+              for (auto& cp : column_path_vec) {
+                ss << cp << " ";
+              }
+              throw ParquetException(ss.str());
+            }
           }
         }
       }
