@@ -26,6 +26,7 @@ fi
 
 arrow_dir=$(cd -- "$(dirname -- "$0")/../.." && pwd -P)
 default_vcpkg_ports_patch="${arrow_dir}/ci/vcpkg/ports.patch"
+vcpkg_patch="${arrow_dir}/ci/vcpkg/vcpkg.patch"
 
 vcpkg_destination=$1
 vcpkg_version=${2:-}
@@ -41,6 +42,9 @@ git clone --shallow-since=2021-04-01 https://github.com/microsoft/vcpkg "${vcpkg
 pushd "${vcpkg_destination}"
 
 git checkout "${vcpkg_version}"
+
+git apply --verbose --ignore-whitespace "${vcpkg_patch}"
+echo "Patch successfully applied to the VCPKG files!"
 
 if [[ "${OSTYPE:-}" == "msys" ]]; then
   ./bootstrap-vcpkg.bat -disableMetrics

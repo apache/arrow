@@ -65,10 +65,8 @@ RUN `
   curl -SL --output vs_buildtools.exe https://aka.ms/vs/17/release/vs_buildtools.exe `
   && (start /w vs_buildtools.exe --quiet --wait --norestart --nocache `
   --installPath "%ProgramFiles(x86)%\Microsoft Visual Studio\2022\BuildTools" `
-  --add Microsoft.VisualStudio.Component.VC.CoreBuildTools `
-  --add Microsoft.VisualStudio.Component.VC.Tools.x86.x64 `
-  --add Microsoft.VisualStudio.Component.Windows10SDK.20348 `
-  --add Microsoft.VisualStudio.Component.VC.CMake.Project `
+  --includeRecommended ^ `
+  --add Microsoft.VisualStudio.Workload.VCTools ^ `
   || IF "%ERRORLEVEL%"=="3010" EXIT 0) `
   && del /q vs_buildtools.exe
 
