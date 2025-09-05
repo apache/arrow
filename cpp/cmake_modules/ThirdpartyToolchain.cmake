@@ -1978,9 +1978,6 @@ macro(build_absl)
       any
       any_invocable
       atomic_hook
-      bad_any_cast
-      bad_optional_access
-      bad_variant_access
       base_internal
       bind_front
       bits
@@ -5094,8 +5091,6 @@ macro(build_google_cloud_cpp_storage)
     # (and then some regexing)
     list(APPEND
          ARROW_BUNDLED_STATIC_LIBS
-         absl::bad_optional_access
-         absl::bad_variant_access
          absl::base
          absl::civil_time
          absl::cord
