@@ -1355,6 +1355,10 @@ cdef class WriteOptions(_Weakrefable):
         CSV data
     delimiter : 1-character string, optional (default ",")
         The character delimiting individual cells in the CSV data.
+    eol : str, optional (default "\\n")
+        The end of line character to use for ending rows
+    null_string : str, optional (default "")
+        The string to write for null values. Quotes are not allowed in this string.
     quoting_style : str, optional (default "needed")
         Whether to quote values, and if so, which quoting style to use.
         The following values are accepted:
@@ -1370,7 +1374,7 @@ cdef class WriteOptions(_Weakrefable):
     __slots__ = ()
 
     def __init__(self, *, include_header=None, batch_size=None,
-                 delimiter=None, quoting_style=None):
+                 delimiter=None, eol=None, null_string=None, quoting_style=None):
         self.options.reset(new CCSVWriteOptions(CCSVWriteOptions.Defaults()))
         if include_header is not None:
             self.include_header = include_header
@@ -1378,6 +1382,10 @@ cdef class WriteOptions(_Weakrefable):
             self.batch_size = batch_size
         if delimiter is not None:
             self.delimiter = delimiter
+        if eol is not None:
+            self.eol = eol
+        if null_string is not None:
+            self.null_string = null_string
         if quoting_style is not None:
             self.quoting_style = quoting_style
 
@@ -1414,6 +1422,28 @@ cdef class WriteOptions(_Weakrefable):
     @delimiter.setter
     def delimiter(self, value):
         deref(self.options).delimiter = _single_char(value)
+
+    @property
+    def eol(self):
+        """
+        The end of line character to use for ending rows
+        """
+        return frombytes(deref(self.options).eol)
+
+    @eol.setter
+    def eol(self, value):
+        deref(self.options).eol = tobytes(value)
+
+    @property
+    def null_string(self):
+        """
+        The string to write for null values. Quotes are not allowed in this string.
+        """
+        return frombytes(deref(self.options).null_string)
+
+    @null_string.setter
+    def null_string(self, value):
+        deref(self.options).null_string = tobytes(value)
 
     @property
     def quoting_style(self):
