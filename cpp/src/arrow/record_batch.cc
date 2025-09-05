@@ -564,6 +564,22 @@ Status EnumerateStatistics(const RecordBatch& record_batch, OnStatistics on_stat
       statistics.start_new_column = false;
     }
 
+    if (column_statistics->max_byte_width.has_value()) {
+      statistics.nth_statistics++;
+      if (std::holds_alternative<int64_t>(column_statistics->max_byte_width.value())) {
+        statistics.key = ARROW_STATISTICS_KEY_MAX_BYTE_WIDTH_EXACT;
+        statistics.type = int64();
+        statistics.value = std::get<int64_t>(column_statistics->max_byte_width.value());
+      } else {
+        statistics.key = ARROW_STATISTICS_KEY_MAX_BYTE_WIDTH_APPROXIMATE;
+        statistics.type = float64();
+        statistics.value = std::get<double>(column_statistics->max_byte_width.value());
+      }
+
+      RETURN_NOT_OK(on_statistics(statistics));
+      statistics.start_new_column = false;
+    }
+
     if (column_statistics->average_byte_width.has_value()) {
       statistics.nth_statistics++;
       if (column_statistics->is_average_byte_width_exact) {
