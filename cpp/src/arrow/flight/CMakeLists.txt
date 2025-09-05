@@ -295,7 +295,9 @@ if(ARROW_TESTING)
                 STATIC_INSTALL_INTERFACE_LIBS
                 ${ARROW_FLIGHT_TESTING_STATIC_INSTALL_INTERFACE_LIBS}
                 PRIVATE_INCLUDES
-                "${Protobuf_INCLUDE_DIRS}")
+                "${Protobuf_INCLUDE_DIRS}"
+                SHARED_PRIVATE_LINK_LIBS
+                GTest::gmock)
 
   foreach(LIB_TARGET ${ARROW_FLIGHT_TESTING_LIBRARIES})
     target_compile_definitions(${LIB_TARGET} PRIVATE ARROW_FLIGHT_EXPORTING)
