@@ -180,28 +180,91 @@ bool S3ProxyOptions::Equals(const S3ProxyOptions& other) const {
 }
 
 // -----------------------------------------------------------------------
+// Custom comparison for AWS retry strategies
+// To add a new strategy, add it to the AwsRetryStrategyVariant and
+// add a new specialization to the AwsRetryStrategyEquality struct
+using AwsRetryStrategyVariant =
+    std::variant<std::shared_ptr<Aws::Client::DefaultRetryStrategy>,
+                 std::shared_ptr<Aws::Client::StandardRetryStrategy>>;
+
+struct AwsRetryStrategyEquality {
+  bool operator()(const std::shared_ptr<Aws::Client::DefaultRetryStrategy>& lhs,
+                  const std::shared_ptr<Aws::Client::DefaultRetryStrategy>& rhs) const {
+    if (!lhs && !rhs) return true;
+    if (!lhs || !rhs) return false;
+
+    return lhs->GetMaxAttempts() == rhs->GetMaxAttempts();
+  }
+
+  bool operator()(const std::shared_ptr<Aws::Client::StandardRetryStrategy>& lhs,
+                  const std::shared_ptr<Aws::Client::StandardRetryStrategy>& rhs) const {
+    if (!lhs && !rhs) return true;
+    if (!lhs || !rhs) return false;
+
+    return lhs->GetMaxAttempts() == rhs->GetMaxAttempts();
+  }
+
+  // Template function for same unknown RetryStrategy type - returns true if same pointer
+  template <typename T>
+  bool operator()(const std::shared_ptr<T>& lhs, const std::shared_ptr<T>& rhs) const {
+    if (!lhs && !rhs) return true;
+    if (!lhs || !rhs) return false;
+
+    return lhs.get() == rhs.get();
+  }
+
+  // Template function for different RetryStrategy types - returns false for different
+  // types
+  template <typename T, typename U>
+  bool operator()(const std::shared_ptr<T>& lhs, const std::shared_ptr<U>& rhs) const {
+    return false;
+  }
+};
+
+// -----------------------------------------------------------------------
 // AwsRetryStrategy implementation
 
 class AwsRetryStrategy : public S3RetryStrategy {
  public:
-  explicit AwsRetryStrategy(std::shared_ptr<Aws::Client::RetryStrategy> retry_strategy)
+  explicit AwsRetryStrategy(AwsRetryStrategyVariant retry_strategy)
       : retry_strategy_(std::move(retry_strategy)) {}
 
   bool ShouldRetry(const AWSErrorDetail& detail, int64_t attempted_retries) override {
     Aws::Client::AWSError<Aws::Client::CoreErrors> error = DetailToError(detail);
-    return retry_strategy_->ShouldRetry(
-        error, static_cast<long>(attempted_retries));  // NOLINT: runtime/int
+    return std::visit(
+        [&](const auto& strategy) {
+          return strategy->ShouldRetry(error, attempted_retries);
+        },
+        retry_strategy_);
   }
 
   int64_t CalculateDelayBeforeNextRetry(const AWSErrorDetail& detail,
                                         int64_t attempted_retries) override {
     Aws::Client::AWSError<Aws::Client::CoreErrors> error = DetailToError(detail);
-    return retry_strategy_->CalculateDelayBeforeNextRetry(
-        error, static_cast<long>(attempted_retries));  // NOLINT: runtime/int
+    return std::visit(
+        [&](const auto& strategy) {
+          return strategy->CalculateDelayBeforeNextRetry(error, attempted_retries);
+        },
+        retry_strategy_);
   }
 
+  bool Equals(const S3RetryStrategy& other) const override {
+    auto other_aws = dynamic_cast<const AwsRetryStrategy*>(&other);
+    if (!other_aws) {
+      return false;
+    }
+
+    return std::visit(
+        [](const auto& lhs, const auto& rhs) {
+          return AwsRetryStrategyEquality()(lhs, rhs);
+        },
+        retry_strategy_, other_aws->retry_strategy_);
+  }
+
+ protected:
+  AwsRetryStrategyVariant retry_strategy_;
+
  private:
-  std::shared_ptr<Aws::Client::RetryStrategy> retry_strategy_;
   static Aws::Client::AWSError<Aws::Client::CoreErrors> DetailToError(
       const S3RetryStrategy::AWSErrorDetail& detail) {
     auto exception_name = ToAwsString(detail.exception_name);
@@ -426,6 +489,12 @@ bool S3Options::Equals(const S3Options& other) const {
       default_metadata_size
           ? (other.default_metadata && other.default_metadata->Equals(*default_metadata))
           : (!other.default_metadata || other.default_metadata->size() == 0);
+
+  // Compare retry strategies
+  const bool retry_strategy_equals = retry_strategy && other.retry_strategy
+                                         ? retry_strategy->Equals(*other.retry_strategy)
+                                         : (!retry_strategy && !other.retry_strategy);
+
   return (smart_defaults == other.smart_defaults && region == other.region &&
           connect_timeout == other.connect_timeout &&
           request_timeout == other.request_timeout &&
@@ -442,7 +511,7 @@ bool S3Options::Equals(const S3Options& other) const {
           tls_ca_dir_path == other.tls_ca_dir_path &&
           tls_verify_certificates == other.tls_verify_certificates &&
           sse_customer_key == other.sse_customer_key && default_metadata_equals &&
-          GetAccessKey() == other.GetAccessKey() &&
+          retry_strategy_equals && GetAccessKey() == other.GetAccessKey() &&
           GetSecretKey() == other.GetSecretKey() &&
           GetSessionToken() == other.GetSessionToken());
 }
