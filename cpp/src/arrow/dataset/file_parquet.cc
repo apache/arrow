@@ -36,6 +36,7 @@
 #include "arrow/util/iterator.h"
 #include "arrow/util/logging_internal.h"
 #include "arrow/util/range.h"
+#include "arrow/util/thread_pool.h"
 #include "arrow/util/tracing_internal.h"
 #include "parquet/arrow/reader.h"
 #include "parquet/arrow/schema.h"
@@ -642,10 +643,12 @@ Result<RecordBatchGenerator> ParquetFileFormat::ScanBatchesAsync(
             kParquetTypeName, options.get(), default_fragment_scan_options));
     int batch_readahead = options->batch_readahead;
     int64_t rows_to_readahead = batch_readahead * options->batch_size;
-    ARROW_ASSIGN_OR_RAISE(auto generator,
-                          reader->GetRecordBatchGenerator(
-                              reader, row_groups, column_projection,
-                              ::arrow::internal::GetCpuThreadPool(), rows_to_readahead));
+    // Use the executor from scan options if provided.
+    auto cpu_executor = options->cpu_executor ? options->cpu_executor
+                                              : ::arrow::internal::GetCpuThreadPool();
+    ARROW_ASSIGN_OR_RAISE(auto generator, reader->GetRecordBatchGenerator(
+                                              reader, row_groups, column_projection,
+                                              cpu_executor, rows_to_readahead));
     RecordBatchGenerator sliced =
         SlicingGenerator(std::move(generator), options->batch_size);
     if (batch_readahead == 0) {
