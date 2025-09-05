@@ -43,10 +43,8 @@ pushd "${vcpkg_destination}"
 
 git checkout "${vcpkg_version}"
 
-if [ -f "${vcpkg_patch}" ]; then
-  git apply --verbose --ignore-whitespace "${vcpkg_patch}"
-  echo "Patch successfully applied to the VCPKG files!"
-fi
+git apply --verbose --ignore-whitespace "${vcpkg_patch}"
+echo "Patch successfully applied to the VCPKG files!"
 
 if [[ "${OSTYPE:-}" == "msys" ]]; then
   ./bootstrap-vcpkg.bat -disableMetrics
