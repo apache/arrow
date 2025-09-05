@@ -147,6 +147,10 @@ jobs:
         id: python-install
         with:
           python-version: 3.12
+      - name: Install build requirements
+        shell: bash
+        run: |
+          python -m pip install $(pwd)/python/requirements-build.txt
       - name: Build PyArrow
         shell: cmd
         run: |
