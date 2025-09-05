@@ -23,23 +23,36 @@
 #include "arrow/testing/util.h"
 #include "arrow/util/bit_stream_utils_internal.h"
 #include "arrow/util/bpacking_internal.h"
-#include "arrow/util/bpacking_neon_internal.h"
 #include "arrow/util/logging.h"
+
+#if defined(ARROW_HAVE_RUNTIME_AVX2)
+#  include "arrow/util/bpacking_avx2_internal.h"
+#endif
+#if defined(ARROW_HAVE_RUNTIME_AVX512)
+#  include "arrow/util/bpacking_avx512_internal.h"
+#endif
+#if defined(ARROW_HAVE_NEON)
+#  include "arrow/util/bpacking_neon_internal.h"
+#endif
 
 namespace arrow::internal {
 
 template <typename Int>
 using UnpackFunc = int (*)(const uint8_t*, Int*, int, int);
 
+/// Get the number of bytes associate with a packing.
+constexpr int32_t getNumBytes(int32_t num_values, int32_t bit_width) {
+  auto const num_bits = num_values * bit_width;
+  if (num_bits % 8 != 0) {
+    throw std::invalid_argument("Must pack a multiple of 8 bits.");
+  }
+  return num_bits / 8;
+}
+
 /// Generate random bytes as packed integers.
 std::vector<uint8_t> generateRandomPackedValues(int32_t num_values, int32_t bit_width) {
   constexpr uint32_t kSeed = 3214;
-
-  auto const num_bits = num_values * bit_width;
-  if (num_bits % 8 != 0) {
-    throw std::invalid_argument("Must generate a multiple of 8 bits.");
-  }
-  auto const num_bytes = num_bits / 8;
+  auto const num_bytes = getNumBytes(num_values, bit_width);
 
   std::vector<uint8_t> out(num_bytes);
   random_bytes(num_bytes, kSeed, out.data());
@@ -49,10 +62,10 @@ std::vector<uint8_t> generateRandomPackedValues(int32_t num_values, int32_t bit_
 
 /// Convenience wrapper to unpack into a vector
 template <typename Int>
-std::vector<Int> unpackValues(std::vector<uint8_t> const& packed, int32_t num_values,
+std::vector<Int> unpackValues(const uint8_t* packed, int32_t num_values,
                               int32_t bit_width, UnpackFunc<Int> unpack) {
   std::vector<Int> out(num_values);
-  int values_read = unpack(packed.data(), out.data(), num_values, bit_width);
+  int values_read = unpack(packed, out.data(), num_values, bit_width);
   ARROW_DCHECK_GE(values_read, 0);
   out.resize(values_read);
   return out;
@@ -62,11 +75,7 @@ std::vector<Int> unpackValues(std::vector<uint8_t> const& packed, int32_t num_va
 template <typename Int>
 std::vector<uint8_t> packValues(std::vector<Int> const& values, int32_t num_values,
                                 int32_t bit_width) {
-  auto const num_bits = num_values * bit_width;
-  if (num_bits % 8 != 0) {
-    throw std::invalid_argument("Must generate a multiple of 8 bits.");
-  }
-  auto const num_bytes = num_bits / 8;
+  auto const num_bytes = getNumBytes(num_values, bit_width);
 
   std::vector<uint8_t> out(static_cast<std::size_t>(num_bytes));
   bit_util::BitWriter writer(out.data(), num_bytes);
@@ -81,13 +90,30 @@ std::vector<uint8_t> packValues(std::vector<Int> const& values, int32_t num_valu
 }
 
 template <typename Int>
-void checkUnpackPackRoundtrip(std::vector<uint8_t> const& packed, int32_t num_values,
+void checkUnpackPackRoundtrip(const uint8_t* packed, int32_t num_values,
                               int32_t bit_width, UnpackFunc<Int> unpack) {
+  auto const num_bytes = getNumBytes(num_values, bit_width);
+
   auto const unpacked = unpackValues(packed, num_values, bit_width, unpack);
   EXPECT_EQ(unpacked.size(), num_values);
   auto const roundtrip = packValues(unpacked, num_values, bit_width);
-  EXPECT_EQ(packed.size(), roundtrip.size());
-  EXPECT_EQ(packed, roundtrip);
+  EXPECT_EQ(num_bytes, roundtrip.size());
+  for (int i = 0; i < num_bytes; ++i) {
+    EXPECT_EQ(packed[i], roundtrip[i]) << "differ in position " << i;
+  }
+}
+
+const uint8_t* getNextAlignedByte(const uint8_t* ptr, std::size_t alignment) {
+  auto addr = reinterpret_cast<std::uintptr_t>(ptr);
+
+  if (addr % alignment == 0) {
+    return ptr;
+  }
+
+  auto remainder = addr % alignment;
+  auto bytes_to_add = alignment - remainder;
+
+  return ptr + bytes_to_add;
 }
 
 struct UnpackingData {
@@ -98,10 +124,23 @@ struct UnpackingData {
 class UnpackingRandomRoundTrip : public ::testing::TestWithParam<UnpackingData> {
  protected:
   template <typename Int>
-  void testRoundtrip(UnpackFunc<Int> unpack) {
+  void testRoundtripAlignment(UnpackFunc<Int> unpack, std::size_t alignment_offset) {
     auto [num_values, bit_width] = GetParam();
-    auto const original = generateRandomPackedValues(num_values, bit_width);
-    checkUnpackPackRoundtrip(original, num_values, bit_width, unpack);
+    constexpr int32_t kExtraValues = sizeof(Int) * 8;
+
+    auto const packed = generateRandomPackedValues(num_values + kExtraValues, bit_width);
+    const uint8_t* packed_unaligned =
+        getNextAlignedByte(packed.data(), sizeof(Int)) + alignment_offset;
+
+    checkUnpackPackRoundtrip(packed_unaligned, num_values, bit_width, unpack);
+  }
+
+  template <typename Int>
+  void testRoundtrip(UnpackFunc<Int> unpack) {
+    // Aligned test
+    testRoundtripAlignment(unpack, 0);
+    // Unaligned test
+    testRoundtripAlignment(unpack, 1);
   }
 };
 
