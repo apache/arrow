@@ -92,6 +92,14 @@ std::string ParquetVersionToString(ParquetVersion::type ver) {
 template <typename DType>
 static std::shared_ptr<Statistics> MakeTypedColumnStats(
     const format::ColumnMetaData& metadata, const ColumnDescriptor* descr) {
+  std::optional<bool> min_exact =
+      metadata.statistics.__isset.is_min_value_exact
+          ? std::optional<bool>(metadata.statistics.is_min_value_exact)
+          : std::nullopt;
+  std::optional<bool> max_exact =
+      metadata.statistics.__isset.is_max_value_exact
+          ? std::optional<bool>(metadata.statistics.is_max_value_exact)
+          : std::nullopt;
   // If ColumnOrder is defined, return max_value and min_value
   if (descr->column_order().get_order() == ColumnOrder::TYPE_DEFINED_ORDER) {
     return MakeStatistics<DType>(
@@ -100,7 +108,7 @@ static std::shared_ptr<Statistics> MakeTypedColumnStats(
         metadata.statistics.null_count, metadata.statistics.distinct_count,
         metadata.statistics.__isset.max_value && metadata.statistics.__isset.min_value,
         metadata.statistics.__isset.null_count,
-        metadata.statistics.__isset.distinct_count);
+        metadata.statistics.__isset.distinct_count, min_exact, max_exact);
   }
   // Default behavior
   return MakeStatistics<DType>(
@@ -108,7 +116,8 @@ static std::shared_ptr<Statistics> MakeTypedColumnStats(
       metadata.num_values - metadata.statistics.null_count,
       metadata.statistics.null_count, metadata.statistics.distinct_count,
       metadata.statistics.__isset.max && metadata.statistics.__isset.min,
-      metadata.statistics.__isset.null_count, metadata.statistics.__isset.distinct_count);
+      metadata.statistics.__isset.null_count, metadata.statistics.__isset.distinct_count,
+      min_exact, max_exact);
 }
 
 namespace {

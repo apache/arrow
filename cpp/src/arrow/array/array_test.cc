@@ -2120,16 +2120,21 @@ void CheckSliceApproxEquals() {
   ASSERT_TRUE(slice1->ApproxEquals(slice2));
 }
 
+template <typename ArrowType>
+using NumericArgType = std::conditional_t<is_half_float_type<ArrowType>::value, Float16,
+                                          typename ArrowType::c_type>;
+
 template <typename TYPE>
 void CheckFloatingNanEquality() {
+  using V = NumericArgType<TYPE>;
   std::shared_ptr<Array> a, b;
   std::shared_ptr<DataType> type = TypeTraits<TYPE>::type_singleton();
 
-  const auto nan_value = static_cast<typename TYPE::c_type>(NAN);
+  const auto nan_value = std::numeric_limits<V>::quiet_NaN();
 
   // NaN in a null entry
-  ArrayFromVector<TYPE>(type, {true, false}, {0.5, nan_value}, &a);
-  ArrayFromVector<TYPE>(type, {true, false}, {0.5, nan_value}, &b);
+  ArrayFromVector<TYPE, V>(type, {true, false}, {V(0.5), nan_value}, &a);
+  ArrayFromVector<TYPE, V>(type, {true, false}, {V(0.5), nan_value}, &b);
   ASSERT_TRUE(a->Equals(b));
   ASSERT_TRUE(b->Equals(a));
   ASSERT_TRUE(a->ApproxEquals(b));
@@ -2140,8 +2145,8 @@ void CheckFloatingNanEquality() {
   ASSERT_TRUE(b->RangeEquals(a, 1, 2, 1));
 
   // NaN in a valid entry
-  ArrayFromVector<TYPE>(type, {false, true}, {0.5, nan_value}, &a);
-  ArrayFromVector<TYPE>(type, {false, true}, {0.5, nan_value}, &b);
+  ArrayFromVector<TYPE, V>(type, {false, true}, {V(0.5), nan_value}, &a);
+  ArrayFromVector<TYPE, V>(type, {false, true}, {V(0.5), nan_value}, &b);
   ASSERT_FALSE(a->Equals(b));
   ASSERT_FALSE(b->Equals(a));
   ASSERT_TRUE(a->Equals(b, EqualOptions().nans_equal(true)));
@@ -2160,8 +2165,8 @@ void CheckFloatingNanEquality() {
   ASSERT_TRUE(b->RangeEquals(a, 0, 1, 0));
 
   // NaN != non-NaN
-  ArrayFromVector<TYPE>(type, {false, true}, {0.5, nan_value}, &a);
-  ArrayFromVector<TYPE>(type, {false, true}, {0.5, 0.0}, &b);
+  ArrayFromVector<TYPE, V>(type, {false, true}, {V(0.5), nan_value}, &a);
+  ArrayFromVector<TYPE, V>(type, {false, true}, {V(0.5), V(0.0)}, &b);
   ASSERT_FALSE(a->Equals(b));
   ASSERT_FALSE(b->Equals(a));
   ASSERT_FALSE(a->Equals(b, EqualOptions().nans_equal(true)));
@@ -2182,15 +2187,16 @@ void CheckFloatingNanEquality() {
 
 template <typename TYPE>
 void CheckFloatingInfinityEquality() {
+  using V = NumericArgType<TYPE>;
   std::shared_ptr<Array> a, b;
   std::shared_ptr<DataType> type = TypeTraits<TYPE>::type_singleton();
 
-  const auto infinity = std::numeric_limits<typename TYPE::c_type>::infinity();
+  const auto infinity = std::numeric_limits<V>::infinity();
 
   for (auto nans_equal : {false, true}) {
     // Infinity in a null entry
-    ArrayFromVector<TYPE>(type, {true, false}, {0.5, infinity}, &a);
-    ArrayFromVector<TYPE>(type, {true, false}, {0.5, -infinity}, &b);
+    ArrayFromVector<TYPE, V>(type, {true, false}, {V(0.5), infinity}, &a);
+    ArrayFromVector<TYPE, V>(type, {true, false}, {V(0.5), -infinity}, &b);
     ASSERT_TRUE(a->Equals(b));
     ASSERT_TRUE(b->Equals(a));
     ASSERT_TRUE(a->ApproxEquals(b, EqualOptions().atol(1e-5).nans_equal(nans_equal)));
@@ -2201,8 +2207,8 @@ void CheckFloatingInfinityEquality() {
     ASSERT_TRUE(b->RangeEquals(a, 1, 2, 1));
 
     // Infinity in a valid entry
-    ArrayFromVector<TYPE>(type, {false, true}, {0.5, infinity}, &a);
-    ArrayFromVector<TYPE>(type, {false, true}, {0.5, infinity}, &b);
+    ArrayFromVector<TYPE, V>(type, {false, true}, {V(0.5), infinity}, &a);
+    ArrayFromVector<TYPE, V>(type, {false, true}, {V(0.5), infinity}, &b);
     ASSERT_TRUE(a->Equals(b));
     ASSERT_TRUE(b->Equals(a));
     ASSERT_TRUE(a->ApproxEquals(b, EqualOptions().atol(1e-5).nans_equal(nans_equal)));
@@ -2219,8 +2225,8 @@ void CheckFloatingInfinityEquality() {
     ASSERT_TRUE(b->RangeEquals(a, 0, 1, 0));
 
     // Infinity != non-infinity
-    ArrayFromVector<TYPE>(type, {false, true}, {0.5, -infinity}, &a);
-    ArrayFromVector<TYPE>(type, {false, true}, {0.5, 0.0}, &b);
+    ArrayFromVector<TYPE, V>(type, {false, true}, {V(0.5), -infinity}, &a);
+    ArrayFromVector<TYPE, V>(type, {false, true}, {V(0.5), V(0.0)}, &b);
     ASSERT_FALSE(a->Equals(b));
     ASSERT_FALSE(b->Equals(a));
     ASSERT_FALSE(a->ApproxEquals(b, EqualOptions().atol(1e-5).nans_equal(nans_equal)));
@@ -2228,8 +2234,8 @@ void CheckFloatingInfinityEquality() {
     ASSERT_FALSE(a->ApproxEquals(b, EqualOptions().atol(1e-5).nans_equal(nans_equal)));
     ASSERT_FALSE(b->ApproxEquals(a, EqualOptions().atol(1e-5).nans_equal(nans_equal)));
     // Infinity != Negative infinity
-    ArrayFromVector<TYPE>(type, {true, true}, {0.5, -infinity}, &a);
-    ArrayFromVector<TYPE>(type, {true, true}, {0.5, infinity}, &b);
+    ArrayFromVector<TYPE, V>(type, {true, true}, {V(0.5), -infinity}, &a);
+    ArrayFromVector<TYPE, V>(type, {true, true}, {V(0.5), infinity}, &b);
     ASSERT_FALSE(a->Equals(b));
     ASSERT_FALSE(b->Equals(a));
     ASSERT_FALSE(a->ApproxEquals(b));
@@ -2249,11 +2255,12 @@ void CheckFloatingInfinityEquality() {
 
 template <typename TYPE>
 void CheckFloatingZeroEquality() {
+  using V = NumericArgType<TYPE>;
   std::shared_ptr<Array> a, b;
   std::shared_ptr<DataType> type = TypeTraits<TYPE>::type_singleton();
 
-  ArrayFromVector<TYPE>(type, {true, false}, {0.0, 1.0}, &a);
-  ArrayFromVector<TYPE>(type, {true, false}, {0.0, 1.0}, &b);
+  ArrayFromVector<TYPE, V>(type, {true, false}, {V(0.0), V(1.0)}, &a);
+  ArrayFromVector<TYPE, V>(type, {true, false}, {V(0.0), V(1.0)}, &b);
   ASSERT_TRUE(a->Equals(b));
   ASSERT_TRUE(b->Equals(a));
   for (auto nans_equal : {false, true}) {
@@ -2269,8 +2276,8 @@ void CheckFloatingZeroEquality() {
     }
   }
 
-  ArrayFromVector<TYPE>(type, {true, false}, {0.0, 1.0}, &a);
-  ArrayFromVector<TYPE>(type, {true, false}, {-0.0, 1.0}, &b);
+  ArrayFromVector<TYPE, V>(type, {true, false}, {V(0.0), V(1.0)}, &a);
+  ArrayFromVector<TYPE, V>(type, {true, false}, {V(-0.0), V(1.0)}, &b);
   for (auto nans_equal : {false, true}) {
     auto opts = EqualOptions().nans_equal(nans_equal);
     ASSERT_TRUE(a->Equals(b, opts));
@@ -2306,16 +2313,19 @@ TEST(TestPrimitiveAdHoc, FloatingSliceApproxEquals) {
 TEST(TestPrimitiveAdHoc, FloatingNanEquality) {
   CheckFloatingNanEquality<FloatType>();
   CheckFloatingNanEquality<DoubleType>();
+  CheckFloatingNanEquality<HalfFloatType>();
 }
 
 TEST(TestPrimitiveAdHoc, FloatingInfinityEquality) {
   CheckFloatingInfinityEquality<FloatType>();
   CheckFloatingInfinityEquality<DoubleType>();
+  CheckFloatingInfinityEquality<HalfFloatType>();
 }
 
 TEST(TestPrimitiveAdHoc, FloatingZeroEquality) {
   CheckFloatingZeroEquality<FloatType>();
   CheckFloatingZeroEquality<DoubleType>();
+  CheckFloatingZeroEquality<HalfFloatType>();
 }
 
 // ----------------------------------------------------------------------

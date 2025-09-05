@@ -111,33 +111,31 @@ Other available packages
 
 There are other available packages, they can also be used with the `find_package
 <https://cmake.org/cmake/help/latest/command/find_package.html>`_ directive.
-This is the list of available ones and the respective targets created:
+This is the list of available packages:
 
-+-----------------------------------------------+--------------------------------------------------------+-----------------------------------------------------+
-| find_package usage                            | shared target                                          | static target                                       |
-+===============================================+========================================================+=====================================================+
-| ``find_package(ArrowCUDA REQUIRED)``          | ``ArrowCUDA::arrow_cuda_shared``                       | ``ArrowCUDA::arrow_cuda_static``                    |
-+-----------------------------------------------+--------------------------------------------------------+-----------------------------------------------------+
-| ``find_package(ArrowAcero REQUIRED)``         | ``ArrowAcero::arrow_acero_shared``                     | ``ArrowAcero::arrow_acero_static``                  |
-+-----------------------------------------------+--------------------------------------------------------+-----------------------------------------------------+
-| ``find_package(ArrowCompute REQUIRED)``       | ``ArrowCompute::arrow_compute_shared``                 | ``ArrowCompute::arrow_compute_static``              |
-+-----------------------------------------------+--------------------------------------------------------+-----------------------------------------------------+
-| ``find_package(ArrowDataset REQUIRED)``       | ``ArrowDataset::arrow_dataset_shared``                 | ``ArrowDataset::arrow_dataset_static``              |
-+-----------------------------------------------+--------------------------------------------------------+-----------------------------------------------------+
-| ``find_package(ArrowFlight REQUIRED)``        | ``ArrowFlight::arrow_flight_shared``                   | ``ArrowFlight::arrow_flight_static``                |
-+-----------------------------------------------+--------------------------------------------------------+-----------------------------------------------------+
-| ``find_package(ArrowFlightSql REQUIRED)``     | ``ArrowFlightSql::arrow_flight_sql_shared``            | ``ArrowFlightSql::arrow_flight_sql_static``         |
-+-----------------------------------------------+--------------------------------------------------------+-----------------------------------------------------+
-| ``find_package(ArrowFlightTesting REQUIRED)`` | ``ArrowFlightTesting::arrow_flight_testing_shared``    | ``ArrowFlightTesting::arrow_flight_testing_static`` |
-+-----------------------------------------------+--------------------------------------------------------+-----------------------------------------------------+
-| ``find_package(ArrowSubstrait REQUIRED)``     | ``ArrowSubstrait::arrow_substrait_shared``             | ``ArrowSubstrait::arrow_substrait_static``          |
-+-----------------------------------------------+--------------------------------------------------------+-----------------------------------------------------+
-| ``find_package(ArrowTesting REQUIRED)``       | ``ArrowTesting::arrow_testing_shared``                 | ``ArrowTesting::arrow_testing_static``              |
-+-----------------------------------------------+--------------------------------------------------------+-----------------------------------------------------+
-| ``find_package(Gandiva REQUIRED)``            | ``Gandiva::gandiva_shared``                            | ``Gandiva::gandiva_static``                         |
-+-----------------------------------------------+--------------------------------------------------------+-----------------------------------------------------+
-| ``find_package(Parquet REQUIRED)``            | ``Parquet::parquet_shared``                            | ``Parquet::parquet_static``                         |
-+-----------------------------------------------+--------------------------------------------------------+-----------------------------------------------------+
+* ArrowCUDA
+* ArrowAcero
+* ArrowCompute
+* ArrowDataset
+* ArrowFlight
+* ArrowFlightSql
+* ArrowFlightTesting
+* ArrowSubstrait
+* ArrowTesting
+* Gandiva
+* Parquet
+
+Usage with find_package and target names follows a consistent naming pattern:
+
+* find_package usage: ``find_package(PackageName REQUIRED)``
+* Shared Target: ``PackageName::package_name_shared``
+* Static Target: ``PackageName::package_name_static``
+
+For example, to use the ``ArrowCompute`` package:
+
+* find_package Usage: ``find_package(ArrowCompute REQUIRED)``
+* Shared Target: ``ArrowCompute::arrow_compute_shared``
+* Static Target: ``ArrowCompute::arrow_compute_static``
 
 .. note::
    CMake is case-sensitive.  The names and variables listed above have to be

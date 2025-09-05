@@ -795,9 +795,10 @@ class ParquetIOTestBase : public ::testing::Test {
 
 class TestReadDecimals : public ParquetIOTestBase {
  public:
-  void CheckReadFromByteArrays(const std::shared_ptr<const LogicalType>& logical_type,
-                               const std::vector<std::vector<uint8_t>>& values,
-                               const Array& expected) {
+  void CheckReadFromByteArrays(
+      const std::shared_ptr<const LogicalType>& logical_type,
+      const std::vector<std::vector<uint8_t>>& values, const Array& expected,
+      ArrowReaderProperties properties = default_arrow_reader_properties()) {
     std::vector<ByteArray> byte_arrays(values.size());
     std::transform(values.begin(), values.end(), byte_arrays.begin(),
                    [](const std::vector<uint8_t>& bytes) {
@@ -822,7 +823,6 @@ class TestReadDecimals : public ParquetIOTestBase {
     // The binary_type setting shouldn't affect the results
     for (auto binary_type : {::arrow::Type::BINARY, ::arrow::Type::LARGE_BINARY,
                              ::arrow::Type::BINARY_VIEW}) {
-      ArrowReaderProperties properties;
       properties.set_binary_type(binary_type);
       ASSERT_OK_AND_ASSIGN(auto reader, ReaderFromBuffer(buffer, properties));
       ReadAndCheckSingleColumnFile(std::move(reader), expected);
@@ -832,6 +832,44 @@ class TestReadDecimals : public ParquetIOTestBase {
 
 // The Decimal roundtrip tests always go through the FixedLenByteArray path,
 // check the ByteArray case manually.
+
+TEST_F(TestReadDecimals, Decimal32ByteArray) {
+  const std::vector<std::vector<uint8_t>> big_endian_decimals = {
+      // 123456
+      {1, 226, 64},
+      // 987654
+      {15, 18, 6},
+      // -123456
+      {255, 254, 29, 192},
+  };
+
+  ArrowReaderProperties properties = default_arrow_reader_properties();
+  properties.set_smallest_decimal_enabled(true);
+
+  auto expected =
+      ArrayFromJSON(::arrow::decimal32(6, 3), R"(["123.456", "987.654", "-123.456"])");
+  CheckReadFromByteArrays(LogicalType::Decimal(6, 3), big_endian_decimals, *expected,
+                          properties);
+}
+
+TEST_F(TestReadDecimals, Decimal64ByteArray) {
+  const std::vector<std::vector<uint8_t>> big_endian_decimals = {
+      // 123456
+      {1, 226, 64},
+      // 987654
+      {15, 18, 6},
+      // -123456
+      {255, 255, 255, 255, 255, 254, 29, 192},
+  };
+
+  ArrowReaderProperties properties = default_arrow_reader_properties();
+  properties.set_smallest_decimal_enabled(true);
+
+  auto expected =
+      ArrayFromJSON(::arrow::decimal64(16, 3), R"(["123.456", "987.654", "-123.456"])");
+  CheckReadFromByteArrays(LogicalType::Decimal(16, 3), big_endian_decimals, *expected,
+                          properties);
+}
 
 TEST_F(TestReadDecimals, Decimal128ByteArray) {
   const std::vector<std::vector<uint8_t>> big_endian_decimals = {
@@ -3044,18 +3082,19 @@ TEST(ArrowReadWrite, NestedRequiredField) {
                        /*row_group_size=*/8);
 }
 
-TEST(ArrowReadWrite, Decimal256) {
-  using ::arrow::Decimal256;
+TEST(ArrowReadWrite, Decimal) {
   using ::arrow::field;
-
-  auto type = ::arrow::decimal256(8, 4);
 
   const char* json = R"(["1.0000", null, "-1.2345", "-1000.5678",
                          "-9999.9999", "9999.9999"])";
-  auto array = ::arrow::ArrayFromJSON(type, json);
-  auto table = ::arrow::Table::Make(::arrow::schema({field("root", type)}), {array});
-  auto props_store_schema = ArrowWriterProperties::Builder().store_schema()->build();
-  CheckSimpleRoundtrip(table, 2, props_store_schema);
+
+  for (auto type : {::arrow::decimal32(8, 4), ::arrow::decimal64(8, 4),
+                    ::arrow::decimal128(8, 4), ::arrow::decimal256(8, 4)}) {
+    auto array = ::arrow::ArrayFromJSON(type, json);
+    auto table = ::arrow::Table::Make(::arrow::schema({field("root", type)}), {array});
+    auto props_store_schema = ArrowWriterProperties::Builder().store_schema()->build();
+    CheckSimpleRoundtrip(table, 2, props_store_schema);
+  }
 }
 
 TEST(ArrowReadWrite, DecimalStats) {
@@ -5462,6 +5501,64 @@ TYPED_TEST(TestIntegerAnnotateDecimalTypeParquetIO, SingleNonNullableDecimalColu
 }
 
 TYPED_TEST(TestIntegerAnnotateDecimalTypeParquetIO, SingleNullableDecimalColumn) {
+  std::shared_ptr<Array> values;
+  ASSERT_OK(NullableArray<TypeParam>(SMALL_SIZE, SMALL_SIZE / 2, kDefaultSeed, &values));
+  ASSERT_NO_FATAL_FAILURE(this->WriteColumn(values));
+  ASSERT_NO_FATAL_FAILURE(this->ReadAndCheckSingleDecimalColumnFile(*values));
+}
+
+template <typename TestType>
+class TestIntegerAnnotateSmallestDecimalTypeParquetIO
+    : public TestIntegerAnnotateDecimalTypeParquetIO<TestType> {
+ public:
+  void ReadAndCheckSingleDecimalColumnFile(const Array& values) {
+    ArrowReaderProperties properties = default_arrow_reader_properties();
+    properties.set_smallest_decimal_enabled(true);
+
+    std::shared_ptr<Array> out;
+    std::unique_ptr<FileReader> reader;
+    this->ReaderFromSink(&reader, properties);
+    this->ReadSingleColumnFile(std::move(reader), &out);
+
+    if (values.type()->id() == out->type()->id()) {
+      AssertArraysEqual(values, *out);
+    } else {
+      auto decimal_type = checked_pointer_cast<::arrow::DecimalType>(values.type());
+
+      ASSERT_OK_AND_ASSIGN(
+          const auto expected_values,
+          ::arrow::compute::Cast(values, ::arrow::decimal256(decimal_type->precision(),
+                                                             decimal_type->scale())));
+      ASSERT_OK_AND_ASSIGN(
+          const auto out_values,
+          ::arrow::compute::Cast(*out, ::arrow::decimal256(decimal_type->precision(),
+                                                           decimal_type->scale())));
+
+      ASSERT_EQ(expected_values->length(), out_values->length());
+      ASSERT_EQ(expected_values->null_count(), out_values->null_count());
+      ASSERT_TRUE(expected_values->Equals(*out_values));
+    }
+  }
+};
+
+using SmallestDecimalTestTypes = ::testing::Types<
+    Decimal32WithPrecisionAndScale<9>, Decimal64WithPrecisionAndScale<9>,
+    Decimal64WithPrecisionAndScale<18>, Decimal128WithPrecisionAndScale<9>,
+    Decimal128WithPrecisionAndScale<18>, Decimal256WithPrecisionAndScale<9>,
+    Decimal256WithPrecisionAndScale<18>>;
+
+TYPED_TEST_SUITE(TestIntegerAnnotateSmallestDecimalTypeParquetIO,
+                 SmallestDecimalTestTypes);
+
+TYPED_TEST(TestIntegerAnnotateSmallestDecimalTypeParquetIO,
+           SingleNonNullableDecimalColumn) {
+  std::shared_ptr<Array> values;
+  ASSERT_OK(NonNullArray<TypeParam>(SMALL_SIZE, &values));
+  ASSERT_NO_FATAL_FAILURE(this->WriteColumn(values));
+  ASSERT_NO_FATAL_FAILURE(this->ReadAndCheckSingleDecimalColumnFile(*values));
+}
+
+TYPED_TEST(TestIntegerAnnotateSmallestDecimalTypeParquetIO, SingleNullableDecimalColumn) {
   std::shared_ptr<Array> values;
   ASSERT_OK(NullableArray<TypeParam>(SMALL_SIZE, SMALL_SIZE / 2, kDefaultSeed, &values));
   ASSERT_NO_FATAL_FAILURE(this->WriteColumn(values));

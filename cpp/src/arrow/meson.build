@@ -75,6 +75,7 @@ arrow_components = {
             'compute/kernels/vector_selection_filter_internal.cc',
             'compute/kernels/vector_selection_internal.cc',
             'compute/kernels/vector_selection_take_internal.cc',
+            'compute/kernels/vector_swizzle.cc',
         ],
     },
     'arrow_io': {
@@ -425,7 +426,7 @@ arrow_lib = library(
     include_directories: arrow_includes,
     dependencies: arrow_deps,
     install: true,
-    gnu_symbol_visibility: 'hidden',
+    gnu_symbol_visibility: 'inlineshidden',
     cpp_shared_args: ['-DARROW_EXPORTING'],
 )
 
@@ -471,7 +472,6 @@ if needs_compute
         'compute/kernels/vector_select_k.cc',
         'compute/kernels/vector_sort.cc',
         'compute/kernels/vector_statistics.cc',
-        'compute/kernels/vector_swizzle.cc',
         'compute/key_hash_internal.cc',
         'compute/key_map_internal.cc',
         'compute/light_array_internal.cc',
@@ -489,6 +489,7 @@ if needs_compute
         sources: arrow_compute_lib_sources,
         dependencies: arrow_dep,
         install: true,
+        gnu_symbol_visibility: 'inlineshidden',
         cpp_shared_args: ['-DARROW_COMPUTE_EXPORTING'],
     )
     arrow_compute_dep = declare_dependency(

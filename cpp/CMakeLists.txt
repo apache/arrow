@@ -177,6 +177,7 @@ set(ARROW_DOC_DIR "share/doc/${PROJECT_NAME}")
 set(BUILD_SUPPORT_DIR "${CMAKE_SOURCE_DIR}/build-support")
 
 set(ARROW_LLVM_VERSIONS
+    "21.1"
     "20.1"
     "19.1"
     "18.1"
@@ -349,6 +350,12 @@ if(ARROW_EXTRA_ERROR_CONTEXT)
 endif()
 
 include(SetupCxxFlags)
+
+if(${CMAKE_CXX_FLAGS_DEBUG} MATCHES "-Og")
+  # GH-47475: xxhash fails inlining when -Og is used.
+  # See: https://github.com/Cyan4973/xxHash/issues/943
+  add_definitions(-DXXH_NO_INLINE_HINTS)
+endif()
 
 #
 # Linker flags

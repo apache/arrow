@@ -75,12 +75,12 @@ class PostBumpVersionsTest < Test::Unit::TestCase
     case bump_type
     when :minor, :patch
       sh(env,
-         "dev/release/post-11-bump-versions.sh",
+         "dev/release/post-10-bump-versions.sh",
          released_version,
          @release_version)
     else
       sh(env,
-         "dev/release/post-11-bump-versions.sh",
+         "dev/release/post-10-bump-versions.sh",
          released_version,
          @next_version)
     end
