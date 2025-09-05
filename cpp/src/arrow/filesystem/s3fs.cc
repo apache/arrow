@@ -233,7 +233,8 @@ class AwsRetryStrategy : public S3RetryStrategy {
     Aws::Client::AWSError<Aws::Client::CoreErrors> error = DetailToError(detail);
     return std::visit(
         [&](const auto& strategy) {
-          return strategy->ShouldRetry(error, attempted_retries);
+          return strategy->ShouldRetry(
+              error, static_cast<long>(attempted_retries));  // NOLINT: runtime/int
         },
         retry_strategy_);
   }
@@ -243,7 +244,8 @@ class AwsRetryStrategy : public S3RetryStrategy {
     Aws::Client::AWSError<Aws::Client::CoreErrors> error = DetailToError(detail);
     return std::visit(
         [&](const auto& strategy) {
-          return strategy->CalculateDelayBeforeNextRetry(error, attempted_retries);
+          return strategy->CalculateDelayBeforeNextRetry(
+              error, static_cast<long>(attempted_retries));  // NOLINT: runtime/int
         },
         retry_strategy_);
   }
