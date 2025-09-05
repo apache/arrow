@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-FROM amd64/ubuntu:20.04
+FROM amd64/ubuntu:24.04
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
@@ -25,12 +25,19 @@ RUN echo "debconf debconf/frontend select Noninteractive" | \
 RUN apt-get update -y -q && \
     apt-get install -y -q --no-install-recommends \
         git \
-        python3-pip && \
+        python3-pip \
+        python3-venv && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists*
 
 COPY python/requirements-build.txt \
      /arrow/python/requirements-build.txt
-RUN pip3 install --requirement /arrow/python/requirements-build.txt
 
-ENV PYTHON=/usr/bin/python3
+ENV ARROW_PYTHON_VENV /arrow-dev
+
+RUN python3 -m venv ${ARROW_PYTHON_VENV} && \
+    . ${ARROW_PYTHON_VENV}/bin/activate && \
+    pip install \
+      -r arrow/python/requirements-build.txt
+
+ENV PYTHON=${ARROW_PYTHON_VENV}/bin/python

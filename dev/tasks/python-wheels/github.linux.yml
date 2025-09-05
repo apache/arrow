@@ -89,7 +89,7 @@ jobs:
       - name: Test wheel on AlmaLinux 8
         shell: bash
         if: |
-          '{{ python_version }}' == '3.9' && '{{ linux_wheel_kind }}' == 'manylinux'
+          '{{ python_version }}' == '3.12' && '{{ linux_wheel_kind }}' == 'manylinux'
         env:
           ALMALINUX: "8"
         run: |
