@@ -23,10 +23,10 @@
 #include "arrow/testing/util.h"
 #include "arrow/util/bpacking_internal.h"
 
-#if defined(ARROW_HAVE_RUNTIME_AVX2)
+#if defined(ARROW_HAVE_AVX2)
 #  include "arrow/util/bpacking_avx2_internal.h"
 #endif
-#if defined(ARROW_HAVE_RUNTIME_AVX512)
+#if defined(ARROW_HAVE_AVX512)
 #  include "arrow/util/bpacking_avx512_internal.h"
 #endif
 #if defined(ARROW_HAVE_NEON)
@@ -111,12 +111,12 @@ BENCHMARK_CAPTURE(BM_Unpack<uint64_t>, unpack64_default_unaligned, false,
                   unpack64_default)
     ->ArgsProduct(bitWidthsNumValues64);
 
-#if defined(ARROW_HAVE_RUNTIME_AVX2)
+#if defined(ARROW_HAVE_AVX2)
 BENCHMARK_CAPTURE(BM_Unpack<uint32_t>, unpack32_avx2_unaligned, false, unpack32_avx2)
     ->ArgsProduct(bitWidthsNumValues32);
 #endif
 
-#if defined(ARROW_HAVE_RUNTIME_AVX512)
+#if defined(ARROW_HAVE_AVX512)
 BENCHMARK_CAPTURE(BM_Unpack<uint32_t>, unpack32_avx512_unaligned, false, unpack32_avx512)
     ->ArgsProduct(bitWidthsNumValues32);
 #endif
