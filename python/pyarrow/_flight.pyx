@@ -103,6 +103,9 @@ cdef class FlightCallOptions(_Weakrefable):
     cdef:
         CFlightCallOptions options
 
+        IpcReadOptions _py_read_options
+        IpcWriteOptions _py_write_options
+
     def __init__(self, timeout=None, write_options=None, headers=None,
                  IpcReadOptions read_options=None):
         """Create call options.
@@ -121,6 +124,9 @@ cdef class FlightCallOptions(_Weakrefable):
             Serialization options for reading IPC format.
         """
         cdef IpcWriteOptions c_write_options
+
+        self._py_write_options = write_options
+        self._py_read_options = read_options
 
         if timeout is not None:
             self.options.timeout = CTimeoutDuration(timeout)
@@ -144,27 +150,36 @@ cdef class FlightCallOptions(_Weakrefable):
 
     @property
     def timeout(self):
-        if not hasattr(self, "timeout"):
-            raise ValueError(f"FlightCallOptions.timeout was not set")
         return self.options.timeout.count()
 
     @property
     def headers(self):
-        if not hasattr(self, "headers"):
-            raise ValueError(f"FlightCallOptions.headers was not set")
         return self.options.headers
 
     @property
-    def read_options(self): ...
+    def read_options(self):
+        return self._py_read_options
 
     @property
-    def write_options(self): ...
+    def write_options(self):
+        return self._py_write_options
 
     def __repr__(self):
-        return (f"<pyarrow.flight.FlightCallOptions "
+        base = (f"<pyarrow.flight.FlightCallOptions "
                 f"timeout={self.timeout} "
-                f"headers={self.headers}>")
+                f"headers={self.headers}")
 
+        parts = [base]
+
+        if self.read_options is not None:
+            parts.append(f" {self.read_options}")
+
+        if self.write_options is not None:
+            parts.append(f" {self.write_options}")
+
+        parts.append(">")
+
+        return "\n".join(parts) if len(parts) > 2 else "".join(parts)
 
 _CertKeyPair = collections.namedtuple('_CertKeyPair', ['cert', 'key'])
 
