@@ -98,6 +98,7 @@ add_arrow_test(bit-utility-test
                SOURCES
                bit_block_counter_test.cc
                bit_util_test.cc
+               bpacking_test.cc
                rle_encoding_test.cc)
 
 add_arrow_test(threading-utility-test
