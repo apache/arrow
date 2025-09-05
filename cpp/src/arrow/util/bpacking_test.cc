@@ -25,10 +25,10 @@
 #include "arrow/util/bpacking_internal.h"
 #include "arrow/util/logging.h"
 
-#if defined(ARROW_HAVE_RUNTIME_AVX2)
+#if defined(ARROW_HAVE_AVX2)
 #  include "arrow/util/bpacking_avx2_internal.h"
 #endif
-#if defined(ARROW_HAVE_RUNTIME_AVX512)
+#if defined(ARROW_HAVE_AVX512)
 #  include "arrow/util/bpacking_avx512_internal.h"
 #endif
 #if defined(ARROW_HAVE_NEON)
@@ -160,11 +160,11 @@ TEST_P(UnpackingRandomRoundTrip, unpack64Default) {
   this->testRoundtrip(&unpack64_default);
 }
 
-#if defined(ARROW_HAVE_RUNTIME_AVX2)
+#if defined(ARROW_HAVE_AVX2)
 TEST_P(UnpackingRandomRoundTrip, unpack32Avx2) { this->testRoundtrip(&unpack32_avx2); }
 #endif
 
-#if defined(ARROW_HAVE_RUNTIME_AVX512)
+#if defined(ARROW_HAVE_AVX512)
 TEST_P(UnpackingRandomRoundTrip, unpack32Avx512) {
   this->testRoundtrip(&unpack32_avx512);
 }
