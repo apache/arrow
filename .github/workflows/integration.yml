@@ -95,6 +95,11 @@ jobs:
         with:
           repository: apache/arrow-js
           path: js
+      - name: Checkout Arrow .NET
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          repository: apache/arrow-dotnet
+          path: dotnet
       - name: Free up disk space
         run: |
           ci/scripts/util_free_space.sh
@@ -118,6 +123,7 @@ jobs:
           source ci/scripts/util_enable_core_dumps.sh
           archery docker run \
             -e ARCHERY_DEFAULT_BRANCH=${{ github.event.repository.default_branch }} \
+            -e ARCHERY_INTEGRATION_WITH_DOTNET=1 \
             -e ARCHERY_INTEGRATION_WITH_GO=1 \
             -e ARCHERY_INTEGRATION_WITH_JAVA=1 \
             -e ARCHERY_INTEGRATION_WITH_JS=1 \
