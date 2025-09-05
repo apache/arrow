@@ -670,8 +670,9 @@ def _set_default(opt, default):
               help="Seed for PRNG when generating test data")
 @click.option('--with-cpp', type=bool, default=False,
               help='Include C++ in integration tests')
-@click.option('--with-csharp', type=bool, default=False,
-              help='Include C# in integration tests')
+@click.option('--with-dotnet', type=bool, default=False,
+              help='Include .NET in integration tests',
+              envvar="ARCHERY_INTEGRATION_WITH_DOTNET")
 @click.option('--with-java', type=bool, default=False,
               help='Include Java in integration tests',
               envvar="ARCHERY_INTEGRATION_WITH_JAVA")
@@ -783,7 +784,7 @@ def integration(with_all=False, random_seed=12345, **args):
 
     gen_path = args['write_generated_json']
 
-    implementations = ['cpp', 'csharp', 'java', 'js', 'go', 'nanoarrow', 'rust']
+    implementations = ['cpp', 'dotnet', 'java', 'js', 'go', 'nanoarrow', 'rust']
     formats = ['ipc', 'flight', 'c_data']
 
     enabled_implementations = 0

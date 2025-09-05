@@ -25,7 +25,7 @@ from .util import run_cmd, log
 from ..utils.source import ARROW_ROOT_DEFAULT
 
 
-_ARTIFACTS_PATH = os.path.join(ARROW_ROOT_DEFAULT, "csharp/artifacts")
+_ARTIFACTS_PATH = os.path.join(ARROW_ROOT_DEFAULT, "dotnet/artifacts")
 _BUILD_SUBDIR = "Debug/net8.0"
 
 _EXE_PATH = os.path.join(_ARTIFACTS_PATH,
@@ -94,7 +94,7 @@ class _CDataBase:
         CDataInterface.RunGC()
 
 
-class CSharpCDataExporter(CDataExporter, _CDataBase):
+class DotNetCDataExporter(CDataExporter, _CDataBase):
 
     def export_schema_from_json(self, json_path, c_schema_ptr):
         from Apache.Arrow.IntegrationTest import CDataInterface
@@ -120,7 +120,7 @@ class CSharpCDataExporter(CDataExporter, _CDataBase):
         self._run_gc()
 
 
-class CSharpCDataImporter(CDataImporter, _CDataBase):
+class DotNetCDataImporter(CDataImporter, _CDataBase):
 
     def import_schema_and_compare_to_json(self, json_path, c_schema_ptr):
         from Apache.Arrow.IntegrationTest import CDataInterface
@@ -152,7 +152,7 @@ class CSharpCDataImporter(CDataImporter, _CDataBase):
         self._run_gc()
 
 
-class CSharpTester(Tester):
+class DotNetTester(Tester):
     PRODUCER = True
     CONSUMER = True
     FLIGHT_SERVER = True
@@ -162,7 +162,7 @@ class CSharpTester(Tester):
     C_DATA_ARRAY_EXPORTER = True
     C_DATA_ARRAY_IMPORTER = True
 
-    name = 'C#'
+    name = '.NET'
 
     def _run(self, json_path=None, arrow_path=None, command='validate'):
         cmd = [_EXE_PATH]
@@ -199,10 +199,10 @@ class CSharpTester(Tester):
         self.run_shell_command(cmd)
 
     def make_c_data_exporter(self):
-        return CSharpCDataExporter(self.debug, self.args)
+        return DotNetCDataExporter(self.debug, self.args)
 
     def make_c_data_importer(self):
-        return CSharpCDataImporter(self.debug, self.args)
+        return DotNetCDataImporter(self.debug, self.args)
 
     def flight_request(self, port, json_path=None, scenario_name=None):
         cmd = [_FLIGHT_EXE_PATH, 'client', '--port', f'{port}']

@@ -193,7 +193,7 @@ class IntegrationRunner(object):
                 skip_testers.add("Java")
                 skip_testers.add("JS")
             if prefix == '1.0.0-bigendian' or prefix == '1.0.0-littleendian':
-                skip_testers.add("C#")
+                skip_testers.add(".NET")
                 skip_testers.add("Java")
                 skip_testers.add("JS")
                 skip_testers.add("Rust")
@@ -207,7 +207,7 @@ class IntegrationRunner(object):
             # disable specific compression type tests.
 
             if prefix == '4.0.0-shareddict':
-                skip_testers.add("C#")
+                skip_testers.add(".NET")
                 # https://github.com/apache/arrow-nanoarrow/issues/622
                 skip_testers.add("nanoarrow")
 
@@ -590,7 +590,7 @@ def get_static_json_files():
 
 
 def run_all_tests(with_cpp=True, with_java=True, with_js=True,
-                  with_csharp=True, with_go=True, with_rust=False,
+                  with_dotnet=True, with_go=True, with_rust=False,
                   with_nanoarrow=False, run_ipc=False, run_flight=False,
                   run_c_data=False, tempdir=None, target_implementations="",
                   **kwargs):
@@ -619,9 +619,9 @@ def run_all_tests(with_cpp=True, with_java=True, with_js=True,
         from .tester_js import JSTester
         append_tester("js", JSTester(**kwargs))
 
-    if with_csharp:
-        from .tester_csharp import CSharpTester
-        append_tester("csharp", CSharpTester(**kwargs))
+    if with_dotnet:
+        from .tester_dotnet import DotNetTester
+        append_tester("dotnet", DotNetTester(**kwargs))
 
     if with_go:
         from .tester_go import GoTester
@@ -644,42 +644,42 @@ def run_all_tests(with_cpp=True, with_java=True, with_js=True,
         Scenario(
             "auth:basic_proto",
             description="Authenticate using the BasicAuth protobuf.",
-            skip_testers={"C#"},
+            skip_testers={".NET"},
         ),
         Scenario(
             "middleware",
             description="Ensure headers are propagated via middleware.",
-            skip_testers={"C#"},
+            skip_testers={".NET"},
         ),
         Scenario(
             "ordered",
             description="Ensure FlightInfo.ordered is supported.",
-            skip_testers={"JS", "C#", "Rust"},
+            skip_testers={"JS", ".NET", "Rust"},
         ),
         Scenario(
             "expiration_time:do_get",
             description=("Ensure FlightEndpoint.expiration_time with "
                          "DoGet is working as expected."),
-            skip_testers={"JS", "C#", "Rust"},
+            skip_testers={"JS", ".NET", "Rust"},
         ),
         Scenario(
             "expiration_time:list_actions",
             description=("Ensure FlightEndpoint.expiration_time related "
                          "pre-defined actions is working with ListActions "
                          "as expected."),
-            skip_testers={"JS", "C#", "Rust"},
+            skip_testers={"JS", ".NET", "Rust"},
         ),
         Scenario(
             "expiration_time:cancel_flight_info",
             description=("Ensure FlightEndpoint.expiration_time and "
                          "CancelFlightInfo are working as expected."),
-            skip_testers={"JS", "C#", "Rust"},
+            skip_testers={"JS", ".NET", "Rust"},
         ),
         Scenario(
             "expiration_time:renew_flight_endpoint",
             description=("Ensure FlightEndpoint.expiration_time and "
                          "RenewFlightEndpoint are working as expected."),
-            skip_testers={"JS", "C#", "Rust"},
+            skip_testers={"JS", ".NET", "Rust"},
         ),
         Scenario(
             "do_exchange:echo",
@@ -690,37 +690,37 @@ def run_all_tests(with_cpp=True, with_java=True, with_js=True,
         Scenario(
             "location:reuse_connection",
             description="Ensure arrow-flight-reuse-connection is accepted.",
-            skip_testers={"JS", "C#", "Rust"},
+            skip_testers={"JS", ".NET", "Rust"},
         ),
         Scenario(
             "session_options",
             description="Ensure Flight SQL Sessions work as expected.",
-            skip_testers={"JS", "C#", "Rust"}
+            skip_testers={"JS", ".NET", "Rust"}
         ),
         Scenario(
             "poll_flight_info",
             description="Ensure PollFlightInfo is supported.",
-            skip_testers={"JS", "C#", "Rust"}
+            skip_testers={"JS", ".NET", "Rust"}
         ),
         Scenario(
             "app_metadata_flight_info_endpoint",
             description="Ensure support FlightInfo and Endpoint app_metadata",
-            skip_testers={"JS", "C#", "Rust"}
+            skip_testers={"JS", ".NET", "Rust"}
         ),
         Scenario(
             "flight_sql",
             description="Ensure Flight SQL protocol is working as expected.",
-            skip_testers={"Rust", "C#"}
+            skip_testers={"Rust", ".NET"}
         ),
         Scenario(
             "flight_sql:extension",
             description="Ensure Flight SQL extensions work as expected.",
-            skip_testers={"Rust", "C#"}
+            skip_testers={"Rust", ".NET"}
         ),
         Scenario(
             "flight_sql:ingestion",
             description="Ensure Flight SQL ingestion works as expected.",
-            skip_testers={"JS", "C#", "Rust"}
+            skip_testers={"JS", ".NET", "Rust"}
         ),
     ]
 

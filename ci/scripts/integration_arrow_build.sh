@@ -23,7 +23,6 @@ arrow_dir=${1}
 build_dir=${2}
 
 : "${ARROW_INTEGRATION_CPP:=ON}"
-: "${ARROW_INTEGRATION_CSHARP:=ON}"
 
 . "${arrow_dir}/ci/scripts/util_log.sh"
 
@@ -47,9 +46,10 @@ if [ "${ARROW_INTEGRATION_CPP}" == "ON" ]; then
 fi
 github_actions_group_end
 
-github_actions_group_begin "Integration: Build: C#"
-if [ "${ARROW_INTEGRATION_CSHARP}" == "ON" ]; then
-    "${arrow_dir}/ci/scripts/csharp_build.sh" "${arrow_dir}" "${build_dir}"
+github_actions_group_begin "Integration: Build: .NET"
+if [ "${ARCHERY_INTEGRATION_WITH_DOTNET}" -gt "0" ]; then
+    "${arrow_dir}/dotnet/ci/scripts/build.sh" "${arrow_dir}/dotnet"
+    cp -a "${arrow_dir}/dotnet" "${build_dir}/dotnet"
 fi
 github_actions_group_end
 
