@@ -74,9 +74,9 @@ exc = executable(
 benchmark('arrow-ipc-read-write-benchmark', exc)
 
 if needs_fuzzing or (needs_utilities
-and needs_testing
-and needs_lz4
-and needs_zstd
+    and needs_testing
+    and needs_lz4
+    and needs_zstd
 )
     fuzz_corpus_exc = executable(
         'arrow-ipc-generate-fuzz-corpus',
