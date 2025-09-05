@@ -391,8 +391,13 @@ repos:
           ?^dev/release/post-09-python\.sh$|
           )
   - repo: https://github.com/trim21/pre-commit-mirror-meson
-    rev: v1.6.1
+    rev: v1.9.0
     hooks:
       - id: meson-fmt
         alias: cpp
         args: ['--inplace']
+        files: >-
+          (
+          ?.*meson\.build$|
+          ?.*meson\.options$|
+          )
