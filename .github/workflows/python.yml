@@ -148,9 +148,9 @@ jobs:
         with:
           python-version: 3.12
       - name: Install build requirements
-        shell: bash
+        shell: cmd
         run: |
-          python -m pip install $(pwd)/python/requirements-build.txt
+          bash -c "python -m pip install $(pwd)/python/requirements-build.txt"
       - name: Build PyArrow
         shell: cmd
         run: |
@@ -159,5 +159,4 @@ jobs:
       - name: Test PyArrow
         shell: cmd
         run: |
-          bash -c "ci/scripts/python_build.sh $(pwd) $(pwd)/build"
-          ci/scripts/python_test.sh $(pwd) $(pwd)/build
+          bash -c "ci/scripts/python_test.sh $(pwd) $(pwd)/build"
