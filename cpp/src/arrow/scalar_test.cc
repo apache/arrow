@@ -225,11 +225,7 @@ TYPED_TEST(TestNumericScalar, Basics) {
   T value = static_cast<T>(1);
 
   auto scalar_val = std::make_shared<ScalarType>(value);
-  if constexpr (is_half_float_type<TypeParam>::value) {
-    ASSERT_EQ(value, Float16::FromBits(scalar_val->value));
-  } else {
-    ASSERT_EQ(value, scalar_val->value);
-  }
+  ASSERT_EQ(value, scalar_val->value);
   ASSERT_TRUE(scalar_val->is_valid);
   ASSERT_OK(scalar_val->ValidateFull());
 
@@ -240,13 +236,8 @@ TYPED_TEST(TestNumericScalar, Basics) {
   auto scalar_other = std::make_shared<ScalarType>(other_value);
   ASSERT_NE(*scalar_other, *scalar_val);
 
-  if constexpr (is_half_float_type<TypeParam>::value) {
-    scalar_val->value = other_value.bits();
-    ASSERT_EQ(other_value, Float16::FromBits(scalar_val->value));
-  } else {
-    scalar_val->value = other_value;
-    ASSERT_EQ(other_value, scalar_val->value);
-  }
+  scalar_val->value = other_value;
+  ASSERT_EQ(other_value, scalar_val->value);
   ASSERT_EQ(*scalar_other, *scalar_val);
 
   ScalarType stack_val;

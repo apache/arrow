@@ -103,26 +103,34 @@ struct FloatingEquality {
 
 // For half-float equality.
 template <typename Flags>
-struct FloatingEquality<uint16_t, Flags> {
+struct FloatingEquality<Float16, Flags> {
   explicit FloatingEquality(const EqualOptions& options)
       : epsilon(static_cast<float>(options.atol())) {}
 
-  bool operator()(uint16_t x, uint16_t y) const {
-    Float16 f_x = Float16::FromBits(x);
-    Float16 f_y = Float16::FromBits(y);
-    if (f_x == f_y) {
-      return Flags::signed_zeros_equal || (f_x.signbit() == f_y.signbit());
+  bool operator()(Float16 x, Float16 y) const {
+    if (x == y) {
+      return Flags::signed_zeros_equal || (x.signbit() == y.signbit());
     }
-    if (Flags::nans_equal && f_x.is_nan() && f_y.is_nan()) {
+    if (Flags::nans_equal && x.is_nan() && y.is_nan()) {
       return true;
     }
-    if (Flags::approximate && (fabs(f_x.ToFloat() - f_y.ToFloat()) <= epsilon)) {
+    if (Flags::approximate && (fabs(x.ToFloat() - y.ToFloat()) <= epsilon)) {
       return true;
     }
     return false;
   }
 
   const float epsilon;
+};
+
+template <typename Flags>
+struct FloatingEquality<uint16_t, Flags> {
+  explicit FloatingEquality(const EqualOptions& options) : options(options) {}
+  bool operator()(uint16_t x, uint16_t y) const {
+    return FloatingEquality<Float16, Flags>{options}(Float16::FromBits(x),
+                                                     Float16::FromBits(y));
+  }
+  const EqualOptions& options;
 };
 
 template <typename T, typename Visitor>
