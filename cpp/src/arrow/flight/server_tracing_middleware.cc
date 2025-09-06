@@ -190,7 +190,7 @@ std::vector<TracingServerMiddleware::TraceKey> TracingServerMiddleware::GetTrace
     const {
   return impl_->GetTraceContext();
 }
-constexpr char const TracingServerMiddleware::kMiddlewareName[];
+constexpr const char TracingServerMiddleware::kMiddlewareName[];
 
 std::shared_ptr<ServerMiddlewareFactory> MakeTracingServerMiddlewareFactory() {
   return std::make_shared<TracingServerMiddlewareFactory>();

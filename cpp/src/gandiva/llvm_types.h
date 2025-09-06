@@ -121,7 +121,7 @@ class GANDIVA_EXPORT LLVMTypes {
 
   std::vector<arrow::Type::type> GetSupportedArrowTypes() {
     std::vector<arrow::Type::type> retval;
-    for (auto const& element : arrow_id_to_llvm_type_map_) {
+    for (const auto& element : arrow_id_to_llvm_type_map_) {
       retval.push_back(element.first);
     }
     return retval;

@@ -168,7 +168,7 @@ Result<gcs::WithObjectMetadata> ToObjectMetadata(
     return gcs::WithObjectMetadata{};
   }
 
-  static auto const setters = [] {
+  static const auto setters = [] {
     using setter = std::function<Status(gcs::ObjectMetadata&, const std::string&)>;
     return std::unordered_map<std::string, setter>{
         {"Cache-Control",
@@ -237,7 +237,7 @@ Result<gcs::WithObjectMetadata> ToObjectMetadata(
 }
 
 Result<std::shared_ptr<const KeyValueMetadata>> FromObjectMetadata(
-    gcs::ObjectMetadata const& m) {
+    const gcs::ObjectMetadata& m) {
   auto format_time = [](std::chrono::system_clock::time_point tp) {
     return absl::FormatTime(absl::RFC3339_full, absl::FromChrono(tp),
                             absl::UTCTimeZone());
@@ -278,7 +278,7 @@ Result<std::shared_ptr<const KeyValueMetadata>> FromObjectMetadata(
   result->Append("Content-Disposition", m.content_disposition());
   result->Append("Content-Language", m.content_language());
   result->Append("Cache-Control", m.cache_control());
-  for (auto const& kv : m.metadata()) {
+  for (const auto& kv : m.metadata()) {
     result->Append("metadata." + kv.first, kv.second);
   }
   // Skip "acl" because it is overly complex

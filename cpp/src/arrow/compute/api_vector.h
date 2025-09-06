@@ -44,7 +44,7 @@ class ARROW_EXPORT FilterOptions : public FunctionOptions {
   };
 
   explicit FilterOptions(NullSelectionBehavior null_selection = DROP);
-  static constexpr char const kTypeName[] = "FilterOptions";
+  static constexpr const char kTypeName[] = "FilterOptions";
   static FilterOptions Defaults() { return FilterOptions(); }
 
   NullSelectionBehavior null_selection_behavior = DROP;
@@ -53,7 +53,7 @@ class ARROW_EXPORT FilterOptions : public FunctionOptions {
 class ARROW_EXPORT TakeOptions : public FunctionOptions {
  public:
   explicit TakeOptions(bool boundscheck = true);
-  static constexpr char const kTypeName[] = "TakeOptions";
+  static constexpr const char kTypeName[] = "TakeOptions";
   static TakeOptions BoundsCheck() { return TakeOptions(true); }
   static TakeOptions NoBoundsCheck() { return TakeOptions(false); }
   static TakeOptions Defaults() { return BoundsCheck(); }
@@ -73,7 +73,7 @@ class ARROW_EXPORT DictionaryEncodeOptions : public FunctionOptions {
   };
 
   explicit DictionaryEncodeOptions(NullEncodingBehavior null_encoding = MASK);
-  static constexpr char const kTypeName[] = "DictionaryEncodeOptions";
+  static constexpr const char kTypeName[] = "DictionaryEncodeOptions";
   static DictionaryEncodeOptions Defaults() { return DictionaryEncodeOptions(); }
 
   NullEncodingBehavior null_encoding_behavior = MASK;
@@ -83,7 +83,7 @@ class ARROW_EXPORT DictionaryEncodeOptions : public FunctionOptions {
 class ARROW_EXPORT RunEndEncodeOptions : public FunctionOptions {
  public:
   explicit RunEndEncodeOptions(std::shared_ptr<DataType> run_end_type = int32());
-  static constexpr char const kTypeName[] = "RunEndEncodeOptions";
+  static constexpr const char kTypeName[] = "RunEndEncodeOptions";
   static RunEndEncodeOptions Defaults() { return RunEndEncodeOptions(); }
 
   std::shared_ptr<DataType> run_end_type;
@@ -93,7 +93,7 @@ class ARROW_EXPORT ArraySortOptions : public FunctionOptions {
  public:
   explicit ArraySortOptions(SortOrder order = SortOrder::Ascending,
                             NullPlacement null_placement = NullPlacement::AtEnd);
-  static constexpr char const kTypeName[] = "ArraySortOptions";
+  static constexpr const char kTypeName[] = "ArraySortOptions";
   static ArraySortOptions Defaults() { return ArraySortOptions(); }
 
   /// Sorting order
@@ -107,7 +107,7 @@ class ARROW_EXPORT SortOptions : public FunctionOptions {
   explicit SortOptions(std::vector<SortKey> sort_keys = {},
                        NullPlacement null_placement = NullPlacement::AtEnd);
   explicit SortOptions(const Ordering& ordering);
-  static constexpr char const kTypeName[] = "SortOptions";
+  static constexpr const char kTypeName[] = "SortOptions";
   static SortOptions Defaults() { return SortOptions(); }
   /// Convenience constructor to create an ordering from SortOptions
   ///
@@ -127,7 +127,7 @@ class ARROW_EXPORT SortOptions : public FunctionOptions {
 class ARROW_EXPORT SelectKOptions : public FunctionOptions {
  public:
   explicit SelectKOptions(int64_t k = -1, std::vector<SortKey> sort_keys = {});
-  static constexpr char const kTypeName[] = "SelectKOptions";
+  static constexpr const char kTypeName[] = "SelectKOptions";
   static SelectKOptions Defaults() { return SelectKOptions(); }
 
   static SelectKOptions TopKDefault(int64_t k, std::vector<std::string> key_names = {}) {
@@ -184,7 +184,7 @@ class ARROW_EXPORT RankOptions : public FunctionOptions {
                        Tiebreaker tiebreaker = RankOptions::First)
       : RankOptions({SortKey("", order)}, null_placement, tiebreaker) {}
 
-  static constexpr char const kTypeName[] = "RankOptions";
+  static constexpr const char kTypeName[] = "RankOptions";
   static RankOptions Defaults() { return RankOptions(); }
 
   /// Column key(s) to order by and how to order by these sort keys.
@@ -205,7 +205,7 @@ class ARROW_EXPORT RankQuantileOptions : public FunctionOptions {
                                NullPlacement null_placement = NullPlacement::AtEnd)
       : RankQuantileOptions({SortKey("", order)}, null_placement) {}
 
-  static constexpr char const kTypeName[] = "RankQuantileOptions";
+  static constexpr const char kTypeName[] = "RankQuantileOptions";
   static RankQuantileOptions Defaults() { return RankQuantileOptions(); }
 
   /// Column key(s) to order by and how to order by these sort keys.
@@ -220,7 +220,7 @@ class ARROW_EXPORT PartitionNthOptions : public FunctionOptions {
   explicit PartitionNthOptions(int64_t pivot,
                                NullPlacement null_placement = NullPlacement::AtEnd);
   PartitionNthOptions() : PartitionNthOptions(0) {}
-  static constexpr char const kTypeName[] = "PartitionNthOptions";
+  static constexpr const char kTypeName[] = "PartitionNthOptions";
 
   /// The index into the equivalent sorted array of the partition pivot element.
   int64_t pivot;
@@ -232,7 +232,7 @@ class ARROW_EXPORT WinsorizeOptions : public FunctionOptions {
  public:
   WinsorizeOptions(double lower_limit, double upper_limit);
   WinsorizeOptions() : WinsorizeOptions(0, 1) {}
-  static constexpr char const kTypeName[] = "WinsorizeOptions";
+  static constexpr const char kTypeName[] = "WinsorizeOptions";
 
   /// The quantile below which all values are replaced with the quantile's value.
   ///
@@ -254,7 +254,7 @@ class ARROW_EXPORT CumulativeOptions : public FunctionOptions {
   explicit CumulativeOptions(bool skip_nulls = false);
   explicit CumulativeOptions(double start, bool skip_nulls = false);
   explicit CumulativeOptions(std::shared_ptr<Scalar> start, bool skip_nulls = false);
-  static constexpr char const kTypeName[] = "CumulativeOptions";
+  static constexpr const char kTypeName[] = "CumulativeOptions";
   static CumulativeOptions Defaults() { return CumulativeOptions(); }
 
   /// Optional starting value for cumulative operation computation, default depends on the
@@ -276,7 +276,7 @@ using CumulativeSumOptions = CumulativeOptions;  // For backward compatibility
 class ARROW_EXPORT PairwiseOptions : public FunctionOptions {
  public:
   explicit PairwiseOptions(int64_t periods = 1);
-  static constexpr char const kTypeName[] = "PairwiseOptions";
+  static constexpr const char kTypeName[] = "PairwiseOptions";
   static PairwiseOptions Defaults() { return PairwiseOptions(); }
 
   /// Periods to shift for applying the binary operation, accepts negative values.
@@ -287,7 +287,7 @@ class ARROW_EXPORT PairwiseOptions : public FunctionOptions {
 class ARROW_EXPORT ListFlattenOptions : public FunctionOptions {
  public:
   explicit ListFlattenOptions(bool recursive = false);
-  static constexpr char const kTypeName[] = "ListFlattenOptions";
+  static constexpr const char kTypeName[] = "ListFlattenOptions";
   static ListFlattenOptions Defaults() { return ListFlattenOptions(); }
 
   /// \brief If true, the list is flattened recursively until a non-list
@@ -300,7 +300,7 @@ class ARROW_EXPORT InversePermutationOptions : public FunctionOptions {
  public:
   explicit InversePermutationOptions(int64_t max_index = -1,
                                      std::shared_ptr<DataType> output_type = NULLPTR);
-  static constexpr char const kTypeName[] = "InversePermutationOptions";
+  static constexpr const char kTypeName[] = "InversePermutationOptions";
   static InversePermutationOptions Defaults() { return InversePermutationOptions(); }
 
   /// \brief The max value in the input indices to allow. The length of the function's
@@ -319,7 +319,7 @@ class ARROW_EXPORT InversePermutationOptions : public FunctionOptions {
 class ARROW_EXPORT ScatterOptions : public FunctionOptions {
  public:
   explicit ScatterOptions(int64_t max_index = -1);
-  static constexpr char const kTypeName[] = "ScatterOptions";
+  static constexpr const char kTypeName[] = "ScatterOptions";
   static ScatterOptions Defaults() { return ScatterOptions(); }
 
   /// \brief The max value in the input indices to allow. The length of the function's
