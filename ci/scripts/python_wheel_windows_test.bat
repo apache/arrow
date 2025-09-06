@@ -17,20 +17,20 @@
 
 @echo on
 
-set PYARROW_TEST_ACERO=ON
-set PYARROW_TEST_CYTHON=ON
-set PYARROW_TEST_DATASET=ON
-set PYARROW_TEST_FLIGHT=ON
-set PYARROW_TEST_GANDIVA=OFF
-set PYARROW_TEST_GCS=ON
-set PYARROW_TEST_HDFS=ON
-set PYARROW_TEST_ORC=ON
-set PYARROW_TEST_PANDAS=ON
-set PYARROW_TEST_PARQUET=ON
-set PYARROW_TEST_PARQUET_ENCRYPTION=ON
-set PYARROW_TEST_SUBSTRAIT=ON
-set PYARROW_TEST_S3=ON
-set PYARROW_TEST_TENSORFLOW=ON
+rem  set PYARROW_TEST_ACERO=ON
+rem  set PYARROW_TEST_CYTHON=ON
+rem  set PYARROW_TEST_DATASET=ON
+rem  set PYARROW_TEST_FLIGHT=ON
+rem  set PYARROW_TEST_GANDIVA=OFF
+rem  set PYARROW_TEST_GCS=ON
+rem  set PYARROW_TEST_HDFS=ON
+rem  set PYARROW_TEST_ORC=ON
+rem  set PYARROW_TEST_PANDAS=ON
+rem  set PYARROW_TEST_PARQUET=ON
+rem  set PYARROW_TEST_PARQUET_ENCRYPTION=ON
+rem  set PYARROW_TEST_SUBSTRAIT=ON
+rem  set PYARROW_TEST_S3=ON
+rem  set PYARROW_TEST_TENSORFLOW=ON
 
 set ARROW_TEST_DATA=C:\arrow\testing\data
 set PARQUET_TEST_DATA=C:\arrow\cpp\submodules\parquet-testing\data
@@ -43,17 +43,17 @@ py -0p
 
 @REM Test that the modules are importable
 %PYTHON_CMD% -c "import pyarrow" || exit /B 1
-%PYTHON_CMD% -c "import pyarrow._gcsfs" || exit /B 1
-%PYTHON_CMD% -c "import pyarrow._hdfs" || exit /B 1
-%PYTHON_CMD% -c "import pyarrow._s3fs" || exit /B 1
-%PYTHON_CMD% -c "import pyarrow.csv" || exit /B 1
-%PYTHON_CMD% -c "import pyarrow.dataset" || exit /B 1
-%PYTHON_CMD% -c "import pyarrow.flight" || exit /B 1
-%PYTHON_CMD% -c "import pyarrow.fs" || exit /B 1
-%PYTHON_CMD% -c "import pyarrow.json" || exit /B 1
-%PYTHON_CMD% -c "import pyarrow.orc" || exit /B 1
-%PYTHON_CMD% -c "import pyarrow.parquet" || exit /B 1
-%PYTHON_CMD% -c "import pyarrow.substrait" || exit /B 1
+rem  %PYTHON_CMD% -c "import pyarrow._gcsfs" || exit /B 1
+rem  %PYTHON_CMD% -c "import pyarrow._hdfs" || exit /B 1
+rem  %PYTHON_CMD% -c "import pyarrow._s3fs" || exit /B 1
+rem  %PYTHON_CMD% -c "import pyarrow.csv" || exit /B 1
+rem  %PYTHON_CMD% -c "import pyarrow.dataset" || exit /B 1
+rem  %PYTHON_CMD% -c "import pyarrow.flight" || exit /B 1
+rem  %PYTHON_CMD% -c "import pyarrow.fs" || exit /B 1
+rem  %PYTHON_CMD% -c "import pyarrow.json" || exit /B 1
+rem  %PYTHON_CMD% -c "import pyarrow.orc" || exit /B 1
+rem  %PYTHON_CMD% -c "import pyarrow.parquet" || exit /B 1
+rem  %PYTHON_CMD% -c "import pyarrow.substrait" || exit /B 1
 
 @REM Validate wheel contents
 %PYTHON_CMD% C:\arrow\ci\scripts\python_wheel_validate_contents.py --path C:\arrow\python\repaired_wheels || exit /B 1

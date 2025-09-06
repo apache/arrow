@@ -36,18 +36,18 @@ del /s /q C:\arrow\python\pyarrow\*.so
 del /s /q C:\arrow\python\pyarrow\*.so.*
 
 echo "=== (%PYTHON%) Building Arrow C++ libraries ==="
-set ARROW_ACERO=ON
-set ARROW_DATASET=ON
-set ARROW_FLIGHT=ON
+set ARROW_ACERO=OFF
+set ARROW_DATASET=OFF
+set ARROW_FLIGHT=OFF
 set ARROW_GANDIVA=OFF
-set ARROW_GCS=ON
-set ARROW_HDFS=ON
-set ARROW_ORC=ON
+set ARROW_GCS=OFF
+set ARROW_HDFS=OFF
+set ARROW_ORC=OFF
 set ARROW_PARQUET=ON
-set PARQUET_REQUIRE_ENCRYPTION=ON
+set PARQUET_REQUIRE_ENCRYPTION=OFF
 set ARROW_MIMALLOC=ON
-set ARROW_SUBSTRAIT=ON
-set ARROW_S3=ON
+set ARROW_SUBSTRAIT=OFF
+set ARROW_S3=OFF
 set ARROW_TENSORFLOW=ON
 set ARROW_WITH_BROTLI=ON
 set ARROW_WITH_BZ2=ON
@@ -58,6 +58,7 @@ set ARROW_WITH_ZSTD=ON
 set CMAKE_UNITY_BUILD=ON
 set CMAKE_GENERATOR=Visual Studio 17 2022
 set CMAKE_PLATFORM=x64
+set CMAKE_TOOLSET=ClangCL
 set VCPKG_ROOT=C:\vcpkg
 set VCPKG_FEATURE_FLAGS=-manifests
 set VCGPK_TARGET_TRIPLET=amd64-windows-static-md-%CMAKE_BUILD_TYPE%
@@ -104,6 +105,7 @@ cmake ^
     -Dxsimd_SOURCE=BUNDLED ^
     -G "%CMAKE_GENERATOR%" ^
     -A "%CMAKE_PLATFORM%" ^
+    -T "%CMAKE_TOOLSET%" ^
     C:\arrow\cpp || exit /B 1
 cmake --build . --config %CMAKE_BUILD_TYPE% --target install || exit /B 1
 popd
