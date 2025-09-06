@@ -127,14 +127,14 @@ inline uint64_t ReadLittleEndianWord(const uint8_t* buffer, int bytes_remaining)
 /// bytes in one read (e.g. encoded int).
 class BitReader {
  public:
-  BitReader() = default;
+  BitReader() noexcept = default;
 
   /// 'buffer' is the buffer to read from.  The buffer's length is 'buffer_len'.
   BitReader(const uint8_t* buffer, int buffer_len) : BitReader() {
     Reset(buffer, buffer_len);
   }
 
-  void Reset(const uint8_t* buffer, int buffer_len) {
+  void Reset(const uint8_t* buffer, int buffer_len) noexcept {
     buffer_ = buffer;
     max_bytes_ = buffer_len;
     byte_offset_ = 0;
@@ -189,10 +189,10 @@ class BitReader {
   }
 
   /// Maximum byte length of a vlq encoded int
-  static constexpr int kMaxVlqByteLength = 5;
+  static constexpr int kMaxVlqByteLengthForInt32 = MaxLEB128ByteLenFor<int32_t>;
 
   /// Maximum byte length of a vlq encoded int64
-  static constexpr int kMaxVlqByteLengthForInt64 = 10;
+  static constexpr int kMaxVlqByteLengthForInt64 = MaxLEB128ByteLenFor<int64_t>;
 
  private:
   const uint8_t* buffer_;
@@ -450,22 +450,35 @@ inline bool BitWriter::PutVlqInt(uint32_t v) {
 }
 
 inline bool BitReader::GetVlqInt(uint32_t* v) {
-  uint32_t tmp = 0;
+  // The data that we will pass to the LEB128 parser
+  // In all case, we read an byte-aligned value, skipping remaining bits
+  uint8_t const* data = NULLPTR;
+  int max_size = 0;
 
-  for (int i = 0; i < kMaxVlqByteLength; i++) {
-    uint8_t byte = 0;
-    if (ARROW_PREDICT_FALSE(!GetAligned<uint8_t>(1, &byte))) {
-      return false;
-    }
-    tmp |= static_cast<uint32_t>(byte & 0x7F) << (7 * i);
+  // Number of bytes left in the buffered values, not including the current
+  // byte (i.e., there may be an additional fraction of a byte).
+  int const bytes_left_in_cache =
+      sizeof(buffered_values_) - static_cast<int>(bit_util::BytesForBits(bit_offset_));
 
-    if ((byte & 0x80) == 0) {
-      *v = tmp;
-      return true;
-    }
+  // If there are clearly enough bytes left we can try to parse from the cache
+  if (bytes_left_in_cache >= kMaxVlqByteLengthForInt32) {
+    max_size = bytes_left_in_cache;
+    data = reinterpret_cast<uint8_t const*>(&buffered_values_) +
+           bit_util::BytesForBits(bit_offset_);
+    // Otherwise, we try straight from buffer (ignoring few bytes that may be cached)
+  } else {
+    max_size = bytes_left();
+    data = buffer_ + (max_bytes_ - max_size);
   }
 
-  return false;
+  auto const read = bit_util::ParseLeadingLEB128(data, max_size, v);
+  if (ARROW_PREDICT_FALSE(read == 0)) {
+    // Corrupt LEB128
+    return false;
+  }
+
+  // Advance for the bytes we have read + the bit we skipped
+  return Advance((8 * read) + (bit_offset_ % 8));
 }
 
 inline bool BitWriter::PutZigZagVlqInt(int32_t v) {
@@ -483,13 +496,17 @@ inline bool BitReader::GetZigZagVlqInt(int32_t* v) {
 }
 
 inline bool BitWriter::PutVlqInt(uint64_t v) {
-  bool result = true;
-  while ((v & 0xFFFFFFFFFFFFFF80ULL) != 0ULL) {
-    result &= PutAligned<uint8_t>(static_cast<uint8_t>((v & 0x7F) | 0x80), 1);
-    v >>= 7;
+  constexpr auto kMaxBytes = bit_util::MaxLEB128ByteLenFor<decltype(v)>;
+
+  uint8_t leb128[kMaxBytes] = {};
+  auto const bytes_written = bit_util::WriteLEB128(v, leb128, kMaxBytes);
+  ARROW_DCHECK_NE(bytes_written, 0);
+
+  if (auto* out = GetNextBytePtr(bytes_written)) {
+    std::memcpy(out, leb128, bytes_written);
+    return true;
   }
-  result &= PutAligned<uint8_t>(static_cast<uint8_t>(v & 0x7F), 1);
-  return result;
+  return false;
 }
 
 inline bool BitReader::GetVlqInt(uint64_t* v) {
