@@ -83,7 +83,7 @@ struct ARROW_EXPORT ArrayStatistics {
   /// and when set to `double`, it represents `approximate_distinct_count`.
   std::optional<CountType> distinct_count = std::nullopt;
 
-  /// \brief The maximum length in bytes among the rows of an array, may not be set
+  /// \brief The maximum length in bytes of the rows in an array; may not be set
   /// Note: when the type is `int64_t`, it represents `max_byte_width_exact`,
   /// and when the type is `double`, it represents `max_byte_width_approximate`.
   std::optional<SizeType> max_byte_width = std::nullopt;
