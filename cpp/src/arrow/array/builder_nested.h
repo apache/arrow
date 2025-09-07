@@ -771,6 +771,13 @@ class ARROW_EXPORT StructBuilder : public ArrayBuilder {
     return Status::OK();
   }
 
+  /// This method is "unsafe" because it does not update the null bitmap
+  /// It doesn't check the capacity. Caller is responsible for calling Reserve()
+  /// beforehand.
+  void UnsafeAppend(){
+    ++length_;
+  }
+
   /// \brief Append a null value. Automatically appends an empty value to each child
   /// builder.
   Status AppendNull() final {
@@ -778,6 +785,19 @@ class ARROW_EXPORT StructBuilder : public ArrayBuilder {
       ARROW_RETURN_NOT_OK(field->AppendEmptyValue());
     }
     return Append(false);
+  }
+
+  /// This method is "unsafe" because it does not check for capacity.
+  /// The caller is responsible for calling Reserve() beforehand to ensure
+  /// there is enough space. This method will append nulls to all child
+  /// builders to maintain a consistent state.
+  Status UnsafeAppendNull(){
+    null_bitmap_builder_.UnsafeAppend(false);
+    for(const auto& child: children_){
+      ARROW_RETURN_NOT_OK(child->AppendNull());
+    }
+    length_++;
+    return Status::OK();
   }
 
   /// \brief Append multiple null values. Automatically appends empty values to each
@@ -788,6 +808,20 @@ class ARROW_EXPORT StructBuilder : public ArrayBuilder {
     }
     ARROW_RETURN_NOT_OK(Reserve(length));
     UnsafeAppendToBitmap(length, false);
+    return Status::OK();
+  }
+
+  /// This method is "unsafe" because it does not check for capacity.
+  /// The caller is responsible for calling Reserve() beforehand to ensure
+  /// there is enough space. This method will append nulls to all child
+  /// builders to maintain a consistent state.
+  /// param length The number of null slots to append.
+  Status UnsafeAppendNulls(int64_t length){
+    null_bitmap_builder_.UnsafeAppend(length, false);
+    for(const auto& child:children_){
+      ARROW_RETURN_NOT_OK(child->AppendNulls(length));
+    }
+    ++length_;
     return Status::OK();
   }
 
