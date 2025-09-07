@@ -1547,12 +1547,12 @@ test_that("GH-36720: stringr modifier functions can be called with namespace pre
 
 test_that("str_replace_na", {
   x <- Expression$field_ref("x")
-  
+
   expect_error(
     call_binding("str_replace_na", x, c("a", "b")),
     "`replacement` must be a single string"
   )
-  
+
   expect_error(
     call_binding("str_replace_na", x, NA_character_),
     "`replacement` must be a single string"
