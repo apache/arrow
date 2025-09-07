@@ -1554,7 +1554,7 @@ test_that("str_replace_na", {
   )
 
   expect_error(
-    call_binding("str_replace_na", x, NA_character_),
+    call_binding("str_replace_na", x, 1),
     "`replacement` must be a single string"
   )
 
