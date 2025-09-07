@@ -408,7 +408,7 @@ register_bindings_string_regex <- function() {
     }
     Expression$create("coalesce", string, Expression$scalar(replacement))
   })
-  
+
   register_binding("base::strsplit", function(x, split, fixed = FALSE, perl = FALSE,
                                               useBytes = FALSE) {
     assert_that(is.string(split))
