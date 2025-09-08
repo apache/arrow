@@ -164,7 +164,5 @@ jobs:
       - name: Test PyArrow
         shell: cmd
         run: |
-          set "PATH=%ARROW_HOME%\bin;%PATH%"
-          bash -c "echo %PATH%"
-          bash -c "ls %ARROW_HOME%\bin"
+          bash -c "echo uname"
           bash -c "ci/scripts/python_test.sh $(pwd) $(pwd)/build"

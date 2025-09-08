@@ -31,6 +31,20 @@ export ARROW_TEST_DATA=${arrow_dir}/testing/data
 export PARQUET_TEST_DATA=${arrow_dir}/cpp/submodules/parquet-testing/data
 export LD_LIBRARY_PATH=${ARROW_HOME}/lib:${LD_LIBRARY_PATH}
 export DYLD_LIBRARY_PATH=${ARROW_HOME}/lib:${DYLD_LIBRARY_PATH:+:${DYLD_LIBRARY_PATH}}
+
+case "$(uname)" in
+  Linux)
+    ;;
+  Darwin)
+    ;;
+  MINGW*)
+    export PATH=${ARROW_HOME}/lib:${PATH}
+    ;;
+  *)
+    export PATH=${ARROW_HOME}/lib:${PATH}
+    ;;
+esac
+
 export ARROW_GDB_SCRIPT=${arrow_dir}/cpp/gdb_arrow.py
 
 # Enable some checks inside Python itself
