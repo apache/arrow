@@ -41,8 +41,7 @@ case "$(uname)" in
     unix_arrow_home=$(cygpath "${ARROW_HOME}")
     # D:\a\arrow\arrow\build\python\pyarrow\lib.cp312-win_amd64.pyd
     pyarrow_path=$(cygpath "D:\a\arrow\arrow\build\python\pyarrow")
-    msvc_path=$(cygpath "C:\Miniconda\Library\bin")
-    export PYTHONPATH=${unix_arrow_home}/lib:${unix_arrow_home}/bin:${pyarrow_path}:${msvc_path}:${PYTHONPATH}
+    export PYTHONPATH=${unix_arrow_home}/lib:${unix_arrow_home}/bin:${pyarrow_path}:${PYTHONPATH}:${PATH}
     ;;
   *)
     ;;

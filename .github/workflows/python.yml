@@ -183,6 +183,9 @@ jobs:
             Write-Host "$pyd not found"
             exit 1
           }
+      - name: Install System Dependencies
+        run: |
+          choco install --no-progress --yes vcredist140
       - name: Test PyArrow
         shell: cmd
         run: |
