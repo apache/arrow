@@ -104,36 +104,43 @@ static const std::vector<std::vector<int64_t>> bitWidthsNumValues64 = {
     benchmark::CreateRange(MIN_RANGE, MAX_RANGE, /*multi=*/8),
 };
 
-BENCHMARK_CAPTURE(BM_Unpack<uint32_t>, unpack32_default_unaligned, false,
-                  unpack32_default)
+/// Nudge for MSVC template inside BENCHMARK_CAPTURE macro.
+void BM_UnpackUint32(benchmark::State& state, bool aligned, UnpackFunc<uint32_t> unpack) {
+  return BM_Unpack<uint32_t>(state, aligned, unpack);
+}
+/// Nudge for MSVC template inside BENCHMARK_CAPTURE macro.
+void BM_UnpackUint64(benchmark::State& state, bool aligned, UnpackFunc<uint64_t> unpack) {
+  return BM_Unpack<uint64_t>(state, aligned, unpack);
+}
+
+BENCHMARK_CAPTURE(BM_UnpackUint32, unpack32_default_unaligned, false, unpack32_default)
     ->ArgsProduct(bitWidthsNumValues32);
-BENCHMARK_CAPTURE(BM_Unpack<uint64_t>, unpack64_default_unaligned, false,
-                  unpack64_default)
+BENCHMARK_CAPTURE(BM_UnpackUint64, unpack64_default_unaligned, false, unpack64_default)
     ->ArgsProduct(bitWidthsNumValues64);
 
 #if defined(ARROW_HAVE_AVX2)
-BENCHMARK_CAPTURE(BM_Unpack<uint32_t>, unpack32_avx2_unaligned, false, unpack32_avx2)
+BENCHMARK_CAPTURE(BM_UnpackUint32, unpack32_avx2_unaligned, false, unpack32_avx2)
     ->ArgsProduct(bitWidthsNumValues32);
 #endif
 
 #if defined(ARROW_HAVE_AVX512)
-BENCHMARK_CAPTURE(BM_Unpack<uint32_t>, unpack32_avx512_unaligned, false, unpack32_avx512)
+BENCHMARK_CAPTURE(BM_UnpackUint32, unpack32_avx512_unaligned, false, unpack32_avx512)
     ->ArgsProduct(bitWidthsNumValues32);
 #endif
 
 #if defined(ARROW_HAVE_NEON)
-BENCHMARK_CAPTURE(BM_Unpack<uint32_t>, unpack32_neon_unaligned, false, unpack32_neon)
+BENCHMARK_CAPTURE(BM_UnpackUint32, unpack32_neon_unaligned, false, unpack32_neon)
     ->ArgsProduct(bitWidthsNumValues32);
 #endif
 
-BENCHMARK_CAPTURE(BM_Unpack<uint32_t>, unpack32_aligned, true, unpack32)
+BENCHMARK_CAPTURE(BM_UnpackUint32, unpack32_aligned, true, unpack32)
     ->ArgsProduct(bitWidthsNumValues32);
-BENCHMARK_CAPTURE(BM_Unpack<uint32_t>, unpack32_unaligned, false, unpack32)
+BENCHMARK_CAPTURE(BM_UnpackUint32, unpack32_unaligned, false, unpack32)
     ->ArgsProduct(bitWidthsNumValues32);
 
-BENCHMARK_CAPTURE(BM_Unpack<uint64_t>, unpack64_aligned, true, unpack64)
+BENCHMARK_CAPTURE(BM_UnpackUint64, unpack64_aligned, true, unpack64)
     ->ArgsProduct(bitWidthsNumValues64);
-BENCHMARK_CAPTURE(BM_Unpack<uint64_t>, unpack64_unaligned, false, unpack64)
+BENCHMARK_CAPTURE(BM_UnpackUint64, unpack64_unaligned, false, unpack64)
     ->ArgsProduct(bitWidthsNumValues64);
 
 }  // namespace
