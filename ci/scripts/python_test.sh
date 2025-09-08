@@ -39,7 +39,9 @@ case "$(uname)" in
     ;;
   MINGW*)
     unix_arrow_home=$(cygpath "${ARROW_HOME}")
-    export PYTHONPATH=${unix_arrow_home}/lib:${unix_arrow_home}/bin:${unix_arrow_home}/build/python/pyarrow:${PYTHONPATH}:${PATH}
+    # D:\a\arrow\arrow\build\python\pyarrow\lib.cp312-win_amd64.pyd
+    pyarrow_path=$(cygpath "D:\a\arrow\arrow\build\python\pyarrow")
+    export PYTHONPATH=${unix_arrow_home}/lib:${unix_arrow_home}/bin:${unix_arrow_home}/build/python/pyarrow:${pyarrow_path}:${PYTHONPATH}:${PATH}
     ;;
   *)
     ;;
