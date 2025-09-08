@@ -143,6 +143,11 @@ jobs:
         run: |
           call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
           bash -c "ci/scripts/cpp_build.sh $(pwd) $(pwd)/build"
+      - name: Set up Python
+        uses: actions/setup-python@v5.6.0
+        id: python-install
+        with:
+          python-version: 3.12
       - name: Install build requirements
         shell: cmd
         run: |
@@ -159,10 +164,25 @@ jobs:
         run: |
           bash -c "python -m pip install -r $(pwd)/python/requirements-test.txt"
           bash -c "python -m pip install msvc-runtime"
-      - name: Locate MSVCP140.dll
+      - name: Find lib.cp312-win_amd64.pyd
+        shell: cmd
+        run: |
+          dir /s /b %GITHUB_WORKSPACE%\*lib.cp312-win_amd64.pyd
+      - name: Find and run dumpbin on pyarrow.lib.pyd
         shell: pwsh
         run: |
-          Get-ChildItem -Path C:\ -Filter MSVCP140.dll -Recurse -ErrorAction SilentlyContinue | Select-Object FullName
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $vc = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          $dumpbin = Join-Path $vc 'VC\Tools\MSVC'
+          $msvcver = Get-ChildItem $dumpbin | Sort-Object Name -Descending | Select-Object -First 1
+          $dumpbinExe = Join-Path $msvcver.FullName 'bin\Hostx64\x64\dumpbin.exe'
+          $pyd = "D:\a\arrow\arrow\build\python\pyarrow\lib.cp312-win_amd64.pyd"
+          if (Test-Path $pyd) {
+            & $dumpbinExe /DEPENDENTS $pyd
+          } else {
+            Write-Host "$pyd not found"
+            exit 1
+          }
       - name: Test PyArrow
         shell: cmd
         run: |
