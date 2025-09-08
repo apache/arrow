@@ -38,13 +38,10 @@ case "$(uname)" in
   Darwin)
     ;;
   MINGW*)
-    echo "Running on Windows"
     unix_arrow_home=$(cygpath "${ARROW_HOME}")
-    export PATH=${unix_arrow_home}/lib:${unix_arrow_home}/bin:${arrow_dir}/build/python/pyarrow:${PATH}
+    export PATH=${unix_arrow_home}/lib:${unix_arrow_home}/bin:${unix_arrow_home}/build/python/pyarrow:${PATH}
     ;;
   *)
-    echo "Unknown OS $(uname)"
-    export PATH=${arrow_dir}/dist/lib:${arrow_dir}/dist/bin:${arrow_dir}/build/python/pyarrow:${PATH}
     ;;
 esac
 
