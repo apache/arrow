@@ -39,7 +39,7 @@ case "$(uname)" in
     ;;
   MINGW*)
     unix_arrow_home=$(cygpath "${ARROW_HOME}")
-    export PYTHONPATH=${unix_arrow_home}/lib:${unix_arrow_home}/bin:${unix_arrow_home}/build/python/pyarrow:${PYTHONPATH}
+    export PYTHONPATH=${unix_arrow_home}/lib:${unix_arrow_home}/bin:${unix_arrow_home}/build/python/pyarrow:${PYTHONPATH}:${PATH}
     ;;
   *)
     ;;
@@ -86,7 +86,24 @@ export PYARROW_TEST_PARQUET
 export PYARROW_TEST_PARQUET_ENCRYPTION
 export PYARROW_TEST_S3
 
-
+# TODO: Remove, only testing
+python -c "
+import os
+import sys
+import traceback
+print('PYTHONPATH:', os.environ['PYTHONPATH'])
+for p in os.environ['PYTHONPATH'].split(';'):
+    if 'arrow' in p and os.path.isdir(p):
+        print('Adding to os.add_dll_directory:', p)
+        os.add_dll_directory(p)
+print('Python path', sys.path)
+try:
+    import pyarrow
+except ImportError as e:
+    print('ImportError:', e)
+    traceback.print_exc()
+    sys.exit(1)
+"
 
 python -c "
 import pyarrow
