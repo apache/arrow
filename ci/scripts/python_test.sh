@@ -38,16 +38,19 @@ case "$(uname)" in
   Darwin)
     ;;
   MINGW*)
-    export PATH=${arrow_dir}/dist/lib:${arrow_dir}/dist/bin:${PATH}
+    echo "Running on Windows"
+    unix_arrow_home=$(cygpath "${ARROW_HOME}")
+    export PATH=${unix_arrow_home}/lib:${unix_arrow_home}/bin:${PATH}
     ;;
   *)
+    echo "Unknown OS $(uname)"
     export PATH=${arrow_dir}/dist/lib:${arrow_dir}/dist/bin:${PATH}
     ;;
 esac
 
-ls ${arrow_dir}/dist/lib
+ls ${unix_arrow_home}/lib
 
-ls ${arrow_dir}/dist/bin
+ls ${unix_arrow_home}/bin
 
 export ARROW_GDB_SCRIPT=${arrow_dir}/cpp/gdb_arrow.py
 
