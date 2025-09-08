@@ -152,13 +152,11 @@ jobs:
         shell: cmd
         run: |
           bash -c "python -m pip install -r $(pwd)/python/requirements-build.txt"
-          bash -c "python -m pip install -r $(pwd)/python/requirements-test.txt"
       - name: Build PyArrow
         shell: cmd
         run: |
           call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
           bash -c "ci/scripts/python_build.sh $(pwd) $(pwd)/build"
-          bash -c "ci/scripts/python_test.sh $(pwd) $(pwd)/build"
       - name: Install test requirements
         shell: cmd
         run: |
