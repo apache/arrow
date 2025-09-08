@@ -767,16 +767,14 @@ class ARROW_EXPORT StructBuilder : public ArrayBuilder {
   /// be called independently to maintain data-structure consistency.
   Status Append(bool is_valid = true) {
     ARROW_RETURN_NOT_OK(Reserve(1));
-    UnsafeAppendToBitmap(is_valid);
+    UnsafeAppend(is_valid);
     return Status::OK();
   }
 
-  /// This method is "unsafe" because it does not update the null bitmap
+  /// This method is "unsafe" because it does not update the null bitmap.
   /// It doesn't check the capacity. Caller is responsible for calling Reserve()
   /// beforehand.
-  void UnsafeAppend(){
-    ++length_;
-  }
+  void UnsafeAppend(bool is_valid = true) { UnsafeAppendToBitmap(is_valid); }
 
   /// \brief Append a null value. Automatically appends an empty value to each child
   /// builder.
@@ -791,12 +789,11 @@ class ARROW_EXPORT StructBuilder : public ArrayBuilder {
   /// The caller is responsible for calling Reserve() beforehand to ensure
   /// there is enough space. This method will append nulls to all child
   /// builders to maintain a consistent state.
-  Status UnsafeAppendNull(){
-    null_bitmap_builder_.UnsafeAppend(false);
-    for(const auto& child: children_){
-      ARROW_RETURN_NOT_OK(child->AppendNull());
+  Status UnsafeAppendNull() {
+    UnsafeAppend(false);
+    for (const auto& child : children_) {
+      ARROW_RETURN_NOT_OK(child->AppendEmptyValue());
     }
-    length_++;
     return Status::OK();
   }
 
@@ -816,12 +813,14 @@ class ARROW_EXPORT StructBuilder : public ArrayBuilder {
   /// there is enough space. This method will append nulls to all child
   /// builders to maintain a consistent state.
   /// param length The number of null slots to append.
-  Status UnsafeAppendNulls(int64_t length){
-    null_bitmap_builder_.UnsafeAppend(length, false);
-    for(const auto& child:children_){
-      ARROW_RETURN_NOT_OK(child->AppendNulls(length));
+  Status UnsafeAppendNulls(int64_t length) {
+    for (int64_t i = 0; i < length; ++i) {
+      UnsafeAppend(false);
     }
-    ++length_;
+
+    for (const auto& child : children_) {
+      ARROW_RETURN_NOT_OK(child->AppendEmptyValues(length));
+    }
     return Status::OK();
   }
 

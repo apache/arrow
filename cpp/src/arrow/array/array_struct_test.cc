@@ -748,8 +748,7 @@ TEST(TestFieldRef, GetChildren) {
   AssertArraysEqual(*a, *expected_a);
 }
 
-TEST(TestStructBuilder, UnsafeAppend) {
-  
+TEST(TestStructBuilderUnsafe, UnsafeAppend) {
   auto int_type = int32();
   auto str_type = utf8();
   auto struct_type = struct_({field("a", int_type), field("b", str_type)});
@@ -758,7 +757,9 @@ TEST(TestStructBuilder, UnsafeAppend) {
   auto int_builder = std::make_shared<Int32Builder>(pool);
   auto str_builder = std::make_shared<StringBuilder>(pool);
   StructBuilder builder(struct_type, pool, {int_builder, str_builder});
-  
+
+  ASSERT_OK(builder.Reserve(2));
+
   builder.UnsafeAppend();
   ASSERT_OK(int_builder->Append(1));
   ASSERT_OK(str_builder->Append("hello"));
@@ -766,17 +767,17 @@ TEST(TestStructBuilder, UnsafeAppend) {
   builder.UnsafeAppend();
   ASSERT_OK(int_builder->Append(2));
   ASSERT_OK(str_builder->Append("arrow"));
-  
+
   ASSERT_OK(builder.Finish(&final_array));
   ASSERT_EQ(2, final_array->length());
   ASSERT_EQ(0, final_array->null_count());
   auto expected_json = R"([{"a": 1, "b": "hello"}, {"a": 2, "b": "arrow"}])";
+
   auto expected_array = ArrayFromJSON(struct_type, expected_json);
-  ASSERT_TRUE(final_array->Equals(expected_array));
+  AssertArraysEqual(*final_array, *expected_array);
 }
 
-TEST(TestStructBuilder, UnsafeAppendNull) {
-  
+TEST(TestStructBuilderUnsafe, UnsafeAppendNull) {
   auto int_type = int32();
   auto str_type = utf8();
   auto struct_type = struct_({field("a", int_type), field("b", str_type)});
@@ -785,6 +786,8 @@ TEST(TestStructBuilder, UnsafeAppendNull) {
   auto int_builder = std::make_shared<Int32Builder>(pool);
   auto str_builder = std::make_shared<StringBuilder>(pool);
   StructBuilder builder(struct_type, pool, {int_builder, str_builder});
+
+  ASSERT_OK(builder.Reserve(3));
 
   builder.UnsafeAppend();
   ASSERT_OK(int_builder->Append(1));
@@ -801,12 +804,12 @@ TEST(TestStructBuilder, UnsafeAppendNull) {
   ASSERT_EQ(1, final_array->null_count());
   ASSERT_TRUE(final_array->IsNull(1));
   auto expected_json = R"([{"a": 1, "b": "hello"}, null, {"a": 2, "b": "arrow"}])";
+
   auto expected_array = ArrayFromJSON(struct_type, expected_json);
-  ASSERT_TRUE(final_array->Equals(expected_array));
+  AssertArraysEqual(*final_array, *expected_array);
 }
 
-TEST(TestStructBuilder, UnsafeAppendNulls) {
-  
+TEST(TestStructBuilderUnsafe, UnsafeAppendNulls) {
   auto int_type = int32();
   auto str_type = utf8();
   auto struct_type = struct_({field("a", int_type), field("b", str_type)});
@@ -815,6 +818,8 @@ TEST(TestStructBuilder, UnsafeAppendNulls) {
   auto int_builder = std::make_shared<Int32Builder>(pool);
   auto str_builder = std::make_shared<StringBuilder>(pool);
   StructBuilder builder(struct_type, pool, {int_builder, str_builder});
+
+  ASSERT_OK(builder.Reserve(4));
 
   builder.UnsafeAppend();
   ASSERT_OK(int_builder->Append(1));
@@ -827,13 +832,10 @@ TEST(TestStructBuilder, UnsafeAppendNulls) {
   ASSERT_OK(str_builder->Append("arrow"));
 
   ASSERT_OK(builder.Finish(&final_array));
-  ASSERT_EQ(4, final_array->length());
-  ASSERT_EQ(2, final_array->null_count());
-  ASSERT_TRUE(final_array->IsNull(1));
-  ASSERT_TRUE(final_array->IsNull(2));
-  auto expected_json = R"([{"a": 1, "b": "hello"}, null, null, {"a": 2, "b": "arrow"}])";
-  auto expected_array = ArrayFromJSON(struct_type, expected_json);
-  ASSERT_TRUE(final_array->Equals(expected_array));
+
+  auto expected_array = ArrayFromJSON(
+      struct_type, R"([{"a": 1, "b": "hello"}, null, null, {"a": 2, "b": "arrow"}])");
+  AssertArraysEqual(*final_array, *expected_array);
 }
 
-} // namespace arrow
+}  // namespace arrow
