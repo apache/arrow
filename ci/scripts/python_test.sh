@@ -86,6 +86,8 @@ export PYARROW_TEST_PARQUET
 export PYARROW_TEST_PARQUET_ENCRYPTION
 export PYARROW_TEST_S3
 
+wmic OS get FreePhysicalMemory,TotalVisibleMemorySize /Value
+
 python -c "
 import os
 import sys
