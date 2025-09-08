@@ -64,12 +64,13 @@ class ArrayIterator {
   // Value access
   value_type operator*() const {
     assert(array_);
-    return array_->IsNull(index_) ? value_type{} : array_->GetView(index_);
+    return array_->IsNull(index_) ? value_type{} : ValueAccessor{}(*array_, index_);
   }
 
   value_type operator[](difference_type n) const {
     assert(array_);
-    return array_->IsNull(index_ + n) ? value_type{} : array_->GetView(index_ + n);
+    return array_->IsNull(index_ + n) ? value_type{}
+                                      : ValueAccessor{}(*array_, index_ + n);
   }
 
   int64_t index() const { return index_; }
@@ -154,7 +155,7 @@ class ChunkedArrayIterator {
   // Value access
   value_type operator*() const {
     auto chunk_location = GetChunkLocation(index_);
-    ArrayIterator<ArrayType> target_iterator{
+    ArrayIterator<ArrayType, ValueAccessor> target_iterator{
         arrow::internal::checked_cast<const ArrayType&>(
             *chunked_array_->chunk(static_cast<int>(chunk_location.chunk_index)))};
     return target_iterator[chunk_location.index_in_chunk];
@@ -247,33 +248,39 @@ class ChunkedArrayIterator {
 };
 
 /// Return an iterator to the beginning of the chunked array
-template <typename Type, typename ArrayType = typename TypeTraits<Type>::ArrayType>
-ChunkedArrayIterator<ArrayType> Begin(const ChunkedArray& chunked_array) {
-  return ChunkedArrayIterator<ArrayType>(chunked_array);
+template <typename Type, typename ArrayType = typename TypeTraits<Type>::ArrayType,
+          typename ValueAccessor = detail::DefaultValueAccessor<ArrayType>>
+ChunkedArrayIterator<ArrayType, ValueAccessor> Begin(const ChunkedArray& chunked_array) {
+  return ChunkedArrayIterator<ArrayType, ValueAccessor>(chunked_array);
 }
 
 /// Return an iterator to the end of the chunked array
-template <typename Type, typename ArrayType = typename TypeTraits<Type>::ArrayType>
-ChunkedArrayIterator<ArrayType> End(const ChunkedArray& chunked_array) {
-  return ChunkedArrayIterator<ArrayType>(chunked_array, chunked_array.length());
+template <typename Type, typename ArrayType = typename TypeTraits<Type>::ArrayType,
+          typename ValueAccessor = detail::DefaultValueAccessor<ArrayType>>
+ChunkedArrayIterator<ArrayType, ValueAccessor> End(const ChunkedArray& chunked_array) {
+  return ChunkedArrayIterator<ArrayType, ValueAccessor>(chunked_array,
+                                                        chunked_array.length());
 }
 
-template <typename ArrayType>
+template <typename ArrayType,
+          typename ValueAccessor = detail::DefaultValueAccessor<ArrayType>>
 struct ChunkedArrayRange {
   const ChunkedArray* chunked_array;
 
-  ChunkedArrayIterator<ArrayType> begin() {
-    return stl::ChunkedArrayIterator<ArrayType>(*chunked_array);
+  ChunkedArrayIterator<ArrayType, ValueAccessor> begin() {
+    return stl::ChunkedArrayIterator<ArrayType, ValueAccessor>(*chunked_array);
   }
-  ChunkedArrayIterator<ArrayType> end() {
-    return stl::ChunkedArrayIterator<ArrayType>(*chunked_array, chunked_array->length());
+  ChunkedArrayIterator<ArrayType, ValueAccessor> end() {
+    return stl::ChunkedArrayIterator<ArrayType, ValueAccessor>(*chunked_array,
+                                                               chunked_array->length());
   }
 };
 
 /// Return an iterable range over the chunked array
-template <typename Type, typename ArrayType = typename TypeTraits<Type>::ArrayType>
-ChunkedArrayRange<ArrayType> Iterate(const ChunkedArray& chunked_array) {
-  return stl::ChunkedArrayRange<ArrayType>{&chunked_array};
+template <typename Type, typename ArrayType = typename TypeTraits<Type>::ArrayType,
+          typename ValueAccessor = detail::DefaultValueAccessor<ArrayType>>
+ChunkedArrayRange<ArrayType, ValueAccessor> Iterate(const ChunkedArray& chunked_array) {
+  return stl::ChunkedArrayRange<ArrayType, ValueAccessor>{&chunked_array};
 }
 
 }  // namespace stl
