@@ -162,6 +162,10 @@ jobs:
         run: |
           bash -c "python -m pip install -r $(pwd)/python/requirements-test.txt"
           bash -c "python -m pip install msvc-runtime"
+      - name: Locate MSVCP140.dll
+        shell: pwsh
+        run: |
+          Get-ChildItem -Path C:\ -Filter MSVCP140.dll -Recurse -ErrorAction SilentlyContinue | Select-Object FullName
       - name: Find lib.cp312-win_amd64.pyd
         shell: cmd
         run: |
