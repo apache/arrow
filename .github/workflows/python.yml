@@ -169,7 +169,7 @@ jobs:
           $dumpbin = Join-Path $vc 'VC\Tools\MSVC'
           $msvcver = Get-ChildItem $dumpbin | Sort-Object Name -Descending | Select-Object -First 1
           $dumpbinExe = Join-Path $msvcver.FullName 'bin\Hostx64\x64\dumpbin.exe'
-          $pyd = "/d/a/arrow/arrow/dist/build/python/pyarrow/lib.cp312-win_amd64.pyd"
+          $pyd = "D:\a\arrow\arrow\dist\build\python\pyarrow\lib.cp312-win_amd64.pyd"
           if (Test-Path $pyd) {
             & $dumpbinExe /DEPENDENTS $pyd
           } else {
@@ -179,7 +179,7 @@ jobs:
       - name: List DLL dependencies of pyarrow.lib.pyd
         shell: cmd
         run: |
-          "C:\Program Files (x86)\Microsoft Visual Studio\2019\BuildTools\VC\Tools\MSVC\*\bin\Hostx64\x64\dumpbin.exe" /DEPENDENTS D:\a\arrow\arrow\build\python\pyarrow\lib.cp312-win_amd64.pyd
+          "C:\Program Files (x86)\Microsoft Visual Studio\2019\BuildTools\VC\Tools\MSVC\*\bin\Hostx64\x64\dumpbin.exe" /DEPENDENTS D:\a\arrow\arrow\dist\build\python\pyarrow\lib.cp312-win_amd64.pyd
       - name: Test PyArrow
         shell: cmd
         run: |
