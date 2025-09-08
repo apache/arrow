@@ -66,10 +66,10 @@ needs_flight = get_option('flight').enabled()
 needs_ipc = get_option('ipc').enabled() or needs_tests or needs_acero or needs_benchmarks or needs_flight
 needs_fuzzing = get_option('fuzzing').enabled()
 needs_testing = (get_option('testing').enabled()
-or needs_tests
-or needs_benchmarks
-or needs_fuzzing
-or needs_integration
+    or needs_tests
+    or needs_benchmarks
+    or needs_fuzzing
+    or needs_integration
 )
 needs_json = get_option('json').enabled() or needs_testing
 needs_brotli = get_option('brotli').enabled() or needs_fuzzing
