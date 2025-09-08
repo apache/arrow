@@ -164,8 +164,12 @@ jobs:
       - name: Find and run dumpbin on pyarrow.lib.pyd
         shell: pwsh
         run: |
-          $dumpbin = Get-ChildItem -Path "C:\Program Files (x86)\Microsoft Visual Studio" -Filter dumpbin.exe -Recurse | Select-Object -First 1
-          & $dumpbin.FullName /DEPENDENTS D:\a\arrow\arrow\dist\build\python\pyarrow\lib.pyd
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $vc = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          $dumpbin = Join-Path $vc 'VC\Tools\MSVC'
+          $msvcver = Get-ChildItem $dumpbin | Sort-Object Name -Descending | Select-Object -First 1
+          $dumpbinExe = Join-Path $msvcver.FullName 'bin\Hostx64\x64\dumpbin.exe'
+          & $dumpbinExe /DEPENDENTS D:\a\arrow\arrow\dist\build\python\pyarrow\lib.pyd
       - name: List DLL dependencies of pyarrow.lib.pyd
         shell: cmd
         run: |

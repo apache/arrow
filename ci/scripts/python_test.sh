@@ -101,5 +101,16 @@ except ImportError as e:
     sys.exit(1)
 "
 
+python -c "
+import pyarrow
+import pyarrow._hdfs
+import pyarrow.csv
+import pyarrow.dataset
+import pyarrow.fs
+import pyarrow.json
+import pyarrow.orc
+import pyarrow.parquet
+"
+
 # Testing PyArrow
 pytest -r s ${PYTEST_ARGS} --pyargs pyarrow
