@@ -77,7 +77,7 @@ jobs:
       ARROW_DATASET: ON
       ARROW_FLIGHT: OFF
       ARROW_HDFS: ON
-      ARROW_HOME: "${{ github.workspace }}/dist"
+      ARROW_HOME: "${{ github.workspace }}\\dist"
       ARROW_JEMALLOC: OFF
       ARROW_MIMALLOC: ON
       ARROW_ORC: ON
@@ -96,7 +96,7 @@ jobs:
       BOOST_SOURCE: BUNDLED
       CMAKE_CXX_STANDARD: "17"
       CMAKE_GENERATOR: Ninja
-      CMAKE_INSTALL_PREFIX: "${{ github.workspace }}/dist"
+      CMAKE_INSTALL_PREFIX: "${{ github.workspace }}\\dist"
       CMAKE_UNITY_BUILD: ON
       PYARROW_EXTRA_INSTALL_FLAGS: "--editable"
     steps:
