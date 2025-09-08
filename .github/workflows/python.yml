@@ -166,10 +166,11 @@ jobs:
         run: |
           bash -c "echo $PYTHONPATH"
           bash -c "python --version"
-          bash -c "python -c "import sys; print(sys.path)"
+          bash -c "python -c 'import sys; print(sys.path)'"
           bash -c "echo %PATH%"
-          bash -c "pthon -c "import pyarrow; print(pyarrow.__version__)"
+          bash -c "python -c 'import pyarrow; print(pyarrow.__version__)'"
       - name: Test PyArrow
         shell: cmd
         run: |
+          set "PATH=%ARROW_HOME%\bin;%PATH%"
           bash -c "ci/scripts/python_test.sh $(pwd) $(pwd)/build"
