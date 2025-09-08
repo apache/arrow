@@ -94,11 +94,10 @@ import os
 import sys
 import traceback
 print('PYTHONPATH:', os.environ['PYTHONPATH'])
-for p in os.environ['PYTHONPATH'].split(';'):
+for p in os.environ['PYTHONPATH'].split(':'):
     if 'arrow' in p and os.path.isdir(p):
         print('Adding to os.add_dll_directory:', p)
         os.add_dll_directory(p)
-print('Python path', sys.path)
 try:
     import pyarrow
 except ImportError as e:
