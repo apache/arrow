@@ -39,7 +39,7 @@ case "$(uname)" in
     ;;
   MINGW*)
     unix_arrow_home=$(cygpath "${ARROW_HOME}")
-    export PATH=${unix_arrow_home}/lib:${unix_arrow_home}/bin:${unix_arrow_home}/build/python/pyarrow:${PATH}
+    export PYTHONPATH=${unix_arrow_home}/lib:${unix_arrow_home}/bin:${unix_arrow_home}/build/python/pyarrow:${PYTHONPATH}
     ;;
   *)
     ;;
