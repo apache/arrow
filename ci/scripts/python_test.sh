@@ -86,24 +86,7 @@ export PYARROW_TEST_PARQUET
 export PYARROW_TEST_PARQUET_ENCRYPTION
 export PYARROW_TEST_S3
 
-# TODO: Remove, only testing
-python -c "
-import os
-import sys
-import traceback
-print('PATH:', os.environ['PATH'])
-for p in os.environ['PATH'].split(';'):
-    if 'arrow' in p and os.path.isdir(p):
-        print('Adding to os.add_dll_directory:', p)
-        os.add_dll_directory(p)
-print('Python path', sys.path)
-try:
-    import pyarrow
-except ImportError as e:
-    print('ImportError:', e)
-    traceback.print_exc()
-    sys.exit(1)
-"
+
 
 python -c "
 import pyarrow
