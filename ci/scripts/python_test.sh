@@ -86,7 +86,11 @@ export PYARROW_TEST_PARQUET
 export PYARROW_TEST_PARQUET_ENCRYPTION
 export PYARROW_TEST_S3
 
-python -c "import os; print(os.environ['PATH']); import pyarrow.lib"
+python -c "import os; import sys; import traceback; print('PATH:', os.environ['PATH']); \
+if hasattr(os, 'add_dll_directory'): \
+    [os.add_dll_directory(p) for p in os.environ['PATH'].split(os.pathsep) if p]; \
+try: import pyarrow.lib \
+except ImportError as e: print('ImportError:', e); traceback.print_exc(); sys.exit(1)"
 
 # Testing PyArrow
 pytest -r s ${PYTEST_ARGS} --pyargs pyarrow
