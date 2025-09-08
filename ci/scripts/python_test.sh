@@ -38,10 +38,10 @@ case "$(uname)" in
   Darwin)
     ;;
   MINGW*)
-    export PATH=${arrow_dir}/lib:${PATH}
+    export PATH=${arrow_dir}/dist/lib:${PATH}
     ;;
   *)
-    export PATH=${arrow_dir}/lib:${PATH}
+    export PATH=${arrow_dir}/dist/lib:${PATH}
     ;;
 esac
 
