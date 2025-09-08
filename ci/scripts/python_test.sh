@@ -29,13 +29,13 @@ fi
 export ARROW_SOURCE_DIR=${arrow_dir}
 export ARROW_TEST_DATA=${arrow_dir}/testing/data
 export PARQUET_TEST_DATA=${arrow_dir}/cpp/submodules/parquet-testing/data
-export LD_LIBRARY_PATH=${ARROW_HOME}/lib:${LD_LIBRARY_PATH}
-export DYLD_LIBRARY_PATH=${ARROW_HOME}/lib:${DYLD_LIBRARY_PATH:+:${DYLD_LIBRARY_PATH}}
 
 case "$(uname)" in
   Linux)
+    export LD_LIBRARY_PATH=${ARROW_HOME}/lib:${LD_LIBRARY_PATH}
     ;;
   Darwin)
+    export DYLD_LIBRARY_PATH=${ARROW_HOME}/lib:${DYLD_LIBRARY_PATH:+:${DYLD_LIBRARY_PATH}}
     ;;
   MINGW*)
     unix_arrow_home=$(cygpath "${ARROW_HOME}")
@@ -45,8 +45,8 @@ case "$(uname)" in
     ;;
 esac
 
+# TODO: Remove, only testing
 ls ${unix_arrow_home}/lib
-
 ls ${unix_arrow_home}/bin
 
 export ARROW_GDB_SCRIPT=${arrow_dir}/cpp/gdb_arrow.py
@@ -86,6 +86,7 @@ export PYARROW_TEST_PARQUET
 export PYARROW_TEST_PARQUET_ENCRYPTION
 export PYARROW_TEST_S3
 
+# TODO: Remove, only testing
 python -c "
 import os
 import sys
