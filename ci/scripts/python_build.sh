@@ -94,7 +94,7 @@ pushd "${python_build_dir}"
 # - Cannot use build isolation as we want to use specific dependency versions
 #   (e.g. Numpy, Pandas) on some CI jobs.
 # shellcheck disable=SC2086
-${PYTHON:-python} -m pip install bdist_wheel
+${PYTHON:-python} setup.py bdist_wheel
 ${PYTHON:-python} -m pip install delvewheel
 WHEEL_NAME=$(ls dist/pyarrow-*.whl)
 echo "Wheel name: ${WHEEL_NAME}"
