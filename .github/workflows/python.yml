@@ -161,6 +161,14 @@ jobs:
         shell: cmd
         run: |
           bash -c "python -m pip install -r $(pwd)/python/requirements-test.txt"
+      - name: Print path info
+        shell: cmd
+        run: |
+          bash -c "echo $PYTHONPATH"
+          bash -c "python --version"
+          bash -c "python -c "import sys; print(sys.path)"
+          bash -c "echo %PATH%"
+          bash -c "pthon -c "import pyarrow; print(pyarrow.__version__)"
       - name: Test PyArrow
         shell: cmd
         run: |
