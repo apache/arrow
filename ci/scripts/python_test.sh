@@ -94,7 +94,7 @@ import sys
 import traceback
 print('PATH:', os.environ['PATH'])
 if hasattr(os, 'add_dll_directory'):
-    [os.add_dll_directory(p) for p in os.environ['PATH'].split(os.pathsep) if p and os.path.isdir(p)]
+    [os.add_dll_directory(p) for p in os.environ['PATH'].split(os.pathsep) if 'arrow' in p and os.path.isdir(p)]
 try:
     import pyarrow
 except ImportError as e:
