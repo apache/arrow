@@ -183,7 +183,7 @@ jobs:
           }
       - name: Install System Dependencies
         run: |
-          choco install --no-progress --yes vcredist140
+          choco install --no-progress --yes --force vcredist140
       - name: Test PyArrow
         shell: cmd
         run: |
