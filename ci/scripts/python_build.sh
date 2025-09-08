@@ -98,6 +98,10 @@ ${PYTHON:-python} setup.py bdist_wheel
 ${PYTHON:-python} -m pip install delvewheel
 WHEEL_NAME=$(ls dist/pyarrow-*.whl)
 echo "Wheel name: ${WHEEL_NAME}"
+unix_arrow_home=$(cygpath "${ARROW_HOME}")
+# D:\a\arrow\arrow\build\python\pyarrow\lib.cp312-win_amd64.pyd
+export PYTHONPATH=${unix_arrow_home}/bin:${PYTHONPATH}
+echo "PYTHONPATH: ${PYTHONPATH}"
 ${PYTHON:-python} -m delvewheel repair -vv --ignore-existing --with-mangle -w repaired_wheels "${WHEEL_NAME}"
 popd
 
