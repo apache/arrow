@@ -86,5 +86,7 @@ export PYARROW_TEST_PARQUET
 export PYARROW_TEST_PARQUET_ENCRYPTION
 export PYARROW_TEST_S3
 
+python -c "import os; print(os.environ['PATH']); import pyarrow.lib"
+
 # Testing PyArrow
 pytest -r s ${PYTEST_ARGS} --pyargs pyarrow
