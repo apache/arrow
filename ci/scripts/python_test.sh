@@ -29,8 +29,28 @@ fi
 export ARROW_SOURCE_DIR=${arrow_dir}
 export ARROW_TEST_DATA=${arrow_dir}/testing/data
 export PARQUET_TEST_DATA=${arrow_dir}/cpp/submodules/parquet-testing/data
-export LD_LIBRARY_PATH=${ARROW_HOME}/lib:${LD_LIBRARY_PATH}
-export DYLD_LIBRARY_PATH=${ARROW_HOME}/lib:${DYLD_LIBRARY_PATH:+:${DYLD_LIBRARY_PATH}}
+
+case "$(uname)" in
+  Linux)
+    export LD_LIBRARY_PATH=${ARROW_HOME}/lib:${LD_LIBRARY_PATH}
+    ;;
+  Darwin)
+    export DYLD_LIBRARY_PATH=${ARROW_HOME}/lib:${DYLD_LIBRARY_PATH:+:${DYLD_LIBRARY_PATH}}
+    ;;
+  MINGW*)
+    unix_arrow_home=$(cygpath "${ARROW_HOME}")
+    # D:\a\arrow\arrow\build\python\pyarrow\lib.cp312-win_amd64.pyd
+    pyarrow_path=$(cygpath "D:\a\arrow\arrow\build\python\pyarrow")
+    export PYTHONPATH=${unix_arrow_home}/lib:${unix_arrow_home}/bin:${pyarrow_path}:${PYTHONPATH}:${PATH}
+    ;;
+  *)
+    ;;
+esac
+
+# TODO: Remove, only testing
+ls ${unix_arrow_home}/lib
+ls ${unix_arrow_home}/bin
+
 export ARROW_GDB_SCRIPT=${arrow_dir}/cpp/gdb_arrow.py
 
 # Enable some checks inside Python itself
@@ -67,6 +87,31 @@ export PYARROW_TEST_ORC
 export PYARROW_TEST_PARQUET
 export PYARROW_TEST_PARQUET_ENCRYPTION
 export PYARROW_TEST_S3
+
+# TODO: Remove, only testing
+python -c "
+import os
+import sys
+import traceback
+print('PYTHONPATH:', os.environ['PYTHONPATH'])
+try:
+    import pyarrow
+except ImportError as e:
+    print('ImportError:', e)
+    traceback.print_exc()
+    sys.exit(1)
+"
+
+python -c "
+import pyarrow
+import pyarrow._hdfs
+import pyarrow.csv
+import pyarrow.dataset
+import pyarrow.fs
+import pyarrow.json
+import pyarrow.orc
+import pyarrow.parquet
+"
 
 # Testing PyArrow
 pytest -r s ${PYTEST_ARGS} --pyargs pyarrow
