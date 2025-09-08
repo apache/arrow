@@ -287,9 +287,12 @@ TEST(TestWithinUlp, Float) {
 TEST(AssertTestWithinUlp, Basics) {
   AssertWithinUlp(123.4567, 123.45670000000015, 11);
   AssertWithinUlp(123.456f, 123.456085f, 11);
+#ifndef _WIN32
+  // GH-47442
   EXPECT_FATAL_FAILURE(AssertWithinUlp(123.4567, 123.45670000000015, 10),
                        "not within 10 ulps");
   EXPECT_FATAL_FAILURE(AssertWithinUlp(123.456f, 123.456085f, 10), "not within 10 ulps");
+#endif
 }
 
 }  // namespace arrow

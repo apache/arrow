@@ -686,7 +686,7 @@ endif()
 # the first link library. It's for prioritizing bundled FlatBuffers
 # than system FlatBuffers.
 list(PREPEND ARROW_TEST_LINK_LIBS arrow::flatbuffers)
-list(APPEND ARROW_TEST_LINK_LIBS ${ARROW_GTEST_GMOCK} ${ARROW_GTEST_GTEST_MAIN})
+list(APPEND ARROW_TEST_LINK_LIBS ${ARROW_GTEST_GMOCK_MAIN})
 
 if(ARROW_BUILD_BENCHMARKS)
   set(ARROW_BENCHMARK_LINK_LIBS benchmark::benchmark_main ${ARROW_TEST_LINK_LIBS})
