@@ -38,12 +38,16 @@ case "$(uname)" in
   Darwin)
     ;;
   MINGW*)
-    export PATH=${ARROW_HOME}/lib:${PATH}
+    export PATH=${arrow_dir}/dist/lib:${arrow_dir}/dist/bin:${PATH}
     ;;
   *)
-    export PATH=${ARROW_HOME}/lib:${PATH}
+    export PATH=${arrow_dir}/dist/lib:${arrow_dir}/dist/bin:${PATH}
     ;;
 esac
+
+ls ${arrow_dir}/dist/lib
+
+ls ${arrow_dir}/dist/bin
 
 export ARROW_GDB_SCRIPT=${arrow_dir}/cpp/gdb_arrow.py
 
