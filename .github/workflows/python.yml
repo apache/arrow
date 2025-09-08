@@ -161,6 +161,7 @@ jobs:
         shell: cmd
         run: |
           bash -c "python -m pip install -r $(pwd)/python/requirements-test.txt"
+          bash -c "python -m pip install msvc-runtime"
       - name: Find lib.cp312-win_amd64.pyd
         shell: cmd
         run: |
