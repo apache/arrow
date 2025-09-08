@@ -104,6 +104,8 @@ unix_arrow_home=$(cygpath "${ARROW_HOME}")
 export PYTHONPATH=${unix_arrow_home}/bin:${PYTHONPATH}
 echo "PYTHONPATH: ${PYTHONPATH}"
 ${PYTHON:-python} -m delvewheel repair -vv --ignore-existing --with-mangle -w repaired_wheels "${WHEEL_NAME}"
+${PYTHON:-python} -m pip install --no-index --find-links=repaired_wheels pyarrow
+python -c "import pyarrow"
 popd
 
 if [ "${BUILD_DOCS_PYTHON}" == "ON" ]; then
