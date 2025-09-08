@@ -92,8 +92,8 @@ import os
 import sys
 import traceback
 print('PATH:', os.environ['PATH'])
-for path in os.environ['PATH'].split(';'):
-    if 'arrow' in path and os.path.isdir(path):
+for p in os.environ['PATH'].split(';'):
+    if 'arrow' in p and os.path.isdir(p):
         print('Adding to os.add_dll_directory:', p)
         os.add_dll_directory(p)
 print('Python path', sys.path)
