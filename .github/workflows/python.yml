@@ -151,7 +151,7 @@ jobs:
       - name: Install build requirements
         shell: cmd
         run: |
-          bash -c "python -m pip install -r $(pwd)/python/requirements-build.txt"
+          bash -c "python -m pip install -r $(pwd)/python/requirements-wheel-build.txt"
       - name: Build PyArrow
         shell: cmd
         run: |
