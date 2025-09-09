@@ -94,7 +94,6 @@ jobs:
       ARROW_WITH_ZLIB: ON
       ARROW_WITH_ZSTD: ON
       BOOST_SOURCE: BUNDLED
-      CONDA_COMMAND: micromamba
       CMAKE_CXX_STANDARD: "17"
       CMAKE_GENERATOR: Ninja
       CMAKE_INSTALL_PREFIX: "${{ github.workspace }}\\dist"
@@ -140,22 +139,15 @@ jobs:
         env:
           # We can invalidate the current cache by updating this.
           CACHE_VERSION: "2025-09-05"
-      - uses: mamba-org/setup-micromamba@v2
-        with:
-          environment-name: arrow
-          init-shell: >-
-            bash
-            powershell
-      - name: Setup micromamba
+      - name: Setup Conda
         shell: bash -el {0}
         run: |
-          micromamba activate arrow
-          micromamba install -f ci/conda_env_cpp.txt -f ci/conda_env_python.txt -f ci/conda_env_gandiva_win.txt -y
+          ${CONDA} create -n arrow -f ci/conda_env_cpp.txt -f ci/conda_env_python.txt -f ci/conda_env_gandiva_win.txt -y
       - name: Build
         shell: cmd /C call {0}
         run: |
           call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
-          bash -c "ci/scripts/cpp_build.sh $(pwd) $(pwd)/build"
+          bash -c "${CONDA} activate arrow && ci/scripts/cpp_build.sh $(pwd) $(pwd)/build"
       - name: Set up Python
         uses: actions/setup-python@v5.6.0
         id: python-install
@@ -164,12 +156,12 @@ jobs:
       - name: Install build requirements
         shell: cmd
         run: |
-          bash -c "micromamba activate arrow && python -m pip install -r $(pwd)/python/requirements-build-build.txt"
+          bash -c "{CONDA} activate arrow  && python -m pip install -r $(pwd)/python/requirements-build-build.txt"
       - name: Build PyArrow
         shell: cmd
         run: |
           call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
-          bash -c "micromamba activate arrow && ci/scripts/python_build.sh $(pwd) $(pwd)/build"
+          bash -c "{CONDA} activate arrow  && ci/scripts/python_build.sh $(pwd) $(pwd)/build"
       - name: Clean up memory before import
         shell: pwsh
         run: |
@@ -185,4 +177,4 @@ jobs:
         shell: cmd
         run: |
           call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
-          bash -c "micromamba activate arrow && ci/scripts/python_test.sh $(pwd) $(pwd)/build"
+          bash -c "{CONDA} activate arrow  && ci/scripts/python_test.sh $(pwd) $(pwd)/build"
