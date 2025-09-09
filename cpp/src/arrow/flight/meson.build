@@ -52,7 +52,10 @@ if cpp_compiler.get_id() == 'msvc'
     ]
 endif
 
-grpc_cpp_dep = dependency('grpc++', default_options: grpc_opts)
+# We specifically need to use the grpc subproject and cannot use a system installation
+# due to https://github.com/mesonbuild/meson/issues/14905
+grpc_subproject = subproject('grpc', default_options: grpc_opts)
+grpc_cpp_dep = grpc_subproject.get_variable('grpcpp_dep')
 
 protobuf_dep = dependency('protobuf')
 abseil_sync_dep = dependency('absl_synchronization')
