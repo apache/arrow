@@ -99,6 +99,7 @@ jobs:
       CMAKE_INSTALL_PREFIX: "${{ github.workspace }}\\dist"
       CMAKE_UNITY_BUILD: ON
       PYARROW_EXTRA_INSTALL_FLAGS: "--editable"
+      PYARROW_BUNDLE_ARROW_CPP: ON
     steps:
       - name: Disable Crash Dialogs
         run: |
