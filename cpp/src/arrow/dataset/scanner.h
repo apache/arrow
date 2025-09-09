@@ -107,8 +107,10 @@ struct ARROW_DS_EXPORT ScanOptions {
 
   /// Executor for any CPU tasks
   ///
+  /// If null, the global CPU executor will be used
+  ///
   /// Note: The Executor will be ignored if use_threads is set to false
-  arrow::internal::Executor* cpu_executor = nullptr;
+  arrow::internal::Executor* cpu_executor = NULLPTR;
 
   /// If true the scanner will scan in parallel
   ///

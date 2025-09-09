@@ -19,7 +19,6 @@
 
 #include <cstdint>
 #include <memory>
-#include <optional>
 #include <queue>
 #include <type_traits>
 #include <unordered_set>
