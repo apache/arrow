@@ -145,7 +145,7 @@ jobs:
             bash
             powershell
       - name: Setup micromamba
-        shell: bash
+        shell: bash -el {0}
         run: |
           micromamba create -n arrow -f ci/conda_env_cpp.txt -f ci/conda_env_python.txt -f ci/conda_env_gandiva_win.txt -y
           micromamba activate arrow
