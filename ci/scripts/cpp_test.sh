@@ -99,10 +99,10 @@ fi
 if [ "${ARROW_USE_MESON:-OFF}" = "ON" ]; then
   ARROW_BUILD_EXAMPLES=OFF # TODO: Remove this
   meson test \
+    --max-lines=0 \
     --no-rebuild \
     --print-errorlogs \
     --suite arrow \
-    --max-lines=0 \
     --timeout-multiplier=10 \
     "$@"
 else

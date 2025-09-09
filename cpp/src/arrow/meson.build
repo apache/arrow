@@ -299,7 +299,6 @@ endif
 
 if needs_snappy
     arrow_util_srcs += ['util/compression_snappy.cc']
-
     # snappy does not export symbols, so MSVC requires a static lib
     if cpp_compiler.get_id() == 'msvc'
         snappy_dep = dependency('snappy', 'Snappy', static: true)

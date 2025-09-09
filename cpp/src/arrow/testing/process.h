@@ -38,14 +38,7 @@ class ARROW_TESTING_EXPORT Process {
   Status Execute();
   bool IsRunning();
   uint64_t pid();
-
-  static constexpr bool IsAvailable() {
-#ifdef BOOST_PROCESS_AVAILABLE
-    return true;
-#else
-    return false;
-#endif
-  }
+  static bool IsAvailable();
 
  private:
   class Impl;

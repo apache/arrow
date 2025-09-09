@@ -52,11 +52,7 @@ if cpp_compiler.get_id() == 'msvc'
     ]
 endif
 
-grpc_cpp_dep = dependency(
-    'gRPC++',
-    fallback: ['grpc', 'grpcpp_dep'],
-    default_options: grpc_opts,
-)
+grpc_cpp_dep = dependency('grpc++', default_options: grpc_opts)
 
 protobuf_dep = dependency('protobuf')
 abseil_sync_dep = dependency('absl_synchronization')
