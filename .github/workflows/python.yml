@@ -160,7 +160,7 @@ jobs:
             | grep -E '^(INCLUDE|LIB|LIBPATH|PATH|VCINSTALLDIR|VCToolsInstallDir|VSINSTALLDIR|WindowsSdkDir|WindowsSdkVersion)=' \
             | sed -E 's/^([^=]+)=(.*)$/export \1="\2"/'
           )"
-          micromamba activate arrow
+          micromamba list
           ci/scripts/cpp_build.sh $(pwd) $(pwd)/build
       - name: Set up Python
         uses: actions/setup-python@v5.6.0
