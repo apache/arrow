@@ -148,8 +148,8 @@ jobs:
       - name: Setup Conda
         shell: bash
         run: |
-          export PATH="${CONDA}/Library/bin:${CONDA}/Scripts:${CONDA}/bin:${PATH}"
-          conda create -n arrow -f ci/conda_env_cpp.txt -f ci/conda_env_python.txt -f ci/conda_env_gandiva_win.txt -y
+          export PATH="${CONDA}/Library/bin:${CONDA}/Scripts:${CONDA}/bin:${CONDA}:${PATH}"
+          condabin create -n arrow -f ci/conda_env_cpp.txt -f ci/conda_env_python.txt -f ci/conda_env_gandiva_win.txt -y
       - name: Build
         shell: cmd /C call {0}
         run: |
