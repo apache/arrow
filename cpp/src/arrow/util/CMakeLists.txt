@@ -117,8 +117,8 @@ add_arrow_test(crc32-test
                Boost::headers)
 
 add_arrow_benchmark(bit_block_counter_benchmark)
-add_arrow_benchmark(bit_util_benchmark SOURCES bit_util_benchmark.cc
-                    bpacking_benchmark.cc)
+add_arrow_benchmark(bit_util_benchmark)
+add_arrow_benchmark(bpacking_benchmark)
 add_arrow_benchmark(bitmap_reader_benchmark)
 add_arrow_benchmark(cache_benchmark)
 add_arrow_benchmark(compression_benchmark)
