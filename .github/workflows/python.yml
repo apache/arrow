@@ -151,7 +151,6 @@ jobs:
           micromamba activate arrow
           micromamba install -f ci/conda_env_cpp.txt -f ci/conda_env_python.txt -f ci/conda_env_gandiva_win.txt -y
           micromamba list
-          micromamba shell init --shell bash --root-prefix=~/.local/share/mamba
       - name: Build
         shell: bash -el {0}
         run: |
