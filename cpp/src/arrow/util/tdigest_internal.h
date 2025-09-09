@@ -112,7 +112,7 @@ class ARROW_EXPORT TDigest {
 
 // scale function K0: linear function, as baseline
 struct ARROW_EXPORT TDigestScalerK0 : public TDigest::Scaler {
-  explicit TDigestScalerK0(uint32_t delta) : Scaler(delta), delta_norm(delta / 2.0) {}
+  explicit TDigestScalerK0(uint32_t delta);
 
   double K(double q) const override { return delta_norm * q; }
   double Q(double k) const { return k / delta_norm; }
@@ -123,8 +123,7 @@ struct ARROW_EXPORT TDigestScalerK0 : public TDigest::Scaler {
 
 // scale function K1
 struct ARROW_EXPORT TDigestScalerK1 : public TDigest::Scaler {
-  explicit TDigestScalerK1(uint32_t delta)
-      : Scaler(delta), delta_norm(delta / (2.0 * M_PI)) {}
+  explicit TDigestScalerK1(uint32_t delta);
 
   double K(double q) const override { return delta_norm * std::asin(2 * q - 1); }
   double Q(double k) const { return (std::sin(k / delta_norm) + 1) / 2; }

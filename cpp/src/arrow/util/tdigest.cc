@@ -403,5 +403,10 @@ void TDigest::MergeInput() const {
   }
 }
 
+TDigestScalerK0::TDigestScalerK0(uint32_t delta)
+    : Scaler(delta), delta_norm(delta / 2.0) {}
+TDigestScalerK1::TDigestScalerK1(uint32_t delta)
+    : Scaler(delta), delta_norm(delta / (2.0 * M_PI)) {}
+
 }  // namespace internal
 }  // namespace arrow
