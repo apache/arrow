@@ -35,6 +35,7 @@ static constexpr double kDefaultCacheLifetimeSeconds = 600;  // 10 minutes
 static constexpr bool kDefaultInternalKeyMaterial = true;
 static constexpr bool kDefaultUniformEncryption = false;
 static constexpr int32_t kDefaultDataKeyLengthBits = 128;
+static constexpr int32_t kDefaultDataKeyLengthBits1 = 128;
 
 struct PARQUET_EXPORT EncryptionConfiguration {
   explicit EncryptionConfiguration(const std::string& footer_key)

@@ -16,6 +16,11 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
+
+
+
+
+a=0
 from pyarrow._parquet_encryption import (CryptoFactory,   # noqa
                                          EncryptionConfiguration,
                                          DecryptionConfiguration,
