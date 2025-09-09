@@ -29,6 +29,8 @@ namespace internal {
 namespace {
 
 using arrow::internal::TDigest;
+using arrow::internal::TDigestScalerK0;
+using arrow::internal::TDigestScalerK1;
 using arrow::internal::VisitSetBitRunsVoid;
 
 template <typename ArrowType>
@@ -37,9 +39,10 @@ struct TDigestImpl : public ScalarAggregator {
   using ArrayType = typename TypeTraits<ArrowType>::ArrayType;
   using CType = typename TypeTraits<ArrowType>::CType;
 
-  TDigestImpl(const TDigestOptions& options, const DataType& in_type)
+  TDigestImpl(const TDigestOptions& options, const DataType& in_type,
+              std::unique_ptr<TDigest::Scaler> scaler)
       : options{options},
-        tdigest{options.delta, options.buffer_size},
+        tdigest{std::move(scaler), options.buffer_size},
         count{0},
         decimal_scale{0},
         all_valid{true} {
@@ -149,14 +152,26 @@ struct TDigestInitState {
 
   template <typename Type>
   enable_if_number<Type, Status> Visit(const Type&) {
-    state.reset(new TDigestImpl<Type>(options, in_type));
+    ARROW_ASSIGN_OR_RAISE(auto scaler, MakeScaler());
+    state.reset(new TDigestImpl<Type>(options, in_type, std::move(scaler)));
     return Status::OK();
   }
 
   template <typename Type>
   enable_if_decimal<Type, Status> Visit(const Type&) {
-    state.reset(new TDigestImpl<Type>(options, in_type));
+    ARROW_ASSIGN_OR_RAISE(auto scaler, MakeScaler());
+    state.reset(new TDigestImpl<Type>(options, in_type, std::move(scaler)));
     return Status::OK();
+  }
+
+  Result<std::unique_ptr<TDigest::Scaler>> MakeScaler() {
+    switch (options.scaler) {
+      case TDigestOptions::K0:
+        return std::make_unique<TDigestScalerK0>(options.delta);
+      case TDigestOptions::K1:
+        return std::make_unique<TDigestScalerK1>(options.delta);
+    }
+    return Status::NotImplemented("Invalid TDigest scaler");
   }
 
   Result<std::unique_ptr<KernelState>> Create() {

@@ -50,31 +50,13 @@ struct Centroid {
   }
 };
 
-// scale function K0: linear function, as baseline
-struct ScalerK0 {
-  explicit ScalerK0(uint32_t delta) : delta_norm(delta / 2.0) {}
-
-  double K(double q) const { return delta_norm * q; }
-  double Q(double k) const { return k / delta_norm; }
-
-  const double delta_norm;
-};
-
-// scale function K1
-struct ScalerK1 {
-  explicit ScalerK1(uint32_t delta) : delta_norm(delta / (2.0 * M_PI)) {}
-
-  double K(double q) const { return delta_norm * std::asin(2 * q - 1); }
-  double Q(double k) const { return (std::sin(k / delta_norm) + 1) / 2; }
-
-  const double delta_norm;
-};
-
 // implements t-digest merging algorithm
-template <class T = ScalerK1>
-class TDigestMerger : private T {
+class TDigestMerger {
  public:
-  explicit TDigestMerger(uint32_t delta) : T(delta) { Reset(0, nullptr); }
+  explicit TDigestMerger(std::unique_ptr<TDigest::Scaler> scaler)
+      : scaler_{std::move(scaler)} {
+    Reset(0, nullptr);
+  }
 
   void Reset(double total_weight, std::vector<Centroid>* tdigest) {
     total_weight_ = total_weight;
@@ -94,7 +76,7 @@ class TDigestMerger : private T {
       td.back().Merge(centroid);
     } else {
       const double quantile = weight_so_far_ / total_weight_;
-      const double next_weight_limit = total_weight_ * this->Q(this->K(quantile) + 1);
+      const double next_weight_limit = total_weight_ * scaler_->QK1(quantile);
       // weight limit should be strictly increasing, until the last centroid
       if (next_weight_limit <= weight_limit_) {
         weight_limit_ = total_weight_;
@@ -108,10 +90,10 @@ class TDigestMerger : private T {
 
   // validate k-size of a tdigest
   Status Validate(const std::vector<Centroid>& tdigest, double total_weight) const {
-    double q_prev = 0, k_prev = this->K(0);
+    double q_prev = 0, k_prev = scaler_->K(0);
     for (size_t i = 0; i < tdigest.size(); ++i) {
       const double q = q_prev + tdigest[i].weight / total_weight;
-      const double k = this->K(q);
+      const double k = scaler_->K(q);
       if (tdigest[i].weight != 1 && (k - k_prev) > 1.001) {
         return Status::Invalid("oversized centroid: ", k - k_prev);
       }
@@ -121,7 +103,10 @@ class TDigestMerger : private T {
     return Status::OK();
   }
 
+  uint32_t delta() const { return scaler_->delta_; }
+
  private:
+  std::unique_ptr<TDigest::Scaler> scaler_;
   double total_weight_;   // total weight of this tdigest
   double weight_so_far_;  // accumulated weight till current bin
   double weight_limit_;   // max accumulated weight to move to next bin
@@ -132,10 +117,9 @@ class TDigestMerger : private T {
 
 class TDigest::TDigestImpl {
  public:
-  explicit TDigestImpl(uint32_t delta)
-      : delta_(delta > 10 ? delta : 10), merger_(delta_) {
-    tdigests_[0].reserve(delta_);
-    tdigests_[1].reserve(delta_);
+  explicit TDigestImpl(std::unique_ptr<Scaler> scaler) : merger_(std::move(scaler)) {
+    tdigests_[0].reserve(merger_.delta());
+    tdigests_[1].reserve(merger_.delta());
     Reset();
   }
 
@@ -169,7 +153,8 @@ class TDigest::TDigestImpl {
       return Status::Invalid("tdigest total weight mismatch");
     }
     // check if buffer expanded
-    if (tdigests_[0].capacity() > delta_ || tdigests_[1].capacity() > delta_) {
+    if (tdigests_[0].capacity() > merger_.delta() ||
+        tdigests_[1].capacity() > merger_.delta()) {
       return Status::Invalid("oversized tdigest buffer");
     }
     // check k-size
@@ -342,10 +327,7 @@ class TDigest::TDigestImpl {
   double total_weight() const { return total_weight_; }
 
  private:
-  // must be declared before merger_, see constructor initialization list
-  const uint32_t delta_;
-
-  TDigestMerger<> merger_;
+  TDigestMerger merger_;
   double total_weight_;
   double min_, max_;
 
@@ -355,7 +337,11 @@ class TDigest::TDigestImpl {
   int current_;
 };
 
-TDigest::TDigest(uint32_t delta, uint32_t buffer_size) : impl_(new TDigestImpl(delta)) {
+TDigest::TDigest(uint32_t delta, uint32_t buffer_size)
+    : TDigest(std::make_unique<TDigestScalerK1>(delta), buffer_size) {}
+
+TDigest::TDigest(std::unique_ptr<Scaler> scaler, uint32_t buffer_size)
+    : impl_(new TDigestImpl(std::move(scaler))) {
   input_.reserve(buffer_size);
   Reset();
 }

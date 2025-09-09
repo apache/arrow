@@ -172,12 +172,17 @@ class ARROW_EXPORT QuantileOptions : public FunctionOptions {
 /// By default, returns the median value.
 class ARROW_EXPORT TDigestOptions : public FunctionOptions {
  public:
+  enum Scaler {
+    K0 = 0,
+    K1,
+  };
+
   explicit TDigestOptions(double q = 0.5, uint32_t delta = 100,
                           uint32_t buffer_size = 500, bool skip_nulls = true,
-                          uint32_t min_count = 0);
+                          uint32_t min_count = 0, enum Scaler scaler = K0);
   explicit TDigestOptions(std::vector<double> q, uint32_t delta = 100,
                           uint32_t buffer_size = 500, bool skip_nulls = true,
-                          uint32_t min_count = 0);
+                          uint32_t min_count = 0, enum Scaler scaler = K0);
   static constexpr char const kTypeName[] = "TDigestOptions";
   static TDigestOptions Defaults() { return TDigestOptions{}; }
 
@@ -192,6 +197,8 @@ class ARROW_EXPORT TDigestOptions : public FunctionOptions {
   bool skip_nulls;
   /// If less than this many non-null values are observed, emit null.
   uint32_t min_count;
+  /// select scaler implementation
+  enum Scaler scaler;
 };
 
 /// \brief Control Pivot kernel behavior

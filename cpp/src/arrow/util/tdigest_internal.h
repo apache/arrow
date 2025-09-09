@@ -38,7 +38,17 @@ namespace internal {
 
 class ARROW_EXPORT TDigest {
  public:
+  struct ARROW_EXPORT Scaler {
+    explicit Scaler(const uint32_t delta) : delta_(delta) {}
+    virtual ~Scaler() {}
+    virtual double K(double q) const = 0;
+    // reduce virtual calls
+    virtual double QK1(double q) const = 0;
+    const uint32_t delta_;
+  };
+
   explicit TDigest(uint32_t delta = 100, uint32_t buffer_size = 500);
+  explicit TDigest(std::unique_ptr<Scaler> scaler, uint32_t buffer_size = 500);
   ~TDigest();
   TDigest(TDigest&&);
   TDigest& operator=(TDigest&&);
@@ -98,6 +108,29 @@ class ARROW_EXPORT TDigest {
   // hide other members with pimpl
   class TDigestImpl;
   std::unique_ptr<TDigestImpl> impl_;
+};
+
+// scale function K0: linear function, as baseline
+struct ARROW_EXPORT TDigestScalerK0 : public TDigest::Scaler {
+  explicit TDigestScalerK0(uint32_t delta) : Scaler(delta), delta_norm(delta / 2.0) {}
+
+  double K(double q) const override { return delta_norm * q; }
+  double Q(double k) const { return k / delta_norm; }
+  double QK1(double q) const override { return Q(K(q) + 1); }
+
+  const double delta_norm;
+};
+
+// scale function K1
+struct ARROW_EXPORT TDigestScalerK1 : public TDigest::Scaler {
+  explicit TDigestScalerK1(uint32_t delta)
+      : Scaler(delta), delta_norm(delta / (2.0 * M_PI)) {}
+
+  double K(double q) const override { return delta_norm * std::asin(2 * q - 1); }
+  double Q(double k) const { return (std::sin(k / delta_norm) + 1) / 2; }
+  double QK1(double q) const override { return Q(K(q) + 1); }
+
+  const double delta_norm;
 };
 
 }  // namespace internal

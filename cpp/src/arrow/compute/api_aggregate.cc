@@ -70,6 +70,22 @@ struct EnumTraits<compute::QuantileOptions::Interpolation>
 };
 
 template <>
+struct EnumTraits<compute::TDigestOptions::Scaler>
+    : BasicEnumTraits<compute::TDigestOptions::Scaler, compute::TDigestOptions::K0,
+                      compute::TDigestOptions::K1> {
+  static std::string name() { return "TDigestOptions::Scaler"; }
+  static std::string value_name(compute::TDigestOptions::Scaler value) {
+    switch (value) {
+      case compute::TDigestOptions::K0:
+        return "K0";
+      case compute::TDigestOptions::K1:
+        return "K1";
+    }
+    return "<INVALID>";
+  }
+};
+
+template <>
 struct EnumTraits<compute::PivotWiderOptions::UnexpectedKeyBehavior>
     : BasicEnumTraits<compute::PivotWiderOptions::UnexpectedKeyBehavior,
                       compute::PivotWiderOptions::kIgnore,
@@ -123,7 +139,8 @@ static auto kTDigestOptionsType = GetFunctionOptionsType<TDigestOptions>(
     DataMember("q", &TDigestOptions::q), DataMember("delta", &TDigestOptions::delta),
     DataMember("buffer_size", &TDigestOptions::buffer_size),
     DataMember("skip_nulls", &TDigestOptions::skip_nulls),
-    DataMember("min_count", &TDigestOptions::min_count));
+    DataMember("min_count", &TDigestOptions::min_count),
+    DataMember("scaler", &TDigestOptions::scaler));
 static auto kPivotOptionsType = GetFunctionOptionsType<PivotWiderOptions>(
     DataMember("key_names", &PivotWiderOptions::key_names),
     DataMember("unexpected_key_behavior", &PivotWiderOptions::unexpected_key_behavior));
@@ -179,21 +196,24 @@ QuantileOptions::QuantileOptions(std::vector<double> q, enum Interpolation inter
 constexpr char QuantileOptions::kTypeName[];
 
 TDigestOptions::TDigestOptions(double q, uint32_t delta, uint32_t buffer_size,
-                               bool skip_nulls, uint32_t min_count)
+                               bool skip_nulls, uint32_t min_count, enum Scaler scaler)
     : FunctionOptions(internal::kTDigestOptionsType),
       q{q},
       delta{delta},
       buffer_size{buffer_size},
       skip_nulls{skip_nulls},
-      min_count{min_count} {}
+      min_count{min_count},
+      scaler{scaler} {}
 TDigestOptions::TDigestOptions(std::vector<double> q, uint32_t delta,
-                               uint32_t buffer_size, bool skip_nulls, uint32_t min_count)
+                               uint32_t buffer_size, bool skip_nulls, uint32_t min_count,
+                               enum Scaler scaler)
     : FunctionOptions(internal::kTDigestOptionsType),
       q{std::move(q)},
       delta{delta},
       buffer_size{buffer_size},
       skip_nulls{skip_nulls},
-      min_count{min_count} {}
+      min_count{min_count},
+      scaler{scaler} {}
 constexpr char TDigestOptions::kTypeName[];
 
 PivotWiderOptions::PivotWiderOptions(std::vector<std::string> key_names,
