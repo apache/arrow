@@ -578,7 +578,11 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
         min_buffer_(AllocateBuffer(pool_, 0)),
         max_buffer_(AllocateBuffer(pool_, 0)),
         logical_type_(LogicalTypeId(descr_)) {
-    comparator_ = MakeComparator<DType>(descr);
+    try {
+      comparator_ = MakeComparator<DType>(descr);
+    } catch (const std::exception& e) {
+      comparator_ = nullptr;
+    }
     TypedStatisticsImpl::Reset();
   }
 
@@ -737,6 +741,7 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
       return;
     }
 
+    if (comparator_ == nullptr) return;
     SetMinMaxPair(comparator_->GetMinMax(values));
   }
 
@@ -839,7 +844,7 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
   void SetMinMaxPair(std::pair<T, T> min_max) {
     // CleanStatistic can return a nullopt in case of erroneous values, e.g. NaN
     auto maybe_min_max = CleanStatistic(min_max, logical_type_);
-    if (!maybe_min_max) return;
+    if (!maybe_min_max || comparator_ == nullptr) return;
 
     auto min = maybe_min_max.value().first;
     auto max = maybe_min_max.value().second;
@@ -899,7 +904,7 @@ void TypedStatisticsImpl<DType>::Update(const T* values, int64_t num_values,
   IncrementNullCount(null_count);
   IncrementNumValues(num_values);
 
-  if (num_values == 0) return;
+  if (num_values == 0 || comparator_ == nullptr) return;
   SetMinMaxPair(comparator_->GetMinMax(values, num_values));
 }
 
@@ -914,7 +919,7 @@ void TypedStatisticsImpl<DType>::UpdateSpaced(const T* values, const uint8_t* va
   IncrementNullCount(null_count);
   IncrementNumValues(num_values);
 
-  if (num_values == 0) return;
+  if (num_values == 0 || comparator_ == nullptr) return;
   SetMinMaxPair(comparator_->GetMinMaxSpaced(values, num_spaced_values, valid_bits,
                                              valid_bits_offset));
 }
@@ -996,8 +1001,6 @@ std::shared_ptr<Comparator> DoMakeComparator(Type::type physical_type,
       default:
         ParquetException::NYI("Unsigned Compare not implemented");
     }
-  } else if (SortOrder::UNKNOWN == sort_order) {
-    return nullptr;
   } else {
     throw ParquetException("UNKNOWN Sort Order");
   }
