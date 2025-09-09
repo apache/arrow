@@ -356,4 +356,12 @@ Status Process::Execute() { return impl_->Execute(); }
 bool Process::IsRunning() { return impl_->IsRunning(); }
 
 uint64_t Process::pid() { return impl_->pid(); }
+
+bool Process::IsAvailable() {
+#ifdef BOOST_PROCESS_AVAILABLE
+  return true;
+#else
+  return false;
+#endif
+}
 }  // namespace arrow::util
