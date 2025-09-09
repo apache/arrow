@@ -139,11 +139,22 @@ jobs:
         env:
           # We can invalidate the current cache by updating this.
           CACHE_VERSION: "2025-09-05"
+      - uses: mamba-org/setup-micromamba@v2
+        with:
+          init-shell: >-
+            bash
+            powershell
+      - name: Setup micromamba
+        shell: bash
+        run: |
+          micromamba create -n arrow -f ci/conda_env_cpp.txt -f ci/conda_env_python.txt -f ci/conda_env_gandiva_win.txt -y
+          micromamba activate arrow
+          micromamba list
       - name: Build
         shell: cmd
         run: |
           call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
-          bash -c "ci/scripts/cpp_build.sh $(pwd) $(pwd)/build"
+          bash -c "micromamba activate arrow && ci/scripts/cpp_build.sh $(pwd) $(pwd)/build"
       - name: Set up Python
         uses: actions/setup-python@v5.6.0
         id: python-install
@@ -152,12 +163,12 @@ jobs:
       - name: Install build requirements
         shell: cmd
         run: |
-          bash -c "python -m pip install -r $(pwd)/python/requirements-wheel-build.txt"
+          bash -c "micromamba activate arrow && python -m pip install -r $(pwd)/python/requirements-build-build.txt"
       - name: Build PyArrow
         shell: cmd
         run: |
           call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
-          bash -c "ci/scripts/python_build.sh $(pwd) $(pwd)/build"
+          bash -c "micromamba activate arrow && ci/scripts/python_build.sh $(pwd) $(pwd)/build"
       - name: Clean up memory before import
         shell: pwsh
         run: |
@@ -173,4 +184,4 @@ jobs:
         shell: cmd
         run: |
           call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
-          bash -c "ci/scripts/python_test.sh $(pwd) $(pwd)/build"
+          bash -c "micromamba activate arrow && ci/scripts/python_test.sh $(pwd) $(pwd)/build"
