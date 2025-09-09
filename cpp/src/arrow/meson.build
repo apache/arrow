@@ -30,6 +30,10 @@ needs_boost = needs_testing or needs_multiprecision
 
 if needs_boost
     boost_modules = ['filesystem', 'system']
+    if cpp_compiler.get_id() == 'msvc'
+        boost_modules += ['crc']
+    endif
+
     if needs_multiprecision
         boost_modules += ['multiprecision']
     endif
