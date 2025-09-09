@@ -152,10 +152,10 @@ jobs:
           micromamba list
           micromamba shell init --shell bash --root-prefix=~/.local/share/mamba
       - name: Build
-        shell: cmd
+        shell: bash -el {0}
         run: |
-          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
-          bash -c "micromamba activate arrow && ci/scripts/cpp_build.sh $(pwd) $(pwd)/build"
+          micromamba activate arrow
+          ci/scripts/cpp_build.sh $(pwd) $(pwd)/build
       - name: Set up Python
         uses: actions/setup-python@v5.6.0
         id: python-install
