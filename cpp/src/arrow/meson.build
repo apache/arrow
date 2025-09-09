@@ -29,7 +29,7 @@ needs_multiprecision = not has_int128
 needs_boost = needs_testing or needs_multiprecision
 
 if needs_boost
-    boost_modules = ['crc', 'filesystem', 'system']
+    boost_modules = ['filesystem', 'system']
     if needs_multiprecision
         boost_modules += ['multiprecision']
     endif
