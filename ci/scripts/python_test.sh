@@ -96,8 +96,8 @@ import traceback
 print('PYTHONPATH:', os.environ['PYTHONPATH'])
 try:
     import pyarrow
-except ImportError as e:
-    print('ImportError:', e)
+except MemoryError as e:
+    print('MemoryError:', e)
     traceback.print_exc()
     sys.exit(1)
 "
