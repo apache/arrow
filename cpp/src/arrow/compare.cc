@@ -110,7 +110,7 @@ struct FloatingEquality<uint16_t, Flags> {
   bool operator()(uint16_t x, uint16_t y) const {
     Float16 f_x = Float16::FromBits(x);
     Float16 f_y = Float16::FromBits(y);
-    if (x == y) {
+    if (f_x == f_y) {
       return Flags::signed_zeros_equal || (f_x.signbit() == f_y.signbit());
     }
     if (Flags::nans_equal && f_x.is_nan() && f_y.is_nan()) {
@@ -171,7 +171,8 @@ void VisitFloatingEquality(const EqualOptions& options, bool floating_approximat
 }
 
 inline bool IdentityImpliesEqualityNansNotEqual(const DataType& type) {
-  if (type.id() == Type::FLOAT || type.id() == Type::DOUBLE) {
+  if (type.id() == Type::FLOAT || type.id() == Type::DOUBLE ||
+      type.id() == Type::HALF_FLOAT) {
     return false;
   }
   for (const auto& child : type.fields()) {
@@ -1564,6 +1565,8 @@ bool ArrayStatisticsEqualsImpl(const ArrayStatistics& left, const ArrayStatistic
                                const EqualOptions& equal_options) {
   return left.null_count == right.null_count &&
          ArrayStatisticsOptionalValueEquals(left.distinct_count, right.distinct_count,
+                                            equal_options) &&
+         ArrayStatisticsOptionalValueEquals(left.max_byte_width, right.max_byte_width,
                                             equal_options) &&
          left.is_average_byte_width_exact == right.is_average_byte_width_exact &&
          left.is_min_exact == right.is_min_exact &&

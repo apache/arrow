@@ -20,6 +20,7 @@
 
 from datetime import timedelta
 
+from cpython.bytes cimport PyBytes_FromStringAndSize
 from cython.operator cimport dereference as deref
 
 from pyarrow.includes.common cimport *
@@ -300,8 +301,10 @@ cdef class KmsConnectionConfig(_Weakrefable):
 
 # Callback definitions for CPyKmsClientVtable
 cdef void _cb_wrap_key(
-        handler, const c_string& key_bytes,
+        handler, const CSecureString& key,
         const c_string& master_key_identifier, c_string* out) except *:
+    view = <cpp_string_view>key.as_view()
+    key_bytes = <bytes>PyBytes_FromStringAndSize(view.data(), view.size())
     mkid_str = frombytes(master_key_identifier)
     wrapped_key = handler.wrap_key(key_bytes, mkid_str)
     out[0] = tobytes(wrapped_key)
@@ -309,11 +312,12 @@ cdef void _cb_wrap_key(
 
 cdef void _cb_unwrap_key(
         handler, const c_string& wrapped_key,
-        const c_string& master_key_identifier, c_string* out) except *:
+        const c_string& master_key_identifier, CSecureString* out) except *:
     mkid_str = frombytes(master_key_identifier)
     wk_str = frombytes(wrapped_key)
     key = handler.unwrap_key(wk_str, mkid_str)
-    out[0] = tobytes(key)
+    cstr = <c_string>tobytes(key)
+    out[0] = CSecureString(move(cstr))
 
 
 cdef class KmsClient(_Weakrefable):

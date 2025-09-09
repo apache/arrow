@@ -154,31 +154,6 @@ env:
     displayName: Free up disk space
 {% endmacro %}
 
-{%- macro azure_upload_releases(pattern) -%}
-  - task: UsePythonVersion@0
-    inputs:
-      versionSpec: '3.9'
-  - script: pip install -e arrow/dev/archery[crossbow-upload]
-    displayName: Install Crossbow
-  - bash: |
-      archery crossbow \
-        --queue-path $(pwd) \
-        --queue-remote {{ queue_remote_url }} \
-        upload-artifacts \
-        --sha {{ task.branch }} \
-        --tag {{ task.tag }} \
-      {% if pattern is string %}
-        "{{ pattern }}"
-      {% elif pattern is iterable %}
-        {% for p in pattern %}
-        "{{ p }}" {{ "\\" if not loop.last else "" }}
-        {% endfor %}
-      {% endif %}
-    env:
-      CROSSBOW_GITHUB_TOKEN: $(CROSSBOW_GITHUB_TOKEN)
-    displayName: Upload packages as a GitHub release
-{% endmacro %}
-
 {%- macro azure_upload_anaconda(pattern) -%}
   {%- if arrow.is_default_branch() -%}
   - bash: |

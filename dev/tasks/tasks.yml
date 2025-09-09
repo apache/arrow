@@ -214,8 +214,7 @@ tasks:
 
   ########################### Python Wheels ############################
 
-{% for python_version, python_tag, abi_tag in [("3.9", "cp39", "cp39"),
-                                               ("3.10", "cp310", "cp310"),
+{% for python_version, python_tag, abi_tag in [("3.10", "cp310", "cp310"),
                                                ("3.11", "cp311", "cp311"),
                                                ("3.12", "cp312", "cp312"),
                                                ("3.13", "cp313", "cp313"),
@@ -810,7 +809,7 @@ tasks:
         UBUNTU: 22.04
       image: ubuntu-cpp-emscripten
 
-{% for python_version in ["3.9", "3.10", "3.11", "3.12", "3.13"] %}
+{% for python_version in ["3.10", "3.11", "3.12", "3.13"] %}
   test-conda-python-{{ python_version }}:
     ci: github
     template: docker-tests/github.linux.yml
@@ -1119,12 +1118,12 @@ tasks:
 
   ############################## Integration tests ############################
 
-{% for python_version, pandas_version, numpy_version, cache_leaf in [("3.9", "1.1.3", "1.19.5", True),
-                                                                     ("3.10", "latest", "latest", False),
-                                                                     ("3.11", "latest", "1.26", False),
+{% for python_version, pandas_version, numpy_version, cache_leaf in [("3.10", "1.3.4", "1.21.2", True),
                                                                      ("3.11", "latest", "latest", False),
-                                                                     ("3.11", "nightly", "nightly", False),
-                                                                     ("3.11", "upstream_devel", "nightly", False)] %}
+                                                                     ("3.12", "latest", "1.26", False),
+                                                                     ("3.12", "latest", "latest", False),
+                                                                     ("3.13", "nightly", "nightly", False),
+                                                                     ("3.13", "upstream_devel", "nightly", False)] %}
   test-conda-python-{{ python_version }}-pandas-{{ pandas_version }}-numpy-{{ numpy_version }}:
     ci: github
     template: docker-tests/github.linux.yml

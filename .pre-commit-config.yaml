@@ -361,8 +361,8 @@ repos:
           ?^dev/release/07-binary-verify\.sh$|
           ?^dev/release/binary-recover\.sh$|
           ?^dev/release/post-03-binary\.sh$|
-          ?^dev/release/post-10-docs\.sh$|
-          ?^dev/release/post-11-python\.sh$|
+          ?^dev/release/post-08-docs\.sh$|
+          ?^dev/release/post-09-python\.sh$|
           ?^dev/release/setup-rhel-rebuilds\.sh$|
           ?^dev/release/utils-generate-checksum\.sh$|
           ?^python/asv-install\.sh$|
@@ -387,12 +387,17 @@ repos:
           ?^dev/release/05-binary-upload\.sh$|
           ?^dev/release/binary-recover\.sh$|
           ?^dev/release/post-03-binary\.sh$|
-          ?^dev/release/post-10-docs\.sh$|
-          ?^dev/release/post-11-python\.sh$|
+          ?^dev/release/post-08-docs\.sh$|
+          ?^dev/release/post-09-python\.sh$|
           )
   - repo: https://github.com/trim21/pre-commit-mirror-meson
-    rev: v1.6.1
+    rev: v1.9.0
     hooks:
       - id: meson-fmt
         alias: cpp
         args: ['--inplace']
+        files: >-
+          (
+          ?.*meson\.build$|
+          ?.*meson\.options$|
+          )
