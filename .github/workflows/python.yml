@@ -159,8 +159,8 @@ jobs:
             | grep -E '^(INCLUDE|LIB|LIBPATH|PATH|VCINSTALLDIR|VCToolsInstallDir|VSINSTALLDIR|WindowsSdkDir|WindowsSdkVersion)=' \
             | sed -E 's/^([^=]+)=(.*)$/export \1="\2"/'
           )"
-          export CC=cl.exe
-          export CXX=cl.exe
+          export CC=C:/Program Files/Microsoft Visual Studio/2022/Enterprise/VC/Tools/MSVC/14.44.35207/bin/Hostx64/x64/cl.exe
+          export CXX=C:/Program Files/Microsoft Visual Studio/2022/Enterprise/VC/Tools/MSVC/14.44.35207/bin/Hostx64/x64/cl.exe
           export ARROW_CXXFLAGS="/WX /MP"
           ci/scripts/cpp_build.sh $(pwd) $(pwd)/build
       - name: Set up Python
