@@ -139,10 +139,17 @@ jobs:
         env:
           # We can invalidate the current cache by updating this.
           CACHE_VERSION: "2025-09-05"
-      - name: Setup Conda
-        shell: bash -el {0}
+      - name: Look for conda
+        shell: bash
         run: |
-          ${CONDA} create -n arrow -f ci/conda_env_cpp.txt -f ci/conda_env_python.txt -f ci/conda_env_gandiva_win.txt -y
+          ls ${CONDA}
+          echo "And now Scripts"
+          ls ${CONDA}/Scripts
+      - name: Setup Conda
+        shell: bash
+        run: |
+          export PATH="${CONDA}/Library/bin:${CONDA}/Scripts:${CONDA}/bin:${PATH}"
+          conda create -n arrow -f ci/conda_env_cpp.txt -f ci/conda_env_python.txt -f ci/conda_env_gandiva_win.txt -y
       - name: Build
         shell: cmd /C call {0}
         run: |
