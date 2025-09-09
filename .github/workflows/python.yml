@@ -94,6 +94,7 @@ jobs:
       ARROW_WITH_ZLIB: ON
       ARROW_WITH_ZSTD: ON
       BOOST_SOURCE: BUNDLED
+      CONDA_COMMAND: micromamba
       CMAKE_CXX_STANDARD: "17"
       CMAKE_GENERATOR: Ninja
       CMAKE_INSTALL_PREFIX: "${{ github.workspace }}\\dist"
@@ -150,7 +151,6 @@ jobs:
         run: |
           micromamba activate arrow
           micromamba install -f ci/conda_env_cpp.txt -f ci/conda_env_python.txt -f ci/conda_env_gandiva_win.txt -y
-          micromamba list
       - name: Build
         shell: bash -el {0}
         run: |
@@ -159,7 +159,6 @@ jobs:
             | grep -E '^(INCLUDE|LIB|LIBPATH|PATH|VCINSTALLDIR|VCToolsInstallDir|VSINSTALLDIR|WindowsSdkDir|WindowsSdkVersion)=' \
             | sed -E 's/^([^=]+)=(.*)$/export \1="\2"/'
           )"
-          micromamba list
           ci/scripts/cpp_build.sh $(pwd) $(pwd)/build
       - name: Set up Python
         uses: actions/setup-python@v5.6.0

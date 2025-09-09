@@ -33,7 +33,7 @@ fi
 # TODO(kszucs): consider to move these to CMake
 if [ ! -z "${CONDA_PREFIX}" ] && [ "${ARROW_EMSCRIPTEN:-OFF}" = "OFF" ]; then
   echo -e "===\n=== Conda environment for build\n==="
-  conda list
+  ${CONDA_COMMAND:=conda} list
 
   if [ -n "${AR}" ]; then
     ARROW_CMAKE_ARGS+=" -DCMAKE_AR=${AR}"

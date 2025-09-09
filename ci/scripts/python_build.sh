@@ -56,7 +56,7 @@ esac
 
 if [ -n "${CONDA_PREFIX}" ]; then
   echo -e "===\n=== Conda environment for build\n==="
-  conda list
+  ${CONDA_COMMAND:=conda} list
 fi
 
 export PYARROW_CMAKE_GENERATOR=${CMAKE_GENERATOR:-Ninja}
