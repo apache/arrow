@@ -52,10 +52,16 @@ if cpp_compiler.get_id() == 'msvc'
     ]
 endif
 
-# We specifically need to use the grpc subproject and cannot use a system installation
-# due to https://github.com/mesonbuild/meson/issues/14905
-grpc_subproject = subproject('grpc', default_options: grpc_opts)
-grpc_cpp_dep = grpc_subproject.get_variable('grpcpp_dep')
+# Due to the Meson bug in https://github.com/mesonbuild/meson/issues/14905
+# we need to special how the grpc_cpp_plugin resolution is handled
+# when found on the system versus when built as a subproject
+grpc_cpp_dep = dependency('grpc++', allow_fallback: false, required: false)
+if grpc_cpp_dep.found()
+    has_system_grpc = true
+else
+    grpc_cpp_dep = dependency('grpc++')
+    has_system_grpc = false
+endif
 
 protobuf_dep = dependency('protobuf')
 abseil_sync_dep = dependency('absl_synchronization')
@@ -93,9 +99,15 @@ flight_proto_files = custom_target(
 )
 
 grpc_cpp_plugin = find_program('grpc_cpp_plugin')
+if has_system_grpc
+    grpc_cpp_plugin_input = grpc_cpp_plugin.full_path()
+else
+    grpc_cpp_plugin_input = grpc_cpp_plugin
+endif
+
 flight_proto_grpc_files = custom_target(
     'arrow-flight-proto-grpc-files',
-    input: [grpc_cpp_plugin, flight_proto_path / 'Flight.proto'],
+    input: [grpc_cpp_plugin_input, flight_proto_path / 'Flight.proto'],
     output: ['Flight.grpc.pb.cc', 'Flight.grpc.pb.h'],
     command: [
         protoc,
