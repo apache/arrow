@@ -141,14 +141,15 @@ jobs:
           CACHE_VERSION: "2025-09-05"
       - uses: mamba-org/setup-micromamba@v2
         with:
+          environment-name: arrow
           init-shell: >-
             bash
             powershell
       - name: Setup micromamba
         shell: bash -el {0}
         run: |
-          micromamba create -n arrow -f ci/conda_env_cpp.txt -f ci/conda_env_python.txt -f ci/conda_env_gandiva_win.txt -y
           micromamba activate arrow
+          micromamba install -f ci/conda_env_cpp.txt -f ci/conda_env_python.txt -f ci/conda_env_gandiva_win.txt -y
           micromamba list
           micromamba shell init --shell bash --root-prefix=~/.local/share/mamba
       - name: Build
