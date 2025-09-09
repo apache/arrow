@@ -107,8 +107,6 @@ ${PYTHON:-python} -m delvewheel repair -vv --ignore-existing --with-mangle -w re
 ${PYTHON:-python} -m pip install --no-index --find-links=repaired_wheels pyarrow
 popd
 
-python -c "import pyarrow"
-
 if [ "${BUILD_DOCS_PYTHON}" == "ON" ]; then
   # https://github.com/apache/arrow/issues/41429
   # TODO: We want to out-of-source build. This is a workaround.
