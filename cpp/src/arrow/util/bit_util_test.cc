@@ -1999,66 +1999,75 @@ TEST(BitUtil, RoundUpToPowerOf2) {
 
 /// Test the maximum number of bytes needed to write a LEB128 of a give size.
 TEST(BitStreamUtil, MaxLEB128ByteLenFor) {
-  EXPECT_EQ(bit_util::MaxLEB128ByteLenFor<int16_t>, 3);
-  EXPECT_EQ(bit_util::MaxLEB128ByteLenFor<int32_t>, 5);
-  EXPECT_EQ(bit_util::MaxLEB128ByteLenFor<int64_t>, 10);
+  EXPECT_EQ(bit_util::kMaxLEB128ByteLenFor<int16_t>, 3);
+  EXPECT_EQ(bit_util::kMaxLEB128ByteLenFor<int32_t>, 5);
+  EXPECT_EQ(bit_util::kMaxLEB128ByteLenFor<int64_t>, 10);
 }
 
 /// Utility function to test LEB128 encoding with known input value and expected byte
 /// array
-template <typename Int, std::size_t N>
-void TestLEB128Encode(Int input_value, std::array<uint8_t, N> const& expected_data,
-                      int32_t expected_bytes_written) {
-  std::array<uint8_t, N> buffer{};
+template <typename Int>
+void TestLEB128Encode(Int input_value, std::vector<uint8_t> const& expected_data,
+                      std::size_t buffer_size) {
+  std::vector<uint8_t> buffer(buffer_size);
   auto bytes_written = bit_util::WriteLEB128(input_value, buffer.data(),
                                              static_cast<int32_t>(buffer.size()));
-  EXPECT_EQ(bytes_written, expected_bytes_written);
+
+  EXPECT_EQ(bytes_written, expected_data.size());
+  // Encoded data
+  for (std::size_t i = 0; i < expected_data.size(); ++i) {
+    EXPECT_EQ(buffer.at(i), expected_data.at(i));
+  }
+
+  // When the value is successfully encoded, the remaining of the buffer is untouched
   if (bytes_written > 0) {
-    EXPECT_EQ(buffer, expected_data);
+    for (std::size_t i = bytes_written; i < buffer.size(); ++i) {
+      EXPECT_EQ(buffer.at(i), 0);
+    }
   }
 }
 
 /// Test encoding to known LEB128 byte sequences
 TEST(WriteLEB128Test, KnownArrayValues) {
   // Single byte value 0
-  TestLEB128Encode(0U, std::array<uint8_t, 1>{0x00}, 1);
+  TestLEB128Encode(0U, std::vector<uint8_t>{0x00}, 1);
   // Single byte value 127
-  TestLEB128Encode(127U, std::array<uint8_t, 1>{0x7F}, 1);
+  TestLEB128Encode(127U, std::vector<uint8_t>{0x7F}, 1);
   // Two byte value 128
-  TestLEB128Encode(128U, std::array<uint8_t, 2>{0x80, 0x01}, 2);
+  TestLEB128Encode(128U, std::vector<uint8_t>{0x80, 0x01}, 2);
   // Two byte value 300
-  TestLEB128Encode(300U, std::array<uint8_t, 2>{0xAC, 0x02}, 2);
+  TestLEB128Encode(300U, std::vector<uint8_t>{0xAC, 0x02}, 2);
   // Three byte value 16384
-  TestLEB128Encode(16384U, std::array<uint8_t, 3>{0x80, 0x80, 0x01}, 3);
+  TestLEB128Encode(16384U, std::vector<uint8_t>{0x80, 0x80, 0x01}, 3);
   // Four byte value 268435455
-  TestLEB128Encode(268435455U, std::array<uint8_t, 4>{0xFF, 0xFF, 0xFF, 0x7F}, 4);
+  TestLEB128Encode(268435455U, std::vector<uint8_t>{0xFF, 0xFF, 0xFF, 0x7F}, 4);
   // Five byte uint32_t max value
-  TestLEB128Encode(4294967295U, std::array<uint8_t, 5>{0xFF, 0xFF, 0xFF, 0xFF, 0x0F}, 5);
+  TestLEB128Encode(4294967295U, std::vector<uint8_t>{0xFF, 0xFF, 0xFF, 0xFF, 0x0F}, 5);
   // uint64_t value requiring 10 bytes
   TestLEB128Encode(
       18446744073709551615ULL,
-      std::array<uint8_t, 10>{0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x01},
+      std::vector<uint8_t>{0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x01},
       10);
-  // Edge case: Exact buffer size match
-  TestLEB128Encode(16384U, std::array<uint8_t, 3>{0x80, 0x80, 0x01}, 3);
+  // Three byte value 16384, encoded in larger buffer
+  TestLEB128Encode(16384U, std::vector<uint8_t>{0x80, 0x80, 0x01}, 10);
   // Various single byte values
-  TestLEB128Encode(1U, std::array<uint8_t, 1>{0x01}, 1);
-  TestLEB128Encode(63U, std::array<uint8_t, 1>{0x3F}, 1);
-  TestLEB128Encode(64U, std::array<uint8_t, 1>{0x40}, 1);
+  TestLEB128Encode(1U, std::vector<uint8_t>{0x01}, 1);
+  TestLEB128Encode(63U, std::vector<uint8_t>{0x3F}, 1);
+  TestLEB128Encode(64U, std::vector<uint8_t>{0x40}, 1);
   // Two byte boundary values
-  TestLEB128Encode(129U, std::array<uint8_t, 2>{0x81, 0x01}, 2);
-  TestLEB128Encode(16383U, std::array<uint8_t, 2>{0xFF, 0x7F}, 2);
+  TestLEB128Encode(129U, std::vector<uint8_t>{0x81, 0x01}, 2);
+  TestLEB128Encode(16383U, std::vector<uint8_t>{0xFF, 0x7F}, 2);
   // Error case: Buffer too small for value 128 (needs 2 bytes but only 1 provided)
-  TestLEB128Encode(128U, std::array<uint8_t, 1>{}, 0);
+  TestLEB128Encode(128U, std::vector<uint8_t>{}, 1);
   // Error case: Buffer too small for uint32_t max (needs 5 bytes but only 4 provided)
-  TestLEB128Encode(4294967295U, std::array<uint8_t, 4>{}, 0);
+  TestLEB128Encode(4294967295U, std::vector<uint8_t>{}, 4);
   // Error case: Zero buffer size
-  TestLEB128Encode(52U, std::array<uint8_t, 0>{}, 0);
+  TestLEB128Encode(52U, std::vector<uint8_t>{}, 0);
 }
 
 /// Utility function to test LEB128 decoding with known byte array and expected result
-template <typename Int, std::size_t N>
-void TestLEB128Decode(std::array<uint8_t, N> const& data, Int expected_value,
+template <typename Int>
+void TestLEB128Decode(std::vector<uint8_t> const& data, Int expected_value,
                       int32_t expected_bytes_read) {
   Int result = 0;
   auto bytes_read = bit_util::ParseLeadingLEB128(
@@ -2072,43 +2081,45 @@ void TestLEB128Decode(std::array<uint8_t, N> const& data, Int expected_value,
 /// Test decoding from known LEB128 byte sequences
 TEST(BitStreamUtil, LEB128) {
   // Single byte value 0
-  TestLEB128Decode(std::array<uint8_t, 1>{0x00}, 0U, 1);
+  TestLEB128Decode(std::vector<uint8_t>{0x00}, 0U, 1);
   // Single byte value 127
-  TestLEB128Decode(std::array<uint8_t, 1>{0x7F}, 127U, 1);
+  TestLEB128Decode(std::vector<uint8_t>{0x7F}, 127U, 1);
   // Two byte value 128
-  TestLEB128Decode(std::array<uint8_t, 2>{0x80, 0x01}, 128U, 2);
+  TestLEB128Decode(std::vector<uint8_t>{0x80, 0x01}, 128U, 2);
   // Two byte value 300
-  TestLEB128Decode(std::array<uint8_t, 2>{0xAC, 0x02}, 300U, 2);
+  TestLEB128Decode(std::vector<uint8_t>{0xAC, 0x02}, 300U, 2);
   // Three byte value 16384
-  TestLEB128Decode(std::array<uint8_t, 3>{0x80, 0x80, 0x01}, 16384U, 3);
+  TestLEB128Decode(std::vector<uint8_t>{0x80, 0x80, 0x01}, 16384U, 3);
   // Three byte value 16384, with remaining data
-  TestLEB128Decode(std::array<uint8_t, 5>{0x80, 0x80, 0x01, 0x80, 0x00}, 16384U, 3);
+  TestLEB128Decode(std::vector<uint8_t>{0x80, 0x80, 0x01, 0x80, 0x00}, 16384U, 3);
   // Four byte value 268435455
-  TestLEB128Decode(std::array<uint8_t, 4>{0xFF, 0xFF, 0xFF, 0x7F}, 268435455U, 4);
+  TestLEB128Decode(std::vector<uint8_t>{0xFF, 0xFF, 0xFF, 0x7F}, 268435455U, 4);
   // Five byte uint32_t max value
-  TestLEB128Decode(std::array<uint8_t, 5>{0xFF, 0xFF, 0xFF, 0xFF, 0x0F}, 4294967295U, 5);
+  TestLEB128Decode(std::vector<uint8_t>{0xFF, 0xFF, 0xFF, 0xFF, 0x0F},
+                   std::numeric_limits<uint32_t>::max(), 5);
   // uint64_t value requiring 10 bytes
   TestLEB128Decode(
-      std::array<uint8_t, 10>{0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x01},
+      std::vector<uint8_t>{0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x01},
       18446744073709551615ULL, 10);
   // int32_t with maximum size (31 bits of 1)
-  TestLEB128Decode(std::array<uint8_t, 5>{0xFF, 0xFF, 0xFF, 0xFF, 0x7},
+  TestLEB128Decode(std::vector<uint8_t>{0xFF, 0xFF, 0xFF, 0xFF, 0x7},
                    std::numeric_limits<int32_t>::max(), 5);
 
   // Error case: Truncated sequence (continuation bit set but no more data)
-  TestLEB128Decode(std::array<uint8_t, 1>{0x80}, 0U, 0);
-  // Error case: Input over the maximum number of bytes for a int32_t (5), but the
-  // overflow none the less (7 * 5 = 35 bits of data).
-  TestLEB128Decode(std::array<uint8_t, 5>{0xFF, 0xFF, 0xFF, 0xFF, 0x7F}, int32_t{}, 0);
+  TestLEB128Decode(std::vector<uint8_t>{0x80}, 0U, 0);
+  // Error case: Input has exactly the maximum number of bytes for a int32_t (5),
+  // but the decoded value overflows nonetheless (7 * 5 = 35 bits of data).
+  TestLEB128Decode(std::vector<uint8_t>{0xFF, 0xFF, 0xFF, 0xFF, 0x7F}, int32_t{}, 0);
   // Error case: Oversized sequence for uint32_t (too many bytes)
-  TestLEB128Decode(std::array<uint8_t, 6>{0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x01}, 0U, 0);
+  TestLEB128Decode(std::vector<uint8_t>{0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x01}, 0U, 0);
 }
 
 static void TestZigZag(int32_t v, std::array<uint8_t, 5> buffer_expect) {
   uint8_t buffer[bit_util::BitReader::kMaxVlqByteLengthForInt32] = {};
   bit_util::BitWriter writer(buffer, sizeof(buffer));
   writer.PutZigZagVlqInt(v);
-  // WARN reader buffer input on creation so it must be created after the data is written
+  // WARNING: The reader reads and caches the input when created, so it must be created
+  // after the data is written in the buffer.
   bit_util::BitReader reader(buffer, sizeof(buffer));
   EXPECT_THAT(buffer, testing::ElementsAreArray(buffer_expect));
   int32_t result;
