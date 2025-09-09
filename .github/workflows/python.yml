@@ -156,7 +156,7 @@ jobs:
         run: |
           ${CONDA}/Scripts/conda.exe create -n arrow
           ${CONDA}/Scripts/conda.exe init
-          ${CONDA}/Scripts/conda.exe activate arrow
+          ${CONDA}/Scripts/activate arrow
           ${CONDA}/Scripts/conda.exe install -f ci/conda_env_cpp.txt
           ${CONDA}/Scripts/conda.exe install -f ci/conda_env_python.txt
           ${CONDA}/Scripts/conda.exe install -f ci/conda_env_gandiva_win.txt -y
