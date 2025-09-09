@@ -152,10 +152,9 @@ jobs:
           micromamba activate arrow
           micromamba install -f ci/conda_env_cpp.txt -f ci/conda_env_python.txt -f ci/conda_env_gandiva_win.txt -y
       - name: Build
-        shell: cmd
+        shell: cmd /C call {0}
         run: |
           call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
-          micromamba activate arrow
           bash -c "ci/scripts/cpp_build.sh $(pwd) $(pwd)/build"
       - name: Set up Python
         uses: actions/setup-python@v5.6.0
