@@ -94,17 +94,7 @@ pushd "${python_build_dir}"
 #   on Debian/Ubuntu (ARROW-15243).
 # - Cannot use build isolation as we want to use specific dependency versions
 #   (e.g. Numpy, Pandas) on some CI jobs.
-# shellcheck disable=SC2086
-${PYTHON:-python} setup.py bdist_wheel
-${PYTHON:-python} -m pip install delvewheel
-WHEEL_NAME=$(ls dist/pyarrow-*.whl)
-echo "Wheel name: ${WHEEL_NAME}"
-unix_arrow_home=$(cygpath "${ARROW_HOME}")
-# D:\a\arrow\arrow\build\python\pyarrow\lib.cp312-win_amd64.pyd
-export PYTHONPATH=${unix_arrow_home}/bin:${PYTHONPATH}
-echo "PYTHONPATH: ${PYTHONPATH}"
-${PYTHON:-python} -m delvewheel repair -vv --ignore-existing --with-mangle -w repaired_wheels "${WHEEL_NAME}"
-${PYTHON:-python} -m pip install --no-index --find-links=repaired_wheels pyarrow
+${PYTHON:-python} -m pip install --no-deps --no-build-isolation -vv .
 popd
 
 if [ "${BUILD_DOCS_PYTHON}" == "ON" ]; then
