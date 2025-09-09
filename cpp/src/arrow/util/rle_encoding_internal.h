@@ -1346,7 +1346,7 @@ auto RleBitPackedParser::PeekImpl(Handler&& handler) const
     -> std::pair<raw_data_size_type, ControlFlow> {
   ARROW_DCHECK(!Exhausted());
 
-  constexpr auto kMaxSize = bit_util::MaxLEB128ByteLenFor<uint32_t>;
+  constexpr auto kMaxSize = bit_util::kMaxLEB128ByteLenFor<uint32_t>;
   uint32_t run_len_type = 0;
   auto const header_bytes = bit_util::ParseLeadingLEB128(data_, kMaxSize, &run_len_type);
 

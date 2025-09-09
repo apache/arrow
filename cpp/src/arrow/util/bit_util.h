@@ -368,11 +368,11 @@ void PackBits(const uint32_t* values, uint8_t* out) {
 constexpr int64_t MaxLEB128ByteLen(int64_t n_bits) { return CeilDiv(n_bits, 7); }
 
 template <typename Int>
-constexpr int64_t MaxLEB128ByteLenFor = MaxLEB128ByteLen(sizeof(Int) * 8);
+constexpr int64_t kMaxLEB128ByteLenFor = MaxLEB128ByteLen(sizeof(Int) * 8);
 
 /// Write a integer as LEB128
 ///
-/// Write the input value as LEB128 into the outptu buffer and return the number of bytes
+/// Write the input value as LEB128 into the outptut buffer and return the number of bytes
 /// written.
 /// If the output buffer size is insufficient, return 0 but the output may have been
 /// written to.
@@ -385,9 +385,9 @@ constexpr int32_t WriteLEB128(Int value, uint8_t* out, int32_t max_out_size) {
   constexpr Int kHigh7Mask = ~kLow7Mask;
   constexpr uint8_t kContinuationBit = 0x80;
 
-  auto const out_first = out;
+  const auto out_first = out;
 
-  // Write as many bytes as the could be for the given input
+  // Write as many bytes as we could be for the given input
   while ((value & kHigh7Mask) != Int(0)) {
     // We do not have enough room to write the LEB128
     if (out - out_first >= max_out_size) {
@@ -424,9 +424,9 @@ constexpr int32_t WriteLEB128(Int value, uint8_t* out, int32_t max_out_size) {
 /// \see https://en.wikipedia.org/wiki/LEB128
 /// \see MaxLEB128ByteLenFor
 template <typename Int>
-constexpr int32_t ParseLeadingLEB128(uint8_t const* data, int32_t max_data_size,
+constexpr int32_t ParseLeadingLEB128(const uint8_t* data, int32_t max_data_size,
                                      Int* out) {
-  constexpr auto kMaxBytes = static_cast<int32_t>(MaxLEB128ByteLenFor<Int>);
+  constexpr auto kMaxBytes = static_cast<int32_t>(kMaxLEB128ByteLenFor<Int>);
   static_assert(kMaxBytes >= 1);
   constexpr uint8_t kLow7Mask = 0x7F;
   constexpr uint8_t kContinuationBit = 0x80;
@@ -439,7 +439,7 @@ constexpr int32_t ParseLeadingLEB128(uint8_t const* data, int32_t max_data_size,
   // Iteratively building the value
   std::make_unsigned_t<Int> value = 0;
 
-  // Read as many bytes as the could be for the give output
+  // Read as many bytes as we could be for the given output.
   for (int32_t i = 0; i < kMaxBytes - 1; i++) {
     // We have not finished reading a valid LEB128, yet we run out of data
     if (ARROW_PREDICT_FALSE(i >= max_data_size)) {
@@ -447,7 +447,7 @@ constexpr int32_t ParseLeadingLEB128(uint8_t const* data, int32_t max_data_size,
     }
 
     // Read the byte and set its 7 LSB to in the final value
-    uint8_t const byte = data[i];
+    const uint8_t byte = data[i];
     value |= static_cast<Int>(byte & kLow7Mask) << (7 * i);
 
     // Check for lack of continuation flag in MSB
@@ -465,7 +465,7 @@ constexpr int32_t ParseLeadingLEB128(uint8_t const* data, int32_t max_data_size,
     return 0;
   }
 
-  uint8_t const byte = data[last];
+  const uint8_t byte = data[last];
 
   // Need to check if there are bits that would overflow the output.
   // Also checks that there is no continuation.

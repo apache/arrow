@@ -190,10 +190,10 @@ class BitReader {
   }
 
   /// Maximum byte length of a vlq encoded int
-  static constexpr int kMaxVlqByteLengthForInt32 = MaxLEB128ByteLenFor<int32_t>;
+  static constexpr int kMaxVlqByteLengthForInt32 = kMaxLEB128ByteLenFor<int32_t>;
 
   /// Maximum byte length of a vlq encoded int64
-  static constexpr int kMaxVlqByteLengthForInt64 = MaxLEB128ByteLenFor<int64_t>;
+  static constexpr int kMaxVlqByteLengthForInt64 = kMaxLEB128ByteLenFor<int64_t>;
 
  private:
   const uint8_t* buffer_;
@@ -452,18 +452,18 @@ inline bool BitWriter::PutVlqInt(uint32_t v) {
 inline bool BitReader::GetVlqInt(uint32_t* v) {
   // The data that we will pass to the LEB128 parser
   // In all case, we read an byte-aligned value, skipping remaining bits
-  uint8_t const* data = NULLPTR;
+  const uint8_t* data = NULLPTR;
   int max_size = 0;
 
   // Number of bytes left in the buffered values, not including the current
   // byte (i.e., there may be an additional fraction of a byte).
-  int const bytes_left_in_cache =
+  const int bytes_left_in_cache =
       sizeof(buffered_values_) - static_cast<int>(bit_util::BytesForBits(bit_offset_));
 
   // If there are clearly enough bytes left we can try to parse from the cache
   if (bytes_left_in_cache >= kMaxVlqByteLengthForInt32) {
     max_size = bytes_left_in_cache;
-    data = reinterpret_cast<uint8_t const*>(&buffered_values_) +
+    data = reinterpret_cast<const uint8_t*>(&buffered_values_) +
            bit_util::BytesForBits(bit_offset_);
     // Otherwise, we try straight from buffer (ignoring few bytes that may be cached)
   } else {
@@ -496,7 +496,7 @@ inline bool BitReader::GetZigZagVlqInt(int32_t* v) {
 }
 
 inline bool BitWriter::PutVlqInt(uint64_t v) {
-  constexpr auto kMaxBytes = bit_util::MaxLEB128ByteLenFor<decltype(v)>;
+  constexpr auto kMaxBytes = bit_util::kMaxLEB128ByteLenFor<decltype(v)>;
 
   uint8_t leb128[kMaxBytes] = {};
   auto const bytes_written = bit_util::WriteLEB128(v, leb128, kMaxBytes);
