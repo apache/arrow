@@ -21,7 +21,7 @@
 #'
 #' The `arrow` package contains methods for 37 `dplyr` table functions, many of
 #' which are "verbs" that do transformations to one or more tables.
-#' The package also has mappings of 222 R functions to the corresponding
+#' The package also has mappings of 223 R functions to the corresponding
 #' functions in the Arrow compute library. These allow you to write code inside
 #' of `dplyr` methods that call R functions, including many in packages like
 #' `stringr` and `lubridate`, and they will get translated to Arrow and run
@@ -83,7 +83,7 @@
 #' Functions can be called either as `pkg::fun()` or just `fun()`, i.e. both
 #' `str_sub()` and `stringr::str_sub()` work.
 #'
-#' In addition to these functions, you can call any of Arrow's 280 compute
+#' In addition to these functions, you can call any of Arrow's 281 compute
 #' functions directly. Arrow has many functions that don't map to an existing R
 #' function. In other cases where there is an R function mapping, you can still
 #' call the Arrow function directly if you don't want the adaptations that the R
@@ -216,8 +216,8 @@
 #'
 #' ## hms
 #'
-#' * [`as_hms()`][hms::as_hms()]
-#' * [`hms()`][hms::hms()]
+#' * [`as_hms()`][hms::as_hms()]: subsecond precision not supported for character input
+#' * [`hms()`][hms::hms()]: nanosecond times not supported
 #'
 #' ## lubridate
 #'
@@ -341,6 +341,7 @@
 #' * [`str_remove_all()`][stringr::str_remove_all()]
 #' * [`str_replace()`][stringr::str_replace()]
 #' * [`str_replace_all()`][stringr::str_replace_all()]
+#' * [`str_replace_na()`][stringr::str_replace_na()]
 #' * [`str_split()`][stringr::str_split()]: Case-insensitive string splitting and splitting into 0 parts not supported
 #' * [`str_starts()`][stringr::str_starts()]
 #' * [`str_sub()`][stringr::str_sub()]: `start` and `end` must be length 1
