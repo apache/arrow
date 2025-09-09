@@ -465,11 +465,6 @@ class ARROW_DS_EXPORT Scanner {
       TaggedRecordBatchIterator scan);
 
   const std::shared_ptr<ScanOptions> scan_options_;
-
-  ::arrow::internal::Executor* async_cpu_executor() const {
-    return scan_options_->cpu_executor ? scan_options_->cpu_executor
-                                       : ::arrow::internal::GetCpuThreadPool();
-  }
 };
 
 /// \brief ScannerBuilder is a factory class to construct a Scanner. It is used

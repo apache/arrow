@@ -406,7 +406,9 @@ Result<std::shared_ptr<Table>> AsyncScanner::ToTable() {
 }
 
 Result<EnumeratedRecordBatchGenerator> AsyncScanner::ScanBatchesUnorderedAsync() {
-  return ScanBatchesUnorderedAsync(this->async_cpu_executor(),
+  return ScanBatchesUnorderedAsync(scan_options_->cpu_executor
+                                       ? scan_options_->cpu_executor
+                                       : ::arrow::internal::GetCpuThreadPool(),
                                    /*sequence_fragments=*/false);
 }
 
@@ -607,7 +609,9 @@ Result<std::shared_ptr<Table>> AsyncScanner::Head(int64_t num_rows) {
 }
 
 Result<TaggedRecordBatchGenerator> AsyncScanner::ScanBatchesAsync() {
-  return ScanBatchesAsync(this->async_cpu_executor());
+  return ScanBatchesAsync(scan_options_->cpu_executor
+                              ? scan_options_->cpu_executor
+                              : ::arrow::internal::GetCpuThreadPool());
 }
 
 Result<TaggedRecordBatchGenerator> AsyncScanner::ScanBatchesAsync(
@@ -784,7 +788,9 @@ Future<int64_t> AsyncScanner::CountRowsAsync(Executor* executor) {
 }
 
 Future<int64_t> AsyncScanner::CountRowsAsync() {
-  return CountRowsAsync(this->async_cpu_executor());
+  return CountRowsAsync(scan_options_->cpu_executor
+                            ? scan_options_->cpu_executor
+                            : ::arrow::internal::GetCpuThreadPool());
 }
 
 Result<int64_t> AsyncScanner::CountRows() {
