@@ -154,6 +154,11 @@ jobs:
       - name: Build
         shell: bash -el {0}
         run: |
+          eval "$(
+            cmd.exe /c '"C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64 > nul && set' \
+            | grep -E '^(INCLUDE|LIB|LIBPATH|PATH|VCINSTALLDIR|VCToolsInstallDir|VSINSTALLDIR|WindowsSdkDir|WindowsSdkVersion)=' \
+            | sed -E 's/^([^=]+)=(.*)$/export \1="\2"/'
+          )"
           micromamba activate arrow
           ci/scripts/cpp_build.sh $(pwd) $(pwd)/build
       - name: Set up Python
