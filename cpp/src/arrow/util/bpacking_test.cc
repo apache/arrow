@@ -117,12 +117,12 @@ const uint8_t* GetNextAlignedByte(const uint8_t* ptr, std::size_t alignment) {
   return ptr + bytes_to_add;
 }
 
-struct UnpackingData {
+struct TestUnpackSize {
   int32_t num_values;
   int32_t bit_width;
 };
 
-class UnpackingRandomRoundTrip : public ::testing::TestWithParam<UnpackingData> {
+class TestUnpack : public ::testing::TestWithParam<TestUnpackSize> {
  protected:
   template <typename Int>
   void TestRoundtripAlignment(UnpackFunc<Int> unpack, std::size_t alignment_offset) {
@@ -132,7 +132,7 @@ class UnpackingRandomRoundTrip : public ::testing::TestWithParam<UnpackingData> 
     // So we allocate more values than necessary and skip to the next byte with the
     // desired (non) alignment to test the proper condition.
     constexpr int32_t kExtraValues = sizeof(Int) * 8;
-    auto const packed = GenerateRandomPackedValues(num_values + kExtraValues, bit_width);
+    const auto packed = GenerateRandomPackedValues(num_values + kExtraValues, bit_width);
     const uint8_t* packed_unaligned =
         GetNextAlignedByte(packed.data(), sizeof(Int)) + alignment_offset;
 
@@ -140,53 +140,111 @@ class UnpackingRandomRoundTrip : public ::testing::TestWithParam<UnpackingData> 
   }
 
   template <typename Int>
-  void TestRoundtrip(UnpackFunc<Int> unpack) {
-    // Aligned test
-    TestRoundtripAlignment(unpack, 0);
-    // Unaligned test
-    TestRoundtripAlignment(unpack, 1);
+  void TestUnpackZeros(UnpackFunc<Int> unpack) {
+    auto [num_values, bit_width] = GetParam();
+    const auto num_bytes = GetNumBytes(num_values, bit_width);
+
+    const std::vector<uint8_t> packed(static_cast<std::size_t>(num_bytes), uint8_t{0});
+    const auto unpacked = UnpackValues(packed.data(), num_values, bit_width, unpack);
+
+    const std::vector<Int> expected(static_cast<std::size_t>(num_values), Int{0});
+    EXPECT_EQ(unpacked, expected);
+  }
+
+  template <typename Int>
+  void TestUnpackOnes(UnpackFunc<Int> unpack) {
+    auto [num_values, bit_width] = GetParam();
+    const auto num_bytes = GetNumBytes(num_values, bit_width);
+
+    const std::vector<uint8_t> packed(static_cast<std::size_t>(num_bytes), uint8_t{0xFF});
+    const auto unpacked = UnpackValues(packed.data(), num_values, bit_width, unpack);
+
+    // Generate bit_width ones
+    Int expected_value = 0;
+    for (int i = 0; i < bit_width; ++i) {
+      expected_value = (expected_value << 1) | 1;
+    }
+    const std::vector<Int> expected(static_cast<std::size_t>(num_values), expected_value);
+    EXPECT_EQ(unpacked, expected);
+  }
+
+  template <typename Int>
+  void TestUnpackAlternating(UnpackFunc<Int> unpack) {
+    const auto [num_values, bit_width] = GetParam();
+    const auto num_bytes = GetNumBytes(num_values, bit_width);
+
+    const std::vector<uint8_t> packed(static_cast<std::size_t>(num_bytes), uint8_t{0xAA});
+    const auto unpacked = UnpackValues(packed.data(), num_values, bit_width, unpack);
+
+    // Generate alternative bit sequence sratring with either 0 or 1
+    Int one_zero_value = 0;
+    Int zero_one_value = 0;
+    for (int i = 0; i < bit_width; ++i) {
+      zero_one_value = (zero_one_value << 1) | (i % 2);
+      one_zero_value = (one_zero_value << 1) | ((i + 1) % 2);
+    }
+
+    std::vector<Int> expected;
+    if (bit_width % 2 == 0) {
+      // For even bit_width, the same pattern repeats every time
+      expected.resize(static_cast<std::size_t>(num_values), one_zero_value);
+    } else {
+      // For odd bit_width, we alternate a pattern leading with 0 and 1
+      for (int i = 0; i < num_values; ++i) {
+        expected.push_back(i % 2 == 0 ? zero_one_value : one_zero_value);
+      }
+    }
+    EXPECT_EQ(unpacked, expected);
+  }
+
+  template <typename Int>
+  void TestAll(UnpackFunc<Int> unpack) {
+    // Known values
+    TestUnpackZeros(unpack);
+    TestUnpackOnes(unpack);
+    TestUnpackAlternating(unpack);
+
+    // Roundtrips
+    TestRoundtripAlignment(unpack, /* alignment_offset= */ 0);
+    TestRoundtripAlignment(unpack, /* alignment_offset= */ 1);
   }
 };
 
 INSTANTIATE_TEST_SUITE_P(
-    MutpliesOf64Values, UnpackingRandomRoundTrip,
-    ::testing::Values(UnpackingData{64, 1}, UnpackingData{128, 1}, UnpackingData{2048, 1},
-                      UnpackingData{64, 31}, UnpackingData{128, 31},
-                      UnpackingData{2048, 31}, UnpackingData{64000, 7},
-                      UnpackingData{64000, 8}, UnpackingData{64000, 13},
-                      UnpackingData{64000, 16}, UnpackingData{64000, 31},
-                      UnpackingData{64000, 32}));
+    MutpliesOf64Values, TestUnpack,
+    ::testing::Values(TestUnpackSize{64, 1}, TestUnpackSize{128, 1},
+                      TestUnpackSize{2048, 1}, TestUnpackSize{64, 31},
+                      TestUnpackSize{128, 31}, TestUnpackSize{2048, 31},
+                      TestUnpackSize{64000, 7}, TestUnpackSize{64000, 8},
+                      TestUnpackSize{64000, 13}, TestUnpackSize{64000, 16},
+                      TestUnpackSize{64000, 31}, TestUnpackSize{64000, 32}));
 
-TEST_P(UnpackingRandomRoundTrip, unpack32Default) {
-  this->TestRoundtrip(&unpack32_default);
-}
-TEST_P(UnpackingRandomRoundTrip, unpack64Default) {
-  this->TestRoundtrip(&unpack64_default);
-}
+TEST_P(TestUnpack, unpack32Default) { this->TestAll(&unpack32_default); }
+TEST_P(TestUnpack, unpack64Default) { this->TestAll(&unpack64_default); }
 
 #if defined(ARROW_HAVE_RUNTIME_AVX2)
-TEST_P(UnpackingRandomRoundTrip, unpack32Avx2) {
+TEST_P(TestUnpack, unpack32Avx2) {
   if (!CpuInfo::GetInstance()->IsSupported(CpuInfo::AVX2)) {
     GTEST_SKIP() << "Test requires AVX2";
   }
-  this->testRoundtrip(&unpack32_avx2);
+  this->TestAll(&unpack32_avx2);
 }
 #endif
 
 #if defined(ARROW_HAVE_RUNTIME_AVX512)
-TEST_P(UnpackingRandomRoundTrip, unpack32Avx512) {
+TEST_P(TestUnpack, unpack32Avx512) {
   if (!CpuInfo::GetInstance()->IsSupported(CpuInfo::AVX512)) {
     GTEST_SKIP() << "Test requires AVX512";
   }
-  this->testRoundtrip(&unpack32_avx512);
+  this->TestAll(&unpack32_avx512);
 }
 #endif
 
 #if defined(ARROW_HAVE_NEON)
-TEST_P(UnpackingRandomRoundTrip, unpack32Neon) { this->TestRoundtrip(&unpack32_neon); }
+TEST_P(TestUnpack, unpack32Neon) { this->TestAll(&unpack32_neon); }
 #endif
 
-TEST_P(UnpackingRandomRoundTrip, unpack32) { this->TestRoundtrip(&unpack32); }
-TEST_P(UnpackingRandomRoundTrip, unpack64) { this->TestRoundtrip(&unpack64); }
+TEST_P(TestUnpack, unpack32) { this->TestAll(&unpack32); }
+TEST_P(TestUnpack, unpack64) { this->TestAll(&unpack64); }
 
 }  // namespace arrow::internal
