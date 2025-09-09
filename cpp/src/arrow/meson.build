@@ -433,6 +433,7 @@ arrow_dep = declare_dependency(
     include_directories: [include_dir],
     link_with: arrow_lib,
 )
+meson.override_dependency('arrow', arrow_dep)
 
 if needs_compute
     arrow_compute_lib_sources = [
@@ -496,6 +497,7 @@ if needs_compute
         include_directories: include_dir,
         dependencies: arrow_dep,
     )
+    meson.override_dependency('arrow-compute', arrow_compute_dep)
 else
     arrow_compute_dep = disabler()
 endif
@@ -580,6 +582,7 @@ if needs_testing
     )
 
     arrow_testing_dep = declare_dependency(link_with: [arrow_testing_lib])
+    meson.override_dependency('arrow-testing', arrow_testing_dep)
 else
     arrow_testing_dep = disabler()
 endif
