@@ -157,6 +157,17 @@ jobs:
         run: |
           call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
           bash -c "ci/scripts/python_build.sh $(pwd) $(pwd)/build"
+      - name: Clean up memory before import
+        shell: pwsh
+        run: |
+          # Kill any leftover python or build processes
+          Get-Process python, ninja, cmake -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+          # Run garbage collection in Python
+          python -c "import gc; gc.collect()"
+          # Print available memory
+          Get-CimInstance Win32_OperatingSystem | ForEach-Object { Write-Host ('FreePhysicalMemory: {0} MB' -f ($_.FreePhysicalMemory/1024)) }
+          # Wait a bit to let OS reclaim memory
+          Start-Sleep -Seconds 10
       - name: Import pyarrow
         shell: cmd
         run: |
