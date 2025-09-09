@@ -143,11 +143,18 @@ jobs:
         shell: bash
         run: |
           ls ${CONDA}
-          echo "And now Scripts"
+          echo "#### And now Scripts"
           ls ${CONDA}/Scripts
+          echo "#### And now Tools"
+          ls ${CONDA}/Tools
+          echo "#### And now Lib"
+          ls ${CONDA}/Lib
+          echo "#### And now Library"
+          ls ${CONDA}/Library
       - name: Setup Conda
         shell: bash
         run: |
+          ${CONDA}/Scripts/conda.exe init
           ${CONDA}/Scripts/conda.exe create -n arrow
           ${CONDA}/Scripts/conda.exe activate arrow
           ${CONDA}/Scripts/conda.exe install -f ci/conda_env_cpp.txt
