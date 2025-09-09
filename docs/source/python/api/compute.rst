@@ -38,6 +38,7 @@ Aggregations
    min
    min_max
    mode
+   pivot_wider
    product
    quantile
    stddev
@@ -298,6 +299,7 @@ String Padding
    utf8_center
    utf8_lpad
    utf8_rpad
+   utf8_zero_fill
 
 String Trimming
 ---------------
@@ -555,8 +557,10 @@ Compute Options
    ModeOptions
    NullOptions
    PadOptions
+   ZeroFillOptions
    PairwiseOptions
    PartitionNthOptions
+   PivotWiderOptions
    QuantileOptions
    ReplaceSliceOptions
    ReplaceSubstringOptions
@@ -588,3 +592,12 @@ User-Defined Functions
 
    register_scalar_function
    UdfContext
+
+Expression Functions
+--------------------
+
+.. autosummary::
+   :toctree: ../generated/
+
+   field
+   scalar

@@ -21,7 +21,7 @@
 
 jobs:
   r-versions:
-    name: "rstudio/r-base:{{ MATRIX }}-focal"
+    name: "rstudio/r-base:{{ MATRIX }}-jammy"
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -30,13 +30,13 @@ jobs:
         r_version:
           # We test devel, release, and oldrel in regular CI.
           # This is for older versions
-          - "4.0"
           - "4.1"
           - "4.2"
+          - "4.3"
     env:
       R_ORG: "rstudio"
       R_IMAGE: "r-base"
-      R_TAG: "{{ MATRIX }}-focal"
+      R_TAG: "{{ MATRIX }}-jammy"
       ARROW_R_DEV: "TRUE"
     steps:
       {{ macros.github_checkout_arrow()|indent }}
@@ -55,7 +55,7 @@ jobs:
         if: always()
       - name: Save the test output
         if: always()
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
-          name: test-output
+          name: test-output-{{ "${{ matrix.r_version }}" }}
           path: arrow/r/check/arrow.Rcheck/tests/testthat.Rout*

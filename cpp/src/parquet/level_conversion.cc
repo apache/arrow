@@ -14,6 +14,7 @@
 // KIND, either express or implied.  See the License for the
 // specific language governing permissions and limitations
 // under the License.
+
 #include "parquet/level_conversion.h"
 
 #include <algorithm>
@@ -27,6 +28,10 @@
 #include "parquet/exception.h"
 
 #include "parquet/level_comparison.h"
+#if defined(ARROW_HAVE_RUNTIME_BMI2)
+#  include "parquet/level_conversion_bmi2_internal.h"
+#endif
+
 #define PARQUET_IMPL_NAMESPACE standard
 #include "parquet/level_conversion_inc.h"
 #undef PARQUET_IMPL_NAMESPACE
@@ -122,13 +127,6 @@ void DefRepLevelsToListInfo(const int16_t* def_levels, const int16_t* rep_levels
 }
 
 }  // namespace
-
-#if defined(ARROW_HAVE_RUNTIME_BMI2)
-// defined in level_conversion_bmi2.cc for dynamic dispatch.
-void DefLevelsToBitmapBmi2WithRepeatedParent(const int16_t* def_levels,
-                                             int64_t num_def_levels, LevelInfo level_info,
-                                             ValidityBitmapInputOutput* output);
-#endif
 
 void DefLevelsToBitmap(const int16_t* def_levels, int64_t num_def_levels,
                        LevelInfo level_info, ValidityBitmapInputOutput* output) {

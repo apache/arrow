@@ -25,8 +25,9 @@ PyArrow - Apache Arrow Python bindings
 
 This is the documentation of the Python API of Apache Arrow.
 
-Apache Arrow is a development platform for in-memory analytics.
-It contains a set of technologies that enable big data systems to store, process and move data fast.
+Apache Arrow is a universal columnar format and multi-language toolbox for fast
+data interchange and in-memory analytics. It contains a set of technologies that
+enable data systems to efficiently store, process, and move data.
 
 See the :doc:`parent documentation <../index>` for additional details on
 the Arrow Project itself, on the Arrow format and the other language bindings.

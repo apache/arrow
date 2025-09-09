@@ -21,7 +21,10 @@
 
 import datetime
 import decimal as _pydecimal
-import numpy as np
+try:
+    import numpy as np
+except ImportError:
+    np = None
 import os
 import sys
 
@@ -32,8 +35,11 @@ from pyarrow.includes.common cimport PyObject_to_object
 cimport pyarrow.includes.libarrow_python as libarrow_python
 cimport cpython as cp
 
-# Initialize NumPy C API
-arrow_init_numpy()
+
+# Initialize NumPy C API only if numpy was able to be imported
+if np is not None:
+    arrow_init_numpy()
+
 # Initialize PyArrow C++ API
 # (used from some of our C++ code, see e.g. ARROW-5260)
 import_pyarrow()
@@ -81,9 +87,9 @@ def set_cpu_count(int count):
 
 def is_threading_enabled() -> bool:
     """
-    Returns True if threading is enabled in libarrow. 
+    Returns True if threading is enabled in libarrow.
 
-    If it isn't enabled, then python shouldn't create any 
+    If it isn't enabled, then python shouldn't create any
     threads either, because we're probably on a system where
     threading doesn't work (e.g. Emscripten).
     """
@@ -103,6 +109,8 @@ Type_INT64 = _Type_INT64
 Type_HALF_FLOAT = _Type_HALF_FLOAT
 Type_FLOAT = _Type_FLOAT
 Type_DOUBLE = _Type_DOUBLE
+Type_DECIMAL32 = _Type_DECIMAL32
+Type_DECIMAL64 = _Type_DECIMAL64
 Type_DECIMAL128 = _Type_DECIMAL128
 Type_DECIMAL256 = _Type_DECIMAL256
 Type_DATE32 = _Type_DATE32
@@ -130,6 +138,8 @@ Type_SPARSE_UNION = _Type_SPARSE_UNION
 Type_DENSE_UNION = _Type_DENSE_UNION
 Type_DICTIONARY = _Type_DICTIONARY
 Type_RUN_END_ENCODED = _Type_RUN_END_ENCODED
+Type_INTERVAL_MONTHS = _Type_INTERVAL_MONTHS
+Type_INTERVAL_DAY_TIME = _Type_INTERVAL_DAY_TIME
 
 UnionMode_SPARSE = _UnionMode_SPARSE
 UnionMode_DENSE = _UnionMode_DENSE

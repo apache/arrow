@@ -20,8 +20,9 @@
 
 from datetime import timedelta
 
+from cpython.bytes cimport PyBytes_FromStringAndSize
 from cython.operator cimport dereference as deref
-from libcpp.memory cimport shared_ptr
+
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
 from pyarrow.lib cimport _Weakrefable
@@ -44,7 +45,7 @@ cdef cipher_to_name(ParquetCipher cipher):
     elif ParquetCipher_AES_GCM_CTR_V1 == cipher:
         return 'AES_GCM_CTR_V1'
     else:
-        raise ValueError('Invalid cipher value: {0}'.format(cipher))
+        raise ValueError(f'Invalid cipher value: {cipher}')
 
 cdef class EncryptionConfiguration(_Weakrefable):
     """Configuration of the encryption, such as which columns to encrypt"""
@@ -52,6 +53,7 @@ cdef class EncryptionConfiguration(_Weakrefable):
     __slots__ = ()
 
     def __init__(self, footer_key, *, column_keys=None,
+                 uniform_encryption=None,
                  encryption_algorithm=None,
                  plaintext_footer=None, double_wrapping=None,
                  cache_lifetime=None, internal_key_material=None,
@@ -60,6 +62,8 @@ cdef class EncryptionConfiguration(_Weakrefable):
             new CEncryptionConfiguration(tobytes(footer_key)))
         if column_keys is not None:
             self.column_keys = column_keys
+        if uniform_encryption is not None:
+            self.uniform_encryption = uniform_encryption
         if encryption_algorithm is not None:
             self.encryption_algorithm = encryption_algorithm
         if plaintext_footer is not None:
@@ -100,8 +104,20 @@ cdef class EncryptionConfiguration(_Weakrefable):
             # to the string defined by the spec
             # 'key1: col1 , col2; key2: col3 , col4'
             column_keys = "; ".join(
-                ["{}: {}".format(k, ", ".join(v)) for k, v in value.items()])
+                [f"{k}: {', '.join(v)}" for k, v in value.items()])
             self.configuration.get().column_keys = tobytes(column_keys)
+
+    @property
+    def uniform_encryption(self):
+        """Whether to encrypt footer and all columns with the same encryption key.
+
+        This cannot be used together with column_keys.
+        """
+        return self.configuration.get().uniform_encryption
+
+    @uniform_encryption.setter
+    def uniform_encryption(self, value):
+        self.configuration.get().uniform_encryption = value
 
     @property
     def encryption_algorithm(self):
@@ -285,8 +301,10 @@ cdef class KmsConnectionConfig(_Weakrefable):
 
 # Callback definitions for CPyKmsClientVtable
 cdef void _cb_wrap_key(
-        handler, const c_string& key_bytes,
+        handler, const CSecureString& key,
         const c_string& master_key_identifier, c_string* out) except *:
+    view = <cpp_string_view>key.as_view()
+    key_bytes = <bytes>PyBytes_FromStringAndSize(view.data(), view.size())
     mkid_str = frombytes(master_key_identifier)
     wrapped_key = handler.wrap_key(key_bytes, mkid_str)
     out[0] = tobytes(wrapped_key)
@@ -294,11 +312,12 @@ cdef void _cb_wrap_key(
 
 cdef void _cb_unwrap_key(
         handler, const c_string& wrapped_key,
-        const c_string& master_key_identifier, c_string* out) except *:
+        const c_string& master_key_identifier, CSecureString* out) except *:
     mkid_str = frombytes(master_key_identifier)
     wk_str = frombytes(wrapped_key)
     key = handler.unwrap_key(wk_str, mkid_str)
-    out[0] = tobytes(key)
+    cstr = <c_string>tobytes(key)
+    out[0] = CSecureString(move(cstr))
 
 
 cdef class KmsClient(_Weakrefable):
@@ -340,8 +359,7 @@ cdef void _cb_create_kms_client(
     result = handler(connection_config)
     if not isinstance(result, KmsClient):
         raise TypeError(
-            "callable must return KmsClient instances, but got {}".format(
-                type(result)))
+            f"callable must return KmsClient instances, but got {type(result)}")
 
     out[0] = (<KmsClient> result).unwrap()
 

@@ -30,7 +30,8 @@ gaflight_stream_reader_new_raw(arrow::flight::FlightStreamReader *flight_reader,
 
 GAFLIGHT_EXTERN
 GAFlightStreamWriter *
-gaflight_stream_writer_new_raw(arrow::flight::FlightStreamWriter *flight_writer);
+gaflight_stream_writer_new_raw(
+  std::shared_ptr<arrow::flight::FlightStreamWriter> *flight_writer);
 
 GAFLIGHT_EXTERN
 GAFlightMetadataReader *

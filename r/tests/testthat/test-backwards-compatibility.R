@@ -23,8 +23,8 @@
 # to setup a linux distribution and use RStudio's public package manager binary
 # repo to install the old version. The following commands should be run at the
 # root of the arrow repo directory and might need slight adjustments.
-# R_ORG=rstudio R_IMAGE=r-base R_TAG=4.0-focal docker-compose build --no-cache r
-# R_ORG=rstudio R_IMAGE=r-base R_TAG=4.0-focal docker-compose run r /bin/bash
+# R_ORG=rstudio R_IMAGE=r-base R_TAG=4.0-focal docker compose build --no-cache r
+# R_ORG=rstudio R_IMAGE=r-base R_TAG=4.0-focal docker compose run r /bin/bash
 # R
 # options(repos = "https://packagemanager.rstudio.com/all/__linux__/focal/latest")
 # remotes::install_version("arrow", version = "1.0.1")

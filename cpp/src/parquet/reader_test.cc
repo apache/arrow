@@ -27,7 +27,15 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include "arrow/json/rapidjson_defs.h"  // IWYU pragma: keep
+
+#include <rapidjson/document.h>
+#include <rapidjson/error/en.h>
+#include <rapidjson/stringbuffer.h>
+
 #include "arrow/array.h"
+#include "arrow/array/array_binary.h"
+#include "arrow/array/builder_binary.h"
 #include "arrow/buffer.h"
 #include "arrow/io/file.h"
 #include "arrow/testing/future_util.h"
@@ -39,13 +47,19 @@
 
 #include "parquet/column_reader.h"
 #include "parquet/column_scanner.h"
+#include "parquet/column_writer.h"
 #include "parquet/file_reader.h"
 #include "parquet/file_writer.h"
+#include "parquet/geospatial/statistics.h"
 #include "parquet/metadata.h"
 #include "parquet/page_index.h"
 #include "parquet/platform.h"
 #include "parquet/printer.h"
+#include "parquet/statistics.h"
 #include "parquet/test_util.h"
+#include "parquet/types.h"
+
+namespace rj = arrow::rapidjson;
 
 using arrow::internal::checked_pointer_cast;
 using arrow::internal::Zip;
@@ -1009,7 +1023,7 @@ Column 0
   Uncompressed Size: 103, Compressed Size: 104
 Column 1
   Values: 3, Null Values: 0, Distinct Values: 0
-  Max: 1, Min: 1
+  Max (exact: unknown): 1, Min (exact: unknown): 1
   Compression: SNAPPY, Encodings: PLAIN_DICTIONARY(DICT_PAGE) PLAIN_DICTIONARY
   Uncompressed Size: 52, Compressed Size: 56
 )###";
@@ -1094,6 +1108,37 @@ class TestJSONWithLocalFile : public ::testing::Test {
   }
 };
 
+TEST_F(TestJSONWithLocalFile, JSONOutputWithStatistics) {
+  std::string json_output = R"###({
+  "FileName": "nested_lists.snappy.parquet",
+  "Version": "1.0",
+  "CreatedBy": "parquet-mr version 1.8.2 (build c6522788629e590a53eb79874b95f6c3ff11f16c)",
+  "TotalRows": "3",
+  "NumberOfRowGroups": "1",
+  "NumberOfRealColumns": "2",
+  "NumberOfColumns": "2",
+  "Columns": [
+     { "Id": "0", "Name": "a.list.element.list.element.list.element", "PhysicalType": "BYTE_ARRAY", "ConvertedType": "UTF8", "LogicalType": {"Type": "String"} },
+     { "Id": "1", "Name": "b", "PhysicalType": "INT32", "ConvertedType": "NONE", "LogicalType": {"Type": "None"} }
+  ],
+  "RowGroups": [
+     {
+       "Id": "0",  "TotalBytes": "155",  "TotalCompressedBytes": "0",  "Rows": "3",
+       "ColumnChunks": [
+          {"Id": "0", "Values": "18", "StatsSet": "False",
+           "Compression": "SNAPPY", "Encodings": "PLAIN_DICTIONARY(DICT_PAGE) PLAIN_DICTIONARY", "UncompressedSize": "103", "CompressedSize": "104" },
+          {"Id": "1", "Values": "3", "StatsSet": "True", "Stats": {"NumNulls": "0", "Max": "1", "Min": "1", "IsMaxValueExact": "unknown", "IsMinValueExact": "unknown" },
+           "Compression": "SNAPPY", "Encodings": "PLAIN_DICTIONARY(DICT_PAGE) PLAIN_DICTIONARY", "UncompressedSize": "52", "CompressedSize": "56" }
+        ]
+     }
+  ]
+}
+)###";
+
+  std::string json_content = ReadFromLocalFile("nested_lists.snappy.parquet");
+  ASSERT_EQ(json_output, json_content);
+}
+
 TEST_F(TestJSONWithLocalFile, JSONOutput) {
   std::string json_output = R"###({
   "FileName": "alltypes_plain.parquet",
@@ -1170,6 +1215,99 @@ TEST_F(TestJSONWithLocalFile, JSONOutputFLBA) {
   ])###";
 
   EXPECT_THAT(json_content, testing::HasSubstr(json_contains));
+}
+
+TEST_F(TestJSONWithLocalFile, JSONOutputSortColumns) {
+  std::string json_content = ReadFromLocalFile("sort_columns.parquet");
+
+  std::string json_contains = R"###("SortColumns": [
+         {"column_idx": 0, "descending": 1, "nulls_first": 1},
+         {"column_idx": 1, "descending": 0, "nulls_first": 0}
+       ])###";
+  EXPECT_THAT(json_content, testing::HasSubstr(json_contains));
+}
+
+namespace {
+
+::arrow::Status CheckJsonValid(std::string_view json_string) {
+  rj::Document json_doc;
+  constexpr auto kParseFlags = rj::kParseFullPrecisionFlag | rj::kParseNanAndInfFlag;
+  json_doc.Parse<kParseFlags>(json_string.data(), json_string.length());
+  if (json_doc.HasParseError()) {
+    return ::arrow::Status::Invalid("JSON parse error at offset ",
+                                    json_doc.GetErrorOffset(), ": ",
+                                    rj::GetParseError_En(json_doc.GetParseError()));
+  }
+  return ::arrow::Status::OK();
+}
+
+}  // namespace
+
+// GH-44101: Test that JSON output is valid JSON
+TEST_F(TestJSONWithLocalFile, ValidJsonOutput) {
+  std::vector<std::string_view> check_file_lists = {
+      "data_index_bloom_encoding_with_length.parquet",
+      "data_index_bloom_encoding_stats.parquet",
+      "alltypes_tiny_pages_plain.parquet",
+      "concatenated_gzip_members.parquet",
+      "nulls.snappy.parquet",
+      "sort_columns.parquet"};
+  for (const auto& file : check_file_lists) {
+    std::string json_content = ReadFromLocalFile(file);
+    ASSERT_OK(CheckJsonValid(json_content))
+        << "Invalid JSON output for file: " << file << ", content:" << json_content;
+  }
+}
+
+TEST(TestJSONWithMemoryFile, ValidJsonOutput) {
+  using ::arrow::internal::checked_cast;
+  auto schema = std::static_pointer_cast<GroupNode>(GroupNode::Make(
+      "schema", Repetition::REQUIRED,
+      schema::NodeVector{PrimitiveNode::Make("string_field", Repetition::REQUIRED,
+                                             LogicalType::String(), Type::BYTE_ARRAY),
+                         PrimitiveNode::Make("binary_field", Repetition::REQUIRED,
+                                             LogicalType::None(), Type::BYTE_ARRAY)}));
+
+  ASSERT_OK_AND_ASSIGN(auto out_file, ::arrow::io::BufferOutputStream::Create());
+  auto file_writer = ParquetFileWriter::Open(out_file, schema);
+  auto row_group_writer = file_writer->AppendRowGroup();
+
+  // Write string column with valid UTF8 data
+  auto string_writer = checked_cast<ByteArrayWriter*>(row_group_writer->NextColumn());
+  std::vector<std::string> utf8_strings = {"Hello", "World", "UTF8 测试", "🌟"};
+  std::vector<ByteArray> string_values;
+  for (const auto& str : utf8_strings) {
+    string_values.emplace_back(std::string_view(str));
+  }
+  string_writer->WriteBatch(string_values.size(), nullptr, nullptr, string_values.data());
+
+  // Write binary column with non-UTF8 data
+  auto binary_writer = checked_cast<ByteArrayWriter*>(row_group_writer->NextColumn());
+  std::vector<std::vector<uint8_t>> binary_data = {{0x00, 0x01, 0x02, 0x03},
+                                                   {0xFF, 0xFE, 0xFD, 0xFC},
+                                                   {0x80, 0x81, 0x82, 0x83},
+                                                   {0xC0, 0xC1, 0xF5, 0xF6}};
+  std::vector<ByteArray> binary_values;
+  for (const auto& data : binary_data) {
+    binary_values.emplace_back(
+        std::string_view(reinterpret_cast<const char*>(data.data()), data.size()));
+  }
+  binary_writer->WriteBatch(binary_values.size(), nullptr, nullptr, binary_values.data());
+
+  row_group_writer->Close();
+  file_writer->Close();
+
+  // Read the file back and print as JSON
+  ASSERT_OK_AND_ASSIGN(auto file_buf, out_file->Finish());
+  auto reader =
+      ParquetFileReader::Open(std::make_shared<::arrow::io::BufferReader>(file_buf));
+  ParquetFilePrinter printer(reader.get());
+
+  // Verify the output is valid JSON
+  std::stringstream json_output;
+  printer.JSONPrint(json_output, {});
+  std::string json_content = json_output.str();
+  ASSERT_OK(CheckJsonValid(json_content)) << "Invalid JSON output: " << json_content;
 }
 
 TEST(TestFileReader, BufferedReadsWithDictionary) {
@@ -1810,6 +1948,180 @@ TEST(PageIndexReaderTest, ReadFileWithoutPageIndex) {
   ASSERT_NE(nullptr, page_index_reader);
   auto row_group_index_reader = page_index_reader->RowGroup(0);
   ASSERT_EQ(nullptr, row_group_index_reader);
+}
+
+class TestGeometryLogicalType : public ::testing::Test {
+ public:
+  const int kNumRows = 1000;
+
+  void WriteTestData(std::shared_ptr<const LogicalType> type, bool write_arrow) {
+    // Make schema
+    schema::NodeVector fields;
+    fields.push_back(
+        PrimitiveNode::Make("g", Repetition::REQUIRED, type, Type::BYTE_ARRAY));
+    auto schema = std::static_pointer_cast<GroupNode>(
+        GroupNode::Make("schema", Repetition::REQUIRED, fields));
+
+    // Write small batches and small data pages
+    auto writer_props_builder = WriterProperties::Builder();
+    writer_props_builder.write_batch_size(64);
+
+    std::shared_ptr<WriterProperties> writer_props = writer_props_builder.build();
+
+    ASSERT_OK_AND_ASSIGN(auto out_file, ::arrow::io::BufferOutputStream::Create());
+    std::shared_ptr<ParquetFileWriter> file_writer =
+        ParquetFileWriter::Open(out_file, schema, writer_props);
+    RowGroupWriter* rg_writer = file_writer->AppendRowGroup();
+
+    // write WKB points to columns
+    auto* writer =
+        ::arrow::internal::checked_cast<ByteArrayWriter*>(rg_writer->NextColumn());
+    if (!write_arrow) {
+      WriteTestDataUsingWriteBatch(writer);
+    } else {
+      WriteTestDataUsingWriteArrow(writer);
+    }
+
+    rg_writer->Close();
+    file_writer->Close();
+
+    ASSERT_OK_AND_ASSIGN(file_buf, out_file->Finish());
+  }
+
+  void WriteTestDataUsingWriteBatch(ByteArrayWriter* writer) {
+    std::vector<uint8_t> buffer(test::kWkbPointXYSize * kNumRows);
+    uint8_t* ptr = buffer.data();
+    std::vector<ByteArray> values(kNumRows);
+    for (int k = 0; k < kNumRows; k++) {
+      std::string item = test::MakeWKBPoint(
+          {static_cast<double>(k), static_cast<double>(k + 1)}, false, false);
+      std::memcpy(ptr, item.data(), item.size());
+      values[k].len = test::kWkbPointXYSize;
+      values[k].ptr = ptr;
+      ptr += test::kWkbPointXYSize;
+    }
+    writer->WriteBatch(kNumRows, nullptr, nullptr, values.data());
+  }
+
+  void WriteTestDataUsingWriteArrow(ByteArrayWriter* writer) {
+    ::arrow::BinaryBuilder builder;
+    for (int k = 0; k < kNumRows; k++) {
+      std::string item = test::MakeWKBPoint(
+          {static_cast<double>(k), static_cast<double>(k + 1)}, false, false);
+
+      ASSERT_OK(builder.Append(item));
+    }
+    std::shared_ptr<::arrow::BinaryArray> array;
+    ASSERT_OK(builder.Finish(&array));
+
+    std::shared_ptr<ArrowWriterProperties> properties =
+        ArrowWriterProperties::Builder().build();
+    MemoryPool* pool = ::arrow::default_memory_pool();
+    auto ctx = std::make_unique<ArrowWriteContext>(pool, properties.get());
+    ASSERT_OK(writer->WriteArrow(nullptr, nullptr, kNumRows, *array, ctx.get(),
+                                 /*leaf_field_nullable=*/true));
+  }
+
+  void TestWriteAndRead(std::shared_ptr<const LogicalType> type, bool write_arrow) {
+    ASSERT_NO_FATAL_FAILURE(WriteTestData(type, write_arrow));
+
+    auto in_file = std::make_shared<::arrow::io::BufferReader>(file_buf);
+
+    ReaderProperties reader_props;
+    reader_props.enable_buffered_stream();
+    reader_props.set_buffer_size(64);
+    auto file_reader = ParquetFileReader::Open(in_file, reader_props);
+
+    // Check that the geometry statistics are correctly written and read
+    auto metadata = file_reader->metadata();
+    ASSERT_TRUE(type->Equals(*metadata->schema()->Column(0)->logical_type()));
+
+    auto page_index_reader = file_reader->GetPageIndexReader();
+    int num_row_groups = metadata->num_row_groups();
+    int64_t start_index = 0;
+    for (int i = 0; i < num_row_groups; i++) {
+      auto row_group_metadata = metadata->RowGroup(i);
+      auto column_chunk_metadata = row_group_metadata->ColumnChunk(0);
+      auto geo_stats = column_chunk_metadata->geo_statistics();
+      ASSERT_NO_FATAL_FAILURE(CheckGeoStatistics(type, geo_stats, start_index,
+                                                 row_group_metadata->num_rows()));
+      start_index += row_group_metadata->num_rows();
+    }
+
+    // Check the geometry values
+    int64_t total_values_read = 0;
+    for (int i = 0; i < num_row_groups; i++) {
+      auto row_group = file_reader->RowGroup(i);
+      std::shared_ptr<ByteArrayReader> reader =
+          std::static_pointer_cast<ByteArrayReader>(row_group->Column(0));
+      while (reader->HasNext()) {
+        std::vector<ByteArray> out(kNumRows);
+        int64_t values_read = 0;
+        int64_t levels_read =
+            reader->ReadBatch(kNumRows, nullptr, nullptr, out.data(), &values_read);
+        ASSERT_GE(levels_read, 1);
+        ASSERT_GE(values_read, 1);
+
+        // Check the batch
+        for (int64_t i = 0; i < values_read; i++) {
+          const ByteArray& value = out[i];
+          auto xy = test::GetWKBPointCoordinateXY(value);
+          EXPECT_TRUE(xy.has_value());
+          auto expected_x = static_cast<double>(i + total_values_read);
+          auto expected_y = static_cast<double>(i + 1 + total_values_read);
+          EXPECT_EQ(*xy, (std::pair<double, double>(expected_x, expected_y)));
+        }
+
+        total_values_read += values_read;
+      }
+    }
+    EXPECT_EQ(kNumRows, total_values_read);
+  }
+
+  void CheckGeoStatistics(std::shared_ptr<const LogicalType> type,
+                          std::shared_ptr<geospatial::GeoStatistics> geom_stats,
+                          int64_t start_index, int64_t num_rows) {
+    // We don't yet generate statistics for Geography
+    if (type->is_geography()) {
+      ASSERT_EQ(geom_stats, nullptr);
+      return;
+    }
+
+    ASSERT_NE(geom_stats, nullptr);
+    // We wrote exactly one geometry type (POINT, which has code 1)
+    EXPECT_THAT(*geom_stats->geometry_types(), ::testing::ElementsAre(1));
+
+    double expected_xmin = static_cast<double>(start_index);
+    double expected_xmax = expected_xmin + num_rows - 1;
+    double expected_ymin = expected_xmin + 1;
+    double expected_ymax = expected_xmax + 1;
+
+    EXPECT_EQ(geom_stats->lower_bound()[0], expected_xmin);
+    EXPECT_EQ(geom_stats->upper_bound()[0], expected_xmax);
+    EXPECT_EQ(geom_stats->lower_bound()[1], expected_ymin);
+    EXPECT_EQ(geom_stats->upper_bound()[1], expected_ymax);
+    EXPECT_THAT(geom_stats->dimension_valid(),
+                ::testing::ElementsAre(true, true, false, false));
+  }
+
+ protected:
+  std::shared_ptr<Buffer> file_buf;
+};
+
+TEST_F(TestGeometryLogicalType, TestWriteGeometry) {
+  TestWriteAndRead(GeometryLogicalType::Make("srid:1234"), /*write_arrow=*/false);
+}
+
+TEST_F(TestGeometryLogicalType, TestWriteArrowAndReadGeometry) {
+  TestWriteAndRead(GeometryLogicalType::Make("srid:1234"), /*write_arrow=*/true);
+}
+
+TEST_F(TestGeometryLogicalType, TestWriteGeography) {
+  TestWriteAndRead(GeographyLogicalType::Make("srid:1234"), /*write_arrow=*/false);
+}
+
+TEST_F(TestGeometryLogicalType, TestWriteGeographyArrow) {
+  TestWriteAndRead(GeographyLogicalType::Make("srid:1234"), /*write_arrow=*/true);
 }
 
 }  // namespace parquet

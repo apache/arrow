@@ -25,7 +25,7 @@
 
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/hash_util.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/string.h"
 
 using arrow::internal::AsciiEqualsCaseInsensitive;
@@ -34,6 +34,8 @@ using arrow::internal::checked_cast;
 using arrow::internal::hash_combine;
 
 namespace gandiva {
+
+namespace {
 
 bool DataTypeEquals(const DataTypePtr& left, const DataTypePtr& right) {
   if (left->id() == right->id()) {
@@ -52,6 +54,8 @@ bool DataTypeEquals(const DataTypePtr& left, const DataTypePtr& right) {
     return false;
   }
 }
+
+}  // namespace
 
 FunctionSignature::FunctionSignature(std::string base_name, DataTypeVector param_types,
                                      DataTypePtr ret_type)

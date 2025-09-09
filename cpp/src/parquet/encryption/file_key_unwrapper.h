@@ -18,6 +18,7 @@
 #pragma once
 
 #include "arrow/util/concurrent_map.h"
+#include "arrow/util/secure_string.h"
 
 #include "parquet/encryption/encryption.h"
 #include "parquet/encryption/file_system_key_material_store.h"
@@ -64,7 +65,7 @@ class PARQUET_EXPORT FileKeyUnwrapper : public DecryptionKeyRetriever {
                    std::shared_ptr<FileKeyMaterialStore> key_material_store);
 
   /// Get the data key from key metadata
-  std::string GetKey(const std::string& key_metadata) override;
+  ::arrow::util::SecureString GetKey(const std::string& key_metadata_bytes) override;
 
   /// Get the data key along with the master key id from key material
   KeyWithMasterId GetDataEncryptionKey(const KeyMaterial& key_material);
@@ -81,7 +82,8 @@ class PARQUET_EXPORT FileKeyUnwrapper : public DecryptionKeyRetriever {
       const KeyMaterial& key_material);
 
   /// A map of Key Encryption Key (KEK) ID -> KEK bytes, for the current token
-  std::shared_ptr<::arrow::util::ConcurrentMap<std::string, std::string>> kek_per_kek_id_;
+  std::shared_ptr<::arrow::util::ConcurrentMap<std::string, ::arrow::util::SecureString>>
+      kek_per_kek_id_;
   std::shared_ptr<KeyToolkit> key_toolkit_owner_;
   KeyToolkit* key_toolkit_;
   KmsConnectionConfig kms_connection_config_;

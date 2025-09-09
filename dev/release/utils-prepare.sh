@@ -38,16 +38,18 @@ update_versions() {
 
   pushd "${ARROW_DIR}/c_glib"
   sed -i.bak -E -e \
-    "s/^version = '.+'/version = '${version}'/" \
+    "s/^    version: '.+'/    version: '${version}'/" \
     meson.build
   rm -f meson.build.bak
   git add meson.build
 
-  # Add a new version entry only when the next release is a new major release
-  if [ "${type}" = "snapshot" -a \
-       "${next_version}" = "${major_version}.0.0" ]; then
+  # Add a new version entry only when the next release is a new major
+  # release and it doesn't exist yet.
+  if [ "${type}" = "snapshot" ] && \
+     [ "${next_version}" = "${major_version}.0.0" ] && \
+     ! grep -q -F "(${major_version}, 0)" tool/generate-version-header.py; then
     sed -i.bak -E -e \
-      "s/^ALL_VERSIONS = \[$/&\\n        (${major_version}, 0),/" \
+      "s/^ALL_VERSIONS = \[$/&\\n    (${major_version}, 0),/" \
       tool/generate-version-header.py
     rm -f tool/generate-version-header.py.bak
     git add tool/generate-version-header.py
@@ -76,21 +78,16 @@ update_versions() {
   git add CMakeLists.txt
 
   sed -i.bak -E -e \
+    "s/^    version: '.+'/    version: '${version}'/" \
+    meson.build
+  rm -f meson.build.bak
+  git add meson.build
+
+  sed -i.bak -E -e \
     "s/\"version-string\": \".+\"/\"version-string\": \"${version}\"/" \
     vcpkg.json
   rm -f vcpkg.json.bak
   git add vcpkg.json
-  popd
-
-  pushd "${ARROW_DIR}/java"
-  mvn versions:set -DnewVersion=${version} -DprocessAllModules -DgenerateBackupPoms=false
-  if [ "${type}" = "release" ]; then
-    # versions-maven-plugin:set-scm-tag does not update the whole reactor. Invoking separately
-    mvn versions:set-scm-tag -DnewTag=apache-arrow-${version} -DgenerateBackupPoms=false -pl :arrow-java-root
-    mvn versions:set-scm-tag -DnewTag=apache-arrow-${version} -DgenerateBackupPoms=false -pl :arrow-bom
-  fi
-  git add "pom.xml"
-  git add "**/pom.xml"
   popd
 
   pushd "${ARROW_DIR}/csharp"
@@ -112,14 +109,6 @@ update_versions() {
   git add \
     apache-arrow-glib.rb \
     apache-arrow.rb
-  popd
-
-  pushd "${ARROW_DIR}/js"
-  sed -i.bak -E -e \
-    "s/^  \"version\": \".+\"/  \"version\": \"${version}\"/" \
-    package.json
-  rm -f package.json.bak
-  git add package.json
   popd
 
   pushd "${ARROW_DIR}/matlab"
@@ -179,21 +168,6 @@ update_versions() {
   git add */*/*/version.rb
   popd
 
-  pushd "${ARROW_DIR}/go"
-  find . "(" -name "*.go*" -o -name "go.mod" -o -name README.md ")" -exec sed -i.bak -E -e \
-    "s|(github\\.com/apache/arrow/go)/v[0-9]+|\1/v${major_version}|g" {} \;
-  # update parquet writer version
-  sed -i.bak -E -e \
-    "s/\"parquet-go version .+\"/\"parquet-go version ${version}\"/" \
-    parquet/writer_properties.go
-  sed -i.bak -E -e \
-    "s/const PkgVersion = \".*/const PkgVersion = \"${version}\"/" \
-    arrow/doc.go
-
-  find . -name "*.bak" -exec rm {} \;
-  git add .
-  popd
-
   pushd "${ARROW_DIR}/docs/source"
   # godoc link must reference current version, will reference v0.0.0 (2018) otherwise
   sed -i.bak -E -e \
@@ -209,6 +183,7 @@ update_versions() {
                      "${base_version}" \
                      "${next_version}"
   git add docs/source/_static/versions.json
+  git add r/pkgdown/assets/versions.html
   git add r/pkgdown/assets/versions.json
   popd
 }
@@ -243,12 +218,6 @@ update_deb_package_names() {
     sed -i.bak -E -e "${deb_lib_suffix_substitute_pattern}" debian*/control*
     rm -f debian*/control*.bak
     git add debian*/control*
-    popd
-
-    pushd ${ARROW_DIR}/dev/tasks
-    sed -i.bak -E -e "${deb_lib_suffix_substitute_pattern}" tasks.yml
-    rm -f tasks.yml.bak
-    git add tasks.yml
     popd
 
     pushd ${ARROW_DIR}/dev/release

@@ -503,9 +503,9 @@ TEST(BloomFilter, Scaling) {
   num_build.push_back(4000000);
 
   std::vector<BloomFilterBuildStrategy> strategies;
-#ifdef ARROW_ENABLE_THREADING
+#  ifdef ARROW_ENABLE_THREADING
   strategies.push_back(BloomFilterBuildStrategy::PARALLEL);
-#endif
+#  endif
   strategies.push_back(BloomFilterBuildStrategy::SINGLE_THREADED);
 
   for (const auto hardware_flags : HardwareFlagsForTesting()) {

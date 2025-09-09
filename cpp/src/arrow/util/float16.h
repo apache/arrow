@@ -111,11 +111,7 @@ class ARROW_EXPORT Float16 {
   }
   /// \brief Return the value's bytes in little-endian byte order
   constexpr std::array<uint8_t, 2> ToLittleEndian() const {
-#if ARROW_LITTLE_ENDIAN
     return {uint8_t(bits_ & 0xff), uint8_t(bits_ >> 8)};
-#else
-    return {uint8_t(bits_ >> 8), uint8_t(bits_ & 0xff)};
-#endif
   }
 
   /// \brief Copy the value's bytes in big-endian byte order
@@ -125,11 +121,7 @@ class ARROW_EXPORT Float16 {
   }
   /// \brief Return the value's bytes in big-endian byte order
   constexpr std::array<uint8_t, 2> ToBigEndian() const {
-#if ARROW_LITTLE_ENDIAN
     return {uint8_t(bits_ >> 8), uint8_t(bits_ & 0xff)};
-#else
-    return {uint8_t(bits_ & 0xff), uint8_t(bits_ >> 8)};
-#endif
   }
 
   constexpr Float16 operator-() const { return FromBits(bits_ ^ 0x8000); }
@@ -154,6 +146,9 @@ class ARROW_EXPORT Float16 {
   friend constexpr bool operator>=(Float16 lhs, Float16 rhs) { return rhs <= lhs; }
 
   ARROW_FRIEND_EXPORT friend std::ostream& operator<<(std::ostream& os, Float16 arg);
+
+  static constexpr Float16 zero() { return FromBits(0); }
+  static constexpr Float16 one() { return FromBits(0x3c00); }
 
  protected:
   uint16_t bits_;
@@ -183,7 +178,9 @@ class ARROW_EXPORT Float16 {
   }
 };
 
+static_assert(std::is_standard_layout_v<Float16>);
 static_assert(std::is_trivial_v<Float16>);
+static_assert(sizeof(Float16) == sizeof(uint16_t));
 
 }  // namespace util
 }  // namespace arrow

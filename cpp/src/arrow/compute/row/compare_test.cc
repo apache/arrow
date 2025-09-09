@@ -327,7 +327,7 @@ TEST(KeyCompare, LARGE_MEMORY_TEST(CompareColumnsToRowsOver2GB)) {
   ASSERT_OK_AND_ASSIGN(RowTableImpl row_table_right,
                        MakeRowTableFromExecBatch(batch_left));
   // The row table must contain an offset buffer.
-  ASSERT_NE(row_table_right.data(2), NULLPTR);
+  ASSERT_NE(row_table_right.var_length_rows(), NULLPTR);
   // The whole point of this test.
   ASSERT_GT(row_table_right.offsets()[num_rows - 1], k2GB);
 
@@ -386,8 +386,8 @@ TEST(KeyCompare, LARGE_MEMORY_TEST(CompareColumnsToRowsOver4GBFixedLength)) {
       RowTableImpl row_table_right,
       RepeatRowTableUntil(MakeRowTableFromExecBatch(batch_left).ValueUnsafe(),
                           num_rows_row_table));
-  // The row table must not contain a third buffer.
-  ASSERT_EQ(row_table_right.data(2), NULLPTR);
+  // The row table must be fixed length.
+  ASSERT_TRUE(row_table_right.metadata().is_fixed_length);
   // The row data must be greater than 4GB.
   ASSERT_GT(row_table_right.buffer_size(1), k4GB);
 
@@ -460,7 +460,7 @@ TEST(KeyCompare, LARGE_MEMORY_TEST(CompareColumnsToRowsOver4GBVarLength)) {
       RepeatRowTableUntil(MakeRowTableFromExecBatch(batch_left).ValueUnsafe(),
                           num_rows_row_table));
   // The row table must contain an offset buffer.
-  ASSERT_NE(row_table_right.data(2), NULLPTR);
+  ASSERT_NE(row_table_right.var_length_rows(), NULLPTR);
   // At least the last row should be located at over 4GB.
   ASSERT_GT(row_table_right.offsets()[num_rows_row_table - 1], k4GB);
 

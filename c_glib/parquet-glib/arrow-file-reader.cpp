@@ -134,12 +134,13 @@ gparquet_arrow_file_reader_new_arrow(GArrowSeekableInputStream *source, GError *
 {
   auto arrow_random_access_file = garrow_seekable_input_stream_get_raw(source);
   auto arrow_memory_pool = arrow::default_memory_pool();
-  std::unique_ptr<parquet::arrow::FileReader> parquet_arrow_file_reader;
-  auto status = parquet::arrow::OpenFile(arrow_random_access_file,
-                                         arrow_memory_pool,
-                                         &parquet_arrow_file_reader);
-  if (garrow_error_check(error, status, "[parquet][arrow][file-reader][new-arrow]")) {
-    return gparquet_arrow_file_reader_new_raw(parquet_arrow_file_reader.release());
+  auto parquet_arrow_file_reader_result =
+    parquet::arrow::OpenFile(arrow_random_access_file, arrow_memory_pool);
+  if (garrow::check(error,
+                    parquet_arrow_file_reader_result,
+                    "[parquet][arrow][file-reader][new-arrow]")) {
+    return gparquet_arrow_file_reader_new_raw(
+      parquet_arrow_file_reader_result->release());
   } else {
     return NULL;
   }
@@ -168,12 +169,13 @@ gparquet_arrow_file_reader_new_path(const gchar *path, GError **error)
   std::shared_ptr<arrow::io::RandomAccessFile> arrow_random_access_file =
     arrow_memory_mapped_file.ValueOrDie();
   auto arrow_memory_pool = arrow::default_memory_pool();
-  std::unique_ptr<parquet::arrow::FileReader> parquet_arrow_file_reader;
-  auto status = parquet::arrow::OpenFile(arrow_random_access_file,
-                                         arrow_memory_pool,
-                                         &parquet_arrow_file_reader);
-  if (garrow::check(error, status, "[parquet][arrow][file-reader][new-path]")) {
-    return gparquet_arrow_file_reader_new_raw(parquet_arrow_file_reader.release());
+  auto parquet_arrow_file_reader_result =
+    parquet::arrow::OpenFile(arrow_random_access_file, arrow_memory_pool);
+  if (garrow::check(error,
+                    parquet_arrow_file_reader_result,
+                    "[parquet][arrow][file-reader][new-path]")) {
+    return gparquet_arrow_file_reader_new_raw(
+      parquet_arrow_file_reader_result->release());
   } else {
     return NULL;
   }

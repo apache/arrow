@@ -8,12 +8,19 @@ export DH_OPTIONS
 
 export DEB_BUILD_MAINT_OPTIONS=reproducible=-timeless
 
-BUILD_TYPE=release
+BUILD_TYPE=relwithdebinfo
 
 %:
 	dh $@ --with gir
 
 override_dh_auto_configure:
+	code_name="$$(. /etc/os-release &&			\
+                        echo $${VERSION_CODENAME})";		\
+	if [ "$${code_name}" = "focal" ]; then			\
+	  ARROW_AZURE=OFF;					\
+	else							\
+	  ARROW_AZURE=ON;					\
+	fi;							\
 	if dpkg -l nvidia-cuda-toolkit > /dev/null 2>&1; then	\
 	  ARROW_CUDA=ON;					\
 	else							\
@@ -24,6 +31,7 @@ override_dh_auto_configure:
 	  --builddirectory=cpp_build				\
 	  --buildsystem=cmake+ninja				\
 	  --							\
+	  -DARROW_AZURE=$${ARROW_AZURE}				\
 	  -DARROW_BUILD_UTILITIES=ON				\
 	  -DARROW_COMPUTE=ON					\
 	  -DARROW_CSV=ON					\
@@ -64,8 +72,9 @@ override_dh_auto_build:
 	  --builddirectory=c_glib_build			\
 	  --buildsystem=meson+ninja			\
 	  --						\
-	  -Darrow_cpp_build_type=$(BUILD_TYPE)		\
+	  --buildtype=debugoptimized			\
 	  -Darrow_cpp_build_dir=../cpp_build		\
+	  -Darrow_cpp_build_type=$(BUILD_TYPE)		\
 	  -Ddoc=true					\
 	  -Dvapi=true
 	env							\
@@ -80,17 +89,7 @@ override_dh_auto_install:
 	  --sourcedirectory=c_glib		\
 	  --builddirectory=c_glib_build		\
 	  --buildsystem=meson+ninja
-	# Remove built files to reduce disk usage
-	dh_auto_clean				\
-	  --sourcedirectory=c_glib		\
-	  --builddirectory=c_glib_build		\
-	  --buildsystem=meson+ninja
-
 	dh_auto_install				\
-	  --sourcedirectory=cpp			\
-	  --builddirectory=cpp_build
-	# Remove built files to reduce disk usage
-	dh_auto_clean				\
 	  --sourcedirectory=cpp			\
 	  --builddirectory=cpp_build
 

@@ -35,16 +35,16 @@
 #include "arrow/table.h"
 
 #ifdef ARROW_WITH_OPENTELEMETRY
-#include "arrow/flight/otel_logging.h"
-#include "arrow/util/tracing_internal.h"
+#  include "arrow/flight/otel_logging.h"
+#  include "arrow/util/tracing_internal.h"
 
-#include <opentelemetry/context/propagation/global_propagator.h>
-#include <opentelemetry/context/propagation/text_map_propagator.h>
-#include <opentelemetry/sdk/trace/processor.h>
-#include <opentelemetry/sdk/trace/tracer_provider.h>
-#include <opentelemetry/trace/propagation/http_trace_context.h>
-#include <opentelemetry/trace/provider.h>
-#include <opentelemetry/trace/scope.h>
+#  include <opentelemetry/context/propagation/global_propagator.h>
+#  include <opentelemetry/context/propagation/text_map_propagator.h>
+#  include <opentelemetry/sdk/trace/processor.h>
+#  include <opentelemetry/sdk/trace/tracer_provider.h>
+#  include <opentelemetry/trace/propagation/http_trace_context.h>
+#  include <opentelemetry/trace/provider.h>
+#  include <opentelemetry/trace/scope.h>
 #endif
 
 using arrow::Result;

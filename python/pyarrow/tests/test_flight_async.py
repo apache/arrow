@@ -29,9 +29,7 @@ class ExampleServer(flight.FlightServerBase):
     simple_info = flight.FlightInfo(
         pyarrow.schema([("a", "int32")]),
         flight.FlightDescriptor.for_command(b"simple"),
-        [],
-        -1,
-        -1,
+        []
     )
 
     def get_flight_info(self, context, descriptor):

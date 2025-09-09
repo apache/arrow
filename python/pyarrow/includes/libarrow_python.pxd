@@ -55,7 +55,7 @@ cdef extern from "arrow/python/arrow_to_pandas.h" namespace "arrow::py::MapConve
 cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:
     shared_ptr[CDataType] GetPrimitiveType(Type type)
 
-    object PyHalf_FromHalf(npy_half value)
+    object PyFloat_FromHalf(uint16_t value)
 
     cdef cppclass PyConversionOptions:
         PyConversionOptions()
@@ -72,6 +72,9 @@ cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:
     CResult[shared_ptr[CChunkedArray]] ConvertPySequence(
         object obj, object mask, const PyConversionOptions& options,
         CMemoryPool* pool)
+
+    CResult[shared_ptr[CArray]] Arange(int64_t start, int64_t stop,
+                                       int64_t step, CMemoryPool* pool)
 
     CResult[shared_ptr[CDataType]] NumPyDtypeToArrow(object dtype)
 
@@ -199,41 +202,6 @@ cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:
         unordered_set[c_string] extension_columns
         c_bool to_numpy
 
-    cdef cppclass CSerializedPyObject" arrow::py::SerializedPyObject":
-        shared_ptr[CRecordBatch] batch
-        vector[shared_ptr[CTensor]] tensors
-
-        CStatus WriteTo(COutputStream* dst)
-        CStatus GetComponents(CMemoryPool* pool, PyObject** dst)
-
-    CStatus SerializeObject(object context, object sequence,
-                            CSerializedPyObject* out)
-
-    CStatus DeserializeObject(object context,
-                              const CSerializedPyObject& obj,
-                              PyObject* base, PyObject** out)
-
-    CStatus ReadSerializedObject(CRandomAccessFile* src,
-                                 CSerializedPyObject* out)
-
-    cdef cppclass SparseTensorCounts:
-        SparseTensorCounts()
-        int coo
-        int csr
-        int csc
-        int csf
-        int ndim_csf
-        int num_total_tensors() const
-        int num_total_buffers() const
-
-    CStatus GetSerializedFromComponents(
-        int num_tensors,
-        const SparseTensorCounts& num_sparse_tensors,
-        int num_ndarrays,
-        int num_buffers,
-        object buffers,
-        CSerializedPyObject* out)
-
 
 cdef extern from "arrow/python/api.h" namespace "arrow::py::internal" nogil:
     cdef cppclass CTimePoint "arrow::py::internal::TimePoint":
@@ -248,7 +216,7 @@ cdef extern from "arrow/python/api.h" namespace "arrow::py::internal" nogil:
     CResult[PyObject*] StringToTzinfo(c_string)
 
 
-cdef extern from "arrow/python/init.h":
+cdef extern from "arrow/python/numpy_init.h" namespace "arrow::py":
     int arrow_init_numpy() except -1
 
 
@@ -320,3 +288,9 @@ cdef extern from "arrow/python/gdb.h" namespace "arrow::gdb" nogil:
 
 cdef extern from "arrow/python/helpers.h" namespace "arrow::py::internal":
     c_bool IsThreadingEnabled()
+
+cdef extern from "arrow/python/config.h" namespace "arrow::py":
+    cdef cppclass CBuildInfo "arrow::py::BuildInfo":
+        c_string build_type
+
+    const CBuildInfo& GetBuildInfo "arrow::py::GetBuildInfo"()

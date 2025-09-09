@@ -21,6 +21,7 @@
 
 #include "arrow/buffer.h"
 #include "arrow/compute/light_array_internal.h"
+#include "arrow/compute/visibility.h"
 #include "arrow/memory_pool.h"
 #include "arrow/status.h"
 #include "arrow/util/logging.h"
@@ -29,7 +30,7 @@ namespace arrow {
 namespace compute {
 
 /// Description of the data stored in a RowTable
-struct ARROW_EXPORT RowTableMetadata {
+struct ARROW_COMPUTE_EXPORT RowTableMetadata {
   using offset_type = int64_t;
 
   /// \brief True if there are no variable length columns in the table
@@ -38,7 +39,7 @@ struct ARROW_EXPORT RowTableMetadata {
   /// For a fixed-length binary row, common size of rows in bytes,
   /// rounded up to the multiple of alignment.
   ///
-  /// For a varying-length binary, size of all encoded fixed-length key columns,
+  /// For a varying-length binary row, size of all encoded fixed-length key columns,
   /// including lengths of varying-length columns, rounded up to the multiple of string
   /// alignment.
   uint32_t fixed_length;
@@ -170,7 +171,7 @@ struct ARROW_EXPORT RowTableMetadata {
 /// Can store both fixed-size data types and variable-length data types
 ///
 /// The row table is not safe
-class ARROW_EXPORT RowTableImpl {
+class ARROW_COMPUTE_EXPORT RowTableImpl {
  public:
   using offset_type = RowTableMetadata::offset_type;
 
@@ -199,29 +200,44 @@ class ARROW_EXPORT RowTableImpl {
   const RowTableMetadata& metadata() const { return metadata_; }
   /// \brief The number of rows stored in the table
   int64_t length() const { return num_rows_; }
-  // Accessors into the table's buffers
-  const uint8_t* data(int i) const {
-    ARROW_DCHECK(i >= 0 && i < kMaxBuffers);
-    if (ARROW_PREDICT_TRUE(buffers_[i])) {
-      return buffers_[i]->data();
-    }
-    return NULLPTR;
+
+  const uint8_t* null_masks(uint32_t row_id) const {
+    return data(0) + static_cast<int64_t>(row_id) * metadata_.null_masks_bytes_per_row;
   }
-  uint8_t* mutable_data(int i) {
-    ARROW_DCHECK(i >= 0 && i < kMaxBuffers);
-    if (ARROW_PREDICT_TRUE(buffers_[i])) {
-      return buffers_[i]->mutable_data();
-    }
-    return NULLPTR;
+  uint8_t* mutable_null_masks(uint32_t row_id) {
+    return mutable_data(0) +
+           static_cast<int64_t>(row_id) * metadata_.null_masks_bytes_per_row;
   }
+  bool is_null(uint32_t row_id, uint32_t col_pos) const {
+    return bit_util::GetBit(null_masks(row_id), col_pos);
+  }
+
+  const uint8_t* fixed_length_rows(uint32_t row_id) const {
+    ARROW_DCHECK(metadata_.is_fixed_length);
+    return data(1) + static_cast<int64_t>(row_id) * metadata_.fixed_length;
+  }
+  uint8_t* mutable_fixed_length_rows(uint32_t row_id) {
+    ARROW_DCHECK(metadata_.is_fixed_length);
+    return mutable_data(1) + static_cast<int64_t>(row_id) * metadata_.fixed_length;
+  }
+
   const offset_type* offsets() const {
+    ARROW_DCHECK(!metadata_.is_fixed_length);
     return reinterpret_cast<const offset_type*>(data(1));
   }
   offset_type* mutable_offsets() {
+    ARROW_DCHECK(!metadata_.is_fixed_length);
     return reinterpret_cast<offset_type*>(mutable_data(1));
   }
-  const uint8_t* null_masks() const { return null_masks_->data(); }
-  uint8_t* null_masks() { return null_masks_->mutable_data(); }
+
+  const uint8_t* var_length_rows() const {
+    ARROW_DCHECK(!metadata_.is_fixed_length);
+    return data(2);
+  }
+  uint8_t* mutable_var_length_rows() {
+    ARROW_DCHECK(!metadata_.is_fixed_length);
+    return mutable_data(2);
+  }
 
   /// \brief True if there is a null value anywhere in the table
   ///
@@ -237,6 +253,22 @@ class ARROW_EXPORT RowTableImpl {
   }
 
  private:
+  // Accessors into the table's buffers
+  const uint8_t* data(int i) const {
+    ARROW_DCHECK(i >= 0 && i < kMaxBuffers);
+    if (ARROW_PREDICT_TRUE(buffers_[i])) {
+      return buffers_[i]->data();
+    }
+    return NULLPTR;
+  }
+  uint8_t* mutable_data(int i) {
+    ARROW_DCHECK(i >= 0 && i < kMaxBuffers);
+    if (ARROW_PREDICT_TRUE(buffers_[i])) {
+      return buffers_[i]->mutable_data();
+    }
+    return NULLPTR;
+  }
+
   /// \brief Resize the fixed length buffers to store `num_extra_rows` more rows. The
   /// fixed length buffers are buffers_[0] for null masks, buffers_[1] for row data if the
   /// row is fixed length, or for row offsets otherwise.

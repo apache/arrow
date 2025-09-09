@@ -26,11 +26,11 @@
 #include <memory>
 #include <random>
 #include <string>
-#include <utility>
 #include <vector>
 
 #include <gtest/gtest.h>
 
+#include "arrow/extension_type.h"
 #include "arrow/io/memory.h"
 #include "arrow/testing/util.h"
 #include "arrow/util/float16.h"
@@ -660,7 +660,7 @@ class PrimitiveTypedTest : public ::testing::Test {
  public:
   using c_type = typename TestType::c_type;
 
-  void SetUpSchema(Repetition::type repetition, int num_columns = 1) {
+  virtual void SetUpSchema(Repetition::type repetition, int num_columns) {
     std::vector<schema::NodePtr> fields;
 
     for (int i = 0; i < num_columns; ++i) {
@@ -671,6 +671,8 @@ class PrimitiveTypedTest : public ::testing::Test {
     node_ = schema::GroupNode::Make("schema", Repetition::REQUIRED, fields);
     schema_.Init(node_);
   }
+
+  void SetUpSchema(Repetition::type repetition) { this->SetUpSchema(repetition, 1); }
 
   void GenerateData(int64_t num_values, uint32_t seed = 0);
   void SetupValuesOut(int64_t num_values);
@@ -829,6 +831,61 @@ inline void GenerateData<FLBA>(int num_values, FLBA* out, std::vector<uint8_t>* 
   // seed the prng so failure is deterministic
   random_fixed_byte_array(num_values, 0, heap->data(), kGenerateDataFLBALength, out);
 }
+
+// ----------------------------------------------------------------------
+// Test utility functions for geometry
+
+#if defined(ARROW_LITTLE_ENDIAN)
+static constexpr uint8_t kWkbNativeEndianness = 0x01;
+#else
+static constexpr uint8_t kWkbNativeEndianness = 0x00;
+#endif
+
+/// \brief Number of bytes in a WKB Point with X and Y dimensions (uint8_t endian,
+/// uint32_t geometry type, 2 * double coordinates)
+static constexpr int kWkbPointXYSize = 21;
+
+std::string MakeWKBPoint(const std::vector<double>& xyzm, bool has_z, bool has_m);
+
+std::optional<std::pair<double, double>> GetWKBPointCoordinateXY(const ByteArray& value);
+
+// A minimal version of a geoarrow.wkb extension type to test interoperability
+class GeoArrowWkbExtensionType : public ::arrow::ExtensionType {
+ public:
+  explicit GeoArrowWkbExtensionType(std::shared_ptr<::arrow::DataType> storage_type,
+                                    std::string metadata)
+      : ::arrow::ExtensionType(std::move(storage_type)), metadata_(std::move(metadata)) {}
+
+  std::string extension_name() const override { return "geoarrow.wkb"; }
+
+  std::string Serialize() const override { return metadata_; }
+
+  ::arrow::Result<std::shared_ptr<::arrow::DataType>> Deserialize(
+      std::shared_ptr<::arrow::DataType> storage_type,
+      const std::string& serialized_data) const override {
+    return std::make_shared<GeoArrowWkbExtensionType>(std::move(storage_type),
+                                                      serialized_data);
+  }
+
+  std::shared_ptr<::arrow::Array> MakeArray(
+      std::shared_ptr<::arrow::ArrayData> data) const override {
+    return std::make_shared<::arrow::ExtensionArray>(data);
+  }
+
+  bool ExtensionEquals(const ExtensionType& other) const override {
+    return other.extension_name() == extension_name() && other.Serialize() == Serialize();
+  }
+
+ private:
+  std::string metadata_;
+};
+
+std::shared_ptr<::arrow::DataType> geoarrow_wkb(
+    std::string metadata = "{}",
+    const std::shared_ptr<::arrow::DataType> storage = ::arrow::binary());
+
+std::shared_ptr<::arrow::DataType> geoarrow_wkb_lonlat(
+    const std::shared_ptr<::arrow::DataType> storage = ::arrow::binary());
 
 }  // namespace test
 }  // namespace parquet

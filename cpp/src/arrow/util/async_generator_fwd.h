@@ -20,6 +20,7 @@
 #include <functional>
 
 #include "arrow/type_fwd.h"
+#include "arrow/util/type_fwd.h"
 
 namespace arrow {
 
@@ -46,9 +47,6 @@ class PushGenerator;
 
 template <typename T>
 class MergedGenerator;
-
-template <typename T>
-struct Enumerated;
 
 template <typename T>
 class EnumeratingGenerator;

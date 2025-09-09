@@ -21,7 +21,7 @@
 #'
 #' The `arrow` package contains methods for 37 `dplyr` table functions, many of
 #' which are "verbs" that do transformations to one or more tables.
-#' The package also has mappings of 212 R functions to the corresponding
+#' The package also has mappings of 223 R functions to the corresponding
 #' functions in the Arrow compute library. These allow you to write code inside
 #' of `dplyr` methods that call R functions, including many in packages like
 #' `stringr` and `lubridate`, and they will get translated to Arrow and run
@@ -42,7 +42,7 @@
 #' * [`collect()`][dplyr::collect()]
 #' * [`compute()`][dplyr::compute()]
 #' * [`count()`][dplyr::count()]
-#' * [`distinct()`][dplyr::distinct()]: `.keep_all = TRUE` not supported
+#' * [`distinct()`][dplyr::distinct()]: `.keep_all = TRUE` returns a non-missing value if present, only returning missing values if all are missing.
 #' * [`explain()`][dplyr::explain()]
 #' * [`filter()`][dplyr::filter()]
 #' * [`full_join()`][dplyr::full_join()]: the `copy` argument is ignored
@@ -67,7 +67,7 @@
 #' * [`slice_min()`][dplyr::slice_min()]: slicing within groups not supported; `with_ties = TRUE` (dplyr default) is not supported; `prop` only supported on queries where `nrow()` is knowable without evaluating
 #' * [`slice_sample()`][dplyr::slice_sample()]: slicing within groups not supported; `replace = TRUE` and the `weight_by` argument not supported; `n` only supported on queries where `nrow()` is knowable without evaluating
 #' * [`slice_tail()`][dplyr::slice_tail()]: slicing within groups not supported; Arrow datasets do not have row order, so tail is non-deterministic; `prop` only supported on queries where `nrow()` is knowable without evaluating
-#' * [`summarise()`][dplyr::summarise()]: window functions not currently supported; arguments `.drop = FALSE` and `.groups = "rowwise" not supported
+#' * [`summarise()`][dplyr::summarise()]: window functions not currently supported; arguments `.drop = FALSE` and `.groups = "rowwise"` not supported
 #' * [`tally()`][dplyr::tally()]
 #' * [`transmute()`][dplyr::transmute()]
 #' * [`ungroup()`][dplyr::ungroup()]
@@ -83,7 +83,7 @@
 #' Functions can be called either as `pkg::fun()` or just `fun()`, i.e. both
 #' `str_sub()` and `stringr::str_sub()` work.
 #'
-#' In addition to these functions, you can call any of Arrow's 262 compute
+#' In addition to these functions, you can call any of Arrow's 281 compute
 #' functions directly. Arrow has many functions that don't map to an existing R
 #' function. In other cases where there is an R function mapping, you can still
 #' call the Arrow function directly if you don't want the adaptations that the R
@@ -119,6 +119,7 @@
 #' * [`^`][^()]
 #' * [`abs()`][base::abs()]
 #' * [`acos()`][base::acos()]
+#' * [`acosh()`][base::acosh()]
 #' * [`all()`][base::all()]
 #' * [`any()`][base::any()]
 #' * [`as.Date()`][base::as.Date()]: Multiple `tryFormats` not supported in Arrow.
@@ -130,14 +131,19 @@
 #' * [`as.logical()`][base::as.logical()]
 #' * [`as.numeric()`][base::as.numeric()]
 #' * [`asin()`][base::asin()]
+#' * [`asinh()`][base::asinh()]
+#' * [`atan()`][base::atan()]
+#' * [`atanh()`][base::atanh()]
 #' * [`ceiling()`][base::ceiling()]
 #' * [`cos()`][base::cos()]
+#' * [`cosh()`][base::cosh()]
 #' * [`data.frame()`][base::data.frame()]: `row.names` and `check.rows` arguments not supported;
 #' `stringsAsFactors` must be `FALSE`
 #' * [`difftime()`][base::difftime()]: only supports `units = "secs"` (the default);
 #' `tz` argument not supported
 #' * [`endsWith()`][base::endsWith()]
 #' * [`exp()`][base::exp()]
+#' * [`expm1()`][base::expm1()]
 #' * [`floor()`][base::floor()]
 #' * [`format()`][base::format()]
 #' * [`grepl()`][base::grepl()]
@@ -171,6 +177,7 @@
 #' * [`round()`][base::round()]
 #' * [`sign()`][base::sign()]
 #' * [`sin()`][base::sin()]
+#' * [`sinh()`][base::sinh()]
 #' * [`sqrt()`][base::sqrt()]
 #' * [`startsWith()`][base::startsWith()]
 #' * [`strftime()`][base::strftime()]
@@ -183,6 +190,7 @@
 #' * [`substring()`][base::substring()]
 #' * [`sum()`][base::sum()]
 #' * [`tan()`][base::tan()]
+#' * [`tanh()`][base::tanh()]
 #' * [`tolower()`][base::tolower()]
 #' * [`toupper()`][base::toupper()]
 #' * [`trunc()`][base::trunc()]
@@ -205,6 +213,11 @@
 #' * [`if_else()`][dplyr::if_else()]
 #' * [`n()`][dplyr::n()]
 #' * [`n_distinct()`][dplyr::n_distinct()]
+#'
+#' ## hms
+#'
+#' * [`as_hms()`][hms::as_hms()]: subsecond precision not supported for character input
+#' * [`hms()`][hms::hms()]: nanosecond times not supported
 #'
 #' ## lubridate
 #'
@@ -328,6 +341,7 @@
 #' * [`str_remove_all()`][stringr::str_remove_all()]
 #' * [`str_replace()`][stringr::str_replace()]
 #' * [`str_replace_all()`][stringr::str_replace_all()]
+#' * [`str_replace_na()`][stringr::str_replace_na()]
 #' * [`str_split()`][stringr::str_split()]: Case-insensitive string splitting and splitting into 0 parts not supported
 #' * [`str_starts()`][stringr::str_starts()]
 #' * [`str_sub()`][stringr::str_sub()]: `start` and `end` must be length 1

@@ -18,13 +18,13 @@
 #pragma once
 
 #if defined(_MSC_VER)
-#pragma warning(push)
-#pragma warning(disable : 4141)
-#pragma warning(disable : 4146)
-#pragma warning(disable : 4244)
-#pragma warning(disable : 4267)
-#pragma warning(disable : 4291)
-#pragma warning(disable : 4624)
+#  pragma warning(push)
+#  pragma warning(disable : 4141)
+#  pragma warning(disable : 4146)
+#  pragma warning(disable : 4244)
+#  pragma warning(disable : 4267)
+#  pragma warning(disable : 4291)
+#  pragma warning(disable : 4624)
 #endif
 
 #include <llvm/ExecutionEngine/ExecutionEngine.h>
@@ -33,11 +33,11 @@
 #include <llvm/IR/Module.h>
 
 #if LLVM_VERSION_MAJOR >= 10
-#define LLVM_ALIGN(alignment) (llvm::Align((alignment)))
+#  define LLVM_ALIGN(alignment) (llvm::Align((alignment)))
 #else
-#define LLVM_ALIGN(alignment) (alignment)
+#  define LLVM_ALIGN(alignment) (alignment)
 #endif
 
 #if defined(_MSC_VER)
-#pragma warning(pop)
+#  pragma warning(pop)
 #endif

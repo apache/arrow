@@ -137,7 +137,13 @@ duckdb_disconnector <- function(con, tbl_name) {
 
 #' Create an Arrow object from a DuckDB connection
 #'
-#' This can be used in pipelines that pass data back and forth between Arrow and DuckDB
+#' This can be used in pipelines that pass data back and forth between Arrow and
+#' DuckDB.
+#'
+#' Note that you can only call `collect()` or `compute()` on the result of this
+#' function once. To work around this limitation, you should either only call
+#' `collect()` as the final step in a pipeline or call `as_arrow_table()` on the
+#' result to materialize the entire Table in-memory.
 #'
 #' @param .data the object to be converted
 #' @return A `RecordBatchReader`.

@@ -19,6 +19,7 @@
 #include <cmath>
 
 #include "arrow/memory_pool.h"
+#include "arrow/util/logging_internal.h"
 #include "gandiva/filter.h"
 #include "gandiva/function_registry_common.h"
 #include "gandiva/tests/test_util.h"
@@ -180,7 +181,7 @@ TEST_F(TestIn, TestInDecimal) {
   auto decimal_type = std::make_shared<arrow::Decimal128Type>(precision, scale);
 
   // schema for input fields
-  auto field0 = field("f0", arrow::decimal(precision, scale));
+  auto field0 = field("f0", arrow::decimal128(precision, scale));
   auto schema = arrow::schema({field0});
 
   // Build In f0 + f1 in (6, 11)

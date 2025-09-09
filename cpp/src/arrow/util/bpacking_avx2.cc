@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/util/bpacking_avx2.h"
+#include "arrow/util/bpacking_avx2_internal.h"
 #include "arrow/util/bpacking_simd256_generated_internal.h"
 #include "arrow/util/bpacking_simd_internal.h"
 

@@ -599,7 +599,9 @@ namespace {
 // operations.
 struct PyListAssigner {
  public:
-  explicit PyListAssigner(PyObject* list) : list_(list) { DCHECK(PyList_Check(list_)); }
+  explicit PyListAssigner(PyObject* list) : list_(list) {
+    ARROW_DCHECK(PyList_Check(list_));
+  }
 
   PyListAssigner& operator*() { return *this; }
 

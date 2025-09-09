@@ -35,7 +35,7 @@ to use the functionality of it:
   To install: `pip install -e "arrow/dev/archery[lint]"`
 * benchmark – to run Arrow benchmarks using Archery
   To install: `pip install -e "arrow/dev/archery[benchmark]"`
-* docker – to run docker-compose based tasks more easily
+* docker – to run docker compose based tasks more easily
   To install: `pip install -e "arrow/dev/archery[docker]"`
 * release – release related helpers
   To install: `pip install -e "arrow/dev/archery[release]"`

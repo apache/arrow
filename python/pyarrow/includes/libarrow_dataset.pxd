@@ -48,10 +48,11 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         shared_ptr[CSchema] dataset_schema
         shared_ptr[CSchema] projected_schema
         c_bool use_threads
+        c_bool cache_metadata
         CExpression filter
 
     cdef cppclass CScanNodeOptions "arrow::dataset::ScanNodeOptions"(CExecNodeOptions):
-        CScanNodeOptions(shared_ptr[CDataset] dataset, shared_ptr[CScanOptions] scan_options)
+        CScanNodeOptions(shared_ptr[CDataset] dataset, shared_ptr[CScanOptions] scan_options, bint require_sequenced_output, bint implicit_ordering)
 
         shared_ptr[CScanOptions] scan_options
 
@@ -115,6 +116,7 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         CStatus Project(vector[CExpression]& exprs, vector[c_string]& columns)
         CStatus Filter(CExpression filter)
         CStatus UseThreads(c_bool use_threads)
+        CStatus CacheMetadata(c_bool cache_metadata)
         CStatus Pool(CMemoryPool* pool)
         CStatus BatchSize(int64_t batch_size)
         CStatus BatchReadahead(int32_t batch_readahead)
@@ -154,6 +156,7 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
 
     cdef cppclass CInspectOptions "arrow::dataset::InspectOptions":
         int fragments
+        CField.CMergeOptions field_merge_options
 
     cdef cppclass CFinishOptions "arrow::dataset::FinishOptions":
         shared_ptr[CSchema] schema
@@ -179,6 +182,7 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         const shared_ptr[CFileSystem]& filesystem() const
         const shared_ptr[CBuffer]& buffer() const
         const int64_t size() const
+        CResult[shared_ptr[CRandomAccessFile]] Open() const
         # HACK: Cython can't handle all the overloads so don't declare them.
         # This means invalid construction of CFileSource won't be caught in
         # the C++ generation phase (though it will still be caught when
@@ -219,6 +223,7 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         shared_ptr[CFileSystem] filesystem
         c_string base_dir
         shared_ptr[CPartitioning] partitioning
+        c_bool preserve_order
         int max_partitions
         c_string basename_template
         function[cb_writer_finish_internal] writer_pre_finish
@@ -285,9 +290,14 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         CJSONParseOptions parse_options
         CJSONReadOptions read_options
 
+    cdef struct CPartitionPathFormat "arrow::dataset::PartitionPathFormat":
+        c_string directory
+        c_string filename
+
     cdef cppclass CPartitioning "arrow::dataset::Partitioning":
         c_string type_name() const
         CResult[CExpression] Parse(const c_string & path) const
+        CResult[CPartitionPathFormat] Format(const CExpression & expr) const
         const shared_ptr[CSchema] & schema()
         c_bool Equals(const CPartitioning& other) const
 

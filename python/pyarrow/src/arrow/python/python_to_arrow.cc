@@ -202,7 +202,7 @@ class PyValue {
       return true;
     } else if (obj == Py_False) {
       return false;
-    } else if (PyArray_IsScalar(obj, Bool)) {
+    } else if (has_numpy() && PyArray_IsScalar(obj, Bool)) {
       return reinterpret_cast<PyBoolScalarObject*>(obj)->obval == NPY_TRUE;
     } else {
       return internal::InvalidValue(obj, "tried to convert to boolean");
@@ -226,9 +226,16 @@ class PyValue {
   }
 
   static Result<uint16_t> Convert(const HalfFloatType*, const O&, I obj) {
-    uint16_t value;
-    RETURN_NOT_OK(PyFloat_AsHalf(obj, &value));
-    return value;
+    if (internal::PyFloatScalar_Check(obj)) {
+      return PyFloat_AsHalf(obj);
+    } else if (internal::PyIntScalar_Check(obj)) {
+      double float_val{};
+      RETURN_NOT_OK(internal::IntegerScalarToDoubleSafe(obj, &float_val));
+      const auto half_val = arrow::util::Float16::FromDouble(float_val);
+      return half_val.bits();
+    } else {
+      return internal::InvalidValue(obj, "tried to convert to float16");
+    }
   }
 
   static Result<float> Convert(const FloatType*, const O&, I obj) {
@@ -257,6 +264,18 @@ class PyValue {
     } else {
       return internal::InvalidValue(obj, "tried to convert to double");
     }
+    return value;
+  }
+
+  static Result<Decimal32> Convert(const Decimal32Type* type, const O&, I obj) {
+    Decimal32 value;
+    RETURN_NOT_OK(internal::DecimalFromPyObject(obj, *type, &value));
+    return value;
+  }
+
+  static Result<Decimal64> Convert(const Decimal64Type* type, const O&, I obj) {
+    Decimal64 value;
+    RETURN_NOT_OK(internal::DecimalFromPyObject(obj, *type, &value));
     return value;
   }
 
@@ -385,7 +404,7 @@ class PyValue {
         default:
           return Status::UnknownError("Invalid time unit");
       }
-    } else if (PyArray_CheckAnyScalarExact(obj)) {
+    } else if (has_numpy() && PyArray_CheckAnyScalarExact(obj)) {
       // validate that the numpy scalar has np.datetime64 dtype
       ARROW_ASSIGN_OR_RAISE(auto numpy_type, NumPyScalarToArrowDataType(obj));
       if (!numpy_type->Equals(*type)) {
@@ -464,7 +483,7 @@ class PyValue {
         default:
           return Status::UnknownError("Invalid time unit");
       }
-    } else if (PyArray_CheckAnyScalarExact(obj)) {
+    } else if (has_numpy() && PyArray_CheckAnyScalarExact(obj)) {
       // validate that the numpy scalar has np.datetime64 dtype
       ARROW_ASSIGN_OR_RAISE(auto numpy_type, NumPyScalarToArrowDataType(obj));
       if (!numpy_type->Equals(*type)) {
@@ -530,7 +549,7 @@ class PyConverter : public Converter<PyObject*, PyConversionOptions> {
  public:
   // Iterate over the input values and defer the conversion to the Append method
   Status Extend(PyObject* values, int64_t size, int64_t offset = 0) override {
-    DCHECK_GE(size, offset);
+    ARROW_DCHECK_GE(size, offset);
     /// Ensure we've allocated enough space
     RETURN_NOT_OK(this->Reserve(size - offset));
     // Iterate over the items adding each one
@@ -542,7 +561,7 @@ class PyConverter : public Converter<PyObject*, PyConversionOptions> {
   // Convert and append a sequence of values masked with a numpy array
   Status ExtendMasked(PyObject* values, PyObject* mask, int64_t size,
                       int64_t offset = 0) override {
-    DCHECK_GE(size, offset);
+    ARROW_DCHECK_GE(size, offset);
     /// Ensure we've allocated enough space
     RETURN_NOT_OK(this->Reserve(size - offset));
     // Iterate over the items adding each one
@@ -664,7 +683,7 @@ class PyPrimitiveConverter<
       ARROW_ASSIGN_OR_RAISE(
           auto converted, PyValue::Convert(this->primitive_type_, this->options_, value));
       // Numpy NaT sentinels can be checked after the conversion
-      if (PyArray_CheckAnyScalarExact(value) &&
+      if (has_numpy() && PyArray_CheckAnyScalarExact(value) &&
           PyValue::IsNaT(this->primitive_type_, converted)) {
         this->primitive_builder_->UnsafeAppendNull();
       } else {
@@ -804,8 +823,7 @@ class PyListConverter : public ListConverter<T, PyConverter, PyConverterTrait> {
     if (PyValue::IsNull(this->options_, value)) {
       return this->list_builder_->AppendNull();
     }
-
-    if (PyArray_Check(value)) {
+    if (has_numpy() && PyArray_Check(value)) {
       RETURN_NOT_OK(AppendNdarray(value));
     } else if (PySequence_Check(value)) {
       RETURN_NOT_OK(AppendSequence(value));
@@ -1256,7 +1274,7 @@ Result<std::shared_ptr<ChunkedArray>> ConvertPySequence(PyObject* obj, PyObject*
   } else {
     options.strict = true;
   }
-  DCHECK_GE(size, 0);
+  ARROW_DCHECK_GE(size, 0);
 
   ARROW_ASSIGN_OR_RAISE(auto converter, (MakeConverter<PyConverter, PyConverterTrait>(
                                             options.type, options, pool)));

@@ -24,6 +24,7 @@ import subprocess
 from . import cdata
 from .tester import Tester, CDataExporter, CDataImporter
 from .util import run_cmd, log
+from ..utils.source import ARROW_ROOT_DEFAULT
 
 
 ARROW_BUILD_ROOT = os.environ.get(
@@ -34,7 +35,7 @@ ARROW_BUILD_ROOT = os.environ.get(
 
 def load_version_from_pom():
     import xml.etree.ElementTree as ET
-    tree = ET.parse(os.path.join(ARROW_BUILD_ROOT, 'java', 'pom.xml'))
+    tree = ET.parse(os.path.join(ARROW_ROOT_DEFAULT, 'java', 'pom.xml'))
     tag_pattern = '{http://maven.apache.org/POM/4.0.0}version'
     version_tag = list(tree.getroot().findall(tag_pattern))[0]
     return version_tag.text
@@ -338,10 +339,8 @@ class JavaTester(Tester):
                 server.kill()
                 out, err = server.communicate()
                 raise RuntimeError(
-                    'Flight-Java server did not start properly, '
-                    'stdout:\n{}\n\nstderr:\n{}\n'.format(
-                        output + out.decode(), err.decode()
-                    )
+                    "Flight-Java server did not start properly, "
+                    f"stdout:\n{output + out.decode()}\n\nstderr:\n{err.decode()}\n"
                 )
             port = int(output.split(':')[1])
             yield port

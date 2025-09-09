@@ -16,6 +16,7 @@
 // under the License.
 
 #include "arrow/acero/asof_join_node.h"
+#include "arrow/acero/accumulation_queue.h"
 #include "arrow/acero/backpressure_handler.h"
 #include "arrow/acero/concurrent_queue_internal.h"
 
@@ -31,10 +32,11 @@
 #include <unordered_set>
 
 #include "arrow/acero/exec_plan.h"
+#include "arrow/acero/exec_plan_internal.h"
 #include "arrow/acero/options.h"
 #include "arrow/acero/unmaterialized_table_internal.h"
 #ifndef NDEBUG
-#include "arrow/acero/options_internal.h"
+#  include "arrow/acero/options_internal.h"
 #endif
 #include "arrow/acero/query_context.h"
 #include "arrow/acero/schema_util.h"
@@ -42,7 +44,7 @@
 #include "arrow/array/builder_binary.h"
 #include "arrow/array/builder_primitive.h"
 #ifndef NDEBUG
-#include "arrow/compute/function_internal.h"
+#  include "arrow/compute/function_internal.h"
 #endif
 #include "arrow/acero/time_series_util.h"
 #include "arrow/compute/key_hash_internal.h"
@@ -55,6 +57,7 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/config.h"
 #include "arrow/util/future.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/string.h"
 
 namespace arrow {
@@ -207,16 +210,16 @@ class DebugSync {
   std::unique_lock<std::mutex> debug_lock_;
 };
 
-#define DEBUG_SYNC(node, ...) DebugSync(node).insert(__VA_ARGS__)
-#define DEBUG_MANIP(manip) \
-  DebugSync::Manip([](DebugSync& d) -> DebugSync& { return d << manip; })
-#define NDEBUG_EXPLICIT
-#define DEBUG_ADD(ndebug, ...) ndebug, __VA_ARGS__
+#  define DEBUG_SYNC(node, ...) DebugSync(node).insert(__VA_ARGS__)
+#  define DEBUG_MANIP(manip) \
+    DebugSync::Manip([](DebugSync& d) -> DebugSync& { return d << manip; })
+#  define NDEBUG_EXPLICIT
+#  define DEBUG_ADD(ndebug, ...) ndebug, __VA_ARGS__
 #else
-#define DEBUG_SYNC(...)
-#define DEBUG_MANIP(...)
-#define NDEBUG_EXPLICIT explicit
-#define DEBUG_ADD(ndebug, ...) ndebug
+#  define DEBUG_SYNC(...)
+#  define DEBUG_MANIP(...)
+#  define NDEBUG_EXPLICIT explicit
+#  define DEBUG_ADD(ndebug, ...) ndebug
 #endif
 
 struct MemoStore {
@@ -471,7 +474,7 @@ class BackpressureController : public BackpressureControl {
   std::atomic<int32_t>& backpressure_counter_;
 };
 
-class InputState {
+class InputState : public util::SerialSequencingQueue::Processor {
   // InputState corresponds to an input
   // Input record batches are queued up in InputState until processed and
   // turned into output record batches.
@@ -482,7 +485,8 @@ class InputState {
              const std::shared_ptr<arrow::Schema>& schema,
              const col_index_t time_col_index,
              const std::vector<col_index_t>& key_col_index)
-      : queue_(std::move(handler)),
+      : sequencer_(util::SerialSequencingQueue::Make(this)),
+        queue_(std::move(handler)),
         schema_(schema),
         time_col_index_(time_col_index),
         key_col_index_(key_col_index),
@@ -565,7 +569,7 @@ class InputState {
 
   // Gets latest batch (precondition: must not be empty)
   const std::shared_ptr<arrow::RecordBatch>& GetLatestBatch() const {
-    return queue_.UnsyncFront();
+    return queue_.Front();
   }
 
 #define LATEST_VAL_CASE(id, val)                     \
@@ -632,17 +636,14 @@ class InputState {
       }
       latest_time_ = next_time;
       // If we have an active batch
-      if (++latest_ref_row_ >= (row_index_t)queue_.UnsyncFront()->num_rows()) {
+      if (++latest_ref_row_ >= (row_index_t)queue_.Front()->num_rows()) {
         // hit the end of the batch, need to get the next batch if possible.
         ++batches_processed_;
         latest_ref_row_ = 0;
-        have_active_batch &= !queue_.TryPop();
-        if (have_active_batch) {
-          DCHECK_GT(queue_.UnsyncFront()->num_rows(), 0);  // empty batches disallowed
-          memo_.UpdateTime(GetTime(queue_.UnsyncFront().get(), time_type_id_,
-                                   time_col_index_,
-                                   0));  // time changed
-        }
+        bool did_pop = queue_.TryPop().has_value();
+        DCHECK(did_pop);
+        ARROW_UNUSED(did_pop);
+        have_active_batch = !queue_.Empty();
       }
     }
     return have_active_batch;
@@ -699,7 +700,16 @@ class InputState {
                DEBUG_MANIP(std::endl));
     return updated;
   }
+  Status InsertBatch(ExecBatch batch) {
+    return sequencer_->InsertBatch(std::move(batch));
+  }
 
+  Status Process(ExecBatch batch) override {
+    auto rb = *batch.ToRecordBatch(schema_);
+    DEBUG_SYNC(node_, "received batch from input ", index_, ":", DEBUG_MANIP(std::endl),
+               rb->ToString(), DEBUG_MANIP(std::endl));
+    return Push(rb);
+  }
   void Rehash() {
     DEBUG_SYNC(node_, "rehashing for input ", index_, ":", DEBUG_MANIP(std::endl));
     MemoStore new_memo(DEBUG_ADD(memo_.no_future_, node_, index_));
@@ -760,6 +770,8 @@ class InputState {
   }
 
  private:
+  // ExecBatch Sequencer
+  std::unique_ptr<util::SerialSequencingQueue> sequencer_;
   // Pending record batches. The latest is the front. Batches cannot be empty.
   BackpressureConcurrentQueue<std::shared_ptr<RecordBatch>> queue_;
   // Schema associated with the input
@@ -1091,7 +1103,7 @@ class AsofJoinNode : public ExecNode {
 
   void ProcessThread() {
     for (;;) {
-      if (!process_.Pop()) {
+      if (!process_.WaitAndPop()) {
         EndFromProcessThread();
         return;
       }
@@ -1136,7 +1148,9 @@ class AsofJoinNode : public ExecNode {
   virtual ~AsofJoinNode() {
 #ifdef ARROW_ENABLE_THREADING
     PushProcess(false);
-    process_thread_.join();
+    if (process_thread_.joinable()) {
+      process_thread_.join();
+    }
 #endif
   }
 
@@ -1399,6 +1413,9 @@ class AsofJoinNode : public ExecNode {
     // InputReceived may be called after execution was finished. Pushing it to the
     // InputState is unnecessary since we're done (and anyway may cause the
     // BackPressureController to pause the input, causing a deadlock), so drop it.
+    if (::arrow::compute::kUnsequencedIndex == batch.index)
+      return Status::Invalid("AsofJoin requires sequenced input");
+
     if (process_task_.is_finished()) {
       DEBUG_SYNC(this, "Input received while done. Short circuiting.",
                  DEBUG_MANIP(std::endl));
@@ -1409,12 +1426,9 @@ class AsofJoinNode : public ExecNode {
     ARROW_DCHECK(std_has(inputs_, input));
     size_t k = std_find(inputs_, input) - inputs_.begin();
 
-    // Put into the queue
-    auto rb = *batch.ToRecordBatch(input->output_schema());
-    DEBUG_SYNC(this, "received batch from input ", k, ":", DEBUG_MANIP(std::endl),
-               rb->ToString(), DEBUG_MANIP(std::endl));
+    // Put into the sequencing queue
+    ARROW_RETURN_NOT_OK(state_.at(k)->InsertBatch(std::move(batch)));
 
-    ARROW_RETURN_NOT_OK(state_.at(k)->Push(rb));
     PushProcess(true);
 
     return Status::OK();

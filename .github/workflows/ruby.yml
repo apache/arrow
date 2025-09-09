@@ -19,10 +19,17 @@ name: C GLib & Ruby
 
 on:
   push:
+    branches:
+      - '**'
+      - '!dependabot/**'
+    tags:
+      - '**'
     paths:
+      - '.dockerignore'
       - '.github/workflows/ruby.yml'
       - 'ci/docker/**'
       - 'ci/scripts/c_glib_*'
+      - 'ci/scripts/ccache_setup.sh'
       - 'ci/scripts/cpp_*'
       - 'ci/scripts/msys2_*'
       - 'ci/scripts/ruby_*'
@@ -33,9 +40,11 @@ on:
       - 'ruby/**'
   pull_request:
     paths:
+      - '.dockerignore'
       - '.github/workflows/ruby.yml'
       - 'ci/docker/**'
       - 'ci/scripts/c_glib_*'
+      - 'ci/scripts/ccache_setup.sh'
       - 'ci/scripts/cpp_*'
       - 'ci/scripts/msys2_*'
       - 'ci/scripts/ruby_*'
@@ -72,20 +81,20 @@ jobs:
       UBUNTU: ${{ matrix.ubuntu }}
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           fetch-depth: 0
           submodules: recursive
       - name: Cache Docker Volumes
-        uses: actions/cache@13aacd865c20de90d75de3b17ebe84f7a17d57d2 # v4.0.0
+        uses: actions/cache@v4
         with:
           path: .docker
           key: ubuntu-${{ matrix.ubuntu }}-ruby-${{ hashFiles('cpp/**') }}
           restore-keys: ubuntu-${{ matrix.ubuntu }}-ruby-
       - name: Setup Python
-        uses: actions/setup-python@39cd14951b08e74b54015e9e001cdefcf80e669f # v5.1.1
+        uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6.0.0
         with:
-          python-version: 3.8
+          python-version: 3.12
       - name: Setup Archery
         run: pip install -e dev/archery[docker]
       - name: Execute Docker Build
@@ -93,8 +102,7 @@ jobs:
           ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
           ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
         run: |
-          sudo sysctl -w kernel.core_pattern="core.%e.%p"
-          ulimit -c unlimited
+          source ci/scripts/util_enable_core_dumps.sh
           archery docker run \
             -e ARROW_FLIGHT=ON \
             -e ARROW_FLIGHT_SQL=ON \
@@ -116,7 +124,7 @@ jobs:
         run: archery docker push ubuntu-ruby
 
   macos:
-    name: AMD64 macOS 14 GLib & Ruby
+    name: ARM64 macOS 14 GLib & Ruby
     runs-on: macos-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     timeout-minutes: 60
@@ -142,15 +150,21 @@ jobs:
       ARROW_WITH_ZSTD: ON
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v4
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           fetch-depth: 0
           submodules: recursive
       - name: Install Homebrew Dependencies
         shell: bash
         run: |
+          # We can remove this once GitHub hosted runners include
+          # Meson 1.8.4 or later by default.
+          brew update
           brew bundle --file=cpp/Brewfile
           brew bundle --file=c_glib/Brewfile
+          # For Meson.
+          # See also: https://github.com/mesonbuild/meson/issues/7701
+          echo "PKG_CONFIG=$(brew --prefix pkgconf)/bin/pkgconf" >> $GITHUB_ENV
       - name: Install Ruby Dependencies
         run: |
           export MAKEFLAGS="-j$(sysctl -n hw.ncpu)"
@@ -187,7 +201,7 @@ jobs:
 
   windows-mingw:
     name: AMD64 Windows MinGW ${{ matrix.mingw-n-bits }} GLib & Ruby
-    runs-on: windows-2019
+    runs-on: windows-2022
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     timeout-minutes: 90
     strategy:
@@ -220,12 +234,8 @@ jobs:
       ARROW_WITH_SNAPPY: ON
       ARROW_WITH_ZLIB: ON
       ARROW_WITH_ZSTD: ON
-      # Don't use preinstalled Boost by empty BOOST_ROOT and
-      # -DBoost_NO_BOOST_CMAKE=ON
-      BOOST_ROOT: ""
       ARROW_CMAKE_ARGS: >-
         -DARROW_PACKAGE_PREFIX=/ucrt${{ matrix.mingw-n-bits }}
-        -DBoost_NO_BOOST_CMAKE=ON
         -DCMAKE_FIND_PACKAGE_PREFER_CONFIG=ON
       CMAKE_UNITY_BUILD: ON
     steps:
@@ -238,7 +248,7 @@ jobs:
             /d 1 `
             /f
       - name: Checkout Arrow
-        uses: actions/checkout@v4
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           fetch-depth: 0
           submodules: recursive
@@ -304,9 +314,9 @@ jobs:
 
   windows-msvc:
     name: AMD64 Windows MSVC GLib
-    runs-on: windows-2019
+    runs-on: windows-2022
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
-    timeout-minutes: 90
+    timeout-minutes: 240
     strategy:
       fail-fast: false
     env:
@@ -342,10 +352,8 @@ jobs:
       CMAKE_CXX_STANDARD: "17"
       CMAKE_GENERATOR: Ninja
       CMAKE_INSTALL_PREFIX: "${{ github.workspace }}/dist"
-      CMAKE_UNITY_BUILD: ON
       VCPKG_BINARY_SOURCES: 'clear;nuget,GitHub,readwrite'
-      VCPKG_ROOT: "${{ github.workspace }}/vcpkg"
-      VCPKG_TRIPLET: x64-windows
+      VCPKG_DEFAULT_TRIPLET: x64-windows
     permissions:
       packages: write
     steps:
@@ -358,14 +366,10 @@ jobs:
             /d 1 `
             /f
       - name: Checkout Arrow
-        uses: actions/checkout@v4
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           fetch-depth: 0
           submodules: recursive
-      - name: Install vcpkg
-        shell: bash
-        run: |
-          ci/scripts/install_vcpkg.sh "${VCPKG_ROOT}"
       - name: Install meson
         run: |
           python -m pip install meson
@@ -391,29 +395,44 @@ jobs:
         env:
           # We can invalidate the current cache by updating this.
           CACHE_VERSION: "2024-05-09"
+      - name: Checkout vcpkg
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          fetch-depth: 0
+          path: vcpkg
+          repository: microsoft/vcpkg
+      - name: Bootstrap vcpkg
+        run: |
+          vcpkg\bootstrap-vcpkg.bat
+          $VCPKG_ROOT = $(Resolve-Path -LiteralPath "vcpkg").ToString()
+          Write-Output ${VCPKG_ROOT} | `
+            Out-File -FilePath ${Env:GITHUB_PATH} -Encoding utf8 -Append
+          Write-Output "VCPKG_ROOT=${VCPKG_ROOT}" | `
+            Out-File -FilePath ${Env:GITHUB_ENV} -Encoding utf8 -Append
       - name: Setup NuGet credentials for vcpkg caching
         shell: bash
         run: |
-          $(vcpkg/vcpkg.exe fetch nuget | tail -n 1) \
+          $(vcpkg fetch nuget | tail -n 1) \
             sources add \
             -source "https://nuget.pkg.github.com/$GITHUB_REPOSITORY_OWNER/index.json" \
             -storepasswordincleartext \
             -name "GitHub" \
             -username "$GITHUB_REPOSITORY_OWNER" \
             -password "${{ secrets.GITHUB_TOKEN }}"
-          $(vcpkg/vcpkg.exe fetch nuget | tail -n 1) \
+          $(vcpkg fetch nuget | tail -n 1) \
             setapikey "${{ secrets.GITHUB_TOKEN }}" \
             -source "https://nuget.pkg.github.com/$GITHUB_REPOSITORY_OWNER/index.json"
-      - name: Build C++ vcpkg dependencies
-        run: |
-          vcpkg\vcpkg.exe install --triplet $env:VCPKG_TRIPLET --x-manifest-root cpp --x-install-root build\cpp\vcpkg_installed
       - name: Build C++
         shell: cmd
         run: |
-          call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
+          set VCPKG_ROOT_KEEP=%VCPKG_ROOT%
+          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
+          set VCPKG_ROOT=%VCPKG_ROOT_KEEP%
           bash -c "ci/scripts/cpp_build.sh $(pwd) $(pwd)/build"
       - name: Build GLib
         shell: cmd
         run: |
-          call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
+          set VCPKG_ROOT_KEEP=%VCPKG_ROOT%
+          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
+          set VCPKG_ROOT=%VCPKG_ROOT_KEEP%
           bash -c "ci/scripts/c_glib_build.sh $(pwd) $(pwd)/build"

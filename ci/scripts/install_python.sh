@@ -25,12 +25,11 @@ platforms=([windows]=Windows
            [linux]=Linux)
 
 declare -A versions
-versions=([3.8]=3.8.10
-          [3.9]=3.9.13
-          [3.10]=3.10.11
+versions=([3.10]=3.10.11
           [3.11]=3.11.9
-          [3.12]=3.12.4
-          [3.13]=3.13.0)
+          [3.12]=3.12.9
+          [3.13]=3.13.2
+          [3.13t]=3.13.2)
 
 if [ "$#" -ne 2 ]; then
   echo "Usage: $0 <platform> <version>"
@@ -44,33 +43,47 @@ platform=${platforms[$1]}
 version=$2
 full_version=${versions[$2]}
 
-if [ $platform = "macOS" ]; then
+if [ "$platform" = "macOS" ]; then
     echo "Downloading Python installer..."
 
-    if [ "$version" = "3.13" ];
-    then
-        fname="python-${full_version}rc1-macos11.pkg"
-    elif [ "$(uname -m)" = "arm64" ] || \
-         [ "$version" = "3.10" ] || \
-         [ "$version" = "3.11" ] || \
-         [ "$version" = "3.12" ];
-    then
-        fname="python-${full_version}-macos11.pkg"
-    else
-        fname="python-${full_version}-macosx10.9.pkg"
-    fi
+    fname="python-${full_version}-macos11.pkg"
     wget "https://www.python.org/ftp/python/${full_version}/${fname}"
 
     echo "Installing Python..."
-    installer -pkg $fname -target /
-    rm $fname
+    if [[ $2 == "3.13t" ]]; then
+        # See https://github.com/python/cpython/issues/120098#issuecomment-2151122033 for more info on this.
+        cat > ./choicechanges.plist <<EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<array>
+        <dict>
+                <key>attributeSetting</key>
+                <integer>1</integer>
+                <key>choiceAttribute</key>
+                <string>selected</string>
+                <key>choiceIdentifier</key>
+                <string>org.python.Python.PythonTFramework-3.13</string>
+        </dict>
+</array>
+</plist>
+EOF
+        installer -pkg "$fname" -applyChoiceChangesXML ./choicechanges.plist -target /
+        rm ./choicechanges.plist
+    else
+        installer -pkg "$fname" -target /
+    fi
+    rm "$fname"
+
+    python="/Library/Frameworks/Python.framework/Versions/${version}/bin/python${version}"
+    if [[ $2 == "3.13t" ]]; then
+        python="/Library/Frameworks/PythonT.framework/Versions/3.13/bin/python3.13t"
+    fi
 
     echo "Installing Pip..."
-    python="/Library/Frameworks/Python.framework/Versions/${version}/bin/python${version}"
-    pip="${python} -m pip"
-
     $python -m ensurepip
-    $pip install -U pip setuptools
+    $python -m pip install -U pip setuptools
 else
     echo "Unsupported platform: $platform"
+    exit 1
 fi

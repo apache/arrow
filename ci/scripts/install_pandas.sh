@@ -32,7 +32,7 @@ if [ "${numpy}" = "nightly" ]; then
 elif [ "${numpy}" = "latest" ]; then
   pip install numpy
 else
-  pip install numpy==${numpy}
+  pip install numpy=="${numpy}"
 fi
 
 if [ "${pandas}" = "upstream_devel" ]; then
@@ -42,5 +42,5 @@ elif [ "${pandas}" = "nightly" ]; then
 elif [ "${pandas}" = "latest" ]; then
   pip install pandas
 else
-  pip install pandas==${pandas}
+  pip install pandas=="${pandas}"
 fi

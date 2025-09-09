@@ -230,6 +230,20 @@ def _break_traceback_cycle_from_frame(frame):
     refs = frame = this_frame = None
 
 
+def _download_urllib(url, out_path):
+    from urllib.request import urlopen
+    with urlopen(url) as response:
+        with open(out_path, 'wb') as f:
+            f.write(response.read())
+
+
+def _download_requests(url, out_path):
+    import requests
+    with requests.get(url) as response:
+        with open(out_path, 'wb') as f:
+            f.write(response.content)
+
+
 def download_tzdata_on_windows():
     r"""
     Download and extract latest IANA timezone database into the
@@ -240,19 +254,23 @@ def download_tzdata_on_windows():
 
     import tarfile
 
+    tzdata_url = "https://data.iana.org/time-zones/tzdata-latest.tar.gz"
     tzdata_path = os.path.expandvars(r"%USERPROFILE%\Downloads\tzdata")
-    tzdata_compressed = os.path.join(tzdata_path, "tzdata.tar.gz")
+    tzdata_compressed_path = os.path.join(tzdata_path, "tzdata.tar.gz")
+    windows_zones_url = "https://raw.githubusercontent.com/unicode-org/cldr/master/common/supplemental/windowsZones.xml"  # noqa
+    windows_zones_path = os.path.join(tzdata_path, "windowsZones.xml")
     os.makedirs(tzdata_path, exist_ok=True)
 
-    from urllib.request import urlopen
-    with urlopen('https://data.iana.org/time-zones/tzdata-latest.tar.gz') as response:
-        with open(tzdata_compressed, 'wb') as f:
-            f.write(response.read())
+    # Try to download the files with requests and then fall back to urllib. This
+    # works around possible issues in certain older environment (GH-45295)
+    try:
+        _download_requests(tzdata_url, tzdata_compressed_path)
+        _download_requests(windows_zones_url, windows_zones_path)
+    except ImportError:
+        _download_urllib(tzdata_url, tzdata_compressed_path)
+        _download_urllib(windows_zones_url, windows_zones_path)
 
-    assert os.path.exists(tzdata_compressed)
+    assert os.path.exists(tzdata_compressed_path)
+    assert os.path.exists(windows_zones_path)
 
-    tarfile.open(tzdata_compressed).extractall(tzdata_path)
-
-    with urlopen('https://raw.githubusercontent.com/unicode-org/cldr/master/common/supplemental/windowsZones.xml') as response_zones:   # noqa
-        with open(os.path.join(tzdata_path, "windowsZones.xml"), 'wb') as f:
-            f.write(response_zones.read())
+    tarfile.open(tzdata_compressed_path).extractall(tzdata_path)

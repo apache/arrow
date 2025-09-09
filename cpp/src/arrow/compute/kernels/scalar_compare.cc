@@ -22,9 +22,11 @@
 
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/kernels/common_internal.h"
+#include "arrow/compute/registry_internal.h"
 #include "arrow/type.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_ops.h"
+#include "arrow/util/logging_internal.h"
 
 namespace arrow {
 
@@ -434,8 +436,8 @@ std::shared_ptr<ScalarFunction> MakeCompareFunction(std::string name, FunctionDo
 
   for (const auto id : {Type::DECIMAL128, Type::DECIMAL256}) {
     auto exec = GenerateDecimal<applicator::ScalarBinaryEqualTypes, BooleanType, Op>(id);
-    DCHECK_OK(
-        func->AddKernel({InputType(id), InputType(id)}, boolean(), std::move(exec)));
+    DCHECK_OK(func->AddKernel({InputType(id), InputType(id)}, boolean(), std::move(exec),
+                              /*init=*/nullptr, DecimalsHaveSameScale()));
   }
 
   {

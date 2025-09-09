@@ -37,6 +37,7 @@
 #include "arrow/type_traits.h"
 #include "arrow/util/compare.h"
 #include "arrow/util/decimal.h"
+#include "arrow/util/float16.h"
 #include "arrow/util/visibility.h"
 #include "arrow/visit_type_inline.h"
 
@@ -134,7 +135,7 @@ namespace internal {
 constexpr auto kScalarScratchSpaceSize = sizeof(int64_t) * 2;
 
 template <typename Impl>
-struct ARROW_EXPORT ArraySpanFillFromScalarScratchSpace {
+struct ArraySpanFillFromScalarScratchSpace {
   //  16 bytes of scratch space to enable ArraySpan to be a view onto any
   //  Scalar- including binary scalars where we need to create a buffer
   //  that looks like two 32-bit or 64-bit offsets.
@@ -163,7 +164,7 @@ struct ARROW_EXPORT PrimitiveScalarBase : public Scalar {
 };
 
 template <typename T, typename CType = typename T::c_type>
-struct ARROW_EXPORT PrimitiveScalar : public PrimitiveScalarBase {
+struct PrimitiveScalar : public PrimitiveScalarBase {
   using PrimitiveScalarBase::PrimitiveScalarBase;
   using TypeClass = T;
   using ValueType = CType;
@@ -245,6 +246,12 @@ struct ARROW_EXPORT UInt64Scalar : public NumericScalar<UInt64Type> {
 
 struct ARROW_EXPORT HalfFloatScalar : public NumericScalar<HalfFloatType> {
   using NumericScalar<HalfFloatType>::NumericScalar;
+
+  explicit HalfFloatScalar(util::Float16 value)
+      : NumericScalar(value.bits(), float16()) {}
+
+  HalfFloatScalar(util::Float16 value, std::shared_ptr<DataType> type)
+      : NumericScalar(value.bits(), std::move(type)) {}
 };
 
 struct ARROW_EXPORT FloatScalar : public NumericScalar<FloatType> {
@@ -464,7 +471,7 @@ struct ARROW_EXPORT Date64Scalar : public DateScalar<Date64Type> {
 };
 
 template <typename T>
-struct ARROW_EXPORT TimeScalar : public TemporalScalar<T> {
+struct TimeScalar : public TemporalScalar<T> {
   using TemporalScalar<T>::TemporalScalar;
 
   TimeScalar(typename TemporalScalar<T>::ValueType value, TimeUnit::type unit)
@@ -543,7 +550,7 @@ struct ARROW_EXPORT DurationScalar : public TemporalScalar<DurationType> {
 };
 
 template <typename TYPE_CLASS, typename VALUE_TYPE>
-struct ARROW_EXPORT DecimalScalar : public internal::PrimitiveScalarBase {
+struct DecimalScalar : public internal::PrimitiveScalarBase {
   using internal::PrimitiveScalarBase::PrimitiveScalarBase;
   using TypeClass = TYPE_CLASS;
   using ValueType = VALUE_TYPE;
@@ -561,6 +568,14 @@ struct ARROW_EXPORT DecimalScalar : public internal::PrimitiveScalarBase {
   }
 
   ValueType value;
+};
+
+struct ARROW_EXPORT Decimal32Scalar : public DecimalScalar<Decimal32Type, Decimal32> {
+  using DecimalScalar::DecimalScalar;
+};
+
+struct ARROW_EXPORT Decimal64Scalar : public DecimalScalar<Decimal64Type, Decimal64> {
+  using DecimalScalar::DecimalScalar;
 };
 
 struct ARROW_EXPORT Decimal128Scalar : public DecimalScalar<Decimal128Type, Decimal128> {
@@ -958,6 +973,18 @@ struct MakeScalarImpl {
     // `static_cast<ValueRef>` makes a rvalue if ValueRef is `ValueType&&`
     out_ = std::make_shared<ScalarType>(
         static_cast<ValueType>(static_cast<ValueRef>(value_)), std::move(type_));
+    return Status::OK();
+  }
+
+  // This isn't captured by the generic case above because `util::Float16` isn't implicity
+  // convertible to `uint16_t` (HalfFloat's ValueType)
+  template <typename T>
+  std::enable_if_t<std::is_same_v<std::decay_t<ValueRef>, util::Float16> &&
+                       is_half_float_type<T>::value,
+                   Status>
+  Visit(const T& t) {
+    out_ = std::make_shared<HalfFloatScalar>(static_cast<ValueRef>(value_),
+                                             std::move(type_));
     return Status::OK();
   }
 

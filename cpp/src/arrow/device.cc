@@ -27,7 +27,7 @@
 #include "arrow/io/memory.h"
 #include "arrow/record_batch.h"
 #include "arrow/result.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 
 namespace arrow {
 

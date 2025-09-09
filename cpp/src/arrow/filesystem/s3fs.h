@@ -25,20 +25,16 @@
 #include "arrow/util/macros.h"
 #include "arrow/util/uri.h"
 
-namespace Aws {
-namespace Auth {
-
+namespace Aws::Auth {
 class AWSCredentialsProvider;
 class STSAssumeRoleCredentialsProvider;
+}  // namespace Aws::Auth
 
-}  // namespace Auth
-namespace STS {
+namespace Aws::STS {
 class STSClient;
-}
-}  // namespace Aws
+}  // namespace Aws::STS
 
-namespace arrow {
-namespace fs {
+namespace arrow::fs {
 
 /// Options for using a proxy for S3
 struct ARROW_EXPORT S3ProxyOptions {
@@ -100,6 +96,12 @@ class ARROW_EXPORT S3RetryStrategy {
 
 /// Options for the S3FileSystem implementation.
 struct ARROW_EXPORT S3Options {
+  /// \brief Smart defaults for option values
+  ///
+  /// The possible values for this setting are explained in the AWS docs:
+  /// https://docs.aws.amazon.com/sdkref/latest/guide/feature-smart-config-defaults.html
+  std::string smart_defaults = "standard";
+
   /// \brief AWS region to connect to.
   ///
   /// If unset, the AWS SDK will choose a default value.  The exact algorithm
@@ -196,6 +198,37 @@ struct ARROW_EXPORT S3Options {
   /// delay between retries.
   std::shared_ptr<S3RetryStrategy> retry_strategy;
 
+  /// Optional customer-provided key for server-side encryption (SSE-C).
+  ///
+  /// This should be the 32-byte AES-256 key, unencoded.
+  std::string sse_customer_key;
+
+  /// Optional path to a single PEM file holding all TLS CA certificates
+  ///
+  /// If empty, global filesystem options will be used (see FileSystemGlobalOptions);
+  /// if the corresponding global filesystem option is also empty, the underlying
+  /// TLS library's defaults will be used.
+  ///
+  /// Note this option may be ignored on some systems (Windows, macOS).
+  std::string tls_ca_file_path;
+
+  /// Optional path to a directory holding TLS CA
+  ///
+  /// The given directory should contain CA certificates as individual PEM files
+  /// named along the OpenSSL "hashed" format.
+  ///
+  /// If empty, global filesystem options will be used (see FileSystemGlobalOptions);
+  /// if the corresponding global filesystem option is also empty, the underlying
+  /// TLS library's defaults will be used.
+  ///
+  /// Note this option may be ignored on some systems (Windows, macOS).
+  std::string tls_ca_dir_path;
+
+  /// Whether to verify the S3 endpoint's TLS certificate
+  ///
+  /// This option applies if the scheme is "https".
+  bool tls_verify_certificates = true;
+
   S3Options();
 
   /// Configure with the default AWS credentials provider chain.
@@ -277,6 +310,7 @@ class ARROW_EXPORT S3FileSystem : public FileSystem {
 
   bool Equals(const FileSystem& other) const override;
   Result<std::string> PathFromUri(const std::string& uri_string) const override;
+  Result<std::string> MakeUri(std::string path) const override;
 
   /// \cond FALSE
   using FileSystem::CreateDir;
@@ -358,7 +392,9 @@ class ARROW_EXPORT S3FileSystem : public FileSystem {
 enum class S3LogLevel : int8_t { Off, Fatal, Error, Warn, Info, Debug, Trace };
 
 struct ARROW_EXPORT S3GlobalOptions {
+  /// The log level for S3-originating messages.
   S3LogLevel log_level;
+
   /// The number of threads to configure when creating AWS' I/O event loop
   ///
   /// Defaults to 1 as recommended by AWS' doc when the # of connections is
@@ -366,6 +402,16 @@ struct ARROW_EXPORT S3GlobalOptions {
   ///
   /// For more details see Aws::Crt::Io::EventLoopGroup
   int num_event_loop_threads = 1;
+
+  /// Whether to install a process-wide SIGPIPE handler
+  ///
+  /// The AWS SDK may sometimes emit SIGPIPE signals for certain errors;
+  /// by default, they would abort the current process.
+  /// This option, if enabled, will install a process-wide signal handler
+  /// that logs and otherwise ignore incoming SIGPIPE signals.
+  ///
+  /// This option has no effect on Windows.
+  bool install_sigpipe_handler = false;
 
   /// \brief Initialize with default options
   ///
@@ -418,5 +464,4 @@ Status EnsureS3Finalized();
 ARROW_EXPORT
 Result<std::string> ResolveS3BucketRegion(const std::string& bucket);
 
-}  // namespace fs
-}  // namespace arrow
+}  // namespace arrow::fs

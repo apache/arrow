@@ -367,6 +367,20 @@ TEST_P(TestRunEndEncodedArray, Builder) {
   }
 }
 
+TEST_P(TestRunEndEncodedArray, BuilderReuseAfterFinish) {
+  // GH-45532: RunEndEncodedBuilder should clear dimensions after a Finish() call
+  auto ree_type = run_end_encoded(run_end_type, utf8());
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<ArrayBuilder> builder, MakeBuilder(ree_type));
+  ASSERT_OK(builder->AppendScalar(*MakeScalar("test"), 100));
+  ASSERT_EQ(builder->length(), 100);
+  ASSERT_OK(builder->Finish());
+  ASSERT_EQ(builder->length(), 0);
+  ASSERT_EQ(*builder->type(), *run_end_encoded(run_end_type, utf8()));
+  ASSERT_OK(builder->Finish());
+  ASSERT_OK(builder->Finish());
+  ASSERT_EQ(builder->length(), 0);
+}
+
 TEST_P(TestRunEndEncodedArray, Validate) {
   auto run_ends_good = ArrayFromJSON(run_end_type, "[10, 20, 30, 40]");
   auto values = ArrayFromJSON(utf8(), R"(["A", "B", "C", null])");

@@ -53,6 +53,10 @@ GARROW_AVAILABLE_IN_ALL
 gboolean
 garrow_record_batch_writer_close(GArrowRecordBatchWriter *writer, GError **error);
 
+GARROW_AVAILABLE_IN_18_0
+gboolean
+garrow_record_batch_writer_is_closed(GArrowRecordBatchWriter *writer);
+
 #define GARROW_TYPE_RECORD_BATCH_STREAM_WRITER                                           \
   (garrow_record_batch_stream_writer_get_type())
 GARROW_AVAILABLE_IN_ALL

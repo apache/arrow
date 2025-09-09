@@ -27,7 +27,7 @@ Linux distributions. We strongly recommend using a 64-bit system.
 Python Compatibility
 --------------------
 
-PyArrow is currently compatible with Python 3.8, 3.9, 3.10 and 3.11.
+PyArrow is currently compatible with Python 3.10, 3.11, 3.12 and 3.13.
 
 Using Conda
 -----------
@@ -57,8 +57,8 @@ and macOS):
     pip install pyarrow
 
 If you encounter any importing issues of the pip wheels on Windows, you may
-need to install the `Visual C++ Redistributable for Visual Studio 2015
-<https://www.microsoft.com/en-us/download/details.aspx?id=48145>`_.
+need to install the `latest Visual C++ Redistributable for Visual Studio
+<https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist?view=msvc-170#latest-microsoft-visual-c-redistributable-version>`_.
 
 .. warning::
    On Linux, you will need pip >= 19.0 to detect the prebuilt binary packages.
@@ -71,13 +71,10 @@ See :ref:`python-development`.
 Dependencies
 ------------
 
-Required dependency
-
-* **NumPy 1.16.6** or higher.
-
 Optional dependencies
 
-* **pandas 1.0** or higher,
+* **NumPy 1.21.2** or higher.
+* **pandas 1.3.4** or higher,
 * **cffi**.
 
 Additional packages PyArrow is compatible with are :ref:`fsspec <filesystem-fsspec>`
@@ -100,6 +97,21 @@ a custom path to the database from Python:
 
    >>> import pyarrow as pa
    >>> pa.set_timezone_db_path("custom_path")
+
+You may encounter problems writing datetime data to an ORC file if you install
+pyarrow with pip. One possible solution to fix this problem:
+
+   1. Install tzdata with ``pip install tzdata``
+   2. Set the environment variable ``TZDIR = path\to\.venv\Lib\site-packages\tzdata\``
+
+You can find where ``tzdata`` is installed with the following python
+command:
+
+.. code-block:: python
+
+   >>> import tzdata
+   >>> print(tzdata.__file__)
+   path\to\.venv\Lib\site-packages\tzdata\__init__.py
 
 
 .. _python-conda-differences:

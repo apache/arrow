@@ -161,6 +161,10 @@ namespace Apache.Arrow.C
                 case FloatType _: return "f";
                 case DoubleType _: return "g";
                 // Decimal
+                case Decimal32Type decimalType:
+                    return $"d:{decimalType.Precision},{decimalType.Scale},32";
+                case Decimal64Type decimalType:
+                    return $"d:{decimalType.Precision},{decimalType.Scale},64";
                 case Decimal128Type decimalType:
                     return $"d:{decimalType.Precision},{decimalType.Scale}";
                 case Decimal256Type decimalType:

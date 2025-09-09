@@ -36,8 +36,10 @@
 #include "arrow/status.h"
 #include "arrow/testing/extension_type.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/testing/random.h"
 #include "arrow/testing/util.h"
 #include "arrow/type_traits.h"
+#include "arrow/util/float16.h"
 
 namespace arrow {
 
@@ -45,6 +47,7 @@ using compute::Cast;
 using compute::CastOptions;
 using internal::checked_cast;
 using internal::checked_pointer_cast;
+using util::Float16;
 
 std::shared_ptr<Scalar> CheckMakeNullScalar(const std::shared_ptr<DataType>& type) {
   const auto scalar = MakeNullScalar(type);
@@ -108,7 +111,7 @@ TEST(TestNullScalar, Cast) {
            list(int32()),
            struct_({field("f", int32())}),
            map(utf8(), int32()),
-           decimal(12, 2),
+           decimal128(12, 2),
            list_view(int32()),
            large_list(int32()),
            dense_union({field("string", utf8()), field("number", uint64())}),
@@ -156,22 +159,77 @@ TEST(TestBooleanScalar, Cast) {
   }
 }
 
+TEST(TestScalar, IdentityCast) {
+  random::RandomArrayGenerator gen(/*seed=*/42);
+  auto test_identity_cast_for_type =
+      [&gen](const std::shared_ptr<arrow::DataType>& data_type) {
+        auto tmp_array = gen.ArrayOf(data_type, /*size=*/1, /*null_probability=*/0.0);
+        ARROW_SCOPED_TRACE("data type = ", data_type->ToString());
+        ASSERT_OK_AND_ASSIGN(auto scalar, tmp_array->GetScalar(0));
+        ASSERT_OK_AND_ASSIGN(auto casted_scalar, scalar->CastTo(data_type));
+        ASSERT_TRUE(casted_scalar->Equals(*scalar));
+        ASSERT_TRUE(scalar->Equals(*casted_scalar));
+      };
+  for (auto& type : PrimitiveTypes()) {
+    test_identity_cast_for_type(type);
+  }
+  for (auto& type : DurationTypes()) {
+    test_identity_cast_for_type(type);
+  }
+  for (auto& type : IntervalTypes()) {
+    test_identity_cast_for_type(type);
+  }
+  for (auto& type : {
+           arrow::fixed_size_list(arrow::int32(), 20), arrow::list(arrow::int32()),
+           arrow::large_list(arrow::int32()),
+           // TODO(GH-45430): CastTo for ListView is not implemented yet.
+           // arrow::list_view(arrow::int32()), arrow::large_list_view(arrow::int32())
+           // TODO(GH-45431): CastTo for ComplexType is not implemented yet.
+           // arrow::map(arrow::binary(), arrow::int32()),
+           // struct_({field("float", arrow::float32())}),
+       }) {
+    test_identity_cast_for_type(type);
+  }
+  // TODO(GH-45429): CastTo for Decimal is not implemented yet.
+  /*
+  for (auto& type: {
+    arrow::decimal32(2, 2),
+    arrow::decimal64(4, 4),
+    arrow::decimal128(10, 10),
+    arrow::decimal128(20, 20),
+  }) {
+    test_identity_cast_for_type(type);
+  }
+  */
+}
+
+template <typename ArrowType>
+using NumericArgType = std::conditional_t<is_half_float_type<ArrowType>::value, Float16,
+                                          typename ArrowType::c_type>;
+
 template <typename T>
 class TestNumericScalar : public ::testing::Test {
  public:
   TestNumericScalar() = default;
 };
 
-TYPED_TEST_SUITE(TestNumericScalar, NumericArrowTypes);
+using NumericArrowTypesPlusHalfFloat =
+    testing::Types<UInt8Type, UInt16Type, UInt32Type, UInt64Type, Int8Type, Int16Type,
+                   Int32Type, Int64Type, FloatType, DoubleType, HalfFloatType>;
+TYPED_TEST_SUITE(TestNumericScalar, NumericArrowTypesPlusHalfFloat);
 
 TYPED_TEST(TestNumericScalar, Basics) {
-  using T = typename TypeParam::c_type;
+  using T = NumericArgType<TypeParam>;
   using ScalarType = typename TypeTraits<TypeParam>::ScalarType;
 
   T value = static_cast<T>(1);
 
   auto scalar_val = std::make_shared<ScalarType>(value);
-  ASSERT_EQ(value, scalar_val->value);
+  if constexpr (is_half_float_type<TypeParam>::value) {
+    ASSERT_EQ(value, Float16::FromBits(scalar_val->value));
+  } else {
+    ASSERT_EQ(value, scalar_val->value);
+  }
   ASSERT_TRUE(scalar_val->is_valid);
   ASSERT_OK(scalar_val->ValidateFull());
 
@@ -182,8 +240,13 @@ TYPED_TEST(TestNumericScalar, Basics) {
   auto scalar_other = std::make_shared<ScalarType>(other_value);
   ASSERT_NE(*scalar_other, *scalar_val);
 
-  scalar_val->value = other_value;
-  ASSERT_EQ(other_value, scalar_val->value);
+  if constexpr (is_half_float_type<TypeParam>::value) {
+    scalar_val->value = other_value.bits();
+    ASSERT_EQ(other_value, Float16::FromBits(scalar_val->value));
+  } else {
+    scalar_val->value = other_value;
+    ASSERT_EQ(other_value, scalar_val->value);
+  }
   ASSERT_EQ(*scalar_other, *scalar_val);
 
   ScalarType stack_val;
@@ -210,72 +273,72 @@ TYPED_TEST(TestNumericScalar, Basics) {
   ASSERT_OK(two->ValidateFull());
 
   ASSERT_TRUE(null->Equals(*null_value));
-  ASSERT_TRUE(one->Equals(ScalarType(1)));
-  ASSERT_FALSE(one->Equals(ScalarType(2)));
-  ASSERT_TRUE(two->Equals(ScalarType(2)));
-  ASSERT_FALSE(two->Equals(ScalarType(3)));
+  ASSERT_TRUE(one->Equals(ScalarType(static_cast<T>(1))));
+  ASSERT_FALSE(one->Equals(ScalarType(static_cast<T>(2))));
+  ASSERT_TRUE(two->Equals(ScalarType(static_cast<T>(2))));
+  ASSERT_FALSE(two->Equals(ScalarType(static_cast<T>(3))));
 
   ASSERT_TRUE(null->ApproxEquals(*null_value));
-  ASSERT_TRUE(one->ApproxEquals(ScalarType(1)));
-  ASSERT_FALSE(one->ApproxEquals(ScalarType(2)));
-  ASSERT_TRUE(two->ApproxEquals(ScalarType(2)));
-  ASSERT_FALSE(two->ApproxEquals(ScalarType(3)));
+  ASSERT_TRUE(one->ApproxEquals(ScalarType(static_cast<T>(1))));
+  ASSERT_FALSE(one->ApproxEquals(ScalarType(static_cast<T>(2))));
+  ASSERT_TRUE(two->ApproxEquals(ScalarType(static_cast<T>(2))));
+  ASSERT_FALSE(two->ApproxEquals(ScalarType(static_cast<T>(3))));
 }
 
 TYPED_TEST(TestNumericScalar, Hashing) {
-  using T = typename TypeParam::c_type;
+  using T = NumericArgType<TypeParam>;
   using ScalarType = typename TypeTraits<TypeParam>::ScalarType;
 
   std::unordered_set<std::shared_ptr<Scalar>, Scalar::Hash, Scalar::PtrsEqual> set;
   set.emplace(std::make_shared<ScalarType>());
-  for (T i = 0; i < 10; ++i) {
-    set.emplace(std::make_shared<ScalarType>(i));
+  for (int i = 0; i < 10; ++i) {
+    ASSERT_TRUE(set.emplace(std::make_shared<ScalarType>(static_cast<T>(i))).second);
   }
 
   ASSERT_FALSE(set.emplace(std::make_shared<ScalarType>()).second);
-  for (T i = 0; i < 10; ++i) {
-    ASSERT_FALSE(set.emplace(std::make_shared<ScalarType>(i)).second);
+  for (int i = 0; i < 10; ++i) {
+    ASSERT_FALSE(set.emplace(std::make_shared<ScalarType>(static_cast<T>(i))).second);
   }
 }
 
 TYPED_TEST(TestNumericScalar, MakeScalar) {
-  using T = typename TypeParam::c_type;
+  using T = NumericArgType<TypeParam>;
   using ScalarType = typename TypeTraits<TypeParam>::ScalarType;
   auto type = TypeTraits<TypeParam>::type_singleton();
 
   std::shared_ptr<Scalar> three = MakeScalar(static_cast<T>(3));
   ASSERT_OK(three->ValidateFull());
-  ASSERT_EQ(ScalarType(3), *three);
+  ASSERT_EQ(ScalarType(static_cast<T>(3)), *three);
 
-  AssertMakeScalar(ScalarType(3), type, static_cast<T>(3));
+  AssertMakeScalar(ScalarType(static_cast<T>(3)), type, static_cast<T>(3));
 
-  AssertParseScalar(type, "3", ScalarType(3));
+  AssertParseScalar(type, "3", ScalarType(static_cast<T>(3)));
 }
 
 template <typename T>
 class TestRealScalar : public ::testing::Test {
  public:
-  using CType = typename T::c_type;
+  using ValueType = NumericArgType<T>;
   using ScalarType = typename TypeTraits<T>::ScalarType;
 
   void SetUp() {
     type_ = TypeTraits<T>::type_singleton();
 
-    scalar_val_ = std::make_shared<ScalarType>(static_cast<CType>(1));
+    scalar_val_ = std::make_shared<ScalarType>(static_cast<ValueType>(1));
     ASSERT_TRUE(scalar_val_->is_valid);
 
-    scalar_other_ = std::make_shared<ScalarType>(static_cast<CType>(1.1));
+    scalar_other_ = std::make_shared<ScalarType>(static_cast<ValueType>(1.1));
     ASSERT_TRUE(scalar_other_->is_valid);
 
-    scalar_zero_ = std::make_shared<ScalarType>(static_cast<CType>(0.0));
-    scalar_other_zero_ = std::make_shared<ScalarType>(static_cast<CType>(0.0));
-    scalar_neg_zero_ = std::make_shared<ScalarType>(static_cast<CType>(-0.0));
+    scalar_zero_ = std::make_shared<ScalarType>(static_cast<ValueType>(0.0));
+    scalar_other_zero_ = std::make_shared<ScalarType>(static_cast<ValueType>(0.0));
+    scalar_neg_zero_ = std::make_shared<ScalarType>(static_cast<ValueType>(-0.0));
 
-    const CType nan_value = std::numeric_limits<CType>::quiet_NaN();
+    const auto nan_value = std::numeric_limits<ValueType>::quiet_NaN();
     scalar_nan_ = std::make_shared<ScalarType>(nan_value);
     ASSERT_TRUE(scalar_nan_->is_valid);
 
-    const CType other_nan_value = std::numeric_limits<CType>::quiet_NaN();
+    const auto other_nan_value = std::numeric_limits<ValueType>::quiet_NaN();
     scalar_other_nan_ = std::make_shared<ScalarType>(other_nan_value);
     ASSERT_TRUE(scalar_other_nan_->is_valid);
   }
@@ -340,6 +403,14 @@ class TestRealScalar : public ::testing::Test {
     ASSERT_FALSE(scalar_zero_->ApproxEquals(*scalar_val_, options));
     ASSERT_TRUE(scalar_zero_->ApproxEquals(*scalar_other_zero_, options));
     ASSERT_FALSE(scalar_zero_->ApproxEquals(*scalar_neg_zero_, options));
+  }
+
+  void TestUseAtol() {
+    auto options = EqualOptions::Defaults().atol(0.2f);
+
+    ASSERT_FALSE(scalar_val_->Equals(*scalar_other_, options));
+    ASSERT_TRUE(scalar_val_->Equals(*scalar_other_, options.use_atol(true)));
+    ASSERT_TRUE(scalar_val_->ApproxEquals(*scalar_other_, options));
   }
 
   void TestStructOf() {
@@ -469,13 +540,17 @@ class TestRealScalar : public ::testing::Test {
       scalar_zero_, scalar_other_zero_, scalar_neg_zero_;
 };
 
-TYPED_TEST_SUITE(TestRealScalar, RealArrowTypes);
+using RealArrowTypesPlusHalfFloat =
+    ::testing::Types<FloatType, DoubleType, HalfFloatType>;
+TYPED_TEST_SUITE(TestRealScalar, RealArrowTypesPlusHalfFloat);
 
 TYPED_TEST(TestRealScalar, NanEquals) { this->TestNanEquals(); }
 
 TYPED_TEST(TestRealScalar, SignedZeroEquals) { this->TestSignedZeroEquals(); }
 
 TYPED_TEST(TestRealScalar, ApproxEquals) { this->TestApproxEquals(); }
+
+TYPED_TEST(TestRealScalar, UseAtol) { this->TestUseAtol(); }
 
 TYPED_TEST(TestRealScalar, StructOf) { this->TestStructOf(); }
 
@@ -750,8 +825,8 @@ TEST(TestFixedSizeBinaryScalar, MakeScalar) {
   AssertParseScalar(type, std::string_view(data), FixedSizeBinaryScalar(buf, type));
 
   // Wrong length
-  ASSERT_RAISES(Invalid, MakeScalar(type, Buffer::FromString(data.substr(3))).status());
-  ASSERT_RAISES(Invalid, Scalar::Parse(type, std::string_view(data).substr(3)).status());
+  ASSERT_RAISES(Invalid, MakeScalar(type, Buffer::FromString(data.substr(3))));
+  ASSERT_RAISES(Invalid, Scalar::Parse(type, std::string_view(data).substr(3)));
 }
 
 TEST(TestFixedSizeBinaryScalar, ValidateErrors) {
@@ -866,6 +941,9 @@ TEST(TestTimeScalars, Basics) {
     ASSERT_TRUE(first->Equals(*MakeScalar(ty, 5).ValueOrDie()));
     ASSERT_TRUE(last->Equals(*MakeScalar(ty, 42).ValueOrDie()));
     ASSERT_FALSE(last->Equals(*MakeScalar("string")));
+
+    ASSERT_OK_AND_ASSIGN(auto casted, first->CastTo(ty));
+    ASSERT_TRUE(casted->Equals(*first));
   }
 }
 
@@ -1122,8 +1200,6 @@ TEST(TestDayTimeIntervalScalars, Basics) {
   ASSERT_TRUE(null->Equals(ts_null));
   ASSERT_TRUE(first->Equals(ts_val2));
 }
-
-// TODO test HalfFloatScalar
 
 TYPED_TEST(TestNumericScalar, Cast) {
   auto type = TypeTraits<TypeParam>::type_singleton();
@@ -1390,13 +1466,13 @@ TEST(TestStructScalar, FieldAccess) {
   ASSERT_OK_AND_ASSIGN(auto a, abc.field("a"));
   AssertScalarsEqual(*a, *abc.value[0]);
 
-  ASSERT_RAISES(Invalid, abc.field("b").status());
+  ASSERT_RAISES(Invalid, abc.field("b"));
 
   ASSERT_OK_AND_ASSIGN(auto b, abc.field(1));
   AssertScalarsEqual(*b, *abc.value[1]);
 
-  ASSERT_RAISES(Invalid, abc.field(5).status());
-  ASSERT_RAISES(Invalid, abc.field("c").status());
+  ASSERT_RAISES(Invalid, abc.field(5));
+  ASSERT_RAISES(Invalid, abc.field("c"));
 
   ASSERT_OK_AND_ASSIGN(auto d, abc.field("d"));
   ASSERT_TRUE(d->Equals(*MakeNullScalar(int64())));

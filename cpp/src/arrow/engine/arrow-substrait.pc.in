@@ -24,4 +24,5 @@ Description: Apache Arrow's Substrait Consumer.
 Version: @ARROW_VERSION@
 Requires: arrow-dataset
 Libs: -L${libdir} -larrow_substrait
-Cflags.private: -DARROW_ENGINE_STATIC
+Cflags:@ARROW_SUBSTRAIT_PC_CFLAGS@
+Cflags.private:@ARROW_SUBSTRAIT_PC_CFLAGS_PRIVATE@

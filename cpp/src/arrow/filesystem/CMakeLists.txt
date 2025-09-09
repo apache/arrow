@@ -47,9 +47,7 @@ if(ARROW_GCS)
                  EXTRA_LABELS
                  filesystem
                  EXTRA_LINK_LIBS
-                 google-cloud-cpp::storage
-                 Boost::filesystem
-                 Boost::system)
+                 google-cloud-cpp::storage)
 endif()
 
 if(ARROW_AZURE)
@@ -57,9 +55,7 @@ if(ARROW_AZURE)
                  EXTRA_LABELS
                  filesystem
                  EXTRA_LINK_LIBS
-                 ${AZURE_SDK_LINK_LIBRARIES}
-                 Boost::filesystem
-                 Boost::system)
+                 ${AZURE_SDK_LINK_LIBRARIES})
 endif()
 
 if(ARROW_S3)
@@ -75,11 +71,7 @@ if(ARROW_S3)
   else()
     list(APPEND ARROW_S3_TEST_EXTRA_LINK_LIBS arrow_static)
   endif()
-  list(APPEND
-       ARROW_S3_TEST_EXTRA_LINK_LIBS
-       ${AWSSDK_LINK_LIBRARIES}
-       Boost::filesystem
-       Boost::system)
+  list(APPEND ARROW_S3_TEST_EXTRA_LINK_LIBS ${AWSSDK_LINK_LIBRARIES})
   add_arrow_test(s3fs_test
                  SOURCES
                  s3fs_test.cc
@@ -122,14 +114,30 @@ if(ARROW_S3)
                         s3_test_util.cc
                         STATIC_LINK_LIBS
                         ${AWSSDK_LINK_LIBRARIES}
-                        ${ARROW_BENCHMARK_LINK_LIBS}
-                        Boost::filesystem
-                        Boost::system)
+                        ${ARROW_BENCHMARK_LINK_LIBS})
     if(ARROW_TEST_LINKAGE STREQUAL "static")
       target_link_libraries(arrow-filesystem-s3fs-benchmark PRIVATE parquet_static)
     else()
       target_link_libraries(arrow-filesystem-s3fs-benchmark PRIVATE parquet_shared)
     endif()
+  endif()
+
+  if(ARROW_S3_MODULE)
+    add_arrow_test(s3fs_module_test
+                   SOURCES
+                   s3fs_module_test.cc
+                   s3_test_util.cc
+                   EXTRA_LABELS
+                   filesystem
+                   DEFINITIONS
+                   ARROW_S3_LIBPATH="$<TARGET_FILE:arrow_s3fs>"
+                   EXTRA_LINK_LIBS
+                   Boost::filesystem
+                   Boost::system)
+    target_compile_definitions(arrow-filesystem-test
+                               PUBLIC ARROW_S3_LIBPATH="$<TARGET_FILE:arrow_s3fs>")
+    target_sources(arrow-filesystem-test PUBLIC s3fs_module_test.cc s3_test_util.cc)
+    target_link_libraries(arrow-filesystem-test PUBLIC Boost::filesystem Boost::system)
   endif()
 endif()
 

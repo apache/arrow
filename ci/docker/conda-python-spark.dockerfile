@@ -17,7 +17,7 @@
 
 ARG repo
 ARG arch=amd64
-ARG python=3.8
+ARG python=3.10
 FROM ${repo}:${arch}-conda-python-${python}
 
 ARG jdk=11
@@ -30,7 +30,7 @@ RUN mamba install -q -y \
         openjdk=${jdk} \
         maven=${maven} \
         pandas && \
-    mamba clean --all && \
+    mamba clean --all --yes && \
     mamba uninstall -q -y numpy && \
     /arrow/ci/scripts/install_numpy.sh ${numpy}
 

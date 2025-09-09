@@ -64,6 +64,7 @@ ARROW_TESTING_EXPORT void random_bytes(int64_t n, uint32_t seed, uint8_t* out);
 ARROW_TESTING_EXPORT std::string random_string(int64_t n, uint32_t seed);
 ARROW_TESTING_EXPORT int32_t DecimalSize(int32_t precision);
 ARROW_TESTING_EXPORT void random_ascii(int64_t n, uint32_t seed, uint8_t* out);
+ARROW_TESTING_EXPORT void random_alnum(int64_t n, uint32_t seed, uint8_t* out);
 ARROW_TESTING_EXPORT int64_t CountNulls(const std::vector<uint8_t>& valid_bytes);
 
 ARROW_TESTING_EXPORT Status MakeRandomByteBuffer(int64_t length, MemoryPool* pool,
@@ -127,6 +128,10 @@ ARROW_TESTING_EXPORT int GetListenPort();
 // address.  Compared to GetListenPort(), this will minimize the risk of
 // port conflicts.
 ARROW_TESTING_EXPORT std::string GetListenAddress();
+
+// Get a "host:port" to listen on. Compared to GetListenAddress(), this function would use
+// the host passed in.
+ARROW_TESTING_EXPORT std::string GetListenAddress(const std::string& host);
 
 ARROW_TESTING_EXPORT
 const std::vector<std::shared_ptr<DataType>>& all_dictionary_index_types();

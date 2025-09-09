@@ -199,7 +199,7 @@ class ARROW_EXPORT ChunkedArray {
  private:
   template <typename T, typename V>
   friend class ::arrow::stl::ChunkedArrayIterator;
-  internal::ChunkResolver chunk_resolver_;
+  ChunkResolver chunk_resolver_;
   ARROW_DISALLOW_COPY_AND_ASSIGN(ChunkedArray);
 };
 

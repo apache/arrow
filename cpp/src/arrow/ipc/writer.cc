@@ -41,7 +41,7 @@
 #include "arrow/ipc/metadata_internal.h"
 #include "arrow/ipc/util.h"
 #include "arrow/record_batch.h"
-#include "arrow/result_internal.h"
+#include "arrow/result.h"
 #include "arrow/sparse_tensor.h"
 #include "arrow/status.h"
 #include "arrow/table.h"
@@ -54,7 +54,7 @@
 #include "arrow/util/endian.h"
 #include "arrow/util/int_util_overflow.h"
 #include "arrow/util/key_value_metadata.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/parallel.h"
 #include "arrow/visit_array_inline.h"
 #include "arrow/visit_data_inline.h"
@@ -86,7 +86,7 @@ bool HasNestedDict(const ArrayData& data) {
 }
 
 Status GetTruncatedBitmap(int64_t offset, int64_t length,
-                          const std::shared_ptr<Buffer> input, MemoryPool* pool,
+                          const std::shared_ptr<Buffer>& input, MemoryPool* pool,
                           std::shared_ptr<Buffer>* buffer) {
   if (!input) {
     *buffer = input;
@@ -103,7 +103,7 @@ Status GetTruncatedBitmap(int64_t offset, int64_t length,
 }
 
 Status GetTruncatedBuffer(int64_t offset, int64_t length, int32_t byte_width,
-                          const std::shared_ptr<Buffer> input, MemoryPool* pool,
+                          const std::shared_ptr<Buffer>& input, MemoryPool* pool,
                           std::shared_ptr<Buffer>* buffer) {
   if (!input) {
     *buffer = input;
@@ -252,7 +252,7 @@ class RecordBatchSerializer {
   }
 
   Status Assemble(const RecordBatch& batch) {
-    if (field_nodes_.size() > 0) {
+    if (!field_nodes_.empty()) {
       field_nodes_.clear();
       buffer_meta_.clear();
       out_->body_buffers.clear();
@@ -324,35 +324,45 @@ class RecordBatchSerializer {
     // Share slicing logic between ListArray, BinaryArray and LargeBinaryArray
     using offset_type = typename ArrayType::offset_type;
 
-    auto offsets = array.value_offsets();
+    if (array.length() == 0) {
+      *value_offsets = array.value_offsets();
+      return Status::OK();
+    }
 
-    int64_t required_bytes = sizeof(offset_type) * (array.length() + 1);
-    if (array.offset() != 0) {
-      // If we have a non-zero offset, then the value offsets do not start at
-      // zero. We must a) create a new offsets array with shifted offsets and
-      // b) slice the values array accordingly
+    const int64_t required_bytes = sizeof(offset_type) * (array.length() + 1);
 
+    offset_type first_offset = 0;
+    RETURN_NOT_OK(MemoryManager::CopyBufferSliceToCPU(
+        array.data()->buffers[1], array.offset() * sizeof(offset_type),
+        sizeof(offset_type), reinterpret_cast<uint8_t*>(&first_offset)));
+
+    if (first_offset > 0) {
+      // If the offset of the first value is non-zero, then we must create a new
+      // offsets buffer with shifted offsets.
+      if (!array.data()->buffers[1]->is_cpu()) {
+        return Status::NotImplemented("Rebasing non-CPU offsets");
+      }
       ARROW_ASSIGN_OR_RAISE(auto shifted_offsets,
                             AllocateBuffer(required_bytes, options_.memory_pool));
 
-      offset_type* dest_offsets =
-          reinterpret_cast<offset_type*>(shifted_offsets->mutable_data());
-      const offset_type start_offset = array.value_offset(0);
+      const offset_type* source_offsets = array.raw_value_offsets();
+      auto dest_offsets = shifted_offsets->mutable_span_as<offset_type>();
+      const offset_type start_offset = source_offsets[0];
 
-      for (int i = 0; i < array.length(); ++i) {
-        dest_offsets[i] = array.value_offset(i) - start_offset;
+      for (int i = 0; i <= array.length(); ++i) {
+        dest_offsets[i] = source_offsets[i] - start_offset;
       }
-      // Final offset
-      dest_offsets[array.length()] = array.value_offset(array.length()) - start_offset;
-      offsets = std::move(shifted_offsets);
+      *value_offsets = std::move(shifted_offsets);
     } else {
-      // ARROW-6046: Slice offsets to used extent, in case we have a truncated
-      // slice
-      if (offsets != nullptr && offsets->size() > required_bytes) {
-        offsets = SliceBuffer(offsets, 0, required_bytes);
+      // ARROW-6046: if we have a truncated slice with unused leading or
+      // trailing data, then we slice it.
+      if (array.offset() > 0 || array.value_offsets()->size() > required_bytes) {
+        *value_offsets = SliceBuffer(
+            array.value_offsets(), array.offset() * sizeof(offset_type), required_bytes);
+      } else {
+        *value_offsets = array.value_offsets();
       }
     }
-    *value_offsets = std::move(offsets);
     return Status::OK();
   }
 
@@ -362,13 +372,15 @@ class RecordBatchSerializer {
                                      offset_type* out_min_offset,
                                      offset_type* out_max_end) {
     auto offsets = array.value_offsets();
-    auto sizes = array.value_sizes();
 
     const int64_t required_bytes = sizeof(offset_type) * array.length();
     if (array.offset() != 0) {
       // If we have a non-zero offset, it's likely that the smallest offset is
       // not zero. We must a) create a new offsets array with shifted offsets and
       // b) slice the values array accordingly.
+      if (!array.data()->buffers[1]->is_cpu()) {
+        return Status::NotImplemented("Rebasing non-CPU list view offsets");
+      }
 
       ARROW_ASSIGN_OR_RAISE(auto shifted_offsets,
                             AllocateBuffer(required_bytes, options_.memory_pool));
@@ -446,7 +458,7 @@ class RecordBatchSerializer {
       const int64_t buffer_length =
           std::min(bit_util::RoundUpToMultipleOf8(array.length() * type_width),
                    data->size() - byte_offset);
-      data = SliceBuffer(data, byte_offset, buffer_length);
+      data = SliceBuffer(std::move(data), byte_offset, buffer_length);
     }
     out_->body_buffers.emplace_back(std::move(data));
     return Status::OK();
@@ -475,7 +487,7 @@ class RecordBatchSerializer {
       const int64_t start_offset = array.value_offset(0);
       const int64_t slice_length =
           std::min(PaddedLength(total_data_bytes), data->size() - start_offset);
-      data = SliceBuffer(data, start_offset, slice_length);
+      data = SliceBuffer(std::move(data), start_offset, slice_length);
     }
 
     out_->body_buffers.emplace_back(std::move(value_offsets));
@@ -572,7 +584,7 @@ class RecordBatchSerializer {
   Status Visit(const StructArray& array) {
     --max_recursion_depth_;
     for (int i = 0; i < array.num_fields(); ++i) {
-      std::shared_ptr<Array> field = array.field(i);
+      const auto& field = array.field(i);
       RETURN_NOT_OK(VisitArray(*field));
     }
     ++max_recursion_depth_;
@@ -641,8 +653,7 @@ class RecordBatchSerializer {
       ARROW_ASSIGN_OR_RAISE(
           auto shifted_offsets_buffer,
           AllocateBuffer(length * sizeof(int32_t), options_.memory_pool));
-      int32_t* shifted_offsets =
-          reinterpret_cast<int32_t*>(shifted_offsets_buffer->mutable_data());
+      auto shifted_offsets = shifted_offsets_buffer->mutable_span_as<int32_t>();
 
       // Offsets are guaranteed to be increasing according to the spec, so
       // the first offset we find for a child is the initial offset and
@@ -843,8 +854,8 @@ Status WriteRecordBatch(const RecordBatch& batch, int64_t buffer_start_offset,
 
 Status WriteRecordBatchStream(const std::vector<std::shared_ptr<RecordBatch>>& batches,
                               const IpcWriteOptions& options, io::OutputStream* dst) {
-  ASSIGN_OR_RAISE(std::shared_ptr<RecordBatchWriter> writer,
-                  MakeStreamWriter(dst, batches[0]->schema(), options));
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<RecordBatchWriter> writer,
+                        MakeStreamWriter(dst, batches[0]->schema(), options));
   for (const auto& batch : batches) {
     DCHECK(batch->schema()->Equals(*batches[0]->schema())) << "Schemas unequal";
     RETURN_NOT_OK(writer->WriteRecordBatch(*batch));
@@ -899,7 +910,7 @@ Status GetContiguousTensor(const Tensor& tensor, MemoryPool* pool,
   RETURN_NOT_OK(WriteStridedTensorData(0, 0, elem_size, tensor,
                                        scratch_space->mutable_data(), &stream));
 
-  out->reset(new Tensor(tensor.type(), contiguous_data, tensor.shape()));
+  *out = std::make_unique<Tensor>(tensor.type(), contiguous_data, tensor.shape());
 
   return Status::OK();
 }
@@ -1005,7 +1016,7 @@ class SparseTensorSerializer {
   }
 
   Status Assemble(const SparseTensor& sparse_tensor) {
-    if (buffer_meta_.size() > 0) {
+    if (!buffer_meta_.empty()) {
       buffer_meta_.clear();
       out_->body_buffers.clear();
     }
@@ -1169,7 +1180,7 @@ Status RecordBatchWriter::WriteTable(const Table& table) { return WriteTable(tab
 
 namespace internal {
 
-IpcPayloadWriter::~IpcPayloadWriter() {}
+IpcPayloadWriter::~IpcPayloadWriter() = default;
 
 Status IpcPayloadWriter::Start() { return Status::OK(); }
 
@@ -1538,12 +1549,6 @@ Result<std::shared_ptr<RecordBatchWriter>> MakeStreamWriter(
       options, /*is_file_format=*/false);
 }
 
-Result<std::shared_ptr<RecordBatchWriter>> NewStreamWriter(
-    io::OutputStream* sink, const std::shared_ptr<Schema>& schema,
-    const IpcWriteOptions& options) {
-  return MakeStreamWriter(sink, schema, options);
-}
-
 Result<std::shared_ptr<RecordBatchWriter>> MakeFileWriter(
     io::OutputStream* sink, const std::shared_ptr<Schema>& schema,
     const IpcWriteOptions& options,
@@ -1561,13 +1566,6 @@ Result<std::shared_ptr<RecordBatchWriter>> MakeFileWriter(
       std::make_unique<internal::PayloadFileWriter>(options, schema, metadata,
                                                     std::move(sink)),
       schema, options, /*is_file_format=*/true);
-}
-
-Result<std::shared_ptr<RecordBatchWriter>> NewFileWriter(
-    io::OutputStream* sink, const std::shared_ptr<Schema>& schema,
-    const IpcWriteOptions& options,
-    const std::shared_ptr<const KeyValueMetadata>& metadata) {
-  return MakeFileWriter(sink, schema, options, metadata);
 }
 
 namespace internal {

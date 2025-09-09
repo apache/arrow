@@ -87,8 +87,8 @@ If you wanted to run [RHub's latest `ubuntu-release` image](https://hub.docker.c
 run:
 
 ```shell
-R_ORG=rhub R_IMAGE=ubuntu-release R_TAG=latest docker-compose build r
-R_ORG=rhub R_IMAGE=ubuntu-release R_TAG=latest docker-compose run r
+R_ORG=rhub R_IMAGE=ubuntu-release R_TAG=latest docker compose build r
+R_ORG=rhub R_IMAGE=ubuntu-release R_TAG=latest docker compose run r
 ```
 
 ### Example - Using Archery

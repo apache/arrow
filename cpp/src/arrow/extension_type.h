@@ -98,7 +98,7 @@ class ARROW_EXPORT ExtensionType : public DataType {
 
  protected:
   explicit ExtensionType(std::shared_ptr<DataType> storage_type)
-      : DataType(Type::EXTENSION), storage_type_(storage_type) {}
+      : DataType(Type::EXTENSION), storage_type_(std::move(storage_type)) {}
 
   std::shared_ptr<DataType> storage_type_;
 };

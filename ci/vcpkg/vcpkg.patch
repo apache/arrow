@@ -1,0 +1,62 @@
+diff --git a/scripts/cmake/vcpkg_execute_build_process.cmake b/scripts/cmake/vcpkg_execute_build_process.cmake
+index 60fd5b587a..c8dc021af8 100644
+--- a/scripts/cmake/vcpkg_execute_build_process.cmake
++++ b/scripts/cmake/vcpkg_execute_build_process.cmake
+@@ -131,6 +131,26 @@ function(vcpkg_execute_build_process)
+             endif()
+         endforeach()
+         z_vcpkg_prettify_command_line(pretty_command ${arg_COMMAND})
++        # --- Try to print error logs
++        # Split the string by newline characters
++        string(REGEX MATCHALL "[^\n]+" file_list ${stringified_logs})
++
++        # Iterate over the list and print content of each file
++        foreach(file IN LISTS file_list)
++            string(STRIP "${file}" file_stripped)
++
++            # Print filename
++            message(STATUS "===")
++            message(STATUS "=== Build Failed. Content of ${file_stripped}:")
++
++            # Read the content of the file
++            file(READ ${file_stripped} file_content)
++
++            # Print the content
++            message(STATUS "${file_content}")
++            message(STATUS "=== End of content of ${file_stripped}")
++        endforeach()
++        # ---
+         message(FATAL_ERROR
+             "  Command failed: ${pretty_command}\n"
+             "  Working Directory: ${arg_WORKING_DIRECTORY}\n"
+diff --git a/scripts/cmake/vcpkg_execute_required_process.cmake b/scripts/cmake/vcpkg_execute_required_process.cmake
+index 830aa409fd..90452d857b 100644
+--- a/scripts/cmake/vcpkg_execute_required_process.cmake
++++ b/scripts/cmake/vcpkg_execute_required_process.cmake
+@@ -109,6 +109,26 @@ Halting portfile execution.
+         endforeach()
+ 
+         z_vcpkg_prettify_command_line(pretty_command ${arg_COMMAND})
++        # --- Try to print error logs
++        # Split the string by newline characters
++        string(REGEX MATCHALL "[^\n]+" file_list ${stringified_logs})
++
++        # Iterate over the list and print content of each file
++        foreach(file IN LISTS file_list)
++            string(STRIP "${file}" file_stripped)
++
++            # Print filename
++            message(STATUS "===")
++            message(STATUS "=== Build Failed. Content of ${file_stripped}:")
++
++            # Read the content of the file
++            file(READ ${file_stripped} file_content)
++
++            # Print the content
++            message(STATUS "${file_content}")
++            message(STATUS "=== End of content of ${file_stripped}")
++        endforeach()
++        # ---
+         message(FATAL_ERROR
+             "  Command failed: ${pretty_command}\n"
+             "  Working Directory: ${arg_WORKING_DIRECTORY}\n"

@@ -185,24 +185,24 @@ static void DecodeStream(benchmark::State& state) {  // NOLINT non-const referen
 }
 
 #ifdef ARROW_WITH_ZSTD
-#define GENERATE_COMPRESSED_DATA_IN_MEMORY()                                      \
-  constexpr int64_t kBatchSize = 1 << 20; /* 1 MB */                              \
-  constexpr int64_t kBatches = 16;                                                \
-  auto options = ipc::IpcWriteOptions::Defaults();                                \
-  ASSIGN_OR_ABORT(options.codec,                                                  \
-                  arrow::util::Codec::Create(arrow::Compression::type::ZSTD));    \
-  std::shared_ptr<ResizableBuffer> buffer = *AllocateResizableBuffer(1024);       \
-  {                                                                               \
-    auto record_batch = MakeRecordBatch(kBatchSize, state.range(0));              \
-    io::BufferOutputStream stream(buffer);                                        \
-    auto writer = *ipc::MakeFileWriter(&stream, record_batch->schema(), options); \
-    for (int i = 0; i < kBatches; i++) {                                          \
-      ABORT_NOT_OK(writer->WriteRecordBatch(*record_batch));                      \
-    }                                                                             \
-    ABORT_NOT_OK(writer->Close());                                                \
-    ABORT_NOT_OK(stream.Close());                                                 \
-  }                                                                               \
-  constexpr int64_t total_size = kBatchSize * kBatches;
+#  define GENERATE_COMPRESSED_DATA_IN_MEMORY()                                      \
+    constexpr int64_t kBatchSize = 1 << 20; /* 1 MB */                              \
+    constexpr int64_t kBatches = 16;                                                \
+    auto options = ipc::IpcWriteOptions::Defaults();                                \
+    ASSIGN_OR_ABORT(options.codec,                                                  \
+                    arrow::util::Codec::Create(arrow::Compression::type::ZSTD));    \
+    std::shared_ptr<ResizableBuffer> buffer = *AllocateResizableBuffer(1024);       \
+    {                                                                               \
+      auto record_batch = MakeRecordBatch(kBatchSize, state.range(0));              \
+      io::BufferOutputStream stream(buffer);                                        \
+      auto writer = *ipc::MakeFileWriter(&stream, record_batch->schema(), options); \
+      for (int i = 0; i < kBatches; i++) {                                          \
+        ABORT_NOT_OK(writer->WriteRecordBatch(*record_batch));                      \
+      }                                                                             \
+      ABORT_NOT_OK(writer->Close());                                                \
+      ABORT_NOT_OK(stream.Close());                                                 \
+    }                                                                               \
+    constexpr int64_t total_size = kBatchSize * kBatches;
 #endif
 
 #define GENERATE_DATA_IN_MEMORY()                                                 \

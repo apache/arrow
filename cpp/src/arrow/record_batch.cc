@@ -18,6 +18,7 @@
 #include "arrow/record_batch.h"
 
 #include <algorithm>
+#include <atomic>
 #include <cmath>
 #include <cstdlib>
 #include <memory>
@@ -26,15 +27,23 @@
 #include <utility>
 
 #include "arrow/array.h"
+#include "arrow/array/builder_binary.h"
+#include "arrow/array/builder_dict.h"
+#include "arrow/array/builder_nested.h"
+#include "arrow/array/builder_union.h"
 #include "arrow/array/concatenate.h"
+#include "arrow/array/statistics.h"
 #include "arrow/array/validate.h"
+#include "arrow/c/abi.h"
+#include "arrow/compare.h"
 #include "arrow/pretty_print.h"
 #include "arrow/status.h"
 #include "arrow/table.h"
 #include "arrow/tensor.h"
 #include "arrow/type.h"
+#include "arrow/type_traits.h"
 #include "arrow/util/iterator.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/vector.h"
 #include "arrow/visit_type_inline.h"
 
@@ -75,7 +84,7 @@ class SimpleRecordBatch : public RecordBatch {
     }
   }
 
-  SimpleRecordBatch(const std::shared_ptr<Schema>& schema, int64_t num_rows,
+  SimpleRecordBatch(std::shared_ptr<Schema> schema, int64_t num_rows,
                     std::vector<std::shared_ptr<ArrayData>> columns,
                     DeviceAllocationType device_type = DeviceAllocationType::kCPU,
                     std::shared_ptr<Device::SyncEvent> sync_event = nullptr)
@@ -97,8 +106,13 @@ class SimpleRecordBatch : public RecordBatch {
   std::shared_ptr<Array> column(int i) const override {
     std::shared_ptr<Array> result = std::atomic_load(&boxed_columns_[i]);
     if (!result) {
-      result = MakeArray(columns_[i]);
-      std::atomic_store(&boxed_columns_[i], result);
+      auto new_array = MakeArray(columns_[i]);
+      // Be careful not to overwrite existing entry if another thread has been calling
+      // `column(i)` at the same time, since the `boxed_columns_` contents are exposed
+      // by `columns()` (see GH-45371).
+      if (std::atomic_compare_exchange_strong(&boxed_columns_[i], &result, new_array)) {
+        return new_array;
+      }
     }
     return result;
   }
@@ -205,8 +219,8 @@ class SimpleRecordBatch : public RecordBatch {
   std::shared_ptr<Device::SyncEvent> sync_event_;
 };
 
-RecordBatch::RecordBatch(const std::shared_ptr<Schema>& schema, int64_t num_rows)
-    : schema_(schema), num_rows_(num_rows) {}
+RecordBatch::RecordBatch(std::shared_ptr<Schema> schema, int64_t num_rows)
+    : schema_(std::move(schema)), num_rows_(num_rows) {}
 
 std::shared_ptr<RecordBatch> RecordBatch::Make(
     std::shared_ptr<Schema> schema, int64_t num_rows,
@@ -297,40 +311,66 @@ const std::string& RecordBatch::column_name(int i) const {
   return schema_->field(i)->name();
 }
 
+namespace {
+
+bool ContainFloatType(const std::shared_ptr<DataType>& type) {
+  if (is_floating(type->id())) {
+    return true;
+  }
+
+  for (const auto& field : type->fields()) {
+    if (ContainFloatType(field->type())) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+bool ContainFloatType(const Schema& schema) {
+  for (auto& field : schema.fields()) {
+    if (ContainFloatType(field->type())) {
+      return true;
+    }
+  }
+  return false;
+}
+
+bool CanIgnoreNaNInEquality(const RecordBatch& batch, const EqualOptions& opts) {
+  if (opts.nans_equal()) {
+    return true;
+  } else if (!ContainFloatType(*batch.schema())) {
+    return true;
+  } else {
+    return false;
+  }
+}
+
+}  // namespace
+
 bool RecordBatch::Equals(const RecordBatch& other, bool check_metadata,
                          const EqualOptions& opts) const {
-  if (num_columns() != other.num_columns() || num_rows_ != other.num_rows()) {
-    return false;
-  }
+  return Equals(other, opts.use_metadata(check_metadata));
+}
 
-  if (!schema_->Equals(*other.schema(), check_metadata)) {
-    return false;
-  }
-
-  if (device_type() != other.device_type()) {
-    return false;
-  }
-
-  for (int i = 0; i < num_columns(); ++i) {
-    if (!column(i)->Equals(other.column(i), opts)) {
+bool RecordBatch::Equals(const RecordBatch& other, const EqualOptions& opts) const {
+  if (this == &other) {
+    if (CanIgnoreNaNInEquality(*this, opts)) {
+      return true;
+    }
+  } else {
+    if (num_columns() != other.num_columns() || num_rows_ != other.num_rows()) {
+      return false;
+    } else if (opts.use_schema() &&
+               !schema_->Equals(*other.schema(), opts.use_metadata())) {
+      return false;
+    } else if (device_type() != other.device_type()) {
       return false;
     }
   }
 
-  return true;
-}
-
-bool RecordBatch::ApproxEquals(const RecordBatch& other, const EqualOptions& opts) const {
-  if (num_columns() != other.num_columns() || num_rows_ != other.num_rows()) {
-    return false;
-  }
-
-  if (device_type() != other.device_type()) {
-    return false;
-  }
-
   for (int i = 0; i < num_columns(); ++i) {
-    if (!column(i)->ApproxEquals(other.column(i), opts)) {
+    if (!column(i)->Equals(other.column(i), opts)) {
       return false;
     }
   }
@@ -463,6 +503,275 @@ Result<std::shared_ptr<RecordBatch>> RecordBatch::ViewOrCopyTo(
   }
 
   return Make(schema_, num_rows(), std::move(copied_columns));
+}
+
+namespace {
+struct EnumeratedStatistics {
+  int nth_statistics = 0;
+  bool start_new_column = false;
+  std::optional<int32_t> nth_column = std::nullopt;
+  const char* key = nullptr;
+  std::shared_ptr<DataType> type = nullptr;
+  ArrayStatistics::ValueType value = false;
+};
+using OnStatistics =
+    std::function<Status(const EnumeratedStatistics& enumerated_statistics)>;
+Status EnumerateStatistics(const RecordBatch& record_batch, OnStatistics on_statistics) {
+  EnumeratedStatistics statistics;
+  statistics.nth_statistics = 0;
+  statistics.start_new_column = true;
+  statistics.nth_column = std::nullopt;
+
+  statistics.key = ARROW_STATISTICS_KEY_ROW_COUNT_EXACT;
+  statistics.type = int64();
+  statistics.value = record_batch.num_rows();
+  RETURN_NOT_OK(on_statistics(statistics));
+  statistics.start_new_column = false;
+
+  const auto& schema = record_batch.schema();
+  const auto num_fields = schema->num_fields();
+  for (int nth_column = 0; nth_column < num_fields; ++nth_column) {
+    const auto& field = schema->field(nth_column);
+    auto column_statistics = record_batch.column(nth_column)->statistics();
+    if (!column_statistics) {
+      continue;
+    }
+
+    statistics.start_new_column = true;
+    statistics.nth_column = nth_column;
+    if (column_statistics->null_count.has_value()) {
+      statistics.nth_statistics++;
+      statistics.key = ARROW_STATISTICS_KEY_NULL_COUNT_EXACT;
+      statistics.type = int64();
+      statistics.value = column_statistics->null_count.value();
+      RETURN_NOT_OK(on_statistics(statistics));
+      statistics.start_new_column = false;
+    }
+
+    if (column_statistics->distinct_count.has_value()) {
+      statistics.nth_statistics++;
+      if (std::holds_alternative<int64_t>(column_statistics->distinct_count.value())) {
+        statistics.key = ARROW_STATISTICS_KEY_DISTINCT_COUNT_EXACT;
+        statistics.type = int64();
+        statistics.value = std::get<int64_t>(column_statistics->distinct_count.value());
+      } else {
+        statistics.key = ARROW_STATISTICS_KEY_DISTINCT_COUNT_APPROXIMATE;
+        statistics.type = float64();
+        statistics.value = std::get<double>(column_statistics->distinct_count.value());
+      }
+
+      RETURN_NOT_OK(on_statistics(statistics));
+      statistics.start_new_column = false;
+    }
+
+    if (column_statistics->max_byte_width.has_value()) {
+      statistics.nth_statistics++;
+      if (std::holds_alternative<int64_t>(column_statistics->max_byte_width.value())) {
+        statistics.key = ARROW_STATISTICS_KEY_MAX_BYTE_WIDTH_EXACT;
+        statistics.type = int64();
+        statistics.value = std::get<int64_t>(column_statistics->max_byte_width.value());
+      } else {
+        statistics.key = ARROW_STATISTICS_KEY_MAX_BYTE_WIDTH_APPROXIMATE;
+        statistics.type = float64();
+        statistics.value = std::get<double>(column_statistics->max_byte_width.value());
+      }
+
+      RETURN_NOT_OK(on_statistics(statistics));
+      statistics.start_new_column = false;
+    }
+
+    if (column_statistics->average_byte_width.has_value()) {
+      statistics.nth_statistics++;
+      if (column_statistics->is_average_byte_width_exact) {
+        statistics.key = ARROW_STATISTICS_KEY_AVERAGE_BYTE_WIDTH_EXACT;
+      } else {
+        statistics.key = ARROW_STATISTICS_KEY_AVERAGE_BYTE_WIDTH_APPROXIMATE;
+      }
+      statistics.type = float64();
+      statistics.value = column_statistics->average_byte_width.value();
+      RETURN_NOT_OK(on_statistics(statistics));
+      statistics.start_new_column = false;
+    }
+
+    if (column_statistics->min.has_value()) {
+      statistics.nth_statistics++;
+      if (column_statistics->is_min_exact) {
+        statistics.key = ARROW_STATISTICS_KEY_MIN_VALUE_EXACT;
+      } else {
+        statistics.key = ARROW_STATISTICS_KEY_MIN_VALUE_APPROXIMATE;
+      }
+      statistics.type = column_statistics->MinArrowType(field->type());
+      statistics.value = column_statistics->min.value();
+      RETURN_NOT_OK(on_statistics(statistics));
+      statistics.start_new_column = false;
+    }
+
+    if (column_statistics->max.has_value()) {
+      statistics.nth_statistics++;
+      if (column_statistics->is_max_exact) {
+        statistics.key = ARROW_STATISTICS_KEY_MAX_VALUE_EXACT;
+      } else {
+        statistics.key = ARROW_STATISTICS_KEY_MAX_VALUE_APPROXIMATE;
+      }
+      statistics.type = column_statistics->MaxArrowType(field->type());
+      statistics.value = column_statistics->max.value();
+      RETURN_NOT_OK(on_statistics(statistics));
+      statistics.start_new_column = false;
+    }
+  }
+  return Status::OK();
+}
+struct StringBuilderVisitor {
+  template <typename DataType>
+  enable_if_has_string_view<DataType, Status> Visit(const DataType&,
+                                                    ArrayBuilder* raw_builder,
+                                                    const std::string& value) {
+    using Builder = typename TypeTraits<DataType>::BuilderType;
+    auto builder = static_cast<Builder*>(raw_builder);
+    return builder->Append(value);
+  }
+
+  Status Visit(const DataType& type, ArrayBuilder*, const std::string&) {
+    return Status::Invalid("Only string types are supported and the current type is ",
+                           type.ToString());
+  }
+};
+}  // namespace
+
+Result<std::shared_ptr<Array>> RecordBatch::MakeStatisticsArray(
+    MemoryPool* memory_pool) const {
+  // Statistics schema:
+  // struct<
+  //   column: int32,
+  //   statistics: map<
+  //     key: dictionary<
+  //       indices: int32,
+  //       dictionary: utf8,
+  //     >,
+  //     items: dense_union<...all needed types...>,
+  //   >
+  // >
+
+  // Statistics schema doesn't define static dense union type for
+  // values. Each statistics schema have a dense union type that has
+  // needled value types. The following block collects these types.
+  std::vector<std::shared_ptr<Field>> values_types;
+  std::vector<int8_t> values_type_indexes;
+  RETURN_NOT_OK(EnumerateStatistics(*this, [&](const EnumeratedStatistics& statistics) {
+    int8_t i = 0;
+    for (const auto& field : values_types) {
+      if (field->type()->Equals(statistics.type)) {
+        break;
+      }
+      i++;
+    }
+    if (i == static_cast<int8_t>(values_types.size())) {
+      values_types.push_back(field(statistics.type->name(), statistics.type));
+    }
+    values_type_indexes.push_back(i);
+    return Status::OK();
+  }));
+
+  // statistics.key: dictionary<indices: int32, dictionary: utf8>
+  auto keys_type = dictionary(int32(), utf8(), false);
+  // statistics.items: dense_union<...all needed types...>
+  auto values_type = dense_union(values_types);
+  // struct<
+  //   column: int32,
+  //   statistics: map<
+  //     key: dictionary<
+  //       indices: int32,
+  //       dictionary: utf8,
+  //     >,
+  //     items: dense_union<...all needed types...>,
+  //   >
+  // >
+  auto statistics_type =
+      struct_({field("column", int32()),
+               field("statistics", map(keys_type, values_type, false))});
+
+  std::vector<std::shared_ptr<ArrayBuilder>> field_builders;
+  // columns: int32
+  auto columns_builder = std::make_shared<Int32Builder>(memory_pool);
+  field_builders.push_back(std::static_pointer_cast<ArrayBuilder>(columns_builder));
+  // statistics.key: dictionary<indices: int32, dictionary: utf8>
+  auto keys_builder = std::make_shared<StringDictionary32Builder>();
+  // statistics.items: dense_union<...all needed types...>
+  std::vector<std::shared_ptr<ArrayBuilder>> values_builders;
+  for (const auto& values_type : values_types) {
+    std::unique_ptr<ArrayBuilder> values_builder;
+    RETURN_NOT_OK(MakeBuilder(memory_pool, values_type->type(), &values_builder));
+    values_builders.push_back(std::shared_ptr<ArrayBuilder>(std::move(values_builder)));
+  }
+  auto items_builder = std::make_shared<DenseUnionBuilder>(
+      memory_pool, std::move(values_builders), values_type);
+  // statistics:
+  //   map<
+  //     key: dictionary<
+  //       indices: int32,
+  //       dictionary: utf8,
+  //     >,
+  //     items: dense_union<...all needed types...>,
+  //   >
+  auto values_builder = std::make_shared<MapBuilder>(
+      memory_pool, std::static_pointer_cast<ArrayBuilder>(keys_builder),
+      std::static_pointer_cast<ArrayBuilder>(items_builder));
+  field_builders.push_back(std::static_pointer_cast<ArrayBuilder>(values_builder));
+  // struct<
+  //   column: int32,
+  //   statistics: map<
+  //     key: dictionary<
+  //       indices: int32,
+  //       dictionary: utf8,
+  //     >,
+  //     items: dense_union<...all needed types...>,
+  //   >
+  // >
+  StructBuilder builder(statistics_type, memory_pool, std::move(field_builders));
+
+  // Append statistics.
+  RETURN_NOT_OK(EnumerateStatistics(*this, [&](const EnumeratedStatistics& statistics) {
+    if (statistics.start_new_column) {
+      RETURN_NOT_OK(builder.Append());
+      if (statistics.nth_column.has_value()) {
+        // Add Columns
+        RETURN_NOT_OK(columns_builder->Append(statistics.nth_column.value()));
+      } else {
+        // Add RecordBatch
+        RETURN_NOT_OK(columns_builder->AppendNull());
+      }
+      RETURN_NOT_OK(values_builder->Append());
+    }
+    RETURN_NOT_OK(keys_builder->Append(statistics.key,
+                                       static_cast<int32_t>(strlen(statistics.key))));
+    const auto values_type_index = values_type_indexes[statistics.nth_statistics];
+    RETURN_NOT_OK(items_builder->Append(values_type_index));
+    struct Visitor {
+      ArrayBuilder* builder;
+
+      Status operator()(const bool& value) {
+        return static_cast<BooleanBuilder*>(builder)->Append(value);
+      }
+      Status operator()(const int64_t& value) {
+        return static_cast<Int64Builder*>(builder)->Append(value);
+      }
+      Status operator()(const uint64_t& value) {
+        return static_cast<UInt64Builder*>(builder)->Append(value);
+      }
+      Status operator()(const double& value) {
+        return static_cast<DoubleBuilder*>(builder)->Append(value);
+      }
+      Status operator()(const std::string& value) {
+        StringBuilderVisitor visitor;
+        return VisitTypeInline(*builder->type(), &visitor, builder, value);
+      }
+    } visitor;
+    visitor.builder = values_builders[values_type_index].get();
+    RETURN_NOT_OK(std::visit(visitor, statistics.value));
+    return Status::OK();
+  }));
+
+  return builder.Finish();
 }
 
 Status RecordBatch::Validate() const {

@@ -30,7 +30,7 @@ namespace Apache.Arrow
 
         public int Length => ArrayBuilder.Length;
 
-        internal PrimitiveArrayBuilder(IArrowArrayBuilder<TTo, TArray, IArrowArrayBuilder<TArray>> builder)
+        public PrimitiveArrayBuilder(IArrowArrayBuilder<TTo, TArray, IArrowArrayBuilder<TArray>> builder)
         {
             ArrayBuilder = builder ?? throw new ArgumentNullException(nameof(builder));
         }
@@ -110,7 +110,7 @@ namespace Apache.Arrow
         public int Length => ValueBuffer.Length;
         protected int NullCount => ValidityBuffer.UnsetBitCount;
 
-        internal PrimitiveArrayBuilder()
+        public PrimitiveArrayBuilder()
         {
             ValueBuffer = new ArrowBuffer.Builder<T>();
             ValidityBuffer = new ArrowBuffer.BitmapBuilder();

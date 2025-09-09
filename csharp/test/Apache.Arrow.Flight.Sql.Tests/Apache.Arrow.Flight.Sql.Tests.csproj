@@ -6,14 +6,15 @@
     </PropertyGroup>
 
     <ItemGroup>
-      <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.0" />
-      <PackageReference Include="xunit" Version="2.9.0" />
-      <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
-      <PackageReference Include="coverlet.collector" Version="6.0.2" />
+      <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+      <PackageReference Include="xunit" Version="2.9.3" />
+      <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4" />
+      <PackageReference Include="coverlet.collector" Version="6.0.4" />
     </ItemGroup>
 
     <ItemGroup>
       <ProjectReference Include="..\..\src\Apache.Arrow.Flight.Sql\Apache.Arrow.Flight.Sql.csproj" />
+      <ProjectReference Include="..\Apache.Arrow.Flight.Tests\Apache.Arrow.Flight.Tests.csproj" />
+      <ProjectReference Include="..\Apache.Arrow.Flight.TestWeb\Apache.Arrow.Flight.TestWeb.csproj" />
     </ItemGroup>
-
 </Project>

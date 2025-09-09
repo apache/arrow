@@ -201,8 +201,16 @@ test_that("Type strings are correctly canonicalized", {
     sub("^([^([<]+).*$", "\\1", timestamp()$ToString())
   )
   expect_equal(
+    canonical_type_str("decimal32"),
+    sub("^([^([<]+).*$", "\\1", decimal32(3, 2)$ToString())
+  )
+  expect_equal(
+    canonical_type_str("decimal64"),
+    sub("^([^([<]+).*$", "\\1", decimal64(3, 2)$ToString())
+  )
+  expect_equal(
     canonical_type_str("decimal128"),
-    sub("^([^([<]+).*$", "\\1", decimal(3, 2)$ToString())
+    sub("^([^([<]+).*$", "\\1", decimal(31, 2)$ToString())
   )
   expect_equal(
     canonical_type_str("decimal128"),

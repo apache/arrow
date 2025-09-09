@@ -49,8 +49,13 @@ fi
 echo "=== (${PYTHON_VERSION}) Install Python build dependencies ==="
 export PIP_SITE_PACKAGES=$(python -c 'import site; print(site.getsitepackages()[0])')
 
+# Remove once there are released Cython wheels for 3.13 free-threaded available
+FREE_THREADED_BUILD="$(python -c"import sysconfig; print(bool(sysconfig.get_config_var('Py_GIL_DISABLED')))")"
+if [[ $FREE_THREADED_BUILD == "True"  ]]; then
+  pip install cython --pre --extra-index-url "https://pypi.anaconda.org/scientific-python-nightly-wheels/simple" --prefer-binary
+fi
+
 pip install \
-  --upgrade \
   --only-binary=:all: \
   --target $PIP_SITE_PACKAGES \
   -r ${source_dir}/python/requirements-wheel-build.txt
@@ -137,10 +142,10 @@ cmake \
     -DCMAKE_INSTALL_PREFIX=${build_dir}/install \
     -DCMAKE_OSX_ARCHITECTURES=${CMAKE_OSX_ARCHITECTURES} \
     -DCMAKE_UNITY_BUILD=${CMAKE_UNITY_BUILD} \
-    -DORC_SOURCE=BUNDLED \
     -DPARQUET_REQUIRE_ENCRYPTION=${PARQUET_REQUIRE_ENCRYPTION} \
     -DVCPKG_MANIFEST_MODE=OFF \
     -DVCPKG_TARGET_TRIPLET=${VCPKG_TARGET_TRIPLET} \
+    -Dxsimd_SOURCE=BUNDLED \
     -G ${CMAKE_GENERATOR} \
     ${source_dir}/cpp
 cmake --build . --target install
@@ -150,7 +155,6 @@ echo "=== (${PYTHON_VERSION}) Building wheel ==="
 export PYARROW_BUILD_TYPE=${CMAKE_BUILD_TYPE}
 export PYARROW_BUNDLE_ARROW_CPP=1
 export PYARROW_CMAKE_GENERATOR=${CMAKE_GENERATOR}
-export PYARROW_INSTALL_TESTS=1
 export PYARROW_WITH_ACERO=${ARROW_ACERO}
 export PYARROW_WITH_AZURE=${ARROW_AZURE}
 export PYARROW_WITH_DATASET=${ARROW_DATASET}

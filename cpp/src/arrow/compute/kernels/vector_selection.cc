@@ -34,6 +34,7 @@
 #include "arrow/compute/kernels/util_internal.h"
 #include "arrow/compute/kernels/vector_selection_filter_internal.h"
 #include "arrow/compute/kernels/vector_selection_take_internal.h"
+#include "arrow/compute/registry_internal.h"
 #include "arrow/extension_type.h"
 #include "arrow/record_batch.h"
 #include "arrow/result.h"
@@ -45,6 +46,7 @@
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/bitmap_reader.h"
 #include "arrow/util/int_util.h"
+#include "arrow/util/logging_internal.h"
 
 namespace arrow {
 

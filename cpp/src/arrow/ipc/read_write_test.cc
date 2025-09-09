@@ -119,7 +119,8 @@ TEST_P(TestMessage, SerializeTo) {
   const int64_t body_length = 64;
 
   flatbuffers::FlatBufferBuilder fbb;
-  fbb.Finish(flatbuf::CreateMessage(fbb, fb_version_, flatbuf::MessageHeader::RecordBatch,
+  fbb.Finish(flatbuf::CreateMessage(fbb, fb_version_,
+                                    flatbuf::MessageHeader::MessageHeader_RecordBatch,
                                     0 /* header */, body_length));
 
   std::shared_ptr<Buffer> metadata;
@@ -336,7 +337,7 @@ TEST_F(TestSchemaMetadata, NestedDictionaryFields) {
     auto dict_type1 = dictionary(int8(), utf8(), /*ordered=*/true);
     auto dict_type2 = dictionary(int32(), fixed_size_binary(24));
     auto dict_type3 = dictionary(int32(), binary());
-    auto dict_type4 = dictionary(int8(), decimal(19, 7));
+    auto dict_type4 = dictionary(int8(), decimal128(19, 7));
 
     auto struct_type1 = struct_({field("s1", dict_type1), field("s2", dict_type2)});
     auto struct_type2 = struct_({field("s3", dict_type3), field("s4", dict_type4)});
@@ -521,7 +522,8 @@ class IpcTestFixture : public io::MemoryMapFixture, public ExtensionTypesMixin {
 
 TEST(MetadataVersion, ForwardsCompatCheck) {
   // Verify UBSAN is ok with casting out of range metadata version.
-  EXPECT_LT(flatbuf::MetadataVersion::MAX, static_cast<flatbuf::MetadataVersion>(72));
+  EXPECT_LT(flatbuf::MetadataVersion::MetadataVersion_MAX,
+            static_cast<flatbuf::MetadataVersion>(72));
 }
 
 class TestWriteRecordBatch : public ::testing::Test, public IpcTestFixture {
@@ -577,6 +579,29 @@ TEST_F(TestIpcRoundTrip, SpecificMetadataVersion) {
   TestMetadataVersion(MetadataVersion::V5);
 }
 
+TEST_F(TestIpcRoundTrip, ListWithSlicedValues) {
+  // This tests serialization of a sliced ListArray that got sliced "the Rust
+  // way": by slicing the value_offsets buffer, but keeping top-level offset at
+  // 0.
+  auto child_data = ArrayFromJSON(int32(), "[1, 2, 3, 4, 5]")->data();
+
+  // Offsets buffer [2, 5]
+  TypedBufferBuilder<int32_t> offsets_builder;
+  ASSERT_OK(offsets_builder.Reserve(2));
+  ASSERT_OK(offsets_builder.Append(2));
+  ASSERT_OK(offsets_builder.Append(5));
+  ASSERT_OK_AND_ASSIGN(auto offsets_buffer, offsets_builder.Finish());
+
+  auto list_data = ArrayData::Make(list(int32()),
+                                   /*num_rows=*/1,
+                                   /*buffers=*/{nullptr, offsets_buffer});
+  list_data->child_data = {child_data};
+  std::shared_ptr<Array> list_array = MakeArray(list_data);
+  ASSERT_OK(list_array->ValidateFull());
+
+  CheckRoundtrip(list_array);
+}
+
 TEST(TestReadMessage, CorruptedSmallInput) {
   std::string data = "abc";
   auto reader = io::BufferReader::FromString(data);
@@ -589,20 +614,20 @@ TEST(TestReadMessage, CorruptedSmallInput) {
 }
 
 TEST(TestMetadata, GetMetadataVersion) {
-  ASSERT_EQ(MetadataVersion::V1,
-            ipc::internal::GetMetadataVersion(flatbuf::MetadataVersion::V1));
-  ASSERT_EQ(MetadataVersion::V2,
-            ipc::internal::GetMetadataVersion(flatbuf::MetadataVersion::V2));
-  ASSERT_EQ(MetadataVersion::V3,
-            ipc::internal::GetMetadataVersion(flatbuf::MetadataVersion::V3));
-  ASSERT_EQ(MetadataVersion::V4,
-            ipc::internal::GetMetadataVersion(flatbuf::MetadataVersion::V4));
-  ASSERT_EQ(MetadataVersion::V5,
-            ipc::internal::GetMetadataVersion(flatbuf::MetadataVersion::V5));
-  ASSERT_EQ(MetadataVersion::V1,
-            ipc::internal::GetMetadataVersion(flatbuf::MetadataVersion::MIN));
-  ASSERT_EQ(MetadataVersion::V5,
-            ipc::internal::GetMetadataVersion(flatbuf::MetadataVersion::MAX));
+  ASSERT_EQ(MetadataVersion::V1, ipc::internal::GetMetadataVersion(
+                                     flatbuf::MetadataVersion::MetadataVersion_V1));
+  ASSERT_EQ(MetadataVersion::V2, ipc::internal::GetMetadataVersion(
+                                     flatbuf::MetadataVersion::MetadataVersion_V2));
+  ASSERT_EQ(MetadataVersion::V3, ipc::internal::GetMetadataVersion(
+                                     flatbuf::MetadataVersion::MetadataVersion_V3));
+  ASSERT_EQ(MetadataVersion::V4, ipc::internal::GetMetadataVersion(
+                                     flatbuf::MetadataVersion::MetadataVersion_V4));
+  ASSERT_EQ(MetadataVersion::V5, ipc::internal::GetMetadataVersion(
+                                     flatbuf::MetadataVersion::MetadataVersion_V5));
+  ASSERT_EQ(MetadataVersion::V1, ipc::internal::GetMetadataVersion(
+                                     flatbuf::MetadataVersion::MetadataVersion_MIN));
+  ASSERT_EQ(MetadataVersion::V5, ipc::internal::GetMetadataVersion(
+                                     flatbuf::MetadataVersion::MetadataVersion_MAX));
 }
 
 TEST_P(TestIpcRoundTrip, SliceRoundTrip) {
@@ -1081,9 +1106,9 @@ TEST_F(RecursionLimits, ReadLimit) {
 // Test fails with a structured exception on Windows + Debug
 #if !defined(_WIN32) || defined(NDEBUG)
 TEST_F(RecursionLimits, StressLimit) {
-#ifdef __EMSCRIPTEN__
+#  ifdef __EMSCRIPTEN__
   GTEST_SKIP() << "This crashes the Emscripten runtime.";
-#endif
+#  endif
 
   auto CheckDepth = [this](int recursion_depth, bool* it_works) {
     int32_t metadata_length = -1;
@@ -1112,10 +1137,10 @@ TEST_F(RecursionLimits, StressLimit) {
   ASSERT_TRUE(it_works);
 
 // Mitigate Valgrind's slowness
-#if !defined(ARROW_VALGRIND)
+#  if !defined(ARROW_VALGRIND)
   CheckDepth(500, &it_works);
   ASSERT_TRUE(it_works);
-#endif
+#  endif
 }
 #endif  // !defined(_WIN32) || defined(NDEBUG)
 

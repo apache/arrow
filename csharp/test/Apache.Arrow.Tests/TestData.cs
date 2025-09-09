@@ -72,6 +72,8 @@ namespace Apache.Arrow.Tests
                 AddField(CreateField(StringType.Default, i));
                 AddField(CreateField(StringViewType.Default, i));
                 AddField(CreateField(new StructType(new List<Field> { CreateField(StringType.Default, i), CreateField(Int32Type.Default, i) }), i));
+                AddField(CreateField(new Decimal32Type(9, 2), i));
+                AddField(CreateField(new Decimal64Type(10, 4), i));
                 AddField(CreateField(new Decimal128Type(10, 6), i));
                 AddField(CreateField(new Decimal256Type(16, 8), i));
                 AddField(CreateField(new MapType(StringType.Default, Int32Type.Default), i));
@@ -154,6 +156,8 @@ namespace Apache.Arrow.Tests
             IArrowTypeVisitor<FixedSizeListType>,
             IArrowTypeVisitor<StructType>,
             IArrowTypeVisitor<UnionType>,
+            IArrowTypeVisitor<Decimal32Type>,
+            IArrowTypeVisitor<Decimal64Type>,
             IArrowTypeVisitor<Decimal128Type>,
             IArrowTypeVisitor<Decimal256Type>,
             IArrowTypeVisitor<DictionaryType>,
@@ -190,6 +194,31 @@ namespace Apache.Arrow.Tests
             public void Visit(HalfFloatType type) => GenerateArray(new HalfFloatArray.Builder(), x => ((Half)x / (Half)Length));
 #endif
             public void Visit(DoubleType type) => GenerateArray(new DoubleArray.Builder(), x => ((double)x / Length));
+
+            public void Visit(Decimal32Type type)
+            {
+                var builder = new Decimal32Array.Builder(type).Reserve(Length);
+
+                for (var i = 0; i < Length; i++)
+                {
+                    builder.Append((decimal)i / Length);
+                }
+
+                Array = builder.Build();
+            }
+
+            public void Visit(Decimal64Type type)
+            {
+                var builder = new Decimal64Array.Builder(type).Reserve(Length);
+
+                for (var i = 0; i < Length; i++)
+                {
+                    builder.Append((decimal)i / Length);
+                }
+
+                Array = builder.Build();
+            }
+
             public void Visit(Decimal128Type type)
             {
                 var builder = new Decimal128Array.Builder(type).Reserve(Length);

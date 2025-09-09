@@ -15,7 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/util/dict_util.h"
+#include "arrow/util/dict_util_internal.h"
+
 #include "arrow/array/array_dict.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/checked_cast.h"

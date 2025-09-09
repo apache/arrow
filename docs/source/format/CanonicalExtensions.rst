@@ -259,7 +259,7 @@ JSON
 * Extension name: ``arrow.json``.
 
 * The storage type of this extension is ``String`` or
-  or ``LargeString`` or ``StringView``.
+  ``LargeString`` or ``StringView``.
   Only UTF-8 encoded JSON as specified in `rfc8259`_ is supported.
 
 * Extension type parameters:

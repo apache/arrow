@@ -69,42 +69,43 @@ namespace Apache.Arrow.Flight.Internal
 
         public override async ValueTask ReadSchemaAsync(CancellationToken cancellationToken)
         {
-            if (HasReadSchema)
+            while (!HasReadSchema)
             {
-                return;
-            }
+                var moveNextResult = await _flightDataStream.MoveNext(cancellationToken).ConfigureAwait(false);
+                if (!moveNextResult)
+                {
+                    throw new Exception("No records or schema in this flight");
+                }
 
-            var moveNextResult = await _flightDataStream.MoveNext(cancellationToken).ConfigureAwait(false);
+                if (_flightDescriptor == null && _flightDataStream.Current.FlightDescriptor != null)
+                {
+                    _flightDescriptor = new FlightDescriptor(_flightDataStream.Current.FlightDescriptor);
+                }
 
-            if (!moveNextResult)
-            {
-                throw new Exception("No records or schema in this flight");
-            }
+                // AppMetadata will never be null, but length 0 if empty
+                // Those are skipped
+                if(_flightDataStream.Current.AppMetadata.Length > 0)
+                {
+                    _applicationMetadatas.Add(_flightDataStream.Current.AppMetadata);
+                }
 
-            //AppMetadata will never be null, but length 0 if empty
-            //Those are skipped
-            if(_flightDataStream.Current.AppMetadata.Length > 0)
-            {
-                _applicationMetadatas.Add(_flightDataStream.Current.AppMetadata);
-            }
+                var header = _flightDataStream.Current.DataHeader.Memory;
+                if (header.IsEmpty)
+                {
+                    // Clients may send a first message with a descriptor only and no schema
+                    continue;
+                }
 
-            var header = _flightDataStream.Current.DataHeader.Memory;
-            Message message = Message.GetRootAsMessage(
-                ArrowReaderImplementation.CreateByteBuffer(header));
+                Message message = Message.GetRootAsMessage(ArrowReaderImplementation.CreateByteBuffer(header));
 
-
-            if(_flightDataStream.Current.FlightDescriptor != null)
-            {
-                _flightDescriptor = new FlightDescriptor(_flightDataStream.Current.FlightDescriptor);
-            }
-
-            switch (message.HeaderType)
-            {
-                case MessageHeader.Schema:
-                    _schema = FlightMessageSerializer.DecodeSchema(message.ByteBuffer);
-                    break;
-                default:
-                    throw new Exception($"Expected schema as the first message, but got: {message.HeaderType.ToString()}");
+                switch (message.HeaderType)
+                {
+                    case MessageHeader.Schema:
+                        _schema = FlightMessageSerializer.DecodeSchema(message.ByteBuffer);
+                        break;
+                    default:
+                        throw new Exception($"Expected schema as the first message, but got: {message.HeaderType.ToString()}");
+                }
             }
         }
 

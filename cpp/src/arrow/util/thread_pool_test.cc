@@ -16,11 +16,12 @@
 // under the License.
 
 #ifndef _WIN32
-#include <sys/types.h>
-#include <unistd.h>
+#  include <sys/types.h>
+#  include <unistd.h>
 #endif
 
 #include <algorithm>
+#include <condition_variable>
 #include <cstdio>
 #include <cstdlib>
 #include <functional>
@@ -578,6 +579,62 @@ TEST_F(TestThreadPool, Spawn) {
   SpawnAdds(pool.get(), 7, task_add<int>);
 }
 
+TEST_F(TestThreadPool, TasksRunInPriorityOrder) {
+  auto pool = this->MakeThreadPool(1);
+  constexpr int kNumTasks = 10;
+  auto recorded_times = std::vector<std::chrono::steady_clock::time_point>(kNumTasks);
+  auto futures = std::vector<Future<int>>(kNumTasks);
+  std::mutex mutex;
+
+  auto wait_task = [&mutex] { std::unique_lock<std::mutex> lock(mutex); };
+  {
+    std::unique_lock<std::mutex> lock(mutex);
+    // Spawn wait_task to block the pool while we add the other tasks. This
+    // ensures all the tasks are queued before any of them start running, so that
+    // their running order is fully determined by their priority.
+    ASSERT_OK(pool->Spawn(wait_task));
+
+    for (int i = 0; i < kNumTasks; ++i) {
+      auto record_time = [&recorded_times, i]() {
+        recorded_times[i] = std::chrono::steady_clock::now();
+        return i;
+      };
+      // Spawn tasks in opposite order to urgency.
+      ASSERT_OK_AND_ASSIGN(futures[i],
+                           pool->Submit(TaskHints{kNumTasks - i}, record_time));
+    }
+  }
+
+  ASSERT_OK(pool->Shutdown());
+
+  for (size_t i = 1; i < kNumTasks; ++i) {
+    ASSERT_GE(recorded_times[i - 1], recorded_times[i]);
+    ASSERT_LT(futures[i - 1].result().ValueOrDie(), futures[i].result().ValueOrDie());
+  }
+}
+
+TEST_F(TestThreadPool, TasksOfEqualPriorityRunInSpawnOrder) {
+  auto pool = this->MakeThreadPool(1);
+  constexpr int kNumTasks = 10;
+  auto recorded_times = std::vector<std::chrono::steady_clock::time_point>(kNumTasks);
+  auto futures = std::vector<Future<int>>(kNumTasks);
+
+  for (int i = 0; i < kNumTasks; ++i) {
+    auto record_time = [&recorded_times, i]() {
+      recorded_times[i] = std::chrono::steady_clock::now();
+      return i;
+    };
+    ASSERT_OK_AND_ASSIGN(futures[i], pool->Submit(record_time));
+  }
+
+  ASSERT_OK(pool->Shutdown());
+
+  for (size_t i = 1; i < kNumTasks; ++i) {
+    ASSERT_LE(recorded_times[i - 1], recorded_times[i]);
+    ASSERT_LT(futures[i - 1].result().ValueOrDie(), futures[i].result().ValueOrDie());
+  }
+}
+
 TEST_F(TestThreadPool, StressSpawn) {
   auto pool = this->MakeThreadPool(30);
   SpawnAdds(pool.get(), 1000, task_add<int>);
@@ -830,9 +887,9 @@ class TestThreadPoolForkSafety : public TestThreadPool {};
 
 TEST_F(TestThreadPoolForkSafety, Basics) {
   {
-#ifndef ARROW_ENABLE_THREADING
+#  ifndef ARROW_ENABLE_THREADING
     GTEST_SKIP() << "Test requires threading support";
-#endif
+#  endif
 
     // Fork after task submission
     auto pool = this->MakeThreadPool(3);
@@ -877,9 +934,9 @@ TEST_F(TestThreadPoolForkSafety, Basics) {
 }
 
 TEST_F(TestThreadPoolForkSafety, MultipleChildThreads) {
-#ifndef ARROW_ENABLE_THREADING
+#  ifndef ARROW_ENABLE_THREADING
   GTEST_SKIP() << "Test requires threading support";
-#endif
+#  endif
   // ARROW-15593: race condition in after-fork ThreadPool reinitialization
   // when SpawnReal() was called from multiple threads in a forked child.
   auto run_in_child = [](ThreadPool* pool) {
@@ -927,12 +984,12 @@ TEST_F(TestThreadPoolForkSafety, MultipleChildThreads) {
 
 TEST_F(TestThreadPoolForkSafety, NestedChild) {
   {
-#ifdef __APPLE__
+#  ifdef __APPLE__
     GTEST_SKIP() << "Nested fork is not supported on macos";
-#endif
-#ifndef ARROW_ENABLE_THREADING
+#  endif
+#  ifndef ARROW_ENABLE_THREADING
     GTEST_SKIP() << "Test requires threading support";
-#endif
+#  endif
     auto pool = this->MakeThreadPool(3);
     ASSERT_OK_AND_ASSIGN(auto fut, pool->Submit(add<int>, 4, 5));
     ASSERT_OK_AND_EQ(9, fut.result());
@@ -982,35 +1039,46 @@ TEST(TestGlobalThreadPool, Capacity) {
   // Exercise default capacity heuristic
   ASSERT_OK(DelEnvVar("OMP_NUM_THREADS"));
   ASSERT_OK(DelEnvVar("OMP_THREAD_LIMIT"));
+
   int hw_capacity = std::thread::hardware_concurrency();
-  ASSERT_EQ(ThreadPool::DefaultCapacity(), hw_capacity);
+  ASSERT_LE(ThreadPool::DefaultCapacity(), hw_capacity);
+  ASSERT_GE(ThreadPool::DefaultCapacity(), 1);
+
   ASSERT_OK(SetEnvVar("OMP_NUM_THREADS", "13"));
   ASSERT_EQ(ThreadPool::DefaultCapacity(), 13);
+
   ASSERT_OK(SetEnvVar("OMP_NUM_THREADS", "7,5,13"));
   ASSERT_EQ(ThreadPool::DefaultCapacity(), 7);
   ASSERT_OK(DelEnvVar("OMP_NUM_THREADS"));
 
   ASSERT_OK(SetEnvVar("OMP_THREAD_LIMIT", "1"));
   ASSERT_EQ(ThreadPool::DefaultCapacity(), 1);
+
   ASSERT_OK(SetEnvVar("OMP_THREAD_LIMIT", "999"));
-  if (hw_capacity <= 999) {
-    ASSERT_EQ(ThreadPool::DefaultCapacity(), hw_capacity);
-  }
+  ASSERT_LE(ThreadPool::DefaultCapacity(), std::min(999, hw_capacity));
+  ASSERT_GE(ThreadPool::DefaultCapacity(), 1);
+
   ASSERT_OK(SetEnvVar("OMP_NUM_THREADS", "6,5,13"));
   ASSERT_EQ(ThreadPool::DefaultCapacity(), 6);
+
   ASSERT_OK(SetEnvVar("OMP_THREAD_LIMIT", "2"));
   ASSERT_EQ(ThreadPool::DefaultCapacity(), 2);
 
   // Invalid env values
   ASSERT_OK(SetEnvVar("OMP_NUM_THREADS", "0"));
   ASSERT_OK(SetEnvVar("OMP_THREAD_LIMIT", "0"));
-  ASSERT_EQ(ThreadPool::DefaultCapacity(), hw_capacity);
+  ASSERT_LE(ThreadPool::DefaultCapacity(), hw_capacity);
+  ASSERT_GE(ThreadPool::DefaultCapacity(), 1);
+
   ASSERT_OK(SetEnvVar("OMP_NUM_THREADS", "zzz"));
   ASSERT_OK(SetEnvVar("OMP_THREAD_LIMIT", "x"));
-  ASSERT_EQ(ThreadPool::DefaultCapacity(), hw_capacity);
+  ASSERT_LE(ThreadPool::DefaultCapacity(), hw_capacity);
+  ASSERT_GE(ThreadPool::DefaultCapacity(), 1);
+
   ASSERT_OK(SetEnvVar("OMP_THREAD_LIMIT", "-1"));
   ASSERT_OK(SetEnvVar("OMP_NUM_THREADS", "99999999999999999999999999"));
-  ASSERT_EQ(ThreadPool::DefaultCapacity(), hw_capacity);
+  ASSERT_LE(ThreadPool::DefaultCapacity(), hw_capacity);
+  ASSERT_GE(ThreadPool::DefaultCapacity(), 1);
 
   ASSERT_OK(DelEnvVar("OMP_NUM_THREADS"));
   ASSERT_OK(DelEnvVar("OMP_THREAD_LIMIT"));

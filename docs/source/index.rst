@@ -20,15 +20,14 @@
 Apache Arrow
 ============
 
-Apache Arrow is a development platform for in-memory analytics. It contains a
-set of technologies that enable big data systems to process and move data
-fast. It specifies a standardized language-independent columnar memory format
-for flat and hierarchical data, organized for efficient analytic operations on
-modern hardware.
+Apache Arrow is a universal columnar format and multi-language toolbox for fast
+data interchange and in-memory analytics.
 
-The project is developing a multi-language collection of libraries for solving
-systems problems related to in-memory analytical data processing. This includes
-such topics as:
+The project specifies a language-independent column-oriented memory format
+for flat and hierarchical data, organized for efficient analytic operations on
+modern hardware. The project houses an actively developed collection of
+libraries in many languages for solving problems related to data transfer and
+in-memory analytical processing. This includes such topics as:
 
 * Zero-copy shared memory and RPC-based data movement
 * Reading and writing file formats (like CSV, Apache ORC, and Apache Parquet)
@@ -77,6 +76,41 @@ target environment.**
 
          To Development
 
+   .. grid-item-card:: Implementations
+      :class-card: contrib-card
+      :shadow: none
+
+      Browse the documentation and source code for Apache Arrow libraries
+      in C++, C GLib, C#, Go, Java, JavaScript, Julia, MATLAB, Python, R,
+      Ruby, Rust, and Swift.
+
+      +++
+
+      .. button-ref:: implementations
+         :ref-type: ref
+         :click-parent:
+         :color: primary
+         :expand:
+
+         To Implementations
+
+
+   .. grid-item-card:: Cookbook
+      :class-card: contrib-card
+      :shadow: none
+
+      Explore a collection of Apache Arrow recipes in C++, Java, Python,
+      R, and Rust.
+
+      +++
+
+      .. button-link:: https://arrow.apache.org/cookbook/
+         :click-parent:
+         :color: primary
+         :expand:
+
+         To Cookbook
+
 .. _toc.columnar:
 
 .. toctree::
@@ -93,38 +127,10 @@ target environment.**
 
    developers/index
 
-Implementations
----------------
-
-.. _toc.usage:
+.. _toc.implementations:
 
 .. toctree::
-   :maxdepth: 1
+   :maxdepth: 2
+   :hidden:
 
-   C/GLib <c_glib/index>
-   C++ <cpp/index>
-   C# <https://github.com/apache/arrow/blob/main/csharp/README.md>
-   Go <https://pkg.go.dev/github.com/apache/arrow/go/v18>
-   Java <java/index>
-   JavaScript <js/index>
-   Julia <https://arrow.apache.org/julia/>
-   MATLAB <https://github.com/apache/arrow/blob/main/matlab/README.md>
-   nanoarrow <https://arrow.apache.org/nanoarrow/>
-   Python <python/index>
-   R <r/index>
-   Ruby <https://github.com/apache/arrow/blob/main/ruby/README.md>
-   Rust <https://docs.rs/crate/arrow/>
-   status
-
-Examples
---------
-
-.. _toc.cookbook:
-
-.. toctree::
-   :maxdepth: 1
-
-   C++ cookbook <https://arrow.apache.org/cookbook/cpp/>
-   Java cookbook <https://arrow.apache.org/cookbook/java/>
-   Python cookbook <https://arrow.apache.org/cookbook/py/>
-   R cookbook <https://arrow.apache.org/cookbook/r/>
+   implementations

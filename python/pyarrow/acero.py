@@ -22,7 +22,7 @@
 # distutils: language = c++
 # cython: language_level = 3
 
-from pyarrow.lib import Table, RecordBatch
+from pyarrow.lib import Table, RecordBatch, array
 from pyarrow.compute import Expression, field
 
 try:
@@ -56,8 +56,10 @@ except ImportError:
     ds = DatasetModuleStub
 
 
-def _dataset_to_decl(dataset, use_threads=True):
-    decl = Declaration("scan", ScanNodeOptions(dataset, use_threads=use_threads))
+def _dataset_to_decl(dataset, use_threads=True, implicit_ordering=False):
+    decl = Declaration("scan", ScanNodeOptions(
+        dataset, use_threads=use_threads,
+        implicit_ordering=implicit_ordering))
 
     # Get rid of special dataset columns
     # "__fragment_index", "__batch_index", "__last_in_fragment", "__filename"
@@ -81,7 +83,7 @@ def _perform_join(join_type, left_operand, left_keys,
                   right_operand, right_keys,
                   left_suffix=None, right_suffix=None,
                   use_threads=True, coalesce_keys=False,
-                  output_type=Table):
+                  output_type=Table, filter_expression=None):
     """
     Perform join of two tables or datasets.
 
@@ -112,6 +114,8 @@ def _perform_join(join_type, left_operand, left_keys,
         in the join result.
     output_type: Table or InMemoryDataset
         The output type for the exec plan result.
+    filter_expression : pyarrow.compute.Expression
+        Residual filter which is applied to matching row.
 
     Returns
     -------
@@ -181,12 +185,14 @@ def _perform_join(join_type, left_operand, left_keys,
             join_type, left_keys, right_keys, left_columns, right_columns,
             output_suffix_for_left=left_suffix or "",
             output_suffix_for_right=right_suffix or "",
+            filter_expression=filter_expression,
         )
     else:
         join_opts = HashJoinNodeOptions(
             join_type, left_keys, right_keys,
             output_suffix_for_left=left_suffix or "",
             output_suffix_for_right=right_suffix or "",
+            filter_expression=filter_expression,
         )
     decl = Declaration(
         "hashjoin", options=join_opts, inputs=[left_source, right_source]
@@ -305,19 +311,24 @@ def _perform_join_asof(left_operand, left_on, left_by,
     columns_collisions = set(left_operand.schema.names) & set(right_columns)
     if columns_collisions:
         raise ValueError(
-            "Columns {} present in both tables. AsofJoin does not support "
-            "column collisions.".format(columns_collisions),
+            f"Columns {columns_collisions} present in both tables. "
+            "AsofJoin does not support column collisions."
         )
 
     # Add the join node to the execplan
     if isinstance(left_operand, ds.Dataset):
-        left_source = _dataset_to_decl(left_operand, use_threads=use_threads)
+        left_source = _dataset_to_decl(
+            left_operand,
+            use_threads=use_threads,
+            implicit_ordering=True)
     else:
         left_source = Declaration(
             "table_source", TableSourceNodeOptions(left_operand),
         )
     if isinstance(right_operand, ds.Dataset):
-        right_source = _dataset_to_decl(right_operand, use_threads=use_threads)
+        right_source = _dataset_to_decl(
+            right_operand, use_threads=use_threads,
+            implicit_ordering=True)
     else:
         right_source = Declaration(
             "table_source", TableSourceNodeOptions(right_operand)
@@ -355,7 +366,7 @@ def _filter_table(table, expression):
 
     Returns
     -------
-    Table
+    Table or RecordBatch
     """
     is_batch = False
     if isinstance(table, RecordBatch):
@@ -368,7 +379,11 @@ def _filter_table(table, expression):
     ])
     result = decl.to_table(use_threads=True)
     if is_batch:
-        result = result.combine_chunks().to_batches()[0]
+        if result.num_rows > 0:
+            result = result.combine_chunks().to_batches()[0]
+        else:
+            arrays = [array([], type=field.type) for field in result.schema]
+            result = RecordBatch.from_arrays(arrays, schema=result.schema)
     return result
 
 

@@ -71,5 +71,5 @@ function(gandiva_add_bitcode SOURCE)
   endif()
   add_custom_command(OUTPUT ${BC_FILE}
                      COMMAND ${PRECOMPILE_COMMAND}
-                     DEPENDS ${SOURCE_FILE})
+                     DEPENDS ${SOURCE})
 endfunction()

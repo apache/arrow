@@ -27,12 +27,12 @@
 // idenfity.hpp triggers -Wattributes warnings cause -Werror builds to fail,
 // so disable it for this file with pragmas.
 #if defined(__GNUC__)
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wattributes"
+#  pragma GCC diagnostic push
+#  pragma GCC diagnostic ignored "-Wattributes"
 #endif
 #include <azure/identity.hpp>
 #if defined(__GNUC__)
-#pragma GCC diagnostic pop
+#  pragma GCC diagnostic pop
 #endif
 #include <azure/storage/blobs.hpp>
 #include <azure/storage/files/datalake.hpp>
@@ -46,7 +46,7 @@
 #include "arrow/util/formatting.h"
 #include "arrow/util/future.h"
 #include "arrow/util/key_value_metadata.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/string.h"
 
 namespace arrow::fs {
@@ -101,12 +101,23 @@ void AzureOptions::ExtractFromUriSchemeAndHierPart(const Uri& uri,
 }
 
 Status AzureOptions::ExtractFromUriQuery(const Uri& uri) {
-  const auto account_key = uri.password();
   std::optional<CredentialKind> credential_kind;
   std::optional<std::string> credential_kind_value;
   std::string tenant_id;
   std::string client_id;
   std::string client_secret;
+
+  // These query parameters are the union of the following docs:
+  // https://learn.microsoft.com/en-us/rest/api/storageservices/create-account-sas#specify-the-account-sas-parameters
+  // https://learn.microsoft.com/en-us/rest/api/storageservices/create-service-sas#construct-a-service-sas
+  // (excluding parameters for table storage only)
+  // https://learn.microsoft.com/en-us/rest/api/storageservices/create-user-delegation-sas#construct-a-user-delegation-sas
+  static const std::set<std::string> sas_token_query_parameters = {
+      "sv",    "ss",    "sr",  "st",  "se",   "sp",   "si",   "sip",   "spr",
+      "skoid", "sktid", "srt", "skt", "ske",  "skv",  "sks",  "saoid", "suoid",
+      "scid",  "sdd",   "ses", "sig", "rscc", "rscd", "rsce", "rscl",  "rsct",
+  };
+
   ARROW_ASSIGN_OR_RAISE(const auto options_items, uri.query_items());
   for (const auto& kv : options_items) {
     if (kv.first == "blob_storage_authority") {
@@ -148,6 +159,9 @@ Status AzureOptions::ExtractFromUriQuery(const Uri& uri) {
     } else if (kv.first == "background_writes") {
       ARROW_ASSIGN_OR_RAISE(background_writes,
                             ::arrow::internal::ParseBoolean(kv.second));
+    } else if (sas_token_query_parameters.find(kv.first) !=
+               sas_token_query_parameters.end()) {
+      credential_kind = CredentialKind::kSASToken;
     } else {
       return Status::Invalid(
           "Unexpected query parameter in Azure Blob File System URI: '", kv.first, "'");
@@ -155,10 +169,6 @@ Status AzureOptions::ExtractFromUriQuery(const Uri& uri) {
   }
 
   if (credential_kind) {
-    if (!account_key.empty()) {
-      return Status::Invalid("Password must not be specified with credential_kind=",
-                             *credential_kind_value);
-    }
     if (!tenant_id.empty()) {
       return Status::Invalid("tenant_id must not be specified with credential_kind=",
                              *credential_kind_value);
@@ -185,45 +195,37 @@ Status AzureOptions::ExtractFromUriQuery(const Uri& uri) {
       case CredentialKind::kEnvironment:
         RETURN_NOT_OK(ConfigureEnvironmentCredential());
         break;
+      case CredentialKind::kSASToken:
+        // Reconstructing the SAS token without the other URI query parameters is awkward
+        // because some parts are URI escaped and some parts are not. Instead we just
+        // pass through the entire query string and Azure ignores the extra query
+        // parameters.
+        RETURN_NOT_OK(ConfigureSASCredential("?" + uri.query_string()));
+        break;
       default:
         // Default credential
         break;
     }
   } else {
-    if (!account_key.empty()) {
-      // With password
-      if (!tenant_id.empty()) {
-        return Status::Invalid("tenant_id must not be specified with password");
-      }
-      if (!client_id.empty()) {
-        return Status::Invalid("client_id must not be specified with password");
-      }
-      if (!client_secret.empty()) {
-        return Status::Invalid("client_secret must not be specified with password");
-      }
-      RETURN_NOT_OK(ConfigureAccountKeyCredential(account_key));
-    } else {
-      // Without password
-      if (tenant_id.empty() && client_id.empty() && client_secret.empty()) {
-        // No related parameters
-        if (account_name.empty()) {
-          RETURN_NOT_OK(ConfigureAnonymousCredential());
-        } else {
-          // Default credential
-        }
+    if (tenant_id.empty() && client_id.empty() && client_secret.empty()) {
+      // No related parameters
+      if (account_name.empty()) {
+        RETURN_NOT_OK(ConfigureAnonymousCredential());
       } else {
-        // One or more tenant_id, client_id or client_secret are specified
-        if (client_id.empty()) {
-          return Status::Invalid("client_id must be specified");
-        }
-        if (tenant_id.empty() && client_secret.empty()) {
-          RETURN_NOT_OK(ConfigureManagedIdentityCredential(client_id));
-        } else if (!tenant_id.empty() && !client_secret.empty()) {
-          RETURN_NOT_OK(
-              ConfigureClientSecretCredential(tenant_id, client_id, client_secret));
-        } else {
-          return Status::Invalid("Both of tenant_id and client_secret must be specified");
-        }
+        // Default credential
+      }
+    } else {
+      // One or more tenant_id, client_id or client_secret are specified
+      if (client_id.empty()) {
+        return Status::Invalid("client_id must be specified");
+      }
+      if (tenant_id.empty() && client_secret.empty()) {
+        RETURN_NOT_OK(ConfigureManagedIdentityCredential(client_id));
+      } else if (!tenant_id.empty() && !client_secret.empty()) {
+        RETURN_NOT_OK(
+            ConfigureClientSecretCredential(tenant_id, client_id, client_secret));
+      } else {
+        return Status::Invalid("Both of tenant_id and client_secret must be specified");
       }
     }
   }
@@ -245,7 +247,6 @@ Result<AzureOptions> AzureOptions::FromUri(const std::string& uri_string,
 }
 
 bool AzureOptions::Equals(const AzureOptions& other) const {
-  // TODO(GH-38598): update here when more auth methods are added.
   const bool equals = blob_storage_authority == other.blob_storage_authority &&
                       dfs_storage_authority == other.dfs_storage_authority &&
                       blob_storage_scheme == other.blob_storage_scheme &&
@@ -263,6 +264,8 @@ bool AzureOptions::Equals(const AzureOptions& other) const {
     case CredentialKind::kStorageSharedKey:
       return storage_shared_key_credential_->AccountName ==
              other.storage_shared_key_credential_->AccountName;
+    case CredentialKind::kSASToken:
+      return sas_token_ == other.sas_token_;
     case CredentialKind::kClientSecret:
     case CredentialKind::kCLI:
     case CredentialKind::kManagedIdentity:
@@ -295,7 +298,7 @@ std::string BuildBaseUrl(const std::string& scheme, const std::string& authority
 }
 
 template <typename... PrefixArgs>
-Status ExceptionToStatus(const Storage::StorageException& exception,
+Status ExceptionToStatus(const Azure::Core::RequestFailedException& exception,
                          PrefixArgs&&... prefix_args) {
   return Status::IOError(std::forward<PrefixArgs>(prefix_args)..., " Azure Error: [",
                          exception.ErrorCode, "] ", exception.what());
@@ -328,6 +331,15 @@ Status AzureOptions::ConfigureAccountKeyCredential(const std::string& account_ke
   }
   storage_shared_key_credential_ =
       std::make_shared<Storage::StorageSharedKeyCredential>(account_name, account_key);
+  return Status::OK();
+}
+
+Status AzureOptions::ConfigureSASCredential(const std::string& sas_token) {
+  credential_kind_ = CredentialKind::kSASToken;
+  if (account_name.empty()) {
+    return Status::Invalid("AzureOptions doesn't contain a valid account name");
+  }
+  sas_token_ = sas_token;
   return Status::OK();
 }
 
@@ -392,6 +404,9 @@ Result<std::unique_ptr<Blobs::BlobServiceClient>> AzureOptions::MakeBlobServiceC
     case CredentialKind::kStorageSharedKey:
       return std::make_unique<Blobs::BlobServiceClient>(AccountBlobUrl(account_name),
                                                         storage_shared_key_credential_);
+    case CredentialKind::kSASToken:
+      return std::make_unique<Blobs::BlobServiceClient>(AccountBlobUrl(account_name) +
+                                                        sas_token_);
   }
   return Status::Invalid("AzureOptions doesn't contain a valid auth configuration");
 }
@@ -424,27 +439,11 @@ AzureOptions::MakeDataLakeServiceClient() const {
     case CredentialKind::kStorageSharedKey:
       return std::make_unique<DataLake::DataLakeServiceClient>(
           AccountDfsUrl(account_name), storage_shared_key_credential_);
+    case CredentialKind::kSASToken:
+      return std::make_unique<DataLake::DataLakeServiceClient>(
+          AccountBlobUrl(account_name) + sas_token_);
   }
   return Status::Invalid("AzureOptions doesn't contain a valid auth configuration");
-}
-
-Result<std::string> AzureOptions::GenerateSASToken(
-    Storage::Sas::BlobSasBuilder* builder, Blobs::BlobServiceClient* client) const {
-  using SasProtocol = Storage::Sas::SasProtocol;
-  builder->Protocol =
-      blob_storage_scheme == "http" ? SasProtocol::HttpsAndHttp : SasProtocol::HttpsOnly;
-  if (storage_shared_key_credential_) {
-    return builder->GenerateSasToken(*storage_shared_key_credential_);
-  } else {
-    // GH-39344: This part isn't tested. This may not work.
-    try {
-      auto delegation_key_response = client->GetUserDelegationKey(builder->ExpiresOn);
-      return builder->GenerateSasToken(delegation_key_response.Value, account_name);
-    } catch (const Storage::StorageException& exception) {
-      return ExceptionToStatus(exception, "GetUserDelegationKey failed for '",
-                               client->GetUrl(), "'.");
-    }
-  }
 }
 
 namespace {
@@ -1401,6 +1400,13 @@ Result<HNSSupport> CheckIfHierarchicalNamespaceIsEnabled(
                                  "Check for Hierarchical Namespace support on '",
                                  adlfs_client.GetUrl(), "' failed.");
     }
+  } catch (const Azure::Core::Http::TransportException& exception) {
+    return ExceptionToStatus(exception, "Check for Hierarchical Namespace support on '",
+                             adlfs_client.GetUrl(), "' failed.");
+  } catch (const std::exception& exception) {
+    return Status::UnknownError(
+        "Check for Hierarchical Namespace support on '", adlfs_client.GetUrl(),
+        "' failed: ", typeid(exception).name(), ": ", exception.what());
   }
 }
 
@@ -1806,6 +1812,8 @@ class AzureFileSystem::Impl {
       // BlobPrefixes. A BlobPrefix always ends with kDelimiter ("/"), so we can
       // distinguish between a directory and a file by checking if we received a
       // prefix or a blob.
+      // This strategy allows us to implement GetFileInfo with just 1 blob storage
+      // operation in almost every case.
       if (!list_response.BlobPrefixes.empty()) {
         // Ensure the returned BlobPrefixes[0] string doesn't contain more characters than
         // the requested Prefix. For instance, if we request with Prefix="dir/abra" and
@@ -1827,6 +1835,25 @@ class AzureFileSystem::Impl {
           info.set_mtime(
               std::chrono::system_clock::time_point{blob.Details.LastModified});
           return info;
+        } else if (blob.Name[options.Prefix.Value().length()] < internal::kSep) {
+          // First list result did not indicate a directory and there is definitely no
+          // exactly matching blob. However, there may still be a directory that we
+          // initially missed because the first list result came before
+          // `options.Prefix + internal::kSep` lexigraphically.
+          // For example the flat namespace storage account has the following blobs:
+          // - container/dir.txt
+          // - container/dir/file.txt
+          // GetFileInfo(container/dir) should return FileType::Directory but in this
+          // edge case `blob = "dir.txt"`, so without further checks we would incorrectly
+          // return FileType::NotFound.
+          // Therefore we make an extra list operation with the trailing slash to confirm
+          // whether the path is a directory.
+          options.Prefix = internal::EnsureTrailingSlash(location.path);
+          auto list_with_trailing_slash_response = container_client.ListBlobs(options);
+          if (!list_with_trailing_slash_response.Blobs.empty()) {
+            info.set_type(FileType::Directory);
+            return info;
+          }
         }
       }
       info.set_type(FileType::NotFound);
@@ -1908,18 +1935,22 @@ class AzureFileSystem::Impl {
   /// \brief List the paths at the root of a filesystem or some dir in a filesystem.
   ///
   /// \pre adlfs_client is the client for the filesystem named like the first
-  /// segment of select.base_dir.
+  /// segment of select.base_dir. The filesystem is know to exist.
   Status GetFileInfoWithSelectorFromFileSystem(
       const DataLake::DataLakeFileSystemClient& adlfs_client,
       const Core::Context& context, Azure::Nullable<int32_t> page_size_hint,
       const FileSelector& select, FileInfoVector* acc_results) {
     ARROW_ASSIGN_OR_RAISE(auto base_location, AzureLocation::FromString(select.base_dir));
 
+    // The filesystem a.k.a. the container is known to exist so if the path is empty then
+    // we have already found the base_location, so initialize found to true.
+    bool found = base_location.path.empty();
+
     auto directory_client = adlfs_client.GetDirectoryClient(base_location.path);
-    bool found = false;
     DataLake::ListPathsOptions options;
     options.PageSizeHint = page_size_hint;
 
+    auto base_path_depth = internal::GetAbstractPathDepth(base_location.path);
     try {
       auto list_response = directory_client.ListPaths(select.recursive, options, context);
       for (; list_response.HasPage(); list_response.MoveToNextPage(context)) {
@@ -1931,7 +1962,15 @@ class AzureFileSystem::Impl {
           if (path.Name == base_location.path && !path.IsDirectory) {
             return NotADir(base_location);
           }
-          acc_results->push_back(FileInfoFromPath(base_location.container, path));
+          // Subtract 1 because with `max_recursion=0` we want to list the base path,
+          // which will produce results with depth 1 greater that the base path's depth.
+          // NOTE: `select.max_recursion` + anything will cause integer overflows because
+          // `select.max_recursion` defaults to `INT32_MAX`. Therefore, options to
+          // rewrite this condition in a more readable way are limited.
+          if (internal::GetAbstractPathDepth(path.Name) - base_path_depth - 1 <=
+              select.max_recursion) {
+            acc_results->push_back(FileInfoFromPath(base_location.container, path));
+          }
         }
       }
     } catch (const Storage::StorageException& exception) {
@@ -3141,19 +3180,7 @@ class AzureFileSystem::Impl {
     if (src == dest) {
       return Status::OK();
     }
-    std::string sas_token;
-    {
-      Storage::Sas::BlobSasBuilder builder;
-      std::chrono::seconds available_period(60);
-      builder.ExpiresOn = std::chrono::system_clock::now() + available_period;
-      builder.BlobContainerName = src.container;
-      builder.BlobName = src.path;
-      builder.Resource = Storage::Sas::BlobSasResource::Blob;
-      builder.SetPermissions(Storage::Sas::BlobSasPermissions::Read);
-      ARROW_ASSIGN_OR_RAISE(
-          sas_token, options_.GenerateSASToken(&builder, blob_service_client_.get()));
-    }
-    auto src_url = GetBlobClient(src.container, src.path).GetUrl() + sas_token;
+    auto src_url = GetBlobClient(src.container, src.path).GetUrl();
     auto dest_blob_client = GetBlobClient(dest.container, dest.path);
     if (!dest.path.empty()) {
       auto dest_parent = dest.parent();
@@ -3166,9 +3193,21 @@ class AzureFileSystem::Impl {
       }
     }
     try {
-      dest_blob_client.CopyFromUri(src_url);
+      // We use StartCopyFromUri instead of CopyFromUri because it supports blobs larger
+      // than 256 MiB and it doesn't require generating a SAS token to authenticate
+      // reading a source blob in the same storage account.
+      auto copy_operation = dest_blob_client.StartCopyFromUri(src_url);
+      // For large blobs, the copy operation may be slow so we need to poll until it
+      // completes. We use a polling interval of 1 second.
+      copy_operation.PollUntilDone(std::chrono::milliseconds(1000));
     } catch (const Storage::StorageException& exception) {
-      return ExceptionToStatus(exception, "Failed to copy a blob. (", src_url, " -> ",
+      // StartCopyFromUri failed or a GetProperties call inside PollUntilDone failed.
+      return ExceptionToStatus(
+          exception, "Failed to start blob copy or poll status of ongoing copy. (",
+          src_url, " -> ", dest_blob_client.GetUrl(), ")");
+    } catch (const Azure::Core::RequestFailedException& exception) {
+      // A GetProperties call inside PollUntilDone returned a failed CopyStatus.
+      return ExceptionToStatus(exception, "Failed to copy blob. (", src_url, " -> ",
                                dest_blob_client.GetUrl(), ")");
     }
     return Status::OK();

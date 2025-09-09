@@ -43,7 +43,7 @@
 #include "arrow/util/int_util.h"
 #include "arrow/util/int_util_overflow.h"
 #include "arrow/util/list_util.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/ree_util.h"
 #include "arrow/util/slice_util_internal.h"
 #include "arrow/visit_data_inline.h"
@@ -377,7 +377,7 @@ class ConcatenateImpl {
   }
 
   Status Visit(const FixedWidthType& fixed) {
-    // Handles numbers, decimal128, decimal256, fixed_size_binary
+    // Handles numbers, decimal32, decimal64, decimal128, decimal256, fixed_size_binary
     ARROW_ASSIGN_OR_RAISE(auto buffers, Buffers(1, fixed));
     return ConcatenateBuffers(buffers, pool_).Value(&out_->buffers[1]);
   }

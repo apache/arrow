@@ -94,15 +94,11 @@ class VarLengthListLikeArray : public Array {
   const std::shared_ptr<DataType>& value_type() const { return list_type_->value_type(); }
 
   /// Return pointer to raw value offsets accounting for any slice offset
-  const offset_type* raw_value_offsets() const {
-    return raw_value_offsets_ + data_->offset;
-  }
+  const offset_type* raw_value_offsets() const { return raw_value_offsets_; }
 
   // The following functions will not perform boundschecking
 
-  offset_type value_offset(int64_t i) const {
-    return raw_value_offsets_[i + data_->offset];
-  }
+  offset_type value_offset(int64_t i) const { return raw_value_offsets_[i]; }
 
   /// \brief Return the size of the value at a particular index
   ///
@@ -154,7 +150,6 @@ class BaseListArray : public VarLengthListLikeArray<TYPE> {
   ///
   /// \pre IsValid(i)
   offset_type value_length(int64_t i) const final {
-    i += this->data_->offset;
     return this->raw_value_offsets_[i + 1] - this->raw_value_offsets_[i];
   }
 };
@@ -302,9 +297,7 @@ class BaseListViewArray : public VarLengthListLikeArray<TYPE> {
   const std::shared_ptr<Buffer>& value_sizes() const { return this->data_->buffers[2]; }
 
   /// \brief Return pointer to raw value offsets accounting for any slice offset
-  const offset_type* raw_value_sizes() const {
-    return raw_value_sizes_ + this->data_->offset;
-  }
+  const offset_type* raw_value_sizes() const { return raw_value_sizes_; }
 
   /// \brief Return the size of the value at a particular index
   ///
@@ -313,9 +306,7 @@ class BaseListViewArray : public VarLengthListLikeArray<TYPE> {
   /// length of the child values array.
   ///
   /// \pre IsValid(i)
-  offset_type value_length(int64_t i) const final {
-    return this->raw_value_sizes_[i + this->data_->offset];
-  }
+  offset_type value_length(int64_t i) const final { return this->raw_value_sizes_[i]; }
 
  protected:
   const offset_type* raw_value_sizes_ = NULLPTR;
@@ -744,15 +735,13 @@ class ARROW_EXPORT UnionArray : public Array {
   /// Note that this buffer does not account for any slice offset
   const std::shared_ptr<Buffer>& type_codes() const { return data_->buffers[1]; }
 
-  const type_code_t* raw_type_codes() const { return raw_type_codes_ + data_->offset; }
+  const type_code_t* raw_type_codes() const { return raw_type_codes_; }
 
   /// The logical type code of the value at index.
-  type_code_t type_code(int64_t i) const { return raw_type_codes_[i + data_->offset]; }
+  type_code_t type_code(int64_t i) const { return raw_type_codes_[i]; }
 
   /// The physical child id containing value at index.
-  int child_id(int64_t i) const {
-    return union_type_->child_ids()[raw_type_codes_[i + data_->offset]];
-  }
+  int child_id(int64_t i) const { return union_type_->child_ids()[raw_type_codes_[i]]; }
 
   const UnionType* union_type() const { return union_type_; }
 
@@ -883,9 +872,9 @@ class ARROW_EXPORT DenseUnionArray : public UnionArray {
   /// Note that this buffer does not account for any slice offset
   const std::shared_ptr<Buffer>& value_offsets() const { return data_->buffers[2]; }
 
-  int32_t value_offset(int64_t i) const { return raw_value_offsets_[i + data_->offset]; }
+  int32_t value_offset(int64_t i) const { return raw_value_offsets_[i]; }
 
-  const int32_t* raw_value_offsets() const { return raw_value_offsets_ + data_->offset; }
+  const int32_t* raw_value_offsets() const { return raw_value_offsets_; }
 
  protected:
   const int32_t* raw_value_offsets_;

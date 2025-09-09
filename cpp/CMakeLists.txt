@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-cmake_minimum_required(VERSION 3.16)
+cmake_minimum_required(VERSION 3.25)
 message(STATUS "Building using CMake version: ${CMAKE_VERSION}")
 
 # https://www.cmake.org/cmake/help/latest/policy/CMP0025.html
@@ -56,6 +56,16 @@ cmake_policy(SET CMP0068 NEW)
 # find_package() uses <PackageName>_ROOT variables.
 cmake_policy(SET CMP0074 NEW)
 
+# https://cmake.org/cmake/help/latest/policy/CMP0077.html
+#
+# option() honors normal variables.
+cmake_policy(SET CMP0077 NEW)
+
+# https://cmake.org/cmake/help/latest/policy/CMP0090.html
+#
+# export(PACKAGE) does nothing by default.
+cmake_policy(SET CMP0090 NEW)
+
 # https://cmake.org/cmake/help/latest/policy/CMP0091.html
 #
 # MSVC runtime library flags are selected by an abstraction.
@@ -71,6 +81,13 @@ if(POLICY CMP0135)
   cmake_policy(SET CMP0135 NEW)
 endif()
 
+# https://cmake.org/cmake/help/latest/policy/CMP0167.html
+#
+# Use Boost's CMake packages instead of FindBoost.cmake in CMake.
+if(POLICY CMP0167)
+  cmake_policy(SET CMP0167 NEW)
+endif()
+
 # https://cmake.org/cmake/help/latest/policy/CMP0170.html
 #
 # CMP0170 is for enforcing dependency populations by users with
@@ -79,7 +96,7 @@ if(POLICY CMP0170)
   cmake_policy(SET CMP0170 NEW)
 endif()
 
-set(ARROW_VERSION "18.0.0-SNAPSHOT")
+set(ARROW_VERSION "22.0.0-SNAPSHOT")
 
 string(REGEX MATCH "^[0-9]+\\.[0-9]+\\.[0-9]+" ARROW_BASE_VERSION "${ARROW_VERSION}")
 
@@ -92,7 +109,7 @@ endif()
 string(TOLOWER ${CMAKE_BUILD_TYPE} LOWERCASE_BUILD_TYPE)
 string(TOUPPER ${CMAKE_BUILD_TYPE} UPPERCASE_BUILD_TYPE)
 
-list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake_modules")
+list(PREPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake_modules")
 
 # this must be included before the project() command, because of the way
 # vcpkg (ab)uses CMAKE_TOOLCHAIN_FILE to inject its logic into CMake
@@ -160,6 +177,9 @@ set(ARROW_DOC_DIR "share/doc/${PROJECT_NAME}")
 set(BUILD_SUPPORT_DIR "${CMAKE_SOURCE_DIR}/build-support")
 
 set(ARROW_LLVM_VERSIONS
+    "21.1"
+    "20.1"
+    "19.1"
     "18.1"
     "17.0"
     "16.0"
@@ -199,7 +219,7 @@ if("$ENV{CMAKE_EXPORT_COMPILE_COMMANDS}" STREQUAL "1"
   set(CMAKE_EXPORT_COMPILE_COMMANDS 1)
 endif()
 
-# Needed for linting targets, etc.
+# Needed for Gandiva.
 # Use the first Python installation on PATH, not the newest one
 set(Python3_FIND_STRATEGY "LOCATION")
 # On Windows, use registry last, not first
@@ -267,120 +287,6 @@ if(ARROW_OPTIONAL_INSTALL)
   set(INSTALL_IS_OPTIONAL OPTIONAL)
 endif()
 
-#
-# "make lint" target
-#
-if(NOT ARROW_VERBOSE_LINT)
-  set(ARROW_LINT_QUIET "--quiet")
-endif()
-
-if(NOT LINT_EXCLUSIONS_FILE)
-  # source files matching a glob from a line in this file
-  # will be excluded from linting (cpplint, clang-tidy, clang-format)
-  set(LINT_EXCLUSIONS_FILE ${BUILD_SUPPORT_DIR}/lint_exclusions.txt)
-endif()
-
-find_program(CPPLINT_BIN
-             NAMES cpplint cpplint.py
-             HINTS ${BUILD_SUPPORT_DIR})
-message(STATUS "Found cpplint executable at ${CPPLINT_BIN}")
-
-set(COMMON_LINT_OPTIONS
-    --exclude_globs
-    ${LINT_EXCLUSIONS_FILE}
-    --source_dir
-    ${CMAKE_CURRENT_SOURCE_DIR}/src
-    --source_dir
-    ${CMAKE_CURRENT_SOURCE_DIR}/examples
-    --source_dir
-    ${CMAKE_CURRENT_SOURCE_DIR}/tools)
-
-add_custom_target(lint
-                  ${PYTHON_EXECUTABLE}
-                  ${BUILD_SUPPORT_DIR}/run_cpplint.py
-                  --cpplint_binary
-                  ${CPPLINT_BIN}
-                  ${COMMON_LINT_OPTIONS}
-                  ${ARROW_LINT_QUIET})
-
-#
-# "make format" and "make check-format" targets
-#
-if(${CLANG_FORMAT_FOUND})
-  # runs clang format and updates files in place.
-  add_custom_target(format
-                    ${PYTHON_EXECUTABLE}
-                    ${BUILD_SUPPORT_DIR}/run_clang_format.py
-                    --clang_format_binary
-                    ${CLANG_FORMAT_BIN}
-                    ${COMMON_LINT_OPTIONS}
-                    --fix
-                    ${ARROW_LINT_QUIET})
-
-  # runs clang format and exits with a non-zero exit code if any files need to be reformatted
-  add_custom_target(check-format
-                    ${PYTHON_EXECUTABLE}
-                    ${BUILD_SUPPORT_DIR}/run_clang_format.py
-                    --clang_format_binary
-                    ${CLANG_FORMAT_BIN}
-                    ${COMMON_LINT_OPTIONS}
-                    ${ARROW_LINT_QUIET})
-endif()
-
-add_custom_target(lint_cpp_cli ${PYTHON_EXECUTABLE} ${BUILD_SUPPORT_DIR}/lint_cpp_cli.py
-                               ${CMAKE_CURRENT_SOURCE_DIR}/src)
-
-if(ARROW_LINT_ONLY)
-  message("ARROW_LINT_ONLY was specified, this is only a partial build directory")
-  return()
-endif()
-
-#
-# "make clang-tidy" and "make check-clang-tidy" targets
-#
-if(${CLANG_TIDY_FOUND})
-  # TODO check to make sure .clang-tidy is being respected
-
-  # runs clang-tidy and attempts to fix any warning automatically
-  add_custom_target(clang-tidy
-                    ${PYTHON_EXECUTABLE}
-                    ${BUILD_SUPPORT_DIR}/run_clang_tidy.py
-                    --clang_tidy_binary
-                    ${CLANG_TIDY_BIN}
-                    --compile_commands
-                    ${CMAKE_BINARY_DIR}/compile_commands.json
-                    ${COMMON_LINT_OPTIONS}
-                    --fix
-                    ${ARROW_LINT_QUIET})
-
-  # runs clang-tidy and exits with a non-zero exit code if any errors are found.
-  add_custom_target(check-clang-tidy
-                    ${PYTHON_EXECUTABLE}
-                    ${BUILD_SUPPORT_DIR}/run_clang_tidy.py
-                    --clang_tidy_binary
-                    ${CLANG_TIDY_BIN}
-                    --compile_commands
-                    ${CMAKE_BINARY_DIR}/compile_commands.json
-                    ${COMMON_LINT_OPTIONS}
-                    ${ARROW_LINT_QUIET})
-endif()
-
-if(UNIX)
-  add_custom_target(iwyu
-                    ${CMAKE_COMMAND}
-                    -E
-                    env
-                    "PYTHON=${PYTHON_EXECUTABLE}"
-                    ${BUILD_SUPPORT_DIR}/iwyu/iwyu.sh)
-  add_custom_target(iwyu-all
-                    ${CMAKE_COMMAND}
-                    -E
-                    env
-                    "PYTHON=${PYTHON_EXECUTABLE}"
-                    ${BUILD_SUPPORT_DIR}/iwyu/iwyu.sh
-                    all)
-endif(UNIX)
-
 # datetime code used by iOS requires zlib support
 if(IOS)
   set(ARROW_WITH_ZLIB ON)
@@ -445,6 +351,12 @@ endif()
 
 include(SetupCxxFlags)
 
+if(${CMAKE_CXX_FLAGS_DEBUG} MATCHES "-Og")
+  # GH-47475: xxhash fails inlining when -Og is used.
+  # See: https://github.com/Cyan4973/xxHash/issues/943
+  add_definitions(-DXXH_NO_INLINE_HINTS)
+endif()
+
 #
 # Linker flags
 #
@@ -492,14 +404,10 @@ endif()
 
 # where to put generated archives (.a files)
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${BUILD_OUTPUT_ROOT_DIRECTORY}")
-set(ARCHIVE_OUTPUT_DIRECTORY "${BUILD_OUTPUT_ROOT_DIRECTORY}")
-
 # where to put generated libraries (.so files)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${BUILD_OUTPUT_ROOT_DIRECTORY}")
-set(LIBRARY_OUTPUT_DIRECTORY "${BUILD_OUTPUT_ROOT_DIRECTORY}")
-
 # where to put generated binaries
-set(EXECUTABLE_OUTPUT_PATH "${BUILD_OUTPUT_ROOT_DIRECTORY}")
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${BUILD_OUTPUT_ROOT_DIRECTORY}")
 
 if(CMAKE_GENERATOR STREQUAL Xcode)
   # Xcode projects support multi-configuration builds.  This forces a single output directory
@@ -522,22 +430,93 @@ enable_testing()
 # For arrow.pc. Cflags.private, Libs.private and Requires.private are
 # used when "pkg-config --cflags --libs --static arrow" is used.
 set(ARROW_PC_CFLAGS "")
-set(ARROW_PC_CFLAGS_PRIVATE " -DARROW_STATIC")
+set(ARROW_PC_CFLAGS_PRIVATE "")
+if(ARROW_BUILD_STATIC)
+  # We add -DARROW_STATIC only when static build is enabled because
+  # pkgconf 1.7.4 or later on Windows uses "--static" by default. If
+  # Cflags.private (-DARROW_STATIC) is used for shared linking, it
+  # will cause linke error. We recommend users to not use pkgconf for
+  # shared linking on Windows but we also provide a workaround here.
+  # If users don't enable ARROW_BUILD_STATIC, users can use pkgconf on
+  # Windows because Cflags.private is used but it has nothing.
+  string(APPEND ARROW_PC_CFLAGS_PRIVATE " -DARROW_STATIC")
+endif()
 set(ARROW_PC_LIBS_PRIVATE "")
 set(ARROW_PC_REQUIRES_PRIVATE "")
 
+# For arrow-acero.pc.
+set(ARROW_ACERO_PC_CFLAGS "")
+set(ARROW_ACERO_PC_CFLAGS_PRIVATE "")
+if(ARROW_BUILD_STATIC)
+  string(APPEND ARROW_ACERO_PC_CFLAGS_PRIVATE " -DARROW_ACERO_STATIC")
+endif()
+
+# For arrow-compute.pc.
+set(ARROW_COMPUTE_PC_CFLAGS "")
+set(ARROW_COMPUTE_PC_CFLAGS_PRIVATE "")
+if(ARROW_BUILD_STATIC)
+  string(APPEND ARROW_COMPUTE_PC_CFLAGS_PRIVATE " -DARROW_COMPUTE_STATIC")
+endif()
+
+# For arrow-cuda.pc.
+set(ARROW_CUDA_PC_CFLAGS "")
+set(ARROW_CUDA_PC_CFLAGS_PRIVATE "")
+if(ARROW_BUILD_STATIC)
+  string(APPEND ARROW_CUDA_PC_CFLAGS_PRIVATE " -DARROW_CUDA_STATIC")
+endif()
+
+# For arrow-dataset.pc.
+set(ARROW_DATASET_PC_CFLAGS "")
+set(ARROW_DATASET_PC_CFLAGS_PRIVATE "")
+if(ARROW_BUILD_STATIC)
+  string(APPEND ARROW_DATASET_PC_CFLAGS_PRIVATE " -DARROW_DS_STATIC")
+endif()
+
 # For arrow-flight.pc.
+set(ARROW_FLIGHT_PC_CFLAGS "")
+set(ARROW_FLIGHT_PC_CFLAGS_PRIVATE "")
+if(ARROW_BUILD_STATIC)
+  string(APPEND ARROW_FLIGHT_PC_CFLAGS_PRIVATE " -DARROW_FLIGHT_STATIC")
+endif()
 set(ARROW_FLIGHT_PC_REQUIRES_PRIVATE "")
+
+# For arrow-flight-sql.pc.
+set(ARROW_FLIGHT_SQL_PC_CFLAGS "")
+set(ARROW_FLIGHT_SQL_PC_CFLAGS_PRIVATE "")
+if(ARROW_BUILD_STATIC)
+  string(APPEND ARROW_FLIGHT_SQL_PC_CFLAGS_PRIVATE " -DARROW_FLIGHT_SQL_STATIC")
+endif()
+set(ARROW_FLIGHT_PC_REQUIRES_PRIVATE "")
+
+# For arrow-substrait.pc.
+set(ARROW_SUBSTRAIT_PC_CFLAGS "")
+set(ARROW_SUBSTRAIT_PC_CFLAGS_PRIVATE "")
+if(ARROW_BUILD_STATIC)
+  string(APPEND ARROW_SUBSTRAIT_PC_CFLAGS_PRIVATE " -DARROW_ENGINE_STATIC")
+endif()
 
 # For arrow-testing.pc.
 set(ARROW_TESTING_PC_CFLAGS "")
-set(ARROW_TESTING_PC_CFLAGS_PRIVATE " -DARROW_TESTING_STATIC")
+set(ARROW_TESTING_PC_CFLAGS_PRIVATE "")
+if(ARROW_BUILD_STATIC)
+  string(APPEND ARROW_TESTING_PC_CFLAGS_PRIVATE " -DARROW_TESTING_STATIC")
+endif()
 set(ARROW_TESTING_PC_LIBS "")
 set(ARROW_TESTING_PC_REQUIRES "")
 
+# For gandiva.pc.
+set(GANDIVA_PC_CFLAGS "")
+set(GANDIVA_PC_CFLAGS_PRIVATE "")
+if(ARROW_BUILD_STATIC)
+  string(APPEND GANDIVA_PC_CFLAGS_PRIVATE " -DGANDIVA_STATIC")
+endif()
+
 # For parquet.pc.
 set(PARQUET_PC_CFLAGS "")
-set(PARQUET_PC_CFLAGS_PRIVATE " -DPARQUET_STATIC")
+set(PARQUET_PC_CFLAGS_PRIVATE "")
+if(ARROW_BUILD_STATIC)
+  string(APPEND PARQUET_PC_CFLAGS_PRIVATE " -DPARQUET_STATIC")
+endif()
 set(PARQUET_PC_REQUIRES "")
 set(PARQUET_PC_REQUIRES_PRIVATE "")
 
@@ -707,7 +686,7 @@ endif()
 # the first link library. It's for prioritizing bundled FlatBuffers
 # than system FlatBuffers.
 list(PREPEND ARROW_TEST_LINK_LIBS arrow::flatbuffers)
-list(APPEND ARROW_TEST_LINK_LIBS ${ARROW_GTEST_GMOCK} ${ARROW_GTEST_GTEST_MAIN})
+list(APPEND ARROW_TEST_LINK_LIBS ${ARROW_GTEST_GMOCK_MAIN})
 
 if(ARROW_BUILD_BENCHMARKS)
   set(ARROW_BENCHMARK_LINK_LIBS benchmark::benchmark_main ${ARROW_TEST_LINK_LIBS})
@@ -732,10 +711,6 @@ endif()
 
 if(ARROW_GANDIVA)
   add_subdirectory(src/gandiva)
-endif()
-
-if(ARROW_SKYHOOK)
-  add_subdirectory(src/skyhook)
 endif()
 
 if(ARROW_BUILD_EXAMPLES)

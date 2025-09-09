@@ -82,7 +82,13 @@ namespace Apache.Arrow
         {
             comparer ??= StringComparer.CurrentCulture;
 
-            return _fieldsList.IndexOf(_fieldsList.First(x => comparer.Equals(x.Name, name)));
+            for (int i = 0; i < _fieldsList.Count; i++)
+            {
+                if (comparer.Equals(_fieldsList[i].Name, name))
+                    return i;
+            }
+
+            return -1;
         }
 
         public Schema RemoveField(int fieldIndex)

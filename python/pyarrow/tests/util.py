@@ -22,7 +22,6 @@ Utility functions for testing
 import contextlib
 import decimal
 import gc
-import numpy as np
 import os
 import random
 import re
@@ -33,6 +32,7 @@ import string
 import subprocess
 import sys
 import time
+from packaging import tags
 
 import pytest
 
@@ -105,32 +105,20 @@ def randdecimal(precision, scale):
     fractional = random.randint(0, max_fractional_value)
 
     return decimal.Decimal(
-        '{}.{}'.format(whole, str(fractional).rjust(scale, '0'))
+        f'{whole}.{str(fractional).rjust(scale, "0")}'
     )
 
 
 def random_ascii(length):
-    return bytes(np.random.randint(65, 123, size=length, dtype='i1'))
+    return bytes([random.randint(65, 122) for i in range(length)])
 
 
 def rands(nchars):
     """
     Generate one random string.
     """
-    RANDS_CHARS = np.array(
-        list(string.ascii_letters + string.digits), dtype=(np.str_, 1))
-    return "".join(np.random.choice(RANDS_CHARS, nchars))
-
-
-def make_dataframe():
-    import pandas as pd
-
-    N = 30
-    df = pd.DataFrame(
-        {col: np.random.randn(N) for col in string.ascii_uppercase[:4]},
-        index=pd.Index([rands(10) for _ in range(N)])
-    )
-    return df
+    RANDS_CHARS = list(string.ascii_letters + string.digits)
+    return "".join(random.choice(RANDS_CHARS) for i in range(nchars))
 
 
 def memory_leak_check(f, metric='rss', threshold=1 << 17, iterations=10,
@@ -166,9 +154,10 @@ def memory_leak_check(f, metric='rss', threshold=1 << 17, iterations=10,
     def _leak_check():
         current_use = _get_use()
         if current_use - baseline_use > threshold:
-            raise Exception("Memory leak detected. "
-                            "Departure from baseline {} after {} iterations"
-                            .format(current_use - baseline_use, i))
+            raise Exception(
+                "Memory leak detected. Departure from baseline "
+                f"{current_use - baseline_use} after {i} iterations"
+            )
 
     for i in range(iterations):
         f()
@@ -242,9 +231,9 @@ def disabled_gc():
 def _filesystem_uri(path):
     # URIs on Windows must follow 'file:///C:...' or 'file:/C:...' patterns.
     if os.name == 'nt':
-        uri = 'file:///{}'.format(path)
+        uri = f'file:///{path}'
     else:
-        uri = 'file://{}'.format(path)
+        uri = f'file://{path}'
     return uri
 
 
@@ -322,20 +311,6 @@ class ProxyHandler(pyarrow.fs.FileSystemHandler):
         return self._fs.open_append_stream(path, metadata=metadata)
 
 
-def get_raise_signal():
-    if sys.version_info >= (3, 8):
-        return signal.raise_signal
-    elif os.name == 'nt':
-        # On Windows, os.kill() doesn't actually send a signal,
-        # it just terminates the process with the given exit code.
-        pytest.skip("test requires Python 3.8+ on Windows")
-    else:
-        # On Unix, emulate raise_signal() with os.kill().
-        def raise_signal(signum):
-            os.kill(os.getpid(), signum)
-        return raise_signal
-
-
 @contextlib.contextmanager
 def signal_wakeup_fd(*, warn_on_full_buffer=False):
     # Use a socket pair, rather a self-pipe, so that select() can be used
@@ -398,7 +373,7 @@ def _run_mc_command(mcdir, *args):
             raise ChildProcessError("Could not run mc")
 
 
-def _configure_s3_limited_user(s3_server, policy):
+def _configure_s3_limited_user(s3_server, policy, username, password):
     """
     Attempts to use the mc command to configure the minio server
     with a special user limited:limited123 which does not have
@@ -422,7 +397,7 @@ def _configure_s3_limited_user(s3_server, policy):
 
         tempdir = s3_server['tempdir']
         host, port, access_key, secret_key = s3_server['connection']
-        address = '{}:{}'.format(host, port)
+        address = f'{host}:{port}'
 
         mcdir = os.path.join(tempdir, 'mc')
         if os.path.exists(mcdir):
@@ -434,16 +409,18 @@ def _configure_s3_limited_user(s3_server, policy):
         # The s3_server fixture starts the minio process but
         # it takes a few moments for the process to become available
         _wait_for_minio_startup(mcdir, address, access_key, secret_key)
-        # These commands create a limited user with a specific
-        # policy and creates a sample bucket for that user to
-        # write to
-        _run_mc_command(mcdir, 'admin', 'policy', 'add',
-                        'myminio/', 'no-create-buckets', policy_path)
+        # Create a limited user with a specific policy ...
         _run_mc_command(mcdir, 'admin', 'user', 'add',
-                        'myminio/', 'limited', 'limited123')
-        _run_mc_command(mcdir, 'admin', 'policy', 'set',
-                        'myminio', 'no-create-buckets', 'user=limited')
+                        'myminio/', username, password)
+        _run_mc_command(mcdir, 'admin', 'policy', 'create',
+                        'myminio/', 'no-create-buckets', policy_path)
+        _run_mc_command(mcdir, 'admin', 'policy', 'attach',
+                        'myminio/', 'no-create-buckets', '--user', username)
+        # ... and a sample bucket for that user to write to
         _run_mc_command(mcdir, 'mb', 'myminio/existing-bucket',
+                        '--ignore-existing')
+        # Create a protected bucket for testing no-delete-bucket policy
+        _run_mc_command(mcdir, 'mb', 'myminio/no-delete-bucket',
                         '--ignore-existing')
 
     except FileNotFoundError:
@@ -463,3 +440,13 @@ def windows_has_tzdata():
         tzdata_bool = os.path.exists(tzdata_path)
 
     return tzdata_bool
+
+
+def running_on_musllinux():
+    """
+    Checks whether it's running on musl systems or not.
+    """
+    for platform_tag in tags.platform_tags():
+        if platform_tag.startswith('musllinux'):
+            return True
+    return False

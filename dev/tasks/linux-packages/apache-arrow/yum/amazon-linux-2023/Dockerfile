@@ -38,6 +38,7 @@ RUN \
     gobject-introspection-devel \
     grpc-devel \
     grpc-plugins \
+    libxml2-devel \
     libzstd-devel \
     llvm-devel \
     lz4-devel \
@@ -59,3 +60,9 @@ RUN \
     which \
     zlib-devel && \
   dnf clean ${quiet} all
+
+ARG cmake=3.26.0
+RUN curl -L \
+    "https://github.com/Kitware/CMake/releases/download/v${cmake}/cmake-${cmake}-linux-$(uname -m).tar.gz" | \
+    tar -xzf - --directory /usr/local --strip-components=1 && \
+    ln -fs /usr/local/bin/cmake /usr/bin/cmake

@@ -40,7 +40,7 @@ class MinioTestServer {
   MinioTestServer();
   ~MinioTestServer();
 
-  Status Start();
+  Status Start(bool enable_tls = false);
 
   Status Stop();
 
@@ -50,7 +50,14 @@ class MinioTestServer {
 
   std::string secret_key() const;
 
+  std::string ca_dir_path() const;
+
+  std::string ca_file_path() const;
+
+  std::string scheme() const;
+
  private:
+  Status GenerateCertificateFile();
   struct Impl;
   std::unique_ptr<Impl> impl_;
 };
@@ -60,7 +67,7 @@ class MinioTestServer {
 
 class MinioTestEnvironment : public ::testing::Environment {
  public:
-  MinioTestEnvironment();
+  explicit MinioTestEnvironment(bool enable_tls = false);
   ~MinioTestEnvironment();
 
   void SetUp() override;

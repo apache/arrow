@@ -149,6 +149,10 @@ tidyselect <- grep("^tidyselect::", readLines("R/reexports-tidyselect.R"), value
 # HACK: remove the _random_along UDF we're using (fix in ARROW-17974)
 docs[["_random_along"]] <- NULL
 
+# TODO - update the script to add this back in - will fail CI as tries to link
+# to non-existent function as arrow::one only exists as registered binding
+docs[["arrow::one"]] <- NULL
+
 docs <- c(docs, setNames(rep(list(NULL), length(tidyselect)), tidyselect))
 
 fun_df <- tibble::tibble(

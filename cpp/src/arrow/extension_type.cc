@@ -29,14 +29,15 @@
 #include "arrow/config.h"
 #include "arrow/extension/bool8.h"
 #ifdef ARROW_JSON
-#include "arrow/extension/fixed_shape_tensor.h"
-#include "arrow/extension/opaque.h"
+#  include "arrow/extension/fixed_shape_tensor.h"
+#  include "arrow/extension/opaque.h"
 #endif
+#include "arrow/extension/json.h"
 #include "arrow/extension/uuid.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/util/checked_cast.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 
 namespace arrow {
 
@@ -148,7 +149,8 @@ static void CreateGlobalRegistry() {
   // Register canonical extension types
 
   g_registry = std::make_shared<ExtensionTypeRegistryImpl>();
-  std::vector<std::shared_ptr<DataType>> ext_types{extension::bool8(), extension::uuid()};
+  std::vector<std::shared_ptr<DataType>> ext_types{extension::bool8(), extension::json(),
+                                                   extension::uuid()};
 
 #ifdef ARROW_JSON
   ext_types.push_back(extension::fixed_shape_tensor(int64(), {}));

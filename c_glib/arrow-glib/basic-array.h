@@ -42,6 +42,41 @@ GARROW_AVAILABLE_IN_5_0
 gboolean
 garrow_equal_options_is_approx(GArrowEqualOptions *options);
 
+#define GARROW_TYPE_ARRAY_STATISTICS (garrow_array_statistics_get_type())
+GARROW_AVAILABLE_IN_20_0
+G_DECLARE_DERIVABLE_TYPE(
+  GArrowArrayStatistics, garrow_array_statistics, GARROW, ARRAY_STATISTICS, GObject)
+struct _GArrowArrayStatisticsClass
+{
+  GObjectClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_20_0
+gboolean
+garrow_array_statistics_has_null_count(GArrowArrayStatistics *statistics);
+GARROW_AVAILABLE_IN_20_0
+gint64
+garrow_array_statistics_get_null_count(GArrowArrayStatistics *statistics);
+
+GARROW_AVAILABLE_IN_21_0
+gboolean
+garrow_array_statistics_has_distinct_count(GArrowArrayStatistics *statistics);
+GARROW_AVAILABLE_IN_22_0
+gboolean
+garrow_array_statistics_is_distinct_count_exact(GArrowArrayStatistics *statistics);
+#ifndef GARROW_DISABLE_DEPRECATED
+GARROW_AVAILABLE_IN_21_0
+GARROW_DEPRECATED_IN_22_0_FOR(garrow_array_statistics_get_distinct_count_exact)
+gint64
+garrow_array_statistics_get_distinct_count(GArrowArrayStatistics *statistics);
+#endif
+GARROW_AVAILABLE_IN_22_0
+gint64
+garrow_array_statistics_get_distinct_count_exact(GArrowArrayStatistics *statistics);
+GARROW_AVAILABLE_IN_22_0
+gdouble
+garrow_array_statistics_get_distinct_count_approximate(GArrowArrayStatistics *statistics);
+
 GARROW_AVAILABLE_IN_6_0
 GArrowArray *
 garrow_array_import(gpointer c_abi_array, GArrowDataType *data_type, GError **error);
@@ -125,6 +160,18 @@ garrow_array_diff_unified(GArrowArray *array, GArrowArray *other_array);
 GARROW_AVAILABLE_IN_4_0
 GArrowArray *
 garrow_array_concatenate(GArrowArray *array, GList *other_arrays, GError **error);
+
+GARROW_AVAILABLE_IN_20_0
+gboolean
+garrow_array_validate(GArrowArray *array, GError **error);
+
+GARROW_AVAILABLE_IN_20_0
+gboolean
+garrow_array_validate_full(GArrowArray *array, GError **error);
+
+GARROW_AVAILABLE_IN_20_0
+GArrowArrayStatistics *
+garrow_array_get_statistics(GArrowArray *array);
 
 #define GARROW_TYPE_NULL_ARRAY (garrow_null_array_get_type())
 GARROW_AVAILABLE_IN_ALL
@@ -574,6 +621,53 @@ GARROW_AVAILABLE_IN_0_16
 gchar *
 garrow_large_string_array_get_string(GArrowLargeStringArray *array, gint64 i);
 
+#define GARROW_TYPE_BINARY_VIEW_ARRAY (garrow_binary_view_array_get_type())
+GARROW_AVAILABLE_IN_20_0
+G_DECLARE_DERIVABLE_TYPE(
+  GArrowBinaryViewArray, garrow_binary_view_array, GARROW, BINARY_VIEW_ARRAY, GArrowArray)
+struct _GArrowBinaryViewArrayClass
+{
+  GArrowArrayClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_20_0
+GArrowBinaryViewArray *
+garrow_binary_view_array_new(gint64 length,
+                             GArrowBuffer *views,
+                             GList *data_buffers,
+                             GArrowBuffer *null_bitmap,
+                             gint64 n_nulls,
+                             gint64 offset);
+
+GARROW_AVAILABLE_IN_20_0
+GBytes *
+garrow_binary_view_array_get_value(GArrowBinaryViewArray *array, gint64 i);
+
+#define GARROW_TYPE_STRING_VIEW_ARRAY (garrow_string_view_array_get_type())
+GARROW_AVAILABLE_IN_20_0
+G_DECLARE_DERIVABLE_TYPE(GArrowStringViewArray,
+                         garrow_string_view_array,
+                         GARROW,
+                         STRING_VIEW_ARRAY,
+                         GArrowBinaryViewArray)
+struct _GArrowStringViewArrayClass
+{
+  GArrowBinaryViewArrayClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_20_0
+GArrowStringViewArray *
+garrow_string_view_array_new(gint64 length,
+                             GArrowBuffer *views,
+                             GList *data_buffers,
+                             GArrowBuffer *null_bitmap,
+                             gint64 n_nulls,
+                             gint64 offset);
+
+GARROW_AVAILABLE_IN_20_0
+GBytes *
+garrow_string_view_array_get_value(GArrowStringViewArray *array, gint64 i);
+
 #define GARROW_TYPE_DATE32_ARRAY (garrow_date32_array_get_type())
 GARROW_AVAILABLE_IN_ALL
 G_DECLARE_DERIVABLE_TYPE(
@@ -809,6 +903,46 @@ garrow_fixed_size_binary_array_get_value(GArrowFixedSizeBinaryArray *array, gint
 GARROW_AVAILABLE_IN_3_0
 GBytes *
 garrow_fixed_size_binary_array_get_values_bytes(GArrowFixedSizeBinaryArray *array);
+
+#define GARROW_TYPE_DECIMAL32_ARRAY (garrow_decimal32_array_get_type())
+GARROW_AVAILABLE_IN_19_0
+G_DECLARE_DERIVABLE_TYPE(GArrowDecimal32Array,
+                         garrow_decimal32_array,
+                         GARROW,
+                         DECIMAL32_ARRAY,
+                         GArrowFixedSizeBinaryArray)
+struct _GArrowDecimal32ArrayClass
+{
+  GArrowFixedSizeBinaryArrayClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_19_0
+gchar *
+garrow_decimal32_array_format_value(GArrowDecimal32Array *array, gint64 i);
+
+GARROW_AVAILABLE_IN_19_0
+GArrowDecimal32 *
+garrow_decimal32_array_get_value(GArrowDecimal32Array *array, gint64 i);
+
+#define GARROW_TYPE_DECIMAL64_ARRAY (garrow_decimal64_array_get_type())
+GARROW_AVAILABLE_IN_19_0
+G_DECLARE_DERIVABLE_TYPE(GArrowDecimal64Array,
+                         garrow_decimal64_array,
+                         GARROW,
+                         DECIMAL64_ARRAY,
+                         GArrowFixedSizeBinaryArray)
+struct _GArrowDecimal64ArrayClass
+{
+  GArrowFixedSizeBinaryArrayClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_19_0
+gchar *
+garrow_decimal64_array_format_value(GArrowDecimal64Array *array, gint64 i);
+
+GARROW_AVAILABLE_IN_19_0
+GArrowDecimal64 *
+garrow_decimal64_array_get_value(GArrowDecimal64Array *array, gint64 i);
 
 #define GARROW_TYPE_DECIMAL128_ARRAY (garrow_decimal128_array_get_type())
 GARROW_AVAILABLE_IN_ALL

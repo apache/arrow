@@ -105,7 +105,13 @@ ARROW_TESTING_EXPORT
 Status MakeNullRecordBatch(std::shared_ptr<RecordBatch>* out);
 
 ARROW_TESTING_EXPORT
+Status MakeListRecordBatchSized(int length, std::shared_ptr<RecordBatch>* out);
+
+ARROW_TESTING_EXPORT
 Status MakeListRecordBatch(std::shared_ptr<RecordBatch>* out);
+
+ARROW_TESTING_EXPORT
+Status MakeListViewRecordBatchSized(int length, std::shared_ptr<RecordBatch>* out);
 
 ARROW_TESTING_EXPORT
 Status MakeListViewRecordBatch(std::shared_ptr<RecordBatch>* out);
@@ -184,8 +190,8 @@ Status MakeRandomTensor(const std::shared_ptr<DataType>& type,
                         const std::vector<int64_t>& shape, bool row_major_p,
                         std::shared_ptr<Tensor>* out, uint32_t seed = 0);
 
-ARROW_TESTING_EXPORT void RoundtripBatch(const std::shared_ptr<RecordBatch>& batch,
-                                         std::shared_ptr<RecordBatch>* out);
+ARROW_TESTING_EXPORT Status RoundtripBatch(const std::shared_ptr<RecordBatch>& batch,
+                                           std::shared_ptr<RecordBatch>* out);
 
 }  // namespace test
 }  // namespace ipc

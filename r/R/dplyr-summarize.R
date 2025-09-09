@@ -105,7 +105,7 @@ do_arrow_summarize <- function(.data, ..., .groups = NULL) {
     # variables from the mask, which would be a bit tortured (even for me).
     # So we'll check here.
     # We can tell the expression is invalid if it references fields not in
-    # the schema of the data after summarize(). Evaulating its type will
+    # the schema of the data after summarize(). Evaluating its type will
     # throw an error if it's invalid.
     tryCatch(post_mutate[[post]]$type(out$.data$schema), error = function(e) {
       arrow_not_supported(
@@ -241,7 +241,7 @@ group_types <- function(.data, schema = NULL) {
 }
 
 format_aggregation <- function(x) {
-  paste0(x$fun, "(", paste(map(x$data, ~ .$ToString()), collapse = ","), ")")
+  Expression$create(x$fun, args = x$data, options = x$options)$ToString()
 }
 
 # This function evaluates an expression and returns the post-summarize

@@ -19,6 +19,7 @@
 
 #include <iostream>
 #include <memory>
+#include <numeric>
 #include <string>
 #include <unordered_map>
 #include <utility>
@@ -44,6 +45,7 @@
 #include "arrow/table.h"
 #include "arrow/table_builder.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/util/align_util.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/string.h"
 #include "arrow/util/value_parsing.h"
@@ -280,6 +282,137 @@ class MiddlewareScenario : public Scenario {
   std::shared_ptr<TestClientMiddlewareFactory> client_middleware_;
 };
 
+/// \brief The server used for testing FlightClient data alignment.
+///
+/// The server always returns the same data of various byte widths.
+/// The client should return data that is aligned according to the data type
+/// if FlightCallOptions.read_options.ensure_memory_alignment is true.
+///
+/// This scenario is passed only when the client returns aligned data.
+class AlignmentServer : public FlightServerBase {
+  Status GetFlightInfo(const ServerCallContext& context,
+                       const FlightDescriptor& descriptor,
+                       std::unique_ptr<FlightInfo>* result) override {
+    auto schema = BuildSchema();
+    std::vector<FlightEndpoint> endpoints{
+        FlightEndpoint{{"align-data"}, {}, std::nullopt, ""}};
+    ARROW_ASSIGN_OR_RAISE(
+        auto info, FlightInfo::Make(*schema, descriptor, endpoints, -1, -1, false));
+    *result = std::make_unique<FlightInfo>(info);
+    return Status::OK();
+  }
+
+  Status DoGet(const ServerCallContext& context, const Ticket& request,
+               std::unique_ptr<FlightDataStream>* stream) override {
+    if (request.ticket != "align-data") {
+      return Status::KeyError("Could not find flight: ", request.ticket);
+    }
+    auto record_batch = RecordBatchFromJSON(BuildSchema(), R"([
+      [1, 1, false],
+      [2, 2, true],
+      [3, 3, false]
+    ])");
+    std::vector<std::shared_ptr<RecordBatch>> record_batches{record_batch};
+    ARROW_ASSIGN_OR_RAISE(auto record_batch_reader,
+                          RecordBatchReader::Make(record_batches));
+    *stream = std::make_unique<RecordBatchStream>(record_batch_reader);
+    return Status::OK();
+  }
+
+ private:
+  std::shared_ptr<Schema> BuildSchema() {
+    return arrow::schema({
+        arrow::field("int32", arrow::int32(), false),
+        arrow::field("int64", arrow::int64(), false),
+        arrow::field("bool", arrow::boolean(), false),
+    });
+  }
+};
+
+/// \brief The alignment scenario.
+///
+/// This tests that the client provides aligned data if requested.
+class AlignmentScenario : public Scenario {
+  Status MakeServer(std::unique_ptr<FlightServerBase>* server,
+                    FlightServerOptions* options) override {
+    server->reset(new AlignmentServer());
+    return Status::OK();
+  }
+
+  Status MakeClient(FlightClientOptions* options) override { return Status::OK(); }
+
+  arrow::Result<std::shared_ptr<Table>> GetTable(FlightClient* client,
+                                                 const FlightCallOptions& call_options) {
+    ARROW_ASSIGN_OR_RAISE(auto info,
+                          client->GetFlightInfo(FlightDescriptor::Command("alignment")));
+    std::vector<std::shared_ptr<arrow::Table>> tables;
+    for (const auto& endpoint : info->endpoints()) {
+      if (!endpoint.locations.empty()) {
+        std::stringstream ss;
+        ss << "[";
+        for (const auto& location : endpoint.locations) {
+          if (ss.str().size() != 1) {
+            ss << ", ";
+          }
+          ss << location.ToString();
+        }
+        ss << "]";
+        return Status::Invalid(
+            "Expected to receive empty locations to use the original service: ",
+            ss.str());
+      }
+      ARROW_ASSIGN_OR_RAISE(auto reader, client->DoGet(call_options, endpoint.ticket));
+      ARROW_ASSIGN_OR_RAISE(auto table, reader->ToTable());
+      tables.push_back(table);
+    }
+    return ConcatenateTables(tables);
+  }
+
+  Status RunClient(std::unique_ptr<FlightClient> client) override {
+    for (ipc::Alignment ensure_alignment :
+         {ipc::Alignment::kAnyAlignment, ipc::Alignment::kDataTypeSpecificAlignment,
+          ipc::Alignment::k64ByteAlignment}) {
+      auto call_options = FlightCallOptions();
+      call_options.read_options.ensure_alignment = ensure_alignment;
+      ARROW_ASSIGN_OR_RAISE(auto table, GetTable(client.get(), call_options));
+
+      // Check read data
+      auto expected_row_count = 3;
+      if (table->num_rows() != expected_row_count) {
+        return Status::Invalid("Read table size isn't expected\n", "Expected rows:\n",
+                               expected_row_count, "Actual rows:\n", table->num_rows());
+      }
+      auto expected_column_count = 3;
+      if (table->num_columns() != expected_column_count) {
+        return Status::Invalid("Read table size isn't expected\n", "Expected columns:\n",
+                               expected_column_count, "Actual columns:\n",
+                               table->num_columns());
+      }
+      // Check data alignment
+      std::vector<bool> needs_alignment;
+      if (ensure_alignment == ipc::Alignment::kAnyAlignment) {
+        // this is not a requirement but merely an observation:
+        // with ensure_alignment=false, flight client returns mis-aligned data
+        // if this is not the case any more, feel free to remove this assertion
+        if (util::CheckAlignment(*table, arrow::util::kValueAlignment,
+                                 &needs_alignment)) {
+          return Status::Invalid(
+              "Read table has aligned data, which is good, but unprecedented");
+        }
+      } else {
+        // with ensure_alignment != kValueAlignment, we require data to be aligned
+        // the value of the Alignment enum provides us with the byte alignment value
+        if (!util::CheckAlignment(*table, static_cast<int64_t>(ensure_alignment),
+                                  &needs_alignment)) {
+          return Status::Invalid("Read table has unaligned data");
+        }
+      }
+    }
+
+    return Status::OK();
+  }
+};
+
 /// \brief The server used for testing FlightInfo.ordered.
 ///
 /// If the given command is "ordered", the server sets
@@ -315,25 +448,16 @@ class OrderedServer : public FlightServerBase {
 
   Status DoGet(const ServerCallContext& context, const Ticket& request,
                std::unique_ptr<FlightDataStream>* stream) override {
-    ARROW_ASSIGN_OR_RAISE(auto builder, RecordBatchBuilder::Make(
-                                            BuildSchema(), arrow::default_memory_pool()));
-    auto number_builder = builder->GetFieldAs<Int32Builder>(0);
+    std::shared_ptr<RecordBatch> record_batch;
     if (request.ticket == "1") {
-      ARROW_RETURN_NOT_OK(number_builder->Append(1));
-      ARROW_RETURN_NOT_OK(number_builder->Append(2));
-      ARROW_RETURN_NOT_OK(number_builder->Append(3));
+      record_batch = RecordBatchFromJSON(BuildSchema(), "[[1], [2], [3]]");
     } else if (request.ticket == "2") {
-      ARROW_RETURN_NOT_OK(number_builder->Append(10));
-      ARROW_RETURN_NOT_OK(number_builder->Append(20));
-      ARROW_RETURN_NOT_OK(number_builder->Append(30));
+      record_batch = RecordBatchFromJSON(BuildSchema(), "[[10], [20], [30]]");
     } else if (request.ticket == "3") {
-      ARROW_RETURN_NOT_OK(number_builder->Append(100));
-      ARROW_RETURN_NOT_OK(number_builder->Append(200));
-      ARROW_RETURN_NOT_OK(number_builder->Append(300));
+      record_batch = RecordBatchFromJSON(BuildSchema(), "[[100], [200], [300]]");
     } else {
       return Status::KeyError("Could not find flight: ", request.ticket);
     }
-    ARROW_ASSIGN_OR_RAISE(auto record_batch, builder->Flush());
     std::vector<std::shared_ptr<RecordBatch>> record_batches{record_batch};
     ARROW_ASSIGN_OR_RAISE(auto record_batch_reader,
                           RecordBatchReader::Make(record_batches));
@@ -389,19 +513,9 @@ class OrderedScenario : public Scenario {
 
     // Build expected table
     auto schema = arrow::schema({arrow::field("number", arrow::int32(), false)});
-    ARROW_ASSIGN_OR_RAISE(auto builder,
-                          RecordBatchBuilder::Make(schema, arrow::default_memory_pool()));
-    auto number_builder = builder->GetFieldAs<Int32Builder>(0);
-    ARROW_RETURN_NOT_OK(number_builder->Append(1));
-    ARROW_RETURN_NOT_OK(number_builder->Append(2));
-    ARROW_RETURN_NOT_OK(number_builder->Append(3));
-    ARROW_RETURN_NOT_OK(number_builder->Append(10));
-    ARROW_RETURN_NOT_OK(number_builder->Append(20));
-    ARROW_RETURN_NOT_OK(number_builder->Append(30));
-    ARROW_RETURN_NOT_OK(number_builder->Append(100));
-    ARROW_RETURN_NOT_OK(number_builder->Append(200));
-    ARROW_RETURN_NOT_OK(number_builder->Append(300));
-    ARROW_ASSIGN_OR_RAISE(auto expected_record_batch, builder->Flush());
+    auto expected_record_batch = RecordBatchFromJSON(schema, R"([
+      [1], [2], [3], [10], [20], [30], [100], [200], [300]
+    ])");
     std::vector<std::shared_ptr<RecordBatch>> expected_record_batches{
         expected_record_batch};
     ARROW_ASSIGN_OR_RAISE(auto expected_table,
@@ -489,11 +603,8 @@ class ExpirationTimeServer : public FlightServerBase {
       }
     }
     status.num_gets++;
-    ARROW_ASSIGN_OR_RAISE(auto builder, RecordBatchBuilder::Make(
-                                            BuildSchema(), arrow::default_memory_pool()));
-    auto number_builder = builder->GetFieldAs<UInt32Builder>(0);
-    ARROW_RETURN_NOT_OK(number_builder->Append(index));
-    ARROW_ASSIGN_OR_RAISE(auto record_batch, builder->Flush());
+    auto record_batch =
+        RecordBatchFromJSON(BuildSchema(), "[[" + std::to_string(index) + "]]");
     std::vector<std::shared_ptr<RecordBatch>> record_batches{record_batch};
     ARROW_ASSIGN_OR_RAISE(auto record_batch_reader,
                           RecordBatchReader::Make(record_batches));
@@ -620,13 +731,7 @@ class ExpirationTimeDoGetScenario : public Scenario {
 
     // Build expected table
     auto schema = arrow::schema({arrow::field("number", arrow::uint32(), false)});
-    ARROW_ASSIGN_OR_RAISE(auto builder,
-                          RecordBatchBuilder::Make(schema, arrow::default_memory_pool()));
-    auto number_builder = builder->GetFieldAs<UInt32Builder>(0);
-    ARROW_RETURN_NOT_OK(number_builder->Append(0));
-    ARROW_RETURN_NOT_OK(number_builder->Append(1));
-    ARROW_RETURN_NOT_OK(number_builder->Append(2));
-    ARROW_ASSIGN_OR_RAISE(auto expected_record_batch, builder->Flush());
+    auto expected_record_batch = RecordBatchFromJSON(schema, "[[0], [1], [2]]");
     std::vector<std::shared_ptr<RecordBatch>> expected_record_batches{
         expected_record_batch};
     ARROW_ASSIGN_OR_RAISE(auto expected_table,
@@ -1026,6 +1131,131 @@ class AppMetadataFlightInfoEndpointScenario : public Scenario {
   }
 };
 
+/// \brief The server used for testing do_exchange
+class DoExchangeServer : public FlightServerBase {
+ public:
+  DoExchangeServer() : FlightServerBase() {}
+
+  Status DoExchange(const ServerCallContext& context,
+                    std::unique_ptr<FlightMessageReader> reader,
+                    std::unique_ptr<FlightMessageWriter> writer) override {
+    if (reader->descriptor().type != FlightDescriptor::DescriptorType::CMD) {
+      return Status::Invalid("Must provide a command descriptor");
+    }
+
+    const std::string& cmd = reader->descriptor().cmd;
+    if (cmd == "echo") {
+      return RunEchoExchange(reader, writer);
+    } else {
+      return Status::NotImplemented("Command not implemented: ", cmd);
+    }
+  }
+
+ private:
+  static Status RunEchoExchange(std::unique_ptr<FlightMessageReader>& reader,
+                                std::unique_ptr<FlightMessageWriter>& writer) {
+    FlightStreamChunk chunk;
+    bool begun = false;
+    while (true) {
+      ARROW_ASSIGN_OR_RAISE(chunk, reader->Next());
+      if (!chunk.data && !chunk.app_metadata) {
+        break;
+      }
+      if (!begun && chunk.data) {
+        begun = true;
+        RETURN_NOT_OK(writer->Begin(chunk.data->schema()));
+      }
+      if (chunk.data && chunk.app_metadata) {
+        RETURN_NOT_OK(writer->WriteWithMetadata(*chunk.data, chunk.app_metadata));
+      } else if (chunk.data) {
+        RETURN_NOT_OK(writer->WriteRecordBatch(*chunk.data));
+      } else if (chunk.app_metadata) {
+        RETURN_NOT_OK(writer->WriteMetadata(chunk.app_metadata));
+      }
+    }
+    return Status::OK();
+  }
+};
+
+/// \brief The DoExchangeEcho scenario.
+///
+/// This tests that the client and server can perform a two-way data exchange.
+///
+/// The server should echo back any data sent by the client.
+class DoExchangeEchoScenario : public Scenario {
+  Status MakeServer(std::unique_ptr<FlightServerBase>* server,
+                    FlightServerOptions* options) override {
+    *server = std::make_unique<DoExchangeServer>();
+    return Status::OK();
+  }
+
+  Status MakeClient(FlightClientOptions* options) override { return Status::OK(); }
+
+  Status RunClient(std::unique_ptr<FlightClient> client) override {
+    auto descriptor = FlightDescriptor::Command("echo");
+    FlightCallOptions call_options;
+
+    ARROW_ASSIGN_OR_RAISE(auto do_exchange_result,
+                          client->DoExchange(call_options, descriptor));
+    std::unique_ptr<FlightStreamWriter> writer = std::move(do_exchange_result.writer);
+    std::unique_ptr<FlightStreamReader> reader = std::move(do_exchange_result.reader);
+
+    auto schema = arrow::schema({field("x", int32(), false)});
+    ARROW_RETURN_NOT_OK(writer->Begin(schema));
+
+    ARROW_ASSIGN_OR_RAISE(auto builder,
+                          RecordBatchBuilder::Make(schema, arrow::default_memory_pool()));
+
+    for (int batch_idx = 0; batch_idx < 4; ++batch_idx) {
+      auto int_builder = builder->GetFieldAs<Int32Builder>(0);
+      std::vector<int32_t> batch_data(10);
+      std::iota(batch_data.begin(), batch_data.end(), batch_idx);
+      ARROW_RETURN_NOT_OK(int_builder->AppendValues(batch_data));
+      ARROW_ASSIGN_OR_RAISE(auto record_batch, builder->Flush());
+
+      std::string app_metadata = std::to_string(batch_idx);
+      bool write_metadata = batch_idx % 2 == 0;
+
+      if (write_metadata) {
+        ARROW_RETURN_NOT_OK(
+            writer->WriteWithMetadata(*record_batch, Buffer::FromString(app_metadata)));
+      } else {
+        ARROW_RETURN_NOT_OK(writer->WriteRecordBatch(*record_batch));
+      }
+
+      ARROW_ASSIGN_OR_RAISE(auto read_result, reader->Next());
+      if (read_result.data == nullptr) {
+        return Status::Invalid("Received null data");
+      }
+      if (!read_result.data->Equals(*record_batch)) {
+        return Status::Invalid("Read data doesn't match expected data for batch ",
+                               std::to_string(batch_idx), ".\n", "Expected:\n",
+                               record_batch->ToString(), "Actual:\n",
+                               read_result.data->ToString());
+      }
+
+      if (write_metadata) {
+        if (read_result.app_metadata == nullptr) {
+          return Status::Invalid("Received null app metadata");
+        }
+        if (read_result.app_metadata->ToString() != app_metadata) {
+          return Status::Invalid("Read metadata doesn't match expected for batch ",
+                                 std::to_string(batch_idx), ".\n", "Expected:\n",
+                                 app_metadata, "\nActual:\n",
+                                 read_result.app_metadata->ToString());
+        }
+      } else if (read_result.app_metadata != nullptr) {
+        return Status::Invalid("Expected no app metadata but received non-null metadata");
+      }
+    }
+
+    ARROW_RETURN_NOT_OK(writer->DoneWriting());
+    ARROW_RETURN_NOT_OK(writer->Close());
+
+    return Status::OK();
+  }
+};
+
 /// \brief Schema to be returned for mocking the statement/prepared statement results.
 ///
 /// Must be the same across all languages.
@@ -1041,6 +1271,7 @@ const std::shared_ptr<Schema>& GetQuerySchema() {
                         .IsSearchable(true)
                         .CatalogName("catalog_test")
                         .Precision(100)
+                        .Remarks("test column")
                         .Build()
                         .metadata_map())});
   return kSchema;
@@ -1061,6 +1292,7 @@ std::shared_ptr<Schema> GetQueryWithTransactionSchema() {
                         .IsSearchable(true)
                         .CatalogName("catalog_test")
                         .Precision(100)
+                        .Remarks("test column")
                         .Build()
                         .metadata_map())});
   return kSchema;
@@ -2256,6 +2488,9 @@ Status GetScenario(const std::string& scenario_name, std::shared_ptr<Scenario>* 
   } else if (scenario_name == "middleware") {
     *out = std::make_shared<MiddlewareScenario>();
     return Status::OK();
+  } else if (scenario_name == "alignment") {
+    *out = std::make_shared<AlignmentScenario>();
+    return Status::OK();
   } else if (scenario_name == "ordered") {
     *out = std::make_shared<OrderedScenario>();
     return Status::OK();
@@ -2282,6 +2517,9 @@ Status GetScenario(const std::string& scenario_name, std::shared_ptr<Scenario>* 
     return Status::OK();
   } else if (scenario_name == "app_metadata_flight_info_endpoint") {
     *out = std::make_shared<AppMetadataFlightInfoEndpointScenario>();
+    return Status::OK();
+  } else if (scenario_name == "do_exchange:echo") {
+    *out = std::make_shared<DoExchangeEchoScenario>();
     return Status::OK();
   } else if (scenario_name == "flight_sql") {
     *out = std::make_shared<FlightSqlScenario>();

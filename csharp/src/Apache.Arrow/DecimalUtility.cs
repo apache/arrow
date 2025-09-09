@@ -223,7 +223,14 @@ namespace Apache.Arrow
         {
             // create BigInteger from decimal
             BigInteger bigInt;
+
+#if NET5_0_OR_GREATER
+            Span<int> decimalBits = stackalloc int[4];
+            decimal.GetBits(value, decimalBits);
+#else
             int[] decimalBits = decimal.GetBits(value);
+#endif
+
             int decScale = (decimalBits[3] >> 16) & 0x7F;
 #if NETCOREAPP
             Span<byte> bigIntBytes = stackalloc byte[13];

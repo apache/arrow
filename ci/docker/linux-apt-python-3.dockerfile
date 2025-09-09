@@ -23,6 +23,7 @@ COPY python/requirements-build.txt \
      /arrow/python/
 
 ENV ARROW_PYTHON_VENV /arrow-dev
+
 RUN python3 -m venv ${ARROW_PYTHON_VENV} && \
     . ${ARROW_PYTHON_VENV}/bin/activate && \
     pip install -U pip setuptools wheel && \
@@ -31,9 +32,10 @@ RUN python3 -m venv ${ARROW_PYTHON_VENV} && \
       -r arrow/python/requirements-test.txt
 
 ARG numba
+ARG numba_cuda
 COPY ci/scripts/install_numba.sh /arrow/ci/scripts/
 RUN if [ "${numba}" != "" ]; then \
-        /arrow/ci/scripts/install_numba.sh ${numba} \
+        /arrow/ci/scripts/install_numba.sh ${numba} ${numba_cuda} \
     ; fi
 
 ENV ARROW_ACERO=ON \

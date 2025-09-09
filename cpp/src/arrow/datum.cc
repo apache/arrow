@@ -30,8 +30,8 @@
 #include "arrow/scalar.h"
 #include "arrow/table.h"
 #include "arrow/util/byte_size.h"
-#include "arrow/util/logging.h"
-#include "arrow/util/memory.h"
+#include "arrow/util/logging_internal.h"
+#include "arrow/util/memory_internal.h"
 
 namespace arrow {
 

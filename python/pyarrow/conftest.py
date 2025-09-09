@@ -25,7 +25,6 @@ from pyarrow.lib import is_threading_enabled
 from pyarrow.tests.util import windows_has_tzdata
 import sys
 
-import numpy as np
 
 groups = [
     'acero',
@@ -46,6 +45,8 @@ groups = [
     'lz4',
     'memory_leak',
     'nopandas',
+    'nonumpy',
+    'numpy',
     'orc',
     'pandas',
     'parquet',
@@ -81,6 +82,8 @@ defaults = {
     'lz4': Codec.is_available('lz4'),
     'memory_leak': False,
     'nopandas': False,
+    'nonumpy': False,
+    'numpy': False,
     'orc': False,
     'pandas': False,
     'parquet': False,
@@ -159,6 +162,12 @@ except ImportError:
     defaults['nopandas'] = True
 
 try:
+    import numpy  # noqa
+    defaults['numpy'] = True
+except ImportError:
+    defaults['nonumpy'] = True
+
+try:
     import pyarrow.parquet  # noqa
     defaults['parquet'] = True
 except ImportError:
@@ -208,10 +217,10 @@ except ImportError:
 
 
 # Doctest should ignore files for the modules that are not built
-def pytest_ignore_collect(path, config):
+def pytest_ignore_collect(collection_path, config):
     if config.option.doctestmodules:
         # don't try to run doctests on the /tests directory
-        if "/pyarrow/tests/" in str(path):
+        if "/pyarrow/tests/" in str(collection_path):
             return True
 
         doctest_groups = [
@@ -224,22 +233,22 @@ def pytest_ignore_collect(path, config):
 
         # handle cuda, flight, etc
         for group in doctest_groups:
-            if 'pyarrow/{}'.format(group) in str(path):
+            if f'pyarrow/{group}' in str(collection_path):
                 if not defaults[group]:
                     return True
 
-        if 'pyarrow/parquet/encryption' in str(path):
+        if 'pyarrow/parquet/encryption' in str(collection_path):
             if not defaults['parquet_encryption']:
                 return True
 
-        if 'pyarrow/cuda' in str(path):
+        if 'pyarrow/cuda' in str(collection_path):
             try:
                 import pyarrow.cuda  # noqa
                 return False
             except ImportError:
                 return True
 
-        if 'pyarrow/fs' in str(path):
+        if 'pyarrow/fs' in str(collection_path):
             try:
                 from pyarrow.fs import S3FileSystem  # noqa
                 return False
@@ -247,9 +256,9 @@ def pytest_ignore_collect(path, config):
                 return True
 
     if getattr(config.option, "doctest_cython", False):
-        if "/pyarrow/tests/" in str(path):
+        if "/pyarrow/tests/" in str(collection_path):
             return True
-        if "/pyarrow/_parquet_encryption" in str(path):
+        if "/pyarrow/_parquet_encryption" in str(collection_path):
             return True
 
     return False
@@ -327,6 +336,7 @@ def unary_agg_func_fixture():
     Register a unary aggregate function (mean)
     """
     from pyarrow import compute as pc
+    import numpy as np
 
     def func(ctx, x):
         return pa.scalar(np.nanmean(x))
@@ -352,6 +362,7 @@ def varargs_agg_func_fixture():
     Register a unary aggregate function
     """
     from pyarrow import compute as pc
+    import numpy as np
 
     def func(ctx, *args):
         sum = 0.0

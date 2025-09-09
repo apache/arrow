@@ -65,12 +65,6 @@ function(add_thirdparty_lib LIB_NAME LIB_TYPE LIB)
   endif()
 endfunction()
 
-function(REUSE_PRECOMPILED_HEADER_LIB TARGET_NAME LIB_NAME)
-  if(ARROW_USE_PRECOMPILED_HEADERS)
-    target_precompile_headers(${TARGET_NAME} REUSE_FROM ${LIB_NAME})
-  endif()
-endfunction()
-
 # Based on MIT-licensed
 # https://gist.github.com/cristianadam/ef920342939a89fae3e8a85ca9459b49
 function(arrow_create_merged_static_lib output_target)
@@ -97,28 +91,43 @@ function(arrow_create_merged_static_lib output_target)
   endforeach()
 
   if(APPLE)
-    # The apple-distributed libtool is what we want for bundling, but there is
-    # a GNU libtool that has a namecollision (and happens to be bundled with R, too).
-    # We are not compatible with GNU libtool, so we need to avoid it.
+    if(CMAKE_LIBTOOL)
+      set(LIBTOOL_MACOS ${CMAKE_LIBTOOL})
+    else()
+      # The apple-distributed libtool is what we want for bundling, but there is
+      # a GNU libtool that has a namecollision (and happens to be bundled with R, too).
+      # We are not compatible with GNU libtool, so we need to avoid it.
 
-    # check in the obvious places first to find Apple's libtool
-    # HINTS is used before system paths and before PATHS, so we use that
-    # even though hard coded paths should go in PATHS
-    # TODO: use a VALIDATOR when we require cmake >= 3.25
-    find_program(LIBTOOL_MACOS libtool HINTS /usr/bin
-                                             /Library/Developer/CommandLineTools/usr/bin)
+      # check in the obvious places first to find Apple's libtool
+      # HINTS is used before system paths and before PATHS, so we use that
+      # even though hard coded paths should go in PATHS
+      # TODO: use a VALIDATOR when we require cmake >= 3.25
+      find_program(LIBTOOL_MACOS libtool
+                   HINTS /usr/bin /Library/Developer/CommandLineTools/usr/bin)
+    endif()
 
-    # confirm that the libtool we found is not GNU libtool
+    # confirm that the libtool we found is Apple's libtool
     execute_process(COMMAND ${LIBTOOL_MACOS} -V
                     OUTPUT_VARIABLE LIBTOOL_V_OUTPUT
                     OUTPUT_STRIP_TRAILING_WHITESPACE)
     if(NOT "${LIBTOOL_V_OUTPUT}" MATCHES ".*cctools-([0-9.]+).*")
-      message(FATAL_ERROR "libtool found appears to be the incompatible GNU libtool: ${LIBTOOL_MACOS}"
+      message(FATAL_ERROR "libtool found appears not to be Apple's libtool: ${LIBTOOL_MACOS}"
       )
     endif()
 
     set(BUNDLE_COMMAND ${LIBTOOL_MACOS} "-no_warning_for_no_symbols" "-static" "-o"
                        ${output_lib_path} ${all_library_paths})
+  elseif(MSVC)
+    if(CMAKE_LIBTOOL)
+      set(BUNDLE_TOOL ${CMAKE_LIBTOOL})
+    else()
+      find_program(BUNDLE_TOOL lib HINTS "${CMAKE_CXX_COMPILER}/..")
+      if(NOT BUNDLE_TOOL)
+        message(FATAL_ERROR "Cannot locate lib.exe to bundle libraries")
+      endif()
+    endif()
+    set(BUNDLE_COMMAND ${BUNDLE_TOOL} /NOLOGO /OUT:${output_lib_path}
+                       ${all_library_paths})
   elseif(CMAKE_CXX_COMPILER_ID MATCHES "^(Clang|GNU|Intel|IntelLLVM)$")
     set(ar_script_path ${CMAKE_BINARY_DIR}/${ARG_NAME}.ar)
 
@@ -140,18 +149,6 @@ function(arrow_create_merged_static_lib output_target)
     endif()
 
     set(BUNDLE_COMMAND ${ar_tool} -M < ${ar_script_path})
-
-  elseif(MSVC)
-    if(CMAKE_LIBTOOL)
-      set(BUNDLE_TOOL ${CMAKE_LIBTOOL})
-    else()
-      find_program(BUNDLE_TOOL lib HINTS "${CMAKE_CXX_COMPILER}/..")
-      if(NOT BUNDLE_TOOL)
-        message(FATAL_ERROR "Cannot locate lib.exe to bundle libraries")
-      endif()
-    endif()
-    set(BUNDLE_COMMAND ${BUNDLE_TOOL} /NOLOGO /OUT:${output_lib_path}
-                       ${all_library_paths})
   else()
     message(FATAL_ERROR "Unknown bundle scenario!")
   endif()
@@ -166,7 +163,7 @@ function(arrow_create_merged_static_lib output_target)
   message(STATUS "Creating bundled static library target ${output_target} at ${output_lib_path}"
   )
 
-  add_library(${output_target} STATIC IMPORTED)
+  add_library(${output_target} STATIC IMPORTED GLOBAL)
   set_target_properties(${output_target} PROPERTIES IMPORTED_LOCATION ${output_lib_path})
   add_dependencies(${output_target} ${output_target}_merge)
 endfunction()
@@ -200,11 +197,9 @@ function(ADD_ARROW_LIB LIB_NAME)
       INSTALL_LIBRARY_DIR
       INSTALL_RUNTIME_DIR
       PKG_CONFIG_NAME
-      PRECOMPILED_HEADER_LIB
       SHARED_LINK_FLAGS)
   set(multi_value_args
       SOURCES
-      PRECOMPILED_HEADERS
       OUTPUTS
       STATIC_LINK_LIBS
       SHARED_LINK_LIBS
@@ -270,12 +265,7 @@ function(ADD_ARROW_LIB LIB_NAME)
     if(ARG_DEFINITIONS)
       target_compile_definitions(${LIB_NAME}_objlib PRIVATE ${ARG_DEFINITIONS})
     endif()
-    if(ARG_PRECOMPILED_HEADER_LIB)
-      reuse_precompiled_header_lib(${LIB_NAME}_objlib ${ARG_PRECOMPILED_HEADER_LIB})
-    endif()
-    if(ARG_PRECOMPILED_HEADERS AND ARROW_USE_PRECOMPILED_HEADERS)
-      target_precompile_headers(${LIB_NAME}_objlib PRIVATE ${ARG_PRECOMPILED_HEADERS})
-    endif()
+    target_compile_options(${LIB_NAME}_objlib PRIVATE ${ARROW_LIBRARIES_ONLY_CXX_FLAGS})
     set(LIB_DEPS $<TARGET_OBJECTS:${LIB_NAME}_objlib>)
     set(EXTRA_DEPS)
 
@@ -302,7 +292,6 @@ function(ADD_ARROW_LIB LIB_NAME)
     endif()
   else()
     # Prepare arguments for separate compilation of static and shared libs below
-    # TODO: add PCH directives
     set(LIB_DEPS ${ARG_SOURCES})
     set(EXTRA_DEPS ${ARG_DEPENDENCIES})
   endif()
@@ -338,10 +327,7 @@ function(ADD_ARROW_LIB LIB_NAME)
     if(ARG_DEFINITIONS)
       target_compile_definitions(${LIB_NAME}_shared PRIVATE ${ARG_DEFINITIONS})
     endif()
-
-    if(ARG_PRECOMPILED_HEADER_LIB)
-      reuse_precompiled_header_lib(${LIB_NAME}_shared ${ARG_PRECOMPILED_HEADER_LIB})
-    endif()
+    target_compile_options(${LIB_NAME}_shared PRIVATE ${ARROW_LIBRARIES_ONLY_CXX_FLAGS})
 
     if(ARG_OUTPUTS)
       list(APPEND ${ARG_OUTPUTS} ${LIB_NAME}_shared)
@@ -432,10 +418,7 @@ function(ADD_ARROW_LIB LIB_NAME)
     if(ARG_DEFINITIONS)
       target_compile_definitions(${LIB_NAME}_static PRIVATE ${ARG_DEFINITIONS})
     endif()
-
-    if(ARG_PRECOMPILED_HEADER_LIB)
-      reuse_precompiled_header_lib(${LIB_NAME}_static ${ARG_PRECOMPILED_HEADER_LIB})
-    endif()
+    target_compile_options(${LIB_NAME}_static PRIVATE ${ARROW_LIBRARIES_ONLY_CXX_FLAGS})
 
     if(ARG_OUTPUTS)
       list(APPEND ${ARG_OUTPUTS} ${LIB_NAME}_static)
@@ -536,13 +519,13 @@ endfunction()
 # group names must exist
 function(ADD_BENCHMARK REL_BENCHMARK_NAME)
   set(options)
-  set(one_value_args)
+  set(one_value_args PREFIX)
   set(multi_value_args
       EXTRA_LINK_LIBS
       STATIC_LINK_LIBS
       DEPENDENCIES
       SOURCES
-      PREFIX
+      EXTRA_SOURCES
       LABELS)
   cmake_parse_arguments(ARG
                         "${options}"
@@ -562,10 +545,16 @@ function(ADD_BENCHMARK REL_BENCHMARK_NAME)
     set(BENCHMARK_NAME "${ARG_PREFIX}-${BENCHMARK_NAME}")
   endif()
 
+  set(SOURCES "")
+
+  if(ARG_EXTRA_SOURCES)
+    list(APPEND SOURCES ${ARG_EXTRA_SOURCES})
+  endif()
+
   if(ARG_SOURCES)
-    set(SOURCES ${ARG_SOURCES})
+    list(APPEND SOURCES ${ARG_SOURCES})
   else()
-    set(SOURCES "${REL_BENCHMARK_NAME}.cc")
+    list(APPEND SOURCES "${REL_BENCHMARK_NAME}.cc")
   endif()
 
   # Make sure the executable name contains only hyphens, not underscores
@@ -573,7 +562,7 @@ function(ADD_BENCHMARK REL_BENCHMARK_NAME)
 
   if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/${REL_BENCHMARK_NAME}.cc)
     # This benchmark has a corresponding .cc file, set it up as an executable.
-    set(BENCHMARK_PATH "${EXECUTABLE_OUTPUT_PATH}/${BENCHMARK_NAME}")
+    set(BENCHMARK_PATH "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/${BENCHMARK_NAME}")
     add_executable(${BENCHMARK_NAME} ${SOURCES})
 
     if(ARG_STATIC_LINK_LIBS)
@@ -602,7 +591,8 @@ function(ADD_BENCHMARK REL_BENCHMARK_NAME)
                           PROPERTIES BUILD_WITH_INSTALL_RPATH TRUE
                                      INSTALL_RPATH_USE_LINK_PATH TRUE
                                      INSTALL_RPATH
-                                     "$ENV{CONDA_PREFIX}/lib;${EXECUTABLE_OUTPUT_PATH}")
+                                     "$ENV{CONDA_PREFIX}/lib;${CMAKE_RUNTIME_OUTPUT_DIRECTORY}"
+    )
   endif()
 
   # Add test as dependency of relevant label targets
@@ -665,10 +655,9 @@ endfunction()
 # names must exist
 function(ADD_TEST_CASE REL_TEST_NAME)
   set(options NO_VALGRIND ENABLED)
-  set(one_value_args PRECOMPILED_HEADER_LIB)
+  set(one_value_args PREFIX)
   set(multi_value_args
       SOURCES
-      PRECOMPILED_HEADERS
       STATIC_LINK_LIBS
       EXTRA_LINK_LIBS
       EXTRA_INCLUDES
@@ -676,7 +665,6 @@ function(ADD_TEST_CASE REL_TEST_NAME)
       LABELS
       EXTRA_LABELS
       TEST_ARGUMENTS
-      PREFIX
       DEFINITIONS)
   cmake_parse_arguments(ARG
                         "${options}"
@@ -705,7 +693,7 @@ function(ADD_TEST_CASE REL_TEST_NAME)
   # Make sure the executable name contains only hyphens, not underscores
   string(REPLACE "_" "-" TEST_NAME ${TEST_NAME})
 
-  set(TEST_PATH "${EXECUTABLE_OUTPUT_PATH}/${TEST_NAME}")
+  set(TEST_PATH "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/${TEST_NAME}")
   add_executable(${TEST_NAME} ${SOURCES})
 
   # With OSX and conda, we need to set the correct RPATH so that dependencies
@@ -718,7 +706,8 @@ function(ADD_TEST_CASE REL_TEST_NAME)
                           PROPERTIES BUILD_WITH_INSTALL_RPATH TRUE
                                      INSTALL_RPATH_USE_LINK_PATH TRUE
                                      INSTALL_RPATH
-                                     "${EXECUTABLE_OUTPUT_PATH};$ENV{CONDA_PREFIX}/lib")
+                                     "${CMAKE_RUNTIME_OUTPUT_DIRECTORY};$ENV{CONDA_PREFIX}/lib"
+    )
   endif()
 
   # Ensure using bundled GoogleTest when we use bundled GoogleTest.
@@ -731,14 +720,6 @@ function(ADD_TEST_CASE REL_TEST_NAME)
     target_link_libraries(${TEST_NAME} PRIVATE ${ARG_STATIC_LINK_LIBS})
   else()
     target_link_libraries(${TEST_NAME} PRIVATE ${ARROW_TEST_LINK_LIBS})
-  endif()
-
-  if(ARG_PRECOMPILED_HEADER_LIB)
-    reuse_precompiled_header_lib(${TEST_NAME} ${ARG_PRECOMPILED_HEADER_LIB})
-  endif()
-
-  if(ARG_PRECOMPILED_HEADERS AND ARROW_USE_PRECOMPILED_HEADERS)
-    target_precompile_headers(${TEST_NAME} PRIVATE ${ARG_PRECOMPILED_HEADERS})
   endif()
 
   if(ARG_EXTRA_LINK_LIBS)
@@ -832,13 +813,8 @@ endfunction()
 # create test executable foo-bar-example
 function(ADD_ARROW_EXAMPLE REL_EXAMPLE_NAME)
   set(options)
-  set(one_value_args)
-  set(multi_value_args
-      EXTRA_INCLUDES
-      EXTRA_LINK_LIBS
-      EXTRA_SOURCES
-      DEPENDENCIES
-      PREFIX)
+  set(one_value_args PREFIX)
+  set(multi_value_args EXTRA_INCLUDES EXTRA_LINK_LIBS EXTRA_SOURCES DEPENDENCIES)
   cmake_parse_arguments(ARG
                         "${options}"
                         "${one_value_args}"
@@ -862,7 +838,7 @@ function(ADD_ARROW_EXAMPLE REL_EXAMPLE_NAME)
 
   if(EXISTS ${CMAKE_SOURCE_DIR}/examples/arrow/${REL_EXAMPLE_NAME}.cc)
     # This example has a corresponding .cc file, set it up as an executable.
-    set(EXAMPLE_PATH "${EXECUTABLE_OUTPUT_PATH}/${EXAMPLE_NAME}")
+    set(EXAMPLE_PATH "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/${EXAMPLE_NAME}")
     add_executable(${EXAMPLE_NAME} "${REL_EXAMPLE_NAME}.cc" ${ARG_EXTRA_SOURCES})
     target_link_libraries(${EXAMPLE_NAME} ${ARROW_EXAMPLE_LINK_LIBS})
     add_dependencies(runexample ${EXAMPLE_NAME})

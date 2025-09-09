@@ -32,11 +32,9 @@
 #include "arrow/type.h"
 #include "arrow/util/endian.h"
 #include "arrow/util/key_value_metadata.h"
+#include "arrow/util/pcg_random.h"
 
 namespace arrow {
-
-using internal::ChunkLocation;
-using internal::ChunkResolver;
 
 class TestChunkedArray : public ::testing::Test {
  protected:
@@ -155,33 +153,57 @@ TEST_F(TestChunkedArray, EqualsDifferingMetadata) {
   ASSERT_TRUE(left.Equals(right));
 }
 
-TEST_F(TestChunkedArray, EqualsSameAddressWithNaNs) {
-  auto chunk_with_nan1 = ArrayFromJSON(float64(), "[0, 1, 2, NaN]");
-  auto chunk_without_nan1 = ArrayFromJSON(float64(), "[3, 4, 5]");
-  ArrayVector chunks1 = {chunk_with_nan1, chunk_without_nan1};
-  ASSERT_OK_AND_ASSIGN(auto chunked_array_with_nan1, ChunkedArray::Make(chunks1));
-  ASSERT_FALSE(chunked_array_with_nan1->Equals(chunked_array_with_nan1));
+class TestChunkedArrayEqualsSameAddress : public TestChunkedArray {};
 
-  auto chunk_without_nan2 = ArrayFromJSON(float64(), "[6, 7, 8, 9]");
-  ArrayVector chunks2 = {chunk_without_nan1, chunk_without_nan2};
-  ASSERT_OK_AND_ASSIGN(auto chunked_array_without_nan1, ChunkedArray::Make(chunks2));
-  ASSERT_TRUE(chunked_array_without_nan1->Equals(chunked_array_without_nan1));
-
+TEST_F(TestChunkedArrayEqualsSameAddress, NonFloatType) {
   auto int32_array = ArrayFromJSON(int32(), "[0, 1, 2]");
-  auto float64_array_with_nan = ArrayFromJSON(float64(), "[0, 1, NaN]");
-  ArrayVector arrays1 = {int32_array, float64_array_with_nan};
-  std::vector<std::string> fieldnames = {"Int32Type", "Float64Type"};
-  ASSERT_OK_AND_ASSIGN(auto struct_with_nan, StructArray::Make(arrays1, fieldnames));
-  ArrayVector chunks3 = {struct_with_nan};
-  ASSERT_OK_AND_ASSIGN(auto chunked_array_with_nan2, ChunkedArray::Make(chunks3));
-  ASSERT_FALSE(chunked_array_with_nan2->Equals(chunked_array_with_nan2));
+  ASSERT_OK_AND_ASSIGN(auto chunked_array, ChunkedArray::Make({int32_array}));
+  ASSERT_TRUE(chunked_array->Equals(chunked_array));
+}
 
-  auto float64_array_without_nan = ArrayFromJSON(float64(), "[0, 1, 2]");
-  ArrayVector arrays2 = {int32_array, float64_array_without_nan};
-  ASSERT_OK_AND_ASSIGN(auto struct_without_nan, StructArray::Make(arrays2, fieldnames));
-  ArrayVector chunks4 = {struct_without_nan};
-  ASSERT_OK_AND_ASSIGN(auto chunked_array_without_nan2, ChunkedArray::Make(chunks4));
-  ASSERT_TRUE(chunked_array_without_nan2->Equals(chunked_array_without_nan2));
+TEST_F(TestChunkedArrayEqualsSameAddress, NestedTypeWithoutFloat) {
+  auto int32_array = ArrayFromJSON(int32(), "[0, 1]");
+  ASSERT_OK_AND_ASSIGN(auto struct_array,
+                       StructArray::Make({int32_array}, {"Int32Type"}));
+  ASSERT_OK_AND_ASSIGN(auto chunked_array, ChunkedArray::Make({struct_array}));
+
+  ASSERT_TRUE(chunked_array->Equals(chunked_array));
+}
+
+TEST_F(TestChunkedArrayEqualsSameAddress, FloatType) {
+  auto float64_array = ArrayFromJSON(float64(), "[0.0, 1.0, 2.0, NaN]");
+  ASSERT_OK_AND_ASSIGN(auto chunked_array, ChunkedArray::Make({float64_array}));
+
+  ASSERT_FALSE(chunked_array->Equals(chunked_array));
+
+  // Assert when EqualOptions::nans_equal_ is set
+  ASSERT_TRUE(
+      chunked_array->Equals(chunked_array, EqualOptions::Defaults().nans_equal(true)));
+}
+
+TEST_F(TestChunkedArrayEqualsSameAddress, NestedTypeWithFloat) {
+  auto float64_array = ArrayFromJSON(float64(), "[0.0, 1.0, NaN]");
+  ASSERT_OK_AND_ASSIGN(auto struct_array,
+                       StructArray::Make({float64_array}, {"Float64Type"}));
+  ASSERT_OK_AND_ASSIGN(auto chunked_array, ChunkedArray::Make({struct_array}));
+
+  ASSERT_FALSE(chunked_array->Equals(chunked_array));
+
+  // Assert when EqualOptions::nans_equal_ is set
+  ASSERT_TRUE(
+      chunked_array->Equals(chunked_array, EqualOptions::Defaults().nans_equal(true)));
+}
+
+TEST_F(TestChunkedArray, ApproxEquals) {
+  auto chunk_1 = ArrayFromJSON(float64(), R"([0.0, 0.1, 0.5])");
+  auto chunk_2 = ArrayFromJSON(float64(), R"([0.0, 0.1, 0.5001])");
+  ASSERT_OK_AND_ASSIGN(auto chunked_array_1, ChunkedArray::Make({chunk_1}));
+  ASSERT_OK_AND_ASSIGN(auto chunked_array_2, ChunkedArray::Make({chunk_2}));
+  auto options = EqualOptions::Defaults().atol(1e-3);
+
+  ASSERT_FALSE(chunked_array_1->Equals(chunked_array_2));
+  ASSERT_TRUE(chunked_array_1->Equals(chunked_array_2, options.use_atol(true)));
+  ASSERT_TRUE(chunked_array_1->ApproxEquals(*chunked_array_2, options));
 }
 
 TEST_F(TestChunkedArray, SliceEquals) {
@@ -372,32 +394,51 @@ TEST(TestChunkResolver, Resolve) {
   ASSERT_EQ(resolver.Resolve(10).chunk_index, 3);
 }
 
+template <class RNG>
+std::vector<int64_t> GenChunkedArrayOffsets(RNG& rng, int32_t num_chunks,
+                                            int64_t chunked_array_len) {
+  std::uniform_int_distribution<int64_t> offset_gen(1, chunked_array_len - 1);
+  std::vector<int64_t> offsets;
+  offsets.reserve(num_chunks + 1);
+  offsets.push_back(0);
+  while (offsets.size() < static_cast<size_t>(num_chunks)) {
+    offsets.push_back(offset_gen(rng));
+  }
+  offsets.push_back(chunked_array_len);
+  std::sort(offsets.begin() + 1, offsets.end());
+  return offsets;
+}
+
 template <typename T>
 class TestChunkResolverMany : public ::testing::Test {
  public:
   using IndexType = T;
+  static constexpr int32_t kMaxInt32 = std::numeric_limits<int32_t>::max();
+  static constexpr uint64_t kMaxValidIndex = std::numeric_limits<IndexType>::max();
 
   Result<std::vector<ChunkLocation>> ResolveMany(
       const ChunkResolver& resolver, const std::vector<IndexType>& logical_index_vec) {
     const size_t n = logical_index_vec.size();
-    std::vector<IndexType> chunk_index_vec;
-    chunk_index_vec.resize(n);
-    std::vector<IndexType> index_in_chunk_vec;
-    index_in_chunk_vec.resize(n);
+    std::vector<TypedChunkLocation<IndexType>> chunk_location_vec;
+    chunk_location_vec.resize(n);
     bool valid = resolver.ResolveMany<IndexType>(
-        static_cast<int64_t>(n), logical_index_vec.data(), chunk_index_vec.data(), 0,
-        index_in_chunk_vec.data());
+        static_cast<int64_t>(n), logical_index_vec.data(), chunk_location_vec.data(), 0);
     if (ARROW_PREDICT_FALSE(!valid)) {
       return Status::Invalid("index type doesn't fit possible chunk indexes");
     }
-    std::vector<ChunkLocation> locations;
-    locations.reserve(n);
-    for (size_t i = 0; i < n; i++) {
-      auto chunk_index = static_cast<int64_t>(chunk_index_vec[i]);
-      auto index_in_chunk = static_cast<int64_t>(index_in_chunk_vec[i]);
-      locations.emplace_back(chunk_index, index_in_chunk);
+    if constexpr (std::is_same<decltype(ChunkLocation::chunk_index), IndexType>::value) {
+      return chunk_location_vec;
+    } else {
+      std::vector<ChunkLocation> locations;
+      locations.reserve(n);
+      for (size_t i = 0; i < n; i++) {
+        auto loc = chunk_location_vec[i];
+        auto chunk_index = static_cast<int64_t>(loc.chunk_index);
+        auto index_in_chunk = static_cast<int64_t>(loc.index_in_chunk);
+        locations.emplace_back(chunk_index, index_in_chunk);
+      }
+      return locations;
     }
-    return locations;
   }
 
   void CheckResolveMany(const ChunkResolver& resolver,
@@ -507,6 +548,55 @@ class TestChunkResolverMany : public ::testing::Test {
       ASSERT_OK(ResolveMany(resolver_with_empty, logical_index_vec));
     }
   }
+
+  void TestRandomInput(int32_t num_chunks, int64_t chunked_array_len) {
+    random::pcg64 rng(42);
+
+    // Generate random chunk offsets...
+    auto offsets = GenChunkedArrayOffsets(rng, num_chunks, chunked_array_len);
+    ASSERT_EQ(offsets.size(), static_cast<size_t>(num_chunks) + 1);
+    // ...and ensure there is at least one empty chunk.
+    std::uniform_int_distribution<int32_t> chunk_index_gen(
+        1, static_cast<int32_t>(num_chunks - 1));
+    auto chunk_index = chunk_index_gen(rng);
+    offsets[chunk_index] = offsets[chunk_index - 1];
+
+    // Generate random query array of logical indices...
+    const auto num_logical_indices = 3 * static_cast<int64_t>(num_chunks) / 2;
+    std::vector<IndexType> logical_index_vec;
+    logical_index_vec.reserve(num_logical_indices);
+    std::uniform_int_distribution<uint64_t> logical_index_gen(1, kMaxValidIndex);
+    for (int64_t i = 0; i < num_logical_indices; i++) {
+      const auto index = static_cast<IndexType>(logical_index_gen(rng));
+      logical_index_vec.push_back(index);
+    }
+    // ...and sprinkle some extreme logical index values.
+    std::uniform_int_distribution<int64_t> position_gen(0, logical_index_vec.size() - 1);
+    for (int i = 0; i < 2; i++) {
+      auto max_valid_index =
+          std::min(kMaxValidIndex, static_cast<uint64_t>(chunked_array_len));
+      // zero and last valid logical index
+      logical_index_vec[position_gen(rng)] = 0;
+      logical_index_vec[position_gen(rng)] = static_cast<IndexType>(max_valid_index - 1);
+      // out of  bounds indices
+      logical_index_vec[position_gen(rng)] = static_cast<IndexType>(max_valid_index);
+      if (max_valid_index < kMaxValidIndex) {
+        logical_index_vec[position_gen(rng)] =
+            static_cast<IndexType>(max_valid_index + 1);
+      }
+    }
+
+    ChunkResolver resolver(std::move(offsets));
+    CheckResolveMany(resolver, logical_index_vec);
+  }
+
+  void TestRandomInput() {
+    const int64_t num_chunks = static_cast<int64_t>(
+        std::min(kMaxValidIndex - 1, static_cast<uint64_t>(1) << 16));
+    const int64_t avg_chunk_length = 20;
+    const int64_t chunked_array_len = num_chunks * 2 * avg_chunk_length;
+    TestRandomInput(num_chunks, chunked_array_len);
+  }
 };
 
 TYPED_TEST_SUITE(TestChunkResolverMany, IndexTypes);
@@ -514,5 +604,6 @@ TYPED_TEST_SUITE(TestChunkResolverMany, IndexTypes);
 TYPED_TEST(TestChunkResolverMany, Basics) { this->TestBasics(); }
 TYPED_TEST(TestChunkResolverMany, OutOfBounds) { this->TestOutOfBounds(); }
 TYPED_TEST(TestChunkResolverMany, Overflow) { this->TestOverflow(); }
+TYPED_TEST(TestChunkResolverMany, RandomInput) { this->TestRandomInput(); }
 
 }  // namespace arrow

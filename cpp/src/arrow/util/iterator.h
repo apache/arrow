@@ -31,6 +31,7 @@
 #include "arrow/util/compare.h"
 #include "arrow/util/functional.h"
 #include "arrow/util/macros.h"
+#include "arrow/util/type_fwd.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -80,6 +81,12 @@ struct IterationTraits<std::optional<T>> {
   // TODO(bkietz) The range-for loop over Iterator<optional<T>> yields
   // Result<optional<T>> which is unnecessary (since only the unyielded end optional
   // is nullopt. Add IterationTraits::GetRangeElement() to handle this case
+};
+
+template <typename T>
+struct IterationTraits<Enumerated<T>> {
+  static Enumerated<T> End() { return Enumerated<T>{IterationEnd<T>(), -1, false}; }
+  static bool IsEnd(const Enumerated<T>& val) { return val.index < 0; }
 };
 
 /// \brief A generic Iterator that can return errors
@@ -158,7 +165,7 @@ class Iterator : public util::EqualityComparable<Iterator<T>> {
     }
 
     Result<T> operator*() {
-      ARROW_RETURN_NOT_OK(value_.status());
+      ARROW_RETURN_NOT_OK(value_);
 
       auto value = std::move(value_);
       value_ = IterationTraits<T>::End();
@@ -292,7 +299,7 @@ class TransformIterator {
         finished_ = true;
         return next_res.status();
       }
-      auto next = *next_res;
+      auto next = std::move(*next_res);
       if (next.ReadyForNext()) {
         if (IsIterationEnd(*last_value_)) {
           finished_ = true;

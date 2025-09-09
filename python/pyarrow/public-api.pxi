@@ -111,6 +111,10 @@ cdef api object pyarrow_wrap_data_type(
         out = DurationType.__new__(DurationType)
     elif type.get().id() == _Type_FIXED_SIZE_BINARY:
         out = FixedSizeBinaryType.__new__(FixedSizeBinaryType)
+    elif type.get().id() == _Type_DECIMAL32:
+        out = Decimal32Type.__new__(Decimal32Type)
+    elif type.get().id() == _Type_DECIMAL64:
+        out = Decimal64Type.__new__(Decimal64Type)
     elif type.get().id() == _Type_DECIMAL128:
         out = Decimal128Type.__new__(Decimal128Type)
     elif type.get().id() == _Type_DECIMAL256:
@@ -131,6 +135,8 @@ cdef api object pyarrow_wrap_data_type(
             out = OpaqueType.__new__(OpaqueType)
         elif extension_name == b"arrow.uuid":
             out = UuidType.__new__(UuidType)
+        elif extension_name == b"arrow.json":
+            out = JsonType.__new__(JsonType)
         else:
             out = BaseExtensionType.__new__(BaseExtensionType)
     else:

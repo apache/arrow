@@ -29,6 +29,7 @@ RUN apt-get update -y -q && \
         ccache \
         cmake \
         curl \
+        gdb \
         git \
         libssl-dev \
         libcurl4-openssl-dev \
@@ -66,6 +67,10 @@ RUN latest_system_llvm=14 && \
         llvm-${llvm}-dev && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists*
+
+ARG cmake
+COPY ci/scripts/install_cmake.sh /arrow/ci/scripts/
+RUN /arrow/ci/scripts/install_cmake.sh ${cmake} /usr/local/
 
 COPY ci/scripts/install_minio.sh /arrow/ci/scripts/
 RUN /arrow/ci/scripts/install_minio.sh latest /usr/local

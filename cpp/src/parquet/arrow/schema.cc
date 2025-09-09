@@ -21,20 +21,24 @@
 #include <string>
 #include <vector>
 
+#include "arrow/extension/json.h"
+#include "arrow/extension/uuid.h"
 #include "arrow/extension_type.h"
 #include "arrow/io/memory.h"
 #include "arrow/ipc/api.h"
-#include "arrow/result_internal.h"
+#include "arrow/result.h"
 #include "arrow/type.h"
 #include "arrow/util/base64.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/key_value_metadata.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/string.h"
 #include "arrow/util/value_parsing.h"
 
 #include "parquet/arrow/schema_internal.h"
+#include "parquet/arrow/variant_internal.h"
 #include "parquet/exception.h"
+#include "parquet/geospatial/util_json_internal.h"
 #include "parquet/metadata.h"
 #include "parquet/properties.h"
 #include "parquet/types.h"
@@ -74,6 +78,19 @@ Repetition::type RepetitionFromNullable(bool is_nullable) {
   return is_nullable ? Repetition::OPTIONAL : Repetition::REQUIRED;
 }
 
+Result<std::shared_ptr<::arrow::DataType>> MakeArrowList(
+    std::shared_ptr<Field> field, const ArrowReaderProperties& props) {
+  switch (props.list_type()) {
+    case ::arrow::Type::LIST:
+      return ::arrow::list(std::move(field));
+    case ::arrow::Type::LARGE_LIST:
+      return ::arrow::large_list(std::move(field));
+    default:
+      return Status::TypeError("Invalid list_type: " +
+                               ::arrow::internal::ToString(props.list_type()));
+  }
+}
+
 Status FieldToNode(const std::string& name, const std::shared_ptr<Field>& field,
                    const WriterProperties& properties,
                    const ArrowWriterProperties& arrow_properties, NodePtr* out);
@@ -110,6 +127,25 @@ Status MapToNode(const std::shared_ptr<::arrow::MapType>& type, const std::strin
       GroupNode::Make("key_value", Repetition::REPEATED, {key_node, value_node});
   *out = GroupNode::Make(name, RepetitionFromNullable(nullable), {key_value},
                          LogicalType::Map(), field_id);
+  return Status::OK();
+}
+
+Status VariantToNode(const std::shared_ptr<VariantExtensionType>& type,
+                     const std::string& name, bool nullable, int field_id,
+                     const WriterProperties& properties,
+                     const ArrowWriterProperties& arrow_properties, NodePtr* out) {
+  NodePtr metadata_node;
+  RETURN_NOT_OK(FieldToNode("metadata", type->metadata(), properties, arrow_properties,
+                            &metadata_node));
+
+  NodePtr value_node;
+  RETURN_NOT_OK(
+      FieldToNode("value", type->value(), properties, arrow_properties, &value_node));
+
+  *out = GroupNode::Make(name, RepetitionFromNullable(nullable),
+                         {std::move(metadata_node), std::move(value_node)},
+                         LogicalType::Variant(), field_id);
+
   return Status::OK();
 }
 
@@ -266,8 +302,8 @@ int FieldIdFromMetadata(
   if (::arrow::internal::ParseValue<::arrow::Int32Type>(
           field_id_str.c_str(), field_id_str.length(), &field_id)) {
     if (field_id < 0) {
-      // Thrift should convert any negative value to null but normalize to -1 here in case
-      // we later check this in logic.
+      // Thrift should convert any negative value to null but normalize to -1 here in
+      // case we later check this in logic.
       return -1;
     }
     return field_id;
@@ -341,11 +377,13 @@ Status FieldToNode(const std::string& name, const std::shared_ptr<Field>& field,
       break;
     case ArrowTypeId::LARGE_STRING:
     case ArrowTypeId::STRING:
+    case ArrowTypeId::STRING_VIEW:
       type = ParquetType::BYTE_ARRAY;
       logical_type = LogicalType::String();
       break;
     case ArrowTypeId::LARGE_BINARY:
     case ArrowTypeId::BINARY:
+    case ArrowTypeId::BINARY_VIEW:
       type = ParquetType::BYTE_ARRAY;
       break;
     case ArrowTypeId::FIXED_SIZE_BINARY: {
@@ -354,13 +392,15 @@ Status FieldToNode(const std::string& name, const std::shared_ptr<Field>& field,
           static_cast<const ::arrow::FixedSizeBinaryType&>(*field->type());
       length = fixed_size_binary_type.byte_width();
     } break;
+    case ArrowTypeId::DECIMAL32:
+    case ArrowTypeId::DECIMAL64:
     case ArrowTypeId::DECIMAL128:
     case ArrowTypeId::DECIMAL256: {
       const auto& decimal_type = static_cast<const ::arrow::DecimalType&>(*field->type());
       precision = decimal_type.precision();
       scale = decimal_type.scale();
       if (properties.store_decimal_as_integer() && 1 <= precision && precision <= 18) {
-        type = precision <= 9 ? ParquetType ::INT32 : ParquetType ::INT64;
+        type = precision <= 9 ? ParquetType::INT32 : ParquetType::INT64;
       } else {
         type = ParquetType::FIXED_LEN_BYTE_ARRAY;
         length = DecimalType::DecimalSize(precision);
@@ -382,18 +422,21 @@ Status FieldToNode(const std::string& name, const std::shared_ptr<Field>& field,
       break;
     case ArrowTypeId::TIME32:
       type = ParquetType::INT32;
-      logical_type =
-          LogicalType::Time(/*is_adjusted_to_utc=*/true, LogicalType::TimeUnit::MILLIS);
+      logical_type = LogicalType::Time(
+          /*is_adjusted_to_utc=*/arrow_properties.write_time_adjusted_to_utc(),
+          LogicalType::TimeUnit::MILLIS);
       break;
     case ArrowTypeId::TIME64: {
       type = ParquetType::INT64;
       auto time_type = static_cast<::arrow::Time64Type*>(field->type().get());
       if (time_type->unit() == ::arrow::TimeUnit::NANO) {
-        logical_type =
-            LogicalType::Time(/*is_adjusted_to_utc=*/true, LogicalType::TimeUnit::NANOS);
+        logical_type = LogicalType::Time(
+            /*is_adjusted_to_utc=*/arrow_properties.write_time_adjusted_to_utc(),
+            LogicalType::TimeUnit::NANOS);
       } else {
-        logical_type =
-            LogicalType::Time(/*is_adjusted_to_utc=*/true, LogicalType::TimeUnit::MICROS);
+        logical_type = LogicalType::Time(
+            /*is_adjusted_to_utc=*/arrow_properties.write_time_adjusted_to_utc(),
+            LogicalType::TimeUnit::MICROS);
       }
     } break;
     case ArrowTypeId::DURATION:
@@ -427,6 +470,29 @@ Status FieldToNode(const std::string& name, const std::shared_ptr<Field>& field,
     }
     case ArrowTypeId::EXTENSION: {
       auto ext_type = std::static_pointer_cast<::arrow::ExtensionType>(field->type());
+      // Set physical and logical types and instantiate primitive node
+      // for extension types
+      if (ext_type->extension_name() == std::string_view("arrow.json")) {
+        type = ParquetType::BYTE_ARRAY;
+        logical_type = LogicalType::JSON();
+        break;
+      } else if (ext_type->extension_name() == std::string("arrow.uuid")) {
+        type = ParquetType::FIXED_LEN_BYTE_ARRAY;
+        logical_type = LogicalType::UUID();
+        length = 16;
+        break;
+      } else if (ext_type->extension_name() == std::string_view("geoarrow.wkb")) {
+        type = ParquetType::BYTE_ARRAY;
+        ARROW_ASSIGN_OR_RAISE(logical_type,
+                              LogicalTypeFromGeoArrowMetadata(ext_type->Serialize()));
+        break;
+      } else if (ext_type->extension_name() == std::string("parquet.variant")) {
+        auto variant_type = std::static_pointer_cast<VariantExtensionType>(field->type());
+
+        return VariantToNode(variant_type, name, field->nullable(), field_id, properties,
+                             arrow_properties, out);
+      }
+
       std::shared_ptr<::arrow::Field> storage_field = ::arrow::field(
           name, ext_type->storage_type(), field->nullable(), field->metadata());
       return FieldToNode(name, storage_field, properties, arrow_properties, out);
@@ -438,7 +504,7 @@ Status FieldToNode(const std::string& name, const std::shared_ptr<Field>& field,
     }
 
     default: {
-      // TODO: DENSE_UNION, SPARE_UNION, JSON_SCALAR, DECIMAL_TEXT, VARCHAR
+      // TODO: DENSE_UNION, SPARSE_UNION
       return Status::NotImplemented(
           "Unhandled type for Arrow to Parquet schema conversion: ",
           field->type()->ToString());
@@ -455,6 +521,7 @@ struct SchemaTreeContext {
   SchemaManifest* manifest;
   ArrowReaderProperties properties;
   const SchemaDescriptor* schema;
+  std::shared_ptr<const KeyValueMetadata> metadata;
 
   void LinkParent(const SchemaField* child, const SchemaField* parent) {
     manifest->child_to_parent[child] = parent;
@@ -476,9 +543,8 @@ bool IsDictionaryReadSupported(const ArrowType& type) {
 ::arrow::Result<std::shared_ptr<ArrowType>> GetTypeForNode(
     int column_index, const schema::PrimitiveNode& primitive_node,
     SchemaTreeContext* ctx) {
-  ASSIGN_OR_RAISE(
-      std::shared_ptr<ArrowType> storage_type,
-      GetArrowType(primitive_node, ctx->properties.coerce_int96_timestamp_unit()));
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ArrowType> storage_type,
+                        GetArrowType(primitive_node, ctx->properties, ctx->metadata));
   if (ctx->properties.read_dictionary(column_index) &&
       IsDictionaryReadSupported(*storage_type)) {
     return ::arrow::dictionary(::arrow::int32(), storage_type);
@@ -506,11 +572,13 @@ Status PopulateLeaf(int column_index, const std::shared_ptr<Field>& field,
 }
 
 // Special case mentioned in the format spec:
-//   If the name is array or ends in _tuple, this should be a list of struct
-//   even for single child elements.
-bool HasStructListName(const GroupNode& node) {
+//   If the name is array or uses the parent's name with `_tuple` appended,
+//   this should be:
+//   - a list of list or map type if the repeated group node is LIST- or MAP-annotated.
+//   - otherwise, a list of struct even for single child elements.
+bool HasListElementName(const GroupNode& node, const GroupNode& parent) {
   ::std::string_view name{node.name()};
-  return name == "array" || EndsWith(name, "_tuple");
+  return name == "array" || name == (parent.name() + "_tuple");
 }
 
 Status GroupToStruct(const GroupNode& node, LevelInfo current_levels,
@@ -528,6 +596,15 @@ Status GroupToStruct(const GroupNode& node, LevelInfo current_levels,
     arrow_fields.push_back(out->children[i].field);
   }
   auto struct_type = ::arrow::struct_(arrow_fields);
+  if (ctx->properties.get_arrow_extensions_enabled() &&
+      node.logical_type()->is_variant()) {
+    auto extension_type = ::arrow::GetExtensionType("parquet.variant");
+    if (extension_type) {
+      ARROW_ASSIGN_OR_RAISE(
+          struct_type,
+          extension_type->Deserialize(std::move(struct_type), /*serialized_data=*/""));
+    }
+  }
   out->field = ::arrow::field(node.name(), struct_type, node.is_optional(),
                               FieldIdMetadata(node.field_id()));
   out->level_info = current_levels;
@@ -569,8 +646,8 @@ Status MapToSchemaField(const GroupNode& group, LevelInfo current_levels,
     return Status::Invalid("Map keys must be annotated as required.");
   }
   // Arrow doesn't support 1 column maps (i.e. Sets).  The options are to either
-  // make the values column nullable, or process the map as a list.  We choose the latter
-  // as it is simpler.
+  // make the values column nullable, or process the map as a list.  We choose the
+  // latter as it is simpler.
   if (key_value.field_count() == 1) {
     return ListToSchemaField(group, current_levels, ctx, parent, out);
   }
@@ -591,9 +668,9 @@ Status MapToSchemaField(const GroupNode& group, LevelInfo current_levels,
   ctx->LinkParent(value_field, key_value_field);
 
   // required/optional group name=whatever {
-  //   repeated group name=key_values{
+  //   repeated group name=key_values {
   //     required TYPE key;
-  // required/optional TYPE value;
+  //     required/optional TYPE value;
   //   }
   // }
   //
@@ -627,6 +704,7 @@ Status ListToSchemaField(const GroupNode& group, LevelInfo current_levels,
   if (group.is_repeated()) {
     return Status::Invalid("LIST-annotated groups must not be repeated.");
   }
+
   current_levels.Increment(group);
 
   out->children.resize(group.field_count());
@@ -644,38 +722,67 @@ Status ListToSchemaField(const GroupNode& group, LevelInfo current_levels,
 
   int16_t repeated_ancestor_def_level = current_levels.IncrementRepeated();
   if (list_node.is_group()) {
-    // Resolve 3-level encoding
-    //
-    // required/optional group name=whatever {
-    //   repeated group name=list {
-    //     required/optional TYPE item;
-    //   }
-    // }
-    //
-    // yields list<item: TYPE ?nullable> ?nullable
-    //
-    // We distinguish the special case that we have
-    //
-    // required/optional group name=whatever {
-    //   repeated group name=array or $SOMETHING_tuple {
-    //     required/optional TYPE item;
-    //   }
-    // }
-    //
-    // In this latter case, the inner type of the list should be a struct
-    // rather than a primitive value
-    //
-    // yields list<item: struct<item: TYPE ?nullable> not null> ?nullable
     const auto& list_group = static_cast<const GroupNode&>(list_node);
-    // Special case mentioned in the format spec:
-    //   If the name is array or ends in _tuple, this should be a list of struct
-    //   even for single child elements.
-    if (list_group.field_count() == 1 && !HasStructListName(list_group)) {
-      // List of primitive type
-      RETURN_NOT_OK(
-          NodeToSchemaField(*list_group.field(0), current_levels, ctx, out, child_field));
-    } else {
+    if (list_group.field_count() > 1) {
+      // The inner type of the list should be a struct when there are multiple fields
+      // in the repeated group
       RETURN_NOT_OK(GroupToStruct(list_group, current_levels, ctx, out, child_field));
+    } else if (list_group.field_count() == 1) {
+      const auto& repeated_field = list_group.field(0);
+      if (repeated_field->is_repeated()) {
+        // Special case where the inner type might be a list with two-level encoding
+        // like below:
+        //
+        // required/optional group name=SOMETHING (LIST) {
+        //   repeated group array (LIST) {
+        //     repeated TYPE item;
+        //   }
+        // }
+        //
+        // yields list<item: list<item: TYPE not null> not null> ?nullable
+        if (!list_group.logical_type()->is_list()) {
+          return Status::Invalid("Group with one repeated child must be LIST-annotated.");
+        }
+        // LIST-annotated group with three-level encoding cannot be repeated.
+        if (repeated_field->is_group()) {
+          auto& repeated_group_field = static_cast<const GroupNode&>(*repeated_field);
+          if (repeated_group_field.field_count() == 0) {
+            return Status::Invalid("LIST-annotated groups must have at least one child.");
+          }
+          if (!repeated_group_field.field(0)->is_repeated()) {
+            return Status::Invalid("LIST-annotated groups must not be repeated.");
+          }
+        }
+        RETURN_NOT_OK(
+            NodeToSchemaField(*repeated_field, current_levels, ctx, out, child_field));
+      } else if (HasListElementName(list_group, group)) {
+        // We distinguish the special case that we have
+        //
+        // required/optional group name=SOMETHING {
+        //   repeated group name=array or $SOMETHING_tuple {
+        //     required/optional TYPE item;
+        //   }
+        // }
+        //
+        // The inner type of the list should be a struct rather than a primitive value
+        //
+        // yields list<item: struct<item: TYPE ?nullable> not null> ?nullable
+        RETURN_NOT_OK(GroupToStruct(list_group, current_levels, ctx, out, child_field));
+      } else {
+        // Resolve 3-level encoding
+        //
+        // required/optional group name=whatever {
+        //   repeated group name=list {
+        //     required/optional TYPE item;
+        //   }
+        // }
+        //
+        // yields list<item: TYPE ?nullable> ?nullable
+        RETURN_NOT_OK(
+            NodeToSchemaField(*repeated_field, current_levels, ctx, out, child_field));
+      }
+    } else {
+      return Status::Invalid("Group must have at least one child.");
     }
   } else {
     // Two-level list encoding
@@ -683,17 +790,23 @@ Status ListToSchemaField(const GroupNode& group, LevelInfo current_levels,
     // required/optional group LIST {
     //   repeated TYPE;
     // }
+    //
+    // TYPE is a primitive type
+    //
+    // yields list<item: TYPE not null> ?nullable
     const auto& primitive_node = static_cast<const PrimitiveNode&>(list_node);
     int column_index = ctx->schema->GetColumnIndex(primitive_node);
-    ASSIGN_OR_RAISE(std::shared_ptr<ArrowType> type,
-                    GetTypeForNode(column_index, primitive_node, ctx));
+    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ArrowType> type,
+                          GetTypeForNode(column_index, primitive_node, ctx));
     auto item_field = ::arrow::field(list_node.name(), type, /*nullable=*/false,
                                      FieldIdMetadata(list_node.field_id()));
     RETURN_NOT_OK(
         PopulateLeaf(column_index, item_field, current_levels, ctx, out, child_field));
   }
-  out->field = ::arrow::field(group.name(), ::arrow::list(child_field->field),
-                              group.is_optional(), FieldIdMetadata(group.field_id()));
+  ARROW_ASSIGN_OR_RAISE(auto list_type,
+                        MakeArrowList(child_field->field, ctx->properties));
+  out->field = ::arrow::field(group.name(), std::move(list_type), group.is_optional(),
+                              FieldIdMetadata(group.field_id()));
   out->level_info = current_levels;
   // At this point current levels contains the def level for this list,
   // we need to reset to the prior parent.
@@ -721,7 +834,9 @@ Status GroupToSchemaField(const GroupNode& node, LevelInfo current_levels,
 
     int16_t repeated_ancestor_def_level = current_levels.IncrementRepeated();
     RETURN_NOT_OK(GroupToStruct(node, current_levels, ctx, out, &out->children[0]));
-    out->field = ::arrow::field(node.name(), ::arrow::list(out->children[0].field),
+    ARROW_ASSIGN_OR_RAISE(auto list_type,
+                          MakeArrowList(out->children[0].field, ctx->properties));
+    out->field = ::arrow::field(node.name(), std::move(list_type),
                                 /*nullable=*/false, FieldIdMetadata(node.field_id()));
 
     ctx->LinkParent(&out->children[0], out);
@@ -761,8 +876,8 @@ Status NodeToSchemaField(const Node& node, LevelInfo current_levels,
     // repeated $TYPE $FIELD_NAME
     const auto& primitive_node = static_cast<const PrimitiveNode&>(node);
     int column_index = ctx->schema->GetColumnIndex(primitive_node);
-    ASSIGN_OR_RAISE(std::shared_ptr<ArrowType> type,
-                    GetTypeForNode(column_index, primitive_node, ctx));
+    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ArrowType> type,
+                          GetTypeForNode(column_index, primitive_node, ctx));
     if (node.is_repeated()) {
       // One-level list encoding, e.g.
       // a: repeated int32;
@@ -772,7 +887,9 @@ Status NodeToSchemaField(const Node& node, LevelInfo current_levels,
       RETURN_NOT_OK(PopulateLeaf(column_index, child_field, current_levels, ctx, out,
                                  &out->children[0]));
 
-      out->field = ::arrow::field(node.name(), ::arrow::list(child_field),
+      ARROW_ASSIGN_OR_RAISE(auto list_type,
+                            MakeArrowList(out->children[0].field, ctx->properties));
+      out->field = ::arrow::field(node.name(), std::move(list_type),
                                   /*nullable=*/false, FieldIdMetadata(node.field_id()));
       out->level_info = current_levels;
       // At this point current_levels has consider this list the ancestor so restore
@@ -850,6 +967,7 @@ std::function<std::shared_ptr<::arrow::DataType>(FieldVector)> GetNestedFactory(
       }
       break;
     case ::arrow::Type::LIST:
+    case ::arrow::Type::LARGE_LIST:
       if (origin_type.id() == ::arrow::Type::LIST) {
         return [](FieldVector fields) {
           DCHECK_EQ(fields.size(), 1);
@@ -946,24 +1064,30 @@ Result<bool> ApplyOriginalStorageMetadata(const Field& origin_field,
     // so no need to recurse on value types.
     const auto& dict_origin_type =
         checked_cast<const ::arrow::DictionaryType&>(*origin_type);
-    inferred->field = inferred->field->WithType(
-        ::arrow::dictionary(::arrow::int32(), inferred_type, dict_origin_type.ordered()));
+    inferred->field = inferred->field->WithType(::arrow::dictionary(
+        dict_origin_type.index_type(), inferred_type, dict_origin_type.ordered()));
     modified = true;
   }
 
-  if ((origin_type->id() == ::arrow::Type::LARGE_BINARY &&
-       inferred_type->id() == ::arrow::Type::BINARY) ||
-      (origin_type->id() == ::arrow::Type::LARGE_STRING &&
-       inferred_type->id() == ::arrow::Type::STRING)) {
-    // Read back binary-like arrays with the intended offset width.
+  if ((::arrow::is_binary_or_binary_view(origin_type->id()) &&
+       ::arrow::is_binary_or_binary_view(inferred_type->id())) ||
+      (::arrow::is_string_or_string_view(origin_type->id()) &&
+       ::arrow::is_string_or_string_view(inferred_type->id()))) {
+    // Read back binary-like arrays with the intended layout (narrow, large, view).
     inferred->field = inferred->field->WithType(origin_type);
     modified = true;
   }
 
-  if (origin_type->id() == ::arrow::Type::DECIMAL256 &&
-      inferred_type->id() == ::arrow::Type::DECIMAL128) {
-    inferred->field = inferred->field->WithType(origin_type);
-    modified = true;
+  if (::arrow::is_decimal(origin_type->id()) &&
+      ::arrow::is_decimal(inferred_type->id())) {
+    auto& origin_decimal = checked_cast<const ::arrow::DecimalType&>(*origin_type);
+    auto& inferred_decimal = checked_cast<const ::arrow::DecimalType&>(*inferred_type);
+    if (origin_decimal.precision() == inferred_decimal.precision() &&
+        origin_decimal.scale() == inferred_decimal.scale() &&
+        origin_decimal.id() != inferred_decimal.id()) {
+      inferred->field = inferred->field->WithType(origin_type);
+      modified = true;
+    }
   }
 
   // Restore field metadata
@@ -985,18 +1109,61 @@ Result<bool> ApplyOriginalMetadata(const Field& origin_field, SchemaField* infer
 
   auto& origin_type = origin_field.type();
 
+  // The origin was an extension type. This occurs when the ARROW:extension:name field
+  // was present when the schema was written and that extension is registered when
+  // the schema is read.
   if (origin_type->id() == ::arrow::Type::EXTENSION) {
-    const auto& ex_type = checked_cast<const ::arrow::ExtensionType&>(*origin_type);
-    auto origin_storage_field = origin_field.WithType(ex_type.storage_type());
+    const auto& origin_extension_type =
+        checked_cast<const ::arrow::ExtensionType&>(*origin_type);
 
-    // Apply metadata recursively to storage type
+    // (Recursively) Apply the original storage metadata from the original storage field
+    // This applies extension types to child elements, if any.
+    auto origin_storage_field =
+        origin_field.WithType(origin_extension_type.storage_type());
     RETURN_NOT_OK(ApplyOriginalStorageMetadata(*origin_storage_field, inferred));
 
-    // Restore extension type, if the storage type is the same as inferred
-    // from the Parquet type
-    if (ex_type.storage_type()->Equals(*inferred->field->type())) {
+    // Use the inferred type after child updates for below checks to see if
+    // we can restore an extension type on the output.
+    const auto& inferred_type = inferred->field->type();
+
+    // Whether or not the inferred type is also an extension type. This can occur when
+    // arrow_extensions_enabled is true in the ArrowReaderProperties. Extension types
+    // are not currently inferred for any other reason.
+    bool arrow_extension_inferred = inferred_type->id() == ::arrow::Type::EXTENSION;
+
+    // Check if the inferred storage type is compatible with the extension type
+    // we're hoping to apply. We assume that if an extension type was inferred
+    // that it was constructed with a valid storage type. Otherwise, we check with
+    // extension types that we know about for valid storage, falling back to
+    // storage type equality for extension types that we don't know about.
+    std::string origin_extension_name = origin_extension_type.extension_name();
+    bool extension_supports_inferred_storage;
+
+    if (origin_extension_name == "arrow.json") {
+      extension_supports_inferred_storage =
+          arrow_extension_inferred ||
+          ::arrow::extension::JsonExtensionType::IsSupportedStorageType(
+              inferred_type->id());
+    } else if (origin_extension_name == "arrow.uuid") {
+      extension_supports_inferred_storage =
+          arrow_extension_inferred ||
+          ::arrow::extension::UuidType::IsSupportedStorageType(inferred_type);
+    } else if (origin_extension_name == "parquet.variant") {
+      extension_supports_inferred_storage =
+          arrow_extension_inferred ||
+          VariantExtensionType::IsSupportedStorageType(inferred_type);
+    } else {
+      extension_supports_inferred_storage =
+          origin_extension_type.storage_type()->Equals(*inferred_type);
+    }
+
+    // If the origin extension of the metadata we are about to apply supports
+    // the Arrow storage type we would otherwise return, we restore the extension
+    // type to the output.
+    if (extension_supports_inferred_storage) {
       inferred->field = inferred->field->WithType(origin_type);
     }
+
     modified = true;
   } else {
     ARROW_ASSIGN_OR_RAISE(modified, ApplyOriginalStorageMetadata(origin_field, inferred));
@@ -1079,6 +1246,7 @@ Status SchemaManifest::Make(const SchemaDescriptor* schema,
   ctx.manifest = manifest;
   ctx.properties = properties;
   ctx.schema = schema;
+  ctx.metadata = metadata;
   const GroupNode& schema_node = *schema->group_node();
   manifest->descr = schema;
   manifest->schema_fields.resize(schema_node.field_count());

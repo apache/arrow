@@ -18,7 +18,7 @@
 // TODO(wesm): LLVM 7 produces pesky C4244 that disable pragmas around the LLVM
 // includes seem to not fix as with LLVM 6
 #if defined(_MSC_VER)
-#pragma warning(disable : 4244)
+#  pragma warning(disable : 4244)
 #endif
 
 #include "gandiva/engine.h"
@@ -32,15 +32,15 @@
 #include <utility>
 
 #include <arrow/util/io_util.h>
-#include <arrow/util/logging.h>
+#include <arrow/util/logging_internal.h>
 
 #if defined(_MSC_VER)
-#pragma warning(push)
-#pragma warning(disable : 4141)
-#pragma warning(disable : 4146)
-#pragma warning(disable : 4244)
-#pragma warning(disable : 4267)
-#pragma warning(disable : 4624)
+#  pragma warning(push)
+#  pragma warning(disable : 4141)
+#  pragma warning(disable : 4146)
+#  pragma warning(disable : 4244)
+#  pragma warning(disable : 4267)
+#  pragma warning(disable : 4624)
 #endif
 
 #include <llvm/Analysis/Passes.h>
@@ -56,32 +56,32 @@
 #include <llvm/Linker/Linker.h>
 #include <llvm/Transforms/Utils/Cloning.h>
 #if LLVM_VERSION_MAJOR >= 17
-#include <llvm/TargetParser/SubtargetFeature.h>
+#  include <llvm/TargetParser/SubtargetFeature.h>
 #else
-#include <llvm/MC/SubtargetFeature.h>
+#  include <llvm/MC/SubtargetFeature.h>
 #endif
 #include <llvm/Passes/PassBuilder.h>
 #include <llvm/Support/DynamicLibrary.h>
 #if LLVM_VERSION_MAJOR >= 18
-#include <llvm/TargetParser/Host.h>
+#  include <llvm/TargetParser/Host.h>
 #else
-#include <llvm/Support/Host.h>
+#  include <llvm/Support/Host.h>
 #endif
 #include <llvm/Transforms/IPO/GlobalDCE.h>
 #include <llvm/Transforms/IPO/Internalize.h>
 #if LLVM_VERSION_MAJOR >= 14
-#include <llvm/IR/PassManager.h>
-#include <llvm/MC/TargetRegistry.h>
-#include <llvm/Passes/PassPlugin.h>
-#include <llvm/Transforms/IPO/GlobalOpt.h>
-#include <llvm/Transforms/Scalar/NewGVN.h>
-#include <llvm/Transforms/Scalar/SimplifyCFG.h>
-#include <llvm/Transforms/Utils/Mem2Reg.h>
-#include <llvm/Transforms/Vectorize/LoopVectorize.h>
-#include <llvm/Transforms/Vectorize/SLPVectorizer.h>
+#  include <llvm/IR/PassManager.h>
+#  include <llvm/MC/TargetRegistry.h>
+#  include <llvm/Passes/PassPlugin.h>
+#  include <llvm/Transforms/IPO/GlobalOpt.h>
+#  include <llvm/Transforms/Scalar/NewGVN.h>
+#  include <llvm/Transforms/Scalar/SimplifyCFG.h>
+#  include <llvm/Transforms/Utils/Mem2Reg.h>
+#  include <llvm/Transforms/Vectorize/LoopVectorize.h>
+#  include <llvm/Transforms/Vectorize/SLPVectorizer.h>
 #else
-#include <llvm/Support/TargetRegistry.h>
-#include <llvm/Transforms/IPO/PassManagerBuilder.h>
+#  include <llvm/Support/TargetRegistry.h>
+#  include <llvm/Transforms/IPO/PassManagerBuilder.h>
 #endif
 #include <llvm/Support/TargetSelect.h>
 #include <llvm/Support/raw_ostream.h>
@@ -91,18 +91,18 @@
 #include <llvm/Transforms/Scalar/GVN.h>
 #include <llvm/Transforms/Utils.h>
 #if LLVM_VERSION_MAJOR <= 17
-#include <llvm/Transforms/Vectorize.h>
+#  include <llvm/Transforms/Vectorize.h>
 #endif
 
 // JITLink is available in LLVM 9+
 // but the `InProcessMemoryManager::Create` API was added since LLVM 14
 #if LLVM_VERSION_MAJOR >= 14 && !defined(_WIN32)
-#define JIT_LINK_SUPPORTED
-#include <llvm/ExecutionEngine/Orc/ObjectLinkingLayer.h>
+#  define JIT_LINK_SUPPORTED
+#  include <llvm/ExecutionEngine/Orc/ObjectLinkingLayer.h>
 #endif
 
 #if defined(_MSC_VER)
-#pragma warning(pop)
+#  pragma warning(pop)
 #endif
 
 #include "gandiva/configuration.h"
@@ -115,10 +115,12 @@ namespace gandiva {
 extern const unsigned char kPrecompiledBitcode[];
 extern const size_t kPrecompiledBitcodeSize;
 
+namespace {
+
 std::once_flag llvm_init_once_flag;
-static bool llvm_init = false;
-static llvm::StringRef cpu_name;
-static std::vector<std::string> cpu_attrs;
+bool llvm_init = false;
+llvm::StringRef cpu_name;
+std::vector<std::string> cpu_attrs;
 std::once_flag register_exported_funcs_flag;
 
 template <typename T>
@@ -200,10 +202,16 @@ Status UseJITLinkIfEnabled(llvm::orc::LLJITBuilder& jit_builder) {
   static auto maybe_use_jit_link = ::arrow::internal::GetEnvVar("GANDIVA_USE_JIT_LINK");
   if (maybe_use_jit_link.ok()) {
     ARROW_ASSIGN_OR_RAISE(static auto memory_manager, CreateMemmoryManager());
+#  if LLVM_VERSION_MAJOR >= 21
+    jit_builder.setObjectLinkingLayerCreator([&](llvm::orc::ExecutionSession& ES) {
+      return std::make_unique<llvm::orc::ObjectLinkingLayer>(ES, *memory_manager);
+    });
+#  else
     jit_builder.setObjectLinkingLayerCreator(
         [&](llvm::orc::ExecutionSession& ES, const llvm::Triple& TT) {
           return std::make_unique<llvm::orc::ObjectLinkingLayer>(ES, *memory_manager);
         });
+#  endif
   }
   return Status::OK();
 }
@@ -241,6 +249,29 @@ Result<std::unique_ptr<llvm::orc::LLJIT>> BuildJIT(
   return jit;
 }
 
+arrow::Status VerifyAndLinkModule(
+    llvm::Module& dest_module,
+    llvm::Expected<std::unique_ptr<llvm::Module>> src_module_or_error) {
+  ARROW_ASSIGN_OR_RAISE(
+      auto src_ir_module,
+      AsArrowResult(src_module_or_error, "Failed to verify and link module: "));
+
+  src_ir_module->setDataLayout(dest_module.getDataLayout());
+
+  std::string error_info;
+  llvm::raw_string_ostream error_stream(error_info);
+  ARROW_RETURN_IF(
+      llvm::verifyModule(*src_ir_module, &error_stream),
+      Status::CodeGenError("verify of IR Module failed: " + error_stream.str()));
+
+  ARROW_RETURN_IF(llvm::Linker::linkModules(dest_module, std::move(src_ir_module)),
+                  Status::CodeGenError("failed to link IR Modules"));
+
+  return Status::OK();
+}
+
+}  // namespace
+
 Status Engine::SetLLVMObjectCache(GandivaObjectCache& object_cache) {
   auto cached_buffer = object_cache.getObject(nullptr);
   if (cached_buffer) {
@@ -263,9 +294,15 @@ void Engine::InitOnce() {
   llvm::sys::DynamicLibrary::LoadLibraryPermanently(nullptr);
 
   cpu_name = llvm::sys::getHostCPUName();
+#if LLVM_VERSION_MAJOR >= 19
+  auto host_features = llvm::sys::getHostCPUFeatures();
+  const bool have_host_features = true;
+#else
   llvm::StringMap<bool> host_features;
+  const auto have_host_features = llvm::sys::getHostCPUFeatures(host_features);
+#endif
   std::string cpu_attrs_str;
-  if (llvm::sys::getHostCPUFeatures(host_features)) {
+  if (have_host_features) {
     for (auto& f : host_features) {
       std::string attr = f.second ? std::string("+") + f.first().str()
                                   : std::string("-") + f.first().str();
@@ -315,6 +352,14 @@ Status Engine::LoadFunctionIRs() {
   return Status::OK();
 }
 
+llvm::Constant* Engine::CreateGlobalStringPtr(const std::string& string) {
+  auto gloval_variable = ir_builder()->CreateGlobalString(string);
+  auto zero = llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context()), 0);
+  llvm::Constant* indices[] = {zero, zero};
+  return llvm::ConstantExpr::getInBoundsGetElementPtr(gloval_variable->getValueType(),
+                                                      gloval_variable, indices);
+}
+
 /// factory method to construct the engine.
 Result<std::unique_ptr<Engine>> Engine::Make(
     const std::shared_ptr<Configuration>& conf, bool cached,
@@ -332,27 +377,6 @@ Result<std::unique_ptr<Engine>> Engine::Make(
 
   ARROW_RETURN_NOT_OK(engine->Init());
   return engine;
-}
-
-static arrow::Status VerifyAndLinkModule(
-    llvm::Module& dest_module,
-    llvm::Expected<std::unique_ptr<llvm::Module>> src_module_or_error) {
-  ARROW_ASSIGN_OR_RAISE(
-      auto src_ir_module,
-      AsArrowResult(src_module_or_error, "Failed to verify and link module: "));
-
-  src_ir_module->setDataLayout(dest_module.getDataLayout());
-
-  std::string error_info;
-  llvm::raw_string_ostream error_stream(error_info);
-  ARROW_RETURN_IF(
-      llvm::verifyModule(*src_ir_module, &error_stream),
-      Status::CodeGenError("verify of IR Module failed: " + error_stream.str()));
-
-  ARROW_RETURN_IF(llvm::Linker::linkModules(dest_module, std::move(src_ir_module)),
-                  Status::CodeGenError("failed to link IR Modules"));
-
-  return Status::OK();
 }
 
 llvm::Module* Engine::module() {

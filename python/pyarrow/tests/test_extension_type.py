@@ -23,11 +23,14 @@ import weakref
 from uuid import uuid4, UUID
 import sys
 
-import numpy as np
+import pytest
+try:
+    import numpy as np
+except ImportError:
+    np = None
+
 import pyarrow as pa
 from pyarrow.vendored.version import Version
-
-import pytest
 
 
 @contextlib.contextmanager
@@ -37,15 +40,6 @@ def registered_extension_type(ext_type):
         yield
     finally:
         pa.unregister_extension_type(ext_type.extension_name)
-
-
-@contextlib.contextmanager
-def enabled_auto_load():
-    pa.PyExtensionType.set_auto_load(True)
-    try:
-        yield
-    finally:
-        pa.PyExtensionType.set_auto_load(False)
 
 
 class TinyIntType(pa.ExtensionType):
@@ -96,7 +90,7 @@ class IntegerEmbeddedType(pa.ExtensionType):
 
 
 class ExampleUuidScalarType(pa.ExtensionScalar):
-    def as_py(self):
+    def as_py(self, *, maps_as_pydicts=None):
         return None if self.value is None else UUID(bytes=self.value.as_py())
 
 
@@ -228,15 +222,6 @@ class AnnotatedType(pa.ExtensionType):
     def __arrow_ext_deserialize__(cls, storage_type, serialized):
         assert serialized == b''
         return cls(storage_type)
-
-
-class LegacyIntType(pa.PyExtensionType):
-
-    def __init__(self):
-        pa.PyExtensionType.__init__(self, pa.int8())
-
-    def __reduce__(self):
-        return LegacyIntType, ()
 
 
 def ipc_write_batch(batch):
@@ -562,6 +547,7 @@ def test_ext_array_pickling(pickle_module):
         assert arr.storage.to_pylist() == [b"foo", b"bar"]
 
 
+@pytest.mark.numpy
 def test_ext_array_conversion_to_numpy():
     storage1 = pa.array([1, 2, 3], type=pa.int64())
     storage2 = pa.array([b"123", b"456", b"789"], type=pa.binary(3))
@@ -619,6 +605,7 @@ def struct_w_ext_data():
     return [sarr1, sarr2]
 
 
+@pytest.mark.numpy
 def test_struct_w_ext_array_to_numpy(struct_w_ext_data):
     # ARROW-15291
     # Check that we don't segfault when trying to build
@@ -877,7 +864,7 @@ class PeriodType(pa.ExtensionType):
         return self._freq
 
     def __arrow_ext_serialize__(self):
-        return "freq={}".format(self.freq).encode()
+        return f"freq={self.freq}".encode()
 
     @classmethod
     def __arrow_ext_deserialize__(cls, storage_type, serialized):
@@ -1233,6 +1220,7 @@ def test_parquet_extension_nested_in_extension(tmpdir):
             assert table == orig_table
 
 
+@pytest.mark.numpy
 def test_to_numpy():
     period_type = PeriodType('D')
     storage = pa.array([1, 2, 3, 4], pa.int64())
@@ -1285,7 +1273,11 @@ def test_empty_take():
     (["cat", "dog", "horse"], LabelType)
 ))
 @pytest.mark.parametrize(
-    "into", ["to_numpy", pytest.param("to_pandas", marks=pytest.mark.pandas)])
+    "into", [
+        pytest.param("to_numpy", marks=pytest.mark.numpy),
+        pytest.param("to_pandas", marks=pytest.mark.pandas)
+    ]
+)
 def test_extension_array_to_numpy_pandas(data, ty, into):
     storage = pa.array(data)
     ext_arr = pa.ExtensionArray.from_storage(ty(), storage)
@@ -1301,6 +1293,7 @@ def test_extension_array_to_numpy_pandas(data, ty, into):
         assert np.array_equal(result, expected)
 
 
+@pytest.mark.numpy
 def test_array_constructor():
     ext_type = IntegerType()
     storage = pa.array([1, 2, 3], type=pa.int64())
@@ -1333,6 +1326,7 @@ def test_array_constructor_from_pandas():
     assert result.equals(expected)
 
 
+@pytest.mark.numpy
 @pytest.mark.cython
 def test_cpp_extension_in_python(tmpdir):
     from .test_cython import (
@@ -1430,38 +1424,45 @@ def test_tensor_type():
     assert tensor_type.permutation is None
 
 
-@pytest.mark.parametrize("value_type", (np.int8(), np.int64(), np.float32()))
-def test_tensor_class_methods(value_type):
+@pytest.mark.numpy
+@pytest.mark.parametrize("np_type_str", ("int8", "int64", "float32"))
+def test_tensor_class_methods(np_type_str):
     from numpy.lib.stride_tricks import as_strided
-    arrow_type = pa.from_numpy_dtype(value_type)
+    arrow_type = pa.from_numpy_dtype(np.dtype(np_type_str))
 
     tensor_type = pa.fixed_shape_tensor(arrow_type, [2, 3])
     storage = pa.array([[1, 2, 3, 4, 5, 6], [7, 8, 9, 10, 11, 12]],
                        pa.list_(arrow_type, 6))
     arr = pa.ExtensionArray.from_storage(tensor_type, storage)
     expected = np.array(
-        [[[1, 2, 3], [4, 5, 6]], [[7, 8, 9], [10, 11, 12]]], dtype=value_type)
+        [[[1, 2, 3], [4, 5, 6]], [[7, 8, 9], [10, 11, 12]]],
+        dtype=np.dtype(np_type_str)
+    )
     np.testing.assert_array_equal(arr.to_tensor(), expected)
     np.testing.assert_array_equal(arr.to_numpy_ndarray(), expected)
 
-    expected = np.array([[[7, 8, 9], [10, 11, 12]]], dtype=value_type)
+    expected = np.array([[[7, 8, 9], [10, 11, 12]]], dtype=np.dtype(np_type_str))
     result = arr[1:].to_numpy_ndarray()
     np.testing.assert_array_equal(result, expected)
 
     values = [[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]]
-    flat_arr = np.array(values[0], dtype=value_type)
-    bw = value_type.itemsize
+    flat_arr = np.array(values[0], dtype=np.dtype(np_type_str))
+    bw = np.dtype(np_type_str).itemsize
     storage = pa.array(values, pa.list_(arrow_type, 12))
 
     tensor_type = pa.fixed_shape_tensor(arrow_type, [2, 2, 3], permutation=[0, 1, 2])
     result = pa.ExtensionArray.from_storage(tensor_type, storage)
     expected = np.array(
-        [[[[1, 2, 3], [4, 5, 6]], [[7, 8, 9], [10, 11, 12]]]], dtype=value_type)
+        [[[[1, 2, 3], [4, 5, 6]], [[7, 8, 9], [10, 11, 12]]]],
+        dtype=np.dtype(np_type_str)
+    )
     np.testing.assert_array_equal(result.to_numpy_ndarray(), expected)
 
     result = flat_arr.reshape(1, 2, 3, 2)
     expected = np.array(
-        [[[[1, 2], [3, 4], [5, 6]], [[7, 8], [9, 10], [11, 12]]]], dtype=value_type)
+        [[[[1, 2], [3, 4], [5, 6]], [[7, 8], [9, 10], [11, 12]]]],
+        dtype=np.dtype(np_type_str)
+    )
     np.testing.assert_array_equal(result, expected)
 
     tensor_type = pa.fixed_shape_tensor(arrow_type, [2, 2, 3], permutation=[0, 2, 1])
@@ -1482,30 +1483,34 @@ def test_tensor_class_methods(value_type):
     assert result.to_tensor().strides == (12 * bw, 1 * bw, 6 * bw, 2 * bw)
 
 
-@pytest.mark.parametrize("value_type", (np.int8(), np.int64(), np.float32()))
-def test_tensor_array_from_numpy(value_type):
+@pytest.mark.numpy
+@pytest.mark.parametrize("np_type_str", ("int8", "int64", "float32"))
+def test_tensor_array_from_numpy(np_type_str):
     from numpy.lib.stride_tricks import as_strided
-    arrow_type = pa.from_numpy_dtype(value_type)
+    arrow_type = pa.from_numpy_dtype(np.dtype(np_type_str))
 
     arr = np.array([[[1, 2, 3], [4, 5, 6]], [[7, 8, 9], [10, 11, 12]]],
-                   dtype=value_type, order="C")
+                   dtype=np.dtype(np_type_str), order="C")
     tensor_array_from_numpy = pa.FixedShapeTensorArray.from_numpy_ndarray(arr)
     assert isinstance(tensor_array_from_numpy.type, pa.FixedShapeTensorType)
     assert tensor_array_from_numpy.type.value_type == arrow_type
     assert tensor_array_from_numpy.type.shape == [2, 3]
+    assert tensor_array_from_numpy.type.dim_names is None
 
     arr = np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9], [10, 11, 12]],
-                   dtype=value_type, order="F")
+                   dtype=np.dtype(np_type_str), order="F")
     with pytest.raises(ValueError, match="First stride needs to be largest"):
         pa.FixedShapeTensorArray.from_numpy_ndarray(arr)
 
-    flat_arr = np.array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], dtype=value_type)
-    bw = value_type.itemsize
+    flat_arr = np.array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+                        dtype=np.dtype(np_type_str))
+    bw = np.dtype(np_type_str).itemsize
 
     arr = flat_arr.reshape(1, 3, 4)
     tensor_array_from_numpy = pa.FixedShapeTensorArray.from_numpy_ndarray(arr)
     assert tensor_array_from_numpy.type.shape == [3, 4]
     assert tensor_array_from_numpy.type.permutation == [0, 1]
+    assert tensor_array_from_numpy.type.dim_names is None
     assert tensor_array_from_numpy.to_tensor() == pa.Tensor.from_numpy(arr)
 
     arr = as_strided(flat_arr, shape=(1, 2, 3, 2),
@@ -1513,28 +1518,32 @@ def test_tensor_array_from_numpy(value_type):
     tensor_array_from_numpy = pa.FixedShapeTensorArray.from_numpy_ndarray(arr)
     assert tensor_array_from_numpy.type.shape == [2, 2, 3]
     assert tensor_array_from_numpy.type.permutation == [0, 2, 1]
+    assert tensor_array_from_numpy.type.dim_names is None
     assert tensor_array_from_numpy.to_tensor() == pa.Tensor.from_numpy(arr)
 
     arr = flat_arr.reshape(1, 2, 3, 2)
     result = pa.FixedShapeTensorArray.from_numpy_ndarray(arr)
     expected = np.array(
-        [[[[1, 2], [3, 4], [5, 6]], [[7, 8], [9, 10], [11, 12]]]], dtype=value_type)
+        [[[[1, 2], [3, 4], [5, 6]], [[7, 8], [9, 10], [11, 12]]]],
+        dtype=np.dtype(np_type_str)
+    )
     np.testing.assert_array_equal(result.to_numpy_ndarray(), expected)
 
-    arr = np.array([[1, 2, 3, 4, 5, 6], [7, 8, 9, 10, 11, 12]], dtype=value_type)
+    arr = np.array([[1, 2, 3, 4, 5, 6], [7, 8, 9, 10, 11, 12]],
+                   dtype=np.dtype(np_type_str))
     expected = arr[1:]
     result = pa.FixedShapeTensorArray.from_numpy_ndarray(arr)[1:].to_numpy_ndarray()
     np.testing.assert_array_equal(result, expected)
 
-    arr = np.array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], dtype=value_type)
+    arr = np.array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], dtype=np.dtype(np_type_str))
     with pytest.raises(ValueError, match="Cannot convert 1D array or scalar to fixed"):
         pa.FixedShapeTensorArray.from_numpy_ndarray(arr)
 
-    arr = np.array(1, dtype=value_type)
+    arr = np.array(1, dtype=np.dtype(np_type_str))
     with pytest.raises(ValueError, match="Cannot convert 1D array or scalar to fixed"):
         pa.FixedShapeTensorArray.from_numpy_ndarray(arr)
 
-    arr = np.array([], dtype=value_type)
+    arr = np.array([], dtype=np.dtype(np_type_str))
 
     with pytest.raises(ValueError, match="Cannot convert 1D array or scalar to fixed"):
         pa.FixedShapeTensorArray.from_numpy_ndarray(arr.reshape((0)))
@@ -1545,7 +1554,30 @@ def test_tensor_array_from_numpy(value_type):
     with pytest.raises(ValueError, match="Expected a non-empty ndarray"):
         pa.FixedShapeTensorArray.from_numpy_ndarray(arr.reshape((3, 0, 2)))
 
+    arr = np.array([[[1, 2, 3], [4, 5, 6]], [[7, 8, 9], [10, 11, 12]]],
+                   dtype=np.dtype(np_type_str), order="C")
+    dim_names = ["a", "b"]
+    tensor_array_from_numpy = pa.FixedShapeTensorArray.from_numpy_ndarray(
+        arr, dim_names=dim_names)
+    assert tensor_array_from_numpy.type.value_type == arrow_type
+    assert tensor_array_from_numpy.type.shape == [2, 3]
+    assert tensor_array_from_numpy.type.dim_names == dim_names
 
+    with pytest.raises(ValueError, match="The length of dim_names"):
+        pa.FixedShapeTensorArray.from_numpy_ndarray(arr, dim_names=['only_one'])
+
+    with pytest.raises(TypeError, match="dim_names must be a tuple or list"):
+        pa.FixedShapeTensorArray.from_numpy_ndarray(arr, dim_names=123)
+
+    with pytest.raises(TypeError, match="dim_names must be a tuple or list"):
+        pa.FixedShapeTensorArray.from_numpy_ndarray(
+            arr, dim_names=(x for x in range(2)))
+
+    with pytest.raises(TypeError, match="Each element of dim_names must be a string"):
+        pa.FixedShapeTensorArray.from_numpy_ndarray(arr, dim_names=[0, 1])
+
+
+@pytest.mark.numpy
 @pytest.mark.parametrize("tensor_type", (
     pa.fixed_shape_tensor(pa.int8(), [2, 2, 3]),
     pa.fixed_shape_tensor(pa.int8(), [2, 2, 3], permutation=[0, 2, 1]),
@@ -1685,25 +1717,6 @@ def test_tensor_type_str(tensor_type, text):
     assert text in tensor_type_str
 
 
-def test_legacy_int_type():
-    with pytest.warns(FutureWarning, match="PyExtensionType is deprecated"):
-        ext_ty = LegacyIntType()
-    arr = pa.array([1, 2, 3], type=ext_ty.storage_type)
-    ext_arr = pa.ExtensionArray.from_storage(ext_ty, arr)
-    batch = pa.RecordBatch.from_arrays([ext_arr], names=['ext'])
-    buf = ipc_write_batch(batch)
-
-    with pytest.warns((RuntimeWarning, FutureWarning)):
-        batch = ipc_read_batch(buf)
-        assert isinstance(batch.column(0).type, pa.UnknownExtensionType)
-
-    with enabled_auto_load():
-        with pytest.warns(FutureWarning, match="PyExtensionType is deprecated"):
-            batch = ipc_read_batch(buf)
-            assert isinstance(batch.column(0).type, LegacyIntType)
-            assert batch.column(0) == ext_arr
-
-
 @pytest.mark.parametrize("storage_type,storage", [
     (pa.null(), [None] * 4),
     (pa.int64(), [1, 2, None, 4]),
@@ -1801,6 +1814,7 @@ def test_bool8_to_bool_conversion():
     assert bool_arr.cast(pa.bool8()) == canonical_bool8_arr
 
 
+@pytest.mark.numpy
 def test_bool8_to_numpy_conversion():
     arr = pa.ExtensionArray.from_storage(
         pa.bool8(),
@@ -1841,6 +1855,7 @@ def test_bool8_to_numpy_conversion():
     assert arr_to_np_writable.ctypes.data != arr_no_nulls.buffers()[1].address
 
 
+@pytest.mark.numpy
 def test_bool8_from_numpy_conversion():
     np_arr_no_nulls = np.array([True, False, True, True], dtype=np.bool_)
     canonical_bool8_arr_no_nulls = pa.ExtensionArray.from_storage(
@@ -1899,3 +1914,56 @@ def test_bool8_scalar():
     assert pa.scalar(1, type=pa.bool8()).as_py() is True
     assert pa.scalar(2, type=pa.bool8()).as_py() is True
     assert pa.scalar(None, type=pa.bool8()).as_py() is None
+
+
+@pytest.mark.parametrize("storage_type", (
+    pa.string(), pa.large_string(), pa.string_view()))
+def test_json(storage_type, pickle_module):
+    data = ['{"a": 1}', '{"b": 2}', None]
+    json_type = pa.json_(storage_type)
+    storage = pa.array(data, type=storage_type)
+    array = pa.array(data, type=json_type)
+    json_arr_class = json_type.__arrow_ext_class__()
+
+    assert pa.json_() == pa.json_(pa.utf8())
+    assert json_type.extension_name == "arrow.json"
+    assert json_type.storage_type == storage_type
+    assert json_type.__class__ is pa.JsonType
+
+    assert json_type == pa.json_(storage_type)
+    assert json_type != storage_type
+
+    assert isinstance(array, pa.JsonArray)
+
+    assert array.to_pylist() == data
+    assert array[0].as_py() == data[0]
+    assert array[2].as_py() is None
+
+    # Pickle roundtrip
+    result = pickle_module.loads(pickle_module.dumps(json_type))
+    assert result == json_type
+
+    # IPC roundtrip
+    buf = ipc_write_batch(pa.RecordBatch.from_arrays([array], ["ext"]))
+    batch = ipc_read_batch(buf)
+    reconstructed_array = batch.column(0)
+    assert reconstructed_array.type == json_type
+    assert reconstructed_array == array
+    assert isinstance(array, json_arr_class)
+
+    assert json_type.__arrow_ext_scalar_class__() == pa.JsonScalar
+    assert isinstance(array[0], pa.JsonScalar)
+
+    # cast storage -> extension type
+    result = storage.cast(json_type)
+    assert result == array
+
+    # cast extension type -> storage type
+    inner = array.cast(storage_type)
+    assert inner == storage
+
+    for storage_type in (pa.int32(), pa.large_binary(), pa.float32()):
+        with pytest.raises(
+                pa.ArrowInvalid,
+                match=f"Invalid storage type for JsonExtensionType: {storage_type}"):
+            pa.json_(storage_type)

@@ -1178,6 +1178,15 @@ test_that("str_sub", {
       collect(),
     df
   )
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        y = str_sub(x, 1, -3),
+        y2 = stringr::str_sub(x, 1, -3)
+      ) %>%
+      collect(),
+    df
+  )
 
   expect_arrow_eval_error(
     str_sub("Apache Arrow", c(1, 2), 3),
@@ -1533,5 +1542,38 @@ test_that("GH-36720: stringr modifier functions can be called with namespace pre
     call_binding("str_replace_all", x, stringr::coll("o", locale = "en"), "ó"),
     "Pattern modifier `coll()` not supported in Arrow",
     fixed = TRUE
+  )
+})
+
+test_that("str_replace_na", {
+  x <- Expression$field_ref("x")
+
+  expect_error(
+    call_binding("str_replace_na", x, c("a", "b")),
+    "`replacement` must be a single string"
+  )
+
+  expect_error(
+    call_binding("str_replace_na", x, 1),
+    "`replacement` must be a single string"
+  )
+
+  df <- tibble(x = c("Foo", NA_character_, "bar", NA_character_))
+
+  compare_dplyr_binding(
+    .input %>%
+      transmute(
+        x = str_replace_na(x),
+        x2 = stringr::str_replace_na(x)
+      ) %>%
+      collect(),
+    df
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      transmute(x = str_replace_na(x, "MISSING")) %>%
+      collect(),
+    df
   )
 })

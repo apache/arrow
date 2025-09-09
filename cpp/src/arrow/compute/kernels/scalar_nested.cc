@@ -22,11 +22,13 @@
 #include "arrow/array/builder_nested.h"
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/kernels/common_internal.h"
+#include "arrow/compute/registry_internal.h"
 #include "arrow/result.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/bit_block_counter.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_generate.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/string.h"
 #include "arrow/util/unreachable.h"
 

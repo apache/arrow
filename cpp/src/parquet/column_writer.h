@@ -103,21 +103,6 @@ class PARQUET_EXPORT PageWriter {
       OffsetIndexBuilder* offset_index_builder = NULLPTR,
       const CodecOptions& codec_options = CodecOptions{});
 
-  ARROW_DEPRECATED("Deprecated in 13.0.0. Use CodecOptions-taking overload instead.")
-  static std::unique_ptr<PageWriter> Open(
-      std::shared_ptr<ArrowOutputStream> sink, Compression::type codec,
-      int compression_level, ColumnChunkMetaDataBuilder* metadata,
-      int16_t row_group_ordinal = -1, int16_t column_chunk_ordinal = -1,
-      ::arrow::MemoryPool* pool = ::arrow::default_memory_pool(),
-      bool buffered_row_group = false,
-      std::shared_ptr<Encryptor> header_encryptor = NULLPTR,
-      std::shared_ptr<Encryptor> data_encryptor = NULLPTR,
-      bool page_write_checksum_enabled = false,
-      // column_index_builder MUST outlive the PageWriter
-      ColumnIndexBuilder* column_index_builder = NULLPTR,
-      // offset_index_builder MUST outlive the PageWriter
-      OffsetIndexBuilder* offset_index_builder = NULLPTR);
-
   // The Column Writer decides if dictionary encoding is used if set and
   // if the dictionary encoding has fallen back to default encoding on reaching dictionary
   // page limit

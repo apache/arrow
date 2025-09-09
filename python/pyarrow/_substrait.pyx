@@ -26,6 +26,13 @@ from pyarrow.lib cimport *
 from pyarrow.includes.libarrow cimport *
 from pyarrow.includes.libarrow_substrait cimport *
 
+try:
+    import substrait as py_substrait
+except ImportError:
+    py_substrait = None
+else:
+    import substrait.proto  # no-cython-lint
+
 
 # TODO GH-37235: Fix exception handling
 cdef CDeclaration _create_named_table_provider(
@@ -133,7 +140,7 @@ def run_query(plan, *, table_provider=None, use_threads=True):
         c_bool c_use_threads
 
     c_use_threads = use_threads
-    if isinstance(plan, bytes):
+    if isinstance(plan, (bytes, memoryview)):
         c_buf_plan = pyarrow_unwrap_buffer(py_buffer(plan))
     elif isinstance(plan, Buffer):
         c_buf_plan = pyarrow_unwrap_buffer(plan)
@@ -185,6 +192,105 @@ def _parse_json_plan(plan):
     with nogil:
         c_buf_plan = GetResultValue(c_res_buffer)
     return pyarrow_wrap_buffer(c_buf_plan)
+
+
+class SubstraitSchema:
+    """A Schema encoded for Substrait usage.
+
+    The SubstraitSchema contains a schema represented
+    both as a substrait ``NamedStruct`` and as an
+    ``ExtendedExpression``.
+
+    The ``ExtendedExpression`` is available for cases where types
+    used by the schema require extensions to decode them.
+    In such case the schema will be the ``base_schema`` of the
+    ``ExtendedExpression`` and all extensions will be provided.
+    """
+
+    def __init__(self, schema, expression):
+        self.schema = schema
+        self.expression = expression
+
+    def to_pysubstrait(self):
+        """Convert the schema to a substrait-python ExtendedExpression object."""
+        if py_substrait is None:
+            raise ImportError("The 'substrait' package is required.")
+        return py_substrait.proto.ExtendedExpression.FromString(self.expression)
+
+
+def serialize_schema(schema):
+    """
+    Serialize a schema into a SubstraitSchema object.
+
+    Parameters
+    ----------
+    schema : Schema
+        The schema to serialize
+
+    Returns
+    -------
+    SubstraitSchema
+        The schema stored in a SubstraitSchema object.
+    """
+    return SubstraitSchema(
+        schema=_serialize_namedstruct_schema(schema),
+        expression=serialize_expressions([], [], schema, allow_arrow_extensions=True)
+    )
+
+
+def _serialize_namedstruct_schema(schema):
+    cdef:
+        CResult[shared_ptr[CBuffer]] c_res_buffer
+        shared_ptr[CBuffer] c_buffer
+        CConversionOptions c_conversion_options
+        CExtensionSet c_extensions
+
+    with nogil:
+        c_res_buffer = SerializeSchema(deref((<Schema> schema).sp_schema), &c_extensions, c_conversion_options)
+        c_buffer = GetResultValue(c_res_buffer)
+
+    return memoryview(pyarrow_wrap_buffer(c_buffer))
+
+
+def deserialize_schema(buf):
+    """
+    Deserialize a ``NamedStruct`` Substrait message
+    or a SubstraitSchema object into an Arrow Schema object
+
+    Parameters
+    ----------
+    buf : Buffer or bytes or SubstraitSchema
+        The message to deserialize
+
+    Returns
+    -------
+    Schema
+        The deserialized schema
+    """
+    cdef:
+        shared_ptr[CBuffer] c_buffer
+        CResult[shared_ptr[CSchema]] c_res_schema
+        shared_ptr[CSchema] c_schema
+        CConversionOptions c_conversion_options
+        CExtensionSet c_extensions
+
+    if isinstance(buf, SubstraitSchema):
+        return deserialize_expressions(buf.expression).schema
+
+    if isinstance(buf, (bytes, memoryview)):
+        c_buffer = pyarrow_unwrap_buffer(py_buffer(buf))
+    elif isinstance(buf, Buffer):
+        c_buffer = pyarrow_unwrap_buffer(buf)
+    else:
+        raise TypeError(
+            f"Expected 'pyarrow.Buffer' or bytes, got '{type(buf)}'")
+
+    with nogil:
+        c_res_schema = DeserializeSchema(
+            deref(c_buffer), c_extensions, c_conversion_options)
+        c_schema = GetResultValue(c_res_schema)
+
+    return pyarrow_wrap_schema(c_schema)
 
 
 def serialize_expressions(exprs, names, schema, *, allow_arrow_extensions=False):
@@ -245,7 +351,7 @@ def serialize_expressions(exprs, names, schema, *, allow_arrow_extensions=False)
     with nogil:
         c_res_buffer = SerializeExpressions(c_bound_exprs, c_conversion_options)
         c_buffer = GetResultValue(c_res_buffer)
-    return pyarrow_wrap_buffer(c_buffer)
+    return memoryview(pyarrow_wrap_buffer(c_buffer))
 
 
 cdef class BoundExpressions(_Weakrefable):
@@ -290,6 +396,32 @@ cdef class BoundExpressions(_Weakrefable):
         self.init(bound_expressions)
         return self
 
+    @classmethod
+    def from_substrait(cls, message):
+        """
+        Convert a Substrait message into a BoundExpressions object
+
+        Parameters
+        ----------
+        message : Buffer or bytes or protobuf Message
+            The message to convert to a BoundExpressions object
+
+        Returns
+        -------
+        BoundExpressions
+            The converted expressions, their names, and the bound schema
+        """
+        if isinstance(message, (bytes, memoryview)):
+            return deserialize_expressions(message)
+        elif isinstance(message, Buffer):
+            return deserialize_expressions(message)
+        else:
+            try:
+                return deserialize_expressions(message.SerializeToString())
+            except AttributeError:
+                raise TypeError(
+                    f"Expected 'pyarrow.Buffer' or bytes or protobuf Message, got '{type(message)}'")
+
 
 def deserialize_expressions(buf):
     """
@@ -310,7 +442,7 @@ def deserialize_expressions(buf):
         CResult[CBoundExpressions] c_res_bound_exprs
         CBoundExpressions c_bound_exprs
 
-    if isinstance(buf, bytes):
+    if isinstance(buf, (bytes, memoryview)):
         c_buffer = pyarrow_unwrap_buffer(py_buffer(buf))
     elif isinstance(buf, Buffer):
         c_buffer = pyarrow_unwrap_buffer(buf)

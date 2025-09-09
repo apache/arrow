@@ -402,6 +402,13 @@ register_bindings_string_regex <- function() {
   register_binding("stringr::str_remove", arrow_stringr_string_remove_function(1L))
   register_binding("stringr::str_remove_all", arrow_stringr_string_remove_function(-1L))
 
+  register_binding("stringr::str_replace_na", function(string, replacement = "NA") {
+    if (!is.character(replacement) || length(replacement) != 1) {
+      validation_error("`replacement` must be a single string")
+    }
+    Expression$create("coalesce", string, Expression$scalar(replacement))
+  })
+
   register_binding("base::strsplit", function(x, split, fixed = FALSE, perl = FALSE,
                                               useBytes = FALSE) {
     assert_that(is.string(split))
@@ -570,10 +577,12 @@ register_bindings_string_other <- function() {
       end <- .Machine$integer.max
     }
 
-    # An end value lower than a start value returns an empty string in
-    # stringr::str_sub so set end to 0 here to match this behavior
-    if (end < start) {
-      end <- 0
+    # strings returned by utf8_slice_codeunits are exclusive of the `end` position.
+    # stringr::str_sub returns strings inclusive of the `end` position, so add 1 to `end`.
+    # NOTE:this isn't necessary for positive values of `end`, because utf8_slice_codeunits
+    # is 0-based while R is 1-based, which cancels out the effect of the exclusive `end`
+    if (end < -1) {
+      end <- end + 1L
     }
 
     # subtract 1 from `start` because C++ is 0-based and R is 1-based

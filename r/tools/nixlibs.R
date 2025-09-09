@@ -84,10 +84,10 @@ try_download <- function(from_url, to_file, hush = quietly) {
     return(FALSE)
   }
   # We download some fairly large files, so ensure the timeout is set appropriately.
-  # This assumes a static library size of 100 MB (generous) and a download speed
-  # of .3 MB/s (slow). This is to anticipate slower user connections or load on
-  # artifactory servers.
-  opts <- options(timeout = max(300, getOption("timeout")))
+  # This assumes a static library size of 100 MB (our current biggest is 78 MB) and
+  # a download speed of 0.2 MB/s (slow). This is to anticipate slower user connections
+  # or load on artifactory servers.
+  opts <- options(timeout = max(600, getOption("timeout")))
   on.exit(options(opts))
 
   status <- try(
@@ -221,8 +221,8 @@ check_allowlist <- function(os, allowed = "https://raw.githubusercontent.com/apa
   allowlist <- tryCatch(
     # Try a remote allowlist so that we can add/remove without a release
     suppressWarnings(readLines(allowed)),
-    # Fallback to default: allowed only on Ubuntu and CentOS/RHEL
-    error = function(e) c("ubuntu", "centos", "redhat", "rhel")
+    # Fallback to default allow list shipped with the package
+    error = function(e) readLines("tools/nixlibs-allowlist.txt")
   )
   # allowlist should contain valid regular expressions (plain strings ok too)
   any(grepl(paste(allowlist, collapse = "|"), os))
@@ -317,7 +317,7 @@ get_macos_openssl_dir <- function() {
   openssl_root_dir
 }
 
-# (built with newer devtoolset but older glibc (2.17) for broader compatibility,# like manylinux2014)
+# (built with newer devtoolset but older glibc (2.17) for broader compatibility, like manylinux2014)
 determine_binary_from_stderr <- function(errs) {
   if (is.null(attr(errs, "status"))) {
     # There was no error in compiling: so we found libcurl and OpenSSL >= 1.1,
@@ -580,8 +580,14 @@ build_libarrow <- function(src_dir, dst_dir) {
     env_var_list <- c(
       env_var_list,
       ARROW_S3 = Sys.getenv("ARROW_S3", "ON"),
+      ARROW_GCS = Sys.getenv("ARROW_GCS", "ON"),
       ARROW_WITH_ZSTD = Sys.getenv("ARROW_WITH_ZSTD", "ON")
     )
+  }
+
+  if (on_linux_dev) {
+    # Disable mimalloc on linux devel builds, since mimalloc has spurious sanitizer failures
+    env_var_list <- c(env_var_list, ARROW_MIMALLOC = Sys.getenv("ARROW_MIMALLOC", "OFF"))
   }
 
   env_var_list <- with_cloud_support(env_var_list)
@@ -635,12 +641,12 @@ build_libarrow <- function(src_dir, dst_dir) {
   invisible(status)
 }
 
-ensure_cmake <- function(cmake_minimum_required = "3.16") {
+ensure_cmake <- function(cmake_minimum_required = "3.26") {
   cmake <- find_cmake(version_required = cmake_minimum_required)
 
   if (is.null(cmake)) {
     # If not found, download it
-    CMAKE_VERSION <- Sys.getenv("CMAKE_VERSION", "3.26.4")
+    CMAKE_VERSION <- Sys.getenv("CMAKE_VERSION", "3.31.2")
     if (on_macos) {
       postfix <- "-macos-universal.tar.gz"
     } else if (tolower(Sys.info()[["machine"]]) %in% c("arm64", "aarch64")) {
@@ -698,7 +704,7 @@ find_cmake <- function(paths = c(
                          if (on_macos) "/Applications/CMake.app/Contents/bin/cmake",
                          Sys.which("cmake3")
                        ),
-                       version_required = "3.16") {
+                       version_required) {
   # Given a list of possible cmake paths, return the first one that exists and is new enough
   # version_required should be a string or packageVersion; numeric version
   # can be misleading (e.g. 3.10 is actually 3.1)
@@ -715,7 +721,7 @@ find_cmake <- function(paths = c(
       } else {
         # Keep trying
         lg("Not using cmake found at %s", path, .indent = "****")
-        if (found_version > 0) {
+        if (found_version > "0") {
           lg("Version >= %s required; found %s", version_required, found_version, .indent = "*****")
         } else {
           # If cmake_version() couldn't determine version, it returns 0
@@ -737,7 +743,7 @@ cmake_version <- function(cmd = "cmake") {
       package_version(sub(pat, "\\1", raw_version[which_line]))
     },
     error = function(e) {
-      return(0)
+      return("0")
     }
   )
 }
@@ -916,6 +922,7 @@ is_release <- is.na(dev_version) || dev_version < "100"
 
 on_macos <- tolower(Sys.info()[["sysname"]]) == "darwin"
 on_windows <- tolower(Sys.info()[["sysname"]]) == "windows"
+on_linux_dev <-  tolower(Sys.info()[["sysname"]]) == "linux" && grepl("devel", R.version.string)
 
 # For local debugging, set ARROW_R_DEV=TRUE to make this script print more
 quietly <- !env_is("ARROW_R_DEV", "true")
@@ -926,7 +933,9 @@ options(.arrow.cleanup = character())
 on.exit(unlink(getOption(".arrow.cleanup"), recursive = TRUE), add = TRUE)
 
 not_cran <- env_is("NOT_CRAN", "true")
-if (not_cran) {
+on_r_universe <- !env_is("MY_UNIVERSE", "")
+
+if (not_cran || on_r_universe) {
   # Set more eager defaults
   if (env_is("LIBARROW_BINARY", "")) {
     Sys.setenv(LIBARROW_BINARY = "true")

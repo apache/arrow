@@ -20,7 +20,6 @@ skip_if_not_available("dataset")
 library(dplyr, warn.conflicts = FALSE)
 
 test_that("JSON dataset", {
-
   # set up JSON directory for testing
   json_dir <- make_temp_dir()
 
@@ -66,5 +65,4 @@ test_that("JSON Fragment scan options", {
   expect_equal(options$type, "json")
 
   expect_error(FragmentScanOptions$create("json", invalid_selection = TRUE), regexp = "invalid_selection")
-
 })

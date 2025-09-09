@@ -20,7 +20,7 @@
 #include "arrow/util/macros.h"
 
 #ifndef ARROW_USE_NATIVE_INT128
-#include <boost/multiprecision/cpp_int.hpp>
+#  include <boost/multiprecision/cpp_int.hpp>
 #endif
 
 namespace arrow {
