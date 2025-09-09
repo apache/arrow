@@ -41,12 +41,12 @@ env:
 jobs:
 
   light:
-    name: AMD64 Conda Python 3.9 Sphinx Documentation
+    name: AMD64 Conda Python 3.12 Sphinx Documentation
     runs-on: ubuntu-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     timeout-minutes: 60
     env:
-      PYTHON: "3.9"
+      PYTHON: "3.12"
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0

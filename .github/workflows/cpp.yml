@@ -468,7 +468,7 @@ jobs:
         uses: actions/setup-python@v6.0.0
         id: python-install
         with:
-          python-version: 3.9
+          python-version: '3.12'
       - name: Install Google Cloud Storage Testbench
         shell: msys2 {0}
         env:

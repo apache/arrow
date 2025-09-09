@@ -18,12 +18,7 @@
 [build-system]
 requires = [
     "cython >= 3.1",
-    # Starting with NumPy 1.25, NumPy is (by default) as far back compatible
-    # as oldest-support-numpy was (customizable with a NPY_TARGET_VERSION
-    # define).  For older Python versions (where NumPy 1.25 is not yet available)
-    # continue using oldest-support-numpy.
-    "oldest-supported-numpy>=0.14; python_version<'3.9'",
-    "numpy>=1.25; python_version>='3.9'",
+    "numpy>=1.25",
     # configuring setuptools_scm in pyproject.toml requires
     # versions released after 2022
     "setuptools_scm[toml]>=8",
@@ -34,13 +29,12 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "pyarrow"
 dynamic = ["version"]
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 description = "Python library for Apache Arrow"
 readme = {file = "README.md", content-type = "text/markdown"}
 license = {text = "Apache Software License"}
 classifiers  = [
     'License :: OSI Approved :: Apache Software License',
-    'Programming Language :: Python :: 3.9',
     'Programming Language :: Python :: 3.10',
     'Programming Language :: Python :: 3.11',
     'Programming Language :: Python :: 3.12',

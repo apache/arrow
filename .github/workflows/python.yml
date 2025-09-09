@@ -63,41 +63,41 @@ jobs:
       matrix:
         name:
           - conda-python-docs
-          - conda-python-3.10-nopandas
-          - conda-python-3.9-pandas-1.1.3
-          - conda-python-3.11-pandas-latest
-          - conda-python-3.11-no-numpy
+          - conda-python-3.11-nopandas
+          - conda-python-3.10-pandas-1.3.4
+          - conda-python-3.13-pandas-latest
+          - conda-python-3.12-no-numpy
         include:
           - name: conda-python-docs
             cache: conda-python-3.10
             image: conda-python-docs
             title: AMD64 Conda Python 3.10 Sphinx & Numpydoc
             python: "3.10"
-          - name: conda-python-3.10-nopandas
-            cache: conda-python-3.10
+          - name: conda-python-3.11-nopandas
+            cache: conda-python-3.11
             image: conda-python
-            title: AMD64 Conda Python 3.10 Without Pandas
+            title: AMD64 Conda Python 3.11 Without Pandas
+            python: "3.11"
+          - name: conda-python-3.10-pandas-1.3.4
+            cache: conda-python-3.10
+            image: conda-python-pandas
+            title: AMD64 Conda Python 3.10 Pandas 1.3.4
             python: "3.10"
-          - name: conda-python-3.9-pandas-1.1.3
-            cache: conda-python-3.9
+            pandas: "1.3.4"
+            numpy: "1.21.2"
+          - name: conda-python-3.13-pandas-latest
+            cache: conda-python-3.13
             image: conda-python-pandas
-            title: AMD64 Conda Python 3.9 Pandas 1.1.3
-            python: 3.9
-            pandas: "1.1.3"
-            numpy: 1.19.5
-          - name: conda-python-3.11-pandas-latest
-            cache: conda-python-3.11
-            image: conda-python-pandas
-            title: AMD64 Conda Python 3.11 Pandas latest
-            python: "3.11"
+            title: AMD64 Conda Python 3.13 Pandas latest
+            python: "3.13"
             pandas: latest
-          - name: conda-python-3.11-no-numpy
-            cache: conda-python-3.11
+          - name: conda-python-3.12-no-numpy
+            cache: conda-python-3.12
             image: conda-python-no-numpy
-            title: AMD64 Conda Python 3.11 without NumPy
-            python: "3.11"
+            title: AMD64 Conda Python 3.12 without NumPy
+            python: "3.12"
     env:
-      PYTHON: ${{ matrix.python || 3.9 }}
+      PYTHON: ${{ matrix.python || 3.10 }}
       UBUNTU: ${{ matrix.ubuntu || 22.04 }}
       PANDAS: ${{ matrix.pandas || 'latest' }}
       NUMPY: ${{ matrix.numpy || 'latest' }}
