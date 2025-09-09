@@ -115,7 +115,7 @@ The data should be stored/represented in Arrow as::
 
       * Value buffer:
 
-        | Bytes 0-31          | Bytes 32-63               |
+        | Bytes 0-31          | Bytes 32-63              |
         |---------------------|--------------------------|
         | 34, 00, 00, 100     | unspecified (padding)    |
 
