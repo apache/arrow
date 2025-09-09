@@ -23,10 +23,11 @@
 #include "arrow/testing/util.h"
 #include "arrow/util/bpacking_internal.h"
 
-#if defined(ARROW_HAVE_AVX2)
+#if defined(ARROW_HAVE_RUNTIME_AVX2)
 #  include "arrow/util/bpacking_avx2_internal.h"
+#  include "arrow/util/cpu_info.h"
 #endif
-#if defined(ARROW_HAVE_AVX512)
+#if defined(ARROW_HAVE_RUNTIME_AVX512)
 #  include "arrow/util/bpacking_avx512_internal.h"
 #endif
 #if defined(ARROW_HAVE_NEON)
@@ -73,7 +74,12 @@ const uint8_t* GetNextAlignedByte(const uint8_t* ptr, std::size_t alignment) {
 }
 
 template <typename Int>
-void BM_Unpack(benchmark::State& state, bool aligned, UnpackFunc<Int> unpack) {
+void BM_Unpack(benchmark::State& state, bool aligned, UnpackFunc<Int> unpack, bool skip,
+               std::string skip_msg) {
+  if (skip) {
+    state.SkipWithMessage(skip_msg);
+  }
+
   auto const bit_width = static_cast<int32_t>(state.range(0));
   auto const num_values = static_cast<int32_t>(state.range(1));
 
@@ -108,12 +114,14 @@ static const std::vector<std::vector<int64_t>> bitWidthsNumValues64 = {
 };
 
 /// Nudge for MSVC template inside BENCHMARK_CAPTURE macro.
-void BM_UnpackUint32(benchmark::State& state, bool aligned, UnpackFunc<uint32_t> unpack) {
-  return BM_Unpack<uint32_t>(state, aligned, unpack);
+void BM_UnpackUint32(benchmark::State& state, bool aligned, UnpackFunc<uint32_t> unpack,
+                     bool skip = false, std::string skip_msg = "") {
+  return BM_Unpack<uint32_t>(state, aligned, unpack, skip, std::move(skip_msg));
 }
 /// Nudge for MSVC template inside BENCHMARK_CAPTURE macro.
-void BM_UnpackUint64(benchmark::State& state, bool aligned, UnpackFunc<uint64_t> unpack) {
-  return BM_Unpack<uint64_t>(state, aligned, unpack);
+void BM_UnpackUint64(benchmark::State& state, bool aligned, UnpackFunc<uint64_t> unpack,
+                     bool skip = false, std::string skip_msg = "") {
+  return BM_Unpack<uint64_t>(state, aligned, unpack, skip, std::move(skip_msg));
 }
 
 BENCHMARK_CAPTURE(BM_UnpackUint32, unpack32_default_unaligned, false, unpack32_default)
@@ -121,13 +129,17 @@ BENCHMARK_CAPTURE(BM_UnpackUint32, unpack32_default_unaligned, false, unpack32_d
 BENCHMARK_CAPTURE(BM_UnpackUint64, unpack64_default_unaligned, false, unpack64_default)
     ->ArgsProduct(bitWidthsNumValues64);
 
-#if defined(ARROW_HAVE_AVX2)
-BENCHMARK_CAPTURE(BM_UnpackUint32, unpack32_avx2_unaligned, false, unpack32_avx2)
+#if defined(ARROW_HAVE_RUNTIME_AVX2)
+BENCHMARK_CAPTURE(BM_UnpackUint32, unpack32_avx2_unaligned, false, unpack32_avx2,
+                  !CpuInfo::GetInstance()->IsSupported(CpuInfo::AVX2),
+                  "Avx2 not available")
     ->ArgsProduct(bitWidthsNumValues32);
 #endif
 
-#if defined(ARROW_HAVE_AVX512)
-BENCHMARK_CAPTURE(BM_UnpackUint32, unpack32_avx512_unaligned, false, unpack32_avx512)
+#if defined(ARROW_HAVE_RUNTIME_AVX512)
+BENCHMARK_CAPTURE(BM_UnpackUint32, unpack32_avx512_unaligned, false, unpack32_avx512,
+                  !CpuInfo::GetInstance()->IsSupported(CpuInfo::AVX512),
+                  "Avx512 not available")
     ->ArgsProduct(bitWidthsNumValues32);
 #endif
 
