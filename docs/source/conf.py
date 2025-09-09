@@ -331,6 +331,7 @@ html_theme = 'pydata_sphinx_theme'
 # To enable the version switcher during a local build, set the
 # environment variable DOCS_DEV to "1".
 docs_dev = os.environ.get("DOCS_DEV", "0")
+print(f"DOCS_DEV : {docs_dev}")
 json_url = "/docs/_static/versions.json"
 
 if docs_dev == "1":
