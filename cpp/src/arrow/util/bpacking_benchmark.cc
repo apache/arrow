@@ -40,7 +40,7 @@ template <typename Int>
 using UnpackFunc = int (*)(const uint8_t*, Int*, int, int);
 
 /// Get the number of bytes associate with a packing.
-constexpr int32_t getNumBytes(int32_t num_values, int32_t bit_width) {
+constexpr int32_t GetNumBytes(int32_t num_values, int32_t bit_width) {
   auto const num_bits = num_values * bit_width;
   if (num_bits % 8 != 0) {
     throw std::invalid_argument("Must pack a multiple of 8 bits.");
@@ -49,9 +49,9 @@ constexpr int32_t getNumBytes(int32_t num_values, int32_t bit_width) {
 }
 
 /// Generate random bytes as packed integers.
-std::vector<uint8_t> generateRandomPackedValues(int32_t num_values, int32_t bit_width) {
+std::vector<uint8_t> GenerateRandomPackedValues(int32_t num_values, int32_t bit_width) {
   constexpr uint32_t kSeed = 3214;
-  auto const num_bytes = getNumBytes(num_values, bit_width);
+  auto const num_bytes = GetNumBytes(num_values, bit_width);
 
   std::vector<uint8_t> out(num_bytes);
   random_bytes(num_bytes, kSeed, out.data());
@@ -59,7 +59,7 @@ std::vector<uint8_t> generateRandomPackedValues(int32_t num_values, int32_t bit_
   return out;
 }
 
-const uint8_t* getNextAlignedByte(const uint8_t* ptr, std::size_t alignment) {
+const uint8_t* GetNextAlignedByte(const uint8_t* ptr, std::size_t alignment) {
   auto addr = reinterpret_cast<std::uintptr_t>(ptr);
 
   if (addr % alignment == 0) {
@@ -76,11 +76,14 @@ template <typename Int>
 void BM_Unpack(benchmark::State& state, bool aligned, UnpackFunc<Int> unpack) {
   auto const bit_width = static_cast<int32_t>(state.range(0));
   auto const num_values = static_cast<int32_t>(state.range(1));
-  constexpr int32_t kExtraValues = sizeof(Int) * 8;
 
-  auto const packed = generateRandomPackedValues(num_values + kExtraValues, bit_width);
+  // Assume std::vector allocation is likely be aligned for greater than a byte.
+  // So we allocate more values than necessary and skip to the next byte with the
+  // desired (non) alignment to test the proper condition.
+  constexpr int32_t kExtraValues = sizeof(Int) * 8;
+  auto const packed = GenerateRandomPackedValues(num_values + kExtraValues, bit_width);
   const uint8_t* packed_ptr =
-      getNextAlignedByte(packed.data(), sizeof(Int)) + (aligned ? 0 : 1);
+      GetNextAlignedByte(packed.data(), sizeof(Int)) + (aligned ? 0 : 1);
 
   std::vector<Int> unpacked(num_values, 0);
 
@@ -88,20 +91,20 @@ void BM_Unpack(benchmark::State& state, bool aligned, UnpackFunc<Int> unpack) {
     unpack(packed_ptr, unpacked.data(), num_values, bit_width);
     benchmark::ClobberMemory();
   }
-  state.SetItemsProcessed(num_values);
+  state.SetItemsProcessed(num_values * state.iterations());
 }
 
-constexpr int32_t MIN_RANGE = 64;
-constexpr int32_t MAX_RANGE = 32768;
-constexpr std::initializer_list<int64_t> kBitWidths32 = {1, 8, 20};
-constexpr std::initializer_list<int64_t> kBitWidths64 = {1, 8, 20, 47};
+constexpr int32_t kMinRange = 64;
+constexpr int32_t kMaxRange = 32768;
+constexpr std::initializer_list<int64_t> kBitWidths32 = {1, 2, 8, 20};
+constexpr std::initializer_list<int64_t> kBitWidths64 = {1, 2, 8, 20, 47};
 static const std::vector<std::vector<int64_t>> bitWidthsNumValues32 = {
     kBitWidths32,
-    benchmark::CreateRange(MIN_RANGE, MAX_RANGE, /*multi=*/8),
+    benchmark::CreateRange(kMinRange, kMaxRange, /*multi=*/32),
 };
 static const std::vector<std::vector<int64_t>> bitWidthsNumValues64 = {
     kBitWidths64,
-    benchmark::CreateRange(MIN_RANGE, MAX_RANGE, /*multi=*/8),
+    benchmark::CreateRange(kMinRange, kMaxRange, /*multi=*/32),
 };
 
 /// Nudge for MSVC template inside BENCHMARK_CAPTURE macro.

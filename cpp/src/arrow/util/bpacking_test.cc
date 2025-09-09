@@ -25,10 +25,11 @@
 #include "arrow/util/bpacking_internal.h"
 #include "arrow/util/logging.h"
 
-#if defined(ARROW_HAVE_AVX2)
+#if defined(ARROW_HAVE_RUNTIME_AVX2)
 #  include "arrow/util/bpacking_avx2_internal.h"
+#  include "arrow/util/cpu_info.h"
 #endif
-#if defined(ARROW_HAVE_AVX512)
+#if defined(ARROW_HAVE_RUNTIME_AVX512)
 #  include "arrow/util/bpacking_avx512_internal.h"
 #endif
 #if defined(ARROW_HAVE_NEON)
@@ -41,7 +42,7 @@ template <typename Int>
 using UnpackFunc = int (*)(const uint8_t*, Int*, int, int);
 
 /// Get the number of bytes associate with a packing.
-constexpr int32_t getNumBytes(int32_t num_values, int32_t bit_width) {
+constexpr int32_t GetNumBytes(int32_t num_values, int32_t bit_width) {
   auto const num_bits = num_values * bit_width;
   if (num_bits % 8 != 0) {
     throw std::invalid_argument("Must pack a multiple of 8 bits.");
@@ -50,9 +51,9 @@ constexpr int32_t getNumBytes(int32_t num_values, int32_t bit_width) {
 }
 
 /// Generate random bytes as packed integers.
-std::vector<uint8_t> generateRandomPackedValues(int32_t num_values, int32_t bit_width) {
+std::vector<uint8_t> GenerateRandomPackedValues(int32_t num_values, int32_t bit_width) {
   constexpr uint32_t kSeed = 3214;
-  auto const num_bytes = getNumBytes(num_values, bit_width);
+  auto const num_bytes = GetNumBytes(num_values, bit_width);
 
   std::vector<uint8_t> out(num_bytes);
   random_bytes(num_bytes, kSeed, out.data());
@@ -62,7 +63,7 @@ std::vector<uint8_t> generateRandomPackedValues(int32_t num_values, int32_t bit_
 
 /// Convenience wrapper to unpack into a vector
 template <typename Int>
-std::vector<Int> unpackValues(const uint8_t* packed, int32_t num_values,
+std::vector<Int> UnpackValues(const uint8_t* packed, int32_t num_values,
                               int32_t bit_width, UnpackFunc<Int> unpack) {
   std::vector<Int> out(num_values);
   int values_read = unpack(packed, out.data(), num_values, bit_width);
@@ -73,9 +74,9 @@ std::vector<Int> unpackValues(const uint8_t* packed, int32_t num_values,
 
 /// Use BitWriter to pack values into a vector.
 template <typename Int>
-std::vector<uint8_t> packValues(std::vector<Int> const& values, int32_t num_values,
+std::vector<uint8_t> PackValues(std::vector<Int> const& values, int32_t num_values,
                                 int32_t bit_width) {
-  auto const num_bytes = getNumBytes(num_values, bit_width);
+  auto const num_bytes = GetNumBytes(num_values, bit_width);
 
   std::vector<uint8_t> out(static_cast<std::size_t>(num_bytes));
   bit_util::BitWriter writer(out.data(), num_bytes);
@@ -90,20 +91,20 @@ std::vector<uint8_t> packValues(std::vector<Int> const& values, int32_t num_valu
 }
 
 template <typename Int>
-void checkUnpackPackRoundtrip(const uint8_t* packed, int32_t num_values,
+void CheckUnpackPackRoundtrip(const uint8_t* packed, int32_t num_values,
                               int32_t bit_width, UnpackFunc<Int> unpack) {
-  auto const num_bytes = getNumBytes(num_values, bit_width);
+  auto const num_bytes = GetNumBytes(num_values, bit_width);
 
-  auto const unpacked = unpackValues(packed, num_values, bit_width, unpack);
+  auto const unpacked = UnpackValues(packed, num_values, bit_width, unpack);
   EXPECT_EQ(unpacked.size(), num_values);
-  auto const roundtrip = packValues(unpacked, num_values, bit_width);
+  auto const roundtrip = PackValues(unpacked, num_values, bit_width);
   EXPECT_EQ(num_bytes, roundtrip.size());
   for (int i = 0; i < num_bytes; ++i) {
     EXPECT_EQ(packed[i], roundtrip[i]) << "differ in position " << i;
   }
 }
 
-const uint8_t* getNextAlignedByte(const uint8_t* ptr, std::size_t alignment) {
+const uint8_t* GetNextAlignedByte(const uint8_t* ptr, std::size_t alignment) {
   auto addr = reinterpret_cast<std::uintptr_t>(ptr);
 
   if (addr % alignment == 0) {
@@ -124,23 +125,26 @@ struct UnpackingData {
 class UnpackingRandomRoundTrip : public ::testing::TestWithParam<UnpackingData> {
  protected:
   template <typename Int>
-  void testRoundtripAlignment(UnpackFunc<Int> unpack, std::size_t alignment_offset) {
+  void TestRoundtripAlignment(UnpackFunc<Int> unpack, std::size_t alignment_offset) {
     auto [num_values, bit_width] = GetParam();
+
+    // Assume std::vector allocation is likely be aligned for greater than a byte.
+    // So we allocate more values than necessary and skip to the next byte with the
+    // desired (non) alignment to test the proper condition.
     constexpr int32_t kExtraValues = sizeof(Int) * 8;
-
-    auto const packed = generateRandomPackedValues(num_values + kExtraValues, bit_width);
+    auto const packed = GenerateRandomPackedValues(num_values + kExtraValues, bit_width);
     const uint8_t* packed_unaligned =
-        getNextAlignedByte(packed.data(), sizeof(Int)) + alignment_offset;
+        GetNextAlignedByte(packed.data(), sizeof(Int)) + alignment_offset;
 
-    checkUnpackPackRoundtrip(packed_unaligned, num_values, bit_width, unpack);
+    CheckUnpackPackRoundtrip(packed_unaligned, num_values, bit_width, unpack);
   }
 
   template <typename Int>
-  void testRoundtrip(UnpackFunc<Int> unpack) {
+  void TestRoundtrip(UnpackFunc<Int> unpack) {
     // Aligned test
-    testRoundtripAlignment(unpack, 0);
+    TestRoundtripAlignment(unpack, 0);
     // Unaligned test
-    testRoundtripAlignment(unpack, 1);
+    TestRoundtripAlignment(unpack, 1);
   }
 };
 
@@ -154,27 +158,35 @@ INSTANTIATE_TEST_SUITE_P(
                       UnpackingData{64000, 32}));
 
 TEST_P(UnpackingRandomRoundTrip, unpack32Default) {
-  this->testRoundtrip(&unpack32_default);
+  this->TestRoundtrip(&unpack32_default);
 }
 TEST_P(UnpackingRandomRoundTrip, unpack64Default) {
-  this->testRoundtrip(&unpack64_default);
+  this->TestRoundtrip(&unpack64_default);
 }
 
-#if defined(ARROW_HAVE_AVX2)
-TEST_P(UnpackingRandomRoundTrip, unpack32Avx2) { this->testRoundtrip(&unpack32_avx2); }
+#if defined(ARROW_HAVE_RUNTIME_AVX2)
+TEST_P(UnpackingRandomRoundTrip, unpack32Avx2) {
+  if (!CpuInfo::GetInstance()->IsSupported(CpuInfo::AVX2)) {
+    GTEST_SKIP() << "Test requires AVX2";
+  }
+  this->testRoundtrip(&unpack32_avx2);
+}
 #endif
 
-#if defined(ARROW_HAVE_AVX512)
+#if defined(ARROW_HAVE_RUNTIME_AVX512)
 TEST_P(UnpackingRandomRoundTrip, unpack32Avx512) {
+  if (!CpuInfo::GetInstance()->IsSupported(CpuInfo::AVX512)) {
+    GTEST_SKIP() << "Test requires AVX512";
+  }
   this->testRoundtrip(&unpack32_avx512);
 }
 #endif
 
 #if defined(ARROW_HAVE_NEON)
-TEST_P(UnpackingRandomRoundTrip, unpack32Neon) { this->testRoundtrip(&unpack32_neon); }
+TEST_P(UnpackingRandomRoundTrip, unpack32Neon) { this->TestRoundtrip(&unpack32_neon); }
 #endif
 
-TEST_P(UnpackingRandomRoundTrip, unpack32) { this->testRoundtrip(&unpack32); }
-TEST_P(UnpackingRandomRoundTrip, unpack64) { this->testRoundtrip(&unpack64); }
+TEST_P(UnpackingRandomRoundTrip, unpack32) { this->TestRoundtrip(&unpack32); }
+TEST_P(UnpackingRandomRoundTrip, unpack64) { this->TestRoundtrip(&unpack64); }
 
 }  // namespace arrow::internal
