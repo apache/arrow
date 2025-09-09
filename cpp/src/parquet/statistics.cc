@@ -580,7 +580,7 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
         logical_type_(LogicalTypeId(descr_)) {
     try {
       comparator_ = MakeComparator<DType>(descr);
-    } catch (const std::exception& e) {
+    } catch (const ParquetException&) {
       comparator_ = nullptr;
     }
     TypedStatisticsImpl::Reset();
