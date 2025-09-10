@@ -21,9 +21,8 @@ from .core import Workflow
 
 
 class WorkflowReport:
-    def __init__(self, workflow_id):
-        self.workflow_id = workflow_id
-        self.workflow = Workflow(workflow_id)
+    def __init__(self, workflow_id, repository):
+        self.workflow = Workflow(workflow_id, repository=repository)
 
 
 class ChatReport(JinjaReport):

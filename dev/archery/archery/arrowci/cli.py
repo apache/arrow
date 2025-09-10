@@ -52,24 +52,24 @@ def arrowci(ctx, github_token, arrow_path, output_file):
 @click.argument('workflow_id', required=True)
 @click.option('--send/--dry-run', default=False,
               help='Just display the report, don\'t send it')
+@click.option('--repository', '-r', default='apache/arrow',
+              help='The organization where the workflow is located')
 @click.option('--webhook', '-w',
               help='Zulip/Slack Webhook address to send the report to')
 @click.option('--extra-message-success', '-s', default=None,
               help='Extra message, will be appended if no failures.')
 @click.option('--extra-message-failure', '-f', default=None,
               help='Extra message, will be appended if there are failures.')
-@click.option('--fetch/--no-fetch', default=True,
-              help='Fetch references (branches and tags) from the remote')
 @click.pass_obj
-def report_chat(obj, workflow_id, send, webhook, extra_message_success,
-                extra_message_failure, fetch):
+def report_chat(obj, workflow_id, send, repository, webhook, extra_message_success,
+                extra_message_failure):
     """
     Send a chat report to a webhook showing success/failure
     of tasks in a Crossbow run.
     """
     output = obj['output']
 
-    report_chat = ChatReport(report=WorkflowReport(workflow_id),
+    report_chat = ChatReport(report=WorkflowReport(workflow_id, repository),
                              extra_message_success=extra_message_success,
                              extra_message_failure=extra_message_failure)
     if send:

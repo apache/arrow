@@ -21,16 +21,17 @@ import requests
 
 
 class Workflow:
-    def __init__(self, workflow_id, gh_token=None):
+    def __init__(self, workflow_id, repository, gh_token=None):
         self.workflow_id = workflow_id
         self.gh_token = gh_token
+        self.repository = repository
         self.headers = {
             'Accept': 'application/vnd.github.v3+json',
         }
         if self.gh_token:
             self.headers["Authorization"] = f"Bearer {self.gh_token}"
         workflow_resp = requests.get(
-            f'https://api.github.com/repos/apache/arrow/actions/runs/{workflow_id}',
+            f'https://api.github.com/repos/{repository}/actions/runs/{workflow_id}',
             headers=self.headers
         )
         if workflow_resp.status_code == 200:
