@@ -123,6 +123,8 @@ class TDigest::TDigestImpl {
     Reset();
   }
 
+  uint32_t delta() const { return merger_.delta(); }
+
   void Reset() {
     tdigests_[0].resize(0);
     tdigests_[1].resize(0);
@@ -316,6 +318,15 @@ class TDigest::TDigestImpl {
     return Lerp(td[ci_left].mean, td[ci_right].mean, diff);
   }
 
+  std::optional<std::pair<double, double>> GetCentroid(size_t i) const {
+    const auto& td = tdigests_[current_];
+    if (td.size() > i) {
+      auto& c = td[i];
+      return std::make_pair(c.mean, c.weight);
+    }
+    return std::nullopt;
+  }
+
   double Mean() const {
     double sum = 0;
     for (const auto& centroid : tdigests_[current_]) {
@@ -349,6 +360,8 @@ TDigest::TDigest(std::unique_ptr<Scaler> scaler, uint32_t buffer_size)
 TDigest::~TDigest() = default;
 TDigest::TDigest(TDigest&&) = default;
 TDigest& TDigest::operator=(TDigest&&) = default;
+
+uint32_t TDigest::delta() const { return impl_->delta(); }
 
 void TDigest::Reset() {
   input_.resize(0);
@@ -386,6 +399,11 @@ void TDigest::Merge(const TDigest& other) {
 double TDigest::Quantile(double q) const {
   MergeInput();
   return impl_->Quantile(q);
+}
+
+std::optional<std::pair<double, double>> TDigest::GetCentroid(size_t i) const {
+  MergeInput();
+  return impl_->GetCentroid(i);
 }
 
 double TDigest::Mean() const {

@@ -24,6 +24,7 @@
 
 #include <cmath>
 #include <memory>
+#include <optional>
 #include <vector>
 
 #include "arrow/util/logging.h"
@@ -53,6 +54,7 @@ class ARROW_EXPORT TDigest {
   TDigest(TDigest&&);
   TDigest& operator=(TDigest&&);
 
+  uint32_t delta() const;
   // reset and re-use this tdigest
   void Reset();
 
@@ -90,6 +92,7 @@ class ARROW_EXPORT TDigest {
 
   // calculate quantile
   double Quantile(double q) const;
+  std::optional<std::pair<double, double>> GetCentroid(size_t i) const;
 
   double Min() const { return Quantile(0); }
   double Max() const { return Quantile(1); }

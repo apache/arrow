@@ -4454,6 +4454,64 @@ TEST(TestTDigestKernel, Options) {
               ResultWith(ArrayFromJSON(ty, "[null]")));
 }
 
+TEST(TestTDigestMapKernel, Options) {
+  auto input_type = float64();
+  auto output_type = struct_({field("mean", fixed_size_list(float64(), 5), false),
+                              field("weight", fixed_size_list(float64(), 5), false),
+                              field("count", int64(), false)});
+  TDigestMapOptions keep_nulls(/*delta=*/5, /*buffer_size=*/500,
+                               /*skip_nulls=*/false,
+                               /*scaler=*/TDigestMapOptions::Scaler::K0);
+  TDigestMapOptions skip_nulls(/*delta=*/5, /*buffer_size=*/500,
+                               /*skip_nulls=*/true);
+  TDigestMapOptions keep_nulls_min_count(/*delta=*/5, /*buffer_size=*/500,
+                                         /*skip_nulls=*/false);
+  EXPECT_THAT(
+      TDigestMap(ArrayFromJSON(input_type, "[1.0, 2.0, 3.0, 4.0, 5.0, 6.0]"), keep_nulls),
+      ResultWith(ScalarFromJSON(output_type,
+                                "{\"mean\":[1.5, 3.5, 5.5, null, null],\"weight\":[2, 2, "
+                                "2, null, null],\"count\":6}")));
+  EXPECT_THAT(
+      TDigestMap(ArrayFromJSON(input_type, "[1.0, 2.0, 3.0, 4.0, 5.0]"), keep_nulls),
+      ResultWith(ScalarFromJSON(output_type,
+                                "{\"mean\":[1.5, 3.5, 5.0, null, null],\"weight\":[2, 2, "
+                                "1, null, null],\"count\":5}")));
+  EXPECT_THAT(TDigestMap(ArrayFromJSON(input_type, "[1.0, 2.0, 3.0, 4.0]"), keep_nulls),
+              ResultWith(ScalarFromJSON(output_type,
+                                        "{\"mean\":[1.0, 2.0, 3.0, 4.0, "
+                                        "null],\"weight\":[1,1,1,1,null],\"count\":4}")));
+
+  EXPECT_THAT(TDigestMap(ArrayFromJSON(input_type, "[1.0, 2.0, 3.0]"), keep_nulls),
+              ResultWith(ScalarFromJSON(output_type,
+                                        "{\"mean\":[1.0,2.0,3.0,null,null],\"weight\":[1,"
+                                        "1,1,null,null],\"count\":3}")));
+  EXPECT_THAT(TDigestMap(ArrayFromJSON(input_type, "[1.0, 2.0, 3.0, null]"), keep_nulls),
+              ResultWith(ScalarFromJSON(output_type, "null")));
+  EXPECT_THAT(TDigestMap(ScalarFromJSON(input_type, "1.0"), keep_nulls),
+              ResultWith(ScalarFromJSON(output_type,
+                                        "{\"mean\":[1.0,null,null,null,null],\"weight\":["
+                                        "1,null,null,null,null],\"count\":1}")));
+  EXPECT_THAT(TDigestMap(ScalarFromJSON(input_type, "null"), keep_nulls),
+              ResultWith(ScalarFromJSON(output_type, "null")));
+
+  EXPECT_THAT(TDigestMap(ArrayFromJSON(input_type, "[1.0, 2.0, 3.0, null]"), skip_nulls),
+              ResultWith(ScalarFromJSON(output_type,
+                                        "{\"mean\":[1.0,2.0,3.0,null,null],\"weight\":[1,"
+                                        "1,1,null,null],\"count\":3}")));
+  EXPECT_THAT(TDigestMap(ArrayFromJSON(input_type, "[1.0, 2.0, null]"), skip_nulls),
+              ResultWith(ScalarFromJSON(output_type,
+                                        "{\"mean\":[1.0,2.0,null,null,null],\"weight\":["
+                                        "1,1,null,null,null],\"count\":2}")));
+  EXPECT_THAT(TDigestMap(ScalarFromJSON(input_type, "1.0"), skip_nulls),
+              ResultWith(ScalarFromJSON(output_type,
+                                        "{\"mean\":[1.0,null,null,null,null],\"weight\":["
+                                        "1,null,null,null,null],\"count\":1}")));
+  EXPECT_THAT(TDigestMap(ScalarFromJSON(input_type, "null"), skip_nulls),
+              ResultWith(ScalarFromJSON(output_type,
+                                        "{\"mean\":[null,null,null,null,null],\"weight\":"
+                                        "[null,null,null,null,null],\"count\":0}")));
+}
+
 TEST(TestTDigestKernel, ApproximateMedian) {
   // This is a wrapper for TDigest
   for (const auto& ty : {float64(), int64(), uint16()}) {
