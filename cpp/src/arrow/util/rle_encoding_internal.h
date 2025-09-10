@@ -449,7 +449,7 @@ class RleBitPackedEncoder {
                                        MAX_VALUES_PER_LITERAL_RUN * bit_width));
     /// Up to kMaxVlqByteLength indicator and a single 'bit_width' value.
     int max_repeated_run_size =
-        ::arrow::bit_util::BitReader::kMaxVlqByteLengthForInt32 +
+        bit_util::kMaxLEB128ByteLenFor<int32_t> +
         static_cast<int>(::arrow::bit_util::BytesForBits(bit_width));
     return std::max(max_literal_run_size, max_repeated_run_size);
   }

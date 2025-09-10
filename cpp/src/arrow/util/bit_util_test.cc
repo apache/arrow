@@ -2115,7 +2115,7 @@ TEST(BitStreamUtil, LEB128) {
 }
 
 static void TestZigZag(int32_t v, std::array<uint8_t, 5> buffer_expect) {
-  uint8_t buffer[bit_util::BitReader::kMaxVlqByteLengthForInt32] = {};
+  uint8_t buffer[bit_util::kMaxLEB128ByteLenFor<int32_t>] = {};
   bit_util::BitWriter writer(buffer, sizeof(buffer));
   writer.PutZigZagVlqInt(v);
   // WARNING: The reader reads and caches the input when created, so it must be created
@@ -2139,10 +2139,12 @@ TEST(BitStreamUtil, ZigZag) {
 }
 
 static void TestZigZag64(int64_t v, std::array<uint8_t, 10> buffer_expect) {
-  uint8_t buffer[bit_util::BitReader::kMaxVlqByteLengthForInt64] = {};
+  uint8_t buffer[bit_util::kMaxLEB128ByteLenFor<int64_t>] = {};
   bit_util::BitWriter writer(buffer, sizeof(buffer));
-  bit_util::BitReader reader(buffer, sizeof(buffer));
   writer.PutZigZagVlqInt(v);
+  // WARNING: The reader reads and caches the input when created, so it must be created
+  // after the data is written in the buffer.
+  bit_util::BitReader reader(buffer, sizeof(buffer));
   EXPECT_THAT(buffer, testing::ElementsAreArray(buffer_expect));
   int64_t result = 0;
   EXPECT_TRUE(reader.GetZigZagVlqInt(&result));
