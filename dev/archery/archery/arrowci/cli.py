@@ -17,34 +17,24 @@
 
 import click
 
-from ..utils.source import ArrowSources
-
-
 from .reports import WorkflowReport, ChatReport
 from ..crossbow.reports import ReportUtils
-
-_default_arrow_path = ArrowSources.find().path
 
 
 @click.group()
 @click.option('--github-token', '-t', default=None,
               envvar=['GH_TOKEN'],
               help='OAuth token for GitHub authentication')
-@click.option('--arrow-path', '-a',
-              type=click.Path(), default=_default_arrow_path,
-              help='Arrow\'s repository path. Defaults to the repository of '
-                   'this script')
 @click.option('--output-file', metavar='<output>',
               type=click.File('w', encoding='utf8'), default='-',
               help='Capture output result into file.')
 @click.pass_context
-def arrowci(ctx, github_token, arrow_path, output_file):
+def arrowci(ctx, github_token, output_file):
     """
     Tools for CI Extra jobs on GitHub actions.
     """
     ctx.ensure_object(dict)
     ctx.obj['github_token'] = github_token
-    ctx.obj['arrow_path'] = arrow_path
     ctx.obj['output'] = output_file
 
 
