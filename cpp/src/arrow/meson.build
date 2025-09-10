@@ -223,7 +223,16 @@ endif
 
 if needs_bz2
     arrow_util_srcs += ['util/compression_bz2.cc']
-    arrow_util_deps += dependency('bzip2')
+    bzip2 = cpp_compiler.find_library(
+        'bz2',
+        has_headers: ['bzlib.h'],
+        required: false,
+    )
+    if bzip2.found()
+        arrow_util_deps += bzip2
+    else
+        arrow_util_deps += dependency('bzip2')
+    endif
 endif
 
 if needs_lz4
@@ -233,7 +242,7 @@ endif
 
 if needs_snappy
     arrow_util_srcs += ['util/compression_snappy.cc']
-    arrow_util_deps += dependency('snappy')
+    arrow_util_deps += dependency('snappy', 'Snappy')
 endif
 
 if needs_zlib
