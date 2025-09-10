@@ -432,30 +432,42 @@ void TestRleBitPackedParser(std::vector<uint8_t> bytes,
   decltype(expected) decoded = {};
   auto rle_decoder = RleRunDecoder<T>();
   auto bit_packed_decoder = BitPackedRunDecoder<T>();
-  // Iterate over all runs
-  while (auto run = parser.Next()) {
-    EXPECT_TRUE(run.has_value());
 
-    if (std::holds_alternative<RleRun>(run.value())) {
-      rle_decoder.Reset(std::get<RleRun>(run.value()));
+  struct {
+    decltype(rle_decoder)* rle_decoder_ptr_;
+    decltype(bit_packed_decoder)* bit_packed_decoder_ptr_;
+    decltype(decoded)* decoded_ptr_;
 
-      auto const n_decoded = decoded.size();
-      auto const n_to_decode = rle_decoder.Remaining();
-      decoded.resize(n_decoded + n_to_decode);
-      EXPECT_EQ(rle_decoder.GetBatch(decoded.data() + n_decoded, n_to_decode),
+    auto OnRleRun(RleRun run) {
+      rle_decoder_ptr_->Reset(run);
+
+      auto const n_decoded = decoded_ptr_->size();
+      auto const n_to_decode = rle_decoder_ptr_->Remaining();
+      decoded_ptr_->resize(n_decoded + n_to_decode);
+      EXPECT_EQ(rle_decoder_ptr_->GetBatch(decoded_ptr_->data() + n_decoded, n_to_decode),
                 n_to_decode);
-      EXPECT_EQ(rle_decoder.Remaining(), 0);
-    } else {
-      bit_packed_decoder.Reset(std::get<BitPackedRun>(run.value()));
+      EXPECT_EQ(rle_decoder_ptr_->Remaining(), 0);
 
-      auto const n_decoded = decoded.size();
-      auto const n_to_decode = bit_packed_decoder.Remaining();
-      decoded.resize(n_decoded + n_to_decode);
-      EXPECT_EQ(bit_packed_decoder.GetBatch(decoded.data() + n_decoded, n_to_decode),
-                n_to_decode);
-      EXPECT_EQ(bit_packed_decoder.Remaining(), 0);
+      return RleBitPackedParser::ControlFlow::Continue;
     }
-  }
+
+    auto OnBitPackedRun(BitPackedRun run) {
+      bit_packed_decoder_ptr_->Reset(run);
+
+      auto const n_decoded = decoded_ptr_->size();
+      auto const n_to_decode = bit_packed_decoder_ptr_->Remaining();
+      decoded_ptr_->resize(n_decoded + n_to_decode);
+      EXPECT_EQ(bit_packed_decoder_ptr_->GetBatch(decoded_ptr_->data() + n_decoded,
+                                                  n_to_decode),
+                n_to_decode);
+      EXPECT_EQ(bit_packed_decoder_ptr_->Remaining(), 0);
+
+      return RleBitPackedParser::ControlFlow::Continue;
+    }
+  } handler{&rle_decoder, &bit_packed_decoder, &decoded};
+
+  // Iterate over all runs
+  parser.Parse(handler);
 
   EXPECT_TRUE(parser.Exhausted());
   EXPECT_EQ(decoded.size(), expected.size());
