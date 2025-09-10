@@ -227,7 +227,6 @@ jobs:
           # Homebrew's Protobuf is installed, its library file may be
           # used on test  We uninstall Homebrew's Protobuf to ensure using
           # bundled Protobuf.
-          let's break the job intentionally to see the report
           brew uninstall protobuf
       - name: Prepare ccache
         run: |
