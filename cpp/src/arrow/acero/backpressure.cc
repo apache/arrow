@@ -19,6 +19,7 @@
 #include "arrow/acero/exec_plan.h"
 
 namespace arrow::acero {
+
 BackpressureController::BackpressureController(ExecNode* node, ExecNode* output,
                                                std::atomic<int32_t>& backpressure_counter)
     : node_(node), output_(output), backpressure_counter_(backpressure_counter) {}
