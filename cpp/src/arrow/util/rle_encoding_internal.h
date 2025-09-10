@@ -788,16 +788,6 @@ auto RunGetSpaced(Converter* converter, typename Converter::out_type* out,
   return {/* .values_read= */ batch.ValuesRead(), /* .null_read= */ batch.NullRead()};
 }
 
-template <typename T, typename... Ts>
-[[nodiscard]] constexpr T min(T x, Ts... ys) {
-  ((x = std::min(x, ys)), ...);
-  return x;
-}
-
-static_assert(min(5) == 5);
-static_assert(min(5, 4, -1) == -1);
-static_assert(min(5, 41) == 5);
-
 template <typename Converter, typename BitRunReader, typename BitRun,
           typename values_count_type, typename value_type>
 auto RunGetSpaced(Converter* converter, typename Converter::out_type* out,
@@ -835,7 +825,8 @@ auto RunGetSpaced(Converter* converter, typename Converter::out_type* out,
     };
 
     // buffer_start is 0 at this point so size is end
-    buffer_end = min(run_values_remaining(), batch.ValuesRemaining(), kBufferCapacity);
+    buffer_end = std::min(std::min(run_values_remaining(), batch.ValuesRemaining()),
+                          kBufferCapacity);
     buffer_end = decoder->GetBatch(buffer.data(), buffer_size());
     ARROW_DCHECK_LE(buffer_size(), kBufferCapacity);
 
@@ -986,8 +977,6 @@ auto RleBitPackedDecoder<T>::GetSpaced(Converter converter,
   check_and_handle_fully_null_remaining();
 
   ARROW_DCHECK(batch.IsDone() || Exhausted());
-  // batch.Done() => batch.NullRemaining() == 0
-  ARROW_DCHECK(!batch.IsDone() || (batch.NullRemaining() == 0));
   return batch.TotalRead();
 }
 
@@ -1067,6 +1056,8 @@ struct DictionaryConverter {
   }
 
   [[nodiscard]] bool InputIsValid(const in_type* indices, size_type length) const {
+    ARROW_DCHECK(length > 0);
+
     in_type min_index = std::numeric_limits<in_type>::max();
     in_type max_index = std::numeric_limits<in_type>::min();
     for (size_type x = 0; x < length; x++) {
