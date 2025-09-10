@@ -56,11 +56,9 @@ endif
 # we need to special how the grpc_cpp_plugin resolution is handled
 # when found on the system versus when built as a subproject
 grpc_cpp_dep = dependency('grpc++', allow_fallback: false, required: false)
-if grpc_cpp_dep.found()
-    has_system_grpc = true
-else
+has_system_grpc = grpc_cpp_dep.found()
+if not has_system_grpc
     grpc_cpp_dep = dependency('grpc++')
-    has_system_grpc = false
 endif
 
 protobuf_dep = dependency('protobuf')
