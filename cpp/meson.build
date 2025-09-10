@@ -65,11 +65,11 @@ needs_acero = get_option('acero').enabled()
 needs_cuda = get_option('cuda').enabled()
 needs_flight = get_option('flight').enabled()
 needs_ipc = (get_option('ipc').enabled()
-or needs_tests
-or needs_acero
-or needs_benchmarks
-or needs_cuda
-or needs_flight
+    or needs_tests
+    or needs_acero
+    or needs_benchmarks
+    or needs_cuda
+    or needs_flight
 )
 needs_fuzzing = get_option('fuzzing').enabled()
 needs_testing = (get_option('testing').enabled()
