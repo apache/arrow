@@ -54,8 +54,8 @@ def arrowci(ctx, github_token, arrow_path, output_file):
               help='Just display the report, don\'t send it.')
 @click.option('--repository', '-r', default='apache/arrow',
               help='The repository where the workflow is located.')
-@click.option('--ignore', '-i', type=int, default=None,
-              help='Job id to ignore from the list of jobs.')
+@click.option('--ignore', '-i', default="",
+              help='Job name to ignore from the list of jobs.')
 @click.option('--webhook', '-w',
               help='Zulip/Slack Webhook address to send the report to.')
 @click.option('--extra-message-success', '-s', default=None,
@@ -73,7 +73,7 @@ def report_chat(obj, workflow_id, send, repository, ignore, webhook,
 
     report_chat = ChatReport(
         report=WorkflowReport(workflow_id, repository,
-                              ignore_job_id=ignore, gh_token=obj['github_token']),
+                              ignore_job=ignore, gh_token=obj['github_token']),
         extra_message_success=extra_message_success,
         extra_message_failure=extra_message_failure
     )

@@ -21,11 +21,11 @@ import requests
 
 
 class Workflow:
-    def __init__(self, workflow_id, repository, ignore_job_id, gh_token=None):
+    def __init__(self, workflow_id, repository, ignore_job, gh_token=None):
         self.workflow_id = workflow_id
         self.gh_token = gh_token
         self.repository = repository
-        self.ignore_job_id = ignore_job_id
+        self.ignore_job = ignore_job
         self.headers = {
             'Accept': 'application/vnd.github.v3+json',
         }
@@ -66,7 +66,7 @@ class Workflow:
         if jobs_resp.status_code == 200:
             jobs_data = jobs_resp.json()
             for job_data in jobs_data.get('jobs', []):
-                if job_data.get('id') != self.ignore_job_id:
+                if job_data.get('name') != self.ignore_job:
                     job = Job(job_data)
                     jobs.append(job)
         return jobs
