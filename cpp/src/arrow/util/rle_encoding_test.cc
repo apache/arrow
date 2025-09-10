@@ -416,18 +416,6 @@ void TestRleBitPackedParser(std::vector<uint8_t> bytes,
       bit_width);
   EXPECT_FALSE(parser.Exhausted());
 
-  // Peek return the same data
-  auto run1 = parser.Peek();
-  EXPECT_TRUE(run1.has_value());
-  auto run2 = parser.Peek();
-  EXPECT_TRUE(run2.has_value());
-  auto ptr1 = std::visit([](auto const& r) { return r.RawDataPtr(); }, run1.value());
-  auto size1 = std::visit([](auto const& r) { return r.RawDataSize(); }, run1.value());
-  auto ptr2 = std::visit([](auto const& r) { return r.RawDataPtr(); }, run2.value());
-  auto size2 = std::visit([](auto const& r) { return r.RawDataSize(); }, run2.value());
-  EXPECT_TRUE(std::equal(ptr1, ptr1 + size1, ptr2, ptr2 + size2));
-  EXPECT_FALSE(parser.Exhausted());
-
   // Try to decode all data of all runs in the decoded vector
   decltype(expected) decoded = {};
   auto rle_decoder = RleRunDecoder<T>();

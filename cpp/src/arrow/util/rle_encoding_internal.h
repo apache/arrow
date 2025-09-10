@@ -23,7 +23,6 @@
 #include <algorithm>
 #include <array>
 #include <limits>
-#include <optional>
 #include <type_traits>
 #include <variant>
 
@@ -197,15 +196,6 @@ class RleBitPackedParser {
 
   constexpr void Reset(raw_data_const_pointer data, raw_data_size_type data_size,
                        bit_size_type value_bit_width_) noexcept;
-
-  /// Get the current run with a small parsing cost without advancing the iteration.
-  [[nodiscard]] std::optional<dynamic_run_type> Peek() const;
-
-  /// Move to the next run.
-  [[nodiscard]] bool Advance();
-
-  /// Advance and return the current run.
-  [[nodiscard]] std::optional<dynamic_run_type> Next();
 
   /// Whether there is still runs to iterate over.
   ///
@@ -615,26 +605,6 @@ template <typename T>
 bool RleBitPackedDecoder<T>::Get(value_type* val) {
   return GetBatch(val, 1) == 1;
 }
-
-namespace internal {
-
-/// A ``Parse`` handler that calls a single lambda.
-///
-/// This lambda would typically take the input run as ``auto run`` (i.e. the lambda is
-/// templated) and deduce other types from it.
-template <typename Lambda>
-struct LambdaHandler {
-  Lambda handler_;
-
-  auto OnBitPackedRun(BitPackedRun run) { return handler_(std::move(run)); }
-
-  auto OnRleRun(RleRun run) { return handler_(std::move(run)); }
-};
-
-template <typename Lambda>
-LambdaHandler(Lambda) -> LambdaHandler<Lambda>;
-
-}  // namespace internal
 
 template <typename T>
 auto RleBitPackedDecoder<T>::GetBatch(value_type* out, values_count_type batch_size)
@@ -1290,39 +1260,6 @@ constexpr void RleBitPackedParser::Reset(raw_data_const_pointer data,
   data_size_ = data_size;
   value_bit_width_ = value_bit_width;
 }
-
-inline auto RleBitPackedParser::Peek() const -> std::optional<dynamic_run_type> {
-  if (ARROW_PREDICT_FALSE(Exhausted())) {
-    return {};
-  }
-
-  auto out = std::optional<dynamic_run_type>{};
-  auto handler = internal::LambdaHandler{[&](auto run) {
-    out = run;
-    return ControlFlow::Break;
-  }};
-  PeekImpl(handler);
-  return out;
-}
-
-inline auto RleBitPackedParser::Next() -> std::optional<dynamic_run_type> {
-  if (ARROW_PREDICT_FALSE(Exhausted())) {
-    return {};
-  }
-
-  auto out = std::optional<dynamic_run_type>{};
-  auto handler = internal::LambdaHandler{[&](auto run) {
-    out = run;
-    return ControlFlow::Break;
-  }};
-  PeekImpl(handler);
-  auto [read, control] = PeekImpl(handler);
-  data_ += read;
-  data_size_ -= read;
-  return out;
-}
-
-inline bool RleBitPackedParser::Advance() { return Next().has_value(); }
 
 inline bool RleBitPackedParser::Exhausted() const { return data_size_ == 0; }
 
