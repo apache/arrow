@@ -376,6 +376,7 @@ constexpr int64_t kMaxLEB128ByteLenFor = MaxLEB128ByteLen(sizeof(Int) * 8);
 /// written.
 /// If the output buffer size is insufficient, return 0 but the output may have been
 /// written to.
+/// The input value can be a signed integer, but must be non negative.
 ///
 /// \see https://en.wikipedia.org/wiki/LEB128
 /// \see MaxLEB128ByteLenFor
@@ -384,6 +385,13 @@ constexpr int32_t WriteLEB128(Int value, uint8_t* out, int32_t max_out_size) {
   constexpr Int kLow7Mask = Int(0x7F);
   constexpr Int kHigh7Mask = ~kLow7Mask;
   constexpr uint8_t kContinuationBit = 0x80;
+
+  // This encoding does not work for negative values
+  if constexpr (std::is_signed_v<Int>) {
+    if (ARROW_PREDICT_FALSE(value < 0)) {
+      return 0;
+    }
+  }
 
   const auto out_first = out;
 
