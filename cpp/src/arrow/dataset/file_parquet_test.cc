@@ -155,9 +155,8 @@ class DelayedBufferReader : public ::arrow::io::BufferReader {
   std::atomic<int> read_async_count{0};
 };
 
-using OptionsCustomizer =
-    std::function<void(std::shared_ptr<ScanOptions>&,
-                       std::vector<std::shared_ptr<arrow::internal::ThreadPool>>&)>;
+using CustomizeScanOptionsWithThreadPool =
+    std::function<void(ScanOptions&, arrow::internal::ThreadPool*)>;
 
 class TestParquetFileFormat : public FileFormatFixtureMixin<ParquetFormatHelper> {
  public:
@@ -210,11 +209,7 @@ class TestParquetFileFormat : public FileFormatFixtureMixin<ParquetFormatHelper>
     }
   }
 
-  void TestMultithreadedRegression(OptionsCustomizer customizer) {
-    // GH-38438: This test is similar to MultithreadedScan, but it try to use self
-    // designed Executor and DelayedBufferReader to mock async execution to make
-    // the state machine more complex.
-
+  void TestMultithreadedRegression(CustomizeScanOptionsWithThreadPool customizer) {
     auto reader = MakeGeneratedRecordBatch(schema({field("utf8", utf8())}), 10000, 100);
     ASSERT_OK_AND_ASSIGN(auto buffer, ParquetFormatHelper::Write(reader.get()));
 
@@ -231,7 +226,7 @@ class TestParquetFileFormat : public FileFormatFixtureMixin<ParquetFormatHelper>
         auto options = std::make_shared<ScanOptions>();
         ASSERT_OK_AND_ASSIGN(auto thread_pool, arrow::internal::ThreadPool::Make(1));
         pools.emplace_back(thread_pool);
-        customizer(options, pools);
+        customizer(*options, pools.back().get());
         auto fragment_scan_options = std::make_shared<ParquetFragmentScanOptions>();
         fragment_scan_options->arrow_reader_properties->set_pre_buffer(true);
 
@@ -980,11 +975,12 @@ TEST(TestParquetStatistics, NoNullCount) {
 }
 
 TEST_F(TestParquetFileFormat, MultithreadedScanRegression) {
-  OptionsCustomizer customize_io_context =
-      [](std::shared_ptr<ScanOptions>& options,
-         std::vector<std::shared_ptr<arrow::internal::ThreadPool>>& pools) {
-        options->io_context =
-            ::arrow::io::IOContext(::arrow::default_memory_pool(), pools.back().get());
+  // GH-38438: This test is similar to MultithreadedScan, but it try to use self
+  // designed Executor and DelayedBufferReader to mock async execution to make
+  // the state machine more complex.
+  CustomizeScanOptionsWithThreadPool customize_io_context =
+      [](ScanOptions& options, arrow::internal::ThreadPool* pool) {
+        options.io_context = ::arrow::io::IOContext(::arrow::default_memory_pool(), pool);
       };
   TestMultithreadedRegression(customize_io_context);
 }
@@ -992,10 +988,9 @@ TEST_F(TestParquetFileFormat, MultithreadedScanRegression) {
 TEST_F(TestParquetFileFormat, MultithreadedComputeRegression) {
   // GH-43694: Test similar situation as MultithreadedScanRegression but with
   // the customized CPU executor instead
-  OptionsCustomizer customize_cpu_executor =
-      [](std::shared_ptr<ScanOptions>& options,
-         std::vector<std::shared_ptr<arrow::internal::ThreadPool>>& pools) {
-        options->cpu_executor = pools.back().get();
+  CustomizeScanOptionsWithThreadPool customize_cpu_executor =
+      [](ScanOptions& options, arrow::internal::ThreadPool* pool) {
+        options.cpu_executor = pool;
       };
   TestMultithreadedRegression(customize_cpu_executor);
 }
