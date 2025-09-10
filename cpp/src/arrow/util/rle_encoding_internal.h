@@ -444,10 +444,10 @@ class RleBitPackedEncoder {
   /// This is the maximum length of a single run for 'bit_width'.
   /// It is not valid to pass a buffer less than this length.
   static int MinBufferSize(int bit_width) {
-    /// 1 indicator byte and MAX_VALUES_PER_LITERAL_RUN 'bit_width' values.
+    // 1 indicator byte and MAX_VALUES_PER_LITERAL_RUN 'bit_width' values.
     int max_literal_run_size = 1 + static_cast<int>(::arrow::bit_util::BytesForBits(
                                        MAX_VALUES_PER_LITERAL_RUN * bit_width));
-    /// Up to kMaxVlqByteLength indicator and a single 'bit_width' value.
+    // Up to kMaxVlqByteLength indicator and a single 'bit_width' value.
     int max_repeated_run_size =
         bit_util::kMaxLEB128ByteLenFor<int32_t> +
         static_cast<int>(::arrow::bit_util::BytesForBits(bit_width));
@@ -956,7 +956,7 @@ auto RleBitPackedDecoder<T>::GetSpaced(Converter converter,
       return batch.TotalRead();
     }
 
-    /// We finished the remaining run
+    // We finished the remaining run
     ARROW_DCHECK(RunRemaining() == 0);
   }
 
@@ -1145,7 +1145,7 @@ auto RleBitPackedDecoder<T>::GetBatchWithDict(const V* dictionary,
       return values_read;
     }
 
-    /// We finished the remaining run
+    // We finished the remaining run
     ARROW_DCHECK(RunRemaining() == 0);
   }
 
@@ -1290,7 +1290,7 @@ auto RleBitPackedParser::PeekImpl(Handler&& handler) const
     constexpr auto kMaxCount =
         bit_util::CeilDiv(internal::max_size_for_v<values_count_type>, 8);
     if (ARROW_PREDICT_FALSE(count == 0 || count > kMaxCount)) {
-      /// Illegal number of encoded values
+      // Illegal number of encoded values
       return {};
     }
 
@@ -1310,7 +1310,7 @@ auto RleBitPackedParser::PeekImpl(Handler&& handler) const
   if (ARROW_PREDICT_FALSE(
           count == 0 ||
           count > static_cast<uint32_t>(std::numeric_limits<values_count_type>::max()))) {
-    /// Illegal number of encoded values
+    // Illegal number of encoded values
     return {};
   }
 
