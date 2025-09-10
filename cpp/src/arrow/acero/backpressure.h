@@ -16,9 +16,11 @@
 // under the License.
 
 #pragma once
-#include "arrow/acero/options.h"
 
 #include <mutex>
+
+#include "arrow/acero/options.h"
+
 namespace arrow::acero {
 
 // Generic backpressure controller for ExecNode
