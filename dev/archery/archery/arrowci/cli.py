@@ -28,7 +28,7 @@ _default_arrow_path = ArrowSources.find().path
 
 @click.group()
 @click.option('--github-token', '-t', default=None,
-              envvar=['CROSSBOW_GITHUB_TOKEN', 'GH_TOKEN'],
+              envvar=['GH_TOKEN'],
               help='OAuth token for GitHub authentication')
 @click.option('--arrow-path', '-a',
               type=click.Path(), default=_default_arrow_path,
@@ -51,27 +51,32 @@ def arrowci(ctx, github_token, arrow_path, output_file):
 @arrowci.command()
 @click.argument('workflow_id', required=True)
 @click.option('--send/--dry-run', default=False,
-              help='Just display the report, don\'t send it')
+              help='Just display the report, don\'t send it.')
 @click.option('--repository', '-r', default='apache/arrow',
-              help='The organization where the workflow is located')
+              help='The repository where the workflow is located.')
+@click.option('--ignore', '-i', type=int, default=None,
+              help='Job id to ignore from the list of jobs.')
 @click.option('--webhook', '-w',
-              help='Zulip/Slack Webhook address to send the report to')
+              help='Zulip/Slack Webhook address to send the report to.')
 @click.option('--extra-message-success', '-s', default=None,
               help='Extra message, will be appended if no failures.')
 @click.option('--extra-message-failure', '-f', default=None,
               help='Extra message, will be appended if there are failures.')
 @click.pass_obj
-def report_chat(obj, workflow_id, send, repository, webhook, extra_message_success,
-                extra_message_failure):
+def report_chat(obj, workflow_id, send, repository, ignore, webhook,
+                extra_message_success, extra_message_failure):
     """
     Send a chat report to a webhook showing success/failure
     of tasks in a Crossbow run.
     """
     output = obj['output']
 
-    report_chat = ChatReport(report=WorkflowReport(workflow_id, repository),
-                             extra_message_success=extra_message_success,
-                             extra_message_failure=extra_message_failure)
+    report_chat = ChatReport(
+        report=WorkflowReport(workflow_id, repository,
+                              ignore_job_id=ignore, gh_token=obj['github_token']),
+        extra_message_success=extra_message_success,
+        extra_message_failure=extra_message_failure
+    )
     if send:
         ReportUtils.send_message(webhook, report_chat.render("text"))
     else:

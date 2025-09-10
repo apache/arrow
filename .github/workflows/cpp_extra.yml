@@ -297,8 +297,11 @@ jobs:
       - name: Setup Archery
         run: python3 -m pip install -e dev/archery[crossbow]
       - name: Notify
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           archery arrowci report-chat \
+            --ignore ${{ github.job }} \
             --repository ${{ github.repository }} \
             --dry-run \
             --webhook ${{ secrets.ARROW_ZULIP_WEBHOOK }} \
