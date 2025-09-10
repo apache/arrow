@@ -471,14 +471,14 @@ inline bool BitReader::GetVlqInt(uint32_t* v) {
     data = buffer_ + (max_bytes_ - max_size);
   }
 
-  auto const read = bit_util::ParseLeadingLEB128(data, max_size, v);
-  if (ARROW_PREDICT_FALSE(read == 0)) {
+  const auto bytes_read = bit_util::ParseLeadingLEB128(data, max_size, v);
+  if (ARROW_PREDICT_FALSE(bytes_read == 0)) {
     // Corrupt LEB128
     return false;
   }
 
-  // Advance for the bytes we have read + the bit we skipped
-  return Advance((8 * read) + (bit_offset_ % 8));
+  // Advance for the bytes we have read + the bits we skipped
+  return Advance((8 * bytes_read) + (bit_offset_ % 8));
 }
 
 inline bool BitWriter::PutZigZagVlqInt(int32_t v) {

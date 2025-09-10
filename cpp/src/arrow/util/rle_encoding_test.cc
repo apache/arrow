@@ -26,7 +26,6 @@
 
 #include "arrow/array.h"
 #include "arrow/array/concatenate.h"
-#include "arrow/buffer.h"
 #include "arrow/scalar.h"
 #include "arrow/testing/random.h"
 #include "arrow/type.h"
@@ -35,8 +34,7 @@
 #include "arrow/util/io_util.h"
 #include "arrow/util/rle_encoding_internal.h"
 
-namespace arrow {
-namespace util {
+namespace arrow::util {
 
 const int MAX_WIDTH = 32;
 
@@ -212,7 +210,7 @@ TEST(BitUtil, RoundTripIntValues) {
 /// A Rle run is a simple class owning some data and a repetition count.
 /// It does not know how to read such data.
 TEST(Rle, RleRun) {
-  const std::array<RleRun::byte, 4> value = {21, 2, 0, 0};
+  const std::array<uint8_t, 4> value = {21, 2, 0, 0};
 
   RleRun::values_count_type value_count = 12;
 
@@ -253,7 +251,7 @@ TEST(Rle, RleRun) {
 /// A BitPacked run is a simple class owning some data and its size.
 /// It does not know how to read such data.
 TEST(BitPacked, BitPackedRun) {
-  const std::array<BitPackedRun::byte, 4> value = {0b10101010, 0, 0, 0b1111111};
+  const std::array<uint8_t, 4> value = {0b10101010, 0, 0, 0b1111111};
 
   /// 16 values of 1 bit for a total of 16 bits
   BitPackedRun::values_count_type value_count_1 = 16;
@@ -277,8 +275,7 @@ TEST(BitPacked, BitPackedRun) {
 }
 
 template <typename T>
-void TestRleDecoder(std::vector<RleRun::byte> bytes,
-                    RleRun::values_count_type value_count,
+void TestRleDecoder(std::vector<uint8_t> bytes, RleRun::values_count_type value_count,
                     RleRun::bit_size_type bit_width) {
   // Pre-requisite for this test
   EXPECT_GT(value_count, 6);
@@ -291,7 +288,7 @@ void TestRleDecoder(std::vector<RleRun::byte> bytes,
 
   auto const run = RleRun(bytes.data(), value_count, bit_width);
 
-  auto decoder = RleDecoder<T>(run);
+  auto decoder = RleRunDecoder<T>(run);
   std::vector<T> vals = {0, 0};
 
   EXPECT_EQ(decoder.Remaining(), value_count);
@@ -337,7 +334,7 @@ TEST(Rle, RleDecoder) {
 }
 
 template <typename T>
-void TestBitPackedDecoder(std::vector<RleRun::byte> bytes,
+void TestBitPackedDecoder(std::vector<uint8_t> bytes,
                           BitPackedRun::values_count_type value_count,
                           BitPackedRun::bit_size_type bit_width,
                           std::vector<T> expected) {
@@ -346,7 +343,7 @@ void TestBitPackedDecoder(std::vector<RleRun::byte> bytes,
 
   auto const run = BitPackedRun(bytes.data(), value_count, bit_width);
 
-  auto decoder = BitPackedDecoder<T>(run);
+  auto decoder = BitPackedRunDecoder<T>(run);
   std::vector<T> vals = {0, 0};
 
   EXPECT_EQ(decoder.Remaining(), value_count);
@@ -411,7 +408,7 @@ TEST(BitPacked, BitPackedDecoder) {
 }
 
 template <typename T>
-void TestRleBitPackedParser(std::vector<RleRun::byte> bytes,
+void TestRleBitPackedParser(std::vector<uint8_t> bytes,
                             RleBitPackedParser::bit_size_type bit_width,
                             std::vector<T> expected) {
   auto parser = RleBitPackedParser(
@@ -433,8 +430,8 @@ void TestRleBitPackedParser(std::vector<RleRun::byte> bytes,
 
   // Try to decode all data of all runs in the decoded vector
   decltype(expected) decoded = {};
-  auto rle_decoder = RleDecoder<T>();
-  auto bit_packed_decoder = BitPackedDecoder<T>();
+  auto rle_decoder = RleRunDecoder<T>();
+  auto bit_packed_decoder = BitPackedRunDecoder<T>();
   // Iterate over all runs
   while (auto run = parser.Next()) {
     EXPECT_TRUE(run.has_value());
@@ -1134,5 +1131,4 @@ TEST(RleBitPacked, GetBatchSpacedRoundtripUint64) {
   DoTestGetBatchSpacedRoundtrip<uint64_t>();
 }
 
-}  // namespace util
-}  // namespace arrow
+}  // namespace arrow::util
