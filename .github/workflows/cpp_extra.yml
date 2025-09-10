@@ -278,12 +278,17 @@ jobs:
           cmake --build cpp/examples/minimal_build.build
           cd cpp/examples/minimal_build
           ../minimal_build.build/arrow-example
-  report:
+  
+  report-extra-cpp:
     runs-on: ubuntu-latest
     needs:
       - docker
       - jni-macos
-    name: Report
+    # We don't have the job id as part of the context neither the job name.
+    # The GitHub API exposes numeric id or job name but not the github.job (report-extra-cpp).
+    # We match github.job to the name so we can pass it via context in order to be ignored on the report.
+    # The job is still running.
+    name: ${{ github.job }}
     if: always()
     steps:
       - name: Checkout Arrow
