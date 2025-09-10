@@ -44,21 +44,20 @@ install_headers(
     subdir: 'arrow/flight',
 )
 
-grpc_opts = []
-if cpp_compiler.get_id() == 'msvc'
-    grpc_opts += [
-        'openssl:asm=disabled',  # asm cannot compile on Windows
-        're2:default_library=static',  # re2 does not export symbols
-    ]
-endif
-
 # Due to the Meson bug in https://github.com/mesonbuild/meson/issues/14905
 # we need to special how the grpc_cpp_plugin resolution is handled
 # when found on the system versus when built as a subproject
 grpc_cpp_dep = dependency('grpc++', allow_fallback: false, required: false)
 has_system_grpc = grpc_cpp_dep.found()
 if not has_system_grpc
-    grpc_cpp_dep = dependency('grpc++')
+    grpc_opts = []
+    if cpp_compiler.get_id() == 'msvc'
+        grpc_opts += [
+            'openssl:asm=disabled',  # asm cannot compile on Windows
+            're2:default_library=static',  # re2 does not export symbols
+        ]
+    endif
+    grpc_cpp_dep = dependency('grpc++', default_options: grpc_opts)
 endif
 
 protobuf_dep = dependency('protobuf')
