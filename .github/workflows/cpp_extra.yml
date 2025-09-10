@@ -301,6 +301,5 @@ jobs:
           archery arrowci report-chat \
             --repository ${{ github.repository }} \
             --dry-run \
-            --no-fetch \
             --webhook ${{ secrets.ARROW_ZULIP_WEBHOOK }} \
             ${{ github.run_id }}
