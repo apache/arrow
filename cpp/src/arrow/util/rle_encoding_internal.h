@@ -280,7 +280,7 @@ class RleRunDecoder {
   values_count_type remaining_count_ = 0;
 
   static_assert(std::is_integral_v<value_type>,
-                "This class makes assumptions about integer endianness and padding");
+                "This class is meant to decode positive integers");
 };
 
 /// Decoder class for single run of bit-packed encoded data.
@@ -322,7 +322,7 @@ class BitPackedRunDecoder {
   values_count_type remaining_count_ = 0;
 
   static_assert(std::is_integral_v<value_type>,
-                "This class makes assumptions about integer endianness and padding");
+                "This class is meant to decode positive integers");
 };
 
 /// Decoder class for Parquet RLE bit-packed data.
@@ -714,26 +714,32 @@ class BatchCounter {
   size_type null_read_ = 0;
 };
 
-// The maximal unsigned size that a variable can fit.
+/// The maximal unsigned size that a variable can fit.
 template <typename T>
 constexpr auto max_size_for_v =
     static_cast<std::make_unsigned_t<T>>(std::numeric_limits<T>::max());
 
+template <typename Int>
+struct GetSpacedResult {
+  Int values_read;
+  Int null_read;
+};
+
 /// Overload for GetSpaced for a single run in a RleDecoder
 template <typename Converter, typename BitRunReader, typename BitRun,
           typename values_count_type, typename value_type>
-auto RunGetSpaced(Converter& converter, typename Converter::out_type* out,
+auto RunGetSpaced(Converter* converter, typename Converter::out_type* out,
                   values_count_type batch_size, values_count_type null_count,
-                  BitRunReader&& validity_reader, BitRun&& validity_run,
-                  RleRunDecoder<value_type>& decoder)
-    -> std::pair<values_count_type, values_count_type> {
+                  BitRunReader* validity_reader, BitRun* validity_run,
+                  RleRunDecoder<value_type>* decoder)
+    -> GetSpacedResult<values_count_type> {
   ARROW_DCHECK_GT(batch_size, 0);
   // The equality case is handled in the main loop in GetSpaced
   ARROW_DCHECK_LT(null_count, batch_size);
 
   auto batch = BatchCounter::FromBatchSizeAndNulls(batch_size, null_count);
 
-  values_count_type const values_available = decoder.Remaining();
+  values_count_type const values_available = decoder->Remaining();
   ARROW_DCHECK_GT(values_available, 0);
   auto values_remaining_run = [&]() {
     auto out = values_available - batch.ValuesRead();
@@ -746,40 +752,40 @@ auto RunGetSpaced(Converter& converter, typename Converter::out_type* out,
   // same value for nulls and non-nulls.
   // This proves to be a big efficiency win.
   while (values_remaining_run() > 0 && !batch.IsDone()) {
-    ARROW_DCHECK_GE(validity_run.length, 0);
-    ARROW_DCHECK_LT(validity_run.length, max_size_for_v<values_count_type>);
-    ARROW_DCHECK_LE(validity_run.length, batch.TotalRemaining());
-    auto const& validity_run_size = static_cast<values_count_type>(validity_run.length);
+    ARROW_DCHECK_GE(validity_run->length, 0);
+    ARROW_DCHECK_LT(validity_run->length, max_size_for_v<values_count_type>);
+    ARROW_DCHECK_LE(validity_run->length, batch.TotalRemaining());
+    auto const& validity_run_size = static_cast<values_count_type>(validity_run->length);
 
-    if (validity_run.set) {
+    if (validity_run->set) {
       // We may end the current RLE run in the middle of the validity run
       auto update_size = std::min(validity_run_size, values_remaining_run());
       batch.AccrueReadValues(update_size);
-      validity_run.length -= update_size;
+      validity_run->length -= update_size;
     } else {
       // We can consume all nulls here because it does not matter if we consume on this
       // RLE run, or an a next encoded run. The value filled does not matter.
       auto update_size = std::min(validity_run_size, batch.NullRemaining());
       batch.AccrueReadNulls(update_size);
-      validity_run.length -= update_size;
+      validity_run->length -= update_size;
     }
 
-    if (ARROW_PREDICT_TRUE(validity_run.length == 0)) {
-      validity_run = validity_reader.NextRun();
+    if (ARROW_PREDICT_TRUE(validity_run->length == 0)) {
+      *validity_run = validity_reader->NextRun();
     }
   }
 
-  value_type const value = decoder.Value();
-  if (ARROW_PREDICT_FALSE(!converter.InputIsValid(value))) {
+  value_type const value = decoder->Value();
+  if (ARROW_PREDICT_FALSE(!converter->InputIsValid(value))) {
     return {0, 0};
   }
-  converter.WriteRepeated(out, out + batch.TotalRead(), value);
-  auto const actual_values_read = decoder.Advance(batch.ValuesRead());
+  converter->WriteRepeated(out, out + batch.TotalRead(), value);
+  auto const actual_values_read = decoder->Advance(batch.ValuesRead());
   // We always cropped the number of values_read by the remaining values in the run.
   // What's more the RLE decoder should not encounter any errors.
   ARROW_DCHECK_EQ(actual_values_read, batch.ValuesRead());
 
-  return {batch.ValuesRead(), batch.NullRead()};
+  return {/* .values_read= */ batch.ValuesRead(), /* .null_read= */ batch.NullRead()};
 }
 
 template <typename T, typename... Ts>
@@ -794,18 +800,18 @@ static_assert(min(5, 41) == 5);
 
 template <typename Converter, typename BitRunReader, typename BitRun,
           typename values_count_type, typename value_type>
-auto RunGetSpaced(Converter& converter, typename Converter::out_type* out,
+auto RunGetSpaced(Converter* converter, typename Converter::out_type* out,
                   values_count_type batch_size, values_count_type null_count,
-                  BitRunReader&& validity_reader, BitRun&& validity_run,
-                  BitPackedRunDecoder<value_type>& decoder)
-    -> std::pair<values_count_type, values_count_type> {
+                  BitRunReader* validity_reader, BitRun* validity_run,
+                  BitPackedRunDecoder<value_type>* decoder)
+    -> GetSpacedResult<values_count_type> {
   ARROW_DCHECK_GT(batch_size, 0);
   // The equality case is handled in the main loop in GetSpaced
   ARROW_DCHECK_LT(null_count, batch_size);
 
   auto batch = BatchCounter::FromBatchSizeAndNulls(batch_size, null_count);
 
-  values_count_type const values_available = decoder.Remaining();
+  values_count_type const values_available = decoder->Remaining();
   ARROW_DCHECK_GT(values_available, 0);
   auto run_values_remaining = [&]() {
     auto out = values_available - batch.ValuesRead();
@@ -830,70 +836,70 @@ auto RunGetSpaced(Converter& converter, typename Converter::out_type* out,
 
     // buffer_start is 0 at this point so size is end
     buffer_end = min(run_values_remaining(), batch.ValuesRemaining(), kBufferCapacity);
-    buffer_end = decoder.GetBatch(buffer.data(), buffer_size());
+    buffer_end = decoder->GetBatch(buffer.data(), buffer_size());
     ARROW_DCHECK_LE(buffer_size(), kBufferCapacity);
 
-    if (ARROW_PREDICT_FALSE(!converter.InputIsValid(buffer.data(), buffer_size()))) {
+    if (ARROW_PREDICT_FALSE(!converter->InputIsValid(buffer.data(), buffer_size()))) {
       return {batch.ValuesRead(), batch.NullRead()};
     }
 
     // Copy chunks of valid values into the output, while adjusting spacing for null
     // values.
     while (buffer_size() > 0) {
-      ARROW_DCHECK_GE(validity_run.length, 0);
-      ARROW_DCHECK_LT(validity_run.length, max_size_for_v<values_count_type>);
-      ARROW_DCHECK_LE(validity_run.length, batch.TotalRemaining());
+      ARROW_DCHECK_GE(validity_run->length, 0);
+      ARROW_DCHECK_LT(validity_run->length, max_size_for_v<values_count_type>);
+      ARROW_DCHECK_LE(validity_run->length, batch.TotalRemaining());
       auto const validity_run_length =
-          static_cast<values_count_type>(validity_run.length);
+          static_cast<values_count_type>(validity_run->length);
 
       // Copy as much as possible from the buffer into the output while not exceeding
       // validity run
-      if (validity_run.set) {
+      if (validity_run->set) {
         auto const update_size = std::min(validity_run_length, buffer_size());
-        converter.WriteRange(out, buffer.data() + buffer_start, update_size);
+        converter->WriteRange(out, buffer.data() + buffer_start, update_size);
         buffer_start += update_size;
         batch.AccrueReadValues(update_size);
         out += update_size;
-        validity_run.length -= update_size;
+        validity_run->length -= update_size;
         // Simply write zeros in the output
       } else {
         auto const update_size = std::min(validity_run_length, batch.NullRemaining());
-        converter.WriteZero(out, out + update_size);
+        converter->WriteZero(out, out + update_size);
         batch.AccrueReadNulls(update_size);
         out += update_size;
-        validity_run.length -= update_size;
+        validity_run->length -= update_size;
       }
 
-      if (validity_run.length == 0) {
-        validity_run = validity_reader.NextRun();
+      if (validity_run->length == 0) {
+        *validity_run = validity_reader->NextRun();
       }
     }
 
     ARROW_DCHECK_EQ(buffer_size(), 0);
   }
 
-  ARROW_DCHECK_EQ(values_available - decoder.Remaining(), batch.ValuesRead());
+  ARROW_DCHECK_EQ(values_available - decoder->Remaining(), batch.ValuesRead());
   ARROW_DCHECK_LE(batch.TotalRead(), batch_size);
   ARROW_DCHECK_LE(batch.NullRead(), batch.NullCount());
 
-  return {batch.ValuesRead(), batch.NullRead()};
+  return {/* .values_read= */ batch.ValuesRead(), /* .null_read= */ batch.NullRead()};
 }
 
 /// Overload for GetSpaced for a single run in a decoder variant
 template <typename Converter, typename BitRunReader, typename BitRun,
           typename values_count_type, typename value_type>
 auto RunGetSpaced(
-    Converter& converter, typename Converter::out_type* out, values_count_type batch_size,
-    values_count_type null_count, BitRunReader&& validity_reader, BitRun&& validity_run,
-    std::variant<RleRunDecoder<value_type>, BitPackedRunDecoder<value_type>>& decoder)
-    -> std::pair<values_count_type, values_count_type> {
+    Converter* converter, typename Converter::out_type* out, values_count_type batch_size,
+    values_count_type null_count, BitRunReader* validity_reader, BitRun* validity_run,
+    std::variant<RleRunDecoder<value_type>, BitPackedRunDecoder<value_type>>* decoder)
+    -> GetSpacedResult<values_count_type> {
   return std::visit(
       [&](auto& dec) {
         ARROW_DCHECK_GT(dec.Remaining(), 0);
         return RunGetSpaced(converter, out, batch_size, null_count, validity_reader,
-                            validity_run, dec);
+                            validity_run, &dec);
       },
-      decoder);
+      *decoder);
 }
 
 }  // namespace internal
@@ -935,13 +941,13 @@ auto RleBitPackedDecoder<T>::GetSpaced(Converter converter,
 
   // Remaining from a previous call that would have left some unread data from a run.
   if (ARROW_PREDICT_FALSE(RunRemaining() > 0)) {
-    auto const [values_read, null_read] =
-        RunGetSpaced(converter, out, batch.TotalRemaining(), batch.NullRemaining(),
-                     validity_reader, validity_run, decoder_);
+    const auto read = internal::RunGetSpaced(&converter, out, batch.TotalRemaining(),
+                                             batch.NullRemaining(), &validity_reader,
+                                             &validity_run, &decoder_);
 
-    batch.AccrueReadNulls(null_read);
-    batch.AccrueReadValues(values_read);
-    out += values_read + null_read;
+    batch.AccrueReadNulls(read.null_read);
+    batch.AccrueReadValues(read.values_read);
+    out += read.values_read + read.null_read;
 
     // Either we fulfilled all the batch values to be read
     if (ARROW_PREDICT_FALSE(batch.ValuesRemaining() == 0)) {
@@ -959,16 +965,16 @@ auto RleBitPackedDecoder<T>::GetSpaced(Converter converter,
 
     RunDecoder decoder(run);
 
-    const auto [values_read, null_read] = internal::RunGetSpaced(
-        converter, out, batch.TotalRemaining(), batch.NullRemaining(), validity_reader,
-        validity_run, decoder);
+    const auto read = internal::RunGetSpaced(&converter, out, batch.TotalRemaining(),
+                                             batch.NullRemaining(), &validity_reader,
+                                             &validity_run, &decoder);
 
-    batch.AccrueReadNulls(null_read);
-    batch.AccrueReadValues(values_read);
-    out += values_read + null_read;
+    batch.AccrueReadNulls(read.null_read);
+    batch.AccrueReadValues(read.values_read);
+    out += read.values_read + read.null_read;
 
     // Stop reading and store remaining decoder
-    if (ARROW_PREDICT_FALSE(values_read == 0 || batch.ValuesRemaining() == 0)) {
+    if (ARROW_PREDICT_FALSE(read.values_read == 0 || batch.ValuesRemaining() == 0)) {
       decoder_ = std::move(decoder);
       return ControlFlow::Break;
     }
@@ -1125,13 +1131,13 @@ auto RleBitPackedDecoder<T>::GetBatchWithDict(const V* dictionary,
   };
 
   if (ARROW_PREDICT_FALSE(RunRemaining() > 0)) {
-    auto const [run_values_read, run_null_read] =
-        RunGetSpaced(converter, out, batch_size, /* null_count= */ 0, validity_reader,
-                     validity_run, decoder_);
+    auto const read =
+        internal::RunGetSpaced(&converter, out, batch_size, /* null_count= */ 0,
+                               &validity_reader, &validity_run, &decoder_);
 
-    ARROW_DCHECK_EQ(run_null_read, 0);
-    values_read += run_values_read;
-    out += run_values_read;
+    ARROW_DCHECK_EQ(read.null_read, 0);
+    values_read += read.values_read;
+    out += read.values_read;
 
     // Either we fulfilled all the batch values to be read
     if (ARROW_PREDICT_FALSE(values_read >= batch_size)) {
@@ -1148,16 +1154,16 @@ auto RleBitPackedDecoder<T>::GetBatchWithDict(const V* dictionary,
 
     RunDecoder decoder(run);
 
-    auto const [run_values_read, run_null_read] = internal::RunGetSpaced(
-        converter, out, batch_values_remaining(), /* null_count= */ 0, validity_reader,
-        validity_run, decoder);
+    auto const read = internal::RunGetSpaced(&converter, out, batch_values_remaining(),
+                                             /* null_count= */ 0, &validity_reader,
+                                             &validity_run, &decoder);
 
-    ARROW_DCHECK_EQ(run_null_read, 0);
-    values_read += run_values_read;
-    out += run_values_read;
+    ARROW_DCHECK_EQ(read.null_read, 0);
+    values_read += read.values_read;
+    out += read.values_read;
 
     // Stop reading and store remaining decoder
-    if (ARROW_PREDICT_FALSE(run_values_read == 0 || values_read == batch_size)) {
+    if (ARROW_PREDICT_FALSE(read.values_read == 0 || values_read == batch_size)) {
       decoder_ = std::move(decoder);
       return ControlFlow::Break;
     }
