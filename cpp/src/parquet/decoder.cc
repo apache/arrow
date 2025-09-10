@@ -2062,6 +2062,17 @@ class DeltaByteArrayDecoderImpl : public TypedDecoderImpl<DType> {
     if (num_valid_values_ == 0) {
       last_value_in_previous_page_ = last_value_;
     }
+
+    if constexpr (std::is_same_v<DType, FLBAType>) {
+      // Checks all values
+      for (int i = 0; i < max_values; i++) {
+        if (buffer[i].len != static_cast<uint32_t>(this->type_length_)) {
+          throw ParquetException("FLBA type requires fixed-length ", this->type_length_,
+                                 " but got ", buffer[i].len);
+        }
+      }
+    }
+
     return max_values;
   }
 
