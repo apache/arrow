@@ -301,7 +301,7 @@ TEST(BackpressureConcurrentQueue, BackpressureTest) {
   ASSERT_FALSE(dummy_node.paused);
 }
 
-TEST(BackpressureConcurrentQueue, BackpressureTestStayPaused) {
+TEST(BackpressureConcurrentQueue, BackpressureTestStayUnpaused) {
   BackpressureTestExecNode dummy_node;
   auto ctrl = std::make_unique<TestBackpressureControl>(&dummy_node);
   ASSERT_OK_AND_ASSIGN(auto handler, BackpressureHandler::Make(2, 4, std::move(ctrl)));
