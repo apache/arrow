@@ -4106,6 +4106,7 @@ class TestRandomQuantileKernel : public TestPrimitiveQuantileKernel<ArrowType> {
     VerifyTDigest(chunked, quantiles);
     VerifyTDigestMapQuantile(chunked, quantiles);
     VerifyTDigestMapReduceQuantile(chunked, quantiles);
+    VerifyTDigestMapReduceIncrementalQuantile(chunked, quantiles);
   }
 
   void CheckTDigestsSliced(const std::vector<int>& chunk_sizes, int64_t num_quantiles) {
@@ -4124,6 +4125,7 @@ class TestRandomQuantileKernel : public TestPrimitiveQuantileKernel<ArrowType> {
       VerifyTDigest(chunked->Slice(os[0], os[1]), quantiles);
       VerifyTDigestMapQuantile(chunked->Slice(os[0], os[1]), quantiles);
       VerifyTDigestMapReduceQuantile(chunked->Slice(os[0], os[1]), quantiles);
+      VerifyTDigestMapReduceIncrementalQuantile(chunked->Slice(os[0], os[1]), quantiles);
     }
   }
 
@@ -4193,8 +4195,51 @@ class TestRandomQuantileKernel : public TestPrimitiveQuantileKernel<ArrowType> {
       map_chunks.push_back(std::move(map_chunk));
     }
     auto map_chunked = std::make_shared<ChunkedArray>(std::move(map_chunks));
+    ASSERT_OK_AND_ASSIGN(Datum reduced, TDigestReduce(map_chunked));
     TDigestQuantileOptions options(quantiles);
-    ASSERT_OK_AND_ASSIGN(Datum out, TDigestQuantile(map_chunked, options));
+
+    ASSERT_OK_AND_ASSIGN(Datum out_alternative, TDigestQuantile(map_chunked, options));
+    ASSERT_OK_AND_ASSIGN(Datum out, TDigestQuantile(reduced, options));
+    ASSERT_EQ(out, out_alternative);
+    const auto& out_array = out.make_array();
+    ValidateOutput(*out_array);
+    ASSERT_EQ(out_array->length(), quantiles.size());
+    ASSERT_EQ(out_array->null_count(), 0);
+    AssertTypeEqual(out_array->type(), float64());
+
+    // linear interpolated exact quantile as reference
+    std::vector<std::vector<Datum>> exact =
+        NaiveQuantile(*chunked, quantiles, {QuantileOptions::LINEAR});
+    const double* approx = out_array->data()->GetValues<double>(1);
+    for (size_t i = 0; i < quantiles.size(); ++i) {
+      const auto& exact_scalar = checked_pointer_cast<DoubleScalar>(exact[i][0].scalar());
+      const double tolerance = std::fabs(exact_scalar->value) * 0.05;
+      EXPECT_NEAR(approx[i], exact_scalar->value, tolerance) << quantiles[i];
+    }
+  }
+
+  void VerifyTDigestMapReduceIncrementalQuantile(
+      const std::shared_ptr<ChunkedArray>& chunked, std::vector<double>& quantiles) {
+    Datum out;
+    TDigestQuantileOptions options(quantiles);
+    std::shared_ptr<Array> incremental_centroids;
+    for (const auto& chunk : chunked->chunks()) {
+      ASSERT_OK_AND_ASSIGN(Datum centroids, TDigestMap(chunk));
+      ASSERT_OK_AND_ASSIGN(auto map_chunk, MakeArrayFromScalar(*centroids.scalar(), 1));
+      if (incremental_centroids) {
+        auto map_chunked =
+            std::make_shared<ChunkedArray>(ArrayVector{incremental_centroids, map_chunk});
+        ASSERT_OK_AND_ASSIGN(Datum reduced, TDigestReduce(map_chunked));
+        ASSERT_OK_AND_ASSIGN(incremental_centroids,
+                             MakeArrayFromScalar(*reduced.scalar(), 1));
+      } else {
+        incremental_centroids = map_chunk;
+      }
+
+      ASSERT_OK_AND_ASSIGN(
+          out, TDigestQuantile(incremental_centroids, options));  // incremental quantile
+    }
+
     const auto& out_array = out.make_array();
     ValidateOutput(*out_array);
     ASSERT_EQ(out_array->length(), quantiles.size());
