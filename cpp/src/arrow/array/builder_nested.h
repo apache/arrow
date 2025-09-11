@@ -814,13 +814,10 @@ class ARROW_EXPORT StructBuilder : public ArrayBuilder {
   /// builders to maintain a consistent state.
   /// param length The number of null slots to append.
   Status UnsafeAppendNulls(int64_t length) {
-    for (int64_t i = 0; i < length; ++i) {
-      UnsafeAppend(false);
-    }
-
     for (const auto& child : children_) {
       ARROW_RETURN_NOT_OK(child->AppendEmptyValues(length));
     }
+    UnsafeAppendToBitmap(length, false);
     return Status::OK();
   }
 
