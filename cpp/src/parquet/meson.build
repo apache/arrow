@@ -57,32 +57,36 @@ parquet_srcs = files(
     'xxhasher.cc',
 )
 
-cmake = import('cmake')
-thrift_opts = cmake.subproject_options()
-thrift_opts.add_cmake_defines(
-    {
-        'BUILD_COMPILER': 'OFF',
-        'BUILD_EXAMPLES': 'OFF',
-        'BUILD_TUTORIALS': 'OFF',
-        'CMAKE_UNITY_BUILD': 'OFF',
-        'WITH_AS3': 'OFF',
-        'WITH_CPP': 'ON',
-        'WITH_C_GLIB': 'OFF',
-        'WITH_JAVA': 'OFF',
-        'WITH_JAVASCRIPT': 'OFF',
-        'WITH_LIBEVENT': 'OFF',
-        'WITH_NODEJS': 'OFF',
-        'WITH_PYTHON': 'OFF',
-        'WITH_QT5': 'OFF',
-        'WITH_ZLIB': 'OFF',
-        'CMAKE_POSITION_INDEPENDENT_CODE': 'ON',
-        'CMAKE_POLICY_VERSION_MINIMUM': '3.5',
-        # dummy value to avoid https://github.com/mesonbuild/meson/issues/13390
-        'THRIFT_COMPILER': 'foo',
-    },
-)
-thrift_proj = cmake.subproject('thrift', options: thrift_opts)
-thrift_dep = thrift_proj.dependency('thrift')
+thrift_dep = dependency('thrift', allow_fallback: false, required: false)
+if not thrift_dep.found()
+    cmake = import('cmake')
+    thrift_opts = cmake.subproject_options()
+    thrift_opts.add_cmake_defines(
+        {
+            'BUILD_COMPILER': 'OFF',
+            'BUILD_EXAMPLES': 'OFF',
+            'BUILD_TUTORIALS': 'OFF',
+            'CMAKE_UNITY_BUILD': 'OFF',
+            'WITH_AS3': 'OFF',
+            'WITH_CPP': 'ON',
+            'WITH_C_GLIB': 'OFF',
+            'WITH_JAVA': 'OFF',
+            'WITH_JAVASCRIPT': 'OFF',
+            'WITH_LIBEVENT': 'OFF',
+            'WITH_NODEJS': 'OFF',
+            'WITH_PYTHON': 'OFF',
+            'WITH_QT5': 'OFF',
+            'WITH_ZLIB': 'OFF',
+            'CMAKE_POSITION_INDEPENDENT_CODE': 'ON',
+            'CMAKE_POLICY_VERSION_MINIMUM': '3.5',
+            # dummy value to avoid https://github.com/mesonbuild/meson/issues/13390
+            'THRIFT_COMPILER': 'foo',
+        },
+    )
+    thrift_proj = cmake.subproject('thrift', options: thrift_opts)
+    thrift_dep = thrift_proj.dependency('thrift')
+endif
+
 parquet_deps = [arrow_dep, rapidjson_dep, thrift_dep]
 
 if needs_parquet_encryption or get_option('parquet_require_encryption') == 'auto'
@@ -117,7 +121,7 @@ parquet_lib = library(
     sources: parquet_srcs,
     dependencies: parquet_deps,
     # TODO: enable hidden visibility by default
-    #gnu_symbol_visibility: 'hidden',
+    #gnu_symbol_visibility: 'inlineshidden',
 )
 
 parquet_dep = declare_dependency(link_with: parquet_lib)
@@ -132,8 +136,6 @@ install_headers(
         'benchmark_util.h',
         'bloom_filter.h',
         'bloom_filter_reader.h',
-        'chunker_internal_generated.h',
-        'chunker_internal.h',
         'column_page.h',
         'column_reader.h',
         'column_scanner.h',
@@ -153,13 +155,11 @@ install_headers(
         'printer.h',
         'properties.h',
         'schema.h',
-        'schema_internal.h',
         'size_statistics.h',
         'statistics.h',
         'stream_reader.h',
         'stream_writer.h',
         'test_util.h',
-        'thrift_internal.h',
         'type_fwd.h',
         'types.h',
         'windows_compatibility.h',
