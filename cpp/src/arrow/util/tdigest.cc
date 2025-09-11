@@ -234,7 +234,9 @@ class TDigest::TDigestImpl {
 
   // merge input data with current tdigest
   void MergeInput(std::vector<std::pair<double, double>>& input) {
-    total_weight_ += input.size();
+    for (const auto& i : input) {
+      total_weight_ += i.second;
+    }
 
     std::sort(input.begin(), input.end(),
               [](const std::pair<double, double>& lhs,
@@ -341,6 +343,10 @@ class TDigest::TDigestImpl {
     }
     return total_weight_ == 0 ? NAN : sum / total_weight_;
   }
+  void SetMinMax(double min, double max) {
+    min_ = std::min(min_, min);
+    max_ = std::max(max_, max);
+  }
 
   double total_weight() const { return total_weight_; }
 
@@ -412,6 +418,8 @@ std::optional<std::pair<double, double>> TDigest::GetCentroid(size_t i) const {
   MergeInput();
   return impl_->GetCentroid(i);
 }
+
+void TDigest::SetMinMax(double min, double max) { impl_->SetMinMax(min, max); }
 
 double TDigest::Mean() const {
   MergeInput();

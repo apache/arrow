@@ -107,6 +107,7 @@ class ARROW_EXPORT TDigest {
   double Quantile(double q) const;
   std::optional<std::pair<double, double>> GetCentroid(size_t i) const;
 
+  void SetMinMax(double min, double max);
   double Min() const { return Quantile(0); }
   double Max() const { return Quantile(1); }
   double Mean() const;
