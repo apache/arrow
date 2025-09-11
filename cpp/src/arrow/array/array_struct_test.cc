@@ -751,7 +751,7 @@ TEST(TestFieldRef, GetChildren) {
 TEST(TestStructBuilderUnsafe, UnsafeAppend) {
   auto int_type = int32();
   auto str_type = utf8();
-  auto struct_type = struct_({field("a", int_type), field("b", str_type)});
+  auto struct_type = struct_({field("int", int_type), field("str", str_type)});
   auto pool = default_memory_pool();
   std::shared_ptr<Array> final_array;
   auto int_builder = std::make_shared<Int32Builder>(pool);
@@ -768,13 +768,13 @@ TEST(TestStructBuilderUnsafe, UnsafeAppend) {
   ASSERT_OK(int_builder->Append(2));
   ASSERT_OK(str_builder->Append("arrow"));
 
-  ASSERT_OK(builder.Finish(&final_array));
+  ASSERT_OK_AND_ASSIGN(auto final_array, builder.Finish());
   ASSERT_EQ(2, final_array->length());
   ASSERT_EQ(0, final_array->null_count());
-  auto expected_json = R"([{"a": 1, "b": "hello"}, {"a": 2, "b": "arrow"}])";
 
+  auto expected_json = R"([{"a": 1, "b": "hello"}, {"a": 2, "b": "arrow"}])";
   auto expected_array = ArrayFromJSON(struct_type, expected_json);
-  AssertArraysEqual(*final_array, *expected_array);
+  AssertArraysEqual(*expected_array, *final_array);
 }
 
 TEST(TestStructBuilderUnsafe, UnsafeAppendNull) {
