@@ -680,7 +680,6 @@ endforeach
 if needs_benchmarks
     benchmark_main_dep = dependency(
         'benchmark_main',
-        fallback: ['google-benchmark', 'google_benchmark_main_dep'],
         default_options: {'tests': 'disabled'},
     )
 
