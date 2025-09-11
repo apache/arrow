@@ -4222,18 +4222,18 @@ class TestRandomQuantileKernel : public TestPrimitiveQuantileKernel<ArrowType> {
       const std::shared_ptr<ChunkedArray>& chunked, std::vector<double>& quantiles) {
     Datum out;
     TDigestQuantileOptions options(quantiles);
-    std::shared_ptr<Array> incremental_centroids;
+    std::shared_ptr<Scalar> incremental_centroids;
     for (const auto& chunk : chunked->chunks()) {
       ASSERT_OK_AND_ASSIGN(Datum centroids, TDigestMap(chunk));
-      ASSERT_OK_AND_ASSIGN(auto map_chunk, MakeArrayFromScalar(*centroids.scalar(), 1));
       if (incremental_centroids) {
-        auto map_chunked =
-            std::make_shared<ChunkedArray>(ArrayVector{incremental_centroids, map_chunk});
+        // Is there a nicer way to make array from scalars?
+        ASSERT_OK_AND_ASSIGN(auto chunk1, MakeArrayFromScalar(*centroids.scalar(), 1));
+        ASSERT_OK_AND_ASSIGN(auto chunk2, MakeArrayFromScalar(*incremental_centroids, 1));
+        auto map_chunked = std::make_shared<ChunkedArray>(ArrayVector{chunk1, chunk2});
         ASSERT_OK_AND_ASSIGN(Datum reduced, TDigestReduce(map_chunked));
-        ASSERT_OK_AND_ASSIGN(incremental_centroids,
-                             MakeArrayFromScalar(*reduced.scalar(), 1));
+        incremental_centroids = reduced.scalar();
       } else {
-        incremental_centroids = map_chunk;
+        incremental_centroids = centroids.scalar();
       }
 
       ASSERT_OK_AND_ASSIGN(
