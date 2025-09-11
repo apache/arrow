@@ -91,7 +91,7 @@ if [ -z "${PYTHON}" ] && ! which python > /dev/null 2>&1; then
 fi
 if [ "${ARROW_USE_MESON:-OFF}" = "ON" ]; then
   ARROW_BUILD_EXAMPLES=OFF # TODO: Remove this
-  meson test \
+  meson test arrow-cuda-test --verbose \
     --no-rebuild \
     --print-errorlogs \
     --suite arrow \
