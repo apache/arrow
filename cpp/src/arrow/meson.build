@@ -547,11 +547,7 @@ foreach key, val : arrow_components
     arrow_deps += val.get('dependencies', [])
 endforeach
 
-arrow_lib_c_shared_args = ['-DARROW_EXPORTING']
-if cpp_compiler.get_id() == 'msvc'
-    arrow_lib_c_shared_args += ['-DURI_LIBRARY_BUILD']
-endif
-arrow_lib_cpp_shared_args = ['-DARROW_EXPORTING', '-DURI_LIBRARY_BUILD']
+arrow_lib_cpp_shared_args = ['-DARROW_EXPORTING']
 if needs_compute
     arrow_lib_cpp_shared_args += ['-DARROW_COMPUTE_EXPORTING']
 endif
@@ -563,8 +559,9 @@ arrow_lib = library(
     dependencies: arrow_deps,
     install: true,
     gnu_symbol_visibility: 'inlineshidden',
-    c_shared_args: arrow_lib_c_shared_args,
-    c_static_args: ['-DURI_STATIC_BUILD'],
+    c_args: ['-DURI_STATIC_BUILD'],
+    c_shared_args: ['-DARROW_EXPORTING'],
+    cpp_args: ['-DURI_STATIC_BUILD'],
     cpp_shared_args: arrow_lib_cpp_shared_args,
     cpp_static_args: ['-DARROW_STATIC'],
 )
