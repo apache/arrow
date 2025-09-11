@@ -12,17 +12,20 @@ knitr::opts_chunk$set(error = TRUE, eval = FALSE)
 
 The Arrow R package uses several additional development tools:
 
+* [`air`](https://posit-dev.github.io/air/) for code styling
 * [`lintr`](https://github.com/r-lib/lintr) for code analysis
-* [`styler`](https://styler.r-lib.org) for code styling
 * [`pkgdown`](https://pkgdown.r-lib.org) for building the website
 * [`roxygen2`](https://roxygen2.r-lib.org) for documenting the package
   - the R documentation uses the [`@examplesIf`](https://roxygen2.r-lib.org/articles/rd.html#functions) tag introduced in `roxygen2` version 7.1.2
 
-You can install all these additional dependencies by running:
+Instructions for installing `air` can be found at <https://posit-dev.github.io/air/cli.html>.
+
+You can install all the other additional dependencies by running:
 
 ```r
-install.packages(c("lintr", "styler", "pkgdown", "roxygen2"))
+install.packages(c("lintr", "pkgdown", "roxygen2"))
 ```
+
 
 
 The `arrow/r` directory contains a `Makefile` to help with some common tasks from the command line (e.g. `make test`, `make doc`, `make clean`, etc.).
@@ -63,15 +66,22 @@ See also the following subsections our styling and lint details for R and C++ co
 
 The R code in the package follows [the tidyverse style](https://style.tidyverse.org/). On PR submission (and on pushes) our CI will run linting and will flag possible errors on the pull request with annotations.
 
-You can automatically change the formatting of the code in the package using the [styler](https://styler.r-lib.org/) package.
+You can automatically change the formatting of the code in the package using the [air](https://posit-dev.github.io/air/cli.html) formatter.
 
-The styler package will fix many styling errors, thought not all lintr errors are automatically fixable with styler. The list of files we intentionally do not style is in `r/.styler_excludes.R`.
+The `air` formatter will fix many styling errors, thought not all lintr errors are automatically fixable with `air`. The list of files we intentionally do not style is in the `exclude` field in `r/air.toml`.
 
-Linting and styling with [pre-commit](https://pre-commit.com/) as described above is the best way to ensure your changes are being checked properly but you can also run the tools individually if you prefer:
+Linting and styling with [pre-commit](https://pre-commit.com/) as described above is the best way to ensure your changes are being checked properly but you can also run the tools individually if you prefer, from the `arrow/r` directory of the repository.
+
+From the command line, run `air`:
+
+```
+air format
+```
+
+In R, run `lintr`: 
 
 ```r
-lintr::lint_package() # for linting
-styler::style_pkg() # for styling
+lintr::lint_package()
 ```
 
 Note: To run lintr, we require the `cyclocomp` package to be installed first.
