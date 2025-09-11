@@ -332,49 +332,6 @@ setup_tempdir() {
   echo "Working in sandbox ${ARROW_TMPDIR}"
 }
 
-install_csharp() {
-  # Install C# if doesn't already exist
-  if [ "${CSHARP_ALREADY_INSTALLED:-0}" -gt 0 ]; then
-    show_info "C# already installed $(which csharp) (.NET $(dotnet --version))"
-    return 0
-  fi
-
-  show_info "Ensuring that C# is installed..."
-
-  if dotnet --version | grep 8\.0 > /dev/null 2>&1; then
-    local csharp_bin=$(dirname $(which dotnet))
-    show_info "Found C# at $(which csharp) (.NET $(dotnet --version))"
-  else
-    if which dotnet > /dev/null 2>&1; then
-      show_info "dotnet found but it is the wrong version and will be ignored."
-    fi
-    local csharp_bin=${ARROW_TMPDIR}/csharp/bin
-    local dotnet_version=8.0.204
-    local dotnet_platform=
-    case "$(uname)" in
-      Linux)
-        dotnet_platform=linux
-        ;;
-      Darwin)
-        dotnet_platform=macos
-        ;;
-    esac
-    local dotnet_download_thank_you_url=https://dotnet.microsoft.com/download/thank-you/dotnet-sdk-${dotnet_version}-${dotnet_platform}-x64-binaries
-    local dotnet_download_url=$( \
-      curl -sL ${dotnet_download_thank_you_url} | \
-        grep 'directLink' | \
-        grep -E -o 'https://builds.dotnet[^"]+' | \
-        sed -n 2p)
-    mkdir -p ${csharp_bin}
-    curl -sL ${dotnet_download_url} | \
-      tar xzf - -C ${csharp_bin}
-    PATH=${csharp_bin}:${PATH}
-    show_info "Installed C# at $(which csharp) (.NET $(dotnet --version))"
-  fi
-
-  CSHARP_ALREADY_INSTALLED=1
-}
-
 install_conda() {
   # Setup short-lived miniconda for Python and integration tests
   show_info "Ensuring that Conda is installed..."
@@ -723,26 +680,6 @@ test_ruby() {
   popd
 }
 
-test_csharp() {
-  show_header "Build and test C# libraries"
-
-  install_csharp
-
-  pushd csharp
-
-  dotnet test
-
-  if [ "${SOURCE_KIND}" = "local" -o "${SOURCE_KIND}" = "git" ]; then
-    dotnet pack -c Release
-  else
-    mv dummy.git ../.git
-    dotnet pack -c Release
-    mv ../.git dummy.git
-  fi
-
-  popd
-}
-
 # Run integration tests
 test_integration() {
   show_header "Build and execute integration tests"
@@ -872,9 +809,6 @@ test_source_distribution() {
     popd
   fi
 
-  if [ ${TEST_CSHARP} -gt 0 ]; then
-    test_csharp
-  fi
   if [ ${BUILD_CPP} -gt 0 ]; then
     test_and_install_cpp
   fi
@@ -1062,7 +996,6 @@ test_wheels() {
 # Source verification tasks
 : ${TEST_SOURCE_REPRODUCIBLE:=0}
 : ${TEST_CPP:=${TEST_SOURCE}}
-: ${TEST_CSHARP:=${TEST_SOURCE}}
 : ${TEST_GLIB:=${TEST_SOURCE}}
 : ${TEST_RUBY:=${TEST_SOURCE}}
 : ${TEST_PYTHON:=${TEST_SOURCE}}
