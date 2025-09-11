@@ -290,9 +290,9 @@ struct PreexistingData {
 
  public:
   const std::string container_name;
-  static constexpr char const* kObjectName = "test-object-name";
+  static constexpr const char* kObjectName = "test-object-name";
 
-  static constexpr char const* kLoremIpsum = R"""(
+  static constexpr const char* kLoremIpsum = R"""(
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor
 incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis
 nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
@@ -323,7 +323,7 @@ culpa qui officia deserunt mollit anim id est laborum.
   static std::string RandomContainerName(RNG& rng) { return RandomChars(32, rng); }
 
   static std::string RandomChars(int count, RNG& rng) {
-    auto const fillers = std::string("abcdefghijlkmnopqrstuvwxyz0123456789");
+    const auto fillers = std::string("abcdefghijlkmnopqrstuvwxyz0123456789");
     std::uniform_int_distribution<int> d(0, static_cast<int>(fillers.size()) - 1);
     std::string s;
     std::generate_n(std::back_inserter(s), count, [&] { return fillers[d(rng)]; });
@@ -987,7 +987,7 @@ class TestAzureFileSystem : public ::testing::Test {
   void UploadLines(const std::vector<std::string>& lines, const std::string& path,
                    int total_size) {
     ASSERT_OK_AND_ASSIGN(auto output, fs()->OpenOutputStream(path, {}));
-    for (auto const& line : lines) {
+    for (const auto& line : lines) {
       ASSERT_OK(output->Write(line.data(), line.size()));
     }
     ASSERT_OK(output->Close());
@@ -1041,9 +1041,9 @@ class TestAzureFileSystem : public ::testing::Test {
     };
   }
 
-  char const* kSubData = "sub data";
-  char const* kSomeData = "some data";
-  char const* kOtherData = "other data";
+  const char* kSubData = "sub data";
+  const char* kSomeData = "some data";
+  const char* kOtherData = "other data";
 
   void SetUpSmallFileSystemTree() {
     // Set up test containers
@@ -3126,8 +3126,8 @@ TEST_F(TestAzuriteFileSystem, OpenInputFileMixedReadVsReadAt) {
     }
 
     // Verify random reads interleave too.
-    auto const index = PreexistingData::RandomIndex(kLineCount, rng_);
-    auto const position = index * kLineWidth;
+    const auto index = PreexistingData::RandomIndex(kLineCount, rng_);
+    const auto position = index * kLineWidth;
     ASSERT_OK_AND_ASSIGN(size, file->ReadAt(position, buffer.size(), buffer.data()));
     EXPECT_EQ(size, kLineWidth);
     auto actual = std::string{buffer.begin(), buffer.end()};
@@ -3160,8 +3160,8 @@ TEST_F(TestAzuriteFileSystem, OpenInputFileRandomSeek) {
   for (int i = 0; i != 32; ++i) {
     SCOPED_TRACE("Iteration " + std::to_string(i));
     // Verify sequential reads work as expected.
-    auto const index = PreexistingData::RandomIndex(kLineCount, rng_);
-    auto const position = index * kLineWidth;
+    const auto index = PreexistingData::RandomIndex(kLineCount, rng_);
+    const auto position = index * kLineWidth;
     ASSERT_OK(file->Seek(position));
     ASSERT_OK_AND_ASSIGN(auto actual, file->Read(kLineWidth));
     EXPECT_EQ(lines[index], actual->ToString());
@@ -3197,7 +3197,7 @@ TEST_F(TestAzuriteFileSystem, OpenInputFileInfo) {
   auto constexpr kStart = 16;
   ASSERT_OK_AND_ASSIGN(size, file->ReadAt(kStart, buffer.size(), buffer.data()));
 
-  auto const expected = std::string(PreexistingData::kLoremIpsum).substr(kStart);
+  const auto expected = std::string(PreexistingData::kLoremIpsum).substr(kStart);
   EXPECT_EQ(std::string(buffer.data(), size), expected);
 }
 

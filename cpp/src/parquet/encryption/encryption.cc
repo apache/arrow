@@ -292,7 +292,7 @@ FileEncryptionProperties::FileEncryptionProperties(
 
   uint8_t aad_file_unique[kAadFileUniqueLength];
   encryption::RandBytes(aad_file_unique, kAadFileUniqueLength);
-  std::string aad_file_unique_str(reinterpret_cast<char const*>(aad_file_unique),
+  std::string aad_file_unique_str(reinterpret_cast<const char*>(aad_file_unique),
                                   kAadFileUniqueLength);
 
   bool supply_aad_prefix = false;

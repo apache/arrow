@@ -271,7 +271,7 @@ struct test_traits {};
 template <>
 struct test_traits<::arrow::BooleanType> {
   static constexpr ParquetType::type parquet_enum = ParquetType::BOOLEAN;
-  static uint8_t const value;
+  static const uint8_t value;
 };
 
 const uint8_t test_traits<::arrow::BooleanType>::value(1);
@@ -279,7 +279,7 @@ const uint8_t test_traits<::arrow::BooleanType>::value(1);
 template <>
 struct test_traits<::arrow::UInt8Type> {
   static constexpr ParquetType::type parquet_enum = ParquetType::INT32;
-  static uint8_t const value;
+  static const uint8_t value;
 };
 
 const uint8_t test_traits<::arrow::UInt8Type>::value(64);
@@ -287,7 +287,7 @@ const uint8_t test_traits<::arrow::UInt8Type>::value(64);
 template <>
 struct test_traits<::arrow::Int8Type> {
   static constexpr ParquetType::type parquet_enum = ParquetType::INT32;
-  static int8_t const value;
+  static const int8_t value;
 };
 
 const int8_t test_traits<::arrow::Int8Type>::value(-64);
@@ -295,7 +295,7 @@ const int8_t test_traits<::arrow::Int8Type>::value(-64);
 template <>
 struct test_traits<::arrow::UInt16Type> {
   static constexpr ParquetType::type parquet_enum = ParquetType::INT32;
-  static uint16_t const value;
+  static const uint16_t value;
 };
 
 const uint16_t test_traits<::arrow::UInt16Type>::value(1024);
@@ -303,7 +303,7 @@ const uint16_t test_traits<::arrow::UInt16Type>::value(1024);
 template <>
 struct test_traits<::arrow::Int16Type> {
   static constexpr ParquetType::type parquet_enum = ParquetType::INT32;
-  static int16_t const value;
+  static const int16_t value;
 };
 
 const int16_t test_traits<::arrow::Int16Type>::value(-1024);
@@ -311,7 +311,7 @@ const int16_t test_traits<::arrow::Int16Type>::value(-1024);
 template <>
 struct test_traits<::arrow::UInt32Type> {
   static constexpr ParquetType::type parquet_enum = ParquetType::INT32;
-  static uint32_t const value;
+  static const uint32_t value;
 };
 
 const uint32_t test_traits<::arrow::UInt32Type>::value(1024);
@@ -319,7 +319,7 @@ const uint32_t test_traits<::arrow::UInt32Type>::value(1024);
 template <>
 struct test_traits<::arrow::Int32Type> {
   static constexpr ParquetType::type parquet_enum = ParquetType::INT32;
-  static int32_t const value;
+  static const int32_t value;
 };
 
 const int32_t test_traits<::arrow::Int32Type>::value(-1024);
@@ -327,7 +327,7 @@ const int32_t test_traits<::arrow::Int32Type>::value(-1024);
 template <>
 struct test_traits<::arrow::UInt64Type> {
   static constexpr ParquetType::type parquet_enum = ParquetType::INT64;
-  static uint64_t const value;
+  static const uint64_t value;
 };
 
 const uint64_t test_traits<::arrow::UInt64Type>::value(1024);
@@ -335,7 +335,7 @@ const uint64_t test_traits<::arrow::UInt64Type>::value(1024);
 template <>
 struct test_traits<::arrow::Int64Type> {
   static constexpr ParquetType::type parquet_enum = ParquetType::INT64;
-  static int64_t const value;
+  static const int64_t value;
 };
 
 const int64_t test_traits<::arrow::Int64Type>::value(-1024);
@@ -343,7 +343,7 @@ const int64_t test_traits<::arrow::Int64Type>::value(-1024);
 template <>
 struct test_traits<::arrow::TimestampType> {
   static constexpr ParquetType::type parquet_enum = ParquetType::INT64;
-  static int64_t const value;
+  static const int64_t value;
 };
 
 const int64_t test_traits<::arrow::TimestampType>::value(14695634030000);
@@ -351,7 +351,7 @@ const int64_t test_traits<::arrow::TimestampType>::value(14695634030000);
 template <>
 struct test_traits<::arrow::Date32Type> {
   static constexpr ParquetType::type parquet_enum = ParquetType::INT32;
-  static int32_t const value;
+  static const int32_t value;
 };
 
 const int32_t test_traits<::arrow::Date32Type>::value(170000);
@@ -359,7 +359,7 @@ const int32_t test_traits<::arrow::Date32Type>::value(170000);
 template <>
 struct test_traits<::arrow::FloatType> {
   static constexpr ParquetType::type parquet_enum = ParquetType::FLOAT;
-  static float const value;
+  static const float value;
 };
 
 const float test_traits<::arrow::FloatType>::value(2.1f);
@@ -367,7 +367,7 @@ const float test_traits<::arrow::FloatType>::value(2.1f);
 template <>
 struct test_traits<::arrow::DoubleType> {
   static constexpr ParquetType::type parquet_enum = ParquetType::DOUBLE;
-  static double const value;
+  static const double value;
 };
 
 const double test_traits<::arrow::DoubleType>::value(4.2);
