@@ -753,88 +753,70 @@ TEST(TestStructBuilderUnsafe, UnsafeAppend) {
   auto str_type = utf8();
   auto struct_type = struct_({field("int", int_type), field("str", str_type)});
   auto pool = default_memory_pool();
-  std::shared_ptr<Array> final_array;
   auto int_builder = std::make_shared<Int32Builder>(pool);
   auto str_builder = std::make_shared<StringBuilder>(pool);
   StructBuilder builder(struct_type, pool, {int_builder, str_builder});
-
   ASSERT_OK(builder.Reserve(2));
 
   builder.UnsafeAppend();
   ASSERT_OK(int_builder->Append(1));
   ASSERT_OK(str_builder->Append("hello"));
-
   builder.UnsafeAppend();
   ASSERT_OK(int_builder->Append(2));
   ASSERT_OK(str_builder->Append("arrow"));
 
   ASSERT_OK_AND_ASSIGN(auto final_array, builder.Finish());
-  ASSERT_EQ(2, final_array->length());
-  ASSERT_EQ(0, final_array->null_count());
-
-  auto expected_json = R"([{"a": 1, "b": "hello"}, {"a": 2, "b": "arrow"}])";
-  auto expected_array = ArrayFromJSON(struct_type, expected_json);
-  AssertArraysEqual(*expected_array, *final_array);
+  auto expected_array = ArrayFromJSON(
+      struct_type, R"([{"int": 1, "str": "hello"}, {"int": 2, "str": "arrow"}])");
+  AssertArraysEqual(*final_array, *expected_array);
 }
 
 TEST(TestStructBuilderUnsafe, UnsafeAppendNull) {
   auto int_type = int32();
   auto str_type = utf8();
-  auto struct_type = struct_({field("a", int_type), field("b", str_type)});
+  auto struct_type = struct_({field("int", int_type), field("str", str_type)});
   auto pool = default_memory_pool();
-  std::shared_ptr<Array> final_array;
   auto int_builder = std::make_shared<Int32Builder>(pool);
   auto str_builder = std::make_shared<StringBuilder>(pool);
   StructBuilder builder(struct_type, pool, {int_builder, str_builder});
-
   ASSERT_OK(builder.Reserve(3));
 
   builder.UnsafeAppend();
   ASSERT_OK(int_builder->Append(1));
   ASSERT_OK(str_builder->Append("hello"));
-
   ASSERT_OK(builder.UnsafeAppendNull());
-
   builder.UnsafeAppend();
   ASSERT_OK(int_builder->Append(2));
   ASSERT_OK(str_builder->Append("arrow"));
 
-  ASSERT_OK(builder.Finish(&final_array));
-  ASSERT_EQ(3, final_array->length());
-  ASSERT_EQ(1, final_array->null_count());
-  ASSERT_TRUE(final_array->IsNull(1));
-  auto expected_json = R"([{"a": 1, "b": "hello"}, null, {"a": 2, "b": "arrow"}])";
-
-  auto expected_array = ArrayFromJSON(struct_type, expected_json);
+  ASSERT_OK_AND_ASSIGN(auto final_array, builder.Finish());
+  auto expected_array = ArrayFromJSON(
+      struct_type, R"([{"int": 1, "str": "hello"}, null, {"int": 2, "str": "arrow"}])");
   AssertArraysEqual(*final_array, *expected_array);
 }
 
 TEST(TestStructBuilderUnsafe, UnsafeAppendNulls) {
   auto int_type = int32();
   auto str_type = utf8();
-  auto struct_type = struct_({field("a", int_type), field("b", str_type)});
+  auto struct_type = struct_({field("int", int_type), field("str", str_type)});
   auto pool = default_memory_pool();
-  std::shared_ptr<Array> final_array;
   auto int_builder = std::make_shared<Int32Builder>(pool);
   auto str_builder = std::make_shared<StringBuilder>(pool);
   StructBuilder builder(struct_type, pool, {int_builder, str_builder});
-
   ASSERT_OK(builder.Reserve(4));
 
   builder.UnsafeAppend();
   ASSERT_OK(int_builder->Append(1));
   ASSERT_OK(str_builder->Append("hello"));
-
   ASSERT_OK(builder.UnsafeAppendNulls(2));
-
   builder.UnsafeAppend();
   ASSERT_OK(int_builder->Append(2));
   ASSERT_OK(str_builder->Append("arrow"));
 
-  ASSERT_OK(builder.Finish(&final_array));
-
+  ASSERT_OK_AND_ASSIGN(auto final_array, builder.Finish());
   auto expected_array = ArrayFromJSON(
-      struct_type, R"([{"a": 1, "b": "hello"}, null, null, {"a": 2, "b": "arrow"}])");
+      struct_type,
+      R"([{"int": 1, "str": "hello"}, null, null, {"int": 2, "str": "arrow"}])");
   AssertArraysEqual(*final_array, *expected_array);
 }
 

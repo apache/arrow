@@ -771,7 +771,6 @@ class ARROW_EXPORT StructBuilder : public ArrayBuilder {
     return Status::OK();
   }
 
-  /// This method is "unsafe" because it does not update the null bitmap.
   /// It doesn't check the capacity. Caller is responsible for calling Reserve()
   /// beforehand.
   void UnsafeAppend(bool is_valid = true) { UnsafeAppendToBitmap(is_valid); }
@@ -785,7 +784,6 @@ class ARROW_EXPORT StructBuilder : public ArrayBuilder {
     return Append(false);
   }
 
-  /// This method is "unsafe" because it does not check for capacity.
   /// The caller is responsible for calling Reserve() beforehand to ensure
   /// there is enough space. This method will append nulls to all child
   /// builders to maintain a consistent state.
