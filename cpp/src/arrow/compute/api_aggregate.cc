@@ -150,7 +150,8 @@ static auto kTDigestReduceOptionsType = GetFunctionOptionsType<TDigestReduceOpti
     DataMember("scaler", &TDigestReduceOptions::scaler));
 static auto kTDigestQuantileOptionsType = GetFunctionOptionsType<TDigestQuantileOptions>(
     DataMember("q", &TDigestQuantileOptions::q),
-    DataMember("min_count", &TDigestQuantileOptions::min_count));
+    DataMember("min_count", &TDigestQuantileOptions::min_count),
+    DataMember("scaler", &TDigestQuantileOptions::scaler));
 static auto kPivotOptionsType = GetFunctionOptionsType<PivotWiderOptions>(
     DataMember("key_names", &PivotWiderOptions::key_names),
     DataMember("unexpected_key_behavior", &PivotWiderOptions::unexpected_key_behavior));
@@ -239,15 +240,19 @@ TDigestReduceOptions::TDigestReduceOptions(Scaler scaler)
     : FunctionOptions(internal::kTDigestReduceOptionsType), scaler{scaler} {}
 constexpr char TDigestReduceOptions::kTypeName[];
 
-TDigestQuantileOptions::TDigestQuantileOptions(double q, uint32_t min_count)
+TDigestQuantileOptions::TDigestQuantileOptions(double q, uint32_t min_count,
+                                               Scaler scaler)
     : FunctionOptions(internal::kTDigestQuantileOptionsType),
       q{q},
-      min_count{min_count} {}
+      min_count{min_count},
+      scaler{scaler} {}
 
-TDigestQuantileOptions::TDigestQuantileOptions(std::vector<double> q, uint32_t min_count)
+TDigestQuantileOptions::TDigestQuantileOptions(std::vector<double> q, uint32_t min_count,
+                                               Scaler scaler)
     : FunctionOptions(internal::kTDigestQuantileOptionsType),
       q{std::move(q)},
-      min_count{min_count} {}
+      min_count{min_count},
+      scaler{scaler} {}
 constexpr char TDigestReduceOptions::kTypeName[];
 
 PivotWiderOptions::PivotWiderOptions(std::vector<std::string> key_names,
@@ -361,6 +366,16 @@ Result<Datum> TDigest(const Datum& value, const TDigestOptions& options,
 Result<Datum> TDigestMap(const Datum& value, const TDigestMapOptions& options,
                          ExecContext* ctx) {
   return CallFunction("tdigest_map", {value}, &options, ctx);
+}
+
+Result<Datum> TDigestReduce(const Datum& value, const TDigestReduceOptions& options,
+                            ExecContext* ctx) {
+  return CallFunction("tdigest_reduce", {value}, &options, ctx);
+}
+
+Result<Datum> TDigestQuantile(const Datum& value, const TDigestQuantileOptions& options,
+                              ExecContext* ctx) {
+  return CallFunction("tdigest_quantile", {value}, &options, ctx);
 }
 
 Result<Datum> Index(const Datum& value, const IndexOptions& options, ExecContext* ctx) {

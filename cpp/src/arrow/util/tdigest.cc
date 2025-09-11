@@ -40,6 +40,11 @@ double Lerp(double a, double b, double t) { return a + t * (b - a); }
 
 // histogram bin
 struct Centroid {
+  Centroid() = default;
+  explicit Centroid(std::pair<double, double> pair)
+      : mean(pair.first), weight(pair.second) {}
+  Centroid(double mean, double weight) : mean(mean), weight(weight) {}
+
   double mean;
   double weight;  // # data points in this bin
 
@@ -228,29 +233,31 @@ class TDigest::TDigestImpl {
   }
 
   // merge input data with current tdigest
-  void MergeInput(std::vector<double>& input) {
+  void MergeInput(std::vector<std::pair<double, double>>& input) {
     total_weight_ += input.size();
 
-    std::sort(input.begin(), input.end());
-    min_ = std::min(min_, input.front());
-    max_ = std::max(max_, input.back());
+    std::sort(input.begin(), input.end(),
+              [](const std::pair<double, double>& lhs,
+                 const std::pair<double, double>& rhs) { return lhs.first < rhs.first; });
+    min_ = std::min(min_, input.front().first);
+    max_ = std::max(max_, input.back().first);
 
     // pick next minimal centroid from input and tdigest, feed to merger
     merger_.Reset(total_weight_, &tdigests_[1 - current_]);
     const auto& td = tdigests_[current_];
     uint32_t tdigest_index = 0, input_index = 0;
     while (tdigest_index < td.size() && input_index < input.size()) {
-      if (td[tdigest_index].mean < input[input_index]) {
+      if (td[tdigest_index].mean < input[input_index].first) {
         merger_.Add(td[tdigest_index++]);
       } else {
-        merger_.Add(Centroid{input[input_index++], 1});
+        merger_.Add(Centroid{input[input_index++]});
       }
     }
     while (tdigest_index < td.size()) {
       merger_.Add(td[tdigest_index++]);
     }
     while (input_index < input.size()) {
-      merger_.Add(Centroid{input[input_index++], 1});
+      merger_.Add(Centroid{input[input_index++]});
     }
     merger_.Reset(0, nullptr);
 

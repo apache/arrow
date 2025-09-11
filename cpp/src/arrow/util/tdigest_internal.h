@@ -67,12 +67,13 @@ class ARROW_EXPORT TDigest {
   // buffer a single data point, consume internal buffer if full
   // this function is intensively called and performance critical
   // call it only if you are sure no NAN exists in input data
-  void Add(double value) {
+  void Add(double value, double weight = 1.0) {
     ARROW_DCHECK(!std::isnan(value)) << "cannot add NAN";
+    ARROW_DCHECK(!std::isnan(weight)) << "cannot add NAN";
     if (ARROW_PREDICT_FALSE(input_.size() == input_.capacity())) {
       MergeInput();
     }
-    input_.push_back(value);
+    input_.push_back(std::make_pair(value, weight));
   }
 
   // skip NAN on adding
@@ -84,6 +85,18 @@ class ARROW_EXPORT TDigest {
   template <typename T>
   typename std::enable_if<std::is_integral<T>::value>::type NanAdd(T value) {
     Add(static_cast<double>(value));
+  }
+
+  template <typename T>
+  typename std::enable_if<std::is_floating_point<T>::value>::type NanAdd(T value,
+                                                                         double weight) {
+    if (!std::isnan(value) && !std::isnan(weight)) Add(value, weight);
+  }
+
+  template <typename T>
+  typename std::enable_if<std::is_integral<T>::value>::type NanAdd(T value,
+                                                                   double weight) {
+    if (!std::isnan(weight)) Add(static_cast<double>(value), weight);
   }
 
   // merge with other t-digests, called infrequently
@@ -105,8 +118,8 @@ class ARROW_EXPORT TDigest {
   // merge input data with current tdigest
   void MergeInput() const;
 
-  // input buffer, size = buffer_size * sizeof(double)
-  mutable std::vector<double> input_;
+  // input buffer, size = 2 * buffer_size * sizeof(double)
+  mutable std::vector<std::pair<double, double>> input_;
 
   // hide other members with pimpl
   class TDigestImpl;

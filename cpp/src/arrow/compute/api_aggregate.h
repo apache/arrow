@@ -244,8 +244,12 @@ class ARROW_EXPORT TDigestReduceOptions : public FunctionOptions {
 /// By default, returns the median value.
 class ARROW_EXPORT TDigestQuantileOptions : public FunctionOptions {
  public:
-  explicit TDigestQuantileOptions(double q = 0.5, uint32_t min_count = 0);
-  explicit TDigestQuantileOptions(std::vector<double> q, uint32_t min_count = 0);
+  using Scaler = TDigestOptions::Scaler;
+
+  explicit TDigestQuantileOptions(double q = 0.5, uint32_t min_count = 0,
+                                  Scaler scaler = Scaler::K1);
+  explicit TDigestQuantileOptions(std::vector<double> q, uint32_t min_count = 0,
+                                  Scaler scaler = Scaler::K1);
   static constexpr char const kTypeName[] = "TDigestQuantileOptions";
   static TDigestQuantileOptions Defaults() { return TDigestQuantileOptions{}; }
 
@@ -253,6 +257,8 @@ class ARROW_EXPORT TDigestQuantileOptions : public FunctionOptions {
   std::vector<double> q;
   /// If less than this many non-null values are observed, emit null.
   uint32_t min_count;
+  /// select scaler implementation
+  Scaler scaler;
 };
 
 /// \brief Control Pivot kernel behavior
@@ -643,7 +649,7 @@ Result<Datum> TDigest(const Datum& value,
 /// \brief Calculate centroids of a numeric array with T-Digest algorithm
 ///
 /// \param[in] value input datum, expecting Array or ChunkedArray
-/// \param[in] options see TDigestOptions for more information
+/// \param[in] options see TDigestMapOptions for more information
 /// \param[in] ctx the function execution context, optional
 /// \return resulting struct of mean and weight arrays
 ///
@@ -653,6 +659,36 @@ ARROW_EXPORT
 Result<Datum> TDigestMap(const Datum& value,
                          const TDigestMapOptions& options = TDigestMapOptions::Defaults(),
                          ExecContext* ctx = NULLPTR);
+
+/// \brief Merge multiple centroid sets into one
+///
+/// \param[in] value input centroid sets, expecting Scalar, Array or ChunkedArray of
+/// centroid structs \param[in] options see TDigestReduceOptions for more information
+/// \param[in] ctx the function execution context, optional
+/// \return resulting struct of mean and weight arrays
+///
+/// \since 22.0.0
+/// \note API not yet finalized
+ARROW_EXPORT
+Result<Datum> TDigestReduce(
+    const Datum& value,
+    const TDigestReduceOptions& options = TDigestReduceOptions::Defaults(),
+    ExecContext* ctx = NULLPTR);
+
+/// \brief Calculate the approximate quantiles using centroids with T-Digest algorithm
+///
+/// \param[in] value input centroid sets, expecting Scalar, Array or ChunkedArray of
+/// centroid structs \param[in] options see TDigestQuantileOptions for more information
+/// \param[in] ctx the function execution context, optional
+/// \return resulting struct of mean and weight arrays
+///
+/// \since 22.0.0
+/// \note API not yet finalized
+ARROW_EXPORT
+Result<Datum> TDigestQuantile(
+    const Datum& value,
+    const TDigestQuantileOptions& options = TDigestQuantileOptions::Defaults(),
+    ExecContext* ctx = NULLPTR);
 
 /// \brief Find the first index of a value in an array.
 ///

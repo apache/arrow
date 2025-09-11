@@ -4458,7 +4458,7 @@ TEST(TestTDigestMapKernel, Options) {
   auto input_type = float64();
   auto output_type = struct_({field("mean", fixed_size_list(float64(), 5), false),
                               field("weight", fixed_size_list(float64(), 5), false),
-                              field("count", int64(), false)});
+                              field("count", uint64(), false)});
   TDigestMapOptions keep_nulls(/*delta=*/5, /*buffer_size=*/500,
                                /*skip_nulls=*/false,
                                /*scaler=*/TDigestMapOptions::Scaler::K0);
@@ -4510,6 +4510,34 @@ TEST(TestTDigestMapKernel, Options) {
               ResultWith(ScalarFromJSON(output_type,
                                         "{\"mean\":[null,null,null,null,null],\"weight\":"
                                         "[null,null,null,null,null],\"count\":0}")));
+}
+
+TEST(TestTDigestReduceKernel, Basic) {
+  auto type = struct_({field("mean", fixed_size_list(float64(), 5), false),
+                       field("weight", fixed_size_list(float64(), 5), false),
+                       field("count", uint64(), false)});
+  TDigestReduceOptions options(/*scaler=*/TDigestMapOptions::Scaler::K0);
+  EXPECT_THAT(
+      TDigestReduce(ArrayFromJSON(type,
+                                  "["
+                                  "{\"mean\":[1.5, 3.5, 5.5, null, null],\"weight\":[2, "
+                                  "2, 2, null, null],\"count\":6},"
+                                  "{\"mean\":[1.5, 3.5, 5.5, null, null],\"weight\":[2, "
+                                  "2, 2, null, null],\"count\":6}"
+                                  "]"),
+                    options),
+      ResultWith(ScalarFromJSON(type,
+                                "{\"mean\":[1.5, 1.5, 3.5, 3.5, 5.5],\"weight\":[2, 2, "
+                                "2, 2, 2],\"count\":12}")));
+
+  EXPECT_THAT(
+      TDigestReduce(ScalarFromJSON(type,
+                                   "{\"mean\":[1.5, 3.5, 5.5, null, null],\"weight\":[2, "
+                                   "2, 2, null, null],\"count\":6}"),
+                    options),
+      ResultWith(ScalarFromJSON(type,
+                                "{\"mean\":[1.5, 3.5, 5.5, null, null],\"weight\":[2, 2, "
+                                "2, null, null],\"count\":6}")));
 }
 
 TEST(TestTDigestKernel, ApproximateMedian) {
