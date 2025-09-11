@@ -31,7 +31,7 @@ binary_output_dir=${build_dir}/${ARROW_BUILD_TYPE:-debug}
 
 export ARROW_TEST_DATA=${arrow_dir}/testing/data
 export PARQUET_TEST_DATA=${source_dir}/submodules/parquet-testing/data
-export LD_LIBRARY_PATH=${ARROW_HOME}/${CMAKE_INSTALL_LIBDIR:-lib}:${LD_LIBRARY_PATH}
+export LD_LIBRARY_PATH=${ARROW_HOME}/${CMAKE_INSTALL_LIBDIR:-lib}:${CUDA_PATH}/lib/stubs:${LD_LIBRARY_PATH}
 
 # By default, aws-sdk tries to contact a non-existing local ip host
 # to retrieve metadata. Disable this so that S3FileSystem tests run faster.
@@ -91,7 +91,7 @@ if [ -z "${PYTHON}" ] && ! which python > /dev/null 2>&1; then
 fi
 if [ "${ARROW_USE_MESON:-OFF}" = "ON" ]; then
   ARROW_BUILD_EXAMPLES=OFF # TODO: Remove this
-  meson test \
+  meson test arrow-cuda-test --verbose \
     --no-rebuild \
     --print-errorlogs \
     --suite arrow \

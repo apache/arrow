@@ -139,14 +139,15 @@ if [ "${ARROW_USE_MESON:-OFF}" = "ON" ]; then
       fi
     fi
   fi
+
+  export CUDA_PATH="${CONDA_PREFIX}"
+  env
   meson setup \
     --prefix=${MESON_PREFIX:-${ARROW_HOME}} \
     --buildtype=${ARROW_BUILD_TYPE:-debug} \
     --pkg-config-path="${CONDA_PREFIX}/lib/pkgconfig/" \
-    -Dauto_features=enabled \
-    -Dfuzzing=disabled \
-    -Dgcs=disabled \
-    -Ds3=disabled \
+    -Dcuda=enabled \
+    -Dtests=enabled \
     . \
     ${source_dir}
 
@@ -285,7 +286,7 @@ fi
 
 : ${ARROW_BUILD_PARALLEL:=$[${n_jobs} + 1]}
 if [ "${ARROW_USE_MESON:-OFF}" = "ON" ]; then
-  time meson compile -j ${ARROW_BUILD_PARALLEL}
+  time meson compile -j ${ARROW_BUILD_PARALLEL} --verbose
   meson install
   # Remove all added files in cpp/subprojects/ because they may have
   # unreadable permissions on Docker host.
