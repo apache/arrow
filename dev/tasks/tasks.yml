@@ -571,7 +571,6 @@ tasks:
                                  ("ubuntu", "22.04"),
                                  ("ubuntu", "24.04")] %}
   {% for target in ["cpp",
-                    "csharp",
                     "integration",
                     "python",
                     "ruby"] %}
@@ -600,7 +599,6 @@ tasks:
   {% endfor %}
 
   {% for target in ["cpp",
-                    "csharp",
                     "integration",
                     "python",
                     "ruby"] %}
@@ -613,7 +611,6 @@ tasks:
   {% endfor %}
 
   {% for target in ["cpp",
-                    "csharp",
                     "integration",
                     "python",
                     "ruby"] %}
