@@ -209,6 +209,9 @@ struct ARROW_EXPORT WriteOptions {
   /// \brief Quoting style
   QuotingStyle quoting_style = QuotingStyle::Needed;
 
+  /// \brief Quoting style of header
+  QuotingStyle quoting_header = QuotingStyle::Needed;
+
   /// Create write options with default values
   static WriteOptions Defaults();
 
