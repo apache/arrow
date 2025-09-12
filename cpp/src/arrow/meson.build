@@ -175,6 +175,7 @@ arrow_util_srcs = [
     'util/bitmap_ops.cc',
     'util/bpacking.cc',
     'util/byte_size.cc',
+    'util/byte_stream_split_internal.cc',
     'util/cancel.cc',
     'util/compression.cc',
     'util/counting_semaphore.cc',
@@ -199,6 +200,7 @@ arrow_util_srcs = [
     'util/memory.cc',
     'util/mutex.cc',
     'util/ree_util.cc',
+    'util/secure_string.cc',
     'util/string.cc',
     'util/string_util.cc',
     'util/task_group.cc',
@@ -486,7 +488,8 @@ arrow_lib = library(
     include_directories: arrow_includes,
     dependencies: arrow_deps,
     install: true,
-    gnu_symbol_visibility: 'inlineshidden',
+    # TODO: re-enable symbol visibility
+    #gnu_symbol_visibility: 'inlineshidden',
     cpp_shared_args: ['-DARROW_EXPORTING'],
 )
 
