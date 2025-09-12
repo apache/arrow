@@ -17,13 +17,15 @@
 
 #pragma once
 
-#include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/exceptions.h>
-#include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/types.h>
-#include <arrow/flight/types.h>
+#include <boost/variant.hpp>
 #include <boost/xpressive/xpressive.hpp>
+
 #include <codecvt>
 #include <functional>
 #include <optional>
+#include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/exceptions.h"
+#include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/types.h"
+#include "arrow/flight/types.h"
 
 namespace driver {
 namespace flight_sql {

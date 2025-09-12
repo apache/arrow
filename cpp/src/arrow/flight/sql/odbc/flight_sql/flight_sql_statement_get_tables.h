@@ -30,6 +30,7 @@ namespace driver {
 namespace flight_sql {
 
 using arrow::flight::FlightCallOptions;
+using arrow::flight::FlightClientOptions;
 using arrow::flight::sql::FlightSqlClient;
 using odbcabstraction::MetadataSettings;
 using odbcabstraction::ResultSet;
@@ -46,26 +47,28 @@ void ParseTableTypes(const std::string& table_type,
                      std::vector<std::string>& table_types);
 
 std::shared_ptr<ResultSet> GetTablesForSQLAllCatalogs(
-    const ColumnNames& column_names, FlightCallOptions& call_options,
-    FlightSqlClient& sql_client, odbcabstraction::Diagnostics& diagnostics,
-    const odbcabstraction::MetadataSettings& metadata_settings);
-
-std::shared_ptr<ResultSet> GetTablesForSQLAllDbSchemas(
-    const ColumnNames& column_names, FlightCallOptions& call_options,
-    FlightSqlClient& sql_client, const std::string* schema_name,
+    const ColumnNames& column_names, FlightClientOptions& client_options,
+    FlightCallOptions& call_options, FlightSqlClient& sql_client,
     odbcabstraction::Diagnostics& diagnostics,
     const odbcabstraction::MetadataSettings& metadata_settings);
 
+std::shared_ptr<ResultSet> GetTablesForSQLAllDbSchemas(
+    const ColumnNames& column_names, FlightClientOptions& client_options,
+    FlightCallOptions& call_options, FlightSqlClient& sql_client,
+    const std::string* schema_name, odbcabstraction::Diagnostics& diagnostics,
+    const odbcabstraction::MetadataSettings& metadata_settings);
+
 std::shared_ptr<ResultSet> GetTablesForSQLAllTableTypes(
-    const ColumnNames& column_names, FlightCallOptions& call_options,
-    FlightSqlClient& sql_client, odbcabstraction::Diagnostics& diagnostics,
+    const ColumnNames& column_names, FlightClientOptions& client_options,
+    FlightCallOptions& call_options, FlightSqlClient& sql_client,
+    odbcabstraction::Diagnostics& diagnostics,
     const odbcabstraction::MetadataSettings& metadata_settings);
 
 std::shared_ptr<ResultSet> GetTablesForGenericUse(
-    const ColumnNames& column_names, FlightCallOptions& call_options,
-    FlightSqlClient& sql_client, const std::string* catalog_name,
-    const std::string* schema_name, const std::string* table_name,
-    const std::vector<std::string>& table_types,
+    const ColumnNames& column_names, FlightClientOptions& client_options,
+    FlightCallOptions& call_options, FlightSqlClient& sql_client,
+    const std::string* catalog_name, const std::string* schema_name,
+    const std::string* table_name, const std::vector<std::string>& table_types,
     odbcabstraction::Diagnostics& diagnostics,
     const odbcabstraction::MetadataSettings& metadata_settings);
 }  // namespace flight_sql

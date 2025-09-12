@@ -59,6 +59,10 @@ odbcabstraction::SqlDataType GetDefaultSqlVarcharType(bool useWideChar) {
   return useWideChar ? odbcabstraction::SqlDataType_WVARCHAR
                      : odbcabstraction::SqlDataType_VARCHAR;
 }
+odbcabstraction::SqlDataType GetDefaultSqlLongVarcharType(bool useWideChar) {
+  return useWideChar ? odbcabstraction::SqlDataType_WLONGVARCHAR
+                     : odbcabstraction::SqlDataType_LONGVARCHAR;
+}
 odbcabstraction::CDataType GetDefaultCCharType(bool useWideChar) {
   return useWideChar ? odbcabstraction::CDataType_WCHAR : odbcabstraction::CDataType_CHAR;
 }
@@ -155,6 +159,9 @@ SqlDataType EnsureRightSqlCharType(SqlDataType data_type, bool useWideChar) {
     case odbcabstraction::SqlDataType_VARCHAR:
     case odbcabstraction::SqlDataType_WVARCHAR:
       return GetDefaultSqlVarcharType(useWideChar);
+    case odbcabstraction::SqlDataType_LONGVARCHAR:
+    case odbcabstraction::SqlDataType_WLONGVARCHAR:
+      return GetDefaultSqlLongVarcharType(useWideChar);
     default:
       return data_type;
   }
@@ -759,10 +766,12 @@ bool NeedArrayConversion(arrow::Type::type original_type_id,
       return data_type != odbcabstraction::CDataType_BINARY;
     case arrow::Type::DECIMAL128:
       return data_type != odbcabstraction::CDataType_NUMERIC;
+    case arrow::Type::DURATION:
     case arrow::Type::LIST:
     case arrow::Type::LARGE_LIST:
     case arrow::Type::FIXED_SIZE_LIST:
     case arrow::Type::MAP:
+    case arrow::Type::STRING_VIEW:
     case arrow::Type::STRUCT:
       return data_type == odbcabstraction::CDataType_CHAR ||
              data_type == odbcabstraction::CDataType_WCHAR;
