@@ -202,7 +202,7 @@ std::shared_ptr<Array> FixedShapeTensorType::MakeArray(
   DCHECK_EQ(data->type->id(), Type::EXTENSION);
   DCHECK_EQ("arrow.fixed_shape_tensor",
             internal::checked_cast<const ExtensionType&>(*data->type).extension_name());
-  return std::make_shared<ExtensionArray>(data);
+  return std::make_shared<FixedShapeTensorArray>(data);
 }
 
 Result<std::shared_ptr<Tensor>> FixedShapeTensorType::MakeTensor(

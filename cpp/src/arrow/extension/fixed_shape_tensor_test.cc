@@ -152,6 +152,28 @@ TEST_F(TestExtensionType, CreateFromArray) {
   ASSERT_EQ(ext_arr->null_count(), 0);
 }
 
+TEST_F(TestExtensionType, MakeArrayCanGetCorrectScalarType) {
+  ASSERT_OK_AND_ASSIGN(auto tensor,
+                       Tensor::Make(value_type_, Buffer::Wrap(values_), shape_));
+
+  auto exact_ext_type = internal::checked_pointer_cast<FixedShapeTensorType>(ext_type_);
+  ASSERT_OK_AND_ASSIGN(auto ext_arr, FixedShapeTensorArray::FromTensor(tensor));
+
+  auto data = ext_arr->data();
+  auto array = internal::checked_pointer_cast<FixedShapeTensorArray>(
+      exact_ext_type->MakeArray(data));
+  ASSERT_EQ(array->length(), shape_[0]);
+  ASSERT_EQ(array->null_count(), 0);
+
+  // Check that we can get the first element of the array
+  ASSERT_OK_AND_ASSIGN(auto first_element, array->GetScalar(0));
+  ASSERT_EQ(*(first_element->type),
+            *(fixed_shape_tensor(value_type_, element_shape_, {0, 1})));
+
+  ASSERT_OK_AND_ASSIGN(auto tensor_from_array, array->ToTensor());
+  ASSERT_TRUE(tensor->Equals(*tensor_from_array));
+}
+
 void CheckSerializationRoundtrip(const std::shared_ptr<DataType>& ext_type) {
   auto fst_type = internal::checked_pointer_cast<FixedShapeTensorType>(ext_type);
   auto serialized = fst_type->Serialize();
