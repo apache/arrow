@@ -188,9 +188,6 @@ struct ARROW_EXPORT WriteOptions {
   /// Whether to write an initial header line with column names
   bool include_header = true;
 
-  /// \brief Quoting style of header
-  QuotingStyle quoting_header = QuotingStyle::Needed;
-
   /// \brief Maximum number of rows processed at a time
   ///
   /// The CSV writer converts and writes data in batches of N rows.
@@ -211,6 +208,9 @@ struct ARROW_EXPORT WriteOptions {
 
   /// \brief Quoting style
   QuotingStyle quoting_style = QuotingStyle::Needed;
+
+  /// \brief Quoting style of header
+  QuotingStyle quoting_header = QuotingStyle::Needed;
 
   /// Create write options with default values
   static WriteOptions Defaults();
