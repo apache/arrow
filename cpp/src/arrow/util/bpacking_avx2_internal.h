@@ -17,12 +17,13 @@
 
 #pragma once
 
-#include <stdint.h>
+#include "arrow/util/visibility.h"
 
-namespace arrow {
-namespace internal {
+#include <cstdint>
 
-int unpack32_avx2(const uint32_t* in, uint32_t* out, int batch_size, int num_bits);
+namespace arrow::internal {
 
-}  // namespace internal
-}  // namespace arrow
+ARROW_EXPORT int unpack32_avx2(const uint8_t* in, uint32_t* out, int batch_size,
+                               int num_bits);
+
+}  // namespace arrow::internal
