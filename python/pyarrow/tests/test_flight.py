@@ -47,6 +47,7 @@ try:
         ServerAuthHandler, ClientAuthHandler,
         ServerMiddleware, ServerMiddlewareFactory,
         ClientMiddleware, ClientMiddlewareFactory,
+        FlightCallOptions,
     )
 except ImportError:
     flight = None
@@ -54,6 +55,7 @@ except ImportError:
     ServerAuthHandler, ClientAuthHandler = object, object
     ServerMiddleware, ServerMiddlewareFactory = object, object
     ClientMiddleware, ClientMiddlewareFactory = object, object
+    FlightCallOptions = object
 
 # Marks all of the tests in this module
 # Ignore these with pytest ... -m 'not flight'
@@ -2536,3 +2538,41 @@ def test_headers_trailers():
         assert ("x-header-bin", b"header\x01value") in factory.headers
         assert ("x-trailer", "trailer-value") in factory.headers
         assert ("x-trailer-bin", b"trailer\x01value") in factory.headers
+
+
+@pytest.fixture
+def call_options_args(request):
+    match request.param:
+        case "default":
+            return {
+                "timeout": 3,
+                "headers": None,
+                "write_options": None,
+                "read_options": None,
+            }
+        case "all":
+            return {
+                "timeout": 7,
+                "headers": [(b"abc", b"def")],
+                "write_options": pa.ipc.IpcWriteOptions(compression="zstd"),
+                "read_options": pa.ipc.IpcReadOptions(use_threads=False),
+            }
+
+
+@pytest.mark.parametrize(
+    "call_options_args", ["default", "all"], indirect=True)
+def test_call_options_repr(call_options_args):
+    call_options = FlightCallOptions(**call_options_args)
+    repr = call_options.__repr__()
+
+    for arg, val in call_options_args.items():
+        if val is None:
+            continue
+
+        if arg not in ("read_options", "write_options"):
+            assert f"{arg}={val}" in repr
+            continue
+
+        val_repr = val.__repr__()
+        assert val_repr in repr
+
