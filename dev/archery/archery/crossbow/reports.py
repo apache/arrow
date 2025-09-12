@@ -247,13 +247,12 @@ class ReportUtils:
     @classmethod
     def send_email(cls, smtp_user, smtp_password, smtp_server, smtp_port,
                    recipient_email, message):
-        import smtplib
+        from smtplib import SMTP
 
-        server = smtplib.SMTP_SSL(smtp_server, smtp_port)
-        server.ehlo()
-        server.login(smtp_user, smtp_password)
-        server.sendmail(smtp_user, recipient_email, message)
-        server.close()
+        with SMTP(smtp_server, smtp_port) as smtp:
+            smtp.starttls()
+            smtp.login(smtp_user, smtp_password)
+            smtp.sendmail(smtp_user, recipient_email, message)
 
     @classmethod
     def write_csv(cls, report, add_headers=True):

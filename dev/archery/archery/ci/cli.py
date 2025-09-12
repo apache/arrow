@@ -83,7 +83,7 @@ def report_chat(obj, workflow_id, send, repository, ignore, webhook,
               help='Where to send the e-mail report')
 @click.option('--smtp-user', '-u',
               help='E-mail address to use for SMTP login')
-@click.option('--smtp-password', '-P',
+@click.option('--smtp-password', '-P', envvar=['SMTP_PASSWORD'],
               help='SMTP password to use for report e-mail.')
 @click.option('--smtp-server', '-s', default='smtp.gmail.com',
               help='SMTP server to use for report e-mail.')
