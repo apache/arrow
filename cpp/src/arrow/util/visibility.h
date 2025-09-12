@@ -67,6 +67,11 @@
 #    ifndef ARROW_NO_EXPORT
 #      define ARROW_NO_EXPORT [[gnu::visibility("hidden")]]
 #    endif
+#    if defined(__clang__)
+#      define ARROW_TEMPLATE_EXPORT
+#    else
+#      define ARROW_TEMPLATE_EXPORT ARROW_EXPORT
+#    endif
 #  else
 // Not C++, or not gcc/clang
 #    ifndef ARROW_EXPORT
@@ -75,10 +80,10 @@
 #    ifndef ARROW_NO_EXPORT
 #      define ARROW_NO_EXPORT
 #    endif
+#    define ARROW_TEMPLATE_EXPORT
 #  endif
 
 #  define ARROW_FRIEND_EXPORT
-#  define ARROW_TEMPLATE_EXPORT ARROW_EXPORT
 
 // [[gnu::visibility("default")]] even when #included by a non-arrow source
 #  define ARROW_FORCE_EXPORT [[gnu::visibility("default")]]
