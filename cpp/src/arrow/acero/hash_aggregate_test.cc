@@ -1271,9 +1271,13 @@ TEST_P(GroupBy, TDigest) {
   auto keep_nulls_min_count =
       std::make_shared<TDigestOptions>(/*q=*/0.5, /*delta=*/100, /*buffer_size=*/500,
                                        /*skip_nulls=*/false, /*min_count=*/3);
+  auto scaler_0 = std::make_shared<TDigestOptions>(
+      /*q=*/0.5, /*delta=*/100, /*buffer_size=*/500,
+      /*skip_nulls=*/true, /*min_count=*/3, /*scaler=*/TDigestOptions::K0);
   ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
                        GroupByTest(
                            {
+                               batch->GetColumnByName("argument"),
                                batch->GetColumnByName("argument"),
                                batch->GetColumnByName("argument"),
                                batch->GetColumnByName("argument"),
@@ -1292,6 +1296,7 @@ TEST_P(GroupBy, TDigest) {
                                {"hash_tdigest", keep_nulls},
                                {"hash_tdigest", min_count},
                                {"hash_tdigest", keep_nulls_min_count},
+                               {"hash_tdigest", scaler_0},
                            },
                            false));
 
@@ -1304,13 +1309,14 @@ TEST_P(GroupBy, TDigest) {
                         field("hash_tdigest", fixed_size_list(float64(), 1)),
                         field("hash_tdigest", fixed_size_list(float64(), 1)),
                         field("hash_tdigest", fixed_size_list(float64(), 1)),
+                        field("hash_tdigest", fixed_size_list(float64(), 1)),
                     }),
                     R"([
-    [1,    [1.0],  [1.0, 3.0, 3.0],    [1.0, 3.0, 3.0],    [null], [null], [null]],
-    [2,    [0.0],  [0.0, 0.0, 0.0],    [0.0, 0.0, 0.0],    [0.0],  [0.0],  [0.0] ],
-    [3,    [null], [null, null, null], [null, null, null], [null], [null], [null]],
-    [4,    [1.0],  [1.0, 1.0, 1.0],    [1.0, 1.0, 1.0],    [null], [1.0],  [null]],
-    [null, [1.0],  [1.0, 4.0, 4.0],    [1.0, 4.0, 4.0],    [1.0],  [null], [null]]
+    [1,    [1.0],  [1.0, 3.0, 3.0],    [1.0, 3.0, 3.0],    [null], [null], [null], [null]],
+    [2,    [0.0],  [0.0, 0.0, 0.0],    [0.0, 0.0, 0.0],    [0.0],  [0.0],  [0.0],  [0.0]],
+    [3,    [null], [null, null, null], [null, null, null], [null], [null], [null], [null]],
+    [4,    [1.0],  [1.0, 1.0, 1.0],    [1.0, 1.0, 1.0],    [null], [1.0],  [null], [1.0]],
+    [null, [1.0],  [1.0, 4.0, 4.0],    [1.0, 4.0, 4.0],    [1.0],  [null], [null], [null]]
   ])"),
       aggregated_and_grouped,
       /*verbose=*/true);
