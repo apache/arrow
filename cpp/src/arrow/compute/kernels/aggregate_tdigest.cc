@@ -397,9 +397,9 @@ struct TDigestCentroidTypeMatcher : public TypeMatcher {
         if (Type::FIXED_SIZE_LIST == input_struct_type.field(0)->type()->id() &&
             input_struct_type.field(0)->type()->Equals(
                 input_struct_type.field(1)->type()) &&
-            Type::UINT64 == input_struct_type.field(2)->type()->id() &&
+            Type::DOUBLE == input_struct_type.field(2)->type()->id() &&
             Type::DOUBLE == input_struct_type.field(3)->type()->id() &&
-            Type::DOUBLE == input_struct_type.field(4)->type()->id()) {
+            Type::UINT64 == input_struct_type.field(4)->type()->id()) {
           auto fsl = checked_cast<const FixedSizeListType*>(
               input_struct_type.field(0)->type().get());
           return fsl->list_size();
