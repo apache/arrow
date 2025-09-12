@@ -36,7 +36,7 @@ Failed Jobs:
 {% endif %}
 
 {% if report.successful_jobs() %}
-Succeeded Tasks:
+Succeeded Jobs:
 
 {% for job in report.successful_jobs() -%}
 - {{ job.name }}
