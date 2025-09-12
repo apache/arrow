@@ -66,6 +66,11 @@ class Hasher {
   /// @param len the value length.
   virtual uint64_t Hash(const FLBA* value, uint32_t len) const = 0;
 
+  /// Compute hash for std::string_view value by using its plain encoding result.
+  ///
+  /// @param value the value to hash.
+  virtual uint64_t Hash(std::string_view value) const = 0;
+
   /// Batch compute hashes for 32 bits values by using its plain encoding result.
   ///
   /// @param values a pointer to the values to hash.
