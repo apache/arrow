@@ -79,7 +79,7 @@ def report_chat(obj, workflow_id, send, repository, ignore, webhook,
               help='Name to use for report e-mail.')
 @click.option('--sender-email', '-e',
               help='E-mail to use for report e-mail.')
-@click.option('--recipient-email', '-r',
+@click.option('--recipient-email', '-t',
               help='Where to send the e-mail report')
 @click.option('--smtp-user', '-u',
               help='E-mail address to use for SMTP login')

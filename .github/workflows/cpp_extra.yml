@@ -308,6 +308,7 @@ jobs:
           SMTP_PASSWORD: ${{ secrets.ARROW_SMTP_PASSWORD }}
         run: |
           # Continue even if email sending fails
+          echo "Sending email report."
           set +e
           archery ci report-email \
             --dry-run \
@@ -326,6 +327,7 @@ jobs:
             echo "::warning::Email sending failed but continuing with workflow"
           fi
 
+          echo "Sending Chat report."
           archery ci report-chat \
             --ignore ${{ github.job }} \
             --repository ${{ github.repository }} \
