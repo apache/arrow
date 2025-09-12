@@ -337,7 +337,7 @@ CleanStatistic(std::pair<T, T> min_max, LogicalType::Type::type) {
 }
 
 std::optional<std::pair<Int96, Int96>> CleanStatistic(std::pair<Int96, Int96> min_max,
-                                                 LogicalType::Type::type) {
+                                                      LogicalType::Type::type) {
   return min_max;
 }
 
