@@ -61,17 +61,16 @@ Below shows a simplest example of using Dataset to query a Parquet file in Java:
         Scanner scanner = dataset.newScan(options);
         ArrowReader reader = scanner.scanBatches()
     ) {
+        Schema schema = datasetFactory.inspect();
         List<ArrowRecordBatch> batches = new ArrayList<>();
         while (reader.loadNextBatch()) {
             try (VectorSchemaRoot root = reader.getVectorSchemaRoot()) {
-                final VectorUnloader unloader = new VectorUnloader(root);
-                batches.add(unloader.getRecordBatch());
+                for (Field field : schema.getFields()) {
+                    FieldVector vector = root.getVector(field);
+                    System.out.println("key: " + vector.getName() + ", value: " + vector);
+                }
             }
         }
-
-        // do something with read record batches, for example:
-        analyzeArrowData(batches);
-
         // finished the analysis of the data, close all resources:
         AutoCloseables.close(batches);
     } catch (Exception e) {
