@@ -317,6 +317,7 @@ jobs:
             --sender-email 'arrow@commit-email.info' \
             --recipient-email 'builds@arrow.apache.org' \
             --smtp-user arrow \
+            --smtp-port 587 \
             --ignore ${{ github.job }} \
             --repository ${{ github.repository }} \
             ${{ github.run_id }}

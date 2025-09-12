@@ -247,10 +247,17 @@ class ReportUtils:
     @classmethod
     def send_email(cls, smtp_user, smtp_password, smtp_server, smtp_port,
                    recipient_email, message):
-        from smtplib import SMTP
+        from smtplib import SMTP, SMTP_SSL
 
-        with SMTP(smtp_server, smtp_port) as smtp:
-            smtp.starttls()
+        if smtp_port == 465:
+            smtp_cls = SMTP_SSL
+        else:
+            smtp_cls = SMTP
+        with smtp_cls(smtp_server, smtp_port) as smtp:
+            if smtp_port == 465:
+                smtp.ehlo()
+            else:
+                smtp.starttls()
             smtp.login(smtp_user, smtp_password)
             smtp.sendmail(smtp_user, recipient_email, message)
 
