@@ -199,9 +199,11 @@ cdef class IpcReadOptions(_Weakrefable):
         self.c_options.included_fields = value
 
     def __repr__(self):
+        alignment = Alignment(self.ensure_alignment).name
+
         return (f"<pyarrow.ipc.IpcReadOptions "
                 f"ensure_native_endian={self.ensure_native_endian} "
-                f"ensure_alignment={self.ensure_alignment} "
+                f"ensure_alignment={alignment} "
                 f"use_threads={self.use_threads} "
                 f"included_fields={self.included_fields}>")
 
@@ -333,10 +335,16 @@ cdef class IpcWriteOptions(_Weakrefable):
         self.c_options.unify_dictionaries = value
 
     def __repr__(self):
+        compression_repr = f"compression=\"{self.compression}\" " \
+                if self.compression is not None else ""
+
+        metadata_version = MetadataVersion(self.metadata_version).name
+
         return (f"<pyarrow.ipc.IpcWriteOptions "
                 f"allow_64bit={self.allow_64bit} "
                 f"use_legacy_format={self.use_legacy_format} "
-                f"metadata_version={self.metadata_version} "
+                f"metadata_version={metadata_version} "
+                f"{compression_repr}"
                 f"use_threads={self.use_threads} "
                 f"emit_dictionary_deltas={self.emit_dictionary_deltas} "
                 f"unify_dictionaries={self.unify_dictionaries}>")
