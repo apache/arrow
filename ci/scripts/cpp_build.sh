@@ -43,9 +43,6 @@ if [ ! -z "${CONDA_PREFIX}" ] && [ "${ARROW_EMSCRIPTEN:-OFF}" = "OFF" ]; then
   fi
   export ARROW_CMAKE_ARGS
   export ARROW_GANDIVA_PC_CXX_FLAGS=$(echo | ${CXX} -E -Wp,-v -xc++ - 2>&1 | grep '^ ' | awk '{print "-isystem;" substr($1, 1)}' | tr '\n' ';')
-
-  export LIBRARY_PATH="${CONDA_PREFIX}/lib"
-  export CPLUS_INCLUDE_PATH="${CONDA_PREFIX}/include"
 elif [ -x "$(command -v xcrun)" ]; then
   export ARROW_GANDIVA_PC_CXX_FLAGS="-isysroot;$(xcrun --show-sdk-path)"
 fi
@@ -146,9 +143,10 @@ if [ "${ARROW_USE_MESON:-OFF}" = "ON" ]; then
     --prefix=${MESON_PREFIX:-${ARROW_HOME}} \
     --buildtype=${ARROW_BUILD_TYPE:-debug} \
     --pkg-config-path="${CONDA_PREFIX}/lib/pkgconfig/" \
-    -Db_sanitize=address,undefined \
-    -Dorc=enabled \
-    -Dtests=enabled \
+    -Dauto_features=enabled \
+    -Dfuzzing=disabled \
+    -Dgcs=disabled \
+    -Ds3=disabled \
     . \
     ${source_dir}
 
