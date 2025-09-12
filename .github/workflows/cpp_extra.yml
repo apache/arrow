@@ -304,10 +304,10 @@ jobs:
       - name: Notify
         env:
           GH_TOKEN: ${{ github.token }}
+          CHAT_WEBHOOK: ${{ secrets.ARROW_ZULIP_WEBHOOK }}
         run: |
-          archery arrowci report-chat \
+          archery ci report-chat \
             --ignore ${{ github.job }} \
             --repository ${{ github.repository }} \
             --dry-run \
-            --webhook ${{ secrets.ARROW_ZULIP_WEBHOOK }} \
             ${{ github.run_id }}

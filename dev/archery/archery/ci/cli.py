@@ -46,7 +46,7 @@ def ci(ctx, github_token, output_file):
               help='The repository where the workflow is located.')
 @click.option('--ignore', '-i', default="",
               help='Job name to ignore from the list of jobs.')
-@click.option('--webhook', '-w',
+@click.option('--webhook', '-w', envvar=['CHAT_WEBHOOK'],
               help='Zulip/Slack Webhook address to send the report to.')
 @click.option('--extra-message-success', '-s', default=None,
               help='Extra message, will be appended if no failures.')

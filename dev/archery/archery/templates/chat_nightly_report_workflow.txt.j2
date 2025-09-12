@@ -16,7 +16,7 @@
 # specific language governing permissions and limitations
 # under the License.
 #}
-*<Extra CI GitHub report> for <{{ report.workflow.url }}|{{ report.workflow.name }}>*
+*Extra CI GitHub report for <{{ report.workflow.url }}|{{ report.workflow.name }}>*
 {% if report.workflow.failed_jobs() %}
 :x: *{{ report.workflow.failed_jobs() | length }} failed jobs*
 {% for job in report.workflow.failed_jobs() -%}
