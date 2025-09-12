@@ -16,23 +16,23 @@
 # specific language governing permissions and limitations
 # under the License.
 #}
-*Extra CI GitHub report for <{{ report.workflow.url }}|{{ report.workflow.name }}>*
-{% if report.workflow.failed_jobs() %}
-:x: *{{ report.workflow.failed_jobs() | length }} failed jobs*
-{% for job in report.workflow.failed_jobs() -%}
+*Extra CI GitHub report for <{{ report.url }}|{{ report.name }}>*
+{% if report.failed_jobs() %}
+:x: *{{ report.failed_jobs() | length }} failed jobs*
+{% for job in report.failed_jobs() -%}
 - <{{ job.url }}|{{ job.name }}>
 {% endfor %}
 {%- endif -%}
-{% if report.workflow.successful_jobs() %}
+{% if report.successful_jobs() %}
 
-:tada: *{{ report.workflow.successful_jobs() | length }} successful jobs*
+:tada: *{{ report.successful_jobs() | length }} successful jobs*
 {%- endif -%}
 
-{% if extra_message_success and not report.workflow.failed_jobs() %}
+{% if extra_message_success and not report.failed_jobs() %}
 
 {{ extra_message_success }}
 {%- endif -%}
-{% if extra_message_failure and report.workflow.failed_jobs() %}
+{% if extra_message_failure and report.failed_jobs() %}
 
 {{ extra_message_failure }}
 {% endif %}

@@ -1,3 +1,4 @@
+{#
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -14,24 +15,31 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
+#}
+{%- if True -%}
+{%- endif -%}
+From: {{ sender_name }} <{{ sender_email }}>
+To: {{ recipient_email }}
+Subject: [NIGHTLY] Arrow Build Report for {{ report.name }}: {{ report.failed_jobs() | length }} failed
 
+Arrow Build Report for {{ report.name }}
 
-from ..crossbow.reports import JinjaReport
-from .core import Workflow
+Workflow URL: {{ report.url }}
 
+{% if report.failed_jobs() %}
+Failed Jobs:
 
-class WorkflowReport:
-    def __init__(self, workflow_id, repository, ignore_job, gh_token=None):
-        self.workflow = Workflow(workflow_id, repository=repository,
-                                 ignore_job=ignore_job, gh_token=gh_token)
+{% for job in report.failed_jobs() -%}
+- {{ job.name }}
+  {{ job.url }}
+{% endfor %}
+{% endif %}
 
+{% if report.successful_jobs() %}
+Succeeded Tasks:
 
-class ChatReport(JinjaReport):
-    templates = {
-        'text': 'chat_nightly_report_workflow.txt.j2',
-    }
-    fields = [
-        'report',
-        'extra_message_success',
-        'extra_message_failure',
-    ]
+{% for job in report.successful_jobs() -%}
+- {{ job.name }}
+  {{ job.url }}
+{% endfor %}
+{%- endif -%}

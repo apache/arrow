@@ -305,7 +305,27 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           CHAT_WEBHOOK: ${{ secrets.ARROW_ZULIP_WEBHOOK }}
+          SMTP_PASSWORD: ${{ secrets.ARROW_SMTP_PASSWORD }}
         run: |
+          # Continue even if email sending fails
+          set +e
+          archery ci report-email \
+            --dry-run \
+            --smtp-server 'commit-email.info' \
+            --sender-name Arrow \
+            --sender-email 'arrow@commit-email.info' \
+            --recipient-email 'builds@arrow.apache.org' \
+            --smtp-user arrow \
+            --ignore ${{ github.job }} \
+            --repository ${{ github.repository }} \
+            ${{ github.run_id }}
+          email_exit_code=$?
+          set -e
+
+          if [ $email_exit_code -ne 0 ]; then
+            echo "::warning::Email sending failed but continuing with workflow"
+          fi
+
           archery ci report-chat \
             --ignore ${{ github.job }} \
             --repository ${{ github.repository }} \

@@ -217,6 +217,7 @@ class ConsoleReport(Report):
 class ChatReport(JinjaReport):
     templates = {
         'text': 'chat_nightly_report.txt.j2',
+        'workflow_report': 'chat_nightly_workflow_report.txt.j2',
     }
     fields = [
         'report',
@@ -267,6 +268,7 @@ class EmailReport(JinjaReport):
     templates = {
         'nightly_report': 'email_nightly_report.txt.j2',
         'token_expiration': 'email_token_expiration.txt.j2',
+        'workflow_report': 'email_workflow_report.txt.j2',
     }
     fields = [
         'report',

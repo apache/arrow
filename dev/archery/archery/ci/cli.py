@@ -17,8 +17,8 @@
 
 import click
 
-from .reports import WorkflowReport, ChatReport
-from ..crossbow.reports import ReportUtils
+from .core import Workflow
+from ..crossbow.reports import ChatReport, EmailReport, ReportUtils
 
 
 @click.group()
@@ -57,17 +57,70 @@ def report_chat(obj, workflow_id, send, repository, ignore, webhook,
                 extra_message_success, extra_message_failure):
     """
     Send a chat report to a webhook showing success/failure
-    of tasks in a Crossbow run.
+    of jobs in a workflow run.
     """
     output = obj['output']
 
     report_chat = ChatReport(
-        report=WorkflowReport(workflow_id, repository,
-                              ignore_job=ignore, gh_token=obj['github_token']),
+        report=Workflow(workflow_id, repository,
+                        ignore_job=ignore, gh_token=obj['github_token']),
         extra_message_success=extra_message_success,
         extra_message_failure=extra_message_failure
     )
     if send:
-        ReportUtils.send_message(webhook, report_chat.render("text"))
+        ReportUtils.send_message(webhook, report_chat.render("workflow_report"))
     else:
-        output.write(report_chat.render("text"))
+        output.write(report_chat.render("workflow_report"))
+
+
+@ci.command()
+@click.argument('workflow_id', required=True)
+@click.option('--sender-name', '-n',
+              help='Name to use for report e-mail.')
+@click.option('--sender-email', '-e',
+              help='E-mail to use for report e-mail.')
+@click.option('--recipient-email', '-r',
+              help='Where to send the e-mail report')
+@click.option('--smtp-user', '-u',
+              help='E-mail address to use for SMTP login')
+@click.option('--smtp-password', '-P',
+              help='SMTP password to use for report e-mail.')
+@click.option('--smtp-server', '-s', default='smtp.gmail.com',
+              help='SMTP server to use for report e-mail.')
+@click.option('--smtp-port', '-p', default=465,
+              help='SMTP port to use for report e-mail.')
+@click.option('--send/--dry-run', default=False,
+              help='Just display the report, don\'t send it.')
+@click.option('--repository', '-r', default='apache/arrow',
+              help='The repository where the workflow is located.')
+@click.option('--ignore', '-i', default="",
+              help='Job name to ignore from the list of jobs.')
+@click.pass_obj
+def report_email(obj, workflow_id, sender_name, sender_email, recipient_email,
+                 smtp_user, smtp_password, smtp_server, smtp_port, send,
+                 repository, ignore):
+    """
+    Send an email report showing success/failure of jobs in
+    a Workflow run
+    """
+    output = obj['output']
+
+    email_report = EmailReport(
+        report=Workflow(workflow_id, repository,
+                        ignore_job=ignore, gh_token=obj['github_token']),
+        sender_name=sender_name,
+        sender_email=sender_email,
+        recipient_email=recipient_email
+    )
+
+    if send:
+        ReportUtils.send_email(
+            smtp_user=smtp_user,
+            smtp_password=smtp_password,
+            smtp_server=smtp_server,
+            smtp_port=smtp_port,
+            recipient_email=recipient_email,
+            message=email_report.render("workflow_report")
+        )
+    else:
+        output.write(email_report.render("workflow_report"))
