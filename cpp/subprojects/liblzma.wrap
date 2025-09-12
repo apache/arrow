@@ -1,0 +1,30 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+[wrap-file]
+directory = xz-5.2.12
+source_url = http://tukaani.org/xz/xz-5.2.12.tar.xz
+source_filename = xz-5.2.12.tar.xz
+source_hash = f79a92b84101d19d76be833aecc93e68e56065b61ec737610964cd4f6c54ff2e
+patch_filename = liblzma_5.2.12-3_patch.zip
+patch_url = https://wrapdb.mesonbuild.com/v2/liblzma_5.2.12-3/get_patch
+patch_hash = bf9eb44c6ba8d5157d5fdcc35a3d5a7a9d409a6c4ae696122bbb9e2d9d12467a
+source_fallback_url = https://github.com/mesonbuild/wrapdb/releases/download/liblzma_5.2.12-3/xz-5.2.12.tar.xz
+wrapdb_version = 5.2.12-3
+
+[provide]
+liblzma = lzma_dep
