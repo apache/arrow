@@ -35,7 +35,7 @@ printenv
 makepkg-mingw --noconfirm --noprogressbar --skippgpcheck --nocheck --syncdeps --cleanbuild
 
 VERSION=$(grep Version $ARROW_HOME/r/DESCRIPTION | cut -d " " -f 2)
-DST_DIR="arrow-$VERSION"
+DST_DIR="r-libarrow-windows-x86_64-$VERSION"
 
 # Collect the build artifacts and make the shape of zip file that rwinlib expects
 ls
