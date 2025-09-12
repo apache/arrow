@@ -336,6 +336,11 @@ CleanStatistic(std::pair<T, T> min_max, LogicalType::Type::type) {
   return min_max;
 }
 
+std::optional<std::pair<Int96, Int96>> CleanStatistic(std::pair<Int96, Int96> min_max,
+                                                      LogicalType::Type::type) {
+  return min_max;
+}
+
 // In case of floating point types, the following rules are applied (as per
 // upstream parquet-mr):
 // - If any of min/max is NaN, return nothing.
@@ -573,7 +578,11 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
         min_buffer_(AllocateBuffer(pool_, 0)),
         max_buffer_(AllocateBuffer(pool_, 0)),
         logical_type_(LogicalTypeId(descr_)) {
-    comparator_ = MakeComparator<DType>(descr);
+    try {
+      comparator_ = MakeComparator<DType>(descr);
+    } catch (const ParquetException&) {
+      comparator_ = nullptr;
+    }
     TypedStatisticsImpl::Reset();
   }
 
@@ -732,6 +741,7 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
       return;
     }
 
+    if (comparator_ == nullptr) return;
     SetMinMaxPair(comparator_->GetMinMax(values));
   }
 
@@ -834,7 +844,7 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
   void SetMinMaxPair(std::pair<T, T> min_max) {
     // CleanStatistic can return a nullopt in case of erroneous values, e.g. NaN
     auto maybe_min_max = CleanStatistic(min_max, logical_type_);
-    if (!maybe_min_max) return;
+    if (!maybe_min_max || comparator_ == nullptr) return;
 
     auto min = maybe_min_max.value().first;
     auto max = maybe_min_max.value().second;
@@ -894,7 +904,7 @@ void TypedStatisticsImpl<DType>::Update(const T* values, int64_t num_values,
   IncrementNullCount(null_count);
   IncrementNumValues(num_values);
 
-  if (num_values == 0) return;
+  if (num_values == 0 || comparator_ == nullptr) return;
   SetMinMaxPair(comparator_->GetMinMax(values, num_values));
 }
 
@@ -909,7 +919,7 @@ void TypedStatisticsImpl<DType>::UpdateSpaced(const T* values, const uint8_t* va
   IncrementNullCount(null_count);
   IncrementNumValues(num_values);
 
-  if (num_values == 0) return;
+  if (num_values == 0 || comparator_ == nullptr) return;
   SetMinMaxPair(comparator_->GetMinMaxSpaced(values, num_spaced_values, valid_bits,
                                              valid_bits_offset));
 }
@@ -1104,6 +1114,7 @@ std::shared_ptr<Statistics> Statistics::Make(
     MAKE_STATS(BOOLEAN, BooleanType);
     MAKE_STATS(INT32, Int32Type);
     MAKE_STATS(INT64, Int64Type);
+    MAKE_STATS(INT96, Int96Type);
     MAKE_STATS(FLOAT, FloatType);
     MAKE_STATS(DOUBLE, DoubleType);
     MAKE_STATS(BYTE_ARRAY, ByteArrayType);
