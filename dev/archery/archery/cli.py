@@ -874,6 +874,8 @@ add_optional_command("release", module=".release.cli", function="release",
                      parent=archery)
 add_optional_command("crossbow", module=".crossbow.cli", function="crossbow",
                      parent=archery)
+add_optional_command("ci", module=".ci.cli", function="ci",
+                     parent=archery)
 
 
 if __name__ == "__main__":

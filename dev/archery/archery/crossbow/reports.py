@@ -217,6 +217,7 @@ class ConsoleReport(Report):
 class ChatReport(JinjaReport):
     templates = {
         'text': 'chat_nightly_report.txt.j2',
+        'workflow_report': 'chat_nightly_workflow_report.txt.j2',
     }
     fields = [
         'report',
@@ -246,13 +247,19 @@ class ReportUtils:
     @classmethod
     def send_email(cls, smtp_user, smtp_password, smtp_server, smtp_port,
                    recipient_email, message):
-        import smtplib
+        from smtplib import SMTP, SMTP_SSL
 
-        server = smtplib.SMTP_SSL(smtp_server, smtp_port)
-        server.ehlo()
-        server.login(smtp_user, smtp_password)
-        server.sendmail(smtp_user, recipient_email, message)
-        server.close()
+        if smtp_port == 465:
+            smtp_cls = SMTP_SSL
+        else:
+            smtp_cls = SMTP
+        with smtp_cls(smtp_server, smtp_port) as smtp:
+            if smtp_port == 465:
+                smtp.ehlo()
+            else:
+                smtp.starttls()
+            smtp.login(smtp_user, smtp_password)
+            smtp.sendmail(smtp_user, recipient_email, message)
 
     @classmethod
     def write_csv(cls, report, add_headers=True):
@@ -267,6 +274,7 @@ class EmailReport(JinjaReport):
     templates = {
         'nightly_report': 'email_nightly_report.txt.j2',
         'token_expiration': 'email_token_expiration.txt.j2',
+        'workflow_report': 'email_workflow_report.txt.j2',
     }
     fields = [
         'report',
