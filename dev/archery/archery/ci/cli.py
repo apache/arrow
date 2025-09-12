@@ -29,7 +29,7 @@ from ..crossbow.reports import ReportUtils
               type=click.File('w', encoding='utf8'), default='-',
               help='Capture output result into file.')
 @click.pass_context
-def arrowci(ctx, github_token, output_file):
+def ci(ctx, github_token, output_file):
     """
     Tools for CI Extra jobs on GitHub actions.
     """
@@ -38,7 +38,7 @@ def arrowci(ctx, github_token, output_file):
     ctx.obj['output'] = output_file
 
 
-@arrowci.command()
+@ci.command()
 @click.argument('workflow_id', required=True)
 @click.option('--send/--dry-run', default=False,
               help='Just display the report, don\'t send it.')
