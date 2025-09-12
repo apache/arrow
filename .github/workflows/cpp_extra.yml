@@ -311,7 +311,7 @@ jobs:
           echo "Sending email report."
           set +e
           archery ci report-email \
-            --dry-run \
+            --send \
             --smtp-server 'commit-email.info' \
             --sender-name Arrow \
             --sender-email 'arrow@commit-email.info' \
@@ -332,5 +332,5 @@ jobs:
           archery ci report-chat \
             --ignore ${{ github.job }} \
             --repository ${{ github.repository }} \
-            --dry-run \
+            --send \
             ${{ github.run_id }}
