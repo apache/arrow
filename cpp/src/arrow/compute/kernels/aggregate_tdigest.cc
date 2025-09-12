@@ -36,10 +36,13 @@ struct TDigestBaseImpl : public ScalarAggregator {
   explicit TDigestBaseImpl(std::unique_ptr<TDigest::Scaler> scaler, uint32_t buffer_size)
       : tdigest{std::move(scaler), buffer_size}, count{0}, all_valid{true} {
     auto output_size = tdigest.delta();
-    out_type = struct_({field("mean", fixed_size_list(float64(), output_size), false),
-                        field("weight", fixed_size_list(float64(), output_size), false),
-                        field("count", uint64(), false), field("min", float64(), true),
-                        field("max", float64(), true)});
+    out_type = struct_({
+        field("mean", fixed_size_list(float64(), output_size), false),
+        field("weight", fixed_size_list(float64(), output_size), false),
+        field("min", float64(), true),
+        field("max", float64(), true),
+        field("count", uint64(), false),
+    });
   }
 
   Status MergeFrom(KernelContext*, KernelState&& src) override {
@@ -160,7 +163,7 @@ struct TDigestCentroidFinalizer : public TDigestBaseImpl {
         min = max = MakeNullScalar(float64());
       }
       *out = std::make_shared<StructScalar>(
-          std::vector<std::shared_ptr<Scalar>>{mean, weight, count, min, max}, out_type);
+          std::vector<std::shared_ptr<Scalar>>{mean, weight, min, max, count}, out_type);
     }
 
     return Status::OK();
@@ -241,9 +244,9 @@ struct TDigestCentroidConsumerImpl : public TDigestFinalizer_T {
     auto weight_array =
         checked_cast<const FixedSizeListScalar*>(input_struct_scalar->value[1].get())
             ->value;
-    auto count = checked_cast<const UInt64Scalar*>(input_struct_scalar->value[2].get());
-    auto min = checked_cast<const DoubleScalar*>(input_struct_scalar->value[3].get());
-    auto max = checked_cast<const DoubleScalar*>(input_struct_scalar->value[4].get());
+    auto min = checked_cast<const DoubleScalar*>(input_struct_scalar->value[2].get());
+    auto max = checked_cast<const DoubleScalar*>(input_struct_scalar->value[3].get());
+    auto count = checked_cast<const UInt64Scalar*>(input_struct_scalar->value[4].get());
     auto mean_double_array = checked_cast<const DoubleArray*>(mean_array.get());
     auto weight_double_array = checked_cast<const DoubleArray*>(weight_array.get());
     DCHECK_EQ(mean_double_array->length(), this->tdigest.delta());
@@ -411,7 +414,7 @@ struct TDigestCentroidTypeMatcher : public TypeMatcher {
 
   static std::string ToStringStatic() {
     return "struct{mean:fixed_size_list<item: double>[N], weight:fixed_size_list<item: "
-           "double>[N], count:int64, min:float64, max:float64}";
+           "double>[N], min:float64, max:float64, count:int64}";
   }
   std::string ToString() const override { return ToStringStatic(); }
 
