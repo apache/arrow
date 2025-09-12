@@ -18,7 +18,6 @@
 #include "arrow/csv/writer.h"
 #include "arrow/array.h"
 #include "arrow/compute/cast.h"
-#include "arrow/csv/options.h"
 #include "arrow/io/interfaces.h"
 #include "arrow/ipc/writer.h"
 #include "arrow/record_batch.h"
