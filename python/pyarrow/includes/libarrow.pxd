@@ -1585,10 +1585,6 @@ cdef extern from "arrow/io/api.h" namespace "arrow::io" nogil:
         FileMode_WRITE" arrow::io::FileMode::WRITE"
         FileMode_READWRITE" arrow::io::FileMode::READWRITE"
 
-    cdef enum ObjectType" arrow::io::ObjectType::type":
-        ObjectType_FILE" arrow::io::ObjectType::FILE"
-        ObjectType_DIRECTORY" arrow::io::ObjectType::DIRECTORY"
-
     cdef cppclass CIOContext" arrow::io::IOContext":
         CIOContext()
         CIOContext(CStopToken)
@@ -1598,10 +1594,6 @@ cdef extern from "arrow/io/api.h" namespace "arrow::io" nogil:
     CIOContext c_default_io_context "arrow::io::default_io_context"()
     int GetIOThreadPoolCapacity()
     CStatus SetIOThreadPoolCapacity(int threads)
-
-    cdef cppclass FileStatistics:
-        int64_t size
-        ObjectType kind
 
     cdef cppclass FileInterface:
         CStatus Close()
@@ -1669,9 +1661,6 @@ cdef extern from "arrow/io/api.h" namespace "arrow::io" nogil:
     cdef cppclass ReadWriteFileInterface(CRandomAccessFile,
                                          WritableFile):
         pass
-
-    cdef cppclass CIOFileSystem" arrow::io::FileSystem":
-        CStatus Stat(const c_string& path, FileStatistics* stat)
 
     cdef cppclass FileOutputStream(COutputStream):
         @staticmethod
@@ -1754,78 +1743,6 @@ cdef extern from "arrow/io/api.h" namespace "arrow::io" nogil:
         "arrow::py::MakeStreamTransformFunc"(
         CTransformInputStreamVTable vtable,
         object method_arg)
-
-    # ----------------------------------------------------------------------
-    # HDFS
-
-    CStatus HaveLibHdfs()
-    CStatus HaveLibHdfs3()
-
-    cdef enum HdfsDriver" arrow::io::HdfsDriver":
-        HdfsDriver_LIBHDFS" arrow::io::HdfsDriver::LIBHDFS"
-        HdfsDriver_LIBHDFS3" arrow::io::HdfsDriver::LIBHDFS3"
-
-    cdef cppclass HdfsConnectionConfig:
-        c_string host
-        int port
-        c_string user
-        c_string kerb_ticket
-        unordered_map[c_string, c_string] extra_conf
-        HdfsDriver driver
-
-    cdef cppclass HdfsPathInfo:
-        ObjectType kind
-        c_string name
-        c_string owner
-        c_string group
-        int32_t last_modified_time
-        int32_t last_access_time
-        int64_t size
-        int16_t replication
-        int64_t block_size
-        int16_t permissions
-
-    cdef cppclass HdfsReadableFile(CRandomAccessFile):
-        pass
-
-    cdef cppclass HdfsOutputStream(COutputStream):
-        pass
-
-    cdef cppclass CIOHadoopFileSystem \
-            "arrow::io::HadoopFileSystem"(CIOFileSystem):
-        @staticmethod
-        CStatus Connect(const HdfsConnectionConfig* config,
-                        shared_ptr[CIOHadoopFileSystem]* client)
-
-        CStatus MakeDirectory(const c_string& path)
-
-        CStatus Delete(const c_string& path, c_bool recursive)
-
-        CStatus Disconnect()
-
-        c_bool Exists(const c_string& path)
-
-        CStatus Chmod(const c_string& path, int mode)
-        CStatus Chown(const c_string& path, const char* owner,
-                      const char* group)
-
-        CStatus GetCapacity(int64_t* nbytes)
-        CStatus GetUsed(int64_t* nbytes)
-
-        CStatus ListDirectory(const c_string& path,
-                              vector[HdfsPathInfo]* listing)
-
-        CStatus GetPathInfo(const c_string& path, HdfsPathInfo* info)
-
-        CStatus Rename(const c_string& src, const c_string& dst)
-
-        CStatus OpenReadable(const c_string& path,
-                             shared_ptr[HdfsReadableFile]* handle)
-
-        CStatus OpenWritable(const c_string& path, c_bool append,
-                             int32_t buffer_size, int16_t replication,
-                             int64_t default_block_size,
-                             shared_ptr[HdfsOutputStream]* handle)
 
     cdef cppclass CBufferReader \
             " arrow::io::BufferReader"(CRandomAccessFile):

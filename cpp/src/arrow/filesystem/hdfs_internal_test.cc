@@ -30,15 +30,22 @@
 #include <gtest/gtest.h>
 
 #include "arrow/buffer.h"
-#include "arrow/io/hdfs.h"
-#include "arrow/io/hdfs_internal.h"
+#include "arrow/filesystem/hdfs_internal.h"
+#include "arrow/filesystem/type_fwd.h"
 #include "arrow/io/interfaces.h"
 #include "arrow/status.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/util.h"
 
 namespace arrow {
-namespace io {
+
+using arrow::fs::HadoopFileSystem;
+using arrow::fs::HdfsOptions;
+
+namespace fs::internal {
+
+using arrow::fs::internal::HdfsPathInfo;
+using arrow::fs::internal::HdfsReadableFile;
 
 std::vector<uint8_t> RandomData(int64_t size) {
   std::vector<uint8_t> buffer(size);
@@ -58,13 +65,13 @@ class TestHadoopFileSystem : public ::testing::Test {
   Status WriteDummyFile(const std::string& path, const uint8_t* buffer, int64_t size,
                         bool append = false, int buffer_size = 0, int16_t replication = 0,
                         int default_block_size = 0) {
-    std::shared_ptr<HdfsOutputStream> file;
-    RETURN_NOT_OK(client_->OpenWritable(path, append, buffer_size, replication,
-                                        default_block_size, &file));
+    {
+      std::shared_ptr<HdfsOutputStream> file;
+      RETURN_NOT_OK(client_->OpenWritable(path, append, buffer_size, replication,
+                                          default_block_size, &file));
 
-    RETURN_NOT_OK(file->Write(buffer, size));
-    RETURN_NOT_OK(file->Close());
-
+      RETURN_NOT_OK(file->Write(buffer, size));
+    }
     return Status::OK();
   }
 
@@ -82,7 +89,7 @@ class TestHadoopFileSystem : public ::testing::Test {
 
   // Set up shared state between unit tests
   void SetUp() {
-    internal::LibHdfsShim* driver_shim;
+    LibHdfsShim* driver_shim;
 
     client_ = nullptr;
     scratch_dir_ =
@@ -118,7 +125,10 @@ class TestHadoopFileSystem : public ::testing::Test {
     conf_.user = user;
     conf_.port = port == nullptr ? 20500 : atoi(port);
 
-    ASSERT_OK(HadoopFileSystem::Connect(&conf_, &client_));
+    HdfsOptions options;
+    options.connection_config = conf_;
+    io::IOContext io_context = io::default_io_context();
+    ASSERT_OK_AND_ASSIGN(client_, HadoopFileSystem::Make(options, io_context));
   }
 
   void TearDown() {
@@ -126,11 +136,10 @@ class TestHadoopFileSystem : public ::testing::Test {
       if (client_->Exists(scratch_dir_)) {
         ARROW_EXPECT_OK(client_->Delete(scratch_dir_, true));
       }
-      ARROW_EXPECT_OK(client_->Disconnect());
     }
   }
 
-  HdfsConnectionConfig conf_;
+  arrow::fs::HdfsConnectionConfig conf_;
   bool loaded_driver_;
 
   // Resources shared amongst unit tests
@@ -147,8 +156,13 @@ TEST_F(TestHadoopFileSystem, ConnectsAgain) {
   SKIP_IF_NO_DRIVER();
 
   std::shared_ptr<HadoopFileSystem> client;
-  ASSERT_OK(HadoopFileSystem::Connect(&this->conf_, &client));
-  ASSERT_OK(client->Disconnect());
+
+  {
+    HdfsOptions options;
+    options.connection_config = this->conf_;
+    io::IOContext io_context = io::default_io_context();
+    ASSERT_OK_AND_ASSIGN(client_, HadoopFileSystem::Make(options, io_context));
+  }
 }
 
 TEST_F(TestHadoopFileSystem, MultipleClients) {
@@ -158,14 +172,18 @@ TEST_F(TestHadoopFileSystem, MultipleClients) {
 
   std::shared_ptr<HadoopFileSystem> client1;
   std::shared_ptr<HadoopFileSystem> client2;
-  ASSERT_OK(HadoopFileSystem::Connect(&this->conf_, &client1));
-  ASSERT_OK(HadoopFileSystem::Connect(&this->conf_, &client2));
-  ASSERT_OK(client1->Disconnect());
 
-  // client2 continues to function after equivalent client1 has shutdown
-  std::vector<HdfsPathInfo> listing;
-  ASSERT_OK(client2->ListDirectory(this->scratch_dir_, &listing));
-  ASSERT_OK(client2->Disconnect());
+  io::IOContext io_context = io::default_io_context();
+  HdfsOptions options;
+  options.connection_config = this->conf_;
+  { ASSERT_OK_AND_ASSIGN(client1, HadoopFileSystem::Make(options, io_context)); }
+  {
+    ASSERT_OK_AND_ASSIGN(client2, HadoopFileSystem::Make(options, io_context));
+
+    // client2 continues to function after equivalent client1 has shutdown
+    std::vector<HdfsPathInfo> listing;
+    ASSERT_OK(client2->ListDirectory(this->scratch_dir_, &listing));
+  }
 }
 
 TEST_F(TestHadoopFileSystem, MakeDirectory) {
@@ -200,7 +218,7 @@ TEST_F(TestHadoopFileSystem, GetCapacityUsed) {
   ASSERT_LT(0, nbytes);
 }
 
-TEST_F(TestHadoopFileSystem, GetPathInfo) {
+TEST_F(TestHadoopFileSystem, GetPathInfoStatus) {
   SKIP_IF_NO_DRIVER();
 
   HdfsPathInfo info;
@@ -208,8 +226,8 @@ TEST_F(TestHadoopFileSystem, GetPathInfo) {
   ASSERT_OK(this->MakeScratchDir());
 
   // Directory info
-  ASSERT_OK(this->client_->GetPathInfo(this->scratch_dir_, &info));
-  ASSERT_EQ(ObjectType::DIRECTORY, info.kind);
+  ASSERT_OK(this->client_->GetPathInfoStatus(this->scratch_dir_, &info));
+  ASSERT_EQ(arrow::fs::FileType::Directory, info.kind);
   ASSERT_EQ(this->HdfsAbsPath(this->scratch_dir_), info.name);
   ASSERT_EQ(this->conf_.user, info.owner);
 
@@ -222,15 +240,15 @@ TEST_F(TestHadoopFileSystem, GetPathInfo) {
   std::vector<uint8_t> buffer = RandomData(size);
 
   ASSERT_OK(this->WriteDummyFile(path, buffer.data(), size));
-  ASSERT_OK(this->client_->GetPathInfo(path, &info));
+  ASSERT_OK(this->client_->GetPathInfoStatus(path, &info));
 
-  ASSERT_EQ(ObjectType::FILE, info.kind);
+  ASSERT_EQ(arrow::fs::FileType::File, info.kind);
   ASSERT_EQ(this->HdfsAbsPath(path), info.name);
   ASSERT_EQ(this->conf_.user, info.owner);
   ASSERT_EQ(size, info.size);
 }
 
-TEST_F(TestHadoopFileSystem, GetPathInfoNotExist) {
+TEST_F(TestHadoopFileSystem, GetPathInfoStatusNotExist) {
   // ARROW-2919: Test that the error message is reasonable
   SKIP_IF_NO_DRIVER();
 
@@ -238,7 +256,7 @@ TEST_F(TestHadoopFileSystem, GetPathInfoNotExist) {
   auto path = this->ScratchPath("path-does-not-exist");
 
   HdfsPathInfo info;
-  Status s = this->client_->GetPathInfo(path, &info);
+  Status s = this->client_->GetPathInfoStatus(path, &info);
   ASSERT_TRUE(s.IsIOError());
 
   const std::string error_message = s.ToString();
@@ -262,7 +280,7 @@ TEST_F(TestHadoopFileSystem, AppendToFile) {
   ASSERT_OK(this->WriteDummyFile(path, buffer.data(), size, true));
 
   HdfsPathInfo info;
-  ASSERT_OK(this->client_->GetPathInfo(path, &info));
+  ASSERT_OK(this->client_->GetPathInfoStatus(path, &info));
   ASSERT_EQ(size * 2, info.size);
 }
 
@@ -293,13 +311,13 @@ TEST_F(TestHadoopFileSystem, ListDirectory) {
   for (size_t i = 0; i < listing.size(); ++i) {
     const HdfsPathInfo& info = listing[i];
     if (info.name == this->HdfsAbsPath(p1)) {
-      ASSERT_EQ(ObjectType::FILE, info.kind);
+      ASSERT_EQ(arrow::fs::FileType::File, info.kind);
       ASSERT_EQ(size, info.size);
     } else if (info.name == this->HdfsAbsPath(p2)) {
-      ASSERT_EQ(ObjectType::FILE, info.kind);
+      ASSERT_EQ(arrow::fs::FileType::File, info.kind);
       ASSERT_EQ(size / 2, info.size);
     } else if (info.name == this->HdfsAbsPath(d1)) {
-      ASSERT_EQ(ObjectType::DIRECTORY, info.kind);
+      ASSERT_EQ(arrow::fs::FileType::Directory, info.kind);
     } else {
       FAIL() << "Unexpected path: " << info.name;
     }
@@ -405,13 +423,13 @@ TEST_F(TestHadoopFileSystem, ChmodChown) {
 
   HdfsPathInfo info;
   ASSERT_OK(this->client_->Chmod(path, mode));
-  ASSERT_OK(this->client_->GetPathInfo(path, &info));
+  ASSERT_OK(this->client_->GetPathInfoStatus(path, &info));
   ASSERT_EQ(mode, info.permissions);
 
   std::string owner = "hadoop";
   std::string group = "hadoop";
   ASSERT_OK(this->client_->Chown(path, owner.c_str(), group.c_str()));
-  ASSERT_OK(this->client_->GetPathInfo(path, &info));
+  ASSERT_OK(this->client_->GetPathInfoStatus(path, &info));
   ASSERT_EQ("hadoop", info.owner);
   ASSERT_EQ("hadoop", info.group);
 }
@@ -462,5 +480,5 @@ TEST_F(TestHadoopFileSystem, ThreadSafety) {
   ASSERT_EQ(niter * 4, correct_count);
 }
 
-}  // namespace io
+}  // namespace fs::internal
 }  // namespace arrow

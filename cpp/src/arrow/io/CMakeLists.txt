@@ -21,16 +21,6 @@
 add_arrow_test(buffered_test PREFIX "arrow-io")
 add_arrow_test(compressed_test PREFIX "arrow-io")
 add_arrow_test(file_test PREFIX "arrow-io")
-
-if(ARROW_HDFS)
-  add_arrow_test(hdfs_test
-                 NO_VALGRIND
-                 PREFIX
-                 "arrow-io"
-                 EXTRA_LINK_LIBS
-                 arrow::hadoop)
-endif()
-
 add_arrow_test(memory_test PREFIX "arrow-io")
 
 add_arrow_benchmark(file_benchmark PREFIX "arrow-io")
