@@ -67,6 +67,15 @@
 #    ifndef ARROW_NO_EXPORT
 #      define ARROW_NO_EXPORT [[gnu::visibility("hidden")]]
 #    endif
+// The C++ language does not have clear rules for how to export explicit template
+// instantiations, and clang/gcc have differing syntax. See
+// https://github.com/llvm/llvm-project/issues/29464 and
+// https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2017/p0537r0.html
+#    if defined(__clang__)
+#      define ARROW_TEMPLATE_EXPORT
+#    else
+#      define ARROW_TEMPLATE_EXPORT ARROW_EXPORT
+#    endif
 #  else
 // Not C++, or not gcc/clang
 #    ifndef ARROW_EXPORT
@@ -75,10 +84,10 @@
 #    ifndef ARROW_NO_EXPORT
 #      define ARROW_NO_EXPORT
 #    endif
+#    define ARROW_TEMPLATE_EXPORT
 #  endif
 
 #  define ARROW_FRIEND_EXPORT
-#  define ARROW_TEMPLATE_EXPORT
 
 // [[gnu::visibility("default")]] even when #included by a non-arrow source
 #  define ARROW_FORCE_EXPORT [[gnu::visibility("default")]]

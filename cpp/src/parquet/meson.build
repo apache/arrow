@@ -89,7 +89,7 @@ endif
 
 parquet_deps = [arrow_dep, rapidjson_dep, thrift_dep]
 
-if needs_parquet_encryption or get_option('parquet_require_encryption') == 'auto'
+if needs_parquet_encryption or get_option('parquet_require_encryption').auto()
     openssl_dep = dependency('openssl', required: needs_parquet_encryption)
 else
     openssl_dep = disabler()
@@ -120,8 +120,7 @@ parquet_lib = library(
     'arrow-parquet',
     sources: parquet_srcs,
     dependencies: parquet_deps,
-    # TODO: enable hidden visibility by default
-    #gnu_symbol_visibility: 'inlineshidden',
+    gnu_symbol_visibility: 'inlineshidden',
 )
 
 parquet_dep = declare_dependency(link_with: parquet_lib)
@@ -269,7 +268,27 @@ if needs_parquet_encryption
     }
 endif
 
-parquet_test_dep = [parquet_dep, arrow_test_dep, thrift_dep]
+if get_option('default_library') != 'static'
+    parquet_test_support_lib = static_library(
+        'parquet-test-support',
+        sources: files('../generated/parquet_types.cpp'),
+        dependencies: [thrift_dep],
+        include_directories: include_directories('..'),
+    )
+    parquet_test_support_dep = declare_dependency(
+        link_with: [parquet_test_support_lib],
+    )
+else
+    parquet_test_support_dep = declare_dependency()
+endif
+
+
+parquet_test_dep = [
+    parquet_dep,
+    parquet_test_support_dep,
+    arrow_test_dep,
+    thrift_dep,
+]
 
 foreach key, val : parquet_tests
     test_name = 'parquet-@0@'.format(key)
@@ -301,7 +320,12 @@ parquet_benchmarks = {
     'size_stats_benchmark': {'sources': files('arrow/size_stats_benchmark.cc')},
 }
 
-parquet_benchmark_dep = [parquet_dep, arrow_benchmark_dep, thrift_dep]
+parquet_benchmark_dep = [
+    parquet_dep,
+    parquet_test_support_dep,
+    arrow_benchmark_dep,
+    thrift_dep,
+]
 
 foreach key, val : parquet_benchmarks
     benchmark_name = 'parquet-@0@'.format(key)
