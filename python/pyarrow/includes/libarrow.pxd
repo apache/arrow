@@ -3130,6 +3130,16 @@ cdef extern from "arrow/util/iterator.h" namespace "arrow" nogil:
         RangeIterator end()
     CIterator[T] MakeVectorIterator[T](vector[T] v)
 
+
+cdef extern from "arrow/util/secure_string.h" namespace "arrow" nogil:
+    cdef cppclass CSecureString" arrow::util::SecureString":
+        CSecureString()
+        CSecureString(c_string s)
+        CSecureString(const CSecureString& s)
+        CSecureString(size_t n, char c)
+        cpp_string_view as_view()
+
+
 cdef extern from "arrow/util/thread_pool.h" namespace "arrow" nogil:
     int GetCpuThreadPoolCapacity()
     CStatus SetCpuThreadPoolCapacity(int threads)

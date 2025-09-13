@@ -125,7 +125,6 @@ class ReadStats(_ReadStats):
     __slots__ = ()
 
 
-@staticmethod
 cdef _wrap_read_stats(CIpcReadStats c):
     return ReadStats(c.num_messages, c.num_record_batches,
                      c.num_dictionary_batches, c.num_dictionary_deltas,

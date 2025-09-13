@@ -49,22 +49,7 @@ using ColumnPathToEncryptionPropertiesMap =
 class PARQUET_EXPORT DecryptionKeyRetriever {
  public:
   /// \brief Retrieve a key.
-  /// \deprecated Deprecated since 22.0.0.
-  ///             Implement GetKeyById(const std::string&) instead.
-  ARROW_DEPRECATED(
-      "Deprecated in 22.0.0. "
-      "Implement GetKeyById(const std::string&) instead.")
-  virtual std::string GetKey(const std::string& key_id) {
-    throw ParquetException("Not implemented");
-  }
-
-  /// \brief Retrieve a key by its id.
-  virtual ::arrow::util::SecureString GetKeyById(const std::string& key_id) {
-    ARROW_SUPPRESS_DEPRECATION_WARNING
-    auto key = ::arrow::util::SecureString(GetKey(key_id));
-    ARROW_UNSUPPRESS_DEPRECATION_WARNING
-    return key;
-  }
+  virtual ::arrow::util::SecureString GetKey(const std::string& key_id) = 0;
 
   virtual ~DecryptionKeyRetriever() {}
 };
@@ -74,17 +59,15 @@ class PARQUET_EXPORT IntegerKeyIdRetriever : public DecryptionKeyRetriever {
  public:
   void PutKey(uint32_t key_id, ::arrow::util::SecureString key);
 
-  ::arrow::util::SecureString GetKeyById(const std::string& key_id_string) override {
+  ::arrow::util::SecureString GetKey(const std::string& key_id_string) override {
     // key_id_string is string but for IntegerKeyIdRetriever it encodes
     // a native-endian 32 bit unsigned integer key_id
     uint32_t key_id;
     assert(key_id_string.size() == sizeof(key_id));
     memcpy(&key_id, key_id_string.data(), sizeof(key_id));
 
-    return GetKeyById(key_id);
+    return key_map_.at(key_id);
   }
-
-  ::arrow::util::SecureString GetKeyById(uint32_t key_id) { return key_map_.at(key_id); }
 
  private:
   std::map<uint32_t, ::arrow::util::SecureString> key_map_;
@@ -94,7 +77,7 @@ class PARQUET_EXPORT IntegerKeyIdRetriever : public DecryptionKeyRetriever {
 class PARQUET_EXPORT StringKeyIdRetriever : public DecryptionKeyRetriever {
  public:
   void PutKey(std::string key_id, ::arrow::util::SecureString key);
-  ::arrow::util::SecureString GetKeyById(const std::string& key_id) override;
+  ::arrow::util::SecureString GetKey(const std::string& key_id) override;
 
  private:
   std::map<std::string, ::arrow::util::SecureString> key_map_;
@@ -143,11 +126,6 @@ class PARQUET_EXPORT ColumnEncryptionProperties {
     /// be encrypted with the footer key.
     /// keyBytes Key length must be either 16, 24 or 32 bytes.
     /// Caller is responsible for wiping out the input key array.
-    /// \deprecated "Deprecated in 22.0.0. Use key(arrow::util::SecureString) instead."
-    ARROW_DEPRECATED("Deprecated in 22.0.0. Use key(arrow::util::SecureString) instead.")
-    Builder* key(std::string column_key);
-
-    /// \copydoc key(std::string)
     Builder* key(::arrow::util::SecureString column_key);
 
     /// Set a key retrieval metadata.
@@ -259,14 +237,6 @@ class PARQUET_EXPORT FileDecryptionProperties {
     /// will be wiped out (array values set to 0).
     /// Caller is responsible for wiping out the input key array.
     /// param footerKey Key length must be either 16, 24 or 32 bytes.
-    /// \deprecated Deprecated since 22.0.0.
-    ///             Use footer_key(arrow::util::SecureString) instead.
-    ARROW_DEPRECATED(
-        "Deprecated in 22.0.0. "
-        "Use footer_key(arrow::util::SecureString) instead.")
-    Builder* footer_key(std::string footer_key);
-
-    /// \copydoc footer_key(std::string footer_key)
     Builder* footer_key(::arrow::util::SecureString footer_key);
 
     /// Set explicit column keys (decryption properties).
@@ -376,14 +346,6 @@ class PARQUET_EXPORT FileEncryptionProperties {
  public:
   class PARQUET_EXPORT Builder {
    public:
-    /// \deprecated Deprecated since 22.0.0. Use Builder(arrow::util::SecureString)
-    /// instead.
-    ARROW_DEPRECATED(
-        "Deprecated in 22.0.0. "
-        "Use Builder(arrow::util::SecureString) instead")
-    explicit Builder(std::string footer_key)
-        : Builder(::arrow::util::SecureString(std::move(footer_key))) {}
-
     explicit Builder(::arrow::util::SecureString footer_key)
         : parquet_cipher_(kDefaultEncryptionAlgorithm),
           encrypted_footer_(kDefaultEncryptedFooter),

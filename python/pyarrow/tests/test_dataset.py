@@ -1364,6 +1364,14 @@ def test_make_parquet_fragment_from_buffer(dataset_reader, pickle_module):
         pickled = pickle_module.loads(pickle_module.dumps(fragment))
         assert dataset_reader.to_table(pickled).equals(table)
 
+        # GH-47301: Ensure fragment.open() works for file-like objects.
+        file_like = pa.BufferReader(buffer)
+        fragment = format_.make_fragment(file_like)
+        opened_file = fragment.open()
+        assert isinstance(opened_file, pa.NativeFile)
+        assert opened_file.readable
+        assert pq.ParquetFile(fragment.open()).read().equals(table)
+
 
 @pytest.mark.parquet
 def _create_dataset_for_fragments(tempdir, chunk_size=None, filesystem=None):
