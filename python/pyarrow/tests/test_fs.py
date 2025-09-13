@@ -906,6 +906,9 @@ def _check_root_dir_contents(config):
     fs.delete_dir_contents("", accept_root_dir=True)
     fs.delete_dir_contents("/", accept_root_dir=True)
     fs.delete_dir_contents("//", accept_root_dir=True)
+
+    fs.delete_root_dir_contents()
+
     with pytest.raises(pa.ArrowIOError):
         fs.delete_dir(d)
 
