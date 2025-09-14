@@ -914,7 +914,6 @@ def _check_root_dir_contents(config):
 def test_delete_root_dir_contents(mockfs, py_mockfs):
     _check_root_dir_contents(mockfs)
     _check_root_dir_contents(py_mockfs)
-    py_mockfs.delete_root_dir_contents()
 
 
 def test_copy_file(fs, pathfn):
