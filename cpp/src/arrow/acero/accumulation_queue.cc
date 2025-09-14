@@ -22,6 +22,7 @@
 #include <queue>
 #include <vector>
 
+#include "arrow/acero/query_context.h"
 #include "arrow/compute/exec.h"
 #include "arrow/util/logging_internal.h"
 
@@ -160,6 +161,82 @@ class SerialSequencingQueueImpl : public SerialSequencingQueue {
   bool is_processing_ = false;
 };
 
+class BackpressureProcessor : public SerialSequencingQueue::Processor {
+ private:
+  struct DoHandle {
+    explicit DoHandle(BackpressureProcessor& queue)
+        : queue_(queue), start_size_(queue_.SizeUnlocked()) {}
+
+    ~DoHandle() {
+      // unsynced access is safe since DoHandle is internally only used when the
+      // lock is held
+      size_t end_size = queue_.SizeUnlocked();
+      queue_.handler_.Handle(start_size_, end_size);
+    }
+
+    BackpressureProcessor& queue_;
+    size_t start_size_;
+  };
+
+ public:
+  explicit BackpressureProcessor(SerialSequencingQueue::Processor* processor,
+                                 BackpressureHandler handler, ExecPlan* plan,
+                                 bool requires_io = true)
+      : processor_(processor),
+        handler_(std::move(handler)),
+        plan_(plan),
+        requires_io_(requires_io) {}
+
+  void Schedule() {
+    if (requires_io_) {
+      plan_->query_context()->ScheduleIOTask([this]() { return DoProcess(); },
+                                             "BackpressureProcessor::DoProcessIO");
+    } else {
+      plan_->query_context()->ScheduleTask([this]() { return DoProcess(); },
+                                           "BackpressureProcessor::DoProcess");
+    }
+  }
+
+  Status Process(ExecBatch batch) override {
+    std::unique_lock lk(mutex_);
+    {
+      DoHandle do_handle(*this);
+      sequenced_queue_.push(batch);
+    }
+    if (!is_processing_) {
+      is_processing_ = true;
+      Schedule();
+    }
+    return Status::OK();
+  }
+
+ private:
+  Status DoProcess() {
+    std::unique_lock lk(mutex_);
+    while (!sequenced_queue_.empty()) {
+      ExecBatch next(sequenced_queue_.front());
+      {
+        DoHandle do_handle(*this);
+        sequenced_queue_.pop();
+      }
+      lk.unlock();
+      ARROW_RETURN_NOT_OK(processor_->Process(std::move(next)));
+      lk.lock();
+    }
+    is_processing_ = false;
+    return Status::OK();
+  }
+  size_t SizeUnlocked() const { return sequenced_queue_.size(); }
+
+  Processor* processor_;
+  BackpressureHandler handler_;
+  ExecPlan* plan_;
+  bool requires_io_;
+  std::mutex mutex_;
+  std::queue<ExecBatch> sequenced_queue_;
+  bool is_processing_ = false;
+};
+
 }  // namespace
 
 std::unique_ptr<SequencingQueue> SequencingQueue::Make(Processor* processor) {
@@ -168,6 +245,15 @@ std::unique_ptr<SequencingQueue> SequencingQueue::Make(Processor* processor) {
 
 std::unique_ptr<SerialSequencingQueue> SerialSequencingQueue::Make(Processor* processor) {
   return std::make_unique<SerialSequencingQueueImpl>(processor);
+}
+
+std::unique_ptr<SerialSequencingQueue::Processor>
+SerialSequencingQueue::Processor::MakeBackpressureWrapper(Processor* processor,
+                                                          BackpressureHandler handler,
+                                                          ExecPlan* plan,
+                                                          bool requires_io) {
+  return std::make_unique<util::BackpressureProcessor>(processor, std::move(handler),
+                                                       plan);
 }
 
 }  // namespace util
