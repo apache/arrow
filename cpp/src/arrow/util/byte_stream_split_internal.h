@@ -452,8 +452,9 @@ inline void ByteStreamSplitDecodeScalarDynamic(const uint8_t* data, int width,
 }
 
 template <int kNumStreams>
-void ByteStreamSplitDecodeSimdDispatch(const uint8_t* data, int width, int64_t num_values,
-                                       int64_t stride, uint8_t* out);
+ARROW_EXPORT void ByteStreamSplitDecodeSimdDispatch(const uint8_t* data, int width,
+                                                    int64_t num_values, int64_t stride,
+                                                    uint8_t* out);
 
 extern template ARROW_TEMPLATE_EXPORT void ByteStreamSplitDecodeSimdDispatch<2>(
     const uint8_t*, int, int64_t, int64_t, uint8_t*);
