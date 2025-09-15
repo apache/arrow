@@ -780,7 +780,7 @@ class ARROW_ACERO_EXPORT TableSinkNodeOptions : public ExecNodeOptions {
 
 /// \brief a row template that describes one row that will be generated for each input row
 struct ARROW_ACERO_EXPORT PivotLongerRowTemplate {
-  PivotLongerRowTemplate(std::vector<std::string> feature_values,
+  PivotLongerRowTemplate(std::vector<std::shared_ptr<Scalar>> feature_values,
                          std::vector<std::optional<FieldRef>> measurement_values)
       : feature_values(std::move(feature_values)),
         measurement_values(std::move(measurement_values)) {}
@@ -788,7 +788,7 @@ struct ARROW_ACERO_EXPORT PivotLongerRowTemplate {
   /// column name
   ///
   /// These will be used to populate the feature columns
-  std::vector<std::string> feature_values;
+  std::vector<std::shared_ptr<Scalar>> feature_values;
   /// The fields containing the measurements to use for this row
   ///
   /// These will be used to populate the measurement columns.  If nullopt then nulls
