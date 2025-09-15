@@ -147,9 +147,11 @@ static auto kTDigestMapOptionsType = GetFunctionOptionsType<TDigestMapOptions>(
     DataMember("skip_nulls", &TDigestMapOptions::skip_nulls),
     DataMember("scaler", &TDigestMapOptions::scaler));
 static auto kTDigestReduceOptionsType = GetFunctionOptionsType<TDigestReduceOptions>(
+    DataMember("delta", &TDigestReduceOptions::delta),
     DataMember("scaler", &TDigestReduceOptions::scaler));
 static auto kTDigestQuantileOptionsType = GetFunctionOptionsType<TDigestQuantileOptions>(
     DataMember("q", &TDigestQuantileOptions::q),
+    DataMember("delta", &TDigestQuantileOptions::delta),
     DataMember("min_count", &TDigestQuantileOptions::min_count),
     DataMember("scaler", &TDigestQuantileOptions::scaler));
 static auto kPivotOptionsType = GetFunctionOptionsType<PivotWiderOptions>(
@@ -236,24 +238,28 @@ TDigestMapOptions::TDigestMapOptions(uint32_t delta, uint32_t buffer_size,
       scaler{scaler} {}
 constexpr char TDigestMapOptions::kTypeName[];
 
-TDigestReduceOptions::TDigestReduceOptions(Scaler scaler)
-    : FunctionOptions(internal::kTDigestReduceOptionsType), scaler{scaler} {}
+TDigestReduceOptions::TDigestReduceOptions(uint32_t delta, Scaler scaler)
+    : FunctionOptions(internal::kTDigestReduceOptionsType),
+      delta(delta),
+      scaler{scaler} {}
 constexpr char TDigestReduceOptions::kTypeName[];
 
-TDigestQuantileOptions::TDigestQuantileOptions(double q, uint32_t min_count,
-                                               Scaler scaler)
+TDigestQuantileOptions::TDigestQuantileOptions(double q, uint32_t delta,
+                                               uint32_t min_count, Scaler scaler)
     : FunctionOptions(internal::kTDigestQuantileOptionsType),
       q{q},
+      delta(delta),
       min_count{min_count},
       scaler{scaler} {}
 
-TDigestQuantileOptions::TDigestQuantileOptions(std::vector<double> q, uint32_t min_count,
-                                               Scaler scaler)
+TDigestQuantileOptions::TDigestQuantileOptions(std::vector<double> q, uint32_t delta,
+                                               uint32_t min_count, Scaler scaler)
     : FunctionOptions(internal::kTDigestQuantileOptionsType),
       q{std::move(q)},
+      delta(delta),
       min_count{min_count},
       scaler{scaler} {}
-constexpr char TDigestReduceOptions::kTypeName[];
+constexpr char TDigestQuantileOptions::kTypeName[];
 
 PivotWiderOptions::PivotWiderOptions(std::vector<std::string> key_names,
                                      UnexpectedKeyBehavior unexpected_key_behavior)

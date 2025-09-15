@@ -327,14 +327,13 @@ class TDigest::TDigestImpl {
     return Lerp(td[ci_left].mean, td[ci_right].mean, diff);
   }
 
-  std::optional<std::pair<double, double>> GetCentroid(size_t i) const {
+  std::pair<double, double> GetCentroid(size_t i) const {
     const auto& td = tdigests_[current_];
-    if (td.size() > i) {
-      auto& c = td[i];
-      return std::make_pair(c.mean, c.weight);
-    }
-    return std::nullopt;
+    auto& c = td[i];
+    return std::make_pair(c.mean, c.weight);
   }
+
+  size_t GetCentroidCount() const { return tdigests_[current_].size(); }
 
   double Mean() const {
     double sum = 0;
@@ -414,9 +413,14 @@ double TDigest::Quantile(double q) const {
   return impl_->Quantile(q);
 }
 
-std::optional<std::pair<double, double>> TDigest::GetCentroid(size_t i) const {
+std::pair<double, double> TDigest::GetCentroid(size_t i) const {
   MergeInput();
   return impl_->GetCentroid(i);
+}
+
+size_t TDigest::GetCentroidCount() const {
+  MergeInput();
+  return impl_->GetCentroidCount();
 }
 
 void TDigest::SetMinMax(double min, double max) { impl_->SetMinMax(min, max); }

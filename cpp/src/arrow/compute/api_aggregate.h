@@ -231,10 +231,12 @@ class ARROW_EXPORT TDigestReduceOptions : public FunctionOptions {
  public:
   using Scaler = TDigestOptions::Scaler;
 
-  explicit TDigestReduceOptions(Scaler scaler = Scaler::K1);
+  explicit TDigestReduceOptions(uint32_t delta = 100, Scaler scaler = Scaler::K1);
   static constexpr char const kTypeName[] = "TDigestReduceOptions";
   static TDigestReduceOptions Defaults() { return TDigestReduceOptions{}; }
 
+  /// compression parameter, default 100
+  uint32_t delta;
   /// select scaler implementation
   Scaler scaler;
 };
@@ -246,15 +248,17 @@ class ARROW_EXPORT TDigestQuantileOptions : public FunctionOptions {
  public:
   using Scaler = TDigestOptions::Scaler;
 
-  explicit TDigestQuantileOptions(double q = 0.5, uint32_t min_count = 0,
-                                  Scaler scaler = Scaler::K1);
-  explicit TDigestQuantileOptions(std::vector<double> q, uint32_t min_count = 0,
-                                  Scaler scaler = Scaler::K1);
+  explicit TDigestQuantileOptions(double q = 0.5, uint32_t delta = 100,
+                                  uint32_t min_count = 0, Scaler scaler = Scaler::K1);
+  explicit TDigestQuantileOptions(std::vector<double> q, uint32_t delta = 100,
+                                  uint32_t min_count = 0, Scaler scaler = Scaler::K1);
   static constexpr char const kTypeName[] = "TDigestQuantileOptions";
   static TDigestQuantileOptions Defaults() { return TDigestQuantileOptions{}; }
 
   /// probability level of quantile must be between 0 and 1 inclusive
   std::vector<double> q;
+  /// compression parameter, default 100
+  uint32_t delta;
   /// If less than this many non-null values are observed, emit null.
   uint32_t min_count;
   /// select scaler implementation

@@ -35,10 +35,9 @@ using arrow::internal::VisitSetBitRunsVoid;
 struct TDigestBaseImpl : public ScalarAggregator {
   explicit TDigestBaseImpl(std::unique_ptr<TDigest::Scaler> scaler, uint32_t buffer_size)
       : tdigest{std::move(scaler), buffer_size}, count{0}, all_valid{true} {
-    auto output_size = tdigest.delta();
     out_type = struct_({
-        field("mean", fixed_size_list(float64(), output_size), false),
-        field("weight", fixed_size_list(float64(), output_size), false),
+        field("mean", list(field("item", float64(), false)), false),
+        field("weight", list(field("item", float64(), false)), false),
         field("min", float64(), true),
         field("max", float64(), true),
         field("count", uint64(), false),
@@ -118,7 +117,7 @@ struct TDigestCentroidFinalizer : public TDigestBaseImpl {
       *out = MakeNullScalar(out_type);
     } else {
       // Float64Array
-      const int64_t out_length = tdigest.delta();
+      const int64_t out_length = this->tdigest.GetCentroidCount();
       auto mean_data = ArrayData::Make(float64(), out_length, 0);
       mean_data->buffers.resize(2, nullptr);
       ARROW_ASSIGN_OR_RAISE(mean_data->buffers[1],
@@ -130,30 +129,14 @@ struct TDigestCentroidFinalizer : public TDigestBaseImpl {
       ARROW_ASSIGN_OR_RAISE(weight_data->buffers[1],
                             ctx->Allocate(out_length * sizeof(double)));
       double* weight_buffer = weight_data->template GetMutableValues<double>(1);
-
-      ARROW_ASSIGN_OR_RAISE(auto bitmap, ctx->AllocateBitmap(out_length));
-      auto bitmap_data = bitmap->mutable_data();
-      bit_util::SetBitsTo(bitmap_data, 0, out_length, true);
-      mean_data->buffers[0] = bitmap;
-      weight_data->buffers[0] = bitmap;
-
       for (int64_t i = 0; i < out_length; ++i) {
-        auto maybe_c = this->tdigest.GetCentroid(i);
-        if (maybe_c) {
-          std::tie(mean_buffer[i], weight_buffer[i]) = *std::move(maybe_c);
-        } else {
-          bit_util::SetBitsTo(bitmap_data, i, out_length, false);
-          auto null_count = out_length - i;
-          std::fill(mean_buffer + i, mean_buffer + out_length, 0.0);
-          std::fill(weight_buffer + i, weight_buffer + out_length, 0.0);
-          mean_data->SetNullCount(null_count);
-          weight_data->SetNullCount(null_count);
-          break;
-        }
+        std::tie(mean_buffer[i], weight_buffer[i]) = this->tdigest.GetCentroid(i);
       }
 
-      auto mean = std::make_shared<FixedSizeListScalar>(MakeArray(mean_data));
-      auto weight = std::make_shared<FixedSizeListScalar>(MakeArray(weight_data));
+      auto mean = std::make_shared<ListScalar>(MakeArray(mean_data),
+                                               list(field("item", float64(), false)));
+      auto weight = std::make_shared<ListScalar>(MakeArray(weight_data),
+                                                 list(field("item", float64(), false)));
       auto count = std::make_shared<UInt64Scalar>(this->count);
       std::shared_ptr<Scalar> min, max;
       if (this->count) {
@@ -239,32 +222,22 @@ struct TDigestCentroidConsumerImpl : public TDigestFinalizer_T {
   Status Consume(const Scalar* scalar) {
     const auto* input_struct_scalar = checked_cast<const StructScalar*>(scalar);
     auto mean_array =
-        checked_cast<const FixedSizeListScalar*>(input_struct_scalar->value[0].get())
-            ->value;
+        checked_cast<const ListScalar*>(input_struct_scalar->value[0].get())->value;
     auto weight_array =
-        checked_cast<const FixedSizeListScalar*>(input_struct_scalar->value[1].get())
-            ->value;
+        checked_cast<const ListScalar*>(input_struct_scalar->value[1].get())->value;
     auto min = checked_cast<const DoubleScalar*>(input_struct_scalar->value[2].get());
     auto max = checked_cast<const DoubleScalar*>(input_struct_scalar->value[3].get());
     auto count = checked_cast<const UInt64Scalar*>(input_struct_scalar->value[4].get());
     auto mean_double_array = checked_cast<const DoubleArray*>(mean_array.get());
     auto weight_double_array = checked_cast<const DoubleArray*>(weight_array.get());
-    DCHECK_EQ(mean_double_array->length(), this->tdigest.delta());
-    DCHECK_EQ(weight_double_array->length(), this->tdigest.delta());
-
+    DCHECK_EQ(mean_double_array->length(), weight_double_array->length());
     if (min->is_valid) {
       DCHECK(max->is_valid);
       this->tdigest.SetMinMax(min->value, max->value);
-
     } else {
       DCHECK(!max->is_valid);
     }
-    for (int64_t i = 0; i < this->tdigest.delta(); i++) {
-      if (mean_double_array->IsNull(i)) {
-        break;
-      }
-      DCHECK(weight_double_array->IsValid(i));
-
+    for (int64_t i = 0; i < mean_double_array->length(); i++) {
       this->tdigest.NanAdd(mean_double_array->Value(i), weight_double_array->Value(i));
     }
     this->count += count->value;
@@ -325,25 +298,25 @@ struct TDigestMapImpl
 
 struct TDigestReduceImpl : public TDigestCentroidConsumerImpl<TDigestCentroidFinalizer> {
   explicit TDigestReduceImpl(const TDigestReduceOptions& options,
-                             std::unique_ptr<TDigest::Scaler> scaler, uint32_t size)
+                             std::unique_ptr<TDigest::Scaler> scaler)
       : TDigestCentroidConsumerImpl<TDigestCentroidFinalizer>(
             // TDigestCentroidConsumerImpl
             // TDigestCentroidFinalizer
             // TDigestBaseImpl
-            std::move(scaler), size) {}
+            std::move(scaler), options.delta) {}
 };
 
 struct TDigestQuantileImpl
     : public TDigestCentroidConsumerImpl<TDigestQuantileFinalizer> {
   explicit TDigestQuantileImpl(const TDigestQuantileOptions& options,
-                               std::unique_ptr<TDigest::Scaler> scaler, uint32_t size)
+                               std::unique_ptr<TDigest::Scaler> scaler)
       : TDigestCentroidConsumerImpl<TDigestQuantileFinalizer>(
 
             // TDigestCentroidConsumerImpl
             // TDigestQuantileFinalizer
             options.q, options.min_count,
             // TDigestBaseImpl
-            std::move(scaler), size) {}
+            std::move(scaler), options.delta) {}
 };
 
 template <template <typename> typename TDigestImpl_T, typename TDigestOptions_T>
@@ -390,31 +363,28 @@ struct TDigestInitState {
 struct TDigestCentroidTypeMatcher : public TypeMatcher {
   ~TDigestCentroidTypeMatcher() override = default;
 
-  static Result<uint32_t> getDelta(const DataType& type) {
+  bool Matches(const DataType& type) const override {
     if (Type::STRUCT == type.id()) {
       const auto& input_struct_type = checked_cast<const StructType&>(type);
       if (5 == input_struct_type.num_fields()) {
-        if (Type::FIXED_SIZE_LIST == input_struct_type.field(0)->type()->id() &&
+        if (Type::LIST == input_struct_type.field(0)->type()->id() &&
             input_struct_type.field(0)->type()->Equals(
                 input_struct_type.field(1)->type()) &&
             Type::DOUBLE == input_struct_type.field(2)->type()->id() &&
             Type::DOUBLE == input_struct_type.field(3)->type()->id() &&
             Type::UINT64 == input_struct_type.field(4)->type()->id()) {
-          auto fsl = checked_cast<const FixedSizeListType*>(
-              input_struct_type.field(0)->type().get());
-          return fsl->list_size();
+          return true;
         }
       }
     }
-    return Status::Invalid("Type ", type.ToString(), " does not match ",
-                           ToStringStatic());
+    return false;
   }
 
-  bool Matches(const DataType& type) const override { return getDelta(type).ok(); }
-
   static std::string ToStringStatic() {
-    return "struct{mean:fixed_size_list<item: double>[N], weight:fixed_size_list<item: "
-           "double>[N], min:float64, max:float64, count:int64}";
+    return "struct{mean:list<item: double not null>[N]  not null, "
+           "weight:fixed_size_list<item: "
+           "double not null>[N] not null, min:float64, max:float64, count:int64 not "
+           "null}";
   }
   std::string ToString() const override { return ToStringStatic(); }
 
@@ -448,20 +418,18 @@ Result<std::unique_ptr<KernelState>> TDigestMapInit(KernelContext* ctx,
 
 Result<std::unique_ptr<KernelState>> TDigestReduceInit(KernelContext* ctx,
                                                        const KernelInitArgs& args) {
-  ARROW_ASSIGN_OR_RAISE(uint32_t delta,
-                        TDigestCentroidTypeMatcher::getDelta(*args.inputs[0].type));
   auto options = static_cast<const TDigestReduceOptions&>(*args.options);
-  ARROW_ASSIGN_OR_RAISE(auto scaler, TDigestBaseImpl::MakeScaler(options.scaler, delta));
-  return std::make_unique<TDigestReduceImpl>(options, std::move(scaler), delta);
+  ARROW_ASSIGN_OR_RAISE(auto scaler,
+                        TDigestBaseImpl::MakeScaler(options.scaler, options.delta));
+  return std::make_unique<TDigestReduceImpl>(options, std::move(scaler));
 }
 
 Result<std::unique_ptr<KernelState>> TDigestQuantileInit(KernelContext* ctx,
                                                          const KernelInitArgs& args) {
-  ARROW_ASSIGN_OR_RAISE(uint32_t delta,
-                        TDigestCentroidTypeMatcher::getDelta(*args.inputs[0].type));
   auto options = static_cast<const TDigestQuantileOptions&>(*args.options);
-  ARROW_ASSIGN_OR_RAISE(auto scaler, TDigestBaseImpl::MakeScaler(options.scaler, delta));
-  return std::make_unique<TDigestQuantileImpl>(options, std::move(scaler), delta);
+  ARROW_ASSIGN_OR_RAISE(auto scaler,
+                        TDigestBaseImpl::MakeScaler(options.scaler, options.delta));
+  return std::make_unique<TDigestQuantileImpl>(options, std::move(scaler));
 }
 
 void AddTDigestKernels(KernelInit init,
