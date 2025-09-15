@@ -2007,7 +2007,7 @@ TEST(LEB128, MaxLEB128ByteLenFor) {
 /// Utility function to test LEB128 encoding with known input value and expected byte
 /// array
 template <typename Int>
-void TestLEB128Encode(Int input_value, std::vector<uint8_t> const& expected_data,
+void TestLEB128Encode(Int input_value, const std::vector<uint8_t>& expected_data,
                       std::size_t buffer_size) {
   std::vector<uint8_t> buffer(buffer_size);
   auto bytes_written = bit_util::WriteLEB128(input_value, buffer.data(),
@@ -2051,7 +2051,7 @@ TEST(LEB128, WriteEdgeCases) {
 
 /// Utility function to test LEB128 decoding with known byte array and expected result
 template <typename Int>
-void TestLEB128Decode(std::vector<uint8_t> const& data, Int expected_value,
+void TestLEB128Decode(const std::vector<uint8_t>& data, Int expected_value,
                       int32_t expected_bytes_read) {
   Int result = 0;
   auto bytes_read = bit_util::ParseLeadingLEB128(
@@ -2063,7 +2063,7 @@ void TestLEB128Decode(std::vector<uint8_t> const& data, Int expected_value,
 }
 
 template <typename Int>
-void TestLEB128Decode(std::vector<uint8_t> const& data, Int expected_value,
+void TestLEB128Decode(const std::vector<uint8_t>& data, Int expected_value,
                       std::size_t expected_bytes_read) {
   ASSERT_LE(expected_bytes_read, std::numeric_limits<int32_t>::max());
   return TestLEB128Decode(data, expected_value,
