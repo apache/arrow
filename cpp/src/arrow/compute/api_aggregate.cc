@@ -384,6 +384,12 @@ Result<Datum> TDigestQuantile(const Datum& value, const TDigestQuantileOptions& 
   return CallFunction("tdigest_quantile", {value}, &options, ctx);
 }
 
+Result<Datum> TDigestQuantileElementWise(const Datum& value,
+                                         const TDigestQuantileOptions& options,
+                                         ExecContext* ctx) {
+  return CallFunction("tdigest_quantile_element_wise", {value}, &options, ctx);
+}
+
 Result<Datum> Index(const Datum& value, const IndexOptions& options, ExecContext* ctx) {
   return CallFunction("index", {value}, &options, ctx);
 }

@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include "arrow/array/builder_nested.h"
+#include "arrow/array/builder_primitive.h"
 #include "arrow/compute/api_aggregate.h"
 #include "arrow/compute/kernels/aggregate_internal.h"
 #include "arrow/compute/kernels/common_internal.h"
@@ -80,23 +82,33 @@ struct TDigestQuantileFinalizer : public TDigestBaseImpl {
         q(std::move(q)),
         min_count(min_count) {}
 
+  bool isNull() {
+    return this->tdigest.is_empty() || !this->all_valid || this->count < min_count;
+  }
+
+  double Quantile(size_t i) { return this->tdigest.Quantile(this->q[i]); }
+  void Reset() {
+    this->tdigest.Reset();
+    this->count = 0;
+  }
+
   Status Finalize(KernelContext* ctx, Datum* out) override {
-    const int64_t out_length = q.size();
+    const size_t out_length = q.size();
     auto out_data = ArrayData::Make(float64(), out_length, 0);
     out_data->buffers.resize(2, nullptr);
     ARROW_ASSIGN_OR_RAISE(out_data->buffers[1],
                           ctx->Allocate(out_length * sizeof(double)));
     double* out_buffer = out_data->template GetMutableValues<double>(1);
 
-    if (this->tdigest.is_empty() || !this->all_valid || this->count < min_count) {
+    if (isNull()) {
       ARROW_ASSIGN_OR_RAISE(out_data->buffers[0], ctx->AllocateBitmap(out_length));
       std::memset(out_data->buffers[0]->mutable_data(), 0x00,
                   out_data->buffers[0]->size());
       std::fill(out_buffer, out_buffer + out_length, 0.0);
       out_data->null_count = out_length;
     } else {
-      for (int64_t i = 0; i < out_length; ++i) {
-        out_buffer[i] = this->tdigest.Quantile(this->q[i]);
+      for (size_t i = 0; i < out_length; ++i) {
+        out_buffer[i] = Quantile(i);
       }
     }
     *out = Datum(std::move(out_data));
@@ -323,6 +335,65 @@ struct TDigestQuantileImpl
             std::move(scaler), options.delta) {}
 };
 
+struct TDigestQuantileScalarImpl : public TDigestQuantileImpl {
+  explicit TDigestQuantileScalarImpl(const TDigestQuantileOptions& options,
+                                     std::unique_ptr<TDigest::Scaler> scaler)
+      : TDigestQuantileImpl(options, std::move(scaler)) {}
+
+  static Result<std::unique_ptr<KernelState>> Init(KernelContext* ctx,
+                                                   const KernelInitArgs& args) {
+    auto options = static_cast<const TDigestQuantileOptions&>(*args.options);
+    ARROW_ASSIGN_OR_RAISE(auto scaler,
+                          TDigestBaseImpl::MakeScaler(options.scaler, options.delta));
+    return std::make_unique<TDigestQuantileScalarImpl>(options, std::move(scaler));
+  }
+
+  static Result<TypeHolder> ResolveOutput(KernelContext* ctx,
+                                          const std::vector<TypeHolder>& types) {
+    auto state = checked_cast<TDigestQuantileScalarImpl*>(ctx->state());
+    return state->OutputType();
+  }
+
+  size_t OutputSize() const { return this->q.size(); }
+
+  TypeHolder OutputType() const {
+    return fixed_size_list(field("item", float64()), OutputSize());
+  }
+
+  static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+    auto state = checked_cast<TDigestQuantileScalarImpl*>(ctx->state());
+    auto value_builder = std::make_shared<DoubleBuilder>(ctx->memory_pool());
+    const auto output_size = state->OutputSize();
+    FixedSizeListBuilder fsl_builder(
+        ctx->memory_pool(), checked_pointer_cast<arrow::ArrayBuilder>(value_builder),
+        output_size);
+
+    std::shared_ptr<Array> array = MakeArray(batch[0].array.ToArrayData());
+    for (int i = 0; i < array->length(); ++i) {
+      if (array->IsValid(i)) {
+        ARROW_RETURN_NOT_OK(fsl_builder.Append());
+        ARROW_ASSIGN_OR_RAISE(auto scalar, array->GetScalar(i));
+        state->Reset();
+        ARROW_RETURN_NOT_OK(state->Consume(scalar.get()));
+
+        if (state->isNull()) {
+          ARROW_RETURN_NOT_OK(value_builder->AppendNulls(output_size));
+        } else {
+          for (size_t i = 0; i < output_size; ++i) {
+            ARROW_RETURN_NOT_OK(value_builder->Append(state->Quantile(i)));
+          }
+        }
+      } else {
+        ARROW_RETURN_NOT_OK(fsl_builder.AppendNull());
+      }
+    }
+    std::shared_ptr<arrow::Array> out_array;
+    ARROW_RETURN_NOT_OK(fsl_builder.Finish(&out_array));
+    out->value = std::move(out_array->data());
+    return Status::OK();
+  }
+};
+
 template <template <typename> typename TDigestImpl_T, typename TDigestOptions_T>
 struct TDigestInitState {
   std::unique_ptr<KernelState> state;
@@ -538,10 +609,24 @@ std::shared_ptr<ScalarAggregateFunction> AddTDigestReduceAggKernels() {
 }
 
 std::shared_ptr<ScalarAggregateFunction> AddTDigestQuantileAggKernels() {
-  static auto default_tdigest_options = TDigestMapOptions::Defaults();
+  static auto default_tdigest_options = TDigestQuantileOptions::Defaults();
   auto func = std::make_shared<ScalarAggregateFunction>(
       "tdigest_quantile", Arity::Unary(), tdigest_quantile_doc, &default_tdigest_options);
   AddTDigestQuantileKernels(TDigestQuantileInit, func.get());
+  return func;
+}
+
+std::shared_ptr<ScalarFunction> AddTDigestQuantileScalarKernels() {
+  static auto default_tdigest_options = TDigestQuantileOptions::Defaults();
+  auto func =
+      std::make_shared<ScalarFunction>("tdigest_quantile_element_wise", Arity::Unary(),
+                                       tdigest_quantile_doc, &default_tdigest_options);
+  auto output = OutputType{TDigestQuantileScalarImpl::ResolveOutput};
+  ScalarKernel kernel({InputType(TDigestCentroidTypeMatcher::getMatcher())}, output,
+                      TDigestQuantileScalarImpl::Exec, TDigestQuantileScalarImpl::Init);
+  kernel.null_handling = NullHandling::COMPUTED_NO_PREALLOCATE;
+  kernel.mem_allocation = MemAllocation::NO_PREALLOCATE;
+  DCHECK_OK(func->AddKernel(kernel));
   return func;
 }
 
@@ -593,6 +678,8 @@ void RegisterScalarAggregateTDigest(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunction(tdigest_merge));
   auto tdigest_quantile = AddTDigestQuantileAggKernels();
   DCHECK_OK(registry->AddFunction(tdigest_quantile));
+  auto tdigest_quantile_scalar = AddTDigestQuantileScalarKernels();
+  DCHECK_OK(registry->AddFunction(tdigest_quantile_scalar));
 
   auto approx_median = AddApproximateMedianAggKernels(tdigest.get());
   DCHECK_OK(registry->AddFunction(approx_median));

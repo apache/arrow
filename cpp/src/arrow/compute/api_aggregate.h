@@ -694,6 +694,21 @@ Result<Datum> TDigestQuantile(
     const TDigestQuantileOptions& options = TDigestQuantileOptions::Defaults(),
     ExecContext* ctx = NULLPTR);
 
+/// \brief Calculate the approximate quantiles using centroids with T-Digest algorithm
+///
+/// \param[in] value input centroid sets, expecting Scalar, Array or ChunkedArray of
+/// centroid structs \param[in] options see TDigestQuantileOptions for more information
+/// \param[in] ctx the function execution context, optional
+/// \return resulting struct of mean and weight arrays
+///
+/// \since 22.0.0
+/// \note API not yet finalized
+ARROW_EXPORT
+Result<Datum> TDigestQuantileElementWise(
+    const Datum& value,
+    const TDigestQuantileOptions& options = TDigestQuantileOptions::Defaults(),
+    ExecContext* ctx = NULLPTR);
+
 /// \brief Find the first index of a value in an array.
 ///
 /// \param[in] value The array to search.

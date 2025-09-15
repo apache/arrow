@@ -4238,6 +4238,9 @@ class TestRandomQuantileKernel : public TestPrimitiveQuantileKernel<ArrowType> {
 
       ASSERT_OK_AND_ASSIGN(
           out, TDigestQuantile(incremental_centroids, options));  // incremental quantile
+      // validate tdigest_quantile_element_wise
+      EXPECT_THAT(TDigestQuantileElementWise(incremental_centroids, options),
+                  ResultWith(FixedSizeListScalar(out.make_array())));
     }
 
     const auto& out_array = out.make_array();
@@ -4692,6 +4695,63 @@ TEST(TestTDigestQuantileKernel, Basic) {
               ResultWith(ArrayFromJSON(output_type, "[1.5666666666666667, 3.5, 5.5]")));
   EXPECT_THAT(TDigestQuantile(input_array, min_count),
               ResultWith(ArrayFromJSON(output_type, "[null]")));
+}
+
+TEST(TestTDigestQuantileKernel, Scalar) {
+  auto input_type =
+      struct_({field("mean", list(field("item", float64(), false)), false),
+               field("weight", list(field("item", float64(), false)), false),
+               field("min", float64(), true), field("max", float64(), true),
+               field("count", uint64(), false)});
+
+  auto output_type = float64();
+
+  auto input_scalar = ScalarFromJSON(input_type,
+                                     "{\"mean\":[1.5, 3.5, 5.5],\"weight\":[2, "
+                                     "2, 2],\"min\":1.0,\"max\":6.0,\"count\":6}");
+
+  TDigestQuantileOptions multiple(/*q=*/{0.1, 0.5, 0.9}, /*delta=*/5, /*min_count=*/6);
+  TDigestQuantileOptions min_count(/*q=*/0.5, /*delta=*/5, /*min_count=*/7);
+
+  EXPECT_THAT(TDigestQuantile(input_scalar, multiple),
+              ResultWith(ArrayFromJSON(output_type, "[1, 3.5, 6]")));
+  EXPECT_THAT(TDigestQuantile(input_scalar, min_count),
+              ResultWith(ArrayFromJSON(output_type, "[null]")));
+}
+
+TEST(TestTDigestQuantileKernel, ElementWise) {
+  auto input_type =
+      struct_({field("mean", list(field("item", float64(), false)), false),
+               field("weight", list(field("item", float64(), false)), false),
+               field("min", float64(), true), field("max", float64(), true),
+               field("count", uint64(), false)});
+
+  auto output_type_multiple = fixed_size_list(float64(), 3);
+  auto output_type_single = fixed_size_list(float64(), 1);
+
+  auto input_array = ArrayFromJSON(input_type,
+                                   "["
+                                   "{\"mean\":[1.5, 3.5, 5.5],\"weight\":[2, "
+                                   "2, 2],\"min\":1.0,\"max\":6.0,\"count\":7},"
+                                   "{\"mean\":[1.5, 3.5, 5.5],\"weight\":[2, "
+                                   "2, 2],\"min\":1.0,\"max\":6.0,\"count\":6}"
+                                   "]");
+
+  TDigestQuantileOptions multiple(/*q=*/{0.1, 0.5, 0.9}, /*delta=*/5, /*min_count=*/5);
+  TDigestQuantileOptions single(/*q=*/0.5, /*delta=*/5, /*min_count=*/5);
+  TDigestQuantileOptions multiple_min_count(/*q=*/{0.1, 0.5, 0.9}, /*delta=*/5,
+                                            /*min_count=*/7);
+  TDigestQuantileOptions single_min_count(/*q=*/0.5, /*delta=*/5, /*min_count=*/7);
+  EXPECT_THAT(
+      TDigestQuantileElementWise(input_array, multiple),
+      ResultWith(ArrayFromJSON(output_type_multiple, "[[1, 3.5, 6],[1, 3.5, 6]]")));
+  EXPECT_THAT(TDigestQuantileElementWise(input_array, single),
+              ResultWith(ArrayFromJSON(output_type_single, "[[3.5],[3.5]]")));
+  EXPECT_THAT(
+      TDigestQuantileElementWise(input_array, multiple_min_count),
+      ResultWith(ArrayFromJSON(output_type_multiple, "[[1, 3.5, 6],[null,null,null]]")));
+  EXPECT_THAT(TDigestQuantileElementWise(input_array, single_min_count),
+              ResultWith(ArrayFromJSON(output_type_single, "[[3.5],[null]]")));
 }
 
 TEST(TestTDigestMapReduceQuantileKernel, Basic) {
