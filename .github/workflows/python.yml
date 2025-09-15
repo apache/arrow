@@ -239,3 +239,42 @@ jobs:
       - name: Test
         shell: bash
         run: ci/scripts/python_test.sh $(pwd) $(pwd)/build
+
+  windows:
+    name: ${{ matrix.title }}
+    runs-on: ${{ matrix.os }}
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - windows-2022
+        include:
+          - os: windows-2022
+            simd-level: AVX2
+            title: AMD64 Windows 2022 AVX2  Python 3
+    env:
+      PYTHON_CMD: "py -3.13"
+    steps:
+      - name: Disable Crash Dialogs
+        run: |
+          reg add `
+            "HKCU\SOFTWARE\Microsoft\Windows\Windows Error Reporting" `
+            /v DontShowUI `
+            /t REG_DWORD `
+            /d 1 `
+            /f
+      - name: Checkout Arrow
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          submodules: recursive
+      - name: Install Python
+        run: |
+          choco install -r -y --pre --no-progress python --version=3.13.1
+      - name: Build PyArrow and Run Tests
+        shell: cmd
+        run: |
+          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
+          call "ci\scripts\python_windows_build.bat" %cd%
