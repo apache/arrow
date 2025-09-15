@@ -33,6 +33,14 @@ py -0p
 call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
 @echo on
 
+echo "=== (%PYTHON%) Clear output directories and leftovers ==="
+rmdir /s /q C:\arrow-build
+rmdir /s /q C:\arrow-dist
+rmdir /s /q C:\arrow\python\dist
+rmdir /s /q C:\arrow\python\build
+del /s /q C:\arrow\python\pyarrow\*.so
+del /s /q C:\arrow\python\pyarrow\*.so.*
+
 echo "=== (%PYTHON%) Building Arrow C++ libraries ==="
 set ARROW_ACERO=OFF
 set ARROW_DATASET=OFF
@@ -102,7 +110,7 @@ echo "=== (%PYTHON%) Building Python ==="
 set PYARROW_BUILD_TYPE=%CMAKE_BUILD_TYPE%
 set PYARROW_BUILD_VERBOSE=1
 set PYARROW_BUNDLE_ARROW_CPP=ON
-set PYARROW_CMAKE_GENERATOR=%CMAKE_GENERATOR%
+set PYARROW_CMAKE_GENERATOR=Ninja
 set PYARROW_WITH_ACERO=%ARROW_ACERO%
 set PYARROW_WITH_DATASET=%ARROW_DATASET%
 set PYARROW_WITH_FLIGHT=%ARROW_FLIGHT%
