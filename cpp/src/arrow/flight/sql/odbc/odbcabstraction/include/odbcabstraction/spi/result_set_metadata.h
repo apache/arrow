@@ -17,8 +17,8 @@
 
 #pragma once
 
-#include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/types.h>
 #include <string>
+#include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/types.h"
 
 namespace driver {
 namespace odbcabstraction {
