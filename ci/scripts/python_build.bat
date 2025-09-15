@@ -21,7 +21,7 @@ set SOURCE_DIR=%1
 set CPP_SOURCE_DIR=%SOURCE_DIR%\cpp
 echo CPP source dir is %CPP_SOURCE_DIR%
 
-echo "Building windows ..."
+echo "Building for Windows ..."
 
 @REM List installed Pythons
 py -0p
@@ -64,6 +64,8 @@ set ARROW_WITH_ZSTD=OFF
 set CMAKE_BUILD_TYPE=Release
 set CMAKE_UNITY_BUILD=ON
 
+IF NOT DEFINED CMAKE_GENERATOR set CMAKE_GENERATOR=Visual Studio 17 2022
+
 mkdir C:\arrow-build
 pushd C:\arrow-build
 
@@ -102,6 +104,7 @@ cmake ^
     -DMSVC_LINK_VERBOSE=ON ^
     -DPARQUET_REQUIRE_ENCRYPTION=%PARQUET_REQUIRE_ENCRYPTION% ^
     -Dxsimd_SOURCE=BUNDLED ^
+    -G "%CMAKE_GENERATOR%" ^
     %CPP_SOURCE_DIR% || exit /B 1
 cmake --build . --config %CMAKE_BUILD_TYPE% --target install || exit /B 1
 popd
@@ -110,7 +113,7 @@ echo "=== (%PYTHON%) Building Python ==="
 set PYARROW_BUILD_TYPE=%CMAKE_BUILD_TYPE%
 set PYARROW_BUILD_VERBOSE=1
 set PYARROW_BUNDLE_ARROW_CPP=ON
-set PYARROW_CMAKE_GENERATOR=Ninja
+set PYARROW_CMAKE_GENERATOR=%CMAKE_GENERATOR%
 set PYARROW_WITH_ACERO=%ARROW_ACERO%
 set PYARROW_WITH_DATASET=%ARROW_DATASET%
 set PYARROW_WITH_FLIGHT=%ARROW_FLIGHT%
@@ -130,12 +133,8 @@ pushd %SOURCE_DIR%\python
 @REM Install Python build dependencies
 %PYTHON_CMD% -m pip install --upgrade pip || exit /B 1
 %PYTHON_CMD% -m pip install -r requirements-build.txt || exit /B 1
-%PYTHON_CMD% -m pip install -r requirements-test.txt || exit /B 1
 
 @REM Build PyArrow
 %PYTHON_CMD% -m pip install --no-deps --no-build-isolation -vv . || exit /B 1
 
 popd
-
-%PYTHON_CMD% -c "import pyarrow" || exit /B 1
-%PYTHON_CMD% -m pytest -r s --pyargs pyarrow || exit /B 1

@@ -68,6 +68,7 @@ jobs:
             simd-level: AVX2
             title: AMD64 Windows 2022 AVX2  Python 3
     env:
+      CMAKE_GENERATOR: Visual Studio 17 2022
       PYTHON_CMD: "py -3.13"
     steps:
       - name: Disable Crash Dialogs
@@ -90,4 +91,8 @@ jobs:
       - name: Build PyArrow and Run Tests
         shell: cmd
         run: |
-          call "ci\scripts\python_windows_build.bat" %cd%
+          call "ci\scripts\python_build.bat" %cd%
+      - name: Test PyArrow
+        shell: cmd
+        run: |
+          call "ci\scripts\python_test.bat" %cd%
