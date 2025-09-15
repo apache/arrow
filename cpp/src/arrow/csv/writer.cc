@@ -105,7 +105,7 @@ int64_t CountQuotes(std::string_view s) {
 
 // Matching quote pair character length.
 constexpr int64_t kQuoteCount = 2;
-// Matching delimiter character length.
+// Delimiter character length.
 constexpr int64_t kDelimiterCount = 1;
 
 // Interface for generating CSV data per column.
@@ -177,6 +177,8 @@ char* Escape(std::string_view s, char* out) {
   return out;
 }
 
+// Return the index of the first structural char in the input. A structural char
+// is a character that needs quoting and/or escaping.
 int64_t StopAtStructuralChar(const uint8_t* data, const int64_t buffer_size,
                              const char delimiter) {
   int64_t offset = 0;
@@ -634,11 +636,11 @@ class CSVWriterImpl : public ipc::RecordBatchWriter {
           memcpy(next, col_name.data(), col_name.size());
           next += col_name.size();
           break;
-        // The behavior of the Needed quoting_style in CSV data depends on the data type.
-        // And it is always quoted when the data type is binary. To avoid semantic
-        // differences, the behavior of Need and AllValid should be consistent.
         case QuotingStyle::Needed:
         case QuotingStyle::AllValid:
+          // QuotingStyle::Needed is defined as always quoting string/binary data,
+          // regardless of whether it contains structural chars.
+          // We use consistent semantics for header names, which are strings.
           *next++ = '"';
           next = Escape(schema_->field(col)->name(), next);
           *next++ = '"';
