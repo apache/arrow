@@ -59,4 +59,4 @@ py -0p
 %PYTHON_CMD% C:\arrow\ci\scripts\python_wheel_validate_contents.py --path C:\arrow\python\repaired_wheels || exit /B 1
 
 @REM Execute unittest
-%PYTHON_CMD% -m pytest -r s --pyargs pyarrow.tests.test_compute || exit /B 1
+%PYTHON_CMD% -m pytest -r s --pyargs pyarrow || exit /B 1
