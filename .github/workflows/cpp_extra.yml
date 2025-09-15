@@ -301,34 +301,28 @@ jobs:
           python-version: 3
       - name: Setup Archery
         run: python3 -m pip install -e dev/archery[crossbow]
-      - name: Notify
+      - name: Send email
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SMTP_PASSWORD: ${{ secrets.ARROW_SMTP_PASSWORD }}
+        run: |
+          archery ci report-email \
+            --ignore ${{ github.job }} \
+            --recipient-email 'builds@arrow.apache.org' \
+            --repository ${{ github.repository }} \
+            --send \
+            --sender-email 'arrow@commit-email.info' \
+            --sender-name Arrow \
+            --smtp-port 587 \
+            --smtp-server 'commit-email.info' \
+            --smtp-user arrow \
+            ${{ github.run_id }}
+      - name: Send chat message
+        if: always()
         env:
           GH_TOKEN: ${{ github.token }}
           CHAT_WEBHOOK: ${{ secrets.ARROW_ZULIP_WEBHOOK }}
-          SMTP_PASSWORD: ${{ secrets.ARROW_SMTP_PASSWORD }}
         run: |
-          # Continue even if email sending fails
-          echo "Sending email report."
-          set +e
-          archery ci report-email \
-            --send \
-            --smtp-server 'commit-email.info' \
-            --sender-name Arrow \
-            --sender-email 'arrow@commit-email.info' \
-            --recipient-email 'builds@arrow.apache.org' \
-            --smtp-user arrow \
-            --smtp-port 587 \
-            --ignore ${{ github.job }} \
-            --repository ${{ github.repository }} \
-            ${{ github.run_id }}
-          email_exit_code=$?
-          set -e
-
-          if [ $email_exit_code -ne 0 ]; then
-            echo "::warning::Email sending failed but continuing with workflow"
-          fi
-
-          echo "Sending Chat report."
           archery ci report-chat \
             --ignore ${{ github.job }} \
             --repository ${{ github.repository }} \
