@@ -66,7 +66,7 @@ jobs:
         include:
           - os: windows-2022
             simd-level: AVX2
-            title: AMD64 Windows 2022 AVX2  Python 3
+            title: AMD64 Windows 2022 AVX2 Python 3.13
     env:
       PYTHON_CMD: "py -3.13"
     steps:

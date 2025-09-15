@@ -33,7 +33,8 @@ py -0p
 call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
 @echo on
 
-echo "=== (%PYTHON%) Clear output directories and leftovers ==="
+echo "=== Clear output directories and leftovers ==="
+@REM This is required for local development. CI should be clean.
 rmdir /s /q C:\arrow-build
 rmdir /s /q C:\arrow-dist
 rmdir /s /q C:\arrow\python\dist
@@ -41,7 +42,7 @@ rmdir /s /q C:\arrow\python\build
 del /s /q C:\arrow\python\pyarrow\*.so
 del /s /q C:\arrow\python\pyarrow\*.so.*
 
-echo "=== (%PYTHON%) Building Arrow C++ libraries ==="
+echo "=== Building Arrow C++ libraries ==="
 set ARROW_ACERO=OFF
 set ARROW_DATASET=OFF
 set ARROW_FLIGHT=OFF
@@ -87,7 +88,6 @@ cmake ^
     -DARROW_JSON=ON ^
     -DARROW_MIMALLOC=%ARROW_MIMALLOC% ^
     -DARROW_ORC=%ARROW_ORC% ^
-    -DARROW_PACKAGE_KIND="python-wheel-windows" ^
     -DARROW_PARQUET=%ARROW_PARQUET% ^
     -DARROW_S3=%ARROW_S3% ^
     -DARROW_SUBSTRAIT=%ARROW_SUBSTRAIT% ^
@@ -110,7 +110,7 @@ cmake ^
 cmake --build . --config %CMAKE_BUILD_TYPE% --target install || exit /B 1
 popd
 
-echo "=== (%PYTHON%) Building Python ==="
+echo "=== Building Python ==="
 set PYARROW_BUILD_TYPE=%CMAKE_BUILD_TYPE%
 set PYARROW_BUILD_VERBOSE=1
 set PYARROW_BUNDLE_ARROW_CPP=ON
