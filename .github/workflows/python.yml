@@ -90,5 +90,4 @@ jobs:
       - name: Build PyArrow and Run Tests
         shell: cmd
         run: |
-          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
           call "ci\scripts\python_windows_build.bat" %cd%

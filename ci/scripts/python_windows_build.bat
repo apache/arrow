@@ -28,19 +28,10 @@ py -0p
 
 %PYTHON_CMD% -m sysconfig || exit /B 1
 
-@REM TODO: Remove as this is called on the GitHub Action step before this script is run
 @REM Setup MSVC environment
 
-@REM call "C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Auxiliary\Build\vcvarsall.bat" x64
+call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
 @echo on
-
-echo "=== (%PYTHON%) Clear output directories and leftovers ==="
-del /s /q C:\arrow-build
-del /s /q C:\arrow-dist
-del /s /q C:\arrow\python\dist
-del /s /q C:\arrow\python\build
-del /s /q C:\arrow\python\pyarrow\*.so
-del /s /q C:\arrow\python\pyarrow\*.so.*
 
 echo "=== (%PYTHON%) Building Arrow C++ libraries ==="
 set ARROW_ACERO=OFF
@@ -138,5 +129,5 @@ pushd %SOURCE_DIR%\python
 
 popd
 
-%PYTHON_CMD% -c "import pyarrow"
+%PYTHON_CMD% -c "import pyarrow" || exit /B 1
 %PYTHON_CMD% -m pytest -r s --pyargs pyarrow || exit /B 1
