@@ -1360,27 +1360,28 @@ def check_ipc_options_repr(options_obj, options_args):
 
 @pytest.fixture
 def write_options_args(request):
-    match request.param:
-        case "default":
-            return {
-                "allow_64bit": False,
-                "use_legacy_format": False,
-                "metadata_version": pa.ipc.MetadataVersion.V5,
-                "compression": None,
-                "use_threads": True,
-                "emit_dictionary_deltas": False,
-                "unify_dictionaries": False,
-            }
-        case "all":
-            return {
-                "allow_64bit": True,
-                "use_legacy_format": True,
-                "metadata_version": pa.ipc.MetadataVersion.V4,
-                "compression": "zstd",
-                "use_threads": False,
-                "emit_dictionary_deltas": True,
-                "unify_dictionaries": True,
-            }
+    if request.param == "default":
+        return {
+            "allow_64bit": False,
+            "use_legacy_format": False,
+            "metadata_version": pa.ipc.MetadataVersion.V5,
+            "compression": None,
+            "use_threads": True,
+            "emit_dictionary_deltas": False,
+            "unify_dictionaries": False,
+        }
+    elif request.param == "all":
+        return {
+            "allow_64bit": True,
+            "use_legacy_format": True,
+            "metadata_version": pa.ipc.MetadataVersion.V4,
+            "compression": "zstd",
+            "use_threads": False,
+            "emit_dictionary_deltas": True,
+            "unify_dictionaries": True,
+        }
+    else:
+        return {}
 
 
 @pytest.mark.parametrize(
@@ -1392,21 +1393,22 @@ def test_write_options_repr(write_options_args):
 
 @pytest.fixture
 def read_options_args(request):
-    match request.param:
-        case "default":
-            return {
-                "ensure_native_endian": True,
-                "ensure_alignment": pa.ipc.Alignment.Any,
-                "use_threads": True,
-                "included_fields": None,
-            }
-        case "all":
-            return {
-                "ensure_native_endian": False,
-                "ensure_alignment": pa.ipc.Alignment.DataTypeSpecific,
-                "use_threads": False,
-                "included_fields": [1, 2, 3],
-            }
+    if request.param == "default":
+        return {
+            "ensure_native_endian": True,
+            "ensure_alignment": pa.ipc.Alignment.Any,
+            "use_threads": True,
+            "included_fields": None,
+        }
+    elif request.param == "all":
+        return {
+            "ensure_native_endian": False,
+            "ensure_alignment": pa.ipc.Alignment.DataTypeSpecific,
+            "use_threads": False,
+            "included_fields": [1, 2, 3],
+        }
+    else:
+        return {}
 
 
 @pytest.mark.parametrize(
