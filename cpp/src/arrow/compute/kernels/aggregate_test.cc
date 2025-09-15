@@ -4640,6 +4640,32 @@ TEST(TestTDigestReduceKernel, Basic) {
               ResultWith(ScalarFromJSON(type,
                                         "{\"mean\":[1.5, 3.5, 5.5],\"weight\":[2, 2, "
                                         "2],\"min\":1.0,\"max\":6.0,\"count\":6}")));
+
+  EXPECT_THAT(TDigestReduce(
+                  ArrayFromJSON(
+                      type,
+                      "["
+                      "{\"mean\":[],\"weight\":[],\"min\":null,\"max\":null,\"count\":0},"
+                      "{\"mean\":[1.5, 3.5, 5.5],\"weight\":[2, 2, "
+                      "2],\"min\":1.0,\"max\":6.0,\"count\":6}"
+                      "]"),
+                  options),
+              ResultWith(ScalarFromJSON(type,
+                                        "{\"mean\":[1.5, 3.5, 5.5],\"weight\":[2, 2, "
+                                        "2],\"min\":1.0,\"max\":6.0,\"count\":6}")));
+
+  EXPECT_THAT(TDigestReduce(
+                  ArrayFromJSON(
+                      type,
+                      "["
+                      "{\"mean\":[1.5, 3.5, 5.5],\"weight\":[2, 2, "
+                      "2],\"min\":1.0,\"max\":6.0,\"count\":6},"
+                      "{\"mean\":[],\"weight\":[],\"min\":null,\"max\":null,\"count\":0}"
+                      "]"),
+                  options),
+              ResultWith(ScalarFromJSON(type,
+                                        "{\"mean\":[1.5, 3.5, 5.5],\"weight\":[2, "
+                                        "2, 2],\"min\":1.0,\"max\":6.0,\"count\":6}")));
 }
 
 TEST(TestTDigestQuantileKernel, Basic) {

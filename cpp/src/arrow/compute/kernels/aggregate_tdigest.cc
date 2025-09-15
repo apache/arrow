@@ -231,16 +231,20 @@ struct TDigestCentroidConsumerImpl : public TDigestFinalizer_T {
     auto mean_double_array = checked_cast<const DoubleArray*>(mean_array.get());
     auto weight_double_array = checked_cast<const DoubleArray*>(weight_array.get());
     DCHECK_EQ(mean_double_array->length(), weight_double_array->length());
-    if (min->is_valid) {
+    auto count_uint64 = count->value;
+    if (count_uint64) {
+      DCHECK(min->is_valid);
       DCHECK(max->is_valid);
+      this->count += count_uint64;
       this->tdigest.SetMinMax(min->value, max->value);
+      for (int64_t i = 0; i < mean_double_array->length(); i++) {
+        this->tdigest.NanAdd(mean_double_array->Value(i), weight_double_array->Value(i));
+      }
     } else {
+      DCHECK(!min->is_valid);
       DCHECK(!max->is_valid);
     }
-    for (int64_t i = 0; i < mean_double_array->length(); i++) {
-      this->tdigest.NanAdd(mean_double_array->Value(i), weight_double_array->Value(i));
-    }
-    this->count += count->value;
+
     return Status::OK();
   }
   Status Consume(KernelContext*, const ExecSpan& batch) override {
@@ -252,7 +256,7 @@ struct TDigestCentroidConsumerImpl : public TDigestFinalizer_T {
     if (batch[0].is_array()) {
       std::shared_ptr<Array> array = MakeArray(batch[0].array.ToArrayData());
       for (int i = 0; i < array->length(); ++i) {
-        ARROW_ASSIGN_OR_RAISE(auto scalar, array->GetScalar(0));
+        ARROW_ASSIGN_OR_RAISE(auto scalar, array->GetScalar(i));
         ARROW_RETURN_NOT_OK(Consume(scalar.get()));
       }
     } else {
