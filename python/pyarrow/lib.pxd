@@ -54,6 +54,9 @@ cdef class IpcReadOptions(_Weakrefable):
 cdef IpcReadOptions wrap_ipc_read_options(CIpcReadOptions c)
 
 
+cdef _wrap_read_stats(CIpcReadStats c)
+
+
 cdef class Message(_Weakrefable):
     cdef:
         unique_ptr[CMessage] message

@@ -642,6 +642,9 @@ TEST(TestAdapterReadWrite, ThrowWhenTZDBUnavaiable) {
   if (adapters::orc::GetOrcMajorVersion() >= 2) {
     GTEST_SKIP() << "Only ORC pre-2.0.0 versions have the time zone database check";
   }
+#ifdef _WIN32
+  GTEST_SKIP() << "GH-47489: Expected error is not thrown on Windows";
+#endif
 
   EnvVarGuard tzdir_guard("TZDIR", "/wrong/path");
   const char* expect_str = "IANA time zone database is unavailable but required by ORC";

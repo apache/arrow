@@ -142,6 +142,7 @@ if [ "${ARROW_USE_MESON:-OFF}" = "ON" ]; then
   meson setup \
     --prefix=${MESON_PREFIX:-${ARROW_HOME}} \
     --buildtype=${ARROW_BUILD_TYPE:-debug} \
+    --pkg-config-path="${CONDA_PREFIX}/lib/pkgconfig/" \
     -Dauto_features=enabled \
     -Dfuzzing=disabled \
     -Dgcs=disabled \

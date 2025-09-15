@@ -1006,7 +1006,8 @@ class PARQUET_EXPORT ArrowReaderProperties {
         binary_type_(kArrowDefaultBinaryType),
         list_type_(kArrowDefaultListType),
         arrow_extensions_enabled_(false),
-        should_load_statistics_(false) {}
+        should_load_statistics_(false),
+        smallest_decimal_enabled_(false) {}
 
   /// \brief Set whether to use the IO thread pool to parse columns in parallel.
   ///
@@ -1126,6 +1127,24 @@ class PARQUET_EXPORT ArrowReaderProperties {
   /// Return whether loading statistics as much as possible.
   bool should_load_statistics() const { return should_load_statistics_; }
 
+  /// \brief Set whether to infer Decimal32/64 from Parquet decimal logical types.
+  ///
+  /// Default is false for compatibility, meaning that only Decimal128 and Decimal256
+  /// can be inferred.
+  void set_smallest_decimal_enabled(bool smallest_decimal_enable) {
+    smallest_decimal_enabled_ = smallest_decimal_enable;
+  }
+  /// \brief Whether to infer Decimal32/64 from Parquet decimal logical types.
+  ///
+  /// When enabled, Parquet decimal columns will be inferred as the smallest possible
+  /// Arrow Decimal type.
+  /// When disabled, Parquet decimal columns will be inferred as either Decimal128 or
+  /// Decimal256, but not Decimal32/64.
+  ///
+  /// Note: if an Arrow schema is found in the Parquet metadata, it will take priority and
+  /// this setting will be ignored.
+  bool smallest_decimal_enabled() const { return smallest_decimal_enabled_; }
+
  private:
   bool use_threads_;
   std::unordered_set<int> read_dict_indices_;
@@ -1138,6 +1157,7 @@ class PARQUET_EXPORT ArrowReaderProperties {
   ::arrow::Type::type list_type_;
   bool arrow_extensions_enabled_;
   bool should_load_statistics_;
+  bool smallest_decimal_enabled_;
 };
 
 /// EXPERIMENTAL: Constructs the default ArrowReaderProperties
@@ -1161,7 +1181,8 @@ class PARQUET_EXPORT ArrowWriterProperties {
           compliant_nested_types_(true),
           engine_version_(V2),
           use_threads_(kArrowDefaultUseThreads),
-          executor_(NULLPTR) {}
+          executor_(NULLPTR),
+          write_time_adjusted_to_utc_(false) {}
     virtual ~Builder() = default;
 
     /// \brief Disable writing legacy int96 timestamps (default disabled).
@@ -1256,12 +1277,21 @@ class PARQUET_EXPORT ArrowWriterProperties {
       return this;
     }
 
+    /// \brief Set the value of isAdjustedTOUTC when writing a TIME column
+    ///
+    /// Default is false because Arrow TIME data is expressed in an unspecified timezone.
+    /// Note this setting doesn't affect TIMESTAMP data.
+    Builder* set_time_adjusted_to_utc(bool adjusted) {
+      write_time_adjusted_to_utc_ = adjusted;
+      return this;
+    }
+
     /// Create the final properties.
     std::shared_ptr<ArrowWriterProperties> build() {
       return std::shared_ptr<ArrowWriterProperties>(new ArrowWriterProperties(
           write_timestamps_as_int96_, coerce_timestamps_enabled_, coerce_timestamps_unit_,
           truncated_timestamps_allowed_, store_schema_, compliant_nested_types_,
-          engine_version_, use_threads_, executor_));
+          engine_version_, use_threads_, executor_, write_time_adjusted_to_utc_));
     }
 
    private:
@@ -1277,6 +1307,8 @@ class PARQUET_EXPORT ArrowWriterProperties {
 
     bool use_threads_;
     ::arrow::internal::Executor* executor_;
+
+    bool write_time_adjusted_to_utc_;
   };
 
   bool support_deprecated_int96_timestamps() const { return write_timestamps_as_int96_; }
@@ -1310,6 +1342,11 @@ class PARQUET_EXPORT ArrowWriterProperties {
   /// \brief Returns the executor used to write columns in parallel.
   ::arrow::internal::Executor* executor() const;
 
+  /// \brief The value of isAdjustedTOUTC when writing a TIME column
+  ///
+  /// Note this setting doesn't affect TIMESTAMP data.
+  bool write_time_adjusted_to_utc() const { return write_time_adjusted_to_utc_; }
+
  private:
   explicit ArrowWriterProperties(bool write_nanos_as_int96,
                                  bool coerce_timestamps_enabled,
@@ -1317,7 +1354,8 @@ class PARQUET_EXPORT ArrowWriterProperties {
                                  bool truncated_timestamps_allowed, bool store_schema,
                                  bool compliant_nested_types,
                                  EngineVersion engine_version, bool use_threads,
-                                 ::arrow::internal::Executor* executor)
+                                 ::arrow::internal::Executor* executor,
+                                 bool write_time_adjusted_to_utc)
       : write_timestamps_as_int96_(write_nanos_as_int96),
         coerce_timestamps_enabled_(coerce_timestamps_enabled),
         coerce_timestamps_unit_(coerce_timestamps_unit),
@@ -1326,7 +1364,8 @@ class PARQUET_EXPORT ArrowWriterProperties {
         compliant_nested_types_(compliant_nested_types),
         engine_version_(engine_version),
         use_threads_(use_threads),
-        executor_(executor) {}
+        executor_(executor),
+        write_time_adjusted_to_utc_(write_time_adjusted_to_utc) {}
 
   const bool write_timestamps_as_int96_;
   const bool coerce_timestamps_enabled_;
@@ -1337,6 +1376,7 @@ class PARQUET_EXPORT ArrowWriterProperties {
   const EngineVersion engine_version_;
   const bool use_threads_;
   ::arrow::internal::Executor* executor_;
+  const bool write_time_adjusted_to_utc_;
 };
 
 /// \brief State object used for writing Arrow data directly to a Parquet
