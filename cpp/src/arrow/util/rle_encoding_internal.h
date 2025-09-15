@@ -102,13 +102,13 @@ class RleRun {
   using DecoderType = RleRunDecoder<T>;
 
   constexpr RleRun() noexcept = default;
-  constexpr RleRun(RleRun const&) noexcept = default;
+  constexpr RleRun(const RleRun&) noexcept = default;
   constexpr RleRun(RleRun&&) noexcept = default;
 
   explicit RleRun(raw_data_const_pointer data, values_count_type values_count,
                   bit_size_type value_bit_width) noexcept;
 
-  constexpr RleRun& operator=(RleRun const&) noexcept = default;
+  constexpr RleRun& operator=(const RleRun&) noexcept = default;
   constexpr RleRun& operator=(RleRun&&) noexcept = default;
 
   /// The number of repeated values in this run.
@@ -151,13 +151,13 @@ class BitPackedRun {
   using DecoderType = BitPackedRunDecoder<T>;
 
   constexpr BitPackedRun() noexcept = default;
-  constexpr BitPackedRun(BitPackedRun const&) noexcept = default;
+  constexpr BitPackedRun(const BitPackedRun&) noexcept = default;
   constexpr BitPackedRun(BitPackedRun&&) noexcept = default;
 
   constexpr BitPackedRun(raw_data_const_pointer data, values_count_type values_count,
                          bit_size_type value_bit_width) noexcept;
 
-  constexpr BitPackedRun& operator=(BitPackedRun const&) noexcept = default;
+  constexpr BitPackedRun& operator=(const BitPackedRun&) noexcept = default;
   constexpr BitPackedRun& operator=(BitPackedRun&&) noexcept = default;
 
   [[nodiscard]] constexpr values_count_type ValuesCount() const noexcept;
@@ -255,9 +255,9 @@ class RleRunDecoder {
 
   constexpr RleRunDecoder() noexcept = default;
 
-  explicit RleRunDecoder(run_type const& run) noexcept;
+  explicit RleRunDecoder(const run_type& run) noexcept;
 
-  void Reset(run_type const& run) noexcept;
+  void Reset(const run_type& run) noexcept;
 
   /// Return the number of values that can be advanced.
   [[nodiscard]] values_count_type Remaining() const;
@@ -296,9 +296,9 @@ class BitPackedRunDecoder {
 
   BitPackedRunDecoder() noexcept = default;
 
-  explicit BitPackedRunDecoder(run_type const& run) noexcept;
+  explicit BitPackedRunDecoder(const run_type& run) noexcept;
 
-  void Reset(run_type const& run) noexcept;
+  void Reset(const run_type& run) noexcept;
 
   /// Return the number of values that can be advanced.
   [[nodiscard]] constexpr values_count_type Remaining() const;
@@ -739,7 +739,7 @@ auto RunGetSpaced(Converter* converter, typename Converter::out_type* out,
 
   auto batch = BatchCounter::FromBatchSizeAndNulls(batch_size, null_count);
 
-  values_count_type const values_available = decoder->Remaining();
+  const values_count_type values_available = decoder->Remaining();
   ARROW_DCHECK_GT(values_available, 0);
   auto values_remaining_run = [&]() {
     auto out = values_available - batch.ValuesRead();
@@ -775,7 +775,7 @@ auto RunGetSpaced(Converter* converter, typename Converter::out_type* out,
     }
   }
 
-  value_type const value = decoder->Value();
+  const value_type value = decoder->Value();
   if (ARROW_PREDICT_FALSE(!converter->InputIsValid(value))) {
     return {0, 0};
   }
@@ -801,7 +801,7 @@ auto RunGetSpaced(Converter* converter, typename Converter::out_type* out,
 
   auto batch = BatchCounter::FromBatchSizeAndNulls(batch_size, null_count);
 
-  values_count_type const values_available = decoder->Remaining();
+  const values_count_type values_available = decoder->Remaining();
   ARROW_DCHECK_GT(values_available, 0);
   auto run_values_remaining = [&]() {
     auto out = values_available - batch.ValuesRead();
@@ -1274,8 +1274,8 @@ auto RleBitPackedParser::PeekImpl(Handler&& handler) const
     return {};
   }
 
-  bool const is_bit_packed = run_len_type & 1;
-  uint32_t const count = run_len_type >> 1;
+  const bool is_bit_packed = run_len_type & 1;
+  const uint32_t count = run_len_type >> 1;
   if (is_bit_packed) {
     using values_count_type = BitPackedRun::values_count_type;
     constexpr auto kMaxCount =
@@ -1333,12 +1333,12 @@ void RleBitPackedParser::Parse(Handler&& handler) {
  ****************/
 
 template <typename T>
-RleRunDecoder<T>::RleRunDecoder(run_type const& run) noexcept {
+RleRunDecoder<T>::RleRunDecoder(const run_type& run) noexcept {
   Reset(run);
 }
 
 template <typename T>
-void RleRunDecoder<T>::Reset(run_type const& run) noexcept {
+void RleRunDecoder<T>::Reset(const run_type& run) noexcept {
   remaining_count_ = run.ValuesCount();
   if constexpr (std::is_same_v<value_type, bool>) {
     // ARROW-18031:  just check the LSB of the next byte and move on.
@@ -1393,12 +1393,12 @@ auto RleRunDecoder<T>::GetBatch(value_type* out, values_count_type batch_size)
  **********************/
 
 template <typename T>
-BitPackedRunDecoder<T>::BitPackedRunDecoder(run_type const& run) noexcept {
+BitPackedRunDecoder<T>::BitPackedRunDecoder(const run_type& run) noexcept {
   Reset(run);
 }
 
 template <typename T>
-void BitPackedRunDecoder<T>::Reset(run_type const& run) noexcept {
+void BitPackedRunDecoder<T>::Reset(const run_type& run) noexcept {
   value_bit_width_ = run.ValuesBitWidth();
   remaining_count_ = run.ValuesCount();
   ARROW_DCHECK_GE(value_bit_width_, 0);

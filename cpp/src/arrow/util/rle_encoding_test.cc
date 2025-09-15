@@ -217,21 +217,21 @@ TEST(Rle, RleRun) {
   RleRun::values_count_type value_count = 12;
 
   // 12 times the value 21 fitting over 5 bits
-  auto const run_5 = RleRun(value.data(), value_count, /* value_bit_width= */ 5);
+  const auto run_5 = RleRun(value.data(), value_count, /* value_bit_width= */ 5);
   EXPECT_EQ(run_5.ValuesCount(), value_count);
   EXPECT_EQ(run_5.ValuesBitWidth(), 5);
   EXPECT_EQ(run_5.RawDataSize(), 1);  // 5 bits fit in one byte
   EXPECT_EQ(*run_5.RawDataPtr(), 21);
 
   // 12 times the value 21 fitting over 16 bits
-  auto const run_8 = RleRun(value.data(), value_count, /* value_bit_width= */ 8);
+  const auto run_8 = RleRun(value.data(), value_count, /* value_bit_width= */ 8);
   EXPECT_EQ(run_8.ValuesCount(), value_count);
   EXPECT_EQ(run_8.ValuesBitWidth(), 8);
   EXPECT_EQ(run_8.RawDataSize(), 1);  // 8 bits fit in 1 byte
   EXPECT_EQ(*run_8.RawDataPtr(), 21);
 
   // 12 times the value {21, 2} fitting over 10 bits
-  auto const run_10 = RleRun(value.data(), value_count, /* value_bit_width= */ 10);
+  const auto run_10 = RleRun(value.data(), value_count, /* value_bit_width= */ 10);
 
   EXPECT_EQ(run_10.ValuesCount(), value_count);
   EXPECT_EQ(run_10.ValuesBitWidth(), 10);
@@ -240,7 +240,7 @@ TEST(Rle, RleRun) {
   EXPECT_EQ(*(run_10.RawDataPtr() + 1), 2);
 
   // 12 times the value {21, 2} fitting over 32 bits
-  auto const run_32 = RleRun(value.data(), value_count, /* value_bit_width= */ 32);
+  const auto run_32 = RleRun(value.data(), value_count, /* value_bit_width= */ 32);
   EXPECT_EQ(run_32.ValuesCount(), value_count);
   EXPECT_EQ(run_32.ValuesBitWidth(), 32);
   EXPECT_EQ(run_32.RawDataSize(), 4);  // 32 bits fit in 4 bytes
@@ -257,7 +257,7 @@ TEST(BitPacked, BitPackedRun) {
 
   // 16 values of 1 bit for a total of 16 bits
   BitPackedRun::values_count_type value_count_1 = 16;
-  auto const run_1 = BitPackedRun(value.data(), value_count_1, /* value_bit_width= */ 1);
+  const auto run_1 = BitPackedRun(value.data(), value_count_1, /* value_bit_width= */ 1);
   EXPECT_EQ(run_1.ValuesCount(), value_count_1);
   EXPECT_EQ(run_1.ValuesBitWidth(), 1);
   EXPECT_EQ(run_1.RawDataSize(), 2);  // 16 bits fit in 2 bytes
@@ -267,7 +267,7 @@ TEST(BitPacked, BitPackedRun) {
 
   // 8 values of 3 bits for a total of 24 bits
   BitPackedRun::values_count_type value_count_3 = 8;
-  auto const run_3 = BitPackedRun(value.data(), value_count_3, /* value_bit_width= */ 3);
+  const auto run_3 = BitPackedRun(value.data(), value_count_3, /* value_bit_width= */ 3);
   EXPECT_EQ(run_3.ValuesCount(), value_count_3);
   EXPECT_EQ(run_3.ValuesBitWidth(), 3);
   EXPECT_EQ(run_3.RawDataSize(), 3);  // 24 bits fit in 3 bytes
@@ -282,7 +282,7 @@ void TestRleDecoder(std::vector<uint8_t> bytes, RleRun::values_count_type value_
   // Pre-requisite for this test
   EXPECT_GT(value_count, 6);
 
-  auto const run = RleRun(bytes.data(), value_count, bit_width);
+  const auto run = RleRun(bytes.data(), value_count, bit_width);
 
   auto decoder = RleRunDecoder<T>(run);
   std::vector<T> vals = {0, 0};
@@ -344,7 +344,7 @@ void TestBitPackedDecoder(std::vector<uint8_t> bytes,
   // Pre-requisite for this test
   EXPECT_GT(value_count, 6);
 
-  auto const run = BitPackedRun(bytes.data(), value_count, bit_width);
+  const auto run = BitPackedRun(bytes.data(), value_count, bit_width);
 
   auto decoder = BitPackedRunDecoder<T>(run);
   std::vector<T> vals = {0, 0};
@@ -432,8 +432,8 @@ void TestRleBitPackedParser(std::vector<uint8_t> bytes,
     auto OnRleRun(RleRun run) {
       rle_decoder_ptr_->Reset(run);
 
-      auto const n_decoded = decoded_ptr_->size();
-      auto const n_to_decode = rle_decoder_ptr_->Remaining();
+      const auto n_decoded = decoded_ptr_->size();
+      const auto n_to_decode = rle_decoder_ptr_->Remaining();
       decoded_ptr_->resize(n_decoded + n_to_decode);
       EXPECT_EQ(rle_decoder_ptr_->GetBatch(decoded_ptr_->data() + n_decoded, n_to_decode),
                 n_to_decode);
@@ -445,8 +445,8 @@ void TestRleBitPackedParser(std::vector<uint8_t> bytes,
     auto OnBitPackedRun(BitPackedRun run) {
       bit_packed_decoder_ptr_->Reset(run);
 
-      auto const n_decoded = decoded_ptr_->size();
-      auto const n_to_decode = bit_packed_decoder_ptr_->Remaining();
+      const auto n_decoded = decoded_ptr_->size();
+      const auto n_to_decode = bit_packed_decoder_ptr_->Remaining();
       decoded_ptr_->resize(n_decoded + n_to_decode);
       EXPECT_EQ(bit_packed_decoder_ptr_->GetBatch(decoded_ptr_->data() + n_decoded,
                                                   n_to_decode),
@@ -865,10 +865,10 @@ void CheckRoundTrip(const Array& data, int bit_width, bool spaced, int32_t parts
   using ArrayType = typename TypeTraits<Type>::ArrayType;
   using value_type = typename Type::c_type;
 
-  int const data_size = static_cast<int>(data.length());
-  int const data_values_count =
+  const int data_size = static_cast<int>(data.length());
+  const int data_values_count =
       static_cast<int>(data.length() - spaced * data.null_count());
-  int const buffer_size = RleBitPackedEncoder::MaxBufferSize(bit_width, data_size);
+  const int buffer_size = RleBitPackedEncoder::MaxBufferSize(bit_width, data_size);
   ASSERT_GE(parts, 1);
   ASSERT_LE(parts, data_size);
 
@@ -905,7 +905,7 @@ void CheckRoundTrip(const Array& data, int bit_width, bool spaced, int32_t parts
   int32_t actual_read_count = 0;
   int32_t requested_read_count = 0;
   while (requested_read_count < data_size) {
-    auto const remaining = data_size - requested_read_count;
+    const auto remaining = data_size - requested_read_count;
     auto to_read = data_size / parts;
     if (remaining / to_read == 1) {
       to_read = remaining;
@@ -1006,7 +1006,7 @@ struct DataTestRleBitPacked {
 
     std::vector<std::shared_ptr<::arrow::Array>> arrays = {};
 
-    for (auto const& dyn_part : parts) {
+    for (const auto& dyn_part : parts) {
       if (auto* part = std::get_if<RandomPart>(&dyn_part)) {
         auto arr = rand.Numeric<ArrowType>(part->size, /* min= */ value_type(0),
                                            part->max, part->null_probability);
