@@ -62,9 +62,9 @@ set ARROW_WITH_SNAPPY=OFF
 set ARROW_WITH_ZLIB=OFF
 set ARROW_WITH_ZSTD=OFF
 set CMAKE_BUILD_TYPE=Release
+set CMAKE_GENERATOR=Visual Studio 17 2022
+set CMAKE_PLATFORM=x64
 set CMAKE_UNITY_BUILD=ON
-
-IF NOT DEFINED CMAKE_GENERATOR set CMAKE_GENERATOR=Visual Studio 17 2022
 
 mkdir C:\arrow-build
 pushd C:\arrow-build
@@ -105,6 +105,7 @@ cmake ^
     -DPARQUET_REQUIRE_ENCRYPTION=%PARQUET_REQUIRE_ENCRYPTION% ^
     -Dxsimd_SOURCE=BUNDLED ^
     -G "%CMAKE_GENERATOR%" ^
+    -A "%CMAKE_PLATFORM%" ^
     %CPP_SOURCE_DIR% || exit /B 1
 cmake --build . --config %CMAKE_BUILD_TYPE% --target install || exit /B 1
 popd

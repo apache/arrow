@@ -17,6 +17,8 @@
 
 @echo on
 
+set SOURCE_DIR=%1
+
 echo "Testing on Windows ..."
 
 @REM List installed Pythons
@@ -24,8 +26,12 @@ py -0p
 
 %PYTHON_CMD% -m sysconfig || exit /B 1
 
+pushd %SOURCE_DIR%\python
+
 @REM Install Python test dependencies
 %PYTHON_CMD% -m pip install -r requirements-test.txt || exit /B 1
+
+popd
 
 @REM Run Python tests
 %PYTHON_CMD% -c "import pyarrow" || exit /B 1
