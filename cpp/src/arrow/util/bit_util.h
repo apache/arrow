@@ -398,7 +398,7 @@ constexpr int32_t WriteLEB128(Int value, uint8_t* out, int32_t max_out_size) {
   // Write as many bytes as we could be for the given input
   while ((value & kHigh7Mask) != Int(0)) {
     // We do not have enough room to write the LEB128
-    if (out - out_first >= max_out_size) {
+    if (ARROW_PREDICT_FALSE(out - out_first >= max_out_size)) {
       return 0;
     }
 
@@ -410,7 +410,7 @@ constexpr int32_t WriteLEB128(Int value, uint8_t* out, int32_t max_out_size) {
   }
 
   // We do not have enough room to write the LEB128
-  if (out - out_first >= max_out_size) {
+  if (ARROW_PREDICT_FALSE(out - out_first >= max_out_size)) {
     return 0;
   }
 

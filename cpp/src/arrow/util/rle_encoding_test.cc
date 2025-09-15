@@ -26,7 +26,9 @@
 
 #include "arrow/array.h"
 #include "arrow/array/concatenate.h"
+#include "arrow/array/util.h"
 #include "arrow/scalar.h"
+#include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
 #include "arrow/type.h"
 #include "arrow/util/bit_stream_utils_internal.h"
@@ -253,7 +255,7 @@ TEST(Rle, RleRun) {
 TEST(BitPacked, BitPackedRun) {
   const std::array<uint8_t, 4> value = {0b10101010, 0, 0, 0b1111111};
 
-  /// 16 values of 1 bit for a total of 16 bits
+  // 16 values of 1 bit for a total of 16 bits
   BitPackedRun::values_count_type value_count_1 = 16;
   auto const run_1 = BitPackedRun(value.data(), value_count_1, /* value_bit_width= */ 1);
   EXPECT_EQ(run_1.ValuesCount(), value_count_1);
@@ -263,7 +265,7 @@ TEST(BitPacked, BitPackedRun) {
     EXPECT_EQ(*(run_1.RawDataPtr() + i), value[i]);
   }
 
-  /// 8 values of 3 bits for a total of 24 bits
+  // 8 values of 3 bits for a total of 24 bits
   BitPackedRun::values_count_type value_count_3 = 8;
   auto const run_3 = BitPackedRun(value.data(), value_count_3, /* value_bit_width= */ 3);
   EXPECT_EQ(run_3.ValuesCount(), value_count_3);
@@ -276,15 +278,9 @@ TEST(BitPacked, BitPackedRun) {
 
 template <typename T>
 void TestRleDecoder(std::vector<uint8_t> bytes, RleRun::values_count_type value_count,
-                    RleRun::bit_size_type bit_width) {
+                    RleRun::bit_size_type bit_width, T expected_value) {
   // Pre-requisite for this test
   EXPECT_GT(value_count, 6);
-
-  // Compute value associated with bytes encoded as little endian
-  T value = 0;
-  for (std::size_t i = 0; i < bytes.size(); ++i) {
-    value += static_cast<T>(bytes.at(i)) << (8 * i);
-  }
 
   auto const run = RleRun(bytes.data(), value_count, bit_width);
 
@@ -296,7 +292,7 @@ void TestRleDecoder(std::vector<uint8_t> bytes, RleRun::values_count_type value_
   typename decltype(decoder)::values_count_type read = 0;
   EXPECT_EQ(decoder.Get(vals.data()), 1);
   read += 1;
-  EXPECT_EQ(vals.at(0), value);
+  EXPECT_EQ(vals.at(0), expected_value);
   EXPECT_EQ(decoder.Remaining(), value_count - read);
 
   EXPECT_EQ(decoder.Advance(3), 3);
@@ -305,8 +301,8 @@ void TestRleDecoder(std::vector<uint8_t> bytes, RleRun::values_count_type value_
 
   vals = {0, 0};
   EXPECT_EQ(decoder.GetBatch(vals.data(), 2), vals.size());
-  EXPECT_EQ(vals.at(0), value);
-  EXPECT_EQ(vals.at(1), value);
+  EXPECT_EQ(vals.at(0), expected_value);
+  EXPECT_EQ(vals.at(1), expected_value);
   read += static_cast<decltype(read)>(vals.size());
   EXPECT_EQ(decoder.Remaining(), value_count - read);
 
@@ -323,14 +319,21 @@ void TestRleDecoder(std::vector<uint8_t> bytes, RleRun::values_count_type value_
   EXPECT_EQ(decoder.Remaining(), value_count);
   vals = {0, 0};
   EXPECT_EQ(decoder.GetBatch(vals.data(), 2), vals.size());
-  EXPECT_EQ(vals.at(0), value);
-  EXPECT_EQ(vals.at(1), value);
+  EXPECT_EQ(vals.at(0), expected_value);
+  EXPECT_EQ(vals.at(1), expected_value);
 }
 
 TEST(Rle, RleDecoder) {
-  TestRleDecoder<uint32_t>({21, 0, 0}, /* value_count= */ 21, /* bit_width= */ 5);
-  TestRleDecoder<uint16_t>({1, 0}, /* value_count= */ 13, /* bit_width= */ 1);
-  TestRleDecoder<uint64_t>({21, 2, 0, 1}, /* value_count= */ 20, /* bit_width= */ 30);
+  TestRleDecoder<uint8_t>({21, 0, 0}, /* value_count= */ 21, /* bit_width= */ 5,
+                          /* expected_value= */ 21);
+  TestRleDecoder<uint16_t>({1, 0}, /* value_count= */ 13, /* bit_width= */ 1,
+                           /* expected_value= */ 1);
+  TestRleDecoder<uint32_t>({21, 0, 0}, /* value_count= */ 21, /* bit_width= */ 5,
+                           /* expected_value= */ 21);
+  TestRleDecoder<int32_t>({21, 0, 0}, /* value_count= */ 21, /* bit_width= */ 5,
+                          /* expected_value= */ 21);
+  TestRleDecoder<uint64_t>({21, 2, 0, 1}, /* value_count= */ 20, /* bit_width= */ 30,
+                           /* expected_value= */ 16777749);
 }
 
 template <typename T>
@@ -384,7 +387,7 @@ void TestBitPackedDecoder(std::vector<uint8_t> bytes,
 }
 
 TEST(BitPacked, BitPackedDecoder) {
-  /// See parquet encoding for bytes layout
+  // See parquet encoding for bytes layout
   TestBitPackedDecoder<uint16_t>(
       /* bytes= */ {0x88, 0xc6, 0xfa},
       /* values_count= */ 8,
@@ -852,32 +855,32 @@ TEST(BitRle, Overflow) {
 
 /// Check RleBitPacked encoding/decoding round trip.
 ///
-/// \tparam kSpaced If set to false, treat Nulls in the input array as regular data.
-/// \tparam kParts The number of parts in which the data will be decoded.
+/// \param spaced If set to false, treat Nulls in the input array as regular data.
+/// \param parts The number of parts in which the data will be decoded.
 ///         For number greater than one, this ensure that the decoder intermediary state
 ///         is valid.
-template <typename Type, bool kSpaced, int32_t kParts>
-void CheckRoundTrip(const Array& data, int bit_width,
+template <typename Type>
+void CheckRoundTrip(const Array& data, int bit_width, bool spaced, int32_t parts,
                     std::shared_ptr<FloatArray> dict = {}) {
   using ArrayType = typename TypeTraits<Type>::ArrayType;
   using value_type = typename Type::c_type;
 
   int const data_size = static_cast<int>(data.length());
   int const data_values_count =
-      static_cast<int>(data.length() - kSpaced * data.null_count());
+      static_cast<int>(data.length() - spaced * data.null_count());
   int const buffer_size = RleBitPackedEncoder::MaxBufferSize(bit_width, data_size);
-  ASSERT_GE(kParts, 1);
-  ASSERT_LE(kParts, data_size);
+  ASSERT_GE(parts, 1);
+  ASSERT_LE(parts, data_size);
 
   const value_type* data_values = static_cast<const ArrayType&>(data).raw_values();
 
-  // Encode the data into ``buffer`` using the encoder.
+  // Encode the data into `buffer` using the encoder.
   std::vector<uint8_t> buffer(buffer_size);
   RleBitPackedEncoder encoder(buffer.data(), buffer_size, bit_width);
   int32_t encoded_values_size = 0;
   for (int i = 0; i < data_size; ++i) {
-    // Depending on kSpaced we treat nulls as regular values.
-    if (data.IsValid(i) || !kSpaced) {
+    // Depending on `spaced` we treat nulls as regular values.
+    if (data.IsValid(i) || !spaced) {
       bool success = encoder.Put(static_cast<uint64_t>(data_values[i]));
       ASSERT_TRUE(success) << "Encoding failed in pos " << i;
       ++encoded_values_size;
@@ -887,7 +890,7 @@ void CheckRoundTrip(const Array& data, int bit_width,
   ASSERT_EQ(encoded_values_size, data_values_count)
       << "All values input were not encoded successfully by the encoder";
 
-  // On to verify batch read
+  // Now we verify batch read
   RleBitPackedDecoder<value_type> decoder(buffer.data(), encoded_byte_size, bit_width);
   // We will only use one of them depending on whether this is a dictonnary tests
   std::vector<float> dict_read;
@@ -898,18 +901,18 @@ void CheckRoundTrip(const Array& data, int bit_width,
     values_read.resize(data_size);
   }
 
-  // We will read the data in kParts calls to make sure intermediate states are valid
+  // We will read the data in `parts` calls to make sure intermediate states are valid
   int32_t actual_read_count = 0;
   int32_t requested_read_count = 0;
   while (requested_read_count < data_size) {
     auto const remaining = data_size - requested_read_count;
-    auto to_read = data_size / kParts;
+    auto to_read = data_size / parts;
     if (remaining / to_read == 1) {
       to_read = remaining;
     }
 
     auto read = 0;
-    if constexpr (kSpaced) {
+    if (spaced) {
       // We need to slice the input array get the proper null count and bitmap
       auto data_remaining = data.Slice(requested_read_count, to_read);
 
@@ -945,7 +948,7 @@ void CheckRoundTrip(const Array& data, int bit_width,
 
   // Verify the round trip: encoded-decoded values must equal the original one
   for (int64_t i = 0; i < data_size; ++i) {
-    if (data.IsValid(i) || !kSpaced) {
+    if (data.IsValid(i) || !spaced) {
       if (dict) {
         EXPECT_EQ(dict_read.at(i), dict->Value(data_values[i]))
             << "Encoded then decoded and mapped value at position " << i << " ("
@@ -975,6 +978,7 @@ struct DataTestRleBitPackedRepeatPart {
 
   value_type value;
   int32_t size;
+  double null_probability;
 };
 
 template <typename T>
@@ -991,12 +995,15 @@ struct DataTestRleBitPacked {
   using RandomPart = DataTestRleBitPackedRandomPart<value_type>;
   using RepeatPart = DataTestRleBitPackedRepeatPart<value_type>;
   using NullPart = DataTestRleBitPackedNullPart<value_type>;
+  using AnyPart = std::variant<RandomPart, RepeatPart, NullPart>;
 
-  std::vector<std::variant<RandomPart, RepeatPart, NullPart>> parts;
+  std::vector<AnyPart> parts;
   int32_t bit_width;
 
   std::shared_ptr<::arrow::Array> MakeArray(
       ::arrow::random::RandomArrayGenerator& rand) const {
+    using Traits = arrow::TypeTraits<ArrowType>;
+
     std::vector<std::shared_ptr<::arrow::Array>> arrays = {};
 
     for (auto const& dyn_part : parts) {
@@ -1006,14 +1013,15 @@ struct DataTestRleBitPacked {
         arrays.push_back(std::move(arr));
 
       } else if (auto* part = std::get_if<RepeatPart>(&dyn_part)) {
-        auto scalar = ::arrow::MakeScalar(part->value);
-        arrays.push_back(::arrow::MakeArrayFromScalar(*scalar, part->size).ValueOrDie());
+        auto arr =
+            rand.Numeric<ArrowType>(part->size, /* min= */ part->value,
+                                    /* max= */ part->value, part->null_probability);
+        arrays.push_back(std::move(arr));
 
       } else if (auto* part = std::get_if<NullPart>(&dyn_part)) {
-        using Traits = arrow::TypeTraits<ArrowType>;
-        auto null_scalar = ::arrow::MakeNullScalar(Traits::type_singleton());
-        arrays.push_back(
-            ::arrow::MakeArrayFromScalar(*null_scalar, part->size).ValueOrDie());
+        EXPECT_OK_AND_ASSIGN(
+            auto arr, ::arrow::MakeArrayOfNull(Traits::type_singleton(), part->size));
+        arrays.push_back(std::move(arr));
       }
     }
     ARROW_DCHECK_EQ(parts.size(), arrays.size());
@@ -1045,7 +1053,7 @@ void DoTestGetBatchSpacedRoundtrip() {
       },
       {
           {
-              RandomPart{/* max=*/7, /* size=*/10037, /* null_proba= */ 0.1},
+              RandomPart{/* max=*/7, /* size=*/10037, /* null_proba= */ 0.0},
               NullPart{/* size= */ 1153},
               RandomPart{/* max=*/7, /* size=*/800, /* null_proba= */ 0.5},
           },
@@ -1054,28 +1062,30 @@ void DoTestGetBatchSpacedRoundtrip() {
       {
           {
               NullPart{/* size= */ 80},
-              RandomPart{/* max=*/1023, /* size=*/800, /* null_proba= */ 0.01},
+              RandomPart{/* max=*/static_cast<T>(1023), /* size=*/800,
+                         /* null_proba= */ 0.01},
               NullPart{/* size= */ 1023},
           },
           /* bit_width= */ 11,
       },
       {
-          {RepeatPart{/* value=*/13, /* size=*/100000}},
+          {RepeatPart{/* value=*/13, /* size=*/100000, /* null_proba= */ 0.01}},
           /* bit_width= */ 10,
       },
       {
           {
               NullPart{/* size= */ 1024},
-              RepeatPart{/* value=*/10000, /* size=*/100000},
+              RepeatPart{/* value=*/static_cast<T>(10000), /* size=*/100000,
+                         /* null_proba= */ 0.1},
               NullPart{/* size= */ 77},
           },
           /* bit_width= */ 23,
       },
       {
           {
-              RepeatPart{/* value=*/13, /* size=*/100000},
+              RepeatPart{/* value=*/13, /* size=*/100000, /* null_proba= */ 0.0},
               NullPart{/* size= */ 1153},
-              RepeatPart{/* value=*/72, /* size=*/100799},
+              RepeatPart{/* value=*/72, /* size=*/100799, /* null_proba= */ 0.5},
           },
           /* bit_width= */ 10,
       },
@@ -1083,9 +1093,9 @@ void DoTestGetBatchSpacedRoundtrip() {
           {
               RandomPart{/* max=*/1, /* size=*/1013, /* null_proba= */ 0.01},
               NullPart{/* size=*/8},
-              RepeatPart{1, /* size= */ 256},
+              RepeatPart{1, /* size= */ 256, /* null_proba= */ 0.1},
               NullPart{/* size=*/128},
-              RepeatPart{0, /* size= */ 256},
+              RepeatPart{0, /* size= */ 256, /* null_proba= */ 0.0},
               NullPart{/* size=*/15},
               RandomPart{/* max=*/1, /* size=*/8 * 1024, /* null_proba= */ 0.01},
           },
@@ -1094,38 +1104,57 @@ void DoTestGetBatchSpacedRoundtrip() {
   };
 
   ::arrow::random::RandomArrayGenerator rand(/* seed= */ 12);
-  // FRAGILE: Large enough so that it can be indexed by any value in all cases
+  // FRAGILE: we create a dictionary large enough so that any encoded value from the
+  // previous test cases can be used as an index in the dictionary.
+  // Its size must be increased accordingly if larger values are encoded in the test
+  // cases.
   auto dict = std::static_pointer_cast<arrow::FloatArray>(rand.Float32(20000, -1.0, 1.0));
 
+  // Number of bits available in T to write a positive integer.
+  constexpr int kBitsAvailable = 8 * sizeof(T) - (std::is_signed_v<T> ? 1 : 0);
+
   for (auto case_ : test_cases) {
-    if (static_cast<std::size_t>(case_.bit_width) > sizeof(T)) {
+    if (static_cast<std::size_t>(case_.bit_width) > kBitsAvailable) {
       continue;
     }
 
     auto array = case_.MakeArray(rand);
 
     // Tests for GetBatch
-    CheckRoundTrip<ArrowType, false, 1>(*array, case_.bit_width);
-    CheckRoundTrip<ArrowType, false, 3>(*array, case_.bit_width);
+    CheckRoundTrip<ArrowType>(*array, case_.bit_width, /* spaced= */ false,
+                              /* parts= */ 1);
+    CheckRoundTrip<ArrowType>(*array, case_.bit_width, /* spaced= */ false,
+                              /* parts= */ 3);
 
     // Tests for GetBatchSpaced
-    CheckRoundTrip<ArrowType, true, 1>(*array, case_.bit_width);
-    CheckRoundTrip<ArrowType, true, 7>(*array, case_.bit_width);
-    CheckRoundTrip<ArrowType, true, 1>(*array->Slice(1), case_.bit_width);
+    CheckRoundTrip<ArrowType>(*array, case_.bit_width, /* spaced= */ true,
+                              /* parts= */ 1);
+    CheckRoundTrip<ArrowType>(*array, case_.bit_width, /* spaced= */ true,
+                              /* parts= */ 7);
+    CheckRoundTrip<ArrowType>(*array->Slice(1), case_.bit_width, /* spaced= */ true,
+                              /* parts= */ 1);
 
     // Cannot test GetBatchWithDict with this method since unknown null values
 
     // Tests for GetBatchWithDictSpaced
-    CheckRoundTrip<ArrowType, true, 1>(*array, case_.bit_width, dict);
-    CheckRoundTrip<ArrowType, true, 5>(*array, case_.bit_width, dict);
+    CheckRoundTrip<ArrowType>(*array, case_.bit_width, /* spaced= */ true, /* parts= */ 1,
+                              dict);
+    CheckRoundTrip<ArrowType>(*array, case_.bit_width, /* spaced= */ true, /* parts= */ 5,
+                              dict);
   }
 }
 
+TEST(RleBitPacked, GetBatchSpacedRoundtripUint8) {
+  DoTestGetBatchSpacedRoundtrip<uint8_t>();
+}
 TEST(RleBitPacked, GetBatchSpacedRoundtripUint16) {
   DoTestGetBatchSpacedRoundtrip<uint16_t>();
 }
 TEST(RleBitPacked, GetBatchSpacedRoundtripInt32) {
   DoTestGetBatchSpacedRoundtrip<int32_t>();
+}
+TEST(RleBitPacked, GetBatchSpacedRoundtripUInt32) {
+  DoTestGetBatchSpacedRoundtrip<uint32_t>();
 }
 TEST(RleBitPacked, GetBatchSpacedRoundtripUint64) {
   DoTestGetBatchSpacedRoundtrip<uint64_t>();
