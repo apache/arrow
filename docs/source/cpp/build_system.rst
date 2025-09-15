@@ -31,7 +31,8 @@ The recommended way to integrate the Arrow C++ libraries in your own
 C++ project is to use CMake's `find_package
 <https://cmake.org/cmake/help/latest/command/find_package.html>`_
 function for locating and integrating dependencies. If you don't use
-CMake as a build system, you can use `pkg-config
+CMake as a build system, you can try the `Meson build system
+<https://mesonbuild.com/>`_ or use `pkg-config
 <https://www.freedesktop.org/wiki/Software/pkg-config/>`_ to find
 installed the Arrow C++ libraries.
 
@@ -143,6 +144,85 @@ For example, to use the ``ArrowCompute`` package:
 
 .. seealso::
    A Docker-based :doc:`minimal build example <examples/cmake_minimal_build>`.
+
+Meson
+=====
+
+Basic usage
+-----------
+
+This minimal ``meson.build`` file compiles a ``my_example.cc`` source file
+into an executable linked with the Arrow C++ shared library:
+
+.. code-block:: meson
+
+    project('my-example-project', 'cpp')
+
+    arrow_dep = dependency('arrow')
+
+    executable(
+        'my_example',
+        sources: ['my_example.cc'],
+        dependencies: [arrow_dep],
+    )
+
+To setup and compile, run the following commands from your project root:
+
+.. code-block:: shell
+
+   meson setup builddir
+   meson compile -C builddir
+
+Using Meson's wrap system
+-------------------------
+
+By default, a call to ``dependency('arrow')`` will search for Arrow
+on your system, using a variety of heuristics built into Meson (typically
+using pkg-config, but potentially also using CMake and other logic). If you
+are working on a system where Arrow is not available, you can use Meson's
+wrap system to automatically fetch a copy and build Arrow as a subproject.
+
+To do so, run the following from the root of your project:
+
+.. code-block:: shell
+
+   mkdir -p subprojects
+   meson wrap install arrow-cpp
+   meson wrap install gflags # can skip if you have a system install of gflags
+
+No changes to your ``meson.build`` configuration are required.
+
+Linking Against Optional Dependencies
+-------------------------------------
+
+By default, the Arrow project builds and distributes a single core library.
+However, Arrow can build and distribute many optional libraries, which can
+still be linked via Meson.
+
+As an example, let's look at the compute library, which is distributed via
+pkg-config as ``arrow-compute``. Meson will first search for this library
+on the system, and when it is not found it will fall back to building a
+local copy of Arrow. However, the local copy must be instructed to enable
+to compile the optional compute library.
+
+To do this, we are going to modify the aforementioned configuration to
+add a ``default_options`` argument to the ``dependency`` call, which instructs
+Meson to build the compute library while compiling a local copy of Arrow:
+
+.. code-block:: meson
+
+    project('my-example-project', 'cpp')
+
+    arrow_compute_dep = dependency(
+        'arrow-compute',
+        default_options: ['compute=enabled'],
+    )
+
+    executable(
+        'my_example',
+        sources: ['my_example.cc'],
+        dependencies: [arrow_compute_dep],
+    )
 
 pkg-config
 ==========
