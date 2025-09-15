@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-include_directories(include)
+arrow_install_all_headers("arrow/flight/sql/odbc/odbcabstraction/include")
 
 add_library(odbcabstraction
             include/odbcabstraction/calendar_utils.h

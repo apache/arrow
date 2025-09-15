@@ -27,7 +27,7 @@
 #include <sqltypes.h>
 #include <sqlucode.h>
 
-#include "arrow/flight/sql/odbc/odbc_api.h"
+#include "arrow/flight/sql/odbc/odbc_api_internal.h"
 #include "arrow/flight/sql/odbc/visibility.h"
 
 #include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/odbc_impl/odbc_connection.h"

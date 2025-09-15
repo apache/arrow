@@ -22,9 +22,6 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 add_custom_target(arrow_flight_sql_odbc)
 
-# Ensure fmt is loaded as header only
-add_compile_definitions(FMT_HEADER_ONLY)
-
 if(WIN32)
   if(MSVC_VERSION GREATER_EQUAL 1900)
     set(ODBCINST legacy_stdio_definitions odbccp32 shlwapi)
@@ -68,6 +65,8 @@ add_arrow_lib(arrow_flight_sql_odbc
               ${ARROW_FLIGHT_SQL_ODBC_SRCS}
               DEPENDENCIES
               arrow_flight_sql
+              DEFINITIONS
+              FMT_HEADER_ONLY
               SHARED_LINK_FLAGS
               ${ARROW_VERSION_SCRIPT_FLAGS} # Defined in cpp/arrow/CMakeLists.txt
               SHARED_LINK_LIBS
