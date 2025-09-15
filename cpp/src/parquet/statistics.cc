@@ -578,10 +578,8 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
         min_buffer_(AllocateBuffer(pool_, 0)),
         max_buffer_(AllocateBuffer(pool_, 0)),
         logical_type_(LogicalTypeId(descr_)) {
-    try {
+    if (descr->sort_order() != SortOrder::UNKNOWN) {
       comparator_ = MakeComparator<DType>(descr);
-    } catch (const ParquetException&) {
-      comparator_ = nullptr;
     }
     TypedStatisticsImpl::Reset();
   }
@@ -842,9 +840,10 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
   }
 
   void SetMinMaxPair(std::pair<T, T> min_max) {
+    if (comparator_ == nullptr) return;
     // CleanStatistic can return a nullopt in case of erroneous values, e.g. NaN
     auto maybe_min_max = CleanStatistic(min_max, logical_type_);
-    if (!maybe_min_max || comparator_ == nullptr) return;
+    if (!maybe_min_max) return;
 
     auto min = maybe_min_max.value().first;
     auto max = maybe_min_max.value().second;
