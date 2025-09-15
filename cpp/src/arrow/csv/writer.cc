@@ -634,6 +634,9 @@ class CSVWriterImpl : public ipc::RecordBatchWriter {
           memcpy(next, col_name.data(), col_name.size());
           next += col_name.size();
           break;
+        // The behavior of the Needed quoting_style in CSV data depends on the data type.
+        // And it is always quoted when the data type is binary. To avoid semantic
+        // differences, the behavior of Need and AllValid should be consistent.
         case QuotingStyle::Needed:
         case QuotingStyle::AllValid:
           *next++ = '"';

@@ -93,8 +93,9 @@ std::vector<WriterTestParams> GenerateTestCases() {
   auto dummy_schema = schema({field("a", uint8())});
   std::string dummy_batch_data = R"([{"a": null}])";
 
-  auto no_structral_header = schema({field("a ", uint64()), field("b", int32())});
-  std::string expected_no_structral_header = std::string(R"(a ,b)") + "\n";
+  auto header_without_structral_charaters =
+      schema({field("a ", uint64()), field("b", int32())});
+  std::string expected_header_without_structral_charaters = std::string(R"(a ,b)") + "\n";
   auto expected_status_no_quotes_with_structural_in_header = [](const char* header) {
     return Status::Invalid(
         "CSV header may not contain structural characters if quoting "
@@ -291,12 +292,12 @@ std::vector<WriterTestParams> GenerateTestCases() {
        DefaultTestOptions(/*include_header=*/false, /*null_string=*/"",
                           QuotingStyle::Needed, /*eol=*/";", /*delimiter=*/';'),
        /*expected_output*/ "", expected_status_illegal_delimiter(';')},
-      {no_structral_header, "[]",
+      {header_without_structral_charaters, "[]",
        DefaultTestOptions(/*include_header=*/true, /*null_string=*/"",
                           QuotingStyle::Needed, /*eol=*/"\n",
                           /*delimiter=*/',', /*batch_size=*/5,
                           /*quoting_header=*/QuotingStyle::None),
-       expected_no_structral_header},
+       expected_header_without_structral_charaters},
       {abc_schema, "[]",
        DefaultTestOptions(/*include_header=*/true, /*null_string=*/"",
                           QuotingStyle::Needed, /*eol=*/"\n",
