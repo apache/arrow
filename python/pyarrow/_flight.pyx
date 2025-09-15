@@ -103,9 +103,6 @@ cdef class FlightCallOptions(_Weakrefable):
     cdef:
         CFlightCallOptions options
 
-        IpcReadOptions _py_read_options
-        IpcWriteOptions _py_write_options
-
     def __init__(self, timeout=None, write_options=None, headers=None,
                  IpcReadOptions read_options=None):
         """Create call options.
@@ -124,9 +121,6 @@ cdef class FlightCallOptions(_Weakrefable):
             Serialization options for reading IPC format.
         """
         cdef IpcWriteOptions c_write_options
-
-        self._py_write_options = write_options
-        self._py_read_options = read_options
 
         if timeout is not None:
             self.options.timeout = CTimeoutDuration(timeout)
@@ -150,36 +144,35 @@ cdef class FlightCallOptions(_Weakrefable):
 
     @property
     def timeout(self):
+        """Get timeout for the call (in seconds)
+        """
         return self.options.timeout.count()
 
     @property
     def headers(self):
+        """Get list of headers (key, value tuples) for client's context
+        """
         return self.options.headers
 
     @property
     def read_options(self):
-        return self._py_read_options
+        """Get serialization options for reading IPC format
+        """
+        return wrap_ipc_read_options(self.options.read_options)
 
     @property
     def write_options(self):
-        return self._py_write_options
+        """Get IPC write options
+        """
+        return wrap_ipc_write_options(self.options.write_options)
 
     def __repr__(self):
-        base = (f"<pyarrow.flight.FlightCallOptions "
+        return (f"<pyarrow.flight.FlightCallOptions "
                 f"timeout={self.timeout} "
-                f"headers={self.headers}")
+                f"headers={self.headers}\n"
+                f" read_options={self.read_options}\n"
+                f" write_options={self.write_options}\n>")
 
-        parts = [base]
-
-        if self.read_options is not None:
-            parts.append(f" {self.read_options}")
-
-        if self.write_options is not None:
-            parts.append(f" {self.write_options}")
-
-        parts.append(">")
-
-        return "\n".join(parts) if len(parts) > 2 else "".join(parts)
 
 _CertKeyPair = collections.namedtuple('_CertKeyPair', ['cert', 'key'])
 
