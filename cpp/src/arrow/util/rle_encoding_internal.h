@@ -1282,7 +1282,7 @@ auto RleBitPackedParser::PeekImpl(Handler&& handler) const
         bit_util::CeilDiv(internal::max_size_for_v<values_count_type>, 8);
     if (ARROW_PREDICT_FALSE(count == 0 || count > kMaxCount)) {
       // Illegal number of encoded values
-      return {};
+      return {0, ControlFlow::Break};
     }
 
     const auto values_count = static_cast<values_count_type>(count * 8);
@@ -1302,7 +1302,7 @@ auto RleBitPackedParser::PeekImpl(Handler&& handler) const
           count == 0 ||
           count > static_cast<uint32_t>(std::numeric_limits<values_count_type>::max()))) {
     // Illegal number of encoded values
-    return {};
+    return {0, ControlFlow::Break};
   }
 
   const auto values_count = static_cast<values_count_type>(count);
