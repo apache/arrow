@@ -172,12 +172,17 @@ class ARROW_EXPORT QuantileOptions : public FunctionOptions {
 /// By default, returns the median value.
 class ARROW_EXPORT TDigestOptions : public FunctionOptions {
  public:
+  enum Scaler {
+    K0 = 0,
+    K1,
+  };
+
   explicit TDigestOptions(double q = 0.5, uint32_t delta = 100,
                           uint32_t buffer_size = 500, bool skip_nulls = true,
-                          uint32_t min_count = 0);
+                          uint32_t min_count = 0, enum Scaler scaler = K1);
   explicit TDigestOptions(std::vector<double> q, uint32_t delta = 100,
                           uint32_t buffer_size = 500, bool skip_nulls = true,
-                          uint32_t min_count = 0);
+                          uint32_t min_count = 0, enum Scaler scaler = K1);
   static constexpr char const kTypeName[] = "TDigestOptions";
   static TDigestOptions Defaults() { return TDigestOptions{}; }
 
@@ -192,6 +197,72 @@ class ARROW_EXPORT TDigestOptions : public FunctionOptions {
   bool skip_nulls;
   /// If less than this many non-null values are observed, emit null.
   uint32_t min_count;
+  /// select scaler implementation
+  enum Scaler scaler;
+};
+
+/// \brief Control TDigest controid calculation
+///
+/// By default, returns the median value.
+class ARROW_EXPORT TDigestMapOptions : public FunctionOptions {
+ public:
+  using Scaler = TDigestOptions::Scaler;
+
+  explicit TDigestMapOptions(uint32_t delta = 100, uint32_t buffer_size = 500,
+                             bool skip_nulls = true, Scaler scaler = Scaler::K1);
+  static constexpr char const kTypeName[] = "TDigestMapOptions";
+  static TDigestMapOptions Defaults() { return TDigestMapOptions{}; }
+
+  /// compression parameter, default 100
+  uint32_t delta;
+  /// input buffer size, default 500
+  uint32_t buffer_size;
+  /// If true (the default), null values are ignored. Otherwise, if any value is null,
+  /// emit null.
+  bool skip_nulls;
+  /// select scaler implementation
+  Scaler scaler;
+};
+
+/// \brief Control TDigest reduce behavior
+///
+/// By default, returns the median value.
+class ARROW_EXPORT TDigestReduceOptions : public FunctionOptions {
+ public:
+  using Scaler = TDigestOptions::Scaler;
+
+  explicit TDigestReduceOptions(uint32_t delta = 100, Scaler scaler = Scaler::K1);
+  static constexpr char const kTypeName[] = "TDigestReduceOptions";
+  static TDigestReduceOptions Defaults() { return TDigestReduceOptions{}; }
+
+  /// compression parameter, default 100
+  uint32_t delta;
+  /// select scaler implementation
+  Scaler scaler;
+};
+
+/// \brief Control TDigest approximate quantile kernel behavior
+///
+/// By default, returns the median value.
+class ARROW_EXPORT TDigestQuantileOptions : public FunctionOptions {
+ public:
+  using Scaler = TDigestOptions::Scaler;
+
+  explicit TDigestQuantileOptions(double q = 0.5, uint32_t delta = 100,
+                                  uint32_t min_count = 0, Scaler scaler = Scaler::K1);
+  explicit TDigestQuantileOptions(std::vector<double> q, uint32_t delta = 100,
+                                  uint32_t min_count = 0, Scaler scaler = Scaler::K1);
+  static constexpr char const kTypeName[] = "TDigestQuantileOptions";
+  static TDigestQuantileOptions Defaults() { return TDigestQuantileOptions{}; }
+
+  /// probability level of quantile must be between 0 and 1 inclusive
+  std::vector<double> q;
+  /// compression parameter, default 100
+  uint32_t delta;
+  /// If less than this many non-null values are observed, emit null.
+  uint32_t min_count;
+  /// select scaler implementation
+  Scaler scaler;
 };
 
 /// \brief Control Pivot kernel behavior
@@ -578,6 +649,50 @@ ARROW_EXPORT
 Result<Datum> TDigest(const Datum& value,
                       const TDigestOptions& options = TDigestOptions::Defaults(),
                       ExecContext* ctx = NULLPTR);
+
+/// \brief Calculate centroids of a numeric array with T-Digest algorithm
+///
+/// \param[in] value input datum, expecting Array or ChunkedArray
+/// \param[in] options see TDigestMapOptions for more information
+/// \param[in] ctx the function execution context, optional
+/// \return resulting struct of mean and weight arrays
+///
+/// \since 22.0.0
+/// \note API not yet finalized
+ARROW_EXPORT
+Result<Datum> TDigestMap(const Datum& value,
+                         const TDigestMapOptions& options = TDigestMapOptions::Defaults(),
+                         ExecContext* ctx = NULLPTR);
+
+/// \brief Merge multiple centroid sets into one
+///
+/// \param[in] value input centroid sets, expecting Scalar, Array or ChunkedArray of
+/// centroid structs \param[in] options see TDigestReduceOptions for more information
+/// \param[in] ctx the function execution context, optional
+/// \return resulting struct of mean and weight arrays
+///
+/// \since 22.0.0
+/// \note API not yet finalized
+ARROW_EXPORT
+Result<Datum> TDigestReduce(
+    const Datum& value,
+    const TDigestReduceOptions& options = TDigestReduceOptions::Defaults(),
+    ExecContext* ctx = NULLPTR);
+
+/// \brief Calculate the approximate quantiles using centroids with T-Digest algorithm
+///
+/// \param[in] value input centroid sets, expecting Scalar, Array or ChunkedArray of
+/// centroid structs \param[in] options see TDigestQuantileOptions for more information
+/// \param[in] ctx the function execution context, optional
+/// \return resulting struct of mean and weight arrays
+///
+/// \since 22.0.0
+/// \note API not yet finalized
+ARROW_EXPORT
+Result<Datum> TDigestQuantile(
+    const Datum& value,
+    const TDigestQuantileOptions& options = TDigestQuantileOptions::Defaults(),
+    ExecContext* ctx = NULLPTR);
 
 /// \brief Find the first index of a value in an array.
 ///

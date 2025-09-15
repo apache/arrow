@@ -70,6 +70,22 @@ struct EnumTraits<compute::QuantileOptions::Interpolation>
 };
 
 template <>
+struct EnumTraits<compute::TDigestOptions::Scaler>
+    : BasicEnumTraits<compute::TDigestOptions::Scaler, compute::TDigestOptions::K0,
+                      compute::TDigestOptions::K1> {
+  static std::string name() { return "TDigestOptions::Scaler"; }
+  static std::string value_name(compute::TDigestOptions::Scaler value) {
+    switch (value) {
+      case compute::TDigestOptions::K0:
+        return "K0";
+      case compute::TDigestOptions::K1:
+        return "K1";
+    }
+    return "<INVALID>";
+  }
+};
+
+template <>
 struct EnumTraits<compute::PivotWiderOptions::UnexpectedKeyBehavior>
     : BasicEnumTraits<compute::PivotWiderOptions::UnexpectedKeyBehavior,
                       compute::PivotWiderOptions::kIgnore,
@@ -123,7 +139,21 @@ static auto kTDigestOptionsType = GetFunctionOptionsType<TDigestOptions>(
     DataMember("q", &TDigestOptions::q), DataMember("delta", &TDigestOptions::delta),
     DataMember("buffer_size", &TDigestOptions::buffer_size),
     DataMember("skip_nulls", &TDigestOptions::skip_nulls),
-    DataMember("min_count", &TDigestOptions::min_count));
+    DataMember("min_count", &TDigestOptions::min_count),
+    DataMember("scaler", &TDigestOptions::scaler));
+static auto kTDigestMapOptionsType = GetFunctionOptionsType<TDigestMapOptions>(
+    DataMember("delta", &TDigestMapOptions::delta),
+    DataMember("buffer_size", &TDigestMapOptions::buffer_size),
+    DataMember("skip_nulls", &TDigestMapOptions::skip_nulls),
+    DataMember("scaler", &TDigestMapOptions::scaler));
+static auto kTDigestReduceOptionsType = GetFunctionOptionsType<TDigestReduceOptions>(
+    DataMember("delta", &TDigestReduceOptions::delta),
+    DataMember("scaler", &TDigestReduceOptions::scaler));
+static auto kTDigestQuantileOptionsType = GetFunctionOptionsType<TDigestQuantileOptions>(
+    DataMember("q", &TDigestQuantileOptions::q),
+    DataMember("delta", &TDigestQuantileOptions::delta),
+    DataMember("min_count", &TDigestQuantileOptions::min_count),
+    DataMember("scaler", &TDigestQuantileOptions::scaler));
 static auto kPivotOptionsType = GetFunctionOptionsType<PivotWiderOptions>(
     DataMember("key_names", &PivotWiderOptions::key_names),
     DataMember("unexpected_key_behavior", &PivotWiderOptions::unexpected_key_behavior));
@@ -179,22 +209,57 @@ QuantileOptions::QuantileOptions(std::vector<double> q, enum Interpolation inter
 constexpr char QuantileOptions::kTypeName[];
 
 TDigestOptions::TDigestOptions(double q, uint32_t delta, uint32_t buffer_size,
-                               bool skip_nulls, uint32_t min_count)
+                               bool skip_nulls, uint32_t min_count, enum Scaler scaler)
     : FunctionOptions(internal::kTDigestOptionsType),
       q{q},
       delta{delta},
       buffer_size{buffer_size},
       skip_nulls{skip_nulls},
-      min_count{min_count} {}
+      min_count{min_count},
+      scaler{scaler} {}
 TDigestOptions::TDigestOptions(std::vector<double> q, uint32_t delta,
-                               uint32_t buffer_size, bool skip_nulls, uint32_t min_count)
+                               uint32_t buffer_size, bool skip_nulls, uint32_t min_count,
+                               enum Scaler scaler)
     : FunctionOptions(internal::kTDigestOptionsType),
       q{std::move(q)},
       delta{delta},
       buffer_size{buffer_size},
       skip_nulls{skip_nulls},
-      min_count{min_count} {}
+      min_count{min_count},
+      scaler{scaler} {}
 constexpr char TDigestOptions::kTypeName[];
+
+TDigestMapOptions::TDigestMapOptions(uint32_t delta, uint32_t buffer_size,
+                                     bool skip_nulls, Scaler scaler)
+    : FunctionOptions(internal::kTDigestMapOptionsType),
+      delta{delta},
+      buffer_size{buffer_size},
+      skip_nulls{skip_nulls},
+      scaler{scaler} {}
+constexpr char TDigestMapOptions::kTypeName[];
+
+TDigestReduceOptions::TDigestReduceOptions(uint32_t delta, Scaler scaler)
+    : FunctionOptions(internal::kTDigestReduceOptionsType),
+      delta(delta),
+      scaler{scaler} {}
+constexpr char TDigestReduceOptions::kTypeName[];
+
+TDigestQuantileOptions::TDigestQuantileOptions(double q, uint32_t delta,
+                                               uint32_t min_count, Scaler scaler)
+    : FunctionOptions(internal::kTDigestQuantileOptionsType),
+      q{q},
+      delta(delta),
+      min_count{min_count},
+      scaler{scaler} {}
+
+TDigestQuantileOptions::TDigestQuantileOptions(std::vector<double> q, uint32_t delta,
+                                               uint32_t min_count, Scaler scaler)
+    : FunctionOptions(internal::kTDigestQuantileOptionsType),
+      q{std::move(q)},
+      delta(delta),
+      min_count{min_count},
+      scaler{scaler} {}
+constexpr char TDigestQuantileOptions::kTypeName[];
 
 PivotWiderOptions::PivotWiderOptions(std::vector<std::string> key_names,
                                      UnexpectedKeyBehavior unexpected_key_behavior)
@@ -217,6 +282,9 @@ void RegisterAggregateOptions(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunctionOptionsType(kSkewOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kQuantileOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kTDigestOptionsType));
+  DCHECK_OK(registry->AddFunctionOptionsType(kTDigestMapOptionsType));
+  DCHECK_OK(registry->AddFunctionOptionsType(kTDigestReduceOptionsType));
+  DCHECK_OK(registry->AddFunctionOptionsType(kTDigestQuantileOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kPivotOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kIndexOptionsType));
 }
@@ -299,6 +367,21 @@ Result<Datum> Quantile(const Datum& value, const QuantileOptions& options,
 Result<Datum> TDigest(const Datum& value, const TDigestOptions& options,
                       ExecContext* ctx) {
   return CallFunction("tdigest", {value}, &options, ctx);
+}
+
+Result<Datum> TDigestMap(const Datum& value, const TDigestMapOptions& options,
+                         ExecContext* ctx) {
+  return CallFunction("tdigest_map", {value}, &options, ctx);
+}
+
+Result<Datum> TDigestReduce(const Datum& value, const TDigestReduceOptions& options,
+                            ExecContext* ctx) {
+  return CallFunction("tdigest_reduce", {value}, &options, ctx);
+}
+
+Result<Datum> TDigestQuantile(const Datum& value, const TDigestQuantileOptions& options,
+                              ExecContext* ctx) {
+  return CallFunction("tdigest_quantile", {value}, &options, ctx);
 }
 
 Result<Datum> Index(const Datum& value, const IndexOptions& options, ExecContext* ctx) {

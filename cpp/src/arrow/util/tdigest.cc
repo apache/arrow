@@ -40,6 +40,11 @@ double Lerp(double a, double b, double t) { return a + t * (b - a); }
 
 // histogram bin
 struct Centroid {
+  Centroid() = default;
+  explicit Centroid(std::pair<double, double> pair)
+      : mean(pair.first), weight(pair.second) {}
+  Centroid(double mean, double weight) : mean(mean), weight(weight) {}
+
   double mean;
   double weight;  // # data points in this bin
 
@@ -50,31 +55,13 @@ struct Centroid {
   }
 };
 
-// scale function K0: linear function, as baseline
-struct ScalerK0 {
-  explicit ScalerK0(uint32_t delta) : delta_norm(delta / 2.0) {}
-
-  double K(double q) const { return delta_norm * q; }
-  double Q(double k) const { return k / delta_norm; }
-
-  const double delta_norm;
-};
-
-// scale function K1
-struct ScalerK1 {
-  explicit ScalerK1(uint32_t delta) : delta_norm(delta / (2.0 * M_PI)) {}
-
-  double K(double q) const { return delta_norm * std::asin(2 * q - 1); }
-  double Q(double k) const { return (std::sin(k / delta_norm) + 1) / 2; }
-
-  const double delta_norm;
-};
-
 // implements t-digest merging algorithm
-template <class T = ScalerK1>
-class TDigestMerger : private T {
+class TDigestMerger {
  public:
-  explicit TDigestMerger(uint32_t delta) : T(delta) { Reset(0, nullptr); }
+  explicit TDigestMerger(std::unique_ptr<TDigest::Scaler> scaler)
+      : scaler_{std::move(scaler)} {
+    Reset(0, nullptr);
+  }
 
   void Reset(double total_weight, std::vector<Centroid>* tdigest) {
     total_weight_ = total_weight;
@@ -94,7 +81,7 @@ class TDigestMerger : private T {
       td.back().Merge(centroid);
     } else {
       const double quantile = weight_so_far_ / total_weight_;
-      const double next_weight_limit = total_weight_ * this->Q(this->K(quantile) + 1);
+      const double next_weight_limit = total_weight_ * scaler_->QK1(quantile);
       // weight limit should be strictly increasing, until the last centroid
       if (next_weight_limit <= weight_limit_) {
         weight_limit_ = total_weight_;
@@ -108,10 +95,10 @@ class TDigestMerger : private T {
 
   // validate k-size of a tdigest
   Status Validate(const std::vector<Centroid>& tdigest, double total_weight) const {
-    double q_prev = 0, k_prev = this->K(0);
+    double q_prev = 0, k_prev = scaler_->K(0);
     for (size_t i = 0; i < tdigest.size(); ++i) {
       const double q = q_prev + tdigest[i].weight / total_weight;
-      const double k = this->K(q);
+      const double k = scaler_->K(q);
       if (tdigest[i].weight != 1 && (k - k_prev) > 1.001) {
         return Status::Invalid("oversized centroid: ", k - k_prev);
       }
@@ -121,7 +108,10 @@ class TDigestMerger : private T {
     return Status::OK();
   }
 
+  uint32_t delta() const { return scaler_->delta_; }
+
  private:
+  std::unique_ptr<TDigest::Scaler> scaler_;
   double total_weight_;   // total weight of this tdigest
   double weight_so_far_;  // accumulated weight till current bin
   double weight_limit_;   // max accumulated weight to move to next bin
@@ -132,12 +122,13 @@ class TDigestMerger : private T {
 
 class TDigest::TDigestImpl {
  public:
-  explicit TDigestImpl(uint32_t delta)
-      : delta_(delta > 10 ? delta : 10), merger_(delta_) {
-    tdigests_[0].reserve(delta_);
-    tdigests_[1].reserve(delta_);
+  explicit TDigestImpl(std::unique_ptr<Scaler> scaler) : merger_(std::move(scaler)) {
+    tdigests_[0].reserve(merger_.delta());
+    tdigests_[1].reserve(merger_.delta());
     Reset();
   }
+
+  uint32_t delta() const { return merger_.delta(); }
 
   void Reset() {
     tdigests_[0].resize(0);
@@ -169,7 +160,8 @@ class TDigest::TDigestImpl {
       return Status::Invalid("tdigest total weight mismatch");
     }
     // check if buffer expanded
-    if (tdigests_[0].capacity() > delta_ || tdigests_[1].capacity() > delta_) {
+    if (tdigests_[0].capacity() > merger_.delta() ||
+        tdigests_[1].capacity() > merger_.delta()) {
       return Status::Invalid("oversized tdigest buffer");
     }
     // check k-size
@@ -241,29 +233,33 @@ class TDigest::TDigestImpl {
   }
 
   // merge input data with current tdigest
-  void MergeInput(std::vector<double>& input) {
-    total_weight_ += input.size();
+  void MergeInput(std::vector<std::pair<double, double>>& input) {
+    for (const auto& i : input) {
+      total_weight_ += i.second;
+    }
 
-    std::sort(input.begin(), input.end());
-    min_ = std::min(min_, input.front());
-    max_ = std::max(max_, input.back());
+    std::sort(input.begin(), input.end(),
+              [](const std::pair<double, double>& lhs,
+                 const std::pair<double, double>& rhs) { return lhs.first < rhs.first; });
+    min_ = std::min(min_, input.front().first);
+    max_ = std::max(max_, input.back().first);
 
     // pick next minimal centroid from input and tdigest, feed to merger
     merger_.Reset(total_weight_, &tdigests_[1 - current_]);
     const auto& td = tdigests_[current_];
     uint32_t tdigest_index = 0, input_index = 0;
     while (tdigest_index < td.size() && input_index < input.size()) {
-      if (td[tdigest_index].mean < input[input_index]) {
+      if (td[tdigest_index].mean < input[input_index].first) {
         merger_.Add(td[tdigest_index++]);
       } else {
-        merger_.Add(Centroid{input[input_index++], 1});
+        merger_.Add(Centroid{input[input_index++]});
       }
     }
     while (tdigest_index < td.size()) {
       merger_.Add(td[tdigest_index++]);
     }
     while (input_index < input.size()) {
-      merger_.Add(Centroid{input[input_index++], 1});
+      merger_.Add(Centroid{input[input_index++]});
     }
     merger_.Reset(0, nullptr);
 
@@ -331,6 +327,14 @@ class TDigest::TDigestImpl {
     return Lerp(td[ci_left].mean, td[ci_right].mean, diff);
   }
 
+  std::pair<double, double> GetCentroid(size_t i) const {
+    const auto& td = tdigests_[current_];
+    auto& c = td[i];
+    return std::make_pair(c.mean, c.weight);
+  }
+
+  size_t GetCentroidCount() const { return tdigests_[current_].size(); }
+
   double Mean() const {
     double sum = 0;
     for (const auto& centroid : tdigests_[current_]) {
@@ -338,14 +342,15 @@ class TDigest::TDigestImpl {
     }
     return total_weight_ == 0 ? NAN : sum / total_weight_;
   }
+  void SetMinMax(double min, double max) {
+    min_ = std::min(min_, min);
+    max_ = std::max(max_, max);
+  }
 
   double total_weight() const { return total_weight_; }
 
  private:
-  // must be declared before merger_, see constructor initialization list
-  const uint32_t delta_;
-
-  TDigestMerger<> merger_;
+  TDigestMerger merger_;
   double total_weight_;
   double min_, max_;
 
@@ -355,7 +360,11 @@ class TDigest::TDigestImpl {
   int current_;
 };
 
-TDigest::TDigest(uint32_t delta, uint32_t buffer_size) : impl_(new TDigestImpl(delta)) {
+TDigest::TDigest(uint32_t delta, uint32_t buffer_size)
+    : TDigest(std::make_unique<TDigestScalerK1>(delta), buffer_size) {}
+
+TDigest::TDigest(std::unique_ptr<Scaler> scaler, uint32_t buffer_size)
+    : impl_(new TDigestImpl(std::move(scaler))) {
   input_.reserve(buffer_size);
   Reset();
 }
@@ -363,6 +372,8 @@ TDigest::TDigest(uint32_t delta, uint32_t buffer_size) : impl_(new TDigestImpl(d
 TDigest::~TDigest() = default;
 TDigest::TDigest(TDigest&&) = default;
 TDigest& TDigest::operator=(TDigest&&) = default;
+
+uint32_t TDigest::delta() const { return impl_->delta(); }
 
 void TDigest::Reset() {
   input_.resize(0);
@@ -402,6 +413,18 @@ double TDigest::Quantile(double q) const {
   return impl_->Quantile(q);
 }
 
+std::pair<double, double> TDigest::GetCentroid(size_t i) const {
+  MergeInput();
+  return impl_->GetCentroid(i);
+}
+
+size_t TDigest::GetCentroidCount() const {
+  MergeInput();
+  return impl_->GetCentroidCount();
+}
+
+void TDigest::SetMinMax(double min, double max) { impl_->SetMinMax(min, max); }
+
 double TDigest::Mean() const {
   MergeInput();
   return impl_->Mean();
@@ -416,6 +439,11 @@ void TDigest::MergeInput() const {
     impl_->MergeInput(input_);  // will mutate input_
   }
 }
+
+TDigestScalerK0::TDigestScalerK0(uint32_t delta)
+    : Scaler(delta), delta_norm(delta / 2.0) {}
+TDigestScalerK1::TDigestScalerK1(uint32_t delta)
+    : Scaler(delta), delta_norm(delta / (2.0 * M_PI)) {}
 
 }  // namespace internal
 }  // namespace arrow
