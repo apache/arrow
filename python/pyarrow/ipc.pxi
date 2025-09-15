@@ -208,6 +208,25 @@ cdef class IpcReadOptions(_Weakrefable):
                 f"included_fields={self.included_fields}>")
 
 
+cdef IpcReadOptions wrap_ipc_read_options(CIpcReadOptions c):
+    """Get Python's IpcReadOptions from C++'s IpcReadOptions
+    """
+
+    return IpcReadOptions(
+        ensure_native_endian=c.ensure_native_endian,
+        ensure_alignment=c.ensure_alignment,
+        use_threads=c.use_threads,
+        included_fields=c.included_fields,
+    )
+
+
+cdef object _get_compression_from_codec(shared_ptr[CCodec] codec):
+    if codec == nullptr:
+        return None
+    else:
+        return frombytes(codec.get().name())
+
+
 cdef class IpcWriteOptions(_Weakrefable):
     """
     Serialization options for the IPC format.
@@ -287,10 +306,7 @@ cdef class IpcWriteOptions(_Weakrefable):
 
     @property
     def compression(self):
-        if self.c_options.codec == nullptr:
-            return None
-        else:
-            return frombytes(self.c_options.codec.get().name())
+        return _get_compression_from_codec(self.c_options.codec)
 
     @compression.setter
     def compression(self, value):
@@ -336,7 +352,7 @@ cdef class IpcWriteOptions(_Weakrefable):
 
     def __repr__(self):
         compression_repr = f"compression=\"{self.compression}\" " \
-                if self.compression is not None else ""
+            if self.compression is not None else ""
 
         metadata_version = MetadataVersion(self.metadata_version).name
 
@@ -348,6 +364,21 @@ cdef class IpcWriteOptions(_Weakrefable):
                 f"use_threads={self.use_threads} "
                 f"emit_dictionary_deltas={self.emit_dictionary_deltas} "
                 f"unify_dictionaries={self.unify_dictionaries}>")
+
+
+cdef IpcWriteOptions wrap_ipc_write_options(CIpcWriteOptions c):
+    """Get Python's IpcWriteOptions from C++'s IpcWriteOptions
+    """
+
+    return IpcWriteOptions(
+        metadata_version=c.metadata_version,
+        allow_64bit=c.allow_64bit,
+        use_legacy_format=c.write_legacy_ipc_format,
+        compression=_get_compression_from_codec(c.codec),
+        use_threads=c.use_threads,
+        emit_dictionary_deltas=c.emit_dictionary_deltas,
+        unify_dictionaries=c.unify_dictionaries,
+    )
 
 
 cdef class Message(_Weakrefable):
