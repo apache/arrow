@@ -278,7 +278,7 @@ jobs:
           cmake --build cpp/examples/minimal_build.build
           cd cpp/examples/minimal_build
           ../minimal_build.build/arrow-example
-  
+
   report-extra-cpp:
     runs-on: ubuntu-latest
     needs:
@@ -301,6 +301,13 @@ jobs:
           python-version: 3
       - name: Setup Archery
         run: python3 -m pip install -e dev/archery[crossbow]
+      - name: Prepare common options
+        run: |
+          if [ "${GITHUB_REPOSITORY}" = "apache/arrow" ]; then
+            echo "COMMON_OPTIONS=--send" >> "${GITHUB_ENV}"
+          else
+            echo "COMMON_OPTIONS=--dry-run" >> "${GITHUB_ENV}"
+          fi
       - name: Send email
         env:
           GH_TOKEN: ${{ github.token }}
@@ -310,12 +317,12 @@ jobs:
             --ignore ${{ github.job }} \
             --recipient-email 'builds@arrow.apache.org' \
             --repository ${{ github.repository }} \
-            --send \
             --sender-email 'arrow@commit-email.info' \
             --sender-name Arrow \
             --smtp-port 587 \
             --smtp-server 'commit-email.info' \
             --smtp-user arrow \
+            ${COMMON_OPTIONS} \
             ${{ github.run_id }}
       - name: Send chat message
         if: always()
@@ -326,5 +333,5 @@ jobs:
           archery ci report-chat \
             --ignore ${{ github.job }} \
             --repository ${{ github.repository }} \
-            --send \
+            ${COMMON_OPTIONS} \
             ${{ github.run_id }}
