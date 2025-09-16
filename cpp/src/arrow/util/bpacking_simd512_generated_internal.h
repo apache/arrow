@@ -27,25 +27,594 @@
 #include "arrow/util/dispatch_internal.h"
 #include "arrow/util/ubsan.h"
 
-namespace arrow {
-namespace internal {
+namespace arrow::internal {
 namespace {
 
-using ::arrow::util::SafeLoad;
+using ::arrow::util::SafeLoadAs;
 
 template <DispatchLevel level>
 struct UnpackBits512 {
 
-using simd_batch = xsimd::make_sized_batch_t<uint32_t, 16>;
+inline static const uint8_t* unpack0_16(const uint8_t* in, uint16_t* out) {
+  std::memset(out, 0x0, 16 * sizeof(*out));
+  out += 16;
 
-inline static const uint32_t* unpack0_32(const uint32_t* in, uint32_t* out) {
-  memset(out, 0x0, 32 * sizeof(*out));
+  return in;
+}
+
+inline static const uint8_t* unpack1_16(const uint8_t* in, uint16_t* out) {
+  using simd_batch = xsimd::make_sized_batch_t<uint16_t, 32>;
+
+  uint16_t mask = 0x1;
+
+  simd_batch masks(mask);
+  simd_batch words, shifts;
+  simd_batch results;
+
+  // extract 1-bit bundles 0 to 31
+  words = simd_batch{
+    SafeLoadAs<uint16_t>(in + 2 * 0),
+    SafeLoadAs<uint16_t>(in + 2 * 0),
+    SafeLoadAs<uint16_t>(in + 2 * 0),
+    SafeLoadAs<uint16_t>(in + 2 * 0),
+    SafeLoadAs<uint16_t>(in + 2 * 0),
+    SafeLoadAs<uint16_t>(in + 2 * 0),
+    SafeLoadAs<uint16_t>(in + 2 * 0),
+    SafeLoadAs<uint16_t>(in + 2 * 0),
+    SafeLoadAs<uint16_t>(in + 2 * 0),
+    SafeLoadAs<uint16_t>(in + 2 * 0),
+    SafeLoadAs<uint16_t>(in + 2 * 0),
+    SafeLoadAs<uint16_t>(in + 2 * 0),
+    SafeLoadAs<uint16_t>(in + 2 * 0),
+    SafeLoadAs<uint16_t>(in + 2 * 0),
+    SafeLoadAs<uint16_t>(in + 2 * 0),
+    SafeLoadAs<uint16_t>(in + 2 * 0),
+  };
+  shifts = simd_batch{ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 };
+  results = (words >> shifts) & masks;
+  results.store_unaligned(out);
+  out += 32;
+
+  in += 1 * 2;
+  return in;
+}
+
+inline static const uint8_t* unpack2_16(const uint8_t* in, uint16_t* out) {
+  using simd_batch = xsimd::make_sized_batch_t<uint16_t, 32>;
+
+  uint16_t mask = 0x3;
+
+  simd_batch masks(mask);
+  simd_batch words, shifts;
+  simd_batch results;
+
+  // extract 2-bit bundles 0 to 31
+  words = simd_batch{
+    SafeLoadAs<uint16_t>(in + 2 * 0),
+    SafeLoadAs<uint16_t>(in + 2 * 0),
+    SafeLoadAs<uint16_t>(in + 2 * 0),
+    SafeLoadAs<uint16_t>(in + 2 * 0),
+    SafeLoadAs<uint16_t>(in + 2 * 0),
+    SafeLoadAs<uint16_t>(in + 2 * 0),
+    SafeLoadAs<uint16_t>(in + 2 * 0),
+    SafeLoadAs<uint16_t>(in + 2 * 0),
+    SafeLoadAs<uint16_t>(in + 2 * 1),
+    SafeLoadAs<uint16_t>(in + 2 * 1),
+    SafeLoadAs<uint16_t>(in + 2 * 1),
+    SafeLoadAs<uint16_t>(in + 2 * 1),
+    SafeLoadAs<uint16_t>(in + 2 * 1),
+    SafeLoadAs<uint16_t>(in + 2 * 1),
+    SafeLoadAs<uint16_t>(in + 2 * 1),
+    SafeLoadAs<uint16_t>(in + 2 * 1),
+  };
+  shifts = simd_batch{ 0, 2, 4, 6, 8, 10, 12, 14, 0, 2, 4, 6, 8, 10, 12, 14 };
+  results = (words >> shifts) & masks;
+  results.store_unaligned(out);
+  out += 32;
+
+  in += 2 * 2;
+  return in;
+}
+
+inline static const uint8_t* unpack3_16(const uint8_t* in, uint16_t* out) {
+  using simd_batch = xsimd::make_sized_batch_t<uint16_t, 32>;
+
+  uint16_t mask = 0x7;
+
+  simd_batch masks(mask);
+  simd_batch words, shifts;
+  simd_batch results;
+
+  // extract 3-bit bundles 0 to 31
+  words = simd_batch{
+    SafeLoadAs<uint16_t>(in + 2 * 0),
+    SafeLoadAs<uint16_t>(in + 2 * 0),
+    SafeLoadAs<uint16_t>(in + 2 * 0),
+    SafeLoadAs<uint16_t>(in + 2 * 0),
+    SafeLoadAs<uint16_t>(in + 2 * 0),
+    static_cast<uint16_t>(SafeLoadAs<uint16_t>(in + 2 * 0) >> 15 | SafeLoadAs<uint16_t>(in + 2 * 1) << 1),
+    SafeLoadAs<uint16_t>(in + 2 * 1),
+    SafeLoadAs<uint16_t>(in + 2 * 1),
+    SafeLoadAs<uint16_t>(in + 2 * 1),
+    SafeLoadAs<uint16_t>(in + 2 * 1),
+    static_cast<uint16_t>(SafeLoadAs<uint16_t>(in + 2 * 1) >> 14 | SafeLoadAs<uint16_t>(in + 2 * 2) << 2),
+    SafeLoadAs<uint16_t>(in + 2 * 2),
+    SafeLoadAs<uint16_t>(in + 2 * 2),
+    SafeLoadAs<uint16_t>(in + 2 * 2),
+    SafeLoadAs<uint16_t>(in + 2 * 2),
+    SafeLoadAs<uint16_t>(in + 2 * 2),
+  };
+  shifts = simd_batch{ 0, 3, 6, 9, 12, 0, 2, 5, 8, 11, 0, 1, 4, 7, 10, 13 };
+  results = (words >> shifts) & masks;
+  results.store_unaligned(out);
+  out += 32;
+
+  in += 3 * 2;
+  return in;
+}
+
+inline static const uint8_t* unpack4_16(const uint8_t* in, uint16_t* out) {
+  using simd_batch = xsimd::make_sized_batch_t<uint16_t, 32>;
+
+  uint16_t mask = 0xf;
+
+  simd_batch masks(mask);
+  simd_batch words, shifts;
+  simd_batch results;
+
+  // extract 4-bit bundles 0 to 31
+  words = simd_batch{
+    SafeLoadAs<uint16_t>(in + 2 * 0),
+    SafeLoadAs<uint16_t>(in + 2 * 0),
+    SafeLoadAs<uint16_t>(in + 2 * 0),
+    SafeLoadAs<uint16_t>(in + 2 * 0),
+    SafeLoadAs<uint16_t>(in + 2 * 1),
+    SafeLoadAs<uint16_t>(in + 2 * 1),
+    SafeLoadAs<uint16_t>(in + 2 * 1),
+    SafeLoadAs<uint16_t>(in + 2 * 1),
+    SafeLoadAs<uint16_t>(in + 2 * 2),
+    SafeLoadAs<uint16_t>(in + 2 * 2),
+    SafeLoadAs<uint16_t>(in + 2 * 2),
+    SafeLoadAs<uint16_t>(in + 2 * 2),
+    SafeLoadAs<uint16_t>(in + 2 * 3),
+    SafeLoadAs<uint16_t>(in + 2 * 3),
+    SafeLoadAs<uint16_t>(in + 2 * 3),
+    SafeLoadAs<uint16_t>(in + 2 * 3),
+  };
+  shifts = simd_batch{ 0, 4, 8, 12, 0, 4, 8, 12, 0, 4, 8, 12, 0, 4, 8, 12 };
+  results = (words >> shifts) & masks;
+  results.store_unaligned(out);
+  out += 32;
+
+  in += 4 * 2;
+  return in;
+}
+
+inline static const uint8_t* unpack5_16(const uint8_t* in, uint16_t* out) {
+  using simd_batch = xsimd::make_sized_batch_t<uint16_t, 32>;
+
+  uint16_t mask = 0x1f;
+
+  simd_batch masks(mask);
+  simd_batch words, shifts;
+  simd_batch results;
+
+  // extract 5-bit bundles 0 to 31
+  words = simd_batch{
+    SafeLoadAs<uint16_t>(in + 2 * 0),
+    SafeLoadAs<uint16_t>(in + 2 * 0),
+    SafeLoadAs<uint16_t>(in + 2 * 0),
+    static_cast<uint16_t>(SafeLoadAs<uint16_t>(in + 2 * 0) >> 15 | SafeLoadAs<uint16_t>(in + 2 * 1) << 1),
+    SafeLoadAs<uint16_t>(in + 2 * 1),
+    SafeLoadAs<uint16_t>(in + 2 * 1),
+    static_cast<uint16_t>(SafeLoadAs<uint16_t>(in + 2 * 1) >> 14 | SafeLoadAs<uint16_t>(in + 2 * 2) << 2),
+    SafeLoadAs<uint16_t>(in + 2 * 2),
+    SafeLoadAs<uint16_t>(in + 2 * 2),
+    static_cast<uint16_t>(SafeLoadAs<uint16_t>(in + 2 * 2) >> 13 | SafeLoadAs<uint16_t>(in + 2 * 3) << 3),
+    SafeLoadAs<uint16_t>(in + 2 * 3),
+    SafeLoadAs<uint16_t>(in + 2 * 3),
+    static_cast<uint16_t>(SafeLoadAs<uint16_t>(in + 2 * 3) >> 12 | SafeLoadAs<uint16_t>(in + 2 * 4) << 4),
+    SafeLoadAs<uint16_t>(in + 2 * 4),
+    SafeLoadAs<uint16_t>(in + 2 * 4),
+    SafeLoadAs<uint16_t>(in + 2 * 4),
+  };
+  shifts = simd_batch{ 0, 5, 10, 0, 4, 9, 0, 3, 8, 0, 2, 7, 0, 1, 6, 11 };
+  results = (words >> shifts) & masks;
+  results.store_unaligned(out);
+  out += 32;
+
+  in += 5 * 2;
+  return in;
+}
+
+inline static const uint8_t* unpack6_16(const uint8_t* in, uint16_t* out) {
+  using simd_batch = xsimd::make_sized_batch_t<uint16_t, 32>;
+
+  uint16_t mask = 0x3f;
+
+  simd_batch masks(mask);
+  simd_batch words, shifts;
+  simd_batch results;
+
+  // extract 6-bit bundles 0 to 31
+  words = simd_batch{
+    SafeLoadAs<uint16_t>(in + 2 * 0),
+    SafeLoadAs<uint16_t>(in + 2 * 0),
+    static_cast<uint16_t>(SafeLoadAs<uint16_t>(in + 2 * 0) >> 12 | SafeLoadAs<uint16_t>(in + 2 * 1) << 4),
+    SafeLoadAs<uint16_t>(in + 2 * 1),
+    SafeLoadAs<uint16_t>(in + 2 * 1),
+    static_cast<uint16_t>(SafeLoadAs<uint16_t>(in + 2 * 1) >> 14 | SafeLoadAs<uint16_t>(in + 2 * 2) << 2),
+    SafeLoadAs<uint16_t>(in + 2 * 2),
+    SafeLoadAs<uint16_t>(in + 2 * 2),
+    SafeLoadAs<uint16_t>(in + 2 * 3),
+    SafeLoadAs<uint16_t>(in + 2 * 3),
+    static_cast<uint16_t>(SafeLoadAs<uint16_t>(in + 2 * 3) >> 12 | SafeLoadAs<uint16_t>(in + 2 * 4) << 4),
+    SafeLoadAs<uint16_t>(in + 2 * 4),
+    SafeLoadAs<uint16_t>(in + 2 * 4),
+    static_cast<uint16_t>(SafeLoadAs<uint16_t>(in + 2 * 4) >> 14 | SafeLoadAs<uint16_t>(in + 2 * 5) << 2),
+    SafeLoadAs<uint16_t>(in + 2 * 5),
+    SafeLoadAs<uint16_t>(in + 2 * 5),
+  };
+  shifts = simd_batch{ 0, 6, 0, 2, 8, 0, 4, 10, 0, 6, 0, 2, 8, 0, 4, 10 };
+  results = (words >> shifts) & masks;
+  results.store_unaligned(out);
+  out += 32;
+
+  in += 6 * 2;
+  return in;
+}
+
+inline static const uint8_t* unpack7_16(const uint8_t* in, uint16_t* out) {
+  using simd_batch = xsimd::make_sized_batch_t<uint16_t, 32>;
+
+  uint16_t mask = 0x7f;
+
+  simd_batch masks(mask);
+  simd_batch words, shifts;
+  simd_batch results;
+
+  // extract 7-bit bundles 0 to 31
+  words = simd_batch{
+    SafeLoadAs<uint16_t>(in + 2 * 0),
+    SafeLoadAs<uint16_t>(in + 2 * 0),
+    static_cast<uint16_t>(SafeLoadAs<uint16_t>(in + 2 * 0) >> 14 | SafeLoadAs<uint16_t>(in + 2 * 1) << 2),
+    SafeLoadAs<uint16_t>(in + 2 * 1),
+    static_cast<uint16_t>(SafeLoadAs<uint16_t>(in + 2 * 1) >> 12 | SafeLoadAs<uint16_t>(in + 2 * 2) << 4),
+    SafeLoadAs<uint16_t>(in + 2 * 2),
+    static_cast<uint16_t>(SafeLoadAs<uint16_t>(in + 2 * 2) >> 10 | SafeLoadAs<uint16_t>(in + 2 * 3) << 6),
+    SafeLoadAs<uint16_t>(in + 2 * 3),
+    SafeLoadAs<uint16_t>(in + 2 * 3),
+    static_cast<uint16_t>(SafeLoadAs<uint16_t>(in + 2 * 3) >> 15 | SafeLoadAs<uint16_t>(in + 2 * 4) << 1),
+    SafeLoadAs<uint16_t>(in + 2 * 4),
+    static_cast<uint16_t>(SafeLoadAs<uint16_t>(in + 2 * 4) >> 13 | SafeLoadAs<uint16_t>(in + 2 * 5) << 3),
+    SafeLoadAs<uint16_t>(in + 2 * 5),
+    static_cast<uint16_t>(SafeLoadAs<uint16_t>(in + 2 * 5) >> 11 | SafeLoadAs<uint16_t>(in + 2 * 6) << 5),
+    SafeLoadAs<uint16_t>(in + 2 * 6),
+    SafeLoadAs<uint16_t>(in + 2 * 6),
+  };
+  shifts = simd_batch{ 0, 7, 0, 5, 0, 3, 0, 1, 8, 0, 6, 0, 4, 0, 2, 9 };
+  results = (words >> shifts) & masks;
+  results.store_unaligned(out);
+  out += 32;
+
+  in += 7 * 2;
+  return in;
+}
+
+inline static const uint8_t* unpack8_16(const uint8_t* in, uint16_t* out) {
+  using simd_batch = xsimd::make_sized_batch_t<uint16_t, 32>;
+
+  uint16_t mask = 0xff;
+
+  simd_batch masks(mask);
+  simd_batch words, shifts;
+  simd_batch results;
+
+  // extract 8-bit bundles 0 to 31
+  words = simd_batch{
+    SafeLoadAs<uint16_t>(in + 2 * 0),
+    SafeLoadAs<uint16_t>(in + 2 * 0),
+    SafeLoadAs<uint16_t>(in + 2 * 1),
+    SafeLoadAs<uint16_t>(in + 2 * 1),
+    SafeLoadAs<uint16_t>(in + 2 * 2),
+    SafeLoadAs<uint16_t>(in + 2 * 2),
+    SafeLoadAs<uint16_t>(in + 2 * 3),
+    SafeLoadAs<uint16_t>(in + 2 * 3),
+    SafeLoadAs<uint16_t>(in + 2 * 4),
+    SafeLoadAs<uint16_t>(in + 2 * 4),
+    SafeLoadAs<uint16_t>(in + 2 * 5),
+    SafeLoadAs<uint16_t>(in + 2 * 5),
+    SafeLoadAs<uint16_t>(in + 2 * 6),
+    SafeLoadAs<uint16_t>(in + 2 * 6),
+    SafeLoadAs<uint16_t>(in + 2 * 7),
+    SafeLoadAs<uint16_t>(in + 2 * 7),
+  };
+  shifts = simd_batch{ 0, 8, 0, 8, 0, 8, 0, 8, 0, 8, 0, 8, 0, 8, 0, 8 };
+  results = (words >> shifts) & masks;
+  results.store_unaligned(out);
+  out += 32;
+
+  in += 8 * 2;
+  return in;
+}
+
+inline static const uint8_t* unpack9_16(const uint8_t* in, uint16_t* out) {
+  using simd_batch = xsimd::make_sized_batch_t<uint16_t, 32>;
+
+  uint16_t mask = 0x1ff;
+
+  simd_batch masks(mask);
+  simd_batch words, shifts;
+  simd_batch results;
+
+  // extract 9-bit bundles 0 to 31
+  words = simd_batch{
+    SafeLoadAs<uint16_t>(in + 2 * 0),
+    static_cast<uint16_t>(SafeLoadAs<uint16_t>(in + 2 * 0) >> 9 | SafeLoadAs<uint16_t>(in + 2 * 1) << 7),
+    SafeLoadAs<uint16_t>(in + 2 * 1),
+    static_cast<uint16_t>(SafeLoadAs<uint16_t>(in + 2 * 1) >> 11 | SafeLoadAs<uint16_t>(in + 2 * 2) << 5),
+    SafeLoadAs<uint16_t>(in + 2 * 2),
+    static_cast<uint16_t>(SafeLoadAs<uint16_t>(in + 2 * 2) >> 13 | SafeLoadAs<uint16_t>(in + 2 * 3) << 3),
+    SafeLoadAs<uint16_t>(in + 2 * 3),
+    static_cast<uint16_t>(SafeLoadAs<uint16_t>(in + 2 * 3) >> 15 | SafeLoadAs<uint16_t>(in + 2 * 4) << 1),
+    static_cast<uint16_t>(SafeLoadAs<uint16_t>(in + 2 * 4) >> 8 | SafeLoadAs<uint16_t>(in + 2 * 5) << 8),
+    SafeLoadAs<uint16_t>(in + 2 * 5),
+    static_cast<uint16_t>(SafeLoadAs<uint16_t>(in + 2 * 5) >> 10 | SafeLoadAs<uint16_t>(in + 2 * 6) << 6),
+    SafeLoadAs<uint16_t>(in + 2 * 6),
+    static_cast<uint16_t>(SafeLoadAs<uint16_t>(in + 2 * 6) >> 12 | SafeLoadAs<uint16_t>(in + 2 * 7) << 4),
+    SafeLoadAs<uint16_t>(in + 2 * 7),
+    static_cast<uint16_t>(SafeLoadAs<uint16_t>(in + 2 * 7) >> 14 | SafeLoadAs<uint16_t>(in + 2 * 8) << 2),
+    SafeLoadAs<uint16_t>(in + 2 * 8),
+  };
+  shifts = simd_batch{ 0, 0, 2, 0, 4, 0, 6, 0, 0, 1, 0, 3, 0, 5, 0, 7 };
+  results = (words >> shifts) & masks;
+  results.store_unaligned(out);
+  out += 32;
+
+  in += 9 * 2;
+  return in;
+}
+
+inline static const uint8_t* unpack10_16(const uint8_t* in, uint16_t* out) {
+  using simd_batch = xsimd::make_sized_batch_t<uint16_t, 32>;
+
+  uint16_t mask = 0x3ff;
+
+  simd_batch masks(mask);
+  simd_batch words, shifts;
+  simd_batch results;
+
+  // extract 10-bit bundles 0 to 31
+  words = simd_batch{
+    SafeLoadAs<uint16_t>(in + 2 * 0),
+    static_cast<uint16_t>(SafeLoadAs<uint16_t>(in + 2 * 0) >> 10 | SafeLoadAs<uint16_t>(in + 2 * 1) << 6),
+    SafeLoadAs<uint16_t>(in + 2 * 1),
+    static_cast<uint16_t>(SafeLoadAs<uint16_t>(in + 2 * 1) >> 14 | SafeLoadAs<uint16_t>(in + 2 * 2) << 2),
+    static_cast<uint16_t>(SafeLoadAs<uint16_t>(in + 2 * 2) >> 8 | SafeLoadAs<uint16_t>(in + 2 * 3) << 8),
+    SafeLoadAs<uint16_t>(in + 2 * 3),
+    static_cast<uint16_t>(SafeLoadAs<uint16_t>(in + 2 * 3) >> 12 | SafeLoadAs<uint16_t>(in + 2 * 4) << 4),
+    SafeLoadAs<uint16_t>(in + 2 * 4),
+    SafeLoadAs<uint16_t>(in + 2 * 5),
+    static_cast<uint16_t>(SafeLoadAs<uint16_t>(in + 2 * 5) >> 10 | SafeLoadAs<uint16_t>(in + 2 * 6) << 6),
+    SafeLoadAs<uint16_t>(in + 2 * 6),
+    static_cast<uint16_t>(SafeLoadAs<uint16_t>(in + 2 * 6) >> 14 | SafeLoadAs<uint16_t>(in + 2 * 7) << 2),
+    static_cast<uint16_t>(SafeLoadAs<uint16_t>(in + 2 * 7) >> 8 | SafeLoadAs<uint16_t>(in + 2 * 8) << 8),
+    SafeLoadAs<uint16_t>(in + 2 * 8),
+    static_cast<uint16_t>(SafeLoadAs<uint16_t>(in + 2 * 8) >> 12 | SafeLoadAs<uint16_t>(in + 2 * 9) << 4),
+    SafeLoadAs<uint16_t>(in + 2 * 9),
+  };
+  shifts = simd_batch{ 0, 0, 4, 0, 0, 2, 0, 6, 0, 0, 4, 0, 0, 2, 0, 6 };
+  results = (words >> shifts) & masks;
+  results.store_unaligned(out);
+  out += 32;
+
+  in += 10 * 2;
+  return in;
+}
+
+inline static const uint8_t* unpack11_16(const uint8_t* in, uint16_t* out) {
+  using simd_batch = xsimd::make_sized_batch_t<uint16_t, 32>;
+
+  uint16_t mask = 0x7ff;
+
+  simd_batch masks(mask);
+  simd_batch words, shifts;
+  simd_batch results;
+
+  // extract 11-bit bundles 0 to 31
+  words = simd_batch{
+    SafeLoadAs<uint16_t>(in + 2 * 0),
+    static_cast<uint16_t>(SafeLoadAs<uint16_t>(in + 2 * 0) >> 11 | SafeLoadAs<uint16_t>(in + 2 * 1) << 5),
+    static_cast<uint16_t>(SafeLoadAs<uint16_t>(in + 2 * 1) >> 6 | SafeLoadAs<uint16_t>(in + 2 * 2) << 10),
+    SafeLoadAs<uint16_t>(in + 2 * 2),
+    static_cast<uint16_t>(SafeLoadAs<uint16_t>(in + 2 * 2) >> 12 | SafeLoadAs<uint16_t>(in + 2 * 3) << 4),
+    static_cast<uint16_t>(SafeLoadAs<uint16_t>(in + 2 * 3) >> 7 | SafeLoadAs<uint16_t>(in + 2 * 4) << 9),
+    SafeLoadAs<uint16_t>(in + 2 * 4),
+    static_cast<uint16_t>(SafeLoadAs<uint16_t>(in + 2 * 4) >> 13 | SafeLoadAs<uint16_t>(in + 2 * 5) << 3),
+    static_cast<uint16_t>(SafeLoadAs<uint16_t>(in + 2 * 5) >> 8 | SafeLoadAs<uint16_t>(in + 2 * 6) << 8),
+    SafeLoadAs<uint16_t>(in + 2 * 6),
+    static_cast<uint16_t>(SafeLoadAs<uint16_t>(in + 2 * 6) >> 14 | SafeLoadAs<uint16_t>(in + 2 * 7) << 2),
+    static_cast<uint16_t>(SafeLoadAs<uint16_t>(in + 2 * 7) >> 9 | SafeLoadAs<uint16_t>(in + 2 * 8) << 7),
+    SafeLoadAs<uint16_t>(in + 2 * 8),
+    static_cast<uint16_t>(SafeLoadAs<uint16_t>(in + 2 * 8) >> 15 | SafeLoadAs<uint16_t>(in + 2 * 9) << 1),
+    static_cast<uint16_t>(SafeLoadAs<uint16_t>(in + 2 * 9) >> 10 | SafeLoadAs<uint16_t>(in + 2 * 10) << 6),
+    SafeLoadAs<uint16_t>(in + 2 * 10),
+  };
+  shifts = simd_batch{ 0, 0, 0, 1, 0, 0, 2, 0, 0, 3, 0, 0, 4, 0, 0, 5 };
+  results = (words >> shifts) & masks;
+  results.store_unaligned(out);
+  out += 32;
+
+  in += 11 * 2;
+  return in;
+}
+
+inline static const uint8_t* unpack12_16(const uint8_t* in, uint16_t* out) {
+  using simd_batch = xsimd::make_sized_batch_t<uint16_t, 32>;
+
+  uint16_t mask = 0xfff;
+
+  simd_batch masks(mask);
+  simd_batch words, shifts;
+  simd_batch results;
+
+  // extract 12-bit bundles 0 to 31
+  words = simd_batch{
+    SafeLoadAs<uint16_t>(in + 2 * 0),
+    static_cast<uint16_t>(SafeLoadAs<uint16_t>(in + 2 * 0) >> 12 | SafeLoadAs<uint16_t>(in + 2 * 1) << 4),
+    static_cast<uint16_t>(SafeLoadAs<uint16_t>(in + 2 * 1) >> 8 | SafeLoadAs<uint16_t>(in + 2 * 2) << 8),
+    SafeLoadAs<uint16_t>(in + 2 * 2),
+    SafeLoadAs<uint16_t>(in + 2 * 3),
+    static_cast<uint16_t>(SafeLoadAs<uint16_t>(in + 2 * 3) >> 12 | SafeLoadAs<uint16_t>(in + 2 * 4) << 4),
+    static_cast<uint16_t>(SafeLoadAs<uint16_t>(in + 2 * 4) >> 8 | SafeLoadAs<uint16_t>(in + 2 * 5) << 8),
+    SafeLoadAs<uint16_t>(in + 2 * 5),
+    SafeLoadAs<uint16_t>(in + 2 * 6),
+    static_cast<uint16_t>(SafeLoadAs<uint16_t>(in + 2 * 6) >> 12 | SafeLoadAs<uint16_t>(in + 2 * 7) << 4),
+    static_cast<uint16_t>(SafeLoadAs<uint16_t>(in + 2 * 7) >> 8 | SafeLoadAs<uint16_t>(in + 2 * 8) << 8),
+    SafeLoadAs<uint16_t>(in + 2 * 8),
+    SafeLoadAs<uint16_t>(in + 2 * 9),
+    static_cast<uint16_t>(SafeLoadAs<uint16_t>(in + 2 * 9) >> 12 | SafeLoadAs<uint16_t>(in + 2 * 10) << 4),
+    static_cast<uint16_t>(SafeLoadAs<uint16_t>(in + 2 * 10) >> 8 | SafeLoadAs<uint16_t>(in + 2 * 11) << 8),
+    SafeLoadAs<uint16_t>(in + 2 * 11),
+  };
+  shifts = simd_batch{ 0, 0, 0, 4, 0, 0, 0, 4, 0, 0, 0, 4, 0, 0, 0, 4 };
+  results = (words >> shifts) & masks;
+  results.store_unaligned(out);
+  out += 32;
+
+  in += 12 * 2;
+  return in;
+}
+
+inline static const uint8_t* unpack13_16(const uint8_t* in, uint16_t* out) {
+  using simd_batch = xsimd::make_sized_batch_t<uint16_t, 32>;
+
+  uint16_t mask = 0x1fff;
+
+  simd_batch masks(mask);
+  simd_batch words, shifts;
+  simd_batch results;
+
+  // extract 13-bit bundles 0 to 31
+  words = simd_batch{
+    SafeLoadAs<uint16_t>(in + 2 * 0),
+    static_cast<uint16_t>(SafeLoadAs<uint16_t>(in + 2 * 0) >> 13 | SafeLoadAs<uint16_t>(in + 2 * 1) << 3),
+    static_cast<uint16_t>(SafeLoadAs<uint16_t>(in + 2 * 1) >> 10 | SafeLoadAs<uint16_t>(in + 2 * 2) << 6),
+    static_cast<uint16_t>(SafeLoadAs<uint16_t>(in + 2 * 2) >> 7 | SafeLoadAs<uint16_t>(in + 2 * 3) << 9),
+    static_cast<uint16_t>(SafeLoadAs<uint16_t>(in + 2 * 3) >> 4 | SafeLoadAs<uint16_t>(in + 2 * 4) << 12),
+    SafeLoadAs<uint16_t>(in + 2 * 4),
+    static_cast<uint16_t>(SafeLoadAs<uint16_t>(in + 2 * 4) >> 14 | SafeLoadAs<uint16_t>(in + 2 * 5) << 2),
+    static_cast<uint16_t>(SafeLoadAs<uint16_t>(in + 2 * 5) >> 11 | SafeLoadAs<uint16_t>(in + 2 * 6) << 5),
+    static_cast<uint16_t>(SafeLoadAs<uint16_t>(in + 2 * 6) >> 8 | SafeLoadAs<uint16_t>(in + 2 * 7) << 8),
+    static_cast<uint16_t>(SafeLoadAs<uint16_t>(in + 2 * 7) >> 5 | SafeLoadAs<uint16_t>(in + 2 * 8) << 11),
+    SafeLoadAs<uint16_t>(in + 2 * 8),
+    static_cast<uint16_t>(SafeLoadAs<uint16_t>(in + 2 * 8) >> 15 | SafeLoadAs<uint16_t>(in + 2 * 9) << 1),
+    static_cast<uint16_t>(SafeLoadAs<uint16_t>(in + 2 * 9) >> 12 | SafeLoadAs<uint16_t>(in + 2 * 10) << 4),
+    static_cast<uint16_t>(SafeLoadAs<uint16_t>(in + 2 * 10) >> 9 | SafeLoadAs<uint16_t>(in + 2 * 11) << 7),
+    static_cast<uint16_t>(SafeLoadAs<uint16_t>(in + 2 * 11) >> 6 | SafeLoadAs<uint16_t>(in + 2 * 12) << 10),
+    SafeLoadAs<uint16_t>(in + 2 * 12),
+  };
+  shifts = simd_batch{ 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 2, 0, 0, 0, 0, 3 };
+  results = (words >> shifts) & masks;
+  results.store_unaligned(out);
+  out += 32;
+
+  in += 13 * 2;
+  return in;
+}
+
+inline static const uint8_t* unpack14_16(const uint8_t* in, uint16_t* out) {
+  using simd_batch = xsimd::make_sized_batch_t<uint16_t, 32>;
+
+  uint16_t mask = 0x3fff;
+
+  simd_batch masks(mask);
+  simd_batch words, shifts;
+  simd_batch results;
+
+  // extract 14-bit bundles 0 to 31
+  words = simd_batch{
+    SafeLoadAs<uint16_t>(in + 2 * 0),
+    static_cast<uint16_t>(SafeLoadAs<uint16_t>(in + 2 * 0) >> 14 | SafeLoadAs<uint16_t>(in + 2 * 1) << 2),
+    static_cast<uint16_t>(SafeLoadAs<uint16_t>(in + 2 * 1) >> 12 | SafeLoadAs<uint16_t>(in + 2 * 2) << 4),
+    static_cast<uint16_t>(SafeLoadAs<uint16_t>(in + 2 * 2) >> 10 | SafeLoadAs<uint16_t>(in + 2 * 3) << 6),
+    static_cast<uint16_t>(SafeLoadAs<uint16_t>(in + 2 * 3) >> 8 | SafeLoadAs<uint16_t>(in + 2 * 4) << 8),
+    static_cast<uint16_t>(SafeLoadAs<uint16_t>(in + 2 * 4) >> 6 | SafeLoadAs<uint16_t>(in + 2 * 5) << 10),
+    static_cast<uint16_t>(SafeLoadAs<uint16_t>(in + 2 * 5) >> 4 | SafeLoadAs<uint16_t>(in + 2 * 6) << 12),
+    SafeLoadAs<uint16_t>(in + 2 * 6),
+    SafeLoadAs<uint16_t>(in + 2 * 7),
+    static_cast<uint16_t>(SafeLoadAs<uint16_t>(in + 2 * 7) >> 14 | SafeLoadAs<uint16_t>(in + 2 * 8) << 2),
+    static_cast<uint16_t>(SafeLoadAs<uint16_t>(in + 2 * 8) >> 12 | SafeLoadAs<uint16_t>(in + 2 * 9) << 4),
+    static_cast<uint16_t>(SafeLoadAs<uint16_t>(in + 2 * 9) >> 10 | SafeLoadAs<uint16_t>(in + 2 * 10) << 6),
+    static_cast<uint16_t>(SafeLoadAs<uint16_t>(in + 2 * 10) >> 8 | SafeLoadAs<uint16_t>(in + 2 * 11) << 8),
+    static_cast<uint16_t>(SafeLoadAs<uint16_t>(in + 2 * 11) >> 6 | SafeLoadAs<uint16_t>(in + 2 * 12) << 10),
+    static_cast<uint16_t>(SafeLoadAs<uint16_t>(in + 2 * 12) >> 4 | SafeLoadAs<uint16_t>(in + 2 * 13) << 12),
+    SafeLoadAs<uint16_t>(in + 2 * 13),
+  };
+  shifts = simd_batch{ 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 2 };
+  results = (words >> shifts) & masks;
+  results.store_unaligned(out);
+  out += 32;
+
+  in += 14 * 2;
+  return in;
+}
+
+inline static const uint8_t* unpack15_16(const uint8_t* in, uint16_t* out) {
+  using simd_batch = xsimd::make_sized_batch_t<uint16_t, 32>;
+
+  uint16_t mask = 0x7fff;
+
+  simd_batch masks(mask);
+  simd_batch words, shifts;
+  simd_batch results;
+
+  // extract 15-bit bundles 0 to 31
+  words = simd_batch{
+    SafeLoadAs<uint16_t>(in + 2 * 0),
+    static_cast<uint16_t>(SafeLoadAs<uint16_t>(in + 2 * 0) >> 15 | SafeLoadAs<uint16_t>(in + 2 * 1) << 1),
+    static_cast<uint16_t>(SafeLoadAs<uint16_t>(in + 2 * 1) >> 14 | SafeLoadAs<uint16_t>(in + 2 * 2) << 2),
+    static_cast<uint16_t>(SafeLoadAs<uint16_t>(in + 2 * 2) >> 13 | SafeLoadAs<uint16_t>(in + 2 * 3) << 3),
+    static_cast<uint16_t>(SafeLoadAs<uint16_t>(in + 2 * 3) >> 12 | SafeLoadAs<uint16_t>(in + 2 * 4) << 4),
+    static_cast<uint16_t>(SafeLoadAs<uint16_t>(in + 2 * 4) >> 11 | SafeLoadAs<uint16_t>(in + 2 * 5) << 5),
+    static_cast<uint16_t>(SafeLoadAs<uint16_t>(in + 2 * 5) >> 10 | SafeLoadAs<uint16_t>(in + 2 * 6) << 6),
+    static_cast<uint16_t>(SafeLoadAs<uint16_t>(in + 2 * 6) >> 9 | SafeLoadAs<uint16_t>(in + 2 * 7) << 7),
+    static_cast<uint16_t>(SafeLoadAs<uint16_t>(in + 2 * 7) >> 8 | SafeLoadAs<uint16_t>(in + 2 * 8) << 8),
+    static_cast<uint16_t>(SafeLoadAs<uint16_t>(in + 2 * 8) >> 7 | SafeLoadAs<uint16_t>(in + 2 * 9) << 9),
+    static_cast<uint16_t>(SafeLoadAs<uint16_t>(in + 2 * 9) >> 6 | SafeLoadAs<uint16_t>(in + 2 * 10) << 10),
+    static_cast<uint16_t>(SafeLoadAs<uint16_t>(in + 2 * 10) >> 5 | SafeLoadAs<uint16_t>(in + 2 * 11) << 11),
+    static_cast<uint16_t>(SafeLoadAs<uint16_t>(in + 2 * 11) >> 4 | SafeLoadAs<uint16_t>(in + 2 * 12) << 12),
+    static_cast<uint16_t>(SafeLoadAs<uint16_t>(in + 2 * 12) >> 3 | SafeLoadAs<uint16_t>(in + 2 * 13) << 13),
+    static_cast<uint16_t>(SafeLoadAs<uint16_t>(in + 2 * 13) >> 2 | SafeLoadAs<uint16_t>(in + 2 * 14) << 14),
+    SafeLoadAs<uint16_t>(in + 2 * 14),
+  };
+  shifts = simd_batch{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1 };
+  results = (words >> shifts) & masks;
+  results.store_unaligned(out);
+  out += 32;
+
+  in += 15 * 2;
+  return in;
+}
+
+inline static const uint8_t* unpack16_16(const uint8_t* in, uint16_t* out) {
+  std::memcpy(out, in, 16 * sizeof(*out));
+  in += 2 * 16;
+  out += 16;
+
+  return in;
+}
+
+inline static const uint8_t* unpack0_32(const uint8_t* in, uint32_t* out) {
+  std::memset(out, 0x0, 32 * sizeof(*out));
   out += 32;
 
   return in;
 }
 
-inline static const uint32_t* unpack1_32(const uint32_t* in, uint32_t* out) {
+inline static const uint8_t* unpack1_32(const uint8_t* in, uint32_t* out) {
+  using simd_batch = xsimd::make_sized_batch_t<uint32_t, 16>;
+
   uint32_t mask = 0x1;
 
   simd_batch masks(mask);
@@ -53,24 +622,60 @@ inline static const uint32_t* unpack1_32(const uint32_t* in, uint32_t* out) {
   simd_batch results;
 
   // extract 1-bit bundles 0 to 15
-  words = simd_batch{ SafeLoad<uint32_t>(in + 0), SafeLoad<uint32_t>(in + 0), SafeLoad<uint32_t>(in + 0), SafeLoad<uint32_t>(in + 0), SafeLoad<uint32_t>(in + 0), SafeLoad<uint32_t>(in + 0), SafeLoad<uint32_t>(in + 0), SafeLoad<uint32_t>(in + 0), SafeLoad<uint32_t>(in + 0), SafeLoad<uint32_t>(in + 0), SafeLoad<uint32_t>(in + 0), SafeLoad<uint32_t>(in + 0), SafeLoad<uint32_t>(in + 0), SafeLoad<uint32_t>(in + 0), SafeLoad<uint32_t>(in + 0), SafeLoad<uint32_t>(in + 0) };
+  words = simd_batch{
+    SafeLoadAs<uint32_t>(in + 4 * 0),
+    SafeLoadAs<uint32_t>(in + 4 * 0),
+    SafeLoadAs<uint32_t>(in + 4 * 0),
+    SafeLoadAs<uint32_t>(in + 4 * 0),
+    SafeLoadAs<uint32_t>(in + 4 * 0),
+    SafeLoadAs<uint32_t>(in + 4 * 0),
+    SafeLoadAs<uint32_t>(in + 4 * 0),
+    SafeLoadAs<uint32_t>(in + 4 * 0),
+    SafeLoadAs<uint32_t>(in + 4 * 0),
+    SafeLoadAs<uint32_t>(in + 4 * 0),
+    SafeLoadAs<uint32_t>(in + 4 * 0),
+    SafeLoadAs<uint32_t>(in + 4 * 0),
+    SafeLoadAs<uint32_t>(in + 4 * 0),
+    SafeLoadAs<uint32_t>(in + 4 * 0),
+    SafeLoadAs<uint32_t>(in + 4 * 0),
+    SafeLoadAs<uint32_t>(in + 4 * 0),
+  };
   shifts = simd_batch{ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 };
   results = (words >> shifts) & masks;
   results.store_unaligned(out);
   out += 16;
 
   // extract 1-bit bundles 16 to 31
-  words = simd_batch{ SafeLoad<uint32_t>(in + 0), SafeLoad<uint32_t>(in + 0), SafeLoad<uint32_t>(in + 0), SafeLoad<uint32_t>(in + 0), SafeLoad<uint32_t>(in + 0), SafeLoad<uint32_t>(in + 0), SafeLoad<uint32_t>(in + 0), SafeLoad<uint32_t>(in + 0), SafeLoad<uint32_t>(in + 0), SafeLoad<uint32_t>(in + 0), SafeLoad<uint32_t>(in + 0), SafeLoad<uint32_t>(in + 0), SafeLoad<uint32_t>(in + 0), SafeLoad<uint32_t>(in + 0), SafeLoad<uint32_t>(in + 0), SafeLoad<uint32_t>(in + 0) };
+  words = simd_batch{
+    SafeLoadAs<uint32_t>(in + 4 * 0),
+    SafeLoadAs<uint32_t>(in + 4 * 0),
+    SafeLoadAs<uint32_t>(in + 4 * 0),
+    SafeLoadAs<uint32_t>(in + 4 * 0),
+    SafeLoadAs<uint32_t>(in + 4 * 0),
+    SafeLoadAs<uint32_t>(in + 4 * 0),
+    SafeLoadAs<uint32_t>(in + 4 * 0),
+    SafeLoadAs<uint32_t>(in + 4 * 0),
+    SafeLoadAs<uint32_t>(in + 4 * 0),
+    SafeLoadAs<uint32_t>(in + 4 * 0),
+    SafeLoadAs<uint32_t>(in + 4 * 0),
+    SafeLoadAs<uint32_t>(in + 4 * 0),
+    SafeLoadAs<uint32_t>(in + 4 * 0),
+    SafeLoadAs<uint32_t>(in + 4 * 0),
+    SafeLoadAs<uint32_t>(in + 4 * 0),
+    SafeLoadAs<uint32_t>(in + 4 * 0),
+  };
   shifts = simd_batch{ 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31 };
   results = (words >> shifts) & masks;
   results.store_unaligned(out);
   out += 16;
 
-  in += 1;
+  in += 1 * 4;
   return in;
 }
 
-inline static const uint32_t* unpack2_32(const uint32_t* in, uint32_t* out) {
+inline static const uint8_t* unpack2_32(const uint8_t* in, uint32_t* out) {
+  using simd_batch = xsimd::make_sized_batch_t<uint32_t, 16>;
+
   uint32_t mask = 0x3;
 
   simd_batch masks(mask);
@@ -78,24 +683,60 @@ inline static const uint32_t* unpack2_32(const uint32_t* in, uint32_t* out) {
   simd_batch results;
 
   // extract 2-bit bundles 0 to 15
-  words = simd_batch{ SafeLoad<uint32_t>(in + 0), SafeLoad<uint32_t>(in + 0), SafeLoad<uint32_t>(in + 0), SafeLoad<uint32_t>(in + 0), SafeLoad<uint32_t>(in + 0), SafeLoad<uint32_t>(in + 0), SafeLoad<uint32_t>(in + 0), SafeLoad<uint32_t>(in + 0), SafeLoad<uint32_t>(in + 0), SafeLoad<uint32_t>(in + 0), SafeLoad<uint32_t>(in + 0), SafeLoad<uint32_t>(in + 0), SafeLoad<uint32_t>(in + 0), SafeLoad<uint32_t>(in + 0), SafeLoad<uint32_t>(in + 0), SafeLoad<uint32_t>(in + 0) };
+  words = simd_batch{
+    SafeLoadAs<uint32_t>(in + 4 * 0),
+    SafeLoadAs<uint32_t>(in + 4 * 0),
+    SafeLoadAs<uint32_t>(in + 4 * 0),
+    SafeLoadAs<uint32_t>(in + 4 * 0),
+    SafeLoadAs<uint32_t>(in + 4 * 0),
+    SafeLoadAs<uint32_t>(in + 4 * 0),
+    SafeLoadAs<uint32_t>(in + 4 * 0),
+    SafeLoadAs<uint32_t>(in + 4 * 0),
+    SafeLoadAs<uint32_t>(in + 4 * 0),
+    SafeLoadAs<uint32_t>(in + 4 * 0),
+    SafeLoadAs<uint32_t>(in + 4 * 0),
+    SafeLoadAs<uint32_t>(in + 4 * 0),
+    SafeLoadAs<uint32_t>(in + 4 * 0),
+    SafeLoadAs<uint32_t>(in + 4 * 0),
+    SafeLoadAs<uint32_t>(in + 4 * 0),
+    SafeLoadAs<uint32_t>(in + 4 * 0),
+  };
   shifts = simd_batch{ 0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30 };
   results = (words >> shifts) & masks;
   results.store_unaligned(out);
   out += 16;
 
   // extract 2-bit bundles 16 to 31
-  words = simd_batch{ SafeLoad<uint32_t>(in + 1), SafeLoad<uint32_t>(in + 1), SafeLoad<uint32_t>(in + 1), SafeLoad<uint32_t>(in + 1), SafeLoad<uint32_t>(in + 1), SafeLoad<uint32_t>(in + 1), SafeLoad<uint32_t>(in + 1), SafeLoad<uint32_t>(in + 1), SafeLoad<uint32_t>(in + 1), SafeLoad<uint32_t>(in + 1), SafeLoad<uint32_t>(in + 1), SafeLoad<uint32_t>(in + 1), SafeLoad<uint32_t>(in + 1), SafeLoad<uint32_t>(in + 1), SafeLoad<uint32_t>(in + 1), SafeLoad<uint32_t>(in + 1) };
+  words = simd_batch{
+    SafeLoadAs<uint32_t>(in + 4 * 1),
+    SafeLoadAs<uint32_t>(in + 4 * 1),
+    SafeLoadAs<uint32_t>(in + 4 * 1),
+    SafeLoadAs<uint32_t>(in + 4 * 1),
+    SafeLoadAs<uint32_t>(in + 4 * 1),
+    SafeLoadAs<uint32_t>(in + 4 * 1),
+    SafeLoadAs<uint32_t>(in + 4 * 1),
+    SafeLoadAs<uint32_t>(in + 4 * 1),
+    SafeLoadAs<uint32_t>(in + 4 * 1),
+    SafeLoadAs<uint32_t>(in + 4 * 1),
+    SafeLoadAs<uint32_t>(in + 4 * 1),
+    SafeLoadAs<uint32_t>(in + 4 * 1),
+    SafeLoadAs<uint32_t>(in + 4 * 1),
+    SafeLoadAs<uint32_t>(in + 4 * 1),
+    SafeLoadAs<uint32_t>(in + 4 * 1),
+    SafeLoadAs<uint32_t>(in + 4 * 1),
+  };
   shifts = simd_batch{ 0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30 };
   results = (words >> shifts) & masks;
   results.store_unaligned(out);
   out += 16;
 
-  in += 2;
+  in += 2 * 4;
   return in;
 }
 
-inline static const uint32_t* unpack3_32(const uint32_t* in, uint32_t* out) {
+inline static const uint8_t* unpack3_32(const uint8_t* in, uint32_t* out) {
+  using simd_batch = xsimd::make_sized_batch_t<uint32_t, 16>;
+
   uint32_t mask = 0x7;
 
   simd_batch masks(mask);
@@ -103,24 +744,60 @@ inline static const uint32_t* unpack3_32(const uint32_t* in, uint32_t* out) {
   simd_batch results;
 
   // extract 3-bit bundles 0 to 15
-  words = simd_batch{ SafeLoad<uint32_t>(in + 0), SafeLoad<uint32_t>(in + 0), SafeLoad<uint32_t>(in + 0), SafeLoad<uint32_t>(in + 0), SafeLoad<uint32_t>(in + 0), SafeLoad<uint32_t>(in + 0), SafeLoad<uint32_t>(in + 0), SafeLoad<uint32_t>(in + 0), SafeLoad<uint32_t>(in + 0), SafeLoad<uint32_t>(in + 0), SafeLoad<uint32_t>(in + 0) >> 30 | SafeLoad<uint32_t>(in + 1) << 2, SafeLoad<uint32_t>(in + 1), SafeLoad<uint32_t>(in + 1), SafeLoad<uint32_t>(in + 1), SafeLoad<uint32_t>(in + 1), SafeLoad<uint32_t>(in + 1) };
+  words = simd_batch{
+    SafeLoadAs<uint32_t>(in + 4 * 0),
+    SafeLoadAs<uint32_t>(in + 4 * 0),
+    SafeLoadAs<uint32_t>(in + 4 * 0),
+    SafeLoadAs<uint32_t>(in + 4 * 0),
+    SafeLoadAs<uint32_t>(in + 4 * 0),
+    SafeLoadAs<uint32_t>(in + 4 * 0),
+    SafeLoadAs<uint32_t>(in + 4 * 0),
+    SafeLoadAs<uint32_t>(in + 4 * 0),
+    SafeLoadAs<uint32_t>(in + 4 * 0),
+    SafeLoadAs<uint32_t>(in + 4 * 0),
+    SafeLoadAs<uint32_t>(in + 4 * 0) >> 30 | SafeLoadAs<uint32_t>(in + 4 * 1) << 2,
+    SafeLoadAs<uint32_t>(in + 4 * 1),
+    SafeLoadAs<uint32_t>(in + 4 * 1),
+    SafeLoadAs<uint32_t>(in + 4 * 1),
+    SafeLoadAs<uint32_t>(in + 4 * 1),
+    SafeLoadAs<uint32_t>(in + 4 * 1),
+  };
   shifts = simd_batch{ 0, 3, 6, 9, 12, 15, 18, 21, 24, 27, 0, 1, 4, 7, 10, 13 };
   results = (words >> shifts) & masks;
   results.store_unaligned(out);
   out += 16;
 
   // extract 3-bit bundles 16 to 31
-  words = simd_batch{ SafeLoad<uint32_t>(in + 1), SafeLoad<uint32_t>(in + 1), SafeLoad<uint32_t>(in + 1), SafeLoad<uint32_t>(in + 1), SafeLoad<uint32_t>(in + 1), SafeLoad<uint32_t>(in + 1) >> 31 | SafeLoad<uint32_t>(in + 2) << 1, SafeLoad<uint32_t>(in + 2), SafeLoad<uint32_t>(in + 2), SafeLoad<uint32_t>(in + 2), SafeLoad<uint32_t>(in + 2), SafeLoad<uint32_t>(in + 2), SafeLoad<uint32_t>(in + 2), SafeLoad<uint32_t>(in + 2), SafeLoad<uint32_t>(in + 2), SafeLoad<uint32_t>(in + 2), SafeLoad<uint32_t>(in + 2) };
+  words = simd_batch{
+    SafeLoadAs<uint32_t>(in + 4 * 1),
+    SafeLoadAs<uint32_t>(in + 4 * 1),
+    SafeLoadAs<uint32_t>(in + 4 * 1),
+    SafeLoadAs<uint32_t>(in + 4 * 1),
+    SafeLoadAs<uint32_t>(in + 4 * 1),
+    SafeLoadAs<uint32_t>(in + 4 * 1) >> 31 | SafeLoadAs<uint32_t>(in + 4 * 2) << 1,
+    SafeLoadAs<uint32_t>(in + 4 * 2),
+    SafeLoadAs<uint32_t>(in + 4 * 2),
+    SafeLoadAs<uint32_t>(in + 4 * 2),
+    SafeLoadAs<uint32_t>(in + 4 * 2),
+    SafeLoadAs<uint32_t>(in + 4 * 2),
+    SafeLoadAs<uint32_t>(in + 4 * 2),
+    SafeLoadAs<uint32_t>(in + 4 * 2),
+    SafeLoadAs<uint32_t>(in + 4 * 2),
+    SafeLoadAs<uint32_t>(in + 4 * 2),
+    SafeLoadAs<uint32_t>(in + 4 * 2),
+  };
   shifts = simd_batch{ 16, 19, 22, 25, 28, 0, 2, 5, 8, 11, 14, 17, 20, 23, 26, 29 };
   results = (words >> shifts) & masks;
   results.store_unaligned(out);
   out += 16;
 
-  in += 3;
+  in += 3 * 4;
   return in;
 }
 
-inline static const uint32_t* unpack4_32(const uint32_t* in, uint32_t* out) {
+inline static const uint8_t* unpack4_32(const uint8_t* in, uint32_t* out) {
+  using simd_batch = xsimd::make_sized_batch_t<uint32_t, 16>;
+
   uint32_t mask = 0xf;
 
   simd_batch masks(mask);
@@ -128,24 +805,60 @@ inline static const uint32_t* unpack4_32(const uint32_t* in, uint32_t* out) {
   simd_batch results;
 
   // extract 4-bit bundles 0 to 15
-  words = simd_batch{ SafeLoad<uint32_t>(in + 0), SafeLoad<uint32_t>(in + 0), SafeLoad<uint32_t>(in + 0), SafeLoad<uint32_t>(in + 0), SafeLoad<uint32_t>(in + 0), SafeLoad<uint32_t>(in + 0), SafeLoad<uint32_t>(in + 0), SafeLoad<uint32_t>(in + 0), SafeLoad<uint32_t>(in + 1), SafeLoad<uint32_t>(in + 1), SafeLoad<uint32_t>(in + 1), SafeLoad<uint32_t>(in + 1), SafeLoad<uint32_t>(in + 1), SafeLoad<uint32_t>(in + 1), SafeLoad<uint32_t>(in + 1), SafeLoad<uint32_t>(in + 1) };
+  words = simd_batch{
+    SafeLoadAs<uint32_t>(in + 4 * 0),
+    SafeLoadAs<uint32_t>(in + 4 * 0),
+    SafeLoadAs<uint32_t>(in + 4 * 0),
+    SafeLoadAs<uint32_t>(in + 4 * 0),
+    SafeLoadAs<uint32_t>(in + 4 * 0),
+    SafeLoadAs<uint32_t>(in + 4 * 0),
+    SafeLoadAs<uint32_t>(in + 4 * 0),
+    SafeLoadAs<uint32_t>(in + 4 * 0),
+    SafeLoadAs<uint32_t>(in + 4 * 1),
+    SafeLoadAs<uint32_t>(in + 4 * 1),
+    SafeLoadAs<uint32_t>(in + 4 * 1),
+    SafeLoadAs<uint32_t>(in + 4 * 1),
+    SafeLoadAs<uint32_t>(in + 4 * 1),
+    SafeLoadAs<uint32_t>(in + 4 * 1),
+    SafeLoadAs<uint32_t>(in + 4 * 1),
+    SafeLoadAs<uint32_t>(in + 4 * 1),
+  };
   shifts = simd_batch{ 0, 4, 8, 12, 16, 20, 24, 28, 0, 4, 8, 12, 16, 20, 24, 28 };
   results = (words >> shifts) & masks;
   results.store_unaligned(out);
   out += 16;
 
   // extract 4-bit bundles 16 to 31
-  words = simd_batch{ SafeLoad<uint32_t>(in + 2), SafeLoad<uint32_t>(in + 2), SafeLoad<uint32_t>(in + 2), SafeLoad<uint32_t>(in + 2), SafeLoad<uint32_t>(in + 2), SafeLoad<uint32_t>(in + 2), SafeLoad<uint32_t>(in + 2), SafeLoad<uint32_t>(in + 2), SafeLoad<uint32_t>(in + 3), SafeLoad<uint32_t>(in + 3), SafeLoad<uint32_t>(in + 3), SafeLoad<uint32_t>(in + 3), SafeLoad<uint32_t>(in + 3), SafeLoad<uint32_t>(in + 3), SafeLoad<uint32_t>(in + 3), SafeLoad<uint32_t>(in + 3) };
+  words = simd_batch{
+    SafeLoadAs<uint32_t>(in + 4 * 2),
+    SafeLoadAs<uint32_t>(in + 4 * 2),
+    SafeLoadAs<uint32_t>(in + 4 * 2),
+    SafeLoadAs<uint32_t>(in + 4 * 2),
+    SafeLoadAs<uint32_t>(in + 4 * 2),
+    SafeLoadAs<uint32_t>(in + 4 * 2),
+    SafeLoadAs<uint32_t>(in + 4 * 2),
+    SafeLoadAs<uint32_t>(in + 4 * 2),
+    SafeLoadAs<uint32_t>(in + 4 * 3),
+    SafeLoadAs<uint32_t>(in + 4 * 3),
+    SafeLoadAs<uint32_t>(in + 4 * 3),
+    SafeLoadAs<uint32_t>(in + 4 * 3),
+    SafeLoadAs<uint32_t>(in + 4 * 3),
+    SafeLoadAs<uint32_t>(in + 4 * 3),
+    SafeLoadAs<uint32_t>(in + 4 * 3),
+    SafeLoadAs<uint32_t>(in + 4 * 3),
+  };
   shifts = simd_batch{ 0, 4, 8, 12, 16, 20, 24, 28, 0, 4, 8, 12, 16, 20, 24, 28 };
   results = (words >> shifts) & masks;
   results.store_unaligned(out);
   out += 16;
 
-  in += 4;
+  in += 4 * 4;
   return in;
 }
 
-inline static const uint32_t* unpack5_32(const uint32_t* in, uint32_t* out) {
+inline static const uint8_t* unpack5_32(const uint8_t* in, uint32_t* out) {
+  using simd_batch = xsimd::make_sized_batch_t<uint32_t, 16>;
+
   uint32_t mask = 0x1f;
 
   simd_batch masks(mask);
@@ -153,24 +866,60 @@ inline static const uint32_t* unpack5_32(const uint32_t* in, uint32_t* out) {
   simd_batch results;
 
   // extract 5-bit bundles 0 to 15
-  words = simd_batch{ SafeLoad<uint32_t>(in + 0), SafeLoad<uint32_t>(in + 0), SafeLoad<uint32_t>(in + 0), SafeLoad<uint32_t>(in + 0), SafeLoad<uint32_t>(in + 0), SafeLoad<uint32_t>(in + 0), SafeLoad<uint32_t>(in + 0) >> 30 | SafeLoad<uint32_t>(in + 1) << 2, SafeLoad<uint32_t>(in + 1), SafeLoad<uint32_t>(in + 1), SafeLoad<uint32_t>(in + 1), SafeLoad<uint32_t>(in + 1), SafeLoad<uint32_t>(in + 1), SafeLoad<uint32_t>(in + 1) >> 28 | SafeLoad<uint32_t>(in + 2) << 4, SafeLoad<uint32_t>(in + 2), SafeLoad<uint32_t>(in + 2), SafeLoad<uint32_t>(in + 2) };
+  words = simd_batch{
+    SafeLoadAs<uint32_t>(in + 4 * 0),
+    SafeLoadAs<uint32_t>(in + 4 * 0),
+    SafeLoadAs<uint32_t>(in + 4 * 0),
+    SafeLoadAs<uint32_t>(in + 4 * 0),
+    SafeLoadAs<uint32_t>(in + 4 * 0),
+    SafeLoadAs<uint32_t>(in + 4 * 0),
+    SafeLoadAs<uint32_t>(in + 4 * 0) >> 30 | SafeLoadAs<uint32_t>(in + 4 * 1) << 2,
+    SafeLoadAs<uint32_t>(in + 4 * 1),
+    SafeLoadAs<uint32_t>(in + 4 * 1),
+    SafeLoadAs<uint32_t>(in + 4 * 1),
+    SafeLoadAs<uint32_t>(in + 4 * 1),
+    SafeLoadAs<uint32_t>(in + 4 * 1),
+    SafeLoadAs<uint32_t>(in + 4 * 1) >> 28 | SafeLoadAs<uint32_t>(in + 4 * 2) << 4,
+    SafeLoadAs<uint32_t>(in + 4 * 2),
+    SafeLoadAs<uint32_t>(in + 4 * 2),
+    SafeLoadAs<uint32_t>(in + 4 * 2),
+  };
   shifts = simd_batch{ 0, 5, 10, 15, 20, 25, 0, 3, 8, 13, 18, 23, 0, 1, 6, 11 };
   results = (words >> shifts) & masks;
   results.store_unaligned(out);
   out += 16;
 
   // extract 5-bit bundles 16 to 31
-  words = simd_batch{ SafeLoad<uint32_t>(in + 2), SafeLoad<uint32_t>(in + 2), SafeLoad<uint32_t>(in + 2), SafeLoad<uint32_t>(in + 2) >> 31 | SafeLoad<uint32_t>(in + 3) << 1, SafeLoad<uint32_t>(in + 3), SafeLoad<uint32_t>(in + 3), SafeLoad<uint32_t>(in + 3), SafeLoad<uint32_t>(in + 3), SafeLoad<uint32_t>(in + 3), SafeLoad<uint32_t>(in + 3) >> 29 | SafeLoad<uint32_t>(in + 4) << 3, SafeLoad<uint32_t>(in + 4), SafeLoad<uint32_t>(in + 4), SafeLoad<uint32_t>(in + 4), SafeLoad<uint32_t>(in + 4), SafeLoad<uint32_t>(in + 4), SafeLoad<uint32_t>(in + 4) };
+  words = simd_batch{
+    SafeLoadAs<uint32_t>(in + 4 * 2),
+    SafeLoadAs<uint32_t>(in + 4 * 2),
+    SafeLoadAs<uint32_t>(in + 4 * 2),
+    SafeLoadAs<uint32_t>(in + 4 * 2) >> 31 | SafeLoadAs<uint32_t>(in + 4 * 3) << 1,
+    SafeLoadAs<uint32_t>(in + 4 * 3),
+    SafeLoadAs<uint32_t>(in + 4 * 3),
+    SafeLoadAs<uint32_t>(in + 4 * 3),
+    SafeLoadAs<uint32_t>(in + 4 * 3),
+    SafeLoadAs<uint32_t>(in + 4 * 3),
+    SafeLoadAs<uint32_t>(in + 4 * 3) >> 29 | SafeLoadAs<uint32_t>(in + 4 * 4) << 3,
+    SafeLoadAs<uint32_t>(in + 4 * 4),
+    SafeLoadAs<uint32_t>(in + 4 * 4),
+    SafeLoadAs<uint32_t>(in + 4 * 4),
+    SafeLoadAs<uint32_t>(in + 4 * 4),
+    SafeLoadAs<uint32_t>(in + 4 * 4),
+    SafeLoadAs<uint32_t>(in + 4 * 4),
+  };
   shifts = simd_batch{ 16, 21, 26, 0, 4, 9, 14, 19, 24, 0, 2, 7, 12, 17, 22, 27 };
   results = (words >> shifts) & masks;
   results.store_unaligned(out);
   out += 16;
 
-  in += 5;
+  in += 5 * 4;
   return in;
 }
 
-inline static const uint32_t* unpack6_32(const uint32_t* in, uint32_t* out) {
+inline static const uint8_t* unpack6_32(const uint8_t* in, uint32_t* out) {
+  using simd_batch = xsimd::make_sized_batch_t<uint32_t, 16>;
+
   uint32_t mask = 0x3f;
 
   simd_batch masks(mask);
@@ -178,24 +927,60 @@ inline static const uint32_t* unpack6_32(const uint32_t* in, uint32_t* out) {
   simd_batch results;
 
   // extract 6-bit bundles 0 to 15
-  words = simd_batch{ SafeLoad<uint32_t>(in + 0), SafeLoad<uint32_t>(in + 0), SafeLoad<uint32_t>(in + 0), SafeLoad<uint32_t>(in + 0), SafeLoad<uint32_t>(in + 0), SafeLoad<uint32_t>(in + 0) >> 30 | SafeLoad<uint32_t>(in + 1) << 2, SafeLoad<uint32_t>(in + 1), SafeLoad<uint32_t>(in + 1), SafeLoad<uint32_t>(in + 1), SafeLoad<uint32_t>(in + 1), SafeLoad<uint32_t>(in + 1) >> 28 | SafeLoad<uint32_t>(in + 2) << 4, SafeLoad<uint32_t>(in + 2), SafeLoad<uint32_t>(in + 2), SafeLoad<uint32_t>(in + 2), SafeLoad<uint32_t>(in + 2), SafeLoad<uint32_t>(in + 2) };
+  words = simd_batch{
+    SafeLoadAs<uint32_t>(in + 4 * 0),
+    SafeLoadAs<uint32_t>(in + 4 * 0),
+    SafeLoadAs<uint32_t>(in + 4 * 0),
+    SafeLoadAs<uint32_t>(in + 4 * 0),
+    SafeLoadAs<uint32_t>(in + 4 * 0),
+    SafeLoadAs<uint32_t>(in + 4 * 0) >> 30 | SafeLoadAs<uint32_t>(in + 4 * 1) << 2,
+    SafeLoadAs<uint32_t>(in + 4 * 1),
+    SafeLoadAs<uint32_t>(in + 4 * 1),
+    SafeLoadAs<uint32_t>(in + 4 * 1),
+    SafeLoadAs<uint32_t>(in + 4 * 1),
+    SafeLoadAs<uint32_t>(in + 4 * 1) >> 28 | SafeLoadAs<uint32_t>(in + 4 * 2) << 4,
+    SafeLoadAs<uint32_t>(in + 4 * 2),
+    SafeLoadAs<uint32_t>(in + 4 * 2),
+    SafeLoadAs<uint32_t>(in + 4 * 2),
+    SafeLoadAs<uint32_t>(in + 4 * 2),
+    SafeLoadAs<uint32_t>(in + 4 * 2),
+  };
   shifts = simd_batch{ 0, 6, 12, 18, 24, 0, 4, 10, 16, 22, 0, 2, 8, 14, 20, 26 };
   results = (words >> shifts) & masks;
   results.store_unaligned(out);
   out += 16;
 
   // extract 6-bit bundles 16 to 31
-  words = simd_batch{ SafeLoad<uint32_t>(in + 3), SafeLoad<uint32_t>(in + 3), SafeLoad<uint32_t>(in + 3), SafeLoad<uint32_t>(in + 3), SafeLoad<uint32_t>(in + 3), SafeLoad<uint32_t>(in + 3) >> 30 | SafeLoad<uint32_t>(in + 4) << 2, SafeLoad<uint32_t>(in + 4), SafeLoad<uint32_t>(in + 4), SafeLoad<uint32_t>(in + 4), SafeLoad<uint32_t>(in + 4), SafeLoad<uint32_t>(in + 4) >> 28 | SafeLoad<uint32_t>(in + 5) << 4, SafeLoad<uint32_t>(in + 5), SafeLoad<uint32_t>(in + 5), SafeLoad<uint32_t>(in + 5), SafeLoad<uint32_t>(in + 5), SafeLoad<uint32_t>(in + 5) };
+  words = simd_batch{
+    SafeLoadAs<uint32_t>(in + 4 * 3),
+    SafeLoadAs<uint32_t>(in + 4 * 3),
+    SafeLoadAs<uint32_t>(in + 4 * 3),
+    SafeLoadAs<uint32_t>(in + 4 * 3),
+    SafeLoadAs<uint32_t>(in + 4 * 3),
+    SafeLoadAs<uint32_t>(in + 4 * 3) >> 30 | SafeLoadAs<uint32_t>(in + 4 * 4) << 2,
+    SafeLoadAs<uint32_t>(in + 4 * 4),
+    SafeLoadAs<uint32_t>(in + 4 * 4),
+    SafeLoadAs<uint32_t>(in + 4 * 4),
+    SafeLoadAs<uint32_t>(in + 4 * 4),
+    SafeLoadAs<uint32_t>(in + 4 * 4) >> 28 | SafeLoadAs<uint32_t>(in + 4 * 5) << 4,
+    SafeLoadAs<uint32_t>(in + 4 * 5),
+    SafeLoadAs<uint32_t>(in + 4 * 5),
+    SafeLoadAs<uint32_t>(in + 4 * 5),
+    SafeLoadAs<uint32_t>(in + 4 * 5),
+    SafeLoadAs<uint32_t>(in + 4 * 5),
+  };
   shifts = simd_batch{ 0, 6, 12, 18, 24, 0, 4, 10, 16, 22, 0, 2, 8, 14, 20, 26 };
   results = (words >> shifts) & masks;
   results.store_unaligned(out);
   out += 16;
 
-  in += 6;
+  in += 6 * 4;
   return in;
 }
 
-inline static const uint32_t* unpack7_32(const uint32_t* in, uint32_t* out) {
+inline static const uint8_t* unpack7_32(const uint8_t* in, uint32_t* out) {
+  using simd_batch = xsimd::make_sized_batch_t<uint32_t, 16>;
+
   uint32_t mask = 0x7f;
 
   simd_batch masks(mask);
@@ -203,24 +988,60 @@ inline static const uint32_t* unpack7_32(const uint32_t* in, uint32_t* out) {
   simd_batch results;
 
   // extract 7-bit bundles 0 to 15
-  words = simd_batch{ SafeLoad<uint32_t>(in + 0), SafeLoad<uint32_t>(in + 0), SafeLoad<uint32_t>(in + 0), SafeLoad<uint32_t>(in + 0), SafeLoad<uint32_t>(in + 0) >> 28 | SafeLoad<uint32_t>(in + 1) << 4, SafeLoad<uint32_t>(in + 1), SafeLoad<uint32_t>(in + 1), SafeLoad<uint32_t>(in + 1), SafeLoad<uint32_t>(in + 1), SafeLoad<uint32_t>(in + 1) >> 31 | SafeLoad<uint32_t>(in + 2) << 1, SafeLoad<uint32_t>(in + 2), SafeLoad<uint32_t>(in + 2), SafeLoad<uint32_t>(in + 2), SafeLoad<uint32_t>(in + 2) >> 27 | SafeLoad<uint32_t>(in + 3) << 5, SafeLoad<uint32_t>(in + 3), SafeLoad<uint32_t>(in + 3) };
+  words = simd_batch{
+    SafeLoadAs<uint32_t>(in + 4 * 0),
+    SafeLoadAs<uint32_t>(in + 4 * 0),
+    SafeLoadAs<uint32_t>(in + 4 * 0),
+    SafeLoadAs<uint32_t>(in + 4 * 0),
+    SafeLoadAs<uint32_t>(in + 4 * 0) >> 28 | SafeLoadAs<uint32_t>(in + 4 * 1) << 4,
+    SafeLoadAs<uint32_t>(in + 4 * 1),
+    SafeLoadAs<uint32_t>(in + 4 * 1),
+    SafeLoadAs<uint32_t>(in + 4 * 1),
+    SafeLoadAs<uint32_t>(in + 4 * 1),
+    SafeLoadAs<uint32_t>(in + 4 * 1) >> 31 | SafeLoadAs<uint32_t>(in + 4 * 2) << 1,
+    SafeLoadAs<uint32_t>(in + 4 * 2),
+    SafeLoadAs<uint32_t>(in + 4 * 2),
+    SafeLoadAs<uint32_t>(in + 4 * 2),
+    SafeLoadAs<uint32_t>(in + 4 * 2) >> 27 | SafeLoadAs<uint32_t>(in + 4 * 3) << 5,
+    SafeLoadAs<uint32_t>(in + 4 * 3),
+    SafeLoadAs<uint32_t>(in + 4 * 3),
+  };
   shifts = simd_batch{ 0, 7, 14, 21, 0, 3, 10, 17, 24, 0, 6, 13, 20, 0, 2, 9 };
   results = (words >> shifts) & masks;
   results.store_unaligned(out);
   out += 16;
 
   // extract 7-bit bundles 16 to 31
-  words = simd_batch{ SafeLoad<uint32_t>(in + 3), SafeLoad<uint32_t>(in + 3), SafeLoad<uint32_t>(in + 3) >> 30 | SafeLoad<uint32_t>(in + 4) << 2, SafeLoad<uint32_t>(in + 4), SafeLoad<uint32_t>(in + 4), SafeLoad<uint32_t>(in + 4), SafeLoad<uint32_t>(in + 4) >> 26 | SafeLoad<uint32_t>(in + 5) << 6, SafeLoad<uint32_t>(in + 5), SafeLoad<uint32_t>(in + 5), SafeLoad<uint32_t>(in + 5), SafeLoad<uint32_t>(in + 5), SafeLoad<uint32_t>(in + 5) >> 29 | SafeLoad<uint32_t>(in + 6) << 3, SafeLoad<uint32_t>(in + 6), SafeLoad<uint32_t>(in + 6), SafeLoad<uint32_t>(in + 6), SafeLoad<uint32_t>(in + 6) };
+  words = simd_batch{
+    SafeLoadAs<uint32_t>(in + 4 * 3),
+    SafeLoadAs<uint32_t>(in + 4 * 3),
+    SafeLoadAs<uint32_t>(in + 4 * 3) >> 30 | SafeLoadAs<uint32_t>(in + 4 * 4) << 2,
+    SafeLoadAs<uint32_t>(in + 4 * 4),
+    SafeLoadAs<uint32_t>(in + 4 * 4),
+    SafeLoadAs<uint32_t>(in + 4 * 4),
+    SafeLoadAs<uint32_t>(in + 4 * 4) >> 26 | SafeLoadAs<uint32_t>(in + 4 * 5) << 6,
+    SafeLoadAs<uint32_t>(in + 4 * 5),
+    SafeLoadAs<uint32_t>(in + 4 * 5),
+    SafeLoadAs<uint32_t>(in + 4 * 5),
+    SafeLoadAs<uint32_t>(in + 4 * 5),
+    SafeLoadAs<uint32_t>(in + 4 * 5) >> 29 | SafeLoadAs<uint32_t>(in + 4 * 6) << 3,
+    SafeLoadAs<uint32_t>(in + 4 * 6),
+    SafeLoadAs<uint32_t>(in + 4 * 6),
+    SafeLoadAs<uint32_t>(in + 4 * 6),
+    SafeLoadAs<uint32_t>(in + 4 * 6),
+  };
   shifts = simd_batch{ 16, 23, 0, 5, 12, 19, 0, 1, 8, 15, 22, 0, 4, 11, 18, 25 };
   results = (words >> shifts) & masks;
   results.store_unaligned(out);
   out += 16;
 
-  in += 7;
+  in += 7 * 4;
   return in;
 }
 
-inline static const uint32_t* unpack8_32(const uint32_t* in, uint32_t* out) {
+inline static const uint8_t* unpack8_32(const uint8_t* in, uint32_t* out) {
+  using simd_batch = xsimd::make_sized_batch_t<uint32_t, 16>;
+
   uint32_t mask = 0xff;
 
   simd_batch masks(mask);
@@ -228,24 +1049,60 @@ inline static const uint32_t* unpack8_32(const uint32_t* in, uint32_t* out) {
   simd_batch results;
 
   // extract 8-bit bundles 0 to 15
-  words = simd_batch{ SafeLoad<uint32_t>(in + 0), SafeLoad<uint32_t>(in + 0), SafeLoad<uint32_t>(in + 0), SafeLoad<uint32_t>(in + 0), SafeLoad<uint32_t>(in + 1), SafeLoad<uint32_t>(in + 1), SafeLoad<uint32_t>(in + 1), SafeLoad<uint32_t>(in + 1), SafeLoad<uint32_t>(in + 2), SafeLoad<uint32_t>(in + 2), SafeLoad<uint32_t>(in + 2), SafeLoad<uint32_t>(in + 2), SafeLoad<uint32_t>(in + 3), SafeLoad<uint32_t>(in + 3), SafeLoad<uint32_t>(in + 3), SafeLoad<uint32_t>(in + 3) };
+  words = simd_batch{
+    SafeLoadAs<uint32_t>(in + 4 * 0),
+    SafeLoadAs<uint32_t>(in + 4 * 0),
+    SafeLoadAs<uint32_t>(in + 4 * 0),
+    SafeLoadAs<uint32_t>(in + 4 * 0),
+    SafeLoadAs<uint32_t>(in + 4 * 1),
+    SafeLoadAs<uint32_t>(in + 4 * 1),
+    SafeLoadAs<uint32_t>(in + 4 * 1),
+    SafeLoadAs<uint32_t>(in + 4 * 1),
+    SafeLoadAs<uint32_t>(in + 4 * 2),
+    SafeLoadAs<uint32_t>(in + 4 * 2),
+    SafeLoadAs<uint32_t>(in + 4 * 2),
+    SafeLoadAs<uint32_t>(in + 4 * 2),
+    SafeLoadAs<uint32_t>(in + 4 * 3),
+    SafeLoadAs<uint32_t>(in + 4 * 3),
+    SafeLoadAs<uint32_t>(in + 4 * 3),
+    SafeLoadAs<uint32_t>(in + 4 * 3),
+  };
   shifts = simd_batch{ 0, 8, 16, 24, 0, 8, 16, 24, 0, 8, 16, 24, 0, 8, 16, 24 };
   results = (words >> shifts) & masks;
   results.store_unaligned(out);
   out += 16;
 
   // extract 8-bit bundles 16 to 31
-  words = simd_batch{ SafeLoad<uint32_t>(in + 4), SafeLoad<uint32_t>(in + 4), SafeLoad<uint32_t>(in + 4), SafeLoad<uint32_t>(in + 4), SafeLoad<uint32_t>(in + 5), SafeLoad<uint32_t>(in + 5), SafeLoad<uint32_t>(in + 5), SafeLoad<uint32_t>(in + 5), SafeLoad<uint32_t>(in + 6), SafeLoad<uint32_t>(in + 6), SafeLoad<uint32_t>(in + 6), SafeLoad<uint32_t>(in + 6), SafeLoad<uint32_t>(in + 7), SafeLoad<uint32_t>(in + 7), SafeLoad<uint32_t>(in + 7), SafeLoad<uint32_t>(in + 7) };
+  words = simd_batch{
+    SafeLoadAs<uint32_t>(in + 4 * 4),
+    SafeLoadAs<uint32_t>(in + 4 * 4),
+    SafeLoadAs<uint32_t>(in + 4 * 4),
+    SafeLoadAs<uint32_t>(in + 4 * 4),
+    SafeLoadAs<uint32_t>(in + 4 * 5),
+    SafeLoadAs<uint32_t>(in + 4 * 5),
+    SafeLoadAs<uint32_t>(in + 4 * 5),
+    SafeLoadAs<uint32_t>(in + 4 * 5),
+    SafeLoadAs<uint32_t>(in + 4 * 6),
+    SafeLoadAs<uint32_t>(in + 4 * 6),
+    SafeLoadAs<uint32_t>(in + 4 * 6),
+    SafeLoadAs<uint32_t>(in + 4 * 6),
+    SafeLoadAs<uint32_t>(in + 4 * 7),
+    SafeLoadAs<uint32_t>(in + 4 * 7),
+    SafeLoadAs<uint32_t>(in + 4 * 7),
+    SafeLoadAs<uint32_t>(in + 4 * 7),
+  };
   shifts = simd_batch{ 0, 8, 16, 24, 0, 8, 16, 24, 0, 8, 16, 24, 0, 8, 16, 24 };
   results = (words >> shifts) & masks;
   results.store_unaligned(out);
   out += 16;
 
-  in += 8;
+  in += 8 * 4;
   return in;
 }
 
-inline static const uint32_t* unpack9_32(const uint32_t* in, uint32_t* out) {
+inline static const uint8_t* unpack9_32(const uint8_t* in, uint32_t* out) {
+  using simd_batch = xsimd::make_sized_batch_t<uint32_t, 16>;
+
   uint32_t mask = 0x1ff;
 
   simd_batch masks(mask);
@@ -253,24 +1110,60 @@ inline static const uint32_t* unpack9_32(const uint32_t* in, uint32_t* out) {
   simd_batch results;
 
   // extract 9-bit bundles 0 to 15
-  words = simd_batch{ SafeLoad<uint32_t>(in + 0), SafeLoad<uint32_t>(in + 0), SafeLoad<uint32_t>(in + 0), SafeLoad<uint32_t>(in + 0) >> 27 | SafeLoad<uint32_t>(in + 1) << 5, SafeLoad<uint32_t>(in + 1), SafeLoad<uint32_t>(in + 1), SafeLoad<uint32_t>(in + 1), SafeLoad<uint32_t>(in + 1) >> 31 | SafeLoad<uint32_t>(in + 2) << 1, SafeLoad<uint32_t>(in + 2), SafeLoad<uint32_t>(in + 2), SafeLoad<uint32_t>(in + 2) >> 26 | SafeLoad<uint32_t>(in + 3) << 6, SafeLoad<uint32_t>(in + 3), SafeLoad<uint32_t>(in + 3), SafeLoad<uint32_t>(in + 3), SafeLoad<uint32_t>(in + 3) >> 30 | SafeLoad<uint32_t>(in + 4) << 2, SafeLoad<uint32_t>(in + 4) };
+  words = simd_batch{
+    SafeLoadAs<uint32_t>(in + 4 * 0),
+    SafeLoadAs<uint32_t>(in + 4 * 0),
+    SafeLoadAs<uint32_t>(in + 4 * 0),
+    SafeLoadAs<uint32_t>(in + 4 * 0) >> 27 | SafeLoadAs<uint32_t>(in + 4 * 1) << 5,
+    SafeLoadAs<uint32_t>(in + 4 * 1),
+    SafeLoadAs<uint32_t>(in + 4 * 1),
+    SafeLoadAs<uint32_t>(in + 4 * 1),
+    SafeLoadAs<uint32_t>(in + 4 * 1) >> 31 | SafeLoadAs<uint32_t>(in + 4 * 2) << 1,
+    SafeLoadAs<uint32_t>(in + 4 * 2),
+    SafeLoadAs<uint32_t>(in + 4 * 2),
+    SafeLoadAs<uint32_t>(in + 4 * 2) >> 26 | SafeLoadAs<uint32_t>(in + 4 * 3) << 6,
+    SafeLoadAs<uint32_t>(in + 4 * 3),
+    SafeLoadAs<uint32_t>(in + 4 * 3),
+    SafeLoadAs<uint32_t>(in + 4 * 3),
+    SafeLoadAs<uint32_t>(in + 4 * 3) >> 30 | SafeLoadAs<uint32_t>(in + 4 * 4) << 2,
+    SafeLoadAs<uint32_t>(in + 4 * 4),
+  };
   shifts = simd_batch{ 0, 9, 18, 0, 4, 13, 22, 0, 8, 17, 0, 3, 12, 21, 0, 7 };
   results = (words >> shifts) & masks;
   results.store_unaligned(out);
   out += 16;
 
   // extract 9-bit bundles 16 to 31
-  words = simd_batch{ SafeLoad<uint32_t>(in + 4), SafeLoad<uint32_t>(in + 4) >> 25 | SafeLoad<uint32_t>(in + 5) << 7, SafeLoad<uint32_t>(in + 5), SafeLoad<uint32_t>(in + 5), SafeLoad<uint32_t>(in + 5), SafeLoad<uint32_t>(in + 5) >> 29 | SafeLoad<uint32_t>(in + 6) << 3, SafeLoad<uint32_t>(in + 6), SafeLoad<uint32_t>(in + 6), SafeLoad<uint32_t>(in + 6) >> 24 | SafeLoad<uint32_t>(in + 7) << 8, SafeLoad<uint32_t>(in + 7), SafeLoad<uint32_t>(in + 7), SafeLoad<uint32_t>(in + 7), SafeLoad<uint32_t>(in + 7) >> 28 | SafeLoad<uint32_t>(in + 8) << 4, SafeLoad<uint32_t>(in + 8), SafeLoad<uint32_t>(in + 8), SafeLoad<uint32_t>(in + 8) };
+  words = simd_batch{
+    SafeLoadAs<uint32_t>(in + 4 * 4),
+    SafeLoadAs<uint32_t>(in + 4 * 4) >> 25 | SafeLoadAs<uint32_t>(in + 4 * 5) << 7,
+    SafeLoadAs<uint32_t>(in + 4 * 5),
+    SafeLoadAs<uint32_t>(in + 4 * 5),
+    SafeLoadAs<uint32_t>(in + 4 * 5),
+    SafeLoadAs<uint32_t>(in + 4 * 5) >> 29 | SafeLoadAs<uint32_t>(in + 4 * 6) << 3,
+    SafeLoadAs<uint32_t>(in + 4 * 6),
+    SafeLoadAs<uint32_t>(in + 4 * 6),
+    SafeLoadAs<uint32_t>(in + 4 * 6) >> 24 | SafeLoadAs<uint32_t>(in + 4 * 7) << 8,
+    SafeLoadAs<uint32_t>(in + 4 * 7),
+    SafeLoadAs<uint32_t>(in + 4 * 7),
+    SafeLoadAs<uint32_t>(in + 4 * 7),
+    SafeLoadAs<uint32_t>(in + 4 * 7) >> 28 | SafeLoadAs<uint32_t>(in + 4 * 8) << 4,
+    SafeLoadAs<uint32_t>(in + 4 * 8),
+    SafeLoadAs<uint32_t>(in + 4 * 8),
+    SafeLoadAs<uint32_t>(in + 4 * 8),
+  };
   shifts = simd_batch{ 16, 0, 2, 11, 20, 0, 6, 15, 0, 1, 10, 19, 0, 5, 14, 23 };
   results = (words >> shifts) & masks;
   results.store_unaligned(out);
   out += 16;
 
-  in += 9;
+  in += 9 * 4;
   return in;
 }
 
-inline static const uint32_t* unpack10_32(const uint32_t* in, uint32_t* out) {
+inline static const uint8_t* unpack10_32(const uint8_t* in, uint32_t* out) {
+  using simd_batch = xsimd::make_sized_batch_t<uint32_t, 16>;
+
   uint32_t mask = 0x3ff;
 
   simd_batch masks(mask);
@@ -278,24 +1171,60 @@ inline static const uint32_t* unpack10_32(const uint32_t* in, uint32_t* out) {
   simd_batch results;
 
   // extract 10-bit bundles 0 to 15
-  words = simd_batch{ SafeLoad<uint32_t>(in + 0), SafeLoad<uint32_t>(in + 0), SafeLoad<uint32_t>(in + 0), SafeLoad<uint32_t>(in + 0) >> 30 | SafeLoad<uint32_t>(in + 1) << 2, SafeLoad<uint32_t>(in + 1), SafeLoad<uint32_t>(in + 1), SafeLoad<uint32_t>(in + 1) >> 28 | SafeLoad<uint32_t>(in + 2) << 4, SafeLoad<uint32_t>(in + 2), SafeLoad<uint32_t>(in + 2), SafeLoad<uint32_t>(in + 2) >> 26 | SafeLoad<uint32_t>(in + 3) << 6, SafeLoad<uint32_t>(in + 3), SafeLoad<uint32_t>(in + 3), SafeLoad<uint32_t>(in + 3) >> 24 | SafeLoad<uint32_t>(in + 4) << 8, SafeLoad<uint32_t>(in + 4), SafeLoad<uint32_t>(in + 4), SafeLoad<uint32_t>(in + 4) };
+  words = simd_batch{
+    SafeLoadAs<uint32_t>(in + 4 * 0),
+    SafeLoadAs<uint32_t>(in + 4 * 0),
+    SafeLoadAs<uint32_t>(in + 4 * 0),
+    SafeLoadAs<uint32_t>(in + 4 * 0) >> 30 | SafeLoadAs<uint32_t>(in + 4 * 1) << 2,
+    SafeLoadAs<uint32_t>(in + 4 * 1),
+    SafeLoadAs<uint32_t>(in + 4 * 1),
+    SafeLoadAs<uint32_t>(in + 4 * 1) >> 28 | SafeLoadAs<uint32_t>(in + 4 * 2) << 4,
+    SafeLoadAs<uint32_t>(in + 4 * 2),
+    SafeLoadAs<uint32_t>(in + 4 * 2),
+    SafeLoadAs<uint32_t>(in + 4 * 2) >> 26 | SafeLoadAs<uint32_t>(in + 4 * 3) << 6,
+    SafeLoadAs<uint32_t>(in + 4 * 3),
+    SafeLoadAs<uint32_t>(in + 4 * 3),
+    SafeLoadAs<uint32_t>(in + 4 * 3) >> 24 | SafeLoadAs<uint32_t>(in + 4 * 4) << 8,
+    SafeLoadAs<uint32_t>(in + 4 * 4),
+    SafeLoadAs<uint32_t>(in + 4 * 4),
+    SafeLoadAs<uint32_t>(in + 4 * 4),
+  };
   shifts = simd_batch{ 0, 10, 20, 0, 8, 18, 0, 6, 16, 0, 4, 14, 0, 2, 12, 22 };
   results = (words >> shifts) & masks;
   results.store_unaligned(out);
   out += 16;
 
   // extract 10-bit bundles 16 to 31
-  words = simd_batch{ SafeLoad<uint32_t>(in + 5), SafeLoad<uint32_t>(in + 5), SafeLoad<uint32_t>(in + 5), SafeLoad<uint32_t>(in + 5) >> 30 | SafeLoad<uint32_t>(in + 6) << 2, SafeLoad<uint32_t>(in + 6), SafeLoad<uint32_t>(in + 6), SafeLoad<uint32_t>(in + 6) >> 28 | SafeLoad<uint32_t>(in + 7) << 4, SafeLoad<uint32_t>(in + 7), SafeLoad<uint32_t>(in + 7), SafeLoad<uint32_t>(in + 7) >> 26 | SafeLoad<uint32_t>(in + 8) << 6, SafeLoad<uint32_t>(in + 8), SafeLoad<uint32_t>(in + 8), SafeLoad<uint32_t>(in + 8) >> 24 | SafeLoad<uint32_t>(in + 9) << 8, SafeLoad<uint32_t>(in + 9), SafeLoad<uint32_t>(in + 9), SafeLoad<uint32_t>(in + 9) };
+  words = simd_batch{
+    SafeLoadAs<uint32_t>(in + 4 * 5),
+    SafeLoadAs<uint32_t>(in + 4 * 5),
+    SafeLoadAs<uint32_t>(in + 4 * 5),
+    SafeLoadAs<uint32_t>(in + 4 * 5) >> 30 | SafeLoadAs<uint32_t>(in + 4 * 6) << 2,
+    SafeLoadAs<uint32_t>(in + 4 * 6),
+    SafeLoadAs<uint32_t>(in + 4 * 6),
+    SafeLoadAs<uint32_t>(in + 4 * 6) >> 28 | SafeLoadAs<uint32_t>(in + 4 * 7) << 4,
+    SafeLoadAs<uint32_t>(in + 4 * 7),
+    SafeLoadAs<uint32_t>(in + 4 * 7),
+    SafeLoadAs<uint32_t>(in + 4 * 7) >> 26 | SafeLoadAs<uint32_t>(in + 4 * 8) << 6,
+    SafeLoadAs<uint32_t>(in + 4 * 8),
+    SafeLoadAs<uint32_t>(in + 4 * 8),
+    SafeLoadAs<uint32_t>(in + 4 * 8) >> 24 | SafeLoadAs<uint32_t>(in + 4 * 9) << 8,
+    SafeLoadAs<uint32_t>(in + 4 * 9),
+    SafeLoadAs<uint32_t>(in + 4 * 9),
+    SafeLoadAs<uint32_t>(in + 4 * 9),
+  };
   shifts = simd_batch{ 0, 10, 20, 0, 8, 18, 0, 6, 16, 0, 4, 14, 0, 2, 12, 22 };
   results = (words >> shifts) & masks;
   results.store_unaligned(out);
   out += 16;
 
-  in += 10;
+  in += 10 * 4;
   return in;
 }
 
-inline static const uint32_t* unpack11_32(const uint32_t* in, uint32_t* out) {
+inline static const uint8_t* unpack11_32(const uint8_t* in, uint32_t* out) {
+  using simd_batch = xsimd::make_sized_batch_t<uint32_t, 16>;
+
   uint32_t mask = 0x7ff;
 
   simd_batch masks(mask);
@@ -303,24 +1232,60 @@ inline static const uint32_t* unpack11_32(const uint32_t* in, uint32_t* out) {
   simd_batch results;
 
   // extract 11-bit bundles 0 to 15
-  words = simd_batch{ SafeLoad<uint32_t>(in + 0), SafeLoad<uint32_t>(in + 0), SafeLoad<uint32_t>(in + 0) >> 22 | SafeLoad<uint32_t>(in + 1) << 10, SafeLoad<uint32_t>(in + 1), SafeLoad<uint32_t>(in + 1), SafeLoad<uint32_t>(in + 1) >> 23 | SafeLoad<uint32_t>(in + 2) << 9, SafeLoad<uint32_t>(in + 2), SafeLoad<uint32_t>(in + 2), SafeLoad<uint32_t>(in + 2) >> 24 | SafeLoad<uint32_t>(in + 3) << 8, SafeLoad<uint32_t>(in + 3), SafeLoad<uint32_t>(in + 3), SafeLoad<uint32_t>(in + 3) >> 25 | SafeLoad<uint32_t>(in + 4) << 7, SafeLoad<uint32_t>(in + 4), SafeLoad<uint32_t>(in + 4), SafeLoad<uint32_t>(in + 4) >> 26 | SafeLoad<uint32_t>(in + 5) << 6, SafeLoad<uint32_t>(in + 5) };
+  words = simd_batch{
+    SafeLoadAs<uint32_t>(in + 4 * 0),
+    SafeLoadAs<uint32_t>(in + 4 * 0),
+    SafeLoadAs<uint32_t>(in + 4 * 0) >> 22 | SafeLoadAs<uint32_t>(in + 4 * 1) << 10,
+    SafeLoadAs<uint32_t>(in + 4 * 1),
+    SafeLoadAs<uint32_t>(in + 4 * 1),
+    SafeLoadAs<uint32_t>(in + 4 * 1) >> 23 | SafeLoadAs<uint32_t>(in + 4 * 2) << 9,
+    SafeLoadAs<uint32_t>(in + 4 * 2),
+    SafeLoadAs<uint32_t>(in + 4 * 2),
+    SafeLoadAs<uint32_t>(in + 4 * 2) >> 24 | SafeLoadAs<uint32_t>(in + 4 * 3) << 8,
+    SafeLoadAs<uint32_t>(in + 4 * 3),
+    SafeLoadAs<uint32_t>(in + 4 * 3),
+    SafeLoadAs<uint32_t>(in + 4 * 3) >> 25 | SafeLoadAs<uint32_t>(in + 4 * 4) << 7,
+    SafeLoadAs<uint32_t>(in + 4 * 4),
+    SafeLoadAs<uint32_t>(in + 4 * 4),
+    SafeLoadAs<uint32_t>(in + 4 * 4) >> 26 | SafeLoadAs<uint32_t>(in + 4 * 5) << 6,
+    SafeLoadAs<uint32_t>(in + 4 * 5),
+  };
   shifts = simd_batch{ 0, 11, 0, 1, 12, 0, 2, 13, 0, 3, 14, 0, 4, 15, 0, 5 };
   results = (words >> shifts) & masks;
   results.store_unaligned(out);
   out += 16;
 
   // extract 11-bit bundles 16 to 31
-  words = simd_batch{ SafeLoad<uint32_t>(in + 5), SafeLoad<uint32_t>(in + 5) >> 27 | SafeLoad<uint32_t>(in + 6) << 5, SafeLoad<uint32_t>(in + 6), SafeLoad<uint32_t>(in + 6), SafeLoad<uint32_t>(in + 6) >> 28 | SafeLoad<uint32_t>(in + 7) << 4, SafeLoad<uint32_t>(in + 7), SafeLoad<uint32_t>(in + 7), SafeLoad<uint32_t>(in + 7) >> 29 | SafeLoad<uint32_t>(in + 8) << 3, SafeLoad<uint32_t>(in + 8), SafeLoad<uint32_t>(in + 8), SafeLoad<uint32_t>(in + 8) >> 30 | SafeLoad<uint32_t>(in + 9) << 2, SafeLoad<uint32_t>(in + 9), SafeLoad<uint32_t>(in + 9), SafeLoad<uint32_t>(in + 9) >> 31 | SafeLoad<uint32_t>(in + 10) << 1, SafeLoad<uint32_t>(in + 10), SafeLoad<uint32_t>(in + 10) };
+  words = simd_batch{
+    SafeLoadAs<uint32_t>(in + 4 * 5),
+    SafeLoadAs<uint32_t>(in + 4 * 5) >> 27 | SafeLoadAs<uint32_t>(in + 4 * 6) << 5,
+    SafeLoadAs<uint32_t>(in + 4 * 6),
+    SafeLoadAs<uint32_t>(in + 4 * 6),
+    SafeLoadAs<uint32_t>(in + 4 * 6) >> 28 | SafeLoadAs<uint32_t>(in + 4 * 7) << 4,
+    SafeLoadAs<uint32_t>(in + 4 * 7),
+    SafeLoadAs<uint32_t>(in + 4 * 7),
+    SafeLoadAs<uint32_t>(in + 4 * 7) >> 29 | SafeLoadAs<uint32_t>(in + 4 * 8) << 3,
+    SafeLoadAs<uint32_t>(in + 4 * 8),
+    SafeLoadAs<uint32_t>(in + 4 * 8),
+    SafeLoadAs<uint32_t>(in + 4 * 8) >> 30 | SafeLoadAs<uint32_t>(in + 4 * 9) << 2,
+    SafeLoadAs<uint32_t>(in + 4 * 9),
+    SafeLoadAs<uint32_t>(in + 4 * 9),
+    SafeLoadAs<uint32_t>(in + 4 * 9) >> 31 | SafeLoadAs<uint32_t>(in + 4 * 10) << 1,
+    SafeLoadAs<uint32_t>(in + 4 * 10),
+    SafeLoadAs<uint32_t>(in + 4 * 10),
+  };
   shifts = simd_batch{ 16, 0, 6, 17, 0, 7, 18, 0, 8, 19, 0, 9, 20, 0, 10, 21 };
   results = (words >> shifts) & masks;
   results.store_unaligned(out);
   out += 16;
 
-  in += 11;
+  in += 11 * 4;
   return in;
 }
 
-inline static const uint32_t* unpack12_32(const uint32_t* in, uint32_t* out) {
+inline static const uint8_t* unpack12_32(const uint8_t* in, uint32_t* out) {
+  using simd_batch = xsimd::make_sized_batch_t<uint32_t, 16>;
+
   uint32_t mask = 0xfff;
 
   simd_batch masks(mask);
@@ -328,24 +1293,60 @@ inline static const uint32_t* unpack12_32(const uint32_t* in, uint32_t* out) {
   simd_batch results;
 
   // extract 12-bit bundles 0 to 15
-  words = simd_batch{ SafeLoad<uint32_t>(in + 0), SafeLoad<uint32_t>(in + 0), SafeLoad<uint32_t>(in + 0) >> 24 | SafeLoad<uint32_t>(in + 1) << 8, SafeLoad<uint32_t>(in + 1), SafeLoad<uint32_t>(in + 1), SafeLoad<uint32_t>(in + 1) >> 28 | SafeLoad<uint32_t>(in + 2) << 4, SafeLoad<uint32_t>(in + 2), SafeLoad<uint32_t>(in + 2), SafeLoad<uint32_t>(in + 3), SafeLoad<uint32_t>(in + 3), SafeLoad<uint32_t>(in + 3) >> 24 | SafeLoad<uint32_t>(in + 4) << 8, SafeLoad<uint32_t>(in + 4), SafeLoad<uint32_t>(in + 4), SafeLoad<uint32_t>(in + 4) >> 28 | SafeLoad<uint32_t>(in + 5) << 4, SafeLoad<uint32_t>(in + 5), SafeLoad<uint32_t>(in + 5) };
+  words = simd_batch{
+    SafeLoadAs<uint32_t>(in + 4 * 0),
+    SafeLoadAs<uint32_t>(in + 4 * 0),
+    SafeLoadAs<uint32_t>(in + 4 * 0) >> 24 | SafeLoadAs<uint32_t>(in + 4 * 1) << 8,
+    SafeLoadAs<uint32_t>(in + 4 * 1),
+    SafeLoadAs<uint32_t>(in + 4 * 1),
+    SafeLoadAs<uint32_t>(in + 4 * 1) >> 28 | SafeLoadAs<uint32_t>(in + 4 * 2) << 4,
+    SafeLoadAs<uint32_t>(in + 4 * 2),
+    SafeLoadAs<uint32_t>(in + 4 * 2),
+    SafeLoadAs<uint32_t>(in + 4 * 3),
+    SafeLoadAs<uint32_t>(in + 4 * 3),
+    SafeLoadAs<uint32_t>(in + 4 * 3) >> 24 | SafeLoadAs<uint32_t>(in + 4 * 4) << 8,
+    SafeLoadAs<uint32_t>(in + 4 * 4),
+    SafeLoadAs<uint32_t>(in + 4 * 4),
+    SafeLoadAs<uint32_t>(in + 4 * 4) >> 28 | SafeLoadAs<uint32_t>(in + 4 * 5) << 4,
+    SafeLoadAs<uint32_t>(in + 4 * 5),
+    SafeLoadAs<uint32_t>(in + 4 * 5),
+  };
   shifts = simd_batch{ 0, 12, 0, 4, 16, 0, 8, 20, 0, 12, 0, 4, 16, 0, 8, 20 };
   results = (words >> shifts) & masks;
   results.store_unaligned(out);
   out += 16;
 
   // extract 12-bit bundles 16 to 31
-  words = simd_batch{ SafeLoad<uint32_t>(in + 6), SafeLoad<uint32_t>(in + 6), SafeLoad<uint32_t>(in + 6) >> 24 | SafeLoad<uint32_t>(in + 7) << 8, SafeLoad<uint32_t>(in + 7), SafeLoad<uint32_t>(in + 7), SafeLoad<uint32_t>(in + 7) >> 28 | SafeLoad<uint32_t>(in + 8) << 4, SafeLoad<uint32_t>(in + 8), SafeLoad<uint32_t>(in + 8), SafeLoad<uint32_t>(in + 9), SafeLoad<uint32_t>(in + 9), SafeLoad<uint32_t>(in + 9) >> 24 | SafeLoad<uint32_t>(in + 10) << 8, SafeLoad<uint32_t>(in + 10), SafeLoad<uint32_t>(in + 10), SafeLoad<uint32_t>(in + 10) >> 28 | SafeLoad<uint32_t>(in + 11) << 4, SafeLoad<uint32_t>(in + 11), SafeLoad<uint32_t>(in + 11) };
+  words = simd_batch{
+    SafeLoadAs<uint32_t>(in + 4 * 6),
+    SafeLoadAs<uint32_t>(in + 4 * 6),
+    SafeLoadAs<uint32_t>(in + 4 * 6) >> 24 | SafeLoadAs<uint32_t>(in + 4 * 7) << 8,
+    SafeLoadAs<uint32_t>(in + 4 * 7),
+    SafeLoadAs<uint32_t>(in + 4 * 7),
+    SafeLoadAs<uint32_t>(in + 4 * 7) >> 28 | SafeLoadAs<uint32_t>(in + 4 * 8) << 4,
+    SafeLoadAs<uint32_t>(in + 4 * 8),
+    SafeLoadAs<uint32_t>(in + 4 * 8),
+    SafeLoadAs<uint32_t>(in + 4 * 9),
+    SafeLoadAs<uint32_t>(in + 4 * 9),
+    SafeLoadAs<uint32_t>(in + 4 * 9) >> 24 | SafeLoadAs<uint32_t>(in + 4 * 10) << 8,
+    SafeLoadAs<uint32_t>(in + 4 * 10),
+    SafeLoadAs<uint32_t>(in + 4 * 10),
+    SafeLoadAs<uint32_t>(in + 4 * 10) >> 28 | SafeLoadAs<uint32_t>(in + 4 * 11) << 4,
+    SafeLoadAs<uint32_t>(in + 4 * 11),
+    SafeLoadAs<uint32_t>(in + 4 * 11),
+  };
   shifts = simd_batch{ 0, 12, 0, 4, 16, 0, 8, 20, 0, 12, 0, 4, 16, 0, 8, 20 };
   results = (words >> shifts) & masks;
   results.store_unaligned(out);
   out += 16;
 
-  in += 12;
+  in += 12 * 4;
   return in;
 }
 
-inline static const uint32_t* unpack13_32(const uint32_t* in, uint32_t* out) {
+inline static const uint8_t* unpack13_32(const uint8_t* in, uint32_t* out) {
+  using simd_batch = xsimd::make_sized_batch_t<uint32_t, 16>;
+
   uint32_t mask = 0x1fff;
 
   simd_batch masks(mask);
@@ -353,24 +1354,60 @@ inline static const uint32_t* unpack13_32(const uint32_t* in, uint32_t* out) {
   simd_batch results;
 
   // extract 13-bit bundles 0 to 15
-  words = simd_batch{ SafeLoad<uint32_t>(in + 0), SafeLoad<uint32_t>(in + 0), SafeLoad<uint32_t>(in + 0) >> 26 | SafeLoad<uint32_t>(in + 1) << 6, SafeLoad<uint32_t>(in + 1), SafeLoad<uint32_t>(in + 1) >> 20 | SafeLoad<uint32_t>(in + 2) << 12, SafeLoad<uint32_t>(in + 2), SafeLoad<uint32_t>(in + 2), SafeLoad<uint32_t>(in + 2) >> 27 | SafeLoad<uint32_t>(in + 3) << 5, SafeLoad<uint32_t>(in + 3), SafeLoad<uint32_t>(in + 3) >> 21 | SafeLoad<uint32_t>(in + 4) << 11, SafeLoad<uint32_t>(in + 4), SafeLoad<uint32_t>(in + 4), SafeLoad<uint32_t>(in + 4) >> 28 | SafeLoad<uint32_t>(in + 5) << 4, SafeLoad<uint32_t>(in + 5), SafeLoad<uint32_t>(in + 5) >> 22 | SafeLoad<uint32_t>(in + 6) << 10, SafeLoad<uint32_t>(in + 6) };
+  words = simd_batch{
+    SafeLoadAs<uint32_t>(in + 4 * 0),
+    SafeLoadAs<uint32_t>(in + 4 * 0),
+    SafeLoadAs<uint32_t>(in + 4 * 0) >> 26 | SafeLoadAs<uint32_t>(in + 4 * 1) << 6,
+    SafeLoadAs<uint32_t>(in + 4 * 1),
+    SafeLoadAs<uint32_t>(in + 4 * 1) >> 20 | SafeLoadAs<uint32_t>(in + 4 * 2) << 12,
+    SafeLoadAs<uint32_t>(in + 4 * 2),
+    SafeLoadAs<uint32_t>(in + 4 * 2),
+    SafeLoadAs<uint32_t>(in + 4 * 2) >> 27 | SafeLoadAs<uint32_t>(in + 4 * 3) << 5,
+    SafeLoadAs<uint32_t>(in + 4 * 3),
+    SafeLoadAs<uint32_t>(in + 4 * 3) >> 21 | SafeLoadAs<uint32_t>(in + 4 * 4) << 11,
+    SafeLoadAs<uint32_t>(in + 4 * 4),
+    SafeLoadAs<uint32_t>(in + 4 * 4),
+    SafeLoadAs<uint32_t>(in + 4 * 4) >> 28 | SafeLoadAs<uint32_t>(in + 4 * 5) << 4,
+    SafeLoadAs<uint32_t>(in + 4 * 5),
+    SafeLoadAs<uint32_t>(in + 4 * 5) >> 22 | SafeLoadAs<uint32_t>(in + 4 * 6) << 10,
+    SafeLoadAs<uint32_t>(in + 4 * 6),
+  };
   shifts = simd_batch{ 0, 13, 0, 7, 0, 1, 14, 0, 8, 0, 2, 15, 0, 9, 0, 3 };
   results = (words >> shifts) & masks;
   results.store_unaligned(out);
   out += 16;
 
   // extract 13-bit bundles 16 to 31
-  words = simd_batch{ SafeLoad<uint32_t>(in + 6), SafeLoad<uint32_t>(in + 6) >> 29 | SafeLoad<uint32_t>(in + 7) << 3, SafeLoad<uint32_t>(in + 7), SafeLoad<uint32_t>(in + 7) >> 23 | SafeLoad<uint32_t>(in + 8) << 9, SafeLoad<uint32_t>(in + 8), SafeLoad<uint32_t>(in + 8), SafeLoad<uint32_t>(in + 8) >> 30 | SafeLoad<uint32_t>(in + 9) << 2, SafeLoad<uint32_t>(in + 9), SafeLoad<uint32_t>(in + 9) >> 24 | SafeLoad<uint32_t>(in + 10) << 8, SafeLoad<uint32_t>(in + 10), SafeLoad<uint32_t>(in + 10), SafeLoad<uint32_t>(in + 10) >> 31 | SafeLoad<uint32_t>(in + 11) << 1, SafeLoad<uint32_t>(in + 11), SafeLoad<uint32_t>(in + 11) >> 25 | SafeLoad<uint32_t>(in + 12) << 7, SafeLoad<uint32_t>(in + 12), SafeLoad<uint32_t>(in + 12) };
+  words = simd_batch{
+    SafeLoadAs<uint32_t>(in + 4 * 6),
+    SafeLoadAs<uint32_t>(in + 4 * 6) >> 29 | SafeLoadAs<uint32_t>(in + 4 * 7) << 3,
+    SafeLoadAs<uint32_t>(in + 4 * 7),
+    SafeLoadAs<uint32_t>(in + 4 * 7) >> 23 | SafeLoadAs<uint32_t>(in + 4 * 8) << 9,
+    SafeLoadAs<uint32_t>(in + 4 * 8),
+    SafeLoadAs<uint32_t>(in + 4 * 8),
+    SafeLoadAs<uint32_t>(in + 4 * 8) >> 30 | SafeLoadAs<uint32_t>(in + 4 * 9) << 2,
+    SafeLoadAs<uint32_t>(in + 4 * 9),
+    SafeLoadAs<uint32_t>(in + 4 * 9) >> 24 | SafeLoadAs<uint32_t>(in + 4 * 10) << 8,
+    SafeLoadAs<uint32_t>(in + 4 * 10),
+    SafeLoadAs<uint32_t>(in + 4 * 10),
+    SafeLoadAs<uint32_t>(in + 4 * 10) >> 31 | SafeLoadAs<uint32_t>(in + 4 * 11) << 1,
+    SafeLoadAs<uint32_t>(in + 4 * 11),
+    SafeLoadAs<uint32_t>(in + 4 * 11) >> 25 | SafeLoadAs<uint32_t>(in + 4 * 12) << 7,
+    SafeLoadAs<uint32_t>(in + 4 * 12),
+    SafeLoadAs<uint32_t>(in + 4 * 12),
+  };
   shifts = simd_batch{ 16, 0, 10, 0, 4, 17, 0, 11, 0, 5, 18, 0, 12, 0, 6, 19 };
   results = (words >> shifts) & masks;
   results.store_unaligned(out);
   out += 16;
 
-  in += 13;
+  in += 13 * 4;
   return in;
 }
 
-inline static const uint32_t* unpack14_32(const uint32_t* in, uint32_t* out) {
+inline static const uint8_t* unpack14_32(const uint8_t* in, uint32_t* out) {
+  using simd_batch = xsimd::make_sized_batch_t<uint32_t, 16>;
+
   uint32_t mask = 0x3fff;
 
   simd_batch masks(mask);
@@ -378,24 +1415,60 @@ inline static const uint32_t* unpack14_32(const uint32_t* in, uint32_t* out) {
   simd_batch results;
 
   // extract 14-bit bundles 0 to 15
-  words = simd_batch{ SafeLoad<uint32_t>(in + 0), SafeLoad<uint32_t>(in + 0), SafeLoad<uint32_t>(in + 0) >> 28 | SafeLoad<uint32_t>(in + 1) << 4, SafeLoad<uint32_t>(in + 1), SafeLoad<uint32_t>(in + 1) >> 24 | SafeLoad<uint32_t>(in + 2) << 8, SafeLoad<uint32_t>(in + 2), SafeLoad<uint32_t>(in + 2) >> 20 | SafeLoad<uint32_t>(in + 3) << 12, SafeLoad<uint32_t>(in + 3), SafeLoad<uint32_t>(in + 3), SafeLoad<uint32_t>(in + 3) >> 30 | SafeLoad<uint32_t>(in + 4) << 2, SafeLoad<uint32_t>(in + 4), SafeLoad<uint32_t>(in + 4) >> 26 | SafeLoad<uint32_t>(in + 5) << 6, SafeLoad<uint32_t>(in + 5), SafeLoad<uint32_t>(in + 5) >> 22 | SafeLoad<uint32_t>(in + 6) << 10, SafeLoad<uint32_t>(in + 6), SafeLoad<uint32_t>(in + 6) };
+  words = simd_batch{
+    SafeLoadAs<uint32_t>(in + 4 * 0),
+    SafeLoadAs<uint32_t>(in + 4 * 0),
+    SafeLoadAs<uint32_t>(in + 4 * 0) >> 28 | SafeLoadAs<uint32_t>(in + 4 * 1) << 4,
+    SafeLoadAs<uint32_t>(in + 4 * 1),
+    SafeLoadAs<uint32_t>(in + 4 * 1) >> 24 | SafeLoadAs<uint32_t>(in + 4 * 2) << 8,
+    SafeLoadAs<uint32_t>(in + 4 * 2),
+    SafeLoadAs<uint32_t>(in + 4 * 2) >> 20 | SafeLoadAs<uint32_t>(in + 4 * 3) << 12,
+    SafeLoadAs<uint32_t>(in + 4 * 3),
+    SafeLoadAs<uint32_t>(in + 4 * 3),
+    SafeLoadAs<uint32_t>(in + 4 * 3) >> 30 | SafeLoadAs<uint32_t>(in + 4 * 4) << 2,
+    SafeLoadAs<uint32_t>(in + 4 * 4),
+    SafeLoadAs<uint32_t>(in + 4 * 4) >> 26 | SafeLoadAs<uint32_t>(in + 4 * 5) << 6,
+    SafeLoadAs<uint32_t>(in + 4 * 5),
+    SafeLoadAs<uint32_t>(in + 4 * 5) >> 22 | SafeLoadAs<uint32_t>(in + 4 * 6) << 10,
+    SafeLoadAs<uint32_t>(in + 4 * 6),
+    SafeLoadAs<uint32_t>(in + 4 * 6),
+  };
   shifts = simd_batch{ 0, 14, 0, 10, 0, 6, 0, 2, 16, 0, 12, 0, 8, 0, 4, 18 };
   results = (words >> shifts) & masks;
   results.store_unaligned(out);
   out += 16;
 
   // extract 14-bit bundles 16 to 31
-  words = simd_batch{ SafeLoad<uint32_t>(in + 7), SafeLoad<uint32_t>(in + 7), SafeLoad<uint32_t>(in + 7) >> 28 | SafeLoad<uint32_t>(in + 8) << 4, SafeLoad<uint32_t>(in + 8), SafeLoad<uint32_t>(in + 8) >> 24 | SafeLoad<uint32_t>(in + 9) << 8, SafeLoad<uint32_t>(in + 9), SafeLoad<uint32_t>(in + 9) >> 20 | SafeLoad<uint32_t>(in + 10) << 12, SafeLoad<uint32_t>(in + 10), SafeLoad<uint32_t>(in + 10), SafeLoad<uint32_t>(in + 10) >> 30 | SafeLoad<uint32_t>(in + 11) << 2, SafeLoad<uint32_t>(in + 11), SafeLoad<uint32_t>(in + 11) >> 26 | SafeLoad<uint32_t>(in + 12) << 6, SafeLoad<uint32_t>(in + 12), SafeLoad<uint32_t>(in + 12) >> 22 | SafeLoad<uint32_t>(in + 13) << 10, SafeLoad<uint32_t>(in + 13), SafeLoad<uint32_t>(in + 13) };
+  words = simd_batch{
+    SafeLoadAs<uint32_t>(in + 4 * 7),
+    SafeLoadAs<uint32_t>(in + 4 * 7),
+    SafeLoadAs<uint32_t>(in + 4 * 7) >> 28 | SafeLoadAs<uint32_t>(in + 4 * 8) << 4,
+    SafeLoadAs<uint32_t>(in + 4 * 8),
+    SafeLoadAs<uint32_t>(in + 4 * 8) >> 24 | SafeLoadAs<uint32_t>(in + 4 * 9) << 8,
+    SafeLoadAs<uint32_t>(in + 4 * 9),
+    SafeLoadAs<uint32_t>(in + 4 * 9) >> 20 | SafeLoadAs<uint32_t>(in + 4 * 10) << 12,
+    SafeLoadAs<uint32_t>(in + 4 * 10),
+    SafeLoadAs<uint32_t>(in + 4 * 10),
+    SafeLoadAs<uint32_t>(in + 4 * 10) >> 30 | SafeLoadAs<uint32_t>(in + 4 * 11) << 2,
+    SafeLoadAs<uint32_t>(in + 4 * 11),
+    SafeLoadAs<uint32_t>(in + 4 * 11) >> 26 | SafeLoadAs<uint32_t>(in + 4 * 12) << 6,
+    SafeLoadAs<uint32_t>(in + 4 * 12),
+    SafeLoadAs<uint32_t>(in + 4 * 12) >> 22 | SafeLoadAs<uint32_t>(in + 4 * 13) << 10,
+    SafeLoadAs<uint32_t>(in + 4 * 13),
+    SafeLoadAs<uint32_t>(in + 4 * 13),
+  };
   shifts = simd_batch{ 0, 14, 0, 10, 0, 6, 0, 2, 16, 0, 12, 0, 8, 0, 4, 18 };
   results = (words >> shifts) & masks;
   results.store_unaligned(out);
   out += 16;
 
-  in += 14;
+  in += 14 * 4;
   return in;
 }
 
-inline static const uint32_t* unpack15_32(const uint32_t* in, uint32_t* out) {
+inline static const uint8_t* unpack15_32(const uint8_t* in, uint32_t* out) {
+  using simd_batch = xsimd::make_sized_batch_t<uint32_t, 16>;
+
   uint32_t mask = 0x7fff;
 
   simd_batch masks(mask);
@@ -403,24 +1476,60 @@ inline static const uint32_t* unpack15_32(const uint32_t* in, uint32_t* out) {
   simd_batch results;
 
   // extract 15-bit bundles 0 to 15
-  words = simd_batch{ SafeLoad<uint32_t>(in + 0), SafeLoad<uint32_t>(in + 0), SafeLoad<uint32_t>(in + 0) >> 30 | SafeLoad<uint32_t>(in + 1) << 2, SafeLoad<uint32_t>(in + 1), SafeLoad<uint32_t>(in + 1) >> 28 | SafeLoad<uint32_t>(in + 2) << 4, SafeLoad<uint32_t>(in + 2), SafeLoad<uint32_t>(in + 2) >> 26 | SafeLoad<uint32_t>(in + 3) << 6, SafeLoad<uint32_t>(in + 3), SafeLoad<uint32_t>(in + 3) >> 24 | SafeLoad<uint32_t>(in + 4) << 8, SafeLoad<uint32_t>(in + 4), SafeLoad<uint32_t>(in + 4) >> 22 | SafeLoad<uint32_t>(in + 5) << 10, SafeLoad<uint32_t>(in + 5), SafeLoad<uint32_t>(in + 5) >> 20 | SafeLoad<uint32_t>(in + 6) << 12, SafeLoad<uint32_t>(in + 6), SafeLoad<uint32_t>(in + 6) >> 18 | SafeLoad<uint32_t>(in + 7) << 14, SafeLoad<uint32_t>(in + 7) };
+  words = simd_batch{
+    SafeLoadAs<uint32_t>(in + 4 * 0),
+    SafeLoadAs<uint32_t>(in + 4 * 0),
+    SafeLoadAs<uint32_t>(in + 4 * 0) >> 30 | SafeLoadAs<uint32_t>(in + 4 * 1) << 2,
+    SafeLoadAs<uint32_t>(in + 4 * 1),
+    SafeLoadAs<uint32_t>(in + 4 * 1) >> 28 | SafeLoadAs<uint32_t>(in + 4 * 2) << 4,
+    SafeLoadAs<uint32_t>(in + 4 * 2),
+    SafeLoadAs<uint32_t>(in + 4 * 2) >> 26 | SafeLoadAs<uint32_t>(in + 4 * 3) << 6,
+    SafeLoadAs<uint32_t>(in + 4 * 3),
+    SafeLoadAs<uint32_t>(in + 4 * 3) >> 24 | SafeLoadAs<uint32_t>(in + 4 * 4) << 8,
+    SafeLoadAs<uint32_t>(in + 4 * 4),
+    SafeLoadAs<uint32_t>(in + 4 * 4) >> 22 | SafeLoadAs<uint32_t>(in + 4 * 5) << 10,
+    SafeLoadAs<uint32_t>(in + 4 * 5),
+    SafeLoadAs<uint32_t>(in + 4 * 5) >> 20 | SafeLoadAs<uint32_t>(in + 4 * 6) << 12,
+    SafeLoadAs<uint32_t>(in + 4 * 6),
+    SafeLoadAs<uint32_t>(in + 4 * 6) >> 18 | SafeLoadAs<uint32_t>(in + 4 * 7) << 14,
+    SafeLoadAs<uint32_t>(in + 4 * 7),
+  };
   shifts = simd_batch{ 0, 15, 0, 13, 0, 11, 0, 9, 0, 7, 0, 5, 0, 3, 0, 1 };
   results = (words >> shifts) & masks;
   results.store_unaligned(out);
   out += 16;
 
   // extract 15-bit bundles 16 to 31
-  words = simd_batch{ SafeLoad<uint32_t>(in + 7), SafeLoad<uint32_t>(in + 7) >> 31 | SafeLoad<uint32_t>(in + 8) << 1, SafeLoad<uint32_t>(in + 8), SafeLoad<uint32_t>(in + 8) >> 29 | SafeLoad<uint32_t>(in + 9) << 3, SafeLoad<uint32_t>(in + 9), SafeLoad<uint32_t>(in + 9) >> 27 | SafeLoad<uint32_t>(in + 10) << 5, SafeLoad<uint32_t>(in + 10), SafeLoad<uint32_t>(in + 10) >> 25 | SafeLoad<uint32_t>(in + 11) << 7, SafeLoad<uint32_t>(in + 11), SafeLoad<uint32_t>(in + 11) >> 23 | SafeLoad<uint32_t>(in + 12) << 9, SafeLoad<uint32_t>(in + 12), SafeLoad<uint32_t>(in + 12) >> 21 | SafeLoad<uint32_t>(in + 13) << 11, SafeLoad<uint32_t>(in + 13), SafeLoad<uint32_t>(in + 13) >> 19 | SafeLoad<uint32_t>(in + 14) << 13, SafeLoad<uint32_t>(in + 14), SafeLoad<uint32_t>(in + 14) };
+  words = simd_batch{
+    SafeLoadAs<uint32_t>(in + 4 * 7),
+    SafeLoadAs<uint32_t>(in + 4 * 7) >> 31 | SafeLoadAs<uint32_t>(in + 4 * 8) << 1,
+    SafeLoadAs<uint32_t>(in + 4 * 8),
+    SafeLoadAs<uint32_t>(in + 4 * 8) >> 29 | SafeLoadAs<uint32_t>(in + 4 * 9) << 3,
+    SafeLoadAs<uint32_t>(in + 4 * 9),
+    SafeLoadAs<uint32_t>(in + 4 * 9) >> 27 | SafeLoadAs<uint32_t>(in + 4 * 10) << 5,
+    SafeLoadAs<uint32_t>(in + 4 * 10),
+    SafeLoadAs<uint32_t>(in + 4 * 10) >> 25 | SafeLoadAs<uint32_t>(in + 4 * 11) << 7,
+    SafeLoadAs<uint32_t>(in + 4 * 11),
+    SafeLoadAs<uint32_t>(in + 4 * 11) >> 23 | SafeLoadAs<uint32_t>(in + 4 * 12) << 9,
+    SafeLoadAs<uint32_t>(in + 4 * 12),
+    SafeLoadAs<uint32_t>(in + 4 * 12) >> 21 | SafeLoadAs<uint32_t>(in + 4 * 13) << 11,
+    SafeLoadAs<uint32_t>(in + 4 * 13),
+    SafeLoadAs<uint32_t>(in + 4 * 13) >> 19 | SafeLoadAs<uint32_t>(in + 4 * 14) << 13,
+    SafeLoadAs<uint32_t>(in + 4 * 14),
+    SafeLoadAs<uint32_t>(in + 4 * 14),
+  };
   shifts = simd_batch{ 16, 0, 14, 0, 12, 0, 10, 0, 8, 0, 6, 0, 4, 0, 2, 17 };
   results = (words >> shifts) & masks;
   results.store_unaligned(out);
   out += 16;
 
-  in += 15;
+  in += 15 * 4;
   return in;
 }
 
-inline static const uint32_t* unpack16_32(const uint32_t* in, uint32_t* out) {
+inline static const uint8_t* unpack16_32(const uint8_t* in, uint32_t* out) {
+  using simd_batch = xsimd::make_sized_batch_t<uint32_t, 16>;
+
   uint32_t mask = 0xffff;
 
   simd_batch masks(mask);
@@ -428,24 +1537,60 @@ inline static const uint32_t* unpack16_32(const uint32_t* in, uint32_t* out) {
   simd_batch results;
 
   // extract 16-bit bundles 0 to 15
-  words = simd_batch{ SafeLoad<uint32_t>(in + 0), SafeLoad<uint32_t>(in + 0), SafeLoad<uint32_t>(in + 1), SafeLoad<uint32_t>(in + 1), SafeLoad<uint32_t>(in + 2), SafeLoad<uint32_t>(in + 2), SafeLoad<uint32_t>(in + 3), SafeLoad<uint32_t>(in + 3), SafeLoad<uint32_t>(in + 4), SafeLoad<uint32_t>(in + 4), SafeLoad<uint32_t>(in + 5), SafeLoad<uint32_t>(in + 5), SafeLoad<uint32_t>(in + 6), SafeLoad<uint32_t>(in + 6), SafeLoad<uint32_t>(in + 7), SafeLoad<uint32_t>(in + 7) };
+  words = simd_batch{
+    SafeLoadAs<uint32_t>(in + 4 * 0),
+    SafeLoadAs<uint32_t>(in + 4 * 0),
+    SafeLoadAs<uint32_t>(in + 4 * 1),
+    SafeLoadAs<uint32_t>(in + 4 * 1),
+    SafeLoadAs<uint32_t>(in + 4 * 2),
+    SafeLoadAs<uint32_t>(in + 4 * 2),
+    SafeLoadAs<uint32_t>(in + 4 * 3),
+    SafeLoadAs<uint32_t>(in + 4 * 3),
+    SafeLoadAs<uint32_t>(in + 4 * 4),
+    SafeLoadAs<uint32_t>(in + 4 * 4),
+    SafeLoadAs<uint32_t>(in + 4 * 5),
+    SafeLoadAs<uint32_t>(in + 4 * 5),
+    SafeLoadAs<uint32_t>(in + 4 * 6),
+    SafeLoadAs<uint32_t>(in + 4 * 6),
+    SafeLoadAs<uint32_t>(in + 4 * 7),
+    SafeLoadAs<uint32_t>(in + 4 * 7),
+  };
   shifts = simd_batch{ 0, 16, 0, 16, 0, 16, 0, 16, 0, 16, 0, 16, 0, 16, 0, 16 };
   results = (words >> shifts) & masks;
   results.store_unaligned(out);
   out += 16;
 
   // extract 16-bit bundles 16 to 31
-  words = simd_batch{ SafeLoad<uint32_t>(in + 8), SafeLoad<uint32_t>(in + 8), SafeLoad<uint32_t>(in + 9), SafeLoad<uint32_t>(in + 9), SafeLoad<uint32_t>(in + 10), SafeLoad<uint32_t>(in + 10), SafeLoad<uint32_t>(in + 11), SafeLoad<uint32_t>(in + 11), SafeLoad<uint32_t>(in + 12), SafeLoad<uint32_t>(in + 12), SafeLoad<uint32_t>(in + 13), SafeLoad<uint32_t>(in + 13), SafeLoad<uint32_t>(in + 14), SafeLoad<uint32_t>(in + 14), SafeLoad<uint32_t>(in + 15), SafeLoad<uint32_t>(in + 15) };
+  words = simd_batch{
+    SafeLoadAs<uint32_t>(in + 4 * 8),
+    SafeLoadAs<uint32_t>(in + 4 * 8),
+    SafeLoadAs<uint32_t>(in + 4 * 9),
+    SafeLoadAs<uint32_t>(in + 4 * 9),
+    SafeLoadAs<uint32_t>(in + 4 * 10),
+    SafeLoadAs<uint32_t>(in + 4 * 10),
+    SafeLoadAs<uint32_t>(in + 4 * 11),
+    SafeLoadAs<uint32_t>(in + 4 * 11),
+    SafeLoadAs<uint32_t>(in + 4 * 12),
+    SafeLoadAs<uint32_t>(in + 4 * 12),
+    SafeLoadAs<uint32_t>(in + 4 * 13),
+    SafeLoadAs<uint32_t>(in + 4 * 13),
+    SafeLoadAs<uint32_t>(in + 4 * 14),
+    SafeLoadAs<uint32_t>(in + 4 * 14),
+    SafeLoadAs<uint32_t>(in + 4 * 15),
+    SafeLoadAs<uint32_t>(in + 4 * 15),
+  };
   shifts = simd_batch{ 0, 16, 0, 16, 0, 16, 0, 16, 0, 16, 0, 16, 0, 16, 0, 16 };
   results = (words >> shifts) & masks;
   results.store_unaligned(out);
   out += 16;
 
-  in += 16;
+  in += 16 * 4;
   return in;
 }
 
-inline static const uint32_t* unpack17_32(const uint32_t* in, uint32_t* out) {
+inline static const uint8_t* unpack17_32(const uint8_t* in, uint32_t* out) {
+  using simd_batch = xsimd::make_sized_batch_t<uint32_t, 16>;
+
   uint32_t mask = 0x1ffff;
 
   simd_batch masks(mask);
@@ -453,24 +1598,60 @@ inline static const uint32_t* unpack17_32(const uint32_t* in, uint32_t* out) {
   simd_batch results;
 
   // extract 17-bit bundles 0 to 15
-  words = simd_batch{ SafeLoad<uint32_t>(in + 0), SafeLoad<uint32_t>(in + 0) >> 17 | SafeLoad<uint32_t>(in + 1) << 15, SafeLoad<uint32_t>(in + 1), SafeLoad<uint32_t>(in + 1) >> 19 | SafeLoad<uint32_t>(in + 2) << 13, SafeLoad<uint32_t>(in + 2), SafeLoad<uint32_t>(in + 2) >> 21 | SafeLoad<uint32_t>(in + 3) << 11, SafeLoad<uint32_t>(in + 3), SafeLoad<uint32_t>(in + 3) >> 23 | SafeLoad<uint32_t>(in + 4) << 9, SafeLoad<uint32_t>(in + 4), SafeLoad<uint32_t>(in + 4) >> 25 | SafeLoad<uint32_t>(in + 5) << 7, SafeLoad<uint32_t>(in + 5), SafeLoad<uint32_t>(in + 5) >> 27 | SafeLoad<uint32_t>(in + 6) << 5, SafeLoad<uint32_t>(in + 6), SafeLoad<uint32_t>(in + 6) >> 29 | SafeLoad<uint32_t>(in + 7) << 3, SafeLoad<uint32_t>(in + 7), SafeLoad<uint32_t>(in + 7) >> 31 | SafeLoad<uint32_t>(in + 8) << 1 };
+  words = simd_batch{
+    SafeLoadAs<uint32_t>(in + 4 * 0),
+    SafeLoadAs<uint32_t>(in + 4 * 0) >> 17 | SafeLoadAs<uint32_t>(in + 4 * 1) << 15,
+    SafeLoadAs<uint32_t>(in + 4 * 1),
+    SafeLoadAs<uint32_t>(in + 4 * 1) >> 19 | SafeLoadAs<uint32_t>(in + 4 * 2) << 13,
+    SafeLoadAs<uint32_t>(in + 4 * 2),
+    SafeLoadAs<uint32_t>(in + 4 * 2) >> 21 | SafeLoadAs<uint32_t>(in + 4 * 3) << 11,
+    SafeLoadAs<uint32_t>(in + 4 * 3),
+    SafeLoadAs<uint32_t>(in + 4 * 3) >> 23 | SafeLoadAs<uint32_t>(in + 4 * 4) << 9,
+    SafeLoadAs<uint32_t>(in + 4 * 4),
+    SafeLoadAs<uint32_t>(in + 4 * 4) >> 25 | SafeLoadAs<uint32_t>(in + 4 * 5) << 7,
+    SafeLoadAs<uint32_t>(in + 4 * 5),
+    SafeLoadAs<uint32_t>(in + 4 * 5) >> 27 | SafeLoadAs<uint32_t>(in + 4 * 6) << 5,
+    SafeLoadAs<uint32_t>(in + 4 * 6),
+    SafeLoadAs<uint32_t>(in + 4 * 6) >> 29 | SafeLoadAs<uint32_t>(in + 4 * 7) << 3,
+    SafeLoadAs<uint32_t>(in + 4 * 7),
+    SafeLoadAs<uint32_t>(in + 4 * 7) >> 31 | SafeLoadAs<uint32_t>(in + 4 * 8) << 1,
+  };
   shifts = simd_batch{ 0, 0, 2, 0, 4, 0, 6, 0, 8, 0, 10, 0, 12, 0, 14, 0 };
   results = (words >> shifts) & masks;
   results.store_unaligned(out);
   out += 16;
 
   // extract 17-bit bundles 16 to 31
-  words = simd_batch{ SafeLoad<uint32_t>(in + 8) >> 16 | SafeLoad<uint32_t>(in + 9) << 16, SafeLoad<uint32_t>(in + 9), SafeLoad<uint32_t>(in + 9) >> 18 | SafeLoad<uint32_t>(in + 10) << 14, SafeLoad<uint32_t>(in + 10), SafeLoad<uint32_t>(in + 10) >> 20 | SafeLoad<uint32_t>(in + 11) << 12, SafeLoad<uint32_t>(in + 11), SafeLoad<uint32_t>(in + 11) >> 22 | SafeLoad<uint32_t>(in + 12) << 10, SafeLoad<uint32_t>(in + 12), SafeLoad<uint32_t>(in + 12) >> 24 | SafeLoad<uint32_t>(in + 13) << 8, SafeLoad<uint32_t>(in + 13), SafeLoad<uint32_t>(in + 13) >> 26 | SafeLoad<uint32_t>(in + 14) << 6, SafeLoad<uint32_t>(in + 14), SafeLoad<uint32_t>(in + 14) >> 28 | SafeLoad<uint32_t>(in + 15) << 4, SafeLoad<uint32_t>(in + 15), SafeLoad<uint32_t>(in + 15) >> 30 | SafeLoad<uint32_t>(in + 16) << 2, SafeLoad<uint32_t>(in + 16) };
+  words = simd_batch{
+    SafeLoadAs<uint32_t>(in + 4 * 8) >> 16 | SafeLoadAs<uint32_t>(in + 4 * 9) << 16,
+    SafeLoadAs<uint32_t>(in + 4 * 9),
+    SafeLoadAs<uint32_t>(in + 4 * 9) >> 18 | SafeLoadAs<uint32_t>(in + 4 * 10) << 14,
+    SafeLoadAs<uint32_t>(in + 4 * 10),
+    SafeLoadAs<uint32_t>(in + 4 * 10) >> 20 | SafeLoadAs<uint32_t>(in + 4 * 11) << 12,
+    SafeLoadAs<uint32_t>(in + 4 * 11),
+    SafeLoadAs<uint32_t>(in + 4 * 11) >> 22 | SafeLoadAs<uint32_t>(in + 4 * 12) << 10,
+    SafeLoadAs<uint32_t>(in + 4 * 12),
+    SafeLoadAs<uint32_t>(in + 4 * 12) >> 24 | SafeLoadAs<uint32_t>(in + 4 * 13) << 8,
+    SafeLoadAs<uint32_t>(in + 4 * 13),
+    SafeLoadAs<uint32_t>(in + 4 * 13) >> 26 | SafeLoadAs<uint32_t>(in + 4 * 14) << 6,
+    SafeLoadAs<uint32_t>(in + 4 * 14),
+    SafeLoadAs<uint32_t>(in + 4 * 14) >> 28 | SafeLoadAs<uint32_t>(in + 4 * 15) << 4,
+    SafeLoadAs<uint32_t>(in + 4 * 15),
+    SafeLoadAs<uint32_t>(in + 4 * 15) >> 30 | SafeLoadAs<uint32_t>(in + 4 * 16) << 2,
+    SafeLoadAs<uint32_t>(in + 4 * 16),
+  };
   shifts = simd_batch{ 0, 1, 0, 3, 0, 5, 0, 7, 0, 9, 0, 11, 0, 13, 0, 15 };
   results = (words >> shifts) & masks;
   results.store_unaligned(out);
   out += 16;
 
-  in += 17;
+  in += 17 * 4;
   return in;
 }
 
-inline static const uint32_t* unpack18_32(const uint32_t* in, uint32_t* out) {
+inline static const uint8_t* unpack18_32(const uint8_t* in, uint32_t* out) {
+  using simd_batch = xsimd::make_sized_batch_t<uint32_t, 16>;
+
   uint32_t mask = 0x3ffff;
 
   simd_batch masks(mask);
@@ -478,24 +1659,60 @@ inline static const uint32_t* unpack18_32(const uint32_t* in, uint32_t* out) {
   simd_batch results;
 
   // extract 18-bit bundles 0 to 15
-  words = simd_batch{ SafeLoad<uint32_t>(in + 0), SafeLoad<uint32_t>(in + 0) >> 18 | SafeLoad<uint32_t>(in + 1) << 14, SafeLoad<uint32_t>(in + 1), SafeLoad<uint32_t>(in + 1) >> 22 | SafeLoad<uint32_t>(in + 2) << 10, SafeLoad<uint32_t>(in + 2), SafeLoad<uint32_t>(in + 2) >> 26 | SafeLoad<uint32_t>(in + 3) << 6, SafeLoad<uint32_t>(in + 3), SafeLoad<uint32_t>(in + 3) >> 30 | SafeLoad<uint32_t>(in + 4) << 2, SafeLoad<uint32_t>(in + 4) >> 16 | SafeLoad<uint32_t>(in + 5) << 16, SafeLoad<uint32_t>(in + 5), SafeLoad<uint32_t>(in + 5) >> 20 | SafeLoad<uint32_t>(in + 6) << 12, SafeLoad<uint32_t>(in + 6), SafeLoad<uint32_t>(in + 6) >> 24 | SafeLoad<uint32_t>(in + 7) << 8, SafeLoad<uint32_t>(in + 7), SafeLoad<uint32_t>(in + 7) >> 28 | SafeLoad<uint32_t>(in + 8) << 4, SafeLoad<uint32_t>(in + 8) };
+  words = simd_batch{
+    SafeLoadAs<uint32_t>(in + 4 * 0),
+    SafeLoadAs<uint32_t>(in + 4 * 0) >> 18 | SafeLoadAs<uint32_t>(in + 4 * 1) << 14,
+    SafeLoadAs<uint32_t>(in + 4 * 1),
+    SafeLoadAs<uint32_t>(in + 4 * 1) >> 22 | SafeLoadAs<uint32_t>(in + 4 * 2) << 10,
+    SafeLoadAs<uint32_t>(in + 4 * 2),
+    SafeLoadAs<uint32_t>(in + 4 * 2) >> 26 | SafeLoadAs<uint32_t>(in + 4 * 3) << 6,
+    SafeLoadAs<uint32_t>(in + 4 * 3),
+    SafeLoadAs<uint32_t>(in + 4 * 3) >> 30 | SafeLoadAs<uint32_t>(in + 4 * 4) << 2,
+    SafeLoadAs<uint32_t>(in + 4 * 4) >> 16 | SafeLoadAs<uint32_t>(in + 4 * 5) << 16,
+    SafeLoadAs<uint32_t>(in + 4 * 5),
+    SafeLoadAs<uint32_t>(in + 4 * 5) >> 20 | SafeLoadAs<uint32_t>(in + 4 * 6) << 12,
+    SafeLoadAs<uint32_t>(in + 4 * 6),
+    SafeLoadAs<uint32_t>(in + 4 * 6) >> 24 | SafeLoadAs<uint32_t>(in + 4 * 7) << 8,
+    SafeLoadAs<uint32_t>(in + 4 * 7),
+    SafeLoadAs<uint32_t>(in + 4 * 7) >> 28 | SafeLoadAs<uint32_t>(in + 4 * 8) << 4,
+    SafeLoadAs<uint32_t>(in + 4 * 8),
+  };
   shifts = simd_batch{ 0, 0, 4, 0, 8, 0, 12, 0, 0, 2, 0, 6, 0, 10, 0, 14 };
   results = (words >> shifts) & masks;
   results.store_unaligned(out);
   out += 16;
 
   // extract 18-bit bundles 16 to 31
-  words = simd_batch{ SafeLoad<uint32_t>(in + 9), SafeLoad<uint32_t>(in + 9) >> 18 | SafeLoad<uint32_t>(in + 10) << 14, SafeLoad<uint32_t>(in + 10), SafeLoad<uint32_t>(in + 10) >> 22 | SafeLoad<uint32_t>(in + 11) << 10, SafeLoad<uint32_t>(in + 11), SafeLoad<uint32_t>(in + 11) >> 26 | SafeLoad<uint32_t>(in + 12) << 6, SafeLoad<uint32_t>(in + 12), SafeLoad<uint32_t>(in + 12) >> 30 | SafeLoad<uint32_t>(in + 13) << 2, SafeLoad<uint32_t>(in + 13) >> 16 | SafeLoad<uint32_t>(in + 14) << 16, SafeLoad<uint32_t>(in + 14), SafeLoad<uint32_t>(in + 14) >> 20 | SafeLoad<uint32_t>(in + 15) << 12, SafeLoad<uint32_t>(in + 15), SafeLoad<uint32_t>(in + 15) >> 24 | SafeLoad<uint32_t>(in + 16) << 8, SafeLoad<uint32_t>(in + 16), SafeLoad<uint32_t>(in + 16) >> 28 | SafeLoad<uint32_t>(in + 17) << 4, SafeLoad<uint32_t>(in + 17) };
+  words = simd_batch{
+    SafeLoadAs<uint32_t>(in + 4 * 9),
+    SafeLoadAs<uint32_t>(in + 4 * 9) >> 18 | SafeLoadAs<uint32_t>(in + 4 * 10) << 14,
+    SafeLoadAs<uint32_t>(in + 4 * 10),
+    SafeLoadAs<uint32_t>(in + 4 * 10) >> 22 | SafeLoadAs<uint32_t>(in + 4 * 11) << 10,
+    SafeLoadAs<uint32_t>(in + 4 * 11),
+    SafeLoadAs<uint32_t>(in + 4 * 11) >> 26 | SafeLoadAs<uint32_t>(in + 4 * 12) << 6,
+    SafeLoadAs<uint32_t>(in + 4 * 12),
+    SafeLoadAs<uint32_t>(in + 4 * 12) >> 30 | SafeLoadAs<uint32_t>(in + 4 * 13) << 2,
+    SafeLoadAs<uint32_t>(in + 4 * 13) >> 16 | SafeLoadAs<uint32_t>(in + 4 * 14) << 16,
+    SafeLoadAs<uint32_t>(in + 4 * 14),
+    SafeLoadAs<uint32_t>(in + 4 * 14) >> 20 | SafeLoadAs<uint32_t>(in + 4 * 15) << 12,
+    SafeLoadAs<uint32_t>(in + 4 * 15),
+    SafeLoadAs<uint32_t>(in + 4 * 15) >> 24 | SafeLoadAs<uint32_t>(in + 4 * 16) << 8,
+    SafeLoadAs<uint32_t>(in + 4 * 16),
+    SafeLoadAs<uint32_t>(in + 4 * 16) >> 28 | SafeLoadAs<uint32_t>(in + 4 * 17) << 4,
+    SafeLoadAs<uint32_t>(in + 4 * 17),
+  };
   shifts = simd_batch{ 0, 0, 4, 0, 8, 0, 12, 0, 0, 2, 0, 6, 0, 10, 0, 14 };
   results = (words >> shifts) & masks;
   results.store_unaligned(out);
   out += 16;
 
-  in += 18;
+  in += 18 * 4;
   return in;
 }
 
-inline static const uint32_t* unpack19_32(const uint32_t* in, uint32_t* out) {
+inline static const uint8_t* unpack19_32(const uint8_t* in, uint32_t* out) {
+  using simd_batch = xsimd::make_sized_batch_t<uint32_t, 16>;
+
   uint32_t mask = 0x7ffff;
 
   simd_batch masks(mask);
@@ -503,24 +1720,60 @@ inline static const uint32_t* unpack19_32(const uint32_t* in, uint32_t* out) {
   simd_batch results;
 
   // extract 19-bit bundles 0 to 15
-  words = simd_batch{ SafeLoad<uint32_t>(in + 0), SafeLoad<uint32_t>(in + 0) >> 19 | SafeLoad<uint32_t>(in + 1) << 13, SafeLoad<uint32_t>(in + 1), SafeLoad<uint32_t>(in + 1) >> 25 | SafeLoad<uint32_t>(in + 2) << 7, SafeLoad<uint32_t>(in + 2), SafeLoad<uint32_t>(in + 2) >> 31 | SafeLoad<uint32_t>(in + 3) << 1, SafeLoad<uint32_t>(in + 3) >> 18 | SafeLoad<uint32_t>(in + 4) << 14, SafeLoad<uint32_t>(in + 4), SafeLoad<uint32_t>(in + 4) >> 24 | SafeLoad<uint32_t>(in + 5) << 8, SafeLoad<uint32_t>(in + 5), SafeLoad<uint32_t>(in + 5) >> 30 | SafeLoad<uint32_t>(in + 6) << 2, SafeLoad<uint32_t>(in + 6) >> 17 | SafeLoad<uint32_t>(in + 7) << 15, SafeLoad<uint32_t>(in + 7), SafeLoad<uint32_t>(in + 7) >> 23 | SafeLoad<uint32_t>(in + 8) << 9, SafeLoad<uint32_t>(in + 8), SafeLoad<uint32_t>(in + 8) >> 29 | SafeLoad<uint32_t>(in + 9) << 3 };
+  words = simd_batch{
+    SafeLoadAs<uint32_t>(in + 4 * 0),
+    SafeLoadAs<uint32_t>(in + 4 * 0) >> 19 | SafeLoadAs<uint32_t>(in + 4 * 1) << 13,
+    SafeLoadAs<uint32_t>(in + 4 * 1),
+    SafeLoadAs<uint32_t>(in + 4 * 1) >> 25 | SafeLoadAs<uint32_t>(in + 4 * 2) << 7,
+    SafeLoadAs<uint32_t>(in + 4 * 2),
+    SafeLoadAs<uint32_t>(in + 4 * 2) >> 31 | SafeLoadAs<uint32_t>(in + 4 * 3) << 1,
+    SafeLoadAs<uint32_t>(in + 4 * 3) >> 18 | SafeLoadAs<uint32_t>(in + 4 * 4) << 14,
+    SafeLoadAs<uint32_t>(in + 4 * 4),
+    SafeLoadAs<uint32_t>(in + 4 * 4) >> 24 | SafeLoadAs<uint32_t>(in + 4 * 5) << 8,
+    SafeLoadAs<uint32_t>(in + 4 * 5),
+    SafeLoadAs<uint32_t>(in + 4 * 5) >> 30 | SafeLoadAs<uint32_t>(in + 4 * 6) << 2,
+    SafeLoadAs<uint32_t>(in + 4 * 6) >> 17 | SafeLoadAs<uint32_t>(in + 4 * 7) << 15,
+    SafeLoadAs<uint32_t>(in + 4 * 7),
+    SafeLoadAs<uint32_t>(in + 4 * 7) >> 23 | SafeLoadAs<uint32_t>(in + 4 * 8) << 9,
+    SafeLoadAs<uint32_t>(in + 4 * 8),
+    SafeLoadAs<uint32_t>(in + 4 * 8) >> 29 | SafeLoadAs<uint32_t>(in + 4 * 9) << 3,
+  };
   shifts = simd_batch{ 0, 0, 6, 0, 12, 0, 0, 5, 0, 11, 0, 0, 4, 0, 10, 0 };
   results = (words >> shifts) & masks;
   results.store_unaligned(out);
   out += 16;
 
   // extract 19-bit bundles 16 to 31
-  words = simd_batch{ SafeLoad<uint32_t>(in + 9) >> 16 | SafeLoad<uint32_t>(in + 10) << 16, SafeLoad<uint32_t>(in + 10), SafeLoad<uint32_t>(in + 10) >> 22 | SafeLoad<uint32_t>(in + 11) << 10, SafeLoad<uint32_t>(in + 11), SafeLoad<uint32_t>(in + 11) >> 28 | SafeLoad<uint32_t>(in + 12) << 4, SafeLoad<uint32_t>(in + 12) >> 15 | SafeLoad<uint32_t>(in + 13) << 17, SafeLoad<uint32_t>(in + 13), SafeLoad<uint32_t>(in + 13) >> 21 | SafeLoad<uint32_t>(in + 14) << 11, SafeLoad<uint32_t>(in + 14), SafeLoad<uint32_t>(in + 14) >> 27 | SafeLoad<uint32_t>(in + 15) << 5, SafeLoad<uint32_t>(in + 15) >> 14 | SafeLoad<uint32_t>(in + 16) << 18, SafeLoad<uint32_t>(in + 16), SafeLoad<uint32_t>(in + 16) >> 20 | SafeLoad<uint32_t>(in + 17) << 12, SafeLoad<uint32_t>(in + 17), SafeLoad<uint32_t>(in + 17) >> 26 | SafeLoad<uint32_t>(in + 18) << 6, SafeLoad<uint32_t>(in + 18) };
+  words = simd_batch{
+    SafeLoadAs<uint32_t>(in + 4 * 9) >> 16 | SafeLoadAs<uint32_t>(in + 4 * 10) << 16,
+    SafeLoadAs<uint32_t>(in + 4 * 10),
+    SafeLoadAs<uint32_t>(in + 4 * 10) >> 22 | SafeLoadAs<uint32_t>(in + 4 * 11) << 10,
+    SafeLoadAs<uint32_t>(in + 4 * 11),
+    SafeLoadAs<uint32_t>(in + 4 * 11) >> 28 | SafeLoadAs<uint32_t>(in + 4 * 12) << 4,
+    SafeLoadAs<uint32_t>(in + 4 * 12) >> 15 | SafeLoadAs<uint32_t>(in + 4 * 13) << 17,
+    SafeLoadAs<uint32_t>(in + 4 * 13),
+    SafeLoadAs<uint32_t>(in + 4 * 13) >> 21 | SafeLoadAs<uint32_t>(in + 4 * 14) << 11,
+    SafeLoadAs<uint32_t>(in + 4 * 14),
+    SafeLoadAs<uint32_t>(in + 4 * 14) >> 27 | SafeLoadAs<uint32_t>(in + 4 * 15) << 5,
+    SafeLoadAs<uint32_t>(in + 4 * 15) >> 14 | SafeLoadAs<uint32_t>(in + 4 * 16) << 18,
+    SafeLoadAs<uint32_t>(in + 4 * 16),
+    SafeLoadAs<uint32_t>(in + 4 * 16) >> 20 | SafeLoadAs<uint32_t>(in + 4 * 17) << 12,
+    SafeLoadAs<uint32_t>(in + 4 * 17),
+    SafeLoadAs<uint32_t>(in + 4 * 17) >> 26 | SafeLoadAs<uint32_t>(in + 4 * 18) << 6,
+    SafeLoadAs<uint32_t>(in + 4 * 18),
+  };
   shifts = simd_batch{ 0, 3, 0, 9, 0, 0, 2, 0, 8, 0, 0, 1, 0, 7, 0, 13 };
   results = (words >> shifts) & masks;
   results.store_unaligned(out);
   out += 16;
 
-  in += 19;
+  in += 19 * 4;
   return in;
 }
 
-inline static const uint32_t* unpack20_32(const uint32_t* in, uint32_t* out) {
+inline static const uint8_t* unpack20_32(const uint8_t* in, uint32_t* out) {
+  using simd_batch = xsimd::make_sized_batch_t<uint32_t, 16>;
+
   uint32_t mask = 0xfffff;
 
   simd_batch masks(mask);
@@ -528,24 +1781,60 @@ inline static const uint32_t* unpack20_32(const uint32_t* in, uint32_t* out) {
   simd_batch results;
 
   // extract 20-bit bundles 0 to 15
-  words = simd_batch{ SafeLoad<uint32_t>(in + 0), SafeLoad<uint32_t>(in + 0) >> 20 | SafeLoad<uint32_t>(in + 1) << 12, SafeLoad<uint32_t>(in + 1), SafeLoad<uint32_t>(in + 1) >> 28 | SafeLoad<uint32_t>(in + 2) << 4, SafeLoad<uint32_t>(in + 2) >> 16 | SafeLoad<uint32_t>(in + 3) << 16, SafeLoad<uint32_t>(in + 3), SafeLoad<uint32_t>(in + 3) >> 24 | SafeLoad<uint32_t>(in + 4) << 8, SafeLoad<uint32_t>(in + 4), SafeLoad<uint32_t>(in + 5), SafeLoad<uint32_t>(in + 5) >> 20 | SafeLoad<uint32_t>(in + 6) << 12, SafeLoad<uint32_t>(in + 6), SafeLoad<uint32_t>(in + 6) >> 28 | SafeLoad<uint32_t>(in + 7) << 4, SafeLoad<uint32_t>(in + 7) >> 16 | SafeLoad<uint32_t>(in + 8) << 16, SafeLoad<uint32_t>(in + 8), SafeLoad<uint32_t>(in + 8) >> 24 | SafeLoad<uint32_t>(in + 9) << 8, SafeLoad<uint32_t>(in + 9) };
+  words = simd_batch{
+    SafeLoadAs<uint32_t>(in + 4 * 0),
+    SafeLoadAs<uint32_t>(in + 4 * 0) >> 20 | SafeLoadAs<uint32_t>(in + 4 * 1) << 12,
+    SafeLoadAs<uint32_t>(in + 4 * 1),
+    SafeLoadAs<uint32_t>(in + 4 * 1) >> 28 | SafeLoadAs<uint32_t>(in + 4 * 2) << 4,
+    SafeLoadAs<uint32_t>(in + 4 * 2) >> 16 | SafeLoadAs<uint32_t>(in + 4 * 3) << 16,
+    SafeLoadAs<uint32_t>(in + 4 * 3),
+    SafeLoadAs<uint32_t>(in + 4 * 3) >> 24 | SafeLoadAs<uint32_t>(in + 4 * 4) << 8,
+    SafeLoadAs<uint32_t>(in + 4 * 4),
+    SafeLoadAs<uint32_t>(in + 4 * 5),
+    SafeLoadAs<uint32_t>(in + 4 * 5) >> 20 | SafeLoadAs<uint32_t>(in + 4 * 6) << 12,
+    SafeLoadAs<uint32_t>(in + 4 * 6),
+    SafeLoadAs<uint32_t>(in + 4 * 6) >> 28 | SafeLoadAs<uint32_t>(in + 4 * 7) << 4,
+    SafeLoadAs<uint32_t>(in + 4 * 7) >> 16 | SafeLoadAs<uint32_t>(in + 4 * 8) << 16,
+    SafeLoadAs<uint32_t>(in + 4 * 8),
+    SafeLoadAs<uint32_t>(in + 4 * 8) >> 24 | SafeLoadAs<uint32_t>(in + 4 * 9) << 8,
+    SafeLoadAs<uint32_t>(in + 4 * 9),
+  };
   shifts = simd_batch{ 0, 0, 8, 0, 0, 4, 0, 12, 0, 0, 8, 0, 0, 4, 0, 12 };
   results = (words >> shifts) & masks;
   results.store_unaligned(out);
   out += 16;
 
   // extract 20-bit bundles 16 to 31
-  words = simd_batch{ SafeLoad<uint32_t>(in + 10), SafeLoad<uint32_t>(in + 10) >> 20 | SafeLoad<uint32_t>(in + 11) << 12, SafeLoad<uint32_t>(in + 11), SafeLoad<uint32_t>(in + 11) >> 28 | SafeLoad<uint32_t>(in + 12) << 4, SafeLoad<uint32_t>(in + 12) >> 16 | SafeLoad<uint32_t>(in + 13) << 16, SafeLoad<uint32_t>(in + 13), SafeLoad<uint32_t>(in + 13) >> 24 | SafeLoad<uint32_t>(in + 14) << 8, SafeLoad<uint32_t>(in + 14), SafeLoad<uint32_t>(in + 15), SafeLoad<uint32_t>(in + 15) >> 20 | SafeLoad<uint32_t>(in + 16) << 12, SafeLoad<uint32_t>(in + 16), SafeLoad<uint32_t>(in + 16) >> 28 | SafeLoad<uint32_t>(in + 17) << 4, SafeLoad<uint32_t>(in + 17) >> 16 | SafeLoad<uint32_t>(in + 18) << 16, SafeLoad<uint32_t>(in + 18), SafeLoad<uint32_t>(in + 18) >> 24 | SafeLoad<uint32_t>(in + 19) << 8, SafeLoad<uint32_t>(in + 19) };
+  words = simd_batch{
+    SafeLoadAs<uint32_t>(in + 4 * 10),
+    SafeLoadAs<uint32_t>(in + 4 * 10) >> 20 | SafeLoadAs<uint32_t>(in + 4 * 11) << 12,
+    SafeLoadAs<uint32_t>(in + 4 * 11),
+    SafeLoadAs<uint32_t>(in + 4 * 11) >> 28 | SafeLoadAs<uint32_t>(in + 4 * 12) << 4,
+    SafeLoadAs<uint32_t>(in + 4 * 12) >> 16 | SafeLoadAs<uint32_t>(in + 4 * 13) << 16,
+    SafeLoadAs<uint32_t>(in + 4 * 13),
+    SafeLoadAs<uint32_t>(in + 4 * 13) >> 24 | SafeLoadAs<uint32_t>(in + 4 * 14) << 8,
+    SafeLoadAs<uint32_t>(in + 4 * 14),
+    SafeLoadAs<uint32_t>(in + 4 * 15),
+    SafeLoadAs<uint32_t>(in + 4 * 15) >> 20 | SafeLoadAs<uint32_t>(in + 4 * 16) << 12,
+    SafeLoadAs<uint32_t>(in + 4 * 16),
+    SafeLoadAs<uint32_t>(in + 4 * 16) >> 28 | SafeLoadAs<uint32_t>(in + 4 * 17) << 4,
+    SafeLoadAs<uint32_t>(in + 4 * 17) >> 16 | SafeLoadAs<uint32_t>(in + 4 * 18) << 16,
+    SafeLoadAs<uint32_t>(in + 4 * 18),
+    SafeLoadAs<uint32_t>(in + 4 * 18) >> 24 | SafeLoadAs<uint32_t>(in + 4 * 19) << 8,
+    SafeLoadAs<uint32_t>(in + 4 * 19),
+  };
   shifts = simd_batch{ 0, 0, 8, 0, 0, 4, 0, 12, 0, 0, 8, 0, 0, 4, 0, 12 };
   results = (words >> shifts) & masks;
   results.store_unaligned(out);
   out += 16;
 
-  in += 20;
+  in += 20 * 4;
   return in;
 }
 
-inline static const uint32_t* unpack21_32(const uint32_t* in, uint32_t* out) {
+inline static const uint8_t* unpack21_32(const uint8_t* in, uint32_t* out) {
+  using simd_batch = xsimd::make_sized_batch_t<uint32_t, 16>;
+
   uint32_t mask = 0x1fffff;
 
   simd_batch masks(mask);
@@ -553,24 +1842,60 @@ inline static const uint32_t* unpack21_32(const uint32_t* in, uint32_t* out) {
   simd_batch results;
 
   // extract 21-bit bundles 0 to 15
-  words = simd_batch{ SafeLoad<uint32_t>(in + 0), SafeLoad<uint32_t>(in + 0) >> 21 | SafeLoad<uint32_t>(in + 1) << 11, SafeLoad<uint32_t>(in + 1), SafeLoad<uint32_t>(in + 1) >> 31 | SafeLoad<uint32_t>(in + 2) << 1, SafeLoad<uint32_t>(in + 2) >> 20 | SafeLoad<uint32_t>(in + 3) << 12, SafeLoad<uint32_t>(in + 3), SafeLoad<uint32_t>(in + 3) >> 30 | SafeLoad<uint32_t>(in + 4) << 2, SafeLoad<uint32_t>(in + 4) >> 19 | SafeLoad<uint32_t>(in + 5) << 13, SafeLoad<uint32_t>(in + 5), SafeLoad<uint32_t>(in + 5) >> 29 | SafeLoad<uint32_t>(in + 6) << 3, SafeLoad<uint32_t>(in + 6) >> 18 | SafeLoad<uint32_t>(in + 7) << 14, SafeLoad<uint32_t>(in + 7), SafeLoad<uint32_t>(in + 7) >> 28 | SafeLoad<uint32_t>(in + 8) << 4, SafeLoad<uint32_t>(in + 8) >> 17 | SafeLoad<uint32_t>(in + 9) << 15, SafeLoad<uint32_t>(in + 9), SafeLoad<uint32_t>(in + 9) >> 27 | SafeLoad<uint32_t>(in + 10) << 5 };
+  words = simd_batch{
+    SafeLoadAs<uint32_t>(in + 4 * 0),
+    SafeLoadAs<uint32_t>(in + 4 * 0) >> 21 | SafeLoadAs<uint32_t>(in + 4 * 1) << 11,
+    SafeLoadAs<uint32_t>(in + 4 * 1),
+    SafeLoadAs<uint32_t>(in + 4 * 1) >> 31 | SafeLoadAs<uint32_t>(in + 4 * 2) << 1,
+    SafeLoadAs<uint32_t>(in + 4 * 2) >> 20 | SafeLoadAs<uint32_t>(in + 4 * 3) << 12,
+    SafeLoadAs<uint32_t>(in + 4 * 3),
+    SafeLoadAs<uint32_t>(in + 4 * 3) >> 30 | SafeLoadAs<uint32_t>(in + 4 * 4) << 2,
+    SafeLoadAs<uint32_t>(in + 4 * 4) >> 19 | SafeLoadAs<uint32_t>(in + 4 * 5) << 13,
+    SafeLoadAs<uint32_t>(in + 4 * 5),
+    SafeLoadAs<uint32_t>(in + 4 * 5) >> 29 | SafeLoadAs<uint32_t>(in + 4 * 6) << 3,
+    SafeLoadAs<uint32_t>(in + 4 * 6) >> 18 | SafeLoadAs<uint32_t>(in + 4 * 7) << 14,
+    SafeLoadAs<uint32_t>(in + 4 * 7),
+    SafeLoadAs<uint32_t>(in + 4 * 7) >> 28 | SafeLoadAs<uint32_t>(in + 4 * 8) << 4,
+    SafeLoadAs<uint32_t>(in + 4 * 8) >> 17 | SafeLoadAs<uint32_t>(in + 4 * 9) << 15,
+    SafeLoadAs<uint32_t>(in + 4 * 9),
+    SafeLoadAs<uint32_t>(in + 4 * 9) >> 27 | SafeLoadAs<uint32_t>(in + 4 * 10) << 5,
+  };
   shifts = simd_batch{ 0, 0, 10, 0, 0, 9, 0, 0, 8, 0, 0, 7, 0, 0, 6, 0 };
   results = (words >> shifts) & masks;
   results.store_unaligned(out);
   out += 16;
 
   // extract 21-bit bundles 16 to 31
-  words = simd_batch{ SafeLoad<uint32_t>(in + 10) >> 16 | SafeLoad<uint32_t>(in + 11) << 16, SafeLoad<uint32_t>(in + 11), SafeLoad<uint32_t>(in + 11) >> 26 | SafeLoad<uint32_t>(in + 12) << 6, SafeLoad<uint32_t>(in + 12) >> 15 | SafeLoad<uint32_t>(in + 13) << 17, SafeLoad<uint32_t>(in + 13), SafeLoad<uint32_t>(in + 13) >> 25 | SafeLoad<uint32_t>(in + 14) << 7, SafeLoad<uint32_t>(in + 14) >> 14 | SafeLoad<uint32_t>(in + 15) << 18, SafeLoad<uint32_t>(in + 15), SafeLoad<uint32_t>(in + 15) >> 24 | SafeLoad<uint32_t>(in + 16) << 8, SafeLoad<uint32_t>(in + 16) >> 13 | SafeLoad<uint32_t>(in + 17) << 19, SafeLoad<uint32_t>(in + 17), SafeLoad<uint32_t>(in + 17) >> 23 | SafeLoad<uint32_t>(in + 18) << 9, SafeLoad<uint32_t>(in + 18) >> 12 | SafeLoad<uint32_t>(in + 19) << 20, SafeLoad<uint32_t>(in + 19), SafeLoad<uint32_t>(in + 19) >> 22 | SafeLoad<uint32_t>(in + 20) << 10, SafeLoad<uint32_t>(in + 20) };
+  words = simd_batch{
+    SafeLoadAs<uint32_t>(in + 4 * 10) >> 16 | SafeLoadAs<uint32_t>(in + 4 * 11) << 16,
+    SafeLoadAs<uint32_t>(in + 4 * 11),
+    SafeLoadAs<uint32_t>(in + 4 * 11) >> 26 | SafeLoadAs<uint32_t>(in + 4 * 12) << 6,
+    SafeLoadAs<uint32_t>(in + 4 * 12) >> 15 | SafeLoadAs<uint32_t>(in + 4 * 13) << 17,
+    SafeLoadAs<uint32_t>(in + 4 * 13),
+    SafeLoadAs<uint32_t>(in + 4 * 13) >> 25 | SafeLoadAs<uint32_t>(in + 4 * 14) << 7,
+    SafeLoadAs<uint32_t>(in + 4 * 14) >> 14 | SafeLoadAs<uint32_t>(in + 4 * 15) << 18,
+    SafeLoadAs<uint32_t>(in + 4 * 15),
+    SafeLoadAs<uint32_t>(in + 4 * 15) >> 24 | SafeLoadAs<uint32_t>(in + 4 * 16) << 8,
+    SafeLoadAs<uint32_t>(in + 4 * 16) >> 13 | SafeLoadAs<uint32_t>(in + 4 * 17) << 19,
+    SafeLoadAs<uint32_t>(in + 4 * 17),
+    SafeLoadAs<uint32_t>(in + 4 * 17) >> 23 | SafeLoadAs<uint32_t>(in + 4 * 18) << 9,
+    SafeLoadAs<uint32_t>(in + 4 * 18) >> 12 | SafeLoadAs<uint32_t>(in + 4 * 19) << 20,
+    SafeLoadAs<uint32_t>(in + 4 * 19),
+    SafeLoadAs<uint32_t>(in + 4 * 19) >> 22 | SafeLoadAs<uint32_t>(in + 4 * 20) << 10,
+    SafeLoadAs<uint32_t>(in + 4 * 20),
+  };
   shifts = simd_batch{ 0, 5, 0, 0, 4, 0, 0, 3, 0, 0, 2, 0, 0, 1, 0, 11 };
   results = (words >> shifts) & masks;
   results.store_unaligned(out);
   out += 16;
 
-  in += 21;
+  in += 21 * 4;
   return in;
 }
 
-inline static const uint32_t* unpack22_32(const uint32_t* in, uint32_t* out) {
+inline static const uint8_t* unpack22_32(const uint8_t* in, uint32_t* out) {
+  using simd_batch = xsimd::make_sized_batch_t<uint32_t, 16>;
+
   uint32_t mask = 0x3fffff;
 
   simd_batch masks(mask);
@@ -578,24 +1903,60 @@ inline static const uint32_t* unpack22_32(const uint32_t* in, uint32_t* out) {
   simd_batch results;
 
   // extract 22-bit bundles 0 to 15
-  words = simd_batch{ SafeLoad<uint32_t>(in + 0), SafeLoad<uint32_t>(in + 0) >> 22 | SafeLoad<uint32_t>(in + 1) << 10, SafeLoad<uint32_t>(in + 1) >> 12 | SafeLoad<uint32_t>(in + 2) << 20, SafeLoad<uint32_t>(in + 2), SafeLoad<uint32_t>(in + 2) >> 24 | SafeLoad<uint32_t>(in + 3) << 8, SafeLoad<uint32_t>(in + 3) >> 14 | SafeLoad<uint32_t>(in + 4) << 18, SafeLoad<uint32_t>(in + 4), SafeLoad<uint32_t>(in + 4) >> 26 | SafeLoad<uint32_t>(in + 5) << 6, SafeLoad<uint32_t>(in + 5) >> 16 | SafeLoad<uint32_t>(in + 6) << 16, SafeLoad<uint32_t>(in + 6), SafeLoad<uint32_t>(in + 6) >> 28 | SafeLoad<uint32_t>(in + 7) << 4, SafeLoad<uint32_t>(in + 7) >> 18 | SafeLoad<uint32_t>(in + 8) << 14, SafeLoad<uint32_t>(in + 8), SafeLoad<uint32_t>(in + 8) >> 30 | SafeLoad<uint32_t>(in + 9) << 2, SafeLoad<uint32_t>(in + 9) >> 20 | SafeLoad<uint32_t>(in + 10) << 12, SafeLoad<uint32_t>(in + 10) };
+  words = simd_batch{
+    SafeLoadAs<uint32_t>(in + 4 * 0),
+    SafeLoadAs<uint32_t>(in + 4 * 0) >> 22 | SafeLoadAs<uint32_t>(in + 4 * 1) << 10,
+    SafeLoadAs<uint32_t>(in + 4 * 1) >> 12 | SafeLoadAs<uint32_t>(in + 4 * 2) << 20,
+    SafeLoadAs<uint32_t>(in + 4 * 2),
+    SafeLoadAs<uint32_t>(in + 4 * 2) >> 24 | SafeLoadAs<uint32_t>(in + 4 * 3) << 8,
+    SafeLoadAs<uint32_t>(in + 4 * 3) >> 14 | SafeLoadAs<uint32_t>(in + 4 * 4) << 18,
+    SafeLoadAs<uint32_t>(in + 4 * 4),
+    SafeLoadAs<uint32_t>(in + 4 * 4) >> 26 | SafeLoadAs<uint32_t>(in + 4 * 5) << 6,
+    SafeLoadAs<uint32_t>(in + 4 * 5) >> 16 | SafeLoadAs<uint32_t>(in + 4 * 6) << 16,
+    SafeLoadAs<uint32_t>(in + 4 * 6),
+    SafeLoadAs<uint32_t>(in + 4 * 6) >> 28 | SafeLoadAs<uint32_t>(in + 4 * 7) << 4,
+    SafeLoadAs<uint32_t>(in + 4 * 7) >> 18 | SafeLoadAs<uint32_t>(in + 4 * 8) << 14,
+    SafeLoadAs<uint32_t>(in + 4 * 8),
+    SafeLoadAs<uint32_t>(in + 4 * 8) >> 30 | SafeLoadAs<uint32_t>(in + 4 * 9) << 2,
+    SafeLoadAs<uint32_t>(in + 4 * 9) >> 20 | SafeLoadAs<uint32_t>(in + 4 * 10) << 12,
+    SafeLoadAs<uint32_t>(in + 4 * 10),
+  };
   shifts = simd_batch{ 0, 0, 0, 2, 0, 0, 4, 0, 0, 6, 0, 0, 8, 0, 0, 10 };
   results = (words >> shifts) & masks;
   results.store_unaligned(out);
   out += 16;
 
   // extract 22-bit bundles 16 to 31
-  words = simd_batch{ SafeLoad<uint32_t>(in + 11), SafeLoad<uint32_t>(in + 11) >> 22 | SafeLoad<uint32_t>(in + 12) << 10, SafeLoad<uint32_t>(in + 12) >> 12 | SafeLoad<uint32_t>(in + 13) << 20, SafeLoad<uint32_t>(in + 13), SafeLoad<uint32_t>(in + 13) >> 24 | SafeLoad<uint32_t>(in + 14) << 8, SafeLoad<uint32_t>(in + 14) >> 14 | SafeLoad<uint32_t>(in + 15) << 18, SafeLoad<uint32_t>(in + 15), SafeLoad<uint32_t>(in + 15) >> 26 | SafeLoad<uint32_t>(in + 16) << 6, SafeLoad<uint32_t>(in + 16) >> 16 | SafeLoad<uint32_t>(in + 17) << 16, SafeLoad<uint32_t>(in + 17), SafeLoad<uint32_t>(in + 17) >> 28 | SafeLoad<uint32_t>(in + 18) << 4, SafeLoad<uint32_t>(in + 18) >> 18 | SafeLoad<uint32_t>(in + 19) << 14, SafeLoad<uint32_t>(in + 19), SafeLoad<uint32_t>(in + 19) >> 30 | SafeLoad<uint32_t>(in + 20) << 2, SafeLoad<uint32_t>(in + 20) >> 20 | SafeLoad<uint32_t>(in + 21) << 12, SafeLoad<uint32_t>(in + 21) };
+  words = simd_batch{
+    SafeLoadAs<uint32_t>(in + 4 * 11),
+    SafeLoadAs<uint32_t>(in + 4 * 11) >> 22 | SafeLoadAs<uint32_t>(in + 4 * 12) << 10,
+    SafeLoadAs<uint32_t>(in + 4 * 12) >> 12 | SafeLoadAs<uint32_t>(in + 4 * 13) << 20,
+    SafeLoadAs<uint32_t>(in + 4 * 13),
+    SafeLoadAs<uint32_t>(in + 4 * 13) >> 24 | SafeLoadAs<uint32_t>(in + 4 * 14) << 8,
+    SafeLoadAs<uint32_t>(in + 4 * 14) >> 14 | SafeLoadAs<uint32_t>(in + 4 * 15) << 18,
+    SafeLoadAs<uint32_t>(in + 4 * 15),
+    SafeLoadAs<uint32_t>(in + 4 * 15) >> 26 | SafeLoadAs<uint32_t>(in + 4 * 16) << 6,
+    SafeLoadAs<uint32_t>(in + 4 * 16) >> 16 | SafeLoadAs<uint32_t>(in + 4 * 17) << 16,
+    SafeLoadAs<uint32_t>(in + 4 * 17),
+    SafeLoadAs<uint32_t>(in + 4 * 17) >> 28 | SafeLoadAs<uint32_t>(in + 4 * 18) << 4,
+    SafeLoadAs<uint32_t>(in + 4 * 18) >> 18 | SafeLoadAs<uint32_t>(in + 4 * 19) << 14,
+    SafeLoadAs<uint32_t>(in + 4 * 19),
+    SafeLoadAs<uint32_t>(in + 4 * 19) >> 30 | SafeLoadAs<uint32_t>(in + 4 * 20) << 2,
+    SafeLoadAs<uint32_t>(in + 4 * 20) >> 20 | SafeLoadAs<uint32_t>(in + 4 * 21) << 12,
+    SafeLoadAs<uint32_t>(in + 4 * 21),
+  };
   shifts = simd_batch{ 0, 0, 0, 2, 0, 0, 4, 0, 0, 6, 0, 0, 8, 0, 0, 10 };
   results = (words >> shifts) & masks;
   results.store_unaligned(out);
   out += 16;
 
-  in += 22;
+  in += 22 * 4;
   return in;
 }
 
-inline static const uint32_t* unpack23_32(const uint32_t* in, uint32_t* out) {
+inline static const uint8_t* unpack23_32(const uint8_t* in, uint32_t* out) {
+  using simd_batch = xsimd::make_sized_batch_t<uint32_t, 16>;
+
   uint32_t mask = 0x7fffff;
 
   simd_batch masks(mask);
@@ -603,24 +1964,60 @@ inline static const uint32_t* unpack23_32(const uint32_t* in, uint32_t* out) {
   simd_batch results;
 
   // extract 23-bit bundles 0 to 15
-  words = simd_batch{ SafeLoad<uint32_t>(in + 0), SafeLoad<uint32_t>(in + 0) >> 23 | SafeLoad<uint32_t>(in + 1) << 9, SafeLoad<uint32_t>(in + 1) >> 14 | SafeLoad<uint32_t>(in + 2) << 18, SafeLoad<uint32_t>(in + 2), SafeLoad<uint32_t>(in + 2) >> 28 | SafeLoad<uint32_t>(in + 3) << 4, SafeLoad<uint32_t>(in + 3) >> 19 | SafeLoad<uint32_t>(in + 4) << 13, SafeLoad<uint32_t>(in + 4) >> 10 | SafeLoad<uint32_t>(in + 5) << 22, SafeLoad<uint32_t>(in + 5), SafeLoad<uint32_t>(in + 5) >> 24 | SafeLoad<uint32_t>(in + 6) << 8, SafeLoad<uint32_t>(in + 6) >> 15 | SafeLoad<uint32_t>(in + 7) << 17, SafeLoad<uint32_t>(in + 7), SafeLoad<uint32_t>(in + 7) >> 29 | SafeLoad<uint32_t>(in + 8) << 3, SafeLoad<uint32_t>(in + 8) >> 20 | SafeLoad<uint32_t>(in + 9) << 12, SafeLoad<uint32_t>(in + 9) >> 11 | SafeLoad<uint32_t>(in + 10) << 21, SafeLoad<uint32_t>(in + 10), SafeLoad<uint32_t>(in + 10) >> 25 | SafeLoad<uint32_t>(in + 11) << 7 };
+  words = simd_batch{
+    SafeLoadAs<uint32_t>(in + 4 * 0),
+    SafeLoadAs<uint32_t>(in + 4 * 0) >> 23 | SafeLoadAs<uint32_t>(in + 4 * 1) << 9,
+    SafeLoadAs<uint32_t>(in + 4 * 1) >> 14 | SafeLoadAs<uint32_t>(in + 4 * 2) << 18,
+    SafeLoadAs<uint32_t>(in + 4 * 2),
+    SafeLoadAs<uint32_t>(in + 4 * 2) >> 28 | SafeLoadAs<uint32_t>(in + 4 * 3) << 4,
+    SafeLoadAs<uint32_t>(in + 4 * 3) >> 19 | SafeLoadAs<uint32_t>(in + 4 * 4) << 13,
+    SafeLoadAs<uint32_t>(in + 4 * 4) >> 10 | SafeLoadAs<uint32_t>(in + 4 * 5) << 22,
+    SafeLoadAs<uint32_t>(in + 4 * 5),
+    SafeLoadAs<uint32_t>(in + 4 * 5) >> 24 | SafeLoadAs<uint32_t>(in + 4 * 6) << 8,
+    SafeLoadAs<uint32_t>(in + 4 * 6) >> 15 | SafeLoadAs<uint32_t>(in + 4 * 7) << 17,
+    SafeLoadAs<uint32_t>(in + 4 * 7),
+    SafeLoadAs<uint32_t>(in + 4 * 7) >> 29 | SafeLoadAs<uint32_t>(in + 4 * 8) << 3,
+    SafeLoadAs<uint32_t>(in + 4 * 8) >> 20 | SafeLoadAs<uint32_t>(in + 4 * 9) << 12,
+    SafeLoadAs<uint32_t>(in + 4 * 9) >> 11 | SafeLoadAs<uint32_t>(in + 4 * 10) << 21,
+    SafeLoadAs<uint32_t>(in + 4 * 10),
+    SafeLoadAs<uint32_t>(in + 4 * 10) >> 25 | SafeLoadAs<uint32_t>(in + 4 * 11) << 7,
+  };
   shifts = simd_batch{ 0, 0, 0, 5, 0, 0, 0, 1, 0, 0, 6, 0, 0, 0, 2, 0 };
   results = (words >> shifts) & masks;
   results.store_unaligned(out);
   out += 16;
 
   // extract 23-bit bundles 16 to 31
-  words = simd_batch{ SafeLoad<uint32_t>(in + 11) >> 16 | SafeLoad<uint32_t>(in + 12) << 16, SafeLoad<uint32_t>(in + 12), SafeLoad<uint32_t>(in + 12) >> 30 | SafeLoad<uint32_t>(in + 13) << 2, SafeLoad<uint32_t>(in + 13) >> 21 | SafeLoad<uint32_t>(in + 14) << 11, SafeLoad<uint32_t>(in + 14) >> 12 | SafeLoad<uint32_t>(in + 15) << 20, SafeLoad<uint32_t>(in + 15), SafeLoad<uint32_t>(in + 15) >> 26 | SafeLoad<uint32_t>(in + 16) << 6, SafeLoad<uint32_t>(in + 16) >> 17 | SafeLoad<uint32_t>(in + 17) << 15, SafeLoad<uint32_t>(in + 17), SafeLoad<uint32_t>(in + 17) >> 31 | SafeLoad<uint32_t>(in + 18) << 1, SafeLoad<uint32_t>(in + 18) >> 22 | SafeLoad<uint32_t>(in + 19) << 10, SafeLoad<uint32_t>(in + 19) >> 13 | SafeLoad<uint32_t>(in + 20) << 19, SafeLoad<uint32_t>(in + 20), SafeLoad<uint32_t>(in + 20) >> 27 | SafeLoad<uint32_t>(in + 21) << 5, SafeLoad<uint32_t>(in + 21) >> 18 | SafeLoad<uint32_t>(in + 22) << 14, SafeLoad<uint32_t>(in + 22) };
+  words = simd_batch{
+    SafeLoadAs<uint32_t>(in + 4 * 11) >> 16 | SafeLoadAs<uint32_t>(in + 4 * 12) << 16,
+    SafeLoadAs<uint32_t>(in + 4 * 12),
+    SafeLoadAs<uint32_t>(in + 4 * 12) >> 30 | SafeLoadAs<uint32_t>(in + 4 * 13) << 2,
+    SafeLoadAs<uint32_t>(in + 4 * 13) >> 21 | SafeLoadAs<uint32_t>(in + 4 * 14) << 11,
+    SafeLoadAs<uint32_t>(in + 4 * 14) >> 12 | SafeLoadAs<uint32_t>(in + 4 * 15) << 20,
+    SafeLoadAs<uint32_t>(in + 4 * 15),
+    SafeLoadAs<uint32_t>(in + 4 * 15) >> 26 | SafeLoadAs<uint32_t>(in + 4 * 16) << 6,
+    SafeLoadAs<uint32_t>(in + 4 * 16) >> 17 | SafeLoadAs<uint32_t>(in + 4 * 17) << 15,
+    SafeLoadAs<uint32_t>(in + 4 * 17),
+    SafeLoadAs<uint32_t>(in + 4 * 17) >> 31 | SafeLoadAs<uint32_t>(in + 4 * 18) << 1,
+    SafeLoadAs<uint32_t>(in + 4 * 18) >> 22 | SafeLoadAs<uint32_t>(in + 4 * 19) << 10,
+    SafeLoadAs<uint32_t>(in + 4 * 19) >> 13 | SafeLoadAs<uint32_t>(in + 4 * 20) << 19,
+    SafeLoadAs<uint32_t>(in + 4 * 20),
+    SafeLoadAs<uint32_t>(in + 4 * 20) >> 27 | SafeLoadAs<uint32_t>(in + 4 * 21) << 5,
+    SafeLoadAs<uint32_t>(in + 4 * 21) >> 18 | SafeLoadAs<uint32_t>(in + 4 * 22) << 14,
+    SafeLoadAs<uint32_t>(in + 4 * 22),
+  };
   shifts = simd_batch{ 0, 7, 0, 0, 0, 3, 0, 0, 8, 0, 0, 0, 4, 0, 0, 9 };
   results = (words >> shifts) & masks;
   results.store_unaligned(out);
   out += 16;
 
-  in += 23;
+  in += 23 * 4;
   return in;
 }
 
-inline static const uint32_t* unpack24_32(const uint32_t* in, uint32_t* out) {
+inline static const uint8_t* unpack24_32(const uint8_t* in, uint32_t* out) {
+  using simd_batch = xsimd::make_sized_batch_t<uint32_t, 16>;
+
   uint32_t mask = 0xffffff;
 
   simd_batch masks(mask);
@@ -628,24 +2025,60 @@ inline static const uint32_t* unpack24_32(const uint32_t* in, uint32_t* out) {
   simd_batch results;
 
   // extract 24-bit bundles 0 to 15
-  words = simd_batch{ SafeLoad<uint32_t>(in + 0), SafeLoad<uint32_t>(in + 0) >> 24 | SafeLoad<uint32_t>(in + 1) << 8, SafeLoad<uint32_t>(in + 1) >> 16 | SafeLoad<uint32_t>(in + 2) << 16, SafeLoad<uint32_t>(in + 2), SafeLoad<uint32_t>(in + 3), SafeLoad<uint32_t>(in + 3) >> 24 | SafeLoad<uint32_t>(in + 4) << 8, SafeLoad<uint32_t>(in + 4) >> 16 | SafeLoad<uint32_t>(in + 5) << 16, SafeLoad<uint32_t>(in + 5), SafeLoad<uint32_t>(in + 6), SafeLoad<uint32_t>(in + 6) >> 24 | SafeLoad<uint32_t>(in + 7) << 8, SafeLoad<uint32_t>(in + 7) >> 16 | SafeLoad<uint32_t>(in + 8) << 16, SafeLoad<uint32_t>(in + 8), SafeLoad<uint32_t>(in + 9), SafeLoad<uint32_t>(in + 9) >> 24 | SafeLoad<uint32_t>(in + 10) << 8, SafeLoad<uint32_t>(in + 10) >> 16 | SafeLoad<uint32_t>(in + 11) << 16, SafeLoad<uint32_t>(in + 11) };
+  words = simd_batch{
+    SafeLoadAs<uint32_t>(in + 4 * 0),
+    SafeLoadAs<uint32_t>(in + 4 * 0) >> 24 | SafeLoadAs<uint32_t>(in + 4 * 1) << 8,
+    SafeLoadAs<uint32_t>(in + 4 * 1) >> 16 | SafeLoadAs<uint32_t>(in + 4 * 2) << 16,
+    SafeLoadAs<uint32_t>(in + 4 * 2),
+    SafeLoadAs<uint32_t>(in + 4 * 3),
+    SafeLoadAs<uint32_t>(in + 4 * 3) >> 24 | SafeLoadAs<uint32_t>(in + 4 * 4) << 8,
+    SafeLoadAs<uint32_t>(in + 4 * 4) >> 16 | SafeLoadAs<uint32_t>(in + 4 * 5) << 16,
+    SafeLoadAs<uint32_t>(in + 4 * 5),
+    SafeLoadAs<uint32_t>(in + 4 * 6),
+    SafeLoadAs<uint32_t>(in + 4 * 6) >> 24 | SafeLoadAs<uint32_t>(in + 4 * 7) << 8,
+    SafeLoadAs<uint32_t>(in + 4 * 7) >> 16 | SafeLoadAs<uint32_t>(in + 4 * 8) << 16,
+    SafeLoadAs<uint32_t>(in + 4 * 8),
+    SafeLoadAs<uint32_t>(in + 4 * 9),
+    SafeLoadAs<uint32_t>(in + 4 * 9) >> 24 | SafeLoadAs<uint32_t>(in + 4 * 10) << 8,
+    SafeLoadAs<uint32_t>(in + 4 * 10) >> 16 | SafeLoadAs<uint32_t>(in + 4 * 11) << 16,
+    SafeLoadAs<uint32_t>(in + 4 * 11),
+  };
   shifts = simd_batch{ 0, 0, 0, 8, 0, 0, 0, 8, 0, 0, 0, 8, 0, 0, 0, 8 };
   results = (words >> shifts) & masks;
   results.store_unaligned(out);
   out += 16;
 
   // extract 24-bit bundles 16 to 31
-  words = simd_batch{ SafeLoad<uint32_t>(in + 12), SafeLoad<uint32_t>(in + 12) >> 24 | SafeLoad<uint32_t>(in + 13) << 8, SafeLoad<uint32_t>(in + 13) >> 16 | SafeLoad<uint32_t>(in + 14) << 16, SafeLoad<uint32_t>(in + 14), SafeLoad<uint32_t>(in + 15), SafeLoad<uint32_t>(in + 15) >> 24 | SafeLoad<uint32_t>(in + 16) << 8, SafeLoad<uint32_t>(in + 16) >> 16 | SafeLoad<uint32_t>(in + 17) << 16, SafeLoad<uint32_t>(in + 17), SafeLoad<uint32_t>(in + 18), SafeLoad<uint32_t>(in + 18) >> 24 | SafeLoad<uint32_t>(in + 19) << 8, SafeLoad<uint32_t>(in + 19) >> 16 | SafeLoad<uint32_t>(in + 20) << 16, SafeLoad<uint32_t>(in + 20), SafeLoad<uint32_t>(in + 21), SafeLoad<uint32_t>(in + 21) >> 24 | SafeLoad<uint32_t>(in + 22) << 8, SafeLoad<uint32_t>(in + 22) >> 16 | SafeLoad<uint32_t>(in + 23) << 16, SafeLoad<uint32_t>(in + 23) };
+  words = simd_batch{
+    SafeLoadAs<uint32_t>(in + 4 * 12),
+    SafeLoadAs<uint32_t>(in + 4 * 12) >> 24 | SafeLoadAs<uint32_t>(in + 4 * 13) << 8,
+    SafeLoadAs<uint32_t>(in + 4 * 13) >> 16 | SafeLoadAs<uint32_t>(in + 4 * 14) << 16,
+    SafeLoadAs<uint32_t>(in + 4 * 14),
+    SafeLoadAs<uint32_t>(in + 4 * 15),
+    SafeLoadAs<uint32_t>(in + 4 * 15) >> 24 | SafeLoadAs<uint32_t>(in + 4 * 16) << 8,
+    SafeLoadAs<uint32_t>(in + 4 * 16) >> 16 | SafeLoadAs<uint32_t>(in + 4 * 17) << 16,
+    SafeLoadAs<uint32_t>(in + 4 * 17),
+    SafeLoadAs<uint32_t>(in + 4 * 18),
+    SafeLoadAs<uint32_t>(in + 4 * 18) >> 24 | SafeLoadAs<uint32_t>(in + 4 * 19) << 8,
+    SafeLoadAs<uint32_t>(in + 4 * 19) >> 16 | SafeLoadAs<uint32_t>(in + 4 * 20) << 16,
+    SafeLoadAs<uint32_t>(in + 4 * 20),
+    SafeLoadAs<uint32_t>(in + 4 * 21),
+    SafeLoadAs<uint32_t>(in + 4 * 21) >> 24 | SafeLoadAs<uint32_t>(in + 4 * 22) << 8,
+    SafeLoadAs<uint32_t>(in + 4 * 22) >> 16 | SafeLoadAs<uint32_t>(in + 4 * 23) << 16,
+    SafeLoadAs<uint32_t>(in + 4 * 23),
+  };
   shifts = simd_batch{ 0, 0, 0, 8, 0, 0, 0, 8, 0, 0, 0, 8, 0, 0, 0, 8 };
   results = (words >> shifts) & masks;
   results.store_unaligned(out);
   out += 16;
 
-  in += 24;
+  in += 24 * 4;
   return in;
 }
 
-inline static const uint32_t* unpack25_32(const uint32_t* in, uint32_t* out) {
+inline static const uint8_t* unpack25_32(const uint8_t* in, uint32_t* out) {
+  using simd_batch = xsimd::make_sized_batch_t<uint32_t, 16>;
+
   uint32_t mask = 0x1ffffff;
 
   simd_batch masks(mask);
@@ -653,24 +2086,60 @@ inline static const uint32_t* unpack25_32(const uint32_t* in, uint32_t* out) {
   simd_batch results;
 
   // extract 25-bit bundles 0 to 15
-  words = simd_batch{ SafeLoad<uint32_t>(in + 0), SafeLoad<uint32_t>(in + 0) >> 25 | SafeLoad<uint32_t>(in + 1) << 7, SafeLoad<uint32_t>(in + 1) >> 18 | SafeLoad<uint32_t>(in + 2) << 14, SafeLoad<uint32_t>(in + 2) >> 11 | SafeLoad<uint32_t>(in + 3) << 21, SafeLoad<uint32_t>(in + 3), SafeLoad<uint32_t>(in + 3) >> 29 | SafeLoad<uint32_t>(in + 4) << 3, SafeLoad<uint32_t>(in + 4) >> 22 | SafeLoad<uint32_t>(in + 5) << 10, SafeLoad<uint32_t>(in + 5) >> 15 | SafeLoad<uint32_t>(in + 6) << 17, SafeLoad<uint32_t>(in + 6) >> 8 | SafeLoad<uint32_t>(in + 7) << 24, SafeLoad<uint32_t>(in + 7), SafeLoad<uint32_t>(in + 7) >> 26 | SafeLoad<uint32_t>(in + 8) << 6, SafeLoad<uint32_t>(in + 8) >> 19 | SafeLoad<uint32_t>(in + 9) << 13, SafeLoad<uint32_t>(in + 9) >> 12 | SafeLoad<uint32_t>(in + 10) << 20, SafeLoad<uint32_t>(in + 10), SafeLoad<uint32_t>(in + 10) >> 30 | SafeLoad<uint32_t>(in + 11) << 2, SafeLoad<uint32_t>(in + 11) >> 23 | SafeLoad<uint32_t>(in + 12) << 9 };
+  words = simd_batch{
+    SafeLoadAs<uint32_t>(in + 4 * 0),
+    SafeLoadAs<uint32_t>(in + 4 * 0) >> 25 | SafeLoadAs<uint32_t>(in + 4 * 1) << 7,
+    SafeLoadAs<uint32_t>(in + 4 * 1) >> 18 | SafeLoadAs<uint32_t>(in + 4 * 2) << 14,
+    SafeLoadAs<uint32_t>(in + 4 * 2) >> 11 | SafeLoadAs<uint32_t>(in + 4 * 3) << 21,
+    SafeLoadAs<uint32_t>(in + 4 * 3),
+    SafeLoadAs<uint32_t>(in + 4 * 3) >> 29 | SafeLoadAs<uint32_t>(in + 4 * 4) << 3,
+    SafeLoadAs<uint32_t>(in + 4 * 4) >> 22 | SafeLoadAs<uint32_t>(in + 4 * 5) << 10,
+    SafeLoadAs<uint32_t>(in + 4 * 5) >> 15 | SafeLoadAs<uint32_t>(in + 4 * 6) << 17,
+    SafeLoadAs<uint32_t>(in + 4 * 6) >> 8 | SafeLoadAs<uint32_t>(in + 4 * 7) << 24,
+    SafeLoadAs<uint32_t>(in + 4 * 7),
+    SafeLoadAs<uint32_t>(in + 4 * 7) >> 26 | SafeLoadAs<uint32_t>(in + 4 * 8) << 6,
+    SafeLoadAs<uint32_t>(in + 4 * 8) >> 19 | SafeLoadAs<uint32_t>(in + 4 * 9) << 13,
+    SafeLoadAs<uint32_t>(in + 4 * 9) >> 12 | SafeLoadAs<uint32_t>(in + 4 * 10) << 20,
+    SafeLoadAs<uint32_t>(in + 4 * 10),
+    SafeLoadAs<uint32_t>(in + 4 * 10) >> 30 | SafeLoadAs<uint32_t>(in + 4 * 11) << 2,
+    SafeLoadAs<uint32_t>(in + 4 * 11) >> 23 | SafeLoadAs<uint32_t>(in + 4 * 12) << 9,
+  };
   shifts = simd_batch{ 0, 0, 0, 0, 4, 0, 0, 0, 0, 1, 0, 0, 0, 5, 0, 0 };
   results = (words >> shifts) & masks;
   results.store_unaligned(out);
   out += 16;
 
   // extract 25-bit bundles 16 to 31
-  words = simd_batch{ SafeLoad<uint32_t>(in + 12) >> 16 | SafeLoad<uint32_t>(in + 13) << 16, SafeLoad<uint32_t>(in + 13) >> 9 | SafeLoad<uint32_t>(in + 14) << 23, SafeLoad<uint32_t>(in + 14), SafeLoad<uint32_t>(in + 14) >> 27 | SafeLoad<uint32_t>(in + 15) << 5, SafeLoad<uint32_t>(in + 15) >> 20 | SafeLoad<uint32_t>(in + 16) << 12, SafeLoad<uint32_t>(in + 16) >> 13 | SafeLoad<uint32_t>(in + 17) << 19, SafeLoad<uint32_t>(in + 17), SafeLoad<uint32_t>(in + 17) >> 31 | SafeLoad<uint32_t>(in + 18) << 1, SafeLoad<uint32_t>(in + 18) >> 24 | SafeLoad<uint32_t>(in + 19) << 8, SafeLoad<uint32_t>(in + 19) >> 17 | SafeLoad<uint32_t>(in + 20) << 15, SafeLoad<uint32_t>(in + 20) >> 10 | SafeLoad<uint32_t>(in + 21) << 22, SafeLoad<uint32_t>(in + 21), SafeLoad<uint32_t>(in + 21) >> 28 | SafeLoad<uint32_t>(in + 22) << 4, SafeLoad<uint32_t>(in + 22) >> 21 | SafeLoad<uint32_t>(in + 23) << 11, SafeLoad<uint32_t>(in + 23) >> 14 | SafeLoad<uint32_t>(in + 24) << 18, SafeLoad<uint32_t>(in + 24) };
+  words = simd_batch{
+    SafeLoadAs<uint32_t>(in + 4 * 12) >> 16 | SafeLoadAs<uint32_t>(in + 4 * 13) << 16,
+    SafeLoadAs<uint32_t>(in + 4 * 13) >> 9 | SafeLoadAs<uint32_t>(in + 4 * 14) << 23,
+    SafeLoadAs<uint32_t>(in + 4 * 14),
+    SafeLoadAs<uint32_t>(in + 4 * 14) >> 27 | SafeLoadAs<uint32_t>(in + 4 * 15) << 5,
+    SafeLoadAs<uint32_t>(in + 4 * 15) >> 20 | SafeLoadAs<uint32_t>(in + 4 * 16) << 12,
+    SafeLoadAs<uint32_t>(in + 4 * 16) >> 13 | SafeLoadAs<uint32_t>(in + 4 * 17) << 19,
+    SafeLoadAs<uint32_t>(in + 4 * 17),
+    SafeLoadAs<uint32_t>(in + 4 * 17) >> 31 | SafeLoadAs<uint32_t>(in + 4 * 18) << 1,
+    SafeLoadAs<uint32_t>(in + 4 * 18) >> 24 | SafeLoadAs<uint32_t>(in + 4 * 19) << 8,
+    SafeLoadAs<uint32_t>(in + 4 * 19) >> 17 | SafeLoadAs<uint32_t>(in + 4 * 20) << 15,
+    SafeLoadAs<uint32_t>(in + 4 * 20) >> 10 | SafeLoadAs<uint32_t>(in + 4 * 21) << 22,
+    SafeLoadAs<uint32_t>(in + 4 * 21),
+    SafeLoadAs<uint32_t>(in + 4 * 21) >> 28 | SafeLoadAs<uint32_t>(in + 4 * 22) << 4,
+    SafeLoadAs<uint32_t>(in + 4 * 22) >> 21 | SafeLoadAs<uint32_t>(in + 4 * 23) << 11,
+    SafeLoadAs<uint32_t>(in + 4 * 23) >> 14 | SafeLoadAs<uint32_t>(in + 4 * 24) << 18,
+    SafeLoadAs<uint32_t>(in + 4 * 24),
+  };
   shifts = simd_batch{ 0, 0, 2, 0, 0, 0, 6, 0, 0, 0, 0, 3, 0, 0, 0, 7 };
   results = (words >> shifts) & masks;
   results.store_unaligned(out);
   out += 16;
 
-  in += 25;
+  in += 25 * 4;
   return in;
 }
 
-inline static const uint32_t* unpack26_32(const uint32_t* in, uint32_t* out) {
+inline static const uint8_t* unpack26_32(const uint8_t* in, uint32_t* out) {
+  using simd_batch = xsimd::make_sized_batch_t<uint32_t, 16>;
+
   uint32_t mask = 0x3ffffff;
 
   simd_batch masks(mask);
@@ -678,24 +2147,60 @@ inline static const uint32_t* unpack26_32(const uint32_t* in, uint32_t* out) {
   simd_batch results;
 
   // extract 26-bit bundles 0 to 15
-  words = simd_batch{ SafeLoad<uint32_t>(in + 0), SafeLoad<uint32_t>(in + 0) >> 26 | SafeLoad<uint32_t>(in + 1) << 6, SafeLoad<uint32_t>(in + 1) >> 20 | SafeLoad<uint32_t>(in + 2) << 12, SafeLoad<uint32_t>(in + 2) >> 14 | SafeLoad<uint32_t>(in + 3) << 18, SafeLoad<uint32_t>(in + 3) >> 8 | SafeLoad<uint32_t>(in + 4) << 24, SafeLoad<uint32_t>(in + 4), SafeLoad<uint32_t>(in + 4) >> 28 | SafeLoad<uint32_t>(in + 5) << 4, SafeLoad<uint32_t>(in + 5) >> 22 | SafeLoad<uint32_t>(in + 6) << 10, SafeLoad<uint32_t>(in + 6) >> 16 | SafeLoad<uint32_t>(in + 7) << 16, SafeLoad<uint32_t>(in + 7) >> 10 | SafeLoad<uint32_t>(in + 8) << 22, SafeLoad<uint32_t>(in + 8), SafeLoad<uint32_t>(in + 8) >> 30 | SafeLoad<uint32_t>(in + 9) << 2, SafeLoad<uint32_t>(in + 9) >> 24 | SafeLoad<uint32_t>(in + 10) << 8, SafeLoad<uint32_t>(in + 10) >> 18 | SafeLoad<uint32_t>(in + 11) << 14, SafeLoad<uint32_t>(in + 11) >> 12 | SafeLoad<uint32_t>(in + 12) << 20, SafeLoad<uint32_t>(in + 12) };
+  words = simd_batch{
+    SafeLoadAs<uint32_t>(in + 4 * 0),
+    SafeLoadAs<uint32_t>(in + 4 * 0) >> 26 | SafeLoadAs<uint32_t>(in + 4 * 1) << 6,
+    SafeLoadAs<uint32_t>(in + 4 * 1) >> 20 | SafeLoadAs<uint32_t>(in + 4 * 2) << 12,
+    SafeLoadAs<uint32_t>(in + 4 * 2) >> 14 | SafeLoadAs<uint32_t>(in + 4 * 3) << 18,
+    SafeLoadAs<uint32_t>(in + 4 * 3) >> 8 | SafeLoadAs<uint32_t>(in + 4 * 4) << 24,
+    SafeLoadAs<uint32_t>(in + 4 * 4),
+    SafeLoadAs<uint32_t>(in + 4 * 4) >> 28 | SafeLoadAs<uint32_t>(in + 4 * 5) << 4,
+    SafeLoadAs<uint32_t>(in + 4 * 5) >> 22 | SafeLoadAs<uint32_t>(in + 4 * 6) << 10,
+    SafeLoadAs<uint32_t>(in + 4 * 6) >> 16 | SafeLoadAs<uint32_t>(in + 4 * 7) << 16,
+    SafeLoadAs<uint32_t>(in + 4 * 7) >> 10 | SafeLoadAs<uint32_t>(in + 4 * 8) << 22,
+    SafeLoadAs<uint32_t>(in + 4 * 8),
+    SafeLoadAs<uint32_t>(in + 4 * 8) >> 30 | SafeLoadAs<uint32_t>(in + 4 * 9) << 2,
+    SafeLoadAs<uint32_t>(in + 4 * 9) >> 24 | SafeLoadAs<uint32_t>(in + 4 * 10) << 8,
+    SafeLoadAs<uint32_t>(in + 4 * 10) >> 18 | SafeLoadAs<uint32_t>(in + 4 * 11) << 14,
+    SafeLoadAs<uint32_t>(in + 4 * 11) >> 12 | SafeLoadAs<uint32_t>(in + 4 * 12) << 20,
+    SafeLoadAs<uint32_t>(in + 4 * 12),
+  };
   shifts = simd_batch{ 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 4, 0, 0, 0, 0, 6 };
   results = (words >> shifts) & masks;
   results.store_unaligned(out);
   out += 16;
 
   // extract 26-bit bundles 16 to 31
-  words = simd_batch{ SafeLoad<uint32_t>(in + 13), SafeLoad<uint32_t>(in + 13) >> 26 | SafeLoad<uint32_t>(in + 14) << 6, SafeLoad<uint32_t>(in + 14) >> 20 | SafeLoad<uint32_t>(in + 15) << 12, SafeLoad<uint32_t>(in + 15) >> 14 | SafeLoad<uint32_t>(in + 16) << 18, SafeLoad<uint32_t>(in + 16) >> 8 | SafeLoad<uint32_t>(in + 17) << 24, SafeLoad<uint32_t>(in + 17), SafeLoad<uint32_t>(in + 17) >> 28 | SafeLoad<uint32_t>(in + 18) << 4, SafeLoad<uint32_t>(in + 18) >> 22 | SafeLoad<uint32_t>(in + 19) << 10, SafeLoad<uint32_t>(in + 19) >> 16 | SafeLoad<uint32_t>(in + 20) << 16, SafeLoad<uint32_t>(in + 20) >> 10 | SafeLoad<uint32_t>(in + 21) << 22, SafeLoad<uint32_t>(in + 21), SafeLoad<uint32_t>(in + 21) >> 30 | SafeLoad<uint32_t>(in + 22) << 2, SafeLoad<uint32_t>(in + 22) >> 24 | SafeLoad<uint32_t>(in + 23) << 8, SafeLoad<uint32_t>(in + 23) >> 18 | SafeLoad<uint32_t>(in + 24) << 14, SafeLoad<uint32_t>(in + 24) >> 12 | SafeLoad<uint32_t>(in + 25) << 20, SafeLoad<uint32_t>(in + 25) };
+  words = simd_batch{
+    SafeLoadAs<uint32_t>(in + 4 * 13),
+    SafeLoadAs<uint32_t>(in + 4 * 13) >> 26 | SafeLoadAs<uint32_t>(in + 4 * 14) << 6,
+    SafeLoadAs<uint32_t>(in + 4 * 14) >> 20 | SafeLoadAs<uint32_t>(in + 4 * 15) << 12,
+    SafeLoadAs<uint32_t>(in + 4 * 15) >> 14 | SafeLoadAs<uint32_t>(in + 4 * 16) << 18,
+    SafeLoadAs<uint32_t>(in + 4 * 16) >> 8 | SafeLoadAs<uint32_t>(in + 4 * 17) << 24,
+    SafeLoadAs<uint32_t>(in + 4 * 17),
+    SafeLoadAs<uint32_t>(in + 4 * 17) >> 28 | SafeLoadAs<uint32_t>(in + 4 * 18) << 4,
+    SafeLoadAs<uint32_t>(in + 4 * 18) >> 22 | SafeLoadAs<uint32_t>(in + 4 * 19) << 10,
+    SafeLoadAs<uint32_t>(in + 4 * 19) >> 16 | SafeLoadAs<uint32_t>(in + 4 * 20) << 16,
+    SafeLoadAs<uint32_t>(in + 4 * 20) >> 10 | SafeLoadAs<uint32_t>(in + 4 * 21) << 22,
+    SafeLoadAs<uint32_t>(in + 4 * 21),
+    SafeLoadAs<uint32_t>(in + 4 * 21) >> 30 | SafeLoadAs<uint32_t>(in + 4 * 22) << 2,
+    SafeLoadAs<uint32_t>(in + 4 * 22) >> 24 | SafeLoadAs<uint32_t>(in + 4 * 23) << 8,
+    SafeLoadAs<uint32_t>(in + 4 * 23) >> 18 | SafeLoadAs<uint32_t>(in + 4 * 24) << 14,
+    SafeLoadAs<uint32_t>(in + 4 * 24) >> 12 | SafeLoadAs<uint32_t>(in + 4 * 25) << 20,
+    SafeLoadAs<uint32_t>(in + 4 * 25),
+  };
   shifts = simd_batch{ 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 4, 0, 0, 0, 0, 6 };
   results = (words >> shifts) & masks;
   results.store_unaligned(out);
   out += 16;
 
-  in += 26;
+  in += 26 * 4;
   return in;
 }
 
-inline static const uint32_t* unpack27_32(const uint32_t* in, uint32_t* out) {
+inline static const uint8_t* unpack27_32(const uint8_t* in, uint32_t* out) {
+  using simd_batch = xsimd::make_sized_batch_t<uint32_t, 16>;
+
   uint32_t mask = 0x7ffffff;
 
   simd_batch masks(mask);
@@ -703,24 +2208,60 @@ inline static const uint32_t* unpack27_32(const uint32_t* in, uint32_t* out) {
   simd_batch results;
 
   // extract 27-bit bundles 0 to 15
-  words = simd_batch{ SafeLoad<uint32_t>(in + 0), SafeLoad<uint32_t>(in + 0) >> 27 | SafeLoad<uint32_t>(in + 1) << 5, SafeLoad<uint32_t>(in + 1) >> 22 | SafeLoad<uint32_t>(in + 2) << 10, SafeLoad<uint32_t>(in + 2) >> 17 | SafeLoad<uint32_t>(in + 3) << 15, SafeLoad<uint32_t>(in + 3) >> 12 | SafeLoad<uint32_t>(in + 4) << 20, SafeLoad<uint32_t>(in + 4) >> 7 | SafeLoad<uint32_t>(in + 5) << 25, SafeLoad<uint32_t>(in + 5), SafeLoad<uint32_t>(in + 5) >> 29 | SafeLoad<uint32_t>(in + 6) << 3, SafeLoad<uint32_t>(in + 6) >> 24 | SafeLoad<uint32_t>(in + 7) << 8, SafeLoad<uint32_t>(in + 7) >> 19 | SafeLoad<uint32_t>(in + 8) << 13, SafeLoad<uint32_t>(in + 8) >> 14 | SafeLoad<uint32_t>(in + 9) << 18, SafeLoad<uint32_t>(in + 9) >> 9 | SafeLoad<uint32_t>(in + 10) << 23, SafeLoad<uint32_t>(in + 10), SafeLoad<uint32_t>(in + 10) >> 31 | SafeLoad<uint32_t>(in + 11) << 1, SafeLoad<uint32_t>(in + 11) >> 26 | SafeLoad<uint32_t>(in + 12) << 6, SafeLoad<uint32_t>(in + 12) >> 21 | SafeLoad<uint32_t>(in + 13) << 11 };
+  words = simd_batch{
+    SafeLoadAs<uint32_t>(in + 4 * 0),
+    SafeLoadAs<uint32_t>(in + 4 * 0) >> 27 | SafeLoadAs<uint32_t>(in + 4 * 1) << 5,
+    SafeLoadAs<uint32_t>(in + 4 * 1) >> 22 | SafeLoadAs<uint32_t>(in + 4 * 2) << 10,
+    SafeLoadAs<uint32_t>(in + 4 * 2) >> 17 | SafeLoadAs<uint32_t>(in + 4 * 3) << 15,
+    SafeLoadAs<uint32_t>(in + 4 * 3) >> 12 | SafeLoadAs<uint32_t>(in + 4 * 4) << 20,
+    SafeLoadAs<uint32_t>(in + 4 * 4) >> 7 | SafeLoadAs<uint32_t>(in + 4 * 5) << 25,
+    SafeLoadAs<uint32_t>(in + 4 * 5),
+    SafeLoadAs<uint32_t>(in + 4 * 5) >> 29 | SafeLoadAs<uint32_t>(in + 4 * 6) << 3,
+    SafeLoadAs<uint32_t>(in + 4 * 6) >> 24 | SafeLoadAs<uint32_t>(in + 4 * 7) << 8,
+    SafeLoadAs<uint32_t>(in + 4 * 7) >> 19 | SafeLoadAs<uint32_t>(in + 4 * 8) << 13,
+    SafeLoadAs<uint32_t>(in + 4 * 8) >> 14 | SafeLoadAs<uint32_t>(in + 4 * 9) << 18,
+    SafeLoadAs<uint32_t>(in + 4 * 9) >> 9 | SafeLoadAs<uint32_t>(in + 4 * 10) << 23,
+    SafeLoadAs<uint32_t>(in + 4 * 10),
+    SafeLoadAs<uint32_t>(in + 4 * 10) >> 31 | SafeLoadAs<uint32_t>(in + 4 * 11) << 1,
+    SafeLoadAs<uint32_t>(in + 4 * 11) >> 26 | SafeLoadAs<uint32_t>(in + 4 * 12) << 6,
+    SafeLoadAs<uint32_t>(in + 4 * 12) >> 21 | SafeLoadAs<uint32_t>(in + 4 * 13) << 11,
+  };
   shifts = simd_batch{ 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 4, 0, 0, 0 };
   results = (words >> shifts) & masks;
   results.store_unaligned(out);
   out += 16;
 
   // extract 27-bit bundles 16 to 31
-  words = simd_batch{ SafeLoad<uint32_t>(in + 13) >> 16 | SafeLoad<uint32_t>(in + 14) << 16, SafeLoad<uint32_t>(in + 14) >> 11 | SafeLoad<uint32_t>(in + 15) << 21, SafeLoad<uint32_t>(in + 15) >> 6 | SafeLoad<uint32_t>(in + 16) << 26, SafeLoad<uint32_t>(in + 16), SafeLoad<uint32_t>(in + 16) >> 28 | SafeLoad<uint32_t>(in + 17) << 4, SafeLoad<uint32_t>(in + 17) >> 23 | SafeLoad<uint32_t>(in + 18) << 9, SafeLoad<uint32_t>(in + 18) >> 18 | SafeLoad<uint32_t>(in + 19) << 14, SafeLoad<uint32_t>(in + 19) >> 13 | SafeLoad<uint32_t>(in + 20) << 19, SafeLoad<uint32_t>(in + 20) >> 8 | SafeLoad<uint32_t>(in + 21) << 24, SafeLoad<uint32_t>(in + 21), SafeLoad<uint32_t>(in + 21) >> 30 | SafeLoad<uint32_t>(in + 22) << 2, SafeLoad<uint32_t>(in + 22) >> 25 | SafeLoad<uint32_t>(in + 23) << 7, SafeLoad<uint32_t>(in + 23) >> 20 | SafeLoad<uint32_t>(in + 24) << 12, SafeLoad<uint32_t>(in + 24) >> 15 | SafeLoad<uint32_t>(in + 25) << 17, SafeLoad<uint32_t>(in + 25) >> 10 | SafeLoad<uint32_t>(in + 26) << 22, SafeLoad<uint32_t>(in + 26) };
+  words = simd_batch{
+    SafeLoadAs<uint32_t>(in + 4 * 13) >> 16 | SafeLoadAs<uint32_t>(in + 4 * 14) << 16,
+    SafeLoadAs<uint32_t>(in + 4 * 14) >> 11 | SafeLoadAs<uint32_t>(in + 4 * 15) << 21,
+    SafeLoadAs<uint32_t>(in + 4 * 15) >> 6 | SafeLoadAs<uint32_t>(in + 4 * 16) << 26,
+    SafeLoadAs<uint32_t>(in + 4 * 16),
+    SafeLoadAs<uint32_t>(in + 4 * 16) >> 28 | SafeLoadAs<uint32_t>(in + 4 * 17) << 4,
+    SafeLoadAs<uint32_t>(in + 4 * 17) >> 23 | SafeLoadAs<uint32_t>(in + 4 * 18) << 9,
+    SafeLoadAs<uint32_t>(in + 4 * 18) >> 18 | SafeLoadAs<uint32_t>(in + 4 * 19) << 14,
+    SafeLoadAs<uint32_t>(in + 4 * 19) >> 13 | SafeLoadAs<uint32_t>(in + 4 * 20) << 19,
+    SafeLoadAs<uint32_t>(in + 4 * 20) >> 8 | SafeLoadAs<uint32_t>(in + 4 * 21) << 24,
+    SafeLoadAs<uint32_t>(in + 4 * 21),
+    SafeLoadAs<uint32_t>(in + 4 * 21) >> 30 | SafeLoadAs<uint32_t>(in + 4 * 22) << 2,
+    SafeLoadAs<uint32_t>(in + 4 * 22) >> 25 | SafeLoadAs<uint32_t>(in + 4 * 23) << 7,
+    SafeLoadAs<uint32_t>(in + 4 * 23) >> 20 | SafeLoadAs<uint32_t>(in + 4 * 24) << 12,
+    SafeLoadAs<uint32_t>(in + 4 * 24) >> 15 | SafeLoadAs<uint32_t>(in + 4 * 25) << 17,
+    SafeLoadAs<uint32_t>(in + 4 * 25) >> 10 | SafeLoadAs<uint32_t>(in + 4 * 26) << 22,
+    SafeLoadAs<uint32_t>(in + 4 * 26),
+  };
   shifts = simd_batch{ 0, 0, 0, 1, 0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 0, 5 };
   results = (words >> shifts) & masks;
   results.store_unaligned(out);
   out += 16;
 
-  in += 27;
+  in += 27 * 4;
   return in;
 }
 
-inline static const uint32_t* unpack28_32(const uint32_t* in, uint32_t* out) {
+inline static const uint8_t* unpack28_32(const uint8_t* in, uint32_t* out) {
+  using simd_batch = xsimd::make_sized_batch_t<uint32_t, 16>;
+
   uint32_t mask = 0xfffffff;
 
   simd_batch masks(mask);
@@ -728,24 +2269,60 @@ inline static const uint32_t* unpack28_32(const uint32_t* in, uint32_t* out) {
   simd_batch results;
 
   // extract 28-bit bundles 0 to 15
-  words = simd_batch{ SafeLoad<uint32_t>(in + 0), SafeLoad<uint32_t>(in + 0) >> 28 | SafeLoad<uint32_t>(in + 1) << 4, SafeLoad<uint32_t>(in + 1) >> 24 | SafeLoad<uint32_t>(in + 2) << 8, SafeLoad<uint32_t>(in + 2) >> 20 | SafeLoad<uint32_t>(in + 3) << 12, SafeLoad<uint32_t>(in + 3) >> 16 | SafeLoad<uint32_t>(in + 4) << 16, SafeLoad<uint32_t>(in + 4) >> 12 | SafeLoad<uint32_t>(in + 5) << 20, SafeLoad<uint32_t>(in + 5) >> 8 | SafeLoad<uint32_t>(in + 6) << 24, SafeLoad<uint32_t>(in + 6), SafeLoad<uint32_t>(in + 7), SafeLoad<uint32_t>(in + 7) >> 28 | SafeLoad<uint32_t>(in + 8) << 4, SafeLoad<uint32_t>(in + 8) >> 24 | SafeLoad<uint32_t>(in + 9) << 8, SafeLoad<uint32_t>(in + 9) >> 20 | SafeLoad<uint32_t>(in + 10) << 12, SafeLoad<uint32_t>(in + 10) >> 16 | SafeLoad<uint32_t>(in + 11) << 16, SafeLoad<uint32_t>(in + 11) >> 12 | SafeLoad<uint32_t>(in + 12) << 20, SafeLoad<uint32_t>(in + 12) >> 8 | SafeLoad<uint32_t>(in + 13) << 24, SafeLoad<uint32_t>(in + 13) };
+  words = simd_batch{
+    SafeLoadAs<uint32_t>(in + 4 * 0),
+    SafeLoadAs<uint32_t>(in + 4 * 0) >> 28 | SafeLoadAs<uint32_t>(in + 4 * 1) << 4,
+    SafeLoadAs<uint32_t>(in + 4 * 1) >> 24 | SafeLoadAs<uint32_t>(in + 4 * 2) << 8,
+    SafeLoadAs<uint32_t>(in + 4 * 2) >> 20 | SafeLoadAs<uint32_t>(in + 4 * 3) << 12,
+    SafeLoadAs<uint32_t>(in + 4 * 3) >> 16 | SafeLoadAs<uint32_t>(in + 4 * 4) << 16,
+    SafeLoadAs<uint32_t>(in + 4 * 4) >> 12 | SafeLoadAs<uint32_t>(in + 4 * 5) << 20,
+    SafeLoadAs<uint32_t>(in + 4 * 5) >> 8 | SafeLoadAs<uint32_t>(in + 4 * 6) << 24,
+    SafeLoadAs<uint32_t>(in + 4 * 6),
+    SafeLoadAs<uint32_t>(in + 4 * 7),
+    SafeLoadAs<uint32_t>(in + 4 * 7) >> 28 | SafeLoadAs<uint32_t>(in + 4 * 8) << 4,
+    SafeLoadAs<uint32_t>(in + 4 * 8) >> 24 | SafeLoadAs<uint32_t>(in + 4 * 9) << 8,
+    SafeLoadAs<uint32_t>(in + 4 * 9) >> 20 | SafeLoadAs<uint32_t>(in + 4 * 10) << 12,
+    SafeLoadAs<uint32_t>(in + 4 * 10) >> 16 | SafeLoadAs<uint32_t>(in + 4 * 11) << 16,
+    SafeLoadAs<uint32_t>(in + 4 * 11) >> 12 | SafeLoadAs<uint32_t>(in + 4 * 12) << 20,
+    SafeLoadAs<uint32_t>(in + 4 * 12) >> 8 | SafeLoadAs<uint32_t>(in + 4 * 13) << 24,
+    SafeLoadAs<uint32_t>(in + 4 * 13),
+  };
   shifts = simd_batch{ 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 4 };
   results = (words >> shifts) & masks;
   results.store_unaligned(out);
   out += 16;
 
   // extract 28-bit bundles 16 to 31
-  words = simd_batch{ SafeLoad<uint32_t>(in + 14), SafeLoad<uint32_t>(in + 14) >> 28 | SafeLoad<uint32_t>(in + 15) << 4, SafeLoad<uint32_t>(in + 15) >> 24 | SafeLoad<uint32_t>(in + 16) << 8, SafeLoad<uint32_t>(in + 16) >> 20 | SafeLoad<uint32_t>(in + 17) << 12, SafeLoad<uint32_t>(in + 17) >> 16 | SafeLoad<uint32_t>(in + 18) << 16, SafeLoad<uint32_t>(in + 18) >> 12 | SafeLoad<uint32_t>(in + 19) << 20, SafeLoad<uint32_t>(in + 19) >> 8 | SafeLoad<uint32_t>(in + 20) << 24, SafeLoad<uint32_t>(in + 20), SafeLoad<uint32_t>(in + 21), SafeLoad<uint32_t>(in + 21) >> 28 | SafeLoad<uint32_t>(in + 22) << 4, SafeLoad<uint32_t>(in + 22) >> 24 | SafeLoad<uint32_t>(in + 23) << 8, SafeLoad<uint32_t>(in + 23) >> 20 | SafeLoad<uint32_t>(in + 24) << 12, SafeLoad<uint32_t>(in + 24) >> 16 | SafeLoad<uint32_t>(in + 25) << 16, SafeLoad<uint32_t>(in + 25) >> 12 | SafeLoad<uint32_t>(in + 26) << 20, SafeLoad<uint32_t>(in + 26) >> 8 | SafeLoad<uint32_t>(in + 27) << 24, SafeLoad<uint32_t>(in + 27) };
+  words = simd_batch{
+    SafeLoadAs<uint32_t>(in + 4 * 14),
+    SafeLoadAs<uint32_t>(in + 4 * 14) >> 28 | SafeLoadAs<uint32_t>(in + 4 * 15) << 4,
+    SafeLoadAs<uint32_t>(in + 4 * 15) >> 24 | SafeLoadAs<uint32_t>(in + 4 * 16) << 8,
+    SafeLoadAs<uint32_t>(in + 4 * 16) >> 20 | SafeLoadAs<uint32_t>(in + 4 * 17) << 12,
+    SafeLoadAs<uint32_t>(in + 4 * 17) >> 16 | SafeLoadAs<uint32_t>(in + 4 * 18) << 16,
+    SafeLoadAs<uint32_t>(in + 4 * 18) >> 12 | SafeLoadAs<uint32_t>(in + 4 * 19) << 20,
+    SafeLoadAs<uint32_t>(in + 4 * 19) >> 8 | SafeLoadAs<uint32_t>(in + 4 * 20) << 24,
+    SafeLoadAs<uint32_t>(in + 4 * 20),
+    SafeLoadAs<uint32_t>(in + 4 * 21),
+    SafeLoadAs<uint32_t>(in + 4 * 21) >> 28 | SafeLoadAs<uint32_t>(in + 4 * 22) << 4,
+    SafeLoadAs<uint32_t>(in + 4 * 22) >> 24 | SafeLoadAs<uint32_t>(in + 4 * 23) << 8,
+    SafeLoadAs<uint32_t>(in + 4 * 23) >> 20 | SafeLoadAs<uint32_t>(in + 4 * 24) << 12,
+    SafeLoadAs<uint32_t>(in + 4 * 24) >> 16 | SafeLoadAs<uint32_t>(in + 4 * 25) << 16,
+    SafeLoadAs<uint32_t>(in + 4 * 25) >> 12 | SafeLoadAs<uint32_t>(in + 4 * 26) << 20,
+    SafeLoadAs<uint32_t>(in + 4 * 26) >> 8 | SafeLoadAs<uint32_t>(in + 4 * 27) << 24,
+    SafeLoadAs<uint32_t>(in + 4 * 27),
+  };
   shifts = simd_batch{ 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 4 };
   results = (words >> shifts) & masks;
   results.store_unaligned(out);
   out += 16;
 
-  in += 28;
+  in += 28 * 4;
   return in;
 }
 
-inline static const uint32_t* unpack29_32(const uint32_t* in, uint32_t* out) {
+inline static const uint8_t* unpack29_32(const uint8_t* in, uint32_t* out) {
+  using simd_batch = xsimd::make_sized_batch_t<uint32_t, 16>;
+
   uint32_t mask = 0x1fffffff;
 
   simd_batch masks(mask);
@@ -753,24 +2330,60 @@ inline static const uint32_t* unpack29_32(const uint32_t* in, uint32_t* out) {
   simd_batch results;
 
   // extract 29-bit bundles 0 to 15
-  words = simd_batch{ SafeLoad<uint32_t>(in + 0), SafeLoad<uint32_t>(in + 0) >> 29 | SafeLoad<uint32_t>(in + 1) << 3, SafeLoad<uint32_t>(in + 1) >> 26 | SafeLoad<uint32_t>(in + 2) << 6, SafeLoad<uint32_t>(in + 2) >> 23 | SafeLoad<uint32_t>(in + 3) << 9, SafeLoad<uint32_t>(in + 3) >> 20 | SafeLoad<uint32_t>(in + 4) << 12, SafeLoad<uint32_t>(in + 4) >> 17 | SafeLoad<uint32_t>(in + 5) << 15, SafeLoad<uint32_t>(in + 5) >> 14 | SafeLoad<uint32_t>(in + 6) << 18, SafeLoad<uint32_t>(in + 6) >> 11 | SafeLoad<uint32_t>(in + 7) << 21, SafeLoad<uint32_t>(in + 7) >> 8 | SafeLoad<uint32_t>(in + 8) << 24, SafeLoad<uint32_t>(in + 8) >> 5 | SafeLoad<uint32_t>(in + 9) << 27, SafeLoad<uint32_t>(in + 9), SafeLoad<uint32_t>(in + 9) >> 31 | SafeLoad<uint32_t>(in + 10) << 1, SafeLoad<uint32_t>(in + 10) >> 28 | SafeLoad<uint32_t>(in + 11) << 4, SafeLoad<uint32_t>(in + 11) >> 25 | SafeLoad<uint32_t>(in + 12) << 7, SafeLoad<uint32_t>(in + 12) >> 22 | SafeLoad<uint32_t>(in + 13) << 10, SafeLoad<uint32_t>(in + 13) >> 19 | SafeLoad<uint32_t>(in + 14) << 13 };
+  words = simd_batch{
+    SafeLoadAs<uint32_t>(in + 4 * 0),
+    SafeLoadAs<uint32_t>(in + 4 * 0) >> 29 | SafeLoadAs<uint32_t>(in + 4 * 1) << 3,
+    SafeLoadAs<uint32_t>(in + 4 * 1) >> 26 | SafeLoadAs<uint32_t>(in + 4 * 2) << 6,
+    SafeLoadAs<uint32_t>(in + 4 * 2) >> 23 | SafeLoadAs<uint32_t>(in + 4 * 3) << 9,
+    SafeLoadAs<uint32_t>(in + 4 * 3) >> 20 | SafeLoadAs<uint32_t>(in + 4 * 4) << 12,
+    SafeLoadAs<uint32_t>(in + 4 * 4) >> 17 | SafeLoadAs<uint32_t>(in + 4 * 5) << 15,
+    SafeLoadAs<uint32_t>(in + 4 * 5) >> 14 | SafeLoadAs<uint32_t>(in + 4 * 6) << 18,
+    SafeLoadAs<uint32_t>(in + 4 * 6) >> 11 | SafeLoadAs<uint32_t>(in + 4 * 7) << 21,
+    SafeLoadAs<uint32_t>(in + 4 * 7) >> 8 | SafeLoadAs<uint32_t>(in + 4 * 8) << 24,
+    SafeLoadAs<uint32_t>(in + 4 * 8) >> 5 | SafeLoadAs<uint32_t>(in + 4 * 9) << 27,
+    SafeLoadAs<uint32_t>(in + 4 * 9),
+    SafeLoadAs<uint32_t>(in + 4 * 9) >> 31 | SafeLoadAs<uint32_t>(in + 4 * 10) << 1,
+    SafeLoadAs<uint32_t>(in + 4 * 10) >> 28 | SafeLoadAs<uint32_t>(in + 4 * 11) << 4,
+    SafeLoadAs<uint32_t>(in + 4 * 11) >> 25 | SafeLoadAs<uint32_t>(in + 4 * 12) << 7,
+    SafeLoadAs<uint32_t>(in + 4 * 12) >> 22 | SafeLoadAs<uint32_t>(in + 4 * 13) << 10,
+    SafeLoadAs<uint32_t>(in + 4 * 13) >> 19 | SafeLoadAs<uint32_t>(in + 4 * 14) << 13,
+  };
   shifts = simd_batch{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0 };
   results = (words >> shifts) & masks;
   results.store_unaligned(out);
   out += 16;
 
   // extract 29-bit bundles 16 to 31
-  words = simd_batch{ SafeLoad<uint32_t>(in + 14) >> 16 | SafeLoad<uint32_t>(in + 15) << 16, SafeLoad<uint32_t>(in + 15) >> 13 | SafeLoad<uint32_t>(in + 16) << 19, SafeLoad<uint32_t>(in + 16) >> 10 | SafeLoad<uint32_t>(in + 17) << 22, SafeLoad<uint32_t>(in + 17) >> 7 | SafeLoad<uint32_t>(in + 18) << 25, SafeLoad<uint32_t>(in + 18) >> 4 | SafeLoad<uint32_t>(in + 19) << 28, SafeLoad<uint32_t>(in + 19), SafeLoad<uint32_t>(in + 19) >> 30 | SafeLoad<uint32_t>(in + 20) << 2, SafeLoad<uint32_t>(in + 20) >> 27 | SafeLoad<uint32_t>(in + 21) << 5, SafeLoad<uint32_t>(in + 21) >> 24 | SafeLoad<uint32_t>(in + 22) << 8, SafeLoad<uint32_t>(in + 22) >> 21 | SafeLoad<uint32_t>(in + 23) << 11, SafeLoad<uint32_t>(in + 23) >> 18 | SafeLoad<uint32_t>(in + 24) << 14, SafeLoad<uint32_t>(in + 24) >> 15 | SafeLoad<uint32_t>(in + 25) << 17, SafeLoad<uint32_t>(in + 25) >> 12 | SafeLoad<uint32_t>(in + 26) << 20, SafeLoad<uint32_t>(in + 26) >> 9 | SafeLoad<uint32_t>(in + 27) << 23, SafeLoad<uint32_t>(in + 27) >> 6 | SafeLoad<uint32_t>(in + 28) << 26, SafeLoad<uint32_t>(in + 28) };
+  words = simd_batch{
+    SafeLoadAs<uint32_t>(in + 4 * 14) >> 16 | SafeLoadAs<uint32_t>(in + 4 * 15) << 16,
+    SafeLoadAs<uint32_t>(in + 4 * 15) >> 13 | SafeLoadAs<uint32_t>(in + 4 * 16) << 19,
+    SafeLoadAs<uint32_t>(in + 4 * 16) >> 10 | SafeLoadAs<uint32_t>(in + 4 * 17) << 22,
+    SafeLoadAs<uint32_t>(in + 4 * 17) >> 7 | SafeLoadAs<uint32_t>(in + 4 * 18) << 25,
+    SafeLoadAs<uint32_t>(in + 4 * 18) >> 4 | SafeLoadAs<uint32_t>(in + 4 * 19) << 28,
+    SafeLoadAs<uint32_t>(in + 4 * 19),
+    SafeLoadAs<uint32_t>(in + 4 * 19) >> 30 | SafeLoadAs<uint32_t>(in + 4 * 20) << 2,
+    SafeLoadAs<uint32_t>(in + 4 * 20) >> 27 | SafeLoadAs<uint32_t>(in + 4 * 21) << 5,
+    SafeLoadAs<uint32_t>(in + 4 * 21) >> 24 | SafeLoadAs<uint32_t>(in + 4 * 22) << 8,
+    SafeLoadAs<uint32_t>(in + 4 * 22) >> 21 | SafeLoadAs<uint32_t>(in + 4 * 23) << 11,
+    SafeLoadAs<uint32_t>(in + 4 * 23) >> 18 | SafeLoadAs<uint32_t>(in + 4 * 24) << 14,
+    SafeLoadAs<uint32_t>(in + 4 * 24) >> 15 | SafeLoadAs<uint32_t>(in + 4 * 25) << 17,
+    SafeLoadAs<uint32_t>(in + 4 * 25) >> 12 | SafeLoadAs<uint32_t>(in + 4 * 26) << 20,
+    SafeLoadAs<uint32_t>(in + 4 * 26) >> 9 | SafeLoadAs<uint32_t>(in + 4 * 27) << 23,
+    SafeLoadAs<uint32_t>(in + 4 * 27) >> 6 | SafeLoadAs<uint32_t>(in + 4 * 28) << 26,
+    SafeLoadAs<uint32_t>(in + 4 * 28),
+  };
   shifts = simd_batch{ 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3 };
   results = (words >> shifts) & masks;
   results.store_unaligned(out);
   out += 16;
 
-  in += 29;
+  in += 29 * 4;
   return in;
 }
 
-inline static const uint32_t* unpack30_32(const uint32_t* in, uint32_t* out) {
+inline static const uint8_t* unpack30_32(const uint8_t* in, uint32_t* out) {
+  using simd_batch = xsimd::make_sized_batch_t<uint32_t, 16>;
+
   uint32_t mask = 0x3fffffff;
 
   simd_batch masks(mask);
@@ -778,24 +2391,60 @@ inline static const uint32_t* unpack30_32(const uint32_t* in, uint32_t* out) {
   simd_batch results;
 
   // extract 30-bit bundles 0 to 15
-  words = simd_batch{ SafeLoad<uint32_t>(in + 0), SafeLoad<uint32_t>(in + 0) >> 30 | SafeLoad<uint32_t>(in + 1) << 2, SafeLoad<uint32_t>(in + 1) >> 28 | SafeLoad<uint32_t>(in + 2) << 4, SafeLoad<uint32_t>(in + 2) >> 26 | SafeLoad<uint32_t>(in + 3) << 6, SafeLoad<uint32_t>(in + 3) >> 24 | SafeLoad<uint32_t>(in + 4) << 8, SafeLoad<uint32_t>(in + 4) >> 22 | SafeLoad<uint32_t>(in + 5) << 10, SafeLoad<uint32_t>(in + 5) >> 20 | SafeLoad<uint32_t>(in + 6) << 12, SafeLoad<uint32_t>(in + 6) >> 18 | SafeLoad<uint32_t>(in + 7) << 14, SafeLoad<uint32_t>(in + 7) >> 16 | SafeLoad<uint32_t>(in + 8) << 16, SafeLoad<uint32_t>(in + 8) >> 14 | SafeLoad<uint32_t>(in + 9) << 18, SafeLoad<uint32_t>(in + 9) >> 12 | SafeLoad<uint32_t>(in + 10) << 20, SafeLoad<uint32_t>(in + 10) >> 10 | SafeLoad<uint32_t>(in + 11) << 22, SafeLoad<uint32_t>(in + 11) >> 8 | SafeLoad<uint32_t>(in + 12) << 24, SafeLoad<uint32_t>(in + 12) >> 6 | SafeLoad<uint32_t>(in + 13) << 26, SafeLoad<uint32_t>(in + 13) >> 4 | SafeLoad<uint32_t>(in + 14) << 28, SafeLoad<uint32_t>(in + 14) };
+  words = simd_batch{
+    SafeLoadAs<uint32_t>(in + 4 * 0),
+    SafeLoadAs<uint32_t>(in + 4 * 0) >> 30 | SafeLoadAs<uint32_t>(in + 4 * 1) << 2,
+    SafeLoadAs<uint32_t>(in + 4 * 1) >> 28 | SafeLoadAs<uint32_t>(in + 4 * 2) << 4,
+    SafeLoadAs<uint32_t>(in + 4 * 2) >> 26 | SafeLoadAs<uint32_t>(in + 4 * 3) << 6,
+    SafeLoadAs<uint32_t>(in + 4 * 3) >> 24 | SafeLoadAs<uint32_t>(in + 4 * 4) << 8,
+    SafeLoadAs<uint32_t>(in + 4 * 4) >> 22 | SafeLoadAs<uint32_t>(in + 4 * 5) << 10,
+    SafeLoadAs<uint32_t>(in + 4 * 5) >> 20 | SafeLoadAs<uint32_t>(in + 4 * 6) << 12,
+    SafeLoadAs<uint32_t>(in + 4 * 6) >> 18 | SafeLoadAs<uint32_t>(in + 4 * 7) << 14,
+    SafeLoadAs<uint32_t>(in + 4 * 7) >> 16 | SafeLoadAs<uint32_t>(in + 4 * 8) << 16,
+    SafeLoadAs<uint32_t>(in + 4 * 8) >> 14 | SafeLoadAs<uint32_t>(in + 4 * 9) << 18,
+    SafeLoadAs<uint32_t>(in + 4 * 9) >> 12 | SafeLoadAs<uint32_t>(in + 4 * 10) << 20,
+    SafeLoadAs<uint32_t>(in + 4 * 10) >> 10 | SafeLoadAs<uint32_t>(in + 4 * 11) << 22,
+    SafeLoadAs<uint32_t>(in + 4 * 11) >> 8 | SafeLoadAs<uint32_t>(in + 4 * 12) << 24,
+    SafeLoadAs<uint32_t>(in + 4 * 12) >> 6 | SafeLoadAs<uint32_t>(in + 4 * 13) << 26,
+    SafeLoadAs<uint32_t>(in + 4 * 13) >> 4 | SafeLoadAs<uint32_t>(in + 4 * 14) << 28,
+    SafeLoadAs<uint32_t>(in + 4 * 14),
+  };
   shifts = simd_batch{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2 };
   results = (words >> shifts) & masks;
   results.store_unaligned(out);
   out += 16;
 
   // extract 30-bit bundles 16 to 31
-  words = simd_batch{ SafeLoad<uint32_t>(in + 15), SafeLoad<uint32_t>(in + 15) >> 30 | SafeLoad<uint32_t>(in + 16) << 2, SafeLoad<uint32_t>(in + 16) >> 28 | SafeLoad<uint32_t>(in + 17) << 4, SafeLoad<uint32_t>(in + 17) >> 26 | SafeLoad<uint32_t>(in + 18) << 6, SafeLoad<uint32_t>(in + 18) >> 24 | SafeLoad<uint32_t>(in + 19) << 8, SafeLoad<uint32_t>(in + 19) >> 22 | SafeLoad<uint32_t>(in + 20) << 10, SafeLoad<uint32_t>(in + 20) >> 20 | SafeLoad<uint32_t>(in + 21) << 12, SafeLoad<uint32_t>(in + 21) >> 18 | SafeLoad<uint32_t>(in + 22) << 14, SafeLoad<uint32_t>(in + 22) >> 16 | SafeLoad<uint32_t>(in + 23) << 16, SafeLoad<uint32_t>(in + 23) >> 14 | SafeLoad<uint32_t>(in + 24) << 18, SafeLoad<uint32_t>(in + 24) >> 12 | SafeLoad<uint32_t>(in + 25) << 20, SafeLoad<uint32_t>(in + 25) >> 10 | SafeLoad<uint32_t>(in + 26) << 22, SafeLoad<uint32_t>(in + 26) >> 8 | SafeLoad<uint32_t>(in + 27) << 24, SafeLoad<uint32_t>(in + 27) >> 6 | SafeLoad<uint32_t>(in + 28) << 26, SafeLoad<uint32_t>(in + 28) >> 4 | SafeLoad<uint32_t>(in + 29) << 28, SafeLoad<uint32_t>(in + 29) };
+  words = simd_batch{
+    SafeLoadAs<uint32_t>(in + 4 * 15),
+    SafeLoadAs<uint32_t>(in + 4 * 15) >> 30 | SafeLoadAs<uint32_t>(in + 4 * 16) << 2,
+    SafeLoadAs<uint32_t>(in + 4 * 16) >> 28 | SafeLoadAs<uint32_t>(in + 4 * 17) << 4,
+    SafeLoadAs<uint32_t>(in + 4 * 17) >> 26 | SafeLoadAs<uint32_t>(in + 4 * 18) << 6,
+    SafeLoadAs<uint32_t>(in + 4 * 18) >> 24 | SafeLoadAs<uint32_t>(in + 4 * 19) << 8,
+    SafeLoadAs<uint32_t>(in + 4 * 19) >> 22 | SafeLoadAs<uint32_t>(in + 4 * 20) << 10,
+    SafeLoadAs<uint32_t>(in + 4 * 20) >> 20 | SafeLoadAs<uint32_t>(in + 4 * 21) << 12,
+    SafeLoadAs<uint32_t>(in + 4 * 21) >> 18 | SafeLoadAs<uint32_t>(in + 4 * 22) << 14,
+    SafeLoadAs<uint32_t>(in + 4 * 22) >> 16 | SafeLoadAs<uint32_t>(in + 4 * 23) << 16,
+    SafeLoadAs<uint32_t>(in + 4 * 23) >> 14 | SafeLoadAs<uint32_t>(in + 4 * 24) << 18,
+    SafeLoadAs<uint32_t>(in + 4 * 24) >> 12 | SafeLoadAs<uint32_t>(in + 4 * 25) << 20,
+    SafeLoadAs<uint32_t>(in + 4 * 25) >> 10 | SafeLoadAs<uint32_t>(in + 4 * 26) << 22,
+    SafeLoadAs<uint32_t>(in + 4 * 26) >> 8 | SafeLoadAs<uint32_t>(in + 4 * 27) << 24,
+    SafeLoadAs<uint32_t>(in + 4 * 27) >> 6 | SafeLoadAs<uint32_t>(in + 4 * 28) << 26,
+    SafeLoadAs<uint32_t>(in + 4 * 28) >> 4 | SafeLoadAs<uint32_t>(in + 4 * 29) << 28,
+    SafeLoadAs<uint32_t>(in + 4 * 29),
+  };
   shifts = simd_batch{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2 };
   results = (words >> shifts) & masks;
   results.store_unaligned(out);
   out += 16;
 
-  in += 30;
+  in += 30 * 4;
   return in;
 }
 
-inline static const uint32_t* unpack31_32(const uint32_t* in, uint32_t* out) {
+inline static const uint8_t* unpack31_32(const uint8_t* in, uint32_t* out) {
+  using simd_batch = xsimd::make_sized_batch_t<uint32_t, 16>;
+
   uint32_t mask = 0x7fffffff;
 
   simd_batch masks(mask);
@@ -803,26 +2452,60 @@ inline static const uint32_t* unpack31_32(const uint32_t* in, uint32_t* out) {
   simd_batch results;
 
   // extract 31-bit bundles 0 to 15
-  words = simd_batch{ SafeLoad<uint32_t>(in + 0), SafeLoad<uint32_t>(in + 0) >> 31 | SafeLoad<uint32_t>(in + 1) << 1, SafeLoad<uint32_t>(in + 1) >> 30 | SafeLoad<uint32_t>(in + 2) << 2, SafeLoad<uint32_t>(in + 2) >> 29 | SafeLoad<uint32_t>(in + 3) << 3, SafeLoad<uint32_t>(in + 3) >> 28 | SafeLoad<uint32_t>(in + 4) << 4, SafeLoad<uint32_t>(in + 4) >> 27 | SafeLoad<uint32_t>(in + 5) << 5, SafeLoad<uint32_t>(in + 5) >> 26 | SafeLoad<uint32_t>(in + 6) << 6, SafeLoad<uint32_t>(in + 6) >> 25 | SafeLoad<uint32_t>(in + 7) << 7, SafeLoad<uint32_t>(in + 7) >> 24 | SafeLoad<uint32_t>(in + 8) << 8, SafeLoad<uint32_t>(in + 8) >> 23 | SafeLoad<uint32_t>(in + 9) << 9, SafeLoad<uint32_t>(in + 9) >> 22 | SafeLoad<uint32_t>(in + 10) << 10, SafeLoad<uint32_t>(in + 10) >> 21 | SafeLoad<uint32_t>(in + 11) << 11, SafeLoad<uint32_t>(in + 11) >> 20 | SafeLoad<uint32_t>(in + 12) << 12, SafeLoad<uint32_t>(in + 12) >> 19 | SafeLoad<uint32_t>(in + 13) << 13, SafeLoad<uint32_t>(in + 13) >> 18 | SafeLoad<uint32_t>(in + 14) << 14, SafeLoad<uint32_t>(in + 14) >> 17 | SafeLoad<uint32_t>(in + 15) << 15 };
+  words = simd_batch{
+    SafeLoadAs<uint32_t>(in + 4 * 0),
+    SafeLoadAs<uint32_t>(in + 4 * 0) >> 31 | SafeLoadAs<uint32_t>(in + 4 * 1) << 1,
+    SafeLoadAs<uint32_t>(in + 4 * 1) >> 30 | SafeLoadAs<uint32_t>(in + 4 * 2) << 2,
+    SafeLoadAs<uint32_t>(in + 4 * 2) >> 29 | SafeLoadAs<uint32_t>(in + 4 * 3) << 3,
+    SafeLoadAs<uint32_t>(in + 4 * 3) >> 28 | SafeLoadAs<uint32_t>(in + 4 * 4) << 4,
+    SafeLoadAs<uint32_t>(in + 4 * 4) >> 27 | SafeLoadAs<uint32_t>(in + 4 * 5) << 5,
+    SafeLoadAs<uint32_t>(in + 4 * 5) >> 26 | SafeLoadAs<uint32_t>(in + 4 * 6) << 6,
+    SafeLoadAs<uint32_t>(in + 4 * 6) >> 25 | SafeLoadAs<uint32_t>(in + 4 * 7) << 7,
+    SafeLoadAs<uint32_t>(in + 4 * 7) >> 24 | SafeLoadAs<uint32_t>(in + 4 * 8) << 8,
+    SafeLoadAs<uint32_t>(in + 4 * 8) >> 23 | SafeLoadAs<uint32_t>(in + 4 * 9) << 9,
+    SafeLoadAs<uint32_t>(in + 4 * 9) >> 22 | SafeLoadAs<uint32_t>(in + 4 * 10) << 10,
+    SafeLoadAs<uint32_t>(in + 4 * 10) >> 21 | SafeLoadAs<uint32_t>(in + 4 * 11) << 11,
+    SafeLoadAs<uint32_t>(in + 4 * 11) >> 20 | SafeLoadAs<uint32_t>(in + 4 * 12) << 12,
+    SafeLoadAs<uint32_t>(in + 4 * 12) >> 19 | SafeLoadAs<uint32_t>(in + 4 * 13) << 13,
+    SafeLoadAs<uint32_t>(in + 4 * 13) >> 18 | SafeLoadAs<uint32_t>(in + 4 * 14) << 14,
+    SafeLoadAs<uint32_t>(in + 4 * 14) >> 17 | SafeLoadAs<uint32_t>(in + 4 * 15) << 15,
+  };
   shifts = simd_batch{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
   results = (words >> shifts) & masks;
   results.store_unaligned(out);
   out += 16;
 
   // extract 31-bit bundles 16 to 31
-  words = simd_batch{ SafeLoad<uint32_t>(in + 15) >> 16 | SafeLoad<uint32_t>(in + 16) << 16, SafeLoad<uint32_t>(in + 16) >> 15 | SafeLoad<uint32_t>(in + 17) << 17, SafeLoad<uint32_t>(in + 17) >> 14 | SafeLoad<uint32_t>(in + 18) << 18, SafeLoad<uint32_t>(in + 18) >> 13 | SafeLoad<uint32_t>(in + 19) << 19, SafeLoad<uint32_t>(in + 19) >> 12 | SafeLoad<uint32_t>(in + 20) << 20, SafeLoad<uint32_t>(in + 20) >> 11 | SafeLoad<uint32_t>(in + 21) << 21, SafeLoad<uint32_t>(in + 21) >> 10 | SafeLoad<uint32_t>(in + 22) << 22, SafeLoad<uint32_t>(in + 22) >> 9 | SafeLoad<uint32_t>(in + 23) << 23, SafeLoad<uint32_t>(in + 23) >> 8 | SafeLoad<uint32_t>(in + 24) << 24, SafeLoad<uint32_t>(in + 24) >> 7 | SafeLoad<uint32_t>(in + 25) << 25, SafeLoad<uint32_t>(in + 25) >> 6 | SafeLoad<uint32_t>(in + 26) << 26, SafeLoad<uint32_t>(in + 26) >> 5 | SafeLoad<uint32_t>(in + 27) << 27, SafeLoad<uint32_t>(in + 27) >> 4 | SafeLoad<uint32_t>(in + 28) << 28, SafeLoad<uint32_t>(in + 28) >> 3 | SafeLoad<uint32_t>(in + 29) << 29, SafeLoad<uint32_t>(in + 29) >> 2 | SafeLoad<uint32_t>(in + 30) << 30, SafeLoad<uint32_t>(in + 30) };
+  words = simd_batch{
+    SafeLoadAs<uint32_t>(in + 4 * 15) >> 16 | SafeLoadAs<uint32_t>(in + 4 * 16) << 16,
+    SafeLoadAs<uint32_t>(in + 4 * 16) >> 15 | SafeLoadAs<uint32_t>(in + 4 * 17) << 17,
+    SafeLoadAs<uint32_t>(in + 4 * 17) >> 14 | SafeLoadAs<uint32_t>(in + 4 * 18) << 18,
+    SafeLoadAs<uint32_t>(in + 4 * 18) >> 13 | SafeLoadAs<uint32_t>(in + 4 * 19) << 19,
+    SafeLoadAs<uint32_t>(in + 4 * 19) >> 12 | SafeLoadAs<uint32_t>(in + 4 * 20) << 20,
+    SafeLoadAs<uint32_t>(in + 4 * 20) >> 11 | SafeLoadAs<uint32_t>(in + 4 * 21) << 21,
+    SafeLoadAs<uint32_t>(in + 4 * 21) >> 10 | SafeLoadAs<uint32_t>(in + 4 * 22) << 22,
+    SafeLoadAs<uint32_t>(in + 4 * 22) >> 9 | SafeLoadAs<uint32_t>(in + 4 * 23) << 23,
+    SafeLoadAs<uint32_t>(in + 4 * 23) >> 8 | SafeLoadAs<uint32_t>(in + 4 * 24) << 24,
+    SafeLoadAs<uint32_t>(in + 4 * 24) >> 7 | SafeLoadAs<uint32_t>(in + 4 * 25) << 25,
+    SafeLoadAs<uint32_t>(in + 4 * 25) >> 6 | SafeLoadAs<uint32_t>(in + 4 * 26) << 26,
+    SafeLoadAs<uint32_t>(in + 4 * 26) >> 5 | SafeLoadAs<uint32_t>(in + 4 * 27) << 27,
+    SafeLoadAs<uint32_t>(in + 4 * 27) >> 4 | SafeLoadAs<uint32_t>(in + 4 * 28) << 28,
+    SafeLoadAs<uint32_t>(in + 4 * 28) >> 3 | SafeLoadAs<uint32_t>(in + 4 * 29) << 29,
+    SafeLoadAs<uint32_t>(in + 4 * 29) >> 2 | SafeLoadAs<uint32_t>(in + 4 * 30) << 30,
+    SafeLoadAs<uint32_t>(in + 4 * 30),
+  };
   shifts = simd_batch{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1 };
   results = (words >> shifts) & masks;
   results.store_unaligned(out);
   out += 16;
 
-  in += 31;
+  in += 31 * 4;
   return in;
 }
 
-inline static const uint32_t* unpack32_32(const uint32_t* in, uint32_t* out) {
-  memcpy(out, in, 32 * sizeof(*out));
-  in += 32;
+inline static const uint8_t* unpack32_32(const uint8_t* in, uint32_t* out) {
+  std::memcpy(out, in, 32 * sizeof(*out));
+  in += 4 * 32;
   out += 32;
 
   return in;
@@ -831,6 +2514,5 @@ inline static const uint32_t* unpack32_32(const uint32_t* in, uint32_t* out) {
 };  // struct UnpackBits512
 
 }  // namespace
-}  // namespace internal
-}  // namespace arrow
+}  // namespace arrow::internal
 
