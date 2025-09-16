@@ -291,7 +291,7 @@ jobs:
       - name: Build Arrow C++ and PyArrow
         shell: cmd
         run: |
-          call "ci\scripts\python_build.bat" %cd% ${{ steps.path-info.outputs.usr-windows-dir }}
+          call "ci\scripts\python_build.bat" %cd% "${{ steps.path-info.outputs.usr-windows-dir }}"
       - name: Test PyArrow
         shell: cmd
         run: |
