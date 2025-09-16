@@ -201,6 +201,11 @@ class TestUnpack : public ::testing::TestWithParam<TestUnpackSize> {
 
   template <typename Int>
   void TestAll(UnpackFunc<Int> unpack) {
+    const auto [_, bit_width] = GetParam();
+    if (static_cast<std::size_t>(bit_width) > sizeof(Int) * 8) {
+      GTEST_SKIP() << "Not defined for this bit width";
+    }
+
     // Known values
     TestUnpackZeros(unpack);
     TestUnpackOnes(unpack);
@@ -219,7 +224,8 @@ INSTANTIATE_TEST_SUITE_P(
                       TestUnpackSize{128, 31}, TestUnpackSize{2048, 1},
                       TestUnpackSize{2048, 8}, TestUnpackSize{2048, 13},
                       TestUnpackSize{2048, 16}, TestUnpackSize{2048, 31},
-                      TestUnpackSize{2048, 32}));
+                      TestUnpackSize{2048, 32}, TestUnpackSize{2048, 63},
+                      TestUnpackSize{2048, 64}));
 
 TEST_P(TestUnpack, Unpack32Scalar) { this->TestAll(&unpack32_scalar); }
 TEST_P(TestUnpack, Unpack64Scalar) { this->TestAll(&unpack64_scalar); }
