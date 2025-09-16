@@ -15,11 +15,12 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <stdexcept>
 #include <vector>
 
 #include <gtest/gtest.h>
 
+#include "arrow/result.h"
+#include "arrow/testing/gtest_util.h"
 #include "arrow/testing/util.h"
 #include "arrow/util/bit_stream_utils_internal.h"
 #include "arrow/util/bpacking_internal.h"
@@ -42,10 +43,11 @@ template <typename Int>
 using UnpackFunc = int (*)(const uint8_t*, Int*, int, int);
 
 /// Get the number of bytes associate with a packing.
-constexpr int32_t GetNumBytes(int32_t num_values, int32_t bit_width) {
+Result<int32_t> GetNumBytes(int32_t num_values, int32_t bit_width) {
   auto const num_bits = num_values * bit_width;
   if (num_bits % 8 != 0) {
-    throw std::invalid_argument("Must pack a multiple of 8 bits.");
+    return Status::NotImplemented(
+        "The unpack functions only work on a multiple of 8 bits.");
   }
   return num_bits / 8;
 }
@@ -53,7 +55,7 @@ constexpr int32_t GetNumBytes(int32_t num_values, int32_t bit_width) {
 /// Generate random bytes as packed integers.
 std::vector<uint8_t> GenerateRandomPackedValues(int32_t num_values, int32_t bit_width) {
   constexpr uint32_t kSeed = 3214;
-  auto const num_bytes = GetNumBytes(num_values, bit_width);
+  EXPECT_OK_AND_ASSIGN(const auto num_bytes, GetNumBytes(num_values, bit_width));
 
   std::vector<uint8_t> out(num_bytes);
   random_bytes(num_bytes, kSeed, out.data());
@@ -76,7 +78,7 @@ std::vector<Int> UnpackValues(const uint8_t* packed, int32_t num_values,
 template <typename Int>
 std::vector<uint8_t> PackValues(std::vector<Int> const& values, int32_t num_values,
                                 int32_t bit_width) {
-  auto const num_bytes = GetNumBytes(num_values, bit_width);
+  EXPECT_OK_AND_ASSIGN(const auto num_bytes, GetNumBytes(num_values, bit_width));
 
   std::vector<uint8_t> out(static_cast<std::size_t>(num_bytes));
   bit_util::BitWriter writer(out.data(), num_bytes);
@@ -93,7 +95,7 @@ std::vector<uint8_t> PackValues(std::vector<Int> const& values, int32_t num_valu
 template <typename Int>
 void CheckUnpackPackRoundtrip(const uint8_t* packed, int32_t num_values,
                               int32_t bit_width, UnpackFunc<Int> unpack) {
-  auto const num_bytes = GetNumBytes(num_values, bit_width);
+  EXPECT_OK_AND_ASSIGN(const auto num_bytes, GetNumBytes(num_values, bit_width));
 
   auto const unpacked = UnpackValues(packed, num_values, bit_width, unpack);
   EXPECT_EQ(unpacked.size(), num_values);
@@ -142,7 +144,7 @@ class TestUnpack : public ::testing::TestWithParam<TestUnpackSize> {
   template <typename Int>
   void TestUnpackZeros(UnpackFunc<Int> unpack) {
     auto [num_values, bit_width] = GetParam();
-    const auto num_bytes = GetNumBytes(num_values, bit_width);
+    EXPECT_OK_AND_ASSIGN(const auto num_bytes, GetNumBytes(num_values, bit_width));
 
     const std::vector<uint8_t> packed(static_cast<std::size_t>(num_bytes), uint8_t{0});
     const auto unpacked = UnpackValues(packed.data(), num_values, bit_width, unpack);
@@ -154,7 +156,7 @@ class TestUnpack : public ::testing::TestWithParam<TestUnpackSize> {
   template <typename Int>
   void TestUnpackOnes(UnpackFunc<Int> unpack) {
     auto [num_values, bit_width] = GetParam();
-    const auto num_bytes = GetNumBytes(num_values, bit_width);
+    EXPECT_OK_AND_ASSIGN(const auto num_bytes, GetNumBytes(num_values, bit_width));
 
     const std::vector<uint8_t> packed(static_cast<std::size_t>(num_bytes), uint8_t{0xFF});
     const auto unpacked = UnpackValues(packed.data(), num_values, bit_width, unpack);
@@ -171,7 +173,7 @@ class TestUnpack : public ::testing::TestWithParam<TestUnpackSize> {
   template <typename Int>
   void TestUnpackAlternating(UnpackFunc<Int> unpack) {
     const auto [num_values, bit_width] = GetParam();
-    const auto num_bytes = GetNumBytes(num_values, bit_width);
+    EXPECT_OK_AND_ASSIGN(const auto num_bytes, GetNumBytes(num_values, bit_width));
 
     const std::vector<uint8_t> packed(static_cast<std::size_t>(num_bytes), uint8_t{0xAA});
     const auto unpacked = UnpackValues(packed.data(), num_values, bit_width, unpack);
@@ -211,13 +213,13 @@ class TestUnpack : public ::testing::TestWithParam<TestUnpackSize> {
 };
 
 INSTANTIATE_TEST_SUITE_P(
-    MutpliesOf64Values, TestUnpack,
+    UnpackMultiplesOf64Values, TestUnpack,
     ::testing::Values(TestUnpackSize{64, 1}, TestUnpackSize{128, 1},
                       TestUnpackSize{2048, 1}, TestUnpackSize{64, 31},
-                      TestUnpackSize{128, 31}, TestUnpackSize{2048, 31},
-                      TestUnpackSize{64000, 7}, TestUnpackSize{64000, 8},
-                      TestUnpackSize{64000, 13}, TestUnpackSize{64000, 16},
-                      TestUnpackSize{64000, 31}, TestUnpackSize{64000, 32}));
+                      TestUnpackSize{128, 31}, TestUnpackSize{2048, 1},
+                      TestUnpackSize{2048, 8}, TestUnpackSize{2048, 13},
+                      TestUnpackSize{2048, 16}, TestUnpackSize{2048, 31},
+                      TestUnpackSize{2048, 32}));
 
 TEST_P(TestUnpack, unpack32Default) { this->TestAll(&unpack32_default); }
 TEST_P(TestUnpack, unpack64Default) { this->TestAll(&unpack64_default); }
