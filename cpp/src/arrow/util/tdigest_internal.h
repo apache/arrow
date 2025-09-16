@@ -49,7 +49,7 @@ class ARROW_EXPORT TDigest {
   };
 
   explicit TDigest(uint32_t delta = 100, uint32_t buffer_size = 500);
-  explicit TDigest(std::unique_ptr<Scaler> scaler, uint32_t buffer_size = 500);
+  explicit TDigest(std::shared_ptr<Scaler> scaler, uint32_t buffer_size = 500);
   ~TDigest();
   TDigest(TDigest&&);
   TDigest& operator=(TDigest&&);

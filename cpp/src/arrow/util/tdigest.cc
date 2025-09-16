@@ -58,7 +58,7 @@ struct Centroid {
 // implements t-digest merging algorithm
 class TDigestMerger {
  public:
-  explicit TDigestMerger(std::unique_ptr<TDigest::Scaler> scaler)
+  explicit TDigestMerger(std::shared_ptr<TDigest::Scaler> scaler)
       : scaler_{std::move(scaler)} {
     Reset(0, nullptr);
   }
@@ -111,7 +111,7 @@ class TDigestMerger {
   uint32_t delta() const { return scaler_->delta_; }
 
  private:
-  std::unique_ptr<TDigest::Scaler> scaler_;
+  std::shared_ptr<TDigest::Scaler> scaler_;
   double total_weight_;   // total weight of this tdigest
   double weight_so_far_;  // accumulated weight till current bin
   double weight_limit_;   // max accumulated weight to move to next bin
@@ -122,7 +122,7 @@ class TDigestMerger {
 
 class TDigest::TDigestImpl {
  public:
-  explicit TDigestImpl(std::unique_ptr<Scaler> scaler) : merger_(std::move(scaler)) {
+  explicit TDigestImpl(std::shared_ptr<Scaler> scaler) : merger_(std::move(scaler)) {
     tdigests_[0].reserve(merger_.delta());
     tdigests_[1].reserve(merger_.delta());
     Reset();
@@ -305,7 +305,7 @@ class TDigest::TDigestImpl {
     if (diff > 0) {
       if (ci_right == td.size() - 1) {
         // index larger than center of last bin
-        DCHECK_EQ(weight_sum, total_weight_);
+        DCHECK_LE(std::abs(weight_sum - total_weight_), (weight_sum * 1e-9));
         const Centroid* c = &td[ci_right];
         DCHECK_GE(c->weight, 2);
         return Lerp(c->mean, max_, diff / (c->weight / 2));
@@ -363,7 +363,7 @@ class TDigest::TDigestImpl {
 TDigest::TDigest(uint32_t delta, uint32_t buffer_size)
     : TDigest(std::make_unique<TDigestScalerK1>(delta), buffer_size) {}
 
-TDigest::TDigest(std::unique_ptr<Scaler> scaler, uint32_t buffer_size)
+TDigest::TDigest(std::shared_ptr<Scaler> scaler, uint32_t buffer_size)
     : impl_(new TDigestImpl(std::move(scaler))) {
   input_.reserve(buffer_size);
   Reset();

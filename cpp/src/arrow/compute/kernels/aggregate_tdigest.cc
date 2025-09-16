@@ -35,7 +35,7 @@ using arrow::internal::TDigestScalerK1;
 using arrow::internal::VisitSetBitRunsVoid;
 
 struct TDigestBaseImpl : public ScalarAggregator {
-  explicit TDigestBaseImpl(std::unique_ptr<TDigest::Scaler> scaler, uint32_t buffer_size)
+  explicit TDigestBaseImpl(std::shared_ptr<TDigest::Scaler> scaler, uint32_t buffer_size)
       : tdigest{std::move(scaler), buffer_size}, count{0}, all_valid{true} {
     out_type = struct_({
         field("mean", list(field("item", float64(), false)), false),
@@ -57,7 +57,7 @@ struct TDigestBaseImpl : public ScalarAggregator {
     return Status::OK();
   }
 
-  static Result<std::unique_ptr<TDigest::Scaler>> MakeScaler(
+  static Result<std::shared_ptr<TDigest::Scaler>> MakeScaler(
       TDigestOptions::Scaler scaler, uint32_t delta) {
     switch (scaler) {
       case TDigestOptions::K0:
@@ -288,7 +288,7 @@ struct TDigestImpl
   // using TDigestBaseImpl::tdigest;
 
   explicit TDigestImpl(const TDigestOptions& options, const DataType& in_type,
-                       std::unique_ptr<TDigest::Scaler> scaler)
+                       std::shared_ptr<TDigest::Scaler> scaler)
       : TDigestInputConsumerImpl<ArrowType, TDigestQuantileFinalizer>(
             // TDigestInputConsumerImpl
             options.skip_nulls, in_type,
@@ -302,7 +302,7 @@ template <typename ArrowType>
 struct TDigestMapImpl
     : public TDigestInputConsumerImpl<ArrowType, TDigestCentroidFinalizer> {
   explicit TDigestMapImpl(const TDigestMapOptions& options, const DataType& in_type,
-                          std::unique_ptr<TDigest::Scaler> scaler)
+                          std::shared_ptr<TDigest::Scaler> scaler)
       : TDigestInputConsumerImpl<ArrowType, TDigestCentroidFinalizer>(
 
             // TDigestInputConsumerImpl
@@ -314,7 +314,7 @@ struct TDigestMapImpl
 
 struct TDigestReduceImpl : public TDigestCentroidConsumerImpl<TDigestCentroidFinalizer> {
   explicit TDigestReduceImpl(const TDigestReduceOptions& options,
-                             std::unique_ptr<TDigest::Scaler> scaler)
+                             std::shared_ptr<TDigest::Scaler> scaler)
       : TDigestCentroidConsumerImpl<TDigestCentroidFinalizer>(
             // TDigestCentroidConsumerImpl
             // TDigestCentroidFinalizer
@@ -325,7 +325,7 @@ struct TDigestReduceImpl : public TDigestCentroidConsumerImpl<TDigestCentroidFin
 struct TDigestQuantileImpl
     : public TDigestCentroidConsumerImpl<TDigestQuantileFinalizer> {
   explicit TDigestQuantileImpl(const TDigestQuantileOptions& options,
-                               std::unique_ptr<TDigest::Scaler> scaler)
+                               std::shared_ptr<TDigest::Scaler> scaler)
       : TDigestCentroidConsumerImpl<TDigestQuantileFinalizer>(
 
             // TDigestCentroidConsumerImpl
@@ -335,10 +335,10 @@ struct TDigestQuantileImpl
             std::move(scaler), options.delta) {}
 };
 
-struct TDigestQuantileScalarImpl : public TDigestQuantileImpl {
+struct TDigestQuantileScalarImpl : public KernelState {
   explicit TDigestQuantileScalarImpl(const TDigestQuantileOptions& options,
-                                     std::unique_ptr<TDigest::Scaler> scaler)
-      : TDigestQuantileImpl(options, std::move(scaler)) {}
+                                     std::shared_ptr<TDigest::Scaler> scaler)
+      : options(options), scaler(std::move(scaler)) {}
 
   static Result<std::unique_ptr<KernelState>> Init(KernelContext* ctx,
                                                    const KernelInitArgs& args) {
@@ -354,7 +354,7 @@ struct TDigestQuantileScalarImpl : public TDigestQuantileImpl {
     return state->OutputType();
   }
 
-  size_t OutputSize() const { return this->q.size(); }
+  size_t OutputSize() const { return options.q.size(); }
 
   TypeHolder OutputType() const {
     return fixed_size_list(field("item", float64()), OutputSize());
@@ -362,6 +362,7 @@ struct TDigestQuantileScalarImpl : public TDigestQuantileImpl {
 
   static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     auto state = checked_cast<TDigestQuantileScalarImpl*>(ctx->state());
+    TDigestQuantileImpl tdigest(state->options, state->scaler);
     auto value_builder = std::make_shared<DoubleBuilder>(ctx->memory_pool());
     const auto output_size = state->OutputSize();
     FixedSizeListBuilder fsl_builder(
@@ -369,18 +370,19 @@ struct TDigestQuantileScalarImpl : public TDigestQuantileImpl {
         output_size);
 
     std::shared_ptr<Array> array = MakeArray(batch[0].array.ToArrayData());
+
     for (int i = 0; i < array->length(); ++i) {
       if (array->IsValid(i)) {
         ARROW_RETURN_NOT_OK(fsl_builder.Append());
         ARROW_ASSIGN_OR_RAISE(auto scalar, array->GetScalar(i));
-        state->Reset();
-        ARROW_RETURN_NOT_OK(state->Consume(scalar.get()));
+        tdigest.Reset();
+        ARROW_RETURN_NOT_OK(tdigest.Consume(scalar.get()));
 
-        if (state->isNull()) {
+        if (tdigest.isNull()) {
           ARROW_RETURN_NOT_OK(value_builder->AppendNulls(output_size));
         } else {
           for (size_t i = 0; i < output_size; ++i) {
-            ARROW_RETURN_NOT_OK(value_builder->Append(state->Quantile(i)));
+            ARROW_RETURN_NOT_OK(value_builder->Append(tdigest.Quantile(i)));
           }
         }
       } else {
@@ -392,6 +394,10 @@ struct TDigestQuantileScalarImpl : public TDigestQuantileImpl {
     out->value = std::move(out_array->data());
     return Status::OK();
   }
+
+ private:
+  TDigestQuantileOptions options;
+  std::shared_ptr<TDigest::Scaler> scaler;
 };
 
 template <template <typename> typename TDigestImpl_T, typename TDigestOptions_T>
