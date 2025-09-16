@@ -274,7 +274,10 @@ jobs:
         shell: bash
         run: |
           ci/scripts/ccache_setup.sh
-          echo "CCACHE_DIR=$(cygpath --absolute --windows ccache)" >> $GITHUB_ENV
+      - name: ccache info
+        id: ccache-info
+        run: |
+          echo "CCACHE_DIR=$(ccache --get-config cache_dir)" >> $GITHUB_ENV
       - name: Cache ccache
         uses: actions/cache@v4
         with:
