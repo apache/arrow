@@ -156,15 +156,15 @@ into an executable linked with the Arrow C++ shared library:
 
 .. code-block:: meson
 
-    project('my-example-project', 'cpp')
+   project('my-example-project', 'cpp')
 
-    arrow_dep = dependency('arrow')
+   arrow_dep = dependency('arrow')
 
-    executable(
-        'my_example',
-        sources: ['my_example.cc'],
-        dependencies: [arrow_dep],
-    )
+   executable(
+       'my_example',
+       sources: ['my_example.cc'],
+       dependencies: [arrow_dep],
+   )
 
 To setup and compile, run the following commands from your project root:
 
@@ -211,18 +211,18 @@ Meson to build the compute library while compiling a local copy of Arrow:
 
 .. code-block:: meson
 
-    project('my-example-project', 'cpp')
+   project('my-example-project', 'cpp')
 
-    arrow_compute_dep = dependency(
-        'arrow-compute',
-        default_options: ['compute=enabled'],
-    )
+   arrow_compute_dep = dependency(
+       'arrow-compute',
+       default_options: ['compute=enabled'],
+   )
 
-    executable(
-        'my_example',
-        sources: ['my_example.cc'],
-        dependencies: [arrow_compute_dep],
-    )
+   executable(
+       'my_example',
+       sources: ['my_example.cc'],
+       dependencies: [arrow_compute_dep],
+   )
 
 pkg-config
 ==========
