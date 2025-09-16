@@ -1095,6 +1095,7 @@ EXCLUDE_PATTERNS       = *-test.cc \
                          *test* \
                          *_generated.h \
                          *-benchmark.cc \
+                         *_codegen.py \
                          *internal*
 
 # The EXCLUDE_SYMBOLS tag can be used to specify one or more symbol names
