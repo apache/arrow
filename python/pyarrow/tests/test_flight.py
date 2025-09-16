@@ -2654,7 +2654,7 @@ def test_call_options_repr(call_options_args):
 
     for arg, val in call_options_args.items():
         if val is None:
+            assert arg in repr
             continue
 
         assert f"{arg}={val}" in repr
-        continue
