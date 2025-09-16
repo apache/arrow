@@ -241,7 +241,7 @@ jobs:
         run: ci/scripts/python_test.sh $(pwd) $(pwd)/build
 
   windows:
-    name: AMD64 Windows 2022 AVX2 Python 3.13
+    name: AMD64 Windows 2022 Python 3.13
     runs-on: windows-2022
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     timeout-minutes: 60
