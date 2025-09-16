@@ -1225,14 +1225,34 @@ def test_s3_options(pickle_module):
     assert isinstance(fs, S3FileSystem)
     assert pickle_module.loads(pickle_module.dumps(fs)) == fs
 
-    # Note that the retry strategy won't survive pickling for now
-    fs = S3FileSystem(
+    # Test S3FileSystem with different retry strategies
+    # They are equal only when the retry strategy is from the same class
+    # and the same parameters
+    fs_std_5 = S3FileSystem(
         retry_strategy=AwsStandardS3RetryStrategy(max_attempts=5))
-    assert isinstance(fs, S3FileSystem)
+    assert isinstance(fs_std_5, S3FileSystem)
+    assert pickle_module.loads(pickle_module.dumps(fs_std_5)) == fs_std_5
+    assert fs_std_5.retry_strategy.max_attempts == 5
 
-    fs = S3FileSystem(
+    fs_std_10 = S3FileSystem(
+        retry_strategy=AwsStandardS3RetryStrategy(max_attempts=10))
+    assert isinstance(fs_std_10, S3FileSystem)
+    assert pickle_module.loads(pickle_module.dumps(fs_std_10)) == fs_std_10
+    assert fs_std_10.retry_strategy.max_attempts == 10
+    assert fs_std_10 != fs_std_5
+
+    fs_std_10_2 = S3FileSystem(
+        retry_strategy=AwsStandardS3RetryStrategy(max_attempts=10))
+    assert isinstance(fs_std_10_2, S3FileSystem)
+    assert pickle_module.loads(pickle_module.dumps(fs_std_10_2)) == fs_std_10_2
+    assert fs_std_10_2 == fs_std_10
+
+    fs_def_5 = S3FileSystem(
         retry_strategy=AwsDefaultS3RetryStrategy(max_attempts=5))
-    assert isinstance(fs, S3FileSystem)
+    assert isinstance(fs_def_5, S3FileSystem)
+    assert pickle_module.loads(pickle_module.dumps(fs_def_5)) == fs_def_5
+    assert fs_def_5.retry_strategy.max_attempts == 5
+    assert fs_def_5 != fs_std_5
 
     fs2 = S3FileSystem(role_arn='role')
     assert isinstance(fs2, S3FileSystem)
