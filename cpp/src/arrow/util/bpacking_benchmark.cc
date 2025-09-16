@@ -108,7 +108,7 @@ static const std::vector<std::vector<int64_t>> kBitWidthsNumValues32 = {
     kBitWidths32,
     benchmark::CreateRange(kMinRange, kMaxRange, /*multi=*/32),
 };
-static const std::vector<std::vector<int64_t>> bitWidthsNumValues64 = {
+static const std::vector<std::vector<int64_t>> kBitWidthsNumValues64 = {
     kBitWidths64,
     benchmark::CreateRange(kMinRange, kMaxRange, /*multi=*/32),
 };
@@ -127,20 +127,20 @@ void BM_UnpackUint64(benchmark::State& state, bool aligned, UnpackFunc<uint64_t>
 BENCHMARK_CAPTURE(BM_UnpackUint32, ScalarUnaligned, false, unpack32_scalar)
     ->ArgsProduct(kBitWidthsNumValues32);
 BENCHMARK_CAPTURE(BM_UnpackUint64, ScalarUnaligned, false, unpack64_scalar)
-    ->ArgsProduct(bitWidthsNumValues64);
+    ->ArgsProduct(kBitWidthsNumValues64);
 
 #if defined(ARROW_HAVE_RUNTIME_AVX2)
 BENCHMARK_CAPTURE(BM_UnpackUint32, Avx2Unaligned, false, unpack32_avx2,
                   !CpuInfo::GetInstance()->IsSupported(CpuInfo::AVX2),
                   "Avx2 not available")
-    ->ArgsProduct(bitWidthsNumValues32);
+    ->ArgsProduct(kBitWidthsNumValues32);
 #endif
 
 #if defined(ARROW_HAVE_RUNTIME_AVX512)
 BENCHMARK_CAPTURE(BM_UnpackUint32, Avx512Unaligned, false, unpack32_avx512,
                   !CpuInfo::GetInstance()->IsSupported(CpuInfo::AVX512),
                   "Avx512 not available")
-    ->ArgsProduct(bitWidthsNumValues32);
+    ->ArgsProduct(kBitWidthsNumValues32);
 #endif
 
 #if defined(ARROW_HAVE_NEON)
@@ -154,9 +154,9 @@ BENCHMARK_CAPTURE(BM_UnpackUint32, DynamicUnaligned, false, unpack32)
     ->ArgsProduct(kBitWidthsNumValues32);
 
 BENCHMARK_CAPTURE(BM_UnpackUint64, DynamicAligned, true, unpack64)
-    ->ArgsProduct(bitWidthsNumValues64);
+    ->ArgsProduct(kBitWidthsNumValues64);
 BENCHMARK_CAPTURE(BM_UnpackUint64, DynamicUnaligned, false, unpack64)
-    ->ArgsProduct(bitWidthsNumValues64);
+    ->ArgsProduct(kBitWidthsNumValues64);
 
 }  // namespace
 }  // namespace arrow::internal
