@@ -42,7 +42,7 @@ using UnpackFunc = int (*)(const uint8_t*, Int*, int, int);
 
 /// Get the number of bytes associate with a packing.
 constexpr int32_t GetNumBytes(int32_t num_values, int32_t bit_width) {
-  auto const num_bits = num_values * bit_width;
+  const auto num_bits = num_values * bit_width;
   if (num_bits % 8 != 0) {
     throw std::invalid_argument("Must pack a multiple of 8 bits.");
   }
@@ -52,7 +52,7 @@ constexpr int32_t GetNumBytes(int32_t num_values, int32_t bit_width) {
 /// Generate random bytes as packed integers.
 std::vector<uint8_t> GenerateRandomPackedValues(int32_t num_values, int32_t bit_width) {
   constexpr uint32_t kSeed = 3214;
-  auto const num_bytes = GetNumBytes(num_values, bit_width);
+  const auto num_bytes = GetNumBytes(num_values, bit_width);
 
   std::vector<uint8_t> out(num_bytes);
   random_bytes(num_bytes, kSeed, out.data());
@@ -80,14 +80,14 @@ void BM_Unpack(benchmark::State& state, bool aligned, UnpackFunc<Int> unpack, bo
     state.SkipWithMessage(skip_msg);
   }
 
-  auto const bit_width = static_cast<int32_t>(state.range(0));
-  auto const num_values = static_cast<int32_t>(state.range(1));
+  const auto bit_width = static_cast<int32_t>(state.range(0));
+  const auto num_values = static_cast<int32_t>(state.range(1));
 
   // Assume std::vector allocation is likely be aligned for greater than a byte.
   // So we allocate more values than necessary and skip to the next byte with the
   // desired (non) alignment to test the proper condition.
   constexpr int32_t kExtraValues = sizeof(Int) * 8;
-  auto const packed = GenerateRandomPackedValues(num_values + kExtraValues, bit_width);
+  const auto packed = GenerateRandomPackedValues(num_values + kExtraValues, bit_width);
   const uint8_t* packed_ptr =
       GetNextAlignedByte(packed.data(), sizeof(Int)) + (aligned ? 0 : 1);
 

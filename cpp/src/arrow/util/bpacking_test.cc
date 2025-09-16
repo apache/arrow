@@ -44,7 +44,7 @@ using UnpackFunc = int (*)(const uint8_t*, Int*, int, int);
 
 /// Get the number of bytes associate with a packing.
 Result<int32_t> GetNumBytes(int32_t num_values, int32_t bit_width) {
-  auto const num_bits = num_values * bit_width;
+  const auto num_bits = num_values * bit_width;
   if (num_bits % 8 != 0) {
     return Status::NotImplemented(
         "The unpack functions only work on a multiple of 8 bits.");
@@ -76,13 +76,13 @@ std::vector<Int> UnpackValues(const uint8_t* packed, int32_t num_values,
 
 /// Use BitWriter to pack values into a vector.
 template <typename Int>
-std::vector<uint8_t> PackValues(std::vector<Int> const& values, int32_t num_values,
+std::vector<uint8_t> PackValues(const std::vector<Int>& values, int32_t num_values,
                                 int32_t bit_width) {
   EXPECT_OK_AND_ASSIGN(const auto num_bytes, GetNumBytes(num_values, bit_width));
 
   std::vector<uint8_t> out(static_cast<std::size_t>(num_bytes));
   bit_util::BitWriter writer(out.data(), num_bytes);
-  for (auto const& v : values) {
+  for (const auto& v : values) {
     bool written = writer.PutValue(v, bit_width);
     if (!written) {
       throw std::runtime_error("Cannot write move values");
@@ -97,9 +97,9 @@ void CheckUnpackPackRoundtrip(const uint8_t* packed, int32_t num_values,
                               int32_t bit_width, UnpackFunc<Int> unpack) {
   EXPECT_OK_AND_ASSIGN(const auto num_bytes, GetNumBytes(num_values, bit_width));
 
-  auto const unpacked = UnpackValues(packed, num_values, bit_width, unpack);
+  const auto unpacked = UnpackValues(packed, num_values, bit_width, unpack);
   EXPECT_EQ(unpacked.size(), num_values);
-  auto const roundtrip = PackValues(unpacked, num_values, bit_width);
+  const auto roundtrip = PackValues(unpacked, num_values, bit_width);
   EXPECT_EQ(num_bytes, roundtrip.size());
   for (int i = 0; i < num_bytes; ++i) {
     EXPECT_EQ(packed[i], roundtrip[i]) << "differ in position " << i;
