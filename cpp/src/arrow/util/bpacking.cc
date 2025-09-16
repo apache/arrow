@@ -17,8 +17,7 @@
 
 #include "arrow/util/bpacking_internal.h"
 
-#include "arrow/util/bpacking64_default_internal.h"
-#include "arrow/util/bpacking_default_internal.h"
+#include "arrow/util/bpacking_scalar_generated_internal.h"
 #include "arrow/util/cpu_info.h"
 #include "arrow/util/dispatch_internal.h"
 #include "arrow/util/logging_internal.h"
