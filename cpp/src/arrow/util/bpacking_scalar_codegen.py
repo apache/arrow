@@ -65,6 +65,11 @@ HEADER = """
 #include "arrow/util/ubsan.h"
 
 namespace arrow::internal {
+
+template <typename Int>
+Int LoadInt(const uint8_t* in) {
+  return bit_util::FromLittleEndian(util::SafeLoadAs<Int>(in));
+}
 """
 
 FOOTER = """
@@ -118,11 +123,12 @@ class ScalarUnpackGenerator:
     def print_unpack_last(self) -> None:
         print(self.unpack_signature(self.out_bit_width))
         print(f"  for(int k = 0; k < {self.howmany}; k += 1) {{")
-        print(f"    auto w = util::SafeLoadAs<{self.unsigned_type}>(in);")
-        print("    out[k] = bit_util::FromLittleEndian(w);")
-        print(f"    in += {self.out_byte_width};")
+        print(
+            f"    out[k] = LoadInt<{self.unsigned_type}>("
+            f"in + (k * {self.out_byte_width}));"
+        )
         print("  }")
-        print("  return in;")
+        print(f"  return in + ({self.out_byte_width} * {self.howmany});")
         print("}")
 
     def print_unpack_k(self, bit: int) -> None:
@@ -136,24 +142,22 @@ class ScalarUnpackGenerator:
 
         for k in range(self.howmanywords(bit) - 1):
             print(
-                f"  const auto w{k} = "
-                f"bit_util::FromLittleEndian(util::SafeLoadAs<{self.unsigned_type}>(in));"
+                f"  const auto w{k} = LoadInt<{self.unsigned_type}>("
+                f"in + {k} * {self.out_byte_width});"
             )
-            print(f"  in += {self.out_byte_width};")
 
         k = self.howmanywords(bit) - 1
-        if self.smart_halve and bit % 2 == 1:
+        use_smart_halving = self.smart_halve and bit % 2 == 1
+        if use_smart_halving:
             print(
-                f"  auto w{k} = static_cast<{self.unsigned_type}>(util::SafeLoadAs<{self.unsigned_type_half}>(in));"
+                f"  const auto w{k} = static_cast<{self.unsigned_type}>(LoadInt<{self.unsigned_type_half}>("
+                f"in + {k} * {self.out_byte_width}));"
             )
-            print(f"  w{k} = bit_util::FromLittleEndian(w{k});")
-            print(f"  in += {self.out_byte_width // 2};")
         else:
             print(
-                f"  const auto w{k} = "
-                f"bit_util::FromLittleEndian(util::SafeLoadAs<{self.unsigned_type}>(in));"
+                f"  const auto w{k} = LoadInt<{self.unsigned_type}>("
+                f"in + {k} * {self.out_byte_width});"
             )
-            print(f"  in += {self.out_byte_width};")
 
         for j in range(self.howmany):
             firstword = j * bit // self.out_bit_width
@@ -174,7 +178,14 @@ class ScalarUnpackGenerator:
                     f"(w{firstword + 1} << {secondshift})){maskstr};"
                 )
         print("")
-        print("  return in;")
+
+        if use_smart_halving:
+            print(
+                f"  return in + ({self.howmanywords(bit) - 1} * {self.out_byte_width}"
+                f" + {self.out_byte_width // 2});"
+            )
+        else:
+            print(f"  return in + ({self.howmanywords(bit)} * {self.out_byte_width});")
         print("}")
 
     def print_all(self) -> None:
