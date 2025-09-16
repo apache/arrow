@@ -67,7 +67,7 @@ class ARROW_EXPORT BufferBuilder {
 
   /// \brief Resize the buffer to the nearest multiple of 64 bytes
   ///
-  /// \param new_capacity the new capacity of the of the builder. Will be
+  /// \param new_capacity the new capacity of the builder. Will be
   /// rounded up to a multiple of 64 bytes for padding
   /// \param shrink_to_fit if new capacity is smaller than the existing,
   /// reallocate internal buffer. Set to false to avoid reallocations when
