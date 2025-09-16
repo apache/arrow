@@ -20,7 +20,7 @@
 set SOURCE_DIR=%1
 set CMAKE_INSTALL_PREFIX=%2
 set CPP_SOURCE_DIR=%SOURCE_DIR%\cpp
-set CPP_BUILD_DIR=%CPP_SOURCE_DIR%\build
+set CPP_BUILD_DIR=%SOURCE_DIR%\build
 echo C++ source dir is %CPP_SOURCE_DIR%
 
 echo Building for Windows ...
