@@ -221,11 +221,11 @@ INSTANTIATE_TEST_SUITE_P(
                       TestUnpackSize{2048, 16}, TestUnpackSize{2048, 31},
                       TestUnpackSize{2048, 32}));
 
-TEST_P(TestUnpack, unpack32Default) { this->TestAll(&unpack32_scalar); }
-TEST_P(TestUnpack, unpack64Default) { this->TestAll(&unpack64_scalar); }
+TEST_P(TestUnpack, Unpack32Scalar) { this->TestAll(&unpack32_scalar); }
+TEST_P(TestUnpack, Unpack64Scalar) { this->TestAll(&unpack64_scalar); }
 
 #if defined(ARROW_HAVE_RUNTIME_AVX2)
-TEST_P(TestUnpack, unpack32Avx2) {
+TEST_P(TestUnpack, Unpack32Avx2) {
   if (!CpuInfo::GetInstance()->IsSupported(CpuInfo::AVX2)) {
     GTEST_SKIP() << "Test requires AVX2";
   }
@@ -234,7 +234,7 @@ TEST_P(TestUnpack, unpack32Avx2) {
 #endif
 
 #if defined(ARROW_HAVE_RUNTIME_AVX512)
-TEST_P(TestUnpack, unpack32Avx512) {
+TEST_P(TestUnpack, Unpack32Avx512) {
   if (!CpuInfo::GetInstance()->IsSupported(CpuInfo::AVX512)) {
     GTEST_SKIP() << "Test requires AVX512";
   }
@@ -243,10 +243,10 @@ TEST_P(TestUnpack, unpack32Avx512) {
 #endif
 
 #if defined(ARROW_HAVE_NEON)
-TEST_P(TestUnpack, unpack32Neon) { this->TestAll(&unpack32_neon); }
+TEST_P(TestUnpack, Unpack32Neon) { this->TestAll(&unpack32_neon); }
 #endif
 
-TEST_P(TestUnpack, unpack32) { this->TestAll(&unpack32); }
-TEST_P(TestUnpack, unpack64) { this->TestAll(&unpack64); }
+TEST_P(TestUnpack, Unpack32) { this->TestAll(&unpack32); }
+TEST_P(TestUnpack, Unpack64) { this->TestAll(&unpack64); }
 
 }  // namespace arrow::internal
