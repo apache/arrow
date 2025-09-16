@@ -278,7 +278,7 @@ jobs:
         shell: bash
         run: |
           ci/scripts/install_ccache.sh 4.6.3 /usr
-          echo "INSTALL_DIR=$(cygpath --absolute --windows /usr)" >> $GITHUB_ENV
+          echo "INSTALL_DIR="$(cygpath --absolute --windows /usr)"" >> $GITHUB_ENV
       - name: Setup ccache
         shell: bash
         run: |
