@@ -274,10 +274,28 @@ jobs:
         uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6.0.0
         with:
           python-version: 3.13
+      - name: Install ccache
+        shell: bash
+        run: |
+          ci/scripts/install_ccache.sh 4.6.3 /usr
+      - name: Setup ccache
+        shell: bash
+        run: |
+          ci/scripts/ccache_setup.sh
+          echo "CCACHE_DIR=$(cygpath --absolute --windows ccache)" >> $GITHUB_ENV
+      - name: Cache ccache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.CCACHE_DIR }}
+          key: python-ccache-windows-${{ env.CACHE_VERSION }}-${{ hashFiles('cpp/**', 'python/**') }}
+          restore-keys: python-ccache-windows-${{ env.CACHE_VERSION }}-
+        env:
+          # We can invalidate the current cache by updating this.
+          CACHE_VERSION: "2025-09-15"
       - name: Build Arrow CPP and PyArrow
         shell: cmd
         run: |
-          call "ci\scripts\python_build.bat" %cd%
+          call "ci\scripts\python_build.bat" %cd% $(cygpath --windows /usr)
       - name: Test PyArrow
         shell: cmd
         run: |

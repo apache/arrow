@@ -18,6 +18,7 @@
 @echo on
 
 set SOURCE_DIR=%1
+set CMAKE_INSTALL_PREFIX=%2
 set CPP_SOURCE_DIR=%SOURCE_DIR%\cpp
 echo CPP source dir is %CPP_SOURCE_DIR%
 
@@ -32,15 +33,6 @@ py -0p
 
 call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
 @echo on
-
-echo "=== Clear output directories and leftovers ==="
-@REM This is required for local development. CI should be clean.
-rmdir /s /q C:\arrow-build
-rmdir /s /q C:\arrow-dist
-rmdir /s /q C:\arrow\python\dist
-rmdir /s /q C:\arrow\python\build
-del /s /q C:\arrow\python\pyarrow\*.so
-del /s /q C:\arrow\python\pyarrow\*.so.*
 
 echo "=== Building Arrow C++ libraries ==="
 set ARROW_ACERO=ON
@@ -92,6 +84,7 @@ cmake ^
     -DARROW_S3=%ARROW_S3% ^
     -DARROW_SUBSTRAIT=%ARROW_SUBSTRAIT% ^
     -DARROW_TENSORFLOW=%ARROW_TENSORFLOW% ^
+    -DARROW_USE_CCACHE=ON \
     -DARROW_WITH_BROTLI=%ARROW_WITH_BROTLI% ^
     -DARROW_WITH_BZ2=%ARROW_WITH_BZ2% ^
     -DARROW_WITH_LZ4=%ARROW_WITH_LZ4% ^
@@ -99,7 +92,7 @@ cmake ^
     -DARROW_WITH_ZLIB=%ARROW_WITH_ZLIB% ^
     -DARROW_WITH_ZSTD=%ARROW_WITH_ZSTD% ^
     -DCMAKE_BUILD_TYPE=%CMAKE_BUILD_TYPE% ^
-    -DCMAKE_INSTALL_PREFIX=C:\arrow-dist ^
+    -DCMAKE_INSTALL_PREFIX=%CMAKE_INSTALL_PREFIX% ^
     -DCMAKE_UNITY_BUILD=%CMAKE_UNITY_BUILD% ^
     -DMSVC_LINK_VERBOSE=ON ^
     -DPARQUET_REQUIRE_ENCRYPTION=%PARQUET_REQUIRE_ENCRYPTION% ^
@@ -109,6 +102,9 @@ cmake ^
     %CPP_SOURCE_DIR% || exit /B 1
 cmake --build . --config %CMAKE_BUILD_TYPE% --target install || exit /B 1
 popd
+
+echo "=== CCACHE STATS ==="
+ccache -sv
 
 echo "=== Building Python ==="
 set PYARROW_BUILD_TYPE=%CMAKE_BUILD_TYPE%
@@ -126,8 +122,8 @@ set PYARROW_WITH_PARQUET=%ARROW_PARQUET%
 set PYARROW_WITH_PARQUET_ENCRYPTION=%PARQUET_REQUIRE_ENCRYPTION%
 set PYARROW_WITH_SUBSTRAIT=%ARROW_SUBSTRAIT%
 set PYARROW_WITH_S3=%ARROW_S3%
-set ARROW_HOME=C:\arrow-dist
-set CMAKE_PREFIX_PATH=C:\arrow-dist
+set ARROW_HOME=%CMAKE_INSTALL_PREFIX%
+set CMAKE_PREFIX_PATH=%CMAKE_INSTALL_PREFIX%
 
 pushd %SOURCE_DIR%\python
 
