@@ -286,7 +286,7 @@ jobs:
           restore-keys: python-ccache-windows-${{ env.CACHE_VERSION }}-
         env:
           # We can invalidate the current cache by updating this.
-          CACHE_VERSION: "2022-09-13"
+          CACHE_VERSION: "2025-09-16"
       - name: Build Arrow C++ and PyArrow
         shell: cmd
         run: |
