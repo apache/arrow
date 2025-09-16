@@ -221,8 +221,8 @@ INSTANTIATE_TEST_SUITE_P(
                       TestUnpackSize{2048, 16}, TestUnpackSize{2048, 31},
                       TestUnpackSize{2048, 32}));
 
-TEST_P(TestUnpack, unpack32Default) { this->TestAll(&unpack32_default); }
-TEST_P(TestUnpack, unpack64Default) { this->TestAll(&unpack64_default); }
+TEST_P(TestUnpack, unpack32Default) { this->TestAll(&unpack32_scalar); }
+TEST_P(TestUnpack, unpack64Default) { this->TestAll(&unpack64_scalar); }
 
 #if defined(ARROW_HAVE_RUNTIME_AVX2)
 TEST_P(TestUnpack, unpack32Avx2) {

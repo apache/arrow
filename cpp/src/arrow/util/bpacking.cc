@@ -36,7 +36,7 @@
 namespace arrow {
 namespace internal {
 
-int unpack32_default(const uint8_t* in_, uint32_t* out, int batch_size, int num_bits) {
+int unpack32_scalar(const uint8_t* in_, uint32_t* out, int batch_size, int num_bits) {
   const uint32_t* in = reinterpret_cast<const uint32_t*>(in_);
 
   batch_size = batch_size / 32 * 32;
@@ -152,10 +152,10 @@ int unpack32_default(const uint8_t* in_, uint32_t* out, int batch_size, int num_
 namespace {
 
 struct Unpack32DynamicFunction {
-  using FunctionType = decltype(&unpack32_default);
+  using FunctionType = decltype(&unpack32_scalar);
 
   static std::vector<std::pair<DispatchLevel, FunctionType>> implementations() {
-    return {{DispatchLevel::NONE, unpack32_default}
+    return {{DispatchLevel::NONE, unpack32_scalar}
 #if defined(ARROW_HAVE_RUNTIME_AVX2)
             ,
             {DispatchLevel::AVX2, unpack32_avx2}
@@ -179,7 +179,7 @@ int unpack32(const uint8_t* in, uint32_t* out, int batch_size, int num_bits) {
 #endif
 }
 
-int unpack64_default(const uint8_t* in, uint64_t* out, int batch_size, int num_bits) {
+int unpack64_scalar(const uint8_t* in, uint64_t* out, int batch_size, int num_bits) {
   batch_size = batch_size / 32 * 32;
   int num_loops = batch_size / 32;
 
@@ -388,7 +388,7 @@ int unpack64_default(const uint8_t* in, uint64_t* out, int batch_size, int num_b
 
 int unpack64(const uint8_t* in, uint64_t* out, int batch_size, int num_bits) {
   // TODO: unpack64_neon, unpack64_avx2 and unpack64_avx512
-  return unpack64_default(in, out, batch_size, num_bits);
+  return unpack64_scalar(in, out, batch_size, num_bits);
 }
 
 }  // namespace internal

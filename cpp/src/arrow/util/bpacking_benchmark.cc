@@ -124,9 +124,9 @@ void BM_UnpackUint64(benchmark::State& state, bool aligned, UnpackFunc<uint64_t>
   return BM_Unpack<uint64_t>(state, aligned, unpack, skip, std::move(skip_msg));
 }
 
-BENCHMARK_CAPTURE(BM_UnpackUint32, ScalarUnaligned, false, unpack32_default)
+BENCHMARK_CAPTURE(BM_UnpackUint32, ScalarUnaligned, false, unpack32_scalar)
     ->ArgsProduct(kBitWidthsNumValues32);
-BENCHMARK_CAPTURE(BM_UnpackUint64, ScalarUnaligned, false, unpack64_default)
+BENCHMARK_CAPTURE(BM_UnpackUint64, ScalarUnaligned, false, unpack64_scalar)
     ->ArgsProduct(bitWidthsNumValues64);
 
 #if defined(ARROW_HAVE_RUNTIME_AVX2)
