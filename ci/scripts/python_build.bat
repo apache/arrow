@@ -20,6 +20,7 @@
 set SOURCE_DIR=%1
 set CMAKE_INSTALL_PREFIX=%2
 set CPP_SOURCE_DIR=%SOURCE_DIR%\cpp
+set CPP_BUILD_DIR=%CPP_SOURCE_DIR%\build
 echo C++ source dir is %CPP_SOURCE_DIR%
 
 echo Building for Windows ...
@@ -33,6 +34,9 @@ py -0p
 
 call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
 @echo on
+
+echo "=== CCACHE Stats before build ==="
+ccache -sv
 
 echo "=== Building Arrow C++ libraries ==="
 set ARROW_ACERO=ON
@@ -58,8 +62,8 @@ set CMAKE_BUILD_TYPE=Release
 set CMAKE_GENERATOR=Ninja
 set CMAKE_UNITY_BUILD=ON
 
-mkdir C:\arrow-build
-pushd C:\arrow-build
+mkdir %CPP_BUILD_DIR%
+pushd %CPP_BUILD_DIR%
 
 cmake ^
     -DARROW_ACERO=%ARROW_ACERO% ^
@@ -101,7 +105,7 @@ cmake ^
 cmake --build . --config %CMAKE_BUILD_TYPE% --target install || exit /B 1
 popd
 
-echo "=== CCACHE STATS ==="
+echo "=== CCACHE Stats after build ==="
 ccache -sv
 
 echo "=== Building Python ==="
