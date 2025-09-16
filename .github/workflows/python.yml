@@ -278,6 +278,7 @@ jobs:
         shell: bash
         run: |
           ci/scripts/install_ccache.sh 4.6.3 /usr
+          echo "INSTALL_DIR=$(cygpath --absolute --windows /usr)" >> $GITHUB_ENV
       - name: Setup ccache
         shell: bash
         run: |
@@ -295,7 +296,7 @@ jobs:
       - name: Build Arrow CPP and PyArrow
         shell: cmd
         run: |
-          call "ci\scripts\python_build.bat" %cd% $(cygpath --windows /usr)
+          call "ci\scripts\python_build.bat" %cd% %INSTALL_DIR%
       - name: Test PyArrow
         shell: cmd
         run: |
