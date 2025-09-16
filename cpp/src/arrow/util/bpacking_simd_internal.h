@@ -22,7 +22,7 @@ namespace arrow {
 namespace internal {
 
 template <typename UnpackBits>
-static int unpack32_specialized(const uint32_t* in, uint32_t* out, int batch_size,
+static int unpack32_specialized(const uint8_t* in, uint32_t* out, int batch_size,
                                 int num_bits) {
   batch_size = batch_size / 32 * 32;
   int num_loops = batch_size / 32;

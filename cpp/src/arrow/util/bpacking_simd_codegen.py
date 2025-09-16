@@ -39,7 +39,7 @@ class UnpackGenerator:
     def print_unpack_bit0_func(self):
         ty = self.out_type
         print(
-            f"inline static const {ty}* unpack0_{self.out_width}(const {ty}* in, {ty}* out) {{"
+            f"inline static const uint8_t* unpack0_{self.out_width}(const uint8_t* in, {ty}* out) {{"
         )
         print(f"  std::memset(out, 0x0, {self.out_width} * sizeof(*out));")
         print(f"  out += {self.out_width};")
@@ -50,10 +50,10 @@ class UnpackGenerator:
     def print_unpack_bitmax_func(self):
         ty = self.out_type
         print(
-            f"inline static const {ty}* unpack{self.out_width}_{self.out_width}(const {ty}* in, {ty}* out) {{"
+            f"inline static const uint8_t* unpack{self.out_width}_{self.out_width}(const uint8_t* in, {ty}* out) {{"
         )
         print(f"  std::memcpy(out, in, {self.out_width} * sizeof(*out));")
-        print(f"  in += {self.out_width};")
+        print(f"  in += {self.out_byte_width} * {self.out_width};")
         print(f"  out += {self.out_width};")
         print("")
         print("  return in;")
@@ -69,7 +69,7 @@ class UnpackGenerator:
         words_per_batch = bytes_per_batch // self.out_byte_width
 
         print(
-            f"inline static const {ty}* unpack{bit}_{self.out_width}(const {ty}* in, {ty}* out) {{"
+            f"inline static const uint8_t* unpack{bit}_{self.out_width}(const uint8_t* in, {ty}* out) {{"
         )
         p(
             dedent(f"""\
@@ -84,7 +84,7 @@ class UnpackGenerator:
         )
 
         def safe_load(index):
-            return f"SafeLoad<{ty}>(in + {index})"
+            return f"SafeLoadAs<{ty}>(in + {self.out_byte_width} * {index})"
 
         def static_cast_as_needed(str):
             if self.out_width < 32:
@@ -140,7 +140,7 @@ class UnpackGenerator:
 
         p(
             dedent(f"""\
-            in += {bit};
+            in += {bit} * {self.out_byte_width};
             return in;""")
         )
         print("}")
@@ -199,7 +199,7 @@ def main(simd_width, outputs):
         namespace arrow::internal {{
         namespace {{
 
-        using ::arrow::util::SafeLoad;
+        using ::arrow::util::SafeLoadAs;
 
         template <DispatchLevel level>
         struct {struct_name} {{
