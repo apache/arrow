@@ -22,7 +22,7 @@ set SOURCE_DIR=%1
 set ARROW_TEST_DATA=%SOURCE_DIR%\testing\data
 set PARQUET_TEST_DATA=%SOURCE_DIR%\cpp\submodules\parquet-testing\data
 
-echo "Testing on Windows ..."
+echo Testing on Windows ...
 
 @REM List installed Pythons
 py -0p

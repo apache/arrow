@@ -20,9 +20,9 @@
 set SOURCE_DIR=%1
 set CMAKE_INSTALL_PREFIX=%2
 set CPP_SOURCE_DIR=%SOURCE_DIR%\cpp
-echo CPP source dir is %CPP_SOURCE_DIR%
+echo C++ source dir is %CPP_SOURCE_DIR%
 
-echo "Building for Windows ..."
+echo Building for Windows ...
 
 @REM List installed Pythons
 py -0p
