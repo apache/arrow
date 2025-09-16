@@ -290,7 +290,7 @@ jobs:
       - name: Build Arrow C++ and PyArrow
         shell: cmd
         run: |
-          call "ci\scripts\python_build.bat" %cd% C:/arrow-dist
+          call "ci\scripts\python_build.bat" %cd% ${{ steps.ccache-info.outputs.cache-dir }}
       - name: Test PyArrow
         shell: cmd
         run: |
