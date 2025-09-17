@@ -47,13 +47,13 @@ module Helper
 
     def detect_version(release_time)
       version_env = ENV["ARROW_VERSION"]
-      return version_env if version_env
+      return version_env unless version_env.nil? || version_env.empty?
 
       cmakelists_txt_path = File.join(arrow_source_dir, "cpp", "CMakeLists.txt")
       cmakelists_txt_content = File.read(cmakelists_txt_path)
       version = cmakelists_txt_content[/^set\(ARROW_VERSION "(.+?)"/, 1]
       formatted_release_time = release_time.strftime("%Y%m%d")
-      version.gsub(/-SNAPSHOT\z/) {"-dev#{formatted_release_time}"}
+      version.gsub(/-SNAPSHOT\z/) {".dev#{formatted_release_time}"}
     end
 
     def detect_env(name)
