@@ -23,6 +23,7 @@
 #include <vector>
 
 #include "arrow/chunked_array.h"  // IWYU pragma: keep
+#include "arrow/compare.h"
 #include "arrow/record_batch.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
@@ -203,11 +204,24 @@ class ARROW_EXPORT Table {
   /// \brief Return the number of rows (equal to each column's logical length)
   int64_t num_rows() const { return num_rows_; }
 
-  /// \brief Determine if tables are equal
+  /// \brief Determine if two tables are equal
   ///
-  /// Two tables can be equal only if they have equal schemas.
-  /// However, they may be equal even if they have different chunkings.
-  bool Equals(const Table& other, bool check_metadata = false) const;
+  /// \param[in] other the table to compare with
+  /// \param[in] opts the options for equality comparisons
+  /// \return true if two tables are equal
+  bool Equals(const Table& other, const EqualOptions& opts) const;
+
+  /// \brief Determine if two tables are equal
+  ///
+  /// \param[in] other the table to compare with
+  /// \param[in] check_metadata if true, the schema metadata will be compared,
+  ///            regardless of the value set in \ref EqualOptions::use_metadata
+  /// \param[in] opts the options for equality comparisons
+  /// \return true if two tables are equal
+  bool Equals(const Table& other, bool check_metadata = false,
+              const EqualOptions& opts = EqualOptions::Defaults()) const {
+    return Equals(other, opts.use_metadata(check_metadata));
+  }
 
   /// \brief Make a new table by combining the chunks this table has.
   ///
