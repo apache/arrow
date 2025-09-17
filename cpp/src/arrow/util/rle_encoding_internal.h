@@ -110,23 +110,23 @@ class RleRun {
       : values_count_(values_count), value_bit_width_(value_bit_width) {
     ARROW_DCHECK_GE(value_bit_width, 0);
     ARROW_DCHECK_GE(values_count, 0);
-    std::copy(data, data + RawDataSize(), data_.begin());
+    std::copy(data, data + raw_data_size(), data_.begin());
   }
 
   constexpr RleRun& operator=(const RleRun&) noexcept = default;
   constexpr RleRun& operator=(RleRun&&) noexcept = default;
 
   /// The number of repeated values in this run.
-  constexpr values_count_type ValuesCount() const noexcept { return values_count_; }
+  constexpr values_count_type values_count() const noexcept { return values_count_; }
 
   /// The size in bits of each encoded value.
-  constexpr bit_size_type ValuesBitWidth() const noexcept { return value_bit_width_; }
+  constexpr bit_size_type values_bit_width() const noexcept { return value_bit_width_; }
 
   /// A pointer to the repeated value raw bytes.
-  constexpr raw_data_const_pointer RawDataPtr() const noexcept { return data_.data(); }
+  constexpr raw_data_const_pointer raw_data_ptr() const noexcept { return data_.data(); }
 
   /// The number of bytes used for the raw repeated value.
-  constexpr raw_data_size_type RawDataSize() const noexcept {
+  constexpr raw_data_size_type raw_data_size() const noexcept {
     auto out = bit_util::BytesForBits(value_bit_width_);
     ARROW_DCHECK_LE(out, std::numeric_limits<raw_data_size_type>::max());
     return static_cast<raw_data_size_type>(out);
@@ -173,14 +173,14 @@ class BitPackedRun {
   constexpr BitPackedRun& operator=(const BitPackedRun&) noexcept = default;
   constexpr BitPackedRun& operator=(BitPackedRun&&) noexcept = default;
 
-  constexpr values_count_type ValuesCount() const noexcept { return values_count_; }
+  constexpr values_count_type values_count() const noexcept { return values_count_; }
 
   /// The size in bits of each encoded value.
-  constexpr bit_size_type ValuesBitWidth() const noexcept { return value_bit_width_; }
+  constexpr bit_size_type values_bit_width() const noexcept { return value_bit_width_; }
 
-  constexpr raw_data_const_pointer RawDataPtr() const noexcept { return data_; }
+  constexpr raw_data_const_pointer raw_data_ptr() const noexcept { return data_; }
 
-  constexpr raw_data_size_type RawDataSize() const noexcept {
+  constexpr raw_data_size_type raw_data_size() const noexcept {
     auto out = bit_util::BytesForBits(static_cast<int64_t>(value_bit_width_) *
                                       static_cast<int64_t>(values_count_));
     ARROW_CHECK_LE(out, std::numeric_limits<raw_data_size_type>::max());
@@ -223,7 +223,7 @@ class RleBitPackedParser {
   /// WARN: Due to simplistic error handling, iteration with Next and Peek could
   /// fail to return data while the parser is not exhausted.
   /// This is how one can check for errors.
-  bool Exhausted() const { return data_size_ == 0; }
+  bool exhausted() const { return data_size_ == 0; }
 
   /// Enum to return from an ``Parse`` handler.
   ///
@@ -279,25 +279,25 @@ class RleRunDecoder {
   explicit RleRunDecoder(const run_type& run) noexcept { Reset(run); }
 
   void Reset(const run_type& run) noexcept {
-    remaining_count_ = run.ValuesCount();
+    remaining_count_ = run.values_count();
     if constexpr (std::is_same_v<value_type, bool>) {
       // ARROW-18031:  just check the LSB of the next byte and move on.
       // If we memcpy + FromLittleEndian, we have potential undefined behavior
       // if the bool value isn't 0 or 1.
-      value_ = *run.RawDataPtr() & 1;
+      value_ = *run.raw_data_ptr() & 1;
     } else {
       // Memcopy is required to avoid undefined behavior.
       value_ = {};
-      std::memcpy(&value_, run.RawDataPtr(), run.RawDataSize());
+      std::memcpy(&value_, run.raw_data_ptr(), run.raw_data_size());
       value_ = ::arrow::bit_util::FromLittleEndian(value_);
     }
   }
 
   /// Return the number of values that can be advanced.
-  values_count_type Remaining() const { return remaining_count_; }
+  values_count_type remaining() const { return remaining_count_; }
 
   /// Return the repeated value of this decoder.
-  constexpr value_type Value() const { return value_; }
+  constexpr value_type value() const { return value_; }
 
   /// Try to advance by as many values as provided.
   /// Return the number of values skipped.
@@ -351,18 +351,18 @@ class BitPackedRunDecoder {
   explicit BitPackedRunDecoder(const run_type& run) noexcept { Reset(run); }
 
   void Reset(const run_type& run) noexcept {
-    value_bit_width_ = run.ValuesBitWidth();
-    remaining_count_ = run.ValuesCount();
+    value_bit_width_ = run.values_bit_width();
+    remaining_count_ = run.values_count();
     ARROW_DCHECK_GE(value_bit_width_, 0);
     ARROW_DCHECK_LE(value_bit_width_, 64);
-    bit_reader_.Reset(run.RawDataPtr(), run.RawDataSize());
+    bit_reader_.Reset(run.raw_data_ptr(), run.raw_data_size());
   }
 
   /// Return the number of values that can be advanced.
-  constexpr values_count_type Remaining() const { return remaining_count_; }
+  constexpr values_count_type remaining() const { return remaining_count_; }
 
   /// Return the size in bit in which each encoded value is written.
-  constexpr bit_size_type ValueBitWidth() const { return value_bit_width_; }
+  constexpr bit_size_type value_bit_width() const { return value_bit_width_; }
 
   /// Try to advance by as many values as provided.
   /// Return the number of values skipped or 0 if it fail to advance.
@@ -439,7 +439,7 @@ class RleBitPackedDecoder {
   /// WARN: Due to lack of proper error handling, iteration with Get methods could return
   /// no data while the parser is not exhausted.
   /// This is how one can check for errors.
-  bool Exhausted() const { return (RunRemaining() == 0) && parser_.Exhausted(); }
+  bool exhausted() const { return (run_remaining() == 0) && parser_.exhausted(); }
 
   /// Gets the next value.  Returns false if there are no more.
   ///
@@ -481,8 +481,8 @@ class RleBitPackedDecoder {
   std::variant<RleRunDecoder<value_type>, BitPackedRunDecoder<value_type>> decoder_ = {};
 
   /// Return the number of values that are remaining in the current run.
-  values_count_type RunRemaining() const {
-    return std::visit([](const auto& dec) { return dec.Remaining(); }, decoder_);
+  values_count_type run_remaining() const {
+    return std::visit([](const auto& dec) { return dec.remaining(); }, decoder_);
   }
 
   /// Get a batch of values from the current run and return the number elements read.
@@ -646,7 +646,7 @@ class RleBitPackedEncoder {
 
 template <typename Handler>
 void RleBitPackedParser::Parse(Handler&& handler) {
-  while (!Exhausted()) {
+  while (!exhausted()) {
     auto [read, control] = PeekImpl(handler);
     data_ += read;
     data_size_ -= read;
@@ -667,7 +667,7 @@ constexpr auto max_size_for_v =
 template <typename Handler>
 auto RleBitPackedParser::PeekImpl(Handler&& handler) const
     -> std::pair<raw_data_size_type, ControlFlow> {
-  ARROW_DCHECK(!Exhausted());
+  ARROW_DCHECK(!exhausted());
 
   constexpr auto kMaxSize = bit_util::kMaxLEB128ByteLenFor<uint32_t>;
   uint32_t run_len_type = 0;
@@ -749,7 +749,7 @@ auto RleBitPackedDecoder<T>::GetBatch(value_type* out, values_count_type batch_s
   values_count_type values_read = 0;
 
   // Remaining from a previous call that would have left some unread data from a run.
-  if (ARROW_PREDICT_FALSE(RunRemaining() > 0)) {
+  if (ARROW_PREDICT_FALSE(run_remaining() > 0)) {
     const auto read = RunGetBatch(out, batch_size);
     values_read += read;
     out += read;
@@ -758,7 +758,7 @@ auto RleBitPackedDecoder<T>::GetBatch(value_type* out, values_count_type batch_s
     if (ARROW_PREDICT_FALSE(values_read == batch_size)) {
       return values_read;
     }
-    ARROW_DCHECK(RunRemaining() == 0);
+    ARROW_DCHECK(run_remaining() == 0);
   }
 
   ParseWithCallable([&](auto run) {
@@ -800,43 +800,43 @@ class BatchCounter {
   constexpr BatchCounter(size_type values_count, size_type null_count) noexcept
       : values_count_(values_count), null_count_(null_count) {}
 
-  constexpr size_type ValuesCount() const noexcept { return values_count_; }
+  constexpr size_type values_count() const noexcept { return values_count_; }
 
-  constexpr size_type ValuesRead() const noexcept { return values_read_; }
+  constexpr size_type values_read() const noexcept { return values_read_; }
 
-  constexpr size_type ValuesRemaining() const noexcept {
+  constexpr size_type values_remaining() const noexcept {
     ARROW_DCHECK_LE(values_read_, values_count_);
     return values_count_ - values_read_;
   }
 
   constexpr void AccrueReadValues(size_type to_read) noexcept {
-    ARROW_DCHECK_LE(to_read, ValuesRemaining());
+    ARROW_DCHECK_LE(to_read, values_remaining());
     values_read_ += to_read;
   }
 
-  constexpr size_type NullCount() const noexcept { return null_count_; }
+  constexpr size_type null_count() const noexcept { return null_count_; }
 
-  constexpr size_type NullRead() const noexcept { return null_read_; }
+  constexpr size_type null_read() const noexcept { return null_read_; }
 
-  constexpr size_type NullRemaining() const noexcept {
+  constexpr size_type null_remaining() const noexcept {
     ARROW_DCHECK_LE(null_read_, null_count_);
     return null_count_ - null_read_;
   }
 
   constexpr void AccrueReadNulls(size_type to_read) noexcept {
-    ARROW_DCHECK_LE(to_read, NullRemaining());
+    ARROW_DCHECK_LE(to_read, null_remaining());
     null_read_ += to_read;
   }
 
-  constexpr size_type TotalRemaining() const noexcept {
-    return ValuesRemaining() + NullRemaining();
+  constexpr size_type total_remaining() const noexcept {
+    return values_remaining() + null_remaining();
   }
 
-  constexpr size_type TotalRead() const noexcept { return values_read_ + null_read_; }
+  constexpr size_type total_read() const noexcept { return values_read_ + null_read_; }
 
-  constexpr bool IsFullyNull() const noexcept { return ValuesRemaining() == 0; }
+  constexpr bool is_fully_null() const noexcept { return values_remaining() == 0; }
 
-  constexpr bool IsDone() const noexcept { return TotalRemaining() == 0; }
+  constexpr bool is_done() const noexcept { return total_remaining() == 0; }
 
  private:
   size_type values_count_ = 0;
@@ -865,10 +865,10 @@ auto RunGetSpaced(Converter* converter, typename Converter::out_type* out,
 
   auto batch = BatchCounter::FromBatchSizeAndNulls(batch_size, null_count);
 
-  const values_count_type values_available = decoder->Remaining();
+  const values_count_type values_available = decoder->remaining();
   ARROW_DCHECK_GT(values_available, 0);
   auto values_remaining_run = [&]() {
-    auto out = values_available - batch.ValuesRead();
+    auto out = values_available - batch.values_read();
     ARROW_DCHECK_GE(out, 0);
     return out;
   };
@@ -877,10 +877,10 @@ auto RunGetSpaced(Converter* converter, typename Converter::out_type* out,
   // We only need to count the number of nulls and non-nulls because we can fill in the
   // same value for nulls and non-nulls.
   // This proves to be a big efficiency win.
-  while (values_remaining_run() > 0 && !batch.IsDone()) {
+  while (values_remaining_run() > 0 && !batch.is_done()) {
     ARROW_DCHECK_GE(validity_run->length, 0);
     ARROW_DCHECK_LT(validity_run->length, max_size_for_v<values_count_type>);
-    ARROW_DCHECK_LE(validity_run->length, batch.TotalRemaining());
+    ARROW_DCHECK_LE(validity_run->length, batch.total_remaining());
     const auto& validity_run_size = static_cast<values_count_type>(validity_run->length);
 
     if (validity_run->set) {
@@ -891,7 +891,7 @@ auto RunGetSpaced(Converter* converter, typename Converter::out_type* out,
     } else {
       // We can consume all nulls here because it does not matter if we consume on this
       // RLE run, or an a next encoded run. The value filled does not matter.
-      auto update_size = std::min(validity_run_size, batch.NullRemaining());
+      auto update_size = std::min(validity_run_size, batch.null_remaining());
       batch.AccrueReadNulls(update_size);
       validity_run->length -= update_size;
     }
@@ -901,17 +901,17 @@ auto RunGetSpaced(Converter* converter, typename Converter::out_type* out,
     }
   }
 
-  const value_type value = decoder->Value();
+  const value_type value = decoder->value();
   if (ARROW_PREDICT_FALSE(!converter->InputIsValid(value))) {
     return {0, 0};
   }
-  converter->WriteRepeated(out, out + batch.TotalRead(), value);
-  const auto actual_values_read = decoder->Advance(batch.ValuesRead());
+  converter->WriteRepeated(out, out + batch.total_read(), value);
+  const auto actual_values_read = decoder->Advance(batch.values_read());
   // We always cropped the number of values_read by the remaining values in the run.
   // What's more the RLE decoder should not encounter any errors.
-  ARROW_DCHECK_EQ(actual_values_read, batch.ValuesRead());
+  ARROW_DCHECK_EQ(actual_values_read, batch.values_read());
 
-  return {/* .values_read= */ batch.ValuesRead(), /* .null_read= */ batch.NullRead()};
+  return {/* .values_read= */ batch.values_read(), /* .null_read= */ batch.null_read()};
 }
 
 template <typename Converter, typename BitRunReader, typename BitRun,
@@ -927,15 +927,15 @@ auto RunGetSpaced(Converter* converter, typename Converter::out_type* out,
 
   auto batch = BatchCounter::FromBatchSizeAndNulls(batch_size, null_count);
 
-  const values_count_type values_available = decoder->Remaining();
+  const values_count_type values_available = decoder->remaining();
   ARROW_DCHECK_GT(values_available, 0);
   auto run_values_remaining = [&]() {
-    auto out = values_available - batch.ValuesRead();
+    auto out = values_available - batch.values_read();
     ARROW_DCHECK_GE(out, 0);
     return out;
   };
 
-  while (run_values_remaining() > 0 && batch.ValuesRemaining() > 0) {
+  while (run_values_remaining() > 0 && batch.values_remaining() > 0) {
     // TODO should this size be tune depending on sizeof(value_size)? cpu cache size?
     // Pull a batch of values from the bit packed encoded data and store it in a local
     // buffer to benefit from unpacking intrinsics and data locality.
@@ -951,13 +951,13 @@ auto RunGetSpaced(Converter* converter, typename Converter::out_type* out,
     };
 
     // buffer_start is 0 at this point so size is end
-    buffer_end = std::min(std::min(run_values_remaining(), batch.ValuesRemaining()),
+    buffer_end = std::min(std::min(run_values_remaining(), batch.values_remaining()),
                           kBufferCapacity);
     buffer_end = decoder->GetBatch(buffer.data(), buffer_size());
     ARROW_DCHECK_LE(buffer_size(), kBufferCapacity);
 
     if (ARROW_PREDICT_FALSE(!converter->InputIsValid(buffer.data(), buffer_size()))) {
-      return {batch.ValuesRead(), batch.NullRead()};
+      return {batch.values_read(), batch.null_read()};
     }
 
     // Copy chunks of valid values into the output, while adjusting spacing for null
@@ -965,7 +965,7 @@ auto RunGetSpaced(Converter* converter, typename Converter::out_type* out,
     while (buffer_size() > 0) {
       ARROW_DCHECK_GE(validity_run->length, 0);
       ARROW_DCHECK_LT(validity_run->length, max_size_for_v<values_count_type>);
-      ARROW_DCHECK_LE(validity_run->length, batch.TotalRemaining());
+      ARROW_DCHECK_LE(validity_run->length, batch.total_remaining());
       const auto validity_run_length =
           static_cast<values_count_type>(validity_run->length);
 
@@ -980,7 +980,7 @@ auto RunGetSpaced(Converter* converter, typename Converter::out_type* out,
         validity_run->length -= update_size;
         // Simply write zeros in the output
       } else {
-        const auto update_size = std::min(validity_run_length, batch.NullRemaining());
+        const auto update_size = std::min(validity_run_length, batch.null_remaining());
         converter->WriteZero(out, out + update_size);
         batch.AccrueReadNulls(update_size);
         out += update_size;
@@ -995,11 +995,11 @@ auto RunGetSpaced(Converter* converter, typename Converter::out_type* out,
     ARROW_DCHECK_EQ(buffer_size(), 0);
   }
 
-  ARROW_DCHECK_EQ(values_available - decoder->Remaining(), batch.ValuesRead());
-  ARROW_DCHECK_LE(batch.TotalRead(), batch_size);
-  ARROW_DCHECK_LE(batch.NullRead(), batch.NullCount());
+  ARROW_DCHECK_EQ(values_available - decoder->remaining(), batch.values_read());
+  ARROW_DCHECK_LE(batch.total_read(), batch_size);
+  ARROW_DCHECK_LE(batch.null_read(), batch.null_count());
 
-  return {/* .values_read= */ batch.ValuesRead(), /* .null_read= */ batch.NullRead()};
+  return {/* .values_read= */ batch.values_read(), /* .null_read= */ batch.null_read()};
 }
 
 /// Overload for GetSpaced for a single run in a decoder variant
@@ -1012,7 +1012,7 @@ auto RunGetSpaced(
     -> GetSpacedResult<values_count_type> {
   return std::visit(
       [&](auto& dec) {
-        ARROW_DCHECK_GT(dec.Remaining(), 0);
+        ARROW_DCHECK_GT(dec.remaining(), 0);
         return RunGetSpaced(converter, out, batch_size, null_count, validity_reader,
                             validity_run, &dec);
       },
@@ -1036,30 +1036,30 @@ auto RleBitPackedDecoder<T>::GetSpaced(Converter converter,
 
   auto batch = internal::BatchCounter::FromBatchSizeAndNulls(batch_size, null_count);
 
-  if (ARROW_PREDICT_FALSE(batch.IsFullyNull())) {
-    converter.WriteZero(out, out + batch.NullRemaining());
-    return batch.NullRemaining();
+  if (ARROW_PREDICT_FALSE(batch.is_fully_null())) {
+    converter.WriteZero(out, out + batch.null_remaining());
+    return batch.null_remaining();
   }
 
   arrow::internal::BitRunReader validity_reader(validity_bits, validity_bits_offset,
-                                                /*length=*/batch.TotalRemaining());
+                                                /*length=*/batch.total_remaining());
   arrow::internal::BitRun validity_run = validity_reader.NextRun();
 
   const auto check_and_handle_fully_null_remaining = [&]() {
-    if (batch.IsFullyNull()) {
+    if (batch.is_fully_null()) {
       ARROW_DCHECK(validity_run.length == 0 || !validity_run.set);
-      ARROW_DCHECK_GE(validity_run.length, batch.NullRemaining());
+      ARROW_DCHECK_GE(validity_run.length, batch.null_remaining());
 
-      converter.WriteZero(out, out + batch.NullRemaining());
-      out += batch.NullRemaining();
-      batch.AccrueReadNulls(batch.NullRemaining());
+      converter.WriteZero(out, out + batch.null_remaining());
+      out += batch.null_remaining();
+      batch.AccrueReadNulls(batch.null_remaining());
     }
   };
 
   // Remaining from a previous call that would have left some unread data from a run.
-  if (ARROW_PREDICT_FALSE(RunRemaining() > 0)) {
-    const auto read = internal::RunGetSpaced(&converter, out, batch.TotalRemaining(),
-                                             batch.NullRemaining(), &validity_reader,
+  if (ARROW_PREDICT_FALSE(run_remaining() > 0)) {
+    const auto read = internal::RunGetSpaced(&converter, out, batch.total_remaining(),
+                                             batch.null_remaining(), &validity_reader,
                                              &validity_run, &decoder_);
 
     batch.AccrueReadNulls(read.null_read);
@@ -1067,14 +1067,14 @@ auto RleBitPackedDecoder<T>::GetSpaced(Converter converter,
     out += read.values_read + read.null_read;
 
     // Either we fulfilled all the batch values to be read
-    if (ARROW_PREDICT_FALSE(batch.ValuesRemaining() == 0)) {
+    if (ARROW_PREDICT_FALSE(batch.values_remaining() == 0)) {
       // There may be remaining null if they are not greedily filled
       check_and_handle_fully_null_remaining();
-      return batch.TotalRead();
+      return batch.total_read();
     }
 
     // We finished the remaining run
-    ARROW_DCHECK(RunRemaining() == 0);
+    ARROW_DCHECK(run_remaining() == 0);
   }
 
   ParseWithCallable([&](auto run) {
@@ -1082,8 +1082,8 @@ auto RleBitPackedDecoder<T>::GetSpaced(Converter converter,
 
     RunDecoder decoder(run);
 
-    const auto read = internal::RunGetSpaced(&converter, out, batch.TotalRemaining(),
-                                             batch.NullRemaining(), &validity_reader,
+    const auto read = internal::RunGetSpaced(&converter, out, batch.total_remaining(),
+                                             batch.null_remaining(), &validity_reader,
                                              &validity_run, &decoder);
 
     batch.AccrueReadNulls(read.null_read);
@@ -1091,7 +1091,7 @@ auto RleBitPackedDecoder<T>::GetSpaced(Converter converter,
     out += read.values_read + read.null_read;
 
     // Stop reading and store remaining decoder
-    if (ARROW_PREDICT_FALSE(read.values_read == 0 || batch.ValuesRemaining() == 0)) {
+    if (ARROW_PREDICT_FALSE(read.values_read == 0 || batch.values_remaining() == 0)) {
       decoder_ = std::move(decoder);
       return ControlFlow::Break;
     }
@@ -1102,8 +1102,8 @@ auto RleBitPackedDecoder<T>::GetSpaced(Converter converter,
   // There may be remaining null if they are not greedily filled by either decoder calls
   check_and_handle_fully_null_remaining();
 
-  ARROW_DCHECK(batch.IsDone() || Exhausted());
-  return batch.TotalRead();
+  ARROW_DCHECK(batch.is_done() || exhausted());
+  return batch.total_read();
 }
 
 namespace internal {
@@ -1244,7 +1244,7 @@ auto RleBitPackedDecoder<T>::GetBatchWithDict(const V* dictionary,
     return batch_size - values_read;
   };
 
-  if (ARROW_PREDICT_FALSE(RunRemaining() > 0)) {
+  if (ARROW_PREDICT_FALSE(run_remaining() > 0)) {
     const auto read =
         internal::RunGetSpaced(&converter, out, batch_size, /* null_count= */ 0,
                                &validity_reader, &validity_run, &decoder_);
@@ -1260,7 +1260,7 @@ auto RleBitPackedDecoder<T>::GetBatchWithDict(const V* dictionary,
     }
 
     // We finished the remaining run
-    ARROW_DCHECK(RunRemaining() == 0);
+    ARROW_DCHECK(run_remaining() == 0);
   }
 
   ParseWithCallable([&](auto run) {
