@@ -102,8 +102,6 @@ class RleRun {
   using DecoderType = RleRunDecoder<T>;
 
   constexpr RleRun() noexcept = default;
-  constexpr RleRun(const RleRun&) noexcept = default;
-  constexpr RleRun(RleRun&&) noexcept = default;
 
   explicit RleRun(raw_data_const_pointer data, values_count_type values_count,
                   bit_size_type value_bit_width) noexcept
@@ -112,9 +110,6 @@ class RleRun {
     ARROW_DCHECK_GE(values_count, 0);
     std::copy(data, data + raw_data_size(), data_.begin());
   }
-
-  constexpr RleRun& operator=(const RleRun&) noexcept = default;
-  constexpr RleRun& operator=(RleRun&&) noexcept = default;
 
   /// The number of repeated values in this run.
   constexpr values_count_type values_count() const noexcept { return values_count_; }
@@ -160,8 +155,6 @@ class BitPackedRun {
   using DecoderType = BitPackedRunDecoder<T>;
 
   constexpr BitPackedRun() noexcept = default;
-  constexpr BitPackedRun(const BitPackedRun&) noexcept = default;
-  constexpr BitPackedRun(BitPackedRun&&) noexcept = default;
 
   constexpr BitPackedRun(raw_data_const_pointer data, values_count_type values_count,
                          bit_size_type value_bit_width) noexcept
@@ -169,9 +162,6 @@ class BitPackedRun {
     ARROW_CHECK_GE(value_bit_width_, 0);
     ARROW_CHECK_GE(values_count_, 0);
   }
-
-  constexpr BitPackedRun& operator=(const BitPackedRun&) noexcept = default;
-  constexpr BitPackedRun& operator=(BitPackedRun&&) noexcept = default;
 
   constexpr values_count_type values_count() const noexcept { return values_count_; }
 
