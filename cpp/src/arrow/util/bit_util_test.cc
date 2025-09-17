@@ -1999,9 +1999,14 @@ TEST(BitUtil, RoundUpToPowerOf2) {
 
 /// Test the maximum number of bytes needed to write a LEB128 of a give size.
 TEST(LEB128, MaxLEB128ByteLenFor) {
+  EXPECT_EQ(bit_util::kMaxLEB128ByteLenFor<int8_t>, 2);
+  EXPECT_EQ(bit_util::kMaxLEB128ByteLenFor<uint8_t>, 2);
   EXPECT_EQ(bit_util::kMaxLEB128ByteLenFor<int16_t>, 3);
+  EXPECT_EQ(bit_util::kMaxLEB128ByteLenFor<uint16_t>, 3);
   EXPECT_EQ(bit_util::kMaxLEB128ByteLenFor<int32_t>, 5);
+  EXPECT_EQ(bit_util::kMaxLEB128ByteLenFor<uint32_t>, 5);
   EXPECT_EQ(bit_util::kMaxLEB128ByteLenFor<int64_t>, 10);
+  EXPECT_EQ(bit_util::kMaxLEB128ByteLenFor<uint64_t>, 10);
 }
 
 /// Utility function to test LEB128 encoding with known input value and expected byte
@@ -2037,6 +2042,7 @@ TEST(LEB128, WriteEdgeCases) {
   // Three byte value 16384, encoded in larger buffer
   TestLEB128Encode(16384U, {0x80, 0x80, 0x01}, 10);
   // Two byte boundary values
+  TestLEB128Encode(128U, {0x80, 0x01}, 2);
   TestLEB128Encode(129U, {0x81, 0x01}, 2);
   TestLEB128Encode(16383U, {0xFF, 0x7F}, 2);
   // Error case: Buffer too small for value 128 (needs 2 bytes but only 1 provided)
@@ -2060,14 +2066,6 @@ void TestLEB128Decode(const std::vector<uint8_t>& data, Int expected_value,
   if (expected_bytes_read > 0) {
     EXPECT_EQ(result, expected_value);
   }
-}
-
-template <typename Int>
-void TestLEB128Decode(const std::vector<uint8_t>& data, Int expected_value,
-                      std::size_t expected_bytes_read) {
-  ASSERT_LE(expected_bytes_read, std::numeric_limits<int32_t>::max());
-  return TestLEB128Decode(data, expected_value,
-                          static_cast<int32_t>(expected_bytes_read));
 }
 
 /// Test decoding from known LEB128 byte sequences with edge case parameters.
@@ -2129,48 +2127,48 @@ TEST(LEB128, KnownSuccessfulValues) {
     if (data.value <= static_cast<uint64_t>(std::numeric_limits<int8_t>::max())) {
       const auto val = static_cast<int8_t>(data.value);
       TestLEB128Encode(val, data.bytes, data.bytes.size());
-      TestLEB128Decode(data.bytes, val, data.bytes.size());
+      TestLEB128Decode(data.bytes, val, static_cast<int32_t>(data.bytes.size()));
     }
     if (data.value <= static_cast<uint64_t>(std::numeric_limits<uint8_t>::max())) {
       const auto val = static_cast<uint8_t>(data.value);
       TestLEB128Encode(val, data.bytes, data.bytes.size());
-      TestLEB128Decode(data.bytes, val, data.bytes.size());
+      TestLEB128Decode(data.bytes, val, static_cast<int32_t>(data.bytes.size()));
     }
 
     // 16 bits
     if (data.value <= static_cast<uint64_t>(std::numeric_limits<int16_t>::max())) {
       const auto val = static_cast<int16_t>(data.value);
       TestLEB128Encode(val, data.bytes, data.bytes.size());
-      TestLEB128Decode(data.bytes, val, data.bytes.size());
+      TestLEB128Decode(data.bytes, val, static_cast<int32_t>(data.bytes.size()));
     }
     if (data.value <= static_cast<uint64_t>(std::numeric_limits<uint16_t>::max())) {
       const auto val = static_cast<uint16_t>(data.value);
       TestLEB128Encode(val, data.bytes, data.bytes.size());
-      TestLEB128Decode(data.bytes, val, data.bytes.size());
+      TestLEB128Decode(data.bytes, val, static_cast<int32_t>(data.bytes.size()));
     }
 
     // 32 bits
     if (data.value <= static_cast<uint64_t>(std::numeric_limits<int32_t>::max())) {
       const auto val = static_cast<int32_t>(data.value);
       TestLEB128Encode(val, data.bytes, data.bytes.size());
-      TestLEB128Decode(data.bytes, val, data.bytes.size());
+      TestLEB128Decode(data.bytes, val, static_cast<int32_t>(data.bytes.size()));
     }
     if (data.value <= static_cast<uint64_t>(std::numeric_limits<uint32_t>::max())) {
       const auto val = static_cast<uint32_t>(data.value);
       TestLEB128Encode(val, data.bytes, data.bytes.size());
-      TestLEB128Decode(data.bytes, val, data.bytes.size());
+      TestLEB128Decode(data.bytes, val, static_cast<int32_t>(data.bytes.size()));
     }
 
     // 64 bits
     if (data.value <= static_cast<uint64_t>(std::numeric_limits<int64_t>::max())) {
       const auto val = static_cast<int64_t>(data.value);
       TestLEB128Encode(val, data.bytes, data.bytes.size());
-      TestLEB128Decode(data.bytes, val, data.bytes.size());
+      TestLEB128Decode(data.bytes, val, static_cast<int32_t>(data.bytes.size()));
     }
     if (data.value <= static_cast<uint64_t>(std::numeric_limits<uint64_t>::max())) {
       const auto val = static_cast<uint64_t>(data.value);
       TestLEB128Encode(val, data.bytes, data.bytes.size());
-      TestLEB128Decode(data.bytes, val, data.bytes.size());
+      TestLEB128Decode(data.bytes, val, static_cast<int32_t>(data.bytes.size()));
     }
   }
 }
