@@ -433,7 +433,15 @@ inline bool BitWriter::PutVlqInt(Int v) {
   uint8_t buffer[kBufferSize] = {};
   const auto bytes_written = WriteLEB128(v, buffer, kBufferSize);
   ARROW_DCHECK_LE(bytes_written, kBufferSize);
-  ARROW_DCHECK_GT(bytes_written, 0);  // Cannot fail since we gave max space
+  if constexpr (std::is_signed_v<Int>) {
+    // Can fail if negative
+    if (ARROW_PREDICT_FALSE(!bytes_written == 0)) {
+      return false;
+    }
+  } else {
+    // Cannot fail since we gave max space
+    ARROW_DCHECK_GT(bytes_written, 0);
+  }
 
   for (int i = 0; i < bytes_written; ++i) {
     const bool success = PutAligned(buffer[i], 1);
@@ -450,7 +458,7 @@ inline bool BitReader::GetVlqInt(Int* v) {
   static_assert(std::is_integral_v<Int>);
 
   // The data that we will pass to the LEB128 parser
-  // In all case, we read an byte-aligned value, skipping remaining bits
+  // In all case, we read a byte-aligned value, skipping remaining bits
   const uint8_t* data = NULLPTR;
   int max_size = 0;
 
