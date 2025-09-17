@@ -890,7 +890,9 @@ auto RunGetSpaced(Converter* converter, typename Converter::out_type* out,
   while (run_values_remaining() > 0 && batch.values_remaining() > 0) {
     // Pull a batch of values from the bit packed encoded data and store it in a local
     // buffer to benefit from unpacking intrinsics and data locality.
-    static constexpr rle_size_t kBufferCapacity = 1024 / sizeof(value_type);
+    // Quick benchmarking on a linux x86-64 cloud instance show that this previously
+    // hard-coded value is appropriate.
+    static constexpr rle_size_t kBufferCapacity = 1024;
     std::array<value_type, kBufferCapacity> buffer = {};
 
     rle_size_t buffer_start = 0;
