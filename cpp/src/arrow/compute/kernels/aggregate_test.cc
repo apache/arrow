@@ -4560,8 +4560,12 @@ TEST(TestTDigestKernel, Options) {
 TEST(TestTDigestMapKernel, Options) {
   auto input_type = float64();
   auto output_type =
-      struct_({field("mean", list(field("item", float64(), false)), false),
-               field("weight", list(field("item", float64(), false)), false),
+      struct_({field("centroids",
+                     list(field("item",
+                                struct_({field("mean", float64(), false),
+                                         field("weight", float64(), false)}),
+                                false)),
+                     false),
                field("min", float64(), true), field("max", float64(), true),
                field("count", uint64(), false)});
   TDigestMapOptions keep_nulls(/*delta=*/5, /*buffer_size=*/500,
@@ -4573,120 +4577,149 @@ TEST(TestTDigestMapKernel, Options) {
                                          /*skip_nulls=*/false);
   EXPECT_THAT(
       TDigestMap(ArrayFromJSON(input_type, "[1.0, 2.0, 3.0, 4.0, 5.0, 6.0]"), keep_nulls),
-      ResultWith(ScalarFromJSON(output_type,
-                                "{\"mean\":[1.5, 3.5, 5.5],\"weight\":[2, 2, "
-                                "2],\"min\":1.0,\"max\":6.0,\"count\":6}")));
+      ResultWith(ScalarFromJSON(
+          output_type,
+          "{\"centroids\":[{\"mean\":1.5,\"weight\":2}, {\"mean\":3.5,\"weight\":2}, "
+          "{\"mean\":5.5,\"weight\":2}],\"min\":1.0,\"max\":6.0,\"count\":6}")));
   EXPECT_THAT(
       TDigestMap(ArrayFromJSON(input_type, "[1.0, 2.0, 3.0, 4.0, 5.0]"), keep_nulls),
-      ResultWith(ScalarFromJSON(output_type,
-                                "{\"mean\":[1.5, 3.5, 5.0],\"weight\":[2, 2, "
-                                "1],\"min\":1.0,\"max\":5.0,\"count\":5}")));
+      ResultWith(ScalarFromJSON(
+          output_type,
+          "{\"centroids\":[{\"mean\":1.5,\"weight\":2}, {\"mean\":3.5,\"weight\":2}, "
+          "{\"mean\":5.0,\"weight\":1}],\"min\":1.0,\"max\":5.0,\"count\":5}")));
   EXPECT_THAT(TDigestMap(ArrayFromJSON(input_type, "[1.0, 2.0, 3.0, 4.0]"), keep_nulls),
               ResultWith(ScalarFromJSON(
                   output_type,
-                  "{\"mean\":[1.0, 2.0, 3.0, "
-                  "4.0],\"weight\":[1,1,1,1],\"min\":1.0,\"max\":4.0,\"count\":4}")));
+                  "{\"centroids\":[{\"mean\":1.0,\"weight\":1}, "
+                  "{\"mean\":2.0,\"weight\":1}, {\"mean\":3.0,\"weight\":1}, "
+                  "{\"mean\":4.0,\"weight\":1}],\"min\":1.0,\"max\":4.0,\"count\":4}")));
 
-  EXPECT_THAT(TDigestMap(ArrayFromJSON(input_type, "[1.0, 2.0, 3.0]"), keep_nulls),
-              ResultWith(ScalarFromJSON(output_type,
-                                        "{\"mean\":[1.0,2.0,3.0],\"weight\":[1,"
-                                        "1,1],\"min\":1.0,\"max\":3.0,\"count\":3}")));
+  EXPECT_THAT(
+      TDigestMap(ArrayFromJSON(input_type, "[1.0, 2.0, 3.0]"), keep_nulls),
+      ResultWith(ScalarFromJSON(
+          output_type,
+          "{\"centroids\":[{\"mean\":1.0,\"weight\":1}, {\"mean\":2.0,\"weight\":1}, "
+          "{\"mean\":3.0,\"weight\":1}],\"min\":1.0,\"max\":3.0,\"count\":3}")));
   EXPECT_THAT(TDigestMap(ArrayFromJSON(input_type, "[1.0, 2.0, 3.0, null]"), keep_nulls),
               ResultWith(ScalarFromJSON(output_type, "null")));
   EXPECT_THAT(TDigestMap(ScalarFromJSON(input_type, "1.0"), keep_nulls),
               ResultWith(ScalarFromJSON(output_type,
-                                        "{\"mean\":[1.0],\"weight\":["
-                                        "1],\"min\":1.0,\"max\":1.0,\"count\":1}")));
+                                        "{\"centroids\":[{\"mean\":1.0,\"weight\":1}],"
+                                        "\"min\":1.0,\"max\":1.0,\"count\":1}")));
   EXPECT_THAT(TDigestMap(ScalarFromJSON(input_type, "null"), keep_nulls),
               ResultWith(ScalarFromJSON(output_type, "null")));
 
-  EXPECT_THAT(TDigestMap(ArrayFromJSON(input_type, "[1.0, 2.0, 3.0, null]"), skip_nulls),
-              ResultWith(ScalarFromJSON(output_type,
-                                        "{\"mean\":[1.0,2.0,3.0],\"weight\":[1,"
-                                        "1,1],\"min\":1.0,\"max\":3.0,\"count\":3}")));
+  EXPECT_THAT(
+      TDigestMap(ArrayFromJSON(input_type, "[1.0, 2.0, 3.0, null]"), skip_nulls),
+      ResultWith(ScalarFromJSON(
+          output_type,
+          "{\"centroids\":[{\"mean\":1.0,\"weight\":1}, {\"mean\":2.0,\"weight\":1}, "
+          "{\"mean\":3.0,\"weight\":1}],\"min\":1.0,\"max\":3.0,\"count\":3}")));
   EXPECT_THAT(TDigestMap(ArrayFromJSON(input_type, "[1.0, 2.0, null]"), skip_nulls),
-              ResultWith(ScalarFromJSON(output_type,
-                                        "{\"mean\":[1.0,2.0],\"weight\":["
-                                        "1,1],\"min\":1.0,\"max\":2.0,\"count\":2}")));
+              ResultWith(ScalarFromJSON(
+                  output_type,
+                  "{\"centroids\":[{\"mean\":1.0,\"weight\":1}, "
+                  "{\"mean\":2.0,\"weight\":1}],\"min\":1.0,\"max\":2.0,\"count\":2}")));
   EXPECT_THAT(TDigestMap(ScalarFromJSON(input_type, "1.0"), skip_nulls),
               ResultWith(ScalarFromJSON(output_type,
-                                        "{\"mean\":[1.0],\"weight\":["
-                                        "1],\"min\":1.0,\"max\":1.0,\"count\":1}")));
-  EXPECT_THAT(TDigestMap(ScalarFromJSON(input_type, "null"), skip_nulls),
-              ResultWith(ScalarFromJSON(output_type,
-                                        "{\"mean\":[],\"weight\":"
-                                        "[],\"min\":null,\"max\":null,\"count\":0}")));
+                                        "{\"centroids\":[{\"mean\":1.0,\"weight\":1}],"
+                                        "\"min\":1.0,\"max\":1.0,\"count\":1}")));
+  EXPECT_THAT(
+      TDigestMap(ScalarFromJSON(input_type, "null"), skip_nulls),
+      ResultWith(ScalarFromJSON(
+          output_type, "{\"centroids\":[],\"min\":null,\"max\":null,\"count\":0}")));
 }
 
 TEST(TestTDigestReduceKernel, Basic) {
-  auto type = struct_({field("mean", list(field("item", float64(), false)), false),
-                       field("weight", list(field("item", float64(), false)), false),
+  auto type = struct_({field("centroids",
+                             list(field("item",
+                                        struct_({field("mean", float64(), false),
+                                                 field("weight", float64(), false)}),
+                                        false)),
+                             false),
                        field("min", float64(), true), field("max", float64(), true),
                        field("count", uint64(), false)});
   TDigestReduceOptions options(/*delta=*/5, /*scaler=*/TDigestMapOptions::Scaler::K0);
-  EXPECT_THAT(TDigestReduce(ArrayFromJSON(type,
-                                          "["
-                                          "{\"mean\":[1.5, 3.5, 5.5],\"weight\":[2, "
-                                          "2, 2],\"min\":1.0,\"max\":6.0,\"count\":6},"
-                                          "{\"mean\":[1.5, 3.5, 5.5],\"weight\":[2, "
-                                          "2, 2],\"min\":1.0,\"max\":6.0,\"count\":6}"
-                                          "]"),
-                            options),
-              ResultWith(ScalarFromJSON(type,
-                                        "{\"mean\":[1.5, 3.5, 5.5],\"weight\":[4, 4, "
-                                        "4],\"min\":1.0,\"max\":6.0,\"count\":12}")));
+  EXPECT_THAT(
+      TDigestReduce(
+          ArrayFromJSON(
+              type,
+              "["
+              "{\"centroids\":[{\"mean\":1.5,\"weight\":2}, {\"mean\":3.5,\"weight\":2}, "
+              "{\"mean\":5.5,\"weight\":2}],\"min\":1.0,\"max\":6.0,\"count\":6},"
+              "{\"centroids\":[{\"mean\":1.5,\"weight\":2}, {\"mean\":3.5,\"weight\":2}, "
+              "{\"mean\":5.5,\"weight\":2}],\"min\":1.0,\"max\":6.0,\"count\":6}"
+              "]"),
+          options),
+      ResultWith(ScalarFromJSON(
+          type,
+          "{\"centroids\":[{\"mean\":1.5,\"weight\":4}, {\"mean\":3.5,\"weight\":4}, "
+          "{\"mean\":5.5,\"weight\":4}],\"min\":1.0,\"max\":6.0,\"count\":12}")));
 
-  EXPECT_THAT(TDigestReduce(ScalarFromJSON(type,
-                                           "{\"mean\":[1.5, 3.5, 5.5],\"weight\":[2, "
-                                           "2, 2],\"min\":1.0,\"max\":6.0,\"count\":6}"),
-                            options),
-              ResultWith(ScalarFromJSON(type,
-                                        "{\"mean\":[1.5, 3.5, 5.5],\"weight\":[2, 2, "
-                                        "2],\"min\":1.0,\"max\":6.0,\"count\":6}")));
+  EXPECT_THAT(
+      TDigestReduce(
+          ScalarFromJSON(
+              type,
+              "{\"centroids\":[{\"mean\":1.5,\"weight\":2}, {\"mean\":3.5,\"weight\":2}, "
+              "{\"mean\":5.5,\"weight\":2}],\"min\":1.0,\"max\":6.0,\"count\":6}"),
+          options),
+      ResultWith(ScalarFromJSON(
+          type,
+          "{\"centroids\":[{\"mean\":1.5,\"weight\":2}, {\"mean\":3.5,\"weight\":2}, "
+          "{\"mean\":5.5,\"weight\":2}],\"min\":1.0,\"max\":6.0,\"count\":6}")));
 
-  EXPECT_THAT(TDigestReduce(
-                  ArrayFromJSON(
-                      type,
-                      "["
-                      "{\"mean\":[],\"weight\":[],\"min\":null,\"max\":null,\"count\":0},"
-                      "{\"mean\":[1.5, 3.5, 5.5],\"weight\":[2, 2, "
-                      "2],\"min\":1.0,\"max\":6.0,\"count\":6}"
-                      "]"),
-                  options),
-              ResultWith(ScalarFromJSON(type,
-                                        "{\"mean\":[1.5, 3.5, 5.5],\"weight\":[2, 2, "
-                                        "2],\"min\":1.0,\"max\":6.0,\"count\":6}")));
+  EXPECT_THAT(
+      TDigestReduce(
+          ArrayFromJSON(
+              type,
+              "["
+              "{\"centroids\":[],\"min\":null,\"max\":null,\"count\":0},"
+              "{\"centroids\":[{\"mean\":1.5,\"weight\":2}, {\"mean\":3.5,\"weight\":2}, "
+              "{\"mean\":5.5,\"weight\":2}],\"min\":1.0,\"max\":6.0,\"count\":6}"
+              "]"),
+          options),
+      ResultWith(ScalarFromJSON(
+          type,
+          "{\"centroids\":[{\"mean\":1.5,\"weight\":2}, {\"mean\":3.5,\"weight\":2}, "
+          "{\"mean\":5.5,\"weight\":2}],\"min\":1.0,\"max\":6.0,\"count\":6}")));
 
-  EXPECT_THAT(TDigestReduce(
-                  ArrayFromJSON(
-                      type,
-                      "["
-                      "{\"mean\":[1.5, 3.5, 5.5],\"weight\":[2, 2, "
-                      "2],\"min\":1.0,\"max\":6.0,\"count\":6},"
-                      "{\"mean\":[],\"weight\":[],\"min\":null,\"max\":null,\"count\":0}"
-                      "]"),
-                  options),
-              ResultWith(ScalarFromJSON(type,
-                                        "{\"mean\":[1.5, 3.5, 5.5],\"weight\":[2, "
-                                        "2, 2],\"min\":1.0,\"max\":6.0,\"count\":6}")));
+  EXPECT_THAT(
+      TDigestReduce(
+          ArrayFromJSON(
+              type,
+              "["
+              "{\"centroids\":[{\"mean\":1.5,\"weight\":2}, {\"mean\":3.5,\"weight\":2}, "
+              "{\"mean\":5.5,\"weight\":2}],\"min\":1.0,\"max\":6.0,\"count\":6},"
+              "{\"centroids\":[],\"min\":null,\"max\":null,\"count\":0}"
+              "]"),
+          options),
+      ResultWith(ScalarFromJSON(
+          type,
+          "{\"centroids\":[{\"mean\":1.5,\"weight\":2}, {\"mean\":3.5,\"weight\":2}, "
+          "{\"mean\":5.5,\"weight\":2}],\"min\":1.0,\"max\":6.0,\"count\":6}")));
 }
 
 TEST(TestTDigestQuantileKernel, Basic) {
   auto input_type =
-      struct_({field("mean", list(field("item", float64(), false)), false),
-               field("weight", list(field("item", float64(), false)), false),
+      struct_({field("centroids",
+                     list(field("item",
+                                struct_({field("mean", float64(), false),
+                                         field("weight", float64(), false)}),
+                                false)),
+                     false),
                field("min", float64(), true), field("max", float64(), true),
                field("count", uint64(), false)});
 
   auto output_type = float64();
 
-  auto input_array = ArrayFromJSON(input_type,
-                                   "["
-                                   "{\"mean\":[1.5, 3.5, 5.5],\"weight\":[2, "
-                                   "2, 2],\"min\":1.0,\"max\":6.0,\"count\":6},"
-                                   "{\"mean\":[1.5, 3.5, 5.5],\"weight\":[2, "
-                                   "2, 2],\"min\":1.0,\"max\":6.0,\"count\":6}"
-                                   "]");
+  auto input_array = ArrayFromJSON(
+      input_type,
+      "["
+      "{\"centroids\":[{\"mean\":1.5,\"weight\":2}, {\"mean\":3.5,\"weight\":2}, "
+      "{\"mean\":5.5,\"weight\":2}],\"min\":1.0,\"max\":6.0,\"count\":6},"
+      "{\"centroids\":[{\"mean\":1.5,\"weight\":2}, {\"mean\":3.5,\"weight\":2}, "
+      "{\"mean\":5.5,\"weight\":2}],\"min\":1.0,\"max\":6.0,\"count\":6}"
+      "]");
 
   TDigestQuantileOptions multiple(/*q=*/{0.1, 0.5, 0.9}, /*delta=*/5, /*min_count=*/12);
   TDigestQuantileOptions min_count(/*q=*/0.5, /*delta=*/5, /*min_count=*/13);
@@ -4699,16 +4732,21 @@ TEST(TestTDigestQuantileKernel, Basic) {
 
 TEST(TestTDigestQuantileKernel, Scalar) {
   auto input_type =
-      struct_({field("mean", list(field("item", float64(), false)), false),
-               field("weight", list(field("item", float64(), false)), false),
+      struct_({field("centroids",
+                     list(field("item",
+                                struct_({field("mean", float64(), false),
+                                         field("weight", float64(), false)}),
+                                false)),
+                     false),
                field("min", float64(), true), field("max", float64(), true),
                field("count", uint64(), false)});
 
   auto output_type = float64();
 
-  auto input_scalar = ScalarFromJSON(input_type,
-                                     "{\"mean\":[1.5, 3.5, 5.5],\"weight\":[2, "
-                                     "2, 2],\"min\":1.0,\"max\":6.0,\"count\":6}");
+  auto input_scalar = ScalarFromJSON(
+      input_type,
+      "{\"centroids\":[{\"mean\":1.5,\"weight\":2}, {\"mean\":3.5,\"weight\":2}, "
+      "{\"mean\":5.5,\"weight\":2}],\"min\":1.0,\"max\":6.0,\"count\":6}");
 
   TDigestQuantileOptions multiple(/*q=*/{0.1, 0.5, 0.9}, /*delta=*/5, /*min_count=*/6);
   TDigestQuantileOptions min_count(/*q=*/0.5, /*delta=*/5, /*min_count=*/7);
@@ -4721,21 +4759,26 @@ TEST(TestTDigestQuantileKernel, Scalar) {
 
 TEST(TestTDigestQuantileKernel, ElementWise) {
   auto input_type =
-      struct_({field("mean", list(field("item", float64(), false)), false),
-               field("weight", list(field("item", float64(), false)), false),
+      struct_({field("centroids",
+                     list(field("item",
+                                struct_({field("mean", float64(), false),
+                                         field("weight", float64(), false)}),
+                                false)),
+                     false),
                field("min", float64(), true), field("max", float64(), true),
                field("count", uint64(), false)});
 
   auto output_type_multiple = fixed_size_list(float64(), 3);
   auto output_type_single = fixed_size_list(float64(), 1);
 
-  auto input_array = ArrayFromJSON(input_type,
-                                   "["
-                                   "{\"mean\":[1.5, 3.5, 5.5],\"weight\":[2, "
-                                   "2, 2],\"min\":1.0,\"max\":6.0,\"count\":7},"
-                                   "{\"mean\":[1.5, 3.5, 5.5],\"weight\":[2, "
-                                   "2, 2],\"min\":1.0,\"max\":6.0,\"count\":6}"
-                                   "]");
+  auto input_array = ArrayFromJSON(
+      input_type,
+      "["
+      "{\"centroids\":[{\"mean\":1.5,\"weight\":2}, {\"mean\":3.5,\"weight\":2}, "
+      "{\"mean\":5.5,\"weight\":2}],\"min\":1.0,\"max\":6.0,\"count\":7},"
+      "{\"centroids\":[{\"mean\":1.5,\"weight\":2}, {\"mean\":3.5,\"weight\":2}, "
+      "{\"mean\":5.5,\"weight\":2}],\"min\":1.0,\"max\":6.0,\"count\":6}"
+      "]");
 
   TDigestQuantileOptions multiple(/*q=*/{0.1, 0.5, 0.9}, /*delta=*/5, /*min_count=*/5);
   TDigestQuantileOptions single(/*q=*/0.5, /*delta=*/5, /*min_count=*/5);
@@ -4756,20 +4799,25 @@ TEST(TestTDigestQuantileKernel, ElementWise) {
 
 TEST(TestTDigestMapReduceQuantileKernel, Basic) {
   auto input_type =
-      struct_({field("mean", list(field("item", float64(), false)), false),
-               field("weight", list(field("item", float64(), false)), false),
+      struct_({field("centroids",
+                     list(field("item",
+                                struct_({field("mean", float64(), false),
+                                         field("weight", float64(), false)}),
+                                false)),
+                     false),
                field("min", float64(), true), field("max", float64(), true),
                field("count", uint64(), false)});
 
   auto output_type = float64();
 
-  auto input_array = ArrayFromJSON(input_type,
-                                   "["
-                                   "{\"mean\":[1.5, 3.5, 5.5],\"weight\":[2, "
-                                   "2, 2],\"min\":1.0,\"max\":6.0,\"count\":6},"
-                                   "{\"mean\":[1.5, 3.5, 5.5],\"weight\":[2, "
-                                   "2, 2],\"min\":1.0,\"max\":6.0,\"count\":6}"
-                                   "]");
+  auto input_array = ArrayFromJSON(
+      input_type,
+      "["
+      "{\"centroids\":[{\"mean\":1.5,\"weight\":2}, {\"mean\":3.5,\"weight\":2}, "
+      "{\"mean\":5.5,\"weight\":2}],\"min\":1.0,\"max\":6.0,\"count\":6},"
+      "{\"centroids\":[{\"mean\":1.5,\"weight\":2}, {\"mean\":3.5,\"weight\":2}, "
+      "{\"mean\":5.5,\"weight\":2}],\"min\":1.0,\"max\":6.0,\"count\":6}"
+      "]");
 
   TDigestQuantileOptions multiple(/*q=*/{0.1, 0.5, 0.9}, /*delta=*/5, /*min_count=*/12);
   TDigestQuantileOptions min_count(/*q=*/0.5, /*delta=*/5, /*min_count=*/13);

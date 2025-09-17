@@ -36,15 +36,7 @@ using arrow::internal::VisitSetBitRunsVoid;
 
 struct TDigestBaseImpl : public ScalarAggregator {
   explicit TDigestBaseImpl(std::shared_ptr<TDigest::Scaler> scaler, uint32_t buffer_size)
-      : tdigest{std::move(scaler), buffer_size}, count{0}, all_valid{true} {
-    out_type = struct_({
-        field("mean", list(field("item", float64(), false)), false),
-        field("weight", list(field("item", float64(), false)), false),
-        field("min", float64(), true),
-        field("max", float64(), true),
-        field("count", uint64(), false),
-    });
-  }
+      : tdigest{std::move(scaler), buffer_size}, count{0}, all_valid{true} {}
 
   Status MergeFrom(KernelContext*, KernelState&& src) override {
     const auto& other = checked_cast<const TDigestBaseImpl&>(src);
@@ -71,7 +63,20 @@ struct TDigestBaseImpl : public ScalarAggregator {
   TDigest tdigest;
   uint64_t count;
   bool all_valid;
-  std::shared_ptr<DataType> out_type;
+  static const std::shared_ptr<DataType>& out_type() {
+    static auto out_type = struct_({
+        field("centroids",
+              list(field("item",
+                         struct_({field("mean", float64(), false),
+                                  field("weight", float64(), false)}),
+                         false)),
+              false),
+        field("min", float64(), true),
+        field("max", float64(), true),
+        field("count", uint64(), false),
+    });
+    return out_type;
+  }
 };
 
 struct TDigestQuantileFinalizer : public TDigestBaseImpl {
@@ -126,7 +131,7 @@ struct TDigestCentroidFinalizer : public TDigestBaseImpl {
 
   Status Finalize(KernelContext* ctx, Datum* out) override {
     if (!this->all_valid) {
-      *out = MakeNullScalar(out_type);
+      *out = MakeNullScalar(out_type());
     } else {
       // Float64Array
       const int64_t out_length = this->tdigest.GetCentroidCount();
@@ -145,10 +150,16 @@ struct TDigestCentroidFinalizer : public TDigestBaseImpl {
         std::tie(mean_buffer[i], weight_buffer[i]) = this->tdigest.GetCentroid(i);
       }
 
-      auto mean = std::make_shared<ListScalar>(MakeArray(mean_data),
-                                               list(field("item", float64(), false)));
-      auto weight = std::make_shared<ListScalar>(MakeArray(weight_data),
-                                                 list(field("item", float64(), false)));
+      ARROW_ASSIGN_OR_RAISE(
+          auto centroids,
+          StructArray::Make(
+              {MakeArray(mean_data), MakeArray(weight_data)},
+              {field("mean", float64(), false), field("weight", float64(), false)}));
+      auto centroids_scalar = std::make_shared<ListScalar>(
+          centroids, list(field("item",
+                                struct_({field("mean", float64(), false),
+                                         field("weight", float64(), false)}),
+                                false)));
       auto count = std::make_shared<UInt64Scalar>(this->count);
       std::shared_ptr<Scalar> min, max;
       if (this->count) {
@@ -158,7 +169,8 @@ struct TDigestCentroidFinalizer : public TDigestBaseImpl {
         min = max = MakeNullScalar(float64());
       }
       *out = std::make_shared<StructScalar>(
-          std::vector<std::shared_ptr<Scalar>>{mean, weight, min, max, count}, out_type);
+          std::vector<std::shared_ptr<Scalar>>{centroids_scalar, min, max, count},
+          out_type());
     }
 
     return Status::OK();
@@ -233,13 +245,15 @@ struct TDigestCentroidConsumerImpl : public TDigestFinalizer_T {
 
   Status Consume(const Scalar* scalar) {
     const auto* input_struct_scalar = checked_cast<const StructScalar*>(scalar);
-    auto mean_array =
+    auto centroids_array =
         checked_cast<const ListScalar*>(input_struct_scalar->value[0].get())->value;
-    auto weight_array =
-        checked_cast<const ListScalar*>(input_struct_scalar->value[1].get())->value;
-    auto min = checked_cast<const DoubleScalar*>(input_struct_scalar->value[2].get());
-    auto max = checked_cast<const DoubleScalar*>(input_struct_scalar->value[3].get());
-    auto count = checked_cast<const UInt64Scalar*>(input_struct_scalar->value[4].get());
+    auto centroids_struct_array = checked_cast<const StructArray*>(centroids_array.get());
+    auto mean_array = centroids_struct_array->field(0);
+    auto weight_array = centroids_struct_array->field(1);
+    checked_cast<const ListScalar*>(input_struct_scalar->value[1].get())->value;
+    auto min = checked_cast<const DoubleScalar*>(input_struct_scalar->value[1].get());
+    auto max = checked_cast<const DoubleScalar*>(input_struct_scalar->value[2].get());
+    auto count = checked_cast<const UInt64Scalar*>(input_struct_scalar->value[3].get());
     auto mean_double_array = checked_cast<const DoubleArray*>(mean_array.get());
     auto weight_double_array = checked_cast<const DoubleArray*>(weight_array.get());
     DCHECK_EQ(mean_double_array->length(), weight_double_array->length());
@@ -282,11 +296,6 @@ struct TDigestCentroidConsumerImpl : public TDigestFinalizer_T {
 template <typename ArrowType>
 struct TDigestImpl
     : public TDigestInputConsumerImpl<ArrowType, TDigestQuantileFinalizer> {
-  // using TDigestBaseImpl::all_valid;
-  // using TDigestBaseImpl::count;
-  // using TDigestBaseImpl::out_type;
-  // using TDigestBaseImpl::tdigest;
-
   explicit TDigestImpl(const TDigestOptions& options, const DataType& in_type,
                        std::shared_ptr<TDigest::Scaler> scaler)
       : TDigestInputConsumerImpl<ArrowType, TDigestQuantileFinalizer>(
@@ -441,47 +450,52 @@ struct TDigestInitState {
   }
 };
 
-struct TDigestCentroidTypeMatcher : public TypeMatcher {
-  ~TDigestCentroidTypeMatcher() override = default;
+// struct TDigestCentroidTypeMatcher : public TypeMatcher {
+//   ~TDigestCentroidTypeMatcher() override = default;
 
-  bool Matches(const DataType& type) const override {
-    if (Type::STRUCT == type.id()) {
-      const auto& input_struct_type = checked_cast<const StructType&>(type);
-      if (5 == input_struct_type.num_fields()) {
-        if (Type::LIST == input_struct_type.field(0)->type()->id() &&
-            input_struct_type.field(0)->type()->Equals(
-                input_struct_type.field(1)->type()) &&
-            Type::DOUBLE == input_struct_type.field(2)->type()->id() &&
-            Type::DOUBLE == input_struct_type.field(3)->type()->id() &&
-            Type::UINT64 == input_struct_type.field(4)->type()->id()) {
-          return true;
-        }
-      }
-    }
-    return false;
-  }
+//   bool Matches(const DataType& type) const override {
+//     if (Type::STRUCT == type.id()) {
+//       const auto& input_struct_type = checked_cast<const StructType&>(type);
+//       if (4 == input_struct_type.num_fields()) {
+//         if (Type::LIST == input_struct_type.field(0)->type()->id() &&
+//             Type::DOUBLE == input_struct_type.field(1)->type()->id() &&
+//             Type::DOUBLE == input_struct_type.field(2)->type()->id() &&
+//             Type::UINT64 == input_struct_type.field(3)->type()->id()) {
+//            const auto& centroid_struct_type = checked_cast<const
+//            StructType&>(input_struct_type.field(0)->type());
+//           if (2 == centroid_struct_type.num_fields()) {
+//             if (Type::DOUBLE == centroid_struct_type.field(0)->type()->id() &&
+//                 Type::DOUBLE == input_struct_type.field(1)->type()->id()){
+//               return true;
+//             }
+//           }
+//         }
+//       }
+//     }
+//     return false;
+//   }
 
-  static std::string ToStringStatic() {
-    return "struct{mean:list<item: double not null>[N]  not null, "
-           "weight:fixed_size_list<item: "
-           "double not null>[N] not null, min:float64, max:float64, count:int64 not "
-           "null}";
-  }
-  std::string ToString() const override { return ToStringStatic(); }
+//   static std::string ToStringStatic() {
+//     return "struct{mean:list<item: double not null>[N]  not null, "
+//            "weight:fixed_size_list<item: "
+//            "double not null>[N] not null, min:float64, max:float64, count:int64 not "
+//            "null}";
+//   }
+//   std::string ToString() const override { return ToStringStatic(); }
 
-  bool Equals(const TypeMatcher& other) const override {
-    if (this == &other) {
-      return true;
-    }
-    auto casted = dynamic_cast<const TDigestCentroidTypeMatcher*>(&other);
-    return casted != nullptr;
-  }
+//   bool Equals(const TypeMatcher& other) const override {
+//     if (this == &other) {
+//       return true;
+//     }
+//     auto casted = dynamic_cast<const TDigestCentroidTypeMatcher*>(&other);
+//     return casted != nullptr;
+//   }
 
-  static std::shared_ptr<TDigestCentroidTypeMatcher> getMatcher() {
-    static auto matcher = std::make_shared<TDigestCentroidTypeMatcher>();
-    return matcher;
-  }
-};
+//   static std::shared_ptr<TDigestCentroidTypeMatcher> getMatcher() {
+//     static auto matcher = std::make_shared<TDigestCentroidTypeMatcher>();
+//     return matcher;
+//   }
+// };
 
 Result<std::unique_ptr<KernelState>> TDigestInit(KernelContext* ctx,
                                                  const KernelInitArgs& args) {
@@ -525,7 +539,7 @@ void AddTDigestKernels(KernelInit init,
 Result<TypeHolder> TDigestMapReduceType(KernelContext* ctx,
                                         const std::vector<TypeHolder>& types) {
   auto base = checked_cast<TDigestBaseImpl*>(ctx->state());
-  return base->out_type;
+  return base->out_type();
 }
 
 void AddTDigestMapKernels(KernelInit init,
@@ -538,14 +552,13 @@ void AddTDigestMapKernels(KernelInit init,
 }
 
 void AddTDigestReduceKernels(KernelInit init, ScalarAggregateFunction* func) {
-  auto sig = KernelSignature::Make({InputType(TDigestCentroidTypeMatcher::getMatcher())},
+  auto sig = KernelSignature::Make({InputType(TDigestBaseImpl::out_type())},
                                    TDigestMapReduceType);
   AddAggKernel(std::move(sig), init, func);
 }
 
 void AddTDigestQuantileKernels(KernelInit init, ScalarAggregateFunction* func) {
-  auto sig = KernelSignature::Make({InputType(TDigestCentroidTypeMatcher::getMatcher())},
-                                   float64());
+  auto sig = KernelSignature::Make({InputType(TDigestBaseImpl::out_type())}, float64());
   AddAggKernel(std::move(sig), init, func);
 }
 
@@ -628,7 +641,7 @@ std::shared_ptr<ScalarFunction> AddTDigestQuantileScalarKernels() {
       std::make_shared<ScalarFunction>("tdigest_quantile_element_wise", Arity::Unary(),
                                        tdigest_quantile_doc, &default_tdigest_options);
   auto output = OutputType{TDigestQuantileScalarImpl::ResolveOutput};
-  ScalarKernel kernel({InputType(TDigestCentroidTypeMatcher::getMatcher())}, output,
+  ScalarKernel kernel({InputType(TDigestBaseImpl::out_type())}, output,
                       TDigestQuantileScalarImpl::Exec, TDigestQuantileScalarImpl::Init);
   kernel.null_handling = NullHandling::COMPUTED_NO_PREALLOCATE;
   kernel.mem_allocation = MemAllocation::NO_PREALLOCATE;
