@@ -1384,6 +1384,7 @@ def write_options_args(request):
         return {}
 
 
+@pytest.mark.zstd
 @pytest.mark.parametrize(
     "write_options_args", ["default", "all"], indirect=True)
 def test_write_options_repr(write_options_args):
