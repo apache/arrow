@@ -214,7 +214,7 @@ TEST(BitUtil, RoundTripIntValues) {
 TEST(Rle, RleRun) {
   const std::array<uint8_t, 4> value = {21, 2, 0, 0};
 
-  RleRun::values_count_type value_count = 12;
+  rle_size_t value_count = 12;
 
   // 12 times the value 21 fitting over 5 bits
   const auto run_5 = RleRun(value.data(), value_count, /* value_bit_width= */ 5);
@@ -256,7 +256,7 @@ TEST(BitPacked, BitPackedRun) {
   const std::array<uint8_t, 4> value = {0b10101010, 0, 0, 0b1111111};
 
   // 16 values of 1 bit for a total of 16 bits
-  BitPackedRun::values_count_type value_count_1 = 16;
+  rle_size_t value_count_1 = 16;
   const auto run_1 = BitPackedRun(value.data(), value_count_1, /* value_bit_width= */ 1);
   EXPECT_EQ(run_1.values_count(), value_count_1);
   EXPECT_EQ(run_1.values_bit_width(), 1);
@@ -264,7 +264,7 @@ TEST(BitPacked, BitPackedRun) {
   EXPECT_EQ(run_1.raw_data_ptr(), value.data());
 
   // 8 values of 3 bits for a total of 24 bits
-  BitPackedRun::values_count_type value_count_3 = 8;
+  rle_size_t value_count_3 = 8;
   const auto run_3 = BitPackedRun(value.data(), value_count_3, /* value_bit_width= */ 3);
   EXPECT_EQ(run_3.values_count(), value_count_3);
   EXPECT_EQ(run_3.values_bit_width(), 3);
@@ -273,8 +273,8 @@ TEST(BitPacked, BitPackedRun) {
 }
 
 template <typename T>
-void TestRleDecoder(std::vector<uint8_t> bytes, RleRun::values_count_type value_count,
-                    RleRun::bit_size_type bit_width, T expected_value) {
+void TestRleDecoder(std::vector<uint8_t> bytes, rle_size_t value_count,
+                    rle_size_t bit_width, T expected_value) {
   // Pre-requisite for this test
   EXPECT_GT(value_count, 6);
 
@@ -285,7 +285,7 @@ void TestRleDecoder(std::vector<uint8_t> bytes, RleRun::values_count_type value_
 
   EXPECT_EQ(decoder.remaining(), value_count);
 
-  typename decltype(decoder)::values_count_type read = 0;
+  rle_size_t read = 0;
   EXPECT_EQ(decoder.Get(vals.data()), 1);
   read += 1;
   EXPECT_EQ(vals.at(0), expected_value);
@@ -333,10 +333,8 @@ TEST(Rle, RleDecoder) {
 }
 
 template <typename T>
-void TestBitPackedDecoder(std::vector<uint8_t> bytes,
-                          BitPackedRun::values_count_type value_count,
-                          BitPackedRun::bit_size_type bit_width,
-                          std::vector<T> expected) {
+void TestBitPackedDecoder(std::vector<uint8_t> bytes, rle_size_t value_count,
+                          rle_size_t bit_width, std::vector<T> expected) {
   // Pre-requisite for this test
   EXPECT_GT(value_count, 6);
 
@@ -347,7 +345,7 @@ void TestBitPackedDecoder(std::vector<uint8_t> bytes,
 
   EXPECT_EQ(decoder.remaining(), value_count);
 
-  typename decltype(decoder)::values_count_type read = 0;
+  rle_size_t read = 0;
   EXPECT_EQ(decoder.Get(vals.data()), 1);
   EXPECT_EQ(vals.at(0), expected.at(0 + read));
   read += 1;
@@ -407,12 +405,10 @@ TEST(BitPacked, BitPackedDecoder) {
 }
 
 template <typename T>
-void TestRleBitPackedParser(std::vector<uint8_t> bytes,
-                            RleBitPackedParser::bit_size_type bit_width,
+void TestRleBitPackedParser(std::vector<uint8_t> bytes, rle_size_t bit_width,
                             std::vector<T> expected) {
-  auto parser = RleBitPackedParser(
-      bytes.data(), static_cast<BitPackedRun::raw_data_size_type>(bytes.size()),
-      bit_width);
+  auto parser =
+      RleBitPackedParser(bytes.data(), static_cast<rle_size_t>(bytes.size()), bit_width);
   EXPECT_FALSE(parser.exhausted());
 
   // Try to decode all data of all runs in the decoded vector
@@ -898,7 +894,7 @@ void CheckRoundTrip(const Array& data, int bit_width, bool spaced, int32_t parts
   }
 
   // We will read the data in `parts` calls to make sure intermediate states are valid
-  int32_t total_read_count = 0;
+  rle_size_t total_read_count = 0;
   while (total_read_count < data_size) {
     const auto remaining = data_size - total_read_count;
     auto to_read = data_size / parts;
@@ -906,7 +902,7 @@ void CheckRoundTrip(const Array& data, int bit_width, bool spaced, int32_t parts
       to_read = remaining;
     }
 
-    int32_t read = 0;
+    rle_size_t read = 0;
     if (spaced) {
       // We need to slice the input array get the proper null count and bitmap
       auto data_remaining = data.Slice(total_read_count, to_read);
