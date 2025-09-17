@@ -1,0 +1,373 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+name: Linux Packaging Extra
+
+on:
+  push:
+    branches:
+      - '**'
+      - '!dependabot/**'
+    paths:
+      - '.dockerignore'
+      - '.github/workflows/check_labels.yml'
+      - '.github/workflows/linux_packaging.yml'
+      - '.github/workflows/report_ci.yml'
+      - 'cpp/**'
+      - 'c_glib/**'
+      - 'dev/tasks/linux-packages/**'
+      - 'format/Flight.proto'
+      - 'testing'
+    tags:
+      - '**'
+  pull_request:
+    paths:
+      - '.dockerignore'
+      - '.github/workflows/check_labels.yml'
+      - '.github/workflows/linux_packaging.yml'
+      - '.github/workflows/report_ci.yml'
+      - 'cpp/**'
+      - 'c_glib/**'
+      - 'dev/tasks/linux-packages/**'
+      - 'format/Flight.proto'
+      - 'testing'
+    types:
+      - labeled
+      - opened
+      - reopened
+      - synchronize
+  schedule:
+    - cron: "0 2 * * *"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "The Arrow version"
+        type: string
+        required: true
+      no_rc_version:
+        description: "The Arrow version without RC"
+        type: string
+        required: true
+
+concurrency:
+  group: ${{ github.repository }}-${{ github.head_ref || github.sha }}-${{ github.workflow }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  check-labels:
+    uses: ./.github/workflows/check_labels.yml
+    secrets: inherit
+    with:
+      label: "CI: Extra: Linux Packaging"
+      parent-workflow: linux_packaging
+
+  package:
+    needs: check-labels
+    name: ${{ matrix.title }}
+    runs-on: ${{ matrix.runs-on }}
+    if: needs.check-labels.outputs.ci-extra == 'true'
+    timeout-minutes: 75
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - architecture: amd64
+            runs-on: ubuntu-latest
+            target: almalinux-8
+            title: AlmaLinux 8 AMD64
+            task-namespace: yum
+            upload-extensions:
+              - rpm
+    env:
+      DOCKER_VOLUME_PREFIX: ".docker/"
+      ARROW_VERSION: ${{ inputs.version || ''}}
+      NO_RC_VERSION: ${{ inputs.no_rc_version  || ''}}
+    steps:
+      - name: Checkout Arrow
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          fetch-depth: 0
+          submodules: recursive
+      - name: Get Arrow Version
+        id: get-arrow-version
+        run: |
+          if [ -z "${ARROW_VERSION}" ]; then
+            ARROW_VERSION=$(git describe --tags --abbrev=0 --match "apache-arrow-[0-9]*.*" | sed 's/^apache-arrow-//')
+            ARROW_VERSION="${ARROW_VERSION}$(date +%Y%m%d)"
+            echo "ARROW_VERSION=${ARROW_VERSION}"
+            echo "ARROW_VERSION=${ARROW_VERSION}" >> $GITHUB_ENV
+            # In case of dev (no workflow_dispatch input) use the same version for NO_RC_VERSION
+            echo "NO_RC_VERSION=${ARROW_VERSION}" >> $GITHUB_ENV
+          else
+            echo "Using provided ARROW_VERSION=${ARROW_VERSION}"
+            echo "Using provided NO_RC_VERSION=${NO_RC_VERSION}"
+          fi
+      - name: Free up disk space
+        if: runner.os == 'Linux' && runner.arch == 'X64'
+        shell: bash
+        run: |
+          ci/scripts/util_free_space.sh
+      - name: Cache Docker Volumes
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        with:
+          path: .docker
+          key: extra-${{ matrix.target }}-${{ hashFiles('cpp/**') }}
+          restore-keys: extra-${{ matrix.target }}-
+      - name: Set up Ruby
+        run: |
+          sudo apt update
+          sudo apt install -y \
+            rake \
+            ruby \
+            ruby-dev
+      - name: Build
+        run: |
+          set -e
+          pushd dev/tasks/linux-packages
+          rake version:update ARROW_RELEASE_TIME="$(date --iso-8601=seconds)"
+          rake docker:pull || :
+          rake --trace ${{ matrix.task-namespace }}:build BUILD_DIR=build
+          popd
+        env:
+          APT_TARGETS: ${{ matrix.target }}
+          # TODO: Investigate what is this REPO variable and where is coming from
+          REPO: ${{ secrets.REPO }}
+          YUM_TARGETS: ${{ matrix.target }}
+      - name: Login to Dockerhub
+        if: >-
+          success() &&
+          github.event_name == 'push' &&
+          github.repository == 'apache/arrow' &&
+          github.ref_name == 'main'
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKERHUB_USER }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: Docker Push
+        continue-on-error: true
+        if: >-
+          success() &&
+          github.event_name == 'push' &&
+          github.repository == 'apache/arrow' &&
+          github.ref_name == 'main'
+        shell: bash
+        run: |
+          pushd dev/tasks/linux-packages
+          rake docker:push
+          popd
+        env:
+          APT_TARGETS: ${{ matrix.target }}
+          REPO: ${{ secrets.REPO }}
+          YUM_TARGETS: ${{ matrix.target }}
+      - name: Build artifact paths
+        id: artifact-paths
+        shell: bash
+        run: |
+          paths=""
+          for ext in ${{ join(matrix.upload-extensions, ' ') }}; do
+            paths="$paths dev/tasks/linux-packages/*/*/repositories/**/*.${ext}"
+          done
+          echo $paths
+          echo "paths=$paths" >> $GITHUB_OUTPUT
+      - name: Upload the artifacts to the job
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: ${{ matrix.target }}-${{ matrix.architecture }}
+          path: ${{ steps.artifact-paths.outputs.paths }}
+      - name: Download Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts-downloaded
+      - name: Expected uploaded yum artifacts
+        if: matrix.task-namespace == 'yum'
+        id: expected-yum-artifacts
+        run: |
+          set -ex
+          artifacts="
+          arrow[0-9]+-acero-libs-${NO_RC_VERSION}-1.[a-z0-9]+.[a-z0-9_]+.rpm
+          arrow-acero-devel-${NO_RC_VERSION}-1.[a-z0-9]+.[a-z0-9_]+.rpm
+          arrow[0-9]+-compute-libs-${NO_RC_VERSION}-1.[a-z0-9]+.[a-z0-9_]+.rpm
+          arrow-compute-devel-${NO_RC_VERSION}-1.[a-z0-9]+.[a-z0-9_]+.rpm
+          arrow[0-9]+-dataset-libs-${NO_RC_VERSION}-1.[a-z0-9]+.[a-z0-9_]+.rpm
+          arrow-dataset-devel-${NO_RC_VERSION}-1.[a-z0-9]+.[a-z0-9_]+.rpm
+          arrow-dataset-glib-devel-${NO_RC_VERSION}-1.[a-z0-9]+.[a-z0-9_]+.rpm
+          arrow-dataset-glib-doc-${NO_RC_VERSION}-1.[a-z0-9]+.[a-z0-9_]+.rpm
+          arrow[0-9]+-dataset-glib-libs-${NO_RC_VERSION}-1.[a-z0-9]+.[a-z0-9_]+.rpm
+          arrow-debuginfo-${NO_RC_VERSION}-1.[a-z0-9]+.[a-z0-9_]+.rpm
+          arrow-devel-${NO_RC_VERSION}-1.[a-z0-9]+.[a-z0-9_]+.rpm
+          arrow-glib-devel-${NO_RC_VERSION}-1.[a-z0-9]+.[a-z0-9_]+.rpm
+          arrow-glib-doc-${NO_RC_VERSION}-1.[a-z0-9]+.[a-z0-9_]+.rpm
+          arrow[0-9]+-glib-libs-${NO_RC_VERSION}-1.[a-z0-9]+.[a-z0-9_]+.rpm
+          arrow[0-9]+-libs-${NO_RC_VERSION}-1.[a-z0-9]+.[a-z0-9_]+.rpm
+          arrow-tools-${NO_RC_VERSION}-1.[a-z0-9]+.[a-z0-9_]+.rpm
+          parquet-devel-${NO_RC_VERSION}-1.[a-z0-9]+.[a-z0-9_]+.rpm
+          parquet-glib-devel-${NO_RC_VERSION}-1.[a-z0-9]+.[a-z0-9_]+.rpm
+          parquet-glib-doc-${NO_RC_VERSION}-1.[a-z0-9]+.[a-z0-9_]+.rpm
+          parquet[0-9]+-glib-libs-${NO_RC_VERSION}-1.[a-z0-9]+.[a-z0-9_]+.rpm
+          parquet[0-9]+-libs-${NO_RC_VERSION}-1.[a-z0-9]+.[a-z0-9_]+.rpm
+          parquet-tools-${NO_RC_VERSION}-1.[a-z0-9]+.[a-z0-9_]+.rpm
+          "
+          if [ "${{ matrix.architecture }}" = "amd64" ]; then
+            artifacts="$artifacts
+            apache-arrow-release-${NO_RC_VERSION}-1.[a-z0-9]+.noarch.rpm
+            apache-arrow-release-${NO_RC_VERSION}-1.[a-z0-9]+.src.rpm
+            arrow-${NO_RC_VERSION}-1.[a-z0-9]+.src.rpm"
+          fi
+          if [ "${{ matrix.target }}" != "centos-7" ]; then
+            artifacts="$artifacts
+            arrow[0-9]+-acero-libs-debuginfo-${NO_RC_VERSION}-1.[a-z0-9]+.[a-z0-9_]+.rpm
+            arrow[0-9]+-compute-libs-debuginfo-${NO_RC_VERSION}-1.[a-z0-9]+.[a-z0-9_]+.rpm
+            arrow[0-9]+-dataset-glib-libs-debuginfo-${NO_RC_VERSION}-1.[a-z0-9]+.[a-z0-9_]+.rpm
+            arrow[0-9]+-dataset-libs-debuginfo-${NO_RC_VERSION}-1.[a-z0-9]+.[a-z0-9_]+.rpm
+            arrow-debugsource-${NO_RC_VERSION}-1.[a-z0-9]+.[a-z0-9_]+.rpm
+            arrow-flight-devel-${NO_RC_VERSION}-1.[a-z0-9]+.[a-z0-9_]+.rpm
+            arrow-flight-glib-devel-${NO_RC_VERSION}-1.[a-z0-9]+.[a-z0-9_]+.rpm
+            arrow-flight-glib-doc-${NO_RC_VERSION}-1.[a-z0-9]+.[a-z0-9_]+.rpm
+            arrow-flight-sql-devel-${NO_RC_VERSION}-1.[a-z0-9]+.[a-z0-9_]+.rpm
+            arrow-flight-sql-glib-devel-${NO_RC_VERSION}-1.[a-z0-9]+.[a-z0-9_]+.rpm
+            arrow-flight-sql-glib-doc-${NO_RC_VERSION}-1.[a-z0-9]+.[a-z0-9_]+.rpm
+            arrow[0-9]+-flight-glib-libs-debuginfo-${NO_RC_VERSION}-1.[a-z0-9]+.[a-z0-9_]+.rpm
+            arrow[0-9]+-flight-glib-libs-${NO_RC_VERSION}-1.[a-z0-9]+.[a-z0-9_]+.rpm
+            arrow[0-9]+-flight-libs-debuginfo-${NO_RC_VERSION}-1.[a-z0-9]+.[a-z0-9_]+.rpm
+            arrow[0-9]+-flight-libs-${NO_RC_VERSION}-1.[a-z0-9]+.[a-z0-9_]+.rpm
+            arrow[0-9]+-flight-sql-glib-libs-debuginfo-${NO_RC_VERSION}-1.[a-z0-9]+.[a-z0-9_]+.rpm
+            arrow[0-9]+-flight-sql-glib-libs-${NO_RC_VERSION}-1.[a-z0-9]+.[a-z0-9_]+.rpm
+            arrow[0-9]+-flight-sql-libs-debuginfo-${NO_RC_VERSION}-1.[a-z0-9]+.[a-z0-9_]+.rpm
+            arrow[0-9]+-flight-sql-libs-${NO_RC_VERSION}-1.[a-z0-9]+.[a-z0-9_]+.rpm
+            arrow[0-9]+-glib-libs-debuginfo-${NO_RC_VERSION}-1.[a-z0-9]+.[a-z0-9_]+.rpm
+            arrow[0-9]+-libs-debuginfo-${NO_RC_VERSION}-1.[a-z0-9]+.[a-z0-9_]+.rpm
+            arrow-tools-debuginfo-${NO_RC_VERSION}-1.[a-z0-9]+.[a-z0-9_]+.rpm
+            gandiva-devel-${NO_RC_VERSION}-1.[a-z0-9]+.[a-z0-9_]+.rpm
+            gandiva-glib-devel-${NO_RC_VERSION}-1.[a-z0-9]+.[a-z0-9_]+.rpm
+            gandiva-glib-doc-${NO_RC_VERSION}-1.[a-z0-9]+.[a-z0-9_]+.rpm
+            gandiva[0-9]+-glib-libs-debuginfo-${NO_RC_VERSION}-1.[a-z0-9]+.[a-z0-9_]+.rpm
+            gandiva[0-9]+-glib-libs-${NO_RC_VERSION}-1.[a-z0-9]+.[a-z0-9_]+.rpm
+            gandiva[0-9]+-libs-debuginfo-${NO_RC_VERSION}-1.[a-z0-9]+.[a-z0-9_]+.rpm
+            gandiva[0-9]+-libs-${NO_RC_VERSION}-1.[a-z0-9]+.[a-z0-9_]+.rpm
+            parquet[0-9]+-glib-libs-debuginfo-${NO_RC_VERSION}-1.[a-z0-9]+.[a-z0-9_]+.rpm
+            parquet[0-9]+-libs-debuginfo-${NO_RC_VERSION}-1.[a-z0-9]+.[a-z0-9_]+.rpm
+            parquet-tools-debuginfo-${NO_RC_VERSION}-1.[a-z0-9]+.[a-z0-9_]+.rpm"
+          fi
+          echo $artifacts
+          {
+            echo 'artifacts<<EOF'
+            echo "$artifacts"
+            echo 'EOF'
+          } >> $GITHUB_OUTPUT
+      - name: Validate uploaded artifacts
+        id: validate-artifacts
+        shell: bash
+        run: |
+          set -ex
+
+          # Get expected patterns from previous step output
+          expected_patterns="${{ steps.expected-yum-artifacts.outputs.artifacts }}"
+
+          # Find all RPM files in the extracted directory
+          found_files=$(find artifacts-downloaded -type f -name '*.rpm' | sort)
+
+          # Prepare expected patterns for matching
+          echo "$expected_patterns" | grep -v '^\s*$' > expected_patterns.txt
+
+          # Check for missing artifacts
+          missing=""
+          for pattern in $(cat expected_patterns.txt); do
+            # Escape dots for grep
+            grep_pattern=$(echo "$pattern" | sed 's/\./\\./g')
+            match=$(echo "$found_files" | grep -E "$grep_pattern")
+            if [ -z "$match" ]; then
+              missing="$missing\n$pattern"
+            fi
+          done
+
+          # Check for unexpected artifacts
+          unexpected=""
+          for file in $found_files; do
+            matched=false
+            for pattern in $(cat expected_patterns.txt); do
+              grep_pattern=$(echo "$pattern" | sed 's/\./\\./g')
+              if echo "$file" | grep -qE "$grep_pattern"; then
+                matched=true
+                break
+              fi
+            done
+            if [ "$matched" = false ]; then
+              unexpected="$unexpected\n$file"
+            fi
+          done
+
+          if [ -n "$missing" ]; then
+            echo "Missing expected artifacts:"
+            echo -e "$missing"
+            exit 1
+          fi
+
+          if [ -n "$unexpected" ]; then
+            echo "Unexpected artifacts found:"
+            echo -e "$unexpected"
+            exit 1
+          fi
+
+          echo "All expected artifacts are present, and no unexpected artifacts found."
+      - name: Set up test
+        run: |
+          sudo apt install -y \
+            apt-utils \
+            cpio \
+            createrepo-c \
+            devscripts \
+            gpg \
+            rpm \
+            rsync
+          gem install --user-install apt-dists-merge
+          (echo "Key-Type: RSA"; \
+           echo "Key-Length: 4096"; \
+           echo "Name-Real: Test"; \
+           echo "Name-Email: test@example.com"; \
+           echo "%no-protection") | \
+            gpg --full-generate-key --batch
+          GPG_KEY_ID=$(gpg --list-keys --with-colon test@example.com | grep fpr | cut -d: -f10)
+          echo "GPG_KEY_ID=${GPG_KEY_ID}" >> ${GITHUB_ENV}
+          case "${{ matrix.target }}" in
+            almalinux-*|amazon-linux-*|centos-*)
+              repositories_dir=dev/tasks/linux-packages/apache-arrow-release/yum/repositories
+              rpm2cpio ${repositories_dir}/*/*/*/Packages/apache-arrow-release-*.rpm | \
+                cpio -id
+              mv etc/pki/rpm-gpg/RPM-GPG-KEY-Apache-Arrow \
+                dev/tasks/linux-packages/KEYS
+              ;;
+          esac
+          gpg --export --armor test@example.com >> dev/tasks/linux-packages/KEYS
+      - name: Test
+        run: |
+          set -e
+          pushd dev/tasks/linux-packages
+          rake --trace ${{ matrix.task-namespace }}:test
+          rm -rf ${{ matrix.task-namespace }}/repositories
+          popd
+        env:
+          APT_TARGETS: ${{ matrix.target }}
+          YUM_TARGETS: ${{ matrix.target }}
+
+  report-extra-linux-packaging:
+    needs:
+      - package
+    uses: ./.github/workflows/report_ci.yml
+    secrets: inherit
