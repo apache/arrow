@@ -274,7 +274,7 @@ class RleRunDecoder {
 
   /// Try to advance by as many values as provided.
   /// Return the number of values skipped.
-  /// May advance by less than asked for.
+  /// May advance by less than asked for if there are not enough values left.
   [[nodiscard]] rle_size_t Advance(rle_size_t batch_size) {
     const auto steps = std::min(batch_size, remaining_count_);
     remaining_count_ -= steps;
@@ -287,7 +287,8 @@ class RleRunDecoder {
   }
 
   /// Get a batch of values return the number of decoded elements.
-  /// May write fewer elements to the output than requested.
+  /// May write fewer elements to the output than requested if there are not enough values
+  /// left.
   [[nodiscard]] rle_size_t GetBatch(value_type* out, rle_size_t batch_size) {
     if (ARROW_PREDICT_FALSE(remaining_count_ == 0)) {
       return 0;
@@ -336,6 +337,7 @@ class BitPackedRunDecoder {
 
   /// Try to advance by as many values as provided.
   /// Return the number of values skipped or 0 if it fail to advance.
+  /// May advance by less than asked for if there are not enough values left.
   [[nodiscard]] rle_size_t Advance(rle_size_t batch_size) {
     const auto steps = std::min(batch_size, remaining_count_);
     if (bit_reader_.Advance(steps * value_bit_width_)) {
@@ -345,10 +347,12 @@ class BitPackedRunDecoder {
     return 0;
   }
 
-  /// Get the next value and return false if there are no more.
+  /// Get the next value and return false if there are no more or an error occurred.
   [[nodiscard]] bool Get(value_type* out_value) { return GetBatch(out_value, 1) == 1; }
 
   /// Get a batch of values return the number of decoded elements.
+  /// May write fewer elements to the output than requested if there are not enough values
+  /// left or if an error occurred.
   [[nodiscard]] rle_size_t GetBatch(value_type* out, rle_size_t batch_size) {
     if (ARROW_PREDICT_FALSE(remaining_count_ == 0)) {
       return 0;
@@ -405,7 +409,7 @@ class RleBitPackedDecoder {
   /// This is how one can check for errors.
   bool exhausted() const { return (run_remaining() == 0) && parser_.exhausted(); }
 
-  /// Gets the next value.  Returns false if there are no more.
+  /// Gets the next value or returns false if there are no more or an error occurred.
   ///
   /// NB: Because the encoding only supports literal runs with lengths
   /// that are multiples of 8, RleEncoder sometimes pads the end of its
@@ -415,14 +419,23 @@ class RleBitPackedDecoder {
   [[nodiscard]] bool Get(value_type* val);
 
   /// Get a batch of values return the number of decoded elements.
+  /// May write fewer elements to the output than requested if there are not enough values
+  /// left or if an error occurred.
   [[nodiscard]] rle_size_t GetBatch(value_type* out, rle_size_t batch_size);
 
-  /// Like GetBatch but add spacing for null entries
+  /// Like GetBatch but add spacing for null entries.
+  ///
+  /// Null entries will be set to an arbistrary value to avoid leaking private data.
+  /// May write fewer elements to the output than requested if there are not enough values
+  /// left or if an error occurred.
   [[nodiscard]] rle_size_t GetBatchSpaced(rle_size_t batch_size, rle_size_t null_count,
                                           const uint8_t* valid_bits,
                                           int64_t valid_bits_offset, value_type* out);
 
   /// Like GetBatch but the values are then decoded using the provided dictionary
+  ///
+  /// May write fewer elements to the output than requested if there are not enough values
+  /// left or if an error occurred.
   template <typename V>
   [[nodiscard]] rle_size_t GetBatchWithDict(const V* dictionary,
                                             int32_t dictionary_length, V* out,
@@ -430,8 +443,9 @@ class RleBitPackedDecoder {
 
   /// Like GetBatchWithDict but add spacing for null entries
   ///
-  /// Null entries will be zero-initialized in `values` to avoid leaking
-  /// private data.
+  /// Null entries will be set to an arbistrary value to avoid leaking private data.
+  /// May write fewer elements to the output than requested if there are not enough values
+  /// left or if an error occurred.
   template <typename V>
   [[nodiscard]] rle_size_t GetBatchWithDictSpaced(
       const V* dictionary, int32_t dictionary_length, V* out, rle_size_t batch_size,
