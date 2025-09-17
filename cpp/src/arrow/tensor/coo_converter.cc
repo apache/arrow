@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/tensor/converter_internal.h"
+#include "arrow/tensor/converter.h"
 
 #include <algorithm>
 #include <cstdint>
@@ -25,26 +25,27 @@
 
 #include "arrow/buffer.h"
 #include "arrow/status.h"
+#include "arrow/tensor.h"
 #include "arrow/type.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/macros.h"
-#include "arrow/visit_type_inline.h"
 
 namespace arrow {
 
 class MemoryPool;
 
 namespace internal {
+
 namespace {
 
-template <typename c_index_type>
-inline void IncrementRowMajorIndex(std::vector<c_index_type>& coord,
+template <typename IndexCType>
+inline void IncrementRowMajorIndex(std::vector<IndexCType>& coord,
                                    const std::vector<int64_t>& shape) {
   const int64_t ndim = shape.size();
   ++coord[ndim - 1];
-  if (coord[ndim - 1] == shape[ndim - 1]) {
+  if (static_cast<int64_t>(coord[ndim - 1]) == shape[ndim - 1]) {
     int64_t d = ndim - 1;
-    while (d > 0 && coord[d] == shape[d]) {
+    while (d > 0 && static_cast<int64_t>(coord[d]) == shape[d]) {
       coord[d] = 0;
       ++coord[d - 1];
       --d;
@@ -52,19 +53,20 @@ inline void IncrementRowMajorIndex(std::vector<c_index_type>& coord,
   }
 }
 
-template <typename c_index_type, typename c_value_type>
-void ConvertRowMajorTensor(const Tensor& tensor, c_index_type* indices,
-                           c_value_type* values, const int64_t size) {
+template <typename IndexType, typename ValueType>
+void ConvertContinuousTensor(const Tensor& tensor, typename IndexType::c_type* indices,
+                             typename ValueType::c_type* values) {
+  using ValueCType = typename ValueType::c_type;
+  using IndexCType = typename IndexType::c_type;
+
   const auto ndim = tensor.ndim();
   const auto& shape = tensor.shape();
-  const c_value_type* tensor_data =
-      reinterpret_cast<const c_value_type*>(tensor.raw_data());
+  const auto* tensor_data = tensor.data()->data_as<ValueCType>();
 
-  constexpr c_value_type zero = 0;
-  std::vector<c_index_type> coord(ndim, 0);
+  std::vector<IndexCType> coord(ndim, 0);
   for (int64_t n = tensor.size(); n > 0; --n) {
-    const c_value_type x = *tensor_data;
-    if (ARROW_PREDICT_FALSE(x != zero)) {
+    auto x = *tensor_data;
+    if (is_not_zero<ValueType>(x)) {
       std::copy(coord.begin(), coord.end(), indices);
       *values++ = x;
       indices += ndim;
@@ -75,13 +77,25 @@ void ConvertRowMajorTensor(const Tensor& tensor, c_index_type* indices,
   }
 }
 
-template <typename c_index_type, typename c_value_type>
-void ConvertColumnMajorTensor(const Tensor& tensor, c_index_type* out_indices,
-                              c_value_type* out_values, const int64_t size) {
+template <typename IndexType, typename ValueType>
+void ConvertRowMajorTensor(const Tensor& tensor, typename IndexType::c_type* out_indices,
+                           typename ValueType::c_type* out_values) {
+  ConvertContinuousTensor<IndexType, ValueType>(tensor, out_indices, out_values);
+}
+
+// TODO(GH-47580): Correct column-major tensor conversion
+template <typename IndexType, typename ValueType>
+void ConvertColumnMajorTensor(const Tensor& tensor,
+                              typename IndexType::c_type* out_indices,
+                              typename ValueType::c_type* out_values,
+                              const int64_t size) {
+  using ValueCtype = typename ValueType::c_type;
+  using IndexCType = typename IndexType::c_type;
+
   const auto ndim = tensor.ndim();
-  std::vector<c_index_type> indices(ndim * size);
-  std::vector<c_value_type> values(size);
-  ConvertRowMajorTensor(tensor, indices.data(), values.data(), size);
+  std::vector<IndexCType> indices(ndim * size);
+  std::vector<ValueCtype> values(size);
+  ConvertContinuousTensor<IndexType, ValueType>(tensor, indices.data(), values.data());
 
   // transpose indices
   for (int64_t i = 0; i < size; ++i) {
@@ -116,23 +130,24 @@ void ConvertColumnMajorTensor(const Tensor& tensor, c_index_type* out_indices,
   }
 }
 
-template <typename c_index_type, typename c_value_type>
-void ConvertStridedTensor(const Tensor& tensor, c_index_type* indices,
-                          c_value_type* values, const int64_t size) {
-  using ValueType = typename CTypeTraits<c_value_type>::ArrowType;
+template <typename IndexType, typename ValueType>
+void ConvertStridedTensor(const Tensor& tensor, typename IndexType::c_type* indices,
+                          typename ValueType::c_type* values) {
+  using ValueCType = typename ValueType::c_type;
+  using IndexCType = typename IndexType::c_type;
+
   const auto& shape = tensor.shape();
   const auto ndim = tensor.ndim();
   std::vector<int64_t> coord(ndim, 0);
 
-  constexpr c_value_type zero = 0;
-  c_value_type x;
+  ValueCType x;
   int64_t i;
   for (int64_t n = tensor.size(); n > 0; --n) {
     x = tensor.Value<ValueType>(coord);
-    if (ARROW_PREDICT_FALSE(x != zero)) {
+    if (is_not_zero<ValueType>(x)) {
       *values++ = x;
       for (i = 0; i < ndim; ++i) {
-        *indices++ = static_cast<c_index_type>(coord[i]);
+        *indices++ = static_cast<IndexCType>(coord[i]);
       }
     }
 
@@ -140,35 +155,21 @@ void ConvertStridedTensor(const Tensor& tensor, c_index_type* indices,
   }
 }
 
-#define CONVERT_TENSOR(func, index_type, value_type, indices, values, size)     \
-  func<index_type, value_type>(tensor_, reinterpret_cast<index_type*>(indices), \
-                               reinterpret_cast<value_type*>(values), size)
-
-// Using ARROW_EXPAND is necessary to expand __VA_ARGS__ correctly on VC++.
-#define CONVERT_ROW_MAJOR_TENSOR(index_type, value_type, ...) \
-  ARROW_EXPAND(CONVERT_TENSOR(ConvertRowMajorTensor, index_type, value_type, __VA_ARGS__))
-
-#define CONVERT_COLUMN_MAJOR_TENSOR(index_type, value_type, ...) \
-  ARROW_EXPAND(                                                  \
-      CONVERT_TENSOR(ConvertColumnMajorTensor, index_type, value_type, __VA_ARGS__))
-
-#define CONVERT_STRIDED_TENSOR(index_type, value_type, ...) \
-  ARROW_EXPAND(CONVERT_TENSOR(ConvertStridedTensor, index_type, value_type, __VA_ARGS__))
-
 // ----------------------------------------------------------------------
 // SparseTensorConverter for SparseCOOIndex
 
-class SparseCOOTensorConverter : private SparseTensorConverterMixin {
-  using SparseTensorConverterMixin::AssignIndex;
-  using SparseTensorConverterMixin::IsNonZero;
-
+class SparseCOOTensorConverter {
  public:
   SparseCOOTensorConverter(const Tensor& tensor,
                            const std::shared_ptr<DataType>& index_value_type,
                            MemoryPool* pool)
       : tensor_(tensor), index_value_type_(index_value_type), pool_(pool) {}
 
-  Status Convert() {
+  template <typename ValueType, typename IndexType>
+  Status Convert(const ValueType&, const IndexType&) {
+    using ValueCType = typename ValueType::c_type;
+    using IndexCType = typename IndexType::c_type;
+
     RETURN_NOT_OK(::arrow::internal::CheckSparseIndexMaximumValue(index_value_type_,
                                                                   tensor_.shape()));
 
@@ -180,34 +181,29 @@ class SparseCOOTensorConverter : private SparseTensorConverterMixin {
 
     ARROW_ASSIGN_OR_RAISE(auto indices_buffer,
                           AllocateBuffer(index_elsize * ndim * nonzero_count, pool_));
-    uint8_t* indices = indices_buffer->mutable_data();
 
     ARROW_ASSIGN_OR_RAISE(auto values_buffer,
                           AllocateBuffer(value_elsize * nonzero_count, pool_));
-    uint8_t* values = values_buffer->mutable_data();
 
-    const uint8_t* tensor_data = tensor_.raw_data();
+    auto* values = values_buffer->mutable_data_as<ValueCType>();
+    const auto* tensor_data = tensor_.data()->data_as<ValueCType>();
+    auto* indices = indices_buffer->mutable_data_as<IndexCType>();
     if (ndim <= 1) {
       const int64_t count = ndim == 0 ? 1 : tensor_.shape()[0];
       for (int64_t i = 0; i < count; ++i) {
-        if (std::any_of(tensor_data, tensor_data + value_elsize, IsNonZero)) {
-          AssignIndex(indices, i, index_elsize);
-          std::copy_n(tensor_data, value_elsize, values);
-
-          indices += index_elsize;
-          values += value_elsize;
+        if (is_not_zero<ValueType>(*tensor_data)) {
+          *indices++ = static_cast<IndexCType>(i);
+          *values++ = *tensor_data;
         }
-        tensor_data += value_elsize;
+        ++tensor_data;
       }
     } else if (tensor_.is_row_major()) {
-      DISPATCH(CONVERT_ROW_MAJOR_TENSOR, index_elsize, value_elsize, indices, values,
-               nonzero_count);
+      ConvertRowMajorTensor<IndexType, ValueType>(tensor_, indices, values);
     } else if (tensor_.is_column_major()) {
-      DISPATCH(CONVERT_COLUMN_MAJOR_TENSOR, index_elsize, value_elsize, indices, values,
-               nonzero_count);
+      ConvertColumnMajorTensor<IndexType, ValueType>(tensor_, indices, values,
+                                                     nonzero_count);
     } else {
-      DISPATCH(CONVERT_STRIDED_TENSOR, index_elsize, value_elsize, indices, values,
-               nonzero_count);
+      ConvertStridedTensor<IndexType, ValueType>(tensor_, indices, values);
     }
 
     // make results
@@ -281,13 +277,14 @@ Status MakeSparseCOOTensorFromTensor(const Tensor& tensor,
                                      std::shared_ptr<SparseIndex>* out_sparse_index,
                                      std::shared_ptr<Buffer>* out_data) {
   SparseCOOTensorConverter converter(tensor, index_value_type, pool);
-  RETURN_NOT_OK(converter.Convert());
-
+  ConverterVisitor visitor{converter};
+  ARROW_RETURN_NOT_OK(VisitValueAndIndexType(tensor.type(), index_value_type, visitor));
   *out_sparse_index = checked_pointer_cast<SparseIndex>(converter.sparse_index);
   *out_data = converter.data;
   return Status::OK();
 }
 
+// TODO(GH-47580): Enable column-major index tensor
 Result<std::shared_ptr<Tensor>> MakeTensorFromSparseCOOTensor(
     MemoryPool* pool, const SparseCOOTensor* sparse_tensor) {
   const auto& sparse_index =

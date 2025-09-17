@@ -35,6 +35,7 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/int_util_overflow.h"
 #include "arrow/util/logging_internal.h"
+#include "arrow/util/macros.h"
 #include "arrow/util/unreachable.h"
 #include "arrow/visit_type_inline.h"
 
@@ -85,7 +86,7 @@ Status ComputeColumnMajorStrides(const FixedWidthType& type,
   if (!shape.empty() && shape.back() > 0) {
     total = byte_width;
     for (size_t i = 0; i < ndim - 1; ++i) {
-      if (internal::MultiplyWithOverflow(total, shape[i], &total)) {
+      if (ARROW_PREDICT_FALSE(internal::MultiplyWithOverflow(total, shape[i], &total))) {
         return Status::Invalid(
             "Column-major strides computed from shape would not fit in 64-bit "
             "integer");
@@ -485,13 +486,14 @@ namespace {
 template <typename TYPE>
 int64_t StridedTensorCountNonZero(int dim_index, int64_t offset, const Tensor& tensor) {
   using c_type = typename TYPE::c_type;
-  const c_type zero = c_type(0);
   int64_t nnz = 0;
   if (dim_index == tensor.ndim() - 1) {
     for (int64_t i = 0; i < tensor.shape()[dim_index]; ++i) {
       const auto* ptr = tensor.raw_data() + offset + i * tensor.strides()[dim_index];
-      auto& elem = *reinterpret_cast<const c_type*>(ptr);
-      if (elem != zero) ++nnz;
+      if (auto& elem = *reinterpret_cast<const c_type*>(ptr);
+          internal::is_not_zero<TYPE>(elem)) {
+        ++nnz;
+      }
     }
     return nnz;
   }
@@ -507,7 +509,7 @@ int64_t ContiguousTensorCountNonZero(const Tensor& tensor) {
   using c_type = typename TYPE::c_type;
   auto* data = reinterpret_cast<const c_type*>(tensor.raw_data());
   return std::count_if(data, data + tensor.size(),
-                       [](const c_type& x) { return x != 0; });
+                       [](const c_type& x) { return internal::is_not_zero<TYPE>(x); });
 }
 
 template <typename TYPE>
