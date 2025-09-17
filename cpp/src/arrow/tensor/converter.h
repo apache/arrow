@@ -20,6 +20,9 @@
 #include "arrow/sparse_tensor.h"  // IWYU pragma: export
 
 #include <memory>
+#include <utility>
+
+#include "arrow/visit_type_inline.h"
 
 namespace arrow {
 namespace internal {
@@ -62,6 +65,56 @@ Result<std::shared_ptr<Tensor>> MakeTensorFromSparseCSCMatrix(
 
 Result<std::shared_ptr<Tensor>> MakeTensorFromSparseCSFTensor(
     MemoryPool* pool, const SparseCSFTensor* sparse_tensor);
+
+template <typename Convertor>
+struct ConverterVisitor {
+  explicit ConverterVisitor(Convertor& converter) : converter(converter) {}
+  template <typename ValueType, typename IndexType>
+  Status operator()(const ValueType& value, const IndexType& index_type) {
+    return converter.Convert(value, index_type);
+  }
+
+  Convertor& converter;
+};
+
+struct ValueTypeVisitor {
+  template <typename ValueType, typename IndexType, typename Function>
+  enable_if_number<ValueType, Status> Visit(const ValueType& value_type,
+                                            const IndexType& index_type,
+                                            Function&& function) {
+    return function(value_type, index_type);
+  }
+
+  template <typename IndexType, typename Function>
+  Status Visit(const DataType& value_type, const IndexType&, Function&&) {
+    return Status::Invalid("Invalid value type and the type is ", value_type.name());
+  }
+};
+
+struct IndexAndValueTypeVisitor {
+  template <typename IndexType, typename Function>
+  enable_if_integer<IndexType, Status> Visit(const IndexType& index_type,
+                                             const std::shared_ptr<DataType>& value_type,
+                                             Function&& function) {
+    ValueTypeVisitor visitor;
+    return VisitTypeInline(*value_type, &visitor, index_type,
+                           std::forward<Function>(function));
+  }
+
+  template <typename Function>
+  Status Visit(const DataType& type, const std::shared_ptr<DataType>&, Function&&) {
+    return Status::Invalid("Invalid index type and the type is ", type.name());
+  }
+};
+
+template <typename Function>
+Status VisitValueAndIndexType(const std::shared_ptr<DataType>& value_type,
+                              const std::shared_ptr<DataType>& index_type,
+                              Function&& function) {
+  IndexAndValueTypeVisitor visitor;
+  return VisitTypeInline(*index_type, &visitor, value_type,
+                         std::forward<Function>(function));
+}
 
 }  // namespace internal
 }  // namespace arrow
