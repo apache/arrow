@@ -204,7 +204,7 @@ download_binary <- function(lib) {
 #   this function.
 identify_binary <- function(lib = Sys.getenv("LIBARROW_BINARY"), info = distro()) {
   if (on_windows) {
-    if (VERSION_MAJOR_22_OR_LATER) {
+    if (VERSION_22_OR_LATER) {
       return("windows-x86_64")
     } else {
       return("windows")
