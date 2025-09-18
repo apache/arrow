@@ -132,6 +132,7 @@ write_dataset <- function(dataset,
                           max_rows_per_file = 0L,
                           min_rows_per_group = 0L,
                           max_rows_per_group = bitwShiftL(1, 20),
+                          create_directory = TRUE,
                           ...) {
   format <- match.arg(format)
   if (format %in% c("feather", "ipc")) {
@@ -224,7 +225,7 @@ write_dataset <- function(dataset,
     partitioning, basename_template,
     existing_data_behavior, max_partitions,
     max_open_files, max_rows_per_file,
-    min_rows_per_group, max_rows_per_group
+    min_rows_per_group, max_rows_per_group, create_directory
   )
 }
 
