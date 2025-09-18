@@ -154,7 +154,7 @@ TEST_F(TestTable, AllColumnsAndFields) {
 }
 
 TEST(TestTableEquality, Equals) {
-  const int length = 10;
+  const int32_t length = 10;
 
   auto f0 = field("f0", int32());
   auto f1 = field("f1", uint8());
@@ -198,7 +198,7 @@ TEST(TestTableEquality, Equals) {
 }
 
 TEST(TestTableEquality, MetadataAndSchema) {
-  const int length = 10;
+  const int32_t length = 10;
 
   auto f0 = field("f0", int32());
   auto f1 = field("f1", uint8());
@@ -254,6 +254,7 @@ TEST(TestTableEqualityFloatType, SameValue) {
       schema, {R"([{"f0": 1, "f1": 4.0}, {"f0": 2, "f1": 5.0}, {"f0": 3, "f1": 6.0}])"});
   auto other_table = TableFromJSON(
       schema, {R"([{"f0": 1, "f1": 4.0}, {"f0": 2, "f1": 5.0}, {"f0": 3, "f1": 6.0}])"});
+
   ASSERT_TRUE(table->Equals(*other_table));
 }
 
