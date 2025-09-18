@@ -67,8 +67,8 @@ HEADER = """
 namespace arrow::internal {
 
 template <typename Int>
-Int LoadInt(const Int* in) {
-  return bit_util::FromLittleEndian(util::SafeLoad<Int>(in));
+Int LoadInt(const uint8_t* in) {
+  return bit_util::FromLittleEndian(util::SafeLoadAs<Int>(in));
 }
 """
 
@@ -109,8 +109,8 @@ class ScalarUnpackGenerator:
 
     def unpack_signature(self, bit: int) -> str:
         return (
-            f"inline const {self.unsigned_type}* unpack{bit}_{self.out_bit_width}"
-            f"(const {self.unsigned_type}*  in, {self.unsigned_type}* out)"
+            f"inline const uint8_t* unpack{bit}_{self.out_bit_width}"
+            f"(const uint8_t* in, {self.unsigned_type}* out)"
             "{"
         )
 
@@ -125,10 +125,10 @@ class ScalarUnpackGenerator:
         print(f"  for(int k = 0; k < {self.howmany}; k += 1) {{")
         print(
             f"    out[k] = LoadInt<{self.unsigned_type}>("
-            f"in + (k ));"
+            f"in + (k * {self.out_byte_width}));"
         )
         print("  }")
-        print(f"  return in + ( {self.howmany});")
+        print(f"  return in + ({self.out_byte_width} * {self.howmany});")
         print("}")
 
     def print_unpack_k(self, bit: int) -> None:
@@ -143,20 +143,20 @@ class ScalarUnpackGenerator:
         for k in range(self.howmanywords(bit) - 1):
             print(
                 f"  const auto w{k} = LoadInt<{self.unsigned_type}>("
-                f"in + {k});"
+                f"in + {k} * {self.out_byte_width});"
             )
 
         k = self.howmanywords(bit) - 1
         use_smart_halving = self.smart_halve and bit % 2 == 1
         if use_smart_halving:
             print(
-                f"  const auto w{k} = static_cast<{self.unsigned_type}>(LoadInt("
-                f"reinterpret_cast<const {self.unsigned_type_half}*>(in + {k})));"
+                f"  const auto w{k} = static_cast<{self.unsigned_type}>(LoadInt<{self.unsigned_type_half}>("
+                f"in + {k} * {self.out_byte_width}));"
             )
         else:
             print(
                 f"  const auto w{k} = LoadInt<{self.unsigned_type}>("
-                f"in + {k} );"
+                f"in + {k} * {self.out_byte_width});"
             )
 
         for j in range(self.howmany):
@@ -181,10 +181,11 @@ class ScalarUnpackGenerator:
 
         if use_smart_halving:
             print(
-                f"  return in + ({self.howmanywords(bit) - 1});"
+                f"  return in + ({self.howmanywords(bit) - 1} * {self.out_byte_width}"
+                f" + {self.out_byte_width // 2});"
             )
         else:
-            print(f"  return in + ({self.howmanywords(bit)} );")
+            print(f"  return in + ({self.howmanywords(bit)} * {self.out_byte_width});")
         print("}")
 
     def print_all(self) -> None:
