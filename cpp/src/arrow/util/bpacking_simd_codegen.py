@@ -90,21 +90,38 @@ class UnpackGenerator:
         if self.simd_bit_width % self.out_bit_width != 0:
             raise ("SIMD bit width should be a multiple of output width")
 
-    def unpack_signature(self, bit: int) -> str:
-        return (
-            f"inline static const uint8_t* unpack{bit}_{self.out_bit_width}"
-            f"(const uint8_t* in, {self.out_type}* out) {{"
+    def print_unpack_signature(self, bit: int | None) -> str:
+        if bit is None:
+            print("template<int kBit>")
+            static = "static "
+            specialized = ""
+            end = ";"
+        else:
+            print("template<>")
+            static = ""
+            specialized = f"<{bit}>"
+            end = " {"
+
+        print(
+            f"{static}const uint8_t* unpack{specialized}"
+            f"(const uint8_t* in, {self.out_type}* out){end}"
         )
 
+    def print_struct_header(self):
+        print("template<>")
+        print(f"struct Simd{self.simd_bit_width}Unpacker<{self.out_type}> {{")
+        print()
+        self.print_unpack_signature(None)
+
     def print_unpack_bit0_func(self):
-        print(self.unpack_signature(0))
+        self.print_unpack_signature(0)
         print(f"  std::memset(out, 0x0, {self.out_bit_width} * sizeof(*out));")
         print(f"  out += {self.out_bit_width};")
         print("  return in;")
         print("}")
 
     def print_unpack_bitmax_func(self):
-        print(self.unpack_signature(self.out_bit_width))
+        self.print_unpack_signature(self.out_bit_width)
         print(f"  std::memcpy(out, in, {self.out_bit_width} * sizeof(*out));")
         print(f"  in += {self.out_byte_width} * {self.out_bit_width};")
         print(f"  out += {self.out_bit_width};")
@@ -112,7 +129,7 @@ class UnpackGenerator:
         print("}")
 
     def print_unpack_bit_func(self, bit: int):
-        print(self.unpack_signature(bit))
+        self.print_unpack_signature(bit)
 
         def p(code, level=1):
             print(indent(code, prefix="  " * level))
@@ -194,8 +211,8 @@ class UnpackGenerator:
         print("}")
 
     def print_all(self):
-        print("template<>")
-        print(f"struct Simd{self.simd_bit_width}Unpacker<{self.out_type}> {{")
+        self.print_struct_header()
+        print()
 
         self.print_unpack_bit0_func()
         print()
@@ -205,7 +222,6 @@ class UnpackGenerator:
         self.print_unpack_bitmax_func()
 
         print("};  // struct Unpacker")
-
 
 
 def print_note():
@@ -221,6 +237,7 @@ def main(simd_width, outputs):
 
     print("template<typename Uint>")
     print(f"struct Simd{simd_width}Unpacker;")
+    print()
 
     for out_width in outputs:
         gen = UnpackGenerator(out_width, simd_width)

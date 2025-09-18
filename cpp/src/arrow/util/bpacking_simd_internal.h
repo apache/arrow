@@ -18,115 +18,90 @@
 #include "arrow/util/dispatch_internal.h"
 #include "arrow/util/logging.h"
 
-namespace arrow {
-namespace internal {
+namespace arrow::internal {
 
-template <typename UnpackBits>
-static int unpack32_specialized(const uint8_t* in, uint32_t* out, int batch_size,
-                                int num_bits) {
+template <int kBit, typename Unpacker>
+int unpack(const uint8_t* in, uint32_t* out, int batch_size, int num_bits) {
   batch_size = batch_size / 32 * 32;
   int num_loops = batch_size / 32;
 
+  for (int i = 0; i < num_loops; ++i) {
+    in = Unpacker::template unpack<kBit>(in, out + i * 32);
+  }
+
+  return batch_size;
+}
+
+template <typename Unpacker>
+static int unpack32_specialized(const uint8_t* in, uint32_t* out, int batch_size,
+                                int num_bits) {
   switch (num_bits) {
     case 0:
-      for (int i = 0; i < num_loops; ++i) in = UnpackBits::unpack0_32(in, out + i * 32);
-      break;
+      return unpack<0, Unpacker>(in, out, batch_size, num_bits);
     case 1:
-      for (int i = 0; i < num_loops; ++i) in = UnpackBits::unpack1_32(in, out + i * 32);
-      break;
+      return unpack<1, Unpacker>(in, out, batch_size, num_bits);
     case 2:
-      for (int i = 0; i < num_loops; ++i) in = UnpackBits::unpack2_32(in, out + i * 32);
-      break;
+      return unpack<2, Unpacker>(in, out, batch_size, num_bits);
     case 3:
-      for (int i = 0; i < num_loops; ++i) in = UnpackBits::unpack3_32(in, out + i * 32);
-      break;
+      return unpack<3, Unpacker>(in, out, batch_size, num_bits);
     case 4:
-      for (int i = 0; i < num_loops; ++i) in = UnpackBits::unpack4_32(in, out + i * 32);
-      break;
+      return unpack<4, Unpacker>(in, out, batch_size, num_bits);
     case 5:
-      for (int i = 0; i < num_loops; ++i) in = UnpackBits::unpack5_32(in, out + i * 32);
-      break;
+      return unpack<5, Unpacker>(in, out, batch_size, num_bits);
     case 6:
-      for (int i = 0; i < num_loops; ++i) in = UnpackBits::unpack6_32(in, out + i * 32);
-      break;
+      return unpack<6, Unpacker>(in, out, batch_size, num_bits);
     case 7:
-      for (int i = 0; i < num_loops; ++i) in = UnpackBits::unpack7_32(in, out + i * 32);
-      break;
+      return unpack<7, Unpacker>(in, out, batch_size, num_bits);
     case 8:
-      for (int i = 0; i < num_loops; ++i) in = UnpackBits::unpack8_32(in, out + i * 32);
-      break;
+      return unpack<8, Unpacker>(in, out, batch_size, num_bits);
     case 9:
-      for (int i = 0; i < num_loops; ++i) in = UnpackBits::unpack9_32(in, out + i * 32);
-      break;
+      return unpack<9, Unpacker>(in, out, batch_size, num_bits);
     case 10:
-      for (int i = 0; i < num_loops; ++i) in = UnpackBits::unpack10_32(in, out + i * 32);
-      break;
+      return unpack<10, Unpacker>(in, out, batch_size, num_bits);
     case 11:
-      for (int i = 0; i < num_loops; ++i) in = UnpackBits::unpack11_32(in, out + i * 32);
-      break;
+      return unpack<11, Unpacker>(in, out, batch_size, num_bits);
     case 12:
-      for (int i = 0; i < num_loops; ++i) in = UnpackBits::unpack12_32(in, out + i * 32);
-      break;
+      return unpack<12, Unpacker>(in, out, batch_size, num_bits);
     case 13:
-      for (int i = 0; i < num_loops; ++i) in = UnpackBits::unpack13_32(in, out + i * 32);
-      break;
+      return unpack<13, Unpacker>(in, out, batch_size, num_bits);
     case 14:
-      for (int i = 0; i < num_loops; ++i) in = UnpackBits::unpack14_32(in, out + i * 32);
-      break;
+      return unpack<14, Unpacker>(in, out, batch_size, num_bits);
     case 15:
-      for (int i = 0; i < num_loops; ++i) in = UnpackBits::unpack15_32(in, out + i * 32);
-      break;
+      return unpack<15, Unpacker>(in, out, batch_size, num_bits);
     case 16:
-      for (int i = 0; i < num_loops; ++i) in = UnpackBits::unpack16_32(in, out + i * 32);
-      break;
+      return unpack<16, Unpacker>(in, out, batch_size, num_bits);
     case 17:
-      for (int i = 0; i < num_loops; ++i) in = UnpackBits::unpack17_32(in, out + i * 32);
-      break;
+      return unpack<17, Unpacker>(in, out, batch_size, num_bits);
     case 18:
-      for (int i = 0; i < num_loops; ++i) in = UnpackBits::unpack18_32(in, out + i * 32);
-      break;
+      return unpack<18, Unpacker>(in, out, batch_size, num_bits);
     case 19:
-      for (int i = 0; i < num_loops; ++i) in = UnpackBits::unpack19_32(in, out + i * 32);
-      break;
+      return unpack<19, Unpacker>(in, out, batch_size, num_bits);
     case 20:
-      for (int i = 0; i < num_loops; ++i) in = UnpackBits::unpack20_32(in, out + i * 32);
-      break;
+      return unpack<20, Unpacker>(in, out, batch_size, num_bits);
     case 21:
-      for (int i = 0; i < num_loops; ++i) in = UnpackBits::unpack21_32(in, out + i * 32);
-      break;
+      return unpack<21, Unpacker>(in, out, batch_size, num_bits);
     case 22:
-      for (int i = 0; i < num_loops; ++i) in = UnpackBits::unpack22_32(in, out + i * 32);
-      break;
+      return unpack<22, Unpacker>(in, out, batch_size, num_bits);
     case 23:
-      for (int i = 0; i < num_loops; ++i) in = UnpackBits::unpack23_32(in, out + i * 32);
-      break;
+      return unpack<23, Unpacker>(in, out, batch_size, num_bits);
     case 24:
-      for (int i = 0; i < num_loops; ++i) in = UnpackBits::unpack24_32(in, out + i * 32);
-      break;
+      return unpack<24, Unpacker>(in, out, batch_size, num_bits);
     case 25:
-      for (int i = 0; i < num_loops; ++i) in = UnpackBits::unpack25_32(in, out + i * 32);
-      break;
+      return unpack<25, Unpacker>(in, out, batch_size, num_bits);
     case 26:
-      for (int i = 0; i < num_loops; ++i) in = UnpackBits::unpack26_32(in, out + i * 32);
-      break;
+      return unpack<26, Unpacker>(in, out, batch_size, num_bits);
     case 27:
-      for (int i = 0; i < num_loops; ++i) in = UnpackBits::unpack27_32(in, out + i * 32);
-      break;
+      return unpack<27, Unpacker>(in, out, batch_size, num_bits);
     case 28:
-      for (int i = 0; i < num_loops; ++i) in = UnpackBits::unpack28_32(in, out + i * 32);
-      break;
+      return unpack<28, Unpacker>(in, out, batch_size, num_bits);
     case 29:
-      for (int i = 0; i < num_loops; ++i) in = UnpackBits::unpack29_32(in, out + i * 32);
-      break;
+      return unpack<29, Unpacker>(in, out, batch_size, num_bits);
     case 30:
-      for (int i = 0; i < num_loops; ++i) in = UnpackBits::unpack30_32(in, out + i * 32);
-      break;
+      return unpack<30, Unpacker>(in, out, batch_size, num_bits);
     case 31:
-      for (int i = 0; i < num_loops; ++i) in = UnpackBits::unpack31_32(in, out + i * 32);
-      break;
+      return unpack<31, Unpacker>(in, out, batch_size, num_bits);
     case 32:
-      for (int i = 0; i < num_loops; ++i) in = UnpackBits::unpack32_32(in, out + i * 32);
-      break;
+      return unpack<32, Unpacker>(in, out, batch_size, num_bits);
     default:
       ARROW_DCHECK(false) << "Unsupported num_bits";
   }
@@ -134,5 +109,4 @@ static int unpack32_specialized(const uint8_t* in, uint32_t* out, int batch_size
   return batch_size;
 }
 
-}  // namespace internal
-}  // namespace arrow
+}  // namespace arrow::internal
