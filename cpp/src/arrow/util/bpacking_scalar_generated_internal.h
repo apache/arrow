@@ -43,12 +43,27 @@ Int LoadInt(const uint8_t* in) {
   return bit_util::FromLittleEndian(util::SafeLoadAs<Int>(in));
 }
 
-inline const uint8_t* unpack0_32(const uint8_t* in, uint32_t* out){
+template<typename Uint>
+struct ScalarUnpacker;
+
+template<>
+struct ScalarUnpacker<uint32_t> {
+
+using out_type = uint32_t;
+
+static constexpr int kValuesUnpacked = 32;
+
+template<int kBit>
+static const uint8_t* unpack(const uint8_t* in, uint32_t* out);
+
+template<>
+const uint8_t* unpack<0>(const uint8_t* in, uint32_t* out) {
   std::memset(out, 0, 32 * 4);
   return in;
 }
 
-inline const uint8_t* unpack1_32(const uint8_t* in, uint32_t* out){
+template<>
+const uint8_t* unpack<1>(const uint8_t* in, uint32_t* out) {
   constexpr uint32_t mask = ((uint32_t{1} << 1) - uint32_t{1});
 
   const auto w0 = LoadInt<uint32_t>(in + 0 * 4);
@@ -88,7 +103,8 @@ inline const uint8_t* unpack1_32(const uint8_t* in, uint32_t* out){
   return in + (1 * 4);
 }
 
-inline const uint8_t* unpack2_32(const uint8_t* in, uint32_t* out){
+template<>
+const uint8_t* unpack<2>(const uint8_t* in, uint32_t* out) {
   constexpr uint32_t mask = ((uint32_t{1} << 2) - uint32_t{1});
 
   const auto w0 = LoadInt<uint32_t>(in + 0 * 4);
@@ -129,7 +145,8 @@ inline const uint8_t* unpack2_32(const uint8_t* in, uint32_t* out){
   return in + (2 * 4);
 }
 
-inline const uint8_t* unpack3_32(const uint8_t* in, uint32_t* out){
+template<>
+const uint8_t* unpack<3>(const uint8_t* in, uint32_t* out) {
   constexpr uint32_t mask = ((uint32_t{1} << 3) - uint32_t{1});
 
   const auto w0 = LoadInt<uint32_t>(in + 0 * 4);
@@ -171,7 +188,8 @@ inline const uint8_t* unpack3_32(const uint8_t* in, uint32_t* out){
   return in + (3 * 4);
 }
 
-inline const uint8_t* unpack4_32(const uint8_t* in, uint32_t* out){
+template<>
+const uint8_t* unpack<4>(const uint8_t* in, uint32_t* out) {
   constexpr uint32_t mask = ((uint32_t{1} << 4) - uint32_t{1});
 
   const auto w0 = LoadInt<uint32_t>(in + 0 * 4);
@@ -214,7 +232,8 @@ inline const uint8_t* unpack4_32(const uint8_t* in, uint32_t* out){
   return in + (4 * 4);
 }
 
-inline const uint8_t* unpack5_32(const uint8_t* in, uint32_t* out){
+template<>
+const uint8_t* unpack<5>(const uint8_t* in, uint32_t* out) {
   constexpr uint32_t mask = ((uint32_t{1} << 5) - uint32_t{1});
 
   const auto w0 = LoadInt<uint32_t>(in + 0 * 4);
@@ -258,7 +277,8 @@ inline const uint8_t* unpack5_32(const uint8_t* in, uint32_t* out){
   return in + (5 * 4);
 }
 
-inline const uint8_t* unpack6_32(const uint8_t* in, uint32_t* out){
+template<>
+const uint8_t* unpack<6>(const uint8_t* in, uint32_t* out) {
   constexpr uint32_t mask = ((uint32_t{1} << 6) - uint32_t{1});
 
   const auto w0 = LoadInt<uint32_t>(in + 0 * 4);
@@ -303,7 +323,8 @@ inline const uint8_t* unpack6_32(const uint8_t* in, uint32_t* out){
   return in + (6 * 4);
 }
 
-inline const uint8_t* unpack7_32(const uint8_t* in, uint32_t* out){
+template<>
+const uint8_t* unpack<7>(const uint8_t* in, uint32_t* out) {
   constexpr uint32_t mask = ((uint32_t{1} << 7) - uint32_t{1});
 
   const auto w0 = LoadInt<uint32_t>(in + 0 * 4);
@@ -349,7 +370,8 @@ inline const uint8_t* unpack7_32(const uint8_t* in, uint32_t* out){
   return in + (7 * 4);
 }
 
-inline const uint8_t* unpack8_32(const uint8_t* in, uint32_t* out){
+template<>
+const uint8_t* unpack<8>(const uint8_t* in, uint32_t* out) {
   constexpr uint32_t mask = ((uint32_t{1} << 8) - uint32_t{1});
 
   const auto w0 = LoadInt<uint32_t>(in + 0 * 4);
@@ -396,7 +418,8 @@ inline const uint8_t* unpack8_32(const uint8_t* in, uint32_t* out){
   return in + (8 * 4);
 }
 
-inline const uint8_t* unpack9_32(const uint8_t* in, uint32_t* out){
+template<>
+const uint8_t* unpack<9>(const uint8_t* in, uint32_t* out) {
   constexpr uint32_t mask = ((uint32_t{1} << 9) - uint32_t{1});
 
   const auto w0 = LoadInt<uint32_t>(in + 0 * 4);
@@ -444,7 +467,8 @@ inline const uint8_t* unpack9_32(const uint8_t* in, uint32_t* out){
   return in + (9 * 4);
 }
 
-inline const uint8_t* unpack10_32(const uint8_t* in, uint32_t* out){
+template<>
+const uint8_t* unpack<10>(const uint8_t* in, uint32_t* out) {
   constexpr uint32_t mask = ((uint32_t{1} << 10) - uint32_t{1});
 
   const auto w0 = LoadInt<uint32_t>(in + 0 * 4);
@@ -493,7 +517,8 @@ inline const uint8_t* unpack10_32(const uint8_t* in, uint32_t* out){
   return in + (10 * 4);
 }
 
-inline const uint8_t* unpack11_32(const uint8_t* in, uint32_t* out){
+template<>
+const uint8_t* unpack<11>(const uint8_t* in, uint32_t* out) {
   constexpr uint32_t mask = ((uint32_t{1} << 11) - uint32_t{1});
 
   const auto w0 = LoadInt<uint32_t>(in + 0 * 4);
@@ -543,7 +568,8 @@ inline const uint8_t* unpack11_32(const uint8_t* in, uint32_t* out){
   return in + (11 * 4);
 }
 
-inline const uint8_t* unpack12_32(const uint8_t* in, uint32_t* out){
+template<>
+const uint8_t* unpack<12>(const uint8_t* in, uint32_t* out) {
   constexpr uint32_t mask = ((uint32_t{1} << 12) - uint32_t{1});
 
   const auto w0 = LoadInt<uint32_t>(in + 0 * 4);
@@ -594,7 +620,8 @@ inline const uint8_t* unpack12_32(const uint8_t* in, uint32_t* out){
   return in + (12 * 4);
 }
 
-inline const uint8_t* unpack13_32(const uint8_t* in, uint32_t* out){
+template<>
+const uint8_t* unpack<13>(const uint8_t* in, uint32_t* out) {
   constexpr uint32_t mask = ((uint32_t{1} << 13) - uint32_t{1});
 
   const auto w0 = LoadInt<uint32_t>(in + 0 * 4);
@@ -646,7 +673,8 @@ inline const uint8_t* unpack13_32(const uint8_t* in, uint32_t* out){
   return in + (13 * 4);
 }
 
-inline const uint8_t* unpack14_32(const uint8_t* in, uint32_t* out){
+template<>
+const uint8_t* unpack<14>(const uint8_t* in, uint32_t* out) {
   constexpr uint32_t mask = ((uint32_t{1} << 14) - uint32_t{1});
 
   const auto w0 = LoadInt<uint32_t>(in + 0 * 4);
@@ -699,7 +727,8 @@ inline const uint8_t* unpack14_32(const uint8_t* in, uint32_t* out){
   return in + (14 * 4);
 }
 
-inline const uint8_t* unpack15_32(const uint8_t* in, uint32_t* out){
+template<>
+const uint8_t* unpack<15>(const uint8_t* in, uint32_t* out) {
   constexpr uint32_t mask = ((uint32_t{1} << 15) - uint32_t{1});
 
   const auto w0 = LoadInt<uint32_t>(in + 0 * 4);
@@ -753,7 +782,8 @@ inline const uint8_t* unpack15_32(const uint8_t* in, uint32_t* out){
   return in + (15 * 4);
 }
 
-inline const uint8_t* unpack16_32(const uint8_t* in, uint32_t* out){
+template<>
+const uint8_t* unpack<16>(const uint8_t* in, uint32_t* out) {
   constexpr uint32_t mask = ((uint32_t{1} << 16) - uint32_t{1});
 
   const auto w0 = LoadInt<uint32_t>(in + 0 * 4);
@@ -808,7 +838,8 @@ inline const uint8_t* unpack16_32(const uint8_t* in, uint32_t* out){
   return in + (16 * 4);
 }
 
-inline const uint8_t* unpack17_32(const uint8_t* in, uint32_t* out){
+template<>
+const uint8_t* unpack<17>(const uint8_t* in, uint32_t* out) {
   constexpr uint32_t mask = ((uint32_t{1} << 17) - uint32_t{1});
 
   const auto w0 = LoadInt<uint32_t>(in + 0 * 4);
@@ -864,7 +895,8 @@ inline const uint8_t* unpack17_32(const uint8_t* in, uint32_t* out){
   return in + (17 * 4);
 }
 
-inline const uint8_t* unpack18_32(const uint8_t* in, uint32_t* out){
+template<>
+const uint8_t* unpack<18>(const uint8_t* in, uint32_t* out) {
   constexpr uint32_t mask = ((uint32_t{1} << 18) - uint32_t{1});
 
   const auto w0 = LoadInt<uint32_t>(in + 0 * 4);
@@ -921,7 +953,8 @@ inline const uint8_t* unpack18_32(const uint8_t* in, uint32_t* out){
   return in + (18 * 4);
 }
 
-inline const uint8_t* unpack19_32(const uint8_t* in, uint32_t* out){
+template<>
+const uint8_t* unpack<19>(const uint8_t* in, uint32_t* out) {
   constexpr uint32_t mask = ((uint32_t{1} << 19) - uint32_t{1});
 
   const auto w0 = LoadInt<uint32_t>(in + 0 * 4);
@@ -979,7 +1012,8 @@ inline const uint8_t* unpack19_32(const uint8_t* in, uint32_t* out){
   return in + (19 * 4);
 }
 
-inline const uint8_t* unpack20_32(const uint8_t* in, uint32_t* out){
+template<>
+const uint8_t* unpack<20>(const uint8_t* in, uint32_t* out) {
   constexpr uint32_t mask = ((uint32_t{1} << 20) - uint32_t{1});
 
   const auto w0 = LoadInt<uint32_t>(in + 0 * 4);
@@ -1038,7 +1072,8 @@ inline const uint8_t* unpack20_32(const uint8_t* in, uint32_t* out){
   return in + (20 * 4);
 }
 
-inline const uint8_t* unpack21_32(const uint8_t* in, uint32_t* out){
+template<>
+const uint8_t* unpack<21>(const uint8_t* in, uint32_t* out) {
   constexpr uint32_t mask = ((uint32_t{1} << 21) - uint32_t{1});
 
   const auto w0 = LoadInt<uint32_t>(in + 0 * 4);
@@ -1098,7 +1133,8 @@ inline const uint8_t* unpack21_32(const uint8_t* in, uint32_t* out){
   return in + (21 * 4);
 }
 
-inline const uint8_t* unpack22_32(const uint8_t* in, uint32_t* out){
+template<>
+const uint8_t* unpack<22>(const uint8_t* in, uint32_t* out) {
   constexpr uint32_t mask = ((uint32_t{1} << 22) - uint32_t{1});
 
   const auto w0 = LoadInt<uint32_t>(in + 0 * 4);
@@ -1159,7 +1195,8 @@ inline const uint8_t* unpack22_32(const uint8_t* in, uint32_t* out){
   return in + (22 * 4);
 }
 
-inline const uint8_t* unpack23_32(const uint8_t* in, uint32_t* out){
+template<>
+const uint8_t* unpack<23>(const uint8_t* in, uint32_t* out) {
   constexpr uint32_t mask = ((uint32_t{1} << 23) - uint32_t{1});
 
   const auto w0 = LoadInt<uint32_t>(in + 0 * 4);
@@ -1221,7 +1258,8 @@ inline const uint8_t* unpack23_32(const uint8_t* in, uint32_t* out){
   return in + (23 * 4);
 }
 
-inline const uint8_t* unpack24_32(const uint8_t* in, uint32_t* out){
+template<>
+const uint8_t* unpack<24>(const uint8_t* in, uint32_t* out) {
   constexpr uint32_t mask = ((uint32_t{1} << 24) - uint32_t{1});
 
   const auto w0 = LoadInt<uint32_t>(in + 0 * 4);
@@ -1284,7 +1322,8 @@ inline const uint8_t* unpack24_32(const uint8_t* in, uint32_t* out){
   return in + (24 * 4);
 }
 
-inline const uint8_t* unpack25_32(const uint8_t* in, uint32_t* out){
+template<>
+const uint8_t* unpack<25>(const uint8_t* in, uint32_t* out) {
   constexpr uint32_t mask = ((uint32_t{1} << 25) - uint32_t{1});
 
   const auto w0 = LoadInt<uint32_t>(in + 0 * 4);
@@ -1348,7 +1387,8 @@ inline const uint8_t* unpack25_32(const uint8_t* in, uint32_t* out){
   return in + (25 * 4);
 }
 
-inline const uint8_t* unpack26_32(const uint8_t* in, uint32_t* out){
+template<>
+const uint8_t* unpack<26>(const uint8_t* in, uint32_t* out) {
   constexpr uint32_t mask = ((uint32_t{1} << 26) - uint32_t{1});
 
   const auto w0 = LoadInt<uint32_t>(in + 0 * 4);
@@ -1413,7 +1453,8 @@ inline const uint8_t* unpack26_32(const uint8_t* in, uint32_t* out){
   return in + (26 * 4);
 }
 
-inline const uint8_t* unpack27_32(const uint8_t* in, uint32_t* out){
+template<>
+const uint8_t* unpack<27>(const uint8_t* in, uint32_t* out) {
   constexpr uint32_t mask = ((uint32_t{1} << 27) - uint32_t{1});
 
   const auto w0 = LoadInt<uint32_t>(in + 0 * 4);
@@ -1479,7 +1520,8 @@ inline const uint8_t* unpack27_32(const uint8_t* in, uint32_t* out){
   return in + (27 * 4);
 }
 
-inline const uint8_t* unpack28_32(const uint8_t* in, uint32_t* out){
+template<>
+const uint8_t* unpack<28>(const uint8_t* in, uint32_t* out) {
   constexpr uint32_t mask = ((uint32_t{1} << 28) - uint32_t{1});
 
   const auto w0 = LoadInt<uint32_t>(in + 0 * 4);
@@ -1546,7 +1588,8 @@ inline const uint8_t* unpack28_32(const uint8_t* in, uint32_t* out){
   return in + (28 * 4);
 }
 
-inline const uint8_t* unpack29_32(const uint8_t* in, uint32_t* out){
+template<>
+const uint8_t* unpack<29>(const uint8_t* in, uint32_t* out) {
   constexpr uint32_t mask = ((uint32_t{1} << 29) - uint32_t{1});
 
   const auto w0 = LoadInt<uint32_t>(in + 0 * 4);
@@ -1614,7 +1657,8 @@ inline const uint8_t* unpack29_32(const uint8_t* in, uint32_t* out){
   return in + (29 * 4);
 }
 
-inline const uint8_t* unpack30_32(const uint8_t* in, uint32_t* out){
+template<>
+const uint8_t* unpack<30>(const uint8_t* in, uint32_t* out) {
   constexpr uint32_t mask = ((uint32_t{1} << 30) - uint32_t{1});
 
   const auto w0 = LoadInt<uint32_t>(in + 0 * 4);
@@ -1683,7 +1727,8 @@ inline const uint8_t* unpack30_32(const uint8_t* in, uint32_t* out){
   return in + (30 * 4);
 }
 
-inline const uint8_t* unpack31_32(const uint8_t* in, uint32_t* out){
+template<>
+const uint8_t* unpack<31>(const uint8_t* in, uint32_t* out) {
   constexpr uint32_t mask = ((uint32_t{1} << 31) - uint32_t{1});
 
   const auto w0 = LoadInt<uint32_t>(in + 0 * 4);
@@ -1753,19 +1798,33 @@ inline const uint8_t* unpack31_32(const uint8_t* in, uint32_t* out){
   return in + (31 * 4);
 }
 
-inline const uint8_t* unpack32_32(const uint8_t* in, uint32_t* out){
+template<>
+const uint8_t* unpack<32>(const uint8_t* in, uint32_t* out) {
   for(int k = 0; k < 32; k += 1) {
     out[k] = LoadInt<uint32_t>(in + (k * 4));
   }
   return in + (4 * 32);
 }
+};  // struct
 
-inline const uint8_t* unpack0_64(const uint8_t* in, uint64_t* out){
+template<>
+struct ScalarUnpacker<uint64_t> {
+
+using out_type = uint64_t;
+
+static constexpr int kValuesUnpacked = 32;
+
+template<int kBit>
+static const uint8_t* unpack(const uint8_t* in, uint64_t* out);
+
+template<>
+const uint8_t* unpack<0>(const uint8_t* in, uint64_t* out) {
   std::memset(out, 0, 32 * 8);
   return in;
 }
 
-inline const uint8_t* unpack1_64(const uint8_t* in, uint64_t* out){
+template<>
+const uint8_t* unpack<1>(const uint8_t* in, uint64_t* out) {
   constexpr uint64_t mask = ((uint64_t{1} << 1) - uint64_t{1});
 
   const auto w0 = static_cast<uint64_t>(LoadInt<uint32_t>(in + 0 * 8));
@@ -1805,7 +1864,8 @@ inline const uint8_t* unpack1_64(const uint8_t* in, uint64_t* out){
   return in + (0 * 8 + 4);
 }
 
-inline const uint8_t* unpack2_64(const uint8_t* in, uint64_t* out){
+template<>
+const uint8_t* unpack<2>(const uint8_t* in, uint64_t* out) {
   constexpr uint64_t mask = ((uint64_t{1} << 2) - uint64_t{1});
 
   const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
@@ -1845,7 +1905,8 @@ inline const uint8_t* unpack2_64(const uint8_t* in, uint64_t* out){
   return in + (1 * 8);
 }
 
-inline const uint8_t* unpack3_64(const uint8_t* in, uint64_t* out){
+template<>
+const uint8_t* unpack<3>(const uint8_t* in, uint64_t* out) {
   constexpr uint64_t mask = ((uint64_t{1} << 3) - uint64_t{1});
 
   const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
@@ -1886,7 +1947,8 @@ inline const uint8_t* unpack3_64(const uint8_t* in, uint64_t* out){
   return in + (1 * 8 + 4);
 }
 
-inline const uint8_t* unpack4_64(const uint8_t* in, uint64_t* out){
+template<>
+const uint8_t* unpack<4>(const uint8_t* in, uint64_t* out) {
   constexpr uint64_t mask = ((uint64_t{1} << 4) - uint64_t{1});
 
   const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
@@ -1927,7 +1989,8 @@ inline const uint8_t* unpack4_64(const uint8_t* in, uint64_t* out){
   return in + (2 * 8);
 }
 
-inline const uint8_t* unpack5_64(const uint8_t* in, uint64_t* out){
+template<>
+const uint8_t* unpack<5>(const uint8_t* in, uint64_t* out) {
   constexpr uint64_t mask = ((uint64_t{1} << 5) - uint64_t{1});
 
   const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
@@ -1969,7 +2032,8 @@ inline const uint8_t* unpack5_64(const uint8_t* in, uint64_t* out){
   return in + (2 * 8 + 4);
 }
 
-inline const uint8_t* unpack6_64(const uint8_t* in, uint64_t* out){
+template<>
+const uint8_t* unpack<6>(const uint8_t* in, uint64_t* out) {
   constexpr uint64_t mask = ((uint64_t{1} << 6) - uint64_t{1});
 
   const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
@@ -2011,7 +2075,8 @@ inline const uint8_t* unpack6_64(const uint8_t* in, uint64_t* out){
   return in + (3 * 8);
 }
 
-inline const uint8_t* unpack7_64(const uint8_t* in, uint64_t* out){
+template<>
+const uint8_t* unpack<7>(const uint8_t* in, uint64_t* out) {
   constexpr uint64_t mask = ((uint64_t{1} << 7) - uint64_t{1});
 
   const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
@@ -2054,7 +2119,8 @@ inline const uint8_t* unpack7_64(const uint8_t* in, uint64_t* out){
   return in + (3 * 8 + 4);
 }
 
-inline const uint8_t* unpack8_64(const uint8_t* in, uint64_t* out){
+template<>
+const uint8_t* unpack<8>(const uint8_t* in, uint64_t* out) {
   constexpr uint64_t mask = ((uint64_t{1} << 8) - uint64_t{1});
 
   const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
@@ -2097,7 +2163,8 @@ inline const uint8_t* unpack8_64(const uint8_t* in, uint64_t* out){
   return in + (4 * 8);
 }
 
-inline const uint8_t* unpack9_64(const uint8_t* in, uint64_t* out){
+template<>
+const uint8_t* unpack<9>(const uint8_t* in, uint64_t* out) {
   constexpr uint64_t mask = ((uint64_t{1} << 9) - uint64_t{1});
 
   const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
@@ -2141,7 +2208,8 @@ inline const uint8_t* unpack9_64(const uint8_t* in, uint64_t* out){
   return in + (4 * 8 + 4);
 }
 
-inline const uint8_t* unpack10_64(const uint8_t* in, uint64_t* out){
+template<>
+const uint8_t* unpack<10>(const uint8_t* in, uint64_t* out) {
   constexpr uint64_t mask = ((uint64_t{1} << 10) - uint64_t{1});
 
   const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
@@ -2185,7 +2253,8 @@ inline const uint8_t* unpack10_64(const uint8_t* in, uint64_t* out){
   return in + (5 * 8);
 }
 
-inline const uint8_t* unpack11_64(const uint8_t* in, uint64_t* out){
+template<>
+const uint8_t* unpack<11>(const uint8_t* in, uint64_t* out) {
   constexpr uint64_t mask = ((uint64_t{1} << 11) - uint64_t{1});
 
   const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
@@ -2230,7 +2299,8 @@ inline const uint8_t* unpack11_64(const uint8_t* in, uint64_t* out){
   return in + (5 * 8 + 4);
 }
 
-inline const uint8_t* unpack12_64(const uint8_t* in, uint64_t* out){
+template<>
+const uint8_t* unpack<12>(const uint8_t* in, uint64_t* out) {
   constexpr uint64_t mask = ((uint64_t{1} << 12) - uint64_t{1});
 
   const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
@@ -2275,7 +2345,8 @@ inline const uint8_t* unpack12_64(const uint8_t* in, uint64_t* out){
   return in + (6 * 8);
 }
 
-inline const uint8_t* unpack13_64(const uint8_t* in, uint64_t* out){
+template<>
+const uint8_t* unpack<13>(const uint8_t* in, uint64_t* out) {
   constexpr uint64_t mask = ((uint64_t{1} << 13) - uint64_t{1});
 
   const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
@@ -2321,7 +2392,8 @@ inline const uint8_t* unpack13_64(const uint8_t* in, uint64_t* out){
   return in + (6 * 8 + 4);
 }
 
-inline const uint8_t* unpack14_64(const uint8_t* in, uint64_t* out){
+template<>
+const uint8_t* unpack<14>(const uint8_t* in, uint64_t* out) {
   constexpr uint64_t mask = ((uint64_t{1} << 14) - uint64_t{1});
 
   const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
@@ -2367,7 +2439,8 @@ inline const uint8_t* unpack14_64(const uint8_t* in, uint64_t* out){
   return in + (7 * 8);
 }
 
-inline const uint8_t* unpack15_64(const uint8_t* in, uint64_t* out){
+template<>
+const uint8_t* unpack<15>(const uint8_t* in, uint64_t* out) {
   constexpr uint64_t mask = ((uint64_t{1} << 15) - uint64_t{1});
 
   const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
@@ -2414,7 +2487,8 @@ inline const uint8_t* unpack15_64(const uint8_t* in, uint64_t* out){
   return in + (7 * 8 + 4);
 }
 
-inline const uint8_t* unpack16_64(const uint8_t* in, uint64_t* out){
+template<>
+const uint8_t* unpack<16>(const uint8_t* in, uint64_t* out) {
   constexpr uint64_t mask = ((uint64_t{1} << 16) - uint64_t{1});
 
   const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
@@ -2461,7 +2535,8 @@ inline const uint8_t* unpack16_64(const uint8_t* in, uint64_t* out){
   return in + (8 * 8);
 }
 
-inline const uint8_t* unpack17_64(const uint8_t* in, uint64_t* out){
+template<>
+const uint8_t* unpack<17>(const uint8_t* in, uint64_t* out) {
   constexpr uint64_t mask = ((uint64_t{1} << 17) - uint64_t{1});
 
   const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
@@ -2509,7 +2584,8 @@ inline const uint8_t* unpack17_64(const uint8_t* in, uint64_t* out){
   return in + (8 * 8 + 4);
 }
 
-inline const uint8_t* unpack18_64(const uint8_t* in, uint64_t* out){
+template<>
+const uint8_t* unpack<18>(const uint8_t* in, uint64_t* out) {
   constexpr uint64_t mask = ((uint64_t{1} << 18) - uint64_t{1});
 
   const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
@@ -2557,7 +2633,8 @@ inline const uint8_t* unpack18_64(const uint8_t* in, uint64_t* out){
   return in + (9 * 8);
 }
 
-inline const uint8_t* unpack19_64(const uint8_t* in, uint64_t* out){
+template<>
+const uint8_t* unpack<19>(const uint8_t* in, uint64_t* out) {
   constexpr uint64_t mask = ((uint64_t{1} << 19) - uint64_t{1});
 
   const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
@@ -2606,7 +2683,8 @@ inline const uint8_t* unpack19_64(const uint8_t* in, uint64_t* out){
   return in + (9 * 8 + 4);
 }
 
-inline const uint8_t* unpack20_64(const uint8_t* in, uint64_t* out){
+template<>
+const uint8_t* unpack<20>(const uint8_t* in, uint64_t* out) {
   constexpr uint64_t mask = ((uint64_t{1} << 20) - uint64_t{1});
 
   const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
@@ -2655,7 +2733,8 @@ inline const uint8_t* unpack20_64(const uint8_t* in, uint64_t* out){
   return in + (10 * 8);
 }
 
-inline const uint8_t* unpack21_64(const uint8_t* in, uint64_t* out){
+template<>
+const uint8_t* unpack<21>(const uint8_t* in, uint64_t* out) {
   constexpr uint64_t mask = ((uint64_t{1} << 21) - uint64_t{1});
 
   const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
@@ -2705,7 +2784,8 @@ inline const uint8_t* unpack21_64(const uint8_t* in, uint64_t* out){
   return in + (10 * 8 + 4);
 }
 
-inline const uint8_t* unpack22_64(const uint8_t* in, uint64_t* out){
+template<>
+const uint8_t* unpack<22>(const uint8_t* in, uint64_t* out) {
   constexpr uint64_t mask = ((uint64_t{1} << 22) - uint64_t{1});
 
   const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
@@ -2755,7 +2835,8 @@ inline const uint8_t* unpack22_64(const uint8_t* in, uint64_t* out){
   return in + (11 * 8);
 }
 
-inline const uint8_t* unpack23_64(const uint8_t* in, uint64_t* out){
+template<>
+const uint8_t* unpack<23>(const uint8_t* in, uint64_t* out) {
   constexpr uint64_t mask = ((uint64_t{1} << 23) - uint64_t{1});
 
   const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
@@ -2806,7 +2887,8 @@ inline const uint8_t* unpack23_64(const uint8_t* in, uint64_t* out){
   return in + (11 * 8 + 4);
 }
 
-inline const uint8_t* unpack24_64(const uint8_t* in, uint64_t* out){
+template<>
+const uint8_t* unpack<24>(const uint8_t* in, uint64_t* out) {
   constexpr uint64_t mask = ((uint64_t{1} << 24) - uint64_t{1});
 
   const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
@@ -2857,7 +2939,8 @@ inline const uint8_t* unpack24_64(const uint8_t* in, uint64_t* out){
   return in + (12 * 8);
 }
 
-inline const uint8_t* unpack25_64(const uint8_t* in, uint64_t* out){
+template<>
+const uint8_t* unpack<25>(const uint8_t* in, uint64_t* out) {
   constexpr uint64_t mask = ((uint64_t{1} << 25) - uint64_t{1});
 
   const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
@@ -2909,7 +2992,8 @@ inline const uint8_t* unpack25_64(const uint8_t* in, uint64_t* out){
   return in + (12 * 8 + 4);
 }
 
-inline const uint8_t* unpack26_64(const uint8_t* in, uint64_t* out){
+template<>
+const uint8_t* unpack<26>(const uint8_t* in, uint64_t* out) {
   constexpr uint64_t mask = ((uint64_t{1} << 26) - uint64_t{1});
 
   const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
@@ -2961,7 +3045,8 @@ inline const uint8_t* unpack26_64(const uint8_t* in, uint64_t* out){
   return in + (13 * 8);
 }
 
-inline const uint8_t* unpack27_64(const uint8_t* in, uint64_t* out){
+template<>
+const uint8_t* unpack<27>(const uint8_t* in, uint64_t* out) {
   constexpr uint64_t mask = ((uint64_t{1} << 27) - uint64_t{1});
 
   const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
@@ -3014,7 +3099,8 @@ inline const uint8_t* unpack27_64(const uint8_t* in, uint64_t* out){
   return in + (13 * 8 + 4);
 }
 
-inline const uint8_t* unpack28_64(const uint8_t* in, uint64_t* out){
+template<>
+const uint8_t* unpack<28>(const uint8_t* in, uint64_t* out) {
   constexpr uint64_t mask = ((uint64_t{1} << 28) - uint64_t{1});
 
   const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
@@ -3067,7 +3153,8 @@ inline const uint8_t* unpack28_64(const uint8_t* in, uint64_t* out){
   return in + (14 * 8);
 }
 
-inline const uint8_t* unpack29_64(const uint8_t* in, uint64_t* out){
+template<>
+const uint8_t* unpack<29>(const uint8_t* in, uint64_t* out) {
   constexpr uint64_t mask = ((uint64_t{1} << 29) - uint64_t{1});
 
   const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
@@ -3121,7 +3208,8 @@ inline const uint8_t* unpack29_64(const uint8_t* in, uint64_t* out){
   return in + (14 * 8 + 4);
 }
 
-inline const uint8_t* unpack30_64(const uint8_t* in, uint64_t* out){
+template<>
+const uint8_t* unpack<30>(const uint8_t* in, uint64_t* out) {
   constexpr uint64_t mask = ((uint64_t{1} << 30) - uint64_t{1});
 
   const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
@@ -3175,7 +3263,8 @@ inline const uint8_t* unpack30_64(const uint8_t* in, uint64_t* out){
   return in + (15 * 8);
 }
 
-inline const uint8_t* unpack31_64(const uint8_t* in, uint64_t* out){
+template<>
+const uint8_t* unpack<31>(const uint8_t* in, uint64_t* out) {
   constexpr uint64_t mask = ((uint64_t{1} << 31) - uint64_t{1});
 
   const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
@@ -3230,7 +3319,8 @@ inline const uint8_t* unpack31_64(const uint8_t* in, uint64_t* out){
   return in + (15 * 8 + 4);
 }
 
-inline const uint8_t* unpack32_64(const uint8_t* in, uint64_t* out){
+template<>
+const uint8_t* unpack<32>(const uint8_t* in, uint64_t* out) {
   constexpr uint64_t mask = ((uint64_t{1} << 32) - uint64_t{1});
 
   const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
@@ -3285,7 +3375,8 @@ inline const uint8_t* unpack32_64(const uint8_t* in, uint64_t* out){
   return in + (16 * 8);
 }
 
-inline const uint8_t* unpack33_64(const uint8_t* in, uint64_t* out){
+template<>
+const uint8_t* unpack<33>(const uint8_t* in, uint64_t* out) {
   constexpr uint64_t mask = ((uint64_t{1} << 33) - uint64_t{1});
 
   const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
@@ -3341,7 +3432,8 @@ inline const uint8_t* unpack33_64(const uint8_t* in, uint64_t* out){
   return in + (16 * 8 + 4);
 }
 
-inline const uint8_t* unpack34_64(const uint8_t* in, uint64_t* out){
+template<>
+const uint8_t* unpack<34>(const uint8_t* in, uint64_t* out) {
   constexpr uint64_t mask = ((uint64_t{1} << 34) - uint64_t{1});
 
   const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
@@ -3397,7 +3489,8 @@ inline const uint8_t* unpack34_64(const uint8_t* in, uint64_t* out){
   return in + (17 * 8);
 }
 
-inline const uint8_t* unpack35_64(const uint8_t* in, uint64_t* out){
+template<>
+const uint8_t* unpack<35>(const uint8_t* in, uint64_t* out) {
   constexpr uint64_t mask = ((uint64_t{1} << 35) - uint64_t{1});
 
   const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
@@ -3454,7 +3547,8 @@ inline const uint8_t* unpack35_64(const uint8_t* in, uint64_t* out){
   return in + (17 * 8 + 4);
 }
 
-inline const uint8_t* unpack36_64(const uint8_t* in, uint64_t* out){
+template<>
+const uint8_t* unpack<36>(const uint8_t* in, uint64_t* out) {
   constexpr uint64_t mask = ((uint64_t{1} << 36) - uint64_t{1});
 
   const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
@@ -3511,7 +3605,8 @@ inline const uint8_t* unpack36_64(const uint8_t* in, uint64_t* out){
   return in + (18 * 8);
 }
 
-inline const uint8_t* unpack37_64(const uint8_t* in, uint64_t* out){
+template<>
+const uint8_t* unpack<37>(const uint8_t* in, uint64_t* out) {
   constexpr uint64_t mask = ((uint64_t{1} << 37) - uint64_t{1});
 
   const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
@@ -3569,7 +3664,8 @@ inline const uint8_t* unpack37_64(const uint8_t* in, uint64_t* out){
   return in + (18 * 8 + 4);
 }
 
-inline const uint8_t* unpack38_64(const uint8_t* in, uint64_t* out){
+template<>
+const uint8_t* unpack<38>(const uint8_t* in, uint64_t* out) {
   constexpr uint64_t mask = ((uint64_t{1} << 38) - uint64_t{1});
 
   const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
@@ -3627,7 +3723,8 @@ inline const uint8_t* unpack38_64(const uint8_t* in, uint64_t* out){
   return in + (19 * 8);
 }
 
-inline const uint8_t* unpack39_64(const uint8_t* in, uint64_t* out){
+template<>
+const uint8_t* unpack<39>(const uint8_t* in, uint64_t* out) {
   constexpr uint64_t mask = ((uint64_t{1} << 39) - uint64_t{1});
 
   const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
@@ -3686,7 +3783,8 @@ inline const uint8_t* unpack39_64(const uint8_t* in, uint64_t* out){
   return in + (19 * 8 + 4);
 }
 
-inline const uint8_t* unpack40_64(const uint8_t* in, uint64_t* out){
+template<>
+const uint8_t* unpack<40>(const uint8_t* in, uint64_t* out) {
   constexpr uint64_t mask = ((uint64_t{1} << 40) - uint64_t{1});
 
   const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
@@ -3745,7 +3843,8 @@ inline const uint8_t* unpack40_64(const uint8_t* in, uint64_t* out){
   return in + (20 * 8);
 }
 
-inline const uint8_t* unpack41_64(const uint8_t* in, uint64_t* out){
+template<>
+const uint8_t* unpack<41>(const uint8_t* in, uint64_t* out) {
   constexpr uint64_t mask = ((uint64_t{1} << 41) - uint64_t{1});
 
   const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
@@ -3805,7 +3904,8 @@ inline const uint8_t* unpack41_64(const uint8_t* in, uint64_t* out){
   return in + (20 * 8 + 4);
 }
 
-inline const uint8_t* unpack42_64(const uint8_t* in, uint64_t* out){
+template<>
+const uint8_t* unpack<42>(const uint8_t* in, uint64_t* out) {
   constexpr uint64_t mask = ((uint64_t{1} << 42) - uint64_t{1});
 
   const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
@@ -3865,7 +3965,8 @@ inline const uint8_t* unpack42_64(const uint8_t* in, uint64_t* out){
   return in + (21 * 8);
 }
 
-inline const uint8_t* unpack43_64(const uint8_t* in, uint64_t* out){
+template<>
+const uint8_t* unpack<43>(const uint8_t* in, uint64_t* out) {
   constexpr uint64_t mask = ((uint64_t{1} << 43) - uint64_t{1});
 
   const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
@@ -3926,7 +4027,8 @@ inline const uint8_t* unpack43_64(const uint8_t* in, uint64_t* out){
   return in + (21 * 8 + 4);
 }
 
-inline const uint8_t* unpack44_64(const uint8_t* in, uint64_t* out){
+template<>
+const uint8_t* unpack<44>(const uint8_t* in, uint64_t* out) {
   constexpr uint64_t mask = ((uint64_t{1} << 44) - uint64_t{1});
 
   const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
@@ -3987,7 +4089,8 @@ inline const uint8_t* unpack44_64(const uint8_t* in, uint64_t* out){
   return in + (22 * 8);
 }
 
-inline const uint8_t* unpack45_64(const uint8_t* in, uint64_t* out){
+template<>
+const uint8_t* unpack<45>(const uint8_t* in, uint64_t* out) {
   constexpr uint64_t mask = ((uint64_t{1} << 45) - uint64_t{1});
 
   const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
@@ -4049,7 +4152,8 @@ inline const uint8_t* unpack45_64(const uint8_t* in, uint64_t* out){
   return in + (22 * 8 + 4);
 }
 
-inline const uint8_t* unpack46_64(const uint8_t* in, uint64_t* out){
+template<>
+const uint8_t* unpack<46>(const uint8_t* in, uint64_t* out) {
   constexpr uint64_t mask = ((uint64_t{1} << 46) - uint64_t{1});
 
   const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
@@ -4111,7 +4215,8 @@ inline const uint8_t* unpack46_64(const uint8_t* in, uint64_t* out){
   return in + (23 * 8);
 }
 
-inline const uint8_t* unpack47_64(const uint8_t* in, uint64_t* out){
+template<>
+const uint8_t* unpack<47>(const uint8_t* in, uint64_t* out) {
   constexpr uint64_t mask = ((uint64_t{1} << 47) - uint64_t{1});
 
   const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
@@ -4174,7 +4279,8 @@ inline const uint8_t* unpack47_64(const uint8_t* in, uint64_t* out){
   return in + (23 * 8 + 4);
 }
 
-inline const uint8_t* unpack48_64(const uint8_t* in, uint64_t* out){
+template<>
+const uint8_t* unpack<48>(const uint8_t* in, uint64_t* out) {
   constexpr uint64_t mask = ((uint64_t{1} << 48) - uint64_t{1});
 
   const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
@@ -4237,7 +4343,8 @@ inline const uint8_t* unpack48_64(const uint8_t* in, uint64_t* out){
   return in + (24 * 8);
 }
 
-inline const uint8_t* unpack49_64(const uint8_t* in, uint64_t* out){
+template<>
+const uint8_t* unpack<49>(const uint8_t* in, uint64_t* out) {
   constexpr uint64_t mask = ((uint64_t{1} << 49) - uint64_t{1});
 
   const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
@@ -4301,7 +4408,8 @@ inline const uint8_t* unpack49_64(const uint8_t* in, uint64_t* out){
   return in + (24 * 8 + 4);
 }
 
-inline const uint8_t* unpack50_64(const uint8_t* in, uint64_t* out){
+template<>
+const uint8_t* unpack<50>(const uint8_t* in, uint64_t* out) {
   constexpr uint64_t mask = ((uint64_t{1} << 50) - uint64_t{1});
 
   const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
@@ -4365,7 +4473,8 @@ inline const uint8_t* unpack50_64(const uint8_t* in, uint64_t* out){
   return in + (25 * 8);
 }
 
-inline const uint8_t* unpack51_64(const uint8_t* in, uint64_t* out){
+template<>
+const uint8_t* unpack<51>(const uint8_t* in, uint64_t* out) {
   constexpr uint64_t mask = ((uint64_t{1} << 51) - uint64_t{1});
 
   const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
@@ -4430,7 +4539,8 @@ inline const uint8_t* unpack51_64(const uint8_t* in, uint64_t* out){
   return in + (25 * 8 + 4);
 }
 
-inline const uint8_t* unpack52_64(const uint8_t* in, uint64_t* out){
+template<>
+const uint8_t* unpack<52>(const uint8_t* in, uint64_t* out) {
   constexpr uint64_t mask = ((uint64_t{1} << 52) - uint64_t{1});
 
   const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
@@ -4495,7 +4605,8 @@ inline const uint8_t* unpack52_64(const uint8_t* in, uint64_t* out){
   return in + (26 * 8);
 }
 
-inline const uint8_t* unpack53_64(const uint8_t* in, uint64_t* out){
+template<>
+const uint8_t* unpack<53>(const uint8_t* in, uint64_t* out) {
   constexpr uint64_t mask = ((uint64_t{1} << 53) - uint64_t{1});
 
   const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
@@ -4561,7 +4672,8 @@ inline const uint8_t* unpack53_64(const uint8_t* in, uint64_t* out){
   return in + (26 * 8 + 4);
 }
 
-inline const uint8_t* unpack54_64(const uint8_t* in, uint64_t* out){
+template<>
+const uint8_t* unpack<54>(const uint8_t* in, uint64_t* out) {
   constexpr uint64_t mask = ((uint64_t{1} << 54) - uint64_t{1});
 
   const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
@@ -4627,7 +4739,8 @@ inline const uint8_t* unpack54_64(const uint8_t* in, uint64_t* out){
   return in + (27 * 8);
 }
 
-inline const uint8_t* unpack55_64(const uint8_t* in, uint64_t* out){
+template<>
+const uint8_t* unpack<55>(const uint8_t* in, uint64_t* out) {
   constexpr uint64_t mask = ((uint64_t{1} << 55) - uint64_t{1});
 
   const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
@@ -4694,7 +4807,8 @@ inline const uint8_t* unpack55_64(const uint8_t* in, uint64_t* out){
   return in + (27 * 8 + 4);
 }
 
-inline const uint8_t* unpack56_64(const uint8_t* in, uint64_t* out){
+template<>
+const uint8_t* unpack<56>(const uint8_t* in, uint64_t* out) {
   constexpr uint64_t mask = ((uint64_t{1} << 56) - uint64_t{1});
 
   const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
@@ -4761,7 +4875,8 @@ inline const uint8_t* unpack56_64(const uint8_t* in, uint64_t* out){
   return in + (28 * 8);
 }
 
-inline const uint8_t* unpack57_64(const uint8_t* in, uint64_t* out){
+template<>
+const uint8_t* unpack<57>(const uint8_t* in, uint64_t* out) {
   constexpr uint64_t mask = ((uint64_t{1} << 57) - uint64_t{1});
 
   const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
@@ -4829,7 +4944,8 @@ inline const uint8_t* unpack57_64(const uint8_t* in, uint64_t* out){
   return in + (28 * 8 + 4);
 }
 
-inline const uint8_t* unpack58_64(const uint8_t* in, uint64_t* out){
+template<>
+const uint8_t* unpack<58>(const uint8_t* in, uint64_t* out) {
   constexpr uint64_t mask = ((uint64_t{1} << 58) - uint64_t{1});
 
   const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
@@ -4897,7 +5013,8 @@ inline const uint8_t* unpack58_64(const uint8_t* in, uint64_t* out){
   return in + (29 * 8);
 }
 
-inline const uint8_t* unpack59_64(const uint8_t* in, uint64_t* out){
+template<>
+const uint8_t* unpack<59>(const uint8_t* in, uint64_t* out) {
   constexpr uint64_t mask = ((uint64_t{1} << 59) - uint64_t{1});
 
   const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
@@ -4966,7 +5083,8 @@ inline const uint8_t* unpack59_64(const uint8_t* in, uint64_t* out){
   return in + (29 * 8 + 4);
 }
 
-inline const uint8_t* unpack60_64(const uint8_t* in, uint64_t* out){
+template<>
+const uint8_t* unpack<60>(const uint8_t* in, uint64_t* out) {
   constexpr uint64_t mask = ((uint64_t{1} << 60) - uint64_t{1});
 
   const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
@@ -5035,7 +5153,8 @@ inline const uint8_t* unpack60_64(const uint8_t* in, uint64_t* out){
   return in + (30 * 8);
 }
 
-inline const uint8_t* unpack61_64(const uint8_t* in, uint64_t* out){
+template<>
+const uint8_t* unpack<61>(const uint8_t* in, uint64_t* out) {
   constexpr uint64_t mask = ((uint64_t{1} << 61) - uint64_t{1});
 
   const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
@@ -5105,7 +5224,8 @@ inline const uint8_t* unpack61_64(const uint8_t* in, uint64_t* out){
   return in + (30 * 8 + 4);
 }
 
-inline const uint8_t* unpack62_64(const uint8_t* in, uint64_t* out){
+template<>
+const uint8_t* unpack<62>(const uint8_t* in, uint64_t* out) {
   constexpr uint64_t mask = ((uint64_t{1} << 62) - uint64_t{1});
 
   const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
@@ -5175,7 +5295,8 @@ inline const uint8_t* unpack62_64(const uint8_t* in, uint64_t* out){
   return in + (31 * 8);
 }
 
-inline const uint8_t* unpack63_64(const uint8_t* in, uint64_t* out){
+template<>
+const uint8_t* unpack<63>(const uint8_t* in, uint64_t* out) {
   constexpr uint64_t mask = ((uint64_t{1} << 63) - uint64_t{1});
 
   const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
@@ -5246,12 +5367,14 @@ inline const uint8_t* unpack63_64(const uint8_t* in, uint64_t* out){
   return in + (31 * 8 + 4);
 }
 
-inline const uint8_t* unpack64_64(const uint8_t* in, uint64_t* out){
+template<>
+const uint8_t* unpack<64>(const uint8_t* in, uint64_t* out) {
   for(int k = 0; k < 32; k += 1) {
     out[k] = LoadInt<uint64_t>(in + (k * 8));
   }
   return in + (8 * 32);
 }
+};  // struct
 
 }  // namespace arrow::internal
 

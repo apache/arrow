@@ -38,6 +38,11 @@ struct Simd512Unpacker;
 template<>
 struct Simd512Unpacker<uint16_t> {
 
+using out_type = uint16_t;
+using simd_batch = xsimd::make_sized_batch_t<uint16_t, 32>;
+
+static constexpr int kValuesUnpacked = 16;
+
 template<int kBit>
 static const uint8_t* unpack(const uint8_t* in, uint16_t* out);
 
@@ -50,8 +55,6 @@ const uint8_t* unpack<0>(const uint8_t* in, uint16_t* out) {
 
 template<>
 const uint8_t* unpack<1>(const uint8_t* in, uint16_t* out) {
-  using simd_batch = xsimd::make_sized_batch_t<uint16_t, 32>;
-
   constexpr uint16_t kMask = 0x1;
 
   simd_batch masks(kMask);
@@ -88,8 +91,6 @@ const uint8_t* unpack<1>(const uint8_t* in, uint16_t* out) {
 
 template<>
 const uint8_t* unpack<2>(const uint8_t* in, uint16_t* out) {
-  using simd_batch = xsimd::make_sized_batch_t<uint16_t, 32>;
-
   constexpr uint16_t kMask = 0x3;
 
   simd_batch masks(kMask);
@@ -126,8 +127,6 @@ const uint8_t* unpack<2>(const uint8_t* in, uint16_t* out) {
 
 template<>
 const uint8_t* unpack<3>(const uint8_t* in, uint16_t* out) {
-  using simd_batch = xsimd::make_sized_batch_t<uint16_t, 32>;
-
   constexpr uint16_t kMask = 0x7;
 
   simd_batch masks(kMask);
@@ -164,8 +163,6 @@ const uint8_t* unpack<3>(const uint8_t* in, uint16_t* out) {
 
 template<>
 const uint8_t* unpack<4>(const uint8_t* in, uint16_t* out) {
-  using simd_batch = xsimd::make_sized_batch_t<uint16_t, 32>;
-
   constexpr uint16_t kMask = 0xf;
 
   simd_batch masks(kMask);
@@ -202,8 +199,6 @@ const uint8_t* unpack<4>(const uint8_t* in, uint16_t* out) {
 
 template<>
 const uint8_t* unpack<5>(const uint8_t* in, uint16_t* out) {
-  using simd_batch = xsimd::make_sized_batch_t<uint16_t, 32>;
-
   constexpr uint16_t kMask = 0x1f;
 
   simd_batch masks(kMask);
@@ -240,8 +235,6 @@ const uint8_t* unpack<5>(const uint8_t* in, uint16_t* out) {
 
 template<>
 const uint8_t* unpack<6>(const uint8_t* in, uint16_t* out) {
-  using simd_batch = xsimd::make_sized_batch_t<uint16_t, 32>;
-
   constexpr uint16_t kMask = 0x3f;
 
   simd_batch masks(kMask);
@@ -278,8 +271,6 @@ const uint8_t* unpack<6>(const uint8_t* in, uint16_t* out) {
 
 template<>
 const uint8_t* unpack<7>(const uint8_t* in, uint16_t* out) {
-  using simd_batch = xsimd::make_sized_batch_t<uint16_t, 32>;
-
   constexpr uint16_t kMask = 0x7f;
 
   simd_batch masks(kMask);
@@ -316,8 +307,6 @@ const uint8_t* unpack<7>(const uint8_t* in, uint16_t* out) {
 
 template<>
 const uint8_t* unpack<8>(const uint8_t* in, uint16_t* out) {
-  using simd_batch = xsimd::make_sized_batch_t<uint16_t, 32>;
-
   constexpr uint16_t kMask = 0xff;
 
   simd_batch masks(kMask);
@@ -354,8 +343,6 @@ const uint8_t* unpack<8>(const uint8_t* in, uint16_t* out) {
 
 template<>
 const uint8_t* unpack<9>(const uint8_t* in, uint16_t* out) {
-  using simd_batch = xsimd::make_sized_batch_t<uint16_t, 32>;
-
   constexpr uint16_t kMask = 0x1ff;
 
   simd_batch masks(kMask);
@@ -392,8 +379,6 @@ const uint8_t* unpack<9>(const uint8_t* in, uint16_t* out) {
 
 template<>
 const uint8_t* unpack<10>(const uint8_t* in, uint16_t* out) {
-  using simd_batch = xsimd::make_sized_batch_t<uint16_t, 32>;
-
   constexpr uint16_t kMask = 0x3ff;
 
   simd_batch masks(kMask);
@@ -430,8 +415,6 @@ const uint8_t* unpack<10>(const uint8_t* in, uint16_t* out) {
 
 template<>
 const uint8_t* unpack<11>(const uint8_t* in, uint16_t* out) {
-  using simd_batch = xsimd::make_sized_batch_t<uint16_t, 32>;
-
   constexpr uint16_t kMask = 0x7ff;
 
   simd_batch masks(kMask);
@@ -468,8 +451,6 @@ const uint8_t* unpack<11>(const uint8_t* in, uint16_t* out) {
 
 template<>
 const uint8_t* unpack<12>(const uint8_t* in, uint16_t* out) {
-  using simd_batch = xsimd::make_sized_batch_t<uint16_t, 32>;
-
   constexpr uint16_t kMask = 0xfff;
 
   simd_batch masks(kMask);
@@ -506,8 +487,6 @@ const uint8_t* unpack<12>(const uint8_t* in, uint16_t* out) {
 
 template<>
 const uint8_t* unpack<13>(const uint8_t* in, uint16_t* out) {
-  using simd_batch = xsimd::make_sized_batch_t<uint16_t, 32>;
-
   constexpr uint16_t kMask = 0x1fff;
 
   simd_batch masks(kMask);
@@ -544,8 +523,6 @@ const uint8_t* unpack<13>(const uint8_t* in, uint16_t* out) {
 
 template<>
 const uint8_t* unpack<14>(const uint8_t* in, uint16_t* out) {
-  using simd_batch = xsimd::make_sized_batch_t<uint16_t, 32>;
-
   constexpr uint16_t kMask = 0x3fff;
 
   simd_batch masks(kMask);
@@ -582,8 +559,6 @@ const uint8_t* unpack<14>(const uint8_t* in, uint16_t* out) {
 
 template<>
 const uint8_t* unpack<15>(const uint8_t* in, uint16_t* out) {
-  using simd_batch = xsimd::make_sized_batch_t<uint16_t, 32>;
-
   constexpr uint16_t kMask = 0x7fff;
 
   simd_batch masks(kMask);
@@ -630,6 +605,11 @@ const uint8_t* unpack<16>(const uint8_t* in, uint16_t* out) {
 template<>
 struct Simd512Unpacker<uint32_t> {
 
+using out_type = uint32_t;
+using simd_batch = xsimd::make_sized_batch_t<uint32_t, 16>;
+
+static constexpr int kValuesUnpacked = 32;
+
 template<int kBit>
 static const uint8_t* unpack(const uint8_t* in, uint32_t* out);
 
@@ -642,8 +622,6 @@ const uint8_t* unpack<0>(const uint8_t* in, uint32_t* out) {
 
 template<>
 const uint8_t* unpack<1>(const uint8_t* in, uint32_t* out) {
-  using simd_batch = xsimd::make_sized_batch_t<uint32_t, 16>;
-
   constexpr uint32_t kMask = 0x1;
 
   simd_batch masks(kMask);
@@ -704,8 +682,6 @@ const uint8_t* unpack<1>(const uint8_t* in, uint32_t* out) {
 
 template<>
 const uint8_t* unpack<2>(const uint8_t* in, uint32_t* out) {
-  using simd_batch = xsimd::make_sized_batch_t<uint32_t, 16>;
-
   constexpr uint32_t kMask = 0x3;
 
   simd_batch masks(kMask);
@@ -766,8 +742,6 @@ const uint8_t* unpack<2>(const uint8_t* in, uint32_t* out) {
 
 template<>
 const uint8_t* unpack<3>(const uint8_t* in, uint32_t* out) {
-  using simd_batch = xsimd::make_sized_batch_t<uint32_t, 16>;
-
   constexpr uint32_t kMask = 0x7;
 
   simd_batch masks(kMask);
@@ -828,8 +802,6 @@ const uint8_t* unpack<3>(const uint8_t* in, uint32_t* out) {
 
 template<>
 const uint8_t* unpack<4>(const uint8_t* in, uint32_t* out) {
-  using simd_batch = xsimd::make_sized_batch_t<uint32_t, 16>;
-
   constexpr uint32_t kMask = 0xf;
 
   simd_batch masks(kMask);
@@ -890,8 +862,6 @@ const uint8_t* unpack<4>(const uint8_t* in, uint32_t* out) {
 
 template<>
 const uint8_t* unpack<5>(const uint8_t* in, uint32_t* out) {
-  using simd_batch = xsimd::make_sized_batch_t<uint32_t, 16>;
-
   constexpr uint32_t kMask = 0x1f;
 
   simd_batch masks(kMask);
@@ -952,8 +922,6 @@ const uint8_t* unpack<5>(const uint8_t* in, uint32_t* out) {
 
 template<>
 const uint8_t* unpack<6>(const uint8_t* in, uint32_t* out) {
-  using simd_batch = xsimd::make_sized_batch_t<uint32_t, 16>;
-
   constexpr uint32_t kMask = 0x3f;
 
   simd_batch masks(kMask);
@@ -1014,8 +982,6 @@ const uint8_t* unpack<6>(const uint8_t* in, uint32_t* out) {
 
 template<>
 const uint8_t* unpack<7>(const uint8_t* in, uint32_t* out) {
-  using simd_batch = xsimd::make_sized_batch_t<uint32_t, 16>;
-
   constexpr uint32_t kMask = 0x7f;
 
   simd_batch masks(kMask);
@@ -1076,8 +1042,6 @@ const uint8_t* unpack<7>(const uint8_t* in, uint32_t* out) {
 
 template<>
 const uint8_t* unpack<8>(const uint8_t* in, uint32_t* out) {
-  using simd_batch = xsimd::make_sized_batch_t<uint32_t, 16>;
-
   constexpr uint32_t kMask = 0xff;
 
   simd_batch masks(kMask);
@@ -1138,8 +1102,6 @@ const uint8_t* unpack<8>(const uint8_t* in, uint32_t* out) {
 
 template<>
 const uint8_t* unpack<9>(const uint8_t* in, uint32_t* out) {
-  using simd_batch = xsimd::make_sized_batch_t<uint32_t, 16>;
-
   constexpr uint32_t kMask = 0x1ff;
 
   simd_batch masks(kMask);
@@ -1200,8 +1162,6 @@ const uint8_t* unpack<9>(const uint8_t* in, uint32_t* out) {
 
 template<>
 const uint8_t* unpack<10>(const uint8_t* in, uint32_t* out) {
-  using simd_batch = xsimd::make_sized_batch_t<uint32_t, 16>;
-
   constexpr uint32_t kMask = 0x3ff;
 
   simd_batch masks(kMask);
@@ -1262,8 +1222,6 @@ const uint8_t* unpack<10>(const uint8_t* in, uint32_t* out) {
 
 template<>
 const uint8_t* unpack<11>(const uint8_t* in, uint32_t* out) {
-  using simd_batch = xsimd::make_sized_batch_t<uint32_t, 16>;
-
   constexpr uint32_t kMask = 0x7ff;
 
   simd_batch masks(kMask);
@@ -1324,8 +1282,6 @@ const uint8_t* unpack<11>(const uint8_t* in, uint32_t* out) {
 
 template<>
 const uint8_t* unpack<12>(const uint8_t* in, uint32_t* out) {
-  using simd_batch = xsimd::make_sized_batch_t<uint32_t, 16>;
-
   constexpr uint32_t kMask = 0xfff;
 
   simd_batch masks(kMask);
@@ -1386,8 +1342,6 @@ const uint8_t* unpack<12>(const uint8_t* in, uint32_t* out) {
 
 template<>
 const uint8_t* unpack<13>(const uint8_t* in, uint32_t* out) {
-  using simd_batch = xsimd::make_sized_batch_t<uint32_t, 16>;
-
   constexpr uint32_t kMask = 0x1fff;
 
   simd_batch masks(kMask);
@@ -1448,8 +1402,6 @@ const uint8_t* unpack<13>(const uint8_t* in, uint32_t* out) {
 
 template<>
 const uint8_t* unpack<14>(const uint8_t* in, uint32_t* out) {
-  using simd_batch = xsimd::make_sized_batch_t<uint32_t, 16>;
-
   constexpr uint32_t kMask = 0x3fff;
 
   simd_batch masks(kMask);
@@ -1510,8 +1462,6 @@ const uint8_t* unpack<14>(const uint8_t* in, uint32_t* out) {
 
 template<>
 const uint8_t* unpack<15>(const uint8_t* in, uint32_t* out) {
-  using simd_batch = xsimd::make_sized_batch_t<uint32_t, 16>;
-
   constexpr uint32_t kMask = 0x7fff;
 
   simd_batch masks(kMask);
@@ -1572,8 +1522,6 @@ const uint8_t* unpack<15>(const uint8_t* in, uint32_t* out) {
 
 template<>
 const uint8_t* unpack<16>(const uint8_t* in, uint32_t* out) {
-  using simd_batch = xsimd::make_sized_batch_t<uint32_t, 16>;
-
   constexpr uint32_t kMask = 0xffff;
 
   simd_batch masks(kMask);
@@ -1634,8 +1582,6 @@ const uint8_t* unpack<16>(const uint8_t* in, uint32_t* out) {
 
 template<>
 const uint8_t* unpack<17>(const uint8_t* in, uint32_t* out) {
-  using simd_batch = xsimd::make_sized_batch_t<uint32_t, 16>;
-
   constexpr uint32_t kMask = 0x1ffff;
 
   simd_batch masks(kMask);
@@ -1696,8 +1642,6 @@ const uint8_t* unpack<17>(const uint8_t* in, uint32_t* out) {
 
 template<>
 const uint8_t* unpack<18>(const uint8_t* in, uint32_t* out) {
-  using simd_batch = xsimd::make_sized_batch_t<uint32_t, 16>;
-
   constexpr uint32_t kMask = 0x3ffff;
 
   simd_batch masks(kMask);
@@ -1758,8 +1702,6 @@ const uint8_t* unpack<18>(const uint8_t* in, uint32_t* out) {
 
 template<>
 const uint8_t* unpack<19>(const uint8_t* in, uint32_t* out) {
-  using simd_batch = xsimd::make_sized_batch_t<uint32_t, 16>;
-
   constexpr uint32_t kMask = 0x7ffff;
 
   simd_batch masks(kMask);
@@ -1820,8 +1762,6 @@ const uint8_t* unpack<19>(const uint8_t* in, uint32_t* out) {
 
 template<>
 const uint8_t* unpack<20>(const uint8_t* in, uint32_t* out) {
-  using simd_batch = xsimd::make_sized_batch_t<uint32_t, 16>;
-
   constexpr uint32_t kMask = 0xfffff;
 
   simd_batch masks(kMask);
@@ -1882,8 +1822,6 @@ const uint8_t* unpack<20>(const uint8_t* in, uint32_t* out) {
 
 template<>
 const uint8_t* unpack<21>(const uint8_t* in, uint32_t* out) {
-  using simd_batch = xsimd::make_sized_batch_t<uint32_t, 16>;
-
   constexpr uint32_t kMask = 0x1fffff;
 
   simd_batch masks(kMask);
@@ -1944,8 +1882,6 @@ const uint8_t* unpack<21>(const uint8_t* in, uint32_t* out) {
 
 template<>
 const uint8_t* unpack<22>(const uint8_t* in, uint32_t* out) {
-  using simd_batch = xsimd::make_sized_batch_t<uint32_t, 16>;
-
   constexpr uint32_t kMask = 0x3fffff;
 
   simd_batch masks(kMask);
@@ -2006,8 +1942,6 @@ const uint8_t* unpack<22>(const uint8_t* in, uint32_t* out) {
 
 template<>
 const uint8_t* unpack<23>(const uint8_t* in, uint32_t* out) {
-  using simd_batch = xsimd::make_sized_batch_t<uint32_t, 16>;
-
   constexpr uint32_t kMask = 0x7fffff;
 
   simd_batch masks(kMask);
@@ -2068,8 +2002,6 @@ const uint8_t* unpack<23>(const uint8_t* in, uint32_t* out) {
 
 template<>
 const uint8_t* unpack<24>(const uint8_t* in, uint32_t* out) {
-  using simd_batch = xsimd::make_sized_batch_t<uint32_t, 16>;
-
   constexpr uint32_t kMask = 0xffffff;
 
   simd_batch masks(kMask);
@@ -2130,8 +2062,6 @@ const uint8_t* unpack<24>(const uint8_t* in, uint32_t* out) {
 
 template<>
 const uint8_t* unpack<25>(const uint8_t* in, uint32_t* out) {
-  using simd_batch = xsimd::make_sized_batch_t<uint32_t, 16>;
-
   constexpr uint32_t kMask = 0x1ffffff;
 
   simd_batch masks(kMask);
@@ -2192,8 +2122,6 @@ const uint8_t* unpack<25>(const uint8_t* in, uint32_t* out) {
 
 template<>
 const uint8_t* unpack<26>(const uint8_t* in, uint32_t* out) {
-  using simd_batch = xsimd::make_sized_batch_t<uint32_t, 16>;
-
   constexpr uint32_t kMask = 0x3ffffff;
 
   simd_batch masks(kMask);
@@ -2254,8 +2182,6 @@ const uint8_t* unpack<26>(const uint8_t* in, uint32_t* out) {
 
 template<>
 const uint8_t* unpack<27>(const uint8_t* in, uint32_t* out) {
-  using simd_batch = xsimd::make_sized_batch_t<uint32_t, 16>;
-
   constexpr uint32_t kMask = 0x7ffffff;
 
   simd_batch masks(kMask);
@@ -2316,8 +2242,6 @@ const uint8_t* unpack<27>(const uint8_t* in, uint32_t* out) {
 
 template<>
 const uint8_t* unpack<28>(const uint8_t* in, uint32_t* out) {
-  using simd_batch = xsimd::make_sized_batch_t<uint32_t, 16>;
-
   constexpr uint32_t kMask = 0xfffffff;
 
   simd_batch masks(kMask);
@@ -2378,8 +2302,6 @@ const uint8_t* unpack<28>(const uint8_t* in, uint32_t* out) {
 
 template<>
 const uint8_t* unpack<29>(const uint8_t* in, uint32_t* out) {
-  using simd_batch = xsimd::make_sized_batch_t<uint32_t, 16>;
-
   constexpr uint32_t kMask = 0x1fffffff;
 
   simd_batch masks(kMask);
@@ -2440,8 +2362,6 @@ const uint8_t* unpack<29>(const uint8_t* in, uint32_t* out) {
 
 template<>
 const uint8_t* unpack<30>(const uint8_t* in, uint32_t* out) {
-  using simd_batch = xsimd::make_sized_batch_t<uint32_t, 16>;
-
   constexpr uint32_t kMask = 0x3fffffff;
 
   simd_batch masks(kMask);
@@ -2502,8 +2422,6 @@ const uint8_t* unpack<30>(const uint8_t* in, uint32_t* out) {
 
 template<>
 const uint8_t* unpack<31>(const uint8_t* in, uint32_t* out) {
-  using simd_batch = xsimd::make_sized_batch_t<uint32_t, 16>;
-
   constexpr uint32_t kMask = 0x7fffffff;
 
   simd_batch masks(kMask);
@@ -2571,6 +2489,4 @@ const uint8_t* unpack<32>(const uint8_t* in, uint32_t* out) {
 }
 };  // struct Unpacker
 
-
 }  // namespace arrow::internal
-
