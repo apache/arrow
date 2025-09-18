@@ -38,13 +38,19 @@ if needs_parquet_encryption
             'sources': files('low_level_api/encryption_reader_writer.cc'),
             'include_dir': include_directories('low_level_api'),
         },
-        'parquet-encryption-example-all-crypto-options': {
-            'sources': files(
-                'low_level_api/encryption_reader_writer_all_crypto_options.cc',
-            ),
-            'include_dir': include_directories('low_level_api'),
-        },
     }
+
+    if cpp_compiler.get_id() != 'msvc'
+        # https://github.com/apache/arrow/issues/47598
+        example_execs += {
+            'parquet-encryption-example-all-crypto-options': {
+                'sources': files(
+                    'low_level_api/encryption_reader_writer_all_crypto_options.cc',
+                ),
+                'include_dir': include_directories('low_level_api'),
+            },
+        }
+    endif
 endif
 
 foreach key, val : example_execs
