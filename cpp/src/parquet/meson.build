@@ -121,9 +121,18 @@ parquet_lib = library(
     sources: parquet_srcs,
     dependencies: parquet_deps,
     gnu_symbol_visibility: 'inlineshidden',
+    cpp_shared_args: ['-DPARQUET_EXPORTING'],
+    cpp_static_args: ['-DPARQUET_STATIC'],
 )
 
-parquet_dep = declare_dependency(link_with: parquet_lib)
+parquet_compile_args = []
+if get_option('default_library') == 'static'
+    parquet_compile_args += ['-DPARQUET_STATIC']
+endif
+parquet_dep = declare_dependency(
+    link_with: parquet_lib,
+    compile_args: parquet_compile_args,
+)
 
 subdir('api')
 subdir('arrow')
