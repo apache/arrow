@@ -39,19 +39,19 @@
 namespace arrow::internal {
 
 template <typename Int>
-Int LoadInt(const uint8_t* in) {
-  return bit_util::FromLittleEndian(util::SafeLoadAs<Int>(in));
+Int LoadInt(const Int* in) {
+  return bit_util::FromLittleEndian(util::SafeLoad<Int>(in));
 }
 
-inline const uint8_t* unpack0_32(const uint8_t* in, uint32_t* out){
+inline const uint32_t* unpack0_32(const uint32_t*  in, uint32_t* out){
   std::memset(out, 0, 32 * 4);
   return in;
 }
 
-inline const uint8_t* unpack1_32(const uint8_t* in, uint32_t* out){
+inline const uint32_t* unpack1_32(const uint32_t*  in, uint32_t* out){
   constexpr uint32_t mask = ((uint32_t{1} << 1) - uint32_t{1});
 
-  const auto w0 = LoadInt<uint32_t>(in + 0 * 4);
+  const auto w0 = LoadInt<uint32_t>(in + 0 );
   out[0] = (w0) & mask;
   out[1] = (w0 >> 1) & mask;
   out[2] = (w0 >> 2) & mask;
@@ -85,14 +85,14 @@ inline const uint8_t* unpack1_32(const uint8_t* in, uint32_t* out){
   out[30] = (w0 >> 30) & mask;
   out[31] = w0 >> 31;
 
-  return in + (1 * 4);
+  return in + (1 );
 }
 
-inline const uint8_t* unpack2_32(const uint8_t* in, uint32_t* out){
+inline const uint32_t* unpack2_32(const uint32_t*  in, uint32_t* out){
   constexpr uint32_t mask = ((uint32_t{1} << 2) - uint32_t{1});
 
-  const auto w0 = LoadInt<uint32_t>(in + 0 * 4);
-  const auto w1 = LoadInt<uint32_t>(in + 1 * 4);
+  const auto w0 = LoadInt<uint32_t>(in + 0);
+  const auto w1 = LoadInt<uint32_t>(in + 1 );
   out[0] = (w0) & mask;
   out[1] = (w0 >> 2) & mask;
   out[2] = (w0 >> 4) & mask;
@@ -126,15 +126,15 @@ inline const uint8_t* unpack2_32(const uint8_t* in, uint32_t* out){
   out[30] = (w1 >> 28) & mask;
   out[31] = w1 >> 30;
 
-  return in + (2 * 4);
+  return in + (2 );
 }
 
-inline const uint8_t* unpack3_32(const uint8_t* in, uint32_t* out){
+inline const uint32_t* unpack3_32(const uint32_t*  in, uint32_t* out){
   constexpr uint32_t mask = ((uint32_t{1} << 3) - uint32_t{1});
 
-  const auto w0 = LoadInt<uint32_t>(in + 0 * 4);
-  const auto w1 = LoadInt<uint32_t>(in + 1 * 4);
-  const auto w2 = LoadInt<uint32_t>(in + 2 * 4);
+  const auto w0 = LoadInt<uint32_t>(in + 0);
+  const auto w1 = LoadInt<uint32_t>(in + 1);
+  const auto w2 = LoadInt<uint32_t>(in + 2 );
   out[0] = (w0) & mask;
   out[1] = (w0 >> 3) & mask;
   out[2] = (w0 >> 6) & mask;
@@ -168,16 +168,16 @@ inline const uint8_t* unpack3_32(const uint8_t* in, uint32_t* out){
   out[30] = (w2 >> 26) & mask;
   out[31] = w2 >> 29;
 
-  return in + (3 * 4);
+  return in + (3 );
 }
 
-inline const uint8_t* unpack4_32(const uint8_t* in, uint32_t* out){
+inline const uint32_t* unpack4_32(const uint32_t*  in, uint32_t* out){
   constexpr uint32_t mask = ((uint32_t{1} << 4) - uint32_t{1});
 
-  const auto w0 = LoadInt<uint32_t>(in + 0 * 4);
-  const auto w1 = LoadInt<uint32_t>(in + 1 * 4);
-  const auto w2 = LoadInt<uint32_t>(in + 2 * 4);
-  const auto w3 = LoadInt<uint32_t>(in + 3 * 4);
+  const auto w0 = LoadInt<uint32_t>(in + 0);
+  const auto w1 = LoadInt<uint32_t>(in + 1);
+  const auto w2 = LoadInt<uint32_t>(in + 2);
+  const auto w3 = LoadInt<uint32_t>(in + 3 );
   out[0] = (w0) & mask;
   out[1] = (w0 >> 4) & mask;
   out[2] = (w0 >> 8) & mask;
@@ -211,17 +211,17 @@ inline const uint8_t* unpack4_32(const uint8_t* in, uint32_t* out){
   out[30] = (w3 >> 24) & mask;
   out[31] = w3 >> 28;
 
-  return in + (4 * 4);
+  return in + (4 );
 }
 
-inline const uint8_t* unpack5_32(const uint8_t* in, uint32_t* out){
+inline const uint32_t* unpack5_32(const uint32_t*  in, uint32_t* out){
   constexpr uint32_t mask = ((uint32_t{1} << 5) - uint32_t{1});
 
-  const auto w0 = LoadInt<uint32_t>(in + 0 * 4);
-  const auto w1 = LoadInt<uint32_t>(in + 1 * 4);
-  const auto w2 = LoadInt<uint32_t>(in + 2 * 4);
-  const auto w3 = LoadInt<uint32_t>(in + 3 * 4);
-  const auto w4 = LoadInt<uint32_t>(in + 4 * 4);
+  const auto w0 = LoadInt<uint32_t>(in + 0);
+  const auto w1 = LoadInt<uint32_t>(in + 1);
+  const auto w2 = LoadInt<uint32_t>(in + 2);
+  const auto w3 = LoadInt<uint32_t>(in + 3);
+  const auto w4 = LoadInt<uint32_t>(in + 4 );
   out[0] = (w0) & mask;
   out[1] = (w0 >> 5) & mask;
   out[2] = (w0 >> 10) & mask;
@@ -255,18 +255,18 @@ inline const uint8_t* unpack5_32(const uint8_t* in, uint32_t* out){
   out[30] = (w4 >> 22) & mask;
   out[31] = w4 >> 27;
 
-  return in + (5 * 4);
+  return in + (5 );
 }
 
-inline const uint8_t* unpack6_32(const uint8_t* in, uint32_t* out){
+inline const uint32_t* unpack6_32(const uint32_t*  in, uint32_t* out){
   constexpr uint32_t mask = ((uint32_t{1} << 6) - uint32_t{1});
 
-  const auto w0 = LoadInt<uint32_t>(in + 0 * 4);
-  const auto w1 = LoadInt<uint32_t>(in + 1 * 4);
-  const auto w2 = LoadInt<uint32_t>(in + 2 * 4);
-  const auto w3 = LoadInt<uint32_t>(in + 3 * 4);
-  const auto w4 = LoadInt<uint32_t>(in + 4 * 4);
-  const auto w5 = LoadInt<uint32_t>(in + 5 * 4);
+  const auto w0 = LoadInt<uint32_t>(in + 0);
+  const auto w1 = LoadInt<uint32_t>(in + 1);
+  const auto w2 = LoadInt<uint32_t>(in + 2);
+  const auto w3 = LoadInt<uint32_t>(in + 3);
+  const auto w4 = LoadInt<uint32_t>(in + 4);
+  const auto w5 = LoadInt<uint32_t>(in + 5 );
   out[0] = (w0) & mask;
   out[1] = (w0 >> 6) & mask;
   out[2] = (w0 >> 12) & mask;
@@ -300,19 +300,19 @@ inline const uint8_t* unpack6_32(const uint8_t* in, uint32_t* out){
   out[30] = (w5 >> 20) & mask;
   out[31] = w5 >> 26;
 
-  return in + (6 * 4);
+  return in + (6 );
 }
 
-inline const uint8_t* unpack7_32(const uint8_t* in, uint32_t* out){
+inline const uint32_t* unpack7_32(const uint32_t*  in, uint32_t* out){
   constexpr uint32_t mask = ((uint32_t{1} << 7) - uint32_t{1});
 
-  const auto w0 = LoadInt<uint32_t>(in + 0 * 4);
-  const auto w1 = LoadInt<uint32_t>(in + 1 * 4);
-  const auto w2 = LoadInt<uint32_t>(in + 2 * 4);
-  const auto w3 = LoadInt<uint32_t>(in + 3 * 4);
-  const auto w4 = LoadInt<uint32_t>(in + 4 * 4);
-  const auto w5 = LoadInt<uint32_t>(in + 5 * 4);
-  const auto w6 = LoadInt<uint32_t>(in + 6 * 4);
+  const auto w0 = LoadInt<uint32_t>(in + 0);
+  const auto w1 = LoadInt<uint32_t>(in + 1);
+  const auto w2 = LoadInt<uint32_t>(in + 2);
+  const auto w3 = LoadInt<uint32_t>(in + 3);
+  const auto w4 = LoadInt<uint32_t>(in + 4);
+  const auto w5 = LoadInt<uint32_t>(in + 5);
+  const auto w6 = LoadInt<uint32_t>(in + 6 );
   out[0] = (w0) & mask;
   out[1] = (w0 >> 7) & mask;
   out[2] = (w0 >> 14) & mask;
@@ -346,20 +346,20 @@ inline const uint8_t* unpack7_32(const uint8_t* in, uint32_t* out){
   out[30] = (w6 >> 18) & mask;
   out[31] = w6 >> 25;
 
-  return in + (7 * 4);
+  return in + (7 );
 }
 
-inline const uint8_t* unpack8_32(const uint8_t* in, uint32_t* out){
+inline const uint32_t* unpack8_32(const uint32_t*  in, uint32_t* out){
   constexpr uint32_t mask = ((uint32_t{1} << 8) - uint32_t{1});
 
-  const auto w0 = LoadInt<uint32_t>(in + 0 * 4);
-  const auto w1 = LoadInt<uint32_t>(in + 1 * 4);
-  const auto w2 = LoadInt<uint32_t>(in + 2 * 4);
-  const auto w3 = LoadInt<uint32_t>(in + 3 * 4);
-  const auto w4 = LoadInt<uint32_t>(in + 4 * 4);
-  const auto w5 = LoadInt<uint32_t>(in + 5 * 4);
-  const auto w6 = LoadInt<uint32_t>(in + 6 * 4);
-  const auto w7 = LoadInt<uint32_t>(in + 7 * 4);
+  const auto w0 = LoadInt<uint32_t>(in + 0);
+  const auto w1 = LoadInt<uint32_t>(in + 1);
+  const auto w2 = LoadInt<uint32_t>(in + 2);
+  const auto w3 = LoadInt<uint32_t>(in + 3);
+  const auto w4 = LoadInt<uint32_t>(in + 4);
+  const auto w5 = LoadInt<uint32_t>(in + 5);
+  const auto w6 = LoadInt<uint32_t>(in + 6);
+  const auto w7 = LoadInt<uint32_t>(in + 7 );
   out[0] = (w0) & mask;
   out[1] = (w0 >> 8) & mask;
   out[2] = (w0 >> 16) & mask;
@@ -393,21 +393,21 @@ inline const uint8_t* unpack8_32(const uint8_t* in, uint32_t* out){
   out[30] = (w7 >> 16) & mask;
   out[31] = w7 >> 24;
 
-  return in + (8 * 4);
+  return in + (8 );
 }
 
-inline const uint8_t* unpack9_32(const uint8_t* in, uint32_t* out){
+inline const uint32_t* unpack9_32(const uint32_t*  in, uint32_t* out){
   constexpr uint32_t mask = ((uint32_t{1} << 9) - uint32_t{1});
 
-  const auto w0 = LoadInt<uint32_t>(in + 0 * 4);
-  const auto w1 = LoadInt<uint32_t>(in + 1 * 4);
-  const auto w2 = LoadInt<uint32_t>(in + 2 * 4);
-  const auto w3 = LoadInt<uint32_t>(in + 3 * 4);
-  const auto w4 = LoadInt<uint32_t>(in + 4 * 4);
-  const auto w5 = LoadInt<uint32_t>(in + 5 * 4);
-  const auto w6 = LoadInt<uint32_t>(in + 6 * 4);
-  const auto w7 = LoadInt<uint32_t>(in + 7 * 4);
-  const auto w8 = LoadInt<uint32_t>(in + 8 * 4);
+  const auto w0 = LoadInt<uint32_t>(in + 0);
+  const auto w1 = LoadInt<uint32_t>(in + 1);
+  const auto w2 = LoadInt<uint32_t>(in + 2);
+  const auto w3 = LoadInt<uint32_t>(in + 3);
+  const auto w4 = LoadInt<uint32_t>(in + 4);
+  const auto w5 = LoadInt<uint32_t>(in + 5);
+  const auto w6 = LoadInt<uint32_t>(in + 6);
+  const auto w7 = LoadInt<uint32_t>(in + 7);
+  const auto w8 = LoadInt<uint32_t>(in + 8 );
   out[0] = (w0) & mask;
   out[1] = (w0 >> 9) & mask;
   out[2] = (w0 >> 18) & mask;
@@ -441,22 +441,22 @@ inline const uint8_t* unpack9_32(const uint8_t* in, uint32_t* out){
   out[30] = (w8 >> 14) & mask;
   out[31] = w8 >> 23;
 
-  return in + (9 * 4);
+  return in + (9 );
 }
 
-inline const uint8_t* unpack10_32(const uint8_t* in, uint32_t* out){
+inline const uint32_t* unpack10_32(const uint32_t*  in, uint32_t* out){
   constexpr uint32_t mask = ((uint32_t{1} << 10) - uint32_t{1});
 
-  const auto w0 = LoadInt<uint32_t>(in + 0 * 4);
-  const auto w1 = LoadInt<uint32_t>(in + 1 * 4);
-  const auto w2 = LoadInt<uint32_t>(in + 2 * 4);
-  const auto w3 = LoadInt<uint32_t>(in + 3 * 4);
-  const auto w4 = LoadInt<uint32_t>(in + 4 * 4);
-  const auto w5 = LoadInt<uint32_t>(in + 5 * 4);
-  const auto w6 = LoadInt<uint32_t>(in + 6 * 4);
-  const auto w7 = LoadInt<uint32_t>(in + 7 * 4);
-  const auto w8 = LoadInt<uint32_t>(in + 8 * 4);
-  const auto w9 = LoadInt<uint32_t>(in + 9 * 4);
+  const auto w0 = LoadInt<uint32_t>(in + 0);
+  const auto w1 = LoadInt<uint32_t>(in + 1);
+  const auto w2 = LoadInt<uint32_t>(in + 2);
+  const auto w3 = LoadInt<uint32_t>(in + 3);
+  const auto w4 = LoadInt<uint32_t>(in + 4);
+  const auto w5 = LoadInt<uint32_t>(in + 5);
+  const auto w6 = LoadInt<uint32_t>(in + 6);
+  const auto w7 = LoadInt<uint32_t>(in + 7);
+  const auto w8 = LoadInt<uint32_t>(in + 8);
+  const auto w9 = LoadInt<uint32_t>(in + 9 );
   out[0] = (w0) & mask;
   out[1] = (w0 >> 10) & mask;
   out[2] = (w0 >> 20) & mask;
@@ -490,23 +490,23 @@ inline const uint8_t* unpack10_32(const uint8_t* in, uint32_t* out){
   out[30] = (w9 >> 12) & mask;
   out[31] = w9 >> 22;
 
-  return in + (10 * 4);
+  return in + (10 );
 }
 
-inline const uint8_t* unpack11_32(const uint8_t* in, uint32_t* out){
+inline const uint32_t* unpack11_32(const uint32_t*  in, uint32_t* out){
   constexpr uint32_t mask = ((uint32_t{1} << 11) - uint32_t{1});
 
-  const auto w0 = LoadInt<uint32_t>(in + 0 * 4);
-  const auto w1 = LoadInt<uint32_t>(in + 1 * 4);
-  const auto w2 = LoadInt<uint32_t>(in + 2 * 4);
-  const auto w3 = LoadInt<uint32_t>(in + 3 * 4);
-  const auto w4 = LoadInt<uint32_t>(in + 4 * 4);
-  const auto w5 = LoadInt<uint32_t>(in + 5 * 4);
-  const auto w6 = LoadInt<uint32_t>(in + 6 * 4);
-  const auto w7 = LoadInt<uint32_t>(in + 7 * 4);
-  const auto w8 = LoadInt<uint32_t>(in + 8 * 4);
-  const auto w9 = LoadInt<uint32_t>(in + 9 * 4);
-  const auto w10 = LoadInt<uint32_t>(in + 10 * 4);
+  const auto w0 = LoadInt<uint32_t>(in + 0);
+  const auto w1 = LoadInt<uint32_t>(in + 1);
+  const auto w2 = LoadInt<uint32_t>(in + 2);
+  const auto w3 = LoadInt<uint32_t>(in + 3);
+  const auto w4 = LoadInt<uint32_t>(in + 4);
+  const auto w5 = LoadInt<uint32_t>(in + 5);
+  const auto w6 = LoadInt<uint32_t>(in + 6);
+  const auto w7 = LoadInt<uint32_t>(in + 7);
+  const auto w8 = LoadInt<uint32_t>(in + 8);
+  const auto w9 = LoadInt<uint32_t>(in + 9);
+  const auto w10 = LoadInt<uint32_t>(in + 10 );
   out[0] = (w0) & mask;
   out[1] = (w0 >> 11) & mask;
   out[2] = ((w0 >> 22) | (w1 << 10)) & mask;
@@ -540,24 +540,24 @@ inline const uint8_t* unpack11_32(const uint8_t* in, uint32_t* out){
   out[30] = (w10 >> 10) & mask;
   out[31] = w10 >> 21;
 
-  return in + (11 * 4);
+  return in + (11 );
 }
 
-inline const uint8_t* unpack12_32(const uint8_t* in, uint32_t* out){
+inline const uint32_t* unpack12_32(const uint32_t*  in, uint32_t* out){
   constexpr uint32_t mask = ((uint32_t{1} << 12) - uint32_t{1});
 
-  const auto w0 = LoadInt<uint32_t>(in + 0 * 4);
-  const auto w1 = LoadInt<uint32_t>(in + 1 * 4);
-  const auto w2 = LoadInt<uint32_t>(in + 2 * 4);
-  const auto w3 = LoadInt<uint32_t>(in + 3 * 4);
-  const auto w4 = LoadInt<uint32_t>(in + 4 * 4);
-  const auto w5 = LoadInt<uint32_t>(in + 5 * 4);
-  const auto w6 = LoadInt<uint32_t>(in + 6 * 4);
-  const auto w7 = LoadInt<uint32_t>(in + 7 * 4);
-  const auto w8 = LoadInt<uint32_t>(in + 8 * 4);
-  const auto w9 = LoadInt<uint32_t>(in + 9 * 4);
-  const auto w10 = LoadInt<uint32_t>(in + 10 * 4);
-  const auto w11 = LoadInt<uint32_t>(in + 11 * 4);
+  const auto w0 = LoadInt<uint32_t>(in + 0);
+  const auto w1 = LoadInt<uint32_t>(in + 1);
+  const auto w2 = LoadInt<uint32_t>(in + 2);
+  const auto w3 = LoadInt<uint32_t>(in + 3);
+  const auto w4 = LoadInt<uint32_t>(in + 4);
+  const auto w5 = LoadInt<uint32_t>(in + 5);
+  const auto w6 = LoadInt<uint32_t>(in + 6);
+  const auto w7 = LoadInt<uint32_t>(in + 7);
+  const auto w8 = LoadInt<uint32_t>(in + 8);
+  const auto w9 = LoadInt<uint32_t>(in + 9);
+  const auto w10 = LoadInt<uint32_t>(in + 10);
+  const auto w11 = LoadInt<uint32_t>(in + 11 );
   out[0] = (w0) & mask;
   out[1] = (w0 >> 12) & mask;
   out[2] = ((w0 >> 24) | (w1 << 8)) & mask;
@@ -591,25 +591,25 @@ inline const uint8_t* unpack12_32(const uint8_t* in, uint32_t* out){
   out[30] = (w11 >> 8) & mask;
   out[31] = w11 >> 20;
 
-  return in + (12 * 4);
+  return in + (12 );
 }
 
-inline const uint8_t* unpack13_32(const uint8_t* in, uint32_t* out){
+inline const uint32_t* unpack13_32(const uint32_t*  in, uint32_t* out){
   constexpr uint32_t mask = ((uint32_t{1} << 13) - uint32_t{1});
 
-  const auto w0 = LoadInt<uint32_t>(in + 0 * 4);
-  const auto w1 = LoadInt<uint32_t>(in + 1 * 4);
-  const auto w2 = LoadInt<uint32_t>(in + 2 * 4);
-  const auto w3 = LoadInt<uint32_t>(in + 3 * 4);
-  const auto w4 = LoadInt<uint32_t>(in + 4 * 4);
-  const auto w5 = LoadInt<uint32_t>(in + 5 * 4);
-  const auto w6 = LoadInt<uint32_t>(in + 6 * 4);
-  const auto w7 = LoadInt<uint32_t>(in + 7 * 4);
-  const auto w8 = LoadInt<uint32_t>(in + 8 * 4);
-  const auto w9 = LoadInt<uint32_t>(in + 9 * 4);
-  const auto w10 = LoadInt<uint32_t>(in + 10 * 4);
-  const auto w11 = LoadInt<uint32_t>(in + 11 * 4);
-  const auto w12 = LoadInt<uint32_t>(in + 12 * 4);
+  const auto w0 = LoadInt<uint32_t>(in + 0);
+  const auto w1 = LoadInt<uint32_t>(in + 1);
+  const auto w2 = LoadInt<uint32_t>(in + 2);
+  const auto w3 = LoadInt<uint32_t>(in + 3);
+  const auto w4 = LoadInt<uint32_t>(in + 4);
+  const auto w5 = LoadInt<uint32_t>(in + 5);
+  const auto w6 = LoadInt<uint32_t>(in + 6);
+  const auto w7 = LoadInt<uint32_t>(in + 7);
+  const auto w8 = LoadInt<uint32_t>(in + 8);
+  const auto w9 = LoadInt<uint32_t>(in + 9);
+  const auto w10 = LoadInt<uint32_t>(in + 10);
+  const auto w11 = LoadInt<uint32_t>(in + 11);
+  const auto w12 = LoadInt<uint32_t>(in + 12 );
   out[0] = (w0) & mask;
   out[1] = (w0 >> 13) & mask;
   out[2] = ((w0 >> 26) | (w1 << 6)) & mask;
@@ -643,26 +643,26 @@ inline const uint8_t* unpack13_32(const uint8_t* in, uint32_t* out){
   out[30] = (w12 >> 6) & mask;
   out[31] = w12 >> 19;
 
-  return in + (13 * 4);
+  return in + (13 );
 }
 
-inline const uint8_t* unpack14_32(const uint8_t* in, uint32_t* out){
+inline const uint32_t* unpack14_32(const uint32_t*  in, uint32_t* out){
   constexpr uint32_t mask = ((uint32_t{1} << 14) - uint32_t{1});
 
-  const auto w0 = LoadInt<uint32_t>(in + 0 * 4);
-  const auto w1 = LoadInt<uint32_t>(in + 1 * 4);
-  const auto w2 = LoadInt<uint32_t>(in + 2 * 4);
-  const auto w3 = LoadInt<uint32_t>(in + 3 * 4);
-  const auto w4 = LoadInt<uint32_t>(in + 4 * 4);
-  const auto w5 = LoadInt<uint32_t>(in + 5 * 4);
-  const auto w6 = LoadInt<uint32_t>(in + 6 * 4);
-  const auto w7 = LoadInt<uint32_t>(in + 7 * 4);
-  const auto w8 = LoadInt<uint32_t>(in + 8 * 4);
-  const auto w9 = LoadInt<uint32_t>(in + 9 * 4);
-  const auto w10 = LoadInt<uint32_t>(in + 10 * 4);
-  const auto w11 = LoadInt<uint32_t>(in + 11 * 4);
-  const auto w12 = LoadInt<uint32_t>(in + 12 * 4);
-  const auto w13 = LoadInt<uint32_t>(in + 13 * 4);
+  const auto w0 = LoadInt<uint32_t>(in + 0);
+  const auto w1 = LoadInt<uint32_t>(in + 1);
+  const auto w2 = LoadInt<uint32_t>(in + 2);
+  const auto w3 = LoadInt<uint32_t>(in + 3);
+  const auto w4 = LoadInt<uint32_t>(in + 4);
+  const auto w5 = LoadInt<uint32_t>(in + 5);
+  const auto w6 = LoadInt<uint32_t>(in + 6);
+  const auto w7 = LoadInt<uint32_t>(in + 7);
+  const auto w8 = LoadInt<uint32_t>(in + 8);
+  const auto w9 = LoadInt<uint32_t>(in + 9);
+  const auto w10 = LoadInt<uint32_t>(in + 10);
+  const auto w11 = LoadInt<uint32_t>(in + 11);
+  const auto w12 = LoadInt<uint32_t>(in + 12);
+  const auto w13 = LoadInt<uint32_t>(in + 13 );
   out[0] = (w0) & mask;
   out[1] = (w0 >> 14) & mask;
   out[2] = ((w0 >> 28) | (w1 << 4)) & mask;
@@ -696,27 +696,27 @@ inline const uint8_t* unpack14_32(const uint8_t* in, uint32_t* out){
   out[30] = (w13 >> 4) & mask;
   out[31] = w13 >> 18;
 
-  return in + (14 * 4);
+  return in + (14 );
 }
 
-inline const uint8_t* unpack15_32(const uint8_t* in, uint32_t* out){
+inline const uint32_t* unpack15_32(const uint32_t*  in, uint32_t* out){
   constexpr uint32_t mask = ((uint32_t{1} << 15) - uint32_t{1});
 
-  const auto w0 = LoadInt<uint32_t>(in + 0 * 4);
-  const auto w1 = LoadInt<uint32_t>(in + 1 * 4);
-  const auto w2 = LoadInt<uint32_t>(in + 2 * 4);
-  const auto w3 = LoadInt<uint32_t>(in + 3 * 4);
-  const auto w4 = LoadInt<uint32_t>(in + 4 * 4);
-  const auto w5 = LoadInt<uint32_t>(in + 5 * 4);
-  const auto w6 = LoadInt<uint32_t>(in + 6 * 4);
-  const auto w7 = LoadInt<uint32_t>(in + 7 * 4);
-  const auto w8 = LoadInt<uint32_t>(in + 8 * 4);
-  const auto w9 = LoadInt<uint32_t>(in + 9 * 4);
-  const auto w10 = LoadInt<uint32_t>(in + 10 * 4);
-  const auto w11 = LoadInt<uint32_t>(in + 11 * 4);
-  const auto w12 = LoadInt<uint32_t>(in + 12 * 4);
-  const auto w13 = LoadInt<uint32_t>(in + 13 * 4);
-  const auto w14 = LoadInt<uint32_t>(in + 14 * 4);
+  const auto w0 = LoadInt<uint32_t>(in + 0);
+  const auto w1 = LoadInt<uint32_t>(in + 1);
+  const auto w2 = LoadInt<uint32_t>(in + 2);
+  const auto w3 = LoadInt<uint32_t>(in + 3);
+  const auto w4 = LoadInt<uint32_t>(in + 4);
+  const auto w5 = LoadInt<uint32_t>(in + 5);
+  const auto w6 = LoadInt<uint32_t>(in + 6);
+  const auto w7 = LoadInt<uint32_t>(in + 7);
+  const auto w8 = LoadInt<uint32_t>(in + 8);
+  const auto w9 = LoadInt<uint32_t>(in + 9);
+  const auto w10 = LoadInt<uint32_t>(in + 10);
+  const auto w11 = LoadInt<uint32_t>(in + 11);
+  const auto w12 = LoadInt<uint32_t>(in + 12);
+  const auto w13 = LoadInt<uint32_t>(in + 13);
+  const auto w14 = LoadInt<uint32_t>(in + 14 );
   out[0] = (w0) & mask;
   out[1] = (w0 >> 15) & mask;
   out[2] = ((w0 >> 30) | (w1 << 2)) & mask;
@@ -750,28 +750,28 @@ inline const uint8_t* unpack15_32(const uint8_t* in, uint32_t* out){
   out[30] = (w14 >> 2) & mask;
   out[31] = w14 >> 17;
 
-  return in + (15 * 4);
+  return in + (15 );
 }
 
-inline const uint8_t* unpack16_32(const uint8_t* in, uint32_t* out){
+inline const uint32_t* unpack16_32(const uint32_t*  in, uint32_t* out){
   constexpr uint32_t mask = ((uint32_t{1} << 16) - uint32_t{1});
 
-  const auto w0 = LoadInt<uint32_t>(in + 0 * 4);
-  const auto w1 = LoadInt<uint32_t>(in + 1 * 4);
-  const auto w2 = LoadInt<uint32_t>(in + 2 * 4);
-  const auto w3 = LoadInt<uint32_t>(in + 3 * 4);
-  const auto w4 = LoadInt<uint32_t>(in + 4 * 4);
-  const auto w5 = LoadInt<uint32_t>(in + 5 * 4);
-  const auto w6 = LoadInt<uint32_t>(in + 6 * 4);
-  const auto w7 = LoadInt<uint32_t>(in + 7 * 4);
-  const auto w8 = LoadInt<uint32_t>(in + 8 * 4);
-  const auto w9 = LoadInt<uint32_t>(in + 9 * 4);
-  const auto w10 = LoadInt<uint32_t>(in + 10 * 4);
-  const auto w11 = LoadInt<uint32_t>(in + 11 * 4);
-  const auto w12 = LoadInt<uint32_t>(in + 12 * 4);
-  const auto w13 = LoadInt<uint32_t>(in + 13 * 4);
-  const auto w14 = LoadInt<uint32_t>(in + 14 * 4);
-  const auto w15 = LoadInt<uint32_t>(in + 15 * 4);
+  const auto w0 = LoadInt<uint32_t>(in + 0);
+  const auto w1 = LoadInt<uint32_t>(in + 1);
+  const auto w2 = LoadInt<uint32_t>(in + 2);
+  const auto w3 = LoadInt<uint32_t>(in + 3);
+  const auto w4 = LoadInt<uint32_t>(in + 4);
+  const auto w5 = LoadInt<uint32_t>(in + 5);
+  const auto w6 = LoadInt<uint32_t>(in + 6);
+  const auto w7 = LoadInt<uint32_t>(in + 7);
+  const auto w8 = LoadInt<uint32_t>(in + 8);
+  const auto w9 = LoadInt<uint32_t>(in + 9);
+  const auto w10 = LoadInt<uint32_t>(in + 10);
+  const auto w11 = LoadInt<uint32_t>(in + 11);
+  const auto w12 = LoadInt<uint32_t>(in + 12);
+  const auto w13 = LoadInt<uint32_t>(in + 13);
+  const auto w14 = LoadInt<uint32_t>(in + 14);
+  const auto w15 = LoadInt<uint32_t>(in + 15 );
   out[0] = (w0) & mask;
   out[1] = w0 >> 16;
   out[2] = (w1) & mask;
@@ -805,29 +805,29 @@ inline const uint8_t* unpack16_32(const uint8_t* in, uint32_t* out){
   out[30] = (w15) & mask;
   out[31] = w15 >> 16;
 
-  return in + (16 * 4);
+  return in + (16 );
 }
 
-inline const uint8_t* unpack17_32(const uint8_t* in, uint32_t* out){
+inline const uint32_t* unpack17_32(const uint32_t*  in, uint32_t* out){
   constexpr uint32_t mask = ((uint32_t{1} << 17) - uint32_t{1});
 
-  const auto w0 = LoadInt<uint32_t>(in + 0 * 4);
-  const auto w1 = LoadInt<uint32_t>(in + 1 * 4);
-  const auto w2 = LoadInt<uint32_t>(in + 2 * 4);
-  const auto w3 = LoadInt<uint32_t>(in + 3 * 4);
-  const auto w4 = LoadInt<uint32_t>(in + 4 * 4);
-  const auto w5 = LoadInt<uint32_t>(in + 5 * 4);
-  const auto w6 = LoadInt<uint32_t>(in + 6 * 4);
-  const auto w7 = LoadInt<uint32_t>(in + 7 * 4);
-  const auto w8 = LoadInt<uint32_t>(in + 8 * 4);
-  const auto w9 = LoadInt<uint32_t>(in + 9 * 4);
-  const auto w10 = LoadInt<uint32_t>(in + 10 * 4);
-  const auto w11 = LoadInt<uint32_t>(in + 11 * 4);
-  const auto w12 = LoadInt<uint32_t>(in + 12 * 4);
-  const auto w13 = LoadInt<uint32_t>(in + 13 * 4);
-  const auto w14 = LoadInt<uint32_t>(in + 14 * 4);
-  const auto w15 = LoadInt<uint32_t>(in + 15 * 4);
-  const auto w16 = LoadInt<uint32_t>(in + 16 * 4);
+  const auto w0 = LoadInt<uint32_t>(in + 0);
+  const auto w1 = LoadInt<uint32_t>(in + 1);
+  const auto w2 = LoadInt<uint32_t>(in + 2);
+  const auto w3 = LoadInt<uint32_t>(in + 3);
+  const auto w4 = LoadInt<uint32_t>(in + 4);
+  const auto w5 = LoadInt<uint32_t>(in + 5);
+  const auto w6 = LoadInt<uint32_t>(in + 6);
+  const auto w7 = LoadInt<uint32_t>(in + 7);
+  const auto w8 = LoadInt<uint32_t>(in + 8);
+  const auto w9 = LoadInt<uint32_t>(in + 9);
+  const auto w10 = LoadInt<uint32_t>(in + 10);
+  const auto w11 = LoadInt<uint32_t>(in + 11);
+  const auto w12 = LoadInt<uint32_t>(in + 12);
+  const auto w13 = LoadInt<uint32_t>(in + 13);
+  const auto w14 = LoadInt<uint32_t>(in + 14);
+  const auto w15 = LoadInt<uint32_t>(in + 15);
+  const auto w16 = LoadInt<uint32_t>(in + 16 );
   out[0] = (w0) & mask;
   out[1] = ((w0 >> 17) | (w1 << 15)) & mask;
   out[2] = (w1 >> 2) & mask;
@@ -861,30 +861,30 @@ inline const uint8_t* unpack17_32(const uint8_t* in, uint32_t* out){
   out[30] = ((w15 >> 30) | (w16 << 2)) & mask;
   out[31] = w16 >> 15;
 
-  return in + (17 * 4);
+  return in + (17 );
 }
 
-inline const uint8_t* unpack18_32(const uint8_t* in, uint32_t* out){
+inline const uint32_t* unpack18_32(const uint32_t*  in, uint32_t* out){
   constexpr uint32_t mask = ((uint32_t{1} << 18) - uint32_t{1});
 
-  const auto w0 = LoadInt<uint32_t>(in + 0 * 4);
-  const auto w1 = LoadInt<uint32_t>(in + 1 * 4);
-  const auto w2 = LoadInt<uint32_t>(in + 2 * 4);
-  const auto w3 = LoadInt<uint32_t>(in + 3 * 4);
-  const auto w4 = LoadInt<uint32_t>(in + 4 * 4);
-  const auto w5 = LoadInt<uint32_t>(in + 5 * 4);
-  const auto w6 = LoadInt<uint32_t>(in + 6 * 4);
-  const auto w7 = LoadInt<uint32_t>(in + 7 * 4);
-  const auto w8 = LoadInt<uint32_t>(in + 8 * 4);
-  const auto w9 = LoadInt<uint32_t>(in + 9 * 4);
-  const auto w10 = LoadInt<uint32_t>(in + 10 * 4);
-  const auto w11 = LoadInt<uint32_t>(in + 11 * 4);
-  const auto w12 = LoadInt<uint32_t>(in + 12 * 4);
-  const auto w13 = LoadInt<uint32_t>(in + 13 * 4);
-  const auto w14 = LoadInt<uint32_t>(in + 14 * 4);
-  const auto w15 = LoadInt<uint32_t>(in + 15 * 4);
-  const auto w16 = LoadInt<uint32_t>(in + 16 * 4);
-  const auto w17 = LoadInt<uint32_t>(in + 17 * 4);
+  const auto w0 = LoadInt<uint32_t>(in + 0);
+  const auto w1 = LoadInt<uint32_t>(in + 1);
+  const auto w2 = LoadInt<uint32_t>(in + 2);
+  const auto w3 = LoadInt<uint32_t>(in + 3);
+  const auto w4 = LoadInt<uint32_t>(in + 4);
+  const auto w5 = LoadInt<uint32_t>(in + 5);
+  const auto w6 = LoadInt<uint32_t>(in + 6);
+  const auto w7 = LoadInt<uint32_t>(in + 7);
+  const auto w8 = LoadInt<uint32_t>(in + 8);
+  const auto w9 = LoadInt<uint32_t>(in + 9);
+  const auto w10 = LoadInt<uint32_t>(in + 10);
+  const auto w11 = LoadInt<uint32_t>(in + 11);
+  const auto w12 = LoadInt<uint32_t>(in + 12);
+  const auto w13 = LoadInt<uint32_t>(in + 13);
+  const auto w14 = LoadInt<uint32_t>(in + 14);
+  const auto w15 = LoadInt<uint32_t>(in + 15);
+  const auto w16 = LoadInt<uint32_t>(in + 16);
+  const auto w17 = LoadInt<uint32_t>(in + 17 );
   out[0] = (w0) & mask;
   out[1] = ((w0 >> 18) | (w1 << 14)) & mask;
   out[2] = (w1 >> 4) & mask;
@@ -918,31 +918,31 @@ inline const uint8_t* unpack18_32(const uint8_t* in, uint32_t* out){
   out[30] = ((w16 >> 28) | (w17 << 4)) & mask;
   out[31] = w17 >> 14;
 
-  return in + (18 * 4);
+  return in + (18 );
 }
 
-inline const uint8_t* unpack19_32(const uint8_t* in, uint32_t* out){
+inline const uint32_t* unpack19_32(const uint32_t*  in, uint32_t* out){
   constexpr uint32_t mask = ((uint32_t{1} << 19) - uint32_t{1});
 
-  const auto w0 = LoadInt<uint32_t>(in + 0 * 4);
-  const auto w1 = LoadInt<uint32_t>(in + 1 * 4);
-  const auto w2 = LoadInt<uint32_t>(in + 2 * 4);
-  const auto w3 = LoadInt<uint32_t>(in + 3 * 4);
-  const auto w4 = LoadInt<uint32_t>(in + 4 * 4);
-  const auto w5 = LoadInt<uint32_t>(in + 5 * 4);
-  const auto w6 = LoadInt<uint32_t>(in + 6 * 4);
-  const auto w7 = LoadInt<uint32_t>(in + 7 * 4);
-  const auto w8 = LoadInt<uint32_t>(in + 8 * 4);
-  const auto w9 = LoadInt<uint32_t>(in + 9 * 4);
-  const auto w10 = LoadInt<uint32_t>(in + 10 * 4);
-  const auto w11 = LoadInt<uint32_t>(in + 11 * 4);
-  const auto w12 = LoadInt<uint32_t>(in + 12 * 4);
-  const auto w13 = LoadInt<uint32_t>(in + 13 * 4);
-  const auto w14 = LoadInt<uint32_t>(in + 14 * 4);
-  const auto w15 = LoadInt<uint32_t>(in + 15 * 4);
-  const auto w16 = LoadInt<uint32_t>(in + 16 * 4);
-  const auto w17 = LoadInt<uint32_t>(in + 17 * 4);
-  const auto w18 = LoadInt<uint32_t>(in + 18 * 4);
+  const auto w0 = LoadInt<uint32_t>(in + 0);
+  const auto w1 = LoadInt<uint32_t>(in + 1);
+  const auto w2 = LoadInt<uint32_t>(in + 2);
+  const auto w3 = LoadInt<uint32_t>(in + 3);
+  const auto w4 = LoadInt<uint32_t>(in + 4);
+  const auto w5 = LoadInt<uint32_t>(in + 5);
+  const auto w6 = LoadInt<uint32_t>(in + 6);
+  const auto w7 = LoadInt<uint32_t>(in + 7);
+  const auto w8 = LoadInt<uint32_t>(in + 8);
+  const auto w9 = LoadInt<uint32_t>(in + 9);
+  const auto w10 = LoadInt<uint32_t>(in + 10);
+  const auto w11 = LoadInt<uint32_t>(in + 11);
+  const auto w12 = LoadInt<uint32_t>(in + 12);
+  const auto w13 = LoadInt<uint32_t>(in + 13);
+  const auto w14 = LoadInt<uint32_t>(in + 14);
+  const auto w15 = LoadInt<uint32_t>(in + 15);
+  const auto w16 = LoadInt<uint32_t>(in + 16);
+  const auto w17 = LoadInt<uint32_t>(in + 17);
+  const auto w18 = LoadInt<uint32_t>(in + 18 );
   out[0] = (w0) & mask;
   out[1] = ((w0 >> 19) | (w1 << 13)) & mask;
   out[2] = (w1 >> 6) & mask;
@@ -976,32 +976,32 @@ inline const uint8_t* unpack19_32(const uint8_t* in, uint32_t* out){
   out[30] = ((w17 >> 26) | (w18 << 6)) & mask;
   out[31] = w18 >> 13;
 
-  return in + (19 * 4);
+  return in + (19 );
 }
 
-inline const uint8_t* unpack20_32(const uint8_t* in, uint32_t* out){
+inline const uint32_t* unpack20_32(const uint32_t*  in, uint32_t* out){
   constexpr uint32_t mask = ((uint32_t{1} << 20) - uint32_t{1});
 
-  const auto w0 = LoadInt<uint32_t>(in + 0 * 4);
-  const auto w1 = LoadInt<uint32_t>(in + 1 * 4);
-  const auto w2 = LoadInt<uint32_t>(in + 2 * 4);
-  const auto w3 = LoadInt<uint32_t>(in + 3 * 4);
-  const auto w4 = LoadInt<uint32_t>(in + 4 * 4);
-  const auto w5 = LoadInt<uint32_t>(in + 5 * 4);
-  const auto w6 = LoadInt<uint32_t>(in + 6 * 4);
-  const auto w7 = LoadInt<uint32_t>(in + 7 * 4);
-  const auto w8 = LoadInt<uint32_t>(in + 8 * 4);
-  const auto w9 = LoadInt<uint32_t>(in + 9 * 4);
-  const auto w10 = LoadInt<uint32_t>(in + 10 * 4);
-  const auto w11 = LoadInt<uint32_t>(in + 11 * 4);
-  const auto w12 = LoadInt<uint32_t>(in + 12 * 4);
-  const auto w13 = LoadInt<uint32_t>(in + 13 * 4);
-  const auto w14 = LoadInt<uint32_t>(in + 14 * 4);
-  const auto w15 = LoadInt<uint32_t>(in + 15 * 4);
-  const auto w16 = LoadInt<uint32_t>(in + 16 * 4);
-  const auto w17 = LoadInt<uint32_t>(in + 17 * 4);
-  const auto w18 = LoadInt<uint32_t>(in + 18 * 4);
-  const auto w19 = LoadInt<uint32_t>(in + 19 * 4);
+  const auto w0 = LoadInt<uint32_t>(in + 0);
+  const auto w1 = LoadInt<uint32_t>(in + 1);
+  const auto w2 = LoadInt<uint32_t>(in + 2);
+  const auto w3 = LoadInt<uint32_t>(in + 3);
+  const auto w4 = LoadInt<uint32_t>(in + 4);
+  const auto w5 = LoadInt<uint32_t>(in + 5);
+  const auto w6 = LoadInt<uint32_t>(in + 6);
+  const auto w7 = LoadInt<uint32_t>(in + 7);
+  const auto w8 = LoadInt<uint32_t>(in + 8);
+  const auto w9 = LoadInt<uint32_t>(in + 9);
+  const auto w10 = LoadInt<uint32_t>(in + 10);
+  const auto w11 = LoadInt<uint32_t>(in + 11);
+  const auto w12 = LoadInt<uint32_t>(in + 12);
+  const auto w13 = LoadInt<uint32_t>(in + 13);
+  const auto w14 = LoadInt<uint32_t>(in + 14);
+  const auto w15 = LoadInt<uint32_t>(in + 15);
+  const auto w16 = LoadInt<uint32_t>(in + 16);
+  const auto w17 = LoadInt<uint32_t>(in + 17);
+  const auto w18 = LoadInt<uint32_t>(in + 18);
+  const auto w19 = LoadInt<uint32_t>(in + 19 );
   out[0] = (w0) & mask;
   out[1] = ((w0 >> 20) | (w1 << 12)) & mask;
   out[2] = (w1 >> 8) & mask;
@@ -1035,33 +1035,33 @@ inline const uint8_t* unpack20_32(const uint8_t* in, uint32_t* out){
   out[30] = ((w18 >> 24) | (w19 << 8)) & mask;
   out[31] = w19 >> 12;
 
-  return in + (20 * 4);
+  return in + (20 );
 }
 
-inline const uint8_t* unpack21_32(const uint8_t* in, uint32_t* out){
+inline const uint32_t* unpack21_32(const uint32_t*  in, uint32_t* out){
   constexpr uint32_t mask = ((uint32_t{1} << 21) - uint32_t{1});
 
-  const auto w0 = LoadInt<uint32_t>(in + 0 * 4);
-  const auto w1 = LoadInt<uint32_t>(in + 1 * 4);
-  const auto w2 = LoadInt<uint32_t>(in + 2 * 4);
-  const auto w3 = LoadInt<uint32_t>(in + 3 * 4);
-  const auto w4 = LoadInt<uint32_t>(in + 4 * 4);
-  const auto w5 = LoadInt<uint32_t>(in + 5 * 4);
-  const auto w6 = LoadInt<uint32_t>(in + 6 * 4);
-  const auto w7 = LoadInt<uint32_t>(in + 7 * 4);
-  const auto w8 = LoadInt<uint32_t>(in + 8 * 4);
-  const auto w9 = LoadInt<uint32_t>(in + 9 * 4);
-  const auto w10 = LoadInt<uint32_t>(in + 10 * 4);
-  const auto w11 = LoadInt<uint32_t>(in + 11 * 4);
-  const auto w12 = LoadInt<uint32_t>(in + 12 * 4);
-  const auto w13 = LoadInt<uint32_t>(in + 13 * 4);
-  const auto w14 = LoadInt<uint32_t>(in + 14 * 4);
-  const auto w15 = LoadInt<uint32_t>(in + 15 * 4);
-  const auto w16 = LoadInt<uint32_t>(in + 16 * 4);
-  const auto w17 = LoadInt<uint32_t>(in + 17 * 4);
-  const auto w18 = LoadInt<uint32_t>(in + 18 * 4);
-  const auto w19 = LoadInt<uint32_t>(in + 19 * 4);
-  const auto w20 = LoadInt<uint32_t>(in + 20 * 4);
+  const auto w0 = LoadInt<uint32_t>(in + 0);
+  const auto w1 = LoadInt<uint32_t>(in + 1);
+  const auto w2 = LoadInt<uint32_t>(in + 2);
+  const auto w3 = LoadInt<uint32_t>(in + 3);
+  const auto w4 = LoadInt<uint32_t>(in + 4);
+  const auto w5 = LoadInt<uint32_t>(in + 5);
+  const auto w6 = LoadInt<uint32_t>(in + 6);
+  const auto w7 = LoadInt<uint32_t>(in + 7);
+  const auto w8 = LoadInt<uint32_t>(in + 8);
+  const auto w9 = LoadInt<uint32_t>(in + 9);
+  const auto w10 = LoadInt<uint32_t>(in + 10);
+  const auto w11 = LoadInt<uint32_t>(in + 11);
+  const auto w12 = LoadInt<uint32_t>(in + 12);
+  const auto w13 = LoadInt<uint32_t>(in + 13);
+  const auto w14 = LoadInt<uint32_t>(in + 14);
+  const auto w15 = LoadInt<uint32_t>(in + 15);
+  const auto w16 = LoadInt<uint32_t>(in + 16);
+  const auto w17 = LoadInt<uint32_t>(in + 17);
+  const auto w18 = LoadInt<uint32_t>(in + 18);
+  const auto w19 = LoadInt<uint32_t>(in + 19);
+  const auto w20 = LoadInt<uint32_t>(in + 20 );
   out[0] = (w0) & mask;
   out[1] = ((w0 >> 21) | (w1 << 11)) & mask;
   out[2] = (w1 >> 10) & mask;
@@ -1095,34 +1095,34 @@ inline const uint8_t* unpack21_32(const uint8_t* in, uint32_t* out){
   out[30] = ((w19 >> 22) | (w20 << 10)) & mask;
   out[31] = w20 >> 11;
 
-  return in + (21 * 4);
+  return in + (21 );
 }
 
-inline const uint8_t* unpack22_32(const uint8_t* in, uint32_t* out){
+inline const uint32_t* unpack22_32(const uint32_t*  in, uint32_t* out){
   constexpr uint32_t mask = ((uint32_t{1} << 22) - uint32_t{1});
 
-  const auto w0 = LoadInt<uint32_t>(in + 0 * 4);
-  const auto w1 = LoadInt<uint32_t>(in + 1 * 4);
-  const auto w2 = LoadInt<uint32_t>(in + 2 * 4);
-  const auto w3 = LoadInt<uint32_t>(in + 3 * 4);
-  const auto w4 = LoadInt<uint32_t>(in + 4 * 4);
-  const auto w5 = LoadInt<uint32_t>(in + 5 * 4);
-  const auto w6 = LoadInt<uint32_t>(in + 6 * 4);
-  const auto w7 = LoadInt<uint32_t>(in + 7 * 4);
-  const auto w8 = LoadInt<uint32_t>(in + 8 * 4);
-  const auto w9 = LoadInt<uint32_t>(in + 9 * 4);
-  const auto w10 = LoadInt<uint32_t>(in + 10 * 4);
-  const auto w11 = LoadInt<uint32_t>(in + 11 * 4);
-  const auto w12 = LoadInt<uint32_t>(in + 12 * 4);
-  const auto w13 = LoadInt<uint32_t>(in + 13 * 4);
-  const auto w14 = LoadInt<uint32_t>(in + 14 * 4);
-  const auto w15 = LoadInt<uint32_t>(in + 15 * 4);
-  const auto w16 = LoadInt<uint32_t>(in + 16 * 4);
-  const auto w17 = LoadInt<uint32_t>(in + 17 * 4);
-  const auto w18 = LoadInt<uint32_t>(in + 18 * 4);
-  const auto w19 = LoadInt<uint32_t>(in + 19 * 4);
-  const auto w20 = LoadInt<uint32_t>(in + 20 * 4);
-  const auto w21 = LoadInt<uint32_t>(in + 21 * 4);
+  const auto w0 = LoadInt<uint32_t>(in + 0);
+  const auto w1 = LoadInt<uint32_t>(in + 1);
+  const auto w2 = LoadInt<uint32_t>(in + 2);
+  const auto w3 = LoadInt<uint32_t>(in + 3);
+  const auto w4 = LoadInt<uint32_t>(in + 4);
+  const auto w5 = LoadInt<uint32_t>(in + 5);
+  const auto w6 = LoadInt<uint32_t>(in + 6);
+  const auto w7 = LoadInt<uint32_t>(in + 7);
+  const auto w8 = LoadInt<uint32_t>(in + 8);
+  const auto w9 = LoadInt<uint32_t>(in + 9);
+  const auto w10 = LoadInt<uint32_t>(in + 10);
+  const auto w11 = LoadInt<uint32_t>(in + 11);
+  const auto w12 = LoadInt<uint32_t>(in + 12);
+  const auto w13 = LoadInt<uint32_t>(in + 13);
+  const auto w14 = LoadInt<uint32_t>(in + 14);
+  const auto w15 = LoadInt<uint32_t>(in + 15);
+  const auto w16 = LoadInt<uint32_t>(in + 16);
+  const auto w17 = LoadInt<uint32_t>(in + 17);
+  const auto w18 = LoadInt<uint32_t>(in + 18);
+  const auto w19 = LoadInt<uint32_t>(in + 19);
+  const auto w20 = LoadInt<uint32_t>(in + 20);
+  const auto w21 = LoadInt<uint32_t>(in + 21 );
   out[0] = (w0) & mask;
   out[1] = ((w0 >> 22) | (w1 << 10)) & mask;
   out[2] = ((w1 >> 12) | (w2 << 20)) & mask;
@@ -1156,35 +1156,35 @@ inline const uint8_t* unpack22_32(const uint8_t* in, uint32_t* out){
   out[30] = ((w20 >> 20) | (w21 << 12)) & mask;
   out[31] = w21 >> 10;
 
-  return in + (22 * 4);
+  return in + (22 );
 }
 
-inline const uint8_t* unpack23_32(const uint8_t* in, uint32_t* out){
+inline const uint32_t* unpack23_32(const uint32_t*  in, uint32_t* out){
   constexpr uint32_t mask = ((uint32_t{1} << 23) - uint32_t{1});
 
-  const auto w0 = LoadInt<uint32_t>(in + 0 * 4);
-  const auto w1 = LoadInt<uint32_t>(in + 1 * 4);
-  const auto w2 = LoadInt<uint32_t>(in + 2 * 4);
-  const auto w3 = LoadInt<uint32_t>(in + 3 * 4);
-  const auto w4 = LoadInt<uint32_t>(in + 4 * 4);
-  const auto w5 = LoadInt<uint32_t>(in + 5 * 4);
-  const auto w6 = LoadInt<uint32_t>(in + 6 * 4);
-  const auto w7 = LoadInt<uint32_t>(in + 7 * 4);
-  const auto w8 = LoadInt<uint32_t>(in + 8 * 4);
-  const auto w9 = LoadInt<uint32_t>(in + 9 * 4);
-  const auto w10 = LoadInt<uint32_t>(in + 10 * 4);
-  const auto w11 = LoadInt<uint32_t>(in + 11 * 4);
-  const auto w12 = LoadInt<uint32_t>(in + 12 * 4);
-  const auto w13 = LoadInt<uint32_t>(in + 13 * 4);
-  const auto w14 = LoadInt<uint32_t>(in + 14 * 4);
-  const auto w15 = LoadInt<uint32_t>(in + 15 * 4);
-  const auto w16 = LoadInt<uint32_t>(in + 16 * 4);
-  const auto w17 = LoadInt<uint32_t>(in + 17 * 4);
-  const auto w18 = LoadInt<uint32_t>(in + 18 * 4);
-  const auto w19 = LoadInt<uint32_t>(in + 19 * 4);
-  const auto w20 = LoadInt<uint32_t>(in + 20 * 4);
-  const auto w21 = LoadInt<uint32_t>(in + 21 * 4);
-  const auto w22 = LoadInt<uint32_t>(in + 22 * 4);
+  const auto w0 = LoadInt<uint32_t>(in + 0);
+  const auto w1 = LoadInt<uint32_t>(in + 1);
+  const auto w2 = LoadInt<uint32_t>(in + 2);
+  const auto w3 = LoadInt<uint32_t>(in + 3);
+  const auto w4 = LoadInt<uint32_t>(in + 4);
+  const auto w5 = LoadInt<uint32_t>(in + 5);
+  const auto w6 = LoadInt<uint32_t>(in + 6);
+  const auto w7 = LoadInt<uint32_t>(in + 7);
+  const auto w8 = LoadInt<uint32_t>(in + 8);
+  const auto w9 = LoadInt<uint32_t>(in + 9);
+  const auto w10 = LoadInt<uint32_t>(in + 10);
+  const auto w11 = LoadInt<uint32_t>(in + 11);
+  const auto w12 = LoadInt<uint32_t>(in + 12);
+  const auto w13 = LoadInt<uint32_t>(in + 13);
+  const auto w14 = LoadInt<uint32_t>(in + 14);
+  const auto w15 = LoadInt<uint32_t>(in + 15);
+  const auto w16 = LoadInt<uint32_t>(in + 16);
+  const auto w17 = LoadInt<uint32_t>(in + 17);
+  const auto w18 = LoadInt<uint32_t>(in + 18);
+  const auto w19 = LoadInt<uint32_t>(in + 19);
+  const auto w20 = LoadInt<uint32_t>(in + 20);
+  const auto w21 = LoadInt<uint32_t>(in + 21);
+  const auto w22 = LoadInt<uint32_t>(in + 22 );
   out[0] = (w0) & mask;
   out[1] = ((w0 >> 23) | (w1 << 9)) & mask;
   out[2] = ((w1 >> 14) | (w2 << 18)) & mask;
@@ -1218,36 +1218,36 @@ inline const uint8_t* unpack23_32(const uint8_t* in, uint32_t* out){
   out[30] = ((w21 >> 18) | (w22 << 14)) & mask;
   out[31] = w22 >> 9;
 
-  return in + (23 * 4);
+  return in + (23 );
 }
 
-inline const uint8_t* unpack24_32(const uint8_t* in, uint32_t* out){
+inline const uint32_t* unpack24_32(const uint32_t*  in, uint32_t* out){
   constexpr uint32_t mask = ((uint32_t{1} << 24) - uint32_t{1});
 
-  const auto w0 = LoadInt<uint32_t>(in + 0 * 4);
-  const auto w1 = LoadInt<uint32_t>(in + 1 * 4);
-  const auto w2 = LoadInt<uint32_t>(in + 2 * 4);
-  const auto w3 = LoadInt<uint32_t>(in + 3 * 4);
-  const auto w4 = LoadInt<uint32_t>(in + 4 * 4);
-  const auto w5 = LoadInt<uint32_t>(in + 5 * 4);
-  const auto w6 = LoadInt<uint32_t>(in + 6 * 4);
-  const auto w7 = LoadInt<uint32_t>(in + 7 * 4);
-  const auto w8 = LoadInt<uint32_t>(in + 8 * 4);
-  const auto w9 = LoadInt<uint32_t>(in + 9 * 4);
-  const auto w10 = LoadInt<uint32_t>(in + 10 * 4);
-  const auto w11 = LoadInt<uint32_t>(in + 11 * 4);
-  const auto w12 = LoadInt<uint32_t>(in + 12 * 4);
-  const auto w13 = LoadInt<uint32_t>(in + 13 * 4);
-  const auto w14 = LoadInt<uint32_t>(in + 14 * 4);
-  const auto w15 = LoadInt<uint32_t>(in + 15 * 4);
-  const auto w16 = LoadInt<uint32_t>(in + 16 * 4);
-  const auto w17 = LoadInt<uint32_t>(in + 17 * 4);
-  const auto w18 = LoadInt<uint32_t>(in + 18 * 4);
-  const auto w19 = LoadInt<uint32_t>(in + 19 * 4);
-  const auto w20 = LoadInt<uint32_t>(in + 20 * 4);
-  const auto w21 = LoadInt<uint32_t>(in + 21 * 4);
-  const auto w22 = LoadInt<uint32_t>(in + 22 * 4);
-  const auto w23 = LoadInt<uint32_t>(in + 23 * 4);
+  const auto w0 = LoadInt<uint32_t>(in + 0);
+  const auto w1 = LoadInt<uint32_t>(in + 1);
+  const auto w2 = LoadInt<uint32_t>(in + 2);
+  const auto w3 = LoadInt<uint32_t>(in + 3);
+  const auto w4 = LoadInt<uint32_t>(in + 4);
+  const auto w5 = LoadInt<uint32_t>(in + 5);
+  const auto w6 = LoadInt<uint32_t>(in + 6);
+  const auto w7 = LoadInt<uint32_t>(in + 7);
+  const auto w8 = LoadInt<uint32_t>(in + 8);
+  const auto w9 = LoadInt<uint32_t>(in + 9);
+  const auto w10 = LoadInt<uint32_t>(in + 10);
+  const auto w11 = LoadInt<uint32_t>(in + 11);
+  const auto w12 = LoadInt<uint32_t>(in + 12);
+  const auto w13 = LoadInt<uint32_t>(in + 13);
+  const auto w14 = LoadInt<uint32_t>(in + 14);
+  const auto w15 = LoadInt<uint32_t>(in + 15);
+  const auto w16 = LoadInt<uint32_t>(in + 16);
+  const auto w17 = LoadInt<uint32_t>(in + 17);
+  const auto w18 = LoadInt<uint32_t>(in + 18);
+  const auto w19 = LoadInt<uint32_t>(in + 19);
+  const auto w20 = LoadInt<uint32_t>(in + 20);
+  const auto w21 = LoadInt<uint32_t>(in + 21);
+  const auto w22 = LoadInt<uint32_t>(in + 22);
+  const auto w23 = LoadInt<uint32_t>(in + 23 );
   out[0] = (w0) & mask;
   out[1] = ((w0 >> 24) | (w1 << 8)) & mask;
   out[2] = ((w1 >> 16) | (w2 << 16)) & mask;
@@ -1281,37 +1281,37 @@ inline const uint8_t* unpack24_32(const uint8_t* in, uint32_t* out){
   out[30] = ((w22 >> 16) | (w23 << 16)) & mask;
   out[31] = w23 >> 8;
 
-  return in + (24 * 4);
+  return in + (24 );
 }
 
-inline const uint8_t* unpack25_32(const uint8_t* in, uint32_t* out){
+inline const uint32_t* unpack25_32(const uint32_t*  in, uint32_t* out){
   constexpr uint32_t mask = ((uint32_t{1} << 25) - uint32_t{1});
 
-  const auto w0 = LoadInt<uint32_t>(in + 0 * 4);
-  const auto w1 = LoadInt<uint32_t>(in + 1 * 4);
-  const auto w2 = LoadInt<uint32_t>(in + 2 * 4);
-  const auto w3 = LoadInt<uint32_t>(in + 3 * 4);
-  const auto w4 = LoadInt<uint32_t>(in + 4 * 4);
-  const auto w5 = LoadInt<uint32_t>(in + 5 * 4);
-  const auto w6 = LoadInt<uint32_t>(in + 6 * 4);
-  const auto w7 = LoadInt<uint32_t>(in + 7 * 4);
-  const auto w8 = LoadInt<uint32_t>(in + 8 * 4);
-  const auto w9 = LoadInt<uint32_t>(in + 9 * 4);
-  const auto w10 = LoadInt<uint32_t>(in + 10 * 4);
-  const auto w11 = LoadInt<uint32_t>(in + 11 * 4);
-  const auto w12 = LoadInt<uint32_t>(in + 12 * 4);
-  const auto w13 = LoadInt<uint32_t>(in + 13 * 4);
-  const auto w14 = LoadInt<uint32_t>(in + 14 * 4);
-  const auto w15 = LoadInt<uint32_t>(in + 15 * 4);
-  const auto w16 = LoadInt<uint32_t>(in + 16 * 4);
-  const auto w17 = LoadInt<uint32_t>(in + 17 * 4);
-  const auto w18 = LoadInt<uint32_t>(in + 18 * 4);
-  const auto w19 = LoadInt<uint32_t>(in + 19 * 4);
-  const auto w20 = LoadInt<uint32_t>(in + 20 * 4);
-  const auto w21 = LoadInt<uint32_t>(in + 21 * 4);
-  const auto w22 = LoadInt<uint32_t>(in + 22 * 4);
-  const auto w23 = LoadInt<uint32_t>(in + 23 * 4);
-  const auto w24 = LoadInt<uint32_t>(in + 24 * 4);
+  const auto w0 = LoadInt<uint32_t>(in + 0);
+  const auto w1 = LoadInt<uint32_t>(in + 1);
+  const auto w2 = LoadInt<uint32_t>(in + 2);
+  const auto w3 = LoadInt<uint32_t>(in + 3);
+  const auto w4 = LoadInt<uint32_t>(in + 4);
+  const auto w5 = LoadInt<uint32_t>(in + 5);
+  const auto w6 = LoadInt<uint32_t>(in + 6);
+  const auto w7 = LoadInt<uint32_t>(in + 7);
+  const auto w8 = LoadInt<uint32_t>(in + 8);
+  const auto w9 = LoadInt<uint32_t>(in + 9);
+  const auto w10 = LoadInt<uint32_t>(in + 10);
+  const auto w11 = LoadInt<uint32_t>(in + 11);
+  const auto w12 = LoadInt<uint32_t>(in + 12);
+  const auto w13 = LoadInt<uint32_t>(in + 13);
+  const auto w14 = LoadInt<uint32_t>(in + 14);
+  const auto w15 = LoadInt<uint32_t>(in + 15);
+  const auto w16 = LoadInt<uint32_t>(in + 16);
+  const auto w17 = LoadInt<uint32_t>(in + 17);
+  const auto w18 = LoadInt<uint32_t>(in + 18);
+  const auto w19 = LoadInt<uint32_t>(in + 19);
+  const auto w20 = LoadInt<uint32_t>(in + 20);
+  const auto w21 = LoadInt<uint32_t>(in + 21);
+  const auto w22 = LoadInt<uint32_t>(in + 22);
+  const auto w23 = LoadInt<uint32_t>(in + 23);
+  const auto w24 = LoadInt<uint32_t>(in + 24 );
   out[0] = (w0) & mask;
   out[1] = ((w0 >> 25) | (w1 << 7)) & mask;
   out[2] = ((w1 >> 18) | (w2 << 14)) & mask;
@@ -1345,38 +1345,38 @@ inline const uint8_t* unpack25_32(const uint8_t* in, uint32_t* out){
   out[30] = ((w23 >> 14) | (w24 << 18)) & mask;
   out[31] = w24 >> 7;
 
-  return in + (25 * 4);
+  return in + (25 );
 }
 
-inline const uint8_t* unpack26_32(const uint8_t* in, uint32_t* out){
+inline const uint32_t* unpack26_32(const uint32_t*  in, uint32_t* out){
   constexpr uint32_t mask = ((uint32_t{1} << 26) - uint32_t{1});
 
-  const auto w0 = LoadInt<uint32_t>(in + 0 * 4);
-  const auto w1 = LoadInt<uint32_t>(in + 1 * 4);
-  const auto w2 = LoadInt<uint32_t>(in + 2 * 4);
-  const auto w3 = LoadInt<uint32_t>(in + 3 * 4);
-  const auto w4 = LoadInt<uint32_t>(in + 4 * 4);
-  const auto w5 = LoadInt<uint32_t>(in + 5 * 4);
-  const auto w6 = LoadInt<uint32_t>(in + 6 * 4);
-  const auto w7 = LoadInt<uint32_t>(in + 7 * 4);
-  const auto w8 = LoadInt<uint32_t>(in + 8 * 4);
-  const auto w9 = LoadInt<uint32_t>(in + 9 * 4);
-  const auto w10 = LoadInt<uint32_t>(in + 10 * 4);
-  const auto w11 = LoadInt<uint32_t>(in + 11 * 4);
-  const auto w12 = LoadInt<uint32_t>(in + 12 * 4);
-  const auto w13 = LoadInt<uint32_t>(in + 13 * 4);
-  const auto w14 = LoadInt<uint32_t>(in + 14 * 4);
-  const auto w15 = LoadInt<uint32_t>(in + 15 * 4);
-  const auto w16 = LoadInt<uint32_t>(in + 16 * 4);
-  const auto w17 = LoadInt<uint32_t>(in + 17 * 4);
-  const auto w18 = LoadInt<uint32_t>(in + 18 * 4);
-  const auto w19 = LoadInt<uint32_t>(in + 19 * 4);
-  const auto w20 = LoadInt<uint32_t>(in + 20 * 4);
-  const auto w21 = LoadInt<uint32_t>(in + 21 * 4);
-  const auto w22 = LoadInt<uint32_t>(in + 22 * 4);
-  const auto w23 = LoadInt<uint32_t>(in + 23 * 4);
-  const auto w24 = LoadInt<uint32_t>(in + 24 * 4);
-  const auto w25 = LoadInt<uint32_t>(in + 25 * 4);
+  const auto w0 = LoadInt<uint32_t>(in + 0);
+  const auto w1 = LoadInt<uint32_t>(in + 1);
+  const auto w2 = LoadInt<uint32_t>(in + 2);
+  const auto w3 = LoadInt<uint32_t>(in + 3);
+  const auto w4 = LoadInt<uint32_t>(in + 4);
+  const auto w5 = LoadInt<uint32_t>(in + 5);
+  const auto w6 = LoadInt<uint32_t>(in + 6);
+  const auto w7 = LoadInt<uint32_t>(in + 7);
+  const auto w8 = LoadInt<uint32_t>(in + 8);
+  const auto w9 = LoadInt<uint32_t>(in + 9);
+  const auto w10 = LoadInt<uint32_t>(in + 10);
+  const auto w11 = LoadInt<uint32_t>(in + 11);
+  const auto w12 = LoadInt<uint32_t>(in + 12);
+  const auto w13 = LoadInt<uint32_t>(in + 13);
+  const auto w14 = LoadInt<uint32_t>(in + 14);
+  const auto w15 = LoadInt<uint32_t>(in + 15);
+  const auto w16 = LoadInt<uint32_t>(in + 16);
+  const auto w17 = LoadInt<uint32_t>(in + 17);
+  const auto w18 = LoadInt<uint32_t>(in + 18);
+  const auto w19 = LoadInt<uint32_t>(in + 19);
+  const auto w20 = LoadInt<uint32_t>(in + 20);
+  const auto w21 = LoadInt<uint32_t>(in + 21);
+  const auto w22 = LoadInt<uint32_t>(in + 22);
+  const auto w23 = LoadInt<uint32_t>(in + 23);
+  const auto w24 = LoadInt<uint32_t>(in + 24);
+  const auto w25 = LoadInt<uint32_t>(in + 25 );
   out[0] = (w0) & mask;
   out[1] = ((w0 >> 26) | (w1 << 6)) & mask;
   out[2] = ((w1 >> 20) | (w2 << 12)) & mask;
@@ -1410,39 +1410,39 @@ inline const uint8_t* unpack26_32(const uint8_t* in, uint32_t* out){
   out[30] = ((w24 >> 12) | (w25 << 20)) & mask;
   out[31] = w25 >> 6;
 
-  return in + (26 * 4);
+  return in + (26 );
 }
 
-inline const uint8_t* unpack27_32(const uint8_t* in, uint32_t* out){
+inline const uint32_t* unpack27_32(const uint32_t*  in, uint32_t* out){
   constexpr uint32_t mask = ((uint32_t{1} << 27) - uint32_t{1});
 
-  const auto w0 = LoadInt<uint32_t>(in + 0 * 4);
-  const auto w1 = LoadInt<uint32_t>(in + 1 * 4);
-  const auto w2 = LoadInt<uint32_t>(in + 2 * 4);
-  const auto w3 = LoadInt<uint32_t>(in + 3 * 4);
-  const auto w4 = LoadInt<uint32_t>(in + 4 * 4);
-  const auto w5 = LoadInt<uint32_t>(in + 5 * 4);
-  const auto w6 = LoadInt<uint32_t>(in + 6 * 4);
-  const auto w7 = LoadInt<uint32_t>(in + 7 * 4);
-  const auto w8 = LoadInt<uint32_t>(in + 8 * 4);
-  const auto w9 = LoadInt<uint32_t>(in + 9 * 4);
-  const auto w10 = LoadInt<uint32_t>(in + 10 * 4);
-  const auto w11 = LoadInt<uint32_t>(in + 11 * 4);
-  const auto w12 = LoadInt<uint32_t>(in + 12 * 4);
-  const auto w13 = LoadInt<uint32_t>(in + 13 * 4);
-  const auto w14 = LoadInt<uint32_t>(in + 14 * 4);
-  const auto w15 = LoadInt<uint32_t>(in + 15 * 4);
-  const auto w16 = LoadInt<uint32_t>(in + 16 * 4);
-  const auto w17 = LoadInt<uint32_t>(in + 17 * 4);
-  const auto w18 = LoadInt<uint32_t>(in + 18 * 4);
-  const auto w19 = LoadInt<uint32_t>(in + 19 * 4);
-  const auto w20 = LoadInt<uint32_t>(in + 20 * 4);
-  const auto w21 = LoadInt<uint32_t>(in + 21 * 4);
-  const auto w22 = LoadInt<uint32_t>(in + 22 * 4);
-  const auto w23 = LoadInt<uint32_t>(in + 23 * 4);
-  const auto w24 = LoadInt<uint32_t>(in + 24 * 4);
-  const auto w25 = LoadInt<uint32_t>(in + 25 * 4);
-  const auto w26 = LoadInt<uint32_t>(in + 26 * 4);
+  const auto w0 = LoadInt<uint32_t>(in + 0);
+  const auto w1 = LoadInt<uint32_t>(in + 1);
+  const auto w2 = LoadInt<uint32_t>(in + 2);
+  const auto w3 = LoadInt<uint32_t>(in + 3);
+  const auto w4 = LoadInt<uint32_t>(in + 4);
+  const auto w5 = LoadInt<uint32_t>(in + 5);
+  const auto w6 = LoadInt<uint32_t>(in + 6);
+  const auto w7 = LoadInt<uint32_t>(in + 7);
+  const auto w8 = LoadInt<uint32_t>(in + 8);
+  const auto w9 = LoadInt<uint32_t>(in + 9);
+  const auto w10 = LoadInt<uint32_t>(in + 10);
+  const auto w11 = LoadInt<uint32_t>(in + 11);
+  const auto w12 = LoadInt<uint32_t>(in + 12);
+  const auto w13 = LoadInt<uint32_t>(in + 13);
+  const auto w14 = LoadInt<uint32_t>(in + 14);
+  const auto w15 = LoadInt<uint32_t>(in + 15);
+  const auto w16 = LoadInt<uint32_t>(in + 16);
+  const auto w17 = LoadInt<uint32_t>(in + 17);
+  const auto w18 = LoadInt<uint32_t>(in + 18);
+  const auto w19 = LoadInt<uint32_t>(in + 19);
+  const auto w20 = LoadInt<uint32_t>(in + 20);
+  const auto w21 = LoadInt<uint32_t>(in + 21);
+  const auto w22 = LoadInt<uint32_t>(in + 22);
+  const auto w23 = LoadInt<uint32_t>(in + 23);
+  const auto w24 = LoadInt<uint32_t>(in + 24);
+  const auto w25 = LoadInt<uint32_t>(in + 25);
+  const auto w26 = LoadInt<uint32_t>(in + 26 );
   out[0] = (w0) & mask;
   out[1] = ((w0 >> 27) | (w1 << 5)) & mask;
   out[2] = ((w1 >> 22) | (w2 << 10)) & mask;
@@ -1476,40 +1476,40 @@ inline const uint8_t* unpack27_32(const uint8_t* in, uint32_t* out){
   out[30] = ((w25 >> 10) | (w26 << 22)) & mask;
   out[31] = w26 >> 5;
 
-  return in + (27 * 4);
+  return in + (27 );
 }
 
-inline const uint8_t* unpack28_32(const uint8_t* in, uint32_t* out){
+inline const uint32_t* unpack28_32(const uint32_t*  in, uint32_t* out){
   constexpr uint32_t mask = ((uint32_t{1} << 28) - uint32_t{1});
 
-  const auto w0 = LoadInt<uint32_t>(in + 0 * 4);
-  const auto w1 = LoadInt<uint32_t>(in + 1 * 4);
-  const auto w2 = LoadInt<uint32_t>(in + 2 * 4);
-  const auto w3 = LoadInt<uint32_t>(in + 3 * 4);
-  const auto w4 = LoadInt<uint32_t>(in + 4 * 4);
-  const auto w5 = LoadInt<uint32_t>(in + 5 * 4);
-  const auto w6 = LoadInt<uint32_t>(in + 6 * 4);
-  const auto w7 = LoadInt<uint32_t>(in + 7 * 4);
-  const auto w8 = LoadInt<uint32_t>(in + 8 * 4);
-  const auto w9 = LoadInt<uint32_t>(in + 9 * 4);
-  const auto w10 = LoadInt<uint32_t>(in + 10 * 4);
-  const auto w11 = LoadInt<uint32_t>(in + 11 * 4);
-  const auto w12 = LoadInt<uint32_t>(in + 12 * 4);
-  const auto w13 = LoadInt<uint32_t>(in + 13 * 4);
-  const auto w14 = LoadInt<uint32_t>(in + 14 * 4);
-  const auto w15 = LoadInt<uint32_t>(in + 15 * 4);
-  const auto w16 = LoadInt<uint32_t>(in + 16 * 4);
-  const auto w17 = LoadInt<uint32_t>(in + 17 * 4);
-  const auto w18 = LoadInt<uint32_t>(in + 18 * 4);
-  const auto w19 = LoadInt<uint32_t>(in + 19 * 4);
-  const auto w20 = LoadInt<uint32_t>(in + 20 * 4);
-  const auto w21 = LoadInt<uint32_t>(in + 21 * 4);
-  const auto w22 = LoadInt<uint32_t>(in + 22 * 4);
-  const auto w23 = LoadInt<uint32_t>(in + 23 * 4);
-  const auto w24 = LoadInt<uint32_t>(in + 24 * 4);
-  const auto w25 = LoadInt<uint32_t>(in + 25 * 4);
-  const auto w26 = LoadInt<uint32_t>(in + 26 * 4);
-  const auto w27 = LoadInt<uint32_t>(in + 27 * 4);
+  const auto w0 = LoadInt<uint32_t>(in + 0);
+  const auto w1 = LoadInt<uint32_t>(in + 1);
+  const auto w2 = LoadInt<uint32_t>(in + 2);
+  const auto w3 = LoadInt<uint32_t>(in + 3);
+  const auto w4 = LoadInt<uint32_t>(in + 4);
+  const auto w5 = LoadInt<uint32_t>(in + 5);
+  const auto w6 = LoadInt<uint32_t>(in + 6);
+  const auto w7 = LoadInt<uint32_t>(in + 7);
+  const auto w8 = LoadInt<uint32_t>(in + 8);
+  const auto w9 = LoadInt<uint32_t>(in + 9);
+  const auto w10 = LoadInt<uint32_t>(in + 10);
+  const auto w11 = LoadInt<uint32_t>(in + 11);
+  const auto w12 = LoadInt<uint32_t>(in + 12);
+  const auto w13 = LoadInt<uint32_t>(in + 13);
+  const auto w14 = LoadInt<uint32_t>(in + 14);
+  const auto w15 = LoadInt<uint32_t>(in + 15);
+  const auto w16 = LoadInt<uint32_t>(in + 16);
+  const auto w17 = LoadInt<uint32_t>(in + 17);
+  const auto w18 = LoadInt<uint32_t>(in + 18);
+  const auto w19 = LoadInt<uint32_t>(in + 19);
+  const auto w20 = LoadInt<uint32_t>(in + 20);
+  const auto w21 = LoadInt<uint32_t>(in + 21);
+  const auto w22 = LoadInt<uint32_t>(in + 22);
+  const auto w23 = LoadInt<uint32_t>(in + 23);
+  const auto w24 = LoadInt<uint32_t>(in + 24);
+  const auto w25 = LoadInt<uint32_t>(in + 25);
+  const auto w26 = LoadInt<uint32_t>(in + 26);
+  const auto w27 = LoadInt<uint32_t>(in + 27 );
   out[0] = (w0) & mask;
   out[1] = ((w0 >> 28) | (w1 << 4)) & mask;
   out[2] = ((w1 >> 24) | (w2 << 8)) & mask;
@@ -1543,41 +1543,41 @@ inline const uint8_t* unpack28_32(const uint8_t* in, uint32_t* out){
   out[30] = ((w26 >> 8) | (w27 << 24)) & mask;
   out[31] = w27 >> 4;
 
-  return in + (28 * 4);
+  return in + (28 );
 }
 
-inline const uint8_t* unpack29_32(const uint8_t* in, uint32_t* out){
+inline const uint32_t* unpack29_32(const uint32_t*  in, uint32_t* out){
   constexpr uint32_t mask = ((uint32_t{1} << 29) - uint32_t{1});
 
-  const auto w0 = LoadInt<uint32_t>(in + 0 * 4);
-  const auto w1 = LoadInt<uint32_t>(in + 1 * 4);
-  const auto w2 = LoadInt<uint32_t>(in + 2 * 4);
-  const auto w3 = LoadInt<uint32_t>(in + 3 * 4);
-  const auto w4 = LoadInt<uint32_t>(in + 4 * 4);
-  const auto w5 = LoadInt<uint32_t>(in + 5 * 4);
-  const auto w6 = LoadInt<uint32_t>(in + 6 * 4);
-  const auto w7 = LoadInt<uint32_t>(in + 7 * 4);
-  const auto w8 = LoadInt<uint32_t>(in + 8 * 4);
-  const auto w9 = LoadInt<uint32_t>(in + 9 * 4);
-  const auto w10 = LoadInt<uint32_t>(in + 10 * 4);
-  const auto w11 = LoadInt<uint32_t>(in + 11 * 4);
-  const auto w12 = LoadInt<uint32_t>(in + 12 * 4);
-  const auto w13 = LoadInt<uint32_t>(in + 13 * 4);
-  const auto w14 = LoadInt<uint32_t>(in + 14 * 4);
-  const auto w15 = LoadInt<uint32_t>(in + 15 * 4);
-  const auto w16 = LoadInt<uint32_t>(in + 16 * 4);
-  const auto w17 = LoadInt<uint32_t>(in + 17 * 4);
-  const auto w18 = LoadInt<uint32_t>(in + 18 * 4);
-  const auto w19 = LoadInt<uint32_t>(in + 19 * 4);
-  const auto w20 = LoadInt<uint32_t>(in + 20 * 4);
-  const auto w21 = LoadInt<uint32_t>(in + 21 * 4);
-  const auto w22 = LoadInt<uint32_t>(in + 22 * 4);
-  const auto w23 = LoadInt<uint32_t>(in + 23 * 4);
-  const auto w24 = LoadInt<uint32_t>(in + 24 * 4);
-  const auto w25 = LoadInt<uint32_t>(in + 25 * 4);
-  const auto w26 = LoadInt<uint32_t>(in + 26 * 4);
-  const auto w27 = LoadInt<uint32_t>(in + 27 * 4);
-  const auto w28 = LoadInt<uint32_t>(in + 28 * 4);
+  const auto w0 = LoadInt<uint32_t>(in + 0);
+  const auto w1 = LoadInt<uint32_t>(in + 1);
+  const auto w2 = LoadInt<uint32_t>(in + 2);
+  const auto w3 = LoadInt<uint32_t>(in + 3);
+  const auto w4 = LoadInt<uint32_t>(in + 4);
+  const auto w5 = LoadInt<uint32_t>(in + 5);
+  const auto w6 = LoadInt<uint32_t>(in + 6);
+  const auto w7 = LoadInt<uint32_t>(in + 7);
+  const auto w8 = LoadInt<uint32_t>(in + 8);
+  const auto w9 = LoadInt<uint32_t>(in + 9);
+  const auto w10 = LoadInt<uint32_t>(in + 10);
+  const auto w11 = LoadInt<uint32_t>(in + 11);
+  const auto w12 = LoadInt<uint32_t>(in + 12);
+  const auto w13 = LoadInt<uint32_t>(in + 13);
+  const auto w14 = LoadInt<uint32_t>(in + 14);
+  const auto w15 = LoadInt<uint32_t>(in + 15);
+  const auto w16 = LoadInt<uint32_t>(in + 16);
+  const auto w17 = LoadInt<uint32_t>(in + 17);
+  const auto w18 = LoadInt<uint32_t>(in + 18);
+  const auto w19 = LoadInt<uint32_t>(in + 19);
+  const auto w20 = LoadInt<uint32_t>(in + 20);
+  const auto w21 = LoadInt<uint32_t>(in + 21);
+  const auto w22 = LoadInt<uint32_t>(in + 22);
+  const auto w23 = LoadInt<uint32_t>(in + 23);
+  const auto w24 = LoadInt<uint32_t>(in + 24);
+  const auto w25 = LoadInt<uint32_t>(in + 25);
+  const auto w26 = LoadInt<uint32_t>(in + 26);
+  const auto w27 = LoadInt<uint32_t>(in + 27);
+  const auto w28 = LoadInt<uint32_t>(in + 28 );
   out[0] = (w0) & mask;
   out[1] = ((w0 >> 29) | (w1 << 3)) & mask;
   out[2] = ((w1 >> 26) | (w2 << 6)) & mask;
@@ -1611,42 +1611,42 @@ inline const uint8_t* unpack29_32(const uint8_t* in, uint32_t* out){
   out[30] = ((w27 >> 6) | (w28 << 26)) & mask;
   out[31] = w28 >> 3;
 
-  return in + (29 * 4);
+  return in + (29 );
 }
 
-inline const uint8_t* unpack30_32(const uint8_t* in, uint32_t* out){
+inline const uint32_t* unpack30_32(const uint32_t*  in, uint32_t* out){
   constexpr uint32_t mask = ((uint32_t{1} << 30) - uint32_t{1});
 
-  const auto w0 = LoadInt<uint32_t>(in + 0 * 4);
-  const auto w1 = LoadInt<uint32_t>(in + 1 * 4);
-  const auto w2 = LoadInt<uint32_t>(in + 2 * 4);
-  const auto w3 = LoadInt<uint32_t>(in + 3 * 4);
-  const auto w4 = LoadInt<uint32_t>(in + 4 * 4);
-  const auto w5 = LoadInt<uint32_t>(in + 5 * 4);
-  const auto w6 = LoadInt<uint32_t>(in + 6 * 4);
-  const auto w7 = LoadInt<uint32_t>(in + 7 * 4);
-  const auto w8 = LoadInt<uint32_t>(in + 8 * 4);
-  const auto w9 = LoadInt<uint32_t>(in + 9 * 4);
-  const auto w10 = LoadInt<uint32_t>(in + 10 * 4);
-  const auto w11 = LoadInt<uint32_t>(in + 11 * 4);
-  const auto w12 = LoadInt<uint32_t>(in + 12 * 4);
-  const auto w13 = LoadInt<uint32_t>(in + 13 * 4);
-  const auto w14 = LoadInt<uint32_t>(in + 14 * 4);
-  const auto w15 = LoadInt<uint32_t>(in + 15 * 4);
-  const auto w16 = LoadInt<uint32_t>(in + 16 * 4);
-  const auto w17 = LoadInt<uint32_t>(in + 17 * 4);
-  const auto w18 = LoadInt<uint32_t>(in + 18 * 4);
-  const auto w19 = LoadInt<uint32_t>(in + 19 * 4);
-  const auto w20 = LoadInt<uint32_t>(in + 20 * 4);
-  const auto w21 = LoadInt<uint32_t>(in + 21 * 4);
-  const auto w22 = LoadInt<uint32_t>(in + 22 * 4);
-  const auto w23 = LoadInt<uint32_t>(in + 23 * 4);
-  const auto w24 = LoadInt<uint32_t>(in + 24 * 4);
-  const auto w25 = LoadInt<uint32_t>(in + 25 * 4);
-  const auto w26 = LoadInt<uint32_t>(in + 26 * 4);
-  const auto w27 = LoadInt<uint32_t>(in + 27 * 4);
-  const auto w28 = LoadInt<uint32_t>(in + 28 * 4);
-  const auto w29 = LoadInt<uint32_t>(in + 29 * 4);
+  const auto w0 = LoadInt<uint32_t>(in + 0);
+  const auto w1 = LoadInt<uint32_t>(in + 1);
+  const auto w2 = LoadInt<uint32_t>(in + 2);
+  const auto w3 = LoadInt<uint32_t>(in + 3);
+  const auto w4 = LoadInt<uint32_t>(in + 4);
+  const auto w5 = LoadInt<uint32_t>(in + 5);
+  const auto w6 = LoadInt<uint32_t>(in + 6);
+  const auto w7 = LoadInt<uint32_t>(in + 7);
+  const auto w8 = LoadInt<uint32_t>(in + 8);
+  const auto w9 = LoadInt<uint32_t>(in + 9);
+  const auto w10 = LoadInt<uint32_t>(in + 10);
+  const auto w11 = LoadInt<uint32_t>(in + 11);
+  const auto w12 = LoadInt<uint32_t>(in + 12);
+  const auto w13 = LoadInt<uint32_t>(in + 13);
+  const auto w14 = LoadInt<uint32_t>(in + 14);
+  const auto w15 = LoadInt<uint32_t>(in + 15);
+  const auto w16 = LoadInt<uint32_t>(in + 16);
+  const auto w17 = LoadInt<uint32_t>(in + 17);
+  const auto w18 = LoadInt<uint32_t>(in + 18);
+  const auto w19 = LoadInt<uint32_t>(in + 19);
+  const auto w20 = LoadInt<uint32_t>(in + 20);
+  const auto w21 = LoadInt<uint32_t>(in + 21);
+  const auto w22 = LoadInt<uint32_t>(in + 22);
+  const auto w23 = LoadInt<uint32_t>(in + 23);
+  const auto w24 = LoadInt<uint32_t>(in + 24);
+  const auto w25 = LoadInt<uint32_t>(in + 25);
+  const auto w26 = LoadInt<uint32_t>(in + 26);
+  const auto w27 = LoadInt<uint32_t>(in + 27);
+  const auto w28 = LoadInt<uint32_t>(in + 28);
+  const auto w29 = LoadInt<uint32_t>(in + 29 );
   out[0] = (w0) & mask;
   out[1] = ((w0 >> 30) | (w1 << 2)) & mask;
   out[2] = ((w1 >> 28) | (w2 << 4)) & mask;
@@ -1680,43 +1680,43 @@ inline const uint8_t* unpack30_32(const uint8_t* in, uint32_t* out){
   out[30] = ((w28 >> 4) | (w29 << 28)) & mask;
   out[31] = w29 >> 2;
 
-  return in + (30 * 4);
+  return in + (30 );
 }
 
-inline const uint8_t* unpack31_32(const uint8_t* in, uint32_t* out){
+inline const uint32_t* unpack31_32(const uint32_t*  in, uint32_t* out){
   constexpr uint32_t mask = ((uint32_t{1} << 31) - uint32_t{1});
 
-  const auto w0 = LoadInt<uint32_t>(in + 0 * 4);
-  const auto w1 = LoadInt<uint32_t>(in + 1 * 4);
-  const auto w2 = LoadInt<uint32_t>(in + 2 * 4);
-  const auto w3 = LoadInt<uint32_t>(in + 3 * 4);
-  const auto w4 = LoadInt<uint32_t>(in + 4 * 4);
-  const auto w5 = LoadInt<uint32_t>(in + 5 * 4);
-  const auto w6 = LoadInt<uint32_t>(in + 6 * 4);
-  const auto w7 = LoadInt<uint32_t>(in + 7 * 4);
-  const auto w8 = LoadInt<uint32_t>(in + 8 * 4);
-  const auto w9 = LoadInt<uint32_t>(in + 9 * 4);
-  const auto w10 = LoadInt<uint32_t>(in + 10 * 4);
-  const auto w11 = LoadInt<uint32_t>(in + 11 * 4);
-  const auto w12 = LoadInt<uint32_t>(in + 12 * 4);
-  const auto w13 = LoadInt<uint32_t>(in + 13 * 4);
-  const auto w14 = LoadInt<uint32_t>(in + 14 * 4);
-  const auto w15 = LoadInt<uint32_t>(in + 15 * 4);
-  const auto w16 = LoadInt<uint32_t>(in + 16 * 4);
-  const auto w17 = LoadInt<uint32_t>(in + 17 * 4);
-  const auto w18 = LoadInt<uint32_t>(in + 18 * 4);
-  const auto w19 = LoadInt<uint32_t>(in + 19 * 4);
-  const auto w20 = LoadInt<uint32_t>(in + 20 * 4);
-  const auto w21 = LoadInt<uint32_t>(in + 21 * 4);
-  const auto w22 = LoadInt<uint32_t>(in + 22 * 4);
-  const auto w23 = LoadInt<uint32_t>(in + 23 * 4);
-  const auto w24 = LoadInt<uint32_t>(in + 24 * 4);
-  const auto w25 = LoadInt<uint32_t>(in + 25 * 4);
-  const auto w26 = LoadInt<uint32_t>(in + 26 * 4);
-  const auto w27 = LoadInt<uint32_t>(in + 27 * 4);
-  const auto w28 = LoadInt<uint32_t>(in + 28 * 4);
-  const auto w29 = LoadInt<uint32_t>(in + 29 * 4);
-  const auto w30 = LoadInt<uint32_t>(in + 30 * 4);
+  const auto w0 = LoadInt<uint32_t>(in + 0);
+  const auto w1 = LoadInt<uint32_t>(in + 1);
+  const auto w2 = LoadInt<uint32_t>(in + 2);
+  const auto w3 = LoadInt<uint32_t>(in + 3);
+  const auto w4 = LoadInt<uint32_t>(in + 4);
+  const auto w5 = LoadInt<uint32_t>(in + 5);
+  const auto w6 = LoadInt<uint32_t>(in + 6);
+  const auto w7 = LoadInt<uint32_t>(in + 7);
+  const auto w8 = LoadInt<uint32_t>(in + 8);
+  const auto w9 = LoadInt<uint32_t>(in + 9);
+  const auto w10 = LoadInt<uint32_t>(in + 10);
+  const auto w11 = LoadInt<uint32_t>(in + 11);
+  const auto w12 = LoadInt<uint32_t>(in + 12);
+  const auto w13 = LoadInt<uint32_t>(in + 13);
+  const auto w14 = LoadInt<uint32_t>(in + 14);
+  const auto w15 = LoadInt<uint32_t>(in + 15);
+  const auto w16 = LoadInt<uint32_t>(in + 16);
+  const auto w17 = LoadInt<uint32_t>(in + 17);
+  const auto w18 = LoadInt<uint32_t>(in + 18);
+  const auto w19 = LoadInt<uint32_t>(in + 19);
+  const auto w20 = LoadInt<uint32_t>(in + 20);
+  const auto w21 = LoadInt<uint32_t>(in + 21);
+  const auto w22 = LoadInt<uint32_t>(in + 22);
+  const auto w23 = LoadInt<uint32_t>(in + 23);
+  const auto w24 = LoadInt<uint32_t>(in + 24);
+  const auto w25 = LoadInt<uint32_t>(in + 25);
+  const auto w26 = LoadInt<uint32_t>(in + 26);
+  const auto w27 = LoadInt<uint32_t>(in + 27);
+  const auto w28 = LoadInt<uint32_t>(in + 28);
+  const auto w29 = LoadInt<uint32_t>(in + 29);
+  const auto w30 = LoadInt<uint32_t>(in + 30 );
   out[0] = (w0) & mask;
   out[1] = ((w0 >> 31) | (w1 << 1)) & mask;
   out[2] = ((w1 >> 30) | (w2 << 2)) & mask;
@@ -1750,25 +1750,25 @@ inline const uint8_t* unpack31_32(const uint8_t* in, uint32_t* out){
   out[30] = ((w29 >> 2) | (w30 << 30)) & mask;
   out[31] = w30 >> 1;
 
-  return in + (31 * 4);
+  return in + (31 );
 }
 
-inline const uint8_t* unpack32_32(const uint8_t* in, uint32_t* out){
+inline const uint32_t* unpack32_32(const uint32_t*  in, uint32_t* out){
   for(int k = 0; k < 32; k += 1) {
-    out[k] = LoadInt<uint32_t>(in + (k * 4));
+    out[k] = LoadInt<uint32_t>(in + (k ));
   }
-  return in + (4 * 32);
+  return in + ( 32);
 }
 
-inline const uint8_t* unpack0_64(const uint8_t* in, uint64_t* out){
+inline const uint64_t* unpack0_64(const uint64_t*  in, uint64_t* out){
   std::memset(out, 0, 32 * 8);
   return in;
 }
 
-inline const uint8_t* unpack1_64(const uint8_t* in, uint64_t* out){
+inline const uint64_t* unpack1_64(const uint64_t*  in, uint64_t* out){
   constexpr uint64_t mask = ((uint64_t{1} << 1) - uint64_t{1});
 
-  const auto w0 = static_cast<uint64_t>(LoadInt<uint32_t>(in + 0 * 8));
+  const auto w0 = static_cast<uint64_t>(LoadInt(reinterpret_cast<const uint32_t*>(in + 0)));
   out[0] = (w0) & mask;
   out[1] = (w0 >> 1) & mask;
   out[2] = (w0 >> 2) & mask;
@@ -1802,13 +1802,13 @@ inline const uint8_t* unpack1_64(const uint8_t* in, uint64_t* out){
   out[30] = (w0 >> 30) & mask;
   out[31] = (w0 >> 31) & mask;
 
-  return in + (0 * 8 + 4);
+  return in + (0);
 }
 
-inline const uint8_t* unpack2_64(const uint8_t* in, uint64_t* out){
+inline const uint64_t* unpack2_64(const uint64_t*  in, uint64_t* out){
   constexpr uint64_t mask = ((uint64_t{1} << 2) - uint64_t{1});
 
-  const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
+  const auto w0 = LoadInt<uint64_t>(in + 0 );
   out[0] = (w0) & mask;
   out[1] = (w0 >> 2) & mask;
   out[2] = (w0 >> 4) & mask;
@@ -1842,14 +1842,14 @@ inline const uint8_t* unpack2_64(const uint8_t* in, uint64_t* out){
   out[30] = (w0 >> 60) & mask;
   out[31] = w0 >> 62;
 
-  return in + (1 * 8);
+  return in + (1 );
 }
 
-inline const uint8_t* unpack3_64(const uint8_t* in, uint64_t* out){
+inline const uint64_t* unpack3_64(const uint64_t*  in, uint64_t* out){
   constexpr uint64_t mask = ((uint64_t{1} << 3) - uint64_t{1});
 
-  const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
-  const auto w1 = static_cast<uint64_t>(LoadInt<uint32_t>(in + 1 * 8));
+  const auto w0 = LoadInt<uint64_t>(in + 0);
+  const auto w1 = static_cast<uint64_t>(LoadInt(reinterpret_cast<const uint32_t*>(in + 1)));
   out[0] = (w0) & mask;
   out[1] = (w0 >> 3) & mask;
   out[2] = (w0 >> 6) & mask;
@@ -1883,14 +1883,14 @@ inline const uint8_t* unpack3_64(const uint8_t* in, uint64_t* out){
   out[30] = (w1 >> 26) & mask;
   out[31] = (w1 >> 29) & mask;
 
-  return in + (1 * 8 + 4);
+  return in + (1);
 }
 
-inline const uint8_t* unpack4_64(const uint8_t* in, uint64_t* out){
+inline const uint64_t* unpack4_64(const uint64_t*  in, uint64_t* out){
   constexpr uint64_t mask = ((uint64_t{1} << 4) - uint64_t{1});
 
-  const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
-  const auto w1 = LoadInt<uint64_t>(in + 1 * 8);
+  const auto w0 = LoadInt<uint64_t>(in + 0);
+  const auto w1 = LoadInt<uint64_t>(in + 1 );
   out[0] = (w0) & mask;
   out[1] = (w0 >> 4) & mask;
   out[2] = (w0 >> 8) & mask;
@@ -1924,15 +1924,15 @@ inline const uint8_t* unpack4_64(const uint8_t* in, uint64_t* out){
   out[30] = (w1 >> 56) & mask;
   out[31] = w1 >> 60;
 
-  return in + (2 * 8);
+  return in + (2 );
 }
 
-inline const uint8_t* unpack5_64(const uint8_t* in, uint64_t* out){
+inline const uint64_t* unpack5_64(const uint64_t*  in, uint64_t* out){
   constexpr uint64_t mask = ((uint64_t{1} << 5) - uint64_t{1});
 
-  const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
-  const auto w1 = LoadInt<uint64_t>(in + 1 * 8);
-  const auto w2 = static_cast<uint64_t>(LoadInt<uint32_t>(in + 2 * 8));
+  const auto w0 = LoadInt<uint64_t>(in + 0);
+  const auto w1 = LoadInt<uint64_t>(in + 1);
+  const auto w2 = static_cast<uint64_t>(LoadInt(reinterpret_cast<const uint32_t*>(in + 2)));
   out[0] = (w0) & mask;
   out[1] = (w0 >> 5) & mask;
   out[2] = (w0 >> 10) & mask;
@@ -1966,15 +1966,15 @@ inline const uint8_t* unpack5_64(const uint8_t* in, uint64_t* out){
   out[30] = (w2 >> 22) & mask;
   out[31] = (w2 >> 27) & mask;
 
-  return in + (2 * 8 + 4);
+  return in + (2);
 }
 
-inline const uint8_t* unpack6_64(const uint8_t* in, uint64_t* out){
+inline const uint64_t* unpack6_64(const uint64_t*  in, uint64_t* out){
   constexpr uint64_t mask = ((uint64_t{1} << 6) - uint64_t{1});
 
-  const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
-  const auto w1 = LoadInt<uint64_t>(in + 1 * 8);
-  const auto w2 = LoadInt<uint64_t>(in + 2 * 8);
+  const auto w0 = LoadInt<uint64_t>(in + 0);
+  const auto w1 = LoadInt<uint64_t>(in + 1);
+  const auto w2 = LoadInt<uint64_t>(in + 2 );
   out[0] = (w0) & mask;
   out[1] = (w0 >> 6) & mask;
   out[2] = (w0 >> 12) & mask;
@@ -2008,16 +2008,16 @@ inline const uint8_t* unpack6_64(const uint8_t* in, uint64_t* out){
   out[30] = (w2 >> 52) & mask;
   out[31] = w2 >> 58;
 
-  return in + (3 * 8);
+  return in + (3 );
 }
 
-inline const uint8_t* unpack7_64(const uint8_t* in, uint64_t* out){
+inline const uint64_t* unpack7_64(const uint64_t*  in, uint64_t* out){
   constexpr uint64_t mask = ((uint64_t{1} << 7) - uint64_t{1});
 
-  const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
-  const auto w1 = LoadInt<uint64_t>(in + 1 * 8);
-  const auto w2 = LoadInt<uint64_t>(in + 2 * 8);
-  const auto w3 = static_cast<uint64_t>(LoadInt<uint32_t>(in + 3 * 8));
+  const auto w0 = LoadInt<uint64_t>(in + 0);
+  const auto w1 = LoadInt<uint64_t>(in + 1);
+  const auto w2 = LoadInt<uint64_t>(in + 2);
+  const auto w3 = static_cast<uint64_t>(LoadInt(reinterpret_cast<const uint32_t*>(in + 3)));
   out[0] = (w0) & mask;
   out[1] = (w0 >> 7) & mask;
   out[2] = (w0 >> 14) & mask;
@@ -2051,16 +2051,16 @@ inline const uint8_t* unpack7_64(const uint8_t* in, uint64_t* out){
   out[30] = (w3 >> 18) & mask;
   out[31] = (w3 >> 25) & mask;
 
-  return in + (3 * 8 + 4);
+  return in + (3);
 }
 
-inline const uint8_t* unpack8_64(const uint8_t* in, uint64_t* out){
+inline const uint64_t* unpack8_64(const uint64_t*  in, uint64_t* out){
   constexpr uint64_t mask = ((uint64_t{1} << 8) - uint64_t{1});
 
-  const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
-  const auto w1 = LoadInt<uint64_t>(in + 1 * 8);
-  const auto w2 = LoadInt<uint64_t>(in + 2 * 8);
-  const auto w3 = LoadInt<uint64_t>(in + 3 * 8);
+  const auto w0 = LoadInt<uint64_t>(in + 0);
+  const auto w1 = LoadInt<uint64_t>(in + 1);
+  const auto w2 = LoadInt<uint64_t>(in + 2);
+  const auto w3 = LoadInt<uint64_t>(in + 3 );
   out[0] = (w0) & mask;
   out[1] = (w0 >> 8) & mask;
   out[2] = (w0 >> 16) & mask;
@@ -2094,17 +2094,17 @@ inline const uint8_t* unpack8_64(const uint8_t* in, uint64_t* out){
   out[30] = (w3 >> 48) & mask;
   out[31] = w3 >> 56;
 
-  return in + (4 * 8);
+  return in + (4 );
 }
 
-inline const uint8_t* unpack9_64(const uint8_t* in, uint64_t* out){
+inline const uint64_t* unpack9_64(const uint64_t*  in, uint64_t* out){
   constexpr uint64_t mask = ((uint64_t{1} << 9) - uint64_t{1});
 
-  const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
-  const auto w1 = LoadInt<uint64_t>(in + 1 * 8);
-  const auto w2 = LoadInt<uint64_t>(in + 2 * 8);
-  const auto w3 = LoadInt<uint64_t>(in + 3 * 8);
-  const auto w4 = static_cast<uint64_t>(LoadInt<uint32_t>(in + 4 * 8));
+  const auto w0 = LoadInt<uint64_t>(in + 0);
+  const auto w1 = LoadInt<uint64_t>(in + 1);
+  const auto w2 = LoadInt<uint64_t>(in + 2);
+  const auto w3 = LoadInt<uint64_t>(in + 3);
+  const auto w4 = static_cast<uint64_t>(LoadInt(reinterpret_cast<const uint32_t*>(in + 4)));
   out[0] = (w0) & mask;
   out[1] = (w0 >> 9) & mask;
   out[2] = (w0 >> 18) & mask;
@@ -2138,17 +2138,17 @@ inline const uint8_t* unpack9_64(const uint8_t* in, uint64_t* out){
   out[30] = (w4 >> 14) & mask;
   out[31] = (w4 >> 23) & mask;
 
-  return in + (4 * 8 + 4);
+  return in + (4);
 }
 
-inline const uint8_t* unpack10_64(const uint8_t* in, uint64_t* out){
+inline const uint64_t* unpack10_64(const uint64_t*  in, uint64_t* out){
   constexpr uint64_t mask = ((uint64_t{1} << 10) - uint64_t{1});
 
-  const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
-  const auto w1 = LoadInt<uint64_t>(in + 1 * 8);
-  const auto w2 = LoadInt<uint64_t>(in + 2 * 8);
-  const auto w3 = LoadInt<uint64_t>(in + 3 * 8);
-  const auto w4 = LoadInt<uint64_t>(in + 4 * 8);
+  const auto w0 = LoadInt<uint64_t>(in + 0);
+  const auto w1 = LoadInt<uint64_t>(in + 1);
+  const auto w2 = LoadInt<uint64_t>(in + 2);
+  const auto w3 = LoadInt<uint64_t>(in + 3);
+  const auto w4 = LoadInt<uint64_t>(in + 4 );
   out[0] = (w0) & mask;
   out[1] = (w0 >> 10) & mask;
   out[2] = (w0 >> 20) & mask;
@@ -2182,18 +2182,18 @@ inline const uint8_t* unpack10_64(const uint8_t* in, uint64_t* out){
   out[30] = (w4 >> 44) & mask;
   out[31] = w4 >> 54;
 
-  return in + (5 * 8);
+  return in + (5 );
 }
 
-inline const uint8_t* unpack11_64(const uint8_t* in, uint64_t* out){
+inline const uint64_t* unpack11_64(const uint64_t*  in, uint64_t* out){
   constexpr uint64_t mask = ((uint64_t{1} << 11) - uint64_t{1});
 
-  const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
-  const auto w1 = LoadInt<uint64_t>(in + 1 * 8);
-  const auto w2 = LoadInt<uint64_t>(in + 2 * 8);
-  const auto w3 = LoadInt<uint64_t>(in + 3 * 8);
-  const auto w4 = LoadInt<uint64_t>(in + 4 * 8);
-  const auto w5 = static_cast<uint64_t>(LoadInt<uint32_t>(in + 5 * 8));
+  const auto w0 = LoadInt<uint64_t>(in + 0);
+  const auto w1 = LoadInt<uint64_t>(in + 1);
+  const auto w2 = LoadInt<uint64_t>(in + 2);
+  const auto w3 = LoadInt<uint64_t>(in + 3);
+  const auto w4 = LoadInt<uint64_t>(in + 4);
+  const auto w5 = static_cast<uint64_t>(LoadInt(reinterpret_cast<const uint32_t*>(in + 5)));
   out[0] = (w0) & mask;
   out[1] = (w0 >> 11) & mask;
   out[2] = (w0 >> 22) & mask;
@@ -2227,18 +2227,18 @@ inline const uint8_t* unpack11_64(const uint8_t* in, uint64_t* out){
   out[30] = (w5 >> 10) & mask;
   out[31] = (w5 >> 21) & mask;
 
-  return in + (5 * 8 + 4);
+  return in + (5);
 }
 
-inline const uint8_t* unpack12_64(const uint8_t* in, uint64_t* out){
+inline const uint64_t* unpack12_64(const uint64_t*  in, uint64_t* out){
   constexpr uint64_t mask = ((uint64_t{1} << 12) - uint64_t{1});
 
-  const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
-  const auto w1 = LoadInt<uint64_t>(in + 1 * 8);
-  const auto w2 = LoadInt<uint64_t>(in + 2 * 8);
-  const auto w3 = LoadInt<uint64_t>(in + 3 * 8);
-  const auto w4 = LoadInt<uint64_t>(in + 4 * 8);
-  const auto w5 = LoadInt<uint64_t>(in + 5 * 8);
+  const auto w0 = LoadInt<uint64_t>(in + 0);
+  const auto w1 = LoadInt<uint64_t>(in + 1);
+  const auto w2 = LoadInt<uint64_t>(in + 2);
+  const auto w3 = LoadInt<uint64_t>(in + 3);
+  const auto w4 = LoadInt<uint64_t>(in + 4);
+  const auto w5 = LoadInt<uint64_t>(in + 5 );
   out[0] = (w0) & mask;
   out[1] = (w0 >> 12) & mask;
   out[2] = (w0 >> 24) & mask;
@@ -2272,19 +2272,19 @@ inline const uint8_t* unpack12_64(const uint8_t* in, uint64_t* out){
   out[30] = (w5 >> 40) & mask;
   out[31] = w5 >> 52;
 
-  return in + (6 * 8);
+  return in + (6 );
 }
 
-inline const uint8_t* unpack13_64(const uint8_t* in, uint64_t* out){
+inline const uint64_t* unpack13_64(const uint64_t*  in, uint64_t* out){
   constexpr uint64_t mask = ((uint64_t{1} << 13) - uint64_t{1});
 
-  const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
-  const auto w1 = LoadInt<uint64_t>(in + 1 * 8);
-  const auto w2 = LoadInt<uint64_t>(in + 2 * 8);
-  const auto w3 = LoadInt<uint64_t>(in + 3 * 8);
-  const auto w4 = LoadInt<uint64_t>(in + 4 * 8);
-  const auto w5 = LoadInt<uint64_t>(in + 5 * 8);
-  const auto w6 = static_cast<uint64_t>(LoadInt<uint32_t>(in + 6 * 8));
+  const auto w0 = LoadInt<uint64_t>(in + 0);
+  const auto w1 = LoadInt<uint64_t>(in + 1);
+  const auto w2 = LoadInt<uint64_t>(in + 2);
+  const auto w3 = LoadInt<uint64_t>(in + 3);
+  const auto w4 = LoadInt<uint64_t>(in + 4);
+  const auto w5 = LoadInt<uint64_t>(in + 5);
+  const auto w6 = static_cast<uint64_t>(LoadInt(reinterpret_cast<const uint32_t*>(in + 6)));
   out[0] = (w0) & mask;
   out[1] = (w0 >> 13) & mask;
   out[2] = (w0 >> 26) & mask;
@@ -2318,19 +2318,19 @@ inline const uint8_t* unpack13_64(const uint8_t* in, uint64_t* out){
   out[30] = (w6 >> 6) & mask;
   out[31] = (w6 >> 19) & mask;
 
-  return in + (6 * 8 + 4);
+  return in + (6);
 }
 
-inline const uint8_t* unpack14_64(const uint8_t* in, uint64_t* out){
+inline const uint64_t* unpack14_64(const uint64_t*  in, uint64_t* out){
   constexpr uint64_t mask = ((uint64_t{1} << 14) - uint64_t{1});
 
-  const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
-  const auto w1 = LoadInt<uint64_t>(in + 1 * 8);
-  const auto w2 = LoadInt<uint64_t>(in + 2 * 8);
-  const auto w3 = LoadInt<uint64_t>(in + 3 * 8);
-  const auto w4 = LoadInt<uint64_t>(in + 4 * 8);
-  const auto w5 = LoadInt<uint64_t>(in + 5 * 8);
-  const auto w6 = LoadInt<uint64_t>(in + 6 * 8);
+  const auto w0 = LoadInt<uint64_t>(in + 0);
+  const auto w1 = LoadInt<uint64_t>(in + 1);
+  const auto w2 = LoadInt<uint64_t>(in + 2);
+  const auto w3 = LoadInt<uint64_t>(in + 3);
+  const auto w4 = LoadInt<uint64_t>(in + 4);
+  const auto w5 = LoadInt<uint64_t>(in + 5);
+  const auto w6 = LoadInt<uint64_t>(in + 6 );
   out[0] = (w0) & mask;
   out[1] = (w0 >> 14) & mask;
   out[2] = (w0 >> 28) & mask;
@@ -2364,20 +2364,20 @@ inline const uint8_t* unpack14_64(const uint8_t* in, uint64_t* out){
   out[30] = (w6 >> 36) & mask;
   out[31] = w6 >> 50;
 
-  return in + (7 * 8);
+  return in + (7 );
 }
 
-inline const uint8_t* unpack15_64(const uint8_t* in, uint64_t* out){
+inline const uint64_t* unpack15_64(const uint64_t*  in, uint64_t* out){
   constexpr uint64_t mask = ((uint64_t{1} << 15) - uint64_t{1});
 
-  const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
-  const auto w1 = LoadInt<uint64_t>(in + 1 * 8);
-  const auto w2 = LoadInt<uint64_t>(in + 2 * 8);
-  const auto w3 = LoadInt<uint64_t>(in + 3 * 8);
-  const auto w4 = LoadInt<uint64_t>(in + 4 * 8);
-  const auto w5 = LoadInt<uint64_t>(in + 5 * 8);
-  const auto w6 = LoadInt<uint64_t>(in + 6 * 8);
-  const auto w7 = static_cast<uint64_t>(LoadInt<uint32_t>(in + 7 * 8));
+  const auto w0 = LoadInt<uint64_t>(in + 0);
+  const auto w1 = LoadInt<uint64_t>(in + 1);
+  const auto w2 = LoadInt<uint64_t>(in + 2);
+  const auto w3 = LoadInt<uint64_t>(in + 3);
+  const auto w4 = LoadInt<uint64_t>(in + 4);
+  const auto w5 = LoadInt<uint64_t>(in + 5);
+  const auto w6 = LoadInt<uint64_t>(in + 6);
+  const auto w7 = static_cast<uint64_t>(LoadInt(reinterpret_cast<const uint32_t*>(in + 7)));
   out[0] = (w0) & mask;
   out[1] = (w0 >> 15) & mask;
   out[2] = (w0 >> 30) & mask;
@@ -2411,20 +2411,20 @@ inline const uint8_t* unpack15_64(const uint8_t* in, uint64_t* out){
   out[30] = (w7 >> 2) & mask;
   out[31] = (w7 >> 17) & mask;
 
-  return in + (7 * 8 + 4);
+  return in + (7);
 }
 
-inline const uint8_t* unpack16_64(const uint8_t* in, uint64_t* out){
+inline const uint64_t* unpack16_64(const uint64_t*  in, uint64_t* out){
   constexpr uint64_t mask = ((uint64_t{1} << 16) - uint64_t{1});
 
-  const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
-  const auto w1 = LoadInt<uint64_t>(in + 1 * 8);
-  const auto w2 = LoadInt<uint64_t>(in + 2 * 8);
-  const auto w3 = LoadInt<uint64_t>(in + 3 * 8);
-  const auto w4 = LoadInt<uint64_t>(in + 4 * 8);
-  const auto w5 = LoadInt<uint64_t>(in + 5 * 8);
-  const auto w6 = LoadInt<uint64_t>(in + 6 * 8);
-  const auto w7 = LoadInt<uint64_t>(in + 7 * 8);
+  const auto w0 = LoadInt<uint64_t>(in + 0);
+  const auto w1 = LoadInt<uint64_t>(in + 1);
+  const auto w2 = LoadInt<uint64_t>(in + 2);
+  const auto w3 = LoadInt<uint64_t>(in + 3);
+  const auto w4 = LoadInt<uint64_t>(in + 4);
+  const auto w5 = LoadInt<uint64_t>(in + 5);
+  const auto w6 = LoadInt<uint64_t>(in + 6);
+  const auto w7 = LoadInt<uint64_t>(in + 7 );
   out[0] = (w0) & mask;
   out[1] = (w0 >> 16) & mask;
   out[2] = (w0 >> 32) & mask;
@@ -2458,21 +2458,21 @@ inline const uint8_t* unpack16_64(const uint8_t* in, uint64_t* out){
   out[30] = (w7 >> 32) & mask;
   out[31] = w7 >> 48;
 
-  return in + (8 * 8);
+  return in + (8 );
 }
 
-inline const uint8_t* unpack17_64(const uint8_t* in, uint64_t* out){
+inline const uint64_t* unpack17_64(const uint64_t*  in, uint64_t* out){
   constexpr uint64_t mask = ((uint64_t{1} << 17) - uint64_t{1});
 
-  const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
-  const auto w1 = LoadInt<uint64_t>(in + 1 * 8);
-  const auto w2 = LoadInt<uint64_t>(in + 2 * 8);
-  const auto w3 = LoadInt<uint64_t>(in + 3 * 8);
-  const auto w4 = LoadInt<uint64_t>(in + 4 * 8);
-  const auto w5 = LoadInt<uint64_t>(in + 5 * 8);
-  const auto w6 = LoadInt<uint64_t>(in + 6 * 8);
-  const auto w7 = LoadInt<uint64_t>(in + 7 * 8);
-  const auto w8 = static_cast<uint64_t>(LoadInt<uint32_t>(in + 8 * 8));
+  const auto w0 = LoadInt<uint64_t>(in + 0);
+  const auto w1 = LoadInt<uint64_t>(in + 1);
+  const auto w2 = LoadInt<uint64_t>(in + 2);
+  const auto w3 = LoadInt<uint64_t>(in + 3);
+  const auto w4 = LoadInt<uint64_t>(in + 4);
+  const auto w5 = LoadInt<uint64_t>(in + 5);
+  const auto w6 = LoadInt<uint64_t>(in + 6);
+  const auto w7 = LoadInt<uint64_t>(in + 7);
+  const auto w8 = static_cast<uint64_t>(LoadInt(reinterpret_cast<const uint32_t*>(in + 8)));
   out[0] = (w0) & mask;
   out[1] = (w0 >> 17) & mask;
   out[2] = (w0 >> 34) & mask;
@@ -2506,21 +2506,21 @@ inline const uint8_t* unpack17_64(const uint8_t* in, uint64_t* out){
   out[30] = ((w7 >> 62) | (w8 << 2)) & mask;
   out[31] = (w8 >> 15) & mask;
 
-  return in + (8 * 8 + 4);
+  return in + (8);
 }
 
-inline const uint8_t* unpack18_64(const uint8_t* in, uint64_t* out){
+inline const uint64_t* unpack18_64(const uint64_t*  in, uint64_t* out){
   constexpr uint64_t mask = ((uint64_t{1} << 18) - uint64_t{1});
 
-  const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
-  const auto w1 = LoadInt<uint64_t>(in + 1 * 8);
-  const auto w2 = LoadInt<uint64_t>(in + 2 * 8);
-  const auto w3 = LoadInt<uint64_t>(in + 3 * 8);
-  const auto w4 = LoadInt<uint64_t>(in + 4 * 8);
-  const auto w5 = LoadInt<uint64_t>(in + 5 * 8);
-  const auto w6 = LoadInt<uint64_t>(in + 6 * 8);
-  const auto w7 = LoadInt<uint64_t>(in + 7 * 8);
-  const auto w8 = LoadInt<uint64_t>(in + 8 * 8);
+  const auto w0 = LoadInt<uint64_t>(in + 0);
+  const auto w1 = LoadInt<uint64_t>(in + 1);
+  const auto w2 = LoadInt<uint64_t>(in + 2);
+  const auto w3 = LoadInt<uint64_t>(in + 3);
+  const auto w4 = LoadInt<uint64_t>(in + 4);
+  const auto w5 = LoadInt<uint64_t>(in + 5);
+  const auto w6 = LoadInt<uint64_t>(in + 6);
+  const auto w7 = LoadInt<uint64_t>(in + 7);
+  const auto w8 = LoadInt<uint64_t>(in + 8 );
   out[0] = (w0) & mask;
   out[1] = (w0 >> 18) & mask;
   out[2] = (w0 >> 36) & mask;
@@ -2554,22 +2554,22 @@ inline const uint8_t* unpack18_64(const uint8_t* in, uint64_t* out){
   out[30] = (w8 >> 28) & mask;
   out[31] = w8 >> 46;
 
-  return in + (9 * 8);
+  return in + (9 );
 }
 
-inline const uint8_t* unpack19_64(const uint8_t* in, uint64_t* out){
+inline const uint64_t* unpack19_64(const uint64_t*  in, uint64_t* out){
   constexpr uint64_t mask = ((uint64_t{1} << 19) - uint64_t{1});
 
-  const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
-  const auto w1 = LoadInt<uint64_t>(in + 1 * 8);
-  const auto w2 = LoadInt<uint64_t>(in + 2 * 8);
-  const auto w3 = LoadInt<uint64_t>(in + 3 * 8);
-  const auto w4 = LoadInt<uint64_t>(in + 4 * 8);
-  const auto w5 = LoadInt<uint64_t>(in + 5 * 8);
-  const auto w6 = LoadInt<uint64_t>(in + 6 * 8);
-  const auto w7 = LoadInt<uint64_t>(in + 7 * 8);
-  const auto w8 = LoadInt<uint64_t>(in + 8 * 8);
-  const auto w9 = static_cast<uint64_t>(LoadInt<uint32_t>(in + 9 * 8));
+  const auto w0 = LoadInt<uint64_t>(in + 0);
+  const auto w1 = LoadInt<uint64_t>(in + 1);
+  const auto w2 = LoadInt<uint64_t>(in + 2);
+  const auto w3 = LoadInt<uint64_t>(in + 3);
+  const auto w4 = LoadInt<uint64_t>(in + 4);
+  const auto w5 = LoadInt<uint64_t>(in + 5);
+  const auto w6 = LoadInt<uint64_t>(in + 6);
+  const auto w7 = LoadInt<uint64_t>(in + 7);
+  const auto w8 = LoadInt<uint64_t>(in + 8);
+  const auto w9 = static_cast<uint64_t>(LoadInt(reinterpret_cast<const uint32_t*>(in + 9)));
   out[0] = (w0) & mask;
   out[1] = (w0 >> 19) & mask;
   out[2] = (w0 >> 38) & mask;
@@ -2603,22 +2603,22 @@ inline const uint8_t* unpack19_64(const uint8_t* in, uint64_t* out){
   out[30] = ((w8 >> 58) | (w9 << 6)) & mask;
   out[31] = (w9 >> 13) & mask;
 
-  return in + (9 * 8 + 4);
+  return in + (9);
 }
 
-inline const uint8_t* unpack20_64(const uint8_t* in, uint64_t* out){
+inline const uint64_t* unpack20_64(const uint64_t*  in, uint64_t* out){
   constexpr uint64_t mask = ((uint64_t{1} << 20) - uint64_t{1});
 
-  const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
-  const auto w1 = LoadInt<uint64_t>(in + 1 * 8);
-  const auto w2 = LoadInt<uint64_t>(in + 2 * 8);
-  const auto w3 = LoadInt<uint64_t>(in + 3 * 8);
-  const auto w4 = LoadInt<uint64_t>(in + 4 * 8);
-  const auto w5 = LoadInt<uint64_t>(in + 5 * 8);
-  const auto w6 = LoadInt<uint64_t>(in + 6 * 8);
-  const auto w7 = LoadInt<uint64_t>(in + 7 * 8);
-  const auto w8 = LoadInt<uint64_t>(in + 8 * 8);
-  const auto w9 = LoadInt<uint64_t>(in + 9 * 8);
+  const auto w0 = LoadInt<uint64_t>(in + 0);
+  const auto w1 = LoadInt<uint64_t>(in + 1);
+  const auto w2 = LoadInt<uint64_t>(in + 2);
+  const auto w3 = LoadInt<uint64_t>(in + 3);
+  const auto w4 = LoadInt<uint64_t>(in + 4);
+  const auto w5 = LoadInt<uint64_t>(in + 5);
+  const auto w6 = LoadInt<uint64_t>(in + 6);
+  const auto w7 = LoadInt<uint64_t>(in + 7);
+  const auto w8 = LoadInt<uint64_t>(in + 8);
+  const auto w9 = LoadInt<uint64_t>(in + 9 );
   out[0] = (w0) & mask;
   out[1] = (w0 >> 20) & mask;
   out[2] = (w0 >> 40) & mask;
@@ -2652,23 +2652,23 @@ inline const uint8_t* unpack20_64(const uint8_t* in, uint64_t* out){
   out[30] = (w9 >> 24) & mask;
   out[31] = w9 >> 44;
 
-  return in + (10 * 8);
+  return in + (10 );
 }
 
-inline const uint8_t* unpack21_64(const uint8_t* in, uint64_t* out){
+inline const uint64_t* unpack21_64(const uint64_t*  in, uint64_t* out){
   constexpr uint64_t mask = ((uint64_t{1} << 21) - uint64_t{1});
 
-  const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
-  const auto w1 = LoadInt<uint64_t>(in + 1 * 8);
-  const auto w2 = LoadInt<uint64_t>(in + 2 * 8);
-  const auto w3 = LoadInt<uint64_t>(in + 3 * 8);
-  const auto w4 = LoadInt<uint64_t>(in + 4 * 8);
-  const auto w5 = LoadInt<uint64_t>(in + 5 * 8);
-  const auto w6 = LoadInt<uint64_t>(in + 6 * 8);
-  const auto w7 = LoadInt<uint64_t>(in + 7 * 8);
-  const auto w8 = LoadInt<uint64_t>(in + 8 * 8);
-  const auto w9 = LoadInt<uint64_t>(in + 9 * 8);
-  const auto w10 = static_cast<uint64_t>(LoadInt<uint32_t>(in + 10 * 8));
+  const auto w0 = LoadInt<uint64_t>(in + 0);
+  const auto w1 = LoadInt<uint64_t>(in + 1);
+  const auto w2 = LoadInt<uint64_t>(in + 2);
+  const auto w3 = LoadInt<uint64_t>(in + 3);
+  const auto w4 = LoadInt<uint64_t>(in + 4);
+  const auto w5 = LoadInt<uint64_t>(in + 5);
+  const auto w6 = LoadInt<uint64_t>(in + 6);
+  const auto w7 = LoadInt<uint64_t>(in + 7);
+  const auto w8 = LoadInt<uint64_t>(in + 8);
+  const auto w9 = LoadInt<uint64_t>(in + 9);
+  const auto w10 = static_cast<uint64_t>(LoadInt(reinterpret_cast<const uint32_t*>(in + 10)));
   out[0] = (w0) & mask;
   out[1] = (w0 >> 21) & mask;
   out[2] = (w0 >> 42) & mask;
@@ -2702,23 +2702,23 @@ inline const uint8_t* unpack21_64(const uint8_t* in, uint64_t* out){
   out[30] = ((w9 >> 54) | (w10 << 10)) & mask;
   out[31] = (w10 >> 11) & mask;
 
-  return in + (10 * 8 + 4);
+  return in + (10);
 }
 
-inline const uint8_t* unpack22_64(const uint8_t* in, uint64_t* out){
+inline const uint64_t* unpack22_64(const uint64_t*  in, uint64_t* out){
   constexpr uint64_t mask = ((uint64_t{1} << 22) - uint64_t{1});
 
-  const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
-  const auto w1 = LoadInt<uint64_t>(in + 1 * 8);
-  const auto w2 = LoadInt<uint64_t>(in + 2 * 8);
-  const auto w3 = LoadInt<uint64_t>(in + 3 * 8);
-  const auto w4 = LoadInt<uint64_t>(in + 4 * 8);
-  const auto w5 = LoadInt<uint64_t>(in + 5 * 8);
-  const auto w6 = LoadInt<uint64_t>(in + 6 * 8);
-  const auto w7 = LoadInt<uint64_t>(in + 7 * 8);
-  const auto w8 = LoadInt<uint64_t>(in + 8 * 8);
-  const auto w9 = LoadInt<uint64_t>(in + 9 * 8);
-  const auto w10 = LoadInt<uint64_t>(in + 10 * 8);
+  const auto w0 = LoadInt<uint64_t>(in + 0);
+  const auto w1 = LoadInt<uint64_t>(in + 1);
+  const auto w2 = LoadInt<uint64_t>(in + 2);
+  const auto w3 = LoadInt<uint64_t>(in + 3);
+  const auto w4 = LoadInt<uint64_t>(in + 4);
+  const auto w5 = LoadInt<uint64_t>(in + 5);
+  const auto w6 = LoadInt<uint64_t>(in + 6);
+  const auto w7 = LoadInt<uint64_t>(in + 7);
+  const auto w8 = LoadInt<uint64_t>(in + 8);
+  const auto w9 = LoadInt<uint64_t>(in + 9);
+  const auto w10 = LoadInt<uint64_t>(in + 10 );
   out[0] = (w0) & mask;
   out[1] = (w0 >> 22) & mask;
   out[2] = ((w0 >> 44) | (w1 << 20)) & mask;
@@ -2752,24 +2752,24 @@ inline const uint8_t* unpack22_64(const uint8_t* in, uint64_t* out){
   out[30] = (w10 >> 20) & mask;
   out[31] = w10 >> 42;
 
-  return in + (11 * 8);
+  return in + (11 );
 }
 
-inline const uint8_t* unpack23_64(const uint8_t* in, uint64_t* out){
+inline const uint64_t* unpack23_64(const uint64_t*  in, uint64_t* out){
   constexpr uint64_t mask = ((uint64_t{1} << 23) - uint64_t{1});
 
-  const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
-  const auto w1 = LoadInt<uint64_t>(in + 1 * 8);
-  const auto w2 = LoadInt<uint64_t>(in + 2 * 8);
-  const auto w3 = LoadInt<uint64_t>(in + 3 * 8);
-  const auto w4 = LoadInt<uint64_t>(in + 4 * 8);
-  const auto w5 = LoadInt<uint64_t>(in + 5 * 8);
-  const auto w6 = LoadInt<uint64_t>(in + 6 * 8);
-  const auto w7 = LoadInt<uint64_t>(in + 7 * 8);
-  const auto w8 = LoadInt<uint64_t>(in + 8 * 8);
-  const auto w9 = LoadInt<uint64_t>(in + 9 * 8);
-  const auto w10 = LoadInt<uint64_t>(in + 10 * 8);
-  const auto w11 = static_cast<uint64_t>(LoadInt<uint32_t>(in + 11 * 8));
+  const auto w0 = LoadInt<uint64_t>(in + 0);
+  const auto w1 = LoadInt<uint64_t>(in + 1);
+  const auto w2 = LoadInt<uint64_t>(in + 2);
+  const auto w3 = LoadInt<uint64_t>(in + 3);
+  const auto w4 = LoadInt<uint64_t>(in + 4);
+  const auto w5 = LoadInt<uint64_t>(in + 5);
+  const auto w6 = LoadInt<uint64_t>(in + 6);
+  const auto w7 = LoadInt<uint64_t>(in + 7);
+  const auto w8 = LoadInt<uint64_t>(in + 8);
+  const auto w9 = LoadInt<uint64_t>(in + 9);
+  const auto w10 = LoadInt<uint64_t>(in + 10);
+  const auto w11 = static_cast<uint64_t>(LoadInt(reinterpret_cast<const uint32_t*>(in + 11)));
   out[0] = (w0) & mask;
   out[1] = (w0 >> 23) & mask;
   out[2] = ((w0 >> 46) | (w1 << 18)) & mask;
@@ -2803,24 +2803,24 @@ inline const uint8_t* unpack23_64(const uint8_t* in, uint64_t* out){
   out[30] = ((w10 >> 50) | (w11 << 14)) & mask;
   out[31] = (w11 >> 9) & mask;
 
-  return in + (11 * 8 + 4);
+  return in + (11);
 }
 
-inline const uint8_t* unpack24_64(const uint8_t* in, uint64_t* out){
+inline const uint64_t* unpack24_64(const uint64_t*  in, uint64_t* out){
   constexpr uint64_t mask = ((uint64_t{1} << 24) - uint64_t{1});
 
-  const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
-  const auto w1 = LoadInt<uint64_t>(in + 1 * 8);
-  const auto w2 = LoadInt<uint64_t>(in + 2 * 8);
-  const auto w3 = LoadInt<uint64_t>(in + 3 * 8);
-  const auto w4 = LoadInt<uint64_t>(in + 4 * 8);
-  const auto w5 = LoadInt<uint64_t>(in + 5 * 8);
-  const auto w6 = LoadInt<uint64_t>(in + 6 * 8);
-  const auto w7 = LoadInt<uint64_t>(in + 7 * 8);
-  const auto w8 = LoadInt<uint64_t>(in + 8 * 8);
-  const auto w9 = LoadInt<uint64_t>(in + 9 * 8);
-  const auto w10 = LoadInt<uint64_t>(in + 10 * 8);
-  const auto w11 = LoadInt<uint64_t>(in + 11 * 8);
+  const auto w0 = LoadInt<uint64_t>(in + 0);
+  const auto w1 = LoadInt<uint64_t>(in + 1);
+  const auto w2 = LoadInt<uint64_t>(in + 2);
+  const auto w3 = LoadInt<uint64_t>(in + 3);
+  const auto w4 = LoadInt<uint64_t>(in + 4);
+  const auto w5 = LoadInt<uint64_t>(in + 5);
+  const auto w6 = LoadInt<uint64_t>(in + 6);
+  const auto w7 = LoadInt<uint64_t>(in + 7);
+  const auto w8 = LoadInt<uint64_t>(in + 8);
+  const auto w9 = LoadInt<uint64_t>(in + 9);
+  const auto w10 = LoadInt<uint64_t>(in + 10);
+  const auto w11 = LoadInt<uint64_t>(in + 11 );
   out[0] = (w0) & mask;
   out[1] = (w0 >> 24) & mask;
   out[2] = ((w0 >> 48) | (w1 << 16)) & mask;
@@ -2854,25 +2854,25 @@ inline const uint8_t* unpack24_64(const uint8_t* in, uint64_t* out){
   out[30] = (w11 >> 16) & mask;
   out[31] = w11 >> 40;
 
-  return in + (12 * 8);
+  return in + (12 );
 }
 
-inline const uint8_t* unpack25_64(const uint8_t* in, uint64_t* out){
+inline const uint64_t* unpack25_64(const uint64_t*  in, uint64_t* out){
   constexpr uint64_t mask = ((uint64_t{1} << 25) - uint64_t{1});
 
-  const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
-  const auto w1 = LoadInt<uint64_t>(in + 1 * 8);
-  const auto w2 = LoadInt<uint64_t>(in + 2 * 8);
-  const auto w3 = LoadInt<uint64_t>(in + 3 * 8);
-  const auto w4 = LoadInt<uint64_t>(in + 4 * 8);
-  const auto w5 = LoadInt<uint64_t>(in + 5 * 8);
-  const auto w6 = LoadInt<uint64_t>(in + 6 * 8);
-  const auto w7 = LoadInt<uint64_t>(in + 7 * 8);
-  const auto w8 = LoadInt<uint64_t>(in + 8 * 8);
-  const auto w9 = LoadInt<uint64_t>(in + 9 * 8);
-  const auto w10 = LoadInt<uint64_t>(in + 10 * 8);
-  const auto w11 = LoadInt<uint64_t>(in + 11 * 8);
-  const auto w12 = static_cast<uint64_t>(LoadInt<uint32_t>(in + 12 * 8));
+  const auto w0 = LoadInt<uint64_t>(in + 0);
+  const auto w1 = LoadInt<uint64_t>(in + 1);
+  const auto w2 = LoadInt<uint64_t>(in + 2);
+  const auto w3 = LoadInt<uint64_t>(in + 3);
+  const auto w4 = LoadInt<uint64_t>(in + 4);
+  const auto w5 = LoadInt<uint64_t>(in + 5);
+  const auto w6 = LoadInt<uint64_t>(in + 6);
+  const auto w7 = LoadInt<uint64_t>(in + 7);
+  const auto w8 = LoadInt<uint64_t>(in + 8);
+  const auto w9 = LoadInt<uint64_t>(in + 9);
+  const auto w10 = LoadInt<uint64_t>(in + 10);
+  const auto w11 = LoadInt<uint64_t>(in + 11);
+  const auto w12 = static_cast<uint64_t>(LoadInt(reinterpret_cast<const uint32_t*>(in + 12)));
   out[0] = (w0) & mask;
   out[1] = (w0 >> 25) & mask;
   out[2] = ((w0 >> 50) | (w1 << 14)) & mask;
@@ -2906,25 +2906,25 @@ inline const uint8_t* unpack25_64(const uint8_t* in, uint64_t* out){
   out[30] = ((w11 >> 46) | (w12 << 18)) & mask;
   out[31] = (w12 >> 7) & mask;
 
-  return in + (12 * 8 + 4);
+  return in + (12);
 }
 
-inline const uint8_t* unpack26_64(const uint8_t* in, uint64_t* out){
+inline const uint64_t* unpack26_64(const uint64_t*  in, uint64_t* out){
   constexpr uint64_t mask = ((uint64_t{1} << 26) - uint64_t{1});
 
-  const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
-  const auto w1 = LoadInt<uint64_t>(in + 1 * 8);
-  const auto w2 = LoadInt<uint64_t>(in + 2 * 8);
-  const auto w3 = LoadInt<uint64_t>(in + 3 * 8);
-  const auto w4 = LoadInt<uint64_t>(in + 4 * 8);
-  const auto w5 = LoadInt<uint64_t>(in + 5 * 8);
-  const auto w6 = LoadInt<uint64_t>(in + 6 * 8);
-  const auto w7 = LoadInt<uint64_t>(in + 7 * 8);
-  const auto w8 = LoadInt<uint64_t>(in + 8 * 8);
-  const auto w9 = LoadInt<uint64_t>(in + 9 * 8);
-  const auto w10 = LoadInt<uint64_t>(in + 10 * 8);
-  const auto w11 = LoadInt<uint64_t>(in + 11 * 8);
-  const auto w12 = LoadInt<uint64_t>(in + 12 * 8);
+  const auto w0 = LoadInt<uint64_t>(in + 0);
+  const auto w1 = LoadInt<uint64_t>(in + 1);
+  const auto w2 = LoadInt<uint64_t>(in + 2);
+  const auto w3 = LoadInt<uint64_t>(in + 3);
+  const auto w4 = LoadInt<uint64_t>(in + 4);
+  const auto w5 = LoadInt<uint64_t>(in + 5);
+  const auto w6 = LoadInt<uint64_t>(in + 6);
+  const auto w7 = LoadInt<uint64_t>(in + 7);
+  const auto w8 = LoadInt<uint64_t>(in + 8);
+  const auto w9 = LoadInt<uint64_t>(in + 9);
+  const auto w10 = LoadInt<uint64_t>(in + 10);
+  const auto w11 = LoadInt<uint64_t>(in + 11);
+  const auto w12 = LoadInt<uint64_t>(in + 12 );
   out[0] = (w0) & mask;
   out[1] = (w0 >> 26) & mask;
   out[2] = ((w0 >> 52) | (w1 << 12)) & mask;
@@ -2958,26 +2958,26 @@ inline const uint8_t* unpack26_64(const uint8_t* in, uint64_t* out){
   out[30] = (w12 >> 12) & mask;
   out[31] = w12 >> 38;
 
-  return in + (13 * 8);
+  return in + (13 );
 }
 
-inline const uint8_t* unpack27_64(const uint8_t* in, uint64_t* out){
+inline const uint64_t* unpack27_64(const uint64_t*  in, uint64_t* out){
   constexpr uint64_t mask = ((uint64_t{1} << 27) - uint64_t{1});
 
-  const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
-  const auto w1 = LoadInt<uint64_t>(in + 1 * 8);
-  const auto w2 = LoadInt<uint64_t>(in + 2 * 8);
-  const auto w3 = LoadInt<uint64_t>(in + 3 * 8);
-  const auto w4 = LoadInt<uint64_t>(in + 4 * 8);
-  const auto w5 = LoadInt<uint64_t>(in + 5 * 8);
-  const auto w6 = LoadInt<uint64_t>(in + 6 * 8);
-  const auto w7 = LoadInt<uint64_t>(in + 7 * 8);
-  const auto w8 = LoadInt<uint64_t>(in + 8 * 8);
-  const auto w9 = LoadInt<uint64_t>(in + 9 * 8);
-  const auto w10 = LoadInt<uint64_t>(in + 10 * 8);
-  const auto w11 = LoadInt<uint64_t>(in + 11 * 8);
-  const auto w12 = LoadInt<uint64_t>(in + 12 * 8);
-  const auto w13 = static_cast<uint64_t>(LoadInt<uint32_t>(in + 13 * 8));
+  const auto w0 = LoadInt<uint64_t>(in + 0);
+  const auto w1 = LoadInt<uint64_t>(in + 1);
+  const auto w2 = LoadInt<uint64_t>(in + 2);
+  const auto w3 = LoadInt<uint64_t>(in + 3);
+  const auto w4 = LoadInt<uint64_t>(in + 4);
+  const auto w5 = LoadInt<uint64_t>(in + 5);
+  const auto w6 = LoadInt<uint64_t>(in + 6);
+  const auto w7 = LoadInt<uint64_t>(in + 7);
+  const auto w8 = LoadInt<uint64_t>(in + 8);
+  const auto w9 = LoadInt<uint64_t>(in + 9);
+  const auto w10 = LoadInt<uint64_t>(in + 10);
+  const auto w11 = LoadInt<uint64_t>(in + 11);
+  const auto w12 = LoadInt<uint64_t>(in + 12);
+  const auto w13 = static_cast<uint64_t>(LoadInt(reinterpret_cast<const uint32_t*>(in + 13)));
   out[0] = (w0) & mask;
   out[1] = (w0 >> 27) & mask;
   out[2] = ((w0 >> 54) | (w1 << 10)) & mask;
@@ -3011,26 +3011,26 @@ inline const uint8_t* unpack27_64(const uint8_t* in, uint64_t* out){
   out[30] = ((w12 >> 42) | (w13 << 22)) & mask;
   out[31] = (w13 >> 5) & mask;
 
-  return in + (13 * 8 + 4);
+  return in + (13);
 }
 
-inline const uint8_t* unpack28_64(const uint8_t* in, uint64_t* out){
+inline const uint64_t* unpack28_64(const uint64_t*  in, uint64_t* out){
   constexpr uint64_t mask = ((uint64_t{1} << 28) - uint64_t{1});
 
-  const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
-  const auto w1 = LoadInt<uint64_t>(in + 1 * 8);
-  const auto w2 = LoadInt<uint64_t>(in + 2 * 8);
-  const auto w3 = LoadInt<uint64_t>(in + 3 * 8);
-  const auto w4 = LoadInt<uint64_t>(in + 4 * 8);
-  const auto w5 = LoadInt<uint64_t>(in + 5 * 8);
-  const auto w6 = LoadInt<uint64_t>(in + 6 * 8);
-  const auto w7 = LoadInt<uint64_t>(in + 7 * 8);
-  const auto w8 = LoadInt<uint64_t>(in + 8 * 8);
-  const auto w9 = LoadInt<uint64_t>(in + 9 * 8);
-  const auto w10 = LoadInt<uint64_t>(in + 10 * 8);
-  const auto w11 = LoadInt<uint64_t>(in + 11 * 8);
-  const auto w12 = LoadInt<uint64_t>(in + 12 * 8);
-  const auto w13 = LoadInt<uint64_t>(in + 13 * 8);
+  const auto w0 = LoadInt<uint64_t>(in + 0);
+  const auto w1 = LoadInt<uint64_t>(in + 1);
+  const auto w2 = LoadInt<uint64_t>(in + 2);
+  const auto w3 = LoadInt<uint64_t>(in + 3);
+  const auto w4 = LoadInt<uint64_t>(in + 4);
+  const auto w5 = LoadInt<uint64_t>(in + 5);
+  const auto w6 = LoadInt<uint64_t>(in + 6);
+  const auto w7 = LoadInt<uint64_t>(in + 7);
+  const auto w8 = LoadInt<uint64_t>(in + 8);
+  const auto w9 = LoadInt<uint64_t>(in + 9);
+  const auto w10 = LoadInt<uint64_t>(in + 10);
+  const auto w11 = LoadInt<uint64_t>(in + 11);
+  const auto w12 = LoadInt<uint64_t>(in + 12);
+  const auto w13 = LoadInt<uint64_t>(in + 13 );
   out[0] = (w0) & mask;
   out[1] = (w0 >> 28) & mask;
   out[2] = ((w0 >> 56) | (w1 << 8)) & mask;
@@ -3064,27 +3064,27 @@ inline const uint8_t* unpack28_64(const uint8_t* in, uint64_t* out){
   out[30] = (w13 >> 8) & mask;
   out[31] = w13 >> 36;
 
-  return in + (14 * 8);
+  return in + (14 );
 }
 
-inline const uint8_t* unpack29_64(const uint8_t* in, uint64_t* out){
+inline const uint64_t* unpack29_64(const uint64_t*  in, uint64_t* out){
   constexpr uint64_t mask = ((uint64_t{1} << 29) - uint64_t{1});
 
-  const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
-  const auto w1 = LoadInt<uint64_t>(in + 1 * 8);
-  const auto w2 = LoadInt<uint64_t>(in + 2 * 8);
-  const auto w3 = LoadInt<uint64_t>(in + 3 * 8);
-  const auto w4 = LoadInt<uint64_t>(in + 4 * 8);
-  const auto w5 = LoadInt<uint64_t>(in + 5 * 8);
-  const auto w6 = LoadInt<uint64_t>(in + 6 * 8);
-  const auto w7 = LoadInt<uint64_t>(in + 7 * 8);
-  const auto w8 = LoadInt<uint64_t>(in + 8 * 8);
-  const auto w9 = LoadInt<uint64_t>(in + 9 * 8);
-  const auto w10 = LoadInt<uint64_t>(in + 10 * 8);
-  const auto w11 = LoadInt<uint64_t>(in + 11 * 8);
-  const auto w12 = LoadInt<uint64_t>(in + 12 * 8);
-  const auto w13 = LoadInt<uint64_t>(in + 13 * 8);
-  const auto w14 = static_cast<uint64_t>(LoadInt<uint32_t>(in + 14 * 8));
+  const auto w0 = LoadInt<uint64_t>(in + 0);
+  const auto w1 = LoadInt<uint64_t>(in + 1);
+  const auto w2 = LoadInt<uint64_t>(in + 2);
+  const auto w3 = LoadInt<uint64_t>(in + 3);
+  const auto w4 = LoadInt<uint64_t>(in + 4);
+  const auto w5 = LoadInt<uint64_t>(in + 5);
+  const auto w6 = LoadInt<uint64_t>(in + 6);
+  const auto w7 = LoadInt<uint64_t>(in + 7);
+  const auto w8 = LoadInt<uint64_t>(in + 8);
+  const auto w9 = LoadInt<uint64_t>(in + 9);
+  const auto w10 = LoadInt<uint64_t>(in + 10);
+  const auto w11 = LoadInt<uint64_t>(in + 11);
+  const auto w12 = LoadInt<uint64_t>(in + 12);
+  const auto w13 = LoadInt<uint64_t>(in + 13);
+  const auto w14 = static_cast<uint64_t>(LoadInt(reinterpret_cast<const uint32_t*>(in + 14)));
   out[0] = (w0) & mask;
   out[1] = (w0 >> 29) & mask;
   out[2] = ((w0 >> 58) | (w1 << 6)) & mask;
@@ -3118,27 +3118,27 @@ inline const uint8_t* unpack29_64(const uint8_t* in, uint64_t* out){
   out[30] = ((w13 >> 38) | (w14 << 26)) & mask;
   out[31] = (w14 >> 3) & mask;
 
-  return in + (14 * 8 + 4);
+  return in + (14);
 }
 
-inline const uint8_t* unpack30_64(const uint8_t* in, uint64_t* out){
+inline const uint64_t* unpack30_64(const uint64_t*  in, uint64_t* out){
   constexpr uint64_t mask = ((uint64_t{1} << 30) - uint64_t{1});
 
-  const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
-  const auto w1 = LoadInt<uint64_t>(in + 1 * 8);
-  const auto w2 = LoadInt<uint64_t>(in + 2 * 8);
-  const auto w3 = LoadInt<uint64_t>(in + 3 * 8);
-  const auto w4 = LoadInt<uint64_t>(in + 4 * 8);
-  const auto w5 = LoadInt<uint64_t>(in + 5 * 8);
-  const auto w6 = LoadInt<uint64_t>(in + 6 * 8);
-  const auto w7 = LoadInt<uint64_t>(in + 7 * 8);
-  const auto w8 = LoadInt<uint64_t>(in + 8 * 8);
-  const auto w9 = LoadInt<uint64_t>(in + 9 * 8);
-  const auto w10 = LoadInt<uint64_t>(in + 10 * 8);
-  const auto w11 = LoadInt<uint64_t>(in + 11 * 8);
-  const auto w12 = LoadInt<uint64_t>(in + 12 * 8);
-  const auto w13 = LoadInt<uint64_t>(in + 13 * 8);
-  const auto w14 = LoadInt<uint64_t>(in + 14 * 8);
+  const auto w0 = LoadInt<uint64_t>(in + 0);
+  const auto w1 = LoadInt<uint64_t>(in + 1);
+  const auto w2 = LoadInt<uint64_t>(in + 2);
+  const auto w3 = LoadInt<uint64_t>(in + 3);
+  const auto w4 = LoadInt<uint64_t>(in + 4);
+  const auto w5 = LoadInt<uint64_t>(in + 5);
+  const auto w6 = LoadInt<uint64_t>(in + 6);
+  const auto w7 = LoadInt<uint64_t>(in + 7);
+  const auto w8 = LoadInt<uint64_t>(in + 8);
+  const auto w9 = LoadInt<uint64_t>(in + 9);
+  const auto w10 = LoadInt<uint64_t>(in + 10);
+  const auto w11 = LoadInt<uint64_t>(in + 11);
+  const auto w12 = LoadInt<uint64_t>(in + 12);
+  const auto w13 = LoadInt<uint64_t>(in + 13);
+  const auto w14 = LoadInt<uint64_t>(in + 14 );
   out[0] = (w0) & mask;
   out[1] = (w0 >> 30) & mask;
   out[2] = ((w0 >> 60) | (w1 << 4)) & mask;
@@ -3172,28 +3172,28 @@ inline const uint8_t* unpack30_64(const uint8_t* in, uint64_t* out){
   out[30] = (w14 >> 4) & mask;
   out[31] = w14 >> 34;
 
-  return in + (15 * 8);
+  return in + (15 );
 }
 
-inline const uint8_t* unpack31_64(const uint8_t* in, uint64_t* out){
+inline const uint64_t* unpack31_64(const uint64_t*  in, uint64_t* out){
   constexpr uint64_t mask = ((uint64_t{1} << 31) - uint64_t{1});
 
-  const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
-  const auto w1 = LoadInt<uint64_t>(in + 1 * 8);
-  const auto w2 = LoadInt<uint64_t>(in + 2 * 8);
-  const auto w3 = LoadInt<uint64_t>(in + 3 * 8);
-  const auto w4 = LoadInt<uint64_t>(in + 4 * 8);
-  const auto w5 = LoadInt<uint64_t>(in + 5 * 8);
-  const auto w6 = LoadInt<uint64_t>(in + 6 * 8);
-  const auto w7 = LoadInt<uint64_t>(in + 7 * 8);
-  const auto w8 = LoadInt<uint64_t>(in + 8 * 8);
-  const auto w9 = LoadInt<uint64_t>(in + 9 * 8);
-  const auto w10 = LoadInt<uint64_t>(in + 10 * 8);
-  const auto w11 = LoadInt<uint64_t>(in + 11 * 8);
-  const auto w12 = LoadInt<uint64_t>(in + 12 * 8);
-  const auto w13 = LoadInt<uint64_t>(in + 13 * 8);
-  const auto w14 = LoadInt<uint64_t>(in + 14 * 8);
-  const auto w15 = static_cast<uint64_t>(LoadInt<uint32_t>(in + 15 * 8));
+  const auto w0 = LoadInt<uint64_t>(in + 0);
+  const auto w1 = LoadInt<uint64_t>(in + 1);
+  const auto w2 = LoadInt<uint64_t>(in + 2);
+  const auto w3 = LoadInt<uint64_t>(in + 3);
+  const auto w4 = LoadInt<uint64_t>(in + 4);
+  const auto w5 = LoadInt<uint64_t>(in + 5);
+  const auto w6 = LoadInt<uint64_t>(in + 6);
+  const auto w7 = LoadInt<uint64_t>(in + 7);
+  const auto w8 = LoadInt<uint64_t>(in + 8);
+  const auto w9 = LoadInt<uint64_t>(in + 9);
+  const auto w10 = LoadInt<uint64_t>(in + 10);
+  const auto w11 = LoadInt<uint64_t>(in + 11);
+  const auto w12 = LoadInt<uint64_t>(in + 12);
+  const auto w13 = LoadInt<uint64_t>(in + 13);
+  const auto w14 = LoadInt<uint64_t>(in + 14);
+  const auto w15 = static_cast<uint64_t>(LoadInt(reinterpret_cast<const uint32_t*>(in + 15)));
   out[0] = (w0) & mask;
   out[1] = (w0 >> 31) & mask;
   out[2] = ((w0 >> 62) | (w1 << 2)) & mask;
@@ -3227,28 +3227,28 @@ inline const uint8_t* unpack31_64(const uint8_t* in, uint64_t* out){
   out[30] = ((w14 >> 34) | (w15 << 30)) & mask;
   out[31] = (w15 >> 1) & mask;
 
-  return in + (15 * 8 + 4);
+  return in + (15);
 }
 
-inline const uint8_t* unpack32_64(const uint8_t* in, uint64_t* out){
+inline const uint64_t* unpack32_64(const uint64_t*  in, uint64_t* out){
   constexpr uint64_t mask = ((uint64_t{1} << 32) - uint64_t{1});
 
-  const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
-  const auto w1 = LoadInt<uint64_t>(in + 1 * 8);
-  const auto w2 = LoadInt<uint64_t>(in + 2 * 8);
-  const auto w3 = LoadInt<uint64_t>(in + 3 * 8);
-  const auto w4 = LoadInt<uint64_t>(in + 4 * 8);
-  const auto w5 = LoadInt<uint64_t>(in + 5 * 8);
-  const auto w6 = LoadInt<uint64_t>(in + 6 * 8);
-  const auto w7 = LoadInt<uint64_t>(in + 7 * 8);
-  const auto w8 = LoadInt<uint64_t>(in + 8 * 8);
-  const auto w9 = LoadInt<uint64_t>(in + 9 * 8);
-  const auto w10 = LoadInt<uint64_t>(in + 10 * 8);
-  const auto w11 = LoadInt<uint64_t>(in + 11 * 8);
-  const auto w12 = LoadInt<uint64_t>(in + 12 * 8);
-  const auto w13 = LoadInt<uint64_t>(in + 13 * 8);
-  const auto w14 = LoadInt<uint64_t>(in + 14 * 8);
-  const auto w15 = LoadInt<uint64_t>(in + 15 * 8);
+  const auto w0 = LoadInt<uint64_t>(in + 0);
+  const auto w1 = LoadInt<uint64_t>(in + 1);
+  const auto w2 = LoadInt<uint64_t>(in + 2);
+  const auto w3 = LoadInt<uint64_t>(in + 3);
+  const auto w4 = LoadInt<uint64_t>(in + 4);
+  const auto w5 = LoadInt<uint64_t>(in + 5);
+  const auto w6 = LoadInt<uint64_t>(in + 6);
+  const auto w7 = LoadInt<uint64_t>(in + 7);
+  const auto w8 = LoadInt<uint64_t>(in + 8);
+  const auto w9 = LoadInt<uint64_t>(in + 9);
+  const auto w10 = LoadInt<uint64_t>(in + 10);
+  const auto w11 = LoadInt<uint64_t>(in + 11);
+  const auto w12 = LoadInt<uint64_t>(in + 12);
+  const auto w13 = LoadInt<uint64_t>(in + 13);
+  const auto w14 = LoadInt<uint64_t>(in + 14);
+  const auto w15 = LoadInt<uint64_t>(in + 15 );
   out[0] = (w0) & mask;
   out[1] = w0 >> 32;
   out[2] = (w1) & mask;
@@ -3282,29 +3282,29 @@ inline const uint8_t* unpack32_64(const uint8_t* in, uint64_t* out){
   out[30] = (w15) & mask;
   out[31] = w15 >> 32;
 
-  return in + (16 * 8);
+  return in + (16 );
 }
 
-inline const uint8_t* unpack33_64(const uint8_t* in, uint64_t* out){
+inline const uint64_t* unpack33_64(const uint64_t*  in, uint64_t* out){
   constexpr uint64_t mask = ((uint64_t{1} << 33) - uint64_t{1});
 
-  const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
-  const auto w1 = LoadInt<uint64_t>(in + 1 * 8);
-  const auto w2 = LoadInt<uint64_t>(in + 2 * 8);
-  const auto w3 = LoadInt<uint64_t>(in + 3 * 8);
-  const auto w4 = LoadInt<uint64_t>(in + 4 * 8);
-  const auto w5 = LoadInt<uint64_t>(in + 5 * 8);
-  const auto w6 = LoadInt<uint64_t>(in + 6 * 8);
-  const auto w7 = LoadInt<uint64_t>(in + 7 * 8);
-  const auto w8 = LoadInt<uint64_t>(in + 8 * 8);
-  const auto w9 = LoadInt<uint64_t>(in + 9 * 8);
-  const auto w10 = LoadInt<uint64_t>(in + 10 * 8);
-  const auto w11 = LoadInt<uint64_t>(in + 11 * 8);
-  const auto w12 = LoadInt<uint64_t>(in + 12 * 8);
-  const auto w13 = LoadInt<uint64_t>(in + 13 * 8);
-  const auto w14 = LoadInt<uint64_t>(in + 14 * 8);
-  const auto w15 = LoadInt<uint64_t>(in + 15 * 8);
-  const auto w16 = static_cast<uint64_t>(LoadInt<uint32_t>(in + 16 * 8));
+  const auto w0 = LoadInt<uint64_t>(in + 0);
+  const auto w1 = LoadInt<uint64_t>(in + 1);
+  const auto w2 = LoadInt<uint64_t>(in + 2);
+  const auto w3 = LoadInt<uint64_t>(in + 3);
+  const auto w4 = LoadInt<uint64_t>(in + 4);
+  const auto w5 = LoadInt<uint64_t>(in + 5);
+  const auto w6 = LoadInt<uint64_t>(in + 6);
+  const auto w7 = LoadInt<uint64_t>(in + 7);
+  const auto w8 = LoadInt<uint64_t>(in + 8);
+  const auto w9 = LoadInt<uint64_t>(in + 9);
+  const auto w10 = LoadInt<uint64_t>(in + 10);
+  const auto w11 = LoadInt<uint64_t>(in + 11);
+  const auto w12 = LoadInt<uint64_t>(in + 12);
+  const auto w13 = LoadInt<uint64_t>(in + 13);
+  const auto w14 = LoadInt<uint64_t>(in + 14);
+  const auto w15 = LoadInt<uint64_t>(in + 15);
+  const auto w16 = static_cast<uint64_t>(LoadInt(reinterpret_cast<const uint32_t*>(in + 16)));
   out[0] = (w0) & mask;
   out[1] = ((w0 >> 33) | (w1 << 31)) & mask;
   out[2] = (w1 >> 2) & mask;
@@ -3338,29 +3338,29 @@ inline const uint8_t* unpack33_64(const uint8_t* in, uint64_t* out){
   out[30] = (w15 >> 30) & mask;
   out[31] = ((w15 >> 63) | (w16 << 1)) & mask;
 
-  return in + (16 * 8 + 4);
+  return in + (16);
 }
 
-inline const uint8_t* unpack34_64(const uint8_t* in, uint64_t* out){
+inline const uint64_t* unpack34_64(const uint64_t*  in, uint64_t* out){
   constexpr uint64_t mask = ((uint64_t{1} << 34) - uint64_t{1});
 
-  const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
-  const auto w1 = LoadInt<uint64_t>(in + 1 * 8);
-  const auto w2 = LoadInt<uint64_t>(in + 2 * 8);
-  const auto w3 = LoadInt<uint64_t>(in + 3 * 8);
-  const auto w4 = LoadInt<uint64_t>(in + 4 * 8);
-  const auto w5 = LoadInt<uint64_t>(in + 5 * 8);
-  const auto w6 = LoadInt<uint64_t>(in + 6 * 8);
-  const auto w7 = LoadInt<uint64_t>(in + 7 * 8);
-  const auto w8 = LoadInt<uint64_t>(in + 8 * 8);
-  const auto w9 = LoadInt<uint64_t>(in + 9 * 8);
-  const auto w10 = LoadInt<uint64_t>(in + 10 * 8);
-  const auto w11 = LoadInt<uint64_t>(in + 11 * 8);
-  const auto w12 = LoadInt<uint64_t>(in + 12 * 8);
-  const auto w13 = LoadInt<uint64_t>(in + 13 * 8);
-  const auto w14 = LoadInt<uint64_t>(in + 14 * 8);
-  const auto w15 = LoadInt<uint64_t>(in + 15 * 8);
-  const auto w16 = LoadInt<uint64_t>(in + 16 * 8);
+  const auto w0 = LoadInt<uint64_t>(in + 0);
+  const auto w1 = LoadInt<uint64_t>(in + 1);
+  const auto w2 = LoadInt<uint64_t>(in + 2);
+  const auto w3 = LoadInt<uint64_t>(in + 3);
+  const auto w4 = LoadInt<uint64_t>(in + 4);
+  const auto w5 = LoadInt<uint64_t>(in + 5);
+  const auto w6 = LoadInt<uint64_t>(in + 6);
+  const auto w7 = LoadInt<uint64_t>(in + 7);
+  const auto w8 = LoadInt<uint64_t>(in + 8);
+  const auto w9 = LoadInt<uint64_t>(in + 9);
+  const auto w10 = LoadInt<uint64_t>(in + 10);
+  const auto w11 = LoadInt<uint64_t>(in + 11);
+  const auto w12 = LoadInt<uint64_t>(in + 12);
+  const auto w13 = LoadInt<uint64_t>(in + 13);
+  const auto w14 = LoadInt<uint64_t>(in + 14);
+  const auto w15 = LoadInt<uint64_t>(in + 15);
+  const auto w16 = LoadInt<uint64_t>(in + 16 );
   out[0] = (w0) & mask;
   out[1] = ((w0 >> 34) | (w1 << 30)) & mask;
   out[2] = (w1 >> 4) & mask;
@@ -3394,30 +3394,30 @@ inline const uint8_t* unpack34_64(const uint8_t* in, uint64_t* out){
   out[30] = ((w15 >> 60) | (w16 << 4)) & mask;
   out[31] = w16 >> 30;
 
-  return in + (17 * 8);
+  return in + (17 );
 }
 
-inline const uint8_t* unpack35_64(const uint8_t* in, uint64_t* out){
+inline const uint64_t* unpack35_64(const uint64_t*  in, uint64_t* out){
   constexpr uint64_t mask = ((uint64_t{1} << 35) - uint64_t{1});
 
-  const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
-  const auto w1 = LoadInt<uint64_t>(in + 1 * 8);
-  const auto w2 = LoadInt<uint64_t>(in + 2 * 8);
-  const auto w3 = LoadInt<uint64_t>(in + 3 * 8);
-  const auto w4 = LoadInt<uint64_t>(in + 4 * 8);
-  const auto w5 = LoadInt<uint64_t>(in + 5 * 8);
-  const auto w6 = LoadInt<uint64_t>(in + 6 * 8);
-  const auto w7 = LoadInt<uint64_t>(in + 7 * 8);
-  const auto w8 = LoadInt<uint64_t>(in + 8 * 8);
-  const auto w9 = LoadInt<uint64_t>(in + 9 * 8);
-  const auto w10 = LoadInt<uint64_t>(in + 10 * 8);
-  const auto w11 = LoadInt<uint64_t>(in + 11 * 8);
-  const auto w12 = LoadInt<uint64_t>(in + 12 * 8);
-  const auto w13 = LoadInt<uint64_t>(in + 13 * 8);
-  const auto w14 = LoadInt<uint64_t>(in + 14 * 8);
-  const auto w15 = LoadInt<uint64_t>(in + 15 * 8);
-  const auto w16 = LoadInt<uint64_t>(in + 16 * 8);
-  const auto w17 = static_cast<uint64_t>(LoadInt<uint32_t>(in + 17 * 8));
+  const auto w0 = LoadInt<uint64_t>(in + 0);
+  const auto w1 = LoadInt<uint64_t>(in + 1);
+  const auto w2 = LoadInt<uint64_t>(in + 2);
+  const auto w3 = LoadInt<uint64_t>(in + 3);
+  const auto w4 = LoadInt<uint64_t>(in + 4);
+  const auto w5 = LoadInt<uint64_t>(in + 5);
+  const auto w6 = LoadInt<uint64_t>(in + 6);
+  const auto w7 = LoadInt<uint64_t>(in + 7);
+  const auto w8 = LoadInt<uint64_t>(in + 8);
+  const auto w9 = LoadInt<uint64_t>(in + 9);
+  const auto w10 = LoadInt<uint64_t>(in + 10);
+  const auto w11 = LoadInt<uint64_t>(in + 11);
+  const auto w12 = LoadInt<uint64_t>(in + 12);
+  const auto w13 = LoadInt<uint64_t>(in + 13);
+  const auto w14 = LoadInt<uint64_t>(in + 14);
+  const auto w15 = LoadInt<uint64_t>(in + 15);
+  const auto w16 = LoadInt<uint64_t>(in + 16);
+  const auto w17 = static_cast<uint64_t>(LoadInt(reinterpret_cast<const uint32_t*>(in + 17)));
   out[0] = (w0) & mask;
   out[1] = ((w0 >> 35) | (w1 << 29)) & mask;
   out[2] = (w1 >> 6) & mask;
@@ -3451,30 +3451,30 @@ inline const uint8_t* unpack35_64(const uint8_t* in, uint64_t* out){
   out[30] = (w16 >> 26) & mask;
   out[31] = ((w16 >> 61) | (w17 << 3)) & mask;
 
-  return in + (17 * 8 + 4);
+  return in + (17);
 }
 
-inline const uint8_t* unpack36_64(const uint8_t* in, uint64_t* out){
+inline const uint64_t* unpack36_64(const uint64_t*  in, uint64_t* out){
   constexpr uint64_t mask = ((uint64_t{1} << 36) - uint64_t{1});
 
-  const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
-  const auto w1 = LoadInt<uint64_t>(in + 1 * 8);
-  const auto w2 = LoadInt<uint64_t>(in + 2 * 8);
-  const auto w3 = LoadInt<uint64_t>(in + 3 * 8);
-  const auto w4 = LoadInt<uint64_t>(in + 4 * 8);
-  const auto w5 = LoadInt<uint64_t>(in + 5 * 8);
-  const auto w6 = LoadInt<uint64_t>(in + 6 * 8);
-  const auto w7 = LoadInt<uint64_t>(in + 7 * 8);
-  const auto w8 = LoadInt<uint64_t>(in + 8 * 8);
-  const auto w9 = LoadInt<uint64_t>(in + 9 * 8);
-  const auto w10 = LoadInt<uint64_t>(in + 10 * 8);
-  const auto w11 = LoadInt<uint64_t>(in + 11 * 8);
-  const auto w12 = LoadInt<uint64_t>(in + 12 * 8);
-  const auto w13 = LoadInt<uint64_t>(in + 13 * 8);
-  const auto w14 = LoadInt<uint64_t>(in + 14 * 8);
-  const auto w15 = LoadInt<uint64_t>(in + 15 * 8);
-  const auto w16 = LoadInt<uint64_t>(in + 16 * 8);
-  const auto w17 = LoadInt<uint64_t>(in + 17 * 8);
+  const auto w0 = LoadInt<uint64_t>(in + 0);
+  const auto w1 = LoadInt<uint64_t>(in + 1);
+  const auto w2 = LoadInt<uint64_t>(in + 2);
+  const auto w3 = LoadInt<uint64_t>(in + 3);
+  const auto w4 = LoadInt<uint64_t>(in + 4);
+  const auto w5 = LoadInt<uint64_t>(in + 5);
+  const auto w6 = LoadInt<uint64_t>(in + 6);
+  const auto w7 = LoadInt<uint64_t>(in + 7);
+  const auto w8 = LoadInt<uint64_t>(in + 8);
+  const auto w9 = LoadInt<uint64_t>(in + 9);
+  const auto w10 = LoadInt<uint64_t>(in + 10);
+  const auto w11 = LoadInt<uint64_t>(in + 11);
+  const auto w12 = LoadInt<uint64_t>(in + 12);
+  const auto w13 = LoadInt<uint64_t>(in + 13);
+  const auto w14 = LoadInt<uint64_t>(in + 14);
+  const auto w15 = LoadInt<uint64_t>(in + 15);
+  const auto w16 = LoadInt<uint64_t>(in + 16);
+  const auto w17 = LoadInt<uint64_t>(in + 17 );
   out[0] = (w0) & mask;
   out[1] = ((w0 >> 36) | (w1 << 28)) & mask;
   out[2] = (w1 >> 8) & mask;
@@ -3508,31 +3508,31 @@ inline const uint8_t* unpack36_64(const uint8_t* in, uint64_t* out){
   out[30] = ((w16 >> 56) | (w17 << 8)) & mask;
   out[31] = w17 >> 28;
 
-  return in + (18 * 8);
+  return in + (18 );
 }
 
-inline const uint8_t* unpack37_64(const uint8_t* in, uint64_t* out){
+inline const uint64_t* unpack37_64(const uint64_t*  in, uint64_t* out){
   constexpr uint64_t mask = ((uint64_t{1} << 37) - uint64_t{1});
 
-  const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
-  const auto w1 = LoadInt<uint64_t>(in + 1 * 8);
-  const auto w2 = LoadInt<uint64_t>(in + 2 * 8);
-  const auto w3 = LoadInt<uint64_t>(in + 3 * 8);
-  const auto w4 = LoadInt<uint64_t>(in + 4 * 8);
-  const auto w5 = LoadInt<uint64_t>(in + 5 * 8);
-  const auto w6 = LoadInt<uint64_t>(in + 6 * 8);
-  const auto w7 = LoadInt<uint64_t>(in + 7 * 8);
-  const auto w8 = LoadInt<uint64_t>(in + 8 * 8);
-  const auto w9 = LoadInt<uint64_t>(in + 9 * 8);
-  const auto w10 = LoadInt<uint64_t>(in + 10 * 8);
-  const auto w11 = LoadInt<uint64_t>(in + 11 * 8);
-  const auto w12 = LoadInt<uint64_t>(in + 12 * 8);
-  const auto w13 = LoadInt<uint64_t>(in + 13 * 8);
-  const auto w14 = LoadInt<uint64_t>(in + 14 * 8);
-  const auto w15 = LoadInt<uint64_t>(in + 15 * 8);
-  const auto w16 = LoadInt<uint64_t>(in + 16 * 8);
-  const auto w17 = LoadInt<uint64_t>(in + 17 * 8);
-  const auto w18 = static_cast<uint64_t>(LoadInt<uint32_t>(in + 18 * 8));
+  const auto w0 = LoadInt<uint64_t>(in + 0);
+  const auto w1 = LoadInt<uint64_t>(in + 1);
+  const auto w2 = LoadInt<uint64_t>(in + 2);
+  const auto w3 = LoadInt<uint64_t>(in + 3);
+  const auto w4 = LoadInt<uint64_t>(in + 4);
+  const auto w5 = LoadInt<uint64_t>(in + 5);
+  const auto w6 = LoadInt<uint64_t>(in + 6);
+  const auto w7 = LoadInt<uint64_t>(in + 7);
+  const auto w8 = LoadInt<uint64_t>(in + 8);
+  const auto w9 = LoadInt<uint64_t>(in + 9);
+  const auto w10 = LoadInt<uint64_t>(in + 10);
+  const auto w11 = LoadInt<uint64_t>(in + 11);
+  const auto w12 = LoadInt<uint64_t>(in + 12);
+  const auto w13 = LoadInt<uint64_t>(in + 13);
+  const auto w14 = LoadInt<uint64_t>(in + 14);
+  const auto w15 = LoadInt<uint64_t>(in + 15);
+  const auto w16 = LoadInt<uint64_t>(in + 16);
+  const auto w17 = LoadInt<uint64_t>(in + 17);
+  const auto w18 = static_cast<uint64_t>(LoadInt(reinterpret_cast<const uint32_t*>(in + 18)));
   out[0] = (w0) & mask;
   out[1] = ((w0 >> 37) | (w1 << 27)) & mask;
   out[2] = (w1 >> 10) & mask;
@@ -3566,31 +3566,31 @@ inline const uint8_t* unpack37_64(const uint8_t* in, uint64_t* out){
   out[30] = (w17 >> 22) & mask;
   out[31] = ((w17 >> 59) | (w18 << 5)) & mask;
 
-  return in + (18 * 8 + 4);
+  return in + (18);
 }
 
-inline const uint8_t* unpack38_64(const uint8_t* in, uint64_t* out){
+inline const uint64_t* unpack38_64(const uint64_t*  in, uint64_t* out){
   constexpr uint64_t mask = ((uint64_t{1} << 38) - uint64_t{1});
 
-  const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
-  const auto w1 = LoadInt<uint64_t>(in + 1 * 8);
-  const auto w2 = LoadInt<uint64_t>(in + 2 * 8);
-  const auto w3 = LoadInt<uint64_t>(in + 3 * 8);
-  const auto w4 = LoadInt<uint64_t>(in + 4 * 8);
-  const auto w5 = LoadInt<uint64_t>(in + 5 * 8);
-  const auto w6 = LoadInt<uint64_t>(in + 6 * 8);
-  const auto w7 = LoadInt<uint64_t>(in + 7 * 8);
-  const auto w8 = LoadInt<uint64_t>(in + 8 * 8);
-  const auto w9 = LoadInt<uint64_t>(in + 9 * 8);
-  const auto w10 = LoadInt<uint64_t>(in + 10 * 8);
-  const auto w11 = LoadInt<uint64_t>(in + 11 * 8);
-  const auto w12 = LoadInt<uint64_t>(in + 12 * 8);
-  const auto w13 = LoadInt<uint64_t>(in + 13 * 8);
-  const auto w14 = LoadInt<uint64_t>(in + 14 * 8);
-  const auto w15 = LoadInt<uint64_t>(in + 15 * 8);
-  const auto w16 = LoadInt<uint64_t>(in + 16 * 8);
-  const auto w17 = LoadInt<uint64_t>(in + 17 * 8);
-  const auto w18 = LoadInt<uint64_t>(in + 18 * 8);
+  const auto w0 = LoadInt<uint64_t>(in + 0);
+  const auto w1 = LoadInt<uint64_t>(in + 1);
+  const auto w2 = LoadInt<uint64_t>(in + 2);
+  const auto w3 = LoadInt<uint64_t>(in + 3);
+  const auto w4 = LoadInt<uint64_t>(in + 4);
+  const auto w5 = LoadInt<uint64_t>(in + 5);
+  const auto w6 = LoadInt<uint64_t>(in + 6);
+  const auto w7 = LoadInt<uint64_t>(in + 7);
+  const auto w8 = LoadInt<uint64_t>(in + 8);
+  const auto w9 = LoadInt<uint64_t>(in + 9);
+  const auto w10 = LoadInt<uint64_t>(in + 10);
+  const auto w11 = LoadInt<uint64_t>(in + 11);
+  const auto w12 = LoadInt<uint64_t>(in + 12);
+  const auto w13 = LoadInt<uint64_t>(in + 13);
+  const auto w14 = LoadInt<uint64_t>(in + 14);
+  const auto w15 = LoadInt<uint64_t>(in + 15);
+  const auto w16 = LoadInt<uint64_t>(in + 16);
+  const auto w17 = LoadInt<uint64_t>(in + 17);
+  const auto w18 = LoadInt<uint64_t>(in + 18 );
   out[0] = (w0) & mask;
   out[1] = ((w0 >> 38) | (w1 << 26)) & mask;
   out[2] = (w1 >> 12) & mask;
@@ -3624,32 +3624,32 @@ inline const uint8_t* unpack38_64(const uint8_t* in, uint64_t* out){
   out[30] = ((w17 >> 52) | (w18 << 12)) & mask;
   out[31] = w18 >> 26;
 
-  return in + (19 * 8);
+  return in + (19 );
 }
 
-inline const uint8_t* unpack39_64(const uint8_t* in, uint64_t* out){
+inline const uint64_t* unpack39_64(const uint64_t*  in, uint64_t* out){
   constexpr uint64_t mask = ((uint64_t{1} << 39) - uint64_t{1});
 
-  const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
-  const auto w1 = LoadInt<uint64_t>(in + 1 * 8);
-  const auto w2 = LoadInt<uint64_t>(in + 2 * 8);
-  const auto w3 = LoadInt<uint64_t>(in + 3 * 8);
-  const auto w4 = LoadInt<uint64_t>(in + 4 * 8);
-  const auto w5 = LoadInt<uint64_t>(in + 5 * 8);
-  const auto w6 = LoadInt<uint64_t>(in + 6 * 8);
-  const auto w7 = LoadInt<uint64_t>(in + 7 * 8);
-  const auto w8 = LoadInt<uint64_t>(in + 8 * 8);
-  const auto w9 = LoadInt<uint64_t>(in + 9 * 8);
-  const auto w10 = LoadInt<uint64_t>(in + 10 * 8);
-  const auto w11 = LoadInt<uint64_t>(in + 11 * 8);
-  const auto w12 = LoadInt<uint64_t>(in + 12 * 8);
-  const auto w13 = LoadInt<uint64_t>(in + 13 * 8);
-  const auto w14 = LoadInt<uint64_t>(in + 14 * 8);
-  const auto w15 = LoadInt<uint64_t>(in + 15 * 8);
-  const auto w16 = LoadInt<uint64_t>(in + 16 * 8);
-  const auto w17 = LoadInt<uint64_t>(in + 17 * 8);
-  const auto w18 = LoadInt<uint64_t>(in + 18 * 8);
-  const auto w19 = static_cast<uint64_t>(LoadInt<uint32_t>(in + 19 * 8));
+  const auto w0 = LoadInt<uint64_t>(in + 0);
+  const auto w1 = LoadInt<uint64_t>(in + 1);
+  const auto w2 = LoadInt<uint64_t>(in + 2);
+  const auto w3 = LoadInt<uint64_t>(in + 3);
+  const auto w4 = LoadInt<uint64_t>(in + 4);
+  const auto w5 = LoadInt<uint64_t>(in + 5);
+  const auto w6 = LoadInt<uint64_t>(in + 6);
+  const auto w7 = LoadInt<uint64_t>(in + 7);
+  const auto w8 = LoadInt<uint64_t>(in + 8);
+  const auto w9 = LoadInt<uint64_t>(in + 9);
+  const auto w10 = LoadInt<uint64_t>(in + 10);
+  const auto w11 = LoadInt<uint64_t>(in + 11);
+  const auto w12 = LoadInt<uint64_t>(in + 12);
+  const auto w13 = LoadInt<uint64_t>(in + 13);
+  const auto w14 = LoadInt<uint64_t>(in + 14);
+  const auto w15 = LoadInt<uint64_t>(in + 15);
+  const auto w16 = LoadInt<uint64_t>(in + 16);
+  const auto w17 = LoadInt<uint64_t>(in + 17);
+  const auto w18 = LoadInt<uint64_t>(in + 18);
+  const auto w19 = static_cast<uint64_t>(LoadInt(reinterpret_cast<const uint32_t*>(in + 19)));
   out[0] = (w0) & mask;
   out[1] = ((w0 >> 39) | (w1 << 25)) & mask;
   out[2] = (w1 >> 14) & mask;
@@ -3683,32 +3683,32 @@ inline const uint8_t* unpack39_64(const uint8_t* in, uint64_t* out){
   out[30] = (w18 >> 18) & mask;
   out[31] = ((w18 >> 57) | (w19 << 7)) & mask;
 
-  return in + (19 * 8 + 4);
+  return in + (19);
 }
 
-inline const uint8_t* unpack40_64(const uint8_t* in, uint64_t* out){
+inline const uint64_t* unpack40_64(const uint64_t*  in, uint64_t* out){
   constexpr uint64_t mask = ((uint64_t{1} << 40) - uint64_t{1});
 
-  const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
-  const auto w1 = LoadInt<uint64_t>(in + 1 * 8);
-  const auto w2 = LoadInt<uint64_t>(in + 2 * 8);
-  const auto w3 = LoadInt<uint64_t>(in + 3 * 8);
-  const auto w4 = LoadInt<uint64_t>(in + 4 * 8);
-  const auto w5 = LoadInt<uint64_t>(in + 5 * 8);
-  const auto w6 = LoadInt<uint64_t>(in + 6 * 8);
-  const auto w7 = LoadInt<uint64_t>(in + 7 * 8);
-  const auto w8 = LoadInt<uint64_t>(in + 8 * 8);
-  const auto w9 = LoadInt<uint64_t>(in + 9 * 8);
-  const auto w10 = LoadInt<uint64_t>(in + 10 * 8);
-  const auto w11 = LoadInt<uint64_t>(in + 11 * 8);
-  const auto w12 = LoadInt<uint64_t>(in + 12 * 8);
-  const auto w13 = LoadInt<uint64_t>(in + 13 * 8);
-  const auto w14 = LoadInt<uint64_t>(in + 14 * 8);
-  const auto w15 = LoadInt<uint64_t>(in + 15 * 8);
-  const auto w16 = LoadInt<uint64_t>(in + 16 * 8);
-  const auto w17 = LoadInt<uint64_t>(in + 17 * 8);
-  const auto w18 = LoadInt<uint64_t>(in + 18 * 8);
-  const auto w19 = LoadInt<uint64_t>(in + 19 * 8);
+  const auto w0 = LoadInt<uint64_t>(in + 0);
+  const auto w1 = LoadInt<uint64_t>(in + 1);
+  const auto w2 = LoadInt<uint64_t>(in + 2);
+  const auto w3 = LoadInt<uint64_t>(in + 3);
+  const auto w4 = LoadInt<uint64_t>(in + 4);
+  const auto w5 = LoadInt<uint64_t>(in + 5);
+  const auto w6 = LoadInt<uint64_t>(in + 6);
+  const auto w7 = LoadInt<uint64_t>(in + 7);
+  const auto w8 = LoadInt<uint64_t>(in + 8);
+  const auto w9 = LoadInt<uint64_t>(in + 9);
+  const auto w10 = LoadInt<uint64_t>(in + 10);
+  const auto w11 = LoadInt<uint64_t>(in + 11);
+  const auto w12 = LoadInt<uint64_t>(in + 12);
+  const auto w13 = LoadInt<uint64_t>(in + 13);
+  const auto w14 = LoadInt<uint64_t>(in + 14);
+  const auto w15 = LoadInt<uint64_t>(in + 15);
+  const auto w16 = LoadInt<uint64_t>(in + 16);
+  const auto w17 = LoadInt<uint64_t>(in + 17);
+  const auto w18 = LoadInt<uint64_t>(in + 18);
+  const auto w19 = LoadInt<uint64_t>(in + 19 );
   out[0] = (w0) & mask;
   out[1] = ((w0 >> 40) | (w1 << 24)) & mask;
   out[2] = (w1 >> 16) & mask;
@@ -3742,33 +3742,33 @@ inline const uint8_t* unpack40_64(const uint8_t* in, uint64_t* out){
   out[30] = ((w18 >> 48) | (w19 << 16)) & mask;
   out[31] = w19 >> 24;
 
-  return in + (20 * 8);
+  return in + (20 );
 }
 
-inline const uint8_t* unpack41_64(const uint8_t* in, uint64_t* out){
+inline const uint64_t* unpack41_64(const uint64_t*  in, uint64_t* out){
   constexpr uint64_t mask = ((uint64_t{1} << 41) - uint64_t{1});
 
-  const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
-  const auto w1 = LoadInt<uint64_t>(in + 1 * 8);
-  const auto w2 = LoadInt<uint64_t>(in + 2 * 8);
-  const auto w3 = LoadInt<uint64_t>(in + 3 * 8);
-  const auto w4 = LoadInt<uint64_t>(in + 4 * 8);
-  const auto w5 = LoadInt<uint64_t>(in + 5 * 8);
-  const auto w6 = LoadInt<uint64_t>(in + 6 * 8);
-  const auto w7 = LoadInt<uint64_t>(in + 7 * 8);
-  const auto w8 = LoadInt<uint64_t>(in + 8 * 8);
-  const auto w9 = LoadInt<uint64_t>(in + 9 * 8);
-  const auto w10 = LoadInt<uint64_t>(in + 10 * 8);
-  const auto w11 = LoadInt<uint64_t>(in + 11 * 8);
-  const auto w12 = LoadInt<uint64_t>(in + 12 * 8);
-  const auto w13 = LoadInt<uint64_t>(in + 13 * 8);
-  const auto w14 = LoadInt<uint64_t>(in + 14 * 8);
-  const auto w15 = LoadInt<uint64_t>(in + 15 * 8);
-  const auto w16 = LoadInt<uint64_t>(in + 16 * 8);
-  const auto w17 = LoadInt<uint64_t>(in + 17 * 8);
-  const auto w18 = LoadInt<uint64_t>(in + 18 * 8);
-  const auto w19 = LoadInt<uint64_t>(in + 19 * 8);
-  const auto w20 = static_cast<uint64_t>(LoadInt<uint32_t>(in + 20 * 8));
+  const auto w0 = LoadInt<uint64_t>(in + 0);
+  const auto w1 = LoadInt<uint64_t>(in + 1);
+  const auto w2 = LoadInt<uint64_t>(in + 2);
+  const auto w3 = LoadInt<uint64_t>(in + 3);
+  const auto w4 = LoadInt<uint64_t>(in + 4);
+  const auto w5 = LoadInt<uint64_t>(in + 5);
+  const auto w6 = LoadInt<uint64_t>(in + 6);
+  const auto w7 = LoadInt<uint64_t>(in + 7);
+  const auto w8 = LoadInt<uint64_t>(in + 8);
+  const auto w9 = LoadInt<uint64_t>(in + 9);
+  const auto w10 = LoadInt<uint64_t>(in + 10);
+  const auto w11 = LoadInt<uint64_t>(in + 11);
+  const auto w12 = LoadInt<uint64_t>(in + 12);
+  const auto w13 = LoadInt<uint64_t>(in + 13);
+  const auto w14 = LoadInt<uint64_t>(in + 14);
+  const auto w15 = LoadInt<uint64_t>(in + 15);
+  const auto w16 = LoadInt<uint64_t>(in + 16);
+  const auto w17 = LoadInt<uint64_t>(in + 17);
+  const auto w18 = LoadInt<uint64_t>(in + 18);
+  const auto w19 = LoadInt<uint64_t>(in + 19);
+  const auto w20 = static_cast<uint64_t>(LoadInt(reinterpret_cast<const uint32_t*>(in + 20)));
   out[0] = (w0) & mask;
   out[1] = ((w0 >> 41) | (w1 << 23)) & mask;
   out[2] = (w1 >> 18) & mask;
@@ -3802,33 +3802,33 @@ inline const uint8_t* unpack41_64(const uint8_t* in, uint64_t* out){
   out[30] = (w19 >> 14) & mask;
   out[31] = ((w19 >> 55) | (w20 << 9)) & mask;
 
-  return in + (20 * 8 + 4);
+  return in + (20);
 }
 
-inline const uint8_t* unpack42_64(const uint8_t* in, uint64_t* out){
+inline const uint64_t* unpack42_64(const uint64_t*  in, uint64_t* out){
   constexpr uint64_t mask = ((uint64_t{1} << 42) - uint64_t{1});
 
-  const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
-  const auto w1 = LoadInt<uint64_t>(in + 1 * 8);
-  const auto w2 = LoadInt<uint64_t>(in + 2 * 8);
-  const auto w3 = LoadInt<uint64_t>(in + 3 * 8);
-  const auto w4 = LoadInt<uint64_t>(in + 4 * 8);
-  const auto w5 = LoadInt<uint64_t>(in + 5 * 8);
-  const auto w6 = LoadInt<uint64_t>(in + 6 * 8);
-  const auto w7 = LoadInt<uint64_t>(in + 7 * 8);
-  const auto w8 = LoadInt<uint64_t>(in + 8 * 8);
-  const auto w9 = LoadInt<uint64_t>(in + 9 * 8);
-  const auto w10 = LoadInt<uint64_t>(in + 10 * 8);
-  const auto w11 = LoadInt<uint64_t>(in + 11 * 8);
-  const auto w12 = LoadInt<uint64_t>(in + 12 * 8);
-  const auto w13 = LoadInt<uint64_t>(in + 13 * 8);
-  const auto w14 = LoadInt<uint64_t>(in + 14 * 8);
-  const auto w15 = LoadInt<uint64_t>(in + 15 * 8);
-  const auto w16 = LoadInt<uint64_t>(in + 16 * 8);
-  const auto w17 = LoadInt<uint64_t>(in + 17 * 8);
-  const auto w18 = LoadInt<uint64_t>(in + 18 * 8);
-  const auto w19 = LoadInt<uint64_t>(in + 19 * 8);
-  const auto w20 = LoadInt<uint64_t>(in + 20 * 8);
+  const auto w0 = LoadInt<uint64_t>(in + 0);
+  const auto w1 = LoadInt<uint64_t>(in + 1);
+  const auto w2 = LoadInt<uint64_t>(in + 2);
+  const auto w3 = LoadInt<uint64_t>(in + 3);
+  const auto w4 = LoadInt<uint64_t>(in + 4);
+  const auto w5 = LoadInt<uint64_t>(in + 5);
+  const auto w6 = LoadInt<uint64_t>(in + 6);
+  const auto w7 = LoadInt<uint64_t>(in + 7);
+  const auto w8 = LoadInt<uint64_t>(in + 8);
+  const auto w9 = LoadInt<uint64_t>(in + 9);
+  const auto w10 = LoadInt<uint64_t>(in + 10);
+  const auto w11 = LoadInt<uint64_t>(in + 11);
+  const auto w12 = LoadInt<uint64_t>(in + 12);
+  const auto w13 = LoadInt<uint64_t>(in + 13);
+  const auto w14 = LoadInt<uint64_t>(in + 14);
+  const auto w15 = LoadInt<uint64_t>(in + 15);
+  const auto w16 = LoadInt<uint64_t>(in + 16);
+  const auto w17 = LoadInt<uint64_t>(in + 17);
+  const auto w18 = LoadInt<uint64_t>(in + 18);
+  const auto w19 = LoadInt<uint64_t>(in + 19);
+  const auto w20 = LoadInt<uint64_t>(in + 20 );
   out[0] = (w0) & mask;
   out[1] = ((w0 >> 42) | (w1 << 22)) & mask;
   out[2] = (w1 >> 20) & mask;
@@ -3862,34 +3862,34 @@ inline const uint8_t* unpack42_64(const uint8_t* in, uint64_t* out){
   out[30] = ((w19 >> 44) | (w20 << 20)) & mask;
   out[31] = w20 >> 22;
 
-  return in + (21 * 8);
+  return in + (21 );
 }
 
-inline const uint8_t* unpack43_64(const uint8_t* in, uint64_t* out){
+inline const uint64_t* unpack43_64(const uint64_t*  in, uint64_t* out){
   constexpr uint64_t mask = ((uint64_t{1} << 43) - uint64_t{1});
 
-  const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
-  const auto w1 = LoadInt<uint64_t>(in + 1 * 8);
-  const auto w2 = LoadInt<uint64_t>(in + 2 * 8);
-  const auto w3 = LoadInt<uint64_t>(in + 3 * 8);
-  const auto w4 = LoadInt<uint64_t>(in + 4 * 8);
-  const auto w5 = LoadInt<uint64_t>(in + 5 * 8);
-  const auto w6 = LoadInt<uint64_t>(in + 6 * 8);
-  const auto w7 = LoadInt<uint64_t>(in + 7 * 8);
-  const auto w8 = LoadInt<uint64_t>(in + 8 * 8);
-  const auto w9 = LoadInt<uint64_t>(in + 9 * 8);
-  const auto w10 = LoadInt<uint64_t>(in + 10 * 8);
-  const auto w11 = LoadInt<uint64_t>(in + 11 * 8);
-  const auto w12 = LoadInt<uint64_t>(in + 12 * 8);
-  const auto w13 = LoadInt<uint64_t>(in + 13 * 8);
-  const auto w14 = LoadInt<uint64_t>(in + 14 * 8);
-  const auto w15 = LoadInt<uint64_t>(in + 15 * 8);
-  const auto w16 = LoadInt<uint64_t>(in + 16 * 8);
-  const auto w17 = LoadInt<uint64_t>(in + 17 * 8);
-  const auto w18 = LoadInt<uint64_t>(in + 18 * 8);
-  const auto w19 = LoadInt<uint64_t>(in + 19 * 8);
-  const auto w20 = LoadInt<uint64_t>(in + 20 * 8);
-  const auto w21 = static_cast<uint64_t>(LoadInt<uint32_t>(in + 21 * 8));
+  const auto w0 = LoadInt<uint64_t>(in + 0);
+  const auto w1 = LoadInt<uint64_t>(in + 1);
+  const auto w2 = LoadInt<uint64_t>(in + 2);
+  const auto w3 = LoadInt<uint64_t>(in + 3);
+  const auto w4 = LoadInt<uint64_t>(in + 4);
+  const auto w5 = LoadInt<uint64_t>(in + 5);
+  const auto w6 = LoadInt<uint64_t>(in + 6);
+  const auto w7 = LoadInt<uint64_t>(in + 7);
+  const auto w8 = LoadInt<uint64_t>(in + 8);
+  const auto w9 = LoadInt<uint64_t>(in + 9);
+  const auto w10 = LoadInt<uint64_t>(in + 10);
+  const auto w11 = LoadInt<uint64_t>(in + 11);
+  const auto w12 = LoadInt<uint64_t>(in + 12);
+  const auto w13 = LoadInt<uint64_t>(in + 13);
+  const auto w14 = LoadInt<uint64_t>(in + 14);
+  const auto w15 = LoadInt<uint64_t>(in + 15);
+  const auto w16 = LoadInt<uint64_t>(in + 16);
+  const auto w17 = LoadInt<uint64_t>(in + 17);
+  const auto w18 = LoadInt<uint64_t>(in + 18);
+  const auto w19 = LoadInt<uint64_t>(in + 19);
+  const auto w20 = LoadInt<uint64_t>(in + 20);
+  const auto w21 = static_cast<uint64_t>(LoadInt(reinterpret_cast<const uint32_t*>(in + 21)));
   out[0] = (w0) & mask;
   out[1] = ((w0 >> 43) | (w1 << 21)) & mask;
   out[2] = ((w1 >> 22) | (w2 << 42)) & mask;
@@ -3923,34 +3923,34 @@ inline const uint8_t* unpack43_64(const uint8_t* in, uint64_t* out){
   out[30] = (w20 >> 10) & mask;
   out[31] = ((w20 >> 53) | (w21 << 11)) & mask;
 
-  return in + (21 * 8 + 4);
+  return in + (21);
 }
 
-inline const uint8_t* unpack44_64(const uint8_t* in, uint64_t* out){
+inline const uint64_t* unpack44_64(const uint64_t*  in, uint64_t* out){
   constexpr uint64_t mask = ((uint64_t{1} << 44) - uint64_t{1});
 
-  const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
-  const auto w1 = LoadInt<uint64_t>(in + 1 * 8);
-  const auto w2 = LoadInt<uint64_t>(in + 2 * 8);
-  const auto w3 = LoadInt<uint64_t>(in + 3 * 8);
-  const auto w4 = LoadInt<uint64_t>(in + 4 * 8);
-  const auto w5 = LoadInt<uint64_t>(in + 5 * 8);
-  const auto w6 = LoadInt<uint64_t>(in + 6 * 8);
-  const auto w7 = LoadInt<uint64_t>(in + 7 * 8);
-  const auto w8 = LoadInt<uint64_t>(in + 8 * 8);
-  const auto w9 = LoadInt<uint64_t>(in + 9 * 8);
-  const auto w10 = LoadInt<uint64_t>(in + 10 * 8);
-  const auto w11 = LoadInt<uint64_t>(in + 11 * 8);
-  const auto w12 = LoadInt<uint64_t>(in + 12 * 8);
-  const auto w13 = LoadInt<uint64_t>(in + 13 * 8);
-  const auto w14 = LoadInt<uint64_t>(in + 14 * 8);
-  const auto w15 = LoadInt<uint64_t>(in + 15 * 8);
-  const auto w16 = LoadInt<uint64_t>(in + 16 * 8);
-  const auto w17 = LoadInt<uint64_t>(in + 17 * 8);
-  const auto w18 = LoadInt<uint64_t>(in + 18 * 8);
-  const auto w19 = LoadInt<uint64_t>(in + 19 * 8);
-  const auto w20 = LoadInt<uint64_t>(in + 20 * 8);
-  const auto w21 = LoadInt<uint64_t>(in + 21 * 8);
+  const auto w0 = LoadInt<uint64_t>(in + 0);
+  const auto w1 = LoadInt<uint64_t>(in + 1);
+  const auto w2 = LoadInt<uint64_t>(in + 2);
+  const auto w3 = LoadInt<uint64_t>(in + 3);
+  const auto w4 = LoadInt<uint64_t>(in + 4);
+  const auto w5 = LoadInt<uint64_t>(in + 5);
+  const auto w6 = LoadInt<uint64_t>(in + 6);
+  const auto w7 = LoadInt<uint64_t>(in + 7);
+  const auto w8 = LoadInt<uint64_t>(in + 8);
+  const auto w9 = LoadInt<uint64_t>(in + 9);
+  const auto w10 = LoadInt<uint64_t>(in + 10);
+  const auto w11 = LoadInt<uint64_t>(in + 11);
+  const auto w12 = LoadInt<uint64_t>(in + 12);
+  const auto w13 = LoadInt<uint64_t>(in + 13);
+  const auto w14 = LoadInt<uint64_t>(in + 14);
+  const auto w15 = LoadInt<uint64_t>(in + 15);
+  const auto w16 = LoadInt<uint64_t>(in + 16);
+  const auto w17 = LoadInt<uint64_t>(in + 17);
+  const auto w18 = LoadInt<uint64_t>(in + 18);
+  const auto w19 = LoadInt<uint64_t>(in + 19);
+  const auto w20 = LoadInt<uint64_t>(in + 20);
+  const auto w21 = LoadInt<uint64_t>(in + 21 );
   out[0] = (w0) & mask;
   out[1] = ((w0 >> 44) | (w1 << 20)) & mask;
   out[2] = ((w1 >> 24) | (w2 << 40)) & mask;
@@ -3984,35 +3984,35 @@ inline const uint8_t* unpack44_64(const uint8_t* in, uint64_t* out){
   out[30] = ((w20 >> 40) | (w21 << 24)) & mask;
   out[31] = w21 >> 20;
 
-  return in + (22 * 8);
+  return in + (22 );
 }
 
-inline const uint8_t* unpack45_64(const uint8_t* in, uint64_t* out){
+inline const uint64_t* unpack45_64(const uint64_t*  in, uint64_t* out){
   constexpr uint64_t mask = ((uint64_t{1} << 45) - uint64_t{1});
 
-  const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
-  const auto w1 = LoadInt<uint64_t>(in + 1 * 8);
-  const auto w2 = LoadInt<uint64_t>(in + 2 * 8);
-  const auto w3 = LoadInt<uint64_t>(in + 3 * 8);
-  const auto w4 = LoadInt<uint64_t>(in + 4 * 8);
-  const auto w5 = LoadInt<uint64_t>(in + 5 * 8);
-  const auto w6 = LoadInt<uint64_t>(in + 6 * 8);
-  const auto w7 = LoadInt<uint64_t>(in + 7 * 8);
-  const auto w8 = LoadInt<uint64_t>(in + 8 * 8);
-  const auto w9 = LoadInt<uint64_t>(in + 9 * 8);
-  const auto w10 = LoadInt<uint64_t>(in + 10 * 8);
-  const auto w11 = LoadInt<uint64_t>(in + 11 * 8);
-  const auto w12 = LoadInt<uint64_t>(in + 12 * 8);
-  const auto w13 = LoadInt<uint64_t>(in + 13 * 8);
-  const auto w14 = LoadInt<uint64_t>(in + 14 * 8);
-  const auto w15 = LoadInt<uint64_t>(in + 15 * 8);
-  const auto w16 = LoadInt<uint64_t>(in + 16 * 8);
-  const auto w17 = LoadInt<uint64_t>(in + 17 * 8);
-  const auto w18 = LoadInt<uint64_t>(in + 18 * 8);
-  const auto w19 = LoadInt<uint64_t>(in + 19 * 8);
-  const auto w20 = LoadInt<uint64_t>(in + 20 * 8);
-  const auto w21 = LoadInt<uint64_t>(in + 21 * 8);
-  const auto w22 = static_cast<uint64_t>(LoadInt<uint32_t>(in + 22 * 8));
+  const auto w0 = LoadInt<uint64_t>(in + 0);
+  const auto w1 = LoadInt<uint64_t>(in + 1);
+  const auto w2 = LoadInt<uint64_t>(in + 2);
+  const auto w3 = LoadInt<uint64_t>(in + 3);
+  const auto w4 = LoadInt<uint64_t>(in + 4);
+  const auto w5 = LoadInt<uint64_t>(in + 5);
+  const auto w6 = LoadInt<uint64_t>(in + 6);
+  const auto w7 = LoadInt<uint64_t>(in + 7);
+  const auto w8 = LoadInt<uint64_t>(in + 8);
+  const auto w9 = LoadInt<uint64_t>(in + 9);
+  const auto w10 = LoadInt<uint64_t>(in + 10);
+  const auto w11 = LoadInt<uint64_t>(in + 11);
+  const auto w12 = LoadInt<uint64_t>(in + 12);
+  const auto w13 = LoadInt<uint64_t>(in + 13);
+  const auto w14 = LoadInt<uint64_t>(in + 14);
+  const auto w15 = LoadInt<uint64_t>(in + 15);
+  const auto w16 = LoadInt<uint64_t>(in + 16);
+  const auto w17 = LoadInt<uint64_t>(in + 17);
+  const auto w18 = LoadInt<uint64_t>(in + 18);
+  const auto w19 = LoadInt<uint64_t>(in + 19);
+  const auto w20 = LoadInt<uint64_t>(in + 20);
+  const auto w21 = LoadInt<uint64_t>(in + 21);
+  const auto w22 = static_cast<uint64_t>(LoadInt(reinterpret_cast<const uint32_t*>(in + 22)));
   out[0] = (w0) & mask;
   out[1] = ((w0 >> 45) | (w1 << 19)) & mask;
   out[2] = ((w1 >> 26) | (w2 << 38)) & mask;
@@ -4046,35 +4046,35 @@ inline const uint8_t* unpack45_64(const uint8_t* in, uint64_t* out){
   out[30] = (w21 >> 6) & mask;
   out[31] = ((w21 >> 51) | (w22 << 13)) & mask;
 
-  return in + (22 * 8 + 4);
+  return in + (22);
 }
 
-inline const uint8_t* unpack46_64(const uint8_t* in, uint64_t* out){
+inline const uint64_t* unpack46_64(const uint64_t*  in, uint64_t* out){
   constexpr uint64_t mask = ((uint64_t{1} << 46) - uint64_t{1});
 
-  const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
-  const auto w1 = LoadInt<uint64_t>(in + 1 * 8);
-  const auto w2 = LoadInt<uint64_t>(in + 2 * 8);
-  const auto w3 = LoadInt<uint64_t>(in + 3 * 8);
-  const auto w4 = LoadInt<uint64_t>(in + 4 * 8);
-  const auto w5 = LoadInt<uint64_t>(in + 5 * 8);
-  const auto w6 = LoadInt<uint64_t>(in + 6 * 8);
-  const auto w7 = LoadInt<uint64_t>(in + 7 * 8);
-  const auto w8 = LoadInt<uint64_t>(in + 8 * 8);
-  const auto w9 = LoadInt<uint64_t>(in + 9 * 8);
-  const auto w10 = LoadInt<uint64_t>(in + 10 * 8);
-  const auto w11 = LoadInt<uint64_t>(in + 11 * 8);
-  const auto w12 = LoadInt<uint64_t>(in + 12 * 8);
-  const auto w13 = LoadInt<uint64_t>(in + 13 * 8);
-  const auto w14 = LoadInt<uint64_t>(in + 14 * 8);
-  const auto w15 = LoadInt<uint64_t>(in + 15 * 8);
-  const auto w16 = LoadInt<uint64_t>(in + 16 * 8);
-  const auto w17 = LoadInt<uint64_t>(in + 17 * 8);
-  const auto w18 = LoadInt<uint64_t>(in + 18 * 8);
-  const auto w19 = LoadInt<uint64_t>(in + 19 * 8);
-  const auto w20 = LoadInt<uint64_t>(in + 20 * 8);
-  const auto w21 = LoadInt<uint64_t>(in + 21 * 8);
-  const auto w22 = LoadInt<uint64_t>(in + 22 * 8);
+  const auto w0 = LoadInt<uint64_t>(in + 0);
+  const auto w1 = LoadInt<uint64_t>(in + 1);
+  const auto w2 = LoadInt<uint64_t>(in + 2);
+  const auto w3 = LoadInt<uint64_t>(in + 3);
+  const auto w4 = LoadInt<uint64_t>(in + 4);
+  const auto w5 = LoadInt<uint64_t>(in + 5);
+  const auto w6 = LoadInt<uint64_t>(in + 6);
+  const auto w7 = LoadInt<uint64_t>(in + 7);
+  const auto w8 = LoadInt<uint64_t>(in + 8);
+  const auto w9 = LoadInt<uint64_t>(in + 9);
+  const auto w10 = LoadInt<uint64_t>(in + 10);
+  const auto w11 = LoadInt<uint64_t>(in + 11);
+  const auto w12 = LoadInt<uint64_t>(in + 12);
+  const auto w13 = LoadInt<uint64_t>(in + 13);
+  const auto w14 = LoadInt<uint64_t>(in + 14);
+  const auto w15 = LoadInt<uint64_t>(in + 15);
+  const auto w16 = LoadInt<uint64_t>(in + 16);
+  const auto w17 = LoadInt<uint64_t>(in + 17);
+  const auto w18 = LoadInt<uint64_t>(in + 18);
+  const auto w19 = LoadInt<uint64_t>(in + 19);
+  const auto w20 = LoadInt<uint64_t>(in + 20);
+  const auto w21 = LoadInt<uint64_t>(in + 21);
+  const auto w22 = LoadInt<uint64_t>(in + 22 );
   out[0] = (w0) & mask;
   out[1] = ((w0 >> 46) | (w1 << 18)) & mask;
   out[2] = ((w1 >> 28) | (w2 << 36)) & mask;
@@ -4108,36 +4108,36 @@ inline const uint8_t* unpack46_64(const uint8_t* in, uint64_t* out){
   out[30] = ((w21 >> 36) | (w22 << 28)) & mask;
   out[31] = w22 >> 18;
 
-  return in + (23 * 8);
+  return in + (23 );
 }
 
-inline const uint8_t* unpack47_64(const uint8_t* in, uint64_t* out){
+inline const uint64_t* unpack47_64(const uint64_t*  in, uint64_t* out){
   constexpr uint64_t mask = ((uint64_t{1} << 47) - uint64_t{1});
 
-  const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
-  const auto w1 = LoadInt<uint64_t>(in + 1 * 8);
-  const auto w2 = LoadInt<uint64_t>(in + 2 * 8);
-  const auto w3 = LoadInt<uint64_t>(in + 3 * 8);
-  const auto w4 = LoadInt<uint64_t>(in + 4 * 8);
-  const auto w5 = LoadInt<uint64_t>(in + 5 * 8);
-  const auto w6 = LoadInt<uint64_t>(in + 6 * 8);
-  const auto w7 = LoadInt<uint64_t>(in + 7 * 8);
-  const auto w8 = LoadInt<uint64_t>(in + 8 * 8);
-  const auto w9 = LoadInt<uint64_t>(in + 9 * 8);
-  const auto w10 = LoadInt<uint64_t>(in + 10 * 8);
-  const auto w11 = LoadInt<uint64_t>(in + 11 * 8);
-  const auto w12 = LoadInt<uint64_t>(in + 12 * 8);
-  const auto w13 = LoadInt<uint64_t>(in + 13 * 8);
-  const auto w14 = LoadInt<uint64_t>(in + 14 * 8);
-  const auto w15 = LoadInt<uint64_t>(in + 15 * 8);
-  const auto w16 = LoadInt<uint64_t>(in + 16 * 8);
-  const auto w17 = LoadInt<uint64_t>(in + 17 * 8);
-  const auto w18 = LoadInt<uint64_t>(in + 18 * 8);
-  const auto w19 = LoadInt<uint64_t>(in + 19 * 8);
-  const auto w20 = LoadInt<uint64_t>(in + 20 * 8);
-  const auto w21 = LoadInt<uint64_t>(in + 21 * 8);
-  const auto w22 = LoadInt<uint64_t>(in + 22 * 8);
-  const auto w23 = static_cast<uint64_t>(LoadInt<uint32_t>(in + 23 * 8));
+  const auto w0 = LoadInt<uint64_t>(in + 0);
+  const auto w1 = LoadInt<uint64_t>(in + 1);
+  const auto w2 = LoadInt<uint64_t>(in + 2);
+  const auto w3 = LoadInt<uint64_t>(in + 3);
+  const auto w4 = LoadInt<uint64_t>(in + 4);
+  const auto w5 = LoadInt<uint64_t>(in + 5);
+  const auto w6 = LoadInt<uint64_t>(in + 6);
+  const auto w7 = LoadInt<uint64_t>(in + 7);
+  const auto w8 = LoadInt<uint64_t>(in + 8);
+  const auto w9 = LoadInt<uint64_t>(in + 9);
+  const auto w10 = LoadInt<uint64_t>(in + 10);
+  const auto w11 = LoadInt<uint64_t>(in + 11);
+  const auto w12 = LoadInt<uint64_t>(in + 12);
+  const auto w13 = LoadInt<uint64_t>(in + 13);
+  const auto w14 = LoadInt<uint64_t>(in + 14);
+  const auto w15 = LoadInt<uint64_t>(in + 15);
+  const auto w16 = LoadInt<uint64_t>(in + 16);
+  const auto w17 = LoadInt<uint64_t>(in + 17);
+  const auto w18 = LoadInt<uint64_t>(in + 18);
+  const auto w19 = LoadInt<uint64_t>(in + 19);
+  const auto w20 = LoadInt<uint64_t>(in + 20);
+  const auto w21 = LoadInt<uint64_t>(in + 21);
+  const auto w22 = LoadInt<uint64_t>(in + 22);
+  const auto w23 = static_cast<uint64_t>(LoadInt(reinterpret_cast<const uint32_t*>(in + 23)));
   out[0] = (w0) & mask;
   out[1] = ((w0 >> 47) | (w1 << 17)) & mask;
   out[2] = ((w1 >> 30) | (w2 << 34)) & mask;
@@ -4171,36 +4171,36 @@ inline const uint8_t* unpack47_64(const uint8_t* in, uint64_t* out){
   out[30] = (w22 >> 2) & mask;
   out[31] = ((w22 >> 49) | (w23 << 15)) & mask;
 
-  return in + (23 * 8 + 4);
+  return in + (23);
 }
 
-inline const uint8_t* unpack48_64(const uint8_t* in, uint64_t* out){
+inline const uint64_t* unpack48_64(const uint64_t*  in, uint64_t* out){
   constexpr uint64_t mask = ((uint64_t{1} << 48) - uint64_t{1});
 
-  const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
-  const auto w1 = LoadInt<uint64_t>(in + 1 * 8);
-  const auto w2 = LoadInt<uint64_t>(in + 2 * 8);
-  const auto w3 = LoadInt<uint64_t>(in + 3 * 8);
-  const auto w4 = LoadInt<uint64_t>(in + 4 * 8);
-  const auto w5 = LoadInt<uint64_t>(in + 5 * 8);
-  const auto w6 = LoadInt<uint64_t>(in + 6 * 8);
-  const auto w7 = LoadInt<uint64_t>(in + 7 * 8);
-  const auto w8 = LoadInt<uint64_t>(in + 8 * 8);
-  const auto w9 = LoadInt<uint64_t>(in + 9 * 8);
-  const auto w10 = LoadInt<uint64_t>(in + 10 * 8);
-  const auto w11 = LoadInt<uint64_t>(in + 11 * 8);
-  const auto w12 = LoadInt<uint64_t>(in + 12 * 8);
-  const auto w13 = LoadInt<uint64_t>(in + 13 * 8);
-  const auto w14 = LoadInt<uint64_t>(in + 14 * 8);
-  const auto w15 = LoadInt<uint64_t>(in + 15 * 8);
-  const auto w16 = LoadInt<uint64_t>(in + 16 * 8);
-  const auto w17 = LoadInt<uint64_t>(in + 17 * 8);
-  const auto w18 = LoadInt<uint64_t>(in + 18 * 8);
-  const auto w19 = LoadInt<uint64_t>(in + 19 * 8);
-  const auto w20 = LoadInt<uint64_t>(in + 20 * 8);
-  const auto w21 = LoadInt<uint64_t>(in + 21 * 8);
-  const auto w22 = LoadInt<uint64_t>(in + 22 * 8);
-  const auto w23 = LoadInt<uint64_t>(in + 23 * 8);
+  const auto w0 = LoadInt<uint64_t>(in + 0);
+  const auto w1 = LoadInt<uint64_t>(in + 1);
+  const auto w2 = LoadInt<uint64_t>(in + 2);
+  const auto w3 = LoadInt<uint64_t>(in + 3);
+  const auto w4 = LoadInt<uint64_t>(in + 4);
+  const auto w5 = LoadInt<uint64_t>(in + 5);
+  const auto w6 = LoadInt<uint64_t>(in + 6);
+  const auto w7 = LoadInt<uint64_t>(in + 7);
+  const auto w8 = LoadInt<uint64_t>(in + 8);
+  const auto w9 = LoadInt<uint64_t>(in + 9);
+  const auto w10 = LoadInt<uint64_t>(in + 10);
+  const auto w11 = LoadInt<uint64_t>(in + 11);
+  const auto w12 = LoadInt<uint64_t>(in + 12);
+  const auto w13 = LoadInt<uint64_t>(in + 13);
+  const auto w14 = LoadInt<uint64_t>(in + 14);
+  const auto w15 = LoadInt<uint64_t>(in + 15);
+  const auto w16 = LoadInt<uint64_t>(in + 16);
+  const auto w17 = LoadInt<uint64_t>(in + 17);
+  const auto w18 = LoadInt<uint64_t>(in + 18);
+  const auto w19 = LoadInt<uint64_t>(in + 19);
+  const auto w20 = LoadInt<uint64_t>(in + 20);
+  const auto w21 = LoadInt<uint64_t>(in + 21);
+  const auto w22 = LoadInt<uint64_t>(in + 22);
+  const auto w23 = LoadInt<uint64_t>(in + 23 );
   out[0] = (w0) & mask;
   out[1] = ((w0 >> 48) | (w1 << 16)) & mask;
   out[2] = ((w1 >> 32) | (w2 << 32)) & mask;
@@ -4234,37 +4234,37 @@ inline const uint8_t* unpack48_64(const uint8_t* in, uint64_t* out){
   out[30] = ((w22 >> 32) | (w23 << 32)) & mask;
   out[31] = w23 >> 16;
 
-  return in + (24 * 8);
+  return in + (24 );
 }
 
-inline const uint8_t* unpack49_64(const uint8_t* in, uint64_t* out){
+inline const uint64_t* unpack49_64(const uint64_t*  in, uint64_t* out){
   constexpr uint64_t mask = ((uint64_t{1} << 49) - uint64_t{1});
 
-  const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
-  const auto w1 = LoadInt<uint64_t>(in + 1 * 8);
-  const auto w2 = LoadInt<uint64_t>(in + 2 * 8);
-  const auto w3 = LoadInt<uint64_t>(in + 3 * 8);
-  const auto w4 = LoadInt<uint64_t>(in + 4 * 8);
-  const auto w5 = LoadInt<uint64_t>(in + 5 * 8);
-  const auto w6 = LoadInt<uint64_t>(in + 6 * 8);
-  const auto w7 = LoadInt<uint64_t>(in + 7 * 8);
-  const auto w8 = LoadInt<uint64_t>(in + 8 * 8);
-  const auto w9 = LoadInt<uint64_t>(in + 9 * 8);
-  const auto w10 = LoadInt<uint64_t>(in + 10 * 8);
-  const auto w11 = LoadInt<uint64_t>(in + 11 * 8);
-  const auto w12 = LoadInt<uint64_t>(in + 12 * 8);
-  const auto w13 = LoadInt<uint64_t>(in + 13 * 8);
-  const auto w14 = LoadInt<uint64_t>(in + 14 * 8);
-  const auto w15 = LoadInt<uint64_t>(in + 15 * 8);
-  const auto w16 = LoadInt<uint64_t>(in + 16 * 8);
-  const auto w17 = LoadInt<uint64_t>(in + 17 * 8);
-  const auto w18 = LoadInt<uint64_t>(in + 18 * 8);
-  const auto w19 = LoadInt<uint64_t>(in + 19 * 8);
-  const auto w20 = LoadInt<uint64_t>(in + 20 * 8);
-  const auto w21 = LoadInt<uint64_t>(in + 21 * 8);
-  const auto w22 = LoadInt<uint64_t>(in + 22 * 8);
-  const auto w23 = LoadInt<uint64_t>(in + 23 * 8);
-  const auto w24 = static_cast<uint64_t>(LoadInt<uint32_t>(in + 24 * 8));
+  const auto w0 = LoadInt<uint64_t>(in + 0);
+  const auto w1 = LoadInt<uint64_t>(in + 1);
+  const auto w2 = LoadInt<uint64_t>(in + 2);
+  const auto w3 = LoadInt<uint64_t>(in + 3);
+  const auto w4 = LoadInt<uint64_t>(in + 4);
+  const auto w5 = LoadInt<uint64_t>(in + 5);
+  const auto w6 = LoadInt<uint64_t>(in + 6);
+  const auto w7 = LoadInt<uint64_t>(in + 7);
+  const auto w8 = LoadInt<uint64_t>(in + 8);
+  const auto w9 = LoadInt<uint64_t>(in + 9);
+  const auto w10 = LoadInt<uint64_t>(in + 10);
+  const auto w11 = LoadInt<uint64_t>(in + 11);
+  const auto w12 = LoadInt<uint64_t>(in + 12);
+  const auto w13 = LoadInt<uint64_t>(in + 13);
+  const auto w14 = LoadInt<uint64_t>(in + 14);
+  const auto w15 = LoadInt<uint64_t>(in + 15);
+  const auto w16 = LoadInt<uint64_t>(in + 16);
+  const auto w17 = LoadInt<uint64_t>(in + 17);
+  const auto w18 = LoadInt<uint64_t>(in + 18);
+  const auto w19 = LoadInt<uint64_t>(in + 19);
+  const auto w20 = LoadInt<uint64_t>(in + 20);
+  const auto w21 = LoadInt<uint64_t>(in + 21);
+  const auto w22 = LoadInt<uint64_t>(in + 22);
+  const auto w23 = LoadInt<uint64_t>(in + 23);
+  const auto w24 = static_cast<uint64_t>(LoadInt(reinterpret_cast<const uint32_t*>(in + 24)));
   out[0] = (w0) & mask;
   out[1] = ((w0 >> 49) | (w1 << 15)) & mask;
   out[2] = ((w1 >> 34) | (w2 << 30)) & mask;
@@ -4298,37 +4298,37 @@ inline const uint8_t* unpack49_64(const uint8_t* in, uint64_t* out){
   out[30] = ((w22 >> 62) | (w23 << 2)) & mask;
   out[31] = ((w23 >> 47) | (w24 << 17)) & mask;
 
-  return in + (24 * 8 + 4);
+  return in + (24);
 }
 
-inline const uint8_t* unpack50_64(const uint8_t* in, uint64_t* out){
+inline const uint64_t* unpack50_64(const uint64_t*  in, uint64_t* out){
   constexpr uint64_t mask = ((uint64_t{1} << 50) - uint64_t{1});
 
-  const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
-  const auto w1 = LoadInt<uint64_t>(in + 1 * 8);
-  const auto w2 = LoadInt<uint64_t>(in + 2 * 8);
-  const auto w3 = LoadInt<uint64_t>(in + 3 * 8);
-  const auto w4 = LoadInt<uint64_t>(in + 4 * 8);
-  const auto w5 = LoadInt<uint64_t>(in + 5 * 8);
-  const auto w6 = LoadInt<uint64_t>(in + 6 * 8);
-  const auto w7 = LoadInt<uint64_t>(in + 7 * 8);
-  const auto w8 = LoadInt<uint64_t>(in + 8 * 8);
-  const auto w9 = LoadInt<uint64_t>(in + 9 * 8);
-  const auto w10 = LoadInt<uint64_t>(in + 10 * 8);
-  const auto w11 = LoadInt<uint64_t>(in + 11 * 8);
-  const auto w12 = LoadInt<uint64_t>(in + 12 * 8);
-  const auto w13 = LoadInt<uint64_t>(in + 13 * 8);
-  const auto w14 = LoadInt<uint64_t>(in + 14 * 8);
-  const auto w15 = LoadInt<uint64_t>(in + 15 * 8);
-  const auto w16 = LoadInt<uint64_t>(in + 16 * 8);
-  const auto w17 = LoadInt<uint64_t>(in + 17 * 8);
-  const auto w18 = LoadInt<uint64_t>(in + 18 * 8);
-  const auto w19 = LoadInt<uint64_t>(in + 19 * 8);
-  const auto w20 = LoadInt<uint64_t>(in + 20 * 8);
-  const auto w21 = LoadInt<uint64_t>(in + 21 * 8);
-  const auto w22 = LoadInt<uint64_t>(in + 22 * 8);
-  const auto w23 = LoadInt<uint64_t>(in + 23 * 8);
-  const auto w24 = LoadInt<uint64_t>(in + 24 * 8);
+  const auto w0 = LoadInt<uint64_t>(in + 0);
+  const auto w1 = LoadInt<uint64_t>(in + 1);
+  const auto w2 = LoadInt<uint64_t>(in + 2);
+  const auto w3 = LoadInt<uint64_t>(in + 3);
+  const auto w4 = LoadInt<uint64_t>(in + 4);
+  const auto w5 = LoadInt<uint64_t>(in + 5);
+  const auto w6 = LoadInt<uint64_t>(in + 6);
+  const auto w7 = LoadInt<uint64_t>(in + 7);
+  const auto w8 = LoadInt<uint64_t>(in + 8);
+  const auto w9 = LoadInt<uint64_t>(in + 9);
+  const auto w10 = LoadInt<uint64_t>(in + 10);
+  const auto w11 = LoadInt<uint64_t>(in + 11);
+  const auto w12 = LoadInt<uint64_t>(in + 12);
+  const auto w13 = LoadInt<uint64_t>(in + 13);
+  const auto w14 = LoadInt<uint64_t>(in + 14);
+  const auto w15 = LoadInt<uint64_t>(in + 15);
+  const auto w16 = LoadInt<uint64_t>(in + 16);
+  const auto w17 = LoadInt<uint64_t>(in + 17);
+  const auto w18 = LoadInt<uint64_t>(in + 18);
+  const auto w19 = LoadInt<uint64_t>(in + 19);
+  const auto w20 = LoadInt<uint64_t>(in + 20);
+  const auto w21 = LoadInt<uint64_t>(in + 21);
+  const auto w22 = LoadInt<uint64_t>(in + 22);
+  const auto w23 = LoadInt<uint64_t>(in + 23);
+  const auto w24 = LoadInt<uint64_t>(in + 24 );
   out[0] = (w0) & mask;
   out[1] = ((w0 >> 50) | (w1 << 14)) & mask;
   out[2] = ((w1 >> 36) | (w2 << 28)) & mask;
@@ -4362,38 +4362,38 @@ inline const uint8_t* unpack50_64(const uint8_t* in, uint64_t* out){
   out[30] = ((w23 >> 28) | (w24 << 36)) & mask;
   out[31] = w24 >> 14;
 
-  return in + (25 * 8);
+  return in + (25 );
 }
 
-inline const uint8_t* unpack51_64(const uint8_t* in, uint64_t* out){
+inline const uint64_t* unpack51_64(const uint64_t*  in, uint64_t* out){
   constexpr uint64_t mask = ((uint64_t{1} << 51) - uint64_t{1});
 
-  const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
-  const auto w1 = LoadInt<uint64_t>(in + 1 * 8);
-  const auto w2 = LoadInt<uint64_t>(in + 2 * 8);
-  const auto w3 = LoadInt<uint64_t>(in + 3 * 8);
-  const auto w4 = LoadInt<uint64_t>(in + 4 * 8);
-  const auto w5 = LoadInt<uint64_t>(in + 5 * 8);
-  const auto w6 = LoadInt<uint64_t>(in + 6 * 8);
-  const auto w7 = LoadInt<uint64_t>(in + 7 * 8);
-  const auto w8 = LoadInt<uint64_t>(in + 8 * 8);
-  const auto w9 = LoadInt<uint64_t>(in + 9 * 8);
-  const auto w10 = LoadInt<uint64_t>(in + 10 * 8);
-  const auto w11 = LoadInt<uint64_t>(in + 11 * 8);
-  const auto w12 = LoadInt<uint64_t>(in + 12 * 8);
-  const auto w13 = LoadInt<uint64_t>(in + 13 * 8);
-  const auto w14 = LoadInt<uint64_t>(in + 14 * 8);
-  const auto w15 = LoadInt<uint64_t>(in + 15 * 8);
-  const auto w16 = LoadInt<uint64_t>(in + 16 * 8);
-  const auto w17 = LoadInt<uint64_t>(in + 17 * 8);
-  const auto w18 = LoadInt<uint64_t>(in + 18 * 8);
-  const auto w19 = LoadInt<uint64_t>(in + 19 * 8);
-  const auto w20 = LoadInt<uint64_t>(in + 20 * 8);
-  const auto w21 = LoadInt<uint64_t>(in + 21 * 8);
-  const auto w22 = LoadInt<uint64_t>(in + 22 * 8);
-  const auto w23 = LoadInt<uint64_t>(in + 23 * 8);
-  const auto w24 = LoadInt<uint64_t>(in + 24 * 8);
-  const auto w25 = static_cast<uint64_t>(LoadInt<uint32_t>(in + 25 * 8));
+  const auto w0 = LoadInt<uint64_t>(in + 0);
+  const auto w1 = LoadInt<uint64_t>(in + 1);
+  const auto w2 = LoadInt<uint64_t>(in + 2);
+  const auto w3 = LoadInt<uint64_t>(in + 3);
+  const auto w4 = LoadInt<uint64_t>(in + 4);
+  const auto w5 = LoadInt<uint64_t>(in + 5);
+  const auto w6 = LoadInt<uint64_t>(in + 6);
+  const auto w7 = LoadInt<uint64_t>(in + 7);
+  const auto w8 = LoadInt<uint64_t>(in + 8);
+  const auto w9 = LoadInt<uint64_t>(in + 9);
+  const auto w10 = LoadInt<uint64_t>(in + 10);
+  const auto w11 = LoadInt<uint64_t>(in + 11);
+  const auto w12 = LoadInt<uint64_t>(in + 12);
+  const auto w13 = LoadInt<uint64_t>(in + 13);
+  const auto w14 = LoadInt<uint64_t>(in + 14);
+  const auto w15 = LoadInt<uint64_t>(in + 15);
+  const auto w16 = LoadInt<uint64_t>(in + 16);
+  const auto w17 = LoadInt<uint64_t>(in + 17);
+  const auto w18 = LoadInt<uint64_t>(in + 18);
+  const auto w19 = LoadInt<uint64_t>(in + 19);
+  const auto w20 = LoadInt<uint64_t>(in + 20);
+  const auto w21 = LoadInt<uint64_t>(in + 21);
+  const auto w22 = LoadInt<uint64_t>(in + 22);
+  const auto w23 = LoadInt<uint64_t>(in + 23);
+  const auto w24 = LoadInt<uint64_t>(in + 24);
+  const auto w25 = static_cast<uint64_t>(LoadInt(reinterpret_cast<const uint32_t*>(in + 25)));
   out[0] = (w0) & mask;
   out[1] = ((w0 >> 51) | (w1 << 13)) & mask;
   out[2] = ((w1 >> 38) | (w2 << 26)) & mask;
@@ -4427,38 +4427,38 @@ inline const uint8_t* unpack51_64(const uint8_t* in, uint64_t* out){
   out[30] = ((w23 >> 58) | (w24 << 6)) & mask;
   out[31] = ((w24 >> 45) | (w25 << 19)) & mask;
 
-  return in + (25 * 8 + 4);
+  return in + (25);
 }
 
-inline const uint8_t* unpack52_64(const uint8_t* in, uint64_t* out){
+inline const uint64_t* unpack52_64(const uint64_t*  in, uint64_t* out){
   constexpr uint64_t mask = ((uint64_t{1} << 52) - uint64_t{1});
 
-  const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
-  const auto w1 = LoadInt<uint64_t>(in + 1 * 8);
-  const auto w2 = LoadInt<uint64_t>(in + 2 * 8);
-  const auto w3 = LoadInt<uint64_t>(in + 3 * 8);
-  const auto w4 = LoadInt<uint64_t>(in + 4 * 8);
-  const auto w5 = LoadInt<uint64_t>(in + 5 * 8);
-  const auto w6 = LoadInt<uint64_t>(in + 6 * 8);
-  const auto w7 = LoadInt<uint64_t>(in + 7 * 8);
-  const auto w8 = LoadInt<uint64_t>(in + 8 * 8);
-  const auto w9 = LoadInt<uint64_t>(in + 9 * 8);
-  const auto w10 = LoadInt<uint64_t>(in + 10 * 8);
-  const auto w11 = LoadInt<uint64_t>(in + 11 * 8);
-  const auto w12 = LoadInt<uint64_t>(in + 12 * 8);
-  const auto w13 = LoadInt<uint64_t>(in + 13 * 8);
-  const auto w14 = LoadInt<uint64_t>(in + 14 * 8);
-  const auto w15 = LoadInt<uint64_t>(in + 15 * 8);
-  const auto w16 = LoadInt<uint64_t>(in + 16 * 8);
-  const auto w17 = LoadInt<uint64_t>(in + 17 * 8);
-  const auto w18 = LoadInt<uint64_t>(in + 18 * 8);
-  const auto w19 = LoadInt<uint64_t>(in + 19 * 8);
-  const auto w20 = LoadInt<uint64_t>(in + 20 * 8);
-  const auto w21 = LoadInt<uint64_t>(in + 21 * 8);
-  const auto w22 = LoadInt<uint64_t>(in + 22 * 8);
-  const auto w23 = LoadInt<uint64_t>(in + 23 * 8);
-  const auto w24 = LoadInt<uint64_t>(in + 24 * 8);
-  const auto w25 = LoadInt<uint64_t>(in + 25 * 8);
+  const auto w0 = LoadInt<uint64_t>(in + 0);
+  const auto w1 = LoadInt<uint64_t>(in + 1);
+  const auto w2 = LoadInt<uint64_t>(in + 2);
+  const auto w3 = LoadInt<uint64_t>(in + 3);
+  const auto w4 = LoadInt<uint64_t>(in + 4);
+  const auto w5 = LoadInt<uint64_t>(in + 5);
+  const auto w6 = LoadInt<uint64_t>(in + 6);
+  const auto w7 = LoadInt<uint64_t>(in + 7);
+  const auto w8 = LoadInt<uint64_t>(in + 8);
+  const auto w9 = LoadInt<uint64_t>(in + 9);
+  const auto w10 = LoadInt<uint64_t>(in + 10);
+  const auto w11 = LoadInt<uint64_t>(in + 11);
+  const auto w12 = LoadInt<uint64_t>(in + 12);
+  const auto w13 = LoadInt<uint64_t>(in + 13);
+  const auto w14 = LoadInt<uint64_t>(in + 14);
+  const auto w15 = LoadInt<uint64_t>(in + 15);
+  const auto w16 = LoadInt<uint64_t>(in + 16);
+  const auto w17 = LoadInt<uint64_t>(in + 17);
+  const auto w18 = LoadInt<uint64_t>(in + 18);
+  const auto w19 = LoadInt<uint64_t>(in + 19);
+  const auto w20 = LoadInt<uint64_t>(in + 20);
+  const auto w21 = LoadInt<uint64_t>(in + 21);
+  const auto w22 = LoadInt<uint64_t>(in + 22);
+  const auto w23 = LoadInt<uint64_t>(in + 23);
+  const auto w24 = LoadInt<uint64_t>(in + 24);
+  const auto w25 = LoadInt<uint64_t>(in + 25 );
   out[0] = (w0) & mask;
   out[1] = ((w0 >> 52) | (w1 << 12)) & mask;
   out[2] = ((w1 >> 40) | (w2 << 24)) & mask;
@@ -4492,39 +4492,39 @@ inline const uint8_t* unpack52_64(const uint8_t* in, uint64_t* out){
   out[30] = ((w24 >> 24) | (w25 << 40)) & mask;
   out[31] = w25 >> 12;
 
-  return in + (26 * 8);
+  return in + (26 );
 }
 
-inline const uint8_t* unpack53_64(const uint8_t* in, uint64_t* out){
+inline const uint64_t* unpack53_64(const uint64_t*  in, uint64_t* out){
   constexpr uint64_t mask = ((uint64_t{1} << 53) - uint64_t{1});
 
-  const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
-  const auto w1 = LoadInt<uint64_t>(in + 1 * 8);
-  const auto w2 = LoadInt<uint64_t>(in + 2 * 8);
-  const auto w3 = LoadInt<uint64_t>(in + 3 * 8);
-  const auto w4 = LoadInt<uint64_t>(in + 4 * 8);
-  const auto w5 = LoadInt<uint64_t>(in + 5 * 8);
-  const auto w6 = LoadInt<uint64_t>(in + 6 * 8);
-  const auto w7 = LoadInt<uint64_t>(in + 7 * 8);
-  const auto w8 = LoadInt<uint64_t>(in + 8 * 8);
-  const auto w9 = LoadInt<uint64_t>(in + 9 * 8);
-  const auto w10 = LoadInt<uint64_t>(in + 10 * 8);
-  const auto w11 = LoadInt<uint64_t>(in + 11 * 8);
-  const auto w12 = LoadInt<uint64_t>(in + 12 * 8);
-  const auto w13 = LoadInt<uint64_t>(in + 13 * 8);
-  const auto w14 = LoadInt<uint64_t>(in + 14 * 8);
-  const auto w15 = LoadInt<uint64_t>(in + 15 * 8);
-  const auto w16 = LoadInt<uint64_t>(in + 16 * 8);
-  const auto w17 = LoadInt<uint64_t>(in + 17 * 8);
-  const auto w18 = LoadInt<uint64_t>(in + 18 * 8);
-  const auto w19 = LoadInt<uint64_t>(in + 19 * 8);
-  const auto w20 = LoadInt<uint64_t>(in + 20 * 8);
-  const auto w21 = LoadInt<uint64_t>(in + 21 * 8);
-  const auto w22 = LoadInt<uint64_t>(in + 22 * 8);
-  const auto w23 = LoadInt<uint64_t>(in + 23 * 8);
-  const auto w24 = LoadInt<uint64_t>(in + 24 * 8);
-  const auto w25 = LoadInt<uint64_t>(in + 25 * 8);
-  const auto w26 = static_cast<uint64_t>(LoadInt<uint32_t>(in + 26 * 8));
+  const auto w0 = LoadInt<uint64_t>(in + 0);
+  const auto w1 = LoadInt<uint64_t>(in + 1);
+  const auto w2 = LoadInt<uint64_t>(in + 2);
+  const auto w3 = LoadInt<uint64_t>(in + 3);
+  const auto w4 = LoadInt<uint64_t>(in + 4);
+  const auto w5 = LoadInt<uint64_t>(in + 5);
+  const auto w6 = LoadInt<uint64_t>(in + 6);
+  const auto w7 = LoadInt<uint64_t>(in + 7);
+  const auto w8 = LoadInt<uint64_t>(in + 8);
+  const auto w9 = LoadInt<uint64_t>(in + 9);
+  const auto w10 = LoadInt<uint64_t>(in + 10);
+  const auto w11 = LoadInt<uint64_t>(in + 11);
+  const auto w12 = LoadInt<uint64_t>(in + 12);
+  const auto w13 = LoadInt<uint64_t>(in + 13);
+  const auto w14 = LoadInt<uint64_t>(in + 14);
+  const auto w15 = LoadInt<uint64_t>(in + 15);
+  const auto w16 = LoadInt<uint64_t>(in + 16);
+  const auto w17 = LoadInt<uint64_t>(in + 17);
+  const auto w18 = LoadInt<uint64_t>(in + 18);
+  const auto w19 = LoadInt<uint64_t>(in + 19);
+  const auto w20 = LoadInt<uint64_t>(in + 20);
+  const auto w21 = LoadInt<uint64_t>(in + 21);
+  const auto w22 = LoadInt<uint64_t>(in + 22);
+  const auto w23 = LoadInt<uint64_t>(in + 23);
+  const auto w24 = LoadInt<uint64_t>(in + 24);
+  const auto w25 = LoadInt<uint64_t>(in + 25);
+  const auto w26 = static_cast<uint64_t>(LoadInt(reinterpret_cast<const uint32_t*>(in + 26)));
   out[0] = (w0) & mask;
   out[1] = ((w0 >> 53) | (w1 << 11)) & mask;
   out[2] = ((w1 >> 42) | (w2 << 22)) & mask;
@@ -4558,39 +4558,39 @@ inline const uint8_t* unpack53_64(const uint8_t* in, uint64_t* out){
   out[30] = ((w24 >> 54) | (w25 << 10)) & mask;
   out[31] = ((w25 >> 43) | (w26 << 21)) & mask;
 
-  return in + (26 * 8 + 4);
+  return in + (26);
 }
 
-inline const uint8_t* unpack54_64(const uint8_t* in, uint64_t* out){
+inline const uint64_t* unpack54_64(const uint64_t*  in, uint64_t* out){
   constexpr uint64_t mask = ((uint64_t{1} << 54) - uint64_t{1});
 
-  const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
-  const auto w1 = LoadInt<uint64_t>(in + 1 * 8);
-  const auto w2 = LoadInt<uint64_t>(in + 2 * 8);
-  const auto w3 = LoadInt<uint64_t>(in + 3 * 8);
-  const auto w4 = LoadInt<uint64_t>(in + 4 * 8);
-  const auto w5 = LoadInt<uint64_t>(in + 5 * 8);
-  const auto w6 = LoadInt<uint64_t>(in + 6 * 8);
-  const auto w7 = LoadInt<uint64_t>(in + 7 * 8);
-  const auto w8 = LoadInt<uint64_t>(in + 8 * 8);
-  const auto w9 = LoadInt<uint64_t>(in + 9 * 8);
-  const auto w10 = LoadInt<uint64_t>(in + 10 * 8);
-  const auto w11 = LoadInt<uint64_t>(in + 11 * 8);
-  const auto w12 = LoadInt<uint64_t>(in + 12 * 8);
-  const auto w13 = LoadInt<uint64_t>(in + 13 * 8);
-  const auto w14 = LoadInt<uint64_t>(in + 14 * 8);
-  const auto w15 = LoadInt<uint64_t>(in + 15 * 8);
-  const auto w16 = LoadInt<uint64_t>(in + 16 * 8);
-  const auto w17 = LoadInt<uint64_t>(in + 17 * 8);
-  const auto w18 = LoadInt<uint64_t>(in + 18 * 8);
-  const auto w19 = LoadInt<uint64_t>(in + 19 * 8);
-  const auto w20 = LoadInt<uint64_t>(in + 20 * 8);
-  const auto w21 = LoadInt<uint64_t>(in + 21 * 8);
-  const auto w22 = LoadInt<uint64_t>(in + 22 * 8);
-  const auto w23 = LoadInt<uint64_t>(in + 23 * 8);
-  const auto w24 = LoadInt<uint64_t>(in + 24 * 8);
-  const auto w25 = LoadInt<uint64_t>(in + 25 * 8);
-  const auto w26 = LoadInt<uint64_t>(in + 26 * 8);
+  const auto w0 = LoadInt<uint64_t>(in + 0);
+  const auto w1 = LoadInt<uint64_t>(in + 1);
+  const auto w2 = LoadInt<uint64_t>(in + 2);
+  const auto w3 = LoadInt<uint64_t>(in + 3);
+  const auto w4 = LoadInt<uint64_t>(in + 4);
+  const auto w5 = LoadInt<uint64_t>(in + 5);
+  const auto w6 = LoadInt<uint64_t>(in + 6);
+  const auto w7 = LoadInt<uint64_t>(in + 7);
+  const auto w8 = LoadInt<uint64_t>(in + 8);
+  const auto w9 = LoadInt<uint64_t>(in + 9);
+  const auto w10 = LoadInt<uint64_t>(in + 10);
+  const auto w11 = LoadInt<uint64_t>(in + 11);
+  const auto w12 = LoadInt<uint64_t>(in + 12);
+  const auto w13 = LoadInt<uint64_t>(in + 13);
+  const auto w14 = LoadInt<uint64_t>(in + 14);
+  const auto w15 = LoadInt<uint64_t>(in + 15);
+  const auto w16 = LoadInt<uint64_t>(in + 16);
+  const auto w17 = LoadInt<uint64_t>(in + 17);
+  const auto w18 = LoadInt<uint64_t>(in + 18);
+  const auto w19 = LoadInt<uint64_t>(in + 19);
+  const auto w20 = LoadInt<uint64_t>(in + 20);
+  const auto w21 = LoadInt<uint64_t>(in + 21);
+  const auto w22 = LoadInt<uint64_t>(in + 22);
+  const auto w23 = LoadInt<uint64_t>(in + 23);
+  const auto w24 = LoadInt<uint64_t>(in + 24);
+  const auto w25 = LoadInt<uint64_t>(in + 25);
+  const auto w26 = LoadInt<uint64_t>(in + 26 );
   out[0] = (w0) & mask;
   out[1] = ((w0 >> 54) | (w1 << 10)) & mask;
   out[2] = ((w1 >> 44) | (w2 << 20)) & mask;
@@ -4624,40 +4624,40 @@ inline const uint8_t* unpack54_64(const uint8_t* in, uint64_t* out){
   out[30] = ((w25 >> 20) | (w26 << 44)) & mask;
   out[31] = w26 >> 10;
 
-  return in + (27 * 8);
+  return in + (27 );
 }
 
-inline const uint8_t* unpack55_64(const uint8_t* in, uint64_t* out){
+inline const uint64_t* unpack55_64(const uint64_t*  in, uint64_t* out){
   constexpr uint64_t mask = ((uint64_t{1} << 55) - uint64_t{1});
 
-  const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
-  const auto w1 = LoadInt<uint64_t>(in + 1 * 8);
-  const auto w2 = LoadInt<uint64_t>(in + 2 * 8);
-  const auto w3 = LoadInt<uint64_t>(in + 3 * 8);
-  const auto w4 = LoadInt<uint64_t>(in + 4 * 8);
-  const auto w5 = LoadInt<uint64_t>(in + 5 * 8);
-  const auto w6 = LoadInt<uint64_t>(in + 6 * 8);
-  const auto w7 = LoadInt<uint64_t>(in + 7 * 8);
-  const auto w8 = LoadInt<uint64_t>(in + 8 * 8);
-  const auto w9 = LoadInt<uint64_t>(in + 9 * 8);
-  const auto w10 = LoadInt<uint64_t>(in + 10 * 8);
-  const auto w11 = LoadInt<uint64_t>(in + 11 * 8);
-  const auto w12 = LoadInt<uint64_t>(in + 12 * 8);
-  const auto w13 = LoadInt<uint64_t>(in + 13 * 8);
-  const auto w14 = LoadInt<uint64_t>(in + 14 * 8);
-  const auto w15 = LoadInt<uint64_t>(in + 15 * 8);
-  const auto w16 = LoadInt<uint64_t>(in + 16 * 8);
-  const auto w17 = LoadInt<uint64_t>(in + 17 * 8);
-  const auto w18 = LoadInt<uint64_t>(in + 18 * 8);
-  const auto w19 = LoadInt<uint64_t>(in + 19 * 8);
-  const auto w20 = LoadInt<uint64_t>(in + 20 * 8);
-  const auto w21 = LoadInt<uint64_t>(in + 21 * 8);
-  const auto w22 = LoadInt<uint64_t>(in + 22 * 8);
-  const auto w23 = LoadInt<uint64_t>(in + 23 * 8);
-  const auto w24 = LoadInt<uint64_t>(in + 24 * 8);
-  const auto w25 = LoadInt<uint64_t>(in + 25 * 8);
-  const auto w26 = LoadInt<uint64_t>(in + 26 * 8);
-  const auto w27 = static_cast<uint64_t>(LoadInt<uint32_t>(in + 27 * 8));
+  const auto w0 = LoadInt<uint64_t>(in + 0);
+  const auto w1 = LoadInt<uint64_t>(in + 1);
+  const auto w2 = LoadInt<uint64_t>(in + 2);
+  const auto w3 = LoadInt<uint64_t>(in + 3);
+  const auto w4 = LoadInt<uint64_t>(in + 4);
+  const auto w5 = LoadInt<uint64_t>(in + 5);
+  const auto w6 = LoadInt<uint64_t>(in + 6);
+  const auto w7 = LoadInt<uint64_t>(in + 7);
+  const auto w8 = LoadInt<uint64_t>(in + 8);
+  const auto w9 = LoadInt<uint64_t>(in + 9);
+  const auto w10 = LoadInt<uint64_t>(in + 10);
+  const auto w11 = LoadInt<uint64_t>(in + 11);
+  const auto w12 = LoadInt<uint64_t>(in + 12);
+  const auto w13 = LoadInt<uint64_t>(in + 13);
+  const auto w14 = LoadInt<uint64_t>(in + 14);
+  const auto w15 = LoadInt<uint64_t>(in + 15);
+  const auto w16 = LoadInt<uint64_t>(in + 16);
+  const auto w17 = LoadInt<uint64_t>(in + 17);
+  const auto w18 = LoadInt<uint64_t>(in + 18);
+  const auto w19 = LoadInt<uint64_t>(in + 19);
+  const auto w20 = LoadInt<uint64_t>(in + 20);
+  const auto w21 = LoadInt<uint64_t>(in + 21);
+  const auto w22 = LoadInt<uint64_t>(in + 22);
+  const auto w23 = LoadInt<uint64_t>(in + 23);
+  const auto w24 = LoadInt<uint64_t>(in + 24);
+  const auto w25 = LoadInt<uint64_t>(in + 25);
+  const auto w26 = LoadInt<uint64_t>(in + 26);
+  const auto w27 = static_cast<uint64_t>(LoadInt(reinterpret_cast<const uint32_t*>(in + 27)));
   out[0] = (w0) & mask;
   out[1] = ((w0 >> 55) | (w1 << 9)) & mask;
   out[2] = ((w1 >> 46) | (w2 << 18)) & mask;
@@ -4691,40 +4691,40 @@ inline const uint8_t* unpack55_64(const uint8_t* in, uint64_t* out){
   out[30] = ((w25 >> 50) | (w26 << 14)) & mask;
   out[31] = ((w26 >> 41) | (w27 << 23)) & mask;
 
-  return in + (27 * 8 + 4);
+  return in + (27);
 }
 
-inline const uint8_t* unpack56_64(const uint8_t* in, uint64_t* out){
+inline const uint64_t* unpack56_64(const uint64_t*  in, uint64_t* out){
   constexpr uint64_t mask = ((uint64_t{1} << 56) - uint64_t{1});
 
-  const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
-  const auto w1 = LoadInt<uint64_t>(in + 1 * 8);
-  const auto w2 = LoadInt<uint64_t>(in + 2 * 8);
-  const auto w3 = LoadInt<uint64_t>(in + 3 * 8);
-  const auto w4 = LoadInt<uint64_t>(in + 4 * 8);
-  const auto w5 = LoadInt<uint64_t>(in + 5 * 8);
-  const auto w6 = LoadInt<uint64_t>(in + 6 * 8);
-  const auto w7 = LoadInt<uint64_t>(in + 7 * 8);
-  const auto w8 = LoadInt<uint64_t>(in + 8 * 8);
-  const auto w9 = LoadInt<uint64_t>(in + 9 * 8);
-  const auto w10 = LoadInt<uint64_t>(in + 10 * 8);
-  const auto w11 = LoadInt<uint64_t>(in + 11 * 8);
-  const auto w12 = LoadInt<uint64_t>(in + 12 * 8);
-  const auto w13 = LoadInt<uint64_t>(in + 13 * 8);
-  const auto w14 = LoadInt<uint64_t>(in + 14 * 8);
-  const auto w15 = LoadInt<uint64_t>(in + 15 * 8);
-  const auto w16 = LoadInt<uint64_t>(in + 16 * 8);
-  const auto w17 = LoadInt<uint64_t>(in + 17 * 8);
-  const auto w18 = LoadInt<uint64_t>(in + 18 * 8);
-  const auto w19 = LoadInt<uint64_t>(in + 19 * 8);
-  const auto w20 = LoadInt<uint64_t>(in + 20 * 8);
-  const auto w21 = LoadInt<uint64_t>(in + 21 * 8);
-  const auto w22 = LoadInt<uint64_t>(in + 22 * 8);
-  const auto w23 = LoadInt<uint64_t>(in + 23 * 8);
-  const auto w24 = LoadInt<uint64_t>(in + 24 * 8);
-  const auto w25 = LoadInt<uint64_t>(in + 25 * 8);
-  const auto w26 = LoadInt<uint64_t>(in + 26 * 8);
-  const auto w27 = LoadInt<uint64_t>(in + 27 * 8);
+  const auto w0 = LoadInt<uint64_t>(in + 0);
+  const auto w1 = LoadInt<uint64_t>(in + 1);
+  const auto w2 = LoadInt<uint64_t>(in + 2);
+  const auto w3 = LoadInt<uint64_t>(in + 3);
+  const auto w4 = LoadInt<uint64_t>(in + 4);
+  const auto w5 = LoadInt<uint64_t>(in + 5);
+  const auto w6 = LoadInt<uint64_t>(in + 6);
+  const auto w7 = LoadInt<uint64_t>(in + 7);
+  const auto w8 = LoadInt<uint64_t>(in + 8);
+  const auto w9 = LoadInt<uint64_t>(in + 9);
+  const auto w10 = LoadInt<uint64_t>(in + 10);
+  const auto w11 = LoadInt<uint64_t>(in + 11);
+  const auto w12 = LoadInt<uint64_t>(in + 12);
+  const auto w13 = LoadInt<uint64_t>(in + 13);
+  const auto w14 = LoadInt<uint64_t>(in + 14);
+  const auto w15 = LoadInt<uint64_t>(in + 15);
+  const auto w16 = LoadInt<uint64_t>(in + 16);
+  const auto w17 = LoadInt<uint64_t>(in + 17);
+  const auto w18 = LoadInt<uint64_t>(in + 18);
+  const auto w19 = LoadInt<uint64_t>(in + 19);
+  const auto w20 = LoadInt<uint64_t>(in + 20);
+  const auto w21 = LoadInt<uint64_t>(in + 21);
+  const auto w22 = LoadInt<uint64_t>(in + 22);
+  const auto w23 = LoadInt<uint64_t>(in + 23);
+  const auto w24 = LoadInt<uint64_t>(in + 24);
+  const auto w25 = LoadInt<uint64_t>(in + 25);
+  const auto w26 = LoadInt<uint64_t>(in + 26);
+  const auto w27 = LoadInt<uint64_t>(in + 27 );
   out[0] = (w0) & mask;
   out[1] = ((w0 >> 56) | (w1 << 8)) & mask;
   out[2] = ((w1 >> 48) | (w2 << 16)) & mask;
@@ -4758,41 +4758,41 @@ inline const uint8_t* unpack56_64(const uint8_t* in, uint64_t* out){
   out[30] = ((w26 >> 16) | (w27 << 48)) & mask;
   out[31] = w27 >> 8;
 
-  return in + (28 * 8);
+  return in + (28 );
 }
 
-inline const uint8_t* unpack57_64(const uint8_t* in, uint64_t* out){
+inline const uint64_t* unpack57_64(const uint64_t*  in, uint64_t* out){
   constexpr uint64_t mask = ((uint64_t{1} << 57) - uint64_t{1});
 
-  const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
-  const auto w1 = LoadInt<uint64_t>(in + 1 * 8);
-  const auto w2 = LoadInt<uint64_t>(in + 2 * 8);
-  const auto w3 = LoadInt<uint64_t>(in + 3 * 8);
-  const auto w4 = LoadInt<uint64_t>(in + 4 * 8);
-  const auto w5 = LoadInt<uint64_t>(in + 5 * 8);
-  const auto w6 = LoadInt<uint64_t>(in + 6 * 8);
-  const auto w7 = LoadInt<uint64_t>(in + 7 * 8);
-  const auto w8 = LoadInt<uint64_t>(in + 8 * 8);
-  const auto w9 = LoadInt<uint64_t>(in + 9 * 8);
-  const auto w10 = LoadInt<uint64_t>(in + 10 * 8);
-  const auto w11 = LoadInt<uint64_t>(in + 11 * 8);
-  const auto w12 = LoadInt<uint64_t>(in + 12 * 8);
-  const auto w13 = LoadInt<uint64_t>(in + 13 * 8);
-  const auto w14 = LoadInt<uint64_t>(in + 14 * 8);
-  const auto w15 = LoadInt<uint64_t>(in + 15 * 8);
-  const auto w16 = LoadInt<uint64_t>(in + 16 * 8);
-  const auto w17 = LoadInt<uint64_t>(in + 17 * 8);
-  const auto w18 = LoadInt<uint64_t>(in + 18 * 8);
-  const auto w19 = LoadInt<uint64_t>(in + 19 * 8);
-  const auto w20 = LoadInt<uint64_t>(in + 20 * 8);
-  const auto w21 = LoadInt<uint64_t>(in + 21 * 8);
-  const auto w22 = LoadInt<uint64_t>(in + 22 * 8);
-  const auto w23 = LoadInt<uint64_t>(in + 23 * 8);
-  const auto w24 = LoadInt<uint64_t>(in + 24 * 8);
-  const auto w25 = LoadInt<uint64_t>(in + 25 * 8);
-  const auto w26 = LoadInt<uint64_t>(in + 26 * 8);
-  const auto w27 = LoadInt<uint64_t>(in + 27 * 8);
-  const auto w28 = static_cast<uint64_t>(LoadInt<uint32_t>(in + 28 * 8));
+  const auto w0 = LoadInt<uint64_t>(in + 0);
+  const auto w1 = LoadInt<uint64_t>(in + 1);
+  const auto w2 = LoadInt<uint64_t>(in + 2);
+  const auto w3 = LoadInt<uint64_t>(in + 3);
+  const auto w4 = LoadInt<uint64_t>(in + 4);
+  const auto w5 = LoadInt<uint64_t>(in + 5);
+  const auto w6 = LoadInt<uint64_t>(in + 6);
+  const auto w7 = LoadInt<uint64_t>(in + 7);
+  const auto w8 = LoadInt<uint64_t>(in + 8);
+  const auto w9 = LoadInt<uint64_t>(in + 9);
+  const auto w10 = LoadInt<uint64_t>(in + 10);
+  const auto w11 = LoadInt<uint64_t>(in + 11);
+  const auto w12 = LoadInt<uint64_t>(in + 12);
+  const auto w13 = LoadInt<uint64_t>(in + 13);
+  const auto w14 = LoadInt<uint64_t>(in + 14);
+  const auto w15 = LoadInt<uint64_t>(in + 15);
+  const auto w16 = LoadInt<uint64_t>(in + 16);
+  const auto w17 = LoadInt<uint64_t>(in + 17);
+  const auto w18 = LoadInt<uint64_t>(in + 18);
+  const auto w19 = LoadInt<uint64_t>(in + 19);
+  const auto w20 = LoadInt<uint64_t>(in + 20);
+  const auto w21 = LoadInt<uint64_t>(in + 21);
+  const auto w22 = LoadInt<uint64_t>(in + 22);
+  const auto w23 = LoadInt<uint64_t>(in + 23);
+  const auto w24 = LoadInt<uint64_t>(in + 24);
+  const auto w25 = LoadInt<uint64_t>(in + 25);
+  const auto w26 = LoadInt<uint64_t>(in + 26);
+  const auto w27 = LoadInt<uint64_t>(in + 27);
+  const auto w28 = static_cast<uint64_t>(LoadInt(reinterpret_cast<const uint32_t*>(in + 28)));
   out[0] = (w0) & mask;
   out[1] = ((w0 >> 57) | (w1 << 7)) & mask;
   out[2] = ((w1 >> 50) | (w2 << 14)) & mask;
@@ -4826,41 +4826,41 @@ inline const uint8_t* unpack57_64(const uint8_t* in, uint64_t* out){
   out[30] = ((w26 >> 46) | (w27 << 18)) & mask;
   out[31] = ((w27 >> 39) | (w28 << 25)) & mask;
 
-  return in + (28 * 8 + 4);
+  return in + (28);
 }
 
-inline const uint8_t* unpack58_64(const uint8_t* in, uint64_t* out){
+inline const uint64_t* unpack58_64(const uint64_t*  in, uint64_t* out){
   constexpr uint64_t mask = ((uint64_t{1} << 58) - uint64_t{1});
 
-  const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
-  const auto w1 = LoadInt<uint64_t>(in + 1 * 8);
-  const auto w2 = LoadInt<uint64_t>(in + 2 * 8);
-  const auto w3 = LoadInt<uint64_t>(in + 3 * 8);
-  const auto w4 = LoadInt<uint64_t>(in + 4 * 8);
-  const auto w5 = LoadInt<uint64_t>(in + 5 * 8);
-  const auto w6 = LoadInt<uint64_t>(in + 6 * 8);
-  const auto w7 = LoadInt<uint64_t>(in + 7 * 8);
-  const auto w8 = LoadInt<uint64_t>(in + 8 * 8);
-  const auto w9 = LoadInt<uint64_t>(in + 9 * 8);
-  const auto w10 = LoadInt<uint64_t>(in + 10 * 8);
-  const auto w11 = LoadInt<uint64_t>(in + 11 * 8);
-  const auto w12 = LoadInt<uint64_t>(in + 12 * 8);
-  const auto w13 = LoadInt<uint64_t>(in + 13 * 8);
-  const auto w14 = LoadInt<uint64_t>(in + 14 * 8);
-  const auto w15 = LoadInt<uint64_t>(in + 15 * 8);
-  const auto w16 = LoadInt<uint64_t>(in + 16 * 8);
-  const auto w17 = LoadInt<uint64_t>(in + 17 * 8);
-  const auto w18 = LoadInt<uint64_t>(in + 18 * 8);
-  const auto w19 = LoadInt<uint64_t>(in + 19 * 8);
-  const auto w20 = LoadInt<uint64_t>(in + 20 * 8);
-  const auto w21 = LoadInt<uint64_t>(in + 21 * 8);
-  const auto w22 = LoadInt<uint64_t>(in + 22 * 8);
-  const auto w23 = LoadInt<uint64_t>(in + 23 * 8);
-  const auto w24 = LoadInt<uint64_t>(in + 24 * 8);
-  const auto w25 = LoadInt<uint64_t>(in + 25 * 8);
-  const auto w26 = LoadInt<uint64_t>(in + 26 * 8);
-  const auto w27 = LoadInt<uint64_t>(in + 27 * 8);
-  const auto w28 = LoadInt<uint64_t>(in + 28 * 8);
+  const auto w0 = LoadInt<uint64_t>(in + 0);
+  const auto w1 = LoadInt<uint64_t>(in + 1);
+  const auto w2 = LoadInt<uint64_t>(in + 2);
+  const auto w3 = LoadInt<uint64_t>(in + 3);
+  const auto w4 = LoadInt<uint64_t>(in + 4);
+  const auto w5 = LoadInt<uint64_t>(in + 5);
+  const auto w6 = LoadInt<uint64_t>(in + 6);
+  const auto w7 = LoadInt<uint64_t>(in + 7);
+  const auto w8 = LoadInt<uint64_t>(in + 8);
+  const auto w9 = LoadInt<uint64_t>(in + 9);
+  const auto w10 = LoadInt<uint64_t>(in + 10);
+  const auto w11 = LoadInt<uint64_t>(in + 11);
+  const auto w12 = LoadInt<uint64_t>(in + 12);
+  const auto w13 = LoadInt<uint64_t>(in + 13);
+  const auto w14 = LoadInt<uint64_t>(in + 14);
+  const auto w15 = LoadInt<uint64_t>(in + 15);
+  const auto w16 = LoadInt<uint64_t>(in + 16);
+  const auto w17 = LoadInt<uint64_t>(in + 17);
+  const auto w18 = LoadInt<uint64_t>(in + 18);
+  const auto w19 = LoadInt<uint64_t>(in + 19);
+  const auto w20 = LoadInt<uint64_t>(in + 20);
+  const auto w21 = LoadInt<uint64_t>(in + 21);
+  const auto w22 = LoadInt<uint64_t>(in + 22);
+  const auto w23 = LoadInt<uint64_t>(in + 23);
+  const auto w24 = LoadInt<uint64_t>(in + 24);
+  const auto w25 = LoadInt<uint64_t>(in + 25);
+  const auto w26 = LoadInt<uint64_t>(in + 26);
+  const auto w27 = LoadInt<uint64_t>(in + 27);
+  const auto w28 = LoadInt<uint64_t>(in + 28 );
   out[0] = (w0) & mask;
   out[1] = ((w0 >> 58) | (w1 << 6)) & mask;
   out[2] = ((w1 >> 52) | (w2 << 12)) & mask;
@@ -4894,42 +4894,42 @@ inline const uint8_t* unpack58_64(const uint8_t* in, uint64_t* out){
   out[30] = ((w27 >> 12) | (w28 << 52)) & mask;
   out[31] = w28 >> 6;
 
-  return in + (29 * 8);
+  return in + (29 );
 }
 
-inline const uint8_t* unpack59_64(const uint8_t* in, uint64_t* out){
+inline const uint64_t* unpack59_64(const uint64_t*  in, uint64_t* out){
   constexpr uint64_t mask = ((uint64_t{1} << 59) - uint64_t{1});
 
-  const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
-  const auto w1 = LoadInt<uint64_t>(in + 1 * 8);
-  const auto w2 = LoadInt<uint64_t>(in + 2 * 8);
-  const auto w3 = LoadInt<uint64_t>(in + 3 * 8);
-  const auto w4 = LoadInt<uint64_t>(in + 4 * 8);
-  const auto w5 = LoadInt<uint64_t>(in + 5 * 8);
-  const auto w6 = LoadInt<uint64_t>(in + 6 * 8);
-  const auto w7 = LoadInt<uint64_t>(in + 7 * 8);
-  const auto w8 = LoadInt<uint64_t>(in + 8 * 8);
-  const auto w9 = LoadInt<uint64_t>(in + 9 * 8);
-  const auto w10 = LoadInt<uint64_t>(in + 10 * 8);
-  const auto w11 = LoadInt<uint64_t>(in + 11 * 8);
-  const auto w12 = LoadInt<uint64_t>(in + 12 * 8);
-  const auto w13 = LoadInt<uint64_t>(in + 13 * 8);
-  const auto w14 = LoadInt<uint64_t>(in + 14 * 8);
-  const auto w15 = LoadInt<uint64_t>(in + 15 * 8);
-  const auto w16 = LoadInt<uint64_t>(in + 16 * 8);
-  const auto w17 = LoadInt<uint64_t>(in + 17 * 8);
-  const auto w18 = LoadInt<uint64_t>(in + 18 * 8);
-  const auto w19 = LoadInt<uint64_t>(in + 19 * 8);
-  const auto w20 = LoadInt<uint64_t>(in + 20 * 8);
-  const auto w21 = LoadInt<uint64_t>(in + 21 * 8);
-  const auto w22 = LoadInt<uint64_t>(in + 22 * 8);
-  const auto w23 = LoadInt<uint64_t>(in + 23 * 8);
-  const auto w24 = LoadInt<uint64_t>(in + 24 * 8);
-  const auto w25 = LoadInt<uint64_t>(in + 25 * 8);
-  const auto w26 = LoadInt<uint64_t>(in + 26 * 8);
-  const auto w27 = LoadInt<uint64_t>(in + 27 * 8);
-  const auto w28 = LoadInt<uint64_t>(in + 28 * 8);
-  const auto w29 = static_cast<uint64_t>(LoadInt<uint32_t>(in + 29 * 8));
+  const auto w0 = LoadInt<uint64_t>(in + 0);
+  const auto w1 = LoadInt<uint64_t>(in + 1);
+  const auto w2 = LoadInt<uint64_t>(in + 2);
+  const auto w3 = LoadInt<uint64_t>(in + 3);
+  const auto w4 = LoadInt<uint64_t>(in + 4);
+  const auto w5 = LoadInt<uint64_t>(in + 5);
+  const auto w6 = LoadInt<uint64_t>(in + 6);
+  const auto w7 = LoadInt<uint64_t>(in + 7);
+  const auto w8 = LoadInt<uint64_t>(in + 8);
+  const auto w9 = LoadInt<uint64_t>(in + 9);
+  const auto w10 = LoadInt<uint64_t>(in + 10);
+  const auto w11 = LoadInt<uint64_t>(in + 11);
+  const auto w12 = LoadInt<uint64_t>(in + 12);
+  const auto w13 = LoadInt<uint64_t>(in + 13);
+  const auto w14 = LoadInt<uint64_t>(in + 14);
+  const auto w15 = LoadInt<uint64_t>(in + 15);
+  const auto w16 = LoadInt<uint64_t>(in + 16);
+  const auto w17 = LoadInt<uint64_t>(in + 17);
+  const auto w18 = LoadInt<uint64_t>(in + 18);
+  const auto w19 = LoadInt<uint64_t>(in + 19);
+  const auto w20 = LoadInt<uint64_t>(in + 20);
+  const auto w21 = LoadInt<uint64_t>(in + 21);
+  const auto w22 = LoadInt<uint64_t>(in + 22);
+  const auto w23 = LoadInt<uint64_t>(in + 23);
+  const auto w24 = LoadInt<uint64_t>(in + 24);
+  const auto w25 = LoadInt<uint64_t>(in + 25);
+  const auto w26 = LoadInt<uint64_t>(in + 26);
+  const auto w27 = LoadInt<uint64_t>(in + 27);
+  const auto w28 = LoadInt<uint64_t>(in + 28);
+  const auto w29 = static_cast<uint64_t>(LoadInt(reinterpret_cast<const uint32_t*>(in + 29)));
   out[0] = (w0) & mask;
   out[1] = ((w0 >> 59) | (w1 << 5)) & mask;
   out[2] = ((w1 >> 54) | (w2 << 10)) & mask;
@@ -4963,42 +4963,42 @@ inline const uint8_t* unpack59_64(const uint8_t* in, uint64_t* out){
   out[30] = ((w27 >> 42) | (w28 << 22)) & mask;
   out[31] = ((w28 >> 37) | (w29 << 27)) & mask;
 
-  return in + (29 * 8 + 4);
+  return in + (29);
 }
 
-inline const uint8_t* unpack60_64(const uint8_t* in, uint64_t* out){
+inline const uint64_t* unpack60_64(const uint64_t*  in, uint64_t* out){
   constexpr uint64_t mask = ((uint64_t{1} << 60) - uint64_t{1});
 
-  const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
-  const auto w1 = LoadInt<uint64_t>(in + 1 * 8);
-  const auto w2 = LoadInt<uint64_t>(in + 2 * 8);
-  const auto w3 = LoadInt<uint64_t>(in + 3 * 8);
-  const auto w4 = LoadInt<uint64_t>(in + 4 * 8);
-  const auto w5 = LoadInt<uint64_t>(in + 5 * 8);
-  const auto w6 = LoadInt<uint64_t>(in + 6 * 8);
-  const auto w7 = LoadInt<uint64_t>(in + 7 * 8);
-  const auto w8 = LoadInt<uint64_t>(in + 8 * 8);
-  const auto w9 = LoadInt<uint64_t>(in + 9 * 8);
-  const auto w10 = LoadInt<uint64_t>(in + 10 * 8);
-  const auto w11 = LoadInt<uint64_t>(in + 11 * 8);
-  const auto w12 = LoadInt<uint64_t>(in + 12 * 8);
-  const auto w13 = LoadInt<uint64_t>(in + 13 * 8);
-  const auto w14 = LoadInt<uint64_t>(in + 14 * 8);
-  const auto w15 = LoadInt<uint64_t>(in + 15 * 8);
-  const auto w16 = LoadInt<uint64_t>(in + 16 * 8);
-  const auto w17 = LoadInt<uint64_t>(in + 17 * 8);
-  const auto w18 = LoadInt<uint64_t>(in + 18 * 8);
-  const auto w19 = LoadInt<uint64_t>(in + 19 * 8);
-  const auto w20 = LoadInt<uint64_t>(in + 20 * 8);
-  const auto w21 = LoadInt<uint64_t>(in + 21 * 8);
-  const auto w22 = LoadInt<uint64_t>(in + 22 * 8);
-  const auto w23 = LoadInt<uint64_t>(in + 23 * 8);
-  const auto w24 = LoadInt<uint64_t>(in + 24 * 8);
-  const auto w25 = LoadInt<uint64_t>(in + 25 * 8);
-  const auto w26 = LoadInt<uint64_t>(in + 26 * 8);
-  const auto w27 = LoadInt<uint64_t>(in + 27 * 8);
-  const auto w28 = LoadInt<uint64_t>(in + 28 * 8);
-  const auto w29 = LoadInt<uint64_t>(in + 29 * 8);
+  const auto w0 = LoadInt<uint64_t>(in + 0);
+  const auto w1 = LoadInt<uint64_t>(in + 1);
+  const auto w2 = LoadInt<uint64_t>(in + 2);
+  const auto w3 = LoadInt<uint64_t>(in + 3);
+  const auto w4 = LoadInt<uint64_t>(in + 4);
+  const auto w5 = LoadInt<uint64_t>(in + 5);
+  const auto w6 = LoadInt<uint64_t>(in + 6);
+  const auto w7 = LoadInt<uint64_t>(in + 7);
+  const auto w8 = LoadInt<uint64_t>(in + 8);
+  const auto w9 = LoadInt<uint64_t>(in + 9);
+  const auto w10 = LoadInt<uint64_t>(in + 10);
+  const auto w11 = LoadInt<uint64_t>(in + 11);
+  const auto w12 = LoadInt<uint64_t>(in + 12);
+  const auto w13 = LoadInt<uint64_t>(in + 13);
+  const auto w14 = LoadInt<uint64_t>(in + 14);
+  const auto w15 = LoadInt<uint64_t>(in + 15);
+  const auto w16 = LoadInt<uint64_t>(in + 16);
+  const auto w17 = LoadInt<uint64_t>(in + 17);
+  const auto w18 = LoadInt<uint64_t>(in + 18);
+  const auto w19 = LoadInt<uint64_t>(in + 19);
+  const auto w20 = LoadInt<uint64_t>(in + 20);
+  const auto w21 = LoadInt<uint64_t>(in + 21);
+  const auto w22 = LoadInt<uint64_t>(in + 22);
+  const auto w23 = LoadInt<uint64_t>(in + 23);
+  const auto w24 = LoadInt<uint64_t>(in + 24);
+  const auto w25 = LoadInt<uint64_t>(in + 25);
+  const auto w26 = LoadInt<uint64_t>(in + 26);
+  const auto w27 = LoadInt<uint64_t>(in + 27);
+  const auto w28 = LoadInt<uint64_t>(in + 28);
+  const auto w29 = LoadInt<uint64_t>(in + 29 );
   out[0] = (w0) & mask;
   out[1] = ((w0 >> 60) | (w1 << 4)) & mask;
   out[2] = ((w1 >> 56) | (w2 << 8)) & mask;
@@ -5032,43 +5032,43 @@ inline const uint8_t* unpack60_64(const uint8_t* in, uint64_t* out){
   out[30] = ((w28 >> 8) | (w29 << 56)) & mask;
   out[31] = w29 >> 4;
 
-  return in + (30 * 8);
+  return in + (30 );
 }
 
-inline const uint8_t* unpack61_64(const uint8_t* in, uint64_t* out){
+inline const uint64_t* unpack61_64(const uint64_t*  in, uint64_t* out){
   constexpr uint64_t mask = ((uint64_t{1} << 61) - uint64_t{1});
 
-  const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
-  const auto w1 = LoadInt<uint64_t>(in + 1 * 8);
-  const auto w2 = LoadInt<uint64_t>(in + 2 * 8);
-  const auto w3 = LoadInt<uint64_t>(in + 3 * 8);
-  const auto w4 = LoadInt<uint64_t>(in + 4 * 8);
-  const auto w5 = LoadInt<uint64_t>(in + 5 * 8);
-  const auto w6 = LoadInt<uint64_t>(in + 6 * 8);
-  const auto w7 = LoadInt<uint64_t>(in + 7 * 8);
-  const auto w8 = LoadInt<uint64_t>(in + 8 * 8);
-  const auto w9 = LoadInt<uint64_t>(in + 9 * 8);
-  const auto w10 = LoadInt<uint64_t>(in + 10 * 8);
-  const auto w11 = LoadInt<uint64_t>(in + 11 * 8);
-  const auto w12 = LoadInt<uint64_t>(in + 12 * 8);
-  const auto w13 = LoadInt<uint64_t>(in + 13 * 8);
-  const auto w14 = LoadInt<uint64_t>(in + 14 * 8);
-  const auto w15 = LoadInt<uint64_t>(in + 15 * 8);
-  const auto w16 = LoadInt<uint64_t>(in + 16 * 8);
-  const auto w17 = LoadInt<uint64_t>(in + 17 * 8);
-  const auto w18 = LoadInt<uint64_t>(in + 18 * 8);
-  const auto w19 = LoadInt<uint64_t>(in + 19 * 8);
-  const auto w20 = LoadInt<uint64_t>(in + 20 * 8);
-  const auto w21 = LoadInt<uint64_t>(in + 21 * 8);
-  const auto w22 = LoadInt<uint64_t>(in + 22 * 8);
-  const auto w23 = LoadInt<uint64_t>(in + 23 * 8);
-  const auto w24 = LoadInt<uint64_t>(in + 24 * 8);
-  const auto w25 = LoadInt<uint64_t>(in + 25 * 8);
-  const auto w26 = LoadInt<uint64_t>(in + 26 * 8);
-  const auto w27 = LoadInt<uint64_t>(in + 27 * 8);
-  const auto w28 = LoadInt<uint64_t>(in + 28 * 8);
-  const auto w29 = LoadInt<uint64_t>(in + 29 * 8);
-  const auto w30 = static_cast<uint64_t>(LoadInt<uint32_t>(in + 30 * 8));
+  const auto w0 = LoadInt<uint64_t>(in + 0);
+  const auto w1 = LoadInt<uint64_t>(in + 1);
+  const auto w2 = LoadInt<uint64_t>(in + 2);
+  const auto w3 = LoadInt<uint64_t>(in + 3);
+  const auto w4 = LoadInt<uint64_t>(in + 4);
+  const auto w5 = LoadInt<uint64_t>(in + 5);
+  const auto w6 = LoadInt<uint64_t>(in + 6);
+  const auto w7 = LoadInt<uint64_t>(in + 7);
+  const auto w8 = LoadInt<uint64_t>(in + 8);
+  const auto w9 = LoadInt<uint64_t>(in + 9);
+  const auto w10 = LoadInt<uint64_t>(in + 10);
+  const auto w11 = LoadInt<uint64_t>(in + 11);
+  const auto w12 = LoadInt<uint64_t>(in + 12);
+  const auto w13 = LoadInt<uint64_t>(in + 13);
+  const auto w14 = LoadInt<uint64_t>(in + 14);
+  const auto w15 = LoadInt<uint64_t>(in + 15);
+  const auto w16 = LoadInt<uint64_t>(in + 16);
+  const auto w17 = LoadInt<uint64_t>(in + 17);
+  const auto w18 = LoadInt<uint64_t>(in + 18);
+  const auto w19 = LoadInt<uint64_t>(in + 19);
+  const auto w20 = LoadInt<uint64_t>(in + 20);
+  const auto w21 = LoadInt<uint64_t>(in + 21);
+  const auto w22 = LoadInt<uint64_t>(in + 22);
+  const auto w23 = LoadInt<uint64_t>(in + 23);
+  const auto w24 = LoadInt<uint64_t>(in + 24);
+  const auto w25 = LoadInt<uint64_t>(in + 25);
+  const auto w26 = LoadInt<uint64_t>(in + 26);
+  const auto w27 = LoadInt<uint64_t>(in + 27);
+  const auto w28 = LoadInt<uint64_t>(in + 28);
+  const auto w29 = LoadInt<uint64_t>(in + 29);
+  const auto w30 = static_cast<uint64_t>(LoadInt(reinterpret_cast<const uint32_t*>(in + 30)));
   out[0] = (w0) & mask;
   out[1] = ((w0 >> 61) | (w1 << 3)) & mask;
   out[2] = ((w1 >> 58) | (w2 << 6)) & mask;
@@ -5102,43 +5102,43 @@ inline const uint8_t* unpack61_64(const uint8_t* in, uint64_t* out){
   out[30] = ((w28 >> 38) | (w29 << 26)) & mask;
   out[31] = ((w29 >> 35) | (w30 << 29)) & mask;
 
-  return in + (30 * 8 + 4);
+  return in + (30);
 }
 
-inline const uint8_t* unpack62_64(const uint8_t* in, uint64_t* out){
+inline const uint64_t* unpack62_64(const uint64_t*  in, uint64_t* out){
   constexpr uint64_t mask = ((uint64_t{1} << 62) - uint64_t{1});
 
-  const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
-  const auto w1 = LoadInt<uint64_t>(in + 1 * 8);
-  const auto w2 = LoadInt<uint64_t>(in + 2 * 8);
-  const auto w3 = LoadInt<uint64_t>(in + 3 * 8);
-  const auto w4 = LoadInt<uint64_t>(in + 4 * 8);
-  const auto w5 = LoadInt<uint64_t>(in + 5 * 8);
-  const auto w6 = LoadInt<uint64_t>(in + 6 * 8);
-  const auto w7 = LoadInt<uint64_t>(in + 7 * 8);
-  const auto w8 = LoadInt<uint64_t>(in + 8 * 8);
-  const auto w9 = LoadInt<uint64_t>(in + 9 * 8);
-  const auto w10 = LoadInt<uint64_t>(in + 10 * 8);
-  const auto w11 = LoadInt<uint64_t>(in + 11 * 8);
-  const auto w12 = LoadInt<uint64_t>(in + 12 * 8);
-  const auto w13 = LoadInt<uint64_t>(in + 13 * 8);
-  const auto w14 = LoadInt<uint64_t>(in + 14 * 8);
-  const auto w15 = LoadInt<uint64_t>(in + 15 * 8);
-  const auto w16 = LoadInt<uint64_t>(in + 16 * 8);
-  const auto w17 = LoadInt<uint64_t>(in + 17 * 8);
-  const auto w18 = LoadInt<uint64_t>(in + 18 * 8);
-  const auto w19 = LoadInt<uint64_t>(in + 19 * 8);
-  const auto w20 = LoadInt<uint64_t>(in + 20 * 8);
-  const auto w21 = LoadInt<uint64_t>(in + 21 * 8);
-  const auto w22 = LoadInt<uint64_t>(in + 22 * 8);
-  const auto w23 = LoadInt<uint64_t>(in + 23 * 8);
-  const auto w24 = LoadInt<uint64_t>(in + 24 * 8);
-  const auto w25 = LoadInt<uint64_t>(in + 25 * 8);
-  const auto w26 = LoadInt<uint64_t>(in + 26 * 8);
-  const auto w27 = LoadInt<uint64_t>(in + 27 * 8);
-  const auto w28 = LoadInt<uint64_t>(in + 28 * 8);
-  const auto w29 = LoadInt<uint64_t>(in + 29 * 8);
-  const auto w30 = LoadInt<uint64_t>(in + 30 * 8);
+  const auto w0 = LoadInt<uint64_t>(in + 0);
+  const auto w1 = LoadInt<uint64_t>(in + 1);
+  const auto w2 = LoadInt<uint64_t>(in + 2);
+  const auto w3 = LoadInt<uint64_t>(in + 3);
+  const auto w4 = LoadInt<uint64_t>(in + 4);
+  const auto w5 = LoadInt<uint64_t>(in + 5);
+  const auto w6 = LoadInt<uint64_t>(in + 6);
+  const auto w7 = LoadInt<uint64_t>(in + 7);
+  const auto w8 = LoadInt<uint64_t>(in + 8);
+  const auto w9 = LoadInt<uint64_t>(in + 9);
+  const auto w10 = LoadInt<uint64_t>(in + 10);
+  const auto w11 = LoadInt<uint64_t>(in + 11);
+  const auto w12 = LoadInt<uint64_t>(in + 12);
+  const auto w13 = LoadInt<uint64_t>(in + 13);
+  const auto w14 = LoadInt<uint64_t>(in + 14);
+  const auto w15 = LoadInt<uint64_t>(in + 15);
+  const auto w16 = LoadInt<uint64_t>(in + 16);
+  const auto w17 = LoadInt<uint64_t>(in + 17);
+  const auto w18 = LoadInt<uint64_t>(in + 18);
+  const auto w19 = LoadInt<uint64_t>(in + 19);
+  const auto w20 = LoadInt<uint64_t>(in + 20);
+  const auto w21 = LoadInt<uint64_t>(in + 21);
+  const auto w22 = LoadInt<uint64_t>(in + 22);
+  const auto w23 = LoadInt<uint64_t>(in + 23);
+  const auto w24 = LoadInt<uint64_t>(in + 24);
+  const auto w25 = LoadInt<uint64_t>(in + 25);
+  const auto w26 = LoadInt<uint64_t>(in + 26);
+  const auto w27 = LoadInt<uint64_t>(in + 27);
+  const auto w28 = LoadInt<uint64_t>(in + 28);
+  const auto w29 = LoadInt<uint64_t>(in + 29);
+  const auto w30 = LoadInt<uint64_t>(in + 30 );
   out[0] = (w0) & mask;
   out[1] = ((w0 >> 62) | (w1 << 2)) & mask;
   out[2] = ((w1 >> 60) | (w2 << 4)) & mask;
@@ -5172,44 +5172,44 @@ inline const uint8_t* unpack62_64(const uint8_t* in, uint64_t* out){
   out[30] = ((w29 >> 4) | (w30 << 60)) & mask;
   out[31] = w30 >> 2;
 
-  return in + (31 * 8);
+  return in + (31 );
 }
 
-inline const uint8_t* unpack63_64(const uint8_t* in, uint64_t* out){
+inline const uint64_t* unpack63_64(const uint64_t*  in, uint64_t* out){
   constexpr uint64_t mask = ((uint64_t{1} << 63) - uint64_t{1});
 
-  const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
-  const auto w1 = LoadInt<uint64_t>(in + 1 * 8);
-  const auto w2 = LoadInt<uint64_t>(in + 2 * 8);
-  const auto w3 = LoadInt<uint64_t>(in + 3 * 8);
-  const auto w4 = LoadInt<uint64_t>(in + 4 * 8);
-  const auto w5 = LoadInt<uint64_t>(in + 5 * 8);
-  const auto w6 = LoadInt<uint64_t>(in + 6 * 8);
-  const auto w7 = LoadInt<uint64_t>(in + 7 * 8);
-  const auto w8 = LoadInt<uint64_t>(in + 8 * 8);
-  const auto w9 = LoadInt<uint64_t>(in + 9 * 8);
-  const auto w10 = LoadInt<uint64_t>(in + 10 * 8);
-  const auto w11 = LoadInt<uint64_t>(in + 11 * 8);
-  const auto w12 = LoadInt<uint64_t>(in + 12 * 8);
-  const auto w13 = LoadInt<uint64_t>(in + 13 * 8);
-  const auto w14 = LoadInt<uint64_t>(in + 14 * 8);
-  const auto w15 = LoadInt<uint64_t>(in + 15 * 8);
-  const auto w16 = LoadInt<uint64_t>(in + 16 * 8);
-  const auto w17 = LoadInt<uint64_t>(in + 17 * 8);
-  const auto w18 = LoadInt<uint64_t>(in + 18 * 8);
-  const auto w19 = LoadInt<uint64_t>(in + 19 * 8);
-  const auto w20 = LoadInt<uint64_t>(in + 20 * 8);
-  const auto w21 = LoadInt<uint64_t>(in + 21 * 8);
-  const auto w22 = LoadInt<uint64_t>(in + 22 * 8);
-  const auto w23 = LoadInt<uint64_t>(in + 23 * 8);
-  const auto w24 = LoadInt<uint64_t>(in + 24 * 8);
-  const auto w25 = LoadInt<uint64_t>(in + 25 * 8);
-  const auto w26 = LoadInt<uint64_t>(in + 26 * 8);
-  const auto w27 = LoadInt<uint64_t>(in + 27 * 8);
-  const auto w28 = LoadInt<uint64_t>(in + 28 * 8);
-  const auto w29 = LoadInt<uint64_t>(in + 29 * 8);
-  const auto w30 = LoadInt<uint64_t>(in + 30 * 8);
-  const auto w31 = static_cast<uint64_t>(LoadInt<uint32_t>(in + 31 * 8));
+  const auto w0 = LoadInt<uint64_t>(in + 0);
+  const auto w1 = LoadInt<uint64_t>(in + 1);
+  const auto w2 = LoadInt<uint64_t>(in + 2);
+  const auto w3 = LoadInt<uint64_t>(in + 3);
+  const auto w4 = LoadInt<uint64_t>(in + 4);
+  const auto w5 = LoadInt<uint64_t>(in + 5);
+  const auto w6 = LoadInt<uint64_t>(in + 6);
+  const auto w7 = LoadInt<uint64_t>(in + 7);
+  const auto w8 = LoadInt<uint64_t>(in + 8);
+  const auto w9 = LoadInt<uint64_t>(in + 9);
+  const auto w10 = LoadInt<uint64_t>(in + 10);
+  const auto w11 = LoadInt<uint64_t>(in + 11);
+  const auto w12 = LoadInt<uint64_t>(in + 12);
+  const auto w13 = LoadInt<uint64_t>(in + 13);
+  const auto w14 = LoadInt<uint64_t>(in + 14);
+  const auto w15 = LoadInt<uint64_t>(in + 15);
+  const auto w16 = LoadInt<uint64_t>(in + 16);
+  const auto w17 = LoadInt<uint64_t>(in + 17);
+  const auto w18 = LoadInt<uint64_t>(in + 18);
+  const auto w19 = LoadInt<uint64_t>(in + 19);
+  const auto w20 = LoadInt<uint64_t>(in + 20);
+  const auto w21 = LoadInt<uint64_t>(in + 21);
+  const auto w22 = LoadInt<uint64_t>(in + 22);
+  const auto w23 = LoadInt<uint64_t>(in + 23);
+  const auto w24 = LoadInt<uint64_t>(in + 24);
+  const auto w25 = LoadInt<uint64_t>(in + 25);
+  const auto w26 = LoadInt<uint64_t>(in + 26);
+  const auto w27 = LoadInt<uint64_t>(in + 27);
+  const auto w28 = LoadInt<uint64_t>(in + 28);
+  const auto w29 = LoadInt<uint64_t>(in + 29);
+  const auto w30 = LoadInt<uint64_t>(in + 30);
+  const auto w31 = static_cast<uint64_t>(LoadInt(reinterpret_cast<const uint32_t*>(in + 31)));
   out[0] = (w0) & mask;
   out[1] = ((w0 >> 63) | (w1 << 1)) & mask;
   out[2] = ((w1 >> 62) | (w2 << 2)) & mask;
@@ -5243,14 +5243,14 @@ inline const uint8_t* unpack63_64(const uint8_t* in, uint64_t* out){
   out[30] = ((w29 >> 34) | (w30 << 30)) & mask;
   out[31] = ((w30 >> 33) | (w31 << 31)) & mask;
 
-  return in + (31 * 8 + 4);
+  return in + (31);
 }
 
-inline const uint8_t* unpack64_64(const uint8_t* in, uint64_t* out){
+inline const uint64_t* unpack64_64(const uint64_t*  in, uint64_t* out){
   for(int k = 0; k < 32; k += 1) {
-    out[k] = LoadInt<uint64_t>(in + (k * 8));
+    out[k] = LoadInt<uint64_t>(in + (k ));
   }
-  return in + (8 * 32);
+  return in + ( 32);
 }
 
 }  // namespace arrow::internal

@@ -35,7 +35,8 @@
 namespace arrow {
 namespace internal {
 
-int unpack32_scalar(const uint8_t* in, uint32_t* out, int batch_size, int num_bits) {
+int unpack32_scalar(const uint8_t* in_, uint32_t* out, int batch_size, int num_bits) {
+  auto in = reinterpret_cast<const uint32_t*>(in_);
   batch_size = batch_size / 32 * 32;
   int num_loops = batch_size / 32;
 
@@ -176,7 +177,8 @@ int unpack32(const uint8_t* in, uint32_t* out, int batch_size, int num_bits) {
 #endif
 }
 
-int unpack64_scalar(const uint8_t* in, uint64_t* out, int batch_size, int num_bits) {
+int unpack64_scalar(const uint8_t* in_, uint64_t* out, int batch_size, int num_bits) {
+  auto in = reinterpret_cast<const uint64_t*>(in_);
   batch_size = batch_size / 32 * 32;
   int num_loops = batch_size / 32;
 
