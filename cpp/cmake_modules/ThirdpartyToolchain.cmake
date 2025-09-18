@@ -2287,6 +2287,10 @@ if(ARROW_MIMALLOC)
     set(MIMALLOC_C_FLAGS "${MIMALLOC_C_FLAGS} -DERROR_COMMITMENT_MINIMUM=635")
   endif()
 
+  find_program(PATCH patch REQUIRED)
+  set(MIMALLOC_PATCH_COMMAND ${PATCH} -p1 -i
+                             ${CMAKE_CURRENT_LIST_DIR}/mimalloc-1138.patch)
+
   set(MIMALLOC_CMAKE_ARGS
       ${EP_COMMON_CMAKE_ARGS}
       "-DCMAKE_C_FLAGS=${MIMALLOC_C_FLAGS}"
@@ -2304,6 +2308,7 @@ if(ARROW_MIMALLOC)
                       ${EP_COMMON_OPTIONS}
                       URL ${MIMALLOC_SOURCE_URL}
                       URL_HASH "SHA256=${ARROW_MIMALLOC_BUILD_SHA256_CHECKSUM}"
+                      PATCH_COMMAND ${MIMALLOC_PATCH_COMMAND}
                       CMAKE_ARGS ${MIMALLOC_CMAKE_ARGS}
                       BUILD_BYPRODUCTS "${MIMALLOC_STATIC_LIB}")
 
