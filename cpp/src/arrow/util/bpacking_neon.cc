@@ -15,14 +15,14 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include "arrow/util/bpacking_dispatch_internal.h"
 #include "arrow/util/bpacking_neon_internal.h"
 #include "arrow/util/bpacking_simd128_generated_internal.h"
-#include "arrow/util/bpacking_simd_internal.h"
 
 namespace arrow::internal {
 
 int unpack32_neon(const uint8_t* in, uint32_t* out, int batch_size, int num_bits) {
-  return unpack32_specialized<Simd128Unpacker<uint32_t>>(in, out, batch_size, num_bits);
+  return unpack_jump32<Simd128Unpacker<uint32_t>>(in, out, batch_size, num_bits);
 }
 
 }  // namespace arrow::internal

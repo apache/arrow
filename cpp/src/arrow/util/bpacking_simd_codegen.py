@@ -192,11 +192,12 @@ class UnpackStructGenerator:
         print(f"struct Simd{self.simd_bit_width}Unpacker<{self.out_type}> {{")
         print()
         print(f"using out_type = {self.out_type};")
-        print()
         print(
             "using simd_batch = xsimd::make_sized_batch_t<"
             f"{self.out_type}, {self.simd_value_count}>;"
         )
+        print()
+        print(f"static constexpr int kValuesUnpacked = {self.out_bit_width};")
         print()
         self.print_unpack_signature(None)
 

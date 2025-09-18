@@ -87,11 +87,11 @@ class ScalarUnpackGenerator:
         return self.out_bit_width // 8
 
     @property
-    def unsigned_type(self) -> str:
+    def out_type(self) -> str:
         return f"uint{self.out_bit_width}_t"
 
     @property
-    def unsigned_type_half(self) -> str:
+    def out_type_half(self) -> str:
         return f"uint{self.out_bit_width // 2}_t"
 
     @property
@@ -107,24 +107,34 @@ class ScalarUnpackGenerator:
     def howmanybytes(self, bit: int) -> int:
         return (self.howmany * bit + self.out_byte_width - 1) // self.out_byte_width
 
-    def unpack_signature(self, bit: int) -> str:
-        return (
-            f"inline const uint8_t* unpack{bit}_{self.out_bit_width}"
-            f"(const uint8_t* in, {self.unsigned_type}* out)"
-            "{"
+    def print_unpack_signature(self, bit: int | None) -> str:
+        if bit is None:
+            print("template<int kBit>")
+            static = "static "
+            specialized = ""
+            end = ";"
+        else:
+            print("template<>")
+            static = ""
+            specialized = f"<{bit}>"
+            end = " {"
+
+        print(
+            f"{static}const uint8_t* unpack{specialized}"
+            f"(const uint8_t* in, {self.out_type}* out){end}"
         )
 
     def print_unpack_0(self) -> None:
-        print(self.unpack_signature(0))
+        self.print_unpack_signature(0)
         print(f"  std::memset(out, 0, {self.howmany} * {self.out_byte_width});")
         print("  return in;")
         print("}")
 
     def print_unpack_last(self) -> None:
-        print(self.unpack_signature(self.out_bit_width))
+        self.print_unpack_signature(self.out_bit_width)
         print(f"  for(int k = 0; k < {self.howmany}; k += 1) {{")
         print(
-            f"    out[k] = LoadInt<{self.unsigned_type}>("
+            f"    out[k] = LoadInt<{self.out_type}>("
             f"in + (k * {self.out_byte_width}));"
         )
         print("  }")
@@ -132,17 +142,17 @@ class ScalarUnpackGenerator:
         print("}")
 
     def print_unpack_k(self, bit: int) -> None:
-        print(self.unpack_signature(bit))
+        self.print_unpack_signature(bit)
         print(
-            f"  constexpr {self.unsigned_type} mask = "
-            f"(({self.unsigned_type}{{1}} << {bit}) - {self.unsigned_type}{{1}});"
+            f"  constexpr {self.out_type} mask = "
+            f"(({self.out_type}{{1}} << {bit}) - {self.out_type}{{1}});"
         )
         print("")
         maskstr = " & mask"
 
         for k in range(self.howmanywords(bit) - 1):
             print(
-                f"  const auto w{k} = LoadInt<{self.unsigned_type}>("
+                f"  const auto w{k} = LoadInt<{self.out_type}>("
                 f"in + {k} * {self.out_byte_width});"
             )
 
@@ -150,12 +160,12 @@ class ScalarUnpackGenerator:
         use_smart_halving = self.smart_halve and bit % 2 == 1
         if use_smart_halving:
             print(
-                f"  const auto w{k} = static_cast<{self.unsigned_type}>(LoadInt<{self.unsigned_type_half}>("
+                f"  const auto w{k} = static_cast<{self.out_type}>(LoadInt<{self.out_type_half}>("
                 f"in + {k} * {self.out_byte_width}));"
             )
         else:
             print(
-                f"  const auto w{k} = LoadInt<{self.unsigned_type}>("
+                f"  const auto w{k} = LoadInt<{self.out_type}>("
                 f"in + {k} * {self.out_byte_width});"
             )
 
@@ -188,7 +198,27 @@ class ScalarUnpackGenerator:
             print(f"  return in + ({self.howmanywords(bit)} * {self.out_byte_width});")
         print("}")
 
-    def print_all(self) -> None:
+    def print_struct_declaration(self):
+        print("template<typename Uint>")
+        print("struct ScalarUnpacker;")
+
+    def print_struct_top(self):
+        print("template<>")
+        print(f"struct ScalarUnpacker<{self.out_type}> {{")
+        print()
+        print(f"using out_type = {self.out_type};")
+        print()
+        print(f"static constexpr int kValuesUnpacked = {self.howmany};")
+        print()
+        self.print_unpack_signature(None)
+
+    def print_struct_bottom(self):
+        print("};  // struct")
+
+    def print_struct(self):
+        self.print_struct_top()
+        print()
+
         self.print_unpack_0()
         print("")
 
@@ -197,6 +227,8 @@ class ScalarUnpackGenerator:
             print("")
 
         self.print_unpack_last()
+
+        self.print_struct_bottom()
 
 
 def print_note():
@@ -210,9 +242,14 @@ if __name__ == "__main__":
     print_note()
     print(HEADER)
 
-    ScalarUnpackGenerator(32, smart_halve=False).print_all()
-    print("")
+    gen = ScalarUnpackGenerator(32, smart_halve=False)
+    gen.print_struct_declaration()
+    print()
 
-    ScalarUnpackGenerator(64, smart_halve=True).print_all()
+    gen.print_struct()
+    print()
+
+    gen = ScalarUnpackGenerator(64, smart_halve=True)
+    gen.print_struct()
 
     print(FOOTER)
