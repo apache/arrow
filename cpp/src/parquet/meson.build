@@ -57,7 +57,14 @@ parquet_srcs = files(
     'xxhasher.cc',
 )
 
-thrift_dep = dependency('thrift', allow_fallback: false, required: false)
+thrift_dep = dependency(
+    'thrift',
+    allow_fallback: false,
+    # pkg-config cannot be used with Thrift on Windows due to
+    # https://issues.apache.org/jira/browse/THRIFT-5894
+    method: host_machine.system() == 'windows' ? 'cmake' : 'auto',
+    required: false,
+)
 if not thrift_dep.found()
     cmake = import('cmake')
     thrift_opts = cmake.subproject_options()
