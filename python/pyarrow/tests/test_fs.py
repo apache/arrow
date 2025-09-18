@@ -2213,7 +2213,7 @@ def test_fsspec_delete_root_dir_contents():
     except ImportError:
         pytest.skip("fsspec not installed")
 
-    fs = MemoryFileSystem()
+    fs = FSSpecHandler(MemoryFileSystem())
 
     # Create some files and directories
     fs.create_dir("test_dir")
@@ -2231,7 +2231,7 @@ def test_fsspec_delete_root_dir_contents():
     assert fs.get_file_info("test_dir/nested_file.txt").type == FileType.File
 
     # Delete root directory contents
-    fs.delete_dir_contents("", accept_root_dir=True)
+    fs.delete_root_dir_contents()
 
     # Assert all files and directories are deleted
     assert fs.get_file_info("test_file.txt").type == FileType.NotFound
