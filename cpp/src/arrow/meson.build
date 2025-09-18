@@ -456,8 +456,7 @@ disable Arrow gcs support with -Dgcs=disabled.
             ],
         )
 
-        absl_time_zone_dep = dependency('absl_time_zone')
-        arrow_filesystem_deps += [gcs_dep, absl_time_zone_dep]
+        arrow_filesystem_deps += [gcs_dep]
     endif
 
     if needs_hdfs
