@@ -31,7 +31,7 @@ test_that("identify_binary() based on LIBARROW_BINARY", {
   expect_null(identify_binary("FALSE"))
   expect_identical(
     identify_binary("linux-x86_64-openssl-1.0"),
-    "linux-x86-64-openssl-1.0"
+    "linux-x86_64-openssl-1.0"
   )
   expect_null(identify_binary("", info = list(id = "debian")))
 })
