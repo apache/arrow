@@ -15,7 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// Automatically generated file; DO NOT EDIT.
+// WARNING: this file is generated, DO NOT EDIT.
+// Usage:
+//   python cpp/src/arrow/util/bpacking_simd_codegen.py 256
 
 #pragma once
 
@@ -24,30 +26,28 @@
 
 #include <xsimd/xsimd.hpp>
 
-#include "arrow/util/dispatch_internal.h"
 #include "arrow/util/ubsan.h"
 
 namespace arrow::internal {
-namespace {
 
 using ::arrow::util::SafeLoadAs;
 
-template <DispatchLevel level>
-struct UnpackBits256 {
-
+template<typename Uint>
+struct Simd256Unpacker;
+template<>
+struct Simd256Unpacker<uint16_t> {
 inline static const uint8_t* unpack0_16(const uint8_t* in, uint16_t* out) {
   std::memset(out, 0x0, 16 * sizeof(*out));
   out += 16;
-
   return in;
 }
 
 inline static const uint8_t* unpack1_16(const uint8_t* in, uint16_t* out) {
   using simd_batch = xsimd::make_sized_batch_t<uint16_t, 16>;
 
-  uint16_t mask = 0x1;
+  constexpr uint16_t kMask = 0x1;
 
-  simd_batch masks(mask);
+  simd_batch masks(kMask);
   simd_batch words, shifts;
   simd_batch results;
 
@@ -82,9 +82,9 @@ inline static const uint8_t* unpack1_16(const uint8_t* in, uint16_t* out) {
 inline static const uint8_t* unpack2_16(const uint8_t* in, uint16_t* out) {
   using simd_batch = xsimd::make_sized_batch_t<uint16_t, 16>;
 
-  uint16_t mask = 0x3;
+  constexpr uint16_t kMask = 0x3;
 
-  simd_batch masks(mask);
+  simd_batch masks(kMask);
   simd_batch words, shifts;
   simd_batch results;
 
@@ -119,9 +119,9 @@ inline static const uint8_t* unpack2_16(const uint8_t* in, uint16_t* out) {
 inline static const uint8_t* unpack3_16(const uint8_t* in, uint16_t* out) {
   using simd_batch = xsimd::make_sized_batch_t<uint16_t, 16>;
 
-  uint16_t mask = 0x7;
+  constexpr uint16_t kMask = 0x7;
 
-  simd_batch masks(mask);
+  simd_batch masks(kMask);
   simd_batch words, shifts;
   simd_batch results;
 
@@ -156,9 +156,9 @@ inline static const uint8_t* unpack3_16(const uint8_t* in, uint16_t* out) {
 inline static const uint8_t* unpack4_16(const uint8_t* in, uint16_t* out) {
   using simd_batch = xsimd::make_sized_batch_t<uint16_t, 16>;
 
-  uint16_t mask = 0xf;
+  constexpr uint16_t kMask = 0xf;
 
-  simd_batch masks(mask);
+  simd_batch masks(kMask);
   simd_batch words, shifts;
   simd_batch results;
 
@@ -193,9 +193,9 @@ inline static const uint8_t* unpack4_16(const uint8_t* in, uint16_t* out) {
 inline static const uint8_t* unpack5_16(const uint8_t* in, uint16_t* out) {
   using simd_batch = xsimd::make_sized_batch_t<uint16_t, 16>;
 
-  uint16_t mask = 0x1f;
+  constexpr uint16_t kMask = 0x1f;
 
-  simd_batch masks(mask);
+  simd_batch masks(kMask);
   simd_batch words, shifts;
   simd_batch results;
 
@@ -230,9 +230,9 @@ inline static const uint8_t* unpack5_16(const uint8_t* in, uint16_t* out) {
 inline static const uint8_t* unpack6_16(const uint8_t* in, uint16_t* out) {
   using simd_batch = xsimd::make_sized_batch_t<uint16_t, 16>;
 
-  uint16_t mask = 0x3f;
+  constexpr uint16_t kMask = 0x3f;
 
-  simd_batch masks(mask);
+  simd_batch masks(kMask);
   simd_batch words, shifts;
   simd_batch results;
 
@@ -267,9 +267,9 @@ inline static const uint8_t* unpack6_16(const uint8_t* in, uint16_t* out) {
 inline static const uint8_t* unpack7_16(const uint8_t* in, uint16_t* out) {
   using simd_batch = xsimd::make_sized_batch_t<uint16_t, 16>;
 
-  uint16_t mask = 0x7f;
+  constexpr uint16_t kMask = 0x7f;
 
-  simd_batch masks(mask);
+  simd_batch masks(kMask);
   simd_batch words, shifts;
   simd_batch results;
 
@@ -304,9 +304,9 @@ inline static const uint8_t* unpack7_16(const uint8_t* in, uint16_t* out) {
 inline static const uint8_t* unpack8_16(const uint8_t* in, uint16_t* out) {
   using simd_batch = xsimd::make_sized_batch_t<uint16_t, 16>;
 
-  uint16_t mask = 0xff;
+  constexpr uint16_t kMask = 0xff;
 
-  simd_batch masks(mask);
+  simd_batch masks(kMask);
   simd_batch words, shifts;
   simd_batch results;
 
@@ -341,9 +341,9 @@ inline static const uint8_t* unpack8_16(const uint8_t* in, uint16_t* out) {
 inline static const uint8_t* unpack9_16(const uint8_t* in, uint16_t* out) {
   using simd_batch = xsimd::make_sized_batch_t<uint16_t, 16>;
 
-  uint16_t mask = 0x1ff;
+  constexpr uint16_t kMask = 0x1ff;
 
-  simd_batch masks(mask);
+  simd_batch masks(kMask);
   simd_batch words, shifts;
   simd_batch results;
 
@@ -378,9 +378,9 @@ inline static const uint8_t* unpack9_16(const uint8_t* in, uint16_t* out) {
 inline static const uint8_t* unpack10_16(const uint8_t* in, uint16_t* out) {
   using simd_batch = xsimd::make_sized_batch_t<uint16_t, 16>;
 
-  uint16_t mask = 0x3ff;
+  constexpr uint16_t kMask = 0x3ff;
 
-  simd_batch masks(mask);
+  simd_batch masks(kMask);
   simd_batch words, shifts;
   simd_batch results;
 
@@ -415,9 +415,9 @@ inline static const uint8_t* unpack10_16(const uint8_t* in, uint16_t* out) {
 inline static const uint8_t* unpack11_16(const uint8_t* in, uint16_t* out) {
   using simd_batch = xsimd::make_sized_batch_t<uint16_t, 16>;
 
-  uint16_t mask = 0x7ff;
+  constexpr uint16_t kMask = 0x7ff;
 
-  simd_batch masks(mask);
+  simd_batch masks(kMask);
   simd_batch words, shifts;
   simd_batch results;
 
@@ -452,9 +452,9 @@ inline static const uint8_t* unpack11_16(const uint8_t* in, uint16_t* out) {
 inline static const uint8_t* unpack12_16(const uint8_t* in, uint16_t* out) {
   using simd_batch = xsimd::make_sized_batch_t<uint16_t, 16>;
 
-  uint16_t mask = 0xfff;
+  constexpr uint16_t kMask = 0xfff;
 
-  simd_batch masks(mask);
+  simd_batch masks(kMask);
   simd_batch words, shifts;
   simd_batch results;
 
@@ -489,9 +489,9 @@ inline static const uint8_t* unpack12_16(const uint8_t* in, uint16_t* out) {
 inline static const uint8_t* unpack13_16(const uint8_t* in, uint16_t* out) {
   using simd_batch = xsimd::make_sized_batch_t<uint16_t, 16>;
 
-  uint16_t mask = 0x1fff;
+  constexpr uint16_t kMask = 0x1fff;
 
-  simd_batch masks(mask);
+  simd_batch masks(kMask);
   simd_batch words, shifts;
   simd_batch results;
 
@@ -526,9 +526,9 @@ inline static const uint8_t* unpack13_16(const uint8_t* in, uint16_t* out) {
 inline static const uint8_t* unpack14_16(const uint8_t* in, uint16_t* out) {
   using simd_batch = xsimd::make_sized_batch_t<uint16_t, 16>;
 
-  uint16_t mask = 0x3fff;
+  constexpr uint16_t kMask = 0x3fff;
 
-  simd_batch masks(mask);
+  simd_batch masks(kMask);
   simd_batch words, shifts;
   simd_batch results;
 
@@ -563,9 +563,9 @@ inline static const uint8_t* unpack14_16(const uint8_t* in, uint16_t* out) {
 inline static const uint8_t* unpack15_16(const uint8_t* in, uint16_t* out) {
   using simd_batch = xsimd::make_sized_batch_t<uint16_t, 16>;
 
-  uint16_t mask = 0x7fff;
+  constexpr uint16_t kMask = 0x7fff;
 
-  simd_batch masks(mask);
+  simd_batch masks(kMask);
   simd_batch words, shifts;
   simd_batch results;
 
@@ -601,23 +601,24 @@ inline static const uint8_t* unpack16_16(const uint8_t* in, uint16_t* out) {
   std::memcpy(out, in, 16 * sizeof(*out));
   in += 2 * 16;
   out += 16;
-
   return in;
 }
+};  // struct Unpacker
 
+template<>
+struct Simd256Unpacker<uint32_t> {
 inline static const uint8_t* unpack0_32(const uint8_t* in, uint32_t* out) {
   std::memset(out, 0x0, 32 * sizeof(*out));
   out += 32;
-
   return in;
 }
 
 inline static const uint8_t* unpack1_32(const uint8_t* in, uint32_t* out) {
   using simd_batch = xsimd::make_sized_batch_t<uint32_t, 8>;
 
-  uint32_t mask = 0x1;
+  constexpr uint32_t kMask = 0x1;
 
-  simd_batch masks(mask);
+  simd_batch masks(kMask);
   simd_batch words, shifts;
   simd_batch results;
 
@@ -692,9 +693,9 @@ inline static const uint8_t* unpack1_32(const uint8_t* in, uint32_t* out) {
 inline static const uint8_t* unpack2_32(const uint8_t* in, uint32_t* out) {
   using simd_batch = xsimd::make_sized_batch_t<uint32_t, 8>;
 
-  uint32_t mask = 0x3;
+  constexpr uint32_t kMask = 0x3;
 
-  simd_batch masks(mask);
+  simd_batch masks(kMask);
   simd_batch words, shifts;
   simd_batch results;
 
@@ -769,9 +770,9 @@ inline static const uint8_t* unpack2_32(const uint8_t* in, uint32_t* out) {
 inline static const uint8_t* unpack3_32(const uint8_t* in, uint32_t* out) {
   using simd_batch = xsimd::make_sized_batch_t<uint32_t, 8>;
 
-  uint32_t mask = 0x7;
+  constexpr uint32_t kMask = 0x7;
 
-  simd_batch masks(mask);
+  simd_batch masks(kMask);
   simd_batch words, shifts;
   simd_batch results;
 
@@ -846,9 +847,9 @@ inline static const uint8_t* unpack3_32(const uint8_t* in, uint32_t* out) {
 inline static const uint8_t* unpack4_32(const uint8_t* in, uint32_t* out) {
   using simd_batch = xsimd::make_sized_batch_t<uint32_t, 8>;
 
-  uint32_t mask = 0xf;
+  constexpr uint32_t kMask = 0xf;
 
-  simd_batch masks(mask);
+  simd_batch masks(kMask);
   simd_batch words, shifts;
   simd_batch results;
 
@@ -923,9 +924,9 @@ inline static const uint8_t* unpack4_32(const uint8_t* in, uint32_t* out) {
 inline static const uint8_t* unpack5_32(const uint8_t* in, uint32_t* out) {
   using simd_batch = xsimd::make_sized_batch_t<uint32_t, 8>;
 
-  uint32_t mask = 0x1f;
+  constexpr uint32_t kMask = 0x1f;
 
-  simd_batch masks(mask);
+  simd_batch masks(kMask);
   simd_batch words, shifts;
   simd_batch results;
 
@@ -1000,9 +1001,9 @@ inline static const uint8_t* unpack5_32(const uint8_t* in, uint32_t* out) {
 inline static const uint8_t* unpack6_32(const uint8_t* in, uint32_t* out) {
   using simd_batch = xsimd::make_sized_batch_t<uint32_t, 8>;
 
-  uint32_t mask = 0x3f;
+  constexpr uint32_t kMask = 0x3f;
 
-  simd_batch masks(mask);
+  simd_batch masks(kMask);
   simd_batch words, shifts;
   simd_batch results;
 
@@ -1077,9 +1078,9 @@ inline static const uint8_t* unpack6_32(const uint8_t* in, uint32_t* out) {
 inline static const uint8_t* unpack7_32(const uint8_t* in, uint32_t* out) {
   using simd_batch = xsimd::make_sized_batch_t<uint32_t, 8>;
 
-  uint32_t mask = 0x7f;
+  constexpr uint32_t kMask = 0x7f;
 
-  simd_batch masks(mask);
+  simd_batch masks(kMask);
   simd_batch words, shifts;
   simd_batch results;
 
@@ -1154,9 +1155,9 @@ inline static const uint8_t* unpack7_32(const uint8_t* in, uint32_t* out) {
 inline static const uint8_t* unpack8_32(const uint8_t* in, uint32_t* out) {
   using simd_batch = xsimd::make_sized_batch_t<uint32_t, 8>;
 
-  uint32_t mask = 0xff;
+  constexpr uint32_t kMask = 0xff;
 
-  simd_batch masks(mask);
+  simd_batch masks(kMask);
   simd_batch words, shifts;
   simd_batch results;
 
@@ -1231,9 +1232,9 @@ inline static const uint8_t* unpack8_32(const uint8_t* in, uint32_t* out) {
 inline static const uint8_t* unpack9_32(const uint8_t* in, uint32_t* out) {
   using simd_batch = xsimd::make_sized_batch_t<uint32_t, 8>;
 
-  uint32_t mask = 0x1ff;
+  constexpr uint32_t kMask = 0x1ff;
 
-  simd_batch masks(mask);
+  simd_batch masks(kMask);
   simd_batch words, shifts;
   simd_batch results;
 
@@ -1308,9 +1309,9 @@ inline static const uint8_t* unpack9_32(const uint8_t* in, uint32_t* out) {
 inline static const uint8_t* unpack10_32(const uint8_t* in, uint32_t* out) {
   using simd_batch = xsimd::make_sized_batch_t<uint32_t, 8>;
 
-  uint32_t mask = 0x3ff;
+  constexpr uint32_t kMask = 0x3ff;
 
-  simd_batch masks(mask);
+  simd_batch masks(kMask);
   simd_batch words, shifts;
   simd_batch results;
 
@@ -1385,9 +1386,9 @@ inline static const uint8_t* unpack10_32(const uint8_t* in, uint32_t* out) {
 inline static const uint8_t* unpack11_32(const uint8_t* in, uint32_t* out) {
   using simd_batch = xsimd::make_sized_batch_t<uint32_t, 8>;
 
-  uint32_t mask = 0x7ff;
+  constexpr uint32_t kMask = 0x7ff;
 
-  simd_batch masks(mask);
+  simd_batch masks(kMask);
   simd_batch words, shifts;
   simd_batch results;
 
@@ -1462,9 +1463,9 @@ inline static const uint8_t* unpack11_32(const uint8_t* in, uint32_t* out) {
 inline static const uint8_t* unpack12_32(const uint8_t* in, uint32_t* out) {
   using simd_batch = xsimd::make_sized_batch_t<uint32_t, 8>;
 
-  uint32_t mask = 0xfff;
+  constexpr uint32_t kMask = 0xfff;
 
-  simd_batch masks(mask);
+  simd_batch masks(kMask);
   simd_batch words, shifts;
   simd_batch results;
 
@@ -1539,9 +1540,9 @@ inline static const uint8_t* unpack12_32(const uint8_t* in, uint32_t* out) {
 inline static const uint8_t* unpack13_32(const uint8_t* in, uint32_t* out) {
   using simd_batch = xsimd::make_sized_batch_t<uint32_t, 8>;
 
-  uint32_t mask = 0x1fff;
+  constexpr uint32_t kMask = 0x1fff;
 
-  simd_batch masks(mask);
+  simd_batch masks(kMask);
   simd_batch words, shifts;
   simd_batch results;
 
@@ -1616,9 +1617,9 @@ inline static const uint8_t* unpack13_32(const uint8_t* in, uint32_t* out) {
 inline static const uint8_t* unpack14_32(const uint8_t* in, uint32_t* out) {
   using simd_batch = xsimd::make_sized_batch_t<uint32_t, 8>;
 
-  uint32_t mask = 0x3fff;
+  constexpr uint32_t kMask = 0x3fff;
 
-  simd_batch masks(mask);
+  simd_batch masks(kMask);
   simd_batch words, shifts;
   simd_batch results;
 
@@ -1693,9 +1694,9 @@ inline static const uint8_t* unpack14_32(const uint8_t* in, uint32_t* out) {
 inline static const uint8_t* unpack15_32(const uint8_t* in, uint32_t* out) {
   using simd_batch = xsimd::make_sized_batch_t<uint32_t, 8>;
 
-  uint32_t mask = 0x7fff;
+  constexpr uint32_t kMask = 0x7fff;
 
-  simd_batch masks(mask);
+  simd_batch masks(kMask);
   simd_batch words, shifts;
   simd_batch results;
 
@@ -1770,9 +1771,9 @@ inline static const uint8_t* unpack15_32(const uint8_t* in, uint32_t* out) {
 inline static const uint8_t* unpack16_32(const uint8_t* in, uint32_t* out) {
   using simd_batch = xsimd::make_sized_batch_t<uint32_t, 8>;
 
-  uint32_t mask = 0xffff;
+  constexpr uint32_t kMask = 0xffff;
 
-  simd_batch masks(mask);
+  simd_batch masks(kMask);
   simd_batch words, shifts;
   simd_batch results;
 
@@ -1847,9 +1848,9 @@ inline static const uint8_t* unpack16_32(const uint8_t* in, uint32_t* out) {
 inline static const uint8_t* unpack17_32(const uint8_t* in, uint32_t* out) {
   using simd_batch = xsimd::make_sized_batch_t<uint32_t, 8>;
 
-  uint32_t mask = 0x1ffff;
+  constexpr uint32_t kMask = 0x1ffff;
 
-  simd_batch masks(mask);
+  simd_batch masks(kMask);
   simd_batch words, shifts;
   simd_batch results;
 
@@ -1924,9 +1925,9 @@ inline static const uint8_t* unpack17_32(const uint8_t* in, uint32_t* out) {
 inline static const uint8_t* unpack18_32(const uint8_t* in, uint32_t* out) {
   using simd_batch = xsimd::make_sized_batch_t<uint32_t, 8>;
 
-  uint32_t mask = 0x3ffff;
+  constexpr uint32_t kMask = 0x3ffff;
 
-  simd_batch masks(mask);
+  simd_batch masks(kMask);
   simd_batch words, shifts;
   simd_batch results;
 
@@ -2001,9 +2002,9 @@ inline static const uint8_t* unpack18_32(const uint8_t* in, uint32_t* out) {
 inline static const uint8_t* unpack19_32(const uint8_t* in, uint32_t* out) {
   using simd_batch = xsimd::make_sized_batch_t<uint32_t, 8>;
 
-  uint32_t mask = 0x7ffff;
+  constexpr uint32_t kMask = 0x7ffff;
 
-  simd_batch masks(mask);
+  simd_batch masks(kMask);
   simd_batch words, shifts;
   simd_batch results;
 
@@ -2078,9 +2079,9 @@ inline static const uint8_t* unpack19_32(const uint8_t* in, uint32_t* out) {
 inline static const uint8_t* unpack20_32(const uint8_t* in, uint32_t* out) {
   using simd_batch = xsimd::make_sized_batch_t<uint32_t, 8>;
 
-  uint32_t mask = 0xfffff;
+  constexpr uint32_t kMask = 0xfffff;
 
-  simd_batch masks(mask);
+  simd_batch masks(kMask);
   simd_batch words, shifts;
   simd_batch results;
 
@@ -2155,9 +2156,9 @@ inline static const uint8_t* unpack20_32(const uint8_t* in, uint32_t* out) {
 inline static const uint8_t* unpack21_32(const uint8_t* in, uint32_t* out) {
   using simd_batch = xsimd::make_sized_batch_t<uint32_t, 8>;
 
-  uint32_t mask = 0x1fffff;
+  constexpr uint32_t kMask = 0x1fffff;
 
-  simd_batch masks(mask);
+  simd_batch masks(kMask);
   simd_batch words, shifts;
   simd_batch results;
 
@@ -2232,9 +2233,9 @@ inline static const uint8_t* unpack21_32(const uint8_t* in, uint32_t* out) {
 inline static const uint8_t* unpack22_32(const uint8_t* in, uint32_t* out) {
   using simd_batch = xsimd::make_sized_batch_t<uint32_t, 8>;
 
-  uint32_t mask = 0x3fffff;
+  constexpr uint32_t kMask = 0x3fffff;
 
-  simd_batch masks(mask);
+  simd_batch masks(kMask);
   simd_batch words, shifts;
   simd_batch results;
 
@@ -2309,9 +2310,9 @@ inline static const uint8_t* unpack22_32(const uint8_t* in, uint32_t* out) {
 inline static const uint8_t* unpack23_32(const uint8_t* in, uint32_t* out) {
   using simd_batch = xsimd::make_sized_batch_t<uint32_t, 8>;
 
-  uint32_t mask = 0x7fffff;
+  constexpr uint32_t kMask = 0x7fffff;
 
-  simd_batch masks(mask);
+  simd_batch masks(kMask);
   simd_batch words, shifts;
   simd_batch results;
 
@@ -2386,9 +2387,9 @@ inline static const uint8_t* unpack23_32(const uint8_t* in, uint32_t* out) {
 inline static const uint8_t* unpack24_32(const uint8_t* in, uint32_t* out) {
   using simd_batch = xsimd::make_sized_batch_t<uint32_t, 8>;
 
-  uint32_t mask = 0xffffff;
+  constexpr uint32_t kMask = 0xffffff;
 
-  simd_batch masks(mask);
+  simd_batch masks(kMask);
   simd_batch words, shifts;
   simd_batch results;
 
@@ -2463,9 +2464,9 @@ inline static const uint8_t* unpack24_32(const uint8_t* in, uint32_t* out) {
 inline static const uint8_t* unpack25_32(const uint8_t* in, uint32_t* out) {
   using simd_batch = xsimd::make_sized_batch_t<uint32_t, 8>;
 
-  uint32_t mask = 0x1ffffff;
+  constexpr uint32_t kMask = 0x1ffffff;
 
-  simd_batch masks(mask);
+  simd_batch masks(kMask);
   simd_batch words, shifts;
   simd_batch results;
 
@@ -2540,9 +2541,9 @@ inline static const uint8_t* unpack25_32(const uint8_t* in, uint32_t* out) {
 inline static const uint8_t* unpack26_32(const uint8_t* in, uint32_t* out) {
   using simd_batch = xsimd::make_sized_batch_t<uint32_t, 8>;
 
-  uint32_t mask = 0x3ffffff;
+  constexpr uint32_t kMask = 0x3ffffff;
 
-  simd_batch masks(mask);
+  simd_batch masks(kMask);
   simd_batch words, shifts;
   simd_batch results;
 
@@ -2617,9 +2618,9 @@ inline static const uint8_t* unpack26_32(const uint8_t* in, uint32_t* out) {
 inline static const uint8_t* unpack27_32(const uint8_t* in, uint32_t* out) {
   using simd_batch = xsimd::make_sized_batch_t<uint32_t, 8>;
 
-  uint32_t mask = 0x7ffffff;
+  constexpr uint32_t kMask = 0x7ffffff;
 
-  simd_batch masks(mask);
+  simd_batch masks(kMask);
   simd_batch words, shifts;
   simd_batch results;
 
@@ -2694,9 +2695,9 @@ inline static const uint8_t* unpack27_32(const uint8_t* in, uint32_t* out) {
 inline static const uint8_t* unpack28_32(const uint8_t* in, uint32_t* out) {
   using simd_batch = xsimd::make_sized_batch_t<uint32_t, 8>;
 
-  uint32_t mask = 0xfffffff;
+  constexpr uint32_t kMask = 0xfffffff;
 
-  simd_batch masks(mask);
+  simd_batch masks(kMask);
   simd_batch words, shifts;
   simd_batch results;
 
@@ -2771,9 +2772,9 @@ inline static const uint8_t* unpack28_32(const uint8_t* in, uint32_t* out) {
 inline static const uint8_t* unpack29_32(const uint8_t* in, uint32_t* out) {
   using simd_batch = xsimd::make_sized_batch_t<uint32_t, 8>;
 
-  uint32_t mask = 0x1fffffff;
+  constexpr uint32_t kMask = 0x1fffffff;
 
-  simd_batch masks(mask);
+  simd_batch masks(kMask);
   simd_batch words, shifts;
   simd_batch results;
 
@@ -2848,9 +2849,9 @@ inline static const uint8_t* unpack29_32(const uint8_t* in, uint32_t* out) {
 inline static const uint8_t* unpack30_32(const uint8_t* in, uint32_t* out) {
   using simd_batch = xsimd::make_sized_batch_t<uint32_t, 8>;
 
-  uint32_t mask = 0x3fffffff;
+  constexpr uint32_t kMask = 0x3fffffff;
 
-  simd_batch masks(mask);
+  simd_batch masks(kMask);
   simd_batch words, shifts;
   simd_batch results;
 
@@ -2925,9 +2926,9 @@ inline static const uint8_t* unpack30_32(const uint8_t* in, uint32_t* out) {
 inline static const uint8_t* unpack31_32(const uint8_t* in, uint32_t* out) {
   using simd_batch = xsimd::make_sized_batch_t<uint32_t, 8>;
 
-  uint32_t mask = 0x7fffffff;
+  constexpr uint32_t kMask = 0x7fffffff;
 
-  simd_batch masks(mask);
+  simd_batch masks(kMask);
   simd_batch words, shifts;
   simd_batch results;
 
@@ -3003,12 +3004,10 @@ inline static const uint8_t* unpack32_32(const uint8_t* in, uint32_t* out) {
   std::memcpy(out, in, 32 * sizeof(*out));
   in += 4 * 32;
   out += 32;
-
   return in;
 }
+};  // struct Unpacker
 
-};  // struct UnpackBits256
 
-}  // namespace
 }  // namespace arrow::internal
 
