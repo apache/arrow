@@ -87,6 +87,7 @@ RUN apt-get update -y -q && \
         nlohmann-json3-dev \
         npm \
         opentelemetry-cpp-dev \
+        patch \
         pkg-config \
         protobuf-compiler-grpc \
         python3-dev \
