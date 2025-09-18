@@ -45,28 +45,9 @@ LICENSE = """// Licensed to the Apache Software Foundation (ASF) under one
 // under the License.
 """
 
-HEADER = """
-#pragma once
-
-#include <cstdint>
-#include <cstring>
-
-#include <xsimd/xsimd.hpp>
-
-#include "arrow/util/ubsan.h"
-
-namespace arrow::internal {
-
-using ::arrow::util::SafeLoadAs;
-"""
-
-FOOTER = """
-}  // namespace arrow::internal
-"""
-
 
 @dataclasses.dataclass
-class UnpackGenerator:
+class UnpackStructGenerator:
     out_bit_width: int
     simd_bit_width: int
 
@@ -107,12 +88,6 @@ class UnpackGenerator:
             f"(const uint8_t* in, {self.out_type}* out){end}"
         )
 
-    def print_struct_header(self):
-        print("template<>")
-        print(f"struct Simd{self.simd_bit_width}Unpacker<{self.out_type}> {{")
-        print()
-        self.print_unpack_signature(None)
-
     def print_unpack_bit0_func(self):
         self.print_unpack_signature(0)
         print(f"  std::memset(out, 0x0, {self.out_bit_width} * sizeof(*out));")
@@ -138,8 +113,6 @@ class UnpackGenerator:
 
         p(
             dedent(f"""\
-            using simd_batch = xsimd::make_sized_batch_t<{self.out_type}, {self.simd_value_count}>;
-
             constexpr {self.out_type} kMask = 0x{mask:0x};
 
             simd_batch masks(kMask);
@@ -210,8 +183,28 @@ class UnpackGenerator:
         )
         print("}")
 
-    def print_all(self):
-        self.print_struct_header()
+    def print_struct_declaration(self):
+        print("template<typename Uint>")
+        print(f"struct Simd{self.simd_bit_width}Unpacker;")
+
+    def print_struct_top(self):
+        print("template<>")
+        print(f"struct Simd{self.simd_bit_width}Unpacker<{self.out_type}> {{")
+        print()
+        print(f"using out_type = {self.out_type};")
+        print()
+        print(
+            "using simd_batch = xsimd::make_sized_batch_t<"
+            f"{self.out_type}, {self.simd_value_count}>;"
+        )
+        print()
+        self.print_unpack_signature(None)
+
+    def print_struct_bottom(self):
+        print("};  // struct Unpacker")
+
+    def print_struct(self):
+        self.print_struct_top()
         print()
 
         self.print_unpack_bit0_func()
@@ -221,30 +214,69 @@ class UnpackGenerator:
             print()
         self.print_unpack_bitmax_func()
 
-        print("};  // struct Unpacker")
+        self.print_struct_bottom()
 
 
-def print_note():
-    print("// WARNING: this file is generated, DO NOT EDIT.")
-    print("// Usage:")
-    print(f"//   python {' '.join(sys.orig_argv[1:])}")
+@dataclasses.dataclass
+class UnpackFileGenerator:
+    generators: list[UnpackStructGenerator]
+
+    def print_license(self):
+        print(LICENSE)
+
+    def print_note(self):
+        print("// WARNING: this file is generated, DO NOT EDIT.")
+        print("// Usage:")
+        print(f"//   python {' '.join(sys.orig_argv[1:])}")
+
+    def print_headers(self):
+        print("#include <cstdint>")
+        print("#include <cstring>")
+        print()
+        print("#include <xsimd/xsimd.hpp>")
+        print()
+        print('#include "arrow/util/ubsan.h"')
+
+    def print_file_top(self):
+        print("#pragma once")
+        print()
+        self.print_headers()
+        print()
+        print("namespace arrow::internal {")
+        print()
+        print("using ::arrow::util::SafeLoadAs;")
+
+    def print_file_bottom(self):
+        print("}  // namespace arrow::internal")
+
+    def print_structs(self):
+        delclared = set()
+
+        for gen in self.generators:
+            if gen.simd_bit_width not in delclared:
+                gen.print_struct_declaration()
+                print()
+                delclared.add(gen.simd_bit_width)
+
+            gen.print_struct()
+            print()
+
+    def print_file(self):
+        self.print_license()
+        self.print_note()
+        print()
+        self.print_file_top()
+        print()
+        self.print_structs()
+        self.print_file_bottom()
 
 
 def main(simd_width, outputs):
-    print(LICENSE)
-    print_note()
-    print(HEADER)
+    gen = UnpackFileGenerator(
+        [UnpackStructGenerator(out_width, simd_width) for out_width in outputs]
+    )
 
-    print("template<typename Uint>")
-    print(f"struct Simd{simd_width}Unpacker;")
-    print()
-
-    for out_width in outputs:
-        gen = UnpackGenerator(out_width, simd_width)
-        gen.print_all()
-        print()
-
-    print(FOOTER)
+    gen.print_file()
 
 
 if __name__ == "__main__":
