@@ -199,11 +199,15 @@ class ScalarUnpackGenerator:
         self.print_unpack_last()
 
 
-if __name__ == "__main__":
-    print(LICENSE)
+def print_note():
     print("// WARNING: this file is generated, DO NOT EDIT.")
     print("// Usage:")
     print(f"//   python {' '.join(sys.orig_argv[1:])}")
+
+
+if __name__ == "__main__":
+    print(LICENSE)
+    print_note()
     print(HEADER)
 
     ScalarUnpackGenerator(32, smart_halve=False).print_all()

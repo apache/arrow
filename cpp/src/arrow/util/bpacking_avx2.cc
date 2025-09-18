@@ -22,8 +22,7 @@
 namespace arrow::internal {
 
 int unpack32_avx2(const uint8_t* in, uint32_t* out, int batch_size, int num_bits) {
-  return unpack32_specialized<UnpackBits256<DispatchLevel::AVX2>>(in, out, batch_size,
-                                                                  num_bits);
+  return unpack32_specialized<Simd256Unpacker<uint32_t>>(in, out, batch_size, num_bits);
 }
 
 }  // namespace arrow::internal

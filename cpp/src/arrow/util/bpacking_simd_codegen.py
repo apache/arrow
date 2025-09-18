@@ -22,73 +22,121 @@
 #   python bpacking_simd_codegen.py 256 > bpacking_simd256_generated_internal.h
 #   python bpacking_simd_codegen.py 512 > bpacking_simd512_generated_internal.h
 
+import dataclasses
 import sys
 from textwrap import dedent, indent
 
 
+LICENSE = """// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+"""
+
+HEADER = """
+#pragma once
+
+#include <cstdint>
+#include <cstring>
+
+#include <xsimd/xsimd.hpp>
+
+#include "arrow/util/ubsan.h"
+
+namespace arrow::internal {
+
+using ::arrow::util::SafeLoadAs;
+"""
+
+FOOTER = """
+}  // namespace arrow::internal
+"""
+
+
+@dataclasses.dataclass
 class UnpackGenerator:
-    def __init__(self, simd_width, out_width, out_type):
-        self.simd_width = simd_width
-        self.out_width = out_width
-        if simd_width % out_width != 0:
+    out_bit_width: int
+    simd_bit_width: int
+
+    @property
+    def simd_byte_width(self) -> int:
+        return self.simd_bit_width // 8
+
+    @property
+    def simd_value_count(self) -> int:
+        return self.simd_bit_width // self.out_bit_width
+
+    @property
+    def out_byte_width(self) -> int:
+        return self.out_bit_width // 8
+
+    @property
+    def out_type(self) -> str:
+        return f"uint{self.out_bit_width}_t"
+
+    def __post_init__(self):
+        if self.simd_bit_width % self.out_bit_width != 0:
             raise ("SIMD bit width should be a multiple of output width")
-        self.simd_byte_width = simd_width // 8
-        self.out_byte_width = out_width // 8
-        self.out_type = out_type
+
+    def unpack_signature(self, bit: int) -> str:
+        return (
+            f"inline static const uint8_t* unpack{bit}_{self.out_bit_width}"
+            f"(const uint8_t* in, {self.out_type}* out) {{"
+        )
 
     def print_unpack_bit0_func(self):
-        ty = self.out_type
-        print(
-            f"inline static const uint8_t* unpack0_{self.out_width}(const uint8_t* in, {ty}* out) {{"
-        )
-        print(f"  std::memset(out, 0x0, {self.out_width} * sizeof(*out));")
-        print(f"  out += {self.out_width};")
-        print("")
+        print(self.unpack_signature(0))
+        print(f"  std::memset(out, 0x0, {self.out_bit_width} * sizeof(*out));")
+        print(f"  out += {self.out_bit_width};")
         print("  return in;")
         print("}")
 
     def print_unpack_bitmax_func(self):
-        ty = self.out_type
-        print(
-            f"inline static const uint8_t* unpack{self.out_width}_{self.out_width}(const uint8_t* in, {ty}* out) {{"
-        )
-        print(f"  std::memcpy(out, in, {self.out_width} * sizeof(*out));")
-        print(f"  in += {self.out_byte_width} * {self.out_width};")
-        print(f"  out += {self.out_width};")
-        print("")
+        print(self.unpack_signature(self.out_bit_width))
+        print(f"  std::memcpy(out, in, {self.out_bit_width} * sizeof(*out));")
+        print(f"  in += {self.out_byte_width} * {self.out_bit_width};")
+        print(f"  out += {self.out_bit_width};")
         print("  return in;")
         print("}")
 
-    def print_unpack_bit_func(self, bit):
+    def print_unpack_bit_func(self, bit: int):
+        print(self.unpack_signature(bit))
+
         def p(code, level=1):
             print(indent(code, prefix="  " * level))
 
         mask = (1 << bit) - 1
-        ty = self.out_type
-        bytes_per_batch = self.simd_byte_width
-        words_per_batch = bytes_per_batch // self.out_byte_width
 
-        print(
-            f"inline static const uint8_t* unpack{bit}_{self.out_width}(const uint8_t* in, {ty}* out) {{"
-        )
         p(
             dedent(f"""\
-            using simd_batch = xsimd::make_sized_batch_t<{ty}, {self.simd_width // self.out_width}>;
+            using simd_batch = xsimd::make_sized_batch_t<{self.out_type}, {self.simd_value_count}>;
 
-            {ty} mask = 0x{mask:0x};
+            constexpr {self.out_type} kMask = 0x{mask:0x};
 
-            simd_batch masks(mask);
+            simd_batch masks(kMask);
             simd_batch words, shifts;
             simd_batch results;
             """)
         )
 
         def safe_load(index):
-            return f"SafeLoadAs<{ty}>(in + {self.out_byte_width} * {index})"
+            return f"SafeLoadAs<{self.out_type}>(in + {self.out_byte_width} * {index})"
 
         def static_cast_as_needed(str):
-            if self.out_width < 32:
-                return f"static_cast<{ty}>({str})"
+            if self.out_bit_width < 32:
+                return f"static_cast<{self.out_type}>({str})"
             return str
 
         shift = 0
@@ -96,21 +144,21 @@ class UnpackGenerator:
         in_index = 0
         inls = []
 
-        for i in range(self.out_width):
-            if shift + bit == self.out_width:
+        for i in range(self.out_bit_width):
+            if shift + bit == self.out_bit_width:
                 shifts.append(shift)
                 inls.append(safe_load(in_index))
                 in_index += 1
                 shift = 0
-            elif shift + bit > self.out_width:  # cross the boundary
+            elif shift + bit > self.out_bit_width:  # cross the boundary
                 inls.append(
                     static_cast_as_needed(
                         f"{safe_load(in_index)} >> {shift} "
-                        f"| {safe_load(in_index + 1)} << {self.out_width - shift}"
+                        f"| {safe_load(in_index + 1)} << {self.out_bit_width - shift}"
                     )
                 )
                 in_index += 1
-                shift = bit - (self.out_width - shift)
+                shift = bit - (self.out_bit_width - shift)
                 shifts.append(0)  # zero shift
             else:
                 shifts.append(shift)
@@ -124,8 +172,8 @@ class UnpackGenerator:
             out += {words_per_batch};
             """)
 
-        for start in range(0, self.out_width, words_per_batch):
-            stop = start + words_per_batch
+        for start in range(0, self.out_bit_width, self.simd_value_count):
+            stop = start + self.simd_value_count
             p(f"""// extract {bit}-bit bundles {start} to {stop - 1}""")
             p("words = simd_batch{")
             for word_part in inls[start:stop]:
@@ -134,7 +182,7 @@ class UnpackGenerator:
             p(
                 one_word_template.format(
                     shifts=", ".join(map(str, shifts[start:stop])),
-                    words_per_batch=words_per_batch,
+                    words_per_batch=self.simd_value_count,
                 )
             )
 
@@ -145,85 +193,41 @@ class UnpackGenerator:
         )
         print("}")
 
+    def print_all(self):
+        print("template<>")
+        print(f"struct Simd{self.simd_bit_width}Unpacker<{self.out_type}> {{")
 
-def print_copyright():
-    print(
-        dedent("""\
-        // Licensed to the Apache Software Foundation (ASF) under one
-        // or more contributor license agreements.  See the NOTICE file
-        // distributed with this work for additional information
-        // regarding copyright ownership.  The ASF licenses this file
-        // to you under the Apache License, Version 2.0 (the
-        // "License"); you may not use this file except in compliance
-        // with the License.  You may obtain a copy of the License at
-        //
-        //   http://www.apache.org/licenses/LICENSE-2.0
-        //
-        // Unless required by applicable law or agreed to in writing,
-        // software distributed under the License is distributed on an
-        // "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-        // KIND, either express or implied.  See the License for the
-        // specific language governing permissions and limitations
-        // under the License.
-        """)
-    )
+        self.print_unpack_bit0_func()
+        print()
+        for i in range(1, self.out_bit_width):
+            self.print_unpack_bit_func(i)
+            print()
+        self.print_unpack_bitmax_func()
+
+        print("};  // struct Unpacker")
+
 
 
 def print_note():
-    print("// Automatically generated file; DO NOT EDIT.")
-    print()
+    print("// WARNING: this file is generated, DO NOT EDIT.")
+    print("// Usage:")
+    print(f"//   python {' '.join(sys.orig_argv[1:])}")
 
 
 def main(simd_width, outputs):
-    print_copyright()
+    print(LICENSE)
     print_note()
+    print(HEADER)
 
-    struct_name = f"UnpackBits{simd_width}"
+    print("template<typename Uint>")
+    print(f"struct Simd{simd_width}Unpacker;")
 
-    # NOTE: templating the UnpackBits struct on the dispatch level avoids
-    # potential name collisions if there are several UnpackBits generations
-    # with the same SIMD width on a given architecture.
-
-    print(
-        dedent(f"""\
-        #pragma once
-
-        #include <cstdint>
-        #include <cstring>
-
-        #include <xsimd/xsimd.hpp>
-
-        #include "arrow/util/dispatch_internal.h"
-        #include "arrow/util/ubsan.h"
-
-        namespace arrow::internal {{
-        namespace {{
-
-        using ::arrow::util::SafeLoadAs;
-
-        template <DispatchLevel level>
-        struct {struct_name} {{
-        """)
-    )
-
-    for out_width, out_type in outputs:
-        gen = UnpackGenerator(simd_width, out_width, out_type)
-        gen.print_unpack_bit0_func()
-        print()
-        for i in range(1, out_width):
-            gen.print_unpack_bit_func(i)
-            print()
-        gen.print_unpack_bitmax_func()
+    for out_width in outputs:
+        gen = UnpackGenerator(out_width, simd_width)
+        gen.print_all()
         print()
 
-    print(
-        dedent(f"""\
-        }};  // struct {struct_name}
-
-        }}  // namespace
-        }}  // namespace arrow::internal
-        """)
-    )
+    print(FOOTER)
 
 
 if __name__ == "__main__":
@@ -235,5 +239,4 @@ if __name__ == "__main__":
     except ValueError:
         raise ValueError(usage)
 
-    outputs = [(16, "uint16_t"), (32, "uint32_t")]
-    main(simd_width, outputs)
+    main(simd_width, [16, 32])
