@@ -111,7 +111,7 @@ validate_checksum <- function(binary_url, libfile, hush = quietly) {
     enforce_checksum) {
     # Munge the path to the correct sha file which we include during the
     # release process
-    if (VERSION_MAJOR >= "22") {
+    if (VERSION_22_OR_LATER) {
       checksum_file <- sub(".+/(.+\\.zip)", "\\1\\.sha512", binary_url)
     } else {
       checksum_file <- sub(".+/bin/(.+\\.zip)", "\\1\\.sha512", binary_url)
@@ -154,7 +154,7 @@ validate_checksum <- function(binary_url, libfile, hush = quietly) {
 }
 
 download_binary <- function(lib) {
-  if (VERSION_MAJOR >= "22") {
+  if (VERSION_22_OR_LATER) {
     libfile <- paste0("r-libarrow-", lib, "-", VERSION, ".zip")
     binary_url <- paste0(arrow_repo, libfile)
   } else {
@@ -204,7 +204,7 @@ download_binary <- function(lib) {
 #   this function.
 identify_binary <- function(lib = Sys.getenv("LIBARROW_BINARY"), info = distro()) {
   if (on_windows) {
-    if (VERSION_MAJOR >= "22") {
+    if (VERSION_MAJOR_22_OR_LATER) {
       return("windows-x86_64")
     } else {
       return("windows")
@@ -968,11 +968,14 @@ if (is_release) {
   VERSION <- VERSION[1, 1:3]
   VERSION_MAJOR <- unlist(VERSION)[1]
   if (VERSION_MAJOR >= "22") {
+    VERSION_22_OR_LATER <- TRUE
     arrow_repo <- getOption("arrow.repo", sprintf("https://github.com/apache/arrow/releases/download/apache-arrow-%s/", VERSION))
   } else {
+    VERSION_22_OR_LATER <- FALSE
     arrow_repo <- paste0(getOption("arrow.repo", sprintf("https://apache.jfrog.io/artifactory/arrow/r/%s", VERSION)), "/libarrow/")
   }
 } else {
+  VERSION_22_OR_LATER <- TRUE
   arrow_repo <- paste0(getOption("arrow.dev_repo", "https://nightlies.apache.org/arrow/r"), "/libarrow/")
 }
 
@@ -987,7 +990,7 @@ if (!download_ok) {
 # But, don't do this if the user has requested a binary or a non-minimal build:
 # we should error rather than silently succeeding with a minimal build.
 if (download_ok && Sys.getenv("LIBARROW_BINARY") %in% c("false", "") && !env_is("LIBARROW_MINIMAL", "false")) {
-  if (VERSION_MAJOR >= "22") {
+  if (VERSION_22_OR_LATER) {
     download_ok <- try_download("https://github.com/apache/arrow/releases", tempfile())
   } else {
     download_ok <- try_download("https://apache.jfrog.io/artifactory/arrow/r/", tempfile())
