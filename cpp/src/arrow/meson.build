@@ -566,7 +566,7 @@ arrow_lib = library(
 )
 
 arrow_compile_args = []
-if get_option('default_library') != 'shared'
+if get_option('default_library') == 'static'
     arrow_compile_args += ['-DARROW_STATIC']
 endif
 
@@ -636,7 +636,7 @@ if needs_compute
     )
 
     arrow_compute_compile_args = []
-    if get_option('default_library') != 'shared'
+    if get_option('default_library') == 'static'
         arrow_compute_compile_args += ['-DARROW_COMPUTE_STATIC']
     endif
 
@@ -725,7 +725,7 @@ if needs_testing
     )
 
     arrow_testing_compile_args = []
-    if get_option('default_library') != 'shared'
+    if get_option('default_library') == 'static'
         arrow_testing_compile_args += ['-DARROW_TESTING_STATIC']
     endif
     arrow_testing_dep = declare_dependency(

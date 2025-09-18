@@ -142,7 +142,7 @@ thread_dep = dependency('threads')
 # it will cause an ODR violation when subsequently building tests
 needs_static_flight = host_machine.system() == 'windows' or get_option(
     'default_library',
-) != 'shared'
+) == 'static'
 
 arrow_flight = build_target(
     'arrow-flight',

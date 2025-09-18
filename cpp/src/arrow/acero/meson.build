@@ -87,7 +87,7 @@ arrow_acero_lib = library(
 )
 
 arrow_acero_compile_args = []
-if get_option('default_library') != 'shared'
+if get_option('default_library') == 'static'
     arrow_acero_compile_args += ['-DARROW_ACERO_STATIC']
 endif
 
