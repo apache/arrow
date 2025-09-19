@@ -306,11 +306,9 @@ TEST(TestTableEqualityFloatType, Approximate) {
 
   ASSERT_FALSE(table->Equals(*other_table, options));
 
-  options = options.use_atol(true).atol(1e-3);
-  ASSERT_TRUE(table->Equals(*other_table, options));
+  ASSERT_TRUE(table->Equals(*other_table, options.use_atol(true).atol(1e-3)));
 
-  options = options.use_atol(true).atol(1e-5);
-  ASSERT_FALSE(table->Equals(*other_table, options));
+  ASSERT_FALSE(table->Equals(*other_table, options.use_atol(true).atol(1e-5));
 }
 
 TEST(TestTableEqualitySameAddress, NonFloatType) {
