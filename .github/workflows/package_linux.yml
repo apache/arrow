@@ -203,9 +203,6 @@ jobs:
         run: |
           set -ex
           pushd dev/tasks/linux-packages
-          ls -la */${{ matrix.task-namespace }}/repositories
-          tree apache-arrow-release/${{ matrix.task-namespace }}/repositories
-          tree apache-arrow/${{ matrix.task-namespace }}/repositories
           tar cvzf ${{ matrix.target }}-${{ matrix.architecture }}.tar.gz */${{ matrix.task-namespace }}/repositories
           popd
       - name: Upload the artifacts to the job
@@ -299,6 +296,8 @@ jobs:
           expected_patterns="${{ steps.expected-yum-artifacts.outputs.artifacts }}"
 
           # Find all RPM files in the extracted directory
+          ls -larth artifacts-downloaded/
+          ls -larth artifacts-downloaded/${{ matrix.target }}-${{ matrix.architecture }}
           tar xf artifacts-downloaded/${{ matrix.target }}-${{ matrix.architecture }}/${{ matrix.target }}-${{ matrix.architecture }}.tar.gz
           found_files=$(find artifacts-downloaded/${{ matrix.target }}-${{ matrix.architecture }} -type f -name '*.rpm' | sort)
 
