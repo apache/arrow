@@ -15,38 +15,13 @@
 # specific language governing permissions and limitations
 # under the License.
 
-aws-sdk-cpp=1.11.68
-azure-core-cpp>=1.10.3
-azure-identity-cpp>=1.6.0
-azure-storage-blobs-cpp>=12.10.0
-azure-storage-common-cpp>=12.5.0
-azure-storage-files-datalake-cpp>=12.9.0
-benchmark>=1.6.0,!=1.8.4
-boost-cpp>=1.68.0
-brotli
-bzip2
-c-ares
-cmake
-gflags
-glog
-gmock>=1.10.0
-google-cloud-cpp>=1.34.0
-gtest>=1.10.0
-libgrpc
-libprotobuf
-libutf8proc
-lz4-c
-make
-meson
-ninja
-nodejs
-orc
-pkg-config
-python
-rapidjson
-re2
-snappy
-thrift-cpp>=0.11.0
-xsimd
-zlib
-zstd
+[wrap-file]
+directory = orc-2.2.0
+source_url = https://www.apache.org/dyn/closer.lua?action=download&filename=orc/orc-2.2.0/orc-2.2.0.tar.gz
+source_fallback_url = https://github.com/mesonbuild/wrapdb/releases/download/apache-orc_2.2.0-1/orc-2.2.0.tar.gz
+source_filename = orc-2.2.0.tar.gz
+source_hash = b15aca45a7e73ffbd1bbc36a78cd1422d41f07721092a25f43448e6e16f4763b
+wrapdb_version = 2.2.0-1
+
+[provide]
+orc = orc_dep
