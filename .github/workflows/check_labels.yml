@@ -25,9 +25,12 @@ on:
         required: true
         type: string
     outputs:
-      ci-extra:
-        description: "Whether to run the extra CI"
-        value: ${{ jobs.check-labels.outputs.ci-extra }}
+      ci-extra-labels:
+        description: "The extra CI labels"
+        value: ${{ jobs.check-labels.outputs.ci-extra-labels }}
+      force:
+        description: "Whether to force running the jobs"
+        value: ${{ jobs.check-labels.outputs.force }}
 
 jobs:
   check-labels:
@@ -35,7 +38,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
-      ci-extra: ${{ steps.check.outputs.ci-extra }}
+      ci-extra-labels: ${{ steps.check.outputs.ci-extra-labels }}
+      force: ${{ steps.check.outputs.force }}
     steps:
       - name: Checkout Arrow
         if: github.event_name == 'pull_request'
