@@ -21,6 +21,10 @@
 #include "arrow/util/cpu_info.h"
 #include "arrow/util/dispatch_internal.h"
 
+#if defined(ARROW_HAVE_SSE4_2)
+#  include "arrow/util/bpacking_simd128_generated_internal.h"
+#endif
+
 #if defined(ARROW_HAVE_RUNTIME_AVX2)
 #  include "arrow/util/bpacking_avx2_internal.h"
 #endif
@@ -33,6 +37,13 @@
 
 namespace arrow {
 namespace internal {
+
+// TODO probably better in its own file
+#if defined(ARROW_HAVE_SSE4_2)
+int unpack32_sse4_2(const uint8_t* in, uint32_t* out, int batch_size, int num_bits) {
+  return unpack_jump32<Simd128Unpacker<uint32_t>>(in, out, batch_size, num_bits);
+}
+#endif
 
 int unpack32_scalar(const uint8_t* in, uint32_t* out, int batch_size, int num_bits) {
   return unpack_jump32<ScalarUnpacker<uint32_t>>(in, out, batch_size, num_bits);
