@@ -230,6 +230,10 @@ INSTANTIATE_TEST_SUITE_P(
 TEST_P(TestUnpack, Unpack32Scalar) { this->TestAll(&unpack32_scalar); }
 TEST_P(TestUnpack, Unpack64Scalar) { this->TestAll(&unpack64_scalar); }
 
+#if defined(ARROW_HAVE_SSE4_2)
+TEST_P(TestUnpack, Unpack32Sse42) { this->TestAll(&unpack32_sse4_2); }
+#endif
+
 #if defined(ARROW_HAVE_RUNTIME_AVX2)
 TEST_P(TestUnpack, Unpack32Avx2) {
   if (!CpuInfo::GetInstance()->IsSupported(CpuInfo::AVX2)) {

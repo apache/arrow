@@ -129,6 +129,11 @@ BENCHMARK_CAPTURE(BM_UnpackUint32, ScalarUnaligned, false, unpack32_scalar)
 BENCHMARK_CAPTURE(BM_UnpackUint64, ScalarUnaligned, false, unpack64_scalar)
     ->ArgsProduct(kBitWidthsNumValues64);
 
+#if defined(ARROW_HAVE_SSE4_2)
+BENCHMARK_CAPTURE(BM_UnpackUint32, Sse42Unaligned, false, unpack32_sse4_2)
+    ->ArgsProduct(kBitWidthsNumValues32);
+#endif
+
 #if defined(ARROW_HAVE_RUNTIME_AVX2)
 BENCHMARK_CAPTURE(BM_UnpackUint32, Avx2Unaligned, false, unpack32_avx2,
                   !CpuInfo::GetInstance()->IsSupported(CpuInfo::AVX2),
