@@ -77,6 +77,16 @@ jobs:
     with:
       parent-workflow: package_linux
 
+  check-labels-status:
+    needs: check-labels
+    name: Testing labels status
+    runs-on: ubuntu-latest
+    steps:
+      - name: Show labels status
+        run: |
+          echo "force: ${{ needs.check-labels.outputs.force }}"
+          echo "ci-extra-labels: ${{ needs.check-labels.outputs.ci-extra-labels }}"
+
   package:
     needs: check-labels
     name: ${{ matrix.title }}
