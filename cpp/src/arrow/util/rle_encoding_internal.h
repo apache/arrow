@@ -647,7 +647,7 @@ auto RleBitPackedParser::PeekImpl(Handler&& handler) const
 
   if (ARROW_PREDICT_FALSE(header_bytes == 0)) {
     // Malfomrmed LEB128 data
-    return {};
+    return {0, ControlFlow::Break};
   }
 
   const bool is_bit_packed = run_len_type & 1;
@@ -659,8 +659,9 @@ auto RleBitPackedParser::PeekImpl(Handler&& handler) const
       return {0, ControlFlow::Break};
     }
 
+    ARROW_DCHECK_LT(static_cast<uint64_t>(count) * 8,
+                    internal::max_size_for_v<rle_size_t>);
     const auto values_count = static_cast<rle_size_t>(count * 8);
-    ARROW_DCHECK_LT(count, internal::max_size_for_v<rle_size_t>);
     // Count Already divided by 8
     const auto bytes_read =
         header_bytes + static_cast<rle_size_t>(count) * value_bit_width_;
@@ -671,13 +672,12 @@ auto RleBitPackedParser::PeekImpl(Handler&& handler) const
     return {bytes_read, control};
   }
 
-  if (ARROW_PREDICT_FALSE(
-          count == 0 ||
-          count > static_cast<uint32_t>(std::numeric_limits<rle_size_t>::max()))) {
+  if (ARROW_PREDICT_FALSE(count == 0)) {
     // Illegal number of encoded values
     return {0, ControlFlow::Break};
   }
 
+  // Safe because created from right shift
   const auto values_count = static_cast<rle_size_t>(count);
   const auto value_bytes = bit_util::BytesForBits(value_bit_width_);
   ARROW_DCHECK_LT(value_bytes, internal::max_size_for_v<rle_size_t>);
