@@ -111,7 +111,11 @@ validate_checksum <- function(binary_url, libfile, hush = quietly) {
     enforce_checksum) {
     # Munge the path to the correct sha file which we include during the
     # release process
-    checksum_file <- sub(".+/bin/(.+\\.zip)", "\\1\\.sha512", binary_url)
+    if (VERSION_22_OR_LATER) {
+      checksum_file <- sub(".+/(.+\\.zip)", "\\1\\.sha512", binary_url)
+    } else {
+      checksum_file <- sub(".+/bin/(.+\\.zip)", "\\1\\.sha512", binary_url)
+    }
     checksum_file <- file.path(checksum_path, checksum_file)
 
     # Try `shasum`, and if that doesn't work, fall back to `sha512sum` if not found
@@ -150,8 +154,13 @@ validate_checksum <- function(binary_url, libfile, hush = quietly) {
 }
 
 download_binary <- function(lib) {
-  libfile <- paste0("arrow-", VERSION, ".zip")
-  binary_url <- paste0(arrow_repo, "bin/", lib, "/arrow-", VERSION, ".zip")
+  if (VERSION_22_OR_LATER) {
+    libfile <- paste0("r-libarrow-", lib, "-", VERSION, ".zip")
+    binary_url <- paste0(arrow_repo, libfile)
+  } else {
+    libfile <- paste0("arrow-", VERSION, ".zip")
+    binary_url <- paste0(arrow_repo, "bin/", lib, "/arrow-", VERSION, ".zip")
+  }
   if (try_download(binary_url, libfile) && validate_checksum(binary_url, libfile)) {
     lg("Successfully retrieved libarrow (%s)", lib)
   } else {
@@ -183,18 +192,23 @@ download_binary <- function(lib) {
 #   a binary that is available, to override what this function may discover by
 #   default.
 #   Possible values are:
-#    * "linux-openssl-1.0" (OpenSSL 1.0)
-#    * "linux-openssl-1.1" (OpenSSL 1.1)
-#    * "linux-openssl-3.0" (OpenSSL 3.0)
-#    * "macos-amd64-openssl-1.1" (OpenSSL 1.1)
-#    * "macos-amd64-openssl-3.0" (OpenSSL 3.0)
+#    * "linux-x86_64-openssl-1.0" (OpenSSL 1.0)
+#    * "linux-x86_64-openssl-1.1" (OpenSSL 1.1)
+#    * "linux-x86_64-openssl-3.0" (OpenSSL 3.0)
 #    * "macos-arm64-openssl-1.1" (OpenSSL 1.1)
 #    * "macos-arm64-openssl-3.0" (OpenSSL 3.0)
+#    * "macos-x86_64-openssl-1.1" (OpenSSL 1.1)
+#    * "macos-x86_64-openssl-3.0" (OpenSSL 3.0)
+#    * "windows-x86_64"
 #   These string values, along with `NULL`, are the potential return values of
 #   this function.
 identify_binary <- function(lib = Sys.getenv("LIBARROW_BINARY"), info = distro()) {
   if (on_windows) {
-    return("windows")
+    if (VERSION_22_OR_LATER) {
+      return("windows-x86_64")
+    } else {
+      return("windows")
+    }
   }
 
   lib <- tolower(lib)
@@ -239,11 +253,10 @@ select_binary <- function(os = tolower(Sys.info()[["sysname"]]),
       {
         errs <- compile_test_program(test_program)
         openssl_version <- determine_binary_from_stderr(errs)
-        arch <- ifelse(identical(os, "darwin"), paste0("-", arch, "-"), "-")
         if (is.null(openssl_version)) {
           NULL
         } else {
-          paste0(os, arch, openssl_version)
+          paste0(os, "-", arch, "-", openssl_version)
         }
       },
       error = function(e) {
@@ -950,6 +963,22 @@ if (not_cran || on_r_universe) {
 # and don't fall back to a full source build
 build_ok <- !env_is("LIBARROW_BUILD", "false")
 
+# Set binary repos
+if (is_release) {
+  VERSION <- VERSION[1, 1:3]
+  VERSION_MAJOR <- unlist(VERSION)[1]
+  if (VERSION_MAJOR >= "22") {
+    VERSION_22_OR_LATER <- TRUE
+    arrow_repo <- getOption("arrow.repo", sprintf("https://github.com/apache/arrow/releases/download/apache-arrow-%s/", VERSION))
+  } else {
+    VERSION_22_OR_LATER <- FALSE
+    arrow_repo <- paste0(getOption("arrow.repo", sprintf("https://apache.jfrog.io/artifactory/arrow/r/%s", VERSION)), "/libarrow/")
+  }
+} else {
+  VERSION_22_OR_LATER <- TRUE
+  arrow_repo <- paste0(getOption("arrow.dev_repo", "https://nightlies.apache.org/arrow/r"), "/libarrow/")
+}
+
 # Check if we're authorized to download
 download_ok <- !test_mode && !env_is("ARROW_OFFLINE_BUILD", "true")
 if (!download_ok) {
@@ -961,21 +990,17 @@ if (!download_ok) {
 # But, don't do this if the user has requested a binary or a non-minimal build:
 # we should error rather than silently succeeding with a minimal build.
 if (download_ok && Sys.getenv("LIBARROW_BINARY") %in% c("false", "") && !env_is("LIBARROW_MINIMAL", "false")) {
-  download_ok <- try_download("https://apache.jfrog.io/artifactory/arrow/r/", tempfile())
+  if (VERSION_22_OR_LATER) {
+    download_ok <- try_download("https://github.com/apache/arrow/releases", tempfile())
+  } else {
+    download_ok <- try_download("https://apache.jfrog.io/artifactory/arrow/r/", tempfile())
+  }
   if (!download_ok) {
     lg("Network connection not available", .indent = "***")
   }
 }
 
 download_libarrow_ok <- download_ok && !env_is("LIBARROW_DOWNLOAD", "false")
-
-# Set binary repos
-if (is_release) {
-  VERSION <- VERSION[1, 1:3]
-  arrow_repo <- paste0(getOption("arrow.repo", sprintf("https://apache.jfrog.io/artifactory/arrow/r/%s", VERSION)), "/libarrow/")
-} else {
-  arrow_repo <- paste0(getOption("arrow.dev_repo", "https://nightlies.apache.org/arrow/r"), "/libarrow/")
-}
 
 # If we're on a dev version, look for the most recent libarrow binary version
 if (download_libarrow_ok && !is_release && !test_mode) {

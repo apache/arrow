@@ -29,7 +29,10 @@ capture.output(source("nixlibs.R", local = nixlibs_env))
 
 test_that("identify_binary() based on LIBARROW_BINARY", {
   expect_null(identify_binary("FALSE"))
-  expect_identical(identify_binary("linux-openssl-1.0"), "linux-openssl-1.0")
+  expect_identical(
+    identify_binary("linux-x86_64-openssl-1.0"),
+    "linux-x86_64-openssl-1.0"
+  )
   expect_null(identify_binary("", info = list(id = "debian")))
 })
 
@@ -91,21 +94,21 @@ test_that("select_binary() with test program", {
   expect_output(
     expect_identical(
       select_binary("linux", "x86_64", "int a;"),
-      "linux-openssl-1.1"
+      "linux-x86_64-openssl-1.1"
     ),
     "Found libcurl and OpenSSL >= 1.1"
   )
   expect_output(
     expect_identical(
       select_binary("linux", "x86_64", "#error Using OpenSSL version 1.0"),
-      "linux-openssl-1.0"
+      "linux-x86_64-openssl-1.0"
     ),
     "Found libcurl and OpenSSL < 1.1"
   )
   expect_output(
     expect_identical(
       select_binary("linux", "x86_64", "#error Using OpenSSL version 3"),
-      "linux-openssl-3.0"
+      "linux-x86_64-openssl-3.0"
     ),
     "Found libcurl and OpenSSL >= 3.0.0"
   )
