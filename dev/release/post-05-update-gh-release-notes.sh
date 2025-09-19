@@ -36,7 +36,7 @@ WORKFLOW="release.yml"
 
 # Wait for the GitHub Workflow that creates the GitHub Release
 # to finish before updating the release notes.
-"${SOURCE_DIR}/utils-watch-gh-workflow.sh" "${TAG}" "${WORKFLOW}"
+. "${SOURCE_DIR}/utils-watch-gh-workflow.sh" "${TAG}" "${WORKFLOW}"
 
 # Update the Release Notes section
 RELEASE_NOTES_URL="https://arrow.apache.org/release/${VERSION}.html"
