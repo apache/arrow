@@ -67,6 +67,14 @@ class UnpackStructGenerator:
     def out_type(self) -> str:
         return f"uint{self.out_bit_width}_t"
 
+    @property
+    def struct_name(self) -> str:
+        return f"Simd{self.simd_bit_width}Unpacker"
+
+    @property
+    def struct_specialization(self) -> str:
+        return f"{self.struct_name}<{self.out_type}>"
+
     def __post_init__(self):
         if self.simd_bit_width % self.out_bit_width != 0:
             raise ("SIMD bit width should be a multiple of output width")
@@ -74,19 +82,15 @@ class UnpackStructGenerator:
     def print_unpack_signature(self, bit: int | None) -> str:
         if bit is None:
             print("template<int kBit>")
-            static = "static "
-            specialized = ""
-            end = ";"
+            print(
+                f"static const uint8_t* unpack(const uint8_t* in, {self.out_type}* out);"
+            )
         else:
             print("template<>")
-            static = ""
-            specialized = f"<{bit}>"
-            end = " {"
-
-        print(
-            f"{static}const uint8_t* unpack{specialized}"
-            f"(const uint8_t* in, {self.out_type}* out){end}"
-        )
+            print(
+                f"const uint8_t* {self.struct_specialization}::unpack<{bit}>"
+                f"(const uint8_t* in, {self.out_type}* out) {{"
+            )
 
     def print_unpack_bit0_func(self):
         self.print_unpack_signature(0)
@@ -185,11 +189,11 @@ class UnpackStructGenerator:
 
     def print_struct_declaration(self):
         print("template<typename Uint>")
-        print(f"struct Simd{self.simd_bit_width}Unpacker;")
+        print(f"struct {self.struct_name};")
 
-    def print_struct_top(self):
+    def print_struct(self):
         print("template<>")
-        print(f"struct Simd{self.simd_bit_width}Unpacker<{self.out_type}> {{")
+        print(f"struct {self.struct_specialization} {{")
         print()
         print(f"using out_type = {self.out_type};")
         print(
@@ -200,12 +204,10 @@ class UnpackStructGenerator:
         print(f"static constexpr int kValuesUnpacked = {self.out_bit_width};")
         print()
         self.print_unpack_signature(None)
+        print("};")
 
-    def print_struct_bottom(self):
-        print("};  // struct Unpacker")
-
-    def print_struct(self):
-        self.print_struct_top()
+    def print_struct_and_def(self):
+        self.print_struct()
         print()
 
         self.print_unpack_bit0_func()
@@ -214,8 +216,6 @@ class UnpackStructGenerator:
             self.print_unpack_bit_func(i)
             print()
         self.print_unpack_bitmax_func()
-
-        self.print_struct_bottom()
 
 
 @dataclasses.dataclass
@@ -259,7 +259,7 @@ class UnpackFileGenerator:
                 print()
                 delclared.add(gen.simd_bit_width)
 
-            gen.print_struct()
+            gen.print_struct_and_def()
             print()
 
     def print_file(self):
