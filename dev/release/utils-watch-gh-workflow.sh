@@ -28,19 +28,32 @@ fi
 
 TAG=$1
 WORKFLOW=$2
-: "${REPOSITORY:=${GITHUB_REPOSITORY:-apache/arrow}}"
+: "${REPOSITORY:=${GITHUB_REPOSITORY:-raulcd/arrow}}"
+
+get_run_id() {
+  gh run list \
+    --branch "${TAG}" \
+    --jq '.[].databaseId' \
+    --json databaseId \
+    --limit 1 \
+    --repo "${REPOSITORY}" \
+    --workflow "${WORKFLOW}"
+}
+
+download_artifacts() {
+  RUN_ID=$(get_run_id)
+  echo "Downloading artitfacts for workflow with ID: ${RUN_ID}"
+  gh run download \
+    ${RUN_ID} \
+    --repo "${REPOSITORY}" \
+    --dir "$1"
+}
 
 echo "Looking for GitHub Actions workflow on ${REPOSITORY}:${TAG}"
 RUN_ID=""
 while true; do
   echo "Waiting for run to start..."
-  RUN_ID=$(gh run list \
-              --branch "${TAG}" \
-              --jq '.[].databaseId' \
-              --json databaseId \
-              --limit 1 \
-              --repo "${REPOSITORY}" \
-              --workflow "${WORKFLOW}")
+  RUN_ID=$(get_run_id)
   if [ -n "${RUN_ID}" ]; then
     break
   fi
