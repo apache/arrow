@@ -86,7 +86,9 @@ if [ -d ucrt64/lib/ ]; then
 fi
 
 # Create build artifact
-zip -r ${DST_DIR}.zip $DST_DIR
+pushd ${DST_DIR}
+zip -r ../${DST_DIR}.zip *
+popd
 
 # Copy that to a file name/path that does not vary by version number so we
 # can easily find it in the R package tests on CI
