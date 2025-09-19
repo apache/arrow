@@ -304,7 +304,9 @@ TEST(BackpressureConcurrentQueue, BackpressureTest) {
 TEST(BackpressureConcurrentQueue, BackpressureTestStayUnpaused) {
   BackpressureTestExecNode dummy_node;
   auto ctrl = std::make_unique<TestBackpressureControl>(&dummy_node);
-  ASSERT_OK_AND_ASSIGN(auto handler, BackpressureHandler::Make(/*low_threshold=*/2, /*high_threshold=*/4, std::move(ctrl)));
+  ASSERT_OK_AND_ASSIGN(
+      auto handler, BackpressureHandler::Make(/*low_threshold=*/2, /*high_threshold=*/4,
+                                              std::move(ctrl)));
   BackpressureConcurrentQueue<int> queue(std::move(handler));
 
   queue.Push(6);
