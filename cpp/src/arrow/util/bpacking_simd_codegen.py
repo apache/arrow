@@ -289,4 +289,4 @@ if __name__ == "__main__":
     except ValueError:
         raise ValueError(usage)
 
-    main(simd_width, [16, 32])
+    main(simd_width, [32])
