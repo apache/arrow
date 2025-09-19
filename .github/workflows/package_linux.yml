@@ -203,9 +203,6 @@ jobs:
         run: |
           set -ex
           pushd dev/tasks/linux-packages
-          ls -la */${{ matrix.task-namespace }}/repositories
-          tree apache-arrow-release/${{ matrix.task-namespace }}/repositories
-          tree apache-arrow/${{ matrix.task-namespace }}/repositories
           tar cvzf ${{ matrix.target }}-${{ matrix.architecture }}.tar.gz */${{ matrix.task-namespace }}/repositories
           popd
       - name: Upload the artifacts to the job
@@ -299,8 +296,14 @@ jobs:
           expected_patterns="${{ steps.expected-yum-artifacts.outputs.artifacts }}"
 
           # Find all RPM files in the extracted directory
-          tar xf artifacts-downloaded/${{ matrix.target }}-${{ matrix.architecture }}/${{ matrix.id }}.tar.gz
-          found_files=$(find artifacts-downloaded/${{ matrix.target }}-${{ matrix.architecture }} -type f -name '*.rpm' | sort)
+          ls -larth artifacts-downloaded/
+          ls -larth artifacts-downloaded/${{ matrix.target }}-${{ matrix.architecture }}
+          tar xvf artifacts-downloaded/${{ matrix.target }}-${{ matrix.architecture }}/${{ matrix.target }}-${{ matrix.architecture }}.tar.gz
+          ls -larth artifacts-downloaded/${{ matrix.target }}-${{ matrix.architecture }}
+          tree artifacts-downloaded/${{ matrix.target }}-${{ matrix.architecture }}
+          ls -larth .
+          tree .
+          found_files=$(find . -type f -name '*.rpm' | sort)
 
           # Prepare expected patterns for matching
           echo "$expected_patterns" | grep -v '^\s*$' > expected_patterns.txt
@@ -350,7 +353,7 @@ jobs:
           mv artifacts-downloaded/${{ matrix.target }}-${{ matrix.architecture }} dev/tasks/linux-packages
           pushd dev/tasks/linux-packages
           rm -rf */${{ matrix.task-namespace }}/repositories # Remove artifacts
-          tar xf ${{ matrix.id }}.tar.gz # Use uploaded artifacts
+          tar xf ${{ matrix.target }}-${{ matrix.architecture }}.tar.gz # Use uploaded artifacts
           popd
           sudo apt install -y \
             apt-utils \
