@@ -67,6 +67,9 @@
 #' group and when this number of rows is exceeded, it is split and the next set
 #' of rows is written to the next group. This value must be set such that it is
 #' greater than `min_rows_per_group`. Default is 1024 * 1024.
+#' @param create_directory activates directory creation before wrtiting. Needs ListBucket
+#' and HeadBucket ACL to perform checks before directory creation. If set to FALSE, no ACL checks
+#' will be carried on relying on the native storage checks. Default is TRUE
 #' @param ... additional format-specific arguments. For available Parquet
 #' options, see [write_parquet()]. The available Feather options are:
 #' - `use_legacy_format` logical: write data formatted so that Arrow libraries
