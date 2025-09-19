@@ -203,17 +203,16 @@ jobs:
         run: |
           set -ex
           pushd dev/tasks/linux-packages
-          ls -la *
-          tree
-          ls -la */${{ matrix.task_namespace }}
-          ls -la */${{ matrix.task_namespace }}/repositories
-          tar cvzf ${{ matrix.id }}.tar.gz */${{ matrix.task_namespace }}/repositories
+          ls -la */${{ matrix.task-namespace }}/repositories
+          tree apache-arrow-release/${{ matrix.task-namespace }}/repositories
+          tree apache-arrow/${{ matrix.task-namespace }}/repositories
+          tar cvzf ${{ matrix.target }}-${{ matrix.architecture }}.tar.gz */${{ matrix.task-namespace }}/repositories
           popd
       - name: Upload the artifacts to the job
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: ${{ matrix.target }}-${{ matrix.architecture }}
-          path: dev/tasks/linux-packages/${{ matrix.id }}.tar.gz
+          path: dev/tasks/linux-packages/${{ matrix.target }}-${{ matrix.architecture }}.tar.gz
       - name: Download Artifacts
         uses: actions/download-artifact@v4
         with:
@@ -391,7 +390,7 @@ jobs:
           ARCHITECTURE: ${{ matrix.architecture }}
           YUM_TARGETS: ${{ matrix.target }}
 
-  report-extra-linux-packaging:
+  report-package-linux:
     needs:
       - package
     uses: ./.github/workflows/report_ci.yml
