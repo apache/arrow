@@ -299,7 +299,7 @@ jobs:
           expected_patterns="${{ steps.expected-yum-artifacts.outputs.artifacts }}"
 
           # Find all RPM files in the extracted directory
-          tar xf artifacts-downloaded/${{ matrix.target }}-${{ matrix.architecture }}/${{ matrix.id }}.tar.gz
+          tar xf artifacts-downloaded/${{ matrix.target }}-${{ matrix.architecture }}/${{ matrix.target }}-${{ matrix.architecture }}.tar.gz
           found_files=$(find artifacts-downloaded/${{ matrix.target }}-${{ matrix.architecture }} -type f -name '*.rpm' | sort)
 
           # Prepare expected patterns for matching
@@ -350,7 +350,7 @@ jobs:
           mv artifacts-downloaded/${{ matrix.target }}-${{ matrix.architecture }} dev/tasks/linux-packages
           pushd dev/tasks/linux-packages
           rm -rf */${{ matrix.task-namespace }}/repositories # Remove artifacts
-          tar xf ${{ matrix.id }}.tar.gz # Use uploaded artifacts
+          tar xf ${{ matrix.target }}-${{ matrix.architecture }}.tar.gz # Use uploaded artifacts
           popd
           sudo apt install -y \
             apt-utils \
