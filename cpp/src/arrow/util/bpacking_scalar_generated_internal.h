@@ -55,15 +55,16 @@ static constexpr int kValuesUnpacked = 32;
 
 template<int kBit>
 static const uint8_t* unpack(const uint8_t* in, uint32_t* out);
+};
 
 template<>
-const uint8_t* unpack<0>(const uint8_t* in, uint32_t* out) {
+const uint8_t* ScalarUnpacker<uint32_t>::unpack<0>(const uint8_t* in, uint32_t* out) {
   std::memset(out, 0, 32 * 4);
   return in;
 }
 
 template<>
-const uint8_t* unpack<1>(const uint8_t* in, uint32_t* out) {
+const uint8_t* ScalarUnpacker<uint32_t>::unpack<1>(const uint8_t* in, uint32_t* out) {
   constexpr uint32_t mask = ((uint32_t{1} << 1) - uint32_t{1});
 
   const auto w0 = LoadInt<uint32_t>(in + 0 * 4);
@@ -104,7 +105,7 @@ const uint8_t* unpack<1>(const uint8_t* in, uint32_t* out) {
 }
 
 template<>
-const uint8_t* unpack<2>(const uint8_t* in, uint32_t* out) {
+const uint8_t* ScalarUnpacker<uint32_t>::unpack<2>(const uint8_t* in, uint32_t* out) {
   constexpr uint32_t mask = ((uint32_t{1} << 2) - uint32_t{1});
 
   const auto w0 = LoadInt<uint32_t>(in + 0 * 4);
@@ -146,7 +147,7 @@ const uint8_t* unpack<2>(const uint8_t* in, uint32_t* out) {
 }
 
 template<>
-const uint8_t* unpack<3>(const uint8_t* in, uint32_t* out) {
+const uint8_t* ScalarUnpacker<uint32_t>::unpack<3>(const uint8_t* in, uint32_t* out) {
   constexpr uint32_t mask = ((uint32_t{1} << 3) - uint32_t{1});
 
   const auto w0 = LoadInt<uint32_t>(in + 0 * 4);
@@ -189,7 +190,7 @@ const uint8_t* unpack<3>(const uint8_t* in, uint32_t* out) {
 }
 
 template<>
-const uint8_t* unpack<4>(const uint8_t* in, uint32_t* out) {
+const uint8_t* ScalarUnpacker<uint32_t>::unpack<4>(const uint8_t* in, uint32_t* out) {
   constexpr uint32_t mask = ((uint32_t{1} << 4) - uint32_t{1});
 
   const auto w0 = LoadInt<uint32_t>(in + 0 * 4);
@@ -233,7 +234,7 @@ const uint8_t* unpack<4>(const uint8_t* in, uint32_t* out) {
 }
 
 template<>
-const uint8_t* unpack<5>(const uint8_t* in, uint32_t* out) {
+const uint8_t* ScalarUnpacker<uint32_t>::unpack<5>(const uint8_t* in, uint32_t* out) {
   constexpr uint32_t mask = ((uint32_t{1} << 5) - uint32_t{1});
 
   const auto w0 = LoadInt<uint32_t>(in + 0 * 4);
@@ -278,7 +279,7 @@ const uint8_t* unpack<5>(const uint8_t* in, uint32_t* out) {
 }
 
 template<>
-const uint8_t* unpack<6>(const uint8_t* in, uint32_t* out) {
+const uint8_t* ScalarUnpacker<uint32_t>::unpack<6>(const uint8_t* in, uint32_t* out) {
   constexpr uint32_t mask = ((uint32_t{1} << 6) - uint32_t{1});
 
   const auto w0 = LoadInt<uint32_t>(in + 0 * 4);
@@ -324,7 +325,7 @@ const uint8_t* unpack<6>(const uint8_t* in, uint32_t* out) {
 }
 
 template<>
-const uint8_t* unpack<7>(const uint8_t* in, uint32_t* out) {
+const uint8_t* ScalarUnpacker<uint32_t>::unpack<7>(const uint8_t* in, uint32_t* out) {
   constexpr uint32_t mask = ((uint32_t{1} << 7) - uint32_t{1});
 
   const auto w0 = LoadInt<uint32_t>(in + 0 * 4);
@@ -371,7 +372,7 @@ const uint8_t* unpack<7>(const uint8_t* in, uint32_t* out) {
 }
 
 template<>
-const uint8_t* unpack<8>(const uint8_t* in, uint32_t* out) {
+const uint8_t* ScalarUnpacker<uint32_t>::unpack<8>(const uint8_t* in, uint32_t* out) {
   constexpr uint32_t mask = ((uint32_t{1} << 8) - uint32_t{1});
 
   const auto w0 = LoadInt<uint32_t>(in + 0 * 4);
@@ -419,7 +420,7 @@ const uint8_t* unpack<8>(const uint8_t* in, uint32_t* out) {
 }
 
 template<>
-const uint8_t* unpack<9>(const uint8_t* in, uint32_t* out) {
+const uint8_t* ScalarUnpacker<uint32_t>::unpack<9>(const uint8_t* in, uint32_t* out) {
   constexpr uint32_t mask = ((uint32_t{1} << 9) - uint32_t{1});
 
   const auto w0 = LoadInt<uint32_t>(in + 0 * 4);
@@ -468,7 +469,7 @@ const uint8_t* unpack<9>(const uint8_t* in, uint32_t* out) {
 }
 
 template<>
-const uint8_t* unpack<10>(const uint8_t* in, uint32_t* out) {
+const uint8_t* ScalarUnpacker<uint32_t>::unpack<10>(const uint8_t* in, uint32_t* out) {
   constexpr uint32_t mask = ((uint32_t{1} << 10) - uint32_t{1});
 
   const auto w0 = LoadInt<uint32_t>(in + 0 * 4);
@@ -518,7 +519,7 @@ const uint8_t* unpack<10>(const uint8_t* in, uint32_t* out) {
 }
 
 template<>
-const uint8_t* unpack<11>(const uint8_t* in, uint32_t* out) {
+const uint8_t* ScalarUnpacker<uint32_t>::unpack<11>(const uint8_t* in, uint32_t* out) {
   constexpr uint32_t mask = ((uint32_t{1} << 11) - uint32_t{1});
 
   const auto w0 = LoadInt<uint32_t>(in + 0 * 4);
@@ -569,7 +570,7 @@ const uint8_t* unpack<11>(const uint8_t* in, uint32_t* out) {
 }
 
 template<>
-const uint8_t* unpack<12>(const uint8_t* in, uint32_t* out) {
+const uint8_t* ScalarUnpacker<uint32_t>::unpack<12>(const uint8_t* in, uint32_t* out) {
   constexpr uint32_t mask = ((uint32_t{1} << 12) - uint32_t{1});
 
   const auto w0 = LoadInt<uint32_t>(in + 0 * 4);
@@ -621,7 +622,7 @@ const uint8_t* unpack<12>(const uint8_t* in, uint32_t* out) {
 }
 
 template<>
-const uint8_t* unpack<13>(const uint8_t* in, uint32_t* out) {
+const uint8_t* ScalarUnpacker<uint32_t>::unpack<13>(const uint8_t* in, uint32_t* out) {
   constexpr uint32_t mask = ((uint32_t{1} << 13) - uint32_t{1});
 
   const auto w0 = LoadInt<uint32_t>(in + 0 * 4);
@@ -674,7 +675,7 @@ const uint8_t* unpack<13>(const uint8_t* in, uint32_t* out) {
 }
 
 template<>
-const uint8_t* unpack<14>(const uint8_t* in, uint32_t* out) {
+const uint8_t* ScalarUnpacker<uint32_t>::unpack<14>(const uint8_t* in, uint32_t* out) {
   constexpr uint32_t mask = ((uint32_t{1} << 14) - uint32_t{1});
 
   const auto w0 = LoadInt<uint32_t>(in + 0 * 4);
@@ -728,7 +729,7 @@ const uint8_t* unpack<14>(const uint8_t* in, uint32_t* out) {
 }
 
 template<>
-const uint8_t* unpack<15>(const uint8_t* in, uint32_t* out) {
+const uint8_t* ScalarUnpacker<uint32_t>::unpack<15>(const uint8_t* in, uint32_t* out) {
   constexpr uint32_t mask = ((uint32_t{1} << 15) - uint32_t{1});
 
   const auto w0 = LoadInt<uint32_t>(in + 0 * 4);
@@ -783,7 +784,7 @@ const uint8_t* unpack<15>(const uint8_t* in, uint32_t* out) {
 }
 
 template<>
-const uint8_t* unpack<16>(const uint8_t* in, uint32_t* out) {
+const uint8_t* ScalarUnpacker<uint32_t>::unpack<16>(const uint8_t* in, uint32_t* out) {
   constexpr uint32_t mask = ((uint32_t{1} << 16) - uint32_t{1});
 
   const auto w0 = LoadInt<uint32_t>(in + 0 * 4);
@@ -839,7 +840,7 @@ const uint8_t* unpack<16>(const uint8_t* in, uint32_t* out) {
 }
 
 template<>
-const uint8_t* unpack<17>(const uint8_t* in, uint32_t* out) {
+const uint8_t* ScalarUnpacker<uint32_t>::unpack<17>(const uint8_t* in, uint32_t* out) {
   constexpr uint32_t mask = ((uint32_t{1} << 17) - uint32_t{1});
 
   const auto w0 = LoadInt<uint32_t>(in + 0 * 4);
@@ -896,7 +897,7 @@ const uint8_t* unpack<17>(const uint8_t* in, uint32_t* out) {
 }
 
 template<>
-const uint8_t* unpack<18>(const uint8_t* in, uint32_t* out) {
+const uint8_t* ScalarUnpacker<uint32_t>::unpack<18>(const uint8_t* in, uint32_t* out) {
   constexpr uint32_t mask = ((uint32_t{1} << 18) - uint32_t{1});
 
   const auto w0 = LoadInt<uint32_t>(in + 0 * 4);
@@ -954,7 +955,7 @@ const uint8_t* unpack<18>(const uint8_t* in, uint32_t* out) {
 }
 
 template<>
-const uint8_t* unpack<19>(const uint8_t* in, uint32_t* out) {
+const uint8_t* ScalarUnpacker<uint32_t>::unpack<19>(const uint8_t* in, uint32_t* out) {
   constexpr uint32_t mask = ((uint32_t{1} << 19) - uint32_t{1});
 
   const auto w0 = LoadInt<uint32_t>(in + 0 * 4);
@@ -1013,7 +1014,7 @@ const uint8_t* unpack<19>(const uint8_t* in, uint32_t* out) {
 }
 
 template<>
-const uint8_t* unpack<20>(const uint8_t* in, uint32_t* out) {
+const uint8_t* ScalarUnpacker<uint32_t>::unpack<20>(const uint8_t* in, uint32_t* out) {
   constexpr uint32_t mask = ((uint32_t{1} << 20) - uint32_t{1});
 
   const auto w0 = LoadInt<uint32_t>(in + 0 * 4);
@@ -1073,7 +1074,7 @@ const uint8_t* unpack<20>(const uint8_t* in, uint32_t* out) {
 }
 
 template<>
-const uint8_t* unpack<21>(const uint8_t* in, uint32_t* out) {
+const uint8_t* ScalarUnpacker<uint32_t>::unpack<21>(const uint8_t* in, uint32_t* out) {
   constexpr uint32_t mask = ((uint32_t{1} << 21) - uint32_t{1});
 
   const auto w0 = LoadInt<uint32_t>(in + 0 * 4);
@@ -1134,7 +1135,7 @@ const uint8_t* unpack<21>(const uint8_t* in, uint32_t* out) {
 }
 
 template<>
-const uint8_t* unpack<22>(const uint8_t* in, uint32_t* out) {
+const uint8_t* ScalarUnpacker<uint32_t>::unpack<22>(const uint8_t* in, uint32_t* out) {
   constexpr uint32_t mask = ((uint32_t{1} << 22) - uint32_t{1});
 
   const auto w0 = LoadInt<uint32_t>(in + 0 * 4);
@@ -1196,7 +1197,7 @@ const uint8_t* unpack<22>(const uint8_t* in, uint32_t* out) {
 }
 
 template<>
-const uint8_t* unpack<23>(const uint8_t* in, uint32_t* out) {
+const uint8_t* ScalarUnpacker<uint32_t>::unpack<23>(const uint8_t* in, uint32_t* out) {
   constexpr uint32_t mask = ((uint32_t{1} << 23) - uint32_t{1});
 
   const auto w0 = LoadInt<uint32_t>(in + 0 * 4);
@@ -1259,7 +1260,7 @@ const uint8_t* unpack<23>(const uint8_t* in, uint32_t* out) {
 }
 
 template<>
-const uint8_t* unpack<24>(const uint8_t* in, uint32_t* out) {
+const uint8_t* ScalarUnpacker<uint32_t>::unpack<24>(const uint8_t* in, uint32_t* out) {
   constexpr uint32_t mask = ((uint32_t{1} << 24) - uint32_t{1});
 
   const auto w0 = LoadInt<uint32_t>(in + 0 * 4);
@@ -1323,7 +1324,7 @@ const uint8_t* unpack<24>(const uint8_t* in, uint32_t* out) {
 }
 
 template<>
-const uint8_t* unpack<25>(const uint8_t* in, uint32_t* out) {
+const uint8_t* ScalarUnpacker<uint32_t>::unpack<25>(const uint8_t* in, uint32_t* out) {
   constexpr uint32_t mask = ((uint32_t{1} << 25) - uint32_t{1});
 
   const auto w0 = LoadInt<uint32_t>(in + 0 * 4);
@@ -1388,7 +1389,7 @@ const uint8_t* unpack<25>(const uint8_t* in, uint32_t* out) {
 }
 
 template<>
-const uint8_t* unpack<26>(const uint8_t* in, uint32_t* out) {
+const uint8_t* ScalarUnpacker<uint32_t>::unpack<26>(const uint8_t* in, uint32_t* out) {
   constexpr uint32_t mask = ((uint32_t{1} << 26) - uint32_t{1});
 
   const auto w0 = LoadInt<uint32_t>(in + 0 * 4);
@@ -1454,7 +1455,7 @@ const uint8_t* unpack<26>(const uint8_t* in, uint32_t* out) {
 }
 
 template<>
-const uint8_t* unpack<27>(const uint8_t* in, uint32_t* out) {
+const uint8_t* ScalarUnpacker<uint32_t>::unpack<27>(const uint8_t* in, uint32_t* out) {
   constexpr uint32_t mask = ((uint32_t{1} << 27) - uint32_t{1});
 
   const auto w0 = LoadInt<uint32_t>(in + 0 * 4);
@@ -1521,7 +1522,7 @@ const uint8_t* unpack<27>(const uint8_t* in, uint32_t* out) {
 }
 
 template<>
-const uint8_t* unpack<28>(const uint8_t* in, uint32_t* out) {
+const uint8_t* ScalarUnpacker<uint32_t>::unpack<28>(const uint8_t* in, uint32_t* out) {
   constexpr uint32_t mask = ((uint32_t{1} << 28) - uint32_t{1});
 
   const auto w0 = LoadInt<uint32_t>(in + 0 * 4);
@@ -1589,7 +1590,7 @@ const uint8_t* unpack<28>(const uint8_t* in, uint32_t* out) {
 }
 
 template<>
-const uint8_t* unpack<29>(const uint8_t* in, uint32_t* out) {
+const uint8_t* ScalarUnpacker<uint32_t>::unpack<29>(const uint8_t* in, uint32_t* out) {
   constexpr uint32_t mask = ((uint32_t{1} << 29) - uint32_t{1});
 
   const auto w0 = LoadInt<uint32_t>(in + 0 * 4);
@@ -1658,7 +1659,7 @@ const uint8_t* unpack<29>(const uint8_t* in, uint32_t* out) {
 }
 
 template<>
-const uint8_t* unpack<30>(const uint8_t* in, uint32_t* out) {
+const uint8_t* ScalarUnpacker<uint32_t>::unpack<30>(const uint8_t* in, uint32_t* out) {
   constexpr uint32_t mask = ((uint32_t{1} << 30) - uint32_t{1});
 
   const auto w0 = LoadInt<uint32_t>(in + 0 * 4);
@@ -1728,7 +1729,7 @@ const uint8_t* unpack<30>(const uint8_t* in, uint32_t* out) {
 }
 
 template<>
-const uint8_t* unpack<31>(const uint8_t* in, uint32_t* out) {
+const uint8_t* ScalarUnpacker<uint32_t>::unpack<31>(const uint8_t* in, uint32_t* out) {
   constexpr uint32_t mask = ((uint32_t{1} << 31) - uint32_t{1});
 
   const auto w0 = LoadInt<uint32_t>(in + 0 * 4);
@@ -1799,13 +1800,12 @@ const uint8_t* unpack<31>(const uint8_t* in, uint32_t* out) {
 }
 
 template<>
-const uint8_t* unpack<32>(const uint8_t* in, uint32_t* out) {
+const uint8_t* ScalarUnpacker<uint32_t>::unpack<32>(const uint8_t* in, uint32_t* out) {
   for(int k = 0; k < 32; k += 1) {
     out[k] = LoadInt<uint32_t>(in + (k * 4));
   }
   return in + (4 * 32);
 }
-};  // struct
 
 template<>
 struct ScalarUnpacker<uint64_t> {
@@ -1816,15 +1816,16 @@ static constexpr int kValuesUnpacked = 32;
 
 template<int kBit>
 static const uint8_t* unpack(const uint8_t* in, uint64_t* out);
+};
 
 template<>
-const uint8_t* unpack<0>(const uint8_t* in, uint64_t* out) {
+const uint8_t* ScalarUnpacker<uint64_t>::unpack<0>(const uint8_t* in, uint64_t* out) {
   std::memset(out, 0, 32 * 8);
   return in;
 }
 
 template<>
-const uint8_t* unpack<1>(const uint8_t* in, uint64_t* out) {
+const uint8_t* ScalarUnpacker<uint64_t>::unpack<1>(const uint8_t* in, uint64_t* out) {
   constexpr uint64_t mask = ((uint64_t{1} << 1) - uint64_t{1});
 
   const auto w0 = static_cast<uint64_t>(LoadInt<uint32_t>(in + 0 * 8));
@@ -1865,7 +1866,7 @@ const uint8_t* unpack<1>(const uint8_t* in, uint64_t* out) {
 }
 
 template<>
-const uint8_t* unpack<2>(const uint8_t* in, uint64_t* out) {
+const uint8_t* ScalarUnpacker<uint64_t>::unpack<2>(const uint8_t* in, uint64_t* out) {
   constexpr uint64_t mask = ((uint64_t{1} << 2) - uint64_t{1});
 
   const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
@@ -1906,7 +1907,7 @@ const uint8_t* unpack<2>(const uint8_t* in, uint64_t* out) {
 }
 
 template<>
-const uint8_t* unpack<3>(const uint8_t* in, uint64_t* out) {
+const uint8_t* ScalarUnpacker<uint64_t>::unpack<3>(const uint8_t* in, uint64_t* out) {
   constexpr uint64_t mask = ((uint64_t{1} << 3) - uint64_t{1});
 
   const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
@@ -1948,7 +1949,7 @@ const uint8_t* unpack<3>(const uint8_t* in, uint64_t* out) {
 }
 
 template<>
-const uint8_t* unpack<4>(const uint8_t* in, uint64_t* out) {
+const uint8_t* ScalarUnpacker<uint64_t>::unpack<4>(const uint8_t* in, uint64_t* out) {
   constexpr uint64_t mask = ((uint64_t{1} << 4) - uint64_t{1});
 
   const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
@@ -1990,7 +1991,7 @@ const uint8_t* unpack<4>(const uint8_t* in, uint64_t* out) {
 }
 
 template<>
-const uint8_t* unpack<5>(const uint8_t* in, uint64_t* out) {
+const uint8_t* ScalarUnpacker<uint64_t>::unpack<5>(const uint8_t* in, uint64_t* out) {
   constexpr uint64_t mask = ((uint64_t{1} << 5) - uint64_t{1});
 
   const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
@@ -2033,7 +2034,7 @@ const uint8_t* unpack<5>(const uint8_t* in, uint64_t* out) {
 }
 
 template<>
-const uint8_t* unpack<6>(const uint8_t* in, uint64_t* out) {
+const uint8_t* ScalarUnpacker<uint64_t>::unpack<6>(const uint8_t* in, uint64_t* out) {
   constexpr uint64_t mask = ((uint64_t{1} << 6) - uint64_t{1});
 
   const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
@@ -2076,7 +2077,7 @@ const uint8_t* unpack<6>(const uint8_t* in, uint64_t* out) {
 }
 
 template<>
-const uint8_t* unpack<7>(const uint8_t* in, uint64_t* out) {
+const uint8_t* ScalarUnpacker<uint64_t>::unpack<7>(const uint8_t* in, uint64_t* out) {
   constexpr uint64_t mask = ((uint64_t{1} << 7) - uint64_t{1});
 
   const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
@@ -2120,7 +2121,7 @@ const uint8_t* unpack<7>(const uint8_t* in, uint64_t* out) {
 }
 
 template<>
-const uint8_t* unpack<8>(const uint8_t* in, uint64_t* out) {
+const uint8_t* ScalarUnpacker<uint64_t>::unpack<8>(const uint8_t* in, uint64_t* out) {
   constexpr uint64_t mask = ((uint64_t{1} << 8) - uint64_t{1});
 
   const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
@@ -2164,7 +2165,7 @@ const uint8_t* unpack<8>(const uint8_t* in, uint64_t* out) {
 }
 
 template<>
-const uint8_t* unpack<9>(const uint8_t* in, uint64_t* out) {
+const uint8_t* ScalarUnpacker<uint64_t>::unpack<9>(const uint8_t* in, uint64_t* out) {
   constexpr uint64_t mask = ((uint64_t{1} << 9) - uint64_t{1});
 
   const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
@@ -2209,7 +2210,7 @@ const uint8_t* unpack<9>(const uint8_t* in, uint64_t* out) {
 }
 
 template<>
-const uint8_t* unpack<10>(const uint8_t* in, uint64_t* out) {
+const uint8_t* ScalarUnpacker<uint64_t>::unpack<10>(const uint8_t* in, uint64_t* out) {
   constexpr uint64_t mask = ((uint64_t{1} << 10) - uint64_t{1});
 
   const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
@@ -2254,7 +2255,7 @@ const uint8_t* unpack<10>(const uint8_t* in, uint64_t* out) {
 }
 
 template<>
-const uint8_t* unpack<11>(const uint8_t* in, uint64_t* out) {
+const uint8_t* ScalarUnpacker<uint64_t>::unpack<11>(const uint8_t* in, uint64_t* out) {
   constexpr uint64_t mask = ((uint64_t{1} << 11) - uint64_t{1});
 
   const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
@@ -2300,7 +2301,7 @@ const uint8_t* unpack<11>(const uint8_t* in, uint64_t* out) {
 }
 
 template<>
-const uint8_t* unpack<12>(const uint8_t* in, uint64_t* out) {
+const uint8_t* ScalarUnpacker<uint64_t>::unpack<12>(const uint8_t* in, uint64_t* out) {
   constexpr uint64_t mask = ((uint64_t{1} << 12) - uint64_t{1});
 
   const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
@@ -2346,7 +2347,7 @@ const uint8_t* unpack<12>(const uint8_t* in, uint64_t* out) {
 }
 
 template<>
-const uint8_t* unpack<13>(const uint8_t* in, uint64_t* out) {
+const uint8_t* ScalarUnpacker<uint64_t>::unpack<13>(const uint8_t* in, uint64_t* out) {
   constexpr uint64_t mask = ((uint64_t{1} << 13) - uint64_t{1});
 
   const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
@@ -2393,7 +2394,7 @@ const uint8_t* unpack<13>(const uint8_t* in, uint64_t* out) {
 }
 
 template<>
-const uint8_t* unpack<14>(const uint8_t* in, uint64_t* out) {
+const uint8_t* ScalarUnpacker<uint64_t>::unpack<14>(const uint8_t* in, uint64_t* out) {
   constexpr uint64_t mask = ((uint64_t{1} << 14) - uint64_t{1});
 
   const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
@@ -2440,7 +2441,7 @@ const uint8_t* unpack<14>(const uint8_t* in, uint64_t* out) {
 }
 
 template<>
-const uint8_t* unpack<15>(const uint8_t* in, uint64_t* out) {
+const uint8_t* ScalarUnpacker<uint64_t>::unpack<15>(const uint8_t* in, uint64_t* out) {
   constexpr uint64_t mask = ((uint64_t{1} << 15) - uint64_t{1});
 
   const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
@@ -2488,7 +2489,7 @@ const uint8_t* unpack<15>(const uint8_t* in, uint64_t* out) {
 }
 
 template<>
-const uint8_t* unpack<16>(const uint8_t* in, uint64_t* out) {
+const uint8_t* ScalarUnpacker<uint64_t>::unpack<16>(const uint8_t* in, uint64_t* out) {
   constexpr uint64_t mask = ((uint64_t{1} << 16) - uint64_t{1});
 
   const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
@@ -2536,7 +2537,7 @@ const uint8_t* unpack<16>(const uint8_t* in, uint64_t* out) {
 }
 
 template<>
-const uint8_t* unpack<17>(const uint8_t* in, uint64_t* out) {
+const uint8_t* ScalarUnpacker<uint64_t>::unpack<17>(const uint8_t* in, uint64_t* out) {
   constexpr uint64_t mask = ((uint64_t{1} << 17) - uint64_t{1});
 
   const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
@@ -2585,7 +2586,7 @@ const uint8_t* unpack<17>(const uint8_t* in, uint64_t* out) {
 }
 
 template<>
-const uint8_t* unpack<18>(const uint8_t* in, uint64_t* out) {
+const uint8_t* ScalarUnpacker<uint64_t>::unpack<18>(const uint8_t* in, uint64_t* out) {
   constexpr uint64_t mask = ((uint64_t{1} << 18) - uint64_t{1});
 
   const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
@@ -2634,7 +2635,7 @@ const uint8_t* unpack<18>(const uint8_t* in, uint64_t* out) {
 }
 
 template<>
-const uint8_t* unpack<19>(const uint8_t* in, uint64_t* out) {
+const uint8_t* ScalarUnpacker<uint64_t>::unpack<19>(const uint8_t* in, uint64_t* out) {
   constexpr uint64_t mask = ((uint64_t{1} << 19) - uint64_t{1});
 
   const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
@@ -2684,7 +2685,7 @@ const uint8_t* unpack<19>(const uint8_t* in, uint64_t* out) {
 }
 
 template<>
-const uint8_t* unpack<20>(const uint8_t* in, uint64_t* out) {
+const uint8_t* ScalarUnpacker<uint64_t>::unpack<20>(const uint8_t* in, uint64_t* out) {
   constexpr uint64_t mask = ((uint64_t{1} << 20) - uint64_t{1});
 
   const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
@@ -2734,7 +2735,7 @@ const uint8_t* unpack<20>(const uint8_t* in, uint64_t* out) {
 }
 
 template<>
-const uint8_t* unpack<21>(const uint8_t* in, uint64_t* out) {
+const uint8_t* ScalarUnpacker<uint64_t>::unpack<21>(const uint8_t* in, uint64_t* out) {
   constexpr uint64_t mask = ((uint64_t{1} << 21) - uint64_t{1});
 
   const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
@@ -2785,7 +2786,7 @@ const uint8_t* unpack<21>(const uint8_t* in, uint64_t* out) {
 }
 
 template<>
-const uint8_t* unpack<22>(const uint8_t* in, uint64_t* out) {
+const uint8_t* ScalarUnpacker<uint64_t>::unpack<22>(const uint8_t* in, uint64_t* out) {
   constexpr uint64_t mask = ((uint64_t{1} << 22) - uint64_t{1});
 
   const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
@@ -2836,7 +2837,7 @@ const uint8_t* unpack<22>(const uint8_t* in, uint64_t* out) {
 }
 
 template<>
-const uint8_t* unpack<23>(const uint8_t* in, uint64_t* out) {
+const uint8_t* ScalarUnpacker<uint64_t>::unpack<23>(const uint8_t* in, uint64_t* out) {
   constexpr uint64_t mask = ((uint64_t{1} << 23) - uint64_t{1});
 
   const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
@@ -2888,7 +2889,7 @@ const uint8_t* unpack<23>(const uint8_t* in, uint64_t* out) {
 }
 
 template<>
-const uint8_t* unpack<24>(const uint8_t* in, uint64_t* out) {
+const uint8_t* ScalarUnpacker<uint64_t>::unpack<24>(const uint8_t* in, uint64_t* out) {
   constexpr uint64_t mask = ((uint64_t{1} << 24) - uint64_t{1});
 
   const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
@@ -2940,7 +2941,7 @@ const uint8_t* unpack<24>(const uint8_t* in, uint64_t* out) {
 }
 
 template<>
-const uint8_t* unpack<25>(const uint8_t* in, uint64_t* out) {
+const uint8_t* ScalarUnpacker<uint64_t>::unpack<25>(const uint8_t* in, uint64_t* out) {
   constexpr uint64_t mask = ((uint64_t{1} << 25) - uint64_t{1});
 
   const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
@@ -2993,7 +2994,7 @@ const uint8_t* unpack<25>(const uint8_t* in, uint64_t* out) {
 }
 
 template<>
-const uint8_t* unpack<26>(const uint8_t* in, uint64_t* out) {
+const uint8_t* ScalarUnpacker<uint64_t>::unpack<26>(const uint8_t* in, uint64_t* out) {
   constexpr uint64_t mask = ((uint64_t{1} << 26) - uint64_t{1});
 
   const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
@@ -3046,7 +3047,7 @@ const uint8_t* unpack<26>(const uint8_t* in, uint64_t* out) {
 }
 
 template<>
-const uint8_t* unpack<27>(const uint8_t* in, uint64_t* out) {
+const uint8_t* ScalarUnpacker<uint64_t>::unpack<27>(const uint8_t* in, uint64_t* out) {
   constexpr uint64_t mask = ((uint64_t{1} << 27) - uint64_t{1});
 
   const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
@@ -3100,7 +3101,7 @@ const uint8_t* unpack<27>(const uint8_t* in, uint64_t* out) {
 }
 
 template<>
-const uint8_t* unpack<28>(const uint8_t* in, uint64_t* out) {
+const uint8_t* ScalarUnpacker<uint64_t>::unpack<28>(const uint8_t* in, uint64_t* out) {
   constexpr uint64_t mask = ((uint64_t{1} << 28) - uint64_t{1});
 
   const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
@@ -3154,7 +3155,7 @@ const uint8_t* unpack<28>(const uint8_t* in, uint64_t* out) {
 }
 
 template<>
-const uint8_t* unpack<29>(const uint8_t* in, uint64_t* out) {
+const uint8_t* ScalarUnpacker<uint64_t>::unpack<29>(const uint8_t* in, uint64_t* out) {
   constexpr uint64_t mask = ((uint64_t{1} << 29) - uint64_t{1});
 
   const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
@@ -3209,7 +3210,7 @@ const uint8_t* unpack<29>(const uint8_t* in, uint64_t* out) {
 }
 
 template<>
-const uint8_t* unpack<30>(const uint8_t* in, uint64_t* out) {
+const uint8_t* ScalarUnpacker<uint64_t>::unpack<30>(const uint8_t* in, uint64_t* out) {
   constexpr uint64_t mask = ((uint64_t{1} << 30) - uint64_t{1});
 
   const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
@@ -3264,7 +3265,7 @@ const uint8_t* unpack<30>(const uint8_t* in, uint64_t* out) {
 }
 
 template<>
-const uint8_t* unpack<31>(const uint8_t* in, uint64_t* out) {
+const uint8_t* ScalarUnpacker<uint64_t>::unpack<31>(const uint8_t* in, uint64_t* out) {
   constexpr uint64_t mask = ((uint64_t{1} << 31) - uint64_t{1});
 
   const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
@@ -3320,7 +3321,7 @@ const uint8_t* unpack<31>(const uint8_t* in, uint64_t* out) {
 }
 
 template<>
-const uint8_t* unpack<32>(const uint8_t* in, uint64_t* out) {
+const uint8_t* ScalarUnpacker<uint64_t>::unpack<32>(const uint8_t* in, uint64_t* out) {
   constexpr uint64_t mask = ((uint64_t{1} << 32) - uint64_t{1});
 
   const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
@@ -3376,7 +3377,7 @@ const uint8_t* unpack<32>(const uint8_t* in, uint64_t* out) {
 }
 
 template<>
-const uint8_t* unpack<33>(const uint8_t* in, uint64_t* out) {
+const uint8_t* ScalarUnpacker<uint64_t>::unpack<33>(const uint8_t* in, uint64_t* out) {
   constexpr uint64_t mask = ((uint64_t{1} << 33) - uint64_t{1});
 
   const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
@@ -3433,7 +3434,7 @@ const uint8_t* unpack<33>(const uint8_t* in, uint64_t* out) {
 }
 
 template<>
-const uint8_t* unpack<34>(const uint8_t* in, uint64_t* out) {
+const uint8_t* ScalarUnpacker<uint64_t>::unpack<34>(const uint8_t* in, uint64_t* out) {
   constexpr uint64_t mask = ((uint64_t{1} << 34) - uint64_t{1});
 
   const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
@@ -3490,7 +3491,7 @@ const uint8_t* unpack<34>(const uint8_t* in, uint64_t* out) {
 }
 
 template<>
-const uint8_t* unpack<35>(const uint8_t* in, uint64_t* out) {
+const uint8_t* ScalarUnpacker<uint64_t>::unpack<35>(const uint8_t* in, uint64_t* out) {
   constexpr uint64_t mask = ((uint64_t{1} << 35) - uint64_t{1});
 
   const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
@@ -3548,7 +3549,7 @@ const uint8_t* unpack<35>(const uint8_t* in, uint64_t* out) {
 }
 
 template<>
-const uint8_t* unpack<36>(const uint8_t* in, uint64_t* out) {
+const uint8_t* ScalarUnpacker<uint64_t>::unpack<36>(const uint8_t* in, uint64_t* out) {
   constexpr uint64_t mask = ((uint64_t{1} << 36) - uint64_t{1});
 
   const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
@@ -3606,7 +3607,7 @@ const uint8_t* unpack<36>(const uint8_t* in, uint64_t* out) {
 }
 
 template<>
-const uint8_t* unpack<37>(const uint8_t* in, uint64_t* out) {
+const uint8_t* ScalarUnpacker<uint64_t>::unpack<37>(const uint8_t* in, uint64_t* out) {
   constexpr uint64_t mask = ((uint64_t{1} << 37) - uint64_t{1});
 
   const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
@@ -3665,7 +3666,7 @@ const uint8_t* unpack<37>(const uint8_t* in, uint64_t* out) {
 }
 
 template<>
-const uint8_t* unpack<38>(const uint8_t* in, uint64_t* out) {
+const uint8_t* ScalarUnpacker<uint64_t>::unpack<38>(const uint8_t* in, uint64_t* out) {
   constexpr uint64_t mask = ((uint64_t{1} << 38) - uint64_t{1});
 
   const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
@@ -3724,7 +3725,7 @@ const uint8_t* unpack<38>(const uint8_t* in, uint64_t* out) {
 }
 
 template<>
-const uint8_t* unpack<39>(const uint8_t* in, uint64_t* out) {
+const uint8_t* ScalarUnpacker<uint64_t>::unpack<39>(const uint8_t* in, uint64_t* out) {
   constexpr uint64_t mask = ((uint64_t{1} << 39) - uint64_t{1});
 
   const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
@@ -3784,7 +3785,7 @@ const uint8_t* unpack<39>(const uint8_t* in, uint64_t* out) {
 }
 
 template<>
-const uint8_t* unpack<40>(const uint8_t* in, uint64_t* out) {
+const uint8_t* ScalarUnpacker<uint64_t>::unpack<40>(const uint8_t* in, uint64_t* out) {
   constexpr uint64_t mask = ((uint64_t{1} << 40) - uint64_t{1});
 
   const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
@@ -3844,7 +3845,7 @@ const uint8_t* unpack<40>(const uint8_t* in, uint64_t* out) {
 }
 
 template<>
-const uint8_t* unpack<41>(const uint8_t* in, uint64_t* out) {
+const uint8_t* ScalarUnpacker<uint64_t>::unpack<41>(const uint8_t* in, uint64_t* out) {
   constexpr uint64_t mask = ((uint64_t{1} << 41) - uint64_t{1});
 
   const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
@@ -3905,7 +3906,7 @@ const uint8_t* unpack<41>(const uint8_t* in, uint64_t* out) {
 }
 
 template<>
-const uint8_t* unpack<42>(const uint8_t* in, uint64_t* out) {
+const uint8_t* ScalarUnpacker<uint64_t>::unpack<42>(const uint8_t* in, uint64_t* out) {
   constexpr uint64_t mask = ((uint64_t{1} << 42) - uint64_t{1});
 
   const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
@@ -3966,7 +3967,7 @@ const uint8_t* unpack<42>(const uint8_t* in, uint64_t* out) {
 }
 
 template<>
-const uint8_t* unpack<43>(const uint8_t* in, uint64_t* out) {
+const uint8_t* ScalarUnpacker<uint64_t>::unpack<43>(const uint8_t* in, uint64_t* out) {
   constexpr uint64_t mask = ((uint64_t{1} << 43) - uint64_t{1});
 
   const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
@@ -4028,7 +4029,7 @@ const uint8_t* unpack<43>(const uint8_t* in, uint64_t* out) {
 }
 
 template<>
-const uint8_t* unpack<44>(const uint8_t* in, uint64_t* out) {
+const uint8_t* ScalarUnpacker<uint64_t>::unpack<44>(const uint8_t* in, uint64_t* out) {
   constexpr uint64_t mask = ((uint64_t{1} << 44) - uint64_t{1});
 
   const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
@@ -4090,7 +4091,7 @@ const uint8_t* unpack<44>(const uint8_t* in, uint64_t* out) {
 }
 
 template<>
-const uint8_t* unpack<45>(const uint8_t* in, uint64_t* out) {
+const uint8_t* ScalarUnpacker<uint64_t>::unpack<45>(const uint8_t* in, uint64_t* out) {
   constexpr uint64_t mask = ((uint64_t{1} << 45) - uint64_t{1});
 
   const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
@@ -4153,7 +4154,7 @@ const uint8_t* unpack<45>(const uint8_t* in, uint64_t* out) {
 }
 
 template<>
-const uint8_t* unpack<46>(const uint8_t* in, uint64_t* out) {
+const uint8_t* ScalarUnpacker<uint64_t>::unpack<46>(const uint8_t* in, uint64_t* out) {
   constexpr uint64_t mask = ((uint64_t{1} << 46) - uint64_t{1});
 
   const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
@@ -4216,7 +4217,7 @@ const uint8_t* unpack<46>(const uint8_t* in, uint64_t* out) {
 }
 
 template<>
-const uint8_t* unpack<47>(const uint8_t* in, uint64_t* out) {
+const uint8_t* ScalarUnpacker<uint64_t>::unpack<47>(const uint8_t* in, uint64_t* out) {
   constexpr uint64_t mask = ((uint64_t{1} << 47) - uint64_t{1});
 
   const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
@@ -4280,7 +4281,7 @@ const uint8_t* unpack<47>(const uint8_t* in, uint64_t* out) {
 }
 
 template<>
-const uint8_t* unpack<48>(const uint8_t* in, uint64_t* out) {
+const uint8_t* ScalarUnpacker<uint64_t>::unpack<48>(const uint8_t* in, uint64_t* out) {
   constexpr uint64_t mask = ((uint64_t{1} << 48) - uint64_t{1});
 
   const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
@@ -4344,7 +4345,7 @@ const uint8_t* unpack<48>(const uint8_t* in, uint64_t* out) {
 }
 
 template<>
-const uint8_t* unpack<49>(const uint8_t* in, uint64_t* out) {
+const uint8_t* ScalarUnpacker<uint64_t>::unpack<49>(const uint8_t* in, uint64_t* out) {
   constexpr uint64_t mask = ((uint64_t{1} << 49) - uint64_t{1});
 
   const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
@@ -4409,7 +4410,7 @@ const uint8_t* unpack<49>(const uint8_t* in, uint64_t* out) {
 }
 
 template<>
-const uint8_t* unpack<50>(const uint8_t* in, uint64_t* out) {
+const uint8_t* ScalarUnpacker<uint64_t>::unpack<50>(const uint8_t* in, uint64_t* out) {
   constexpr uint64_t mask = ((uint64_t{1} << 50) - uint64_t{1});
 
   const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
@@ -4474,7 +4475,7 @@ const uint8_t* unpack<50>(const uint8_t* in, uint64_t* out) {
 }
 
 template<>
-const uint8_t* unpack<51>(const uint8_t* in, uint64_t* out) {
+const uint8_t* ScalarUnpacker<uint64_t>::unpack<51>(const uint8_t* in, uint64_t* out) {
   constexpr uint64_t mask = ((uint64_t{1} << 51) - uint64_t{1});
 
   const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
@@ -4540,7 +4541,7 @@ const uint8_t* unpack<51>(const uint8_t* in, uint64_t* out) {
 }
 
 template<>
-const uint8_t* unpack<52>(const uint8_t* in, uint64_t* out) {
+const uint8_t* ScalarUnpacker<uint64_t>::unpack<52>(const uint8_t* in, uint64_t* out) {
   constexpr uint64_t mask = ((uint64_t{1} << 52) - uint64_t{1});
 
   const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
@@ -4606,7 +4607,7 @@ const uint8_t* unpack<52>(const uint8_t* in, uint64_t* out) {
 }
 
 template<>
-const uint8_t* unpack<53>(const uint8_t* in, uint64_t* out) {
+const uint8_t* ScalarUnpacker<uint64_t>::unpack<53>(const uint8_t* in, uint64_t* out) {
   constexpr uint64_t mask = ((uint64_t{1} << 53) - uint64_t{1});
 
   const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
@@ -4673,7 +4674,7 @@ const uint8_t* unpack<53>(const uint8_t* in, uint64_t* out) {
 }
 
 template<>
-const uint8_t* unpack<54>(const uint8_t* in, uint64_t* out) {
+const uint8_t* ScalarUnpacker<uint64_t>::unpack<54>(const uint8_t* in, uint64_t* out) {
   constexpr uint64_t mask = ((uint64_t{1} << 54) - uint64_t{1});
 
   const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
@@ -4740,7 +4741,7 @@ const uint8_t* unpack<54>(const uint8_t* in, uint64_t* out) {
 }
 
 template<>
-const uint8_t* unpack<55>(const uint8_t* in, uint64_t* out) {
+const uint8_t* ScalarUnpacker<uint64_t>::unpack<55>(const uint8_t* in, uint64_t* out) {
   constexpr uint64_t mask = ((uint64_t{1} << 55) - uint64_t{1});
 
   const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
@@ -4808,7 +4809,7 @@ const uint8_t* unpack<55>(const uint8_t* in, uint64_t* out) {
 }
 
 template<>
-const uint8_t* unpack<56>(const uint8_t* in, uint64_t* out) {
+const uint8_t* ScalarUnpacker<uint64_t>::unpack<56>(const uint8_t* in, uint64_t* out) {
   constexpr uint64_t mask = ((uint64_t{1} << 56) - uint64_t{1});
 
   const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
@@ -4876,7 +4877,7 @@ const uint8_t* unpack<56>(const uint8_t* in, uint64_t* out) {
 }
 
 template<>
-const uint8_t* unpack<57>(const uint8_t* in, uint64_t* out) {
+const uint8_t* ScalarUnpacker<uint64_t>::unpack<57>(const uint8_t* in, uint64_t* out) {
   constexpr uint64_t mask = ((uint64_t{1} << 57) - uint64_t{1});
 
   const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
@@ -4945,7 +4946,7 @@ const uint8_t* unpack<57>(const uint8_t* in, uint64_t* out) {
 }
 
 template<>
-const uint8_t* unpack<58>(const uint8_t* in, uint64_t* out) {
+const uint8_t* ScalarUnpacker<uint64_t>::unpack<58>(const uint8_t* in, uint64_t* out) {
   constexpr uint64_t mask = ((uint64_t{1} << 58) - uint64_t{1});
 
   const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
@@ -5014,7 +5015,7 @@ const uint8_t* unpack<58>(const uint8_t* in, uint64_t* out) {
 }
 
 template<>
-const uint8_t* unpack<59>(const uint8_t* in, uint64_t* out) {
+const uint8_t* ScalarUnpacker<uint64_t>::unpack<59>(const uint8_t* in, uint64_t* out) {
   constexpr uint64_t mask = ((uint64_t{1} << 59) - uint64_t{1});
 
   const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
@@ -5084,7 +5085,7 @@ const uint8_t* unpack<59>(const uint8_t* in, uint64_t* out) {
 }
 
 template<>
-const uint8_t* unpack<60>(const uint8_t* in, uint64_t* out) {
+const uint8_t* ScalarUnpacker<uint64_t>::unpack<60>(const uint8_t* in, uint64_t* out) {
   constexpr uint64_t mask = ((uint64_t{1} << 60) - uint64_t{1});
 
   const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
@@ -5154,7 +5155,7 @@ const uint8_t* unpack<60>(const uint8_t* in, uint64_t* out) {
 }
 
 template<>
-const uint8_t* unpack<61>(const uint8_t* in, uint64_t* out) {
+const uint8_t* ScalarUnpacker<uint64_t>::unpack<61>(const uint8_t* in, uint64_t* out) {
   constexpr uint64_t mask = ((uint64_t{1} << 61) - uint64_t{1});
 
   const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
@@ -5225,7 +5226,7 @@ const uint8_t* unpack<61>(const uint8_t* in, uint64_t* out) {
 }
 
 template<>
-const uint8_t* unpack<62>(const uint8_t* in, uint64_t* out) {
+const uint8_t* ScalarUnpacker<uint64_t>::unpack<62>(const uint8_t* in, uint64_t* out) {
   constexpr uint64_t mask = ((uint64_t{1} << 62) - uint64_t{1});
 
   const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
@@ -5296,7 +5297,7 @@ const uint8_t* unpack<62>(const uint8_t* in, uint64_t* out) {
 }
 
 template<>
-const uint8_t* unpack<63>(const uint8_t* in, uint64_t* out) {
+const uint8_t* ScalarUnpacker<uint64_t>::unpack<63>(const uint8_t* in, uint64_t* out) {
   constexpr uint64_t mask = ((uint64_t{1} << 63) - uint64_t{1});
 
   const auto w0 = LoadInt<uint64_t>(in + 0 * 8);
@@ -5368,13 +5369,12 @@ const uint8_t* unpack<63>(const uint8_t* in, uint64_t* out) {
 }
 
 template<>
-const uint8_t* unpack<64>(const uint8_t* in, uint64_t* out) {
+const uint8_t* ScalarUnpacker<uint64_t>::unpack<64>(const uint8_t* in, uint64_t* out) {
   for(int k = 0; k < 32; k += 1) {
     out[k] = LoadInt<uint64_t>(in + (k * 8));
   }
   return in + (8 * 32);
 }
-};  // struct
 
 }  // namespace arrow::internal
 
