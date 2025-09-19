@@ -90,7 +90,7 @@
         "cmake": [],
         "cython": [],
         "flatbuffers": [],
-        "grpc-cpp": [],
+        "libgrpc": [],
         "libprotobuf": [],
         "lz4-c": [],
         "ninja": [],
