@@ -95,6 +95,14 @@ class ScalarUnpackGenerator:
         return f"uint{self.out_bit_width // 2}_t"
 
     @property
+    def struct_name(self) -> str:
+        return "ScalarUnpacker"
+
+    @property
+    def struct_specialization(self) -> str:
+        return f"{self.struct_name}<{self.out_type}>"
+
+    @property
     def howmany(self) -> int:
         """How many values are we going to pack?"""
         if self.smart_halve:
@@ -110,19 +118,15 @@ class ScalarUnpackGenerator:
     def print_unpack_signature(self, bit: int | None) -> str:
         if bit is None:
             print("template<int kBit>")
-            static = "static "
-            specialized = ""
-            end = ";"
+            print(
+                f"static const uint8_t* unpack(const uint8_t* in, {self.out_type}* out);"
+            )
         else:
             print("template<>")
-            static = ""
-            specialized = f"<{bit}>"
-            end = " {"
-
-        print(
-            f"{static}const uint8_t* unpack{specialized}"
-            f"(const uint8_t* in, {self.out_type}* out){end}"
-        )
+            print(
+                f"const uint8_t* {self.struct_specialization}::unpack<{bit}>"
+                f"(const uint8_t* in, {self.out_type}* out) {{"
+            )
 
     def print_unpack_0(self) -> None:
         self.print_unpack_signature(0)
@@ -134,8 +138,7 @@ class ScalarUnpackGenerator:
         self.print_unpack_signature(self.out_bit_width)
         print(f"  for(int k = 0; k < {self.howmany}; k += 1) {{")
         print(
-            f"    out[k] = LoadInt<{self.out_type}>("
-            f"in + (k * {self.out_byte_width}));"
+            f"    out[k] = LoadInt<{self.out_type}>(in + (k * {self.out_byte_width}));"
         )
         print("  }")
         print(f"  return in + ({self.out_byte_width} * {self.howmany});")
@@ -200,27 +203,25 @@ class ScalarUnpackGenerator:
 
     def print_struct_declaration(self):
         print("template<typename Uint>")
-        print("struct ScalarUnpacker;")
+        print(f"struct {self.struct_name};")
 
-    def print_struct_top(self):
+    def print_struct(self):
         print("template<>")
-        print(f"struct ScalarUnpacker<{self.out_type}> {{")
+        print(f"struct {self.struct_specialization} {{")
         print()
         print(f"using out_type = {self.out_type};")
         print()
         print(f"static constexpr int kValuesUnpacked = {self.howmany};")
         print()
         self.print_unpack_signature(None)
+        print("};")
 
-    def print_struct_bottom(self):
-        print("};  // struct")
-
-    def print_struct(self):
-        self.print_struct_top()
+    def print_struct_and_def(self):
+        self.print_struct()
         print()
 
         self.print_unpack_0()
-        print("")
+        print()
 
         for bit in range(1, self.out_bit_width):
             self.print_unpack_k(bit)
@@ -228,7 +229,6 @@ class ScalarUnpackGenerator:
 
         self.print_unpack_last()
 
-        self.print_struct_bottom()
 
 
 def print_note():
@@ -246,10 +246,10 @@ if __name__ == "__main__":
     gen.print_struct_declaration()
     print()
 
-    gen.print_struct()
+    gen.print_struct_and_def()
     print()
 
     gen = ScalarUnpackGenerator(64, smart_halve=True)
-    gen.print_struct()
+    gen.print_struct_and_def()
 
     print(FOOTER)
