@@ -20,6 +20,8 @@
 
 set -e
 
+SOURCE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 if [ "$#" -lt 2 ]; then
   echo "Usage: $0 <version> <rc-num> [options]"
   exit
@@ -31,6 +33,7 @@ rc_number=$1
 shift
 version_with_rc="${version}-rc${rc_number}"
 crossbow_job_prefix="release-${version_with_rc}"
+release_tag="apache-arrow-${version_with_rc}"
 
 # archery will submit a job with id: "${crossbow_job_prefix}-0" unless there
 # are jobs submitted with the same prefix (the integer at the end is auto
@@ -39,3 +42,11 @@ crossbow_job_prefix="release-${version_with_rc}"
 : ${CROSSBOW_JOB_ID:="${crossbow_job_prefix}-${CROSSBOW_JOB_NUMBER}"}
 
 archery crossbow download-artifacts --no-fetch ${CROSSBOW_JOB_ID} "$@"
+
+# Wait for the GitHub Workflow that creates the Linux packages
+# to finish before downloading the artifacts.
+. "${SOURCE_DIR}/utils-watch-gh-workflow.sh" "${release_tag}" "linux_packaging.yml"
+
+RUN_ID=$(get_run_id)
+# Download the artifacts created by the linux_packaging.yml workflow
+download_artifacts "${SOURCE_DIR}/../../packages/${CROSSBOW_JOB_ID}"

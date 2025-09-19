@@ -51,6 +51,12 @@ archery crossbow submit \
     --arrow-sha ${ARROW_SHA} \
     --group packaging
 
+# Submit linux_packaging.yml workflow to build linux artifacts
+gh workflow run linux_packaging.yml \
+                --ref ${ARROW_BRANCH} \
+                -f version=${version_with_rc} \
+                -f no_rc_version=${version}
+
 # archery will add a comment to the automatically generated PR to track
 # the submitted jobs
 job_name=$(archery crossbow latest-prefix --no-fetch ${crossbow_job_prefix})

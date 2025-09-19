@@ -105,20 +105,6 @@ jobs:
         with:
           fetch-depth: 0
           submodules: recursive
-      - name: Get Arrow Version
-        id: get-arrow-version
-        run: |
-          if [ -z "${ARROW_VERSION}" ]; then
-            ARROW_VERSION=$(git describe --tags --abbrev=0 --match "apache-arrow-[0-9]*.*" | sed 's/^apache-arrow-//')
-            ARROW_VERSION="${ARROW_VERSION}$(date +%Y%m%d)"
-            echo "ARROW_VERSION=${ARROW_VERSION}"
-            echo "ARROW_VERSION=${ARROW_VERSION}" >> $GITHUB_ENV
-            # In case of dev (no workflow_dispatch input) use the same version for NO_RC_VERSION
-            echo "NO_RC_VERSION=${ARROW_VERSION}" >> $GITHUB_ENV
-          else
-            echo "Using provided ARROW_VERSION=${ARROW_VERSION}"
-            echo "Using provided NO_RC_VERSION=${NO_RC_VERSION}"
-          fi
       - name: Free up disk space
         if: runner.os == 'Linux' && runner.arch == 'X64'
         shell: bash
@@ -137,6 +123,17 @@ jobs:
             rake \
             ruby \
             ruby-dev
+      - name: Get Arrow Version
+        id: get-arrow-version
+        run: |
+          # In case of dev (no workflow_dispatch inputs) compute ARROW_VERSION and
+          # use the same version for NO_RC_VERSION.
+          if [ -z "${ARROW_VERSION}" ]; then
+            ARROW_VERSION=$(git describe --tags --abbrev=0 --match "apache-arrow-[0-9]*.*" | sed 's/^apache-arrow-//')
+            ARROW_VERSION="${ARROW_VERSION}$(date +%Y%m%d)"
+            echo "ARROW_VERSION=${ARROW_VERSION}" >> $GITHUB_ENV
+            echo "NO_RC_VERSION=${ARROW_VERSION}" >> $GITHUB_ENV
+          fi
       - name: Build
         run: |
           set -e
@@ -271,13 +268,11 @@ jobs:
             echo "$artifacts"
             echo 'EOF'
           } >> $GITHUB_OUTPUT
-      - name: Validate uploaded artifacts
+      - name: Validate uploaded yum artifacts
+        if: matrix.task-namespace == 'yum'
         id: validate-artifacts
         shell: bash
         run: |
-          set -ex
-
-          # Get expected patterns from previous step output
           expected_patterns="${{ steps.expected-yum-artifacts.outputs.artifacts }}"
 
           # Find all RPM files in the extracted directory
