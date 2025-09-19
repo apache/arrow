@@ -72,13 +72,13 @@ module Helper
       raise "Failed to detect #{name} environment variable"
     end
 
-    def detect_repo
+    def docker_image_name
       detect_env("REPO")
     end
 
     def docker_image(os, architecture)
       architecture ||= "amd64"
-      "#{detect_repo}:#{architecture}-#{os}-package-#{@package}"
+      "#{docker_image_name}:#{architecture}-#{os}-package-#{@package}"
     end
   end
 end

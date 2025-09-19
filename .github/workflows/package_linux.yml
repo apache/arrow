@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-name: Linux Packaging Extra
+name: Package Linux
 
 on:
   push:
@@ -25,7 +25,7 @@ on:
     paths:
       - '.dockerignore'
       - '.github/workflows/check_labels.yml'
-      - '.github/workflows/linux_packaging.yml'
+      - '.github/workflows/package_linux.yml'
       - '.github/workflows/report_ci.yml'
       - 'cpp/**'
       - 'c_glib/**'
@@ -38,7 +38,7 @@ on:
     paths:
       - '.dockerignore'
       - '.github/workflows/check_labels.yml'
-      - '.github/workflows/linux_packaging.yml'
+      - '.github/workflows/package_linux.yml'
       - '.github/workflows/report_ci.yml'
       - 'cpp/**'
       - 'c_glib/**'
@@ -75,14 +75,16 @@ jobs:
     uses: ./.github/workflows/check_labels.yml
     secrets: inherit
     with:
-      label: "CI: Extra: Linux Packaging"
-      parent-workflow: linux_packaging
+      parent-workflow: package_linux
 
   package:
     needs: check-labels
     name: ${{ matrix.title }}
     runs-on: ${{ matrix.runs-on }}
-    if: needs.check-labels.outputs.ci-extra == 'true'
+    if: >-
+      needs.check-labels.outputs.force == 'true' ||
+      contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra') ||
+      contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra: Package: Linux')
     timeout-minutes: 75
     strategy:
       fail-fast: false
@@ -121,8 +123,8 @@ jobs:
         uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
         with:
           path: .docker
-          key: extra-${{ matrix.target }}-${{ hashFiles('cpp/**') }}
-          restore-keys: extra-${{ matrix.target }}-
+          key:  package-linux-${{ matrix.target }}-${{ hashFiles('cpp/**') }}
+          restore-keys: package-linux-${{ matrix.target }}-
       - name: Set up Ruby
         run: |
           sudo apt update
@@ -167,8 +169,7 @@ jobs:
           popd
         env:
           APT_TARGETS: ${{ matrix.target }}
-          # TODO: Investigate what is this REPO variable and where is coming from
-          REPO: ${{ secrets.REPO }}
+          REPO: ghcr.io/${{ github.repository }}-package-linux
           YUM_TARGETS: ${{ matrix.target }}
       - name: Login to Dockerhub
         if: >-
@@ -176,10 +177,11 @@ jobs:
           github.event_name == 'push' &&
           github.repository == 'apache/arrow' &&
           github.ref_name == 'main'
-        uses: docker/login-action@v2
+        uses: docker/login-action@184bdaa0721073962dff0199f1fb9940f07167d1 # v3.5.0
         with:
-          username: ${{ secrets.DOCKERHUB_USER }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN}}
       - name: Docker Push
         continue-on-error: true
         if: >-
@@ -196,21 +198,17 @@ jobs:
           APT_TARGETS: ${{ matrix.target }}
           REPO: ${{ secrets.REPO }}
           YUM_TARGETS: ${{ matrix.target }}
-      - name: Build artifact paths
-        id: artifact-paths
+      - name: Build artifact tarball
         shell: bash
         run: |
-          paths=""
-          for ext in ${{ join(matrix.upload-extensions, ' ') }}; do
-            paths="$paths dev/tasks/linux-packages/*/*/repositories/**/*.${ext}"
-          done
-          echo $paths
-          echo "paths=$paths" >> $GITHUB_OUTPUT
+          pushd dev/tasks/linux-packages
+          tar cvzf ${{ matrix.id }}.tar.gz */${{ matrix.task_namespace }}/repositories
+          popd
       - name: Upload the artifacts to the job
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: ${{ matrix.target }}-${{ matrix.architecture }}
-          path: ${{ steps.artifact-paths.outputs.paths }}
+          path: dev/tasks/linux-packages/${{ matrix.id }}.tar.gz
       - name: Download Artifacts
         uses: actions/download-artifact@v4
         with:
@@ -293,9 +291,11 @@ jobs:
         id: validate-artifacts
         shell: bash
         run: |
+          set -ex
           expected_patterns="${{ steps.expected-yum-artifacts.outputs.artifacts }}"
 
           # Find all RPM files in the extracted directory
+          tar xf artifacts-downloaded/${{ matrix.target }}-${{ matrix.architecture }}/${{ matrix.id }}.tar.gz
           found_files=$(find artifacts-downloaded/${{ matrix.target }}-${{ matrix.architecture }} -type f -name '*.rpm' | sort)
 
           # Prepare expected patterns for matching
@@ -343,6 +343,11 @@ jobs:
           echo "All expected artifacts are present, and no unexpected artifacts found."
       - name: Set up test
         run: |
+          mv artifacts-downloaded/${{ matrix.target }}-${{ matrix.architecture }} dev/tasks/linux-packages
+          pushd dev/tasks/linux-packages
+          rm -rf */${{ matrix.task-namespace }}/repositories # Remove artifacts
+          tar xf ${{ matrix.id }}.tar.gz # Use uploaded artifacts
+          popd
           sudo apt install -y \
             apt-utils \
             cpio \
@@ -375,7 +380,6 @@ jobs:
           set -e
           pushd dev/tasks/linux-packages
           rake --trace ${{ matrix.task-namespace }}:test
-          rm -rf ${{ matrix.task-namespace }}/repositories
           popd
         env:
           APT_TARGETS: ${{ matrix.target }}

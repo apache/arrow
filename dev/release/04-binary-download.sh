@@ -45,8 +45,8 @@ archery crossbow download-artifacts --no-fetch ${CROSSBOW_JOB_ID} "$@"
 
 # Wait for the GitHub Workflow that creates the Linux packages
 # to finish before downloading the artifacts.
-. "${SOURCE_DIR}/utils-watch-gh-workflow.sh" "${release_tag}" "linux_packaging.yml"
+. "${SOURCE_DIR}/utils-watch-gh-workflow.sh" "${release_tag}" "package_linux.yml"
 
 RUN_ID=$(get_run_id)
-# Download the artifacts created by the linux_packaging.yml workflow
+# Download the artifacts created by the package_linux.yml workflow
 download_artifacts "${SOURCE_DIR}/../../packages/${CROSSBOW_JOB_ID}"

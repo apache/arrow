@@ -14,15 +14,12 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
+
 name: Check Labels Reusable
 
 on:
   workflow_call:
     inputs:
-      label:
-        description: "Label to check for"
-        required: true
-        type: string
       parent-workflow:
         description: "The parent workflow filename (without .yml)"
         required: true
@@ -50,30 +47,25 @@ jobs:
         run: |
           set -ex
           case "${GITHUB_EVENT_NAME}" in
-            push|schedule)
-              ci_extra=true
+            push|schedule|workflow_dispatch)
+              echo "force=true" >> "${GITHUB_OUTPUT}"
               ;;
             pull_request)
-              n_ci_extra_labels=$(
+              {
+                echo "ci-extra-labels<<LABELS"
                 gh pr view ${{ github.event.number }} \
-                  --jq '.labels[].name | select(. == "${{ inputs.label }}")' \
+                  --jq '[.labels[].name | select(startswith("CI: Extra"))]' \
                   --json labels \
-                  --repo ${GITHUB_REPOSITORY} | wc -l)
-              if [ "${n_ci_extra_labels}" -eq 1 ]; then
-                ci_extra=true
-              else
-                git fetch origin ${GITHUB_BASE_REF}
-                git diff --stat origin/${GITHUB_BASE_REF}..
-                if git diff --stat origin/${GITHUB_BASE_REF}.. | \
-                     grep \
-                       --fixed-strings ".github/workflows/${{ inputs.parent-workflow }}.yml" \
-                       --quiet; then
-                  ci_extra=true
-                else
-                  ci_extra=false
-                fi
+                  --repo ${GITHUB_REPOSITORY}
+                echo "LABELS"
+              } >> "${GITHUB_OUTPUT}"
+              git fetch origin ${GITHUB_BASE_REF}
+              git diff --stat origin/${GITHUB_BASE_REF}..
+              if git diff --stat origin/${GITHUB_BASE_REF}.. | \
+                grep \
+                  --fixed-strings ".github/workflows/${{ inputs.parent-workflow }}.yml" \
+                  --quiet; then
+                echo "force=true" >> "${GITHUB_OUTPUT}"
               fi
               ;;
           esac
-
-          echo "ci-extra=${ci_extra}" >> "${GITHUB_OUTPUT}"
