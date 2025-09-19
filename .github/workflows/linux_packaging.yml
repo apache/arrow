@@ -151,13 +151,6 @@ jobs:
             task-namespace: yum
             upload-extensions:
               - rpm
-          - architecture: arm64
-            runs-on: ubuntu-24.04-arm
-            target: centos-7
-            title: CentOS 7 ARM64
-            task-namespace: yum
-            upload-extensions:
-              - rpm
           - architecture: amd64
             runs-on: ubuntu-latest
             target: centos-9-stream
@@ -275,6 +268,9 @@ jobs:
         run: |
           set -ex
           artifacts="
+          apache-arrow-release-${NO_RC_VERSION}-1.[a-z0-9]+.noarch.rpm
+          apache-arrow-release-${NO_RC_VERSION}-1.[a-z0-9]+.src.rpm
+          arrow-${NO_RC_VERSION}-1.[a-z0-9]+.src.rpm
           arrow[0-9]+-acero-libs-${NO_RC_VERSION}-1.[a-z0-9]+.[a-z0-9_]+.rpm
           arrow-acero-devel-${NO_RC_VERSION}-1.[a-z0-9]+.[a-z0-9_]+.rpm
           arrow[0-9]+-compute-libs-${NO_RC_VERSION}-1.[a-z0-9]+.[a-z0-9_]+.rpm
@@ -298,12 +294,6 @@ jobs:
           parquet[0-9]+-libs-${NO_RC_VERSION}-1.[a-z0-9]+.[a-z0-9_]+.rpm
           parquet-tools-${NO_RC_VERSION}-1.[a-z0-9]+.[a-z0-9_]+.rpm
           "
-          if [ "${{ matrix.architecture }}" = "amd64" ]; then
-            artifacts="$artifacts
-            apache-arrow-release-${NO_RC_VERSION}-1.[a-z0-9]+.noarch.rpm
-            apache-arrow-release-${NO_RC_VERSION}-1.[a-z0-9]+.src.rpm
-            arrow-${NO_RC_VERSION}-1.[a-z0-9]+.src.rpm"
-          fi
           if [ "${{ matrix.target }}" != "centos-7" ]; then
             artifacts="$artifacts
             arrow[0-9]+-acero-libs-debuginfo-${NO_RC_VERSION}-1.[a-z0-9]+.[a-z0-9_]+.rpm
@@ -353,7 +343,7 @@ jobs:
           expected_patterns="${{ steps.expected-yum-artifacts.outputs.artifacts }}"
 
           # Find all RPM files in the extracted directory
-          found_files=$(find artifacts-downloaded -type f -name '*.rpm' | sort)
+          found_files=$(find artifacts-downloaded/${{ matrix.target }}-${{ matrix.architecture }} -type f -name '*.rpm' | sort)
 
           # Prepare expected patterns for matching
           echo "$expected_patterns" | grep -v '^\s*$' > expected_patterns.txt
