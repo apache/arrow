@@ -82,14 +82,16 @@ jobs:
     uses: ./.github/workflows/check_labels.yml
     secrets: inherit
     with:
-      label: "CI: Extra"
       parent-workflow: cpp_extra
 
   docker:
     needs: check-labels
     name: ${{ matrix.title }}
     runs-on: ${{ matrix.runs-on }}
-    if: needs.check-labels.outputs.ci-extra == 'true'
+    if: >-
+      needs.check-labels.outputs.force == 'true' ||
+      contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra') ||
+      contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra: C++')
     timeout-minutes: 75
     strategy:
       fail-fast: false
@@ -166,7 +168,10 @@ jobs:
     needs: check-labels
     name: JNI macOS
     runs-on: macos-14
-    if: needs.check-labels.outputs.ci-extra == 'true'
+    if: >-
+      needs.check-labels.outputs.force == 'true' ||
+      contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra') ||
+      contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra: C++')
     timeout-minutes: 45
     env:
       MACOSX_DEPLOYMENT_TARGET: "14.0"

@@ -51,8 +51,8 @@ archery crossbow submit \
     --arrow-sha ${ARROW_SHA} \
     --group packaging
 
-# Submit linux_packaging.yml workflow to build linux artifacts
-gh workflow run linux_packaging.yml \
+# Submit package_linux.yml workflow to build linux artifacts
+gh workflow run package_linux.yml \
                 --ref ${ARROW_BRANCH} \
                 -f version=${version_with_rc} \
                 -f no_rc_version=${version}
