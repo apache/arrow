@@ -2918,7 +2918,7 @@ cdef class Schema(_Weakrefable):
         return schema, (list(self), self.metadata)
 
     def __hash__(self):
-        return hash((tuple(self), self.metadata))
+        return hash((tuple(self), frozenset(self.metadata.items() if self.metadata else {})))
 
     def __sizeof__(self):
         size = 0
