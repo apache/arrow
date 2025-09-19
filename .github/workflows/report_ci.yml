@@ -27,7 +27,7 @@ jobs:
     # We match github.job to the name so we can pass it via context in order to be ignored on the report.
     # The job is still running.
     name: ${{ github.job }}
-    if: always()
+    if: github.event_name == 'schedule' && always()
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
@@ -42,7 +42,7 @@ jobs:
       - name: Prepare common options
         run: |
           if [ "${GITHUB_REPOSITORY}" = "apache/arrow" ]; then
-            echo "COMMON_OPTIONS=--dry-run" >> "${GITHUB_ENV}"
+            echo "COMMON_OPTIONS=--send" >> "${GITHUB_ENV}"
           else
             echo "COMMON_OPTIONS=--dry-run" >> "${GITHUB_ENV}"
           fi
