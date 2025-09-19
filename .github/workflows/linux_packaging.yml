@@ -97,7 +97,7 @@ jobs:
               - rpm
           - architecture: arm64
             runs-on: ubuntu-24.04-arm
-            target: almalinux-8
+            target: almalinux-8-aarch64
             title: AlmaLinux 8 ARM64
             task-namespace: yum
             upload-extensions:
