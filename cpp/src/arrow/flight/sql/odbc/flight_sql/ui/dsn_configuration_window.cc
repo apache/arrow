@@ -280,7 +280,7 @@ int DsnConfigurationWindow::CreateEncryptionSettingsGroup(int posX, int posY, in
       rightCheckPosX, rowPos - 2, 20, 2 * ROW_HEIGHT, "",
       ChildId::DISABLE_CERT_VERIFICATION_CHECKBOX, disableCertVerification);
 
-  rowPos += INTERVAL + static_cast<int>(1.5 * ROW_HEIGHT);
+  rowPos += INTERVAL + static_cast<int>(1.5 * static_cast<int>(ROW_HEIGHT));
 
   encryptionSettingsGroupBox =
       CreateGroupBox(posX, posY, sizeX, rowPos - posY, "Encryption settings",
