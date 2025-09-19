@@ -77,16 +77,6 @@ jobs:
     with:
       parent-workflow: package_linux
 
-  check-labels-status:
-    needs: check-labels
-    name: Testing labels status
-    runs-on: ubuntu-latest
-    steps:
-      - name: Show labels status
-        run: |
-          echo "force: ${{ needs.check-labels.outputs.force }}"
-          echo "ci-extra-labels: ${{ needs.check-labels.outputs.ci-extra-labels }}"
-
   package:
     needs: check-labels
     name: ${{ matrix.title }}
@@ -211,7 +201,12 @@ jobs:
       - name: Build artifact tarball
         shell: bash
         run: |
+          set -ex
           pushd dev/tasks/linux-packages
+          ls -la *
+          tree
+          ls -la */${{ matrix.task_namespace }}
+          ls -la */${{ matrix.task_namespace }}/repositories
           tar cvzf ${{ matrix.id }}.tar.gz */${{ matrix.task_namespace }}/repositories
           popd
       - name: Upload the artifacts to the job
