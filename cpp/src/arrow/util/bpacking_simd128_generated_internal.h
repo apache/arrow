@@ -30,7 +30,56 @@
 
 namespace arrow::internal {
 
-using ::arrow::util::SafeLoadAs;
+template <typename Uint, int SimdByteSize, int BitWidth>
+struct SimdUnpackerForWidthTraits {
+  static constexpr int kOutByteSize = sizeof(Uint);
+  static constexpr int kOutBitSize = 8 * kOutByteSize;
+  static constexpr int kSimdByteSize = SimdByteSize;
+  static constexpr int kSimdBitSize = 8 * kSimdByteSize;
+  static constexpr int kSimdOutCount = kSimdByteSize / kOutByteSize;
+  static constexpr int kBitWidth = BitWidth;
+  static constexpr int kOutCountUnpacked = 32;
+  static constexpr int kOutBytesUnpacked = kOutCountUnpacked * kOutByteSize;
+
+  using out_type = Uint;
+  using simd_batch = xsimd::make_sized_batch_t<out_type, kSimdOutCount>;
+  using simd_bytes = xsimd::make_sized_batch_t<uint8_t, kSimdByteSize>;
+};
+
+template <typename Uint, int SimdByteSize, int BitWidth>
+struct SimdUnpackerForWidth;
+
+template <typename Uint, int SimdByteSize>
+struct SimdUnpackerForWidth<Uint, SimdByteSize, 0> {
+  using Traits = SimdUnpackerForWidthTraits<Uint, SimdByteSize, 0>;
+
+  const uint8_t* unpack(const uint8_t* in, typename Traits::out_type* out) {
+    std::memset(out, 0, Traits::kOutBytesUnpacked);
+    return in;
+  }
+};
+
+template <typename Uint, int SimdByteSize>
+struct SimdUnpackerForWidth<Uint, SimdByteSize, SimdByteSize> {
+  using Traits = SimdUnpackerForWidthTraits<Uint, SimdByteSize, SimdByteSize>;
+
+  const uint8_t* unpack(const uint8_t* in, typename Traits::out_type* out) {
+    std::memcpy(out, in, Traits::kOutBytesUnpacked);
+    return in + Traits::kOutBytesUnpacked;
+  }
+};
+
+template <typename Uint, int SimdByteSize, int BitWidth>
+struct SimdUnpackerForWidth {
+  using Traits = SimdUnpackerForWidthTraits<Uint, SimdByteSize, BitWidth>;
+
+  const uint8_t* unpack(const uint8_t* in, typename Traits::out_type* out) {
+    // TODO
+    // https://github.com/fast-pack/LittleIntPacker/blob/master/src/horizontalpacking32.c
+  }
+};
+
+using util::SafeLoadAs;
 
 template <typename Uint>
 struct Simd128Unpacker;
