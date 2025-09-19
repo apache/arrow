@@ -133,7 +133,7 @@ jobs:
       - name: Prepare apache-arrow-apt-source for arm64
         if: ${{ matrix.architecture }} == 'arm64'
         run: |
-          pushd arrow/dev/tasks/linux-packages/apache-arrow-apt-source/apt
+          pushd dev/tasks/linux-packages/apache-arrow-apt-source/apt
           for target in *-*; do
             cp -a ${target} ${target}-arm64
           done
@@ -141,7 +141,7 @@ jobs:
       - name: Prepare apache-arrow-release for arm64
         if: ${{ matrix.architecture }} == 'arm64'
         run: |
-          pushd arrow/dev/tasks/linux-packages/apache-arrow-release/yum
+          pushd dev/tasks/linux-packages/apache-arrow-release/yum
           for target in *-*; do
             cp -a ${target} ${target}-aarch64
           done
