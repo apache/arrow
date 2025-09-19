@@ -53,6 +53,11 @@
 #include "parquet/schema.h"
 #include "parquet/types.h"
 
+#ifdef _MSC_VER
+// disable warning about inheritance via dominance in the diamond pattern
+#  pragma warning(disable : 4250)
+#endif
+
 namespace bit_util = arrow::bit_util;
 
 using arrow::Status;
