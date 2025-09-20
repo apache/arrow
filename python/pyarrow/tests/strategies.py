@@ -18,21 +18,21 @@
 import datetime
 import sys
 
-import pytest
-import hypothesis as h
-import hypothesis.strategies as st
+import pytest  # type: ignore[import-not-found]
+import hypothesis as h  # type: ignore[import-not-found]
+import hypothesis.strategies as st  # type: ignore[import-not-found]
 try:
-    import hypothesis.extra.numpy as npst
+    import hypothesis.extra.numpy as npst  # type: ignore[import-not-found]
 except ImportError:
-    npst = None
+    npst = None  # type: ignore[assignment]
 try:
-    import hypothesis.extra.pytz as tzst
+    import hypothesis.extra.pytz as tzst  # type: ignore[import-not-found]
 except ImportError:
-    tzst = None
+    tzst = None  # type: ignore[assignment]
 try:
     import zoneinfo
 except ImportError:
-    zoneinfo = None
+    zoneinfo = None  # type: ignore[assignment]
 if sys.platform == 'win32':
     try:
         import tzdata  # noqa:F401
@@ -41,7 +41,7 @@ if sys.platform == 'win32':
 try:
     import numpy as np
 except ImportError:
-    np = None
+    np = None  # type: ignore[assignment]
 
 import pyarrow as pa
 
@@ -234,13 +234,13 @@ def schemas(type_strategy=primitive_types, max_fields=None):
 
 all_types = st.deferred(
     lambda: (
-        primitive_types |
-        list_types() |
-        struct_types() |
-        dictionary_types() |
-        map_types() |
-        list_types(all_types) |
-        struct_types(all_types)
+        primitive_types
+        | list_types()
+        | struct_types()
+        | dictionary_types()
+        | map_types()
+        | list_types(all_types)  # type: ignore[has-type]
+        | struct_types(all_types)  # type: ignore[has-type]
     )
 )
 all_fields = fields(all_types)
@@ -467,7 +467,9 @@ pandas_compatible_types = st.deferred(
         dictionary_types(
             value_strategy=pandas_compatible_dictionary_value_types
         ),
-        pandas_compatible_list_types(pandas_compatible_types),
-        struct_types(pandas_compatible_types)
+        pandas_compatible_list_types(
+            pandas_compatible_types  # type: ignore[has-type]
+        ),
+        struct_types(pandas_compatible_types)  # type: ignore[has-type]
     )
 )
