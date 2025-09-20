@@ -3634,7 +3634,7 @@ cdef class FixedSizeListArray(BaseListArray):
         Or create from a values array, list size and matching type:
 
         >>> typ = pa.list_(pa.field("values", pa.int64()), 2)
-        >>> arr = pa.FixedSizeListArray.from_arrays(values,type=typ)
+        >>> arr = pa.FixedSizeListArray.from_arrays(values, type=typ)
         >>> arr
         <pyarrow.lib.FixedSizeListArray object at ...>
         [
