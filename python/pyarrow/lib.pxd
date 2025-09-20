@@ -43,9 +43,15 @@ cdef class IpcWriteOptions(_Weakrefable):
         CIpcWriteOptions c_options
 
 
+cdef IpcWriteOptions wrap_ipc_write_options(CIpcWriteOptions c)
+
+
 cdef class IpcReadOptions(_Weakrefable):
     cdef:
         CIpcReadOptions c_options
+
+
+cdef IpcReadOptions wrap_ipc_read_options(CIpcReadOptions c)
 
 
 cdef _wrap_read_stats(CIpcReadStats c)
