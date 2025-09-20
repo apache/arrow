@@ -35,7 +35,7 @@ try:
     import pyarrow.parquet as pq
     from pyarrow.tests.parquet.common import _read_table, _write_table
 except ImportError:
-    pq = None
+    pass
 
 
 try:
@@ -45,12 +45,12 @@ try:
     from pyarrow.tests.pandas_examples import dataframe_with_lists
     from pyarrow.tests.parquet.common import alltypes_sample
 except ImportError:
-    pd = tm = None
+    pass
 
 try:
     import numpy as np
 except ImportError:
-    np = None
+    pass
 
 # Marks all of the tests in this module
 # Ignore these with pytest ... -m 'not parquet'
@@ -162,10 +162,10 @@ def test_invalid_source():
     # Test that we provide an helpful error message pointing out
     # that None wasn't expected when trying to open a Parquet None file.
     with pytest.raises(TypeError, match="None"):
-        pq.read_table(None)
+        pq.read_table(None)  # type: ignore[arg-type]
 
     with pytest.raises(TypeError, match="None"):
-        pq.ParquetFile(None)
+        pq.ParquetFile(None)  # type: ignore[arg-type]
 
 
 def test_read_table_without_dataset(tempdir):
@@ -755,7 +755,7 @@ def test_fastparquet_cross_compatibility(tempdir):
 
     # Arrow -> fastparquet
     file_arrow = str(tempdir / "cross_compat_arrow.parquet")
-    pq.write_table(table, file_arrow, compression=None)
+    pq.write_table(table, file_arrow, compression=None)  # type: ignore[arg-type]
 
     fp_file = fp.ParquetFile(file_arrow)
     df_fp = fp_file.to_pandas()
@@ -796,7 +796,7 @@ def test_buffer_contents(
     for col in table.columns:
         [chunk] = col.chunks
         buf = chunk.buffers()[1]
-        assert buf.to_pybytes() == buf.size * b"\0"
+        assert buf.to_pybytes() == buf.size * b"\0"  # type: ignore[union-attr]
 
 
 def test_parquet_compression_roundtrip(tempdir):
@@ -806,7 +806,7 @@ def test_parquet_compression_roundtrip(tempdir):
     # the stream due to auto-detecting the extension in the filename
     table = pa.table([pa.array(range(4))], names=["ints"])
     path = tempdir / "arrow-10480.pyarrow.gz"
-    pq.write_table(table, path, compression="GZIP")
+    pq.write_table(table, path, compression="GZIP")  # type: ignore[arg-type]
     result = pq.read_table(path)
     assert result.equals(table)
 
@@ -831,7 +831,7 @@ def test_empty_row_groups(tempdir):
 
 def test_reads_over_batch(tempdir):
     data = [None] * (1 << 20)
-    data.append([1])
+    data.append([1])  # type: ignore[reportArgumentType]
     # Large list<int64> with mostly nones and one final
     # value.  This should force batched reads when
     # reading back.

@@ -18,19 +18,23 @@
 from collections.abc import Iterable
 import datetime
 import decimal
-import hypothesis as h
-import hypothesis.strategies as st
+import hypothesis as h  # type: ignore[import-not-found]
+import hypothesis.strategies as st  # type: ignore[import-not-found]
 import itertools
-import pytest
+import pytest  # type: ignore[import-not-found]
 import struct
 import subprocess
 import sys
 import weakref
+from typing import TYPE_CHECKING
 
-try:
+if TYPE_CHECKING:
     import numpy as np
-except ImportError:
-    np = None
+else:
+    try:
+        import numpy as np
+    except ImportError:
+        np = None
 
 import pyarrow as pa
 import pyarrow.tests.strategies as past
@@ -71,7 +75,7 @@ def test_constructor_raises():
     # This could happen by wrong capitalization.
     # ARROW-2638: prevent calling extension class constructors directly
     with pytest.raises(TypeError):
-        pa.Array([1, 2])
+        pa.Array([1, 2])  # type: ignore[reportCallIssue]
 
 
 def test_list_format():
@@ -321,11 +325,11 @@ def test_asarray():
 
     arr = pa.array(range(4))
 
-    # The iterator interface gives back an array of Int64Value's
+    # The iterator interface gives back an array of Int64Type's
     np_arr = np.asarray([_ for _ in arr])
     assert np_arr.tolist() == [0, 1, 2, 3]
     assert np_arr.dtype == np.dtype('O')
-    assert isinstance(np_arr[0], pa.lib.Int64Value)
+    assert isinstance(np_arr[0], pa.lib.Int64Type)
 
     # Calling with the arrow array gives back an array with 'int64' dtype
     np_arr = np.asarray(arr)
@@ -649,8 +653,8 @@ def test_array_eq():
 
 @pytest.mark.numpy
 def test_array_from_buffers():
-    values_buf = pa.py_buffer(np.int16([4, 5, 6, 7]))
-    nulls_buf = pa.py_buffer(np.uint8([0b00001101]))
+    values_buf = pa.py_buffer(np.array([4, 5, 6, 7], dtype=np.int16()))
+    nulls_buf = pa.py_buffer(np.array([0b00001101], dtype=np.uint8()))
     arr = pa.Array.from_buffers(pa.int16(), 4, [nulls_buf, values_buf])
     assert arr.type == pa.int16()
     assert arr.to_pylist() == [4, None, 6, 7]
@@ -665,7 +669,9 @@ def test_array_from_buffers():
     assert arr.to_pylist() == [None, 6, 7]
 
     with pytest.raises(TypeError):
-        pa.Array.from_buffers(pa.int16(), 3, ['', ''], offset=1)
+        pa.Array.from_buffers(
+            pa.int16(), 3, ['', ''], offset=1  # type: ignore[reportArgumentType]
+        )
 
 
 def test_string_binary_from_buffers():
@@ -859,7 +865,8 @@ def test_struct_array_from_chunked():
     chunked_arr = pa.chunked_array([[1, 2, 3], [4, 5, 6]])
 
     with pytest.raises(TypeError, match="Expected Array"):
-        pa.StructArray.from_arrays([chunked_arr], ["foo"])
+        pa.StructArray.from_arrays(
+            [chunked_arr], ["foo"])  # type: ignore[reportArgumentType]
 
 
 @pytest.mark.parametrize("offset", (0, 1))
@@ -1179,24 +1186,24 @@ def test_map_from_arrays():
     keys = pa.array(pykeys, type='binary')
     items = pa.array(pyitems, type='i4')
 
-    result = pa.MapArray.from_arrays(offsets, keys, items)
+    result = pa.MapArray.from_arrays(offsets, keys, items)  # type: ignore[arg-type]
     expected = pa.array(pyentries, type=pa.map_(pa.binary(), pa.int32()))
 
     assert result.equals(expected)
 
     # pass in the type explicitly
-    result = pa.MapArray.from_arrays(offsets, keys, items, pa.map_(
-        keys.type,
-        items.type
-    ))
+    result = pa.MapArray.from_arrays(offsets, keys, items,  # type: ignore[arg-type]
+                                     pa.map_(keys.type, items.type))
     assert result.equals(expected)
 
     # pass in invalid types
     with pytest.raises(pa.ArrowTypeError, match='Expected map type, got string'):
-        pa.MapArray.from_arrays(offsets, keys, items, pa.string())
+        pa.MapArray.from_arrays(
+            offsets, keys, items, pa.string()  # type: ignore[arg-type]
+        )
 
     with pytest.raises(pa.ArrowTypeError, match='Mismatching map items type'):
-        pa.MapArray.from_arrays(offsets, keys, items, pa.map_(
+        pa.MapArray.from_arrays(offsets, keys, items, pa.map_(  # type: ignore[arg-type]
             keys.type,
             # Larger than the original i4
             pa.int64()
@@ -1234,7 +1241,7 @@ def test_map_from_arrays():
     # error if null bitmap and offsets with nulls passed
     msg1 = 'Ambiguous to specify both validity map and offsets with nulls'
     with pytest.raises(pa.ArrowInvalid, match=msg1):
-        pa.MapArray.from_arrays(offsets, keys, items, pa.map_(
+        pa.MapArray.from_arrays(offsets, keys, items, pa.map_(  # type: ignore[arg-type]
             keys.type,
             items.type),
             mask=pa.array([False, True, False], type=pa.bool_())
@@ -2718,7 +2725,7 @@ def test_interval_array_from_relativedelta():
     assert arr.type == pa.month_day_nano_interval()
     expected_list = [
         None,
-        pa.MonthDayNano([13, 8,
+        pa.MonthDayNano([13, 8,  # type: ignore[arg-type]
                          (datetime.timedelta(seconds=1, microseconds=1,
                                              minutes=1, hours=1) //
                           datetime.timedelta(microseconds=1)) * 1000])]
@@ -2751,7 +2758,7 @@ def test_interval_array_from_tuple():
     assert arr.type == pa.month_day_nano_interval()
     expected_list = [
         None,
-        pa.MonthDayNano([1, 2, -3])]
+        pa.MonthDayNano([1, 2, -3])]  # type: ignore[arg-type]
     expected = pa.array(expected_list)
     assert arr.equals(expected)
     assert arr.to_pylist() == expected_list
@@ -2772,8 +2779,8 @@ def test_interval_array_from_dateoffset():
     assert arr.type == pa.month_day_nano_interval()
     expected_list = [
         None,
-        pa.MonthDayNano([13, 8, 3661000001001]),
-        pa.MonthDayNano([0, 0, 0])]
+        pa.MonthDayNano([13, 8, 3661000001001]),  # type: ignore[arg-type]
+        pa.MonthDayNano([0, 0, 0])]  # type: ignore[arg-type]
     expected = pa.array(expected_list)
     assert arr.equals(expected)
     expected_from_pandas = [
@@ -2937,7 +2944,7 @@ def test_buffers_primitive():
     # Slicing does not affect the buffers but the offset
     a_sliced = a[1:]
     buffers = a_sliced.buffers()
-    a_sliced.offset == 1
+    assert a_sliced.offset == 1
     assert len(buffers) == 2
     null_bitmap = buffers[0].to_pybytes()
     assert 1 <= len(null_bitmap) <= 64  # XXX this is varying
@@ -2945,7 +2952,7 @@ def test_buffers_primitive():
 
     assert struct.unpack('hhxxh', buffers[1].to_pybytes()) == (1, 2, 4)
 
-    a = pa.array(np.int8([4, 5, 6]))
+    a = pa.array(np.array([4, 5, 6], dtype=np.int8))
     buffers = a.buffers()
     assert len(buffers) == 2
     # No null bitmap from Numpy int array
@@ -3031,7 +3038,7 @@ def test_nbytes_size():
 def test_invalid_tensor_constructor_repr():
     # ARROW-2638: prevent calling extension class constructors directly
     with pytest.raises(TypeError):
-        repr(pa.Tensor([1]))
+        repr(pa.Tensor([1]))  # type: ignore[reportCallIssue]
 
 
 def test_invalid_tensor_construction():
@@ -3549,7 +3556,7 @@ def test_array_supported_masks():
 
     with pytest.raises(pa.ArrowTypeError):
         arr = pa.array([4, None, 4, 3],
-                       mask=[1.0, 2.0, 3.0, 4.0])
+                       mask=[1.0, 2.0, 3.0, 4.0])  # type: ignore[reportArgumentType]
 
     with pytest.raises(pa.ArrowTypeError):
         arr = pa.array([4, None, 4, 3],
@@ -3836,11 +3843,11 @@ def test_concat_array_invalid_type():
     # ARROW-9920 - do not segfault on non-array input
 
     with pytest.raises(TypeError, match="should contain Array objects"):
-        pa.concat_arrays([None])
+        pa.concat_arrays([None])  # type: ignore[reportArgumentType]
 
     arr = pa.chunked_array([[0, 1], [3, 4]])
     with pytest.raises(TypeError, match="should contain Array objects"):
-        pa.concat_arrays(arr)
+        pa.concat_arrays(arr)  # type: ignore[reportArgumentType]
 
 
 @pytest.mark.pandas
@@ -4369,7 +4376,7 @@ def test_non_cpu_array():
     with pytest.raises(NotImplementedError):
         [i for i in iter(arr)]
     with pytest.raises(NotImplementedError):
-        arr == arr2
+        _ = arr == arr2
     with pytest.raises(NotImplementedError):
         arr.is_null()
     with pytest.raises(NotImplementedError):

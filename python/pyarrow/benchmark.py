@@ -18,4 +18,4 @@
 # flake8: noqa
 
 
-from pyarrow.lib import benchmark_PandasObjectIsNull
+from pyarrow.lib import benchmark_PandasObjectIsNull  # type: ignore[attr-defined]

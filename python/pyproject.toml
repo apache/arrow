@@ -99,38 +99,26 @@ version_scheme = 'guess-next-dev'
 git_describe_command = 'git describe --dirty --tags --long --match "apache-arrow-[0-9]*.*"'
 fallback_version = '24.0.0a0'
 
-# TODO: Enable type checking once stubs are merged
 [tool.mypy]
-files = ["pyarrow-stubs"]
+files = ["pyarrow", "pyarrow-stubs"]
 mypy_path = "$MYPY_CONFIG_FILE_DIR/pyarrow-stubs"
-exclude = [
-    "^pyarrow/",
-    "^benchmarks/",
-    "^examples/",
-    "^scripts/",
-]
+exclude = 'pyarrow/interchange/.*|pyarrow/tests/interchange/.*|pyarrow/vendored/.*|pyarrow/tests/test_cuda*'
 
-# TODO: Enable type checking once stubs are merged
 [tool.pyright]
 pythonPlatform = "All"
 pythonVersion = "3.10"
-include = ["pyarrow-stubs"]
-exclude = [
-    "pyarrow",
-    "benchmarks",
-    "examples",
-    "scripts",
-    "build",
-]
+include = ["pyarrow", "pyarrow-stubs"]
+exclude = ["pyarrow/vendored", "pyarrow/interchange", "pyarrow/tests/interchange", "pyarrow/tests/test_cuda*"]
 stubPath = "pyarrow-stubs"
 typeCheckingMode = "basic"
 
-# TODO: Enable type checking once stubs are merged
 [tool.ty.src]
-include = ["pyarrow-stubs"]
-exclude = [
-    "pyarrow",
-    "benchmarks",
-    "examples",
-    "scripts",
-]
+include = ["pyarrow", "pyarrow-stubs"]
+exclude = ["pyarrow/vendored", "pyarrow/interchange", "pyarrow/tests/interchange", "pyarrow/tests/test_cuda*"]
+
+[tool.ty.environment]
+root = ["pyarrow"]
+
+[tool.ty.rules]
+unresolved-import = "ignore"
+unresolved-attribute = "ignore"

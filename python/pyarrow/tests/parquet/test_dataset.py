@@ -20,35 +20,41 @@ import inspect
 import os
 import pathlib
 import sys
+from typing import TYPE_CHECKING
 
 try:
     import numpy as np
 except ImportError:
-    np = None
+    pass
 import pytest
 import unittest.mock as mock
 
 import pyarrow as pa
 import pyarrow.compute as pc
-from pyarrow.fs import (FileSelector, FileSystem, LocalFileSystem,
+from pyarrow.fs import (FileSelector, FileSystem, LocalFileSystem, FileInfo, FileType,
                         PyFileSystem, SubTreeFileSystem, FSSpecHandler)
 from pyarrow.tests import util
 from pyarrow.util import guid
 
-try:
+if TYPE_CHECKING:
+    import pandas as pd
+    import pandas.testing as tm
     import pyarrow.parquet as pq
     from pyarrow.tests.parquet.common import (
         _read_table, _test_dataframe, _test_table, _write_table)
-except ImportError:
-    pq = None
+else:
+    try:
+        import pyarrow.parquet as pq
+        from pyarrow.tests.parquet.common import (
+            _read_table, _test_dataframe, _test_table, _write_table)
+    except ImportError:
+        pass
 
-
-try:
-    import pandas as pd
-    import pandas.testing as tm
-
-except ImportError:
-    pd = tm = None
+    try:
+        import pandas as pd
+        import pandas.testing as tm
+    except ImportError:
+        pass
 
 
 # Marks all of the tests in this module
@@ -70,8 +76,8 @@ def test_filesystem_uri(tempdir):
     assert result.equals(table)
 
     # filesystem URI
-    result = pq.read_table(
-        "data_dir/data.parquet", filesystem=util._filesystem_uri(tempdir))
+    result = pq.read_table("data_dir/data.parquet",
+                           filesystem=util._filesystem_uri(tempdir))
     assert result.equals(table)
 
 
@@ -553,7 +559,7 @@ def _generate_partition_directories(fs, base_dir, partition_spec, df):
     #                                       ['bar', ['a', 'b', 'c']]
     # part_table : a pyarrow.Table to write to each partition
     if not isinstance(fs, FileSystem):
-        fs = PyFileSystem(FSSpecHandler(fs))
+        fs = PyFileSystem(FSSpecHandler(fs))  # type: ignore[abstract]
 
     DEPTH = len(partition_spec)
 
@@ -572,15 +578,15 @@ def _generate_partition_directories(fs, base_dir, partition_spec, df):
 
             if level == DEPTH - 1:
                 # Generate example data
-                from pyarrow.fs import FileType
-
                 file_path = pathsep.join([level_dir, guid()])
                 filtered_df = _filter_partition(df, this_part_keys)
                 part_table = pa.Table.from_pandas(filtered_df)
                 with fs.open_output_stream(file_path) as f:
                     _write_table(part_table, f)
-                assert fs.get_file_info(file_path).type != FileType.NotFound
-                assert fs.get_file_info(file_path).type == FileType.File
+                file_info = fs.get_file_info(file_path)
+                assert isinstance(file_info, FileInfo)
+                assert file_info.type != FileType.NotFound
+                assert file_info.type == FileType.File
 
                 file_success = pathsep.join([level_dir, '_SUCCESS'])
                 with fs.open_output_stream(file_success) as f:
@@ -717,8 +723,8 @@ def test_dataset_read_pandas(tempdir):
     paths = []
     for i in range(nfiles):
         df = _test_dataframe(size, seed=i)
-        df.index = np.arange(i * size, (i + 1) * size)
-        df.index.name = 'index'
+        df.index = np.arange(i * size, (i + 1) * size)  # type: ignore[assignment]
+        df.index.name = 'index'  # type: ignore[attr-defined]
 
         path = dirpath / f'{i}.parquet'
 
@@ -931,8 +937,7 @@ def _test_write_to_dataset_with_partitions(base_path,
         'group2': list('eefeffgeee'),
         'num': list(range(10)),
         'nan': [np.nan] * 10,
-        'date': np.arange('2017-01-01', '2017-01-11', dtype='datetime64[D]').astype(
-            'datetime64[ns]')
+        'date': pd.date_range('2017-01-01', periods=10, freq='D').values.astype('datetime64[ns]')
     })
     cols = output_df.columns.tolist()
     partition_by = ['group1', 'group2']
@@ -965,7 +970,7 @@ def _test_write_to_dataset_with_partitions(base_path,
     input_df_cols = input_df.columns.tolist()
     assert partition_by == input_df_cols[-1 * len(partition_by):]
 
-    input_df = input_df[cols]
+    input_df = input_df.loc[:, cols]
     # Partitioned columns become 'categorical' dtypes
     for col in partition_by:
         output_df[col] = output_df[col].astype('category')
@@ -974,6 +979,7 @@ def _test_write_to_dataset_with_partitions(base_path,
         expected_date_type = schema.field('date').type.to_pandas_dtype()
         output_df["date"] = output_df["date"].astype(expected_date_type)
 
+    assert isinstance(input_df, pd.DataFrame)
     tm.assert_frame_equal(output_df, input_df)
 
 
@@ -988,8 +994,7 @@ def _test_write_to_dataset_no_partitions(base_path,
         'group1': list('aaabbbbccc'),
         'group2': list('eefeffgeee'),
         'num': list(range(10)),
-        'date': np.arange('2017-01-01', '2017-01-11', dtype='datetime64[D]').astype(
-            'datetime64[ns]')
+        'date': pd.date_range('2017-01-01', periods=10, freq='D').values.astype('datetime64[ns]')
     })
     cols = output_df.columns.tolist()
     output_table = pa.Table.from_pandas(output_df)
@@ -997,7 +1002,7 @@ def _test_write_to_dataset_no_partitions(base_path,
     if filesystem is None:
         filesystem = LocalFileSystem()
     elif not isinstance(filesystem, FileSystem):
-        filesystem = PyFileSystem(FSSpecHandler(filesystem))
+        filesystem = PyFileSystem(FSSpecHandler(filesystem))  # type: ignore[abstract]
 
     # Without partitions, append files to root_path
     n = 5
@@ -1009,8 +1014,10 @@ def _test_write_to_dataset_no_partitions(base_path,
                             recursive=True)
 
     infos = filesystem.get_file_info(selector)
-    output_files = [info for info in infos if info.path.endswith(".parquet")]
-    assert len(output_files) == n
+    if isinstance(infos, list):
+        assert all(isinstance(info, FileInfo) for info in infos)
+        output_files = [info for info in infos if info.path.endswith(".parquet")]
+        assert len(output_files) == n
 
     # Deduplicated incoming DataFrame should match
     # original outgoing Dataframe
@@ -1020,6 +1027,7 @@ def _test_write_to_dataset_no_partitions(base_path,
     input_df = input_table.to_pandas()
     input_df = input_df.drop_duplicates()
     input_df = input_df[cols]
+    assert isinstance(input_df, pd.DataFrame)
     tm.assert_frame_equal(output_df, input_df)
 
 
@@ -1168,11 +1176,11 @@ def test_dataset_read_dictionary(tempdir):
         path, read_dictionary=['f0']).read()
 
     # The order of the chunks is non-deterministic
-    ex_chunks = [t1[0].chunk(0).dictionary_encode(),
-                 t2[0].chunk(0).dictionary_encode()]
+    ex_chunks = [t1.column(0).chunk(0).dictionary_encode(),
+                 t2.column(0).chunk(0).dictionary_encode()]
 
-    assert result[0].num_chunks == 2
-    c0, c1 = result[0].chunk(0), result[0].chunk(1)
+    assert result.column(0).num_chunks == 2
+    c0, c1 = result.column(0).chunk(0), result.column(0).chunk(1)
     if c0.equals(ex_chunks[0]):
         assert c1.equals(ex_chunks[1])
     else:

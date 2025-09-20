@@ -50,6 +50,7 @@ def test_tensor_to_np():
     arr = [[1, 2, 3, 4], [10, 20, 30, 40], [100, 200, 300, 400]]
     storage = pa.array(arr, pa.list_(pa.int32(), 4))
     tensor_array = pa.ExtensionArray.from_storage(tensor_type, storage)
+    assert isinstance(tensor_array, pa.FixedShapeTensorArray)
 
     tensor = tensor_array.to_tensor()
     msg = "Cannot return a numpy.ndarray if NumPy is not present"
