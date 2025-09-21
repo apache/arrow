@@ -2002,6 +2002,7 @@ def test_write_quoting_style():
         assert buf.getvalue() == res
         buf.seek(0)
 
+
 def test_write_quoting_header():
     t = pa.Table.from_arrays([[1, 2, None], ["a", None, "c"]], ["c1", "c2"])
     buf = io.BytesIO()
@@ -2015,6 +2016,7 @@ def test_write_quoting_header():
             writer.write_table(t)
         assert buf.getvalue() == res
         buf.seek(0)
+
 
 def test_read_csv_reference_cycle():
     # ARROW-13187
