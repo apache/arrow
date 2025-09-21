@@ -1370,7 +1370,7 @@ cdef class WriteOptions(_Weakrefable):
     __slots__ = ()
 
     def __init__(self, *, include_header=None, batch_size=None,
-                 delimiter=None, quoting_style=None):
+                 delimiter=None, quoting_style=None, quoting_header=None):
         self.options.reset(new CCSVWriteOptions(CCSVWriteOptions.Defaults()))
         if include_header is not None:
             self.include_header = include_header
@@ -1380,6 +1380,8 @@ cdef class WriteOptions(_Weakrefable):
             self.delimiter = delimiter
         if quoting_style is not None:
             self.quoting_style = quoting_style
+        if quoting_header is not None:
+            self.quoting_header = quoting_header
 
     @property
     def include_header(self):
@@ -1432,6 +1434,17 @@ cdef class WriteOptions(_Weakrefable):
     @quoting_style.setter
     def quoting_style(self, value):
         deref(self.options).quoting_style = unwrap_quoting_style(value)
+
+    @property
+    def quoting_header(self):
+        """
+        Same as quoting_style, but for header column names
+        """
+        return wrap_quoting_style(deref(self.options).quoting_header)
+
+    @quoting_header.setter
+    def quoting_header(self, value):
+        deref(self.options).quoting_header = unwrap_quoting_style(value)
 
     @staticmethod
     cdef WriteOptions wrap(CCSVWriteOptions options):
