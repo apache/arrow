@@ -4935,7 +4935,7 @@ def test_write_dataset_parquet(tempdir):
         base_dir = tempdir / f'parquet_dataset_version{version}'
         ds.write_dataset(table, base_dir, format=format, file_options=opts)
         meta = pq.read_metadata(base_dir / "part-0.parquet")
-        expected_version = "1.0" if version == "1.0" else "2.6"
+        expected_version = "1.0" if version == "1.0" else "2.12"
         assert meta.format_version == expected_version
 
         # ensure version is actually honored based on supported datatypes
