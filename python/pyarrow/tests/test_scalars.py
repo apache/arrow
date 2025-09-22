@@ -956,6 +956,18 @@ def test_map_scalar_as_py_with_custom_field_name():
     ).as_py() == [("foo", "bar")]
 
 
+def test_map_types_with_maps_as_pydicts():
+    ty = pa.struct([
+        pa.field('x', pa.map_(pa.string(), pa.int8())),
+        pa.field('y', pa.list_(pa.map_(pa.string(), pa.int8()))),
+    ])
+
+    v = {'x': {'a': 1}, 'y': [{'b': 2}, {'c': 3}]}
+    s = pa.scalar(v, type=ty)
+
+    assert s.as_py(maps_as_pydicts="strict") == v
+
+
 def test_nested_map_types_with_maps_as_pydicts():
     ty = pa.struct(
         [
