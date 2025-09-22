@@ -54,11 +54,43 @@ struct ParquetVersion {
     /// Note: Parquet format 2.6.0 was released in September 2018.
     PARQUET_2_6,
 
+    /// Enable Parquet format 2.7 and earlier features when writing
+    ///
+    /// This enables bloom filters and encryption in addition to the
+    /// PARQUET_2_6 features.
+    ///
+    /// Note: Parquet format 2.7.0 was released in June 2019.
+    PARQUET_2_7,
+
+    /// Enable Parquet format 2.8 and earlier features when writing
+    ///
+    /// This enables BYTE_STREAM_SPLIT encoding in addition to the
+    /// PARQUET_2_7 features.
+    ///
+    /// Note: Parquet format 2.8.0 was released in February 2020.
+    PARQUET_2_8,
+
+    /// Enable Parquet format 2.9 and earlier features when writing
+    ///
+    /// This enables interoperable LZ4 codec in addition to the
+    /// PARQUET_2_8 features.
+    ///
+    /// Note: Parquet format 2.9.0 was released in January 2021.
+    PARQUET_2_9,
+
+    /// Enable Parquet format 2.10 and earlier features when writing
+    ///
+    /// This enables Float16 logical type in addition to the
+    /// PARQUET_2_9 features.
+    ///
+    /// Note: Parquet format 2.10.0 was released in October 2022.
+    PARQUET_2_10,
+
     /// Enable latest Parquet format 2.x features
     ///
     /// This value is equal to the greatest 2.x version supported by
     /// this library.
-    PARQUET_2_LATEST = PARQUET_2_6
+    PARQUET_2_LATEST = PARQUET_2_10
   };
 };
 
