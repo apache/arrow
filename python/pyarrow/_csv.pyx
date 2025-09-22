@@ -1364,6 +1364,8 @@ cdef class WriteOptions(_Weakrefable):
         - "none": do not enclose any values in quotes; values containing
           special characters (such as quotes, cell delimiters or line endings)
           will raise an error.
+    quoting_header : str, optional (default "needed")
+        Same as quoting_style, but for header column names. Accepts same values.
     """
 
     # Avoid mistakingly creating attributes
@@ -1438,7 +1440,8 @@ cdef class WriteOptions(_Weakrefable):
     @property
     def quoting_header(self):
         """
-        Same as quoting_style, but for header column names
+        Same as quoting_style, but for header column names.
+        Note : both "needed" and "all_valid" have the same effect of quoting all column names.
         """
         return wrap_quoting_style(deref(self.options).quoting_header)
 
