@@ -25,6 +25,30 @@ index 7cab6f726..697ab1bb4 100644
  )
  vcpkg_cmake_install()
  vcpkg_copy_pdbs()
+ diff --git a/ports/gflags/0001-patch-dir.patch b/ports/gflags/0001-patch-dir.patch
+index d3aaa00fbe..2a460c64ac 100644
+--- a/ports/gflags/0001-patch-dir.patch
++++ b/ports/gflags/0001-patch-dir.patch
+@@ -1,8 +1,17 @@
+ diff --git a/CMakeLists.txt b/CMakeLists.txt
+-index 3709073..8e919cb 100644
++index 657a1f4..842abea 100644
+ --- a/CMakeLists.txt
+ +++ b/CMakeLists.txt
+-@@ -503,7 +503,7 @@ endif ()
++@@ -70,7 +70,7 @@
++ ## - GFLAGS_INSTALL_SHARED_LIBS
++ ## - GFLAGS_INSTALL_STATIC_LIBS
++ 
++-cmake_minimum_required (VERSION 3.0.2 FATAL_ERROR)
+++cmake_minimum_required (VERSION 3.5 FATAL_ERROR)
++ 
++ if (POLICY CMP0042)
++   cmake_policy (SET CMP0042 NEW)
++@@ -515,7 +515,7 @@ endif ()
+  # ----------------------------------------------------------------------------
+  # installation rules
+  set (EXPORT_NAME ${PACKAGE_NAME}-targets)
 diff --git a/ports/llvm/portfile.cmake b/ports/llvm/portfile.cmake
 index a79c72a59..6b7fa6a66 100644
 --- a/ports/llvm/portfile.cmake
