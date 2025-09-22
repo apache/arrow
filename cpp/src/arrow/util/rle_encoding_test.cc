@@ -214,36 +214,35 @@ TEST(BitUtil, RoundTripIntValues) {
 TEST(Rle, RleRun) {
   const std::array<uint8_t, 4> value = {21, 2, 0, 0};
 
-  rle_size_t value_count = 12;
+  const rle_size_t value_count = 12;
 
   // 12 times the value 21 fitting over 5 bits
-  const auto run_5 = RleRun(value.data(), value_count, /* value_bit_width= */ 5);
+  const rle_size_t value_bit_width_5 = 5;
+  const auto run_5 = RleRun(value.data(), value_count, value_bit_width_5);
   EXPECT_EQ(run_5.values_count(), value_count);
-  EXPECT_EQ(run_5.values_bit_width(), 5);
-  EXPECT_EQ(run_5.raw_data_size(), 1);  // 5 bits fit in one byte
+  EXPECT_EQ(run_5.raw_data_size(value_bit_width_5), 1);  // 5 bits fit in one byte
   EXPECT_EQ(*run_5.raw_data_ptr(), 21);
 
   // 12 times the value 21 fitting over 8 bits
-  const auto run_8 = RleRun(value.data(), value_count, /* value_bit_width= */ 8);
+  const rle_size_t value_bit_width_8 = 8;
+  const auto run_8 = RleRun(value.data(), value_count, value_bit_width_8);
   EXPECT_EQ(run_8.values_count(), value_count);
-  EXPECT_EQ(run_8.values_bit_width(), 8);
-  EXPECT_EQ(run_8.raw_data_size(), 1);  // 8 bits fit in 1 byte
+  EXPECT_EQ(run_8.raw_data_size(value_bit_width_8), 1);  // 8 bits fit in 1 byte
   EXPECT_EQ(*run_8.raw_data_ptr(), 21);
 
   // 12 times the value 533 (21 + 2 * 2^8) fitting over 10 bits
-  const auto run_10 = RleRun(value.data(), value_count, /* value_bit_width= */ 10);
-
+  const rle_size_t value_bit_width_10 = 10;
+  const auto run_10 = RleRun(value.data(), value_count, value_bit_width_10);
   EXPECT_EQ(run_10.values_count(), value_count);
-  EXPECT_EQ(run_10.values_bit_width(), 10);
-  EXPECT_EQ(run_10.raw_data_size(), 2);  // 10 bits fit in 2 bytes
+  EXPECT_EQ(run_10.raw_data_size(value_bit_width_10), 2);  // 10 bits fit in 2 bytes
   EXPECT_EQ(*(run_10.raw_data_ptr() + 0), 21);
   EXPECT_EQ(*(run_10.raw_data_ptr() + 1), 2);
 
   // 12 times the value 533 (21 + 2 * 2^8) fitting over 32 bits
-  const auto run_32 = RleRun(value.data(), value_count, /* value_bit_width= */ 32);
+  const rle_size_t value_bit_width_32 = 32;
+  const auto run_32 = RleRun(value.data(), value_count, value_bit_width_32);
   EXPECT_EQ(run_32.values_count(), value_count);
-  EXPECT_EQ(run_32.values_bit_width(), 32);
-  EXPECT_EQ(run_32.raw_data_size(), 4);  // 32 bits fit in 4 bytes
+  EXPECT_EQ(run_32.raw_data_size(value_bit_width_32), 4);  // 32 bits fit in 4 bytes
   EXPECT_EQ(*(run_32.raw_data_ptr() + 0), 21);
   EXPECT_EQ(*(run_32.raw_data_ptr() + 1), 2);
   EXPECT_EQ(*(run_32.raw_data_ptr() + 2), 0);
@@ -256,19 +255,19 @@ TEST(BitPacked, BitPackedRun) {
   const std::array<uint8_t, 4> value = {0b10101010, 0, 0, 0b1111111};
 
   // 16 values of 1 bit for a total of 16 bits
-  rle_size_t value_count_1 = 16;
-  const auto run_1 = BitPackedRun(value.data(), value_count_1, /* value_bit_width= */ 1);
+  const rle_size_t value_count_1 = 16;
+  const rle_size_t value_bit_width_1 = 1;
+  const auto run_1 = BitPackedRun(value.data(), value_count_1, value_bit_width_1);
   EXPECT_EQ(run_1.values_count(), value_count_1);
-  EXPECT_EQ(run_1.values_bit_width(), 1);
-  EXPECT_EQ(run_1.raw_data_size(), 2);  // 16 bits fit in 2 bytes
+  EXPECT_EQ(run_1.raw_data_size(value_bit_width_1), 2);  // 16 bits fit in 2 bytes
   EXPECT_EQ(run_1.raw_data_ptr(), value.data());
 
   // 8 values of 3 bits for a total of 24 bits
-  rle_size_t value_count_3 = 8;
-  const auto run_3 = BitPackedRun(value.data(), value_count_3, /* value_bit_width= */ 3);
+  const rle_size_t value_count_3 = 8;
+  const rle_size_t value_bit_width_3 = 3;
+  const auto run_3 = BitPackedRun(value.data(), value_count_3, value_bit_width_3);
   EXPECT_EQ(run_3.values_count(), value_count_3);
-  EXPECT_EQ(run_3.values_bit_width(), 3);
-  EXPECT_EQ(run_3.raw_data_size(), 3);  // 24 bits fit in 3 bytes
+  EXPECT_EQ(run_3.raw_data_size(value_bit_width_3), 3);  // 24 bits fit in 3 bytes
   EXPECT_EQ(run_3.raw_data_ptr(), value.data());
 }
 
@@ -280,41 +279,41 @@ void TestRleDecoder(std::vector<uint8_t> bytes, rle_size_t value_count,
 
   const auto run = RleRun(bytes.data(), value_count, bit_width);
 
-  auto decoder = RleRunDecoder<T>(run);
+  auto decoder = RleRunDecoder<T>(run, bit_width);
   std::vector<T> vals = {0, 0};
 
   EXPECT_EQ(decoder.remaining(), value_count);
 
   rle_size_t read = 0;
-  EXPECT_EQ(decoder.Get(vals.data()), 1);
+  EXPECT_EQ(decoder.Get(vals.data(), bit_width), 1);
   read += 1;
   EXPECT_EQ(vals.at(0), expected_value);
   EXPECT_EQ(decoder.remaining(), value_count - read);
 
-  EXPECT_EQ(decoder.Advance(3), 3);
+  EXPECT_EQ(decoder.Advance(3, bit_width), 3);
   read += 3;
   EXPECT_EQ(decoder.remaining(), value_count - read);
 
   vals = {0, 0};
-  EXPECT_EQ(decoder.GetBatch(vals.data(), 2), vals.size());
+  EXPECT_EQ(decoder.GetBatch(vals.data(), 2, bit_width), vals.size());
   EXPECT_EQ(vals.at(0), expected_value);
   EXPECT_EQ(vals.at(1), expected_value);
   read += static_cast<decltype(read)>(vals.size());
   EXPECT_EQ(decoder.remaining(), value_count - read);
 
   // Exhaust iteration
-  EXPECT_EQ(decoder.Advance(value_count - read), value_count - read);
+  EXPECT_EQ(decoder.Advance(value_count - read, bit_width), value_count - read);
   EXPECT_EQ(decoder.remaining(), 0);
-  EXPECT_EQ(decoder.Advance(1), 0);
+  EXPECT_EQ(decoder.Advance(1, bit_width), 0);
   vals = {0, 0};
-  EXPECT_EQ(decoder.Get(vals.data()), 0);
+  EXPECT_EQ(decoder.Get(vals.data(), bit_width), 0);
   EXPECT_EQ(vals.at(0), 0);
 
   // Reset the decoder
-  decoder.Reset(run);
+  decoder.Reset(run, bit_width);
   EXPECT_EQ(decoder.remaining(), value_count);
   vals = {0, 0};
-  EXPECT_EQ(decoder.GetBatch(vals.data(), 2), vals.size());
+  EXPECT_EQ(decoder.GetBatch(vals.data(), 2, bit_width), vals.size());
   EXPECT_EQ(vals.at(0), expected_value);
   EXPECT_EQ(vals.at(1), expected_value);
 }
@@ -340,42 +339,42 @@ void TestBitPackedDecoder(std::vector<uint8_t> bytes, rle_size_t value_count,
 
   const auto run = BitPackedRun(bytes.data(), value_count, bit_width);
 
-  auto decoder = BitPackedRunDecoder<T>(run);
+  auto decoder = BitPackedRunDecoder<T>(run, bit_width);
   std::vector<T> vals = {0, 0};
 
   EXPECT_EQ(decoder.remaining(), value_count);
 
   rle_size_t read = 0;
-  EXPECT_EQ(decoder.Get(vals.data()), 1);
+  EXPECT_EQ(decoder.Get(vals.data(), bit_width), 1);
   EXPECT_EQ(vals.at(0), expected.at(0 + read));
   read += 1;
   EXPECT_EQ(decoder.remaining(), value_count - read);
 
-  EXPECT_EQ(decoder.Advance(3), 3);
+  EXPECT_EQ(decoder.Advance(3, bit_width), 3);
   read += 3;
   EXPECT_EQ(decoder.remaining(), value_count - read);
 
   vals = {0, 0};
-  EXPECT_EQ(decoder.GetBatch(vals.data(), 2), vals.size());
+  EXPECT_EQ(decoder.GetBatch(vals.data(), 2, bit_width), vals.size());
   EXPECT_EQ(vals.at(0), expected.at(0 + read));
   EXPECT_EQ(vals.at(1), expected.at(1 + read));
   read += static_cast<decltype(read)>(vals.size());
   EXPECT_EQ(decoder.remaining(), value_count - read);
 
   // Exhaust iteration
-  EXPECT_EQ(decoder.Advance(value_count - read), value_count - read);
+  EXPECT_EQ(decoder.Advance(value_count - read, bit_width), value_count - read);
   EXPECT_EQ(decoder.remaining(), 0);
-  EXPECT_EQ(decoder.Advance(1), 0);
+  EXPECT_EQ(decoder.Advance(1, bit_width), 0);
   vals = {0, 0};
-  EXPECT_EQ(decoder.Get(vals.data()), 0);
+  EXPECT_EQ(decoder.Get(vals.data(), bit_width), 0);
   EXPECT_EQ(vals.at(0), 0);
 
   // Reset the decoder
-  decoder.Reset(run);
+  decoder.Reset(run, bit_width);
   read = 0;
   EXPECT_EQ(decoder.remaining(), value_count);
   vals = {0, 0};
-  EXPECT_EQ(decoder.GetBatch(vals.data(), 2), vals.size());
+  EXPECT_EQ(decoder.GetBatch(vals.data(), 2, bit_width), vals.size());
   EXPECT_EQ(vals.at(0), expected.at(0 + read));
   EXPECT_EQ(vals.at(1), expected.at(1 + read));
 }
@@ -420,14 +419,16 @@ void TestRleBitPackedParser(std::vector<uint8_t> bytes, rle_size_t bit_width,
     decltype(rle_decoder)* rle_decoder_ptr_;
     decltype(bit_packed_decoder)* bit_packed_decoder_ptr_;
     decltype(decoded)* decoded_ptr_;
+    decltype(bit_width) bit_width_;
 
     auto OnRleRun(RleRun run) {
-      rle_decoder_ptr_->Reset(run);
+      rle_decoder_ptr_->Reset(run, bit_width_);
 
       const auto n_decoded = decoded_ptr_->size();
       const auto n_to_decode = rle_decoder_ptr_->remaining();
       decoded_ptr_->resize(n_decoded + n_to_decode);
-      EXPECT_EQ(rle_decoder_ptr_->GetBatch(decoded_ptr_->data() + n_decoded, n_to_decode),
+      EXPECT_EQ(rle_decoder_ptr_->GetBatch(decoded_ptr_->data() + n_decoded, n_to_decode,
+                                           bit_width_),
                 n_to_decode);
       EXPECT_EQ(rle_decoder_ptr_->remaining(), 0);
 
@@ -435,19 +436,19 @@ void TestRleBitPackedParser(std::vector<uint8_t> bytes, rle_size_t bit_width,
     }
 
     auto OnBitPackedRun(BitPackedRun run) {
-      bit_packed_decoder_ptr_->Reset(run);
+      bit_packed_decoder_ptr_->Reset(run, bit_width_);
 
       const auto n_decoded = decoded_ptr_->size();
       const auto n_to_decode = bit_packed_decoder_ptr_->remaining();
       decoded_ptr_->resize(n_decoded + n_to_decode);
       EXPECT_EQ(bit_packed_decoder_ptr_->GetBatch(decoded_ptr_->data() + n_decoded,
-                                                  n_to_decode),
+                                                  n_to_decode, bit_width_),
                 n_to_decode);
       EXPECT_EQ(bit_packed_decoder_ptr_->remaining(), 0);
 
       return RleBitPackedParser::ControlFlow::Continue;
     }
-  } handler{&rle_decoder, &bit_packed_decoder, &decoded};
+  } handler{&rle_decoder, &bit_packed_decoder, &decoded, bit_width};
 
   // Iterate over all runs
   parser.Parse(handler);
