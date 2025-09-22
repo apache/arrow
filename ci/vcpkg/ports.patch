@@ -62,6 +62,16 @@ index a79c72a59..6b7fa6a66 100644
  )
  
  vcpkg_cmake_install(ADD_BIN_TO_PATH)
+diff --git a/ports/lz4/CMakeLists.txt b/ports/lz4/CMakeLists.txt
+index a35c8b2d1a..450ac4d127 100644
+--- a/ports/lz4/CMakeLists.txt
++++ b/ports/lz4/CMakeLists.txt
+@@ -1,4 +1,4 @@
+-cmake_minimum_required(VERSION 3.0)
++cmake_minimum_required(VERSION 3.5)
+ project(lz4 C)
+ 
+ if(MSVC AND BUILD_SHARED_LIBS)
 diff --git a/ports/snappy/portfile.cmake b/ports/snappy/portfile.cmake
 index 0312b2ae1..fdb576b5f 100644
 --- a/ports/snappy/portfile.cmake
