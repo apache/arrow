@@ -47,6 +47,7 @@ try:
         ServerAuthHandler, ClientAuthHandler,
         ServerMiddleware, ServerMiddlewareFactory,
         ClientMiddleware, ClientMiddlewareFactory,
+        FlightCallOptions,
     )
 except ImportError:
     flight = None
@@ -54,6 +55,7 @@ except ImportError:
     ServerAuthHandler, ClientAuthHandler = object, object
     ServerMiddleware, ServerMiddlewareFactory = object, object
     ClientMiddleware, ClientMiddlewareFactory = object, object
+    FlightCallOptions = object
 
 # Marks all of the tests in this module
 # Ignore these with pytest ... -m 'not flight'
@@ -2618,3 +2620,41 @@ def test_flight_dictionary_deltas_do_exchange():
 
             assert received_table.equals(expected_table)
             assert reader.stats == expected_stats[command]
+
+
+@pytest.fixture
+def call_options_args(request):
+    if request.param == "default":
+        return {
+            "timeout": 3,
+            "headers": None,
+            "write_options": None,
+            "read_options": None,
+        }
+    elif request.param == "all":
+        return {
+            "timeout": 7,
+            "headers": [(b"abc", b"def")],
+            "write_options": pa.ipc.IpcWriteOptions(compression="zstd"),
+            "read_options": pa.ipc.IpcReadOptions(
+                use_threads=False,
+                ensure_alignment=pa.ipc.Alignment.DataTypeSpecific,
+            ),
+        }
+    else:
+        return {}
+
+
+@pytest.mark.parametrize(
+    "call_options_args", ["default", "all"], indirect=True)
+def test_call_options_repr(call_options_args):
+    # https://github.com/apache/arrow/issues/47358
+    call_options = FlightCallOptions(**call_options_args)
+    repr = call_options.__repr__()
+
+    for arg, val in call_options_args.items():
+        if val is None:
+            assert arg in repr
+            continue
+
+        assert f"{arg}={val}" in repr
