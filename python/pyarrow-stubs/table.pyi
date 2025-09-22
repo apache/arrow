@@ -15,7 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-import datetime as dt
 import sys
 
 if sys.version_info >= (3, 11):
@@ -26,18 +25,9 @@ if sys.version_info >= (3, 10):
     from typing import TypeAlias
 else:
     from typing_extensions import TypeAlias
-from typing import (
-    Any,
-    Collection,
-    Generator,
-    Generic,
-    Iterable,
-    Iterator,
-    Literal,
-    Mapping,
-    Sequence,
-    TypeVar,
-)
+from collections.abc import (
+    Collection, Generator, Iterable, Iterator, Sequence, Mapping)
+from typing import (Any, Generic, Literal, TypeVar)
 import builtins
 
 import numpy as np
@@ -127,17 +117,16 @@ _AggregationPrefixed: TypeAlias = Literal[
     "hash_variance",
 ]
 Aggregation: TypeAlias = _Aggregation | _AggregationPrefixed
-AggregateOptions: TypeAlias = (
-    ScalarAggregateOptions | CountOptions | TDigestOptions | VarianceOptions | FunctionOptions
-)
+AggregateOptions: TypeAlias = (ScalarAggregateOptions | CountOptions
+                               | TDigestOptions | VarianceOptions | FunctionOptions)
 
 UnarySelector: TypeAlias = str
 NullarySelector: TypeAlias = tuple[()]
 NarySelector: TypeAlias = list[str] | tuple[str, ...]
 ColumnSelector: TypeAlias = UnarySelector | NullarySelector | NarySelector
 
-class ChunkedArray(_PandasConvertible[pd.Series], Generic[_Scalar_co]):
 
+class ChunkedArray(_PandasConvertible[pd.Series], Generic[_Scalar_co]):
 
     @property
     def data(self) -> Self: ...
@@ -147,6 +136,7 @@ class ChunkedArray(_PandasConvertible[pd.Series], Generic[_Scalar_co]):
     def length(self) -> int: ...
 
     __len__ = length
+
     def to_string(
         self,
         *,
@@ -183,7 +173,9 @@ class ChunkedArray(_PandasConvertible[pd.Series], Generic[_Scalar_co]):
 
     def to_numpy(self, zero_copy_only: bool = False) -> np.ndarray: ...
 
-    def __array__(self, dtype: np.dtype | None = None, copy: bool | None = None) -> np.ndarray: ...
+    def __array__(self, dtype: np.dtype | None = None,
+                  copy: bool | None = None) -> np.ndarray: ...
+
     def cast(
         self,
         target_type: None | _CastAs = None,
@@ -193,9 +185,11 @@ class ChunkedArray(_PandasConvertible[pd.Series], Generic[_Scalar_co]):
 
     def dictionary_encode(self, null_encoding: NullEncoding = "mask") -> Self: ...
 
-    def flatten(self, memory_pool: MemoryPool | None = None) -> list[ChunkedArray[Any]]: ...
+    def flatten(self, memory_pool: MemoryPool |
+                None = None) -> list[ChunkedArray[Any]]: ...
 
-    def combine_chunks(self, memory_pool: MemoryPool | None = None) -> Array[_Scalar_co]: ...
+    def combine_chunks(self, memory_pool: MemoryPool |
+                       None = None) -> Array[_Scalar_co]: ...
 
     def unique(self) -> ChunkedArray[_Scalar_co]: ...
 
@@ -203,7 +197,8 @@ class ChunkedArray(_PandasConvertible[pd.Series], Generic[_Scalar_co]):
 
     def slice(self, offset: int = 0, length: int | None = None) -> Self: ...
 
-    def filter(self, mask: Mask, null_selection_behavior: NullSelectionBehavior = "drop") -> Self: ...
+    def filter(self, mask: Mask,
+               null_selection_behavior: NullSelectionBehavior = "drop") -> Self: ...
 
     def index(
         self: ChunkedArray[Scalar[_BasicDataType[_AsPyType]]],
@@ -235,6 +230,7 @@ class ChunkedArray(_PandasConvertible[pd.Series], Generic[_Scalar_co]):
     ) -> Generator[Array, None, None]: ...
 
     def __iter__(self) -> Iterator[_Scalar_co]: ...
+
     def to_pylist(
         self: ChunkedArray[Scalar[_BasicDataType[_AsPyType]]],
         *,
@@ -251,15 +247,20 @@ class ChunkedArray(_PandasConvertible[pd.Series], Generic[_Scalar_co]):
 
 
 def chunked_array(
-    arrays: Iterable[NullableCollection[Any]] | Iterable[Iterable[Any] | SupportArrowStream | SupportArrowArray] | Iterable[Array[_ScalarT]],
+    arrays: Iterable[NullableCollection[Any]]
+    | Iterable[Iterable[Any] | SupportArrowStream | SupportArrowArray]
+    | Iterable[Array[_ScalarT]],
     type: DataType | str | None = None,
 ) -> ChunkedArray[Scalar[Any]] | ChunkedArray[_ScalarT]: ...
 
 
 _ColumnT = TypeVar("_ColumnT", bound=ArrayOrChunkedArray[Any])
 
+
 class _Tabular(_PandasConvertible[pd.DataFrame], Generic[_ColumnT]):
-    def __array__(self, dtype: np.dtype | None = None, copy: bool | None = None) -> np.ndarray: ...
+    def __array__(self, dtype: np.dtype | None = None,
+                  copy: bool | None = None) -> np.ndarray: ...
+
     def __dataframe__(
         self, nan_as_null: bool = False, allow_copy: bool = True
     ) -> _PyArrowDataFrame: ...
@@ -313,8 +314,9 @@ class _Tabular(_PandasConvertible[pd.DataFrame], Generic[_ColumnT]):
     def take(self, indices: Indices) -> Self: ...
 
     def filter(
-        self, mask: Mask | Expression, null_selection_behavior: NullSelectionBehavior = "drop"
-    ) -> Self: ...
+        self,
+        mask: Mask | Expression,
+        null_selection_behavior: NullSelectionBehavior = "drop") -> Self: ...
 
     def to_pydict(
         self, *, maps_as_pydicts: Literal["lossy", "strict"] | None = None
@@ -324,21 +326,21 @@ class _Tabular(_PandasConvertible[pd.DataFrame], Generic[_ColumnT]):
         self, *, maps_as_pydicts: Literal["lossy", "strict"] | None = None
     ) -> list[dict[str, Any]]: ...
 
-    def to_string(self, *, show_metadata: bool = False, preview_cols: int = 0) -> str: ...
+    def to_string(self, *, show_metadata: bool = False,
+                  preview_cols: int = 0) -> str: ...
 
     def remove_column(self, i: int) -> Self: ...
     def drop_columns(self, columns: str | list[str]) -> Self: ...
 
-    def add_column(
-        self, i: int, field_: str | Field, column: ArrayOrChunkedArray[Any] | list[list[Any]]
-    ) -> Self: ...
+    def add_column(self, i: int, field_: str | Field,
+                   column: ArrayOrChunkedArray[Any] | list[list[Any]]) -> Self: ...
+
     def append_column(
         self, field_: str | Field, column: ArrayOrChunkedArray[Any] | list[list[Any]]
     ) -> Self: ...
 
 
 class RecordBatch(_Tabular[Array]):
-
 
     def validate(self, *, full: bool = False) -> None: ...
 
@@ -348,7 +350,6 @@ class RecordBatch(_Tabular[Array]):
 
     @property
     def num_columns(self) -> int: ...
-
 
     @property
     def num_rows(self) -> int: ...
@@ -361,8 +362,8 @@ class RecordBatch(_Tabular[Array]):
 
     def get_total_buffer_size(self) -> int: ...
 
-
     def __sizeof__(self) -> int: ...
+
     def add_column(
         self, i: int, field_: str | Field, column: ArrayOrChunkedArray[Any] | list
     ) -> Self: ...
@@ -379,11 +380,11 @@ class RecordBatch(_Tabular[Array]):
 
     def equals(self, other: Self, check_metadata: bool = False) -> bool: ...
 
-    def select(self, columns: Iterable[str] | Iterable[int] | NDArray[np.str_]) -> Self: ...
+    def select(self, columns: Iterable[str] |
+               Iterable[int] | NDArray[np.str_]) -> Self: ...
 
-    def cast(
-        self, target_schema: Schema, safe: bool | None = None, options: CastOptions | None = None
-    ) -> Self: ...
+    def cast(self, target_schema: Schema, safe: bool | None = None,
+             options: CastOptions | None = None) -> Self: ...
 
     @classmethod
     def from_arrays(
@@ -451,6 +452,7 @@ class RecordBatch(_Tabular[Array]):
 
 def table_to_blocks(options, table: Table, categories, extension_columns): ...
 
+
 JoinType: TypeAlias = Literal[
     "left semi",
     "right semi",
@@ -462,14 +464,15 @@ JoinType: TypeAlias = Literal[
     "full outer",
 ]
 
-class Table(_Tabular[ChunkedArray[Any]]):
 
+class Table(_Tabular[ChunkedArray[Any]]):
 
     def validate(self, *, full: bool = False) -> None: ...
 
     def slice(self, offset: int = 0, length: int | None = None) -> Self: ...
 
-    def select(self, columns: Iterable[str] | Iterable[int] | NDArray[np.str_]) -> Self: ...
+    def select(self, columns: Iterable[str] |
+               Iterable[int] | NDArray[np.str_]) -> Self: ...
 
     def replace_schema_metadata(
         self, metadata: dict[str | bytes, str | bytes] | None = None
@@ -483,9 +486,8 @@ class Table(_Tabular[ChunkedArray[Any]]):
 
     def equals(self, other: Self, check_metadata: bool = False) -> Self: ...
 
-    def cast(
-        self, target_schema: Schema, safe: bool | None = None, options: CastOptions | None = None
-    ) -> Self: ...
+    def cast(self, target_schema: Schema, safe: bool | None = None,
+             options: CastOptions | None = None) -> Self: ...
 
     @classmethod
     def from_pandas(
@@ -517,7 +519,8 @@ class Table(_Tabular[ChunkedArray[Any]]):
     ) -> ChunkedArray[StructScalar]: ...
 
     @classmethod
-    def from_batches(cls, batches: Iterable[RecordBatch], schema: Schema | None = None) -> Self: ...
+    def from_batches(cls, batches: Iterable[RecordBatch],
+                     schema: Schema | None = None) -> Self: ...
 
     def to_batches(self, max_chunksize: int | None = None) -> list[RecordBatch]: ...
 
@@ -538,21 +541,21 @@ class Table(_Tabular[ChunkedArray[Any]]):
     def get_total_buffer_size(self) -> int: ...
 
     def __sizeof__(self) -> int: ...
-    def add_column(
-        self, i: int, field_: str | Field, column: ArrayOrChunkedArray[Any] | list[list[Any]]
-    ) -> Self: ...
+
+    def add_column(self, i: int, field_: str | Field,
+                   column: ArrayOrChunkedArray[Any] | list[list[Any]]) -> Self: ...
 
     def remove_column(self, i: int) -> Self: ...
 
-    def set_column(
-        self, i: int, field_: str | Field, column: ArrayOrChunkedArray[Any] | list[list[Any]]
-    ) -> Self: ...
+    def set_column(self, i: int, field_: str | Field,
+                   column: ArrayOrChunkedArray[Any] | list[list[Any]]) -> Self: ...
 
     def rename_columns(self, names: list[str] | dict[str, str]) -> Self: ...
 
     def drop(self, columns: str | list[str]) -> Self: ...
 
-    def group_by(self, keys: str | list[str], use_threads: bool = True) -> TableGroupBy: ...
+    def group_by(self, keys: str | list[str],
+                 use_threads: bool = True) -> TableGroupBy: ...
 
     def join(
         self,
@@ -618,9 +621,11 @@ def concat_tables(
 
 class TableGroupBy:
 
-
     keys: str | list[str]
-    def __init__(self, table: Table, keys: str | list[str], use_threads: bool = True): ...
+
+    def __init__(self, table: Table, keys: str |
+                 list[str], use_threads: bool = True): ...
+
     def aggregate(
         self,
         aggregations: Iterable[
@@ -632,6 +637,7 @@ class TableGroupBy:
     def _table(self) -> Table: ...
     @property
     def _use_threads(self) -> bool: ...
+
 
 def concat_batches(
     recordbatches: Iterable[RecordBatch], memory_pool: MemoryPool | None = None

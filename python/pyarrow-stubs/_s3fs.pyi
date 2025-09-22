@@ -96,7 +96,8 @@ class S3FileSystem(FileSystem):
         allow_bucket_creation: bool = False,
         allow_bucket_deletion: bool = False,
         check_directory_existence_before_creation: bool = False,
-        retry_strategy: S3RetryStrategy = AwsStandardS3RetryStrategy(max_attempts=3),
+        retry_strategy: S3RetryStrategy =
+        AwsStandardS3RetryStrategy(max_attempts=3),  # noqa: Y011
         force_virtual_addressing: bool = False,
     ): ...
     @property

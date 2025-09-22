@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-from typing import Iterable
+from collections.abc import Iterable
 
 from pyarrow.lib import MemoryPool, _Weakrefable
 

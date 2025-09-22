@@ -77,6 +77,11 @@ def make_datetimetz(unit: str, tz: str) -> DatetimeTZDtype: ...
 
 
 def table_to_dataframe(
-    options, table: Table, categories=None, ignore_metadata: bool = False, types_mapper=None
-) -> pd.DataFrame: ...
+    options,
+    table: Table,
+    categories=None,
+    ignore_metadata: bool = False,
+    types_mapper=None) -> pd.DataFrame: ...
+
+
 def make_tz_aware(series: pd.Series, tz: str) -> pd.Series: ...

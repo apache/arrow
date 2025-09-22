@@ -23,7 +23,8 @@ if sys.version_info >= (3, 11):
     from typing import Self
 else:
     from typing_extensions import Self
-from typing import IO, Callable, Iterator, Literal, Sequence
+from collections.abc import Callable, Iterator, Sequence
+from typing import IO, Literal
 
 if sys.version_info >= (3, 10):
     from typing import TypeAlias
@@ -256,7 +257,8 @@ class ParquetDataset:
 
 
 def read_table(
-    source: SingleOrList[str] | SingleOrList[Path] | SingleOrList[NativeFile] | SingleOrList[IO],
+    source: SingleOrList[str]
+    | SingleOrList[Path] | SingleOrList[NativeFile] | SingleOrList[IO],
     *,
     columns: list | None = None,
     use_threads: bool = True,

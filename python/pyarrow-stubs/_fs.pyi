@@ -30,8 +30,6 @@ if sys.version_info >= (3, 10):
 else:
     from typing_extensions import TypeAlias
 
-from typing import Union, overload
-
 from fsspec import AbstractFileSystem  # type: ignore
 
 from .lib import NativeFile, _Weakrefable
@@ -118,8 +116,10 @@ class FileSystem(_Weakrefable):
     def open_input_file(self, path: str) -> NativeFile: ...
 
     def open_input_stream(
-        self, path: str, compression: str | None = "detect", buffer_size: int | None = None
-    ) -> NativeFile: ...
+        self,
+        path: str,
+        compression: str | None = "detect",
+        buffer_size: int | None = None) -> NativeFile: ...
 
     def open_output_stream(
         self,
@@ -213,4 +213,4 @@ class FileSystemHandler(ABC):
     def normalize_path(self, path: str) -> str: ...
 
 
-SupportedFileSystem: TypeAlias = Union[AbstractFileSystem, FileSystem]
+SupportedFileSystem: TypeAlias = AbstractFileSystem | FileSystem

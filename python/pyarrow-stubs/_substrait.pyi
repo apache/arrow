@@ -15,7 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 from ._compute import Expression
 from .lib import Buffer, RecordBatchReader, Schema, Table, _Weakrefable
