@@ -46,93 +46,93 @@ test_that("paste, paste0, and str_c", {
 
   # no NAs in data
   compare_dplyr_binding(
-    .input %>%
+    .input |>
       transmute(
         a = paste(v, w),
         a2 = base::paste(v, w)
-      ) %>%
+      ) |>
       collect(),
     df
   )
   compare_dplyr_binding(
-    .input %>%
-      transmute(paste(v, w, sep = "-")) %>%
+    .input |>
+      transmute(paste(v, w, sep = "-")) |>
       collect(),
     df
   )
   compare_dplyr_binding(
-    .input %>%
+    .input |>
       transmute(
         a = paste0(v, w),
         a2 = base::paste0(v, w)
-      ) %>%
+      ) |>
       collect(),
     df
   )
   compare_dplyr_binding(
-    .input %>%
+    .input |>
       transmute(
         a = str_c(v, w),
         a2 = stringr::str_c(v, w)
-      ) %>%
+      ) |>
       collect(),
     df
   )
   compare_dplyr_binding(
-    .input %>%
-      transmute(str_c(v, w, sep = "+")) %>%
+    .input |>
+      transmute(str_c(v, w, sep = "+")) |>
       collect(),
     df
   )
 
   # NAs in data
   compare_dplyr_binding(
-    .input %>%
-      transmute(paste(x, y)) %>%
+    .input |>
+      transmute(paste(x, y)) |>
       collect(),
     df
   )
   compare_dplyr_binding(
-    .input %>%
-      transmute(paste(x, y, sep = "-")) %>%
+    .input |>
+      transmute(paste(x, y, sep = "-")) |>
       collect(),
     df
   )
   compare_dplyr_binding(
-    .input %>%
-      transmute(str_c(x, y)) %>%
+    .input |>
+      transmute(str_c(x, y)) |>
       collect(),
     df
   )
 
   # non-character column in dots
   compare_dplyr_binding(
-    .input %>%
-      transmute(paste0(x, y, z)) %>%
+    .input |>
+      transmute(paste0(x, y, z)) |>
       collect(),
     df
   )
 
   # literal string in dots
   compare_dplyr_binding(
-    .input %>%
-      transmute(paste(x, "foo", y)) %>%
+    .input |>
+      transmute(paste(x, "foo", y)) |>
       collect(),
     df
   )
 
   # literal NA in dots
   compare_dplyr_binding(
-    .input %>%
-      transmute(paste(x, NA, y)) %>%
+    .input |>
+      transmute(paste(x, NA, y)) |>
       collect(),
     df
   )
 
   # expressions in dots
   compare_dplyr_binding(
-    .input %>%
-      transmute(paste0(x, toupper(y), as.character(z))) %>%
+    .input |>
+      transmute(paste0(x, toupper(y), as.character(z))) |>
       collect(),
     df
   )
@@ -151,8 +151,8 @@ test_that("paste, paste0, and str_c", {
 
   # sep passed in dots to paste0 (which doesn't take a sep argument)
   compare_dplyr_binding(
-    .input %>%
-      transmute(paste0(x, y, sep = "-")) %>%
+    .input |>
+      transmute(paste0(x, y, sep = "-")) |>
       collect(),
     df
   )
@@ -161,11 +161,11 @@ test_that("paste, paste0, and str_c", {
 
   # arrow allows the separator to be an array
   expect_equal(
-    df %>%
-      Table$create() %>%
-      transmute(result = paste(x, y, sep = w)) %>%
+    df |>
+      Table$create() |>
+      transmute(result = paste(x, y, sep = w)) |>
       collect(),
-    df %>%
+    df |>
       transmute(result = paste(x, w, y, sep = ""))
   )
 
@@ -203,14 +203,14 @@ test_that("paste, paste0, and str_c", {
 test_that("grepl with ignore.case = FALSE and fixed = TRUE", {
   df <- tibble(x = c("Foo", "bar", NA_character_))
   compare_dplyr_binding(
-    .input %>%
-      filter(grepl("o", x, fixed = TRUE)) %>%
+    .input |>
+      filter(grepl("o", x, fixed = TRUE)) |>
       collect(),
     df
   )
   compare_dplyr_binding(
-    .input %>%
-      mutate(x = grepl("o", x, fixed = TRUE)) %>%
+    .input |>
+      mutate(x = grepl("o", x, fixed = TRUE)) |>
       collect(),
     df
   )
@@ -219,14 +219,14 @@ test_that("grepl with ignore.case = FALSE and fixed = TRUE", {
 test_that("sub and gsub with ignore.case = FALSE and fixed = TRUE", {
   df <- tibble(x = c("Foo", "bar"))
   compare_dplyr_binding(
-    .input %>%
-      transmute(x = sub("Foo", "baz", x, fixed = TRUE)) %>%
+    .input |>
+      transmute(x = sub("Foo", "baz", x, fixed = TRUE)) |>
       collect(),
     df
   )
   compare_dplyr_binding(
-    .input %>%
-      transmute(x = gsub("o", "u", x, fixed = TRUE)) %>%
+    .input |>
+      transmute(x = gsub("o", "u", x, fixed = TRUE)) |>
       collect(),
     df
   )
@@ -240,27 +240,27 @@ test_that("grepl", {
 
   for (fixed in c(TRUE, FALSE)) {
     compare_dplyr_binding(
-      .input %>%
-        filter(grepl("Foo", x, fixed = fixed)) %>%
+      .input |>
+        filter(grepl("Foo", x, fixed = fixed)) |>
         collect(),
       df
     )
     compare_dplyr_binding(
-      .input %>%
-        transmute(x = grepl("^B.+", x, ignore.case = FALSE, fixed = fixed)) %>%
+      .input |>
+        transmute(x = grepl("^B.+", x, ignore.case = FALSE, fixed = fixed)) |>
         collect(),
       df
     )
     compare_dplyr_binding(
-      .input %>%
-        filter(grepl("Foo", x, ignore.case = FALSE, fixed = fixed)) %>%
+      .input |>
+        filter(grepl("Foo", x, ignore.case = FALSE, fixed = fixed)) |>
         collect(),
       df
     )
     # with namespacing
     compare_dplyr_binding(
-      .input %>%
-        filter(base::grepl("Foo", x, fixed = fixed)) %>%
+      .input |>
+        filter(base::grepl("Foo", x, fixed = fixed)) |>
         collect(),
       df
     )
@@ -273,25 +273,25 @@ test_that("grepl with ignore.case = TRUE and fixed = TRUE", {
   # base::grepl() ignores ignore.case = TRUE with a warning when fixed = TRUE,
   # so we can't use compare_dplyr_binding() for these tests
   expect_equal(
-    df %>%
-      Table$create() %>%
-      filter(grepl("O", x, ignore.case = TRUE, fixed = TRUE)) %>%
+    df |>
+      Table$create() |>
+      filter(grepl("O", x, ignore.case = TRUE, fixed = TRUE)) |>
       collect(),
     tibble(x = "Foo")
   )
   expect_equal(
-    df %>%
-      Table$create() %>%
-      filter(grepl("^B.+", x, ignore.case = TRUE, fixed = TRUE)) %>%
+    df |>
+      Table$create() |>
+      filter(grepl("^B.+", x, ignore.case = TRUE, fixed = TRUE)) |>
       collect(),
     tibble(x = character(0))
   )
   expect_equal(
-    df %>%
-      Table$create() %>%
+    df |>
+      Table$create() |>
       mutate(
         a = grepl("O", x, ignore.case = TRUE, fixed = TRUE)
-      ) %>%
+      ) |>
       collect(),
     tibble(
       x = c("Foo", "bar", NA_character_),
@@ -304,56 +304,56 @@ test_that("str_detect", {
   df <- tibble(x = c("Foo", "bar", NA_character_))
 
   compare_dplyr_binding(
-    .input %>%
-      filter(str_detect(x, regex("^F"))) %>%
+    .input |>
+      filter(str_detect(x, regex("^F"))) |>
       collect(),
     df
   )
 
   string <- "^F"
   compare_dplyr_binding(
-    .input %>%
-      filter(str_detect(x, regex(string))) %>%
+    .input |>
+      filter(str_detect(x, regex(string))) |>
       collect(),
     df
   )
 
   compare_dplyr_binding(
-    .input %>%
+    .input |>
       transmute(
         a = str_detect(x, regex("^f[A-Z]{2}", ignore_case = TRUE)),
         a2 = stringr::str_detect(x, regex("^f[A-Z]{2}", ignore_case = TRUE))
-      ) %>%
+      ) |>
       collect(),
     df
   )
   compare_dplyr_binding(
-    .input %>%
-      transmute(x = str_detect(x, regex("^f[A-Z]{2}", ignore_case = TRUE), negate = TRUE)) %>%
+    .input |>
+      transmute(x = str_detect(x, regex("^f[A-Z]{2}", ignore_case = TRUE), negate = TRUE)) |>
       collect(),
     df
   )
   compare_dplyr_binding(
-    .input %>%
-      filter(str_detect(x, fixed("o"))) %>%
+    .input |>
+      filter(str_detect(x, fixed("o"))) |>
       collect(),
     df
   )
   compare_dplyr_binding(
-    .input %>%
-      filter(str_detect(x, fixed("O"))) %>%
+    .input |>
+      filter(str_detect(x, fixed("O"))) |>
       collect(),
     df
   )
   compare_dplyr_binding(
-    .input %>%
-      filter(str_detect(x, fixed("O", ignore_case = TRUE))) %>%
+    .input |>
+      filter(str_detect(x, fixed("O", ignore_case = TRUE))) |>
       collect(),
     df
   )
   compare_dplyr_binding(
-    .input %>%
-      filter(str_detect(x, fixed("O", ignore_case = TRUE), negate = TRUE)) %>%
+    .input |>
+      filter(str_detect(x, fixed("O", ignore_case = TRUE), negate = TRUE)) |>
       collect(),
     df
   )
@@ -364,20 +364,20 @@ test_that("sub and gsub", {
 
   for (fixed in c(TRUE, FALSE)) {
     compare_dplyr_binding(
-      .input %>%
-        transmute(x = sub("Foo", "baz", x, fixed = fixed)) %>%
+      .input |>
+        transmute(x = sub("Foo", "baz", x, fixed = fixed)) |>
         collect(),
       df
     )
     compare_dplyr_binding(
-      .input %>%
-        transmute(x = sub("^B.+", "baz", x, ignore.case = FALSE, fixed = fixed)) %>%
+      .input |>
+        transmute(x = sub("^B.+", "baz", x, ignore.case = FALSE, fixed = fixed)) |>
         collect(),
       df
     )
     compare_dplyr_binding(
-      .input %>%
-        transmute(x = sub("Foo", "baz", x, ignore.case = FALSE, fixed = fixed)) %>%
+      .input |>
+        transmute(x = sub("Foo", "baz", x, ignore.case = FALSE, fixed = fixed)) |>
         collect(),
       df
     )
@@ -390,23 +390,23 @@ test_that("sub and gsub with ignore.case = TRUE and fixed = TRUE", {
   # base::sub() and base::gsub() ignore ignore.case = TRUE with a warning when
   # fixed = TRUE, so we can't use compare_dplyr_binding() for these tests
   expect_equal(
-    df %>%
-      Table$create() %>%
-      transmute(x = sub("O", "u", x, ignore.case = TRUE, fixed = TRUE)) %>%
+    df |>
+      Table$create() |>
+      transmute(x = sub("O", "u", x, ignore.case = TRUE, fixed = TRUE)) |>
       collect(),
     tibble(x = c("Fuo", "bar"))
   )
   expect_equal(
-    df %>%
-      Table$create() %>%
-      transmute(x = gsub("o", "u", x, ignore.case = TRUE, fixed = TRUE)) %>%
+    df |>
+      Table$create() |>
+      transmute(x = gsub("o", "u", x, ignore.case = TRUE, fixed = TRUE)) |>
       collect(),
     tibble(x = c("Fuu", "bar"))
   )
   expect_equal(
-    df %>%
-      Table$create() %>%
-      transmute(x = sub("^B.+", "baz", x, ignore.case = TRUE, fixed = TRUE)) %>%
+    df |>
+      Table$create() |>
+      transmute(x = sub("^B.+", "baz", x, ignore.case = TRUE, fixed = TRUE)) |>
       collect(),
     df # unchanged
   )
@@ -414,15 +414,15 @@ test_that("sub and gsub with ignore.case = TRUE and fixed = TRUE", {
 
 test_that("sub and gsub with namespacing", {
   compare_dplyr_binding(
-    .input %>%
-      mutate(verses_new = base::gsub("o", "u", verses, fixed = TRUE)) %>%
+    .input |>
+      mutate(verses_new = base::gsub("o", "u", verses, fixed = TRUE)) |>
       collect(),
     tbl
   )
 
   compare_dplyr_binding(
-    .input %>%
-      mutate(verses_new = base::sub("o", "u", verses, fixed = TRUE)) %>%
+    .input |>
+      mutate(verses_new = base::sub("o", "u", verses, fixed = TRUE)) |>
       collect(),
     tbl
   )
@@ -449,53 +449,53 @@ test_that("str_replace and str_replace_all", {
   df <- tibble(x = c("Foo", "bar"))
 
   compare_dplyr_binding(
-    .input %>%
-      transmute(x = str_replace_all(x, "^F", "baz")) %>%
+    .input |>
+      transmute(x = str_replace_all(x, "^F", "baz")) |>
       collect(),
     df
   )
 
   compare_dplyr_binding(
-    .input %>%
-      transmute(x = str_replace_all(x, regex("^F"), "baz")) %>%
+    .input |>
+      transmute(x = str_replace_all(x, regex("^F"), "baz")) |>
       collect(),
     df
   )
 
   compare_dplyr_binding(
-    .input %>%
-      mutate(x = str_replace(x, "^F[a-z]{2}", "baz")) %>%
+    .input |>
+      mutate(x = str_replace(x, "^F[a-z]{2}", "baz")) |>
       collect(),
     df
   )
 
   compare_dplyr_binding(
-    .input %>%
-      transmute(x = str_replace(x, regex("^f[A-Z]{2}", ignore_case = TRUE), "baz")) %>%
+    .input |>
+      transmute(x = str_replace(x, regex("^f[A-Z]{2}", ignore_case = TRUE), "baz")) |>
       collect(),
     df
   )
   compare_dplyr_binding(
-    .input %>%
+    .input |>
       transmute(
         x = str_replace_all(x, fixed("o"), "u"),
         x2 = stringr::str_replace_all(x, fixed("o"), "u")
-      ) %>%
+      ) |>
       collect(),
     df
   )
   compare_dplyr_binding(
-    .input %>%
+    .input |>
       transmute(
         x = str_replace(x, fixed("O"), "u"),
         x2 = stringr::str_replace(x, fixed("O"), "u")
-      ) %>%
+      ) |>
       collect(),
     df
   )
   compare_dplyr_binding(
-    .input %>%
-      transmute(x = str_replace(x, fixed("O", ignore_case = TRUE), "u")) %>%
+    .input |>
+      transmute(x = str_replace(x, fixed("O", ignore_case = TRUE), "u")) |>
       collect(),
     df
   )
@@ -505,8 +505,8 @@ test_that("strsplit and str_split", {
   df <- tibble(x = c("Foo and bar", "baz and qux and quux"))
 
   compare_dplyr_binding(
-    .input %>%
-      mutate(x = strsplit(x, "and")) %>%
+    .input |>
+      mutate(x = strsplit(x, "and")) |>
       collect(),
     df,
     # `ignore_attr = TRUE` because the vctr coming back from arrow (ListArray)
@@ -514,56 +514,56 @@ test_that("strsplit and str_split", {
     ignore_attr = TRUE
   )
   compare_dplyr_binding(
-    .input %>%
-      mutate(x = strsplit(x, "and.*", fixed = TRUE)) %>%
+    .input |>
+      mutate(x = strsplit(x, "and.*", fixed = TRUE)) |>
       collect(),
     df,
     ignore_attr = TRUE
   )
   compare_dplyr_binding(
-    .input %>%
+    .input |>
       mutate(
         a = strsplit(x, " +and +"),
         a2 = base::strsplit(x, " +and +")
-      ) %>%
+      ) |>
       collect(),
     df,
     ignore_attr = TRUE
   )
   compare_dplyr_binding(
-    .input %>%
+    .input |>
       mutate(
         a = str_split(x, "and"),
         a2 = stringr::str_split(x, "and")
-      ) %>%
+      ) |>
       collect(),
     df,
     ignore_attr = TRUE
   )
   compare_dplyr_binding(
-    .input %>%
-      mutate(x = str_split(x, "and", n = 2)) %>%
+    .input |>
+      mutate(x = str_split(x, "and", n = 2)) |>
       collect(),
     df,
     ignore_attr = TRUE
   )
   compare_dplyr_binding(
-    .input %>%
-      mutate(x = str_split(x, fixed("and"), n = 2)) %>%
+    .input |>
+      mutate(x = str_split(x, fixed("and"), n = 2)) |>
       collect(),
     df,
     ignore_attr = TRUE
   )
   compare_dplyr_binding(
-    .input %>%
-      mutate(x = str_split(x, regex("and"), n = 2)) %>%
+    .input |>
+      mutate(x = str_split(x, regex("and"), n = 2)) |>
       collect(),
     df,
     ignore_attr = TRUE
   )
   compare_dplyr_binding(
-    .input %>%
-      mutate(x = str_split(x, "Foo|bar", n = 2)) %>%
+    .input |>
+      mutate(x = str_split(x, "Foo|bar", n = 2)) |>
       collect(),
     df,
     ignore_attr = TRUE
@@ -574,15 +574,15 @@ test_that("strrep and str_dup", {
   df <- tibble(x = c("foo1", " \tB a R\n", "!apACHe aRroW!"))
   for (times in 0:8) {
     compare_dplyr_binding(
-      .input %>%
-        mutate(x = strrep(x, times)) %>%
+      .input |>
+        mutate(x = strrep(x, times)) |>
         collect(),
       df
     )
 
     compare_dplyr_binding(
-      .input %>%
-        mutate(x = str_dup(x, times)) %>%
+      .input |>
+        mutate(x = str_dup(x, times)) |>
         collect(),
       df
     )
@@ -592,7 +592,7 @@ test_that("strrep and str_dup", {
 test_that("str_to_lower, str_to_upper, and str_to_title", {
   df <- tibble(x = c("foo1", " \tB a R\n", "!apACHe aRroW!"))
   compare_dplyr_binding(
-    .input %>%
+    .input |>
       transmute(
         x_lower = str_to_lower(x),
         x_upper = str_to_upper(x),
@@ -600,7 +600,7 @@ test_that("str_to_lower, str_to_upper, and str_to_title", {
         x_lower_nmspc = stringr::str_to_lower(x),
         x_upper_nmspc = stringr::str_to_upper(x),
         x_title_nmspc = stringr::str_to_title(x)
-      ) %>%
+      ) |>
       collect(),
     df
   )
@@ -629,17 +629,17 @@ test_that("arrow_*_split_whitespace functions", {
 
   # use default option values
   expect_equal(
-    df_ascii %>%
-      Table$create() %>%
-      mutate(x = arrow_ascii_split_whitespace(x)) %>%
+    df_ascii |>
+      Table$create() |>
+      mutate(x = arrow_ascii_split_whitespace(x)) |>
       collect(),
     df_split,
     ignore_attr = TRUE
   )
   expect_equal(
-    df_utf8 %>%
-      Table$create() %>%
-      mutate(x = arrow_utf8_split_whitespace(x)) %>%
+    df_utf8 |>
+      Table$create() |>
+      mutate(x = arrow_utf8_split_whitespace(x)) |>
       collect(),
     df_split,
     ignore_attr = TRUE
@@ -647,21 +647,21 @@ test_that("arrow_*_split_whitespace functions", {
 
   # specify non-default option values
   expect_equal(
-    df_ascii %>%
-      Table$create() %>%
+    df_ascii |>
+      Table$create() |>
       mutate(
         x = arrow_ascii_split_whitespace(x, options = list(max_splits = 1, reverse = TRUE))
-      ) %>%
+      ) |>
       collect(),
     tibble(x = list(c("Foo\nand", "bar"), c("baz\tand qux and", "quux"))),
     ignore_attr = TRUE
   )
   expect_equal(
-    df_utf8 %>%
-      Table$create() %>%
+    df_utf8 |>
+      Table$create() |>
       mutate(
         x = arrow_utf8_split_whitespace(x, options = list(max_splits = 1, reverse = TRUE))
-      ) %>%
+      ) |>
       collect(),
     tibble(x = list(c("Foo\u00A0and", "bar"), c("baz\u2006and\u1680qux\u3000and", "quux"))),
     ignore_attr = TRUE
@@ -727,8 +727,8 @@ test_that("backreferences in pattern in string detection", {
   df <- tibble(x = c("Foo", "bar"))
 
   compare_dplyr_binding(
-    .input %>%
-      filter(str_detect(x, regex("F([aeiou])\\1"))) %>%
+    .input |>
+      filter(str_detect(x, regex("F([aeiou])\\1"))) |>
       collect(),
     df
   )
@@ -738,30 +738,30 @@ test_that("backreferences (substitutions) in string replacement", {
   df <- tibble(x = c("Foo", "bar"))
 
   compare_dplyr_binding(
-    .input %>%
+    .input |>
       transmute(desc = sub(
         "(?:https?|ftp)://([^/\r\n]+)(/[^\r\n]*)?",
         "path `\\2` on server `\\1`",
         url
-      )) %>%
+      )) |>
       collect(),
     tibble(url = "https://arrow.apache.org/docs/r/")
   )
   compare_dplyr_binding(
-    .input %>%
-      transmute(x = str_replace(x, "^(\\w)o(.*)", "\\1\\2p")) %>%
+    .input |>
+      transmute(x = str_replace(x, "^(\\w)o(.*)", "\\1\\2p")) |>
       collect(),
     df
   )
   compare_dplyr_binding(
-    .input %>%
-      transmute(x = str_replace(x, regex("^(\\w)o(.*)", ignore_case = TRUE), "\\1\\2p")) %>%
+    .input |>
+      transmute(x = str_replace(x, regex("^(\\w)o(.*)", ignore_case = TRUE), "\\1\\2p")) |>
       collect(),
     df
   )
   compare_dplyr_binding(
-    .input %>%
-      transmute(x = str_replace(x, regex("^(\\w)o(.*)", ignore_case = TRUE), "\\1\\2p")) %>%
+    .input |>
+      transmute(x = str_replace(x, regex("^(\\w)o(.*)", ignore_case = TRUE), "\\1\\2p")) |>
       collect(),
     df
   )
@@ -773,16 +773,16 @@ test_that("edge cases in string detection and replacement", {
   # this test does not use compare_dplyr_binding() because base::sub() and
   # base::grepl() do not support ignore.case = TRUE when fixed = TRUE.
   expect_equal(
-    tibble(x = c("\\Q\\e\\D")) %>%
-      Table$create() %>%
-      filter(grepl("\\E", x, ignore.case = TRUE, fixed = TRUE)) %>%
+    tibble(x = c("\\Q\\e\\D")) |>
+      Table$create() |>
+      filter(grepl("\\E", x, ignore.case = TRUE, fixed = TRUE)) |>
       collect(),
     tibble(x = c("\\Q\\e\\D"))
   )
   expect_equal(
-    tibble(x = c("\\Q\\e\\D")) %>%
-      Table$create() %>%
-      transmute(x = sub("\\E", "\\L", x, ignore.case = TRUE, fixed = TRUE)) %>%
+    tibble(x = c("\\Q\\e\\D")) |>
+      Table$create() |>
+      transmute(x = sub("\\E", "\\L", x, ignore.case = TRUE, fixed = TRUE)) |>
       collect(),
     tibble(x = c("\\Q\\L\\D"))
   )
@@ -790,14 +790,14 @@ test_that("edge cases in string detection and replacement", {
   # test that a user's "(?i)" prefix does not break the "(?i)" prefix that's
   # added in case-insensitive regex match/replace
   compare_dplyr_binding(
-    .input %>%
-      filter(grepl("(?i)^[abc]{3}$", x, ignore.case = TRUE, fixed = FALSE)) %>%
+    .input |>
+      filter(grepl("(?i)^[abc]{3}$", x, ignore.case = TRUE, fixed = FALSE)) |>
       collect(),
     tibble(x = c("ABC"))
   )
   compare_dplyr_binding(
-    .input %>%
-      transmute(x = sub("(?i)^[abc]{3}$", "123", x, ignore.case = TRUE, fixed = FALSE)) %>%
+    .input |>
+      transmute(x = sub("(?i)^[abc]{3}$", "123", x, ignore.case = TRUE, fixed = FALSE)) |>
       collect(),
     tibble(x = c("ABC"))
   )
@@ -807,39 +807,39 @@ test_that("arrow_find_substring and arrow_find_substring_regex", {
   df <- tibble(x = c("Foo and Bar", "baz and qux and quux"))
 
   expect_equal(
-    df %>%
-      Table$create() %>%
-      mutate(x = arrow_find_substring(x, options = list(pattern = "b"))) %>%
+    df |>
+      Table$create() |>
+      mutate(x = arrow_find_substring(x, options = list(pattern = "b"))) |>
       collect(),
     tibble(x = c(-1, 0))
   )
   expect_equal(
-    df %>%
-      Table$create() %>%
+    df |>
+      Table$create() |>
       mutate(x = arrow_find_substring(
         x,
         options = list(pattern = "b", ignore_case = TRUE)
-      )) %>%
+      )) |>
       collect(),
     tibble(x = c(8, 0))
   )
   expect_equal(
-    df %>%
-      Table$create() %>%
+    df |>
+      Table$create() |>
       mutate(x = arrow_find_substring_regex(
         x,
         options = list(pattern = "^[fb]")
-      )) %>%
+      )) |>
       collect(),
     tibble(x = c(-1, 0))
   )
   expect_equal(
-    df %>%
-      Table$create() %>%
+    df |>
+      Table$create() |>
       mutate(x = arrow_find_substring_regex(
         x,
         options = list(pattern = "[AEIOU]", ignore_case = TRUE)
-      )) %>%
+      )) |>
       collect(),
     tibble(x = c(1, 1))
   )
@@ -851,31 +851,31 @@ test_that("stri_reverse and arrow_ascii_reverse functions", {
   df_utf8 <- tibble(x = c("Foo\u00A0\u0061nd\u00A0bar", "\u0062az\u00A0and\u00A0qux\u3000and\u00A0quux"))
 
   compare_dplyr_binding(
-    .input %>%
-      mutate(x = stri_reverse(x)) %>%
+    .input |>
+      mutate(x = stri_reverse(x)) |>
       collect(),
     df_utf8
   )
 
   compare_dplyr_binding(
-    .input %>%
-      mutate(x = stri_reverse(x)) %>%
+    .input |>
+      mutate(x = stri_reverse(x)) |>
       collect(),
     df_ascii
   )
 
   expect_equal(
-    df_ascii %>%
-      Table$create() %>%
-      mutate(x = arrow_ascii_reverse(x)) %>%
+    df_ascii |>
+      Table$create() |>
+      mutate(x = arrow_ascii_reverse(x)) |>
       collect(),
     tibble(x = c("rab dna\nooF", "xuuq dna xuq dna\tzab"))
   )
 
   expect_error(
-    df_utf8 %>%
-      Table$create() %>%
-      mutate(x = arrow_ascii_reverse(x)) %>%
+    df_utf8 |>
+      Table$create() |>
+      mutate(x = arrow_ascii_reverse(x)) |>
       collect(),
     "Invalid: Non-ASCII sequence in input"
   )
@@ -886,54 +886,54 @@ test_that("str_like", {
 
   # No match - entire string
   compare_dplyr_binding(
-    .input %>%
-      mutate(x = str_like(x, "baz")) %>%
+    .input |>
+      mutate(x = str_like(x, "baz")) |>
       collect(),
     df
   )
   # with namespacing
   compare_dplyr_binding(
-    .input %>%
-      mutate(x = stringr::str_like(x, "baz")) %>%
+    .input |>
+      mutate(x = stringr::str_like(x, "baz")) |>
       collect(),
     df
   )
 
   # Match - entire string
   compare_dplyr_binding(
-    .input %>%
-      mutate(x = str_like(x, "Foo and bar")) %>%
+    .input |>
+      mutate(x = str_like(x, "Foo and bar")) |>
       collect(),
     df
   )
 
   # Wildcard
   compare_dplyr_binding(
-    .input %>%
-      mutate(x = str_like(x, "f%", ignore_case = TRUE)) %>%
+    .input |>
+      mutate(x = str_like(x, "f%", ignore_case = TRUE)) |>
       collect(),
     df
   )
 
   # Ignore case
   compare_dplyr_binding(
-    .input %>%
-      mutate(x = str_like(x, "f%", ignore_case = FALSE)) %>%
+    .input |>
+      mutate(x = str_like(x, "f%", ignore_case = FALSE)) |>
       collect(),
     df
   )
 
   # Single character
   compare_dplyr_binding(
-    .input %>%
-      mutate(x = str_like(x, "_a%")) %>%
+    .input |>
+      mutate(x = str_like(x, "_a%")) |>
       collect(),
     df
   )
 
   compare_dplyr_binding(
-    .input %>%
-      mutate(x = str_like(x, "%baz%")) %>%
+    .input |>
+      mutate(x = str_like(x, "%baz%")) |>
       collect(),
     df
   )
@@ -943,39 +943,39 @@ test_that("str_pad", {
   df <- tibble(x = c("Foo and bar", "baz and qux and quux"))
 
   compare_dplyr_binding(
-    .input %>%
-      mutate(x = str_pad(x, width = 31)) %>%
+    .input |>
+      mutate(x = str_pad(x, width = 31)) |>
       collect(),
     df
   )
 
   compare_dplyr_binding(
-    .input %>%
-      mutate(x = str_pad(x, width = 30, side = "right")) %>%
+    .input |>
+      mutate(x = str_pad(x, width = 30, side = "right")) |>
       collect(),
     df
   )
 
   compare_dplyr_binding(
-    .input %>%
-      mutate(x = str_pad(x, width = 31, side = "left", pad = "+")) %>%
+    .input |>
+      mutate(x = str_pad(x, width = 31, side = "left", pad = "+")) |>
       collect(),
     df
   )
 
   compare_dplyr_binding(
-    .input %>%
-      mutate(x = str_pad(x, width = 10, side = "left", pad = "+")) %>%
+    .input |>
+      mutate(x = str_pad(x, width = 10, side = "left", pad = "+")) |>
       collect(),
     df
   )
 
   compare_dplyr_binding(
-    .input %>%
+    .input |>
       mutate(
         a = str_pad(x, width = 31, side = "both"),
         a2 = stringr::str_pad(x, width = 31, side = "both")
-      ) %>%
+      ) |>
       collect(),
     df
   )
@@ -985,67 +985,67 @@ test_that("substr with string()", {
   df <- tibble(x = "Apache Arrow")
 
   compare_dplyr_binding(
-    .input %>%
-      mutate(y = substr(x, 1, 6)) %>%
+    .input |>
+      mutate(y = substr(x, 1, 6)) |>
       collect(),
     df
   )
 
   compare_dplyr_binding(
-    .input %>%
-      mutate(y = substr(x, 0, 6)) %>%
+    .input |>
+      mutate(y = substr(x, 0, 6)) |>
       collect(),
     df
   )
 
   compare_dplyr_binding(
-    .input %>%
-      mutate(y = substr(x, -1, 6)) %>%
+    .input |>
+      mutate(y = substr(x, -1, 6)) |>
       collect(),
     df
   )
 
   compare_dplyr_binding(
-    .input %>%
-      mutate(y = substr(x, 6, 1)) %>%
+    .input |>
+      mutate(y = substr(x, 6, 1)) |>
       collect(),
     df
   )
 
   compare_dplyr_binding(
-    .input %>%
-      mutate(y = substr(x, -1, -2)) %>%
+    .input |>
+      mutate(y = substr(x, -1, -2)) |>
       collect(),
     df
   )
 
   compare_dplyr_binding(
-    .input %>%
-      mutate(y = substr(x, 9, 6)) %>%
+    .input |>
+      mutate(y = substr(x, 9, 6)) |>
       collect(),
     df
   )
 
   compare_dplyr_binding(
-    .input %>%
-      mutate(y = substr(x, 1, 6)) %>%
+    .input |>
+      mutate(y = substr(x, 1, 6)) |>
       collect(),
     df
   )
 
   compare_dplyr_binding(
-    .input %>%
-      mutate(y = substr(x, 8, 12)) %>%
+    .input |>
+      mutate(y = substr(x, 8, 12)) |>
       collect(),
     df
   )
 
   compare_dplyr_binding(
-    .input %>%
+    .input |>
       mutate(
         y = substr(x, -5, -1),
         y2 = base::substr(x, -5, -1)
-      ) %>%
+      ) |>
       collect(),
     df
   )
@@ -1067,9 +1067,9 @@ test_that("substr with binary()", {
 
   # Check a field reference input
   expect_identical(
-    batch %>%
-      transmute(y = substr(x, 1, 3)) %>%
-      collect() %>%
+    batch |>
+      transmute(y = substr(x, 1, 3)) |>
+      collect() |>
       # because of the arrow_binary class
       mutate(y = unclass(y)),
     tibble::tibble(y = list(charToRaw("Apa")))
@@ -1078,9 +1078,9 @@ test_that("substr with binary()", {
   # Check a Scalar input
   scalar <- Scalar$create(batch$x)
   expect_identical(
-    batch %>%
-      transmute(y = substr(scalar, 1, 3)) %>%
-      collect() %>%
+    batch |>
+      transmute(y = substr(scalar, 1, 3)) |>
+      collect() |>
       # because of the arrow_binary class
       mutate(y = unclass(y)),
     tibble::tibble(y = list(charToRaw("Apa")))
@@ -1093,11 +1093,11 @@ test_that("substring", {
   df <- tibble(x = "Apache Arrow")
 
   compare_dplyr_binding(
-    .input %>%
+    .input |>
       mutate(
         y = substring(x, 1, 6),
         y2 = base::substring(x, 1, 6)
-      ) %>%
+      ) |>
       collect(),
     df
   )
@@ -1107,83 +1107,83 @@ test_that("str_sub", {
   df <- tibble(x = "Apache Arrow")
 
   compare_dplyr_binding(
-    .input %>%
-      mutate(y = str_sub(x, 1, 6)) %>%
+    .input |>
+      mutate(y = str_sub(x, 1, 6)) |>
       collect(),
     df
   )
 
   compare_dplyr_binding(
-    .input %>%
-      mutate(y = str_sub(x, 0, 6)) %>%
+    .input |>
+      mutate(y = str_sub(x, 0, 6)) |>
       collect(),
     df
   )
 
   compare_dplyr_binding(
-    .input %>%
-      mutate(y = str_sub(x, -1, 6)) %>%
+    .input |>
+      mutate(y = str_sub(x, -1, 6)) |>
       collect(),
     df
   )
 
   compare_dplyr_binding(
-    .input %>%
-      mutate(y = str_sub(x, 6, 1)) %>%
+    .input |>
+      mutate(y = str_sub(x, 6, 1)) |>
       collect(),
     df
   )
 
   compare_dplyr_binding(
-    .input %>%
-      mutate(y = str_sub(x, -1, -2)) %>%
+    .input |>
+      mutate(y = str_sub(x, -1, -2)) |>
       collect(),
     df
   )
 
   compare_dplyr_binding(
-    .input %>%
-      mutate(y = str_sub(x, -1, 3)) %>%
+    .input |>
+      mutate(y = str_sub(x, -1, 3)) |>
       collect(),
     df
   )
 
   compare_dplyr_binding(
-    .input %>%
-      mutate(y = str_sub(x, 9, 6)) %>%
+    .input |>
+      mutate(y = str_sub(x, 9, 6)) |>
       collect(),
     df
   )
 
   compare_dplyr_binding(
-    .input %>%
-      mutate(y = str_sub(x, 1, 6)) %>%
+    .input |>
+      mutate(y = str_sub(x, 1, 6)) |>
       collect(),
     df
   )
 
   compare_dplyr_binding(
-    .input %>%
-      mutate(y = str_sub(x, 8, 12)) %>%
+    .input |>
+      mutate(y = str_sub(x, 8, 12)) |>
       collect(),
     df
   )
 
   compare_dplyr_binding(
-    .input %>%
+    .input |>
       mutate(
         y = str_sub(x, -5, -1),
         y2 = stringr::str_sub(x, -5, -1)
-      ) %>%
+      ) |>
       collect(),
     df
   )
   compare_dplyr_binding(
-    .input %>%
+    .input |>
       mutate(
         y = str_sub(x, 1, -3),
         y2 = stringr::str_sub(x, 1, -3)
-      ) %>%
+      ) |>
       collect(),
     df
   )
@@ -1204,123 +1204,123 @@ test_that("str_starts, str_ends, startsWith, endsWith", {
   df <- tibble(x = c("Foo", "bar", "baz", "qux", NA_character_))
 
   compare_dplyr_binding(
-    .input %>%
-      filter(str_starts(x, "b.*")) %>%
+    .input |>
+      filter(str_starts(x, "b.*")) |>
       collect(),
     df
   )
 
   compare_dplyr_binding(
-    .input %>%
-      filter(str_starts(x, "b.*", negate = TRUE)) %>%
+    .input |>
+      filter(str_starts(x, "b.*", negate = TRUE)) |>
       collect(),
     df
   )
 
   compare_dplyr_binding(
-    .input %>%
-      filter(str_starts(x, fixed("b.*"))) %>%
+    .input |>
+      filter(str_starts(x, fixed("b.*"))) |>
       collect(),
     df
   )
 
   compare_dplyr_binding(
-    .input %>%
-      filter(str_starts(x, fixed("b"))) %>%
+    .input |>
+      filter(str_starts(x, fixed("b"))) |>
       collect(),
     df
   )
 
   compare_dplyr_binding(
-    .input %>%
+    .input |>
       transmute(
         a = str_starts(x, "b.*"),
         a2 = stringr::str_starts(x, "b.*"),
         b = str_starts(x, "b.*", negate = TRUE),
         c = str_starts(x, fixed("b")),
         d = str_starts(x, fixed("b"), negate = TRUE)
-      ) %>%
+      ) |>
       collect(),
     df
   )
 
   compare_dplyr_binding(
-    .input %>%
-      filter(str_ends(x, "r")) %>%
+    .input |>
+      filter(str_ends(x, "r")) |>
       collect(),
     df
   )
 
   compare_dplyr_binding(
-    .input %>%
-      filter(str_ends(x, "r", negate = TRUE)) %>%
+    .input |>
+      filter(str_ends(x, "r", negate = TRUE)) |>
       collect(),
     df
   )
 
   compare_dplyr_binding(
-    .input %>%
-      filter(str_ends(x, fixed("r$"))) %>%
+    .input |>
+      filter(str_ends(x, fixed("r$"))) |>
       collect(),
     df
   )
 
   compare_dplyr_binding(
-    .input %>%
-      filter(str_ends(x, fixed("r"))) %>%
+    .input |>
+      filter(str_ends(x, fixed("r"))) |>
       collect(),
     df
   )
 
   compare_dplyr_binding(
-    .input %>%
+    .input |>
       transmute(
         a = str_ends(x, "r"),
         a2 = stringr::str_ends(x, "r"),
         b = str_ends(x, "r", negate = TRUE),
         c = str_ends(x, fixed("r")),
         d = str_ends(x, fixed("r"), negate = TRUE)
-      ) %>%
+      ) |>
       collect(),
     df
   )
 
   compare_dplyr_binding(
-    .input %>%
-      filter(startsWith(x, "b")) %>%
+    .input |>
+      filter(startsWith(x, "b")) |>
       collect(),
     df
   )
 
   compare_dplyr_binding(
-    .input %>%
-      filter(endsWith(x, "r")) %>%
+    .input |>
+      filter(endsWith(x, "r")) |>
       collect(),
     df
   )
 
   compare_dplyr_binding(
-    .input %>%
-      filter(startsWith(x, "b.*")) %>%
+    .input |>
+      filter(startsWith(x, "b.*")) |>
       collect(),
     df
   )
 
   compare_dplyr_binding(
-    .input %>%
-      filter(endsWith(x, "r$")) %>%
+    .input |>
+      filter(endsWith(x, "r$")) |>
       collect(),
     df
   )
 
   compare_dplyr_binding(
-    .input %>%
+    .input |>
       transmute(
         a = startsWith(x, "b"),
         b = endsWith(x, "r"),
         a2 = base::startsWith(x, "b"),
         b2 = base::endsWith(x, "r")
-      ) %>%
+      ) |>
       collect(),
     df
   )
@@ -1333,57 +1333,57 @@ test_that("str_count", {
   )
 
   compare_dplyr_binding(
-    .input %>%
+    .input |>
       mutate(
         a_count = str_count(cities, pattern = "a"),
         a_count_nmspc = stringr::str_count(cities, pattern = "a")
-      ) %>%
+      ) |>
       collect(),
     df
   )
 
   compare_dplyr_binding(
-    .input %>%
-      mutate(p_count = str_count(cities, pattern = "d")) %>%
+    .input |>
+      mutate(p_count = str_count(cities, pattern = "d")) |>
       collect(),
     df
   )
 
   compare_dplyr_binding(
-    .input %>%
+    .input |>
       mutate(p_count = str_count(cities,
         pattern = regex("d", ignore_case = TRUE)
-      )) %>%
+      )) |>
       collect(),
     df
   )
 
   compare_dplyr_binding(
-    .input %>%
-      mutate(e_count = str_count(cities, pattern = "u")) %>%
+    .input |>
+      mutate(e_count = str_count(cities, pattern = "u")) |>
       collect(),
     df
   )
 
   # call_binding("str_count", ) is not vectorised over pattern
   compare_dplyr_binding(
-    .input %>%
-      mutate(let_count = str_count(cities, pattern = c("a", "b", "e", "g", "p", "n", "s"))) %>%
+    .input |>
+      mutate(let_count = str_count(cities, pattern = c("a", "b", "e", "g", "p", "n", "s"))) |>
       collect(),
     df,
     warning = TRUE
   )
 
   compare_dplyr_binding(
-    .input %>%
-      mutate(dots_count = str_count(dots, ".")) %>%
+    .input |>
+      mutate(dots_count = str_count(dots, ".")) |>
       collect(),
     df
   )
 
   compare_dplyr_binding(
-    .input %>%
-      mutate(dots_count = str_count(dots, fixed("."))) %>%
+    .input |>
+      mutate(dots_count = str_count(dots, fixed("."))) |>
       collect(),
     df
   )
@@ -1391,13 +1391,13 @@ test_that("str_count", {
 
 test_that("base::tolower and base::toupper", {
   compare_dplyr_binding(
-    .input %>%
+    .input |>
       mutate(
         verse_to_upper = toupper(verses),
         verse_to_lower = tolower(verses),
         verse_to_upper_nmspc = base::toupper(verses),
         verse_to_lower_nmspc = base::tolower(verses)
-      ) %>%
+      ) |>
       collect(),
     tbl
   )
@@ -1406,11 +1406,11 @@ test_that("base::tolower and base::toupper", {
 test_that("namespaced unary and binary string functions", {
   # str_length and stringi::stri_reverse
   compare_dplyr_binding(
-    .input %>%
+    .input |>
       mutate(
         verse_length = stringr::str_length(verses),
         reverses_verse = stringi::stri_reverse(verses)
-      ) %>%
+      ) |>
       collect(),
     tbl
   )
@@ -1419,15 +1419,15 @@ test_that("namespaced unary and binary string functions", {
   df <- tibble(x = c("foo1", " \tB a R\n", "!apACHe aRroW!"))
   for (times in 0:8) {
     compare_dplyr_binding(
-      .input %>%
-        mutate(x = base::strrep(x, times)) %>%
+      .input |>
+        mutate(x = base::strrep(x, times)) |>
         collect(),
       df
     )
 
     compare_dplyr_binding(
-      .input %>%
-        mutate(x = stringr::str_dup(x, times)) %>%
+      .input |>
+        mutate(x = stringr::str_dup(x, times)) |>
         collect(),
       df
     )
@@ -1436,8 +1436,8 @@ test_that("namespaced unary and binary string functions", {
 
 test_that("nchar with namespacing", {
   compare_dplyr_binding(
-    .input %>%
-      mutate(verses_nchar = base::nchar(verses)) %>%
+    .input |>
+      mutate(verses_nchar = base::nchar(verses)) |>
       collect(),
     tbl
   )
@@ -1445,7 +1445,7 @@ test_that("nchar with namespacing", {
 
 test_that("str_trim()", {
   compare_dplyr_binding(
-    .input %>%
+    .input |>
       mutate(
         left_trim_padded_string = str_trim(padded_strings, "left"),
         right_trim_padded_string = str_trim(padded_strings, "right"),
@@ -1453,7 +1453,7 @@ test_that("str_trim()", {
         left_trim_padded_string_nmspc = stringr::str_trim(padded_strings, "left"),
         right_trim_padded_string_nmspc = stringr::str_trim(padded_strings, "right"),
         both_trim_padded_string_nmspc = stringr::str_trim(padded_strings, "both")
-      ) %>%
+      ) |>
       collect(),
     tbl
   )
@@ -1463,53 +1463,53 @@ test_that("str_remove and str_remove_all", {
   df <- tibble(x = c("Foo", "bar"))
 
   compare_dplyr_binding(
-    .input %>%
-      transmute(x = str_remove_all(x, "^F")) %>%
+    .input |>
+      transmute(x = str_remove_all(x, "^F")) |>
       collect(),
     df
   )
 
   compare_dplyr_binding(
-    .input %>%
-      transmute(x = str_remove_all(x, regex("^F"))) %>%
+    .input |>
+      transmute(x = str_remove_all(x, regex("^F"))) |>
       collect(),
     df
   )
 
   compare_dplyr_binding(
-    .input %>%
-      mutate(x = str_remove(x, "^F[a-z]{2}")) %>%
+    .input |>
+      mutate(x = str_remove(x, "^F[a-z]{2}")) |>
       collect(),
     df
   )
 
   compare_dplyr_binding(
-    .input %>%
-      transmute(x = str_remove(x, regex("^f[A-Z]{2}", ignore_case = TRUE))) %>%
+    .input |>
+      transmute(x = str_remove(x, regex("^f[A-Z]{2}", ignore_case = TRUE))) |>
       collect(),
     df
   )
   compare_dplyr_binding(
-    .input %>%
+    .input |>
       transmute(
         x = str_remove_all(x, fixed("o")),
         x2 = stringr::str_remove_all(x, fixed("o"))
-      ) %>%
+      ) |>
       collect(),
     df
   )
   compare_dplyr_binding(
-    .input %>%
+    .input |>
       transmute(
         x = str_remove(x, fixed("O")),
         x2 = stringr::str_remove(x, fixed("O"))
-      ) %>%
+      ) |>
       collect(),
     df
   )
   compare_dplyr_binding(
-    .input %>%
-      transmute(x = str_remove(x, fixed("O", ignore_case = TRUE))) %>%
+    .input |>
+      transmute(x = str_remove(x, fixed("O", ignore_case = TRUE))) |>
       collect(),
     df
   )
@@ -1518,15 +1518,15 @@ test_that("str_remove and str_remove_all", {
 test_that("GH-36720: stringr modifier functions can be called with namespace prefix", {
   df <- tibble(x = c("Foo", "bar"))
   compare_dplyr_binding(
-    .input %>%
-      transmute(x = str_replace_all(x, stringr::regex("^f", ignore_case = TRUE), "baz")) %>%
+    .input |>
+      transmute(x = str_replace_all(x, stringr::regex("^f", ignore_case = TRUE), "baz")) |>
       collect(),
     df
   )
 
   compare_dplyr_binding(
-    .input %>%
-      filter(str_detect(x, stringr::fixed("f", ignore_case = TRUE), negate = TRUE)) %>%
+    .input |>
+      filter(str_detect(x, stringr::fixed("f", ignore_case = TRUE), negate = TRUE)) |>
       collect(),
     df
   )
@@ -1561,18 +1561,18 @@ test_that("str_replace_na", {
   df <- tibble(x = c("Foo", NA_character_, "bar", NA_character_))
 
   compare_dplyr_binding(
-    .input %>%
+    .input |>
       transmute(
         x = str_replace_na(x),
         x2 = stringr::str_replace_na(x)
-      ) %>%
+      ) |>
       collect(),
     df
   )
 
   compare_dplyr_binding(
-    .input %>%
-      transmute(x = str_replace_na(x, "MISSING")) %>%
+    .input |>
+      transmute(x = str_replace_na(x, "MISSING")) |>
       collect(),
     df
   )

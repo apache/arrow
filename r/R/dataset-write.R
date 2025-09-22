@@ -105,8 +105,8 @@
 #' # output directory will be different.
 #' library(dplyr)
 #' two_levels_tree_2 <- tempfile()
-#' mtcars %>%
-#'   group_by(cyl, gear) %>%
+#' mtcars |>
+#'   group_by(cyl, gear) |>
 #'   write_dataset(two_levels_tree_2)
 #' list.files(two_levels_tree_2, recursive = TRUE)
 #'
@@ -115,8 +115,8 @@
 #'
 #' # Write a structure X/Y/part-Z.parquet.
 #' two_levels_tree_no_hive <- tempfile()
-#' mtcars %>%
-#'   group_by(cyl, gear) %>%
+#' mtcars |>
+#'   group_by(cyl, gear) |>
 #'   write_dataset(two_levels_tree_no_hive, hive_style = FALSE)
 #' list.files(two_levels_tree_no_hive, recursive = TRUE)
 #' @export
