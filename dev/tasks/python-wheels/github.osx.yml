@@ -71,6 +71,11 @@ jobs:
           vcpkg_version=$(. "arrow/.env" && echo "${VCPKG}")
           echo "VCPKG_VERSION=$vcpkg_version" >> $GITHUB_ENV
 
+      - name: Set macOS SDK path
+        run: |
+          echo "MACOSX_SYSROOT=$(xcrun --show-sdk-path)" >> $GITHUB_ENV
+          echo "CMAKE_OSX_SYSROOT=$(xcrun --show-sdk-path)" >> $GITHUB_ENV
+
       - name: Install Vcpkg
         env:
           GITHUB_TOKEN: {{ '${{ secrets.GITHUB_TOKEN }}' }}
