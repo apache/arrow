@@ -296,14 +296,13 @@ jobs:
           expected_patterns="${{ steps.expected-yum-artifacts.outputs.artifacts }}"
 
           # Find all RPM files in the extracted directory
-          ls -larth artifacts-downloaded/
-          ls -larth artifacts-downloaded/${{ matrix.target }}-${{ matrix.architecture }}
-          tar xvf artifacts-downloaded/${{ matrix.target }}-${{ matrix.architecture }}/${{ matrix.target }}-${{ matrix.architecture }}.tar.gz
-          ls -larth artifacts-downloaded/${{ matrix.target }}-${{ matrix.architecture }}
-          tree artifacts-downloaded/${{ matrix.target }}-${{ matrix.architecture }}
-          ls -larth .
+          pushd artifacts-downloaded/${{ matrix.target }}-${{ matrix.architecture }}
+          tar xvf ${{ matrix.target }}-${{ matrix.architecture }}.tar.gz
           tree .
-          found_files=$(find . -type f -name '*.rpm' | sort)
+          popd
+
+          found_files=$(find artifacts-downloaded/${{ matrix.target }}-${{ matrix.architecture }} -type f -name '*.rpm' | sort)
+          echo "Found files: $found_files"
 
           # Prepare expected patterns for matching
           echo "$expected_patterns" | grep -v '^\s*$' > expected_patterns.txt
