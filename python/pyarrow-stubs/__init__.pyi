@@ -15,12 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# ruff: noqa: F401, I001, E402
-__version__: str
-
 import pyarrow.lib as _lib
-
-_gc_enabled: bool
 
 from pyarrow.lib import (
     BuildInfo,
@@ -38,13 +33,6 @@ from pyarrow.lib import (
     io_thread_count,
     set_io_thread_count,
 )
-
-
-def show_versions() -> None: ...
-def show_info() -> None: ...
-def _module_is_available(module: str) -> bool: ...
-def _filesystem_is_available(fs: str) -> bool: ...
-
 
 from pyarrow.lib import (
     null,
@@ -251,7 +239,12 @@ from pyarrow.lib import (
 )
 
 # Buffers, allocation
-from pyarrow.lib import DeviceAllocationType, Device, MemoryManager, default_cpu_memory_manager
+from pyarrow.lib import (
+    DeviceAllocationType,
+    Device,
+    MemoryManager,
+    default_cpu_memory_manager
+)
 
 from pyarrow.lib import (
     Buffer,
@@ -350,6 +343,17 @@ from pyarrow.ipc import (
     RecordBatchStreamReader,
     RecordBatchStreamWriter,
 )
+
+
+__version__: str
+_gc_enabled: bool
+
+
+def show_versions() -> None: ...
+def show_info() -> None: ...
+def _module_is_available(module: str) -> bool: ...
+def _filesystem_is_available(fs: str) -> bool: ...
+
 
 # ----------------------------------------------------------------------
 # Returning absolute path to the pyarrow include directory (if bundled, e.g. in

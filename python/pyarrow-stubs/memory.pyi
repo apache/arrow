@@ -17,8 +17,8 @@
 
 from pyarrow.lib import _Weakrefable
 
-class MemoryPool(_Weakrefable):
 
+class MemoryPool(_Weakrefable):
 
     def release_unused(self) -> None: ...
 
@@ -36,8 +36,12 @@ class MemoryPool(_Weakrefable):
     def backend_name(self) -> str: ...
 
 
-class LoggingMemoryPool(MemoryPool): ...
-class ProxyMemoryPool(MemoryPool): ...
+class LoggingMemoryPool(MemoryPool):
+    ...
+
+
+class ProxyMemoryPool(MemoryPool):
+    ...
 
 
 def default_memory_pool() -> MemoryPool: ...

@@ -15,23 +15,22 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# ruff: noqa: F403
 from typing import NamedTuple
 
-from .array import *
-from .builder import *
-from .compat import *
-from .config import *
-from .device import *
-from .error import *
-from .io import *
-from ._ipc import *
-from .memory import *
-from .pandas_shim import *
-from .scalar import *
-from .table import *
-from .tensor import *
-from ._types import *
+from .array import *  # noqa: F401, F403
+from .builder import *  # noqa: F401, F403
+from .compat import *  # noqa: F401, F403
+from .config import *  # noqa: F401, F403
+from .device import *  # noqa: F401, F403
+from .error import *  # noqa: F401, F403
+from .io import *  # noqa: F401, F403
+from ._ipc import *  # noqa: F401, F403
+from .memory import *  # noqa: F401, F403
+from .pandas_shim import *  # noqa: F401, F403
+from .scalar import *  # noqa: F401, F403
+from .table import *  # noqa: F401, F403
+from .tensor import *  # noqa: F401, F403
+from ._types import *  # noqa: F401, F403
 
 
 class MonthDayNano(NamedTuple):

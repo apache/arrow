@@ -87,8 +87,8 @@ _Decimal: TypeAlias = (
 _Date: TypeAlias = Date32Type | Date64Type
 _Time: TypeAlias = Time32Type[Any] | Time64Type[Any]
 _Interval: TypeAlias = MonthDayNanoIntervalType
-_Temporal: TypeAlias = TimestampType[Any,
-                                     Any] | DurationType[Any] | _Time | _Date | _Interval
+_Temporal: TypeAlias = (TimestampType[Any, Any]
+                        | DurationType[Any] | _Time | _Date | _Interval)
 _Union: TypeAlias = SparseUnionType | DenseUnionType
 _Nested: TypeAlias = (
     ListType[Any]

@@ -15,7 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
-from typing import IO, Any, Iterable, Iterator, Literal, Sequence, TypeAlias, TypedDict
+from collections.abc import Iterable, Iterator, Sequence
+from typing import IO, Any, Literal, TypeAlias, TypedDict
 
 from _typeshed import StrPath
 

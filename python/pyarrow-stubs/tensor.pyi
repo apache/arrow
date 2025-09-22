@@ -26,13 +26,14 @@ import numpy as np
 
 from pyarrow.lib import _Weakrefable
 from scipy.sparse import coo_matrix, csr_matrix
-from sparse import COO  # type: ignore
+from sparse import COO  # type: ignore[import-not-found]
+
 
 class Tensor(_Weakrefable):
 
-
     @classmethod
-    def from_numpy(cls, obj: np.ndarray, dim_names: list[str] | None = None) -> Self: ...
+    def from_numpy(cls, obj: np.ndarray,
+                   dim_names: list[str] | None = None) -> Self: ...
 
     def to_numpy(self) -> np.ndarray: ...
 
@@ -65,8 +66,8 @@ class Tensor(_Weakrefable):
 class SparseCOOTensor(_Weakrefable):
 
     @classmethod
-    def from_dense_numpy(cls, obj: np.ndarray, dim_names: list[str] | None = None) -> Self: ...
-
+    def from_dense_numpy(cls, obj: np.ndarray,
+                         dim_names: list[str] | None = None) -> Self: ...
 
     @classmethod
     def from_numpy(
@@ -78,10 +79,12 @@ class SparseCOOTensor(_Weakrefable):
     ) -> Self: ...
 
     @classmethod
-    def from_scipy(cls, obj: csr_matrix, dim_names: list[str] | None = None) -> Self: ...
+    def from_scipy(cls, obj: csr_matrix,
+                   dim_names: list[str] | None = None) -> Self: ...
 
     @classmethod
-    def from_pydata_sparse(cls, obj: COO, dim_names: list[str] | None = None) -> Self: ...
+    def from_pydata_sparse(
+        cls, obj: COO, dim_names: list[str] | None = None) -> Self: ...
 
     @classmethod
     def from_tensor(cls, obj: Tensor) -> Self: ...
@@ -113,11 +116,12 @@ class SparseCOOTensor(_Weakrefable):
     @property
     def has_canonical_format(self) -> bool: ...
 
+
 class SparseCSRMatrix(_Weakrefable):
 
-
     @classmethod
-    def from_dense_numpy(cls, obj: np.ndarray, dim_names: list[str] | None = None) -> Self: ...
+    def from_dense_numpy(cls, obj: np.ndarray,
+                         dim_names: list[str] | None = None) -> Self: ...
 
     @classmethod
     def from_numpy(
@@ -130,7 +134,8 @@ class SparseCSRMatrix(_Weakrefable):
     ) -> Self: ...
 
     @classmethod
-    def from_scipy(cls, obj: csr_matrix, dim_names: list[str] | None = None) -> Self: ...
+    def from_scipy(cls, obj: csr_matrix,
+                   dim_names: list[str] | None = None) -> Self: ...
 
     @classmethod
     def from_tensor(cls, obj: Tensor) -> Self: ...
@@ -157,12 +162,13 @@ class SparseCSRMatrix(_Weakrefable):
     def dim_names(self) -> list[str]: ...
     @property
     def non_zero_length(self) -> int: ...
+
 
 class SparseCSCMatrix(_Weakrefable):
 
-
     @classmethod
-    def from_dense_numpy(cls, obj: np.ndarray, dim_names: list[str] | None = None) -> Self: ...
+    def from_dense_numpy(cls, obj: np.ndarray,
+                         dim_names: list[str] | None = None) -> Self: ...
 
     @classmethod
     def from_numpy(
@@ -175,7 +181,8 @@ class SparseCSCMatrix(_Weakrefable):
     ) -> Self: ...
 
     @classmethod
-    def from_scipy(cls, obj: csr_matrix, dim_names: list[str] | None = None) -> Self: ...
+    def from_scipy(cls, obj: csr_matrix,
+                   dim_names: list[str] | None = None) -> Self: ...
 
     @classmethod
     def from_tensor(cls, obj: Tensor) -> Self: ...
@@ -203,11 +210,12 @@ class SparseCSCMatrix(_Weakrefable):
     @property
     def non_zero_length(self) -> int: ...
 
+
 class SparseCSFTensor(_Weakrefable):
 
-
     @classmethod
-    def from_dense_numpy(cls, obj: np.ndarray, dim_names: list[str] | None = None) -> Self: ...
+    def from_dense_numpy(cls, obj: np.ndarray,
+                         dim_names: list[str] | None = None) -> Self: ...
 
     @classmethod
     def from_numpy(
@@ -243,6 +251,7 @@ class SparseCSFTensor(_Weakrefable):
     def dim_names(self) -> list[str]: ...
     @property
     def non_zero_length(self) -> int: ...
+
 
 __all__ = [
     "Tensor",

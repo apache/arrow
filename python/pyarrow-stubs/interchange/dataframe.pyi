@@ -21,7 +21,8 @@ if sys.version_info >= (3, 11):
     from typing import Self
 else:
     from typing_extensions import Self
-from typing import Any, Iterable, Sequence
+from collections.abc import Iterable, Sequence
+from typing import Any
 
 from pyarrow.interchange.column import _PyArrowColumn
 from pyarrow.lib import RecordBatch, Table
@@ -29,8 +30,10 @@ from pyarrow.lib import RecordBatch, Table
 
 class _PyArrowDataFrame:
     def __init__(
-        self, df: Table | RecordBatch, nan_as_null: bool = False, allow_copy: bool = True
-    ) -> None: ...
+        self,
+        df: Table | RecordBatch,
+        nan_as_null: bool = False,
+        allow_copy: bool = True) -> None: ...
 
     def __dataframe__(
         self, nan_as_null: bool = False, allow_copy: bool = True
