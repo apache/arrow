@@ -15,32 +15,4 @@
 # specific language governing permissions and limitations
 # under the License.
 
-import pytest
-
-try:
-    import numpy as np
-except ImportError:
-    np = None  # type: ignore[assignment]
-import pyarrow as pa
-
-import pyarrow.tests.util as test_util
-
-try:
-    import pandas as pd
-except ImportError:
-    pass
-
-
-@pytest.mark.memory_leak
-@pytest.mark.pandas
-def test_deserialize_pandas_arrow_7956():
-    df = pd.DataFrame({'a': np.arange(10000),
-                       'b': [test_util.rands(5) for _ in range(10000)]})
-
-    def action():
-        df_bytes = pa.ipc.serialize_pandas(df).to_pybytes()
-        buf = pa.py_buffer(df_bytes)
-        pa.ipc.deserialize_pandas(buf)
-
-    # Abort at 128MB threshold
-    test_util.memory_leak_check(action, threshold=1 << 27, iterations=100)
+function_doc_additions: dict[str, str]

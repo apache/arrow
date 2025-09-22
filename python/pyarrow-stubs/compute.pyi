@@ -52,6 +52,7 @@ from pyarrow._compute import RoundBinaryOptions as RoundBinaryOptions
 from pyarrow._compute import RoundOptions as RoundOptions
 from pyarrow._compute import RoundTemporalOptions as RoundTemporalOptions
 from pyarrow._compute import RoundToMultipleOptions as RoundToMultipleOptions
+from pyarrow._compute import RunEndEncodeOptions as RunEndEncodeOptions
 from pyarrow._compute import ScalarAggregateOptions as ScalarAggregateOptions
 from pyarrow._compute import SelectKOptions as SelectKOptions
 from pyarrow._compute import SetLookupOptions as SetLookupOptions
@@ -73,6 +74,7 @@ from pyarrow._compute import WeekOptions as WeekOptions
 
 from pyarrow._compute import _Order, _Placement
 from pyarrow._stubs_typing import ArrayLike, ScalarLike
+from pyarrow._types import _RunEndType
 from . import lib
 
 _P = ParamSpec("_P")
@@ -645,8 +647,8 @@ def atan2(
 
 # ========================= 2.5 Comparisons functions =========================
 def equal(
-    x: lib.Scalar | lib.Array | lib.ChunkedArray | Expression,
-    y: lib.Scalar | lib.Array | lib.ChunkedArray | Expression,
+    x: lib.Scalar | lib.Array | lib.ChunkedArray | Expression | Any,
+    y: lib.Scalar | lib.Array | lib.ChunkedArray | Expression | Any,
     /, *, memory_pool: lib.MemoryPool | None = None
 ) -> lib.BooleanScalar | lib.BooleanArray | Expression: ...
 
@@ -1631,6 +1633,13 @@ def pairwise_diff(
     *,
     options: PairwiseOptions | None = None,
     memory_pool: lib.MemoryPool | None = None,
+) -> _NumericOrTemporalArrayT | Expression: ...
+
+
+def run_end_encode(
+    input: _NumericOrTemporalArrayT | Expression, /, *, run_end_type: _RunEndType,
+    value_type: _DataTypeT, options: RunEndEncodeOptions | None = None,
+    memory_pool: lib.MemoryPool | None = None
 ) -> _NumericOrTemporalArrayT | Expression: ...
 
 

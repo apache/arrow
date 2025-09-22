@@ -249,7 +249,7 @@ class ChunkedArray(_PandasConvertible[pd.Series], Generic[_Scalar_co]):
 def chunked_array(
     arrays: Iterable[NullableCollection[Any]]
     | Iterable[Iterable[Any] | SupportArrowStream | SupportArrowArray]
-    | Iterable[Array[_ScalarT]],
+    | Iterable[Array[_ScalarT]] | Array[_ScalarT],
     type: DataType | str | None = None,
 ) -> ChunkedArray[Scalar[Any]] | ChunkedArray[_ScalarT]: ...
 
@@ -586,8 +586,8 @@ class Table(_Tabular[ChunkedArray[Any]]):
 
 
 def record_batch(
-    data: dict[str, list[Any] | Array[Any]]
-    | Collection[Array[Any]]
+    data: Mapping[str, list[Any] | Array[Any]]
+    | Collection[Array[Any] | ChunkedArray[Any]]
     | pd.DataFrame
     | SupportArrowArray
     | SupportArrowDeviceArray,
@@ -598,7 +598,7 @@ def record_batch(
 
 
 def table(
-    data: dict[str, list[Any] | Array[Any]]
+    data: Mapping[str, list[Any] | Array[Any]]
     | Collection[ArrayOrChunkedArray[Any]]
     | pd.DataFrame
     | SupportArrowArray

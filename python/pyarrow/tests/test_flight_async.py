@@ -24,8 +24,10 @@ import pyarrow
 flight = pytest.importorskip("pyarrow.flight")
 pytestmark = pytest.mark.flight
 
+from pyarrow.flight import FlightServerBase  # noqa: E402
 
-class ExampleServer(flight.FlightServerBase):
+
+class ExampleServer(FlightServerBase):
     simple_info = flight.FlightInfo(
         pyarrow.schema([("a", "int32")]),
         flight.FlightDescriptor.for_command(b"simple"),

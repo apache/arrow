@@ -31,12 +31,12 @@ import textwrap
 try:
     import numpy as np
 except ImportError:
-    np = None
+    np = None  # type: ignore[assignment]
 
 try:
     import pandas as pd
 except ImportError:
-    pd = None
+    pd = None  # type: ignore[assignment]
 
 import pyarrow as pa
 import pyarrow.compute as pc
@@ -45,7 +45,7 @@ from pyarrow.lib import ArrowNotImplementedError
 try:
     import pyarrow.substrait as pas
 except ImportError:
-    pas = None
+    pas = None  # type: ignore[assignment]
 
 exported_functions = [
     func for (name, func) in sorted(pc.__dict__.items())
@@ -1104,7 +1104,7 @@ def test_string_py_compat_boolean(function_name, variant):
     py_name = function_name.replace('_', '')
     ignore = codepoints_ignore.get(function_name, set()) | \
         find_new_unicode_codepoints()
-    for i in range(128 if ascii else 0x11000):
+    for i in range(128 if ascii else 0x11000):  # type: ignore[truthy-function]
         if i in range(0xD800, 0xE000):
             continue  # bug? pyarrow doesn't allow utf16 surrogates
         # the issues we know of, we skip

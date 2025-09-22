@@ -38,6 +38,9 @@ ColumnObject: TypeAlias = Any
 def from_dataframe(df: DataFrameObject, allow_copy=True) -> Table: ...
 
 
+def _from_dataframe(df: DataFrameObject, allow_copy=True) -> Table: ...
+
+
 def protocol_df_chunk_to_pyarrow(
     df: DataFrameObject, allow_copy: bool = True) -> RecordBatch: ...
 
