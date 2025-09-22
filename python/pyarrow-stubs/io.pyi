@@ -40,6 +40,7 @@ from pyarrow.lib import MemoryPool, _Weakrefable
 from .device import Device, DeviceAllocationType, MemoryManager
 from ._types import KeyValueMetadata
 
+
 def have_libhdfs() -> bool: ...
 
 
@@ -51,8 +52,8 @@ def set_io_thread_count(count: int) -> None: ...
 
 Mode: TypeAlias = Literal["rb", "wb", "rb+", "ab"]
 
-class NativeFile(_Weakrefable):
 
+class NativeFile(_Weakrefable):
 
     _default_chunk_size: int
 
@@ -92,7 +93,6 @@ class NativeFile(_Weakrefable):
     def readall(self) -> bytes: ...
     def readinto(self, b: SupportPyBuffer) -> int: ...
 
-
     def readline(self, size: int | None = None) -> bytes: ...
 
     def readlines(self, hint: int | None = None) -> list[bytes]: ...
@@ -106,19 +106,22 @@ class NativeFile(_Weakrefable):
 
     def writelines(self, lines: list[bytes]): ...
 
-    def download(self, stream_or_path: StrPath | IOBase, buffer_size: int | None = None) -> None: ...
+    def download(self, stream_or_path: StrPath | IOBase,
+                 buffer_size: int | None = None) -> None: ...
 
     def upload(self, stream: IOBase, buffer_size: int | None) -> None: ...
-
 
     def writable(self): ...
 
 # ----------------------------------------------------------------------
 # Python file-like objects
 
+
 class PythonFile(NativeFile):
 
-    def __init__(self, handle: IOBase, mode: Literal["r", "w"] | None = None) -> None: ...
+    def __init__(self, handle: IOBase,
+                 mode: Literal["r", "w"] | None = None) -> None: ...
+
     def truncate(self, pos: int | None = None) -> None: ...
 
 
@@ -127,7 +130,9 @@ class MemoryMappedFile(NativeFile):
     @classmethod
     def create(cls, path: str, size: int) -> Self: ...
 
-    def _open(self, path: str, mode: Literal["r", "rb", "w", "wb", "r+", "r+b", "rb+"] = "r"): ...
+    def _open(self, path: str,
+              mode: Literal["r", "rb", "w", "wb", "r+", "r+b", "rb+"] = "r"): ...
+
     def resize(self, new_size: int) -> None: ...
 
 
@@ -138,6 +143,7 @@ def memory_map(
 
 create_memory_map = MemoryMappedFile.create
 
+
 class OSFile(NativeFile):
 
     def __init__(
@@ -146,6 +152,7 @@ class OSFile(NativeFile):
         mode: Literal["r", "rb", "w", "wb", "a", "ab"],
         memory_pool: MemoryPool | None = None,
     ) -> None: ...
+
 
 class FixedSizeBufferWriter(NativeFile):
 
@@ -202,12 +209,13 @@ class Buffer(_Weakrefable):
 
 class ResizableBuffer(Buffer):
 
-
     def resize(self, new_size: int, shrink_to_fit: bool = False) -> None: ...
 
 
 def allocate_buffer(
-    size: int, memory_pool: MemoryPool | None = None, resizable: Literal[False] | Literal[True] | None = None
+    size: int,
+    memory_pool: MemoryPool | None = None,
+    resizable: Literal[False] | Literal[True] | None = None  # noqa: Y030
 ) -> Buffer | ResizableBuffer: ...
 
 
@@ -219,7 +227,9 @@ class BufferOutputStream(NativeFile):
     def getvalue(self) -> Buffer: ...
 
 
-class MockOutputStream(NativeFile): ...
+class MockOutputStream(NativeFile):
+    ...
+
 
 class BufferReader(NativeFile):
 
@@ -227,7 +237,6 @@ class BufferReader(NativeFile):
 
 
 class CompressedInputStream(NativeFile):
-
 
     def __init__(
         self,
@@ -247,30 +256,30 @@ class CompressedOutputStream(NativeFile):
 
 class BufferedInputStream(NativeFile):
 
-    def __init__(
-        self, stream: NativeFile, buffer_size: int, memory_pool: MemoryPool | None = None
-    ) -> None: ...
+    def __init__(self, stream: NativeFile, buffer_size: int,
+                 memory_pool: MemoryPool | None = None) -> None: ...
 
     def detach(self) -> NativeFile: ...
 
 
 class BufferedOutputStream(NativeFile):
 
-    def __init__(
-        self, stream: NativeFile, buffer_size: int, memory_pool: MemoryPool | None = None
-    ) -> None: ...
+    def __init__(self, stream: NativeFile, buffer_size: int,
+                 memory_pool: MemoryPool | None = None) -> None: ...
 
     def detach(self) -> NativeFile: ...
 
 
 class TransformInputStream(NativeFile):
 
-    def __init__(self, stream: NativeFile, transform_func: Callable[[Buffer], Any]) -> None: ...
+    def __init__(self, stream: NativeFile,
+                 transform_func: Callable[[Buffer], Any]) -> None: ...
 
 
 class Transcoder:
     def __init__(self, decoder, encoder) -> None: ...
     def __call__(self, buf: Buffer): ...
+
 
 def transcoding_input_stream(
     stream: NativeFile, src_encoding: str, dest_encoding: str
@@ -287,13 +296,14 @@ def as_buffer(o: Buffer | SupportPyBuffer) -> Buffer: ...
 
 # ---------------------------------------------------------------------
 
-class CacheOptions(_Weakrefable):
 
+class CacheOptions(_Weakrefable):
 
     hole_size_limit: int
     range_size_limit: int
     lazy: bool
     prefetch_limit: int
+
     def __init__(
         self,
         *,
@@ -315,7 +325,8 @@ class CacheOptions(_Weakrefable):
 
 class Codec(_Weakrefable):
 
-    def __init__(self, compression: Compression, compression_level: int | None = None) -> None: ...
+    def __init__(self, compression: Compression,
+                 compression_level: int | None = None) -> None: ...
 
     @classmethod
     def detect(cls, path: StrPath) -> Self: ...
@@ -345,7 +356,7 @@ class Codec(_Weakrefable):
         self,
         buf: Buffer | bytes | SupportPyBuffer,
         *,
-        asbytes: Literal[False] | Literal[True] | None = None,
+        asbytes: Literal[False] | Literal[True] | None = None,  # noqa: Y030
         memory_pool: MemoryPool | None = None,
     ) -> Buffer | bytes: ...
 
@@ -354,7 +365,7 @@ class Codec(_Weakrefable):
         buf: Buffer | bytes | SupportPyBuffer,
         decompressed_size: int | None = None,
         *,
-        asbytes: Literal[False] | Literal[True] | None = None,
+        asbytes: Literal[False] | Literal[True] | None = None,  # noqa: Y030
         memory_pool: MemoryPool | None = None,
     ) -> Buffer | bytes: ...
 
@@ -363,7 +374,7 @@ def compress(
     buf: Buffer | bytes | SupportPyBuffer,
     codec: Compression = "lz4",
     *,
-    asbytes: Literal[False] | Literal[True] | None = None,
+    asbytes: Literal[False] | Literal[True] | None = None,  # noqa: Y030
     memory_pool: MemoryPool | None = None,
 ) -> Buffer | bytes: ...
 
@@ -373,7 +384,7 @@ def decompress(
     decompressed_size: int | None = None,
     codec: Compression = "lz4",
     *,
-    asbytes: Literal[False] | Literal[True] | None = None,
+    asbytes: Literal[False] | Literal[True] | None = None,  # noqa: Y030
     memory_pool: MemoryPool | None = None,
 ) -> Buffer | bytes: ...
 

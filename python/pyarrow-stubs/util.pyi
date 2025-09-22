@@ -15,9 +15,9 @@
 # specific language governing permissions and limitations
 # under the License.
 
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from os import PathLike
-from typing import Any, Protocol, Sequence, TypeVar
+from typing import Any, Protocol, TypeVar
 
 _F = TypeVar("_F", bound=Callable)
 _N = TypeVar("_N")

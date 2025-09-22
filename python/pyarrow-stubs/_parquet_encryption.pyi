@@ -17,7 +17,7 @@
 
 import datetime as dt
 
-from typing import Callable
+from collections.abc import Callable
 
 from ._parquet import FileDecryptionProperties, FileEncryptionProperties
 from .lib import _Weakrefable

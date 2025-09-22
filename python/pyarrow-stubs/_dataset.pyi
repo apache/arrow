@@ -21,16 +21,14 @@ if sys.version_info >= (3, 11):
     from typing import Self
 else:
     from typing_extensions import Self
+from collections.abc import Callable, Iterator
 from typing import (
     IO,
     Any,
-    Callable,
     Generic,
-    Iterator,
     Literal,
     NamedTuple,
     TypeVar,
-    overload,
 )
 
 from _typeshed import StrPath

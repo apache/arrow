@@ -15,8 +15,9 @@
 # specific language governing permissions and limitations
 # under the License.
 
+from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import IO, Any, Iterable, TypedDict
+from typing import IO, Any, TypedDict
 
 from _typeshed import StrPath
 
@@ -112,8 +113,10 @@ class ParquetFileFragment(FileFragment):
 class ParquetReadOptions(_Weakrefable):
 
     def __init__(
-        self, dictionary_columns: list[str] | None, coerce_int96_timestamp_unit: str | None = None
-    ) -> None: ...
+        self,
+        dictionary_columns: list[str] | None,
+        coerce_int96_timestamp_unit: str | None = None) -> None: ...
+
     @property
     def coerce_int96_timestamp_unit(self) -> str: ...
     @coerce_int96_timestamp_unit.setter

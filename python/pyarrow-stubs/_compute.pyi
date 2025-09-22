@@ -15,12 +15,15 @@
 # specific language governing permissions and limitations
 # under the License.
 
-from typing import (
-    Any,
+from collections.abc import (
     Callable,
     Iterable,
-    Literal,
     Sequence,
+)
+
+from typing import (
+    Any,
+    Literal,
     TypeAlias,
     TypedDict,
     overload,
@@ -189,8 +192,9 @@ class ExtractRegexSpanOptions(FunctionOptions):
 
 
 class FilterOptions(FunctionOptions):
-    def __init__(
-        self, null_selection_behavior: Literal["drop", "emit_null"] = "drop") -> None: ...
+    def __init__(self,
+                 null_selection_behavior: Literal["drop",
+                                                  "emit_null"] = "drop") -> None: ...
 
 
 class IndexOptions(FunctionOptions):
@@ -398,12 +402,16 @@ class SetLookupOptions(FunctionOptions):
 
 
 class SliceOptions(FunctionOptions):
-    def __init__(self, start: int, stop: int | None = None, step: int = 1) -> None: ...
+    def __init__(
+        self, start: int, stop: int | None = None, step: int = 1) -> None: ...
 
 
 class SortOptions(FunctionOptions):
     def __init__(
-        self, sort_keys: Sequence[tuple[str, _Order]], *, null_placement: _Placement = "at_end"
+        self,
+        sort_keys: Sequence[tuple[str, _Order]],
+        *,
+        null_placement: _Placement = "at_end"
     ) -> None: ...
 
 
@@ -424,15 +432,18 @@ class StrftimeOptions(FunctionOptions):
 
 
 class StrptimeOptions(FunctionOptions):
-    def __init__(
-        self, format: str, unit: Literal["s", "ms", "us", "ns"], error_is_null: bool = False
-    ) -> None: ...
+    def __init__(self,
+                 format: str,
+                 unit: Literal["s",
+                               "ms",
+                               "us",
+                               "ns"],
+                 error_is_null: bool = False) -> None: ...
 
 
 class StructFieldOptions(FunctionOptions):
-    def __init__(
-        self, indices: list[str] | list[bytes] | list[int] | Expression | bytes | str | int
-    ) -> None: ...
+    def __init__(self, indices: list[str] | list[bytes] |
+                 list[int] | Expression | bytes | str | int) -> None: ...
 
 
 class TakeOptions(FunctionOptions):
@@ -497,8 +508,9 @@ def list_functions() -> list[str]: ...
 
 
 def call_tabular_function(
-    function_name: str, args: Iterable | None = None, func_registry: FunctionRegistry | None = None
-) -> lib.RecordBatchReader: ...
+    function_name: str,
+    args: Iterable | None = None,
+    func_registry: FunctionRegistry | None = None) -> lib.RecordBatchReader: ...
 
 
 class _FunctionDoc(TypedDict):
@@ -569,10 +581,10 @@ class Expression(lib._Weakrefable):
     def __sub__(self, other) -> Expression: ...
     def __eq__(self, value: object) -> Expression: ...  # type: ignore[override]
     def __ne__(self, value: object) -> Expression: ...  # type: ignore[override]
-    def __gt__(self, value: object) -> Expression: ...  # type: ignore[override]
-    def __lt__(self, value: object) -> Expression: ...  # type: ignore[override]
-    def __ge__(self, value: object) -> Expression: ...  # type: ignore[override]
-    def __le__(self, value: object) -> Expression: ...  # type: ignore[override]
+    def __gt__(self, value: object) -> Expression: ...
+    def __lt__(self, value: object) -> Expression: ...
+    def __ge__(self, value: object) -> Expression: ...
+    def __le__(self, value: object) -> Expression: ...
     def __truediv__(self, other) -> Expression: ...
     def is_valid(self) -> bool: ...
     def is_null(self, nan_is_null: bool = False) -> Expression: ...
