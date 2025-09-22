@@ -234,7 +234,11 @@ valid_parquet_version <- c(
   "1.0" = ParquetVersionType$PARQUET_1_0,
   "2.4" = ParquetVersionType$PARQUET_2_4,
   "2.6" = ParquetVersionType$PARQUET_2_6,
-  "latest" = ParquetVersionType$PARQUET_2_6
+  "2.7" = ParquetVersionType$PARQUET_2_7,
+  "2.8" = ParquetVersionType$PARQUET_2_8,
+  "2.9" = ParquetVersionType$PARQUET_2_9,
+  "2.10" = ParquetVersionType$PARQUET_2_10,
+  "latest" = ParquetVersionType$PARQUET_2_10
 )
 
 make_valid_parquet_version <- function(version, valid_versions = valid_parquet_version) {
