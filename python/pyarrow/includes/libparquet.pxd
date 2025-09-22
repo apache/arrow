@@ -148,6 +148,8 @@ cdef extern from "parquet/api/schema.h" namespace "parquet" nogil:
         ParquetVersion_V2_8" parquet::ParquetVersion::PARQUET_2_8"
         ParquetVersion_V2_9" parquet::ParquetVersion::PARQUET_2_9"
         ParquetVersion_V2_10" parquet::ParquetVersion::PARQUET_2_10"
+        ParquetVersion_V2_11" parquet::ParquetVersion::PARQUET_2_11"
+        ParquetVersion_V2_12" parquet::ParquetVersion::PARQUET_2_12"
 
     enum ParquetSortOrder" parquet::SortOrder::type":
         ParquetSortOrder_SIGNED" parquet::SortOrder::SIGNED"
