@@ -112,22 +112,22 @@ jobs:
           case "${target}" in
             almalinux-*|amazon-linux-*|centos-*)
               echo "TASK_NAMESPACE=yum" >> "${GITHUB_ENV}"
-              echo "YUM_TARGETS=${target}" >> "${GITHUB_ENV}"
               echo "UPLOAD_EXTENSIONS=rpm" >> "${GITHUB_ENV}"
               if [[ "${architecture}" == "arm64" ]]; then
                 # Example: almalinux-8 -> almalinux-8-aarch64
                 target="${target}-aarch64"
               fi
+              echo "YUM_TARGETS=${target}" >> "${GITHUB_ENV}"
               ;;
             *)
               echo "TASK_NAMESPACE=apt" >> "${GITHUB_ENV}"
-              echo "APT_TARGETS=${target}" >> "${GITHUB_ENV}"
               upload_extensions=(ddeb deb debian.tar.xz .dsc .orig.tar.gz)
               echo "UPLOAD_EXTENSIONS=${upload_extensions[*]}" >> "${GITHUB_ENV}"
               if [[ "${architecture}" == "arm64" ]]; then
                 # Example: ubuntu-noble -> ubuntu-noble-arm64
                 target="${target}-arm64"
               fi
+              echo "APT_TARGETS=${target}" >> "${GITHUB_ENV}"
               ;;
           esac
           echo "TARGET=${target}" >> "${GITHUB_ENV}"
