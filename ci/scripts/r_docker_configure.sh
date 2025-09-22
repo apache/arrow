@@ -41,7 +41,7 @@ elif [ "`which zypper`" ]; then
   PACKAGE_MANAGER=zypper
 else
   PACKAGE_MANAGER=apt-get
-  apt-get update --allow-releaseinfo-change
+  apt-get update --allow-releaseinfo-change # flag needed for when debian version changes
 fi
 
 # Enable ccache if requested based on http://dirk.eddelbuettel.com/blog/2017/11/27/
