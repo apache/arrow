@@ -83,6 +83,14 @@ std::string ParquetVersionToString(ParquetVersion::type ver) {
       return "2.4";
     case ParquetVersion::PARQUET_2_6:
       return "2.6";
+    case ParquetVersion::PARQUET_2_7:
+      return "2.7";
+    case ParquetVersion::PARQUET_2_8:
+      return "2.8";
+    case ParquetVersion::PARQUET_2_9:
+      return "2.9";
+    case ParquetVersion::PARQUET_2_10:
+      return "2.10";
   }
 
   // This should be unreachable

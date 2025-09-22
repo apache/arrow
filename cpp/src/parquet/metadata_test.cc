@@ -745,5 +745,15 @@ TEST(ApplicationVersion, FullWithSpaces) {
   ASSERT_EQ("cd", version.version.build_info);
 }
 
+TEST(ParquetVersionToString, AllVersions) {
+  ASSERT_EQ("1.0", ParquetVersionToString(ParquetVersion::PARQUET_1_0));
+  ASSERT_EQ("2.4", ParquetVersionToString(ParquetVersion::PARQUET_2_4));
+  ASSERT_EQ("2.6", ParquetVersionToString(ParquetVersion::PARQUET_2_6));
+  ASSERT_EQ("2.7", ParquetVersionToString(ParquetVersion::PARQUET_2_7));
+  ASSERT_EQ("2.8", ParquetVersionToString(ParquetVersion::PARQUET_2_8));
+  ASSERT_EQ("2.9", ParquetVersionToString(ParquetVersion::PARQUET_2_9));
+  ASSERT_EQ("2.10", ParquetVersionToString(ParquetVersion::PARQUET_2_10));
+}
+
 }  // namespace metadata
 }  // namespace parquet
