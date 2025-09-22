@@ -83,7 +83,7 @@ if [ "$R_UPDATE_CLANG" = true ]; then
   apt install -y gnupg
   curl -fsSL https://apt.llvm.org/llvm-snapshot.gpg.key | gpg --dearmor -o /etc/apt/trusted.gpg.d/llvm.gpg
   echo "deb http://apt.llvm.org/jammy/ llvm-toolchain-jammy-20 main" > /etc/apt/sources.list.d/llvm20.list
-  apt update -y --allow-releaseinfo-change
+  apt update -y --allow-releaseinfo-change # flag needed for when debian version changes
   apt install -y clang-20 lld-20
 fi
 
