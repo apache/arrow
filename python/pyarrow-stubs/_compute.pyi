@@ -176,7 +176,7 @@ class DictionaryEncodeOptions(FunctionOptions):
 
 class RunEndEncodeOptions(FunctionOptions):
     # TODO: default is DataType(int32)
-    def __init__(self, run_end_type: lib.DataType = ...) -> None: ...
+    def __init__(self, run_end_type: lib.DataType | str = ...) -> None: ...
 
 
 class ElementWiseAggregateOptions(FunctionOptions):

@@ -140,10 +140,11 @@ jobs:
 
       - name: Type check with mypy and pyright
         run: |-
-            python -m pip install mypy pyright griffe libcst scipy-stubs pandas-stubs types-python-dateutil types-psutil types-requests griffe libcst types-cffi
+            python -m pip install mypy pyright griffe libcst pytest hypothesis fsspec scipy-stubs pandas-stubs types-python-dateutil types-psutil types-requests griffe libcst types-cffi
             pip install -i https://pypi.anaconda.org/scientific-python-nightly-wheels/simple pyarrow
             cd python
-            mypy ./pyarrow-stubs ./pyarrow/tests/test_array.py ./pyarrow/tests/test_io.py
+            # mypy pyarrow-stubs/ pyarrow/tests/interchange pyarrow/tests/parquet pyarrow/tests/test_array.py pyarrow/tests/test_io.py
+            mypy --ignore-missing-imports pyarrow-stubs/ pyarrow/tests
             pyright ./pyarrow-stubs
             cd ..
             python ./dev/update_stub_docstrings.py -f ./python/pyarrow-stubs

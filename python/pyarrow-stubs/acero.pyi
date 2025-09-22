@@ -29,6 +29,7 @@ from typing import Literal
 
 from . import lib
 from .compute import Expression, FunctionOptions
+from .dataset import InMemoryDataset, Dataset
 
 _StrOrExpr: TypeAlias = str | Expression
 
@@ -111,3 +112,23 @@ class AsofJoinNodeOptions(ExecNodeOptions):
         right_by: _StrOrExpr | list[_StrOrExpr],
         tolerance: int,
     ) -> None: ...
+
+
+def _perform_join(
+    join_type: str,
+    left_operand: lib.Table | Dataset,
+    left_keys: str | list[str],
+    right_operand: lib.Table | Dataset,
+    right_keys: str | list[str],
+    left_suffix: str,
+    right_suffix: str,
+    use_threads: bool,
+    coalesce_keys: bool,
+    output_type: type[lib.Table | InMemoryDataset] = lib.Table,
+    filter_expression: Expression | None = None,
+) -> lib.Table | InMemoryDataset: ...
+
+
+def _filter_table(
+    table: lib.Table | lib.RecordBatch, filter_expression: Expression,
+    use_threads: bool = True) -> lib.Table | lib.RecordBatch: ...

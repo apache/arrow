@@ -23,7 +23,7 @@ import io
 try:
     import numpy as np
 except ImportError:
-    np = None
+    np = None  # type: ignore[assignment]
 import pytest
 
 import pyarrow as pa
@@ -35,7 +35,7 @@ try:
     import pyarrow.parquet as pq
     from pyarrow.tests.parquet.common import _write_table
 except ImportError:
-    pq = None
+    pq = None  # type: ignore[assignment]
 
 
 try:
@@ -44,7 +44,7 @@ try:
 
     from pyarrow.tests.parquet.common import alltypes_sample
 except ImportError:
-    pd = tm = None
+    pd = tm = None  # type: ignore[assignment]
 
 
 # Marks all of the tests in this module

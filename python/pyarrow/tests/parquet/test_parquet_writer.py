@@ -25,7 +25,7 @@ try:
     from pyarrow.tests.parquet.common import (_read_table, _test_dataframe,
                                               _test_table, _range_integers)
 except ImportError:
-    pq = None
+    pq = None  # type: ignore[assignment]
 
 
 try:
@@ -33,7 +33,7 @@ try:
     import pandas.testing as tm
 
 except ImportError:
-    pd = tm = None
+    pd = tm = None  # type: ignore[assignment]
 
 
 # Marks all of the tests in this module

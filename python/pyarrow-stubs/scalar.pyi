@@ -399,7 +399,7 @@ class FixedShapeTensorScalar(ExtensionScalar):
 
 def scalar(
     value: Any,
-    type: _DataTypeT,
+    type: _DataTypeT | None = None,
     *,
     from_pandas: bool | None = None,
     memory_pool: MemoryPool | None = None,

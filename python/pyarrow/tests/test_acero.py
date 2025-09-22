@@ -37,9 +37,10 @@ except ImportError:
 
 try:
     import pyarrow.dataset as ds
-    from pyarrow.acero import ScanNodeOptions
+    from pyarrow._dataset import ScanNodeOptions
 except ImportError:
-    ds = None
+    ds = None  # type: ignore[assignment]
+    ScanNodeOptions = None  # type: ignore[assignment, misc]
 
 pytestmark = pytest.mark.acero
 

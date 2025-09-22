@@ -27,13 +27,13 @@ import hypothesis.strategies as st
 try:
     import hypothesis.extra.pytz as tzst
 except ImportError:
-    tzst = None
+    tzst = None  # type: ignore[assignment]
 import weakref
 
 try:
     import numpy as np
 except ImportError:
-    np = None
+    np = None  # type: ignore[assignment]
 import pyarrow as pa
 import pyarrow.types as types
 import pyarrow.tests.strategies as past
@@ -414,7 +414,7 @@ def test_tzinfo_to_string_errors():
 if tzst:
     timezones = tzst.timezones()
 else:
-    timezones = st.none()
+    timezones = st.none()  # type: ignore[assignment]
 
 
 @h.given(timezones)

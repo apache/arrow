@@ -29,8 +29,8 @@ try:
     import pyarrow.parquet as pq
     import pyarrow.dataset as ds
 except ImportError:
-    pq = None
-    ds = None
+    pq = None  # type: ignore[assignment]
+    ds = None  # type: ignore[assignment]
 
 try:
     from pyarrow.tests.parquet.encryption import InMemoryKmsClient
@@ -177,11 +177,12 @@ def test_large_row_encryption_decryption():
     """Test encryption and decryption of a large number of rows."""
 
     class NoOpKmsClient(pe.KmsClient):
-        def wrap_key(self, key_bytes: bytes, _: str) -> bytes:
+        def wrap_key(self, key_bytes: bytes, _: str) -> bytes:  # type: ignore[override]
             b = base64.b64encode(key_bytes)
             return b
 
-        def unwrap_key(self, wrapped_key: bytes, _: str) -> bytes:
+        def unwrap_key(self, wrapped_key: bytes, _: str  # type: ignore[override]
+                       ) -> bytes:
             b = base64.b64decode(wrapped_key)
             return b
 
