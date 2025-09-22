@@ -1366,6 +1366,7 @@ cdef class WriteOptions(_Weakrefable):
           will raise an error.
     quoting_header : str, optional (default "needed")
         Same as quoting_style, but for header column names. Accepts same values.
+        Note : both "needed" and "all_valid" have the same effect of quoting all column names.
     """
 
     # Avoid mistakingly creating attributes
