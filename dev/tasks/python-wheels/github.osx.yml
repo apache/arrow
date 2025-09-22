@@ -86,6 +86,8 @@ jobs:
 
       - name: Install Packages
         run: |
+          echo "${MACOSX_SYSROOT}"
+          echo "${CMAKE_OSX_SYSROOT}"
           vcpkg install \
             --clean-after-build \
             --x-install-root=${VCPKG_ROOT}/installed \
