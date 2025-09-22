@@ -28,7 +28,7 @@ from pyarrow.lib import ArrowInvalid, ArrowNotImplementedError
 try:
     import pyarrow.substrait as substrait
 except ImportError:
-    substrait = None
+    substrait = None  # type: ignore[assignment]
 
 # Marks all of the tests in this module
 # Ignore these with pytest ... -m 'not substrait'

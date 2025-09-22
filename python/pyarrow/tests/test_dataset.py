@@ -32,7 +32,7 @@ from urllib.parse import quote
 try:
     import numpy as np
 except ImportError:
-    np = None
+    np = None  # type: ignore[assignment]
 import pytest
 
 import pyarrow as pa
@@ -49,17 +49,17 @@ from pyarrow.tests.util import (FSProtocolClass, ProxyHandler,
 try:
     import pandas as pd
 except ImportError:
-    pd = None
+    pd = None  # type: ignore[assignment]
 
 try:
     import pyarrow.dataset as ds
 except ImportError:
-    ds = None
+    ds = None  # type: ignore[assignment]
 
 try:
     import pyarrow.parquet as pq
 except ImportError:
-    pq = None
+    pq = None  # type: ignore[assignment]
 
 # Marks all of the tests in this module
 # Ignore these with pytest ... -m 'not dataset'

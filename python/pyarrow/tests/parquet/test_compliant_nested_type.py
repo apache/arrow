@@ -24,7 +24,7 @@ try:
     from pyarrow.tests.parquet.common import (_read_table,
                                               _check_roundtrip)
 except ImportError:
-    pq = None
+    pq = None  # type: ignore[assignment]
 
 try:
     import pandas as pd
@@ -32,7 +32,7 @@ try:
 
     from pyarrow.tests.parquet.common import _roundtrip_pandas_dataframe
 except ImportError:
-    pd = tm = None
+    pd = tm = None  # type: ignore[assignment]
 
 
 # Marks all of the tests in this module
