@@ -1,3 +1,13 @@
+diff --git a/ports/bzip2/CMakeLists.txt b/ports/bzip2/CMakeLists.txt
+index d0f200a0a6..129b64db00 100644
+--- a/ports/bzip2/CMakeLists.txt
++++ b/ports/bzip2/CMakeLists.txt
+@@ -1,4 +1,4 @@
+-cmake_minimum_required(VERSION 3.0)
++cmake_minimum_required(VERSION 3.5)
+ project(bzip2 C)
+ 
+ if(CMAKE_BUILD_TYPE STREQUAL Debug)
 diff --git a/ports/curl/portfile.cmake b/ports/curl/portfile.cmake
 index 7cab6f726..697ab1bb4 100644
 --- a/ports/curl/portfile.cmake
