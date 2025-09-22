@@ -17,7 +17,7 @@
 
 #' Read a CSV or other delimited file with Arrow
 #'
-#' These functions uses the Arrow C++ CSV reader to read into a `tibble`.
+#' These functions use the Arrow C++ CSV reader to read into a `tibble`.
 #' Arrow C++ options have been mapped to argument names that follow those of
 #' `readr::read_delim()`, and `col_select` was inspired by `vroom::vroom()`.
 #'
@@ -111,7 +111,7 @@
 #' of columns, as used in `dplyr::select()`.
 #' @param na A character vector of strings to interpret as missing values.
 #' @param quoted_na Should missing values inside quotes be treated as missing
-#' values (the default) or strings. (Note that this is different from the
+#' values (the default) or strings. (Note that this is different from
 #' the Arrow C++ default for the corresponding convert option,
 #' `strings_can_be_null`.)
 #' @param skip_empty_rows Should blank rows be ignored altogether? If
