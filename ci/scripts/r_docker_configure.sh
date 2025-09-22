@@ -79,7 +79,7 @@ $PACKAGE_MANAGER install -y rsync cmake curl
 # This is only for rhub/clang20. If we change the base image from rhub/clang20,
 # we need to update this part too.
 if [ "$R_UPDATE_CLANG" = true ]; then
-  apt update -y --allow-releaseinfo-change
+  apt update -y --allow-releaseinfo-change # flag needed for when debian version changes
   apt install -y gnupg
   curl -fsSL https://apt.llvm.org/llvm-snapshot.gpg.key | gpg --dearmor -o /etc/apt/trusted.gpg.d/llvm.gpg
   echo "deb http://apt.llvm.org/jammy/ llvm-toolchain-jammy-20 main" > /etc/apt/sources.list.d/llvm20.list
