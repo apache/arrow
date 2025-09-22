@@ -92,6 +92,8 @@ jobs:
         id:
           - almalinux-8-amd64
           - almalinux-8-arm64
+          - ubuntu-noble-amd64
+          - ubuntu-noble-arm64
     env:
       DOCKER_VOLUME_PREFIX: ".docker/"
       ARROW_VERSION: ${{ inputs.version || ''}}
@@ -107,24 +109,28 @@ jobs:
           echo "ARCHITECTURE=${architecture}" >> "${GITHUB_ENV}"
           # Example: almalinux-8-amd64 -> almalinux-8
           target="${ID%-*}"
-          if [[ "${architecture}" == "arm64" ]]; then
-            # Example: almalinux-8 -> almalinux-8-aarch64
-            target="${target}-aarch64"
-          fi
-          echo "TARGET=${target}" >> "${GITHUB_ENV}"
           case "${target}" in
             almalinux-*|amazon-linux-*|centos-*)
               echo "TASK_NAMESPACE=yum" >> "${GITHUB_ENV}"
               echo "YUM_TARGETS=${target}" >> "${GITHUB_ENV}"
               echo "UPLOAD_EXTENSIONS=rpm" >> "${GITHUB_ENV}"
+              if [[ "${architecture}" == "arm64" ]]; then
+                # Example: almalinux-8 -> almalinux-8-aarch64
+                target="${target}-aarch64"
+              fi
               ;;
             *)
               echo "TASK_NAMESPACE=apt" >> "${GITHUB_ENV}"
               echo "APT_TARGETS=${target}" >> "${GITHUB_ENV}"
               upload_extensions=(ddeb deb debian.tar.xz .dsc .orig.tar.gz)
               echo "UPLOAD_EXTENSIONS=${upload_extensions[*]}" >> "${GITHUB_ENV}"
+              if [[ "${architecture}" == "arm64" ]]; then
+                # Example: ubuntu-noble -> ubuntu-noble-arm64
+                target="${target}-arm64"
+              fi
               ;;
           esac
+          echo "TARGET=${target}" >> "${GITHUB_ENV}"
       - name: Checkout Arrow
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
