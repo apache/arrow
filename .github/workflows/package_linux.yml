@@ -249,6 +249,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           path: artifacts-downloaded
+          name: ${{ matrix.id }}
       - name: Set up test
         run: |
           mv artifacts-downloaded/${{ matrix.id }} dev/tasks/linux-packages
