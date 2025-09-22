@@ -27,9 +27,11 @@ platforms=([windows]=Windows
 declare -A versions
 versions=([3.10]=3.10.11
           [3.11]=3.11.9
-          [3.12]=3.12.9
-          [3.13]=3.13.2
-          [3.13t]=3.13.2)
+          [3.12]=3.12.10
+          [3.13]=3.13.7
+          [3.13t]=3.13.7
+          [3.14]=3.14.0
+          [3.14t]=3.14.0)
 
 if [ "$#" -ne 2 ]; then
   echo "Usage: $0 <platform> <version>"
