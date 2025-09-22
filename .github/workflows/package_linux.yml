@@ -78,9 +78,9 @@ jobs:
       parent-workflow: package_linux
 
   package:
+    name: ${{ matrix.id }}
+    runs-on: ${{ contains(matrix.id, 'amd64') && 'ubuntu-latest' || 'ubuntu-24.04-arm' }}
     needs: check-labels
-    name: ${{ matrix.title }}
-    runs-on: ${{ matrix.runs-on }}
     if: >-
       needs.check-labels.outputs.force == 'true' ||
       contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra') ||
@@ -89,26 +89,42 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - architecture: amd64
-            runs-on: ubuntu-latest
-            target: almalinux-8
-            title: AlmaLinux 8 AMD64
-            task-namespace: yum
-            upload-extensions:
-              - rpm
-          - architecture: arm64
-            runs-on: ubuntu-24.04-arm
-            target: almalinux-8-aarch64
-            title: AlmaLinux 8 ARM64
-            task-namespace: yum
-            upload-extensions:
-              - rpm
+        id:
+          - almalinux-8-amd64
+          - almalinux-8-arm64
     env:
       DOCKER_VOLUME_PREFIX: ".docker/"
       ARROW_VERSION: ${{ inputs.version || ''}}
       NO_RC_VERSION: ${{ inputs.no_rc_version  || ''}}
     steps:
+      - name: Prepare environment variables
+        env:
+          ID: ${{ matrix.id }}
+        run: |
+          set -ex
+          # Example: almalinux-8-amd64 -> amd64
+          architecture="${ID##*-}"
+          echo "ARCHITECTURE=${architecture}" >> "${GITHUB_ENV}"
+          # Example: almalinux-8-amd64 -> almalinux-8
+          target="${ID%-*}"
+          if [[ "${architecture}" == "arm64" ]]; then
+            # Example: almalinux-8 -> almalinux-8-aarch64
+            target="${target}-aarch64"
+          fi
+          echo "TARGET=${target}" >> "${GITHUB_ENV}"
+          case "${target}" in
+            almalinux-*|amazon-linux-*|centos-*)
+              echo "TASK_NAMESPACE=yum" >> "${GITHUB_ENV}"
+              echo "YUM_TARGETS=${target}" >> "${GITHUB_ENV}"
+              echo "UPLOAD_EXTENSIONS=rpm" >> "${GITHUB_ENV}"
+              ;;
+            *)
+              echo "TASK_NAMESPACE=apt" >> "${GITHUB_ENV}"
+              echo "APT_TARGETS=${target}" >> "${GITHUB_ENV}"
+              upload_extensions=(ddeb deb debian.tar.xz .dsc .orig.tar.gz)
+              echo "UPLOAD_EXTENSIONS=${upload_extensions[*]}" >> "${GITHUB_ENV}"
+              ;;
+          esac
       - name: Checkout Arrow
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
@@ -123,8 +139,8 @@ jobs:
         uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
         with:
           path: .docker
-          key:  package-linux-${{ matrix.target }}-${{ hashFiles('cpp/**') }}
-          restore-keys: package-linux-${{ matrix.target }}-
+          key:  package-linux-${{ matrix.id }}-${{ hashFiles('cpp/**') }}
+          restore-keys: package-linux-${{ matrix.id }}-
       - name: Set up Ruby
         run: |
           sudo apt update
@@ -133,7 +149,7 @@ jobs:
             ruby \
             ruby-dev
       - name: Prepare apache-arrow-apt-source for arm64
-        if: ${{ matrix.architecture }} == 'arm64'
+        if: ${{ env.ARCHITECTURE == 'arm64' }}
         run: |
           pushd dev/tasks/linux-packages/apache-arrow-apt-source/apt
           for target in *-*; do
@@ -141,7 +157,7 @@ jobs:
           done
           popd
       - name: Prepare apache-arrow-release for arm64
-        if: ${{ matrix.architecture }} == 'arm64'
+        if: ${{ env.ARCHITECTURE == 'arm64' }}
         run: |
           pushd dev/tasks/linux-packages/apache-arrow-release/yum
           for target in *-*; do
@@ -165,12 +181,10 @@ jobs:
           pushd dev/tasks/linux-packages
           rake version:update ARROW_RELEASE_TIME="$(date --iso-8601=seconds)"
           rake docker:pull || :
-          rake --trace ${{ matrix.task-namespace }}:build BUILD_DIR=build
+          rake --trace ${TASK_NAMESPACE}:build BUILD_DIR=build
           popd
         env:
-          APT_TARGETS: ${{ matrix.target }}
           REPO: ghcr.io/${{ github.repository }}-package-linux
-          YUM_TARGETS: ${{ matrix.target }}
       - name: Login to Dockerhub
         if: >-
           success() &&
@@ -195,27 +209,25 @@ jobs:
           rake docker:push
           popd
         env:
-          APT_TARGETS: ${{ matrix.target }}
           REPO: ${{ secrets.REPO }}
-          YUM_TARGETS: ${{ matrix.target }}
       - name: Build artifact tarball
         shell: bash
         run: |
           set -ex
           pushd dev/tasks/linux-packages
-          tar cvzf ${{ matrix.target }}-${{ matrix.architecture }}.tar.gz */${{ matrix.task-namespace }}/repositories
+          tar cvzf ${{ matrix.id }}.tar.gz */${TASK_NAMESPACE}/repositories
           popd
       - name: Upload the artifacts to the job
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: ${{ matrix.target }}-${{ matrix.architecture }}
-          path: dev/tasks/linux-packages/${{ matrix.target }}-${{ matrix.architecture }}.tar.gz
+          name: ${{ matrix.id }}
+          path: dev/tasks/linux-packages/${{ matrix.id }}.tar.gz
       - name: Download Artifacts
         uses: actions/download-artifact@v4
         with:
           path: artifacts-downloaded
       - name: Expected uploaded yum artifacts
-        if: matrix.task-namespace == 'yum'
+        if: ${{ env.TASK_NAMESPACE == 'yum' }}
         id: expected-yum-artifacts
         run: |
           set -ex
@@ -246,7 +258,7 @@ jobs:
           parquet[0-9]+-libs-${NO_RC_VERSION}-1.[a-z0-9]+.[a-z0-9_]+.rpm
           parquet-tools-${NO_RC_VERSION}-1.[a-z0-9]+.[a-z0-9_]+.rpm
           "
-          if [ "${{ matrix.target }}" != "centos-7" ]; then
+          if [ "${TARGET}" != "centos-7" ]; then
             artifacts="$artifacts
             arrow[0-9]+-acero-libs-debuginfo-${NO_RC_VERSION}-1.[a-z0-9]+.[a-z0-9_]+.rpm
             arrow[0-9]+-compute-libs-debuginfo-${NO_RC_VERSION}-1.[a-z0-9]+.[a-z0-9_]+.rpm
@@ -288,7 +300,7 @@ jobs:
             echo 'EOF'
           } >> $GITHUB_OUTPUT
       - name: Validate uploaded yum artifacts
-        if: matrix.task-namespace == 'yum'
+        if: ${{ env.TASK_NAMESPACE == 'yum' }}
         id: validate-artifacts
         shell: bash
         run: |
@@ -296,12 +308,12 @@ jobs:
           expected_patterns="${{ steps.expected-yum-artifacts.outputs.artifacts }}"
 
           # Find all RPM files in the extracted directory
-          pushd artifacts-downloaded/${{ matrix.target }}-${{ matrix.architecture }}
-          tar xvf ${{ matrix.target }}-${{ matrix.architecture }}.tar.gz
+          pushd artifacts-downloaded/${{ matrix.id }}
+          tar xvf ${{ matrix.id }}.tar.gz
           tree .
           popd
 
-          found_files=$(find artifacts-downloaded/${{ matrix.target }}-${{ matrix.architecture }} -type f -name '*.rpm' | sort)
+          found_files=$(find artifacts-downloaded/${{ matrix.id }} -type f -name '*.rpm' | sort)
           echo "Found files: $found_files"
 
           # Prepare expected patterns for matching
@@ -349,10 +361,10 @@ jobs:
           echo "All expected artifacts are present, and no unexpected artifacts found."
       - name: Set up test
         run: |
-          mv artifacts-downloaded/${{ matrix.target }}-${{ matrix.architecture }} dev/tasks/linux-packages
+          mv artifacts-downloaded/${{ matrix.id }} dev/tasks/linux-packages
           pushd dev/tasks/linux-packages
-          rm -rf */${{ matrix.task-namespace }}/repositories # Remove artifacts
-          tar xf ${{ matrix.target }}-${{ matrix.architecture }}.tar.gz # Use uploaded artifacts
+          rm -rf */${TASK_NAMESPACE}/repositories # Remove artifacts
+          tar xf ${{ matrix.id }}.tar.gz # Use uploaded artifacts
           popd
           sudo apt install -y \
             apt-utils \
@@ -371,7 +383,7 @@ jobs:
             gpg --full-generate-key --batch
           GPG_KEY_ID=$(gpg --list-keys --with-colon test@example.com | grep fpr | cut -d: -f10)
           echo "GPG_KEY_ID=${GPG_KEY_ID}" >> ${GITHUB_ENV}
-          case "${{ matrix.target }}" in
+          case "${{ matrix.id }}" in
             almalinux-*|amazon-linux-*|centos-*)
               repositories_dir=dev/tasks/linux-packages/apache-arrow-release/yum/repositories
               rpm2cpio ${repositories_dir}/*/*/*/Packages/apache-arrow-release-*.rpm | \
@@ -385,12 +397,10 @@ jobs:
         run: |
           set -e
           pushd dev/tasks/linux-packages
-          rake --trace ${{ matrix.task-namespace }}:test
+          rake --trace ${TASK_NAMESPACE}:test
           popd
         env:
-          APT_TARGETS: ${{ matrix.target }}
           ARCHITECTURE: ${{ matrix.architecture }}
-          YUM_TARGETS: ${{ matrix.target }}
 
   report-package-linux:
     needs:
