@@ -23,11 +23,10 @@ if sys.version_info >= (3, 11):
     from typing import Self
 else:
     from typing_extensions import Self
+from collections.abc import Iterable, Iterator
 from typing import (
     Any,
     Generic,
-    Iterable,
-    Iterator,
     Literal,
     TypeVar,
 )
@@ -36,7 +35,7 @@ import numpy as np
 import pandas as pd
 
 from pandas.core.dtypes.base import ExtensionDtype
-from pyarrow._compute import CastOptions  # type: ignore[import-not-found]
+from pyarrow._compute import CastOptions
 from pyarrow._stubs_typing import (
     ArrayLike,
     Indices,
@@ -45,10 +44,10 @@ from pyarrow._stubs_typing import (
     SupportArrowArray,
     SupportArrowDeviceArray,
 )
-from pyarrow.lib import (  # type: ignore[attr-defined]
+from pyarrow.lib import (
     Buffer,
-    Device,  # type: ignore[reportAttributeAccessIssue]
-    MemoryManager,  # type: ignore[reportAttributeAccessIssue]
+    Device,
+    MemoryManager,
     MemoryPool,
     Tensor,
     _Weakrefable,
@@ -56,16 +55,53 @@ from pyarrow.lib import (  # type: ignore[attr-defined]
 from typing_extensions import deprecated
 import builtins
 
-from .scalar import *
-from .device import DeviceAllocationType  # type: ignore[import-not-found]
-from ._types import (
+from .scalar import (  # noqa: F401
+    BinaryScalar,
+    BinaryViewScalar,
+    BooleanScalar,
+    Date32Scalar,
+    Date64Scalar,
+    DictionaryScalar,
+    DoubleScalar,
+    DurationScalar,
+    ExtensionScalar,
+    FixedSizeBinaryScalar,
+    FixedSizeListScalar,
+    FloatScalar,
+    HalfFloatScalar,
+    Int16Scalar,
+    Int32Scalar,
+    Int64Scalar,
+    Int8Scalar,
+    LargeBinaryScalar,
+    LargeListScalar,
+    LargeStringScalar,
+    ListScalar,
+    ListViewScalar,
+    MapScalar,
+    MonthDayNanoIntervalScalar,
+    NullScalar,
+    RunEndEncodedScalar,
+    Scalar,
+    StringScalar,
+    StringViewScalar,
+    StructScalar,
+    Time32Scalar,
+    Time64Scalar,
+    TimestampScalar,
+    UInt16Scalar,
+    UInt32Scalar,
+    UInt64Scalar,
+    UInt8Scalar,
+    UnionScalar,
+)
+from .device import DeviceAllocationType
+from ._types import (  # noqa: F401
     BaseExtensionType,
     BinaryType,
     DataType,
     Field,
     Float64Type,
-    Int16Type,
-    Int32Type,
     Int64Type,
     MapType,
     StringType,
@@ -86,7 +122,8 @@ from ._stubs_typing import NullableCollection
 
 
 def array(
-    values: NullableCollection[Any] | Iterable[Any] | SupportArrowArray | SupportArrowDeviceArray,
+    values: NullableCollection[Any] | Iterable[Any] | SupportArrowArray
+    | SupportArrowDeviceArray,
     type: Any | None = None,
     mask: Mask | None = None,
     size: int | None = None,
@@ -97,7 +134,8 @@ def array(
 
 
 def asarray(
-    values: NullableCollection[Any] | Iterable[Any] | SupportArrowArray | SupportArrowDeviceArray,
+    values: NullableCollection[Any] | Iterable[Any] | SupportArrowArray
+    | SupportArrowDeviceArray,
     type: _DataTypeT | Any | None = None,
 ) -> Array[Scalar[_DataTypeT]] | ArrayLike: ...
 
@@ -460,12 +498,15 @@ class ListArray(BaseListArray[_ScalarT]):
     def from_arrays(
         cls,
         offsets: Int32Array | list[int],
-        values: Array[Scalar[_DataTypeT]] | list[int] | list[float] | list[str] | list[bytes] | list,
+        values: Array[Scalar[_DataTypeT]] | list[int] | list[float] | list[str]
+        | list[bytes] | list,
         *,
         type: _DataTypeT | None = None,
         pool: MemoryPool | None = None,
         mask: Mask | None = None,
-    ) -> ListArray[ListScalar[_DataTypeT | Int64Type | Float64Type | StringType | BinaryType]] | ListArray: ...
+    ) -> (ListArray[ListScalar[
+        _DataTypeT | Int64Type | Float64Type | StringType | BinaryType
+    ]] | ListArray): ...
 
     @property
     def values(self) -> Array: ...
@@ -485,7 +526,7 @@ class LargeListArray(BaseListArray[LargeListScalar[_DataTypeT]]):
         type: _DataTypeT | None = None,
         pool: MemoryPool | None = None,
         mask: Mask | None = None,
-    ) -> LargeListArray[_DataTypeT] | LargeListArray[_DataTypeT]: ...
+    ) -> LargeListArray[_DataTypeT]: ...
 
     @property
     def values(self) -> Array: ...
@@ -505,7 +546,7 @@ class ListViewArray(BaseListArray[ListViewScalar[_DataTypeT]]):
         type: _DataTypeT | None = None,
         pool: MemoryPool | None = None,
         mask: Mask | None = None,
-    ) -> ListViewArray[_DataTypeT] | ListViewArray[_DataTypeT]: ...
+    ) -> ListViewArray[_DataTypeT]: ...
 
     @property
     def values(self) -> Array: ...
@@ -716,9 +757,8 @@ class RunEndEncodedArray(Array[RunEndEncodedScalar[_RunEndType, _BasicValueT]]):
     @staticmethod
     def from_arrays(
         run_ends: Int16Array | Int32Array | Int64Array,
-        values: Array,
-        type: DataType | None = None,
-    ) -> RunEndEncodedArray[Int16Type | Int32Type | Int64Type, _BasicValueT]: ...  # type: ignore[type-var]
+        values: Array, type: DataType | None = None,
+    ) -> RunEndEncodedArray[Any, _BasicValueT]: ...
 
     @staticmethod
     def from_buffers(  # type: ignore[override]

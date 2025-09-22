@@ -21,19 +21,20 @@ from _typeshed import StrPath
 
 from .lib import MemoryPool, RecordBatchReader, Schema, Table, _Weakrefable
 
-class ReadOptions(_Weakrefable):
 
+class ReadOptions(_Weakrefable):
 
     use_threads: bool
 
     block_size: int
 
-    def __init__(self, use_threads: bool | None = None, block_size: int | None = None): ...
+    def __init__(self, use_threads: bool | None = None,
+                 block_size: int | None = None): ...
+
     def equals(self, other: ReadOptions) -> bool: ...
 
 
 class ParseOptions(_Weakrefable):
-
 
     explicit_schema: Schema
 
@@ -50,7 +51,8 @@ class ParseOptions(_Weakrefable):
     def equals(self, other: ParseOptions) -> bool: ...
 
 
-class JSONStreamingReader(RecordBatchReader): ...
+class JSONStreamingReader(RecordBatchReader):
+    ...
 
 
 def read_json(
@@ -67,4 +69,3 @@ def open_json(
     parse_options: ParseOptions | None = None,
     memory_pool: MemoryPool | None = None,
 ) -> JSONStreamingReader: ...
-

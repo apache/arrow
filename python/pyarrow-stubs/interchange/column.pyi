@@ -17,7 +17,8 @@
 
 import enum
 
-from typing import Any, Iterable, TypeAlias, TypedDict
+from collections.abc import Iterable
+from typing import Any, TypeAlias, TypedDict
 
 from pyarrow.lib import Array, ChunkedArray
 

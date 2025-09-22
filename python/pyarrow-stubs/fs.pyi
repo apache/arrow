@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-from pyarrow._fs import (  # noqa
+from pyarrow._fs import (
     FileSelector,
     FileType,
     FileInfo,
@@ -30,7 +30,7 @@ from pyarrow._fs import (  # noqa
 from pyarrow._azurefs import AzureFileSystem
 from pyarrow._hdfs import HadoopFileSystem
 from pyarrow._gcsfs import GcsFileSystem
-from pyarrow._s3fs import (  # noqa
+from pyarrow._s3fs import (
     AwsDefaultS3RetryStrategy,
     AwsStandardS3RetryStrategy,
     S3FileSystem,
@@ -52,7 +52,7 @@ def copy_files(
     source_filesystem: SupportedFileSystem | None = None,
     destination_filesystem: SupportedFileSystem | None = None,
     *,
-    chunk_size: int = 1024 * 1024,
+    chunk_size: int = 1024 * 1024,  # noqa: Y011
     use_threads: bool = True,
 ) -> None: ...
 

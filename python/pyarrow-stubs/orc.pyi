@@ -102,7 +102,7 @@ class ORCWriter:
         *,
         file_version: str = "0.12",
         batch_size: int = 1024,
-        stripe_size: int = 64 * 1024 * 1024,
+        stripe_size: int = 64 * 1024 * 1024,  # noqa: Y011
         compression: Literal["UNCOMPRESSED", "ZLIB",
                              "SNAPPY", "LZ4", "ZSTD"] = "UNCOMPRESSED",
         compression_block_size: int = 65536,
@@ -133,7 +133,7 @@ def write_table(
     *,
     file_version: str = "0.12",
     batch_size: int = 1024,
-    stripe_size: int = 64 * 1024 * 1024,
+    stripe_size: int = 64 * 1024 * 1024,  # noqa: Y011
     compression: Literal["UNCOMPRESSED", "ZLIB",
                          "SNAPPY", "LZ4", "ZSTD"] = "UNCOMPRESSED",
     compression_block_size: int = 65536,
