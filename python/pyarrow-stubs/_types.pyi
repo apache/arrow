@@ -15,24 +15,24 @@
 # specific language governing permissions and limitations
 # under the License.
 
-import datetime as dt
+import datetime as dt  # noqa: F401
 import sys
 
-from collections.abc import Mapping, Sequence
-from decimal import Decimal
+from collections.abc import Mapping, Sequence, Iterable, Iterator
+from decimal import Decimal  # noqa: F401
 
 if sys.version_info >= (3, 11):
     from typing import Self
 else:
     from typing_extensions import Self
 
-from typing import Any, Generic, Iterable, Iterator, Literal
+from typing import Any, Generic, Literal
 
 import numpy as np
 import pandas as pd
 
 from pyarrow._stubs_typing import SupportArrowSchema
-from pyarrow.lib import (
+from pyarrow.lib import (  # noqa: F401
     Array,
     ChunkedArray,
     ExtensionArray,
@@ -382,7 +382,7 @@ class StructType(DataType):
 
     def __iter__(self) -> Iterator[Field]: ...
 
-    __getitem__ = field  # pyright: ignore[reportUnknownVariableType]
+    __getitem__ = field
     @property
     def names(self) -> list[str]: ...
 
@@ -404,7 +404,7 @@ class UnionType(DataType):
 
     def field(self, i: int) -> Field: ...
 
-    __getitem__ = field  # pyright: ignore[reportUnknownVariableType]
+    __getitem__ = field
 
 
 class SparseUnionType(UnionType):
@@ -526,12 +526,12 @@ class OpaqueType(BaseExtensionType):
 #             Whether to enable auto-loading.
 #         """
 
-class UnknownExtensionType(ExtensionType):  # type: ignore
+class UnknownExtensionType(ExtensionType):
 
     def __init__(self, storage_type: DataType, serialized: bytes) -> None: ...
 
 
-def register_extension_type(ext_type: ExtensionType) -> None: ...  # type: ignore
+def register_extension_type(ext_type: ExtensionType) -> None: ...
 
 
 def unregister_extension_type(type_name: str) -> None: ...
@@ -546,9 +546,9 @@ class KeyValueMetadata(_Metadata, Mapping[bytes, bytes]):
 
     def __len__(self) -> int: ...
 
-    def __contains__(self, __key: object) -> bool: ...
+    def __contains__(self, *, __key: object) -> bool: ...  # type: ignore[override]
 
-    def __getitem__(self, __key: Any) -> Any: ...
+    def __getitem__(self, *, __key: Any) -> Any: ...  # type: ignore[override]
 
     def __iter__(self) -> Iterator[bytes]: ...
 
@@ -603,7 +603,7 @@ class Schema(_Weakrefable):
 
     def __getitem__(self, key: str) -> Field: ...
 
-    _field = __getitem__  # pyright: ignore[reportUnknownVariableType]
+    _field = __getitem__
     def __iter__(self) -> Iterator[Field]: ...
 
     def __hash__(self) -> int: ...
@@ -674,13 +674,14 @@ class Schema(_Weakrefable):
 
 
 def unify_schemas(
-    schemas: list[Schema], *, promote_options: Literal["default", "permissive"] = "default"
+    schemas: list[Schema],
+    *,
+    promote_options: Literal["default", "permissive"] = "default"
 ) -> Schema: ...
 
 
-def field(
-    name: SupportArrowSchema | str, type: _DataTypeT, nullable: bool = ..., metadata: dict[Any, Any] | None = None
-) -> Field[_DataTypeT] | Field[Any]: ...
+def field(name: SupportArrowSchema | str, type: _DataTypeT, nullable: bool = ...,
+          metadata: dict[Any, Any] | None = None) -> Field[_DataTypeT] | Field[Any]: ...
 
 
 def null() -> NullType: ...
@@ -744,7 +745,7 @@ def float64() -> Float64Type: ...
 
 
 def decimal32(precision: _Precision, scale: _Scale |
-              None = None) -> Decimal32Type[_Precision, _Scale| Literal[0]]: ...
+              None = None) -> Decimal32Type[_Precision, _Scale | Literal[0]]: ...
 
 
 def decimal64(precision: _Precision, scale: _Scale |
@@ -784,7 +785,8 @@ def string_view() -> StringViewType: ...
 
 
 def list_(
-    value_type: _DataTypeT | Field[_DataTypeT], list_size: Literal[-1] | _Size | None = None
+    value_type: _DataTypeT | Field[_DataTypeT],
+    list_size: Literal[-1] | _Size | None = None
 ) -> ListType[_DataTypeT] | FixedSizeListType[_DataTypeT, _Size]: ...
 
 
@@ -827,9 +829,9 @@ def dense_union(
 ) -> DenseUnionType: ...
 
 
-def union(
-    child_fields: list[Field[Any]], mode: Literal["sparse"] | Literal["dense"], type_codes: list[int] | None = None
-) -> SparseUnionType | DenseUnionType: ...
+def union(child_fields: list[Field[Any]],
+          mode: Literal["sparse"] | Literal["dense"],  # noqa: Y030
+          type_codes: list[int] | None = None) -> SparseUnionType | DenseUnionType: ...
 
 
 def run_end_encoded(
@@ -861,7 +863,9 @@ def type_for_alias(name: Any) -> DataType: ...
 
 
 def schema(
-    fields: Iterable[Field[Any]] | Iterable[tuple[str, DataType]] | Mapping[str, DataType],
+    fields: Iterable[Field[Any]]
+    | Iterable[tuple[str, DataType]]
+    | Mapping[str, DataType],
     metadata: dict[bytes | str, bytes | str] | None = None,
 ) -> Schema: ...
 

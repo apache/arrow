@@ -24,7 +24,9 @@ if sys.version_info >= (3, 11):
     from typing import Self
 else:
     from typing_extensions import Self
-from typing import Iterable, Iterator, Literal, Mapping, NamedTuple
+
+from collections.abc import Iterable, Iterator, Mapping
+from typing import Literal, NamedTuple
 
 import pandas as pd
 
@@ -36,7 +38,6 @@ from ._types import DictionaryMemo, KeyValueMetadata
 
 
 class MetadataVersion(enum.IntEnum):
-    ...
     V1 = enum.auto()
     V2 = enum.auto()
     V3 = enum.auto()
@@ -45,7 +46,6 @@ class MetadataVersion(enum.IntEnum):
 
 
 class WriteStats(NamedTuple):
-    ...
     num_messages: int
     num_record_batches: int
     num_dictionary_batches: int
@@ -54,7 +54,6 @@ class WriteStats(NamedTuple):
 
 
 class ReadStats(NamedTuple):
-    ...
     num_messages: int
     num_record_batches: int
     num_dictionary_batches: int
@@ -63,7 +62,6 @@ class ReadStats(NamedTuple):
 
 
 class IpcReadOptions(_Weakrefable):
-    ...
     ensure_native_endian: bool
     use_threads: bool
     included_fields: list[int]
@@ -78,7 +76,6 @@ class IpcReadOptions(_Weakrefable):
 
 
 class IpcWriteOptions(_Weakrefable):
-    ...
     metadata_version: MetadataVersion
     allow_64bit: bool
     use_legacy_format: bool
@@ -101,7 +98,6 @@ class IpcWriteOptions(_Weakrefable):
 
 
 class Message(_Weakrefable):
-    ...
     @property
     def type(self) -> str: ...
     @property
@@ -112,16 +108,14 @@ class Message(_Weakrefable):
     def body(self) -> Buffer | None: ...
     def equals(self, other: Message) -> bool: ...
 
-    def serialize_to(
-        self, sink: NativeFile, alignment: int = 8, memory_pool: MemoryPool | None = None
-    ): ...
+    def serialize_to(self, sink: NativeFile, alignment: int = 8,
+                     memory_pool: MemoryPool | None = None): ...
 
     def serialize(self, alignment: int = 8, memory_pool: MemoryPool |
                   None = None) -> Buffer: ...
 
 
 class MessageReader(_Weakrefable):
-    ...
     @classmethod
     def open_stream(cls, source: bytes | NativeFile |
                     IOBase | SupportPyBuffer) -> Self: ...
@@ -136,7 +130,6 @@ class MessageReader(_Weakrefable):
 
 
 class _CRecordBatchWriter(_Weakrefable):
-    ...
     def write(self, table_or_batch: Table | RecordBatch): ...
 
     def write_batch(
@@ -156,22 +149,19 @@ class _CRecordBatchWriter(_Weakrefable):
 
 
 class _RecordBatchStreamWriter(_CRecordBatchWriter):
-    ...
     @property
     def _use_legacy_format(self) -> bool: ...
     @property
-    def _metadata_version(self) -> MetadataVersion: ...
+    def _metadata_version(self) -> MetadataVersion: ...  # noqa: Y011
     def _open(self, sink, schema: Schema,
-              options: IpcWriteOptions = IpcWriteOptions()): ...
+              options: IpcWriteOptions = IpcWriteOptions()): ...  # noqa: Y011
 
 
 class _ReadPandasMixin:
-    ...
     def read_pandas(self, **options) -> pd.DataFrame: ...
 
 
 class RecordBatchReader(_Weakrefable):
-    ...
     def __iter__(self) -> Self: ...
     def read_next_batch(self) -> RecordBatch: ...
 
@@ -214,7 +204,6 @@ class RecordBatchReader(_Weakrefable):
 
 
 class _RecordBatchStreamReader(RecordBatchReader):
-    ...
     @property
     def stats(self) -> ReadStats: ...
 
@@ -224,13 +213,11 @@ class _RecordBatchFileWriter(_RecordBatchStreamWriter):
 
 
 class RecordBatchWithMetadata(NamedTuple):
-    ...
     batch: RecordBatch
     custom_metadata: KeyValueMetadata
 
 
 class _RecordBatchFileReader(_Weakrefable):
-    ...
     @property
     def num_record_batches(self) -> int: ...
 
@@ -271,8 +258,9 @@ def read_schema(obj: Buffer | Message, dictionary_memo: DictionaryMemo |
 
 
 def read_record_batch(
-    obj: Message | SupportPyBuffer, schema: Schema, dictionary_memo: DictionaryMemo | None = None
-) -> RecordBatch: ...
+    obj: Message | SupportPyBuffer,
+    schema: Schema,
+    dictionary_memo: DictionaryMemo | None = None) -> RecordBatch: ...
 
 
 __all__ = [

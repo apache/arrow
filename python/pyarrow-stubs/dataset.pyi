@@ -15,7 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
-from typing import Callable, Iterable, Literal, Sequence, TypeAlias, overload
+from collections.abc import Callable, Iterable, Sequence
+from typing import Literal, TypeAlias, overload
 
 from _typeshed import StrPath
 from pyarrow._dataset import (
@@ -249,7 +250,8 @@ def dataset(
 
 
 def write_dataset(
-    data: Dataset | Table | RecordBatch | RecordBatchReader | list[Table] | Iterable[RecordBatch],
+    data: Dataset | Table | RecordBatch | RecordBatchReader | list[Table]
+    | Iterable[RecordBatch],
     base_dir: StrPath,
     *,
     basename_template: str | None = None,
@@ -264,7 +266,7 @@ def write_dataset(
     max_open_files: int = 1024,
     max_rows_per_file: int = 0,
     min_rows_per_group: int = 0,
-    max_rows_per_group: int = 1024 * 1024,
+    max_rows_per_group: int = 1024 * 1024,  # noqa: Y011
     file_visitor: Callable[[str], None] | None = None,
     existing_data_behavior: Literal["error",
                                     "overwrite_or_ignore", "delete_matching"] = "error",

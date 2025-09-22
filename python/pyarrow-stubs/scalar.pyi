@@ -27,42 +27,59 @@ if sys.version_info >= (3, 10):
     from typing import TypeAlias
 else:
     from typing_extensions import TypeAlias
-from typing import Any, Generic, Iterator, Literal
+from collections.abc import Iterator
+from typing import Any, Generic, Literal
 
 import numpy as np
 
-from pyarrow._compute import CastOptions  # type: ignore[import-not-found]
+from pyarrow._compute import CastOptions
 from pyarrow.lib import Array, Buffer, MemoryPool, MonthDayNano, Tensor, _Weakrefable
-from typing_extensions import  TypeVar
+from typing_extensions import TypeVar
 
-from ._types import (
+from ._types import (  # noqa: F401
+    DataType,
+    Decimal128Type,
+    Date32Type,
+    Date64Type,
+    Time32Type,
+    Time64Type,
+    TimestampType,
+    Decimal256Type,
+    NullType,
+    BoolType,
+    UInt8Type,
+    Int8Type,
+    DurationType, MonthDayNanoIntervalType, BinaryType, LargeBinaryType,
+    FixedSizeBinaryType, StringType, LargeStringType, BinaryViewType, StringViewType,
+    FixedSizeListType,
+    Float16Type, Float32Type, Float64Type, Decimal32Type, Decimal64Type,
+    LargeListType,
+    LargeListViewType,
+    ListType,
+    ListViewType,
+    OpaqueType, DictionaryType, MapType, _BasicDataType,
+    StructType, RunEndEncodedType,
+    UInt16Type, Int16Type, Uint32Type, Int32Type, UInt64Type, Int64Type,
+    UnionType, ExtensionType, BaseExtensionType, Bool8Type, UuidType, JsonType,
+    _BasicValueT,
     _DataTypeT,
+    _IndexT,
+    _K,
+    _Precision,
+    _RunEndType,
+    _Scale,
+    _Size,
     _Time32Unit,
     _Time64Unit,
     _Tz,
     _Unit,
-    DataType,
-    ListType,
-    LargeListType,
-    ListViewType,
-    LargeListViewType,
-    FixedSizeListType,
-)
-from ._types import (
-    Decimal256Type, _Precision, _Scale, NullType, BoolType, UInt8Type, Int8Type,
-    UInt16Type, Int16Type, Uint32Type, Int32Type, UInt64Type, Int64Type,
-    Float16Type, Float32Type, Float64Type, Decimal32Type, Decimal64Type,
-    Decimal128Type, Date32Type, Date64Type, Time32Type, Time64Type, TimestampType,
-    _Size, DurationType, MonthDayNanoIntervalType, BinaryType, LargeBinaryType,
-    FixedSizeBinaryType, StringType, LargeStringType, BinaryViewType, StringViewType,
-    StructType, _K, _ValueT, _IndexT, _BasicValueT, RunEndEncodedType, _RunEndType,
-    UnionType, ExtensionType, BaseExtensionType, Bool8Type, UuidType, JsonType,
-    OpaqueType, DictionaryType, MapType, _BasicDataType,
+    _ValueT,
 )
 
 _AsPyTypeK = TypeVar("_AsPyTypeK")
 _AsPyTypeV = TypeVar("_AsPyTypeV")
 _DataType_co = TypeVar("_DataType_co", bound=DataType, covariant=True)
+
 
 class Scalar(_Weakrefable, Generic[_DataType_co]):
 
@@ -86,47 +103,84 @@ class Scalar(_Weakrefable, Generic[_DataType_co]):
 
     def __hash__(self) -> int: ...
 
-    def as_py(self: Scalar[Any], *, maps_as_pydicts: Literal["lossy", "strict"] | None = None) -> Any: ...
+    def as_py(self: Scalar[Any], *, maps_as_pydicts: Literal["lossy",
+              "strict"] | None = None) -> Any: ...
 
 
 _NULL: TypeAlias = None
 NA = _NULL
 
-class NullScalar(Scalar[NullType]): ...
 
-class BooleanScalar(Scalar[BoolType]): ...
+class NullScalar(Scalar[NullType]):
+    ...
 
-class UInt8Scalar(Scalar[UInt8Type]): ...
 
-class Int8Scalar(Scalar[Int8Type]): ...
+class BooleanScalar(Scalar[BoolType]):
+    ...
 
-class UInt16Scalar(Scalar[UInt16Type]): ...
 
-class Int16Scalar(Scalar[Int16Type]): ...
+class UInt8Scalar(Scalar[UInt8Type]):
+    ...
 
-class UInt32Scalar(Scalar[Uint32Type]): ...
 
-class Int32Scalar(Scalar[Int32Type]): ...
+class Int8Scalar(Scalar[Int8Type]):
+    ...
 
-class UInt64Scalar(Scalar[UInt64Type]): ...
 
-class Int64Scalar(Scalar[Int64Type]): ...
+class UInt16Scalar(Scalar[UInt16Type]):
+    ...
 
-class HalfFloatScalar(Scalar[Float16Type]): ...
 
-class FloatScalar(Scalar[Float32Type]): ...
+class Int16Scalar(Scalar[Int16Type]):
+    ...
 
-class DoubleScalar(Scalar[Float64Type]): ...
 
-class Decimal32Scalar(Scalar[Decimal32Type[_Precision, _Scale]]): ...
+class UInt32Scalar(Scalar[Uint32Type]):
+    ...
 
-class Decimal64Scalar(Scalar[Decimal64Type[_Precision, _Scale]]): ...
 
-class Decimal128Scalar(Scalar[Decimal128Type[_Precision, _Scale]]): ...
+class Int32Scalar(Scalar[Int32Type]):
+    ...
 
-class Decimal256Scalar(Scalar[Decimal256Type[_Precision, _Scale]]): ...
 
-class Date32Scalar(Scalar[Date32Type]): ...
+class UInt64Scalar(Scalar[UInt64Type]):
+    ...
+
+
+class Int64Scalar(Scalar[Int64Type]):
+    ...
+
+
+class HalfFloatScalar(Scalar[Float16Type]):
+    ...
+
+
+class FloatScalar(Scalar[Float32Type]):
+    ...
+
+
+class DoubleScalar(Scalar[Float64Type]):
+    ...
+
+
+class Decimal32Scalar(Scalar[Decimal32Type[_Precision, _Scale]]):
+    ...
+
+
+class Decimal64Scalar(Scalar[Decimal64Type[_Precision, _Scale]]):
+    ...
+
+
+class Decimal128Scalar(Scalar[Decimal128Type[_Precision, _Scale]]):
+    ...
+
+
+class Decimal256Scalar(Scalar[Decimal256Type[_Precision, _Scale]]):
+    ...
+
+
+class Date32Scalar(Scalar[Date32Type]):
+    ...
 
 
 class Date64Scalar(Scalar[Date64Type]):
@@ -134,25 +188,30 @@ class Date64Scalar(Scalar[Date64Type]):
     @property
     def value(self) -> dt.date | None: ...
 
+
 class Time32Scalar(Scalar[Time32Type[_Time32Unit]]):
 
     @property
     def value(self) -> dt.time | None: ...
+
 
 class Time64Scalar(Scalar[Time64Type[_Time64Unit]]):
 
     @property
     def value(self) -> dt.time | None: ...
 
+
 class TimestampScalar(Scalar[TimestampType[_Unit, _Tz]]):
 
     @property
     def value(self) -> int | None: ...
 
+
 class DurationScalar(Scalar[DurationType[_Unit]]):
 
     @property
     def value(self) -> dt.timedelta | None: ...
+
 
 class MonthDayNanoIntervalScalar(Scalar[MonthDayNanoIntervalType]):
 
@@ -260,6 +319,7 @@ class StructScalar(Scalar[StructType], collections.abc.Mapping[str, Scalar]):
 
     def _as_py_tuple(self) -> list[tuple[str, Any]]: ...
 
+
 class MapScalar(Scalar[MapType[_K, _ValueT]]):
 
     @property
@@ -268,12 +328,14 @@ class MapScalar(Scalar[MapType[_K, _ValueT]]):
 
     def __getitem__(self, i: int) -> tuple[Scalar[_K], _ValueT, Any]: ...
 
-    def __iter__(
-        self: Scalar[
-            MapType[_BasicDataType[_AsPyTypeK], _BasicDataType[_AsPyTypeV]],]
-            | Scalar[MapType[Any, _BasicDataType[_AsPyTypeV]]]
-            | Scalar[MapType[_BasicDataType[_AsPyTypeK], Any]]
-    ) -> Iterator[tuple[_AsPyTypeK, _AsPyTypeV]] | Iterator[tuple[Any, _AsPyTypeV]] | Iterator[tuple[_AsPyTypeK, Any]]: ...
+    def __iter__(self: Scalar[
+        MapType[_BasicDataType[_AsPyTypeK], _BasicDataType[_AsPyTypeV]]]
+        | Scalar[MapType[Any, _BasicDataType[_AsPyTypeV]]]
+        | Scalar[MapType[_BasicDataType[_AsPyTypeK], Any]]) -> (
+        Iterator[tuple[_AsPyTypeK, _AsPyTypeV]]
+        | Iterator[tuple[Any, _AsPyTypeV]]
+        | Iterator[tuple[_AsPyTypeK, Any]]
+    ): ...
 
 
 class DictionaryScalar(Scalar[DictionaryType[_IndexT, _BasicValueT]]):
@@ -286,6 +348,7 @@ class DictionaryScalar(Scalar[DictionaryType[_IndexT, _BasicValueT]]):
 
     @property
     def dictionary(self) -> Array: ...
+
 
 class RunEndEncodedScalar(Scalar[RunEndEncodedType[_RunEndType, _BasicValueT]]):
 
@@ -311,13 +374,20 @@ class ExtensionScalar(Scalar[ExtensionType]):
     def from_storage(typ: BaseExtensionType, value) -> ExtensionScalar: ...
 
 
-class Bool8Scalar(Scalar[Bool8Type]): ...
+class Bool8Scalar(Scalar[Bool8Type]):
+    ...
 
-class UuidScalar(Scalar[UuidType]): ...
 
-class JsonScalar(Scalar[JsonType]): ...
+class UuidScalar(Scalar[UuidType]):
+    ...
 
-class OpaqueScalar(Scalar[OpaqueType]): ...
+
+class JsonScalar(Scalar[JsonType]):
+    ...
+
+
+class OpaqueScalar(Scalar[OpaqueType]):
+    ...
 
 
 class FixedShapeTensorScalar(ExtensionScalar):

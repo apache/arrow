@@ -15,8 +15,9 @@
 # specific language governing permissions and limitations
 # under the License.
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import IO, Any, Callable, Literal
+from typing import IO, Any, Literal
 
 from _typeshed import StrPath
 
@@ -25,7 +26,7 @@ from . import lib
 
 @dataclass(kw_only=True)
 class ReadOptions(lib._Weakrefable):
-    use_threads: bool = field(default=True, kw_only=False)
+    use_threads: bool = field(default=True, kw_only=False)  # noqa: Y015
     block_size: int | None = None
     skip_rows: int = 0
     skip_rows_after_names: int = 0
@@ -38,7 +39,7 @@ class ReadOptions(lib._Weakrefable):
 @dataclass(kw_only=True)
 class ParseOptions(lib._Weakrefable):
 
-    delimiter: str = field(default=",", kw_only=False)
+    delimiter: str = field(default=",", kw_only=False)  # noqa: Y015
     quote_char: str | Literal[False] = '"'
     double_quote: bool = True
     escape_char: str | Literal[False] = False
@@ -52,7 +53,7 @@ class ParseOptions(lib._Weakrefable):
 @dataclass(kw_only=True)
 class ConvertOptions(lib._Weakrefable):
 
-    check_utf8: bool = field(default=True, kw_only=False)
+    check_utf8: bool = field(default=True, kw_only=False)  # noqa: Y015
     column_types: lib.Schema | dict | None = None
     null_values: list[str] | None = None
     true_values: list[str] | None = None
@@ -72,7 +73,7 @@ class ConvertOptions(lib._Weakrefable):
 @dataclass(kw_only=True)
 class WriteOptions(lib._Weakrefable):
 
-    include_header: bool = field(default=True, kw_only=False)
+    include_header: bool = field(default=True, kw_only=False)  # noqa: Y015
     batch_size: int = 1024
     delimiter: str = ","
     quoting_style: Literal["needed", "all_valid", "none"] = "needed"

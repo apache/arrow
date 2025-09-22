@@ -16,12 +16,14 @@
 # under the License.
 
 from types import ModuleType
-from typing import Any, Iterable, TypeGuard
+from collections.abc import Iterable
+from typing import Any, TypeGuard
 
 from pandas import Categorical, DatetimeTZDtype, Index, Series, DataFrame
 
 from numpy import dtype
 from pandas.core.dtypes.base import ExtensionDtype
+
 
 class _PandasAPIShim:
     has_sparse: bool
@@ -50,6 +52,7 @@ class _PandasAPIShim:
     def datetimetz_type(self) -> type[DatetimeTZDtype]: ...
     @property
     def extension_dtype(self) -> type[ExtensionDtype]: ...
+
     def is_array_like(
         self, obj: Any
     ) -> TypeGuard[Series | Index | Categorical | ExtensionDtype]: ...
@@ -62,6 +65,7 @@ class _PandasAPIShim:
     def is_index(self, obj: Any) -> TypeGuard[Index]: ...
     def get_values(self, obj: Any) -> bool: ...
     def get_rangeindex_attribute(self, level, name): ...
+
 
 _pandas_api: _PandasAPIShim
 
