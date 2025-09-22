@@ -405,8 +405,6 @@ jobs:
           pushd dev/tasks/linux-packages
           rake --trace ${TASK_NAMESPACE}:test
           popd
-        env:
-          ARCHITECTURE: ${{ matrix.architecture }}
 
   report-package-linux:
     needs:
