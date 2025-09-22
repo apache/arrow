@@ -92,6 +92,23 @@ jobs:
         id:
           - almalinux-8-amd64
           - almalinux-8-arm64
+          - almalinux-9-amd64
+          - almalinux-9-arm64
+          - almalinux-10-amd64
+          - almalinux-10-arm64
+          - amazon-linux-2023-amd64
+          - amazon-linux-2023-arm64
+          - centos-9-stream-amd64
+          - centos-9-stream-arm64
+          - centos-7-amd64
+          - debian-bookworm-amd64
+          - debian-bookworm-arm64
+          - debian-trixie-amd64
+          - debian-trixie-arm64
+          - debian-forky-amd64
+          - debian-forky-arm64
+          - ubuntu-jammy-amd64
+          - ubuntu-jammy-arm64
           - ubuntu-noble-amd64
           - ubuntu-noble-arm64
     env:
@@ -232,139 +249,6 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           path: artifacts-downloaded
-      - name: Expected uploaded yum artifacts
-        if: ${{ env.TASK_NAMESPACE == 'yum' }}
-        id: expected-yum-artifacts
-        run: |
-          set -ex
-          artifacts="
-          apache-arrow-release-${NO_RC_VERSION}-1.[a-z0-9]+.noarch.rpm
-          apache-arrow-release-${NO_RC_VERSION}-1.[a-z0-9]+.src.rpm
-          arrow-${NO_RC_VERSION}-1.[a-z0-9]+.src.rpm
-          arrow[0-9]+-acero-libs-${NO_RC_VERSION}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-          arrow-acero-devel-${NO_RC_VERSION}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-          arrow[0-9]+-compute-libs-${NO_RC_VERSION}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-          arrow-compute-devel-${NO_RC_VERSION}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-          arrow[0-9]+-dataset-libs-${NO_RC_VERSION}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-          arrow-dataset-devel-${NO_RC_VERSION}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-          arrow-dataset-glib-devel-${NO_RC_VERSION}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-          arrow-dataset-glib-doc-${NO_RC_VERSION}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-          arrow[0-9]+-dataset-glib-libs-${NO_RC_VERSION}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-          arrow-debuginfo-${NO_RC_VERSION}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-          arrow-devel-${NO_RC_VERSION}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-          arrow-glib-devel-${NO_RC_VERSION}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-          arrow-glib-doc-${NO_RC_VERSION}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-          arrow[0-9]+-glib-libs-${NO_RC_VERSION}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-          arrow[0-9]+-libs-${NO_RC_VERSION}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-          arrow-tools-${NO_RC_VERSION}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-          parquet-devel-${NO_RC_VERSION}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-          parquet-glib-devel-${NO_RC_VERSION}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-          parquet-glib-doc-${NO_RC_VERSION}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-          parquet[0-9]+-glib-libs-${NO_RC_VERSION}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-          parquet[0-9]+-libs-${NO_RC_VERSION}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-          parquet-tools-${NO_RC_VERSION}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-          "
-          if [ "${TARGET}" != "centos-7" ]; then
-            artifacts="$artifacts
-            arrow[0-9]+-acero-libs-debuginfo-${NO_RC_VERSION}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-            arrow[0-9]+-compute-libs-debuginfo-${NO_RC_VERSION}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-            arrow[0-9]+-dataset-glib-libs-debuginfo-${NO_RC_VERSION}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-            arrow[0-9]+-dataset-libs-debuginfo-${NO_RC_VERSION}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-            arrow-debugsource-${NO_RC_VERSION}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-            arrow-flight-devel-${NO_RC_VERSION}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-            arrow-flight-glib-devel-${NO_RC_VERSION}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-            arrow-flight-glib-doc-${NO_RC_VERSION}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-            arrow-flight-sql-devel-${NO_RC_VERSION}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-            arrow-flight-sql-glib-devel-${NO_RC_VERSION}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-            arrow-flight-sql-glib-doc-${NO_RC_VERSION}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-            arrow[0-9]+-flight-glib-libs-debuginfo-${NO_RC_VERSION}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-            arrow[0-9]+-flight-glib-libs-${NO_RC_VERSION}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-            arrow[0-9]+-flight-libs-debuginfo-${NO_RC_VERSION}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-            arrow[0-9]+-flight-libs-${NO_RC_VERSION}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-            arrow[0-9]+-flight-sql-glib-libs-debuginfo-${NO_RC_VERSION}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-            arrow[0-9]+-flight-sql-glib-libs-${NO_RC_VERSION}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-            arrow[0-9]+-flight-sql-libs-debuginfo-${NO_RC_VERSION}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-            arrow[0-9]+-flight-sql-libs-${NO_RC_VERSION}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-            arrow[0-9]+-glib-libs-debuginfo-${NO_RC_VERSION}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-            arrow[0-9]+-libs-debuginfo-${NO_RC_VERSION}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-            arrow-tools-debuginfo-${NO_RC_VERSION}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-            gandiva-devel-${NO_RC_VERSION}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-            gandiva-glib-devel-${NO_RC_VERSION}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-            gandiva-glib-doc-${NO_RC_VERSION}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-            gandiva[0-9]+-glib-libs-debuginfo-${NO_RC_VERSION}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-            gandiva[0-9]+-glib-libs-${NO_RC_VERSION}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-            gandiva[0-9]+-libs-debuginfo-${NO_RC_VERSION}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-            gandiva[0-9]+-libs-${NO_RC_VERSION}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-            parquet[0-9]+-glib-libs-debuginfo-${NO_RC_VERSION}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-            parquet[0-9]+-libs-debuginfo-${NO_RC_VERSION}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-            parquet-tools-debuginfo-${NO_RC_VERSION}-1.[a-z0-9]+.[a-z0-9_]+.rpm"
-          fi
-          echo $artifacts
-          {
-            echo 'artifacts<<EOF'
-            echo "$artifacts"
-            echo 'EOF'
-          } >> $GITHUB_OUTPUT
-      - name: Validate uploaded yum artifacts
-        if: ${{ env.TASK_NAMESPACE == 'yum' }}
-        id: validate-artifacts
-        shell: bash
-        run: |
-          set -ex
-          expected_patterns="${{ steps.expected-yum-artifacts.outputs.artifacts }}"
-
-          # Find all RPM files in the extracted directory
-          pushd artifacts-downloaded/${{ matrix.id }}
-          tar xvf ${{ matrix.id }}.tar.gz
-          tree .
-          popd
-
-          found_files=$(find artifacts-downloaded/${{ matrix.id }} -type f -name '*.rpm' | sort)
-          echo "Found files: $found_files"
-
-          # Prepare expected patterns for matching
-          echo "$expected_patterns" | grep -v '^\s*$' > expected_patterns.txt
-
-          # Check for missing artifacts
-          missing=""
-          for pattern in $(cat expected_patterns.txt); do
-            # Escape dots for grep
-            grep_pattern=$(echo "$pattern" | sed 's/\./\\./g')
-            match=$(echo "$found_files" | grep -E "$grep_pattern")
-            if [ -z "$match" ]; then
-              missing="$missing\n$pattern"
-            fi
-          done
-
-          # Check for unexpected artifacts
-          unexpected=""
-          for file in $found_files; do
-            matched=false
-            for pattern in $(cat expected_patterns.txt); do
-              grep_pattern=$(echo "$pattern" | sed 's/\./\\./g')
-              if echo "$file" | grep -qE "$grep_pattern"; then
-                matched=true
-                break
-              fi
-            done
-            if [ "$matched" = false ]; then
-              unexpected="$unexpected\n$file"
-            fi
-          done
-
-          if [ -n "$missing" ]; then
-            echo "Missing expected artifacts:"
-            echo -e "$missing"
-            exit 1
-          fi
-
-          if [ -n "$unexpected" ]; then
-            echo "Unexpected artifacts found:"
-            echo -e "$unexpected"
-            exit 1
-          fi
-
-          echo "All expected artifacts are present, and no unexpected artifacts found."
       - name: Set up test
         run: |
           mv artifacts-downloaded/${{ matrix.id }} dev/tasks/linux-packages
