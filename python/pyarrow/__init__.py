@@ -56,7 +56,7 @@ except ImportError:
         __version__ = setuptools_scm.get_version('../',
                                                  parse=parse_git)
     except ImportError:
-        __version__ = None
+        __version__ = None  # type: ignore[assignment]
 
 import pyarrow.lib as _lib
 from pyarrow.lib import (BuildInfo, CppBuildInfo, RuntimeInfo, set_timezone_db_path,

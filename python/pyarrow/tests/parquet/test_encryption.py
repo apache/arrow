@@ -21,8 +21,8 @@ try:
     import pyarrow.parquet as pq
     import pyarrow.parquet.encryption as pe
 except ImportError:
-    pq = None
-    pe = None
+    pq = None  # type: ignore[assignment]
+    pe = None  # type: ignore[assignment]
 else:
     from pyarrow.tests.parquet.encryption import (InMemoryKmsClient,
                                                   MockVersioningKmsClient,

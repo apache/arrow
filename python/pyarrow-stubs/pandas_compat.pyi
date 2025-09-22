@@ -22,7 +22,7 @@ import pandas as pd
 
 from pandas import DatetimeTZDtype
 
-from .lib import Array, DataType, Schema, Table
+from .lib import Array, DataType, Schema, Table, _pandas_api
 
 _T = TypeVar("_T")
 
@@ -85,3 +85,8 @@ def table_to_dataframe(
 
 
 def make_tz_aware(series: pd.Series, tz: str) -> pd.Series: ...
+
+
+__all__ = [
+    "_pandas_api",
+]

@@ -28,11 +28,12 @@ import time
 import traceback
 import json
 from datetime import datetime
+from typing import Any
 
 try:
     import numpy as np
 except ImportError:
-    np = None
+    np = None  # type: ignore[assignment]
 import pytest
 import pyarrow as pa
 
@@ -50,12 +51,15 @@ try:
         FlightCallOptions,
     )
 except ImportError:
-    flight = None
-    FlightClient, FlightServerBase = object, object
-    ServerAuthHandler, ClientAuthHandler = object, object
-    ServerMiddleware, ServerMiddlewareFactory = object, object
-    ClientMiddleware, ClientMiddlewareFactory = object, object
-    FlightCallOptions = object
+    flight = None  # type: ignore[assignment]
+    FlightClient, FlightServerBase = object, object  # type: ignore[assignment, misc]
+    ServerAuthHandler, ClientAuthHandler = (  # type: ignore[, misc]
+        object, object)  # type: ignore[assignment]
+    ServerMiddleware, ServerMiddlewareFactory = (  # type: ignore[misc]
+        object, object)  # type: ignore[assignment]
+    ClientMiddleware, ClientMiddlewareFactory = (  # type: ignore[misc]
+        object, object)  # type: ignore[assignment]
+    FlightCallOptions = object  # type: ignore[assignment, misc]
 
 # Marks all of the tests in this module
 # Ignore these with pytest ... -m 'not flight'
@@ -2510,7 +2514,7 @@ def test_large_metadata_client():
 
 class ActionNoneFlightServer(EchoFlightServer):
     """A server that implements a side effect to a non iterable action."""
-    VALUES = []
+    VALUES: list[Any] = []
 
     def do_action(self, context, action):
         if action.type == "get_value":
