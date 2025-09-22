@@ -32,13 +32,15 @@ try:
     import numpy as np
     import numpy.testing as npt
     try:
-        _np_VisibleDeprecationWarning = np.VisibleDeprecationWarning
+        _np_VisibleDeprecationWarning = (
+            np.VisibleDeprecationWarning  # type: ignore[attr-defined]
+        )
     except AttributeError:
         from numpy.exceptions import (
             VisibleDeprecationWarning as _np_VisibleDeprecationWarning
         )
 except ImportError:
-    np = None
+    np = None  # type: ignore[assignment]
 
 from pyarrow.pandas_compat import get_logical_type, _pandas_api
 from pyarrow.tests.util import invoke_script, random_ascii, rands

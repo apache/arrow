@@ -864,8 +864,8 @@ def type_for_alias(name: Any) -> DataType: ...
 
 def schema(
     fields: Iterable[Field[Any]]
-    | Iterable[tuple[str, DataType]]
-    | Mapping[str, DataType],
+    | Iterable[tuple[str, DataType | str]]
+    | Mapping[str, DataType | str],
     metadata: dict[bytes | str, bytes | str] | None = None,
 ) -> Schema: ...
 

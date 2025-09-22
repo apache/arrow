@@ -30,7 +30,7 @@ try:
     import pyarrow.parquet as pq
     from pyarrow.tests.parquet.common import _write_table
 except ImportError:
-    pq = None
+    pq = None  # type: ignore[assignment]
 
 try:
     import pandas as pd
@@ -38,7 +38,7 @@ try:
 
     from pyarrow.tests.parquet.common import alltypes_sample
 except ImportError:
-    pd = tm = None
+    pd = tm = None  # type: ignore[assignment]
 
 
 # Marks all of the tests in this module
@@ -389,7 +389,8 @@ def test_parquet_file_fsspec_support():
 
 def test_parquet_file_fsspec_support_through_filesystem_argument():
     try:
-        from fsspec.implementations.memory import MemoryFileSystem
+        from fsspec.implementations.memory import (  # type: ignore[import-untyped]
+            MemoryFileSystem)
     except ImportError:
         pytest.skip("fsspec is not installed, skipping test")
 
@@ -424,7 +425,7 @@ def test_parquet_file_hugginface_support():
 def test_fsspec_uri_raises_if_fsspec_is_not_available():
     # sadly cannot patch sys.modules because cython will still be able to import fsspec
     try:
-        import fsspec  # noqa: F401
+        import fsspec  # type: ignore[import-untyped]  # noqa: F401
     except ImportError:
         pass
     else:
