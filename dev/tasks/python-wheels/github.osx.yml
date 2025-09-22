@@ -66,6 +66,12 @@ jobs:
           arrow/ci/scripts/install_cmake.sh 3.29.0 ${PWD}/local
           echo "${PWD}/local/bin" >> $GITHUB_PATH
 
+      - name: Check CMake version
+        shell: bash
+        run: |
+          echo $(cmake --version)
+          echo $(${PWD}/local/bin/cmake --version)
+
       - name: Retrieve VCPKG version from arrow/.env
         run: |
           vcpkg_version=$(. "arrow/.env" && echo "${VCPKG}")
