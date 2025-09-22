@@ -86,11 +86,28 @@ struct ParquetVersion {
     /// Note: Parquet format 2.10.0 was released in October 2022.
     PARQUET_2_10,
 
+    /// Enable Parquet format 2.11 and earlier features when writing
+    ///
+    /// This enables VARIANT logical type, GEOMETRY/GEOGRAPHY types,
+    /// and extended BYTE_STREAM_SPLIT encoding for INT32/INT64/FIXED_LEN_BYTE_ARRAY
+    /// in addition to the PARQUET_2_10 features.
+    ///
+    /// Note: Parquet format 2.11.0 was released in March 2025.
+    PARQUET_2_11,
+
+    /// Enable Parquet format 2.12 and earlier features when writing
+    ///
+    /// This finalizes the VARIANT logical type specification and shredding
+    /// in addition to the PARQUET_2_11 features.
+    ///
+    /// Note: Parquet format 2.12.0 was released in August 2025.
+    PARQUET_2_12,
+
     /// Enable latest Parquet format 2.x features
     ///
     /// This value is equal to the greatest 2.x version supported by
     /// this library.
-    PARQUET_2_LATEST = PARQUET_2_10
+    PARQUET_2_LATEST = PARQUET_2_12
   };
 };
 

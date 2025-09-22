@@ -159,8 +159,16 @@ test_that("make_valid_parquet_version()", {
     ParquetVersionType$PARQUET_2_10
   )
   expect_equal(
+    make_valid_parquet_version("2.11"),
+    ParquetVersionType$PARQUET_2_11
+  )
+  expect_equal(
+    make_valid_parquet_version("2.12"),
+    ParquetVersionType$PARQUET_2_12
+  )
+  expect_equal(
     make_valid_parquet_version("latest"),
-    ParquetVersionType$PARQUET_2_10
+    ParquetVersionType$PARQUET_2_12
   )
 
   expect_equal(make_valid_parquet_version(1), ParquetVersionType$PARQUET_1_0)

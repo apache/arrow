@@ -753,6 +753,8 @@ TEST(ParquetVersionToString, AllVersions) {
   ASSERT_EQ("2.8", ParquetVersionToString(ParquetVersion::PARQUET_2_8));
   ASSERT_EQ("2.9", ParquetVersionToString(ParquetVersion::PARQUET_2_9));
   ASSERT_EQ("2.10", ParquetVersionToString(ParquetVersion::PARQUET_2_10));
+  ASSERT_EQ("2.11", ParquetVersionToString(ParquetVersion::PARQUET_2_11));
+  ASSERT_EQ("2.12", ParquetVersionToString(ParquetVersion::PARQUET_2_12));
 }
 
 }  // namespace metadata
