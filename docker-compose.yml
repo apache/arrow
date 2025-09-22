@@ -1144,7 +1144,7 @@ services:
       args:
         arch: ${ARCH}
         arch_short: ${ARCH_SHORT}
-        base: quay.io/pypa/manylinux_2_28_${ARCH_ALIAS}:2024-08-03-32dfa47
+        base: quay.io/pypa/manylinux_2_28_${ARCH_ALIAS}:2025-07-14-b3bee7e
         manylinux: 2_28
         python: ${PYTHON}
         python_abi_tag: ${PYTHON_ABI_TAG}
