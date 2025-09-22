@@ -67,7 +67,7 @@ def test_parquet_metadata_api():
     assert meta.num_rows == len(df)
     assert meta.num_columns == ncols + 1  # +1 for index
     assert meta.num_row_groups == 1
-    assert meta.format_version == '2.6'
+    assert meta.format_version == '2.12'
     assert 'parquet-cpp' in meta.created_by
     assert isinstance(meta.serialized_size, int)
     assert isinstance(meta.metadata, dict)
@@ -554,12 +554,12 @@ def test_write_metadata(tempdir):
         assert b'ARROW:schema' not in schema_as_arrow.metadata
 
     # pass through writer keyword arguments
-    for version in ["1.0", "2.4", "2.6"]:
+    for version in ["1.0", "2.4", "2.6", "2.7", "2.8", "2.9", "2.10", "2.11", "2.12"]:
         pq.write_metadata(schema, path, version=version)
         parquet_meta = pq.read_metadata(path)
         # The version is stored as a single integer in the Parquet metadata,
         # so it cannot correctly express dotted format versions
-        expected_version = "1.0" if version == "1.0" else "2.6"
+        expected_version = "1.0" if version == "1.0" else "2.12"
         assert parquet_meta.format_version == expected_version
 
     # metadata_collector: list of FileMetaData objects
