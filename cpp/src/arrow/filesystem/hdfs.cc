@@ -363,7 +363,8 @@ Result<HdfsOptions> HdfsOptions::FromUri(const Uri& uri) {
     options_map.emplace(kv.first, kv.second);
   }
 
-  // Special case host = "default" or "hdfs://default" as stated by #25324.
+  // Special case host = "default" or "hdfs://default" as stated by GH-47560.
+  // If given the string "default", libhdfs selects the default filesystem from `core-site.xml`.
   std::string host;
   if (uri.host() == "default")
     host = uri.host();
