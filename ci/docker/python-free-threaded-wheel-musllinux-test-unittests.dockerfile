@@ -63,4 +63,4 @@ RUN python -m pip install \
     --extra-index-url "https://pypi.anaconda.org/scientific-python-nightly-wheels/simple" \
     Cython numpy
 RUN python -m pip install "meson-python==0.13.1" "meson==1.2.1" wheel "versioneer[toml]" ninja
-RUN python -m pip install --no-build-isolation -r /arrow/python/requirements-wheel-test.txt
+RUN python -m pip install --no-build-isolation -r /arrow/python/requirements-wheel-test-3.13t.txt
