@@ -82,8 +82,7 @@ std::vector<WriteConfig> GetWriteConfigurations() {
       ->compression("compressed", Compression::BROTLI)
       // Override current default of 1MB
       ->data_pagesize(20'000)
-      // Reduce max dictionary page size so that less columns are
-      // dict-encoded (XXX: this does not seem to have an effect?)
+      // Reduce max dictionary page size so that less pages are dict-encoded.
       ->dictionary_pagesize_limit(1'000)
       // Emit various physical types for decimal columns
       ->enable_store_decimal_as_integer()
