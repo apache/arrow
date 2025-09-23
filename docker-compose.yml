@@ -1220,6 +1220,7 @@ services:
       <<: *common
       CHECK_IMPORTS: "ON"
       CHECK_UNITTESTS: "OFF"
+      FREE_THREADED: "ON"
     command: /arrow/ci/scripts/python_wheel_unix_test.sh /arrow
 
   python-wheel-musllinux-test-unittests:
@@ -1260,6 +1261,7 @@ services:
       <<: *common
       CHECK_IMPORTS: "OFF"
       CHECK_UNITTESTS: "ON"
+      FREE_THREADED: "ON"
     command: /arrow/ci/scripts/python_wheel_unix_test.sh /arrow
 
   python-wheel-manylinux-test-imports:
@@ -1292,6 +1294,7 @@ services:
       <<: *common
       CHECK_IMPORTS: "ON"
       CHECK_UNITTESTS: "OFF"
+      FREE_THREADED: "ON"
     command: /arrow/ci/scripts/python_wheel_unix_test.sh /arrow
 
   python-wheel-manylinux-test-unittests:
@@ -1333,6 +1336,7 @@ services:
       <<: *common
       CHECK_IMPORTS: "OFF"
       CHECK_UNITTESTS: "ON"
+      FREE_THREADED: "ON"
     command: /arrow/ci/scripts/python_wheel_unix_test.sh /arrow
 
   python-wheel-windows-vs2022-base:

@@ -37,6 +37,7 @@ source_dir=${1}
 : "${CHECK_WHEEL_CONTENT:=ON}"
 : "${CHECK_UNITTESTS:=ON}"
 : "${INSTALL_PYARROW:=ON}"
+: "${FREE_THREADED:=OFF}"
 
 export PYARROW_TEST_ACERO=ON
 export PYARROW_TEST_AZURE=${ARROW_AZURE}
@@ -101,8 +102,10 @@ if [ "${CHECK_WHEEL_CONTENT}" == "ON" ]; then
 fi
 
 if [ "${CHECK_UNITTESTS}" == "ON" ]; then
-  # Install testing dependencies
-  python -m pip install -U -r "${source_dir}/python/requirements-wheel-test.txt"
+  if [ "${FREE_THREADED}" == "OFF" ]; then
+    # Install testing dependencies
+    python -m pip install -U -r "${source_dir}/python/requirements-wheel-test.txt"
+  fi
 
   # Execute unittest, test dependencies must be installed
   python -c 'import pyarrow; pyarrow.create_library_symlinks()'
