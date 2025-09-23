@@ -86,12 +86,20 @@ test_that("ungroup", {
   # to confirm that the above expectation is actually testing what we think it's
   # testing, verify that compare_dplyr_binding() distinguishes between grouped and
   # ungrouped tibbles
+  ungroup_if_tibble <- function(x){
+    if (inherits(x, "tbl_df")){
+      ungroup(x)
+    }  else {
+      x
+    }
+  }
+
   expect_error(
     compare_dplyr_binding(
       .input |>
         group_by(chr) |>
         select(int, chr) |>
-        (function(x) if (inherits(x, "tbl_df")) ungroup(x) else x) |>
+        ungroup_if_tibble() |>
         filter(int > 5) |>
         collect(),
       tbl
