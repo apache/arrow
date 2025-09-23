@@ -46,7 +46,7 @@ int unpack32_sse4_2(const uint8_t* in, uint32_t* out, int batch_size, int num_bi
 #endif
 
 int unpack32_scalar(const uint8_t* in, uint32_t* out, int batch_size, int num_bits) {
-  return unpack_jump32<ScalarUnpacker<uint32_t>>(in, out, batch_size, num_bits);
+  return unpack_jump32<ScalarUnpackerForWidth>(in, out, batch_size, num_bits);
 }
 
 namespace {
@@ -80,7 +80,7 @@ int unpack32(const uint8_t* in, uint32_t* out, int batch_size, int num_bits) {
 }
 
 int unpack64_scalar(const uint8_t* in, uint64_t* out, int batch_size, int num_bits) {
-  return unpack_jump64<ScalarUnpacker<uint64_t>>(in, out, batch_size, num_bits);
+  return unpack_jump64<ScalarUnpackerForWidth>(in, out, batch_size, num_bits);
 }
 
 int unpack64(const uint8_t* in, uint64_t* out, int batch_size, int num_bits) {

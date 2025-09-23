@@ -69,61 +69,34 @@ class UnpackStructGenerator:
 
     @property
     def struct_name(self) -> str:
-        return f"Simd{self.simd_bit_width}Unpacker"
+        return f"Simd{self.simd_bit_width}UnpackerForWidth"
 
-    @property
-    def struct_specialization(self) -> str:
-        return f"{self.struct_name}<{self.out_type}>"
+    def struct_specialization(self, bit: int) -> str:
+        return f"{self.struct_name}<{self.out_type}, {bit}>"
+
+    def print_struct_declaration(self):
+        print("template<typename Uint, int BitWidth>")
+        print(f"struct {self.struct_name};")
 
     def __post_init__(self):
         if self.simd_bit_width % self.out_bit_width != 0:
             raise ("SIMD bit width should be a multiple of output width")
 
-    def print_unpack_signature(self, bit: int | None) -> str:
-        if bit is None:
-            print("template<int kBit>")
-            print(
-                f"static const uint8_t* unpack(const uint8_t* in, {self.out_type}* out);"
-            )
-        else:
-            print("template<>")
-            print(
-                f"const uint8_t* {self.struct_specialization}::unpack<{bit}>"
-                f"(const uint8_t* in, {self.out_type}* out) {{"
-            )
-
-    def print_unpack_bit0_func(self):
-        self.print_unpack_signature(0)
-        print(f"  std::memset(out, 0x0, {self.out_bit_width} * sizeof(*out));")
-        print(f"  out += {self.out_bit_width};")
-        print("  return in;")
-        print("}")
-
-    def print_unpack_bitmax_func(self):
-        self.print_unpack_signature(self.out_bit_width)
-        print(f"  std::memcpy(out, in, {self.out_bit_width} * sizeof(*out));")
-        print(f"  in += {self.out_byte_width} * {self.out_bit_width};")
-        print(f"  out += {self.out_bit_width};")
-        print("  return in;")
-        print("}")
-
     def print_unpack_bit_func(self, bit: int):
-        self.print_unpack_signature(bit)
-
-        def p(code, level=1):
+        def p(code, level=2):
             print(indent(code, prefix="  " * level))
 
-        mask = (1 << bit) - 1
-
         p(
-            dedent(f"""\
-            constexpr {self.out_type} kMask = 0x{mask:0x};
-
-            simd_batch masks(kMask);
-            simd_batch words, shifts;
-            simd_batch results;
-            """)
+            f"static const uint8_t* unpack(const uint8_t* in, {self.out_type}* out) {{",
+            level=1,
         )
+
+        mask = (1 << bit) - 1
+        p(f"constexpr {self.out_type} kMask = 0x{mask:0x};")
+        print()
+        p("simd_batch masks(kMask);")
+        p("simd_batch words, shifts;")
+        p("simd_batch results;")
 
         def safe_load(index):
             return f"SafeLoadAs<{self.out_type}>(in + {self.out_byte_width} * {index})"
@@ -171,7 +144,7 @@ class UnpackStructGenerator:
             p(f"""// extract {bit}-bit bundles {start} to {stop - 1}""")
             p("words = simd_batch{")
             for word_part in inls[start:stop]:
-                p(f"{word_part},", level=2)
+                p(f"{word_part},", level=3)
             p("};")
             p(
                 one_word_template.format(
@@ -180,42 +153,27 @@ class UnpackStructGenerator:
                 )
             )
 
-        p(
-            dedent(f"""\
-            in += {bit} * {self.out_byte_width};
-            return in;""")
-        )
-        print("}")
+        p(f"in += {bit} * {self.out_byte_width};")
+        p("return in;")
+        p("}", level=1)
 
-    def print_struct_declaration(self):
-        print("template<typename Uint>")
-        print(f"struct {self.struct_name};")
-
-    def print_struct(self):
+    def print_struct_k(self, bit: int):
         print("template<>")
-        print(f"struct {self.struct_specialization} {{")
+        print(f"struct {self.struct_specialization(bit)} {{")
         print()
-        print(f"using out_type = {self.out_type};")
         print(
-            "using simd_batch = xsimd::make_sized_batch_t<"
+            "  using simd_batch = xsimd::make_sized_batch_t<"
             f"{self.out_type}, {self.simd_value_count}>;"
         )
+        print(f"  static constexpr int kValuesUnpacked = {self.out_bit_width};")
         print()
-        print(f"static constexpr int kValuesUnpacked = {self.out_bit_width};")
-        print()
-        self.print_unpack_signature(None)
+        self.print_unpack_bit_func(bit)
         print("};")
 
-    def print_struct_and_def(self):
-        self.print_struct()
-        print()
-
-        self.print_unpack_bit0_func()
-        print()
-        for i in range(1, self.out_bit_width):
-            self.print_unpack_bit_func(i)
+    def print_structs(self):
+        for bit in range(1, self.out_bit_width):
+            self.print_struct_k(bit)
             print()
-        self.print_unpack_bitmax_func()
 
 
 @dataclasses.dataclass
@@ -259,7 +217,7 @@ class UnpackFileGenerator:
                 print()
                 delclared.add(gen.simd_bit_width)
 
-            gen.print_struct_and_def()
+            gen.print_structs()
             print()
 
     def print_file(self):

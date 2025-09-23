@@ -96,11 +96,14 @@ class ScalarUnpackGenerator:
 
     @property
     def struct_name(self) -> str:
-        return "ScalarUnpacker"
+        return "ScalarUnpackerForWidth"
 
-    @property
-    def struct_specialization(self) -> str:
-        return f"{self.struct_name}<{self.out_type}>"
+    def struct_specialization(self, bit: int) -> str:
+        return f"{self.struct_name}<{self.out_type}, {bit}>"
+
+    def print_struct_declaration(self):
+        print("template<typename Uint, int BitWidth>")
+        print(f"struct {self.struct_name};")
 
     @property
     def howmany(self) -> int:
@@ -115,47 +118,21 @@ class ScalarUnpackGenerator:
     def howmanybytes(self, bit: int) -> int:
         return (self.howmany * bit + self.out_byte_width - 1) // self.out_byte_width
 
-    def print_unpack_signature(self, bit: int | None) -> str:
-        if bit is None:
-            print("template<int kBit>")
-            print(
-                f"static const uint8_t* unpack(const uint8_t* in, {self.out_type}* out);"
-            )
-        else:
-            print("template<>")
-            print(
-                f"const uint8_t* {self.struct_specialization}::unpack<{bit}>"
-                f"(const uint8_t* in, {self.out_type}* out) {{"
-            )
-
-    def print_unpack_0(self) -> None:
-        self.print_unpack_signature(0)
-        print(f"  std::memset(out, 0, {self.howmany} * {self.out_byte_width});")
-        print("  return in;")
-        print("}")
-
-    def print_unpack_last(self) -> None:
-        self.print_unpack_signature(self.out_bit_width)
-        print(f"  for(int k = 0; k < {self.howmany}; k += 1) {{")
-        print(
-            f"    out[k] = LoadInt<{self.out_type}>(in + (k * {self.out_byte_width}));"
-        )
-        print("  }")
-        print(f"  return in + ({self.out_byte_width} * {self.howmany});")
-        print("}")
-
     def print_unpack_k(self, bit: int) -> None:
-        self.print_unpack_signature(bit)
         print(
-            f"  constexpr {self.out_type} mask = "
+            f"  static const uint8_t* unpack(const uint8_t* in, {self.out_type}* out) {{"
+        )
+
+        print(
+            f"    constexpr {self.out_type} mask = "
             f"(({self.out_type}{{1}} << {bit}) - {self.out_type}{{1}});"
         )
-        print("")
+        print()
         maskstr = " & mask"
 
         for k in range(self.howmanywords(bit) - 1):
             print(
-                f"  const auto w{k} = LoadInt<{self.out_type}>("
+                f"    const auto w{k} = LoadInt<{self.out_type}>("
                 f"in + {k} * {self.out_byte_width});"
             )
 
@@ -163,12 +140,12 @@ class ScalarUnpackGenerator:
         use_smart_halving = self.smart_halve and bit % 2 == 1
         if use_smart_halving:
             print(
-                f"  const auto w{k} = static_cast<{self.out_type}>(LoadInt<{self.out_type_half}>("
+                f"    const auto w{k} = static_cast<{self.out_type}>(LoadInt<{self.out_type_half}>("
                 f"in + {k} * {self.out_byte_width}));"
             )
         else:
             print(
-                f"  const auto w{k} = LoadInt<{self.out_type}>("
+                f"    const auto w{k} = LoadInt<{self.out_type}>("
                 f"in + {k} * {self.out_byte_width});"
             )
 
@@ -181,54 +158,39 @@ class ScalarUnpackGenerator:
                 firstshiftstr = ""  # no need
             if firstword == secondword:
                 if firstshift + bit == self.out_bit_width:
-                    print(f"  out[{j}] = w{firstword}{firstshiftstr};")
+                    print(f"    out[{j}] = w{firstword}{firstshiftstr};")
                 else:
-                    print(f"  out[{j}] = (w{firstword}{firstshiftstr}){maskstr};")
+                    print(f"    out[{j}] = (w{firstword}{firstshiftstr}){maskstr};")
             else:
                 secondshift = self.out_bit_width - firstshift
                 print(
-                    f"  out[{j}] = ((w{firstword}{firstshiftstr}) | "
+                    f"    out[{j}] = ((w{firstword}{firstshiftstr}) | "
                     f"(w{firstword + 1} << {secondshift})){maskstr};"
                 )
-        print("")
+        print()
 
         if use_smart_halving:
             print(
-                f"  return in + ({self.howmanywords(bit) - 1} * {self.out_byte_width}"
+                f"    return in + ({self.howmanywords(bit) - 1} * {self.out_byte_width}"
                 f" + {self.out_byte_width // 2});"
             )
         else:
-            print(f"  return in + ({self.howmanywords(bit)} * {self.out_byte_width});")
-        print("}")
+            print(f"    return in + ({self.howmanywords(bit)} * {self.out_byte_width});")
+        print("  }")
 
-    def print_struct_declaration(self):
-        print("template<typename Uint>")
-        print(f"struct {self.struct_name};")
-
-    def print_struct(self):
+    def print_struct_k(self, bit: int) -> None:
         print("template<>")
-        print(f"struct {self.struct_specialization} {{")
+        print(f"struct {self.struct_specialization(bit)} {{")
         print()
-        print(f"using out_type = {self.out_type};")
+        print(f"  static constexpr int kValuesUnpacked = {self.howmany};")
         print()
-        print(f"static constexpr int kValuesUnpacked = {self.howmany};")
-        print()
-        self.print_unpack_signature(None)
+        self.print_unpack_k(bit)
         print("};")
 
-    def print_struct_and_def(self):
-        self.print_struct()
-        print()
-
-        self.print_unpack_0()
-        print()
-
+    def print_structs(self):
         for bit in range(1, self.out_bit_width):
-            self.print_unpack_k(bit)
-            print("")
-
-        self.print_unpack_last()
-
+            self.print_struct_k(bit)
+            print()
 
 
 def print_note():
@@ -246,10 +208,10 @@ if __name__ == "__main__":
     gen.print_struct_declaration()
     print()
 
-    gen.print_struct_and_def()
+    gen.print_structs()
     print()
 
     gen = ScalarUnpackGenerator(64, smart_halve=True)
-    gen.print_struct_and_def()
+    gen.print_structs()
 
     print(FOOTER)
