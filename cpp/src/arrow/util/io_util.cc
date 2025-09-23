@@ -1070,11 +1070,10 @@ Result<FileDescriptor> FileOpenReadable(const PlatformFilename& file_name) {
   }
   fd = FileDescriptor(ret);
 #else
-  int ret = open(file_name.ToNative().c_str(), O_RDONLY);
-  if (ret < 0) {
-    return IOErrorFromErrno(errno, "Failed to open local file '", file_name.ToString(),
-                            "'");
-  }
+  int64_t ret;
+  do {
+    ret = static_cast<int64_t>(open(file_name.ToNative().c_str(), O_RDONLY));
+  } while (ret == -1 && errno == EINTR);
   // open(O_RDONLY) succeeds on directories, check for it
   fd = FileDescriptor(ret);
   struct stat st;
