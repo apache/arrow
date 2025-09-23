@@ -1070,10 +1070,14 @@ Result<FileDescriptor> FileOpenReadable(const PlatformFilename& file_name) {
   }
   fd = FileDescriptor(ret);
 #else
-  int64_t ret;
+  int ret;
   do {
-    ret = static_cast<int64_t>(open(file_name.ToNative().c_str(), O_RDONLY));
+    ret = open(file_name.ToNative().c_str(), O_RDONLY);
   } while (ret == -1 && errno == EINTR);
+  if (ret == -1) {
+    return IOErrorFromErrno(errno, "Failed to open local file '", file_name.ToString(),
+                            "'");
+  }
   // open(O_RDONLY) succeeds on directories, check for it
   fd = FileDescriptor(ret);
   struct stat st;
@@ -1136,7 +1140,10 @@ Result<FileDescriptor> FileOpenWritable(const PlatformFilename& file_name,
     oflag |= O_RDWR;
   }
 
-  int ret = open(file_name.ToNative().c_str(), oflag, 0666);
+  int ret;
+  do {
+    ret = open(file_name.ToNative().c_str(), oflag, 0666);
+  } while (ret == -1 && errno == EINTR);
   if (ret == -1) {
     return IOErrorFromErrno(errno, "Failed to open local file '", file_name.ToString(),
                             "'");
