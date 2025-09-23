@@ -17,10 +17,8 @@
 
 #pragma once
 
-#include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/logger.h>
-#include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/spi/connection.h>
-#include <boost/algorithm/string.hpp>
 #include <string>
+#include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/spi/connection.h"
 
 namespace driver {
 namespace odbcabstraction {
@@ -51,8 +49,5 @@ boost::optional<bool> AsBool(const Connection::ConnPropertyMap& connPropertyMap,
 boost::optional<int32_t> AsInt32(int32_t min_value,
                                  const Connection::ConnPropertyMap& connPropertyMap,
                                  const std::string_view& property_name);
-
-void ReadConfigFile(PropertyMap& properties, const std::string& configFileName);
-
 }  // namespace odbcabstraction
 }  // namespace driver

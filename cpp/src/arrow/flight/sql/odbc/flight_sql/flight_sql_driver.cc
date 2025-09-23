@@ -18,41 +18,45 @@
 #include "arrow/flight/sql/odbc/flight_sql/include/flight_sql/flight_sql_driver.h"
 #include "arrow/flight/sql/odbc/flight_sql/flight_sql_connection.h"
 #include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/platform.h"
-#include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/spd_logger.h"
-#include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/utils.h"
+#include "arrow/util/io_util.h"
+#include "arrow/util/logging.h"
 
-#define DEFAULT_MAXIMUM_FILE_SIZE 16777216
-#define CONFIG_FILE_NAME "arrow-odbc.ini"
+#define ODBC_LOG_LEVEL "ARROW_ODBC_LOG_LEVEL"
+
+using arrow::util::ArrowLogLevel;
+
+namespace {
+/// Return the corresponding ArrowLogLevel. Debug level is returned by default.
+ArrowLogLevel ToLogLevel(int64_t level) {
+  switch (level) {
+    case -2:
+      return ArrowLogLevel::ARROW_TRACE;
+    case -1:
+      return ArrowLogLevel::ARROW_DEBUG;
+    case 0:
+      return ArrowLogLevel::ARROW_INFO;
+    case 1:
+      return ArrowLogLevel::ARROW_WARNING;
+    case 2:
+      return ArrowLogLevel::ARROW_ERROR;
+    case 3:
+      return ArrowLogLevel::ARROW_FATAL;
+    default:
+      return ArrowLogLevel::ARROW_DEBUG;
+  }
+}
+}  // namespace
 
 namespace driver {
 namespace flight_sql {
 
 using odbcabstraction::Connection;
-using odbcabstraction::LogLevel;
 using odbcabstraction::OdbcVersion;
-using odbcabstraction::SPDLogger;
-
-namespace {
-LogLevel ToLogLevel(int64_t level) {
-  switch (level) {
-    case 0:
-      return LogLevel::LogLevel_TRACE;
-    case 1:
-      return LogLevel::LogLevel_DEBUG;
-    case 2:
-      return LogLevel::LogLevel_INFO;
-    case 3:
-      return LogLevel::LogLevel_WARN;
-    case 4:
-      return LogLevel::LogLevel_ERROR;
-    default:
-      return LogLevel::LogLevel_OFF;
-  }
-}
-}  // namespace
 
 FlightSqlDriver::FlightSqlDriver()
-    : diagnostics_("Apache Arrow", "Flight SQL", OdbcVersion::V_3), version_("0.9.0.0") {}
+    : diagnostics_("Apache Arrow", "Flight SQL", OdbcVersion::V_3), version_("0.9.0.0") {
+  RegisterLog();
+}
 
 std::shared_ptr<Connection> FlightSqlDriver::CreateConnection(OdbcVersion odbc_version) {
   return std::make_shared<FlightSqlConnection>(odbc_version, version_);
@@ -63,45 +67,15 @@ odbcabstraction::Diagnostics& FlightSqlDriver::GetDiagnostics() { return diagnos
 void FlightSqlDriver::SetVersion(std::string version) { version_ = std::move(version); }
 
 void FlightSqlDriver::RegisterLog() {
-  odbcabstraction::PropertyMap propertyMap;
-  driver::odbcabstraction::ReadConfigFile(propertyMap, CONFIG_FILE_NAME);
-
-  auto log_enable_iterator = propertyMap.find(SPDLogger::LOG_ENABLED);
-  auto log_enabled = log_enable_iterator != propertyMap.end()
-                         ? odbcabstraction::AsBool(log_enable_iterator->second)
-                         : false;
-  if (!log_enabled) {
+  std::string log_level_str = arrow::internal::GetEnvVar(ODBC_LOG_LEVEL).ValueOr("");
+  if (log_level_str.empty()) {
     return;
   }
+  auto log_level = ToLogLevel(std::stoi(log_level_str));
 
-  auto log_path_iterator = propertyMap.find(SPDLogger::LOG_PATH);
-  auto log_path = log_path_iterator != propertyMap.end() ? log_path_iterator->second : "";
-  if (log_path.empty()) {
-    return;
-  }
-
-  auto log_level_iterator = propertyMap.find(SPDLogger::LOG_LEVEL);
-  auto log_level = ToLogLevel(log_level_iterator != propertyMap.end()
-                                  ? std::stoi(log_level_iterator->second)
-                                  : 1);
-  if (log_level == odbcabstraction::LogLevel_OFF) {
-    return;
-  }
-
-  auto maximum_file_size_iterator = propertyMap.find(SPDLogger::MAXIMUM_FILE_SIZE);
-  auto maximum_file_size = maximum_file_size_iterator != propertyMap.end()
-                               ? std::stoi(maximum_file_size_iterator->second)
-                               : DEFAULT_MAXIMUM_FILE_SIZE;
-
-  auto maximum_file_quantity_iterator = propertyMap.find(SPDLogger::FILE_QUANTITY);
-  auto maximum_file_quantity = maximum_file_quantity_iterator != propertyMap.end()
-                                   ? std::stoi(maximum_file_quantity_iterator->second)
-                                   : 1;
-
-  std::unique_ptr<odbcabstraction::SPDLogger> logger(new odbcabstraction::SPDLogger());
-
-  logger->init(maximum_file_quantity, maximum_file_size, log_path, log_level);
-  odbcabstraction::Logger::SetInstance(std::move(logger));
+  // Enable driver logging. Log files are not supported on Windows yet, since GLOG is not
+  // tested fully on Windows.
+  arrow::util::ArrowLog::StartArrowLog("arrow-flight-sql-odbc", log_level);
 }
 
 }  // namespace flight_sql
