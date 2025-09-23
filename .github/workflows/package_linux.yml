@@ -92,25 +92,25 @@ jobs:
         id:
           - almalinux-8-amd64
           - almalinux-8-arm64
-          #- almalinux-9-amd64
-          #- almalinux-9-arm64
-          #- almalinux-10-amd64
-          #- almalinux-10-arm64
-          #- amazon-linux-2023-amd64
-          #- amazon-linux-2023-arm64
-          #- centos-9-stream-amd64
-          #- centos-9-stream-arm64
-          #- centos-7-amd64
-          #- debian-bookworm-amd64
-          #- debian-bookworm-arm64
-          #- debian-trixie-amd64
-          #- debian-trixie-arm64
-          #- debian-forky-amd64
-          #- debian-forky-arm64
-          #- ubuntu-jammy-amd64
-          #- ubuntu-jammy-arm64
-          #- ubuntu-noble-amd64
-          #- ubuntu-noble-arm64
+          - almalinux-9-amd64
+          - almalinux-9-arm64
+          - almalinux-10-amd64
+          - almalinux-10-arm64
+          - amazon-linux-2023-amd64
+          - amazon-linux-2023-arm64
+          - centos-9-stream-amd64
+          - centos-9-stream-arm64
+          - centos-7-amd64
+          - debian-bookworm-amd64
+          - debian-bookworm-arm64
+          - debian-trixie-amd64
+          - debian-trixie-arm64
+          - debian-forky-amd64
+          - debian-forky-arm64
+          - ubuntu-jammy-amd64
+          - ubuntu-jammy-arm64
+          - ubuntu-noble-amd64
+          - ubuntu-noble-arm64
     env:
       DOCKER_VOLUME_PREFIX: ".docker/"
       ARROW_VERSION: ${{ inputs.version || ''}}
