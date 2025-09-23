@@ -1645,45 +1645,37 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
             progress_label = "Copying: #{distribution} #{code_name}"
             progress_reporter = ProgressReporter.new(progress_label)
 
-            distribution_dir = "#{incoming_dir}/#{distribution}"
-            pool_dir = "#{distribution_dir}/pool/#{code_name}"
-            rm_rf(pool_dir, verbose: verbose?)
-            mkdir_p(pool_dir, verbose: verbose?)
-            source_dir_prefix = "#{artifacts_dir}/#{distribution}-#{code_name}"
-            # apache/arrow uses debian-bookworm-{amd64,arm64} but
-            # apache/arrow-adbc uses debian-bookworm. So the following
-            # glob must much both of them.
-            Dir.glob("#{source_dir_prefix}*/*") do |path|
-              base_name = File.basename(path)
+            destination_prefix = "#{incoming_dir}/#{distribution}"
+            rm_rf(destination_prefix, verbose: verbose?)
+
+            # Copy the entire repository structure
+            source_pattern = "#{artifacts_dir}/#{distribution}-#{code_name}*/*/" \
+                             "apt/repositories/#{distribution}"
+            Dir.glob(source_pattern) do |repo_source|
+              progress_reporter.increment_max
+              mkdir_p(File.dirname(destination_prefix), verbose: verbose?)
+              cp_r(repo_source, destination_prefix, preserve: true, verbose: verbose?)
+              progress_reporter.advance
+            end
+
+            # Create latest package links after copying
+            Dir.glob("#{destination_prefix}/**/*-apt-source_*.deb") do |apt_source_path|
+              base_name = File.basename(apt_source_path)
               package_name = ENV["DEB_PACKAGE_NAME"]
               if package_name.nil? or package_name.empty?
-                if base_name.start_with?("apache-arrow-apt-source")
-                  package_name = "apache-arrow-apt-source"
-                else
-                  package_name = "apache-arrow"
-                end
+                package_name = "apache-arrow-apt-source"
               end
-              destination_path = [
-                pool_dir,
-                component,
-                package_name[0],
-                package_name,
-                base_name,
+
+              latest_apt_source_package_path = [
+                destination_prefix,
+                "#{package_name}-latest-#{code_name}.deb"
               ].join("/")
-              copy_artifact(path,
-                            destination_path,
+
+              copy_artifact(apt_source_path,
+                            latest_apt_source_package_path,
                             progress_reporter)
-              case base_name
-              when /\A[^_]+-apt-source_.*\.deb\z/
-                latest_apt_source_package_path = [
-                  distribution_dir,
-                  "#{package_name}-latest-#{code_name}.deb"
-                ].join("/")
-                copy_artifact(path,
-                              latest_apt_source_package_path,
-                              progress_reporter)
-              end
             end
+
             progress_reporter.finish
           end
         end
@@ -2043,59 +2035,23 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
             progress_label = "Copying: #{distribution} #{distribution_version}"
             progress_reporter = ProgressReporter.new(progress_label)
 
-            destination_prefix = [
-              incoming_dir,
-              distribution,
-              distribution_version,
-            ].join("/")
+            destination_prefix = "#{incoming_dir}/#{distribution}/#{distribution_version}"
             rm_rf(destination_prefix, verbose: verbose?)
-            source_dir_prefix =
-              "#{artifacts_dir}/#{distribution}-#{distribution_version}"
-            Dir.glob("#{source_dir_prefix}*/*.rpm") do |path|
-              base_name = File.basename(path)
-              type = base_name.split(".")[-2]
-              destination_paths = []
-              case type
-              when "src"
-                destination_paths << [
-                  destination_prefix,
-                  "Source",
-                  "SPackages",
-                  base_name,
-                ].join("/")
-              when "noarch"
-                yum_architectures.each do |architecture|
-                  destination_paths << [
-                    destination_prefix,
-                    architecture,
-                    "Packages",
-                    base_name,
-                  ].join("/")
-                end
-              else
-                destination_paths << [
-                  destination_prefix,
-                  type,
-                  "Packages",
-                  base_name,
-                ].join("/")
+
+            # Copy all repository structures for this distribution/version
+            source_pattern = "#{artifacts_dir}/#{distribution}-#{distribution_version}*/*/" \
+                             "yum/repositories/#{distribution}/#{distribution_version}"
+            Dir.glob(source_pattern) do |repo_source|
+              progress_reporter.increment_max
+
+              # Copy and merge all architectures
+              Dir.glob("#{repo_source}/*") do |arch_dir|
+                arch_name = File.basename(arch_dir)
+                destination_arch_dir = "#{destination_prefix}/#{arch_name}"
+                mkdir_p(File.dirname(destination_arch_dir), verbose: verbose?)
+                cp_r(arch_dir, destination_arch_dir, preserve: true, verbose: verbose?)
               end
-              destination_paths.each do |destination_path|
-                copy_artifact(path,
-                              destination_path,
-                              progress_reporter)
-              end
-              case base_name
-              when /\A(apache-arrow-release)-.*\.noarch\.rpm\z/
-                package_name = $1
-                latest_release_package_path = [
-                  destination_prefix,
-                  "#{package_name}-latest.rpm"
-                ].join("/")
-                copy_artifact(path,
-                              latest_release_package_path,
-                              progress_reporter)
-              end
+              progress_reporter.advance
             end
 
             progress_reporter.finish
