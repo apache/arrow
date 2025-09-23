@@ -413,69 +413,97 @@ TEST_F(TestSparseCOOTensor, TestToTensor) {
   ASSERT_TRUE(tensor.Equals(*dense_tensor));
 }
 
-TEST_F(TestSparseCOOTensor, CreationFromVectorTensorWithNegZero) {
-  std::vector<float> data{
-      -0.0, -0.0, 0.0, -0.0, 4.0, -0.0, -0.0, 0.0, -0.0, -1.0, -0.0, -0.0,
-  };
-  std::vector<int64_t> shape = {12};
-  auto buffer = Buffer::FromVector(data);
-  ASSERT_OK_AND_ASSIGN(auto dense_tensor, Tensor::Make(float32(), buffer, shape));
-  ASSERT_OK_AND_ASSIGN(auto sparse_coo_tensor,
-                       SparseCOOTensor::Make(*dense_tensor, int64()));
-  ASSERT_EQ(2, sparse_coo_tensor->non_zero_length());
-  auto si =
-      internal::checked_pointer_cast<SparseCOOIndex>(sparse_coo_tensor->sparse_index());
-  AssertCOOIndex(si->indices(), 0, {4});
-  AssertCOOIndex(si->indices(), 1, {9});
-  ASSERT_OK_AND_ASSIGN(auto new_tensor, sparse_coo_tensor->ToTensor());
-  ASSERT_TRUE(new_tensor->Equals(*dense_tensor));
+template <typename ValueType>
+class TestSparseCOOTensorCreationFromNegativeZero
+    : public TestSparseTensorBase<ValueType> {
+ public:
+  using ValueCType = typename ValueType::c_type;
+
+  void SetUp() override { type_ = TypeTraits<ValueType>::type_singleton(); }
+
+  void FromVector() {
+    std::vector<ValueCType> data{
+        -0.0, -0.0, 0.0, -0.0, 4.0, -0.0, -0.0, 0.0, -0.0, -1.0, -0.0, -0.0,
+    };
+    std::vector<int64_t> shape = {12};
+    auto buffer = Buffer::FromVector(data);
+    ASSERT_OK_AND_ASSIGN(auto dense_tensor, Tensor::Make(type_, buffer, shape));
+    ASSERT_OK_AND_ASSIGN(auto sparse_coo_tensor,
+                         SparseCOOTensor::Make(*dense_tensor, int64()));
+    ASSERT_EQ(2, sparse_coo_tensor->non_zero_length());
+    auto si =
+        internal::checked_pointer_cast<SparseCOOIndex>(sparse_coo_tensor->sparse_index());
+    AssertCOOIndex(si->indices(), 0, {4});
+    AssertCOOIndex(si->indices(), 1, {9});
+    ASSERT_OK_AND_ASSIGN(auto new_tensor, sparse_coo_tensor->ToTensor());
+    ASSERT_TRUE(new_tensor->Equals(*dense_tensor));
+  }
+
+  void FromContiguousTensor() {
+    // clang-format off
+    std::vector<ValueCType> data{
+      -0.0, -0.0,  0.0,
+      -0.0,  4.0, -0.0,
+      -0.0,  0.0, -0.0,
+      -1.0, -0.0, -0.0,
+      };
+    // clang-format on
+    std::vector<int64_t> shape = {4, 3};
+    auto buffer = Buffer::FromVector(data);
+    ASSERT_OK_AND_ASSIGN(auto dense_tensor, Tensor::Make(type_, buffer, shape));
+    ASSERT_OK_AND_ASSIGN(auto sparse_coo_tensor,
+                         SparseCOOTensor::Make(*dense_tensor, int64()));
+    ASSERT_EQ(2, sparse_coo_tensor->non_zero_length());
+    auto si =
+        internal::checked_pointer_cast<SparseCOOIndex>(sparse_coo_tensor->sparse_index());
+    AssertCOOIndex(si->indices(), 0, {1, 1});
+    AssertCOOIndex(si->indices(), 1, {3, 0});
+    ASSERT_OK_AND_ASSIGN(auto new_tensor, sparse_coo_tensor->ToTensor());
+    ASSERT_TRUE(new_tensor->Equals(*dense_tensor));
+  }
+
+  void FromNonContiguousTensor() {
+    // clang-format off
+    std::vector<ValueCType> data{
+      -0.0, -0.0,  0.0, 1.0,  2.0,
+      -0.0,  4.0, -0.0, 0.0, -0.0,
+      -0.0,  0.0, -0.0, 3.0,  4.0,
+      -1.0, -0.0, -0.0, 0.0,  0.0,
+      };
+    // clang-format on
+    std::vector<int64_t> shape = {4, 3};
+    auto buffer = Buffer::FromVector(data);
+    ASSERT_OK_AND_ASSIGN(auto dense_tensor,
+                         Tensor::Make(type_, buffer, shape,
+                                      {type_->byte_width() * 5, type_->byte_width()}));
+    ASSERT_OK_AND_ASSIGN(auto sparse_coo_tensor,
+                         SparseCOOTensor::Make(*dense_tensor, int64()));
+    ASSERT_EQ(12, sparse_coo_tensor->size());
+    ASSERT_EQ(2, sparse_coo_tensor->non_zero_length());
+    auto si =
+        internal::checked_pointer_cast<SparseCOOIndex>(sparse_coo_tensor->sparse_index());
+    AssertCOOIndex(si->indices(), 0, {1, 1});
+    AssertCOOIndex(si->indices(), 1, {3, 0});
+    ASSERT_OK_AND_ASSIGN(auto new_tensor, sparse_coo_tensor->ToTensor());
+    ASSERT_TRUE(new_tensor->Equals(*dense_tensor));
+  }
+
+ private:
+  std::shared_ptr<DataType> type_;
+};
+
+TYPED_TEST_SUITE(TestSparseCOOTensorCreationFromNegativeZero, RealArrowTypes);
+
+TYPED_TEST(TestSparseCOOTensorCreationFromNegativeZero, FromVector) {
+  this->FromVector();
 }
 
-TEST_F(TestSparseCOOTensor, CreationFromContiguousDenseTensorWithNegZero) {
-  // clang-format off
-  std::vector<float> data{
-    -0.0, -0.0,  0.0,
-    -0.0,  4.0, -0.0,
-    -0.0,  0.0, -0.0,
-    -1.0, -0.0, -0.0,
-    };
-  // clang-format on
-  std::vector<int64_t> shape = {4, 3};
-  auto buffer = Buffer::FromVector(data);
-  ASSERT_OK_AND_ASSIGN(auto dense_tensor, Tensor::Make(float32(), buffer, shape));
-  ASSERT_OK_AND_ASSIGN(auto sparse_coo_tensor,
-                       SparseCOOTensor::Make(*dense_tensor, int64()));
-  ASSERT_EQ(2, sparse_coo_tensor->non_zero_length());
-  auto si =
-      internal::checked_pointer_cast<SparseCOOIndex>(sparse_coo_tensor->sparse_index());
-  AssertCOOIndex(si->indices(), 0, {1, 1});
-  AssertCOOIndex(si->indices(), 1, {3, 0});
-  ASSERT_OK_AND_ASSIGN(auto new_tensor, sparse_coo_tensor->ToTensor());
-  ASSERT_TRUE(new_tensor->Equals(*dense_tensor));
+TYPED_TEST(TestSparseCOOTensorCreationFromNegativeZero, FromContiguousTensor) {
+  this->FromContiguousTensor();
 }
 
-TEST_F(TestSparseCOOTensor, CreationFromNonContiguousDenseTensorWithNegZero) {
-  // clang-format off
-  std::vector<float> data{
-    -0.0, -0.0,  0.0, 1.0,  2.0,
-    -0.0,  4.0, -0.0, 0.0, -0.0,
-    -0.0,  0.0, -0.0, 3.0,  4.0,
-    -1.0, -0.0, -0.0, 0.0,  0.0,
-    };
-  // clang-format on
-  std::vector<int64_t> shape = {4, 3};
-  auto buffer = Buffer::FromVector(data);
-  ASSERT_OK_AND_ASSIGN(auto dense_tensor,
-                       Tensor::Make(float32(), buffer, shape, {20, 4}));
-  ASSERT_OK_AND_ASSIGN(auto sparse_coo_tensor,
-                       SparseCOOTensor::Make(*dense_tensor, int64()));
-  ASSERT_EQ(2, sparse_coo_tensor->non_zero_length());
-  auto si =
-      internal::checked_pointer_cast<SparseCOOIndex>(sparse_coo_tensor->sparse_index());
-  AssertCOOIndex(si->indices(), 0, {1, 1});
-  AssertCOOIndex(si->indices(), 1, {3, 0});
-  ASSERT_OK_AND_ASSIGN(auto new_tensor, sparse_coo_tensor->ToTensor());
-  ASSERT_TRUE(new_tensor->Equals(*dense_tensor));
+TYPED_TEST(TestSparseCOOTensorCreationFromNegativeZero, FromNonContiguousTensor) {
+  this->FromNonContiguousTensor();
 }
 
 template <typename ValueType>
@@ -934,31 +962,49 @@ TEST_F(TestSparseCSRMatrix, TestToTensor) {
   ASSERT_TRUE(tensor.Equals(*dense_tensor));
 }
 
-TEST_F(TestSparseCSRMatrix, CreationFromTensorWithNegZero) {
-  // clang-format off
-  std::vector<float> data{
-    -0.0, -0.0,  0.0,
-    -0.0,  4.0, -0.0,
-    -0.0,  0.0, -0.0,
-    -1.0, -0.0, -0.0,
-    };
-  // clang-format on
-  std::vector<int64_t> shape = {4, 3};
-  auto buffer = Buffer::FromVector(data);
-  ASSERT_OK_AND_ASSIGN(auto dense_tensor, Tensor::Make(float32(), buffer, shape));
-  ASSERT_OK_AND_ASSIGN(auto sparse_csr_tensor,
-                       SparseCSRMatrix::Make(*dense_tensor, int64()));
-  ASSERT_EQ(2, sparse_csr_tensor->non_zero_length());
-  auto si =
-      internal::checked_pointer_cast<SparseCSRIndex>(sparse_csr_tensor->sparse_index());
-  const auto* indptr = si->indptr()->data()->data_as<int64_t>();
-  const auto* indices = si->indices()->data()->data_as<int64_t>();
-  ASSERT_EQ(indptr[2], 1);
-  ASSERT_EQ(indptr[4], 2);
-  ASSERT_EQ(indices[0], 1);
-  ASSERT_EQ(indices[1], 0);
-  ASSERT_OK_AND_ASSIGN(auto new_tensor, sparse_csr_tensor->ToTensor());
-  ASSERT_TRUE(new_tensor->Equals(*dense_tensor));
+template <typename ValueType>
+class TestSparseCSRTensorCreationFromNegativeZero
+    : public TestSparseTensorBase<ValueType> {
+ public:
+  using ValueCType = typename ValueType::c_type;
+
+  void SetUp() override { type_ = TypeTraits<ValueType>::type_singleton(); }
+
+  void FromTensor() {
+    // clang-format off
+    std::vector<ValueCType> data{
+      -0.0, -0.0,  0.0,
+      -0.0,  4.0, -0.0,
+      -0.0,  0.0, -0.0,
+      -1.0, -0.0, -0.0,
+      };
+    // clang-format on
+    std::vector<int64_t> shape = {4, 3};
+    auto buffer = Buffer::FromVector(data);
+    ASSERT_OK_AND_ASSIGN(auto dense_tensor, Tensor::Make(type_, buffer, shape));
+    ASSERT_OK_AND_ASSIGN(auto sparse_csr_tensor,
+                         SparseCSRMatrix::Make(*dense_tensor, int64()));
+    ASSERT_EQ(2, sparse_csr_tensor->non_zero_length());
+    auto si =
+        internal::checked_pointer_cast<SparseCSRIndex>(sparse_csr_tensor->sparse_index());
+    const auto* indptr = si->indptr()->data()->template data_as<int64_t>();
+    const auto* indices = si->indices()->data()->template data_as<int64_t>();
+    ASSERT_EQ(indptr[2], 1);
+    ASSERT_EQ(indptr[4], 2);
+    ASSERT_EQ(indices[0], 1);
+    ASSERT_EQ(indices[1], 0);
+    ASSERT_OK_AND_ASSIGN(auto new_tensor, sparse_csr_tensor->ToTensor());
+    ASSERT_TRUE(new_tensor->Equals(*dense_tensor));
+  }
+
+ private:
+  std::shared_ptr<DataType> type_;
+};
+
+TYPED_TEST_SUITE(TestSparseCSRTensorCreationFromNegativeZero, RealArrowTypes);
+
+TYPED_TEST(TestSparseCSRTensorCreationFromNegativeZero, FromTensor) {
+  this->FromTensor();
 }
 
 template <typename ValueType>
@@ -1296,31 +1342,49 @@ TEST_F(TestSparseCSCMatrix, TestToTensor) {
   ASSERT_TRUE(tensor.Equals(*dense_tensor));
 }
 
-TEST_F(TestSparseCSCMatrix, CreationFromTensorWithNegZero) {
-  // clang-format off
-  std::vector<float> data{
-    -0.0, -0.0,  0.0,
-    -0.0,  4.0, -0.0,
-    -0.0,  0.0, -0.0,
-    -1.0, -0.0, -0.0,
-    };
-  // clang-format on
-  std::vector<int64_t> shape = {4, 3};
-  auto buffer = Buffer::FromVector(data);
-  ASSERT_OK_AND_ASSIGN(auto dense_tensor, Tensor::Make(float32(), buffer, shape));
-  ASSERT_OK_AND_ASSIGN(auto sparse_csc_tensor,
-                       SparseCSCMatrix::Make(*dense_tensor, int64()));
-  ASSERT_EQ(2, sparse_csc_tensor->non_zero_length());
-  auto si =
-      internal::checked_pointer_cast<SparseCSCIndex>(sparse_csc_tensor->sparse_index());
-  const auto* indptr = si->indptr()->data()->data_as<int64_t>();
-  const auto* indices = si->indices()->data()->data_as<int64_t>();
-  ASSERT_EQ(indptr[1], 1);
-  ASSERT_EQ(indptr[2], 2);
-  ASSERT_EQ(indices[0], 3);
-  ASSERT_EQ(indices[1], 1);
-  ASSERT_OK_AND_ASSIGN(auto new_tensor, sparse_csc_tensor->ToTensor());
-  ASSERT_TRUE(new_tensor->Equals(*dense_tensor));
+template <typename ValueType>
+class TestSparseCSCTensorCreationFromNegativeZero
+    : public TestSparseTensorBase<ValueType> {
+ public:
+  using ValueCType = typename ValueType::c_type;
+
+  void SetUp() override { type_ = TypeTraits<ValueType>::type_singleton(); }
+
+  void FromTensor() {
+    // clang-format off
+    std::vector<ValueCType> data{
+      -0.0, -0.0,  0.0,
+      -0.0,  4.0, -0.0,
+      -0.0,  0.0, -0.0,
+      -1.0, -0.0, -0.0,
+      };
+    // clang-format on
+    std::vector<int64_t> shape = {4, 3};
+    auto buffer = Buffer::FromVector(data);
+    ASSERT_OK_AND_ASSIGN(auto dense_tensor, Tensor::Make(type_, buffer, shape));
+    ASSERT_OK_AND_ASSIGN(auto sparse_csc_tensor,
+                         SparseCSCMatrix::Make(*dense_tensor, int64()));
+    ASSERT_EQ(2, sparse_csc_tensor->non_zero_length());
+    auto si =
+        internal::checked_pointer_cast<SparseCSCIndex>(sparse_csc_tensor->sparse_index());
+    const auto* indptr = si->indptr()->data()->template data_as<int64_t>();
+    const auto* indices = si->indices()->data()->template data_as<int64_t>();
+    ASSERT_EQ(indptr[1], 1);
+    ASSERT_EQ(indptr[2], 2);
+    ASSERT_EQ(indices[0], 3);
+    ASSERT_EQ(indices[1], 1);
+    ASSERT_OK_AND_ASSIGN(auto new_tensor, sparse_csc_tensor->ToTensor());
+    ASSERT_TRUE(new_tensor->Equals(*dense_tensor));
+  }
+
+ private:
+  std::shared_ptr<DataType> type_;
+};
+
+TYPED_TEST_SUITE(TestSparseCSCTensorCreationFromNegativeZero, RealArrowTypes);
+
+TYPED_TEST(TestSparseCSCTensorCreationFromNegativeZero, FromTensor) {
+  this->FromTensor();
 }
 
 template <typename ValueType>
@@ -1598,33 +1662,51 @@ TEST_F(TestSparseCSFTensor, CreationFromZeroTensor) {
   ASSERT_TRUE(t->Equals(*t_zero));
 }
 
-TEST_F(TestSparseCSFTensor, CreationFromTensorWithNegZero) {
-  // clang-format off
-  std::vector<float> data{
-    -0.0, -0.0, -0.0, -0.0,
-     4.0, -0.0, -0.0, -0.0,
-     0.0, -1.0, -0.0, -0.0,
-    };
-  // clang-format on
-  std::vector<int64_t> shape = {3, 4};
-  auto buffer = Buffer::FromVector(data);
-  ASSERT_OK_AND_ASSIGN(auto dense_tensor, Tensor::Make(float32(), buffer, shape));
-  ASSERT_OK_AND_ASSIGN(auto sparse_csf_tensor,
-                       SparseCSFTensor::Make(*dense_tensor, int64()));
-  ASSERT_EQ(2, sparse_csf_tensor->non_zero_length());
-  auto si =
-      internal::checked_pointer_cast<SparseCSFIndex>(sparse_csf_tensor->sparse_index());
-  auto indptr = si->indptr()[0]->data()->data_as<int64_t>();
-  auto row_indices = si->indices()[0]->data()->data_as<int64_t>();
-  auto column_indices = si->indices()[1]->data()->data_as<int64_t>();
-  ASSERT_EQ(indptr[1], 1);
-  ASSERT_EQ(indptr[2], 2);
-  EXPECT_EQ(row_indices[0], 1);
-  EXPECT_EQ(row_indices[1], 2);
-  EXPECT_EQ(column_indices[0], 0);
-  EXPECT_EQ(column_indices[1], 1);
-  ASSERT_OK_AND_ASSIGN(auto new_tensor, sparse_csf_tensor->ToTensor());
-  ASSERT_TRUE(new_tensor->Equals(*dense_tensor));
+template <typename ValueType>
+class TestSparseCSFTensorCreationFromNegativeZero
+    : public TestSparseTensorBase<ValueType> {
+ public:
+  using ValueCType = typename ValueType::c_type;
+
+  void SetUp() override { type_ = TypeTraits<ValueType>::type_singleton(); }
+
+  void FromTensor() {
+    // clang-format off
+    std::vector<ValueCType> data{
+      -0.0, -0.0, -0.0, -0.0,
+       4.0, -0.0, -0.0, -0.0,
+       0.0, -1.0, -0.0, -0.0,
+      };
+    // clang-format on
+    std::vector<int64_t> shape = {3, 4};
+    auto buffer = Buffer::FromVector(data);
+    ASSERT_OK_AND_ASSIGN(auto dense_tensor, Tensor::Make(type_, buffer, shape));
+    ASSERT_OK_AND_ASSIGN(auto sparse_csf_tensor,
+                         SparseCSFTensor::Make(*dense_tensor, int64()));
+    ASSERT_EQ(2, sparse_csf_tensor->non_zero_length());
+    auto si =
+        internal::checked_pointer_cast<SparseCSFIndex>(sparse_csf_tensor->sparse_index());
+    auto indptr = si->indptr()[0]->data()->template data_as<int64_t>();
+    auto row_indices = si->indices()[0]->data()->template data_as<int64_t>();
+    auto column_indices = si->indices()[1]->data()->template data_as<int64_t>();
+    ASSERT_EQ(indptr[1], 1);
+    ASSERT_EQ(indptr[2], 2);
+    EXPECT_EQ(row_indices[0], 1);
+    EXPECT_EQ(row_indices[1], 2);
+    EXPECT_EQ(column_indices[0], 0);
+    EXPECT_EQ(column_indices[1], 1);
+    ASSERT_OK_AND_ASSIGN(auto new_tensor, sparse_csf_tensor->ToTensor());
+    ASSERT_TRUE(new_tensor->Equals(*dense_tensor));
+  }
+
+ private:
+  std::shared_ptr<DataType> type_;
+};
+
+TYPED_TEST_SUITE(TestSparseCSFTensorCreationFromNegativeZero, RealArrowTypes);
+
+TYPED_TEST(TestSparseCSFTensorCreationFromNegativeZero, FromTensor) {
+  this->FromTensor();
 }
 
 template <typename IndexValueType>
