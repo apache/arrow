@@ -92,7 +92,7 @@ if [ "${TYPE}" = "local" ]; then
       ;;
   esac
   package_version+="-1"
-  apt_source_path="${local_prefix}/apt/repositories"
+  apt_source_path="${local_prefix}"
   apt_source_path+="/${distribution}/pool/${code_name}/main"
   apt_source_path+="/a/apache-arrow-apt-source"
   apt_source_path+="/apache-arrow-apt-source_${package_version}_all.deb"
