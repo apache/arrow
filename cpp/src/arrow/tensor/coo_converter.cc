@@ -54,8 +54,8 @@ inline void IncrementRowMajorIndex(std::vector<IndexCType>& coord,
 }
 
 template <typename IndexType, typename ValueType>
-void ConvertContinuousTensor(const Tensor& tensor, typename IndexType::c_type* indices,
-                             typename ValueType::c_type* values) {
+void ConvertRowMajorTensor(const Tensor& tensor, typename IndexType::c_type* indices,
+                           typename ValueType::c_type* values) {
   using ValueCType = typename ValueType::c_type;
   using IndexCType = typename IndexType::c_type;
 
@@ -77,12 +77,6 @@ void ConvertContinuousTensor(const Tensor& tensor, typename IndexType::c_type* i
   }
 }
 
-template <typename IndexType, typename ValueType>
-void ConvertRowMajorTensor(const Tensor& tensor, typename IndexType::c_type* out_indices,
-                           typename ValueType::c_type* out_values) {
-  ConvertContinuousTensor<IndexType, ValueType>(tensor, out_indices, out_values);
-}
-
 // TODO(GH-47580): Correct column-major tensor conversion
 template <typename IndexType, typename ValueType>
 void ConvertColumnMajorTensor(const Tensor& tensor,
@@ -95,7 +89,7 @@ void ConvertColumnMajorTensor(const Tensor& tensor,
   const auto ndim = tensor.ndim();
   std::vector<IndexCType> indices(ndim * size);
   std::vector<ValueCtype> values(size);
-  ConvertContinuousTensor<IndexType, ValueType>(tensor, indices.data(), values.data());
+  ConvertRowMajorTensor<IndexType, ValueType>(tensor, indices.data(), values.data());
 
   // transpose indices
   for (int64_t i = 0; i < size; ++i) {

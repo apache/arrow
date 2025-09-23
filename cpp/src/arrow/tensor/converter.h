@@ -66,15 +66,15 @@ Result<std::shared_ptr<Tensor>> MakeTensorFromSparseCSCMatrix(
 Result<std::shared_ptr<Tensor>> MakeTensorFromSparseCSFTensor(
     MemoryPool* pool, const SparseCSFTensor* sparse_tensor);
 
-template <typename Convertor>
+template <typename Converter>
 struct ConverterVisitor {
-  explicit ConverterVisitor(Convertor& converter) : converter(converter) {}
+  explicit ConverterVisitor(Converter& converter) : converter(converter) {}
   template <typename ValueType, typename IndexType>
   Status operator()(const ValueType& value, const IndexType& index_type) {
     return converter.Convert(value, index_type);
   }
 
-  Convertor& converter;
+  Converter& converter;
 };
 
 struct ValueTypeVisitor {
@@ -87,7 +87,8 @@ struct ValueTypeVisitor {
 
   template <typename IndexType, typename Function>
   Status Visit(const DataType& value_type, const IndexType&, Function&&) {
-    return Status::Invalid("Invalid value type and the type is ", value_type.name());
+    return Status::Invalid("Invalid value type: ", value_type.name(),
+                           ". Expected a number.");
   }
 };
 
@@ -103,7 +104,7 @@ struct IndexAndValueTypeVisitor {
 
   template <typename Function>
   Status Visit(const DataType& type, const std::shared_ptr<DataType>&, Function&&) {
-    return Status::Invalid("Invalid index type and the type is ", type.name());
+    return Status::Invalid("Invalid index type: ", type.name(), ". Expected integer.");
   }
 };
 
