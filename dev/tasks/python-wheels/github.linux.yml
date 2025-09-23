@@ -32,7 +32,7 @@ jobs:
     {% endif %}
     env:
       {% if linux_wheel_kind == "musllinux" and linux_wheel_version == "1-2" %}
-      ALPINE_LINUX: "3.21"
+      ALPINE_LINUX: "3.22"
       {% endif %}
       # archery uses these environment variables
       {% if arch == "amd64" %}
