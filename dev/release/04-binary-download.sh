@@ -50,3 +50,14 @@ archery crossbow download-artifacts --no-fetch ${CROSSBOW_JOB_ID} "$@"
 RUN_ID=$(get_run_id)
 # Download the artifacts created by the package_linux.yml workflow
 download_artifacts "${SOURCE_DIR}/../../packages/${CROSSBOW_JOB_ID}"
+
+# Find and extract all .tar.gz files in their own artifact directory
+find "${SOURCE_DIR}/../../packages/${CROSSBOW_JOB_ID}" -name "*.tar.gz" -type f | while read -r tarfile; do
+    echo "Extracting: ${tarfile}"
+    tarfile_dir=$(dirname "${tarfile}")
+
+    # Extract to the same directory as the tar.gz file
+    tar -xzf "${tarfile}" -C "${tarfile_dir}"
+    # Should we remove the tar.gz file after extraction?
+    # rm "${tarfile}"
+done

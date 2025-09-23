@@ -28,7 +28,7 @@ fi
 
 TAG=$1
 WORKFLOW=$2
-: "${REPOSITORY:=${GITHUB_REPOSITORY:-raulcd/arrow}}"
+: "${REPOSITORY:=${GITHUB_REPOSITORY:-apache/arrow}}"
 
 get_run_id() {
   gh run list \

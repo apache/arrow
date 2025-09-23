@@ -252,7 +252,6 @@ jobs:
           name: ${{ matrix.id }}
       - name: Set up test
         run: |
-          ls -lrt artifacts-downloaded
           mv artifacts-downloaded/* dev/tasks/linux-packages
           pushd dev/tasks/linux-packages
           rm -rf */${TASK_NAMESPACE}/repositories # Remove artifacts
