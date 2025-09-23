@@ -401,7 +401,7 @@ def test_dense_to_sparse_tensor(dtype_str, arrow_type, sparse_tensor_type):
     assert np.array_equal(array, result_array)
 
 
-@pytest.mark.skipif(coo_matrix is not None, reason="requires scipy")
+@pytest.mark.skipif(coo_matrix is None, reason="requires scipy")
 @pytest.mark.parametrize('sparse_object', (coo_array, coo_matrix))
 @pytest.mark.parametrize('dtype_str,arrow_type', scipy_type_pairs)
 def test_sparse_coo_tensor_scipy_roundtrip(dtype_str, arrow_type,
@@ -443,7 +443,7 @@ def test_sparse_coo_tensor_scipy_roundtrip(dtype_str, arrow_type,
     assert out_scipy_matrix.has_canonical_format
 
 
-@pytest.mark.skipif(csr_matrix is not None, reason="requires scipy")
+@pytest.mark.skipif(csr_matrix is None, reason="requires scipy")
 @pytest.mark.parametrize('sparse_object', (csr_array, csr_matrix))
 @pytest.mark.parametrize('dtype_str,arrow_type', scipy_type_pairs)
 def test_sparse_csr_matrix_scipy_roundtrip(dtype_str, arrow_type,
