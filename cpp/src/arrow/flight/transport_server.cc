@@ -137,6 +137,13 @@ class TransportMessageReader final : public FlightMessageReader {
     return out;
   }
 
+  ipc::ReadStats stats() const override {
+    if (batch_reader_ == nullptr) {
+      return ipc::ReadStats{};
+    }
+    return batch_reader_->stats();
+  }
+
  private:
   /// Ensure we are set up to read data.
   Status EnsureDataStarted() {
@@ -157,7 +164,7 @@ class TransportMessageReader final : public FlightMessageReader {
   FlightDescriptor descriptor_;
   std::shared_ptr<internal::PeekableFlightDataReader> peekable_reader_;
   std::shared_ptr<MemoryManager> memory_manager_;
-  std::shared_ptr<RecordBatchReader> batch_reader_;
+  std::shared_ptr<ipc::RecordBatchStreamReader> batch_reader_;
   std::shared_ptr<Buffer> app_metadata_;
 };
 
@@ -233,9 +240,6 @@ class TransportMessageWriter final : public FlightMessageWriter {
       return MakeFlightError(FlightStatusCode::Internal,
                              "Could not write metadata to stream (client disconnect?)");
     }
-    // Those messages are not written through the batch writer,
-    // count them separately to include them in the stats.
-    extra_messages_++;
     return Status::OK();
   }
 
@@ -259,9 +263,7 @@ class TransportMessageWriter final : public FlightMessageWriter {
 
   ipc::WriteStats stats() const override {
     ARROW_CHECK_NE(batch_writer_, nullptr);
-    auto write_stats = batch_writer_->stats();
-    write_stats.num_messages += extra_messages_;
-    return write_stats;
+    return batch_writer_->stats();
   }
 
  private:
@@ -276,7 +278,6 @@ class TransportMessageWriter final : public FlightMessageWriter {
   std::unique_ptr<ipc::RecordBatchWriter> batch_writer_;
   std::shared_ptr<Buffer> app_metadata_;
   ::arrow::ipc::IpcWriteOptions ipc_options_;
-  int64_t extra_messages_ = 0;
 };
 
 /// \brief Adapt TransportDataStream to the FlightMetadataWriter

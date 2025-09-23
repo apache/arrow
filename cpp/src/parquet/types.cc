@@ -137,7 +137,7 @@ std::string FormatDecimalValue(Type::type parquet_type, ::std::string_view val,
     }
     case Type::FIXED_LEN_BYTE_ARRAY:
     case Type::BYTE_ARRAY: {
-      auto decimal_result = ::arrow::Decimal128::FromBigEndian(
+      auto decimal_result = ::arrow::Decimal256::FromBigEndian(
           reinterpret_cast<const uint8_t*>(val.data()), static_cast<int32_t>(val.size()));
       if (!decimal_result.ok()) {
         throw ParquetException("Failed to parse decimal value: ",

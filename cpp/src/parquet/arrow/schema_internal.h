@@ -25,10 +25,10 @@ namespace parquet::arrow {
 
 using ::arrow::Result;
 
-Result<std::shared_ptr<::arrow::DataType>> FromFLBA(const LogicalType& logical_type,
-                                                    int32_t physical_length);
-Result<std::shared_ptr<::arrow::DataType>> FromInt32(const LogicalType& logical_type);
-Result<std::shared_ptr<::arrow::DataType>> FromInt64(const LogicalType& logical_type);
+Result<std::shared_ptr<::arrow::DataType>> FromInt32(
+    const LogicalType& logical_type, const ArrowReaderProperties& reader_properties);
+Result<std::shared_ptr<::arrow::DataType>> FromInt64(
+    const LogicalType& logical_type, const ArrowReaderProperties& reader_properties);
 
 Result<std::shared_ptr<::arrow::DataType>> GetArrowType(
     Type::type physical_type, const LogicalType& logical_type, int type_length,

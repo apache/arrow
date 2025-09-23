@@ -259,6 +259,14 @@ class ClientStreamReader : public FlightStreamReader {
     }
     return batches;
   }
+
+  arrow::ipc::ReadStats stats() const override {
+    if (batch_reader_ == nullptr) {
+      return ipc::ReadStats{};
+    }
+    return batch_reader_->stats();
+  }
+
   arrow::Result<std::shared_ptr<Table>> ToTable() override {
     return ToTable(stop_token_);
   }
@@ -278,7 +286,7 @@ class ClientStreamReader : public FlightStreamReader {
   StopToken stop_token_;
   std::shared_ptr<MemoryManager> memory_manager_;
   std::shared_ptr<internal::PeekableFlightDataReader> peekable_reader_;
-  std::shared_ptr<ipc::RecordBatchReader> batch_reader_;
+  std::shared_ptr<ipc::RecordBatchStreamReader> batch_reader_;
   std::shared_ptr<Buffer> app_metadata_;
 };
 

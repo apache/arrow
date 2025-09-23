@@ -30,6 +30,7 @@
 #include "arrow/array/concatenate.h"
 #include "arrow/array/util.h"
 #include "arrow/chunked_array.h"
+#include "arrow/compare.h"
 #include "arrow/compute/cast.h"
 #include "arrow/pretty_print.h"
 #include "arrow/record_batch.h"
@@ -534,19 +535,52 @@ Result<std::shared_ptr<Table>> PromoteTableToSchema(const std::shared_ptr<Table>
   return Table::Make(schema, std::move(columns));
 }
 
-bool Table::Equals(const Table& other, bool check_metadata) const {
-  if (this == &other) {
+namespace {
+
+bool ContainFloat(const std::shared_ptr<DataType>& type) {
+  if (is_floating(type->id())) {
     return true;
   }
-  if (!schema_->Equals(*other.schema(), check_metadata)) {
-    return false;
+
+  for (const auto& field : type->fields()) {
+    if (ContainFloat(field->type())) {
+      return true;
+    }
   }
-  if (this->num_columns() != other.num_columns()) {
-    return false;
+  return false;
+}
+
+bool CanIgnoreNan(const Schema& schema, const EqualOptions& opts) {
+  if (opts.nans_equal()) {
+    return true;
+  }
+
+  for (auto& field : schema.fields()) {
+    if (ContainFloat(field->type())) {
+      return false;
+    }
+  }
+  return true;
+}
+
+}  // namespace
+
+bool Table::Equals(const Table& other, const EqualOptions& opts) const {
+  if (this == &other) {
+    if (CanIgnoreNan(*schema_, opts)) {
+      return true;
+    }
+  } else {
+    if (num_columns() != other.num_columns() || num_rows_ != other.num_rows()) {
+      return false;
+    } else if (opts.use_schema() &&
+               !schema_->Equals(*other.schema(), opts.use_metadata())) {
+      return false;
+    }
   }
 
   for (int i = 0; i < this->num_columns(); i++) {
-    if (!this->column(i)->Equals(other.column(i))) {
+    if (!this->column(i)->Equals(other.column(i), opts)) {
       return false;
     }
   }

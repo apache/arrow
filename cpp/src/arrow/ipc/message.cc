@@ -305,8 +305,8 @@ Status ReadFieldsSubset(int64_t offset, int32_t metadata_length,
   }
   internal::IoRecordedRandomAccessFile io_recorded_random_access_file(required_size);
   RETURN_NOT_OK(fields_loader(batch, &io_recorded_random_access_file));
-  auto const& read_ranges = io_recorded_random_access_file.GetReadRanges();
-  for (auto const& range : read_ranges) {
+  const auto& read_ranges = io_recorded_random_access_file.GetReadRanges();
+  for (const auto& range : read_ranges) {
     auto read_result = file->ReadAt(offset + metadata_length + range.offset, range.length,
                                     body->mutable_data() + range.offset);
     if (!read_result.ok()) {

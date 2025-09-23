@@ -209,6 +209,12 @@ struct ARROW_EXPORT WriteOptions {
   /// \brief Quoting style
   QuotingStyle quoting_style = QuotingStyle::Needed;
 
+  /// \brief Quoting style of header
+  ///
+  /// Note that `QuotingStyle::Needed` and `QuotingStyle::AllValid` have the same
+  /// effect of quoting all column names.
+  QuotingStyle quoting_header = QuotingStyle::Needed;
+
   /// Create write options with default values
   static WriteOptions Defaults();
 

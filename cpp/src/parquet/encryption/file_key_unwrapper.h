@@ -65,7 +65,7 @@ class PARQUET_EXPORT FileKeyUnwrapper : public DecryptionKeyRetriever {
                    std::shared_ptr<FileKeyMaterialStore> key_material_store);
 
   /// Get the data key from key metadata
-  ::arrow::util::SecureString GetKeyById(const std::string& key_metadata_bytes) override;
+  ::arrow::util::SecureString GetKey(const std::string& key_metadata_bytes) override;
 
   /// Get the data key along with the master key id from key material
   KeyWithMasterId GetDataEncryptionKey(const KeyMaterial& key_material);

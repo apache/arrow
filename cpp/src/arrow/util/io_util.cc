@@ -1448,7 +1448,7 @@ Status MemoryMapRemap(void* addr, size_t old_size, size_t new_size, int fildes,
 
   SetFilePointer(h, new_size_low, &new_size_high, FILE_BEGIN);
   SetEndOfFile(h);
-  fm = CreateFileMapping(h, NULL, PAGE_READWRITE, 0, 0, "");
+  fm = CreateFileMappingW(h, NULL, PAGE_READWRITE, 0, 0, L"");
   if (fm == NULL) {
     return StatusFromMmapErrno("CreateFileMapping failed");
   }

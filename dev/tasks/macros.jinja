@@ -123,32 +123,6 @@ env:
       CROSSBOW_GITHUB_TOKEN: {{ '${{ secrets.CROSSBOW_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}' }}
 {% endmacro %}
 
-{%- macro github_upload_gemfury(pattern) -%}
-  {%- if arrow.is_default_branch() -%}
-  - name: Set up Ruby
-    uses: ruby/setup-ruby@v1
-    with:
-      ruby-version: "ruby"
-  - name: Install gemfury client
-    run: |
-      gem install gemfury
-  - name: Upload package to Gemfury
-    shell: bash
-    run: |
-      if $(fury versions --as=${CROSSBOW_GEMFURY_ORG} --api-token=${CROSSBOW_GEMFURY_TOKEN} pyarrow | grep --fixed-strings -q "{{ arrow.no_rc_version }}"); then
-        echo "Version {{ arrow.no_rc_version }} already exists. Avoid pushing version."
-      else
-        fury push \
-          --api-token=${CROSSBOW_GEMFURY_TOKEN} \
-          --as=${CROSSBOW_GEMFURY_ORG} \
-          {{ pattern }}
-      fi
-    env:
-      CROSSBOW_GEMFURY_TOKEN: {{ '${{ secrets.CROSSBOW_GEMFURY_TOKEN }}' }}
-      CROSSBOW_GEMFURY_ORG: {{ '${{ secrets.CROSSBOW_GEMFURY_ORG }}' }}
-  {% endif %}
-{% endmacro %}
-
 {%- macro github_upload_wheel_scientific_python(pattern) -%}
   {%- if arrow.is_default_branch() -%}
   - name: Upload wheel to Anaconda scientific-python
@@ -178,31 +152,6 @@ env:
 {%- macro azure_free_space() -%}
   - script: arrow/ci/scripts/util_free_space.sh
     displayName: Free up disk space
-{% endmacro %}
-
-{%- macro azure_upload_releases(pattern) -%}
-  - task: UsePythonVersion@0
-    inputs:
-      versionSpec: '3.9'
-  - script: pip install -e arrow/dev/archery[crossbow-upload]
-    displayName: Install Crossbow
-  - bash: |
-      archery crossbow \
-        --queue-path $(pwd) \
-        --queue-remote {{ queue_remote_url }} \
-        upload-artifacts \
-        --sha {{ task.branch }} \
-        --tag {{ task.tag }} \
-      {% if pattern is string %}
-        "{{ pattern }}"
-      {% elif pattern is iterable %}
-        {% for p in pattern %}
-        "{{ p }}" {{ "\\" if not loop.last else "" }}
-        {% endfor %}
-      {% endif %}
-    env:
-      CROSSBOW_GITHUB_TOKEN: $(CROSSBOW_GITHUB_TOKEN)
-    displayName: Upload packages as a GitHub release
 {% endmacro %}
 
 {%- macro azure_upload_anaconda(pattern) -%}

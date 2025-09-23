@@ -460,8 +460,8 @@ physical type.
 +-------------------+-----------------------------+------------------------------+-----------+
 | INT               | INT64                       | Int64 / UInt64               |           |
 +-------------------+-----------------------------+------------------------------+-----------+
-| DECIMAL           | INT32 / INT64 / BYTE_ARRAY  | Decimal128 / Decimal256      | \(2)      |
-|                   | / FIXED_LENGTH_BYTE_ARRAY   |                              |           |
+| DECIMAL           | INT32 / INT64 / BYTE_ARRAY  | Decimal32/ Decimal64 /       | \(2)      |
+|                   | / FIXED_LENGTH_BYTE_ARRAY   | Decimal128 / Decimal256      |           |
 +-------------------+-----------------------------+------------------------------+-----------+
 | DATE              | INT32                       | Date32                       | \(3)      |
 +-------------------+-----------------------------+------------------------------+-----------+
@@ -493,7 +493,8 @@ physical type.
 
 * \(1) On the write side, the Parquet physical type INT32 is generated.
 
-* \(2) On the write side, a FIXED_LENGTH_BYTE_ARRAY is always emitted.
+* \(2) On the write side, a FIXED_LENGTH_BYTE_ARRAY is always emitted
+  except if ``store_decimal_as_integer`` is set to true.
 
 * \(3) On the write side, an Arrow Date64 is also mapped to a Parquet DATE INT32.
 

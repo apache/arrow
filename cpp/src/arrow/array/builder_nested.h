@@ -51,7 +51,7 @@ class VarLengthListLikeBuilder : public ArrayBuilder {
   /// Use this constructor to incrementally build the value array along with offsets and
   /// null bitmap.
   VarLengthListLikeBuilder(MemoryPool* pool,
-                           std::shared_ptr<ArrayBuilder> const& value_builder,
+                           const std::shared_ptr<ArrayBuilder>& value_builder,
                            const std::shared_ptr<DataType>& type,
                            int64_t alignment = kDefaultBufferAlignment)
       : ArrayBuilder(pool, alignment),
@@ -60,7 +60,7 @@ class VarLengthListLikeBuilder : public ArrayBuilder {
         value_field_(type->field(0)->WithType(NULLPTR)) {}
 
   VarLengthListLikeBuilder(MemoryPool* pool,
-                           std::shared_ptr<ArrayBuilder> const& value_builder,
+                           const std::shared_ptr<ArrayBuilder>& value_builder,
                            int64_t alignment = kDefaultBufferAlignment)
       : VarLengthListLikeBuilder(pool, value_builder,
                                  std::make_shared<TYPE>(value_builder->type()),
@@ -647,13 +647,13 @@ class ARROW_EXPORT FixedSizeListBuilder : public ArrayBuilder {
   /// Use this constructor to define the built array's type explicitly. If value_builder
   /// has indeterminate type, this builder will also.
   FixedSizeListBuilder(MemoryPool* pool,
-                       std::shared_ptr<ArrayBuilder> const& value_builder,
+                       const std::shared_ptr<ArrayBuilder>& value_builder,
                        int32_t list_size);
 
   /// Use this constructor to infer the built array's type. If value_builder has
   /// indeterminate type, this builder will also.
   FixedSizeListBuilder(MemoryPool* pool,
-                       std::shared_ptr<ArrayBuilder> const& value_builder,
+                       const std::shared_ptr<ArrayBuilder>& value_builder,
                        const std::shared_ptr<DataType>& type);
 
   Status Resize(int64_t capacity) override;
