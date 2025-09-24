@@ -269,7 +269,6 @@ TEST_P(TestUnpack, Unpack32Avx512) {
 #endif
 
 #if defined(ARROW_HAVE_NEON)
-TEST_P(TestUnpack, Unpack16Neon) { this->TestAll(&unpack16_neon); }
 TEST_P(TestUnpack, Unpack32Neon) { this->TestAll(&unpack32_neon); }
 #endif
 
