@@ -123,6 +123,20 @@ const uint8_t* GetNextAlignedByte(const uint8_t* ptr, std::size_t alignment) {
 struct TestUnpackSize {
   int32_t num_values;
   int32_t bit_width;
+
+  static std::vector<TestUnpackSize> MakeProduct(int32_t bit_width_start,
+                                                 int32_t bit_width_end,
+                                                 std::vector<int32_t> num_values_set) {
+    std::vector<TestUnpackSize> out;
+    out.reserve((bit_width_end - bit_width_start) * num_values_set.size());
+
+    for (int32_t width = bit_width_start; width < bit_width_end; ++width) {
+      for (int32_t num : num_values_set) {
+        out.push_back({num, width});
+      }
+    }
+    return out;
+  }
 };
 
 class TestUnpack : public ::testing::TestWithParam<TestUnpackSize> {
@@ -218,15 +232,15 @@ class TestUnpack : public ::testing::TestWithParam<TestUnpackSize> {
   }
 };
 
+// There are actually many differences across the different sizes.
+// It is best to test them all.
 INSTANTIATE_TEST_SUITE_P(
     UnpackMultiplesOf64Values, TestUnpack,
-    ::testing::Values(TestUnpackSize{64, 1}, TestUnpackSize{128, 1},
-                      TestUnpackSize{2048, 1}, TestUnpackSize{64, 31},
-                      TestUnpackSize{128, 31}, TestUnpackSize{2048, 1},
-                      TestUnpackSize{2048, 8}, TestUnpackSize{2048, 13},
-                      TestUnpackSize{2048, 16}, TestUnpackSize{2048, 31},
-                      TestUnpackSize{2048, 32}, TestUnpackSize{2048, 63},
-                      TestUnpackSize{2048, 64}));
+    ::testing::ValuesIn(TestUnpackSize::MakeProduct(0, 65, {64, 128, 2048})),
+    [](const ::testing::TestParamInfo<TestUnpack::ParamType>& info) {
+      return "width_" + std::to_string(info.param.bit_width) + "_count_" +
+             std::to_string(info.param.num_values);
+    });
 
 TEST_P(TestUnpack, Unpack16Scalar) { this->TestAll(&unpack16_scalar); }
 TEST_P(TestUnpack, Unpack32Scalar) { this->TestAll(&unpack32_scalar); }
@@ -255,6 +269,7 @@ TEST_P(TestUnpack, Unpack32Avx512) {
 #endif
 
 #if defined(ARROW_HAVE_NEON)
+TEST_P(TestUnpack, Unpack16Neon) { this->TestAll(&unpack16_neon); }
 TEST_P(TestUnpack, Unpack32Neon) { this->TestAll(&unpack32_neon); }
 #endif
 
