@@ -143,9 +143,10 @@ size_t FlightSqlResultSet::Move(size_t rows, size_t bind_offset, size_t bind_typ
                 accessor->GetCellLength(&shifted_binding) * fetched_rows + bind_offset;
           }
 
-          if (shifted_binding.strlen_buffer) {
-            shifted_binding.strlen_buffer = reinterpret_cast<ssize_t*>(
-                reinterpret_cast<uint8_t*>(&shifted_binding.strlen_buffer[fetched_rows]) +
+          if (shifted_binding.str_len_buffer) {
+            shifted_binding.str_len_buffer = reinterpret_cast<ssize_t*>(
+                reinterpret_cast<uint8_t*>(
+                    &shifted_binding.str_len_buffer[fetched_rows]) +
                 bind_offset);
           }
 
@@ -162,9 +163,9 @@ size_t FlightSqlResultSet::Move(size_t rows, size_t bind_offset, size_t bind_typ
                                      bind_offset + bind_type * fetched_rows;
           }
 
-          if (shifted_binding.strlen_buffer) {
-            shifted_binding.strlen_buffer = reinterpret_cast<ssize_t*>(
-                reinterpret_cast<uint8_t*>(shifted_binding.strlen_buffer) + bind_offset +
+          if (shifted_binding.str_len_buffer) {
+            shifted_binding.str_len_buffer = reinterpret_cast<ssize_t*>(
+                reinterpret_cast<uint8_t*>(shifted_binding.str_len_buffer) + bind_offset +
                 bind_type * fetched_rows);
           }
 
@@ -182,9 +183,9 @@ size_t FlightSqlResultSet::Move(size_t rows, size_t bind_offset, size_t bind_typ
                   static_cast<uint8_t*>(shifted_binding.buffer) + bind_type;
             }
 
-            if (shifted_binding.strlen_buffer) {
-              shifted_binding.strlen_buffer = reinterpret_cast<ssize_t*>(
-                  reinterpret_cast<uint8_t*>(shifted_binding.strlen_buffer) + bind_type);
+            if (shifted_binding.str_len_buffer) {
+              shifted_binding.str_len_buffer = reinterpret_cast<ssize_t*>(
+                  reinterpret_cast<uint8_t*>(shifted_binding.str_len_buffer) + bind_type);
             }
 
             if (shifted_row_status_array) {
@@ -228,7 +229,7 @@ void FlightSqlResultSet::Cancel() {
 
 bool FlightSqlResultSet::GetData(int column_n, int16_t target_type, int precision,
                                  int scale, void* buffer, size_t buffer_length,
-                                 ssize_t* strlen_buffer) {
+                                 ssize_t* str_len_buffer) {
   reset_get_data_ = true;
   // Check if the offset is already at the end.
   int64_t& value_offset = get_data_offsets_[column_n - 1];
@@ -237,7 +238,7 @@ bool FlightSqlResultSet::GetData(int column_n, int16_t target_type, int precisio
   }
 
   ColumnBinding binding(ConvertCDataTypeFromV2ToV3(target_type), precision, scale, buffer,
-                        buffer_length, strlen_buffer);
+                        buffer_length, str_len_buffer);
 
   auto& column = columns_[column_n - 1];
   Accessor* accessor = column.GetAccessorForGetData(binding.target_type);
@@ -256,7 +257,7 @@ std::shared_ptr<ResultSetMetadata> FlightSqlResultSet::GetMetadata() { return me
 
 void FlightSqlResultSet::BindColumn(int column_n, int16_t target_type, int precision,
                                     int scale, void* buffer, size_t buffer_length,
-                                    ssize_t* strlen_buffer) {
+                                    ssize_t* str_len_buffer) {
   auto& column = columns_[column_n - 1];
   if (buffer == nullptr) {
     if (column.is_bound_) {
@@ -271,7 +272,7 @@ void FlightSqlResultSet::BindColumn(int column_n, int16_t target_type, int preci
   }
 
   ColumnBinding binding(ConvertCDataTypeFromV2ToV3(target_type), precision, scale, buffer,
-                        buffer_length, strlen_buffer);
+                        buffer_length, str_len_buffer);
   column.SetBinding(binding, schema_->field(column_n - 1)->type()->id());
 }
 

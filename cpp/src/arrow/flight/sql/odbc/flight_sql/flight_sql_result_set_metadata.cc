@@ -74,7 +74,7 @@ size_t FlightSqlResultSetMetadata::GetPrecision(int column_position) {
 
   int32_t column_size = GetFieldPrecision(field).ValueOrElse([] { return 0; });
   SqlDataType data_type_v3 =
-      GetDataTypeFromArrowField_V3(field, metadata_settings_.use_wide_char_);
+      GetDataTypeFromArrowFieldV3(field, metadata_settings_.use_wide_char_);
 
   return GetColumnSize(data_type_v3, column_size).value_or(0);
 }
@@ -85,16 +85,16 @@ size_t FlightSqlResultSetMetadata::GetScale(int column_position) {
 
   int32_t type_scale = metadata.GetScale().ValueOrElse([] { return 0; });
   SqlDataType data_type_v3 =
-      GetDataTypeFromArrowField_V3(field, metadata_settings_.use_wide_char_);
+      GetDataTypeFromArrowFieldV3(field, metadata_settings_.use_wide_char_);
 
   return GetTypeScale(data_type_v3, type_scale).value_or(0);
 }
 
 uint16_t FlightSqlResultSetMetadata::GetDataType(int column_position) {
   const std::shared_ptr<Field>& field = schema_->field(column_position - 1);
-  const SqlDataType conciseType =
-      GetDataTypeFromArrowField_V3(field, metadata_settings_.use_wide_char_);
-  return GetNonConciseDataType(conciseType);
+  const SqlDataType concise_type =
+      GetDataTypeFromArrowFieldV3(field, metadata_settings_.use_wide_char_);
+  return GetNonConciseDataType(concise_type);
 }
 
 driver::odbcabstraction::Nullability FlightSqlResultSetMetadata::IsNullable(
@@ -135,7 +135,7 @@ size_t FlightSqlResultSetMetadata::GetColumnDisplaySize(int column_position) {
   int32_t column_size = metadata_settings_.string_column_length_.value_or(
       GetFieldPrecision(field).ValueOr(DefaultLengthForVariableLengthColumns));
   SqlDataType data_type_v3 =
-      GetDataTypeFromArrowField_V3(field, metadata_settings_.use_wide_char_);
+      GetDataTypeFromArrowFieldV3(field, metadata_settings_.use_wide_char_);
 
   return GetDisplaySize(data_type_v3, column_size).value_or(odbcabstraction::NO_TOTAL);
 }
@@ -154,7 +154,7 @@ uint16_t FlightSqlResultSetMetadata::GetConciseType(int column_position) {
   const std::shared_ptr<Field>& field = schema_->field(column_position - 1);
 
   const SqlDataType sqlColumnType =
-      GetDataTypeFromArrowField_V3(field, metadata_settings_.use_wide_char_);
+      GetDataTypeFromArrowFieldV3(field, metadata_settings_.use_wide_char_);
   return sqlColumnType;
 }
 
@@ -164,7 +164,7 @@ size_t FlightSqlResultSetMetadata::GetLength(int column_position) {
   int32_t column_size = metadata_settings_.string_column_length_.value_or(
       GetFieldPrecision(field).ValueOr(DefaultLengthForVariableLengthColumns));
   SqlDataType data_type_v3 =
-      GetDataTypeFromArrowField_V3(field, metadata_settings_.use_wide_char_);
+      GetDataTypeFromArrowFieldV3(field, metadata_settings_.use_wide_char_);
 
   return flight_sql::GetLength(data_type_v3, column_size)
       .value_or(DefaultLengthForVariableLengthColumns);
@@ -191,7 +191,7 @@ std::string FlightSqlResultSetMetadata::GetLocalTypeName(int column_position) {
 size_t FlightSqlResultSetMetadata::GetNumPrecRadix(int column_position) {
   const std::shared_ptr<Field>& field = schema_->field(column_position - 1);
   SqlDataType data_type_v3 =
-      GetDataTypeFromArrowField_V3(field, metadata_settings_.use_wide_char_);
+      GetDataTypeFromArrowFieldV3(field, metadata_settings_.use_wide_char_);
 
   return GetRadixFromSqlDataType(data_type_v3).value_or(odbcabstraction::NO_TOTAL);
 }
@@ -203,7 +203,7 @@ size_t FlightSqlResultSetMetadata::GetOctetLength(int column_position) {
   int32_t column_size = metadata_settings_.string_column_length_.value_or(
       GetFieldPrecision(field).ValueOr(DefaultLengthForVariableLengthColumns));
   SqlDataType data_type_v3 =
-      GetDataTypeFromArrowField_V3(field, metadata_settings_.use_wide_char_);
+      GetDataTypeFromArrowFieldV3(field, metadata_settings_.use_wide_char_);
 
   // Workaround to get the precision for Decimal and Numeric types, since server doesn't
   // return it currently.

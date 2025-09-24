@@ -78,7 +78,7 @@ std::shared_ptr<Schema> GetColumns_V2_Schema() {
   });
 }
 
-Result<std::shared_ptr<RecordBatch>> Transform_inner(
+Result<std::shared_ptr<RecordBatch>> TransformInner(
     const odbcabstraction::OdbcVersion odbc_version,
     const std::shared_ptr<RecordBatch>& original,
     const optional<std::string>& column_name_pattern,
@@ -113,7 +113,7 @@ Result<std::shared_ptr<RecordBatch>> Transform_inner(
       }
 
       odbcabstraction::SqlDataType data_type_v3 =
-          GetDataTypeFromArrowField_V3(field, metadata_settings.use_wide_char_);
+          GetDataTypeFromArrowFieldV3(field, metadata_settings.use_wide_char_);
 
       ColumnMetadata metadata(field->metadata());
 
@@ -233,7 +233,7 @@ GetColumns_Transformer::GetColumns_Transformer(
 std::shared_ptr<RecordBatch> GetColumns_Transformer::Transform(
     const std::shared_ptr<RecordBatch>& original) {
   const Result<std::shared_ptr<RecordBatch>>& result =
-      Transform_inner(odbc_version_, original, column_name_pattern_, metadata_settings_);
+      TransformInner(odbc_version_, original, column_name_pattern_, metadata_settings_);
   ThrowIfNotOK(result.status());
 
   return result.ValueOrDie();

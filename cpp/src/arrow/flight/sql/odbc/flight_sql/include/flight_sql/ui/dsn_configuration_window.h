@@ -90,56 +90,56 @@ class DsnConfigurationWindow : public CustomWindow {
 
   void OnCreate() override;
 
-  bool OnMessage(UINT msg, WPARAM wParam, LPARAM lParam) override;
+  bool OnMessage(UINT msg, WPARAM wparam, LPARAM lparam) override;
 
  private:
   /**
    * Create connection settings group box.
    *
-   * @param posX X position.
-   * @param posY Y position.
-   * @param sizeX Width.
+   * @param pos_x X position.
+   * @param pos_y Y position.
+   * @param size_x Width.
    * @return Size by Y.
    */
-  int CreateConnectionSettingsGroup(int posX, int posY, int sizeX);
+  int CreateConnectionSettingsGroup(int pos_x, int pos_y, int size_x);
 
   /**
    * Create aythentication settings group box.
    *
-   * @param posX X position.
-   * @param posY Y position.
-   * @param sizeX Width.
+   * @param pos_x X position.
+   * @param pos_y Y position.
+   * @param size_x Width.
    * @return Size by Y.
    */
-  int CreateAuthSettingsGroup(int posX, int posY, int sizeX);
+  int CreateAuthSettingsGroup(int pos_x, int pos_y, int size_x);
 
   /**
    * Create Encryption settings group box.
    *
-   * @param posX X position.
-   * @param posY Y position.
-   * @param sizeX Width.
+   * @param pos_x X position.
+   * @param pos_y Y position.
+   * @param size_x Width.
    * @return Size by Y.
    */
-  int CreateEncryptionSettingsGroup(int posX, int posY, int sizeX);
+  int CreateEncryptionSettingsGroup(int pos_x, int pos_y, int size_x);
 
   /**
    * Create advanced properties group box.
    *
-   * @param posX X position.
-   * @param posY Y position.
-   * @param sizeX Width.
+   * @param pos_x X position.
+   * @param pos_y Y position.
+   * @param size_x Width.
    * @return Size by Y.
    */
-  int CreatePropertiesGroup(int posX, int posY, int sizeX);
+  int CreatePropertiesGroup(int pos_x, int pos_y, int size_x);
 
-  void SelectTab(int tabIndex);
+  void SelectTab(int tab_index);
 
   void CheckEnableOk();
 
   void CheckAuthType();
 
-  void SaveParameters(Configuration& targetConfig);
+  void SaveParameters(Configuration& target_config);
 
   /** Window width. */
   int width;
@@ -147,66 +147,66 @@ class DsnConfigurationWindow : public CustomWindow {
   /** Window height. */
   int height;
 
-  std::unique_ptr<Window> tabControl;
+  std::unique_ptr<Window> tab_control;
 
-  std::unique_ptr<Window> commonContent;
+  std::unique_ptr<Window> common_content;
 
-  std::unique_ptr<Window> advancedContent;
+  std::unique_ptr<Window> advanced_content;
 
   /** Connection settings group box. */
-  std::unique_ptr<Window> connectionSettingsGroupBox;
+  std::unique_ptr<Window> connection_settings_group_box;
 
   /** Authentication settings group box. */
-  std::unique_ptr<Window> authSettingsGroupBox;
+  std::unique_ptr<Window> auth_settings_group_box;
 
   /** Encryption settings group box. */
-  std::unique_ptr<Window> encryptionSettingsGroupBox;
+  std::unique_ptr<Window> encryption_settings_group_box;
 
   std::vector<std::unique_ptr<Window> > labels;
 
   /** Test button. */
-  std::unique_ptr<Window> testButton;
+  std::unique_ptr<Window> test_button;
 
   /** Ok button. */
-  std::unique_ptr<Window> okButton;
+  std::unique_ptr<Window> ok_button;
 
   /** Cancel button. */
-  std::unique_ptr<Window> cancelButton;
+  std::unique_ptr<Window> cancel_button;
 
   /** DSN name edit field. */
-  std::unique_ptr<Window> nameEdit;
+  std::unique_ptr<Window> name_edit;
 
-  std::unique_ptr<Window> serverEdit;
+  std::unique_ptr<Window> server_edit;
 
-  std::unique_ptr<Window> portEdit;
+  std::unique_ptr<Window> port_edit;
 
-  std::unique_ptr<Window> authTypeComboBox;
+  std::unique_ptr<Window> auth_type_combo_box;
 
   /** User edit. */
-  std::unique_ptr<Window> userEdit;
+  std::unique_ptr<Window> user_edit;
 
   /** Password edit. */
-  std::unique_ptr<Window> passwordEdit;
+  std::unique_ptr<Window> password_edit;
 
-  std::unique_ptr<Window> authTokenEdit;
+  std::unique_ptr<Window> auth_token_edit;
 
-  std::unique_ptr<Window> enableEncryptionCheckBox;
+  std::unique_ptr<Window> enable_encryption_check_box;
 
-  std::unique_ptr<Window> certificateEdit;
+  std::unique_ptr<Window> certificate_edit;
 
-  std::unique_ptr<Window> certificateBrowseButton;
+  std::unique_ptr<Window> certificate_browse_button;
 
-  std::unique_ptr<Window> useSystemCertStoreCheckBox;
+  std::unique_ptr<Window> use_system_cert_store_check_box;
 
-  std::unique_ptr<Window> disableCertVerificationCheckBox;
+  std::unique_ptr<Window> disable_cert_verification_check_box;
 
-  std::unique_ptr<Window> propertyGroupBox;
+  std::unique_ptr<Window> property_group_box;
 
-  std::unique_ptr<Window> propertyList;
+  std::unique_ptr<Window> property_list;
 
-  std::unique_ptr<Window> addButton;
+  std::unique_ptr<Window> add_button;
 
-  std::unique_ptr<Window> deleteButton;
+  std::unique_ptr<Window> delete_button;
 
   /** Configuration. */
   Configuration& config;
@@ -214,7 +214,7 @@ class DsnConfigurationWindow : public CustomWindow {
   /** Flag indicating whether OK option was selected. */
   bool accepted;
 
-  bool isInitialized;
+  bool is_initialized;
 };
 
 }  // namespace config

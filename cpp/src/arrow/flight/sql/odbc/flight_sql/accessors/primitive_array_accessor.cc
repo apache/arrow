@@ -39,7 +39,7 @@ PrimitiveArrayFlightSqlAccessor<
           array) {}
 
 template <typename ARROW_ARRAY, CDataType TARGET_TYPE>
-size_t PrimitiveArrayFlightSqlAccessor<ARROW_ARRAY, TARGET_TYPE>::GetColumnarData_impl(
+size_t PrimitiveArrayFlightSqlAccessor<ARROW_ARRAY, TARGET_TYPE>::GetColumnarDataImpl(
     ColumnBinding* binding, int64_t starting_row, int64_t cells, int64_t& value_offset,
     bool update_value_offset, odbcabstraction::Diagnostics& diagnostics,
     uint16_t* row_status_array) {
@@ -48,7 +48,7 @@ size_t PrimitiveArrayFlightSqlAccessor<ARROW_ARRAY, TARGET_TYPE>::GetColumnarDat
 }
 
 template <typename ARROW_ARRAY, CDataType TARGET_TYPE>
-size_t PrimitiveArrayFlightSqlAccessor<ARROW_ARRAY, TARGET_TYPE>::GetCellLength_impl(
+size_t PrimitiveArrayFlightSqlAccessor<ARROW_ARRAY, TARGET_TYPE>::GetCellLengthImpl(
     ColumnBinding* binding) const {
   return sizeof(typename ARROW_ARRAY::TypeClass::c_type);
 }

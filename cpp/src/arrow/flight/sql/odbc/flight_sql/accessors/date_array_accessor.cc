@@ -60,7 +60,7 @@ DateArrayFlightSqlAccessor<TARGET_TYPE, ARROW_ARRAY>::DateArrayFlightSqlAccessor
                         DateArrayFlightSqlAccessor<TARGET_TYPE, ARROW_ARRAY>>(array) {}
 
 template <CDataType TARGET_TYPE, typename ARROW_ARRAY>
-RowStatus DateArrayFlightSqlAccessor<TARGET_TYPE, ARROW_ARRAY>::MoveSingleCell_impl(
+RowStatus DateArrayFlightSqlAccessor<TARGET_TYPE, ARROW_ARRAY>::MoveSingleCellImpl(
     ColumnBinding* binding, int64_t arrow_row, int64_t cell_counter,
     int64_t& value_offset, bool update_value_offset,
     odbcabstraction::Diagnostics& diagnostics) {
@@ -74,16 +74,16 @@ RowStatus DateArrayFlightSqlAccessor<TARGET_TYPE, ARROW_ARRAY>::MoveSingleCell_i
   buffer[cell_counter].month = date.tm_mon + 1;
   buffer[cell_counter].day = date.tm_mday;
 
-  if (binding->strlen_buffer) {
-    binding->strlen_buffer[cell_counter] =
-        static_cast<ssize_t>(GetCellLength_impl(binding));
+  if (binding->str_len_buffer) {
+    binding->str_len_buffer[cell_counter] =
+        static_cast<ssize_t>(GetCellLengthImpl(binding));
   }
 
   return odbcabstraction::RowStatus_SUCCESS;
 }
 
 template <CDataType TARGET_TYPE, typename ARROW_ARRAY>
-size_t DateArrayFlightSqlAccessor<TARGET_TYPE, ARROW_ARRAY>::GetCellLength_impl(
+size_t DateArrayFlightSqlAccessor<TARGET_TYPE, ARROW_ARRAY>::GetCellLengthImpl(
     ColumnBinding* binding) const {
   return sizeof(DATE_STRUCT);
 }

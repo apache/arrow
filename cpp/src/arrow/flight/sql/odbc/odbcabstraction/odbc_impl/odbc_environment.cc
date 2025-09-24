@@ -40,13 +40,13 @@ ODBCEnvironment::ODBCEnvironment(std::shared_ptr<Driver> driver)
                                     m_driver->GetDiagnostics().GetDataSourceComponent(),
                                     driver::odbcabstraction::V_2)),
       m_version(SQL_OV_ODBC2),
-      m_connectionPooling(SQL_CP_OFF) {}
+      m_connection_pooling(SQL_CP_OFF) {}
 
-Diagnostics& ODBCEnvironment::GetDiagnostics_Impl() { return *m_diagnostics; }
+Diagnostics& ODBCEnvironment::GetDiagnosticsImpl() { return *m_diagnostics; }
 
-SQLINTEGER ODBCEnvironment::getODBCVersion() const { return m_version; }
+SQLINTEGER ODBCEnvironment::GetODBCVersion() const { return m_version; }
 
-void ODBCEnvironment::setODBCVersion(SQLINTEGER version) {
+void ODBCEnvironment::SetODBCVersion(SQLINTEGER version) {
   if (version != m_version) {
     m_version = version;
     m_diagnostics.reset(new Diagnostics(
@@ -56,20 +56,20 @@ void ODBCEnvironment::setODBCVersion(SQLINTEGER version) {
   }
 }
 
-SQLINTEGER ODBCEnvironment::getConnectionPooling() const { return m_connectionPooling; }
+SQLINTEGER ODBCEnvironment::GetConnectionPooling() const { return m_connection_pooling; }
 
-void ODBCEnvironment::setConnectionPooling(SQLINTEGER connectionPooling) {
-  m_connectionPooling = connectionPooling;
+void ODBCEnvironment::SetConnectionPooling(SQLINTEGER connection_pooling) {
+  m_connection_pooling = connection_pooling;
 }
 
 std::shared_ptr<ODBCConnection> ODBCEnvironment::CreateConnection() {
-  std::shared_ptr<Connection> spiConnection = m_driver->CreateConnection(
+  std::shared_ptr<Connection> spi_connection = m_driver->CreateConnection(
       m_version == SQL_OV_ODBC2 ? driver::odbcabstraction::V_2
                                 : driver::odbcabstraction::V_3);
-  std::shared_ptr<ODBCConnection> newConn =
-      std::make_shared<ODBCConnection>(*this, spiConnection);
-  m_connections.push_back(newConn);
-  return newConn;
+  std::shared_ptr<ODBCConnection> new_conn =
+      std::make_shared<ODBCConnection>(*this, spi_connection);
+  m_connections.push_back(new_conn);
+  return new_conn;
 }
 
 void ODBCEnvironment::DropConnection(ODBCConnection* conn) {

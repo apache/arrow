@@ -97,7 +97,7 @@ TimeArrayFlightSqlAccessor<TARGET_TYPE, ARROW_ARRAY, UNIT>::TimeArrayFlightSqlAc
           array) {}
 
 template <CDataType TARGET_TYPE, typename ARROW_ARRAY, TimeUnit::type UNIT>
-RowStatus TimeArrayFlightSqlAccessor<TARGET_TYPE, ARROW_ARRAY, UNIT>::MoveSingleCell_impl(
+RowStatus TimeArrayFlightSqlAccessor<TARGET_TYPE, ARROW_ARRAY, UNIT>::MoveSingleCellImpl(
     ColumnBinding* binding, int64_t arrow_row, int64_t cell_counter,
     int64_t& value_offset, bool update_value_offset,
     odbcabstraction::Diagnostics& diagnostic) {
@@ -114,15 +114,15 @@ RowStatus TimeArrayFlightSqlAccessor<TARGET_TYPE, ARROW_ARRAY, UNIT>::MoveSingle
   buffer[cell_counter].minute = time.tm_min;
   buffer[cell_counter].second = time.tm_sec;
 
-  if (binding->strlen_buffer) {
-    binding->strlen_buffer[cell_counter] =
-        static_cast<ssize_t>(GetCellLength_impl(binding));
+  if (binding->str_len_buffer) {
+    binding->str_len_buffer[cell_counter] =
+        static_cast<ssize_t>(GetCellLengthImpl(binding));
   }
   return odbcabstraction::RowStatus_SUCCESS;
 }
 
 template <CDataType TARGET_TYPE, typename ARROW_ARRAY, TimeUnit::type UNIT>
-size_t TimeArrayFlightSqlAccessor<TARGET_TYPE, ARROW_ARRAY, UNIT>::GetCellLength_impl(
+size_t TimeArrayFlightSqlAccessor<TARGET_TYPE, ARROW_ARRAY, UNIT>::GetCellLengthImpl(
     ColumnBinding* binding) const {
   return sizeof(TIME_STRUCT);
 }

@@ -40,11 +40,11 @@ namespace ODBC {
 class ODBCEnvironment : public ODBCHandle<ODBCEnvironment> {
  public:
   explicit ODBCEnvironment(std::shared_ptr<driver::odbcabstraction::Driver> driver);
-  driver::odbcabstraction::Diagnostics& GetDiagnostics_Impl();
-  SQLINTEGER getODBCVersion() const;
-  void setODBCVersion(SQLINTEGER version);
-  SQLINTEGER getConnectionPooling() const;
-  void setConnectionPooling(SQLINTEGER pooling);
+  driver::odbcabstraction::Diagnostics& GetDiagnosticsImpl();
+  SQLINTEGER GetODBCVersion() const;
+  void SetODBCVersion(SQLINTEGER version);
+  SQLINTEGER GetConnectionPooling() const;
+  void SetConnectionPooling(SQLINTEGER pooling);
   std::shared_ptr<ODBCConnection> CreateConnection();
   void DropConnection(ODBCConnection* conn);
   ~ODBCEnvironment() = default;
@@ -54,7 +54,7 @@ class ODBCEnvironment : public ODBCHandle<ODBCEnvironment> {
   std::shared_ptr<driver::odbcabstraction::Driver> m_driver;
   std::unique_ptr<driver::odbcabstraction::Diagnostics> m_diagnostics;
   SQLINTEGER m_version;
-  SQLINTEGER m_connectionPooling;
+  SQLINTEGER m_connection_pooling;
 };
 
 }  // namespace ODBC

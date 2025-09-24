@@ -257,7 +257,7 @@ std::shared_ptr<ResultSet> FlightSqlStatement::GetTypeInfo_V2(int16_t data_type)
 
   auto flight_info = result.ValueOrDie();
 
-  auto transformer = std::make_shared<GetTypeInfo_Transformer>(
+  auto transformer = std::make_shared<GetTypeInfoTransformer>(
       metadata_settings_, odbcabstraction::V_2, data_type);
 
   current_result_set_ =
@@ -275,7 +275,7 @@ std::shared_ptr<ResultSet> FlightSqlStatement::GetTypeInfo_V3(int16_t data_type)
 
   auto flight_info = result.ValueOrDie();
 
-  auto transformer = std::make_shared<GetTypeInfo_Transformer>(
+  auto transformer = std::make_shared<GetTypeInfoTransformer>(
       metadata_settings_, odbcabstraction::V_3, data_type);
 
   current_result_set_ =

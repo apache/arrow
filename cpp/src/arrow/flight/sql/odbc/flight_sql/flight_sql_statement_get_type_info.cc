@@ -78,12 +78,12 @@ std::shared_ptr<Schema> GetTypeInfo_V2_Schema() {
   });
 }
 
-Result<std::shared_ptr<RecordBatch>> Transform_inner(
+Result<std::shared_ptr<RecordBatch>> TransformInner(
     const odbcabstraction::OdbcVersion odbc_version,
     const std::shared_ptr<RecordBatch>& original, int data_type,
     const MetadataSettings& metadata_settings_) {
-  GetTypeInfo_RecordBatchBuilder builder(odbc_version);
-  GetTypeInfo_RecordBatchBuilder::Data data;
+  GetTypeInfoRecordBatchBuilder builder(odbc_version);
+  GetTypeInfoRecordBatchBuilder::Data data;
 
   GetTypeInfoReader reader(original);
 
@@ -137,11 +137,11 @@ Result<std::shared_ptr<RecordBatch>> Transform_inner(
 }
 }  // namespace
 
-GetTypeInfo_RecordBatchBuilder::GetTypeInfo_RecordBatchBuilder(
+GetTypeInfoRecordBatchBuilder::GetTypeInfoRecordBatchBuilder(
     odbcabstraction::OdbcVersion odbc_version)
     : odbc_version_(odbc_version) {}
 
-Result<std::shared_ptr<RecordBatch>> GetTypeInfo_RecordBatchBuilder::Build() {
+Result<std::shared_ptr<RecordBatch>> GetTypeInfoRecordBatchBuilder::Build() {
   ARROW_ASSIGN_OR_RAISE(auto TYPE_NAME_Array, TYPE_NAME_Builder_.Finish())
   ARROW_ASSIGN_OR_RAISE(auto DATA_TYPE_Array, DATA_TYPE_Builder_.Finish())
   ARROW_ASSIGN_OR_RAISE(auto COLUMN_SIZE_Array, COLUMN_SIZE_Builder_.Finish())
@@ -179,8 +179,8 @@ Result<std::shared_ptr<RecordBatch>> GetTypeInfo_RecordBatchBuilder::Build() {
   return RecordBatch::Make(schema, num_rows_, arrays);
 }
 
-Status GetTypeInfo_RecordBatchBuilder::Append(
-    const GetTypeInfo_RecordBatchBuilder::Data& data) {
+Status GetTypeInfoRecordBatchBuilder::Append(
+    const GetTypeInfoRecordBatchBuilder::Data& data) {
   ARROW_RETURN_NOT_OK(AppendToBuilder(TYPE_NAME_Builder_, data.type_name));
   ARROW_RETURN_NOT_OK(AppendToBuilder(DATA_TYPE_Builder_, data.data_type));
   ARROW_RETURN_NOT_OK(AppendToBuilder(COLUMN_SIZE_Builder_, data.column_size));
@@ -208,23 +208,23 @@ Status GetTypeInfo_RecordBatchBuilder::Append(
   return Status::OK();
 }
 
-GetTypeInfo_Transformer::GetTypeInfo_Transformer(
+GetTypeInfoTransformer::GetTypeInfoTransformer(
     const MetadataSettings& metadata_settings,
     const odbcabstraction::OdbcVersion odbc_version, int data_type)
     : metadata_settings_(metadata_settings),
       odbc_version_(odbc_version),
       data_type_(data_type) {}
 
-std::shared_ptr<RecordBatch> GetTypeInfo_Transformer::Transform(
+std::shared_ptr<RecordBatch> GetTypeInfoTransformer::Transform(
     const std::shared_ptr<RecordBatch>& original) {
   const Result<std::shared_ptr<RecordBatch>>& result =
-      Transform_inner(odbc_version_, original, data_type_, metadata_settings_);
+      TransformInner(odbc_version_, original, data_type_, metadata_settings_);
   ThrowIfNotOK(result.status());
 
   return result.ValueOrDie();
 }
 
-std::shared_ptr<Schema> GetTypeInfo_Transformer::GetTransformedSchema() {
+std::shared_ptr<Schema> GetTypeInfoTransformer::GetTransformedSchema() {
   return odbc_version_ == odbcabstraction::V_3 ? GetTypeInfo_V3_Schema()
                                                : GetTypeInfo_V2_Schema();
 }
