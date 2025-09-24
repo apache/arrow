@@ -101,9 +101,17 @@ if [ "${CHECK_WHEEL_CONTENT}" == "ON" ]; then
     --path "${source_dir}/python/repaired_wheels"
 fi
 
+is_free_threaded() {
+  python -c "import sysconfig; print('ON' if sysconfig.get_config_var('Py_GIL_DISABLED') else 'OFF')"
+}
+
 if [ "${CHECK_UNITTESTS}" == "ON" ]; then
-  if [ "${FREE_THREADED}" == "OFF" ]; then
-    # Install testing dependencies
+  # Install testing dependencies
+  if [ "$is_free_threaded" = "ON" ]; then
+    echo "Free-threaded Python build detected"
+    python -m pip install --no-build-isolation -r "${source_dir}/python/requirements-wheel-test-3.13t.txt"
+  elif [ "$is_free_threaded" = "OFF" ]; then
+    echo "Regular Python build detected"
     python -m pip install -U -r "${source_dir}/python/requirements-wheel-test.txt"
   fi
 
