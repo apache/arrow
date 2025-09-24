@@ -133,11 +133,17 @@ BENCHMARK_CAPTURE(BM_UnpackUint64, ScalarUnaligned, false, unpack64_scalar)
     ->ArgsProduct(kBitWidthsNumValues64);
 
 #if defined(ARROW_HAVE_SSE4_2)
+BENCHMARK_CAPTURE(BM_UnpackUint16, Sse42Unaligned, false, unpack16_sse4_2)
+    ->ArgsProduct(kBitWidthsNumValues16);
 BENCHMARK_CAPTURE(BM_UnpackUint32, Sse42Unaligned, false, unpack32_sse4_2)
     ->ArgsProduct(kBitWidthsNumValues32);
 #endif
 
 #if defined(ARROW_HAVE_RUNTIME_AVX2)
+BENCHMARK_CAPTURE(BM_UnpackUint16, Avx2Unaligned, false, unpack16_avx2,
+                  !CpuInfo::GetInstance()->IsSupported(CpuInfo::AVX2),
+                  "Avx2 not available")
+    ->ArgsProduct(kBitWidthsNumValues16);
 BENCHMARK_CAPTURE(BM_UnpackUint32, Avx2Unaligned, false, unpack32_avx2,
                   !CpuInfo::GetInstance()->IsSupported(CpuInfo::AVX2),
                   "Avx2 not available")
@@ -145,6 +151,10 @@ BENCHMARK_CAPTURE(BM_UnpackUint32, Avx2Unaligned, false, unpack32_avx2,
 #endif
 
 #if defined(ARROW_HAVE_RUNTIME_AVX512)
+BENCHMARK_CAPTURE(BM_UnpackUint16, Avx512Unaligned, false, unpack16_avx512,
+                  !CpuInfo::GetInstance()->IsSupported(CpuInfo::AVX512),
+                  "Avx512 not available")
+    ->ArgsProduct(kBitWidthsNumValues16);
 BENCHMARK_CAPTURE(BM_UnpackUint32, Avx512Unaligned, false, unpack32_avx512,
                   !CpuInfo::GetInstance()->IsSupported(CpuInfo::AVX512),
                   "Avx512 not available")
@@ -152,6 +162,8 @@ BENCHMARK_CAPTURE(BM_UnpackUint32, Avx512Unaligned, false, unpack32_avx512,
 #endif
 
 #if defined(ARROW_HAVE_NEON)
+BENCHMARK_CAPTURE(BM_UnpackUint16, NeonUnaligned, false, unpack16_neon)
+    ->ArgsProduct(kBitWidthsNumValues16);
 BENCHMARK_CAPTURE(BM_UnpackUint32, NeonUnaligned, false, unpack32_neon)
     ->ArgsProduct(kBitWidthsNumValues32);
 #endif
