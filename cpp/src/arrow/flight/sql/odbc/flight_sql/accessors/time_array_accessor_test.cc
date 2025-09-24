@@ -50,10 +50,10 @@ TEST(TEST_TIME32, TIME_WITH_SECONDS) {
       accessor(time32_array.get());
 
   std::vector<TIME_STRUCT> buffer(t32_values.size());
-  std::vector<ssize_t> strlen_buffer(t32_values.size());
+  std::vector<ssize_t> str_len_buffer(t32_values.size());
 
   ColumnBinding binding(odbcabstraction::CDataType_TIME, 0, 0, buffer.data(), 0,
-                        strlen_buffer.data());
+                        str_len_buffer.data());
 
   int64_t value_offset = 0;
   odbcabstraction::Diagnostics diagnostics("Foo", "Foo", OdbcVersion::V_3);
@@ -62,7 +62,7 @@ TEST(TEST_TIME32, TIME_WITH_SECONDS) {
                                      diagnostics, nullptr));
 
   for (size_t i = 0; i < t32_values.size(); ++i) {
-    ASSERT_EQ(sizeof(TIME_STRUCT), strlen_buffer[i]);
+    ASSERT_EQ(sizeof(TIME_STRUCT), str_len_buffer[i]);
 
     tm time{};
 
@@ -86,10 +86,10 @@ TEST(TEST_TIME32, TIME_WITH_MILLI) {
       accessor(time32_array.get());
 
   std::vector<TIME_STRUCT> buffer(t32_values.size());
-  std::vector<ssize_t> strlen_buffer(t32_values.size());
+  std::vector<ssize_t> str_len_buffer(t32_values.size());
 
   ColumnBinding binding(odbcabstraction::CDataType_TIME, 0, 0, buffer.data(), 0,
-                        strlen_buffer.data());
+                        str_len_buffer.data());
 
   int64_t value_offset = 0;
   odbcabstraction::Diagnostics diagnostics("Foo", "Foo", OdbcVersion::V_3);
@@ -98,12 +98,12 @@ TEST(TEST_TIME32, TIME_WITH_MILLI) {
                                      diagnostics, nullptr));
 
   for (size_t i = 0; i < t32_values.size(); ++i) {
-    ASSERT_EQ(sizeof(TIME_STRUCT), strlen_buffer[i]);
+    ASSERT_EQ(sizeof(TIME_STRUCT), str_len_buffer[i]);
 
     tm time{};
 
-    auto convertedValue = t32_values[i] / odbcabstraction::MILLI_TO_SECONDS_DIVISOR;
-    GetTimeForSecondsSinceEpoch(convertedValue, time);
+    auto converted_value = t32_values[i] / odbcabstraction::MILLI_TO_SECONDS_DIVISOR;
+    GetTimeForSecondsSinceEpoch(converted_value, time);
 
     ASSERT_EQ(buffer[i].hour, time.tm_hour);
     ASSERT_EQ(buffer[i].minute, time.tm_min);
@@ -125,10 +125,10 @@ TEST(TEST_TIME64, TIME_WITH_MICRO) {
       accessor(time64_array.get());
 
   std::vector<TIME_STRUCT> buffer(t64_values.size());
-  std::vector<ssize_t> strlen_buffer(t64_values.size());
+  std::vector<ssize_t> str_len_buffer(t64_values.size());
 
   ColumnBinding binding(odbcabstraction::CDataType_TIME, 0, 0, buffer.data(), 0,
-                        strlen_buffer.data());
+                        str_len_buffer.data());
 
   int64_t value_offset = 0;
   odbcabstraction::Diagnostics diagnostics("Foo", "Foo", OdbcVersion::V_3);
@@ -137,7 +137,7 @@ TEST(TEST_TIME64, TIME_WITH_MICRO) {
                                      diagnostics, nullptr));
 
   for (size_t i = 0; i < t64_values.size(); ++i) {
-    ASSERT_EQ(sizeof(TIME_STRUCT), strlen_buffer[i]);
+    ASSERT_EQ(sizeof(TIME_STRUCT), str_len_buffer[i]);
 
     tm time{};
 
@@ -162,10 +162,10 @@ TEST(TEST_TIME64, TIME_WITH_NANO) {
       accessor(time64_array.get());
 
   std::vector<TIME_STRUCT> buffer(t64_values.size());
-  std::vector<ssize_t> strlen_buffer(t64_values.size());
+  std::vector<ssize_t> str_len_buffer(t64_values.size());
 
   ColumnBinding binding(odbcabstraction::CDataType_TIME, 0, 0, buffer.data(), 0,
-                        strlen_buffer.data());
+                        str_len_buffer.data());
 
   int64_t value_offset = 0;
   odbcabstraction::Diagnostics diagnostics("Foo", "Foo", OdbcVersion::V_3);
@@ -174,12 +174,12 @@ TEST(TEST_TIME64, TIME_WITH_NANO) {
                                      diagnostics, nullptr));
 
   for (size_t i = 0; i < t64_values.size(); ++i) {
-    ASSERT_EQ(sizeof(TIME_STRUCT), strlen_buffer[i]);
+    ASSERT_EQ(sizeof(TIME_STRUCT), str_len_buffer[i]);
 
     tm time{};
 
-    const auto convertedValue = t64_values[i] / odbcabstraction::NANO_TO_SECONDS_DIVISOR;
-    GetTimeForSecondsSinceEpoch(convertedValue, time);
+    const auto converted_value = t64_values[i] / odbcabstraction::NANO_TO_SECONDS_DIVISOR;
+    GetTimeForSecondsSinceEpoch(converted_value, time);
 
     ASSERT_EQ(buffer[i].hour, time.tm_hour);
     ASSERT_EQ(buffer[i].minute, time.tm_min);

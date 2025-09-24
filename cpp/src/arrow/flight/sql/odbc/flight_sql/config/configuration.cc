@@ -167,12 +167,12 @@ const driver::odbcabstraction::Connection::ConnPropertyMap& Configuration::GetPr
 }
 
 std::vector<std::string_view> Configuration::GetCustomKeys() const {
-  driver::odbcabstraction::Connection::ConnPropertyMap copyProps(properties);
+  driver::odbcabstraction::Connection::ConnPropertyMap copy_props(properties);
   for (auto& key : FlightSqlConnection::ALL_KEYS) {
-    copyProps.erase(key);
+    copy_props.erase(key);
   }
   std::vector<std::string_view> keys;
-  boost::copy(copyProps | boost::adaptors::map_keys, std::back_inserter(keys));
+  boost::copy(copy_props | boost::adaptors::map_keys, std::back_inserter(keys));
   return keys;
 }
 

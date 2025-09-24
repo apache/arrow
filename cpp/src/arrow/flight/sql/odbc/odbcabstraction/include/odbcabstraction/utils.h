@@ -32,22 +32,22 @@ boost::optional<bool> AsBool(const std::string& value);
 
 /// Looks up for a value inside the ConnPropertyMap and then try to parse it.
 /// In case it does not find or it cannot parse, the default value will be returned.
-/// \param connPropertyMap    the map with the connection properties.
+/// \param conn_property_map    the map with the connection properties.
 /// \param property_name      the name of the property that will be looked up.
 /// \return                   the parsed valued.
-boost::optional<bool> AsBool(const Connection::ConnPropertyMap& connPropertyMap,
+boost::optional<bool> AsBool(const Connection::ConnPropertyMap& conn_property_map,
                              const std::string_view& property_name);
 
 /// Looks up for a value inside the ConnPropertyMap and then try to parse it.
 /// In case it does not find or it cannot parse, the default value will be returned.
 /// \param min_value                    the minimum value to be parsed, else the default
-/// value is returned. \param connPropertyMap              the map with the connection
+/// value is returned. \param conn_property_map              the map with the connection
 /// properties. \param property_name                the name of the property that will be
 /// looked up. \return                             the parsed valued. \exception
 /// std::invalid_argument    exception from std::stoi \exception
 /// std::out_of_range        exception from std::stoi
 boost::optional<int32_t> AsInt32(int32_t min_value,
-                                 const Connection::ConnPropertyMap& connPropertyMap,
+                                 const Connection::ConnPropertyMap& conn_property_map,
                                  const std::string_view& property_name);
 }  // namespace odbcabstraction
 }  // namespace driver
