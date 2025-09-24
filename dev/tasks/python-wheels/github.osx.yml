@@ -66,10 +66,21 @@ jobs:
           arrow/ci/scripts/install_cmake.sh 3.29.0 ${PWD}/local
           echo "${PWD}/local/bin" >> $GITHUB_PATH
 
+      - name: Check CMake version
+        shell: bash
+        run: |
+          echo $(cmake --version)
+          echo $(${PWD}/local/bin/cmake --version)
+
       - name: Retrieve VCPKG version from arrow/.env
         run: |
           vcpkg_version=$(. "arrow/.env" && echo "${VCPKG}")
           echo "VCPKG_VERSION=$vcpkg_version" >> $GITHUB_ENV
+
+      - name: Set macOS SDK path
+        run: |
+          echo "MACOSX_SYSROOT=$(xcrun --show-sdk-path)" >> $GITHUB_ENV
+          echo "CMAKE_OSX_SYSROOT=$(xcrun --show-sdk-path)" >> $GITHUB_ENV
 
       - name: Install Vcpkg
         env:
@@ -81,6 +92,8 @@ jobs:
 
       - name: Install Packages
         run: |
+          echo "${MACOSX_SYSROOT}"
+          echo "${CMAKE_OSX_SYSROOT}"
           vcpkg install \
             --clean-after-build \
             --x-install-root=${VCPKG_ROOT}/installed \
