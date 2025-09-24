@@ -861,7 +861,8 @@ class DictDecoderImpl : public TypedDecoderImpl<Type>, public DictDecoder<Type> 
     this->num_values_ = num_values;
     if (len == 0) {
       // Initialize dummy decoder to avoid crashes later on
-      idx_decoder_ = ::arrow::util::RleDecoder(data, len, /*bit_width=*/1);
+      idx_decoder_ =
+          ::arrow::util::RleBitPackedDecoder<int32_t>(data, len, /*bit_width=*/1);
       return;
     }
     uint8_t bit_width = *data;
@@ -869,7 +870,7 @@ class DictDecoderImpl : public TypedDecoderImpl<Type>, public DictDecoder<Type> 
       throw ParquetException("Invalid or corrupted bit_width " +
                              std::to_string(bit_width) + ". Maximum allowed is 32.");
     }
-    idx_decoder_ = ::arrow::util::RleDecoder(++data, --len, bit_width);
+    idx_decoder_ = ::arrow::util::RleBitPackedDecoder<int32_t>(++data, --len, bit_width);
   }
 
   int Decode(T* buffer, int num_values) override {
@@ -1003,7 +1004,7 @@ class DictDecoderImpl : public TypedDecoderImpl<Type>, public DictDecoder<Type> 
   // BinaryDictionary32Builder
   std::shared_ptr<ResizableBuffer> indices_scratch_space_;
 
-  ::arrow::util::RleDecoder idx_decoder_;
+  ::arrow::util::RleBitPackedDecoder<int32_t> idx_decoder_;
 };
 
 template <typename Type>
@@ -1810,8 +1811,9 @@ class RleBooleanDecoder : public TypedDecoderImpl<BooleanType>, public BooleanDe
 
     auto decoder_data = data + 4;
     if (decoder_ == nullptr) {
-      decoder_ = std::make_shared<::arrow::util::RleDecoder>(decoder_data, num_bytes,
-                                                             /*bit_width=*/1);
+      decoder_ = std::make_shared<::arrow::util::RleBitPackedDecoder<bool>>(
+          decoder_data, num_bytes,
+          /*bit_width=*/1);
     } else {
       decoder_->Reset(decoder_data, num_bytes, /*bit_width=*/1);
     }
@@ -1898,7 +1900,7 @@ class RleBooleanDecoder : public TypedDecoderImpl<BooleanType>, public BooleanDe
   }
 
  private:
-  std::shared_ptr<::arrow::util::RleDecoder> decoder_;
+  std::shared_ptr<::arrow::util::RleBitPackedDecoder<bool>> decoder_;
 };
 
 // ----------------------------------------------------------------------
@@ -2123,7 +2125,7 @@ class DeltaByteArrayDecoderImpl : public TypedDecoderImpl<DType> {
   int num_valid_values_{0};
   uint32_t prefix_len_offset_{0};
   std::shared_ptr<ResizableBuffer> buffered_prefix_length_;
-  // buffer for decoded strings, which gurantees the lifetime of the decoded strings
+  // buffer for decoded strings, which guarantees the lifetime of the decoded strings
   // until the next call of Decode.
   std::shared_ptr<ResizableBuffer> buffered_data_;
 };
