@@ -21,7 +21,6 @@
 #include <mutex>
 #include <unordered_map>
 #include <unordered_set>
-#include <iostream>
 #include <utility>
 #include <vector>
 
@@ -677,7 +676,6 @@ struct SlicingGenerator {
 Result<RecordBatchGenerator> ParquetFileFormat::ScanBatchesAsync(
     const std::shared_ptr<ScanOptions>& options,
     const std::shared_ptr<FileFragment>& file) const {
-  std::cout << "[DEBUG] got here..." << std::endl;
   auto parquet_fragment = checked_pointer_cast<ParquetFileFragment>(file);
   std::vector<int> row_groups;
   bool pre_filtered = false;
