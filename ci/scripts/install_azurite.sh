@@ -22,13 +22,6 @@ set -e
 node_version="$(node --version)"
 echo "Node.js version = ${node_version}"
 
-case "${node_version}" in
-  v12.*)
-    echo "Node.js is too old. We can't install Azurite."
-    exit
-    ;;
-esac
-
 azurite_version=latest
 case "$(uname)" in
   Darwin)
