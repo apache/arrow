@@ -181,7 +181,10 @@ class AzuriteEnv : public AzureEnvImpl<AzuriteEnv> {
                                     // For old Azurite. We can't install the latest
                                     // Azurite with old Node.js on old Ubuntu.
                                     "--skipApiVersionCheck"});
-    ARROW_RETURN_NOT_OK(self->server_process_->Execute());
+    auto status = self->server_process_->Execute();
+    if (status.ok()) {
+      GTEST_SKIP() << "Failed to run Azurite: " << status.ToString();
+    }
     return self;
   }
 
