@@ -23,15 +23,13 @@
 
 namespace arrow::internal {
 
-#if defined(ARROW_HAVE_SSE4_2)
-/// The 32 bit unpacking with SSE 4.2
-ARROW_EXPORT int unpack32_sse4_2(const uint8_t* in, uint32_t* out, int batch_size,
+ARROW_EXPORT int unpack16_scalar(const uint8_t* in, uint16_t* out, int batch_size,
                                  int num_bits);
-#endif
 
-ARROW_EXPORT
-int unpack32(const uint8_t* in, uint32_t* out, int batch_size, int num_bits);
-ARROW_EXPORT
-int unpack64(const uint8_t* in, uint64_t* out, int batch_size, int num_bits);
+ARROW_EXPORT int unpack32_scalar(const uint8_t* in, uint32_t* out, int batch_size,
+                                 int num_bits);
+
+ARROW_EXPORT int unpack64_scalar(const uint8_t* in, uint64_t* out, int batch_size,
+                                 int num_bits);
 
 }  // namespace arrow::internal
