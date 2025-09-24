@@ -157,6 +157,7 @@ class AzuriteEnv : public AzureEnvImpl<AzuriteEnv> {
   std::unique_ptr<TemporaryDir> temp_dir_;
   arrow::internal::PlatformFilename debug_log_path_;
   std::unique_ptr<util::Process> server_process_;
+  arrow::Status status_;
 
   using AzureEnvImpl::AzureEnvImpl;
 
@@ -181,10 +182,7 @@ class AzuriteEnv : public AzureEnvImpl<AzuriteEnv> {
                                     // For old Azurite. We can't install the latest
                                     // Azurite with old Node.js on old Ubuntu.
                                     "--skipApiVersionCheck"});
-    auto status = self->server_process_->Execute();
-    if (status.ok()) {
-      GTEST_SKIP() << "Failed to run Azurite: " << status.ToString();
-    }
+    ARROW_RETURN_NOT_OK(self->server_process_->Execute());
     return self;
   }
 
@@ -426,8 +424,11 @@ class TestGeneric : public ::testing::Test, public GenericFileSystemTest {
 class TestAzuriteGeneric : public TestGeneric {
  public:
   void SetUp() override {
-    ASSERT_OK_AND_ASSIGN(auto env, AzuriteEnv::GetInstance());
-    SetUpInternal(env);
+    auto env_result = AzuriteEnv::GetInstance();
+    if (!env_result.ok()) {
+      GTEST_SKIP() << "Failed to setup: " << env_result.status().ToString();
+    }
+    SetUpInternal(*env_result);
   }
 
  protected:
