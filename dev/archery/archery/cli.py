@@ -691,7 +691,7 @@ def _set_default(opt, default):
 @click.option('--target-implementations', default='',
               help=('Target implementations in this integration tests'),
               envvar="ARCHERY_INTEGRATION_TARGET_IMPLEMENTATIONS")
-@click.option('--write_generated_json', default="",
+@click.option('--write-generated-json', default="",
               help='Generate test JSON to indicated path')
 @click.option('--run-ipc', is_flag=True, default=False,
               help='Run IPC integration tests')
@@ -714,7 +714,8 @@ def _set_default(opt, default):
 @click.option('-k', '--match',
               help=("Substring for test names to include in run, "
                     "e.g. -k primitive"))
-def integration(with_all=False, random_seed=12345, **args):
+def integration(with_all=False, random_seed=12345, write_generated_json="",
+                **args):
     """If you don't specify the "--target-implementations" option nor
     the "ARCHERY_INTEGRATION_TARGET_IMPLEMENTATIONS" environment
     variable, test patterns are product of all specified
@@ -773,7 +774,8 @@ def integration(with_all=False, random_seed=12345, **args):
 
     """
 
-    from .integration.runner import write_js_test_json, run_all_tests
+    from .integration.datagen import get_generated_json_files
+    from .integration.runner import run_all_tests
     import numpy as np
 
     # FIXME(bkietz) Include help strings for individual testers.
@@ -781,8 +783,6 @@ def integration(with_all=False, random_seed=12345, **args):
 
     # Make runs involving data generation deterministic
     np.random.seed(random_seed)
-
-    gen_path = args['write_generated_json']
 
     implementations = ['cpp', 'dotnet', 'java', 'js', 'go', 'nanoarrow', 'rust']
     formats = ['ipc', 'flight', 'c_data']
@@ -799,11 +799,9 @@ def integration(with_all=False, random_seed=12345, **args):
         param = f'run_{fmt}'
         enabled_formats += args[param]
 
-    if gen_path:
-        # XXX See GH-37575: this option is only used by the JS test suite
-        # and might not be useful anymore.
-        os.makedirs(gen_path, exist_ok=True)
-        write_js_test_json(gen_path)
+    if write_generated_json:
+        os.makedirs(write_generated_json, exist_ok=True)
+        get_generated_json_files(tempdir=write_generated_json)
     else:
         if enabled_formats == 0:
             raise click.UsageError(
