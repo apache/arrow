@@ -15,14 +15,32 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/util/bpacking_dispatch_internal.h"
-#include "arrow/util/bpacking_simd128_generated_internal.h"
-#include "arrow/util/bpacking_sse4_2_internal.h"
+#pragma once
+
+#include "arrow/util/visibility.h"
+
+#include <cstdint>
 
 namespace arrow::internal {
 
-int unpack32_sse4_2(const uint8_t* in, uint32_t* out, int batch_size, int num_bits) {
-  return unpack_jump32<Simd128UnpackerForWidth>(in, out, batch_size, num_bits);
-}
+#if defined(ARROW_HAVE_NEON)
+ARROW_EXPORT int unpack32_neon(const uint8_t* in, uint32_t* out, int batch_size,
+                               int num_bits);
+#endif
+
+#if defined(ARROW_HAVE_SSE4_2)
+ARROW_EXPORT int unpack32_sse4_2(const uint8_t* in, uint32_t* out, int batch_size,
+                                 int num_bits);
+#endif
+
+#if defined(ARROW_HAVE_AVX2) || defined(ARROW_HAVE_RUNTIME_AVX2)
+ARROW_EXPORT int unpack32_avx2(const uint8_t* in, uint32_t* out, int batch_size,
+                               int num_bits);
+#endif
+
+#if defined(ARROW_HAVE_AVX512) || defined(ARROW_HAVE_RUNTIME_AVX512)
+ARROW_EXPORT int unpack32_avx512(const uint8_t* in, uint32_t* out, int batch_size,
+                                 int num_bits);
+#endif
 
 }  // namespace arrow::internal

@@ -23,17 +23,7 @@
 #include "arrow/testing/util.h"
 #include "arrow/util/bpacking_internal.h"
 #include "arrow/util/bpacking_scalar_internal.h"
-
-#if defined(ARROW_HAVE_RUNTIME_AVX2)
-#  include "arrow/util/bpacking_avx2_internal.h"
-#  include "arrow/util/cpu_info.h"
-#endif
-#if defined(ARROW_HAVE_RUNTIME_AVX512)
-#  include "arrow/util/bpacking_avx512_internal.h"
-#endif
-#if defined(ARROW_HAVE_NEON)
-#  include "arrow/util/bpacking_neon_internal.h"
-#endif
+#include "arrow/util/bpacking_simd_internal.h"
 
 namespace arrow::internal {
 namespace {

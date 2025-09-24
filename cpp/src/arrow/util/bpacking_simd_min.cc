@@ -15,15 +15,22 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#pragma once
-
-#include "arrow/util/visibility.h"
-
-#include <cstdint>
+#include "arrow/util/bpacking_dispatch_internal.h"
+#include "arrow/util/bpacking_simd128_generated_internal.h"
+#include "arrow/util/bpacking_simd_internal.h"
 
 namespace arrow::internal {
 
-ARROW_EXPORT int unpack32_avx512(const uint8_t* in, uint32_t* out, int batch_size,
-                                 int num_bits);
+#if defined(ARROW_HAVE_NEON)
+int unpack32_neon(const uint8_t* in, uint32_t* out, int batch_size, int num_bits) {
+  return unpack_jump32<Simd128UnpackerForWidth>(in, out, batch_size, num_bits);
+}
+#endif
+
+#if defined(ARROW_HAVE_SSE4_2)
+int unpack32_sse4_2(const uint8_t* in, uint32_t* out, int batch_size, int num_bits) {
+  return unpack_jump32<Simd128UnpackerForWidth>(in, out, batch_size, num_bits);
+}
+#endif
 
 }  // namespace arrow::internal

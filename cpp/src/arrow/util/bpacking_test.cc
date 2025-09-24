@@ -25,18 +25,8 @@
 #include "arrow/util/bit_stream_utils_internal.h"
 #include "arrow/util/bpacking_internal.h"
 #include "arrow/util/bpacking_scalar_internal.h"
+#include "arrow/util/bpacking_simd_internal.h"
 #include "arrow/util/logging.h"
-
-#if defined(ARROW_HAVE_RUNTIME_AVX2)
-#  include "arrow/util/bpacking_avx2_internal.h"
-#  include "arrow/util/cpu_info.h"
-#endif
-#if defined(ARROW_HAVE_RUNTIME_AVX512)
-#  include "arrow/util/bpacking_avx512_internal.h"
-#endif
-#if defined(ARROW_HAVE_NEON)
-#  include "arrow/util/bpacking_neon_internal.h"
-#endif
 
 namespace arrow::internal {
 
