@@ -430,6 +430,11 @@ double TDigest::Mean() const {
   return impl_->Mean();
 }
 
+double TDigest::TotalWeight() const {
+  MergeInput();
+  return impl_->total_weight();
+}
+
 bool TDigest::is_empty() const {
   return input_.size() == 0 && impl_->total_weight() == 0;
 }

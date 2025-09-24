@@ -112,6 +112,7 @@ class ARROW_EXPORT TDigest {
   double Min() const { return Quantile(0); }
   double Max() const { return Quantile(1); }
   double Mean() const;
+  double TotalWeight() const;
 
   // check if this tdigest contains no valid data points
   bool is_empty() const;

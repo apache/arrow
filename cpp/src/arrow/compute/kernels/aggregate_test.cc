@@ -4566,8 +4566,7 @@ TEST(TestTDigestMapKernel, Options) {
                                          field("weight", float64(), false)}),
                                 false)),
                      false),
-               field("min", float64(), true), field("max", float64(), true),
-               field("count", uint64(), false)});
+               field("min", float64(), true), field("max", float64(), true)});
   TDigestMapOptions keep_nulls(/*delta=*/5, /*buffer_size=*/500,
                                /*skip_nulls=*/false,
                                /*scaler=*/TDigestMapOptions::Scaler::K0);
@@ -4580,32 +4579,32 @@ TEST(TestTDigestMapKernel, Options) {
       ResultWith(ScalarFromJSON(
           output_type,
           "{\"centroids\":[{\"mean\":1.5,\"weight\":2}, {\"mean\":3.5,\"weight\":2}, "
-          "{\"mean\":5.5,\"weight\":2}],\"min\":1.0,\"max\":6.0,\"count\":6}")));
+          "{\"mean\":5.5,\"weight\":2}],\"min\":1.0,\"max\":6.0}")));
   EXPECT_THAT(
       TDigestMap(ArrayFromJSON(input_type, "[1.0, 2.0, 3.0, 4.0, 5.0]"), keep_nulls),
       ResultWith(ScalarFromJSON(
           output_type,
           "{\"centroids\":[{\"mean\":1.5,\"weight\":2}, {\"mean\":3.5,\"weight\":2}, "
-          "{\"mean\":5.0,\"weight\":1}],\"min\":1.0,\"max\":5.0,\"count\":5}")));
+          "{\"mean\":5.0,\"weight\":1}],\"min\":1.0,\"max\":5.0}")));
   EXPECT_THAT(TDigestMap(ArrayFromJSON(input_type, "[1.0, 2.0, 3.0, 4.0]"), keep_nulls),
               ResultWith(ScalarFromJSON(
                   output_type,
                   "{\"centroids\":[{\"mean\":1.0,\"weight\":1}, "
                   "{\"mean\":2.0,\"weight\":1}, {\"mean\":3.0,\"weight\":1}, "
-                  "{\"mean\":4.0,\"weight\":1}],\"min\":1.0,\"max\":4.0,\"count\":4}")));
+                  "{\"mean\":4.0,\"weight\":1}],\"min\":1.0,\"max\":4.0}")));
 
   EXPECT_THAT(
       TDigestMap(ArrayFromJSON(input_type, "[1.0, 2.0, 3.0]"), keep_nulls),
       ResultWith(ScalarFromJSON(
           output_type,
           "{\"centroids\":[{\"mean\":1.0,\"weight\":1}, {\"mean\":2.0,\"weight\":1}, "
-          "{\"mean\":3.0,\"weight\":1}],\"min\":1.0,\"max\":3.0,\"count\":3}")));
+          "{\"mean\":3.0,\"weight\":1}],\"min\":1.0,\"max\":3.0}")));
   EXPECT_THAT(TDigestMap(ArrayFromJSON(input_type, "[1.0, 2.0, 3.0, null]"), keep_nulls),
               ResultWith(ScalarFromJSON(output_type, "null")));
   EXPECT_THAT(TDigestMap(ScalarFromJSON(input_type, "1.0"), keep_nulls),
               ResultWith(ScalarFromJSON(output_type,
                                         "{\"centroids\":[{\"mean\":1.0,\"weight\":1}],"
-                                        "\"min\":1.0,\"max\":1.0,\"count\":1}")));
+                                        "\"min\":1.0,\"max\":1.0}")));
   EXPECT_THAT(TDigestMap(ScalarFromJSON(input_type, "null"), keep_nulls),
               ResultWith(ScalarFromJSON(output_type, "null")));
 
@@ -4614,20 +4613,19 @@ TEST(TestTDigestMapKernel, Options) {
       ResultWith(ScalarFromJSON(
           output_type,
           "{\"centroids\":[{\"mean\":1.0,\"weight\":1}, {\"mean\":2.0,\"weight\":1}, "
-          "{\"mean\":3.0,\"weight\":1}],\"min\":1.0,\"max\":3.0,\"count\":3}")));
+          "{\"mean\":3.0,\"weight\":1}],\"min\":1.0,\"max\":3.0}")));
   EXPECT_THAT(TDigestMap(ArrayFromJSON(input_type, "[1.0, 2.0, null]"), skip_nulls),
               ResultWith(ScalarFromJSON(
                   output_type,
                   "{\"centroids\":[{\"mean\":1.0,\"weight\":1}, "
-                  "{\"mean\":2.0,\"weight\":1}],\"min\":1.0,\"max\":2.0,\"count\":2}")));
+                  "{\"mean\":2.0,\"weight\":1}],\"min\":1.0,\"max\":2.0}")));
   EXPECT_THAT(TDigestMap(ScalarFromJSON(input_type, "1.0"), skip_nulls),
               ResultWith(ScalarFromJSON(output_type,
                                         "{\"centroids\":[{\"mean\":1.0,\"weight\":1}],"
-                                        "\"min\":1.0,\"max\":1.0,\"count\":1}")));
-  EXPECT_THAT(
-      TDigestMap(ScalarFromJSON(input_type, "null"), skip_nulls),
-      ResultWith(ScalarFromJSON(
-          output_type, "{\"centroids\":[],\"min\":null,\"max\":null,\"count\":0}")));
+                                        "\"min\":1.0,\"max\":1.0}")));
+  EXPECT_THAT(TDigestMap(ScalarFromJSON(input_type, "null"), skip_nulls),
+              ResultWith(ScalarFromJSON(output_type,
+                                        "{\"centroids\":[],\"min\":null,\"max\":null}")));
 }
 
 TEST(TestTDigestReduceKernel, Basic) {
@@ -4637,8 +4635,7 @@ TEST(TestTDigestReduceKernel, Basic) {
                                                  field("weight", float64(), false)}),
                                         false)),
                              false),
-                       field("min", float64(), true), field("max", float64(), true),
-                       field("count", uint64(), false)});
+                       field("min", float64(), true), field("max", float64(), true)});
   TDigestReduceOptions options(/*delta=*/5, /*scaler=*/TDigestMapOptions::Scaler::K0);
   EXPECT_THAT(
       TDigestReduce(
@@ -4646,42 +4643,42 @@ TEST(TestTDigestReduceKernel, Basic) {
               type,
               "["
               "{\"centroids\":[{\"mean\":1.5,\"weight\":2}, {\"mean\":3.5,\"weight\":2}, "
-              "{\"mean\":5.5,\"weight\":2}],\"min\":1.0,\"max\":6.0,\"count\":6},"
+              "{\"mean\":5.5,\"weight\":2}],\"min\":1.0,\"max\":6.0},"
               "{\"centroids\":[{\"mean\":1.5,\"weight\":2}, {\"mean\":3.5,\"weight\":2}, "
-              "{\"mean\":5.5,\"weight\":2}],\"min\":1.0,\"max\":6.0,\"count\":6}"
+              "{\"mean\":5.5,\"weight\":2}],\"min\":1.0,\"max\":6.0}"
               "]"),
           options),
       ResultWith(ScalarFromJSON(
           type,
           "{\"centroids\":[{\"mean\":1.5,\"weight\":4}, {\"mean\":3.5,\"weight\":4}, "
-          "{\"mean\":5.5,\"weight\":4}],\"min\":1.0,\"max\":6.0,\"count\":12}")));
+          "{\"mean\":5.5,\"weight\":4}],\"min\":1.0,\"max\":6.0}")));
 
   EXPECT_THAT(
       TDigestReduce(
           ScalarFromJSON(
               type,
               "{\"centroids\":[{\"mean\":1.5,\"weight\":2}, {\"mean\":3.5,\"weight\":2}, "
-              "{\"mean\":5.5,\"weight\":2}],\"min\":1.0,\"max\":6.0,\"count\":6}"),
+              "{\"mean\":5.5,\"weight\":2}],\"min\":1.0,\"max\":6.0}"),
           options),
       ResultWith(ScalarFromJSON(
           type,
           "{\"centroids\":[{\"mean\":1.5,\"weight\":2}, {\"mean\":3.5,\"weight\":2}, "
-          "{\"mean\":5.5,\"weight\":2}],\"min\":1.0,\"max\":6.0,\"count\":6}")));
+          "{\"mean\":5.5,\"weight\":2}],\"min\":1.0,\"max\":6.0}")));
 
   EXPECT_THAT(
       TDigestReduce(
           ArrayFromJSON(
               type,
               "["
-              "{\"centroids\":[],\"min\":null,\"max\":null,\"count\":0},"
+              "{\"centroids\":[],\"min\":null,\"max\":null},"
               "{\"centroids\":[{\"mean\":1.5,\"weight\":2}, {\"mean\":3.5,\"weight\":2}, "
-              "{\"mean\":5.5,\"weight\":2}],\"min\":1.0,\"max\":6.0,\"count\":6}"
+              "{\"mean\":5.5,\"weight\":2}],\"min\":1.0,\"max\":6.0}"
               "]"),
           options),
       ResultWith(ScalarFromJSON(
           type,
           "{\"centroids\":[{\"mean\":1.5,\"weight\":2}, {\"mean\":3.5,\"weight\":2}, "
-          "{\"mean\":5.5,\"weight\":2}],\"min\":1.0,\"max\":6.0,\"count\":6}")));
+          "{\"mean\":5.5,\"weight\":2}],\"min\":1.0,\"max\":6.0}")));
 
   EXPECT_THAT(
       TDigestReduce(
@@ -4689,14 +4686,14 @@ TEST(TestTDigestReduceKernel, Basic) {
               type,
               "["
               "{\"centroids\":[{\"mean\":1.5,\"weight\":2}, {\"mean\":3.5,\"weight\":2}, "
-              "{\"mean\":5.5,\"weight\":2}],\"min\":1.0,\"max\":6.0,\"count\":6},"
-              "{\"centroids\":[],\"min\":null,\"max\":null,\"count\":0}"
+              "{\"mean\":5.5,\"weight\":2}],\"min\":1.0,\"max\":6.0},"
+              "{\"centroids\":[],\"min\":null,\"max\":null}"
               "]"),
           options),
       ResultWith(ScalarFromJSON(
           type,
           "{\"centroids\":[{\"mean\":1.5,\"weight\":2}, {\"mean\":3.5,\"weight\":2}, "
-          "{\"mean\":5.5,\"weight\":2}],\"min\":1.0,\"max\":6.0,\"count\":6}")));
+          "{\"mean\":5.5,\"weight\":2}],\"min\":1.0,\"max\":6.0}")));
 }
 
 TEST(TestTDigestQuantileKernel, Basic) {
@@ -4707,8 +4704,7 @@ TEST(TestTDigestQuantileKernel, Basic) {
                                          field("weight", float64(), false)}),
                                 false)),
                      false),
-               field("min", float64(), true), field("max", float64(), true),
-               field("count", uint64(), false)});
+               field("min", float64(), true), field("max", float64(), true)});
 
   auto output_type = float64();
 
@@ -4716,9 +4712,9 @@ TEST(TestTDigestQuantileKernel, Basic) {
       input_type,
       "["
       "{\"centroids\":[{\"mean\":1.5,\"weight\":2}, {\"mean\":3.5,\"weight\":2}, "
-      "{\"mean\":5.5,\"weight\":2}],\"min\":1.0,\"max\":6.0,\"count\":6},"
+      "{\"mean\":5.5,\"weight\":2}],\"min\":1.0,\"max\":6.0},"
       "{\"centroids\":[{\"mean\":1.5,\"weight\":2}, {\"mean\":3.5,\"weight\":2}, "
-      "{\"mean\":5.5,\"weight\":2}],\"min\":1.0,\"max\":6.0,\"count\":6}"
+      "{\"mean\":5.5,\"weight\":2}],\"min\":1.0,\"max\":6.0}"
       "]");
 
   TDigestQuantileOptions multiple(/*q=*/{0.1, 0.5, 0.9}, /*delta=*/5, /*min_count=*/12);
@@ -4738,15 +4734,14 @@ TEST(TestTDigestQuantileKernel, Scalar) {
                                          field("weight", float64(), false)}),
                                 false)),
                      false),
-               field("min", float64(), true), field("max", float64(), true),
-               field("count", uint64(), false)});
+               field("min", float64(), true), field("max", float64(), true)});
 
   auto output_type = float64();
 
   auto input_scalar = ScalarFromJSON(
       input_type,
       "{\"centroids\":[{\"mean\":1.5,\"weight\":2}, {\"mean\":3.5,\"weight\":2}, "
-      "{\"mean\":5.5,\"weight\":2}],\"min\":1.0,\"max\":6.0,\"count\":6}");
+      "{\"mean\":5.5,\"weight\":2}],\"min\":1.0,\"max\":6.0}");
 
   TDigestQuantileOptions multiple(/*q=*/{0.1, 0.5, 0.9}, /*delta=*/5, /*min_count=*/6);
   TDigestQuantileOptions min_count(/*q=*/0.5, /*delta=*/5, /*min_count=*/7);
@@ -4765,8 +4760,7 @@ TEST(TestTDigestQuantileKernel, ElementWise) {
                                          field("weight", float64(), false)}),
                                 false)),
                      false),
-               field("min", float64(), true), field("max", float64(), true),
-               field("count", uint64(), false)});
+               field("min", float64(), true), field("max", float64(), true)});
 
   auto output_type_multiple = fixed_size_list(float64(), 3);
   auto output_type_single = fixed_size_list(float64(), 1);
@@ -4774,10 +4768,10 @@ TEST(TestTDigestQuantileKernel, ElementWise) {
   auto input_array = ArrayFromJSON(
       input_type,
       "["
+      "{\"centroids\":[{\"mean\":1.5,\"weight\":3}, {\"mean\":3.5,\"weight\":3}, "
+      "{\"mean\":5.5,\"weight\":3}],\"min\":1.0,\"max\":6.0},"
       "{\"centroids\":[{\"mean\":1.5,\"weight\":2}, {\"mean\":3.5,\"weight\":2}, "
-      "{\"mean\":5.5,\"weight\":2}],\"min\":1.0,\"max\":6.0,\"count\":7},"
-      "{\"centroids\":[{\"mean\":1.5,\"weight\":2}, {\"mean\":3.5,\"weight\":2}, "
-      "{\"mean\":5.5,\"weight\":2}],\"min\":1.0,\"max\":6.0,\"count\":6}"
+      "{\"mean\":5.5,\"weight\":2}],\"min\":1.0,\"max\":6.0}"
       "]");
 
   TDigestQuantileOptions multiple(/*q=*/{0.1, 0.5, 0.9}, /*delta=*/5, /*min_count=*/5);
@@ -4805,8 +4799,7 @@ TEST(TestTDigestMapReduceQuantileKernel, Basic) {
                                          field("weight", float64(), false)}),
                                 false)),
                      false),
-               field("min", float64(), true), field("max", float64(), true),
-               field("count", uint64(), false)});
+               field("min", float64(), true), field("max", float64(), true)});
 
   auto output_type = float64();
 
@@ -4814,9 +4807,9 @@ TEST(TestTDigestMapReduceQuantileKernel, Basic) {
       input_type,
       "["
       "{\"centroids\":[{\"mean\":1.5,\"weight\":2}, {\"mean\":3.5,\"weight\":2}, "
-      "{\"mean\":5.5,\"weight\":2}],\"min\":1.0,\"max\":6.0,\"count\":6},"
+      "{\"mean\":5.5,\"weight\":2}],\"min\":1.0,\"max\":6.0},"
       "{\"centroids\":[{\"mean\":1.5,\"weight\":2}, {\"mean\":3.5,\"weight\":2}, "
-      "{\"mean\":5.5,\"weight\":2}],\"min\":1.0,\"max\":6.0,\"count\":6}"
+      "{\"mean\":5.5,\"weight\":2}],\"min\":1.0,\"max\":6.0}"
       "]");
 
   TDigestQuantileOptions multiple(/*q=*/{0.1, 0.5, 0.9}, /*delta=*/5, /*min_count=*/12);

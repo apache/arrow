@@ -36,7 +36,7 @@ using arrow::internal::VisitSetBitRunsVoid;
 
 struct TDigestBaseImpl : public ScalarAggregator {
   explicit TDigestBaseImpl(std::shared_ptr<TDigest::Scaler> scaler, uint32_t buffer_size)
-      : tdigest{std::move(scaler), buffer_size}, count{0}, all_valid{true} {}
+      : tdigest{std::move(scaler), buffer_size}, all_valid{true} {}
 
   Status MergeFrom(KernelContext*, KernelState&& src) override {
     const auto& other = checked_cast<const TDigestBaseImpl&>(src);
@@ -45,7 +45,6 @@ struct TDigestBaseImpl : public ScalarAggregator {
       return Status::OK();
     }
     this->tdigest.Merge(other.tdigest);
-    this->count += other.count;
     return Status::OK();
   }
 
@@ -61,20 +60,16 @@ struct TDigestBaseImpl : public ScalarAggregator {
   }
 
   TDigest tdigest;
-  uint64_t count;
   bool all_valid;
   static const std::shared_ptr<DataType>& out_type() {
-    static auto out_type = struct_({
-        field("centroids",
-              list(field("item",
-                         struct_({field("mean", float64(), false),
-                                  field("weight", float64(), false)}),
-                         false)),
-              false),
-        field("min", float64(), true),
-        field("max", float64(), true),
-        field("count", uint64(), false),
-    });
+    static auto out_type =
+        struct_({field("centroids",
+                       list(field("item",
+                                  struct_({field("mean", float64(), false),
+                                           field("weight", float64(), false)}),
+                                  false)),
+                       false),
+                 field("min", float64(), true), field("max", float64(), true)});
     return out_type;
   }
 };
@@ -88,14 +83,12 @@ struct TDigestQuantileFinalizer : public TDigestBaseImpl {
         min_count(min_count) {}
 
   bool isNull() {
-    return this->tdigest.is_empty() || !this->all_valid || this->count < min_count;
+    return this->tdigest.is_empty() || !this->all_valid ||
+           this->tdigest.TotalWeight() < (double)min_count;
   }
 
   double Quantile(size_t i) { return this->tdigest.Quantile(this->q[i]); }
-  void Reset() {
-    this->tdigest.Reset();
-    this->count = 0;
-  }
+  void Reset() { this->tdigest.Reset(); }
 
   Status Finalize(KernelContext* ctx, Datum* out) override {
     const size_t out_length = q.size();
@@ -160,17 +153,15 @@ struct TDigestCentroidFinalizer : public TDigestBaseImpl {
                                 struct_({field("mean", float64(), false),
                                          field("weight", float64(), false)}),
                                 false)));
-      auto count = std::make_shared<UInt64Scalar>(this->count);
       std::shared_ptr<Scalar> min, max;
-      if (this->count) {
+      if (!this->tdigest.is_empty()) {
         min = std::make_shared<DoubleScalar>(this->tdigest.Min());
         max = std::make_shared<DoubleScalar>(this->tdigest.Max());
       } else {
         min = max = MakeNullScalar(float64());
       }
       *out = std::make_shared<StructScalar>(
-          std::vector<std::shared_ptr<Scalar>>{centroids_scalar, min, max, count},
-          out_type());
+          std::vector<std::shared_ptr<Scalar>>{centroids_scalar, min, max}, out_type());
     }
 
     return Status::OK();
@@ -213,7 +204,6 @@ struct TDigestInputConsumerImpl : public TDigestFinalizer_T {
       const CType* values = data.GetValues<CType>(1);
 
       if (data.length > data.GetNullCount()) {
-        this->count += data.length - data.GetNullCount();
         VisitSetBitRunsVoid(data.buffers[0].data, data.offset, data.length,
                             [&](int64_t pos, int64_t len) {
                               for (int64_t i = 0; i < len; ++i) {
@@ -224,7 +214,6 @@ struct TDigestInputConsumerImpl : public TDigestFinalizer_T {
     } else {
       const CType value = UnboxScalar<ArrowType>::Unbox(*batch[0].scalar);
       if (batch[0].scalar->is_valid) {
-        this->count += 1;
         for (int64_t i = 0; i < batch.length; i++) {
           this->tdigest.NanAdd(ToDouble(value));
         }
@@ -253,15 +242,12 @@ struct TDigestCentroidConsumerImpl : public TDigestFinalizer_T {
     checked_cast<const ListScalar*>(input_struct_scalar->value[1].get())->value;
     auto min = checked_cast<const DoubleScalar*>(input_struct_scalar->value[1].get());
     auto max = checked_cast<const DoubleScalar*>(input_struct_scalar->value[2].get());
-    auto count = checked_cast<const UInt64Scalar*>(input_struct_scalar->value[3].get());
     auto mean_double_array = checked_cast<const DoubleArray*>(mean_array.get());
     auto weight_double_array = checked_cast<const DoubleArray*>(weight_array.get());
     DCHECK_EQ(mean_double_array->length(), weight_double_array->length());
-    auto count_uint64 = count->value;
-    if (count_uint64) {
+    if (mean_double_array->length() > 0) {
       DCHECK(min->is_valid);
       DCHECK(max->is_valid);
-      this->count += count_uint64;
       this->tdigest.SetMinMax(min->value, max->value);
       for (int64_t i = 0; i < mean_double_array->length(); i++) {
         this->tdigest.NanAdd(mean_double_array->Value(i), weight_double_array->Value(i));
