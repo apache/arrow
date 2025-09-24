@@ -491,7 +491,7 @@ set(ARROW_UTIL_SRCS
     util/bitmap_ops.cc
     util/bpacking.cc
     util/bpacking_scalar.cc
-    util/bpacking_sse4_2.cc
+    util/bpacking_simd_min.cc
     util/byte_size.cc
     util/byte_stream_split_internal.cc
     util/cancel.cc
@@ -535,11 +535,8 @@ set(ARROW_UTIL_SRCS
 
 append_runtime_avx2_src(ARROW_UTIL_SRCS util/byte_stream_split_internal_avx2.cc)
 
-append_runtime_avx2_src(ARROW_UTIL_SRCS util/bpacking_avx2.cc)
-append_runtime_avx512_src(ARROW_UTIL_SRCS util/bpacking_avx512.cc)
-if(ARROW_HAVE_NEON)
-  list(APPEND ARROW_UTIL_SRCS util/bpacking_neon.cc)
-endif()
+append_runtime_avx2_src(ARROW_UTIL_SRCS util/bpacking_simd_avx2.cc)
+append_runtime_avx512_src(ARROW_UTIL_SRCS util/bpacking_simd_avx512.cc)
 
 if(ARROW_WITH_BROTLI)
   list(APPEND ARROW_UTIL_SRCS util/compression_brotli.cc)
