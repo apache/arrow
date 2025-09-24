@@ -314,7 +314,14 @@ jobs:
         env:
           ARROW_USE_MESON: ON
           ARROW_HOME: C:\arrow-dist
-          MESON_SETUP_ARGS: "--vsenv -Dauto_features=enabled -Dfuzzing=disabled -Dgcs=disabled -Ds3=disabled -Dazure=disabled"
+          MESON_SETUP_ARGS: "
+            --vsenv
+            --force-fallback-for=grpc++
+            -Dauto_features=enabled
+            -Dfuzzing=disabled
+            -Dgcs=disabled
+            -Ds3=disabled
+            -Dazure=disabled"
         run: |
           ci/scripts/cpp_build.sh $(pwd) $(pwd)/build
       - name: Test

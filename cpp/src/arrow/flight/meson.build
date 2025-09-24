@@ -47,8 +47,15 @@ install_headers(
 # Due to the Meson bug in https://github.com/mesonbuild/meson/issues/14905
 # we need to special how the grpc_cpp_plugin resolution is handled
 # when found on the system versus when built as a subproject
-grpc_cpp_dep = dependency('grpc++', allow_fallback: false, required: false)
-has_system_grpc = grpc_cpp_dep.found()
+# On Windows we always need to use a subproject, because Meson cannot
+# accurately detect if the system provides a shared/static library, and the
+# shared grpc files do not export symbols properly
+if host_machine.system() == 'windows'
+    has_system_grpc = false
+else
+    grpc_cpp_dep = dependency('grpc++', allow_fallback: false, required: false)
+    has_system_grpc = grpc_cpp_dep.found()
+endif
 if not has_system_grpc
     grpc_opts = []
     if cpp_compiler.get_id() == 'msvc'
@@ -57,7 +64,8 @@ if not has_system_grpc
             're2:default_library=static',  # re2 does not export symbols
         ]
     endif
-    grpc_cpp_dep = dependency('grpc++', default_options: grpc_opts)
+    grpc_subproject = subproject('grpc', default_options: grpc_opts)
+    grpc_cpp_dep = grpc_subproject.get_variable('grpcpp_dep')
 endif
 
 protobuf_dep = dependency('protobuf')
