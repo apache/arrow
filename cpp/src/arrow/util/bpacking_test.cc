@@ -237,10 +237,17 @@ TEST_P(TestUnpack, Unpack32Scalar) { this->TestAll(&unpack32_scalar); }
 TEST_P(TestUnpack, Unpack64Scalar) { this->TestAll(&unpack64_scalar); }
 
 #if defined(ARROW_HAVE_SSE4_2)
+TEST_P(TestUnpack, Unpack16Sse42) { this->TestAll(&unpack16_sse4_2); }
 TEST_P(TestUnpack, Unpack32Sse42) { this->TestAll(&unpack32_sse4_2); }
 #endif
 
 #if defined(ARROW_HAVE_RUNTIME_AVX2)
+TEST_P(TestUnpack, Unpack16Avx2) {
+  if (!CpuInfo::GetInstance()->IsSupported(CpuInfo::AVX2)) {
+    GTEST_SKIP() << "Test requires AVX2";
+  }
+  this->TestAll(&unpack16_avx2);
+}
 TEST_P(TestUnpack, Unpack32Avx2) {
   if (!CpuInfo::GetInstance()->IsSupported(CpuInfo::AVX2)) {
     GTEST_SKIP() << "Test requires AVX2";
@@ -250,6 +257,12 @@ TEST_P(TestUnpack, Unpack32Avx2) {
 #endif
 
 #if defined(ARROW_HAVE_RUNTIME_AVX512)
+TEST_P(TestUnpack, Unpack16Avx512) {
+  if (!CpuInfo::GetInstance()->IsSupported(CpuInfo::AVX512)) {
+    GTEST_SKIP() << "Test requires AVX512";
+  }
+  this->TestAll(&unpack16_avx512);
+}
 TEST_P(TestUnpack, Unpack32Avx512) {
   if (!CpuInfo::GetInstance()->IsSupported(CpuInfo::AVX512)) {
     GTEST_SKIP() << "Test requires AVX512";
@@ -259,6 +272,7 @@ TEST_P(TestUnpack, Unpack32Avx512) {
 #endif
 
 #if defined(ARROW_HAVE_NEON)
+TEST_P(TestUnpack, Unpack16Neon) { this->TestAll(&unpack16_neon); }
 TEST_P(TestUnpack, Unpack32Neon) { this->TestAll(&unpack32_neon); }
 #endif
 

@@ -25,6 +25,36 @@ namespace arrow::internal {
 
 namespace {
 
+struct Unpack16DynamicFunction {
+  using FunctionType = decltype(&unpack16_scalar);
+
+  static std::vector<std::pair<DispatchLevel, FunctionType>> implementations() {
+    return {{DispatchLevel::NONE, unpack16_scalar}
+#if defined(ARROW_HAVE_RUNTIME_AVX2)
+            ,
+            {DispatchLevel::AVX2, unpack16_avx2}
+#endif
+#if defined(ARROW_HAVE_RUNTIME_AVX512)
+            ,
+            {DispatchLevel::AVX512, unpack16_avx512}
+#endif
+    };
+  }
+};
+
+}  // namespace
+
+int unpack16(const uint8_t* in, uint16_t* out, int batch_size, int num_bits) {
+#if defined(ARROW_HAVE_NEON)
+  return unpack16_neon(in, out, batch_size, num_bits);
+#else
+  static DynamicDispatch<Unpack16DynamicFunction> dispatch;
+  return dispatch.func(in, out, batch_size, num_bits);
+#endif
+}
+
+namespace {
+
 struct Unpack32DynamicFunction {
   using FunctionType = decltype(&unpack32_scalar);
 

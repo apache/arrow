@@ -24,6 +24,9 @@
 namespace arrow::internal {
 
 ARROW_EXPORT
+int unpack16(const uint8_t* in, uint16_t* out, int batch_size, int num_bits);
+
+ARROW_EXPORT
 int unpack32(const uint8_t* in, uint32_t* out, int batch_size, int num_bits);
 
 ARROW_EXPORT
