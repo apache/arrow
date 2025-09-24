@@ -18,12 +18,7 @@
 #include "arrow/util/bpacking_dispatch_internal.h"
 #include "arrow/util/bpacking_internal.h"
 #include "arrow/util/bpacking_scalar_internal.h"
-#include "arrow/util/cpu_info.h"
 #include "arrow/util/dispatch_internal.h"
-
-#if defined(ARROW_HAVE_SSE4_2)
-#  include "arrow/util/bpacking_simd128_generated_internal.h"
-#endif
 
 #if defined(ARROW_HAVE_RUNTIME_AVX2)
 #  include "arrow/util/bpacking_avx2_internal.h"
@@ -35,15 +30,7 @@
 #  include "arrow/util/bpacking_neon_internal.h"
 #endif
 
-namespace arrow {
-namespace internal {
-
-// TODO probably better in its own file
-#if defined(ARROW_HAVE_SSE4_2)
-int unpack32_sse4_2(const uint8_t* in, uint32_t* out, int batch_size, int num_bits) {
-  return unpack_jump32<Simd128Unpacker<uint32_t>>(in, out, batch_size, num_bits);
-}
-#endif
+namespace arrow::internal {
 
 namespace {
 
@@ -80,5 +67,4 @@ int unpack64(const uint8_t* in, uint64_t* out, int batch_size, int num_bits) {
   return unpack64_scalar(in, out, batch_size, num_bits);
 }
 
-}  // namespace internal
-}  // namespace arrow
+}  // namespace arrow::internal
