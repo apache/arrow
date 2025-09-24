@@ -17,7 +17,7 @@
 
 #include "arrow/util/bpacking_dispatch_internal.h"
 #include "arrow/util/bpacking_internal.h"
-#include "arrow/util/bpacking_scalar_generated_internal.h"
+#include "arrow/util/bpacking_scalar_internal.h"
 #include "arrow/util/cpu_info.h"
 #include "arrow/util/dispatch_internal.h"
 
@@ -44,14 +44,6 @@ int unpack32_sse4_2(const uint8_t* in, uint32_t* out, int batch_size, int num_bi
   return unpack_jump32<Simd128Unpacker<uint32_t>>(in, out, batch_size, num_bits);
 }
 #endif
-
-int unpack16_scalar(const uint8_t* in, uint16_t* out, int batch_size, int num_bits) {
-  return unpack_jump16<ScalarUnpackerForWidth>(in, out, batch_size, num_bits);
-}
-
-int unpack32_scalar(const uint8_t* in, uint32_t* out, int batch_size, int num_bits) {
-  return unpack_jump32<ScalarUnpackerForWidth>(in, out, batch_size, num_bits);
-}
 
 namespace {
 
@@ -81,10 +73,6 @@ int unpack32(const uint8_t* in, uint32_t* out, int batch_size, int num_bits) {
   static DynamicDispatch<Unpack32DynamicFunction> dispatch;
   return dispatch.func(in, out, batch_size, num_bits);
 #endif
-}
-
-int unpack64_scalar(const uint8_t* in, uint64_t* out, int batch_size, int num_bits) {
-  return unpack_jump64<ScalarUnpackerForWidth>(in, out, batch_size, num_bits);
 }
 
 int unpack64(const uint8_t* in, uint64_t* out, int batch_size, int num_bits) {
