@@ -47,6 +47,563 @@ template<typename Uint, int BitWidth>
 struct ScalarUnpackerForWidth;
 
 template<>
+struct ScalarUnpackerForWidth<uint16_t, 1> {
+
+  static constexpr int kValuesUnpacked = 16;
+
+  static const uint8_t* unpack(const uint8_t* in, uint16_t* out) {
+    constexpr uint16_t mask = ((uint16_t{1} << 1) - uint16_t{1});
+
+    const auto w0 = LoadInt<uint16_t>(in + 0 * 2);
+    out[0] = (w0) & mask;
+    out[1] = (w0 >> 1) & mask;
+    out[2] = (w0 >> 2) & mask;
+    out[3] = (w0 >> 3) & mask;
+    out[4] = (w0 >> 4) & mask;
+    out[5] = (w0 >> 5) & mask;
+    out[6] = (w0 >> 6) & mask;
+    out[7] = (w0 >> 7) & mask;
+    out[8] = (w0 >> 8) & mask;
+    out[9] = (w0 >> 9) & mask;
+    out[10] = (w0 >> 10) & mask;
+    out[11] = (w0 >> 11) & mask;
+    out[12] = (w0 >> 12) & mask;
+    out[13] = (w0 >> 13) & mask;
+    out[14] = (w0 >> 14) & mask;
+    out[15] = w0 >> 15;
+
+    return in + (1 * 2);
+  }
+};
+
+template<>
+struct ScalarUnpackerForWidth<uint16_t, 2> {
+
+  static constexpr int kValuesUnpacked = 16;
+
+  static const uint8_t* unpack(const uint8_t* in, uint16_t* out) {
+    constexpr uint16_t mask = ((uint16_t{1} << 2) - uint16_t{1});
+
+    const auto w0 = LoadInt<uint16_t>(in + 0 * 2);
+    const auto w1 = LoadInt<uint16_t>(in + 1 * 2);
+    out[0] = (w0) & mask;
+    out[1] = (w0 >> 2) & mask;
+    out[2] = (w0 >> 4) & mask;
+    out[3] = (w0 >> 6) & mask;
+    out[4] = (w0 >> 8) & mask;
+    out[5] = (w0 >> 10) & mask;
+    out[6] = (w0 >> 12) & mask;
+    out[7] = w0 >> 14;
+    out[8] = (w1) & mask;
+    out[9] = (w1 >> 2) & mask;
+    out[10] = (w1 >> 4) & mask;
+    out[11] = (w1 >> 6) & mask;
+    out[12] = (w1 >> 8) & mask;
+    out[13] = (w1 >> 10) & mask;
+    out[14] = (w1 >> 12) & mask;
+    out[15] = w1 >> 14;
+
+    return in + (2 * 2);
+  }
+};
+
+template<>
+struct ScalarUnpackerForWidth<uint16_t, 3> {
+
+  static constexpr int kValuesUnpacked = 16;
+
+  static const uint8_t* unpack(const uint8_t* in, uint16_t* out) {
+    constexpr uint16_t mask = ((uint16_t{1} << 3) - uint16_t{1});
+
+    const auto w0 = LoadInt<uint16_t>(in + 0 * 2);
+    const auto w1 = LoadInt<uint16_t>(in + 1 * 2);
+    const auto w2 = LoadInt<uint16_t>(in + 2 * 2);
+    out[0] = (w0) & mask;
+    out[1] = (w0 >> 3) & mask;
+    out[2] = (w0 >> 6) & mask;
+    out[3] = (w0 >> 9) & mask;
+    out[4] = (w0 >> 12) & mask;
+    out[5] = ((w0 >> 15) | (w1 << 1)) & mask;
+    out[6] = (w1 >> 2) & mask;
+    out[7] = (w1 >> 5) & mask;
+    out[8] = (w1 >> 8) & mask;
+    out[9] = (w1 >> 11) & mask;
+    out[10] = ((w1 >> 14) | (w2 << 2)) & mask;
+    out[11] = (w2 >> 1) & mask;
+    out[12] = (w2 >> 4) & mask;
+    out[13] = (w2 >> 7) & mask;
+    out[14] = (w2 >> 10) & mask;
+    out[15] = w2 >> 13;
+
+    return in + (3 * 2);
+  }
+};
+
+template<>
+struct ScalarUnpackerForWidth<uint16_t, 4> {
+
+  static constexpr int kValuesUnpacked = 16;
+
+  static const uint8_t* unpack(const uint8_t* in, uint16_t* out) {
+    constexpr uint16_t mask = ((uint16_t{1} << 4) - uint16_t{1});
+
+    const auto w0 = LoadInt<uint16_t>(in + 0 * 2);
+    const auto w1 = LoadInt<uint16_t>(in + 1 * 2);
+    const auto w2 = LoadInt<uint16_t>(in + 2 * 2);
+    const auto w3 = LoadInt<uint16_t>(in + 3 * 2);
+    out[0] = (w0) & mask;
+    out[1] = (w0 >> 4) & mask;
+    out[2] = (w0 >> 8) & mask;
+    out[3] = w0 >> 12;
+    out[4] = (w1) & mask;
+    out[5] = (w1 >> 4) & mask;
+    out[6] = (w1 >> 8) & mask;
+    out[7] = w1 >> 12;
+    out[8] = (w2) & mask;
+    out[9] = (w2 >> 4) & mask;
+    out[10] = (w2 >> 8) & mask;
+    out[11] = w2 >> 12;
+    out[12] = (w3) & mask;
+    out[13] = (w3 >> 4) & mask;
+    out[14] = (w3 >> 8) & mask;
+    out[15] = w3 >> 12;
+
+    return in + (4 * 2);
+  }
+};
+
+template<>
+struct ScalarUnpackerForWidth<uint16_t, 5> {
+
+  static constexpr int kValuesUnpacked = 16;
+
+  static const uint8_t* unpack(const uint8_t* in, uint16_t* out) {
+    constexpr uint16_t mask = ((uint16_t{1} << 5) - uint16_t{1});
+
+    const auto w0 = LoadInt<uint16_t>(in + 0 * 2);
+    const auto w1 = LoadInt<uint16_t>(in + 1 * 2);
+    const auto w2 = LoadInt<uint16_t>(in + 2 * 2);
+    const auto w3 = LoadInt<uint16_t>(in + 3 * 2);
+    const auto w4 = LoadInt<uint16_t>(in + 4 * 2);
+    out[0] = (w0) & mask;
+    out[1] = (w0 >> 5) & mask;
+    out[2] = (w0 >> 10) & mask;
+    out[3] = ((w0 >> 15) | (w1 << 1)) & mask;
+    out[4] = (w1 >> 4) & mask;
+    out[5] = (w1 >> 9) & mask;
+    out[6] = ((w1 >> 14) | (w2 << 2)) & mask;
+    out[7] = (w2 >> 3) & mask;
+    out[8] = (w2 >> 8) & mask;
+    out[9] = ((w2 >> 13) | (w3 << 3)) & mask;
+    out[10] = (w3 >> 2) & mask;
+    out[11] = (w3 >> 7) & mask;
+    out[12] = ((w3 >> 12) | (w4 << 4)) & mask;
+    out[13] = (w4 >> 1) & mask;
+    out[14] = (w4 >> 6) & mask;
+    out[15] = w4 >> 11;
+
+    return in + (5 * 2);
+  }
+};
+
+template<>
+struct ScalarUnpackerForWidth<uint16_t, 6> {
+
+  static constexpr int kValuesUnpacked = 16;
+
+  static const uint8_t* unpack(const uint8_t* in, uint16_t* out) {
+    constexpr uint16_t mask = ((uint16_t{1} << 6) - uint16_t{1});
+
+    const auto w0 = LoadInt<uint16_t>(in + 0 * 2);
+    const auto w1 = LoadInt<uint16_t>(in + 1 * 2);
+    const auto w2 = LoadInt<uint16_t>(in + 2 * 2);
+    const auto w3 = LoadInt<uint16_t>(in + 3 * 2);
+    const auto w4 = LoadInt<uint16_t>(in + 4 * 2);
+    const auto w5 = LoadInt<uint16_t>(in + 5 * 2);
+    out[0] = (w0) & mask;
+    out[1] = (w0 >> 6) & mask;
+    out[2] = ((w0 >> 12) | (w1 << 4)) & mask;
+    out[3] = (w1 >> 2) & mask;
+    out[4] = (w1 >> 8) & mask;
+    out[5] = ((w1 >> 14) | (w2 << 2)) & mask;
+    out[6] = (w2 >> 4) & mask;
+    out[7] = w2 >> 10;
+    out[8] = (w3) & mask;
+    out[9] = (w3 >> 6) & mask;
+    out[10] = ((w3 >> 12) | (w4 << 4)) & mask;
+    out[11] = (w4 >> 2) & mask;
+    out[12] = (w4 >> 8) & mask;
+    out[13] = ((w4 >> 14) | (w5 << 2)) & mask;
+    out[14] = (w5 >> 4) & mask;
+    out[15] = w5 >> 10;
+
+    return in + (6 * 2);
+  }
+};
+
+template<>
+struct ScalarUnpackerForWidth<uint16_t, 7> {
+
+  static constexpr int kValuesUnpacked = 16;
+
+  static const uint8_t* unpack(const uint8_t* in, uint16_t* out) {
+    constexpr uint16_t mask = ((uint16_t{1} << 7) - uint16_t{1});
+
+    const auto w0 = LoadInt<uint16_t>(in + 0 * 2);
+    const auto w1 = LoadInt<uint16_t>(in + 1 * 2);
+    const auto w2 = LoadInt<uint16_t>(in + 2 * 2);
+    const auto w3 = LoadInt<uint16_t>(in + 3 * 2);
+    const auto w4 = LoadInt<uint16_t>(in + 4 * 2);
+    const auto w5 = LoadInt<uint16_t>(in + 5 * 2);
+    const auto w6 = LoadInt<uint16_t>(in + 6 * 2);
+    out[0] = (w0) & mask;
+    out[1] = (w0 >> 7) & mask;
+    out[2] = ((w0 >> 14) | (w1 << 2)) & mask;
+    out[3] = (w1 >> 5) & mask;
+    out[4] = ((w1 >> 12) | (w2 << 4)) & mask;
+    out[5] = (w2 >> 3) & mask;
+    out[6] = ((w2 >> 10) | (w3 << 6)) & mask;
+    out[7] = (w3 >> 1) & mask;
+    out[8] = (w3 >> 8) & mask;
+    out[9] = ((w3 >> 15) | (w4 << 1)) & mask;
+    out[10] = (w4 >> 6) & mask;
+    out[11] = ((w4 >> 13) | (w5 << 3)) & mask;
+    out[12] = (w5 >> 4) & mask;
+    out[13] = ((w5 >> 11) | (w6 << 5)) & mask;
+    out[14] = (w6 >> 2) & mask;
+    out[15] = w6 >> 9;
+
+    return in + (7 * 2);
+  }
+};
+
+template<>
+struct ScalarUnpackerForWidth<uint16_t, 8> {
+
+  static constexpr int kValuesUnpacked = 16;
+
+  static const uint8_t* unpack(const uint8_t* in, uint16_t* out) {
+    constexpr uint16_t mask = ((uint16_t{1} << 8) - uint16_t{1});
+
+    const auto w0 = LoadInt<uint16_t>(in + 0 * 2);
+    const auto w1 = LoadInt<uint16_t>(in + 1 * 2);
+    const auto w2 = LoadInt<uint16_t>(in + 2 * 2);
+    const auto w3 = LoadInt<uint16_t>(in + 3 * 2);
+    const auto w4 = LoadInt<uint16_t>(in + 4 * 2);
+    const auto w5 = LoadInt<uint16_t>(in + 5 * 2);
+    const auto w6 = LoadInt<uint16_t>(in + 6 * 2);
+    const auto w7 = LoadInt<uint16_t>(in + 7 * 2);
+    out[0] = (w0) & mask;
+    out[1] = w0 >> 8;
+    out[2] = (w1) & mask;
+    out[3] = w1 >> 8;
+    out[4] = (w2) & mask;
+    out[5] = w2 >> 8;
+    out[6] = (w3) & mask;
+    out[7] = w3 >> 8;
+    out[8] = (w4) & mask;
+    out[9] = w4 >> 8;
+    out[10] = (w5) & mask;
+    out[11] = w5 >> 8;
+    out[12] = (w6) & mask;
+    out[13] = w6 >> 8;
+    out[14] = (w7) & mask;
+    out[15] = w7 >> 8;
+
+    return in + (8 * 2);
+  }
+};
+
+template<>
+struct ScalarUnpackerForWidth<uint16_t, 9> {
+
+  static constexpr int kValuesUnpacked = 16;
+
+  static const uint8_t* unpack(const uint8_t* in, uint16_t* out) {
+    constexpr uint16_t mask = ((uint16_t{1} << 9) - uint16_t{1});
+
+    const auto w0 = LoadInt<uint16_t>(in + 0 * 2);
+    const auto w1 = LoadInt<uint16_t>(in + 1 * 2);
+    const auto w2 = LoadInt<uint16_t>(in + 2 * 2);
+    const auto w3 = LoadInt<uint16_t>(in + 3 * 2);
+    const auto w4 = LoadInt<uint16_t>(in + 4 * 2);
+    const auto w5 = LoadInt<uint16_t>(in + 5 * 2);
+    const auto w6 = LoadInt<uint16_t>(in + 6 * 2);
+    const auto w7 = LoadInt<uint16_t>(in + 7 * 2);
+    const auto w8 = LoadInt<uint16_t>(in + 8 * 2);
+    out[0] = (w0) & mask;
+    out[1] = ((w0 >> 9) | (w1 << 7)) & mask;
+    out[2] = (w1 >> 2) & mask;
+    out[3] = ((w1 >> 11) | (w2 << 5)) & mask;
+    out[4] = (w2 >> 4) & mask;
+    out[5] = ((w2 >> 13) | (w3 << 3)) & mask;
+    out[6] = (w3 >> 6) & mask;
+    out[7] = ((w3 >> 15) | (w4 << 1)) & mask;
+    out[8] = ((w4 >> 8) | (w5 << 8)) & mask;
+    out[9] = (w5 >> 1) & mask;
+    out[10] = ((w5 >> 10) | (w6 << 6)) & mask;
+    out[11] = (w6 >> 3) & mask;
+    out[12] = ((w6 >> 12) | (w7 << 4)) & mask;
+    out[13] = (w7 >> 5) & mask;
+    out[14] = ((w7 >> 14) | (w8 << 2)) & mask;
+    out[15] = w8 >> 7;
+
+    return in + (9 * 2);
+  }
+};
+
+template<>
+struct ScalarUnpackerForWidth<uint16_t, 10> {
+
+  static constexpr int kValuesUnpacked = 16;
+
+  static const uint8_t* unpack(const uint8_t* in, uint16_t* out) {
+    constexpr uint16_t mask = ((uint16_t{1} << 10) - uint16_t{1});
+
+    const auto w0 = LoadInt<uint16_t>(in + 0 * 2);
+    const auto w1 = LoadInt<uint16_t>(in + 1 * 2);
+    const auto w2 = LoadInt<uint16_t>(in + 2 * 2);
+    const auto w3 = LoadInt<uint16_t>(in + 3 * 2);
+    const auto w4 = LoadInt<uint16_t>(in + 4 * 2);
+    const auto w5 = LoadInt<uint16_t>(in + 5 * 2);
+    const auto w6 = LoadInt<uint16_t>(in + 6 * 2);
+    const auto w7 = LoadInt<uint16_t>(in + 7 * 2);
+    const auto w8 = LoadInt<uint16_t>(in + 8 * 2);
+    const auto w9 = LoadInt<uint16_t>(in + 9 * 2);
+    out[0] = (w0) & mask;
+    out[1] = ((w0 >> 10) | (w1 << 6)) & mask;
+    out[2] = (w1 >> 4) & mask;
+    out[3] = ((w1 >> 14) | (w2 << 2)) & mask;
+    out[4] = ((w2 >> 8) | (w3 << 8)) & mask;
+    out[5] = (w3 >> 2) & mask;
+    out[6] = ((w3 >> 12) | (w4 << 4)) & mask;
+    out[7] = w4 >> 6;
+    out[8] = (w5) & mask;
+    out[9] = ((w5 >> 10) | (w6 << 6)) & mask;
+    out[10] = (w6 >> 4) & mask;
+    out[11] = ((w6 >> 14) | (w7 << 2)) & mask;
+    out[12] = ((w7 >> 8) | (w8 << 8)) & mask;
+    out[13] = (w8 >> 2) & mask;
+    out[14] = ((w8 >> 12) | (w9 << 4)) & mask;
+    out[15] = w9 >> 6;
+
+    return in + (10 * 2);
+  }
+};
+
+template<>
+struct ScalarUnpackerForWidth<uint16_t, 11> {
+
+  static constexpr int kValuesUnpacked = 16;
+
+  static const uint8_t* unpack(const uint8_t* in, uint16_t* out) {
+    constexpr uint16_t mask = ((uint16_t{1} << 11) - uint16_t{1});
+
+    const auto w0 = LoadInt<uint16_t>(in + 0 * 2);
+    const auto w1 = LoadInt<uint16_t>(in + 1 * 2);
+    const auto w2 = LoadInt<uint16_t>(in + 2 * 2);
+    const auto w3 = LoadInt<uint16_t>(in + 3 * 2);
+    const auto w4 = LoadInt<uint16_t>(in + 4 * 2);
+    const auto w5 = LoadInt<uint16_t>(in + 5 * 2);
+    const auto w6 = LoadInt<uint16_t>(in + 6 * 2);
+    const auto w7 = LoadInt<uint16_t>(in + 7 * 2);
+    const auto w8 = LoadInt<uint16_t>(in + 8 * 2);
+    const auto w9 = LoadInt<uint16_t>(in + 9 * 2);
+    const auto w10 = LoadInt<uint16_t>(in + 10 * 2);
+    out[0] = (w0) & mask;
+    out[1] = ((w0 >> 11) | (w1 << 5)) & mask;
+    out[2] = ((w1 >> 6) | (w2 << 10)) & mask;
+    out[3] = (w2 >> 1) & mask;
+    out[4] = ((w2 >> 12) | (w3 << 4)) & mask;
+    out[5] = ((w3 >> 7) | (w4 << 9)) & mask;
+    out[6] = (w4 >> 2) & mask;
+    out[7] = ((w4 >> 13) | (w5 << 3)) & mask;
+    out[8] = ((w5 >> 8) | (w6 << 8)) & mask;
+    out[9] = (w6 >> 3) & mask;
+    out[10] = ((w6 >> 14) | (w7 << 2)) & mask;
+    out[11] = ((w7 >> 9) | (w8 << 7)) & mask;
+    out[12] = (w8 >> 4) & mask;
+    out[13] = ((w8 >> 15) | (w9 << 1)) & mask;
+    out[14] = ((w9 >> 10) | (w10 << 6)) & mask;
+    out[15] = w10 >> 5;
+
+    return in + (11 * 2);
+  }
+};
+
+template<>
+struct ScalarUnpackerForWidth<uint16_t, 12> {
+
+  static constexpr int kValuesUnpacked = 16;
+
+  static const uint8_t* unpack(const uint8_t* in, uint16_t* out) {
+    constexpr uint16_t mask = ((uint16_t{1} << 12) - uint16_t{1});
+
+    const auto w0 = LoadInt<uint16_t>(in + 0 * 2);
+    const auto w1 = LoadInt<uint16_t>(in + 1 * 2);
+    const auto w2 = LoadInt<uint16_t>(in + 2 * 2);
+    const auto w3 = LoadInt<uint16_t>(in + 3 * 2);
+    const auto w4 = LoadInt<uint16_t>(in + 4 * 2);
+    const auto w5 = LoadInt<uint16_t>(in + 5 * 2);
+    const auto w6 = LoadInt<uint16_t>(in + 6 * 2);
+    const auto w7 = LoadInt<uint16_t>(in + 7 * 2);
+    const auto w8 = LoadInt<uint16_t>(in + 8 * 2);
+    const auto w9 = LoadInt<uint16_t>(in + 9 * 2);
+    const auto w10 = LoadInt<uint16_t>(in + 10 * 2);
+    const auto w11 = LoadInt<uint16_t>(in + 11 * 2);
+    out[0] = (w0) & mask;
+    out[1] = ((w0 >> 12) | (w1 << 4)) & mask;
+    out[2] = ((w1 >> 8) | (w2 << 8)) & mask;
+    out[3] = w2 >> 4;
+    out[4] = (w3) & mask;
+    out[5] = ((w3 >> 12) | (w4 << 4)) & mask;
+    out[6] = ((w4 >> 8) | (w5 << 8)) & mask;
+    out[7] = w5 >> 4;
+    out[8] = (w6) & mask;
+    out[9] = ((w6 >> 12) | (w7 << 4)) & mask;
+    out[10] = ((w7 >> 8) | (w8 << 8)) & mask;
+    out[11] = w8 >> 4;
+    out[12] = (w9) & mask;
+    out[13] = ((w9 >> 12) | (w10 << 4)) & mask;
+    out[14] = ((w10 >> 8) | (w11 << 8)) & mask;
+    out[15] = w11 >> 4;
+
+    return in + (12 * 2);
+  }
+};
+
+template<>
+struct ScalarUnpackerForWidth<uint16_t, 13> {
+
+  static constexpr int kValuesUnpacked = 16;
+
+  static const uint8_t* unpack(const uint8_t* in, uint16_t* out) {
+    constexpr uint16_t mask = ((uint16_t{1} << 13) - uint16_t{1});
+
+    const auto w0 = LoadInt<uint16_t>(in + 0 * 2);
+    const auto w1 = LoadInt<uint16_t>(in + 1 * 2);
+    const auto w2 = LoadInt<uint16_t>(in + 2 * 2);
+    const auto w3 = LoadInt<uint16_t>(in + 3 * 2);
+    const auto w4 = LoadInt<uint16_t>(in + 4 * 2);
+    const auto w5 = LoadInt<uint16_t>(in + 5 * 2);
+    const auto w6 = LoadInt<uint16_t>(in + 6 * 2);
+    const auto w7 = LoadInt<uint16_t>(in + 7 * 2);
+    const auto w8 = LoadInt<uint16_t>(in + 8 * 2);
+    const auto w9 = LoadInt<uint16_t>(in + 9 * 2);
+    const auto w10 = LoadInt<uint16_t>(in + 10 * 2);
+    const auto w11 = LoadInt<uint16_t>(in + 11 * 2);
+    const auto w12 = LoadInt<uint16_t>(in + 12 * 2);
+    out[0] = (w0) & mask;
+    out[1] = ((w0 >> 13) | (w1 << 3)) & mask;
+    out[2] = ((w1 >> 10) | (w2 << 6)) & mask;
+    out[3] = ((w2 >> 7) | (w3 << 9)) & mask;
+    out[4] = ((w3 >> 4) | (w4 << 12)) & mask;
+    out[5] = (w4 >> 1) & mask;
+    out[6] = ((w4 >> 14) | (w5 << 2)) & mask;
+    out[7] = ((w5 >> 11) | (w6 << 5)) & mask;
+    out[8] = ((w6 >> 8) | (w7 << 8)) & mask;
+    out[9] = ((w7 >> 5) | (w8 << 11)) & mask;
+    out[10] = (w8 >> 2) & mask;
+    out[11] = ((w8 >> 15) | (w9 << 1)) & mask;
+    out[12] = ((w9 >> 12) | (w10 << 4)) & mask;
+    out[13] = ((w10 >> 9) | (w11 << 7)) & mask;
+    out[14] = ((w11 >> 6) | (w12 << 10)) & mask;
+    out[15] = w12 >> 3;
+
+    return in + (13 * 2);
+  }
+};
+
+template<>
+struct ScalarUnpackerForWidth<uint16_t, 14> {
+
+  static constexpr int kValuesUnpacked = 16;
+
+  static const uint8_t* unpack(const uint8_t* in, uint16_t* out) {
+    constexpr uint16_t mask = ((uint16_t{1} << 14) - uint16_t{1});
+
+    const auto w0 = LoadInt<uint16_t>(in + 0 * 2);
+    const auto w1 = LoadInt<uint16_t>(in + 1 * 2);
+    const auto w2 = LoadInt<uint16_t>(in + 2 * 2);
+    const auto w3 = LoadInt<uint16_t>(in + 3 * 2);
+    const auto w4 = LoadInt<uint16_t>(in + 4 * 2);
+    const auto w5 = LoadInt<uint16_t>(in + 5 * 2);
+    const auto w6 = LoadInt<uint16_t>(in + 6 * 2);
+    const auto w7 = LoadInt<uint16_t>(in + 7 * 2);
+    const auto w8 = LoadInt<uint16_t>(in + 8 * 2);
+    const auto w9 = LoadInt<uint16_t>(in + 9 * 2);
+    const auto w10 = LoadInt<uint16_t>(in + 10 * 2);
+    const auto w11 = LoadInt<uint16_t>(in + 11 * 2);
+    const auto w12 = LoadInt<uint16_t>(in + 12 * 2);
+    const auto w13 = LoadInt<uint16_t>(in + 13 * 2);
+    out[0] = (w0) & mask;
+    out[1] = ((w0 >> 14) | (w1 << 2)) & mask;
+    out[2] = ((w1 >> 12) | (w2 << 4)) & mask;
+    out[3] = ((w2 >> 10) | (w3 << 6)) & mask;
+    out[4] = ((w3 >> 8) | (w4 << 8)) & mask;
+    out[5] = ((w4 >> 6) | (w5 << 10)) & mask;
+    out[6] = ((w5 >> 4) | (w6 << 12)) & mask;
+    out[7] = w6 >> 2;
+    out[8] = (w7) & mask;
+    out[9] = ((w7 >> 14) | (w8 << 2)) & mask;
+    out[10] = ((w8 >> 12) | (w9 << 4)) & mask;
+    out[11] = ((w9 >> 10) | (w10 << 6)) & mask;
+    out[12] = ((w10 >> 8) | (w11 << 8)) & mask;
+    out[13] = ((w11 >> 6) | (w12 << 10)) & mask;
+    out[14] = ((w12 >> 4) | (w13 << 12)) & mask;
+    out[15] = w13 >> 2;
+
+    return in + (14 * 2);
+  }
+};
+
+template<>
+struct ScalarUnpackerForWidth<uint16_t, 15> {
+
+  static constexpr int kValuesUnpacked = 16;
+
+  static const uint8_t* unpack(const uint8_t* in, uint16_t* out) {
+    constexpr uint16_t mask = ((uint16_t{1} << 15) - uint16_t{1});
+
+    const auto w0 = LoadInt<uint16_t>(in + 0 * 2);
+    const auto w1 = LoadInt<uint16_t>(in + 1 * 2);
+    const auto w2 = LoadInt<uint16_t>(in + 2 * 2);
+    const auto w3 = LoadInt<uint16_t>(in + 3 * 2);
+    const auto w4 = LoadInt<uint16_t>(in + 4 * 2);
+    const auto w5 = LoadInt<uint16_t>(in + 5 * 2);
+    const auto w6 = LoadInt<uint16_t>(in + 6 * 2);
+    const auto w7 = LoadInt<uint16_t>(in + 7 * 2);
+    const auto w8 = LoadInt<uint16_t>(in + 8 * 2);
+    const auto w9 = LoadInt<uint16_t>(in + 9 * 2);
+    const auto w10 = LoadInt<uint16_t>(in + 10 * 2);
+    const auto w11 = LoadInt<uint16_t>(in + 11 * 2);
+    const auto w12 = LoadInt<uint16_t>(in + 12 * 2);
+    const auto w13 = LoadInt<uint16_t>(in + 13 * 2);
+    const auto w14 = LoadInt<uint16_t>(in + 14 * 2);
+    out[0] = (w0) & mask;
+    out[1] = ((w0 >> 15) | (w1 << 1)) & mask;
+    out[2] = ((w1 >> 14) | (w2 << 2)) & mask;
+    out[3] = ((w2 >> 13) | (w3 << 3)) & mask;
+    out[4] = ((w3 >> 12) | (w4 << 4)) & mask;
+    out[5] = ((w4 >> 11) | (w5 << 5)) & mask;
+    out[6] = ((w5 >> 10) | (w6 << 6)) & mask;
+    out[7] = ((w6 >> 9) | (w7 << 7)) & mask;
+    out[8] = ((w7 >> 8) | (w8 << 8)) & mask;
+    out[9] = ((w8 >> 7) | (w9 << 9)) & mask;
+    out[10] = ((w9 >> 6) | (w10 << 10)) & mask;
+    out[11] = ((w10 >> 5) | (w11 << 11)) & mask;
+    out[12] = ((w11 >> 4) | (w12 << 12)) & mask;
+    out[13] = ((w12 >> 3) | (w13 << 13)) & mask;
+    out[14] = ((w13 >> 2) | (w14 << 14)) & mask;
+    out[15] = w14 >> 1;
+
+    return in + (15 * 2);
+  }
+};
+
+
+
+template<>
 struct ScalarUnpackerForWidth<uint32_t, 1> {
 
   static constexpr int kValuesUnpacked = 32;
