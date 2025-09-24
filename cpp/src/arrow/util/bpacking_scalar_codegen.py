@@ -204,8 +204,13 @@ if __name__ == "__main__":
     print_note()
     print(HEADER)
 
-    gen = ScalarUnpackGenerator(32, smart_halve=False)
+    gen = ScalarUnpackGenerator(16, smart_halve=False)
     gen.print_struct_declaration()
+    print()
+    gen.print_structs()
+    print()
+
+    gen = ScalarUnpackGenerator(32, smart_halve=False)
     print()
 
     gen.print_structs()

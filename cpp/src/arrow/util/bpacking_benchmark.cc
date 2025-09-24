@@ -102,8 +102,13 @@ void BM_Unpack(benchmark::State& state, bool aligned, UnpackFunc<Int> unpack, bo
 
 constexpr int32_t kMinRange = 64;
 constexpr int32_t kMaxRange = 32768;
+constexpr std::initializer_list<int64_t> kBitWidths16 = {1, 2, 8, 13};
 constexpr std::initializer_list<int64_t> kBitWidths32 = {1, 2, 8, 20};
 constexpr std::initializer_list<int64_t> kBitWidths64 = {1, 2, 8, 20, 47};
+static const std::vector<std::vector<int64_t>> kBitWidthsNumValues16 = {
+    kBitWidths16,
+    benchmark::CreateRange(kMinRange, kMaxRange, /*multi=*/32),
+};
 static const std::vector<std::vector<int64_t>> kBitWidthsNumValues32 = {
     kBitWidths32,
     benchmark::CreateRange(kMinRange, kMaxRange, /*multi=*/32),
@@ -113,6 +118,11 @@ static const std::vector<std::vector<int64_t>> kBitWidthsNumValues64 = {
     benchmark::CreateRange(kMinRange, kMaxRange, /*multi=*/32),
 };
 
+/// Nudge for MSVC template inside BENCHMARK_CAPTURE macro.
+void BM_UnpackUint16(benchmark::State& state, bool aligned, UnpackFunc<uint16_t> unpack,
+                     bool skip = false, std::string skip_msg = "") {
+  return BM_Unpack<uint16_t>(state, aligned, unpack, skip, std::move(skip_msg));
+}
 /// Nudge for MSVC template inside BENCHMARK_CAPTURE macro.
 void BM_UnpackUint32(benchmark::State& state, bool aligned, UnpackFunc<uint32_t> unpack,
                      bool skip = false, std::string skip_msg = "") {
@@ -124,6 +134,8 @@ void BM_UnpackUint64(benchmark::State& state, bool aligned, UnpackFunc<uint64_t>
   return BM_Unpack<uint64_t>(state, aligned, unpack, skip, std::move(skip_msg));
 }
 
+BENCHMARK_CAPTURE(BM_UnpackUint16, ScalarUnaligned, false, unpack16_scalar)
+    ->ArgsProduct(kBitWidthsNumValues16);
 BENCHMARK_CAPTURE(BM_UnpackUint32, ScalarUnaligned, false, unpack32_scalar)
     ->ArgsProduct(kBitWidthsNumValues32);
 BENCHMARK_CAPTURE(BM_UnpackUint64, ScalarUnaligned, false, unpack64_scalar)

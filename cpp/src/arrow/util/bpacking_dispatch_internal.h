@@ -61,6 +61,50 @@ int unpack(const uint8_t* in, Uint* out, int batch_size) {
 }
 
 template <template <typename, int> typename Unpacker>
+static int unpack_jump16(const uint8_t* in, uint16_t* out, int batch_size, int num_bits) {
+  switch (num_bits) {
+    case 0:
+      return unpack_null(in, out, batch_size);
+    case 1:
+      return unpack<1, Unpacker>(in, out, batch_size);
+    case 2:
+      return unpack<2, Unpacker>(in, out, batch_size);
+    case 3:
+      return unpack<3, Unpacker>(in, out, batch_size);
+    case 4:
+      return unpack<4, Unpacker>(in, out, batch_size);
+    case 5:
+      return unpack<5, Unpacker>(in, out, batch_size);
+    case 6:
+      return unpack<6, Unpacker>(in, out, batch_size);
+    case 7:
+      return unpack<7, Unpacker>(in, out, batch_size);
+    case 8:
+      return unpack<8, Unpacker>(in, out, batch_size);
+    case 9:
+      return unpack<9, Unpacker>(in, out, batch_size);
+    case 10:
+      return unpack<10, Unpacker>(in, out, batch_size);
+    case 11:
+      return unpack<11, Unpacker>(in, out, batch_size);
+    case 12:
+      return unpack<12, Unpacker>(in, out, batch_size);
+    case 13:
+      return unpack<13, Unpacker>(in, out, batch_size);
+    case 14:
+      return unpack<14, Unpacker>(in, out, batch_size);
+    case 15:
+      return unpack<15, Unpacker>(in, out, batch_size);
+    case 16:
+      return unpack_full(in, out, batch_size);
+    default:
+      ARROW_DCHECK(false) << "Unsupported num_bits";
+  }
+
+  return 0;
+}
+
+template <template <typename, int> typename Unpacker>
 static int unpack_jump32(const uint8_t* in, uint32_t* out, int batch_size, int num_bits) {
   switch (num_bits) {
     case 0:
