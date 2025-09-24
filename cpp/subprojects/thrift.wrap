@@ -1,0 +1,23 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+[wrap-file]
+source_url = https://github.com/apache/thrift/archive/refs/tags/v0.20.0.tar.gz
+source_filename = thrift-0.20.0.tar.gz
+source_hash = cd7b829d3d9d87f9f7d708e004eef7629789591ee1d416f4741913bc33e5c27d
+directory = thrift-0.20.0
+method = cmake

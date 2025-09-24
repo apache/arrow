@@ -175,6 +175,7 @@ arrow_util_srcs = [
     'util/bitmap_ops.cc',
     'util/bpacking.cc',
     'util/byte_size.cc',
+    'util/byte_stream_split_internal.cc',
     'util/cancel.cc',
     'util/compression.cc',
     'util/counting_semaphore.cc',
@@ -199,6 +200,7 @@ arrow_util_srcs = [
     'util/memory.cc',
     'util/mutex.cc',
     'util/ree_util.cc',
+    'util/secure_string.cc',
     'util/string.cc',
     'util/string_util.cc',
     'util/task_group.cc',
@@ -223,7 +225,16 @@ endif
 
 if needs_bz2
     arrow_util_srcs += ['util/compression_bz2.cc']
-    arrow_util_deps += dependency('bzip2')
+    bzip2 = cpp_compiler.find_library(
+        'bz2',
+        has_headers: ['bzlib.h'],
+        required: false,
+    )
+    if bzip2.found()
+        arrow_util_deps += bzip2
+    else
+        arrow_util_deps += dependency('bzip2')
+    endif
 endif
 
 if needs_lz4
@@ -233,7 +244,7 @@ endif
 
 if needs_snappy
     arrow_util_srcs += ['util/compression_snappy.cc']
-    arrow_util_deps += dependency('snappy')
+    arrow_util_deps += dependency('snappy', 'Snappy')
 endif
 
 if needs_zlib
@@ -318,30 +329,81 @@ if needs_filesystem
 
     if needs_azure
         arrow_filesystem_srcs += ['filesystem/azurefs.cc']
-        cmake = import('cmake')
-        azure_opt = cmake.subproject_options()
-        azure_opt.add_cmake_defines(
-            {'BUILD_PERFORMANCE_TESTS': 'FALSE'},
-            {'BUILD_SAMPLES': 'FALSE'},
-            {'BUILD_TESTING': 'FALSE'},
-            {'BUILD_WINDOWS_UWP': 'TRUE'},
-            {'CMAKE_UNITY_BUILD': 'FALSE'},
-            {'DISABLE_AZURE_CORE_OPENTELEMETRY': 'TRUE'},
-            {'ENV{AZURE_SDK_DISABLE_AUTO_VCPKG}': 'TRUE'},
-            {'WARNINGS_AS_ERRORS': 'FALSE'},
-        )
-        azure_opt.append_compile_args('cpp', '-fPIC')
-        azure_proj = cmake.subproject('azure', options: azure_opt)
 
-        azure_dep = declare_dependency(
-            dependencies: [
-                azure_proj.dependency('azure-core'),
-                azure_proj.dependency('azure-identity'),
-                azure_proj.dependency('azure-storage-blobs'),
-                azure_proj.dependency('azure-storage-common'),
-                azure_proj.dependency('azure-storage-files-datalake'),
-            ],
+        azure_core_dep = dependency(
+            'azure-core-cpp',
+            allow_fallback: false,
+            modules: ['Azure::azure-core'],
+            required: false,
         )
+        azure_identity_dep = dependency(
+            'azure-identity-cpp',
+            allow_fallback: false,
+            modules: ['Azure::azure-identity'],
+            required: false,
+        )
+        azure_storage_blobs_dep = dependency(
+            'azure-storage-blobs-cpp',
+            allow_fallback: false,
+            modules: ['Azure::azure-storage-blobs'],
+            required: false,
+        )
+        azure_storage_common_dep = dependency(
+            'azure-storage-common-cpp',
+            allow_fallback: false,
+            modules: ['Azure::azure-storage-common'],
+            required: false,
+        )
+        azure_storage_files_datalake_dep = dependency(
+            'azure-storage-files-datalake-cpp',
+            allow_fallback: false,
+            modules: ['Azure::azure-storage-files-datalake'],
+            required: false,
+        )
+
+        if (
+            azure_core_dep.found()
+            and azure_identity_dep.found()
+            and azure_storage_blobs_dep.found()
+            and azure_storage_common_dep.found()
+            and azure_storage_files_datalake_dep.found()
+        )
+            azure_dep = declare_dependency(
+                dependencies: [
+                    azure_core_dep,
+                    azure_identity_dep,
+                    azure_storage_blobs_dep,
+                    azure_storage_common_dep,
+                    azure_storage_files_datalake_dep,
+                ],
+            )
+        else
+            cmake = import('cmake')
+            azure_opt = cmake.subproject_options()
+            azure_opt.add_cmake_defines(
+                {'BUILD_PERFORMANCE_TESTS': 'FALSE'},
+                {'BUILD_SAMPLES': 'FALSE'},
+                {'BUILD_TESTING': 'FALSE'},
+                {'BUILD_WINDOWS_UWP': 'TRUE'},
+                {'CMAKE_UNITY_BUILD': 'FALSE'},
+                {'DISABLE_AZURE_CORE_OPENTELEMETRY': 'TRUE'},
+                {'ENV{AZURE_SDK_DISABLE_AUTO_VCPKG}': 'TRUE'},
+                {'WARNINGS_AS_ERRORS': 'FALSE'},
+            )
+            azure_opt.append_compile_args('cpp', '-fPIC')
+            azure_proj = cmake.subproject('azure', options: azure_opt)
+
+            azure_dep = declare_dependency(
+                dependencies: [
+                    azure_proj.dependency('azure-core'),
+                    azure_proj.dependency('azure-identity'),
+                    azure_proj.dependency('azure-storage-blobs'),
+                    azure_proj.dependency('azure-storage-common'),
+                    azure_proj.dependency('azure-storage-files-datalake'),
+                ],
+            )
+        endif
+
         arrow_filesystem_deps += [azure_dep]
     endif
 

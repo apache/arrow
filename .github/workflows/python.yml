@@ -239,3 +239,60 @@ jobs:
       - name: Test
         shell: bash
         run: ci/scripts/python_test.sh $(pwd) $(pwd)/build
+
+  windows:
+    name: AMD64 Windows 2022 Python 3.13
+    runs-on: windows-2022
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
+    timeout-minutes: 60
+    env:
+      PYTHON_CMD: "py -3.13"
+    steps:
+      - name: Disable Crash Dialogs
+        run: |
+          reg add `
+            "HKCU\SOFTWARE\Microsoft\Windows\Windows Error Reporting" `
+            /v DontShowUI `
+            /t REG_DWORD `
+            /d 1 `
+            /f
+      - name: Checkout Arrow
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          submodules: recursive
+      - name: Setup Python
+        uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6.0.0
+        with:
+          python-version: 3.13
+      - name: Install ccache
+        shell: bash
+        run: |
+          ci/scripts/install_ccache.sh 4.6.3 /usr
+      - name: Setup ccache
+        shell: bash
+        run: |
+          ci/scripts/ccache_setup.sh
+      - name: Generate path variables
+        id: path-info
+        shell: bash
+        run: |
+          echo "CCACHE_DIR=$(ccache --get-config cache_dir)" >> $GITHUB_ENV
+          echo "usr-windows-dir="$(cygpath --absolute --windows /usr)"" >> $GITHUB_OUTPUT
+      - name: Cache ccache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.CCACHE_DIR }}
+          key: python-ccache-windows-${{ env.CACHE_VERSION }}-${{ hashFiles('cpp/**') }}
+          restore-keys: python-ccache-windows-${{ env.CACHE_VERSION }}-
+        env:
+          # We can invalidate the current cache by updating this.
+          CACHE_VERSION: "2025-09-16.1"
+      - name: Build Arrow C++ and PyArrow
+        shell: cmd
+        run: |
+          call "ci\scripts\python_build.bat" %cd% "${{ steps.path-info.outputs.usr-windows-dir }}"
+      - name: Test PyArrow
+        shell: cmd
+        run: |
+          call "ci\scripts\python_test.bat" %cd%

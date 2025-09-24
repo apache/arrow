@@ -21,6 +21,7 @@
 #include <mutex>
 #include <unordered_map>
 #include <unordered_set>
+#include <iostream>
 #include <utility>
 #include <vector>
 
@@ -676,6 +677,7 @@ struct SlicingGenerator {
 Result<RecordBatchGenerator> ParquetFileFormat::ScanBatchesAsync(
     const std::shared_ptr<ScanOptions>& options,
     const std::shared_ptr<FileFragment>& file) const {
+  std::cout << "[DEBUG] got here..." << std::endl;
   auto parquet_fragment = checked_pointer_cast<ParquetFileFragment>(file);
   std::vector<int> row_groups;
   bool pre_filtered = false;
@@ -712,10 +714,12 @@ Result<RecordBatchGenerator> ParquetFileFormat::ScanBatchesAsync(
             kParquetTypeName, options.get(), default_fragment_scan_options));
     int batch_readahead = options->batch_readahead;
     int64_t rows_to_readahead = batch_readahead * options->batch_size;
-    ARROW_ASSIGN_OR_RAISE(auto generator,
-                          reader->GetRecordBatchGenerator(
-                              reader, row_groups, column_projection,
-                              ::arrow::internal::GetCpuThreadPool(), rows_to_readahead));
+    // Use the executor from scan options if provided.
+    auto cpu_executor = options->cpu_executor ? options->cpu_executor
+                                              : ::arrow::internal::GetCpuThreadPool();
+    ARROW_ASSIGN_OR_RAISE(auto generator, reader->GetRecordBatchGenerator(
+                                              reader, row_groups, column_projection,
+                                              cpu_executor, rows_to_readahead));
     // We need to skip casting the dictionary columns since the dataset_schema doesn't
     // have the dictionary-encoding information. Parquet reader will return them with the
     // dictionary type, which is what we eventually want.

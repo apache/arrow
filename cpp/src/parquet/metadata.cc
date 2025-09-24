@@ -327,10 +327,7 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
   // 2) Statistics must not be corrupted
   inline bool is_stats_set() const {
     DCHECK(writer_version_ != nullptr);
-    // If the column statistics don't exist or column sort order is unknown
-    // we cannot use the column stats
-    if (!column_metadata_->__isset.statistics ||
-        descr_->sort_order() == SortOrder::UNKNOWN) {
+    if (!column_metadata_->__isset.statistics) {
       return false;
     }
     {
@@ -338,6 +335,10 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
       if (possible_encoded_stats_ == nullptr) {
         possible_encoded_stats_ =
             std::make_shared<EncodedStatistics>(FromThrift(column_metadata_->statistics));
+        if (descr_->sort_order() == SortOrder::UNKNOWN) {
+          // If the column SortOrder is Unknown we can't trust max/min.
+          possible_encoded_stats_->ClearMinMax();
+        }
       }
     }
     return writer_version_->HasCorrectStatistics(type(), *possible_encoded_stats_,
@@ -1586,11 +1587,6 @@ bool ApplicationVersion::HasCorrectStatistics(Type::type col_type,
   // parquet-mr during the same time as PARQUET-251, see PARQUET-297
   if (application_ == "unknown") {
     return true;
-  }
-
-  // Unknown sort order has incorrect stats
-  if (SortOrder::UNKNOWN == sort_order) {
-    return false;
   }
 
   // PARQUET-251

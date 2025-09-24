@@ -163,6 +163,14 @@ class PARQUET_EXPORT EncodedStatistics {
     }
   }
 
+  // Clear Min Max.
+  void ClearMinMax() {
+    has_max = false;
+    max_.clear();
+    has_min = false;
+    min_.clear();
+  }
+
   bool is_set() const {
     return has_min || has_max || has_null_count || has_distinct_count;
   }

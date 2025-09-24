@@ -305,9 +305,6 @@ repos:
           ?^ci/scripts/conan_build\.sh$|
           ?^ci/scripts/conan_setup\.sh$|
           ?^ci/scripts/cpp_test\.sh$|
-          ?^ci/scripts/csharp_build\.sh$|
-          ?^ci/scripts/csharp_pack\.sh$|
-          ?^ci/scripts/csharp_test\.sh$|
           ?^ci/scripts/download_tz_database\.sh$|
           ?^ci/scripts/install_azurite\.sh$|
           ?^ci/scripts/install_ccache\.sh$|

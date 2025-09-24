@@ -152,7 +152,6 @@ x-hierarchy:
   - ubuntu-cpp-minimal
   - ubuntu-cuda-cpp:
     - ubuntu-cuda-python
-  - ubuntu-csharp
   - ubuntu-cpp-sanitizer
   - ubuntu-cpp-thread-sanitizer
   - ubuntu-cpp-emscripten
@@ -1726,30 +1725,6 @@ services:
     volumes: *ubuntu-volumes
     command: >
       /bin/bash -c "/arrow/ci/scripts/r_revdepcheck.sh /arrow"
-
-  #################################### C# #####################################
-
-  ubuntu-csharp:
-    # Usage:
-    #   docker compose build ubuntu-csharp
-    #   docker compose run ubuntu-csharp
-    image: ${REPO}:${ARCH}-ubuntu-22.04-csharp-${DOTNET}
-    build:
-      context: .
-      dockerfile: ci/docker/ubuntu-22.04-csharp.dockerfile
-      cache_from:
-        - ${REPO}:${ARCH}-ubuntu-22.04-csharp-${DOTNET}
-      args:
-        arch: ${ARCH}
-        dotnet: ${DOTNET}
-        platform: jammy
-    shm_size: *shm-size
-    volumes: *ubuntu-volumes
-    command: &csharp-command >
-      /bin/bash -c "
-        /arrow/ci/scripts/csharp_build.sh /arrow &&
-        /arrow/ci/scripts/csharp_test.sh /arrow &&
-        /arrow/ci/scripts/csharp_pack.sh /arrow"
 
   ############################## Integration ##################################
 
