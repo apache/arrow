@@ -227,6 +227,7 @@ INSTANTIATE_TEST_SUITE_P(
                       TestUnpackSize{2048, 32}, TestUnpackSize{2048, 63},
                       TestUnpackSize{2048, 64}));
 
+TEST_P(TestUnpack, Unpack16Scalar) { this->TestAll(&unpack16_scalar); }
 TEST_P(TestUnpack, Unpack32Scalar) { this->TestAll(&unpack32_scalar); }
 TEST_P(TestUnpack, Unpack64Scalar) { this->TestAll(&unpack64_scalar); }
 
