@@ -17,6 +17,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
+set -ex
 
 ## These hooks are used by benchmark builds
 # to create a conda env with Arrow dependencies and build Arrow C++, Python, etc
