@@ -157,7 +157,6 @@ class AzuriteEnv : public AzureEnvImpl<AzuriteEnv> {
   std::unique_ptr<TemporaryDir> temp_dir_;
   arrow::internal::PlatformFilename debug_log_path_;
   std::unique_ptr<util::Process> server_process_;
-  arrow::Status status_;
 
   using AzureEnvImpl::AzureEnvImpl;
 
