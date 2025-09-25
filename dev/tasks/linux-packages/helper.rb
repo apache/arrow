@@ -47,7 +47,7 @@ module Helper
 
     def detect_version(release_time)
       version_env = ENV["ARROW_VERSION"]
-      return version_env unless version_env.nil? || version_env.empty?
+      return version_env unless version_env.to_s.empty?
 
       cmakelists_txt_path = File.join(arrow_source_dir, "cpp", "CMakeLists.txt")
       cmakelists_txt_content = File.read(cmakelists_txt_path)
