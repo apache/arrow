@@ -812,7 +812,6 @@ def integration(with_all=False, random_seed=12345, write_generated_json="",
         if len(testers) == 0:
             raise click.UsageError(
                 "Need to enable at least one implementation to test; try --help")
-        print(testers)
         run_all_tests(testers, other_testers, **args)
 
 
