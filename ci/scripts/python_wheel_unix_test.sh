@@ -108,7 +108,7 @@ if [ "${CHECK_UNITTESTS}" == "ON" ]; then
   # Install testing dependencies
   if [ "$(is_free_threaded)" = "ON" ]; then
     echo "Free-threaded Python build detected"
-    python -m pip install --no-build-isolation -r "${source_dir}/python/requirements-wheel-test-3.13t.txt"
+    python -m pip install -U -r "${source_dir}/python/requirements-wheel-test-3.13t.txt"
   elif [ "$(is_free_threaded)" = "OFF" ]; then
     echo "Regular Python build detected"
     python -m pip install -U -r "${source_dir}/python/requirements-wheel-test.txt"

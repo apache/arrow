@@ -56,7 +56,6 @@ RUN cp /usr/share/zoneinfo/Etc/UTC /etc/localtime
 
 # pandas doesn't provide wheels for aarch64 yet, so we have to install nightly Cython
 # along with the rest of pandas' build dependencies and disable build isolation
-COPY python/requirements-wheel-test-3.13t.txt /arrow/python/
 RUN python -m pip install \
     --pre \
     --prefer-binary \
