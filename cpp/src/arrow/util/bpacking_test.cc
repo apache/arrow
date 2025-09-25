@@ -270,8 +270,8 @@ TEST_P(TestUnpack, Unpack32Neon) { this->TestAll(&unpack32_neon); }
 TEST_P(TestUnpack, Unpack64Neon) { this->TestAll(&unpack64_neon); }
 #endif
 
-TEST_P(TestUnpack, Unpack16) { this->TestAll(&unpack16); }
-TEST_P(TestUnpack, Unpack32) { this->TestAll(&unpack32); }
-TEST_P(TestUnpack, Unpack64) { this->TestAll(&unpack64); }
+TEST_P(TestUnpack, Unpack16) { this->TestAll(&unpack<uint16_t>); }
+TEST_P(TestUnpack, Unpack32) { this->TestAll(&unpack<uint32_t>); }
+TEST_P(TestUnpack, Unpack64) { this->TestAll(&unpack<uint64_t>); }
 
 }  // namespace arrow::internal
