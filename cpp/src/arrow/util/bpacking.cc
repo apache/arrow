@@ -34,10 +34,6 @@ struct Unpack16DynamicFunction {
             ,
             {DispatchLevel::AVX2, unpack16_avx2}
 #endif
-#if defined(ARROW_HAVE_RUNTIME_AVX512)
-            ,
-            {DispatchLevel::AVX512, unpack16_avx512}
-#endif
     };
   }
 };
