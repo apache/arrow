@@ -147,8 +147,13 @@ Result<std::shared_ptr<RecordBatch>> ExampleBatch1() {
       {name_gen(), gen.Decimal32(decimal32(7, 3), kBatchSize, kNullProbability)});
 
   // Timestamp
+  // (Parquet doesn't have seconds timestamps so the values are going to be
+  //  multiplied by 10)
+  auto int64_timestamps_array =
+      gen.Int64(kBatchSize, -9000000000000000LL, 9000000000000000LL, kNullProbability);
   for (auto unit : TimeUnit::values()) {
-    ARROW_ASSIGN_OR_RAISE(auto timestamps, int64_array->View(timestamp(unit, "UTC")));
+    ARROW_ASSIGN_OR_RAISE(auto timestamps,
+                          int64_timestamps_array->View(timestamp(unit, "UTC")));
     columns.push_back({name_gen(), timestamps});
   }
   // Time32, time64
