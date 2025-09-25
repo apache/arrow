@@ -1645,30 +1645,24 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
             progress_label = "Copying: #{distribution} #{code_name}"
             progress_reporter = ProgressReporter.new(progress_label)
 
-            destination_prefix = "#{incoming_dir}/#{distribution}"
-            rm_rf(destination_prefix, verbose: verbose?)
+            destination_dir = "#{incoming_dir}/#{distribution}"
+            rm_rf(destination_dir, verbose: verbose?)
 
             # Copy the entire repository structure
             source_pattern = "#{artifacts_dir}/#{distribution}-#{code_name}*/*/" \
                              "apt/repositories/#{distribution}"
             Dir.glob(source_pattern) do |repo_source|
               progress_reporter.increment_max
-              mkdir_p(File.dirname(destination_prefix), verbose: verbose?)
-              cp_r(repo_source, destination_prefix, preserve: true, verbose: verbose?)
+              mkdir_p(File.dirname(destination_dir), verbose: verbose?)
+              cp_r(repo_source, destination_dir, preserve: true, verbose: verbose?)
               progress_reporter.advance
             end
 
             # Create latest package links after copying
-            Dir.glob("#{destination_prefix}/**/*-apt-source_*.deb") do |apt_source_path|
-              base_name = File.basename(apt_source_path)
-              package_name = ENV["DEB_PACKAGE_NAME"]
-              if package_name.nil? or package_name.empty?
-                package_name = "apache-arrow-apt-source"
-              end
-
+            Dir.glob("#{destination_dir}/**/*-apt-source_*.deb") do |apt_source_path|
               latest_apt_source_package_path = [
-                destination_prefix,
-                "#{package_name}-latest-#{code_name}.deb"
+                destination_dir,
+                "apache-arrow-apt-source-latest-#{code_name}.deb"
               ].join("/")
 
               copy_artifact(apt_source_path,
@@ -2035,8 +2029,8 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
             progress_label = "Copying: #{distribution} #{distribution_version}"
             progress_reporter = ProgressReporter.new(progress_label)
 
-            destination_prefix = "#{incoming_dir}/#{distribution}/#{distribution_version}"
-            rm_rf(destination_prefix, verbose: verbose?)
+            destination_dir = "#{incoming_dir}/#{distribution}/#{distribution_version}"
+            rm_rf(destination_dir, verbose: verbose?)
 
             # Copy all repository structures for this distribution/version
             source_pattern = "#{artifacts_dir}/#{distribution}-#{distribution_version}*/*/" \
@@ -2047,7 +2041,7 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
               # Copy and merge all architectures
               Dir.glob("#{repo_source}/*") do |arch_dir|
                 arch_name = File.basename(arch_dir)
-                destination_arch_dir = "#{destination_prefix}/#{arch_name}"
+                destination_arch_dir = "#{destination_dir}/#{arch_name}"
                 mkdir_p(File.dirname(destination_arch_dir), verbose: verbose?)
                 cp_r(arch_dir, destination_arch_dir, preserve: true, verbose: verbose?)
               end
