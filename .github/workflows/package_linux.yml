@@ -92,23 +92,23 @@ jobs:
         id:
           - almalinux-8-amd64
           - almalinux-8-arm64
-          #- almalinux-9-amd64
-          #- almalinux-9-arm64
-          #- almalinux-10-amd64
-          #- almalinux-10-arm64
-          #- amazon-linux-2023-amd64
-          #- amazon-linux-2023-arm64
-          #- centos-9-stream-amd64
-          #- centos-9-stream-arm64
-          #- centos-7-amd64
-          #- debian-bookworm-amd64
-          #- debian-bookworm-arm64
-          #- debian-trixie-amd64
-          #- debian-trixie-arm64
-          #- debian-forky-amd64
-          #- debian-forky-arm64
-          #- ubuntu-jammy-amd64
-          #- ubuntu-jammy-arm64
+          - almalinux-9-amd64
+          - almalinux-9-arm64
+          - almalinux-10-amd64
+          - almalinux-10-arm64
+          - amazon-linux-2023-amd64
+          - amazon-linux-2023-arm64
+          - centos-9-stream-amd64
+          - centos-9-stream-arm64
+          - centos-7-amd64
+          - debian-bookworm-amd64
+          - debian-bookworm-arm64
+          - debian-trixie-amd64
+          - debian-trixie-arm64
+          - debian-forky-amd64
+          - debian-forky-arm64
+          - ubuntu-jammy-amd64
+          - ubuntu-jammy-arm64
           - ubuntu-noble-amd64
           - ubuntu-noble-arm64
     env:
@@ -238,9 +238,7 @@ jobs:
         run: |
           set -ex
           pushd dev/tasks/linux-packages
-          mkdir -p artifacts
-          cp -a */${TASK_NAMESPACE}/repositories/* artifacts/
-          tar cvzf ${{ matrix.id }}.tar.gz -C artifacts .
+          tar cvzf ${{ matrix.id }}.tar.gz */${TASK_NAMESPACE}/repositories
           popd
       - name: Upload the artifacts to the job
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
@@ -278,7 +276,7 @@ jobs:
           echo "GPG_KEY_ID=${GPG_KEY_ID}" >> ${GITHUB_ENV}
           case "${{ matrix.id }}" in
             almalinux-*|amazon-linux-*|centos-*)
-              repositories_dir=dev/tasks/linux-packages
+              repositories_dir=dev/tasks/linux-packages/apache-arrow-release/yum/repositories
               rpm2cpio ${repositories_dir}/*/*/*/Packages/apache-arrow-release-*.rpm | \
                 cpio -id
               mv etc/pki/rpm-gpg/RPM-GPG-KEY-Apache-Arrow \
