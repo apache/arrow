@@ -20,35 +20,13 @@
 #include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/platform.h"
 #include "arrow/util/io_util.h"
 #include "arrow/util/logging.h"
-
-#define ODBC_LOG_LEVEL "ARROW_ODBC_LOG_LEVEL"
+#include "arrow/util/string.h"
 
 using arrow::util::ArrowLogLevel;
 
-namespace {
-/// Return the corresponding ArrowLogLevel. Debug level is returned by default.
-ArrowLogLevel ToLogLevel(int64_t level) {
-  switch (level) {
-    case -2:
-      return ArrowLogLevel::ARROW_TRACE;
-    case -1:
-      return ArrowLogLevel::ARROW_DEBUG;
-    case 0:
-      return ArrowLogLevel::ARROW_INFO;
-    case 1:
-      return ArrowLogLevel::ARROW_WARNING;
-    case 2:
-      return ArrowLogLevel::ARROW_ERROR;
-    case 3:
-      return ArrowLogLevel::ARROW_FATAL;
-    default:
-      return ArrowLogLevel::ARROW_DEBUG;
-  }
-}
-}  // namespace
-
 namespace driver {
 namespace flight_sql {
+static constexpr const char* kODBCLogLevel = "ARROW_ODBC_LOG_LEVEL";
 
 using odbcabstraction::Connection;
 using odbcabstraction::OdbcVersion;
@@ -67,11 +45,29 @@ odbcabstraction::Diagnostics& FlightSqlDriver::GetDiagnostics() { return diagnos
 void FlightSqlDriver::SetVersion(std::string version) { version_ = std::move(version); }
 
 void FlightSqlDriver::RegisterLog() {
-  std::string log_level_str = arrow::internal::GetEnvVar(ODBC_LOG_LEVEL).ValueOr("");
+  std::string log_level_str = arrow::internal::GetEnvVar(kODBCLogLevel)
+                                  .Map(arrow::internal::AsciiToLower)
+                                  .Map(arrow::internal::TrimString)
+                                  .ValueOr("");
   if (log_level_str.empty()) {
     return;
   }
-  auto log_level = ToLogLevel(std::stoi(log_level_str));
+
+  auto log_level = ArrowLogLevel::ARROW_DEBUG;
+
+  if (log_level_str == "fatal") {
+    log_level = ArrowLogLevel::ARROW_FATAL;
+  } else if (log_level_str == "error") {
+    log_level = ArrowLogLevel::ARROW_ERROR;
+  } else if (log_level_str == "warning") {
+    log_level = ArrowLogLevel::ARROW_WARNING;
+  } else if (log_level_str == "info") {
+    log_level = ArrowLogLevel::ARROW_INFO;
+  } else if (log_level_str == "debug") {
+    log_level = ArrowLogLevel::ARROW_DEBUG;
+  } else if (log_level_str == "trace") {
+    log_level = ArrowLogLevel::ARROW_TRACE;
+  }
 
   // Enable driver logging. Log files are not supported on Windows yet, since GLOG is not
   // tested fully on Windows.
