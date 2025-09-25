@@ -56,8 +56,7 @@ set ARROW_WITH_SNAPPY=ON
 set ARROW_WITH_ZLIB=ON
 set ARROW_WITH_ZSTD=ON
 set CMAKE_UNITY_BUILD=ON
-set CMAKE_GENERATOR=Visual Studio 17 2022
-set CMAKE_PLATFORM=x64
+set CMAKE_GENERATOR=Ninja
 set VCPKG_ROOT=C:\vcpkg
 set VCPKG_FEATURE_FLAGS=-manifests
 set VCPKG_TARGET_TRIPLET=amd64-windows-static-md-%CMAKE_BUILD_TYPE%
@@ -104,7 +103,6 @@ cmake ^
     -DVCPKG_TARGET_TRIPLET=%VCPKG_TARGET_TRIPLET% ^
     -Dxsimd_SOURCE=BUNDLED ^
     -G "%CMAKE_GENERATOR%" ^
-    -A "%CMAKE_PLATFORM%" ^
     C:\arrow\cpp || exit /B 1
 cmake --build . --config %CMAKE_BUILD_TYPE% --target install || exit /B 1
 popd
