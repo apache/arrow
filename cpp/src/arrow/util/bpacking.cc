@@ -25,11 +25,6 @@
 
 namespace arrow::internal {
 
-int unpack16(const uint8_t* in, uint16_t* out, int batch_size, int num_bits) {
-  // Current SIMD unpack function do not out beat scalar implementation for uin16_t
-  return unpack16_scalar(in, out, batch_size, num_bits);
-}
-
 namespace {
 
 struct Unpack32DynamicFunction {
@@ -50,19 +45,6 @@ struct Unpack32DynamicFunction {
     };
   }
 };
-
-}  // namespace
-
-int unpack32(const uint8_t* in, uint32_t* out, int batch_size, int num_bits) {
-#if defined(ARROW_HAVE_NEON)
-  return unpack32_neon(in, out, batch_size, num_bits);
-#else
-  static DynamicDispatch<Unpack32DynamicFunction> dispatch;
-  return dispatch.func(in, out, batch_size, num_bits);
-#endif
-}
-
-namespace {
 
 struct Unpack64DynamicFunction {
   using FunctionType = decltype(&unpack64_scalar);
@@ -86,13 +68,36 @@ struct Unpack64DynamicFunction {
 
 }  // namespace
 
-int unpack64(const uint8_t* in, uint64_t* out, int batch_size, int num_bits) {
+template <typename Uint>
+ARROW_EXPORT int unpack(const uint8_t* in, Uint* out, int batch_size, int num_bits) {
+  if constexpr (std::is_same_v<Uint, uint16_t>) {
+    // Current SIMD unpack function do not out beat scalar implementation for uin16_t
+    return unpack16_scalar(in, out, batch_size, num_bits);
+  }
+
+  if constexpr (std::is_same_v<Uint, uint32_t>) {
 #if defined(ARROW_HAVE_NEON)
-  return unpack64_neon(in, out, batch_size, num_bits);
+    return unpack32_neon(in, out, batch_size, num_bits);
 #else
-  static DynamicDispatch<Unpack64DynamicFunction> dispatch;
-  return dispatch.func(in, out, batch_size, num_bits);
+    static DynamicDispatch<Unpack32DynamicFunction> dispatch;
+    return dispatch.func(in, out, batch_size, num_bits);
 #endif
+  }
+
+  if constexpr (std::is_same_v<Uint, uint64_t>) {
+#if defined(ARROW_HAVE_NEON)
+    return unpack64_neon(in, out, batch_size, num_bits);
+#else
+    static DynamicDispatch<Unpack64DynamicFunction> dispatch;
+    return dispatch.func(in, out, batch_size, num_bits);
+#endif
+  }
+
+  return 0;
 }
+
+template int unpack<uint16_t>(const uint8_t*, uint16_t*, int, int);
+template int unpack<uint32_t>(const uint8_t*, uint32_t*, int, int);
+template int unpack<uint64_t>(const uint8_t*, uint64_t*, int, int);
 
 }  // namespace arrow::internal

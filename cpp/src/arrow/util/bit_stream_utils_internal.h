@@ -325,8 +325,8 @@ inline int BitReader::GetBatch(int num_bits, T* v, int batch_size) {
 
   if (sizeof(T) == 4) {
     int num_unpacked =
-        internal::unpack32(buffer + byte_offset, reinterpret_cast<uint32_t*>(v + i),
-                           batch_size - i, num_bits);
+        internal::unpack(buffer + byte_offset, reinterpret_cast<uint32_t*>(v + i),
+                         batch_size - i, num_bits);
     i += num_unpacked;
     byte_offset += num_unpacked * num_bits / 8;
   } else if (sizeof(T) == 8 && num_bits > 32) {
@@ -334,8 +334,8 @@ inline int BitReader::GetBatch(int num_bits, T* v, int batch_size) {
     // TODO (ARROW-13677): improve the performance of internal::unpack64
     // and remove the restriction of num_bits
     int num_unpacked =
-        internal::unpack64(buffer + byte_offset, reinterpret_cast<uint64_t*>(v + i),
-                           batch_size - i, num_bits);
+        internal::unpack(buffer + byte_offset, reinterpret_cast<uint64_t*>(v + i),
+                         batch_size - i, num_bits);
     i += num_unpacked;
     byte_offset += num_unpacked * num_bits / 8;
   } else {
@@ -346,7 +346,7 @@ inline int BitReader::GetBatch(int num_bits, T* v, int batch_size) {
     while (i < batch_size) {
       int unpack_size = std::min(buffer_size, batch_size - i);
       int num_unpacked =
-          internal::unpack32(buffer + byte_offset, unpack_buffer, unpack_size, num_bits);
+          internal::unpack(buffer + byte_offset, unpack_buffer, unpack_size, num_bits);
       if (num_unpacked == 0) {
         break;
       }
