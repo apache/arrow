@@ -34,10 +34,10 @@ namespace config {
 
 AddPropertyWindow::AddPropertyWindow(Window* parent)
     : CustomWindow(parent, "AddProperty", "Add Property"),
-      width(300),
-      height(120),
-      accepted(false),
-      is_initialized(false) {
+      width_(300),
+      height_(120),
+      accepted_(false),
+      is_initialized_(false) {
   // No-op.
 }
 
@@ -48,13 +48,15 @@ AddPropertyWindow::~AddPropertyWindow() {
 void AddPropertyWindow::Create() {
   // Finding out parent position.
   RECT parent_rect;
-  GetWindowRect(parent->GetHandle(), &parent_rect);
+  GetWindowRect(parent_->GetHandle(), &parent_rect);
 
   // Positioning window to the center of parent window.
-  const int pos_x = parent_rect.left + (parent_rect.right - parent_rect.left - width) / 2;
-  const int pos_y = parent_rect.top + (parent_rect.bottom - parent_rect.top - height) / 2;
+  const int pos_x =
+      parent_rect.left + (parent_rect.right - parent_rect.left - width_) / 2;
+  const int pos_y =
+      parent_rect.top + (parent_rect.bottom - parent_rect.top - height_) / 2;
 
-  RECT desired_rect = {pos_x, pos_y, pos_x + width, pos_y + height};
+  RECT desired_rect = {pos_x, pos_y, pos_x + width_, pos_y + height_};
   AdjustWindowRect(&desired_rect, WS_BORDER | WS_CAPTION | WS_SYSMENU | WS_THICKFRAME,
                    FALSE);
 
@@ -62,7 +64,7 @@ void AddPropertyWindow::Create() {
                  desired_rect.right - desired_rect.left,
                  desired_rect.bottom - desired_rect.top, 0);
 
-  if (!handle) {
+  if (!handle_) {
     std::stringstream buf;
     buf << "Can not create window, error code: " << GetLastError();
     throw odbcabstraction::DriverException(buf.str());
@@ -70,9 +72,9 @@ void AddPropertyWindow::Create() {
 }
 
 bool AddPropertyWindow::GetProperty(std::string& key, std::string& value) {
-  if (accepted) {
-    key = this->key;
-    value = this->value;
+  if (accepted_) {
+    key = this->key_;
+    value = this->value_;
     return true;
   }
   return false;
@@ -80,18 +82,18 @@ bool AddPropertyWindow::GetProperty(std::string& key, std::string& value) {
 
 void AddPropertyWindow::OnCreate() {
   int group_pos_y = MARGIN;
-  int group_size_y = width - 2 * MARGIN;
+  int group_size_y = width_ - 2 * MARGIN;
 
   group_pos_y += INTERVAL + CreateEdits(MARGIN, group_pos_y, group_size_y);
 
-  int cancel_pos_x = width - MARGIN - BUTTON_WIDTH;
+  int cancel_pos_x = width_ - MARGIN - BUTTON_WIDTH;
   int ok_pos_x = cancel_pos_x - INTERVAL - BUTTON_WIDTH;
 
-  ok_button = CreateButton(ok_pos_x, group_pos_y, BUTTON_WIDTH, BUTTON_HEIGHT, "Ok",
-                           ChildId::OK_BUTTON, BS_DEFPUSHBUTTON);
-  cancel_button = CreateButton(cancel_pos_x, group_pos_y, BUTTON_WIDTH, BUTTON_HEIGHT,
-                               "Cancel", ChildId::CANCEL_BUTTON);
-  is_initialized = true;
+  ok_button_ = CreateButton(ok_pos_x, group_pos_y, BUTTON_WIDTH, BUTTON_HEIGHT, "Ok",
+                            ChildId::OK_BUTTON, BS_DEFPUSHBUTTON);
+  cancel_button_ = CreateButton(cancel_pos_x, group_pos_y, BUTTON_WIDTH, BUTTON_HEIGHT,
+                                "Cancel", ChildId::CANCEL_BUTTON);
+  is_initialized_ = true;
   CheckEnableOk();
 }
 
@@ -103,16 +105,16 @@ int AddPropertyWindow::CreateEdits(int pos_x, int pos_y, int size_x) {
 
   int row_pos = pos_y;
 
-  labels.push_back(
+  labels_.push_back(
       CreateLabel(pos_x, row_pos, LABEL_WIDTH, ROW_HEIGHT, "Key:", ChildId::KEY_LABEL));
-  key_edit =
+  key_edit_ =
       CreateEdit(edit_pos_x, row_pos, edit_size_x, ROW_HEIGHT, "", ChildId::KEY_EDIT);
 
   row_pos += INTERVAL + ROW_HEIGHT;
 
-  labels.push_back(CreateLabel(pos_x, row_pos, LABEL_WIDTH, ROW_HEIGHT,
-                               "Value:", ChildId::VALUE_LABEL));
-  value_edit =
+  labels_.push_back(CreateLabel(pos_x, row_pos, LABEL_WIDTH, ROW_HEIGHT,
+                                "Value:", ChildId::VALUE_LABEL));
+  value_edit_ =
       CreateEdit(edit_pos_x, row_pos, edit_size_x, ROW_HEIGHT, "", ChildId::VALUE_EDIT);
 
   row_pos += INTERVAL + ROW_HEIGHT;
@@ -121,11 +123,11 @@ int AddPropertyWindow::CreateEdits(int pos_x, int pos_y, int size_x) {
 }
 
 void AddPropertyWindow::CheckEnableOk() {
-  if (!is_initialized) {
+  if (!is_initialized_) {
     return;
   }
 
-  ok_button->SetEnabled(!key_edit->IsTextEmpty() && !value_edit->IsTextEmpty());
+  ok_button_->SetEnabled(!key_edit_->IsTextEmpty() && !value_edit_->IsTextEmpty());
 }
 
 bool AddPropertyWindow::OnMessage(UINT msg, WPARAM wparam, LPARAM lparam) {
@@ -133,9 +135,9 @@ bool AddPropertyWindow::OnMessage(UINT msg, WPARAM wparam, LPARAM lparam) {
     case WM_COMMAND: {
       switch (LOWORD(wparam)) {
         case ChildId::OK_BUTTON: {
-          key_edit->GetText(key);
-          value_edit->GetText(value);
-          accepted = true;
+          key_edit_->GetText(key_);
+          value_edit_->GetText(value_);
+          accepted_ = true;
           PostMessage(GetHandle(), WM_CLOSE, 0, 0);
 
           break;
@@ -163,7 +165,7 @@ bool AddPropertyWindow::OnMessage(UINT msg, WPARAM wparam, LPARAM lparam) {
     }
 
     case WM_DESTROY: {
-      PostQuitMessage(accepted ? Result::OK : Result::CANCEL);
+      PostQuitMessage(accepted_ ? Result::OK : Result::CANCEL);
 
       break;
     }

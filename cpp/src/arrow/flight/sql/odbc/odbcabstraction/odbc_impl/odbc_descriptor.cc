@@ -42,7 +42,7 @@ SQLSMALLINT CalculateHighestBoundRecord(const std::vector<DescriptorRecord>& rec
   // Most applications will bind every column, so optimistically assume that we'll
   // find the next bound record fastest by counting backwards.
   for (size_t i = records.size(); i > 0; --i) {
-    if (records[i - 1].m_is_bound) {
+    if (records[i - 1].is_bound) {
       return i;
     }
   }
@@ -55,36 +55,36 @@ SQLSMALLINT CalculateHighestBoundRecord(const std::vector<DescriptorRecord>& rec
 ODBCDescriptor::ODBCDescriptor(Diagnostics& base_diagnostics, ODBCConnection* conn,
                                ODBCStatement* stmt, bool is_app_descriptor,
                                bool is_writable, bool is_2x_connection)
-    : m_diagnostics(base_diagnostics.GetVendor(),
-                    base_diagnostics.GetDataSourceComponent(),
-                    driver::odbcabstraction::V_3),
-      m_owning_connection(conn),
-      m_parent_statement(stmt),
-      m_array_status_ptr(nullptr),
-      m_bind_offset_ptr(nullptr),
-      m_rows_proccessed_ptr(nullptr),
-      m_array_size(1),
-      m_bind_type(SQL_BIND_BY_COLUMN),
-      m_highest_one_based_bound_record(0),
-      m_is_2x_connection(is_2x_connection),
-      m_is_app_descriptor(is_app_descriptor),
-      m_is_writable(is_writable),
-      m_has_bindings_changed(true) {}
+    : diagnostics_(base_diagnostics.GetVendor(),
+                   base_diagnostics.GetDataSourceComponent(),
+                   driver::odbcabstraction::V_3),
+      owning_connection_(conn),
+      parent_statement_(stmt),
+      array_status_ptr_(nullptr),
+      bind_offset_ptr_(nullptr),
+      rows_processed_ptr_(nullptr),
+      array_size_(1),
+      bind_type_(SQL_BIND_BY_COLUMN),
+      highest_one_based_bound_record_(0),
+      is_2x_connection_(is_2x_connection),
+      is_app_descriptor_(is_app_descriptor),
+      is_writable_(is_writable),
+      has_bindings_changed_(true) {}
 
-Diagnostics& ODBCDescriptor::GetDiagnosticsImpl() { return m_diagnostics; }
+Diagnostics& ODBCDescriptor::GetDiagnosticsImpl() { return diagnostics_; }
 
 ODBCConnection& ODBCDescriptor::GetConnection() {
-  if (m_owning_connection) {
-    return *m_owning_connection;
+  if (owning_connection_) {
+    return *owning_connection_;
   }
-  assert(m_parent_statement);
-  return m_parent_statement->GetConnection();
+  assert(parent_statement_);
+  return parent_statement_->GetConnection();
 }
 
 void ODBCDescriptor::SetHeaderField(SQLSMALLINT field_identifier, SQLPOINTER value,
                                     SQLINTEGER buffer_length) {
   // Only these two fields can be set on the IRD.
-  if (!m_is_writable && field_identifier != SQL_DESC_ARRAY_STATUS_PTR &&
+  if (!is_writable_ && field_identifier != SQL_DESC_ARRAY_STATUS_PTR &&
       field_identifier != SQL_DESC_ROWS_PROCESSED_PTR) {
     throw DriverException("Cannot modify read-only descriptor", "HY016");
   }
@@ -93,36 +93,36 @@ void ODBCDescriptor::SetHeaderField(SQLSMALLINT field_identifier, SQLPOINTER val
     case SQL_DESC_ALLOC_TYPE:
       throw DriverException("Invalid descriptor field", "HY091");
     case SQL_DESC_ARRAY_SIZE:
-      SetAttribute(value, m_array_size);
-      m_has_bindings_changed = true;
+      SetAttribute(value, array_size_);
+      has_bindings_changed_ = true;
       break;
     case SQL_DESC_ARRAY_STATUS_PTR:
-      SetPointerAttribute(value, m_array_status_ptr);
-      m_has_bindings_changed = true;
+      SetPointerAttribute(value, array_status_ptr_);
+      has_bindings_changed_ = true;
       break;
     case SQL_DESC_BIND_OFFSET_PTR:
-      SetPointerAttribute(value, m_bind_offset_ptr);
-      m_has_bindings_changed = true;
+      SetPointerAttribute(value, bind_offset_ptr_);
+      has_bindings_changed_ = true;
       break;
     case SQL_DESC_BIND_TYPE:
-      SetAttribute(value, m_bind_type);
-      m_has_bindings_changed = true;
+      SetAttribute(value, bind_type_);
+      has_bindings_changed_ = true;
       break;
     case SQL_DESC_ROWS_PROCESSED_PTR:
-      SetPointerAttribute(value, m_rows_proccessed_ptr);
-      m_has_bindings_changed = true;
+      SetPointerAttribute(value, rows_processed_ptr_);
+      has_bindings_changed_ = true;
       break;
     case SQL_DESC_COUNT: {
       SQLSMALLINT new_count;
       SetAttribute(value, new_count);
-      m_records.resize(new_count);
+      records_.resize(new_count);
 
-      if (m_is_app_descriptor && new_count <= m_highest_one_based_bound_record) {
-        m_highest_one_based_bound_record = CalculateHighestBoundRecord(m_records);
+      if (is_app_descriptor_ && new_count <= highest_one_based_bound_record_) {
+        highest_one_based_bound_record_ = CalculateHighestBoundRecord(records_);
       } else {
-        m_highest_one_based_bound_record = new_count;
+        highest_one_based_bound_record_ = new_count;
       }
-      m_has_bindings_changed = true;
+      has_bindings_changed_ = true;
       break;
     }
     default:
@@ -132,7 +132,7 @@ void ODBCDescriptor::SetHeaderField(SQLSMALLINT field_identifier, SQLPOINTER val
 
 void ODBCDescriptor::SetField(SQLSMALLINT record_number, SQLSMALLINT field_identifier,
                               SQLPOINTER value, SQLINTEGER buffer_length) {
-  if (!m_is_writable) {
+  if (!is_writable_) {
     throw DriverException("Cannot modify read-only descriptor", "HY016");
   }
 
@@ -155,12 +155,12 @@ void ODBCDescriptor::SetField(SQLSMALLINT record_number, SQLSMALLINT field_ident
     throw DriverException("Bookmarks are unsupported.", "07009");
   }
 
-  if (record_number > m_records.size()) {
+  if (record_number > records_.size()) {
     throw DriverException("Invalid descriptor index", "HY009");
   }
 
   SQLSMALLINT zero_based_record = record_number - 1;
-  DescriptorRecord& record = m_records[zero_based_record];
+  DescriptorRecord& record = records_[zero_based_record];
   switch (field_identifier) {
     case SQL_DESC_AUTO_UNIQUE_VALUE:
     case SQL_DESC_BASE_COLUMN_NAME:
@@ -185,61 +185,61 @@ void ODBCDescriptor::SetField(SQLSMALLINT record_number, SQLSMALLINT field_ident
     case SQL_DESC_UPDATABLE:
       throw DriverException("Cannot modify read-only field.", "HY092");
     case SQL_DESC_CONCISE_TYPE:
-      SetAttribute(value, record.m_concise_type);
-      record.m_is_bound = false;
-      m_has_bindings_changed = true;
+      SetAttribute(value, record.concise_type);
+      record.is_bound = false;
+      has_bindings_changed_ = true;
       break;
     case SQL_DESC_DATA_PTR:
       SetDataPtrOnRecord(value, record_number);
       break;
     case SQL_DESC_DATETIME_INTERVAL_CODE:
-      SetAttribute(value, record.m_datetime_interval_code);
-      record.m_is_bound = false;
-      m_has_bindings_changed = true;
+      SetAttribute(value, record.datetime_interval_code);
+      record.is_bound = false;
+      has_bindings_changed_ = true;
       break;
     case SQL_DESC_DATETIME_INTERVAL_PRECISION:
-      SetAttribute(value, record.m_datetime_interval_precision);
-      record.m_is_bound = false;
-      m_has_bindings_changed = true;
+      SetAttribute(value, record.datetime_interval_precision);
+      record.is_bound = false;
+      has_bindings_changed_ = true;
       break;
     case SQL_DESC_INDICATOR_PTR:
     case SQL_DESC_OCTET_LENGTH_PTR:
-      SetPointerAttribute(value, record.m_indicator_ptr);
-      m_has_bindings_changed = true;
+      SetPointerAttribute(value, record.indicator_ptr);
+      has_bindings_changed_ = true;
       break;
     case SQL_DESC_LENGTH:
-      SetAttribute(value, record.m_length);
-      record.m_is_bound = false;
-      m_has_bindings_changed = true;
+      SetAttribute(value, record.length);
+      record.is_bound = false;
+      has_bindings_changed_ = true;
       break;
     case SQL_DESC_NAME:
-      SetAttributeUTF8(value, buffer_length, record.m_name);
-      m_has_bindings_changed = true;
+      SetAttributeUTF8(value, buffer_length, record.name);
+      has_bindings_changed_ = true;
       break;
     case SQL_DESC_OCTET_LENGTH:
-      SetAttribute(value, record.m_octet_length);
-      record.m_is_bound = false;
-      m_has_bindings_changed = true;
+      SetAttribute(value, record.octet_length);
+      record.is_bound = false;
+      has_bindings_changed_ = true;
       break;
     case SQL_DESC_PARAMETER_TYPE:
-      SetAttribute(value, record.m_param_type);
-      record.m_is_bound = false;
-      m_has_bindings_changed = true;
+      SetAttribute(value, record.param_type);
+      record.is_bound = false;
+      has_bindings_changed_ = true;
       break;
     case SQL_DESC_PRECISION:
-      SetAttribute(value, record.m_precision);
-      record.m_is_bound = false;
-      m_has_bindings_changed = true;
+      SetAttribute(value, record.precision);
+      record.is_bound = false;
+      has_bindings_changed_ = true;
       break;
     case SQL_DESC_SCALE:
-      SetAttribute(value, record.m_scale);
-      record.m_is_bound = false;
-      m_has_bindings_changed = true;
+      SetAttribute(value, record.scale);
+      record.is_bound = false;
+      has_bindings_changed_ = true;
       break;
     case SQL_DESC_TYPE:
-      SetAttribute(value, record.m_type);
-      record.m_is_bound = false;
-      m_has_bindings_changed = true;
+      SetAttribute(value, record.type);
+      record.is_bound = false;
+      has_bindings_changed_ = true;
       break;
     default:
       throw DriverException("Invalid descriptor field", "HY091");
@@ -252,7 +252,7 @@ void ODBCDescriptor::GetHeaderField(SQLSMALLINT field_identifier, SQLPOINTER val
   switch (field_identifier) {
     case SQL_DESC_ALLOC_TYPE: {
       SQLSMALLINT result;
-      if (m_owning_connection) {
+      if (owning_connection_) {
         result = SQL_DESC_ALLOC_USER;
       } else {
         result = SQL_DESC_ALLOC_AUTO;
@@ -261,22 +261,22 @@ void ODBCDescriptor::GetHeaderField(SQLSMALLINT field_identifier, SQLPOINTER val
       break;
     }
     case SQL_DESC_ARRAY_SIZE:
-      GetAttribute(m_array_size, value, buffer_length, output_length);
+      GetAttribute(array_size_, value, buffer_length, output_length);
       break;
     case SQL_DESC_ARRAY_STATUS_PTR:
-      GetAttribute(m_array_status_ptr, value, buffer_length, output_length);
+      GetAttribute(array_status_ptr_, value, buffer_length, output_length);
       break;
     case SQL_DESC_BIND_OFFSET_PTR:
-      GetAttribute(m_bind_offset_ptr, value, buffer_length, output_length);
+      GetAttribute(bind_offset_ptr_, value, buffer_length, output_length);
       break;
     case SQL_DESC_BIND_TYPE:
-      GetAttribute(m_bind_type, value, buffer_length, output_length);
+      GetAttribute(bind_type_, value, buffer_length, output_length);
       break;
     case SQL_DESC_ROWS_PROCESSED_PTR:
-      GetAttribute(m_rows_proccessed_ptr, value, buffer_length, output_length);
+      GetAttribute(rows_processed_ptr_, value, buffer_length, output_length);
       break;
     case SQL_DESC_COUNT: {
-      GetAttribute(m_highest_one_based_bound_record, value, buffer_length, output_length);
+      GetAttribute(highest_one_based_bound_record_, value, buffer_length, output_length);
       break;
     }
     default:
@@ -306,130 +306,130 @@ void ODBCDescriptor::GetField(SQLSMALLINT record_number, SQLSMALLINT field_ident
     throw DriverException("Bookmarks are unsupported.", "07009");
   }
 
-  if (record_number > m_records.size()) {
+  if (record_number > records_.size()) {
     throw DriverException("Invalid descriptor index", "07009");
   }
 
   // TODO: Restrict fields based on AppDescriptor IPD, and IRD.
 
   SQLSMALLINT zero_based_record = record_number - 1;
-  const DescriptorRecord& record = m_records[zero_based_record];
+  const DescriptorRecord& record = records_[zero_based_record];
   switch (field_identifier) {
     case SQL_DESC_BASE_COLUMN_NAME:
-      GetAttributeUTF8(record.m_base_column_name, value, buffer_length, output_length,
+      GetAttributeUTF8(record.base_column_name, value, buffer_length, output_length,
                        GetDiagnostics());
       break;
     case SQL_DESC_BASE_TABLE_NAME:
-      GetAttributeUTF8(record.m_base_table_name, value, buffer_length, output_length,
+      GetAttributeUTF8(record.base_table_name, value, buffer_length, output_length,
                        GetDiagnostics());
       break;
     case SQL_DESC_CATALOG_NAME:
-      GetAttributeUTF8(record.m_catalog_name, value, buffer_length, output_length,
+      GetAttributeUTF8(record.catalog_name, value, buffer_length, output_length,
                        GetDiagnostics());
       break;
     case SQL_DESC_LABEL:
-      GetAttributeUTF8(record.m_label, value, buffer_length, output_length,
+      GetAttributeUTF8(record.label, value, buffer_length, output_length,
                        GetDiagnostics());
       break;
     case SQL_DESC_LITERAL_PREFIX:
-      GetAttributeUTF8(record.m_literal_prefix, value, buffer_length, output_length,
+      GetAttributeUTF8(record.literal_prefix, value, buffer_length, output_length,
                        GetDiagnostics());
       break;
     case SQL_DESC_LITERAL_SUFFIX:
-      GetAttributeUTF8(record.m_literal_suffix, value, buffer_length, output_length,
+      GetAttributeUTF8(record.literal_suffix, value, buffer_length, output_length,
                        GetDiagnostics());
       break;
     case SQL_DESC_LOCAL_TYPE_NAME:
-      GetAttributeUTF8(record.m_local_type_name, value, buffer_length, output_length,
+      GetAttributeUTF8(record.local_type_name, value, buffer_length, output_length,
                        GetDiagnostics());
       break;
     case SQL_DESC_NAME:
-      GetAttributeUTF8(record.m_name, value, buffer_length, output_length,
+      GetAttributeUTF8(record.name, value, buffer_length, output_length,
                        GetDiagnostics());
       break;
     case SQL_DESC_SCHEMA_NAME:
-      GetAttributeUTF8(record.m_schema_name, value, buffer_length, output_length,
+      GetAttributeUTF8(record.schema_name, value, buffer_length, output_length,
                        GetDiagnostics());
       break;
     case SQL_DESC_TABLE_NAME:
-      GetAttributeUTF8(record.m_table_name, value, buffer_length, output_length,
+      GetAttributeUTF8(record.table_name, value, buffer_length, output_length,
                        GetDiagnostics());
       break;
     case SQL_DESC_TYPE_NAME:
-      GetAttributeUTF8(record.m_type_name, value, buffer_length, output_length,
+      GetAttributeUTF8(record.type_name, value, buffer_length, output_length,
                        GetDiagnostics());
       break;
 
     case SQL_DESC_DATA_PTR:
-      GetAttribute(record.m_data_ptr, value, buffer_length, output_length);
+      GetAttribute(record.data_ptr, value, buffer_length, output_length);
       break;
     case SQL_DESC_INDICATOR_PTR:
     case SQL_DESC_OCTET_LENGTH_PTR:
-      GetAttribute(record.m_indicator_ptr, value, buffer_length, output_length);
+      GetAttribute(record.indicator_ptr, value, buffer_length, output_length);
       break;
 
     case SQL_DESC_LENGTH:
-      GetAttribute(record.m_length, value, buffer_length, output_length);
+      GetAttribute(record.length, value, buffer_length, output_length);
       break;
     case SQL_DESC_OCTET_LENGTH:
-      GetAttribute(record.m_octet_length, value, buffer_length, output_length);
+      GetAttribute(record.octet_length, value, buffer_length, output_length);
       break;
 
     case SQL_DESC_AUTO_UNIQUE_VALUE:
-      GetAttribute(record.m_auto_unique_value, value, buffer_length, output_length);
+      GetAttribute(record.auto_unique_value, value, buffer_length, output_length);
       break;
     case SQL_DESC_CASE_SENSITIVE:
-      GetAttribute(record.m_case_sensitive, value, buffer_length, output_length);
+      GetAttribute(record.case_sensitive, value, buffer_length, output_length);
       break;
     case SQL_DESC_DATETIME_INTERVAL_PRECISION:
-      GetAttribute(record.m_datetime_interval_precision, value, buffer_length,
+      GetAttribute(record.datetime_interval_precision, value, buffer_length,
                    output_length);
       break;
     case SQL_DESC_NUM_PREC_RADIX:
-      GetAttribute(record.m_num_prec_radix, value, buffer_length, output_length);
+      GetAttribute(record.num_prec_radix, value, buffer_length, output_length);
       break;
 
     case SQL_DESC_CONCISE_TYPE:
-      GetAttribute(record.m_concise_type, value, buffer_length, output_length);
+      GetAttribute(record.concise_type, value, buffer_length, output_length);
       break;
     case SQL_DESC_DATETIME_INTERVAL_CODE:
-      GetAttribute(record.m_datetime_interval_code, value, buffer_length, output_length);
+      GetAttribute(record.datetime_interval_code, value, buffer_length, output_length);
       break;
     case SQL_DESC_DISPLAY_SIZE:
-      GetAttribute(record.m_display_size, value, buffer_length, output_length);
+      GetAttribute(record.display_size, value, buffer_length, output_length);
       break;
     case SQL_DESC_FIXED_PREC_SCALE:
-      GetAttribute(record.m_fixed_prec_scale, value, buffer_length, output_length);
+      GetAttribute(record.fixed_prec_scale, value, buffer_length, output_length);
       break;
     case SQL_DESC_NULLABLE:
-      GetAttribute(record.m_nullable, value, buffer_length, output_length);
+      GetAttribute(record.nullable, value, buffer_length, output_length);
       break;
     case SQL_DESC_PARAMETER_TYPE:
-      GetAttribute(record.m_param_type, value, buffer_length, output_length);
+      GetAttribute(record.param_type, value, buffer_length, output_length);
       break;
     case SQL_DESC_PRECISION:
-      GetAttribute(record.m_precision, value, buffer_length, output_length);
+      GetAttribute(record.precision, value, buffer_length, output_length);
       break;
     case SQL_DESC_ROWVER:
-      GetAttribute(record.m_row_ver, value, buffer_length, output_length);
+      GetAttribute(record.row_ver, value, buffer_length, output_length);
       break;
     case SQL_DESC_SCALE:
-      GetAttribute(record.m_scale, value, buffer_length, output_length);
+      GetAttribute(record.scale, value, buffer_length, output_length);
       break;
     case SQL_DESC_SEARCHABLE:
-      GetAttribute(record.m_searchable, value, buffer_length, output_length);
+      GetAttribute(record.searchable, value, buffer_length, output_length);
       break;
     case SQL_DESC_TYPE:
-      GetAttribute(record.m_type, value, buffer_length, output_length);
+      GetAttribute(record.type, value, buffer_length, output_length);
       break;
     case SQL_DESC_UNNAMED:
-      GetAttribute(record.m_unnamed, value, buffer_length, output_length);
+      GetAttribute(record.unnamed, value, buffer_length, output_length);
       break;
     case SQL_DESC_UNSIGNED:
-      GetAttribute(record.m_unsigned, value, buffer_length, output_length);
+      GetAttribute(record.is_unsigned, value, buffer_length, output_length);
       break;
     case SQL_DESC_UPDATABLE:
-      GetAttribute(record.m_updatable, value, buffer_length, output_length);
+      GetAttribute(record.updatable, value, buffer_length, output_length);
       break;
     default:
       throw DriverException("Invalid descriptor field", "HY091");
@@ -437,22 +437,22 @@ void ODBCDescriptor::GetField(SQLSMALLINT record_number, SQLSMALLINT field_ident
 }
 
 SQLSMALLINT ODBCDescriptor::GetAllocType() const {
-  return m_owning_connection != nullptr ? SQL_DESC_ALLOC_USER : SQL_DESC_ALLOC_AUTO;
+  return owning_connection_ != nullptr ? SQL_DESC_ALLOC_USER : SQL_DESC_ALLOC_AUTO;
 }
 
-bool ODBCDescriptor::IsAppDescriptor() const { return m_is_app_descriptor; }
+bool ODBCDescriptor::IsAppDescriptor() const { return is_app_descriptor_; }
 
 void ODBCDescriptor::RegisterToStatement(ODBCStatement* statement, bool is_apd) {
   if (is_apd) {
-    m_registered_on_statements_as_apd.push_back(statement);
+    registered_on_statements_as_apd_.push_back(statement);
   } else {
-    m_registered_on_statements_as_ard.push_back(statement);
+    registered_on_statements_as_ard_.push_back(statement);
   }
 }
 
 void ODBCDescriptor::DetachFromStatement(ODBCStatement* statement, bool is_apd) {
   auto& vector_to_update =
-      is_apd ? m_registered_on_statements_as_apd : m_registered_on_statements_as_ard;
+      is_apd ? registered_on_statements_as_apd_ : registered_on_statements_as_ard_;
   auto it = std::find(vector_to_update.begin(), vector_to_update.end(), statement);
   if (it != vector_to_update.end()) {
     vector_to_update.erase(it);
@@ -460,116 +460,117 @@ void ODBCDescriptor::DetachFromStatement(ODBCStatement* statement, bool is_apd) 
 }
 
 void ODBCDescriptor::ReleaseDescriptor() {
-  for (ODBCStatement* stmt : m_registered_on_statements_as_apd) {
+  for (ODBCStatement* stmt : registered_on_statements_as_apd_) {
     stmt->RevertAppDescriptor(true);
   }
 
-  for (ODBCStatement* stmt : m_registered_on_statements_as_ard) {
+  for (ODBCStatement* stmt : registered_on_statements_as_ard_) {
     stmt->RevertAppDescriptor(false);
   }
 
-  if (m_owning_connection) {
-    m_owning_connection->DropDescriptor(this);
+  if (owning_connection_) {
+    owning_connection_->DropDescriptor(this);
   }
 }
 
 void ODBCDescriptor::PopulateFromResultSetMetadata(ResultSetMetadata* rsmd) {
-  m_records.assign(rsmd->GetColumnCount(), DescriptorRecord());
-  m_highest_one_based_bound_record = m_records.size() + 1;
+  records_.assign(rsmd->GetColumnCount(), DescriptorRecord());
+  highest_one_based_bound_record_ = records_.size() + 1;
 
-  for (size_t i = 0; i < m_records.size(); ++i) {
+  for (size_t i = 0; i < records_.size(); ++i) {
     size_t one_based_index = i + 1;
-    m_records[i].m_base_column_name = rsmd->GetBaseColumnName(one_based_index);
-    m_records[i].m_base_table_name = rsmd->GetBaseTableName(one_based_index);
-    m_records[i].m_catalog_name = rsmd->GetCatalogName(one_based_index);
-    m_records[i].m_label = rsmd->GetColumnLabel(one_based_index);
-    m_records[i].m_literal_prefix = rsmd->GetLiteralPrefix(one_based_index);
-    m_records[i].m_literal_suffix = rsmd->GetLiteralSuffix(one_based_index);
-    m_records[i].m_local_type_name = rsmd->GetLocalTypeName(one_based_index);
-    m_records[i].m_name = rsmd->GetName(one_based_index);
-    m_records[i].m_schema_name = rsmd->GetSchemaName(one_based_index);
-    m_records[i].m_table_name = rsmd->GetTableName(one_based_index);
-    m_records[i].m_type_name = rsmd->GetTypeName(one_based_index);
-    m_records[i].m_concise_type = GetSqlTypeForODBCVersion(
-        rsmd->GetConciseType(one_based_index), m_is_2x_connection);
-    m_records[i].m_data_ptr = nullptr;
-    m_records[i].m_indicator_ptr = nullptr;
-    m_records[i].m_display_size = rsmd->GetColumnDisplaySize(one_based_index);
-    m_records[i].m_octet_length = rsmd->GetOctetLength(one_based_index);
-    m_records[i].m_length = rsmd->GetLength(one_based_index);
-    m_records[i].m_auto_unique_value =
+    int16_t concise_type = rsmd->GetConciseType(one_based_index);
+
+    records_[i].base_column_name = rsmd->GetBaseColumnName(one_based_index);
+    records_[i].base_table_name = rsmd->GetBaseTableName(one_based_index);
+    records_[i].catalog_name = rsmd->GetCatalogName(one_based_index);
+    records_[i].label = rsmd->GetColumnLabel(one_based_index);
+    records_[i].literal_prefix = rsmd->GetLiteralPrefix(one_based_index);
+    records_[i].literal_suffix = rsmd->GetLiteralSuffix(one_based_index);
+    records_[i].local_type_name = rsmd->GetLocalTypeName(one_based_index);
+    records_[i].name = rsmd->GetName(one_based_index);
+    records_[i].schema_name = rsmd->GetSchemaName(one_based_index);
+    records_[i].table_name = rsmd->GetTableName(one_based_index);
+    records_[i].type_name = rsmd->GetTypeName(one_based_index, concise_type);
+    records_[i].concise_type = GetSqlTypeForODBCVersion(concise_type, is_2x_connection_);
+    records_[i].data_ptr = nullptr;
+    records_[i].indicator_ptr = nullptr;
+    records_[i].display_size = rsmd->GetColumnDisplaySize(one_based_index);
+    records_[i].octet_length = rsmd->GetOctetLength(one_based_index);
+    records_[i].length = rsmd->GetLength(one_based_index);
+    records_[i].auto_unique_value =
         rsmd->IsAutoUnique(one_based_index) ? SQL_TRUE : SQL_FALSE;
-    m_records[i].m_case_sensitive =
+    records_[i].case_sensitive =
         rsmd->IsCaseSensitive(one_based_index) ? SQL_TRUE : SQL_FALSE;
-    m_records[i].m_datetime_interval_precision;  // TODO - update when rsmd adds this
-    m_records[i].m_num_prec_radix = rsmd->GetNumPrecRadix(one_based_index);
-    m_records[i].m_datetime_interval_code;  // TODO
-    m_records[i].m_fixed_prec_scale =
+    records_[i].datetime_interval_precision;  // TODO - update when rsmd adds this
+    SQLINTEGER num_prec_radix = rsmd->GetNumPrecRadix(one_based_index);
+    records_[i].num_prec_radix = num_prec_radix > 0 ? num_prec_radix : 0;
+    records_[i].datetime_interval_code;  // TODO
+    records_[i].fixed_prec_scale =
         rsmd->IsFixedPrecScale(one_based_index) ? SQL_TRUE : SQL_FALSE;
-    m_records[i].m_nullable = rsmd->IsNullable(one_based_index);
-    m_records[i].m_param_type = SQL_PARAM_INPUT;
-    m_records[i].m_precision = rsmd->GetPrecision(one_based_index);
-    m_records[i].m_row_ver = SQL_FALSE;
-    m_records[i].m_scale = rsmd->GetScale(one_based_index);
-    m_records[i].m_searchable = rsmd->IsSearchable(one_based_index);
-    m_records[i].m_type =
-        GetSqlTypeForODBCVersion(rsmd->GetDataType(one_based_index), m_is_2x_connection);
-    m_records[i].m_unnamed = m_records[i].m_name.empty() ? SQL_TRUE : SQL_FALSE;
-    m_records[i].m_unsigned = rsmd->IsUnsigned(one_based_index) ? SQL_TRUE : SQL_FALSE;
-    m_records[i].m_updatable = rsmd->GetUpdatable(one_based_index);
+    records_[i].nullable = rsmd->IsNullable(one_based_index);
+    records_[i].param_type = SQL_PARAM_INPUT;
+    records_[i].precision = rsmd->GetPrecision(one_based_index);
+    records_[i].row_ver = SQL_FALSE;
+    records_[i].scale = rsmd->GetScale(one_based_index);
+    records_[i].searchable = rsmd->IsSearchable(one_based_index);
+    records_[i].type = rsmd->GetDataType(one_based_index);
+    records_[i].unnamed = records_[i].name.empty() ? SQL_TRUE : SQL_FALSE;
+    records_[i].is_unsigned = rsmd->IsUnsigned(one_based_index) ? SQL_TRUE : SQL_FALSE;
+    records_[i].updatable = rsmd->GetUpdatable(one_based_index);
   }
 }
 
 const std::vector<DescriptorRecord>& ODBCDescriptor::GetRecords() const {
-  return m_records;
+  return records_;
 }
 
-std::vector<DescriptorRecord>& ODBCDescriptor::GetRecords() { return m_records; }
+std::vector<DescriptorRecord>& ODBCDescriptor::GetRecords() { return records_; }
 
 void ODBCDescriptor::BindCol(SQLSMALLINT record_number, SQLSMALLINT c_type,
                              SQLPOINTER data_ptr, SQLLEN buffer_length,
                              SQLLEN* indicator_ptr) {
-  assert(m_is_app_descriptor);
-  assert(m_is_writable);
+  assert(is_app_descriptor_);
+  assert(is_writable_);
 
   // The set of records auto-expands to the supplied record number.
-  if (m_records.size() < record_number) {
-    m_records.resize(record_number);
+  if (records_.size() < record_number) {
+    records_.resize(record_number);
   }
 
   SQLSMALLINT zero_based_record_index = record_number - 1;
-  DescriptorRecord& record = m_records[zero_based_record_index];
+  DescriptorRecord& record = records_[zero_based_record_index];
 
-  record.m_type = c_type;
-  record.m_indicator_ptr = indicator_ptr;
-  record.m_length = buffer_length;
+  record.type = c_type;
+  record.indicator_ptr = indicator_ptr;
+  record.length = buffer_length;
 
   // Initialize default precision and scale for SQL_C_NUMERIC.
-  if (record.m_type == SQL_C_NUMERIC) {
-    record.m_precision = 38;
-    record.m_scale = 0;
+  if (record.type == SQL_C_NUMERIC) {
+    record.precision = 38;
+    record.scale = 0;
   }
   SetDataPtrOnRecord(data_ptr, record_number);
 }
 
 void ODBCDescriptor::SetDataPtrOnRecord(SQLPOINTER data_ptr, SQLSMALLINT record_number) {
-  assert(record_number <= m_records.size());
-  DescriptorRecord& record = m_records[record_number - 1];
+  assert(record_number <= records_.size());
+  DescriptorRecord& record = records_[record_number - 1];
   if (data_ptr) {
     record.CheckConsistency();
-    record.m_is_bound = true;
+    record.is_bound = true;
   } else {
-    record.m_is_bound = false;
+    record.is_bound = false;
   }
-  record.m_data_ptr = data_ptr;
+  record.data_ptr = data_ptr;
 
   // Bookkeeping on the highest bound record (used for returning SQL_DESC_COUNT)
-  if (m_highest_one_based_bound_record < record_number && data_ptr) {
-    m_highest_one_based_bound_record = record_number;
-  } else if (m_highest_one_based_bound_record == record_number && !data_ptr) {
-    m_highest_one_based_bound_record = CalculateHighestBoundRecord(m_records);
+  if (highest_one_based_bound_record_ < record_number && data_ptr) {
+    highest_one_based_bound_record_ = record_number;
+  } else if (highest_one_based_bound_record_ == record_number && !data_ptr) {
+    highest_one_based_bound_record_ = CalculateHighestBoundRecord(records_);
   }
-  m_has_bindings_changed = true;
+  has_bindings_changed_ = true;
 }
 
 void DescriptorRecord::CheckConsistency() {

@@ -50,11 +50,11 @@ class ODBCEnvironment : public ODBCHandle<ODBCEnvironment> {
   ~ODBCEnvironment() = default;
 
  private:
-  std::vector<std::shared_ptr<ODBCConnection> > m_connections;
-  std::shared_ptr<driver::odbcabstraction::Driver> m_driver;
-  std::unique_ptr<driver::odbcabstraction::Diagnostics> m_diagnostics;
-  SQLINTEGER m_version;
-  SQLINTEGER m_connection_pooling;
+  std::vector<std::shared_ptr<ODBCConnection> > connections_;
+  std::shared_ptr<driver::odbcabstraction::Driver> driver_;
+  std::unique_ptr<driver::odbcabstraction::Diagnostics> diagnostics_;
+  SQLINTEGER version_;
+  SQLINTEGER connection_pooling_;
 };
 
 }  // namespace ODBC

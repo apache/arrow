@@ -85,32 +85,32 @@ class AddPropertyWindow : public CustomWindow {
 
   void CheckEnableOk();
 
-  std::vector<std::unique_ptr<Window> > labels;
+  std::vector<std::unique_ptr<Window> > labels_;
 
   /** Ok button. */
-  std::unique_ptr<Window> ok_button;
+  std::unique_ptr<Window> ok_button_;
 
   /** Cancel button. */
-  std::unique_ptr<Window> cancel_button;
+  std::unique_ptr<Window> cancel_button_;
 
-  std::unique_ptr<Window> key_edit;
+  std::unique_ptr<Window> key_edit_;
 
-  std::unique_ptr<Window> value_edit;
+  std::unique_ptr<Window> value_edit_;
 
-  std::string key;
+  std::string key_;
 
-  std::string value;
+  std::string value_;
 
   /** Window width. */
-  int width;
+  int width_;
 
   /** Window height. */
-  int height;
+  int height_;
 
   /** Flag indicating whether OK option was selected. */
-  bool accepted;
+  bool accepted_;
 
-  bool is_initialized;
+  bool is_initialized_;
 };
 
 }  // namespace config

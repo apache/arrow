@@ -113,7 +113,7 @@ Result<std::shared_ptr<RecordBatch>> TransformInner(
       }
 
       odbcabstraction::SqlDataType data_type_v3 =
-          GetDataTypeFromArrowFieldV3(field, metadata_settings.use_wide_char_);
+          GetDataTypeFromArrowFieldV3(field, metadata_settings.use_wide_char);
 
       ColumnMetadata metadata(field->metadata());
 

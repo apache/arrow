@@ -52,7 +52,7 @@ class ODBCStatement : public ODBCHandle<ODBCStatement> {
   ~ODBCStatement() = default;
 
   inline driver::odbcabstraction::Diagnostics& GetDiagnosticsImpl() {
-    return *m_diagnostics;
+    return *diagnostics_;
   }
 
   ODBCConnection& GetConnection();
@@ -75,11 +75,11 @@ class ODBCStatement : public ODBCHandle<ODBCStatement> {
 
   void RevertAppDescriptor(bool is_apd);
 
-  inline ODBCDescriptor* GetIRD() { return m_ird.get(); }
+  inline ODBCDescriptor* GetIRD() { return ird_.get(); }
 
-  inline ODBCDescriptor* GetARD() { return m_current_ard; }
+  inline ODBCDescriptor* GetARD() { return current_ard_; }
 
-  inline SQLULEN GetRowsetSize() { return m_rowset_size; }
+  inline SQLULEN GetRowsetSize() { return rowset_size_; }
 
   bool GetData(SQLSMALLINT record_number, SQLSMALLINT c_type, SQLPOINTER data_ptr,
                SQLLEN buffer_length, SQLLEN* indicator_ptr);
@@ -103,21 +103,21 @@ class ODBCStatement : public ODBCHandle<ODBCStatement> {
   void Cancel();
 
  private:
-  ODBCConnection& m_connection;
-  std::shared_ptr<driver::odbcabstraction::Statement> m_spi_statement;
-  std::shared_ptr<driver::odbcabstraction::ResultSet> m_current_result;
-  driver::odbcabstraction::Diagnostics* m_diagnostics;
+  ODBCConnection& connection_;
+  std::shared_ptr<driver::odbcabstraction::Statement> spi_statement_;
+  std::shared_ptr<driver::odbcabstraction::ResultSet> current_result_;
+  driver::odbcabstraction::Diagnostics* diagnostics_;
 
-  std::shared_ptr<ODBCDescriptor> m_built_in_ard;
-  std::shared_ptr<ODBCDescriptor> m_built_in_apd;
-  std::shared_ptr<ODBCDescriptor> m_ipd;
-  std::shared_ptr<ODBCDescriptor> m_ird;
-  ODBCDescriptor* m_current_ard;
-  ODBCDescriptor* m_current_apd;
-  SQLULEN m_row_number;
-  SQLULEN m_max_rows;
-  SQLULEN m_rowset_size;  // Used by SQLExtendedFetch instead of the ARD array size.
-  bool m_is_prepared;
-  bool m_has_reached_end_of_result;
+  std::shared_ptr<ODBCDescriptor> built_in_ard_;
+  std::shared_ptr<ODBCDescriptor> built_in_apd_;
+  std::shared_ptr<ODBCDescriptor> ipd_;
+  std::shared_ptr<ODBCDescriptor> ird_;
+  ODBCDescriptor* current_ard_;
+  ODBCDescriptor* current_apd_;
+  SQLULEN row_number_;
+  SQLULEN max_rows_;
+  SQLULEN rowset_size_;  // Used by SQLExtendedFetch instead of the ARD array size.
+  bool is_prepared_;
+  bool has_reached_end_of_result_;
 };
 }  // namespace ODBC

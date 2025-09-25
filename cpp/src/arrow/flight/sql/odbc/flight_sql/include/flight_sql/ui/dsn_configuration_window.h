@@ -142,79 +142,75 @@ class DsnConfigurationWindow : public CustomWindow {
   void SaveParameters(Configuration& target_config);
 
   /** Window width. */
-  int width;
+  int width_;
 
   /** Window height. */
-  int height;
+  int height_;
 
-  std::unique_ptr<Window> tab_control;
-
-  std::unique_ptr<Window> common_content;
-
-  std::unique_ptr<Window> advanced_content;
+  std::unique_ptr<Window> tab_control_;
 
   /** Connection settings group box. */
-  std::unique_ptr<Window> connection_settings_group_box;
+  std::unique_ptr<Window> connection_settings_group_box_;
 
   /** Authentication settings group box. */
-  std::unique_ptr<Window> auth_settings_group_box;
+  std::unique_ptr<Window> auth_settings_group_box_;
 
   /** Encryption settings group box. */
-  std::unique_ptr<Window> encryption_settings_group_box;
+  std::unique_ptr<Window> encryption_settings_group_box_;
 
-  std::vector<std::unique_ptr<Window> > labels;
+  std::vector<std::unique_ptr<Window> > labels_;
 
   /** Test button. */
-  std::unique_ptr<Window> test_button;
+  std::unique_ptr<Window> test_button_;
 
   /** Ok button. */
-  std::unique_ptr<Window> ok_button;
+  std::unique_ptr<Window> ok_button_;
 
   /** Cancel button. */
-  std::unique_ptr<Window> cancel_button;
+  std::unique_ptr<Window> cancel_button_;
 
   /** DSN name edit field. */
-  std::unique_ptr<Window> name_edit;
+  std::unique_ptr<Window> name_edit_;
 
-  std::unique_ptr<Window> server_edit;
+  std::unique_ptr<Window> server_edit_;
 
-  std::unique_ptr<Window> port_edit;
+  std::unique_ptr<Window> port_edit_;
 
-  std::unique_ptr<Window> auth_type_combo_box;
+  std::unique_ptr<Window> auth_type_combo_box_;
 
   /** User edit. */
-  std::unique_ptr<Window> user_edit;
+  std::unique_ptr<Window> user_edit_;
 
   /** Password edit. */
-  std::unique_ptr<Window> password_edit;
+  std::unique_ptr<Window> password_edit_;
 
-  std::unique_ptr<Window> auth_token_edit;
+  std::unique_ptr<Window> auth_token_edit_;
 
-  std::unique_ptr<Window> enable_encryption_check_box;
+  std::unique_ptr<Window> enable_encryption_check_box_;
 
-  std::unique_ptr<Window> certificate_edit;
+  std::unique_ptr<Window> certificate_edit_;
 
-  std::unique_ptr<Window> certificate_browse_button;
+  std::unique_ptr<Window> certificate_browse_button_;
 
-  std::unique_ptr<Window> use_system_cert_store_check_box;
+  std::unique_ptr<Window> use_system_cert_store_check_box_;
 
-  std::unique_ptr<Window> disable_cert_verification_check_box;
+  std::unique_ptr<Window> disable_cert_verification_check_box_;
 
-  std::unique_ptr<Window> property_group_box;
+  std::unique_ptr<Window> property_group_box_;
 
-  std::unique_ptr<Window> property_list;
+  std::unique_ptr<Window> property_list_;
 
-  std::unique_ptr<Window> add_button;
+  std::unique_ptr<Window> add_button_;
 
-  std::unique_ptr<Window> delete_button;
+  std::unique_ptr<Window> delete_button_;
 
   /** Configuration. */
-  Configuration& config;
+  Configuration& config_;
 
   /** Flag indicating whether OK option was selected. */
-  bool accepted;
+  bool accepted_;
 
-  bool is_initialized;
+  bool is_initialized_;
 };
 
 }  // namespace config

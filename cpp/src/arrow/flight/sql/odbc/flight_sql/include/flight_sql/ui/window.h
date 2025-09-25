@@ -198,7 +198,7 @@ class Window {
    *
    * @return Window handle.
    */
-  HWND GetHandle() const { return handle; }
+  HWND GetHandle() const { return handle_; }
 
   void SetVisible(bool isVisible);
 
@@ -283,22 +283,22 @@ class Window {
    *
    * @param value Window handle.
    */
-  void SetHandle(HWND value) { handle = value; }
+  void SetHandle(HWND value) { handle_ = value; }
 
   /** Window class name. */
-  std::string class_name;
+  std::string class_name_;
 
   /** Window title. */
-  std::string title;
+  std::string title_;
 
   /** Window handle. */
-  HWND handle;
+  HWND handle_;
 
   /** Window parent. */
-  Window* parent;
+  Window* parent_;
 
   /** Specifies whether window has been created by the thread and needs destruction. */
-  bool created;
+  bool created_;
 
  private:
   Window(const Window& window) = delete;

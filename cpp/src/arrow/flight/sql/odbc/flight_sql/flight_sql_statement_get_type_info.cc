@@ -90,7 +90,7 @@ Result<std::shared_ptr<RecordBatch>> TransformInner(
   while (reader.Next()) {
     auto data_type_v3 = EnsureRightSqlCharType(
         static_cast<odbcabstraction::SqlDataType>(reader.GetDataType()),
-        metadata_settings_.use_wide_char_);
+        metadata_settings_.use_wide_char);
     int16_t data_type_v2 = ConvertSqlDataTypeFromV3ToV2(data_type_v3);
 
     if (data_type != odbcabstraction::ALL_TYPES && data_type_v3 != data_type &&
@@ -124,7 +124,7 @@ Result<std::shared_ptr<RecordBatch>> TransformInner(
     data.maximum_scale = reader.GetMaximumScale();
     data.sql_data_type = EnsureRightSqlCharType(
         static_cast<odbcabstraction::SqlDataType>(reader.GetSqlDataType()),
-        metadata_settings_.use_wide_char_);
+        metadata_settings_.use_wide_char);
     data.sql_datetime_sub =
         GetSqlDateTimeSubCode(static_cast<odbcabstraction::SqlDataType>(data.data_type));
     data.num_prec_radix = reader.GetNumPrecRadix();

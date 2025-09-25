@@ -201,9 +201,9 @@ void FlightSqlConnection::Connect(const ConnPropertyMap& properties,
 
 void FlightSqlConnection::PopulateMetadataSettings(
     const Connection::ConnPropertyMap& conn_property_map) {
-  metadata_settings_.string_column_length_ = GetStringColumnLength(conn_property_map);
-  metadata_settings_.use_wide_char_ = GetUseWideChar(conn_property_map);
-  metadata_settings_.chunk_buffer_capacity_ = GetChunkBufferCapacity(conn_property_map);
+  metadata_settings_.string_column_length = GetStringColumnLength(conn_property_map);
+  metadata_settings_.use_wide_char = GetUseWideChar(conn_property_map);
+  metadata_settings_.chunk_buffer_capacity = GetChunkBufferCapacity(conn_property_map);
 }
 
 boost::optional<int32_t> FlightSqlConnection::GetStringColumnLength(

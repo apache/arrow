@@ -49,7 +49,7 @@ FlightSqlResultSet::FlightSqlResultSet(
     const odbcabstraction::MetadataSettings& metadata_settings)
     : metadata_settings_(metadata_settings),
       chunk_buffer_(flight_sql_client, call_options, flight_info,
-                    metadata_settings_.chunk_buffer_capacity_),
+                    metadata_settings_.chunk_buffer_capacity),
       transformer_(transformer),
       metadata_(transformer
                     ? new FlightSqlResultSetMetadata(transformer->GetTransformedSchema(),
@@ -69,7 +69,7 @@ FlightSqlResultSet::FlightSqlResultSet(
   }
 
   for (size_t i = 0; i < columns_.size(); ++i) {
-    columns_[i] = FlightSqlResultSetColumn(metadata_settings.use_wide_char_);
+    columns_[i] = FlightSqlResultSetColumn(metadata_settings.use_wide_char);
   }
 }
 
@@ -121,10 +121,10 @@ size_t FlightSqlResultSet::Move(size_t rows, size_t bind_offset, size_t bind_typ
 
     for (auto& column : columns_) {
       // There can be unbound columns.
-      if (!column.is_bound_) continue;
+      if (!column.is_bound) continue;
 
       auto* accessor = column.GetAccessorForBinding();
-      ColumnBinding shifted_binding = column.binding_;
+      ColumnBinding shifted_binding = column.binding;
       uint16_t* shifted_row_status_array =
           row_status_array ? &row_status_array[fetched_rows] : nullptr;
 
@@ -260,14 +260,14 @@ void FlightSqlResultSet::BindColumn(int column_n, int16_t target_type, int preci
                                     ssize_t* str_len_buffer) {
   auto& column = columns_[column_n - 1];
   if (buffer == nullptr) {
-    if (column.is_bound_) {
+    if (column.is_bound) {
       num_binding_--;
     }
     column.ResetBinding();
     return;
   }
 
-  if (!column.is_bound_) {
+  if (!column.is_bound) {
     num_binding_++;
   }
 
