@@ -28,6 +28,10 @@
 #include "arrow/util/bpacking_simd_internal.h"
 #include "arrow/util/logging.h"
 
+#if defined(ARROW_HAVE_RUNTIME_AVX2)
+#  include "arrow/util/cpu_info.h"
+#endif
+
 namespace arrow::internal {
 
 template <typename Int>
