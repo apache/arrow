@@ -29,11 +29,14 @@ struct Unpack16DynamicFunction {
   using FunctionType = decltype(&unpack16_scalar);
 
   static std::vector<std::pair<DispatchLevel, FunctionType>> implementations() {
-    return {{DispatchLevel::NONE, unpack16_scalar}
+    return {
+        // TODO Strong SSE baseline
+        {DispatchLevel::NONE, unpack16_scalar}
 #if defined(ARROW_HAVE_RUNTIME_AVX2)
-            ,
-            {DispatchLevel::AVX2, unpack16_avx2}
+        ,
+        {DispatchLevel::AVX2, unpack16_avx2}
 #endif
+        // TODO AVX 512 not implemented
     };
   }
 };
@@ -55,6 +58,7 @@ struct Unpack32DynamicFunction {
   using FunctionType = decltype(&unpack32_scalar);
 
   static std::vector<std::pair<DispatchLevel, FunctionType>> implementations() {
+    // TODO Strong SSE baseline
     return {{DispatchLevel::NONE, unpack32_scalar}
 #if defined(ARROW_HAVE_RUNTIME_AVX2)
             ,

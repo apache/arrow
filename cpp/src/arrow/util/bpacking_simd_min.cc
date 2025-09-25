@@ -29,6 +29,10 @@ int unpack16_neon(const uint8_t* in, uint16_t* out, int batch_size, int num_bits
 int unpack32_neon(const uint8_t* in, uint32_t* out, int batch_size, int num_bits) {
   return unpack_jump32<Simd128UnpackerForWidth>(in, out, batch_size, num_bits);
 }
+
+int unpack64_neon(const uint8_t* in, uint64_t* out, int batch_size, int num_bits) {
+  return unpack_jump64<Simd128UnpackerForWidth>(in, out, batch_size, num_bits);
+}
 #endif
 
 #if defined(ARROW_HAVE_SSE4_2)
