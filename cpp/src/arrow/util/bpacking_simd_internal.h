@@ -48,9 +48,6 @@ ARROW_EXPORT int unpack32_avx2(const uint8_t* in, uint32_t* out, int batch_size,
 #endif
 
 #if defined(ARROW_HAVE_AVX512) || defined(ARROW_HAVE_RUNTIME_AVX512)
-ARROW_EXPORT int unpack16_avx512(const uint8_t* in, uint16_t* out, int batch_size,
-                                 int num_bits);
-
 ARROW_EXPORT int unpack32_avx512(const uint8_t* in, uint32_t* out, int batch_size,
                                  int num_bits);
 #endif
