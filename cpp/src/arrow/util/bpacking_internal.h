@@ -34,8 +34,8 @@ extern template ARROW_TEMPLATE_EXPORT int unpack<uint32_t>(const uint8_t* in,
                                                            uint32_t* out, int batch_size,
                                                            int num_bits);
 
-extern template ARROW_TEMPLATE_EXPORT int unpack<uint32_t>(const uint8_t* in,
-                                                           uint32_t* out, int batch_size,
+extern template ARROW_TEMPLATE_EXPORT int unpack<uint64_t>(const uint8_t* in,
+                                                           uint64_t* out, int batch_size,
                                                            int num_bits);
 
 }  // namespace arrow::internal
