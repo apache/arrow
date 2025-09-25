@@ -40,12 +40,12 @@ struct Unpack32DynamicFunction {
     return std::array {
       // Current SIMD unpack algorithm works terribly on SSE4.2 due to lack of variable
       // rhsift and poor xsimd fallback.
-      Implementation{DispatchLevel::NONE, unpack32_scalar},
+      Implementation{DispatchLevel::NONE, &unpack32_scalar},
 #if defined(ARROW_HAVE_RUNTIME_AVX2)
-          {DispatchLevel::AVX2, unpack32_avx2},
+          Implementation{DispatchLevel::AVX2, &unpack32_avx2},
 #endif
 #if defined(ARROW_HAVE_RUNTIME_AVX512)
-          {DispatchLevel::AVX512, unpack32_avx512},
+          Implementation{DispatchLevel::AVX512, &unpack32_avx512},
 #endif
     };
   }
@@ -72,13 +72,13 @@ struct Unpack64DynamicFunction {
     return std::array {
       // Current SIMD unpack algorithm works terribly on SSE4.2 due to lack of variable
       // rhsift and poor xsimd fallback.
-      Implementation{DispatchLevel::NONE, unpack64_scalar},
+      Implementation{DispatchLevel::NONE, &unpack64_scalar},
 #if defined(ARROW_HAVE_RUNTIME_AVX2)
           // Note that Avx2 implementation only slightly outperform scalar
-          {DispatchLevel::AVX2, unpack64_avx2},
+          Implementation{DispatchLevel::AVX2, &unpack64_avx2},
 #endif
 #if defined(ARROW_HAVE_RUNTIME_AVX512)
-          {DispatchLevel::AVX512, unpack64_avx512},
+          Implementation{DispatchLevel::AVX512, &unpack64_avx512},
 #endif
     };
   }
