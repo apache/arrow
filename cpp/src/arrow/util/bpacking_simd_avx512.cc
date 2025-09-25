@@ -25,4 +25,8 @@ int unpack32_avx512(const uint8_t* in, uint32_t* out, int batch_size, int num_bi
   return unpack_jump32<Simd512UnpackerForWidth>(in, out, batch_size, num_bits);
 }
 
+int unpack64_avx512(const uint8_t* in, uint64_t* out, int batch_size, int num_bits) {
+  return unpack_jump64<Simd512UnpackerForWidth>(in, out, batch_size, num_bits);
+}
+
 }  // namespace arrow::internal

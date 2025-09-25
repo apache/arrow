@@ -141,6 +141,8 @@ BENCHMARK_CAPTURE(BM_UnpackUint16, Sse42Unaligned, false, unpack16_sse4_2)
     ->ArgsProduct(kBitWidthsNumValues16);
 BENCHMARK_CAPTURE(BM_UnpackUint32, Sse42Unaligned, false, unpack32_sse4_2)
     ->ArgsProduct(kBitWidthsNumValues32);
+BENCHMARK_CAPTURE(BM_UnpackUint64, Sse42Unaligned, false, unpack64_sse4_2)
+    ->ArgsProduct(kBitWidthsNumValues64);
 #endif
 
 #if defined(ARROW_HAVE_RUNTIME_AVX2)
@@ -152,6 +154,10 @@ BENCHMARK_CAPTURE(BM_UnpackUint32, Avx2Unaligned, false, unpack32_avx2,
                   !CpuInfo::GetInstance()->IsSupported(CpuInfo::AVX2),
                   "Avx2 not available")
     ->ArgsProduct(kBitWidthsNumValues32);
+BENCHMARK_CAPTURE(BM_UnpackUint64, Avx2Unaligned, false, unpack64_avx2,
+                  !CpuInfo::GetInstance()->IsSupported(CpuInfo::AVX2),
+                  "Avx2 not available")
+    ->ArgsProduct(kBitWidthsNumValues64);
 #endif
 
 #if defined(ARROW_HAVE_RUNTIME_AVX512)
@@ -159,6 +165,10 @@ BENCHMARK_CAPTURE(BM_UnpackUint32, Avx512Unaligned, false, unpack32_avx512,
                   !CpuInfo::GetInstance()->IsSupported(CpuInfo::AVX512),
                   "Avx512 not available")
     ->ArgsProduct(kBitWidthsNumValues32);
+BENCHMARK_CAPTURE(BM_UnpackUint64, Avx512Unaligned, false, unpack64_avx512,
+                  !CpuInfo::GetInstance()->IsSupported(CpuInfo::AVX512),
+                  "Avx512 not available")
+    ->ArgsProduct(kBitWidthsNumValues64);
 #endif
 
 #if defined(ARROW_HAVE_NEON)
@@ -166,7 +176,14 @@ BENCHMARK_CAPTURE(BM_UnpackUint16, NeonUnaligned, false, unpack16_neon)
     ->ArgsProduct(kBitWidthsNumValues16);
 BENCHMARK_CAPTURE(BM_UnpackUint32, NeonUnaligned, false, unpack32_neon)
     ->ArgsProduct(kBitWidthsNumValues32);
+BENCHMARK_CAPTURE(BM_UnpackUint64, NeonUnaligned, false, unpack64_neon)
+    ->ArgsProduct(kBitWidthsNumValues64);
 #endif
+
+BENCHMARK_CAPTURE(BM_UnpackUint16, DynamicAligned, true, unpack16)
+    ->ArgsProduct(kBitWidthsNumValues16);
+BENCHMARK_CAPTURE(BM_UnpackUint16, DynamicUnaligned, false, unpack16)
+    ->ArgsProduct(kBitWidthsNumValues16);
 
 BENCHMARK_CAPTURE(BM_UnpackUint32, DynamicAligned, true, unpack32)
     ->ArgsProduct(kBitWidthsNumValues32);
