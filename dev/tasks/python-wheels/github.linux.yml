@@ -41,21 +41,24 @@ jobs:
       ARCH: arm64v8
       {% endif %}
       PYTHON: "{{ python_version }}"
-      PYTHON_ABI_TAG: "{{ python_abi_tag }}"
+      {% if python_version == "3.14" %}
+      PYTHON_IMAGE_TAG: "3.14.0rc3"
+      {% else %}
       PYTHON_IMAGE_TAG: "{{ python_version }}"
+      {% endif %}
 
     steps:
       {{ macros.github_checkout_arrow()|indent }}
       {{ macros.github_install_archery()|indent }}
       {{ macros.github_login_dockerhub()|indent }}
 
+      # Detect free-threaded Python builds
       - name: Prepare
         run: |
-          if [ "${PYTHON_ABI_TAG}" = "cp313t" ]; then
-            test_image_prefix=python-free-threaded
-          else
-            test_image_prefix=python
-          fi
+          test_image_prefix=$(python -c '
+          import sysconfig
+          print("python-free-threaded" if sysconfig.get_config_var("Py_GIL_DISABLED") else "python")
+          ')
           echo "TEST_IMAGE_PREFIX=${test_image_prefix}" >> ${GITHUB_ENV}
 
       - name: Build wheel
