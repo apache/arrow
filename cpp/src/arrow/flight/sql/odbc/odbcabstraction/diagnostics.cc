@@ -52,7 +52,7 @@ void driver::odbcabstraction::Diagnostics::AddError(
   auto record = std::unique_ptr<DiagnosticsRecord>(new DiagnosticsRecord{
       exception.GetMessageText(), exception.GetSqlState(), exception.GetNativeError()});
   if (version_ == OdbcVersion::V_2) {
-    RewriteSQLStateForODBC2(record->sql_state_);
+    RewriteSQLStateForODBC2(record->sql_state);
   }
   TrackRecord(*record);
   owned_records_.push_back(std::move(record));
@@ -64,7 +64,7 @@ void driver::odbcabstraction::Diagnostics::AddWarning(std::string message,
   auto record = std::unique_ptr<DiagnosticsRecord>(
       new DiagnosticsRecord{std::move(message), std::move(sql_state), native_error});
   if (version_ == OdbcVersion::V_2) {
-    RewriteSQLStateForODBC2(record->sql_state_);
+    RewriteSQLStateForODBC2(record->sql_state);
   }
   TrackRecord(*record);
   owned_records_.push_back(std::move(record));
@@ -78,7 +78,7 @@ std::string driver::odbcabstraction::Diagnostics::GetMessageText(
   }
   const DiagnosticsRecord* rec = GetRecordAtIndex(record_index);
   return message + "[" + data_source_component_ + "] (" +
-         std::to_string(rec->native_error_) + ") " + rec->msg_text_;
+         std::to_string(rec->native_error) + ") " + rec->msg_text;
 }
 
 OdbcVersion Diagnostics::GetOdbcVersion() const { return version_; }

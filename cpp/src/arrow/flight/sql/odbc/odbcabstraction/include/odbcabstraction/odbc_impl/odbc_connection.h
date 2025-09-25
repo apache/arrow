@@ -61,7 +61,7 @@ class ODBCConnection : public ODBCHandle<ODBCConnection> {
 
   ~ODBCConnection() = default;
 
-  inline ODBCStatement& GetTrackingStatement() { return *m_attribute_tracking_statement; }
+  inline ODBCStatement& GetTrackingStatement() { return *attribute_tracking_statement_; }
 
   void Disconnect();
 
@@ -73,7 +73,7 @@ class ODBCConnection : public ODBCHandle<ODBCConnection> {
   std::shared_ptr<ODBCDescriptor> CreateDescriptor();
   void DropDescriptor(ODBCDescriptor* descriptor);
 
-  inline bool IsOdbc2Connection() const { return m_is_2x_connection; }
+  inline bool IsOdbc2Connection() const { return is_2x_connection_; }
 
   /// @return the DSN or empty string if Driver was used.
   static std::string GetPropertiesFromConnString(
@@ -81,17 +81,17 @@ class ODBCConnection : public ODBCHandle<ODBCConnection> {
       driver::odbcabstraction::Connection::ConnPropertyMap& properties);
 
  private:
-  ODBCEnvironment& m_environment;
-  std::shared_ptr<driver::odbcabstraction::Connection> m_spi_connection;
+  ODBCEnvironment& environment_;
+  std::shared_ptr<driver::odbcabstraction::Connection> spi_connection_;
   // Extra ODBC statement that's used to track and validate when statement attributes are
   // set through the connection handle. These attributes get copied to new ODBC statements
   // when they are allocated.
-  std::shared_ptr<ODBCStatement> m_attribute_tracking_statement;
-  std::vector<std::shared_ptr<ODBCStatement> > m_statements;
-  std::vector<std::shared_ptr<ODBCDescriptor> > m_descriptors;
-  std::string m_dsn;
-  const bool m_is_2x_connection;
-  bool m_is_connected;
+  std::shared_ptr<ODBCStatement> attribute_tracking_statement_;
+  std::vector<std::shared_ptr<ODBCStatement> > statements_;
+  std::vector<std::shared_ptr<ODBCDescriptor> > descriptors_;
+  std::string dsn_;
+  const bool is_2x_connection_;
+  bool is_connected_;
 };
 
 }  // namespace ODBC

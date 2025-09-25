@@ -38,40 +38,40 @@ class ODBCStatement;
 
 namespace ODBC {
 struct DescriptorRecord {
-  std::string m_base_column_name;
-  std::string m_base_table_name;
-  std::string m_catalog_name;
-  std::string m_label;
-  std::string m_literal_prefix;
-  std::string m_literal_suffix;
-  std::string m_local_type_name;
-  std::string m_name;
-  std::string m_schema_name;
-  std::string m_table_name;
-  std::string m_type_name;
-  SQLPOINTER m_data_ptr = NULL;
-  SQLLEN* m_indicator_ptr = NULL;
-  SQLLEN m_display_size = 0;
-  SQLLEN m_octet_length = 0;
-  SQLULEN m_length = 0;
-  SQLINTEGER m_auto_unique_value;
-  SQLINTEGER m_case_sensitive = SQL_TRUE;
-  SQLINTEGER m_datetime_interval_precision = 0;
-  SQLINTEGER m_num_prec_radix = 0;
-  SQLSMALLINT m_concise_type = SQL_C_DEFAULT;
-  SQLSMALLINT m_datetime_interval_code = 0;
-  SQLSMALLINT m_fixed_prec_scale = 0;
-  SQLSMALLINT m_nullable = SQL_NULLABLE_UNKNOWN;
-  SQLSMALLINT m_param_type = SQL_PARAM_INPUT;
-  SQLSMALLINT m_precision = 0;
-  SQLSMALLINT m_row_ver = 0;
-  SQLSMALLINT m_scale = 0;
-  SQLSMALLINT m_searchable = SQL_SEARCHABLE;
-  SQLSMALLINT m_type = SQL_C_DEFAULT;
-  SQLSMALLINT m_unnamed = SQL_TRUE;
-  SQLSMALLINT m_unsigned = SQL_FALSE;
-  SQLSMALLINT m_updatable = SQL_FALSE;
-  bool m_is_bound = false;
+  std::string base_column_name;
+  std::string base_table_name;
+  std::string catalog_name;
+  std::string label;
+  std::string literal_prefix;
+  std::string literal_suffix;
+  std::string local_type_name;
+  std::string name;
+  std::string schema_name;
+  std::string table_name;
+  std::string type_name;
+  SQLPOINTER data_ptr = NULL;
+  SQLLEN* indicator_ptr = NULL;
+  SQLLEN display_size = 0;
+  SQLLEN octet_length = 0;
+  SQLULEN length = 0;
+  SQLINTEGER auto_unique_value;
+  SQLINTEGER case_sensitive = SQL_TRUE;
+  SQLINTEGER datetime_interval_precision = 0;
+  SQLINTEGER num_prec_radix = 0;
+  SQLSMALLINT concise_type = SQL_C_DEFAULT;
+  SQLSMALLINT datetime_interval_code = 0;
+  SQLSMALLINT fixed_prec_scale = 0;
+  SQLSMALLINT nullable = SQL_NULLABLE_UNKNOWN;
+  SQLSMALLINT param_type = SQL_PARAM_INPUT;
+  SQLSMALLINT precision = 0;
+  SQLSMALLINT row_ver = 0;
+  SQLSMALLINT scale = 0;
+  SQLSMALLINT searchable = SQL_SEARCHABLE;
+  SQLSMALLINT type = SQL_C_DEFAULT;
+  SQLSMALLINT unnamed = SQL_TRUE;
+  SQLSMALLINT is_unsigned = SQL_FALSE;
+  SQLSMALLINT updatable = SQL_FALSE;
+  bool is_bound = false;
 
   void CheckConsistency();
 };
@@ -100,7 +100,7 @@ class ODBCDescriptor : public ODBCHandle<ODBCDescriptor> {
   SQLSMALLINT GetAllocType() const;
   bool IsAppDescriptor() const;
 
-  inline bool HaveBindingsChanged() const { return m_has_bindings_changed; }
+  inline bool HaveBindingsChanged() const { return has_bindings_changed_; }
 
   void RegisterToStatement(ODBCStatement* statement, bool is_apd);
   void DetachFromStatement(ODBCStatement* statement, bool is_apd);
@@ -115,45 +115,45 @@ class ODBCDescriptor : public ODBCHandle<ODBCDescriptor> {
                SQLLEN buffer_length, SQLLEN* indicator_ptr);
   void SetDataPtrOnRecord(SQLPOINTER data_ptr, SQLSMALLINT rec_number);
 
-  inline SQLULEN GetBindOffset() { return m_bind_offset_ptr ? *m_bind_offset_ptr : 0UL; }
+  inline SQLULEN GetBindOffset() { return bind_offset_ptr_ ? *bind_offset_ptr_ : 0UL; }
 
   inline SQLULEN GetBoundStructOffset() {
-    // If this is SQL_BIND_BY_COLUMN, m_bind_type is zero which indicates no offset due to
+    // If this is SQL_BIND_BY_COLUMN, bind_type_ is zero which indicates no offset due to
     // use of a bound struct. If this is non-zero, row-wise binding is being used so the
     // app should set this to sizeof(their struct).
-    return m_bind_type;
+    return bind_type_;
   }
 
-  inline SQLULEN GetArraySize() { return m_array_size; }
+  inline SQLULEN GetArraySize() { return array_size_; }
 
-  inline SQLUSMALLINT* GetArrayStatusPtr() { return m_array_status_ptr; }
+  inline SQLUSMALLINT* GetArrayStatusPtr() { return array_status_ptr_; }
 
   inline void SetRowsProcessed(SQLULEN rows) {
-    if (m_rows_proccessed_ptr) {
-      *m_rows_proccessed_ptr = rows;
+    if (rows_proccessed_ptr_) {
+      *rows_proccessed_ptr_ = rows;
     }
   }
 
-  inline void NotifyBindingsHavePropagated() { m_has_bindings_changed = false; }
+  inline void NotifyBindingsHavePropagated() { has_bindings_changed_ = false; }
 
-  inline void NotifyBindingsHaveChanged() { m_has_bindings_changed = true; }
+  inline void NotifyBindingsHaveChanged() { has_bindings_changed_ = true; }
 
  private:
-  driver::odbcabstraction::Diagnostics m_diagnostics;
-  std::vector<ODBCStatement*> m_registered_on_statements_as_apd;
-  std::vector<ODBCStatement*> m_registered_on_statements_as_ard;
-  std::vector<DescriptorRecord> m_records;
-  ODBCConnection* m_owning_connection;
-  ODBCStatement* m_parent_statement;
-  SQLUSMALLINT* m_array_status_ptr;
-  SQLULEN* m_bind_offset_ptr;
-  SQLULEN* m_rows_proccessed_ptr;
-  SQLULEN m_array_size;
-  SQLINTEGER m_bind_type;
-  SQLSMALLINT m_highest_one_based_bound_record;
-  const bool m_is_2x_connection;
-  bool m_is_app_descriptor;
-  bool m_is_writable;
-  bool m_has_bindings_changed;
+  driver::odbcabstraction::Diagnostics diagnostics_;
+  std::vector<ODBCStatement*> registered_on_statements_as_apd_;
+  std::vector<ODBCStatement*> registered_on_statements_as_ard_;
+  std::vector<DescriptorRecord> records_;
+  ODBCConnection* owning_connection_;
+  ODBCStatement* parent_statement_;
+  SQLUSMALLINT* array_status_ptr_;
+  SQLULEN* bind_offset_ptr_;
+  SQLULEN* rows_proccessed_ptr_;
+  SQLULEN array_size_;
+  SQLINTEGER bind_type_;
+  SQLSMALLINT highest_one_based_bound_record_;
+  const bool is_2x_connection_;
+  bool is_app_descriptor_;
+  bool is_writable_;
+  bool has_bindings_changed_;
 };
 }  // namespace ODBC

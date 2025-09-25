@@ -104,31 +104,31 @@ void loadPropertiesFromDSN(const std::string& dsn,
 // =========================================================================================
 ODBCConnection::ODBCConnection(ODBCEnvironment& environment,
                                std::shared_ptr<Connection> spi_connection)
-    : m_environment(environment),
-      m_spi_connection(std::move(spi_connection)),
-      m_is_2x_connection(environment.GetODBCVersion() == SQL_OV_ODBC2),
-      m_is_connected(false) {}
+    : environment_(environment),
+      spi_connection_(std::move(spi_connection)),
+      is_2x_connection_(environment.GetODBCVersion() == SQL_OV_ODBC2),
+      is_connected_(false) {}
 
 Diagnostics& ODBCConnection::GetDiagnosticsImpl() {
-  return m_spi_connection->GetDiagnostics();
+  return spi_connection_->GetDiagnostics();
 }
 
-bool ODBCConnection::IsConnected() const { return m_is_connected; }
+bool ODBCConnection::IsConnected() const { return is_connected_; }
 
-const std::string& ODBCConnection::GetDSN() const { return m_dsn; }
+const std::string& ODBCConnection::GetDSN() const { return dsn_; }
 
 void ODBCConnection::Connect(std::string dsn,
                              const Connection::ConnPropertyMap& properties,
                              std::vector<std::string_view>& missing_properties) {
-  if (m_is_connected) {
+  if (is_connected_) {
     throw DriverException("Already connected.", "HY010");
   }
 
-  m_dsn = std::move(dsn);
-  m_spi_connection->Connect(properties, missing_properties);
-  m_is_connected = true;
-  std::shared_ptr<Statement> spi_statement = m_spi_connection->CreateStatement();
-  m_attribute_tracking_statement = std::make_shared<ODBCStatement>(*this, spi_statement);
+  dsn_ = std::move(dsn);
+  spi_connection_->Connect(properties, missing_properties);
+  is_connected_ = true;
+  std::shared_ptr<Statement> spi_statement = spi_connection_->CreateStatement();
+  attribute_tracking_statement_ = std::make_shared<ODBCStatement>(*this, spi_statement);
 }
 
 void ODBCConnection::GetInfo(SQLUSMALLINT info_type, SQLPOINTER value,
@@ -161,7 +161,7 @@ void ODBCConnection::GetInfo(SQLUSMALLINT info_type, SQLPOINTER value,
       GetAttribute(static_cast<SQLUINTEGER>(0), value, buffer_length, output_length);
       break;
     case SQL_DATA_SOURCE_NAME:
-      GetStringAttribute(is_unicode, m_dsn, true, value, buffer_length, output_length,
+      GetStringAttribute(is_unicode, dsn_, true, value, buffer_length, output_length,
                          GetDiagnostics());
       break;
     case SQL_DRIVER_ODBC_VER:
@@ -309,7 +309,7 @@ void ODBCConnection::GetInfo(SQLUSMALLINT info_type, SQLPOINTER value,
     case SQL_PROCEDURES:
     case SQL_SPECIAL_CHARACTERS:
     case SQL_XOPEN_CLI_YEAR: {
-      const auto& info = m_spi_connection->GetInfo(info_type);
+      const auto& info = spi_connection_->GetInfo(info_type);
       const std::string& info_value = boost::get<std::string>(info);
       GetStringAttribute(is_unicode, info_value, true, value, buffer_length,
                          output_length, GetDiagnostics());
@@ -400,7 +400,7 @@ void ODBCConnection::GetInfo(SQLUSMALLINT info_type, SQLPOINTER value,
     case SQL_SQL92_STRING_FUNCTIONS:
     case SQL_SQL92_VALUE_EXPRESSIONS:
     case SQL_STANDARD_CLI_CONFORMANCE: {
-      const auto& info = m_spi_connection->GetInfo(info_type);
+      const auto& info = spi_connection_->GetInfo(info_type);
       uint32_t info_value = boost::get<uint32_t>(info);
       GetAttribute(info_value, value, buffer_length, output_length);
       break;
@@ -435,7 +435,7 @@ void ODBCConnection::GetInfo(SQLUSMALLINT info_type, SQLPOINTER value,
     case SQL_MAX_USER_NAME_LEN:
     case SQL_ODBC_SQL_CONFORMANCE:
     case SQL_ODBC_SAG_CLI_CONFORMANCE: {
-      const auto& info = m_spi_connection->GetInfo(info_type);
+      const auto& info = spi_connection_->GetInfo(info_type);
       uint16_t info_value = boost::get<uint16_t>(info);
       GetAttribute(info_value, value, buffer_length, output_length);
       break;
@@ -443,7 +443,7 @@ void ODBCConnection::GetInfo(SQLUSMALLINT info_type, SQLPOINTER value,
 
     // Special case - SQL_DATABASE_NAME is an alias for SQL_ATTR_CURRENT_CATALOG.
     case SQL_DATABASE_NAME: {
-      const auto& attr = m_spi_connection->GetAttribute(Connection::CURRENT_CATALOG);
+      const auto& attr = spi_connection_->GetAttribute(Connection::CURRENT_CATALOG);
       if (!attr) {
         throw DriverException("Optional feature not supported.", "HYC00");
       }
@@ -516,7 +516,7 @@ void ODBCConnection::SetConnectAttr(SQLINTEGER attribute, SQLPOINTER value,
       } else {
         SetAttributeSQLWCHAR(value, string_length, catalog);
       }
-      if (!m_spi_connection->SetAttribute(Connection::CURRENT_CATALOG, catalog)) {
+      if (!spi_connection_->SetAttribute(Connection::CURRENT_CATALOG, catalog)) {
         throw DriverException("Option value changed.", "01S02");
       }
       return;
@@ -539,29 +539,29 @@ void ODBCConnection::SetConnectAttr(SQLINTEGER attribute, SQLPOINTER value,
     case SQL_ATTR_ROW_BIND_TYPE:
     case SQL_ATTR_SIMULATE_CURSOR:
     case SQL_ATTR_USE_BOOKMARKS:
-      m_attribute_tracking_statement->SetStmtAttr(attribute, value, string_length,
-                                                  is_unicode);
+      attribute_tracking_statement_->SetStmtAttr(attribute, value, string_length,
+                                                 is_unicode);
       return;
 
     case SQL_ATTR_ACCESS_MODE:
       SetAttribute(value, attribute_to_write);
       successfully_written =
-          m_spi_connection->SetAttribute(Connection::ACCESS_MODE, attribute_to_write);
+          spi_connection_->SetAttribute(Connection::ACCESS_MODE, attribute_to_write);
       break;
     case SQL_ATTR_CONNECTION_TIMEOUT:
       SetAttribute(value, attribute_to_write);
-      successfully_written = m_spi_connection->SetAttribute(
-          Connection::CONNECTION_TIMEOUT, attribute_to_write);
+      successfully_written = spi_connection_->SetAttribute(Connection::CONNECTION_TIMEOUT,
+                                                           attribute_to_write);
       break;
     case SQL_ATTR_LOGIN_TIMEOUT:
       SetAttribute(value, attribute_to_write);
       successfully_written =
-          m_spi_connection->SetAttribute(Connection::LOGIN_TIMEOUT, attribute_to_write);
+          spi_connection_->SetAttribute(Connection::LOGIN_TIMEOUT, attribute_to_write);
       break;
     case SQL_ATTR_PACKET_SIZE:
       SetAttribute(value, attribute_to_write);
       successfully_written =
-          m_spi_connection->SetAttribute(Connection::PACKET_SIZE, attribute_to_write);
+          spi_connection_->SetAttribute(Connection::PACKET_SIZE, attribute_to_write);
       break;
     default:
       throw DriverException("Invalid attribute: " + std::to_string(attribute), "HY092");
@@ -639,7 +639,7 @@ void ODBCConnection::GetConnectAttr(SQLINTEGER attribute, SQLPOINTER value,
 
     // ODBCAbstraction-level connection attributes.
     case SQL_ATTR_CURRENT_CATALOG: {
-      const auto& catalog = m_spi_connection->GetAttribute(Connection::CURRENT_CATALOG);
+      const auto& catalog = spi_connection_->GetAttribute(Connection::CURRENT_CATALOG);
       if (!catalog) {
         throw DriverException("Optional feature not supported.", "HYC00");
       }
@@ -651,19 +651,19 @@ void ODBCConnection::GetConnectAttr(SQLINTEGER attribute, SQLPOINTER value,
 
     // These all are uint32_t attributes.
     case SQL_ATTR_ACCESS_MODE:
-      spi_attribute = m_spi_connection->GetAttribute(Connection::ACCESS_MODE);
+      spi_attribute = spi_connection_->GetAttribute(Connection::ACCESS_MODE);
       break;
     case SQL_ATTR_CONNECTION_DEAD:
-      spi_attribute = m_spi_connection->GetAttribute(Connection::CONNECTION_DEAD);
+      spi_attribute = spi_connection_->GetAttribute(Connection::CONNECTION_DEAD);
       break;
     case SQL_ATTR_CONNECTION_TIMEOUT:
-      spi_attribute = m_spi_connection->GetAttribute(Connection::CONNECTION_TIMEOUT);
+      spi_attribute = spi_connection_->GetAttribute(Connection::CONNECTION_TIMEOUT);
       break;
     case SQL_ATTR_LOGIN_TIMEOUT:
-      spi_attribute = m_spi_connection->GetAttribute(Connection::LOGIN_TIMEOUT);
+      spi_attribute = spi_connection_->GetAttribute(Connection::LOGIN_TIMEOUT);
       break;
     case SQL_ATTR_PACKET_SIZE:
-      spi_attribute = m_spi_connection->GetAttribute(Connection::PACKET_SIZE);
+      spi_attribute = spi_connection_->GetAttribute(Connection::PACKET_SIZE);
       break;
     default:
       throw DriverException("Invalid attribute", "HY092");
@@ -678,54 +678,54 @@ void ODBCConnection::GetConnectAttr(SQLINTEGER attribute, SQLPOINTER value,
 }
 
 void ODBCConnection::Disconnect() {
-  if (m_is_connected) {
+  if (is_connected_) {
     // Ensure that all statements (and corresponding SPI statements) get cleaned
     // up before terminating the SPI connection in case they need to be de-allocated in
     // the reverse of the allocation order.
-    m_statements.clear();
-    m_spi_connection->Close();
-    m_is_connected = false;
+    statements_.clear();
+    spi_connection_->Close();
+    is_connected_ = false;
   }
 }
 
 void ODBCConnection::ReleaseConnection() {
   Disconnect();
-  m_environment.DropConnection(this);
+  environment_.DropConnection(this);
 }
 
 std::shared_ptr<ODBCStatement> ODBCConnection::CreateStatement() {
-  std::shared_ptr<Statement> spi_statement = m_spi_connection->CreateStatement();
+  std::shared_ptr<Statement> spi_statement = spi_connection_->CreateStatement();
   std::shared_ptr<ODBCStatement> statement =
       std::make_shared<ODBCStatement>(*this, spi_statement);
-  m_statements.push_back(statement);
+  statements_.push_back(statement);
   statement->CopyAttributesFromConnection(*this);
   return statement;
 }
 
 void ODBCConnection::DropStatement(ODBCStatement* stmt) {
-  auto it = std::find_if(m_statements.begin(), m_statements.end(),
+  auto it = std::find_if(statements_.begin(), statements_.end(),
                          [&stmt](const std::shared_ptr<ODBCStatement>& statement) {
                            return statement.get() == stmt;
                          });
-  if (m_statements.end() != it) {
-    m_statements.erase(it);
+  if (statements_.end() != it) {
+    statements_.erase(it);
   }
 }
 
 std::shared_ptr<ODBCDescriptor> ODBCConnection::CreateDescriptor() {
   std::shared_ptr<ODBCDescriptor> desc = std::make_shared<ODBCDescriptor>(
-      m_spi_connection->GetDiagnostics(), this, nullptr, true, true, false);
-  m_descriptors.push_back(desc);
+      spi_connection_->GetDiagnostics(), this, nullptr, true, true, false);
+  descriptors_.push_back(desc);
   return desc;
 }
 
 void ODBCConnection::DropDescriptor(ODBCDescriptor* desc) {
-  auto it = std::find_if(m_descriptors.begin(), m_descriptors.end(),
+  auto it = std::find_if(descriptors_.begin(), descriptors_.end(),
                          [&desc](const std::shared_ptr<ODBCDescriptor>& descriptor) {
                            return descriptor.get() == desc;
                          });
-  if (m_descriptors.end() != it) {
-    m_descriptors.erase(it);
+  if (descriptors_.end() != it) {
+    descriptors_.erase(it);
   }
 }
 

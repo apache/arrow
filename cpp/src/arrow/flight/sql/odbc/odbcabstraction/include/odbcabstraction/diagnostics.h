@@ -29,9 +29,9 @@ namespace odbcabstraction {
 class Diagnostics {
  public:
   struct DiagnosticsRecord {
-    std::string msg_text_;
-    std::string sql_state_;
-    int32_t native_error_;
+    std::string msg_text;
+    std::string sql_state;
+    int32_t native_error;
   };
 
  private:
@@ -56,7 +56,7 @@ class Diagnostics {
   }
 
   inline void TrackRecord(const DiagnosticsRecord& record) {
-    if (record.sql_state_[0] == '0' && record.sql_state_[1] == '1') {
+    if (record.sql_state[0] == '0' && record.sql_state[1] == '1') {
       warning_records_.push_back(&record);
     } else {
       error_records_.push_back(&record);
@@ -76,11 +76,11 @@ class Diagnostics {
 
   std::string GetMessageText(uint32_t record_index) const;
   std::string GetSQLState(uint32_t record_index) const {
-    return GetRecordAtIndex(record_index)->sql_state_;
+    return GetRecordAtIndex(record_index)->sql_state;
   }
 
   int32_t GetNativeError(uint32_t record_index) const {
-    return GetRecordAtIndex(record_index)->native_error_;
+    return GetRecordAtIndex(record_index)->native_error;
   }
 
   inline size_t GetRecordCount() const {
