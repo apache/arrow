@@ -589,14 +589,12 @@ def get_static_json_files():
     ]
 
 
-def run_all_tests(with_cpp=True, with_java=True, with_js=True,
-                  with_dotnet=True, with_go=True, with_rust=False,
-                  with_nanoarrow=False, run_ipc=False, run_flight=False,
-                  run_c_data=False, tempdir=None, target_implementations="",
-                  **kwargs):
-    tempdir = tempdir or tempfile.mkdtemp(prefix='arrow-integration-')
-    target_implementations = \
-        target_implementations.split(",") if target_implementations else []
+def select_testers(with_cpp=True, with_java=True, with_js=True,
+                   with_dotnet=True, with_go=True, with_rust=False,
+                   with_nanoarrow=False, target_implementations="",
+                   **kwargs):
+    target_implementations = (target_implementations.split(",")
+                              if target_implementations else [])
 
     testers: List[Tester] = []
     other_testers: List[Tester] = []
@@ -634,6 +632,14 @@ def run_all_tests(with_cpp=True, with_java=True, with_js=True,
     if with_rust:
         from .tester_rust import RustTester
         append_tester("rust", RustTester(**kwargs))
+
+    return testers, other_testers
+
+
+def run_all_tests(testers: List[Tester], other_testers: List[Tester],
+                  run_ipc=False, run_flight=False, run_c_data=False,
+                  tempdir=None, **kwargs):
+    tempdir = tempdir or tempfile.mkdtemp(prefix='arrow-integration-')
 
     static_json_files = get_static_json_files()
     generated_json_files = datagen.get_generated_json_files(tempdir=tempdir)

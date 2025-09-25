@@ -17,10 +17,12 @@
 
 from collections import namedtuple, OrderedDict
 import binascii
+import gzip
 import json
 import os
 import random
 import tempfile
+import shutil
 
 import numpy as np
 
@@ -1885,9 +1887,6 @@ def generate_extension_case():
 def get_generated_json_files(tempdir=None):
     tempdir = tempdir or tempfile.mkdtemp(prefix='arrow-integration-')
 
-    def _temp_path():
-        return
-
     file_objs = [
         generate_primitive_case([], name='primitive_no_batches'),
         generate_primitive_case([17, 20], name='primitive'),
@@ -2003,3 +2002,25 @@ def get_generated_json_files(tempdir=None):
         generated_paths.append(file_obj)
 
     return generated_paths
+
+
+def generate_gold_files(tester, gold_dir):
+    os.makedirs(gold_dir, exist_ok=True)
+
+    # Generate JSON files
+    files = get_generated_json_files(gold_dir)
+    for f in files:
+        # For each JSON file, convert it to Arrow IPC file and stream
+        json_path = os.path.join(gold_dir, 'generated_' +
+                                 f.name + '.json')
+        arrow_file_path = os.path.join(gold_dir, 'generated_' +
+                                       f.name + '.arrow_file')
+        stream_path = os.path.join(gold_dir, 'generated_' +
+                                   f.name + '.stream')
+        tester.json_to_file(json_path, arrow_file_path)
+        tester.file_to_stream(arrow_file_path, stream_path)
+        # And GZip-compress the JSON file
+        with open(json_path, 'rb') as f_in:
+            with gzip.open(json_path + '.gz', 'wb') as f_out:
+                shutil.copyfileobj(f_in, f_out)
+        os.unlink(json_path)
