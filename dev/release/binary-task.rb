@@ -1929,7 +1929,7 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
     thread_pool.join
   end
 
-  def rpm_sign(directory)
+  def rpm_sign()
     unless system("rpm", "-q",
                   rpm_gpg_key_package_name(gpg_key_id),
                   out: IO::NULL)
@@ -1948,7 +1948,6 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
 
     yum_targets.each do |distribution, distribution_version|
       source_dir = [
-        directory,
         distribution,
         distribution_version,
       ].join("/")
@@ -1956,9 +1955,9 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
     end
   end
 
-  def yum_update(base_dir, incoming_dir)
+  def yum_update(base_dir)
     yum_targets.each do |distribution, distribution_version|
-      target_dir = "#{incoming_dir}/#{distribution}/#{distribution_version}"
+      target_dir = "#{distribution}/#{distribution_version}"
       target_dir = Pathname(target_dir)
       next unless target_dir.directory?
 
@@ -2391,18 +2390,16 @@ class LocalBinaryTask < BinaryTask
     namespace :yum do
       desc "Test RPM packages"
       task :test do
-        repositories_dir = "yum/repositories"
         unless @packages.empty?
-          rm_rf(repositories_dir)
           @packages.each do |package|
             package_repositories = "#{package}"
             next unless File.exist?(package_repositories)
-            sh("rsync", "-av", "#{package_repositories}/", repositories_dir)
+            sh("rsync", "-av", "#{package_repositories}/")
           end
         end
-        rpm_sign(repositories_dir)
+        rpm_sign()
         base_dir = "nonexistent"
-        yum_update(base_dir, repositories_dir)
+        yum_update(base_dir)
         yum_test_targets.each do |target|
           verify(target)
         end
