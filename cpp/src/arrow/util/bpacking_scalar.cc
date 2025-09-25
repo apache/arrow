@@ -22,15 +22,15 @@
 namespace arrow::internal {
 
 int unpack16_scalar(const uint8_t* in, uint16_t* out, int batch_size, int num_bits) {
-  return unpack_jump16<ScalarUnpackerForWidth>(in, out, batch_size, num_bits);
+  return unpack_jump<ScalarUnpackerForWidth>(in, out, batch_size, num_bits);
 }
 
 int unpack32_scalar(const uint8_t* in, uint32_t* out, int batch_size, int num_bits) {
-  return unpack_jump32<ScalarUnpackerForWidth>(in, out, batch_size, num_bits);
+  return unpack_jump<ScalarUnpackerForWidth>(in, out, batch_size, num_bits);
 }
 
 int unpack64_scalar(const uint8_t* in, uint64_t* out, int batch_size, int num_bits) {
-  return unpack_jump64<ScalarUnpackerForWidth>(in, out, batch_size, num_bits);
+  return unpack_jump<ScalarUnpackerForWidth>(in, out, batch_size, num_bits);
 }
 
 }  // namespace arrow::internal
