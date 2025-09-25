@@ -114,30 +114,12 @@ const uint8_t* GetNextAlignedByte(const uint8_t* ptr, std::size_t alignment) {
   return ptr + bytes_to_add;
 }
 
-struct TestUnpackSize {
-  int32_t num_values;
-  int32_t bit_width;
-
-  static std::vector<TestUnpackSize> MakeProduct(int32_t bit_width_start,
-                                                 int32_t bit_width_end,
-                                                 std::vector<int32_t> num_values_set) {
-    std::vector<TestUnpackSize> out;
-    out.reserve((bit_width_end - bit_width_start) * num_values_set.size());
-
-    for (int32_t width = bit_width_start; width < bit_width_end; ++width) {
-      for (int32_t num : num_values_set) {
-        out.push_back({num, width});
-      }
-    }
-    return out;
-  }
-};
-
-class TestUnpack : public ::testing::TestWithParam<TestUnpackSize> {
+class TestUnpack : public ::testing::TestWithParam<int> {
  protected:
   template <typename Int>
-  void TestRoundtripAlignment(UnpackFunc<Int> unpack, std::size_t alignment_offset) {
-    auto [num_values, bit_width] = GetParam();
+  void TestRoundtripAlignment(UnpackFunc<Int> unpack, int bit_width,
+                              std::size_t alignment_offset) {
+    int num_values = GetParam();
 
     // Assume std::vector allocation is likely be aligned for greater than a byte.
     // So we allocate more values than necessary and skip to the next byte with the
@@ -151,8 +133,8 @@ class TestUnpack : public ::testing::TestWithParam<TestUnpackSize> {
   }
 
   template <typename Int>
-  void TestUnpackZeros(UnpackFunc<Int> unpack) {
-    auto [num_values, bit_width] = GetParam();
+  void TestUnpackZeros(UnpackFunc<Int> unpack, int bit_width) {
+    int num_values = GetParam();
     EXPECT_OK_AND_ASSIGN(const auto num_bytes, GetNumBytes(num_values, bit_width));
 
     const std::vector<uint8_t> packed(static_cast<std::size_t>(num_bytes), uint8_t{0});
@@ -163,8 +145,8 @@ class TestUnpack : public ::testing::TestWithParam<TestUnpackSize> {
   }
 
   template <typename Int>
-  void TestUnpackOnes(UnpackFunc<Int> unpack) {
-    auto [num_values, bit_width] = GetParam();
+  void TestUnpackOnes(UnpackFunc<Int> unpack, int bit_width) {
+    int num_values = GetParam();
     EXPECT_OK_AND_ASSIGN(const auto num_bytes, GetNumBytes(num_values, bit_width));
 
     const std::vector<uint8_t> packed(static_cast<std::size_t>(num_bytes), uint8_t{0xFF});
@@ -180,8 +162,8 @@ class TestUnpack : public ::testing::TestWithParam<TestUnpackSize> {
   }
 
   template <typename Int>
-  void TestUnpackAlternating(UnpackFunc<Int> unpack) {
-    const auto [num_values, bit_width] = GetParam();
+  void TestUnpackAlternating(UnpackFunc<Int> unpack, int bit_width) {
+    int num_values = GetParam();
     EXPECT_OK_AND_ASSIGN(const auto num_bytes, GetNumBytes(num_values, bit_width));
 
     const std::vector<uint8_t> packed(static_cast<std::size_t>(num_bytes), uint8_t{0xAA});
@@ -210,31 +192,31 @@ class TestUnpack : public ::testing::TestWithParam<TestUnpackSize> {
 
   template <typename Int>
   void TestAll(UnpackFunc<Int> unpack) {
-    const auto [_, bit_width] = GetParam();
-    if (static_cast<std::size_t>(bit_width) > sizeof(Int) * 8) {
-      GTEST_SKIP() << "Not defined for this bit width";
+    constexpr int kMaxBitWidth = 8 * sizeof(Int);
+    // Given how many edge cases there are in unpacking integers, it is best to test all
+    // sizes
+    for (int bit_width = 0; bit_width <= kMaxBitWidth; ++bit_width) {
+      SCOPED_TRACE(::testing::Message() << "Testing bit_width=" << bit_width);
+
+      // Known values
+      TestUnpackZeros(unpack, bit_width);
+      TestUnpackOnes(unpack, bit_width);
+      TestUnpackAlternating(unpack, bit_width);
+
+      // Roundtrips
+      TestRoundtripAlignment(unpack, bit_width, /* alignment_offset= */ 0);
+      TestRoundtripAlignment(unpack, bit_width, /* alignment_offset= */ 1);
     }
-
-    // Known values
-    TestUnpackZeros(unpack);
-    TestUnpackOnes(unpack);
-    TestUnpackAlternating(unpack);
-
-    // Roundtrips
-    TestRoundtripAlignment(unpack, /* alignment_offset= */ 0);
-    TestRoundtripAlignment(unpack, /* alignment_offset= */ 1);
   }
 };
 
 // There are actually many differences across the different sizes.
 // It is best to test them all.
-INSTANTIATE_TEST_SUITE_P(
-    UnpackMultiplesOf64Values, TestUnpack,
-    ::testing::ValuesIn(TestUnpackSize::MakeProduct(0, 65, {64, 128, 2048})),
-    [](const ::testing::TestParamInfo<TestUnpack::ParamType>& info) {
-      return "width_" + std::to_string(info.param.bit_width) + "_count_" +
-             std::to_string(info.param.num_values);
-    });
+INSTANTIATE_TEST_SUITE_P(UnpackMultiplesOf64Values, TestUnpack,
+                         ::testing::Values(64, 128, 2048),
+                         [](const ::testing::TestParamInfo<TestUnpack::ParamType>& info) {
+                           return "Count" + std::to_string(info.param);
+                         });
 
 TEST_P(TestUnpack, Unpack16Scalar) { this->TestAll(&unpack16_scalar); }
 TEST_P(TestUnpack, Unpack32Scalar) { this->TestAll(&unpack32_scalar); }
