@@ -136,7 +136,7 @@ if [ "${TYPE}" = "local" ]; then
       package_version="${VERSION}-1"
       ;;
   esac
-  release_path="${local_prefix}"
+  release_path="${local_prefix}/yum/repositories"
   case "${distribution}" in
     almalinux)
       package_version+=".el${distribution_version}"
@@ -167,7 +167,7 @@ fi
 if [ "${TYPE}" = "local" ]; then
   sed \
     -i"" \
-    -e "s,baseurl=https://packages\.apache\.org/artifactory/arrow/,baseurl=file://${local_prefix}/,g" \
+    -e "s,baseurl=https://packages\.apache\.org/artifactory/arrow/,baseurl=file://${local_prefix}/yum/repositories/,g" \
     /etc/yum.repos.d/Apache-Arrow.repo
   keys="${local_prefix}/KEYS"
   if [ -f "${keys}" ]; then

@@ -1854,11 +1854,11 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
   end
 
   def yum_rc_repositories_dir
-    "#{rc_dir}"
+    "#{rc_dir}/yum/repositories"
   end
 
   def yum_release_repositories_dir
-    "#{release_dir}"
+    "#{release_dir}/yum/repositories"
   end
 
   def available_yum_targets
@@ -1929,7 +1929,7 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
     thread_pool.join
   end
 
-  def rpm_sign()
+  def rpm_sign(directory)
     unless system("rpm", "-q",
                   rpm_gpg_key_package_name(gpg_key_id),
                   out: IO::NULL)
@@ -1948,6 +1948,7 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
 
     yum_targets.each do |distribution, distribution_version|
       source_dir = [
+        directory,
         distribution,
         distribution_version,
       ].join("/")
@@ -1955,9 +1956,9 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
     end
   end
 
-  def yum_update(base_dir)
+  def yum_update(base_dir, incoming_dir)
     yum_targets.each do |distribution, distribution_version|
-      target_dir = "#{distribution}/#{distribution_version}"
+      target_dir = "#{incoming_dir}/#{distribution}/#{distribution_version}"
       target_dir = Pathname(target_dir)
       next unless target_dir.directory?
 
@@ -2039,7 +2040,7 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
 
             # Copy all repository structures for this distribution/version
             source_pattern = "#{artifacts_dir}/#{distribution}-#{distribution_version}*/*/" \
-                             "#{distribution}/#{distribution_version}"
+                             "yum/repositories/#{distribution}/#{distribution_version}"
             Dir.glob(source_pattern) do |repo_source|
               progress_reporter.increment_max
 
@@ -2390,16 +2391,18 @@ class LocalBinaryTask < BinaryTask
     namespace :yum do
       desc "Test RPM packages"
       task :test do
+        repositories_dir = "yum/repositories"
         unless @packages.empty?
+          rm_rf(repositories_dir)
           @packages.each do |package|
-            package_repositories = "#{package}"
+            package_repositories = "#{package}/yum/repositories"
             next unless File.exist?(package_repositories)
-            sh("rsync", "-av", "#{package_repositories}/")
+            sh("rsync", "-av", "#{package_repositories}/", repositories_dir)
           end
         end
-        rpm_sign()
+        rpm_sign(repositories_dir)
         base_dir = "nonexistent"
-        yum_update(base_dir)
+        yum_update(base_dir, repositories_dir)
         yum_test_targets.each do |target|
           verify(target)
         end
