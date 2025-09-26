@@ -20,7 +20,7 @@
 
 #include <Shlwapi.h>
 #include <Windowsx.h>
-#include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/utils.h>
+#include <arrow/flight/sql/odbc/flight_sql/utils.h>
 #include <commctrl.h>
 #include <commdlg.h>
 #include <sql.h>
@@ -243,7 +243,7 @@ int DsnConfigurationWindow::CreateEncryptionSettingsGroup(int pos_x, int pos_y,
 
   const char* val = config_.Get(FlightSqlConnection::USE_ENCRYPTION).c_str();
 
-  const bool enable_encryption = driver::odbcabstraction::AsBool(val).value_or(true);
+  const bool enable_encryption = utils::AsBool(val).value_or(true);
   labels_.push_back(CreateLabel(label_pos_x, row_pos, LABEL_WIDTH, ROW_HEIGHT,
                                 "Use Encryption:", ChildId::ENABLE_ENCRYPTION_LABEL));
   enable_encryption_check_box_ =
@@ -266,7 +266,7 @@ int DsnConfigurationWindow::CreateEncryptionSettingsGroup(int pos_x, int pos_y,
 
   val = config_.Get(FlightSqlConnection::USE_SYSTEM_TRUST_STORE).c_str();
 
-  const bool use_system_cert_store = driver::odbcabstraction::AsBool(val).value_or(true);
+  const bool use_system_cert_store = utils::AsBool(val).value_or(true);
   labels_.push_back(
       CreateLabel(label_pos_x, row_pos, LABEL_WIDTH, 2 * ROW_HEIGHT,
                   "Use System Certificate Store:", ChildId::USE_SYSTEM_CERT_STORE_LABEL));
@@ -278,8 +278,7 @@ int DsnConfigurationWindow::CreateEncryptionSettingsGroup(int pos_x, int pos_y,
 
   const int right_pos_x = label_pos_x + (size_x - (2 * INTERVAL)) / 2;
   const int right_check_pos_x = right_pos_x + (edit_pos_x - label_pos_x);
-  const bool disable_cert_verification =
-      driver::odbcabstraction::AsBool(val).value_or(false);
+  const bool disable_cert_verification = utils::AsBool(val).value_or(false);
   labels_.push_back(CreateLabel(
       right_pos_x, row_pos, LABEL_WIDTH, 2 * ROW_HEIGHT,
       "Disable Certificate Verification:", ChildId::DISABLE_CERT_VERIFICATION_LABEL));

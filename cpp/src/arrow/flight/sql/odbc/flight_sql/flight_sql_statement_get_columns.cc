@@ -25,6 +25,8 @@
 namespace driver {
 namespace flight_sql {
 
+using namespace utils;
+
 using arrow::Schema;
 using arrow::flight::sql::ColumnMetadata;
 using std::make_optional;

@@ -25,6 +25,8 @@
 namespace driver {
 namespace flight_sql {
 
+using namespace utils;
+
 using std::make_optional;
 using std::nullopt;
 using std::optional;

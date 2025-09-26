@@ -28,6 +28,8 @@
 namespace driver {
 namespace flight_sql {
 
+using namespace utils;
+
 using arrow::DataType;
 using arrow::Field;
 using odbcabstraction::SqlDataType;
@@ -166,7 +168,7 @@ size_t FlightSqlResultSetMetadata::GetLength(int column_position) {
   SqlDataType data_type_v3 =
       GetDataTypeFromArrowFieldV3(field, metadata_settings_.use_wide_char);
 
-  return flight_sql::GetLength(data_type_v3, column_size)
+  return utils::GetLength(data_type_v3, column_size)
       .value_or(DefaultLengthForVariableLengthColumns);
 }
 

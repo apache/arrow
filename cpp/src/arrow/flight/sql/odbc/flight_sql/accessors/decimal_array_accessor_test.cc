@@ -30,7 +30,7 @@ using arrow::Decimal128Array;
 using driver::odbcabstraction::NUMERIC_STRUCT;
 using driver::odbcabstraction::OdbcVersion;
 
-using driver::flight_sql::ThrowIfNotOK;
+using driver::flight_sql::utils::ThrowIfNotOK;
 
 std::vector<Decimal128> MakeDecimalVector(const std::vector<std::string>& values,
                                           int32_t scale) {

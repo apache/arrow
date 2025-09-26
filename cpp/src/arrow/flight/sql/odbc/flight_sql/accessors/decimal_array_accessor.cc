@@ -52,7 +52,7 @@ DecimalArrayFlightSqlAccessor<Decimal128Array, odbcabstraction::CDataType_NUMERI
   Decimal128 value(bytes);
   if (original_scale != binding->scale) {
     const Status& status = value.Rescale(original_scale, binding->scale).Value(&value);
-    ThrowIfNotOK(status);
+    utils::ThrowIfNotOK(status);
   }
   if (!value.FitsInPrecision(binding->precision)) {
     throw DriverException("Decimal value doesn't fit in precision " +

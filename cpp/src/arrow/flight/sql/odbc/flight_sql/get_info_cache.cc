@@ -214,7 +214,7 @@ GetInfoCache::GetInfoCache(FlightCallOptions& call_options,
                            const std::string& driver_version)
     : call_options_(call_options), sql_client_(client), has_server_info_(false) {
   info_[SQL_DRIVER_NAME] = "Arrow Flight ODBC Driver";
-  info_[SQL_DRIVER_VER] = ConvertToDBMSVer(driver_version);
+  info_[SQL_DRIVER_VER] = utils::ConvertToDBMSVer(driver_version);
 
   info_[SQL_GETDATA_EXTENSIONS] =
       static_cast<uint32_t>(SQL_GD_ANY_COLUMN | SQL_GD_ANY_ORDER);
@@ -293,7 +293,7 @@ bool GetInfoCache::LoadInfoFromServer() {
     std::unique_lock<std::mutex> lock(mutex_);
     arrow::Result<std::shared_ptr<FlightInfo>> result =
         sql_client_->GetSqlInfo(call_options_, {});
-    ThrowIfNotOK(result.status());
+    utils::ThrowIfNotOK(result.status());
     FlightStreamChunkBuffer chunk_iter(*sql_client_, call_options_, result.ValueOrDie());
 
     FlightStreamChunk chunk;
@@ -315,7 +315,7 @@ bool GetInfoCache::LoadInfoFromServer() {
           auto info_type = static_cast<arrow::flight::sql::SqlInfoOptions::SqlInfo>(
               info_type_array->Value(i));
           auto result_scalar = value_union_array->GetScalar(i);
-          ThrowIfNotOK(result_scalar.status());
+          utils::ThrowIfNotOK(result_scalar.status());
           std::shared_ptr<arrow::Scalar> scalar_ptr = result_scalar.ValueOrDie();
           arrow::UnionScalar* scalar =
               reinterpret_cast<arrow::UnionScalar*>(scalar_ptr.get());
@@ -338,7 +338,7 @@ bool GetInfoCache::LoadInfoFromServer() {
               break;
             }
             case SqlInfoOptions::FLIGHT_SQL_SERVER_VERSION: {
-              info_[SQL_DBMS_VER] = ConvertToDBMSVer(std::string(
+              info_[SQL_DBMS_VER] = utils::ConvertToDBMSVer(std::string(
                   reinterpret_cast<arrow::StringScalar*>(scalar->child_value().get())
                       ->view()));
               break;

@@ -29,10 +29,10 @@ namespace flight_sql {
 namespace {
 std::shared_ptr<Array> CastArray(const std::shared_ptr<arrow::Array>& original_array,
                                  CDataType target_type) {
-  bool conversion = NeedArrayConversion(original_array->type()->id(), target_type);
+  bool conversion = utils::NeedArrayConversion(original_array->type()->id(), target_type);
 
   if (conversion) {
-    auto converter = GetConverter(original_array->type_id(), target_type);
+    auto converter = utils::GetConverter(original_array->type_id(), target_type);
     return converter(original_array);
   } else {
     return original_array;
@@ -50,7 +50,7 @@ std::unique_ptr<Accessor> FlightSqlResultSetColumn::CreateAccessor(
 Accessor* FlightSqlResultSetColumn::GetAccessorForTargetType(CDataType target_type) {
   // Cast the original array to a type matching the target_type.
   if (target_type == odbcabstraction::CDataType_DEFAULT) {
-    target_type = ConvertArrowTypeToC(original_array_->type_id(), use_wide_char);
+    target_type = utils::ConvertArrowTypeToC(original_array_->type_id(), use_wide_char);
   }
 
   cached_accessor_ = CreateAccessor(target_type);
@@ -66,7 +66,7 @@ void FlightSqlResultSetColumn::SetBinding(const ColumnBinding& new_binding,
   is_bound = true;
 
   if (binding.target_type == odbcabstraction::CDataType_DEFAULT) {
-    binding.target_type = ConvertArrowTypeToC(arrow_type, use_wide_char);
+    binding.target_type = utils::ConvertArrowTypeToC(arrow_type, use_wide_char);
   }
 
   // Overwrite the binding if the caller is using SQL_C_NUMERIC and has used zero

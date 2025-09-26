@@ -31,7 +31,7 @@ using boost::beast::detail::base64::encode;
 using boost::beast::detail::base64::encoded_size;
 namespace base64 = boost::beast::detail::base64;
 
-using driver::flight_sql::ThrowIfNotOK;
+using driver::flight_sql::utils::ThrowIfNotOK;
 
 namespace {
 template <typename ScalarT>

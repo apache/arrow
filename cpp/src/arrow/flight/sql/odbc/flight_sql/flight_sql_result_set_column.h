@@ -48,7 +48,7 @@ class FlightSqlResultSetColumn {
 
   inline Accessor* GetAccessorForGetData(CDataType target_type) {
     if (target_type == odbcabstraction::CDataType_DEFAULT) {
-      target_type = ConvertArrowTypeToC(original_array_->type_id(), use_wide_char);
+      target_type = utils::ConvertArrowTypeToC(original_array_->type_id(), use_wide_char);
     }
 
     if (cached_accessor_ && cached_accessor_->target_type_ == target_type) {

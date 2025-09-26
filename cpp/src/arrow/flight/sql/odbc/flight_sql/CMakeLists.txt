@@ -76,7 +76,8 @@ add_library(arrow_odbc_spi_impl
             scalar_function_reporter.h
             system_trust_store.cc
             system_trust_store.h
-            utils.cc)
+            utils.cc
+            utils.h)
 target_include_directories(arrow_odbc_spi_impl
                            PUBLIC include include/flight_sql
                                   ${CMAKE_SOURCE_DIR}/odbcabstraction/include)

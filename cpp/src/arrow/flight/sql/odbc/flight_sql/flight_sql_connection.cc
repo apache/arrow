@@ -17,8 +17,8 @@
 
 #include "arrow/flight/sql/odbc/flight_sql/flight_sql_connection.h"
 
+#include "arrow/flight/sql/odbc/flight_sql/utils.h"
 #include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/platform.h"
-#include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/utils.h"
 
 #include "arrow/flight/client_cookie_middleware.h"
 #include "arrow/flight/sql/odbc/flight_sql/address_info.h"
@@ -47,6 +47,8 @@
 namespace driver {
 namespace flight_sql {
 
+using namespace utils;
+
 using arrow::Result;
 using arrow::Status;
 using arrow::flight::FlightCallOptions;
@@ -55,7 +57,6 @@ using arrow::flight::FlightClientOptions;
 using arrow::flight::Location;
 using arrow::flight::TimeoutDuration;
 using arrow::flight::sql::FlightSqlClient;
-using driver::odbcabstraction::AsBool;
 using driver::odbcabstraction::CommunicationException;
 using driver::odbcabstraction::Connection;
 using driver::odbcabstraction::DriverException;

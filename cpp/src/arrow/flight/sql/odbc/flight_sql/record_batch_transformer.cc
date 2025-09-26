@@ -122,7 +122,7 @@ RecordBatchTransformerWithTasksBuilder::AddFieldOfNulls(
   auto empty_fields_task = [=](const std::shared_ptr<RecordBatch>& original_record,
                                const std::shared_ptr<Schema>& transformed_schema) {
     auto result = MakeEmptyArray(data_type, nullptr, original_record->num_rows());
-    ThrowIfNotOK(result.status());
+    utils::ThrowIfNotOK(result.status());
 
     return result.ValueOrDie();
   };

@@ -80,9 +80,9 @@ std::shared_ptr<ResultSet> GetTablesForSQLAllCatalogs(
   std::shared_ptr<Schema> schema;
   std::shared_ptr<FlightInfo> flight_info;
 
-  ThrowIfNotOK(result.status());
+  utils::ThrowIfNotOK(result.status());
   flight_info = result.ValueOrDie();
-  ThrowIfNotOK(flight_info->GetSchema(nullptr).Value(&schema));
+  utils::ThrowIfNotOK(flight_info->GetSchema(nullptr).Value(&schema));
 
   auto transformer = RecordBatchTransformerWithTasksBuilder(schema)
                          .RenameField("catalog_name", names.catalog_column)
@@ -107,9 +107,9 @@ std::shared_ptr<ResultSet> GetTablesForSQLAllDbSchemas(
   std::shared_ptr<Schema> schema;
   std::shared_ptr<FlightInfo> flight_info;
 
-  ThrowIfNotOK(result.status());
+  utils::ThrowIfNotOK(result.status());
   flight_info = result.ValueOrDie();
-  ThrowIfNotOK(flight_info->GetSchema(nullptr).Value(&schema));
+  utils::ThrowIfNotOK(flight_info->GetSchema(nullptr).Value(&schema));
 
   auto transformer = RecordBatchTransformerWithTasksBuilder(schema)
                          .AddFieldOfNulls(names.catalog_column, arrow::utf8())
@@ -132,9 +132,9 @@ std::shared_ptr<ResultSet> GetTablesForSQLAllTableTypes(
   std::shared_ptr<Schema> schema;
   std::shared_ptr<FlightInfo> flight_info;
 
-  ThrowIfNotOK(result.status());
+  utils::ThrowIfNotOK(result.status());
   flight_info = result.ValueOrDie();
-  ThrowIfNotOK(flight_info->GetSchema(nullptr).Value(&schema));
+  utils::ThrowIfNotOK(flight_info->GetSchema(nullptr).Value(&schema));
 
   auto transformer = RecordBatchTransformerWithTasksBuilder(schema)
                          .AddFieldOfNulls(names.catalog_column, arrow::utf8())
@@ -161,9 +161,9 @@ std::shared_ptr<ResultSet> GetTablesForGenericUse(
   std::shared_ptr<Schema> schema;
   std::shared_ptr<FlightInfo> flight_info;
 
-  ThrowIfNotOK(result.status());
+  utils::ThrowIfNotOK(result.status());
   flight_info = result.ValueOrDie();
-  ThrowIfNotOK(flight_info->GetSchema(nullptr).Value(&schema));
+  utils::ThrowIfNotOK(flight_info->GetSchema(nullptr).Value(&schema));
 
   auto transformer = RecordBatchTransformerWithTasksBuilder(schema)
                          .RenameField("catalog_name", names.catalog_column)

@@ -35,6 +35,8 @@
 namespace driver {
 namespace flight_sql {
 
+using namespace utils;
+
 using arrow::Result;
 using arrow::Status;
 using arrow::flight::FlightCallOptions;

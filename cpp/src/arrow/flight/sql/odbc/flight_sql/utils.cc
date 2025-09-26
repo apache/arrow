@@ -36,6 +36,7 @@
 
 namespace driver {
 namespace flight_sql {
+namespace utils {
 
 namespace {
 bool IsComplexType(arrow::Type::type type_id) {
@@ -1121,5 +1122,42 @@ int32_t GetDecimalTypePrecision(const std::shared_ptr<arrow::DataType>& decimal_
   return decimal128_type->precision();
 }
 
+boost::optional<bool> AsBool(const std::string& value) {
+  if (boost::iequals(value, "true") || boost::iequals(value, "1")) {
+    return true;
+  } else if (boost::iequals(value, "false") || boost::iequals(value, "0")) {
+    return false;
+  } else {
+    return boost::none;
+  }
+}
+
+boost::optional<bool> AsBool(const Connection::ConnPropertyMap& conn_property_map,
+                             const std::string_view& property_name) {
+  auto extracted_property = conn_property_map.find(std::string(property_name));
+
+  if (extracted_property != conn_property_map.end()) {
+    return AsBool(extracted_property->second);
+  }
+
+  return boost::none;
+}
+
+boost::optional<int32_t> AsInt32(int32_t min_value,
+                                 const Connection::ConnPropertyMap& conn_property_map,
+                                 const std::string_view& property_name) {
+  auto extracted_property = conn_property_map.find(std::string(property_name));
+
+  if (extracted_property != conn_property_map.end()) {
+    const int32_t string_column_length = std::stoi(extracted_property->second);
+
+    if (string_column_length >= min_value && string_column_length <= INT32_MAX) {
+      return string_column_length;
+    }
+  }
+  return boost::none;
+}
+
+}  // namespace utils
 }  // namespace flight_sql
 }  // namespace driver

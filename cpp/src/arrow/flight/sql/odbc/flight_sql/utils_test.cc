@@ -28,6 +28,8 @@
 namespace driver {
 namespace flight_sql {
 
+using namespace utils;
+
 // A global test "environment", to ensure Arrow compute kernel functions are registered
 
 class ComputeKernelEnvironment : public ::testing::Environment {

@@ -33,7 +33,7 @@ FlightStreamChunkBuffer::FlightStreamChunkBuffer(
     const arrow::flight::Ticket& ticket = endpoint.ticket;
 
     auto result = flight_sql_client.DoGet(call_options, ticket);
-    ThrowIfNotOK(result.status());
+    utils::ThrowIfNotOK(result.status());
     std::shared_ptr<FlightStreamReader> stream_reader_ptr(std::move(result.ValueOrDie()));
 
     BlockingQueue<Result<FlightStreamChunk>>::Supplier supplier = [=] {

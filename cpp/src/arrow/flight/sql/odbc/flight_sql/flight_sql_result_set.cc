@@ -65,7 +65,7 @@ FlightSqlResultSet::FlightSqlResultSet(
   if (transformer_) {
     schema_ = transformer_->GetTransformedSchema();
   } else {
-    ThrowIfNotOK(flight_info->GetSchema(nullptr).Value(&schema_));
+    utils::ThrowIfNotOK(flight_info->GetSchema(nullptr).Value(&schema_));
   }
 
   for (size_t i = 0; i < columns_.size(); ++i) {
@@ -237,8 +237,8 @@ bool FlightSqlResultSet::GetData(int column_n, int16_t target_type, int precisio
     return false;
   }
 
-  ColumnBinding binding(ConvertCDataTypeFromV2ToV3(target_type), precision, scale, buffer,
-                        buffer_length, str_len_buffer);
+  ColumnBinding binding(utils::ConvertCDataTypeFromV2ToV3(target_type), precision, scale,
+                        buffer, buffer_length, str_len_buffer);
 
   auto& column = columns_[column_n - 1];
   Accessor* accessor = column.GetAccessorForGetData(binding.target_type);
@@ -271,8 +271,8 @@ void FlightSqlResultSet::BindColumn(int column_n, int16_t target_type, int preci
     num_binding_++;
   }
 
-  ColumnBinding binding(ConvertCDataTypeFromV2ToV3(target_type), precision, scale, buffer,
-                        buffer_length, str_len_buffer);
+  ColumnBinding binding(utils::ConvertCDataTypeFromV2ToV3(target_type), precision, scale,
+                        buffer, buffer_length, str_len_buffer);
   column.SetBinding(binding, schema_->field(column_n - 1)->type()->id());
 }
 

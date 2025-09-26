@@ -63,7 +63,7 @@ void FlightSqlDriver::RegisterComputeKernels() {
   auto strptime_func = registry->GetFunction("strptime");
   if (!strptime_func.ok()) {
     // Register Kernel functions to library
-    ThrowIfNotOK(arrow::compute::Initialize());
+    utils::ThrowIfNotOK(arrow::compute::Initialize());
   }
 }
 
