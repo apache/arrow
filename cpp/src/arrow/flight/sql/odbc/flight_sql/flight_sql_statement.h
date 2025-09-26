@@ -55,9 +55,9 @@ class FlightSqlStatement : public Statement {
 
   bool SetAttribute(StatementAttributeId attribute, const Attribute& value) override;
 
-  boost::optional<Attribute> GetAttribute(StatementAttributeId attribute) override;
+  std::optional<Attribute> GetAttribute(StatementAttributeId attribute) override;
 
-  boost::optional<std::shared_ptr<ResultSetMetadata>> Prepare(
+  std::optional<std::shared_ptr<ResultSetMetadata>> Prepare(
       const std::string& query) override;
 
   bool ExecutePrepared() override;

@@ -43,7 +43,7 @@ class BlockingQueue {
   std::atomic<bool> closed_{false};
 
  public:
-  typedef std::function<boost::optional<T>(void)> Supplier;
+  typedef std::function<std::optional<T>(void)> Supplier;
 
   explicit BlockingQueue(size_t capacity) : capacity_(capacity), buffer_(capacity) {}
 

@@ -24,7 +24,7 @@
 
 namespace arrow::flight::sql::odbc {
 
-using boost::optional;
+using std::optional;
 
 class ResultSet;
 
@@ -76,7 +76,7 @@ class Statement {
   /// Returns ResultSetMetadata if query returns a result set,
   /// otherwise it returns `boost::none`.
   /// \param query The SQL query to prepare.
-  virtual boost::optional<std::shared_ptr<ResultSetMetadata>> Prepare(
+  virtual std::optional<std::shared_ptr<ResultSetMetadata>> Prepare(
       const std::string& query) = 0;
 
   /// \brief Execute the prepared statement.

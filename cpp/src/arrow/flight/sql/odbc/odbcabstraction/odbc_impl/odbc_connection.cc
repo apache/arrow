@@ -525,7 +525,7 @@ SQLRETURN ODBCConnection::GetConnectAttr(SQLINTEGER attribute, SQLPOINTER value,
                                          SQLINTEGER buffer_length,
                                          SQLINTEGER* output_length, bool is_unicode) {
   using arrow::flight::sql::odbc::Connection;
-  boost::optional<Connection::Attribute> spi_attribute;
+  std::optional<Connection::Attribute> spi_attribute;
 
   switch (attribute) {
     // Internal connection attributes

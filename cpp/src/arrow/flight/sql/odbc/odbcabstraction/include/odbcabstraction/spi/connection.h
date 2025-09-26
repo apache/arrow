@@ -86,7 +86,7 @@ class Connection {
 
   /// \brief Retrieve a connection attribute
   /// \param attribute [in] Attribute to be retrieved.
-  virtual boost::optional<Connection::Attribute> GetAttribute(
+  virtual std::optional<Connection::Attribute> GetAttribute(
       Connection::AttributeId attribute) = 0;
 
   /// \brief Retrieves info from the database (see ODBC's SQLGetInfo).

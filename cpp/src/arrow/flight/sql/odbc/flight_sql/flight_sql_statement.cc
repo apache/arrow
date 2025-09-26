@@ -108,13 +108,13 @@ bool FlightSqlStatement::SetAttribute(StatementAttributeId attribute,
   }
 }
 
-boost::optional<Statement::Attribute> FlightSqlStatement::GetAttribute(
+std::optional<Statement::Attribute> FlightSqlStatement::GetAttribute(
     StatementAttributeId attribute) {
   const auto& it = attribute_.find(attribute);
   return boost::make_optional(it != attribute_.end(), it->second);
 }
 
-boost::optional<std::shared_ptr<ResultSetMetadata>> FlightSqlStatement::Prepare(
+std::optional<std::shared_ptr<ResultSetMetadata>> FlightSqlStatement::Prepare(
     const std::string& query) {
   ClosePreparedStatementIfAny(prepared_statement_, call_options_);
 
@@ -126,7 +126,7 @@ boost::optional<std::shared_ptr<ResultSetMetadata>> FlightSqlStatement::Prepare(
 
   const auto& result_set_metadata = std::make_shared<FlightSqlResultSetMetadata>(
       prepared_statement_->dataset_schema(), metadata_settings_);
-  return boost::optional<std::shared_ptr<ResultSetMetadata>>(result_set_metadata);
+  return std::optional<std::shared_ptr<ResultSetMetadata>>(result_set_metadata);
 }
 
 bool FlightSqlStatement::ExecutePrepared() {

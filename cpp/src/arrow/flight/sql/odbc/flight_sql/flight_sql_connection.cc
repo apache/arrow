@@ -31,7 +31,6 @@
 #include <boost/algorithm/string/join.hpp>
 #include <boost/asio/ip/address.hpp>
 #include <boost/lexical_cast.hpp>
-#include <boost/optional.hpp>
 #include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/exceptions.h"
 
 #include <sql.h>
@@ -205,7 +204,7 @@ void FlightSqlConnection::PopulateMetadataSettings(
   metadata_settings_.chunk_buffer_capacity = GetChunkBufferCapacity(conn_property_map);
 }
 
-boost::optional<int32_t> FlightSqlConnection::GetStringColumnLength(
+std::optional<int32_t> FlightSqlConnection::GetStringColumnLength(
     const Connection::ConnPropertyMap& conn_property_map) {
   const int32_t min_string_column_length = 1;
 
@@ -256,7 +255,7 @@ const FlightCallOptions& FlightSqlConnection::PopulateCallOptions(
     const ConnPropertyMap& props) {
   // Set CONNECTION_TIMEOUT attribute or LOGIN_TIMEOUT depending on if this
   // is the first request.
-  const boost::optional<Connection::Attribute>& connection_timeout =
+  const std::optional<Connection::Attribute>& connection_timeout =
       closed_ ? GetAttribute(LOGIN_TIMEOUT) : GetAttribute(CONNECTION_TIMEOUT);
   if (connection_timeout && boost::get<uint32_t>(*connection_timeout) > 0) {
     call_options_.timeout =
@@ -394,7 +393,7 @@ bool FlightSqlConnection::SetAttribute(Connection::AttributeId attribute,
   }
 }
 
-boost::optional<Connection::Attribute> FlightSqlConnection::GetAttribute(
+std::optional<Connection::Attribute> FlightSqlConnection::GetAttribute(
     Connection::AttributeId attribute) {
   switch (attribute) {
     case ACCESS_MODE:

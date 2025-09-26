@@ -1109,7 +1109,7 @@ int32_t GetDecimalTypePrecision(const std::shared_ptr<arrow::DataType>& decimal_
   return decimal128_type->precision();
 }
 
-boost::optional<bool> AsBool(const std::string& value) {
+std::optional<bool> AsBool(const std::string& value) {
   if (boost::iequals(value, "true") || boost::iequals(value, "1")) {
     return true;
   } else if (boost::iequals(value, "false") || boost::iequals(value, "0")) {
@@ -1119,7 +1119,7 @@ boost::optional<bool> AsBool(const std::string& value) {
   }
 }
 
-boost::optional<bool> AsBool(const Connection::ConnPropertyMap& conn_property_map,
+std::optional<bool> AsBool(const Connection::ConnPropertyMap& conn_property_map,
                              const std::string_view& property_name) {
   auto extracted_property = conn_property_map.find(std::string(property_name));
 
@@ -1130,7 +1130,7 @@ boost::optional<bool> AsBool(const Connection::ConnPropertyMap& conn_property_ma
   return boost::none;
 }
 
-boost::optional<int32_t> AsInt32(int32_t min_value,
+std::optional<int32_t> AsInt32(int32_t min_value,
                                  const Connection::ConnPropertyMap& conn_property_map,
                                  const std::string_view& property_name) {
   auto extracted_property = conn_property_map.find(std::string(property_name));

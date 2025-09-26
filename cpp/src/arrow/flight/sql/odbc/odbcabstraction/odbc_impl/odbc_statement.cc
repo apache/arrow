@@ -284,7 +284,7 @@ void ODBCStatement::CopyAttributesFromConnection(ODBCConnection& connection) {
 bool ODBCStatement::IsPrepared() const { return is_prepared_; }
 
 void ODBCStatement::Prepare(const std::string& query) {
-  boost::optional<std::shared_ptr<ResultSetMetadata> > metadata =
+  std::optional<std::shared_ptr<ResultSetMetadata> > metadata =
       spi_statement_->Prepare(query);
 
   if (metadata) {
@@ -378,7 +378,7 @@ void ODBCStatement::GetStmtAttr(SQLINTEGER statement_attribute, SQLPOINTER outpu
                                 SQLINTEGER buffer_size, SQLINTEGER* str_len_ptr,
                                 bool is_unicode) {
   using arrow::flight::sql::odbc::Statement;
-  boost::optional<Statement::Attribute> spi_attribute;
+  std::optional<Statement::Attribute> spi_attribute;
   switch (statement_attribute) {
     // Descriptor accessor attributes
     case SQL_ATTR_APP_PARAM_DESC:
