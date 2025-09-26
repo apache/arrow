@@ -51,7 +51,7 @@ SHELL ["cmd", "/S", "/C"]
 
 # Install git, wget, minio
 RUN choco install --no-progress -r -y git wget
-RUN curl https://dl.min.io/server/minio/release/windows-amd64/archive/minio.RELEASE.2024-09-13T20-26-02Z `
+RUN curl https://dl.min.io/server/minio/release/windows-amd64/archive/minio.RELEASE.2025-01-20T14-49-07Z `
     --output "C:\Windows\Minio.exe"
 
 # Install the GCS testbench using a well-known Python version.
