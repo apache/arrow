@@ -218,14 +218,14 @@ INSTANTIATE_TEST_SUITE_P(UnpackMultiplesOf64Values, TestUnpack,
                            return "Count" + std::to_string(info.param);
                          });
 
-TEST_P(TestUnpack, Unpack16Scalar) { this->TestAll(&unpack16_scalar); }
-TEST_P(TestUnpack, Unpack32Scalar) { this->TestAll(&unpack32_scalar); }
-TEST_P(TestUnpack, Unpack64Scalar) { this->TestAll(&unpack64_scalar); }
+TEST_P(TestUnpack, Unpack16Scalar) { this->TestAll(&unpack_scalar<uint16_t>); }
+TEST_P(TestUnpack, Unpack32Scalar) { this->TestAll(&unpack_scalar<uint32_t>); }
+TEST_P(TestUnpack, Unpack64Scalar) { this->TestAll(&unpack_scalar<uint64_t>); }
 
 #if defined(ARROW_HAVE_SSE4_2)
-TEST_P(TestUnpack, Unpack16Sse42) { this->TestAll(&unpack16_sse4_2); }
-TEST_P(TestUnpack, Unpack32Sse42) { this->TestAll(&unpack32_sse4_2); }
-TEST_P(TestUnpack, Unpack64Sse42) { this->TestAll(&unpack64_sse4_2); }
+TEST_P(TestUnpack, Unpack16Sse42) { this->TestAll(&unpack_sse4_2<uint16_t>); }
+TEST_P(TestUnpack, Unpack32Sse42) { this->TestAll(&unpack_sse4_2<uint32_t>); }
+TEST_P(TestUnpack, Unpack64Sse42) { this->TestAll(&unpack_sse4_2<uint64_t>); }
 #endif
 
 #if defined(ARROW_HAVE_RUNTIME_AVX2)
@@ -233,19 +233,19 @@ TEST_P(TestUnpack, Unpack16Avx2) {
   if (!CpuInfo::GetInstance()->IsSupported(CpuInfo::AVX2)) {
     GTEST_SKIP() << "Test requires AVX2";
   }
-  this->TestAll(&unpack16_avx2);
+  this->TestAll(&unpack_avx2<uint16_t>);
 }
 TEST_P(TestUnpack, Unpack32Avx2) {
   if (!CpuInfo::GetInstance()->IsSupported(CpuInfo::AVX2)) {
     GTEST_SKIP() << "Test requires AVX2";
   }
-  this->TestAll(&unpack32_avx2);
+  this->TestAll(&unpack_avx2<uint32_t>);
 }
 TEST_P(TestUnpack, Unpack64Avx2) {
   if (!CpuInfo::GetInstance()->IsSupported(CpuInfo::AVX2)) {
     GTEST_SKIP() << "Test requires AVX2";
   }
-  this->TestAll(&unpack64_avx2);
+  this->TestAll(&unpack_avx2<uint64_t>);
 }
 #endif
 
@@ -254,20 +254,20 @@ TEST_P(TestUnpack, Unpack32Avx512) {
   if (!CpuInfo::GetInstance()->IsSupported(CpuInfo::AVX512)) {
     GTEST_SKIP() << "Test requires AVX512";
   }
-  this->TestAll(&unpack32_avx512);
+  this->TestAll(&unpack_avx512<uint32_t>);
 }
 TEST_P(TestUnpack, Unpack64Avx512) {
   if (!CpuInfo::GetInstance()->IsSupported(CpuInfo::AVX512)) {
     GTEST_SKIP() << "Test requires AVX512";
   }
-  this->TestAll(&unpack64_avx512);
+  this->TestAll(&unpack_avx512<uint64_t>);
 }
 #endif
 
 #if defined(ARROW_HAVE_NEON)
-TEST_P(TestUnpack, Unpack16Neon) { this->TestAll(&unpack16_neon); }
-TEST_P(TestUnpack, Unpack32Neon) { this->TestAll(&unpack32_neon); }
-TEST_P(TestUnpack, Unpack64Neon) { this->TestAll(&unpack64_neon); }
+TEST_P(TestUnpack, Unpack16Neon) { this->TestAll(&unpack_neon<uint16_t>); }
+TEST_P(TestUnpack, Unpack32Neon) { this->TestAll(&unpack_neon<uint32_t>); }
+TEST_P(TestUnpack, Unpack64Neon) { this->TestAll(&unpack_neon<uint64_t>); }
 #endif
 
 TEST_P(TestUnpack, Unpack16) { this->TestAll(&unpack<uint16_t>); }

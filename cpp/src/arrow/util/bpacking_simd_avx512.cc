@@ -21,12 +21,12 @@
 
 namespace arrow::internal {
 
-int unpack32_avx512(const uint8_t* in, uint32_t* out, int batch_size, int num_bits) {
+template <typename Uint>
+int unpack_avx512(const uint8_t* in, Uint* out, int batch_size, int num_bits) {
   return unpack_jump<Simd512UnpackerForWidth>(in, out, batch_size, num_bits);
 }
 
-int unpack64_avx512(const uint8_t* in, uint64_t* out, int batch_size, int num_bits) {
-  return unpack_jump<Simd512UnpackerForWidth>(in, out, batch_size, num_bits);
-}
+template int unpack_avx512<uint32_t>(const uint8_t*, uint32_t*, int, int);
+template int unpack_avx512<uint64_t>(const uint8_t*, uint64_t*, int, int);
 
 }  // namespace arrow::internal
