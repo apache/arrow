@@ -36,6 +36,14 @@ FlightSqlDriver::FlightSqlDriver()
   RegisterLog();
 }
 
+FlightSqlDriver::~FlightSqlDriver() {
+  // Unregister log if logging is enabled
+  if (arrow::internal::GetEnvVar(kODBCLogLevel).ValueOr("").empty()) {
+    return;
+  }
+  arrow::util::ArrowLog::ShutDownArrowLog();
+}
+
 std::shared_ptr<Connection> FlightSqlDriver::CreateConnection(OdbcVersion odbc_version) {
   return std::make_shared<FlightSqlConnection>(odbc_version, version_);
 }
