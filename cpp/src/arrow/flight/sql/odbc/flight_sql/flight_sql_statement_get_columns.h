@@ -22,8 +22,7 @@
 #include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/types.h"
 #include "arrow/status.h"
 
-namespace driver {
-namespace flight_sql {
+namespace arrow::flight::sql::odbc {
 
 using arrow::Int16Builder;
 using arrow::Int32Builder;
@@ -31,12 +30,9 @@ using arrow::Result;
 using arrow::Status;
 using arrow::StringBuilder;
 
-using odbcabstraction::MetadataSettings;
-using std::optional;
-
 class GetColumns_RecordBatchBuilder {
  private:
-  odbcabstraction::OdbcVersion odbc_version_;
+  OdbcVersion odbc_version_;
 
   StringBuilder TABLE_CAT_Builder_;
   StringBuilder TABLE_SCHEM_Builder_;
@@ -60,27 +56,27 @@ class GetColumns_RecordBatchBuilder {
 
  public:
   struct Data {
-    optional<std::string> table_cat;
-    optional<std::string> table_schem;
+    std::optional<std::string> table_cat;
+    std::optional<std::string> table_schem;
     std::string table_name;
     std::string column_name;
     std::string type_name;
-    optional<int32_t> column_size;
-    optional<int32_t> buffer_length;
-    optional<int16_t> decimal_digits;
-    optional<int16_t> num_prec_radix;
-    optional<std::string> remarks;
-    optional<std::string> column_def;
+    std::optional<int32_t> column_size;
+    std::optional<int32_t> buffer_length;
+    std::optional<int16_t> decimal_digits;
+    std::optional<int16_t> num_prec_radix;
+    std::optional<std::string> remarks;
+    std::optional<std::string> column_def;
     int16_t sql_data_type{};
-    optional<int16_t> sql_datetime_sub;
-    optional<int32_t> char_octet_length;
-    optional<std::string> is_nullable;
+    std::optional<int16_t> sql_datetime_sub;
+    std::optional<int32_t> char_octet_length;
+    std::optional<std::string> is_nullable;
     int16_t data_type;
     int16_t nullable;
     int32_t ordinal_position;
   };
 
-  explicit GetColumns_RecordBatchBuilder(odbcabstraction::OdbcVersion odbc_version);
+  explicit GetColumns_RecordBatchBuilder(OdbcVersion odbc_version);
 
   Result<std::shared_ptr<RecordBatch>> Build();
 
@@ -90,12 +86,12 @@ class GetColumns_RecordBatchBuilder {
 class GetColumns_Transformer : public RecordBatchTransformer {
  private:
   const MetadataSettings& metadata_settings_;
-  odbcabstraction::OdbcVersion odbc_version_;
-  optional<std::string> column_name_pattern_;
+  OdbcVersion odbc_version_;
+  std::optional<std::string> column_name_pattern_;
 
  public:
   explicit GetColumns_Transformer(const MetadataSettings& metadata_settings,
-                                  odbcabstraction::OdbcVersion odbc_version,
+                                  OdbcVersion odbc_version,
                                   const std::string* column_name_pattern);
 
   std::shared_ptr<RecordBatch> Transform(
@@ -104,5 +100,4 @@ class GetColumns_Transformer : public RecordBatchTransformer {
   std::shared_ptr<Schema> GetTransformedSchema() override;
 };
 
-}  // namespace flight_sql
-}  // namespace driver
+}  // namespace arrow::flight::sql::odbc

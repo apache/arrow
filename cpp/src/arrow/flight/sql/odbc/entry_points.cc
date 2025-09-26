@@ -191,8 +191,8 @@ SQLRETURN SQL_API SQLBindCol(SQLHSTMT stmt, SQLUSMALLINT record_number,
 SQLRETURN SQL_API SQLCancel(SQLHSTMT stmt) {
   ARROW_LOG(DEBUG) << "SQLCancel called with stmt: " << stmt;
   return ODBC::ODBCStatement::ExecuteWithDiagnostics(stmt, SQL_ERROR, [=]() {
-    throw driver::odbcabstraction::DriverException("SQLCancel is not implemented",
-                                                   "IM001");
+    throw arrow::flight::sql::odbc::DriverException("SQLCancel is not implemented",
+                                                    "IM001");
     return SQL_ERROR;
   });
 }
@@ -252,8 +252,8 @@ SQLRETURN SQL_API SQLForeignKeys(
                    << ", fk_table_name: " << static_cast<const void*>(fk_table_name)
                    << ", fk_table_name_length: " << fk_table_name_length;
   return ODBC::ODBCStatement::ExecuteWithDiagnostics(stmt, SQL_ERROR, [=]() {
-    throw driver::odbcabstraction::DriverException("SQLForeignKeysW is not implemented",
-                                                   "IM001");
+    throw arrow::flight::sql::odbc::DriverException("SQLForeignKeysW is not implemented",
+                                                    "IM001");
     return SQL_ERROR;
   });
 }
@@ -295,8 +295,8 @@ SQLRETURN SQL_API SQLPrimaryKeys(SQLHSTMT stmt, SQLWCHAR* catalog_name,
                    << ", table_name: " << static_cast<const void*>(table_name)
                    << ", table_name_length: " << table_name_length;
   return ODBC::ODBCStatement::ExecuteWithDiagnostics(stmt, SQL_ERROR, [=]() {
-    throw driver::odbcabstraction::DriverException("SQLPrimaryKeysW is not implemented",
-                                                   "IM001");
+    throw arrow::flight::sql::odbc::DriverException("SQLPrimaryKeysW is not implemented",
+                                                    "IM001");
     return SQL_ERROR;
   });
 }

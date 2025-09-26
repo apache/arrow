@@ -26,19 +26,17 @@
 #include <functional>
 #include <optional>
 
-namespace driver {
-namespace flight_sql {
-namespace utils {
+namespace arrow::flight::sql::odbc {
+namespace util {
 
 typedef std::function<std::shared_ptr<arrow::Array>(const std::shared_ptr<arrow::Array>&)>
     ArrayConvertTask;
 
-using driver::odbcabstraction::Connection;
 using std::optional;
 
 inline void ThrowIfNotOK(const arrow::Status& status) {
   if (!status.ok()) {
-    throw odbcabstraction::DriverException(status.message());
+    throw DriverException(status.message());
   }
 }
 
@@ -61,61 +59,56 @@ arrow::Status AppendToBuilder(BUILDER& builder, T value) {
   return builder.Append(value);
 }
 
-odbcabstraction::SqlDataType GetDataTypeFromArrowFieldV3(
-    const std::shared_ptr<arrow::Field>& field, bool use_wide_char);
+SqlDataType GetDataTypeFromArrowFieldV3(const std::shared_ptr<arrow::Field>& field,
+                                        bool use_wide_char);
 
-odbcabstraction::SqlDataType EnsureRightSqlCharType(
-    odbcabstraction::SqlDataType data_type, bool use_wide_char);
+SqlDataType EnsureRightSqlCharType(SqlDataType data_type, bool use_wide_char);
 
 int16_t ConvertSqlDataTypeFromV3ToV2(int16_t data_type_v3);
 
-odbcabstraction::CDataType ConvertCDataTypeFromV2ToV3(int16_t data_type_v2);
+CDataType ConvertCDataTypeFromV2ToV3(int16_t data_type_v2);
 
 std::string GetTypeNameFromSqlDataType(int16_t data_type);
 
-optional<int16_t> GetRadixFromSqlDataType(odbcabstraction::SqlDataType data_type);
+optional<int16_t> GetRadixFromSqlDataType(SqlDataType data_type);
 
-int16_t GetNonConciseDataType(odbcabstraction::SqlDataType data_type);
+int16_t GetNonConciseDataType(SqlDataType data_type);
 
-optional<int16_t> GetSqlDateTimeSubCode(odbcabstraction::SqlDataType data_type);
+optional<int16_t> GetSqlDateTimeSubCode(SqlDataType data_type);
 
-optional<int32_t> GetCharOctetLength(odbcabstraction::SqlDataType data_type,
+optional<int32_t> GetCharOctetLength(SqlDataType data_type,
                                      const arrow::Result<int32_t>& column_size,
                                      const int32_t decimal_precison = 0);
 
-optional<int32_t> GetBufferLength(odbcabstraction::SqlDataType data_type,
+optional<int32_t> GetBufferLength(SqlDataType data_type,
                                   const optional<int32_t>& column_size);
 
-optional<int32_t> GetLength(odbcabstraction::SqlDataType data_type,
-                            const optional<int32_t>& column_size);
+optional<int32_t> GetLength(SqlDataType data_type, const optional<int32_t>& column_size);
 
-optional<int32_t> GetTypeScale(odbcabstraction::SqlDataType data_type,
+optional<int32_t> GetTypeScale(SqlDataType data_type,
                                const optional<int32_t>& type_scale);
 
-optional<int32_t> GetColumnSize(odbcabstraction::SqlDataType data_type,
+optional<int32_t> GetColumnSize(SqlDataType data_type,
                                 const optional<int32_t>& column_size);
 
-optional<int32_t> GetDisplaySize(odbcabstraction::SqlDataType data_type,
+optional<int32_t> GetDisplaySize(SqlDataType data_type,
                                  const optional<int32_t>& column_size);
 
 std::string ConvertSqlPatternToRegexString(const std::string& pattern);
 
 boost::xpressive::sregex ConvertSqlPatternToRegex(const std::string& pattern);
 
-bool NeedArrayConversion(arrow::Type::type original_type_id,
-                         odbcabstraction::CDataType data_type);
+bool NeedArrayConversion(arrow::Type::type original_type_id, CDataType data_type);
 
 std::shared_ptr<arrow::DataType> GetDefaultDataTypeForTypeId(arrow::Type::type type_id);
 
-arrow::Type::type ConvertCToArrowType(odbcabstraction::CDataType data_type);
+arrow::Type::type ConvertCToArrowType(CDataType data_type);
 
-odbcabstraction::CDataType ConvertArrowTypeToC(arrow::Type::type type_id,
-                                               bool use_wide_char);
+CDataType ConvertArrowTypeToC(arrow::Type::type type_id, bool use_wide_char);
 
 std::shared_ptr<arrow::Array> CheckConversion(const arrow::Result<arrow::Datum>& result);
 
-ArrayConvertTask GetConverter(arrow::Type::type original_type_id,
-                              odbcabstraction::CDataType target_type);
+ArrayConvertTask GetConverter(arrow::Type::type original_type_id, CDataType target_type);
 
 std::string ConvertToDBMSVer(const std::string& str);
 
@@ -148,6 +141,5 @@ boost::optional<int32_t> AsInt32(int32_t min_value,
                                  const Connection::ConnPropertyMap& conn_property_map,
                                  const std::string_view& property_name);
 
-}  // namespace utils
-}  // namespace flight_sql
-}  // namespace driver
+}  // namespace util
+}  // namespace arrow::flight::sql::odbc

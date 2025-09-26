@@ -22,12 +22,11 @@
 #include <utility>
 #include "arrow/array/util.h"
 #include "arrow/builder.h"
-#include "arrow/flight/sql/odbc/flight_sql/utils.h"
+#include "arrow/flight/sql/odbc/flight_sql/util.h"
 
 #include "arrow/array/array_base.h"
 
-namespace driver {
-namespace flight_sql {
+namespace arrow::flight::sql::odbc {
 
 using arrow::ArrayBuilder;
 using arrow::MemoryPool;
@@ -94,8 +93,7 @@ RecordBatchTransformerWithTasksBuilder::RenameField(const std::string& original_
     auto transformed_data_type = transformed_schema->GetFieldByName(transformed_name);
 
     if (original_data_type->type() != transformed_data_type->type()) {
-      throw odbcabstraction::DriverException(
-          "Original data and target data has different types");
+      throw DriverException("Original data and target data has different types");
     }
 
     return original_record->GetColumnByName(original_name);
@@ -122,7 +120,7 @@ RecordBatchTransformerWithTasksBuilder::AddFieldOfNulls(
   auto empty_fields_task = [=](const std::shared_ptr<RecordBatch>& original_record,
                                const std::shared_ptr<Schema>& transformed_schema) {
     auto result = MakeEmptyArray(data_type, nullptr, original_record->num_rows());
-    utils::ThrowIfNotOK(result.status());
+    util::ThrowIfNotOK(result.status());
 
     return result.ValueOrDie();
   };
@@ -145,5 +143,4 @@ RecordBatchTransformerWithTasksBuilder::RecordBatchTransformerWithTasksBuilder(
     std::shared_ptr<Schema> schema)
     : schema_(std::move(schema)) {}
 
-}  // namespace flight_sql
-}  // namespace driver
+}  // namespace arrow::flight::sql::odbc

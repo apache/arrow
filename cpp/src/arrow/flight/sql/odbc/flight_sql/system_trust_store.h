@@ -30,8 +30,7 @@
 #  include <string>
 #  include <vector>
 
-namespace driver {
-namespace flight_sql {
+namespace arrow::flight::sql::odbc {
 
 /// Load the certificates from the windows system trust store. Part of the logic
 /// was based in the drill connector
@@ -59,14 +58,11 @@ class SystemTrustStore {
   /// \return  If the specific store exist in the system.
   bool SystemHasStore();
 };
-}  // namespace flight_sql
-}  // namespace driver
+}  // namespace arrow::flight::sql::odbc
 
 #else  // Not Windows
-namespace driver {
-namespace flight_sql {
+namespace arrow::flight::sql::odbc {
 class SystemTrustStore;
-}  // namespace flight_sql
-}  // namespace driver
+}  // namespace arrow::flight::sql::odbc
 
 #endif

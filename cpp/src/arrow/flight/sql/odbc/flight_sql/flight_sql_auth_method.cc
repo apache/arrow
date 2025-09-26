@@ -28,16 +28,15 @@
 
 #include <utility>
 
-namespace driver {
-namespace flight_sql {
+namespace arrow::flight::sql::odbc {
 
 using arrow::Result;
 using arrow::flight::FlightCallOptions;
 using arrow::flight::FlightClient;
 using arrow::flight::TimeoutDuration;
-using driver::odbcabstraction::AuthenticationException;
-using driver::odbcabstraction::CommunicationException;
-using driver::odbcabstraction::Connection;
+using arrow::flight::sql::odbc::AuthenticationException;
+using arrow::flight::sql::odbc::CommunicationException;
+using arrow::flight::sql::odbc::Connection;
 
 namespace {
 class NoOpAuthMethod : public FlightSqlAuthMethod {
@@ -101,7 +100,7 @@ class UserPasswordAuthMethod : public FlightSqlAuthMethod {
         }
       }
 
-      throw odbcabstraction::DriverException(bearer_result.status().message());
+      throw DriverException(bearer_result.status().message());
     }
 
     call_options.headers.push_back(bearer_result.ValueOrDie());
@@ -145,7 +144,7 @@ class TokenAuthMethod : public FlightSqlAuthMethod {
           throw CommunicationException(status.message());
         }
       }
-      throw odbcabstraction::DriverException(status.message());
+      throw DriverException(status.message());
     }
   }
 };
@@ -187,5 +186,4 @@ std::unique_ptr<FlightSqlAuthMethod> FlightSqlAuthMethod::FromProperties(
   return std::unique_ptr<FlightSqlAuthMethod>(new NoOpAuthMethod);
 }
 
-}  // namespace flight_sql
-}  // namespace driver
+}  // namespace arrow::flight::sql::odbc

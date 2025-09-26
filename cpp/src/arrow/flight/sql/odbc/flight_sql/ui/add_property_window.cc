@@ -28,8 +28,7 @@
 #include "ui/custom_window.h"
 #include "ui/window.h"
 
-namespace driver {
-namespace flight_sql {
+namespace arrow::flight::sql::odbc {
 namespace config {
 
 AddPropertyWindow::AddPropertyWindow(Window* parent)
@@ -67,7 +66,7 @@ void AddPropertyWindow::Create() {
   if (!handle_) {
     std::stringstream buf;
     buf << "Can not create window, error code: " << GetLastError();
-    throw odbcabstraction::DriverException(buf.str());
+    throw DriverException(buf.str());
   }
 }
 
@@ -178,5 +177,4 @@ bool AddPropertyWindow::OnMessage(UINT msg, WPARAM wparam, LPARAM lparam) {
 }
 
 }  // namespace config
-}  // namespace flight_sql
-}  // namespace driver
+}  // namespace arrow::flight::sql::odbc

@@ -22,8 +22,7 @@
 #include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/diagnostics.h>
 #include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/types.h>
 
-namespace driver {
-namespace odbcabstraction {
+namespace arrow::flight::sql::odbc {
 
 class Connection;
 
@@ -50,5 +49,4 @@ class Driver {
   virtual void RegisterLog() = 0;
 };
 
-}  // namespace odbcabstraction
-}  // namespace driver
+}  // namespace arrow::flight::sql::odbc

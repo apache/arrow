@@ -21,7 +21,7 @@
 #include <rapidjson/writer.h>
 #include <boost/beast/core/detail/base64.hpp>
 #include "arrow/builder.h"
-#include "arrow/flight/sql/odbc/flight_sql/utils.h"
+#include "arrow/flight/sql/odbc/flight_sql/util.h"
 #include "arrow/scalar.h"
 #include "arrow/visitor.h"
 
@@ -31,7 +31,7 @@ using boost::beast::detail::base64::encode;
 using boost::beast::detail::base64::encoded_size;
 namespace base64 = boost::beast::detail::base64;
 
-using driver::flight_sql::utils::ThrowIfNotOK;
+using arrow::flight::sql::odbc::util::ThrowIfNotOK;
 
 namespace {
 template <typename ScalarT>
@@ -293,8 +293,7 @@ class ScalarToJson : public arrow::ScalarVisitor {
 };
 }  // namespace
 
-namespace driver {
-namespace flight_sql {
+namespace arrow::flight::sql::odbc {
 
 std::string ConvertToJson(const arrow::Scalar& scalar) {
   static thread_local ScalarToJson converter;
@@ -322,5 +321,4 @@ arrow::Result<std::shared_ptr<arrow::Array>> ConvertToJson(
   return builder.Finish();
 }
 
-}  // namespace flight_sql
-}  // namespace driver
+}  // namespace arrow::flight::sql::odbc

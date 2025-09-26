@@ -24,8 +24,7 @@
 #include "arrow/flight/sql/odbc/flight_sql/flight_sql_connection.h"
 #include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/spi/connection.h"
 
-namespace driver {
-namespace flight_sql {
+namespace arrow::flight::sql::odbc {
 
 class FlightSqlAuthMethod {
  public:
@@ -38,11 +37,10 @@ class FlightSqlAuthMethod {
 
   static std::unique_ptr<FlightSqlAuthMethod> FromProperties(
       const std::unique_ptr<arrow::flight::FlightClient>& client,
-      const odbcabstraction::Connection::ConnPropertyMap& properties);
+      const Connection::ConnPropertyMap& properties);
 
  protected:
   FlightSqlAuthMethod() = default;
 };
 
-}  // namespace flight_sql
-}  // namespace driver
+}  // namespace arrow::flight::sql::odbc

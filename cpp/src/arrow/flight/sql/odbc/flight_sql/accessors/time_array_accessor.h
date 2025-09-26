@@ -21,11 +21,9 @@
 #include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/types.h"
 #include "arrow/type_fwd.h"
 
-namespace driver {
-namespace flight_sql {
+namespace arrow::flight::sql::odbc {
 
 using arrow::Array;
-using odbcabstraction::RowStatus;
 
 Accessor* CreateTimeAccessor(arrow::Array* array, arrow::Type::type type);
 
@@ -39,11 +37,9 @@ class TimeArrayFlightSqlAccessor
 
   RowStatus MoveSingleCellImpl(ColumnBinding* binding, int64_t arrow_row,
                                int64_t cell_counter, int64_t& value_offset,
-                               bool update_value_offset,
-                               odbcabstraction::Diagnostics& diagnostic);
+                               bool update_value_offset, Diagnostics& diagnostic);
 
   size_t GetCellLengthImpl(ColumnBinding* binding) const;
 };
 
-}  // namespace flight_sql
-}  // namespace driver
+}  // namespace arrow::flight::sql::odbc

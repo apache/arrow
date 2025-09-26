@@ -33,12 +33,12 @@
 #include <locale>
 #include <sstream>
 
-using driver::flight_sql::FlightSqlConnection;
-using driver::flight_sql::config::Configuration;
-using driver::flight_sql::config::ConnectionStringParser;
-using driver::flight_sql::config::DsnConfigurationWindow;
-using driver::flight_sql::config::Result;
-using driver::flight_sql::config::Window;
+using arrow::flight::sql::odbc::FlightSqlConnection;
+using arrow::flight::sql::odbc::config::Configuration;
+using arrow::flight::sql::odbc::config::ConnectionStringParser;
+using arrow::flight::sql::odbc::config::DsnConfigurationWindow;
+using arrow::flight::sql::odbc::config::Result;
+using arrow::flight::sql::odbc::config::Window;
 
 BOOL CALLBACK ConfigDriver(HWND hwndParent, WORD fRequest, LPCSTR lpszDriver,
                            LPCSTR lpszArgs, LPSTR lpszMsg, WORD cbMsgMax,
@@ -61,7 +61,7 @@ bool DisplayConnectionWindow(void* windowParent, Configuration& config) {
     window.Update();
 
     return ProcessMessages(window) == Result::OK;
-  } catch (driver::odbcabstraction::DriverException& err) {
+  } catch (arrow::flight::sql::odbc::DriverException& err) {
     std::stringstream buf;
     buf << "Message: " << err.GetMessageText() << ", Code: " << err.GetNativeError();
     std::string message = buf.str();

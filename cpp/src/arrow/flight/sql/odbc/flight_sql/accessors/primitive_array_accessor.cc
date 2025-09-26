@@ -17,8 +17,7 @@
 
 #include "arrow/flight/sql/odbc/flight_sql/accessors/primitive_array_accessor.h"
 
-namespace driver {
-namespace flight_sql {
+namespace arrow::flight::sql::odbc {
 
 using arrow::DoubleArray;
 using arrow::FloatArray;
@@ -41,8 +40,7 @@ PrimitiveArrayFlightSqlAccessor<
 template <typename ARROW_ARRAY, CDataType TARGET_TYPE>
 size_t PrimitiveArrayFlightSqlAccessor<ARROW_ARRAY, TARGET_TYPE>::GetColumnarDataImpl(
     ColumnBinding* binding, int64_t starting_row, int64_t cells, int64_t& value_offset,
-    bool update_value_offset, odbcabstraction::Diagnostics& diagnostics,
-    uint16_t* row_status_array) {
+    bool update_value_offset, Diagnostics& diagnostics, uint16_t* row_status_array) {
   return CopyFromArrayValuesToBinding<ARROW_ARRAY>(this->GetArray(), binding,
                                                    starting_row, cells);
 }
@@ -53,26 +51,15 @@ size_t PrimitiveArrayFlightSqlAccessor<ARROW_ARRAY, TARGET_TYPE>::GetCellLengthI
   return sizeof(typename ARROW_ARRAY::TypeClass::c_type);
 }
 
-template class PrimitiveArrayFlightSqlAccessor<Int64Array,
-                                               odbcabstraction::CDataType_SBIGINT>;
-template class PrimitiveArrayFlightSqlAccessor<Int32Array,
-                                               odbcabstraction::CDataType_SLONG>;
-template class PrimitiveArrayFlightSqlAccessor<Int16Array,
-                                               odbcabstraction::CDataType_SSHORT>;
-template class PrimitiveArrayFlightSqlAccessor<Int8Array,
-                                               odbcabstraction::CDataType_STINYINT>;
-template class PrimitiveArrayFlightSqlAccessor<UInt64Array,
-                                               odbcabstraction::CDataType_UBIGINT>;
-template class PrimitiveArrayFlightSqlAccessor<UInt32Array,
-                                               odbcabstraction::CDataType_ULONG>;
-template class PrimitiveArrayFlightSqlAccessor<UInt16Array,
-                                               odbcabstraction::CDataType_USHORT>;
-template class PrimitiveArrayFlightSqlAccessor<UInt8Array,
-                                               odbcabstraction::CDataType_UTINYINT>;
-template class PrimitiveArrayFlightSqlAccessor<DoubleArray,
-                                               odbcabstraction::CDataType_DOUBLE>;
-template class PrimitiveArrayFlightSqlAccessor<FloatArray,
-                                               odbcabstraction::CDataType_FLOAT>;
+template class PrimitiveArrayFlightSqlAccessor<Int64Array, CDataType_SBIGINT>;
+template class PrimitiveArrayFlightSqlAccessor<Int32Array, CDataType_SLONG>;
+template class PrimitiveArrayFlightSqlAccessor<Int16Array, CDataType_SSHORT>;
+template class PrimitiveArrayFlightSqlAccessor<Int8Array, CDataType_STINYINT>;
+template class PrimitiveArrayFlightSqlAccessor<UInt64Array, CDataType_UBIGINT>;
+template class PrimitiveArrayFlightSqlAccessor<UInt32Array, CDataType_ULONG>;
+template class PrimitiveArrayFlightSqlAccessor<UInt16Array, CDataType_USHORT>;
+template class PrimitiveArrayFlightSqlAccessor<UInt8Array, CDataType_UTINYINT>;
+template class PrimitiveArrayFlightSqlAccessor<DoubleArray, CDataType_DOUBLE>;
+template class PrimitiveArrayFlightSqlAccessor<FloatArray, CDataType_FLOAT>;
 
-}  // namespace flight_sql
-}  // namespace driver
+}  // namespace arrow::flight::sql::odbc

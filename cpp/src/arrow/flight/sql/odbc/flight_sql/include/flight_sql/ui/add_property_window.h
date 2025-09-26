@@ -22,8 +22,7 @@
 
 #include "arrow/flight/sql/odbc/flight_sql/include/flight_sql/ui/custom_window.h"
 
-namespace driver {
-namespace flight_sql {
+namespace arrow::flight::sql::odbc {
 namespace config {
 /**
  * Add property window class.
@@ -114,5 +113,4 @@ class AddPropertyWindow : public CustomWindow {
 };
 
 }  // namespace config
-}  // namespace flight_sql
-}  // namespace driver
+}  // namespace arrow::flight::sql::odbc

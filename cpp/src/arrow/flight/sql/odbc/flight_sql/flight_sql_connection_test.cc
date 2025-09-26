@@ -20,15 +20,13 @@
 #include "arrow/flight/types.h"
 #include "gtest/gtest.h"
 
-namespace driver {
-namespace flight_sql {
+namespace arrow::flight::sql::odbc {
 
 using arrow::flight::Location;
 using arrow::flight::TimeoutDuration;
-using odbcabstraction::Connection;
 
 TEST(AttributeTests, SetAndGetAttribute) {
-  FlightSqlConnection connection(odbcabstraction::V_3);
+  FlightSqlConnection connection(OdbcVersion::V_3);
   connection.SetClosed(false);
 
   connection.SetAttribute(Connection::CONNECTION_TIMEOUT, static_cast<uint32_t>(200));
@@ -51,7 +49,7 @@ TEST(AttributeTests, SetAndGetAttribute) {
 }
 
 TEST(AttributeTests, GetAttributeWithoutSetting) {
-  FlightSqlConnection connection(odbcabstraction::V_3);
+  FlightSqlConnection connection(OdbcVersion::V_3);
 
   const boost::optional<Connection::Attribute> optional =
       connection.GetAttribute(Connection::CONNECTION_TIMEOUT);
@@ -63,7 +61,7 @@ TEST(AttributeTests, GetAttributeWithoutSetting) {
 }
 
 TEST(MetadataSettingsTest, StringColumnLengthTest) {
-  FlightSqlConnection connection(odbcabstraction::V_3);
+  FlightSqlConnection connection(OdbcVersion::V_3);
   connection.SetClosed(false);
 
   const int32_t expected_string_column_length = 100000;
@@ -86,7 +84,7 @@ TEST(MetadataSettingsTest, StringColumnLengthTest) {
 }
 
 TEST(MetadataSettingsTest, UseWideCharTest) {
-  FlightSqlConnection connection(odbcabstraction::V_3);
+  FlightSqlConnection connection(OdbcVersion::V_3);
   connection.SetClosed(false);
 
   const Connection::ConnPropertyMap properties1 = {
@@ -161,7 +159,7 @@ TEST(BuildLocationTests, ForTls) {
 }
 
 TEST(PopulateCallOptionsTest, ConnectionTimeout) {
-  FlightSqlConnection connection(odbcabstraction::V_3);
+  FlightSqlConnection connection(OdbcVersion::V_3);
   connection.SetClosed(false);
 
   // Expect default timeout to be -1
@@ -174,7 +172,7 @@ TEST(PopulateCallOptionsTest, ConnectionTimeout) {
 }
 
 TEST(PopulateCallOptionsTest, GenericOption) {
-  FlightSqlConnection connection(odbcabstraction::V_3);
+  FlightSqlConnection connection(OdbcVersion::V_3);
   connection.SetClosed(false);
 
   Connection::ConnPropertyMap properties;
@@ -191,7 +189,7 @@ TEST(PopulateCallOptionsTest, GenericOption) {
 }
 
 TEST(PopulateCallOptionsTest, GenericOptionWithSpaces) {
-  FlightSqlConnection connection(odbcabstraction::V_3);
+  FlightSqlConnection connection(OdbcVersion::V_3);
   connection.SetClosed(false);
 
   Connection::ConnPropertyMap properties;
@@ -202,5 +200,4 @@ TEST(PopulateCallOptionsTest, GenericOptionWithSpaces) {
   ASSERT_TRUE(headers.empty());
 }
 
-}  // namespace flight_sql
-}  // namespace driver
+}  // namespace arrow::flight::sql::odbc

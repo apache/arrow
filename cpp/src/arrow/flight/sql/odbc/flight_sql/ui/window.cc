@@ -29,8 +29,7 @@
 #include "arrow/flight/sql/odbc/flight_sql/include/flight_sql/ui/window.h"
 #include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/exceptions.h"
 
-namespace driver {
-namespace flight_sql {
+namespace arrow::flight::sql::odbc {
 namespace config {
 
 HINSTANCE GetHInstance() {
@@ -43,7 +42,7 @@ HINSTANCE GetHInstance() {
   if (h_instance == NULL) {
     std::stringstream buf;
     buf << "Can not get hInstance for the module, error code: " << GetLastError();
-    throw odbcabstraction::DriverException(buf.str());
+    throw DriverException(buf.str());
   }
 
   return h_instance;
@@ -71,7 +70,7 @@ void Window::Create(DWORD style, int pos_x, int pos_y, int width, int height, in
   if (handle_) {
     std::stringstream buf;
     buf << "Window already created, error code: " << GetLastError();
-    throw odbcabstraction::DriverException(buf.str());
+    throw DriverException(buf.str());
   }
 
   handle_ = CreateWindow(class_name_.c_str(), title_.c_str(), style, pos_x, pos_y, width,
@@ -82,7 +81,7 @@ void Window::Create(DWORD style, int pos_x, int pos_y, int width, int height, in
   if (!handle_) {
     std::stringstream buf;
     buf << "Can not create window, error code: " << GetLastError();
-    throw odbcabstraction::DriverException(buf.str());
+    throw DriverException(buf.str());
   }
 
   created_ = true;
@@ -211,7 +210,7 @@ void Window::ListAddColumn(const std::string& name, int index, int width) {
   if (ListView_InsertColumn(handle_, index, &lvc) == -1) {
     std::stringstream buf;
     buf << "Can not add list column, error code: " << GetLastError();
-    throw odbcabstraction::DriverException(buf.str());
+    throw DriverException(buf.str());
   }
 }
 
@@ -224,7 +223,7 @@ void Window::ListAddItem(const std::vector<std::string>& items) {
   if (ret < 0) {
     std::stringstream buf;
     buf << "Can not add list item, error code: " << GetLastError();
-    throw odbcabstraction::DriverException(buf.str());
+    throw DriverException(buf.str());
   }
 
   for (size_t i = 1; i < items.size(); ++i) {
@@ -239,7 +238,7 @@ void Window::ListDeleteSelectedItem() {
     if (ListView_DeleteItem(handle_, row_index) == -1) {
       std::stringstream buf;
       buf << "Can not delete list item, error code: " << GetLastError();
-      throw odbcabstraction::DriverException(buf.str());
+      throw DriverException(buf.str());
     }
   }
 }
@@ -271,7 +270,7 @@ void Window::AddTab(const std::string& name, int index) {
   if (TabCtrl_InsertItem(handle_, index, &tab_control_item) == -1) {
     std::stringstream buf;
     buf << "Can not add tab, error code: " << GetLastError();
-    throw odbcabstraction::DriverException(buf.str());
+    throw DriverException(buf.str());
   }
 }
 
@@ -327,5 +326,4 @@ void Window::SetEnabled(bool enabled) { EnableWindow(GetHandle(), enabled); }
 bool Window::IsEnabled() const { return IsWindowEnabled(GetHandle()) != 0; }
 
 }  // namespace config
-}  // namespace flight_sql
-}  // namespace driver
+}  // namespace arrow::flight::sql::odbc

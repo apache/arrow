@@ -27,11 +27,9 @@
 #include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/platform.h"
 #include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/types.h"
 
-namespace driver {
-namespace flight_sql {
+namespace arrow::flight::sql::odbc {
 
 using arrow::Array;
-using odbcabstraction::CDataType;
 
 class FlightSqlResultSet;
 
@@ -68,8 +66,7 @@ class Accessor {
   /// \brief Populates next cells
   virtual size_t GetColumnarData(ColumnBinding* binding, int64_t starting_row,
                                  size_t cells, int64_t& value_offset,
-                                 bool update_value_offset,
-                                 odbcabstraction::Diagnostics& diagnostics,
+                                 bool update_value_offset, Diagnostics& diagnostics,
                                  uint16_t* row_status_array) = 0;
 
   virtual size_t GetCellLength(ColumnBinding* binding) const = 0;
@@ -84,8 +81,7 @@ class FlightSqlAccessor : public Accessor {
 
   size_t GetColumnarData(ColumnBinding* binding, int64_t starting_row, size_t cells,
                          int64_t& value_offset, bool update_value_offset,
-                         odbcabstraction::Diagnostics& diagnostics,
-                         uint16_t* row_status_array) override {
+                         Diagnostics& diagnostics, uint16_t* row_status_array) override {
     return static_cast<DERIVED*>(this)->GetColumnarDataImpl(
         binding, starting_row, cells, value_offset, update_value_offset, diagnostics,
         row_status_array);
@@ -98,15 +94,14 @@ class FlightSqlAccessor : public Accessor {
  protected:
   size_t GetColumnarDataImpl(ColumnBinding* binding, int64_t starting_row, int64_t cells,
                              int64_t& value_offset, bool update_value_offset,
-                             odbcabstraction::Diagnostics& diagnostics,
-                             uint16_t* row_status_array) {
+                             Diagnostics& diagnostics, uint16_t* row_status_array) {
     for (int64_t i = 0; i < cells; ++i) {
       int64_t current_arrow_row = starting_row + i;
       if (array_->IsNull(current_arrow_row)) {
         if (binding->str_len_buffer) {
-          binding->str_len_buffer[i] = odbcabstraction::NULL_DATA;
+          binding->str_len_buffer[i] = NULL_DATA;
         } else {
-          throw odbcabstraction::NullWithoutIndicatorException();
+          throw NullWithoutIndicatorException();
         }
       } else {
         // TODO: Optimize this by creating different versions of MoveSingleCell
@@ -127,22 +122,20 @@ class FlightSqlAccessor : public Accessor {
  private:
   ARROW_ARRAY* array_;
 
-  odbcabstraction::RowStatus MoveSingleCell(ColumnBinding* binding, int64_t arrow_row,
-                                            int64_t i, int64_t& value_offset,
-                                            bool update_value_offset,
-                                            odbcabstraction::Diagnostics& diagnostics) {
+  RowStatus MoveSingleCell(ColumnBinding* binding, int64_t arrow_row, int64_t i,
+                           int64_t& value_offset, bool update_value_offset,
+                           Diagnostics& diagnostics) {
     return static_cast<DERIVED*>(this)->MoveSingleCellImpl(
         binding, arrow_row, i, value_offset, update_value_offset, diagnostics);
   }
 
-  odbcabstraction::RowStatus MoveSingleCellImpl(
-      ColumnBinding* binding, int64_t arrow_row, int64_t i, int64_t& value_offset,
-      bool update_value_offset, odbcabstraction::Diagnostics& diagnostics) {
+  RowStatus MoveSingleCellImpl(ColumnBinding* binding, int64_t arrow_row, int64_t i,
+                               int64_t& value_offset, bool update_value_offset,
+                               Diagnostics& diagnostics) {
     std::stringstream ss;
     ss << "Unknown type conversion from StringArray to target C type " << TARGET_TYPE;
-    throw odbcabstraction::DriverException(ss.str());
+    throw DriverException(ss.str());
   }
 };
 
-}  // namespace flight_sql
-}  // namespace driver
+}  // namespace arrow::flight::sql::odbc

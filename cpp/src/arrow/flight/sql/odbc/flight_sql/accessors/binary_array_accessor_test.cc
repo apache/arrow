@@ -20,30 +20,27 @@
 #include "arrow/testing/gtest_util.h"
 #include "gtest/gtest.h"
 
-namespace driver {
-namespace flight_sql {
-
-using arrow::BinaryType;
-using odbcabstraction::OdbcVersion;
+namespace arrow::flight::sql::odbc {
 
 using arrow::ArrayFromVector;
+using arrow::BinaryType;
 
 TEST(BinaryArrayAccessor, Test_CDataType_BINARY_Basic) {
   std::vector<std::string> values = {"foo", "barx", "baz123"};
   std::shared_ptr<Array> array;
   ArrayFromVector<BinaryType, std::string>(values, &array);
 
-  BinaryArrayFlightSqlAccessor<odbcabstraction::CDataType_BINARY> accessor(array.get());
+  BinaryArrayFlightSqlAccessor<CDataType_BINARY> accessor(array.get());
 
   size_t max_str_len = 64;
   std::vector<char> buffer(values.size() * max_str_len);
   std::vector<ssize_t> str_len_buffer(values.size());
 
-  ColumnBinding binding(odbcabstraction::CDataType_BINARY, 0, 0, buffer.data(),
-                        max_str_len, str_len_buffer.data());
+  ColumnBinding binding(CDataType_BINARY, 0, 0, buffer.data(), max_str_len,
+                        str_len_buffer.data());
 
   int64_t value_offset = 0;
-  odbcabstraction::Diagnostics diagnostics("Foo", "Foo", OdbcVersion::V_3);
+  Diagnostics diagnostics("Foo", "Foo", OdbcVersion::V_3);
   ASSERT_EQ(values.size(),
             accessor.GetColumnarData(&binding, 0, values.size(), value_offset, false,
                                      diagnostics, nullptr));
@@ -64,21 +61,21 @@ TEST(BinaryArrayAccessor, Test_CDataType_BINARY_Truncation) {
   std::shared_ptr<Array> array;
   ArrayFromVector<BinaryType, std::string>(values, &array);
 
-  BinaryArrayFlightSqlAccessor<odbcabstraction::CDataType_BINARY> accessor(array.get());
+  BinaryArrayFlightSqlAccessor<CDataType_BINARY> accessor(array.get());
 
   size_t max_str_len = 8;
   std::vector<char> buffer(values.size() * max_str_len);
   std::vector<ssize_t> str_len_buffer(values.size());
 
-  ColumnBinding binding(odbcabstraction::CDataType_BINARY, 0, 0, buffer.data(),
-                        max_str_len, str_len_buffer.data());
+  ColumnBinding binding(CDataType_BINARY, 0, 0, buffer.data(), max_str_len,
+                        str_len_buffer.data());
 
   std::stringstream ss;
   int64_t value_offset = 0;
 
   // Construct the whole string by concatenating smaller chunks from
   // GetColumnarData
-  odbcabstraction::Diagnostics diagnostics("Foo", "Foo", OdbcVersion::V_3);
+  Diagnostics diagnostics("Foo", "Foo", OdbcVersion::V_3);
   do {
     diagnostics.Clear();
     int64_t original_value_offset = value_offset;
@@ -102,5 +99,4 @@ TEST(BinaryArrayAccessor, Test_CDataType_BINARY_Truncation) {
   ASSERT_EQ(values[0], ss.str());
 }
 
-}  // namespace flight_sql
-}  // namespace driver
+}  // namespace arrow::flight::sql::odbc

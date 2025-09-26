@@ -28,9 +28,9 @@
 using ODBC::ODBCConnection;
 using ODBC::ODBCEnvironment;
 
-using driver::odbcabstraction::Connection;
-using driver::odbcabstraction::Diagnostics;
-using driver::odbcabstraction::Driver;
+using arrow::flight::sql::odbc::Connection;
+using arrow::flight::sql::odbc::Diagnostics;
+using arrow::flight::sql::odbc::Driver;
 
 // Public
 // =========================================================================================
@@ -38,7 +38,7 @@ ODBCEnvironment::ODBCEnvironment(std::shared_ptr<Driver> driver)
     : driver_(std::move(driver)),
       diagnostics_(new Diagnostics(driver_->GetDiagnostics().GetVendor(),
                                    driver_->GetDiagnostics().GetDataSourceComponent(),
-                                   driver::odbcabstraction::V_2)),
+                                   arrow::flight::sql::odbc::V_2)),
       version_(SQL_OV_ODBC2),
       connection_pooling_(SQL_CP_OFF) {}
 
@@ -51,8 +51,8 @@ void ODBCEnvironment::SetODBCVersion(SQLINTEGER version) {
     version_ = version;
     diagnostics_.reset(
         new Diagnostics(diagnostics_->GetVendor(), diagnostics_->GetDataSourceComponent(),
-                        version == SQL_OV_ODBC2 ? driver::odbcabstraction::V_2
-                                                : driver::odbcabstraction::V_3));
+                        version == SQL_OV_ODBC2 ? arrow::flight::sql::odbc::V_2
+                                                : arrow::flight::sql::odbc::V_3));
   }
 }
 
@@ -64,8 +64,8 @@ void ODBCEnvironment::SetConnectionPooling(SQLINTEGER connection_pooling) {
 
 std::shared_ptr<ODBCConnection> ODBCEnvironment::CreateConnection() {
   std::shared_ptr<Connection> spi_connection =
-      driver_->CreateConnection(version_ == SQL_OV_ODBC2 ? driver::odbcabstraction::V_2
-                                                         : driver::odbcabstraction::V_3);
+      driver_->CreateConnection(version_ == SQL_OV_ODBC2 ? arrow::flight::sql::odbc::V_2
+                                                         : arrow::flight::sql::odbc::V_3);
   std::shared_ptr<ODBCConnection> new_conn =
       std::make_shared<ODBCConnection>(*this, spi_connection);
   connections_.push_back(new_conn);

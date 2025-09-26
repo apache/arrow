@@ -26,69 +26,71 @@
 #include "arrow/flight/sql/api.h"
 #include "arrow/flight/types.h"
 
-namespace driver {
-namespace flight_sql {
+namespace arrow::flight::sql::odbc {
 
-class FlightSqlStatement : public odbcabstraction::Statement {
+class FlightSqlStatement : public Statement {
  private:
-  odbcabstraction::Diagnostics diagnostics_;
+  Diagnostics diagnostics_;
   std::map<StatementAttributeId, Attribute> attribute_;
   arrow::flight::FlightCallOptions call_options_;
   arrow::flight::sql::FlightSqlClient& sql_client_;
-  std::shared_ptr<odbcabstraction::ResultSet> current_result_set_;
+  std::shared_ptr<ResultSet> current_result_set_;
   std::shared_ptr<arrow::flight::sql::PreparedStatement> prepared_statement_;
-  const odbcabstraction::MetadataSettings& metadata_settings_;
+  const MetadataSettings& metadata_settings_;
 
-  std::shared_ptr<odbcabstraction::ResultSet> GetTables(const std::string* catalog_name,
-                                                        const std::string* schema_name,
-                                                        const std::string* table_name,
-                                                        const std::string* table_type,
-                                                        const ColumnNames& column_names);
+  std::shared_ptr<ResultSet> GetTables(const std::string* catalog_name,
+                                       const std::string* schema_name,
+                                       const std::string* table_name,
+                                       const std::string* table_type,
+                                       const ColumnNames& column_names);
 
  public:
-  FlightSqlStatement(const odbcabstraction::Diagnostics& diagnostics,
+  FlightSqlStatement(const Diagnostics& diagnostics,
                      arrow::flight::sql::FlightSqlClient& sql_client,
                      arrow::flight::FlightCallOptions call_options,
-                     const odbcabstraction::MetadataSettings& metadata_settings);
+                     const MetadataSettings& metadata_settings);
 
   bool SetAttribute(StatementAttributeId attribute, const Attribute& value) override;
 
   boost::optional<Attribute> GetAttribute(StatementAttributeId attribute) override;
 
-  boost::optional<std::shared_ptr<odbcabstraction::ResultSetMetadata>> Prepare(
+  boost::optional<std::shared_ptr<ResultSetMetadata>> Prepare(
       const std::string& query) override;
 
   bool ExecutePrepared() override;
 
   bool Execute(const std::string& query) override;
 
-  std::shared_ptr<odbcabstraction::ResultSet> GetResultSet() override;
+  std::shared_ptr<ResultSet> GetResultSet() override;
 
   int64_t GetUpdateCount() override;
 
-  std::shared_ptr<odbcabstraction::ResultSet> GetTables_V2(
-      const std::string* catalog_name, const std::string* schema_name,
-      const std::string* table_name, const std::string* table_type) override;
+  std::shared_ptr<ResultSet> GetTables_V2(const std::string* catalog_name,
+                                          const std::string* schema_name,
+                                          const std::string* table_name,
+                                          const std::string* table_type) override;
 
-  std::shared_ptr<odbcabstraction::ResultSet> GetTables_V3(
-      const std::string* catalog_name, const std::string* schema_name,
-      const std::string* table_name, const std::string* table_type) override;
+  std::shared_ptr<ResultSet> GetTables_V3(const std::string* catalog_name,
+                                          const std::string* schema_name,
+                                          const std::string* table_name,
+                                          const std::string* table_type) override;
 
-  std::shared_ptr<odbcabstraction::ResultSet> GetColumns_V2(
-      const std::string* catalog_name, const std::string* schema_name,
-      const std::string* table_name, const std::string* column_name) override;
+  std::shared_ptr<ResultSet> GetColumns_V2(const std::string* catalog_name,
+                                           const std::string* schema_name,
+                                           const std::string* table_name,
+                                           const std::string* column_name) override;
 
-  std::shared_ptr<odbcabstraction::ResultSet> GetColumns_V3(
-      const std::string* catalog_name, const std::string* schema_name,
-      const std::string* table_name, const std::string* column_name) override;
+  std::shared_ptr<ResultSet> GetColumns_V3(const std::string* catalog_name,
+                                           const std::string* schema_name,
+                                           const std::string* table_name,
+                                           const std::string* column_name) override;
 
-  std::shared_ptr<odbcabstraction::ResultSet> GetTypeInfo_V2(int16_t data_type) override;
+  std::shared_ptr<ResultSet> GetTypeInfo_V2(int16_t data_type) override;
 
-  std::shared_ptr<odbcabstraction::ResultSet> GetTypeInfo_V3(int16_t data_type) override;
+  std::shared_ptr<ResultSet> GetTypeInfo_V3(int16_t data_type) override;
 
-  odbcabstraction::Diagnostics& GetDiagnostics() override;
+  Diagnostics& GetDiagnostics() override;
 
   void Cancel() override;
 };
-}  // namespace flight_sql
-}  // namespace driver
+}  // namespace arrow::flight::sql::odbc

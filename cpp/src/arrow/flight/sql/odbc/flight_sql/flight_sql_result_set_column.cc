@@ -19,20 +19,19 @@
 #include <memory>
 #include "arrow/flight/sql/odbc/flight_sql/accessors/types.h"
 #include "arrow/flight/sql/odbc/flight_sql/flight_sql_result_set_accessors.h"
-#include "arrow/flight/sql/odbc/flight_sql/utils.h"
+#include "arrow/flight/sql/odbc/flight_sql/util.h"
 #include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/platform.h"
 #include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/types.h"
 
-namespace driver {
-namespace flight_sql {
+namespace arrow::flight::sql::odbc {
 
 namespace {
 std::shared_ptr<Array> CastArray(const std::shared_ptr<arrow::Array>& original_array,
                                  CDataType target_type) {
-  bool conversion = utils::NeedArrayConversion(original_array->type()->id(), target_type);
+  bool conversion = util::NeedArrayConversion(original_array->type()->id(), target_type);
 
   if (conversion) {
-    auto converter = utils::GetConverter(original_array->type_id(), target_type);
+    auto converter = util::GetConverter(original_array->type_id(), target_type);
     return converter(original_array);
   } else {
     return original_array;
@@ -44,13 +43,13 @@ std::unique_ptr<Accessor> FlightSqlResultSetColumn::CreateAccessor(
     CDataType target_type) {
   cached_casted_array_ = CastArray(original_array_, target_type);
 
-  return flight_sql::CreateAccessor(cached_casted_array_.get(), target_type);
+  return odbc::CreateAccessor(cached_casted_array_.get(), target_type);
 }
 
 Accessor* FlightSqlResultSetColumn::GetAccessorForTargetType(CDataType target_type) {
   // Cast the original array to a type matching the target_type.
-  if (target_type == odbcabstraction::CDataType_DEFAULT) {
-    target_type = utils::ConvertArrowTypeToC(original_array_->type_id(), use_wide_char);
+  if (target_type == CDataType_DEFAULT) {
+    target_type = util::ConvertArrowTypeToC(original_array_->type_id(), use_wide_char);
   }
 
   cached_accessor_ = CreateAccessor(target_type);
@@ -65,14 +64,13 @@ void FlightSqlResultSetColumn::SetBinding(const ColumnBinding& new_binding,
   binding = new_binding;
   is_bound = true;
 
-  if (binding.target_type == odbcabstraction::CDataType_DEFAULT) {
-    binding.target_type = utils::ConvertArrowTypeToC(arrow_type, use_wide_char);
+  if (binding.target_type == CDataType_DEFAULT) {
+    binding.target_type = util::ConvertArrowTypeToC(arrow_type, use_wide_char);
   }
 
   // Overwrite the binding if the caller is using SQL_C_NUMERIC and has used zero
   // precision if it is zero (this is precision unset and will always fail).
-  if (binding.precision == 0 &&
-      binding.target_type == odbcabstraction::CDataType_NUMERIC) {
+  if (binding.precision == 0 && binding.target_type == CDataType_NUMERIC) {
     binding.precision = arrow::Decimal128Type::kMaxPrecision;
   }
 
@@ -89,5 +87,4 @@ void FlightSqlResultSetColumn::ResetBinding() {
   cached_accessor_.reset();
 }
 
-}  // namespace flight_sql
-}  // namespace driver
+}  // namespace arrow::flight::sql::odbc

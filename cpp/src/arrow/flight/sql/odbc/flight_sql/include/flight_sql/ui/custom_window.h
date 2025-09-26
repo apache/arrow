@@ -19,8 +19,7 @@
 
 #include "ui/window.h"
 
-namespace driver {
-namespace flight_sql {
+namespace arrow::flight::sql::odbc {
 namespace config {
 /**
  * Application execution result.
@@ -105,5 +104,4 @@ class CustomWindow : public Window {
 };
 
 }  // namespace config
-}  // namespace flight_sql
-}  // namespace driver
+}  // namespace arrow::flight::sql::odbc

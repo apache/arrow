@@ -29,7 +29,7 @@
 #include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/odbc_impl/encoding_utils.h>
 
 namespace ODBC {
-using driver::odbcabstraction::WcsToUtf8;
+using arrow::flight::sql::odbc::WcsToUtf8;
 
 template <typename T, typename O>
 inline void GetAttribute(T attribute_value, SQLPOINTER output, O output_size,
@@ -67,7 +67,7 @@ inline SQLRETURN GetAttributeUTF8(const std::string& attribute_value, SQLPOINTER
 template <typename O>
 inline SQLRETURN GetAttributeUTF8(const std::string& attribute_value, SQLPOINTER output,
                                   O output_size, O* output_len_ptr,
-                                  driver::odbcabstraction::Diagnostics& diagnostics) {
+                                  arrow::flight::sql::odbc::Diagnostics& diagnostics) {
   SQLRETURN result =
       GetAttributeUTF8(attribute_value, output, output_size, output_len_ptr);
   if (SQL_SUCCESS_WITH_INFO == result) {
@@ -98,10 +98,10 @@ inline SQLRETURN GetAttributeSQLWCHAR(const std::string& attribute_value,
 }
 
 template <typename O>
-inline SQLRETURN GetAttributeSQLWCHAR(const std::string& attribute_value,
-                                      bool is_length_in_bytes, SQLPOINTER output,
-                                      O output_size, O* output_len_ptr,
-                                      driver::odbcabstraction::Diagnostics& diagnostics) {
+inline SQLRETURN GetAttributeSQLWCHAR(
+    const std::string& attribute_value, bool is_length_in_bytes, SQLPOINTER output,
+    O output_size, O* output_len_ptr,
+    arrow::flight::sql::odbc::Diagnostics& diagnostics) {
   SQLRETURN result = GetAttributeSQLWCHAR(attribute_value, is_length_in_bytes, output,
                                           output_size, output_len_ptr);
   if (SQL_SUCCESS_WITH_INFO == result) {
@@ -114,7 +114,7 @@ template <typename O>
 inline SQLRETURN GetStringAttribute(bool is_unicode, const std::string& attribute_value,
                                     bool is_length_in_bytes, SQLPOINTER output,
                                     O output_size, O* output_len_ptr,
-                                    driver::odbcabstraction::Diagnostics& diagnostics) {
+                                    arrow::flight::sql::odbc::Diagnostics& diagnostics) {
   SQLRETURN result = SQL_SUCCESS;
   if (is_unicode) {
     result = GetAttributeSQLWCHAR(attribute_value, is_length_in_bytes, output,
@@ -162,8 +162,8 @@ inline void SetAttributeSQLWCHAR(SQLPOINTER new_value, SQLINTEGER input_length_i
 template <typename T>
 void CheckIfAttributeIsSetToOnlyValidValue(SQLPOINTER value, T allowed_value) {
   if (static_cast<T>(reinterpret_cast<SQLULEN>(value)) != allowed_value) {
-    throw driver::odbcabstraction::DriverException("Optional feature not implemented",
-                                                   "HYC00");
+    throw arrow::flight::sql::odbc::DriverException("Optional feature not implemented",
+                                                    "HYC00");
   }
 }
 }  // namespace ODBC

@@ -21,8 +21,7 @@
 #include <arrow/status.h>
 #include <string>
 
-namespace driver {
-namespace flight_sql {
+namespace arrow::flight::sql::odbc {
 
 /// \brief An Auxiliary class that holds all the information to perform
 ///        a SSL connection.
@@ -59,5 +58,4 @@ class FlightSqlSslConfig {
   const bool disable_certificate_verification_;
   const bool system_trust_store_;
 };
-}  // namespace flight_sql
-}  // namespace driver
+}  // namespace arrow::flight::sql::odbc

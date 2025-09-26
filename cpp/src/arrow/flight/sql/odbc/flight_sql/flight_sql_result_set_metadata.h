@@ -22,20 +22,19 @@
 #include "arrow/flight/types.h"
 #include "arrow/type.h"
 
-namespace driver {
-namespace flight_sql {
-class FlightSqlResultSetMetadata : public odbcabstraction::ResultSetMetadata {
+namespace arrow::flight::sql::odbc {
+class FlightSqlResultSetMetadata : public ResultSetMetadata {
  private:
-  const odbcabstraction::MetadataSettings& metadata_settings_;
+  const MetadataSettings& metadata_settings_;
   std::shared_ptr<arrow::Schema> schema_;
 
  public:
   FlightSqlResultSetMetadata(
       const std::shared_ptr<arrow::flight::FlightInfo>& flight_info,
-      const odbcabstraction::MetadataSettings& metadata_settings);
+      const MetadataSettings& metadata_settings);
 
   FlightSqlResultSetMetadata(std::shared_ptr<arrow::Schema> schema,
-                             const odbcabstraction::MetadataSettings& metadata_settings);
+                             const MetadataSettings& metadata_settings);
 
   size_t GetColumnCount() override;
 
@@ -47,7 +46,7 @@ class FlightSqlResultSetMetadata : public odbcabstraction::ResultSetMetadata {
 
   uint16_t GetDataType(int column_position) override;
 
-  odbcabstraction::Nullability IsNullable(int column_position) override;
+  Nullability IsNullable(int column_position) override;
 
   std::string GetSchemaName(int column_position) override;
 
@@ -81,17 +80,16 @@ class FlightSqlResultSetMetadata : public odbcabstraction::ResultSetMetadata {
 
   std::string GetTypeName(int column_position) override;
 
-  odbcabstraction::Updatability GetUpdatable(int column_position) override;
+  Updatability GetUpdatable(int column_position) override;
 
   bool IsAutoUnique(int column_position) override;
 
   bool IsCaseSensitive(int column_position) override;
 
-  odbcabstraction::Searchability IsSearchable(int column_position) override;
+  Searchability IsSearchable(int column_position) override;
 
   bool IsUnsigned(int column_position) override;
 
   bool IsFixedPrecScale(int column_position) override;
 };
-}  // namespace flight_sql
-}  // namespace driver
+}  // namespace arrow::flight::sql::odbc

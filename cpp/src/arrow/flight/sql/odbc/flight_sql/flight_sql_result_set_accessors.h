@@ -21,14 +21,12 @@
 #include <arrow/type_fwd.h>
 #include <memory>
 
-namespace driver {
-namespace flight_sql {
+namespace arrow::flight::sql::odbc {
 
 class Accessor;
 class FlightSqlResultSet;
 
 std::unique_ptr<Accessor> CreateAccessor(arrow::Array* source_array,
-                                         odbcabstraction::CDataType target_type);
+                                         CDataType target_type);
 
-}  // namespace flight_sql
-}  // namespace driver
+}  // namespace arrow::flight::sql::odbc

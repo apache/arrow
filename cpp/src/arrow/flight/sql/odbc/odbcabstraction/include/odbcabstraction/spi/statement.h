@@ -22,8 +22,7 @@
 #include <map>
 #include <vector>
 
-namespace driver {
-namespace odbcabstraction {
+namespace arrow::flight::sql::odbc {
 
 using boost::optional;
 
@@ -189,5 +188,4 @@ class Statement {
   virtual void Cancel() = 0;
 };
 
-}  // namespace odbcabstraction
-}  // namespace driver
+}  // namespace arrow::flight::sql::odbc

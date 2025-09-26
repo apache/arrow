@@ -26,17 +26,14 @@
 #include <string>
 #include <vector>
 
-namespace driver {
-namespace odbcabstraction {
+namespace arrow::flight::sql::odbc {
 class ResultSetMetadata;
-}
-}  // namespace driver
+}  // namespace arrow::flight::sql::odbc
+
 namespace ODBC {
 class ODBCConnection;
 class ODBCStatement;
-}  // namespace ODBC
 
-namespace ODBC {
 struct DescriptorRecord {
   std::string base_column_name;
   std::string base_table_name;
@@ -81,11 +78,11 @@ class ODBCDescriptor : public ODBCHandle<ODBCDescriptor> {
   /// \brief Construct a new ODBCDescriptor object. Link the descriptor to a connection,
   /// if applicable. A nullptr should be supplied for conn if the descriptor should not be
   /// linked.
-  ODBCDescriptor(driver::odbcabstraction::Diagnostics& base_diagnostics,
+  ODBCDescriptor(arrow::flight::sql::odbc::Diagnostics& base_diagnostics,
                  ODBCConnection* conn, ODBCStatement* stmt, bool is_app_descriptor,
                  bool is_writable, bool is_2x_connection);
 
-  driver::odbcabstraction::Diagnostics& GetDiagnosticsImpl();
+  arrow::flight::sql::odbc::Diagnostics& GetDiagnosticsImpl();
 
   ODBCConnection& GetConnection();
 
@@ -106,7 +103,7 @@ class ODBCDescriptor : public ODBCHandle<ODBCDescriptor> {
   void DetachFromStatement(ODBCStatement* statement, bool is_apd);
   void ReleaseDescriptor();
 
-  void PopulateFromResultSetMetadata(driver::odbcabstraction::ResultSetMetadata* rsmd);
+  void PopulateFromResultSetMetadata(arrow::flight::sql::odbc::ResultSetMetadata* rsmd);
 
   const std::vector<DescriptorRecord>& GetRecords() const;
   std::vector<DescriptorRecord>& GetRecords();
@@ -139,7 +136,7 @@ class ODBCDescriptor : public ODBCHandle<ODBCDescriptor> {
   inline void NotifyBindingsHaveChanged() { has_bindings_changed_ = true; }
 
  private:
-  driver::odbcabstraction::Diagnostics diagnostics_;
+  arrow::flight::sql::odbc::Diagnostics diagnostics_;
   std::vector<ODBCStatement*> registered_on_statements_as_apd_;
   std::vector<ODBCStatement*> registered_on_statements_as_ard_;
   std::vector<DescriptorRecord> records_;

@@ -18,15 +18,14 @@
 #include "arrow/flight/sql/odbc/flight_sql/flight_sql_get_tables_reader.h"
 #include "arrow/array/builder_binary.h"
 #include "arrow/array/builder_primitive.h"
-#include "arrow/flight/sql/odbc/flight_sql/utils.h"
+#include "arrow/flight/sql/odbc/flight_sql/util.h"
 #include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/platform.h"
 #include "arrow/io/memory.h"
 #include "arrow/status.h"
 
 #include <utility>
 
-namespace driver {
-namespace flight_sql {
+namespace arrow::flight::sql::odbc {
 
 using arrow::BinaryArray;
 using arrow::StringArray;
@@ -89,5 +88,4 @@ std::shared_ptr<Schema> GetTablesReader::GetSchema() {
   return result.ValueOrDie();
 }
 
-}  // namespace flight_sql
-}  // namespace driver
+}  // namespace arrow::flight::sql::odbc

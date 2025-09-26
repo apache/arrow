@@ -30,8 +30,7 @@ void RewriteSQLStateForODBC2(std::string& sql_state) {
 }
 }  // namespace
 
-namespace driver {
-namespace odbcabstraction {
+namespace arrow::flight::sql::odbc {
 
 Diagnostics::Diagnostics(std::string vendor, std::string data_source_component,
                          OdbcVersion version)
@@ -47,8 +46,8 @@ std::string Diagnostics::GetDataSourceComponent() const { return data_source_com
 
 std::string Diagnostics::GetVendor() const { return vendor_; }
 
-void driver::odbcabstraction::Diagnostics::AddError(
-    const driver::odbcabstraction::DriverException& exception) {
+void arrow::flight::sql::odbc::Diagnostics::AddError(
+    const arrow::flight::sql::odbc::DriverException& exception) {
   auto record = std::unique_ptr<DiagnosticsRecord>(new DiagnosticsRecord{
       exception.GetMessageText(), exception.GetSqlState(), exception.GetNativeError()});
   if (version_ == OdbcVersion::V_2) {
@@ -58,9 +57,9 @@ void driver::odbcabstraction::Diagnostics::AddError(
   owned_records_.push_back(std::move(record));
 }
 
-void driver::odbcabstraction::Diagnostics::AddWarning(std::string message,
-                                                      std::string sql_state,
-                                                      int32_t native_error) {
+void arrow::flight::sql::odbc::Diagnostics::AddWarning(std::string message,
+                                                       std::string sql_state,
+                                                       int32_t native_error) {
   auto record = std::unique_ptr<DiagnosticsRecord>(
       new DiagnosticsRecord{std::move(message), std::move(sql_state), native_error});
   if (version_ == OdbcVersion::V_2) {
@@ -70,7 +69,7 @@ void driver::odbcabstraction::Diagnostics::AddWarning(std::string message,
   owned_records_.push_back(std::move(record));
 }
 
-std::string driver::odbcabstraction::Diagnostics::GetMessageText(
+std::string arrow::flight::sql::odbc::Diagnostics::GetMessageText(
     uint32_t record_index) const {
   std::string message;
   if (!vendor_.empty()) {
@@ -83,5 +82,4 @@ std::string driver::odbcabstraction::Diagnostics::GetMessageText(
 
 OdbcVersion Diagnostics::GetOdbcVersion() const { return version_; }
 
-}  // namespace odbcabstraction
-}  // namespace driver
+}  // namespace arrow::flight::sql::odbc

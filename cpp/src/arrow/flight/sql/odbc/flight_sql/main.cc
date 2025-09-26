@@ -35,12 +35,12 @@ using arrow::flight::FlightClient;
 using arrow::flight::Location;
 using arrow::flight::sql::FlightSqlClient;
 
-using driver::flight_sql::FlightSqlConnection;
-using driver::flight_sql::FlightSqlDriver;
-using driver::odbcabstraction::Connection;
-using driver::odbcabstraction::ResultSet;
-using driver::odbcabstraction::ResultSetMetadata;
-using driver::odbcabstraction::Statement;
+using arrow::flight::sql::odbc::Connection;
+using arrow::flight::sql::odbc::FlightSqlConnection;
+using arrow::flight::sql::odbc::FlightSqlDriver;
+using arrow::flight::sql::odbc::ResultSet;
+using arrow::flight::sql::odbc::ResultSetMetadata;
+using arrow::flight::sql::odbc::Statement;
 
 void TestBindColumn(const std::shared_ptr<Connection>& connection) {
   const std::shared_ptr<Statement>& statement = connection->CreateStatement();
@@ -57,9 +57,9 @@ void TestBindColumn(const std::shared_ptr<Connection>& connection) {
   char category[batch_size][max_str_len];
   ssize_t category_length[batch_size];
 
-  result_set->BindColumn(1, driver::odbcabstraction::CDataType_CHAR, 0, 0, incidnt_num,
+  result_set->BindColumn(1, arrow::flight::sql::odbc::CDataType_CHAR, 0, 0, incidnt_num,
                          max_str_len, incidnt_num_length);
-  result_set->BindColumn(2, driver::odbcabstraction::CDataType_CHAR, 0, 0, category,
+  result_set->BindColumn(2, arrow::flight::sql::odbc::CDataType_CHAR, 0, 0, category,
                          max_str_len, category_length);
 
   size_t total = 0;
@@ -91,7 +91,7 @@ void TestGetData(const std::shared_ptr<Connection>& connection) {
   while (result_set->Move(1, 0, 0, nullptr) == 1) {
     char result[128];
     ssize_t result_length;
-    result_set->GetData(1, driver::odbcabstraction::CDataType_CHAR, 0, 0, &result,
+    result_set->GetData(1, arrow::flight::sql::odbc::CDataType_CHAR, 0, 0, &result,
                         sizeof(result), &result_length);
     std::cout << result << std::endl;
   }
@@ -124,11 +124,11 @@ void TestBindColumnBigInt(const std::shared_ptr<Connection>& connection) {
   char category[batch_size][max_strlen];
   ssize_t category_length[batch_size];
 
-  result_set->BindColumn(1, driver::odbcabstraction::CDataType_CHAR, 0, 0, incidnt_num,
+  result_set->BindColumn(1, arrow::flight::sql::odbc::CDataType_CHAR, 0, 0, incidnt_num,
                          max_strlen, incidnt_num_length);
-  result_set->BindColumn(2, driver::odbcabstraction::CDataType_DOUBLE, 0, 0, double_field,
-                         max_strlen, double_field_length);
-  result_set->BindColumn(3, driver::odbcabstraction::CDataType_CHAR, 0, 0, category,
+  result_set->BindColumn(2, arrow::flight::sql::odbc::CDataType_DOUBLE, 0, 0,
+                         double_field, max_strlen, double_field_length);
+  result_set->BindColumn(3, arrow::flight::sql::odbc::CDataType_CHAR, 0, 0, category,
                          max_strlen, category_length);
 
   size_t total = 0;
@@ -161,7 +161,7 @@ void TestGetTablesV2(const std::shared_ptr<Connection>& connection) {
     int buffer_length = 1024;
     std::vector<char> result(buffer_length);
     ssize_t result_length;
-    result_set->GetData(1, driver::odbcabstraction::CDataType_CHAR, 0, 0, result.data(),
+    result_set->GetData(1, arrow::flight::sql::odbc::CDataType_CHAR, 0, 0, result.data(),
                         buffer_length, &result_length);
     std::cout << result.data() << std::endl;
   }
@@ -185,7 +185,7 @@ void TestGetColumnsV3(const std::shared_ptr<Connection>& connection) {
 
   while (result_set->Move(1, 0, 0, nullptr) == 1) {
     for (int i = 0; i < column_count; ++i) {
-      result_set->GetData(1 + i, driver::odbcabstraction::CDataType_CHAR, 0, 0,
+      result_set->GetData(1 + i, arrow::flight::sql::odbc::CDataType_CHAR, 0, 0,
                           result.data(), buffer_length, &result_length);
       std::cout << (result_length != -1 ? result.data() : "NULL") << '\t';
     }
@@ -200,7 +200,7 @@ int main() {
   FlightSqlDriver driver;
 
   const std::shared_ptr<Connection>& connection =
-      driver.CreateConnection(driver::odbcabstraction::V_3);
+      driver.CreateConnection(arrow::flight::sql::odbc::OdbcVersion::V_3);
 
   Connection::ConnPropertyMap properties = {
       {FlightSqlConnection::HOST, std::string("automaster.drem.io")},

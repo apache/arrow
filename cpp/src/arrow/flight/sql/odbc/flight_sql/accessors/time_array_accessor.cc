@@ -18,18 +18,13 @@
 #include "arrow/flight/sql/odbc/flight_sql/accessors/time_array_accessor.h"
 #include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/calendar_utils.h"
 
-namespace driver {
-namespace flight_sql {
+namespace arrow::flight::sql::odbc {
 
 using arrow::Array;
 using arrow::Time32Array;
 using arrow::Time64Array;
 using arrow::TimeType;
 using arrow::TimeUnit;
-
-using odbcabstraction::DriverException;
-using odbcabstraction::GetTimeForSecondsSinceEpoch;
-using odbcabstraction::TIME_STRUCT;
 
 Accessor* CreateTimeAccessor(arrow::Array* array, arrow::Type::type type) {
   auto time_type = arrow::internal::checked_pointer_cast<TimeType>(array->type());
@@ -38,32 +33,32 @@ Accessor* CreateTimeAccessor(arrow::Array* array, arrow::Type::type type) {
   if (type == arrow::Type::TIME32) {
     switch (time_unit) {
       case TimeUnit::SECOND:
-        return new TimeArrayFlightSqlAccessor<odbcabstraction::CDataType_TIME,
-                                              Time32Array, TimeUnit::SECOND>(array);
+        return new TimeArrayFlightSqlAccessor<CDataType_TIME, Time32Array,
+                                              TimeUnit::SECOND>(array);
       case TimeUnit::MILLI:
-        return new TimeArrayFlightSqlAccessor<odbcabstraction::CDataType_TIME,
-                                              Time32Array, TimeUnit::MILLI>(array);
+        return new TimeArrayFlightSqlAccessor<CDataType_TIME, Time32Array,
+                                              TimeUnit::MILLI>(array);
       case TimeUnit::MICRO:
-        return new TimeArrayFlightSqlAccessor<odbcabstraction::CDataType_TIME,
-                                              Time32Array, TimeUnit::MICRO>(array);
+        return new TimeArrayFlightSqlAccessor<CDataType_TIME, Time32Array,
+                                              TimeUnit::MICRO>(array);
       case TimeUnit::NANO:
-        return new TimeArrayFlightSqlAccessor<odbcabstraction::CDataType_TIME,
-                                              Time32Array, TimeUnit::NANO>(array);
+        return new TimeArrayFlightSqlAccessor<CDataType_TIME, Time32Array,
+                                              TimeUnit::NANO>(array);
     }
   } else if (type == arrow::Type::TIME64) {
     switch (time_unit) {
       case TimeUnit::SECOND:
-        return new TimeArrayFlightSqlAccessor<odbcabstraction::CDataType_TIME,
-                                              Time64Array, TimeUnit::SECOND>(array);
+        return new TimeArrayFlightSqlAccessor<CDataType_TIME, Time64Array,
+                                              TimeUnit::SECOND>(array);
       case TimeUnit::MILLI:
-        return new TimeArrayFlightSqlAccessor<odbcabstraction::CDataType_TIME,
-                                              Time64Array, TimeUnit::MILLI>(array);
+        return new TimeArrayFlightSqlAccessor<CDataType_TIME, Time64Array,
+                                              TimeUnit::MILLI>(array);
       case TimeUnit::MICRO:
-        return new TimeArrayFlightSqlAccessor<odbcabstraction::CDataType_TIME,
-                                              Time64Array, TimeUnit::MICRO>(array);
+        return new TimeArrayFlightSqlAccessor<CDataType_TIME, Time64Array,
+                                              TimeUnit::MICRO>(array);
       case TimeUnit::NANO:
-        return new TimeArrayFlightSqlAccessor<odbcabstraction::CDataType_TIME,
-                                              Time64Array, TimeUnit::NANO>(array);
+        return new TimeArrayFlightSqlAccessor<CDataType_TIME, Time64Array,
+                                              TimeUnit::NANO>(array);
     }
   }
   assert(false);
@@ -78,14 +73,13 @@ int64_t ConvertTimeValue(typename T::value_type value, TimeUnit::type unit) {
 
 template <>
 int64_t ConvertTimeValue<Time32Array>(int32_t value, TimeUnit::type unit) {
-  return unit == TimeUnit::SECOND ? value
-                                  : value / odbcabstraction::MILLI_TO_SECONDS_DIVISOR;
+  return unit == TimeUnit::SECOND ? value : value / MILLI_TO_SECONDS_DIVISOR;
 }
 
 template <>
 int64_t ConvertTimeValue<Time64Array>(int64_t value, TimeUnit::type unit) {
-  return unit == TimeUnit::MICRO ? value / odbcabstraction::MICRO_TO_SECONDS_DIVISOR
-                                 : value / odbcabstraction::NANO_TO_SECONDS_DIVISOR;
+  return unit == TimeUnit::MICRO ? value / MICRO_TO_SECONDS_DIVISOR
+                                 : value / NANO_TO_SECONDS_DIVISOR;
 }
 }  // namespace
 
@@ -99,8 +93,7 @@ TimeArrayFlightSqlAccessor<TARGET_TYPE, ARROW_ARRAY, UNIT>::TimeArrayFlightSqlAc
 template <CDataType TARGET_TYPE, typename ARROW_ARRAY, TimeUnit::type UNIT>
 RowStatus TimeArrayFlightSqlAccessor<TARGET_TYPE, ARROW_ARRAY, UNIT>::MoveSingleCellImpl(
     ColumnBinding* binding, int64_t arrow_row, int64_t cell_counter,
-    int64_t& value_offset, bool update_value_offset,
-    odbcabstraction::Diagnostics& diagnostic) {
+    int64_t& value_offset, bool update_value_offset, Diagnostics& diagnostic) {
   auto* buffer = static_cast<TIME_STRUCT*>(binding->buffer);
 
   tm time{};
@@ -118,7 +111,7 @@ RowStatus TimeArrayFlightSqlAccessor<TARGET_TYPE, ARROW_ARRAY, UNIT>::MoveSingle
     binding->str_len_buffer[cell_counter] =
         static_cast<ssize_t>(GetCellLengthImpl(binding));
   }
-  return odbcabstraction::RowStatus_SUCCESS;
+  return RowStatus_SUCCESS;
 }
 
 template <CDataType TARGET_TYPE, typename ARROW_ARRAY, TimeUnit::type UNIT>
@@ -127,22 +120,13 @@ size_t TimeArrayFlightSqlAccessor<TARGET_TYPE, ARROW_ARRAY, UNIT>::GetCellLength
   return sizeof(TIME_STRUCT);
 }
 
-template class TimeArrayFlightSqlAccessor<odbcabstraction::CDataType_TIME, Time32Array,
-                                          TimeUnit::SECOND>;
-template class TimeArrayFlightSqlAccessor<odbcabstraction::CDataType_TIME, Time32Array,
-                                          TimeUnit::MILLI>;
-template class TimeArrayFlightSqlAccessor<odbcabstraction::CDataType_TIME, Time32Array,
-                                          TimeUnit::MICRO>;
-template class TimeArrayFlightSqlAccessor<odbcabstraction::CDataType_TIME, Time32Array,
-                                          TimeUnit::NANO>;
-template class TimeArrayFlightSqlAccessor<odbcabstraction::CDataType_TIME, Time64Array,
-                                          TimeUnit::SECOND>;
-template class TimeArrayFlightSqlAccessor<odbcabstraction::CDataType_TIME, Time64Array,
-                                          TimeUnit::MILLI>;
-template class TimeArrayFlightSqlAccessor<odbcabstraction::CDataType_TIME, Time64Array,
-                                          TimeUnit::MICRO>;
-template class TimeArrayFlightSqlAccessor<odbcabstraction::CDataType_TIME, Time64Array,
-                                          TimeUnit::NANO>;
+template class TimeArrayFlightSqlAccessor<CDataType_TIME, Time32Array, TimeUnit::SECOND>;
+template class TimeArrayFlightSqlAccessor<CDataType_TIME, Time32Array, TimeUnit::MILLI>;
+template class TimeArrayFlightSqlAccessor<CDataType_TIME, Time32Array, TimeUnit::MICRO>;
+template class TimeArrayFlightSqlAccessor<CDataType_TIME, Time32Array, TimeUnit::NANO>;
+template class TimeArrayFlightSqlAccessor<CDataType_TIME, Time64Array, TimeUnit::SECOND>;
+template class TimeArrayFlightSqlAccessor<CDataType_TIME, Time64Array, TimeUnit::MILLI>;
+template class TimeArrayFlightSqlAccessor<CDataType_TIME, Time64Array, TimeUnit::MICRO>;
+template class TimeArrayFlightSqlAccessor<CDataType_TIME, Time64Array, TimeUnit::NANO>;
 
-}  // namespace flight_sql
-}  // namespace driver
+}  // namespace arrow::flight::sql::odbc

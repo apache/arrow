@@ -21,21 +21,14 @@
 #include "arrow/testing/builder.h"
 #include "gtest/gtest.h"
 
-namespace driver {
-namespace flight_sql {
+namespace arrow::flight::sql::odbc {
 
+using arrow::ArrayFromVector;
 using arrow::Date32Array;
 using arrow::Date32Type;
 using arrow::Date64Array;
 using arrow::Date64Type;
 using arrow::NumericArray;
-
-using odbcabstraction::DATE_STRUCT;
-using odbcabstraction::OdbcVersion;
-using odbcabstraction::tagDATE_STRUCT;
-
-using arrow::ArrayFromVector;
-using odbcabstraction::GetTimeForSecondsSinceEpoch;
 
 TEST(DateArrayAccessor, Test_Date32Array_CDataType_DATE) {
   std::vector<int32_t> values = {7589, 12320, 18980, 19095, -1, 0};
@@ -47,17 +40,16 @@ TEST(DateArrayAccessor, Test_Date32Array_CDataType_DATE) {
   std::shared_ptr<Array> array;
   ArrayFromVector<Date32Type, int32_t>(values, &array);
 
-  DateArrayFlightSqlAccessor<odbcabstraction::CDataType_DATE, Date32Array> accessor(
+  DateArrayFlightSqlAccessor<CDataType_DATE, Date32Array> accessor(
       dynamic_cast<NumericArray<Date32Type>*>(array.get()));
 
   std::vector<tagDATE_STRUCT> buffer(values.size());
   std::vector<ssize_t> str_len_buffer(values.size());
 
-  ColumnBinding binding(odbcabstraction::CDataType_DATE, 0, 0, buffer.data(), 0,
-                        str_len_buffer.data());
+  ColumnBinding binding(CDataType_DATE, 0, 0, buffer.data(), 0, str_len_buffer.data());
 
   int64_t value_offset = 0;
-  odbcabstraction::Diagnostics diagnostics("Foo", "Foo", OdbcVersion::V_3);
+  Diagnostics diagnostics("Foo", "Foo", OdbcVersion::V_3);
   ASSERT_EQ(values.size(),
             accessor.GetColumnarData(&binding, 0, values.size(), value_offset, false,
                                      diagnostics, nullptr));
@@ -85,17 +77,16 @@ TEST(DateArrayAccessor, Test_Date64Array_CDataType_DATE) {
   std::shared_ptr<Array> array;
   ArrayFromVector<Date64Type, int64_t>(values, &array);
 
-  DateArrayFlightSqlAccessor<odbcabstraction::CDataType_DATE, Date64Array> accessor(
+  DateArrayFlightSqlAccessor<CDataType_DATE, Date64Array> accessor(
       dynamic_cast<NumericArray<Date64Type>*>(array.get()));
 
   std::vector<tagDATE_STRUCT> buffer(values.size());
   std::vector<ssize_t> str_len_buffer(values.size());
 
-  ColumnBinding binding(odbcabstraction::CDataType_DATE, 0, 0, buffer.data(), 0,
-                        str_len_buffer.data());
+  ColumnBinding binding(CDataType_DATE, 0, 0, buffer.data(), 0, str_len_buffer.data());
 
   int64_t value_offset = 0;
-  odbcabstraction::Diagnostics diagnostics("Foo", "Foo", OdbcVersion::V_3);
+  Diagnostics diagnostics("Foo", "Foo", OdbcVersion::V_3);
   ASSERT_EQ(values.size(),
             accessor.GetColumnarData(&binding, 0, values.size(), value_offset, false,
                                      diagnostics, nullptr));
@@ -108,5 +99,4 @@ TEST(DateArrayAccessor, Test_Date64Array_CDataType_DATE) {
   }
 }
 
-}  // namespace flight_sql
-}  // namespace driver
+}  // namespace arrow::flight::sql::odbc

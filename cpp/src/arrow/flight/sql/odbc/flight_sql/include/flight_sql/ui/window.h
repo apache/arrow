@@ -21,8 +21,7 @@
 #include <string>
 #include <vector>
 
-namespace driver {
-namespace flight_sql {
+namespace arrow::flight::sql::odbc {
 namespace config {
 
 /**
@@ -305,5 +304,4 @@ class Window {
 };
 
 }  // namespace config
-}  // namespace flight_sql
-}  // namespace driver
+}  // namespace arrow::flight::sql::odbc

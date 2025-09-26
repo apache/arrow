@@ -21,12 +21,10 @@
 #include "arrow/array.h"
 #include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/encoding.h"
 
-namespace driver {
-namespace flight_sql {
+namespace arrow::flight::sql::odbc {
 
 using arrow::Array;
 using arrow::StringArray;
-using odbcabstraction::RowStatus;
 
 namespace {
 
@@ -40,17 +38,14 @@ std::string Utf8ToCLocale(const char* utf8_str, int len) {
 #endif
 
 template <typename CHAR_TYPE>
-inline RowStatus MoveSingleCellToCharBuffer(std::vector<uint8_t>& buffer,
-                                            int64_t& last_retrieved_arrow_row,
+inline RowStatus MoveSingleCellToCharBuffer(
+    std::vector<uint8_t>& buffer, int64_t& last_retrieved_arrow_row,
 #if defined _WIN32 || defined _WIN64
-                                            std::string& clocale_str,
+    std::string& clocale_str,
 #endif
-                                            ColumnBinding* binding, StringArray* array,
-                                            int64_t arrow_row, int64_t i,
-                                            int64_t& value_offset,
-                                            bool update_value_offset,
-                                            odbcabstraction::Diagnostics& diagnostics) {
-  RowStatus result = odbcabstraction::RowStatus_SUCCESS;
+    ColumnBinding* binding, StringArray* array, int64_t arrow_row, int64_t i,
+    int64_t& value_offset, bool update_value_offset, Diagnostics& diagnostics) {
+  RowStatus result = RowStatus_SUCCESS;
 
   // Arrow strings come as UTF-8
   const char* raw_value = array->Value(arrow_row).data();
@@ -60,7 +55,7 @@ inline RowStatus MoveSingleCellToCharBuffer(std::vector<uint8_t>& buffer,
   size_t size_in_bytes;
   if (sizeof(CHAR_TYPE) > sizeof(char)) {
     if (last_retrieved_arrow_row != arrow_row) {
-      odbcabstraction::Utf8ToWcs(raw_value, raw_value_length, &buffer);
+      Utf8ToWcs(raw_value, raw_value_length, &buffer);
       last_retrieved_arrow_row = arrow_row;
     }
     value = buffer.data();
@@ -99,7 +94,7 @@ inline RowStatus MoveSingleCellToCharBuffer(std::vector<uint8_t>& buffer,
       value_offset = -1;
     }
   } else {
-    result = odbcabstraction::RowStatus_SUCCESS_WITH_INFO;
+    result = RowStatus_SUCCESS_WITH_INFO;
     diagnostics.AddTruncationWarning();
     size_t chars_written = binding->buffer_length / sizeof(CHAR_TYPE);
     // If we failed to even write one char, the buffer is too small to hold a
@@ -131,7 +126,7 @@ StringArrayFlightSqlAccessor<TARGET_TYPE, CHAR_TYPE>::StringArrayFlightSqlAccess
 template <CDataType TARGET_TYPE, typename CHAR_TYPE>
 RowStatus StringArrayFlightSqlAccessor<TARGET_TYPE, CHAR_TYPE>::MoveSingleCellImpl(
     ColumnBinding* binding, int64_t arrow_row, int64_t i, int64_t& value_offset,
-    bool update_value_offset, odbcabstraction::Diagnostics& diagnostics) {
+    bool update_value_offset, Diagnostics& diagnostics) {
   return MoveSingleCellToCharBuffer<CHAR_TYPE>(buffer_, last_arrow_row_,
 #if defined _WIN32 || defined _WIN64
                                                clocale_str_,
@@ -147,9 +142,8 @@ size_t StringArrayFlightSqlAccessor<TARGET_TYPE, CHAR_TYPE>::GetCellLengthImpl(
   return binding->buffer_length;
 }
 
-template class StringArrayFlightSqlAccessor<odbcabstraction::CDataType_CHAR, char>;
-template class StringArrayFlightSqlAccessor<odbcabstraction::CDataType_WCHAR, char16_t>;
-template class StringArrayFlightSqlAccessor<odbcabstraction::CDataType_WCHAR, char32_t>;
+template class StringArrayFlightSqlAccessor<CDataType_CHAR, char>;
+template class StringArrayFlightSqlAccessor<CDataType_WCHAR, char16_t>;
+template class StringArrayFlightSqlAccessor<CDataType_WCHAR, char32_t>;
 
-}  // namespace flight_sql
-}  // namespace driver
+}  // namespace arrow::flight::sql::odbc

@@ -28,8 +28,7 @@
 #include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/exceptions.h>
 #include "ui/custom_window.h"
 
-namespace driver {
-namespace flight_sql {
+namespace arrow::flight::sql::odbc {
 namespace config {
 
 Result::Type ProcessMessages(Window& window) {
@@ -101,12 +100,11 @@ CustomWindow::CustomWindow(Window* parent, const char* class_name, const char* t
   if (!RegisterClass(&wcx)) {
     std::stringstream buf;
     buf << "Can not register window class, error code: " << GetLastError();
-    throw odbcabstraction::DriverException(buf.str());
+    throw DriverException(buf.str());
   }
 }
 
 CustomWindow::~CustomWindow() { UnregisterClass(class_name_.c_str(), GetHInstance()); }
 
 }  // namespace config
-}  // namespace flight_sql
-}  // namespace driver
+}  // namespace arrow::flight::sql::odbc

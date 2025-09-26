@@ -19,11 +19,9 @@
 #include "arrow/testing/builder.h"
 #include "gtest/gtest.h"
 
-namespace driver {
-namespace flight_sql {
+namespace arrow::flight::sql::odbc {
 
 using arrow::BooleanType;
-using odbcabstraction::OdbcVersion;
 
 using arrow::ArrayFromVector;
 
@@ -32,16 +30,15 @@ TEST(BooleanArrayFlightSqlAccessor, Test_BooleanArray_CDataType_BIT) {
   std::shared_ptr<Array> array;
   ArrayFromVector<BooleanType>(values, &array);
 
-  BooleanArrayFlightSqlAccessor<odbcabstraction::CDataType_BIT> accessor(array.get());
+  BooleanArrayFlightSqlAccessor<CDataType_BIT> accessor(array.get());
 
   std::vector<char> buffer(values.size());
   std::vector<ssize_t> str_len_buffer(values.size());
 
-  ColumnBinding binding(odbcabstraction::CDataType_BIT, 0, 0, buffer.data(), 0,
-                        str_len_buffer.data());
+  ColumnBinding binding(CDataType_BIT, 0, 0, buffer.data(), 0, str_len_buffer.data());
 
   int64_t value_offset = 0;
-  odbcabstraction::Diagnostics diagnostics("Foo", "Foo", OdbcVersion::V_3);
+  Diagnostics diagnostics("Foo", "Foo", OdbcVersion::V_3);
   ASSERT_EQ(values.size(),
             accessor.GetColumnarData(&binding, 0, values.size(), value_offset, false,
                                      diagnostics, nullptr));
@@ -52,5 +49,4 @@ TEST(BooleanArrayFlightSqlAccessor, Test_BooleanArray_CDataType_BIT) {
   }
 }
 
-}  // namespace flight_sql
-}  // namespace driver
+}  // namespace arrow::flight::sql::odbc

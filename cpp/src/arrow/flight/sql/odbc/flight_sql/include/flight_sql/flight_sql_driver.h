@@ -20,22 +20,20 @@
 #include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/diagnostics.h>
 #include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/spi/driver.h>
 
-namespace driver {
-namespace flight_sql {
+namespace arrow::flight::sql::odbc {
 
-class FlightSqlDriver : public odbcabstraction::Driver {
+class FlightSqlDriver : public Driver {
  private:
-  odbcabstraction::Diagnostics diagnostics_;
+  Diagnostics diagnostics_;
   std::string version_;
 
  public:
   FlightSqlDriver();
   ~FlightSqlDriver();
 
-  std::shared_ptr<odbcabstraction::Connection> CreateConnection(
-      odbcabstraction::OdbcVersion odbc_version) override;
+  std::shared_ptr<Connection> CreateConnection(OdbcVersion odbc_version) override;
 
-  odbcabstraction::Diagnostics& GetDiagnostics() override;
+  Diagnostics& GetDiagnostics() override;
 
   void SetVersion(std::string version) override;
 
@@ -45,5 +43,4 @@ class FlightSqlDriver : public odbcabstraction::Driver {
   void RegisterLog() override;
 };
 
-};  // namespace flight_sql
-}  // namespace driver
+}  // namespace arrow::flight::sql::odbc

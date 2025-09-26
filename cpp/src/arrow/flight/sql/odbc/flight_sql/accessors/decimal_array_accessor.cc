@@ -20,17 +20,12 @@
 #include "arrow/array.h"
 #include "arrow/scalar.h"
 
-namespace driver {
-namespace flight_sql {
+namespace arrow::flight::sql::odbc {
 
 using arrow::Decimal128;
 using arrow::Decimal128Array;
 using arrow::Decimal128Type;
 using arrow::Status;
-
-using odbcabstraction::DriverException;
-using odbcabstraction::NUMERIC_STRUCT;
-using odbcabstraction::RowStatus;
 
 template <typename ARROW_ARRAY, CDataType TARGET_TYPE>
 DecimalArrayFlightSqlAccessor<ARROW_ARRAY, TARGET_TYPE>::DecimalArrayFlightSqlAccessor(
@@ -41,10 +36,9 @@ DecimalArrayFlightSqlAccessor<ARROW_ARRAY, TARGET_TYPE>::DecimalArrayFlightSqlAc
 
 template <>
 RowStatus
-DecimalArrayFlightSqlAccessor<Decimal128Array, odbcabstraction::CDataType_NUMERIC>::
-    MoveSingleCellImpl(ColumnBinding* binding, int64_t arrow_row, int64_t i,
-                       int64_t& value_offset, bool update_value_offset,
-                       odbcabstraction::Diagnostics& diagnostics) {
+DecimalArrayFlightSqlAccessor<Decimal128Array, CDataType_NUMERIC>::MoveSingleCellImpl(
+    ColumnBinding* binding, int64_t arrow_row, int64_t i, int64_t& value_offset,
+    bool update_value_offset, Diagnostics& diagnostics) {
   auto result = &(static_cast<NUMERIC_STRUCT*>(binding->buffer)[i]);
   int32_t original_scale = data_type_->scale();
 
@@ -52,7 +46,7 @@ DecimalArrayFlightSqlAccessor<Decimal128Array, odbcabstraction::CDataType_NUMERI
   Decimal128 value(bytes);
   if (original_scale != binding->scale) {
     const Status& status = value.Rescale(original_scale, binding->scale).Value(&value);
-    utils::ThrowIfNotOK(status);
+    util::ThrowIfNotOK(status);
   }
   if (!value.FitsInPrecision(binding->precision)) {
     throw DriverException("Decimal value doesn't fit in precision " +
@@ -78,7 +72,7 @@ DecimalArrayFlightSqlAccessor<Decimal128Array, odbcabstraction::CDataType_NUMERI
     binding->str_len_buffer[i] = static_cast<ssize_t>(GetCellLengthImpl(binding));
   }
 
-  return odbcabstraction::RowStatus_SUCCESS;
+  return RowStatus_SUCCESS;
 }
 
 template <typename ARROW_ARRAY, CDataType TARGET_TYPE>
@@ -87,8 +81,6 @@ size_t DecimalArrayFlightSqlAccessor<ARROW_ARRAY, TARGET_TYPE>::GetCellLengthImp
   return sizeof(NUMERIC_STRUCT);
 }
 
-template class DecimalArrayFlightSqlAccessor<Decimal128Array,
-                                             odbcabstraction::CDataType_NUMERIC>;
+template class DecimalArrayFlightSqlAccessor<Decimal128Array, CDataType_NUMERIC>;
 
-}  // namespace flight_sql
-}  // namespace driver
+}  // namespace arrow::flight::sql::odbc

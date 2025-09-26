@@ -23,24 +23,20 @@
 #include <memory>
 #include <vector>
 
-namespace driver {
-namespace odbcabstraction {
+namespace arrow::flight::sql::odbc {
 class Driver;
-}
-}  // namespace driver
+}  // namespace arrow::flight::sql::odbc
 
 namespace ODBC {
 class ODBCConnection;
-}
 
 /**
  * @brief An abstraction over an ODBC environment handle.
  */
-namespace ODBC {
 class ODBCEnvironment : public ODBCHandle<ODBCEnvironment> {
  public:
-  explicit ODBCEnvironment(std::shared_ptr<driver::odbcabstraction::Driver> driver);
-  driver::odbcabstraction::Diagnostics& GetDiagnosticsImpl();
+  explicit ODBCEnvironment(std::shared_ptr<arrow::flight::sql::odbc::Driver> driver);
+  arrow::flight::sql::odbc::Diagnostics& GetDiagnosticsImpl();
   SQLINTEGER GetODBCVersion() const;
   void SetODBCVersion(SQLINTEGER version);
   SQLINTEGER GetConnectionPooling() const;
@@ -51,8 +47,8 @@ class ODBCEnvironment : public ODBCHandle<ODBCEnvironment> {
 
  private:
   std::vector<std::shared_ptr<ODBCConnection> > connections_;
-  std::shared_ptr<driver::odbcabstraction::Driver> driver_;
-  std::unique_ptr<driver::odbcabstraction::Diagnostics> diagnostics_;
+  std::shared_ptr<arrow::flight::sql::odbc::Driver> driver_;
+  std::unique_ptr<arrow::flight::sql::odbc::Diagnostics> diagnostics_;
   SQLINTEGER version_;
   SQLINTEGER connection_pooling_;
 };

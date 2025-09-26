@@ -19,8 +19,7 @@
 #include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/platform.h>
 #include <utility>
 
-namespace driver {
-namespace odbcabstraction {
+namespace arrow::flight::sql::odbc {
 
 DriverException::DriverException(std::string message, std::string sql_state,
                                  int32_t native_error)
@@ -48,5 +47,4 @@ NullWithoutIndicatorException::NullWithoutIndicatorException(std::string message
                                                              std::string sql_state,
                                                              int32_t native_error)
     : DriverException(message, sql_state, native_error) {}
-}  // namespace odbcabstraction
-}  // namespace driver
+}  // namespace arrow::flight::sql::odbc

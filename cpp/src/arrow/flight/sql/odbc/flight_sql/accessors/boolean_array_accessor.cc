@@ -17,11 +17,9 @@
 
 #include "arrow/flight/sql/odbc/flight_sql/accessors/boolean_array_accessor.h"
 
-namespace driver {
-namespace flight_sql {
+namespace arrow::flight::sql::odbc {
 
 using arrow::BooleanArray;
-using odbcabstraction::RowStatus;
 
 template <CDataType TARGET_TYPE>
 BooleanArrayFlightSqlAccessor<TARGET_TYPE>::BooleanArrayFlightSqlAccessor(Array* array)
@@ -31,7 +29,7 @@ BooleanArrayFlightSqlAccessor<TARGET_TYPE>::BooleanArrayFlightSqlAccessor(Array*
 template <CDataType TARGET_TYPE>
 RowStatus BooleanArrayFlightSqlAccessor<TARGET_TYPE>::MoveSingleCellImpl(
     ColumnBinding* binding, int64_t arrow_row, int64_t i, int64_t& value_offset,
-    bool update_value_offset, odbcabstraction::Diagnostics& diagnostics) {
+    bool update_value_offset, Diagnostics& diagnostics) {
   typedef unsigned char c_type;
   bool value = this->GetArray()->Value(arrow_row);
 
@@ -42,7 +40,7 @@ RowStatus BooleanArrayFlightSqlAccessor<TARGET_TYPE>::MoveSingleCellImpl(
     binding->str_len_buffer[i] = static_cast<ssize_t>(GetCellLengthImpl(binding));
   }
 
-  return odbcabstraction::RowStatus_SUCCESS;
+  return RowStatus_SUCCESS;
 }
 
 template <CDataType TARGET_TYPE>
@@ -51,7 +49,6 @@ size_t BooleanArrayFlightSqlAccessor<TARGET_TYPE>::GetCellLengthImpl(
   return sizeof(unsigned char);
 }
 
-template class BooleanArrayFlightSqlAccessor<odbcabstraction::CDataType_BIT>;
+template class BooleanArrayFlightSqlAccessor<CDataType_BIT>;
 
-}  // namespace flight_sql
-}  // namespace driver
+}  // namespace arrow::flight::sql::odbc

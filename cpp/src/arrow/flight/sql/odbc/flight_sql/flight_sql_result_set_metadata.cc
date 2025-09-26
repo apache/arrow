@@ -16,23 +16,20 @@
 // under the License.
 
 #include "arrow/flight/sql/odbc/flight_sql/flight_sql_result_set_metadata.h"
-#include <arrow/flight/sql/column_metadata.h>
-#include <arrow/util/key_value_metadata.h>
-#include "arrow/flight/sql/odbc/flight_sql/utils.h"
+#include "arrow/flight/sql/column_metadata.h"
+#include "arrow/flight/sql/odbc/flight_sql/util.h"
 #include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/platform.h"
 
 #include <utility>
 #include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/exceptions.h"
 #include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/types.h"
 
-namespace driver {
-namespace flight_sql {
-
-using namespace utils;
+namespace arrow::flight::sql::odbc {
 
 using arrow::DataType;
 using arrow::Field;
-using odbcabstraction::SqlDataType;
+using util::GetCharOctetLength;
+using util::GetDataTypeFromArrowFieldV3;
 
 using std::make_optional;
 using std::nullopt;
@@ -78,7 +75,7 @@ size_t FlightSqlResultSetMetadata::GetPrecision(int column_position) {
   SqlDataType data_type_v3 =
       GetDataTypeFromArrowFieldV3(field, metadata_settings_.use_wide_char);
 
-  return GetColumnSize(data_type_v3, column_size).value_or(0);
+  return util::GetColumnSize(data_type_v3, column_size).value_or(0);
 }
 
 size_t FlightSqlResultSetMetadata::GetScale(int column_position) {
@@ -89,21 +86,20 @@ size_t FlightSqlResultSetMetadata::GetScale(int column_position) {
   SqlDataType data_type_v3 =
       GetDataTypeFromArrowFieldV3(field, metadata_settings_.use_wide_char);
 
-  return GetTypeScale(data_type_v3, type_scale).value_or(0);
+  return util::GetTypeScale(data_type_v3, type_scale).value_or(0);
 }
 
 uint16_t FlightSqlResultSetMetadata::GetDataType(int column_position) {
   const std::shared_ptr<Field>& field = schema_->field(column_position - 1);
   const SqlDataType concise_type =
       GetDataTypeFromArrowFieldV3(field, metadata_settings_.use_wide_char);
-  return GetNonConciseDataType(concise_type);
+  return util::GetNonConciseDataType(concise_type);
 }
 
-driver::odbcabstraction::Nullability FlightSqlResultSetMetadata::IsNullable(
+arrow::flight::sql::odbc::Nullability FlightSqlResultSetMetadata::IsNullable(
     int column_position) {
   const std::shared_ptr<Field>& field = schema_->field(column_position - 1);
-  return field->nullable() ? odbcabstraction::NULLABILITY_NULLABLE
-                           : odbcabstraction::NULLABILITY_NO_NULLS;
+  return field->nullable() ? NULLABILITY_NULLABLE : NULLABILITY_NO_NULLS;
 }
 
 std::string FlightSqlResultSetMetadata::GetSchemaName(int column_position) {
@@ -139,7 +135,7 @@ size_t FlightSqlResultSetMetadata::GetColumnDisplaySize(int column_position) {
   SqlDataType data_type_v3 =
       GetDataTypeFromArrowFieldV3(field, metadata_settings_.use_wide_char);
 
-  return GetDisplaySize(data_type_v3, column_size).value_or(odbcabstraction::NO_TOTAL);
+  return util::GetDisplaySize(data_type_v3, column_size).value_or(NO_TOTAL);
 }
 
 std::string FlightSqlResultSetMetadata::GetBaseColumnName(int column_position) {
@@ -168,7 +164,7 @@ size_t FlightSqlResultSetMetadata::GetLength(int column_position) {
   SqlDataType data_type_v3 =
       GetDataTypeFromArrowFieldV3(field, metadata_settings_.use_wide_char);
 
-  return utils::GetLength(data_type_v3, column_size)
+  return util::GetLength(data_type_v3, column_size)
       .value_or(DefaultLengthForVariableLengthColumns);
 }
 
@@ -195,7 +191,7 @@ size_t FlightSqlResultSetMetadata::GetNumPrecRadix(int column_position) {
   SqlDataType data_type_v3 =
       GetDataTypeFromArrowFieldV3(field, metadata_settings_.use_wide_char);
 
-  return GetRadixFromSqlDataType(data_type_v3).value_or(odbcabstraction::NO_TOTAL);
+  return util::GetRadixFromSqlDataType(data_type_v3).value_or(NO_TOTAL);
 }
 
 size_t FlightSqlResultSetMetadata::GetOctetLength(int column_position) {
@@ -212,7 +208,7 @@ size_t FlightSqlResultSetMetadata::GetOctetLength(int column_position) {
   // TODO: Use the server precision when its fixed.
   std::shared_ptr<DataType> arrow_type = field->type();
   if (arrow_type->id() == arrow::Type::DECIMAL128) {
-    int32_t precision = GetDecimalTypePrecision(arrow_type);
+    int32_t precision = util::GetDecimalTypePrecision(arrow_type);
     return GetCharOctetLength(data_type_v3, column_size, precision)
         .value_or(DefaultDecimalPrecision + 2);
   }
@@ -228,9 +224,9 @@ std::string FlightSqlResultSetMetadata::GetTypeName(int column_position) {
   return metadata.GetTypeName().ValueOrElse([] { return ""; });
 }
 
-driver::odbcabstraction::Updatability FlightSqlResultSetMetadata::GetUpdatable(
+arrow::flight::sql::odbc::Updatability FlightSqlResultSetMetadata::GetUpdatable(
     int column_position) {
-  return odbcabstraction::UPDATABILITY_READWRITE_UNKNOWN;
+  return UPDATABILITY_READWRITE_UNKNOWN;
 }
 
 bool FlightSqlResultSetMetadata::IsAutoUnique(int column_position) {
@@ -248,14 +244,13 @@ bool FlightSqlResultSetMetadata::IsCaseSensitive(int column_position) {
   return metadata.GetIsCaseSensitive().ValueOrElse([] { return false; });
 }
 
-driver::odbcabstraction::Searchability FlightSqlResultSetMetadata::IsSearchable(
+arrow::flight::sql::odbc::Searchability FlightSqlResultSetMetadata::IsSearchable(
     int column_position) {
   arrow::flight::sql::ColumnMetadata metadata =
       GetMetadata(schema_->field(column_position - 1));
 
   bool is_searchable = metadata.GetIsSearchable().ValueOrElse([] { return false; });
-  return is_searchable ? odbcabstraction::SEARCHABILITY_ALL
-                       : odbcabstraction::SEARCHABILITY_NONE;
+  return is_searchable ? SEARCHABILITY_ALL : SEARCHABILITY_NONE;
 }
 
 bool FlightSqlResultSetMetadata::IsUnsigned(int column_position) {
@@ -278,18 +273,16 @@ bool FlightSqlResultSetMetadata::IsFixedPrecScale(int column_position) {
 }
 
 FlightSqlResultSetMetadata::FlightSqlResultSetMetadata(
-    std::shared_ptr<arrow::Schema> schema,
-    const odbcabstraction::MetadataSettings& metadata_settings)
+    std::shared_ptr<arrow::Schema> schema, const MetadataSettings& metadata_settings)
     : metadata_settings_(metadata_settings), schema_(std::move(schema)) {}
 
 FlightSqlResultSetMetadata::FlightSqlResultSetMetadata(
     const std::shared_ptr<arrow::flight::FlightInfo>& flight_info,
-    const odbcabstraction::MetadataSettings& metadata_settings)
+    const MetadataSettings& metadata_settings)
     : metadata_settings_(metadata_settings) {
   arrow::ipc::DictionaryMemo dict_memo;
 
-  ThrowIfNotOK(flight_info->GetSchema(&dict_memo).Value(&schema_));
+  util::ThrowIfNotOK(flight_info->GetSchema(&dict_memo).Value(&schema_));
 }
 
-}  // namespace flight_sql
-}  // namespace driver
+}  // namespace arrow::flight::sql::odbc

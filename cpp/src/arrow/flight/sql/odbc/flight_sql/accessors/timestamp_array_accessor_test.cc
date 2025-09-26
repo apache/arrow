@@ -16,22 +16,16 @@
 // under the License.
 
 #include "arrow/flight/sql/odbc/flight_sql/accessors/timestamp_array_accessor.h"
-#include "arrow/flight/sql/odbc/flight_sql/utils.h"
+#include "arrow/flight/sql/odbc/flight_sql/util.h"
 #include "arrow/testing/builder.h"
 #include "gtest/gtest.h"
 #include "odbcabstraction/calendar_utils.h"
 
-namespace driver {
-namespace flight_sql {
+namespace arrow::flight::sql::odbc {
 
 using arrow::ArrayFromVector;
 using arrow::TimestampType;
 using arrow::TimeUnit;
-
-using odbcabstraction::OdbcVersion;
-using odbcabstraction::TIMESTAMP_STRUCT;
-
-using odbcabstraction::GetTimeForSecondsSinceEpoch;
 
 TEST(TEST_TIMESTAMP, TIMESTAMP_WITH_MILLI) {
   std::vector<int64_t> values = {86400370,        172800000,      259200000,
@@ -70,16 +64,16 @@ TEST(TEST_TIMESTAMP, TIMESTAMP_WITH_MILLI) {
   ArrayFromVector<TimestampType, int64_t>(timestamp_field->type(), values,
                                           &timestamp_array);
 
-  TimestampArrayFlightSqlAccessor<odbcabstraction::CDataType_TIMESTAMP, TimeUnit::MILLI>
-      accessor(timestamp_array.get());
+  TimestampArrayFlightSqlAccessor<CDataType_TIMESTAMP, TimeUnit::MILLI> accessor(
+      timestamp_array.get());
 
   std::vector<TIMESTAMP_STRUCT> buffer(values.size());
   std::vector<ssize_t> str_len_buffer(values.size());
 
   int64_t value_offset = 0;
-  ColumnBinding binding(odbcabstraction::CDataType_TIMESTAMP, 0, 0, buffer.data(), 0,
+  ColumnBinding binding(CDataType_TIMESTAMP, 0, 0, buffer.data(), 0,
                         str_len_buffer.data());
-  odbcabstraction::Diagnostics diagnostics("Foo", "Foo", OdbcVersion::V_3);
+  Diagnostics diagnostics("Foo", "Foo", OdbcVersion::V_3);
   ASSERT_EQ(values.size(),
             accessor.GetColumnarData(&binding, 0, values.size(), value_offset, false,
                                      diagnostics, nullptr));
@@ -107,16 +101,16 @@ TEST(TEST_TIMESTAMP, TIMESTAMP_WITH_SECONDS) {
   ArrayFromVector<TimestampType, int64_t>(timestamp_field->type(), values,
                                           &timestamp_array);
 
-  TimestampArrayFlightSqlAccessor<odbcabstraction::CDataType_TIMESTAMP, TimeUnit::SECOND>
-      accessor(timestamp_array.get());
+  TimestampArrayFlightSqlAccessor<CDataType_TIMESTAMP, TimeUnit::SECOND> accessor(
+      timestamp_array.get());
 
   std::vector<TIMESTAMP_STRUCT> buffer(values.size());
   std::vector<ssize_t> str_len_buffer(values.size());
 
   int64_t value_offset = 0;
-  ColumnBinding binding(odbcabstraction::CDataType_TIMESTAMP, 0, 0, buffer.data(), 0,
+  ColumnBinding binding(CDataType_TIMESTAMP, 0, 0, buffer.data(), 0,
                         str_len_buffer.data());
-  odbcabstraction::Diagnostics diagnostics("Foo", "Foo", OdbcVersion::V_3);
+  Diagnostics diagnostics("Foo", "Foo", OdbcVersion::V_3);
 
   ASSERT_EQ(values.size(),
             accessor.GetColumnarData(&binding, 0, values.size(), value_offset, false,
@@ -148,16 +142,16 @@ TEST(TEST_TIMESTAMP, TIMESTAMP_WITH_MICRO) {
   ArrayFromVector<TimestampType, int64_t>(timestamp_field->type(), values,
                                           &timestamp_array);
 
-  TimestampArrayFlightSqlAccessor<odbcabstraction::CDataType_TIMESTAMP, TimeUnit::MICRO>
-      accessor(timestamp_array.get());
+  TimestampArrayFlightSqlAccessor<CDataType_TIMESTAMP, TimeUnit::MICRO> accessor(
+      timestamp_array.get());
 
   std::vector<TIMESTAMP_STRUCT> buffer(values.size());
   std::vector<ssize_t> str_len_buffer(values.size());
 
   int64_t value_offset = 0;
-  ColumnBinding binding(odbcabstraction::CDataType_TIMESTAMP, 0, 0, buffer.data(), 0,
+  ColumnBinding binding(CDataType_TIMESTAMP, 0, 0, buffer.data(), 0,
                         str_len_buffer.data());
-  odbcabstraction::Diagnostics diagnostics("Foo", "Foo", OdbcVersion::V_3);
+  Diagnostics diagnostics("Foo", "Foo", OdbcVersion::V_3);
 
   ASSERT_EQ(values.size(),
             accessor.GetColumnarData(&binding, 0, values.size(), value_offset, false,
@@ -168,7 +162,7 @@ TEST(TEST_TIMESTAMP, TIMESTAMP_WITH_MICRO) {
 
     tm date{};
 
-    auto converted_time = values[i] / odbcabstraction::MICRO_TO_SECONDS_DIVISOR;
+    auto converted_time = values[i] / MICRO_TO_SECONDS_DIVISOR;
     GetTimeForSecondsSinceEpoch(converted_time, date);
 
     ASSERT_EQ(buffer[i].year, 1900 + (date.tm_year));
@@ -179,7 +173,7 @@ TEST(TEST_TIMESTAMP, TIMESTAMP_WITH_MICRO) {
     ASSERT_EQ(buffer[i].second, date.tm_sec);
     constexpr uint32_t MICROS_PER_NANO = 1000;
     ASSERT_EQ(buffer[i].fraction,
-              (values[i] % odbcabstraction::MICRO_TO_SECONDS_DIVISOR) * MICROS_PER_NANO);
+              (values[i] % MICRO_TO_SECONDS_DIVISOR) * MICROS_PER_NANO);
   }
 }
 
@@ -192,17 +186,17 @@ TEST(TEST_TIMESTAMP, TIMESTAMP_WITH_NANO) {
   ArrayFromVector<TimestampType, int64_t>(timestamp_field->type(), values,
                                           &timestamp_array);
 
-  TimestampArrayFlightSqlAccessor<odbcabstraction::CDataType_TIMESTAMP, TimeUnit::NANO>
-      accessor(timestamp_array.get());
+  TimestampArrayFlightSqlAccessor<CDataType_TIMESTAMP, TimeUnit::NANO> accessor(
+      timestamp_array.get());
 
   std::vector<TIMESTAMP_STRUCT> buffer(values.size());
   std::vector<ssize_t> str_len_buffer(values.size());
 
   int64_t value_offset = 0;
-  ColumnBinding binding(odbcabstraction::CDataType_TIMESTAMP, 0, 0, buffer.data(), 0,
+  ColumnBinding binding(CDataType_TIMESTAMP, 0, 0, buffer.data(), 0,
                         str_len_buffer.data());
 
-  odbcabstraction::Diagnostics diagnostics("Foo", "Foo", OdbcVersion::V_3);
+  Diagnostics diagnostics("Foo", "Foo", OdbcVersion::V_3);
   ASSERT_EQ(values.size(),
             accessor.GetColumnarData(&binding, 0, values.size(), value_offset, false,
                                      diagnostics, nullptr));
@@ -211,7 +205,7 @@ TEST(TEST_TIMESTAMP, TIMESTAMP_WITH_NANO) {
     ASSERT_EQ(sizeof(TIMESTAMP_STRUCT), str_len_buffer[i]);
     tm date{};
 
-    auto converted_time = values[i] / odbcabstraction::NANO_TO_SECONDS_DIVISOR;
+    auto converted_time = values[i] / NANO_TO_SECONDS_DIVISOR;
     GetTimeForSecondsSinceEpoch(converted_time, date);
 
     ASSERT_EQ(buffer[i].year, 1900 + (date.tm_year));
@@ -220,9 +214,8 @@ TEST(TEST_TIMESTAMP, TIMESTAMP_WITH_NANO) {
     ASSERT_EQ(buffer[i].hour, date.tm_hour);
     ASSERT_EQ(buffer[i].minute, date.tm_min);
     ASSERT_EQ(buffer[i].second, date.tm_sec);
-    ASSERT_EQ(buffer[i].fraction, (values[i] % odbcabstraction::NANO_TO_SECONDS_DIVISOR));
+    ASSERT_EQ(buffer[i].fraction, (values[i] % NANO_TO_SECONDS_DIVISOR));
   }
 }
 
-}  // namespace flight_sql
-}  // namespace driver
+}  // namespace arrow::flight::sql::odbc

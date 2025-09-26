@@ -26,13 +26,10 @@
 #include "arrow/flight/types.h"
 #include "arrow/type.h"
 
-namespace driver {
-namespace flight_sql {
+namespace arrow::flight::sql::odbc {
 
 using arrow::flight::FlightCallOptions;
 using arrow::flight::sql::FlightSqlClient;
-using odbcabstraction::MetadataSettings;
-using odbcabstraction::ResultSet;
 
 typedef struct {
   std::string catalog_column;
@@ -47,26 +44,24 @@ void ParseTableTypes(const std::string& table_type,
 
 std::shared_ptr<ResultSet> GetTablesForSQLAllCatalogs(
     const ColumnNames& column_names, FlightCallOptions& call_options,
-    FlightSqlClient& sql_client, odbcabstraction::Diagnostics& diagnostics,
-    const odbcabstraction::MetadataSettings& metadata_settings);
+    FlightSqlClient& sql_client, Diagnostics& diagnostics,
+    const MetadataSettings& metadata_settings);
 
 std::shared_ptr<ResultSet> GetTablesForSQLAllDbSchemas(
     const ColumnNames& column_names, FlightCallOptions& call_options,
-    FlightSqlClient& sql_client, const std::string* schema_name,
-    odbcabstraction::Diagnostics& diagnostics,
-    const odbcabstraction::MetadataSettings& metadata_settings);
+    FlightSqlClient& sql_client, const std::string* schema_name, Diagnostics& diagnostics,
+    const MetadataSettings& metadata_settings);
 
 std::shared_ptr<ResultSet> GetTablesForSQLAllTableTypes(
     const ColumnNames& column_names, FlightCallOptions& call_options,
-    FlightSqlClient& sql_client, odbcabstraction::Diagnostics& diagnostics,
-    const odbcabstraction::MetadataSettings& metadata_settings);
+    FlightSqlClient& sql_client, Diagnostics& diagnostics,
+    const MetadataSettings& metadata_settings);
 
 std::shared_ptr<ResultSet> GetTablesForGenericUse(
     const ColumnNames& column_names, FlightCallOptions& call_options,
     FlightSqlClient& sql_client, const std::string* catalog_name,
     const std::string* schema_name, const std::string* table_name,
-    const std::vector<std::string>& table_types,
-    odbcabstraction::Diagnostics& diagnostics,
-    const odbcabstraction::MetadataSettings& metadata_settings);
-}  // namespace flight_sql
-}  // namespace driver
+    const std::vector<std::string>& table_types, Diagnostics& diagnostics,
+    const MetadataSettings& metadata_settings);
+
+}  // namespace arrow::flight::sql::odbc

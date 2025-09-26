@@ -16,10 +16,9 @@
 // under the License.
 
 #include "arrow/flight/sql/odbc/flight_sql/flight_sql_stream_chunk_buffer.h"
-#include "arrow/flight/sql/odbc/flight_sql/utils.h"
+#include "arrow/flight/sql/odbc/flight_sql/util.h"
 
-namespace driver {
-namespace flight_sql {
+namespace arrow::flight::sql::odbc {
 
 using arrow::flight::FlightEndpoint;
 
@@ -33,7 +32,7 @@ FlightStreamChunkBuffer::FlightStreamChunkBuffer(
     const arrow::flight::Ticket& ticket = endpoint.ticket;
 
     auto result = flight_sql_client.DoGet(call_options, ticket);
-    utils::ThrowIfNotOK(result.status());
+    util::ThrowIfNotOK(result.status());
     std::shared_ptr<FlightStreamReader> stream_reader_ptr(std::move(result.ValueOrDie()));
 
     BlockingQueue<Result<FlightStreamChunk>>::Supplier supplier = [=] {
@@ -55,7 +54,7 @@ bool FlightStreamChunkBuffer::GetNext(FlightStreamChunk* chunk) {
 
   if (!result.status().ok()) {
     Close();
-    throw odbcabstraction::DriverException(result.status().message());
+    throw DriverException(result.status().message());
   }
   *chunk = std::move(result.ValueOrDie());
   return chunk->data != nullptr;
@@ -65,5 +64,4 @@ void FlightStreamChunkBuffer::Close() { queue_.Close(); }
 
 FlightStreamChunkBuffer::~FlightStreamChunkBuffer() { Close(); }
 
-}  // namespace flight_sql
-}  // namespace driver
+}  // namespace arrow::flight::sql::odbc

@@ -33,9 +33,9 @@ using ODBC::ODBCConnection;
 using ODBC::ODBCDescriptor;
 using ODBC::ODBCStatement;
 
-using driver::odbcabstraction::Diagnostics;
-using driver::odbcabstraction::DriverException;
-using driver::odbcabstraction::ResultSetMetadata;
+using arrow::flight::sql::odbc::Diagnostics;
+using arrow::flight::sql::odbc::DriverException;
+using arrow::flight::sql::odbc::ResultSetMetadata;
 
 namespace {
 SQLSMALLINT CalculateHighestBoundRecord(const std::vector<DescriptorRecord>& records) {
@@ -57,7 +57,7 @@ ODBCDescriptor::ODBCDescriptor(Diagnostics& base_diagnostics, ODBCConnection* co
                                bool is_writable, bool is_2x_connection)
     : diagnostics_(base_diagnostics.GetVendor(),
                    base_diagnostics.GetDataSourceComponent(),
-                   driver::odbcabstraction::V_3),
+                   arrow::flight::sql::odbc::V_3),
       owning_connection_(conn),
       parent_statement_(stmt),
       array_status_ptr_(nullptr),

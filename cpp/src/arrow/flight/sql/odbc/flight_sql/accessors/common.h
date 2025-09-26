@@ -25,8 +25,7 @@
 #include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/types.h"
 #include "arrow/scalar.h"
 
-namespace driver {
-namespace flight_sql {
+namespace arrow::flight::sql::odbc {
 
 template <typename ARRAY_TYPE>
 inline size_t CopyFromArrayValuesToBinding(ARRAY_TYPE* array, ColumnBinding* binding,
@@ -37,7 +36,7 @@ inline size_t CopyFromArrayValuesToBinding(ARRAY_TYPE* array, ColumnBinding* bin
     for (int64_t i = 0; i < cells; ++i) {
       int64_t current_row = starting_row + i;
       if (array->IsNull(current_row)) {
-        binding->str_len_buffer[i] = odbcabstraction::NULL_DATA;
+        binding->str_len_buffer[i] = NULL_DATA;
       } else {
         binding->str_len_buffer[i] = element_size;
       }
@@ -46,7 +45,7 @@ inline size_t CopyFromArrayValuesToBinding(ARRAY_TYPE* array, ColumnBinding* bin
     // Duplicate this loop to avoid null checks within the loop.
     for (int64_t i = starting_row; i < starting_row + cells; ++i) {
       if (array->IsNull(i)) {
-        throw odbcabstraction::NullWithoutIndicatorException();
+        throw NullWithoutIndicatorException();
       }
     }
   }
@@ -60,5 +59,4 @@ inline size_t CopyFromArrayValuesToBinding(ARRAY_TYPE* array, ColumnBinding* bin
   return cells;
 }
 
-}  // namespace flight_sql
-}  // namespace driver
+}  // namespace arrow::flight::sql::odbc

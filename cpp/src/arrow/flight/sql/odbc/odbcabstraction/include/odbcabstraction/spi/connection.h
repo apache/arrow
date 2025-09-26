@@ -28,8 +28,7 @@
 #include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/diagnostics.h>
 #include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/types.h>
 
-namespace driver {
-namespace odbcabstraction {
+namespace arrow::flight::sql::odbc {
 
 /// \brief Case insensitive comparator
 struct CaseInsensitiveComparator {
@@ -98,5 +97,4 @@ class Connection {
   virtual Diagnostics& GetDiagnostics() = 0;
 };
 
-}  // namespace odbcabstraction
-}  // namespace driver
+}  // namespace arrow::flight::sql::odbc

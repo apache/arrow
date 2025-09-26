@@ -24,8 +24,7 @@
 #include <thread>
 #include <vector>
 
-namespace driver {
-namespace odbcabstraction {
+namespace arrow::flight::sql::odbc {
 
 template <typename T>
 class BlockingQueue {
@@ -127,5 +126,4 @@ class BlockingQueue {
   }
 };
 
-}  // namespace odbcabstraction
-}  // namespace driver
+}  // namespace arrow::flight::sql::odbc

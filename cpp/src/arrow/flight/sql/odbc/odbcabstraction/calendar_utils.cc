@@ -22,8 +22,7 @@
 #include <cstring>
 #include <ctime>
 
-namespace driver {
-namespace odbcabstraction {
+namespace arrow::flight::sql::odbc {
 int64_t GetTodayTimeFromEpoch() {
   tm date{};
   int64_t t = std::time(0);
@@ -58,5 +57,4 @@ void GetTimeForSecondsSinceEpoch(const int64_t seconds_since_epoch, std::tm& out
   out_tm.tm_min = static_cast<int>(timeofday.minutes().count());
   out_tm.tm_sec = static_cast<int>(timeofday.seconds().count());
 }
-}  // namespace odbcabstraction
-}  // namespace driver
+}  // namespace arrow::flight::sql::odbc

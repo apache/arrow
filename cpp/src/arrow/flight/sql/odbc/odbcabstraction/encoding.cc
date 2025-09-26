@@ -23,8 +23,7 @@
 #  include <mutex>
 #endif
 
-namespace driver {
-namespace odbcabstraction {
+namespace arrow::flight::sql::odbc {
 
 #if defined(__APPLE__)
 std::atomic<size_t> SqlWCharSize{0};
@@ -61,5 +60,4 @@ void ComputeSqlWCharSize() {
 }
 #endif
 
-}  // namespace odbcabstraction
-}  // namespace driver
+}  // namespace arrow::flight::sql::odbc

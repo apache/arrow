@@ -18,8 +18,7 @@
 #include <optional>
 #include "arrow/flight/sql/odbc/flight_sql/record_batch_transformer.h"
 
-namespace driver {
-namespace flight_sql {
+namespace arrow::flight::sql::odbc {
 
 using arrow::RecordBatch;
 
@@ -46,5 +45,4 @@ class GetTablesReader {
   std::shared_ptr<Schema> GetSchema();
 };
 
-}  // namespace flight_sql
-}  // namespace driver
+}  // namespace arrow::flight::sql::odbc

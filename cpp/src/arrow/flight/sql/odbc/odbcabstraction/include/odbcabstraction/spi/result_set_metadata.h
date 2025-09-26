@@ -20,8 +20,7 @@
 #include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/types.h>
 #include <string>
 
-namespace driver {
-namespace odbcabstraction {
+namespace arrow::flight::sql::odbc {
 
 /// \brief High Level representation of the ResultSetMetadata from ODBC.
 class ResultSetMetadata {
@@ -182,5 +181,4 @@ class ResultSetMetadata {
   virtual bool IsFixedPrecScale(int column_position) = 0;
 };
 
-}  // namespace odbcabstraction
-}  // namespace driver
+}  // namespace arrow::flight::sql::odbc

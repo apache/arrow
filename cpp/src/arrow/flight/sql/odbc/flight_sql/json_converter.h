@@ -20,13 +20,11 @@
 #include <arrow/type_fwd.h>
 #include <string>
 
-namespace driver {
-namespace flight_sql {
+namespace arrow::flight::sql::odbc {
 
 std::string ConvertToJson(const arrow::Scalar& scalar);
 
 arrow::Result<std::shared_ptr<arrow::Array>> ConvertToJson(
     const std::shared_ptr<arrow::Array>& input);
 
-}  // namespace flight_sql
-}  // namespace driver
+}  // namespace arrow::flight::sql::odbc

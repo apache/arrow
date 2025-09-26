@@ -23,8 +23,7 @@
 #include <string>
 #include <unordered_map>
 
-namespace driver {
-namespace flight_sql {
+namespace arrow::flight::sql::odbc {
 
 // The list of functions that can be converted from string to ODBC bitmasks is
 // based on Calcite's SqlJdbcFunctionCall class.
@@ -136,5 +135,4 @@ void ReportDatetimeFunction(const std::string& function, uint32_t& current_funct
   }
 }
 
-}  // namespace flight_sql
-}  // namespace driver
+}  // namespace arrow::flight::sql::odbc

@@ -27,10 +27,10 @@ using arrow::ArrayFromVector;
 using arrow::Decimal128;
 using arrow::Decimal128Array;
 
-using driver::odbcabstraction::NUMERIC_STRUCT;
-using driver::odbcabstraction::OdbcVersion;
+using arrow::flight::sql::odbc::NUMERIC_STRUCT;
+using arrow::flight::sql::odbc::OdbcVersion;
 
-using driver::flight_sql::utils::ThrowIfNotOK;
+using arrow::flight::sql::odbc::util::ThrowIfNotOK;
 
 std::vector<Decimal128> MakeDecimalVector(const std::vector<std::string>& values,
                                           int32_t scale) {
@@ -65,8 +65,7 @@ std::string ConvertNumericToString(NUMERIC_STRUCT& numeric) {
 }
 }  // namespace
 
-namespace driver {
-namespace flight_sql {
+namespace arrow::flight::sql::odbc {
 
 void AssertNumericOutput(int input_precision, int input_scale,
                          const std::vector<std::string>& values_str, int output_precision,
@@ -80,17 +79,16 @@ void AssertNumericOutput(int input_precision, int input_scale,
   std::shared_ptr<Array> array;
   ArrayFromVector<Decimal128Type, Decimal128>(decimal_type, values, &array);
 
-  DecimalArrayFlightSqlAccessor<Decimal128Array, odbcabstraction::CDataType_NUMERIC>
-      accessor(array.get());
+  DecimalArrayFlightSqlAccessor<Decimal128Array, CDataType_NUMERIC> accessor(array.get());
 
   std::vector<NUMERIC_STRUCT> buffer(values.size());
   std::vector<ssize_t> str_len_buffer(values.size());
 
-  ColumnBinding binding(odbcabstraction::CDataType_NUMERIC, output_precision,
-                        output_scale, buffer.data(), 0, str_len_buffer.data());
+  ColumnBinding binding(CDataType_NUMERIC, output_precision, output_scale, buffer.data(),
+                        0, str_len_buffer.data());
 
   int64_t value_offset = 0;
-  odbcabstraction::Diagnostics diagnostics("Foo", "Foo", OdbcVersion::V_3);
+  Diagnostics diagnostics("Foo", "Foo", OdbcVersion::V_3);
   ASSERT_EQ(values.size(),
             accessor.GetColumnarData(&binding, 0, values.size(), value_offset, false,
                                      diagnostics, nullptr));
@@ -124,5 +122,4 @@ TEST(DecimalArrayFlightSqlAccessor,
   AssertNumericOutput(38, 3, input_values, 38, 4, output_values);
 }
 
-}  // namespace flight_sql
-}  // namespace driver
+}  // namespace arrow::flight::sql::odbc

@@ -22,8 +22,7 @@
 #include <exception>
 #include <string>
 
-namespace driver {
-namespace odbcabstraction {
+namespace arrow::flight::sql::odbc {
 
 /// \brief Base for all driver specific exceptions
 class DriverException : public std::exception {
@@ -68,5 +67,4 @@ class NullWithoutIndicatorException : public DriverException {
       int32_t native_error = ODBCErrorCodes_INDICATOR_NEEDED);
 };
 
-}  // namespace odbcabstraction
-}  // namespace driver
+}  // namespace arrow::flight::sql::odbc

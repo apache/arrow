@@ -27,8 +27,7 @@
 #include <iterator>
 #include <sstream>
 
-namespace driver {
-namespace flight_sql {
+namespace arrow::flight::sql::odbc {
 namespace config {
 
 ConnectionStringParser::ConnectionStringParser(Configuration& cfg) : cfg_(cfg) {
@@ -98,5 +97,4 @@ void ConnectionStringParser::ParseConfigAttributes(const char* str) {
 }
 
 }  // namespace config
-}  // namespace flight_sql
-}  // namespace driver
+}  // namespace arrow::flight::sql::odbc

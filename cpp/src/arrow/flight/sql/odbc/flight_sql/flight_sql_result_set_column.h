@@ -19,10 +19,9 @@
 
 #include "arrow/array.h"
 #include "arrow/flight/sql/odbc/flight_sql/accessors/types.h"
-#include "arrow/flight/sql/odbc/flight_sql/utils.h"
+#include "arrow/flight/sql/odbc/flight_sql/util.h"
 
-namespace driver {
-namespace flight_sql {
+namespace arrow::flight::sql::odbc {
 
 using arrow::Array;
 
@@ -47,8 +46,8 @@ class FlightSqlResultSetColumn {
   inline Accessor* GetAccessorForBinding() { return cached_accessor_.get(); }
 
   inline Accessor* GetAccessorForGetData(CDataType target_type) {
-    if (target_type == odbcabstraction::CDataType_DEFAULT) {
-      target_type = utils::ConvertArrowTypeToC(original_array_->type_id(), use_wide_char);
+    if (target_type == CDataType_DEFAULT) {
+      target_type = util::ConvertArrowTypeToC(original_array_->type_id(), use_wide_char);
     }
 
     if (cached_accessor_ && cached_accessor_->target_type_ == target_type) {
@@ -73,5 +72,4 @@ class FlightSqlResultSetColumn {
     }
   }
 };
-}  // namespace flight_sql
-}  // namespace driver
+}  // namespace arrow::flight::sql::odbc

@@ -19,8 +19,7 @@
 
 #include <cstdint>
 
-namespace driver {
-namespace odbcabstraction {
+namespace arrow::flight::sql::odbc {
 
 enum ODBCErrorCodes : int32_t {
   ODBCErrorCodes_GENERAL_ERROR = 100,
@@ -33,5 +32,4 @@ enum ODBCErrorCodes : int32_t {
   ODBCErrorCodes_FRACTIONAL_TRUNCATION_WARNING = 1000100,
   ODBCErrorCodes_INDICATOR_NEEDED = 1000200
 };
-}  // namespace odbcabstraction
-}  // namespace driver
+}  // namespace arrow::flight::sql::odbc

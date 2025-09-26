@@ -37,9 +37,9 @@ using ODBC::ODBCConnection;
 using ODBC::ODBCDescriptor;
 using ODBC::ODBCStatement;
 
-using driver::odbcabstraction::DriverException;
-using driver::odbcabstraction::ResultSetMetadata;
-using driver::odbcabstraction::Statement;
+using arrow::flight::sql::odbc::DriverException;
+using arrow::flight::sql::odbc::ResultSetMetadata;
+using arrow::flight::sql::odbc::Statement;
 
 namespace {
 void DescriptorToHandle(SQLPOINTER output, ODBCDescriptor* descriptor,
@@ -210,7 +210,7 @@ void CopyAttribute(Statement& source, Statement& target,
 // =========================================================================================
 ODBCStatement::ODBCStatement(
     ODBCConnection& connection,
-    std::shared_ptr<driver::odbcabstraction::Statement> spi_statement)
+    std::shared_ptr<arrow::flight::sql::odbc::Statement> spi_statement)
     : connection_(connection),
       spi_statement_(std::move(spi_statement)),
       diagnostics_(&spi_statement_->GetDiagnostics()),
@@ -331,7 +331,7 @@ bool ODBCStatement::Fetch(size_t rows) {
                                     GetLength(ard_record), ard_record.indicator_ptr);
       } else {
         current_result_->BindColumn(i + 1,
-                                    driver::odbcabstraction::CDataType_CHAR
+                                    arrow::flight::sql::odbc::CDataType_CHAR
                                     /* arbitrary type, not used */,
                                     0, 0, nullptr, 0, nullptr);
       }
@@ -352,7 +352,7 @@ bool ODBCStatement::Fetch(size_t rows) {
 void ODBCStatement::GetStmtAttr(SQLINTEGER statement_attribute, SQLPOINTER output,
                                 SQLINTEGER buffer_size, SQLINTEGER* str_len_ptr,
                                 bool is_unicode) {
-  using driver::odbcabstraction::Statement;
+  using arrow::flight::sql::odbc::Statement;
   boost::optional<Statement::Attribute> spi_attribute;
   switch (statement_attribute) {
     // Descriptor accessor attributes
@@ -664,7 +664,7 @@ void ODBCStatement::SetStmtAttr(SQLINTEGER statement_attribute, SQLPOINTER value
   }
   if (!successfully_written) {
     GetDiagnostics().AddWarning("Optional value changed.", "01S02",
-                                driver::odbcabstraction::ODBCErrorCodes_GENERAL_WARNING);
+                                arrow::flight::sql::odbc::ODBCErrorCodes_GENERAL_WARNING);
   }
 }
 

@@ -24,12 +24,10 @@
 #include <memory>
 #include <string>
 
-namespace driver {
-namespace odbcabstraction {
+namespace arrow::flight::sql::odbc {
 class Statement;
 class ResultSet;
-}  // namespace odbcabstraction
-}  // namespace driver
+}  // namespace arrow::flight::sql::odbc
 
 namespace ODBC {
 class ODBCConnection;
@@ -47,11 +45,11 @@ class ODBCStatement : public ODBCHandle<ODBCStatement> {
   ODBCStatement& operator=(const ODBCStatement&) = delete;
 
   ODBCStatement(ODBCConnection& connection,
-                std::shared_ptr<driver::odbcabstraction::Statement> spi_statement);
+                std::shared_ptr<arrow::flight::sql::odbc::Statement> spi_statement);
 
   ~ODBCStatement() = default;
 
-  inline driver::odbcabstraction::Diagnostics& GetDiagnosticsImpl() {
+  inline arrow::flight::sql::odbc::Diagnostics& GetDiagnosticsImpl() {
     return *diagnostics_;
   }
 
@@ -104,9 +102,9 @@ class ODBCStatement : public ODBCHandle<ODBCStatement> {
 
  private:
   ODBCConnection& connection_;
-  std::shared_ptr<driver::odbcabstraction::Statement> spi_statement_;
-  std::shared_ptr<driver::odbcabstraction::ResultSet> current_result_;
-  driver::odbcabstraction::Diagnostics* diagnostics_;
+  std::shared_ptr<arrow::flight::sql::odbc::Statement> spi_statement_;
+  std::shared_ptr<arrow::flight::sql::odbc::ResultSet> current_result_;
+  arrow::flight::sql::odbc::Diagnostics* diagnostics_;
 
   std::shared_ptr<ODBCDescriptor> built_in_ard_;
   std::shared_ptr<ODBCDescriptor> built_in_apd_;

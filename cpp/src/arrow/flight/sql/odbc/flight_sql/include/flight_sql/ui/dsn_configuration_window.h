@@ -20,8 +20,7 @@
 #include "config/configuration.h"
 #include "ui/custom_window.h"
 
-namespace driver {
-namespace flight_sql {
+namespace arrow::flight::sql::odbc {
 namespace config {
 /**
  * DSN configuration window class.
@@ -214,5 +213,4 @@ class DsnConfigurationWindow : public CustomWindow {
 };
 
 }  // namespace config
-}  // namespace flight_sql
-}  // namespace driver
+}  // namespace arrow::flight::sql::odbc

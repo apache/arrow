@@ -21,8 +21,7 @@
 #include "arrow/flight/sql/odbc/flight_sql/flight_sql_ssl_config.h"
 #include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/exceptions.h"
 
-namespace driver {
-namespace flight_sql {
+namespace arrow::flight::sql::odbc {
 
 FlightSqlSslConfig::FlightSqlSslConfig(bool disable_certificate_verification,
                                        const std::string& trusted_certs,
@@ -46,15 +45,13 @@ void FlightSqlSslConfig::PopulateOptionsWithCerts(arrow::flight::CertKeyPair* ou
   try {
     std::ifstream cert_file(trusted_certs_);
     if (!cert_file) {
-      throw odbcabstraction::DriverException("Could not open certificate: " +
-                                             trusted_certs_);
+      throw DriverException("Could not open certificate: " + trusted_certs_);
     }
     std::stringstream cert;
     cert << cert_file.rdbuf();
     out->pem_cert = cert.str();
   } catch (const std::ifstream::failure& e) {
-    throw odbcabstraction::DriverException(e.what());
+    throw DriverException(e.what());
   }
 }
-}  // namespace flight_sql
-}  // namespace driver
+}  // namespace arrow::flight::sql::odbc

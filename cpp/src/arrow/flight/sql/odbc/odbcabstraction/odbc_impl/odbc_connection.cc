@@ -38,10 +38,10 @@ using ODBC::ODBCConnection;
 using ODBC::ODBCDescriptor;
 using ODBC::ODBCStatement;
 
-using driver::odbcabstraction::Connection;
-using driver::odbcabstraction::Diagnostics;
-using driver::odbcabstraction::DriverException;
-using driver::odbcabstraction::Statement;
+using arrow::flight::sql::odbc::Connection;
+using arrow::flight::sql::odbc::Diagnostics;
+using arrow::flight::sql::odbc::DriverException;
+using arrow::flight::sql::odbc::Statement;
 
 namespace {
 // Key-value pairs separated by semi-colon.
@@ -508,7 +508,6 @@ void ODBCConnection::SetConnectAttr(SQLINTEGER attribute, SQLPOINTER value,
     case SQL_ATTR_TXN_ISOLATION:
       throw DriverException("Optional feature not supported.", "HYC00");
 
-    // ODBCAbstraction-level attributes
     case SQL_ATTR_CURRENT_CATALOG: {
       std::string catalog;
       if (is_unicode) {
@@ -569,14 +568,14 @@ void ODBCConnection::SetConnectAttr(SQLINTEGER attribute, SQLPOINTER value,
 
   if (!successfully_written) {
     GetDiagnostics().AddWarning("Option value changed.", "01S02",
-                                driver::odbcabstraction::ODBCErrorCodes_GENERAL_WARNING);
+                                arrow::flight::sql::odbc::ODBCErrorCodes_GENERAL_WARNING);
   }
 }
 
 void ODBCConnection::GetConnectAttr(SQLINTEGER attribute, SQLPOINTER value,
                                     SQLINTEGER buffer_length, SQLINTEGER* output_length,
                                     bool is_unicode) {
-  using driver::odbcabstraction::Connection;
+  using arrow::flight::sql::odbc::Connection;
   boost::optional<Connection::Attribute> spi_attribute;
 
   switch (attribute) {
@@ -637,7 +636,6 @@ void ODBCConnection::GetConnectAttr(SQLINTEGER attribute, SQLPOINTER value,
     case SQL_ATTR_TXN_ISOLATION:
       throw DriverException("Optional feature not supported.", "HCY00");
 
-    // ODBCAbstraction-level connection attributes.
     case SQL_ATTR_CURRENT_CATALOG: {
       const auto& catalog = spi_connection_->GetAttribute(Connection::CURRENT_CATALOG);
       if (!catalog) {

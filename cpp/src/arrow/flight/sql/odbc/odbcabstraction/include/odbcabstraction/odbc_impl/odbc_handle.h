@@ -32,11 +32,11 @@ namespace ODBC {
 template <typename Derived>
 class ODBCHandle {
  public:
-  inline driver::odbcabstraction::Diagnostics& GetDiagnostics() {
+  inline arrow::flight::sql::odbc::Diagnostics& GetDiagnostics() {
     return static_cast<Derived*>(this)->GetDiagnosticsImpl();
   }
 
-  inline driver::odbcabstraction::Diagnostics& GetDiagnosticsImpl() {
+  inline arrow::flight::sql::odbc::Diagnostics& GetDiagnosticsImpl() {
     throw std::runtime_error("Illegal state -- diagnostics requested on invalid handle");
   }
 
@@ -45,16 +45,16 @@ class ODBCHandle {
     try {
       GetDiagnostics().Clear();
       rc = function();
-    } catch (const driver::odbcabstraction::DriverException& ex) {
+    } catch (const arrow::flight::sql::odbc::DriverException& ex) {
       GetDiagnostics().AddError(ex);
     } catch (const std::bad_alloc&) {
-      GetDiagnostics().AddError(driver::odbcabstraction::DriverException(
+      GetDiagnostics().AddError(arrow::flight::sql::odbc::DriverException(
           "A memory allocation error occurred.", "HY001"));
     } catch (const std::exception& ex) {
-      GetDiagnostics().AddError(driver::odbcabstraction::DriverException(ex.what()));
+      GetDiagnostics().AddError(arrow::flight::sql::odbc::DriverException(ex.what()));
     } catch (...) {
       GetDiagnostics().AddError(
-          driver::odbcabstraction::DriverException("An unknown error occurred."));
+          arrow::flight::sql::odbc::DriverException("An unknown error occurred."));
     }
 
     if (GetDiagnostics().HasError()) {

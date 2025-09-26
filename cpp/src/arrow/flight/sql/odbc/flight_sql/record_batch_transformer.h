@@ -21,8 +21,7 @@
 #include <arrow/type.h>
 #include <memory>
 
-namespace driver {
-namespace flight_sql {
+namespace arrow::flight::sql::odbc {
 
 using arrow::Array;
 using arrow::DataType;
@@ -83,5 +82,4 @@ class RecordBatchTransformerWithTasksBuilder {
   explicit RecordBatchTransformerWithTasksBuilder(std::shared_ptr<Schema> schema);
 };
 
-}  // namespace flight_sql
-}  // namespace driver
+}  // namespace arrow::flight::sql::odbc

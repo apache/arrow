@@ -17,7 +17,6 @@
 
 #include "arrow/flight/sql/odbc/flight_sql/flight_sql_connection.h"
 
-#include "arrow/flight/sql/odbc/flight_sql/utils.h"
 #include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/platform.h"
 
 #include "arrow/flight/client_cookie_middleware.h"
@@ -25,7 +24,7 @@
 #include "arrow/flight/sql/odbc/flight_sql/flight_sql_auth_method.h"
 #include "arrow/flight/sql/odbc/flight_sql/flight_sql_ssl_config.h"
 #include "arrow/flight/sql/odbc/flight_sql/flight_sql_statement.h"
-#include "arrow/flight/sql/odbc/flight_sql/utils.h"
+#include "arrow/flight/sql/odbc/flight_sql/util.h"
 #include "arrow/flight/types.h"
 
 #include <boost/algorithm/string.hpp>
@@ -44,10 +43,7 @@
 #  define NI_MAXHOST 1025
 #endif
 
-namespace driver {
-namespace flight_sql {
-
-using namespace utils;
+namespace arrow::flight::sql::odbc {
 
 using arrow::Result;
 using arrow::Status;
@@ -57,11 +53,10 @@ using arrow::flight::FlightClientOptions;
 using arrow::flight::Location;
 using arrow::flight::TimeoutDuration;
 using arrow::flight::sql::FlightSqlClient;
-using driver::odbcabstraction::CommunicationException;
-using driver::odbcabstraction::Connection;
-using driver::odbcabstraction::DriverException;
-using driver::odbcabstraction::OdbcVersion;
-using driver::odbcabstraction::Statement;
+using util::AsBool;
+using util::AsInt32;
+using util::CheckIfSetToOnlyValidValue;
+using util::ThrowIfNotOK;
 
 const std::vector<std::string_view> FlightSqlConnection::ALL_KEYS = {
     FlightSqlConnection::DSN,
@@ -112,7 +107,7 @@ inline std::string GetCerts() { return ""; }
 
 #endif
 
-const std::set<std::string_view, odbcabstraction::CaseInsensitiveComparator>
+const std::set<std::string_view, CaseInsensitiveComparator>
     BUILT_IN_PROPERTIES = {FlightSqlConnection::HOST,
                            FlightSqlConnection::PORT,
                            FlightSqlConnection::USER,
@@ -219,7 +214,7 @@ boost::optional<int32_t> FlightSqlConnection::GetStringColumnLength(
         std::string("Invalid value for connection property " +
                     std::string(FlightSqlConnection::STRING_COLUMN_LENGTH) +
                     ". Please ensure it has a valid numeric value. Message: " + e.what()),
-        "01000", odbcabstraction::ODBCErrorCodes_GENERAL_WARNING);
+        "01000", ODBCErrorCodes_GENERAL_WARNING);
   }
 
   return boost::none;
@@ -248,7 +243,7 @@ size_t FlightSqlConnection::GetChunkBufferCapacity(
         std::string("Invalid value for connection property " +
                     std::string(FlightSqlConnection::CHUNK_BUFFER_CAPACITY) +
                     ". Please ensure it has a valid numeric value. Message: " + e.what()),
-        "01000", odbcabstraction::ODBCErrorCodes_GENERAL_WARNING);
+        "01000", ODBCErrorCodes_GENERAL_WARNING);
   }
 
   return default_value;
@@ -277,7 +272,7 @@ const FlightCallOptions& FlightSqlConnection::PopulateCallOptions(
           std::string("Ignoring connection option " + std::string(prop.first)) +
               ". Server-specific options must be valid HTTP header names and " +
               "cannot contain spaces.",
-          "01000", odbcabstraction::ODBCErrorCodes_GENERAL_WARNING);
+          "01000", ODBCErrorCodes_GENERAL_WARNING);
       continue;
     }
 
@@ -337,7 +332,7 @@ Location FlightSqlConnection::BuildLocation(
 
   Location location;
   if (ssl_config->UseEncryption()) {
-    AddressInfo address_info;
+    driver::AddressInfo address_info;
     char host_name_info[NI_MAXHOST] = "";
     bool operation_result = false;
 
@@ -431,11 +426,8 @@ FlightSqlConnection::FlightSqlConnection(OdbcVersion odbc_version,
   attribute_[CONNECTION_TIMEOUT] = static_cast<uint32_t>(0);
   attribute_[CURRENT_CATALOG] = "";
 }
-odbcabstraction::Diagnostics& FlightSqlConnection::GetDiagnostics() {
-  return diagnostics_;
-}
+Diagnostics& FlightSqlConnection::GetDiagnostics() { return diagnostics_; }
 
 void FlightSqlConnection::SetClosed(bool is_closed) { closed_ = is_closed; }
 
-}  // namespace flight_sql
-}  // namespace driver
+}  // namespace arrow::flight::sql::odbc

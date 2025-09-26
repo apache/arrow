@@ -20,32 +20,27 @@
 #include "arrow/testing/builder.h"
 #include "gtest/gtest.h"
 
-namespace driver {
-namespace flight_sql {
-using arrow::StringType;
-using odbcabstraction::OdbcVersion;
+namespace arrow::flight::sql::odbc {
 
 using arrow::ArrayFromVector;
-using odbcabstraction::GetSqlWCharSize;
-using odbcabstraction::Utf8ToWcs;
+using arrow::StringType;
 
 TEST(StringArrayAccessor, Test_CDataType_CHAR_Basic) {
   std::vector<std::string> values = {"foo", "barx", "baz123"};
   std::shared_ptr<Array> array;
   ArrayFromVector<StringType, std::string>(values, &array);
 
-  StringArrayFlightSqlAccessor<odbcabstraction::CDataType_CHAR, char> accessor(
-      array.get());
+  StringArrayFlightSqlAccessor<CDataType_CHAR, char> accessor(array.get());
 
   size_t max_str_len = 64;
   std::vector<char> buffer(values.size() * max_str_len);
   std::vector<ssize_t> str_len_buffer(values.size());
 
-  ColumnBinding binding(odbcabstraction::CDataType_CHAR, 0, 0, buffer.data(), max_str_len,
+  ColumnBinding binding(CDataType_CHAR, 0, 0, buffer.data(), max_str_len,
                         str_len_buffer.data());
 
   int64_t value_offset = 0;
-  odbcabstraction::Diagnostics diagnostics("Foo", "Foo", OdbcVersion::V_3);
+  Diagnostics diagnostics("Foo", "Foo", OdbcVersion::V_3);
   ASSERT_EQ(values.size(),
             accessor.GetColumnarData(&binding, 0, values.size(), value_offset, false,
                                      diagnostics, nullptr));
@@ -61,14 +56,13 @@ TEST(StringArrayAccessor, Test_CDataType_CHAR_Truncation) {
   std::shared_ptr<Array> array;
   ArrayFromVector<StringType, std::string>(values, &array);
 
-  StringArrayFlightSqlAccessor<odbcabstraction::CDataType_CHAR, char> accessor(
-      array.get());
+  StringArrayFlightSqlAccessor<CDataType_CHAR, char> accessor(array.get());
 
   size_t max_str_len = 8;
   std::vector<char> buffer(values.size() * max_str_len);
   std::vector<ssize_t> str_len_buffer(values.size());
 
-  ColumnBinding binding(odbcabstraction::CDataType_CHAR, 0, 0, buffer.data(), max_str_len,
+  ColumnBinding binding(CDataType_CHAR, 0, 0, buffer.data(), max_str_len,
                         str_len_buffer.data());
 
   std::stringstream ss;
@@ -76,7 +70,7 @@ TEST(StringArrayAccessor, Test_CDataType_CHAR_Truncation) {
 
   // Construct the whole string by concatenating smaller chunks from
   // GetColumnarData
-  odbcabstraction::Diagnostics diagnostics("Foo", "Foo", OdbcVersion::V_3);
+  Diagnostics diagnostics("Foo", "Foo", OdbcVersion::V_3);
   do {
     diagnostics.Clear();
     int64_t original_value_offset = value_offset;
@@ -101,11 +95,11 @@ TEST(StringArrayAccessor, Test_CDataType_WCHAR_Basic) {
   std::vector<uint8_t> buffer(values.size() * max_str_len);
   std::vector<ssize_t> str_len_buffer(values.size());
 
-  ColumnBinding binding(odbcabstraction::CDataType_WCHAR, 0, 0, buffer.data(),
-                        max_str_len, str_len_buffer.data());
+  ColumnBinding binding(CDataType_WCHAR, 0, 0, buffer.data(), max_str_len,
+                        str_len_buffer.data());
 
   int64_t value_offset = 0;
-  odbcabstraction::Diagnostics diagnostics("Foo", "Foo", OdbcVersion::V_3);
+  Diagnostics diagnostics("Foo", "Foo", OdbcVersion::V_3);
   ASSERT_EQ(values.size(),
             accessor->GetColumnarData(&binding, 0, values.size(), value_offset, false,
                                       diagnostics, nullptr));
@@ -131,8 +125,8 @@ TEST(StringArrayAccessor, Test_CDataType_WCHAR_Truncation) {
   std::vector<uint8_t> buffer(values.size() * max_str_len);
   std::vector<ssize_t> str_len_buffer(values.size());
 
-  ColumnBinding binding(odbcabstraction::CDataType_WCHAR, 0, 0, buffer.data(),
-                        max_str_len, str_len_buffer.data());
+  ColumnBinding binding(CDataType_WCHAR, 0, 0, buffer.data(), max_str_len,
+                        str_len_buffer.data());
 
   std::basic_stringstream<uint8_t> ss;
   int64_t value_offset = 0;
@@ -140,8 +134,7 @@ TEST(StringArrayAccessor, Test_CDataType_WCHAR_Truncation) {
   // Construct the whole string by concatenating smaller chunks from
   // GetColumnarData
   std::vector<uint8_t> finalStr;
-  driver::odbcabstraction::Diagnostics diagnostics("Dummy", "Dummy",
-                                                   odbcabstraction::V_3);
+  arrow::flight::sql::odbc::Diagnostics diagnostics("Dummy", "Dummy", OdbcVersion::V_3);
   do {
     int64_t original_value_offset = value_offset;
     ASSERT_EQ(1, accessor->GetColumnarData(&binding, 0, 1, value_offset, true,
@@ -165,5 +158,4 @@ TEST(StringArrayAccessor, Test_CDataType_WCHAR_Truncation) {
   ASSERT_EQ(expected, finalStr);
 }
 
-}  // namespace flight_sql
-}  // namespace driver
+}  // namespace arrow::flight::sql::odbc

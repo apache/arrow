@@ -20,8 +20,7 @@
 #include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/platform.h>
 #include <boost/optional.hpp>
 
-namespace driver {
-namespace odbcabstraction {
+namespace arrow::flight::sql::odbc {
 
 /// \brief Supported ODBC versions.
 enum OdbcVersion { V_2, V_3, V_4 };
@@ -177,5 +176,4 @@ struct MetadataSettings {
   bool use_wide_char;
 };
 
-}  // namespace odbcabstraction
-}  // namespace driver
+}  // namespace arrow::flight::sql::odbc

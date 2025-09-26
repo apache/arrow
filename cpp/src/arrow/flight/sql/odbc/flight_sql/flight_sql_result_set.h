@@ -20,7 +20,7 @@
 #include "arrow/flight/sql/client.h"
 #include "arrow/flight/sql/odbc/flight_sql/flight_sql_stream_chunk_buffer.h"
 #include "arrow/flight/sql/odbc/flight_sql/record_batch_transformer.h"
-#include "arrow/flight/sql/odbc/flight_sql/utils.h"
+#include "arrow/flight/sql/odbc/flight_sql/util.h"
 #include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/diagnostics.h"
 #include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/exceptions.h"
 #include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/platform.h"
@@ -28,8 +28,7 @@
 #include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/types.h"
 #include "arrow/flight/types.h"
 
-namespace driver {
-namespace flight_sql {
+namespace arrow::flight::sql::odbc {
 
 using arrow::Schema;
 using arrow::flight::FlightEndpoint;
@@ -37,16 +36,12 @@ using arrow::flight::FlightInfo;
 using arrow::flight::FlightStreamChunk;
 using arrow::flight::FlightStreamReader;
 using arrow::flight::sql::FlightSqlClient;
-using odbcabstraction::CDataType;
-using odbcabstraction::DriverException;
-using odbcabstraction::ResultSet;
-using odbcabstraction::ResultSetMetadata;
 
 class FlightSqlResultSetColumn;
 
 class FlightSqlResultSet : public ResultSet {
  private:
-  const odbcabstraction::MetadataSettings& metadata_settings_;
+  const MetadataSettings& metadata_settings_;
   FlightStreamChunkBuffer chunk_buffer_;
   FlightStreamChunk current_chunk_;
   std::shared_ptr<Schema> schema_;
@@ -54,7 +49,7 @@ class FlightSqlResultSet : public ResultSet {
   std::shared_ptr<ResultSetMetadata> metadata_;
   std::vector<FlightSqlResultSetColumn> columns_;
   std::vector<int64_t> get_data_offsets_;
-  odbcabstraction::Diagnostics& diagnostics_;
+  Diagnostics& diagnostics_;
   int64_t current_row_;
   int num_binding_;
   bool reset_get_data_;
@@ -66,8 +61,7 @@ class FlightSqlResultSet : public ResultSet {
                      const arrow::flight::FlightCallOptions& call_options,
                      const std::shared_ptr<FlightInfo>& flight_info,
                      const std::shared_ptr<RecordBatchTransformer>& transformer,
-                     odbcabstraction::Diagnostics& diagnostics,
-                     const odbcabstraction::MetadataSettings& metadata_settings);
+                     Diagnostics& diagnostics, const MetadataSettings& metadata_settings);
 
   void Close() override;
 
@@ -85,5 +79,4 @@ class FlightSqlResultSet : public ResultSet {
                   void* buffer, size_t buffer_length, ssize_t* str_len_buffer) override;
 };
 
-}  // namespace flight_sql
-}  // namespace driver
+}  // namespace arrow::flight::sql::odbc

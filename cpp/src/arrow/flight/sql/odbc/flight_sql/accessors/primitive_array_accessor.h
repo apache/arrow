@@ -24,8 +24,7 @@
 #include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/types.h"
 #include "arrow/scalar.h"
 
-namespace driver {
-namespace flight_sql {
+namespace arrow::flight::sql::odbc {
 
 template <typename ARROW_ARRAY, CDataType TARGET_TYPE>
 class PrimitiveArrayFlightSqlAccessor
@@ -37,11 +36,9 @@ class PrimitiveArrayFlightSqlAccessor
 
   size_t GetColumnarDataImpl(ColumnBinding* binding, int64_t starting_row, int64_t cells,
                              int64_t& value_offset, bool update_value_offset,
-                             odbcabstraction::Diagnostics& diagnostics,
-                             uint16_t* row_status_array);
+                             Diagnostics& diagnostics, uint16_t* row_status_array);
 
   size_t GetCellLengthImpl(ColumnBinding* binding) const;
 };
 
-}  // namespace flight_sql
-}  // namespace driver
+}  // namespace arrow::flight::sql::odbc

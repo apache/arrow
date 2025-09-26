@@ -24,8 +24,7 @@
 #include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/exceptions.h>
 #include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/types.h>
 
-namespace driver {
-namespace odbcabstraction {
+namespace arrow::flight::sql::odbc {
 class Diagnostics {
  public:
   struct DiagnosticsRecord {
@@ -105,5 +104,4 @@ class Diagnostics {
     return warning_records_[record_index - error_records_.size()];
   }
 };
-}  // namespace odbcabstraction
-}  // namespace driver
+}  // namespace arrow::flight::sql::odbc

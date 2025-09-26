@@ -24,8 +24,8 @@
 
 // winuser.h needs to be included after windows.h, which is defined in platform.h
 #include <winuser.h>
-namespace driver {
-namespace flight_sql {
+
+namespace arrow::flight::sql::odbc {
 namespace config {
 
 #define TRUE_STR "true"
@@ -64,14 +64,13 @@ class Configuration {
   /**
    * Get properties map.
    */
-  const driver::odbcabstraction::Connection::ConnPropertyMap& GetProperties() const;
+  const arrow::flight::sql::odbc::Connection::ConnPropertyMap& GetProperties() const;
 
   std::vector<std::string_view> GetCustomKeys() const;
 
  private:
-  driver::odbcabstraction::Connection::ConnPropertyMap properties_;
+  arrow::flight::sql::odbc::Connection::ConnPropertyMap properties_;
 };
 
 }  // namespace config
-}  // namespace flight_sql
-}  // namespace driver
+}  // namespace arrow::flight::sql::odbc

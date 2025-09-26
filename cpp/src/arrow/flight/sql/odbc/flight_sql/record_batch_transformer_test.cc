@@ -39,8 +39,7 @@ std::shared_ptr<RecordBatch> CreateOriginalRecordBatch() {
 }
 }  // namespace
 
-namespace driver {
-namespace flight_sql {
+namespace arrow::flight::sql::odbc {
 
 TEST(Transformer, TransformerRenameTest) {
   // Prepare the Original Record Batch
@@ -156,5 +155,4 @@ TEST(Transformer, TransformerChangingOrderOfArrayTest) {
   ASSERT_EQ(transformed_record_batch->GetColumnByName("test2"), second_array);
   ASSERT_EQ(transformed_record_batch->GetColumnByName("test1"), first_array);
 }
-}  // namespace flight_sql
-}  // namespace driver
+}  // namespace arrow::flight::sql::odbc

@@ -21,11 +21,9 @@
 #include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/types.h"
 #include "arrow/type_fwd.h"
 
-namespace driver {
-namespace flight_sql {
+namespace arrow::flight::sql::odbc {
 
 using arrow::BinaryArray;
-using odbcabstraction::RowStatus;
 
 template <CDataType TARGET_TYPE>
 class BinaryArrayFlightSqlAccessor
@@ -36,10 +34,9 @@ class BinaryArrayFlightSqlAccessor
 
   RowStatus MoveSingleCellImpl(ColumnBinding* binding, int64_t arrow_row, int64_t i,
                                int64_t& value_offset, bool update_value_offset,
-                               odbcabstraction::Diagnostics& diagnostics);
+                               Diagnostics& diagnostics);
 
   size_t GetCellLengthImpl(ColumnBinding* binding) const;
 };
 
-}  // namespace flight_sql
-}  // namespace driver
+}  // namespace arrow::flight::sql::odbc
