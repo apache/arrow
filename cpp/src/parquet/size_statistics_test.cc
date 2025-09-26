@@ -140,6 +140,7 @@ class SizeStatisticsRoundTripTest : public ::testing::Test {
     auto writer_properties = WriterProperties::Builder()
                                  .max_row_group_length(max_row_group_length)
                                  ->data_pagesize(page_size)
+                                 ->max_rows_per_page(std::numeric_limits<int64_t>::max())
                                  ->write_batch_size(write_batch_size)
                                  ->enable_write_page_index()
                                  ->enable_statistics()
