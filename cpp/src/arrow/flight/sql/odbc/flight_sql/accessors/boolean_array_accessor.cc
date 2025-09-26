@@ -29,7 +29,7 @@ BooleanArrayFlightSqlAccessor<TARGET_TYPE>::BooleanArrayFlightSqlAccessor(Array*
                         BooleanArrayFlightSqlAccessor<TARGET_TYPE>>(array) {}
 
 template <CDataType TARGET_TYPE>
-RowStatus BooleanArrayFlightSqlAccessor<TARGET_TYPE>::MoveSingleCell_impl(
+RowStatus BooleanArrayFlightSqlAccessor<TARGET_TYPE>::MoveSingleCellImpl(
     ColumnBinding* binding, int64_t arrow_row, int64_t i, int64_t& value_offset,
     bool update_value_offset, odbcabstraction::Diagnostics& diagnostics) {
   typedef unsigned char c_type;
@@ -38,15 +38,15 @@ RowStatus BooleanArrayFlightSqlAccessor<TARGET_TYPE>::MoveSingleCell_impl(
   auto* buffer = static_cast<c_type*>(binding->buffer);
   buffer[i] = value ? 1 : 0;
 
-  if (binding->strlen_buffer) {
-    binding->strlen_buffer[i] = static_cast<ssize_t>(GetCellLength_impl(binding));
+  if (binding->str_len_buffer) {
+    binding->str_len_buffer[i] = static_cast<ssize_t>(GetCellLengthImpl(binding));
   }
 
   return odbcabstraction::RowStatus_SUCCESS;
 }
 
 template <CDataType TARGET_TYPE>
-size_t BooleanArrayFlightSqlAccessor<TARGET_TYPE>::GetCellLength_impl(
+size_t BooleanArrayFlightSqlAccessor<TARGET_TYPE>::GetCellLengthImpl(
     ColumnBinding* binding) const {
   return sizeof(unsigned char);
 }

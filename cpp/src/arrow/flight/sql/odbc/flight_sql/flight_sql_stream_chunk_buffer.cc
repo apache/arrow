@@ -38,10 +38,10 @@ FlightStreamChunkBuffer::FlightStreamChunkBuffer(
 
     BlockingQueue<Result<FlightStreamChunk>>::Supplier supplier = [=] {
       auto result = stream_reader_ptr->Next();
-      bool isNotOk = !result.ok();
-      bool isNotEmpty = result.ok() && (result.ValueOrDie().data != nullptr);
+      bool is_not_ok = !result.ok();
+      bool is_not_empty = result.ok() && (result.ValueOrDie().data != nullptr);
 
-      return boost::make_optional(isNotOk || isNotEmpty, std::move(result));
+      return boost::make_optional(is_not_ok || is_not_empty, std::move(result));
     };
     queue_.AddProducer(std::move(supplier));
   }

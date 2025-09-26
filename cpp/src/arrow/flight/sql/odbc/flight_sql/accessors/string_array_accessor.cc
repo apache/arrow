@@ -31,11 +31,11 @@ using odbcabstraction::RowStatus;
 namespace {
 
 #if defined _WIN32 || defined _WIN64
-std::string utf8_to_clocale(const char* utf8str, int len) {
+std::string Utf8ToCLocale(const char* utf8_str, int len) {
   thread_local boost::locale::generator g;
   g.locale_cache_enabled(true);
   std::locale loc = g(boost::locale::util::get_system_locale());
-  return boost::locale::conv::from_utf<char>(utf8str, utf8str + len, loc);
+  return boost::locale::conv::from_utf<char>(utf8_str, utf8_str + len, loc);
 }
 #endif
 
@@ -69,7 +69,7 @@ inline RowStatus MoveSingleCellToCharBuffer(std::vector<uint8_t>& buffer,
 #if defined _WIN32 || defined _WIN64
     // Convert to C locale string
     if (last_retrieved_arrow_row != arrow_row) {
-      clocale_str = utf8_to_clocale(raw_value, raw_value_length);
+      clocale_str = Utf8ToCLocale(raw_value, raw_value_length);
       last_retrieved_arrow_row = arrow_row;
     }
     const char* clocale_data = clocale_str.data();
@@ -112,8 +112,8 @@ inline RowStatus MoveSingleCellToCharBuffer(std::vector<uint8_t>& buffer,
     }
   }
 
-  if (binding->strlen_buffer) {
-    binding->strlen_buffer[i] = static_cast<ssize_t>(remaining_length);
+  if (binding->str_len_buffer) {
+    binding->str_len_buffer[i] = static_cast<ssize_t>(remaining_length);
   }
 
   return result;
@@ -129,7 +129,7 @@ StringArrayFlightSqlAccessor<TARGET_TYPE, CHAR_TYPE>::StringArrayFlightSqlAccess
       last_arrow_row_(-1) {}
 
 template <CDataType TARGET_TYPE, typename CHAR_TYPE>
-RowStatus StringArrayFlightSqlAccessor<TARGET_TYPE, CHAR_TYPE>::MoveSingleCell_impl(
+RowStatus StringArrayFlightSqlAccessor<TARGET_TYPE, CHAR_TYPE>::MoveSingleCellImpl(
     ColumnBinding* binding, int64_t arrow_row, int64_t i, int64_t& value_offset,
     bool update_value_offset, odbcabstraction::Diagnostics& diagnostics) {
   return MoveSingleCellToCharBuffer<CHAR_TYPE>(buffer_, last_arrow_row_,
@@ -142,7 +142,7 @@ RowStatus StringArrayFlightSqlAccessor<TARGET_TYPE, CHAR_TYPE>::MoveSingleCell_i
 }
 
 template <CDataType TARGET_TYPE, typename CHAR_TYPE>
-size_t StringArrayFlightSqlAccessor<TARGET_TYPE, CHAR_TYPE>::GetCellLength_impl(
+size_t StringArrayFlightSqlAccessor<TARGET_TYPE, CHAR_TYPE>::GetCellLengthImpl(
     ColumnBinding* binding) const {
   return binding->buffer_length;
 }

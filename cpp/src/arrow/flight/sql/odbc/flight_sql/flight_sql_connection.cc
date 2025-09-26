@@ -139,18 +139,19 @@ Connection::ConnPropertyMap::const_iterator TrackMissingRequiredProperty(
 }  // namespace
 
 std::shared_ptr<FlightSqlSslConfig> LoadFlightSslConfigs(
-    const Connection::ConnPropertyMap& connPropertyMap) {
+    const Connection::ConnPropertyMap& conn_property_map) {
   bool use_encryption =
-      AsBool(connPropertyMap, FlightSqlConnection::USE_ENCRYPTION).value_or(true);
+      AsBool(conn_property_map, FlightSqlConnection::USE_ENCRYPTION).value_or(true);
   bool disable_cert =
-      AsBool(connPropertyMap, FlightSqlConnection::DISABLE_CERTIFICATE_VERIFICATION)
+      AsBool(conn_property_map, FlightSqlConnection::DISABLE_CERTIFICATE_VERIFICATION)
           .value_or(false);
   bool use_system_trusted =
-      AsBool(connPropertyMap, FlightSqlConnection::USE_SYSTEM_TRUST_STORE)
+      AsBool(conn_property_map, FlightSqlConnection::USE_SYSTEM_TRUST_STORE)
           .value_or(SYSTEM_TRUST_STORE_DEFAULT);
 
-  auto trusted_certs_iterator = connPropertyMap.find(FlightSqlConnection::TRUSTED_CERTS);
-  auto trusted_certs = trusted_certs_iterator != connPropertyMap.end()
+  auto trusted_certs_iterator =
+      conn_property_map.find(FlightSqlConnection::TRUSTED_CERTS);
+  auto trusted_certs = trusted_certs_iterator != conn_property_map.end()
                            ? trusted_certs_iterator->second
                            : "";
 
@@ -200,9 +201,9 @@ void FlightSqlConnection::Connect(const ConnPropertyMap& properties,
 
 void FlightSqlConnection::PopulateMetadataSettings(
     const Connection::ConnPropertyMap& conn_property_map) {
-  metadata_settings_.string_column_length_ = GetStringColumnLength(conn_property_map);
-  metadata_settings_.use_wide_char_ = GetUseWideChar(conn_property_map);
-  metadata_settings_.chunk_buffer_capacity_ = GetChunkBufferCapacity(conn_property_map);
+  metadata_settings_.string_column_length = GetStringColumnLength(conn_property_map);
+  metadata_settings_.use_wide_char = GetUseWideChar(conn_property_map);
+  metadata_settings_.chunk_buffer_capacity = GetChunkBufferCapacity(conn_property_map);
 }
 
 boost::optional<int32_t> FlightSqlConnection::GetStringColumnLength(
@@ -223,7 +224,7 @@ boost::optional<int32_t> FlightSqlConnection::GetStringColumnLength(
   return boost::none;
 }
 
-bool FlightSqlConnection::GetUseWideChar(const ConnPropertyMap& connPropertyMap) {
+bool FlightSqlConnection::GetUseWideChar(const ConnPropertyMap& conn_property_map) {
 #if defined _WIN32 || defined _WIN64
   // Windows should use wide chars by default
   bool default_value = true;
@@ -231,15 +232,15 @@ bool FlightSqlConnection::GetUseWideChar(const ConnPropertyMap& connPropertyMap)
   // Mac and Linux should not use wide chars by default
   bool default_value = false;
 #endif
-  return AsBool(connPropertyMap, FlightSqlConnection::USE_WIDE_CHAR)
+  return AsBool(conn_property_map, FlightSqlConnection::USE_WIDE_CHAR)
       .value_or(default_value);
 }
 
 size_t FlightSqlConnection::GetChunkBufferCapacity(
-    const ConnPropertyMap& connPropertyMap) {
+    const ConnPropertyMap& conn_property_map) {
   size_t default_value = 5;
   try {
-    return AsInt32(1, connPropertyMap, FlightSqlConnection::CHUNK_BUFFER_CAPACITY)
+    return AsInt32(1, conn_property_map, FlightSqlConnection::CHUNK_BUFFER_CAPACITY)
         .value_or(default_value);
   } catch (const std::exception& e) {
     diagnostics_.AddWarning(
@@ -295,18 +296,18 @@ FlightClientOptions FlightSqlConnection::BuildFlightClientOptions(
   // Persist state information using cookies if the FlightProducer supports it.
   options.middleware.push_back(arrow::flight::GetCookieFactory());
 
-  if (ssl_config->useEncryption()) {
-    if (ssl_config->shouldDisableCertificateVerification()) {
+  if (ssl_config->UseEncryption()) {
+    if (ssl_config->ShouldDisableCertificateVerification()) {
       options.disable_server_verification =
-          ssl_config->shouldDisableCertificateVerification();
+          ssl_config->ShouldDisableCertificateVerification();
     } else {
-      if (ssl_config->useSystemTrustStore()) {
+      if (ssl_config->UseSystemTrustStore()) {
         const std::string certs = GetCerts();
 
         options.tls_root_certs = certs;
-      } else if (!ssl_config->getTrustedCerts().empty()) {
+      } else if (!ssl_config->GetTrustedCerts().empty()) {
         arrow::flight::CertKeyPair cert_key_pair;
-        ssl_config->populateOptionsWithCerts(&cert_key_pair);
+        ssl_config->PopulateOptionsWithCerts(&cert_key_pair);
         options.tls_root_certs = cert_key_pair.pem_cert;
       }
     }
@@ -334,7 +335,7 @@ Location FlightSqlConnection::BuildLocation(
   const int& port = boost::lexical_cast<int>(port_iter->second);
 
   Location location;
-  if (ssl_config->useEncryption()) {
+  if (ssl_config->UseEncryption()) {
     AddressInfo address_info;
     char host_name_info[NI_MAXHOST] = "";
     bool operation_result = false;

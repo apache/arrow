@@ -63,7 +63,7 @@ class AddPropertyWindow : public CustomWindow {
 
   void OnCreate() override;
 
-  bool OnMessage(UINT msg, WPARAM wParam, LPARAM lParam) override;
+  bool OnMessage(UINT msg, WPARAM wparam, LPARAM lparam) override;
 
   /**
    * Get the property from the dialog.
@@ -76,41 +76,41 @@ class AddPropertyWindow : public CustomWindow {
   /**
    * Create property edit boxes.
    *
-   * @param posX X position.
-   * @param posY Y position.
-   * @param sizeX Width.
+   * @param pos_x X position.
+   * @param pos_y Y position.
+   * @param size_x Width.
    * @return Size by Y.
    */
-  int CreateEdits(int posX, int posY, int sizeX);
+  int CreateEdits(int pos_x, int pos_y, int size_x);
 
   void CheckEnableOk();
 
-  std::vector<std::unique_ptr<Window> > labels;
+  std::vector<std::unique_ptr<Window> > labels_;
 
   /** Ok button. */
-  std::unique_ptr<Window> okButton;
+  std::unique_ptr<Window> ok_button_;
 
   /** Cancel button. */
-  std::unique_ptr<Window> cancelButton;
+  std::unique_ptr<Window> cancel_button_;
 
-  std::unique_ptr<Window> keyEdit;
+  std::unique_ptr<Window> key_edit_;
 
-  std::unique_ptr<Window> valueEdit;
+  std::unique_ptr<Window> value_edit_;
 
-  std::string key;
+  std::string key_;
 
-  std::string value;
+  std::string value_;
 
   /** Window width. */
-  int width;
+  int width_;
 
   /** Window height. */
-  int height;
+  int height_;
 
   /** Flag indicating whether OK option was selected. */
-  bool accepted;
+  bool accepted_;
 
-  bool isInitialized;
+  bool is_initialized_;
 };
 
 }  // namespace config

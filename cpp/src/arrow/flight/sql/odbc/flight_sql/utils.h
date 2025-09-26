@@ -58,11 +58,11 @@ arrow::Status AppendToBuilder(BUILDER& builder, T value) {
   return builder.Append(value);
 }
 
-odbcabstraction::SqlDataType GetDataTypeFromArrowField_V3(
-    const std::shared_ptr<arrow::Field>& field, bool useWideChar);
+odbcabstraction::SqlDataType GetDataTypeFromArrowFieldV3(
+    const std::shared_ptr<arrow::Field>& field, bool use_wide_char);
 
 odbcabstraction::SqlDataType EnsureRightSqlCharType(
-    odbcabstraction::SqlDataType data_type, bool useWideChar);
+    odbcabstraction::SqlDataType data_type, bool use_wide_char);
 
 int16_t ConvertSqlDataTypeFromV3ToV2(int16_t data_type_v3);
 
@@ -107,7 +107,7 @@ std::shared_ptr<arrow::DataType> GetDefaultDataTypeForTypeId(arrow::Type::type t
 arrow::Type::type ConvertCToArrowType(odbcabstraction::CDataType data_type);
 
 odbcabstraction::CDataType ConvertArrowTypeToC(arrow::Type::type type_id,
-                                               bool useWideChar);
+                                               bool use_wide_char);
 
 std::shared_ptr<arrow::Array> CheckConversion(const arrow::Result<arrow::Datum>& result);
 
@@ -116,9 +116,9 @@ ArrayConvertTask GetConverter(arrow::Type::type original_type_id,
 
 std::string ConvertToDBMSVer(const std::string& str);
 
-int32_t GetDecimalTypeScale(const std::shared_ptr<arrow::DataType>& decimalType);
+int32_t GetDecimalTypeScale(const std::shared_ptr<arrow::DataType>& decimal_type);
 
-int32_t GetDecimalTypePrecision(const std::shared_ptr<arrow::DataType>& decimalType);
+int32_t GetDecimalTypePrecision(const std::shared_ptr<arrow::DataType>& decimal_type);
 
 }  // namespace flight_sql
 }  // namespace driver

@@ -70,7 +70,7 @@ class ConnectionStringParser {
   ConnectionStringParser& operator=(const ConnectionStringParser&) = delete;
 
   /** Configuration. */
-  Configuration& cfg;
+  Configuration& cfg_;
 };
 
 }  // namespace config

@@ -37,11 +37,11 @@ class DecimalArrayFlightSqlAccessor
  public:
   explicit DecimalArrayFlightSqlAccessor(Array* array);
 
-  RowStatus MoveSingleCell_impl(ColumnBinding* binding, int64_t arrow_row, int64_t i,
-                                int64_t& value_offset, bool update_value_offset,
-                                odbcabstraction::Diagnostics& diagnostics);
+  RowStatus MoveSingleCellImpl(ColumnBinding* binding, int64_t arrow_row, int64_t i,
+                               int64_t& value_offset, bool update_value_offset,
+                               odbcabstraction::Diagnostics& diagnostics);
 
-  size_t GetCellLength_impl(ColumnBinding* binding) const;
+  size_t GetCellLengthImpl(ColumnBinding* binding) const;
 
  private:
   Decimal128Type* data_type_;

@@ -35,49 +35,49 @@ using driver::odbcabstraction::Driver;
 // Public
 // =========================================================================================
 ODBCEnvironment::ODBCEnvironment(std::shared_ptr<Driver> driver)
-    : m_driver(std::move(driver)),
-      m_diagnostics(new Diagnostics(m_driver->GetDiagnostics().GetVendor(),
-                                    m_driver->GetDiagnostics().GetDataSourceComponent(),
-                                    driver::odbcabstraction::V_2)),
-      m_version(SQL_OV_ODBC2),
-      m_connectionPooling(SQL_CP_OFF) {}
+    : driver_(std::move(driver)),
+      diagnostics_(new Diagnostics(driver_->GetDiagnostics().GetVendor(),
+                                   driver_->GetDiagnostics().GetDataSourceComponent(),
+                                   driver::odbcabstraction::V_2)),
+      version_(SQL_OV_ODBC2),
+      connection_pooling_(SQL_CP_OFF) {}
 
-Diagnostics& ODBCEnvironment::GetDiagnostics_Impl() { return *m_diagnostics; }
+Diagnostics& ODBCEnvironment::GetDiagnosticsImpl() { return *diagnostics_; }
 
-SQLINTEGER ODBCEnvironment::getODBCVersion() const { return m_version; }
+SQLINTEGER ODBCEnvironment::GetODBCVersion() const { return version_; }
 
-void ODBCEnvironment::setODBCVersion(SQLINTEGER version) {
-  if (version != m_version) {
-    m_version = version;
-    m_diagnostics.reset(new Diagnostics(
-        m_diagnostics->GetVendor(), m_diagnostics->GetDataSourceComponent(),
-        version == SQL_OV_ODBC2 ? driver::odbcabstraction::V_2
-                                : driver::odbcabstraction::V_3));
+void ODBCEnvironment::SetODBCVersion(SQLINTEGER version) {
+  if (version != version_) {
+    version_ = version;
+    diagnostics_.reset(
+        new Diagnostics(diagnostics_->GetVendor(), diagnostics_->GetDataSourceComponent(),
+                        version == SQL_OV_ODBC2 ? driver::odbcabstraction::V_2
+                                                : driver::odbcabstraction::V_3));
   }
 }
 
-SQLINTEGER ODBCEnvironment::getConnectionPooling() const { return m_connectionPooling; }
+SQLINTEGER ODBCEnvironment::GetConnectionPooling() const { return connection_pooling_; }
 
-void ODBCEnvironment::setConnectionPooling(SQLINTEGER connectionPooling) {
-  m_connectionPooling = connectionPooling;
+void ODBCEnvironment::SetConnectionPooling(SQLINTEGER connection_pooling) {
+  connection_pooling_ = connection_pooling;
 }
 
 std::shared_ptr<ODBCConnection> ODBCEnvironment::CreateConnection() {
-  std::shared_ptr<Connection> spiConnection = m_driver->CreateConnection(
-      m_version == SQL_OV_ODBC2 ? driver::odbcabstraction::V_2
-                                : driver::odbcabstraction::V_3);
-  std::shared_ptr<ODBCConnection> newConn =
-      std::make_shared<ODBCConnection>(*this, spiConnection);
-  m_connections.push_back(newConn);
-  return newConn;
+  std::shared_ptr<Connection> spi_connection =
+      driver_->CreateConnection(version_ == SQL_OV_ODBC2 ? driver::odbcabstraction::V_2
+                                                         : driver::odbcabstraction::V_3);
+  std::shared_ptr<ODBCConnection> new_conn =
+      std::make_shared<ODBCConnection>(*this, spi_connection);
+  connections_.push_back(new_conn);
+  return new_conn;
 }
 
 void ODBCEnvironment::DropConnection(ODBCConnection* conn) {
-  auto it = std::find_if(m_connections.begin(), m_connections.end(),
+  auto it = std::find_if(connections_.begin(), connections_.end(),
                          [&conn](const std::shared_ptr<ODBCConnection>& connection) {
                            return connection.get() == conn;
                          });
-  if (m_connections.end() != it) {
-    m_connections.erase(it);
+  if (connections_.end() != it) {
+    connections_.erase(it);
   }
 }

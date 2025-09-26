@@ -43,22 +43,22 @@ using driver::odbcabstraction::Statement;
 
 namespace {
 void DescriptorToHandle(SQLPOINTER output, ODBCDescriptor* descriptor,
-                        SQLINTEGER* lenPtr) {
+                        SQLINTEGER* len_ptr) {
   if (output) {
-    SQLHANDLE* outputHandle = static_cast<SQLHANDLE*>(output);
-    *outputHandle = reinterpret_cast<SQLHANDLE>(descriptor);
+    SQLHANDLE* output_handle = static_cast<SQLHANDLE*>(output);
+    *output_handle = reinterpret_cast<SQLHANDLE>(descriptor);
   }
-  if (lenPtr) {
-    *lenPtr = sizeof(SQLHANDLE);
+  if (len_ptr) {
+    *len_ptr = sizeof(SQLHANDLE);
   }
 }
 
 size_t GetLength(const DescriptorRecord& record) {
-  switch (record.m_type) {
+  switch (record.type) {
     case SQL_C_CHAR:
     case SQL_C_WCHAR:
     case SQL_C_BINARY:
-      return record.m_length;
+      return record.length;
 
     case SQL_C_BIT:
     case SQL_C_TINYINT:
@@ -112,12 +112,12 @@ size_t GetLength(const DescriptorRecord& record) {
     case SQL_C_INTERVAL_MONTH:
       return sizeof(SQL_INTERVAL_STRUCT);
     default:
-      return record.m_length;
+      return record.length;
   }
 }
 
-SQLSMALLINT getCTypeForSQLType(const DescriptorRecord& record) {
-  switch (record.m_conciseType) {
+SQLSMALLINT getc_typeForSQLType(const DescriptorRecord& record) {
+  switch (record.concise_type) {
     case SQL_CHAR:
     case SQL_VARCHAR:
     case SQL_LONGVARCHAR:
@@ -134,16 +134,16 @@ SQLSMALLINT getCTypeForSQLType(const DescriptorRecord& record) {
       return SQL_C_BINARY;
 
     case SQL_TINYINT:
-      return record.m_unsigned ? SQL_C_UTINYINT : SQL_C_STINYINT;
+      return record.is_unsigned ? SQL_C_UTINYINT : SQL_C_STINYINT;
 
     case SQL_SMALLINT:
-      return record.m_unsigned ? SQL_C_USHORT : SQL_C_SSHORT;
+      return record.is_unsigned ? SQL_C_USHORT : SQL_C_SSHORT;
 
     case SQL_INTEGER:
-      return record.m_unsigned ? SQL_C_ULONG : SQL_C_SLONG;
+      return record.is_unsigned ? SQL_C_ULONG : SQL_C_SLONG;
 
     case SQL_BIGINT:
-      return record.m_unsigned ? SQL_C_UBIGINT : SQL_C_SBIGINT;
+      return record.is_unsigned ? SQL_C_UBIGINT : SQL_C_SBIGINT;
 
     case SQL_REAL:
       return SQL_C_FLOAT;
@@ -192,16 +192,16 @@ SQLSMALLINT getCTypeForSQLType(const DescriptorRecord& record) {
       return SQL_INTERVAL_MONTH;
 
     default:
-      throw DriverException("Unknown SQL type: " + std::to_string(record.m_conciseType),
+      throw DriverException("Unknown SQL type: " + std::to_string(record.concise_type),
                             "HY003");
   }
 }
 
 void CopyAttribute(Statement& source, Statement& target,
-                   Statement::StatementAttributeId attributeId) {
-  auto optionalValue = source.GetAttribute(attributeId);
-  if (optionalValue) {
-    target.SetAttribute(attributeId, *optionalValue);
+                   Statement::StatementAttributeId attribute_id) {
+  auto optional_value = source.GetAttribute(attribute_id);
+  if (optional_value) {
+    target.SetAttribute(attribute_id, *optional_value);
   }
 }
 }  // namespace
@@ -210,36 +210,36 @@ void CopyAttribute(Statement& source, Statement& target,
 // =========================================================================================
 ODBCStatement::ODBCStatement(
     ODBCConnection& connection,
-    std::shared_ptr<driver::odbcabstraction::Statement> spiStatement)
-    : m_connection(connection),
-      m_spiStatement(std::move(spiStatement)),
-      m_diagnostics(&m_spiStatement->GetDiagnostics()),
-      m_builtInArd(std::make_shared<ODBCDescriptor>(m_spiStatement->GetDiagnostics(),
-                                                    nullptr, this, true, true,
-                                                    connection.IsOdbc2Connection())),
-      m_builtInApd(std::make_shared<ODBCDescriptor>(m_spiStatement->GetDiagnostics(),
-                                                    nullptr, this, true, true,
-                                                    connection.IsOdbc2Connection())),
-      m_ipd(std::make_shared<ODBCDescriptor>(m_spiStatement->GetDiagnostics(), nullptr,
-                                             this, false, true,
-                                             connection.IsOdbc2Connection())),
-      m_ird(std::make_shared<ODBCDescriptor>(m_spiStatement->GetDiagnostics(), nullptr,
-                                             this, false, false,
-                                             connection.IsOdbc2Connection())),
-      m_currentArd(m_builtInApd.get()),
-      m_currentApd(m_builtInApd.get()),
-      m_rowNumber(0),
-      m_maxRows(0),
-      m_rowsetSize(1),
-      m_isPrepared(false),
-      m_hasReachedEndOfResult(false) {}
+    std::shared_ptr<driver::odbcabstraction::Statement> spi_statement)
+    : connection_(connection),
+      spi_statement_(std::move(spi_statement)),
+      diagnostics_(&spi_statement_->GetDiagnostics()),
+      built_in_ard_(std::make_shared<ODBCDescriptor>(spi_statement_->GetDiagnostics(),
+                                                     nullptr, this, true, true,
+                                                     connection.IsOdbc2Connection())),
+      built_in_apd_(std::make_shared<ODBCDescriptor>(spi_statement_->GetDiagnostics(),
+                                                     nullptr, this, true, true,
+                                                     connection.IsOdbc2Connection())),
+      ipd_(std::make_shared<ODBCDescriptor>(spi_statement_->GetDiagnostics(), nullptr,
+                                            this, false, true,
+                                            connection.IsOdbc2Connection())),
+      ird_(std::make_shared<ODBCDescriptor>(spi_statement_->GetDiagnostics(), nullptr,
+                                            this, false, false,
+                                            connection.IsOdbc2Connection())),
+      current_ard_(built_in_apd_.get()),
+      current_apd_(built_in_apd_.get()),
+      row_number_(0),
+      max_rows_(0),
+      rowset_size_(1),
+      is_prepared_(false),
+      has_reached_end_of_result_(false) {}
 
-ODBCConnection& ODBCStatement::GetConnection() { return m_connection; }
+ODBCConnection& ODBCStatement::GetConnection() { return connection_; }
 
 void ODBCStatement::CopyAttributesFromConnection(ODBCConnection& connection) {
-  ODBCStatement& trackingStatement = connection.GetTrackingStatement();
+  ODBCStatement& tracking_statement = connection.GetTrackingStatement();
 
-  // Get abstraction attributes and copy to this m_spiStatement.
+  // Get abstraction attributes and copy to this spi_statement_.
   // Possible ODBC attributes are below, but many of these are not supported by warpdrive
   // or ODBCAbstaction:
   // SQL_ATTR_ASYNC_ENABLE:
@@ -254,166 +254,166 @@ void ODBCStatement::CopyAttributesFromConnection(ODBCConnection& connection) {
   // SQL_ATTR_RETRIEVE_DATA:
   // SQL_ATTR_SIMULATE_CURSOR:
   // SQL_ATTR_USE_BOOKMARKS:
-  CopyAttribute(*trackingStatement.m_spiStatement, *m_spiStatement,
+  CopyAttribute(*tracking_statement.spi_statement_, *spi_statement_,
                 Statement::METADATA_ID);
-  CopyAttribute(*trackingStatement.m_spiStatement, *m_spiStatement,
+  CopyAttribute(*tracking_statement.spi_statement_, *spi_statement_,
                 Statement::MAX_LENGTH);
-  CopyAttribute(*trackingStatement.m_spiStatement, *m_spiStatement, Statement::NOSCAN);
-  CopyAttribute(*trackingStatement.m_spiStatement, *m_spiStatement,
+  CopyAttribute(*tracking_statement.spi_statement_, *spi_statement_, Statement::NOSCAN);
+  CopyAttribute(*tracking_statement.spi_statement_, *spi_statement_,
                 Statement::QUERY_TIMEOUT);
 
   // SQL_ATTR_ROW_BIND_TYPE:
-  m_currentArd->SetHeaderField(
+  current_ard_->SetHeaderField(
       SQL_DESC_BIND_TYPE,
       reinterpret_cast<SQLPOINTER>(
-          static_cast<SQLLEN>(trackingStatement.m_currentArd->GetBoundStructOffset())),
+          static_cast<SQLLEN>(tracking_statement.current_ard_->GetBoundStructOffset())),
       0);
 }
 
-bool ODBCStatement::isPrepared() const { return m_isPrepared; }
+bool ODBCStatement::IsPrepared() const { return is_prepared_; }
 
 void ODBCStatement::Prepare(const std::string& query) {
   boost::optional<std::shared_ptr<ResultSetMetadata> > metadata =
-      m_spiStatement->Prepare(query);
+      spi_statement_->Prepare(query);
 
   if (metadata) {
-    m_ird->PopulateFromResultSetMetadata(metadata->get());
+    ird_->PopulateFromResultSetMetadata(metadata->get());
   }
-  m_isPrepared = true;
+  is_prepared_ = true;
 }
 
 void ODBCStatement::ExecutePrepared() {
-  if (!m_isPrepared) {
+  if (!is_prepared_) {
     throw DriverException("Function sequence error", "HY010");
   }
 
-  if (m_spiStatement->ExecutePrepared()) {
-    m_currenResult = m_spiStatement->GetResultSet();
-    m_ird->PopulateFromResultSetMetadata(
-        m_spiStatement->GetResultSet()->GetMetadata().get());
-    m_hasReachedEndOfResult = false;
+  if (spi_statement_->ExecutePrepared()) {
+    current_result_ = spi_statement_->GetResultSet();
+    ird_->PopulateFromResultSetMetadata(
+        spi_statement_->GetResultSet()->GetMetadata().get());
+    has_reached_end_of_result_ = false;
   }
 }
 
 void ODBCStatement::ExecuteDirect(const std::string& query) {
-  if (m_spiStatement->Execute(query)) {
-    m_currenResult = m_spiStatement->GetResultSet();
-    m_ird->PopulateFromResultSetMetadata(m_currenResult->GetMetadata().get());
-    m_hasReachedEndOfResult = false;
+  if (spi_statement_->Execute(query)) {
+    current_result_ = spi_statement_->GetResultSet();
+    ird_->PopulateFromResultSetMetadata(current_result_->GetMetadata().get());
+    has_reached_end_of_result_ = false;
   }
 
   // Direct execution wipes out the prepared state.
-  m_isPrepared = false;
+  is_prepared_ = false;
 }
 
 bool ODBCStatement::Fetch(size_t rows) {
-  if (m_hasReachedEndOfResult) {
-    m_ird->SetRowsProcessed(0);
+  if (has_reached_end_of_result_) {
+    ird_->SetRowsProcessed(0);
     return false;
   }
 
-  if (m_maxRows) {
-    rows = std::min(rows, m_maxRows - m_rowNumber);
+  if (max_rows_) {
+    rows = std::min(rows, max_rows_ - row_number_);
   }
 
-  if (m_currentArd->HaveBindingsChanged()) {
-    // TODO: Deal handle when offset != bufferlength.
+  if (current_ard_->HaveBindingsChanged()) {
+    // TODO: Deal handle when offset != buffer_length.
 
     // Wipe out all bindings in the ResultSet.
     // Note that the number of ARD records can both be more or less
     // than the number of columns.
-    for (size_t i = 0; i < m_ird->GetRecords().size(); i++) {
-      if (i < m_currentArd->GetRecords().size() &&
-          m_currentArd->GetRecords()[i].m_isBound) {
-        const DescriptorRecord& ardRecord = m_currentArd->GetRecords()[i];
-        m_currenResult->BindColumn(i + 1, ardRecord.m_type, ardRecord.m_precision,
-                                   ardRecord.m_scale, ardRecord.m_dataPtr,
-                                   GetLength(ardRecord), ardRecord.m_indicatorPtr);
+    for (size_t i = 0; i < ird_->GetRecords().size(); i++) {
+      if (i < current_ard_->GetRecords().size() &&
+          current_ard_->GetRecords()[i].is_bound) {
+        const DescriptorRecord& ard_record = current_ard_->GetRecords()[i];
+        current_result_->BindColumn(i + 1, ard_record.type, ard_record.precision,
+                                    ard_record.scale, ard_record.data_ptr,
+                                    GetLength(ard_record), ard_record.indicator_ptr);
       } else {
-        m_currenResult->BindColumn(i + 1,
-                                   driver::odbcabstraction::CDataType_CHAR
-                                   /* arbitrary type, not used */,
-                                   0, 0, nullptr, 0, nullptr);
+        current_result_->BindColumn(i + 1,
+                                    driver::odbcabstraction::CDataType_CHAR
+                                    /* arbitrary type, not used */,
+                                    0, 0, nullptr, 0, nullptr);
       }
     }
-    m_currentArd->NotifyBindingsHavePropagated();
+    current_ard_->NotifyBindingsHavePropagated();
   }
 
-  size_t rowsFetched = m_currenResult->Move(rows, m_currentArd->GetBindOffset(),
-                                            m_currentArd->GetBoundStructOffset(),
-                                            m_ird->GetArrayStatusPtr());
-  m_ird->SetRowsProcessed(static_cast<SQLULEN>(rowsFetched));
+  size_t rows_fetched = current_result_->Move(rows, current_ard_->GetBindOffset(),
+                                              current_ard_->GetBoundStructOffset(),
+                                              ird_->GetArrayStatusPtr());
+  ird_->SetRowsProcessed(static_cast<SQLULEN>(rows_fetched));
 
-  m_rowNumber += rowsFetched;
-  m_hasReachedEndOfResult = rowsFetched != rows;
-  return rowsFetched != 0;
+  row_number_ += rows_fetched;
+  has_reached_end_of_result_ = rows_fetched != rows;
+  return rows_fetched != 0;
 }
 
-void ODBCStatement::GetStmtAttr(SQLINTEGER statementAttribute, SQLPOINTER output,
-                                SQLINTEGER bufferSize, SQLINTEGER* strLenPtr,
-                                bool isUnicode) {
+void ODBCStatement::GetStmtAttr(SQLINTEGER statement_attribute, SQLPOINTER output,
+                                SQLINTEGER buffer_size, SQLINTEGER* str_len_ptr,
+                                bool is_unicode) {
   using driver::odbcabstraction::Statement;
-  boost::optional<Statement::Attribute> spiAttribute;
-  switch (statementAttribute) {
+  boost::optional<Statement::Attribute> spi_attribute;
+  switch (statement_attribute) {
     // Descriptor accessor attributes
     case SQL_ATTR_APP_PARAM_DESC:
-      DescriptorToHandle(output, m_currentApd, strLenPtr);
+      DescriptorToHandle(output, current_apd_, str_len_ptr);
       return;
     case SQL_ATTR_APP_ROW_DESC:
-      DescriptorToHandle(output, m_currentArd, strLenPtr);
+      DescriptorToHandle(output, current_ard_, str_len_ptr);
       return;
     case SQL_ATTR_IMP_PARAM_DESC:
-      DescriptorToHandle(output, m_ipd.get(), strLenPtr);
+      DescriptorToHandle(output, ipd_.get(), str_len_ptr);
       return;
     case SQL_ATTR_IMP_ROW_DESC:
-      DescriptorToHandle(output, m_ird.get(), strLenPtr);
+      DescriptorToHandle(output, ird_.get(), str_len_ptr);
       return;
 
     // Attributes that are descriptor fields
     case SQL_ATTR_PARAM_BIND_OFFSET_PTR:
-      m_currentApd->GetHeaderField(SQL_DESC_BIND_OFFSET_PTR, output, bufferSize,
-                                   strLenPtr);
+      current_apd_->GetHeaderField(SQL_DESC_BIND_OFFSET_PTR, output, buffer_size,
+                                   str_len_ptr);
       return;
     case SQL_ATTR_PARAM_BIND_TYPE:
-      m_currentApd->GetHeaderField(SQL_DESC_BIND_TYPE, output, bufferSize, strLenPtr);
+      current_apd_->GetHeaderField(SQL_DESC_BIND_TYPE, output, buffer_size, str_len_ptr);
       return;
     case SQL_ATTR_PARAM_OPERATION_PTR:
-      m_currentApd->GetHeaderField(SQL_DESC_ARRAY_STATUS_PTR, output, bufferSize,
-                                   strLenPtr);
+      current_apd_->GetHeaderField(SQL_DESC_ARRAY_STATUS_PTR, output, buffer_size,
+                                   str_len_ptr);
       return;
     case SQL_ATTR_PARAM_STATUS_PTR:
-      m_ipd->GetHeaderField(SQL_DESC_ARRAY_STATUS_PTR, output, bufferSize, strLenPtr);
+      ipd_->GetHeaderField(SQL_DESC_ARRAY_STATUS_PTR, output, buffer_size, str_len_ptr);
       return;
     case SQL_ATTR_PARAMS_PROCESSED_PTR:
-      m_ipd->GetHeaderField(SQL_DESC_ROWS_PROCESSED_PTR, output, bufferSize, strLenPtr);
+      ipd_->GetHeaderField(SQL_DESC_ROWS_PROCESSED_PTR, output, buffer_size, str_len_ptr);
       return;
     case SQL_ATTR_PARAMSET_SIZE:
-      m_currentApd->GetHeaderField(SQL_DESC_ARRAY_SIZE, output, bufferSize, strLenPtr);
+      current_apd_->GetHeaderField(SQL_DESC_ARRAY_SIZE, output, buffer_size, str_len_ptr);
       return;
     case SQL_ATTR_ROW_ARRAY_SIZE:
-      m_currentArd->GetHeaderField(SQL_DESC_ARRAY_SIZE, output, bufferSize, strLenPtr);
+      current_ard_->GetHeaderField(SQL_DESC_ARRAY_SIZE, output, buffer_size, str_len_ptr);
       return;
     case SQL_ATTR_ROW_BIND_OFFSET_PTR:
-      m_currentArd->GetHeaderField(SQL_DESC_BIND_OFFSET_PTR, output, bufferSize,
-                                   strLenPtr);
+      current_ard_->GetHeaderField(SQL_DESC_BIND_OFFSET_PTR, output, buffer_size,
+                                   str_len_ptr);
       return;
     case SQL_ATTR_ROW_BIND_TYPE:
-      m_currentArd->GetHeaderField(SQL_DESC_BIND_TYPE, output, bufferSize, strLenPtr);
+      current_ard_->GetHeaderField(SQL_DESC_BIND_TYPE, output, buffer_size, str_len_ptr);
       return;
     case SQL_ATTR_ROW_OPERATION_PTR:
-      m_currentArd->GetHeaderField(SQL_DESC_ARRAY_STATUS_PTR, output, bufferSize,
-                                   strLenPtr);
+      current_ard_->GetHeaderField(SQL_DESC_ARRAY_STATUS_PTR, output, buffer_size,
+                                   str_len_ptr);
       return;
     case SQL_ATTR_ROW_STATUS_PTR:
-      m_ird->GetHeaderField(SQL_DESC_ARRAY_STATUS_PTR, output, bufferSize, strLenPtr);
+      ird_->GetHeaderField(SQL_DESC_ARRAY_STATUS_PTR, output, buffer_size, str_len_ptr);
       return;
     case SQL_ATTR_ROWS_FETCHED_PTR:
-      m_ird->GetHeaderField(SQL_DESC_ROWS_PROCESSED_PTR, output, bufferSize, strLenPtr);
+      ird_->GetHeaderField(SQL_DESC_ROWS_PROCESSED_PTR, output, buffer_size, str_len_ptr);
       return;
 
     case SQL_ATTR_ASYNC_ENABLE:
-      GetAttribute(static_cast<SQLULEN>(SQL_ASYNC_ENABLE_OFF), output, bufferSize,
-                   strLenPtr);
+      GetAttribute(static_cast<SQLULEN>(SQL_ASYNC_ENABLE_OFF), output, buffer_size,
+                   str_len_ptr);
       return;
 
 #ifdef SQL_ATTR_ASYNC_STMT_EVENT
@@ -429,96 +429,97 @@ void ODBCStatement::GetStmtAttr(SQLINTEGER statementAttribute, SQLPOINTER output
       throw DriverException("Unsupported attribute", "HYC00");
 #endif
     case SQL_ATTR_CURSOR_SCROLLABLE:
-      GetAttribute(static_cast<SQLULEN>(SQL_NONSCROLLABLE), output, bufferSize,
-                   strLenPtr);
+      GetAttribute(static_cast<SQLULEN>(SQL_NONSCROLLABLE), output, buffer_size,
+                   str_len_ptr);
       return;
 
     case SQL_ATTR_CURSOR_SENSITIVITY:
-      GetAttribute(static_cast<SQLULEN>(SQL_UNSPECIFIED), output, bufferSize, strLenPtr);
+      GetAttribute(static_cast<SQLULEN>(SQL_UNSPECIFIED), output, buffer_size,
+                   str_len_ptr);
       return;
 
     case SQL_ATTR_CURSOR_TYPE:
-      GetAttribute(static_cast<SQLULEN>(SQL_CURSOR_FORWARD_ONLY), output, bufferSize,
-                   strLenPtr);
+      GetAttribute(static_cast<SQLULEN>(SQL_CURSOR_FORWARD_ONLY), output, buffer_size,
+                   str_len_ptr);
       return;
 
     case SQL_ATTR_ENABLE_AUTO_IPD:
-      GetAttribute(static_cast<SQLULEN>(SQL_FALSE), output, bufferSize, strLenPtr);
+      GetAttribute(static_cast<SQLULEN>(SQL_FALSE), output, buffer_size, str_len_ptr);
       return;
 
     case SQL_ATTR_FETCH_BOOKMARK_PTR:
-      GetAttribute(static_cast<SQLPOINTER>(NULL), output, bufferSize, strLenPtr);
+      GetAttribute(static_cast<SQLPOINTER>(NULL), output, buffer_size, str_len_ptr);
       return;
 
     case SQL_ATTR_KEYSET_SIZE:
-      GetAttribute(static_cast<SQLULEN>(0), output, bufferSize, strLenPtr);
+      GetAttribute(static_cast<SQLULEN>(0), output, buffer_size, str_len_ptr);
       return;
 
     case SQL_ATTR_ROW_NUMBER:
-      GetAttribute(static_cast<SQLULEN>(m_rowNumber), output, bufferSize, strLenPtr);
+      GetAttribute(static_cast<SQLULEN>(row_number_), output, buffer_size, str_len_ptr);
       return;
     case SQL_ATTR_SIMULATE_CURSOR:
-      GetAttribute(static_cast<SQLULEN>(SQL_SC_UNIQUE), output, bufferSize, strLenPtr);
+      GetAttribute(static_cast<SQLULEN>(SQL_SC_UNIQUE), output, buffer_size, str_len_ptr);
       return;
     case SQL_ATTR_USE_BOOKMARKS:
-      GetAttribute(static_cast<SQLULEN>(SQL_UB_OFF), output, bufferSize, strLenPtr);
+      GetAttribute(static_cast<SQLULEN>(SQL_UB_OFF), output, buffer_size, str_len_ptr);
       return;
     case SQL_ATTR_CONCURRENCY:
-      GetAttribute(static_cast<SQLULEN>(SQL_CONCUR_READ_ONLY), output, bufferSize,
-                   strLenPtr);
+      GetAttribute(static_cast<SQLULEN>(SQL_CONCUR_READ_ONLY), output, buffer_size,
+                   str_len_ptr);
       return;
     case SQL_ATTR_MAX_ROWS:
-      GetAttribute(static_cast<SQLULEN>(m_maxRows), output, bufferSize, strLenPtr);
+      GetAttribute(static_cast<SQLULEN>(max_rows_), output, buffer_size, str_len_ptr);
       return;
     case SQL_ATTR_RETRIEVE_DATA:
-      GetAttribute(static_cast<SQLULEN>(SQL_RD_ON), output, bufferSize, strLenPtr);
+      GetAttribute(static_cast<SQLULEN>(SQL_RD_ON), output, buffer_size, str_len_ptr);
       return;
     case SQL_ROWSET_SIZE:
-      GetAttribute(static_cast<SQLULEN>(m_rowsetSize), output, bufferSize, strLenPtr);
+      GetAttribute(static_cast<SQLULEN>(rowset_size_), output, buffer_size, str_len_ptr);
       return;
 
     // Driver-level statement attributes. These are all SQLULEN attributes.
     case SQL_ATTR_MAX_LENGTH:
-      spiAttribute = m_spiStatement->GetAttribute(Statement::MAX_LENGTH);
+      spi_attribute = spi_statement_->GetAttribute(Statement::MAX_LENGTH);
       break;
     case SQL_ATTR_METADATA_ID:
-      spiAttribute = m_spiStatement->GetAttribute(Statement::METADATA_ID);
+      spi_attribute = spi_statement_->GetAttribute(Statement::METADATA_ID);
       break;
     case SQL_ATTR_NOSCAN:
-      spiAttribute = m_spiStatement->GetAttribute(Statement::NOSCAN);
+      spi_attribute = spi_statement_->GetAttribute(Statement::NOSCAN);
       break;
     case SQL_ATTR_QUERY_TIMEOUT:
-      spiAttribute = m_spiStatement->GetAttribute(Statement::QUERY_TIMEOUT);
+      spi_attribute = spi_statement_->GetAttribute(Statement::QUERY_TIMEOUT);
       break;
     default:
       throw DriverException(
-          "Invalid statement attribute: " + std::to_string(statementAttribute), "HY092");
+          "Invalid statement attribute: " + std::to_string(statement_attribute), "HY092");
   }
 
-  if (spiAttribute) {
-    GetAttribute(static_cast<SQLULEN>(boost::get<size_t>(*spiAttribute)), output,
-                 bufferSize, strLenPtr);
+  if (spi_attribute) {
+    GetAttribute(static_cast<SQLULEN>(boost::get<size_t>(*spi_attribute)), output,
+                 buffer_size, str_len_ptr);
     return;
   }
 
   throw DriverException(
-      "Invalid statement attribute: " + std::to_string(statementAttribute), "HY092");
+      "Invalid statement attribute: " + std::to_string(statement_attribute), "HY092");
 }
 
-void ODBCStatement::SetStmtAttr(SQLINTEGER statementAttribute, SQLPOINTER value,
-                                SQLINTEGER bufferSize, bool isUnicode) {
-  size_t attributeToWrite = 0;
+void ODBCStatement::SetStmtAttr(SQLINTEGER statement_attribute, SQLPOINTER value,
+                                SQLINTEGER buffer_size, bool is_unicode) {
+  size_t attribute_to_write = 0;
   bool successfully_written = false;
 
-  switch (statementAttribute) {
+  switch (statement_attribute) {
     case SQL_ATTR_APP_PARAM_DESC: {
       ODBCDescriptor* desc = static_cast<ODBCDescriptor*>(value);
-      if (m_currentApd != desc) {
-        if (m_currentApd != m_builtInApd.get()) {
-          m_currentApd->DetachFromStatement(this, true);
+      if (current_apd_ != desc) {
+        if (current_apd_ != built_in_apd_.get()) {
+          current_apd_->DetachFromStatement(this, true);
         }
-        m_currentApd = desc;
-        if (m_currentApd != m_builtInApd.get()) {
+        current_apd_ = desc;
+        if (current_apd_ != built_in_apd_.get()) {
           desc->RegisterToStatement(this, true);
         }
       }
@@ -526,12 +527,12 @@ void ODBCStatement::SetStmtAttr(SQLINTEGER statementAttribute, SQLPOINTER value,
     }
     case SQL_ATTR_APP_ROW_DESC: {
       ODBCDescriptor* desc = static_cast<ODBCDescriptor*>(value);
-      if (m_currentArd != desc) {
-        if (m_currentArd != m_builtInArd.get()) {
-          m_currentArd->DetachFromStatement(this, false);
+      if (current_ard_ != desc) {
+        if (current_ard_ != built_in_ard_.get()) {
+          current_ard_->DetachFromStatement(this, false);
         }
-        m_currentArd = desc;
-        if (m_currentArd != m_builtInArd.get()) {
+        current_ard_ = desc;
+        if (current_ard_ != built_in_ard_.get()) {
           desc->RegisterToStatement(this, false);
         }
       }
@@ -543,40 +544,40 @@ void ODBCStatement::SetStmtAttr(SQLINTEGER statementAttribute, SQLPOINTER value,
       throw DriverException("Cannot assign implementation descriptor.", "HY017");
       // Attributes that are descriptor fields
     case SQL_ATTR_PARAM_BIND_OFFSET_PTR:
-      m_currentApd->SetHeaderField(SQL_DESC_BIND_OFFSET_PTR, value, bufferSize);
+      current_apd_->SetHeaderField(SQL_DESC_BIND_OFFSET_PTR, value, buffer_size);
       return;
     case SQL_ATTR_PARAM_BIND_TYPE:
-      m_currentApd->SetHeaderField(SQL_DESC_BIND_TYPE, value, bufferSize);
+      current_apd_->SetHeaderField(SQL_DESC_BIND_TYPE, value, buffer_size);
       return;
     case SQL_ATTR_PARAM_OPERATION_PTR:
-      m_currentApd->SetHeaderField(SQL_DESC_ARRAY_STATUS_PTR, value, bufferSize);
+      current_apd_->SetHeaderField(SQL_DESC_ARRAY_STATUS_PTR, value, buffer_size);
       return;
     case SQL_ATTR_PARAM_STATUS_PTR:
-      m_ipd->SetHeaderField(SQL_DESC_ARRAY_STATUS_PTR, value, bufferSize);
+      ipd_->SetHeaderField(SQL_DESC_ARRAY_STATUS_PTR, value, buffer_size);
       return;
     case SQL_ATTR_PARAMS_PROCESSED_PTR:
-      m_ipd->SetHeaderField(SQL_DESC_ROWS_PROCESSED_PTR, value, bufferSize);
+      ipd_->SetHeaderField(SQL_DESC_ROWS_PROCESSED_PTR, value, buffer_size);
       return;
     case SQL_ATTR_PARAMSET_SIZE:
-      m_currentApd->SetHeaderField(SQL_DESC_ARRAY_SIZE, value, bufferSize);
+      current_apd_->SetHeaderField(SQL_DESC_ARRAY_SIZE, value, buffer_size);
       return;
     case SQL_ATTR_ROW_ARRAY_SIZE:
-      m_currentArd->SetHeaderField(SQL_DESC_ARRAY_SIZE, value, bufferSize);
+      current_ard_->SetHeaderField(SQL_DESC_ARRAY_SIZE, value, buffer_size);
       return;
     case SQL_ATTR_ROW_BIND_OFFSET_PTR:
-      m_currentArd->SetHeaderField(SQL_DESC_BIND_OFFSET_PTR, value, bufferSize);
+      current_ard_->SetHeaderField(SQL_DESC_BIND_OFFSET_PTR, value, buffer_size);
       return;
     case SQL_ATTR_ROW_BIND_TYPE:
-      m_currentArd->SetHeaderField(SQL_DESC_BIND_TYPE, value, bufferSize);
+      current_ard_->SetHeaderField(SQL_DESC_BIND_TYPE, value, buffer_size);
       return;
     case SQL_ATTR_ROW_OPERATION_PTR:
-      m_currentArd->SetHeaderField(SQL_DESC_ARRAY_STATUS_PTR, value, bufferSize);
+      current_ard_->SetHeaderField(SQL_DESC_ARRAY_STATUS_PTR, value, buffer_size);
       return;
     case SQL_ATTR_ROW_STATUS_PTR:
-      m_ird->SetHeaderField(SQL_DESC_ARRAY_STATUS_PTR, value, bufferSize);
+      ird_->SetHeaderField(SQL_DESC_ARRAY_STATUS_PTR, value, buffer_size);
       return;
     case SQL_ATTR_ROWS_FETCHED_PTR:
-      m_ird->SetHeaderField(SQL_DESC_ROWS_PROCESSED_PTR, value, bufferSize);
+      ird_->SetHeaderField(SQL_DESC_ROWS_PROCESSED_PTR, value, buffer_size);
       return;
 
     case SQL_ATTR_ASYNC_ENABLE:
@@ -630,7 +631,7 @@ void ODBCStatement::SetStmtAttr(SQLINTEGER statementAttribute, SQLPOINTER value,
       CheckIfAttributeIsSetToOnlyValidValue(value, static_cast<SQLULEN>(SQL_TRUE));
       return;
     case SQL_ROWSET_SIZE:
-      SetAttribute(value, m_rowsetSize);
+      SetAttribute(value, rowset_size_);
       return;
 
     case SQL_ATTR_MAX_ROWS:
@@ -638,27 +639,27 @@ void ODBCStatement::SetStmtAttr(SQLINTEGER statementAttribute, SQLPOINTER value,
 
     // Driver-leve statement attributes. These are all size_t attributes
     case SQL_ATTR_MAX_LENGTH:
-      SetAttribute(value, attributeToWrite);
+      SetAttribute(value, attribute_to_write);
       successfully_written =
-          m_spiStatement->SetAttribute(Statement::MAX_LENGTH, attributeToWrite);
+          spi_statement_->SetAttribute(Statement::MAX_LENGTH, attribute_to_write);
       break;
     case SQL_ATTR_METADATA_ID:
-      SetAttribute(value, attributeToWrite);
+      SetAttribute(value, attribute_to_write);
       successfully_written =
-          m_spiStatement->SetAttribute(Statement::METADATA_ID, attributeToWrite);
+          spi_statement_->SetAttribute(Statement::METADATA_ID, attribute_to_write);
       break;
     case SQL_ATTR_NOSCAN:
-      SetAttribute(value, attributeToWrite);
+      SetAttribute(value, attribute_to_write);
       successfully_written =
-          m_spiStatement->SetAttribute(Statement::NOSCAN, attributeToWrite);
+          spi_statement_->SetAttribute(Statement::NOSCAN, attribute_to_write);
       break;
     case SQL_ATTR_QUERY_TIMEOUT:
-      SetAttribute(value, attributeToWrite);
+      SetAttribute(value, attribute_to_write);
       successfully_written =
-          m_spiStatement->SetAttribute(Statement::QUERY_TIMEOUT, attributeToWrite);
+          spi_statement_->SetAttribute(Statement::QUERY_TIMEOUT, attribute_to_write);
       break;
     default:
-      throw DriverException("Invalid attribute: " + std::to_string(attributeToWrite),
+      throw DriverException("Invalid attribute: " + std::to_string(attribute_to_write),
                             "HY092");
   }
   if (!successfully_written) {
@@ -669,119 +670,119 @@ void ODBCStatement::SetStmtAttr(SQLINTEGER statementAttribute, SQLPOINTER value,
 
 void ODBCStatement::RevertAppDescriptor(bool isApd) {
   if (isApd) {
-    m_currentApd = m_builtInApd.get();
+    current_apd_ = built_in_apd_.get();
   } else {
-    m_currentArd = m_builtInArd.get();
+    current_ard_ = built_in_ard_.get();
   }
 }
 
-void ODBCStatement::closeCursor(bool suppressErrors) {
-  if (!suppressErrors && !m_currenResult) {
+void ODBCStatement::CloseCursor(bool suppress_errors) {
+  if (!suppress_errors && !current_result_) {
     throw DriverException("Invalid cursor state", "28000");
   }
 
-  if (m_currenResult) {
-    m_currenResult->Close();
-    m_currenResult = nullptr;
+  if (current_result_) {
+    current_result_->Close();
+    current_result_ = nullptr;
   }
 
   // Reset the fetching state of this statement.
-  m_currentArd->NotifyBindingsHaveChanged();
-  m_rowNumber = 0;
-  m_hasReachedEndOfResult = false;
+  current_ard_->NotifyBindingsHaveChanged();
+  row_number_ = 0;
+  has_reached_end_of_result_ = false;
 }
 
-bool ODBCStatement::GetData(SQLSMALLINT recordNumber, SQLSMALLINT cType,
-                            SQLPOINTER dataPtr, SQLLEN bufferLength,
-                            SQLLEN* indicatorPtr) {
-  if (recordNumber == 0) {
+bool ODBCStatement::GetData(SQLSMALLINT record_number, SQLSMALLINT c_type,
+                            SQLPOINTER data_ptr, SQLLEN buffer_length,
+                            SQLLEN* indicator_ptr) {
+  if (record_number == 0) {
     throw DriverException("Bookmarks are not supported", "07009");
-  } else if (recordNumber > m_ird->GetRecords().size()) {
-    throw DriverException("Invalid column index: " + std::to_string(recordNumber),
+  } else if (record_number > ird_->GetRecords().size()) {
+    throw DriverException("Invalid column index: " + std::to_string(record_number),
                           "07009");
   }
 
-  SQLSMALLINT evaluatedCType = cType;
+  SQLSMALLINT evaluated_c_type = c_type;
 
   // TODO: Get proper default precision and scale from abstraction.
   int precision = 38;  // arrow::Decimal128Type::kMaxPrecision;
   int scale = 0;
 
-  if (cType == SQL_ARD_TYPE) {
-    if (recordNumber > m_currentArd->GetRecords().size()) {
-      throw DriverException("Invalid column index: " + std::to_string(recordNumber),
+  if (c_type == SQL_ARD_TYPE) {
+    if (record_number > current_ard_->GetRecords().size()) {
+      throw DriverException("Invalid column index: " + std::to_string(record_number),
                             "07009");
     }
-    const DescriptorRecord& record = m_currentArd->GetRecords()[recordNumber - 1];
-    evaluatedCType = record.m_conciseType;
-    precision = record.m_precision;
-    scale = record.m_scale;
+    const DescriptorRecord& record = current_ard_->GetRecords()[record_number - 1];
+    evaluated_c_type = record.concise_type;
+    precision = record.precision;
+    scale = record.scale;
   }
 
   // Note: this is intentionally not an else if, since the type can be SQL_C_DEFAULT in
   // the ARD.
-  if (evaluatedCType == SQL_C_DEFAULT) {
-    if (recordNumber <= m_currentArd->GetRecords().size()) {
-      const DescriptorRecord& ardRecord = m_currentArd->GetRecords()[recordNumber - 1];
-      precision = ardRecord.m_precision;
-      scale = ardRecord.m_scale;
+  if (evaluated_c_type == SQL_C_DEFAULT) {
+    if (record_number <= current_ard_->GetRecords().size()) {
+      const DescriptorRecord& ard_record = current_ard_->GetRecords()[record_number - 1];
+      precision = ard_record.precision;
+      scale = ard_record.scale;
     }
 
-    const DescriptorRecord& irdRecord = m_ird->GetRecords()[recordNumber - 1];
-    evaluatedCType = getCTypeForSQLType(irdRecord);
+    const DescriptorRecord& ird_record = ird_->GetRecords()[record_number - 1];
+    evaluated_c_type = getc_typeForSQLType(ird_record);
   }
 
-  return m_currenResult->GetData(recordNumber, evaluatedCType, precision, scale, dataPtr,
-                                 bufferLength, indicatorPtr);
+  return current_result_->GetData(record_number, evaluated_c_type, precision, scale,
+                                  data_ptr, buffer_length, indicator_ptr);
 }
 
-void ODBCStatement::releaseStatement() {
-  closeCursor(true);
-  m_connection.dropStatement(this);
+void ODBCStatement::ReleaseStatement() {
+  CloseCursor(true);
+  connection_.DropStatement(this);
 }
 
 void ODBCStatement::GetTables(const std::string* catalog, const std::string* schema,
                               const std::string* table, const std::string* tableType) {
-  closeCursor(true);
-  if (m_connection.IsOdbc2Connection()) {
-    m_currenResult = m_spiStatement->GetTables_V2(catalog, schema, table, tableType);
+  CloseCursor(true);
+  if (connection_.IsOdbc2Connection()) {
+    current_result_ = spi_statement_->GetTables_V2(catalog, schema, table, tableType);
   } else {
-    m_currenResult = m_spiStatement->GetTables_V3(catalog, schema, table, tableType);
+    current_result_ = spi_statement_->GetTables_V3(catalog, schema, table, tableType);
   }
-  m_ird->PopulateFromResultSetMetadata(m_currenResult->GetMetadata().get());
-  m_hasReachedEndOfResult = false;
+  ird_->PopulateFromResultSetMetadata(current_result_->GetMetadata().get());
+  has_reached_end_of_result_ = false;
 
   // Direct execution wipes out the prepared state.
-  m_isPrepared = false;
+  is_prepared_ = false;
 }
 
 void ODBCStatement::GetColumns(const std::string* catalog, const std::string* schema,
                                const std::string* table, const std::string* column) {
-  closeCursor(true);
-  if (m_connection.IsOdbc2Connection()) {
-    m_currenResult = m_spiStatement->GetColumns_V2(catalog, schema, table, column);
+  CloseCursor(true);
+  if (connection_.IsOdbc2Connection()) {
+    current_result_ = spi_statement_->GetColumns_V2(catalog, schema, table, column);
   } else {
-    m_currenResult = m_spiStatement->GetColumns_V3(catalog, schema, table, column);
+    current_result_ = spi_statement_->GetColumns_V3(catalog, schema, table, column);
   }
-  m_ird->PopulateFromResultSetMetadata(m_currenResult->GetMetadata().get());
-  m_hasReachedEndOfResult = false;
+  ird_->PopulateFromResultSetMetadata(current_result_->GetMetadata().get());
+  has_reached_end_of_result_ = false;
 
   // Direct execution wipes out the prepared state.
-  m_isPrepared = false;
+  is_prepared_ = false;
 }
 
-void ODBCStatement::GetTypeInfo(SQLSMALLINT dataType) {
-  closeCursor(true);
-  if (m_connection.IsOdbc2Connection()) {
-    m_currenResult = m_spiStatement->GetTypeInfo_V2(dataType);
+void ODBCStatement::GetTypeInfo(SQLSMALLINT data_type) {
+  CloseCursor(true);
+  if (connection_.IsOdbc2Connection()) {
+    current_result_ = spi_statement_->GetTypeInfo_V2(data_type);
   } else {
-    m_currenResult = m_spiStatement->GetTypeInfo_V3(dataType);
+    current_result_ = spi_statement_->GetTypeInfo_V3(data_type);
   }
-  m_ird->PopulateFromResultSetMetadata(m_currenResult->GetMetadata().get());
-  m_hasReachedEndOfResult = false;
+  ird_->PopulateFromResultSetMetadata(current_result_->GetMetadata().get());
+  has_reached_end_of_result_ = false;
 
   // Direct execution wipes out the prepared state.
-  m_isPrepared = false;
+  is_prepared_ = false;
 }
 
-void ODBCStatement::Cancel() { m_spiStatement->Cancel(); }
+void ODBCStatement::Cancel() { spi_statement_->Cancel(); }

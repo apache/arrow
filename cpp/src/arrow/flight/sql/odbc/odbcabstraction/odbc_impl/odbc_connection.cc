@@ -103,179 +103,179 @@ void loadPropertiesFromDSN(const std::string& dsn,
 // Public
 // =========================================================================================
 ODBCConnection::ODBCConnection(ODBCEnvironment& environment,
-                               std::shared_ptr<Connection> spiConnection)
-    : m_environment(environment),
-      m_spiConnection(std::move(spiConnection)),
-      m_is2xConnection(environment.getODBCVersion() == SQL_OV_ODBC2),
-      m_isConnected(false) {}
+                               std::shared_ptr<Connection> spi_connection)
+    : environment_(environment),
+      spi_connection_(std::move(spi_connection)),
+      is_2x_connection_(environment.GetODBCVersion() == SQL_OV_ODBC2),
+      is_connected_(false) {}
 
-Diagnostics& ODBCConnection::GetDiagnostics_Impl() {
-  return m_spiConnection->GetDiagnostics();
+Diagnostics& ODBCConnection::GetDiagnosticsImpl() {
+  return spi_connection_->GetDiagnostics();
 }
 
-bool ODBCConnection::isConnected() const { return m_isConnected; }
+bool ODBCConnection::IsConnected() const { return is_connected_; }
 
-const std::string& ODBCConnection::GetDSN() const { return m_dsn; }
+const std::string& ODBCConnection::GetDSN() const { return dsn_; }
 
-void ODBCConnection::connect(std::string dsn,
+void ODBCConnection::Connect(std::string dsn,
                              const Connection::ConnPropertyMap& properties,
                              std::vector<std::string_view>& missing_properties) {
-  if (m_isConnected) {
+  if (is_connected_) {
     throw DriverException("Already connected.", "HY010");
   }
 
-  m_dsn = std::move(dsn);
-  m_spiConnection->Connect(properties, missing_properties);
-  m_isConnected = true;
-  std::shared_ptr<Statement> spiStatement = m_spiConnection->CreateStatement();
-  m_attributeTrackingStatement = std::make_shared<ODBCStatement>(*this, spiStatement);
+  dsn_ = std::move(dsn);
+  spi_connection_->Connect(properties, missing_properties);
+  is_connected_ = true;
+  std::shared_ptr<Statement> spi_statement = spi_connection_->CreateStatement();
+  attribute_tracking_statement_ = std::make_shared<ODBCStatement>(*this, spi_statement);
 }
 
-void ODBCConnection::GetInfo(SQLUSMALLINT infoType, SQLPOINTER value,
-                             SQLSMALLINT bufferLength, SQLSMALLINT* outputLength,
-                             bool isUnicode) {
-  switch (infoType) {
+void ODBCConnection::GetInfo(SQLUSMALLINT info_type, SQLPOINTER value,
+                             SQLSMALLINT buffer_length, SQLSMALLINT* output_length,
+                             bool is_unicode) {
+  switch (info_type) {
     case SQL_ACTIVE_ENVIRONMENTS:
-      GetAttribute(static_cast<SQLUSMALLINT>(0), value, bufferLength, outputLength);
+      GetAttribute(static_cast<SQLUSMALLINT>(0), value, buffer_length, output_length);
       break;
 #ifdef SQL_ASYNC_DBC_FUNCTIONS
     case SQL_ASYNC_DBC_FUNCTIONS:
       GetAttribute(static_cast<SQLUINTEGER>(SQL_ASYNC_DBC_NOT_CAPABLE), value,
-                   bufferLength, outputLength);
+                   buffer_length, output_length);
       break;
 #endif
     case SQL_ASYNC_MODE:
-      GetAttribute(static_cast<SQLUINTEGER>(SQL_AM_NONE), value, bufferLength,
-                   outputLength);
+      GetAttribute(static_cast<SQLUINTEGER>(SQL_AM_NONE), value, buffer_length,
+                   output_length);
       break;
 #ifdef SQL_ASYNC_NOTIFICATION
     case SQL_ASYNC_NOTIFICATION:
       GetAttribute(static_cast<SQLUINTEGER>(SQL_ASYNC_NOTIFICATION_NOT_CAPABLE), value,
-                   bufferLength, outputLength);
+                   buffer_length, output_length);
       break;
 #endif
     case SQL_BATCH_ROW_COUNT:
-      GetAttribute(static_cast<SQLUINTEGER>(0), value, bufferLength, outputLength);
+      GetAttribute(static_cast<SQLUINTEGER>(0), value, buffer_length, output_length);
       break;
     case SQL_BATCH_SUPPORT:
-      GetAttribute(static_cast<SQLUINTEGER>(0), value, bufferLength, outputLength);
+      GetAttribute(static_cast<SQLUINTEGER>(0), value, buffer_length, output_length);
       break;
     case SQL_DATA_SOURCE_NAME:
-      GetStringAttribute(isUnicode, m_dsn, true, value, bufferLength, outputLength,
+      GetStringAttribute(is_unicode, dsn_, true, value, buffer_length, output_length,
                          GetDiagnostics());
       break;
     case SQL_DRIVER_ODBC_VER:
-      GetStringAttribute(isUnicode, "03.80", true, value, bufferLength, outputLength,
+      GetStringAttribute(is_unicode, "03.80", true, value, buffer_length, output_length,
                          GetDiagnostics());
       break;
     case SQL_DYNAMIC_CURSOR_ATTRIBUTES1:
-      GetAttribute(static_cast<SQLUINTEGER>(0), value, bufferLength, outputLength);
+      GetAttribute(static_cast<SQLUINTEGER>(0), value, buffer_length, output_length);
       break;
     case SQL_DYNAMIC_CURSOR_ATTRIBUTES2:
-      GetAttribute(static_cast<SQLUINTEGER>(0), value, bufferLength, outputLength);
+      GetAttribute(static_cast<SQLUINTEGER>(0), value, buffer_length, output_length);
       break;
     case SQL_FORWARD_ONLY_CURSOR_ATTRIBUTES1:
-      GetAttribute(static_cast<SQLUINTEGER>(SQL_CA1_NEXT), value, bufferLength,
-                   outputLength);
+      GetAttribute(static_cast<SQLUINTEGER>(SQL_CA1_NEXT), value, buffer_length,
+                   output_length);
       break;
     case SQL_FORWARD_ONLY_CURSOR_ATTRIBUTES2:
       GetAttribute(static_cast<SQLUINTEGER>(SQL_CA2_READ_ONLY_CONCURRENCY), value,
-                   bufferLength, outputLength);
+                   buffer_length, output_length);
       break;
     case SQL_FILE_USAGE:
-      GetAttribute(static_cast<SQLUSMALLINT>(SQL_FILE_NOT_SUPPORTED), value, bufferLength,
-                   outputLength);
+      GetAttribute(static_cast<SQLUSMALLINT>(SQL_FILE_NOT_SUPPORTED), value,
+                   buffer_length, output_length);
       break;
     case SQL_KEYSET_CURSOR_ATTRIBUTES1:
-      GetAttribute(static_cast<SQLUINTEGER>(0), value, bufferLength, outputLength);
+      GetAttribute(static_cast<SQLUINTEGER>(0), value, buffer_length, output_length);
       break;
     case SQL_KEYSET_CURSOR_ATTRIBUTES2:
-      GetAttribute(static_cast<SQLUINTEGER>(0), value, bufferLength, outputLength);
+      GetAttribute(static_cast<SQLUINTEGER>(0), value, buffer_length, output_length);
       break;
     case SQL_MAX_ASYNC_CONCURRENT_STATEMENTS:
-      GetAttribute(static_cast<SQLUINTEGER>(0), value, bufferLength, outputLength);
+      GetAttribute(static_cast<SQLUINTEGER>(0), value, buffer_length, output_length);
       break;
     case SQL_ODBC_INTERFACE_CONFORMANCE:
-      GetAttribute(static_cast<SQLUINTEGER>(SQL_OIC_CORE), value, bufferLength,
-                   outputLength);
+      GetAttribute(static_cast<SQLUINTEGER>(SQL_OIC_CORE), value, buffer_length,
+                   output_length);
       break;
     // case SQL_ODBC_STANDARD_CLI_CONFORMANCE: - mentioned in SQLGetInfo spec with no
     // description and there is no constant for this.
     case SQL_PARAM_ARRAY_ROW_COUNTS:
-      GetAttribute(static_cast<SQLUINTEGER>(SQL_PARC_NO_BATCH), value, bufferLength,
-                   outputLength);
+      GetAttribute(static_cast<SQLUINTEGER>(SQL_PARC_NO_BATCH), value, buffer_length,
+                   output_length);
       break;
     case SQL_PARAM_ARRAY_SELECTS:
-      GetAttribute(static_cast<SQLUINTEGER>(SQL_PAS_NO_SELECT), value, bufferLength,
-                   outputLength);
+      GetAttribute(static_cast<SQLUINTEGER>(SQL_PAS_NO_SELECT), value, buffer_length,
+                   output_length);
       break;
     case SQL_ROW_UPDATES:
-      GetStringAttribute(isUnicode, "N", true, value, bufferLength, outputLength,
+      GetStringAttribute(is_unicode, "N", true, value, buffer_length, output_length,
                          GetDiagnostics());
       break;
     case SQL_SCROLL_OPTIONS:
-      GetAttribute(static_cast<SQLUINTEGER>(SQL_SO_FORWARD_ONLY), value, bufferLength,
-                   outputLength);
+      GetAttribute(static_cast<SQLUINTEGER>(SQL_SO_FORWARD_ONLY), value, buffer_length,
+                   output_length);
       break;
     case SQL_STATIC_CURSOR_ATTRIBUTES1:
-      GetAttribute(static_cast<SQLUINTEGER>(0), value, bufferLength, outputLength);
+      GetAttribute(static_cast<SQLUINTEGER>(0), value, buffer_length, output_length);
       break;
     case SQL_STATIC_CURSOR_ATTRIBUTES2:
-      GetAttribute(static_cast<SQLUINTEGER>(0), value, bufferLength, outputLength);
+      GetAttribute(static_cast<SQLUINTEGER>(0), value, buffer_length, output_length);
       break;
     case SQL_BOOKMARK_PERSISTENCE:
-      GetAttribute(static_cast<SQLUINTEGER>(0), value, bufferLength, outputLength);
+      GetAttribute(static_cast<SQLUINTEGER>(0), value, buffer_length, output_length);
       break;
     case SQL_DESCRIBE_PARAMETER:
-      GetStringAttribute(isUnicode, "N", true, value, bufferLength, outputLength,
+      GetStringAttribute(is_unicode, "N", true, value, buffer_length, output_length,
                          GetDiagnostics());
       break;
     case SQL_MULT_RESULT_SETS:
-      GetStringAttribute(isUnicode, "N", true, value, bufferLength, outputLength,
+      GetStringAttribute(is_unicode, "N", true, value, buffer_length, output_length,
                          GetDiagnostics());
       break;
     case SQL_MULTIPLE_ACTIVE_TXN:
-      GetStringAttribute(isUnicode, "N", true, value, bufferLength, outputLength,
+      GetStringAttribute(is_unicode, "N", true, value, buffer_length, output_length,
                          GetDiagnostics());
       break;
     case SQL_NEED_LONG_DATA_LEN:
-      GetStringAttribute(isUnicode, "N", true, value, bufferLength, outputLength,
+      GetStringAttribute(is_unicode, "N", true, value, buffer_length, output_length,
                          GetDiagnostics());
       break;
     case SQL_TXN_CAPABLE:
-      GetAttribute(static_cast<SQLUSMALLINT>(SQL_TC_NONE), value, bufferLength,
-                   outputLength);
+      GetAttribute(static_cast<SQLUSMALLINT>(SQL_TC_NONE), value, buffer_length,
+                   output_length);
       break;
     case SQL_TXN_ISOLATION_OPTION:
-      GetAttribute(static_cast<SQLUINTEGER>(0), value, bufferLength, outputLength);
+      GetAttribute(static_cast<SQLUINTEGER>(0), value, buffer_length, output_length);
       break;
     case SQL_TABLE_TERM:
-      GetStringAttribute(isUnicode, "table", true, value, bufferLength, outputLength,
+      GetStringAttribute(is_unicode, "table", true, value, buffer_length, output_length,
                          GetDiagnostics());
       break;
     // Deprecated ODBC 2.x fields required for backwards compatibility.
     case SQL_ODBC_API_CONFORMANCE:
-      GetAttribute(static_cast<SQLUSMALLINT>(SQL_OAC_LEVEL1), value, bufferLength,
-                   outputLength);
+      GetAttribute(static_cast<SQLUSMALLINT>(SQL_OAC_LEVEL1), value, buffer_length,
+                   output_length);
       break;
     case SQL_FETCH_DIRECTION:
-      GetAttribute(static_cast<SQLINTEGER>(SQL_FETCH_NEXT), value, bufferLength,
-                   outputLength);
+      GetAttribute(static_cast<SQLINTEGER>(SQL_FETCH_NEXT), value, buffer_length,
+                   output_length);
       break;
     case SQL_LOCK_TYPES:
-      GetAttribute(static_cast<SQLINTEGER>(0), value, bufferLength, outputLength);
+      GetAttribute(static_cast<SQLINTEGER>(0), value, buffer_length, output_length);
       break;
     case SQL_POS_OPERATIONS:
-      GetAttribute(static_cast<SQLINTEGER>(0), value, bufferLength, outputLength);
+      GetAttribute(static_cast<SQLINTEGER>(0), value, buffer_length, output_length);
       break;
     case SQL_POSITIONED_STATEMENTS:
-      GetAttribute(static_cast<SQLINTEGER>(0), value, bufferLength, outputLength);
+      GetAttribute(static_cast<SQLINTEGER>(0), value, buffer_length, output_length);
       break;
     case SQL_SCROLL_CONCURRENCY:
-      GetAttribute(static_cast<SQLINTEGER>(0), value, bufferLength, outputLength);
+      GetAttribute(static_cast<SQLINTEGER>(0), value, buffer_length, output_length);
       break;
     case SQL_STATIC_SENSITIVITY:
-      GetAttribute(static_cast<SQLINTEGER>(0), value, bufferLength, outputLength);
+      GetAttribute(static_cast<SQLINTEGER>(0), value, buffer_length, output_length);
       break;
 
     // Driver-level string properties.
@@ -309,10 +309,10 @@ void ODBCConnection::GetInfo(SQLUSMALLINT infoType, SQLPOINTER value,
     case SQL_PROCEDURES:
     case SQL_SPECIAL_CHARACTERS:
     case SQL_XOPEN_CLI_YEAR: {
-      const auto& info = m_spiConnection->GetInfo(infoType);
-      const std::string& infoValue = boost::get<std::string>(info);
-      GetStringAttribute(isUnicode, infoValue, true, value, bufferLength, outputLength,
-                         GetDiagnostics());
+      const auto& info = spi_connection_->GetInfo(info_type);
+      const std::string& info_value = boost::get<std::string>(info);
+      GetStringAttribute(is_unicode, info_value, true, value, buffer_length,
+                         output_length, GetDiagnostics());
       break;
     }
 
@@ -400,9 +400,9 @@ void ODBCConnection::GetInfo(SQLUSMALLINT infoType, SQLPOINTER value,
     case SQL_SQL92_STRING_FUNCTIONS:
     case SQL_SQL92_VALUE_EXPRESSIONS:
     case SQL_STANDARD_CLI_CONFORMANCE: {
-      const auto& info = m_spiConnection->GetInfo(infoType);
-      uint32_t infoValue = boost::get<uint32_t>(info);
-      GetAttribute(infoValue, value, bufferLength, outputLength);
+      const auto& info = spi_connection_->GetInfo(info_type);
+      uint32_t info_value = boost::get<uint32_t>(info);
+      GetAttribute(info_value, value, buffer_length, output_length);
       break;
     }
 
@@ -435,31 +435,31 @@ void ODBCConnection::GetInfo(SQLUSMALLINT infoType, SQLPOINTER value,
     case SQL_MAX_USER_NAME_LEN:
     case SQL_ODBC_SQL_CONFORMANCE:
     case SQL_ODBC_SAG_CLI_CONFORMANCE: {
-      const auto& info = m_spiConnection->GetInfo(infoType);
-      uint16_t infoValue = boost::get<uint16_t>(info);
-      GetAttribute(infoValue, value, bufferLength, outputLength);
+      const auto& info = spi_connection_->GetInfo(info_type);
+      uint16_t info_value = boost::get<uint16_t>(info);
+      GetAttribute(info_value, value, buffer_length, output_length);
       break;
     }
 
     // Special case - SQL_DATABASE_NAME is an alias for SQL_ATTR_CURRENT_CATALOG.
     case SQL_DATABASE_NAME: {
-      const auto& attr = m_spiConnection->GetAttribute(Connection::CURRENT_CATALOG);
+      const auto& attr = spi_connection_->GetAttribute(Connection::CURRENT_CATALOG);
       if (!attr) {
         throw DriverException("Optional feature not supported.", "HYC00");
       }
-      const std::string& infoValue = boost::get<std::string>(*attr);
-      GetStringAttribute(isUnicode, infoValue, true, value, bufferLength, outputLength,
-                         GetDiagnostics());
+      const std::string& info_value = boost::get<std::string>(*attr);
+      GetStringAttribute(is_unicode, info_value, true, value, buffer_length,
+                         output_length, GetDiagnostics());
       break;
     }
     default:
-      throw DriverException("Unknown SQLGetInfo type: " + std::to_string(infoType));
+      throw DriverException("Unknown SQLGetInfo type: " + std::to_string(info_type));
   }
 }
 
 void ODBCConnection::SetConnectAttr(SQLINTEGER attribute, SQLPOINTER value,
-                                    SQLINTEGER stringLength, bool isUnicode) {
-  uint32_t attributeToWrite = 0;
+                                    SQLINTEGER string_length, bool is_unicode) {
+  uint32_t attribute_to_write = 0;
   bool successfully_written = false;
   switch (attribute) {
     // Internal connection attributes
@@ -511,12 +511,12 @@ void ODBCConnection::SetConnectAttr(SQLINTEGER attribute, SQLPOINTER value,
     // ODBCAbstraction-level attributes
     case SQL_ATTR_CURRENT_CATALOG: {
       std::string catalog;
-      if (isUnicode) {
-        SetAttributeUTF8(value, stringLength, catalog);
+      if (is_unicode) {
+        SetAttributeUTF8(value, string_length, catalog);
       } else {
-        SetAttributeSQLWCHAR(value, stringLength, catalog);
+        SetAttributeSQLWCHAR(value, string_length, catalog);
       }
-      if (!m_spiConnection->SetAttribute(Connection::CURRENT_CATALOG, catalog)) {
+      if (!spi_connection_->SetAttribute(Connection::CURRENT_CATALOG, catalog)) {
         throw DriverException("Option value changed.", "01S02");
       }
       return;
@@ -539,29 +539,29 @@ void ODBCConnection::SetConnectAttr(SQLINTEGER attribute, SQLPOINTER value,
     case SQL_ATTR_ROW_BIND_TYPE:
     case SQL_ATTR_SIMULATE_CURSOR:
     case SQL_ATTR_USE_BOOKMARKS:
-      m_attributeTrackingStatement->SetStmtAttr(attribute, value, stringLength,
-                                                isUnicode);
+      attribute_tracking_statement_->SetStmtAttr(attribute, value, string_length,
+                                                 is_unicode);
       return;
 
     case SQL_ATTR_ACCESS_MODE:
-      SetAttribute(value, attributeToWrite);
+      SetAttribute(value, attribute_to_write);
       successfully_written =
-          m_spiConnection->SetAttribute(Connection::ACCESS_MODE, attributeToWrite);
+          spi_connection_->SetAttribute(Connection::ACCESS_MODE, attribute_to_write);
       break;
     case SQL_ATTR_CONNECTION_TIMEOUT:
-      SetAttribute(value, attributeToWrite);
-      successfully_written =
-          m_spiConnection->SetAttribute(Connection::CONNECTION_TIMEOUT, attributeToWrite);
+      SetAttribute(value, attribute_to_write);
+      successfully_written = spi_connection_->SetAttribute(Connection::CONNECTION_TIMEOUT,
+                                                           attribute_to_write);
       break;
     case SQL_ATTR_LOGIN_TIMEOUT:
-      SetAttribute(value, attributeToWrite);
+      SetAttribute(value, attribute_to_write);
       successfully_written =
-          m_spiConnection->SetAttribute(Connection::LOGIN_TIMEOUT, attributeToWrite);
+          spi_connection_->SetAttribute(Connection::LOGIN_TIMEOUT, attribute_to_write);
       break;
     case SQL_ATTR_PACKET_SIZE:
-      SetAttribute(value, attributeToWrite);
+      SetAttribute(value, attribute_to_write);
       successfully_written =
-          m_spiConnection->SetAttribute(Connection::PACKET_SIZE, attributeToWrite);
+          spi_connection_->SetAttribute(Connection::PACKET_SIZE, attribute_to_write);
       break;
     default:
       throw DriverException("Invalid attribute: " + std::to_string(attribute), "HY092");
@@ -574,57 +574,57 @@ void ODBCConnection::SetConnectAttr(SQLINTEGER attribute, SQLPOINTER value,
 }
 
 void ODBCConnection::GetConnectAttr(SQLINTEGER attribute, SQLPOINTER value,
-                                    SQLINTEGER bufferLength, SQLINTEGER* outputLength,
-                                    bool isUnicode) {
+                                    SQLINTEGER buffer_length, SQLINTEGER* output_length,
+                                    bool is_unicode) {
   using driver::odbcabstraction::Connection;
-  boost::optional<Connection::Attribute> spiAttribute;
+  boost::optional<Connection::Attribute> spi_attribute;
 
   switch (attribute) {
     // Internal connection attributes
 #ifdef SQL_ATR_ASYNC_DBC_EVENT
     case SQL_ATTR_ASYNC_DBC_EVENT:
-      GetAttribute(static_cast<SQLPOINTER>(NULL), value, bufferLength, outputLength);
+      GetAttribute(static_cast<SQLPOINTER>(NULL), value, buffer_length, output_length);
       return;
 #endif
 #ifdef SQL_ATTR_ASYNC_DBC_FUNCTIONS_ENABLE
     case SQL_ATTR_ASYNC_DBC_FUNCTIONS_ENABLE:
       GetAttribute(static_cast<SQLUINTEGER>(SQL_ASYNC_DBC_ENABLE_OFF), value,
-                   bufferLength, outputLength);
+                   buffer_length, output_length);
       return;
 #endif
 #ifdef SQL_ATTR_ASYNC_PCALLBACK
     case SQL_ATTR_ASYNC_DBC_PCALLBACK:
-      GetAttribute(static_cast<SQLPOINTER>(NULL), value, bufferLength, outputLength);
+      GetAttribute(static_cast<SQLPOINTER>(NULL), value, buffer_length, output_length);
       return;
 #endif
 #ifdef SQL_ATTR_ASYNC_DBC_PCONTEXT
     case SQL_ATTR_ASYNC_DBC_PCONTEXT:
-      GetAttribute(static_cast<SQLPOINTER>(NULL), value, bufferLength, outputLength);
+      GetAttribute(static_cast<SQLPOINTER>(NULL), value, buffer_length, output_length);
       return;
 #endif
     case SQL_ATTR_ASYNC_ENABLE:
-      GetAttribute(static_cast<SQLULEN>(SQL_ASYNC_ENABLE_OFF), value, bufferLength,
-                   outputLength);
+      GetAttribute(static_cast<SQLULEN>(SQL_ASYNC_ENABLE_OFF), value, buffer_length,
+                   output_length);
       return;
     case SQL_ATTR_AUTO_IPD:
-      GetAttribute(static_cast<SQLUINTEGER>(SQL_FALSE), value, bufferLength,
-                   outputLength);
+      GetAttribute(static_cast<SQLUINTEGER>(SQL_FALSE), value, buffer_length,
+                   output_length);
       return;
     case SQL_ATTR_AUTOCOMMIT:
-      GetAttribute(static_cast<SQLUINTEGER>(SQL_AUTOCOMMIT_ON), value, bufferLength,
-                   outputLength);
+      GetAttribute(static_cast<SQLUINTEGER>(SQL_AUTOCOMMIT_ON), value, buffer_length,
+                   output_length);
       return;
 #ifdef SQL_ATTR_DBC_INFO_TOKEN
     case SQL_ATTR_DBC_INFO_TOKEN:
       throw DriverException("Cannot read set-only attribute", "HY092");
 #endif
     case SQL_ATTR_ENLIST_IN_DTC:
-      GetAttribute(static_cast<SQLPOINTER>(NULL), value, bufferLength, outputLength);
+      GetAttribute(static_cast<SQLPOINTER>(NULL), value, buffer_length, output_length);
       return;
     case SQL_ATTR_ODBC_CURSORS:  // DM-only.
       throw DriverException("Invalid attribute", "HY092");
     case SQL_ATTR_QUIET_MODE:
-      GetAttribute(static_cast<SQLPOINTER>(NULL), value, bufferLength, outputLength);
+      GetAttribute(static_cast<SQLPOINTER>(NULL), value, buffer_length, output_length);
       return;
     case SQL_ATTR_TRACE:  // DM-only
       throw DriverException("Invalid attribute", "HY092");
@@ -639,127 +639,127 @@ void ODBCConnection::GetConnectAttr(SQLINTEGER attribute, SQLPOINTER value,
 
     // ODBCAbstraction-level connection attributes.
     case SQL_ATTR_CURRENT_CATALOG: {
-      const auto& catalog = m_spiConnection->GetAttribute(Connection::CURRENT_CATALOG);
+      const auto& catalog = spi_connection_->GetAttribute(Connection::CURRENT_CATALOG);
       if (!catalog) {
         throw DriverException("Optional feature not supported.", "HYC00");
       }
-      const std::string& infoValue = boost::get<std::string>(*catalog);
-      GetStringAttribute(isUnicode, infoValue, true, value, bufferLength, outputLength,
-                         GetDiagnostics());
+      const std::string& info_value = boost::get<std::string>(*catalog);
+      GetStringAttribute(is_unicode, info_value, true, value, buffer_length,
+                         output_length, GetDiagnostics());
       return;
     }
 
     // These all are uint32_t attributes.
     case SQL_ATTR_ACCESS_MODE:
-      spiAttribute = m_spiConnection->GetAttribute(Connection::ACCESS_MODE);
+      spi_attribute = spi_connection_->GetAttribute(Connection::ACCESS_MODE);
       break;
     case SQL_ATTR_CONNECTION_DEAD:
-      spiAttribute = m_spiConnection->GetAttribute(Connection::CONNECTION_DEAD);
+      spi_attribute = spi_connection_->GetAttribute(Connection::CONNECTION_DEAD);
       break;
     case SQL_ATTR_CONNECTION_TIMEOUT:
-      spiAttribute = m_spiConnection->GetAttribute(Connection::CONNECTION_TIMEOUT);
+      spi_attribute = spi_connection_->GetAttribute(Connection::CONNECTION_TIMEOUT);
       break;
     case SQL_ATTR_LOGIN_TIMEOUT:
-      spiAttribute = m_spiConnection->GetAttribute(Connection::LOGIN_TIMEOUT);
+      spi_attribute = spi_connection_->GetAttribute(Connection::LOGIN_TIMEOUT);
       break;
     case SQL_ATTR_PACKET_SIZE:
-      spiAttribute = m_spiConnection->GetAttribute(Connection::PACKET_SIZE);
+      spi_attribute = spi_connection_->GetAttribute(Connection::PACKET_SIZE);
       break;
     default:
       throw DriverException("Invalid attribute", "HY092");
   }
 
-  if (!spiAttribute) {
+  if (!spi_attribute) {
     throw DriverException("Invalid attribute", "HY092");
   }
 
-  GetAttribute(static_cast<SQLUINTEGER>(boost::get<uint32_t>(*spiAttribute)), value,
-               bufferLength, outputLength);
+  GetAttribute(static_cast<SQLUINTEGER>(boost::get<uint32_t>(*spi_attribute)), value,
+               buffer_length, output_length);
 }
 
-void ODBCConnection::disconnect() {
-  if (m_isConnected) {
+void ODBCConnection::Disconnect() {
+  if (is_connected_) {
     // Ensure that all statements (and corresponding SPI statements) get cleaned
     // up before terminating the SPI connection in case they need to be de-allocated in
     // the reverse of the allocation order.
-    m_statements.clear();
-    m_spiConnection->Close();
-    m_isConnected = false;
+    statements_.clear();
+    spi_connection_->Close();
+    is_connected_ = false;
   }
 }
 
-void ODBCConnection::releaseConnection() {
-  disconnect();
-  m_environment.DropConnection(this);
+void ODBCConnection::ReleaseConnection() {
+  Disconnect();
+  environment_.DropConnection(this);
 }
 
-std::shared_ptr<ODBCStatement> ODBCConnection::createStatement() {
-  std::shared_ptr<Statement> spiStatement = m_spiConnection->CreateStatement();
+std::shared_ptr<ODBCStatement> ODBCConnection::CreateStatement() {
+  std::shared_ptr<Statement> spi_statement = spi_connection_->CreateStatement();
   std::shared_ptr<ODBCStatement> statement =
-      std::make_shared<ODBCStatement>(*this, spiStatement);
-  m_statements.push_back(statement);
+      std::make_shared<ODBCStatement>(*this, spi_statement);
+  statements_.push_back(statement);
   statement->CopyAttributesFromConnection(*this);
   return statement;
 }
 
-void ODBCConnection::dropStatement(ODBCStatement* stmt) {
-  auto it = std::find_if(m_statements.begin(), m_statements.end(),
+void ODBCConnection::DropStatement(ODBCStatement* stmt) {
+  auto it = std::find_if(statements_.begin(), statements_.end(),
                          [&stmt](const std::shared_ptr<ODBCStatement>& statement) {
                            return statement.get() == stmt;
                          });
-  if (m_statements.end() != it) {
-    m_statements.erase(it);
+  if (statements_.end() != it) {
+    statements_.erase(it);
   }
 }
 
-std::shared_ptr<ODBCDescriptor> ODBCConnection::createDescriptor() {
+std::shared_ptr<ODBCDescriptor> ODBCConnection::CreateDescriptor() {
   std::shared_ptr<ODBCDescriptor> desc = std::make_shared<ODBCDescriptor>(
-      m_spiConnection->GetDiagnostics(), this, nullptr, true, true, false);
-  m_descriptors.push_back(desc);
+      spi_connection_->GetDiagnostics(), this, nullptr, true, true, false);
+  descriptors_.push_back(desc);
   return desc;
 }
 
-void ODBCConnection::dropDescriptor(ODBCDescriptor* desc) {
-  auto it = std::find_if(m_descriptors.begin(), m_descriptors.end(),
+void ODBCConnection::DropDescriptor(ODBCDescriptor* desc) {
+  auto it = std::find_if(descriptors_.begin(), descriptors_.end(),
                          [&desc](const std::shared_ptr<ODBCDescriptor>& descriptor) {
                            return descriptor.get() == desc;
                          });
-  if (m_descriptors.end() != it) {
-    m_descriptors.erase(it);
+  if (descriptors_.end() != it) {
+    descriptors_.erase(it);
   }
 }
 
 // Public Static
 // ===================================================================================
-std::string ODBCConnection::getPropertiesFromConnString(
-    const std::string& connStr, Connection::ConnPropertyMap& properties) {
+std::string ODBCConnection::GetPropertiesFromConnString(
+    const std::string& conn_str, Connection::ConnPropertyMap& properties) {
   const int groups[] = {1, 2};  // CONNECTION_STR_REGEX has two groups. key: 1, value: 2
-  boost::xpressive::sregex_token_iterator regexIter(connStr.begin(), connStr.end(),
-                                                    CONNECTION_STR_REGEX, groups),
+  boost::xpressive::sregex_token_iterator regex_iter(conn_str.begin(), conn_str.end(),
+                                                     CONNECTION_STR_REGEX, groups),
       end;
 
-  bool isDsnFirst = false;
-  bool isDriverFirst = false;
+  bool is_dsn_first = false;
+  bool is_driver_first = false;
   std::string dsn;
-  for (auto it = regexIter; end != regexIter; ++regexIter) {
-    std::string key = *regexIter;
-    std::string value = *++regexIter;
+  for (auto it = regex_iter; end != regex_iter; ++regex_iter) {
+    std::string key = *regex_iter;
+    std::string value = *++regex_iter;
 
     // If the DSN shows up before driver key, load settings from the DSN.
     // Only load values from the DSN once regardless of how many times the DSN
     // key shows up.
     if (boost::iequals(key, "DSN")) {
-      if (!isDriverFirst) {
-        if (!isDsnFirst) {
-          isDsnFirst = true;
+      if (!is_driver_first) {
+        if (!is_dsn_first) {
+          is_dsn_first = true;
           loadPropertiesFromDSN(value, properties);
           dsn.swap(value);
         }
       }
       continue;
     } else if (boost::iequals(key, "Driver")) {
-      if (!isDsnFirst) {
-        isDriverFirst = true;
+      if (!is_dsn_first) {
+        is_driver_first = true;
       }
       continue;
     }

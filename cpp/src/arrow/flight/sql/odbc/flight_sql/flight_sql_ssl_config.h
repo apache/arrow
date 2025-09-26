@@ -28,35 +28,36 @@ namespace flight_sql {
 ///        a SSL connection.
 class FlightSqlSslConfig {
  public:
-  FlightSqlSslConfig(bool disableCertificateVerification, const std::string& trustedCerts,
-                     bool systemTrustStore, bool useEncryption);
+  FlightSqlSslConfig(bool disable_certificate_verification,
+                     const std::string& trusted_certs, bool system_trust_store,
+                     bool use_encryption);
 
   /// \brief  Tells if ssl is enabled. By default it will be true.
   /// \return Whether ssl is enabled.
-  bool useEncryption() const;
+  bool UseEncryption() const;
 
   /// \brief  Tells if disable certificate verification is enabled.
   /// \return Whether disable certificate verification is enabled.
-  bool shouldDisableCertificateVerification() const;
+  bool ShouldDisableCertificateVerification() const;
 
   /// \brief  The path to the trusted certificate.
   /// \return Certificate path.
-  const std::string& getTrustedCerts() const;
+  const std::string& GetTrustedCerts() const;
 
   /// \brief  Tells if we need to check if the certificate is in the system trust store.
   /// \return Whether to use the system trust store.
-  bool useSystemTrustStore() const;
+  bool UseSystemTrustStore() const;
 
   /// \brief Loads the certificate file and extract the certificate file from it
   ///        and create the object CertKeyPair with it on.
   /// \param out A CertKeyPair with the cert on it.
-  void populateOptionsWithCerts(arrow::flight::CertKeyPair* out);
+  void PopulateOptionsWithCerts(arrow::flight::CertKeyPair* out);
 
  private:
-  const std::string trustedCerts_;
-  const bool useEncryption_;
-  const bool disableCertificateVerification_;
-  const bool systemTrustStore_;
+  const std::string trusted_certs_;
+  const bool use_encryption_;
+  const bool disable_certificate_verification_;
+  const bool system_trust_store_;
 };
 }  // namespace flight_sql
 }  // namespace driver
