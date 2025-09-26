@@ -29,4 +29,58 @@ index 7764357a6d..da7374ecec 100644
  )
  
  vcpkg_cmake_install(ADD_BIN_TO_PATH)
+diff --git a/ports/orc/orc-fix-exception-propagation.diff b/ports/orc/orc-fix-exception-propagation.diff
+new file mode 100644
+index 0000000000..7d0c87f3db
+--- /dev/null
++++ b/ports/orc/orc-fix-exception-propagation.diff
+@@ -0,0 +1,36 @@
++diff --git a/c++/src/Timezone.cc b/c++/src/Timezone.cc
++index 384f8ea99..0b58d0720 100644
++--- a/c++/src/Timezone.cc
+++++ b/c++/src/Timezone.cc
++@@ -695,13 +695,26 @@ namespace orc {
++    private:
++     std::string filename_;
++     mutable std::unique_ptr<TimezoneImpl> impl_;
++-    mutable std::once_flag initialized_;
+++    mutable std::mutex init_mutex_;
+++    mutable bool initialized_ = false;
+++    mutable std::exception_ptr init_exception_;
++ 
++     TimezoneImpl* getImpl() const {
++-      std::call_once(initialized_, [&]() {
++-        auto buffer = loadTZDB(filename_);
++-        impl_ = std::make_unique<TimezoneImpl>(filename_, std::move(buffer));
++-      });
+++      std::lock_guard<std::mutex> lock(init_mutex_);
+++      if (!initialized_) {
+++        try {
+++          auto buffer = loadTZDB(filename_);
+++          impl_ = std::make_unique<TimezoneImpl>(filename_, std::move(buffer));
+++          initialized_ = true;
+++        } catch (...) {
+++          init_exception_ = std::current_exception();
+++          initialized_ = true;
+++        }
+++      }
+++      // If initialization failed, re-throw the exception
+++      if (init_exception_) {
+++        std::rethrow_exception(init_exception_);
+++      }
++       return impl_.get();
++     }
++ 
+diff --git a/ports/orc/portfile.cmake b/ports/orc/portfile.cmake
+index 77ebf41ec3..4d065594a7 100644
+--- a/ports/orc/portfile.cmake
++++ b/ports/orc/portfile.cmake
+@@ -6,6 +6,8 @@ vcpkg_from_github(
+   REF "v${VERSION}"
+   SHA512 eabee16a6e984452a8cb715d0524041b20dd1bd88d78bb32534db93e5dbdd786aa4df8c05975406cb0728241eb3025a506c4fefb8c334ef0d8a27e6cb920d44c
+   HEAD_REF master
++  PATCHES
++    orc-fix-exception-propagation.diff
+ )
  
+ file(REMOVE "${SOURCE_PATH}/cmake_modules/FindGTest.cmake")
