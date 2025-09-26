@@ -323,7 +323,8 @@ inline int BitReader::GetBatch(int num_bits, T* v, int batch_size) {
     }
   }
 
-  if constexpr (sizeof(T) >= 2) {
+  // unpack for uint16_t not as fast as unpack for uint32_t + memcpy.
+  if constexpr (sizeof(T) >= sizeof(32)) {
     int num_unpacked = internal::unpack(buffer + byte_offset,
                                         reinterpret_cast<std::make_unsigned_t<T>*>(v + i),
                                         batch_size - i, num_bits);
