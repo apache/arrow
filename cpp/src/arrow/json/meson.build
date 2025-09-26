@@ -55,6 +55,12 @@ install_headers(
     subdir: 'arrow/json',
 )
 
+arrow_json_dep = declare_dependency(
+    include_directories: include_directories('.'),
+    dependencies: arrow_dep,
+)
+meson.override_dependency('arrow-json', arrow_json_dep)
+
 pkg.generate(
     filebase: 'arrow-json',
     name: 'Apache Arrow JSON',

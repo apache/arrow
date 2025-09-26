@@ -84,7 +84,11 @@ arrow_acero_lib = library(
     gnu_symbol_visibility: 'inlineshidden',
 )
 
-arrow_acero_dep = declare_dependency(link_with: [arrow_acero_lib])
+arrow_acero_dep = declare_dependency(
+    dependencies: [arrow_compute_dep],
+    link_with: [arrow_acero_lib],
+)
+meson.override_dependency('arrow-acero', arrow_acero_dep)
 
 arrow_acero_testing_sources = ['test_nodes.cc', 'test_util_internal.cc']
 
@@ -145,6 +149,7 @@ foreach key, val : arrow_acero_benchmarks
 endforeach
 
 pkg.generate(
+    arrow_acero_lib,
     filebase: 'arrow-acero',
     name: 'Apache Arrow Acero Engine',
     description: 'Apache Arrow\'s Acero Engine',
