@@ -423,7 +423,7 @@ class TestSparseCOOTensorCreationFromNegativeZero
 
   void FromVector() {
     std::vector<ValueCType> data{
-        -0.0, -0.0, -0.0, -0.0, 4.0, -0.0, -0.0, -0.0, -0.0, -1.0, -0.0, -0.0,
+        -0.0, -0.0, 0.0, -0.0, 4.0, +0.0, -0.0, -0.0, -0.0, -1.0, 0.0, -0.0,
     };
     std::vector<int64_t> shape = {12};
     auto buffer = Buffer::FromVector(data);
@@ -442,9 +442,9 @@ class TestSparseCOOTensorCreationFromNegativeZero
   void FromContiguousTensor() {
     // clang-format off
     std::vector<ValueCType> data{
-      -0.0, -0.0, -0.0,
-      -0.0,  4.0, -0.0,
-      -0.0, -0.0, -0.0,
+      -0.0,  0.0, -0.0,
+      +0.0,  4.0, -0.0,
+      -0.0, -0.0,  0.0,
       -1.0, -0.0, -0.0,
       };
     // clang-format on
@@ -465,10 +465,10 @@ class TestSparseCOOTensorCreationFromNegativeZero
   void FromNonContiguousTensor() {
     // clang-format off
     std::vector<ValueCType> data{
-      -0.0, -0.0, -0.0,  1.0,  2.0,
-      -0.0,  4.0, -0.0, -0.0, -0.0,
-      -0.0, -0.0, -0.0,  3.0,  4.0,
-      -1.0, -0.0, -0.0, -0.0, -0.0,
+      -0.0, -0.0,  0.0,  1.0,  2.0,
+      -0.0,  4.0,  0.0,  0.0, -0.0,
+      -0.0, +0.0, -0.0,  3.0,  4.0,
+      -1.0, -0.0, -0.0, -0.0, +0.0,
       };
     // clang-format on
     std::vector<int64_t> shape = {4, 3};
@@ -973,10 +973,10 @@ class TestSparseCSRTensorCreationFromNegativeZero
   void FromTensor() {
     // clang-format off
     std::vector<ValueCType> data{
-      -0.0, -0.0, -0.0,
+      -0.0, -0.0,  0.0,
       -0.0,  4.0, -0.0,
-      -0.0, -0.0, -0.0,
-      -1.0, -0.0, -0.0,
+      +0.0, -0.0, -0.0,
+      -1.0, -0.0, +0.0,
       };
     // clang-format on
     std::vector<int64_t> shape = {4, 3};
@@ -1353,9 +1353,9 @@ class TestSparseCSCTensorCreationFromNegativeZero
   void FromTensor() {
     // clang-format off
     std::vector<ValueCType> data{
-      -0.0, -0.0, -0.0,
+      -0.0, -0.0, +0.0,
       -0.0,  4.0, -0.0,
-      -0.0, -0.0, -0.0,
+      -0.0,  0.0, -0.0,
       -1.0, -0.0, -0.0,
       };
     // clang-format on
@@ -1673,9 +1673,9 @@ class TestSparseCSFTensorCreationFromNegativeZero
   void FromTensor() {
     // clang-format off
     std::vector<ValueCType> data{
-      -0.0, -0.0, -0.0, -0.0,
-       4.0, -0.0, -0.0, -0.0,
-      -0.0, -1.0, -0.0, -0.0,
+      -0.0, -0.0,  0.0, -0.0,
+       4.0, +0.0, -0.0, -0.0,
+       0.0, -1.0, -0.0, -0.0,
       };
     // clang-format on
     std::vector<int64_t> shape = {3, 4};
