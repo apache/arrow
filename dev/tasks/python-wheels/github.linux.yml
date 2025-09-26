@@ -41,6 +41,7 @@ jobs:
       ARCH: arm64v8
       {% endif %}
       PYTHON: "{{ python_version }}"
+      PYTHON_ABI_TAG: "{{ python_abi_tag }}"
       {% if python_version == "3.14" %}
       PYTHON_IMAGE_TAG: "3.14-rc"
       {% else %}
