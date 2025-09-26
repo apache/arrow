@@ -1502,7 +1502,7 @@ class BaseCSVTableRead(BaseTestCSV):
 
         # Interruption should have arrived timely
         assert last_duration <= 2.0
-        e = exc_info.__context__
+        e = exc_info.__context__  # type: ignore[misc]
         assert isinstance(e, pa.ArrowCancelled)
         assert e.signum == signal.SIGINT
 

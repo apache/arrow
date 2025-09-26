@@ -24,7 +24,7 @@ from collections.abc import Sequence, Mapping
 try:
     import numpy as np
 except ImportError:
-    np = None
+    np = None  # type: ignore[assignment]
 
 import pyarrow as pa
 import pyarrow.compute as pc
@@ -68,7 +68,7 @@ import pyarrow.compute as pc
      pa.Time32Scalar),
     (datetime.datetime.now().time(), None, pa.Time64Scalar),
     (datetime.timedelta(days=1), None, pa.DurationScalar),
-    (pa.MonthDayNano([1, -1, -10100]), None,
+    (pa.MonthDayNano([1, -1, -10100]), None,  # type: ignore[call-arg, arg-type]
      pa.MonthDayNanoIntervalScalar),
     ({'a': 1, 'b': [1, 2]}, None, pa.StructScalar),
     ([('a', 1), ('b', 2)], pa.map_(pa.string(), pa.int8()), pa.MapScalar),
@@ -360,7 +360,7 @@ def test_time_from_datetime_time():
 def test_temporal_values(value, time_type: pa.DataType):
     time_scalar = pa.scalar(value, type=time_type)
     time_scalar.validate(full=True)
-    assert time_scalar.value == value
+    assert time_scalar.value == value  # type: ignore[attr-defined]
 
 
 def test_cast():

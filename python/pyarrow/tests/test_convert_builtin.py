@@ -27,7 +27,7 @@ import pytest
 try:
     import numpy as np
 except ImportError:
-    np = None
+    np = None  # type: ignore[assignment]
 
 from pyarrow.pandas_compat import _pandas_api  # noqa
 import pyarrow as pa
@@ -2471,8 +2471,10 @@ def test_array_from_pylist_offset_overflow():
         pa.timestamp('us')
     ),
     (
-        [pa.MonthDayNano([1, -1, -10100])],
-        [pa.scalar(pa.MonthDayNano([1, -1, -10100]))],
+        [pa.MonthDayNano([1, -1, -10100])],  # type: ignore[call-arg, arg-type]
+        [pa.scalar(
+            pa.MonthDayNano([1, -1, -10100])  # type: ignore[call-arg, arg-type]
+        )],
         pa.month_day_nano_interval()
     ),
     (["a", "b"], [pa.scalar("a"), pa.scalar("b")], pa.string()),
