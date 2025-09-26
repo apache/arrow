@@ -27,40 +27,21 @@ namespace arrow::internal {
 
 namespace {
 
-struct Unpack32DynamicFunction {
-  using FunctionType = decltype(&unpack32_scalar);
+template <typename Uint>
+struct UnpackDynamicFunction {
+  using FunctionType = decltype(&unpack_scalar<Uint>);
   using Implementation = std::pair<DispatchLevel, FunctionType>;
 
   static auto implementations() {
     return std::array {
       // Current SIMD unpack algorithm works terribly on SSE4.2 due to lack of variable
       // rhsift and poor xsimd fallback.
-      Implementation{DispatchLevel::NONE, &unpack32_scalar},
+      Implementation{DispatchLevel::NONE, &unpack_scalar<Uint>},
 #if defined(ARROW_HAVE_RUNTIME_AVX2)
-          Implementation{DispatchLevel::AVX2, &unpack32_avx2},
+          Implementation{DispatchLevel::AVX2, &unpack_avx2<Uint>},
 #endif
 #if defined(ARROW_HAVE_RUNTIME_AVX512)
-          Implementation{DispatchLevel::AVX512, &unpack32_avx512},
-#endif
-    };
-  }
-};
-
-struct Unpack64DynamicFunction {
-  using FunctionType = decltype(&unpack64_scalar);
-  using Implementation = std::pair<DispatchLevel, FunctionType>;
-
-  static auto implementations() {
-    return std::array {
-      // Current SIMD unpack algorithm works terribly on SSE4.2 due to lack of variable
-      // rhsift and poor xsimd fallback.
-      Implementation{DispatchLevel::NONE, &unpack64_scalar},
-#if defined(ARROW_HAVE_RUNTIME_AVX2)
-          // Note that Avx2 implementation only slightly outperform scalar
-          Implementation{DispatchLevel::AVX2, &unpack64_avx2},
-#endif
-#if defined(ARROW_HAVE_RUNTIME_AVX512)
-          Implementation{DispatchLevel::AVX512, &unpack64_avx512},
+          Implementation{DispatchLevel::AVX512, &unpack_avx512<Uint>},
 #endif
     };
   }
@@ -69,31 +50,18 @@ struct Unpack64DynamicFunction {
 }  // namespace
 
 template <typename Uint>
-ARROW_EXPORT int unpack(const uint8_t* in, Uint* out, int batch_size, int num_bits) {
+int unpack(const uint8_t* in, Uint* out, int batch_size, int num_bits) {
   if constexpr (std::is_same_v<Uint, uint16_t>) {
     // Current SIMD unpack function do not out beat scalar implementation for uin16_t
-    return unpack16_scalar(in, out, batch_size, num_bits);
-  }
-
-  if constexpr (std::is_same_v<Uint, uint32_t>) {
+    return unpack_scalar<uint16_t>(in, out, batch_size, num_bits);
+  } else {
 #if defined(ARROW_HAVE_NEON)
-    return unpack32_neon(in, out, batch_size, num_bits);
+    return unpack_neon(in, out, batch_size, num_bits);
 #else
-    static DynamicDispatch<Unpack32DynamicFunction> dispatch;
+    static DynamicDispatch<UnpackDynamicFunction<Uint> > dispatch;
     return dispatch.func(in, out, batch_size, num_bits);
 #endif
   }
-
-  if constexpr (std::is_same_v<Uint, uint64_t>) {
-#if defined(ARROW_HAVE_NEON)
-    return unpack64_neon(in, out, batch_size, num_bits);
-#else
-    static DynamicDispatch<Unpack64DynamicFunction> dispatch;
-    return dispatch.func(in, out, batch_size, num_bits);
-#endif
-  }
-
-  return 0;
 }
 
 template int unpack<uint16_t>(const uint8_t*, uint16_t*, int, int);

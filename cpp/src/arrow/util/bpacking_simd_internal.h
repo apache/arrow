@@ -24,44 +24,65 @@
 namespace arrow::internal {
 
 #if defined(ARROW_HAVE_NEON)
-ARROW_EXPORT int unpack16_neon(const uint8_t* in, uint16_t* out, int batch_size,
-                               int num_bits);
 
-ARROW_EXPORT int unpack32_neon(const uint8_t* in, uint32_t* out, int batch_size,
-                               int num_bits);
+template <typename Uint>
+ARROW_EXPORT int unpack_neon(const uint8_t* in, Uint* out, int batch_size, int num_bits);
 
-ARROW_EXPORT int unpack64_neon(const uint8_t* in, uint64_t* out, int batch_size,
-                               int num_bits);
+extern template ARROW_TEMPLATE_EXPORT int unpack_neon<uint16_t>(const uint8_t*, uint16_t*,
+                                                                int, int);
+
+extern template ARROW_TEMPLATE_EXPORT int unpack_neon<uint32_t>(const uint8_t*, uint32_t*,
+                                                                int, int);
+
+extern template ARROW_TEMPLATE_EXPORT int unpack_neon<uint64_t>(const uint8_t*, uint64_t*,
+                                                                int, int);
+
 #endif
 
 #if defined(ARROW_HAVE_SSE4_2)
-ARROW_EXPORT int unpack16_sse4_2(const uint8_t* in, uint16_t* out, int batch_size,
-                                 int num_bits);
 
-ARROW_EXPORT int unpack32_sse4_2(const uint8_t* in, uint32_t* out, int batch_size,
-                                 int num_bits);
+template <typename Uint>
+ARROW_EXPORT int unpack_sse4_2(const uint8_t* in, Uint* out, int batch_size,
+                               int num_bits);
 
-ARROW_EXPORT int unpack64_sse4_2(const uint8_t* in, uint64_t* out, int batch_size,
-                                 int num_bits);
+extern template ARROW_TEMPLATE_EXPORT int unpack_sse4_2<uint16_t>(const uint8_t*,
+                                                                  uint16_t*, int, int);
+
+extern template ARROW_TEMPLATE_EXPORT int unpack_sse4_2<uint32_t>(const uint8_t*,
+                                                                  uint32_t*, int, int);
+
+extern template ARROW_TEMPLATE_EXPORT int unpack_sse4_2<uint64_t>(const uint8_t*,
+                                                                  uint64_t*, int, int);
 #endif
 
 #if defined(ARROW_HAVE_AVX2) || defined(ARROW_HAVE_RUNTIME_AVX2)
-ARROW_EXPORT int unpack16_avx2(const uint8_t* in, uint16_t* out, int batch_size,
-                               int num_bits);
 
-ARROW_EXPORT int unpack32_avx2(const uint8_t* in, uint32_t* out, int batch_size,
-                               int num_bits);
+template <typename Uint>
+ARROW_EXPORT int unpack_avx2(const uint8_t* in, Uint* out, int batch_size, int num_bits);
 
-ARROW_EXPORT int unpack64_avx2(const uint8_t* in, uint64_t* out, int batch_size,
-                               int num_bits);
+extern template ARROW_TEMPLATE_EXPORT int unpack_avx2<uint16_t>(const uint8_t*, uint16_t*,
+                                                                int, int);
+
+extern template ARROW_TEMPLATE_EXPORT int unpack_avx2<uint32_t>(const uint8_t*, uint32_t*,
+                                                                int, int);
+
+extern template ARROW_TEMPLATE_EXPORT int unpack_avx2<uint64_t>(const uint8_t*, uint64_t*,
+                                                                int, int);
+
 #endif
 
 #if defined(ARROW_HAVE_AVX512) || defined(ARROW_HAVE_RUNTIME_AVX512)
-ARROW_EXPORT int unpack32_avx512(const uint8_t* in, uint32_t* out, int batch_size,
-                                 int num_bits);
 
-ARROW_EXPORT int unpack64_avx512(const uint8_t* in, uint64_t* out, int batch_size,
-                                 int num_bits);
+template <typename Uint>
+ARROW_EXPORT int unpack_avx512(const uint8_t* in, Uint* out, int batch_size,
+                               int num_bits);
+
+extern template ARROW_TEMPLATE_EXPORT int unpack_avx512<uint32_t>(const uint8_t*,
+                                                                  uint32_t*, int, int);
+
+extern template ARROW_TEMPLATE_EXPORT int unpack_avx512<uint64_t>(const uint8_t*,
+                                                                  uint64_t*, int, int);
+
 #endif
 
 }  // namespace arrow::internal
