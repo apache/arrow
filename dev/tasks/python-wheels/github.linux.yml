@@ -42,7 +42,7 @@ jobs:
       {% endif %}
       PYTHON: "{{ python_version }}"
       {% if python_version == "3.14" %}
-      PYTHON_IMAGE_TAG: "3.14.0rc3"
+      PYTHON_IMAGE_TAG: "3.14-rc"
       {% else %}
       PYTHON_IMAGE_TAG: "{{ python_version }}"
       {% endif %}
