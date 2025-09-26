@@ -20,18 +20,9 @@
 set -e
 
 node_version="$(node --version)"
-echo "node version = ${node_version}"
+echo "Node.js version = ${node_version}"
 
-case "${node_version}" in
-  v12*)
-    # Pin azurite to 3.29.0 due to https://github.com/apache/arrow/issues/41505
-    azurite_version=v3.29.0
-    ;;
-  *)
-    azurite_version=latest
-    ;;
-esac
-
+azurite_version=latest
 case "$(uname)" in
   Darwin)
     npm install -g azurite@${azurite_version}
@@ -46,5 +37,4 @@ case "$(uname)" in
     which azurite
     ;;
 esac
-
-echo "azurite version = $(azurite --version)"
+echo "Azurite version = $(azurite --version)"
