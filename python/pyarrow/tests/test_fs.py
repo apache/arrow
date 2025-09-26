@@ -2216,8 +2216,8 @@ def test_fsspec_delete_root_dir_contents():
     fs = FSSpecHandler(MemoryFileSystem())
 
     # Create some files and directories
-    fs.create_dir("test_dir")
-    fs.create_dir("test_dir/subdir")
+    fs.create_dir("test_dir", recursive=True)
+    fs.create_dir("test_dir/subdir", recursive=True)
 
     with fs.open_output_stream("test_file.txt") as stream:
         stream.write(b"test content")
@@ -2226,17 +2226,20 @@ def test_fsspec_delete_root_dir_contents():
         stream.write(b"nested content")
 
     # Verify files exist before deletion
-    assert fs.get_file_info("test_file.txt").type == FileType.File
-    assert fs.get_file_info("test_dir").type == FileType.Directory
-    assert fs.get_file_info("test_dir/nested_file.txt").type == FileType.File
+    def get_type(path):
+        return fs.get_file_info([path])[0].type
+
+    assert get_type("test_file.txt") == FileType.File
+    assert get_type("test_dir") == FileType.Directory
+    assert get_type("test_dir/nested_file.txt") == FileType.File
 
     # Delete root directory contents
     fs.delete_root_dir_contents()
 
     # Assert all files and directories are deleted
-    assert fs.get_file_info("test_file.txt").type == FileType.NotFound
-    assert fs.get_file_info("test_dir").type == FileType.NotFound
-    assert fs.get_file_info("test_dir/nested_file.txt").type == FileType.NotFound
+    assert get_type("test_file.txt") == FileType.NotFound
+    assert get_type("test_dir") == FileType.NotFound
+    assert get_type("test_dir/nested_file.txt") == FileType.NotFound
 
 
 def test_huggingface_filesystem_from_uri():
