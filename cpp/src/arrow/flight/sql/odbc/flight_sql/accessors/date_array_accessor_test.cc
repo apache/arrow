@@ -51,10 +51,10 @@ TEST(DateArrayAccessor, Test_Date32Array_CDataType_DATE) {
       dynamic_cast<NumericArray<Date32Type>*>(array.get()));
 
   std::vector<tagDATE_STRUCT> buffer(values.size());
-  std::vector<ssize_t> strlen_buffer(values.size());
+  std::vector<ssize_t> str_len_buffer(values.size());
 
   ColumnBinding binding(odbcabstraction::CDataType_DATE, 0, 0, buffer.data(), 0,
-                        strlen_buffer.data());
+                        str_len_buffer.data());
 
   int64_t value_offset = 0;
   odbcabstraction::Diagnostics diagnostics("Foo", "Foo", OdbcVersion::V_3);
@@ -63,7 +63,7 @@ TEST(DateArrayAccessor, Test_Date32Array_CDataType_DATE) {
                                      diagnostics, nullptr));
 
   for (size_t i = 0; i < values.size(); ++i) {
-    ASSERT_EQ(sizeof(DATE_STRUCT), strlen_buffer[i]);
+    ASSERT_EQ(sizeof(DATE_STRUCT), str_len_buffer[i]);
 
     ASSERT_EQ(expected[i].year, buffer[i].year);
     ASSERT_EQ(expected[i].month, buffer[i].month);
@@ -89,10 +89,10 @@ TEST(DateArrayAccessor, Test_Date64Array_CDataType_DATE) {
       dynamic_cast<NumericArray<Date64Type>*>(array.get()));
 
   std::vector<tagDATE_STRUCT> buffer(values.size());
-  std::vector<ssize_t> strlen_buffer(values.size());
+  std::vector<ssize_t> str_len_buffer(values.size());
 
   ColumnBinding binding(odbcabstraction::CDataType_DATE, 0, 0, buffer.data(), 0,
-                        strlen_buffer.data());
+                        str_len_buffer.data());
 
   int64_t value_offset = 0;
   odbcabstraction::Diagnostics diagnostics("Foo", "Foo", OdbcVersion::V_3);
@@ -101,7 +101,7 @@ TEST(DateArrayAccessor, Test_Date64Array_CDataType_DATE) {
                                      diagnostics, nullptr));
 
   for (size_t i = 0; i < values.size(); ++i) {
-    ASSERT_EQ(sizeof(DATE_STRUCT), strlen_buffer[i]);
+    ASSERT_EQ(sizeof(DATE_STRUCT), str_len_buffer[i]);
     ASSERT_EQ(expected[i].year, buffer[i].year);
     ASSERT_EQ(expected[i].month, buffer[i].month);
     ASSERT_EQ(expected[i].day, buffer[i].day);

@@ -17,8 +17,8 @@
 
 #pragma once
 
-#include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/diagnostics.h>
-#include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/spi/driver.h>
+#include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/diagnostics.h"
+#include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/spi/driver.h"
 
 namespace driver {
 namespace flight_sql {
@@ -37,6 +37,9 @@ class FlightSqlDriver : public odbcabstraction::Driver {
   odbcabstraction::Diagnostics& GetDiagnostics() override;
 
   void SetVersion(std::string version) override;
+
+  /// Register Arrow Compute kernels once.
+  void RegisterComputeKernels();
 
   void RegisterLog() override;
 };

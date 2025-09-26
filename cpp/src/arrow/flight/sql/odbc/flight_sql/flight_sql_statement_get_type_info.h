@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#pragma once
+
 #include <optional>
 #include "arrow/array/builder_binary.h"
 #include "arrow/array/builder_primitive.h"
@@ -34,7 +36,7 @@ using arrow::StringBuilder;
 using odbcabstraction::MetadataSettings;
 using std::optional;
 
-class GetTypeInfo_RecordBatchBuilder {
+class GetTypeInfoRecordBatchBuilder {
  private:
   odbcabstraction::OdbcVersion odbc_version_;
 
@@ -82,23 +84,23 @@ class GetTypeInfo_RecordBatchBuilder {
     optional<int16_t> interval_precision;
   };
 
-  explicit GetTypeInfo_RecordBatchBuilder(odbcabstraction::OdbcVersion odbc_version);
+  explicit GetTypeInfoRecordBatchBuilder(odbcabstraction::OdbcVersion odbc_version);
 
   Result<std::shared_ptr<RecordBatch>> Build();
 
   Status Append(const Data& data);
 };
 
-class GetTypeInfo_Transformer : public RecordBatchTransformer {
+class GetTypeInfoTransformer : public RecordBatchTransformer {
  private:
   const MetadataSettings& metadata_settings_;
   odbcabstraction::OdbcVersion odbc_version_;
   int data_type_;
 
  public:
-  explicit GetTypeInfo_Transformer(const MetadataSettings& metadata_settings,
-                                   odbcabstraction::OdbcVersion odbc_version,
-                                   int data_type);
+  explicit GetTypeInfoTransformer(const MetadataSettings& metadata_settings,
+                                  odbcabstraction::OdbcVersion odbc_version,
+                                  int data_type);
 
   std::shared_ptr<RecordBatch> Transform(
       const std::shared_ptr<RecordBatch>& original) override;

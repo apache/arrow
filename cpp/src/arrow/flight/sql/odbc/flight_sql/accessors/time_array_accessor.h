@@ -37,12 +37,12 @@ class TimeArrayFlightSqlAccessor
  public:
   explicit TimeArrayFlightSqlAccessor(Array* array);
 
-  RowStatus MoveSingleCell_impl(ColumnBinding* binding, int64_t arrow_row,
-                                int64_t cell_counter, int64_t& value_offset,
-                                bool update_value_offset,
-                                odbcabstraction::Diagnostics& diagnostic);
+  RowStatus MoveSingleCellImpl(ColumnBinding* binding, int64_t arrow_row,
+                               int64_t cell_counter, int64_t& value_offset,
+                               bool update_value_offset,
+                               odbcabstraction::Diagnostics& diagnostic);
 
-  size_t GetCellLength_impl(ColumnBinding* binding) const;
+  size_t GetCellLengthImpl(ColumnBinding* binding) const;
 };
 
 }  // namespace flight_sql

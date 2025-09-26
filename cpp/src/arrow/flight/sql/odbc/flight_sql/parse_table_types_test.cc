@@ -49,5 +49,18 @@ TEST(TableTypeParser, ParsingWithSingleQuotesWithoutLeadingWhiteSpace) {
 TEST(TableTypeParser, ParsingWithCommaInsideSingleQuotes) {
   AssertParseTest("'TABLE, TEST', 'VIEW, TEMPORARY'", {"TABLE, TEST", "VIEW, TEMPORARY"});
 }
+
+TEST(TableTypeParser, ParsingWithManyLeadingAndTrailingWhiteSpaces) {
+  AssertParseTest("         TABLE   ,    VIEW     ", {"TABLE", "VIEW"});
+}
+
+TEST(TableTypeParser, ParsingWithOnlyWhiteSpaceBetweenCommas) {
+  AssertParseTest("TABLE,  ,VIEW", {"TABLE", "VIEW"});
+}
+
+TEST(TableTypeParser, ParsingWithWhiteSpaceInsideValue) {
+  AssertParseTest("BASE TABLE", {"BASE TABLE"});
+}
+
 }  // namespace flight_sql
 }  // namespace driver

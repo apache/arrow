@@ -17,8 +17,8 @@
 
 #pragma once
 
-#include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/types.h>
 #include <string>
+#include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/types.h"
 
 namespace driver {
 namespace odbcabstraction {
@@ -144,7 +144,7 @@ class ResultSetMetadata {
   /// \brief It returns the data type as a string.
   /// \param column_position [in] the position of the column, starting from 1.
   /// \return the data type string.
-  virtual std::string GetTypeName(int column_position) = 0;
+  virtual std::string GetTypeName(int column_position, int data_type) = 0;
 
   /// \brief It returns a numeric values indicate the updatability of the
   /// column.

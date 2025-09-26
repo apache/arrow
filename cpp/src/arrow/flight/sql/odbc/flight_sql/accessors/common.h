@@ -33,13 +33,13 @@ inline size_t CopyFromArrayValuesToBinding(ARRAY_TYPE* array, ColumnBinding* bin
                                            int64_t starting_row, int64_t cells) {
   constexpr ssize_t element_size = sizeof(typename ARRAY_TYPE::value_type);
 
-  if (binding->strlen_buffer) {
+  if (binding->str_len_buffer) {
     for (int64_t i = 0; i < cells; ++i) {
       int64_t current_row = starting_row + i;
       if (array->IsNull(current_row)) {
-        binding->strlen_buffer[i] = odbcabstraction::NULL_DATA;
+        binding->str_len_buffer[i] = odbcabstraction::NULL_DATA;
       } else {
-        binding->strlen_buffer[i] = element_size;
+        binding->str_len_buffer[i] = element_size;
       }
     }
   } else {

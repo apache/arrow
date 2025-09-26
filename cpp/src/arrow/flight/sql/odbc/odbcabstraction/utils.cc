@@ -19,13 +19,7 @@
 
 #include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/utils.h"
 
-#include <fstream>
-#include <sstream>
-
 #include <boost/algorithm/string/predicate.hpp>
-#include <boost/token_functions.hpp>
-#include <boost/tokenizer.hpp>
-#include <iostream>
 
 namespace driver {
 namespace odbcabstraction {
@@ -40,11 +34,11 @@ boost::optional<bool> AsBool(const std::string& value) {
   }
 }
 
-boost::optional<bool> AsBool(const Connection::ConnPropertyMap& connPropertyMap,
+boost::optional<bool> AsBool(const Connection::ConnPropertyMap& conn_property_map,
                              const std::string_view& property_name) {
-  auto extracted_property = connPropertyMap.find(property_name);
+  auto extracted_property = conn_property_map.find(std::string(property_name));
 
-  if (extracted_property != connPropertyMap.end()) {
+  if (extracted_property != conn_property_map.end()) {
     return AsBool(extracted_property->second);
   }
 
@@ -52,15 +46,15 @@ boost::optional<bool> AsBool(const Connection::ConnPropertyMap& connPropertyMap,
 }
 
 boost::optional<int32_t> AsInt32(int32_t min_value,
-                                 const Connection::ConnPropertyMap& connPropertyMap,
+                                 const Connection::ConnPropertyMap& conn_property_map,
                                  const std::string_view& property_name) {
-  auto extracted_property = connPropertyMap.find(property_name);
+  auto extracted_property = conn_property_map.find(std::string(property_name));
 
-  if (extracted_property != connPropertyMap.end()) {
-    const int32_t stringColumnLength = std::stoi(extracted_property->second);
+  if (extracted_property != conn_property_map.end()) {
+    const int32_t string_column_length = std::stoi(extracted_property->second);
 
-    if (stringColumnLength >= min_value && stringColumnLength <= INT32_MAX) {
-      return stringColumnLength;
+    if (string_column_length >= min_value && string_column_length <= INT32_MAX) {
+      return string_column_length;
     }
   }
   return boost::none;
@@ -79,37 +73,6 @@ std::string GetModulePath() {
   }
 
   return std::string(path.begin(), path.begin() + dirname_length);
-}
-
-void ReadConfigFile(PropertyMap& properties, const std::string& config_file_name) {
-  auto config_path = GetModulePath();
-
-  std::ifstream config_file;
-  auto config_file_path = config_path + "/" + config_file_name;
-  config_file.open(config_file_path);
-
-  if (config_file.fail()) {
-    auto error_msg = "Arrow Flight SQL ODBC driver config file not found on \"" +
-                     config_file_path + "\"";
-    std::cerr << error_msg << std::endl;
-
-    throw DriverException(error_msg);
-  }
-
-  std::string temp_config;
-
-  boost::char_separator<char> separator("=");
-  while (config_file.good()) {
-    config_file >> temp_config;
-    boost::tokenizer<boost::char_separator<char>> tokenizer(temp_config, separator);
-
-    auto iterator = tokenizer.begin();
-
-    std::string key = *iterator;
-    std::string value = *++iterator;
-
-    properties[key] = std::move(value);
-  }
 }
 
 }  // namespace odbcabstraction

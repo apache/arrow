@@ -78,7 +78,7 @@ std::shared_ptr<Schema> GetColumns_V2_Schema() {
   });
 }
 
-Result<std::shared_ptr<RecordBatch>> Transform_inner(
+Result<std::shared_ptr<RecordBatch>> TransformInner(
     const odbcabstraction::OdbcVersion odbc_version,
     const std::shared_ptr<RecordBatch>& original,
     const optional<std::string>& column_name_pattern,
@@ -98,10 +98,10 @@ Result<std::shared_ptr<RecordBatch>> Transform_inner(
     const auto& table_name = reader.GetTableName();
     const std::shared_ptr<Schema>& schema = reader.GetSchema();
     if (schema == nullptr) {
-      // TODO: Remove this if after fixing TODO on GetTablesReader::GetSchema()
-      // This is because of a problem on Dremio server, where complex types columns
-      // are being returned without the children types, so we are simply ignoring
-      // it by now.
+      // TODO: Test and build the driver against a server that returns
+      // complex types columns with the children
+      // types and handle the failure properly.
+      // https://github.com/apache/arrow/issues/46561
       continue;
     }
     for (int i = 0; i < schema->num_fields(); ++i) {
@@ -113,7 +113,7 @@ Result<std::shared_ptr<RecordBatch>> Transform_inner(
       }
 
       odbcabstraction::SqlDataType data_type_v3 =
-          GetDataTypeFromArrowField_V3(field, metadata_settings.use_wide_char_);
+          GetDataTypeFromArrowFieldV3(field, metadata_settings.use_wide_char);
 
       ColumnMetadata metadata(field->metadata());
 
@@ -125,8 +125,8 @@ Result<std::shared_ptr<RecordBatch>> Transform_inner(
                            ? data_type_v3
                            : ConvertSqlDataTypeFromV3ToV2(data_type_v3);
 
-      // TODO: Use `metadata.GetTypeName()` when ARROW-16064 is merged.
-      const auto& type_name_result = field->metadata()->Get("ARROW:FLIGHT:SQL:TYPE_NAME");
+      const auto& type_name_result = metadata.GetTypeName();
+
       data.type_name = type_name_result.ok() ? type_name_result.ValueOrDie()
                                              : GetTypeNameFromSqlDataType(data_type_v3);
 
@@ -233,7 +233,7 @@ GetColumns_Transformer::GetColumns_Transformer(
 std::shared_ptr<RecordBatch> GetColumns_Transformer::Transform(
     const std::shared_ptr<RecordBatch>& original) {
   const Result<std::shared_ptr<RecordBatch>>& result =
-      Transform_inner(odbc_version_, original, column_name_pattern_, metadata_settings_);
+      TransformInner(odbc_version_, original, column_name_pattern_, metadata_settings_);
   ThrowIfNotOK(result.status());
 
   return result.ValueOrDie();

@@ -29,6 +29,13 @@
 namespace driver {
 namespace flight_sql {
 
+/// \brief Case insensitive comparator that takes string_view
+struct CaseInsensitiveComparatorStrView {
+  bool operator()(const std::string_view& s1, const std::string_view& s2) const {
+    return boost::lexicographical_compare(s1, s2, boost::is_iless());
+  }
+};
+
 class FlightSqlSslConfig;
 
 /// \brief Create an instance of the FlightSqlSslConfig class, from the properties passed
@@ -36,7 +43,7 @@ class FlightSqlSslConfig;
 /// \param connPropertyMap the map with the Connection properties.
 /// \return                An instance of the FlightSqlSslConfig.
 std::shared_ptr<FlightSqlSslConfig> LoadFlightSslConfigs(
-    const odbcabstraction::Connection::ConnPropertyMap& connPropertyMap);
+    const odbcabstraction::Connection::ConnPropertyMap& conn_property_map);
 
 class FlightSqlConnection : public odbcabstraction::Connection {
  private:
@@ -50,7 +57,7 @@ class FlightSqlConnection : public odbcabstraction::Connection {
   odbcabstraction::OdbcVersion odbc_version_;
   bool closed_;
 
-  void PopulateMetadataSettings(const Connection::ConnPropertyMap& connPropertyMap);
+  void PopulateMetadataSettings(const Connection::ConnPropertyMap& conn_property_map);
 
  public:
   static const std::vector<std::string_view> ALL_KEYS;
@@ -113,11 +120,12 @@ class FlightSqlConnection : public odbcabstraction::Connection {
   /// \note Visible for testing
   void SetClosed(bool is_closed);
 
-  boost::optional<int32_t> GetStringColumnLength(const ConnPropertyMap& connPropertyMap);
+  boost::optional<int32_t> GetStringColumnLength(
+      const ConnPropertyMap& conn_property_map);
 
-  bool GetUseWideChar(const ConnPropertyMap& connPropertyMap);
+  bool GetUseWideChar(const ConnPropertyMap& conn_property_map);
 
-  size_t GetChunkBufferCapacity(const ConnPropertyMap& connPropertyMap);
+  size_t GetChunkBufferCapacity(const ConnPropertyMap& conn_property_map);
 };
 }  // namespace flight_sql
 }  // namespace driver

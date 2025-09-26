@@ -51,16 +51,21 @@ bool IsComplexType(arrow::Type::type type_id) {
   }
 }
 
-odbcabstraction::SqlDataType GetDefaultSqlCharType(bool useWideChar) {
-  return useWideChar ? odbcabstraction::SqlDataType_WCHAR
-                     : odbcabstraction::SqlDataType_CHAR;
+odbcabstraction::SqlDataType GetDefaultSqlCharType(bool use_wide_char) {
+  return use_wide_char ? odbcabstraction::SqlDataType_WCHAR
+                       : odbcabstraction::SqlDataType_CHAR;
 }
-odbcabstraction::SqlDataType GetDefaultSqlVarcharType(bool useWideChar) {
-  return useWideChar ? odbcabstraction::SqlDataType_WVARCHAR
-                     : odbcabstraction::SqlDataType_VARCHAR;
+odbcabstraction::SqlDataType GetDefaultSqlVarcharType(bool use_wide_char) {
+  return use_wide_char ? odbcabstraction::SqlDataType_WVARCHAR
+                       : odbcabstraction::SqlDataType_VARCHAR;
 }
-odbcabstraction::CDataType GetDefaultCCharType(bool useWideChar) {
-  return useWideChar ? odbcabstraction::CDataType_WCHAR : odbcabstraction::CDataType_CHAR;
+odbcabstraction::SqlDataType GetDefaultSqlLongVarcharType(bool use_wide_char) {
+  return use_wide_char ? odbcabstraction::SqlDataType_WLONGVARCHAR
+                       : odbcabstraction::SqlDataType_LONGVARCHAR;
+}
+odbcabstraction::CDataType GetDefaultCCharType(bool use_wide_char) {
+  return use_wide_char ? odbcabstraction::CDataType_WCHAR
+                       : odbcabstraction::CDataType_CHAR;
 }
 
 }  // namespace
@@ -79,8 +84,8 @@ using std::nullopt;
 /// \note use GetNonConciseDataType on the output to get the verbose type
 /// \note the concise and verbose types are the same for all but types relating to times
 /// and intervals
-SqlDataType GetDataTypeFromArrowField_V3(const std::shared_ptr<arrow::Field>& field,
-                                         bool useWideChar) {
+SqlDataType GetDataTypeFromArrowFieldV3(const std::shared_ptr<arrow::Field>& field,
+                                        bool use_wide_char) {
   const std::shared_ptr<arrow::DataType>& type = field->type();
 
   switch (type->id()) {
@@ -109,7 +114,7 @@ SqlDataType GetDataTypeFromArrowField_V3(const std::shared_ptr<arrow::Field>& fi
       return odbcabstraction::SqlDataType_BINARY;
     case arrow::Type::STRING:
     case arrow::Type::LARGE_STRING:
-      return GetDefaultSqlVarcharType(useWideChar);
+      return GetDefaultSqlVarcharType(use_wide_char);
     case arrow::Type::DATE32:
     case arrow::Type::DATE64:
       return odbcabstraction::SqlDataType_TYPE_DATE;
@@ -144,17 +149,20 @@ SqlDataType GetDataTypeFromArrowField_V3(const std::shared_ptr<arrow::Field>& fi
       break;
   }
 
-  return GetDefaultSqlVarcharType(useWideChar);
+  return GetDefaultSqlVarcharType(use_wide_char);
 }
 
-SqlDataType EnsureRightSqlCharType(SqlDataType data_type, bool useWideChar) {
+SqlDataType EnsureRightSqlCharType(SqlDataType data_type, bool use_wide_char) {
   switch (data_type) {
     case odbcabstraction::SqlDataType_CHAR:
     case odbcabstraction::SqlDataType_WCHAR:
-      return GetDefaultSqlCharType(useWideChar);
+      return GetDefaultSqlCharType(use_wide_char);
     case odbcabstraction::SqlDataType_VARCHAR:
     case odbcabstraction::SqlDataType_WVARCHAR:
-      return GetDefaultSqlVarcharType(useWideChar);
+      return GetDefaultSqlVarcharType(use_wide_char);
+    case odbcabstraction::SqlDataType_LONGVARCHAR:
+    case odbcabstraction::SqlDataType_WLONGVARCHAR:
+      return GetDefaultSqlLongVarcharType(use_wide_char);
     default:
       return data_type;
   }
@@ -759,10 +767,12 @@ bool NeedArrayConversion(arrow::Type::type original_type_id,
       return data_type != odbcabstraction::CDataType_BINARY;
     case arrow::Type::DECIMAL128:
       return data_type != odbcabstraction::CDataType_NUMERIC;
+    case arrow::Type::DURATION:
     case arrow::Type::LIST:
     case arrow::Type::LARGE_LIST:
     case arrow::Type::FIXED_SIZE_LIST:
     case arrow::Type::MAP:
+    case arrow::Type::STRING_VIEW:
     case arrow::Type::STRUCT:
       return data_type == odbcabstraction::CDataType_CHAR ||
              data_type == odbcabstraction::CDataType_WCHAR;
@@ -857,10 +867,10 @@ arrow::Type::type ConvertCToArrowType(odbcabstraction::CDataType data_type) {
 }
 
 odbcabstraction::CDataType ConvertArrowTypeToC(arrow::Type::type type_id,
-                                               bool useWideChar) {
+                                               bool use_wide_char) {
   switch (type_id) {
     case arrow::Type::STRING:
-      return GetDefaultCCharType(useWideChar);
+      return GetDefaultCCharType(use_wide_char);
     case arrow::Type::INT16:
       return odbcabstraction::CDataType_SSHORT;
     case arrow::Type::UINT16:
@@ -1110,14 +1120,14 @@ std::string ConvertToDBMSVer(const std::string& str) {
   return result;
 }
 
-int32_t GetDecimalTypeScale(const std::shared_ptr<arrow::DataType>& decimalType) {
-  auto decimal128Type = std::dynamic_pointer_cast<arrow::Decimal128Type>(decimalType);
-  return decimal128Type->scale();
+int32_t GetDecimalTypeScale(const std::shared_ptr<arrow::DataType>& decimal_type) {
+  auto decimal128_type = std::dynamic_pointer_cast<arrow::Decimal128Type>(decimal_type);
+  return decimal128_type->scale();
 }
 
-int32_t GetDecimalTypePrecision(const std::shared_ptr<arrow::DataType>& decimalType) {
-  auto decimal128Type = std::dynamic_pointer_cast<arrow::Decimal128Type>(decimalType);
-  return decimal128Type->precision();
+int32_t GetDecimalTypePrecision(const std::shared_ptr<arrow::DataType>& decimal_type) {
+  auto decimal128_type = std::dynamic_pointer_cast<arrow::Decimal128Type>(decimal_type);
+  return decimal128_type->precision();
 }
 
 }  // namespace flight_sql
