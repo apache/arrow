@@ -423,11 +423,8 @@ class TestGeneric : public ::testing::Test, public GenericFileSystemTest {
 class TestAzuriteGeneric : public TestGeneric {
  public:
   void SetUp() override {
-    auto env_result = AzuriteEnv::GetInstance();
-    if (!env_result.ok()) {
-      GTEST_SKIP() << "Failed to setup: " << env_result.status().ToString();
-    }
-    SetUpInternal(*env_result);
+    ASSERT_OK_AND_ASSIGN(auto env, AzuriteEnv::GetInstance());
+    SetUpInternal(env);
   }
 
  protected:
@@ -891,13 +888,9 @@ class TestAzureFileSystem : public ::testing::Test {
   }
 
   void SetUp() override {
-    auto env_result = GetAzureEnv();
-    if (!env_result.ok()) {
-      GTEST_SKIP() << "Failed to setup: " << env_result.status().ToString();
-    }
-    auto env = *env_result;
-    EXPECT_THAT(env, NotNull());
-    auto make_options = [this, &env]() -> Result<AzureOptions> {
+    auto make_options = [this]() -> Result<AzureOptions> {
+      ARROW_ASSIGN_OR_RAISE(auto env, GetAzureEnv());
+      EXPECT_THAT(env, NotNull());
       ARROW_ASSIGN_OR_RAISE(debug_log_start_, env->GetDebugLogSize());
       return MakeOptions(env);
     };
