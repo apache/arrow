@@ -52,7 +52,7 @@ std::vector<uint8_t> GenerateRandomPackedValues(int32_t num_values, int32_t bit_
   constexpr uint32_t kSeed = 3214;
   EXPECT_OK_AND_ASSIGN(const auto num_bytes, GetNumBytes(num_values, bit_width));
 
-  std::vector<uint8_t> out(num_bytes);
+  std::vector<uint8_t> out(std::max(1, num_bytes));  // We need a valid pointer for size 0
   random_bytes(num_bytes, kSeed, out.data());
 
   return out;
