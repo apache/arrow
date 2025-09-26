@@ -490,8 +490,8 @@ int64_t StridedTensorCountNonZero(int dim_index, int64_t offset, const Tensor& t
   if (dim_index == tensor.ndim() - 1) {
     for (int64_t i = 0; i < tensor.shape()[dim_index]; ++i) {
       const auto* ptr = tensor.raw_data() + offset + i * tensor.strides()[dim_index];
-      if (auto& elem = *reinterpret_cast<const c_type*>(ptr);
-          internal::is_not_zero<TYPE>(elem)) {
+      auto& elem = *reinterpret_cast<const c_type*>(ptr);
+      if (internal::is_not_zero<TYPE>(elem)) {
         ++nnz;
       }
     }
