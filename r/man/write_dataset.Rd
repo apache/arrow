@@ -17,6 +17,7 @@ write_dataset(
   max_rows_per_file = 0L,
   min_rows_per_group = 0L,
   max_rows_per_group = bitwShiftL(1, 20),
+  create_directory = TRUE,
   ...
 )
 }
@@ -80,6 +81,10 @@ rows have accumulated. Default is 0L.}
 group and when this number of rows is exceeded, it is split and the next set
 of rows is written to the next group. This value must be set such that it is
 greater than \code{min_rows_per_group}. Default is 1024 * 1024.}
+
+\item{create_directory}{activates directory creation before writing. Needs ListBucket
+and HeadBucket ACL to perform checks before directory creation. If set to FALSE, no ACL checks
+will be carried on relying on the native storage checks. Default is TRUE}
 
 \item{...}{additional format-specific arguments. For available Parquet
 options, see \code{\link[=write_parquet]{write_parquet()}}. The available Feather options are:
