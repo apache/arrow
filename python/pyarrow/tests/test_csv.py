@@ -297,7 +297,8 @@ def test_convert_options(pickle_module):
         include_columns=['def', 'abc'],
         include_missing_columns=False,
         auto_dict_encode=True,
-        timestamp_parsers=[ISO8601, '%y-%m'])
+        timestamp_parsers=[ISO8601, '%y-%m'],
+        default_column_type=pa.int16())
 
     with pytest.raises(ValueError):
         opts.decimal_point = '..'
@@ -324,6 +325,17 @@ def test_convert_options(pickle_module):
         opts.column_types = {'a': None}
     with pytest.raises(TypeError):
         opts.column_types = 0
+
+    assert opts.default_column_type is None
+    opts.default_column_type = pa.string()
+    assert opts.default_column_type == pa.string()
+    opts.default_column_type = 'int32'
+    assert opts.default_column_type == pa.int32()
+    opts.default_column_type = None
+    assert opts.default_column_type is None
+
+    with pytest.raises(TypeError, match='DataType expected'):
+        opts.default_column_type = 123
 
     assert isinstance(opts.null_values, list)
     assert '' in opts.null_values
