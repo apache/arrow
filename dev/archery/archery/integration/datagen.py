@@ -19,6 +19,7 @@ from collections import namedtuple, OrderedDict
 import binascii
 import gzip
 import json
+import math
 import os
 import random
 import tempfile
@@ -177,6 +178,9 @@ class IntegerField(PrimitiveField):
             ('bitWidth', self.bit_width)
         ])
 
+    def _encode_values(self, values):
+        return list(map(int if self.bit_width < 64 else str, values))
+
     def generate_column(self, size, name=None):
         lower_bound, upper_bound = self._get_generated_data_bounds()
         return self.generate_range(size, lower_bound, upper_bound,
@@ -187,42 +191,29 @@ class IntegerField(PrimitiveField):
         values = np.random.randint(lower, upper, size=size, dtype=np.int64)
         if include_extremes and size >= 2:
             values[:2] = [lower, upper]
-        values = list(map(int if self.bit_width < 64 else str, values))
+        values = self._encode_values(values)
 
         is_valid = self._make_is_valid(size)
 
         if name is None:
             name = self.name
         return PrimitiveColumn(name, size, is_valid, values)
+
+    @property
+    def column_class(self):
+        return PrimitiveColumn
 
 
 # Integer field that fulfils the requirements for the run ends field of REE.
 # The integers are positive and in a strictly increasing sequence
 class RunEndsField(IntegerField):
-    # bit_width should only be one of 16/32/64
     def __init__(self, name, bit_width, *, metadata=None):
+        assert bit_width in (16, 32, 64)
         super().__init__(name, is_signed=True, bit_width=bit_width,
-                         nullable=False, metadata=metadata, min_value=1)
+                         nullable=False, metadata=metadata)
 
-    def generate_range(self, size, lower, upper, name=None,
-                       include_extremes=False):
-        rng = np.random.default_rng()
-        # generate values that are strictly increasing with a min-value of
-        # 1, but don't go higher than the max signed value for the given
-        # bit width. We sort the values to ensure they are strictly increasing
-        # and set replace to False to avoid duplicates, ensuring a valid
-        # run-ends array.
-        values = rng.choice(2 ** (self.bit_width - 1) - 1, size=size, replace=False)
-        values += 1
-        values = sorted(values)
-        values = list(map(int if self.bit_width < 64 else str, values))
-        # RunEnds cannot be null, as such self.nullable == False and this
-        # will generate a validity map of all ones.
-        is_valid = self._make_is_valid(size)
-
-        if name is None:
-            name = self.name
-        return PrimitiveColumn(name, size, is_valid, values)
+    def generate_column(self, size, name=None):
+        raise NotImplementedError("cannot be generated directly")
 
 
 class DateField(IntegerField):
@@ -1159,11 +1150,32 @@ class RunEndEncodedField(Field):
         ]
 
     def generate_column(self, size, name=None):
-        values = self.values_field.generate_column(size)
-        run_ends = self.run_ends_field.generate_column(size)
+        # The `size` of a RunEndEncodedField is the logical length of the
+        # run-end-encoded column, so we choose a number of physical runs
+        # that's smaller.
+        if size > 0:
+            num_runs = np.random.randint(1, math.ceil(size * 0.75))
+            # Generate run ends
+            run_ends = np.random.choice(size - 1, num_runs - 1, replace=False) + 1
+            run_ends.sort()
+            run_ends = np.concat((run_ends, [size]))
+            assert len(run_ends) == num_runs
+            assert len(set(run_ends)) == num_runs
+            assert (run_ends > 0).all()
+            assert (run_ends <= size).all()
+        else:
+            num_runs = 0
+            run_ends = []
+        run_ends_is_valid = self._make_is_valid(num_runs, null_probability=0)
+        run_ends = self.run_ends_field._encode_values(run_ends)
+
+        run_end_column = self.run_ends_field.column_class(
+            self.run_ends_field.name, num_runs, run_ends_is_valid, run_ends)
+        values = self.values_field.generate_column(num_runs)
+
         if name is None:
             name = self.name
-        return RunEndEncodedColumn(name, size, run_ends, values)
+        return RunEndEncodedColumn(name, size, run_end_column, values)
 
 
 class _BaseUnionField(Field):
@@ -1746,11 +1758,14 @@ def generate_recursive_nested_case():
 
 def generate_run_end_encoded_case():
     fields = [
-        RunEndEncodedField('ree16', 16, get_field('values', 'int32')),
-        RunEndEncodedField('ree32', 32, get_field('values', 'utf8')),
-        RunEndEncodedField('ree64', 64, get_field('values', 'float32')),
+        RunEndEncodedField('ree16_int32', 16, get_field('values', 'int32')),
+        RunEndEncodedField('ree32_utf8', 32, get_field('values', 'utf8')),
+        RunEndEncodedField('ree64_float32', 64, get_field('values', 'float32')),
+        RunEndEncodedField('ree16_bool', 64, get_field('values', 'bool')),
+        # Add a non-REE-encoded field to check column size correctness
+        BooleanField('bool'),
     ]
-    batch_sizes = [0, 7, 10]
+    batch_sizes = [0, 7, 20]
     return _generate_file("run_end_encoded", fields, batch_sizes)
 
 
