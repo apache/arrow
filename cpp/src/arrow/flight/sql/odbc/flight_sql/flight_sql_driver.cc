@@ -79,7 +79,10 @@ void FlightSqlDriver::RegisterLog() {
 
   // Enable driver logging. Log files are not supported on Windows yet, since GLOG is not
   // tested fully on Windows.
-  arrow::util::ArrowLog::StartArrowLog("arrow-flight-sql-odbc", log_level);
+  // Info log level is enabled by default.
+  if (log_level != ArrowLogLevel::ARROW_INFO) {
+    arrow::util::ArrowLog::StartArrowLog("arrow-flight-sql-odbc", log_level);
+  }
 }
 
 }  // namespace flight_sql
