@@ -31,21 +31,18 @@ index 7764357a6d..da7374ecec 100644
  vcpkg_cmake_install(ADD_BIN_TO_PATH)
 diff --git a/ports/orc/orc-fix-exception-propagation.diff b/ports/orc/orc-fix-exception-propagation.diff
 new file mode 100644
-index 0000000000..7d0c87f3db
+index 0000000000..25568e70cd
 --- /dev/null
 +++ b/ports/orc/orc-fix-exception-propagation.diff
-@@ -0,0 +1,36 @@
+@@ -0,0 +1,30 @@
 +diff --git a/c++/src/Timezone.cc b/c++/src/Timezone.cc
-+index 384f8ea99..0b58d0720 100644
++index 384f8ea99..07c75e0a7 100644
 +--- a/c++/src/Timezone.cc
 ++++ b/c++/src/Timezone.cc
-+@@ -695,13 +695,26 @@ namespace orc {
-+    private:
++@@ -696,12 +696,21 @@ namespace orc {
 +     std::string filename_;
 +     mutable std::unique_ptr<TimezoneImpl> impl_;
-+-    mutable std::once_flag initialized_;
-++    mutable std::mutex init_mutex_;
-++    mutable bool initialized_ = false;
++     mutable std::once_flag initialized_;
 ++    mutable std::exception_ptr init_exception_;
 + 
 +     TimezoneImpl* getImpl() const {
@@ -53,18 +50,15 @@ index 0000000000..7d0c87f3db
 +-        auto buffer = loadTZDB(filename_);
 +-        impl_ = std::make_unique<TimezoneImpl>(filename_, std::move(buffer));
 +-      });
-++      std::lock_guard<std::mutex> lock(init_mutex_);
-++      if (!initialized_) {
-++        try {
-++          auto buffer = loadTZDB(filename_);
-++          impl_ = std::make_unique<TimezoneImpl>(filename_, std::move(buffer));
-++          initialized_ = true;
-++        } catch (...) {
-++          init_exception_ = std::current_exception();
-++          initialized_ = true;
-++        }
-++      }
-++      // If initialization failed, re-throw the exception
+++        std::call_once(initialized_, [&]() {
+++          try {
+++            auto buffer = loadTZDB(filename_);
+++            impl_ = std::make_unique<TimezoneImpl>(filename_, std::move(buffer));
+++          } catch (...) {
+++            // If initialization failed, re-throw the exception
+++            init_exception_ = std::current_exception();
+++          }
+++        });
 ++      if (init_exception_) {
 ++        std::rethrow_exception(init_exception_);
 ++      }
