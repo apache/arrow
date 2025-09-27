@@ -204,25 +204,32 @@ class RunEndsField(IntegerField):
         super().__init__(name, is_signed=True, bit_width=bit_width,
                          nullable=False, metadata=metadata, min_value=1)
 
-    def generate_range(self, size, lower, upper, name=None,
-                       include_extremes=False):
+    def generate_range(self, size, lower, upper, name=None, include_extremes=False):
+        if size > (1 << self.bit_width) - 1:
+            raise ValueError(
+                f"Size {size} exceeds the maximum for bit width {self.bit_width}."
+            )
         rng = np.random.default_rng()
-        # generate values that are strictly increasing with a min-value of
-        # 1, but don't go higher than the max signed value for the given
-        # bit width. We sort the values to ensure they are strictly increasing
-        # and set replace to False to avoid duplicates, ensuring a valid
-        # run-ends array.
-        values = rng.choice(2 ** (self.bit_width - 1) - 1, size=size, replace=False)
-        values += 1
-        values = sorted(values)
+        if size == 0:
+            values = []
+            runs_count = 0
+        elif size == 1:
+            values = [size]
+            runs_count = 1
+        else:
+            runs_count = int(size / 2)
+            values = rng.choice(range(1, size), size=runs_count - 1, replace=False)
+            values = sorted(values)
+            values.append(size)
+
         values = list(map(int if self.bit_width < 64 else str, values))
         # RunEnds cannot be null, as such self.nullable == False and this
         # will generate a validity map of all ones.
-        is_valid = self._make_is_valid(size)
+        is_valid = self._make_is_valid(runs_count)
 
         if name is None:
             name = self.name
-        return PrimitiveColumn(name, size, is_valid, values)
+        return PrimitiveColumn(name, int(runs_count), is_valid, values)
 
 
 class DateField(IntegerField):
@@ -1159,7 +1166,7 @@ class RunEndEncodedField(Field):
         ]
 
     def generate_column(self, size, name=None):
-        values = self.values_field.generate_column(size)
+        values = self.values_field.generate_column(int(size/2))
         run_ends = self.run_ends_field.generate_column(size)
         if name is None:
             name = self.name
