@@ -15,15 +15,25 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/util/bpacking_avx512_internal.h"
-#include "arrow/util/bpacking_simd512_generated_internal.h"
-#include "arrow/util/bpacking_simd_internal.h"
+#pragma once
+
+#include "arrow/util/visibility.h"
+
+#include <cstdint>
 
 namespace arrow::internal {
 
-int unpack32_avx512(const uint8_t* in, uint32_t* out, int batch_size, int num_bits) {
-  return unpack32_specialized<UnpackBits512<DispatchLevel::AVX512>>(
-      reinterpret_cast<const uint32_t*>(in), out, batch_size, num_bits);
-}
+template <typename Uint>
+ARROW_EXPORT int unpack_scalar(const uint8_t* in, Uint* out, int batch_size,
+                               int num_bits);
+
+extern template ARROW_TEMPLATE_EXPORT int unpack_scalar<uint16_t>(const uint8_t*,
+                                                                  uint16_t*, int, int);
+
+extern template ARROW_TEMPLATE_EXPORT int unpack_scalar<uint32_t>(const uint8_t*,
+                                                                  uint32_t*, int, int);
+
+extern template ARROW_TEMPLATE_EXPORT int unpack_scalar<uint64_t>(const uint8_t*,
+                                                                  uint64_t*, int, int);
 
 }  // namespace arrow::internal
