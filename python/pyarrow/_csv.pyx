@@ -613,6 +613,9 @@ cdef class ConvertOptions(_Weakrefable):
     column_types : pyarrow.Schema or dict, optional
         Explicitly map column names to column types. Passing this argument
         disables type inference on the defined columns.
+    default_column_type : pyarrow.DataType, optional
+        Explicitly map columns not specified in column_types to a default type.
+        Passing this argument disables type inference on all columns.
     null_values : list, optional
         A sequence of strings that denote nulls in the data
         (defaults are appropriate in most cases). Note that by default,
@@ -816,7 +819,7 @@ cdef class ConvertOptions(_Weakrefable):
         self.options.reset(
             new CCSVConvertOptions(CCSVConvertOptions.Defaults()))
 
-    def __init__(self, *, check_utf8=None, column_types=None, null_values=None,
+    def __init__(self, *, check_utf8=None, column_types=None, default_column_type=None, null_values=None,
                  true_values=None, false_values=None, decimal_point=None,
                  strings_can_be_null=None, quoted_strings_can_be_null=None,
                  include_columns=None, include_missing_columns=None,
@@ -826,6 +829,8 @@ cdef class ConvertOptions(_Weakrefable):
             self.check_utf8 = check_utf8
         if column_types is not None:
             self.column_types = column_types
+        if default_column_type is not None:
+            self.default_column_type = default_column_type
         if null_values is not None:
             self.null_values = null_values
         if true_values is not None:
@@ -909,6 +914,27 @@ cdef class ConvertOptions(_Weakrefable):
             typ = pyarrow_unwrap_data_type(ensure_type(v))
             assert typ != NULL
             deref(self.options).column_types[tobytes(k)] = typ
+
+    @property
+    def default_column_type(self):
+        """
+        Explicitly map columns not specified in column_types to a default type.
+        """
+        if deref(self.options).default_column_type != NULL:
+            return pyarrow_wrap_data_type(deref(self.options).default_column_type)
+        else:
+            return None
+
+    @default_column_type.setter
+    def default_column_type(self, value):
+        cdef:
+            shared_ptr[CDataType] typ
+        if value is not None:
+            typ = pyarrow_unwrap_data_type(ensure_type(value))
+            assert typ != NULL
+            deref(self.options).default_column_type = typ
+        else:
+            deref(self.options).default_column_type.reset()
 
     @property
     def null_values(self):
@@ -1071,6 +1097,7 @@ cdef class ConvertOptions(_Weakrefable):
         return (
             self.check_utf8 == other.check_utf8 and
             self.column_types == other.column_types and
+            self.default_column_type == other.default_column_type and
             self.null_values == other.null_values and
             self.true_values == other.true_values and
             self.false_values == other.false_values and
@@ -1087,17 +1114,17 @@ cdef class ConvertOptions(_Weakrefable):
         )
 
     def __getstate__(self):
-        return (self.check_utf8, self.column_types, self.null_values,
-                self.true_values, self.false_values, self.decimal_point,
-                self.timestamp_parsers, self.strings_can_be_null,
-                self.quoted_strings_can_be_null, self.auto_dict_encode,
-                self.auto_dict_max_cardinality, self.include_columns,
-                self.include_missing_columns)
+        return (self.check_utf8, self.column_types, self.default_column_type,
+                self.null_values, self.true_values, self.false_values,
+                self.decimal_point, self.timestamp_parsers,
+                self.strings_can_be_null, self.quoted_strings_can_be_null,
+                self.auto_dict_encode, self.auto_dict_max_cardinality,
+                self.include_columns, self.include_missing_columns)
 
     def __setstate__(self, state):
-        (self.check_utf8, self.column_types, self.null_values,
-         self.true_values, self.false_values, self.decimal_point,
-         self.timestamp_parsers, self.strings_can_be_null,
+        (self.check_utf8, self.column_types, self.default_column_type,
+         self.null_values, self.true_values, self.false_values,
+         self.decimal_point, self.timestamp_parsers, self.strings_can_be_null,
          self.quoted_strings_can_be_null, self.auto_dict_encode,
          self.auto_dict_max_cardinality, self.include_columns,
          self.include_missing_columns) = state
