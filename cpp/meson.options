@@ -85,6 +85,12 @@ option('git_description', type: 'string')
 option('lz4', type: 'feature', description: 'Build with lz4 compression')
 
 option(
+    'orc',
+    type: 'feature',
+    description: 'Build the Arrow ORC adapter',
+)
+
+option(
     'package_kind',
     type: 'string',
     description: 'Arbitrary string that identifies the kind of package (for informational purposes)',
