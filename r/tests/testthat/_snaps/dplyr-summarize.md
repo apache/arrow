@@ -1,7 +1,7 @@
 # Functions that take ... but we only accept a single arg
 
     Code
-      InMemoryDataset$create(tbl) %>% summarize(distinct = n_distinct())
+      summarize(InMemoryDataset$create(tbl), distinct = n_distinct())
     Condition
       Error in `n_distinct()`:
       ! n_distinct() with 0 arguments not supported in Arrow
@@ -16,7 +16,7 @@
 # Expressions on aggregations
 
     Code
-      record_batch(tbl) %>% summarise(any(any(lgl)))
+      summarise(record_batch(tbl), any(any(lgl)))
     Condition
       Warning:
       In any(any(lgl)): 
@@ -31,8 +31,8 @@
 # Can use across() within summarise()
 
     Code
-      data.frame(x = 1, y = 2) %>% arrow_table() %>% group_by(x) %>% summarise(across(
-        everything())) %>% collect()
+      collect(summarise(group_by(arrow_table(data.frame(x = 1, y = 2)), x), across(
+        everything())))
     Condition
       Warning:
       In y: 

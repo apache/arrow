@@ -147,7 +147,7 @@ test_that("Table$SortIndices()", {
   )
   expect_equal_data_frame(
     x$Take(x$SortIndices(c("int", "dbl"), c(FALSE, FALSE))),
-    tbl %>% arrange(int, dbl)
+    tbl |> arrange(int, dbl)
   )
 })
 
@@ -155,6 +155,6 @@ test_that("RecordBatch$SortIndices()", {
   x <- record_batch(tbl)
   expect_equal_data_frame(
     x$Take(x$SortIndices(c("chr", "int", "dbl"), TRUE)),
-    tbl %>% arrange(desc(chr), desc(int), desc(dbl))
+    tbl |> arrange(desc(chr), desc(int), desc(dbl))
   )
 })

@@ -22,8 +22,8 @@ withr::local_options(list(arrow.summarise.sort = FALSE))
 
 test_that("union_all", {
   compare_dplyr_binding(
-    .input %>%
-      union_all(example_data) %>%
+    .input |>
+      union_all(example_data) |>
       collect(),
     example_data
   )
@@ -32,15 +32,15 @@ test_that("union_all", {
 
   # Union with empty table produces same dataset
   expect_equal(
-    test_table %>%
-      union_all(test_table$Slice(0, 0)) %>%
+    test_table |>
+      union_all(test_table$Slice(0, 0)) |>
       compute(),
     test_table
   )
 
   expect_error(
-    test_table %>%
-      union_all(arrow_table(y = 1:10)) %>%
+    test_table |>
+      union_all(arrow_table(y = 1:10)) |>
       collect(),
     regex = "input schemas must all match"
   )
@@ -48,8 +48,8 @@ test_that("union_all", {
 
 test_that("union", {
   compare_dplyr_binding(
-    .input %>%
-      dplyr::union(example_data) %>%
+    .input |>
+      dplyr::union(example_data) |>
       collect(),
     example_data
   )
@@ -58,15 +58,15 @@ test_that("union", {
 
   # Union with empty table produces same dataset
   expect_equal(
-    test_table %>%
-      dplyr::union(test_table$Slice(0, 0)) %>%
+    test_table |>
+      dplyr::union(test_table$Slice(0, 0)) |>
       compute(),
     test_table
   )
 
   expect_error(
-    test_table %>%
-      dplyr::union(arrow_table(y = 1:10)) %>%
+    test_table |>
+      dplyr::union(arrow_table(y = 1:10)) |>
       collect(),
     regex = "input schemas must all match"
   )

@@ -25,11 +25,11 @@ test_that("abs()", {
   df <- tibble(x = c(-127, -10, -1, -0, 0, 1, 10, 127, NA))
 
   compare_dplyr_binding(
-    .input %>%
+    .input |>
       transmute(
         abs = abs(x),
         abs2 = base::abs(x)
-      ) %>%
+      ) |>
       collect(),
     df
   )
@@ -39,11 +39,11 @@ test_that("sign()", {
   df <- tibble(x = c(-127, -10, -1, -0, 0, 1, 10, 127, NA))
 
   compare_dplyr_binding(
-    .input %>%
+    .input |>
       transmute(
         sign = sign(x),
         sign2 = base::sign(x)
-      ) %>%
+      ) |>
       collect(),
     df
   )
@@ -53,7 +53,7 @@ test_that("ceiling(), floor(), trunc(), round()", {
   df <- tibble(x = c(-1, -0.55, -0.5, -0.1, 0, 0.1, 0.5, 0.55, 1, NA, NaN))
 
   compare_dplyr_binding(
-    .input %>%
+    .input |>
       mutate(
         c = ceiling(x),
         f = floor(x),
@@ -63,39 +63,39 @@ test_that("ceiling(), floor(), trunc(), round()", {
         f2 = base::floor(x),
         t2 = base::trunc(x),
         r2 = base::round(x)
-      ) %>%
+      ) |>
       collect(),
     df
   )
 
   # with digits set to 1
   compare_dplyr_binding(
-    .input %>%
-      filter(x %% 0.5 == 0) %>% # filter out indeterminate cases (see below)
-      mutate(r = round(x, 1)) %>%
+    .input |>
+      filter(x %% 0.5 == 0) |> # filter out indeterminate cases (see below)
+      mutate(r = round(x, 1)) |>
       collect(),
     df
   )
 
   # with digits set to -1
   compare_dplyr_binding(
-    .input %>%
+    .input |>
       mutate(
         rd = round(floor(x * 111), -1), # double
         y = ifelse(is.nan(x), NA_integer_, x),
         ri = round(as.integer(y * 111), -1) # integer (with the NaN removed)
-      ) %>%
+      ) |>
       collect(),
     df
   )
 
   # round(x, -2) is equivalent to round_to_multiple(x, 100)
   expect_equal(
-    Table$create(x = 1111.1) %>%
-      mutate(r = round(x, -2)) %>%
+    Table$create(x = 1111.1) |>
+      mutate(r = round(x, -2)) |>
       collect(),
-    Table$create(x = 1111.1) %>%
-      mutate(r = arrow_round_to_multiple(x, options = list(multiple = 100))) %>%
+    Table$create(x = 1111.1) |>
+      mutate(r = arrow_round_to_multiple(x, options = list(multiple = 100))) |>
       collect()
   )
 
@@ -112,8 +112,8 @@ test_that("ceiling(), floor(), trunc(), round()", {
   skip_on_os("windows")
 
   compare_dplyr_binding(
-    .input %>%
-      mutate(r = round(x, 1)) %>%
+    .input |>
+      mutate(r = round(x, 1)) |>
       collect(),
     df
   )
@@ -151,40 +151,40 @@ test_that("log functions", {
   df <- tibble(x = c(1:10, NA, NA))
 
   compare_dplyr_binding(
-    .input %>%
+    .input |>
       mutate(
         y = log(x),
         y2 = base::log(x)
-      ) %>%
+      ) |>
       collect(),
     df
   )
 
   compare_dplyr_binding(
-    .input %>%
-      mutate(y = log(x, base = exp(1))) %>%
+    .input |>
+      mutate(y = log(x, base = exp(1))) |>
       collect(),
     df
   )
 
   compare_dplyr_binding(
-    .input %>%
-      mutate(y = log(x, base = 2)) %>%
+    .input |>
+      mutate(y = log(x, base = 2)) |>
       collect(),
     df
   )
 
   compare_dplyr_binding(
-    .input %>%
-      mutate(y = log(x, base = 10)) %>%
+    .input |>
+      mutate(y = log(x, base = 10)) |>
       collect(),
     df
   )
 
   # test log(, base = (length == 1))
   compare_dplyr_binding(
-    .input %>%
-      mutate(y = log(x, base = 5)) %>%
+    .input |>
+      mutate(y = log(x, base = 5)) |>
       collect(),
     df
   )
@@ -205,13 +205,13 @@ test_that("log functions", {
 
   # test log(, base = Expression)
   compare_dplyr_binding(
-    .input %>%
+    .input |>
       # test cases where base = 1 below
-      filter(x != 1) %>%
+      filter(x != 1) |>
       mutate(
         y = log(x, base = x),
         z = log(2, base = x)
-      ) %>%
+      ) |>
       collect(),
     df
   )
@@ -220,8 +220,8 @@ test_that("log functions", {
   # suppress the R warning because R warns but Arrow does not
   suppressWarnings(
     compare_dplyr_binding(
-      .input %>%
-        mutate(y = log(x, base = y)) %>%
+      .input |>
+        mutate(y = log(x, base = y)) |>
         collect(),
       tibble(x = 1, y = 1)
     )
@@ -229,49 +229,49 @@ test_that("log functions", {
 
   # log(n != 1, base = 1) is Inf in R and Arrow
   compare_dplyr_binding(
-    .input %>%
-      mutate(y = log(x, base = y)) %>%
+    .input |>
+      mutate(y = log(x, base = y)) |>
       collect(),
     tibble(x = 10, y = 1)
   )
 
   compare_dplyr_binding(
-    .input %>%
-      mutate(y = logb(x)) %>%
+    .input |>
+      mutate(y = logb(x)) |>
       collect(),
     df
   )
 
   compare_dplyr_binding(
-    .input %>%
-      mutate(y = log1p(x)) %>%
+    .input |>
+      mutate(y = log1p(x)) |>
       collect(),
     df
   )
 
   compare_dplyr_binding(
-    .input %>%
-      mutate(y = log2(x)) %>%
+    .input |>
+      mutate(y = log2(x)) |>
       collect(),
     df
   )
 
   compare_dplyr_binding(
-    .input %>%
-      mutate(y = log10(x)) %>%
+    .input |>
+      mutate(y = log10(x)) |>
       collect(),
     df
   )
 
   # with namespacing
   compare_dplyr_binding(
-    .input %>%
+    .input |>
       mutate(
         a = base::logb(x),
         b = base::log1p(x),
         c = base::log2(x),
         d = base::log10(x)
-      ) %>%
+      ) |>
       collect(),
     df
   )
@@ -281,50 +281,50 @@ test_that("trig functions", {
   df <- tibble(x = c(seq(from = 0, to = 1, by = 0.1), NA))
 
   compare_dplyr_binding(
-    .input %>%
-      mutate(y = sin(x)) %>%
+    .input |>
+      mutate(y = sin(x)) |>
       collect(),
     df
   )
 
   compare_dplyr_binding(
-    .input %>%
-      mutate(y = cos(x)) %>%
+    .input |>
+      mutate(y = cos(x)) |>
       collect(),
     df
   )
 
   compare_dplyr_binding(
-    .input %>%
-      mutate(y = tan(x)) %>%
+    .input |>
+      mutate(y = tan(x)) |>
       collect(),
     df
   )
 
   compare_dplyr_binding(
-    .input %>%
-      mutate(y = asin(x)) %>%
+    .input |>
+      mutate(y = asin(x)) |>
       collect(),
     df
   )
 
   compare_dplyr_binding(
-    .input %>%
-      mutate(y = acos(x)) %>%
+    .input |>
+      mutate(y = acos(x)) |>
       collect(),
     df
   )
 
     compare_dplyr_binding(
-    .input %>%
-      mutate(y = atan(x)) %>%
+    .input |>
+      mutate(y = atan(x)) |>
       collect(),
     df
   )
 
   # with namespacing
   compare_dplyr_binding(
-    .input %>%
+    .input |>
       mutate(
         a = base::sin(x),
         b = base::cos(x),
@@ -332,7 +332,7 @@ test_that("trig functions", {
         d = base::asin(x),
         e = base::acos(x),
         f = base::atan(x)
-      ) %>%
+      ) |>
       collect(),
     df
   )
@@ -343,42 +343,42 @@ test_that("hyperbolic trig functions", {
   df <- tibble(x = c(seq(from = 0, to = 1, by = 0.1), NA))
 
   compare_dplyr_binding(
-    .input %>%
-      mutate(y = sinh(x)) %>%
+    .input |>
+      mutate(y = sinh(x)) |>
       collect(),
     df
   )
 
   compare_dplyr_binding(
-    .input %>%
-      mutate(y = cosh(x)) %>%
+    .input |>
+      mutate(y = cosh(x)) |>
       collect(),
     df
   )
 
   compare_dplyr_binding(
-    .input %>%
-      mutate(y = tanh(x)) %>%
+    .input |>
+      mutate(y = tanh(x)) |>
       collect(),
     df
   )
 
   compare_dplyr_binding(
-    .input %>%
-      mutate(y = asinh(x)) %>%
+    .input |>
+      mutate(y = asinh(x)) |>
       collect(),
     df
   )
 
   # with namespacing
   compare_dplyr_binding(
-    .input %>%
+    .input |>
       mutate(
         a = base::sinh(x),
         b = base::cosh(x),
         c = base::tanh(x),
         d = base::asinh(x),
-      ) %>%
+      ) |>
       collect(),
     df
   )
@@ -386,18 +386,18 @@ test_that("hyperbolic trig functions", {
   df <- tibble(x = c(seq(from = 1, to = 2, by = 0.1)))
 
   compare_dplyr_binding(
-    .input %>%
-      mutate(y = acosh(x)) %>%
+    .input |>
+      mutate(y = acosh(x)) |>
       collect(),
     df
   )
 
   # with namespacing
   compare_dplyr_binding(
-    .input %>%
+    .input |>
       mutate(
         a = base::acosh(x),
-      ) %>%
+      ) |>
       collect(),
     df
   )
@@ -405,18 +405,18 @@ test_that("hyperbolic trig functions", {
   df <- tibble(x = c(seq(from = -0.5, to = 0.5, by = 0.1)))
 
   compare_dplyr_binding(
-    .input %>%
-      mutate(y = atanh(x)) %>%
+    .input |>
+      mutate(y = atanh(x)) |>
       collect(),
     df
   )
 
   # with namespacing
   compare_dplyr_binding(
-    .input %>%
+    .input |>
       mutate(
         a = base::atanh(x)
-      ) %>%
+      ) |>
       collect(),
     df
   )
@@ -426,7 +426,7 @@ test_that("arith functions ", {
   df <- tibble(x = c(1:5, NA))
 
   compare_dplyr_binding(
-    .input %>%
+    .input |>
       transmute(
         int_div = x %/% 2,
         addition = x + 1,
@@ -435,7 +435,7 @@ test_that("arith functions ", {
         division = x / 2,
         power = x^3,
         modulo = x %% 3
-      ) %>%
+      ) |>
       collect(),
     df
   )
@@ -448,7 +448,7 @@ test_that("floor division maintains type consistency with R", {
   )
 
   compare_dplyr_binding(
-    .input %>%
+    .input |>
       transmute(
         int_div_dbl = integers %/% 2,
         int_div_int = integers %/% 2L,
@@ -458,7 +458,7 @@ test_that("floor division maintains type consistency with R", {
         dbl_div_int = doubles %/% 2L,
         dbl_div_zero_int = doubles %/% 0L,
         dbl_div_zero_dbl = doubles %/% 0
-      ) %>%
+      ) |>
       collect(),
     df
   )
@@ -468,11 +468,11 @@ test_that("exp()", {
   df <- tibble(x = c(1:5, NA))
 
   compare_dplyr_binding(
-    .input %>%
+    .input |>
       mutate(
         y = exp(x),
         y2 = base::exp(x)
-      ) %>%
+      ) |>
       collect(),
     df
   )
@@ -482,11 +482,11 @@ test_that("sqrt()", {
   df <- tibble(x = c(1:5, NA))
 
   compare_dplyr_binding(
-    .input %>%
+    .input |>
       mutate(
         y = sqrt(x),
         y2 = base::sqrt(x)
-      ) %>%
+      ) |>
       collect(),
     df
   )
@@ -496,11 +496,11 @@ test_that("expm1()", {
   df <- tibble(x = c(1:5))
 
   compare_dplyr_binding(
-    .input %>%
+    .input |>
       mutate(
         y = expm1(x),
         y2 = base::expm1(x)
-      ) %>%
+      ) |>
       collect(),
     df
   )

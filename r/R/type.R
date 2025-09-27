@@ -408,11 +408,11 @@ NestedType <- R6Class("NestedType", inherit = DataType)
 #' # You can also use `cast()` in an Arrow dplyr query.
 #' if (requireNamespace("dplyr", quietly = TRUE)) {
 #'   library(dplyr, warn.conflicts = FALSE)
-#'   arrow_table(mtcars) %>%
+#'   arrow_table(mtcars) |>
 #'     transmute(
 #'       col1 = cast(cyl, string()),
 #'       col2 = cast(cyl, int8())
-#'     ) %>%
+#'     ) |>
 #'     compute()
 #' }
 int8 <- function() Int8__initialize()

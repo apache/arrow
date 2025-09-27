@@ -45,10 +45,10 @@
 #'
 #' ds <- InMemoryDataset$create(mtcars)
 #'
-#' ds %>%
-#'   filter(mpg < 30) %>%
-#'   group_by(cyl) %>%
-#'   to_duckdb() %>%
+#' ds |>
+#'   filter(mpg < 30) |>
+#'   group_by(cyl) |>
+#'   to_duckdb() |>
 #'   slice_min(disp)
 to_duckdb <- function(.data,
                       con = arrow_duck_connection(),
@@ -154,12 +154,12 @@ duckdb_disconnector <- function(con, tbl_name) {
 #'
 #' ds <- InMemoryDataset$create(mtcars)
 #'
-#' ds %>%
-#'   filter(mpg < 30) %>%
-#'   to_duckdb() %>%
-#'   group_by(cyl) %>%
-#'   summarize(mean_mpg = mean(mpg, na.rm = TRUE)) %>%
-#'   to_arrow() %>%
+#' ds |>
+#'   filter(mpg < 30) |>
+#'   to_duckdb() |>
+#'   group_by(cyl) |>
+#'   summarize(mean_mpg = mean(mpg, na.rm = TRUE)) |>
+#'   to_arrow() |>
 #'   collect()
 to_arrow <- function(.data) {
   # If this is an Arrow object already, return quickly since we're already Arrow

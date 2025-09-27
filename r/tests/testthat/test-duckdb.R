@@ -44,24 +44,24 @@ test_that("to_duckdb", {
   ds <- InMemoryDataset$create(example_data)
 
   expect_identical(
-    ds %>%
-      to_duckdb() %>%
-      collect() %>%
+    ds |>
+      to_duckdb() |>
+      collect() |>
       # factors don't roundtrip https://github.com/duckdb/duckdb/issues/1879
-      select(!fct) %>%
+      select(!fct) |>
       arrange(int),
-    example_data %>%
-      select(!fct) %>%
+    example_data |>
+      select(!fct) |>
       arrange(int)
   )
 
   expect_identical(
-    ds %>%
-      select(int, lgl, dbl) %>%
-      to_duckdb() %>%
-      group_by(lgl) %>%
-      summarise(mean_int = mean(int, na.rm = TRUE), mean_dbl = mean(dbl, na.rm = TRUE)) %>%
-      collect() %>%
+    ds |>
+      select(int, lgl, dbl) |>
+      to_duckdb() |>
+      group_by(lgl) |>
+      summarise(mean_int = mean(int, na.rm = TRUE), mean_dbl = mean(dbl, na.rm = TRUE)) |>
+      collect() |>
       arrange(mean_int),
     tibble::tibble(
       lgl = c(TRUE, NA, FALSE),
@@ -72,12 +72,12 @@ test_that("to_duckdb", {
 
   # can group_by before the to_duckdb
   expect_identical(
-    ds %>%
-      select(int, lgl, dbl) %>%
-      group_by(lgl) %>%
-      to_duckdb() %>%
-      summarise(mean_int = mean(int, na.rm = TRUE), mean_dbl = mean(dbl, na.rm = TRUE)) %>%
-      collect() %>%
+    ds |>
+      select(int, lgl, dbl) |>
+      group_by(lgl) |>
+      to_duckdb() |>
+      summarise(mean_int = mean(int, na.rm = TRUE), mean_dbl = mean(dbl, na.rm = TRUE)) |>
+      collect() |>
       arrange(mean_int),
     tibble::tibble(
       lgl = c(TRUE, NA, FALSE),
@@ -90,41 +90,41 @@ test_that("to_duckdb", {
 test_that("to_duckdb then to_arrow", {
   ds <- InMemoryDataset$create(example_data)
 
-  ds_rt <- ds %>%
-    to_duckdb() %>%
+  ds_rt <- ds |>
+    to_duckdb() |>
     # factors don't roundtrip https://github.com/duckdb/duckdb/issues/1879
-    select(-fct) %>%
+    select(-fct) |>
     to_arrow()
 
   expect_identical(
     collect(ds_rt),
-    ds %>%
-      select(-fct) %>%
+    ds |>
+      select(-fct) |>
       collect()
   )
 
   # And we can continue the pipeline
-  ds_rt <- ds %>%
-    to_duckdb() %>%
+  ds_rt <- ds |>
+    to_duckdb() |>
     # factors don't roundtrip https://github.com/duckdb/duckdb/issues/1879
-    select(-fct) %>%
-    to_arrow() %>%
+    select(-fct) |>
+    to_arrow() |>
     filter(int > 5)
 
   expect_identical(
-    ds_rt %>%
-      collect() %>%
+    ds_rt |>
+      collect() |>
       arrange(int),
-    ds %>%
-      select(-fct) %>%
-      filter(int > 5) %>%
-      collect() %>%
+    ds |>
+      select(-fct) |>
+      filter(int > 5) |>
+      collect() |>
       arrange(int)
   )
 
   # Now check errors
-  ds_rt <- ds %>%
-    to_duckdb() %>%
+  ds_rt <- ds |>
+    to_duckdb() |>
     # factors don't roundtrip https://github.com/duckdb/duckdb/issues/1879
     select(-fct)
 
@@ -151,21 +151,21 @@ test_that("to_arrow roundtrip, with dataset", {
   ds <- open_dataset(tf)
 
   expect_identical(
-    ds %>%
-      to_duckdb() %>%
-      select(-fct) %>%
-      mutate(dbl_plus = dbl + 1) %>%
-      to_arrow() %>%
-      filter(int > 5 & part > 1) %>%
-      collect() %>%
-      arrange(part, int) %>%
+    ds |>
+      to_duckdb() |>
+      select(-fct) |>
+      mutate(dbl_plus = dbl + 1) |>
+      to_arrow() |>
+      filter(int > 5 & part > 1) |>
+      collect() |>
+      arrange(part, int) |>
       as.data.frame(),
-    ds %>%
-      select(-fct) %>%
-      filter(int > 5 & part > 1) %>%
-      mutate(dbl_plus = dbl + 1) %>%
-      collect() %>%
-      arrange(part, int) %>%
+    ds |>
+      select(-fct) |>
+      filter(int > 5 & part > 1) |>
+      mutate(dbl_plus = dbl + 1) |>
+      collect() |>
+      arrange(part, int) |>
       as.data.frame()
   )
 })
@@ -181,10 +181,10 @@ test_that("to_arrow roundtrip, with dataset (without wrapping)", {
   )
   write_dataset(new_ds, tf, partitioning = "part")
 
-  out <- open_dataset(tf) %>%
-    to_duckdb() %>%
-    select(-fct) %>%
-    mutate(dbl_plus = dbl + 1) %>%
+  out <- open_dataset(tf) |>
+    to_duckdb() |>
+    select(-fct) |>
+    mutate(dbl_plus = dbl + 1) |>
     to_arrow()
 
   expect_r6_class(out, "RecordBatchReader")
@@ -241,14 +241,14 @@ test_that("to_duckdb with a table", {
   tab <- Table$create(example_data)
 
   expect_identical(
-    tab %>%
-      to_duckdb() %>%
-      group_by(int > 4) %>%
+    tab |>
+      to_duckdb() |>
+      group_by(int > 4) |>
       summarise(
         int_mean = mean(int, na.rm = TRUE),
         dbl_mean = mean(dbl, na.rm = TRUE)
-      ) %>%
-      collect() %>%
+      ) |>
+      collect() |>
       arrange(int_mean),
     tibble::tibble(
       "int > 4" = c(FALSE, TRUE, NA),
@@ -276,8 +276,8 @@ test_that("to_duckdb passing a connection", {
   )
   DBI::dbWriteTable(con_separate, "separate_join_table", new_df)
 
-  table_four <- ds %>%
-    select(int, lgl, dbl) %>%
+  table_four <- ds |>
+    select(int, lgl, dbl) |>
     to_duckdb(con = con_separate, auto_disconnect = FALSE)
 
   # Generates a query like SELECT * FROM arrow_xxx

@@ -24,138 +24,138 @@ tbl <- slice_sample(example_data_for_sorting, prop = 1L)
 
 test_that("arrange() on integer, double, and character columns", {
   compare_dplyr_binding(
-    .input %>%
-      arrange(int, chr) %>%
+    .input |>
+      arrange(int, chr) |>
       collect(),
     tbl
   )
   compare_dplyr_binding(
-    .input %>%
-      arrange(int, desc(dbl)) %>%
+    .input |>
+      arrange(int, desc(dbl)) |>
       collect(),
     tbl
   )
   compare_dplyr_binding(
-    .input %>%
-      arrange(int, dplyr::desc(dbl)) %>%
+    .input |>
+      arrange(int, dplyr::desc(dbl)) |>
       collect(),
     tbl
   )
   compare_dplyr_binding(
-    .input %>%
-      arrange(int, desc(desc(dbl))) %>%
+    .input |>
+      arrange(int, desc(desc(dbl))) |>
       collect(),
     tbl
   )
   compare_dplyr_binding(
-    .input %>%
-      arrange(int, dplyr::desc(dplyr::desc(dbl))) %>%
+    .input |>
+      arrange(int, dplyr::desc(dplyr::desc(dbl))) |>
       collect(),
     tbl
   )
   compare_dplyr_binding(
-    .input %>%
-      arrange(int) %>%
-      arrange(desc(dbl)) %>%
+    .input |>
+      arrange(int) |>
+      arrange(desc(dbl)) |>
       collect(),
     tbl
   )
   compare_dplyr_binding(
-    .input %>%
-      arrange(int) %>%
-      arrange(dplyr::desc(dbl)) %>%
+    .input |>
+      arrange(int) |>
+      arrange(dplyr::desc(dbl)) |>
       collect(),
     tbl
   )
   compare_dplyr_binding(
-    .input %>%
-      arrange(int + dbl, chr) %>%
+    .input |>
+      arrange(int + dbl, chr) |>
       collect(),
     tbl
   )
   compare_dplyr_binding(
-    .input %>%
-      mutate(zzz = int + dbl, ) %>%
-      arrange(zzz, chr) %>%
+    .input |>
+      mutate(zzz = int + dbl, ) |>
+      arrange(zzz, chr) |>
       collect(),
     tbl
   )
   compare_dplyr_binding(
-    .input %>%
-      mutate(zzz = int + dbl) %>%
-      arrange(int + dbl, chr) %>%
+    .input |>
+      mutate(zzz = int + dbl) |>
+      arrange(int + dbl, chr) |>
       collect(),
     tbl
   )
   compare_dplyr_binding(
-    .input %>%
-      mutate(int + dbl) %>%
-      arrange(int + dbl, chr) %>%
+    .input |>
+      mutate(int + dbl) |>
+      arrange(int + dbl, chr) |>
       collect(),
     tbl
   )
   compare_dplyr_binding(
-    .input %>%
-      group_by(grp) %>%
-      arrange(int, dbl) %>%
+    .input |>
+      group_by(grp) |>
+      arrange(int, dbl) |>
       collect(),
     tbl
   )
   compare_dplyr_binding(
-    .input %>%
-      group_by(grp) %>%
-      arrange(int, dbl, .by_group = TRUE) %>%
+    .input |>
+      group_by(grp) |>
+      arrange(int, dbl, .by_group = TRUE) |>
       collect(),
     tbl
   )
   compare_dplyr_binding(
-    .input %>%
-      group_by(grp, grp2) %>%
-      arrange(int, dbl, .by_group = TRUE) %>%
+    .input |>
+      group_by(grp, grp2) |>
+      arrange(int, dbl, .by_group = TRUE) |>
       collect(),
-    tbl %>%
+    tbl |>
       mutate(grp2 = ifelse(is.na(lgl), 1L, as.integer(lgl)))
   )
   compare_dplyr_binding(
-    .input %>%
-      group_by(grp) %>%
-      arrange(.by_group = TRUE) %>%
-      pull(grp) %>%
+    .input |>
+      group_by(grp) |>
+      arrange(.by_group = TRUE) |>
+      pull(grp) |>
       as.vector(),
     tbl
   )
   compare_dplyr_binding(
-    .input %>%
-      arrange() %>%
+    .input |>
+      arrange() |>
       collect(),
-    tbl %>%
+    tbl |>
       group_by(grp)
   )
   compare_dplyr_binding(
-    .input %>%
-      group_by(grp) %>%
-      arrange() %>%
+    .input |>
+      group_by(grp) |>
+      arrange() |>
       collect(),
     tbl
   )
   compare_dplyr_binding(
-    .input %>%
-      arrange() %>%
+    .input |>
+      arrange() |>
       collect(),
     tbl
   )
   test_sort_col <- "chr"
   compare_dplyr_binding(
-    .input %>%
-      arrange(!!sym(test_sort_col)) %>%
+    .input |>
+      arrange(!!sym(test_sort_col)) |>
       collect(),
-    tbl %>%
+    tbl |>
       select(chr, lgl)
   )
   test_sort_cols <- c("int", "dbl")
   compare_dplyr_binding(
-    .input %>%
-      arrange(!!!syms(test_sort_cols)) %>%
+    .input |>
+      arrange(!!!syms(test_sort_cols)) |>
       collect(),
     tbl
   )
@@ -163,24 +163,24 @@ test_that("arrange() on integer, double, and character columns", {
 
 test_that("arrange() on datetime columns", {
   compare_dplyr_binding(
-    .input %>%
-      arrange(dttm, int) %>%
+    .input |>
+      arrange(dttm, int) |>
       collect(),
     tbl
   )
   compare_dplyr_binding(
-    .input %>%
-      arrange(dttm) %>%
+    .input |>
+      arrange(dttm) |>
       collect(),
-    tbl %>%
+    tbl |>
       select(dttm, grp)
   )
 })
 
 test_that("arrange() on logical columns", {
   compare_dplyr_binding(
-    .input %>%
-      arrange(lgl, int) %>%
+    .input |>
+      arrange(lgl, int) |>
       collect(),
     tbl
   )
@@ -188,43 +188,43 @@ test_that("arrange() on logical columns", {
 
 test_that("arrange() with bad inputs", {
   expect_error(
-    tbl %>%
-      Table$create() %>%
+    tbl |>
+      Table$create() |>
       arrange(1),
     "does not contain any field names",
     fixed = TRUE
   )
   expect_error(
-    tbl %>%
-      Table$create() %>%
+    tbl |>
+      Table$create() |>
       arrange(2 + 2),
     "does not contain any field names",
     fixed = TRUE
   )
   expect_error(
-    tbl %>%
-      Table$create() %>%
+    tbl |>
+      Table$create() |>
       arrange(aertidjfgjksertyj),
     "not found",
     fixed = TRUE
   )
   expect_error(
-    tbl %>%
-      Table$create() %>%
+    tbl |>
+      Table$create() |>
       arrange(desc(aertidjfgjksertyj + iaermxiwerksxsdqq)),
     "not found",
     fixed = TRUE
   )
   expect_error(
-    tbl %>%
-      Table$create() %>%
+    tbl |>
+      Table$create() |>
       arrange(desc(int, chr)),
     "expects only one argument",
     fixed = TRUE
   )
   expect_error(
-    tbl %>%
-      Table$create() %>%
+    tbl |>
+      Table$create() |>
       arrange(dplyr::desc(int, chr)),
     "expects only one argument",
     fixed = TRUE
@@ -233,14 +233,14 @@ test_that("arrange() with bad inputs", {
 
 test_that("Can use across() within arrange()", {
   compare_dplyr_binding(
-    .input %>%
-      arrange(across(starts_with("d"))) %>%
+    .input |>
+      arrange(across(starts_with("d"))) |>
       collect(),
     example_data
   )
   compare_dplyr_binding(
-    .input %>%
-      arrange(across(starts_with("d"), desc)) %>%
+    .input |>
+      arrange(across(starts_with("d"), desc)) |>
       collect(),
     example_data
   )

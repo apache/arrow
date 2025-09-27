@@ -24,7 +24,7 @@ tbl <- example_data
 
 test_that("Empty select returns no columns", {
   compare_dplyr_binding(
-    .input %>% select() %>% collect(),
+    .input |> select() |> collect(),
     tbl
   )
 })
@@ -32,7 +32,7 @@ test_that("Empty select returns no columns", {
 test_that("Empty select still includes the group_by columns", {
   expect_message(
     compare_dplyr_binding(
-      .input %>% group_by(chr) %>% select() %>% collect(),
+      .input |> group_by(chr) |> select() |> collect(),
       tbl
     ),
     "Adding missing grouping variables"
@@ -42,7 +42,7 @@ test_that("Empty select still includes the group_by columns", {
 test_that("Missing grouping columns are added to the beginning of the list", {
   expect_message(
     compare_dplyr_binding(
-      .input %>% group_by(chr) %>% select(int) %>% collect(),
+      .input |> group_by(chr) |> select(int) |> collect(),
       tbl
     ),
     "Adding missing grouping variables"
@@ -51,30 +51,30 @@ test_that("Missing grouping columns are added to the beginning of the list", {
 
 test_that("select/rename/rename_with", {
   compare_dplyr_binding(
-    .input %>%
-      select(string = chr, int) %>%
+    .input |>
+      select(string = chr, int) |>
       collect(),
     tbl
   )
   compare_dplyr_binding(
-    .input %>%
-      rename(string = chr) %>%
+    .input |>
+      rename(string = chr) |>
       collect(),
     tbl
   )
   compare_dplyr_binding(
-    .input %>%
-      rename(strng = chr) %>%
-      rename(other = strng) %>%
+    .input |>
+      rename(strng = chr) |>
+      rename(other = strng) |>
       collect(),
     tbl
   )
   compare_dplyr_binding(
-    .input %>%
+    .input |>
       rename_with(
         ~ paste0(.x, "_suffix"),
         .cols = c("int", "chr")
-      ) %>%
+      ) |>
       collect(),
     tbl
   )
@@ -82,50 +82,50 @@ test_that("select/rename/rename_with", {
 
 test_that("select/rename/rename_with using selection helpers", {
   compare_dplyr_binding(
-    .input %>%
-      select(everything()) %>%
+    .input |>
+      select(everything()) |>
       collect(),
     tbl
   )
   compare_dplyr_binding(
-    .input %>%
-      select(any_of(c("int", "not_a_column", "lgl"))) %>%
-      collect(),
-    tbl
-  )
-
-  compare_dplyr_binding(
-    .input %>%
-      select(starts_with("d")) %>%
+    .input |>
+      select(any_of(c("int", "not_a_column", "lgl"))) |>
       collect(),
     tbl
   )
 
   compare_dplyr_binding(
-    .input %>%
-      select(where(is.numeric)) %>%
+    .input |>
+      select(starts_with("d")) |>
       collect(),
     tbl
   )
 
   compare_dplyr_binding(
-    .input %>%
-      rename_with(toupper) %>%
+    .input |>
+      select(where(is.numeric)) |>
+      collect(),
+    tbl
+  )
+
+  compare_dplyr_binding(
+    .input |>
+      rename_with(toupper) |>
       collect(),
     tbl
   )
   compare_dplyr_binding(
-    .input %>%
-      rename_with(toupper, .cols = c()) %>%
+    .input |>
+      rename_with(toupper, .cols = c()) |>
       collect(),
     tbl
   )
   compare_dplyr_binding(
-    .input %>%
+    .input |>
       rename_with(
         ~ paste0(.x, "_suffix"),
         .cols = starts_with("d")
-      ) %>%
+      ) |>
       collect(),
     tbl
   )
@@ -133,16 +133,16 @@ test_that("select/rename/rename_with using selection helpers", {
 
 test_that("filtering with rename", {
   compare_dplyr_binding(
-    .input %>%
-      filter(chr == "b") %>%
-      select(string = chr, int) %>%
+    .input |>
+      filter(chr == "b") |>
+      select(string = chr, int) |>
       collect(),
     tbl
   )
   compare_dplyr_binding(
-    .input %>%
-      select(string = chr, int) %>%
-      filter(string == "b") %>%
+    .input |>
+      select(string = chr, int) |>
+      filter(string == "b") |>
       collect(),
     tbl
   )
@@ -151,23 +151,23 @@ test_that("filtering with rename", {
 test_that("relocate", {
   df <- tibble(a = 1, b = 1, c = 1, d = "a", e = "a", f = "a")
   compare_dplyr_binding(
-    .input %>% relocate(f) %>% collect(),
+    .input |> relocate(f) |> collect(),
     df,
   )
   compare_dplyr_binding(
-    .input %>% relocate(a, .after = c) %>% collect(),
+    .input |> relocate(a, .after = c) |> collect(),
     df,
   )
   compare_dplyr_binding(
-    .input %>% relocate(f, .before = b) %>% collect(),
+    .input |> relocate(f, .before = b) |> collect(),
     df,
   )
   compare_dplyr_binding(
-    .input %>% relocate(a, .after = last_col()) %>% collect(),
+    .input |> relocate(a, .after = last_col()) |> collect(),
     df,
   )
   compare_dplyr_binding(
-    .input %>% relocate(ff = f) %>% collect(),
+    .input |> relocate(ff = f) |> collect(),
     df,
   )
 })
@@ -175,26 +175,26 @@ test_that("relocate", {
 test_that("relocate with selection helpers", {
   df <- tibble(a = 1, b = 1, c = 1, d = "a", e = "a", f = "a")
   compare_dplyr_binding(
-    .input %>% relocate(any_of(c("a", "e", "i", "o", "u"))) %>% collect(),
+    .input |> relocate(any_of(c("a", "e", "i", "o", "u"))) |> collect(),
     df
   )
   compare_dplyr_binding(
-    .input %>% relocate(where(is.character)) %>% collect(),
+    .input |> relocate(where(is.character)) |> collect(),
     df
   )
   compare_dplyr_binding(
-    .input %>% relocate(a, b, c, .after = where(is.character)) %>% collect(),
+    .input |> relocate(a, b, c, .after = where(is.character)) |> collect(),
     df
   )
   compare_dplyr_binding(
-    .input %>% relocate(d, e, f, .before = where(is.numeric)) %>% collect(),
+    .input |> relocate(d, e, f, .before = where(is.numeric)) |> collect(),
     df
   )
   # works after other dplyr verbs
   compare_dplyr_binding(
-    .input %>%
-      mutate(c = as.character(c)) %>%
-      relocate(d, e, f, .after = where(is.numeric)) %>%
+    .input |>
+      mutate(c = as.character(c)) |>
+      relocate(d, e, f, .after = where(is.numeric)) |>
       collect(),
     df
   )
@@ -202,28 +202,28 @@ test_that("relocate with selection helpers", {
 
 test_that("multiple select/rename and group_by", {
   compare_dplyr_binding(
-    .input %>%
-      group_by(chr) %>%
-      rename(string = chr, dub = dbl2) %>%
-      rename(chr_actually = string) %>%
+    .input |>
+      group_by(chr) |>
+      rename(string = chr, dub = dbl2) |>
+      rename(chr_actually = string) |>
       collect(),
     tbl
   )
 
   compare_dplyr_binding(
-    .input %>%
-      group_by(chr) %>%
-      select(string = chr, dub = dbl2) %>%
-      rename(chr_actually = string) %>%
+    .input |>
+      group_by(chr) |>
+      select(string = chr, dub = dbl2) |>
+      rename(chr_actually = string) |>
       collect(),
     tbl
   )
 
   compare_dplyr_binding(
-    .input %>%
-      group_by(chr) %>%
-      rename(string = chr, dub = dbl2) %>%
-      select(chr_actually = string) %>%
+    .input |>
+      group_by(chr) |>
+      rename(string = chr, dub = dbl2) |>
+      select(chr_actually = string) |>
       collect(),
     tbl
   )

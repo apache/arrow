@@ -57,8 +57,8 @@ do_arrow_summarize <- function(.data, ..., .groups = NULL) {
   # and aggregations, but that's not how Acero works. For example, for us to do
   #   summarize(mean = sum(x) / n())
   # we basically have to translate it into
-  #   summarize(..temp0 = sum(x), ..temp1 = n()) %>%
-  #   mutate(mean = ..temp0 / ..temp1) %>%
+  #   summarize(..temp0 = sum(x), ..temp1 = n()) |>
+  #   mutate(mean = ..temp0 / ..temp1) |>
   #   select(-starts_with("..temp"))
   # That is, "first aggregate, then transform the result further."
   #
@@ -97,7 +97,7 @@ do_arrow_summarize <- function(.data, ..., .groups = NULL) {
     # One last check: it's possible that an expression like y - mean(y) would
     # successfully evaluate, but it's not supported. It gets transformed to:
     # nolint start
-    #   summarize(..temp0 = mean(y)) %>%
+    #   summarize(..temp0 = mean(y)) |>
     #   mutate(y - ..temp0)
     # nolint end
     # but y is not in the schema of the data after summarize(). To catch this

@@ -102,7 +102,7 @@ test_that("expand_across correctly expands quosures", {
       dbl = round(dbl),
       dbl2 = round(dbl2)
     ),
-    example_data %>% select(int, dbl, dbl2)
+    example_data |> select(int, dbl, dbl2)
   )
 
   # column selection via dynamic variable name
@@ -227,7 +227,7 @@ test_that("expand_across correctly expands quosures", {
   # ellipses (...) are a deprecated argument
   # abandon_ship message offers multiple suggestions
   expect_snapshot(
-    InMemoryDataset$create(example_data) %>%
+    InMemoryDataset$create(example_data) |>
       mutate(across(c(dbl, dbl2), round, digits = -1)),
     error = TRUE
   )
@@ -279,8 +279,8 @@ test_that("purrr-style lambda functions are supported", {
 test_that("ARROW-14071 - R functions from a user's environment", {
   makeWhole <- function(x) round(x, digits = 0)
   compare_dplyr_binding(
-    .input %>%
-      mutate(across(c(int, dbl), makeWhole)) %>%
+    .input |>
+      mutate(across(c(int, dbl), makeWhole)) |>
       collect(),
     example_data
   )
