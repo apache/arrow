@@ -54,7 +54,6 @@
     "rapidjson",
     "re2",
     "snappy",
-    "spdlog",
     "sqlite3",
     "thrift",
     "utf8proc",
