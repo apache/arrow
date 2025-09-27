@@ -1343,6 +1343,57 @@ class BaseCSVTableRead(BaseTestCSV):
             'y': ['b', 'd', 'f'],
         }
 
+    def test_default_column_type(self):
+        rows = b"a,b,c,d\n001,2.5,hello,true\n4,3.14,world,false\n"
+
+        # Test with default_column_type only - all columns should use the specified type.
+        opts = ConvertOptions(default_column_type=pa.string())
+        table = self.read_bytes(rows, convert_options=opts)
+        schema = pa.schema([('a', pa.string()),
+                            ('b', pa.string()),
+                            ('c', pa.string()),
+                            ('d', pa.string())])
+        assert table.schema == schema
+        assert table.to_pydict() == {
+            'a': ["001", "4"],
+            'b': ["2.5", "3.14"],
+            'c': ["hello", "world"],
+            'd': ["true", "false"],
+        }
+
+        # Test with both column_types and default_column_type
+        # Columns specified in column_types should override default_column_type
+        opts = ConvertOptions(
+            column_types={'b': pa.float64(), 'd': pa.bool_()},
+            default_column_type=pa.string()
+        )
+        table = self.read_bytes(rows, convert_options=opts)
+        schema = pa.schema([('a', pa.string()),
+                            ('b', pa.float64()),
+                            ('c', pa.string()),
+                            ('d', pa.bool_())])
+        assert table.schema == schema
+        assert table.to_pydict() == {
+            'a': ["001", "4"],
+            'b': [2.5, 3.14],
+            'c': ["hello", "world"],
+            'd': [True, False],
+        }
+
+        # Test that default_column_type disables type inference
+        opts_no_default = ConvertOptions(column_types={'b': pa.float64()})
+        table_no_default = self.read_bytes(rows, convert_options=opts_no_default)
+
+        opts_with_default = ConvertOptions(
+            column_types={'b': pa.float64()},
+            default_column_type=pa.string()
+        )
+        table_with_default = self.read_bytes(rows, convert_options=opts_with_default)
+
+        # Column 'a' should be int64 without default, string with default
+        assert table_no_default.schema.field('a').type == pa.int64()
+        assert table_with_default.schema.field('a').type == pa.string()
+
     def test_no_ending_newline(self):
         # No \n after last line
         rows = b"a,b,c\n1,2,3\n4,5,6"
