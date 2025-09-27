@@ -1550,8 +1550,7 @@ def generate_duplicate_fieldnames_case():
 def generate_primitive_case(batch_sizes, name='primitive'):
     types = ['bool', 'int8', 'int16', 'int32', 'int64',
              'uint8', 'uint16', 'uint32', 'uint64',
-             'float32', 'float64', 'binary', 'utf8',
-             'fixedsizebinary_19', 'fixedsizebinary_120']
+             'float32', 'float64']
 
     fields = []
 
@@ -1562,7 +1561,19 @@ def generate_primitive_case(batch_sizes, name='primitive'):
     return _generate_file(name, fields, batch_sizes)
 
 
-def generate_primitive_large_offsets_case(batch_sizes):
+def generate_binary_case(batch_sizes, name='binary'):
+    types = ['binary', 'utf8', 'fixedsizebinary_19', 'fixedsizebinary_120']
+
+    fields = []
+
+    for type_ in types:
+        fields.append(get_field(type_ + "_nullable", type_, nullable=True))
+        fields.append(get_field(type_ + "_nonnullable", type_, nullable=False))
+
+    return _generate_file(name, fields, batch_sizes)
+
+
+def generate_large_binary_case(batch_sizes):
     types = ['largebinary', 'largeutf8']
 
     fields = []
@@ -1571,7 +1582,7 @@ def generate_primitive_large_offsets_case(batch_sizes):
         fields.append(get_field(type_ + "_nullable", type_, nullable=True))
         fields.append(get_field(type_ + "_nonnullable", type_, nullable=False))
 
-    return _generate_file('primitive_large_offsets', fields, batch_sizes)
+    return _generate_file('large_binary', fields, batch_sizes)
 
 
 def generate_null_case(batch_sizes):
@@ -1892,7 +1903,11 @@ def get_generated_json_files(tempdir=None):
         generate_primitive_case([17, 20], name='primitive'),
         generate_primitive_case([0, 0, 0], name='primitive_zerolength'),
 
-        generate_primitive_large_offsets_case([17, 20]),
+        generate_binary_case([], name='binary_no_batches'),
+        generate_binary_case([17, 20], name='binary'),
+        generate_binary_case([0, 0, 0], name='binary_zerolength'),
+
+        generate_large_binary_case([17, 20]),
 
         generate_null_case([10, 0]),
 
