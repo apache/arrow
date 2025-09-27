@@ -25,14 +25,15 @@ set -ex
 build_dir=${1}/python
 pyodide_dist_dir=${2}
 
-cd ${build_dir}
+cd "${build_dir}"
 
 # note: this uses the newest wheel in dist
+# shellcheck disable=SC2012
 pyodide_wheel=$(ls -t dist/pyarrow*.whl | head -1)
 
 echo "-------------- Running emscripten tests in Node ----------------------"
-python scripts/run_emscripten_tests.py ${pyodide_wheel} --dist-dir=${pyodide_dist_dir} --runtime=node
+python scripts/run_emscripten_tests.py "${pyodide_wheel}" --dist-dir="${pyodide_dist_dir}" --runtime=node
 
 echo "-------------- Running emscripten tests in Chrome --------------------"
-python scripts/run_emscripten_tests.py ${pyodide_wheel} --dist-dir=${pyodide_dist_dir} --runtime=chrome
+python scripts/run_emscripten_tests.py "${pyodide_wheel}" --dist-dir="${pyodide_dist_dir}" --runtime=chrome
 
