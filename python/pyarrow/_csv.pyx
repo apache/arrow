@@ -810,6 +810,59 @@ cdef class ConvertOptions(_Weakrefable):
     fast: bool
     ----
     fast: [[true,true,false,false,null]]
+
+    Set a default column type for all columns (disables type inference):
+
+    >>> convert_options = csv.ConvertOptions(default_column_type=pa.string())
+    >>> csv.read_csv(io.BytesIO(s.encode()), convert_options=convert_options)
+    pyarrow.Table
+    animals: string
+    n_legs: string
+    entry: string
+    fast: string
+    ----
+    animals: [["Flamingo","Horse","Brittle stars","Centipede",""]]
+    n_legs: [["2","4","5","100","6"]]
+    entry: [["01/03/2022","02/03/2022","03/03/2022","04/03/2022","05/03/2022"]]
+    fast: [["Yes","Yes","No","No",""]]
+
+    Combine default_column_type with column_types (specific column types override default):
+
+    >>> convert_options = csv.ConvertOptions(
+    ...                   column_types={"n_legs": pa.int64(), "fast": pa.bool_()},
+    ...                   default_column_type=pa.string(),
+    ...                   true_values=["Yes"],
+    ...                   false_values=["No"])
+    >>> csv.read_csv(io.BytesIO(s.encode()), convert_options=convert_options)
+    pyarrow.Table
+    animals: string
+    n_legs: int64
+    entry: string
+    fast: bool
+    ----
+    animals: [["Flamingo","Horse","Brittle stars","Centipede",""]]
+    n_legs: [[2,4,5,100,6]]
+    entry: [["01/03/2022","02/03/2022","03/03/2022","04/03/2022","05/03/2022"]]
+    fast: [[true,true,false,false,null]]
+
+    Use default_column_type with selective column_types for mixed type conversion:
+
+    >>> convert_options = csv.ConvertOptions(
+    ...                   column_types={"animals": pa.string(),
+    ...                                 "entry": pa.timestamp('s')},
+    ...                   default_column_type=pa.string(),
+    ...                   timestamp_parsers=["%m/%d/%Y"])
+    >>> csv.read_csv(io.BytesIO(s.encode()), convert_options=convert_options)
+    pyarrow.Table
+    animals: string
+    n_legs: string
+    entry: timestamp[s]
+    fast: string
+    ----
+    animals: [["Flamingo","Horse","Brittle stars","Centipede",""]]
+    n_legs: [["2","4","5","100","6"]]
+    entry: [[2022-01-03 00:00:00,2022-02-03 00:00:00,2022-03-03 00:00:00,2022-04-03 00:00:00,2022-05-03 00:00:00]]
+    fast: [["Yes","Yes","No","No",""]]
     """
 
     # Avoid mistakingly creating attributes
