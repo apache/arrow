@@ -2219,10 +2219,10 @@ def test_fsspec_delete_root_dir_contents():
     fs.create_dir("test_dir", recursive=True)
     fs.create_dir("test_dir/subdir", recursive=True)
 
-    with fs.open_output_stream("test_file.txt") as stream:
+    with fs.open_output_stream("test_file.txt", metadata={}) as stream:
         stream.write(b"test content")
 
-    with fs.open_output_stream("test_dir/nested_file.txt") as stream:
+    with fs.open_output_stream("test_dir/nested_file.txt", metadata={}) as stream:
         stream.write(b"nested content")
 
     # Verify files exist before deletion
