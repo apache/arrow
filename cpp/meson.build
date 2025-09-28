@@ -52,16 +52,19 @@ if git_description == '' and not meson.is_subproject()
 endif
 
 needs_benchmarks = get_option('benchmarks').enabled()
-needs_compute = get_option('compute').enabled()
 needs_csv = get_option('csv').enabled()
+needs_dataset = get_option('dataset').enabled()
 needs_azure = get_option('azure').enabled()
 needs_gcs = get_option('gcs').enabled()
 needs_hdfs = get_option('hdfs').enabled()
+needs_opentelemetry = false
+needs_orc = false
 needs_parquet = get_option('parquet').enabled()
 needs_parquet_encryption = get_option('parquet_require_encryption').enabled()
 needs_s3 = get_option('s3').enabled()
 needs_filesystem = (get_option('filesystem').enabled()
     or needs_azure
+    or needs_dataset
     or needs_gcs
     or needs_hdfs
     or needs_parquet_encryption
@@ -69,7 +72,8 @@ needs_filesystem = (get_option('filesystem').enabled()
 )
 needs_integration = get_option('integration').enabled()
 needs_tests = get_option('tests').enabled()
-needs_acero = get_option('acero').enabled()
+needs_acero = get_option('acero').enabled() or needs_dataset
+needs_compute = get_option('compute').enabled() or needs_acero
 needs_flight = get_option('flight').enabled()
 needs_ipc = (get_option('ipc').enabled()
     or needs_tests
@@ -111,4 +115,12 @@ if needs_parquet
     if get_option('parquet_build_examples').enabled()
         subdir('examples/parquet')
     endif
+endif
+
+if needs_dataset
+    # Unlike the CMake configuration we need to add dataset support in the top level
+    # because it potentially requires parquet, which in turn requires arrow.
+    # When included in the subdir('src/arrow') call with parquet enabled, you end up
+    # with a circular dependency
+    subdir('src/arrow/dataset')
 endif

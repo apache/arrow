@@ -40,6 +40,11 @@ option(
 )
 option('csv', type: 'feature', description: 'Build the Arrow CSV Parser Module')
 option(
+    'dataset',
+    type: 'feature',
+    description: 'Build the Arrow Dataset Modules',
+)
+option(
     'filesystem',
     type: 'feature',
     description: 'Build the Arrow Filesystem Layer',
