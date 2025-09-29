@@ -16,7 +16,7 @@
 // under the License.
 
 // platform.h includes windows.h, so it needs to be included first
-#include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/platform.h"
+#include "arrow/flight/sql/odbc/odbc_impl/platform.h"
 
 #include <sql.h>
 #include <sqlext.h>
@@ -26,10 +26,10 @@
 #include "arrow/flight/sql/odbc/odbc_api_internal.h"
 #include "arrow/flight/sql/odbc/visibility.h"
 
-#include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/odbc_impl/odbc_connection.h"
-#include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/odbc_impl/odbc_descriptor.h"
-#include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/odbc_impl/odbc_environment.h"
-#include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/odbc_impl/odbc_statement.h"
+#include "arrow/flight/sql/odbc/odbc_impl/odbc_connection.h"
+#include "arrow/flight/sql/odbc/odbc_impl/odbc_descriptor.h"
+#include "arrow/flight/sql/odbc/odbc_impl/odbc_environment.h"
+#include "arrow/flight/sql/odbc/odbc_impl/odbc_statement.h"
 
 #include "arrow/util/logging.h"
 
