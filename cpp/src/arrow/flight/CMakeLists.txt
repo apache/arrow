@@ -231,6 +231,15 @@ foreach(LIB_TARGET ${ARROW_FLIGHT_LIBRARIES})
   target_compile_definitions(${LIB_TARGET} PRIVATE ARROW_FLIGHT_EXPORTING)
 endforeach()
 
+# Handle Unity build header conflicts on Windows
+if(CMAKE_UNITY_BUILD AND WIN32)
+  foreach(LIB_TARGET ${ARROW_FLIGHT_LIBRARIES})
+    target_compile_options(${LIB_TARGET}
+                           PRIVATE "$<$<CXX_COMPILER_ID:MSVC>:/FI\"winsock2.h\">"
+                                   "$<$<CXX_COMPILER_ID:MSVC>:/FI\"ws2tcpip.h\">")
+  endforeach()
+endif()
+
 # Define arrow_flight_testing library
 if(ARROW_TESTING)
   if(ARROW_BUILD_SHARED AND ARROW_BUILD_STATIC)
