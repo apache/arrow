@@ -235,7 +235,9 @@ endforeach()
 if(CMAKE_UNITY_BUILD AND WIN32)
   foreach(LIB_TARGET ${ARROW_FLIGHT_LIBRARIES})
     target_compile_options(${LIB_TARGET}
-                           PRIVATE "$<$<CXX_COMPILER_ID:MSVC>:/FI\"winsock2.h\">"
+                           PRIVATE "$<$<CXX_COMPILER_ID:MSVC>:/DNOMINMAX>"
+                                   "$<$<CXX_COMPILER_ID:MSVC>:/DWIN32_LEAN_AND_MEAN>"
+                                   "$<$<CXX_COMPILER_ID:MSVC>:/FI\"winsock2.h\">"
                                    "$<$<CXX_COMPILER_ID:MSVC>:/FI\"ws2tcpip.h\">")
   endforeach()
 endif()
