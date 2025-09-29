@@ -26,6 +26,7 @@
 #include "arrow/result.h"
 #include "arrow/status.h"
 
+#include <optional>
 #include <utility>
 
 namespace arrow::flight::sql::odbc {

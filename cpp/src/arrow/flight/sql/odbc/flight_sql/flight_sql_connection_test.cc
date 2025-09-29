@@ -20,6 +20,8 @@
 #include "arrow/flight/types.h"
 #include "gtest/gtest.h"
 
+#include <optional>
+
 namespace arrow::flight::sql::odbc {
 
 using arrow::flight::Location;

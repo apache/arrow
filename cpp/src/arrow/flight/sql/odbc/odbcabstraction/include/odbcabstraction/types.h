@@ -17,7 +17,7 @@
 
 #pragma once
 
-#include <boost/optional.hpp>
+#include <optional>
 #include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/platform.h"
 
 namespace arrow::flight::sql::odbc {

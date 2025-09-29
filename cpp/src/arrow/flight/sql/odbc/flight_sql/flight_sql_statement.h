@@ -26,6 +26,8 @@
 #include "arrow/flight/sql/api.h"
 #include "arrow/flight/types.h"
 
+#include <optional>
+
 namespace arrow::flight::sql::odbc {
 
 class FlightSqlStatement : public Statement {

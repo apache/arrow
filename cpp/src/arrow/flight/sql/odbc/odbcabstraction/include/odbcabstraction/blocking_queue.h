@@ -18,9 +18,9 @@
 #pragma once
 
 #include <atomic>
-#include <boost/optional.hpp>
 #include <condition_variable>
 #include <mutex>
+#include <optional>
 #include <thread>
 #include <vector>
 

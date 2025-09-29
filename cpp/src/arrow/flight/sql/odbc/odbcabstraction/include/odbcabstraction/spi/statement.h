@@ -17,9 +17,9 @@
 
 #pragma once
 
-#include <boost/optional.hpp>
 #include <boost/variant.hpp>
 #include <map>
+#include <optional>
 #include <vector>
 
 namespace arrow::flight::sql::odbc {

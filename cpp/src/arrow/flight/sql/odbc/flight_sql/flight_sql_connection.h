@@ -19,6 +19,7 @@
 
 #include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/spi/connection.h"
 
+#include <optional>
 #include <vector>
 #include "arrow/flight/api.h"
 #include "arrow/flight/sql/api.h"
@@ -119,8 +120,7 @@ class FlightSqlConnection : public Connection {
   /// \note Visible for testing
   void SetClosed(bool is_closed);
 
-  std::optional<int32_t> GetStringColumnLength(
-      const ConnPropertyMap& conn_property_map);
+  std::optional<int32_t> GetStringColumnLength(const ConnPropertyMap& conn_property_map);
 
   bool GetUseWideChar(const ConnPropertyMap& conn_property_map);
 

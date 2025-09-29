@@ -36,6 +36,7 @@
 #include <boost/xpressive/xpressive.hpp>
 #include <iterator>
 #include <memory>
+#include <optional>
 #include <utility>
 
 using ODBC::ODBCConnection;
