@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include "arrow/util/bpacking_internal.h"
 #include "arrow/util/visibility.h"
 
 #include <cstdint>
@@ -36,6 +37,18 @@ extern template ARROW_TEMPLATE_EXPORT int unpack_neon<uint32_t>(const uint8_t*, 
 
 extern template ARROW_TEMPLATE_EXPORT int unpack_neon<uint64_t>(const uint8_t*, uint64_t*,
                                                                 int, int);
+
+template <typename Uint>
+ARROW_EXPORT UnpackFn<Uint> get_unpack_fn_neon(int num_bits);
+
+extern template ARROW_TEMPLATE_EXPORT UnpackFn<uint16_t> get_unpack_fn_neon<uint16_t>(
+    int);
+
+extern template ARROW_TEMPLATE_EXPORT UnpackFn<uint32_t> get_unpack_fn_neon<uint32_t>(
+    int);
+
+extern template ARROW_TEMPLATE_EXPORT UnpackFn<uint64_t> get_unpack_fn_neon<uint64_t>(
+    int);
 
 #endif
 

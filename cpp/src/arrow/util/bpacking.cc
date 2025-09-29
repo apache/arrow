@@ -68,4 +68,22 @@ template int unpack<uint16_t>(const uint8_t*, uint16_t*, int, int);
 template int unpack<uint32_t>(const uint8_t*, uint32_t*, int, int);
 template int unpack<uint64_t>(const uint8_t*, uint64_t*, int, int);
 
+template <typename Uint>
+UnpackFn<Uint> get_unpack_fn(int num_bits) {
+  if constexpr (std::is_same_v<Uint, uint16_t>) {
+    // Current SIMD unpack function do not out beat scalar implementation for uin16_t
+    return get_unpack_fn_scalar<uint16_t>(num_bits);
+  } else {
+#if defined(ARROW_HAVE_NEON)
+    return get_unpack_fn_neon<Uint>(num_bits);
+#else
+    // TODO
+#endif
+  }
+}
+
+template UnpackFn<uint16_t> get_unpack_fn<uint16_t>(int);
+template UnpackFn<uint32_t> get_unpack_fn<uint32_t>(int);
+template UnpackFn<uint64_t> get_unpack_fn<uint64_t>(int);
+
 }  // namespace arrow::internal
