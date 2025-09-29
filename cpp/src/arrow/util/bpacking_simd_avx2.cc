@@ -30,4 +30,13 @@ template int unpack_avx2<uint16_t>(const uint8_t*, uint16_t*, int, int);
 template int unpack_avx2<uint32_t>(const uint8_t*, uint32_t*, int, int);
 template int unpack_avx2<uint64_t>(const uint8_t*, uint64_t*, int, int);
 
+template <typename Uint>
+UnpackFn<Uint> get_unpack_fn_avx2(int num_bits) {
+  return get_unpack_fn<Simd256UnpackerForWidth, Uint>(num_bits);
+}
+
+template UnpackFn<uint16_t> get_unpack_fn_avx2<uint16_t>(int);
+template UnpackFn<uint32_t> get_unpack_fn_avx2<uint32_t>(int);
+template UnpackFn<uint64_t> get_unpack_fn_avx2<uint64_t>(int);
+
 }  // namespace arrow::internal

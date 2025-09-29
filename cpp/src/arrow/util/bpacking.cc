@@ -68,6 +68,30 @@ template int unpack<uint16_t>(const uint8_t*, uint16_t*, int, int);
 template int unpack<uint32_t>(const uint8_t*, uint32_t*, int, int);
 template int unpack<uint64_t>(const uint8_t*, uint64_t*, int, int);
 
+namespace {
+
+template <typename Uint>
+struct GetUnpackDynamicFunction {
+  using FunctionType = decltype(&get_unpack_fn_scalar<Uint>);
+  using Implementation = std::pair<DispatchLevel, FunctionType>;
+
+  static auto implementations() {
+    return std::array {
+      // Current SIMD unpack algorithm works terribly on SSE4.2 due to lack of variable
+      // rhsift and poor xsimd fallback.
+      Implementation{DispatchLevel::NONE, &get_unpack_fn_scalar<Uint>},
+#if defined(ARROW_HAVE_RUNTIME_AVX2)
+          Implementation{DispatchLevel::AVX2, &get_unpack_fn_avx2<Uint>},
+#endif
+#if defined(ARROW_HAVE_RUNTIME_AVX512)
+          Implementation{DispatchLevel::AVX512, &get_unpack_fn_avx512<Uint>},
+#endif
+    };
+  }
+};
+
+}  // namespace
+
 template <typename Uint>
 UnpackFn<Uint> get_unpack_fn(int num_bits) {
   if constexpr (std::is_same_v<Uint, uint16_t>) {
@@ -77,7 +101,8 @@ UnpackFn<Uint> get_unpack_fn(int num_bits) {
 #if defined(ARROW_HAVE_NEON)
     return get_unpack_fn_neon<Uint>(num_bits);
 #else
-    // TODO
+    static DynamicDispatch<GetUnpackDynamicFunction<Uint> > dispatch;
+    return dispatch.func(num_bits);
 #endif
   }
 }

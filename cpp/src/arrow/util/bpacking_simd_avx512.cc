@@ -29,4 +29,12 @@ int unpack_avx512(const uint8_t* in, Uint* out, int batch_size, int num_bits) {
 template int unpack_avx512<uint32_t>(const uint8_t*, uint32_t*, int, int);
 template int unpack_avx512<uint64_t>(const uint8_t*, uint64_t*, int, int);
 
+template <typename Uint>
+UnpackFn<Uint> get_unpack_fn_avx512(int num_bits) {
+  return get_unpack_fn<Simd512UnpackerForWidth, Uint>(num_bits);
+}
+
+template UnpackFn<uint32_t> get_unpack_fn_avx512<uint32_t>(int);
+template UnpackFn<uint64_t> get_unpack_fn_avx512<uint64_t>(int);
+
 }  // namespace arrow::internal

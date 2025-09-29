@@ -82,6 +82,18 @@ extern template ARROW_TEMPLATE_EXPORT int unpack_avx2<uint32_t>(const uint8_t*, 
 extern template ARROW_TEMPLATE_EXPORT int unpack_avx2<uint64_t>(const uint8_t*, uint64_t*,
                                                                 int, int);
 
+template <typename Uint>
+ARROW_EXPORT UnpackFn<Uint> get_unpack_fn_avx2(int num_bits);
+
+extern template ARROW_TEMPLATE_EXPORT UnpackFn<uint16_t> get_unpack_fn_avx2<uint16_t>(
+    int);
+
+extern template ARROW_TEMPLATE_EXPORT UnpackFn<uint32_t> get_unpack_fn_avx2<uint32_t>(
+    int);
+
+extern template ARROW_TEMPLATE_EXPORT UnpackFn<uint64_t> get_unpack_fn_avx2<uint64_t>(
+    int);
+
 #endif
 
 #if defined(ARROW_HAVE_AVX512) || defined(ARROW_HAVE_RUNTIME_AVX512)
@@ -95,6 +107,15 @@ extern template ARROW_TEMPLATE_EXPORT int unpack_avx512<uint32_t>(const uint8_t*
 
 extern template ARROW_TEMPLATE_EXPORT int unpack_avx512<uint64_t>(const uint8_t*,
                                                                   uint64_t*, int, int);
+
+template <typename Uint>
+ARROW_EXPORT UnpackFn<Uint> get_unpack_fn_avx512(int num_bits);
+
+extern template ARROW_TEMPLATE_EXPORT UnpackFn<uint32_t> get_unpack_fn_avx512<uint32_t>(
+    int);
+
+extern template ARROW_TEMPLATE_EXPORT UnpackFn<uint64_t> get_unpack_fn_avx512<uint64_t>(
+    int);
 
 #endif
 
