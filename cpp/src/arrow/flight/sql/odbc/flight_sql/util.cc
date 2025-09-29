@@ -1115,7 +1115,7 @@ std::optional<bool> AsBool(const std::string& value) {
   } else if (boost::iequals(value, "false") || boost::iequals(value, "0")) {
     return false;
   } else {
-    return boost::none;
+    return std::nullopt;
   }
 }
 
@@ -1127,7 +1127,7 @@ std::optional<bool> AsBool(const Connection::ConnPropertyMap& conn_property_map,
     return AsBool(extracted_property->second);
   }
 
-  return boost::none;
+  return std::nullopt;
 }
 
 std::optional<int32_t> AsInt32(int32_t min_value,
@@ -1142,7 +1142,7 @@ std::optional<int32_t> AsInt32(int32_t min_value,
       return string_column_length;
     }
   }
-  return boost::none;
+  return std::nullopt;
 }
 
 }  // namespace util

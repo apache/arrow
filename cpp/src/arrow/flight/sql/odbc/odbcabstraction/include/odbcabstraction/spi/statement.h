@@ -74,7 +74,7 @@ class Statement {
 
   /// \brief Prepares the statement.
   /// Returns ResultSetMetadata if query returns a result set,
-  /// otherwise it returns `boost::none`.
+  /// otherwise it returns `std::nullopt`.
   /// \param query The SQL query to prepare.
   virtual std::optional<std::shared_ptr<ResultSetMetadata>> Prepare(
       const std::string& query) = 0;

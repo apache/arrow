@@ -219,7 +219,7 @@ std::optional<int32_t> FlightSqlConnection::GetStringColumnLength(
         "01000", ODBCErrorCodes_GENERAL_WARNING);
   }
 
-  return boost::none;
+  return std::nullopt;
 }
 
 bool FlightSqlConnection::GetUseWideChar(const ConnPropertyMap& conn_property_map) {
@@ -398,12 +398,16 @@ std::optional<Connection::Attribute> FlightSqlConnection::GetAttribute(
   switch (attribute) {
     case ACCESS_MODE:
       // FlightSQL does not provide this metadata.
-      return boost::make_optional(Attribute(static_cast<uint32_t>(SQL_MODE_READ_WRITE)));
+      return std::make_optional(Attribute(static_cast<uint32_t>(SQL_MODE_READ_WRITE)));
     case PACKET_SIZE:
-      return boost::make_optional(Attribute(static_cast<uint32_t>(0)));
+      return std::make_optional(Attribute(static_cast<uint32_t>(0)));
     default:
       const auto& it = attribute_.find(attribute);
-      return boost::make_optional(it != attribute_.end(), it->second);
+      if (it != attribute_.end()) {
+        return std::make_optional(it->second);
+      } else {
+        return std::nullopt;
+      }
   }
 }
 

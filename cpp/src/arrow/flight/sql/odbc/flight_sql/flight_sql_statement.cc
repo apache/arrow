@@ -111,7 +111,11 @@ bool FlightSqlStatement::SetAttribute(StatementAttributeId attribute,
 std::optional<Statement::Attribute> FlightSqlStatement::GetAttribute(
     StatementAttributeId attribute) {
   const auto& it = attribute_.find(attribute);
-  return boost::make_optional(it != attribute_.end(), it->second);
+  if (it != attribute_.end()) {
+    return std::make_optional(it->second);
+  } else {
+    return std::nullopt;
+  }
 }
 
 std::optional<std::shared_ptr<ResultSetMetadata>> FlightSqlStatement::Prepare(
