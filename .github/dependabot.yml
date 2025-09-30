@@ -24,34 +24,3 @@ updates:
     commit-message:
       prefix: "MINOR: [CI] "
     open-pull-requests-limit: 10
-  - package-ecosystem: "gomod"
-    directory: "/swift/CDataWGo/"
-    schedule:
-      interval: "weekly"
-    commit-message:
-      prefix: "MINOR: [Swift] "
-    open-pull-requests-limit: 10
-  - package-ecosystem: "gomod"
-    directory: "/swift/data-generator/swift-datagen/"
-    schedule:
-      interval: "weekly"
-    commit-message:
-      prefix: "MINOR: [Swift] "
-    open-pull-requests-limit: 10
-  - package-ecosystem: "nuget"
-    directory: "/csharp/"
-    schedule:
-      interval: "weekly"
-    commit-message:
-      prefix: "MINOR: [C#] "
-    open-pull-requests-limit: 10
-    ignore:
-      - dependency-name: "Microsoft.Extensions.*"
-        update-types:
-          - "version-update:semver-major"
-      - dependency-name: "Microsoft.Bcl.*"
-        update-types:
-          - "version-update:semver-major"
-      - dependency-name: "System.*"
-        update-types:
-          - "version-update:semver-major"

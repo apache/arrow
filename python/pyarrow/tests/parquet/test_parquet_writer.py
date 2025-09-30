@@ -23,7 +23,7 @@ from pyarrow import fs
 try:
     import pyarrow.parquet as pq
     from pyarrow.tests.parquet.common import (_read_table, _test_dataframe,
-                                              _range_integers)
+                                              _test_table, _range_integers)
 except ImportError:
     pq = None
 
@@ -314,10 +314,9 @@ def test_parquet_writer_filesystem_s3fs(s3_example_s3fs):
     tm.assert_frame_equal(result, df)
 
 
-@pytest.mark.pandas
+@pytest.mark.numpy
 def test_parquet_writer_filesystem_buffer_raises():
-    df = _test_dataframe(100)
-    table = pa.Table.from_pandas(df, preserve_index=False)
+    table = _test_table(100)
     filesystem = fs.LocalFileSystem()
 
     # Should raise ValueError when filesystem is passed with file-like object

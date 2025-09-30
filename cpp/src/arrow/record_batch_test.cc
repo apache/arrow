@@ -40,6 +40,7 @@
 #include "arrow/array/util.h"
 #include "arrow/c/abi.h"
 #include "arrow/chunked_array.h"
+#include "arrow/compare.h"
 #include "arrow/config.h"
 #include "arrow/status.h"
 #include "arrow/table.h"
@@ -67,41 +68,97 @@ TEST_F(TestRecordBatch, Equals) {
   auto f0 = field("f0", int32());
   auto f1 = field("f1", uint8());
   auto f2 = field("f2", int16());
+
+  auto schema = ::arrow::schema({f0, f1, f2});
+  auto schema_same = ::arrow::schema({f0, f1, f2});
+  auto schema_fewer_fields = ::arrow::schema({f0, f1});
+
+  random::RandomArrayGenerator gen(42);
+
+  auto a_f0 = gen.ArrayOf(int32(), length);
+  auto a_f1 = gen.ArrayOf(uint8(), length);
+  auto a_f2 = gen.ArrayOf(int16(), length);
+  auto a_f0_half = a_f0->Slice(0, length / 2);
+  auto a_f1_half = a_f1->Slice(0, length / 2);
+  auto a_f0_different = gen.ArrayOf(int32(), length);
+  auto a_f1_different = gen.ArrayOf(uint8(), length);
+
+  auto b = RecordBatch::Make(schema, length, {a_f0, a_f1, a_f2});
+  auto b_same = RecordBatch::Make(schema_same, length, {a_f0, a_f1, a_f2});
+  auto b_fewer_fields = RecordBatch::Make(schema_fewer_fields, length, {a_f0, a_f1});
+  auto b_fewer_fields_half =
+      RecordBatch::Make(schema_fewer_fields, length / 2, {a_f0_half, a_f1_half});
+  auto b_fewer_fields_different =
+      RecordBatch::Make(schema_fewer_fields, length, {a_f0_different, a_f1_different});
+
+  // Same Values
+  ASSERT_TRUE(b->Equals(*b_same));
+
+  // Different number of columns
+  ASSERT_FALSE(b->Equals(*b_fewer_fields));
+
+  // Different number of rows
+  ASSERT_FALSE(b_fewer_fields->Equals(*b_fewer_fields_half));
+
+  // Different values
+  ASSERT_FALSE(b_fewer_fields->Equals(*b_fewer_fields_different));
+}
+
+class TestRecordBatchEqualOptions : public TestRecordBatch {};
+
+TEST_F(TestRecordBatchEqualOptions, MetadataAndSchema) {
+  int length = 10;
+
+  auto f0 = field("f0", int32());
+  auto f1 = field("f1", uint8());
+  auto f2 = field("f2", int16());
   auto f2b = field("f2b", int16());
 
   auto metadata = key_value_metadata({"foo"}, {"bar"});
 
-  std::vector<std::shared_ptr<Field>> fields = {f0, f1, f2};
   auto schema = ::arrow::schema({f0, f1, f2});
-  auto schema2 = ::arrow::schema({f0, f1});
-  auto schema3 = ::arrow::schema({f0, f1, f2}, metadata);
-  auto schema4 = ::arrow::schema({f0, f1, f2b});
+  auto schema_with_metadata = ::arrow::schema({f0, f1, f2}, metadata);
+  auto schema_renamed_field = ::arrow::schema({f0, f1, f2b});
 
   random::RandomArrayGenerator gen(42);
 
-  auto a0 = gen.ArrayOf(int32(), length);
-  auto a1 = gen.ArrayOf(uint8(), length);
-  auto a2 = gen.ArrayOf(int16(), length);
+  auto a_f0 = gen.ArrayOf(int32(), length);
+  auto a_f1 = gen.ArrayOf(uint8(), length);
+  auto a_f2 = gen.ArrayOf(int16(), length);
+  auto a_f2b = a_f2;
 
-  auto b1 = RecordBatch::Make(schema, length, {a0, a1, a2});
-  auto b2 = RecordBatch::Make(schema3, length, {a0, a1, a2});
-  auto b3 = RecordBatch::Make(schema2, length, {a0, a1});
-  auto b4 = RecordBatch::Make(schema, length, {a0, a1, a1});
-  auto b5 = RecordBatch::Make(schema4, length, {a0, a1, a2});
+  // All RecordBatches have the same values but different schemas.
+  auto b = RecordBatch::Make(schema, length, {a_f0, a_f1, a_f2});
+  auto b_with_metadata =
+      RecordBatch::Make(schema_with_metadata, length, {a_f0, a_f1, a_f2});
+  auto b_renamed_field =
+      RecordBatch::Make(schema_renamed_field, length, {a_f0, a_f1, a_f2b});
 
-  ASSERT_TRUE(b1->Equals(*b1));
-  ASSERT_FALSE(b1->Equals(*b3));
-  ASSERT_FALSE(b1->Equals(*b4));
+  auto options = EqualOptions::Defaults();
 
   // Same values and types, but different field names
-  ASSERT_FALSE(b1->Equals(*b5));
+  ASSERT_FALSE(b->Equals(*b_renamed_field));
+  ASSERT_TRUE(b->Equals(*b_renamed_field, options.use_schema(false)));
+  ASSERT_TRUE(b->ApproxEquals(*b_renamed_field));
+  ASSERT_TRUE(b->ApproxEquals(*b_renamed_field, options.use_schema(true)));
 
   // Different metadata
-  ASSERT_TRUE(b1->Equals(*b2));
-  ASSERT_FALSE(b1->Equals(*b2, /*check_metadata=*/true));
+  ASSERT_TRUE(b->Equals(*b_with_metadata));
+  ASSERT_TRUE(b->Equals(*b_with_metadata, options));
+  ASSERT_FALSE(b->Equals(*b_with_metadata,
+                         /*check_metadata=*/true));
+  ASSERT_FALSE(b->Equals(*b_with_metadata,
+                         /*check_metadata=*/true, options.use_schema(true)));
+  ASSERT_TRUE(b->Equals(*b_with_metadata,
+                        /*check_metadata=*/true, options.use_schema(false)));
+  ASSERT_TRUE(b->Equals(*b_with_metadata, options.use_schema(true).use_metadata(false)));
+  ASSERT_FALSE(b->Equals(*b_with_metadata, options.use_schema(true).use_metadata(true)));
+  ASSERT_TRUE(b->Equals(*b_with_metadata, options.use_schema(false).use_metadata(true)));
+  ASSERT_TRUE(
+      b->ApproxEquals(*b_with_metadata, options.use_schema(true).use_metadata(true)));
 }
 
-TEST_F(TestRecordBatch, EqualOptions) {
+TEST_F(TestRecordBatchEqualOptions, NaN) {
   int length = 2;
   auto f = field("f", float64());
 
@@ -114,13 +171,27 @@ TEST_F(TestRecordBatch, EqualOptions) {
   auto b1 = RecordBatch::Make(schema, length, {array1});
   auto b2 = RecordBatch::Make(schema, length, {array2});
 
-  EXPECT_FALSE(b1->Equals(*b2, /*check_metadata=*/false,
-                          EqualOptions::Defaults().nans_equal(false)));
-  EXPECT_TRUE(b1->Equals(*b2, /*check_metadata=*/false,
-                         EqualOptions::Defaults().nans_equal(true)));
+  EXPECT_FALSE(b1->Equals(*b2, EqualOptions::Defaults().nans_equal(false)));
+  EXPECT_TRUE(b1->Equals(*b2, EqualOptions::Defaults().nans_equal(true)));
 }
 
-TEST_F(TestRecordBatch, ApproxEqualOptions) {
+TEST_F(TestRecordBatchEqualOptions, SignedZero) {
+  int length = 2;
+  auto f = field("f", float64());
+
+  auto schema = ::arrow::schema({f});
+
+  std::shared_ptr<Array> array1, array2;
+  ArrayFromVector<DoubleType>(float64(), {true, true}, {0.5, +0.0}, &array1);
+  ArrayFromVector<DoubleType>(float64(), {true, true}, {0.5, -0.0}, &array2);
+  auto b1 = RecordBatch::Make(schema, length, {array1});
+  auto b2 = RecordBatch::Make(schema, length, {array2});
+
+  ASSERT_FALSE(b1->Equals(*b2, EqualOptions::Defaults().signed_zeros_equal(false)));
+  ASSERT_TRUE(b1->Equals(*b2, EqualOptions::Defaults().signed_zeros_equal(true)));
+}
+
+TEST_F(TestRecordBatchEqualOptions, Approx) {
   int length = 2;
   auto f = field("f", float64());
 
@@ -137,9 +208,97 @@ TEST_F(TestRecordBatch, ApproxEqualOptions) {
   EXPECT_FALSE(b1->ApproxEquals(*b2, EqualOptions::Defaults().nans_equal(true)));
 
   auto options = EqualOptions::Defaults().nans_equal(true).atol(0.1);
-  EXPECT_FALSE(b1->Equals(*b2, false, options));
-  EXPECT_TRUE(b1->Equals(*b2, false, options.use_atol(true)));
+  EXPECT_FALSE(b1->Equals(*b2, options));
+  EXPECT_TRUE(b1->Equals(*b2, options.use_atol(true)));
   EXPECT_TRUE(b1->ApproxEquals(*b2, options));
+}
+
+class TestRecordBatchEqualsSameAddress : public TestRecordBatch {};
+
+TEST_F(TestRecordBatchEqualsSameAddress, NonFloatType) {
+  auto f0 = field("f0", int32());
+  auto f1 = field("f1", int64());
+
+  auto schema = ::arrow::schema({f0, f1});
+
+  auto a0 = ArrayFromJSON(f0->type(), "[0, 1, 2]");
+  auto a1 = ArrayFromJSON(f1->type(), "[0, 1, 2]");
+
+  auto b0 = RecordBatch::Make(schema, 3, {a0, a1});
+  auto b1 = b0;
+
+  auto options = EqualOptions::Defaults();
+
+  ASSERT_TRUE(b0->Equals(*b1, options));
+  ASSERT_TRUE(b0->Equals(*b1, options.nans_equal(true)));
+
+  ASSERT_TRUE(b0->ApproxEquals(*b1, options));
+  ASSERT_TRUE(b0->ApproxEquals(*b1, options.nans_equal(true)));
+}
+
+TEST_F(TestRecordBatchEqualsSameAddress, NestedTypesWithoutFloatType) {
+  auto f0 = field("f0", int32());
+  auto f1 = field("f1", struct_({{"f2", int64()}, {"f3", int8()}}));
+
+  auto schema = ::arrow::schema({f0, f1});
+
+  auto a0 = ArrayFromJSON(f0->type(), "[0, 1, 2]");
+  auto a1 = ArrayFromJSON(
+      f1->type(), R"([{"f2": 1, "f3": 4}, {"f2": 2, "f3": 5}, {"f2":3, "f3": 6}])");
+
+  auto b0 = RecordBatch::Make(schema, 3, {a0, a1});
+  auto b1 = b0;
+
+  auto options = EqualOptions::Defaults();
+
+  ASSERT_TRUE(b0->Equals(*b1, options));
+  ASSERT_TRUE(b0->Equals(*b1, options.nans_equal(true)));
+
+  ASSERT_TRUE(b0->ApproxEquals(*b1, options));
+  ASSERT_TRUE(b0->ApproxEquals(*b1, options.nans_equal(true)));
+}
+
+TEST_F(TestRecordBatchEqualsSameAddress, FloatType) {
+  auto f0 = field("f0", int32());
+  auto f1 = field("f1", float64());
+
+  auto schema = ::arrow::schema({f0, f1});
+
+  auto a0 = ArrayFromJSON(f0->type(), "[0, 1, 2]");
+  auto a1 = ArrayFromJSON(f1->type(), "[0.0, 1.0, 2.0, NaN]");
+
+  auto b0 = RecordBatch::Make(schema, 3, {a0, a1});
+  auto b1 = b0;
+
+  auto options = EqualOptions::Defaults();
+
+  ASSERT_FALSE(b0->Equals(*b1, options));
+  ASSERT_TRUE(b0->Equals(*b1, options.nans_equal(true)));
+
+  ASSERT_FALSE(b0->ApproxEquals(*b1, options));
+  ASSERT_TRUE(b0->ApproxEquals(*b1, options.nans_equal(true)));
+}
+
+TEST_F(TestRecordBatchEqualsSameAddress, NestedTypesWithFloatType) {
+  auto f0 = field("f0", int32());
+  auto f1 = field("f1", struct_({{"f2", int64()}, {"f3", float32()}}));
+
+  auto schema = ::arrow::schema({f0, f1});
+
+  auto a0 = ArrayFromJSON(f0->type(), "[0, 1, 2]");
+  auto a1 = ArrayFromJSON(
+      f1->type(), R"([{"f2": 1, "f3": 4.0}, {"f2": 2, "f3": 4.0}, {"f2":3, "f3": NaN}])");
+
+  auto b0 = RecordBatch::Make(schema, 3, {a0, a1});
+  auto b1 = b0;
+
+  auto options = EqualOptions::Defaults();
+
+  ASSERT_FALSE(b0->Equals(*b1, options));
+  ASSERT_TRUE(b0->Equals(*b1, options.nans_equal(true)));
+
+  ASSERT_FALSE(b0->ApproxEquals(*b1, options));
+  ASSERT_TRUE(b0->ApproxEquals(*b1, options.nans_equal(true)));
 }
 
 TEST_F(TestRecordBatch, Validate) {
@@ -1312,14 +1471,14 @@ TEST_F(TestRecordBatch, MakeStatisticsArrayNullCount) {
   AssertArraysEqual(*expected_statistics_array, *statistics_array, true);
 }
 
-TEST_F(TestRecordBatch, MakeStatisticsArrayDistinctCount) {
+TEST_F(TestRecordBatch, MakeStatisticsArrayDistinctCountExact) {
   auto schema =
       ::arrow::schema({field("no-statistics", boolean()), field("int32", int32())});
   auto no_statistics_array = ArrayFromJSON(boolean(), "[true, false, true]");
   auto int32_array_data = ArrayFromJSON(int32(), "[1, null, -1]")->data()->Copy();
   int32_array_data->statistics = std::make_shared<ArrayStatistics>();
   int32_array_data->statistics->null_count = 1;
-  int32_array_data->statistics->distinct_count = 2;
+  int32_array_data->statistics->distinct_count = static_cast<int64_t>(2);
   auto int32_array = MakeArray(std::move(int32_array_data));
   auto batch = RecordBatch::Make(schema, int32_array->length(),
                                  {no_statistics_array, int32_array});
@@ -1342,6 +1501,107 @@ TEST_F(TestRecordBatch, MakeStatisticsArrayDistinctCount) {
                                                 ArrayStatistics::ValueType{int64_t{1}},
                                                 ArrayStatistics::ValueType{int64_t{2}},
                                             }}));
+  AssertArraysEqual(*expected_statistics_array, *statistics_array, true);
+}
+
+TEST_F(TestRecordBatch, MakeStatisticsArrayDistinctCountApproximate) {
+  auto schema =
+      ::arrow::schema({field("no-statistics", boolean()), field("int32", int32())});
+  auto no_statistics_array = ArrayFromJSON(boolean(), "[true, false, true]");
+  auto int32_array_data = ArrayFromJSON(int32(), "[1, null, -1]")->data()->Copy();
+  int32_array_data->statistics = std::make_shared<ArrayStatistics>();
+  int32_array_data->statistics->null_count = 1;
+  int32_array_data->statistics->distinct_count = 2.0;
+  auto int32_array = MakeArray(std::move(int32_array_data));
+  auto batch = RecordBatch::Make(schema, int32_array->length(),
+                                 {no_statistics_array, int32_array});
+
+  ASSERT_OK_AND_ASSIGN(auto statistics_array, batch->MakeStatisticsArray());
+
+  ASSERT_OK_AND_ASSIGN(
+      auto expected_statistics_array,
+      MakeStatisticsArray("[null, 1]",
+                          {{
+                               ARROW_STATISTICS_KEY_ROW_COUNT_EXACT,
+                           },
+                           {
+                               ARROW_STATISTICS_KEY_NULL_COUNT_EXACT,
+                               ARROW_STATISTICS_KEY_DISTINCT_COUNT_APPROXIMATE,
+                           }},
+                          {{
+                               ArrayStatistics::ValueType{int64_t{3}},
+                           },
+                           {
+                               ArrayStatistics::ValueType{int64_t{1}},
+                               ArrayStatistics::ValueType{2.0},
+                           }}));
+  AssertArraysEqual(*expected_statistics_array, *statistics_array, true);
+}
+
+TEST_F(TestRecordBatch, MakeStatisticsArrayMaxByteWidthExact) {
+  auto schema =
+      ::arrow::schema({field("no-statistics", boolean()), field("utf8", utf8())});
+  auto no_statistics_array = ArrayFromJSON(boolean(), "[true, false, true]");
+  auto string_array_data = ArrayFromJSON(utf8(), R"(["aa", null, "c"])")->data()->Copy();
+  string_array_data->statistics = std::make_shared<ArrayStatistics>();
+  string_array_data->statistics->null_count = 1;
+  string_array_data->statistics->max_byte_width = static_cast<int64_t>(2);
+  auto string_array = MakeArray(std::move(string_array_data));
+  auto batch = RecordBatch::Make(schema, string_array->length(),
+                                 {no_statistics_array, string_array});
+
+  ASSERT_OK_AND_ASSIGN(auto statistics_array, batch->MakeStatisticsArray());
+
+  ASSERT_OK_AND_ASSIGN(auto expected_statistics_array,
+                       MakeStatisticsArray("[null, 1]",
+                                           {{
+                                                ARROW_STATISTICS_KEY_ROW_COUNT_EXACT,
+                                            },
+                                            {
+                                                ARROW_STATISTICS_KEY_NULL_COUNT_EXACT,
+                                                ARROW_STATISTICS_KEY_MAX_BYTE_WIDTH_EXACT,
+                                            }},
+                                           {{
+                                                ArrayStatistics::ValueType{int64_t{3}},
+                                            },
+                                            {
+                                                ArrayStatistics::ValueType{int64_t{1}},
+                                                ArrayStatistics::ValueType{int64_t{2}},
+                                            }}));
+  AssertArraysEqual(*expected_statistics_array, *statistics_array, true);
+}
+
+TEST_F(TestRecordBatch, MakeStatisticsArrayMaxByteWidthApproximate) {
+  auto schema =
+      ::arrow::schema({field("no-statistics", boolean()), field("utf8", utf8())});
+  auto no_statistics_array = ArrayFromJSON(boolean(), "[true, false, true]");
+  auto string_array_data = ArrayFromJSON(utf8(), R"(["aa", null, "c"])")->data()->Copy();
+  string_array_data->statistics = std::make_shared<ArrayStatistics>();
+  string_array_data->statistics->null_count = 1;
+  string_array_data->statistics->max_byte_width = 2.0;
+  auto string_array = MakeArray(std::move(string_array_data));
+  auto batch = RecordBatch::Make(schema, string_array->length(),
+                                 {no_statistics_array, string_array});
+
+  ASSERT_OK_AND_ASSIGN(auto statistics_array, batch->MakeStatisticsArray());
+
+  ASSERT_OK_AND_ASSIGN(
+      auto expected_statistics_array,
+      MakeStatisticsArray("[null, 1]",
+                          {{
+                               ARROW_STATISTICS_KEY_ROW_COUNT_EXACT,
+                           },
+                           {
+                               ARROW_STATISTICS_KEY_NULL_COUNT_EXACT,
+                               ARROW_STATISTICS_KEY_MAX_BYTE_WIDTH_APPROXIMATE,
+                           }},
+                          {{
+                               ArrayStatistics::ValueType{int64_t{3}},
+                           },
+                           {
+                               ArrayStatistics::ValueType{int64_t{1}},
+                               ArrayStatistics::ValueType{2.0},
+                           }}));
   AssertArraysEqual(*expected_statistics_array, *statistics_array, true);
 }
 

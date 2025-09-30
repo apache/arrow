@@ -34,8 +34,35 @@ using odbcabstraction::TIMESTAMP_STRUCT;
 using odbcabstraction::GetTimeForSecondsSinceEpoch;
 
 TEST(TEST_TIMESTAMP, TIMESTAMP_WITH_MILLI) {
-  std::vector<int64_t> values = {86400370,  172800000, 259200000, 1649793238110LL,
-                                 345600000, 432000000, 518400000};
+  std::vector<int64_t> values = {86400370,        172800000,      259200000,
+                                 1649793238110LL, 345600000,      432000000,
+                                 518400000,       -86399000,      0,
+                                 -86399999,       -86399001,      86400001,
+                                 86400999,        -3786912000000, -5364662400000,
+                                 -1500,           -24268068949000};
+  std::vector<TIMESTAMP_STRUCT> expected = {
+      /* year(16), month(u16), day(u16), hour(u16), minute(u16), second(u16),
+         fraction(u32) */
+      {1970, 1, 2, 0, 0, 0, 370000000},
+      {1970, 1, 3, 0, 0, 0, 0},
+      {1970, 1, 4, 0, 0, 0, 0},
+      {2022, 4, 12, 19, 53, 58, 110000000},
+      {1970, 1, 5, 0, 0, 0, 0},
+      {1970, 1, 6, 0, 0, 0, 0},
+      {1970, 1, 7, 0, 0, 0, 0},
+      {1969, 12, 31, 0, 0, 1, 0},
+      {1970, 1, 1, 0, 0, 0, 0},
+      /* Tests both ends of the fraction rounding range to ensure we don't tip the wrong
+         way */
+      {1969, 12, 31, 0, 0, 0, 1000000},
+      {1969, 12, 31, 0, 0, 0, 999000000},
+      {1970, 1, 2, 0, 0, 0, 1000000},
+      {1970, 1, 2, 0, 0, 0, 999000000},
+      {1849, 12, 31, 0, 0, 0, 0U},
+      {1800, 1, 1, 0, 0, 0, 0U},
+      {1969, 12, 31, 23, 59, 58, 500000000U},
+      {1200, 12, 22, 13, 44, 11, 0U},
+  };
 
   std::shared_ptr<Array> timestamp_array;
 
@@ -60,22 +87,13 @@ TEST(TEST_TIMESTAMP, TIMESTAMP_WITH_MILLI) {
   for (size_t i = 0; i < values.size(); ++i) {
     ASSERT_EQ(sizeof(TIMESTAMP_STRUCT), strlen_buffer[i]);
 
-    tm date{};
-
-    auto converted_time = values[i] / odbcabstraction::MILLI_TO_SECONDS_DIVISOR;
-    GetTimeForSecondsSinceEpoch(date, converted_time);
-
-    ASSERT_EQ(buffer[i].year, 1900 + (date.tm_year));
-    ASSERT_EQ(buffer[i].month, date.tm_mon + 1);
-    ASSERT_EQ(buffer[i].day, date.tm_mday);
-    ASSERT_EQ(buffer[i].hour, date.tm_hour);
-    ASSERT_EQ(buffer[i].minute, date.tm_min);
-    ASSERT_EQ(buffer[i].second, date.tm_sec);
-
-    constexpr uint32_t NANOSECONDS_PER_MILLI = 1000000;
-    ASSERT_EQ(
-        buffer[i].fraction,
-        (values[i] % odbcabstraction::MILLI_TO_SECONDS_DIVISOR) * NANOSECONDS_PER_MILLI);
+    ASSERT_EQ(buffer[i].year, expected[i].year);
+    ASSERT_EQ(buffer[i].month, expected[i].month);
+    ASSERT_EQ(buffer[i].day, expected[i].day);
+    ASSERT_EQ(buffer[i].hour, expected[i].hour);
+    ASSERT_EQ(buffer[i].minute, expected[i].minute);
+    ASSERT_EQ(buffer[i].second, expected[i].second);
+    ASSERT_EQ(buffer[i].fraction, expected[i].fraction);
   }
 }
 
@@ -109,7 +127,7 @@ TEST(TEST_TIMESTAMP, TIMESTAMP_WITH_SECONDS) {
     tm date{};
 
     auto converted_time = values[i];
-    GetTimeForSecondsSinceEpoch(date, converted_time);
+    GetTimeForSecondsSinceEpoch(converted_time, date);
 
     ASSERT_EQ(buffer[i].year, 1900 + (date.tm_year));
     ASSERT_EQ(buffer[i].month, date.tm_mon + 1);
@@ -151,7 +169,7 @@ TEST(TEST_TIMESTAMP, TIMESTAMP_WITH_MICRO) {
     tm date{};
 
     auto converted_time = values[i] / odbcabstraction::MICRO_TO_SECONDS_DIVISOR;
-    GetTimeForSecondsSinceEpoch(date, converted_time);
+    GetTimeForSecondsSinceEpoch(converted_time, date);
 
     ASSERT_EQ(buffer[i].year, 1900 + (date.tm_year));
     ASSERT_EQ(buffer[i].month, date.tm_mon + 1);
@@ -194,7 +212,7 @@ TEST(TEST_TIMESTAMP, TIMESTAMP_WITH_NANO) {
     tm date{};
 
     auto converted_time = values[i] / odbcabstraction::NANO_TO_SECONDS_DIVISOR;
-    GetTimeForSecondsSinceEpoch(date, converted_time);
+    GetTimeForSecondsSinceEpoch(converted_time, date);
 
     ASSERT_EQ(buffer[i].year, 1900 + (date.tm_year));
     ASSERT_EQ(buffer[i].month, date.tm_mon + 1);

@@ -305,9 +305,6 @@ repos:
           ?^ci/scripts/conan_build\.sh$|
           ?^ci/scripts/conan_setup\.sh$|
           ?^ci/scripts/cpp_test\.sh$|
-          ?^ci/scripts/csharp_build\.sh$|
-          ?^ci/scripts/csharp_pack\.sh$|
-          ?^ci/scripts/csharp_test\.sh$|
           ?^ci/scripts/download_tz_database\.sh$|
           ?^ci/scripts/install_azurite\.sh$|
           ?^ci/scripts/install_ccache\.sh$|
@@ -331,12 +328,17 @@ repos:
           ?^ci/scripts/integration_arrow_build\.sh$|
           ?^ci/scripts/integration_arrow\.sh$|
           ?^ci/scripts/integration_dask\.sh$|
+          ?^ci/scripts/integration_hdfs\.sh$|
           ?^ci/scripts/integration_spark\.sh$|
           ?^ci/scripts/matlab_build\.sh$|
+          ?^ci/scripts/msys2_setup\.sh$|
           ?^ci/scripts/msys2_system_clean\.sh$|
           ?^ci/scripts/msys2_system_upgrade\.sh$|
           ?^ci/scripts/nanoarrow_build\.sh$|
+          ?^ci/scripts/python_build_emscripten\.sh$|
+          ?^ci/scripts/python_build\.sh$|
           ?^ci/scripts/python_sdist_build\.sh$|
+          ?^ci/scripts/python_sdist_test\.sh$|
           ?^ci/scripts/python_wheel_unix_test\.sh$|
           ?^ci/scripts/r_build\.sh$|
           ?^ci/scripts/r_revdepcheck\.sh$|
@@ -356,8 +358,8 @@ repos:
           ?^dev/release/07-binary-verify\.sh$|
           ?^dev/release/binary-recover\.sh$|
           ?^dev/release/post-03-binary\.sh$|
-          ?^dev/release/post-10-docs\.sh$|
-          ?^dev/release/post-11-python\.sh$|
+          ?^dev/release/post-08-docs\.sh$|
+          ?^dev/release/post-09-python\.sh$|
           ?^dev/release/setup-rhel-rebuilds\.sh$|
           ?^dev/release/utils-generate-checksum\.sh$|
           ?^python/asv-install\.sh$|
@@ -382,12 +384,17 @@ repos:
           ?^dev/release/05-binary-upload\.sh$|
           ?^dev/release/binary-recover\.sh$|
           ?^dev/release/post-03-binary\.sh$|
-          ?^dev/release/post-10-docs\.sh$|
-          ?^dev/release/post-11-python\.sh$|
+          ?^dev/release/post-08-docs\.sh$|
+          ?^dev/release/post-09-python\.sh$|
           )
   - repo: https://github.com/trim21/pre-commit-mirror-meson
-    rev: v1.6.1
+    rev: v1.9.0
     hooks:
       - id: meson-fmt
         alias: cpp
         args: ['--inplace']
+        files: >-
+          (
+          ?.*meson\.build$|
+          ?.*meson\.options$|
+          )

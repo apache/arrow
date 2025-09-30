@@ -1,0 +1,30 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+[wrap-file]
+directory = re2-2023-03-01
+source_url = https://github.com/google/re2/archive/2023-03-01.tar.gz
+source_filename = re2-2023-03-01.tar.gz
+source_hash = 7a9a4824958586980926a300b4717202485c4b4115ac031822e29aa4ef207e48
+patch_filename = re2_20230301-3_patch.zip
+patch_url = https://wrapdb.mesonbuild.com/v2/re2_20230301-3/get_patch
+patch_hash = 9d5036080272a886fee0dec9ea415129ae57ee6bad4b56991b29ed355c0d97e3
+source_fallback_url = https://github.com/mesonbuild/wrapdb/releases/download/re2_20230301-3/re2-2023-03-01.tar.gz
+wrapdb_version = 20230301-3
+
+[provide]
+re2 = re2_dep

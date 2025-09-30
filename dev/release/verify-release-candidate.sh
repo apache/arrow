@@ -100,26 +100,30 @@ detect_cuda() {
   return $((${n_gpus} < 1))
 }
 
-ARROW_DIST_URL='https://dist.apache.org/repos/dist/dev/arrow'
+ARROW_RC_URL="https://dist.apache.org/repos/dist/dev/arrow"
+ARROW_KEYS_URL="https://www.apache.org/dyn/closer.lua?action=download&filename=arrow/KEYS"
 
-download_dist_file() {
+download_file() {
   curl \
     --silent \
     --show-error \
     --fail \
     --location \
-    --remote-name $ARROW_DIST_URL/$1
+    --output "$2" \
+    "$1"
 }
 
 download_rc_file() {
-  download_dist_file apache-arrow-${VERSION}-rc${RC_NUMBER}/$1
+  download_file \
+    "${ARROW_RC_URL}/apache-arrow-${VERSION}-rc${RC_NUMBER}/$1" \
+    "$1"
 }
 
 import_gpg_keys() {
   if [ "${GPGKEYS_ALREADY_IMPORTED:-0}" -gt 0 ]; then
     return 0
   fi
-  download_dist_file KEYS
+  download_file "${ARROW_KEYS_URL}" KEYS
   gpg --import KEYS
 
   GPGKEYS_ALREADY_IMPORTED=1
@@ -212,6 +216,7 @@ test_apt() {
     "x86_64")
       for target in "debian:bookworm" \
                     "debian:trixie" \
+                    "debian:forky" \
                     "ubuntu:jammy" \
                     "ubuntu:noble"; do \
         if ! docker run \
@@ -231,6 +236,7 @@ test_apt() {
     "aarch64")
       for target in "arm64v8/debian:bookworm" \
                     "arm64v8/debian:trixie" \
+                    "arm64v8/debian:forky" \
                     "arm64v8/ubuntu:jammy" \
                     "arm64v8/ubuntu:noble"; do \
         if ! docker run \
@@ -324,49 +330,6 @@ setup_tempdir() {
   fi
 
   echo "Working in sandbox ${ARROW_TMPDIR}"
-}
-
-install_csharp() {
-  # Install C# if doesn't already exist
-  if [ "${CSHARP_ALREADY_INSTALLED:-0}" -gt 0 ]; then
-    show_info "C# already installed $(which csharp) (.NET $(dotnet --version))"
-    return 0
-  fi
-
-  show_info "Ensuring that C# is installed..."
-
-  if dotnet --version | grep 8\.0 > /dev/null 2>&1; then
-    local csharp_bin=$(dirname $(which dotnet))
-    show_info "Found C# at $(which csharp) (.NET $(dotnet --version))"
-  else
-    if which dotnet > /dev/null 2>&1; then
-      show_info "dotnet found but it is the wrong version and will be ignored."
-    fi
-    local csharp_bin=${ARROW_TMPDIR}/csharp/bin
-    local dotnet_version=8.0.204
-    local dotnet_platform=
-    case "$(uname)" in
-      Linux)
-        dotnet_platform=linux
-        ;;
-      Darwin)
-        dotnet_platform=macos
-        ;;
-    esac
-    local dotnet_download_thank_you_url=https://dotnet.microsoft.com/download/thank-you/dotnet-sdk-${dotnet_version}-${dotnet_platform}-x64-binaries
-    local dotnet_download_url=$( \
-      curl -sL ${dotnet_download_thank_you_url} | \
-        grep 'directLink' | \
-        grep -E -o 'https://builds.dotnet[^"]+' | \
-        sed -n 2p)
-    mkdir -p ${csharp_bin}
-    curl -sL ${dotnet_download_url} | \
-      tar xzf - -C ${csharp_bin}
-    PATH=${csharp_bin}:${PATH}
-    show_info "Installed C# at $(which csharp) (.NET $(dotnet --version))"
-  fi
-
-  CSHARP_ALREADY_INSTALLED=1
 }
 
 install_conda() {
@@ -717,26 +680,6 @@ test_ruby() {
   popd
 }
 
-test_csharp() {
-  show_header "Build and test C# libraries"
-
-  install_csharp
-
-  pushd csharp
-
-  dotnet test
-
-  if [ "${SOURCE_KIND}" = "local" -o "${SOURCE_KIND}" = "git" ]; then
-    dotnet pack -c Release
-  else
-    mv dummy.git ../.git
-    dotnet pack -c Release
-    mv ../.git dummy.git
-  fi
-
-  popd
-}
-
 # Run integration tests
 test_integration() {
   show_header "Build and execute integration tests"
@@ -866,9 +809,6 @@ test_source_distribution() {
     popd
   fi
 
-  if [ ${TEST_CSHARP} -gt 0 ]; then
-    test_csharp
-  fi
   if [ ${BUILD_CPP} -gt 0 ]; then
     test_and_install_cpp
   fi
@@ -912,7 +852,7 @@ test_linux_wheels() {
     local arch="x86_64"
   fi
 
-  local python_versions="${TEST_PYTHON_VERSIONS:-3.9 3.10 3.11 3.12 3.13}"
+  local python_versions="${TEST_PYTHON_VERSIONS:-3.10 3.11 3.12 3.13}"
   local platform_tags="${TEST_WHEEL_PLATFORM_TAGS:-manylinux_2_28_${arch}}"
 
   if [ "${SOURCE_KIND}" != "local" ]; then
@@ -951,11 +891,11 @@ test_macos_wheels() {
 
   # apple silicon processor
   if [ "$(uname -m)" = "arm64" ]; then
-    local python_versions="3.9 3.10 3.11 3.12 3.13"
+    local python_versions="3.10 3.11 3.12 3.13"
     local platform_tags="macosx_12_0_arm64"
     local check_flight=OFF
   else
-    local python_versions="3.9 3.10 3.11 3.12 3.13"
+    local python_versions="3.10 3.11 3.12 3.13"
     local platform_tags="macosx_12_0_x86_64"
   fi
 
@@ -1056,7 +996,6 @@ test_wheels() {
 # Source verification tasks
 : ${TEST_SOURCE_REPRODUCIBLE:=0}
 : ${TEST_CPP:=${TEST_SOURCE}}
-: ${TEST_CSHARP:=${TEST_SOURCE}}
 : ${TEST_GLIB:=${TEST_SOURCE}}
 : ${TEST_RUBY:=${TEST_SOURCE}}
 : ${TEST_PYTHON:=${TEST_SOURCE}}

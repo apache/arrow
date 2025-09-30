@@ -622,6 +622,45 @@ TEST(Expression, BindCall) {
                 add(cast(field_ref("i32"), float32()), literal(3.5F)));
 }
 
+static Status RegisterInvalidInit() {
+  const std::string name = "invalid_init";
+  struct CastableFunction : public ScalarFunction {
+    using ScalarFunction::ScalarFunction;
+
+    Result<const Kernel*> DispatchBest(std::vector<TypeHolder>* types) const override {
+      return Status::Invalid("Shouldn't call DispatchBest on this function");
+    }
+  };
+  auto func =
+      std::make_shared<CastableFunction>(name, Arity::Unary(), FunctionDoc::Empty());
+
+  auto func_exec = [](KernelContext*, const ExecSpan&, ExecResult*) -> Status {
+    return Status::OK();
+  };
+  auto func_init = [](KernelContext*,
+                      const KernelInitArgs&) -> Result<std::unique_ptr<KernelState>> {
+    return Status::Invalid("Invalid Init");
+  };
+
+  ScalarKernel kernel({int64()}, int64(), func_exec, func_init);
+  ARROW_RETURN_NOT_OK(func->AddKernel(kernel));
+
+  auto registry = GetFunctionRegistry();
+  ARROW_RETURN_NOT_OK(registry->AddFunction(std::move(func)));
+
+  return Status::OK();
+}
+
+// GH-47268: The bad status in call binding is discarded.
+TEST(Expression, BindCallError) {
+  ASSERT_OK(RegisterInvalidInit());
+  auto expr = call("invalid_init", {field_ref("i64")});
+  EXPECT_FALSE(expr.IsBound());
+
+  ASSERT_RAISES_WITH_MESSAGE(Invalid, "Invalid: Invalid Init",
+                             expr.Bind(*kBoringSchema).status());
+}
+
 TEST(Expression, BindWithAliasCasts) {
   auto fm = GetFunctionRegistry();
   EXPECT_OK(fm->AddAlias("alias_cast", "cast"));
@@ -634,20 +673,78 @@ TEST(Expression, BindWithAliasCasts) {
 }
 
 TEST(Expression, BindWithDecimalArithmeticOps) {
-  for (std::string arith_op : {"add", "subtract", "multiply", "divide"}) {
-    auto expr = call(arith_op, {field_ref("d1"), field_ref("d2")});
-    EXPECT_FALSE(expr.IsBound());
+  static const std::vector<std::pair<int, int>> scales = {{3, 9}, {6, 6}, {9, 3}};
 
-    static const std::vector<std::pair<int, int>> scales = {{3, 9}, {6, 6}, {9, 3}};
-    for (auto s : scales) {
-      auto schema = arrow::schema(
-          {field("d1", decimal256(30, s.first)), field("d2", decimal256(20, s.second))});
-      ExpectBindsTo(expr, no_change, &expr, *schema);
+  for (std::string suffix : {"", "_checked"}) {
+    for (std::string arith_op : {"add", "subtract", "multiply", "divide"}) {
+      std::string name = arith_op + suffix;
+      SCOPED_TRACE(name);
+
+      for (auto s : scales) {
+        auto schema = arrow::schema({field("d1", decimal256(30, s.first)),
+                                     field("d2", decimal256(20, s.second))});
+        auto expr = call(name, {field_ref("d1"), field_ref("d2")});
+        EXPECT_FALSE(expr.IsBound());
+        ExpectBindsTo(expr, no_change, &expr, *schema);
+      }
     }
   }
 }
 
+TEST(Expression, BindWithDecimalDivision) {
+  auto expect_decimal_division_type = [](std::string name,
+                                         std::shared_ptr<DataType> dividend,
+                                         std::shared_ptr<DataType> divisor,
+                                         std::shared_ptr<DataType> expected) {
+    auto schema = arrow::schema({field("dividend", dividend), field("divisor", divisor)});
+    auto expr = call(name, {field_ref("dividend"), field_ref("divisor")});
+    ASSERT_OK_AND_ASSIGN(auto bound, expr.Bind(*schema));
+    EXPECT_TRUE(bound.IsBound());
+    EXPECT_TRUE(bound.type()->Equals(expected));
+  };
+
+  for (std::string name : {"divide", "divide_checked"}) {
+    SCOPED_TRACE(name);
+
+    expect_decimal_division_type(name, int64(), arrow::decimal128(1, 0),
+                                 decimal128(23, 4));
+    expect_decimal_division_type(name, arrow::decimal128(1, 0), int64(),
+                                 decimal128(21, 20));
+
+    expect_decimal_division_type(name, decimal128(2, 1), decimal128(2, 1),
+                                 decimal128(6, 4));
+    expect_decimal_division_type(name, decimal256(2, 1), decimal256(2, 1),
+                                 decimal256(6, 4));
+    expect_decimal_division_type(name, decimal128(2, 1), decimal256(2, 1),
+                                 decimal256(6, 4));
+    expect_decimal_division_type(name, decimal256(2, 1), decimal128(2, 1),
+                                 decimal256(6, 4));
+
+    expect_decimal_division_type(name, decimal128(2, 0), decimal128(2, 1),
+                                 decimal128(7, 4));
+    expect_decimal_division_type(name, decimal128(2, 1), decimal128(2, 0),
+                                 decimal128(5, 4));
+
+    // GH-39875: Expression call to decimal(3 ,2) / decimal(15, 2) wrong result type.
+    // decimal128(3, 2) / decimal128(15, 2)
+    // -> decimal128(19, 18) / decimal128(15, 2) = decimal128(19, 16)
+    expect_decimal_division_type(name, decimal128(3, 2), decimal128(15, 2),
+                                 decimal128(19, 16));
+
+    // GH-40911: Expression call to decimal(7 ,2) / decimal(6, 1) wrong result type.
+    // decimal128(7, 2) / decimal128(6, 1)
+    // -> decimal128(14, 9) / decimal128(6, 1) = decimal128(14, 8)
+    expect_decimal_division_type(name, decimal128(7, 2), decimal128(6, 1),
+                                 decimal128(14, 8));
+  }
+}
+
 TEST(Expression, BindWithImplicitCasts) {
+  auto exciting_schema = schema(
+      {field("i64", int64()), field("dec128_3_2", decimal128(3, 2)),
+       field("dec128_4_2", decimal128(4, 2)), field("dec128_5_3", decimal128(5, 3)),
+       field("dec256_3_2", decimal256(3, 2)), field("dec256_4_2", decimal256(4, 2)),
+       field("dec256_5_3", decimal256(5, 3))});
   for (auto cmp : {equal, not_equal, less, less_equal, greater, greater_equal}) {
     // cast arguments to common numeric type
     ExpectBindsTo(cmp(field_ref("i64"), field_ref("i32")),
@@ -708,6 +805,82 @@ TEST(Expression, BindWithImplicitCasts) {
     ExpectBindsTo(cmp(field_ref("i32"), literal(std::make_shared<DoubleScalar>(10.0))),
                   cmp(cast(field_ref("i32"), float32()),
                       literal(std::make_shared<FloatScalar>(10.0f))));
+
+    // decimal int
+    ExpectBindsTo(cmp(field_ref("dec128_3_2"), field_ref("i64")),
+                  cmp(field_ref("dec128_3_2"), cast(field_ref("i64"), decimal128(21, 2))),
+                  /*bound_out=*/nullptr, *exciting_schema);
+    ExpectBindsTo(cmp(field_ref("i64"), field_ref("dec128_3_2")),
+                  cmp(cast(field_ref("i64"), decimal128(21, 2)), field_ref("dec128_3_2")),
+                  /*bound_out=*/nullptr, *exciting_schema);
+
+    // decimal decimal with different widths different precisions but same scale
+    ExpectBindsTo(
+        cmp(field_ref("dec128_3_2"), field_ref("dec256_4_2")),
+        cmp(cast(field_ref("dec128_3_2"), decimal256(3, 2)), field_ref("dec256_4_2")),
+        /*bound_out=*/nullptr, *exciting_schema);
+    ExpectBindsTo(
+        cmp(field_ref("dec256_4_2"), field_ref("dec128_3_2")),
+        cmp(field_ref("dec256_4_2"), cast(field_ref("dec128_3_2"), decimal256(3, 2))),
+        /*bound_out=*/nullptr, *exciting_schema);
+    ExpectBindsTo(
+        cmp(field_ref("dec128_4_2"), field_ref("dec256_3_2")),
+        cmp(cast(field_ref("dec128_4_2"), decimal256(4, 2)), field_ref("dec256_3_2")),
+        /*bound_out=*/nullptr, *exciting_schema);
+    ExpectBindsTo(
+        cmp(field_ref("dec256_3_2"), field_ref("dec128_4_2")),
+        cmp(field_ref("dec256_3_2"), cast(field_ref("dec128_4_2"), decimal256(4, 2))),
+        /*bound_out=*/nullptr, *exciting_schema);
+
+    // decimal decimal with different widths different scales
+    ExpectBindsTo(
+        cmp(field_ref("dec128_3_2"), field_ref("dec256_5_3")),
+        cmp(cast(field_ref("dec128_3_2"), decimal256(4, 3)), field_ref("dec256_5_3")),
+        /*bound_out=*/nullptr, *exciting_schema);
+    ExpectBindsTo(
+        cmp(field_ref("dec256_5_3"), field_ref("dec128_3_2")),
+        cmp(field_ref("dec256_5_3"), cast(field_ref("dec128_3_2"), decimal256(4, 3))),
+        /*bound_out=*/nullptr, *exciting_schema);
+    ExpectBindsTo(cmp(field_ref("dec128_5_3"), field_ref("dec256_3_2")),
+                  cmp(cast(field_ref("dec128_5_3"), decimal256(5, 3)),
+                      cast(field_ref("dec256_3_2"), decimal256(4, 3))),
+                  /*bound_out=*/nullptr, *exciting_schema);
+    ExpectBindsTo(cmp(field_ref("dec256_3_2"), field_ref("dec128_5_3")),
+                  cmp(cast(field_ref("dec256_3_2"), decimal256(4, 3)),
+                      cast(field_ref("dec128_5_3"), decimal256(5, 3))),
+                  /*bound_out=*/nullptr, *exciting_schema);
+
+    // decimal decimal with same width same precision but different scales (no cast)
+    ExpectBindsTo(cmp(field_ref("dec128_3_2"), field_ref("dec128_4_2")),
+                  cmp(field_ref("dec128_3_2"), field_ref("dec128_4_2")),
+                  /*bound_out=*/nullptr, *exciting_schema);
+    ExpectBindsTo(cmp(field_ref("dec128_4_2"), field_ref("dec128_3_2")),
+                  cmp(field_ref("dec128_4_2"), field_ref("dec128_3_2")),
+                  /*bound_out=*/nullptr, *exciting_schema);
+    ExpectBindsTo(cmp(field_ref("dec256_3_2"), field_ref("dec256_4_2")),
+                  cmp(field_ref("dec256_3_2"), field_ref("dec256_4_2")),
+                  /*bound_out=*/nullptr, *exciting_schema);
+    ExpectBindsTo(cmp(field_ref("dec256_4_2"), field_ref("dec256_3_2")),
+                  cmp(field_ref("dec256_4_2"), field_ref("dec256_3_2")),
+                  /*bound_out=*/nullptr, *exciting_schema);
+
+    // decimal decimal with same width but different scales
+    ExpectBindsTo(
+        cmp(field_ref("dec128_3_2"), field_ref("dec128_5_3")),
+        cmp(cast(field_ref("dec128_3_2"), decimal128(4, 3)), field_ref("dec128_5_3")),
+        /*bound_out=*/nullptr, *exciting_schema);
+    ExpectBindsTo(
+        cmp(field_ref("dec128_5_3"), field_ref("dec128_3_2")),
+        cmp(field_ref("dec128_5_3"), cast(field_ref("dec128_3_2"), decimal128(4, 3))),
+        /*bound_out=*/nullptr, *exciting_schema);
+    ExpectBindsTo(
+        cmp(field_ref("dec256_3_2"), field_ref("dec256_5_3")),
+        cmp(cast(field_ref("dec256_3_2"), decimal256(4, 3)), field_ref("dec256_5_3")),
+        /*bound_out=*/nullptr, *exciting_schema);
+    ExpectBindsTo(
+        cmp(field_ref("dec256_5_3"), field_ref("dec256_3_2")),
+        cmp(field_ref("dec256_5_3"), cast(field_ref("dec256_3_2"), decimal256(4, 3))),
+        /*bound_out=*/nullptr, *exciting_schema);
   }
 
   compute::SetLookupOptions in_a{ArrayFromJSON(utf8(), R"(["a"])")};
@@ -715,6 +888,51 @@ TEST(Expression, BindWithImplicitCasts) {
   // cast dictionary to value type
   ExpectBindsTo(call("is_in", {field_ref("dict_str")}, in_a),
                 call("is_in", {cast(field_ref("dict_str"), utf8())}, in_a));
+}
+
+TEST(Expression, BindWithImplicitCastsForCaseWhenOnDecimal) {
+  auto exciting_schema = schema(
+      {field("a", struct_({field("", boolean())})),
+       field("dec128_20_3", decimal128(20, 3)), field("dec128_21_3", decimal128(21, 3)),
+       field("dec128_20_1", decimal128(20, 1)), field("dec128_21_1", decimal128(21, 1)),
+       field("dec256_20_3", decimal256(20, 3)), field("dec256_21_3", decimal256(21, 3)),
+       field("dec256_20_1", decimal256(20, 1)), field("dec256_21_1", decimal256(21, 1))});
+  ExpectBindsTo(call("case_when", {field_ref("a"), field_ref("dec128_20_3"),
+                                   field_ref("dec128_21_3")}),
+                call("case_when",
+                     {field_ref("a"), cast(field_ref("dec128_20_3"), decimal128(21, 3)),
+                      field_ref("dec128_21_3")}),
+                /*bound_out=*/nullptr, *exciting_schema);
+  ExpectBindsTo(call("case_when", {field_ref("a"), field_ref("dec128_20_1"),
+                                   field_ref("dec128_21_3")}),
+                call("case_when",
+                     {field_ref("a"), cast(field_ref("dec128_20_1"), decimal128(22, 3)),
+                      cast(field_ref("dec128_21_3"), decimal128(22, 3))}),
+                /*bound_out=*/nullptr, *exciting_schema);
+  ExpectBindsTo(call("case_when", {field_ref("a"), field_ref("dec128_20_3"),
+                                   field_ref("dec128_21_1")}),
+                call("case_when",
+                     {field_ref("a"), cast(field_ref("dec128_20_3"), decimal128(23, 3)),
+                      cast(field_ref("dec128_21_1"), decimal128(23, 3))}),
+                /*bound_out=*/nullptr, *exciting_schema);
+  ExpectBindsTo(call("case_when", {field_ref("a"), field_ref("dec128_20_3"),
+                                   field_ref("dec256_21_3")}),
+                call("case_when",
+                     {field_ref("a"), cast(field_ref("dec128_20_3"), decimal256(21, 3)),
+                      field_ref("dec256_21_3")}),
+                /*bound_out=*/nullptr, *exciting_schema);
+  ExpectBindsTo(call("case_when", {field_ref("a"), field_ref("dec256_20_1"),
+                                   field_ref("dec128_21_3")}),
+                call("case_when",
+                     {field_ref("a"), cast(field_ref("dec256_20_1"), decimal256(22, 3)),
+                      cast(field_ref("dec128_21_3"), decimal256(22, 3))}),
+                /*bound_out=*/nullptr, *exciting_schema);
+  ExpectBindsTo(call("case_when", {field_ref("a"), field_ref("dec256_20_3"),
+                                   field_ref("dec256_21_1")}),
+                call("case_when",
+                     {field_ref("a"), cast(field_ref("dec256_20_3"), decimal256(23, 3)),
+                      cast(field_ref("dec256_21_1"), decimal256(23, 3))}),
+                /*bound_out=*/nullptr, *exciting_schema);
 }
 
 TEST(Expression, BindNestedCall) {
@@ -953,13 +1171,13 @@ TEST(Expression, ExecuteChunkedArray) {
   ExecBatch batch{inputs, 3};
 
   ASSERT_OK_AND_ASSIGN(Datum res, ExecuteScalarExpression(expr, batch));
+  ASSERT_TRUE(res.is_chunked_array());
 
-  AssertDatumsEqual(res, ArrayFromJSON(float64(),
-                                       R"([
+  AssertDatumsEqual(res, ChunkedArrayFromJSON(float64(), {R"([
     9.5,
     1,
     3.75
-  ])"));
+  ])"}));
 }
 
 TEST(Expression, ExecuteDictionaryTransparent) {

@@ -1251,7 +1251,7 @@ TEST(TestLogicalTypeOperation, LogicalTypeProperties) {
       {BSONLogicalType::Make(), false, true, true},
       {UUIDLogicalType::Make(), false, true, true},
       {Float16LogicalType::Make(), false, true, true},
-      {VariantLogicalType::Make(), false, true, true},
+      {VariantLogicalType::Make(), true, true, true},
       {NoLogicalType::Make(), false, false, true},
   };
 

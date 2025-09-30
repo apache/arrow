@@ -145,7 +145,7 @@ class ReadWriteValue<ArrowType, in_has_validity_buffer, out_has_validity_buffer,
                      enable_if_fixed_size_binary<ArrowType>> {
  public:
   // Every value is represented as a pointer to byte_width_ bytes
-  using ValueRepr = uint8_t const*;
+  using ValueRepr = const uint8_t*;
 
  private:
   const uint8_t* input_validity_;

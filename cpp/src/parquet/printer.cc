@@ -166,10 +166,20 @@ void ParquetFilePrinter::DebugPrint(std::ostream& stream, std::list<int> selecte
       stream << "  Values: " << column_chunk->num_values();
       if (column_chunk->is_stats_set()) {
         std::string min = stats->min(), max = stats->max();
+        std::string max_exact =
+            stats->is_max_value_exact.has_value()
+                ? (stats->is_max_value_exact.value() ? "true" : "false")
+                : "unknown";
+        std::string min_exact =
+            stats->is_min_value_exact.has_value()
+                ? (stats->is_min_value_exact.value() ? "true" : "false")
+                : "unknown";
         stream << ", Null Values: " << stats->null_count
                << ", Distinct Values: " << stats->distinct_count << std::endl
-               << "  Max: " << FormatStatValue(descr->physical_type(), max)
-               << ", Min: " << FormatStatValue(descr->physical_type(), min);
+               << "  Max (exact: " << max_exact << "): "
+               << FormatStatValue(descr->physical_type(), max, descr->logical_type())
+               << ", Min (exact: " << min_exact << "): "
+               << FormatStatValue(descr->physical_type(), min, descr->logical_type());
       } else {
         stream << "  Statistics Not Set";
       }
@@ -334,9 +344,28 @@ void ParquetFilePrinter::JSONPrint(std::ostream& stream, std::list<int> selected
         if (stats->HasMinMax()) {
           std::string min = stats->EncodeMin(), max = stats->EncodeMax();
           stream << ", "
-                 << R"("Max": ")" << FormatStatValue(descr->physical_type(), max)
+                 << R"("Max": ")"
+                 << FormatStatValue(descr->physical_type(), max, descr->logical_type())
                  << "\", "
-                 << R"("Min": ")" << FormatStatValue(descr->physical_type(), min) << "\"";
+                 << R"("Min": ")"
+                 << FormatStatValue(descr->physical_type(), min, descr->logical_type())
+                 << "\"";
+          if (stats->is_max_value_exact().has_value()) {
+            stream << ", "
+                   << R"("IsMaxValueExact": ")"
+                   << (stats->is_max_value_exact().value() ? "True" : "False") << "\"";
+          } else {
+            stream << ", "
+                   << R"("IsMaxValueExact": "unknown")";
+          }
+          if (stats->is_min_value_exact().has_value()) {
+            stream << ", "
+                   << R"("IsMinValueExact": ")"
+                   << (stats->is_min_value_exact().value() ? "True" : "False") << "\"";
+          } else {
+            stream << ", "
+                   << R"("IsMinValueExact": "unknown")";
+          }
         }
         stream << " },";
       } else {

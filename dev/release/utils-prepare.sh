@@ -49,7 +49,7 @@ update_versions() {
      [ "${next_version}" = "${major_version}.0.0" ] && \
      ! grep -q -F "(${major_version}, 0)" tool/generate-version-header.py; then
     sed -i.bak -E -e \
-      "s/^ALL_VERSIONS = \[$/&\\n        (${major_version}, 0),/" \
+      "s/^ALL_VERSIONS = \[$/&\\n    (${major_version}, 0),/" \
       tool/generate-version-header.py
     rm -f tool/generate-version-header.py.bak
     git add tool/generate-version-header.py
@@ -88,14 +88,6 @@ update_versions() {
     vcpkg.json
   rm -f vcpkg.json.bak
   git add vcpkg.json
-  popd
-
-  pushd "${ARROW_DIR}/csharp"
-  sed -i.bak -E -e \
-    "s/^    <Version>.+<\/Version>/    <Version>${version}<\/Version>/" \
-    Directory.Build.props
-  rm -f Directory.Build.props.bak
-  git add Directory.Build.props
   popd
 
   pushd "${ARROW_DIR}/dev/tasks/homebrew-formulae"

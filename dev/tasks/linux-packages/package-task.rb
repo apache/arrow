@@ -120,6 +120,7 @@ class PackageTask
     build_command_line = [
       "docker",
       "build",
+      "--build-arg", "BUILDKIT_INLINE_CACHE=1",
       "--cache-from", image,
       "--tag", image,
     ]
@@ -271,6 +272,8 @@ class PackageTask
       # "debian-bookworm-arm64",
       "debian-trixie",
       # "debian-trixie-arm64",
+      "debian-forky",
+      # "debian-forky-arm64",
       "ubuntu-jammy",
       # "ubuntu-jammy-arm64",
       "ubuntu-noble",

@@ -109,7 +109,7 @@ PMOD_OP(pmod, float64, float64, float64)
 
 gdv_float64 mod_float64_float64(int64_t context, gdv_float64 x, gdv_float64 y) {
   if (y == 0.0) {
-    char const* err_msg = "divide by zero error";
+    const char* err_msg = "divide by zero error";
     gdv_fn_context_set_error_msg(context, err_msg);
     return 0.0;
   }
@@ -351,7 +351,7 @@ NUMERIC_BOOL_DATE_FUNCTION(IS_NOT_DISTINCT_FROM)
   FORCE_INLINE                                                                           \
   gdv_##TYPE divide_##TYPE##_##TYPE(gdv_int64 context, gdv_##TYPE in1, gdv_##TYPE in2) { \
     if (in2 == 0) {                                                                      \
-      char const* err_msg = "divide by zero error";                                      \
+      const char* err_msg = "divide by zero error";                                      \
       gdv_fn_context_set_error_msg(context, err_msg);                                    \
       return 0;                                                                          \
     }                                                                                    \
@@ -430,7 +430,7 @@ void negative_decimal(gdv_int64 context, int64_t high_bits, uint64_t low_bits,
   FORCE_INLINE                                                                        \
   gdv_##TYPE div_##TYPE##_##TYPE(gdv_int64 context, gdv_##TYPE in1, gdv_##TYPE in2) { \
     if (in2 == 0) {                                                                   \
-      char const* err_msg = "divide by zero error";                                   \
+      const char* err_msg = "divide by zero error";                                   \
       gdv_fn_context_set_error_msg(context, err_msg);                                 \
       return 0;                                                                       \
     }                                                                                 \
@@ -448,7 +448,7 @@ DIV(uint64)
   FORCE_INLINE                                                                        \
   gdv_##TYPE div_##TYPE##_##TYPE(gdv_int64 context, gdv_##TYPE in1, gdv_##TYPE in2) { \
     if (in2 == 0) {                                                                   \
-      char const* err_msg = "divide by zero error";                                   \
+      const char* err_msg = "divide by zero error";                                   \
       gdv_fn_context_set_error_msg(context, err_msg);                                 \
       return 0;                                                                       \
     }                                                                                 \

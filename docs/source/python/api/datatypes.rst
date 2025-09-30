@@ -211,3 +211,10 @@ represents a given data type (such as ``int32``) or general category
    is_map
    is_dictionary
    is_primitive
+
+Types enum that can be used for direct type checking.
+
+.. autosummary::
+   :toctree: ../generated/
+
+   TypesEnum

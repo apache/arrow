@@ -293,6 +293,16 @@ _minio_limited_policy = """{
             "Resource": [
                 "arn:aws:s3:::*"
             ]
+
+        },
+        {
+            "Effect": "Deny",
+            "Action": [
+                "s3:DeleteObject"
+            ],
+            "Resource": [
+                "arn:aws:s3:::no-delete-bucket*"
+            ]
         }
     ]
 }"""
@@ -533,6 +543,20 @@ def test_s3fs_limited_permissions_create_bucket(s3_server):
 
     with pytest.raises(pa.ArrowIOError, match="Would delete bucket"):
         fs.delete_dir('existing-bucket')
+
+    with pytest.raises(OSError, match="Request ID:"):
+        fs.copy_file("existing-bucket/test-file", "existing-bucket/test-file-copy")
+
+    with pytest.raises(pa.ArrowIOError, match="Request ID:"):
+        with fs.open_output_stream("non-existing-bucket/test-file") as f:
+            f.write(b"test")
+
+    # Create a file in the protected bucket then try to delete it
+    with fs.open_output_stream("no-delete-bucket/test-file") as f:
+        f.write(b"test")
+
+    with pytest.raises(OSError, match="Request ID:"):
+        fs.delete_file("no-delete-bucket/test-file")
 
 
 def test_file_info_constructor():
@@ -1642,6 +1666,23 @@ def test_filesystem_from_uri(uri, expected_klass, expected_path):
     assert path == expected_path
 
 
+def test_filesystem_from_uri_calling():
+    # Call using class staticmethod
+    fs, path = FileSystem.from_uri("file:/")
+    assert isinstance(fs, LocalFileSystem)
+    assert path == "/"
+
+    # Call using class staticmethod with explicit arguments
+    fs, path = FileSystem.from_uri(uri="file:/")
+    assert isinstance(fs, LocalFileSystem)
+    assert path == "/"
+
+    # Call using instance method passthrough
+    fs, path = LocalFileSystem().from_uri(uri="file:/")
+    assert isinstance(fs, LocalFileSystem)
+    assert path == "/"
+
+
 @pytest.mark.parametrize(
     'path',
     ['', '/', 'foo/bar', '/foo/bar', __file__]
@@ -1899,9 +1940,12 @@ def test_s3_real_aws_region_selection():
     assert fs.region == 'us-east-2'
     # Reading from the wrong region may still work for public buckets...
 
-    # Nonexistent bucket (hopefully, otherwise need to fix this test)
+    # Nonexistent bucket. This bucket can't exist as AWS imposes that
+    # Bucket names must not contain two adjacent periods.
+    # Hopefully this won't fail in the future if a new validation rule applies.
+    # See: https://github.com/apache/arrow/pull/47166
     with pytest.raises(IOError, match="Bucket '.*' not found"):
-        FileSystem.from_uri('s3://x-arrow-nonexistent-bucket')
+        FileSystem.from_uri('s3://x-arrow..nonexistent-bucket')
     fs, path = FileSystem.from_uri('s3://x-arrow-nonexistent-bucket?region=us-east-3')
     assert fs.region == 'us-east-3'
 

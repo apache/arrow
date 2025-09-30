@@ -51,11 +51,23 @@ class TestArrayStatistics < Test::Unit::TestCase
 
   test("#has_distinct_count?") do
     assert do
-      !@statistics.has_distinct_count?
+      not @statistics.has_distinct_count?
     end
   end
 
-  test ("#distinct_count") do
-    assert_equal(-1, @statistics.distinct_count)
+  test("#distinct_count_exact?") do
+    assert do
+      not @statistics.distinct_count_exact?
+    end
+  end
+
+  test ("#distinct_count_exact") do
+    assert_equal(-1, @statistics.distinct_count_exact)
+  end
+
+  test ("#distinct_count_approximate") do
+    assert do
+      @statistics.distinct_count_approximate.nan?
+    end
   end
 end

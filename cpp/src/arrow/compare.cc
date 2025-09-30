@@ -53,6 +53,7 @@
 #include "arrow/util/macros.h"
 #include "arrow/util/memory_internal.h"
 #include "arrow/util/ree_util.h"
+#include "arrow/util/unreachable.h"
 #include "arrow/visit_scalar_inline.h"
 #include "arrow/visit_type_inline.h"
 
@@ -109,7 +110,7 @@ struct FloatingEquality<uint16_t, Flags> {
   bool operator()(uint16_t x, uint16_t y) const {
     Float16 f_x = Float16::FromBits(x);
     Float16 f_y = Float16::FromBits(y);
-    if (x == y) {
+    if (f_x == f_y) {
       return Flags::signed_zeros_equal || (f_x.signbit() == f_y.signbit());
     }
     if (Flags::nans_equal && f_x.is_nan() && f_y.is_nan()) {
@@ -170,7 +171,8 @@ void VisitFloatingEquality(const EqualOptions& options, bool floating_approximat
 }
 
 inline bool IdentityImpliesEqualityNansNotEqual(const DataType& type) {
-  if (type.id() == Type::FLOAT || type.id() == Type::DOUBLE) {
+  if (type.id() == Type::FLOAT || type.id() == Type::DOUBLE ||
+      type.id() == Type::HALF_FLOAT) {
     return false;
   }
   for (const auto& child : type.fields()) {
@@ -1532,11 +1534,14 @@ bool DoubleEquals(const double& left, const double& right, const EqualOptions& o
   return result;
 }
 
-bool ArrayStatisticsValueTypeEquals(
-    const std::optional<ArrayStatistics::ValueType>& left,
-    const std::optional<ArrayStatistics::ValueType>& right, const EqualOptions& options) {
+template <typename Type>
+bool ArrayStatisticsOptionalValueEquals(const std::optional<Type>& left,
+                                        const std::optional<Type>& right,
+                                        const EqualOptions& options) {
   if (!left.has_value() || !right.has_value()) {
     return left.has_value() == right.has_value();
+  } else if constexpr (std::is_same_v<Type, double>) {
+    return DoubleEquals(left.value(), right.value(), options);
   } else if (left->index() != right->index()) {
     return false;
   } else {
@@ -1549,8 +1554,7 @@ bool ArrayStatisticsValueTypeEquals(
       } else if constexpr (std::is_same_v<type_1, type_2>) {
         return v1 == v2;
       }
-      // It is unreachable
-      DCHECK(false);
+      Unreachable("The types are different.");
       return false;
     };
     return std::visit(EqualsVisitor, left.value(), right.value());
@@ -1560,14 +1564,17 @@ bool ArrayStatisticsValueTypeEquals(
 bool ArrayStatisticsEqualsImpl(const ArrayStatistics& left, const ArrayStatistics& right,
                                const EqualOptions& equal_options) {
   return left.null_count == right.null_count &&
-         left.distinct_count == right.distinct_count &&
+         ArrayStatisticsOptionalValueEquals(left.distinct_count, right.distinct_count,
+                                            equal_options) &&
+         ArrayStatisticsOptionalValueEquals(left.max_byte_width, right.max_byte_width,
+                                            equal_options) &&
          left.is_average_byte_width_exact == right.is_average_byte_width_exact &&
          left.is_min_exact == right.is_min_exact &&
          left.is_max_exact == right.is_max_exact &&
-         ArrayStatisticsValueTypeEquals(left.average_byte_width, right.average_byte_width,
-                                        equal_options) &&
-         ArrayStatisticsValueTypeEquals(left.min, right.min, equal_options) &&
-         ArrayStatisticsValueTypeEquals(left.max, right.max, equal_options);
+         ArrayStatisticsOptionalValueEquals(left.average_byte_width,
+                                            right.average_byte_width, equal_options) &&
+         ArrayStatisticsOptionalValueEquals(left.min, right.min, equal_options) &&
+         ArrayStatisticsOptionalValueEquals(left.max, right.max, equal_options);
 }
 
 }  // namespace

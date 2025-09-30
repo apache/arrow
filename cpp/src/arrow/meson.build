@@ -75,6 +75,7 @@ arrow_components = {
             'compute/kernels/vector_selection_filter_internal.cc',
             'compute/kernels/vector_selection_internal.cc',
             'compute/kernels/vector_selection_take_internal.cc',
+            'compute/kernels/vector_swizzle.cc',
         ],
     },
     'arrow_io': {
@@ -174,6 +175,7 @@ arrow_util_srcs = [
     'util/bitmap_ops.cc',
     'util/bpacking.cc',
     'util/byte_size.cc',
+    'util/byte_stream_split_internal.cc',
     'util/cancel.cc',
     'util/compression.cc',
     'util/counting_semaphore.cc',
@@ -198,6 +200,7 @@ arrow_util_srcs = [
     'util/memory.cc',
     'util/mutex.cc',
     'util/ree_util.cc',
+    'util/secure_string.cc',
     'util/string.cc',
     'util/string_util.cc',
     'util/task_group.cc',
@@ -222,7 +225,16 @@ endif
 
 if needs_bz2
     arrow_util_srcs += ['util/compression_bz2.cc']
-    arrow_util_deps += dependency('bzip2')
+    bzip2 = cpp_compiler.find_library(
+        'bz2',
+        has_headers: ['bzlib.h'],
+        required: false,
+    )
+    if bzip2.found()
+        arrow_util_deps += bzip2
+    else
+        arrow_util_deps += dependency('bzip2')
+    endif
 endif
 
 if needs_lz4
@@ -232,7 +244,7 @@ endif
 
 if needs_snappy
     arrow_util_srcs += ['util/compression_snappy.cc']
-    arrow_util_deps += dependency('snappy')
+    arrow_util_deps += dependency('snappy', 'Snappy')
 endif
 
 if needs_zlib
@@ -293,7 +305,10 @@ if needs_csv
 endif
 
 if needs_json or needs_integration
-    rapidjson_dep = dependency('rapidjson', include_type: 'system')
+    rapidjson_dep = dependency(
+        'RapidJSON',
+        fallback: ['rapidjson', 'rapidjson_dep'],
+    )
 else
     rapidjson_dep = disabler()
 endif
@@ -314,30 +329,81 @@ if needs_filesystem
 
     if needs_azure
         arrow_filesystem_srcs += ['filesystem/azurefs.cc']
-        cmake = import('cmake')
-        azure_opt = cmake.subproject_options()
-        azure_opt.add_cmake_defines(
-            {'BUILD_PERFORMANCE_TESTS': 'FALSE'},
-            {'BUILD_SAMPLES': 'FALSE'},
-            {'BUILD_TESTING': 'FALSE'},
-            {'BUILD_WINDOWS_UWP': 'TRUE'},
-            {'CMAKE_UNITY_BUILD': 'FALSE'},
-            {'DISABLE_AZURE_CORE_OPENTELEMETRY': 'TRUE'},
-            {'ENV{AZURE_SDK_DISABLE_AUTO_VCPKG}': 'TRUE'},
-            {'WARNINGS_AS_ERRORS': 'FALSE'},
-        )
-        azure_opt.append_compile_args('cpp', '-fPIC')
-        azure_proj = cmake.subproject('azure', options: azure_opt)
 
-        azure_dep = declare_dependency(
-            dependencies: [
-                azure_proj.dependency('azure-core'),
-                azure_proj.dependency('azure-identity'),
-                azure_proj.dependency('azure-storage-blobs'),
-                azure_proj.dependency('azure-storage-common'),
-                azure_proj.dependency('azure-storage-files-datalake'),
-            ],
+        azure_core_dep = dependency(
+            'azure-core-cpp',
+            allow_fallback: false,
+            modules: ['Azure::azure-core'],
+            required: false,
         )
+        azure_identity_dep = dependency(
+            'azure-identity-cpp',
+            allow_fallback: false,
+            modules: ['Azure::azure-identity'],
+            required: false,
+        )
+        azure_storage_blobs_dep = dependency(
+            'azure-storage-blobs-cpp',
+            allow_fallback: false,
+            modules: ['Azure::azure-storage-blobs'],
+            required: false,
+        )
+        azure_storage_common_dep = dependency(
+            'azure-storage-common-cpp',
+            allow_fallback: false,
+            modules: ['Azure::azure-storage-common'],
+            required: false,
+        )
+        azure_storage_files_datalake_dep = dependency(
+            'azure-storage-files-datalake-cpp',
+            allow_fallback: false,
+            modules: ['Azure::azure-storage-files-datalake'],
+            required: false,
+        )
+
+        if (
+            azure_core_dep.found()
+            and azure_identity_dep.found()
+            and azure_storage_blobs_dep.found()
+            and azure_storage_common_dep.found()
+            and azure_storage_files_datalake_dep.found()
+        )
+            azure_dep = declare_dependency(
+                dependencies: [
+                    azure_core_dep,
+                    azure_identity_dep,
+                    azure_storage_blobs_dep,
+                    azure_storage_common_dep,
+                    azure_storage_files_datalake_dep,
+                ],
+            )
+        else
+            cmake = import('cmake')
+            azure_opt = cmake.subproject_options()
+            azure_opt.add_cmake_defines(
+                {'BUILD_PERFORMANCE_TESTS': 'FALSE'},
+                {'BUILD_SAMPLES': 'FALSE'},
+                {'BUILD_TESTING': 'FALSE'},
+                {'BUILD_WINDOWS_UWP': 'TRUE'},
+                {'CMAKE_UNITY_BUILD': 'FALSE'},
+                {'DISABLE_AZURE_CORE_OPENTELEMETRY': 'TRUE'},
+                {'ENV{AZURE_SDK_DISABLE_AUTO_VCPKG}': 'TRUE'},
+                {'WARNINGS_AS_ERRORS': 'FALSE'},
+            )
+            azure_opt.append_compile_args('cpp', '-fPIC')
+            azure_proj = cmake.subproject('azure', options: azure_opt)
+
+            azure_dep = declare_dependency(
+                dependencies: [
+                    azure_proj.dependency('azure-core'),
+                    azure_proj.dependency('azure-identity'),
+                    azure_proj.dependency('azure-storage-blobs'),
+                    azure_proj.dependency('azure-storage-common'),
+                    azure_proj.dependency('azure-storage-files-datalake'),
+                ],
+            )
+        endif
+
         arrow_filesystem_deps += [azure_dep]
     endif
 
@@ -422,7 +488,7 @@ arrow_lib = library(
     include_directories: arrow_includes,
     dependencies: arrow_deps,
     install: true,
-    gnu_symbol_visibility: 'hidden',
+    gnu_symbol_visibility: 'inlineshidden',
     cpp_shared_args: ['-DARROW_EXPORTING'],
 )
 
@@ -430,6 +496,7 @@ arrow_dep = declare_dependency(
     include_directories: [include_dir],
     link_with: arrow_lib,
 )
+meson.override_dependency('arrow', arrow_dep)
 
 if needs_compute
     arrow_compute_lib_sources = [
@@ -468,7 +535,6 @@ if needs_compute
         'compute/kernels/vector_select_k.cc',
         'compute/kernels/vector_sort.cc',
         'compute/kernels/vector_statistics.cc',
-        'compute/kernels/vector_swizzle.cc',
         'compute/key_hash_internal.cc',
         'compute/key_map_internal.cc',
         'compute/light_array_internal.cc',
@@ -486,6 +552,7 @@ if needs_compute
         sources: arrow_compute_lib_sources,
         dependencies: arrow_dep,
         install: true,
+        gnu_symbol_visibility: 'inlineshidden',
         cpp_shared_args: ['-DARROW_COMPUTE_EXPORTING'],
     )
     arrow_compute_dep = declare_dependency(
@@ -493,6 +560,7 @@ if needs_compute
         include_directories: include_dir,
         dependencies: arrow_dep,
     )
+    meson.override_dependency('arrow-compute', arrow_compute_dep)
 else
     arrow_compute_dep = disabler()
 endif
@@ -569,20 +637,37 @@ else
     gmock_dep = disabler()
 endif
 
-arrow_test_lib = static_library(
-    'arrow_testing',
-    sources: arrow_testing_srcs,
-    dependencies: [arrow_dep, filesystem_dep, gmock_dep, gtest_main_dep],
-)
+if needs_testing
+    arrow_testing_lib = static_library(
+        'arrow_testing',
+        sources: arrow_testing_srcs,
+        dependencies: [arrow_dep, filesystem_dep, gmock_dep, gtest_dep],
+    )
+
+    arrow_testing_dep = declare_dependency(link_with: [arrow_testing_lib])
+    meson.override_dependency('arrow-testing', arrow_testing_dep)
+else
+    arrow_testing_dep = disabler()
+endif
 
 if needs_tests
     arrow_test_dep = declare_dependency(
-        link_with: [arrow_test_lib],
-        dependencies: [arrow_dep, filesystem_dep, gmock_dep, gtest_main_dep],
+        dependencies: [
+            arrow_dep,
+            arrow_testing_dep,
+            filesystem_dep,
+            gmock_dep,
+            gtest_main_dep,
+        ],
     )
     arrow_test_dep_no_main = declare_dependency(
-        link_with: [arrow_test_lib],
-        dependencies: [arrow_dep, filesystem_dep, gmock_dep, gtest_dep],
+        dependencies: [
+            arrow_dep,
+            arrow_testing_dep,
+            filesystem_dep,
+            gmock_dep,
+            gtest_dep,
+        ],
     )
 else
     arrow_test_dep = disabler()
@@ -650,13 +735,18 @@ endforeach
 
 if needs_benchmarks
     benchmark_main_dep = dependency(
-        'benchmark-main',
+        'benchmark_main',
+        fallback: ['google-benchmark', 'google_benchmark_main_dep'],
         default_options: {'tests': 'disabled'},
     )
 
     arrow_benchmark_dep = declare_dependency(
-        link_with: [arrow_test_lib],
-        dependencies: [arrow_dep, benchmark_main_dep, gtest_dep],
+        dependencies: [
+            arrow_dep,
+            arrow_testing_dep,
+            benchmark_main_dep,
+            gtest_dep,
+        ],
     )
 else
     arrow_benchmark_dep = disabler()

@@ -21,18 +21,17 @@
 #pragma once
 
 #include <algorithm>
-#include <cmath>
+#include <array>
 #include <limits>
-#include <vector>
+#include <type_traits>
+#include <variant>
 
-#include "arrow/util/bit_block_counter.h"
 #include "arrow/util/bit_run_reader.h"
 #include "arrow/util/bit_stream_utils_internal.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/macros.h"
 
-namespace arrow {
-namespace util {
+namespace arrow::util {
 
 /// Utility classes to do run length encoding (RLE) for fixed bit width values.  If runs
 /// are sufficiently long, RLE is used, otherwise, the values are just bit-packed
@@ -82,86 +81,411 @@ namespace util {
 /// 200 ints = 25 groups of 8
 /// <varint((25 << 1) | 1)> <25 bytes of values, bitpacked>
 /// (total 26 bytes, 1 byte overhead)
-//
 
-/// Decoder class for RLE encoded data.
-class RleDecoder {
+/// The type for an encoded Rle of BitPacked run size, between 1 and 2^31-1 as per Parquet
+/// spec.
+/// This is also pragmatically used for other integer used in the Rle and BitPacked runs
+/// and decoder to avoid conversions.
+/// It can therefore be referred to as a "typical" size for Rle and BitPacked logic.
+using rle_size_t = int32_t;
+
+template <typename T>
+class RleRunDecoder;
+
+/// A Single Run Length Encoded run.
+///
+/// Consist of a single value repeated multiple times.
+/// A previous version of this class also stored the value bit width to be self contain,
+/// removing it and passing it explicitly when needed proved to speed up decoding up to
+/// 10 % on some benchmarks.
+class RleRun {
  public:
-  /// Create a decoder object. buffer/buffer_len is the decoded data.
-  /// bit_width is the width of each value (before encoding).
-  RleDecoder(const uint8_t* buffer, int buffer_len, int bit_width)
-      : bit_reader_(buffer, buffer_len),
-        bit_width_(bit_width),
-        current_value_(0),
-        repeat_count_(0),
-        literal_count_(0) {
-    ARROW_DCHECK_GE(bit_width_, 0);
-    ARROW_DCHECK_LE(bit_width_, 64);
+  /// The decoder class used to decode a single run in the given type.
+  template <typename T>
+  using DecoderType = RleRunDecoder<T>;
+
+  constexpr RleRun() noexcept = default;
+
+  explicit RleRun(const uint8_t* data, rle_size_t values_count,
+                  rle_size_t value_bit_width) noexcept
+      : values_count_(values_count) {
+    ARROW_DCHECK_GE(value_bit_width, 0);
+    ARROW_DCHECK_GE(values_count, 0);
+    std::copy(data, data + raw_data_size(value_bit_width), data_.begin());
   }
 
-  RleDecoder() : bit_width_(-1) {}
+  /// The number of repeated values in this run.
+  constexpr rle_size_t values_count() const noexcept { return values_count_; }
 
-  void Reset(const uint8_t* buffer, int buffer_len, int bit_width) {
-    ARROW_DCHECK_GE(bit_width, 0);
-    ARROW_DCHECK_LE(bit_width, 64);
-    bit_reader_.Reset(buffer, buffer_len);
-    bit_width_ = bit_width;
-    current_value_ = 0;
-    repeat_count_ = 0;
-    literal_count_ = 0;
+  /// A pointer to the repeated value raw bytes.
+  constexpr const uint8_t* raw_data_ptr() const noexcept { return data_.data(); }
+
+  /// The number of bytes used for the raw repeated value.
+  constexpr rle_size_t raw_data_size(rle_size_t value_bit_width) const noexcept {
+    auto out = bit_util::BytesForBits(value_bit_width);
+    ARROW_DCHECK_LE(out, std::numeric_limits<rle_size_t>::max());
+    return static_cast<rle_size_t>(out);
   }
 
-  /// Gets the next value.  Returns false if there are no more.
+ private:
+  /// The repeated value raw bytes stored inside the class with enough space to store
+  /// up to a 64 bit value.
+  std::array<uint8_t, 8> data_ = {};
+  /// The number of time the value is repeated.
+  rle_size_t values_count_ = 0;
+};
+
+template <typename T>
+class BitPackedRunDecoder;
+
+/// A single bit packed run.
+///
+/// Consist of a view on a buffer of bytes that encode integers on ``value_bit_width``
+/// bits (that is the numbers are small enough that high order bits are all zeros and can
+/// be omitted).
+/// A previous version of this class also stored the value bit width to be self contain,
+/// removing it and passing it explicitly when needed proved to speed up decoding up to
+/// 10 % on some benchmarks.
+class BitPackedRun {
+ public:
+  /// The decoder class used to decode a single run in the given type.
+  template <typename T>
+  using DecoderType = BitPackedRunDecoder<T>;
+
+  constexpr BitPackedRun() noexcept = default;
+
+  constexpr BitPackedRun(const uint8_t* data, rle_size_t values_count,
+                         rle_size_t value_bit_width) noexcept
+      : data_(data), values_count_(values_count) {
+    ARROW_CHECK_GE(value_bit_width, 0);
+    ARROW_CHECK_GE(values_count_, 0);
+  }
+
+  constexpr rle_size_t values_count() const noexcept { return values_count_; }
+
+  constexpr const uint8_t* raw_data_ptr() const noexcept { return data_; }
+
+  constexpr rle_size_t raw_data_size(rle_size_t value_bit_width) const noexcept {
+    auto out = bit_util::BytesForBits(static_cast<int64_t>(value_bit_width) *
+                                      static_cast<int64_t>(values_count_));
+    ARROW_CHECK_LE(out, std::numeric_limits<rle_size_t>::max());
+    return static_cast<rle_size_t>(out);
+  }
+
+ private:
+  /// The pointer to the beginning of the run
+  const uint8_t* data_ = nullptr;
+  /// Number of values in this run.
+  rle_size_t values_count_ = 0;
+};
+
+/// A parser that emits either a ``BitPackedRun`` or a ``RleRun``.
+class RleBitPackedParser {
+ public:
+  /// The different types of runs emitted by the parser
+  using dynamic_run_type = std::variant<RleRun, BitPackedRun>;
+
+  constexpr RleBitPackedParser() noexcept = default;
+
+  constexpr RleBitPackedParser(const uint8_t* data, rle_size_t data_size,
+                               rle_size_t value_bit_width) noexcept
+      : data_(data), data_size_(data_size), value_bit_width_(value_bit_width) {}
+
+  constexpr void Reset(const uint8_t* data, rle_size_t data_size,
+                       rle_size_t value_bit_width) noexcept {
+    *this = {data, data_size, value_bit_width};
+  }
+
+  /// Whether there is still runs to iterate over.
+  ///
+  /// WARN: Due to simplistic error handling, iteration with Next and Peek could
+  /// fail to return data while the parser is not exhausted.
+  /// This is how one can check for errors.
+  bool exhausted() const { return data_size_ == 0; }
+
+  /// Enum to return from an ``Parse`` handler.
+  ///
+  /// Since a callback has no way to know when to stop, the handler must return
+  /// a value indicating to the ``Parse`` function whether to stop or continue.
+  enum class ControlFlow {
+    Continue,
+    Break,
+  };
+
+  /// A callback approach to parsing.
+  ///
+  /// This approach is used to reduce the number of dynamic lookups involved with using a
+  /// variant.
+  ///
+  /// The handler must be of the form
+  /// ```cpp
+  /// struct Handler {
+  ///   ControlFlow OnBitPackedRun(BitPackedRun run);
+  ///
+  ///   ControlFlow OnRleRun(RleRun run);
+  /// };
+  /// ```
+  template <typename Handler>
+  void Parse(Handler&& handler);
+
+ private:
+  /// The pointer to the beginning of the run
+  const uint8_t* data_ = nullptr;
+  /// Size in bytes of the run.
+  rle_size_t data_size_ = 0;
+  /// The size in bit of a packed value in the run
+  rle_size_t value_bit_width_ = 0;
+
+  /// Run the handler on the run read and return the number of values read.
+  /// Does not advance the parser.
+  template <typename Handler>
+  std::pair<rle_size_t, ControlFlow> PeekImpl(Handler&&) const;
+};
+
+/// Decoder class for a single run of RLE encoded data.
+template <typename T>
+class RleRunDecoder {
+ public:
+  /// The type in which the data should be decoded.
+  using value_type = T;
+  /// The type of run that can be decoded.
+  using RunType = RleRun;
+
+  constexpr RleRunDecoder() noexcept = default;
+
+  explicit RleRunDecoder(const RunType& run, rle_size_t value_bit_width) noexcept {
+    Reset(run, value_bit_width);
+  }
+
+  void Reset(const RunType& run, rle_size_t value_bit_width) noexcept {
+    remaining_count_ = run.values_count();
+    if constexpr (std::is_same_v<value_type, bool>) {
+      // ARROW-18031:  just check the LSB of the next byte and move on.
+      // If we memcpy + FromLittleEndian, we have potential undefined behavior
+      // if the bool value isn't 0 or 1.
+      value_ = *run.raw_data_ptr() & 1;
+    } else {
+      // Memcopy is required to avoid undefined behavior.
+      value_ = {};
+      std::memcpy(&value_, run.raw_data_ptr(), run.raw_data_size(value_bit_width));
+      value_ = ::arrow::bit_util::FromLittleEndian(value_);
+    }
+  }
+
+  /// Return the number of values that can be advanced.
+  rle_size_t remaining() const { return remaining_count_; }
+
+  /// Return the repeated value of this decoder.
+  constexpr value_type value() const { return value_; }
+
+  /// Try to advance by as many values as provided.
+  /// Return the number of values skipped.
+  /// May advance by less than asked for if there are not enough values left.
+  [[nodiscard]] rle_size_t Advance(rle_size_t batch_size, rle_size_t value_bit_width) {
+    const auto steps = std::min(batch_size, remaining_count_);
+    remaining_count_ -= steps;
+    return steps;
+  }
+
+  /// Get the next value and return false if there are no more.
+  [[nodiscard]] constexpr bool Get(value_type* out_value, rle_size_t value_bit_width) {
+    return GetBatch(out_value, 1, value_bit_width) == 1;
+  }
+
+  /// Get a batch of values return the number of decoded elements.
+  /// May write fewer elements to the output than requested if there are not enough values
+  /// left.
+  [[nodiscard]] rle_size_t GetBatch(value_type* out, rle_size_t batch_size,
+                                    rle_size_t value_bit_width) {
+    if (ARROW_PREDICT_FALSE(remaining_count_ == 0)) {
+      return 0;
+    }
+
+    const auto to_read = std::min(remaining_count_, batch_size);
+    std::fill(out, out + to_read, value_);
+    remaining_count_ -= to_read;
+    return to_read;
+  }
+
+ private:
+  value_type value_ = {};
+  rle_size_t remaining_count_ = 0;
+
+  static_assert(std::is_integral_v<value_type>,
+                "This class is meant to decode positive integers");
+};
+
+/// Decoder class for single run of bit-packed encoded data.
+template <typename T>
+class BitPackedRunDecoder {
+ public:
+  /// The type in which the data should be decoded.
+  using value_type = T;
+  /// The type of run that can be decoded.
+  using RunType = BitPackedRun;
+
+  BitPackedRunDecoder() noexcept = default;
+
+  explicit BitPackedRunDecoder(const RunType& run, rle_size_t value_bit_width) noexcept {
+    Reset(run, value_bit_width);
+  }
+
+  void Reset(const RunType& run, rle_size_t value_bit_width) noexcept {
+    remaining_count_ = run.values_count();
+    ARROW_DCHECK_GE(value_bit_width, 0);
+    ARROW_DCHECK_LE(value_bit_width, 64);
+    bit_reader_.Reset(run.raw_data_ptr(), run.raw_data_size(value_bit_width));
+  }
+
+  /// Return the number of values that can be advanced.
+  constexpr rle_size_t remaining() const { return remaining_count_; }
+
+  /// Try to advance by as many values as provided.
+  /// Return the number of values skipped or 0 if it fail to advance.
+  /// May advance by less than asked for if there are not enough values left.
+  [[nodiscard]] rle_size_t Advance(rle_size_t batch_size, rle_size_t value_bit_width) {
+    const auto steps = std::min(batch_size, remaining_count_);
+    if (bit_reader_.Advance(steps * value_bit_width)) {
+      remaining_count_ -= steps;
+      return steps;
+    }
+    return 0;
+  }
+
+  /// Get the next value and return false if there are no more or an error occurred.
+  [[nodiscard]] constexpr bool Get(value_type* out_value, rle_size_t value_bit_width) {
+    return GetBatch(out_value, 1, value_bit_width) == 1;
+  }
+
+  /// Get a batch of values return the number of decoded elements.
+  /// May write fewer elements to the output than requested if there are not enough values
+  /// left or if an error occurred.
+  [[nodiscard]] rle_size_t GetBatch(value_type* out, rle_size_t batch_size,
+                                    rle_size_t value_bit_width) {
+    if (ARROW_PREDICT_FALSE(remaining_count_ == 0)) {
+      return 0;
+    }
+
+    const auto to_read = std::min(remaining_count_, batch_size);
+    const auto actual_read = bit_reader_.GetBatch(value_bit_width, out, to_read);
+    // There should not be any reason why the actual read would be different
+    // but this is error resistant.
+    remaining_count_ -= actual_read;
+    return actual_read;
+  }
+
+ private:
+  ::arrow::bit_util::BitReader bit_reader_ = {};
+  rle_size_t remaining_count_ = 0;
+
+  static_assert(std::is_integral_v<value_type>,
+                "This class is meant to decode positive integers");
+};
+
+/// Decoder class for Parquet RLE bit-packed data.
+template <typename T>
+class RleBitPackedDecoder {
+ public:
+  /// The type in which the data should be decoded.
+  using value_type = T;
+  using DynamicRun = RleBitPackedParser::dynamic_run_type;
+
+  RleBitPackedDecoder() noexcept = default;
+
+  /// Create a decoder object.
+  ///
+  /// data and data_size are the raw bytes to decode.
+  /// value_bit_width is the size in bits of each encoded value.
+  RleBitPackedDecoder(const uint8_t* data, rle_size_t data_size,
+                      rle_size_t value_bit_width) noexcept {
+    Reset(data, data_size, value_bit_width);
+  }
+
+  void Reset(const uint8_t* data, rle_size_t data_size,
+             rle_size_t value_bit_width) noexcept {
+    ARROW_DCHECK_GE(value_bit_width, 0);
+    ARROW_DCHECK_LE(value_bit_width, 64);
+    parser_.Reset(data, data_size, value_bit_width);
+    decoder_ = {};
+    value_bit_width_ = value_bit_width;
+  }
+
+  /// Whether there is still runs to iterate over.
+  ///
+  /// WARN: Due to lack of proper error handling, iteration with Get methods could return
+  /// no data while the parser is not exhausted.
+  /// This is how one can check for errors.
+  bool exhausted() const { return (run_remaining() == 0) && parser_.exhausted(); }
+
+  /// Gets the next value or returns false if there are no more or an error occurred.
   ///
   /// NB: Because the encoding only supports literal runs with lengths
   /// that are multiples of 8, RleEncoder sometimes pads the end of its
   /// input with zeros. Since the encoding does not differentiate between
   /// input values and padding, Get() returns true even for these padding
   /// values.
-  template <typename T>
-  bool Get(T* val);
+  [[nodiscard]] bool Get(value_type* val);
 
-  /// Gets a batch of values.  Returns the number of decoded elements.
-  template <typename T>
-  int GetBatch(T* values, int batch_size);
+  /// Get a batch of values return the number of decoded elements.
+  /// May write fewer elements to the output than requested if there are not enough values
+  /// left or if an error occurred.
+  [[nodiscard]] rle_size_t GetBatch(value_type* out, rle_size_t batch_size);
 
-  /// Like GetBatch but add spacing for null entries
-  template <typename T>
-  int GetBatchSpaced(int batch_size, int null_count, const uint8_t* valid_bits,
-                     int64_t valid_bits_offset, T* out);
+  /// Like GetBatch but add spacing for null entries.
+  ///
+  /// Null entries will be set to an arbistrary value to avoid leaking private data.
+  /// May write fewer elements to the output than requested if there are not enough values
+  /// left or if an error occurred.
+  [[nodiscard]] rle_size_t GetBatchSpaced(rle_size_t batch_size, rle_size_t null_count,
+                                          const uint8_t* valid_bits,
+                                          int64_t valid_bits_offset, value_type* out);
 
   /// Like GetBatch but the values are then decoded using the provided dictionary
-  template <typename T>
-  int GetBatchWithDict(const T* dictionary, int32_t dictionary_length, T* values,
-                       int batch_size);
+  ///
+  /// May write fewer elements to the output than requested if there are not enough values
+  /// left or if an error occurred.
+  template <typename V>
+  [[nodiscard]] rle_size_t GetBatchWithDict(const V* dictionary,
+                                            int32_t dictionary_length, V* out,
+                                            rle_size_t batch_size);
 
   /// Like GetBatchWithDict but add spacing for null entries
   ///
-  /// Null entries will be zero-initialized in `values` to avoid leaking
-  /// private data.
-  template <typename T>
-  int GetBatchWithDictSpaced(const T* dictionary, int32_t dictionary_length, T* values,
-                             int batch_size, int null_count, const uint8_t* valid_bits,
-                             int64_t valid_bits_offset);
-
- protected:
-  ::arrow::bit_util::BitReader bit_reader_;
-  /// Number of bits needed to encode the value. Must be between 0 and 64.
-  int bit_width_;
-  uint64_t current_value_;
-  int32_t repeat_count_;
-  int32_t literal_count_;
+  /// Null entries will be set to an arbistrary value to avoid leaking private data.
+  /// May write fewer elements to the output than requested if there are not enough values
+  /// left or if an error occurred.
+  template <typename V>
+  [[nodiscard]] rle_size_t GetBatchWithDictSpaced(
+      const V* dictionary, int32_t dictionary_length, V* out, rle_size_t batch_size,
+      rle_size_t null_count, const uint8_t* valid_bits, int64_t valid_bits_offset);
 
  private:
-  /// Fills literal_count_ and repeat_count_ with next values. Returns false if there
-  /// are no more.
-  template <typename T>
-  bool NextCounts();
+  RleBitPackedParser parser_ = {};
+  std::variant<RleRunDecoder<value_type>, BitPackedRunDecoder<value_type>> decoder_ = {};
+  rle_size_t value_bit_width_;
+
+  /// Return the number of values that are remaining in the current run.
+  rle_size_t run_remaining() const {
+    return std::visit([](const auto& dec) { return dec.remaining(); }, decoder_);
+  }
+
+  /// Get a batch of values from the current run and return the number elements read.
+  [[nodiscard]] rle_size_t RunGetBatch(value_type* out, rle_size_t batch_size) {
+    return std::visit(
+        [&](auto& dec) { return dec.GetBatch(out, batch_size, value_bit_width_); },
+        decoder_);
+  }
+
+  /// Call the parser with a single callable for all event types.
+  template <typename Callable>
+  void ParseWithCallable(Callable&& func);
 
   /// Utility methods for retrieving spaced values.
-  template <typename T, typename RunType, typename Converter>
-  int GetSpaced(Converter converter, int batch_size, int null_count,
-                const uint8_t* valid_bits, int64_t valid_bits_offset, T* out);
+  template <typename Converter>
+  [[nodiscard]] rle_size_t GetSpaced(Converter converter,
+                                     typename Converter::out_type* out,
+                                     rle_size_t batch_size, const uint8_t* valid_bits,
+                                     int64_t valid_bits_offset, rle_size_t null_count);
 };
 
 /// Class to incrementally build the rle data.   This class does not allocate any memory.
@@ -170,7 +494,7 @@ class RleDecoder {
 /// This class does so by buffering 8 values at a time.  If they are not all the same
 /// they are added to the literal run.  If they are the same, they are added to the
 /// repeated run.  When we switch modes, the previous run is flushed out.
-class RleEncoder {
+class RleBitPackedEncoder {
  public:
   /// buffer/buffer_len: preallocated output buffer.
   /// bit_width: max number of bits for value.
@@ -178,7 +502,7 @@ class RleEncoder {
   /// when values should be encoded as repeated runs.  Currently this is derived
   /// based on the bit_width, which can determine a storage optimal choice.
   /// TODO: allow 0 bit_width (and have dict encoder use it)
-  RleEncoder(uint8_t* buffer, int buffer_len, int bit_width)
+  RleBitPackedEncoder(uint8_t* buffer, int buffer_len, int bit_width)
       : bit_width_(bit_width), bit_writer_(buffer, buffer_len) {
     ARROW_DCHECK_GE(bit_width_, 0);
     ARROW_DCHECK_LE(bit_width_, 64);
@@ -191,12 +515,12 @@ class RleEncoder {
   /// This is the maximum length of a single run for 'bit_width'.
   /// It is not valid to pass a buffer less than this length.
   static int MinBufferSize(int bit_width) {
-    /// 1 indicator byte and MAX_VALUES_PER_LITERAL_RUN 'bit_width' values.
+    // 1 indicator byte and MAX_VALUES_PER_LITERAL_RUN 'bit_width' values.
     int max_literal_run_size = 1 + static_cast<int>(::arrow::bit_util::BytesForBits(
                                        MAX_VALUES_PER_LITERAL_RUN * bit_width));
-    /// Up to kMaxVlqByteLength indicator and a single 'bit_width' value.
+    // Up to kMaxVlqByteLength indicator and a single 'bit_width' value.
     int max_repeated_run_size =
-        ::arrow::bit_util::BitReader::kMaxVlqByteLength +
+        bit_util::kMaxLEB128ByteLenFor<int32_t> +
         static_cast<int>(::arrow::bit_util::BytesForBits(bit_width));
     return std::max(max_literal_run_size, max_repeated_run_size);
   }
@@ -299,385 +623,665 @@ class RleEncoder {
   uint8_t* literal_indicator_byte_;
 };
 
+/************************
+ *  RleBitPackedParser  *
+ ************************/
+
+template <typename Handler>
+void RleBitPackedParser::Parse(Handler&& handler) {
+  while (!exhausted()) {
+    auto [read, control] = PeekImpl(handler);
+    data_ += read;
+    data_size_ -= read;
+    if (ARROW_PREDICT_FALSE(control == ControlFlow::Break)) {
+      break;
+    }
+  }
+}
+
+namespace internal {
+/// The maximal unsigned size that a variable can fit.
 template <typename T>
-inline bool RleDecoder::Get(T* val) {
+constexpr auto max_size_for_v =
+    static_cast<std::make_unsigned_t<T>>(std::numeric_limits<T>::max());
+
+}  // namespace internal
+
+template <typename Handler>
+auto RleBitPackedParser::PeekImpl(Handler&& handler) const
+    -> std::pair<rle_size_t, ControlFlow> {
+  ARROW_DCHECK(!exhausted());
+
+  constexpr auto kMaxSize = bit_util::kMaxLEB128ByteLenFor<uint32_t>;
+  uint32_t run_len_type = 0;
+  const auto header_bytes = bit_util::ParseLeadingLEB128(data_, kMaxSize, &run_len_type);
+
+  if (ARROW_PREDICT_FALSE(header_bytes == 0)) {
+    // Malfomrmed LEB128 data
+    return {0, ControlFlow::Break};
+  }
+
+  const bool is_bit_packed = run_len_type & 1;
+  const uint32_t count = run_len_type >> 1;
+  if (is_bit_packed) {
+    constexpr auto kMaxCount = bit_util::CeilDiv(internal::max_size_for_v<rle_size_t>, 8);
+    if (ARROW_PREDICT_FALSE(count == 0 || count > kMaxCount)) {
+      // Illegal number of encoded values
+      return {0, ControlFlow::Break};
+    }
+
+    ARROW_DCHECK_LT(static_cast<uint64_t>(count) * 8,
+                    internal::max_size_for_v<rle_size_t>);
+    const auto values_count = static_cast<rle_size_t>(count * 8);
+    // Count Already divided by 8
+    const auto bytes_read =
+        header_bytes + static_cast<rle_size_t>(count) * value_bit_width_;
+
+    auto control = handler.OnBitPackedRun(
+        BitPackedRun(data_ + header_bytes, values_count, value_bit_width_));
+
+    return {bytes_read, control};
+  }
+
+  if (ARROW_PREDICT_FALSE(count == 0)) {
+    // Illegal number of encoded values
+    return {0, ControlFlow::Break};
+  }
+
+  // Safe because created from right shift
+  const auto values_count = static_cast<rle_size_t>(count);
+  const auto value_bytes = bit_util::BytesForBits(value_bit_width_);
+  ARROW_DCHECK_LT(value_bytes, internal::max_size_for_v<rle_size_t>);
+  const auto bytes_read = header_bytes + static_cast<rle_size_t>(value_bytes);
+
+  auto control =
+      handler.OnRleRun(RleRun(data_ + header_bytes, values_count, value_bit_width_));
+
+  return {bytes_read, control};
+}
+
+/*************************
+ *  RleBitPackedDecoder  *
+ *************************/
+
+template <typename T>
+template <typename Callable>
+void RleBitPackedDecoder<T>::ParseWithCallable(Callable&& func) {
+  struct {
+    Callable func;
+    auto OnBitPackedRun(BitPackedRun run) { return func(std::move(run)); }
+    auto OnRleRun(RleRun run) { return func(std::move(run)); }
+  } handler{std::move(func)};
+
+  parser_.Parse(std::move(handler));
+}
+
+template <typename T>
+bool RleBitPackedDecoder<T>::Get(value_type* val) {
   return GetBatch(val, 1) == 1;
 }
 
 template <typename T>
-inline int RleDecoder::GetBatch(T* values, int batch_size) {
-  ARROW_DCHECK_GE(bit_width_, 0);
-  int values_read = 0;
+auto RleBitPackedDecoder<T>::GetBatch(value_type* out, rle_size_t batch_size)
+    -> rle_size_t {
+  using ControlFlow = RleBitPackedParser::ControlFlow;
 
-  auto* out = values;
+  rle_size_t values_read = 0;
 
-  while (values_read < batch_size) {
-    int remaining = batch_size - values_read;
+  // Remaining from a previous call that would have left some unread data from a run.
+  if (ARROW_PREDICT_FALSE(run_remaining() > 0)) {
+    const auto read = RunGetBatch(out, batch_size);
+    values_read += read;
+    out += read;
 
-    if (repeat_count_ > 0) {  // Repeated value case.
-      int repeat_batch = std::min(remaining, repeat_count_);
-      std::fill(out, out + repeat_batch, static_cast<T>(current_value_));
-
-      repeat_count_ -= repeat_batch;
-      values_read += repeat_batch;
-      out += repeat_batch;
-    } else if (literal_count_ > 0) {
-      int literal_batch = std::min(remaining, literal_count_);
-      int actual_read = bit_reader_.GetBatch(bit_width_, out, literal_batch);
-      if (actual_read != literal_batch) {
-        return values_read;
-      }
-
-      literal_count_ -= literal_batch;
-      values_read += literal_batch;
-      out += literal_batch;
-    } else {
-      if (!NextCounts<T>()) return values_read;
+    // Either we fulfilled all the batch to be read or we finished remaining run.
+    if (ARROW_PREDICT_FALSE(values_read == batch_size)) {
+      return values_read;
     }
+    ARROW_DCHECK(run_remaining() == 0);
   }
+
+  ParseWithCallable([&](auto run) {
+    using RunDecoder = typename decltype(run)::template DecoderType<value_type>;
+
+    ARROW_DCHECK_LT(values_read, batch_size);
+    RunDecoder decoder(run, value_bit_width_);
+    const auto read = decoder.GetBatch(out, batch_size - values_read, value_bit_width_);
+    ARROW_DCHECK_LE(read, batch_size - values_read);
+    values_read += read;
+    out += read;
+
+    // Stop reading and store remaining decoder
+    if (ARROW_PREDICT_FALSE(values_read == batch_size || read == 0)) {
+      decoder_ = std::move(decoder);
+      return ControlFlow::Break;
+    }
+
+    return ControlFlow::Continue;
+  });
 
   return values_read;
 }
 
-template <typename T, typename RunType, typename Converter>
-inline int RleDecoder::GetSpaced(Converter converter, int batch_size, int null_count,
-                                 const uint8_t* valid_bits, int64_t valid_bits_offset,
-                                 T* out) {
-  if (ARROW_PREDICT_FALSE(null_count == batch_size)) {
-    converter.FillZero(out, out + batch_size);
-    return batch_size;
+namespace internal {
+
+/// Utility class to safely handle values and null count without too error-prone
+/// verbosity.
+class BatchCounter {
+ public:
+  using size_type = rle_size_t;
+
+  static constexpr BatchCounter FromBatchSizeAndNulls(size_type batch_size,
+                                                      size_type null_count) {
+    ARROW_DCHECK_LE(null_count, batch_size);
+    return {batch_size - null_count, null_count};
   }
 
-  ARROW_DCHECK_GE(bit_width_, 0);
-  int values_read = 0;
-  int values_remaining = batch_size - null_count;
+  constexpr BatchCounter(size_type values_count, size_type null_count) noexcept
+      : values_count_(values_count), null_count_(null_count) {}
 
-  // Assume no bits to start.
-  arrow::internal::BitRunReader bit_reader(valid_bits, valid_bits_offset,
-                                           /*length=*/batch_size);
-  arrow::internal::BitRun valid_run = bit_reader.NextRun();
-  while (values_read < batch_size) {
-    if (ARROW_PREDICT_FALSE(valid_run.length == 0)) {
-      valid_run = bit_reader.NextRun();
-    }
+  constexpr size_type values_count() const noexcept { return values_count_; }
 
-    ARROW_DCHECK_GT(batch_size, 0);
-    ARROW_DCHECK_GT(valid_run.length, 0);
+  constexpr size_type values_read() const noexcept { return values_read_; }
 
-    if (valid_run.set) {
-      if ((repeat_count_ == 0) && (literal_count_ == 0)) {
-        if (!NextCounts<RunType>()) return values_read;
-        ARROW_DCHECK((repeat_count_ > 0) ^ (literal_count_ > 0));
-      }
+  constexpr size_type values_remaining() const noexcept {
+    ARROW_DCHECK_LE(values_read_, values_count_);
+    return values_count_ - values_read_;
+  }
 
-      if (repeat_count_ > 0) {
-        int repeat_batch = 0;
-        // Consume the entire repeat counts incrementing repeat_batch to
-        // be the total of nulls + values consumed, we only need to
-        // get the total count because we can fill in the same value for
-        // nulls and non-nulls. This proves to be a big efficiency win.
-        while (repeat_count_ > 0 && (values_read + repeat_batch) < batch_size) {
-          ARROW_DCHECK_GT(valid_run.length, 0);
-          if (valid_run.set) {
-            int update_size = std::min(static_cast<int>(valid_run.length), repeat_count_);
-            repeat_count_ -= update_size;
-            repeat_batch += update_size;
-            valid_run.length -= update_size;
-            values_remaining -= update_size;
-          } else {
-            // We can consume all nulls here because we would do so on
-            //  the next loop anyways.
-            repeat_batch += static_cast<int>(valid_run.length);
-            valid_run.length = 0;
-          }
-          if (valid_run.length == 0) {
-            valid_run = bit_reader.NextRun();
-          }
-        }
-        RunType current_value = static_cast<RunType>(current_value_);
-        if (ARROW_PREDICT_FALSE(!converter.IsValid(current_value))) {
-          return values_read;
-        }
-        converter.Fill(out, out + repeat_batch, current_value);
-        out += repeat_batch;
-        values_read += repeat_batch;
-      } else if (literal_count_ > 0) {
-        int literal_batch = std::min(values_remaining, literal_count_);
-        ARROW_DCHECK_GT(literal_batch, 0);
+  constexpr void AccrueReadValues(size_type to_read) noexcept {
+    ARROW_DCHECK_LE(to_read, values_remaining());
+    values_read_ += to_read;
+  }
 
-        // Decode the literals
-        constexpr int kBufferSize = 1024;
-        RunType indices[kBufferSize];
-        literal_batch = std::min(literal_batch, kBufferSize);
-        int actual_read = bit_reader_.GetBatch(bit_width_, indices, literal_batch);
-        if (ARROW_PREDICT_FALSE(actual_read != literal_batch)) {
-          return values_read;
-        }
-        if (!converter.IsValid(indices, /*length=*/actual_read)) {
-          return values_read;
-        }
-        int skipped = 0;
-        int literals_read = 0;
-        while (literals_read < literal_batch) {
-          if (valid_run.set) {
-            int update_size = std::min(literal_batch - literals_read,
-                                       static_cast<int>(valid_run.length));
-            converter.Copy(out, indices + literals_read, update_size);
-            literals_read += update_size;
-            out += update_size;
-            valid_run.length -= update_size;
-          } else {
-            converter.FillZero(out, out + valid_run.length);
-            out += valid_run.length;
-            skipped += static_cast<int>(valid_run.length);
-            valid_run.length = 0;
-          }
-          if (valid_run.length == 0) {
-            valid_run = bit_reader.NextRun();
-          }
-        }
-        literal_count_ -= literal_batch;
-        values_remaining -= literal_batch;
-        values_read += literal_batch + skipped;
-      }
+  constexpr size_type null_count() const noexcept { return null_count_; }
+
+  constexpr size_type null_read() const noexcept { return null_read_; }
+
+  constexpr size_type null_remaining() const noexcept {
+    ARROW_DCHECK_LE(null_read_, null_count_);
+    return null_count_ - null_read_;
+  }
+
+  constexpr void AccrueReadNulls(size_type to_read) noexcept {
+    ARROW_DCHECK_LE(to_read, null_remaining());
+    null_read_ += to_read;
+  }
+
+  constexpr size_type total_remaining() const noexcept {
+    return values_remaining() + null_remaining();
+  }
+
+  constexpr size_type total_read() const noexcept { return values_read_ + null_read_; }
+
+  constexpr bool is_fully_null() const noexcept { return values_remaining() == 0; }
+
+  constexpr bool is_done() const noexcept { return total_remaining() == 0; }
+
+ private:
+  size_type values_count_ = 0;
+  size_type values_read_ = 0;
+  size_type null_count_ = 0;
+  size_type null_read_ = 0;
+};
+
+template <typename Int>
+struct GetSpacedResult {
+  Int values_read;
+  Int null_read;
+};
+
+/// Overload for GetSpaced for a single run in a RleDecoder
+template <typename Converter, typename BitRunReader, typename BitRun, typename value_type>
+auto RunGetSpaced(Converter* converter, typename Converter::out_type* out,
+                  rle_size_t batch_size, rle_size_t null_count,
+                  rle_size_t value_bit_width, BitRunReader* validity_reader,
+                  BitRun* validity_run, RleRunDecoder<value_type>* decoder)
+    -> GetSpacedResult<rle_size_t> {
+  ARROW_DCHECK_GT(batch_size, 0);
+  // The equality case is handled in the main loop in GetSpaced
+  ARROW_DCHECK_LT(null_count, batch_size);
+
+  auto batch = BatchCounter::FromBatchSizeAndNulls(batch_size, null_count);
+
+  const rle_size_t values_available = decoder->remaining();
+  ARROW_DCHECK_GT(values_available, 0);
+  auto values_remaining_run = [&]() {
+    auto out = values_available - batch.values_read();
+    ARROW_DCHECK_GE(out, 0);
+    return out;
+  };
+
+  // Consume as much as possible from the repeated run.
+  // We only need to count the number of nulls and non-nulls because we can fill in the
+  // same value for nulls and non-nulls.
+  // This proves to be a big efficiency win.
+  while (values_remaining_run() > 0 && !batch.is_done()) {
+    ARROW_DCHECK_GE(validity_run->length, 0);
+    ARROW_DCHECK_LT(validity_run->length, max_size_for_v<rle_size_t>);
+    ARROW_DCHECK_LE(validity_run->length, batch.total_remaining());
+    const auto& validity_run_size = static_cast<rle_size_t>(validity_run->length);
+
+    if (validity_run->set) {
+      // We may end the current RLE run in the middle of the validity run
+      auto update_size = std::min(validity_run_size, values_remaining_run());
+      batch.AccrueReadValues(update_size);
+      validity_run->length -= update_size;
     } else {
-      converter.FillZero(out, out + valid_run.length);
-      out += valid_run.length;
-      values_read += static_cast<int>(valid_run.length);
-      valid_run.length = 0;
+      // We can consume all nulls here because it does not matter if we consume on this
+      // RLE run, or an a next encoded run. The value filled does not matter.
+      auto update_size = std::min(validity_run_size, batch.null_remaining());
+      batch.AccrueReadNulls(update_size);
+      validity_run->length -= update_size;
+    }
+
+    if (ARROW_PREDICT_TRUE(validity_run->length == 0)) {
+      *validity_run = validity_reader->NextRun();
     }
   }
-  ARROW_DCHECK_EQ(valid_run.length, 0);
-  ARROW_DCHECK_EQ(values_remaining, 0);
-  return values_read;
+
+  const value_type value = decoder->value();
+  if (ARROW_PREDICT_FALSE(!converter->InputIsValid(value))) {
+    return {0, 0};
+  }
+  converter->WriteRepeated(out, out + batch.total_read(), value);
+  const auto actual_values_read = decoder->Advance(batch.values_read(), value_bit_width);
+  // We always cropped the number of values_read by the remaining values in the run.
+  // What's more the RLE decoder should not encounter any errors.
+  ARROW_DCHECK_EQ(actual_values_read, batch.values_read());
+
+  return {/* .values_read= */ batch.values_read(), /* .null_read= */ batch.null_read()};
 }
+
+template <typename Converter, typename BitRunReader, typename BitRun, typename value_type>
+auto RunGetSpaced(Converter* converter, typename Converter::out_type* out,
+                  rle_size_t batch_size, rle_size_t null_count,
+                  rle_size_t value_bit_width, BitRunReader* validity_reader,
+                  BitRun* validity_run, BitPackedRunDecoder<value_type>* decoder)
+    -> GetSpacedResult<rle_size_t> {
+  ARROW_DCHECK_GT(batch_size, 0);
+  // The equality case is handled in the main loop in GetSpaced
+  ARROW_DCHECK_LT(null_count, batch_size);
+
+  auto batch = BatchCounter::FromBatchSizeAndNulls(batch_size, null_count);
+
+  const rle_size_t values_available = decoder->remaining();
+  ARROW_DCHECK_GT(values_available, 0);
+  auto run_values_remaining = [&]() {
+    auto out = values_available - batch.values_read();
+    ARROW_DCHECK_GE(out, 0);
+    return out;
+  };
+
+  while (run_values_remaining() > 0 && batch.values_remaining() > 0) {
+    // Pull a batch of values from the bit packed encoded data and store it in a local
+    // buffer to benefit from unpacking intrinsics and data locality.
+    // Quick benchmarking on a linux x86-64 cloud instance show that this previously
+    // hard-coded value is appropriate.
+    static constexpr rle_size_t kBufferCapacity = 1024;
+    std::array<value_type, kBufferCapacity> buffer = {};
+
+    rle_size_t buffer_start = 0;
+    rle_size_t buffer_end = 0;
+    auto buffer_size = [&]() {
+      auto out = buffer_end - buffer_start;
+      ARROW_DCHECK_GE(out, 0);
+      return out;
+    };
+
+    // buffer_start is 0 at this point so size is end
+    buffer_end = std::min(std::min(run_values_remaining(), batch.values_remaining()),
+                          kBufferCapacity);
+    buffer_end = decoder->GetBatch(buffer.data(), buffer_size(), value_bit_width);
+    ARROW_DCHECK_LE(buffer_size(), kBufferCapacity);
+
+    if (ARROW_PREDICT_FALSE(!converter->InputIsValid(buffer.data(), buffer_size()))) {
+      return {batch.values_read(), batch.null_read()};
+    }
+
+    // Copy chunks of valid values into the output, while adjusting spacing for null
+    // values.
+    while (buffer_size() > 0) {
+      ARROW_DCHECK_GE(validity_run->length, 0);
+      ARROW_DCHECK_LT(validity_run->length, max_size_for_v<rle_size_t>);
+      ARROW_DCHECK_LE(validity_run->length, batch.total_remaining());
+      const auto validity_run_length = static_cast<rle_size_t>(validity_run->length);
+
+      // Copy as much as possible from the buffer into the output while not exceeding
+      // validity run
+      if (validity_run->set) {
+        const auto update_size = std::min(validity_run_length, buffer_size());
+        converter->WriteRange(out, buffer.data() + buffer_start, update_size);
+        buffer_start += update_size;
+        batch.AccrueReadValues(update_size);
+        out += update_size;
+        validity_run->length -= update_size;
+        // Simply write zeros in the output
+      } else {
+        const auto update_size = std::min(validity_run_length, batch.null_remaining());
+        converter->WriteZero(out, out + update_size);
+        batch.AccrueReadNulls(update_size);
+        out += update_size;
+        validity_run->length -= update_size;
+      }
+
+      if (validity_run->length == 0) {
+        *validity_run = validity_reader->NextRun();
+      }
+    }
+
+    ARROW_DCHECK_EQ(buffer_size(), 0);
+  }
+
+  ARROW_DCHECK_EQ(values_available - decoder->remaining(), batch.values_read());
+  ARROW_DCHECK_LE(batch.total_read(), batch_size);
+  ARROW_DCHECK_LE(batch.null_read(), batch.null_count());
+
+  return {/* .values_read= */ batch.values_read(), /* .null_read= */ batch.null_read()};
+}
+
+/// Overload for GetSpaced for a single run in a decoder variant
+template <typename Converter, typename BitRunReader, typename BitRun, typename value_type>
+auto RunGetSpaced(
+    Converter* converter, typename Converter::out_type* out, rle_size_t batch_size,
+    rle_size_t null_count, rle_size_t value_bit_width, BitRunReader* validity_reader,
+    BitRun* validity_run,
+    std::variant<RleRunDecoder<value_type>, BitPackedRunDecoder<value_type>>* decoder)
+    -> GetSpacedResult<rle_size_t> {
+  return std::visit(
+      [&](auto& dec) {
+        ARROW_DCHECK_GT(dec.remaining(), 0);
+        return RunGetSpaced(converter, out, batch_size, null_count, value_bit_width,
+                            validity_reader, validity_run, &dec);
+      },
+      *decoder);
+}
+
+}  // namespace internal
+
+template <typename T>
+template <typename Converter>
+auto RleBitPackedDecoder<T>::GetSpaced(Converter converter,
+                                       typename Converter::out_type* out,
+                                       rle_size_t batch_size,
+                                       const uint8_t* validity_bits,
+                                       int64_t validity_bits_offset,
+                                       rle_size_t null_count) -> rle_size_t {
+  using ControlFlow = RleBitPackedParser::ControlFlow;
+
+  ARROW_DCHECK_GT(batch_size, 0);
+
+  auto batch = internal::BatchCounter::FromBatchSizeAndNulls(batch_size, null_count);
+
+  if (ARROW_PREDICT_FALSE(batch.is_fully_null())) {
+    converter.WriteZero(out, out + batch.null_remaining());
+    return batch.null_remaining();
+  }
+
+  arrow::internal::BitRunReader validity_reader(validity_bits, validity_bits_offset,
+                                                /*length=*/batch.total_remaining());
+  arrow::internal::BitRun validity_run = validity_reader.NextRun();
+
+  const auto check_and_handle_fully_null_remaining = [&]() {
+    if (batch.is_fully_null()) {
+      ARROW_DCHECK(validity_run.length == 0 || !validity_run.set);
+      ARROW_DCHECK_GE(validity_run.length, batch.null_remaining());
+
+      converter.WriteZero(out, out + batch.null_remaining());
+      out += batch.null_remaining();
+      batch.AccrueReadNulls(batch.null_remaining());
+    }
+  };
+
+  // Remaining from a previous call that would have left some unread data from a run.
+  if (ARROW_PREDICT_FALSE(run_remaining() > 0)) {
+    const auto read = internal::RunGetSpaced(&converter, out, batch.total_remaining(),
+                                             batch.null_remaining(), value_bit_width_,
+                                             &validity_reader, &validity_run, &decoder_);
+
+    batch.AccrueReadNulls(read.null_read);
+    batch.AccrueReadValues(read.values_read);
+    out += read.values_read + read.null_read;
+
+    // Either we fulfilled all the batch values to be read
+    if (ARROW_PREDICT_FALSE(batch.values_remaining() == 0)) {
+      // There may be remaining null if they are not greedily filled
+      check_and_handle_fully_null_remaining();
+      return batch.total_read();
+    }
+
+    // We finished the remaining run
+    ARROW_DCHECK(run_remaining() == 0);
+  }
+
+  ParseWithCallable([&](auto run) {
+    using RunDecoder = typename decltype(run)::template DecoderType<value_type>;
+
+    RunDecoder decoder(run, value_bit_width_);
+
+    const auto read = internal::RunGetSpaced(&converter, out, batch.total_remaining(),
+                                             batch.null_remaining(), value_bit_width_,
+                                             &validity_reader, &validity_run, &decoder);
+
+    batch.AccrueReadNulls(read.null_read);
+    batch.AccrueReadValues(read.values_read);
+    out += read.values_read + read.null_read;
+
+    // Stop reading and store remaining decoder
+    if (ARROW_PREDICT_FALSE(read.values_read == 0 || batch.values_remaining() == 0)) {
+      decoder_ = std::move(decoder);
+      return ControlFlow::Break;
+    }
+
+    return ControlFlow::Continue;
+  });
+
+  // There may be remaining null if they are not greedily filled by either decoder calls
+  check_and_handle_fully_null_remaining();
+
+  ARROW_DCHECK(batch.is_done() || exhausted());
+  return batch.total_read();
+}
+
+namespace internal {
 
 // Converter for GetSpaced that handles runs that get returned
 // directly as output.
 template <typename T>
-struct PlainRleConverter {
-  T kZero = {};
-  inline bool IsValid(const T& values) const { return true; }
-  inline bool IsValid(const T* values, int32_t length) const { return true; }
-  inline void Fill(T* begin, T* end, const T& run_value) const {
+struct NoOpConverter {
+  using in_type = T;
+  using out_type = T;
+  using size_type = rle_size_t;
+
+  static constexpr bool InputIsValid(const in_type& values) { return true; }
+
+  static constexpr bool InputIsValid(const in_type* values, size_type length) {
+    return true;
+  }
+
+  static void WriteRepeated(out_type* begin, out_type* end, in_type run_value) {
     std::fill(begin, end, run_value);
   }
-  inline void FillZero(T* begin, T* end) { std::fill(begin, end, kZero); }
-  inline void Copy(T* out, const T* values, int length) const {
-    std::memcpy(out, values, length * sizeof(T));
+
+  static void WriteZero(out_type* begin, out_type* end) {
+    std::fill(begin, end, out_type{});
+  }
+
+  static void WriteRange(out_type* out, const in_type* values, size_type length) {
+    std::memcpy(out, values, length * sizeof(out_type));
   }
 };
 
+}  // namespace internal
+
 template <typename T>
-inline int RleDecoder::GetBatchSpaced(int batch_size, int null_count,
-                                      const uint8_t* valid_bits,
-                                      int64_t valid_bits_offset, T* out) {
+auto RleBitPackedDecoder<T>::GetBatchSpaced(rle_size_t batch_size, rle_size_t null_count,
+                                            const uint8_t* valid_bits,
+                                            int64_t valid_bits_offset, value_type* out)
+    -> rle_size_t {
   if (null_count == 0) {
-    return GetBatch<T>(out, batch_size);
+    return GetBatch(out, batch_size);
   }
 
-  PlainRleConverter<T> converter;
-  arrow::internal::BitBlockCounter block_counter(valid_bits, valid_bits_offset,
-                                                 batch_size);
+  internal::NoOpConverter<value_type> converter;
 
-  int total_processed = 0;
-  int processed = 0;
-  arrow::internal::BitBlockCount block;
-
-  do {
-    block = block_counter.NextFourWords();
-    if (block.length == 0) {
-      break;
-    }
-    if (block.AllSet()) {
-      processed = GetBatch<T>(out, block.length);
-    } else if (block.NoneSet()) {
-      converter.FillZero(out, out + block.length);
-      processed = block.length;
-    } else {
-      processed = GetSpaced<T, /*RunType=*/T, PlainRleConverter<T>>(
-          converter, block.length, block.length - block.popcount, valid_bits,
-          valid_bits_offset, out);
-    }
-    total_processed += processed;
-    out += block.length;
-    valid_bits_offset += block.length;
-  } while (processed == block.length);
-  return total_processed;
+  return GetSpaced(converter, out, batch_size, valid_bits, valid_bits_offset, null_count);
 }
 
-static inline bool IndexInRange(int32_t idx, int32_t dictionary_length) {
-  return idx >= 0 && idx < dictionary_length;
+namespace internal {
+
+template <typename I>
+bool IndexInRange(I idx, int32_t dictionary_length) {
+  ARROW_DCHECK_GT(dictionary_length, 0);
+  using T = std::common_type_t<decltype(idx), decltype(dictionary_length)>;
+  return idx >= 0 && static_cast<T>(idx) < static_cast<T>(dictionary_length);
 }
 
 // Converter for GetSpaced that handles runs of returned dictionary
 // indices.
-template <typename T>
+template <typename V, typename I>
 struct DictionaryConverter {
-  T kZero = {};
-  const T* dictionary;
-  int32_t dictionary_length;
+  using out_type = V;
+  using in_type = I;
+  using size_type = rle_size_t;
 
-  inline bool IsValid(int32_t value) { return IndexInRange(value, dictionary_length); }
+  static constexpr bool kIsIdentity = false;
 
-  inline bool IsValid(const int32_t* values, int32_t length) const {
-    using IndexType = int32_t;
-    IndexType min_index = std::numeric_limits<IndexType>::max();
-    IndexType max_index = std::numeric_limits<IndexType>::min();
-    for (int x = 0; x < length; x++) {
-      min_index = std::min(values[x], min_index);
-      max_index = std::max(values[x], max_index);
+  const out_type* dictionary;
+  size_type dictionary_length;
+
+  bool InputIsValid(in_type idx) const { return IndexInRange(idx, dictionary_length); }
+
+  bool InputIsValid(const in_type* indices, size_type length) const {
+    ARROW_DCHECK(length > 0);
+
+    in_type min_index = std::numeric_limits<in_type>::max();
+    in_type max_index = std::numeric_limits<in_type>::min();
+    for (size_type x = 0; x < length; x++) {
+      min_index = std::min(indices[x], min_index);
+      max_index = std::max(indices[x], max_index);
     }
 
     return IndexInRange(min_index, dictionary_length) &&
            IndexInRange(max_index, dictionary_length);
   }
-  inline void Fill(T* begin, T* end, const int32_t& run_value) const {
+
+  void WriteRepeated(out_type* begin, out_type* end, in_type run_value) const {
     std::fill(begin, end, dictionary[run_value]);
   }
-  inline void FillZero(T* begin, T* end) { std::fill(begin, end, kZero); }
 
-  inline void Copy(T* out, const int32_t* values, int length) const {
-    for (int x = 0; x < length; x++) {
+  static void WriteZero(out_type* begin, out_type* end) {
+    std::fill(begin, end, out_type{});
+  }
+
+  void WriteRange(out_type* out, const in_type* values, size_type length) const {
+    for (size_type x = 0; x < length; x++) {
       out[x] = dictionary[values[x]];
     }
   }
 };
 
+/// Dummy imitation of BitRun that is all set.
+struct AllSetBitRun {
+  static constexpr bool set = true;
+  int64_t length = 0;
+};
+
+/// Dummy imitation of BitRunReader that should never be called.
+struct UnreachableBitRunReader {
+  constexpr static AllSetBitRun NextRun() { return {}; }
+};
+
+}  // namespace internal
+
 template <typename T>
-inline int RleDecoder::GetBatchWithDict(const T* dictionary, int32_t dictionary_length,
-                                        T* values, int batch_size) {
-  // Per https://github.com/apache/parquet-format/blob/master/Encodings.md,
-  // the maximum dictionary index width in Parquet is 32 bits.
-  using IndexType = int32_t;
-  DictionaryConverter<T> converter;
-  converter.dictionary = dictionary;
-  converter.dictionary_length = dictionary_length;
+template <typename V>
+auto RleBitPackedDecoder<T>::GetBatchWithDict(const V* dictionary,
+                                              int32_t dictionary_length, V* out,
+                                              rle_size_t batch_size) -> rle_size_t {
+  using ControlFlow = RleBitPackedParser::ControlFlow;
 
-  ARROW_DCHECK_GE(bit_width_, 0);
-  int values_read = 0;
-
-  auto* out = values;
-
-  while (values_read < batch_size) {
-    int remaining = batch_size - values_read;
-
-    if (repeat_count_ > 0) {
-      auto idx = static_cast<IndexType>(current_value_);
-      if (ARROW_PREDICT_FALSE(!IndexInRange(idx, dictionary_length))) {
-        return values_read;
-      }
-      T val = dictionary[idx];
-
-      int repeat_batch = std::min(remaining, repeat_count_);
-      std::fill(out, out + repeat_batch, val);
-
-      /* Upkeep counters */
-      repeat_count_ -= repeat_batch;
-      values_read += repeat_batch;
-      out += repeat_batch;
-    } else if (literal_count_ > 0) {
-      constexpr int kBufferSize = 1024;
-      IndexType indices[kBufferSize];
-
-      int literal_batch = std::min(remaining, literal_count_);
-      literal_batch = std::min(literal_batch, kBufferSize);
-
-      int actual_read = bit_reader_.GetBatch(bit_width_, indices, literal_batch);
-      if (ARROW_PREDICT_FALSE(actual_read != literal_batch)) {
-        return values_read;
-      }
-      if (ARROW_PREDICT_FALSE(!converter.IsValid(indices, /*length=*/literal_batch))) {
-        return values_read;
-      }
-      converter.Copy(out, indices, literal_batch);
-
-      /* Upkeep counters */
-      literal_count_ -= literal_batch;
-      values_read += literal_batch;
-      out += literal_batch;
-    } else {
-      if (!NextCounts<IndexType>()) return values_read;
-    }
+  if (ARROW_PREDICT_FALSE(batch_size <= 0)) {
+    return 0;
   }
+
+  internal::DictionaryConverter<V, value_type> converter{dictionary, dictionary_length};
+
+  // Make lightweight BitRun class to reuse previous methods.
+  constexpr internal::UnreachableBitRunReader validity_reader{};
+  internal::AllSetBitRun validity_run = {batch_size};
+
+  rle_size_t values_read = 0;
+  auto batch_values_remaining = [&]() {
+    ARROW_DCHECK_LE(values_read, batch_size);
+    return batch_size - values_read;
+  };
+
+  if (ARROW_PREDICT_FALSE(run_remaining() > 0)) {
+    const auto read = internal::RunGetSpaced(&converter, out, batch_size,
+                                             /* null_count= */ 0, value_bit_width_,
+                                             &validity_reader, &validity_run, &decoder_);
+
+    ARROW_DCHECK_EQ(read.null_read, 0);
+    values_read += read.values_read;
+    out += read.values_read;
+
+    // Either we fulfilled all the batch values to be read
+    if (ARROW_PREDICT_FALSE(values_read >= batch_size)) {
+      // There may be remaining null if they are not greedily filled
+      return values_read;
+    }
+
+    // We finished the remaining run
+    ARROW_DCHECK(run_remaining() == 0);
+  }
+
+  ParseWithCallable([&](auto run) {
+    using RunDecoder = typename decltype(run)::template DecoderType<value_type>;
+
+    RunDecoder decoder(run, value_bit_width_);
+
+    const auto read = internal::RunGetSpaced(&converter, out, batch_values_remaining(),
+                                             /* null_count= */ 0, value_bit_width_,
+                                             &validity_reader, &validity_run, &decoder);
+
+    ARROW_DCHECK_EQ(read.null_read, 0);
+    values_read += read.values_read;
+    out += read.values_read;
+
+    // Stop reading and store remaining decoder
+    if (ARROW_PREDICT_FALSE(read.values_read == 0 || values_read == batch_size)) {
+      decoder_ = std::move(decoder);
+      return ControlFlow::Break;
+    }
+
+    return ControlFlow::Continue;
+  });
 
   return values_read;
 }
 
 template <typename T>
-inline int RleDecoder::GetBatchWithDictSpaced(const T* dictionary,
-                                              int32_t dictionary_length, T* out,
-                                              int batch_size, int null_count,
-                                              const uint8_t* valid_bits,
-                                              int64_t valid_bits_offset) {
+template <typename V>
+auto RleBitPackedDecoder<T>::GetBatchWithDictSpaced(
+    const V* dictionary, int32_t dictionary_length, V* out, rle_size_t batch_size,
+    rle_size_t null_count, const uint8_t* valid_bits, int64_t valid_bits_offset)
+    -> rle_size_t {
   if (null_count == 0) {
-    return GetBatchWithDict<T>(dictionary, dictionary_length, out, batch_size);
+    return GetBatchWithDict<V>(dictionary, dictionary_length, out, batch_size);
   }
-  arrow::internal::BitBlockCounter block_counter(valid_bits, valid_bits_offset,
-                                                 batch_size);
-  using IndexType = int32_t;
-  DictionaryConverter<T> converter;
-  converter.dictionary = dictionary;
-  converter.dictionary_length = dictionary_length;
+  internal::DictionaryConverter<V, value_type> converter{dictionary, dictionary_length};
 
-  int total_processed = 0;
-  int processed = 0;
-  arrow::internal::BitBlockCount block;
-  do {
-    block = block_counter.NextFourWords();
-    if (block.length == 0) {
-      break;
-    }
-    if (block.AllSet()) {
-      processed = GetBatchWithDict<T>(dictionary, dictionary_length, out, block.length);
-    } else if (block.NoneSet()) {
-      converter.FillZero(out, out + block.length);
-      processed = block.length;
-    } else {
-      processed = GetSpaced<T, /*RunType=*/IndexType, DictionaryConverter<T>>(
-          converter, block.length, block.length - block.popcount, valid_bits,
-          valid_bits_offset, out);
-    }
-    total_processed += processed;
-    out += block.length;
-    valid_bits_offset += block.length;
-  } while (processed == block.length);
-  return total_processed;
+  return GetSpaced(converter, out, batch_size, valid_bits, valid_bits_offset, null_count);
 }
 
-template <typename T>
-bool RleDecoder::NextCounts() {
-  // Read the next run's indicator int, it could be a literal or repeated run.
-  // The int is encoded as a vlq-encoded value.
-  uint32_t indicator_value = 0;
-  if (!bit_reader_.GetVlqInt(&indicator_value)) return false;
-
-  // lsb indicates if it is a literal run or repeated run
-  bool is_literal = indicator_value & 1;
-  uint32_t count = indicator_value >> 1;
-  if (is_literal) {
-    if (ARROW_PREDICT_FALSE(count == 0 || count > static_cast<uint32_t>(INT32_MAX) / 8)) {
-      return false;
-    }
-    literal_count_ = count * 8;
-  } else {
-    if (ARROW_PREDICT_FALSE(count == 0 || count > static_cast<uint32_t>(INT32_MAX))) {
-      return false;
-    }
-    repeat_count_ = count;
-    T value = {};
-    if (!bit_reader_.GetAligned<T>(
-            static_cast<int>(::arrow::bit_util::CeilDiv(bit_width_, 8)), &value)) {
-      return false;
-    }
-    current_value_ = static_cast<uint64_t>(value);
-  }
-  return true;
-}
+/*************************
+ *  RleBitPackedEncoder  *
+ *************************/
 
 /// This function buffers input values 8 at a time.  After seeing all 8 values,
 /// it decides whether they should be encoded as a literal or repeated run.
-inline bool RleEncoder::Put(uint64_t value) {
+inline bool RleBitPackedEncoder::Put(uint64_t value) {
   ARROW_DCHECK(bit_width_ == 64 || value < (1ULL << bit_width_));
   if (ARROW_PREDICT_FALSE(buffer_full_)) return false;
 
@@ -708,7 +1312,7 @@ inline bool RleEncoder::Put(uint64_t value) {
   return true;
 }
 
-inline void RleEncoder::FlushLiteralRun(bool update_indicator_byte) {
+inline void RleBitPackedEncoder::FlushLiteralRun(bool update_indicator_byte) {
   if (literal_indicator_byte_ == NULL) {
     // The literal indicator byte has not been reserved yet, get one now.
     literal_indicator_byte_ = bit_writer_.GetNextBytePtr();
@@ -738,7 +1342,7 @@ inline void RleEncoder::FlushLiteralRun(bool update_indicator_byte) {
   }
 }
 
-inline void RleEncoder::FlushRepeatedRun() {
+inline void RleBitPackedEncoder::FlushRepeatedRun() {
   ARROW_DCHECK_GT(repeat_count_, 0);
   bool result = true;
   // The lsb of 0 indicates this is a repeated run
@@ -754,7 +1358,7 @@ inline void RleEncoder::FlushRepeatedRun() {
 
 /// Flush the values that have been buffered.  At this point we decide whether
 /// we need to switch between the run types or continue the current one.
-inline void RleEncoder::FlushBufferedValues(bool done) {
+inline void RleBitPackedEncoder::FlushBufferedValues(bool done) {
   if (repeat_count_ >= 8) {
     // Clear the buffered values.  They are part of the repeated run now and we
     // don't want to flush them out as literals.
@@ -784,7 +1388,7 @@ inline void RleEncoder::FlushBufferedValues(bool done) {
   repeat_count_ = 0;
 }
 
-inline int RleEncoder::Flush() {
+inline int RleBitPackedEncoder::Flush() {
   if (literal_count_ > 0 || repeat_count_ > 0 || num_buffered_values_ > 0) {
     bool all_repeat = literal_count_ == 0 && (repeat_count_ == num_buffered_values_ ||
                                               num_buffered_values_ == 0);
@@ -811,14 +1415,14 @@ inline int RleEncoder::Flush() {
   return bit_writer_.bytes_written();
 }
 
-inline void RleEncoder::CheckBufferFull() {
+inline void RleBitPackedEncoder::CheckBufferFull() {
   int bytes_written = bit_writer_.bytes_written();
   if (bytes_written + max_run_byte_size_ > bit_writer_.buffer_len()) {
     buffer_full_ = true;
   }
 }
 
-inline void RleEncoder::Clear() {
+inline void RleBitPackedEncoder::Clear() {
   buffer_full_ = false;
   current_value_ = 0;
   repeat_count_ = 0;
@@ -828,5 +1432,4 @@ inline void RleEncoder::Clear() {
   bit_writer_.Clear();
 }
 
-}  // namespace util
-}  // namespace arrow
+}  // namespace arrow::util

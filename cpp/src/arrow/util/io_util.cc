@@ -115,6 +115,7 @@
 #elif __linux__
 #  include <sys/sysinfo.h>
 #  include <fstream>
+#  include <limits>
 #endif
 
 #ifdef _WIN32
@@ -1069,8 +1070,11 @@ Result<FileDescriptor> FileOpenReadable(const PlatformFilename& file_name) {
   }
   fd = FileDescriptor(ret);
 #else
-  int ret = open(file_name.ToNative().c_str(), O_RDONLY);
-  if (ret < 0) {
+  int ret;
+  do {
+    ret = open(file_name.ToNative().c_str(), O_RDONLY);
+  } while (ret == -1 && errno == EINTR);
+  if (ret == -1) {
     return IOErrorFromErrno(errno, "Failed to open local file '", file_name.ToString(),
                             "'");
   }
@@ -1136,7 +1140,10 @@ Result<FileDescriptor> FileOpenWritable(const PlatformFilename& file_name,
     oflag |= O_RDWR;
   }
 
-  int ret = open(file_name.ToNative().c_str(), oflag, 0666);
+  int ret;
+  do {
+    ret = open(file_name.ToNative().c_str(), oflag, 0666);
+  } while (ret == -1 && errno == EINTR);
   if (ret == -1) {
     return IOErrorFromErrno(errno, "Failed to open local file '", file_name.ToString(),
                             "'");
@@ -1447,7 +1454,7 @@ Status MemoryMapRemap(void* addr, size_t old_size, size_t new_size, int fildes,
 
   SetFilePointer(h, new_size_low, &new_size_high, FILE_BEGIN);
   SetEndOfFile(h);
-  fm = CreateFileMapping(h, NULL, PAGE_READWRITE, 0, 0, "");
+  fm = CreateFileMappingW(h, NULL, PAGE_READWRITE, 0, 0, L"");
   if (fm == NULL) {
     return StatusFromMmapErrno("CreateFileMapping failed");
   }
@@ -2216,6 +2223,22 @@ int64_t GetTotalMemoryBytes() {
   return static_cast<int64_t>(info.totalram * info.mem_unit);
 #else
   return 0;
+#endif
+}
+
+Result<int32_t> GetNumAffinityCores() {
+#if defined(__linux__)
+  cpu_set_t mask;
+  if (sched_getaffinity(0, sizeof(mask), &mask) == 0) {
+    auto count = CPU_COUNT(&mask);
+    if (count > 0 &&
+        static_cast<uint64_t>(count) < std::numeric_limits<uint32_t>::max()) {
+      return static_cast<uint32_t>(count);
+    }
+  }
+  return IOErrorFromErrno(errno, "Could not read the CPU affinity.");
+#else
+  return Status::NotImplemented("Only implemented for Linux");
 #endif
 }
 

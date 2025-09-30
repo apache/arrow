@@ -96,7 +96,7 @@ if(POLICY CMP0170)
   cmake_policy(SET CMP0170 NEW)
 endif()
 
-set(ARROW_VERSION "21.0.0-SNAPSHOT")
+set(ARROW_VERSION "22.0.0-SNAPSHOT")
 
 string(REGEX MATCH "^[0-9]+\\.[0-9]+\\.[0-9]+" ARROW_BASE_VERSION "${ARROW_VERSION}")
 
@@ -177,6 +177,7 @@ set(ARROW_DOC_DIR "share/doc/${PROJECT_NAME}")
 set(BUILD_SUPPORT_DIR "${CMAKE_SOURCE_DIR}/build-support")
 
 set(ARROW_LLVM_VERSIONS
+    "21.1"
     "20.1"
     "19.1"
     "18.1"
@@ -349,6 +350,12 @@ if(ARROW_EXTRA_ERROR_CONTEXT)
 endif()
 
 include(SetupCxxFlags)
+
+if(${CMAKE_CXX_FLAGS_DEBUG} MATCHES "-Og")
+  # GH-47475: xxhash fails inlining when -Og is used.
+  # See: https://github.com/Cyan4973/xxHash/issues/943
+  add_definitions(-DXXH_NO_INLINE_HINTS)
+endif()
 
 #
 # Linker flags
@@ -679,7 +686,7 @@ endif()
 # the first link library. It's for prioritizing bundled FlatBuffers
 # than system FlatBuffers.
 list(PREPEND ARROW_TEST_LINK_LIBS arrow::flatbuffers)
-list(APPEND ARROW_TEST_LINK_LIBS ${ARROW_GTEST_GMOCK} ${ARROW_GTEST_GTEST_MAIN})
+list(APPEND ARROW_TEST_LINK_LIBS ${ARROW_GTEST_GMOCK_MAIN})
 
 if(ARROW_BUILD_BENCHMARKS)
   set(ARROW_BENCHMARK_LINK_LIBS benchmark::benchmark_main ${ARROW_TEST_LINK_LIBS})
@@ -704,10 +711,6 @@ endif()
 
 if(ARROW_GANDIVA)
   add_subdirectory(src/gandiva)
-endif()
-
-if(ARROW_SKYHOOK)
-  add_subdirectory(src/skyhook)
 endif()
 
 if(ARROW_BUILD_EXAMPLES)

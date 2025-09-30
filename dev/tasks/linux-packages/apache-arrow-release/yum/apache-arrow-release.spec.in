@@ -102,6 +102,9 @@ else
 fi
 
 %changelog
+* Fri Jul 11 2025 Bryce Mecum <petridish@gmail.com> - 21.0.0-1
+- New upstream release.
+
 * Tue Apr 22 2025 Jacob Wujciak-Jens <jacob@wujciak.de> - 20.0.0-1
 - New upstream release.
 

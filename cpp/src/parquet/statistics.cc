@@ -336,6 +336,11 @@ CleanStatistic(std::pair<T, T> min_max, LogicalType::Type::type) {
   return min_max;
 }
 
+std::optional<std::pair<Int96, Int96>> CleanStatistic(std::pair<Int96, Int96> min_max,
+                                                      LogicalType::Type::type) {
+  return min_max;
+}
+
 // In case of floating point types, the following rules are applied (as per
 // upstream parquet-mr):
 // - If any of min/max is NaN, return nothing.
@@ -573,7 +578,9 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
         min_buffer_(AllocateBuffer(pool_, 0)),
         max_buffer_(AllocateBuffer(pool_, 0)),
         logical_type_(LogicalTypeId(descr_)) {
-    comparator_ = MakeComparator<DType>(descr);
+    if (descr->sort_order() != SortOrder::UNKNOWN) {
+      comparator_ = MakeComparator<DType>(descr);
+    }
     TypedStatisticsImpl::Reset();
   }
 
@@ -590,6 +597,8 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
     Copy(min, &min_, min_buffer_.get());
     Copy(max, &max_, max_buffer_.get());
     has_min_max_ = true;
+    statistics_.is_min_value_exact = true;
+    statistics_.is_max_value_exact = true;
   }
 
   // Create stats from a thrift Statistics object.
@@ -597,6 +606,18 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
                       const std::string& encoded_max, int64_t num_values,
                       int64_t null_count, int64_t distinct_count, bool has_min_max,
                       bool has_null_count, bool has_distinct_count, MemoryPool* pool)
+      : TypedStatisticsImpl(descr, encoded_min, encoded_max, num_values, null_count,
+                            distinct_count, has_min_max, has_null_count,
+                            has_distinct_count,
+                            /*is_min_value_exact=*/std::nullopt,
+                            /*is_max_value_exact=*/std::nullopt, pool) {}
+
+  TypedStatisticsImpl(const ColumnDescriptor* descr, const std::string& encoded_min,
+                      const std::string& encoded_max, int64_t num_values,
+                      int64_t null_count, int64_t distinct_count, bool has_min_max,
+                      bool has_null_count, bool has_distinct_count,
+                      std::optional<bool> is_min_value_exact,
+                      std::optional<bool> is_max_value_exact, MemoryPool* pool)
       : TypedStatisticsImpl(descr, pool) {
     TypedStatisticsImpl::IncrementNumValues(num_values);
     if (has_null_count) {
@@ -613,6 +634,8 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
     if (has_min_max) {
       PlainDecode(encoded_min, &min_);
       PlainDecode(encoded_max, &max_);
+      statistics_.is_min_value_exact = is_min_value_exact;
+      statistics_.is_max_value_exact = is_max_value_exact;
     }
 
     has_min_max_ = has_min_max;
@@ -659,7 +682,9 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
 
     return null_count() == other.null_count() &&
            distinct_count() == other.distinct_count() &&
-           num_values() == other.num_values();
+           num_values() == other.num_values() &&
+           is_min_value_exact() == other.is_min_value_exact() &&
+           is_max_value_exact() == other.is_max_value_exact();
   }
 
   bool MinMaxEqual(const TypedStatisticsImpl& other) const;
@@ -714,6 +739,7 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
       return;
     }
 
+    if (comparator_ == nullptr) return;
     SetMinMaxPair(comparator_->GetMinMax(values));
   }
 
@@ -742,6 +768,8 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
     if (HasMinMax()) {
       s.set_min(this->EncodeMin());
       s.set_max(this->EncodeMax());
+      s.is_min_value_exact = this->is_min_value_exact();
+      s.is_max_value_exact = this->is_max_value_exact();
     }
     if (HasNullCount()) {
       s.set_null_count(this->null_count());
@@ -757,6 +785,12 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
   int64_t null_count() const override { return statistics_.null_count; }
   int64_t distinct_count() const override { return statistics_.distinct_count; }
   int64_t num_values() const override { return num_values_; }
+  std::optional<bool> is_min_value_exact() const override {
+    return statistics_.is_min_value_exact;
+  }
+  std::optional<bool> is_max_value_exact() const override {
+    return statistics_.is_max_value_exact;
+  }
 
  private:
   const ColumnDescriptor* descr_;
@@ -806,6 +840,7 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
   }
 
   void SetMinMaxPair(std::pair<T, T> min_max) {
+    if (comparator_ == nullptr) return;
     // CleanStatistic can return a nullopt in case of erroneous values, e.g. NaN
     auto maybe_min_max = CleanStatistic(min_max, logical_type_);
     if (!maybe_min_max) return;
@@ -821,6 +856,8 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
       Copy(comparator_->Compare(min_, min) ? min_ : min, &min_, min_buffer_.get());
       Copy(comparator_->Compare(max_, max) ? max : max_, &max_, max_buffer_.get());
     }
+    statistics_.is_min_value_exact = true;
+    statistics_.is_max_value_exact = true;
   }
 };
 
@@ -866,7 +903,7 @@ void TypedStatisticsImpl<DType>::Update(const T* values, int64_t num_values,
   IncrementNullCount(null_count);
   IncrementNumValues(num_values);
 
-  if (num_values == 0) return;
+  if (num_values == 0 || comparator_ == nullptr) return;
   SetMinMaxPair(comparator_->GetMinMax(values, num_values));
 }
 
@@ -881,7 +918,7 @@ void TypedStatisticsImpl<DType>::UpdateSpaced(const T* values, const uint8_t* va
   IncrementNullCount(null_count);
   IncrementNumValues(num_values);
 
-  if (num_values == 0) return;
+  if (num_values == 0 || comparator_ == nullptr) return;
   SetMinMaxPair(comparator_->GetMinMaxSpaced(values, num_spaced_values, valid_bits,
                                              valid_bits_offset));
 }
@@ -1042,7 +1079,8 @@ std::shared_ptr<Statistics> Statistics::Make(const ColumnDescriptor* descr,
   return Make(descr, encoded_stats->min(), encoded_stats->max(), num_values,
               encoded_stats->null_count, encoded_stats->distinct_count,
               encoded_stats->has_min && encoded_stats->has_max,
-              encoded_stats->has_null_count, encoded_stats->has_distinct_count, pool);
+              encoded_stats->has_null_count, encoded_stats->has_distinct_count,
+              encoded_stats->is_min_value_exact, encoded_stats->is_max_value_exact, pool);
 }
 
 std::shared_ptr<Statistics> Statistics::Make(const ColumnDescriptor* descr,
@@ -1052,16 +1090,30 @@ std::shared_ptr<Statistics> Statistics::Make(const ColumnDescriptor* descr,
                                              int64_t distinct_count, bool has_min_max,
                                              bool has_null_count, bool has_distinct_count,
                                              ::arrow::MemoryPool* pool) {
+  return Statistics::Make(descr, encoded_min, encoded_max, num_values, null_count,
+                          distinct_count, has_min_max, has_null_count, has_distinct_count,
+                          /*is_min_value_exact=*/std::nullopt,
+                          /*is_max_value_exact=*/std::nullopt, pool);
+}
+
+std::shared_ptr<Statistics> Statistics::Make(
+    const ColumnDescriptor* descr, const std::string& encoded_min,
+    const std::string& encoded_max, int64_t num_values, int64_t null_count,
+    int64_t distinct_count, bool has_min_max, bool has_null_count,
+    bool has_distinct_count, std::optional<bool> is_min_value_exact,
+    std::optional<bool> is_max_value_exact, ::arrow::MemoryPool* pool) {
 #define MAKE_STATS(CAP_TYPE, KLASS)                                              \
   case Type::CAP_TYPE:                                                           \
     return std::make_shared<TypedStatisticsImpl<KLASS>>(                         \
         descr, encoded_min, encoded_max, num_values, null_count, distinct_count, \
-        has_min_max, has_null_count, has_distinct_count, pool)
+        has_min_max, has_null_count, has_distinct_count, is_min_value_exact,     \
+        is_max_value_exact, pool)
 
   switch (descr->physical_type()) {
     MAKE_STATS(BOOLEAN, BooleanType);
     MAKE_STATS(INT32, Int32Type);
     MAKE_STATS(INT64, Int64Type);
+    MAKE_STATS(INT96, Int96Type);
     MAKE_STATS(FLOAT, FloatType);
     MAKE_STATS(DOUBLE, DoubleType);
     MAKE_STATS(BYTE_ARRAY, ByteArrayType);

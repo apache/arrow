@@ -179,7 +179,6 @@
         "ARROW_BUILD_EXAMPLES": "ON",
         "ARROW_BUILD_UTILITIES": "ON",
         "ARROW_FLIGHT_SQL_ODBC": "ON",
-        "ARROW_SKYHOOK": "ON",
         "ARROW_TENSORFLOW": "ON",
         "PARQUET_BUILD_EXAMPLES": "ON",
         "PARQUET_BUILD_EXECUTABLES": "ON"
@@ -582,6 +581,34 @@
       ],
       "displayName": "Benchmarking build with everything enabled",
       "cacheVariables": {}
+    },
+    {
+      "name": "ninja-release-jni-macos",
+      "inherits": [
+        "base-release"
+      ],
+      "displayName": "Build for JNI on macOS",
+      "cacheVariables": {
+        "ARROW_ACERO": "ON",
+        "ARROW_BUILD_SHARED": "OFF",
+        "ARROW_BUILD_STATIC": "ON",
+        "ARROW_CSV": "ON",
+        "ARROW_DATASET": "ON",
+        "ARROW_DEPENDENCY_USE_SHARED": "OFF",
+        "ARROW_GANDIVA": "ON",
+        "ARROW_GANDIVA_STATIC_LIBSTDCPP": "ON",
+        "ARROW_JSON": "ON",
+        "ARROW_ORC": "ON",
+        "ARROW_PARQUET": "ON",
+        "ARROW_S3": "ON",
+        "ARROW_SUBSTRAIT": "ON",
+        "AWSSDK_SOURCE": "BUNDLED",
+        "GTest_SOURCE": "BUNDLED",
+        "PARQUET_BUILD_EXAMPLES": "OFF",
+        "PARQUET_BUILD_EXECUTABLES": "OFF",
+        "PARQUET_REQUIRE_ENCRYPTION": "OFF",
+        "re2_SOURCE": "BUNDLED"
+      }
     }
   ]
 }

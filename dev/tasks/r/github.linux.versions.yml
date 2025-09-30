@@ -30,9 +30,9 @@ jobs:
         r_version:
           # We test devel, release, and oldrel in regular CI.
           # This is for older versions
-          - "4.0"
           - "4.1"
           - "4.2"
+          - "4.3"
     env:
       R_ORG: "rstudio"
       R_IMAGE: "r-base"

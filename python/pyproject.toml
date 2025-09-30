@@ -17,13 +17,8 @@
 
 [build-system]
 requires = [
-    "cython >= 3",
-    # Starting with NumPy 1.25, NumPy is (by default) as far back compatible
-    # as oldest-support-numpy was (customizable with a NPY_TARGET_VERSION
-    # define).  For older Python versions (where NumPy 1.25 is not yet available)
-    # continue using oldest-support-numpy.
-    "oldest-supported-numpy>=0.14; python_version<'3.9'",
-    "numpy>=1.25; python_version>='3.9'",
+    "cython >= 3.1",
+    "numpy>=1.25",
     # configuring setuptools_scm in pyproject.toml requires
     # versions released after 2022
     "setuptools_scm[toml]>=8",
@@ -34,7 +29,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "pyarrow"
 dynamic = ["version"]
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 description = "Python library for Apache Arrow"
 readme = {file = "README.md", content-type = "text/markdown"}
 license = "Apache-2.0"
@@ -43,7 +38,6 @@ license-files = [
     "NOTICE.txt",
 ]
 classifiers  = [
-    'Programming Language :: Python :: 3.9',
     'Programming Language :: Python :: 3.10',
     'Programming Language :: Python :: 3.11',
     'Programming Language :: Python :: 3.12',
@@ -59,7 +53,7 @@ Documentation = "https://arrow.apache.org/docs/python"
 Repository = "https://github.com/apache/arrow"
 Issues = "https://github.com/apache/arrow/issues"
 
-[project.optional-dependencies]
+[dependency-groups]
 test = [
     'pytest',
     'hypothesis',
@@ -99,4 +93,4 @@ root = '..'
 version_file = 'pyarrow/_generated_version.py'
 version_scheme = 'guess-next-dev'
 git_describe_command = 'git describe --dirty --tags --long --match "apache-arrow-[0-9]*.*"'
-fallback_version = '21.0.0a0'
+fallback_version = '22.0.0a0'

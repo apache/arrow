@@ -291,7 +291,7 @@ class Repo:
         if github_token is None:
             raise RuntimeError(
                 'Could not determine GitHub token. Please set the '
-                'CROSSBOW_GITHUB_TOKEN environment variable to a '
+                'CROSSBOW_GITHUB_TOKEN or GH_TOKEN environment variable to a '
                 'valid GitHub access token or pass one to --github-token.'
             )
         callbacks = GitRemoteCallbacks(github_token)

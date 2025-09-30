@@ -2012,13 +2012,18 @@ cdef class FileFragment(Fragment):
             c_string c_path
             NativeFile out = NativeFile()
 
+        # Handle each of the cases in _make_file_source
         if self.buffer is not None:
             return pa.BufferReader(self.buffer)
 
-        c_path = tobytes(self.file_fragment.source().path())
-        with nogil:
-            c_filesystem = self.file_fragment.source().filesystem()
-            opened = GetResultValue(c_filesystem.get().OpenInputFile(c_path))
+        if self.file_fragment.source().filesystem() != nullptr:
+            c_path = tobytes(self.file_fragment.source().path())
+            with nogil:
+                c_filesystem = self.file_fragment.source().filesystem()
+                opened = GetResultValue(c_filesystem.get().OpenInputFile(c_path))
+        else:
+            with nogil:
+                opened = GetResultValue(self.file_fragment.source().Open())
 
         out.set_random_access_file(opened)
         out.is_readable = True

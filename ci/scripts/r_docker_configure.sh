@@ -41,7 +41,7 @@ elif [ "`which zypper`" ]; then
   PACKAGE_MANAGER=zypper
 else
   PACKAGE_MANAGER=apt-get
-  apt-get update
+  apt-get update --allow-releaseinfo-change # flag needed for when debian version changes
 fi
 
 # Enable ccache if requested based on http://dirk.eddelbuettel.com/blog/2017/11/27/
@@ -74,6 +74,18 @@ fi
 # Install rsync for bundling cpp source and curl to make sure it is installed on all images,
 # cmake is now a listed sys req.
 $PACKAGE_MANAGER install -y rsync cmake curl
+
+# Update clang version to latest available.
+# This is only for rhub/clang20. If we change the base image from rhub/clang20,
+# we need to update this part too.
+if [ "$R_UPDATE_CLANG" = true ]; then
+  apt update -y --allow-releaseinfo-change # flag needed for when debian version changes
+  apt install -y gnupg
+  curl -fsSL https://apt.llvm.org/llvm-snapshot.gpg.key | gpg --dearmor -o /etc/apt/trusted.gpg.d/llvm.gpg
+  echo "deb http://apt.llvm.org/jammy/ llvm-toolchain-jammy-20 main" > /etc/apt/sources.list.d/llvm20.list
+  apt update -y --allow-releaseinfo-change # flag needed for when debian version changes
+  apt install -y clang-20 lld-20
+fi
 
 # Workaround for html help install failure; see https://github.com/r-lib/devtools/issues/2084#issuecomment-530912786
 Rscript -e 'x <- file.path(R.home("doc"), "html"); if (!file.exists(x)) {dir.create(x, recursive=TRUE); file.copy(system.file("html/R.css", package="stats"), x)}'

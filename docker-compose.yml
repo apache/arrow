@@ -152,7 +152,6 @@ x-hierarchy:
   - ubuntu-cpp-minimal
   - ubuntu-cuda-cpp:
     - ubuntu-cuda-python
-  - ubuntu-csharp
   - ubuntu-cpp-sanitizer
   - ubuntu-cpp-thread-sanitizer
   - ubuntu-cpp-emscripten
@@ -219,7 +218,7 @@ services:
     #   docker compose build alpine-linux-cpp
     #   docker compose run --rm alpine-linux-cpp
     # Parameters:
-    #   ALPINE_LINUX: 3.18
+    #   ALPINE_LINUX: 3.22
     #   ARCH: amd64, arm64v8, ...
     image: ${REPO}:${ARCH}-alpine-linux-${ALPINE_LINUX}-cpp
     build:
@@ -365,11 +364,9 @@ services:
     volumes: &debian-volumes
       - .:/arrow:delegated
       - ${DOCKER_VOLUME_PREFIX}debian-ccache:/ccache:delegated
-    # integration_skyhook.sh is a no-op unless skyhook is on.
     command: &cpp-command >
       /bin/bash -c "
         /arrow/ci/scripts/cpp_build.sh /arrow /build &&
-        /arrow/ci/scripts/integration_skyhook.sh /build &&
         /arrow/ci/scripts/cpp_test.sh /arrow /build"
 
   ubuntu-cpp:
@@ -560,10 +557,11 @@ services:
 
   ubuntu-cuda-cpp:
     # Usage:
-    #   docker compose build cuda-cpp
-    #   docker compose run --rm cuda-cpp
+    #   docker compose build ubuntu-cuda-cpp
+    #   docker compose run --rm ubuntu-cuda-cpp
     # Parameters:
     #   ARCH: amd64
+    #   UBUNTU: 22.04, 24.04
     #   CUDA: <depends on your nvidia driver, should match system CUDA>
     image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cuda-${CUDA}-cpp
     build:
@@ -890,7 +888,7 @@ services:
     #   docker compose run --rm conda-python
     # Parameters:
     #   ARCH: amd64, arm32v7
-    #   PYTHON: 3.9, 3.10, 3.11, 3.12
+    #   PYTHON: 3.10, 3.11, 3.12, 3.13
     image: ${REPO}:${ARCH}-conda-python-${PYTHON}
     build:
       context: .
@@ -946,13 +944,15 @@ services:
 
   ubuntu-cuda-python:
     # Usage:
-    #   docker compose build cuda-cpp
-    #   docker compose build cuda-python
-    #   docker compose run --rm cuda-python
+    #   docker compose build ubuntu-cuda-cpp
+    #   docker compose build ubuntu-cuda-python
+    #   docker compose run --rm ubuntu-cuda-python
     # Parameters:
     #   ARCH: amd64
     #   CUDA: <depends on your nvidia driver, should match system CUDA>
     #   UBUNTU: 22.04, 24.04
+    #   NUMBA: master, latest, <version>
+    #   NUMBA_CUDA: master, latest, <version>
     image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cuda-${CUDA}-python-3
     build:
       context: .
@@ -962,6 +962,7 @@ services:
       args:
         base: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cuda-${CUDA}-cpp
         numba: ${NUMBA}
+        numba_cuda: ${NUMBA_CUDA}
     shm_size: *shm-size
     environment:
       <<: [*common, *ccache, *sccache]
@@ -1629,6 +1630,7 @@ services:
         tz: ${TZ}
         r_prune_deps: ${R_PRUNE_DEPS}
         r_custom_ccache: ${R_CUSTOM_CCACHE}
+        r_update_clang: ${R_UPDATE_CLANG}
     shm_size: *shm-size
     environment:
       <<: [*common, *sccache]
@@ -1657,10 +1659,11 @@ services:
         tz: ${TZ}
         r_prune_deps: ${R_PRUNE_DEPS}
     shm_size: *shm-size
+    # These environment variables are *not* set by CRAN, so we should be careful about adding
+    # to them. I.E. if we have to add something here to have CI pass, it will likely fail on CRAN.
     environment:
       <<: *common
       LIBARROW_DOWNLOAD: "false"
-      ARROW_MIMALLOC: "OFF"
       ARROW_R_DEV: ${ARROW_R_DEV}
       ARROW_SOURCE_HOME: "/arrow"
       ARROW_USE_PKG_CONFIG: "false"
@@ -1722,30 +1725,6 @@ services:
     volumes: *ubuntu-volumes
     command: >
       /bin/bash -c "/arrow/ci/scripts/r_revdepcheck.sh /arrow"
-
-  #################################### C# #####################################
-
-  ubuntu-csharp:
-    # Usage:
-    #   docker compose build ubuntu-csharp
-    #   docker compose run ubuntu-csharp
-    image: ${REPO}:${ARCH}-ubuntu-22.04-csharp-${DOTNET}
-    build:
-      context: .
-      dockerfile: ci/docker/ubuntu-22.04-csharp.dockerfile
-      cache_from:
-        - ${REPO}:${ARCH}-ubuntu-22.04-csharp-${DOTNET}
-      args:
-        arch: ${ARCH}
-        dotnet: ${DOTNET}
-        platform: jammy
-    shm_size: *shm-size
-    volumes: *ubuntu-volumes
-    command: &csharp-command >
-      /bin/bash -c "
-        /arrow/ci/scripts/csharp_build.sh /arrow &&
-        /arrow/ci/scripts/csharp_test.sh /arrow &&
-        /arrow/ci/scripts/csharp_pack.sh /arrow"
 
   ############################## Integration ##################################
 

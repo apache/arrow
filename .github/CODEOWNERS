@@ -33,9 +33,8 @@
 /cpp/src/arrow/engine @westonpace
 /cpp/src/arrow/flight/ @lidavidm
 /cpp/src/parquet @wgtmac
-/csharp/ @curthagenlocher
 /matlab/ @kevingurney @kou @sgilmore10
-/python/ @AlenkaF @raulcd @rok 
+/python/ @AlenkaF @raulcd @rok
 /python/pyarrow/_flight.pyx @lidavidm
 /python/pyarrow/**/*gandiva* @wjones127
 /r/ @jonkeane @thisisnic

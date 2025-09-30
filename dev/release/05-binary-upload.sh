@@ -31,6 +31,9 @@ if [ "$#" -ne 2 ]; then
   exit
 fi
 
+. "${SOURCE_DIR}/utils-env.sh"
+. "${SOURCE_DIR}/utils-binary.sh"
+
 version=$1
 rc=$2
 
@@ -54,16 +57,6 @@ if [ ! -d "${ARROW_ARTIFACTS_DIR}" ]; then
 fi
 
 cd "${SOURCE_DIR}"
-
-if [ ! -f .env ]; then
-  echo "You must create $(pwd)/.env"
-  echo "You can use $(pwd)/.env.example as template"
-  exit 1
-fi
-# shellcheck source=SCRIPTDIR/.env.example
-. .env
-
-. utils-binary.sh
 
 # By default upload all artifacts.
 # To deactivate one category, deactivate the category and all of its dependents.
@@ -116,6 +109,10 @@ if [ "${UPLOAD_PYTHON}" -gt 0 ]; then
   upload_to_github_release python \
     "${ARROW_ARTIFACTS_DIR}"/{python-sdist,wheel-*}/*
 fi
+if [ "${UPLOAD_R}" -gt 0 ]; then
+  upload_to_github_release r \
+    "${ARROW_ARTIFACTS_DIR}"/r-binary-packages/r-lib*
+fi
 
 rake_tasks=()
 apt_targets=()
@@ -135,9 +132,6 @@ fi
 if [ "${UPLOAD_DEBIAN}" -gt 0 ]; then
   rake_tasks+=(apt:rc)
   apt_targets+=(debian)
-fi
-if [ "${UPLOAD_R}" -gt 0 ]; then
-  rake_tasks+=(r:rc)
 fi
 if [ "${UPLOAD_UBUNTU}" -gt 0 ]; then
   rake_tasks+=(apt:rc)

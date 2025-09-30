@@ -1,6 +1,6 @@
 Package: arrow
 Title: Integration to 'Apache' 'Arrow'
-Version: 20.0.0.9000
+Version: 21.0.0.9000
 Authors@R: c(
     person("Neal", "Richardson", email = "neal.p.richardson@gmail.com", role = c("aut")),
     person("Ian", "Cook", email = "ianmcook@gmail.com", role = c("aut")),
@@ -22,14 +22,14 @@ Description: 'Apache' 'Arrow' <https://arrow.apache.org/> is a cross-language
     language-independent columnar memory format for flat and hierarchical data,
     organized for efficient analytic operations on modern hardware. This
     package provides an interface to the 'Arrow C++' library.
-Depends: R (>= 4.0)
+Depends: R (>= 4.1)
 License: Apache License (>= 2.0)
 URL: https://github.com/apache/arrow/, https://arrow.apache.org/docs/r/
 BugReports: https://github.com/apache/arrow/issues
 Encoding: UTF-8
 Language: en-US
 SystemRequirements: C++17; for AWS S3 support on Linux, libcurl and openssl (optional);
-    cmake >= 3.25 (build-time only, and only for full source build)
+    cmake >= 3.26 (build-time only, and only for full source build)
 Biarch: true
 Imports:
     assertthat,
