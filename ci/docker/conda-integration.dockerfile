@@ -37,6 +37,7 @@ RUN mamba install -q -y \
         "python < 3.12" \
         numpy \
         compilers \
+        go \
         maven=${maven} \
         nodejs=${node} \
         yarn=${yarn} \
@@ -48,25 +49,6 @@ RUN mamba install -q -y \
 # (rustfmt is needed for tonic-build to compile the protobuf definitions)
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- --profile=minimal -y && \
     $HOME/.cargo/bin/rustup component add rustfmt
-
-ENV GOROOT=/opt/go \
-    GOBIN=/opt/go/bin \
-    GOPATH=/go \
-    PATH=/opt/go/bin:$PATH
-# Use always latest go
-RUN wget -nv -O - https://dl.google.com/go/go$( \
-        curl \
-        --fail \
-        --location \
-        --show-error \
-        --silent \
-        https://api.github.com/repos/golang/go/git/matching-refs/tags/go | \
-        grep -o '"ref": "refs/tags/go.*"' | \
-        tail -n 1 | \
-        sed \
-        -e 's,^"ref": "refs/tags/go,,g' \
-        -e 's/"$//g' \
-    ).linux-${arch}.tar.gz | tar -xzf - -C /opt
 
 ENV DOTNET_ROOT=/opt/dotnet \
     PATH=/opt/dotnet:$PATH
