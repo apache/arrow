@@ -59,32 +59,37 @@ FlightStreamChunkBuffer::FlightStreamChunkBuffer(
     util::ThrowIfNotOK(result.status());
     std::shared_ptr<FlightStreamReader> stream_reader_ptr(std::move(result.ValueOrDie()));
 
-    BlockingQueue<std::pair<Result<FlightStreamChunk>,
-                            std::shared_ptr<FlightSqlClient>>>::Supplier supplier = [=] {
-      auto result = stream_reader_ptr->Next();
-      bool is_not_ok = !result.ok();
-      bool is_not_empty = result.ok() && (result.ValueOrDie().data != nullptr);
+    BlockingQueue<std::optional<
+        std::pair<Result<FlightStreamChunk>, std::shared_ptr<FlightSqlClient>>>>::Supplier
+        supplier = [=] {
+          auto result = stream_reader_ptr->Next();
+          bool is_not_ok = !result.ok();
+          bool is_not_empty = result.ok() && (result.ValueOrDie().data != nullptr);
 
-      // If result is valid, save the temp Flight SQL Client for future stream reader
-      // call. temp_flight_sql_client is intentionally null if the list of endpoint
-      // Locations is empty.
-      // After all data is fetched from reader, the temp client is closed.
-      return std::make_optional(
-          is_not_ok || is_not_empty,
-          std::make_pair(std::move(result), temp_flight_sql_client));
-    };
+          // If result is valid, save the temp Flight SQL Client for future stream reader
+          // call. temp_flight_sql_client is intentionally null if the list of endpoint
+          // Locations is empty.
+          // After all data is fetched from reader, the temp client is closed.
+          if (is_not_ok || is_not_empty) {
+            return std::make_optional(
+                std::make_pair(std::move(result), temp_flight_sql_client));
+          } else {
+            return std::optional<
+                std::pair<Result<FlightStreamChunk>, std::shared_ptr<FlightSqlClient>>>{};
+          }
+        };
     queue_.AddProducer(std::move(supplier));
   }
 }
 
 bool FlightStreamChunkBuffer::GetNext(FlightStreamChunk* chunk) {
-  std::pair<Result<FlightStreamChunk>, std::shared_ptr<FlightSqlClient>>
+  std::optional<std::pair<Result<FlightStreamChunk>, std::shared_ptr<FlightSqlClient>>>
       closeable_endpoint_stream_pair;
   if (!queue_.Pop(&closeable_endpoint_stream_pair)) {
     return false;
   }
 
-  Result<FlightStreamChunk> result = closeable_endpoint_stream_pair.first;
+  Result<FlightStreamChunk> result = closeable_endpoint_stream_pair.value().first;
   if (!result.status().ok()) {
     Close();
     throw DriverException(result.status().message());

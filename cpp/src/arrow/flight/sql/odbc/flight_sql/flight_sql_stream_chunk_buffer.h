@@ -31,7 +31,8 @@ using arrow::flight::sql::FlightSqlClient;
 using arrow::flight::sql::odbc::BlockingQueue;
 
 class FlightStreamChunkBuffer {
-  BlockingQueue<std::pair<Result<FlightStreamChunk>, std::shared_ptr<FlightSqlClient>>>
+  BlockingQueue<std::optional<
+      std::pair<Result<FlightStreamChunk>, std::shared_ptr<FlightSqlClient>>>>
       queue_;
 
  public:
