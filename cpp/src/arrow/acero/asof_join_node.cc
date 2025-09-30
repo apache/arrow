@@ -514,9 +514,9 @@ class InputState : public util::SerialSequencingQueue::Processor {
     std::unique_ptr<BackpressureControl> backpressure_control =
         std::make_unique<BackpressureController>(
             /*node=*/asof_input, /*output=*/asof_node, backpressure_counter);
-    ARROW_ASSIGN_OR_RAISE(
-        auto handler, BackpressureHandler::Make(asof_input, low_threshold, high_threshold,
-                                                std::move(backpressure_control)));
+    ARROW_ASSIGN_OR_RAISE(auto handler,
+                          BackpressureHandler::Make(low_threshold, high_threshold,
+                                                    std::move(backpressure_control)));
     return std::make_unique<InputState>(index, tolerance, must_hash, may_rehash,
                                         key_hasher, asof_node, std::move(handler), schema,
                                         time_col_index, key_col_index);
@@ -763,10 +763,10 @@ class InputState : public util::SerialSequencingQueue::Processor {
     total_batches_ = n;
   }
 
-  Status ForceShutdown() {
+  void ForceShutdown() {
     // Force the upstream input node to unpause. Necessary to avoid deadlock when we
     // terminate the process thread
-    return queue_.ForceShutdown();
+    queue_.ForceShutdown();
   }
 
  private:
@@ -1046,8 +1046,10 @@ class AsofJoinNode : public ExecNode {
           if (st.ok()) {
             st = output_->InputFinished(this, batches_produced_);
           }
-          for (const auto& s : state_) {
-            st &= s->ForceShutdown();
+          for (size_t i = 0; i < state_.size(); ++i) {
+            const auto& s = state_[i];
+            s->ForceShutdown();
+            st &= inputs_[i]->StopProducing();
           }
         }));
   }
@@ -1499,8 +1501,11 @@ class AsofJoinNode : public ExecNode {
     if (st.ok()) {
       st = output_->InputFinished(this, batches_produced_);
     }
-    for (const auto& s : state_) {
-      st &= s->ForceShutdown();
+
+    for (size_t i = 0; i < state_.size(); ++i) {
+      const auto& s = state_[i];
+      s->ForceShutdown();
+      st &= inputs_[i]->StopProducing();
     }
   }
 

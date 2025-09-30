@@ -32,7 +32,6 @@ on:
       - 'docker-compose.yml'
       - 'integration/**'
       - 'cpp/**'
-      - 'csharp/**'
       - 'format/**'
   pull_request:
     paths:
@@ -43,7 +42,6 @@ on:
       - 'docker-compose.yml'
       - 'integration/**'
       - 'cpp/**'
-      - 'csharp/**'
       - 'format/**'
 
 concurrency:
@@ -95,6 +93,11 @@ jobs:
         with:
           repository: apache/arrow-js
           path: js
+      - name: Checkout Arrow .NET
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          repository: apache/arrow-dotnet
+          path: dotnet
       - name: Free up disk space
         run: |
           ci/scripts/util_free_space.sh
@@ -105,7 +108,7 @@ jobs:
           key: conda-${{ hashFiles('cpp/**') }}
           restore-keys: conda-
       - name: Setup Python
-        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6.0.0
         with:
           python-version: 3.12
       - name: Setup Archery
@@ -118,6 +121,7 @@ jobs:
           source ci/scripts/util_enable_core_dumps.sh
           archery docker run \
             -e ARCHERY_DEFAULT_BRANCH=${{ github.event.repository.default_branch }} \
+            -e ARCHERY_INTEGRATION_WITH_DOTNET=1 \
             -e ARCHERY_INTEGRATION_WITH_GO=1 \
             -e ARCHERY_INTEGRATION_WITH_JAVA=1 \
             -e ARCHERY_INTEGRATION_WITH_JS=1 \

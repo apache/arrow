@@ -420,7 +420,7 @@ void InteropTestReadEncryptedParquetFiles(std::string root_path) {
   for (unsigned example_id = 0; example_id < vector_of_decryption_configurations.size();
        ++example_id) {
     PrintDecryptionConfiguration(example_id + 1);
-    for (auto const& file : files_in_directory) {
+    for (const auto& file : files_in_directory) {
       std::string exception_msg = "";
       if (!FileNameEndsWith(file, "parquet.encrypted"))  // Skip non encrypted files
         continue;

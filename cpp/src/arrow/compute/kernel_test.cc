@@ -313,7 +313,7 @@ TEST(OutputType, Resolve) {
 TEST(MatchConstraint, ConvenienceMaker) {
   {
     auto always_match =
-        MakeConstraint([](const std::vector<TypeHolder>& types) { return true; });
+        MatchConstraint::Make([](const std::vector<TypeHolder>& types) { return true; });
 
     ASSERT_TRUE(always_match->Matches({}));
     ASSERT_TRUE(always_match->Matches({int8(), int16(), int32()}));
@@ -321,7 +321,7 @@ TEST(MatchConstraint, ConvenienceMaker) {
 
   {
     auto always_false =
-        MakeConstraint([](const std::vector<TypeHolder>& types) { return false; });
+        MatchConstraint::Make([](const std::vector<TypeHolder>& types) { return false; });
 
     ASSERT_FALSE(always_false->Matches({}));
     ASSERT_FALSE(always_false->Matches({int8(), int16(), int32()}));

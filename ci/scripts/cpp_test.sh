@@ -42,7 +42,11 @@ if [ -z "${ARROW_DEBUG_MEMORY_POOL}" ]; then
   export ARROW_DEBUG_MEMORY_POOL=trap
 fi
 
+exclude_tests=()
 ctest_options=()
+if ! type azurite >/dev/null 2>&1; then
+  exclude_tests+=("arrow-azurefs-test")
+fi
 case "$(uname)" in
   Linux)
     n_jobs=$(nproc)
@@ -50,35 +54,38 @@ case "$(uname)" in
   Darwin)
     n_jobs=$(sysctl -n hw.ncpu)
     # TODO: https://github.com/apache/arrow/issues/40410
-    exclude_tests="arrow-s3fs-test"
-    ctest_options+=(--exclude-regex "${exclude_tests}")
+    exclude_tests+=("arrow-s3fs-test")
     ;;
   MINGW*)
     n_jobs=${NUMBER_OF_PROCESSORS:-1}
     # TODO: Enable these crashed tests.
     # https://issues.apache.org/jira/browse/ARROW-9072
-    exclude_tests="gandiva-binary-test"
-    exclude_tests="${exclude_tests}|gandiva-boolean-expr-test"
-    exclude_tests="${exclude_tests}|gandiva-date-time-test"
-    exclude_tests="${exclude_tests}|gandiva-decimal-single-test"
-    exclude_tests="${exclude_tests}|gandiva-decimal-test"
-    exclude_tests="${exclude_tests}|gandiva-filter-project-test"
-    exclude_tests="${exclude_tests}|gandiva-filter-test"
-    exclude_tests="${exclude_tests}|gandiva-hash-test"
-    exclude_tests="${exclude_tests}|gandiva-if-expr-test"
-    exclude_tests="${exclude_tests}|gandiva-in-expr-test"
-    exclude_tests="${exclude_tests}|gandiva-internals-test"
-    exclude_tests="${exclude_tests}|gandiva-literal-test"
-    exclude_tests="${exclude_tests}|gandiva-null-validity-test"
-    exclude_tests="${exclude_tests}|gandiva-precompiled-test"
-    exclude_tests="${exclude_tests}|gandiva-projector-test"
-    exclude_tests="${exclude_tests}|gandiva-utf8-test"
-    ctest_options+=(--exclude-regex "${exclude_tests}")
+    exclude_tests+=("gandiva-binary-test")
+    exclude_tests+=("gandiva-boolean-expr-test")
+    exclude_tests+=("gandiva-date-time-test")
+    exclude_tests+=("gandiva-decimal-single-test")
+    exclude_tests+=("gandiva-decimal-test")
+    exclude_tests+=("gandiva-filter-project-test")
+    exclude_tests+=("gandiva-filter-test")
+    exclude_tests+=("gandiva-hash-test")
+    exclude_tests+=("gandiva-if-expr-test")
+    exclude_tests+=("gandiva-in-expr-test")
+    exclude_tests+=("gandiva-internals-test")
+    exclude_tests+=("gandiva-literal-test")
+    exclude_tests+=("gandiva-null-validity-test")
+    exclude_tests+=("gandiva-precompiled-test")
+    exclude_tests+=("gandiva-projector-test")
+    exclude_tests+=("gandiva-utf8-test")
     ;;
   *)
     n_jobs=${NPROC:-1}
     ;;
 esac
+if [ "${#exclude_tests[@]}" -gt 0 ]; then
+  IFS="|"
+  ctest_options+=(--exclude-regex "${exclude_tests[*]}")
+  unset IFS
+fi
 
 if [ "${ARROW_EMSCRIPTEN:-OFF}" = "ON" ]; then
   n_jobs=1 # avoid spurious fails on emscripten due to loading too many big executables

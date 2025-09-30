@@ -17,5 +17,9 @@
 
 add_custom_target(arrow_flight_sql_odbc)
 
+# Use C++ 20 for ODBC and its subdirectory
+# GH-44792: Arrow will switch to C++ 20
+set(CMAKE_CXX_STANDARD 20)
+
 add_subdirectory(flight_sql)
 add_subdirectory(odbcabstraction)
