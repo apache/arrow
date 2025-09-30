@@ -58,7 +58,7 @@ class BlockingQueue {
 
         // Only one thread at a time be notified and call supplier
         auto item = supplier();
-        if (!item) break;
+        if (!item.has_value()) break;
 
         Push(*item);
       }
