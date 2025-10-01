@@ -191,8 +191,15 @@ set(ARROW_FLIGHT_SRCS
 
 # Handle Unity build header conflicts on Windows.
 if(CMAKE_UNITY_BUILD AND WIN32)
-  set_source_files_properties(${ARROW_FLIGHT_SRCS} PROPERTIES SKIP_UNITY_BUILD_INCLUSION
-                                                              TRUE)
+  set_source_files_properties(client.cc
+                              cookie_internal.cc
+                              serialization_internal.cc
+                              server.cc
+                              transport/grpc/serialization_internal.cc
+                              transport/grpc/protocol_grpc_internal.cc
+                              transport/grpc/util_internal.cc
+                              types.cc
+                              PROPERTIES SKIP_UNITY_BUILD_INCLUSION TRUE)
 endif()
 
 if(ARROW_WITH_OPENTELEMETRY)
