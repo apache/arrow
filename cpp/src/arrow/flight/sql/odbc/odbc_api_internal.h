@@ -17,9 +17,7 @@
 
 #pragma once
 
-#ifdef _WIN32
-#  include <windows.h>
-#endif
+#include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/platform.h"
 
 #include <sql.h>
 #include <sqltypes.h>

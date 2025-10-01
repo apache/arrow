@@ -68,7 +68,7 @@ add_arrow_lib(arrow_flight_sql_odbc
               STATIC_INSTALL_INTERFACE_LIBS
               ArrowFlight::arrow_flight_sql_static
               SHARED_PRIVATE_LINK_LIBS
-              ${ODBC_LIBRARIES}
+              ODBC::ODBC
               ${ODBCINST}
               odbcabstraction
               arrow_odbc_spi_impl)

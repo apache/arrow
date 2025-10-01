@@ -20,6 +20,7 @@
 
 #include "arrow/flight/sql/odbc/flight_sql/include/flight_sql/config/configuration.h"
 #include "arrow/flight/sql/odbc/flight_sql/include/flight_sql/flight_sql_driver.h"
+#include "arrow/flight/sql/odbc/odbc_api_internal.h"
 #include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/diagnostics.h"
 #include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/odbc_impl/attribute_utils.h"
 #include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/odbc_impl/encoding_utils.h"
@@ -29,10 +30,6 @@
 #include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/odbc_impl/odbc_statement.h"
 #include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/spi/connection.h"
 #include "arrow/util/logging.h"
-
-// odbc_environment.h includes winsock2.h
-// odbc_api_internal.h includes windows.h, which needs to be put behind winsock2.h.
-#include "arrow/flight/sql/odbc/odbc_api_internal.h"
 
 namespace arrow::flight::sql::odbc {
 SQLRETURN SQLAllocHandle(SQLSMALLINT type, SQLHANDLE parent, SQLHANDLE* result) {

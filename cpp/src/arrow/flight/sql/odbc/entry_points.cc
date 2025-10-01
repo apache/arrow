@@ -18,10 +18,6 @@
 // platform.h includes windows.h, so it needs to be included first
 #include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/platform.h"
 
-#ifdef _WIN32
-#  include <windows.h>
-#endif
-
 #include <sql.h>
 #include <sqlext.h>
 #include <sqltypes.h>
