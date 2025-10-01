@@ -189,6 +189,12 @@ set(ARROW_FLIGHT_SRCS
     transport/grpc/util_internal.cc
     types.cc)
 
+# Handle Unity build header conflicts on Windows.
+if(CMAKE_UNITY_BUILD AND WIN32)
+  set_source_files_properties(${ARROW_FLIGHT_SRCS} PROPERTIES SKIP_UNITY_BUILD_INCLUSION
+                                                              TRUE)
+endif()
+
 if(ARROW_WITH_OPENTELEMETRY)
   list(APPEND ARROW_FLIGHT_SRCS otel_logging.cc)
 endif()
@@ -230,17 +236,6 @@ endif()
 foreach(LIB_TARGET ${ARROW_FLIGHT_LIBRARIES})
   target_compile_definitions(${LIB_TARGET} PRIVATE ARROW_FLIGHT_EXPORTING)
 endforeach()
-
-# Handle Unity build header conflicts on Windows
-if(CMAKE_UNITY_BUILD AND WIN32)
-  foreach(LIB_TARGET ${ARROW_FLIGHT_LIBRARIES})
-    target_compile_options(${LIB_TARGET}
-                           PRIVATE "$<$<CXX_COMPILER_ID:MSVC>:/DNOMINMAX>"
-                                   "$<$<CXX_COMPILER_ID:MSVC>:/DWIN32_LEAN_AND_MEAN>"
-                                   "$<$<CXX_COMPILER_ID:MSVC>:/FI\"winsock2.h\">"
-                                   "$<$<CXX_COMPILER_ID:MSVC>:/FI\"ws2tcpip.h\">")
-  endforeach()
-endif()
 
 # Define arrow_flight_testing library
 if(ARROW_TESTING)
