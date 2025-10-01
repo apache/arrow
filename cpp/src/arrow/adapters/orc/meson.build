@@ -15,38 +15,25 @@
 # specific language governing permissions and limitations
 # under the License.
 
-aws-sdk-cpp=1.11.68
-azure-core-cpp>=1.10.3
-azure-identity-cpp>=1.6.0
-azure-storage-blobs-cpp>=12.10.0
-azure-storage-common-cpp>=12.5.0
-azure-storage-files-datalake-cpp>=12.9.0
-benchmark>=1.6.0,!=1.8.4
-boost-cpp>=1.68.0
-brotli
-bzip2
-c-ares
-cmake
-gflags
-glog
-gmock>=1.10.0
-google-cloud-cpp>=1.34.0
-gtest>=1.10.0
-libgrpc
-libprotobuf
-libutf8proc
-lz4-c
-make
-meson
-ninja
-nodejs
-orc
-pkg-config
-python
-rapidjson
-re2
-snappy
-thrift-cpp>=0.11.0
-xsimd
-zlib
-zstd
+install_headers(['adapter.h', 'options.h'], subdir: 'arrow/adapters/orc')
+
+arrow_orc_dep = declare_dependency(
+    include_directories: include_directories('.'),
+    dependencies: [arrow_dep],
+)
+
+meson.override_dependency('arrow-orc', arrow_orc_dep)
+
+pkg.generate(
+    filebase: 'arrow-orc',
+    name: 'Apache Arrow ORC',
+    description: 'ORC modules for Apache Arrow',
+    requires: ['arrow'],
+)
+
+exc = executable(
+    'arrow-orc-adapter-test',
+    sources: ['adapter_test.cc'],
+    dependencies: [arrow_test_dep, orc_dep],
+)
+test('arrow-orc-adapter-test', exc)
