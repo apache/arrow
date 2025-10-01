@@ -5066,6 +5066,7 @@ macro(build_google_cloud_cpp_storage)
   target_link_libraries(google-cloud-cpp::storage
                         INTERFACE google-cloud-cpp::common
                                   google-cloud-cpp::rest-internal
+                                  absl::crc32c
                                   absl::memory
                                   absl::strings
                                   absl::str_format
@@ -5100,6 +5101,7 @@ macro(build_google_cloud_cpp_storage)
          absl::cordz_functions
          absl::cordz_info
          absl::cordz_handle
+         absl::crc32c
          absl::debugging_internal
          absl::demangle_internal
          absl::exponential_biased
