@@ -28,12 +28,15 @@
 namespace driver {
 namespace flight_sql {
 
-class UtilTestsWithCompute : public ::testing::Test {
+// A global test "environment", to ensure Arrow compute kernel functions are registered
+
+class ComputeKernelEnvironment : public ::testing::Environment {
  public:
-  // This must be done before using the compute kernels in order to
-  // register them to the FunctionRegistry.
   void SetUp() override { ASSERT_OK(arrow::compute::Initialize()); }
 };
+
+::testing::Environment* kernel_env =
+    ::testing::AddGlobalTestEnvironment(new ComputeKernelEnvironment);
 
 void AssertConvertedArray(const std::shared_ptr<arrow::Array>& expected_array,
                           const std::shared_ptr<arrow::Array>& converted_array,
@@ -88,7 +91,7 @@ void TestTime64ArrayConversion(const std::vector<int64_t>& input,
   AssertConvertedArray(expected_array, converted_array, input.size(), arrow_type);
 }
 
-TEST_F(UtilTestsWithCompute, Time32ToTimeStampArray) {
+TEST(Utils, Time32ToTimeStampArray) {
   std::vector<int32_t> input_data = {14896, 17820};
 
   const auto seconds_from_epoch = odbcabstraction::GetTodayTimeFromEpoch();
@@ -108,7 +111,7 @@ TEST_F(UtilTestsWithCompute, Time32ToTimeStampArray) {
                             arrow::Type::TIMESTAMP);
 }
 
-TEST_F(UtilTestsWithCompute, Time64ToTimeStampArray) {
+TEST(Utils, Time64ToTimeStampArray) {
   std::vector<int64_t> input_data = {1579489200000, 1646881200000};
 
   const auto seconds_from_epoch = odbcabstraction::GetTodayTimeFromEpoch();
@@ -128,7 +131,7 @@ TEST_F(UtilTestsWithCompute, Time64ToTimeStampArray) {
                             arrow::Type::TIMESTAMP);
 }
 
-TEST_F(UtilTestsWithCompute, StringToDateArray) {
+TEST(Utils, StringToDateArray) {
   std::shared_ptr<arrow::Array> expected;
   arrow::ArrayFromVector<arrow::Date64Type, int64_t>({1579489200000, 1646881200000},
                                                      &expected);
@@ -137,7 +140,7 @@ TEST_F(UtilTestsWithCompute, StringToDateArray) {
                       odbcabstraction::CDataType_DATE, arrow::Type::DATE64);
 }
 
-TEST_F(UtilTestsWithCompute, StringToTimeArray) {
+TEST(Utils, StringToTimeArray) {
   std::shared_ptr<arrow::Array> expected;
   arrow::ArrayFromVector<arrow::Time64Type, int64_t>(
       time64(arrow::TimeUnit::MICRO), {36000000000, 43200000000}, &expected);
@@ -146,7 +149,7 @@ TEST_F(UtilTestsWithCompute, StringToTimeArray) {
                       arrow::Type::TIME64);
 }
 
-TEST_F(UtilTestsWithCompute, ConvertSqlPatternToRegexString) {
+TEST(Utils, ConvertSqlPatternToRegexString) {
   ASSERT_EQ(std::string("XY"), ConvertSqlPatternToRegexString("XY"));
   ASSERT_EQ(std::string("X.Y"), ConvertSqlPatternToRegexString("X_Y"));
   ASSERT_EQ(std::string("X.*Y"), ConvertSqlPatternToRegexString("X%Y"));
@@ -154,7 +157,7 @@ TEST_F(UtilTestsWithCompute, ConvertSqlPatternToRegexString) {
   ASSERT_EQ(std::string("X_Y"), ConvertSqlPatternToRegexString("X\\_Y"));
 }
 
-TEST_F(UtilTestsWithCompute, ConvertToDBMSVer) {
+TEST(Utils, ConvertToDBMSVer) {
   ASSERT_EQ(std::string("01.02.0003"), ConvertToDBMSVer("1.2.3"));
   ASSERT_EQ(std::string("01.02.0003.0"), ConvertToDBMSVer("1.2.3.0"));
   ASSERT_EQ(std::string("01.02.0000"), ConvertToDBMSVer("1.2"));
