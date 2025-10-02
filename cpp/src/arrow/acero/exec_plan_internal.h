@@ -33,5 +33,6 @@ void RegisterSinkNode(ExecFactoryRegistry*);
 void RegisterHashJoinNode(ExecFactoryRegistry*);
 void RegisterAsofJoinNode(ExecFactoryRegistry*);
 void RegisterSortedMergeNode(ExecFactoryRegistry*);
+void RegisterPipeNodes(ExecFactoryRegistry*);
 
 }  // namespace arrow::acero::internal
