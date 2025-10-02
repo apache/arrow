@@ -20,8 +20,6 @@
 
 set -e
 
-SOURCE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-
 if [ "$#" -lt 2 ]; then
   echo "Usage: $0 <version> <rc-num> [options]"
   exit

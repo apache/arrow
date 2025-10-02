@@ -35,12 +35,12 @@ RUN_ID=""
 while true; do
   echo "Waiting for run to start..."
   RUN_ID=$(gh run list \
-             --branch "${TAG}" \
-             --jq '.[].databaseId' \
-             --json databaseId \
-             --limit 1 \
-             --repo "${REPOSITORY}" \
-             --workflow "${WORKFLOW}")
+              --branch "${TAG}" \
+              --jq '.[].databaseId' \
+              --json databaseId \
+              --limit 1 \
+              --repo "${REPOSITORY}" \
+              --workflow "${WORKFLOW}")
   if [ -n "${RUN_ID}" ]; then
     break
   fi
