@@ -242,9 +242,11 @@ Status PipeSource::Initialize(Pipe* pipe) {
 
 void PipeSource::Pause(int32_t counter) {
   auto lock = mutex_.Lock();
-  if (backpressure_counter < counter) {
-    backpressure_counter = counter;
-    backpressure_source_.Pause();
+  if (!stopped) {
+    if (backpressure_counter < counter) {
+      backpressure_counter = counter;
+      backpressure_source_.Pause();
+    }
   }
 }
 void PipeSource::Resume(int32_t counter) {
@@ -255,8 +257,14 @@ void PipeSource::Resume(int32_t counter) {
   }
 }
 Status PipeSource::StopProducing() {
-  if (pipe_) return pipe_->StopProducing(this);
-  // stopped before initialization
+  if (pipe_) {
+    {
+      auto lock = mutex_.Lock();
+      stopped = true;
+      backpressure_source_.Resume();
+    }
+    return pipe_->StopProducing(this);
+  }
   return Status::OK();
 }
 
@@ -290,7 +298,6 @@ Status Pipe::StopProducing(PipeSource* output) {
   auto lock = mutex_.Lock();
   auto& state = state_[output];
   DCHECK(!state.stopped);
-  BackpressureCombiner::Stop();
   state.stopped = true;
   size_t stopped_count = ++stopped_count_;
   if (stop_on_any_) {

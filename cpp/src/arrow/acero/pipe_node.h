@@ -51,6 +51,7 @@ class PipeSource {
   BackpressureCombiner::Source backpressure_source_;
   Mutex mutex_;
   int backpressure_counter{0};
+  std::atomic<bool> stopped{false};
 };
 
 /// @brief Provides pipe like infastructure for Acero. It isa center element for
