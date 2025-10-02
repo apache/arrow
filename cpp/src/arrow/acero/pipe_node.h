@@ -17,6 +17,7 @@
 
 #pragma once
 #include <string>
+#include "arrow/acero/backpressure.h"
 #include "arrow/acero/exec_plan.h"
 #include "arrow/acero/options.h"
 #include "arrow/acero/visibility.h"
@@ -47,12 +48,15 @@ class PipeSource {
   virtual Status HandleInputFinished(int total_batches) = 0;
 
   Pipe* pipe_{nullptr};
+  BackpressureCombiner::Source backpressure_source_;
+  Mutex mutex_;
+  int backpressure_counter{0};
 };
 
 /// @brief Provides pipe like infastructure for Acero. It isa center element for
 /// pipe_sink/pipe_tee and pipe_source infrastructure. Can also be used to create
 /// auxiliarty outputs(pipes) for ExecNodes.
-class ARROW_ACERO_EXPORT Pipe {
+class ARROW_ACERO_EXPORT Pipe : public BackpressureCombiner {
  public:
   Pipe(ExecPlan* plan, std::string pipe_name, std::unique_ptr<BackpressureControl> ctrl,
        std::function<Status()> stopProducing, Ordering ordering = Ordering::Unordered(),
@@ -96,16 +100,13 @@ class ARROW_ACERO_EXPORT Pipe {
   friend class PipeSource;
 
   struct SourceState {
-    bool paused{false};
     bool stopped{false};
-    int backpressure_counter{0};
   };
 
   // Backpresurre interface for PipeSource
   void Pause(PipeSource* output, int counter);
   // Backpresurre interface for PipeSource
   void Resume(PipeSource* output, int counter);
-  void DoResume(SourceState& state);
   //
   Status StopProducing(PipeSource* output);
 
@@ -118,13 +119,10 @@ class ARROW_ACERO_EXPORT Pipe {
   // backpressure
   std::unordered_map<PipeSource*, SourceState> state_;
   Mutex mutex_;
-  std::atomic_size_t paused_count_{0};
-  std::unique_ptr<BackpressureControl> ctrl_;
   // stopProducing
   std::atomic_size_t stopped_count_{0};
   std::function<Status()> stopProducing_;
 
-  const bool pause_on_any_;
   const bool stop_on_any_;
 };
 

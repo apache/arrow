@@ -236,11 +236,24 @@ PipeSource::PipeSource() {}
 Status PipeSource::Initialize(Pipe* pipe) {
   if (pipe_) return Status::Invalid("Pipe:" + pipe->PipeName() + " has multiple sinks");
   pipe_ = pipe;
+  backpressure_source_.AddController(pipe);
   return Status::OK();
 }
 
-void PipeSource::Pause(int32_t counter) { pipe_->Pause(this, counter); }
-void PipeSource::Resume(int32_t counter) { pipe_->Resume(this, counter); }
+void PipeSource::Pause(int32_t counter) {
+  auto lock = mutex_.Lock();
+  if (backpressure_counter < counter) {
+    backpressure_counter = counter;
+    backpressure_source_.Pause();
+  }
+}
+void PipeSource::Resume(int32_t counter) {
+  auto lock = mutex_.Lock();
+  if (backpressure_counter < counter) {
+    backpressure_counter = counter;
+    backpressure_source_.Resume();
+  }
+}
 Status PipeSource::StopProducing() {
   if (pipe_) return pipe_->StopProducing(this);
   // stopped before initialization
@@ -264,67 +277,20 @@ Pipe::Pipe(ExecPlan* plan, std::string pipe_name,
            std::unique_ptr<BackpressureControl> ctrl,
            std::function<Status()> stopProducing, Ordering ordering, bool pause_on_any,
            bool stop_on_any)
-    : plan_(plan),
+    : BackpressureCombiner(std::move(ctrl), pause_on_any),
+      plan_(plan),
       ordering_(ordering),
       pipe_name_(pipe_name),
-      ctrl_(std::move(ctrl)),
       stopProducing_(stopProducing),
-      pause_on_any_(pause_on_any),
       stop_on_any_(stop_on_any) {}
 
 const Ordering& Pipe::ordering() const { return ordering_; }
-
-void Pipe::Pause(PipeSource* output, int counter) {
-  auto lock = mutex_.Lock();
-  auto& state = state_[output];
-  if (state.backpressure_counter < counter) {
-    state.backpressure_counter = counter;
-    if (!state.paused && !state.stopped) {
-      state.paused = true;
-      size_t paused_count = ++paused_count_;
-      if (pause_on_any_) {
-        if (paused_count == 1) {
-          ctrl_->Pause();
-        }
-      } else {
-        if (paused_count == CountSources() - stopped_count_) {
-          ctrl_->Pause();
-        }
-      }
-    }
-  }
-}
-
-void Pipe::Resume(PipeSource* output, int counter) {
-  auto lock = mutex_.Lock();
-  auto& state = state_[output];
-  if (state.backpressure_counter < counter) {
-    state.backpressure_counter = counter;
-    DoResume(state);
-  }
-}
-
-void Pipe::DoResume(SourceState& state) {
-  if (state.paused && !state.stopped) {
-    state.paused = false;
-    size_t paused_count = --paused_count_;
-    if (pause_on_any_) {
-      if (paused_count == 0) {
-        ctrl_->Resume();
-      }
-    } else {
-      if (paused_count == CountSources() - stopped_count_ - 1) {
-        ctrl_->Resume();
-      }
-    }
-  }
-}
 
 Status Pipe::StopProducing(PipeSource* output) {
   auto lock = mutex_.Lock();
   auto& state = state_[output];
   DCHECK(!state.stopped);
-  DoResume(state);
+  BackpressureCombiner::Stop();
   state.stopped = true;
   size_t stopped_count = ++stopped_count_;
   if (stop_on_any_) {
