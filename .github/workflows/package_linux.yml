@@ -278,7 +278,7 @@ jobs:
           echo "GPG_KEY_ID=${GPG_KEY_ID}" >> ${GITHUB_ENV}
           if [ "${TASK_NAMESPACE}" = "yum" ]; then
             repositories_dir=dev/tasks/linux-packages/apache-arrow-release/yum/repositories
-            rpm2cpio ${repositories_dir}/*/*/*/Packages/apache-arrow-release-*.rpm |
+            rpm2cpio ${repositories_dir}/*/*/*/Packages/apache-arrow-release-*.noarch.rpm |
               cpio -id
             mv etc/pki/rpm-gpg/RPM-GPG-KEY-Apache-Arrow \
               dev/tasks/linux-packages/KEYS
