@@ -57,7 +57,15 @@ void BackpressureCombiner::Resume(Source* output) {
   }
 }
 
+void BackpressureCombiner::Stop() {
+  std::lock_guard<std::mutex> lg(mutex_);
+  stopped = true;
+  backpressure_control_->Resume();
+  paused = false;
+}
+
 void BackpressureCombiner::UpdatePauseStateUnlocked() {
+  if (stopped) return;
   bool should_be_paused = (paused_count_ > 0);
   if (!pause_on_any_) {
     should_be_paused = should_be_paused && (paused_count_ == paused_.size());

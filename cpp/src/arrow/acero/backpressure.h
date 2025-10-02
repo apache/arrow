@@ -77,6 +77,8 @@ class ARROW_ACERO_EXPORT BackpressureCombiner {
     std::vector<BackpressureCombiner*> connections_;
   };
 
+  void Stop();
+
  private:
   friend class Source;
   void Pause(Source* output);
@@ -89,6 +91,7 @@ class ARROW_ACERO_EXPORT BackpressureCombiner {
   std::unordered_map<Source*, bool> paused_;
   size_t paused_count_{0};
   bool paused{false};
+  bool stopped{false};
 };
 
 }  // namespace arrow::acero
