@@ -114,8 +114,17 @@ jobs:
           ID: ${{ matrix.id }}
         run: |
           set -x
-          # Example: almalinux-8-amd64 -> almalinux
-          distribution="${ID%-*-*}"
+          case "${ID}" in
+            centos-*)
+              # Example: centos-9-stream-amd64 -> centos
+              distribution="${ID%%-*}"
+              ;;
+            *)
+              # Example: almalinux-8-amd64 -> almalinux
+              # Example: amazon-linux-2023-amd64 -> amazon-linux
+              distribution="${ID%-*-*}"
+              ;;
+          esac
           echo "DISTRIBUTION=${distribution}" >> "${GITHUB_ENV}"
           # Example: almalinux-8-amd64 -> amd64
           architecture="${ID##*-}"
@@ -232,10 +241,12 @@ jobs:
                 "${DISTRIBUTION}/pool/${code_name}/a/apache-arrow-apt-source/*.deb \
                 "${DISTRIBUTION}/apache-arrow-apt-source-latest-${code_name}.deb"
             else
+              # Example: centos-9-stream-amd64 -> centos-9-stream
               # Example: amazon-linux-2023-amd64 -> amazon-linux-2023
               version="${ID%-*}"
+              # Example: centos-9-stream -> 9-stream
               # Example: amazon-linux-2023 -> 2023
-              version="${version##*-}"
+              version="${version##${DISTRIBUTION}-}"
               # Create
               # https://packages.apache.org/artifactory/arrow/${DISTRIBUTION}/${version}/apache-arrow-release-latest.rpm
               # for easy to install.
