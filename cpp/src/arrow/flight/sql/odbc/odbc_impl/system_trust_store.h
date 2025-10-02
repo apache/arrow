@@ -25,6 +25,7 @@
 
 #  include <bcrypt.h>
 #  include <cryptuiapi.h>
+#  include <prsht.h>
 
 #  include <tchar.h>
 #  include <string>
