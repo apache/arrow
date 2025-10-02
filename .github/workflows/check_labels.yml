@@ -66,9 +66,9 @@ jobs:
               git fetch origin ${GITHUB_BASE_REF}
               git diff --stat origin/${GITHUB_BASE_REF}..
               if git diff --stat origin/${GITHUB_BASE_REF}.. | \
-                grep \
-                  --fixed-strings ".github/workflows/${{ inputs.parent-workflow }}.yml" \
-                  --quiet; then
+                   grep \
+                     --fixed-strings ".github/workflows/${{ inputs.parent-workflow }}.yml" \
+                     --quiet; then
                 echo "force=true" >> "${GITHUB_OUTPUT}"
               fi
               ;;
