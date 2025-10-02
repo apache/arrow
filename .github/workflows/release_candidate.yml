@@ -23,9 +23,7 @@ on:
       - '**'
       - '!dependabot/**'
     tags:
-      # Trigger workflow when a tag whose name matches the pattern
-      # "apache-arrow-{MAJOR}.{MINOR}.{PATCH}-rc{RC_NUM}" is pushed.
-      - "apache-arrow-[0-9]+.[0-9]+.[0-9]+-rc[0-9]+"
+      - "apache-arrow-*-rc*"
     paths:
       - ".github/workflows/release_candidate.sh"
       - "dev/release/utils-create-release-tarball.sh"

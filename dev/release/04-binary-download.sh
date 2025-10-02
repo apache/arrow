@@ -33,7 +33,7 @@ rc_number=$1
 shift
 version_with_rc="${version}-rc${rc_number}"
 crossbow_job_prefix="release-${version_with_rc}"
-release_tag="apache-arrow-${version_with_rc}"
+tag="apache-arrow-${version_with_rc}"
 
 # archery will submit a job with id: "${crossbow_job_prefix}-0" unless there
 # are jobs submitted with the same prefix (the integer at the end is auto
@@ -43,21 +43,13 @@ release_tag="apache-arrow-${version_with_rc}"
 
 archery crossbow download-artifacts --no-fetch ${CROSSBOW_JOB_ID} "$@"
 
-# Wait for the GitHub Workflow that creates the Linux packages
-# to finish before downloading the artifacts.
-. "${SOURCE_DIR}/utils-watch-gh-workflow.sh" "${release_tag}" "package_linux.yml"
-
-RUN_ID=$(get_run_id)
-# Download the artifacts created by the package_linux.yml workflow
-download_artifacts "${SOURCE_DIR}/../../packages/${CROSSBOW_JOB_ID}"
-
-# Find and extract all .tar.gz files in their own artifact directory
-find "${SOURCE_DIR}/../../packages/${CROSSBOW_JOB_ID}" -name "*.tar.gz" -type f | while read -r tarfile; do
-    echo "Extracting: ${tarfile}"
-    tarfile_dir=$(dirname "${tarfile}")
-
-    # Extract to the same directory as the tar.gz file
-    tar -xzf "${tarfile}" -C "${tarfile_dir}"
-    # Should we remove the tar.gz file after extraction?
-    # rm "${tarfile}"
-done
+# Download Linux packages.
+gh release download "${tag}" \
+  --dir "${crossbow_job_prefix}" \
+  --pattern "almalinux-*.tar.gz" \
+  --pattern "amazon-linux-*.tar.gz" \
+  --pattern "centos-*.tar.gz" \
+  --pattern "debian-*.tar.gz" \
+  --pattern "ubuntu-*.tar.gz" \
+  --repo "${REPOSITORY:-apache/arrow}" \
+  --skip-existing

@@ -1645,29 +1645,18 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
             progress_label = "Copying: #{distribution} #{code_name}"
             progress_reporter = ProgressReporter.new(progress_label)
 
-            destination_dir = "#{incoming_dir}/#{distribution}"
-            rm_rf(destination_dir, verbose: verbose?)
+            distribution_dir = "#{incoming_dir}/#{distribution}"
+            pool_dir = "#{distribution_dir}/pool/#{code_name}"
+            rm_rf(pool_dir, verbose: verbose?)
+            mkdir_p(pool_dir, verbose: verbose?)
 
-            # Copy the entire repository structure
-            source_pattern = "#{artifacts_dir}/#{distribution}-#{code_name}*/*/" \
-                             "apt/repositories/#{distribution}"
-            Dir.glob(source_pattern) do |repo_source|
-              progress_reporter.increment_max
-              mkdir_p(File.dirname(destination_dir), verbose: verbose?)
-              cp_r(repo_source, destination_dir, preserve: true, verbose: verbose?)
+            source_dir_prefix = "#{artifacts_dir}/#{distribution}-#{code_name}"
+            # apache/arrow uses debian-bookworm-{amd64,arm64}.tar.gz but
+            # apache/arrow-adbc uses debian-bookworm.tar.gz So the following
+            # glob must much both of them.
+            Dir.glob("#{source_dir_prefix}*.tar.gz") do |tar_gz|
+              sh("tar", "xf", tar_gz, "-C", incoming_dir)
               progress_reporter.advance
-            end
-
-            # Create latest package links after copying
-            Dir.glob("#{destination_dir}/**/*-apt-source_*.deb") do |apt_source_path|
-              latest_apt_source_package_path = [
-                destination_dir,
-                "apache-arrow-apt-source-latest-#{code_name}.deb"
-              ].join("/")
-
-              copy_artifact(apt_source_path,
-                            latest_apt_source_package_path,
-                            progress_reporter)
             end
 
             progress_reporter.finish
@@ -1862,7 +1851,6 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
       ["almalinux", "8"],
       ["amazon-linux", "2023"],
       ["centos", "9-stream"],
-      ["centos", "8-stream"],
       ["centos", "7"],
     ]
   end
@@ -2029,23 +2017,43 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
             progress_label = "Copying: #{distribution} #{distribution_version}"
             progress_reporter = ProgressReporter.new(progress_label)
 
-            destination_dir = "#{incoming_dir}/#{distribution}/#{distribution_version}"
+            destination_dir = File.join(incoming_dir,
+                                        distribution,
+                                        distribution_version)
             rm_rf(destination_dir, verbose: verbose?)
+            mkdir_p(destination_dir, verbose: verbose?)
 
-            # Copy all repository structures for this distribution/version
-            source_pattern = "#{artifacts_dir}/#{distribution}-#{distribution_version}*/*/" \
-                             "yum/repositories/#{distribution}/#{distribution_version}"
-            Dir.glob(source_pattern) do |repo_source|
-              progress_reporter.increment_max
-
-              # Copy and merge all architectures
-              Dir.glob("#{repo_source}/*") do |arch_dir|
-                arch_name = File.basename(arch_dir)
-                destination_arch_dir = "#{destination_dir}/#{arch_name}"
-                mkdir_p(File.dirname(destination_arch_dir), verbose: verbose?)
-                cp_r(arch_dir, destination_arch_dir, preserve: true, verbose: verbose?)
-              end
+            source_dir_prefix =
+              "#{artifacts_dir}/#{distribution}-#{distribution_version}"
+            # apache/arrow uses almalinux-10-{amd64,arm64}.tar.gz but
+            # apache/arrow-adbc uses almalinux-10.tar.gz So the
+            # following glob must much both of them.
+            Dir.glob("#{source_dir_prefix}*.tar.gz") do |tar_gz|
+              sh("tar", "xf", tar_gz, "-C", incoming_dir)
               progress_reporter.advance
+            end
+
+            case "#{distribution}-#{distribution_version}"
+            when "almalinux-10",
+                 "almalinux-9",
+                 "almalinux-8",
+                 "amazon-linux-2023",
+                 "centos-9-stream",
+                 "centos-7"
+              # Adjust source packages directory for backward
+              # compatibility.  We don't need this for new supported
+              # distribution because we don't need to care about
+              # backward compatibility for them.
+              #
+              # Example:
+              #   almalinux/10/Source/Packages/ ->
+              #   almalinux/10/source/SPackages/
+              mv(File.join(destination_dir, "Source"),
+                 File.join(destination_dir, "source"),
+                 verbose: true)
+              mv(File.join(destination_dir, "source", "Packages"),
+                 File.join(destination_dir, "source", "SPackages"),
+                 verbose: true)
             end
 
             progress_reporter.finish
@@ -2314,6 +2322,8 @@ class LocalBinaryTask < BinaryTask
       # "debian-bookworm-arm64",
       "debian-trixie",
       # "debian-trixie-arm64",
+      "debian-forky",
+      # "debian-forky-arm64",
       "ubuntu-jammy",
       # "ubuntu-jammy-arm64",
       "ubuntu-noble",
@@ -2374,8 +2384,6 @@ class LocalBinaryTask < BinaryTask
       # "amazon-linux-2023-aarch64",
       "centos-9-stream",
       # "centos-9-stream-aarch64",
-      "centos-8-stream",
-      # "centos-8-stream-aarch64",
       "centos-7",
       # "centos-7-aarch64",
     ]

@@ -47,13 +47,13 @@ module Helper
 
     def detect_version(release_time)
       version_env = ENV["ARROW_VERSION"]
-      return version_env unless version_env.to_s.empty?
+      return version_env if version_env
 
       cmakelists_txt_path = File.join(arrow_source_dir, "cpp", "CMakeLists.txt")
       cmakelists_txt_content = File.read(cmakelists_txt_path)
       version = cmakelists_txt_content[/^set\(ARROW_VERSION "(.+?)"/, 1]
       formatted_release_time = release_time.strftime("%Y%m%d")
-      version.gsub(/-SNAPSHOT\z/) {".dev#{formatted_release_time}"}
+      version.gsub(/-SNAPSHOT\z/) {"-dev#{formatted_release_time}"}
     end
 
     def detect_env(name)
@@ -72,13 +72,12 @@ module Helper
       raise "Failed to detect #{name} environment variable"
     end
 
-    def docker_image_name
-      detect_env("REPO")
+    def github_repository
+      ENV["GITHUB_REPOSITORY"] || "apache/arrow"
     end
 
     def docker_image(os, architecture)
-      architecture ||= "amd64"
-      "#{docker_image_name}:#{architecture}-#{os}-package-#{@package}"
+      "ghcr.io/#{github_repository}/package-#{super}"
     end
   end
 end
