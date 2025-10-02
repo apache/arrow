@@ -73,3 +73,24 @@ representation as Arrow, and assuming the Arrow data has no nulls.
 For more complex data types, you have to use the :meth:`~pyarrow.Array.to_pandas`
 method (which will construct a Numpy array with Pandas semantics for, e.g.,
 representation of null values).
+
+.. note::
+
+   Converting Arrow timestamp arrays that include a time zone (for example,
+   ``pa.timestamp('s', tz='UTC')``) to NumPy with ``to_numpy()`` will drop the
+   timezone information, because NumPy's ``datetime64`` dtype does **not**
+   carry timezone metadata. The result is a timezone-naive ``datetime64[...]``
+   array (typically representing UTC). To preserve timezone-aware semantics
+   when interoperating with pandas, use ``to_pandas()`` which preserves
+   timezones as pandas ``DatetimeTZDtype``.
+
+   Example:
+
+.. code-block:: python
+
+   import pyarrow as pa
+   x = pa.array([1735689600], type=pa.timestamp('s', tz='UTC'))
+   print(x.type)               # -> timestamp[s, tz=UTC]
+   print(x.to_numpy().dtype)   # -> datetime64[s]   (no tz)
+   print(x.to_pandas().dtype)  # -> datetime64[ns, UTC] or DatetimeTZDtype('ns','UTC')	
+	
