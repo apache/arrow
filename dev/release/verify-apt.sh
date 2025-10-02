@@ -84,6 +84,9 @@ esac
 
 if [ "${TYPE}" = "local" ]; then
   case "${VERSION}" in
+    *-dev*)
+      package_version="$(echo "${VERSION}" | sed -E -e 's/-(dev.*)$/~\1/g')"
+      ;;
     *-rc*)
       package_version="$(echo "${VERSION}" | sed -e 's/-rc.*$//g')"
       ;;
