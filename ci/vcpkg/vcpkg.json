@@ -75,7 +75,7 @@
         {
           "name": "llvm",
           "default-features": false,
-          "version>=": "18.1",
+          "version>=": "21.1.1",
           "features": [
             "clang",
             "default-targets",
