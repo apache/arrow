@@ -213,7 +213,7 @@ takes precedence over ccache if a storage backend is configured" ON)
   define_option(ARROW_ENABLE_THREADING "Enable threading in Arrow core" ON)
 
   #----------------------------------------------------------------------
-  set_option_category("Test and benchmark")
+  set_option_category("Tests and benchmarks")
 
   define_option(ARROW_BUILD_EXAMPLES "Build the Arrow examples" OFF)
 
@@ -259,12 +259,20 @@ takes precedence over ccache if a storage backend is configured" ON)
                        "shared"
                        "static")
 
-  define_option(ARROW_FUZZING
-                "Build Arrow Fuzzing executables"
+  define_option(ARROW_BUILD_FUZZING_UTILITIES
+                "Build command line utilities for fuzzing"
                 OFF
                 DEPENDS
                 ARROW_TESTING
-                ARROW_WITH_BROTLI)
+                ARROW_WITH_BROTLI
+                ARROW_WITH_LZ4
+                ARROW_WITH_ZSTD)
+
+  define_option(ARROW_FUZZING
+                "Build Arrow fuzz targets"
+                OFF
+                DEPENDS
+                ARROW_BUILD_FUZZING_UTILITIES)
 
   define_option(ARROW_LARGE_MEMORY_TESTS "Enable unit tests which use large memory" OFF)
 
@@ -301,7 +309,7 @@ takes precedence over ccache if a storage backend is configured" ON)
                 DEPENDS
                 ARROW_FILESYSTEM)
 
-  define_option(ARROW_BUILD_UTILITIES "Build Arrow commandline utilities" OFF)
+  define_option(ARROW_BUILD_UTILITIES "Build Arrow command line utilities" OFF)
 
   define_option(ARROW_COMPUTE "Build all Arrow Compute kernels" OFF)
 

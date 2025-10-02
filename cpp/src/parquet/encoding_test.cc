@@ -1922,12 +1922,12 @@ TYPED_TEST(TestDeltaBitPackEncoding, DeltaBitPackedWrapping) {
                                1};
   const int num_values = static_cast<int>(int_values.size());
 
-  auto const encoder = MakeTypedEncoder<TypeParam>(
+  const auto encoder = MakeTypedEncoder<TypeParam>(
       Encoding::DELTA_BINARY_PACKED, /*use_dictionary=*/false, this->descr_.get());
   encoder->Put(int_values, num_values);
-  auto const encoded = encoder->FlushValues();
+  const auto encoded = encoder->FlushValues();
 
-  auto const decoder =
+  const auto decoder =
       MakeTypedDecoder<TypeParam>(Encoding::DELTA_BINARY_PACKED, this->descr_.get());
 
   std::vector<T> decoded(num_values);
@@ -1959,10 +1959,10 @@ TYPED_TEST(TestDeltaBitPackEncoding, DeltaBitPackedSize) {
     return (idx % 2) == 1 ? 0 : (idx % 4) == 0 ? 1 : -1;
   });
 
-  auto const encoder = MakeTypedEncoder<TypeParam>(
+  const auto encoder = MakeTypedEncoder<TypeParam>(
       Encoding::DELTA_BINARY_PACKED, /*use_dictionary=*/false, this->descr_.get());
   encoder->Put(int_values, num_values);
-  auto const encoded = encoder->FlushValues();
+  const auto encoded = encoder->FlushValues();
 
   ASSERT_EQ(encoded->size(), encoded_size);
 }

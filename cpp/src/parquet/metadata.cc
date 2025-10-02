@@ -92,6 +92,14 @@ std::string ParquetVersionToString(ParquetVersion::type ver) {
 template <typename DType>
 static std::shared_ptr<Statistics> MakeTypedColumnStats(
     const format::ColumnMetaData& metadata, const ColumnDescriptor* descr) {
+  std::optional<bool> min_exact =
+      metadata.statistics.__isset.is_min_value_exact
+          ? std::optional<bool>(metadata.statistics.is_min_value_exact)
+          : std::nullopt;
+  std::optional<bool> max_exact =
+      metadata.statistics.__isset.is_max_value_exact
+          ? std::optional<bool>(metadata.statistics.is_max_value_exact)
+          : std::nullopt;
   // If ColumnOrder is defined, return max_value and min_value
   if (descr->column_order().get_order() == ColumnOrder::TYPE_DEFINED_ORDER) {
     return MakeStatistics<DType>(
@@ -100,7 +108,7 @@ static std::shared_ptr<Statistics> MakeTypedColumnStats(
         metadata.statistics.null_count, metadata.statistics.distinct_count,
         metadata.statistics.__isset.max_value && metadata.statistics.__isset.min_value,
         metadata.statistics.__isset.null_count,
-        metadata.statistics.__isset.distinct_count);
+        metadata.statistics.__isset.distinct_count, min_exact, max_exact);
   }
   // Default behavior
   return MakeStatistics<DType>(
@@ -108,7 +116,8 @@ static std::shared_ptr<Statistics> MakeTypedColumnStats(
       metadata.num_values - metadata.statistics.null_count,
       metadata.statistics.null_count, metadata.statistics.distinct_count,
       metadata.statistics.__isset.max && metadata.statistics.__isset.min,
-      metadata.statistics.__isset.null_count, metadata.statistics.__isset.distinct_count);
+      metadata.statistics.__isset.null_count, metadata.statistics.__isset.distinct_count,
+      min_exact, max_exact);
 }
 
 namespace {
@@ -318,10 +327,7 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
   // 2) Statistics must not be corrupted
   inline bool is_stats_set() const {
     DCHECK(writer_version_ != nullptr);
-    // If the column statistics don't exist or column sort order is unknown
-    // we cannot use the column stats
-    if (!column_metadata_->__isset.statistics ||
-        descr_->sort_order() == SortOrder::UNKNOWN) {
+    if (!column_metadata_->__isset.statistics) {
       return false;
     }
     {
@@ -329,6 +335,10 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
       if (possible_encoded_stats_ == nullptr) {
         possible_encoded_stats_ =
             std::make_shared<EncodedStatistics>(FromThrift(column_metadata_->statistics));
+        if (descr_->sort_order() == SortOrder::UNKNOWN) {
+          // If the column SortOrder is Unknown we can't trust max/min.
+          possible_encoded_stats_->ClearMinMax();
+        }
       }
     }
     return writer_version_->HasCorrectStatistics(type(), *possible_encoded_stats_,
@@ -1577,11 +1587,6 @@ bool ApplicationVersion::HasCorrectStatistics(Type::type col_type,
   // parquet-mr during the same time as PARQUET-251, see PARQUET-297
   if (application_ == "unknown") {
     return true;
-  }
-
-  // Unknown sort order has incorrect stats
-  if (SortOrder::UNKNOWN == sort_order) {
-    return false;
   }
 
   // PARQUET-251

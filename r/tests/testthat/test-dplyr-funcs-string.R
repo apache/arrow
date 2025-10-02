@@ -1544,3 +1544,36 @@ test_that("GH-36720: stringr modifier functions can be called with namespace pre
     fixed = TRUE
   )
 })
+
+test_that("str_replace_na", {
+  x <- Expression$field_ref("x")
+
+  expect_error(
+    call_binding("str_replace_na", x, c("a", "b")),
+    "`replacement` must be a single string"
+  )
+
+  expect_error(
+    call_binding("str_replace_na", x, 1),
+    "`replacement` must be a single string"
+  )
+
+  df <- tibble(x = c("Foo", NA_character_, "bar", NA_character_))
+
+  compare_dplyr_binding(
+    .input %>%
+      transmute(
+        x = str_replace_na(x),
+        x2 = stringr::str_replace_na(x)
+      ) %>%
+      collect(),
+    df
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      transmute(x = str_replace_na(x, "MISSING")) %>%
+      collect(),
+    df
+  )
+})

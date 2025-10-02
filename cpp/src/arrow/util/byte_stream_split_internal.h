@@ -120,7 +120,7 @@ void ByteStreamSplitDecodeSimd(const uint8_t* data, int width, int64_t num_value
 
 // Like xsimd::zip_lo, but zip groups of kNumBytes at once.
 template <typename Arch, int kNumBytes>
-auto zip_lo_n(xsimd::batch<int8_t, Arch> const& a, xsimd::batch<int8_t, Arch> const& b)
+auto zip_lo_n(const xsimd::batch<int8_t, Arch>& a, const xsimd::batch<int8_t, Arch>& b)
     -> xsimd::batch<int8_t, Arch> {
   using arrow::internal::SizedInt;
   using simd_batch = xsimd::batch<int8_t, Arch>;
@@ -144,7 +144,7 @@ auto zip_lo_n(xsimd::batch<int8_t, Arch> const& a, xsimd::batch<int8_t, Arch> co
 
 // Like xsimd::zip_hi, but zip groups of kNumBytes at once.
 template <typename Arch, int kNumBytes>
-auto zip_hi_n(xsimd::batch<int8_t, Arch> const& a, xsimd::batch<int8_t, Arch> const& b)
+auto zip_hi_n(const xsimd::batch<int8_t, Arch>& a, const xsimd::batch<int8_t, Arch>& b)
     -> xsimd::batch<int8_t, Arch> {
   using simd_batch = xsimd::batch<int8_t, Arch>;
   using arrow::internal::SizedInt;
@@ -452,8 +452,9 @@ inline void ByteStreamSplitDecodeScalarDynamic(const uint8_t* data, int width,
 }
 
 template <int kNumStreams>
-void ByteStreamSplitDecodeSimdDispatch(const uint8_t* data, int width, int64_t num_values,
-                                       int64_t stride, uint8_t* out);
+ARROW_EXPORT void ByteStreamSplitDecodeSimdDispatch(const uint8_t* data, int width,
+                                                    int64_t num_values, int64_t stride,
+                                                    uint8_t* out);
 
 extern template ARROW_TEMPLATE_EXPORT void ByteStreamSplitDecodeSimdDispatch<2>(
     const uint8_t*, int, int64_t, int64_t, uint8_t*);

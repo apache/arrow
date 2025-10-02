@@ -17,7 +17,7 @@
 
 arrow_install_all_headers("parquet/arrow")
 
-if(ARROW_FUZZING)
+if(ARROW_BUILD_FUZZING_UTILITIES)
   add_executable(parquet-arrow-generate-fuzz-corpus generate_fuzz_corpus.cc)
   if(ARROW_BUILD_STATIC)
     target_link_libraries(parquet-arrow-generate-fuzz-corpus parquet_static

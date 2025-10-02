@@ -17,20 +17,19 @@
 # specific language governing permissions and limitations
 # under the License.
 
+set -ex
 
 ## These hooks are used by benchmark builds
 # to create a conda env with Arrow dependencies and build Arrow C++, Python, etc
 create_conda_env_for_benchmark_build() {
-  conda create -y -n "${BENCHMARKABLE_TYPE}" -c conda-forge \
-  --file ci/conda_env_unix.txt \
-  --file ci/conda_env_cpp.txt \
-  --file ci/conda_env_python.txt \
-  --file ci/conda_env_gandiva.txt \
-  compilers \
-  python="${PYTHON_VERSION}" \
-  pandas \
-  aws-sdk-cpp \
-  r
+  conda create -y -q -n "${BENCHMARKABLE_TYPE}" -c conda-forge --override-channels \
+    --file ci/conda_env_cpp.txt \
+    --file ci/conda_env_python.txt \
+    --file ci/conda_env_unix.txt \
+    compilers \
+    python="${PYTHON_VERSION}" \
+    pandas \
+    r
 }
 
 activate_conda_env_for_benchmark_build() {
@@ -49,13 +48,8 @@ set_arrow_build_and_run_env_vars() {
 }
 
 build_arrow_cpp() {
-  export ARROW_BUILD_DIR="/tmp/$(uuidgen)"
-  # Ignore the error when a cache can't be created
-  if ! ci/scripts/cpp_build.sh $(pwd) $ARROW_BUILD_DIR 2> error.log; then
-      if ! grep -q -F "Can\'t create temporary cache file" error.log; then
-         cat error.log
-      fi
-  fi
+  export ARROW_BUILD_DIR="/tmp/arrow-cpp-$(uuidgen)"
+  ci/scripts/cpp_build.sh $(pwd) $ARROW_BUILD_DIR
 }
 
 build_arrow_python() {

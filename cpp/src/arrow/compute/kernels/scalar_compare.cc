@@ -436,8 +436,8 @@ std::shared_ptr<ScalarFunction> MakeCompareFunction(std::string name, FunctionDo
 
   for (const auto id : {Type::DECIMAL128, Type::DECIMAL256}) {
     auto exec = GenerateDecimal<applicator::ScalarBinaryEqualTypes, BooleanType, Op>(id);
-    DCHECK_OK(
-        func->AddKernel({InputType(id), InputType(id)}, boolean(), std::move(exec)));
+    DCHECK_OK(func->AddKernel({InputType(id), InputType(id)}, boolean(), std::move(exec),
+                              /*init=*/nullptr, DecimalsHaveSameScale()));
   }
 
   {

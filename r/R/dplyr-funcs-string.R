@@ -402,6 +402,13 @@ register_bindings_string_regex <- function() {
   register_binding("stringr::str_remove", arrow_stringr_string_remove_function(1L))
   register_binding("stringr::str_remove_all", arrow_stringr_string_remove_function(-1L))
 
+  register_binding("stringr::str_replace_na", function(string, replacement = "NA") {
+    if (!is.character(replacement) || length(replacement) != 1) {
+      validation_error("`replacement` must be a single string")
+    }
+    Expression$create("coalesce", string, Expression$scalar(replacement))
+  })
+
   register_binding("base::strsplit", function(x, split, fixed = FALSE, perl = FALSE,
                                               useBytes = FALSE) {
     assert_that(is.string(split))

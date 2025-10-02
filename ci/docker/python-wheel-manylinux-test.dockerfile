@@ -28,7 +28,8 @@ RUN pip install -r /arrow/python/requirements-wheel-test.txt
 RUN apt-get update -y -q && \
     apt-get install -y -q \
         build-essential \
-        python3-dev && \
+        python3-dev \
+        tzdata-legacy && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists*
 

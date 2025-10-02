@@ -1451,6 +1451,20 @@ struct CaseWhenFunction : ScalarFunction {
     if (auto kernel = DispatchExactImpl(this, *types)) return kernel;
     return arrow::compute::detail::NoMatchingKernel(this, *types);
   }
+
+  static std::shared_ptr<MatchConstraint> DecimalMatchConstraint() {
+    static auto constraint =
+        MatchConstraint::Make([](const std::vector<TypeHolder>& types) -> bool {
+          DCHECK_GE(types.size(), 2);
+          DCHECK(std::all_of(types.begin() + 1, types.end(), [](const TypeHolder& type) {
+            return is_decimal(type.id());
+          }));
+          return std::all_of(
+              types.begin() + 2, types.end(),
+              [&types](const TypeHolder& type) { return type == types[1]; });
+        });
+    return constraint;
+  }
 };
 
 // Implement a 'case when' (SQL)/'select' (NumPy) function for any scalar conditions
@@ -2712,10 +2726,11 @@ struct ChooseFunction : ScalarFunction {
 };
 
 void AddCaseWhenKernel(const std::shared_ptr<CaseWhenFunction>& scalar_function,
-                       detail::GetTypeId get_id, ArrayKernelExec exec) {
+                       detail::GetTypeId get_id, ArrayKernelExec exec,
+                       std::shared_ptr<MatchConstraint> constraint = nullptr) {
   ScalarKernel kernel(
       KernelSignature::Make({InputType(Type::STRUCT), InputType(get_id.id)}, LastType,
-                            /*is_varargs=*/true),
+                            /*is_varargs=*/true, std::move(constraint)),
       exec);
   if (is_fixed_width(get_id.id)) {
     kernel.null_handling = NullHandling::COMPUTED_PREALLOCATE;
@@ -2890,8 +2905,10 @@ void RegisterScalarIfElse(FunctionRegistry* registry) {
     AddPrimitiveCaseWhenKernels(func, {boolean(), null(), float16()});
     AddCaseWhenKernel(func, Type::FIXED_SIZE_BINARY,
                       CaseWhenFunctor<FixedSizeBinaryType>::Exec);
-    AddCaseWhenKernel(func, Type::DECIMAL128, CaseWhenFunctor<FixedSizeBinaryType>::Exec);
-    AddCaseWhenKernel(func, Type::DECIMAL256, CaseWhenFunctor<FixedSizeBinaryType>::Exec);
+    AddCaseWhenKernel(func, Type::DECIMAL128, CaseWhenFunctor<FixedSizeBinaryType>::Exec,
+                      CaseWhenFunction::DecimalMatchConstraint());
+    AddCaseWhenKernel(func, Type::DECIMAL256, CaseWhenFunctor<FixedSizeBinaryType>::Exec,
+                      CaseWhenFunction::DecimalMatchConstraint());
     AddBinaryCaseWhenKernels(func, BaseBinaryTypes());
     AddNestedCaseWhenKernels(func);
     DCHECK_OK(registry->AddFunction(std::move(func)));

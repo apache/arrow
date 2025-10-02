@@ -141,7 +141,7 @@ class ARROW_ENGINE_EXPORT SubstraitCall {
   Result<compute::Expression> GetValueArg(int index) const;
   bool HasValueArg(int index) const;
   void SetValueArg(int index, compute::Expression value_arg);
-  std::optional<std::vector<std::string> const*> GetOption(
+  std::optional<const std::vector<std::string>*> GetOption(
       std::string_view option_name) const;
   void SetOption(std::string_view option_name,
                  const std::vector<std::string_view>& option_preferences);

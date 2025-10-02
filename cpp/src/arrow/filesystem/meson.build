@@ -34,6 +34,12 @@ install_headers(
     subdir: 'arrow/filesystem',
 )
 
+arrow_filesystem_dep = declare_dependency(
+    include_directories: include_directories('.'),
+    dependencies: arrow_dep,
+)
+meson.override_dependency('arrow-filesystem', arrow_filesystem_dep)
+
 pkg.generate(
     filebase: 'arrow-filesystem',
     name: 'Apache Arrow Filesystem',

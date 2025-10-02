@@ -26,11 +26,10 @@
 
 #pragma once
 
-#include "arrow/util/bit_util.h"
+#include "arrow/util/endian.h"
 #include "arrow/util/ubsan.h"
 
-namespace arrow {
-namespace internal {
+namespace arrow::internal {
 
 inline const uint8_t* unpack0_64(const uint8_t* in, uint64_t* out) {
   for (int k = 0; k < 32; k += 1) {
@@ -5638,5 +5637,4 @@ inline const uint8_t* unpack64_64(const uint8_t* in, uint64_t* out) {
   return in;
 }
 
-}  // namespace internal
-}  // namespace arrow
+}  // namespace arrow::internal

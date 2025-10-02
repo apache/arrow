@@ -25,11 +25,6 @@
   - any-glob-to-any-file:
     - c_glib/**/*
 
-"Component: C#":
-- changed-files:
-  - any-glob-to-any-file:
-    - csharp/**/*
-
 "Component: MATLAB":
 - changed-files:
   - any-glob-to-any-file:
