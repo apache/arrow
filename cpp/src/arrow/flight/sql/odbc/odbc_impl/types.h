@@ -17,9 +17,9 @@
 
 #pragma once
 
+#include <cstdint>
+#include <optional>
 #include "arrow/flight/sql/odbc/odbc_impl/platform.h"
-
-#include <boost/optional.hpp>
 
 namespace arrow::flight::sql::odbc {
 
@@ -172,7 +172,7 @@ enum RowStatus : uint16_t {
 };
 
 struct MetadataSettings {
-  boost::optional<int32_t> string_column_length{boost::none};
+  std::optional<int32_t> string_column_length{std::nullopt};
   size_t chunk_buffer_capacity;
   bool use_wide_char;
 };
