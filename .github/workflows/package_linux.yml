@@ -106,6 +106,9 @@ jobs:
         with:
           fetch-depth: 0
           submodules: recursive
+      - name: Free up disk space
+        run: |
+          ci/scripts/util_free_space.sh
       - name: Prepare environment variables
         env:
           ID: ${{ matrix.id }}
