@@ -23,7 +23,6 @@ on:
       - '**'
       - '!dependabot/**'
     paths:
-      - '.dockerignore'
       - '.github/workflows/check_labels.yml'
       - '.github/workflows/package_linux.yml'
       - '.github/workflows/report_ci.yml'
@@ -31,12 +30,10 @@ on:
       - 'c_glib/**'
       - 'dev/tasks/linux-packages/**'
       - 'format/Flight.proto'
-      - 'testing'
     tags:
       - "apache-arrow-*-rc*"
   pull_request:
     paths:
-      - '.dockerignore'
       - '.github/workflows/check_labels.yml'
       - '.github/workflows/package_linux.yml'
       - '.github/workflows/report_ci.yml'
@@ -44,7 +41,6 @@ on:
       - 'c_glib/**'
       - 'dev/tasks/linux-packages/**'
       - 'format/Flight.proto'
-      - 'testing'
     types:
       - labeled
       - opened

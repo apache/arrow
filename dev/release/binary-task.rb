@@ -2041,7 +2041,7 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
                  "centos-9-stream",
                  "centos-7"
               # Adjust source packages directory for backward
-              # compatibility.  We don't need this for new supported
+              # compatibility. We don't need this for new supported
               # distribution because we don't need to care about
               # backward compatibility for them.
               #
