@@ -834,6 +834,7 @@ tasks:
         UBUNTU: 22.04
         PYTHON: 3.12
       image: conda-python-emscripten
+      timeout: 90 # 1.5 hours
 
   test-conda-python-3.11-hypothesis:
     ci: github
