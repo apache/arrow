@@ -81,10 +81,10 @@ void PostLastInstallerError() {
 
   std::stringstream buf;
   buf << "Message: \"" << msg << "\", Code: " << code;
-  std::string errorMsg = buf.str();
+  std::string error_msg = buf.str();
 
-  MessageBox(NULL, errorMsg.c_str(), "Error!", MB_ICONEXCLAMATION | MB_OK);
-  SQLPostInstallerError(code, errorMsg.c_str());
+  MessageBox(NULL, error_msg.c_str(), "Error!", MB_ICONEXCLAMATION | MB_OK);
+  SQLPostInstallerError(code, error_msg.c_str());
 }
 
 /**

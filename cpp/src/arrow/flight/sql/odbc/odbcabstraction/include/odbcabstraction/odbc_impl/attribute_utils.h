@@ -32,43 +32,44 @@ namespace ODBC {
 using driver::odbcabstraction::WcsToUtf8;
 
 template <typename T, typename O>
-inline void GetAttribute(T attributeValue, SQLPOINTER output, O outputSize,
-                         O* outputLenPtr) {
+inline void GetAttribute(T attribute_value, SQLPOINTER output, O output_size,
+                         O* output_len_ptr) {
   if (output) {
-    T* typedOutput = reinterpret_cast<T*>(output);
-    *typedOutput = attributeValue;
+    T* typed_output = reinterpret_cast<T*>(output);
+    *typed_output = attribute_value;
   }
 
-  if (outputLenPtr) {
-    *outputLenPtr = sizeof(T);
+  if (output_len_ptr) {
+    *output_len_ptr = sizeof(T);
   }
 }
 
 template <typename O>
-inline SQLRETURN GetAttributeUTF8(const std::string& attributeValue, SQLPOINTER output,
-                                  O outputSize, O* outputLenPtr) {
+inline SQLRETURN GetAttributeUTF8(const std::string& attribute_value, SQLPOINTER output,
+                                  O output_size, O* output_len_ptr) {
   if (output) {
-    size_t outputLenBeforeNul =
-        std::min(static_cast<O>(attributeValue.size()), static_cast<O>(outputSize - 1));
-    memcpy(output, attributeValue.c_str(), outputLenBeforeNul);
-    reinterpret_cast<char*>(output)[outputLenBeforeNul] = '\0';
+    size_t output_len_before_null =
+        std::min(static_cast<O>(attribute_value.size()), static_cast<O>(output_size - 1));
+    memcpy(output, attribute_value.c_str(), output_len_before_null);
+    reinterpret_cast<char*>(output)[output_len_before_null] = '\0';
   }
 
-  if (outputLenPtr) {
-    *outputLenPtr = static_cast<O>(attributeValue.size());
+  if (output_len_ptr) {
+    *output_len_ptr = static_cast<O>(attribute_value.size());
   }
 
-  if (output && outputSize < static_cast<O>(attributeValue.size() + 1)) {
+  if (output && output_size < static_cast<O>(attribute_value.size() + 1)) {
     return SQL_SUCCESS_WITH_INFO;
   }
   return SQL_SUCCESS;
 }
 
 template <typename O>
-inline SQLRETURN GetAttributeUTF8(const std::string& attributeValue, SQLPOINTER output,
-                                  O outputSize, O* outputLenPtr,
+inline SQLRETURN GetAttributeUTF8(const std::string& attribute_value, SQLPOINTER output,
+                                  O output_size, O* output_len_ptr,
                                   driver::odbcabstraction::Diagnostics& diagnostics) {
-  SQLRETURN result = GetAttributeUTF8(attributeValue, output, outputSize, outputLenPtr);
+  SQLRETURN result =
+      GetAttributeUTF8(attribute_value, output, output_size, output_len_ptr);
   if (SQL_SUCCESS_WITH_INFO == result) {
     diagnostics.AddTruncationWarning();
   }
@@ -76,31 +77,33 @@ inline SQLRETURN GetAttributeUTF8(const std::string& attributeValue, SQLPOINTER 
 }
 
 template <typename O>
-inline SQLRETURN GetAttributeSQLWCHAR(const std::string& attributeValue,
-                                      bool isLengthInBytes, SQLPOINTER output,
-                                      O outputSize, O* outputLenPtr) {
-  size_t result =
-      ConvertToSqlWChar(attributeValue, reinterpret_cast<SQLWCHAR*>(output),
-                        isLengthInBytes ? outputSize : outputSize * GetSqlWCharSize());
+inline SQLRETURN GetAttributeSQLWCHAR(const std::string& attribute_value,
+                                      bool is_length_in_bytes, SQLPOINTER output,
+                                      O output_size, O* output_len_ptr) {
+  size_t result = ConvertToSqlWChar(
+      attribute_value, reinterpret_cast<SQLWCHAR*>(output),
+      is_length_in_bytes ? output_size : output_size * GetSqlWCharSize());
 
-  if (outputLenPtr) {
-    *outputLenPtr = static_cast<O>(isLengthInBytes ? result : result / GetSqlWCharSize());
+  if (output_len_ptr) {
+    *output_len_ptr =
+        static_cast<O>(is_length_in_bytes ? result : result / GetSqlWCharSize());
   }
 
   if (output &&
-      outputSize < static_cast<O>(result + (isLengthInBytes ? GetSqlWCharSize() : 1))) {
+      output_size <
+          static_cast<O>(result + (is_length_in_bytes ? GetSqlWCharSize() : 1))) {
     return SQL_SUCCESS_WITH_INFO;
   }
   return SQL_SUCCESS;
 }
 
 template <typename O>
-inline SQLRETURN GetAttributeSQLWCHAR(const std::string& attributeValue,
-                                      bool isLengthInBytes, SQLPOINTER output,
-                                      O outputSize, O* outputLenPtr,
+inline SQLRETURN GetAttributeSQLWCHAR(const std::string& attribute_value,
+                                      bool is_length_in_bytes, SQLPOINTER output,
+                                      O output_size, O* output_len_ptr,
                                       driver::odbcabstraction::Diagnostics& diagnostics) {
-  SQLRETURN result = GetAttributeSQLWCHAR(attributeValue, isLengthInBytes, output,
-                                          outputSize, outputLenPtr);
+  SQLRETURN result = GetAttributeSQLWCHAR(attribute_value, is_length_in_bytes, output,
+                                          output_size, output_len_ptr);
   if (SQL_SUCCESS_WITH_INFO == result) {
     diagnostics.AddTruncationWarning();
   }
@@ -108,16 +111,16 @@ inline SQLRETURN GetAttributeSQLWCHAR(const std::string& attributeValue,
 }
 
 template <typename O>
-inline SQLRETURN GetStringAttribute(bool isUnicode, const std::string& attributeValue,
-                                    bool isLengthInBytes, SQLPOINTER output, O outputSize,
-                                    O* outputLenPtr,
+inline SQLRETURN GetStringAttribute(bool is_unicode, const std::string& attribute_value,
+                                    bool is_length_in_bytes, SQLPOINTER output,
+                                    O output_size, O* output_len_ptr,
                                     driver::odbcabstraction::Diagnostics& diagnostics) {
   SQLRETURN result = SQL_SUCCESS;
-  if (isUnicode) {
-    result = GetAttributeSQLWCHAR(attributeValue, isLengthInBytes, output, outputSize,
-                                  outputLenPtr);
+  if (is_unicode) {
+    result = GetAttributeSQLWCHAR(attribute_value, is_length_in_bytes, output,
+                                  output_size, output_len_ptr);
   } else {
-    result = GetAttributeUTF8(attributeValue, output, outputSize, outputLenPtr);
+    result = GetAttributeUTF8(attribute_value, output, output_size, output_len_ptr);
   }
 
   if (SQL_SUCCESS_WITH_INFO == result) {
@@ -127,32 +130,33 @@ inline SQLRETURN GetStringAttribute(bool isUnicode, const std::string& attribute
 }
 
 template <typename T>
-inline void SetAttribute(SQLPOINTER newValue, T& attributeToWrite) {
-  SQLLEN valueAsLen = reinterpret_cast<SQLLEN>(newValue);
-  attributeToWrite = static_cast<T>(valueAsLen);
+inline void SetAttribute(SQLPOINTER new_value, T& attribute_to_write) {
+  SQLLEN valueAsLen = reinterpret_cast<SQLLEN>(new_value);
+  attribute_to_write = static_cast<T>(valueAsLen);
 }
 
 template <typename T>
-inline void SetPointerAttribute(SQLPOINTER newValue, T& attributeToWrite) {
-  attributeToWrite = static_cast<T>(newValue);
+inline void SetPointerAttribute(SQLPOINTER new_value, T& attribute_to_write) {
+  attribute_to_write = static_cast<T>(new_value);
 }
 
-inline void SetAttributeUTF8(SQLPOINTER newValue, SQLINTEGER inputLength,
-                             std::string& attributeToWrite) {
-  const char* newValueAsChar = static_cast<const char*>(newValue);
-  attributeToWrite.assign(newValueAsChar,
-                          inputLength == SQL_NTS ? strlen(newValueAsChar) : inputLength);
+inline void SetAttributeUTF8(SQLPOINTER new_value, SQLINTEGER input_length,
+                             std::string& attribute_to_write) {
+  const char* new_value_as_char = static_cast<const char*>(new_value);
+  attribute_to_write.assign(new_value_as_char, input_length == SQL_NTS
+                                                   ? strlen(new_value_as_char)
+                                                   : input_length);
 }
 
-inline void SetAttributeSQLWCHAR(SQLPOINTER newValue, SQLINTEGER inputLengthInBytes,
-                                 std::string& attributeToWrite) {
+inline void SetAttributeSQLWCHAR(SQLPOINTER new_value, SQLINTEGER input_length_in_bytes,
+                                 std::string& attribute_to_write) {
   thread_local std::vector<uint8_t> utf8_str;
-  if (inputLengthInBytes == SQL_NTS) {
-    WcsToUtf8(newValue, &utf8_str);
+  if (input_length_in_bytes == SQL_NTS) {
+    WcsToUtf8(new_value, &utf8_str);
   } else {
-    WcsToUtf8(newValue, inputLengthInBytes / GetSqlWCharSize(), &utf8_str);
+    WcsToUtf8(new_value, input_length_in_bytes / GetSqlWCharSize(), &utf8_str);
   }
-  attributeToWrite.assign((char*)utf8_str.data());
+  attribute_to_write.assign((char*)utf8_str.data());
 }
 
 template <typename T>

@@ -139,15 +139,15 @@ void Configuration::LoadDsn(const std::string& dsn) {
   }
 }
 
-void Configuration::Clear() { this->properties.clear(); }
+void Configuration::Clear() { this->properties_.clear(); }
 
 bool Configuration::IsSet(const std::string_view& key) const {
-  return 0 != this->properties.count(key);
+  return 0 != this->properties_.count(key);
 }
 
 const std::string& Configuration::Get(const std::string_view& key) const {
-  const auto itr = this->properties.find(key);
-  if (itr == this->properties.cend()) {
+  const auto itr = this->properties_.find(key);
+  if (itr == this->properties_.cend()) {
     static const std::string empty("");
     return empty;
   }
@@ -157,22 +157,22 @@ const std::string& Configuration::Get(const std::string_view& key) const {
 void Configuration::Set(const std::string_view& key, const std::string& value) {
   const std::string copy = boost::trim_copy(value);
   if (!copy.empty()) {
-    this->properties[key] = value;
+    this->properties_[key] = value;
   }
 }
 
 const driver::odbcabstraction::Connection::ConnPropertyMap& Configuration::GetProperties()
     const {
-  return this->properties;
+  return this->properties_;
 }
 
 std::vector<std::string_view> Configuration::GetCustomKeys() const {
-  driver::odbcabstraction::Connection::ConnPropertyMap copyProps(properties);
+  driver::odbcabstraction::Connection::ConnPropertyMap copy_props(properties_);
   for (auto& key : FlightSqlConnection::ALL_KEYS) {
-    copyProps.erase(key);
+    copy_props.erase(key);
   }
   std::vector<std::string_view> keys;
-  boost::copy(copyProps | boost::adaptors::map_keys, std::back_inserter(keys));
+  boost::copy(copy_props | boost::adaptors::map_keys, std::back_inserter(keys));
   return keys;
 }
 

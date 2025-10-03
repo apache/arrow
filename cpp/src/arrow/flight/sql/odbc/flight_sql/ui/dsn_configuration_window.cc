@@ -33,19 +33,19 @@
 
 namespace {
 std::string TestConnection(const driver::flight_sql::config::Configuration& config) {
-  std::unique_ptr<driver::flight_sql::FlightSqlConnection> flightSqlConn(
+  std::unique_ptr<driver::flight_sql::FlightSqlConnection> flight_sql_conn(
       new driver::flight_sql::FlightSqlConnection(driver::odbcabstraction::V_3));
 
-  std::vector<std::string_view> missingProperties;
-  flightSqlConn->Connect(config.GetProperties(), missingProperties);
+  std::vector<std::string_view> missing_properties;
+  flight_sql_conn->Connect(config.GetProperties(), missing_properties);
 
   // This should have been checked before enabling the Test button.
-  assert(missingProperties.empty());
-  std::string serverName =
-      boost::get<std::string>(flightSqlConn->GetInfo(SQL_SERVER_NAME));
-  std::string serverVersion =
-      boost::get<std::string>(flightSqlConn->GetInfo(SQL_DBMS_VER));
-  return "Server Name: " + serverName + "\n" + "Server Version: " + serverVersion;
+  assert(missing_properties.empty());
+  std::string server_name =
+      boost::get<std::string>(flight_sql_conn->GetInfo(SQL_SERVER_NAME));
+  std::string server_version =
+      boost::get<std::string>(flight_sql_conn->GetInfo(SQL_DBMS_VER));
+  return "Server Name: " + server_name + "\n" + "Server Version: " + server_version;
 }
 }  // namespace
 
@@ -56,11 +56,11 @@ namespace config {
 DsnConfigurationWindow::DsnConfigurationWindow(Window* parent,
                                                config::Configuration& config)
     : CustomWindow(parent, "FlightConfigureDSN", "Configure Apache Arrow Flight SQL"),
-      width(480),
-      height(375),
-      config(config),
-      accepted(false),
-      isInitialized(false) {
+      width_(480),
+      height_(375),
+      config_(config),
+      accepted_(false),
+      is_initialized_(false) {
   // No-op.
 }
 
@@ -70,22 +70,24 @@ DsnConfigurationWindow::~DsnConfigurationWindow() {
 
 void DsnConfigurationWindow::Create() {
   // Finding out parent position.
-  RECT parentRect;
-  GetWindowRect(parent->GetHandle(), &parentRect);
+  RECT parent_rect;
+  GetWindowRect(parent_->GetHandle(), &parent_rect);
 
   // Positioning window to the center of parent window.
-  const int posX = parentRect.left + (parentRect.right - parentRect.left - width) / 2;
-  const int posY = parentRect.top + (parentRect.bottom - parentRect.top - height) / 2;
+  const int pos_x =
+      parent_rect.left + (parent_rect.right - parent_rect.left - width_) / 2;
+  const int pos_y =
+      parent_rect.top + (parent_rect.bottom - parent_rect.top - height_) / 2;
 
-  RECT desiredRect = {posX, posY, posX + width, posY + height};
-  AdjustWindowRect(&desiredRect, WS_BORDER | WS_CAPTION | WS_SYSMENU | WS_THICKFRAME,
+  RECT desired_rect = {pos_x, pos_y, pos_x + width_, pos_y + height_};
+  AdjustWindowRect(&desired_rect, WS_BORDER | WS_CAPTION | WS_SYSMENU | WS_THICKFRAME,
                    FALSE);
 
-  Window::Create(WS_OVERLAPPED | WS_SYSMENU, desiredRect.left, desiredRect.top,
-                 desiredRect.right - desiredRect.left,
-                 desiredRect.bottom - desiredRect.top, 0);
+  Window::Create(WS_OVERLAPPED | WS_SYSMENU, desired_rect.left, desired_rect.top,
+                 desired_rect.right - desired_rect.left,
+                 desired_rect.bottom - desired_rect.top, 0);
 
-  if (!handle) {
+  if (!handle_) {
     std::stringstream buf;
     buf << "Can not create window, error code: " << GetLastError();
     throw odbcabstraction::DriverException(buf.str());
@@ -93,362 +95,370 @@ void DsnConfigurationWindow::Create() {
 }
 
 void DsnConfigurationWindow::OnCreate() {
-  tabControl = CreateTabControl(ChildId::TAB_CONTROL);
-  tabControl->AddTab("Common", COMMON_TAB);
-  tabControl->AddTab("Advanced", ADVANCED_TAB);
+  tab_control_ = CreateTabControl(ChildId::TAB_CONTROL);
+  tab_control_->AddTab("Common", COMMON_TAB);
+  tab_control_->AddTab("Advanced", ADVANCED_TAB);
 
-  int groupPosY = 3 * MARGIN;
-  int groupSizeY = width - 2 * MARGIN;
+  int group_pos_y = 3 * MARGIN;
+  int group_size_y = width_ - 2 * MARGIN;
 
-  int commonGroupPosY = groupPosY;
-  commonGroupPosY +=
-      INTERVAL + CreateConnectionSettingsGroup(MARGIN, commonGroupPosY, groupSizeY);
-  commonGroupPosY +=
-      INTERVAL + CreateAuthSettingsGroup(MARGIN, commonGroupPosY, groupSizeY);
+  int common_group_pos_y = group_pos_y;
+  common_group_pos_y +=
+      INTERVAL + CreateConnectionSettingsGroup(MARGIN, common_group_pos_y, group_size_y);
+  common_group_pos_y +=
+      INTERVAL + CreateAuthSettingsGroup(MARGIN, common_group_pos_y, group_size_y);
 
-  int advancedGroupPosY = groupPosY;
-  advancedGroupPosY +=
-      INTERVAL + CreateEncryptionSettingsGroup(MARGIN, advancedGroupPosY, groupSizeY);
-  advancedGroupPosY +=
-      INTERVAL + CreatePropertiesGroup(MARGIN, advancedGroupPosY, groupSizeY);
+  int advanced_group_pos_y = group_pos_y;
+  advanced_group_pos_y += INTERVAL + CreateEncryptionSettingsGroup(
+                                         MARGIN, advanced_group_pos_y, group_size_y);
+  advanced_group_pos_y +=
+      INTERVAL + CreatePropertiesGroup(MARGIN, advanced_group_pos_y, group_size_y);
 
-  int testPosX = MARGIN;
-  int cancelPosX = width - MARGIN - BUTTON_WIDTH;
-  int okPosX = cancelPosX - INTERVAL - BUTTON_WIDTH;
+  int test_pos_x = MARGIN;
+  int cancel_pos_x = width_ - MARGIN - BUTTON_WIDTH;
+  int ok_pos_x = cancel_pos_x - INTERVAL - BUTTON_WIDTH;
 
-  int buttonPosY = std::max(commonGroupPosY, advancedGroupPosY);
-  testButton = CreateButton(testPosX, buttonPosY, BUTTON_WIDTH + 20, BUTTON_HEIGHT,
-                            "Test Connection", ChildId::TEST_CONNECTION_BUTTON);
-  okButton = CreateButton(okPosX, buttonPosY, BUTTON_WIDTH, BUTTON_HEIGHT, "Ok",
-                          ChildId::OK_BUTTON);
-  cancelButton = CreateButton(cancelPosX, buttonPosY, BUTTON_WIDTH, BUTTON_HEIGHT,
-                              "Cancel", ChildId::CANCEL_BUTTON);
-  isInitialized = true;
+  int button_pos_y = std::max(common_group_pos_y, advanced_group_pos_y);
+  test_button_ = CreateButton(test_pos_x, button_pos_y, BUTTON_WIDTH + 20, BUTTON_HEIGHT,
+                              "Test Connection", ChildId::TEST_CONNECTION_BUTTON);
+  ok_button_ = CreateButton(ok_pos_x, button_pos_y, BUTTON_WIDTH, BUTTON_HEIGHT, "Ok",
+                            ChildId::OK_BUTTON);
+  cancel_button_ = CreateButton(cancel_pos_x, button_pos_y, BUTTON_WIDTH, BUTTON_HEIGHT,
+                                "Cancel", ChildId::CANCEL_BUTTON);
+  is_initialized_ = true;
   CheckEnableOk();
   SelectTab(COMMON_TAB);
 }
 
-int DsnConfigurationWindow::CreateConnectionSettingsGroup(int posX, int posY, int sizeX) {
+int DsnConfigurationWindow::CreateConnectionSettingsGroup(int pos_x, int pos_y,
+                                                          int size_x) {
   enum { LABEL_WIDTH = 100 };
 
-  const int labelPosX = posX + INTERVAL;
+  const int label_pos_x = pos_x + INTERVAL;
 
-  const int editSizeX = sizeX - LABEL_WIDTH - 3 * INTERVAL;
-  const int editPosX = labelPosX + LABEL_WIDTH + INTERVAL;
+  const int edit_size_x = size_x - LABEL_WIDTH - 3 * INTERVAL;
+  const int edit_pos_x = label_pos_x + LABEL_WIDTH + INTERVAL;
 
-  int rowPos = posY + 2 * INTERVAL;
+  int row_pos = pos_y + 2 * INTERVAL;
 
-  const char* val = config.Get(FlightSqlConnection::DSN).c_str();
-  labels.push_back(CreateLabel(labelPosX, rowPos, LABEL_WIDTH, ROW_HEIGHT,
-                               "Data Source Name:", ChildId::NAME_LABEL));
-  nameEdit = CreateEdit(editPosX, rowPos, editSizeX, ROW_HEIGHT, val, ChildId::NAME_EDIT);
+  const char* val = config_.Get(FlightSqlConnection::DSN).c_str();
+  labels_.push_back(CreateLabel(label_pos_x, row_pos, LABEL_WIDTH, ROW_HEIGHT,
+                                "Data Source Name:", ChildId::NAME_LABEL));
+  name_edit_ =
+      CreateEdit(edit_pos_x, row_pos, edit_size_x, ROW_HEIGHT, val, ChildId::NAME_EDIT);
 
-  rowPos += INTERVAL + ROW_HEIGHT;
+  row_pos += INTERVAL + ROW_HEIGHT;
 
-  val = config.Get(FlightSqlConnection::HOST).c_str();
-  labels.push_back(CreateLabel(labelPosX, rowPos, LABEL_WIDTH, ROW_HEIGHT,
-                               "Host Name:", ChildId::SERVER_LABEL));
-  serverEdit =
-      CreateEdit(editPosX, rowPos, editSizeX, ROW_HEIGHT, val, ChildId::SERVER_EDIT);
+  val = config_.Get(FlightSqlConnection::HOST).c_str();
+  labels_.push_back(CreateLabel(label_pos_x, row_pos, LABEL_WIDTH, ROW_HEIGHT,
+                                "Host Name:", ChildId::SERVER_LABEL));
+  server_edit_ =
+      CreateEdit(edit_pos_x, row_pos, edit_size_x, ROW_HEIGHT, val, ChildId::SERVER_EDIT);
 
-  rowPos += INTERVAL + ROW_HEIGHT;
+  row_pos += INTERVAL + ROW_HEIGHT;
 
-  val = config.Get(FlightSqlConnection::PORT).c_str();
-  labels.push_back(CreateLabel(labelPosX, rowPos, LABEL_WIDTH, ROW_HEIGHT,
-                               "Port:", ChildId::PORT_LABEL));
-  portEdit = CreateEdit(editPosX, rowPos, editSizeX, ROW_HEIGHT, val, ChildId::PORT_EDIT,
-                        ES_NUMBER);
+  val = config_.Get(FlightSqlConnection::PORT).c_str();
+  labels_.push_back(CreateLabel(label_pos_x, row_pos, LABEL_WIDTH, ROW_HEIGHT,
+                                "Port:", ChildId::PORT_LABEL));
+  port_edit_ = CreateEdit(edit_pos_x, row_pos, edit_size_x, ROW_HEIGHT, val,
+                          ChildId::PORT_EDIT, ES_NUMBER);
 
-  rowPos += INTERVAL + ROW_HEIGHT;
+  row_pos += INTERVAL + ROW_HEIGHT;
 
-  connectionSettingsGroupBox =
-      CreateGroupBox(posX, posY, sizeX, rowPos - posY, "Connection settings",
+  connection_settings_group_box_ =
+      CreateGroupBox(pos_x, pos_y, size_x, row_pos - pos_y, "Connection settings",
                      ChildId::CONNECTION_SETTINGS_GROUP_BOX);
 
-  return rowPos - posY;
+  return row_pos - pos_y;
 }
 
-int DsnConfigurationWindow::CreateAuthSettingsGroup(int posX, int posY, int sizeX) {
+int DsnConfigurationWindow::CreateAuthSettingsGroup(int pos_x, int pos_y, int size_x) {
   enum { LABEL_WIDTH = 120 };
 
-  const int labelPosX = posX + INTERVAL;
+  const int label_pos_x = pos_x + INTERVAL;
 
-  const int editSizeX = sizeX - LABEL_WIDTH - 3 * INTERVAL;
-  const int editPosX = labelPosX + LABEL_WIDTH + INTERVAL;
+  const int edit_size_x = size_x - LABEL_WIDTH - 3 * INTERVAL;
+  const int edit_pos_x = label_pos_x + LABEL_WIDTH + INTERVAL;
 
-  int rowPos = posY + 2 * INTERVAL;
+  int row_pos = pos_y + 2 * INTERVAL;
 
-  labels.push_back(CreateLabel(labelPosX, rowPos, LABEL_WIDTH, ROW_HEIGHT,
-                               "Authentication Type:", ChildId::AUTH_TYPE_LABEL));
-  authTypeComboBox = CreateComboBox(editPosX, rowPos, editSizeX, ROW_HEIGHT,
-                                    "Authentication Type:", ChildId::AUTH_TYPE_COMBOBOX);
-  authTypeComboBox->AddString("Basic Authentication");
-  authTypeComboBox->AddString("Token Authentication");
+  labels_.push_back(CreateLabel(label_pos_x, row_pos, LABEL_WIDTH, ROW_HEIGHT,
+                                "Authentication Type:", ChildId::AUTH_TYPE_LABEL));
+  auth_type_combo_box_ =
+      CreateComboBox(edit_pos_x, row_pos, edit_size_x, ROW_HEIGHT,
+                     "Authentication Type:", ChildId::AUTH_TYPE_COMBOBOX);
+  auth_type_combo_box_->AddString("Basic Authentication");
+  auth_type_combo_box_->AddString("Token Authentication");
 
-  rowPos += INTERVAL + ROW_HEIGHT;
+  row_pos += INTERVAL + ROW_HEIGHT;
 
-  const char* val = config.Get(FlightSqlConnection::UID).c_str();
+  const char* val = config_.Get(FlightSqlConnection::UID).c_str();
 
-  labels.push_back(CreateLabel(labelPosX, rowPos, LABEL_WIDTH, ROW_HEIGHT,
-                               "User:", ChildId::USER_LABEL));
-  userEdit = CreateEdit(editPosX, rowPos, editSizeX, ROW_HEIGHT, val, ChildId::USER_EDIT);
+  labels_.push_back(CreateLabel(label_pos_x, row_pos, LABEL_WIDTH, ROW_HEIGHT,
+                                "User:", ChildId::USER_LABEL));
+  user_edit_ =
+      CreateEdit(edit_pos_x, row_pos, edit_size_x, ROW_HEIGHT, val, ChildId::USER_EDIT);
 
-  rowPos += INTERVAL + ROW_HEIGHT;
+  row_pos += INTERVAL + ROW_HEIGHT;
 
-  val = config.Get(FlightSqlConnection::PWD).c_str();
-  labels.push_back(CreateLabel(labelPosX, rowPos, LABEL_WIDTH, ROW_HEIGHT,
-                               "Password:", ChildId::PASSWORD_LABEL));
-  passwordEdit = CreateEdit(editPosX, rowPos, editSizeX, ROW_HEIGHT, val,
-                            ChildId::USER_EDIT, ES_PASSWORD);
+  val = config_.Get(FlightSqlConnection::PWD).c_str();
+  labels_.push_back(CreateLabel(label_pos_x, row_pos, LABEL_WIDTH, ROW_HEIGHT,
+                                "Password:", ChildId::PASSWORD_LABEL));
+  password_edit_ = CreateEdit(edit_pos_x, row_pos, edit_size_x, ROW_HEIGHT, val,
+                              ChildId::USER_EDIT, ES_PASSWORD);
 
-  rowPos += INTERVAL + ROW_HEIGHT;
+  row_pos += INTERVAL + ROW_HEIGHT;
 
-  const auto& token = config.Get(FlightSqlConnection::TOKEN);
+  const auto& token = config_.Get(FlightSqlConnection::TOKEN);
   val = token.c_str();
-  labels.push_back(CreateLabel(labelPosX, rowPos, LABEL_WIDTH, ROW_HEIGHT,
-                               "Authentication Token:", ChildId::AUTH_TOKEN_LABEL));
-  authTokenEdit =
-      CreateEdit(editPosX, rowPos, editSizeX, ROW_HEIGHT, val, ChildId::AUTH_TOKEN_EDIT);
-  authTokenEdit->SetEnabled(false);
+  labels_.push_back(CreateLabel(label_pos_x, row_pos, LABEL_WIDTH, ROW_HEIGHT,
+                                "Authentication Token:", ChildId::AUTH_TOKEN_LABEL));
+  auth_token_edit_ = CreateEdit(edit_pos_x, row_pos, edit_size_x, ROW_HEIGHT, val,
+                                ChildId::AUTH_TOKEN_EDIT);
+  auth_token_edit_->SetEnabled(false);
 
   // Ensure the right elements are selected.
-  authTypeComboBox->SetSelection(token.empty() ? 0 : 1);
+  auth_type_combo_box_->SetSelection(token.empty() ? 0 : 1);
   CheckAuthType();
 
-  rowPos += INTERVAL + ROW_HEIGHT;
+  row_pos += INTERVAL + ROW_HEIGHT;
 
-  authSettingsGroupBox =
-      CreateGroupBox(posX, posY, sizeX, rowPos - posY, "Authentication settings",
+  auth_settings_group_box_ =
+      CreateGroupBox(pos_x, pos_y, size_x, row_pos - pos_y, "Authentication settings",
                      ChildId::AUTH_SETTINGS_GROUP_BOX);
 
-  return rowPos - posY;
+  return row_pos - pos_y;
 }
 
-int DsnConfigurationWindow::CreateEncryptionSettingsGroup(int posX, int posY, int sizeX) {
+int DsnConfigurationWindow::CreateEncryptionSettingsGroup(int pos_x, int pos_y,
+                                                          int size_x) {
   enum { LABEL_WIDTH = 120 };
 
-  const int labelPosX = posX + INTERVAL;
+  const int label_pos_x = pos_x + INTERVAL;
 
-  const int editSizeX = sizeX - LABEL_WIDTH - 3 * INTERVAL;
-  const int editPosX = labelPosX + LABEL_WIDTH + INTERVAL;
+  const int edit_size_x = size_x - LABEL_WIDTH - 3 * INTERVAL;
+  const int edit_pos_x = label_pos_x + LABEL_WIDTH + INTERVAL;
 
-  int rowPos = posY + 2 * INTERVAL;
+  int row_pos = pos_y + 2 * INTERVAL;
 
-  const char* val = config.Get(FlightSqlConnection::USE_ENCRYPTION).c_str();
+  const char* val = config_.Get(FlightSqlConnection::USE_ENCRYPTION).c_str();
 
-  const bool enableEncryption = driver::odbcabstraction::AsBool(val).value_or(true);
-  labels.push_back(CreateLabel(labelPosX, rowPos, LABEL_WIDTH, ROW_HEIGHT,
-                               "Use Encryption:", ChildId::ENABLE_ENCRYPTION_LABEL));
-  enableEncryptionCheckBox =
-      CreateCheckBox(editPosX, rowPos - 2, editSizeX, ROW_HEIGHT, "",
-                     ChildId::ENABLE_ENCRYPTION_CHECKBOX, enableEncryption);
+  const bool enable_encryption = driver::odbcabstraction::AsBool(val).value_or(true);
+  labels_.push_back(CreateLabel(label_pos_x, row_pos, LABEL_WIDTH, ROW_HEIGHT,
+                                "Use Encryption:", ChildId::ENABLE_ENCRYPTION_LABEL));
+  enable_encryption_check_box_ =
+      CreateCheckBox(edit_pos_x, row_pos - 2, edit_size_x, ROW_HEIGHT, "",
+                     ChildId::ENABLE_ENCRYPTION_CHECKBOX, enable_encryption);
 
-  rowPos += INTERVAL + ROW_HEIGHT;
+  row_pos += INTERVAL + ROW_HEIGHT;
 
-  val = config.Get(FlightSqlConnection::TRUSTED_CERTS).c_str();
+  val = config_.Get(FlightSqlConnection::TRUSTED_CERTS).c_str();
 
-  labels.push_back(CreateLabel(labelPosX, rowPos, LABEL_WIDTH, ROW_HEIGHT,
-                               "Certificate:", ChildId::CERTIFICATE_LABEL));
-  certificateEdit = CreateEdit(editPosX, rowPos, editSizeX - MARGIN - BUTTON_WIDTH,
-                               ROW_HEIGHT, val, ChildId::CERTIFICATE_EDIT);
-  certificateBrowseButton =
-      CreateButton(editPosX + editSizeX - BUTTON_WIDTH, rowPos - 2, BUTTON_WIDTH,
+  labels_.push_back(CreateLabel(label_pos_x, row_pos, LABEL_WIDTH, ROW_HEIGHT,
+                                "Certificate:", ChildId::CERTIFICATE_LABEL));
+  certificate_edit_ = CreateEdit(edit_pos_x, row_pos, edit_size_x - MARGIN - BUTTON_WIDTH,
+                                 ROW_HEIGHT, val, ChildId::CERTIFICATE_EDIT);
+  certificate_browse_button_ =
+      CreateButton(edit_pos_x + edit_size_x - BUTTON_WIDTH, row_pos - 2, BUTTON_WIDTH,
                    BUTTON_HEIGHT, "Browse", ChildId::CERTIFICATE_BROWSE_BUTTON);
 
-  rowPos += INTERVAL + ROW_HEIGHT;
+  row_pos += INTERVAL + ROW_HEIGHT;
 
-  val = config.Get(FlightSqlConnection::USE_SYSTEM_TRUST_STORE).c_str();
+  val = config_.Get(FlightSqlConnection::USE_SYSTEM_TRUST_STORE).c_str();
 
-  const bool useSystemCertStore = driver::odbcabstraction::AsBool(val).value_or(true);
-  labels.push_back(
-      CreateLabel(labelPosX, rowPos, LABEL_WIDTH, 2 * ROW_HEIGHT,
+  const bool use_system_cert_store = driver::odbcabstraction::AsBool(val).value_or(true);
+  labels_.push_back(
+      CreateLabel(label_pos_x, row_pos, LABEL_WIDTH, 2 * ROW_HEIGHT,
                   "Use System Certificate Store:", ChildId::USE_SYSTEM_CERT_STORE_LABEL));
-  useSystemCertStoreCheckBox =
-      CreateCheckBox(editPosX, rowPos - 2, 20, 2 * ROW_HEIGHT, "",
-                     ChildId::USE_SYSTEM_CERT_STORE_CHECKBOX, useSystemCertStore);
+  use_system_cert_store_check_box_ =
+      CreateCheckBox(edit_pos_x, row_pos - 2, 20, 2 * ROW_HEIGHT, "",
+                     ChildId::USE_SYSTEM_CERT_STORE_CHECKBOX, use_system_cert_store);
 
-  val = config.Get(FlightSqlConnection::DISABLE_CERTIFICATE_VERIFICATION).c_str();
+  val = config_.Get(FlightSqlConnection::DISABLE_CERTIFICATE_VERIFICATION).c_str();
 
-  const int rightPosX = labelPosX + (sizeX - (2 * INTERVAL)) / 2;
-  const int rightCheckPosX = rightPosX + (editPosX - labelPosX);
-  const bool disableCertVerification =
+  const int right_pos_x = label_pos_x + (size_x - (2 * INTERVAL)) / 2;
+  const int right_check_pos_x = right_pos_x + (edit_pos_x - label_pos_x);
+  const bool disable_cert_verification =
       driver::odbcabstraction::AsBool(val).value_or(false);
-  labels.push_back(CreateLabel(
-      rightPosX, rowPos, LABEL_WIDTH, 2 * ROW_HEIGHT,
+  labels_.push_back(CreateLabel(
+      right_pos_x, row_pos, LABEL_WIDTH, 2 * ROW_HEIGHT,
       "Disable Certificate Verification:", ChildId::DISABLE_CERT_VERIFICATION_LABEL));
-  disableCertVerificationCheckBox = CreateCheckBox(
-      rightCheckPosX, rowPos - 2, 20, 2 * ROW_HEIGHT, "",
-      ChildId::DISABLE_CERT_VERIFICATION_CHECKBOX, disableCertVerification);
+  disable_cert_verification_check_box_ = CreateCheckBox(
+      right_check_pos_x, row_pos - 2, 20, 2 * ROW_HEIGHT, "",
+      ChildId::DISABLE_CERT_VERIFICATION_CHECKBOX, disable_cert_verification);
 
-  rowPos += INTERVAL + static_cast<int>(1.5 * static_cast<int>(ROW_HEIGHT));
+  row_pos += INTERVAL + static_cast<int>(1.5 * static_cast<int>(ROW_HEIGHT));
 
-  encryptionSettingsGroupBox =
-      CreateGroupBox(posX, posY, sizeX, rowPos - posY, "Encryption settings",
+  encryption_settings_group_box_ =
+      CreateGroupBox(pos_x, pos_y, size_x, row_pos - pos_y, "Encryption settings",
                      ChildId::AUTH_SETTINGS_GROUP_BOX);
 
-  return rowPos - posY;
+  return row_pos - pos_y;
 }
 
-int DsnConfigurationWindow::CreatePropertiesGroup(int posX, int posY, int sizeX) {
+int DsnConfigurationWindow::CreatePropertiesGroup(int pos_x, int pos_y, int size_x) {
   enum { LABEL_WIDTH = 120 };
 
-  const int labelPosX = posX + INTERVAL;
-  const int listSize = sizeX - 2 * INTERVAL;
-  const int columnSize = listSize / 2;
+  const int label_pos_x = pos_x + INTERVAL;
+  const int list_size = size_x - 2 * INTERVAL;
+  const int column_size = list_size / 2;
 
-  int rowPos = posY + 2 * INTERVAL;
-  const int listHeight = 5 * ROW_HEIGHT;
+  int row_pos = pos_y + 2 * INTERVAL;
+  const int list_height = 5 * ROW_HEIGHT;
 
-  propertyList =
-      CreateList(labelPosX, rowPos, listSize, listHeight, ChildId::PROPERTY_LIST);
-  propertyList->ListAddColumn("Key", 0, columnSize);
-  propertyList->ListAddColumn("Value", 1, columnSize);
+  property_list_ =
+      CreateList(label_pos_x, row_pos, list_size, list_height, ChildId::PROPERTY_LIST);
+  property_list_->ListAddColumn("Key", 0, column_size);
+  property_list_->ListAddColumn("Value", 1, column_size);
 
-  const auto keys = config.GetCustomKeys();
+  const auto keys = config_.GetCustomKeys();
   for (const auto& key : keys) {
-    propertyList->ListAddItem({std::string(key), config.Get(key)});
+    property_list_->ListAddItem({std::string(key), config.Get(key)});
   }
 
-  SendMessage(propertyList->GetHandle(), LVM_SETEXTENDEDLISTVIEWSTYLE,
+  SendMessage(property_list_->GetHandle(), LVM_SETEXTENDEDLISTVIEWSTYLE,
               LVS_EX_FULLROWSELECT, LVS_EX_FULLROWSELECT);
 
-  rowPos += INTERVAL + listHeight;
+  row_pos += INTERVAL + list_height;
 
-  int deletePosX = width - INTERVAL - MARGIN - BUTTON_WIDTH;
-  int addPosX = deletePosX - INTERVAL - BUTTON_WIDTH;
-  addButton = CreateButton(addPosX, rowPos, BUTTON_WIDTH, BUTTON_HEIGHT, "Add",
-                           ChildId::ADD_BUTTON);
-  deleteButton = CreateButton(deletePosX, rowPos, BUTTON_WIDTH, BUTTON_HEIGHT, "Delete",
-                              ChildId::DELETE_BUTTON);
+  int delete_pos_x = width_ - INTERVAL - MARGIN - BUTTON_WIDTH;
+  int add_pos_x = delete_pos_x - INTERVAL - BUTTON_WIDTH;
+  add_button_ = CreateButton(add_pos_x, row_pos, BUTTON_WIDTH, BUTTON_HEIGHT, "Add",
+                             ChildId::ADD_BUTTON);
+  delete_button_ = CreateButton(delete_pos_x, row_pos, BUTTON_WIDTH, BUTTON_HEIGHT,
+                                "Delete", ChildId::DELETE_BUTTON);
 
-  rowPos += INTERVAL + BUTTON_HEIGHT;
+  row_pos += INTERVAL + BUTTON_HEIGHT;
 
-  propertyGroupBox = CreateGroupBox(posX, posY, sizeX, rowPos - posY,
-                                    "Advanced properties", ChildId::PROPERTY_GROUP_BOX);
+  property_group_box_ =
+      CreateGroupBox(pos_x, pos_y, size_x, row_pos - pos_y, "Advanced properties",
+                     ChildId::PROPERTY_GROUP_BOX);
 
-  return rowPos - posY;
+  return row_pos - pos_y;
 }
 
-void DsnConfigurationWindow::SelectTab(int tabIndex) {
-  if (!isInitialized) {
+void DsnConfigurationWindow::SelectTab(int tab_index) {
+  if (!is_initialized_) {
     return;
   }
 
-  connectionSettingsGroupBox->SetVisible(COMMON_TAB == tabIndex);
-  authSettingsGroupBox->SetVisible(COMMON_TAB == tabIndex);
-  nameEdit->SetVisible(COMMON_TAB == tabIndex);
-  serverEdit->SetVisible(COMMON_TAB == tabIndex);
-  portEdit->SetVisible(COMMON_TAB == tabIndex);
-  authTypeComboBox->SetVisible(COMMON_TAB == tabIndex);
-  userEdit->SetVisible(COMMON_TAB == tabIndex);
-  passwordEdit->SetVisible(COMMON_TAB == tabIndex);
-  authTokenEdit->SetVisible(COMMON_TAB == tabIndex);
+  connection_settings_group_box_->SetVisible(COMMON_TAB == tab_index);
+  auth_settings_group_box_->SetVisible(COMMON_TAB == tab_index);
+  name_edit_->SetVisible(COMMON_TAB == tab_index);
+  server_edit_->SetVisible(COMMON_TAB == tab_index);
+  port_edit_->SetVisible(COMMON_TAB == tab_index);
+  auth_type_combo_box_->SetVisible(COMMON_TAB == tab_index);
+  user_edit_->SetVisible(COMMON_TAB == tab_index);
+  password_edit_->SetVisible(COMMON_TAB == tab_index);
+  auth_token_edit_->SetVisible(COMMON_TAB == tab_index);
   for (size_t i = 0; i < 7; ++i) {
-    labels[i]->SetVisible(COMMON_TAB == tabIndex);
+    labels_[i]->SetVisible(COMMON_TAB == tab_index);
   }
 
-  encryptionSettingsGroupBox->SetVisible(ADVANCED_TAB == tabIndex);
-  enableEncryptionCheckBox->SetVisible(ADVANCED_TAB == tabIndex);
-  certificateEdit->SetVisible(ADVANCED_TAB == tabIndex);
-  certificateBrowseButton->SetVisible(ADVANCED_TAB == tabIndex);
-  useSystemCertStoreCheckBox->SetVisible(ADVANCED_TAB == tabIndex);
-  disableCertVerificationCheckBox->SetVisible(ADVANCED_TAB == tabIndex);
-  propertyGroupBox->SetVisible(ADVANCED_TAB == tabIndex);
-  propertyList->SetVisible(ADVANCED_TAB == tabIndex);
-  addButton->SetVisible(ADVANCED_TAB == tabIndex);
-  deleteButton->SetVisible(ADVANCED_TAB == tabIndex);
-  for (size_t i = 7; i < labels.size(); ++i) {
-    labels[i]->SetVisible(ADVANCED_TAB == tabIndex);
+  encryption_settings_group_box_->SetVisible(ADVANCED_TAB == tab_index);
+  enable_encryption_check_box_->SetVisible(ADVANCED_TAB == tab_index);
+  certificate_edit_->SetVisible(ADVANCED_TAB == tab_index);
+  certificate_browse_button_->SetVisible(ADVANCED_TAB == tab_index);
+  use_system_cert_store_check_box_->SetVisible(ADVANCED_TAB == tab_index);
+  disable_cert_verification_check_box_->SetVisible(ADVANCED_TAB == tab_index);
+  property_group_box_->SetVisible(ADVANCED_TAB == tab_index);
+  property_list_->SetVisible(ADVANCED_TAB == tab_index);
+  add_button_->SetVisible(ADVANCED_TAB == tab_index);
+  delete_button_->SetVisible(ADVANCED_TAB == tab_index);
+  for (size_t i = 7; i < labels_.size(); ++i) {
+    labels_[i]->SetVisible(ADVANCED_TAB == tab_index);
   }
 }
 
 void DsnConfigurationWindow::CheckEnableOk() {
-  if (!isInitialized) {
+  if (!is_initialized_) {
     return;
   }
 
-  bool enableOk = !nameEdit->IsTextEmpty();
-  enableOk = enableOk && !serverEdit->IsTextEmpty();
-  enableOk = enableOk && !portEdit->IsTextEmpty();
-  if (authTokenEdit->IsEnabled()) {
-    enableOk = enableOk && !authTokenEdit->IsTextEmpty();
+  bool enable_ok = !name_edit_->IsTextEmpty();
+  enable_ok = enable_ok && !server_edit_->IsTextEmpty();
+  enable_ok = enable_ok && !port_edit_->IsTextEmpty();
+  if (auth_token_edit_->IsEnabled()) {
+    enable_ok = enable_ok && !auth_token_edit_->IsTextEmpty();
   } else {
-    enableOk = enableOk && !userEdit->IsTextEmpty();
-    enableOk = enableOk && !passwordEdit->IsTextEmpty();
+    enable_ok = enable_ok && !user_edit_->IsTextEmpty();
+    enable_ok = enable_ok && !password_edit_->IsTextEmpty();
   }
 
-  testButton->SetEnabled(enableOk);
-  okButton->SetEnabled(enableOk);
+  test_button_->SetEnabled(enable_ok);
+  ok_button_->SetEnabled(enable_ok);
 }
 
-void DsnConfigurationWindow::SaveParameters(Configuration& targetConfig) {
-  targetConfig.Clear();
+void DsnConfigurationWindow::SaveParameters(Configuration& target_config) {
+  target_config.Clear();
 
   std::string text;
-  nameEdit->GetText(text);
-  targetConfig.Set(FlightSqlConnection::DSN, text);
-  serverEdit->GetText(text);
-  targetConfig.Set(FlightSqlConnection::HOST, text);
-  portEdit->GetText(text);
+  name_edit_->GetText(text);
+  target_config.Set(FlightSqlConnection::DSN, text);
+  server_edit_->GetText(text);
+  target_config.Set(FlightSqlConnection::HOST, text);
+  port_edit_->GetText(text);
   try {
-    const int portInt = std::stoi(text);
-    if (0 > portInt || USHRT_MAX < portInt) {
+    const int port_int = std::stoi(text);
+    if (0 > port_int || USHRT_MAX < port_int) {
       throw odbcabstraction::DriverException("Invalid port value.");
     }
-    targetConfig.Set(FlightSqlConnection::PORT, text);
+    target_config.Set(FlightSqlConnection::PORT, text);
   } catch (odbcabstraction::DriverException&) {
     throw;
   } catch (std::exception&) {
     throw odbcabstraction::DriverException("Invalid port value.");
   }
 
-  if (0 == authTypeComboBox->GetSelection()) {
-    userEdit->GetText(text);
-    targetConfig.Set(FlightSqlConnection::UID, text);
-    passwordEdit->GetText(text);
-    targetConfig.Set(FlightSqlConnection::PWD, text);
+  if (0 == auth_type_combo_box_->GetSelection()) {
+    user_edit_->GetText(text);
+    target_config.Set(FlightSqlConnection::UID, text);
+    password_edit_->GetText(text);
+    target_config.Set(FlightSqlConnection::PWD, text);
   } else {
-    authTokenEdit->GetText(text);
-    targetConfig.Set(FlightSqlConnection::TOKEN, text);
+    auth_token_edit_->GetText(text);
+    target_config.Set(FlightSqlConnection::TOKEN, text);
   }
 
-  if (enableEncryptionCheckBox->IsChecked()) {
-    targetConfig.Set(FlightSqlConnection::USE_ENCRYPTION, TRUE_STR);
-    certificateEdit->GetText(text);
-    targetConfig.Set(FlightSqlConnection::TRUSTED_CERTS, text);
-    targetConfig.Set(FlightSqlConnection::USE_SYSTEM_TRUST_STORE,
-                     useSystemCertStoreCheckBox->IsChecked() ? TRUE_STR : FALSE_STR);
-    targetConfig.Set(FlightSqlConnection::DISABLE_CERTIFICATE_VERIFICATION,
-                     disableCertVerificationCheckBox->IsChecked() ? TRUE_STR : FALSE_STR);
+  if (enable_encryption_check_box_->IsChecked()) {
+    target_config.Set(FlightSqlConnection::USE_ENCRYPTION, TRUE_STR);
+    certificate_edit_->GetText(text);
+    target_config.Set(FlightSqlConnection::TRUSTED_CERTS, text);
+    target_config.Set(
+        FlightSqlConnection::USE_SYSTEM_TRUST_STORE,
+        use_system_cert_store_check_box_->IsChecked() ? TRUE_STR : FALSE_STR);
+    target_config.Set(
+        FlightSqlConnection::DISABLE_CERTIFICATE_VERIFICATION,
+        disable_cert_verification_check_box_->IsChecked() ? TRUE_STR : FALSE_STR);
   } else {
-    targetConfig.Set(FlightSqlConnection::USE_ENCRYPTION, FALSE_STR);
+    target_config.Set(FlightSqlConnection::USE_ENCRYPTION, FALSE_STR);
   }
 
   // Get all the list properties.
-  const auto properties = propertyList->ListGetAll();
+  const auto properties = property_list_->ListGetAll();
   for (const auto& property : properties) {
-    targetConfig.Set(property[0], property[1]);
+    target_config.Set(property[0], property[1]);
   }
 }
 
 void DsnConfigurationWindow::CheckAuthType() {
-  const bool isBasic = COMMON_TAB == authTypeComboBox->GetSelection();
-  userEdit->SetEnabled(isBasic);
-  passwordEdit->SetEnabled(isBasic);
-  authTokenEdit->SetEnabled(!isBasic);
+  const bool is_basic = COMMON_TAB == auth_type_combo_box_->GetSelection();
+  user_edit_->SetEnabled(is_basic);
+  password_edit_->SetEnabled(is_basic);
+  auth_token_edit_->SetEnabled(!is_basic);
 }
 
-bool DsnConfigurationWindow::OnMessage(UINT msg, WPARAM wParam, LPARAM lParam) {
+bool DsnConfigurationWindow::OnMessage(UINT msg, WPARAM wparam, LPARAM lparam) {
   switch (msg) {
     case WM_NOTIFY: {
-      switch (((LPNMHDR)lParam)->code) {
+      switch (((LPNMHDR)lparam)->code) {
         case TCN_SELCHANGING: {
           // Return FALSE to allow the selection to change.
           return FALSE;
         }
 
         case TCN_SELCHANGE: {
-          SelectTab(TabCtrl_GetCurSel(tabControl->GetHandle()));
+          SelectTab(TabCtrl_GetCurSel(tab_control_->GetHandle()));
           break;
         }
       }
@@ -456,14 +466,14 @@ bool DsnConfigurationWindow::OnMessage(UINT msg, WPARAM wParam, LPARAM lParam) {
     }
 
     case WM_COMMAND: {
-      switch (LOWORD(wParam)) {
+      switch (LOWORD(wparam)) {
         case ChildId::TEST_CONNECTION_BUTTON: {
           try {
-            Configuration testConfig;
-            SaveParameters(testConfig);
-            std::string testMessage = TestConnection(testConfig);
+            Configuration test_config;
+            SaveParameters(test_config);
+            std::string test_message = TestConnection(test_config);
 
-            MessageBox(NULL, testMessage.c_str(), "Test Connection Success", MB_OK);
+            MessageBox(NULL, test_message.c_str(), "Test Connection Success", MB_OK);
           } catch (odbcabstraction::DriverException& err) {
             MessageBox(NULL, err.GetMessageText().c_str(), "Error!",
                        MB_ICONEXCLAMATION | MB_OK);
@@ -473,8 +483,8 @@ bool DsnConfigurationWindow::OnMessage(UINT msg, WPARAM wParam, LPARAM lParam) {
         }
         case ChildId::OK_BUTTON: {
           try {
-            SaveParameters(config);
-            accepted = true;
+            SaveParameters(config_);
+            accepted_ = true;
             PostMessage(GetHandle(), WM_CLOSE, 0, 0);
           } catch (odbcabstraction::DriverException& err) {
             MessageBox(NULL, err.GetMessageText().c_str(), "Error!",
@@ -496,7 +506,7 @@ bool DsnConfigurationWindow::OnMessage(UINT msg, WPARAM wParam, LPARAM lParam) {
         case ChildId::PORT_EDIT:
         case ChildId::SERVER_EDIT:
         case ChildId::USER_EDIT: {
-          if (HIWORD(wParam) == EN_CHANGE) {
+          if (HIWORD(wparam) == EN_CHANGE) {
             CheckEnableOk();
           }
           break;
@@ -509,67 +519,67 @@ bool DsnConfigurationWindow::OnMessage(UINT msg, WPARAM wParam, LPARAM lParam) {
         }
 
         case ChildId::ENABLE_ENCRYPTION_CHECKBOX: {
-          const bool toggle = !enableEncryptionCheckBox->IsChecked();
-          enableEncryptionCheckBox->SetChecked(toggle);
-          certificateEdit->SetEnabled(toggle);
-          certificateBrowseButton->SetEnabled(toggle);
-          useSystemCertStoreCheckBox->SetEnabled(toggle);
-          disableCertVerificationCheckBox->SetEnabled(toggle);
+          const bool toggle = !enable_encryption_check_box_->IsChecked();
+          enable_encryption_check_box_->SetChecked(toggle);
+          certificate_edit_->SetEnabled(toggle);
+          certificate_browse_button_->SetEnabled(toggle);
+          use_system_cert_store_check_box_->SetEnabled(toggle);
+          disable_cert_verification_check_box_->SetEnabled(toggle);
           break;
         }
 
         case ChildId::CERTIFICATE_BROWSE_BUTTON: {
-          OPENFILENAME openFileName;
-          char fileName[FILENAME_MAX];
+          OPENFILENAME open_file_name;
+          char file_name[FILENAME_MAX];
 
-          ZeroMemory(&openFileName, sizeof(openFileName));
-          openFileName.lStructSize = sizeof(openFileName);
-          openFileName.hwndOwner = NULL;
-          openFileName.lpstrFile = fileName;
-          openFileName.lpstrFile[0] = '\0';
-          openFileName.nMaxFile = FILENAME_MAX;
+          ZeroMemory(&open_file_name, sizeof(open_file_name));
+          open_file_name.lStructSize = sizeof(open_file_name);
+          open_file_name.hwndOwner = NULL;
+          open_file_name.lpstrFile = file_name;
+          open_file_name.lpstrFile[0] = '\0';
+          open_file_name.nMaxFile = FILENAME_MAX;
           // TODO: What type should this be?
-          openFileName.lpstrFilter = "All\0*.*";
-          openFileName.nFilterIndex = 1;
-          openFileName.lpstrFileTitle = NULL;
-          openFileName.nMaxFileTitle = 0;
-          openFileName.lpstrInitialDir = NULL;
-          openFileName.Flags = OFN_PATHMUSTEXIST | OFN_FILEMUSTEXIST;
+          open_file_name.lpstrFilter = "All\0*.*";
+          open_file_name.nFilterIndex = 1;
+          open_file_name.lpstrFileTitle = NULL;
+          open_file_name.nMaxFileTitle = 0;
+          open_file_name.lpstrInitialDir = NULL;
+          open_file_name.Flags = OFN_PATHMUSTEXIST | OFN_FILEMUSTEXIST;
 
-          if (GetOpenFileName(&openFileName)) {
-            certificateEdit->SetText(fileName);
+          if (GetOpenFileName(&open_file_name)) {
+            certificate_edit_->SetText(file_name);
           }
           break;
         }
 
         case ChildId::USE_SYSTEM_CERT_STORE_CHECKBOX: {
-          useSystemCertStoreCheckBox->SetChecked(
-              !useSystemCertStoreCheckBox->IsChecked());
+          use_system_cert_store_check_box_->SetChecked(
+              !use_system_cert_store_check_box_->IsChecked());
           break;
         }
 
         case ChildId::DISABLE_CERT_VERIFICATION_CHECKBOX: {
-          disableCertVerificationCheckBox->SetChecked(
-              !disableCertVerificationCheckBox->IsChecked());
+          disable_cert_verification_check_box_->SetChecked(
+              !disable_cert_verification_check_box_->IsChecked());
           break;
         }
 
         case ChildId::DELETE_BUTTON: {
-          propertyList->ListDeleteSelectedItem();
+          property_list_->ListDeleteSelectedItem();
           break;
         }
 
         case ChildId::ADD_BUTTON: {
-          AddPropertyWindow addWindow(this);
-          addWindow.Create();
-          addWindow.Show();
-          addWindow.Update();
+          AddPropertyWindow add_window(this);
+          add_window.Create();
+          add_window.Show();
+          add_window.Update();
 
-          if (ProcessMessages(addWindow) == Result::OK) {
+          if (ProcessMessages(add_window) == Result::OK) {
             std::string key;
             std::string value;
-            addWindow.GetProperty(key, value);
-            propertyList->ListAddItem({key, value});
+            add_window.GetProperty(key, value);
+            property_list_->ListAddItem({key, value});
           }
           break;
         }
@@ -582,7 +592,7 @@ bool DsnConfigurationWindow::OnMessage(UINT msg, WPARAM wParam, LPARAM lParam) {
     }
 
     case WM_DESTROY: {
-      PostQuitMessage(accepted ? Result::OK : Result::CANCEL);
+      PostQuitMessage(accepted_ ? Result::OK : Result::CANCEL);
 
       break;
     }
