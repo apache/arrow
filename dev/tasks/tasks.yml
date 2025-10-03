@@ -808,8 +808,7 @@ tasks:
         UBUNTU: 22.04
       image: ubuntu-cpp-emscripten
 
-# Add 3.14 when https://github.com/conda-forge/pyarrow-feedstock/pull/156 is merged
-{% for python_version in ["3.10", "3.11", "3.12", "3.13"] %}
+{% for python_version in ["3.10", "3.11", "3.12", "3.13", "3.14"] %}
   test-conda-python-{{ python_version }}:
     ci: github
     template: docker-tests/github.linux.yml
