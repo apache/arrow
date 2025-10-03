@@ -204,8 +204,3 @@ TEST(PopulateCallOptionsTest, GenericOptionWithSpaces) {
 
 }  // namespace flight_sql
 }  // namespace driver
-
-int main(int argc, char** argv) {
-  ::testing::InitGoogleTest(&argc, argv);
-  return RUN_ALL_TESTS();
-}
