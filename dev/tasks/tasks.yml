@@ -219,7 +219,7 @@ tasks:
       python_version: "{{ python_version }}"
       python_abi_tag: "{{ abi_tag }}"
       macos_deployment_target: "12.0"
-      runs_on: "macos-13"
+      runs_on: "macos-15-intel"
       vcpkg_arch: "amd64"
     artifacts:
       - pyarrow-{no_rc_version}-{{ python_tag }}-{{ abi_tag }}-macosx_12_0_x86_64.whl
@@ -346,7 +346,7 @@ tasks:
     params:
       target: {{ target }}
       use_conda: True
-      github_runner: "macos-13"
+      github_runner: "macos-15-intel"
   {% endfor %}
 
   {% for target in ["cpp",
@@ -358,7 +358,7 @@ tasks:
     template: verify-rc/github.macos.yml
     params:
       target: {{ target }}
-      github_runner: "macos-13"
+      github_runner: "macos-15-intel"
   {% endfor %}
 
   {% for target in ["cpp",
