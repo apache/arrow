@@ -42,7 +42,7 @@ class Declaration(lib._Weakrefable):
         inputs: list[Declaration] | None = None,
     ) -> None: ...
     @classmethod
-    def from_sequence(cls, decls: list[Declaration]) -> Self: ...
+    def from_sequence(cls, decls: Iterable[Declaration]) -> Self: ...
     def to_reader(self, use_threads: bool = True) -> lib.RecordBatchReader: ...
     def to_table(self, use_threads: bool = True) -> lib.Table: ...
 
@@ -60,22 +60,22 @@ class FilterNodeOptions(ExecNodeOptions):
 
 
 class ProjectNodeOptions(ExecNodeOptions):
-    def __init__(self, expressions: list[Expression],
-                 names: list[str] | None = None) -> None: ...
+    def __init__(self, expressions: Collection[Expression],
+                 names: Collection[str] | None = None) -> None: ...
 
 
 class AggregateNodeOptions(ExecNodeOptions):
     def __init__(
         self,
         aggregates: list[tuple[list[str], str, FunctionOptions, str]],
-        keys: list[_StrOrExpr] | None = None,
+        keys: Iterable[_StrOrExpr] | None = None,
     ) -> None: ...
 
 
 class OrderByNodeOptions(ExecNodeOptions):
     def __init__(
         self,
-        sort_keys: tuple[tuple[str, Literal["ascending", "descending"]], ...] = (),
+        sort_keys: Iterable[tuple[str, Literal["ascending", "descending"]], ...] = (),
         *,
         null_placement: Literal["at_start", "at_end"] = "at_end",
     ) -> None: ...
