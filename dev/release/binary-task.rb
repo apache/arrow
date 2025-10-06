@@ -1129,7 +1129,6 @@ class BinaryTask
   def define
     define_apt_tasks
     define_yum_tasks
-    define_r_tasks
     define_summary_tasks
   end
 
