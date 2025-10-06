@@ -93,8 +93,8 @@ jobs:
             image: ubuntu-cpp-sanitizer
             llvm: 14
             runs-on: ubuntu-latest
-            title: AMD64 Ubuntu 22.04 C++ ASAN UBSAN
-            ubuntu: 22.04
+            title: AMD64 Ubuntu 24.04 C++ ASAN UBSAN
+            ubuntu: 24.04
           - arch: arm64v8
             clang-tools: 14
             image: ubuntu-cpp

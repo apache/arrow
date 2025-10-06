@@ -28,6 +28,7 @@
 #include <memory>
 #include "arrow/flight/api.h"
 #include "arrow/flight/sql/api.h"
+#include "arrow/util/logging.h"
 
 using arrow::Status;
 using arrow::flight::FlightClient;
@@ -48,18 +49,18 @@ void TestBindColumn(const std::shared_ptr<Connection>& connection) {
   const std::shared_ptr<ResultSet>& result_set = statement->GetResultSet();
 
   const int batch_size = 100;
-  const int max_strlen = 1000;
+  const int max_str_len = 1000;
 
-  char IncidntNum[batch_size][max_strlen];
-  ssize_t IncidntNum_length[batch_size];
+  char incidnt_num[batch_size][max_str_len];
+  ssize_t incidnt_num_length[batch_size];
 
-  char Category[batch_size][max_strlen];
-  ssize_t Category_length[batch_size];
+  char category[batch_size][max_str_len];
+  ssize_t category_length[batch_size];
 
-  result_set->BindColumn(1, driver::odbcabstraction::CDataType_CHAR, 0, 0, IncidntNum,
-                         max_strlen, IncidntNum_length);
-  result_set->BindColumn(2, driver::odbcabstraction::CDataType_CHAR, 0, 0, Category,
-                         max_strlen, Category_length);
+  result_set->BindColumn(1, driver::odbcabstraction::CDataType_CHAR, 0, 0, incidnt_num,
+                         max_str_len, incidnt_num_length);
+  result_set->BindColumn(2, driver::odbcabstraction::CDataType_CHAR, 0, 0, category,
+                         max_str_len, category_length);
 
   size_t total = 0;
   while (true) {
@@ -70,8 +71,8 @@ void TestBindColumn(const std::shared_ptr<Connection>& connection) {
     std::cout << "Total:" << total << std::endl;
 
     for (int i = 0; i < fetched_rows; ++i) {
-      std::cout << "Row[" << i << "] IncidntNum: '" << IncidntNum[i] << "', Category: '"
-                << Category[i] << "'" << std::endl;
+      ARROW_LOG(DEBUG) << "Row[" << i << "] incidnt_num: '" << incidnt_num[i]
+                       << "', Category: '" << category[i] << "'";
     }
 
     if (fetched_rows < batch_size) break;
@@ -114,34 +115,34 @@ void TestBindColumnBigInt(const std::shared_ptr<Connection>& connection) {
   const int batch_size = 100;
   const int max_strlen = 1000;
 
-  char IncidntNum[batch_size][max_strlen];
-  ssize_t IncidntNum_length[batch_size];
+  char incidnt_num[batch_size][max_strlen];
+  ssize_t incidnt_num_length[batch_size];
 
   double double_field[batch_size];
   ssize_t double_field_length[batch_size];
 
-  char Category[batch_size][max_strlen];
-  ssize_t Category_length[batch_size];
+  char category[batch_size][max_strlen];
+  ssize_t category_length[batch_size];
 
-  result_set->BindColumn(1, driver::odbcabstraction::CDataType_CHAR, 0, 0, IncidntNum,
-                         max_strlen, IncidntNum_length);
+  result_set->BindColumn(1, driver::odbcabstraction::CDataType_CHAR, 0, 0, incidnt_num,
+                         max_strlen, incidnt_num_length);
   result_set->BindColumn(2, driver::odbcabstraction::CDataType_DOUBLE, 0, 0, double_field,
                          max_strlen, double_field_length);
-  result_set->BindColumn(3, driver::odbcabstraction::CDataType_CHAR, 0, 0, Category,
-                         max_strlen, Category_length);
+  result_set->BindColumn(3, driver::odbcabstraction::CDataType_CHAR, 0, 0, category,
+                         max_strlen, category_length);
 
   size_t total = 0;
   while (true) {
     size_t fetched_rows = result_set->Move(batch_size, 0, 0, nullptr);
-    std::cout << "Fetched " << fetched_rows << " rows." << std::endl;
+    ARROW_LOG(DEBUG) << "Fetched " << fetched_rows << " rows.";
 
     total += fetched_rows;
-    std::cout << "Total:" << total << std::endl;
+    ARROW_LOG(DEBUG) << "Total:" << total;
 
     for (int i = 0; i < fetched_rows; ++i) {
-      std::cout << "Row[" << i << "] IncidntNum: '" << IncidntNum[i] << "', "
-                << "double_field: '" << double_field[i] << "', "
-                << "Category: '" << Category[i] << "'" << std::endl;
+      ARROW_LOG(DEBUG) << "Row[" << i << "] incidnt_num: '" << incidnt_num[i] << "', "
+                       << "double_field: '" << double_field[i] << "', "
+                       << "category: '" << category[i] << "'";
     }
 
     if (fetched_rows < batch_size) break;

@@ -84,10 +84,10 @@ void AssertNumericOutput(int input_precision, int input_scale,
       accessor(array.get());
 
   std::vector<NUMERIC_STRUCT> buffer(values.size());
-  std::vector<ssize_t> strlen_buffer(values.size());
+  std::vector<ssize_t> str_len_buffer(values.size());
 
   ColumnBinding binding(odbcabstraction::CDataType_NUMERIC, output_precision,
-                        output_scale, buffer.data(), 0, strlen_buffer.data());
+                        output_scale, buffer.data(), 0, str_len_buffer.data());
 
   int64_t value_offset = 0;
   odbcabstraction::Diagnostics diagnostics("Foo", "Foo", OdbcVersion::V_3);
@@ -96,7 +96,7 @@ void AssertNumericOutput(int input_precision, int input_scale,
                                      diagnostics, nullptr));
 
   for (int i = 0; i < values.size(); ++i) {
-    ASSERT_EQ(sizeof(NUMERIC_STRUCT), strlen_buffer[i]);
+    ASSERT_EQ(sizeof(NUMERIC_STRUCT), str_len_buffer[i]);
 
     ASSERT_EQ(output_precision, buffer[i].precision);
     ASSERT_EQ(output_scale, buffer[i].scale);

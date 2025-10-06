@@ -32,7 +32,6 @@ on:
       - 'docker-compose.yml'
       - 'integration/**'
       - 'cpp/**'
-      - 'csharp/**'
       - 'format/**'
   pull_request:
     paths:
@@ -43,7 +42,6 @@ on:
       - 'docker-compose.yml'
       - 'integration/**'
       - 'cpp/**'
-      - 'csharp/**'
       - 'format/**'
 
 concurrency:

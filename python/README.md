@@ -53,7 +53,7 @@ See [Python Development][2] in the documentation subproject.
 See [documentation build instructions][1] in the documentation subproject.
 
 [1]: https://github.com/apache/arrow/blob/main/docs/source/developers/documentation.rst
-[2]: https://github.com/apache/arrow/blob/main/docs/source/developers/python.rst
+[2]: https://arrow.apache.org/docs/developers/python.html
 [3]: https://github.com/pandas-dev/pandas
 [5]: https://arrow.apache.org/docs/latest/python/benchmarks.html
 [6]: https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist?view=msvc-170#latest-microsoft-visual-c-redistributable-version

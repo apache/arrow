@@ -3144,6 +3144,14 @@ TEST(TestCoalesce, Boolean) {
               ArrayFromJSON(type, "[true, true, false, true]"));
   CheckScalar("coalesce", {scalar1, values1},
               ArrayFromJSON(type, "[false, false, false, false]"));
+
+  // Regression test for GH-47234, which was failing due to a MSVC compiler bug
+  // (possibly https://developercommunity.visualstudio.com/t/10912292
+  // or https://developercommunity.visualstudio.com/t/10945478).
+  auto values_with_null = ArrayFromJSON(type, "[true, false, false, false, false, null]");
+  auto expected = ArrayFromJSON(type, "[true, false, false, false, false, true]");
+  auto scalar2 = ScalarFromJSON(type, "true");
+  CheckScalar("coalesce", {values_with_null, scalar2}, expected);
 }
 
 TEST(TestCoalesce, DayTimeInterval) {

@@ -31,6 +31,8 @@ namespace internal {
 
 class BitmapReader {
  public:
+  BitmapReader() = default;
+
   BitmapReader(const uint8_t* bitmap, int64_t start_offset, int64_t length)
       : bitmap_(bitmap), position_(0), length_(length) {
     current_byte_ = 0;

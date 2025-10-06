@@ -621,3 +621,20 @@ utility. Below are the test cases which are covered by them:
   - ZSTD
 
 * Batches with Shared Dictionaries
+
+Generating new Gold Files
+'''''''''''''''''''''''''
+
+From time to time, it is desirable to add new gold files, for example when the
+Columnar format or the IPC specification is update. Archery provides a dedicated
+option to do that.
+
+It is recommended to generate gold files using a well-known version of a Arrow
+implementation. For example, if a build of Arrow C++ exists in ``./build/release/``,
+one can generate new gold files in the ``/tmp/gold-files`` directory using the
+following command:
+
+.. code-block:: shell
+
+   export ARROW_CPP_EXE_PATH=./build/release/
+   archery integration --with-cpp 1 --write-gold-files=/tmp/gold-files

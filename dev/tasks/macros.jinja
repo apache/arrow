@@ -243,16 +243,16 @@ env:
   - name: Get windows binary
     uses: actions/download-artifact@v4
     with:
-      name: r-lib__libarrow__bin__windows
-      path: repo/libarrow/bin/windows
+      name: r-libarrow-windows-x86_64
+      path: repo/libarrow
   {% endif %}
   {% if get_nix %}
     {% for openssl_version in ["1.0", "1.1", "3.0"] %}
   - name: Get Linux OpenSSL {{ openssl_version }} binary
     uses: actions/download-artifact@v4
     with:
-      name: r-lib__libarrow__bin__linux-openssl-{{ openssl_version }}
-      path: repo/libarrow/bin/linux-openssl-{{ openssl_version }}
+      name: r-libarrow-linux-x86_64-openssl-{{ openssl_version }}
+      path: repo/libarrow
     {% endfor %}
   {% endif %}
   {% if get_mac %}
@@ -261,8 +261,8 @@ env:
   - name: Get macOS {{ arch }} OpenSSL {{ openssl_version }} binary
     uses: actions/download-artifact@v4
     with:
-      name: r-lib__libarrow__bin__darwin-{{arch}}-openssl-{{ openssl_version }}
-      path: repo/libarrow/bin/darwin-{{ arch }}-openssl-{{ openssl_version }}
+      name: r-libarrow-darwin-{{ arch }}-openssl-{{ openssl_version }}
+      path: repo/libarrow
       {% endfor %}
     {% endfor %}
   {% endif %}
@@ -294,7 +294,7 @@ env:
       write(str, file = profile_path, append = TRUE)
       # Set envvar for later steps by appending to $GITHUB_ENV
       write(paste0("R_PROFILE_USER=", profile_path), file = Sys.getenv("GITHUB_ENV"), append = TRUE)
-  {% endmacro %}
+{% endmacro %}
 
 {# Detect if we are using a fork or the upstream repo #}
   {% set is_upstream_b = arrow.github_repo == 'apache/arrow' %}

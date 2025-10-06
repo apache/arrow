@@ -691,8 +691,10 @@ def _set_default(opt, default):
 @click.option('--target-implementations', default='',
               help=('Target implementations in this integration tests'),
               envvar="ARCHERY_INTEGRATION_TARGET_IMPLEMENTATIONS")
-@click.option('--write_generated_json', default="",
+@click.option('--write-generated-json', default="",
               help='Generate test JSON to indicated path')
+@click.option('--write-gold-files', default="",
+              help='Generate gold files to indicated path')
 @click.option('--run-ipc', is_flag=True, default=False,
               help='Run IPC integration tests')
 @click.option('--run-flight', is_flag=True, default=False,
@@ -714,7 +716,8 @@ def _set_default(opt, default):
 @click.option('-k', '--match',
               help=("Substring for test names to include in run, "
                     "e.g. -k primitive"))
-def integration(with_all=False, random_seed=12345, **args):
+def integration(with_all=False, random_seed=12345, write_generated_json="",
+                write_gold_files="", **args):
     """If you don't specify the "--target-implementations" option nor
     the "ARCHERY_INTEGRATION_TARGET_IMPLEMENTATIONS" environment
     variable, test patterns are product of all specified
@@ -773,7 +776,9 @@ def integration(with_all=False, random_seed=12345, **args):
 
     """
 
-    from .integration.runner import write_js_test_json, run_all_tests
+    from .integration.datagen import (
+        get_generated_json_files, generate_gold_files)
+    from .integration.runner import run_all_tests, select_testers
     import numpy as np
 
     # FIXME(bkietz) Include help strings for individual testers.
@@ -782,37 +787,32 @@ def integration(with_all=False, random_seed=12345, **args):
     # Make runs involving data generation deterministic
     np.random.seed(random_seed)
 
-    gen_path = args['write_generated_json']
-
-    implementations = ['cpp', 'dotnet', 'java', 'js', 'go', 'nanoarrow', 'rust']
     formats = ['ipc', 'flight', 'c_data']
-
-    enabled_implementations = 0
-    for lang in implementations:
-        param = f'with_{lang}'
-        if with_all:
-            args[param] = with_all
-        enabled_implementations += args[param]
 
     enabled_formats = 0
     for fmt in formats:
         param = f'run_{fmt}'
         enabled_formats += args[param]
 
-    if gen_path:
-        # XXX See GH-37575: this option is only used by the JS test suite
-        # and might not be useful anymore.
-        os.makedirs(gen_path, exist_ok=True)
-        write_js_test_json(gen_path)
+    testers, other_testers = select_testers(**args)
+
+    if write_generated_json:
+        os.makedirs(write_generated_json, exist_ok=True)
+        get_generated_json_files(tempdir=write_generated_json)
+    elif write_gold_files:
+        if len(testers) != 1 or len(other_testers) != 0:
+            raise click.UsageError(
+                "Need exactly one implementation to generate gold files; try --help")
+        generate_gold_files(testers[0], write_gold_files)
     else:
         if enabled_formats == 0:
             raise click.UsageError(
                 "Need to enable at least one format to test "
                 "(IPC, Flight, C Data Interface); try --help")
-        if enabled_implementations == 0:
+        if len(testers) == 0:
             raise click.UsageError(
                 "Need to enable at least one implementation to test; try --help")
-        run_all_tests(**args)
+        run_all_tests(testers, other_testers, **args)
 
 
 @archery.command()
@@ -873,6 +873,8 @@ add_optional_command("docker", module=".docker.cli", function="docker",
 add_optional_command("release", module=".release.cli", function="release",
                      parent=archery)
 add_optional_command("crossbow", module=".crossbow.cli", function="crossbow",
+                     parent=archery)
+add_optional_command("ci", module=".ci.cli", function="ci",
                      parent=archery)
 
 

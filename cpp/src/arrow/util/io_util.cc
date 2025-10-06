@@ -1070,8 +1070,11 @@ Result<FileDescriptor> FileOpenReadable(const PlatformFilename& file_name) {
   }
   fd = FileDescriptor(ret);
 #else
-  int ret = open(file_name.ToNative().c_str(), O_RDONLY);
-  if (ret < 0) {
+  int ret;
+  do {
+    ret = open(file_name.ToNative().c_str(), O_RDONLY);
+  } while (ret == -1 && errno == EINTR);
+  if (ret == -1) {
     return IOErrorFromErrno(errno, "Failed to open local file '", file_name.ToString(),
                             "'");
   }
@@ -1137,7 +1140,10 @@ Result<FileDescriptor> FileOpenWritable(const PlatformFilename& file_name,
     oflag |= O_RDWR;
   }
 
-  int ret = open(file_name.ToNative().c_str(), oflag, 0666);
+  int ret;
+  do {
+    ret = open(file_name.ToNative().c_str(), oflag, 0666);
+  } while (ret == -1 && errno == EINTR);
   if (ret == -1) {
     return IOErrorFromErrno(errno, "Failed to open local file '", file_name.ToString(),
                             "'");
@@ -1448,7 +1454,7 @@ Status MemoryMapRemap(void* addr, size_t old_size, size_t new_size, int fildes,
 
   SetFilePointer(h, new_size_low, &new_size_high, FILE_BEGIN);
   SetEndOfFile(h);
-  fm = CreateFileMapping(h, NULL, PAGE_READWRITE, 0, 0, "");
+  fm = CreateFileMappingW(h, NULL, PAGE_READWRITE, 0, 0, L"");
   if (fm == NULL) {
     return StatusFromMmapErrno("CreateFileMapping failed");
   }

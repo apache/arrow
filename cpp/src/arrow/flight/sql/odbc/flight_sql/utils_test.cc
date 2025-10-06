@@ -19,6 +19,7 @@
 
 #include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/calendar_utils.h"
 
+#include "arrow/compute/initialize.h"
 #include "arrow/testing/builder.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/util.h"
@@ -26,6 +27,16 @@
 
 namespace driver {
 namespace flight_sql {
+
+// A global test "environment", to ensure Arrow compute kernel functions are registered
+
+class ComputeKernelEnvironment : public ::testing::Environment {
+ public:
+  void SetUp() override { ASSERT_OK(arrow::compute::Initialize()); }
+};
+
+::testing::Environment* kernel_env =
+    ::testing::AddGlobalTestEnvironment(new ComputeKernelEnvironment);
 
 void AssertConvertedArray(const std::shared_ptr<arrow::Array>& expected_array,
                           const std::shared_ptr<arrow::Array>& converted_array,

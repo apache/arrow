@@ -56,8 +56,8 @@ inline RowStatus MoveSingleCellToBinaryBuffer(ColumnBinding* binding, BinaryArra
     value_offset = -1;
   }
 
-  if (binding->strlen_buffer) {
-    binding->strlen_buffer[i] = static_cast<ssize_t>(remaining_length);
+  if (binding->str_len_buffer) {
+    binding->str_len_buffer[i] = static_cast<ssize_t>(remaining_length);
   }
 
   return result;
@@ -72,7 +72,7 @@ BinaryArrayFlightSqlAccessor<TARGET_TYPE>::BinaryArrayFlightSqlAccessor(Array* a
 
 template <>
 RowStatus
-BinaryArrayFlightSqlAccessor<odbcabstraction::CDataType_BINARY>::MoveSingleCell_impl(
+BinaryArrayFlightSqlAccessor<odbcabstraction::CDataType_BINARY>::MoveSingleCellImpl(
     ColumnBinding* binding, int64_t arrow_row, int64_t i, int64_t& value_offset,
     bool update_value_offset, odbcabstraction::Diagnostics& diagnostics) {
   return MoveSingleCellToBinaryBuffer(binding, this->GetArray(), arrow_row, i,
@@ -80,7 +80,7 @@ BinaryArrayFlightSqlAccessor<odbcabstraction::CDataType_BINARY>::MoveSingleCell_
 }
 
 template <CDataType TARGET_TYPE>
-size_t BinaryArrayFlightSqlAccessor<TARGET_TYPE>::GetCellLength_impl(
+size_t BinaryArrayFlightSqlAccessor<TARGET_TYPE>::GetCellLengthImpl(
     ColumnBinding* binding) const {
   return binding->buffer_length;
 }

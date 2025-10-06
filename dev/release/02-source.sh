@@ -65,7 +65,6 @@ if [ ${SOURCE_DOWNLOAD} -gt 0 ]; then
   # Wait for the release candidate workflow to finish before attempting
   # to download the tarball from the GitHub Release.
   . $SOURCE_DIR/utils-watch-gh-workflow.sh ${tag} "release_candidate.yml"
-  . $SOURCE_DIR/utils-watch-gh-workflow.sh ${tag} "csharp.yml"
   rm -rf artifacts
   gh release download ${tag} \
     --dir artifacts \

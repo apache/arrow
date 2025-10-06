@@ -55,34 +55,6 @@ mv ${root_folder} ${root_folder}.tmp
 cp -a -L ${root_folder}.tmp ${root_folder}
 rm -rf ${root_folder}.tmp
 
-# Create a dummy .git/ directory to download the source files from
-# GitHub with Source Link in C#. See the followings for more Source
-# Link support and why we need a dummy .git directory:
-# * https://github.com/apache/arrow/issues/21580
-# * https://github.com/apache/arrow/pull/4488
-#
-# We need to set constant timestamp for a dummy .git/ directory for
-# Reproducible Builds. We use committer date of the target commit hash
-# for it. If SOURCE_DATE_EPOCH is defined, this mtime is overwritten
-# when tar file is created.
-csharp_mtime=$(TZ=UTC \
-                 git \
-                 -C "${SOURCE_TOP_DIR}" \
-                 log \
-                 --format=%cd \
-                 --date=format:%Y%m%d%H%M.%S \
-                 -n1 \
-                 "${release_hash}")
-dummy_git=${root_folder}/csharp/dummy.git
-mkdir ${dummy_git}
-pushd ${dummy_git}
-echo ${release_hash} > HEAD
-echo "[remote \"origin\"] url = https://github.com/${GITHUB_REPOSITORY:-apache/arrow}.git" >> config
-mkdir objects refs
-TZ=UTC find . -exec touch -t "${csharp_mtime}" '{}' ';'
-popd
-TZ=UTC touch -t "${csharp_mtime}" ${root_folder}/csharp
-
 # Create new tarball from modified source directory.
 #
 # We need to strip unreproducible information. See also:
