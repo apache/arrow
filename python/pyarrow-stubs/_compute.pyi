@@ -29,6 +29,8 @@ from typing import (
     overload,
 )
 
+from types import EllipsisType
+
 from . import lib
 
 _Order: TypeAlias = Literal["ascending", "descending"]
@@ -52,7 +54,7 @@ class Function(lib._Weakrefable):
     @property
     def num_kernels(self) -> int: ...
     @property
-    def kernels(self) -> list[ScalarKernel | VectorKernel | ScalarAggregateKernel | HashAggregateKernel]:
+    def kernels(self) -> list[ScalarKernel | VectorKernel | ScalarAggregateKernel | HashAggregateKernel]: ...
     def call(
         self,
         args: Iterable,
