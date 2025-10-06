@@ -227,11 +227,12 @@ jobs:
           cp -a \
             dev/tasks/linux-packages/*/${TASK_NAMESPACE}/repositories/${DISTRIBUTION}/* \
             "${DISTRIBUTION}/"
+          set -x
           # We use latest .deb/.rpm of
           # apache-arrow-apt-source/apache-arrow-release built for
           # amd64 because they are architecture independent.
           if [ "${ARCHITECTURE}" = "amd64" ]; then
-            if [ "${APT_TASK_NAMESPACE}" = "apt" ]; then
+            if [ "${TASK_NAMESPACE}" = "apt" ]; then
               # Example: debian-bookworm-amd64 -> debian-bookworm
               code_name="${ID%-*}"
               # Example: debian-bookworm -> bookworm
