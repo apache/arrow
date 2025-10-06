@@ -199,6 +199,8 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Wait for creating GitHub Release
         if: github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           dev/release/utils-watch-gh-workflow.sh \
             ${GITHUB_REF_NAME} \
