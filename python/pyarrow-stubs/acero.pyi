@@ -16,6 +16,7 @@
 # under the License.
 
 import sys
+from collections.abc import Iterable, Collection
 
 if sys.version_info >= (3, 11):
     from typing import Self
@@ -75,7 +76,7 @@ class AggregateNodeOptions(ExecNodeOptions):
 class OrderByNodeOptions(ExecNodeOptions):
     def __init__(
         self,
-        sort_keys: Iterable[tuple[str, Literal["ascending", "descending"]], ...] = (),
+        sort_keys: Iterable[tuple[str, Literal["ascending", "descending"]]] = (),
         *,
         null_placement: Literal["at_start", "at_end"] = "at_end",
     ) -> None: ...
