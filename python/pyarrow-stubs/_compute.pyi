@@ -41,7 +41,7 @@ class Kernel(lib._Weakrefable):
 
 class Function(lib._Weakrefable):
     @property
-    def arity(self) -> int: ...
+    def arity(self) -> int | EllipsisType: ...
 
     @property
     def kind(
