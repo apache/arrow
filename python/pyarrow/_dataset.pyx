@@ -948,8 +948,7 @@ cdef class Dataset(_Weakrefable):
         """
         Perform an aggregation over the grouped columns of the dataset.
 
-        Result of the join will be a new dataset, where further
-        operations can be applied.
+        Result of the aggregations will be a table.
 
         Parameters
         ----------
