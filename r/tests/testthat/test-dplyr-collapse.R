@@ -35,8 +35,8 @@ tab <- Table$create(tbl)
 
 test_that("implicit_schema with select", {
   expect_equal(
-    tab %>%
-      select(int, lgl) %>%
+    tab |>
+      select(int, lgl) |>
       implicit_schema(),
     schema(int = int32(), lgl = bool())
   )
@@ -44,8 +44,8 @@ test_that("implicit_schema with select", {
 
 test_that("implicit_schema with rename", {
   expect_equal(
-    tab %>%
-      select(numbers = int, lgl) %>%
+    tab |>
+      select(numbers = int, lgl) |>
       implicit_schema(),
     schema(numbers = int32(), lgl = bool())
   )
@@ -53,11 +53,11 @@ test_that("implicit_schema with rename", {
 
 test_that("implicit_schema with mutate", {
   expect_equal(
-    tab %>%
+    tab |>
       transmute(
         numbers = int * 4,
         words = as.character(int)
-      ) %>%
+      ) |>
       implicit_schema(),
     schema(numbers = int32(), words = utf8())
   )
@@ -65,10 +65,10 @@ test_that("implicit_schema with mutate", {
 
 test_that("implicit_schema with summarize", {
   expect_equal(
-    tab %>%
+    tab |>
       summarize(
         avg = mean(int)
-      ) %>%
+      ) |>
       implicit_schema(),
     schema(avg = float64())
   )
@@ -76,70 +76,70 @@ test_that("implicit_schema with summarize", {
 
 test_that("implicit_schema with group_by summarize", {
   expect_equal(
-    tab %>%
-      group_by(some_grouping) %>%
+    tab |>
+      group_by(some_grouping) |>
       summarize(
         avg = mean(int * 5L)
-      ) %>%
+      ) |>
       implicit_schema(),
     schema(some_grouping = float64(), avg = float64())
   )
 })
 
 test_that("collapse", {
-  q <- tab %>%
-    filter(dbl > 2, chr == "d" | chr == "f") %>%
-    select(chr, int, lgl) %>%
+  q <- tab |>
+    filter(dbl > 2, chr == "d" | chr == "f") |>
+    select(chr, int, lgl) |>
     mutate(twice = int * 2L)
   expect_false(is_collapsed(q))
   expect_true(is_collapsed(collapse(q)))
   expect_false(is_collapsed(collapse(q)$.data))
 
   compare_dplyr_binding(
-    .input %>%
-      filter(dbl > 2, chr == "d" | chr == "f") %>%
-      select(chr, int, lgl) %>%
-      mutate(twice = int * 2L) %>%
-      collapse() %>%
-      filter(int < 5) %>%
-      select(int, twice) %>%
+    .input |>
+      filter(dbl > 2, chr == "d" | chr == "f") |>
+      select(chr, int, lgl) |>
+      mutate(twice = int * 2L) |>
+      collapse() |>
+      filter(int < 5) |>
+      select(int, twice) |>
       collect(),
     tbl
   )
 
   compare_dplyr_binding(
-    .input %>%
-      filter(dbl > 2, chr == "d" | chr == "f") %>%
-      collapse() %>%
-      select(chr, int, lgl) %>%
-      collapse() %>%
-      filter(int < 5) %>%
-      select(int, chr) %>%
+    .input |>
+      filter(dbl > 2, chr == "d" | chr == "f") |>
+      collapse() |>
+      select(chr, int, lgl) |>
+      collapse() |>
+      filter(int < 5) |>
+      select(int, chr) |>
       collect(),
     tbl
   )
 
   compare_dplyr_binding(
-    .input %>%
-      filter(dbl > 2, chr == "d" | chr == "f") %>%
-      collapse() %>%
-      group_by(chr) %>%
-      select(chr, int, lgl) %>%
-      collapse() %>%
-      filter(int < 5) %>%
-      select(int, chr) %>%
+    .input |>
+      filter(dbl > 2, chr == "d" | chr == "f") |>
+      collapse() |>
+      group_by(chr) |>
+      select(chr, int, lgl) |>
+      collapse() |>
+      filter(int < 5) |>
+      select(int, chr) |>
       collect(),
     tbl
   )
 })
 
 test_that("Properties of collapsed query", {
-  q <- tab %>%
-    filter(dbl > 2) %>%
-    select(chr, int, lgl) %>%
-    mutate(twice = int * 2L) %>%
-    group_by(lgl) %>%
-    summarize(total = sum(int, na.rm = TRUE)) %>%
+  q <- tab |>
+    filter(dbl > 2) |>
+    select(chr, int, lgl) |>
+    mutate(twice = int * 2L) |>
+    group_by(lgl) |>
+    summarize(total = sum(int, na.rm = TRUE)) |>
     mutate(extra = total * 5)
 
   #  # A tibble: 2 × 3
@@ -164,17 +164,17 @@ See $.data for the source Arrow object",
   )
 
   expect_equal(
-    q %>%
-      arrange(lgl) %>%
-      head(1) %>%
+    q |>
+      arrange(lgl) |>
+      head(1) |>
       collect(),
     tibble::tibble(lgl = FALSE, total = 8L, extra = 40)
   )
   skip("TODO (ARROW-16630): make sure BottomK can handle NA ordering")
   expect_equal(
-    q %>%
-      arrange(lgl) %>%
-      tail(1) %>%
+    q |>
+      arrange(lgl) |>
+      tail(1) |>
       collect(),
     tibble::tibble(lgl = NA, total = 25L, extra = 125)
   )
@@ -182,13 +182,13 @@ See $.data for the source Arrow object",
 
 test_that("query_on_dataset handles collapse()", {
   expect_false(query_on_dataset(
-    tab %>%
+    tab |>
       select(int, chr)
   ))
   expect_false(query_on_dataset(
-    tab %>%
-      select(int, chr) %>%
-      collapse() %>%
+    tab |>
+      select(int, chr) |>
+      collapse() |>
       select(int)
   ))
 
@@ -201,32 +201,32 @@ test_that("query_on_dataset handles collapse()", {
   ds <- open_dataset(ds_dir)
 
   expect_true(query_on_dataset(
-    ds %>%
+    ds |>
       select(int, chr)
   ))
   expect_true(query_on_dataset(
-    ds %>%
-      select(int, chr) %>%
-      collapse() %>%
+    ds |>
+      select(int, chr) |>
+      collapse() |>
       select(int)
   ))
 })
 
 test_that("collapse doesn't unnecessarily add ProjectNodes", {
   plan <- capture.output(
-    tab %>%
-      collapse() %>%
-      collapse() %>%
+    tab |>
+      collapse() |>
+      collapse() |>
       show_query()
   )
   # There should be no projections
   expect_length(grep("ProjectNode", plan), 0)
 
   plan <- capture.output(
-    tab %>%
-      select(int, chr) %>%
-      collapse() %>%
-      collapse() %>%
+    tab |>
+      select(int, chr) |>
+      collapse() |>
+      collapse() |>
       show_query()
   )
   # There should be just one projection
@@ -240,9 +240,9 @@ test_that("collapse doesn't unnecessarily add ProjectNodes", {
   ds <- open_dataset(tf)
 
   plan <- capture.output(
-    ds %>%
-      collapse() %>%
-      collapse() %>%
+    ds |>
+      collapse() |>
+      collapse() |>
       show_query()
   )
   expect_length(grep("ProjectNode", plan), 1)

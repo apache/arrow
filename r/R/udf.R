@@ -66,9 +66,9 @@
 #'   auto_convert = TRUE
 #' )
 #'
-#' as_arrow_table(mtcars) %>%
-#'   transmute(mpg, mpg_predicted = mtcars_predict_mpg(disp, cyl)) %>%
-#'   collect() %>%
+#' as_arrow_table(mtcars) |>
+#'   transmute(mpg, mpg_predicted = mtcars_predict_mpg(disp, cyl)) |>
+#'   collect() |>
 #'   head()
 #'
 register_scalar_function <- function(name, fun, in_type, out_type,

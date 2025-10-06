@@ -26,27 +26,27 @@ test_that("slice_head/tail, ungrouped", {
   # so we can't assert identical to dplyr, just assert right number of rows
   tab <- arrow_table(tbl)
   expect_equal(
-    tab %>%
-      slice_head(n = 5) %>%
+    tab |>
+      slice_head(n = 5) |>
       nrow(),
     5
   )
   expect_equal(
-    tab %>%
-      slice_tail(n = 5) %>%
+    tab |>
+      slice_tail(n = 5) |>
       nrow(),
     5
   )
 
   expect_equal(
-    tab %>%
-      slice_head(prop = 0.25) %>%
+    tab |>
+      slice_head(prop = 0.25) |>
       nrow(),
     2
   )
   expect_equal(
-    tab %>%
-      slice_tail(prop = 0.25) %>%
+    tab |>
+      slice_tail(prop = 0.25) |>
       nrow(),
     2
   )
@@ -56,35 +56,35 @@ test_that("slice_min/max, ungrouped", {
   # with_ties must be FALSE
   tab <- arrow_table(tbl)
   expect_error(
-    tab %>% slice_max(int, n = 5),
+    tab |> slice_max(int, n = 5),
     "with_ties = TRUE"
   )
   expect_error(
-    tab %>% slice_min(int, n = 5),
+    tab |> slice_min(int, n = 5),
     "with_ties = TRUE"
   )
   compare_dplyr_binding(
-    .input %>%
-      slice_max(int, n = 4, with_ties = FALSE) %>%
+    .input |>
+      slice_max(int, n = 4, with_ties = FALSE) |>
       collect(),
     tbl
   )
   compare_dplyr_binding(
-    .input %>%
-      slice_min(int, n = 4, with_ties = FALSE) %>%
+    .input |>
+      slice_min(int, n = 4, with_ties = FALSE) |>
       collect(),
     tbl
   )
 
   compare_dplyr_binding(
-    .input %>%
-      slice_max(int, prop = 0.25, with_ties = FALSE) %>%
+    .input |>
+      slice_max(int, prop = 0.25, with_ties = FALSE) |>
       collect(),
     tbl
   )
   compare_dplyr_binding(
-    .input %>%
-      slice_min(int, prop = 0.25, with_ties = FALSE) %>%
+    .input |>
+      slice_min(int, prop = 0.25, with_ties = FALSE) |>
       collect(),
     tbl
   )
@@ -95,11 +95,11 @@ test_that("slice_sample, ungrouped", {
 
   tab <- arrow_table(tbl)
   expect_error(
-    tab %>% slice_sample(replace = TRUE),
+    tab |> slice_sample(replace = TRUE),
     "Sampling with replacement"
   )
   expect_error(
-    tab %>% slice_sample(weight_by = dbl),
+    tab |> slice_sample(weight_by = dbl),
     "weight_by"
   )
 
@@ -107,9 +107,9 @@ test_that("slice_sample, ungrouped", {
   skip_on_cran()
   # Because this is random (and we only have 10 rows), try several times
   for (i in 1:50) {
-    sampled_prop <- tab %>%
-      slice_sample(prop = 0.2) %>%
-      collect() %>%
+    sampled_prop <- tab |>
+      slice_sample(prop = 0.2) |>
+      collect() |>
       nrow()
     if (sampled_prop == 2) break
   }
@@ -118,25 +118,25 @@ test_that("slice_sample, ungrouped", {
   # Test that slice_sample(n) returns n rows
   # With a larger dataset, we would be more confident to get exactly n
   # but with this dataset, we should at least not get >n rows
-  sampled_n <- tab %>%
-    slice_sample(n = 2) %>%
-    collect() %>%
+  sampled_n <- tab |>
+    slice_sample(n = 2) |>
+    collect() |>
     nrow()
   expect_lte(sampled_n, 2)
 
   # Test with dataset, which matters for the UDF HACK
   skip_if_not_available("dataset")
-  sampled_n <- tab %>%
-    InMemoryDataset$create() %>%
-    slice_sample(n = 2) %>%
-    collect() %>%
+  sampled_n <- tab |>
+    InMemoryDataset$create() |>
+    slice_sample(n = 2) |>
+    collect() |>
     nrow()
   expect_lte(sampled_n, 2)
 })
 
 test_that("slice_* not supported with groups", {
-  grouped <- tbl %>%
-    arrow_table() %>%
+  grouped <- tbl |>
+    arrow_table() |>
     group_by(lgl)
   expect_error(
     slice_head(grouped, n = 5),
@@ -193,25 +193,25 @@ test_that("input validation", {
   }
 
   expect_error(
-    tab %>% slice_tail(n = 3, with_ties = FALSE),
+    tab |> slice_tail(n = 3, with_ties = FALSE),
     "`...` must be empty"
   )
 })
 
 test_that("n <-> prop conversion when nrow is not known", {
-  joined <- tbl %>%
-    arrow_table() %>%
+  joined <- tbl |>
+    arrow_table() |>
     full_join(tbl, by = "int")
   expect_true(is.na(nrow(joined)))
 
   expect_error(
-    joined %>%
+    joined |>
       slice_min(int, prop = 0.25, with_ties = FALSE),
     "Slicing with `prop` when"
   )
 
   expect_error(
-    joined %>%
+    joined |>
       slice_sample(n = 5),
     "slice_sample() with `n` when",
     fixed = TRUE

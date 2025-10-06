@@ -597,15 +597,15 @@ test_that("ARROW-11769/ARROW-17085 - grouping preserved in table creation", {
   )
 
   expect_identical(
-    tbl %>%
-      Table$create() %>%
+    tbl |>
+      Table$create() |>
       dplyr::group_vars(),
     dplyr::group_vars(tbl)
   )
   expect_identical(
-    tbl %>%
-      dplyr::group_by(fct, fct2) %>%
-      Table$create() %>%
+    tbl |>
+      dplyr::group_by(fct, fct2) |>
+      Table$create() |>
       dplyr::group_vars(),
     c("fct", "fct2")
   )
