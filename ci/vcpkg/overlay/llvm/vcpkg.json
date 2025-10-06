@@ -25,6 +25,7 @@
   ],
   "default-features": [
     "clang",
+    "enable-terminfo",
     "default-targets",
     "enable-bindings",
     "enable-zlib",
@@ -203,6 +204,9 @@
       "dependencies": [
         "zlib"
       ]
+    },
+    "enable-terminfo": {
+      "description": "Use terminfo database if available."
     },
     "enable-zstd": {
       "description": "Build with zstd.",
