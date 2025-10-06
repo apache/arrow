@@ -175,7 +175,7 @@ class BackpressureConcurrentQueue : private ConcurrentQueue<T> {
 
  private:
   BackpressureHandler handler_;
-  bool shutdown_{false};
+  std::atomic<bool> shutdown_{false};
 };
 
 }  // namespace arrow::acero

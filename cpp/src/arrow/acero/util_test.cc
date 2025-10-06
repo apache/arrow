@@ -301,5 +301,25 @@ TEST(BackpressureConcurrentQueue, BackpressureTest) {
   ASSERT_FALSE(dummy_node.paused);
 }
 
+TEST(BackpressureConcurrentQueue, BackpressureTestStayUnpaused) {
+  BackpressureTestExecNode dummy_node;
+  auto ctrl = std::make_unique<TestBackpressureControl>(&dummy_node);
+  ASSERT_OK_AND_ASSIGN(
+      auto handler, BackpressureHandler::Make(/*low_threshold=*/2, /*high_threshold=*/4,
+                                              std::move(ctrl)));
+  BackpressureConcurrentQueue<int> queue(std::move(handler));
+
+  queue.Push(6);
+  queue.Push(7);
+  queue.Push(8);
+  ASSERT_FALSE(dummy_node.paused);
+  ASSERT_FALSE(dummy_node.stopped);
+  queue.ForceShutdown();
+  for (int i = 0; i < 10; ++i) {
+    queue.Push(i);
+  }
+  ASSERT_FALSE(dummy_node.paused);
+}
+
 }  // namespace acero
 }  // namespace arrow

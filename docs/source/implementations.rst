@@ -34,23 +34,23 @@ documentation and source code for these libraries.
    * - Language
      - Docs
      - Source
+   * - .NET
+     - `.NET Docs <https://arrow.apache.org/dotnet/>`_ :fa:`external-link-alt`
+     - `.NET Source <https://github.com/apache/arrow-dotnet>`_
    * - C++
      - :doc:`C++ Docs<cpp/index>`
      - `C++ Source <https://github.com/apache/arrow/tree/main/cpp>`_
    * - C GLib
      - :doc:`C GLib Docs<c_glib/index>`
      - `C GLib Source <https://github.com/apache/arrow/tree/main/c_glib>`_
-   * - C#
-     - `C# Docs <https://github.com/apache/arrow/blob/main/csharp/README.md>`_ :fa:`external-link-alt`
-     - `C# Source <https://github.com/apache/arrow/tree/main/csharp>`_
    * - Go
-     - `Go Docs <https://godoc.org/github.com/apache/arrow/go/arrow>`_ :fa:`external-link-alt`
+     - `Go Docs <https://arrow.apache.org/go/>`_ :fa:`external-link-alt`
      - `Go Source <https://github.com/apache/arrow-go>`_
    * - Java
      - :doc:`Java Docs<java/index>`
      - `Java Source <https://github.com/apache/arrow-java>`_
    * - JavaScript
-     - `JavaScript Docs <https://arrow.apache.org/docs/js>`_ :fa:`external-link-alt`
+     - `JavaScript Docs <https://arrow.apache.org/js/>`_ :fa:`external-link-alt`
      - `JavaScript Source <https://github.com/apache/arrow-js>`_
    * - Julia
      - `Julia Docs <https://arrow.apache.org/julia/>`_ :fa:`external-link-alt`
@@ -71,7 +71,7 @@ documentation and source code for these libraries.
      - `Rust Docs <https://docs.rs/arrow/latest>`_ :fa:`external-link-alt`
      - `Rust Source <https://github.com/apache/arrow-rs>`_
    * - Swift
-     - `Swift Docs <https://github.com/apache/arrow-swift/blob/main/Arrow/README.md>`_ :fa:`external-link-alt`
+     - `Swift Docs <https://arrow.apache.org/swift/>`_ :fa:`external-link-alt`
      - `Swift Source <https://github.com/apache/arrow-swift>`_
 
 In addition to the libraries listed above, the Arrow project hosts the
@@ -109,9 +109,9 @@ The source files for the Cookbook are maintained in the
    :maxdepth: 1
    :hidden:
 
+   .NET <https://arrow.apache.org/dotnet/>
    C++ <cpp/index>
    C GLib <c_glib/index>
-   C# <https://github.com/apache/arrow/blob/main/csharp/README.md>
    Go <https://arrow.apache.org/go/>
    Java <java/index>
    JavaScript <https://arrow.apache.org/js/current/>

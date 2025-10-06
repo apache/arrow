@@ -137,7 +137,7 @@ std::string FormatDecimalValue(Type::type parquet_type, ::std::string_view val,
     }
     case Type::FIXED_LEN_BYTE_ARRAY:
     case Type::BYTE_ARRAY: {
-      auto decimal_result = ::arrow::Decimal128::FromBigEndian(
+      auto decimal_result = ::arrow::Decimal256::FromBigEndian(
           reinterpret_cast<const uint8_t*>(val.data()), static_cast<int32_t>(val.size()));
       if (!decimal_result.ok()) {
         throw ParquetException("Failed to parse decimal value: ",
@@ -835,8 +835,9 @@ bool LogicalType::is_valid() const {
 }
 bool LogicalType::is_invalid() const { return !is_valid(); }
 bool LogicalType::is_nested() const {
-  return (impl_->type() == LogicalType::Type::LIST) ||
-         (impl_->type() == LogicalType::Type::MAP);
+  return impl_->type() == LogicalType::Type::LIST ||
+         impl_->type() == LogicalType::Type::MAP ||
+         impl_->type() == LogicalType::Type::VARIANT;
 }
 bool LogicalType::is_nonnested() const { return !is_nested(); }
 bool LogicalType::is_serialized() const { return impl_->is_serialized(); }

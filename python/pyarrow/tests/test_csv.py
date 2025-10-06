@@ -2003,6 +2003,21 @@ def test_write_quoting_style():
         buf.seek(0)
 
 
+def test_write_quoting_header():
+    t = pa.Table.from_arrays([[1, 2, None], ["a", None, "c"]], ["c1", "c2"])
+    buf = io.BytesIO()
+    for write_options, res in [
+        (WriteOptions(quoting_header='none'), b'c1,c2\n1,"a"\n2,\n,"c"\n'),
+        (WriteOptions(), b'"c1","c2"\n1,"a"\n2,\n,"c"\n'),
+        (WriteOptions(quoting_header='all_valid'),
+         b'"c1","c2"\n1,"a"\n2,\n,"c"\n'),
+    ]:
+        with CSVWriter(buf, t.schema, write_options=write_options) as writer:
+            writer.write_table(t)
+        assert buf.getvalue() == res
+        buf.seek(0)
+
+
 def test_read_csv_reference_cycle():
     # ARROW-13187
     def inner():

@@ -34,10 +34,10 @@ namespace config {
 
 AddPropertyWindow::AddPropertyWindow(Window* parent)
     : CustomWindow(parent, "AddProperty", "Add Property"),
-      width(300),
-      height(120),
-      accepted(false),
-      isInitialized(false) {
+      width_(300),
+      height_(120),
+      accepted_(false),
+      is_initialized_(false) {
   // No-op.
 }
 
@@ -47,22 +47,24 @@ AddPropertyWindow::~AddPropertyWindow() {
 
 void AddPropertyWindow::Create() {
   // Finding out parent position.
-  RECT parentRect;
-  GetWindowRect(parent->GetHandle(), &parentRect);
+  RECT parent_rect;
+  GetWindowRect(parent_->GetHandle(), &parent_rect);
 
   // Positioning window to the center of parent window.
-  const int posX = parentRect.left + (parentRect.right - parentRect.left - width) / 2;
-  const int posY = parentRect.top + (parentRect.bottom - parentRect.top - height) / 2;
+  const int pos_x =
+      parent_rect.left + (parent_rect.right - parent_rect.left - width_) / 2;
+  const int pos_y =
+      parent_rect.top + (parent_rect.bottom - parent_rect.top - height_) / 2;
 
-  RECT desiredRect = {posX, posY, posX + width, posY + height};
-  AdjustWindowRect(&desiredRect, WS_BORDER | WS_CAPTION | WS_SYSMENU | WS_THICKFRAME,
+  RECT desired_rect = {pos_x, pos_y, pos_x + width_, pos_y + height_};
+  AdjustWindowRect(&desired_rect, WS_BORDER | WS_CAPTION | WS_SYSMENU | WS_THICKFRAME,
                    FALSE);
 
-  Window::Create(WS_OVERLAPPED | WS_SYSMENU, desiredRect.left, desiredRect.top,
-                 desiredRect.right - desiredRect.left,
-                 desiredRect.bottom - desiredRect.top, 0);
+  Window::Create(WS_OVERLAPPED | WS_SYSMENU, desired_rect.left, desired_rect.top,
+                 desired_rect.right - desired_rect.left,
+                 desired_rect.bottom - desired_rect.top, 0);
 
-  if (!handle) {
+  if (!handle_) {
     std::stringstream buf;
     buf << "Can not create window, error code: " << GetLastError();
     throw odbcabstraction::DriverException(buf.str());
@@ -70,71 +72,72 @@ void AddPropertyWindow::Create() {
 }
 
 bool AddPropertyWindow::GetProperty(std::string& key, std::string& value) {
-  if (accepted) {
-    key = this->key;
-    value = this->value;
+  if (accepted_) {
+    key = this->key_;
+    value = this->value_;
     return true;
   }
   return false;
 }
 
 void AddPropertyWindow::OnCreate() {
-  int groupPosY = MARGIN;
-  int groupSizeY = width - 2 * MARGIN;
+  int group_pos_y = MARGIN;
+  int group_size_y = width_ - 2 * MARGIN;
 
-  groupPosY += INTERVAL + CreateEdits(MARGIN, groupPosY, groupSizeY);
+  group_pos_y += INTERVAL + CreateEdits(MARGIN, group_pos_y, group_size_y);
 
-  int cancelPosX = width - MARGIN - BUTTON_WIDTH;
-  int okPosX = cancelPosX - INTERVAL - BUTTON_WIDTH;
+  int cancel_pos_x = width_ - MARGIN - BUTTON_WIDTH;
+  int ok_pos_x = cancel_pos_x - INTERVAL - BUTTON_WIDTH;
 
-  okButton = CreateButton(okPosX, groupPosY, BUTTON_WIDTH, BUTTON_HEIGHT, "Ok",
-                          ChildId::OK_BUTTON, BS_DEFPUSHBUTTON);
-  cancelButton = CreateButton(cancelPosX, groupPosY, BUTTON_WIDTH, BUTTON_HEIGHT,
-                              "Cancel", ChildId::CANCEL_BUTTON);
-  isInitialized = true;
+  ok_button_ = CreateButton(ok_pos_x, group_pos_y, BUTTON_WIDTH, BUTTON_HEIGHT, "Ok",
+                            ChildId::OK_BUTTON, BS_DEFPUSHBUTTON);
+  cancel_button_ = CreateButton(cancel_pos_x, group_pos_y, BUTTON_WIDTH, BUTTON_HEIGHT,
+                                "Cancel", ChildId::CANCEL_BUTTON);
+  is_initialized_ = true;
   CheckEnableOk();
 }
 
-int AddPropertyWindow::CreateEdits(int posX, int posY, int sizeX) {
+int AddPropertyWindow::CreateEdits(int pos_x, int pos_y, int size_x) {
   enum { LABEL_WIDTH = 30 };
 
-  const int editSizeX = sizeX - LABEL_WIDTH - INTERVAL;
-  const int editPosX = posX + LABEL_WIDTH + INTERVAL;
+  const int edit_size_x = size_x - LABEL_WIDTH - INTERVAL;
+  const int edit_pos_x = pos_x + LABEL_WIDTH + INTERVAL;
 
-  int rowPos = posY;
+  int row_pos = pos_y;
 
-  labels.push_back(
-      CreateLabel(posX, rowPos, LABEL_WIDTH, ROW_HEIGHT, "Key:", ChildId::KEY_LABEL));
-  keyEdit = CreateEdit(editPosX, rowPos, editSizeX, ROW_HEIGHT, "", ChildId::KEY_EDIT);
+  labels_.push_back(
+      CreateLabel(pos_x, row_pos, LABEL_WIDTH, ROW_HEIGHT, "Key:", ChildId::KEY_LABEL));
+  key_edit_ =
+      CreateEdit(edit_pos_x, row_pos, edit_size_x, ROW_HEIGHT, "", ChildId::KEY_EDIT);
 
-  rowPos += INTERVAL + ROW_HEIGHT;
+  row_pos += INTERVAL + ROW_HEIGHT;
 
-  labels.push_back(
-      CreateLabel(posX, rowPos, LABEL_WIDTH, ROW_HEIGHT, "Value:", ChildId::VALUE_LABEL));
-  valueEdit =
-      CreateEdit(editPosX, rowPos, editSizeX, ROW_HEIGHT, "", ChildId::VALUE_EDIT);
+  labels_.push_back(CreateLabel(pos_x, row_pos, LABEL_WIDTH, ROW_HEIGHT,
+                                "Value:", ChildId::VALUE_LABEL));
+  value_edit_ =
+      CreateEdit(edit_pos_x, row_pos, edit_size_x, ROW_HEIGHT, "", ChildId::VALUE_EDIT);
 
-  rowPos += INTERVAL + ROW_HEIGHT;
+  row_pos += INTERVAL + ROW_HEIGHT;
 
-  return rowPos - posY;
+  return row_pos - pos_y;
 }
 
 void AddPropertyWindow::CheckEnableOk() {
-  if (!isInitialized) {
+  if (!is_initialized_) {
     return;
   }
 
-  okButton->SetEnabled(!keyEdit->IsTextEmpty() && !valueEdit->IsTextEmpty());
+  ok_button_->SetEnabled(!key_edit_->IsTextEmpty() && !value_edit_->IsTextEmpty());
 }
 
-bool AddPropertyWindow::OnMessage(UINT msg, WPARAM wParam, LPARAM lParam) {
+bool AddPropertyWindow::OnMessage(UINT msg, WPARAM wparam, LPARAM lparam) {
   switch (msg) {
     case WM_COMMAND: {
-      switch (LOWORD(wParam)) {
+      switch (LOWORD(wparam)) {
         case ChildId::OK_BUTTON: {
-          keyEdit->GetText(key);
-          valueEdit->GetText(value);
-          accepted = true;
+          key_edit_->GetText(key_);
+          value_edit_->GetText(value_);
+          accepted_ = true;
           PostMessage(GetHandle(), WM_CLOSE, 0, 0);
 
           break;
@@ -148,7 +151,7 @@ bool AddPropertyWindow::OnMessage(UINT msg, WPARAM wParam, LPARAM lParam) {
 
         case ChildId::KEY_EDIT:
         case ChildId::VALUE_EDIT: {
-          if (HIWORD(wParam) == EN_CHANGE) {
+          if (HIWORD(wparam) == EN_CHANGE) {
             CheckEnableOk();
           }
           break;
@@ -162,7 +165,7 @@ bool AddPropertyWindow::OnMessage(UINT msg, WPARAM wParam, LPARAM lParam) {
     }
 
     case WM_DESTROY: {
-      PostQuitMessage(accepted ? Result::OK : Result::CANCEL);
+      PostQuitMessage(accepted_ ? Result::OK : Result::CANCEL);
 
       break;
     }

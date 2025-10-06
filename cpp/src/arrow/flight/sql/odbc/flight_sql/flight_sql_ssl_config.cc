@@ -24,30 +24,30 @@
 namespace driver {
 namespace flight_sql {
 
-FlightSqlSslConfig::FlightSqlSslConfig(bool disableCertificateVerification,
-                                       const std::string& trustedCerts,
-                                       bool systemTrustStore, bool useEncryption)
-    : trustedCerts_(trustedCerts),
-      useEncryption_(useEncryption),
-      disableCertificateVerification_(disableCertificateVerification),
-      systemTrustStore_(systemTrustStore) {}
+FlightSqlSslConfig::FlightSqlSslConfig(bool disable_certificate_verification,
+                                       const std::string& trusted_certs,
+                                       bool system_trust_store, bool use_encryption)
+    : trusted_certs_(trusted_certs),
+      use_encryption_(use_encryption),
+      disable_certificate_verification_(disable_certificate_verification),
+      system_trust_store_(system_trust_store) {}
 
-bool FlightSqlSslConfig::useEncryption() const { return useEncryption_; }
+bool FlightSqlSslConfig::UseEncryption() const { return use_encryption_; }
 
-bool FlightSqlSslConfig::shouldDisableCertificateVerification() const {
-  return disableCertificateVerification_;
+bool FlightSqlSslConfig::ShouldDisableCertificateVerification() const {
+  return disable_certificate_verification_;
 }
 
-const std::string& FlightSqlSslConfig::getTrustedCerts() const { return trustedCerts_; }
+const std::string& FlightSqlSslConfig::GetTrustedCerts() const { return trusted_certs_; }
 
-bool FlightSqlSslConfig::useSystemTrustStore() const { return systemTrustStore_; }
+bool FlightSqlSslConfig::UseSystemTrustStore() const { return system_trust_store_; }
 
-void FlightSqlSslConfig::populateOptionsWithCerts(arrow::flight::CertKeyPair* out) {
+void FlightSqlSslConfig::PopulateOptionsWithCerts(arrow::flight::CertKeyPair* out) {
   try {
-    std::ifstream cert_file(trustedCerts_);
+    std::ifstream cert_file(trusted_certs_);
     if (!cert_file) {
       throw odbcabstraction::DriverException("Could not open certificate: " +
-                                             trustedCerts_);
+                                             trusted_certs_);
     }
     std::stringstream cert;
     cert << cert_file.rdbuf();

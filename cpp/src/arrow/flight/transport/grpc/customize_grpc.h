@@ -22,6 +22,7 @@
 
 #include "arrow/flight/platform.h"
 #include "arrow/flight/type_fwd.h"
+#include "arrow/flight/visibility.h"
 #include "arrow/util/config.h"
 
 // Silence protobuf warnings
@@ -63,8 +64,8 @@ namespace grpc {
 
 // Read internal::FlightData from grpc::ByteBuffer containing FlightData
 // protobuf without copying
-::grpc::Status FlightDataDeserialize(::grpc::ByteBuffer* buffer,
-                                     arrow::flight::internal::FlightData* out);
+ARROW_FLIGHT_EXPORT ::grpc::Status FlightDataDeserialize(
+    ::grpc::ByteBuffer* buffer, arrow::flight::internal::FlightData* out);
 }  // namespace grpc
 }  // namespace transport
 }  // namespace flight

@@ -438,8 +438,8 @@ int RlePreserveBufferSize(int num_values, int bit_width) {
   // is called, we have to reserve an extra "RleEncoder::MinBufferSize"
   // bytes. These extra bytes won't be used but not reserving them
   // would cause the encoder to fail.
-  return ::arrow::util::RleEncoder::MaxBufferSize(bit_width, num_values) +
-         ::arrow::util::RleEncoder::MinBufferSize(bit_width);
+  return ::arrow::util::RleBitPackedEncoder::MaxBufferSize(bit_width, num_values) +
+         ::arrow::util::RleBitPackedEncoder::MinBufferSize(bit_width);
 }
 
 /// See the dictionary encoding section of
@@ -476,7 +476,7 @@ class DictEncoderImpl : public EncoderImpl, virtual public DictEncoder<DType> {
     ++buffer;
     --buffer_len;
 
-    ::arrow::util::RleEncoder encoder(buffer, buffer_len, bit_width());
+    ::arrow::util::RleBitPackedEncoder encoder(buffer, buffer_len, bit_width());
 
     for (int32_t index : buffered_indices_) {
       if (ARROW_PREDICT_FALSE(!encoder.Put(index))) return -1;
@@ -1717,8 +1717,9 @@ std::shared_ptr<Buffer> RleBooleanEncoder::FlushValues() {
   int rle_buffer_size_max = MaxRleBufferSize();
   std::shared_ptr<ResizableBuffer> buffer =
       AllocateBuffer(this->pool_, rle_buffer_size_max + kRleLengthInBytes);
-  ::arrow::util::RleEncoder encoder(buffer->mutable_data() + kRleLengthInBytes,
-                                    rle_buffer_size_max, /*bit_width*/ kBitWidth);
+  ::arrow::util::RleBitPackedEncoder encoder(buffer->mutable_data() + kRleLengthInBytes,
+                                             rle_buffer_size_max,
+                                             /*bit_width*/ kBitWidth);
 
   for (bool value : buffered_append_values_) {
     encoder.Put(value ? 1 : 0);

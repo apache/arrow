@@ -142,6 +142,7 @@ if [ "${ARROW_USE_MESON:-OFF}" = "ON" ]; then
   meson setup \
     --prefix=${MESON_PREFIX:-${ARROW_HOME}} \
     --buildtype=${ARROW_BUILD_TYPE:-debug} \
+    --pkg-config-path="${CONDA_PREFIX}/lib/pkgconfig/" \
     -Dauto_features=enabled \
     -Dfuzzing=disabled \
     -Dgcs=disabled \
@@ -221,7 +222,6 @@ else
     -DARROW_RUNTIME_SIMD_LEVEL=${ARROW_RUNTIME_SIMD_LEVEL:-MAX} \
     -DARROW_S3=${ARROW_S3:-OFF} \
     -DARROW_SIMD_LEVEL=${ARROW_SIMD_LEVEL:-DEFAULT} \
-    -DARROW_SKYHOOK=${ARROW_SKYHOOK:-OFF} \
     -DARROW_SUBSTRAIT=${ARROW_SUBSTRAIT:-OFF} \
     -DARROW_TEST_LINKAGE=${ARROW_TEST_LINKAGE:-shared} \
     -DARROW_TEST_MEMCHECK=${ARROW_TEST_MEMCHECK:-OFF} \

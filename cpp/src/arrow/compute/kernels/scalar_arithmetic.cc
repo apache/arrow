@@ -598,10 +598,6 @@ Result<TypeHolder> ResolveDecimalAdditionOrSubtractionOutput(
       types,
       [](int32_t p1, int32_t s1, int32_t p2,
          int32_t s2) -> Result<std::pair<int32_t, int32_t>> {
-        if (s1 != s2) {
-          return Status::Invalid("Addition or subtraction of two decimal ",
-                                 "types scale1 != scale2. (", s1, s2, ").");
-        }
         DCHECK_EQ(s1, s2);
         const int32_t scale = s1;
         const int32_t precision = std::max(p1 - s1, p2 - s2) + scale + 1;
@@ -627,10 +623,6 @@ Result<TypeHolder> ResolveDecimalDivisionOutput(KernelContext*,
       types,
       [](int32_t p1, int32_t s1, int32_t p2,
          int32_t s2) -> Result<std::pair<int32_t, int32_t>> {
-        if (s1 < s2) {
-          return Status::Invalid("Division of two decimal types scale1 < scale2. ", "(",
-                                 s1, s2, ").");
-        }
         DCHECK_GE(s1, s2);
         const int32_t scale = s1 - s2;
         const int32_t precision = p1;
@@ -669,9 +661,11 @@ void AddDecimalUnaryKernels(ScalarFunction* func) {
 template <typename Op>
 void AddDecimalBinaryKernels(const std::string& name, ScalarFunction* func) {
   OutputType out_type(null());
+  std::shared_ptr<MatchConstraint> constraint = nullptr;
   const std::string op = name.substr(0, name.find("_"));
   if (op == "add" || op == "subtract") {
     out_type = OutputType(ResolveDecimalAdditionOrSubtractionOutput);
+    constraint = DecimalsHaveSameScale();
   } else if (op == "multiply") {
     out_type = OutputType(ResolveDecimalMultiplicationOutput);
   } else if (op == "divide") {
@@ -684,8 +678,10 @@ void AddDecimalBinaryKernels(const std::string& name, ScalarFunction* func) {
   auto in_type256 = InputType(Type::DECIMAL256);
   auto exec128 = ScalarBinaryNotNullEqualTypes<Decimal128Type, Decimal128Type, Op>::Exec;
   auto exec256 = ScalarBinaryNotNullEqualTypes<Decimal256Type, Decimal256Type, Op>::Exec;
-  DCHECK_OK(func->AddKernel({in_type128, in_type128}, out_type, exec128));
-  DCHECK_OK(func->AddKernel({in_type256, in_type256}, out_type, exec256));
+  DCHECK_OK(func->AddKernel({in_type128, in_type128}, out_type, exec128, /*init=*/nullptr,
+                            constraint));
+  DCHECK_OK(func->AddKernel({in_type256, in_type256}, out_type, exec256, /*init=*/nullptr,
+                            constraint));
 }
 
 template <typename Op>
@@ -729,6 +725,17 @@ ArrayKernelExec GenerateArithmeticWithFixedIntOutType(detail::GetTypeId get_id) 
 
 struct ArithmeticFunction : ScalarFunction {
   using ScalarFunction::ScalarFunction;
+
+  Result<const Kernel*> DispatchExact(
+      const std::vector<TypeHolder>& types) const override {
+    if ((name_ == "divide" || name_ == "divide_checked") && HasDecimal(types)) {
+      // Decimal division ALWAYS scales up the dividend, so there will NEVER be an exact
+      // match.
+      return arrow::compute::detail::NoMatchingKernel(this, types);
+    }
+
+    return ScalarFunction::DispatchExact(types);
+  }
 
   Result<const Kernel*> DispatchBest(std::vector<TypeHolder>* types) const override {
     RETURN_NOT_OK(CheckArity(types->size()));

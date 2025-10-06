@@ -145,7 +145,7 @@ Result<llvm::orc::JITTargetMachineBuilder> MakeTargetMachineBuilder(
 #else
   using CodeGenOptLevel = llvm::CodeGenOpt::Level;
 #endif
-  auto const opt_level =
+  const auto opt_level =
       conf.optimize() ? CodeGenOptLevel::Aggressive : CodeGenOptLevel::None;
   jtmb.setCodeGenOptLevel(opt_level);
   return jtmb;
@@ -202,10 +202,16 @@ Status UseJITLinkIfEnabled(llvm::orc::LLJITBuilder& jit_builder) {
   static auto maybe_use_jit_link = ::arrow::internal::GetEnvVar("GANDIVA_USE_JIT_LINK");
   if (maybe_use_jit_link.ok()) {
     ARROW_ASSIGN_OR_RAISE(static auto memory_manager, CreateMemmoryManager());
+#  if LLVM_VERSION_MAJOR >= 21
+    jit_builder.setObjectLinkingLayerCreator([&](llvm::orc::ExecutionSession& ES) {
+      return std::make_unique<llvm::orc::ObjectLinkingLayer>(ES, *memory_manager);
+    });
+#  else
     jit_builder.setObjectLinkingLayerCreator(
         [&](llvm::orc::ExecutionSession& ES, const llvm::Triple& TT) {
           return std::make_unique<llvm::orc::ObjectLinkingLayer>(ES, *memory_manager);
         });
+#  endif
   }
   return Status::OK();
 }
@@ -380,7 +386,7 @@ llvm::Module* Engine::module() {
 
 // Handling for pre-compiled IR libraries.
 Status Engine::LoadPreCompiledIR() {
-  auto const bitcode = llvm::StringRef(reinterpret_cast<const char*>(kPrecompiledBitcode),
+  const auto bitcode = llvm::StringRef(reinterpret_cast<const char*>(kPrecompiledBitcode),
                                        kPrecompiledBitcodeSize);
 
   /// Read from file into memory buffer.
@@ -403,14 +409,14 @@ Status Engine::LoadPreCompiledIR() {
 }
 
 static llvm::MemoryBufferRef AsLLVMMemoryBuffer(const arrow::Buffer& arrow_buffer) {
-  auto const data = reinterpret_cast<const char*>(arrow_buffer.data());
-  auto const size = arrow_buffer.size();
+  const auto data = reinterpret_cast<const char*>(arrow_buffer.data());
+  const auto size = arrow_buffer.size();
   return {llvm::StringRef(data, size), "external_bitcode"};
 }
 
 Status Engine::LoadExternalPreCompiledIR() {
-  auto const& buffers = function_registry_->GetBitcodeBuffers();
-  for (auto const& buffer : buffers) {
+  const auto& buffers = function_registry_->GetBitcodeBuffers();
+  for (const auto& buffer : buffers) {
     auto llvm_memory_buffer_ref = AsLLVMMemoryBuffer(*buffer);
     auto module_or_error = llvm::parseBitcodeFile(llvm_memory_buffer_ref, *context());
     ARROW_RETURN_NOT_OK(VerifyAndLinkModule(*module_, std::move(module_or_error)));
@@ -574,7 +580,7 @@ Result<void*> Engine::CompiledFunction(const std::string& function) {
 
 void Engine::AddGlobalMappingForFunc(const std::string& name, llvm::Type* ret_type,
                                      const std::vector<llvm::Type*>& args, void* func) {
-  auto const prototype = llvm::FunctionType::get(ret_type, args, /*is_var_arg*/ false);
+  const auto prototype = llvm::FunctionType::get(ret_type, args, /*is_var_arg*/ false);
   llvm::Function::Create(prototype, llvm::GlobalValue::ExternalLinkage, name, module());
   AddAbsoluteSymbol(*lljit_, name, func);
 }

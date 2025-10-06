@@ -42,56 +42,56 @@ class ODBCConnection : public ODBCHandle<ODBCConnection> {
   ODBCConnection& operator=(const ODBCConnection&) = delete;
 
   ODBCConnection(ODBCEnvironment& environment,
-                 std::shared_ptr<driver::odbcabstraction::Connection> spiConnection);
+                 std::shared_ptr<driver::odbcabstraction::Connection> spi_connection);
 
-  driver::odbcabstraction::Diagnostics& GetDiagnostics_Impl();
+  driver::odbcabstraction::Diagnostics& GetDiagnosticsImpl();
 
   const std::string& GetDSN() const;
-  bool isConnected() const;
-  void connect(std::string dsn,
+  bool IsConnected() const;
+  void Connect(std::string dsn,
                const driver::odbcabstraction::Connection::ConnPropertyMap& properties,
                std::vector<std::string_view>& missing_properties);
 
-  void GetInfo(SQLUSMALLINT infoType, SQLPOINTER value, SQLSMALLINT bufferLength,
-               SQLSMALLINT* outputLength, bool isUnicode);
-  void SetConnectAttr(SQLINTEGER attribute, SQLPOINTER value, SQLINTEGER stringLength,
+  void GetInfo(SQLUSMALLINT info_type, SQLPOINTER value, SQLSMALLINT buffer_length,
+               SQLSMALLINT* output_length, bool is_unicode);
+  void SetConnectAttr(SQLINTEGER attribute, SQLPOINTER value, SQLINTEGER string_length,
                       bool isUnicode);
-  void GetConnectAttr(SQLINTEGER attribute, SQLPOINTER value, SQLINTEGER bufferLength,
-                      SQLINTEGER* outputLength, bool isUnicode);
+  void GetConnectAttr(SQLINTEGER attribute, SQLPOINTER value, SQLINTEGER buffer_length,
+                      SQLINTEGER* output_length, bool is_unicode);
 
   ~ODBCConnection() = default;
 
-  inline ODBCStatement& GetTrackingStatement() { return *m_attributeTrackingStatement; }
+  inline ODBCStatement& GetTrackingStatement() { return *attribute_tracking_statement_; }
 
-  void disconnect();
+  void Disconnect();
 
-  void releaseConnection();
+  void ReleaseConnection();
 
-  std::shared_ptr<ODBCStatement> createStatement();
-  void dropStatement(ODBCStatement* statement);
+  std::shared_ptr<ODBCStatement> CreateStatement();
+  void DropStatement(ODBCStatement* statement);
 
-  std::shared_ptr<ODBCDescriptor> createDescriptor();
-  void dropDescriptor(ODBCDescriptor* descriptor);
+  std::shared_ptr<ODBCDescriptor> CreateDescriptor();
+  void DropDescriptor(ODBCDescriptor* descriptor);
 
-  inline bool IsOdbc2Connection() const { return m_is2xConnection; }
+  inline bool IsOdbc2Connection() const { return is_2x_connection_; }
 
   /// @return the DSN or empty string if Driver was used.
-  static std::string getPropertiesFromConnString(
-      const std::string& connStr,
+  static std::string GetPropertiesFromConnString(
+      const std::string& conn_str,
       driver::odbcabstraction::Connection::ConnPropertyMap& properties);
 
  private:
-  ODBCEnvironment& m_environment;
-  std::shared_ptr<driver::odbcabstraction::Connection> m_spiConnection;
+  ODBCEnvironment& environment_;
+  std::shared_ptr<driver::odbcabstraction::Connection> spi_connection_;
   // Extra ODBC statement that's used to track and validate when statement attributes are
   // set through the connection handle. These attributes get copied to new ODBC statements
   // when they are allocated.
-  std::shared_ptr<ODBCStatement> m_attributeTrackingStatement;
-  std::vector<std::shared_ptr<ODBCStatement> > m_statements;
-  std::vector<std::shared_ptr<ODBCDescriptor> > m_descriptors;
-  std::string m_dsn;
-  const bool m_is2xConnection;
-  bool m_isConnected;
+  std::shared_ptr<ODBCStatement> attribute_tracking_statement_;
+  std::vector<std::shared_ptr<ODBCStatement> > statements_;
+  std::vector<std::shared_ptr<ODBCDescriptor> > descriptors_;
+  std::string dsn_;
+  const bool is_2x_connection_;
+  bool is_connected_;
 };
 
 }  // namespace ODBC
