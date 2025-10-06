@@ -258,7 +258,7 @@ def first_last(
 
 def index(
     data: lib.Array[Any] | lib.ChunkedArray[Any],
-    value,
+    value: ScalarLike,
     start: int | None = None,
     end: int | None = None,
     *,
@@ -739,16 +739,11 @@ ascii_upper = _clone_signature(ascii_capitalize)
 
 
 def binary_length(
-    strings: lib.BinaryScalar | lib.StringScalar | lib.LargeBinaryScalar
-    | lib.LargeStringScalar | lib.BinaryArray | lib.StringArray
-    | lib.ChunkedArray[lib.BinaryScalar] | lib.ChunkedArray[lib.StringScalar]
-    | lib.LargeBinaryArray | lib.LargeStringArray
-    | lib.ChunkedArray[lib.LargeBinaryScalar] | lib.ChunkedArray[lib.LargeStringScalar]
-    | Expression,
-    /, *, memory_pool: lib.MemoryPool | None = None
-) -> (
-    lib.Int32Scalar | lib.Int64Scalar | lib.Int32Array | lib.Int64Array
-    | Expression): ...
+    strings: ScalarOrArray[StringOrBinaryScalar] | Expression,
+    /,
+    *,
+    memory_pool: lib.MemoryPool | None = None,
+) -> lib.Int32Scalar | lib.Int64Scalar | lib.Int32Array | lib.Int64Array | Expression: ...
 
 
 def binary_repeat(
@@ -1074,7 +1069,12 @@ true_unless_null = _clone_signature(is_valid)
 def case_when(cond, /, *cases, memory_pool: lib.MemoryPool | None = None): ...
 
 
-def choose(indices, /, *values, memory_pool: lib.MemoryPool | None = None): ...
+def choose(
+    indices: ArrayLike | ScalarLike,
+    /,
+    *values: ArrayLike | ScalarLike,
+    memory_pool: lib.MemoryPool | None = None,
+) -> ArrayLike | ScalarLike: ...
 
 
 def coalesce(
