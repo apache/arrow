@@ -1658,6 +1658,12 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
               progress_reporter.advance
             end
 
+            if distribution == "ubuntu"
+              universe_dir = "#{pool_dir}/universe"
+              next unless File.exist?(universe_dir)
+              mv(universe_dir, "#{pool_dir}/main")
+            end
+
             progress_reporter.finish
           end
         end
