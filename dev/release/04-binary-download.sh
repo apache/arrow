@@ -20,6 +20,8 @@
 
 set -e
 
+SOURCE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 if [ "$#" -lt 2 ]; then
   echo "Usage: $0 <version> <rc-num> [options]"
   exit
@@ -29,6 +31,9 @@ version=$1
 shift
 rc_number=$1
 shift
+
+. "${SOURCE_DIR}/utils-env.sh"
+
 version_with_rc="${version}-rc${rc_number}"
 crossbow_job_prefix="release-${version_with_rc}"
 tag="apache-arrow-${version_with_rc}"
