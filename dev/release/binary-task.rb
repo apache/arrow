@@ -2052,12 +2052,9 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
               #
               # Example:
               #   almalinux/10/Source/Packages/ ->
-              #   almalinux/10/source/SPackages/
-              mv(File.join(destination_dir, "Source"),
-                 File.join(destination_dir, "source"),
-                 verbose: true)
-              mv(File.join(destination_dir, "source", "Packages"),
-                 File.join(destination_dir, "source", "SPackages"),
+              #   almalinux/10/Source/SPackages/
+              mv(File.join(destination_dir, "Source", "Packages"),
+                 File.join(destination_dir, "Source", "SPackages"),
                  verbose: true)
             end
 
