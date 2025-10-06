@@ -982,3 +982,16 @@ def test_nested_map_types_with_maps_as_pydicts():
     s = pa.scalar(v, type=ty)
 
     assert s.as_py(maps_as_pydicts="strict") == v
+
+
+def test_map_scalar_with_empty_values():
+    map_type = pa.struct(
+        [
+            pa.field('x', pa.map_(pa.string(), pa.string())),
+        ]
+    )
+
+    v = {'x': {}}
+    s = pa.scalar(v, type=map_type)
+
+    assert s.as_py(maps_as_pydicts="strict") == v

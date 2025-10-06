@@ -1173,6 +1173,9 @@ cdef class MapScalar(ListScalar, Mapping):
         if not maps_as_pydicts:
             return list(self)
         result_dict = {}
+        if self.values is None:
+            return result_dict
+
         for key, value in zip(self.keys(), self.values.field(self.type.item_field.name)):
             if key in result_dict:
                 if maps_as_pydicts == "strict":
