@@ -925,6 +925,9 @@ class PushGenerator {
   };
 
   struct StateWithBackpressure : public State {
+    using State::consumer_fut;
+    using State::finished;
+    using State::result_q;
     explicit StateWithBackpressure(acero::BackpressureHandler handler)
         : handler_(std::move(handler)) {}
 
@@ -945,8 +948,21 @@ class PushGenerator {
 
     bool Push(Result<T> result) override {
       auto lock = State::mutex.Lock();
+      if (finished) {
+        // Closed early
+        return false;
+      }
+      if (consumer_fut.has_value()) {
+        auto fut = std::move(consumer_fut.value());
+        consumer_fut.reset();
+        lock.Unlock();  // unlock before potentially invoking a callback
+        fut.MarkFinished(std::move(result));
+        return true;
+      }
+      // do_handle must be in always locked state but only needed when queue size changes
       DoHandle do_handle(*this);
-      return State::PushUnlocked(std::move(result), std::move(lock));
+      result_q.push_back(std::move(result));
+      return true;
     }
 
     Future<T> Pop() override {
