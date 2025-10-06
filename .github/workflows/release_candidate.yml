@@ -41,7 +41,7 @@ jobs:
   publish:
     name: Publish
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@v5
