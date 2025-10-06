@@ -48,7 +48,7 @@ archery crossbow download-artifacts --no-fetch ${CROSSBOW_JOB_ID} "$@"
 
 # Download Linux packages.
 gh release download "${tag}" \
-  --dir "${crossbow_job_prefix}" \
+  --dir "packages/${CROSSBOW_JOB_ID}" \
   --pattern "almalinux-*.tar.gz" \
   --pattern "amazon-linux-*.tar.gz" \
   --pattern "centos-*.tar.gz" \
