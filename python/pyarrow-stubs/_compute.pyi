@@ -51,7 +51,8 @@ class Function(lib._Weakrefable):
     def name(self) -> str: ...
     @property
     def num_kernels(self) -> int: ...
-
+    @property
+    def kernels(self) -> list[ScalarKernel | VectorKernel | ScalarAggregateKernel | HashAggregateKernel]:
     def call(
         self,
         args: Iterable,
