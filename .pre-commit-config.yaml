@@ -212,6 +212,12 @@ repos:
         entry: air format r
         files: >-
           ^r/.*\.(R|Rmd)$
+        exclude: >-
+          (
+          ?^r/R/dplyr-funcs-doc\.R$|
+          ?^r/R/arrowExports\.R$|
+          ?^r/data-raw/codegen\.R$|         
+          )
   - repo: https://github.com/pre-commit/mirrors-clang-format
     rev: v14.0.6
     hooks:
