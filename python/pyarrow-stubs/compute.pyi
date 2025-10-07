@@ -84,7 +84,7 @@ _R = TypeVar("_R")
 def field(*name_or_index: str | tuple[str, ...] | int) -> Expression: ...
 
 
-def scalar(value: bool | float | str) -> Expression: ...
+def scalar(value: Any) -> Expression: ...
 
 
 def _clone_signature(f: Callable[_P, _R]) -> Callable[_P, _R]: ...
@@ -1066,7 +1066,11 @@ true_unless_null = _clone_signature(is_valid)
 # ========================= 2.20 Selecting / multiplexing =========================
 
 
-def case_when(cond, /, *cases, memory_pool: lib.MemoryPool | None = None): ...
+def case_when(
+    cond: lib.StructArray | lib.ChunkedArray[lib.StructScalar],
+    /,
+    *cases: _ScalarOrArrayT, memory_pool: lib.MemoryPool | None = None
+) -> _ScalarOrArrayT: ...
 
 
 def choose(

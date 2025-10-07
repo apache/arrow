@@ -19,9 +19,9 @@ import sys
 from collections.abc import Iterable, Collection
 
 if sys.version_info >= (3, 11):
-    from typing import Self
+    from typing import Self, LiteralString
 else:
-    from typing_extensions import Self
+    from typing_extensions import Self, LiteralString
 if sys.version_info >= (3, 10):
     from typing import TypeAlias
 else:
@@ -31,8 +31,25 @@ from typing import Literal
 from . import lib
 from .compute import Expression, FunctionOptions
 from .dataset import InMemoryDataset, Dataset
+from .table import Aggregation, AggregateOptions
 
 _StrOrExpr: TypeAlias = str | Expression
+
+IntoField: TypeAlias = str | int | Expression
+Target: TypeAlias = (
+    IntoField
+    | tuple[IntoField, ...]
+    | list[str]
+    | list[int]
+    | list[Expression]
+    | list[IntoField]
+)
+
+UserDefinedAggregation: TypeAlias = LiteralString
+OutputName: TypeAlias = str
+AggregationSpec: TypeAlias = tuple[
+    Target, Aggregation | UserDefinedAggregation, AggregateOptions | None, OutputName
+]
 
 
 class Declaration(lib._Weakrefable):
@@ -68,10 +85,16 @@ class ProjectNodeOptions(ExecNodeOptions):
 class AggregateNodeOptions(ExecNodeOptions):
     def __init__(
         self,
-        aggregates: list[tuple[list[str], str, FunctionOptions, str]],
-        keys: Iterable[_StrOrExpr] | None = None,
+        aggregates: Iterable[
+            tuple[
+                Target,
+                Aggregation | UserDefinedAggregation,
+                AggregateOptions | None,
+                OutputName,
+            ]
+        ],
+        keys: Iterable[str | Expression] | None = None,
     ) -> None: ...
-
 
 class OrderByNodeOptions(ExecNodeOptions):
     def __init__(
