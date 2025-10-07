@@ -48,7 +48,7 @@ full_version=${versions[$2]}
 if [ "$platform" = "macOS" ]; then
     echo "Downloading Python installer..."
 
-    if [ "$version" = "3.14" ];
+    if [ "$version" = "3.14" ] || [ "$version" = "3.14t" ];
     then
         fname="python-${full_version}rc3-macos11.pkg"
     else
@@ -57,7 +57,9 @@ if [ "$platform" = "macOS" ]; then
     wget "https://www.python.org/ftp/python/${full_version}/${fname}"
 
     echo "Installing Python..."
-    if [[ $2 == "3.13t" ]]; then
+    if [[ $2 == "3.13t" ]] || [[ $2 == "3.14t" ]]; then
+        # Extract the base version without 't' suffix
+        base_version="${version%t}"
         # See https://github.com/python/cpython/issues/120098#issuecomment-2151122033 for more info on this.
         cat > ./choicechanges.plist <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
@@ -70,7 +72,7 @@ if [ "$platform" = "macOS" ]; then
                 <key>choiceAttribute</key>
                 <string>selected</string>
                 <key>choiceIdentifier</key>
-                <string>org.python.Python.PythonTFramework-3.13</string>
+                <string>org.python.Python.PythonTFramework-${base_version}</string>
         </dict>
 </array>
 </plist>
@@ -83,8 +85,9 @@ EOF
     rm "$fname"
 
     python="/Library/Frameworks/Python.framework/Versions/${version}/bin/python${version}"
-    if [[ $2 == "3.13t" ]]; then
-        python="/Library/Frameworks/PythonT.framework/Versions/3.13/bin/python3.13t"
+    if [[ $2 == "3.13t" ]] || [[ $2 == "3.14t" ]]; then
+        base_version="${version%t}"
+        python="/Library/Frameworks/PythonT.framework/Versions/${base_version}/bin/python${base_version}t"
     fi
 
     echo "Installing Pip..."
