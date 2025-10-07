@@ -656,4 +656,6 @@ __all__ = [
     "concat_tables",
     "TableGroupBy",
     "concat_batches",
+    "Aggregation",
+    "AggregateOptions",
 ]
