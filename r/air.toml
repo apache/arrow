@@ -17,4 +17,5 @@
 
 [format]
 line-width = 120
-exclude = ["R/arrowExports.R", "R/dplyr-funcs-doc.R", "data-raw/codegen.R"]
+# exclude below files as all are generated or used for generating other files
+exclude = ["R/arrowExports.R", "R/dplyr-funcs-doc.R", "data-raw/codegen.R"] 
