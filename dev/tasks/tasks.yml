@@ -733,12 +733,12 @@ tasks:
     ci: github
     template: r/github.linux.offline.build.yml
 
-  test-r-rhub-debian-gcc-release-custom-ccache:
+  test-r-rhub-ubuntu-gcc12-custom-ccache:
     ci: azure
     template: r/azure.linux.yml
     params:
       r_org: rhub
-      r_image: debian-gcc-release
+      r_image: ubuntu-gcc12
       r_tag: latest
       r_custom_ccache: true
 
