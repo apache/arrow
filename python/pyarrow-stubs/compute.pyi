@@ -1642,7 +1642,7 @@ def pairwise_diff(
 
 def run_end_encode(
     input: _NumericOrTemporalArrayT | Expression, /, *, run_end_type: _RunEndType,
-    value_type: _DataTypeT, options: RunEndEncodeOptions | None = None,
+    value_type: lib.DataType, options: RunEndEncodeOptions | None = None,
     memory_pool: lib.MemoryPool | None = None
 ) -> _NumericOrTemporalArrayT | Expression: ...
 
