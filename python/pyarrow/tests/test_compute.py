@@ -2489,6 +2489,13 @@ def test_extract_datetime_components(request):
             _check_datetime_components(timestamps, timezone)
 
 
+def test_offset_timezone():
+    arr = pc.strptime(["2012-12-12T12:12:12"], format="%Y-%m-%dT%H:%M:%S", unit="s")
+    zoned_arr = arr.cast(pa.timestamp("s", tz="+05:30"))
+    assert pc.hour(zoned_arr)[0].as_py() == 17
+    assert pc.minute(zoned_arr)[0].as_py() == 42
+
+
 @pytest.mark.parametrize("unit", ["s", "ms", "us", "ns"])
 def test_iso_calendar_longer_array(unit):
     # https://github.com/apache/arrow/issues/38655

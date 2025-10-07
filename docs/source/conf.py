@@ -235,7 +235,7 @@ master_doc = 'index'
 project = u'Apache Arrow'
 copyright = (
     f"2016-{datetime.datetime.now().year} Apache Software Foundation.\n"
-    "Apache Arrow, Arrow, Apache, the Apache feather logo, and the Apache Arrow "
+    "Apache Arrow, Arrow, Apache, the Apache logo, and the Apache Arrow "
     "project logo are either registered trademarks or trademarks of The Apache "
     "Software Foundation in the United States and other countries"
 )

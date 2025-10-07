@@ -379,7 +379,7 @@ test_that("Row-level metadata (does not) roundtrip in datasets", {
 
   # however there is *no* warning if we don't select the metadata column
   expect_warning(
-    df_from_ds <- ds %>% dplyr::select(int) %>% dplyr::collect(),
+    df_from_ds <- ds |> dplyr::select(int) |> dplyr::collect(),
     NA
   )
 })
@@ -397,9 +397,9 @@ test_that("Dataset writing does handle other metadata", {
 
   ds <- open_dataset(dst_dir)
   expect_equal(
-    ds %>%
+    ds |>
       # partitioning on b puts it last, so move it back
-      select(a, b, c, d) %>%
+      select(a, b, c, d) |>
       collect(),
     example_with_metadata
   )
@@ -412,45 +412,45 @@ test_that("dplyr with metadata", {
   skip_if_not_available("dataset")
 
   compare_dplyr_binding(
-    .input %>%
+    .input |>
       collect(),
     example_with_metadata
   )
   compare_dplyr_binding(
-    .input %>%
-      select(a) %>%
+    .input |>
+      select(a) |>
       collect(),
     example_with_metadata
   )
   compare_dplyr_binding(
-    .input %>%
-      mutate(z = b * 4) %>%
-      select(z, a) %>%
+    .input |>
+      mutate(z = b * 4) |>
+      select(z, a) |>
       collect(),
     example_with_metadata
   )
   compare_dplyr_binding(
-    .input %>%
-      mutate(z = nchar(d)) %>%
-      select(z, a) %>%
+    .input |>
+      mutate(z = nchar(d)) |>
+      select(z, a) |>
       collect(),
     example_with_metadata
   )
   # dplyr drops top-level attributes if you do summarize, though attributes
   # of grouping columns appear to come through
   compare_dplyr_binding(
-    .input %>%
-      group_by(d) %>%
-      summarize(n()) %>%
+    .input |>
+      group_by(d) |>
+      summarize(n()) |>
       collect(),
     example_with_metadata
   )
   # Same name in output but different data, so the column metadata shouldn't
   # carry through
   compare_dplyr_binding(
-    .input %>%
-      mutate(a = b) %>%
-      select(a) %>%
+    .input |>
+      mutate(a = b) |>
+      select(a) |>
       collect(),
     example_with_metadata
   )

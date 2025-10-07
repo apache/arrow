@@ -69,6 +69,7 @@ arrow_components = {
             'compute/kernels/scalar_cast_numeric.cc',
             'compute/kernels/scalar_cast_string.cc',
             'compute/kernels/scalar_cast_temporal.cc',
+            'compute/kernels/temporal_internal.cc',
             'compute/kernels/util_internal.cc',
             'compute/kernels/vector_hash.cc',
             'compute/kernels/vector_selection.cc',
@@ -496,6 +497,7 @@ arrow_dep = declare_dependency(
     include_directories: [include_dir],
     link_with: arrow_lib,
 )
+meson.override_dependency('arrow', arrow_dep)
 
 if needs_compute
     arrow_compute_lib_sources = [
@@ -523,6 +525,7 @@ if needs_compute
         'compute/kernels/scalar_temporal_binary.cc',
         'compute/kernels/scalar_temporal_unary.cc',
         'compute/kernels/scalar_validity.cc',
+        'compute/kernels/temporal_internal.cc',
         'compute/kernels/util_internal.cc',
         'compute/kernels/vector_array_sort.cc',
         'compute/kernels/vector_cumulative_ops.cc',
@@ -559,6 +562,7 @@ if needs_compute
         include_directories: include_dir,
         dependencies: arrow_dep,
     )
+    meson.override_dependency('arrow-compute', arrow_compute_dep)
 else
     arrow_compute_dep = disabler()
 endif
@@ -643,6 +647,7 @@ if needs_testing
     )
 
     arrow_testing_dep = declare_dependency(link_with: [arrow_testing_lib])
+    meson.override_dependency('arrow-testing', arrow_testing_dep)
 else
     arrow_testing_dep = disabler()
 endif

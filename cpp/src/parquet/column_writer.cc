@@ -70,7 +70,7 @@ using arrow::bit_util::BitWriter;
 using arrow::internal::checked_cast;
 using arrow::internal::checked_pointer_cast;
 using arrow::util::Float16;
-using arrow::util::RleEncoder;
+using arrow::util::RleBitPackedEncoder;
 
 namespace bit_util = arrow::bit_util;
 
@@ -168,7 +168,7 @@ void LevelEncoder::Init(Encoding::type encoding, int16_t max_level,
   encoding_ = encoding;
   switch (encoding) {
     case Encoding::RLE: {
-      rle_encoder_ = std::make_unique<RleEncoder>(data, data_size, bit_width_);
+      rle_encoder_ = std::make_unique<RleBitPackedEncoder>(data, data_size, bit_width_);
       break;
     }
     case Encoding::BIT_PACKED: {
@@ -190,8 +190,8 @@ int LevelEncoder::MaxBufferSize(Encoding::type encoding, int16_t max_level,
     case Encoding::RLE: {
       // TODO: Due to the way we currently check if the buffer is full enough,
       // we need to have MinBufferSize as head room.
-      num_bytes = RleEncoder::MaxBufferSize(bit_width, num_buffered_values) +
-                  RleEncoder::MinBufferSize(bit_width);
+      num_bytes = RleBitPackedEncoder::MaxBufferSize(bit_width, num_buffered_values) +
+                  RleBitPackedEncoder::MinBufferSize(bit_width);
       break;
     }
     case Encoding::BIT_PACKED: {

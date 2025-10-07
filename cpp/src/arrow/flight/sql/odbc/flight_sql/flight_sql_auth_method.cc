@@ -88,14 +88,15 @@ class UserPasswordAuthMethod : public FlightSqlAuthMethod {
         client_.AuthenticateBasicToken(auth_call_options, user_, password_);
 
     if (!bearer_result.ok()) {
-      const auto& flightStatus =
+      const auto& flight_status =
           arrow::flight::FlightStatusDetail::UnwrapStatus(bearer_result.status());
-      if (flightStatus != nullptr) {
-        if (flightStatus->code() == arrow::flight::FlightStatusCode::Unauthenticated) {
+      if (flight_status != nullptr) {
+        if (flight_status->code() == arrow::flight::FlightStatusCode::Unauthenticated) {
           throw AuthenticationException(
               "Failed to authenticate with user and password: " +
               bearer_result.status().ToString());
-        } else if (flightStatus->code() == arrow::flight::FlightStatusCode::Unavailable) {
+        } else if (flight_status->code() ==
+                   arrow::flight::FlightStatusCode::Unavailable) {
           throw CommunicationException(bearer_result.status().message());
         }
       }
@@ -134,12 +135,13 @@ class TokenAuthMethod : public FlightSqlAuthMethod {
         call_options,
         std::unique_ptr<arrow::flight::ClientAuthHandler>(new NoOpClientAuthHandler()));
     if (!status.ok()) {
-      const auto& flightStatus = arrow::flight::FlightStatusDetail::UnwrapStatus(status);
-      if (flightStatus != nullptr) {
-        if (flightStatus->code() == arrow::flight::FlightStatusCode::Unauthenticated) {
+      const auto& flight_status = arrow::flight::FlightStatusDetail::UnwrapStatus(status);
+      if (flight_status != nullptr) {
+        if (flight_status->code() == arrow::flight::FlightStatusCode::Unauthenticated) {
           throw AuthenticationException("Failed to authenticate with token: " + token_ +
                                         " Message: " + status.message());
-        } else if (flightStatus->code() == arrow::flight::FlightStatusCode::Unavailable) {
+        } else if (flight_status->code() ==
+                   arrow::flight::FlightStatusCode::Unavailable) {
           throw CommunicationException(status.message());
         }
       }

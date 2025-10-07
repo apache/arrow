@@ -22,6 +22,7 @@
 #include <algorithm>
 #include <cstdint>
 #include <cstring>
+#include <type_traits>
 
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bpacking_internal.h"
@@ -30,8 +31,7 @@
 #include "arrow/util/macros.h"
 #include "arrow/util/ubsan.h"
 
-namespace arrow {
-namespace bit_util {
+namespace arrow::bit_util {
 
 /// Utility class to write bit/byte streams.  This class can write data to either be
 /// bit packed or byte aligned (and a single stream that has a mix of both).
@@ -73,19 +73,14 @@ class BitWriter {
   /// room.  The value is written byte aligned.
   /// For more details on vlq:
   /// en.wikipedia.org/wiki/Variable-length_quantity
-  bool PutVlqInt(uint32_t v);
+  template <typename Int>
+  bool PutVlqInt(Int v);
 
-  // Writes an int zigzag encoded.
-  bool PutZigZagVlqInt(int32_t v);
-
-  /// Write a Vlq encoded int64 to the buffer.  Returns false if there was not enough
-  /// room.  The value is written byte aligned.
-  /// For more details on vlq:
-  /// en.wikipedia.org/wiki/Variable-length_quantity
-  bool PutVlqInt(uint64_t v);
-
-  // Writes an int64 zigzag encoded.
-  bool PutZigZagVlqInt(int64_t v);
+  /// Writes a zigzag encoded signed integer.
+  /// Zigzag encoding is used to encode possibly negative numbers by alternating positive
+  /// and negative ones.
+  template <typename Int>
+  bool PutZigZagVlqInt(Int v);
 
   /// Get a pointer to the next aligned byte and advance the underlying buffer
   /// by num_bytes.
@@ -128,14 +123,14 @@ inline uint64_t ReadLittleEndianWord(const uint8_t* buffer, int bytes_remaining)
 /// bytes in one read (e.g. encoded int).
 class BitReader {
  public:
-  BitReader() = default;
+  BitReader() noexcept = default;
 
   /// 'buffer' is the buffer to read from.  The buffer's length is 'buffer_len'.
   BitReader(const uint8_t* buffer, int buffer_len) : BitReader() {
     Reset(buffer, buffer_len);
   }
 
-  void Reset(const uint8_t* buffer, int buffer_len) {
+  void Reset(const uint8_t* buffer, int buffer_len) noexcept {
     buffer_ = buffer;
     max_bytes_ = buffer_len;
     byte_offset_ = 0;
@@ -169,18 +164,14 @@ class BitReader {
   /// Reads a vlq encoded int from the stream.  The encoded int must start at
   /// the beginning of a byte. Return false if there were not enough bytes in
   /// the buffer.
-  bool GetVlqInt(uint32_t* v);
+  template <typename Int>
+  bool GetVlqInt(Int* v);
 
-  // Reads a zigzag encoded int `into` v.
-  bool GetZigZagVlqInt(int32_t* v);
-
-  /// Reads a vlq encoded int64 from the stream.  The encoded int must start at
-  /// the beginning of a byte. Return false if there were not enough bytes in
-  /// the buffer.
-  bool GetVlqInt(uint64_t* v);
-
-  // Reads a zigzag encoded int64 `into` v.
-  bool GetZigZagVlqInt(int64_t* v);
+  /// Reads a zigzag encoded integer into a signed integer output v.
+  /// Zigzag encoding is used to decode possibly negative numbers by alternating positive
+  /// and negative ones.
+  template <typename Int>
+  bool GetZigZagVlqInt(Int* v);
 
   /// Returns the number of bytes left in the stream, not including the current
   /// byte (i.e., there may be an additional fraction of a byte).
@@ -188,12 +179,6 @@ class BitReader {
     return max_bytes_ -
            (byte_offset_ + static_cast<int>(bit_util::BytesForBits(bit_offset_)));
   }
-
-  /// Maximum byte length of a vlq encoded int
-  static constexpr int kMaxVlqByteLength = 5;
-
-  /// Maximum byte length of a vlq encoded int64
-  static constexpr int kMaxVlqByteLengthForInt64 = 10;
 
  private:
   const uint8_t* buffer_;
@@ -439,91 +424,92 @@ inline bool BitReader::Advance(int64_t num_bits) {
   return true;
 }
 
-inline bool BitWriter::PutVlqInt(uint32_t v) {
-  bool result = true;
-  while ((v & 0xFFFFFF80UL) != 0UL) {
-    result &= PutAligned<uint8_t>(static_cast<uint8_t>((v & 0x7F) | 0x80), 1);
-    v >>= 7;
-  }
-  result &= PutAligned<uint8_t>(static_cast<uint8_t>(v & 0x7F), 1);
-  return result;
-}
+template <typename Int>
+inline bool BitWriter::PutVlqInt(Int v) {
+  static_assert(std::is_integral_v<Int>);
 
-inline bool BitReader::GetVlqInt(uint32_t* v) {
-  uint32_t tmp = 0;
+  constexpr auto kBufferSize = kMaxLEB128ByteLenFor<Int>;
 
-  for (int i = 0; i < kMaxVlqByteLength; i++) {
-    uint8_t byte = 0;
-    if (ARROW_PREDICT_FALSE(!GetAligned<uint8_t>(1, &byte))) {
+  uint8_t buffer[kBufferSize] = {};
+  const auto bytes_written = WriteLEB128(v, buffer, kBufferSize);
+  ARROW_DCHECK_LE(bytes_written, kBufferSize);
+  if constexpr (std::is_signed_v<Int>) {
+    // Can fail if negative
+    if (ARROW_PREDICT_FALSE(!bytes_written == 0)) {
       return false;
     }
-    tmp |= static_cast<uint32_t>(byte & 0x7F) << (7 * i);
+  } else {
+    // Cannot fail since we gave max space
+    ARROW_DCHECK_GT(bytes_written, 0);
+  }
 
-    if ((byte & 0x80) == 0) {
-      *v = tmp;
-      return true;
+  for (int i = 0; i < bytes_written; ++i) {
+    const bool success = PutAligned(buffer[i], 1);
+    if (ARROW_PREDICT_FALSE(!success)) {
+      return false;
     }
   }
 
-  return false;
-}
-
-inline bool BitWriter::PutZigZagVlqInt(int32_t v) {
-  uint32_t u_v = ::arrow::util::SafeCopy<uint32_t>(v);
-  u_v = (u_v << 1) ^ static_cast<uint32_t>(v >> 31);
-  return PutVlqInt(u_v);
-}
-
-inline bool BitReader::GetZigZagVlqInt(int32_t* v) {
-  uint32_t u;
-  if (!GetVlqInt(&u)) return false;
-  u = (u >> 1) ^ (~(u & 1) + 1);
-  *v = ::arrow::util::SafeCopy<int32_t>(u);
   return true;
 }
 
-inline bool BitWriter::PutVlqInt(uint64_t v) {
-  bool result = true;
-  while ((v & 0xFFFFFFFFFFFFFF80ULL) != 0ULL) {
-    result &= PutAligned<uint8_t>(static_cast<uint8_t>((v & 0x7F) | 0x80), 1);
-    v >>= 7;
+template <typename Int>
+inline bool BitReader::GetVlqInt(Int* v) {
+  static_assert(std::is_integral_v<Int>);
+
+  // The data that we will pass to the LEB128 parser
+  // In all case, we read a byte-aligned value, skipping remaining bits
+  const uint8_t* data = NULLPTR;
+  int max_size = 0;
+
+  // Number of bytes left in the buffered values, not including the current
+  // byte (i.e., there may be an additional fraction of a byte).
+  const int bytes_left_in_cache =
+      sizeof(buffered_values_) - static_cast<int>(bit_util::BytesForBits(bit_offset_));
+
+  // If there are clearly enough bytes left we can try to parse from the cache
+  if (bytes_left_in_cache >= kMaxLEB128ByteLenFor<Int>) {
+    max_size = bytes_left_in_cache;
+    data = reinterpret_cast<const uint8_t*>(&buffered_values_) +
+           bit_util::BytesForBits(bit_offset_);
+    // Otherwise, we try straight from buffer (ignoring few bytes that may be cached)
+  } else {
+    max_size = bytes_left();
+    data = buffer_ + (max_bytes_ - max_size);
   }
-  result &= PutAligned<uint8_t>(static_cast<uint8_t>(v & 0x7F), 1);
-  return result;
+
+  const auto bytes_read = bit_util::ParseLeadingLEB128(data, max_size, v);
+  if (ARROW_PREDICT_FALSE(bytes_read == 0)) {
+    // Corrupt LEB128
+    return false;
+  }
+
+  // Advance for the bytes we have read + the bits we skipped
+  return Advance((8 * bytes_read) + (bit_offset_ % 8));
 }
 
-inline bool BitReader::GetVlqInt(uint64_t* v) {
-  uint64_t tmp = 0;
+template <typename Int>
+inline bool BitWriter::PutZigZagVlqInt(Int v) {
+  static_assert(std::is_integral_v<Int>);
+  static_assert(std::is_signed_v<Int>);
+  using UInt = std::make_unsigned_t<Int>;
+  constexpr auto kBitSize = 8 * sizeof(Int);
 
-  for (int i = 0; i < kMaxVlqByteLengthForInt64; i++) {
-    uint8_t byte = 0;
-    if (ARROW_PREDICT_FALSE(!GetAligned<uint8_t>(1, &byte))) {
-      return false;
-    }
-    tmp |= static_cast<uint64_t>(byte & 0x7F) << (7 * i);
-
-    if ((byte & 0x80) == 0) {
-      *v = tmp;
-      return true;
-    }
-  }
-
-  return false;
-}
-
-inline bool BitWriter::PutZigZagVlqInt(int64_t v) {
-  uint64_t u_v = ::arrow::util::SafeCopy<uint64_t>(v);
-  u_v = (u_v << 1) ^ static_cast<uint64_t>(v >> 63);
+  UInt u_v = ::arrow::util::SafeCopy<UInt>(v);
+  u_v = (u_v << 1) ^ static_cast<UInt>(v >> (kBitSize - 1));
   return PutVlqInt(u_v);
 }
 
-inline bool BitReader::GetZigZagVlqInt(int64_t* v) {
-  uint64_t u;
+template <typename Int>
+inline bool BitReader::GetZigZagVlqInt(Int* v) {
+  static_assert(std::is_integral_v<Int>);
+  static_assert(std::is_signed_v<Int>);
+
+  std::make_unsigned_t<Int> u;
   if (!GetVlqInt(&u)) return false;
   u = (u >> 1) ^ (~(u & 1) + 1);
-  *v = ::arrow::util::SafeCopy<int64_t>(u);
+  *v = ::arrow::util::SafeCopy<Int>(u);
   return true;
 }
 
-}  // namespace bit_util
-}  // namespace arrow
+}  // namespace arrow::bit_util

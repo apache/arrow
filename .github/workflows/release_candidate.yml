@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-name: Release
+name: RC
 
 on:
   push:
@@ -23,9 +23,7 @@ on:
       - '**'
       - '!dependabot/**'
     tags:
-      # Trigger workflow when a tag whose name matches the pattern
-      # "apache-arrow-{MAJOR}.{MINOR}.{PATCH}-rc{RC_NUM}" is pushed.
-      - "apache-arrow-[0-9]+.[0-9]+.[0-9]+-rc[0-9]+"
+      - "apache-arrow-*-rc*"
     paths:
       - ".github/workflows/release_candidate.sh"
       - "dev/release/utils-create-release-tarball.sh"
@@ -43,7 +41,7 @@ jobs:
   publish:
     name: Publish
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@v5

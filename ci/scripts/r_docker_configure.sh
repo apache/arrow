@@ -41,7 +41,7 @@ elif [ "`which zypper`" ]; then
   PACKAGE_MANAGER=zypper
 else
   PACKAGE_MANAGER=apt-get
-  apt-get update
+  apt-get update --allow-releaseinfo-change # flag needed for when debian version changes
 fi
 
 # Enable ccache if requested based on http://dirk.eddelbuettel.com/blog/2017/11/27/
@@ -79,11 +79,11 @@ $PACKAGE_MANAGER install -y rsync cmake curl
 # This is only for rhub/clang20. If we change the base image from rhub/clang20,
 # we need to update this part too.
 if [ "$R_UPDATE_CLANG" = true ]; then
-  apt update -y
+  apt update -y --allow-releaseinfo-change # flag needed for when debian version changes
   apt install -y gnupg
   curl -fsSL https://apt.llvm.org/llvm-snapshot.gpg.key | gpg --dearmor -o /etc/apt/trusted.gpg.d/llvm.gpg
   echo "deb http://apt.llvm.org/jammy/ llvm-toolchain-jammy-20 main" > /etc/apt/sources.list.d/llvm20.list
-  apt update -y
+  apt update -y --allow-releaseinfo-change # flag needed for when debian version changes
   apt install -y clang-20 lld-20
 fi
 

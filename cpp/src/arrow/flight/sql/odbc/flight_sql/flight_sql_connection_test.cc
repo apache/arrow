@@ -32,20 +32,20 @@ TEST(AttributeTests, SetAndGetAttribute) {
   connection.SetClosed(false);
 
   connection.SetAttribute(Connection::CONNECTION_TIMEOUT, static_cast<uint32_t>(200));
-  const boost::optional<Connection::Attribute> firstValue =
+  const boost::optional<Connection::Attribute> first_value =
       connection.GetAttribute(Connection::CONNECTION_TIMEOUT);
 
-  EXPECT_TRUE(firstValue);
+  EXPECT_TRUE(first_value);
 
-  EXPECT_EQ(boost::get<uint32_t>(*firstValue), static_cast<uint32_t>(200));
+  EXPECT_EQ(boost::get<uint32_t>(*first_value), static_cast<uint32_t>(200));
 
   connection.SetAttribute(Connection::CONNECTION_TIMEOUT, static_cast<uint32_t>(300));
 
-  const boost::optional<Connection::Attribute> changeValue =
+  const boost::optional<Connection::Attribute> change_value =
       connection.GetAttribute(Connection::CONNECTION_TIMEOUT);
 
-  EXPECT_TRUE(changeValue);
-  EXPECT_EQ(boost::get<uint32_t>(*changeValue), static_cast<uint32_t>(300));
+  EXPECT_TRUE(change_value);
+  EXPECT_EQ(boost::get<uint32_t>(*change_value), static_cast<uint32_t>(300));
 
   connection.Close();
 }
@@ -204,8 +204,3 @@ TEST(PopulateCallOptionsTest, GenericOptionWithSpaces) {
 
 }  // namespace flight_sql
 }  // namespace driver
-
-int main(int argc, char** argv) {
-  ::testing::InitGoogleTest(&argc, argv);
-  return RUN_ALL_TESTS();
-}

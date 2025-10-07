@@ -15,18 +15,17 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/logger.h>
+#pragma once
 
-namespace driver {
-namespace odbcabstraction {
+#include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/platform.h"
 
-static std::unique_ptr<Logger> odbc_logger_ = nullptr;
+#include <sql.h>
+#include <sqltypes.h>
+#include <sqlucode.h>
 
-Logger* Logger::GetInstance() { return odbc_logger_.get(); }
-
-void Logger::SetInstance(std::unique_ptr<Logger> logger) {
-  odbc_logger_ = std::move(logger);
-}
-
-}  // namespace odbcabstraction
-}  // namespace driver
+//  \file odbc_api_internal.h
+//
+//  Define internal ODBC API function headers.
+namespace arrow::flight::sql::odbc {
+SQLRETURN SQLAllocHandle(SQLSMALLINT type, SQLHANDLE parent, SQLHANDLE* result);
+}  // namespace arrow::flight::sql::odbc

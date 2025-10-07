@@ -47,12 +47,12 @@ class ODBCStatement : public ODBCHandle<ODBCStatement> {
   ODBCStatement& operator=(const ODBCStatement&) = delete;
 
   ODBCStatement(ODBCConnection& connection,
-                std::shared_ptr<driver::odbcabstraction::Statement> spiStatement);
+                std::shared_ptr<driver::odbcabstraction::Statement> spi_statement);
 
   ~ODBCStatement() = default;
 
-  inline driver::odbcabstraction::Diagnostics& GetDiagnostics_Impl() {
-    return *m_diagnostics;
+  inline driver::odbcabstraction::Diagnostics& GetDiagnosticsImpl() {
+    return *diagnostics_;
   }
 
   ODBCConnection& GetConnection();
@@ -66,58 +66,58 @@ class ODBCStatement : public ODBCHandle<ODBCStatement> {
    * @brief Returns true if the number of rows fetch was greater than zero.
    */
   bool Fetch(size_t rows);
-  bool isPrepared() const;
+  bool IsPrepared() const;
 
-  void GetStmtAttr(SQLINTEGER statementAttribute, SQLPOINTER output,
-                   SQLINTEGER bufferSize, SQLINTEGER* strLenPtr, bool isUnicode);
-  void SetStmtAttr(SQLINTEGER statementAttribute, SQLPOINTER value, SQLINTEGER bufferSize,
-                   bool isUnicode);
+  void GetStmtAttr(SQLINTEGER statement_attribute, SQLPOINTER output,
+                   SQLINTEGER buffer_size, SQLINTEGER* str_len_ptr, bool is_unicode);
+  void SetStmtAttr(SQLINTEGER statement_attribute, SQLPOINTER value,
+                   SQLINTEGER buffer_size, bool is_unicode);
 
-  void RevertAppDescriptor(bool isApd);
+  void RevertAppDescriptor(bool is_apd);
 
-  inline ODBCDescriptor* GetIRD() { return m_ird.get(); }
+  inline ODBCDescriptor* GetIRD() { return ird_.get(); }
 
-  inline ODBCDescriptor* GetARD() { return m_currentArd; }
+  inline ODBCDescriptor* GetARD() { return current_ard_; }
 
-  inline SQLULEN GetRowsetSize() { return m_rowsetSize; }
+  inline SQLULEN GetRowsetSize() { return rowset_size_; }
 
-  bool GetData(SQLSMALLINT recordNumber, SQLSMALLINT cType, SQLPOINTER dataPtr,
-               SQLLEN bufferLength, SQLLEN* indicatorPtr);
+  bool GetData(SQLSMALLINT record_number, SQLSMALLINT c_type, SQLPOINTER data_ptr,
+               SQLLEN buffer_length, SQLLEN* indicator_ptr);
 
   /**
    * @brief Closes the cursor. This does _not_ un-prepare the statement or change
    * bindings.
    */
-  void closeCursor(bool suppressErrors);
+  void CloseCursor(bool suppress_errors);
 
   /**
    * @brief Releases this statement from memory.
    */
-  void releaseStatement();
+  void ReleaseStatement();
 
   void GetTables(const std::string* catalog, const std::string* schema,
-                 const std::string* table, const std::string* tableType);
+                 const std::string* table, const std::string* table_type);
   void GetColumns(const std::string* catalog, const std::string* schema,
                   const std::string* table, const std::string* column);
-  void GetTypeInfo(SQLSMALLINT dataType);
+  void GetTypeInfo(SQLSMALLINT data_type);
   void Cancel();
 
  private:
-  ODBCConnection& m_connection;
-  std::shared_ptr<driver::odbcabstraction::Statement> m_spiStatement;
-  std::shared_ptr<driver::odbcabstraction::ResultSet> m_currenResult;
-  driver::odbcabstraction::Diagnostics* m_diagnostics;
+  ODBCConnection& connection_;
+  std::shared_ptr<driver::odbcabstraction::Statement> spi_statement_;
+  std::shared_ptr<driver::odbcabstraction::ResultSet> current_result_;
+  driver::odbcabstraction::Diagnostics* diagnostics_;
 
-  std::shared_ptr<ODBCDescriptor> m_builtInArd;
-  std::shared_ptr<ODBCDescriptor> m_builtInApd;
-  std::shared_ptr<ODBCDescriptor> m_ipd;
-  std::shared_ptr<ODBCDescriptor> m_ird;
-  ODBCDescriptor* m_currentArd;
-  ODBCDescriptor* m_currentApd;
-  SQLULEN m_rowNumber;
-  SQLULEN m_maxRows;
-  SQLULEN m_rowsetSize;  // Used by SQLExtendedFetch instead of the ARD array size.
-  bool m_isPrepared;
-  bool m_hasReachedEndOfResult;
+  std::shared_ptr<ODBCDescriptor> built_in_ard_;
+  std::shared_ptr<ODBCDescriptor> built_in_apd_;
+  std::shared_ptr<ODBCDescriptor> ipd_;
+  std::shared_ptr<ODBCDescriptor> ird_;
+  ODBCDescriptor* current_ard_;
+  ODBCDescriptor* current_apd_;
+  SQLULEN row_number_;
+  SQLULEN max_rows_;
+  SQLULEN rowset_size_;  // Used by SQLExtendedFetch instead of the ARD array size.
+  bool is_prepared_;
+  bool has_reached_end_of_result_;
 };
 }  // namespace ODBC

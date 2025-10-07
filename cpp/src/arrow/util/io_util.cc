@@ -1070,8 +1070,11 @@ Result<FileDescriptor> FileOpenReadable(const PlatformFilename& file_name) {
   }
   fd = FileDescriptor(ret);
 #else
-  int ret = open(file_name.ToNative().c_str(), O_RDONLY);
-  if (ret < 0) {
+  int ret;
+  do {
+    ret = open(file_name.ToNative().c_str(), O_RDONLY);
+  } while (ret == -1 && errno == EINTR);
+  if (ret == -1) {
     return IOErrorFromErrno(errno, "Failed to open local file '", file_name.ToString(),
                             "'");
   }
@@ -1137,7 +1140,10 @@ Result<FileDescriptor> FileOpenWritable(const PlatformFilename& file_name,
     oflag |= O_RDWR;
   }
 
-  int ret = open(file_name.ToNative().c_str(), oflag, 0666);
+  int ret;
+  do {
+    ret = open(file_name.ToNative().c_str(), oflag, 0666);
+  } while (ret == -1 && errno == EINTR);
   if (ret == -1) {
     return IOErrorFromErrno(errno, "Failed to open local file '", file_name.ToString(),
                             "'");

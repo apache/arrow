@@ -603,7 +603,7 @@ test_that("write_csv_arrow can write from RecordBatchReader objects", {
   skip_if_not_available("dataset")
   library(dplyr, warn.conflicts = FALSE)
 
-  query_obj <- arrow_table(tbl_no_dates) %>%
+  query_obj <- arrow_table(tbl_no_dates) |>
     filter(lgl == TRUE)
 
   csv_file <- tempfile()

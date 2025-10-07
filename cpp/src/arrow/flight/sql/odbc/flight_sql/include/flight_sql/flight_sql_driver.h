@@ -30,6 +30,7 @@ class FlightSqlDriver : public odbcabstraction::Driver {
 
  public:
   FlightSqlDriver();
+  ~FlightSqlDriver();
 
   std::shared_ptr<odbcabstraction::Connection> CreateConnection(
       odbcabstraction::OdbcVersion odbc_version) override;
@@ -37,6 +38,9 @@ class FlightSqlDriver : public odbcabstraction::Driver {
   odbcabstraction::Diagnostics& GetDiagnostics() override;
 
   void SetVersion(std::string version) override;
+
+  /// Register Arrow Compute kernels once.
+  void RegisterComputeKernels();
 
   void RegisterLog() override;
 };

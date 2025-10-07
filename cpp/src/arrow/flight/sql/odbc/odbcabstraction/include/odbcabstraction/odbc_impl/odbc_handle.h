@@ -33,15 +33,15 @@ template <typename Derived>
 class ODBCHandle {
  public:
   inline driver::odbcabstraction::Diagnostics& GetDiagnostics() {
-    return static_cast<Derived*>(this)->GetDiagnostics_Impl();
+    return static_cast<Derived*>(this)->GetDiagnosticsImpl();
   }
 
-  inline driver::odbcabstraction::Diagnostics& GetDiagnostics_Impl() {
+  inline driver::odbcabstraction::Diagnostics& GetDiagnosticsImpl() {
     throw std::runtime_error("Illegal state -- diagnostics requested on invalid handle");
   }
 
   template <typename Function>
-  inline SQLRETURN execute(SQLRETURN rc, Function function) {
+  inline SQLRETURN Execute(SQLRETURN rc, Function function) {
     try {
       GetDiagnostics().Clear();
       rc = function();
@@ -67,9 +67,9 @@ class ODBCHandle {
   }
 
   template <typename Function>
-  inline SQLRETURN executeWithLock(SQLRETURN rc, Function function) {
+  inline SQLRETURN ExecuteWithLock(SQLRETURN rc, Function function) {
     const std::lock_guard<std::mutex> lock(mtx_);
-    return execute(rc, function);
+    return Execute(rc, function);
   }
 
   template <typename Function, bool SHOULD_LOCK = true>
@@ -79,13 +79,13 @@ class ODBCHandle {
       return SQL_INVALID_HANDLE;
     }
     if (SHOULD_LOCK) {
-      return reinterpret_cast<Derived*>(handle)->executeWithLock(rc, func);
+      return reinterpret_cast<Derived*>(handle)->ExecuteWithLock(rc, func);
     } else {
-      return reinterpret_cast<Derived*>(handle)->execute(rc, func);
+      return reinterpret_cast<Derived*>(handle)->Execute(rc, func);
     }
   }
 
-  static Derived* of(SQLHANDLE handle) { return reinterpret_cast<Derived*>(handle); }
+  static Derived* Of(SQLHANDLE handle) { return reinterpret_cast<Derived*>(handle); }
 
  private:
   std::mutex mtx_;

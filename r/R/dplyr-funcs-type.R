@@ -38,8 +38,8 @@ register_bindings_type <- function() {
 #'
 #' @examples
 #' \dontrun{
-#' mtcars %>%
-#'   arrow_table() %>%
+#' mtcars |>
+#'   arrow_table() |>
 #'   mutate(cyl = cast(cyl, string()))
 #' }
 #' @keywords internal

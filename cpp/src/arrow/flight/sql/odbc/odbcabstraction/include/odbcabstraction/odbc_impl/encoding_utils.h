@@ -38,38 +38,39 @@ using driver::odbcabstraction::Utf8ToWcs;
 // Return the number of bytes required for the conversion.
 template <typename CHAR_TYPE>
 inline size_t ConvertToSqlWChar(const std::string& str, SQLWCHAR* buffer,
-                                SQLLEN bufferSizeInBytes) {
+                                SQLLEN buffer_size_in_bytes) {
   thread_local std::vector<uint8_t> wstr;
   Utf8ToWcs<CHAR_TYPE>(str.data(), str.size(), &wstr);
-  SQLLEN valueLengthInBytes = wstr.size();
+  SQLLEN value_length_in_bytes = wstr.size();
 
   if (buffer) {
     memcpy(buffer, wstr.data(),
-           std::min(static_cast<SQLLEN>(wstr.size()), bufferSizeInBytes));
+           std::min(static_cast<SQLLEN>(wstr.size()), buffer_size_in_bytes));
 
     // Write a NUL terminator
-    if (bufferSizeInBytes >=
-        valueLengthInBytes + static_cast<SQLLEN>(GetSqlWCharSize())) {
-      reinterpret_cast<CHAR_TYPE*>(buffer)[valueLengthInBytes / GetSqlWCharSize()] = '\0';
+    if (buffer_size_in_bytes >=
+        value_length_in_bytes + static_cast<SQLLEN>(GetSqlWCharSize())) {
+      reinterpret_cast<CHAR_TYPE*>(buffer)[value_length_in_bytes / GetSqlWCharSize()] =
+          '\0';
     } else {
-      SQLLEN numCharsWritten = bufferSizeInBytes / GetSqlWCharSize();
+      SQLLEN num_chars_written = buffer_size_in_bytes / GetSqlWCharSize();
       // If we failed to even write one char, the buffer is too small to hold a
       // NUL-terminator.
-      if (numCharsWritten > 0) {
-        reinterpret_cast<CHAR_TYPE*>(buffer)[numCharsWritten - 1] = '\0';
+      if (num_chars_written > 0) {
+        reinterpret_cast<CHAR_TYPE*>(buffer)[num_chars_written - 1] = '\0';
       }
     }
   }
-  return valueLengthInBytes;
+  return value_length_in_bytes;
 }
 
 inline size_t ConvertToSqlWChar(const std::string& str, SQLWCHAR* buffer,
-                                SQLLEN bufferSizeInBytes) {
+                                SQLLEN buffer_size_in_bytes) {
   switch (GetSqlWCharSize()) {
     case sizeof(char16_t):
-      return ConvertToSqlWChar<char16_t>(str, buffer, bufferSizeInBytes);
+      return ConvertToSqlWChar<char16_t>(str, buffer, buffer_size_in_bytes);
     case sizeof(char32_t):
-      return ConvertToSqlWChar<char32_t>(str, buffer, bufferSizeInBytes);
+      return ConvertToSqlWChar<char32_t>(str, buffer, buffer_size_in_bytes);
     default:
       assert(false);
       throw DriverException("Encoding is unsupported, SQLWCHAR size: " +
