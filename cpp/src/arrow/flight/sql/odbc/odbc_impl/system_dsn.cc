@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include "arrow/flight/sql/odbc/odbc_impl/system_dsn.h"
+
 // platform.h includes windows.h, so it needs to be included
 // before winuser.h
 #include "arrow/flight/sql/odbc/odbc_impl/platform.h"
@@ -33,13 +35,13 @@
 #include <odbcinst.h>
 #include <sstream>
 
-using arrow::flight::sql::odbc::DriverException;
-using arrow::flight::sql::odbc::FlightSqlConnection;
-using arrow::flight::sql::odbc::config::Configuration;
-using arrow::flight::sql::odbc::config::ConnectionStringParser;
-using arrow::flight::sql::odbc::config::DsnConfigurationWindow;
-using arrow::flight::sql::odbc::config::Result;
-using arrow::flight::sql::odbc::config::Window;
+namespace arrow::flight::sql::odbc {
+
+using config::Configuration;
+using config::ConnectionStringParser;
+using config::DsnConfigurationWindow;
+using config::Result;
+using config::Window;
 
 bool DisplayConnectionWindow(void* window_parent, Configuration& config) {
   HWND hwnd_parent = (HWND)window_parent;
@@ -237,3 +239,5 @@ BOOL INSTAPI ConfigDSNW(HWND hwnd_parent, WORD req, LPCWSTR wdriver,
 
   return TRUE;
 }
+
+}  // namespace arrow::flight::sql::odbc
