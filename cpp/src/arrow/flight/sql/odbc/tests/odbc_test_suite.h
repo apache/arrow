@@ -105,7 +105,7 @@ class FlightSQLOdbcV2RemoteTestBase : public FlightSQLODBCRemoteTestBase {
   void SetUp() override;
 };
 
-class FlightSQLOdbcHandleRemoteTestBase : public FlightSQLODBCRemoteTestBase {
+class FlightSQLOdbcEnvConnHandleRemoteTestBase : public FlightSQLODBCRemoteTestBase {
  protected:
   void SetUp() override;
   void TearDown() override;
@@ -197,7 +197,7 @@ class FlightSQLOdbcV2MockTestBase : public FlightSQLODBCMockTestBase {
   void SetUp() override;
 };
 
-class FlightSQLOdbcHandleMockTestBase : public FlightSQLODBCMockTestBase {
+class FlightSQLOdbcEnvConnHandleMockTestBase : public FlightSQLODBCMockTestBase {
  protected:
   void SetUp() override;
   void TearDown() override;
