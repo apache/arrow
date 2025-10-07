@@ -38,8 +38,12 @@ SQLRETURN SQLAllocHandle(SQLSMALLINT type, SQLHANDLE parent, SQLHANDLE* result) 
                    << ", result: " << static_cast<const void*>(result);
   // GH-46096 TODO: Implement SQLAllocEnv
   // GH-46097 TODO: Implement SQLAllocConnect, pre-requisite requires SQLAllocEnv
-  // implementation GH-47706 TODO: Implement SQLAllocStmt, pre-requisite requires
-  // SQLDriverConnect implementation GH-47707 TODO: Implement SQL_HANDLE_DESC for
+  // implementation
+
+  // GH-47706 TODO: Implement SQLAllocStmt, pre-requisite requires
+  // SQLDriverConnect implementation
+
+  // GH-47707 TODO: Implement SQL_HANDLE_DESC for
   // descriptor handle, pre-requisite requires SQLAllocStmt
   return SQL_INVALID_HANDLE;
 }
@@ -176,7 +180,7 @@ SQLRETURN SQLDisconnect(SQLHDBC conn) {
 
 SQLRETURN SQLGetInfo(SQLHDBC conn, SQLUSMALLINT info_type, SQLPOINTER info_value_ptr,
                      SQLSMALLINT buf_len, SQLSMALLINT* string_length_ptr) {
-  ARROW_LOG(DEBUG) << "SQLGetInfo called with conn: " << conn
+  ARROW_LOG(DEBUG) << "SQLGetInfoW called with conn: " << conn
                    << ", info_type: " << info_type
                    << ", info_value_ptr: " << info_value_ptr << ", buf_len: " << buf_len
                    << ", string_length_ptr: "
@@ -311,7 +315,7 @@ SQLRETURN SQLTables(SQLHSTMT stmt, SQLWCHAR* catalog_name,
                     SQLSMALLINT schema_name_length, SQLWCHAR* table_name,
                     SQLSMALLINT table_name_length, SQLWCHAR* table_type,
                     SQLSMALLINT table_type_length) {
-  ARROW_LOG(DEBUG) << "SQLTables called with stmt: " << stmt
+  ARROW_LOG(DEBUG) << "SQLTablesW called with stmt: " << stmt
                    << ", catalog_name: " << static_cast<const void*>(catalog_name)
                    << ", catalog_name_length: " << catalog_name_length
                    << ", schema_name: " << static_cast<const void*>(schema_name)
