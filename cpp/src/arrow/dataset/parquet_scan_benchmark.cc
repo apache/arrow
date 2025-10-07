@@ -50,9 +50,9 @@ Result<std::shared_ptr<Buffer>> WriteStringColParquetBuffer(int64_t nrows) {
 static void ParquetScanToTableCastStrings(benchmark::State& state) {
   // GH-43660: Scan parquet data including a String column using a dataset object with
   // LargeString in schema.
-  int64_t nrows = 100'000;
-  int64_t batch_size = 100;
-  bool use_threads = false;
+  size_t num_batches = state.range(0);
+  size_t batch_size = state.range(1);
+  size_t nrows = num_batches * batch_size;
   auto format = std::make_shared<ParquetFileFormat>();
 
   // Create a buffer with a single String column and wrap with FileFragment
@@ -71,7 +71,6 @@ static void ParquetScanToTableCastStrings(benchmark::State& state) {
 
   ASSERT_OK_AND_ASSIGN(auto builder, dataset->NewScan());
   ASSERT_OK(builder->BatchSize(batch_size));
-  ASSERT_OK(builder->UseThreads(use_threads));
   ASSERT_OK_AND_ASSIGN(auto scanner, builder->Finish());
 
   for (auto _ : state) {
@@ -82,7 +81,16 @@ static void ParquetScanToTableCastStrings(benchmark::State& state) {
   state.SetItemsProcessed(state.iterations() * nrows);
 }
 
-BENCHMARK(ParquetScanToTableCastStrings);
+static void ParquetScanBenchmark_Customize(benchmark::internal::Benchmark* b) {
+  for (const int32_t num_batches : {1000}) {
+    for (const int batch_size : {10, 100, 1000}) {
+      b->Args({num_batches, batch_size});
+    }
+  }
+  b->ArgNames({"num_batches", "batch_size"});
+}
+
+BENCHMARK(ParquetScanToTableCastStrings)->Apply(ParquetScanBenchmark_Customize);
 
 }  // namespace dataset
 }  // namespace arrow
