@@ -89,7 +89,9 @@ RUN --mount=type=secret,id=github_repository_owner \
         --x-install-root=${VCPKG_ROOT}/installed \
         --x-manifest-root=/arrow/ci/vcpkg \
         --x-feature=azure \
+        --x-feature=dev \
         --x-feature=flight \
+        --x-feature=gandiva \
         --x-feature=gcs \
         --x-feature=json \
         --x-feature=orc \
