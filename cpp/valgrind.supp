@@ -86,11 +86,11 @@
     <protobuf>:leak on library initialization
     Memcheck:Leak
     ...
-    fun:*google*protobuf*AddDescriptors*
+    fun:*google*protobuf*AddDescriptorsRunner*
 }
 {
     <protobuf>:leak on library initialization
     Memcheck:Leak
     ...
-    fun:*google*protobuf*RegisterGeneratedFile*
+    fun:*google*protobuf*InternalRegisterGeneratedFile*
 }
