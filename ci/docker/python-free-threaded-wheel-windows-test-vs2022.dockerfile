@@ -26,6 +26,7 @@ FROM ${base}
 
 ARG python=3.13
 
+# hadolint ignore=SC1072
 RUN (if "%python%"=="3.13" setx PYTHON_VERSION "3.13.1") & \
     (if "%python%"=="3.14" setx PYTHON_VERSION "3.14.0-rc3")
 
