@@ -59,7 +59,7 @@ SQLRETURN SQLFreeHandle(SQLSMALLINT type, SQLHANDLE handle) {
 }
 
 SQLRETURN SQLFreeStmt(SQLHSTMT handle, SQLUSMALLINT option) {
-  ARROW_LOG(DEBUG) << "SQLAllocHandle called with handle: " << handle
+  ARROW_LOG(DEBUG) << "SQLFreeStmt called with handle: " << handle
                    << ", option: " << option;
   // GH-47706 TODO: Implement SQLFreeStmt
   return SQL_INVALID_HANDLE;
