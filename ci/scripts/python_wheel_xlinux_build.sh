@@ -69,7 +69,6 @@ echo "=== (${PYTHON_VERSION}) Building Arrow C++ libraries ==="
 : ${ARROW_WITH_ZLIB:=ON}
 : ${ARROW_WITH_ZSTD:=ON}
 : ${CMAKE_BUILD_TYPE:=release}
-: ${CMAKE_INTERPROCEDURAL_OPTIMIZATION:=ON}
 : ${CMAKE_UNITY_BUILD:=ON}
 : ${CMAKE_GENERATOR:=Ninja}
 : ${VCPKG_ROOT:=/opt/vcpkg}
@@ -84,6 +83,12 @@ if [[ "$(uname -m)" == arm* ]] || [[ "$(uname -m)" == aarch* ]]; then
     : ${ARROW_JEMALLOC:=OFF}
 else
     : ${ARROW_JEMALLOC:=ON}
+fi
+
+if [[ "${LINUX_WHEEL_KIND:-}" == "musllinux" ]]; then
+    : ${CMAKE_INTERPROCEDURAL_OPTIMIZATION:=OFF}
+else
+    : ${CMAKE_INTERPROCEDURAL_OPTIMIZATION:=ON}
 fi
 
 mkdir /tmp/arrow-build

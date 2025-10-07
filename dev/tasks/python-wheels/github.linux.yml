@@ -33,7 +33,6 @@ jobs:
     env:
       {% if linux_wheel_kind == "musllinux" %}
       ALPINE_LINUX: "3.22"
-      CMAKE_INTERPROCEDURAL_OPTIMIZATION: OFF
       {% endif %}
       # archery uses these environment variables
       {% if arch == "amd64" %}
