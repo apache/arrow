@@ -35,10 +35,10 @@ linters and styling of the code.
 
    .. tab-item:: R package
 
-      For the R package you can use 
-      `air <https://posit-dev.github.io/air/>`_ to format the code, 
-      and 
-      
+      For the R package you can use
+      `air <https://posit-dev.github.io/air/>`_ to format the code,
+      and
+
       ``{lintr}``
       to check if the code follows the
       `tidyverse style <https://style.tidyverse.org/>`_.
