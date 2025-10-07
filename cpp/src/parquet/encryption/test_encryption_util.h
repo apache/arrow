@@ -48,6 +48,7 @@ constexpr int kFixedLength = 10;
 const SecureString kFooterEncryptionKey("0123456789012345");
 const SecureString kColumnEncryptionKey1("1234567890123450");
 const SecureString kColumnEncryptionKey2("1234567890123451");
+const SecureString kColumnEncryptionKey3("1234567890123452");
 const char kFileName[] = "tester";
 
 // Get the path of file inside parquet test data directory
