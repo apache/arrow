@@ -252,7 +252,7 @@ jobs:
               # https://packages.apache.org/artifactory/arrow/${DISTRIBUTION}/apache-arrow-apt-source-latest-${DISTRIBUTION_CODE_NAME}.deb
               # for easy to install.
               cp -a \
-                "${DISTRIBUTION}/pool/${DISTRIBUTION_CODE_NAME}/a/apache-arrow-apt-source/*.deb \
+                "${DISTRIBUTION}/pool/${DISTRIBUTION_CODE_NAME}/*/a/apache-arrow-apt-source/*.deb \
                 "${DISTRIBUTION}/apache-arrow-apt-source-latest-${DISTRIBUTION_CODE_NAME}.deb"
             else
               # Create
