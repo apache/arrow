@@ -33,7 +33,9 @@ register_bindings_conditional <- function() {
       silent = !getOption("arrow.debug", FALSE)
     )
 
-    expr <- Expression$create("is_in", x,
+    expr <- Expression$create(
+      "is_in",
+      x,
       options = list(
         value_set = value_set,
         skip_nulls = TRUE
@@ -97,52 +99,56 @@ register_bindings_conditional <- function() {
     out
   })
 
-  register_binding("dplyr::case_when", function(..., .default = NULL, .ptype = NULL, .size = NULL) {
-    if (!is.null(.ptype)) {
-      arrow_not_supported("`case_when()` with `.ptype` specified")
-    }
-
-    if (!is.null(.size)) {
-      arrow_not_supported("`case_when()` with `.size` specified")
-    }
-
-    formulas <- list2(...)
-    n <- length(formulas)
-    if (n == 0) {
-      validation_error("No cases provided")
-    }
-    query <- vector("list", n)
-    value <- vector("list", n)
-    mask <- caller_env()
-    for (i in seq_len(n)) {
-      f <- formulas[[i]]
-      if (!inherits(f, "formula")) {
-        validation_error("Each argument to case_when() must be a two-sided formula")
-      }
-      query[[i]] <- arrow_eval(f[[2]], mask)
-      value[[i]] <- arrow_eval(f[[3]], mask)
-      if (!call_binding("is.logical", query[[i]])) {
-        validation_error("Left side of each formula in case_when() must be a logical expression")
-      }
-    }
-    if (!is.null(.default)) {
-      if (length(.default) != 1) {
-        validation_error(paste0("`.default` must have size 1, not size ", length(.default), "."))
+  register_binding(
+    "dplyr::case_when",
+    function(..., .default = NULL, .ptype = NULL, .size = NULL) {
+      if (!is.null(.ptype)) {
+        arrow_not_supported("`case_when()` with `.ptype` specified")
       }
 
-      query[n + 1] <- TRUE
-      value[n + 1] <- .default
-    }
-    Expression$create(
-      "case_when",
-      args = c(
-        Expression$create(
-          "make_struct",
-          args = query,
-          options = list(field_names = as.character(seq_along(query)))
-        ),
-        value
+      if (!is.null(.size)) {
+        arrow_not_supported("`case_when()` with `.size` specified")
+      }
+
+      formulas <- list2(...)
+      n <- length(formulas)
+      if (n == 0) {
+        validation_error("No cases provided")
+      }
+      query <- vector("list", n)
+      value <- vector("list", n)
+      mask <- caller_env()
+      for (i in seq_len(n)) {
+        f <- formulas[[i]]
+        if (!inherits(f, "formula")) {
+          validation_error("Each argument to case_when() must be a two-sided formula")
+        }
+        query[[i]] <- arrow_eval(f[[2]], mask)
+        value[[i]] <- arrow_eval(f[[3]], mask)
+        if (!call_binding("is.logical", query[[i]])) {
+          validation_error("Left side of each formula in case_when() must be a logical expression")
+        }
+      }
+      if (!is.null(.default)) {
+        if (length(.default) != 1) {
+          validation_error(paste0("`.default` must have size 1, not size ", length(.default), "."))
+        }
+
+        query[n + 1] <- TRUE
+        value[n + 1] <- .default
+      }
+      Expression$create(
+        "case_when",
+        args = c(
+          Expression$create(
+            "make_struct",
+            args = query,
+            options = list(field_names = as.character(seq_along(query)))
+          ),
+          value
+        )
       )
-    )
-  }, notes = "`.ptype` and `.size` arguments not supported")
+    },
+    notes = "`.ptype` and `.size` arguments not supported"
+  )
 }

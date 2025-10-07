@@ -329,7 +329,8 @@ test_that("==.Table", {
 test_that("Table$Equals(check_metadata)", {
   tab1 <- Table$create(x = 1:2, y = c("a", "b"))
   tab2 <- Table$create(
-    x = 1:2, y = c("a", "b"),
+    x = 1:2,
+    y = c("a", "b"),
     schema = tab1$schema$WithMetadata(list(some = "metadata"))
   )
 

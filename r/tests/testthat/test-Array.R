@@ -310,7 +310,8 @@ test_that("array uses local timezone for POSIXct without timezone", {
       "2019-02-03 12:34:56",
       format = "%Y-%m-%d %H:%M:%S",
       tz = "Asia/Katmandu"
-    ) + 1:10
+    ) +
+      1:10
     expect_equal(attr(times, "tzone"), "Asia/Katmandu")
     expect_array_roundtrip(times, timestamp("us", "Asia/Katmandu"))
   })
@@ -541,7 +542,8 @@ test_that("arrow_array() handles data frame -> struct arrays (ARROW-3811)", {
 
   df <- structure(
     list(col = list(list(list(1)))),
-    class = "data.frame", row.names = c(NA, -1L)
+    class = "data.frame",
+    row.names = c(NA, -1L)
   )
   a <- arrow_array(df)
   expect_type_equal(a$type, struct(col = list_of(list_of(list_of(float64())))))
@@ -837,7 +839,8 @@ test_that("Handling string data with embedded nuls", {
 
   # attempting materialization -> error
 
-  expect_error(v[],
+  expect_error(
+    v[],
     paste0(
       "embedded nul in string: 'ma\\0n'; to strip nuls when converting from Arrow ",
       "to R, set options(arrow.skip_nul = TRUE)"
@@ -846,7 +849,8 @@ test_that("Handling string data with embedded nuls", {
   )
 
   # also error on materializing v[3]
-  expect_error(v[3],
+  expect_error(
+    v[3],
     paste0(
       "embedded nul in string: 'ma\\0n'; to strip nuls when converting from Arrow ",
       "to R, set options(arrow.skip_nul = TRUE)"
@@ -1338,7 +1342,6 @@ test_that("Array to C-interface", {
 test_that("Can convert R integer/double to decimal (ARROW-11631)", {
   # Check all of decimal32, decimal64, decimal128 and decimal256
 
-
   decimal32_from_dbl <- arrow_array(c(1, NA_real_), type = decimal32(9, 2))
   decimal64_from_dbl <- arrow_array(c(1, NA_real_), type = decimal64(12, 2))
   decimal32_from_int <- arrow_array(c(1L, NA_integer_), type = decimal32(9, 2))
@@ -1384,7 +1387,6 @@ test_that("Can convert R integer/double to decimal (ARROW-11631)", {
     decimal64_from_int,
     arrow_array(c(1, NA))$cast(decimal64(12, 2))
   )
-
 
   expect_equal(
     decimal128_from_int,

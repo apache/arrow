@@ -315,7 +315,7 @@ test_that("trig functions", {
     df
   )
 
-    compare_dplyr_binding(
+  compare_dplyr_binding(
     .input |>
       mutate(y = atan(x)) |>
       collect(),
