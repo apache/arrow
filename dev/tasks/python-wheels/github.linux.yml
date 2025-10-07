@@ -60,10 +60,11 @@ jobs:
       # Detect free-threaded Python builds
       - name: Prepare
         run: |
-          test_image_prefix=$(python -c '
-          import sysconfig
-          print("python-free-threaded" if sysconfig.get_config_var("Py_GIL_DISABLED") else "python")
-          ')
+          if [[ "${PYTHON_ABI_TAG}" == *t ]]; then
+            test_image_prefix=python-free-threaded
+          else
+            test_image_prefix=python
+          fi
           echo "TEST_IMAGE_PREFIX=${test_image_prefix}" >> ${GITHUB_ENV}
 
       - name: Build wheel
