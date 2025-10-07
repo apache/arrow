@@ -36,10 +36,6 @@ SQLRETURN SQLAllocHandle(SQLSMALLINT type, SQLHANDLE parent, SQLHANDLE* result) 
   ARROW_LOG(DEBUG) << "SQLAllocHandle called with type: " << type
                    << ", parent: " << parent
                    << ", result: " << static_cast<const void*>(result);
-  // GH-46096 TODO: Implement SQLAllocEnv //-AL- todo remove
-  // GH-46097 TODO: Add tests for SQLAllocConnect, pre-requisite requires SQLAllocEnv
-  // implementation
-
   // GH-47706 TODO: Add tests for SQLAllocStmt, pre-requisite requires
   // SQLDriverConnect implementation
 
@@ -140,10 +136,6 @@ SQLRETURN SQLAllocHandle(SQLSMALLINT type, SQLHANDLE parent, SQLHANDLE* result) 
 SQLRETURN SQLFreeHandle(SQLSMALLINT type, SQLHANDLE handle) {
   ARROW_LOG(DEBUG) << "SQLFreeHandle called with type: " << type
                    << ", handle: " << handle;
-  // GH-46096 TODO: Implement SQLFreeEnv //-AL- todo remove
-  // GH-46097 TODO: Add tests for SQLFreeConnect, pre-requisite requires SQLAllocConnect
-  // implementation
-
   // GH-47706 TODO: Add tests for SQLFreeStmt, pre-requisite requires
   // SQLAllocStmt tests
 
