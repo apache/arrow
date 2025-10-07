@@ -19,10 +19,12 @@ skip_if_not_available("s3")
 
 run_these <- tryCatch(
   expr = {
-    if (arrow_with_s3() &&
-      identical(tolower(Sys.getenv("ARROW_R_DEV")), "true") &&
-      !identical(Sys.getenv("AWS_ACCESS_KEY_ID"), "") &&
-      !identical(Sys.getenv("AWS_SECRET_ACCESS_KEY"), "")) {
+    if (
+      arrow_with_s3() &&
+        identical(tolower(Sys.getenv("ARROW_R_DEV")), "true") &&
+        !identical(Sys.getenv("AWS_ACCESS_KEY_ID"), "") &&
+        !identical(Sys.getenv("AWS_SECRET_ACCESS_KEY"), "")
+    ) {
       # See if we have access to the test bucket
       bucket <- s3_bucket("ursa-labs-r-test")
       bucket$GetFileInfo("")

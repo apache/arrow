@@ -19,7 +19,8 @@
 
 # Base class for RecordBatch and Table for S3 method dispatch only.
 # Does not exist in C++ class hierarchy
-ArrowTabular <- R6Class("ArrowTabular",
+ArrowTabular <- R6Class(
+  "ArrowTabular",
   inherit = ArrowObject,
   public = list(
     ToString = function() {

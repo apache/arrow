@@ -73,10 +73,7 @@ test_that("CSV dataset", {
 test_that("CSV scan options", {
   options <- FragmentScanOptions$create("text")
   expect_equal(options$type, "csv")
-  options <- FragmentScanOptions$create("csv",
-    null_values = c("mynull"),
-    strings_can_be_null = TRUE
-  )
+  options <- FragmentScanOptions$create("csv", null_values = c("mynull"), strings_can_be_null = TRUE)
   expect_equal(options$type, "csv")
 
   dst_dir <- make_temp_dir()
@@ -104,16 +101,14 @@ test_that("CSV scan options", {
   # Set both parse and convert options
   df <- tibble(chr = c("foo", "mynull"), chr2 = c("bar", "baz"))
   write.table(df, dst_file, row.names = FALSE, quote = FALSE, sep = "\t")
-  ds <- open_dataset(dst_dir,
-    format = "csv",
-    delimiter = "\t",
-    null_values = c("mynull"),
-    strings_can_be_null = TRUE
+  ds <- open_dataset(dst_dir, format = "csv", delimiter = "\t", null_values = c("mynull"), strings_can_be_null = TRUE)
+  expect_equal(
+    ds |> collect(),
+    tibble(
+      chr = c("foo", NA),
+      chr2 = c("bar", "baz")
+    )
   )
-  expect_equal(ds |> collect(), tibble(
-    chr = c("foo", NA),
-    chr2 = c("bar", "baz")
-  ))
   expect_equal(
     ds |>
       group_by(chr2) |>
@@ -496,10 +491,31 @@ test_that("open_delim_dataset params passed through to open_dataset", {
 
   # na
   ds <- open_csv_dataset(csv_dir, partitioning = "part", na = c("", "NA", "FALSE")) |> collect()
-  expect_identical(ds$lgl, c(
-    TRUE, NA, NA, TRUE, NA, TRUE, NA, NA, TRUE, NA, TRUE, NA, NA,
-    TRUE, NA, TRUE, NA, NA, TRUE, NA
-  ))
+  expect_identical(
+    ds$lgl,
+    c(
+      TRUE,
+      NA,
+      NA,
+      TRUE,
+      NA,
+      TRUE,
+      NA,
+      NA,
+      TRUE,
+      NA,
+      TRUE,
+      NA,
+      NA,
+      TRUE,
+      NA,
+      TRUE,
+      NA,
+      NA,
+      TRUE,
+      NA
+    )
+  )
 
   # col_names and skip
   ds <- open_csv_dataset(
@@ -507,7 +523,8 @@ test_that("open_delim_dataset params passed through to open_dataset", {
     partitioning = "part",
     col_names = paste0("col_", 1:6),
     skip = 1
-  ) |> collect()
+  ) |>
+    collect()
 
   expect_named(ds, c("col_1", "col_2", "col_3", "col_4", "col_5", "col_6", "part"))
   expect_equal(nrow(ds), 20)
@@ -525,8 +542,12 @@ test_that("open_delim_dataset params passed through to open_dataset", {
 
   # col_types - as compact schema
   compact_schema <- schema(
-    int = int32(), dbl = float64(), lgl = bool(), chr = utf8(),
-    fct = dictionary(), ts = timestamp(unit = "ns")
+    int = int32(),
+    dbl = float64(),
+    lgl = bool(),
+    chr = utf8(),
+    fct = dictionary(),
+    ts = timestamp(unit = "ns")
   )
 
   ds <- open_csv_dataset(
@@ -549,7 +570,8 @@ test_that("open_delim_dataset params passed through to open_dataset", {
   ds <- open_csv_dataset(
     csv_dir,
     convert_options = list(null_values = c("NA", "", "FALSE"), strings_can_be_null = TRUE)
-  ) |> collect()
+  ) |>
+    collect()
 
   expect_equal(
     ds$lgl,
@@ -560,7 +582,8 @@ test_that("open_delim_dataset params passed through to open_dataset", {
   ds <- open_csv_dataset(
     csv_dir,
     read_options = list(column_names = paste0("col_", 1:6))
-  ) |> collect()
+  ) |>
+    collect()
 
   expect_named(ds, c("col_1", "col_2", "col_3", "col_4", "col_5", "col_6"))
 
@@ -568,11 +591,16 @@ test_that("open_delim_dataset params passed through to open_dataset", {
   ds <- open_csv_dataset(
     csv_dir,
     schema = schema(
-      int = int64(), dbl = float64(), lgl = bool(), chr = utf8(),
-      fct = utf8(), ts = timestamp(unit = "s")
+      int = int64(),
+      dbl = float64(),
+      lgl = bool(),
+      chr = utf8(),
+      fct = utf8(),
+      ts = timestamp(unit = "s")
     ),
     skip = 1
-  ) |> collect()
+  ) |>
+    collect()
 
   expect_named(ds, c("int", "dbl", "lgl", "chr", "fct", "ts"))
 
@@ -593,7 +621,8 @@ test_that("open_delim_dataset params passed through to open_dataset", {
   ds <- open_csv_dataset(
     dst_dir,
     parse_options = csv_parse_options(ignore_empty_lines = FALSE)
-  ) |> collect()
+  ) |>
+    collect()
   expect_equal(ds$x, c(NA, 1L, NA, NA, 2L, NA, 3L))
 
   # timestamp_parsers
@@ -631,8 +660,13 @@ test_that("CSVReadOptions field access", {
 
 test_that("GH-34640 - CSV datasets are read in correctly when both schema and partitioning supplied", {
   target_schema <- schema(
-    int = int32(), dbl = float32(), lgl = bool(), chr = utf8(),
-    fct = utf8(), ts = timestamp(unit = "s"), part = int8()
+    int = int32(),
+    dbl = float32(),
+    lgl = bool(),
+    chr = utf8(),
+    fct = utf8(),
+    ts = timestamp(unit = "s"),
+    part = int8()
   )
 
   ds <- open_dataset(

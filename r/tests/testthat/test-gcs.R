@@ -28,11 +28,14 @@ test_that("GcsFileSystem$create() options", {
   expect_r6_class(GcsFileSystem$create(anonymous = TRUE), "GcsFileSystem")
 
   # Verify default options
-  expect_equal(GcsFileSystem$create()$options, list(
-    anonymous = FALSE,
-    scheme = "https",
-    retry_limit_seconds = 15
-  ))
+  expect_equal(
+    GcsFileSystem$create()$options,
+    list(
+      anonymous = FALSE,
+      scheme = "https",
+      retry_limit_seconds = 15
+    )
+  )
 
   # Verify a more complete set of options round-trips
   options <- list(
@@ -121,7 +124,9 @@ library(dplyr)
 
 testbench_port <- Sys.getenv("TESTBENCH_PORT", "9001")
 
-pid_minio <- sys::exec_background("storage-testbench", c("--port", testbench_port),
+pid_minio <- sys::exec_background(
+  "storage-testbench",
+  c("--port", testbench_port),
   std_out = FALSE,
   std_err = FALSE # TODO: is there a good place to send output?
 )
@@ -140,7 +145,8 @@ now <- as.character(as.numeric(Sys.time()))
 tryCatch(fs$CreateDir(now), error = function(cond) {
   if (grepl("Couldn't connect to server", cond, fixed = TRUE)) {
     abort(
-      c(sprintf("Unable to connect to testbench on port %s.", testbench_port),
+      c(
+        sprintf("Unable to connect to testbench on port %s.", testbench_port),
         i = "You can set a custom port with TESTBENCH_PORT environment variable."
       ),
       parent = cond
@@ -156,12 +162,16 @@ gcs_path <- function(...) {
   paste(now, ..., sep = "/")
 }
 gcs_uri <- function(...) {
-  template <- paste0("gs://anonymous@%s?",
-                     paste("scheme=http",
-                           "endpoint_override=localhost%s%s",
-                           "retry_limit_seconds=1",
-                           "project_id=test-project-id",
-                           sep = "&"))
+  template <- paste0(
+    "gs://anonymous@%s?",
+    paste(
+      "scheme=http",
+      "endpoint_override=localhost%s%s",
+      "retry_limit_seconds=1",
+      "project_id=test-project-id",
+      sep = "&"
+    )
+  )
   sprintf(template, gcs_path(...), "%3A", testbench_port)
 }
 

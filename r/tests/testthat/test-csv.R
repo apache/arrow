@@ -446,9 +446,7 @@ test_that("Write a CSV with custom NA value", {
   expect_identical(tbl_in1, tbl_no_dates)
 
   # Also can use null_value in CsvWriteOptions
-  tbl_out1 <- write_csv_arrow(tbl_no_dates, csv_file,
-    write_options = csv_write_options(null_string = "another_null")
-  )
+  tbl_out1 <- write_csv_arrow(tbl_no_dates, csv_file, write_options = csv_write_options(null_string = "another_null"))
   csv_contents <- readLines(csv_file)
   expect_true(any(grepl("another_null", csv_contents)))
 
@@ -482,17 +480,10 @@ test_that("time mapping work as expected (ARROW-13624)", {
   on.exit(unlink(tf))
   write.csv(tbl, tf, row.names = FALSE)
 
-  df <- read_csv_arrow(tf,
-    col_names = c("dt", "time"),
-    col_types = "Tt",
-    skip = 1
-  )
+  df <- read_csv_arrow(tf, col_names = c("dt", "time"), col_types = "Tt", skip = 1)
 
   expect_error(
-    read_csv_arrow(tf,
-      col_names = c("dt", "time"),
-      col_types = "tT", skip = 1
-    )
+    read_csv_arrow(tf, col_names = c("dt", "time"), col_types = "tT", skip = 1)
   )
 
   expect_equal(df, tbl, ignore_attr = "tzone")

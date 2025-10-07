@@ -54,13 +54,15 @@
 #' necessary C++ dependencies.
 #' \href{https://arrow.apache.org/docs/r/articles/install.html}{install guide}
 #' for more ways to tune installation on Linux.
-install_arrow <- function(nightly = FALSE,
-                          binary = Sys.getenv("LIBARROW_BINARY", TRUE),
-                          use_system = Sys.getenv("ARROW_USE_PKG_CONFIG", FALSE),
-                          minimal = Sys.getenv("LIBARROW_MINIMAL", FALSE),
-                          verbose = Sys.getenv("ARROW_R_DEV", FALSE),
-                          repos = getOption("repos"),
-                          ...) {
+install_arrow <- function(
+  nightly = FALSE,
+  binary = Sys.getenv("LIBARROW_BINARY", TRUE),
+  use_system = Sys.getenv("ARROW_USE_PKG_CONFIG", FALSE),
+  minimal = Sys.getenv("LIBARROW_MINIMAL", FALSE),
+  verbose = Sys.getenv("ARROW_R_DEV", FALSE),
+  repos = getOption("repos"),
+  ...
+) {
   conda <- isTRUE(grepl("conda", R.Version()$platform))
 
   if (conda) {
@@ -183,11 +185,13 @@ reload_arrow <- function() {
 #' @export
 create_package_with_all_dependencies <- function(dest_file = NULL, source_file = NULL) {
   if (Sys.which("bash") == "") {
-    stop("
+    stop(
+      "
     This function requires bash to be installed and available in your PATH.
     If using RTools, it may be useful to run this code as:
     pkgbuild::with_build_tools(create_package_with_all_dependencies())
-    ")
+    "
+    )
   }
   if (is.null(source_file)) {
     pkg_download_dir <- tempfile()
@@ -220,10 +224,12 @@ create_package_with_all_dependencies <- function(dest_file = NULL, source_file =
   }
 
   parse_versions_success <- system2(
-    "bash", c(download_dependencies_sh, download_dir),
+    "bash",
+    c(download_dependencies_sh, download_dir),
     stdout = download_script,
     stderr = FALSE
-  ) == 0
+  ) ==
+    0
 
   if (!parse_versions_success) {
     stop(paste("Failed to parse versions.txt; view ", download_script, "for more information", collapse = ""))

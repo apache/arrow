@@ -280,12 +280,45 @@ test_that("timestamp round trip correctly via strftime and strptime", {
 
   # Op format is currently not supported by strptime
   formats <- c(
-    "%d", "%H", "%j", "%m", "%T",
-    "%S", "%q", "%M", "%U", "%w", "%W", "%y", "%Y", "%R", "%T"
+    "%d",
+    "%H",
+    "%j",
+    "%m",
+    "%T",
+    "%S",
+    "%q",
+    "%M",
+    "%U",
+    "%w",
+    "%W",
+    "%y",
+    "%Y",
+    "%R",
+    "%T"
   )
   formats2 <- c(
-    "a", "A", "b", "B", "d", "H", "j", "m", "T", "OS", "Ip",
-    "S", "q", "M", "U", "w", "W", "y", "Y", "r", "R", "Tz"
+    "a",
+    "A",
+    "b",
+    "B",
+    "d",
+    "H",
+    "j",
+    "m",
+    "T",
+    "OS",
+    "Ip",
+    "S",
+    "q",
+    "M",
+    "U",
+    "w",
+    "W",
+    "y",
+    "Y",
+    "r",
+    "R",
+    "Tz"
   )
   base_format <- "%Y-%m-%d"
   base_format2 <- "ymd"
@@ -410,30 +443,27 @@ test_that("strftime", {
     times
   )
 
-  withr::with_timezone(
-    "Pacific/Marquesas",
-    {
-      compare_dplyr_binding(
-        .input |>
-          mutate(
-            x = strftime(datetime, format = formats, tz = "EST"),
-            x_date = strftime(date, format = formats_date, tz = "EST")
-          ) |>
-          collect(),
-        times
-      )
+  withr::with_timezone("Pacific/Marquesas", {
+    compare_dplyr_binding(
+      .input |>
+        mutate(
+          x = strftime(datetime, format = formats, tz = "EST"),
+          x_date = strftime(date, format = formats_date, tz = "EST")
+        ) |>
+        collect(),
+      times
+    )
 
-      compare_dplyr_binding(
-        .input |>
-          mutate(
-            x = strftime(datetime, format = formats),
-            x_date = strftime(date, format = formats_date)
-          ) |>
-          collect(),
-        times
-      )
-    }
-  )
+    compare_dplyr_binding(
+      .input |>
+        mutate(
+          x = strftime(datetime, format = formats),
+          x_date = strftime(date, format = formats_date)
+        ) |>
+        collect(),
+      times
+    )
+  })
 
   # This check is due to differences in the way %c currently works in Arrow and R's strftime.
   # We can revisit after https://github.com/HowardHinnant/date/issues/704 is resolved.
@@ -519,7 +549,6 @@ test_that("format_ISO8601", {
       times
     )
   }
-
 
   # See comment regarding %S flag in strftime tests
   compare_dplyr_binding(
@@ -1567,13 +1596,21 @@ test_that("as.difftime()", {
 test_that("`decimal_date()` and `date_decimal()`", {
   test_df <- tibble(
     a = c(
-      2007.38998954347, 1970.77732069883, 2020.96061799722,
-      2009.43465948477, 1975.71251467871, NA
+      2007.38998954347,
+      1970.77732069883,
+      2020.96061799722,
+      2009.43465948477,
+      1975.71251467871,
+      NA
     ),
     b = as.POSIXct(
       c(
-        "2007-05-23 08:18:30", "1970-10-11 17:19:45", "2020-12-17 14:04:06",
-        "2009-06-08 15:37:01", "1975-09-18 01:37:42", NA
+        "2007-05-23 08:18:30",
+        "1970-10-11 17:19:45",
+        "2020-12-17 14:04:06",
+        "2009-06-08 15:37:01",
+        "1975-09-18 01:37:42",
+        NA
       )
     ),
     c = as.Date(
@@ -2081,19 +2118,52 @@ test_that("parse_date_time() works with year, month, and date components", {
       collect(),
     tibble::tibble(
       string_ymd = c(
-        "2021-09-1", "2021/09///2", "2021.09.03", "2021,09,4", "2021:09::5",
-        "2021 09   6", "21-09-07", "21/09/08", "21.09.9", "21,09,10", "21:09:11",
-        "20210912", "210913", NA
+        "2021-09-1",
+        "2021/09///2",
+        "2021.09.03",
+        "2021,09,4",
+        "2021:09::5",
+        "2021 09   6",
+        "21-09-07",
+        "21/09/08",
+        "21.09.9",
+        "21,09,10",
+        "21:09:11",
+        "20210912",
+        "210913",
+        NA
       ),
       string_dmy = c(
-        "1-09-2021", "2/09//2021", "03.09.2021", "04,09,2021", "5:::09:2021",
-        "6  09  2021", "07-09-21", "08/09/21", "9.09.21", "10,09,21", "11:09:21",
-        "12092021", "130921", NA
+        "1-09-2021",
+        "2/09//2021",
+        "03.09.2021",
+        "04,09,2021",
+        "5:::09:2021",
+        "6  09  2021",
+        "07-09-21",
+        "08/09/21",
+        "9.09.21",
+        "10,09,21",
+        "11:09:21",
+        "12092021",
+        "130921",
+        NA
       ),
       string_mdy = c(
-        "09-01-2021", "09/2/2021", "09.3.2021", "09,04,2021", "09:05:2021",
-        "09 6 2021", "09-7-21", "09/08/21", "09.9.21", "09,10,21", "09:11:21",
-        "09122021", "091321", NA
+        "09-01-2021",
+        "09/2/2021",
+        "09.3.2021",
+        "09,04,2021",
+        "09:05:2021",
+        "09 6 2021",
+        "09-7-21",
+        "09/08/21",
+        "09.9.21",
+        "09,10,21",
+        "09:11:21",
+        "09122021",
+        "091321",
+        NA
       )
     )
   )
@@ -2110,16 +2180,28 @@ test_that("parse_date_time() works with year, month, and date components", {
       collect(),
     tibble::tibble(
       string_ymd = c(
-        "2021 Sep 12", "2021 September 13", "21 Sep 14", "21 September 15",
-        "2021Sep16", NA
+        "2021 Sep 12",
+        "2021 September 13",
+        "21 Sep 14",
+        "21 September 15",
+        "2021Sep16",
+        NA
       ),
       string_dmy = c(
-        "12 Sep 2021", "13 September 2021", "14 Sep 21", "15 September 21",
-        "16Sep2021", NA
+        "12 Sep 2021",
+        "13 September 2021",
+        "14 Sep 21",
+        "15 September 21",
+        "16Sep2021",
+        NA
       ),
       string_mdy = c(
-        "Sep 12 2021", "September 13 2021", "Sep 14 21", "September 15 21",
-        "Sep1621", NA
+        "Sep 12 2021",
+        "September 13 2021",
+        "Sep 14 21",
+        "September 15 21",
+        "Sep1621",
+        NA
       )
     )
   )
@@ -2359,12 +2441,11 @@ test_that("lubridate's fast_strptime", {
   compare_dplyr_binding(
     .input |>
       mutate(
-        y =
-          fast_strptime(
-            "68-10-07 19:04:05",
-            format = "%y-%m-%d %H:%M:%S",
-            lt = FALSE
-          )
+        y = fast_strptime(
+          "68-10-07 19:04:05",
+          format = "%y-%m-%d %H:%M:%S",
+          lt = FALSE
+        )
       ) |>
       collect(),
     tibble(
@@ -2375,12 +2456,11 @@ test_that("lubridate's fast_strptime", {
   compare_dplyr_binding(
     .input |>
       mutate(
-        date_multi_formats =
-          fast_strptime(
-            x,
-            format = c("%Y-%m-%d %H:%M:%S", "%m-%d-%Y %H:%M:%S"),
-            lt = FALSE
-          )
+        date_multi_formats = fast_strptime(
+          x,
+          format = c("%Y-%m-%d %H:%M:%S", "%m-%d-%Y %H:%M:%S"),
+          lt = FALSE
+        )
       ) |>
       collect(),
     tibble(
@@ -2404,8 +2484,7 @@ test_that("lubridate's fast_strptime", {
       ) |>
       collect(),
     tibble(
-      dttm_as_string =
-        c("2018-10-07 19:04:05", "1969-10-07 19:04:05", NA)
+      dttm_as_string = c("2018-10-07 19:04:05", "1969-10-07 19:04:05", NA)
     )
   )
 
@@ -2414,17 +2493,15 @@ test_that("lubridate's fast_strptime", {
   compare_dplyr_binding(
     .input |>
       mutate(
-        date_short_year =
-          fast_strptime(
-            x,
-            format = "%y-%m-%d %H:%M:%S",
-            lt = FALSE
-          )
+        date_short_year = fast_strptime(
+          x,
+          format = "%y-%m-%d %H:%M:%S",
+          lt = FALSE
+        )
       ) |>
       collect(),
     tibble(
-      x =
-        c("68-10-07 19:04:05", "69-10-07 19:04:05", NA)
+      x = c("68-10-07 19:04:05", "69-10-07 19:04:05", NA)
     )
   )
 
@@ -2432,13 +2509,12 @@ test_that("lubridate's fast_strptime", {
   compare_dplyr_binding(
     .input |>
       mutate(
-        date_short_year =
-          fast_strptime(
-            x,
-            format = "%y-%m-%d %H:%M:%S",
-            lt = FALSE,
-            cutoff_2000 = 69L
-          )
+        date_short_year = fast_strptime(
+          x,
+          format = "%y-%m-%d %H:%M:%S",
+          lt = FALSE,
+          cutoff_2000 = 69L
+        )
       ) |>
       collect(),
     tibble(
@@ -2455,12 +2531,11 @@ test_that("lubridate's fast_strptime", {
     ) |>
       arrow_table() |>
       mutate(
-        date_short_year =
-          fast_strptime(
-            x,
-            format = "%y-%m-%d %H:%M:%S",
-            lt = TRUE
-          )
+        date_short_year = fast_strptime(
+          x,
+          format = "%y-%m-%d %H:%M:%S",
+          lt = TRUE
+        )
       ) |>
       collect()
   )
@@ -2468,30 +2543,18 @@ test_that("lubridate's fast_strptime", {
 
 test_that("parse_date_time with hours, minutes and seconds components", {
   test_dates_times <- tibble(
-    ymd_hms_string =
-      c("67-01-09 12:34:56", "1970-05-22 20:13:59", "870822201359", NA),
-    ymd_hm_string =
-      c("67-01-09 12:34", "1970-05-22 20:13", "8708222013", NA),
-    ymd_h_string =
-      c("67-01-09 12", "1970-05-22 20", "87082220", NA),
-    dmy_hms_string =
-      c("09-01-67 12:34:56", "22-05-1970 20:13:59", "220887201359", NA),
-    dmy_hm_string =
-      c("09-01-67 12:34", "22-05-1970 20:13", "2208872013", NA),
-    dmy_h_string =
-      c("09-01-67 12", "22-05-1970 20", "22088720", NA),
-    mdy_hms_string =
-      c("01-09-67 12:34:56", "05-22-1970 20:13:59", "082287201359", NA),
-    mdy_hm_string =
-      c("01-09-67 12:34", "05-22-1970 20:13", "0822872013", NA),
-    mdy_h_string =
-      c("01-09-67 12", "05-22-1970 20", "08228720", NA),
-    ydm_hms_string =
-      c("67-09-01 12:34:56", "1970-22-05 20:13:59", "872208201359", NA),
-    ydm_hm_string =
-      c("67-09-01 12:34", "1970-22-05 20:13", "8722082013", NA),
-    ydm_h_string =
-      c("67-09-01 12", "1970-22-05 20", "87220820", NA)
+    ymd_hms_string = c("67-01-09 12:34:56", "1970-05-22 20:13:59", "870822201359", NA),
+    ymd_hm_string = c("67-01-09 12:34", "1970-05-22 20:13", "8708222013", NA),
+    ymd_h_string = c("67-01-09 12", "1970-05-22 20", "87082220", NA),
+    dmy_hms_string = c("09-01-67 12:34:56", "22-05-1970 20:13:59", "220887201359", NA),
+    dmy_hm_string = c("09-01-67 12:34", "22-05-1970 20:13", "2208872013", NA),
+    dmy_h_string = c("09-01-67 12", "22-05-1970 20", "22088720", NA),
+    mdy_hms_string = c("01-09-67 12:34:56", "05-22-1970 20:13:59", "082287201359", NA),
+    mdy_hm_string = c("01-09-67 12:34", "05-22-1970 20:13", "0822872013", NA),
+    mdy_h_string = c("01-09-67 12", "05-22-1970 20", "08228720", NA),
+    ydm_hms_string = c("67-09-01 12:34:56", "1970-22-05 20:13:59", "872208201359", NA),
+    ydm_hm_string = c("67-09-01 12:34", "1970-22-05 20:13", "8722082013", NA),
+    ydm_h_string = c("67-09-01 12", "1970-22-05 20", "87220820", NA)
   )
   # the unseparated strings are versions of "1987-08-22 20:13:59" (with %y)
 
@@ -2503,17 +2566,17 @@ test_that("parse_date_time with hours, minutes and seconds components", {
     .input |>
       mutate(
         ymd_hms_dttm = parse_date_time(ymd_hms_string, orders = "ymd_HMS"),
-        ymd_hm_dttm  = parse_date_time(ymd_hm_string, orders = "ymd_HM"),
-        ymd_h_dttm   = parse_date_time(ymd_h_string, orders = "ymd_H"),
+        ymd_hm_dttm = parse_date_time(ymd_hm_string, orders = "ymd_HM"),
+        ymd_h_dttm = parse_date_time(ymd_h_string, orders = "ymd_H"),
         dmy_hms_dttm = parse_date_time(dmy_hms_string, orders = "dmy_HMS"),
-        dmy_hm_dttm  = parse_date_time(dmy_hm_string, orders = "dmy_HM"),
-        dmy_h_dttm   = parse_date_time(dmy_h_string, orders = "dmy_H"),
+        dmy_hm_dttm = parse_date_time(dmy_hm_string, orders = "dmy_HM"),
+        dmy_h_dttm = parse_date_time(dmy_h_string, orders = "dmy_H"),
         mdy_hms_dttm = parse_date_time(mdy_hms_string, orders = "mdy_HMS"),
-        mdy_hm_dttm  = parse_date_time(mdy_hm_string, orders = "mdy_HM"),
-        mdy_h_dttm   = parse_date_time(mdy_h_string, orders = "mdy_H"),
+        mdy_hm_dttm = parse_date_time(mdy_hm_string, orders = "mdy_HM"),
+        mdy_h_dttm = parse_date_time(mdy_h_string, orders = "mdy_H"),
         ydm_hms_dttm = parse_date_time(ydm_hms_string, orders = "ydm_HMS"),
-        ydm_hm_dttm  = parse_date_time(ydm_hm_string, orders = "ydmHM"),
-        ydm_h_dttm   = parse_date_time(ydm_h_string, orders = "ydmH")
+        ydm_hm_dttm = parse_date_time(ydm_hm_string, orders = "ydmHM"),
+        ydm_h_dttm = parse_date_time(ydm_h_string, orders = "ydmH")
       ) |>
       collect(),
     test_dates_times
@@ -2605,18 +2668,16 @@ test_that("parse_date_time with hours, minutes and seconds components", {
   compare_dplyr_binding(
     .input |>
       mutate(
-        ymd_ims_dttm =
-          parse_date_time(
-            ymd_ims_string,
-            orders = "ymd_IMS",
-            # lubridate is chatty and will warn 1 format failed to parse
-            quiet = TRUE
-          )
+        ymd_ims_dttm = parse_date_time(
+          ymd_ims_string,
+          orders = "ymd_IMS",
+          # lubridate is chatty and will warn 1 format failed to parse
+          quiet = TRUE
+        )
       ) |>
       collect(),
     tibble(
-      ymd_ims_string =
-        c("67-01-09 9:34:56", "1970-05-22 10:13:59", "19870822171359", NA)
+      ymd_ims_string = c("67-01-09 9:34:56", "1970-05-22 10:13:59", "19870822171359", NA)
     )
   )
 })
@@ -2630,30 +2691,18 @@ test_that("parse_date_time with month names and HMS", {
   skip_if_not_available("re2")
 
   test_dates_times2 <- tibble(
-    ymd_hms_string =
-      c("67-Jan-09 12:34:56", "1970-June-22 20:13:59", "87Aug22201359", NA),
-    ymd_hm_string =
-      c("67-Jan-09 12:34", "1970-June-22 20:13", "87Aug222013", NA),
-    ymd_h_string =
-      c("67-Jan-09 12", "1970-June-22 20", "87Aug2220", NA),
-    dmy_hms_string =
-      c("09-Jan-67 12:34:56", "22-June-1970 20:13:59", "22Aug87201359", NA),
-    dmy_hm_string =
-      c("09-Jan-67 12:34", "22-June-1970 20:13", "22Aug872013", NA),
-    dmy_h_string =
-      c("09-Jan-67 12", "22-June-1970 20", "22Aug8720", NA),
-    mdy_hms_string =
-      c("Jan-09-67 12:34:56", "June-22-1970 20:13:59", "Aug2287201359", NA),
-    mdy_hm_string =
-      c("Jan-09-67 12:34", "June-22-1970 20:13", "Aug22872013", NA),
-    mdy_h_string =
-      c("Jan-09-67 12", "June-22-1970 20", "Aug228720", NA),
-    ydm_hms_string =
-      c("67-09-Jan 12:34:56", "1970-22-June 20:13:59", "8722Aug201359", NA),
-    ydm_hm_string =
-      c("67-09-Jan 12:34", "1970-22-June 20:13", "8722Aug2013", NA),
-    ydm_h_string =
-      c("67-09-Jan 12", "1970-22-June 20", "8722Aug20", NA)
+    ymd_hms_string = c("67-Jan-09 12:34:56", "1970-June-22 20:13:59", "87Aug22201359", NA),
+    ymd_hm_string = c("67-Jan-09 12:34", "1970-June-22 20:13", "87Aug222013", NA),
+    ymd_h_string = c("67-Jan-09 12", "1970-June-22 20", "87Aug2220", NA),
+    dmy_hms_string = c("09-Jan-67 12:34:56", "22-June-1970 20:13:59", "22Aug87201359", NA),
+    dmy_hm_string = c("09-Jan-67 12:34", "22-June-1970 20:13", "22Aug872013", NA),
+    dmy_h_string = c("09-Jan-67 12", "22-June-1970 20", "22Aug8720", NA),
+    mdy_hms_string = c("Jan-09-67 12:34:56", "June-22-1970 20:13:59", "Aug2287201359", NA),
+    mdy_hm_string = c("Jan-09-67 12:34", "June-22-1970 20:13", "Aug22872013", NA),
+    mdy_h_string = c("Jan-09-67 12", "June-22-1970 20", "Aug228720", NA),
+    ydm_hms_string = c("67-09-Jan 12:34:56", "1970-22-June 20:13:59", "8722Aug201359", NA),
+    ydm_hm_string = c("67-09-Jan 12:34", "1970-22-June 20:13", "8722Aug2013", NA),
+    ydm_h_string = c("67-09-Jan 12", "1970-22-June 20", "8722Aug20", NA)
   )
   # the un-separated strings are versions of "1987-08-22 20:13:59" (with %y)
 
@@ -2661,17 +2710,17 @@ test_that("parse_date_time with month names and HMS", {
     .input |>
       mutate(
         ymd_hms_dttm = parse_date_time(ymd_hms_string, orders = "ymd_HMS"),
-        ymd_hm_dttm  = parse_date_time(ymd_hm_string, orders = "ymdHM"),
-        ymd_h_dttm   = parse_date_time(ymd_h_string, orders = "ymd_H"),
+        ymd_hm_dttm = parse_date_time(ymd_hm_string, orders = "ymdHM"),
+        ymd_h_dttm = parse_date_time(ymd_h_string, orders = "ymd_H"),
         dmy_hms_dttm = parse_date_time(dmy_hms_string, orders = "dmy_HMS"),
-        dmy_hm_dttm  = parse_date_time(dmy_hm_string, orders = "dmyHM"),
-        dmy_h_dttm   = parse_date_time(dmy_h_string, orders = "dmy_H"),
+        dmy_hm_dttm = parse_date_time(dmy_hm_string, orders = "dmyHM"),
+        dmy_h_dttm = parse_date_time(dmy_h_string, orders = "dmy_H"),
         mdy_hms_dttm = parse_date_time(mdy_hms_string, orders = "mdy_HMS"),
-        mdy_hm_dttm  = parse_date_time(mdy_hm_string, orders = "mdyHM"),
-        mdy_h_dttm   = parse_date_time(mdy_h_string, orders = "mdy_H"),
+        mdy_hm_dttm = parse_date_time(mdy_hm_string, orders = "mdyHM"),
+        mdy_h_dttm = parse_date_time(mdy_h_string, orders = "mdy_H"),
         ydm_hms_dttm = parse_date_time(ydm_hms_string, orders = "ydm_HMS"),
-        ydm_hm_dttm  = parse_date_time(ydm_hm_string, orders = "ydmHM"),
-        ydm_h_dttm   = parse_date_time(ydm_h_string, orders = "ydm_H")
+        ydm_hm_dttm = parse_date_time(ydm_hm_string, orders = "ydmHM"),
+        ydm_h_dttm = parse_date_time(ydm_h_string, orders = "ydm_H")
       ) |>
       collect(),
     test_dates_times2
@@ -2681,17 +2730,17 @@ test_that("parse_date_time with month names and HMS", {
     .input |>
       mutate(
         ymd_hms_dttm = ymd_hms(ymd_hms_string),
-        ymd_hm_dttm  = ymd_hm(ymd_hm_string),
-        ymd_h_dttm   = ymd_h(ymd_h_string),
+        ymd_hm_dttm = ymd_hm(ymd_hm_string),
+        ymd_h_dttm = ymd_h(ymd_h_string),
         dmy_hms_dttm = dmy_hms(dmy_hms_string),
-        dmy_hm_dttm  = dmy_hm(dmy_hm_string),
-        dmy_h_dttm   = dmy_h(dmy_h_string),
+        dmy_hm_dttm = dmy_hm(dmy_hm_string),
+        dmy_h_dttm = dmy_h(dmy_h_string),
         mdy_hms_dttm = mdy_hms(mdy_hms_string),
-        mdy_hm_dttm  = mdy_hm(mdy_hm_string),
-        mdy_h_dttm   = mdy_h(mdy_h_string),
+        mdy_hm_dttm = mdy_hm(mdy_hm_string),
+        mdy_h_dttm = mdy_h(mdy_h_string),
         ydm_hms_dttm = ydm_hms(ydm_hms_string),
-        ydm_hm_dttm  = ydm_hm(ydm_hm_string),
-        ydm_h_dttm   = ydm_h(ydm_h_string)
+        ydm_hm_dttm = ydm_hm(ydm_hm_string),
+        ydm_h_dttm = ydm_h(ydm_h_string)
       ) |>
       collect(),
     test_dates_times2
@@ -2758,29 +2807,26 @@ test_that("parse_date_time with truncated formats", {
   skip_if_not_available("re2")
 
   test_truncation_df <- tibble(
-    truncated_ymd_string =
-      c(
-        "2022-05-19 13:46:51",
-        "2022-05-18 13:46",
-        "2022-05-17 13",
-        "2022-05-16"
-      )
+    truncated_ymd_string = c(
+      "2022-05-19 13:46:51",
+      "2022-05-18 13:46",
+      "2022-05-17 13",
+      "2022-05-16"
+    )
   )
 
   compare_dplyr_binding(
     .input |>
       mutate(
-        dttm =
-          parse_date_time(
-            truncated_ymd_string,
-            orders = "ymd_HMS",
-            truncated = 3
-          ),
-        dttm2 =
-          ymd_hms(
-            truncated_ymd_string,
-            truncated = 3
-          )
+        dttm = parse_date_time(
+          truncated_ymd_string,
+          orders = "ymd_HMS",
+          truncated = 3
+        ),
+        dttm2 = ymd_hms(
+          truncated_ymd_string,
+          truncated = 3
+        )
       ) |>
       collect(),
     test_truncation_df
@@ -2790,12 +2836,11 @@ test_that("parse_date_time with truncated formats", {
   compare_dplyr_binding(
     .input |>
       mutate(
-        dttm =
-          parse_date_time(
-            truncated_ymd_string,
-            orders = "ymd_HMS",
-            truncated = 5
-          )
+        dttm = parse_date_time(
+          truncated_ymd_string,
+          orders = "ymd_HMS",
+          truncated = 5
+        )
       ) |>
       collect(),
     test_truncation_df,
@@ -2806,11 +2851,10 @@ test_that("parse_date_time with truncated formats", {
   compare_dplyr_binding(
     .input |>
       mutate(
-        dttm =
-          ymd_hms(
-            truncated_ymd_string,
-            truncated = 5
-          )
+        dttm = ymd_hms(
+          truncated_ymd_string,
+          truncated = 5
+        )
       ) |>
       collect(),
     test_truncation_df,
@@ -2846,18 +2890,16 @@ test_that("parse_date_time with `exact = TRUE`, and with regular R objects", {
   compare_dplyr_binding(
     .input |>
       mutate(
-        parsed_x =
-          parse_date_time(
-            x,
-            c("%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M", "%Y-%m-%d %H", "%Y-%m-%d"),
-            exact = TRUE
-          ),
-        parsed_y =
-          parse_date_time(
-            y,
-            c("%m/%d/%Y %I:%M:%S", "%m/%d/%Y %H%M", "%m/%d/%Y %H"),
-            exact = TRUE
-          )
+        parsed_x = parse_date_time(
+          x,
+          c("%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M", "%Y-%m-%d %H", "%Y-%m-%d"),
+          exact = TRUE
+        ),
+        parsed_y = parse_date_time(
+          y,
+          c("%m/%d/%Y %I:%M:%S", "%m/%d/%Y %H%M", "%m/%d/%Y %H"),
+          exact = TRUE
+        )
       ) |>
       collect(),
     test_df
@@ -2876,29 +2918,77 @@ test_that("parse_date_time with `exact = TRUE`, and with regular R objects", {
 
 test_that("build_formats() and build_format_from_order()", {
   ymd_formats <- c(
-    "%y-%m-%d", "%Y-%m-%d", "%y-%B-%d", "%Y-%B-%d", "%y-%b-%d", "%Y-%b-%d",
-    "%y%m%d", "%Y%m%d", "%y%B%d", "%Y%B%d", "%y%b%d", "%Y%b%d"
+    "%y-%m-%d",
+    "%Y-%m-%d",
+    "%y-%B-%d",
+    "%Y-%B-%d",
+    "%y-%b-%d",
+    "%Y-%b-%d",
+    "%y%m%d",
+    "%Y%m%d",
+    "%y%B%d",
+    "%Y%B%d",
+    "%y%b%d",
+    "%Y%b%d"
   )
 
   ymd_hms_formats <- c(
-    "%y-%m-%d-%H-%M-%S", "%Y-%m-%d-%H-%M-%S", "%y-%B-%d-%H-%M-%S",
-    "%Y-%B-%d-%H-%M-%S", "%y-%b-%d-%H-%M-%S", "%Y-%b-%d-%H-%M-%S",
-    "%y%m%d%H%M%S", "%Y%m%d%H%M%S", "%y%B%d%H%M%S", "%Y%B%d%H%M%S",
-    "%y%b%d%H%M%S", "%Y%b%d%H%M%S"
+    "%y-%m-%d-%H-%M-%S",
+    "%Y-%m-%d-%H-%M-%S",
+    "%y-%B-%d-%H-%M-%S",
+    "%Y-%B-%d-%H-%M-%S",
+    "%y-%b-%d-%H-%M-%S",
+    "%Y-%b-%d-%H-%M-%S",
+    "%y%m%d%H%M%S",
+    "%Y%m%d%H%M%S",
+    "%y%B%d%H%M%S",
+    "%Y%B%d%H%M%S",
+    "%y%b%d%H%M%S",
+    "%Y%b%d%H%M%S"
   )
 
   expect_equal(
     build_formats(c("ym", "myd", "%Y-%d-%m")),
     c(
       # formats from "ym" order
-      "%y-%m-%d", "%Y-%m-%d", "%y-%B-%d", "%Y-%B-%d", "%y-%b-%d", "%Y-%b-%d",
-      "%y%m%d", "%Y%m%d", "%y%B%d", "%Y%B%d", "%y%b%d", "%Y%b%d",
+      "%y-%m-%d",
+      "%Y-%m-%d",
+      "%y-%B-%d",
+      "%Y-%B-%d",
+      "%y-%b-%d",
+      "%Y-%b-%d",
+      "%y%m%d",
+      "%Y%m%d",
+      "%y%B%d",
+      "%Y%B%d",
+      "%y%b%d",
+      "%Y%b%d",
       # formats from "myd" order
-      "%m-%y-%d", "%B-%y-%d", "%b-%y-%d", "%m-%Y-%d", "%B-%Y-%d", "%b-%Y-%d",
-      "%m%y%d", "%B%y%d", "%b%y%d", "%m%Y%d", "%B%Y%d", "%b%Y%d",
+      "%m-%y-%d",
+      "%B-%y-%d",
+      "%b-%y-%d",
+      "%m-%Y-%d",
+      "%B-%Y-%d",
+      "%b-%Y-%d",
+      "%m%y%d",
+      "%B%y%d",
+      "%b%y%d",
+      "%m%Y%d",
+      "%B%Y%d",
+      "%b%Y%d",
       # formats from "%Y-%d-%m" format
-      "%y-%d-%m", "%Y-%d-%m", "%y-%d-%B", "%Y-%d-%B", "%y-%d-%b", "%Y-%d-%b",
-      "%y%d%m", "%Y%d%m", "%y%d%B", "%Y%d%B", "%y%d%b", "%Y%d%b"
+      "%y-%d-%m",
+      "%Y-%d-%m",
+      "%y-%d-%B",
+      "%Y-%d-%B",
+      "%y-%d-%b",
+      "%Y-%d-%b",
+      "%y%d%m",
+      "%Y%d%m",
+      "%y%d%B",
+      "%Y%d%B",
+      "%y%d%b",
+      "%Y%d%b"
     )
   )
 
@@ -2933,16 +3023,36 @@ test_that("build_formats() and build_format_from_order()", {
   expect_equal(
     build_formats("my"),
     c(
-      "%m-%y-%d", "%B-%y-%d", "%b-%y-%d", "%m-%Y-%d", "%B-%Y-%d", "%b-%Y-%d",
-      "%m%y%d", "%B%y%d", "%b%y%d", "%m%Y%d", "%B%Y%d", "%b%Y%d"
+      "%m-%y-%d",
+      "%B-%y-%d",
+      "%b-%y-%d",
+      "%m-%Y-%d",
+      "%B-%Y-%d",
+      "%b-%Y-%d",
+      "%m%y%d",
+      "%B%y%d",
+      "%b%y%d",
+      "%m%Y%d",
+      "%B%Y%d",
+      "%b%Y%d"
     )
   )
 
   expect_equal(
     build_format_from_order("abp"),
     c(
-      "%a-%m-%p", "%A-%m-%p", "%a-%B-%p", "%A-%B-%p", "%a-%b-%p", "%A-%b-%p",
-      "%a%m%p", "%A%m%p", "%a%B%p", "%A%B%p", "%a%b%p", "%A%b%p"
+      "%a-%m-%p",
+      "%A-%m-%p",
+      "%a-%B-%p",
+      "%A-%B-%p",
+      "%a-%b-%p",
+      "%A-%b-%p",
+      "%a%m%p",
+      "%A%m%p",
+      "%a%B%p",
+      "%A%B%p",
+      "%a%b%p",
+      "%A%b%p"
     )
   )
 
@@ -2979,47 +3089,99 @@ test_that("build_formats() and build_format_from_order()", {
   expect_equal(
     build_format_from_order("ymdHM"),
     c(
-      "%y-%m-%d-%H-%M", "%Y-%m-%d-%H-%M", "%y-%B-%d-%H-%M",
-      "%Y-%B-%d-%H-%M", "%y-%b-%d-%H-%M", "%Y-%b-%d-%H-%M",
-      "%y%m%d%H%M", "%Y%m%d%H%M", "%y%B%d%H%M", "%Y%B%d%H%M",
-      "%y%b%d%H%M", "%Y%b%d%H%M"
+      "%y-%m-%d-%H-%M",
+      "%Y-%m-%d-%H-%M",
+      "%y-%B-%d-%H-%M",
+      "%Y-%B-%d-%H-%M",
+      "%y-%b-%d-%H-%M",
+      "%Y-%b-%d-%H-%M",
+      "%y%m%d%H%M",
+      "%Y%m%d%H%M",
+      "%y%B%d%H%M",
+      "%Y%B%d%H%M",
+      "%y%b%d%H%M",
+      "%Y%b%d%H%M"
     )
   )
 
   expect_equal(
     build_format_from_order("ymdH"),
     c(
-      "%y-%m-%d-%H", "%Y-%m-%d-%H", "%y-%B-%d-%H",
-      "%Y-%B-%d-%H", "%y-%b-%d-%H", "%Y-%b-%d-%H",
-      "%y%m%d%H", "%Y%m%d%H", "%y%B%d%H", "%Y%B%d%H",
-      "%y%b%d%H", "%Y%b%d%H"
+      "%y-%m-%d-%H",
+      "%Y-%m-%d-%H",
+      "%y-%B-%d-%H",
+      "%Y-%B-%d-%H",
+      "%y-%b-%d-%H",
+      "%Y-%b-%d-%H",
+      "%y%m%d%H",
+      "%Y%m%d%H",
+      "%y%B%d%H",
+      "%Y%B%d%H",
+      "%y%b%d%H",
+      "%Y%b%d%H"
     )
   )
 
   expect_equal(
     build_formats("y-%b-d-%T"),
     c(
-      "%y-%m-%d-%I-%M-%S-%p", "%Y-%m-%d-%I-%M-%S-%p", "%y-%B-%d-%I-%M-%S-%p", "%Y-%B-%d-%I-%M-%S-%p",
-      "%y-%b-%d-%I-%M-%S-%p", "%Y-%b-%d-%I-%M-%S-%p", "%y-%m-%d-%H-%M-%S", "%Y-%m-%d-%H-%M-%S",
-      "%y-%B-%d-%H-%M-%S", "%Y-%B-%d-%H-%M-%S", "%y-%b-%d-%H-%M-%S", "%Y-%b-%d-%H-%M-%S",
-      "%y-%m-%d-%H-%M-%OS", "%Y-%m-%d-%H-%M-%OS", "%y-%B-%d-%H-%M-%OS", "%Y-%B-%d-%H-%M-%OS",
-      "%y-%b-%d-%H-%M-%OS", "%Y-%b-%d-%H-%M-%OS", "%y%m%d%I%M%S%p", "%Y%m%d%I%M%S%p",
-      "%y%B%d%I%M%S%p", "%Y%B%d%I%M%S%p", "%y%b%d%I%M%S%p", "%Y%b%d%I%M%S%p", "%y%m%d%H%M%S",
-      "%Y%m%d%H%M%S", "%y%B%d%H%M%S", "%Y%B%d%H%M%S", "%y%b%d%H%M%S", "%Y%b%d%H%M%S", "%y%m%d%H%M%OS",
-      "%Y%m%d%H%M%OS", "%y%B%d%H%M%OS", "%Y%B%d%H%M%OS", "%y%b%d%H%M%OS", "%Y%b%d%H%M%OS"
+      "%y-%m-%d-%I-%M-%S-%p",
+      "%Y-%m-%d-%I-%M-%S-%p",
+      "%y-%B-%d-%I-%M-%S-%p",
+      "%Y-%B-%d-%I-%M-%S-%p",
+      "%y-%b-%d-%I-%M-%S-%p",
+      "%Y-%b-%d-%I-%M-%S-%p",
+      "%y-%m-%d-%H-%M-%S",
+      "%Y-%m-%d-%H-%M-%S",
+      "%y-%B-%d-%H-%M-%S",
+      "%Y-%B-%d-%H-%M-%S",
+      "%y-%b-%d-%H-%M-%S",
+      "%Y-%b-%d-%H-%M-%S",
+      "%y-%m-%d-%H-%M-%OS",
+      "%Y-%m-%d-%H-%M-%OS",
+      "%y-%B-%d-%H-%M-%OS",
+      "%Y-%B-%d-%H-%M-%OS",
+      "%y-%b-%d-%H-%M-%OS",
+      "%Y-%b-%d-%H-%M-%OS",
+      "%y%m%d%I%M%S%p",
+      "%Y%m%d%I%M%S%p",
+      "%y%B%d%I%M%S%p",
+      "%Y%B%d%I%M%S%p",
+      "%y%b%d%I%M%S%p",
+      "%Y%b%d%I%M%S%p",
+      "%y%m%d%H%M%S",
+      "%Y%m%d%H%M%S",
+      "%y%B%d%H%M%S",
+      "%Y%B%d%H%M%S",
+      "%y%b%d%H%M%S",
+      "%Y%b%d%H%M%S",
+      "%y%m%d%H%M%OS",
+      "%Y%m%d%H%M%OS",
+      "%y%B%d%H%M%OS",
+      "%Y%B%d%H%M%OS",
+      "%y%b%d%H%M%OS",
+      "%Y%b%d%H%M%OS"
     )
   )
 
   expect_equal(
     build_formats("%YdmH%p"),
     c(
-      "%y-%d-%m-%H-%p", "%Y-%d-%m-%H-%p", "%y-%d-%B-%H-%p", "%Y-%d-%B-%H-%p",
-      "%y-%d-%b-%H-%p", "%Y-%d-%b-%H-%p", "%y%d%m%H%p", "%Y%d%m%H%p",
-      "%y%d%B%H%p", "%Y%d%B%H%p", "%y%d%b%H%p", "%Y%d%b%H%p"
+      "%y-%d-%m-%H-%p",
+      "%Y-%d-%m-%H-%p",
+      "%y-%d-%B-%H-%p",
+      "%Y-%d-%B-%H-%p",
+      "%y-%d-%b-%H-%p",
+      "%Y-%d-%b-%H-%p",
+      "%y%d%m%H%p",
+      "%Y%d%m%H%p",
+      "%y%d%B%H%p",
+      "%Y%d%B%H%p",
+      "%y%d%b%H%p",
+      "%Y%d%b%H%p"
     )
   )
 })
-
 
 
 # tests for datetime rounding ---------------------------------------------
@@ -3032,14 +3194,30 @@ easy_df <- tibble::tibble(datetime = easy_date)
 
 # dates near month boundaries over the course of 1 year
 month_boundaries <- c(
-  "2021-01-01 00:01:00", "2021-02-01 00:01:00", "2021-03-01 00:01:00",
-  "2021-04-01 00:01:00", "2021-05-01 00:01:00", "2021-06-01 00:01:00",
-  "2021-07-01 00:01:00", "2021-08-01 00:01:00", "2021-09-01 00:01:00",
-  "2021-10-01 00:01:00", "2021-11-01 00:01:00", "2021-12-01 00:01:00",
-  "2021-01-31 23:59:00", "2021-02-28 23:59:00", "2021-03-31 23:59:00",
-  "2021-04-30 23:59:00", "2021-05-31 23:59:00", "2021-06-30 23:59:00",
-  "2021-07-31 23:59:00", "2021-08-31 23:59:00", "2021-09-30 23:59:00",
-  "2021-10-31 23:59:00", "2021-11-30 23:59:00", "2021-12-31 23:59:00"
+  "2021-01-01 00:01:00",
+  "2021-02-01 00:01:00",
+  "2021-03-01 00:01:00",
+  "2021-04-01 00:01:00",
+  "2021-05-01 00:01:00",
+  "2021-06-01 00:01:00",
+  "2021-07-01 00:01:00",
+  "2021-08-01 00:01:00",
+  "2021-09-01 00:01:00",
+  "2021-10-01 00:01:00",
+  "2021-11-01 00:01:00",
+  "2021-12-01 00:01:00",
+  "2021-01-31 23:59:00",
+  "2021-02-28 23:59:00",
+  "2021-03-31 23:59:00",
+  "2021-04-30 23:59:00",
+  "2021-05-31 23:59:00",
+  "2021-06-30 23:59:00",
+  "2021-07-31 23:59:00",
+  "2021-08-31 23:59:00",
+  "2021-09-30 23:59:00",
+  "2021-10-31 23:59:00",
+  "2021-11-30 23:59:00",
+  "2021-12-31 23:59:00"
 )
 year_of_dates <- tibble::tibble(
   datetime = as.POSIXct(month_boundaries, tz = "UTC"),
@@ -3058,16 +3236,20 @@ fortnight <- tibble::tibble(
 
 # test case to check we catch interval lower boundaries for ceiling_date
 boundary_times <- tibble::tibble(
-  datetime = as.POSIXct(strptime(c(
-    "2022-05-10 00:00:00", # boundary for week when week_start = 7 (Sunday)
-    "2022-05-11 00:00:00", # boundary for week when week_start = 1 (Monday)
-    "2022-05-12 00:00:00", # boundary for week when week_start = 2 (Tuesday)
-    "2022-03-10 00:00:00", # boundary for day, hour, minute, second, millisecond
-    "2022-03-10 00:00:01", # boundary for second, millisecond
-    "2022-03-10 00:01:00", # boundary for second, millisecond, minute
-    "2022-03-10 01:00:00", # boundary for second, millisecond, minute, hour
-    "2022-01-01 00:00:00" # boundary for year
-  ), tz = "UTC", format = "%F %T")),
+  datetime = as.POSIXct(strptime(
+    c(
+      "2022-05-10 00:00:00", # boundary for week when week_start = 7 (Sunday)
+      "2022-05-11 00:00:00", # boundary for week when week_start = 1 (Monday)
+      "2022-05-12 00:00:00", # boundary for week when week_start = 2 (Tuesday)
+      "2022-03-10 00:00:00", # boundary for day, hour, minute, second, millisecond
+      "2022-03-10 00:00:01", # boundary for second, millisecond
+      "2022-03-10 00:01:00", # boundary for second, millisecond, minute
+      "2022-03-10 01:00:00", # boundary for second, millisecond, minute, hour
+      "2022-01-01 00:00:00" # boundary for year
+    ),
+    tz = "UTC",
+    format = "%F %T"
+  )),
   date = as.Date(datetime)
 )
 
@@ -3508,12 +3690,14 @@ check_timezone_rounding_for_consistency <- function(data, unit) {
     collect()
 
   compare_local_times <- function(time1, time2) {
-    all(year(time1) == year(time1) &
-      month(time1) == month(time2) &
-      day(time1) == day(time2) &
-      hour(time1) == hour(time2) &
-      minute(time1) == minute(time2) &
-      second(time1) == second(time1))
+    all(
+      year(time1) == year(time1) &
+        month(time1) == month(time2) &
+        day(time1) == day(time2) &
+        hour(time1) == hour(time2) &
+        minute(time1) == minute(time2) &
+        second(time1) == second(time1)
+    )
   }
 
   base <- shifted_times$utc_rounded
@@ -3569,35 +3753,44 @@ test_that("timestamp rounding takes place in local time", {
 })
 
 test_that("with_tz() and force_tz() works", {
-  timestamps <- as_datetime(c(
-    "1970-01-01T00:00:59.123456789",
-    "2000-02-29T23:23:23.999999999",
-    "2033-05-18T03:33:20.000000000",
-    "2020-01-01T01:05:05.001",
-    "2019-12-31T02:10:10.002",
-    "2019-12-30T03:15:15.003",
-    "2009-12-31T04:20:20.004132",
-    "2010-01-01T05:25:25.005321",
-    "2010-01-03T06:30:30.006163",
-    "2010-01-04T07:35:35",
-    "2006-01-01T08:40:40",
-    "2005-12-31T09:45:45",
-    "2008-12-28",
-    "2008-12-29",
-    "2012-01-01 01:02:03"
-  ), tz = "UTC")
+  timestamps <- as_datetime(
+    c(
+      "1970-01-01T00:00:59.123456789",
+      "2000-02-29T23:23:23.999999999",
+      "2033-05-18T03:33:20.000000000",
+      "2020-01-01T01:05:05.001",
+      "2019-12-31T02:10:10.002",
+      "2019-12-30T03:15:15.003",
+      "2009-12-31T04:20:20.004132",
+      "2010-01-01T05:25:25.005321",
+      "2010-01-03T06:30:30.006163",
+      "2010-01-04T07:35:35",
+      "2006-01-01T08:40:40",
+      "2005-12-31T09:45:45",
+      "2008-12-28",
+      "2008-12-29",
+      "2012-01-01 01:02:03"
+    ),
+    tz = "UTC"
+  )
 
   timestamps_non_utc <- force_tz(timestamps, "America/Chicago")
 
-  nonexistent <- as_datetime(c(
-    "2015-03-29 02:30:00",
-    "2015-03-29 03:30:00"
-  ), tz = "UTC")
+  nonexistent <- as_datetime(
+    c(
+      "2015-03-29 02:30:00",
+      "2015-03-29 03:30:00"
+    ),
+    tz = "UTC"
+  )
 
-  ambiguous <- as_datetime(c(
-    "2015-10-25 02:30:00",
-    "2015-10-25 03:30:00"
-  ), tz = "UTC")
+  ambiguous <- as_datetime(
+    c(
+      "2015-10-25 02:30:00",
+      "2015-10-25 03:30:00"
+    ),
+    tz = "UTC"
+  )
 
   compare_dplyr_binding(
     .input |>
@@ -3678,11 +3871,13 @@ test_that("with_tz() and force_tz() works", {
   expect_warning(
     tibble::tibble(timestamps = nonexistent) |>
       arrow_table() |>
-      mutate(timestamps = force_tz(
-        timestamps,
-        "Europe/Brussels",
-        roll_dst = "post"
-      )) |>
+      mutate(
+        timestamps = force_tz(
+          timestamps,
+          "Europe/Brussels",
+          roll_dst = "post"
+        )
+      ) |>
       collect(),
     "roll_dst` value must be 'error' or 'boundary' for nonexistent times"
   )
@@ -3690,11 +3885,13 @@ test_that("with_tz() and force_tz() works", {
   expect_warning(
     tibble::tibble(timestamps = nonexistent) |>
       arrow_table() |>
-      mutate(timestamps = force_tz(
-        timestamps,
-        "Europe/Brussels",
-        roll_dst = c("boundary", "NA")
-      )) |>
+      mutate(
+        timestamps = force_tz(
+          timestamps,
+          "Europe/Brussels",
+          roll_dst = c("boundary", "NA")
+        )
+      ) |>
       collect(),
     "`roll_dst` value must be 'error', 'pre', or 'post' for nonexistent times"
   )

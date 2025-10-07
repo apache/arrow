@@ -36,12 +36,7 @@ is_grouped_adq <- function(data) {
   !is_empty(data$group_by_vars)
 }
 
-check_by <- function(by,
-                     data,
-                     ...,
-                     by_arg = "by",
-                     data_arg = "data",
-                     error_call = caller_env()) {
+check_by <- function(by, data, ..., by_arg = "by", data_arg = "data", error_call = caller_env()) {
   check_dots_empty0(...)
 
   if (quo_is_null(by)) {
@@ -50,8 +45,11 @@ check_by <- function(by,
 
   if (is_grouped_adq(data)) {
     message <- paste0(
-      "Can't supply `", by_arg, "` when `",
-      data_arg, "` is grouped data."
+      "Can't supply `",
+      by_arg,
+      "` when `",
+      data_arg,
+      "` is grouped data."
     )
     abort(message)
   }
@@ -59,9 +57,7 @@ check_by <- function(by,
   invisible(NULL)
 }
 
-eval_select_by <- function(by,
-                           data,
-                           error_call = caller_env()) {
+eval_select_by <- function(by, data, error_call = caller_env()) {
   sim_df <- as.data.frame(implicit_schema(data))
   out <- eval_select(
     expr = by,

@@ -36,7 +36,8 @@
 #'
 #' @rdname FileInfo
 #' @export
-FileInfo <- R6Class("FileInfo",
+FileInfo <- R6Class(
+  "FileInfo",
   inherit = ArrowObject,
   public = list(
     base_name = function() fs___FileInfo__base_name(self),
@@ -96,7 +97,8 @@ FileInfo <- R6Class("FileInfo",
 #'
 #' @rdname FileSelector
 #' @export
-FileSelector <- R6Class("FileSelector",
+FileSelector <- R6Class(
+  "FileSelector",
   inherit = ArrowObject,
   active = list(
     base_dir = function() fs___FileSelector__base_dir(self),
@@ -258,7 +260,8 @@ FileSelector$create <- function(base_dir, allow_not_found = FALSE, recursive = F
 #' @rdname FileSystem
 #' @name FileSystem
 #' @export
-FileSystem <- R6Class("FileSystem",
+FileSystem <- R6Class(
+  "FileSystem",
   inherit = ArrowObject,
   public = list(
     GetFileInfo = function(x) {
@@ -403,7 +406,8 @@ LocalFileSystem$create <- function() {
 #' @rdname FileSystem
 #' @importFrom utils modifyList
 #' @export
-S3FileSystem <- R6Class("S3FileSystem",
+S3FileSystem <- R6Class(
+  "S3FileSystem",
   inherit = FileSystem,
   active = list(
     region = function() fs___S3FileSystem__region(self)
@@ -414,8 +418,15 @@ S3FileSystem$create <- function(anonymous = FALSE, ...) {
   if (anonymous) {
     invalid_args <- intersect(
       c(
-        "access_key", "secret_key", "session_token", "role_arn", "session_name",
-        "external_id", "load_frequency", "allow_bucket_creation", "allow_bucket_deletion",
+        "access_key",
+        "secret_key",
+        "session_token",
+        "role_arn",
+        "session_name",
+        "external_id",
+        "load_frequency",
+        "allow_bucket_creation",
+        "allow_bucket_deletion",
         "check_directory_existence_before_creation"
       ),
       names(args)
@@ -545,7 +556,8 @@ gs_bucket <- function(bucket, ...) {
 #' @format NULL
 #' @rdname FileSystem
 #' @export
-GcsFileSystem <- R6Class("GcsFileSystem",
+GcsFileSystem <- R6Class(
+  "GcsFileSystem",
   inherit = FileSystem,
   active = list(
     options = function() {
@@ -593,8 +605,14 @@ GcsFileSystem$create <- function(anonymous = FALSE, retry_limit_seconds = 15, ..
   }
 
   valid_opts <- c(
-    "access_token", "expiration", "json_credentials", "endpoint_override",
-    "scheme", "default_bucket_location", "default_metadata", "project_id"
+    "access_token",
+    "expiration",
+    "json_credentials",
+    "endpoint_override",
+    "scheme",
+    "default_bucket_location",
+    "default_metadata",
+    "project_id"
   )
 
   invalid_opts <- setdiff(names(options), valid_opts)
@@ -631,13 +649,17 @@ GcsFileSystem$create <- function(anonymous = FALSE, retry_limit_seconds = 15, ..
 #' @format NULL
 #' @rdname FileSystem
 #' @export
-SubTreeFileSystem <- R6Class("SubTreeFileSystem",
+SubTreeFileSystem <- R6Class(
+  "SubTreeFileSystem",
   inherit = FileSystem,
   public = list(
     print = function(...) {
       cat(
         "SubTreeFileSystem: ",
-        self$url_scheme, "://", self$base_path, "\n",
+        self$url_scheme,
+        "://",
+        self$base_path,
+        "\n",
         sep = ""
       )
       invisible(self)

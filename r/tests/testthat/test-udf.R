@@ -24,7 +24,8 @@ test_that("arrow_scalar_function() works", {
   # check in/out type as schema/data type
   fun <- arrow_scalar_function(
     function(context, x) x$cast(int64()),
-    schema(x = int32()), int64()
+    schema(x = int32()),
+    int64()
   )
   expect_equal(fun$in_type[[1]], schema(x = int32()))
   expect_equal(fun$out_type[[1]](), int64())
@@ -32,7 +33,8 @@ test_that("arrow_scalar_function() works", {
   # check in/out type as data type/data type
   fun <- arrow_scalar_function(
     function(context, x) x$cast(int64()),
-    int32(), int64()
+    int32(),
+    int64()
   )
   expect_equal(fun$in_type[[1]][[1]], field("", int32()))
   expect_equal(fun$out_type[[1]](), int64())
@@ -87,7 +89,8 @@ test_that("register_scalar_function() adds a compute function to the registry", 
   register_scalar_function(
     "times_32",
     function(context, x) x * 32.0,
-    int32(), float64(),
+    int32(),
+    float64(),
     auto_convert = TRUE
   )
   on.exit(unregister_binding("times_32"))
