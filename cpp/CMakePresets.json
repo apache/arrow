@@ -444,7 +444,8 @@
         "CMAKE_CXX_COMPILER": "clang++",
         "ARROW_IPC": "ON",
         "ARROW_PARQUET": "ON",
-        "ARROW_FUZZING": "ON"
+        "ARROW_FUZZING": "ON",
+        "ARROW_WITH_SNAPPY": "ON"
       }
     },
     {
