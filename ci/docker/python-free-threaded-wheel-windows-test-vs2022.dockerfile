@@ -26,9 +26,8 @@ FROM ${base}
 
 ARG python=3.13
 
-# hadolint ignore=SC1072
-RUN (if "%python%"=="3.13" setx PYTHON_VERSION "3.13.1") & \
-    (if "%python%"=="3.14" setx PYTHON_VERSION "3.14.0-rc3")
+RUN if "%python%"=="3.13" (setx PYTHON_VERSION "3.13.1") & \
+    if "%python%"=="3.14" (setx PYTHON_VERSION "3.14.0-rc3")
 
 SHELL ["powershell", "-NoProfile", "-Command", "$ErrorActionPreference = 'Stop'; $ProgressPreference = 'SilentlyContinue';"]
 RUN $version = $env:PYTHON_VERSION; \
@@ -40,9 +39,8 @@ RUN $version = $env:PYTHON_VERSION; \
 ENV PYTHON_CMD="py -${python}t"
 
 SHELL ["cmd", "/S", "/C"]
-RUN %PYTHON_CMD% -m pip install -U pip setuptools
-
-RUN if "%python%"=="3.13" ( \
+RUN %PYTHON_CMD% -m pip install -U pip setuptools & \
+    if "%python%"=="3.13" ( \
         setx REQUIREMENTS_FILE "requirements-wheel-test-3.13t.txt" \
     ) else ( \
         setx REQUIREMENTS_FILE "requirements-wheel-test.txt" \
