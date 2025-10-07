@@ -66,7 +66,11 @@ class Workflow:
         if jobs_resp.status_code == 200:
             jobs_data = jobs_resp.json()
             for job_data in jobs_data.get('jobs', []):
-                if job_data.get('name') != self.ignore_job:
+                # Ignore jobs that contain the ignore_job pattern
+                # from the reusable workflow this will be report-ci.
+                # The real job_data['name'] is the display name, like
+                # "report-extra-cpp / report-ci".
+                if self.ignore_job in job_data.get('name'):
                     job = Job(job_data)
                     jobs.append(job)
         return jobs
