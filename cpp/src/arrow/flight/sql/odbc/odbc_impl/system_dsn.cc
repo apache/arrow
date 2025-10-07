@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include "arrow/flight/sql/odbc/odbc_impl/system_dsn.h"
+
 // platform.h includes windows.h, so it needs to be included
 // before winuser.h
 #include "arrow/flight/sql/odbc/odbc_impl/platform.h"
