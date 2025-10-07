@@ -142,7 +142,7 @@ jobs:
               version="${ID%-*}"
               # Example: centos-9-stream -> 9-stream
               # Example: amazon-linux-2023 -> 2023
-              version="${version##${DISTRIBUTION}-}"
+              version="${version##${distribution}-}"
               echo "DISTRIBUTION_VERSION=${version}" >> "${GITHUB_ENV}"
               if [ "${architecture}" = "arm64" ]; then
                 # Example: almalinux-8 -> almalinux-8-aarch64
