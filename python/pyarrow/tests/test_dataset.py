@@ -4928,14 +4928,14 @@ def test_write_dataset_parquet(tempdir):
     assert result.equals(table)
 
     # using custom options
-    for version in ["1.0", "2.4", "2.6"]:
+    for version in ["1.0", "2.4", "2.6", "2.7", "2.8", "2.9", "2.10", "2.11", "2.12"]:
         format = ds.ParquetFileFormat()
         opts = format.make_write_options(version=version)
         assert "<pyarrow.dataset.ParquetFileWriteOptions" in repr(opts)
         base_dir = tempdir / f'parquet_dataset_version{version}'
         ds.write_dataset(table, base_dir, format=format, file_options=opts)
         meta = pq.read_metadata(base_dir / "part-0.parquet")
-        expected_version = "1.0" if version == "1.0" else "2.6"
+        expected_version = "1.0" if version == "1.0" else "2.12"
         assert meta.format_version == expected_version
 
         # ensure version is actually honored based on supported datatypes
