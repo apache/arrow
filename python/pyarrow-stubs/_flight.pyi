@@ -411,11 +411,11 @@ class FlightClient(_Weakrefable):
     def as_async(self) -> AsyncioFlightClient: ...
     def wait_for_available(self, timeout: int = 5) -> None: ...
 
+    @classmethod
     @deprecated(
         "Use the ``FlightClient`` constructor or "
         "``pyarrow.flight.connect`` function instead."
     )
-    @classmethod
     def connect(
         cls,
         location: str | tuple[str, int] | Location,
