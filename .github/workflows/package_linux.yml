@@ -114,6 +114,7 @@ jobs:
           ID: ${{ matrix.id }}
         run: |
           set -x
+
           case "${ID}" in
             centos-*)
               # Example: centos-9-stream-amd64 -> centos
@@ -126,14 +127,23 @@ jobs:
               ;;
           esac
           echo "DISTRIBUTION=${distribution}" >> "${GITHUB_ENV}"
+
           # Example: almalinux-8-amd64 -> amd64
           architecture="${ID##*-}"
           echo "ARCHITECTURE=${architecture}" >> "${GITHUB_ENV}"
+
           # Example: almalinux-8-amd64 -> almalinux-8
           target="${ID%-*}"
           case "${target}" in
             almalinux-*|amazon-linux-*|centos-*)
               echo "TASK_NAMESPACE=yum" >> "${GITHUB_ENV}"
+              # Example: centos-9-stream-amd64 -> centos-9-stream
+              # Example: amazon-linux-2023-amd64 -> amazon-linux-2023
+              version="${ID%-*}"
+              # Example: centos-9-stream -> 9-stream
+              # Example: amazon-linux-2023 -> 2023
+              version="${version##${DISTRIBUTION}-}"
+              echo "DISTRIBUTION_VERSION=${version}" >> "${GITHUB_ENV}"
               if [ "${architecture}" = "arm64" ]; then
                 # Example: almalinux-8 -> almalinux-8-aarch64
                 target="${target}-aarch64"
@@ -142,6 +152,11 @@ jobs:
               ;;
             *)
               echo "TASK_NAMESPACE=apt" >> "${GITHUB_ENV}"
+              # Example: debian-bookworm-amd64 -> debian-bookworm
+              code_name="${ID%-*}"
+              # Example: debian-bookworm -> bookworm
+              code_name="${code_name#*-}"
+              echo "DISTRIBUTION_CODE_NAME=${code_name}" >> "${GITHUB_ENV}"
               if [ "${architecture}" = "arm64" ]; then
                 # Example: ubuntu-noble -> ubuntu-noble-arm64
                 target="${target}-arm64"
@@ -233,29 +248,19 @@ jobs:
           # amd64 because they are architecture independent.
           if [ "${ARCHITECTURE}" = "amd64" ]; then
             if [ "${TASK_NAMESPACE}" = "apt" ]; then
-              # Example: debian-bookworm-amd64 -> debian-bookworm
-              code_name="${ID%-*}"
-              # Example: debian-bookworm -> bookworm
-              code_name="${code_name#*-}"
               # Create
-              # https://packages.apache.org/artifactory/arrow/${DISTRIBUTION}/apache-arrow-apt-source-latest-${code_name}.deb
+              # https://packages.apache.org/artifactory/arrow/${DISTRIBUTION}/apache-arrow-apt-source-latest-${DISTRIBUTION_CODE_NAME}.deb
               # for easy to install.
               cp -a \
-                "${DISTRIBUTION}/pool/${code_name}/a/apache-arrow-apt-source/*.deb \
-                "${DISTRIBUTION}/apache-arrow-apt-source-latest-${code_name}.deb"
+                "${DISTRIBUTION}/pool/${DISTRIBUTION_CODE_NAME}/a/apache-arrow-apt-source/*.deb \
+                "${DISTRIBUTION}/apache-arrow-apt-source-latest-${DISTRIBUTION_CODE_NAME}.deb"
             else
-              # Example: centos-9-stream-amd64 -> centos-9-stream
-              # Example: amazon-linux-2023-amd64 -> amazon-linux-2023
-              version="${ID%-*}"
-              # Example: centos-9-stream -> 9-stream
-              # Example: amazon-linux-2023 -> 2023
-              version="${version##${DISTRIBUTION}-}"
               # Create
-              # https://packages.apache.org/artifactory/arrow/${DISTRIBUTION}/${version}/apache-arrow-release-latest.rpm
+              # https://packages.apache.org/artifactory/arrow/${DISTRIBUTION}/${DISTRIBUTION_VERSION}/apache-arrow-release-latest.rpm
               # for easy to install.
               cp -a \
-                "${DISTRIBUTION}/${version}/x86_64/Packages/apache-arrow-release-*.rpm \
-                "${DISTRIBUTION}/${version}/apache-arrow-release-latest.rpm"
+                "${DISTRIBUTION}/${DISTRIBUTION_VERSION}/x86_64/Packages/apache-arrow-release-*.rpm \
+                "${DISTRIBUTION}/${DISTRIBUTION_VERSION}/apache-arrow-release-latest.rpm"
             fi
           fi
           tar cvzf ${{ matrix.id }}.tar.gz ${DISTRIBUTION}
