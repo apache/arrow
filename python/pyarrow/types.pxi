@@ -3840,7 +3840,7 @@ def field(name, type=None, nullable=None, metadata=None):
     return result
 
 
-cdef set PRIMITIVE_TYPES = set([
+cdef set PRIMITIVE_TYPES = {
     _Type_NA, _Type_BOOL,
     _Type_UINT8, _Type_INT8,
     _Type_UINT16, _Type_INT16,
@@ -3851,7 +3851,7 @@ cdef set PRIMITIVE_TYPES = set([
     _Type_DATE64,
     _Type_HALF_FLOAT,
     _Type_FLOAT,
-    _Type_DOUBLE])
+    _Type_DOUBLE}
 
 
 def null():
