@@ -684,7 +684,7 @@ auto RleBitPackedParser::PeekImpl(Handler&& handler) const
     auto control = handler.OnBitPackedRun(
         BitPackedRun(data_ + header_bytes, values_count, value_bit_width_));
 
-    return {bytes_read, control};
+    return {static_cast<rle_size_t>(bytes_read), control};
   }
 
   // RLE run
