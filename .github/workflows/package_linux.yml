@@ -252,15 +252,15 @@ jobs:
               # https://packages.apache.org/artifactory/arrow/${DISTRIBUTION}/apache-arrow-apt-source-latest-${DISTRIBUTION_CODE_NAME}.deb
               # for easy to install.
               cp -a \
-                "${DISTRIBUTION}/pool/${DISTRIBUTION_CODE_NAME}/*/a/apache-arrow-apt-source/*.deb \
-                "${DISTRIBUTION}/apache-arrow-apt-source-latest-${DISTRIBUTION_CODE_NAME}.deb"
+                ${DISTRIBUTION}/pool/${DISTRIBUTION_CODE_NAME}/*/a/apache-arrow-apt-source/*.deb \
+                ${DISTRIBUTION}/apache-arrow-apt-source-latest-${DISTRIBUTION_CODE_NAME}.deb
             else
               # Create
               # https://packages.apache.org/artifactory/arrow/${DISTRIBUTION}/${DISTRIBUTION_VERSION}/apache-arrow-release-latest.rpm
               # for easy to install.
               cp -a \
-                "${DISTRIBUTION}/${DISTRIBUTION_VERSION}/x86_64/Packages/apache-arrow-release-*.rpm \
-                "${DISTRIBUTION}/${DISTRIBUTION_VERSION}/apache-arrow-release-latest.rpm"
+                ${DISTRIBUTION}/${DISTRIBUTION_VERSION}/x86_64/Packages/apache-arrow-release-*.rpm \
+                ${DISTRIBUTION}/${DISTRIBUTION_VERSION}/apache-arrow-release-latest.rpm
             fi
           fi
           tar cvzf ${{ matrix.id }}.tar.gz ${DISTRIBUTION}
