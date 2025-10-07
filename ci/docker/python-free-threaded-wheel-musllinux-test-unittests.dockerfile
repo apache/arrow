@@ -19,7 +19,7 @@ ARG base
 FROM ${base}
 
 ARG python_version=3.13
-ARG python_patch_version=3.13.2
+ARG python_patch_version=3.13.7
 
 RUN apk add --no-cache \
     bash \
