@@ -15,15 +15,28 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/util/bpacking_neon_internal.h"
-#include "arrow/util/bpacking_simd128_generated_internal.h"
+#include "arrow/util/bpacking_dispatch_internal.h"
+#include "arrow/util/bpacking_simd256_generated_internal.h"
 #include "arrow/util/bpacking_simd_internal.h"
 
 namespace arrow::internal {
 
-int unpack32_neon(const uint8_t* in, uint32_t* out, int batch_size, int num_bits) {
-  return unpack32_specialized<UnpackBits128<DispatchLevel::NEON>>(
-      reinterpret_cast<const uint32_t*>(in), out, batch_size, num_bits);
+template <typename Uint>
+int unpack_avx2(const uint8_t* in, Uint* out, int batch_size, int num_bits) {
+  return unpack_jump<Simd256UnpackerForWidth>(in, out, batch_size, num_bits);
 }
+
+template int unpack_avx2<uint16_t>(const uint8_t*, uint16_t*, int, int);
+template int unpack_avx2<uint32_t>(const uint8_t*, uint32_t*, int, int);
+template int unpack_avx2<uint64_t>(const uint8_t*, uint64_t*, int, int);
+
+template <typename Uint>
+UnpackFn<Uint> get_unpack_fn_avx2(int num_bits) {
+  return get_unpack_fn<Simd256UnpackerForWidth, Uint>(num_bits);
+}
+
+template UnpackFn<uint16_t> get_unpack_fn_avx2<uint16_t>(int);
+template UnpackFn<uint32_t> get_unpack_fn_avx2<uint32_t>(int);
+template UnpackFn<uint64_t> get_unpack_fn_avx2<uint64_t>(int);
 
 }  // namespace arrow::internal

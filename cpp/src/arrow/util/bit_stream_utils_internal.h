@@ -123,6 +123,34 @@ inline uint64_t ReadLittleEndianWord(const uint8_t* buffer, int bytes_remaining)
 /// bytes in one read (e.g. encoded int).
 class BitReader {
  public:
+  template <typename T, typename = void>
+  struct UnpackFnDetect;
+
+  template <typename T>
+  struct UnpackFnDetect<T, std::enable_if_t<(sizeof(T) >= sizeof(int))>> {
+    using type = internal::UnpackFn<std::make_unsigned_t<T>>;
+  };
+
+  template <typename T>
+  struct UnpackFnDetect<T, std::enable_if_t<(sizeof(T) < sizeof(int))>> {
+    using type = internal::UnpackFn<uint32_t>;
+  };
+
+  /// The type for a function that can extract bit-packed integers.
+  template <typename T>
+  using UnpackFn = typename UnpackFnDetect<T>::type;
+
+  /// Get the unack function most appropriated for this type and bit width.
+  template <typename T>
+  static UnpackFn<T> get_unpack_fn(int num_bits) {
+    // This is intimately linked to the GetBatch implementation
+    if constexpr (sizeof(T) >= sizeof(int)) {
+      return internal::get_unpack_fn<std::make_unsigned_t<T>>(num_bits);
+    } else {
+      return internal::get_unpack_fn<uint32_t>(num_bits);
+    }
+  }
+
   BitReader() noexcept = default;
 
   /// 'buffer' is the buffer to read from.  The buffer's length is 'buffer_len'.
@@ -147,6 +175,11 @@ class BitReader {
   /// Get a number of values from the buffer. Return the number of values actually read.
   template <typename T>
   int GetBatch(int num_bits, T* v, int batch_size);
+
+  /// Get a number of values from the buffer. Return the number of values actually read.
+  /// @param unpack Function pointer to the unpack function for the correct bit width.
+  template <typename T>
+  int GetBatch(int num_bits, T* v, int batch_size, UnpackFn<T> unpack);
 
   /// Reads a 'num_bytes'-sized value from the buffer and stores it in 'v'. T
   /// needs to be a little-endian native type and big enough to store
@@ -297,7 +330,7 @@ inline bool BitReader::GetValue(int num_bits, T* v) {
 }
 
 template <typename T>
-inline int BitReader::GetBatch(int num_bits, T* v, int batch_size) {
+int BitReader::GetBatch(int num_bits, T* v, int batch_size, UnpackFn<T> unpack) {
   ARROW_DCHECK(buffer_ != NULL);
   ARROW_DCHECK_LE(num_bits, static_cast<int>(sizeof(T) * 8)) << "num_bits: " << num_bits;
 
@@ -323,19 +356,11 @@ inline int BitReader::GetBatch(int num_bits, T* v, int batch_size) {
     }
   }
 
-  if (sizeof(T) == 4) {
+  // unpack for uint16_t not as fast as unpack for uint32_t + memcpy.
+  if constexpr (sizeof(T) >= sizeof(32)) {
     int num_unpacked =
-        internal::unpack32(buffer + byte_offset, reinterpret_cast<uint32_t*>(v + i),
-                           batch_size - i, num_bits);
-    i += num_unpacked;
-    byte_offset += num_unpacked * num_bits / 8;
-  } else if (sizeof(T) == 8 && num_bits > 32) {
-    // Use unpack64 only if num_bits is larger than 32
-    // TODO (ARROW-13677): improve the performance of internal::unpack64
-    // and remove the restriction of num_bits
-    int num_unpacked =
-        internal::unpack64(buffer + byte_offset, reinterpret_cast<uint64_t*>(v + i),
-                           batch_size - i, num_bits);
+        unpack(buffer + byte_offset, reinterpret_cast<std::make_unsigned_t<T>*>(v + i),
+               batch_size - i);
     i += num_unpacked;
     byte_offset += num_unpacked * num_bits / 8;
   } else {
@@ -345,8 +370,7 @@ inline int BitReader::GetBatch(int num_bits, T* v, int batch_size) {
     uint32_t unpack_buffer[buffer_size];
     while (i < batch_size) {
       int unpack_size = std::min(buffer_size, batch_size - i);
-      int num_unpacked =
-          internal::unpack32(buffer + byte_offset, unpack_buffer, unpack_size, num_bits);
+      int num_unpacked = unpack(buffer + byte_offset, unpack_buffer, unpack_size);
       if (num_unpacked == 0) {
         break;
       }
@@ -378,6 +402,11 @@ inline int BitReader::GetBatch(int num_bits, T* v, int batch_size) {
   buffered_values_ = buffered_values;
 
   return batch_size;
+}
+
+template <typename T>
+inline int BitReader::GetBatch(int num_bits, T* v, int batch_size) {
+  return GetBatch(num_bits, v, batch_size, get_unpack_fn<T>(num_bits));
 }
 
 template <typename T>

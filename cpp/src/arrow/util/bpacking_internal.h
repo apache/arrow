@@ -23,17 +23,28 @@
 
 namespace arrow::internal {
 
-/// The scalar 32 bit unpacking.
-ARROW_EXPORT int unpack32_scalar(const uint8_t* in, uint32_t* out, int batch_size,
-                                 int num_bits);
+template <typename Uint>
+ARROW_EXPORT int unpack(const uint8_t* in, Uint* out, int batch_size, int num_bits);
 
-/// The scalar 64 bit unpacking.
-ARROW_EXPORT int unpack64_scalar(const uint8_t* in, uint64_t* out, int batch_size,
-                                 int num_bits);
+extern template ARROW_TEMPLATE_EXPORT int unpack<uint16_t>(const uint8_t*, uint16_t*, int,
+                                                           int);
 
-ARROW_EXPORT
-int unpack32(const uint8_t* in, uint32_t* out, int batch_size, int num_bits);
-ARROW_EXPORT
-int unpack64(const uint8_t* in, uint64_t* out, int batch_size, int num_bits);
+extern template ARROW_TEMPLATE_EXPORT int unpack<uint32_t>(const uint8_t*, uint32_t*, int,
+                                                           int);
+
+extern template ARROW_TEMPLATE_EXPORT int unpack<uint64_t>(const uint8_t*, uint64_t*, int,
+                                                           int);
+
+template <typename Uint>
+using UnpackFn = int (*)(const uint8_t* in, Uint* out, int batch_size);
+
+template <typename Uint>
+ARROW_EXPORT UnpackFn<Uint> get_unpack_fn(int num_bits);
+
+extern template ARROW_TEMPLATE_EXPORT UnpackFn<uint16_t> get_unpack_fn<uint16_t>(int);
+
+extern template ARROW_TEMPLATE_EXPORT UnpackFn<uint32_t> get_unpack_fn<uint32_t>(int);
+
+extern template ARROW_TEMPLATE_EXPORT UnpackFn<uint64_t> get_unpack_fn<uint64_t>(int);
 
 }  // namespace arrow::internal

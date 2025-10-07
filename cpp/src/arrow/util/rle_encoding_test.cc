@@ -334,6 +334,8 @@ TEST(Rle, RleDecoder) {
 template <typename T>
 void TestBitPackedDecoder(std::vector<uint8_t> bytes, rle_size_t value_count,
                           rle_size_t bit_width, std::vector<T> expected) {
+  auto unpack = BitPackedRunDecoder<T>::get_unpack_fn(bit_width);
+
   // Pre-requisite for this test
   EXPECT_GT(value_count, 6);
 
@@ -345,7 +347,7 @@ void TestBitPackedDecoder(std::vector<uint8_t> bytes, rle_size_t value_count,
   EXPECT_EQ(decoder.remaining(), value_count);
 
   rle_size_t read = 0;
-  EXPECT_EQ(decoder.Get(vals.data(), bit_width), 1);
+  EXPECT_EQ(decoder.Get(vals.data(), bit_width, unpack), 1);
   EXPECT_EQ(vals.at(0), expected.at(0 + read));
   read += 1;
   EXPECT_EQ(decoder.remaining(), value_count - read);
@@ -355,7 +357,7 @@ void TestBitPackedDecoder(std::vector<uint8_t> bytes, rle_size_t value_count,
   EXPECT_EQ(decoder.remaining(), value_count - read);
 
   vals = {0, 0};
-  EXPECT_EQ(decoder.GetBatch(vals.data(), 2, bit_width), vals.size());
+  EXPECT_EQ(decoder.GetBatch(vals.data(), 2, bit_width, unpack), vals.size());
   EXPECT_EQ(vals.at(0), expected.at(0 + read));
   EXPECT_EQ(vals.at(1), expected.at(1 + read));
   read += static_cast<decltype(read)>(vals.size());
@@ -366,7 +368,7 @@ void TestBitPackedDecoder(std::vector<uint8_t> bytes, rle_size_t value_count,
   EXPECT_EQ(decoder.remaining(), 0);
   EXPECT_EQ(decoder.Advance(1, bit_width), 0);
   vals = {0, 0};
-  EXPECT_EQ(decoder.Get(vals.data(), bit_width), 0);
+  EXPECT_EQ(decoder.Get(vals.data(), bit_width, unpack), 0);
   EXPECT_EQ(vals.at(0), 0);
 
   // Reset the decoder
@@ -374,7 +376,7 @@ void TestBitPackedDecoder(std::vector<uint8_t> bytes, rle_size_t value_count,
   read = 0;
   EXPECT_EQ(decoder.remaining(), value_count);
   vals = {0, 0};
-  EXPECT_EQ(decoder.GetBatch(vals.data(), 2, bit_width), vals.size());
+  EXPECT_EQ(decoder.GetBatch(vals.data(), 2, bit_width, unpack), vals.size());
   EXPECT_EQ(vals.at(0), expected.at(0 + read));
   EXPECT_EQ(vals.at(1), expected.at(1 + read));
 }
@@ -436,13 +438,15 @@ void TestRleBitPackedParser(std::vector<uint8_t> bytes, rle_size_t bit_width,
     }
 
     auto OnBitPackedRun(BitPackedRun run) {
+      auto unpack = BitPackedRunDecoder<T>::get_unpack_fn(bit_width_);
+
       bit_packed_decoder_ptr_->Reset(run, bit_width_);
 
       const auto n_decoded = decoded_ptr_->size();
       const auto n_to_decode = bit_packed_decoder_ptr_->remaining();
       decoded_ptr_->resize(n_decoded + n_to_decode);
       EXPECT_EQ(bit_packed_decoder_ptr_->GetBatch(decoded_ptr_->data() + n_decoded,
-                                                  n_to_decode, bit_width_),
+                                                  n_to_decode, bit_width_, unpack),
                 n_to_decode);
       EXPECT_EQ(bit_packed_decoder_ptr_->remaining(), 0);
 
