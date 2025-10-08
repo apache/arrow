@@ -1417,6 +1417,7 @@ services:
     build:
       args:
         base: ${REPO}:python-wheel-windows-test-vs2022-base-${PYTHON_WHEEL_WINDOWS_TEST_IMAGE_REVISION}
+        python: ${PYTHON}
       context: .
       dockerfile: ci/docker/python-free-threaded-wheel-windows-test-vs2022.dockerfile
     volumes: *python-wheel-windows-vs2022-volumes
