@@ -231,7 +231,6 @@ class SerializedPageReader : public PageReader {
       crypto_ctx_ = *crypto_ctx;
       InitDecryption();
     }
-    max_page_header_size_ = kDefaultMaxPageHeaderSize;
     decompressor_ = GetCodec(codec);
     always_compressed_ = always_compressed;
   }
@@ -244,7 +243,9 @@ class SerializedPageReader : public PageReader {
   // called then the content of previous page might be invalidated.
   std::shared_ptr<Page> NextPage() override;
 
-  void set_max_page_header_size(uint32_t size) override { max_page_header_size_ = size; }
+  void set_max_page_header_size(uint32_t size) override {
+    properties_.set_max_page_header_size(size);
+  }
 
  private:
   void UpdateDecryption(Decryptor* decryptor, int8_t module_type, std::string* page_aad);
@@ -260,7 +261,7 @@ class SerializedPageReader : public PageReader {
   // Fills in data_page_statistics.
   bool ShouldSkipPage(EncodedStatistics* data_page_statistics);
 
-  const ReaderProperties properties_;
+  ReaderProperties properties_;
   std::shared_ptr<ArrowInputStream> stream_;
 
   format::PageHeader current_page_header_;
@@ -287,9 +288,6 @@ class SerializedPageReader : public PageReader {
 
   // The ordinal fields in the context below are used for AAD suffix calculation.
   int32_t page_ordinal_;  // page ordinal does not count the dictionary page
-
-  // Maximum allowed page size
-  uint32_t max_page_header_size_;
 
   // Number of values read in data pages so far
   int64_t seen_num_values_;
@@ -422,7 +420,7 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
         std::stringstream ss;
         ss << e.what();
         allowed_page_size *= 2;
-        if (allowed_page_size > max_page_header_size_) {
+        if (allowed_page_size > properties_.max_page_header_size()) {
           ss << "Deserializing page header failed.\n";
           throw ParquetException(ss.str());
         }
