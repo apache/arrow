@@ -211,7 +211,7 @@ repos:
         language: system
         entry: air format r --check
         files: >-
-          ^r/.*\.(R|Rmd)$
+          ^r/.*\.R$
         exclude: >-
           (
           ?^r/R/dplyr-funcs-doc\.R$|
