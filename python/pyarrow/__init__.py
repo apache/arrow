@@ -59,8 +59,8 @@ except ImportError:
         __version__ = None  # type: ignore[assignment]
 
 import pyarrow.lib as _lib
-from pyarrow.lib import (BuildInfo, CppBuildInfo, RuntimeInfo, set_timezone_db_path,
-                         MonthDayNano, VersionInfo, build_info, cpp_build_info,
+from pyarrow.lib import (BuildInfo, CppBuildInfo, RuntimeInfo, set_timezone_db_path,  # type: ignore[attr-defined]  # pyright: ignore[reportAttributeAccessIssue]
+                         MonthDayNano, VersionInfo, build_info, cpp_build_info,  # pyright: ignore[reportAttributeAccessIssue]
                          cpp_version, cpp_version_info, runtime_info,
                          cpu_count, set_cpu_count, enable_signal_handlers,
                          io_thread_count, set_io_thread_count)
@@ -149,7 +149,7 @@ def show_info():
     print("\nCompression Codecs:")
     codecs = ["brotli", "bz2", "gzip", "lz4_frame", "lz4", "snappy", "zstd"]
     for codec in codecs:
-        status = "Enabled" if Codec.is_available(codec) else "-"
+        status = "Enabled" if Codec.is_available(codec) else "-"  # pyright: ignore[reportArgumentType]
         print(f"  {codec: <20}: {status: <8}")
 
 
@@ -193,7 +193,7 @@ from pyarrow.lib import (null, bool_,
                          SparseCOOTensor, SparseCSRMatrix, SparseCSCMatrix,
                          SparseCSFTensor,
                          infer_type, from_numpy_dtype,
-                         arange,
+                         arange,  # type: ignore[attr-defined]
                          NullArray,
                          NumericArray, IntegerArray, FloatingPointArray,
                          BooleanArray,

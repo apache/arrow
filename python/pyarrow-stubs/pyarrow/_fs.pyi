@@ -214,3 +214,25 @@ class FileSystemHandler(ABC):
 
 
 SupportedFileSystem: TypeAlias = AbstractFileSystem | FileSystem
+
+
+def _copy_files(
+    source_fs: FileSystem,
+    source_path: str,
+    destination_fs: FileSystem,
+    destination_path: str,
+    *,
+    chunk_size: int = 1048576,
+    use_threads: bool = True,
+) -> None: ...
+
+
+def _copy_files_selector(
+    source_fs: FileSystem,
+    source_sel: FileSelector,
+    destination_fs: FileSystem,
+    destination_base_dir: str,
+    *,
+    chunk_size: int = 1048576,
+    use_threads: bool = True,
+) -> None: ...
