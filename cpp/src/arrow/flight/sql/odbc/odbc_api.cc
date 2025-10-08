@@ -185,8 +185,22 @@ SQLRETURN SQLGetInfo(SQLHDBC conn, SQLUSMALLINT info_type, SQLPOINTER info_value
                    << ", info_value_ptr: " << info_value_ptr << ", buf_len: " << buf_len
                    << ", string_length_ptr: "
                    << static_cast<const void*>(string_length_ptr);
-  // GH-47709 TODO: Implement SQLGetInfo
-  return SQL_INVALID_HANDLE;
+
+  using ODBC::ODBCConnection;
+
+  return ODBCConnection::ExecuteWithDiagnostics(conn, SQL_ERROR, [=]() {
+    ODBCConnection* connection = reinterpret_cast<ODBCConnection*>(conn);
+
+    // Set character type to be Unicode by default
+    const bool is_unicode = true;
+
+    if (!info_value_ptr && !string_length_ptr) {
+      return static_cast<SQLRETURN>(SQL_ERROR);
+    }
+
+    return connection->GetInfo(info_type, info_value_ptr, buf_len, string_length_ptr,
+                               is_unicode);
+  });
 }
 
 SQLRETURN SQLGetStmtAttr(SQLHSTMT stmt, SQLINTEGER attribute, SQLPOINTER value_ptr,
