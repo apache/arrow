@@ -47,7 +47,7 @@ class ODBCHandle {
       rc = function();
     } catch (const driver::odbcabstraction::DriverException& ex) {
       GetDiagnostics().AddError(ex);
-    } catch (const std::bad_alloc& ex) {
+    } catch (const std::bad_alloc&) {
       GetDiagnostics().AddError(driver::odbcabstraction::DriverException(
           "A memory allocation error occurred.", "HY001"));
     } catch (const std::exception& ex) {

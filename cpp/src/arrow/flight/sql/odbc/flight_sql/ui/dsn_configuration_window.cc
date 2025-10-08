@@ -313,7 +313,7 @@ int DsnConfigurationWindow::CreatePropertiesGroup(int pos_x, int pos_y, int size
 
   const auto keys = config_.GetCustomKeys();
   for (const auto& key : keys) {
-    property_list_->ListAddItem({std::string(key), config.Get(key)});
+    property_list_->ListAddItem({std::string(key), config_.Get(key)});
   }
 
   SendMessage(property_list_->GetHandle(), LVM_SETEXTENDEDLISTVIEWSTYLE,
