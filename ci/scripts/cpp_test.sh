@@ -120,7 +120,9 @@ else
     "$@"
 fi
 
-if [ "${ARROW_USE_MESON:-OFF}" = "OFF" ] && [ "${ARROW_EMSCRIPTEN:-OFF}" = "OFF" ]; then
+if [ "${ARROW_USE_MESON:-OFF}" != "OFF" ] && \
+     [ "${ARROW_EMSCRIPTEN:-OFF}" = "OFF" ] && \
+     [ "${ARROW_USE_ASAN:-OFF}" = "OFF" ]; then
   CMAKE_PREFIX_PATH="${CMAKE_INSTALL_PREFIX:-${ARROW_HOME}}"
   if [ -n "${VCPKG_ROOT}" ] && [ -n "${VCPKG_TARGET_TRIPLET}" ]; then
     CMAKE_PREFIX_PATH+=";${VCPKG_ROOT}/installed/${VCPKG_TARGET_TRIPLET}"
