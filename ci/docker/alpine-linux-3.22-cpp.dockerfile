@@ -48,6 +48,7 @@ RUN apk add \
         musl-locales \
         nlohmann-json \
         openssl-dev \
+        patch \
         perl \
         pkgconfig \
         protobuf-dev \
