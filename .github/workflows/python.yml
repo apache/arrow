@@ -144,8 +144,8 @@ jobs:
             pip install -i https://pypi.anaconda.org/scientific-python-nightly-wheels/simple pyarrow
             cd python
             # mypy pyarrow-stubs/ pyarrow/tests/interchange pyarrow/tests/parquet pyarrow/tests/test_array.py pyarrow/tests/test_io.py
-            mypy --ignore-missing-imports pyarrow-stubs/ pyarrow/tests
-            pyright ./pyarrow-stubs
+            mypy
+            pyright
             cd ..
             python ./dev/update_stub_docstrings.py -f ./python/pyarrow-stubs
 
