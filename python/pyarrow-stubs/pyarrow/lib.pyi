@@ -48,6 +48,18 @@ def set_cpu_count(count: int) -> None: ...
 def is_threading_enabled() -> bool: ...
 
 
+def arange(start: int, stop: int, step: int = 1, *, memory_pool: MemoryPool | None = None) -> Array: ...
+
+
+def is_boolean_value(obj: object) -> bool: ...
+
+
+def is_integer_value(obj: object) -> bool: ...
+
+
+def is_float_value(obj: object) -> bool: ...
+
+
 Type_NA: int
 Type_BOOL: int
 Type_UINT8: int
@@ -61,6 +73,8 @@ Type_INT64: int
 Type_HALF_FLOAT: int
 Type_FLOAT: int
 Type_DOUBLE: int
+Type_DECIMAL32: int
+Type_DECIMAL64: int
 Type_DECIMAL128: int
 Type_DECIMAL256: int
 Type_DATE32: int
@@ -69,6 +83,8 @@ Type_TIMESTAMP: int
 Type_TIME32: int
 Type_TIME64: int
 Type_DURATION: int
+Type_INTERVAL_MONTHS: int
+Type_INTERVAL_DAY_TIME: int
 Type_INTERVAL_MONTH_DAY_NANO: int
 Type_BINARY: int
 Type_STRING: int

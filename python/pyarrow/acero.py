@@ -53,7 +53,7 @@ except ImportError:
 
         class InMemoryDataset:
             pass
-    ds = DatasetModuleStub
+    ds = DatasetModuleStub  # type: ignore[assignment]
 
 
 def _dataset_to_decl(dataset, use_threads=True, implicit_ordering=False):

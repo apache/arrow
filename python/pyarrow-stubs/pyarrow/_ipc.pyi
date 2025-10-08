@@ -45,6 +45,12 @@ class MetadataVersion(enum.IntEnum):
     V5 = enum.auto()
 
 
+class Alignment(enum.IntEnum):
+    Any = enum.auto()
+    At64Byte = enum.auto()
+    DataTypeSpecific = enum.auto()
+
+
 class WriteStats(NamedTuple):
     num_messages: int
     num_record_batches: int
@@ -265,6 +271,7 @@ def read_record_batch(
 
 __all__ = [
     "MetadataVersion",
+    "Alignment",
     "WriteStats",
     "ReadStats",
     "IpcReadOptions",

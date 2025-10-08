@@ -67,8 +67,14 @@ from pyarrow._compute import TDigestOptions as TDigestOptions
 from pyarrow._compute import TrimOptions as TrimOptions
 from pyarrow._compute import VarianceOptions as VarianceOptions
 from pyarrow._compute import WeekOptions as WeekOptions
+from pyarrow._compute import ZeroFillOptions as ZeroFillOptions
 
 # Functions
+from pyarrow._compute import call_function as call_function
+from pyarrow._compute import register_scalar_function as register_scalar_function
+from pyarrow._compute import register_aggregate_function as register_aggregate_function
+from pyarrow._compute import register_vector_function as register_vector_function
+from pyarrow._compute import register_tabular_function as register_tabular_function
 
 # Udf
 
