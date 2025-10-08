@@ -128,12 +128,12 @@ if [ "${ARROW_USE_MESON:-OFF}" != "OFF" ] && \
     CMAKE_PREFIX_PATH+=";${VCPKG_ROOT}/installed/${VCPKG_TARGET_TRIPLET}"
   fi
   cmake \
-    -S ${source_dir}/examples/minimal_build \
-    -B ${build_dir}/examples/minimal_build \
+    -S "${source_dir}/examples/minimal_build" \
+    -B "${build_dir}/examples/minimal_build" \
     -DCMAKE_PREFIX_PATH="${CMAKE_PREFIX_PATH}"
-  cmake --build ${build_dir}/examples/minimal_build
-  pushd ${source_dir}/examples/minimal_build
-  ${build_dir}/examples/minimal_build/arrow-example
+  cmake --build "${build_dir}/examples/minimal_build"
+  pushd "${source_dir}/examples/minimal_build"
+  "${build_dir}/examples/minimal_build/arrow-example"
   popd
 fi
 
