@@ -38,9 +38,9 @@ import pyarrow as pa
 from pyarrow.lib import _pandas_api, frombytes, is_threading_enabled  # noqa
 
 
-_logical_type_map = {}
-_numpy_logical_type_map = {}
-_pandas_logical_type_map = {}
+_logical_type_map: dict[int, str] = {}
+_numpy_logical_type_map: dict[int, str] = {}
+_pandas_logical_type_map: dict[int, str] = {}
 
 
 def get_logical_type_map():
