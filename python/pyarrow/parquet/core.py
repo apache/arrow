@@ -939,6 +939,11 @@ use_content_defined_chunking : bool or dict, default False
       balance between deduplication ratio and fragmentation. Use norm_level=1 or
       norm_level=2 to reach a higher deduplication ratio at the expense of
       fragmentation.
+use_time_adjusted_to_utc : bool, default False
+    Specify whether the TIME columns are expressed in reference
+    to midnight in the UTC timezone if True, otherwise it is not tied to UTC,
+    and is expressed in reference to midnight in an unknown,
+    presumably local, timezone.
 """
 
 _parquet_writer_example_doc = """\
