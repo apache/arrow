@@ -120,7 +120,7 @@ else
     "$@"
 fi
 
-if [ "${ARROW_USE_MESON:-OFF}" != "OFF" ] && \
+if [ "${ARROW_USE_MESON:-OFF}" = "OFF" ] && \
      [ "${ARROW_EMSCRIPTEN:-OFF}" = "OFF" ] && \
      [ "${ARROW_USE_ASAN:-OFF}" = "OFF" ]; then
   CMAKE_PREFIX_PATH="${CMAKE_INSTALL_PREFIX:-${ARROW_HOME}}"
