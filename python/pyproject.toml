@@ -83,7 +83,7 @@ include = ["pyarrow"]
 namespaces = false
 
 [tool.setuptools.package-data]
-pyarrow = ["*.pxd", "*.pyx", "includes/*.pxd"]
+pyarrow = ["*.pxd", "*.pyx", "includes/*.pxd", "py.typed"]
 
 [tool.setuptools_scm]
 root = '..'
@@ -91,3 +91,7 @@ version_file = 'pyarrow/_generated_version.py'
 version_scheme = 'guess-next-dev'
 git_describe_command = 'git describe --dirty --tags --long --match "apache-arrow-[0-9]*.*"'
 fallback_version = '22.0.0a0'
+
+[tool.mypy]
+files = ["pyarrow"]
+mypy_path = "$MYPY_CONFIG_FILE_DIR/pyarrow-stubs"
