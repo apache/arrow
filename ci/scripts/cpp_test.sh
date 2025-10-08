@@ -130,6 +130,7 @@ if [ "${ARROW_USE_MESON:-OFF}" != "OFF" ] && \
   cmake \
     -S "${source_dir}/examples/minimal_build" \
     -B "${build_dir}/examples/minimal_build" \
+    -DCMAKE_FIND_DEBUG_MODE=ON \
     -DCMAKE_PREFIX_PATH="${CMAKE_PREFIX_PATH}"
   cmake --build "${build_dir}/examples/minimal_build"
   pushd "${source_dir}/examples/minimal_build"
