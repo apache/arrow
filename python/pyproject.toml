@@ -96,4 +96,10 @@ fallback_version = '23.0.0a0'
 
 [tool.mypy]
 files = ["pyarrow"]
+exclude = 'pyarrow/interchange/.*|pyarrow/tests/.*|pyarrow/vendored/.*'
 mypy_path = "$MYPY_CONFIG_FILE_DIR/pyarrow-stubs"
+
+[tool.pyright]
+include = ["pyarrow"]
+exclude = ["pyarrow/tests", "pyarrow/vendored"]
+stubPath = "pyarrow-stubs"
