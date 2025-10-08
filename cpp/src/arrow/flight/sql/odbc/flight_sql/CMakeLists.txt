@@ -99,10 +99,12 @@ if(WIN32)
                          system_dsn.cc)
 endif()
 
-target_link_libraries(arrow_odbc_spi_impl PUBLIC odbcabstraction arrow_flight_sql_shared)
+target_link_libraries(arrow_odbc_spi_impl PUBLIC odbcabstraction arrow_flight_sql_shared
+                                                 arrow_compute_shared Boost::locale)
 
-if(MSVC)
-  target_link_libraries(arrow_odbc_spi_impl PUBLIC Boost::locale)
+# Link libraries on MINGW64 and macOS
+if(MINGW OR APPLE)
+  target_link_libraries(arrow_odbc_spi_impl PUBLIC ${ODBCINST})
 endif()
 
 set_target_properties(arrow_odbc_spi_impl
@@ -121,7 +123,7 @@ set_target_properties(arrow_odbc_spi_impl_cli
 target_link_libraries(arrow_odbc_spi_impl_cli arrow_odbc_spi_impl)
 
 # Unit tests
-add_arrow_test(arrow_odbc_spi_impl_test
+add_arrow_test(odbc_spi_impl_test
                SOURCES
                accessors/boolean_array_accessor_test.cc
                accessors/binary_array_accessor_test.cc

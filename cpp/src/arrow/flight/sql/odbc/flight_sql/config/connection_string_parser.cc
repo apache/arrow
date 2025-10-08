@@ -31,7 +31,7 @@ namespace driver {
 namespace flight_sql {
 namespace config {
 
-ConnectionStringParser::ConnectionStringParser(Configuration& cfg) : cfg(cfg) {
+ConnectionStringParser::ConnectionStringParser(Configuration& cfg) : cfg_(cfg) {
   // No-op.
 }
 
@@ -73,7 +73,7 @@ void ConnectionStringParser::ParseConnectionString(const char* str, size_t len,
         value = value.substr(1, value.size() - 2);
       }
 
-      cfg.Set(key, value);
+      cfg_.Set(key, value);
     }
 
     if (!attr_begin) break;

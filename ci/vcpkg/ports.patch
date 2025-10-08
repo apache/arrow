@@ -1,25 +1,26 @@
 diff --git a/ports/curl/portfile.cmake b/ports/curl/portfile.cmake
-index 7cab6f726..697ab1bb4 100644
+index 6788bc7b7f..6b689dedf0 100644
 --- a/ports/curl/portfile.cmake
 +++ b/ports/curl/portfile.cmake
-@@ -84,9 +84,12 @@ vcpkg_cmake_configure(
-         -DBUILD_TESTING=OFF
+@@ -83,10 +83,13 @@ vcpkg_cmake_configure(
          -DENABLE_CURL_MANUAL=OFF
-         -DCURL_CA_FALLBACK=ON
+         -DIMPORT_LIB_SUFFIX=   # empty
+         -DSHARE_LIB_OBJECT=OFF
 +        -DCURL_CA_PATH=none
 +        -DCURL_CA_BUNDLE=none
+         -DCURL_USE_PKGCONFIG=ON
          -DCMAKE_DISABLE_FIND_PACKAGE_Perl=ON
-     OPTIONS_DEBUG
-         -DENABLE_DEBUG=ON
+     MAYBE_UNUSED_VARIABLES
+         PKG_CONFIG_EXECUTABLE
 +        ${EXTRA_ARGS_DEBUG}
  )
  vcpkg_cmake_install()
  vcpkg_copy_pdbs()
 diff --git a/ports/llvm/portfile.cmake b/ports/llvm/portfile.cmake
-index a79c72a59..6b7fa6a66 100644
+index 7764357a6d..da7374ecec 100644
 --- a/ports/llvm/portfile.cmake
 +++ b/ports/llvm/portfile.cmake
-@@ -292,6 +292,8 @@ vcpkg_cmake_configure(
+@@ -302,6 +302,8 @@ vcpkg_cmake_configure(
          ${FEATURE_OPTIONS}
      MAYBE_UNUSED_VARIABLES 
          COMPILER_RT_ENABLE_IOS
@@ -28,92 +29,52 @@ index a79c72a59..6b7fa6a66 100644
  )
  
  vcpkg_cmake_install(ADD_BIN_TO_PATH)
-diff --git a/ports/snappy/portfile.cmake b/ports/snappy/portfile.cmake
-index 0312b2ae1..fdb576b5f 100644
---- a/ports/snappy/portfile.cmake
-+++ b/ports/snappy/portfile.cmake
-@@ -8,5 +8,6 @@ vcpkg_from_github(
-         fix_clang-cl_build.patch
-         no-werror.patch
-         pkgconfig.diff
-+        "snappy-disable-bmi.patch"
- )
- file(COPY "${CURRENT_PORT_DIR}/snappy.pc.in" DESTINATION "${SOURCE_PATH}")
-diff --git a/ports/snappy/snappy-disable-bmi.patch b/ports/snappy/snappy-disable-bmi.patch
+diff --git a/ports/orc/orc-fix-exception-propagation.diff b/ports/orc/orc-fix-exception-propagation.diff
 new file mode 100644
-index 000000000..e839c93a4
+index 0000000000..25568e70cd
 --- /dev/null
-+++ b/ports/snappy/snappy-disable-bmi.patch
-@@ -0,0 +1,19 @@
-+diff --git a/snappy.cc b/snappy.cc
-+index d414718..7b49d2a 100644
-+--- a/snappy.cc
-++++ b/snappy.cc
-+@@ -1014,14 +1014,10 @@ static inline void Report(const char *algorithm, size_t compressed_size,
-+ static inline uint32_t ExtractLowBytes(const uint32_t& v, int n) {
-+   assert(n >= 0);
-+   assert(n <= 4);
-+-#if SNAPPY_HAVE_BMI2
-+-  return _bzhi_u32(v, 8 * n);
-+-#else
-+   // This needs to be wider than uint32_t otherwise `mask << 32` will be
-+   // undefined.
-+   uint64_t mask = 0xffffffff;
-+   return v & ~(mask << (8 * n));
-+-#endif
-+ }
++++ b/ports/orc/orc-fix-exception-propagation.diff
+@@ -0,0 +1,30 @@
++diff --git a/c++/src/Timezone.cc b/c++/src/Timezone.cc
++index 384f8ea99..07c75e0a7 100644
++--- a/c++/src/Timezone.cc
+++++ b/c++/src/Timezone.cc
++@@ -696,12 +696,21 @@ namespace orc {
++     std::string filename_;
++     mutable std::unique_ptr<TimezoneImpl> impl_;
++     mutable std::once_flag initialized_;
+++    mutable std::exception_ptr init_exception_;
 + 
-+ static inline bool LeftShiftOverflows(uint8_t value, uint32_t shift) {
-diff --git a/ports/thrift/portfile.cmake b/ports/thrift/portfile.cmake
-index 1501782..71d2147 100644
---- a/ports/thrift/portfile.cmake
-+++ b/ports/thrift/portfile.cmake
-@@ -12,7 +12,7 @@ vcpkg_find_acquire_program(BISON)
- vcpkg_from_github(
-     OUT_SOURCE_PATH SOURCE_PATH
-     REPO apache/thrift
--    REF "${VERSION}"
-+    REF "v${VERSION}"
-     SHA512 5e4ee9870b30fe5ba484d39781c435716f7f3903793dc8aae96594ca813b1a5a73363b84719038ca8fa3ab8ef0a419a28410d936ff7b3bbadf36fc085a6883ae
-     HEAD_REF master
-     PATCHES
-diff --git a/ports/thrift/vcpkg.json b/ports/thrift/vcpkg.json
-index 2d5a854..9ff49ec 100644
---- a/ports/thrift/vcpkg.json
-+++ b/ports/thrift/vcpkg.json
-@@ -1,6 +1,7 @@
- {
-   "name": "thrift",
-   "version": "0.20.0",
-+  "port-version": 1,
-   "description": "Apache Thrift is a software project spanning a variety of programming languages and use cases. Our goal is to make reliable, performant communication and data serialization across languages as efficient and seamless as possible.",
-   "homepage": "https://github.com/apache/thrift",
-   "license": "Apache-2.0",
-diff --git a/versions/baseline.json b/versions/baseline.json
-index c6ce736..9ad1d63 100644
---- a/versions/baseline.json
-+++ b/versions/baseline.json
-@@ -8622,7 +8622,7 @@
-     },
-     "thrift": {
-       "baseline": "0.20.0",
--      "port-version": 0
-+      "port-version": 1
-     },
-     "tidy-html5": {
-       "baseline": "5.8.0",
-diff --git a/versions/t-/thrift.json b/versions/t-/thrift.json
-index 3db38c5..7464bde 100644
---- a/versions/t-/thrift.json
-+++ b/versions/t-/thrift.json
-@@ -1,5 +1,10 @@
- {
-   "versions": [
-+    {
-+      "git-tree": "13757a6b05741cf3c9c39e3a1dcc5e5cd685e025",
-+      "version": "0.20.0",
-+      "port-version": 1
-+    },
-     {
-       "git-tree": "6855be1ce96497811d4eb0a9879baf6cf1b3610c",
-       "version": "0.20.0",
++     TimezoneImpl* getImpl() const {
++-      std::call_once(initialized_, [&]() {
++-        auto buffer = loadTZDB(filename_);
++-        impl_ = std::make_unique<TimezoneImpl>(filename_, std::move(buffer));
++-      });
+++        std::call_once(initialized_, [&]() {
+++          try {
+++            auto buffer = loadTZDB(filename_);
+++            impl_ = std::make_unique<TimezoneImpl>(filename_, std::move(buffer));
+++          } catch (...) {
+++            // If initialization failed, re-throw the exception
+++            init_exception_ = std::current_exception();
+++          }
+++        });
+++      if (init_exception_) {
+++        std::rethrow_exception(init_exception_);
+++      }
++       return impl_.get();
++     }
++ 
+diff --git a/ports/orc/portfile.cmake b/ports/orc/portfile.cmake
+index 77ebf41ec3..4d065594a7 100644
+--- a/ports/orc/portfile.cmake
++++ b/ports/orc/portfile.cmake
+@@ -6,6 +6,8 @@ vcpkg_from_github(
+   REF "v${VERSION}"
+   SHA512 eabee16a6e984452a8cb715d0524041b20dd1bd88d78bb32534db93e5dbdd786aa4df8c05975406cb0728241eb3025a506c4fefb8c334ef0d8a27e6cb920d44c
+   HEAD_REF master
++  PATCHES
++    orc-fix-exception-propagation.diff
+ )
+ 
+ file(REMOVE "${SOURCE_PATH}/cmake_modules/FindGTest.cmake")

@@ -1,0 +1,319 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+name: Package Linux
+
+on:
+  push:
+    branches:
+      - '**'
+      - '!dependabot/**'
+    paths:
+      - '.github/workflows/check_labels.yml'
+      - '.github/workflows/package_linux.yml'
+      - '.github/workflows/report_ci.yml'
+      - 'cpp/**'
+      - 'c_glib/**'
+      - 'dev/tasks/linux-packages/**'
+      - 'format/Flight.proto'
+    tags:
+      - "apache-arrow-*-rc*"
+  pull_request:
+    paths:
+      - '.github/workflows/check_labels.yml'
+      - '.github/workflows/package_linux.yml'
+      - '.github/workflows/report_ci.yml'
+      - 'cpp/**'
+      - 'c_glib/**'
+      - 'dev/tasks/linux-packages/**'
+      - 'format/Flight.proto'
+    types:
+      - labeled
+      - opened
+      - reopened
+      - synchronize
+  schedule:
+    - cron: "0 2 * * *"
+
+concurrency:
+  group: ${{ github.repository }}-${{ github.head_ref || github.sha }}-${{ github.workflow }}
+  cancel-in-progress: true
+
+permissions:
+  # Upload to GitHub Release
+  contents: write
+
+jobs:
+  check-labels:
+    uses: ./.github/workflows/check_labels.yml
+    secrets: inherit
+    with:
+      parent-workflow: package_linux
+
+  package:
+    name: ${{ matrix.id }}
+    runs-on: ${{ contains(matrix.id, 'amd64') && 'ubuntu-latest' || 'ubuntu-24.04-arm' }}
+    needs: check-labels
+    if: >-
+      needs.check-labels.outputs.force == 'true' ||
+      contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra') ||
+      contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra: Package: Linux')
+    timeout-minutes: 75
+    strategy:
+      fail-fast: false
+      matrix:
+        id:
+          - almalinux-8-amd64
+          - almalinux-8-arm64
+          - almalinux-9-amd64
+          - almalinux-9-arm64
+          - almalinux-10-amd64
+          - almalinux-10-arm64
+          - amazon-linux-2023-amd64
+          - amazon-linux-2023-arm64
+          - centos-9-stream-amd64
+          - centos-9-stream-arm64
+          - centos-7-amd64
+          - debian-bookworm-amd64
+          - debian-bookworm-arm64
+          - debian-trixie-amd64
+          - debian-trixie-arm64
+          - debian-forky-amd64
+          - debian-forky-arm64
+          - ubuntu-jammy-amd64
+          - ubuntu-jammy-arm64
+          - ubuntu-noble-amd64
+          - ubuntu-noble-arm64
+    env:
+      DOCKER_VOLUME_PREFIX: ".docker/"
+    steps:
+      - name: Checkout Arrow
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          fetch-depth: 0
+          submodules: recursive
+      - name: Free up disk space
+        run: |
+          ci/scripts/util_free_space.sh
+      - name: Prepare environment variables
+        env:
+          ID: ${{ matrix.id }}
+        run: |
+          set -x
+
+          case "${ID}" in
+            centos-*)
+              # Example: centos-9-stream-amd64 -> centos
+              distribution="${ID%%-*}"
+              ;;
+            *)
+              # Example: almalinux-8-amd64 -> almalinux
+              # Example: amazon-linux-2023-amd64 -> amazon-linux
+              distribution="${ID%-*-*}"
+              ;;
+          esac
+          echo "DISTRIBUTION=${distribution}" >> "${GITHUB_ENV}"
+
+          # Example: almalinux-8-amd64 -> amd64
+          architecture="${ID##*-}"
+          echo "ARCHITECTURE=${architecture}" >> "${GITHUB_ENV}"
+
+          # Example: almalinux-8-amd64 -> almalinux-8
+          target="${ID%-*}"
+          case "${target}" in
+            almalinux-*|amazon-linux-*|centos-*)
+              echo "TASK_NAMESPACE=yum" >> "${GITHUB_ENV}"
+              # Example: centos-9-stream-amd64 -> centos-9-stream
+              # Example: amazon-linux-2023-amd64 -> amazon-linux-2023
+              version="${ID%-*}"
+              # Example: centos-9-stream -> 9-stream
+              # Example: amazon-linux-2023 -> 2023
+              version="${version##${distribution}-}"
+              echo "DISTRIBUTION_VERSION=${version}" >> "${GITHUB_ENV}"
+              if [ "${architecture}" = "arm64" ]; then
+                # Example: almalinux-8 -> almalinux-8-aarch64
+                target="${target}-aarch64"
+              fi
+              echo "YUM_TARGETS=${target}" >> "${GITHUB_ENV}"
+              ;;
+            *)
+              echo "TASK_NAMESPACE=apt" >> "${GITHUB_ENV}"
+              # Example: debian-bookworm-amd64 -> debian-bookworm
+              code_name="${ID%-*}"
+              # Example: debian-bookworm -> bookworm
+              code_name="${code_name#*-}"
+              echo "DISTRIBUTION_CODE_NAME=${code_name}" >> "${GITHUB_ENV}"
+              if [ "${architecture}" = "arm64" ]; then
+                # Example: ubuntu-noble -> ubuntu-noble-arm64
+                target="${target}-arm64"
+              fi
+              echo "APT_TARGETS=${target}" >> "${GITHUB_ENV}"
+              ;;
+          esac
+          echo "TARGET=${target}" >> "${GITHUB_ENV}"
+
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            # Example: apache-arrow-21.0.0-rc0 -> 21.0.0-rc0
+            version="${GITHUB_REF_NAME#apache-arrow-}"
+            echo "ARROW_VERSION=${version}" >> "${GITHUB_ENV}"
+          fi
+      - name: Cache Docker Volumes
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        with:
+          path: .docker
+          key:  package-linux-${{ matrix.id }}-${{ hashFiles('cpp/**', 'c_glib/**') }}
+          restore-keys: package-linux-${{ matrix.id }}-
+      - name: Set up Ruby
+        run: |
+          sudo apt update
+          sudo apt install -y \
+            rake \
+            ruby \
+            ruby-dev
+      - name: Prepare apache-arrow-apt-source for arm64
+        if: env.ARCHITECTURE == 'arm64'
+        run: |
+          pushd dev/tasks/linux-packages/apache-arrow-apt-source/apt
+          for target in *-*; do
+            cp -a ${target} ${target}-arm64
+          done
+          popd
+      - name: Prepare apache-arrow-release for arm64
+        if: env.ARCHITECTURE == 'arm64'
+        run: |
+          pushd dev/tasks/linux-packages/apache-arrow-release/yum
+          for target in *-*; do
+            cp -a ${target} ${target}-aarch64
+          done
+          popd
+      - name: Update version
+        if: github.ref_type != 'tag'
+        run: |
+          pushd dev/tasks/linux-packages
+          rake version:update
+          popd
+      - name: Login to GitHub Container registry
+        uses: docker/login-action@184bdaa0721073962dff0199f1fb9940f07167d1 # v3.5.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Wait for creating GitHub Release
+        if: github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          dev/release/utils-watch-gh-workflow.sh \
+            ${GITHUB_REF_NAME} \
+            release_candidate.yml
+      - name: Build
+        run: |
+          pushd dev/tasks/linux-packages
+          rake docker:pull || :
+          rake --trace ${TASK_NAMESPACE}:build BUILD_DIR=build
+          popd
+      - name: Docker Push
+        continue-on-error: true
+        if: >-
+          success() &&
+          github.event_name == 'push' &&
+          github.ref_name == 'main'
+        run: |
+          pushd dev/tasks/linux-packages
+          rake docker:push
+          popd
+      - name: Build artifact tarball
+        run: |
+          mkdir -p "${DISTRIBUTION}"
+          cp -a \
+            dev/tasks/linux-packages/*/${TASK_NAMESPACE}/repositories/${DISTRIBUTION}/* \
+            "${DISTRIBUTION}/"
+          set -x
+          # We use latest .deb/.rpm of
+          # apache-arrow-apt-source/apache-arrow-release built for
+          # amd64 because they are architecture independent.
+          if [ "${ARCHITECTURE}" = "amd64" ]; then
+            if [ "${TASK_NAMESPACE}" = "apt" ]; then
+              # Create
+              # https://packages.apache.org/artifactory/arrow/${DISTRIBUTION}/apache-arrow-apt-source-latest-${DISTRIBUTION_CODE_NAME}.deb
+              # for easy to install.
+              cp -a \
+                ${DISTRIBUTION}/pool/${DISTRIBUTION_CODE_NAME}/*/a/apache-arrow-apt-source/*.deb \
+                ${DISTRIBUTION}/apache-arrow-apt-source-latest-${DISTRIBUTION_CODE_NAME}.deb
+            else
+              # Create
+              # https://packages.apache.org/artifactory/arrow/${DISTRIBUTION}/${DISTRIBUTION_VERSION}/apache-arrow-release-latest.rpm
+              # for easy to install.
+              cp -a \
+                ${DISTRIBUTION}/${DISTRIBUTION_VERSION}/x86_64/Packages/apache-arrow-release-*.rpm \
+                ${DISTRIBUTION}/${DISTRIBUTION_VERSION}/apache-arrow-release-latest.rpm
+            fi
+          fi
+          tar cvzf ${{ matrix.id }}.tar.gz ${DISTRIBUTION}
+          dev/release/utils-generate-checksum.sh ${{ matrix.id }}.tar.gz
+      - name: Upload the artifacts to the job
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: ${{ matrix.id }}
+          path: ${{ matrix.id }}.tar.gz*
+      - name: Upload the artifacts to GitHub Release
+        if: github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload ${GITHUB_REF_NAME} \
+            --clobber \
+            ${{ matrix.id }}.tar.gz*
+      - name: Set up test
+        run: |
+          sudo apt install -y \
+            apt-utils \
+            cpio \
+            createrepo-c \
+            devscripts \
+            gpg \
+            rpm \
+            rsync
+          gem install --user-install apt-dists-merge
+          {
+            echo "Key-Type: RSA"
+            echo "Key-Length: 4096"
+            echo "Name-Real: Test"
+            echo "Name-Email: test@example.com"
+            echo "%no-protection"
+          } | gpg --full-generate-key --batch
+          GPG_KEY_ID=$(gpg --list-keys --with-colon test@example.com | grep fpr | cut -d: -f10)
+          echo "GPG_KEY_ID=${GPG_KEY_ID}" >> ${GITHUB_ENV}
+          if [ "${TASK_NAMESPACE}" = "yum" ]; then
+            repositories_dir=dev/tasks/linux-packages/apache-arrow-release/yum/repositories
+            rpm2cpio ${repositories_dir}/*/*/*/Packages/apache-arrow-release-*.noarch.rpm |
+              cpio -id
+            mv etc/pki/rpm-gpg/RPM-GPG-KEY-Apache-Arrow \
+              dev/tasks/linux-packages/KEYS
+          fi
+          gpg --export --armor test@example.com >> dev/tasks/linux-packages/KEYS
+      - name: Test
+        run: |
+          pushd dev/tasks/linux-packages
+          rake --trace ${TASK_NAMESPACE}:test
+          popd
+
+  report-package-linux:
+    needs:
+      - package
+    uses: ./.github/workflows/report_ci.yml
+    secrets: inherit

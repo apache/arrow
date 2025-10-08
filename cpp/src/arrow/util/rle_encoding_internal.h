@@ -657,13 +657,14 @@ auto RleBitPackedParser::PeekImpl(Handler&& handler) const
   const auto header_bytes = bit_util::ParseLeadingLEB128(data_, kMaxSize, &run_len_type);
 
   if (ARROW_PREDICT_FALSE(header_bytes == 0)) {
-    // Malfomrmed LEB128 data
+    // Malformed LEB128 data
     return {0, ControlFlow::Break};
   }
 
   const bool is_bit_packed = run_len_type & 1;
   const uint32_t count = run_len_type >> 1;
   if (is_bit_packed) {
+    // Bit-packed run
     constexpr auto kMaxCount = bit_util::CeilDiv(internal::max_size_for_v<rle_size_t>, 8);
     if (ARROW_PREDICT_FALSE(count == 0 || count > kMaxCount)) {
       // Illegal number of encoded values
@@ -672,17 +673,21 @@ auto RleBitPackedParser::PeekImpl(Handler&& handler) const
 
     ARROW_DCHECK_LT(static_cast<uint64_t>(count) * 8,
                     internal::max_size_for_v<rle_size_t>);
+    // Count Already divided by 8 for byte size calculations
+    const auto bytes_read = header_bytes + static_cast<int64_t>(count) * value_bit_width_;
+    if (ARROW_PREDICT_FALSE(bytes_read > data_size_)) {
+      // Bit-packed run would overflow data buffer
+      return {0, ControlFlow::Break};
+    }
     const auto values_count = static_cast<rle_size_t>(count * 8);
-    // Count Already divided by 8
-    const auto bytes_read =
-        header_bytes + static_cast<rle_size_t>(count) * value_bit_width_;
 
     auto control = handler.OnBitPackedRun(
         BitPackedRun(data_ + header_bytes, values_count, value_bit_width_));
 
-    return {bytes_read, control};
+    return {static_cast<rle_size_t>(bytes_read), control};
   }
 
+  // RLE run
   if (ARROW_PREDICT_FALSE(count == 0)) {
     // Illegal number of encoded values
     return {0, ControlFlow::Break};
@@ -1079,7 +1084,6 @@ auto RleBitPackedDecoder<T>::GetSpaced(Converter converter,
   // There may be remaining null if they are not greedily filled by either decoder calls
   check_and_handle_fully_null_remaining();
 
-  ARROW_DCHECK(batch.is_done() || exhausted());
   return batch.total_read();
 }
 

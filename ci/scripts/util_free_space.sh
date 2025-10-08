@@ -87,8 +87,9 @@ sudo rm -rf /opt/hostedtoolcache/PyPy || :
 # 376MB
 sudo rm -rf /opt/hostedtoolcache/node || :
 # Remove Web browser packages
-sudo apt purge -y \
-  firefox \
-  google-chrome-stable \
-  microsoft-edge-stable
+sudo apt purge -y firefox
+# google-chrome-stable isn't installed on arm64 image.
+sudo apt purge -y google-chrome-stable || :
+# microsoft-edge-stable isn't installed on arm64 image.
+sudo apt purge -y microsoft-edge-stable || :
 df -h

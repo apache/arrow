@@ -17,7 +17,7 @@
 
 name: Upload R Nightly builds
 # This workflow downloads the (nightly) binaries created in crossbow and uploads them
-# to nightlies.apache.org. Due to authorization requirements, this upload can't be done 
+# to nightlies.apache.org. Due to authorization requirements, this upload can't be done
 # from the crossbow repository.
 
 on:
@@ -118,8 +118,20 @@ jobs:
             full.names = TRUE
           )
 
-          current_path <- list.files(art_path, full.names = TRUE, recursive = TRUE)
-          files <- sub("r-(pkg|lib)", repo_root, current_path)
+          current_pkg_path <- list.files(art_path,
+            full.names = TRUE,
+            pattern = "r-pkg",
+            recursive = TRUE
+          )
+          current_lib_path <- list.files(art_path,
+            full.names = TRUE,
+            pattern = "r-lib",
+            recursive = TRUE
+          )
+          files <- c(
+            sub("r-pkg", repo_root, current_pkg_path),
+            sub("r-lib", paste0(repo_root, "__r-lib"), current_lib_path),
+          )
 
           # decode contrib.url from artifact name:
           # bin__windows__contrib__4.1 -> bin/windows/contrib/4.1
@@ -139,20 +151,32 @@ jobs:
         shell: bash
         env:
           KEEP: ${{ github.event.inputs.keep || 14 }}
-        run: |   
+        run: |
           prune() {
             # list files  | retain $KEEP newest files | delete everything else
-            ls -t $1/arrow* | tail -n +$((KEEP + 1)) | xargs --no-run-if-empty rm 
+            ls -t "$@" | tail -n +$((KEEP + 1)) | xargs --no-run-if-empty rm
           }
 
           # find leaf sub dirs
           repo_dirs=$(find repo -type d -links 2)
 
+          # Old packages: repo/libarrow/bin/${TARGET}/arrow-${VERSION}.zip
+          #
           # We want to retain $keep (14) versions of each pkg/lib so we call
           # prune on each leaf dir and not on repo/.
-          for dir in ${repo_dirs[@]}; do
-            prune $dir
+          for dir in "${repo_dirs[@]}"; do
+            prune $dir/arrow*
           done
+
+          # New packages: repo/libarrow/${TARGET}-arrow-${VERSION}.zip
+          prune repo/libarrow/r-libarrow-darwin-arm64-openssl-1.1-* || :
+          prune repo/libarrow/r-libarrow-darwin-arm64-openssl-3.0-* || :
+          prune repo/libarrow/r-libarrow-darwin-x86_64-openssl-1.1-* || :
+          prune repo/libarrow/r-libarrow-darwin-x86_64-openssl-3.0-* || :
+          prune repo/libarrow/r-libarrow-linux-x86_64-openssl-1.0-* || :
+          prune repo/libarrow/r-libarrow-linux-x86_64-openssl-1.1-* || :
+          prune repo/libarrow/r-libarrow-linux-x86_64-openssl-3.0-* || :
+          prune repo/libarrow/r-libarrow-windows-x86_64-* || :
       - name: Update Repository Index
         shell: Rscript {0}
         run: |

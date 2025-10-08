@@ -46,22 +46,22 @@ Result::Type ProcessMessages(Window& window) {
   return static_cast<Result::Type>(msg.wParam);
 }
 
-LRESULT CALLBACK CustomWindow::WndProc(HWND hwnd, UINT msg, WPARAM wParam,
-                                       LPARAM lParam) {
+LRESULT CALLBACK CustomWindow::WndProc(HWND hwnd, UINT msg, WPARAM wparam,
+                                       LPARAM lparam) {
   CustomWindow* window =
       reinterpret_cast<CustomWindow*>(GetWindowLongPtr(hwnd, GWLP_USERDATA));
 
   switch (msg) {
     case WM_NCCREATE: {
-      _ASSERT(lParam != NULL);
+      _ASSERT(lparam != NULL);
 
-      CREATESTRUCT* createStruct = reinterpret_cast<CREATESTRUCT*>(lParam);
+      CREATESTRUCT* create_struct = reinterpret_cast<CREATESTRUCT*>(lparam);
 
-      LONG_PTR longSelfPtr = reinterpret_cast<LONG_PTR>(createStruct->lpCreateParams);
+      LONG_PTR long_self_ptr = reinterpret_cast<LONG_PTR>(create_struct->lpCreateParams);
 
-      SetWindowLongPtr(hwnd, GWLP_USERDATA, longSelfPtr);
+      SetWindowLongPtr(hwnd, GWLP_USERDATA, long_self_ptr);
 
-      return DefWindowProc(hwnd, msg, wParam, lParam);
+      return DefWindowProc(hwnd, msg, wparam, lparam);
     }
 
     case WM_CREATE: {
@@ -78,13 +78,13 @@ LRESULT CALLBACK CustomWindow::WndProc(HWND hwnd, UINT msg, WPARAM wParam,
       break;
   }
 
-  if (window && window->OnMessage(msg, wParam, lParam)) return 0;
+  if (window && window->OnMessage(msg, wparam, lparam)) return 0;
 
-  return DefWindowProc(hwnd, msg, wParam, lParam);
+  return DefWindowProc(hwnd, msg, wparam, lparam);
 }
 
-CustomWindow::CustomWindow(Window* parent, const char* className, const char* title)
-    : Window(parent, className, title) {
+CustomWindow::CustomWindow(Window* parent, const char* class_name, const char* title)
+    : Window(parent, class_name, title) {
   WNDCLASS wcx;
 
   wcx.style = CS_HREDRAW | CS_VREDRAW;
@@ -96,7 +96,7 @@ CustomWindow::CustomWindow(Window* parent, const char* className, const char* ti
   wcx.hCursor = LoadCursor(NULL, IDC_ARROW);
   wcx.hbrBackground = (HBRUSH)COLOR_WINDOW;
   wcx.lpszMenuName = NULL;
-  wcx.lpszClassName = className;
+  wcx.lpszClassName = class_name;
 
   if (!RegisterClass(&wcx)) {
     std::stringstream buf;
@@ -105,7 +105,7 @@ CustomWindow::CustomWindow(Window* parent, const char* className, const char* ti
   }
 }
 
-CustomWindow::~CustomWindow() { UnregisterClass(className.c_str(), GetHInstance()); }
+CustomWindow::~CustomWindow() { UnregisterClass(class_name_.c_str(), GetHInstance()); }
 
 }  // namespace config
 }  // namespace flight_sql

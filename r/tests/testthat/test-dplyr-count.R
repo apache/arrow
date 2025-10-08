@@ -25,15 +25,15 @@ tbl$another_grouping <- rep(c(1, 2), 5)
 
 test_that("count/tally", {
   compare_dplyr_binding(
-    .input %>%
-      count() %>%
+    .input |>
+      count() |>
       collect(),
     tbl
   )
 
   compare_dplyr_binding(
-    .input %>%
-      tally() %>%
+    .input |>
+      tally() |>
       collect(),
     tbl
   )
@@ -41,17 +41,17 @@ test_that("count/tally", {
 
 test_that("count/tally with wt and grouped data", {
   compare_dplyr_binding(
-    .input %>%
-      group_by(some_grouping) %>%
-      count(wt = int) %>%
+    .input |>
+      group_by(some_grouping) |>
+      count(wt = int) |>
       collect(),
     tbl
   )
 
   compare_dplyr_binding(
-    .input %>%
-      group_by(some_grouping) %>%
-      tally(wt = int) %>%
+    .input |>
+      group_by(some_grouping) |>
+      tally(wt = int) |>
       collect(),
     tbl
   )
@@ -59,17 +59,17 @@ test_that("count/tally with wt and grouped data", {
 
 test_that("count/tally with sort", {
   compare_dplyr_binding(
-    .input %>%
-      group_by(some_grouping) %>%
-      count(wt = int, sort = TRUE) %>%
+    .input |>
+      group_by(some_grouping) |>
+      count(wt = int, sort = TRUE) |>
       collect(),
     tbl
   )
 
   compare_dplyr_binding(
-    .input %>%
-      group_by(some_grouping) %>%
-      tally(wt = int, sort = TRUE) %>%
+    .input |>
+      group_by(some_grouping) |>
+      tally(wt = int, sort = TRUE) |>
       collect(),
     tbl
   )
@@ -77,15 +77,15 @@ test_that("count/tally with sort", {
 
 test_that("count/tally with name arg", {
   compare_dplyr_binding(
-    .input %>%
-      count(name = "new_col") %>%
+    .input |>
+      count(name = "new_col") |>
       collect(),
     tbl
   )
 
   compare_dplyr_binding(
-    .input %>%
-      tally(name = "new_col") %>%
+    .input |>
+      tally(name = "new_col") |>
       collect(),
     tbl
   )
@@ -93,8 +93,8 @@ test_that("count/tally with name arg", {
 
 test_that("count returns an ungrouped tibble", {
   compare_dplyr_binding(
-    .input %>%
-      count(some_grouping, another_grouping, sort = TRUE) %>%
+    .input |>
+      count(some_grouping, another_grouping, sort = TRUE) |>
       collect(),
     tbl
   )
@@ -103,21 +103,21 @@ test_that("count returns an ungrouped tibble", {
 test_that("tally raises appropriate error and message for names", {
 
   expect_message(
-    tbl %>%
-      arrow_table() %>%
-      rename(n = some_grouping) %>%
-      group_by(n) %>%
-      tally() %>%
+    tbl |>
+      arrow_table() |>
+      rename(n = some_grouping) |>
+      group_by(n) |>
+      tally() |>
       collect(),
     regexp = 'Use `name = "new_name"` to pick a new name.',
     fixed = TRUE
   )
 
   expect_error(
-    tbl %>%
-      arrow_table() %>%
-      group_by(some_grouping) %>%
-      tally(wt = int, name = 99) %>%
+    tbl |>
+      arrow_table() |>
+      group_by(some_grouping) |>
+      tally(wt = int, name = 99) |>
       collect(),
     "`name` must be a string or `NULL`.",
     fixed = TRUE

@@ -48,10 +48,10 @@ void TestPrimitiveArraySqlAccessor() {
   PrimitiveArrayFlightSqlAccessor<ARROW_ARRAY, TARGET_TYPE> accessor(array.get());
 
   std::vector<c_type> buffer(values.size());
-  std::vector<ssize_t> strlen_buffer(values.size());
+  std::vector<ssize_t> str_len_buffer(values.size());
 
   ColumnBinding binding(TARGET_TYPE, 0, 0, buffer.data(), values.size(),
-                        strlen_buffer.data());
+                        str_len_buffer.data());
 
   int64_t value_offset = 0;
   driver::odbcabstraction::Diagnostics diagnostics("Dummy", "Dummy",
@@ -61,7 +61,7 @@ void TestPrimitiveArraySqlAccessor() {
                                      diagnostics, nullptr));
 
   for (int i = 0; i < values.size(); ++i) {
-    ASSERT_EQ(sizeof(c_type), strlen_buffer[i]);
+    ASSERT_EQ(sizeof(c_type), str_len_buffer[i]);
     ASSERT_EQ(values[i], buffer[i]);
   }
 }
