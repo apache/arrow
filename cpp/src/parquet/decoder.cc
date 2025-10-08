@@ -2082,9 +2082,12 @@ class DeltaByteArrayDecoderImpl : public TypedDecoderImpl<DType> {
                           int64_t valid_bits_offset,
                           typename EncodingTraits<DType>::Accumulator* out,
                           int* out_num_values) {
-    std::vector<ByteArray> values(num_values);
+    std::vector<ByteArray> values(num_values - null_count);
     const int num_valid_values = GetInternal(values.data(), num_values - null_count);
-    DCHECK_EQ(num_values - null_count, num_valid_values);
+    if (ARROW_PREDICT_FALSE(num_values - null_count != num_valid_values)) {
+      throw ParquetException("Expected to decode ", num_values - null_count,
+                             " values, but decoded ", num_valid_values, " values.");
+    }
 
     auto visit_binary_helper = [&](auto* helper) {
       auto values_ptr = reinterpret_cast<const ByteArray*>(values.data());
