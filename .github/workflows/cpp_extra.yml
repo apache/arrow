@@ -172,7 +172,7 @@ jobs:
       needs.check-labels.outputs.force == 'true' ||
       contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra') ||
       contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra: C++')
-    timeout-minutes: 120
+    timeout-minutes: 240
     strategy:
       fail-fast: false
       matrix:
