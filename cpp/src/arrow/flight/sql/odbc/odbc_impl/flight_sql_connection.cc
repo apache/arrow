@@ -99,7 +99,7 @@ inline std::string GetCerts() { return ""; }
 
 #endif
 
-const std::set<std::string_view, CaseInsensitiveComparator> BUILT_IN_PROPERTIES = {
+const std::set<std::string_view, CaseInsensitiveComparatorStrView> BUILT_IN_PROPERTIES = {
     FlightSqlConnection::HOST,
     FlightSqlConnection::PORT,
     FlightSqlConnection::USER,
@@ -118,7 +118,7 @@ const std::set<std::string_view, CaseInsensitiveComparator> BUILT_IN_PROPERTIES 
 Connection::ConnPropertyMap::const_iterator TrackMissingRequiredProperty(
     const std::string_view& property, const Connection::ConnPropertyMap& properties,
     std::vector<std::string_view>& missing_attr) {
-  auto prop_iter = properties.find(property);
+  auto prop_iter = properties.find(std::string(property));
   if (properties.end() == prop_iter) {
     missing_attr.push_back(property);
   }
@@ -138,7 +138,7 @@ std::shared_ptr<FlightSqlSslConfig> LoadFlightSslConfigs(
           .value_or(SYSTEM_TRUST_STORE_DEFAULT);
 
   auto trusted_certs_iterator =
-      conn_property_map.find(FlightSqlConnection::TRUSTED_CERTS);
+      conn_property_map.find(std::string(FlightSqlConnection::TRUSTED_CERTS));
   auto trusted_certs = trusted_certs_iterator != conn_property_map.end()
                            ? trusted_certs_iterator->second
                            : "";

@@ -153,8 +153,7 @@ TEST(SQLSetEnvAttr, TestSQLSetEnvAttrODBCVersionInvalid) {
   ASSERT_EQ(SQL_SUCCESS, SQLFreeEnv(env));
 }
 
-// GH-46574 TODO: enable TestSQLGetEnvAttrOutputNTS which requires connection support
-TYPED_TEST(ConnectionTest, DISABLED_TestSQLGetEnvAttrOutputNTS) {
+TYPED_TEST(ConnectionTest, TestSQLGetEnvAttrOutputNTS) {
   SQLINTEGER output_nts;
 
   ASSERT_EQ(SQL_SUCCESS,

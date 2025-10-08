@@ -31,6 +31,11 @@
 #include "arrow/flight/sql/odbc/odbc_impl/spi/connection.h"
 #include "arrow/util/logging.h"
 
+#if defined _WIN32 || defined _WIN64
+// For displaying DSN Window
+#  include "arrow/flight/sql/odbc/odbc_impl/system_dsn.h"
+#endif
+
 namespace arrow::flight::sql::odbc {
 SQLRETURN SQLAllocHandle(SQLSMALLINT type, SQLHANDLE parent, SQLHANDLE* result) {
   ARROW_LOG(DEBUG) << "SQLAllocHandle called with type: " << type
@@ -722,6 +727,21 @@ SQLRETURN SQLSetConnectAttr(SQLHDBC conn, SQLINTEGER attr, SQLPOINTER value_ptr,
   return SQL_INVALID_HANDLE;
 }
 
+// Load properties from the given DSN. The properties loaded do _not_ overwrite existing
+// entries in the properties.
+void LoadPropertiesFromDSN(const std::string& dsn,
+                           Connection::ConnPropertyMap& properties) {
+  arrow::flight::sql::odbc::config::Configuration config;
+  config.LoadDsn(dsn);
+  Connection::ConnPropertyMap dsn_properties = config.GetProperties();
+  for (auto& [key, value] : dsn_properties) {
+    auto prop_iter = properties.find(key);
+    if (prop_iter == properties.end()) {
+      properties.emplace(std::make_pair(std::move(key), std::move(value)));
+    }
+  }
+}
+
 SQLRETURN SQLDriverConnect(SQLHDBC conn, SQLHWND window_handle,
                            SQLWCHAR* in_connection_string,
                            SQLSMALLINT in_connection_string_len,
@@ -740,13 +760,73 @@ SQLRETURN SQLDriverConnect(SQLHDBC conn, SQLHWND window_handle,
                    << out_connection_string_buffer_len << ", out_connection_string_len: "
                    << static_cast<const void*>(out_connection_string_len)
                    << ", driver_completion: " << driver_completion;
+
   // GH-46449 TODO: Implement FILEDSN and SAVEFILE keywords according to the spec
 
   // GH-46560 TODO: Copy connection string properly in SQLDriverConnect according to the
   // spec
 
-  // GH-46574 TODO: Implement SQLDriverConnect
-  return SQL_INVALID_HANDLE;
+  using arrow::flight::sql::odbc::Connection;
+  using arrow::flight::sql::odbc::DriverException;
+  using ODBC::ODBCConnection;
+
+  return ODBCConnection::ExecuteWithDiagnostics(conn, SQL_ERROR, [=]() {
+    ODBCConnection* connection = reinterpret_cast<ODBCConnection*>(conn);
+    std::string connection_string =
+        ODBC::SqlWcharToString(in_connection_string, in_connection_string_len);
+    Connection::ConnPropertyMap properties;
+    std::string dsn = ODBCConnection::GetDsnIfExists(connection_string);
+    if (!dsn.empty()) {
+      LoadPropertiesFromDSN(dsn, properties);
+    }
+    ODBCConnection::GetPropertiesFromConnString(connection_string, properties);
+
+    std::vector<std::string_view> missing_properties;
+
+    // GH-46448 TODO: Implement SQL_DRIVER_COMPLETE_REQUIRED in SQLDriverConnect according
+    // to the spec
+#if defined _WIN32 || defined _WIN64
+    // Load the DSN window according to driver_completion
+    if (driver_completion == SQL_DRIVER_PROMPT) {
+      // Load DSN window before first attempt to connect
+      arrow::flight::sql::odbc::config::Configuration config;
+      if (!DisplayConnectionWindow(window_handle, config, properties)) {
+        return static_cast<SQLRETURN>(SQL_NO_DATA);
+      }
+      connection->Connect(dsn, properties, missing_properties);
+    } else if (driver_completion == SQL_DRIVER_COMPLETE ||
+               driver_completion == SQL_DRIVER_COMPLETE_REQUIRED) {
+      try {
+        connection->Connect(dsn, properties, missing_properties);
+      } catch (const DriverException&) {
+        // If first connection fails due to missing attributes, load
+        // the DSN window and try to connect again
+        if (!missing_properties.empty()) {
+          arrow::flight::sql::odbc::config::Configuration config;
+          missing_properties.clear();
+
+          if (!DisplayConnectionWindow(window_handle, config, properties)) {
+            return static_cast<SQLRETURN>(SQL_NO_DATA);
+          }
+          connection->Connect(dsn, properties, missing_properties);
+        } else {
+          throw;
+        }
+      }
+    } else {
+      // Default case: attempt connection without showing DSN window
+      connection->Connect(dsn, properties, missing_properties);
+    }
+#else
+    // Attempt connection without loading DSN window on macOS/Linux
+    connection->Connect(dsn, properties, missing_properties);
+#endif
+    // Copy connection string to out_connection_string after connection attempt
+    return ODBC::GetStringAttribute(true, connection_string, false, out_connection_string,
+                                    out_connection_string_buffer_len,
+                                    out_connection_string_len,
+                                    connection->GetDiagnostics());
+  });
 }
 
 SQLRETURN SQLConnect(SQLHDBC conn, SQLWCHAR* dsn_name, SQLSMALLINT dsn_name_len,
@@ -759,14 +839,50 @@ SQLRETURN SQLConnect(SQLHDBC conn, SQLWCHAR* dsn_name, SQLSMALLINT dsn_name_len,
                    << ", user_name_len: " << user_name_len
                    << ", password: " << static_cast<const void*>(password)
                    << ", password_len: " << password_len;
-  // GH-46574 TODO: Implement SQLConnect
-  return SQL_INVALID_HANDLE;
+
+  using arrow::flight::sql::odbc::FlightSqlConnection;
+  using arrow::flight::sql::odbc::config::Configuration;
+  using ODBC::ODBCConnection;
+
+  using ODBC::SqlWcharToString;
+
+  return ODBCConnection::ExecuteWithDiagnostics(conn, SQL_ERROR, [=]() {
+    ODBCConnection* connection = reinterpret_cast<ODBCConnection*>(conn);
+    std::string dsn = SqlWcharToString(dsn_name, dsn_name_len);
+
+    Configuration config;
+    config.LoadDsn(dsn);
+
+    if (user_name) {
+      std::string uid = SqlWcharToString(user_name, user_name_len);
+      config.Emplace(FlightSqlConnection::UID, std::move(uid));
+    }
+
+    if (password) {
+      std::string pwd = SqlWcharToString(password, password_len);
+      config.Emplace(FlightSqlConnection::PWD, std::move(pwd));
+    }
+
+    std::vector<std::string_view> missing_properties;
+
+    connection->Connect(dsn, config.GetProperties(), missing_properties);
+
+    return SQL_SUCCESS;
+  });
 }
 
 SQLRETURN SQLDisconnect(SQLHDBC conn) {
   ARROW_LOG(DEBUG) << "SQLDisconnect called with conn: " << conn;
-  // GH-46574 TODO: Implement SQLDisconnect
-  return SQL_INVALID_HANDLE;
+
+  using ODBC::ODBCConnection;
+
+  return ODBCConnection::ExecuteWithDiagnostics(conn, SQL_ERROR, [=]() {
+    ODBCConnection* connection = reinterpret_cast<ODBCConnection*>(conn);
+
+    connection->Disconnect();
+
+    return SQL_SUCCESS;
+  });
 }
 
 SQLRETURN SQLGetInfo(SQLHDBC conn, SQLUSMALLINT info_type, SQLPOINTER info_value_ptr,
@@ -776,8 +892,24 @@ SQLRETURN SQLGetInfo(SQLHDBC conn, SQLUSMALLINT info_type, SQLPOINTER info_value
                    << ", info_value_ptr: " << info_value_ptr << ", buf_len: " << buf_len
                    << ", string_length_ptr: "
                    << static_cast<const void*>(string_length_ptr);
-  // GH-47709 TODO: Implement SQLGetInfo
-  return SQL_INVALID_HANDLE;
+
+  // GH-47709 TODO: Update SQLGetInfo implementation and add tests for SQLGetInfo
+  using ODBC::ODBCConnection;
+
+  return ODBCConnection::ExecuteWithDiagnostics(conn, SQL_ERROR, [=]() {
+    ODBCConnection* connection = reinterpret_cast<ODBCConnection*>(conn);
+
+    // Set character type to be Unicode by default
+    const bool is_unicode = true;
+
+    if (!info_value_ptr && !string_length_ptr) {
+      return static_cast<SQLRETURN>(SQL_ERROR);
+    }
+
+    connection->GetInfo(info_type, info_value_ptr, buf_len, string_length_ptr,
+                        is_unicode);
+    return static_cast<SQLRETURN>(SQL_SUCCESS);
+  });
 }
 
 SQLRETURN SQLGetStmtAttr(SQLHSTMT stmt, SQLINTEGER attribute, SQLPOINTER value_ptr,
