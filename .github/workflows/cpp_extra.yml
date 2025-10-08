@@ -76,6 +76,7 @@ concurrency:
 
 permissions:
   contents: read
+  packages: write
 
 jobs:
   check-labels:
@@ -206,9 +207,9 @@ jobs:
           ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
           ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VCPKG_BINARY_SOURCES: "clear;nuget,GitHub,readwrite"
         run: |
           source ci/scripts/util_enable_core_dumps.sh
-          export VCPKG_BINARY_SOURCES="clear;nuget,GitHub,readwrite"
           archery docker run \
             -e ARROW_BUILD_TESTS=ON \
             -e ARROW_CMAKE_ARGS="-DARROW_BUILD_TESTS=ON" \
