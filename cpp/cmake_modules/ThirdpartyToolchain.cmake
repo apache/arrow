@@ -4605,22 +4605,6 @@ function(build_orc)
 
   message(STATUS "Building Apache ORC from source")
 
-  set(ORC_PATCHES)
-  if(MSVC)
-    # We can remove this once bundled Apache ORC is 2.2.1 or later.
-    list(APPEND ORC_PATCHES ${CMAKE_CURRENT_LIST_DIR}/orc-2345.patch)
-  endif()
-  if(Protobuf_VERSION VERSION_GREATER_EQUAL 32.0)
-    # We can remove this once bundled Apache ORC is 2.2.1 or later.
-    list(APPEND ORC_PATCHES ${CMAKE_CURRENT_LIST_DIR}/orc-2357.patch)
-  endif()
-  if(ORC_PATCHES)
-    find_program(PATCH patch REQUIRED)
-    set(ORC_PATCH_COMMAND ${PATCH} -p1 -i ${ORC_PATCHES})
-  else()
-    set(ORC_PATCH_COMMAND)
-  endif()
-
   if(LZ4_VENDORED)
     set(ORC_LZ4_TARGET lz4_static)
     set(ORC_LZ4_ROOT "${lz4_SOURCE_DIR}")
@@ -4635,7 +4619,6 @@ function(build_orc)
   if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.29)
     fetchcontent_declare(orc
                          ${FC_DECLARE_COMMON_OPTIONS}
-                         PATCH_COMMAND ${ORC_PATCH_COMMAND}
                          URL ${ORC_SOURCE_URL}
                          URL_HASH "SHA256=${ARROW_ORC_BUILD_SHA256_CHECKSUM}")
     prepare_fetchcontent()
@@ -4763,7 +4746,6 @@ function(build_orc)
                                 ${Snappy_TARGET}
                                 ${ORC_LZ4_TARGET}
                                 ZLIB::ZLIB
-                        PATCH_COMMAND ${ORC_PATCH_COMMAND}
                         URL ${ORC_SOURCE_URL}
                         URL_HASH "SHA256=${ARROW_ORC_BUILD_SHA256_CHECKSUM}")
     add_library(orc::orc STATIC IMPORTED)
