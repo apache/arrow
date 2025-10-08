@@ -27,7 +27,7 @@ else:
     from typing_extensions import TypeAlias
 from collections.abc import (
     Collection, Generator, Iterable, Iterator, Sequence, Mapping)
-from typing import (Any, Generic, Literal, TypeVar)
+from typing import (Any, Generic, Literal, TypeAlias, TypeVar)
 import builtins
 
 import numpy as np
@@ -52,7 +52,7 @@ from pyarrow._stubs_typing import (
     SupportArrowDeviceArray,
     SupportArrowStream,
 )
-from pyarrow.compute import ArrayOrChunkedArray, Expression
+from pyarrow.compute import Expression
 from pyarrow.interchange.dataframe import _PyArrowDataFrame
 from pyarrow.lib import Device, MemoryManager, MemoryPool, Schema
 from pyarrow.lib import Field as _Field
@@ -69,6 +69,7 @@ from ._types import DataType, _AsPyType, _BasicDataType, _DataTypeT
 Field: TypeAlias = _Field[DataType]
 _ScalarT = TypeVar("_ScalarT", bound=Scalar)
 _Scalar_co = TypeVar("_Scalar_co", bound=Scalar, covariant=True)
+ArrayOrChunkedArray: TypeAlias = Array[_Scalar_co] | ChunkedArray[_Scalar_co]
 
 _Aggregation: TypeAlias = Literal[
     "all",
