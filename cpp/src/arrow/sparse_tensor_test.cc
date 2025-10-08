@@ -436,6 +436,7 @@ class TestSparseCOOTensorCreationFromNegativeZero
     AssertCOOIndex(si->indices(), 0, {4});
     AssertCOOIndex(si->indices(), 1, {9});
     ASSERT_OK_AND_ASSIGN(auto new_tensor, sparse_coo_tensor->ToTensor());
+    ASSERT_OK(new_tensor->Validate());
     ASSERT_TRUE(new_tensor->Equals(*dense_tensor));
   }
 
@@ -459,6 +460,7 @@ class TestSparseCOOTensorCreationFromNegativeZero
     AssertCOOIndex(si->indices(), 0, {1, 1});
     AssertCOOIndex(si->indices(), 1, {3, 0});
     ASSERT_OK_AND_ASSIGN(auto new_tensor, sparse_coo_tensor->ToTensor());
+    ASSERT_OK(new_tensor->Validate());
     ASSERT_TRUE(new_tensor->Equals(*dense_tensor));
   }
 
@@ -485,6 +487,7 @@ class TestSparseCOOTensorCreationFromNegativeZero
     AssertCOOIndex(si->indices(), 0, {1, 1});
     AssertCOOIndex(si->indices(), 1, {3, 0});
     ASSERT_OK_AND_ASSIGN(auto new_tensor, sparse_coo_tensor->ToTensor());
+    ASSERT_OK(new_tensor->Validate());
     ASSERT_TRUE(new_tensor->Equals(*dense_tensor));
   }
 
@@ -994,6 +997,7 @@ class TestSparseCSRTensorCreationFromNegativeZero
     ASSERT_EQ(indices[0], 1);
     ASSERT_EQ(indices[1], 0);
     ASSERT_OK_AND_ASSIGN(auto new_tensor, sparse_csr_tensor->ToTensor());
+    ASSERT_OK(new_tensor->Validate());
     ASSERT_TRUE(new_tensor->Equals(*dense_tensor));
   }
 
@@ -1374,6 +1378,7 @@ class TestSparseCSCTensorCreationFromNegativeZero
     ASSERT_EQ(indices[0], 3);
     ASSERT_EQ(indices[1], 1);
     ASSERT_OK_AND_ASSIGN(auto new_tensor, sparse_csc_tensor->ToTensor());
+    ASSERT_OK(new_tensor->Validate());
     ASSERT_TRUE(new_tensor->Equals(*dense_tensor));
   }
 
@@ -1696,6 +1701,7 @@ class TestSparseCSFTensorCreationFromNegativeZero
     EXPECT_EQ(column_indices[0], 0);
     EXPECT_EQ(column_indices[1], 1);
     ASSERT_OK_AND_ASSIGN(auto new_tensor, sparse_csf_tensor->ToTensor());
+    ASSERT_OK(new_tensor->Validate());
     ASSERT_TRUE(new_tensor->Equals(*dense_tensor));
   }
 

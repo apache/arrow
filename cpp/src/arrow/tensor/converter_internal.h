@@ -22,9 +22,11 @@
 #include <memory>
 #include <utility>
 
-#include "arrow/visit_type_inline.h"
-
 namespace arrow {
+
+template <typename VISITOR, typename... ARGS>
+Status VisitTypeInline(const DataType& type, VISITOR* visitor, ARGS&&... args);
+
 namespace internal {
 
 struct SparseTensorConverterMixin {
@@ -95,25 +97,24 @@ struct ValueTypeVisitor {
 struct IndexAndValueTypeVisitor {
   template <typename IndexType, typename Function>
   enable_if_integer<IndexType, Status> Visit(const IndexType& index_type,
-                                             const std::shared_ptr<DataType>& value_type,
+                                             const DataType& value_type,
                                              Function&& function) {
     ValueTypeVisitor visitor;
-    return VisitTypeInline(*value_type, &visitor, index_type,
+    return VisitTypeInline(value_type, &visitor, index_type,
                            std::forward<Function>(function));
   }
 
   template <typename Function>
-  Status Visit(const DataType& type, const std::shared_ptr<DataType>&, Function&&) {
+  Status Visit(const DataType& type, const DataType&, Function&&) {
     return Status::Invalid("Invalid index type: ", type.name(), ". Expected integer.");
   }
 };
 
 template <typename Function>
-Status VisitValueAndIndexType(const std::shared_ptr<DataType>& value_type,
-                              const std::shared_ptr<DataType>& index_type,
+Status VisitValueAndIndexType(const DataType& value_type, const DataType& index_type,
                               Function&& function) {
   IndexAndValueTypeVisitor visitor;
-  return VisitTypeInline(*index_type, &visitor, value_type,
+  return VisitTypeInline(index_type, &visitor, value_type,
                          std::forward<Function>(function));
 }
 

@@ -15,9 +15,10 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/tensor/converter.h"
+#include "arrow/tensor/converter_internal.h"
 
 #include <algorithm>
+#include <cmath>
 #include <cstdint>
 #include <memory>
 #include <numeric>
@@ -27,8 +28,11 @@
 #include "arrow/status.h"
 #include "arrow/tensor.h"
 #include "arrow/type.h"
+#include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/macros.h"
+#include "arrow/visit_type_inline.h"
 
 namespace arrow {
 
@@ -37,6 +41,57 @@ class MemoryPool;
 namespace internal {
 
 namespace {
+
+template <typename ValueType, typename IndexType>
+Status ValidateSparseCooTensorCreation(const SparseCOOIndex& sparse_coo_index,
+                                       const Buffer& sparse_coo_values_buffer,
+                                       const Tensor& tensor) {
+  using IndexCType = typename IndexType::c_type;
+  using ValueCType = typename ValueType::c_type;
+
+  const auto& indices = sparse_coo_index.indices();
+  const auto* indices_data = sparse_coo_index.indices()->data()->data_as<IndexCType>();
+  const auto* sparse_coo_values = sparse_coo_values_buffer.data_as<ValueCType>();
+
+  ARROW_ASSIGN_OR_RAISE(auto non_zero_count, tensor.CountNonZero());
+
+  if (indices->shape()[0] != non_zero_count) {
+    return Status::Invalid("Mismatch between non-zero count in sparse tensor (",
+                           indices->shape()[0], ") and dense tensor (", non_zero_count,
+                           ")");
+  } else if (indices->shape()[1] != static_cast<int64_t>(tensor.shape().size())) {
+    return Status::Invalid("Mismatch between coordinate dimension in sparse tensor (",
+                           indices->shape()[1], ") and tensor shape (",
+                           tensor.shape().size(), ")");
+  }
+
+  auto coord_size = indices->shape()[1];
+  std::vector<int64_t> coord(coord_size);
+  for (int64_t i = 0; i < indices->shape()[0]; i++) {
+    if (!is_not_zero<ValueType>(sparse_coo_values[i])) {
+      return Status::Invalid("Sparse tensor values must be non-zero");
+    }
+
+    for (int64_t j = 0; j < coord_size; j++) {
+      coord[j] = static_cast<int64_t>(indices_data[i * coord_size + j]);
+    }
+
+    if (sparse_coo_values[i] != tensor.Value<ValueType>(coord)) {
+      if constexpr (is_floating_type<ValueType>::value) {
+        if (!std::isnan(tensor.Value<ValueType>(coord)) ||
+            !std::isnan(sparse_coo_values[i])) {
+          return Status::Invalid(
+              "Inconsistent values between sparse tensor and dense tensor");
+        }
+      } else {
+        return Status::Invalid(
+            "Inconsistent values between sparse tensor and dense tensor");
+      }
+    }
+  }
+
+  return Status::OK();
+}
 
 template <typename IndexCType>
 inline void IncrementRowMajorIndex(std::vector<IndexCType>& coord,
@@ -210,7 +265,8 @@ class SparseCOOTensorConverter {
                                            indices_shape, indices_strides);
     ARROW_ASSIGN_OR_RAISE(sparse_index, SparseCOOIndex::Make(coords, true));
     data = std::move(values_buffer);
-
+    DCHECK_OK((ValidateSparseCooTensorCreation<ValueType, IndexType>(*sparse_index, *data,
+                                                                     tensor_)));
     return Status::OK();
   }
 
@@ -272,7 +328,7 @@ Status MakeSparseCOOTensorFromTensor(const Tensor& tensor,
                                      std::shared_ptr<Buffer>* out_data) {
   SparseCOOTensorConverter converter(tensor, index_value_type, pool);
   ConverterVisitor visitor{converter};
-  ARROW_RETURN_NOT_OK(VisitValueAndIndexType(tensor.type(), index_value_type, visitor));
+  ARROW_RETURN_NOT_OK(VisitValueAndIndexType(*tensor.type(), *index_value_type, visitor));
   *out_sparse_index = checked_pointer_cast<SparseIndex>(converter.sparse_index);
   *out_data = converter.data;
   return Status::OK();
