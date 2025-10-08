@@ -124,6 +124,15 @@ if [ "${ARROW_USE_MESON:-OFF}" = "OFF" ] && \
      [ "${ARROW_EMSCRIPTEN:-OFF}" = "OFF" ] && \
      [ "${ARROW_USE_ASAN:-OFF}" = "OFF" ]; then
   CMAKE_PREFIX_PATH="${CMAKE_INSTALL_PREFIX:-${ARROW_HOME}}"
+  case "$(uname)" in
+    MINGW*)
+      # <prefix>/lib/cmake/ isn't searched on Windows.
+      #
+      # See also:
+      # https://cmake.org/cmake/help/latest/command/find_package.html#config-mode-search-procedure
+      CMAKE_PREFIX_PATH+="/lib/cmake/"
+      ;;
+  esac
   if [ -n "${VCPKG_ROOT}" ] && [ -n "${VCPKG_TARGET_TRIPLET}" ]; then
     CMAKE_PREFIX_PATH+=";${VCPKG_ROOT}/installed/${VCPKG_TARGET_TRIPLET}"
   fi

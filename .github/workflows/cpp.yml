@@ -321,7 +321,6 @@ jobs:
       BOOST_SOURCE: BUNDLED
       CMAKE_CXX_STANDARD: "17"
       CMAKE_GENERATOR: Ninja
-      CMAKE_INSTALL_LIBDIR: bin
       CMAKE_INSTALL_PREFIX: /usr
       CMAKE_UNITY_BUILD: ON
     steps:
