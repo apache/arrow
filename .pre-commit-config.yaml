@@ -209,7 +209,7 @@ repos:
         alias: r
         name: R Format (Air)
         language: system
-        entry: air format r
+        entry: air format r --check
         files: >-
           ^r/.*\.(R|Rmd)$
         exclude: >-
