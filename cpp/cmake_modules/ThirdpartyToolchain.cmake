@@ -2287,9 +2287,12 @@ if(ARROW_MIMALLOC)
     set(MIMALLOC_C_FLAGS "${MIMALLOC_C_FLAGS} -DERROR_COMMITMENT_MINIMUM=635")
   endif()
 
-  find_program(PATCH patch REQUIRED)
-  set(MIMALLOC_PATCH_COMMAND ${PATCH} -p1 -i
-                             ${CMAKE_CURRENT_LIST_DIR}/mimalloc-1138.patch)
+  set(MIMALLOC_PATCH_COMMAND "")
+  if(${UPPERCASE_BUILD_TYPE} STREQUAL "DEBUG")
+    find_program(PATCH patch REQUIRED)
+    set(MIMALLOC_PATCH_COMMAND ${PATCH} -p1 -i
+                               ${CMAKE_CURRENT_LIST_DIR}/mimalloc-1138.patch)
+  endif()
 
   set(MIMALLOC_CMAKE_ARGS
       ${EP_COMMON_CMAKE_ARGS}
