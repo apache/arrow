@@ -923,8 +923,19 @@ SQLRETURN SQLGetStmtAttr(SQLHSTMT stmt, SQLINTEGER attribute, SQLPOINTER value_p
                    << ", attribute: " << attribute << ", value_ptr: " << value_ptr
                    << ", buffer_length: " << buffer_length << ", string_length_ptr: "
                    << static_cast<const void*>(string_length_ptr);
-  // GH-47710 TODO: Implement SQLGetStmtAttr
-  return SQL_INVALID_HANDLE;
+
+  using ODBC::ODBCStatement;
+
+  return ODBCStatement::ExecuteWithDiagnostics(stmt, SQL_ERROR, [=]() {
+    ODBCStatement* statement = reinterpret_cast<ODBCStatement*>(stmt);
+
+    bool is_unicode = true;
+
+    statement->GetStmtAttr(attribute, value_ptr, buffer_length, string_length_ptr,
+                           is_unicode);
+
+    return SQL_SUCCESS;
+  });
 }
 
 SQLRETURN SQLSetStmtAttr(SQLHSTMT stmt, SQLINTEGER attribute, SQLPOINTER value_ptr,
@@ -932,8 +943,18 @@ SQLRETURN SQLSetStmtAttr(SQLHSTMT stmt, SQLINTEGER attribute, SQLPOINTER value_p
   ARROW_LOG(DEBUG) << "SQLSetStmtAttrW called with stmt: " << stmt
                    << ", attribute: " << attribute << ", value_ptr: " << value_ptr
                    << ", string_length: " << string_length;
-  // GH-47710 TODO: Implement SQLSetStmtAttr
-  return SQL_INVALID_HANDLE;
+
+  using ODBC::ODBCStatement;
+
+  return ODBCStatement::ExecuteWithDiagnostics(stmt, SQL_ERROR, [=]() {
+    ODBCStatement* statement = reinterpret_cast<ODBCStatement*>(stmt);
+
+    bool is_unicode = true;
+
+    statement->SetStmtAttr(attribute, value_ptr, string_length, is_unicode);
+
+    return SQL_SUCCESS;
+  });
 }
 
 SQLRETURN SQLExecDirect(SQLHSTMT stmt, SQLWCHAR* query_text, SQLINTEGER text_length) {
