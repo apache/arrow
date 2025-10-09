@@ -15,39 +15,19 @@
 # specific language governing permissions and limitations
 # under the License.
 
-aws-sdk-cpp=1.11.68
-azure-core-cpp>=1.10.3
-azure-identity-cpp>=1.6.0
-azure-storage-blobs-cpp>=12.10.0
-azure-storage-common-cpp>=12.5.0
-azure-storage-files-datalake-cpp>=12.9.0
-benchmark>=1.6.0,!=1.8.4
-boost-cpp>=1.68.0
-brotli
-bzip2
-c-ares
-cmake
-gflags
-glog
-gmock>=1.10.0
-google-cloud-cpp>=1.34.0
-gtest>=1.10.0
-libgrpc
-libprotobuf
-libutf8proc
-lz4-c
-make
-meson
-ninja
-nodejs
-orc<2.1.0
-patch
-pkg-config
-python
-rapidjson
-re2
-snappy
-thrift-cpp>=0.11.0
-xsimd
-zlib
-zstd
+Fix for https://github.com/microsoft/mimalloc/issues/1138
+
+diff --git a/src/arena.c b/src/arena.c
+index b26f4442..d7e99b55 100644
+--- a/src/arena.c
++++ b/src/arena.c
+@@ -797,6 +797,9 @@ mi_page_t* _mi_arenas_page_alloc(mi_heap_t* heap, size_t block_size, size_t bloc
+   else {
+     page = mi_arenas_page_singleton_alloc(heap, block_size, block_alignment);
+   }
++  if mi_unlikely(page == NULL) {
++    return NULL;
++  }
+   // mi_assert_internal(page == NULL || _mi_page_segment(page)->subproc == tld->subproc);
+   mi_assert_internal(_mi_is_aligned(page, MI_PAGE_ALIGN));
+   mi_assert_internal(_mi_ptr_page(page)==page);
