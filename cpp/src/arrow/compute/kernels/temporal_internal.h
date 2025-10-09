@@ -80,7 +80,7 @@ inline int64_t GetQuarter(const year_month_day& ymd) {
   return static_cast<int64_t>((static_cast<uint32_t>(ymd.month()) - 1) / 3);
 }
 
-Result<ArrowTimeZone> LocateZone(const std::string_view timezone);
+ARROW_EXPORT Result<ArrowTimeZone> LocateZone(const std::string_view timezone);
 
 static inline const std::string& GetInputTimezone(const DataType& type) {
   static const std::string no_timezone = "";
