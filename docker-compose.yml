@@ -1144,7 +1144,7 @@ services:
       args:
         arch: ${ARCH}
         arch_short: ${ARCH_SHORT}
-        base: quay.io/pypa/manylinux_2_28_${ARCH_ALIAS}:2025-07-14-b3bee7e
+        base: quay.io/pypa/manylinux_2_28_${ARCH_ALIAS}:2025-06-04-496f7e1
         manylinux: 2_28
         python: ${PYTHON}
         python_abi_tag: ${PYTHON_ABI_TAG}
@@ -1169,7 +1169,7 @@ services:
       args:
         arch: ${ARCH}
         arch_short: ${ARCH_SHORT}
-        base: quay.io/pypa/musllinux_1_2_${ARCH_ALIAS}:2025-07-14-b3bee7e
+        base: quay.io/pypa/musllinux_1_2_${ARCH_ALIAS}:2025-06-04-496f7e1
         musllinux: 1_2
         python: ${PYTHON}
         python_abi_tag: ${PYTHON_ABI_TAG}
