@@ -131,7 +131,6 @@ jobs:
       - name: Test Wheel
         env:
           PYTEST_ADDOPTS: "-k 'not test_cancellation'"
-          PYTHON: "{{ python_version }}"
           PYTHON_GIL: {{ 0 if python_abi_tag.endswith('t') else 1 }}
         run: |
           $PYTHON -m venv test-env

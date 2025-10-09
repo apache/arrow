@@ -106,7 +106,7 @@ is_free_threaded() {
 
 if [ "${CHECK_UNITTESTS}" == "ON" ]; then
   # Install testing dependencies
-  if [ "$(is_free_threaded)" = "ON" ] && [ "${PYTHON:-}" = "3.13" ]; then
+  if [ "$(is_free_threaded)" = "ON" ] && [[ "${PYTHON:-}" == *"3.13"* ]]; then
     echo "Free-threaded Python 3.13 build detected"
     python -m pip install -U -r "${source_dir}/python/requirements-wheel-test-3.13t.txt"
   else
