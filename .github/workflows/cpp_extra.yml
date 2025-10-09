@@ -212,7 +212,7 @@ jobs:
           source ci/scripts/util_enable_core_dumps.sh
           archery docker run \
             -e ARROW_BUILD_TESTS=ON \
-            -e ARROW_CMAKE_ARGS="-DARROW_BUILD_TESTS=ON" \
+            -e ARROW_CMAKE_ARGS="-DARROW_BUILD_TESTS=ON -DCMAKE_FIND_DEBUG_MODE=ON" \
             -e CMAKE_PRESET=ninja-release-jni-linux \
             -e VCPKG_ROOT=/opt/vcpkg \
             -e VCPKG_TARGET_TRIPLET=${ARCH}-linux-static-release \

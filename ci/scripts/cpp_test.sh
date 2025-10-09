@@ -140,7 +140,7 @@ if [ "${ARROW_USE_MESON:-OFF}" = "OFF" ] && \
     -S "${source_dir}/examples/minimal_build" \
     -B "${build_dir}/examples/minimal_build" \
     -DCMAKE_PREFIX_PATH="${CMAKE_PREFIX_PATH}"
-  cmake --build "${build_dir}/examples/minimal_build"
+  cmake --build "${build_dir}/examples/minimal_build" --verbose
   pushd "${source_dir}/examples/minimal_build"
   # PATH= is for Windows.
   PATH="${CMAKE_INSTALL_PREFIX:-${ARROW_HOME}}/bin:${PATH}" \
