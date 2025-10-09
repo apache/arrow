@@ -129,6 +129,8 @@ if(TARGET Arrow::arrow_static AND NOT TARGET Arrow::arrow_bundled_dependencies)
       find_library(CORE_FOUNDATION CoreFoundation)
       target_link_libraries(Arrow::arrow_bundled_dependencies
                             INTERFACE ${CORE_FOUNDATION})
+      find_library(NETWORK Network)
+      target_link_libraries(Arrow::arrow_bundled_dependencies INTERFACE ${NETWORK})
       find_library(SECURITY Security)
       target_link_libraries(Arrow::arrow_bundled_dependencies INTERFACE ${SECURITY})
     elseif(WIN32)
