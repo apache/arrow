@@ -48,12 +48,7 @@ full_version=${versions[$2]}
 if [ "$platform" = "macOS" ]; then
     echo "Downloading Python installer..."
 
-    if [ "$version" = "3.14" ] || [ "$version" = "3.14t" ];
-    then
-        fname="python-${full_version}rc3-macos11.pkg"
-    else
-        fname="python-${full_version}-macos11.pkg"
-    fi
+    fname="python-${full_version}-macos11.pkg"
     wget "https://www.python.org/ftp/python/${full_version}/${fname}"
 
     echo "Installing Python..."
