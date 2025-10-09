@@ -358,6 +358,7 @@ class FileSerializer : public ParquetFileWriter::Contents {
 
   RowGroupWriter* AppendRowGroup(bool buffered_row_group) {
     if (row_group_writer_) {
+      num_rows_ += row_group_writer_->num_rows();
       row_group_writer_->Close();
     }
     int16_t row_group_ordinal = -1;  // row group ordinal not set
