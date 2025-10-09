@@ -465,7 +465,7 @@ def test_arrow_writer_props_time_adjusted_to_utc(
     # GH-47441
     filename = tempdir / "time_adjusted_to_utc.parquet"
 
-    time_values = [0, 123, 10_000, 100_000]
+    time_values = [0, 123, 10_000, 86_399]
 
     table = pa.table({
         "time_col": pa.array(time_values, type=time_type(time_unit)),
@@ -478,10 +478,12 @@ def test_arrow_writer_props_time_adjusted_to_utc(
     with pq.ParquetWriter(
         where=filename,
         schema=schema,
-        use_time_adjusted_to_utc=utc_flag_val,
+        write_time_adjusted_to_utc=utc_flag_val,
     ) as writer:
         writer.write_table(table)
 
     result = pq.read_table(filename, schema=schema)
+
+    result.validate(full=True)
 
     assert result.equals(table)
