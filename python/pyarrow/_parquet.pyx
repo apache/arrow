@@ -2203,7 +2203,7 @@ cdef shared_ptr[ArrowWriterProperties] _create_arrow_writer_properties(
         writer_engine_version=None,
         use_compliant_nested_type=True,
         store_schema=True,
-        use_time_adjusted_to_utc=False) except *:
+        write_time_adjusted_to_utc=False) except *:
     """Arrow writer properties"""
     cdef:
         shared_ptr[ArrowWriterProperties] arrow_properties
@@ -2252,7 +2252,7 @@ cdef shared_ptr[ArrowWriterProperties] _create_arrow_writer_properties(
     elif writer_engine_version != "V2":
         raise ValueError(f"Unsupported Writer Engine Version: {writer_engine_version}")
 
-    arrow_props.set_time_adjusted_to_utc(use_time_adjusted_to_utc)
+    arrow_props.set_time_adjusted_to_utc(write_time_adjusted_to_utc)
 
     arrow_properties = arrow_props.build()
 
@@ -2316,7 +2316,7 @@ cdef class ParquetWriter(_Weakrefable):
                   sorting_columns=None,
                   store_decimal_as_integer=False,
                   use_content_defined_chunking=False,
-                  use_time_adjusted_to_utc=False):
+                  write_time_adjusted_to_utc=False):
         cdef:
             shared_ptr[WriterProperties] properties
             shared_ptr[ArrowWriterProperties] arrow_properties
@@ -2360,7 +2360,7 @@ cdef class ParquetWriter(_Weakrefable):
             writer_engine_version=writer_engine_version,
             use_compliant_nested_type=use_compliant_nested_type,
             store_schema=store_schema,
-            use_time_adjusted_to_utc=use_time_adjusted_to_utc,
+            write_time_adjusted_to_utc=write_time_adjusted_to_utc,
         )
 
         pool = maybe_unbox_memory_pool(memory_pool)

@@ -939,7 +939,7 @@ use_content_defined_chunking : bool or dict, default False
       balance between deduplication ratio and fragmentation. Use norm_level=1 or
       norm_level=2 to reach a higher deduplication ratio at the expense of
       fragmentation.
-use_time_adjusted_to_utc : bool, default False
+write_time_adjusted_to_utc : bool, default False
     Specify whether the TIME columns are expressed in reference
     to midnight in the UTC timezone if True, otherwise it is not tied to UTC,
     and is expressed in reference to midnight in an unknown,
@@ -1040,7 +1040,7 @@ Examples
                  write_page_checksum=False,
                  sorting_columns=None,
                  store_decimal_as_integer=False,
-                 use_time_adjusted_to_utc=False,
+                 write_time_adjusted_to_utc=False,
                  **options):
         if use_deprecated_int96_timestamps is None:
             # Use int96 timestamps for Spark
@@ -1094,7 +1094,7 @@ Examples
             write_page_checksum=write_page_checksum,
             sorting_columns=sorting_columns,
             store_decimal_as_integer=store_decimal_as_integer,
-            use_time_adjusted_to_utc=use_time_adjusted_to_utc,
+            write_time_adjusted_to_utc=write_time_adjusted_to_utc,
             **options)
         self.is_open = True
 
@@ -1956,7 +1956,7 @@ def write_table(table, where, row_group_size=None, version='2.6',
                 write_page_checksum=False,
                 sorting_columns=None,
                 store_decimal_as_integer=False,
-                use_time_adjusted_to_utc=False,
+                write_time_adjusted_to_utc=False,
                 **kwargs):
     # Implementor's note: when adding keywords here / updating defaults, also
     # update it in write_to_dataset and _dataset_parquet.pyx ParquetFileWriteOptions
@@ -1988,7 +1988,7 @@ def write_table(table, where, row_group_size=None, version='2.6',
                 write_page_checksum=write_page_checksum,
                 sorting_columns=sorting_columns,
                 store_decimal_as_integer=store_decimal_as_integer,
-                use_time_adjusted_to_utc=use_time_adjusted_to_utc,
+                write_time_adjusted_to_utc=write_time_adjusted_to_utc,
                 **kwargs) as writer:
             writer.write_table(table, row_group_size=row_group_size)
     except Exception:
