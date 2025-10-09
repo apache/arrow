@@ -24,8 +24,11 @@
 #  include <wincrypt.h>
 
 #  include <bcrypt.h>
-#  include <cryptuiapi.h>
+
+// prsht.h needs to be included before cryptuiapi.h to avoid build conflict
 #  include <prsht.h>
+
+#  include <cryptuiapi.h>
 
 #  include <tchar.h>
 #  include <string>
