@@ -167,7 +167,7 @@ jobs:
 
   jni-linux:
     needs: check-labels
-    name: JNI ${{ matrix.platform.runs-on }} ${{ matrix.platform.arch }}
+    name: JNI ${{ matrix.platform.runs-on }} ${{ matrix.platform.archery-arch }}
     runs-on: ${{ matrix.platform.runs-on }}
     if: >-
       needs.check-labels.outputs.force == 'true' ||
@@ -178,15 +178,15 @@ jobs:
       fail-fast: false
       matrix:
         platform:
-          - archery_arch: "amd64"
+          - archery-arch: "amd64"
             runs-on: ubuntu-latest
-            vcpkg_arch: "amd64"
-          - archery_arch: "arm64v8"
+            vcpkg-arch: "amd64"
+          - archery-arch: "arm64v8"
             runs-on: ubuntu-24.04-arm
-            vcpkg_arch: "arm64"
+            vcpkg-arch: "arm64"
     env:
-      ARCH: ${{ matrix.platform.archery_arch }}
-      VCPKG_ARCH: ${{ matrix.platform.vcpkg_arch }}
+      ARCH: ${{ matrix.platform.archery-arch }}
+      VCPKG_ARCH: ${{ matrix.platform.vcpkg-arch }}
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
