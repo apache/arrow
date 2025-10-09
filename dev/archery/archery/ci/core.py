@@ -70,7 +70,7 @@ class Workflow:
                 # from the reusable workflow this will be report-ci.
                 # The real job_data['name'] is the display name, like
                 # "report-extra-cpp / report-ci".
-                if self.ignore_job in job_data.get('name'):
+                if self.ignore_job not in job_data.get('name'):
                     job = Job(job_data)
                     jobs.append(job)
         return jobs
