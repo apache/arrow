@@ -130,8 +130,14 @@ s3_finalizer <- new.env(parent = emptyenv())
   s3_register("pillar::type_sum", "DataType")
 
   for (cl in c(
-    "Array", "RecordBatch", "ChunkedArray", "Table", "Schema",
-    "Field", "DataType", "RecordBatchReader"
+    "Array",
+    "RecordBatch",
+    "ChunkedArray",
+    "Table",
+    "Schema",
+    "Field",
+    "DataType",
+    "RecordBatchReader"
   )) {
     s3_register("reticulate::py_to_r", paste0("pyarrow.lib.", cl))
     s3_register("reticulate::r_to_py", cl)
@@ -198,7 +204,6 @@ configure_tzdb <- function() {
           )
         )
       }
-
 
       features <- arrow_info()$capabilities
       # That has all of the #ifdef features, plus the compression libs and the

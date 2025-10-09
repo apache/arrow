@@ -15,7 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-
 test_that("RecordBatchFileWriter / RecordBatchFileReader roundtrips", {
   tab <- Table$create(
     int = 1:10,
@@ -47,7 +46,8 @@ test_that("RecordBatchFileWriter / RecordBatchFileReader roundtrips", {
 
 test_that("record_batch() handles (raw|Buffer|InputStream, Schema) (ARROW-3450, ARROW-3505)", {
   tbl <- tibble::tibble(
-    int = 1:10, dbl = as.numeric(1:10),
+    int = 1:10,
+    dbl = as.numeric(1:10),
     lgl = sample(c(TRUE, FALSE, NA), 10, replace = TRUE),
     chr = letters[1:10]
   )

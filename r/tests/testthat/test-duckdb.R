@@ -209,9 +209,15 @@ test_that("Joining, auto-cleanup enabled", {
   res <- dbGetQuery(
     con,
     paste0(
-      "SELECT * FROM ", table_one_name,
-      " INNER JOIN ", table_two_name,
-      " ON ", table_one_name, ".int = ", table_two_name, ".int"
+      "SELECT * FROM ",
+      table_one_name,
+      " INNER JOIN ",
+      table_two_name,
+      " ON ",
+      table_one_name,
+      ".int = ",
+      table_two_name,
+      ".int"
     )
   )
   expect_identical(dim(res), c(9L, 14L))
@@ -288,9 +294,12 @@ test_that("to_duckdb passing a connection", {
   result <- DBI::dbGetQuery(
     con_separate,
     paste0(
-      "SELECT * FROM ", table_four_name,
+      "SELECT * FROM ",
+      table_four_name,
       " INNER JOIN separate_join_table ",
-      "ON separate_join_table.int = ", table_four_name, ".int"
+      "ON separate_join_table.int = ",
+      table_four_name,
+      ".int"
     )
   )
 

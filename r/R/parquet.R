@@ -34,18 +34,20 @@
 #' df <- read_parquet(tf, col_select = starts_with("d"))
 #' head(df)
 #' @export
-read_parquet <- function(file,
-                         col_select = NULL,
-                         as_data_frame = TRUE,
-                         # TODO: for consistency with other readers/writers,
-                         # these properties should be enumerated as args here,
-                         # and ParquetArrowReaderProperties$create() should
-                         # accept them, as with ParquetWriterProperties.
-                         # Assembling `props` yourself is something you do with
-                         # ParquetFileReader but not here.
-                         props = ParquetArrowReaderProperties$create(),
-                         mmap = TRUE,
-                         ...) {
+read_parquet <- function(
+  file,
+  col_select = NULL,
+  as_data_frame = TRUE,
+  # TODO: for consistency with other readers/writers,
+  # these properties should be enumerated as args here,
+  # and ParquetArrowReaderProperties$create() should
+  # accept them, as with ParquetWriterProperties.
+  # Assembling `props` yourself is something you do with
+  # ParquetFileReader but not here.
+  props = ParquetArrowReaderProperties$create(),
+  mmap = TRUE,
+  ...
+) {
   if (!inherits(file, "RandomAccessFile")) {
     # Compression is handled inside the parquet file format, so we don't need
     # to detect from the file extension and wrap in a CompressedInputStream
@@ -148,20 +150,22 @@ read_parquet <- function(file,
 #'   write_parquet(data.frame(x = 1:5), tf2, compression = "gzip", compression_level = 5)
 #' }
 #' @export
-write_parquet <- function(x,
-                          sink,
-                          chunk_size = NULL,
-                          # writer properties
-                          version = "2.4",
-                          compression = default_parquet_compression(),
-                          compression_level = NULL,
-                          use_dictionary = NULL,
-                          write_statistics = NULL,
-                          data_page_size = NULL,
-                          # arrow writer properties
-                          use_deprecated_int96_timestamps = FALSE,
-                          coerce_timestamps = NULL,
-                          allow_truncated_timestamps = FALSE) {
+write_parquet <- function(
+  x,
+  sink,
+  chunk_size = NULL,
+  # writer properties
+  version = "2.4",
+  compression = default_parquet_compression(),
+  compression_level = NULL,
+  use_dictionary = NULL,
+  write_statistics = NULL,
+  data_page_size = NULL,
+  # arrow writer properties
+  use_deprecated_int96_timestamps = FALSE,
+  coerce_timestamps = NULL,
+  allow_truncated_timestamps = FALSE
+) {
   x_out <- x
   x <- as_writable_table(x)
 
@@ -211,10 +215,12 @@ default_parquet_compression <- function() {
 }
 
 ParquetArrowWriterProperties <- R6Class("ParquetArrowWriterProperties", inherit = ArrowObject)
-ParquetArrowWriterProperties$create <- function(use_deprecated_int96_timestamps = FALSE,
-                                                coerce_timestamps = NULL,
-                                                allow_truncated_timestamps = FALSE,
-                                                ...) {
+ParquetArrowWriterProperties$create <- function(
+  use_deprecated_int96_timestamps = FALSE,
+  coerce_timestamps = NULL,
+  allow_truncated_timestamps = FALSE,
+  ...
+) {
   if (is.null(coerce_timestamps)) {
     timestamp_unit <- -1L # null sentinel value
   } else {
@@ -247,7 +253,8 @@ make_valid_parquet_version <- function(version, valid_versions = valid_parquet_v
 
   if (!is.string(version)) {
     stop(
-      "`version` must be one of ", oxford_paste(names(valid_versions), "or"),
+      "`version` must be one of ",
+      oxford_paste(names(valid_versions), "or"),
       call. = FALSE
     )
   }
@@ -297,7 +304,8 @@ make_valid_parquet_version <- function(version, valid_versions = valid_parquet_v
 #'
 #' @export
 ParquetWriterProperties <- R6Class("ParquetWriterProperties", inherit = ArrowObject)
-ParquetWriterPropertiesBuilder <- R6Class("ParquetWriterPropertiesBuilder",
+ParquetWriterPropertiesBuilder <- R6Class(
+  "ParquetWriterPropertiesBuilder",
   inherit = ArrowObject,
   public = list(
     set_version = function(version) {
@@ -307,7 +315,8 @@ ParquetWriterPropertiesBuilder <- R6Class("ParquetWriterPropertiesBuilder",
       compression <- compression_from_name(compression)
       assert_that(is.integer(compression))
       private$.set(
-        column_names, compression,
+        column_names,
+        compression,
         parquet___ArrowWriterProperties___Builder__set_compressions
       )
     },
@@ -315,21 +324,24 @@ ParquetWriterPropertiesBuilder <- R6Class("ParquetWriterPropertiesBuilder",
       # cast to integer but keep names
       compression_level <- set_names(as.integer(compression_level), names(compression_level))
       private$.set(
-        column_names, compression_level,
+        column_names,
+        compression_level,
         parquet___ArrowWriterProperties___Builder__set_compression_levels
       )
     },
     set_dictionary = function(column_names, use_dictionary) {
       assert_that(is.logical(use_dictionary))
       private$.set(
-        column_names, use_dictionary,
+        column_names,
+        use_dictionary,
         parquet___ArrowWriterProperties___Builder__set_use_dictionary
       )
     },
     set_write_statistics = function(column_names, write_statistics) {
       assert_that(is.logical(write_statistics))
       private$.set(
-        column_names, write_statistics,
+        column_names,
+        write_statistics,
         parquet___ArrowWriterProperties___Builder__set_write_statistics
       )
     },
@@ -359,14 +371,16 @@ ParquetWriterPropertiesBuilder <- R6Class("ParquetWriterPropertiesBuilder",
   )
 )
 
-ParquetWriterProperties$create <- function(column_names,
-                                           version = NULL,
-                                           compression = default_parquet_compression(),
-                                           compression_level = NULL,
-                                           use_dictionary = NULL,
-                                           write_statistics = NULL,
-                                           data_page_size = NULL,
-                                           ...) {
+ParquetWriterProperties$create <- function(
+  column_names,
+  version = NULL,
+  compression = default_parquet_compression(),
+  compression_level = NULL,
+  use_dictionary = NULL,
+  write_statistics = NULL,
+  data_page_size = NULL,
+  ...
+) {
   builder <- parquet___WriterProperties___Builder__create()
   if (!is.null(version)) {
     builder$set_version(version)
@@ -416,7 +430,8 @@ ParquetWriterProperties$create <- function(column_names,
 #'
 #' @export
 #' @include arrow-object.R
-ParquetFileWriter <- R6Class("ParquetFileWriter",
+ParquetFileWriter <- R6Class(
+  "ParquetFileWriter",
   inherit = ArrowObject,
   public = list(
     WriteTable = function(table, chunk_size) {
@@ -431,10 +446,12 @@ ParquetFileWriter <- R6Class("ParquetFileWriter",
     Close = function() parquet___arrow___FileWriter__Close(self)
   )
 )
-ParquetFileWriter$create <- function(schema,
-                                     sink,
-                                     properties = ParquetWriterProperties$create(),
-                                     arrow_properties = ParquetArrowWriterProperties$create()) {
+ParquetFileWriter$create <- function(
+  schema,
+  sink,
+  properties = ParquetWriterProperties$create(),
+  arrow_properties = ParquetArrowWriterProperties$create()
+) {
   assert_is(sink, "OutputStream")
   parquet___arrow___ParquetFileWriter__Open(schema, sink, properties, arrow_properties)
 }
@@ -489,7 +506,8 @@ ParquetFileWriter$create <- function(schema,
 #'   tab$schema
 #' }
 #' @include arrow-object.R
-ParquetFileReader <- R6Class("ParquetFileReader",
+ParquetFileReader <- R6Class(
+  "ParquetFileReader",
   inherit = ArrowObject,
   active = list(
     num_rows = function() {
@@ -539,11 +557,13 @@ ParquetFileReader <- R6Class("ParquetFileReader",
   )
 )
 
-ParquetFileReader$create <- function(file,
-                                     props = ParquetArrowReaderProperties$create(),
-                                     mmap = TRUE,
-                                     reader_props = ParquetReaderProperties$create(),
-                                     ...) {
+ParquetFileReader$create <- function(
+  file,
+  props = ParquetArrowReaderProperties$create(),
+  mmap = TRUE,
+  reader_props = ParquetReaderProperties$create(),
+  ...
+) {
   file <- make_readable_file(file, mmap)
   assert_is(props, "ParquetArrowReaderProperties")
   assert_is(file, "RandomAccessFile")
@@ -574,7 +594,8 @@ ParquetFileReader$create <- function(file,
 #' - `$use_threads(use_threads)`
 #'
 #' @export
-ParquetArrowReaderProperties <- R6Class("ParquetArrowReaderProperties",
+ParquetArrowReaderProperties <- R6Class(
+  "ParquetArrowReaderProperties",
   inherit = ArrowObject,
   public = list(
     read_dictionary = function(column_index) {
@@ -605,9 +626,12 @@ ParquetArrowReaderProperties$create <- function(use_threads = option_use_threads
   parquet___arrow___ArrowReaderProperties__Make(isTRUE(use_threads))
 }
 
-calculate_chunk_size <- function(rows, columns,
-                                 target_cells_per_group = getOption("arrow.parquet_cells_per_group", 2.5e8),
-                                 max_chunks = getOption("arrow.parquet_max_chunks", 200)) {
+calculate_chunk_size <- function(
+  rows,
+  columns,
+  target_cells_per_group = getOption("arrow.parquet_cells_per_group", 2.5e8),
+  max_chunks = getOption("arrow.parquet_max_chunks", 200)
+) {
   # Ensure is a float to prevent integer overflow issues
   num_cells <- as.numeric(rows) * as.numeric(columns)
 
@@ -650,7 +674,8 @@ calculate_chunk_size <- function(rows, columns,
 #' - `$set_thrift_container_size_limit()`
 #'
 #' @export
-ParquetReaderProperties <- R6Class("ParquetReaderProperties",
+ParquetReaderProperties <- R6Class(
+  "ParquetReaderProperties",
   inherit = ArrowObject,
   public = list(
     thrift_string_size_limit = function() {
