@@ -2294,7 +2294,8 @@ if(ARROW_MIMALLOC)
       -DMI_LOCAL_DYNAMIC_TLS=ON
       -DMI_BUILD_OBJECT=OFF
       -DMI_BUILD_SHARED=OFF
-      -DMI_BUILD_TESTS=OFF)
+      -DMI_BUILD_TESTS=OFF
+      -DMI_NO_OPT_ARCH=ON)
 
   externalproject_add(mimalloc_ep
                       ${EP_COMMON_OPTIONS}
