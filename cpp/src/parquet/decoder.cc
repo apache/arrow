@@ -178,6 +178,9 @@ struct ArrowBinaryHelper<ByteArrayType, ArrowBinaryType> {
 
   Status AppendValue(const uint8_t* data, int32_t length,
                      std::optional<int64_t> estimated_remaining_data_length = {}) {
+    if (ARROW_PREDICT_FALSE(data == nullptr)) {
+      return Status::Invalid("data is nullptr");
+    }
     if (!kIsBinaryView && estimated_remaining_data_length.has_value()) {
       // Assume Prepare() was already called with an estimated_data_length
       builder_->UnsafeAppend(data, length);
@@ -207,6 +210,9 @@ struct ArrowBinaryHelper<FLBAType, ::arrow::FixedSizeBinaryType> {
 
   Status AppendValue(const uint8_t* data, int32_t length,
                      std::optional<int64_t> estimated_remaining_data_length = {}) {
+    if (ARROW_PREDICT_FALSE(data == nullptr)) {
+      return Status::Invalid("data is nullptr");
+    }
     acc_->UnsafeAppend(data);
     return Status::OK();
   }
