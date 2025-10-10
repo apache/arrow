@@ -38,7 +38,7 @@ else()
   set(IO_UTIL_TEST_SOURCES io_util_test.cc)
 endif()
 
-set(ARROW_UTILITY_TEST_LINK_LIBS Boost::headers)
+set(ARROW_UTILITY_TEST_LINK_LIBS Boost::headers arrow::xxhash)
 if(ARROW_USE_XSIMD)
   list(APPEND ARROW_UTILITY_TEST_LINK_LIBS ${ARROW_XSIMD})
 endif()
