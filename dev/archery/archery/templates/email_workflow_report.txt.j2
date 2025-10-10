@@ -20,7 +20,7 @@
 {%- endif -%}
 From: {{ sender_name }} <{{ sender_email }}>
 To: {{ recipient_email }}
-Subject: [NIGHTLY] Arrow Build Report for {{ report.name }}: {{ report.failed_jobs() | length }} failed
+Subject: [{{ report.datetime.strftime('%Y-%m-%d') }}] Arrow Build Report for {{ report.name }}: {{ report.failed_jobs() | length }} failed
 
 Arrow Build Report for {{ report.name }}
 

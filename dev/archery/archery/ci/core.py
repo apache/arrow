@@ -15,6 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
+from datetime import datetime
 from functools import cached_property
 
 import requests
@@ -42,6 +43,12 @@ class Workflow:
             # TODO: We could send an error report instead
             raise Exception(
                 f'Failed to fetch workflow data: {workflow_resp.status_code}')
+
+    @property
+    def datetime(self):
+        return datetime.strptime(
+            self.workflow_data.get('created_at'), "%Y-%m-%dT%H:%M:%SZ"
+        )
 
     @property
     def conclusion(self):
