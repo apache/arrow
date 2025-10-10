@@ -321,7 +321,6 @@ jobs:
       BOOST_SOURCE: BUNDLED
       CMAKE_CXX_STANDARD: "17"
       CMAKE_GENERATOR: Ninja
-      CMAKE_INSTALL_LIBDIR: bin
       CMAKE_INSTALL_PREFIX: /usr
       CMAKE_UNITY_BUILD: ON
     steps:
@@ -369,11 +368,12 @@ jobs:
           call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
           bash -c "ci/scripts/cpp_build.sh $(pwd) $(pwd)/build"
       - name: Test
-        shell: bash
+        shell: cmd
         run: |
+          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
           # For ORC
-          export TZDIR=/c/msys64/usr/share/zoneinfo
-          ci/scripts/cpp_test.sh $(pwd) $(pwd)/build
+          set TZDIR=C:\msys64\usr\share\zoneinfo
+          bash -c "ci/scripts/cpp_test.sh $(pwd) $(pwd)/build"
 
   windows-mingw:
     name: AMD64 Windows MinGW ${{ matrix.msystem_upper }} C++
