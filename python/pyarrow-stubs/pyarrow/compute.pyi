@@ -749,7 +749,10 @@ def binary_length(
     /,
     *,
     memory_pool: lib.MemoryPool | None = None,
-) -> lib.Int32Scalar | lib.Int64Scalar | lib.Int32Array | lib.Int64Array | Expression: ...
+) -> (
+    lib.Int32Scalar | lib.Int64Scalar | lib.Int32Array | lib.Int64Array
+    | Expression
+): ...
 
 
 def binary_repeat(
@@ -1621,10 +1624,20 @@ def struct_field(
 ): ...
 
 
-def fill_null_backward(values: _ScalarOrArrayT | ScalarLike | Expression, /, *, memory_pool: lib.MemoryPool | None = None) -> _ScalarOrArrayT | ScalarLike | Expression: ...
+def fill_null_backward(
+    values: _ScalarOrArrayT | ScalarLike | Expression,
+    /,
+    *,
+    memory_pool: lib.MemoryPool | None = None,
+) -> _ScalarOrArrayT | ScalarLike | Expression: ...
 
 
-def fill_null_forward(values: _ScalarOrArrayT | ScalarLike | Expression, /, *, memory_pool: lib.MemoryPool | None = None) -> _ScalarOrArrayT | ScalarLike | Expression: ...
+def fill_null_forward(
+    values: _ScalarOrArrayT | ScalarLike | Expression,
+    /,
+    *,
+    memory_pool: lib.MemoryPool | None = None,
+) -> _ScalarOrArrayT | ScalarLike | Expression: ...
 
 
 def replace_with_mask(
