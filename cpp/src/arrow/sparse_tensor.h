@@ -508,6 +508,10 @@ class ARROW_EXPORT SparseTensor {
     return ToTensor(default_memory_pool());
   }
 
+  /// \brief Check whether the sparse tensor is valid and is the
+  /// correct compressed form of the given tensor.
+  Status Validate(const Tensor& tensor) const;
+
  protected:
   // Constructor with all attributes
   SparseTensor(const std::shared_ptr<DataType>& type, const std::shared_ptr<Buffer>& data,
@@ -588,6 +592,8 @@ class SparseTensorImpl : public SparseTensor {
     ARROW_RETURN_NOT_OK(internal::MakeSparseTensorFromTensor(
         tensor, SparseIndexType::format_id, index_value_type, pool, &sparse_index,
         &data));
+    // TODO CHECK SparseTensorCreation.
+
     return std::make_shared<SparseTensorImpl<SparseIndexType>>(
         internal::checked_pointer_cast<SparseIndexType>(sparse_index), tensor.type(),
         data, tensor.shape(), tensor.dim_names_);

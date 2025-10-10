@@ -19,15 +19,18 @@
 #include "arrow/tensor/converter_internal.h"
 
 #include <algorithm>
+#include <cmath>
 #include <functional>
 #include <memory>
 #include <numeric>
+#include <utility>
 
 #include "arrow/compare.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging_internal.h"
 #include "arrow/visit_type_inline.h"
+#include "util/sparse_tensor_util.h"
 
 namespace arrow {
 
@@ -337,25 +340,68 @@ void CheckSparseCSXIndexValidity(const std::shared_ptr<DataType>& indptr_type,
 
 namespace {
 
-inline Status CheckSparseCSFIndexValidity(const std::shared_ptr<DataType>& indptr_type,
-                                          const std::shared_ptr<DataType>& indices_type,
-                                          const int64_t num_indptrs,
-                                          const int64_t num_indices,
-                                          const int64_t axis_order_size) {
+inline Status CheckSparseCSFIndexValidity(
+    const std::vector<std::shared_ptr<Tensor>>& indptr,
+    const std::vector<std::shared_ptr<Tensor>>& indices,
+    const std::vector<int64_t>& axis_order) {
+  auto indptr_type = indptr.front()->type();
+  auto indices_type = indices.front()->type();
+
   if (!is_integer(indptr_type->id())) {
     return Status::TypeError("Type of SparseCSFIndex indptr must be integer");
   }
   if (!is_integer(indices_type->id())) {
     return Status::TypeError("Type of SparseCSFIndex indices must be integer");
   }
-  if (num_indptrs + 1 != num_indices) {
+  if (indptr.size() + 1 != indices.size()) {
     return Status::Invalid(
         "Length of indices must be equal to length of indptrs + 1 for SparseCSFIndex.");
   }
-  if (axis_order_size != num_indices) {
+  if (axis_order.size() != indices.size()) {
     return Status::Invalid(
         "Length of indices must be equal to number of dimensions for SparseCSFIndex.");
   }
+
+  for (int64_t i = 1; i < static_cast<int64_t>(indptr.size()); i++) {
+    if (!indptr_type->Equals(indptr[i]->type())) {
+      return Status::Invalid("All index pointers must have the same data type");
+    }
+  }
+
+  for (int64_t i = 1; i < static_cast<int64_t>(indices.size()); i++) {
+    if (!indices_type->Equals(indices[i]->type())) {
+      return Status::Invalid("All indices must have the same data type");
+    }
+  }
+
+  for (const auto& tensor : indptr) {
+    RETURN_NOT_OK(internal::CheckSparseIndexMaximumValue(indptr_type, tensor->shape()));
+  }
+
+  for (const auto& tensor : indices) {
+    RETURN_NOT_OK(internal::CheckSparseIndexMaximumValue(indices_type, tensor->shape()));
+  }
+
+  for (const auto& tensor : indptr) {
+    if (tensor->shape().size() != 1) {
+      return Status::Invalid("Each index pointer tensor must be 1-dimensional");
+    }
+  }
+
+  for (const auto& tensor : indices) {
+    if (tensor->shape().size() != 1) {
+      return Status::Invalid("Each index tensor must be 1-dimensional");
+    }
+  }
+
+  for (int64_t i = 1; i < static_cast<int64_t>(indptr.size()); i++) {
+    if (indptr[i]->size() != indices[i]->size() + 1) {
+      return Status::Invalid(
+          "Index pointer at dimension ", i, " must have size equal to indices[", i,
+          "] size plus one (got ", indptr[i]->size(), " and ", indices[i]->size(), ")");
+    }
+  }
+
   return Status::OK();
 }
 
@@ -368,6 +414,20 @@ Result<std::shared_ptr<SparseCSFIndex>> SparseCSFIndex::Make(
     const std::vector<std::shared_ptr<Buffer>>& indptr_data,
     const std::vector<std::shared_ptr<Buffer>>& indices_data) {
   int64_t ndim = axis_order.size();
+
+  if (axis_order.size() != indices_shapes.size()) {
+    return Status::Invalid("Mismatched axis_order size and indices_shapes size");
+  }
+
+  if (indices_shapes.size() != indices_data.size()) {
+    return Status::Invalid("Mismatched indices_shapes size and indices_data size");
+  }
+
+  if (indices_shapes.size() != indptr_data.size() + 1) {
+    return Status::Invalid(
+        "indices_shapes size must be one greater than indptr_data size");
+  }
+
   std::vector<std::shared_ptr<Tensor>> indptr(ndim - 1);
   std::vector<std::shared_ptr<Tensor>> indices(ndim);
 
@@ -378,17 +438,7 @@ Result<std::shared_ptr<SparseCSFIndex>> SparseCSFIndex::Make(
     indices[i] = std::make_shared<Tensor>(indices_type, indices_data[i],
                                           std::vector<int64_t>({indices_shapes[i]}));
 
-  RETURN_NOT_OK(CheckSparseCSFIndexValidity(indptr_type, indices_type, indptr.size(),
-                                            indices.size(), axis_order.size()));
-
-  for (auto tensor : indptr) {
-    RETURN_NOT_OK(internal::CheckSparseIndexMaximumValue(indptr_type, tensor->shape()));
-  }
-
-  for (auto tensor : indices) {
-    RETURN_NOT_OK(internal::CheckSparseIndexMaximumValue(indices_type, tensor->shape()));
-  }
-
+  RETURN_NOT_OK(CheckSparseCSFIndexValidity(indptr, indices, axis_order));
   return std::make_shared<SparseCSFIndex>(indptr, indices, axis_order);
 }
 
@@ -397,9 +447,7 @@ SparseCSFIndex::SparseCSFIndex(const std::vector<std::shared_ptr<Tensor>>& indpt
                                const std::vector<std::shared_ptr<Tensor>>& indices,
                                const std::vector<int64_t>& axis_order)
     : SparseIndexBase(), indptr_(indptr), indices_(indices), axis_order_(axis_order) {
-  ARROW_CHECK_OK(CheckSparseCSFIndexValidity(indptr_.front()->type(),
-                                             indices_.front()->type(), indptr_.size(),
-                                             indices_.size(), axis_order_.size()));
+  ARROW_CHECK_OK(CheckSparseCSFIndexValidity(indptr, indices, axis_order));
 }
 
 std::string SparseCSFIndex::ToString() const { return std::string("SparseCSFIndex"); }
@@ -472,6 +520,294 @@ Result<std::shared_ptr<Tensor>> SparseTensor::ToTensor(MemoryPool* pool) const {
 
     default:
       return Status::NotImplemented("Unsupported SparseIndex format type");
+  }
+}
+
+namespace {
+
+struct SparseTensorValidatorBase {
+  SparseTensorValidatorBase(const Tensor& tensor, const SparseTensor& sparse_tensor)
+      : tensor(tensor), sparse_tensor(sparse_tensor) {}
+
+  template <typename ValueType>
+  Status ValidateValue(typename ValueType::c_type sparse_tensor_value,
+                       typename ValueType::c_type tensor_value) {
+    if (!internal::is_not_zero<ValueType>(sparse_tensor_value)) {
+      return Status::Invalid("Sparse tensor values must be non-zero");
+    } else if (sparse_tensor_value != tensor_value) {
+      if constexpr (is_floating_type<ValueType>::value) {
+        if (!std::isnan(tensor_value) || !std::isnan(sparse_tensor_value)) {
+          return Status::Invalid(
+              "Inconsistent values between sparse tensor and dense tensor");
+        }
+      } else {
+        return Status::Invalid(
+            "Inconsistent values between sparse tensor and dense tensor");
+      }
+    }
+    return Status::OK();
+  }
+
+  const Tensor& tensor;
+  const SparseTensor& sparse_tensor;
+};
+
+struct SparseCOOValidator : public SparseTensorValidatorBase {
+  using SparseTensorValidatorBase::SparseTensorValidatorBase;
+
+  Status Validate() {
+    auto sparse_coo_index =
+        internal::checked_pointer_cast<SparseCOOIndex>(sparse_tensor.sparse_index());
+    auto indices = sparse_coo_index->indices();
+    RETURN_NOT_OK(CheckSparseCOOIndexValidity(indices->type(), indices->shape(),
+                                              indices->strides()));
+    // Validate Values
+    return util::VisitCOOTensorType(*sparse_tensor.type(), *indices->type(), *this);
+  }
+
+  template <typename ValueType, typename IndexType>
+  Status operator()(const ValueType& value_type, const IndexType& index_type) {
+    return ValidateSparseCooTensorValues(value_type, index_type);
+  }
+
+  template <typename ValueType, typename IndexType>
+  Status ValidateSparseCooTensorValues(const ValueType&, const IndexType&) {
+    using IndexCType = typename IndexType::c_type;
+    using ValueCType = typename ValueType::c_type;
+
+    auto sparse_coo_index =
+        internal::checked_pointer_cast<SparseCOOIndex>(sparse_tensor.sparse_index());
+    auto sparse_coo_values_buffer = sparse_tensor.data();
+
+    const auto& indices = sparse_coo_index->indices();
+    const auto* indices_data = sparse_coo_index->indices()->data()->data_as<IndexCType>();
+    const auto* sparse_coo_values = sparse_coo_values_buffer->data_as<ValueCType>();
+
+    ARROW_ASSIGN_OR_RAISE(auto non_zero_count, tensor.CountNonZero());
+
+    if (indices->shape()[0] != non_zero_count) {
+      return Status::Invalid("Mismatch between non-zero count in sparse tensor (",
+                             indices->shape()[0], ") and dense tensor (", non_zero_count,
+                             ")");
+    } else if (indices->shape()[1] != static_cast<int64_t>(tensor.shape().size())) {
+      return Status::Invalid("Mismatch between coordinate dimension in sparse tensor (",
+                             indices->shape()[1], ") and tensor shape (",
+                             tensor.shape().size(), ")");
+    }
+
+    auto coord_size = indices->shape()[1];
+    std::vector<int64_t> coord(coord_size);
+    for (int64_t i = 0; i < indices->shape()[0]; i++) {
+      for (int64_t j = 0; j < coord_size; j++) {
+        coord[j] = static_cast<int64_t>(indices_data[i * coord_size + j]);
+      }
+      ARROW_RETURN_NOT_OK(
+          ValidateValue<ValueType>(sparse_coo_values[i], tensor.Value<ValueType>(coord)));
+    }
+
+    return Status::OK();
+  }
+};
+
+template <typename SparseCSXIndex>
+struct SparseCSXValidator : public SparseTensorValidatorBase {
+  SparseCSXValidator(const Tensor& tensor, const SparseTensor& sparse_tensor)
+      : SparseTensorValidatorBase(tensor, sparse_tensor) {
+    sparse_csx_index =
+        internal::checked_pointer_cast<SparseCSXIndex>(sparse_tensor.sparse_index());
+  }
+
+  Status Validate() {
+    auto indptr = sparse_csx_index->indptr();
+    auto indices = sparse_csx_index->indices();
+    ARROW_RETURN_NOT_OK(
+        internal::ValidateSparseCSXIndex(indptr->type(), indices->type(), indptr->shape(),
+                                         indices->shape(), sparse_csx_index->kTypeName));
+    return util::VisitCSXType(*sparse_tensor.type(), *indices->type(), *indptr->type(),
+                              *this);
+  }
+
+  template <typename ValueType, typename IndexType, typename IndexPointerType>
+  Status operator()(const ValueType& value_type, const IndexType& index_type,
+                    const IndexPointerType& index_pointer_type) {
+    return ValidateSparseCSXTensorValues(value_type, index_type, index_pointer_type);
+  }
+
+  template <typename ValueType, typename IndexType, typename IndexPointerType>
+  Status ValidateSparseCSXTensorValues(const ValueType&, const IndexType&,
+                                       const IndexPointerType&) {
+    using ValueCType = typename ValueType::c_type;
+    using IndexCType = typename IndexType::c_type;
+    using IndexPointerCType = typename IndexPointerType::c_type;
+    auto axis = sparse_csx_index->kCompressedAxis;
+
+    auto& indptr = sparse_csx_index->indptr();
+    auto& indices = sparse_csx_index->indices();
+    auto indptr_data = indptr->data()->template data_as<IndexPointerCType>();
+    auto indices_data = indices->data()->template data_as<IndexCType>();
+    auto sparse_csx_values = sparse_tensor.data()->template data_as<ValueCType>();
+
+    ARROW_ASSIGN_OR_RAISE(auto non_zero_count, tensor.CountNonZero());
+    if (indices->shape()[0] != non_zero_count) {
+      return Status::Invalid("Mismatch between non-zero count in sparse tensor (",
+                             indices->shape()[0], ") and dense tensor (", non_zero_count,
+                             ")");
+    }
+
+    for (int64_t i = 0; i < indptr->size() - 1; ++i) {
+      const auto start = static_cast<int64_t>(indptr_data[i]);
+      const auto stop = static_cast<int64_t>(indptr_data[i + 1]);
+      std::vector<int64_t> coord(2);
+      for (int64_t j = start; j < stop; ++j) {
+        switch (axis) {
+          case internal::SparseMatrixCompressedAxis::ROW:
+            coord[0] = i;
+            coord[1] = static_cast<int64_t>(indices_data[j]);
+            break;
+          case internal::SparseMatrixCompressedAxis::COLUMN:
+            coord[0] = static_cast<int64_t>(indices_data[j]);
+            coord[1] = i;
+            break;
+        }
+        ARROW_RETURN_NOT_OK(ValidateValue<ValueType>(sparse_csx_values[j],
+                                                     tensor.Value<ValueType>(coord)));
+      }
+    }
+    return Status::OK();
+  }
+
+  std::shared_ptr<SparseCSXIndex> sparse_csx_index;
+};
+
+struct SparseCSFValidator : public SparseTensorValidatorBase {
+  SparseCSFValidator(const Tensor& tensor, const SparseTensor& sparse_tensor)
+      : SparseTensorValidatorBase(tensor, sparse_tensor) {
+    sparse_csf_index =
+        internal::checked_pointer_cast<SparseCSFIndex>(sparse_tensor.sparse_index());
+  }
+
+  Status Validate() {
+    const auto& indptr = sparse_csf_index->indptr();
+    const auto& indices = sparse_csf_index->indices();
+    const auto& axis_order = sparse_csf_index->axis_order();
+
+    RETURN_NOT_OK(CheckSparseCSFIndexValidity(indptr, indices, axis_order));
+    return util::VisitCSXType(*sparse_tensor.type(), *indices.front()->type(),
+                              *indptr.front()->type(), *this);
+  }
+
+  template <typename ValueType, typename IndexType, typename IndexPointerType>
+  Status operator()(const ValueType& value_type, const IndexType& index_type,
+                    const IndexPointerType& index_pointer_type) {
+    return ValidateSparseTensorCSFValues(value_type, index_type, index_pointer_type);
+  }
+
+  template <typename ValueType, typename IndexType, typename IndexPointerType>
+  Status ValidateSparseTensorCSFValues(const ValueType&, const IndexType&,
+                                       const IndexPointerType&) {
+    const auto& indices = sparse_csf_index->indices();
+
+    ARROW_ASSIGN_OR_RAISE(auto non_zero_count, tensor.CountNonZero());
+    if (indices.back()->size() != non_zero_count) {
+      return Status::Invalid("Mismatch between non-zero count in sparse tensor (",
+                             indices.back()->size(), ") and dense tensor (",
+                             non_zero_count, ")");
+    } else if (indices.size() != tensor.shape().size()) {
+      return Status::Invalid("Mismatch between coordinate dimension in sparse tensor (",
+                             indices.size(), ") and tensor shape (",
+                             tensor.shape().size(), ")");
+    } else {
+      return CheckValues<ValueType, IndexType, IndexPointerType>(
+          0, 0, 0, sparse_csf_index->indptr()[0]->size() - 1);
+    }
+  }
+
+  template <typename ValueType, typename IndexType, typename IndexPointerType>
+  Status CheckValues(const int64_t dim, const int64_t dim_offset, const int64_t start,
+                     const int64_t stop) {
+    using ValueCType = typename ValueType::c_type;
+    using IndexCType = typename IndexType::c_type;
+    using IndexPointerCType = typename IndexPointerType::c_type;
+
+    const auto& indices = sparse_csf_index->indices();
+    const auto& indptr = sparse_csf_index->indptr();
+    const auto& axis_order = sparse_csf_index->axis_order();
+    const auto* values = sparse_tensor.data()->data_as<ValueCType>();
+    auto ndim = indices.size();
+    auto strides = tensor.strides();
+
+    const auto& cur_indices = indices[dim];
+    const auto* indices_data = cur_indices->data()->data_as<IndexCType>() + start;
+
+    if (dim == static_cast<int64_t>(ndim) - 1) {
+      for (auto i = start; i < stop; ++i) {
+        auto index = static_cast<int64_t>(*indices_data);
+        const int64_t offset = dim_offset + index * strides[axis_order[dim]];
+
+        auto sparse_value = values[i];
+        auto tensor_value =
+            *reinterpret_cast<const ValueCType*>(tensor.raw_data() + offset);
+        ARROW_RETURN_NOT_OK(ValidateValue<ValueType>(sparse_value, tensor_value));
+        ++indices_data;
+      }
+    } else {
+      const auto& cur_indptr = indptr[dim];
+      const auto* indptr_data = cur_indptr->data()->data_as<IndexPointerCType>() + start;
+
+      for (int64_t i = start; i < stop; ++i) {
+        const int64_t index = *indices_data;
+        int64_t offset = dim_offset + index * strides[axis_order[dim]];
+        auto next_start = static_cast<int64_t>(*indptr_data);
+        auto next_stop = static_cast<int64_t>(*(indptr_data + 1));
+
+        ARROW_RETURN_NOT_OK((CheckValues<ValueType, IndexType, IndexPointerType>(
+            dim + 1, offset, next_start, next_stop)));
+
+        ++indices_data;
+        ++indptr_data;
+      }
+    }
+    return Status::OK();
+  }
+
+  std::shared_ptr<SparseCSFIndex> sparse_csf_index;
+};
+
+}  // namespace
+
+Status SparseTensor::Validate(const Tensor& tensor) const {
+  if (!is_tensor_supported(type_->id())) {
+    return Status::NotImplemented("SparseTensor values only support numeric types");
+  } else if (!tensor.type()->Equals(type_)) {
+    return Status::Invalid("SparseTensor value types do not match");
+  } else if (tensor.shape() != shape_) {
+    return Status::Invalid("SparseTensor shape do not match");
+  } else if (tensor.dim_names() != dim_names_) {
+    return Status::Invalid("SparseTensor dim_names do not match");
+  }
+
+  switch (format_id()) {
+    case SparseTensorFormat::COO: {
+      SparseCOOValidator validator(tensor, *this);
+      return validator.Validate();
+    }
+
+    case SparseTensorFormat::CSR: {
+      SparseCSXValidator<SparseCSRIndex> validator(tensor, *this);
+      return validator.Validate();
+    }
+
+    case SparseTensorFormat::CSC: {
+      SparseCSXValidator<SparseCSCIndex> validator(tensor, *this);
+      return validator.Validate();
+    }
+
+    case SparseTensorFormat::CSF: {
+      SparseCSFValidator validator(tensor, *this);
+      return validator.Validate();
+    }
+    default:
+      return Status::Invalid("Invalid sparse tensor format");
   }
 }
 
