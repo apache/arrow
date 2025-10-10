@@ -73,6 +73,7 @@ struct IndexPointerVisitor {
                              ". Expected integer.");
   }
 };
+
 }  // namespace detail
 
 template <typename Function>
