@@ -166,7 +166,7 @@ jobs:
 
   jni-linux:
     needs: check-labels
-    name: JNI ${{ matrix.platform.runs-on }} ${{ matrix.platform.archery-arch }}
+    name: JNI ${{ matrix.platform.runs-on }} ${{ matrix.platform.arch }}
     runs-on: ${{ matrix.platform.runs-on }}
     if: >-
       needs.check-labels.outputs.force == 'true' ||
@@ -180,15 +180,19 @@ jobs:
       fail-fast: false
       matrix:
         platform:
-          - archery-arch: "amd64"
+          - arch: "amd64"
+            arch-alias: "x86_64"
+            arch-short: "amd64"
             runs-on: ubuntu-latest
-            vcpkg-arch: "amd64"
-          - archery-arch: "arm64v8"
+          - arch: "aarch64v8"
+            arch-alias: "aarch64"
+            arch-short: "arm64"
             runs-on: ubuntu-24.04-arm
-            vcpkg-arch: "arm64"
     env:
-      ARCH: ${{ matrix.platform.archery-arch }}
-      VCPKG_ARCH: ${{ matrix.platform.vcpkg-arch }}
+      ARCH: ${{ matrix.platform.arch }}
+      ARCH_ALIAS: ${{ matrix.platform.arch-alias }}
+      ARCH_SHORT: ${{ matrix.platform.arch-short }}
+      REPO: ghcr.io/${{ github.repository }}-dev
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
@@ -209,21 +213,13 @@ jobs:
         run: python3 -m pip install -e dev/archery[docker]
       - name: Execute Docker Build
         env:
-          ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
-          ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
+          ARCHERY_DOCKER_USER: ${{ github.actor }}
+          ARCHERY_DOCKER_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VCPKG_BINARY_SOURCES: "clear;nuget,GitHub,readwrite"
         run: |
           source ci/scripts/util_enable_core_dumps.sh
-          archery docker run \
-            -e ARROW_BUILD_TESTS=ON \
-            -e ARROW_CMAKE_ARGS="-DARROW_BUILD_TESTS=ON" \
-            -e CMAKE_PRESET=ninja-release-jni-linux \
-            -e VCPKG_ROOT=/opt/vcpkg \
-            -e VCPKG_TARGET_TRIPLET=${VCPKG_ARCH}-linux-static-release \
-            python-wheel-manylinux-2-28 \
-              '/arrow/ci/scripts/cpp_build.sh /arrow /build && \
-               /arrow/ci/scripts/cpp_test.sh /arrow /build'
+          archery docker run cpp-jni
 
   jni-macos:
     needs: check-labels

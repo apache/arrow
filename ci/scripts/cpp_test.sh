@@ -120,6 +120,13 @@ else
     "$@"
 fi
 
+# This is for testing find_package(Arrow).
+#
+# Note that this is not a perfect solution. We should improve this
+# later.
+#
+# * This is ad-hoc
+# * This doesn't test other CMake packages such as ArrowDataset
 if [ "${ARROW_USE_MESON:-OFF}" = "OFF" ] && \
      [ "${ARROW_EMSCRIPTEN:-OFF}" = "OFF" ] && \
      [ "${ARROW_USE_ASAN:-OFF}" = "OFF" ]; then
@@ -133,8 +140,8 @@ if [ "${ARROW_USE_MESON:-OFF}" = "OFF" ] && \
       CMAKE_PREFIX_PATH+="/lib/cmake/"
       ;;
   esac
-  if [ -n "${VCPKG_ROOT}" ] && [ -n "${VCPKG_TARGET_TRIPLET}" ]; then
-    CMAKE_PREFIX_PATH+=";${VCPKG_ROOT}/installed/${VCPKG_TARGET_TRIPLET}"
+  if [ -n "${VCPKG_ROOT}" ] && [ -n "${VCPKG_DEFAULT_TRIPLET}" ]; then
+    CMAKE_PREFIX_PATH+=";${VCPKG_ROOT}/installed/${VCPKG_DEFAULT_TRIPLET}"
   fi
   cmake \
     -S "${source_dir}/examples/minimal_build" \

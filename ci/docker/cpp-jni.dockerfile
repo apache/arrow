@@ -20,13 +20,20 @@ FROM ${base}
 
 ARG arch
 ARG arch_short
-ARG manylinux
 
-ENV LINUX_WHEEL_KIND='manylinux'
-ENV LINUX_WHEEL_VERSION=${manylinux}
+SHELL ["/bin/bash", "-i", "-c"]
+ENTRYPOINT ["/bin/bash", "-i", "-c"]
 
 # Install basic dependencies
-RUN dnf install -y git flex curl autoconf zip perl-IPC-Cmd wget
+RUN dnf install -y \
+    autoconf \
+    curl \
+    flex \
+    gdb \
+    git \
+    perl-IPC-Cmd \
+    wget \
+    zip
 
 # A system Python is required for Ninja and vcpkg in this Dockerfile.
 # On manylinux_2_28 base images, no system Python is installed.
@@ -89,7 +96,9 @@ RUN --mount=type=secret,id=github_repository_owner \
         --x-install-root=${VCPKG_ROOT}/installed \
         --x-manifest-root=/arrow/ci/vcpkg \
         --x-feature=azure \
+        --x-feature=dev \
         --x-feature=flight \
+        --x-feature=gandiva \
         --x-feature=gcs \
         --x-feature=json \
         --x-feature=orc \
@@ -97,26 +106,6 @@ RUN --mount=type=secret,id=github_repository_owner \
         --x-feature=s3 && \
       rm -rf ~/.config/NuGet/
 
-# Make sure auditwheel is up-to-date
-# Force upgrade version to 6.4.0 or later to ensure platform tags order is correct
-# See https://github.com/apache/arrow/pull/46705
-RUN pipx upgrade auditwheel>=6.4.0
-
-# Configure Python for applications running in the bash shell of this Dockerfile
-ARG python=3.10
-ARG python_abi_tag=cp310
-ENV PYTHON_VERSION=${python}
-ENV PYTHON_ABI_TAG=${python_abi_tag}
-RUN PYTHON_ROOT=$(find /opt/python -name cp${PYTHON_VERSION/./}-${PYTHON_ABI_TAG}) && \
-    echo "export PATH=$PYTHON_ROOT/bin:\$PATH" >> /etc/profile.d/python.sh
-
-SHELL ["/bin/bash", "-i", "-c"]
-ENTRYPOINT ["/bin/bash", "-i", "-c"]
-
-# Remove once there are released Cython wheels for 3.13 free-threaded available
-RUN if [ "${python_abi_tag}" = "cp313t" ]; then \
-      pip install cython --pre --extra-index-url "https://pypi.anaconda.org/scientific-python-nightly-wheels/simple" --prefer-binary ; \
-    fi
-
-COPY python/requirements-wheel-build.txt /arrow/python/
-RUN pip install -r /arrow/python/requirements-wheel-build.txt
+ENV ARROW_BUILD_TESTS=ON \
+    ARROW_CMAKE_ARGS="-DARROW_BUILD_TESTS=ON" \
+    CMAKE_PRESET=ninja-${CMAKE_BUILD_TYPE}-jni-linux
