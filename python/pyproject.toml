@@ -96,26 +96,12 @@ fallback_version = '23.0.0a0'
 
 [tool.mypy]
 files = ["pyarrow"]
-exclude = 'pyarrow/interchange/.*|pyarrow/tests/.*|pyarrow/vendored/.*'
+exclude = 'pyarrow/interchange/.*|pyarrow/vendored/.*'
 mypy_path = "$MYPY_CONFIG_FILE_DIR/pyarrow-stubs"
-
-[[tool.mypy.overrides]]
-module = [
-    "pyarrow._generated_version",
-    "pyarrow._pyarrow_cpp_tests",
-    "pyarrow._acero",
-    "sphinx.ext.autodoc",
-    "pandas.core.internals",
-    "pandas.api.internals",
-    "fastparquet",
-    "cython",
-    "fsspec",
-]
-ignore_missing_imports = true
 
 [tool.pyright]
 include = ["pyarrow"]
-exclude = ["pyarrow/tests", "pyarrow/vendored", "pyarrow/interchange"]
+exclude = ["pyarrow/vendored", "pyarrow/interchange"]
 stubPath = "pyarrow-stubs"
 reportAttributeAccessIssue = "none"
 reportMissingImports = "none"
