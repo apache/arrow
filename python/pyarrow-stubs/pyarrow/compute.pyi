@@ -1092,7 +1092,9 @@ def coalesce(
 ) -> _ScalarOrArrayT: ...
 
 
-fill_null = coalesce
+def fill_null(
+    values: _ScalarOrArrayT | ScalarLike, fill_value: ArrayLike | ScalarLike
+) -> _ScalarOrArrayT | ScalarLike: ...
 
 
 def if_else(
