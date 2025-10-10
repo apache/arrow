@@ -40,6 +40,10 @@
         "boost-crc",
         "boost-filesystem",
         "boost-process",
+        {
+          "name": "gdb",
+          "platform": "!windows"
+        },
         "gtest"
       ]
     },
