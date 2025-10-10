@@ -28,7 +28,7 @@ from pyarrow.lib import ArrowInvalid, ArrowNotImplementedError
 try:
     import pyarrow.substrait as substrait
 except ImportError:
-    substrait = None
+    substrait = None  # type: ignore[assignment]
 
 # Marks all of the tests in this module
 # Ignore these with pytest ... -m 'not substrait'
@@ -929,8 +929,8 @@ def test_hash_aggregate_udf_basic(varargs_agg_func_fixture):
 
 
 @pytest.mark.parametrize("expr", [
-    pc.equal(pc.field("x"), 7),
-    pc.equal(pc.field("x"), pc.field("y")),
+    pc.equal(pc.field("x"), 7),  # type: ignore[attr-defined]
+    pc.equal(pc.field("x"), pc.field("y")),  # type: ignore[attr-defined]
     pc.field("x") > 50
 ])
 def test_serializing_expressions(expr):

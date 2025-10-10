@@ -24,7 +24,7 @@ import sys
 try:
     import numpy as np
 except ImportError:
-    np = None
+    np = None  # type: ignore[assignment]
 import pytest
 import unittest.mock as mock
 
@@ -40,7 +40,7 @@ try:
     from pyarrow.tests.parquet.common import (
         _read_table, _test_dataframe, _test_table, _write_table)
 except ImportError:
-    pq = None
+    pq = None  # type: ignore[assignment]
 
 
 try:
@@ -48,7 +48,7 @@ try:
     import pandas.testing as tm
 
 except ImportError:
-    pd = tm = None
+    pd = tm = None  # type: ignore[assignment]
 
 
 # Marks all of the tests in this module
@@ -553,7 +553,7 @@ def _generate_partition_directories(fs, base_dir, partition_spec, df):
     #                                       ['bar', ['a', 'b', 'c']]
     # part_table : a pyarrow.Table to write to each partition
     if not isinstance(fs, FileSystem):
-        fs = PyFileSystem(FSSpecHandler(fs))
+        fs = PyFileSystem(FSSpecHandler(fs))  # type: ignore[abstract]
 
     DEPTH = len(partition_spec)
 
@@ -997,7 +997,7 @@ def _test_write_to_dataset_no_partitions(base_path,
     if filesystem is None:
         filesystem = LocalFileSystem()
     elif not isinstance(filesystem, FileSystem):
-        filesystem = PyFileSystem(FSSpecHandler(filesystem))
+        filesystem = PyFileSystem(FSSpecHandler(filesystem))  # type: ignore[abstract]
 
     # Without partitions, append files to root_path
     n = 5

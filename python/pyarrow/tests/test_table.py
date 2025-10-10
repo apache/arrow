@@ -23,7 +23,7 @@ import weakref
 try:
     import numpy as np
 except ImportError:
-    np = None
+    np = None  # type: ignore[assignment]
 import pytest
 import pyarrow as pa
 import pyarrow.compute as pc
@@ -3603,7 +3603,7 @@ def test_chunked_array_non_cpu(cuda_context, cpu_chunked_array, cuda_chunked_arr
 
     # equals() test
     with pytest.raises(NotImplementedError):
-        cuda_chunked_array == cuda_chunked_array
+        cuda_chunked_array == cuda_chunked_array  # type: ignore[reportUnusedExpression]
 
     # to_pandas() test
     with pytest.raises(NotImplementedError):

@@ -83,7 +83,7 @@ include = ["pyarrow"]
 namespaces = false
 
 [tool.setuptools.package-data]
-pyarrow = ["*.pxd", "*.pyx", "includes/*.pxd"]
+pyarrow = ["*.pxd", "*.pyx", "includes/*.pxd", "py.typed"]
 
 [tool.setuptools_scm]
 root = '..'
@@ -91,3 +91,53 @@ version_file = 'pyarrow/_generated_version.py'
 version_scheme = 'guess-next-dev'
 git_describe_command = 'git describe --dirty --tags --long --match "apache-arrow-[0-9]*.*"'
 fallback_version = '22.0.0a0'
+
+[tool.mypy]
+files = ["pyarrow"]
+exclude = 'pyarrow/interchange/.*|pyarrow/vendored/.*'
+mypy_path = "$MYPY_CONFIG_FILE_DIR/pyarrow-stubs"
+
+[tool.pyright]
+include = ["pyarrow"]
+exclude = ["pyarrow/vendored", "pyarrow/interchange"]
+stubPath = "pyarrow-stubs"
+reportAttributeAccessIssue = "none"
+reportMissingImports = "none"
+reportMissingModuleSource = "none"
+reportPossiblyUnboundVariable = "none"
+reportCallIssue = "none"
+reportArgumentType = "none"
+reportOptionalMemberAccess = "none"
+reportOptionalSubscript = "none"
+reportOperatorIssue = "none"
+reportIndexIssue = "none"
+reportRedeclaration = "none"
+reportGeneralTypeIssues = "none"
+
+[tool.ty.src]
+include = ["pyarrow"]
+exclude = ["pyarrow/vendored", "pyarrow/interchange"]
+
+[tool.ty.environment]
+root = ["pyarrow", "pyarrow-stubs/pyarrow"]
+
+[tool.ty.rules]
+unresolved-import = "ignore"
+
+[[tool.ty.overrides]]
+include = ["pyarrow/tests/**"]
+
+[tool.ty.overrides.rules]
+unresolved-attribute = "ignore"
+invalid-context-manager = "ignore"
+too-many-positional-arguments = "ignore"
+unknown-argument = "ignore"
+non-subscriptable = "ignore"
+call-non-callable = "ignore"
+possibly-missing-attribute = "ignore"
+invalid-argument-type = "ignore"
+no-matching-overload = "ignore"
+invalid-assignment = "ignore"
+deprecated = "ignore"
+invalid-ignore-comment = "ignore"
+unresolved-global = "ignore"

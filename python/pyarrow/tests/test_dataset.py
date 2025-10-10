@@ -32,7 +32,7 @@ from urllib.parse import quote
 try:
     import numpy as np
 except ImportError:
-    np = None
+    np = None  # type: ignore[assignment]
 import pytest
 
 import pyarrow as pa
@@ -49,17 +49,17 @@ from pyarrow.tests.util import (FSProtocolClass, ProxyHandler,
 try:
     import pandas as pd
 except ImportError:
-    pd = None
+    pd = None  # type: ignore[assignment]
 
 try:
     import pyarrow.dataset as ds
 except ImportError:
-    ds = None
+    ds = None  # type: ignore[assignment]
 
 try:
     import pyarrow.parquet as pq
 except ImportError:
-    pq = None
+    pq = None  # type: ignore[assignment]
 
 # Marks all of the tests in this module
 # Ignore these with pytest ... -m 'not dataset'
@@ -2980,7 +2980,7 @@ def test_open_dataset_from_uri_s3_fsspec(s3_example_simple):
     assert dataset.to_table().equals(table)
 
     # directly passing the fsspec-handler
-    fs = PyFileSystem(FSSpecHandler(fs))
+    fs = PyFileSystem(FSSpecHandler(fs))  # type: ignore[abstract]
     dataset = ds.dataset(path, format="parquet", filesystem=fs)
     assert dataset.to_table().equals(table)
 
@@ -3082,7 +3082,7 @@ def test_file_format_inspect_fsspec(tempdir):
     format = ds.ParquetFileFormat()
     # manually creating a PyFileSystem instead of using fs._ensure_filesystem
     # which would convert an fsspec local filesystem to a native one
-    filesystem = fs.PyFileSystem(fs.FSSpecHandler(fsspec_fs))
+    filesystem = fs.PyFileSystem(fs.FSSpecHandler(fsspec_fs))  # type: ignore[abstract]
     schema = format.inspect(path, filesystem)
     assert schema.equals(table.schema)
 
@@ -3827,7 +3827,7 @@ def test_parquet_dataset_factory_fsspec(tempdir):
     fsspec_fs = fsspec.filesystem("file")
     # manually creating a PyFileSystem, because passing the local fsspec
     # filesystem would internally be converted to native LocalFileSystem
-    filesystem = fs.PyFileSystem(fs.FSSpecHandler(fsspec_fs))
+    filesystem = fs.PyFileSystem(fs.FSSpecHandler(fsspec_fs))  # type: ignore[abstract]
     dataset = ds.parquet_dataset(metadata_path, filesystem=filesystem)
     assert dataset.schema.equals(table.schema)
     assert len(dataset.files) == 4

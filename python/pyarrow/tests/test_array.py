@@ -18,10 +18,10 @@
 from collections.abc import Iterable
 import datetime
 import decimal
-import hypothesis as h
-import hypothesis.strategies as st
+import hypothesis as h  # type: ignore[import-not-found]
+import hypothesis.strategies as st  # type: ignore[import-not-found]
 import itertools
-import pytest
+import pytest  # type: ignore[import-not-found]
 import struct
 import subprocess
 import sys
@@ -30,7 +30,7 @@ import weakref
 try:
     import numpy as np
 except ImportError:
-    np = None
+    np = None  # type: ignore[assignment]
 
 import pyarrow as pa
 import pyarrow.tests.strategies as past
@@ -2859,7 +2859,7 @@ def test_buffers_primitive():
     # Slicing does not affect the buffers but the offset
     a_sliced = a[1:]
     buffers = a_sliced.buffers()
-    a_sliced.offset == 1
+    assert a_sliced.offset == 1
     assert len(buffers) == 2
     null_bitmap = buffers[0].to_pybytes()
     assert 1 <= len(null_bitmap) <= 64  # XXX this is varying
@@ -4291,7 +4291,7 @@ def test_non_cpu_array():
     with pytest.raises(NotImplementedError):
         [i for i in iter(arr)]
     with pytest.raises(NotImplementedError):
-        arr == arr2
+        _ = arr == arr2
     with pytest.raises(NotImplementedError):
         arr.is_null()
     with pytest.raises(NotImplementedError):
