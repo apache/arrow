@@ -741,7 +741,7 @@ def _reconstruct_block(item, columns=None, extension_columns=None, return_block=
     pandas Block
 
     """
-    import pandas.core.internals as _int
+    import pandas.core.internals as _int  # type: ignore[import-not-found]
 
     block_arr = item.get('block', None)
     placement = item['placement']
@@ -820,7 +820,7 @@ def table_to_dataframe(
     result = pa.lib.table_to_blocks(options, table, categories,
                                     list(ext_columns_dtypes.keys()))
     if _pandas_api.is_ge_v3():
-        from pandas.api.internals import create_dataframe_from_blocks
+        from pandas.api.internals import create_dataframe_from_blocks  # type: ignore[import-not-found]
 
         blocks = [
             _reconstruct_block(

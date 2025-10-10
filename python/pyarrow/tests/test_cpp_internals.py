@@ -20,7 +20,7 @@ from os.path import join as pjoin
 
 import pytest
 
-from pyarrow._pyarrow_cpp_tests import get_cpp_tests
+from pyarrow._pyarrow_cpp_tests import get_cpp_tests  # type: ignore[import-not-found]
 
 
 def inject_cpp_tests(ns):
