@@ -1539,10 +1539,10 @@ def rank(
 
 
 def select_k_unstable(
-    input: lib.Array | lib.ChunkedArray | Expression,
+    input: lib.Array | lib.ChunkedArray | lib.RecordBatch | lib.Table | Expression,
     /,
     k: int,
-    sort_keys: list[tuple[str, _Order]],
+    sort_keys: Sequence[tuple[str, _Order]],
     *,
     options: SelectKOptions | None = None,
     memory_pool: lib.MemoryPool | None = None,
