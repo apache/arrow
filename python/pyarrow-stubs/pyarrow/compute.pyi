@@ -1621,20 +1621,20 @@ def struct_field(
 ): ...
 
 
-def fill_null_backward(values, /, *, memory_pool: lib.MemoryPool | None = None): ...
+def fill_null_backward(values: _ScalarOrArrayT | ScalarLike | Expression, /, *, memory_pool: lib.MemoryPool | None = None) -> _ScalarOrArrayT | ScalarLike | Expression: ...
 
 
-def fill_null_forward(values, /, *, memory_pool: lib.MemoryPool | None = None): ...
+def fill_null_forward(values: _ScalarOrArrayT | ScalarLike | Expression, /, *, memory_pool: lib.MemoryPool | None = None) -> _ScalarOrArrayT | ScalarLike | Expression: ...
 
 
 def replace_with_mask(
-    values,
+    values: _ScalarOrArrayT | Expression,
     mask: list[bool] | list[bool | None] | BooleanArray,
     replacements,
     /,
     *,
     memory_pool: lib.MemoryPool | None = None,
-): ...
+) -> _ScalarOrArrayT | Expression: ...
 
 
 # ========================= 3.7 Pairwise functions =========================
