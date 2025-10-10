@@ -3751,13 +3751,13 @@ def test_expression_construction():
     nested_field = pc.field(("nested", "field"))
     nested_field2 = pc.field("nested", "field")
 
-    zero | one == string
-    ~true == false
+    _ = zero | one == string
+    _ = ~true == false
     for typ in ("bool", pa.bool_()):
-        field.cast(typ) == true
+        _ = field.cast(typ) == true
 
-    field.isin([1, 2])
-    nested_mixed_types.isin(["foo", "bar"])
+    _ = field.isin([1, 2])
+    _ = nested_mixed_types.isin(["foo", "bar"])
     nested_field.isin(["foo", "bar"])
     nested_field2.isin(["foo", "bar"])
 
@@ -3765,7 +3765,7 @@ def test_expression_construction():
         field.isin(1)
 
     with pytest.raises(pa.ArrowInvalid):
-        field != object()
+        _ = field != object()
 
 
 def test_expression_boolean_operators():
@@ -3774,16 +3774,16 @@ def test_expression_boolean_operators():
     false = pc.scalar(False)
 
     with pytest.raises(ValueError, match="cannot be evaluated to python True"):
-        true and false
+        _ = true and false
 
     with pytest.raises(ValueError, match="cannot be evaluated to python True"):
-        true or false
+        _ = true or false
 
     with pytest.raises(ValueError, match="cannot be evaluated to python True"):
         bool(true)
 
     with pytest.raises(ValueError, match="cannot be evaluated to python True"):
-        not true
+        _ = not true
 
 
 def test_expression_call_function():
