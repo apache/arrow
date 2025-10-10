@@ -89,7 +89,7 @@ def test_cython_api(tmpdir):
     Basic test for the Cython API.
     """
     # Fail early if cython is not found
-    import cython  # type: ignore[import-untyped] # noqa
+    import cython  # type: ignore[import-untyped] # type: ignore[import-not-found] # noqa
 
     with tmpdir.as_cwd():
         # Set up temporary workspace
