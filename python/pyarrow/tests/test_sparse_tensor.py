@@ -34,7 +34,7 @@ except ImportError:
     coo_array = None  # type: ignore[assignment, misc]
 
 try:
-    import sparse
+    import sparse  # type: ignore[import-untyped]
 except ImportError:
     sparse = None  # type: ignore[assignment]
 
