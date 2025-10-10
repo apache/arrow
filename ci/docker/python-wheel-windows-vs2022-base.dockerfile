@@ -129,6 +129,4 @@ RUN vcpkg install `
   --x-feature=json`
   --x-feature=orc`
   --x-feature=parquet`
-  --x-feature=s3 `
-  && rmdir /s /q %VCPKG_ROOT%\downloads `
-  && rmdir /s /q %VCPKG_ROOT%\buildtrees
+  --x-feature=s3
