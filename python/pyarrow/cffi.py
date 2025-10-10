@@ -77,5 +77,5 @@ c_source = """
     """
 
 # TODO use out-of-line mode for faster import and avoid C parsing
-ffi = cffi.FFI()
+ffi = cffi.FFI()  # type: ignore[attr-defined]
 ffi.cdef(c_source)

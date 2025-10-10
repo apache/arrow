@@ -145,6 +145,7 @@ jobs:
             cd python
             mypy
             pyright
+            ty
             cd ..
             python ./dev/update_stub_docstrings.py -f ./python/pyarrow-stubs
 

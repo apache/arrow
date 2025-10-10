@@ -178,7 +178,7 @@ def test_read_options(pickle_module):
                                  encoding='utf16',
                                  skip_rows_after_names=27)
 
-    assert opts.block_size > 0
+    assert opts.block_size > 0  # type: ignore[operator]
     opts.block_size = 12345
     assert opts.block_size == 12345
 
@@ -302,7 +302,7 @@ def test_convert_options(pickle_module):
     with pytest.raises(ValueError):
         opts.decimal_point = '..'
 
-    assert opts.auto_dict_max_cardinality > 0
+    assert opts.auto_dict_max_cardinality > 0  # type: ignore[operator]
     opts.auto_dict_max_cardinality = 99999
     assert opts.auto_dict_max_cardinality == 99999
 
@@ -679,7 +679,7 @@ class BaseTestCSV(abc.ABC):
             InvalidRow(2, 1, row_num(2), "c"),
             InvalidRow(2, 3, row_num(4), "f,g,h"),
         ]
-        assert parse_opts.invalid_row_handler.rows == expected_rows
+        assert parse_opts.invalid_row_handler.rows == expected_rows  # type: ignore[attr-defined]
 
         # Error requested
         parse_opts.invalid_row_handler = InvalidRowHandler('error')
@@ -688,7 +688,7 @@ class BaseTestCSV(abc.ABC):
                 match="Expected 2 columns, got 1: c"):
             self.read_bytes(rows, parse_options=parse_opts)
         expected_rows = [InvalidRow(2, 1, row_num(2), "c")]
-        assert parse_opts.invalid_row_handler.rows == expected_rows
+        assert parse_opts.invalid_row_handler.rows == expected_rows  # type: ignore[attr-defined]
 
         # Test ser/de
         parse_opts.invalid_row_handler = InvalidRowHandler('skip')

@@ -106,7 +106,7 @@ class DummyHandler(FileSystemHandler):
     def delete_dir(self, path):
         assert path == "delete_dir"
 
-    def delete_dir_contents(self, path, missing_dir_ok):
+    def delete_dir_contents(self, path, missing_dir_ok=False):  # type: ignore[override]
         if not path.strip("/"):
             raise ValueError
         assert path == "delete_dir_contents"
@@ -361,7 +361,7 @@ def py_fsspec_localfs(request, tempdir):
     fsspec = pytest.importorskip("fsspec")
     fs = fsspec.filesystem('file')
     return dict(
-        fs=PyFileSystem(FSSpecHandler(fs)),
+        fs=PyFileSystem(FSSpecHandler(fs)),  # type: ignore[abstract]
         pathfn=lambda p: (tempdir / p).as_posix(),
         allow_move_dir=True,
         allow_append_to_file=True,
@@ -376,7 +376,7 @@ def py_fsspec_memoryfs(request, tempdir):
         pytest.skip("Bug in fsspec 0.8.5 for in-memory filesystem")
     fs = fsspec.filesystem('memory')
     return dict(
-        fs=PyFileSystem(FSSpecHandler(fs)),
+        fs=PyFileSystem(FSSpecHandler(fs)),  # type: ignore[abstract]
         pathfn=lambda p: p,
         allow_move_dir=True,
         allow_append_to_file=True,
@@ -394,7 +394,7 @@ def py_fsspec_s3fs(request, s3_server):
         secret=secret_key,
         client_kwargs=dict(endpoint_url=f'http://{host}:{port}')
     )
-    fs = PyFileSystem(FSSpecHandler(fs))
+    fs = PyFileSystem(FSSpecHandler(fs))  # type: ignore[abstract]
     fs.create_dir(bucket)
 
     yield dict(
@@ -778,7 +778,7 @@ def test_get_file_info_with_selector(fs, pathfn):
         infos = fs.get_file_info(selector)
         if fs.type_name == "py::fsspec+('s3', 's3a')":
             # s3fs only lists directories if they are not empty
-            len(infos) == 4
+            assert len(infos) == 4
         else:
             assert len(infos) == 5
 
@@ -2194,7 +2194,7 @@ def test_fsspec_filesystem_from_uri():
         pytest.skip("fsspec not installed")
 
     fs, path = FileSystem.from_uri("fsspec+memory://path/to/data.parquet")
-    expected_fs = PyFileSystem(FSSpecHandler(MemoryFileSystem()))
+    expected_fs = PyFileSystem(FSSpecHandler(MemoryFileSystem()))  # type: ignore[abstract]
     assert fs == expected_fs
     assert path == "/path/to/data.parquet"
 
@@ -2202,7 +2202,7 @@ def test_fsspec_filesystem_from_uri():
     # arrow local filesystem
     uri = "file:///tmp/my.file"
     fs, _ = FileSystem.from_uri(f"fsspec+{uri}")
-    expected_fs = PyFileSystem(FSSpecHandler(LocalFileSystem()))
+    expected_fs = PyFileSystem(FSSpecHandler(LocalFileSystem()))  # type: ignore[abstract]
     assert fs == expected_fs
 
 
@@ -2216,6 +2216,6 @@ def test_huggingface_filesystem_from_uri():
     fs, path = FileSystem.from_uri(
         "hf://datasets/stanfordnlp/imdb/plain_text/train-00000-of-00001.parquet"
     )
-    expected_fs = PyFileSystem(FSSpecHandler(HfFileSystem()))
+    expected_fs = PyFileSystem(FSSpecHandler(HfFileSystem()))  # type: ignore[abstract]
     assert fs == expected_fs
     assert path == "datasets/stanfordnlp/imdb/plain_text/train-00000-of-00001.parquet"
