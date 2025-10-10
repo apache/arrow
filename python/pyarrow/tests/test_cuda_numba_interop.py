@@ -26,7 +26,7 @@ dtypes = ['uint8', 'int16', 'float32']
 cuda = pytest.importorskip("pyarrow.cuda")
 nb_cuda = pytest.importorskip("numba.cuda")
 
-from numba.cuda.cudadrv.devicearray import DeviceNDArray  # type: ignore[import-untyped] # noqa: E402
+from numba.cuda.cudadrv.devicearray import DeviceNDArray  # type: ignore[import-untyped] # type: ignore[import-not-found] # noqa: E402
 
 
 context_choices = None
