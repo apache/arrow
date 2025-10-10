@@ -72,7 +72,7 @@ def setup_module(module):
 
 
 def teardown_module(module):
-    for path in TEST_FILES:
+    for path in TEST_FILES:  # type: ignore[union-attr]
         try:
             os.remove(path)
         except os.error:
