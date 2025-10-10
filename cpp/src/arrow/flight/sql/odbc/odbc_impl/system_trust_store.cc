@@ -31,16 +31,14 @@ bool SystemTrustStore::HasNext() {
 
 std::string SystemTrustStore::GetNext() const {
   DWORD size = 0;
-  CryptBinaryToString(p_context_->pbCertEncoded, p_context_->cbCertEncoded,
-                      CRYPT_STRING_BASE64HEADER, nullptr, &size);
+  CryptBinaryToStringA(p_context_->pbCertEncoded, p_context_->cbCertEncoded,
+                       CRYPT_STRING_BASE64HEADER, nullptr, &size);
 
-  std::wstring wcert;
-  wcert.resize(size);
-  CryptBinaryToString(p_context_->pbCertEncoded, p_context_->cbCertEncoded,
-                      CRYPT_STRING_BASE64HEADER, &wcert[0], &size);
-  wcert.resize(size);
-
-  std::string cert = arrow::util::WideStringToUTF8(wcert).ValueOr("");
+  std::string cert;
+  cert.resize(size);
+  CryptBinaryToStringA(p_context_->pbCertEncoded, p_context_->cbCertEncoded,
+                       CRYPT_STRING_BASE64HEADER, &cert[0], &size);
+  cert.resize(size);
 
   return cert;
 }

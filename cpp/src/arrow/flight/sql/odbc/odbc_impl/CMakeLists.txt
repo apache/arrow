@@ -110,6 +110,7 @@ add_library(arrow_odbc_spi_impl
             type_utilities.h
             util.cc
             util.h)
+target_compile_definitions(arrow_odbc_spi_impl PUBLIC UNICODE)
 target_include_directories(arrow_odbc_spi_impl PUBLIC include include/odbc_impl)
 target_include_directories(arrow_odbc_spi_impl PUBLIC ${CMAKE_CURRENT_LIST_DIR})
 
