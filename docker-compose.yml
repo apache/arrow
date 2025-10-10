@@ -290,7 +290,6 @@ services:
       ARROW_ENABLE_TIMING_TESTS:  # inherit
       ARROW_EXTRA_ERROR_CONTEXT: "ON"
       ARROW_MIMALLOC: "ON"
-      ARROW_USE_LD_GOLD: "ON"
       BUILD_DOCS_PYTHON: "ON"
     volumes: &conda-volumes
       - .:/arrow:delegated
@@ -332,7 +331,6 @@ services:
       ARROW_MIMALLOC: "OFF"
       ARROW_RUNTIME_SIMD_LEVEL: "AVX2"  # AVX512 not supported by Valgrind (ARROW-9851)
       ARROW_TEST_MEMCHECK: "ON"
-      ARROW_USE_LD_GOLD: "ON"
       BUILD_WARNING_LEVEL: "PRODUCTION"
       ARROW_CTEST_TIMEOUT: 500
     volumes: *conda-volumes
