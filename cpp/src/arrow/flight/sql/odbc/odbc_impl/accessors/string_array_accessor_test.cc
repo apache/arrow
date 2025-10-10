@@ -23,7 +23,7 @@
 
 namespace arrow::flight::sql::odbc {
 
-TEST(StringArrayAccessor, Test_CDataType_CHAR_Basic) {
+TEST(StringArrayAccessor, TestCDataTypeCharBasic) {
   std::vector<std::string> values = {"foo", "barx", "baz123"};
   std::shared_ptr<Array> array;
   ArrayFromVector<StringType, std::string>(values, &array);
@@ -49,7 +49,7 @@ TEST(StringArrayAccessor, Test_CDataType_CHAR_Basic) {
   }
 }
 
-TEST(StringArrayAccessor, Test_CDataType_CHAR_Truncation) {
+TEST(StringArrayAccessor, TestCDataTypeCharTruncation) {
   std::vector<std::string> values = {"ABCDEFABCDEFABCDEFABCDEFABCDEFABCDEFABCDEF"};
   std::shared_ptr<Array> array;
   ArrayFromVector<StringType, std::string>(values, &array);
@@ -82,7 +82,7 @@ TEST(StringArrayAccessor, Test_CDataType_CHAR_Truncation) {
   ASSERT_EQ(values[0], ss.str());
 }
 
-TEST(StringArrayAccessor, Test_CDataType_WCHAR_Basic) {
+TEST(StringArrayAccessor, TestCDataTypeWcharBasic) {
   std::vector<std::string> values = {"foo", "barx", "baz123"};
   std::shared_ptr<Array> array;
   ArrayFromVector<StringType, std::string>(values, &array);
@@ -112,7 +112,7 @@ TEST(StringArrayAccessor, Test_CDataType_WCHAR_Basic) {
   }
 }
 
-TEST(StringArrayAccessor, Test_CDataType_WCHAR_Truncation) {
+TEST(StringArrayAccessor, TestCDataTypeWcharTruncation) {
   std::vector<std::string> values = {"ABCDEFA"};
   std::shared_ptr<Array> array;
   ArrayFromVector<StringType, std::string>(values, &array);
@@ -126,7 +126,6 @@ TEST(StringArrayAccessor, Test_CDataType_WCHAR_Truncation) {
   ColumnBinding binding(CDataType_WCHAR, 0, 0, buffer.data(), max_str_len,
                         str_len_buffer.data());
 
-  std::basic_stringstream<uint8_t> ss;
   int64_t value_offset = 0;
 
   // Construct the whole string by concatenating smaller chunks from

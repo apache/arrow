@@ -24,6 +24,9 @@
 #  include <wincrypt.h>
 
 #  include <bcrypt.h>
+
+#  include <prsht.h>
+
 #  include <cryptuiapi.h>
 
 #  include <tchar.h>
@@ -37,12 +40,12 @@ namespace arrow::flight::sql::odbc {
 /// https://github.com/apache/drill/blob/master/contrib/native/client/src/clientlib/wincert.ipp.
 class SystemTrustStore {
  private:
-  const char* stores_;
+  const wchar_t* stores_;
   HCERTSTORE h_store_;
   PCCERT_CONTEXT p_context_;
 
  public:
-  explicit SystemTrustStore(const char* store);
+  explicit SystemTrustStore(const wchar_t* store);
 
   ~SystemTrustStore();
 

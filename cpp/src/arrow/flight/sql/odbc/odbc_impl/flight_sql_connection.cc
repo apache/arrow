@@ -31,7 +31,6 @@
 #include <boost/algorithm/string/join.hpp>
 #include <boost/asio/ip/address.hpp>
 #include <boost/lexical_cast.hpp>
-#include <boost/optional.hpp>
 #include "arrow/flight/sql/odbc/odbc_impl/exceptions.h"
 
 #include <sql.h>
@@ -71,7 +70,7 @@ namespace {
 
 #if _WIN32 || _WIN64
 constexpr auto SYSTEM_TRUST_STORE_DEFAULT = true;
-constexpr auto STORES = {"CA", "MY", "ROOT", "SPC"};
+constexpr auto STORES = {L"CA", L"MY", L"ROOT", L"SPC"};
 
 inline std::string GetCerts() {
   std::string certs;
@@ -99,7 +98,9 @@ inline std::string GetCerts() { return ""; }
 
 #endif
 
-const std::set<std::string_view, CaseInsensitiveComparator> BUILT_IN_PROPERTIES = {
+const std::set<std::string_view, CaseInsensitiveComparatorStrView> BUILT_IN_PROPERTIES = {
+    FlightSqlConnection::DRIVER,
+    FlightSqlConnection::DSN,
     FlightSqlConnection::HOST,
     FlightSqlConnection::PORT,
     FlightSqlConnection::USER,
@@ -118,7 +119,7 @@ const std::set<std::string_view, CaseInsensitiveComparator> BUILT_IN_PROPERTIES 
 Connection::ConnPropertyMap::const_iterator TrackMissingRequiredProperty(
     const std::string_view& property, const Connection::ConnPropertyMap& properties,
     std::vector<std::string_view>& missing_attr) {
-  auto prop_iter = properties.find(property);
+  auto prop_iter = properties.find(std::string(property));
   if (properties.end() == prop_iter) {
     missing_attr.push_back(property);
   }
@@ -137,8 +138,9 @@ std::shared_ptr<FlightSqlSslConfig> LoadFlightSslConfigs(
       AsBool(conn_property_map, FlightSqlConnection::USE_SYSTEM_TRUST_STORE)
           .value_or(SYSTEM_TRUST_STORE_DEFAULT);
 
+  // GH-47630: find co-located TLS certificate if `trusted certs` path is not specified
   auto trusted_certs_iterator =
-      conn_property_map.find(FlightSqlConnection::TRUSTED_CERTS);
+      conn_property_map.find(std::string(FlightSqlConnection::TRUSTED_CERTS));
   auto trusted_certs = trusted_certs_iterator != conn_property_map.end()
                            ? trusted_certs_iterator->second
                            : "";
@@ -153,14 +155,17 @@ void FlightSqlConnection::Connect(const ConnPropertyMap& properties,
     auto flight_ssl_configs = LoadFlightSslConfigs(properties);
 
     Location location = BuildLocation(properties, missing_attr, flight_ssl_configs);
-    FlightClientOptions client_options =
+    client_options_ =
         BuildFlightClientOptions(properties, missing_attr, flight_ssl_configs);
 
     const std::shared_ptr<ClientMiddlewareFactory>& cookie_factory = GetCookieFactory();
-    client_options.middleware.push_back(cookie_factory);
+    client_options_.middleware.push_back(cookie_factory);
 
     std::unique_ptr<FlightClient> flight_client;
-    ThrowIfNotOK(FlightClient::Connect(location, client_options).Value(&flight_client));
+    ThrowIfNotOK(FlightClient::Connect(location, client_options_).Value(&flight_client));
+
+    PopulateMetadataSettings(properties);
+    PopulateCallOptions(properties);
 
     std::unique_ptr<FlightSqlAuthMethod> auth_method =
         FlightSqlAuthMethod::FromProperties(flight_client, properties);
@@ -175,9 +180,6 @@ void FlightSqlConnection::Connect(const ConnPropertyMap& properties,
 
     info_.SetProperty(SQL_USER_NAME, auth_method->GetUser());
     attribute_[CONNECTION_DEAD] = static_cast<uint32_t>(SQL_FALSE);
-
-    PopulateMetadataSettings(properties);
-    PopulateCallOptions(properties);
   } catch (...) {
     attribute_[CONNECTION_DEAD] = static_cast<uint32_t>(SQL_TRUE);
     sql_client_.reset();
@@ -193,7 +195,7 @@ void FlightSqlConnection::PopulateMetadataSettings(
   metadata_settings_.chunk_buffer_capacity = GetChunkBufferCapacity(conn_property_map);
 }
 
-boost::optional<int32_t> FlightSqlConnection::GetStringColumnLength(
+std::optional<int32_t> FlightSqlConnection::GetStringColumnLength(
     const Connection::ConnPropertyMap& conn_property_map) {
   const int32_t min_string_column_length = 1;
 
@@ -208,7 +210,7 @@ boost::optional<int32_t> FlightSqlConnection::GetStringColumnLength(
         "01000", ODBCErrorCodes_GENERAL_WARNING);
   }
 
-  return boost::none;
+  return std::nullopt;
 }
 
 bool FlightSqlConnection::GetUseWideChar(const ConnPropertyMap& conn_property_map) {
@@ -244,11 +246,11 @@ const FlightCallOptions& FlightSqlConnection::PopulateCallOptions(
     const ConnPropertyMap& props) {
   // Set CONNECTION_TIMEOUT attribute or LOGIN_TIMEOUT depending on if this
   // is the first request.
-  const boost::optional<Connection::Attribute>& connection_timeout =
+  const std::optional<Connection::Attribute>& connection_timeout =
       closed_ ? GetAttribute(LOGIN_TIMEOUT) : GetAttribute(CONNECTION_TIMEOUT);
-  if (connection_timeout && boost::get<uint32_t>(*connection_timeout) > 0) {
+  if (connection_timeout && std::get<uint32_t>(*connection_timeout) > 0) {
     call_options_.timeout =
-        TimeoutDuration{static_cast<double>(boost::get<uint32_t>(*connection_timeout))};
+        TimeoutDuration{static_cast<double>(std::get<uint32_t>(*connection_timeout))};
   }
 
   for (auto prop : props) {
@@ -323,7 +325,7 @@ Location FlightSqlConnection::BuildLocation(
 
   Location location;
   if (ssl_config->UseEncryption()) {
-    driver::AddressInfo address_info;
+    AddressInfo address_info;
     char host_name_info[NI_MAXHOST] = "";
     bool operation_result = false;
 
@@ -364,7 +366,7 @@ void FlightSqlConnection::Close() {
 
 std::shared_ptr<Statement> FlightSqlConnection::CreateStatement() {
   return std::shared_ptr<Statement>(new FlightSqlStatement(
-      diagnostics_, *sql_client_, call_options_, metadata_settings_));
+      diagnostics_, *sql_client_, client_options_, call_options_, metadata_settings_));
 }
 
 bool FlightSqlConnection::SetAttribute(Connection::AttributeId attribute,
@@ -382,17 +384,21 @@ bool FlightSqlConnection::SetAttribute(Connection::AttributeId attribute,
   }
 }
 
-boost::optional<Connection::Attribute> FlightSqlConnection::GetAttribute(
+std::optional<Connection::Attribute> FlightSqlConnection::GetAttribute(
     Connection::AttributeId attribute) {
   switch (attribute) {
     case ACCESS_MODE:
       // FlightSQL does not provide this metadata.
-      return boost::make_optional(Attribute(static_cast<uint32_t>(SQL_MODE_READ_WRITE)));
+      return std::make_optional(Attribute(static_cast<uint32_t>(SQL_MODE_READ_WRITE)));
     case PACKET_SIZE:
-      return boost::make_optional(Attribute(static_cast<uint32_t>(0)));
+      return std::make_optional(Attribute(static_cast<uint32_t>(0)));
     default:
       const auto& it = attribute_.find(attribute);
-      return boost::make_optional(it != attribute_.end(), it->second);
+      if (it != attribute_.end()) {
+        return std::make_optional(it->second);
+      } else {
+        return std::nullopt;
+      }
   }
 }
 
@@ -401,7 +407,7 @@ Connection::Info FlightSqlConnection::GetInfo(uint16_t info_type) {
   if (info_type == SQL_DBMS_NAME || info_type == SQL_SERVER_NAME) {
     // Update the database component reported in error messages.
     // We do this lazily for performance reasons.
-    diagnostics_.SetDataSourceComponent(boost::get<std::string>(result));
+    diagnostics_.SetDataSourceComponent(std::get<std::string>(result));
   }
   return result;
 }
@@ -410,7 +416,7 @@ FlightSqlConnection::FlightSqlConnection(OdbcVersion odbc_version,
                                          const std::string& driver_version)
     : diagnostics_("Apache Arrow", "Flight SQL", odbc_version),
       odbc_version_(odbc_version),
-      info_(call_options_, sql_client_, driver_version),
+      info_(client_options_, call_options_, sql_client_, driver_version),
       closed_(true) {
   attribute_[CONNECTION_DEAD] = static_cast<uint32_t>(SQL_TRUE);
   attribute_[LOGIN_TIMEOUT] = static_cast<uint32_t>(0);

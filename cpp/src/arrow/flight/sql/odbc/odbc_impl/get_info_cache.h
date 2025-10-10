@@ -17,26 +17,27 @@
 
 #pragma once
 
-#include "arrow/flight/sql/client.h"
-#include "arrow/flight/sql/odbc/odbc_impl/spi/connection.h"
-
 #include <atomic>
 #include <memory>
 #include <mutex>
 #include <unordered_map>
+#include "arrow/flight/sql/client.h"
+#include "arrow/flight/sql/odbc/odbc_impl/spi/connection.h"
 
 namespace arrow::flight::sql::odbc {
 
 class GetInfoCache {
  private:
   std::unordered_map<uint16_t, Connection::Info> info_;
+  FlightClientOptions& client_options_;
   FlightCallOptions& call_options_;
   std::unique_ptr<FlightSqlClient>& sql_client_;
   std::mutex mutex_;
   std::atomic<bool> has_server_info_;
 
  public:
-  GetInfoCache(FlightCallOptions& call_options, std::unique_ptr<FlightSqlClient>& client,
+  GetInfoCache(FlightClientOptions& client_options, FlightCallOptions& call_options,
+               std::unique_ptr<FlightSqlClient>& client,
                const std::string& driver_version);
   void SetProperty(uint16_t property, Connection::Info value);
   Connection::Info GetInfo(uint16_t info_type);

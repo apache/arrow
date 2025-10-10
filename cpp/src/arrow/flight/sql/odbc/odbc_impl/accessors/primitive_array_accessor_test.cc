@@ -52,43 +52,43 @@ void TestPrimitiveArraySqlAccessor() {
   }
 }
 
-TEST(PrimitiveArrayFlightSqlAccessor, Test_Int64Array_CDataType_SBIGINT) {
+TEST(PrimitiveArrayFlightSqlAccessor, TestInt64ArrayCDataTypeSbigint) {
   TestPrimitiveArraySqlAccessor<Int64Array, CDataType_SBIGINT>();
 }
 
-TEST(PrimitiveArrayFlightSqlAccessor, Test_Int32Array_CDataType_SLONG) {
+TEST(PrimitiveArrayFlightSqlAccessor, TestInt32ArrayCDataTypeSlong) {
   TestPrimitiveArraySqlAccessor<Int32Array, CDataType_SLONG>();
 }
 
-TEST(PrimitiveArrayFlightSqlAccessor, Test_Int16Array_CDataType_SSHORT) {
+TEST(PrimitiveArrayFlightSqlAccessor, TestInt16ArrayCDataTypeSshort) {
   TestPrimitiveArraySqlAccessor<Int16Array, CDataType_SSHORT>();
 }
 
-TEST(PrimitiveArrayFlightSqlAccessor, Test_Int8Array_CDataType_STINYINT) {
+TEST(PrimitiveArrayFlightSqlAccessor, TestInt8ArrayCDataTypeStinyint) {
   TestPrimitiveArraySqlAccessor<Int8Array, CDataType_STINYINT>();
 }
 
-TEST(PrimitiveArrayFlightSqlAccessor, Test_UInt64Array_CDataType_UBIGINT) {
+TEST(PrimitiveArrayFlightSqlAccessor, TestUInt64ArrayCDataTypeUbigint) {
   TestPrimitiveArraySqlAccessor<UInt64Array, CDataType_UBIGINT>();
 }
 
-TEST(PrimitiveArrayFlightSqlAccessor, Test_UInt32Array_CDataType_ULONG) {
+TEST(PrimitiveArrayFlightSqlAccessor, TestUInt32ArrayCDataTypeUlong) {
   TestPrimitiveArraySqlAccessor<UInt32Array, CDataType_ULONG>();
 }
 
-TEST(PrimitiveArrayFlightSqlAccessor, Test_UInt16Array_CDataType_USHORT) {
+TEST(PrimitiveArrayFlightSqlAccessor, TestUInt16ArrayCDataTypeUshort) {
   TestPrimitiveArraySqlAccessor<UInt16Array, CDataType_USHORT>();
 }
 
-TEST(PrimitiveArrayFlightSqlAccessor, Test_UInt8Array_CDataType_UTINYINT) {
+TEST(PrimitiveArrayFlightSqlAccessor, TestUInt8ArrayCDataTypeUtinyint) {
   TestPrimitiveArraySqlAccessor<UInt8Array, CDataType_UTINYINT>();
 }
 
-TEST(PrimitiveArrayFlightSqlAccessor, Test_FloatArray_CDataType_FLOAT) {
+TEST(PrimitiveArrayFlightSqlAccessor, TestFloatArrayCDataTypeFloat) {
   TestPrimitiveArraySqlAccessor<FloatArray, CDataType_FLOAT>();
 }
 
-TEST(PrimitiveArrayFlightSqlAccessor, Test_DoubleArray_CDataType_DOUBLE) {
+TEST(PrimitiveArrayFlightSqlAccessor, TestDoubleArrayCDataTypeDouble) {
   TestPrimitiveArraySqlAccessor<DoubleArray, CDataType_DOUBLE>();
 }
 

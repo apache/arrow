@@ -30,6 +30,13 @@ namespace arrow::flight::sql::odbc {
 using util::ConvertSqlPatternToRegexString;
 using util::ConvertToDBMSVer;
 
+class UtilTestsWithCompute : public ::testing::Test {
+ public:
+  // This must be done before using the compute kernels in order to
+  // register them to the FunctionRegistry.
+  void SetUp() override { ASSERT_OK(arrow::compute::Initialize()); }
+};
+
 // A global test "environment", to ensure Arrow compute kernel functions are registered
 
 class ComputeKernelEnvironment : public ::testing::Environment {
@@ -48,7 +55,7 @@ void AssertConvertedArray(const std::shared_ptr<Array>& expected_array,
   ASSERT_EQ(expected_array->ToString(), converted_array->ToString());
 }
 
-std::shared_ptr<Array> convertArray(const std::shared_ptr<Array>& original_array,
+std::shared_ptr<Array> ConvertArray(const std::shared_ptr<Array>& original_array,
                                     CDataType c_type) {
   auto converter = util::GetConverter(original_array->type_id(), c_type);
   return converter(original_array);
@@ -60,7 +67,7 @@ void TestArrayConversion(const std::vector<std::string>& input,
   std::shared_ptr<Array> original_array;
   ArrayFromVector<StringType, std::string>(input, &original_array);
 
-  auto converted_array = convertArray(original_array, c_type);
+  auto converted_array = ConvertArray(original_array, c_type);
 
   AssertConvertedArray(expected_array, converted_array, input.size(), arrow_type);
 }
@@ -71,7 +78,7 @@ void TestTime32ArrayConversion(const std::vector<int32_t>& input,
   std::shared_ptr<Array> original_array;
   ArrayFromVector<Time32Type, int32_t>(time32(TimeUnit::MILLI), input, &original_array);
 
-  auto converted_array = convertArray(original_array, c_type);
+  auto converted_array = ConvertArray(original_array, c_type);
 
   AssertConvertedArray(expected_array, converted_array, input.size(), arrow_type);
 }
@@ -82,12 +89,12 @@ void TestTime64ArrayConversion(const std::vector<int64_t>& input,
   std::shared_ptr<Array> original_array;
   ArrayFromVector<Time64Type, int64_t>(time64(TimeUnit::NANO), input, &original_array);
 
-  auto converted_array = convertArray(original_array, c_type);
+  auto converted_array = ConvertArray(original_array, c_type);
 
   AssertConvertedArray(expected_array, converted_array, input.size(), arrow_type);
 }
 
-TEST(Utils, Time32ToTimeStampArray) {
+TEST_F(UtilTestsWithCompute, Time32ToTimeStampArray) {
   std::vector<int32_t> input_data = {14896, 17820};
 
   const auto seconds_from_epoch = GetTodayTimeFromEpoch();
@@ -106,7 +113,7 @@ TEST(Utils, Time32ToTimeStampArray) {
   TestTime32ArrayConversion(input_data, expected, CDataType_TIMESTAMP, Type::TIMESTAMP);
 }
 
-TEST(Utils, Time64ToTimeStampArray) {
+TEST_F(UtilTestsWithCompute, Time64ToTimeStampArray) {
   std::vector<int64_t> input_data = {1579489200000, 1646881200000};
 
   const auto seconds_from_epoch = GetTodayTimeFromEpoch();
@@ -125,7 +132,7 @@ TEST(Utils, Time64ToTimeStampArray) {
   TestTime64ArrayConversion(input_data, expected, CDataType_TIMESTAMP, Type::TIMESTAMP);
 }
 
-TEST(Utils, StringToDateArray) {
+TEST_F(UtilTestsWithCompute, StringToDateArray) {
   std::shared_ptr<Array> expected;
   ArrayFromVector<Date64Type, int64_t>({1579489200000, 1646881200000}, &expected);
 
@@ -133,7 +140,7 @@ TEST(Utils, StringToDateArray) {
                       Type::DATE64);
 }
 
-TEST(Utils, StringToTimeArray) {
+TEST_F(UtilTestsWithCompute, StringToTimeArray) {
   std::shared_ptr<Array> expected;
   ArrayFromVector<Time64Type, int64_t>(time64(TimeUnit::MICRO),
                                        {36000000000, 43200000000}, &expected);

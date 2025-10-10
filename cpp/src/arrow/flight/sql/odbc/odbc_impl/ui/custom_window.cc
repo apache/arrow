@@ -23,6 +23,7 @@
 #include <commctrl.h>
 
 #include <wtypes.h>
+#include <cassert>
 #include <sstream>
 
 #include "arrow/flight/sql/odbc/odbc_impl/exceptions.h"
@@ -52,7 +53,7 @@ LRESULT CALLBACK CustomWindow::WndProc(HWND hwnd, UINT msg, WPARAM wparam,
 
   switch (msg) {
     case WM_NCCREATE: {
-      _ASSERT(lparam != NULL);
+      assert(lparam != NULL);
 
       CREATESTRUCT* create_struct = reinterpret_cast<CREATESTRUCT*>(lparam);
 
@@ -64,7 +65,7 @@ LRESULT CALLBACK CustomWindow::WndProc(HWND hwnd, UINT msg, WPARAM wparam,
     }
 
     case WM_CREATE: {
-      _ASSERT(window != NULL);
+      assert(window != NULL);
 
       window->SetHandle(hwnd);
 
@@ -82,7 +83,8 @@ LRESULT CALLBACK CustomWindow::WndProc(HWND hwnd, UINT msg, WPARAM wparam,
   return DefWindowProc(hwnd, msg, wparam, lparam);
 }
 
-CustomWindow::CustomWindow(Window* parent, const char* class_name, const char* title)
+CustomWindow::CustomWindow(Window* parent, const wchar_t* class_name,
+                           const wchar_t* title)
     : Window(parent, class_name, title) {
   WNDCLASS wcx;
 

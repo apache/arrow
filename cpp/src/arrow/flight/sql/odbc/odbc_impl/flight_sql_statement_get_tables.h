@@ -40,25 +40,25 @@ void ParseTableTypes(const std::string& table_type,
                      std::vector<std::string>& table_types);
 
 std::shared_ptr<ResultSet> GetTablesForSQLAllCatalogs(
-    const ColumnNames& column_names, FlightCallOptions& call_options,
-    FlightSqlClient& sql_client, Diagnostics& diagnostics,
-    const MetadataSettings& metadata_settings);
+    const ColumnNames& column_names, FlightClientOptions& client_options,
+    FlightCallOptions& call_options, FlightSqlClient& sql_client,
+    Diagnostics& diagnostics, const MetadataSettings& metadata_settings);
 
 std::shared_ptr<ResultSet> GetTablesForSQLAllDbSchemas(
-    const ColumnNames& column_names, FlightCallOptions& call_options,
-    FlightSqlClient& sql_client, const std::string* schema_name, Diagnostics& diagnostics,
+    const ColumnNames& column_names, FlightClientOptions& client_options,
+    FlightCallOptions& call_options, FlightSqlClient& sql_client,
+    const std::string* schema_name, Diagnostics& diagnostics,
     const MetadataSettings& metadata_settings);
 
 std::shared_ptr<ResultSet> GetTablesForSQLAllTableTypes(
-    const ColumnNames& column_names, FlightCallOptions& call_options,
-    FlightSqlClient& sql_client, Diagnostics& diagnostics,
-    const MetadataSettings& metadata_settings);
+    const ColumnNames& column_names, FlightClientOptions& client_options,
+    FlightCallOptions& call_options, FlightSqlClient& sql_client,
+    Diagnostics& diagnostics, const MetadataSettings& metadata_settings);
 
 std::shared_ptr<ResultSet> GetTablesForGenericUse(
-    const ColumnNames& column_names, FlightCallOptions& call_options,
-    FlightSqlClient& sql_client, const std::string* catalog_name,
-    const std::string* schema_name, const std::string* table_name,
-    const std::vector<std::string>& table_types, Diagnostics& diagnostics,
-    const MetadataSettings& metadata_settings);
-
+    const ColumnNames& column_names, FlightClientOptions& client_options,
+    FlightCallOptions& call_options, FlightSqlClient& sql_client,
+    const std::string* catalog_name, const std::string* schema_name,
+    const std::string* table_name, const std::vector<std::string>& table_types,
+    Diagnostics& diagnostics, const MetadataSettings& metadata_settings);
 }  // namespace arrow::flight::sql::odbc
