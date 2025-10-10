@@ -2188,8 +2188,8 @@ def test_uwsgi_integration():
 
 def test_fsspec_filesystem_from_uri():
     try:
-        from fsspec.implementations.local import LocalFileSystem
-        from fsspec.implementations.memory import MemoryFileSystem
+        from fsspec.implementations.local import LocalFileSystem  # type: ignore[import-untyped]
+        from fsspec.implementations.memory import MemoryFileSystem  # type: ignore[import-untyped]
     except ImportError:
         pytest.skip("fsspec not installed")
 
@@ -2209,7 +2209,7 @@ def test_fsspec_filesystem_from_uri():
 def test_huggingface_filesystem_from_uri():
     pytest.importorskip("fsspec")
     try:
-        from huggingface_hub import HfFileSystem
+        from huggingface_hub import HfFileSystem  # type: ignore[import-not-found]
     except ImportError:
         pytest.skip("huggingface_hub not installed")
 
