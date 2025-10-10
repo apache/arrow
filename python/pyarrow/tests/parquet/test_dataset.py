@@ -553,7 +553,7 @@ def _generate_partition_directories(fs, base_dir, partition_spec, df):
     #                                       ['bar', ['a', 'b', 'c']]
     # part_table : a pyarrow.Table to write to each partition
     if not isinstance(fs, FileSystem):
-        fs = PyFileSystem(FSSpecHandler(fs))
+        fs = PyFileSystem(FSSpecHandler(fs))  # type: ignore[abstract]
 
     DEPTH = len(partition_spec)
 
@@ -997,7 +997,7 @@ def _test_write_to_dataset_no_partitions(base_path,
     if filesystem is None:
         filesystem = LocalFileSystem()
     elif not isinstance(filesystem, FileSystem):
-        filesystem = PyFileSystem(FSSpecHandler(filesystem))
+        filesystem = PyFileSystem(FSSpecHandler(filesystem))  # type: ignore[abstract]
 
     # Without partitions, append files to root_path
     n = 5

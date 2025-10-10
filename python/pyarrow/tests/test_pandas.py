@@ -4444,7 +4444,7 @@ class MyCustomIntegerType(pa.ExtensionType):
     def __arrow_ext_serialize__(self):
         return b''
 
-    def to_pandas_dtype(self):
+    def to_pandas_dtype(self):  # type: ignore[override]
         return pd.Int64Dtype()
 
 

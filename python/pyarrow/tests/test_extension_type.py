@@ -160,7 +160,7 @@ class ParamExtType(pa.ExtensionType):
 
 
 class MyStructType(pa.ExtensionType):
-    storage_type = pa.struct([('left', pa.int64()),
+    storage_type = pa.struct([('left', pa.int64()),  # type: ignore[assignment]
                               ('right', pa.int64())])
 
     def __init__(self):
@@ -902,7 +902,7 @@ class PeriodTypeWithToPandasDtype(PeriodType):
             storage_type, serialized).freq
         return PeriodTypeWithToPandasDtype(freq)
 
-    def to_pandas_dtype(self):
+    def to_pandas_dtype(self):  # type: ignore[override]
         import pandas as pd
         return pd.PeriodDtype(freq=self.freq)
 

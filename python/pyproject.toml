@@ -115,3 +115,31 @@ reportOperatorIssue = "none"
 reportIndexIssue = "none"
 reportRedeclaration = "none"
 reportGeneralTypeIssues = "none"
+
+[tool.ty.src]
+include = ["pyarrow"]
+exclude = ["pyarrow/vendored", "pyarrow/interchange"]
+
+[tool.ty.environment]
+root = ["pyarrow", "pyarrow-stubs/pyarrow"]
+
+[tool.ty.rules]
+unresolved-import = "ignore"
+
+[[tool.ty.overrides]]
+include = ["pyarrow/tests/**"]
+
+[tool.ty.overrides.rules]
+unresolved-attribute = "ignore"
+invalid-context-manager = "ignore"
+too-many-positional-arguments = "ignore"
+unknown-argument = "ignore"
+non-subscriptable = "ignore"
+call-non-callable = "ignore"
+possibly-missing-attribute = "ignore"
+invalid-argument-type = "ignore"
+no-matching-overload = "ignore"
+invalid-assignment = "ignore"
+deprecated = "ignore"
+invalid-ignore-comment = "ignore"
+unresolved-global = "ignore"
