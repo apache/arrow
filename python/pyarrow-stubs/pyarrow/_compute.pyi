@@ -54,7 +54,11 @@ class Function(lib._Weakrefable):
     @property
     def num_kernels(self) -> int: ...
     @property
-    def kernels(self) -> list[ScalarKernel | VectorKernel | ScalarAggregateKernel | HashAggregateKernel]: ...
+    def kernels(
+        self,
+    ) -> list[
+        ScalarKernel | VectorKernel | ScalarAggregateKernel | HashAggregateKernel
+    ]: ...
     def call(
         self,
         args: Iterable,
@@ -581,7 +585,9 @@ class Expression(lib._Weakrefable):
                      allow_arrow_extensions: bool = False) -> lib.Buffer: ...
 
     @staticmethod
-    def _call(func_name: str, args: list, options: FunctionOptions | None = None) -> Expression: ...
+    def _call(
+        func_name: str, args: list, options: FunctionOptions | None = None
+    ) -> Expression: ...
 
     @staticmethod
     def _field(name_or_index: str | int) -> Expression: ...
