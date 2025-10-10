@@ -27,6 +27,8 @@ fi
 set -ex
 
 CORPUS_DIR=/tmp/corpus
+PANDAS_DIR=/tmp/pandas
+
 ARROW_ROOT=$(cd $(dirname $BASH_SOURCE)/../../..; pwd)
 ARROW_CPP=$ARROW_ROOT/cpp
 OUT=$1
@@ -34,6 +36,8 @@ OUT=$1
 # NOTE: name of seed corpus output file should be "<FUZZ TARGET>-seed_corpus.zip"
 # where "<FUZZ TARGET>" is the exact name of the fuzz target executable the
 # seed corpus is generated for.
+
+# Arrow IPC
 
 IPC_INTEGRATION_FILES=$(find ${ARROW_ROOT}/testing/data/arrow-ipc-stream/integration -name "*.stream")
 
@@ -52,9 +56,24 @@ rm -rf ${CORPUS_DIR}
 ${OUT}/arrow-ipc-generate-tensor-fuzz-corpus -stream ${CORPUS_DIR}
 ${ARROW_CPP}/build-support/fuzzing/pack_corpus.py ${CORPUS_DIR} ${OUT}/arrow-ipc-tensor-stream-fuzz_seed_corpus.zip
 
+# Parquet
+
 rm -rf ${CORPUS_DIR}
 ${OUT}/parquet-arrow-generate-fuzz-corpus ${CORPUS_DIR}
 # Add Parquet testing examples
 cp ${ARROW_CPP}/submodules/parquet-testing/data/*.parquet ${CORPUS_DIR}
 cp ${ARROW_CPP}/submodules/parquet-testing/bad_data/*.parquet ${CORPUS_DIR}
 ${ARROW_CPP}/build-support/fuzzing/pack_corpus.py ${CORPUS_DIR} ${OUT}/parquet-arrow-fuzz_seed_corpus.zip
+
+# CSV
+
+rm -rf ${PANDAS_DIR}
+git clone --depth=1 https://github.com/pandas-dev/pandas ${PANDAS_DIR}
+
+rm -rf ${CORPUS_DIR}
+mkdir -p ${CORPUS_DIR}
+# Add examples from arrow-testing repo
+cp ${ARROW_ROOT}/testing/data/csv/*.csv ${CORPUS_DIR}
+# Add examples from Pandas test suite
+find ${PANDAS_DIR}/ -name "*.csv" -exec cp --backup=numbered '{}' ${CORPUS_DIR} \;
+${ARROW_CPP}/build-support/fuzzing/pack_corpus.py ${CORPUS_DIR} ${OUT}/arrow-csv-fuzz_seed_corpus.zip
