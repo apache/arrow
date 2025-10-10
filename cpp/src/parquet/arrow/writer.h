@@ -141,6 +141,12 @@ class PARQUET_EXPORT FileWriter {
       const std::shared_ptr<const ::arrow::KeyValueMetadata>& key_value_metadata) = 0;
   /// \brief Return the file metadata, only available after calling Close().
   virtual const std::shared_ptr<FileMetaData> metadata() const = 0;
+
+  /// \brief Return the WriterProperties used to create this writer.
+  virtual const WriterProperties& properties() const = 0;
+
+  /// \brief Return the ArrowWriterProperties used to create this writer.
+  virtual const ArrowWriterProperties& arrow_properties() const = 0;
 };
 
 /// \brief Write Parquet file metadata only to indicated Arrow OutputStream
