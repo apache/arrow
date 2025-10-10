@@ -906,6 +906,7 @@ def _check_root_dir_contents(config):
     fs.delete_dir_contents("", accept_root_dir=True)
     fs.delete_dir_contents("/", accept_root_dir=True)
     fs.delete_dir_contents("//", accept_root_dir=True)
+
     with pytest.raises(pa.ArrowIOError):
         fs.delete_dir(d)
 
@@ -2204,6 +2205,41 @@ def test_fsspec_filesystem_from_uri():
     fs, _ = FileSystem.from_uri(f"fsspec+{uri}")
     expected_fs = PyFileSystem(FSSpecHandler(LocalFileSystem()))
     assert fs == expected_fs
+
+
+def test_fsspec_delete_root_dir_contents():
+    try:
+        from fsspec.implementations.memory import MemoryFileSystem
+    except ImportError:
+        pytest.skip("fsspec not installed")
+
+    fs = FSSpecHandler(MemoryFileSystem())
+
+    # Create some files and directories
+    fs.create_dir("test_dir", recursive=True)
+    fs.create_dir("test_dir/subdir", recursive=True)
+
+    with fs.open_output_stream("test_file.txt", metadata={}) as stream:
+        stream.write(b"test content")
+
+    with fs.open_output_stream("test_dir/nested_file.txt", metadata={}) as stream:
+        stream.write(b"nested content")
+
+    # Verify files exist before deletion
+    def get_type(path):
+        return fs.get_file_info([path])[0].type
+
+    assert get_type("test_file.txt") == FileType.File
+    assert get_type("test_dir") == FileType.Directory
+    assert get_type("test_dir/nested_file.txt") == FileType.File
+
+    # Delete root directory contents
+    fs.delete_root_dir_contents()
+
+    # Assert all files and directories are deleted
+    assert get_type("test_file.txt") == FileType.NotFound
+    assert get_type("test_dir") == FileType.NotFound
+    assert get_type("test_dir/nested_file.txt") == FileType.NotFound
 
 
 def test_huggingface_filesystem_from_uri():
