@@ -120,13 +120,15 @@ COPY ci/vcpkg/vcpkg.json arrow/ci/vcpkg/
 # arm machines it hits ARROW-15141 where we would need to fall back to 1.8.186
 # but we cannot patch those portfiles since vcpkg-tool handles the checkout of
 # previous versions => use bundled S3 build
-# Testing without Flight (heavy)
 RUN vcpkg install `
   --clean-after-build `
   --x-install-root=%VCPKG_ROOT%\installed `
   --x-manifest-root=arrow/ci/vcpkg `
+  --x-feature=flight`
   --x-feature=gcs`
   --x-feature=json`
   --x-feature=orc`
   --x-feature=parquet`
-  --x-feature=s3
+  --x-feature=s3 `
+  && rmdir /s /q %VCPKG_ROOT%\downloads `
+  && rmdir /s /q %VCPKG_ROOT%\buildtrees
