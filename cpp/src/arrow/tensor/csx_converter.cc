@@ -17,7 +17,6 @@
 
 #include "arrow/tensor/converter_internal.h"
 
-#include <cmath>
 #include <cstdint>
 #include <limits>
 #include <memory>
@@ -27,10 +26,9 @@
 #include "arrow/status.h"
 #include "arrow/tensor.h"
 #include "arrow/type.h"
-#include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging_internal.h"
-#include "arrow/visit_type_inline.h"
+#include "arrow/util/sparse_tensor_util.h"
 
 namespace arrow {
 
@@ -39,78 +37,6 @@ class MemoryPool;
 namespace internal {
 
 namespace {
-
-template <typename SparseIndexType, typename ValueType, typename IndexType>
-Status ValidateSparseCSXTensorCreation(const SparseIndexType& sparse_csx_index,
-                                       const Buffer& values_buffer,
-                                       const Tensor& tensor) {
-  using ValueCType = typename ValueType::c_type;
-  using IndexCType = typename IndexType::c_type;
-  auto axis = sparse_csx_index.kCompressedAxis;
-
-  auto& indptr = sparse_csx_index.indptr();
-  auto& indices = sparse_csx_index.indices();
-  auto indptr_data = indptr->data()->template data_as<IndexCType>();
-  auto indices_data = indices->data()->template data_as<IndexCType>();
-  auto sparse_csx_values = values_buffer.data_as<ValueCType>();
-
-  ARROW_ASSIGN_OR_RAISE(auto non_zero_count, tensor.CountNonZero());
-  if (indices->shape()[0] != non_zero_count) {
-    return Status::Invalid("Mismatch between non-zero count in sparse tensor (",
-                           indices->shape()[0], ") and dense tensor (", non_zero_count,
-                           ")");
-  }
-
-  for (int64_t i = 0; i < indptr->size() - 1; ++i) {
-    const auto start = static_cast<int64_t>(indptr_data[i]);
-    const auto stop = static_cast<int64_t>(indptr_data[i + 1]);
-    std::vector<int64_t> coord(2);
-    for (int64_t j = start; j < stop; ++j) {
-      if (!is_not_zero<ValueType>(sparse_csx_values[j])) {
-        return Status::Invalid("Sparse tensor values must be non-zero");
-      }
-
-      switch (axis) {
-        case SparseMatrixCompressedAxis::ROW:
-          coord[0] = i;
-          coord[1] = static_cast<int64_t>(indices_data[j]);
-          break;
-        case SparseMatrixCompressedAxis::COLUMN:
-          coord[0] = static_cast<int64_t>(indices_data[j]);
-          coord[1] = i;
-          break;
-      }
-      if (sparse_csx_values[j] != tensor.Value<ValueType>(coord)) {
-        if constexpr (is_floating_type<ValueType>::value) {
-          if (!std::isnan(sparse_csx_values[j]) ||
-              !std::isnan(tensor.Value<ValueType>(coord))) {
-            return Status::Invalid(
-                "Inconsistent values between sparse tensor and dense tensor");
-          }
-        } else {
-          return Status::Invalid(
-              "Inconsistent values between sparse tensor and dense tensor");
-        }
-      }
-    }
-  }
-  return Status::OK();
-}
-
-template <typename ValueType, typename IndexType>
-Status ValidateSparseCSXTensorCreation(const SparseIndex& sparse_index,
-                                       const Buffer& values_buffer,
-                                       const Tensor& tensor) {
-  if (sparse_index.format_id() == SparseTensorFormat::CSC) {
-    auto sparse_csc_index = checked_cast<const SparseCSCIndex&>(sparse_index);
-    return ValidateSparseCSXTensorCreation<SparseCSCIndex, ValueType, IndexType>(
-        sparse_csc_index, values_buffer, tensor);
-  } else {
-    auto sparse_csr_index = checked_cast<const SparseCSRIndex&>(sparse_index);
-    return ValidateSparseCSXTensorCreation<SparseCSRIndex, ValueType, IndexType>(
-        sparse_csr_index, values_buffer, tensor);
-  }
-}
 
 // ----------------------------------------------------------------------
 // SparseTensorConverter for SparseCSRIndex
@@ -122,8 +48,10 @@ class SparseCSXMatrixConverter {
                            MemoryPool* pool)
       : axis_(axis), tensor_(tensor), index_value_type_(index_value_type), pool_(pool) {}
 
-  template <typename ValueType, typename IndexType>
-  Status Convert(const ValueType&, const IndexType&) {
+  // Note: The same type is considered for both indices and indptr during
+  // tensor-to-CSX-tensor conversion.
+  template <typename ValueType, typename IndexType, typename IndexPointerType>
+  Status Convert(const ValueType&, const IndexType&, const IndexPointerType&) {
     RETURN_NOT_OK(::arrow::internal::CheckSparseIndexMaximumValue(index_value_type_,
                                                                   tensor_.shape()));
     using ValueCType = typename ValueType::c_type;
@@ -193,8 +121,6 @@ class SparseCSXMatrixConverter {
       sparse_index = std::make_shared<SparseCSCIndex>(indptr_tensor, indices_tensor);
     }
     data = std::move(values_buffer);
-    DCHECK_OK((ValidateSparseCSXTensorCreation<ValueType, IndexType>(*sparse_index, *data,
-                                                                     tensor_)));
     return Status::OK();
   }
 
@@ -218,7 +144,8 @@ Status MakeSparseCSXMatrixFromTensor(SparseMatrixCompressedAxis axis,
                                      std::shared_ptr<Buffer>* out_data) {
   SparseCSXMatrixConverter converter(axis, tensor, index_value_type, pool);
   ConverterVisitor visitor(converter);
-  ARROW_RETURN_NOT_OK(VisitValueAndIndexType(*tensor.type(), *index_value_type, visitor));
+  ARROW_RETURN_NOT_OK(
+      util::VisitCSXType(*tensor.type(), *index_value_type, *index_value_type, visitor));
   *out_sparse_index = converter.sparse_index;
   *out_data = converter.data;
   return Status::OK();

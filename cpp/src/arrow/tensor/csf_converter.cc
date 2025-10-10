@@ -18,7 +18,6 @@
 #include "arrow/tensor/converter_internal.h"
 
 #include <algorithm>
-#include <cmath>
 #include <cstdint>
 #include <limits>
 #include <memory>
@@ -30,11 +29,10 @@
 #include "arrow/status.h"
 #include "arrow/tensor.h"
 #include "arrow/type.h"
-#include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging_internal.h"
 #include "arrow/util/sort_internal.h"
-#include "arrow/visit_type_inline.h"
+#include "arrow/util/sparse_tensor_util.h"
 
 namespace arrow {
 
@@ -58,89 +56,6 @@ inline void IncrementIndex(std::vector<int64_t>& coord, const std::vector<int64_
   }
 }
 
-template <typename ValueType, typename IndexType>
-Status CheckValues(const SparseCSFIndex& sparse_csf_index,
-                   const typename ValueType::c_type* values, const Tensor& tensor,
-                   const int64_t dim, const int64_t dim_offset, const int64_t start,
-                   const int64_t stop) {
-  using ValueCType = typename ValueType::c_type;
-  using IndexCType = typename IndexType::c_type;
-
-  const auto& indices = sparse_csf_index.indices();
-  const auto& indptr = sparse_csf_index.indptr();
-  const auto& axis_order = sparse_csf_index.axis_order();
-  auto ndim = indices.size();
-  auto strides = tensor.strides();
-
-  const auto& cur_indices = indices[dim];
-  const auto* indices_data = cur_indices->data()->data_as<IndexCType>() + start;
-
-  if (dim == static_cast<int64_t>(ndim) - 1) {
-    for (auto i = start; i < stop; ++i) {
-      auto index = static_cast<int64_t>(*indices_data);
-      const int64_t offset = dim_offset + index * strides[axis_order[dim]];
-
-      auto sparse_value = values[i];
-      auto tensor_value =
-          *reinterpret_cast<const ValueCType*>(tensor.raw_data() + offset);
-      if (!is_not_zero<ValueType>(sparse_value)) {
-        return Status::Invalid("Sparse tensor values must be non-zero");
-      } else if (sparse_value != tensor_value) {
-        if constexpr (is_floating_type<ValueType>::value) {
-          if (!std::isnan(tensor_value) || !std::isnan(sparse_value)) {
-            return Status::Invalid(
-                "Inconsistent values between sparse tensor and dense tensor");
-          }
-        } else {
-          return Status::Invalid(
-              "Inconsistent values between sparse tensor and dense tensor");
-        }
-      }
-      ++indices_data;
-    }
-  } else {
-    const auto& cur_indptr = indptr[dim];
-    const auto* indptr_data = cur_indptr->data()->data_as<IndexCType>() + start;
-
-    for (int64_t i = start; i < stop; ++i) {
-      const int64_t index = *indices_data;
-      int64_t offset = dim_offset + index * strides[axis_order[dim]];
-      auto next_start = static_cast<int64_t>(*indptr_data);
-      auto next_stop = static_cast<int64_t>(*(indptr_data + 1));
-
-      ARROW_RETURN_NOT_OK((CheckValues<ValueType, IndexType>(
-          sparse_csf_index, values, tensor, dim + 1, offset, next_start, next_stop)));
-
-      ++indices_data;
-      ++indptr_data;
-    }
-  }
-  return Status::OK();
-}
-
-template <typename ValueType, typename IndexType>
-Status ValidateSparseTensorCSFCreation(const SparseIndex& sparse_index,
-                                       const Buffer& values_buffer,
-                                       const Tensor& tensor) {
-  auto sparse_csf_index = checked_cast<const SparseCSFIndex&>(sparse_index);
-  const auto* values = values_buffer.data_as<typename ValueType::c_type>();
-  const auto& indices = sparse_csf_index.indices();
-
-  ARROW_ASSIGN_OR_RAISE(auto non_zero_count, tensor.CountNonZero());
-  if (indices.back()->size() != non_zero_count) {
-    return Status::Invalid("Mismatch between non-zero count in sparse tensor (",
-                           indices.back()->size(), ") and dense tensor (", non_zero_count,
-                           ")");
-  } else if (indices.size() != tensor.shape().size()) {
-    return Status::Invalid("Mismatch between coordinate dimension in sparse tensor (",
-                           indices.size(), ") and tensor shape (", tensor.shape().size(),
-                           ")");
-  } else {
-    return CheckValues<ValueType, IndexType>(sparse_csf_index, values, tensor, 0, 0, 0,
-                                             sparse_csf_index.indptr()[0]->size() - 1);
-  }
-}
-
 // ----------------------------------------------------------------------
 // SparseTensorConverter for SparseCSFIndex
 
@@ -151,8 +66,10 @@ class SparseCSFTensorConverter {
                            MemoryPool* pool)
       : tensor_(tensor), index_value_type_(index_value_type), pool_(pool) {}
 
-  template <typename ValueType, typename IndexType>
-  Status Convert(const ValueType&, const IndexType&) {
+  // Note: The same type is considered for both indices and indptr during
+  // tensor-to-CSF-tensor conversion.
+  template <typename ValueType, typename IndexType, typename IndexPointerType>
+  Status Convert(const ValueType&, const IndexType&, const IndexPointerType&) {
     using ValueCType = typename ValueType::c_type;
     using IndexCType = typename IndexType::c_type;
     RETURN_NOT_OK(::arrow::internal::CheckSparseIndexMaximumValue(index_value_type_,
@@ -235,8 +152,6 @@ class SparseCSFTensorConverter {
     ARROW_ASSIGN_OR_RAISE(
         sparse_index, SparseCSFIndex::Make(index_value_type_, indices_shapes, axis_order,
                                            indptr_buffers, indices_buffers));
-    DCHECK_OK((ValidateSparseTensorCSFCreation<ValueType, IndexType>(*sparse_index, *data,
-                                                                     tensor_)));
     return Status::OK();
   }
 
@@ -353,7 +268,8 @@ Status MakeSparseCSFTensorFromTensor(const Tensor& tensor,
                                      std::shared_ptr<Buffer>* out_data) {
   SparseCSFTensorConverter converter(tensor, index_value_type, pool);
   ConverterVisitor visitor{converter};
-  ARROW_RETURN_NOT_OK(VisitValueAndIndexType(*tensor.type(), *index_value_type, visitor));
+  ARROW_RETURN_NOT_OK(
+      util::VisitCSXType(*tensor.type(), *index_value_type, *index_value_type, visitor));
   *out_sparse_index = checked_pointer_cast<SparseIndex>(converter.sparse_index);
   *out_data = converter.data;
   return Status::OK();

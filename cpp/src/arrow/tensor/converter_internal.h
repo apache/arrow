@@ -24,9 +24,6 @@
 
 namespace arrow {
 
-template <typename VISITOR, typename... ARGS>
-Status VisitTypeInline(const DataType& type, VISITOR* visitor, ARGS&&... args);
-
 namespace internal {
 
 struct SparseTensorConverterMixin {
@@ -71,52 +68,14 @@ Result<std::shared_ptr<Tensor>> MakeTensorFromSparseCSFTensor(
 template <typename Converter>
 struct ConverterVisitor {
   explicit ConverterVisitor(Converter& converter) : converter(converter) {}
-  template <typename ValueType, typename IndexType>
-  Status operator()(const ValueType& value, const IndexType& index_type) {
-    return converter.Convert(value, index_type);
+
+  template <typename... Args>
+  Status operator()(Args&&... args) {
+    return converter.Convert(std::forward<Args>(args)...);
   }
 
   Converter& converter;
 };
-
-struct ValueTypeVisitor {
-  template <typename ValueType, typename IndexType, typename Function>
-  enable_if_number<ValueType, Status> Visit(const ValueType& value_type,
-                                            const IndexType& index_type,
-                                            Function&& function) {
-    return function(value_type, index_type);
-  }
-
-  template <typename IndexType, typename Function>
-  Status Visit(const DataType& value_type, const IndexType&, Function&&) {
-    return Status::Invalid("Invalid value type: ", value_type.name(),
-                           ". Expected a number.");
-  }
-};
-
-struct IndexAndValueTypeVisitor {
-  template <typename IndexType, typename Function>
-  enable_if_integer<IndexType, Status> Visit(const IndexType& index_type,
-                                             const DataType& value_type,
-                                             Function&& function) {
-    ValueTypeVisitor visitor;
-    return VisitTypeInline(value_type, &visitor, index_type,
-                           std::forward<Function>(function));
-  }
-
-  template <typename Function>
-  Status Visit(const DataType& type, const DataType&, Function&&) {
-    return Status::Invalid("Invalid index type: ", type.name(), ". Expected integer.");
-  }
-};
-
-template <typename Function>
-Status VisitValueAndIndexType(const DataType& value_type, const DataType& index_type,
-                              Function&& function) {
-  IndexAndValueTypeVisitor visitor;
-  return VisitTypeInline(index_type, &visitor, value_type,
-                         std::forward<Function>(function));
-}
 
 }  // namespace internal
 }  // namespace arrow
