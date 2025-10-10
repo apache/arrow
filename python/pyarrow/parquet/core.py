@@ -1206,7 +1206,7 @@ Examples
 
 
 def _get_pandas_index_columns(keyvalues):
-    return (json.loads(keyvalues[b'pandas'].decode('utf8'))
+    return (json.loads(keyvalues[b'pandas'].decode('utf8'))  # type: ignore[attr-defined]
             ['index_columns'])
 
 

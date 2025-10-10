@@ -92,7 +92,7 @@ def get_logical_type(arrow_type):
 def get_numpy_logical_type_map():
     global _numpy_logical_type_map
     if not _numpy_logical_type_map:
-        _numpy_logical_type_map.update({
+        _numpy_logical_type_map.update({  # type: ignore[arg-type]
             np.bool_: 'bool',
             np.int8: 'int8',
             np.int16: 'int16',
@@ -287,7 +287,7 @@ def construct_metadata(columns_to_convert, df, column_names, index_levels,
             UserWarning, stacklevel=4)
 
     return {
-        b'pandas': json.dumps({
+        b'pandas': json.dumps({  # type: ignore[attr-defined]
             'index_columns': index_descriptors,
             'column_indexes': column_indexes,
             'columns': column_metadata + index_column_metadata,
@@ -523,7 +523,7 @@ def _get_index_level(df, name):
 def _level_name(name):
     # preserve type when default serializable, otherwise str it
     try:
-        json.dumps(name)
+        json.dumps(name)  # type: ignore[attr-defined]
         return name
     except TypeError:
         return str(name)
@@ -767,8 +767,8 @@ def _reconstruct_block(item, columns=None, extension_columns=None, return_block=
         # create ExtensionBlock
         arr = item['py_array']
         assert len(placement) == 1
-        name = columns[placement[0]]
-        pandas_dtype = extension_columns[name]
+        name = columns[placement[0]]  # type: ignore[index]
+        pandas_dtype = extension_columns[name]  # type: ignore[index]
         if not hasattr(pandas_dtype, '__from_arrow__'):
             raise ValueError("This column does not support to be converted "
                              "to a pandas ExtensionArray")
@@ -842,7 +842,7 @@ def table_to_dataframe(
         axes = [columns, index]
         mgr = BlockManager(blocks, axes)
         if _pandas_api.is_ge_v21():
-            df = DataFrame._from_mgr(mgr, mgr.axes)
+            df = DataFrame._from_mgr(mgr, mgr.axes)  # type: ignore[attr-defined]
         else:
             df = DataFrame(mgr)
 
@@ -1093,7 +1093,7 @@ def get_pandas_logical_type_map():
     global _pandas_logical_type_map
 
     if not _pandas_logical_type_map:
-        _pandas_logical_type_map.update({
+        _pandas_logical_type_map.update({  # type: ignore[arg-type]
             'date': 'datetime64[D]',
             'datetime': 'datetime64[ns]',
             'datetimetz': 'datetime64[ns]',

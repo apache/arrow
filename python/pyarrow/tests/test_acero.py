@@ -466,7 +466,7 @@ def test_scan(tempdir):
     table = pa.table({'a': [1, 2, 3], 'b': [4, 5, 6]})
     ds.write_dataset(table, tempdir / "dataset", format="parquet")
     dataset = ds.dataset(tempdir / "dataset", format="parquet")
-    decl = Declaration("scan", ScanNodeOptions(dataset))
+    decl = Declaration("scan", ScanNodeOptions(dataset))  # type: ignore[call-overload]
     result = decl.to_table()
     assert result.schema.names == [
         "a", "b", "__fragment_index", "__batch_index",
@@ -476,19 +476,19 @@ def test_scan(tempdir):
 
     # using a filter only does pushdown (depending on file format), not actual filter
 
-    scan_opts = ScanNodeOptions(dataset, filter=field('a') > 1)
+    scan_opts = ScanNodeOptions(dataset, filter=field('a') > 1)  # type: ignore[operator]
     decl = Declaration("scan", scan_opts)
     # fragment not filtered based on min/max statistics
-    assert decl.to_table().num_rows == 3
+    assert decl.to_table().num_rows == 3  # type: ignore[union-attr]
 
-    scan_opts = ScanNodeOptions(dataset, filter=field('a') > 4)
+    scan_opts = ScanNodeOptions(dataset, filter=field('a') > 4)  # type: ignore[operator]
     decl = Declaration("scan", scan_opts)
     # full fragment filtered based on min/max statistics
-    assert decl.to_table().num_rows == 0
+    assert decl.to_table().num_rows == 0  # type: ignore[union-attr]
 
     # projection scan option
 
-    scan_opts = ScanNodeOptions(dataset, columns={"a2": pc.multiply(field("a"), 2)})
+    scan_opts = ScanNodeOptions(dataset, columns={"a2": pc.multiply(field("a"), 2)})  # type: ignore[call-overload]
     decl = Declaration("scan", scan_opts)
     result = decl.to_table()
     # "a" is included in the result (needed later on for the actual projection)

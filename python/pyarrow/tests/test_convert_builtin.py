@@ -66,7 +66,7 @@ class MyInt:
 
 class MyBrokenInt:
     def __int__(self):
-        1/0  # MARKER
+        _ = 1/0  # MARKER
 
 
 def check_struct_type(ty, expected):

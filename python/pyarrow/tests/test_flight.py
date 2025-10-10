@@ -53,7 +53,7 @@ try:
 except ImportError:
     flight = None  # type: ignore[assignment]
     FlightClient, FlightServerBase = object, object  # type: ignore[assignment, misc]
-    ServerAuthHandler, ClientAuthHandler = (  # type: ignore[, misc]
+    ServerAuthHandler, ClientAuthHandler = (  # type: ignore[misc]
         object, object)  # type: ignore[assignment]
     ServerMiddleware, ServerMiddlewareFactory = (  # type: ignore[misc]
         object, object)  # type: ignore[assignment]
@@ -236,7 +236,7 @@ class EchoFlightServer(FlightServerBase):
 class EchoStreamFlightServer(EchoFlightServer):
     """An echo server that streams individual record batches."""
 
-    def do_get(self, context, ticket):
+    def do_get(self, context, ticket):  # type: ignore[override]
         return flight.GeneratorStream(
             self.last_message.schema,
             self.last_message.to_batches(max_chunksize=1024))
@@ -1143,7 +1143,7 @@ def test_client_wait_for_available():
     server = None
 
     def serve():
-        global server
+        global server  # type: ignore[unresolved-global]
         time.sleep(0.5)
         server = FlightServerBase(location)
         server.serve()
