@@ -114,13 +114,13 @@ elif sys.platform == "emscripten":
     defaults['timezone_data'] = os.path.exists("/usr/share/zoneinfo")
 
 try:
-    import cython  # noqa
+    import cython  # type: ignore[import-untyped] # noqa
     defaults['cython'] = True
 except ImportError:
     pass
 
 try:
-    import fastparquet  # noqa
+    import fastparquet  # type: ignore[import-untyped] # noqa
     defaults['fastparquet'] = True
 except ImportError:
     pass
