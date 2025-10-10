@@ -73,17 +73,17 @@ void RemoveAllKnownKeys(std::vector<std::string>& keys) {
 }
 
 std::vector<std::string> ReadAllKeys(const std::string& dsn) {
-  std::wstring wDsn = arrow::util::UTF8ToWideString(dsn).ValueOr(L"");
+  std::wstring wdsn = arrow::util::UTF8ToWideString(dsn).ValueOr(L"");
 
   std::vector<wchar_t> buf(BUFFER_SIZE);
 
-  int ret = SQLGetPrivateProfileString(wDsn.c_str(), NULL, L"", buf.data(),
+  int ret = SQLGetPrivateProfileString(wdsn.c_str(), NULL, L"", buf.data(),
                                        static_cast<int>(buf.size()), L"ODBC.INI");
 
   if (ret > BUFFER_SIZE) {
     // If there wasn't enough space, try again with the right size buffer.
     buf.resize(ret + 1);
-    ret = SQLGetPrivateProfileString(wDsn.c_str(), NULL, L"", buf.data(),
+    ret = SQLGetPrivateProfileString(wdsn.c_str(), NULL, L"", buf.data(),
                                      static_cast<int>(buf.size()), L"ODBC.INI");
   }
 
@@ -162,8 +162,8 @@ const std::string& Configuration::Get(const std::string_view& key) const {
   return itr->second;
 }
 
-void Configuration::Set(const std::string_view& key, const std::wstring& wValue) {
-  std::string value = arrow::util::WideStringToUTF8(wValue).ValueOr("");
+void Configuration::Set(const std::string_view& key, const std::wstring& wvalue) {
+  std::string value = arrow::util::WideStringToUTF8(wvalue).ValueOr("");
   Set(key, value);
 }
 

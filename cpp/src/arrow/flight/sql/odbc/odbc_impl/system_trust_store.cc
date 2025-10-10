@@ -34,13 +34,13 @@ std::string SystemTrustStore::GetNext() const {
   CryptBinaryToString(p_context_->pbCertEncoded, p_context_->cbCertEncoded,
                       CRYPT_STRING_BASE64HEADER, nullptr, &size);
 
-  std::wstring wCert;
-  wCert.resize(size);
+  std::wstring wcert;
+  wcert.resize(size);
   CryptBinaryToString(p_context_->pbCertEncoded, p_context_->cbCertEncoded,
-                      CRYPT_STRING_BASE64HEADER, &wCert[0], &size);
-  wCert.resize(size);
+                      CRYPT_STRING_BASE64HEADER, &wcert[0], &size);
+  wcert.resize(size);
 
-  std::string cert = arrow::util::WideStringToUTF8(wCert).ValueOr("");
+  std::string cert = arrow::util::WideStringToUTF8(wcert).ValueOr("");
 
   return cert;
 }
