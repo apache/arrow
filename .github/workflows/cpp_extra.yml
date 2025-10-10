@@ -181,17 +181,11 @@ jobs:
       matrix:
         platform:
           - arch: "amd64"
-            arch-alias: "x86_64"
-            arch-short: "amd64"
             runs-on: ubuntu-latest
-          - arch: "aarch64v8"
-            arch-alias: "aarch64"
-            arch-short: "arm64"
+          - arch: "arm64v8"
             runs-on: ubuntu-24.04-arm
     env:
       ARCH: ${{ matrix.platform.arch }}
-      ARCH_ALIAS: ${{ matrix.platform.arch-alias }}
-      ARCH_SHORT: ${{ matrix.platform.arch-short }}
       REPO: ghcr.io/${{ github.repository }}-dev
     steps:
       - name: Checkout Arrow
