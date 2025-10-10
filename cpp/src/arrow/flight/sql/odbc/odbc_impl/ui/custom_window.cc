@@ -19,11 +19,12 @@
 // before Windowsx.h and commctrl.h
 #include "arrow/flight/sql/odbc/odbc_impl/platform.h"
 
+#include "arrow/util/logging.h"
+
 #include <Windowsx.h>
 #include <commctrl.h>
 
 #include <wtypes.h>
-#include <cassert>
 #include <sstream>
 
 #include "arrow/flight/sql/odbc/odbc_impl/exceptions.h"
@@ -53,7 +54,7 @@ LRESULT CALLBACK CustomWindow::WndProc(HWND hwnd, UINT msg, WPARAM wparam,
 
   switch (msg) {
     case WM_NCCREATE: {
-      assert(lparam != NULL);
+      ARROW_DCHECK_NE(lparam, NULL);
 
       CREATESTRUCT* create_struct = reinterpret_cast<CREATESTRUCT*>(lparam);
 
@@ -65,7 +66,7 @@ LRESULT CALLBACK CustomWindow::WndProc(HWND hwnd, UINT msg, WPARAM wparam,
     }
 
     case WM_CREATE: {
-      assert(window != NULL);
+      ARROW_DCHECK_NE(window, NULL);
 
       window->SetHandle(hwnd);
 

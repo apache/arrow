@@ -212,7 +212,7 @@ boost::optional<int32_t> FlightSqlConnection::GetStringColumnLength(
 }
 
 bool FlightSqlConnection::GetUseWideChar(const ConnPropertyMap& conn_property_map) {
-#if defined _WIN32 || defined _WIN64
+#if defined _WIN32
   // Windows should use wide chars by default
   bool default_value = true;
 #else
