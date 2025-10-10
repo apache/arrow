@@ -57,6 +57,14 @@ jobs:
           esac
           echo "TEST_IMAGE_PREFIX=${test_image_prefix}" >> ${GITHUB_ENV}
 
+      - name: Check disk space before build
+        shell: powershell
+        run: |
+          Write-Output "Host disk space:"
+          Get-PSDrive C
+          Write-Output "`nDocker system info:"
+          docker system df -v
+
       - name: Build wheel
         shell: cmd
         run: |
