@@ -780,7 +780,6 @@ if(ARROW_COMPUTE)
        compute/kernels/scalar_temporal_binary.cc
        compute/kernels/scalar_temporal_unary.cc
        compute/kernels/scalar_validity.cc
-       compute/kernels/temporal_internal.cc
        compute/kernels/util_internal.cc
        compute/kernels/vector_array_sort.cc
        compute/kernels/vector_cumulative_ops.cc
