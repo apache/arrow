@@ -76,7 +76,6 @@ concurrency:
 
 permissions:
   contents: read
-  packages: write
 
 jobs:
   check-labels:
@@ -174,6 +173,9 @@ jobs:
       contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra') ||
       contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra: C++')
     timeout-minutes: 240
+    permissions:
+      # This is for using GitHub Packages for vcpkg cache
+      packages: write
     strategy:
       fail-fast: false
       matrix:
