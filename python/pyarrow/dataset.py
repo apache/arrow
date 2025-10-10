@@ -644,7 +644,7 @@ RecordBatch or Table, iterable of RecordBatch, RecordBatchReader, or URI
         partition_base_dir prefix will be skipped for partitioning discovery.
         The ignored files will still be part of the Dataset, but will not
         have partition information.
-    exclude_invalid_files : bool, optional (default True)
+    exclude_invalid_files : bool, optional (default False)
         If True, invalid files will be excluded (file format specific check).
         This will incur IO for each files in a serial and single threaded
         fashion. Disabling this feature will skip the IO, but unsupported
