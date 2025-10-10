@@ -150,7 +150,7 @@ class SingleFileRewriter {
     std::vector<int32_t> column_indices(metadata_->num_columns());
     std::iota(column_indices.begin(), column_indices.end(), 0);
     page_index_reader_->WillNeed(row_group_indices, column_indices, {true, true});
-  };
+  }
 
   void WriteData(bool fast_copy, RowGroupMetaDataBuilder* rg_metadata_builder,
                  PageIndexBuilder* page_index_builder, int64_t& total_bytes_written) {
