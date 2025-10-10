@@ -32,7 +32,7 @@ namespace arrow::flight::sql::odbc {
 namespace config {
 
 AddPropertyWindow::AddPropertyWindow(Window* parent)
-    : CustomWindow(parent, "AddProperty", "Add Property"),
+    : CustomWindow(parent, L"AddProperty", L"Add Property"),
       width_(300),
       height_(120),
       accepted_(false),
@@ -70,7 +70,7 @@ void AddPropertyWindow::Create() {
   }
 }
 
-bool AddPropertyWindow::GetProperty(std::string& key, std::string& value) {
+bool AddPropertyWindow::GetProperty(std::wstring& key, std::wstring& value) {
   if (accepted_) {
     key = this->key_;
     value = this->value_;
@@ -88,10 +88,10 @@ void AddPropertyWindow::OnCreate() {
   int cancel_pos_x = width_ - MARGIN - BUTTON_WIDTH;
   int ok_pos_x = cancel_pos_x - INTERVAL - BUTTON_WIDTH;
 
-  ok_button_ = CreateButton(ok_pos_x, group_pos_y, BUTTON_WIDTH, BUTTON_HEIGHT, "Ok",
+  ok_button_ = CreateButton(ok_pos_x, group_pos_y, BUTTON_WIDTH, BUTTON_HEIGHT, L"Ok",
                             ChildId::OK_BUTTON, BS_DEFPUSHBUTTON);
   cancel_button_ = CreateButton(cancel_pos_x, group_pos_y, BUTTON_WIDTH, BUTTON_HEIGHT,
-                                "Cancel", ChildId::CANCEL_BUTTON);
+                                L"Cancel", ChildId::CANCEL_BUTTON);
   is_initialized_ = true;
   CheckEnableOk();
 }
@@ -105,16 +105,16 @@ int AddPropertyWindow::CreateEdits(int pos_x, int pos_y, int size_x) {
   int row_pos = pos_y;
 
   labels_.push_back(
-      CreateLabel(pos_x, row_pos, LABEL_WIDTH, ROW_HEIGHT, "Key:", ChildId::KEY_LABEL));
+      CreateLabel(pos_x, row_pos, LABEL_WIDTH, ROW_HEIGHT, L"Key:", ChildId::KEY_LABEL));
   key_edit_ =
-      CreateEdit(edit_pos_x, row_pos, edit_size_x, ROW_HEIGHT, "", ChildId::KEY_EDIT);
+      CreateEdit(edit_pos_x, row_pos, edit_size_x, ROW_HEIGHT, L"", ChildId::KEY_EDIT);
 
   row_pos += INTERVAL + ROW_HEIGHT;
 
-  labels_.push_back(CreateLabel(pos_x, row_pos, LABEL_WIDTH, ROW_HEIGHT,
-                                "Value:", ChildId::VALUE_LABEL));
+  labels_.push_back(CreateLabel(pos_x, row_pos, LABEL_WIDTH, ROW_HEIGHT, L"Value:",
+                                ChildId::VALUE_LABEL));
   value_edit_ =
-      CreateEdit(edit_pos_x, row_pos, edit_size_x, ROW_HEIGHT, "", ChildId::VALUE_EDIT);
+      CreateEdit(edit_pos_x, row_pos, edit_size_x, ROW_HEIGHT, L"", ChildId::VALUE_EDIT);
 
   row_pos += INTERVAL + ROW_HEIGHT;
 

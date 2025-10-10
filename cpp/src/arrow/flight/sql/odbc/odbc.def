@@ -17,8 +17,7 @@
 
 LIBRARY   arrow_flight_sql_odbc
 EXPORTS
-	; TODO: update to ConfigDSNW when driver has unicode implemented
-	; ConfigDSN
+	ConfigDSNW
 	SQLAllocConnect
 	SQLAllocEnv
 	SQLAllocHandle

@@ -27,12 +27,13 @@
 #include "arrow/flight/sql/odbc/odbc_impl/flight_sql_connection.h"
 #include "arrow/flight/sql/odbc/odbc_impl/ui/dsn_configuration_window.h"
 #include "arrow/flight/sql/odbc/odbc_impl/ui/window.h"
+#include "arrow/result.h"
+#include "arrow/util/utf8.h"
 
 #include <odbcinst.h>
-#include <codecvt>
-#include <locale>
 #include <sstream>
 
+using arrow::flight::sql::odbc::DriverException;
 using arrow::flight::sql::odbc::FlightSqlConnection;
 using arrow::flight::sql::odbc::config::Configuration;
 using arrow::flight::sql::odbc::config::ConnectionStringParser;
@@ -40,19 +41,13 @@ using arrow::flight::sql::odbc::config::DsnConfigurationWindow;
 using arrow::flight::sql::odbc::config::Result;
 using arrow::flight::sql::odbc::config::Window;
 
-BOOL CALLBACK ConfigDriver(HWND hwndParent, WORD fRequest, LPCSTR lpszDriver,
-                           LPCSTR lpszArgs, LPSTR lpszMsg, WORD cbMsgMax,
-                           WORD* pcbMsgOut) {
-  return false;
-}
+bool DisplayConnectionWindow(void* window_parent, Configuration& config) {
+  HWND hwnd_parent = (HWND)window_parent;
 
-bool DisplayConnectionWindow(void* windowParent, Configuration& config) {
-  HWND hwndParent = (HWND)windowParent;
-
-  if (!hwndParent) return true;
+  if (!hwnd_parent) return true;
 
   try {
-    Window parent(hwndParent);
+    Window parent(hwnd_parent);
     DsnConfigurationWindow window(&parent, config);
 
     window.Create();
@@ -61,13 +56,16 @@ bool DisplayConnectionWindow(void* windowParent, Configuration& config) {
     window.Update();
 
     return ProcessMessages(window) == Result::OK;
-  } catch (arrow::flight::sql::odbc::DriverException& err) {
+  } catch (const DriverException& err) {
     std::stringstream buf;
-    buf << "Message: " << err.GetMessageText() << ", Code: " << err.GetNativeError();
-    std::string message = buf.str();
-    MessageBox(NULL, message.c_str(), "Error!", MB_ICONEXCLAMATION | MB_OK);
+    buf << "SQL State: " << err.GetSqlState() << ", Message: " << err.GetMessageText()
+        << ", Code: " << err.GetNativeError();
+    std::wstring wmessage = arrow::util::UTF8ToWideString(buf.str()).ValueOr(L"");
+    MessageBox(NULL, wmessage.c_str(), L"Error!", MB_ICONEXCLAMATION | MB_OK);
 
-    SQLPostInstallerError(err.GetNativeError(), err.GetMessageText().c_str());
+    std::wstring wmessage_text =
+        arrow::util::UTF8ToWideString(err.GetMessageText()).ValueOr(L"");
+    SQLPostInstallerError(err.GetNativeError(), wmessage_text.c_str());
   }
 
   return false;
@@ -76,14 +74,14 @@ bool DisplayConnectionWindow(void* windowParent, Configuration& config) {
 void PostLastInstallerError() {
 #define BUFFER_SIZE (1024)
   DWORD code;
-  char msg[BUFFER_SIZE];
+  wchar_t msg[BUFFER_SIZE];
   SQLInstallerError(1, &code, msg, BUFFER_SIZE, NULL);
 
-  std::stringstream buf;
-  buf << "Message: \"" << msg << "\", Code: " << code;
-  std::string error_msg = buf.str();
+  std::wstringstream buf;
+  buf << L"Message: \"" << msg << L"\", Code: " << code;
+  std::wstring error_msg = buf.str();
 
-  MessageBox(NULL, error_msg.c_str(), "Error!", MB_ICONEXCLAMATION | MB_OK);
+  MessageBox(NULL, error_msg.c_str(), L"Error!", MB_ICONEXCLAMATION | MB_OK);
   SQLPostInstallerError(code, error_msg.c_str());
 }
 
@@ -93,7 +91,7 @@ void PostLastInstallerError() {
  * @param dsn DSN name.
  * @return True on success and false on fail.
  */
-bool UnregisterDsn(const std::string& dsn) {
+bool UnregisterDsn(const std::wstring& dsn) {
   if (SQLRemoveDSNFromIni(dsn.c_str())) {
     return true;
   }
@@ -109,10 +107,11 @@ bool UnregisterDsn(const std::string& dsn) {
  * @param driver Driver.
  * @return True on success and false on fail.
  */
-bool RegisterDsn(const Configuration& config, LPCSTR driver) {
+bool RegisterDsn(const Configuration& config, LPCWSTR driver) {
   const std::string& dsn = config.Get(FlightSqlConnection::DSN);
+  std::wstring wdsn = arrow::util::UTF8ToWideString(dsn).ValueOr(L"");
 
-  if (!SQLWriteDSNToIni(dsn.c_str(), driver)) {
+  if (!SQLWriteDSNToIni(wdsn.c_str(), driver)) {
     PostLastInstallerError();
     return false;
   }
@@ -125,9 +124,10 @@ bool RegisterDsn(const Configuration& config, LPCSTR driver) {
       continue;
     }
 
-    std::string key_str = std::string(key);
-    if (!SQLWritePrivateProfileString(dsn.c_str(), key_str.c_str(), it->second.c_str(),
-                                      "ODBC.INI")) {
+    std::wstring wkey = arrow::util::UTF8ToWideString(key).ValueOr(L"");
+    std::wstring wvalue = arrow::util::UTF8ToWideString(it->second).ValueOr(L"");
+    if (!SQLWritePrivateProfileString(wdsn.c_str(), wkey.c_str(), wvalue.c_str(),
+                                      L"ODBC.INI")) {
       PostLastInstallerError();
       return false;
     }
@@ -136,15 +136,18 @@ bool RegisterDsn(const Configuration& config, LPCSTR driver) {
   return true;
 }
 
-BOOL INSTAPI ConfigDSN(HWND hwndParent, WORD req, LPCSTR driver, LPCSTR attributes) {
+BOOL INSTAPI ConfigDSNW(HWND hwnd_parent, WORD req, LPCWSTR wdriver,
+                        LPCWSTR wattributes) {
   Configuration config;
   ConnectionStringParser parser(config);
-  parser.ParseConfigAttributes(attributes);
+  std::string attributes =
+      arrow::util::WideStringToUTF8(std::wstring(wattributes)).ValueOr("");
+  parser.ParseConfigAttributes(attributes.c_str());
 
   switch (req) {
     case ODBC_ADD_DSN: {
       config.LoadDefaults();
-      if (!DisplayConnectionWindow(hwndParent, config) || !RegisterDsn(config, driver))
+      if (!DisplayConnectionWindow(hwnd_parent, config) || !RegisterDsn(config, wdriver))
         return FALSE;
 
       break;
@@ -152,13 +155,14 @@ BOOL INSTAPI ConfigDSN(HWND hwndParent, WORD req, LPCSTR driver, LPCSTR attribut
 
     case ODBC_CONFIG_DSN: {
       const std::string& dsn = config.Get(FlightSqlConnection::DSN);
-      if (!SQLValidDSN(dsn.c_str())) return FALSE;
+      std::wstring wdsn = arrow::util::UTF8ToWideString(dsn).ValueOr(L"");
+      if (!SQLValidDSN(wdsn.c_str())) return FALSE;
 
       Configuration loaded(config);
       loaded.LoadDsn(dsn);
 
-      if (!DisplayConnectionWindow(hwndParent, loaded) || !UnregisterDsn(dsn.c_str()) ||
-          !RegisterDsn(loaded, driver))
+      if (!DisplayConnectionWindow(hwnd_parent, loaded) || !UnregisterDsn(wdsn.c_str()) ||
+          !RegisterDsn(loaded, wdriver))
         return FALSE;
 
       break;
@@ -166,7 +170,8 @@ BOOL INSTAPI ConfigDSN(HWND hwndParent, WORD req, LPCSTR driver, LPCSTR attribut
 
     case ODBC_REMOVE_DSN: {
       const std::string& dsn = config.Get(FlightSqlConnection::DSN);
-      if (!SQLValidDSN(dsn.c_str()) || !UnregisterDsn(dsn)) return FALSE;
+      std::wstring wdsn = arrow::util::UTF8ToWideString(dsn).ValueOr(L"");
+      if (!SQLValidDSN(wdsn.c_str()) || !UnregisterDsn(wdsn)) return FALSE;
 
       break;
     }

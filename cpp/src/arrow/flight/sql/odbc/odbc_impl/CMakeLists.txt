@@ -39,12 +39,16 @@ add_library(arrow_odbc_spi_impl
             blocking_queue.h
             calendar_utils.cc
             calendar_utils.h
+            config/configuration.cc
+            config/configuration.h
+            config/connection_string_parser.cc
+            config/connection_string_parser.h
             diagnostics.cc
             diagnostics.h
+            error_codes.h
             encoding.cc
             encoding.h
             encoding_utils.h
-            error_codes.h
             exceptions.cc
             exceptions.h
             flight_sql_auth_method.cc
@@ -106,16 +110,13 @@ add_library(arrow_odbc_spi_impl
             type_utilities.h
             util.cc
             util.h)
+target_compile_definitions(arrow_odbc_spi_impl PUBLIC UNICODE)
 target_include_directories(arrow_odbc_spi_impl PUBLIC include include/odbc_impl)
 target_include_directories(arrow_odbc_spi_impl PUBLIC ${CMAKE_CURRENT_LIST_DIR})
 
 if(WIN32)
   target_sources(arrow_odbc_spi_impl
-                 PRIVATE config/configuration.cc
-                         config/configuration.h
-                         config/connection_string_parser.cc
-                         config/connection_string_parser.h
-                         ui/add_property_window.cc
+                 PRIVATE ui/add_property_window.cc
                          ui/add_property_window.h
                          ui/custom_window.cc
                          ui/custom_window.h
@@ -123,9 +124,7 @@ if(WIN32)
                          ui/dsn_configuration_window.h
                          ui/window.cc
                          ui/window.h
-                         win_system_dsn.cc
-                         system_dsn.cc
-                         system_dsn.h)
+                         system_dsn.cc)
 endif()
 
 target_link_libraries(arrow_odbc_spi_impl PUBLIC arrow_flight_sql_shared

@@ -82,7 +82,8 @@ LRESULT CALLBACK CustomWindow::WndProc(HWND hwnd, UINT msg, WPARAM wparam,
   return DefWindowProc(hwnd, msg, wparam, lparam);
 }
 
-CustomWindow::CustomWindow(Window* parent, const char* class_name, const char* title)
+CustomWindow::CustomWindow(Window* parent, const wchar_t* class_name,
+                           const wchar_t* title)
     : Window(parent, class_name, title) {
   WNDCLASS wcx;
 
