@@ -178,9 +178,9 @@ class SingleFileRewriter {
 
   const SchemaDescriptor* schema() const { return metadata_->schema(); }
 
-  std::vector<int> row_group_row_counts() const {
+  std::vector<int64_t> row_group_row_counts() const {
     int num_row_groups = metadata_->num_row_groups();
-    std::vector<int> row_counts;
+    std::vector<int64_t> row_counts;
     row_counts.reserve(num_row_groups);
     for (int i = 0; i < num_row_groups; ++i) {
       row_counts.emplace_back(metadata_->RowGroup(i)->num_rows());
@@ -234,8 +234,8 @@ class ConcatRewriter {
 
   const SchemaDescriptor* schema() const { return rewriters_[0]->schema(); }
 
-  std::vector<int> row_group_row_counts() const {
-    std::vector<int> row_counts;
+  std::vector<int64_t> row_group_row_counts() const {
+    std::vector<int64_t> row_counts;
     for (auto& rewriter : rewriters_) {
       auto count = rewriter->row_group_row_counts();
       row_counts.insert(row_counts.end(), count.begin(), count.end());
@@ -270,7 +270,7 @@ class ExtendRewriter {
     for (size_t i = 1; i < rewriters_.size(); ++i) {
       if (auto current_row_counts = rewriters_[i]->row_group_row_counts();
           row_counts != current_row_counts) {
-        auto vecToString = [](const std::vector<int>& v) {
+        auto vecToString = [](const std::vector<int64_t>& v) {
           std::ostringstream oss;
           oss << "[";
           for (size_t i = 0; i < v.size(); ++i) {
