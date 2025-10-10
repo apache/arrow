@@ -26,7 +26,7 @@ import numpy as np
 
 from pyarrow.lib import _Weakrefable
 from scipy.sparse import coo_matrix, csr_matrix
-from sparse import COO  # type: ignore[import-not-found]
+from sparse import COO  # type: ignore[import-untyped]
 
 
 class Tensor(_Weakrefable):

@@ -19,7 +19,7 @@ from typing import Any
 
 import cuda  # type: ignore[import-not-found]
 
-from numba.cuda.cudadrv import driver as _numba_driver  # type: ignore[import-not-found]
+from numba.cuda.cudadrv import driver as _numba_driver  # type: ignore[import-untyped]
 
 from . import lib
 from ._stubs_typing import ArrayLike
