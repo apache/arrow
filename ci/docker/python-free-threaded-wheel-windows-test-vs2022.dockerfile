@@ -26,24 +26,34 @@ FROM ${base}
 
 ARG python=3.13
 
+# hadolint ignore=SC1072
+RUN (if "%python%"=="3.13" setx PYTHON_VERSION "3.13.1") & \
+    (if "%python%"=="3.14" setx PYTHON_VERSION "3.14.0")
+
 SHELL ["powershell", "-NoProfile", "-Command", "$ErrorActionPreference = 'Stop'; $ProgressPreference = 'SilentlyContinue';"]
-RUN $filename = 'python-3.13.1-amd64.exe'; \
-    $url = 'https://www.python.org/ftp/python/3.13.1/' + $filename; \
+RUN $version = $env:PYTHON_VERSION; \
+    $filename = 'python-' + $version + '-amd64.exe'; \
+    $url = 'https://www.python.org/ftp/python/' + $version + '/' + $filename; \
     Invoke-WebRequest -Uri $url -OutFile $filename; \
     Start-Process -FilePath $filename -ArgumentList '/quiet', 'Include_freethreaded=1' -Wait
 
 ENV PYTHON_CMD="py -${python}t"
 
 SHELL ["cmd", "/S", "/C"]
-RUN %PYTHON_CMD% -m pip install -U pip setuptools
+RUN %PYTHON_CMD% -m pip install -U pip setuptools & \
+    if "%python%"=="3.13" ( \
+        setx REQUIREMENTS_FILE "requirements-wheel-test-3.13t.txt" \
+    ) else ( \
+        setx REQUIREMENTS_FILE "requirements-wheel-test.txt" \
+    )
 
-COPY python/requirements-wheel-test-3.13t.txt C:/arrow/python/
-# Cython and Pandas wheels for 3.13 free-threaded are not released yet
+COPY python/requirements-wheel-test-3.13t.txt python/requirements-wheel-test.txt C:/arrow/python/
+# Cython and Pandas wheels for free-threaded are not released yet
 RUN %PYTHON_CMD% -m pip install \
     --extra-index-url https://pypi.anaconda.org/scientific-python-nightly-wheels/simple \
     --pre \
     --prefer-binary \
-    -r C:/arrow/python/requirements-wheel-test-3.13t.txt
+    -r C:/arrow/python/%REQUIREMENTS_FILE%
 
 ENV PYTHON="${python}t"
 ENV PYTHON_GIL=0

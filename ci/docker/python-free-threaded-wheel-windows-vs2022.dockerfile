@@ -26,9 +26,13 @@ FROM ${base}
 
 ARG python=3.13
 
+RUN (if "%python%"=="3.13" setx PYTHON_VERSION "3.13.1") & \
+    (if "%python%"=="3.14" setx PYTHON_VERSION "3.14.0")
+
 SHELL ["powershell", "-NoProfile", "-Command", "$ErrorActionPreference = 'Stop'; $ProgressPreference = 'SilentlyContinue';"]
-RUN $filename = 'python-3.13.1-amd64.exe'; \
-    $url = 'https://www.python.org/ftp/python/3.13.1/' + $filename; \
+RUN $version = $env:PYTHON_VERSION; \
+    $filename = 'python-' + $version + '-amd64.exe'; \
+    $url = 'https://www.python.org/ftp/python/' + $version + '/' + $filename; \
     Invoke-WebRequest -Uri $url -OutFile $filename; \
     Start-Process -FilePath $filename -ArgumentList '/quiet', 'Include_freethreaded=1' -Wait
 

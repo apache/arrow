@@ -25,8 +25,9 @@ FROM ${base}
 ARG python=3.10
 RUN (if "%python%"=="3.10" setx PYTHON_VERSION "3.10.11" && setx PYTHON_CMD "py -3.10") & \
     (if "%python%"=="3.11" setx PYTHON_VERSION "3.11.9" && setx PYTHON_CMD "py -3.11") & \
-    (if "%python%"=="3.12" setx PYTHON_VERSION "3.12.8" && setx PYTHON_CMD "py -3.12") & \
-    (if "%python%"=="3.13" setx PYTHON_VERSION "3.13.1" && setx PYTHON_CMD "py -3.13")
+    (if "%python%"=="3.12" setx PYTHON_VERSION "3.12.10" && setx PYTHON_CMD "py -3.12") & \
+    (if "%python%"=="3.13" setx PYTHON_VERSION "3.13.7" && setx PYTHON_CMD "py -3.13") & \
+    (if "%python%"=="3.14" setx PYTHON_VERSION "3.14.0" && setx PYTHON_CMD "py -3.14")
 
 RUN choco install -r -y --pre --no-progress python --version=%PYTHON_VERSION%
 RUN %PYTHON_CMD% -m pip install -U pip setuptools
