@@ -767,9 +767,13 @@ class ARROW_EXPORT StructBuilder : public ArrayBuilder {
   /// be called independently to maintain data-structure consistency.
   Status Append(bool is_valid = true) {
     ARROW_RETURN_NOT_OK(Reserve(1));
-    UnsafeAppendToBitmap(is_valid);
+    UnsafeAppend(is_valid);
     return Status::OK();
   }
+
+  /// It doesn't check the capacity. Caller is responsible for calling Reserve()
+  /// beforehand.
+  void UnsafeAppend(bool is_valid = true) { UnsafeAppendToBitmap(is_valid); }
 
   /// \brief Append a null value. Automatically appends an empty value to each child
   /// builder.
@@ -780,6 +784,17 @@ class ARROW_EXPORT StructBuilder : public ArrayBuilder {
     return Append(false);
   }
 
+  /// The caller is responsible for calling Reserve() beforehand to ensure
+  /// there is enough space. This method will append nulls to all child
+  /// builders to maintain a consistent state.
+  Status UnsafeAppendNull() {
+    UnsafeAppend(false);
+    for (const auto& child : children_) {
+      ARROW_RETURN_NOT_OK(child->AppendEmptyValue());
+    }
+    return Status::OK();
+  }
+
   /// \brief Append multiple null values. Automatically appends empty values to each
   /// child builder.
   Status AppendNulls(int64_t length) final {
@@ -787,6 +802,19 @@ class ARROW_EXPORT StructBuilder : public ArrayBuilder {
       ARROW_RETURN_NOT_OK(field->AppendEmptyValues(length));
     }
     ARROW_RETURN_NOT_OK(Reserve(length));
+    UnsafeAppendToBitmap(length, false);
+    return Status::OK();
+  }
+
+  /// This method is "unsafe" because it does not check for capacity.
+  /// The caller is responsible for calling Reserve() beforehand to ensure
+  /// there is enough space. This method will append nulls to all child
+  /// builders to maintain a consistent state.
+  /// param length The number of null slots to append.
+  Status UnsafeAppendNulls(int64_t length) {
+    for (const auto& child : children_) {
+      ARROW_RETURN_NOT_OK(child->AppendEmptyValues(length));
+    }
     UnsafeAppendToBitmap(length, false);
     return Status::OK();
   }
