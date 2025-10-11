@@ -15,8 +15,65 @@
 # specific language governing permissions and limitations
 # under the License.
 
-dl_dep = dependency('dl')
+if host_machine.system() == 'windows'
+    dl_dep = declare_dependency()
+else
+    dl_dep = dependency('dl')
+endif
 threads_dep = dependency('threads')
+
+has_int128 = cpp_compiler.has_define('__SIZEOF_INT128__')
+arrow_enable_threading = true
+boost_deps = []
+needs_multiprecision = not has_int128
+needs_boost = needs_testing or needs_multiprecision
+
+if needs_boost
+    boost_modules = ['filesystem', 'system']
+    if cpp_compiler.get_id() == 'msvc'
+        boost_modules += ['crc']
+    endif
+
+    if needs_multiprecision
+        boost_modules += ['multiprecision']
+    endif
+    boost_dep = dependency('boost', modules: boost_modules, required: false)
+
+    if boost_dep.found()
+        boost_deps = boost_dep
+    else
+        if cpp_compiler.get_id() == 'msvc'
+            # Threading support requires boost's asio library, which in turn requires the boost
+            # context library. Unfortunately, this does not appear possible to build
+            # via Meson's CMake wrapper with MSVC, as the generated subproject wrapper
+            # mixes up requiring the NASM assembler with the MASM assembler Windows provides
+            # See https://github.com/mesonbuild/meson/issues/14900
+            warning(
+                '''
+                Building Boost from source with MSVC requires the Arrow library to disable threading.
+                For optimal performance, please do a system install of Boost.
+            ''',
+            )
+            arrow_enable_threading = false
+        endif
+        cmake = import('cmake')
+        boost_opt = cmake.subproject_options()
+        boost_opt.add_cmake_defines(
+            {'BOOST_INCLUDE_LIBRARIES': ';'.join(boost_modules)},
+        )
+        boost_proj = cmake.subproject('boost', options: boost_opt)
+        foreach boost_module : boost_modules
+            dep = boost_proj.dependency(f'boost_@boost_module@')
+            boost_deps += [dep]
+        endforeach
+    endif
+endif
+
+if needs_multiprecision
+    int128_deps = [boost_deps]
+else
+    int128_deps = []
+endif
 
 arrow_components = {
     'arrow_array': {
@@ -78,6 +135,7 @@ arrow_components = {
             'compute/kernels/vector_selection_take_internal.cc',
             'compute/kernels/vector_swizzle.cc',
         ],
+        'dependencies': int128_deps,
     },
     'arrow_io': {
         'sources': [
@@ -217,7 +275,7 @@ arrow_util_srcs = [
     'util/value_parsing.cc',
 ]
 
-arrow_util_deps = [threads_dep]
+arrow_util_deps = int128_deps + [threads_dep]
 
 if needs_brotli
     arrow_util_srcs += ['util/compression_brotli.cc']
@@ -245,7 +303,13 @@ endif
 
 if needs_snappy
     arrow_util_srcs += ['util/compression_snappy.cc']
-    arrow_util_deps += dependency('snappy', 'Snappy')
+    # snappy does not export symbols, so MSVC requires a static lib
+    if cpp_compiler.get_id() == 'msvc'
+        snappy_dep = dependency('snappy', 'Snappy', static: true)
+    else
+        snappy_dep = dependency('snappy', 'Snappy')
+    endif
+    arrow_util_deps += snappy_dep
 endif
 
 if needs_zlib
@@ -483,6 +547,11 @@ foreach key, val : arrow_components
     arrow_deps += val.get('dependencies', [])
 endforeach
 
+arrow_lib_cpp_shared_args = ['-DARROW_EXPORTING']
+if needs_compute
+    arrow_lib_cpp_shared_args += ['-DARROW_COMPUTE_EXPORTING']
+endif
+
 arrow_lib = library(
     'arrow',
     sources: arrow_srcs,
@@ -490,12 +559,22 @@ arrow_lib = library(
     dependencies: arrow_deps,
     install: true,
     gnu_symbol_visibility: 'inlineshidden',
-    cpp_shared_args: ['-DARROW_EXPORTING'],
+    c_args: ['-DURI_STATIC_BUILD'],
+    c_shared_args: ['-DARROW_EXPORTING'],
+    cpp_args: ['-DURI_STATIC_BUILD'],
+    cpp_shared_args: arrow_lib_cpp_shared_args,
+    cpp_static_args: ['-DARROW_STATIC'],
 )
+
+arrow_compile_args = []
+if get_option('default_library') == 'static'
+    arrow_compile_args += ['-DARROW_STATIC']
+endif
 
 arrow_dep = declare_dependency(
     include_directories: [include_dir],
     link_with: arrow_lib,
+    compile_args: arrow_compile_args,
 )
 meson.override_dependency('arrow', arrow_dep)
 
@@ -551,15 +630,23 @@ if needs_compute
     arrow_compute_lib = library(
         'arrow-compute',
         sources: arrow_compute_lib_sources,
-        dependencies: arrow_dep,
+        dependencies: [arrow_dep] + int128_deps,
         install: true,
         gnu_symbol_visibility: 'inlineshidden',
         cpp_shared_args: ['-DARROW_COMPUTE_EXPORTING'],
+        cpp_static_args: ['-DARROW_COMPUTE_STATIC'],
     )
+
+    arrow_compute_compile_args = []
+    if get_option('default_library') == 'static'
+        arrow_compute_compile_args += ['-DARROW_COMPUTE_STATIC']
+    endif
+
     arrow_compute_dep = declare_dependency(
         link_with: arrow_compute_lib,
         include_directories: include_dir,
         dependencies: arrow_dep,
+        compile_args: arrow_compute_compile_args,
     )
     meson.override_dependency('arrow-compute', arrow_compute_dep)
 else
@@ -611,41 +698,43 @@ install_headers(
 )
 
 if needs_testing
-    filesystem_dep = dependency(
-        'boost',
-        modules: ['filesystem'],
-        required: false,
-    )
-    if not filesystem_dep.found()
-        cmake = import('cmake')
-        boost_opt = cmake.subproject_options()
-        boost_opt.add_cmake_defines(
-            {'BOOST_INCLUDE_LIBRARIES': 'filesystem;system'},
-        )
-        boost_proj = cmake.subproject('boost', options: boost_opt)
-        filesystem_dep = boost_proj.dependency('boost_filesystem')
-    endif
-
     gtest_dep = dependency('gtest')
     gtest_main_dep = dependency('gtest_main')
     gtest_dep = dependency('gtest')
+    gmock_main_dep = dependency('gmock_main')
     gmock_dep = dependency('gmock')
 else
-    filesystem_dep = disabler()
     gtest_dep = disabler()
     gtest_main_dep = disabler()
     gtest_dep = disabler()
+    gmock_main_dep = disabler()
     gmock_dep = disabler()
 endif
 
 if needs_testing
-    arrow_testing_lib = static_library(
+    arrow_testing_lib_deps = [arrow_dep, boost_deps]
+
+    if host_machine.system() == 'windows'
+        winsock_dep = cpp_compiler.find_library('ws2_32')
+        arrow_testing_lib_deps += [winsock_dep]
+    endif
+
+    arrow_testing_lib = library(
         'arrow_testing',
         sources: arrow_testing_srcs,
-        dependencies: [arrow_dep, filesystem_dep, gmock_dep, gtest_dep],
+        dependencies: arrow_testing_lib_deps + [gmock_main_dep, rapidjson_dep],
+        cpp_shared_args: ['-DARROW_TESTING_EXPORTING'],
+        cpp_static_args: ['-DARROW_TESTING_STATIC'],
     )
 
-    arrow_testing_dep = declare_dependency(link_with: [arrow_testing_lib])
+    arrow_testing_compile_args = []
+    if get_option('default_library') == 'static'
+        arrow_testing_compile_args += ['-DARROW_TESTING_STATIC']
+    endif
+    arrow_testing_dep = declare_dependency(
+        link_with: [arrow_testing_lib],
+        compile_args: arrow_testing_compile_args,
+    )
     meson.override_dependency('arrow-testing', arrow_testing_dep)
 else
     arrow_testing_dep = disabler()
@@ -654,21 +743,13 @@ endif
 if needs_tests
     arrow_test_dep = declare_dependency(
         dependencies: [
-            arrow_dep,
             arrow_testing_dep,
-            filesystem_dep,
-            gmock_dep,
-            gtest_main_dep,
+            arrow_testing_lib_deps,
+            gmock_main_dep,
         ],
     )
     arrow_test_dep_no_main = declare_dependency(
-        dependencies: [
-            arrow_dep,
-            arrow_testing_dep,
-            filesystem_dep,
-            gmock_dep,
-            gtest_dep,
-        ],
+        dependencies: [arrow_testing_dep, arrow_testing_lib_deps, gmock_dep],
     )
 else
     arrow_test_dep = disabler()
@@ -813,7 +894,14 @@ subdir('tensor')
 subdir('util')
 subdir('vendored')
 
-gflags_dep = dependency('gflags', include_type: 'system')
+gflags_base_dep = dependency('gflags', include_type: 'system')
+if host_machine.system() == 'windows'
+    shlwapi_lib = cpp_compiler.find_library('shlwapi')
+    gflags_dep = declare_dependency(dependencies: [gflags_base_dep, shlwapi_lib])
+else
+    gflags_dep = gflags_base_dep
+endif
+
 if needs_integration or needs_tests
     subdir('integration')
 endif

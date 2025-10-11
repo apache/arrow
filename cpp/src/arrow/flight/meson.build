@@ -44,7 +44,30 @@ install_headers(
     subdir: 'arrow/flight',
 )
 
-grpc_dep = dependency('grpc++')
+# Due to the Meson bug in https://github.com/mesonbuild/meson/issues/14905
+# we need to special how the grpc_cpp_plugin resolution is handled
+# when found on the system versus when built as a subproject
+# On Windows we always need to use a subproject, because Meson cannot
+# accurately detect if the system provides a shared/static library, and the
+# shared grpc files do not export symbols properly
+if host_machine.system() == 'windows'
+    has_system_grpc = false
+else
+    grpc_cpp_dep = dependency('grpc++', allow_fallback: false, required: false)
+    has_system_grpc = grpc_cpp_dep.found()
+endif
+if not has_system_grpc
+    grpc_opts = []
+    if cpp_compiler.get_id() == 'msvc'
+        grpc_opts += [
+            'openssl:asm=disabled',  # asm cannot compile on Windows
+            're2:default_library=static',  # re2 does not export symbols
+        ]
+    endif
+    grpc_subproject = subproject('grpc', default_options: grpc_opts)
+    grpc_cpp_dep = grpc_subproject.get_variable('grpcpp_dep')
+endif
+
 protobuf_dep = dependency('protobuf')
 abseil_sync_dep = dependency('absl_synchronization')
 
@@ -53,19 +76,26 @@ protoc = find_program('protoc')
 
 flight_proto_path = fs.parent(meson.project_source_root()) / 'format'
 
+# gRPC as of 1.59.0 may only be statically linked on Windows. Unfortunately, both arrow_flight
+# and the arrow_flight tests need to link against gRPC, so if arrow_flight lib is shared
+# it will cause an ODR violation when subsequently building tests
+needs_static_flight = host_machine.system() == 'windows' or get_option(
+    'default_library',
+) == 'static'
+
 # To ensure messages from proto files are created correctly, we need to
 # pass in dllexport_decl=<...> . Unfortunately, it doesn't appear that we
 # can just pass in dllexport_decl=ARROW_FLIGHT_EXPORT, as the visibility
 # macro won't be easily available to the generated proto file. See also
 # https://github.com/protocolbuffers/protobuf/issues/19422
-if cpp_compiler.get_id() == 'msvc'
-    if get_option('default_library') != 'static'
+if needs_static_flight
+    proto_visibility = ''
+else
+    if cpp_compiler.get_id() == 'msvc'
         proto_visibility = 'dllexport_decl=__declspec(dllexport):'
     else
-        proto_visibility = ''
+        proto_visibility = 'dllexport_decl=__attribute__((visibility("default"))):'
     endif
-else
-    proto_visibility = 'dllexport_decl=__attribute__((visibility("default"))):'
 endif
 
 flight_proto_files = custom_target(
@@ -81,16 +111,22 @@ flight_proto_files = custom_target(
 )
 
 grpc_cpp_plugin = find_program('grpc_cpp_plugin')
+if has_system_grpc
+    grpc_cpp_plugin_input = grpc_cpp_plugin.full_path()
+else
+    grpc_cpp_plugin_input = grpc_cpp_plugin
+endif
+
 flight_proto_grpc_files = custom_target(
     'arrow-flight-proto-grpc-files',
-    input: [flight_proto_path / 'Flight.proto'],
+    input: [grpc_cpp_plugin_input, flight_proto_path / 'Flight.proto'],
     output: ['Flight.grpc.pb.cc', 'Flight.grpc.pb.h'],
     command: [
         protoc,
         '--proto_path=' + flight_proto_path,
         '--grpc_out=' + meson.current_build_dir(),
-        '--plugin=protoc-gen-grpc=' + grpc_cpp_plugin.full_path(),
-        '@INPUT@',
+        '--plugin=protoc-gen-grpc=@INPUT0@',
+        '@INPUT1@',
     ],
 )
 
@@ -116,7 +152,7 @@ arrow_flight_srcs = [
 
 thread_dep = dependency('threads')
 
-arrow_flight = library(
+arrow_flight = build_target(
     'arrow-flight',
     # We intentionally index flight_proto_grpc_files[1] so as to avoid
     # adding 'Flight.grpc.pb.cc' to the sources. This is required
@@ -128,7 +164,7 @@ arrow_flight = library(
     ],
     dependencies: [
         arrow_dep,
-        grpc_dep,
+        grpc_cpp_dep,
         protobuf_dep,
         abseil_sync_dep,
         thread_dep,
@@ -136,15 +172,22 @@ arrow_flight = library(
     cpp_shared_args: ['-DARROW_FLIGHT_EXPORTING'],
     cpp_static_args: ['-DARROW_FLIGHT_STATIC'],
     gnu_symbol_visibility: 'inlineshidden',
+    target_type: needs_static_flight ? 'static_library' : 'library',
 )
+
+arrow_flight_compile_args = []
+if needs_static_flight
+    arrow_flight_compile_args += ['-DARROW_FLIGHT_STATIC']
+endif
 
 arrow_flight_dep = declare_dependency(
     link_with: arrow_flight,
-    dependencies: [grpc_dep, protobuf_dep, abseil_sync_dep],
+    dependencies: [grpc_cpp_dep, protobuf_dep, abseil_sync_dep],
+    compile_args: arrow_flight_compile_args,
 )
 
 if needs_testing
-    arrow_flight_testing_lib = library(
+    arrow_flight_testing_lib = build_target(
         'arrow-flight-testing',
         sources: [
             'test_auth_handlers.cc',
@@ -156,6 +199,7 @@ if needs_testing
         cpp_shared_args: ['-DARROW_FLIGHT_EXPORTING'],
         cpp_static_args: ['-DARROW_FLIGHT_STATIC'],
         gnu_symbol_visibility: 'inlineshidden',
+        target_type: needs_static_flight ? 'static_library' : 'library',
     )
 
     arrow_flight_test_dep = declare_dependency(

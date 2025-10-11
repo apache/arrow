@@ -38,6 +38,7 @@ class ARROW_TESTING_EXPORT Process {
   Status Execute();
   bool IsRunning();
   uint64_t pid();
+  static bool IsAvailable();
 
  private:
   class Impl;

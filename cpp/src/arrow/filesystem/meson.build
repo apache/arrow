@@ -53,7 +53,7 @@ test_cpp_arg = '-DARROW_FILESYSTEM_EXAMPLE_LIBPATH="@0@"'.format(
 exc = executable(
     'arrow-filesystem-test',
     sources: ['filesystem_test.cc', 'localfs_test.cc'],
-    dependencies: [arrow_test_dep],
+    dependencies: [arrow_test_dep, arrow_filesystem_example_dep],
     cpp_args: test_cpp_arg,
 )
 test('arrow-filesystem-test', exc)
