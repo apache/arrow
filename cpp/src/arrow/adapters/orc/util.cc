@@ -212,7 +212,10 @@ Status AppendTimestampBatch(liborc::ColumnVectorBatch* column_vector_batch,
   const int64_t* seconds = batch->data.data() + offset;
   const int64_t* nanos = batch->nanoseconds.data() + offset;
 
-  auto transform_timestamp = [seconds, nanos](int64_t index) {
+  auto transform_timestamp = [seconds, nanos, valid_bytes](int64_t index) -> int64_t {
+    if (valid_bytes && !valid_bytes[index]) {
+      return 0;
+    }
     return seconds[index] * kOneSecondNanos + nanos[index];
   };
 
