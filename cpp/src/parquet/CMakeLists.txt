@@ -309,7 +309,7 @@ add_arrow_lib(parquet
 if(WIN32 AND NOT (ARROW_TEST_LINKAGE STREQUAL "static"))
   add_library(parquet_test_support STATIC
               "${PARQUET_THRIFT_SOURCE_DIR}/parquet_types.cpp")
-  target_link_libraries(parquet_test_support thrift::thrift)
+  target_link_libraries(parquet_test_support PRIVATE thrift::thrift)
   list(PREPEND PARQUET_TEST_LINK_LIBS parquet_test_support)
   list(APPEND PARQUET_LIBRARIES parquet_test_support)
 endif()
@@ -339,8 +339,9 @@ endif()
 add_definitions(-DPARQUET_THRIFT_VERSION_MAJOR=${Thrift_VERSION_MAJOR})
 add_definitions(-DPARQUET_THRIFT_VERSION_MINOR=${Thrift_VERSION_MINOR})
 
-# Thrift requires these definitions for some types that we use
 foreach(LIB_TARGET ${PARQUET_LIBRARIES})
+  target_link_libraries(${LIB_TARGET} PRIVATE arrow::xxhash)
+  # Thrift requires these definitions for some types that we use
   target_compile_definitions(${LIB_TARGET}
                              PRIVATE PARQUET_EXPORTING
                              PRIVATE HAVE_INTTYPES_H
