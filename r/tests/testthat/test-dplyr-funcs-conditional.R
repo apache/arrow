@@ -328,6 +328,99 @@ test_that("case_when()", {
   )
 })
 
+test_that("fcase()", {
+  skip_if_not_installed("data.table")
+
+  # Basic usage with default
+  compare_dplyr_binding(
+    .input %>%
+      mutate(cw = data.table::fcase(int > 5, 1, default = 0)) %>%
+      collect(),
+    tbl
+  )
+
+  # With namespacing
+  compare_dplyr_binding(
+    .input %>%
+      mutate(cw = data.table::fcase(int > 5, 1L, default = 0L)) %>%
+      collect(),
+    tbl
+  )
+
+  # Multiple conditions
+  compare_dplyr_binding(
+    .input %>%
+      transmute(cw = data.table::fcase(lgl, dbl, !false, dbl + dbl2)) %>%
+      collect(),
+    tbl
+  )
+
+  # No default provided (should result in NAs)
+  compare_dplyr_binding(
+    .input %>%
+      transmute(cw = data.table::fcase(chr %in% letters[1:3], 1L) + 41L) %>%
+      collect(),
+    tbl
+  )
+
+  # Type coercion (int and dbl -> dbl)
+  expect_equal(
+    tbl %>%
+      mutate(i64 = as.integer64(1e10)) %>%
+      Table$create() %>%
+      transmute(cw = data.table::fcase(
+        is.na(fct), int,
+        is.na(chr), dbl,
+        TRUE, i64
+      )) %>%
+      collect(),
+    tbl %>%
+      transmute(
+        cw = ifelse(is.na(fct), int, ifelse(is.na(chr), dbl, 1e10))
+      )
+  )
+
+  # Character results
+  compare_dplyr_binding(
+    .input %>%
+      transmute(cw = data.table::fcase(lgl, "abc", default = "def")) %>%
+      collect(),
+    tbl
+  )
+
+  # validation errors
+  expect_arrow_eval_error(
+    data.table::fcase(),
+    "No cases provided to fcase\\(\\)",
+    class = "validation_error"
+  )
+  expect_arrow_eval_error(
+    data.table::fcase(TRUE),
+    "fcase\\(\\) must have an even number of arguments, but 1 were provided.",
+    class = "validation_error"
+  )
+  expect_arrow_eval_error(
+    data.table::fcase(0L, FALSE, TRUE, FALSE),
+    "Element 1 of `...` in fcase\\(\\) must be a logical expression",
+    class = "validation_error"
+  )
+  expect_arrow_eval_error(
+    data.table::fcase(int, FALSE),
+    "Element 1 of `...` in fcase\\(\\) must be a logical expression",
+    class = "validation_error"
+  )
+  expect_arrow_eval_error(
+    data.table::fcase(dbl + 3.14159, TRUE),
+    "Element 1 of `...` in fcase\\(\\) must be a logical expression",
+    class = "validation_error"
+  )
+  expect_arrow_eval_error(
+    data.table::fcase(int > 5, 1, default = c(0, 1)),
+    "`default` must have size 1, not size 2",
+    class = "validation_error"
+  )
+})
+
 test_that("coalesce()", {
   # character
   df <- tibble(
