@@ -109,4 +109,9 @@ PARQUET_EXPORT
 std::shared_ptr<ResizableBuffer> AllocateBuffer(
     ::arrow::MemoryPool* pool = ::arrow::default_memory_pool(), int64_t size = 0);
 
+PARQUET_EXPORT
+void CopyStream(std::shared_ptr<ArrowInputStream> from,
+                std::shared_ptr<ArrowOutputStream> to, int64_t size,
+                ::arrow::MemoryPool* pool = ::arrow::default_memory_pool());
+
 }  // namespace parquet

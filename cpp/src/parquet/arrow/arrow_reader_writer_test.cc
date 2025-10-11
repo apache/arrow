@@ -375,19 +375,19 @@ const double test_traits<::arrow::DoubleType>::value(4.2);
 template <>
 struct test_traits<::arrow::StringType> {
   static constexpr ParquetType::type parquet_enum = ParquetType::BYTE_ARRAY;
-  static std::string const value;
+  static const std::string value;
 };
 
 template <>
 struct test_traits<::arrow::BinaryType> {
   static constexpr ParquetType::type parquet_enum = ParquetType::BYTE_ARRAY;
-  static std::string const value;
+  static const std::string value;
 };
 
 template <>
 struct test_traits<::arrow::FixedSizeBinaryType> {
   static constexpr ParquetType::type parquet_enum = ParquetType::FIXED_LEN_BYTE_ARRAY;
-  static std::string const value;
+  static const std::string value;
 };
 
 const std::string test_traits<::arrow::StringType>::value("Test");            // NOLINT
@@ -5906,28 +5906,6 @@ auto encode_double = [](double value) {
 
 class ParquetPageIndexRoundTripTest : public ::testing::Test {
  public:
-  void WriteFile(const std::shared_ptr<WriterProperties>& writer_properties,
-                 const std::shared_ptr<::arrow::Table>& table) {
-    // Get schema from table.
-    auto schema = table->schema();
-    std::shared_ptr<SchemaDescriptor> parquet_schema;
-    auto arrow_writer_properties = default_arrow_writer_properties();
-    ASSERT_OK_NO_THROW(ToParquetSchema(schema.get(), *writer_properties,
-                                       *arrow_writer_properties, &parquet_schema));
-    auto schema_node = std::static_pointer_cast<GroupNode>(parquet_schema->schema_root());
-
-    // Write table to buffer.
-    auto sink = CreateOutputStream();
-    auto pool = ::arrow::default_memory_pool();
-    auto writer = ParquetFileWriter::Open(sink, schema_node, writer_properties);
-    std::unique_ptr<FileWriter> arrow_writer;
-    ASSERT_OK(FileWriter::Make(pool, std::move(writer), schema, arrow_writer_properties,
-                               &arrow_writer));
-    ASSERT_OK_NO_THROW(arrow_writer->WriteTable(*table));
-    ASSERT_OK_NO_THROW(arrow_writer->Close());
-    ASSERT_OK_AND_ASSIGN(buffer_, sink->Finish());
-  }
-
   void ReadPageIndexes(int expect_num_row_groups, int expect_num_pages,
                        const std::set<int>& expect_columns_without_index = {}) {
     auto read_properties = default_arrow_reader_properties();
@@ -6015,7 +5993,8 @@ TEST_F(ParquetPageIndexRoundTripTest, SimpleRoundTrip) {
       [null,  "d",  []       ],
       [5,     null, [3, 3, 3]],
       [6,     "f",  null     ]
-    ])"}));
+    ])"}),
+            buffer_);
 
   ReadPageIndexes(/*expect_num_row_groups=*/2, /*expect_num_pages=*/1);
 
@@ -6057,7 +6036,8 @@ TEST_F(ParquetPageIndexRoundTripTest, SimpleRoundTripWithStatsDisabled) {
       [null,  "d",  []       ],
       [5,     null, [3, 3, 3]],
       [6,     "f",  null     ]
-    ])"}));
+    ])"}),
+            buffer_);
 
   ReadPageIndexes(/*expect_num_row_groups=*/1, /*expect_num_pages=*/1);
   for (auto& column_index : column_indexes_) {
@@ -6082,7 +6062,8 @@ TEST_F(ParquetPageIndexRoundTripTest, SimpleRoundTripWithColumnStatsDisabled) {
       [null,  "d",  []       ],
       [5,     null, [3, 3, 3]],
       [6,     "f",  null     ]
-    ])"}));
+    ])"}),
+            buffer_);
 
   ReadPageIndexes(/*expect_num_row_groups=*/2, /*expect_num_pages=*/1);
 
@@ -6116,7 +6097,8 @@ TEST_F(ParquetPageIndexRoundTripTest, DropLargeStats) {
   WriteFile(writer_properties, ::arrow::TableFromJSON(schema, {R"([
       ["short_string"],
       ["very_large_string_to_drop_stats"]
-    ])"}));
+    ])"}),
+            buffer_);
 
   ReadPageIndexes(/*expect_num_row_groups=*/2, /*expect_num_pages=*/1);
 
@@ -6140,7 +6122,8 @@ TEST_F(ParquetPageIndexRoundTripTest, MultiplePages) {
       writer_properties,
       ::arrow::TableFromJSON(
           schema, {R"([[1, "a"], [2, "b"]])", R"([[3, "c"], [4, "d"]])",
-                   R"([[null, null], [6, "f"]])", R"([[null, null], [null, null]])"}));
+                   R"([[null, null], [6, "f"]])", R"([[null, null], [null, null]])"}),
+      buffer_);
 
   ReadPageIndexes(/*expect_num_row_groups=*/1, /*expect_num_pages=*/4);
 
@@ -6180,7 +6163,7 @@ TEST_F(ParquetPageIndexRoundTripTest, DoubleWithNaNs) {
 
   auto schema = ::arrow::schema({::arrow::field("c0", ::arrow::float64())});
   auto table = Table::Make(schema, {chunked_array});
-  WriteFile(writer_properties, table);
+  WriteFile(writer_properties, table, buffer_);
 
   ReadPageIndexes(/*expect_num_row_groups=*/4, /*expect_num_pages=*/1);
 
@@ -6215,7 +6198,8 @@ TEST_F(ParquetPageIndexRoundTripTest, EnablePerColumn) {
           ->enable_write_page_index("c0")  /* enable c0 explicitly */
           ->disable_write_page_index("c1") /* disable c1 explicitly */
           ->build();
-  WriteFile(writer_properties, ::arrow::TableFromJSON(schema, {R"([[0,  1,  2]])"}));
+  WriteFile(writer_properties, ::arrow::TableFromJSON(schema, {R"([[0,  1,  2]])"}),
+            buffer_);
 
   ReadPageIndexes(/*expect_num_row_groups=*/1, /*expect_num_pages=*/1,
                   /*expect_columns_without_index=*/{1});
