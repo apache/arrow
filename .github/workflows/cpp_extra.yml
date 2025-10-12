@@ -164,6 +164,67 @@ jobs:
         continue-on-error: true
         run: archery docker push ${{ matrix.image }}
 
+  jni-linux:
+    needs: check-labels
+    name: JNI ${{ matrix.platform.runs-on }} ${{ matrix.platform.arch }}
+    runs-on: ${{ matrix.platform.runs-on }}
+    if: >-
+      needs.check-labels.outputs.force == 'true' ||
+      contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra') ||
+      contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra: C++')
+    timeout-minutes: 240
+    permissions:
+      # This is for using GitHub Packages for vcpkg cache
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        platform:
+          - arch: "amd64"
+            runs-on: ubuntu-latest
+          - arch: "arm64v8"
+            runs-on: ubuntu-24.04-arm
+    env:
+      ARCH: ${{ matrix.platform.arch }}
+      REPO: ghcr.io/${{ github.repository }}-dev
+    steps:
+      - name: Checkout Arrow
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          fetch-depth: 0
+          submodules: recursive
+      - name: Cache Docker Volumes
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        with:
+          path: .docker
+          key: jni-${{ matrix.platform.runs-on }}-${{ hashFiles('cpp/**') }}
+          restore-keys: jni-${{ matrix.platform.runs-on }}-
+      - name: Setup Python
+        uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6.0.0
+        with:
+          python-version: 3
+      - name: Setup Archery
+        run: python3 -m pip install -e dev/archery[docker]
+      - name: Execute Docker Build
+        env:
+          ARCHERY_DOCKER_USER: ${{ github.actor }}
+          ARCHERY_DOCKER_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VCPKG_BINARY_SOURCES: "clear;nuget,GitHub,readwrite"
+        run: |
+          source ci/scripts/util_enable_core_dumps.sh
+          archery docker run cpp-jni
+      - name: Docker Push
+        if: >-
+          success() &&
+          github.event_name == 'push' &&
+          github.ref_name == 'main'
+        env:
+          ARCHERY_DOCKER_USER: ${{ github.actor }}
+          ARCHERY_DOCKER_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
+        continue-on-error: true
+        run: archery docker push cpp-jni
+
   jni-macos:
     needs: check-labels
     name: JNI macOS
@@ -177,7 +238,7 @@ jobs:
       MACOSX_DEPLOYMENT_TARGET: "14.0"
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           fetch-depth: 0
           submodules: recursive
