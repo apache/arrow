@@ -1150,11 +1150,38 @@ void ColumnWriterImpl::FlushBufferedDataPages() {
 // ----------------------------------------------------------------------
 // TypedColumnWriter
 
+// DoInBatches for non-repeated columns
 template <typename Action, typename GetBufferedRows>
-inline void DoInBatches(const int16_t* def_levels, const int16_t* rep_levels,
-                        int64_t num_levels, int64_t batch_size, int64_t max_rows_per_page,
-                        bool pages_change_on_record_boundaries, Action&& action,
-                        GetBufferedRows&& curr_page_buffered_rows) {
+inline void DoInBatchesNonRepeated(int64_t num_levels, int64_t batch_size,
+                                   int64_t max_rows_per_page, Action&& action,
+                                   GetBufferedRows&& curr_page_buffered_rows) {
+  int64_t offset = 0;
+  while (offset < num_levels) {
+    int64_t page_buffered_rows = curr_page_buffered_rows();
+    ARROW_DCHECK_LE(page_buffered_rows, max_rows_per_page);
+
+    // Every record contains only one level.
+    int64_t max_batch_size = std::min(batch_size, num_levels - offset);
+    max_batch_size = std::min(max_batch_size, max_rows_per_page - page_buffered_rows);
+    int64_t end_offset = offset + max_batch_size;
+
+    ARROW_DCHECK_LE(offset, end_offset);
+    ARROW_DCHECK_LE(end_offset, num_levels);
+
+    // Always check page limit for non-repeated columns.
+    action(offset, end_offset - offset, /*check_page_limit=*/true);
+
+    offset = end_offset;
+  }
+}
+
+// DoInBatches for repeated columns
+template <typename Action, typename GetBufferedRows>
+inline void DoInBatchesRepeated(const int16_t* def_levels, const int16_t* rep_levels,
+                                int64_t num_levels, int64_t batch_size,
+                                int64_t max_rows_per_page,
+                                bool pages_change_on_record_boundaries, Action&& action,
+                                GetBufferedRows&& curr_page_buffered_rows) {
   int64_t offset = 0;
   while (offset < num_levels) {
     int64_t max_batch_size = std::min(batch_size, num_levels - offset);
@@ -1164,25 +1191,17 @@ inline void DoInBatches(const int16_t* def_levels, const int16_t* rep_levels,
     int64_t page_buffered_rows = curr_page_buffered_rows();
     ARROW_DCHECK_LE(page_buffered_rows, max_rows_per_page);
 
-    if (!rep_levels) {
-      // If rep_levels is null, then we are writing a non-repeated column.
-      // In this case, every record contains only one level.
-      max_batch_size = std::min(max_batch_size, max_rows_per_page - page_buffered_rows);
-      end_offset = offset + max_batch_size;
-      check_page_limit_end_offset = end_offset;
-    } else {
-      // Iterate rep_levels to find the shortest sequence that ends before a record
-      // boundary (i.e. rep_levels == 0) with a size no less than max_batch_size
-      for (int64_t i = offset; i < num_levels; ++i) {
-        if (rep_levels[i] == 0) {
-          // Use the beginning of last record to check page limit.
-          check_page_limit_end_offset = i;
-          if (i - offset >= max_batch_size || page_buffered_rows >= max_rows_per_page) {
-            end_offset = i;
-            break;
-          }
-          page_buffered_rows += 1;
+    // Iterate rep_levels to find the shortest sequence that ends before a record
+    // boundary (i.e. rep_levels == 0) with a size no less than max_batch_size
+    for (int64_t i = offset; i < num_levels; ++i) {
+      if (rep_levels[i] == 0) {
+        // Use the beginning of last record to check page limit.
+        check_page_limit_end_offset = i;
+        if (i - offset >= max_batch_size || page_buffered_rows >= max_rows_per_page) {
+          end_offset = i;
+          break;
         }
+        page_buffered_rows += 1;
       }
     }
 
@@ -1209,6 +1228,22 @@ inline void DoInBatches(const int16_t* def_levels, const int16_t* rep_levels,
     }
 
     offset = end_offset;
+  }
+}
+
+template <typename Action, typename GetBufferedRows>
+inline void DoInBatches(const int16_t* def_levels, const int16_t* rep_levels,
+                        int64_t num_levels, int64_t batch_size, int64_t max_rows_per_page,
+                        bool pages_change_on_record_boundaries, Action&& action,
+                        GetBufferedRows&& curr_page_buffered_rows) {
+  if (!rep_levels) {
+    DoInBatchesNonRepeated(num_levels, batch_size, max_rows_per_page,
+                           std::forward<Action>(action),
+                           std::forward<GetBufferedRows>(curr_page_buffered_rows));
+  } else {
+    DoInBatchesRepeated(def_levels, rep_levels, num_levels, batch_size, max_rows_per_page,
+                        pages_change_on_record_boundaries, std::forward<Action>(action),
+                        std::forward<GetBufferedRows>(curr_page_buffered_rows));
   }
 }
 
