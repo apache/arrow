@@ -1157,7 +1157,7 @@ inline void DoInBatches(const int16_t* def_levels, const int16_t* rep_levels,
                         GetBufferedRows&& curr_page_buffered_rows) {
   int64_t offset = 0;
   while (offset < num_levels) {
-    int64_t min_batch_size = std::min(batch_size, num_levels - offset);
+    int64_t max_batch_size = std::min(batch_size, num_levels - offset);
     int64_t end_offset = num_levels;           // end offset of the current batch
     int64_t check_page_limit_end_offset = -1;  // offset to check page limit (if not -1)
 
@@ -1167,17 +1167,17 @@ inline void DoInBatches(const int16_t* def_levels, const int16_t* rep_levels,
     if (!rep_levels) {
       // If rep_levels is null, then we are writing a non-repeated column.
       // In this case, every record contains only one level.
-      min_batch_size = std::min(min_batch_size, max_rows_per_page - page_buffered_rows);
-      end_offset = offset + min_batch_size;
+      max_batch_size = std::min(max_batch_size, max_rows_per_page - page_buffered_rows);
+      end_offset = offset + max_batch_size;
       check_page_limit_end_offset = end_offset;
     } else {
       // Iterate rep_levels to find the shortest sequence that ends before a record
-      // boundary (i.e. rep_levels == 0) with a size no less than min_batch_size
+      // boundary (i.e. rep_levels == 0) with a size no less than max_batch_size
       for (int64_t i = offset; i < num_levels; ++i) {
         if (rep_levels[i] == 0) {
           // Use the beginning of last record to check page limit.
           check_page_limit_end_offset = i;
-          if (i - offset >= min_batch_size || page_buffered_rows >= max_rows_per_page) {
+          if (i - offset >= max_batch_size || page_buffered_rows >= max_rows_per_page) {
             end_offset = i;
             break;
           }
