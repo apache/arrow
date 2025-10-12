@@ -130,6 +130,7 @@ x-hierarchy:
         - conda-python-spark
   - conda-verify-rc
   - conan
+  - cpp-jni
   - debian-cpp:
     - debian-c-glib:
       - debian-ruby
@@ -187,6 +188,8 @@ volumes:
     name: ${ARCH}-alpine-linux-ccache
   conda-ccache:
     name: ${ARCH}-conda-ccache
+  cpp-jni-ccache:
+    name: ${ARCH}-cpp-jni-ccache
   debian-ccache:
     name: ${ARCH}-debian-${DEBIAN}-ccache
   fedora-ccache:
@@ -762,6 +765,37 @@ services:
         sudo /arrow/ci/scripts/install_sccache.sh unknown-linux-musl /usr/local/bin &&
         /arrow/ci/scripts/conan_setup.sh &&
         /arrow/ci/scripts/conan_build.sh /arrow /build"
+
+  cpp-jni:
+    # Test for the build configuration for JNI.
+    #
+    # Usage:
+    #   docker compose run --rm cpp-jni
+    # Parameters:
+    #   ARCH: amd64, arm64v8
+    #   ARCH_ALIAS: x86_64, aarch64
+    #   ARCH_SHORT: amd64, arm64
+    image: ${REPO}:${ARCH}-cpp-jni-${VCPKG}
+    build:
+      args:
+        arch: ${ARCH}
+        arch_short: ${ARCH_SHORT}
+        # See available versions at:
+        #   https://quay.io/repository/pypa/manylinux_2_28_x86_64?tab=tags
+        #   https://quay.io/repository/pypa/manylinux_2_28_aarch64?tab=tags
+        base: quay.io/pypa/manylinux_2_28_${ARCH_ALIAS}:2025.10.09-1
+        vcpkg: ${VCPKG}
+      context: .
+      dockerfile: ci/docker/cpp-jni.dockerfile
+      cache_from:
+        - ${REPO}:${ARCH}-cpp-jni-${VCPKG}
+      secrets: *vcpkg-build-secrets
+    environment:
+      <<: [*common, *ccache]
+    volumes:
+      - .:/arrow:delegated
+      - ${DOCKER_VOLUME_PREFIX}cpp-jni-ccache:/ccache:delegated
+    command: *cpp-command
 
   ############################### C GLib ######################################
 
