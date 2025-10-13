@@ -1413,7 +1413,7 @@ Examples
                     path_or_paths, filesystem, memory_map=memory_map
                 )
                 finfo = filesystem.get_file_info(path_or_paths)
-                if finfo.type == FileType.Directory:
+                if finfo.type == FileType.Directory:  # pyright: ignore[reportAttributeAccessIssue]
                     self._base_dir = path_or_paths
             else:
                 single_file = path_or_paths
@@ -1573,7 +1573,7 @@ Examples
         for name in ["_common_metadata", "_metadata"]:
             metadata_path = os.path.join(str(self._base_dir), name)
             finfo = self.filesystem.get_file_info(metadata_path)
-            if finfo.is_file:
+            if finfo.is_file:  # pyright: ignore[reportAttributeAccessIssue]
                 pq_meta = read_metadata(
                     metadata_path, filesystem=self.filesystem)
                 metadata = pq_meta.metadata
@@ -2310,7 +2310,7 @@ def write_metadata(schema, where, metadata_collector=None, filesystem=None,
     filesystem, where = _resolve_filesystem_and_path(where, filesystem)
 
     if hasattr(where, "seek"):  # file-like
-        cursor_position = where.tell()
+        cursor_position = where.tell()  # pyright: ignore[reportAttributeAccessIssue]
 
     writer = ParquetWriter(where, schema, filesystem, **kwargs)
     writer.close()
@@ -2320,7 +2320,7 @@ def write_metadata(schema, where, metadata_collector=None, filesystem=None,
         # it and read it again.
         metadata = read_metadata(where, filesystem=filesystem)
         if hasattr(where, "seek"):
-            where.seek(cursor_position)  # file-like, set cursor back.
+            where.seek(cursor_position)  # pyright: ignore[reportAttributeAccessIssue]  # file-like, set cursor back.
 
         for m in metadata_collector:
             metadata.append_row_groups(m)

@@ -103,10 +103,10 @@ mypy_path = "$MYPY_CONFIG_FILE_DIR/pyarrow-stubs"
 pythonPlatform = "All"
 pythonVersion = "3.10"
 include = ["pyarrow"]
-exclude = ["pyarrow/vendored", "pyarrow/interchange"]
+exclude = ["pyarrow/vendored", "pyarrow/interchange", "pyarrow/tests"]
 stubPath = "pyarrow-stubs"
 # TODO: enable more strictness over time
-reportAttributeAccessIssue = "none"
+reportAttributeAccessIssue = "error"
 reportPossiblyUnboundVariable = "none"
 reportCallIssue = "none"
 reportArgumentType = "none"
