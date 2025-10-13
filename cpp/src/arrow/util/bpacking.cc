@@ -51,17 +51,12 @@ struct UnpackDynamicFunction {
 
 template <typename Uint>
 int unpack(const uint8_t* in, Uint* out, int batch_size, int num_bits) {
-  if constexpr (std::is_same_v<Uint, uint16_t>) {
-    // Current SIMD unpack function do not out beat scalar implementation for uin16_t
-    return unpack_scalar<uint16_t>(in, out, batch_size, num_bits);
-  } else {
 #if defined(ARROW_HAVE_NEON)
-    return unpack_neon(in, out, batch_size, num_bits);
+  return unpack_neon(in, out, batch_size, num_bits);
 #else
-    static DynamicDispatch<UnpackDynamicFunction<Uint> > dispatch;
-    return dispatch.func(in, out, batch_size, num_bits);
+  static DynamicDispatch<UnpackDynamicFunction<Uint> > dispatch;
+  return dispatch.func(in, out, batch_size, num_bits);
 #endif
-  }
 }
 
 template int unpack<uint16_t>(const uint8_t*, uint16_t*, int, int);
