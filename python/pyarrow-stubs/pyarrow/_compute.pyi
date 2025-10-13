@@ -15,6 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
+import types as stdlib_types
 from collections.abc import (
     Callable,
     Iterable,
@@ -29,8 +30,6 @@ from typing import (
     overload,
 )
 
-from types import EllipsisType
-
 from . import lib
 
 _Order: TypeAlias = Literal["ascending", "descending"]
@@ -43,7 +42,7 @@ class Kernel(lib._Weakrefable):
 
 class Function(lib._Weakrefable):
     @property
-    def arity(self) -> int | EllipsisType: ...
+    def arity(self) -> int | stdlib_types.EllipsisType: ...
 
     @property
     def kind(

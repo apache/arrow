@@ -495,37 +495,6 @@ class OpaqueType(BaseExtensionType):
     def vendor_name(self) -> str: ...
 
 
-# TODO
-# @deprecated(
-#     "This class is deprecated and its deserialization is disabled by default. "
-#     ":class:`ExtensionType` is recommended instead."
-# )
-# class PyExtensionType(ExtensionType):
-#     """
-#     Concrete base class for Python-defined extension types based on pickle
-#     for (de)serialization.
-#
-#     .. warning::
-#        This class is deprecated and its deserialization is disabled by default.
-#        :class:`ExtensionType` is recommended instead.
-#
-#     Parameters
-#     ----------
-#     storage_type : DataType
-#         The storage type for which the extension is built.
-#     """
-#     def __init__(self, storage_type: DataType) -> None: ...
-#     @classmethod
-#     def set_auto_load(cls, value: bool) -> None:
-#         """
-#         Enable or disable auto-loading of serialized PyExtensionType instances.
-#
-#         Parameters
-#         ----------
-#         value : bool
-#             Whether to enable auto-loading.
-#         """
-
 class UnknownExtensionType(ExtensionType):
 
     def __init__(self, storage_type: DataType, serialized: bytes) -> None: ...

@@ -20,7 +20,7 @@ import enum
 from pyarrow.lib import _Weakrefable
 
 
-class DeviceAllocationType(enum.Flag):
+class DeviceAllocationType(enum.Enum):
     CPU = enum.auto()
     CUDA = enum.auto()
     CUDA_HOST = enum.auto()
