@@ -47,7 +47,6 @@ RUN %PYTHON_CMD% -m pip install -U pip setuptools & \
         setx REQUIREMENTS_FILE "requirements-wheel-test.txt" \
     )
 
-COPY python/requirements-wheel-test-3.13t.txt python/requirements-wheel-test.txt C:/arrow/python/
 # Cython and Pandas wheels for free-threaded are not released yet
 RUN %PYTHON_CMD% -m pip install \
     --extra-index-url https://pypi.anaconda.org/scientific-python-nightly-wheels/simple \
