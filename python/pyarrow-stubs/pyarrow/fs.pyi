@@ -57,6 +57,21 @@ def copy_files(
 ) -> None: ...
 
 
+def _ensure_filesystem(
+    filesystem: FileSystem | str | object,
+    *,
+    use_mmap: bool = False
+) -> FileSystem: ...
+
+
+def _resolve_filesystem_and_path(
+    path: str | object,
+    filesystem: FileSystem | str | object | None = None,
+    *,
+    memory_map: bool = False
+) -> tuple[FileSystem | None, str | object]: ...
+
+
 class FSSpecHandler(FileSystemHandler):  # type: ignore[misc]
     fs: SupportedFileSystem
     def __init__(self, fs: SupportedFileSystem) -> None: ...
