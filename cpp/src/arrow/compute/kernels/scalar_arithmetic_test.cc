@@ -932,6 +932,47 @@ TYPED_TEST(TestBinaryArithmeticSigned, DivideOverflowRaises) {
   this->AssertBinop(Divide, MakeArray(min), MakeArray(-1), "[0]");
 }
 
+TYPED_TEST(TestBinaryArithmeticIntegral, Modulo) {
+  for (auto check_overflow : {false, true}) {
+    this->SetOverflowCheck(check_overflow);
+
+    // Empty arrays
+    this->AssertBinop(Modulo, "[]", "[]", "[]");
+    // Ordinary arrays
+    this->AssertBinop(Modulo, "[3, 2, 6]", "[1, 1, 2]", "[0, 0, 0]");
+    // Array with nulls
+    this->AssertBinop(Modulo, "[null, 10, 30, null, 20]", "[1, 4, 2, 5, 10]",
+                      "[null, 2, 0, null, 0]");
+    // Scalar % Array
+    this->AssertBinop(Modulo, 33, "[null, 1, 3, null, 2]", "[null, 0, 0, null, 1]");
+    // Array % Scalar
+    this->AssertBinop(Modulo, "[null, 10, 30, null, 2]", 3, "[null, 1, 0, null, 2]");
+    // Scalar % Scalar
+    this->AssertBinop(Modulo, 16, 7, 2);
+  }
+}
+
+TYPED_TEST(TestBinaryArithmeticSigned, Modulo) {
+  // Ordinary arrays
+  this->AssertBinop(Modulo, "[-3, 2, -7]", "[1, 1, 2]", "[0, 0, -1]");
+  // Array with nulls
+  this->AssertBinop(Modulo, "[null, 10, 30, null, -21]", "[1, 4, 2, 5, 10]",
+                    "[null, 2, 0, null, -1]");
+  // Scalar % Array
+  this->AssertBinop(Modulo, 33, "[null, -1, -3, null, 2]", "[null, 0, 0, null, 1]");
+  // Array % Scalar
+  this->AssertBinop(Modulo, "[null, 10, 30, null, 2]", 3, "[null, 1, 0, null, 2]");
+  // Scalar % Scalar
+  this->AssertBinop(Modulo, -17, -8, -1);
+}
+
+TYPED_TEST(TestBinaryArithmeticIntegral, ModuloByZero) {
+  for (auto check_overflow : {false, true}) {
+    this->SetOverflowCheck(check_overflow);
+    this->AssertBinopRaises(Modulo, "[3, 2, 6]", "[1, 1, 0]", "Modulo by zero");
+  }
+}
+
 TYPED_TEST(TestBinaryArithmeticFloating, Power) {
   SKIP_IF_HALF_FLOAT();
 
