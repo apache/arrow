@@ -852,8 +852,8 @@ def test_partitioning_pickling(pickle_module):
 )
 def test_dataset_partitioning_format(
     flavor: str,
-    expected_defined_partition: tuple,
-    expected_undefined_partition: tuple,
+    expected_defined_partition: tuple[str],
+    expected_undefined_partition: tuple[str],
 ):
 
     partitioning_schema = pa.schema([("foo", pa.string()), ("bar", pa.string())])
