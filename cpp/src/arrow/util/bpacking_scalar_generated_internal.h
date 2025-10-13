@@ -43,8 +43,23 @@ Int LoadInt(const uint8_t* in) {
   return bit_util::FromLittleEndian(util::SafeLoadAs<Int>(in));
 }
 
-template<typename Uint, int BitWidth>
+template<typename Uint, int kBitWidth>
 struct ScalarUnpackerForWidth;
+
+template<int kBitWidth>
+struct ScalarUnpackerForWidth<uint8_t, kBitWidth> {
+
+  static constexpr int kValuesUnpacked = ScalarUnpackerForWidth<uint32_t, kBitWidth>::kValuesUnpacked;
+
+  static const uint8_t* unpack(const uint8_t* in, uint8_t* out) {
+    uint32_t buffer[kValuesUnpacked] = {};
+    in = ScalarUnpackerForWidth<uint32_t, kBitWidth>::unpack(in, buffer);
+    for(int k = 0; k< kValuesUnpacked; ++k) {
+      out[k] = static_cast<uint8_t>(buffer[k]);
+    }
+    return in;
+  }
+};
 
 template<int kBitWidth>
 struct ScalarUnpackerForWidth<uint16_t, kBitWidth> {
@@ -60,8 +75,6 @@ struct ScalarUnpackerForWidth<uint16_t, kBitWidth> {
     return in;
   }
 };
-
-
 
 template<>
 struct ScalarUnpackerForWidth<uint32_t, 1> {

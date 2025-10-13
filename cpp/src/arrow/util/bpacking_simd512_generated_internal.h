@@ -36,6 +36,21 @@ template<typename Uint, int BitWidth>
 struct Simd512UnpackerForWidth;
 
 template<int kBitWidth>
+struct Simd512UnpackerForWidth<uint8_t, kBitWidth> {
+
+  static constexpr int kValuesUnpacked = Simd512UnpackerForWidth<uint32_t, kBitWidth>::kValuesUnpacked;
+
+  static const uint8_t* unpack(const uint8_t* in, uint8_t* out) {
+    uint32_t buffer[kValuesUnpacked] = {};
+    in = Simd512UnpackerForWidth<uint32_t, kBitWidth>::unpack(in, buffer);
+    for(int k = 0; k< kValuesUnpacked; ++k) {
+      out[k] = static_cast<uint8_t>(buffer[k]);
+    }
+    return in;
+  }
+};
+
+template<int kBitWidth>
 struct Simd512UnpackerForWidth<uint16_t, kBitWidth> {
 
   static constexpr int kValuesUnpacked = Simd512UnpackerForWidth<uint32_t, kBitWidth>::kValuesUnpacked;
