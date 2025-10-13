@@ -28,6 +28,7 @@ try:
     import hypothesis.extra.pytz as tzst
 except ImportError:
     tzst = None  # type: ignore[assignment]
+from typing import Any
 import weakref
 
 try:
@@ -1397,7 +1398,7 @@ class SchemaWrapper:
         return self.schema.__arrow_c_schema__()
 
 
-class SchemaMapping(Mapping):
+class SchemaMapping(Mapping[Any, Any]):
     def __init__(self, schema):
         self.schema = schema
 

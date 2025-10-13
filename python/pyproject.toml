@@ -105,9 +105,8 @@ pythonVersion = "3.10"
 include = ["pyarrow"]
 exclude = ["pyarrow/vendored", "pyarrow/interchange"]
 stubPath = "pyarrow-stubs"
+# TODO: enable more strictness over time
 reportAttributeAccessIssue = "none"
-reportMissingImports = "none"
-reportMissingModuleSource = "none"
 reportPossiblyUnboundVariable = "none"
 reportCallIssue = "none"
 reportArgumentType = "none"
@@ -117,6 +116,14 @@ reportOperatorIssue = "none"
 reportIndexIssue = "none"
 reportRedeclaration = "none"
 reportGeneralTypeIssues = "none"
+# from narwhals, perhaps keep these
+reportMissingTypeArgument = "error"
+reportIncompatibleMethodOverride = "error"
+reportMissingImports = "none"
+reportMissingModuleSource = "none"
+reportPrivateImportUsage = "none"
+reportUnusedExpression = "none"
+typeCheckingMode = "basic"
 
 [tool.ty.src]
 include = ["pyarrow"]
