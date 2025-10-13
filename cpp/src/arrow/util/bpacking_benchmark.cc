@@ -161,6 +161,10 @@ BENCHMARK_CAPTURE(BM_UnpackUint64, Avx2Unaligned, false, &unpack_avx2<uint64_t>,
 #endif
 
 #if defined(ARROW_HAVE_RUNTIME_AVX512)
+BENCHMARK_CAPTURE(BM_UnpackUint16, Avx512Unaligned, false, &unpack_avx512<uint16_t>,
+                  !CpuInfo::GetInstance()->IsSupported(CpuInfo::AVX512),
+                  "Avx512 not available")
+    ->ArgsProduct(kBitWidthsNumValues16);
 BENCHMARK_CAPTURE(BM_UnpackUint32, Avx512Unaligned, false, &unpack_avx512<uint32_t>,
                   !CpuInfo::GetInstance()->IsSupported(CpuInfo::AVX512),
                   "Avx512 not available")

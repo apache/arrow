@@ -77,6 +77,9 @@ template <typename Uint>
 ARROW_EXPORT int unpack_avx512(const uint8_t* in, Uint* out, int batch_size,
                                int num_bits);
 
+extern template ARROW_TEMPLATE_EXPORT int unpack_avx512<uint16_t>(const uint8_t*,
+                                                                  uint16_t*, int, int);
+
 extern template ARROW_TEMPLATE_EXPORT int unpack_avx512<uint32_t>(const uint8_t*,
                                                                   uint32_t*, int, int);
 

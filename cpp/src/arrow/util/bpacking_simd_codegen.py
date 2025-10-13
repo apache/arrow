@@ -78,14 +78,6 @@ class UnpackStructGenerator:
         print("template<typename Uint, int BitWidth>")
         print(f"struct {self.struct_name};")
 
-    def __post_init__(self):
-        # whole logic based on these assumptions
-        if self.simd_value_count > self.out_bit_width:
-            raise ValueError("The code is invalid for this size")
-
-        if self.simd_bit_width % self.out_bit_width != 0:
-            raise ("SIMD bit width should be a multiple of output width")
-
     def print_unpack_bit_func(self, bit: int):
         def p(code, level=2):
             print(indent(code, prefix="  " * level))

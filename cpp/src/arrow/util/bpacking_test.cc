@@ -250,6 +250,12 @@ TEST_P(TestUnpack, Unpack64Avx2) {
 #endif
 
 #if defined(ARROW_HAVE_RUNTIME_AVX512)
+TEST_P(TestUnpack, Unpack16Avx512) {
+  if (!CpuInfo::GetInstance()->IsSupported(CpuInfo::AVX512)) {
+    GTEST_SKIP() << "Test requires AVX512";
+  }
+  this->TestAll(&unpack_avx512<uint16_t>);
+}
 TEST_P(TestUnpack, Unpack32Avx512) {
   if (!CpuInfo::GetInstance()->IsSupported(CpuInfo::AVX512)) {
     GTEST_SKIP() << "Test requires AVX512";
