@@ -99,7 +99,7 @@ mypy_path = "$MYPY_CONFIG_FILE_DIR/pyarrow-stubs"
 
 [tool.pyright]
 pythonPlatform = "All"
-pythonVersion = "3.9"
+pythonVersion = "3.10"
 include = ["pyarrow"]
 exclude = ["pyarrow/vendored", "pyarrow/interchange"]
 stubPath = "pyarrow-stubs"
