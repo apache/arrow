@@ -29,7 +29,7 @@ import zipfile
 def process_dir(corpus_dir, zip_output):
     seen_hashes = {}
 
-    for child in corpus_dir.iterdir():
+    for child in sorted(corpus_dir.iterdir()):
         if not child.is_file():
             raise IOError(f"Not a file: {child}")
         with child.open('rb') as f:
@@ -39,6 +39,7 @@ def process_dir(corpus_dir, zip_output):
             raise ValueError(
                 f"Duplicate hash: {arcname} (in file {child}), "
                 f"already seen in file {seen_hashes[arcname]}")
+        print(f"  {child} -> {arcname}")
         zip_output.writestr(str(arcname), data)
         seen_hashes[arcname] = child
 
