@@ -28,6 +28,9 @@ namespace arrow::internal {
 template <typename Uint>
 ARROW_EXPORT int unpack_neon(const uint8_t* in, Uint* out, int batch_size, int num_bits);
 
+extern template ARROW_TEMPLATE_EXPORT int unpack_neon<uint8_t>(const uint8_t*, uint8_t*,
+                                                               int, int);
+
 extern template ARROW_TEMPLATE_EXPORT int unpack_neon<uint16_t>(const uint8_t*, uint16_t*,
                                                                 int, int);
 
@@ -45,6 +48,9 @@ template <typename Uint>
 ARROW_EXPORT int unpack_sse4_2(const uint8_t* in, Uint* out, int batch_size,
                                int num_bits);
 
+extern template ARROW_TEMPLATE_EXPORT int unpack_sse4_2<uint8_t>(const uint8_t*, uint8_t*,
+                                                                 int, int);
+
 extern template ARROW_TEMPLATE_EXPORT int unpack_sse4_2<uint16_t>(const uint8_t*,
                                                                   uint16_t*, int, int);
 
@@ -59,6 +65,9 @@ extern template ARROW_TEMPLATE_EXPORT int unpack_sse4_2<uint64_t>(const uint8_t*
 
 template <typename Uint>
 ARROW_EXPORT int unpack_avx2(const uint8_t* in, Uint* out, int batch_size, int num_bits);
+
+extern template ARROW_TEMPLATE_EXPORT int unpack_avx2<uint8_t>(const uint8_t*, uint8_t*,
+                                                               int, int);
 
 extern template ARROW_TEMPLATE_EXPORT int unpack_avx2<uint16_t>(const uint8_t*, uint16_t*,
                                                                 int, int);
@@ -76,6 +85,9 @@ extern template ARROW_TEMPLATE_EXPORT int unpack_avx2<uint64_t>(const uint8_t*, 
 template <typename Uint>
 ARROW_EXPORT int unpack_avx512(const uint8_t* in, Uint* out, int batch_size,
                                int num_bits);
+
+extern template ARROW_TEMPLATE_EXPORT int unpack_avx512<uint8_t>(const uint8_t*, uint8_t*,
+                                                                 int, int);
 
 extern template ARROW_TEMPLATE_EXPORT int unpack_avx512<uint16_t>(const uint8_t*,
                                                                   uint16_t*, int, int);

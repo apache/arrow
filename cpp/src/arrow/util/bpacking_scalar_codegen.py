@@ -102,7 +102,7 @@ class ScalarUnpackGenerator:
         return f"{self.struct_name}<{self.out_type}, {bit}>"
 
     def print_struct_declaration(self):
-        print("template<typename Uint, int BitWidth>")
+        print("template<typename Uint, int kBitWidth>")
         print(f"struct {self.struct_name};")
 
     @property
@@ -187,7 +187,7 @@ class ScalarUnpackGenerator:
         self.print_unpack_k(bit)
         print("};")
 
-    def print_uint16_struct(self):
+    def print_uint32_fallback_struct(self):
         print("template<int kBitWidth>")
         print(f"struct {self.struct_specialization('kBitWidth')} {{")
         print()
@@ -215,8 +215,8 @@ class ScalarUnpackGenerator:
     def print_structs(self):
         # The algorithm works for uint16_t (for simd width <=256) but is slower
         # than using uint32_t + static_cast loop
-        if self.out_bit_width == 16:
-            self.print_uint16_struct()
+        if self.out_bit_width <= 16:
+            self.print_uint32_fallback_struct()
             return
         for bit in range(1, self.out_bit_width):
             self.print_struct_k(bit)
@@ -234,15 +234,17 @@ if __name__ == "__main__":
     print_note()
     print(HEADER)
 
-    gen = ScalarUnpackGenerator(16, smart_halve=False)
+    gen = ScalarUnpackGenerator(8, smart_halve=False)
     gen.print_struct_declaration()
     print()
     gen.print_structs()
     print()
 
-    gen = ScalarUnpackGenerator(32, smart_halve=False)
+    gen = ScalarUnpackGenerator(16, smart_halve=False)
+    gen.print_structs()
     print()
 
+    gen = ScalarUnpackGenerator(32, smart_halve=False)
     gen.print_structs()
     print()
 

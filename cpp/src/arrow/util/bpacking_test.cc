@@ -218,17 +218,25 @@ INSTANTIATE_TEST_SUITE_P(UnpackMultiplesOf64Values, TestUnpack,
                            return "Count" + std::to_string(info.param);
                          });
 
+TEST_P(TestUnpack, Unpack8Scalar) { this->TestAll(&unpack_scalar<uint8_t>); }
 TEST_P(TestUnpack, Unpack16Scalar) { this->TestAll(&unpack_scalar<uint16_t>); }
 TEST_P(TestUnpack, Unpack32Scalar) { this->TestAll(&unpack_scalar<uint32_t>); }
 TEST_P(TestUnpack, Unpack64Scalar) { this->TestAll(&unpack_scalar<uint64_t>); }
 
 #if defined(ARROW_HAVE_SSE4_2)
+TEST_P(TestUnpack, Unpack8Sse42) { this->TestAll(&unpack_sse4_2<uint8_t>); }
 TEST_P(TestUnpack, Unpack16Sse42) { this->TestAll(&unpack_sse4_2<uint16_t>); }
 TEST_P(TestUnpack, Unpack32Sse42) { this->TestAll(&unpack_sse4_2<uint32_t>); }
 TEST_P(TestUnpack, Unpack64Sse42) { this->TestAll(&unpack_sse4_2<uint64_t>); }
 #endif
 
 #if defined(ARROW_HAVE_RUNTIME_AVX2)
+TEST_P(TestUnpack, Unpack8Avx2) {
+  if (!CpuInfo::GetInstance()->IsSupported(CpuInfo::AVX2)) {
+    GTEST_SKIP() << "Test requires AVX2";
+  }
+  this->TestAll(&unpack_avx2<uint8_t>);
+}
 TEST_P(TestUnpack, Unpack16Avx2) {
   if (!CpuInfo::GetInstance()->IsSupported(CpuInfo::AVX2)) {
     GTEST_SKIP() << "Test requires AVX2";
@@ -250,6 +258,12 @@ TEST_P(TestUnpack, Unpack64Avx2) {
 #endif
 
 #if defined(ARROW_HAVE_RUNTIME_AVX512)
+TEST_P(TestUnpack, Unpack8Avx512) {
+  if (!CpuInfo::GetInstance()->IsSupported(CpuInfo::AVX512)) {
+    GTEST_SKIP() << "Test requires AVX512";
+  }
+  this->TestAll(&unpack_avx512<uint8_t>);
+}
 TEST_P(TestUnpack, Unpack16Avx512) {
   if (!CpuInfo::GetInstance()->IsSupported(CpuInfo::AVX512)) {
     GTEST_SKIP() << "Test requires AVX512";
@@ -271,11 +285,13 @@ TEST_P(TestUnpack, Unpack64Avx512) {
 #endif
 
 #if defined(ARROW_HAVE_NEON)
+TEST_P(TestUnpack, Unpack8Neon) { this->TestAll(&unpack_neon<uint8_t>); }
 TEST_P(TestUnpack, Unpack16Neon) { this->TestAll(&unpack_neon<uint16_t>); }
 TEST_P(TestUnpack, Unpack32Neon) { this->TestAll(&unpack_neon<uint32_t>); }
 TEST_P(TestUnpack, Unpack64Neon) { this->TestAll(&unpack_neon<uint64_t>); }
 #endif
 
+TEST_P(TestUnpack, Unpack8) { this->TestAll(&unpack<uint8_t>); }
 TEST_P(TestUnpack, Unpack16) { this->TestAll(&unpack<uint16_t>); }
 TEST_P(TestUnpack, Unpack32) { this->TestAll(&unpack<uint32_t>); }
 TEST_P(TestUnpack, Unpack64) { this->TestAll(&unpack<uint64_t>); }
