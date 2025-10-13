@@ -187,7 +187,37 @@ class ScalarUnpackGenerator:
         self.print_unpack_k(bit)
         print("};")
 
+    def print_uint16_struct(self):
+        print("template<int kBitWidth>")
+        print(f"struct {self.struct_specialization('kBitWidth')} {{")
+        print()
+
+        print(
+            "  static constexpr int kValuesUnpacked = "
+            f"{self.struct_name}<uint32_t, kBitWidth>::kValuesUnpacked;"
+        )
+        print()
+
+        print(
+            "  static const uint8_t* unpack"
+            f"(const uint8_t* in, {self.out_type}* out) {{"
+        )
+        print("    uint32_t buffer[kValuesUnpacked] = {};")
+        print(f"    in = {self.struct_name}<uint32_t, kBitWidth>::unpack(in, buffer);")
+        print("    for(int k = 0; k< kValuesUnpacked; ++k) {")
+        print(f"      out[k] = static_cast<{self.out_type}>(buffer[k]);")
+        print("    }")
+        print("    return in;")
+        print("  }")
+
+        print("};")
+
     def print_structs(self):
+        # The algorithm works for uint16_t (for simd width <=256) but is slower
+        # than using uint32_t + static_cast loop
+        if self.out_bit_width == 16:
+            self.print_uint16_struct()
+            return
         for bit in range(1, self.out_bit_width):
             self.print_struct_k(bit)
             print()
