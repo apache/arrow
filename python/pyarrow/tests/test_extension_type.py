@@ -848,7 +848,7 @@ def test_ipc_registered():
         assert arr.type == ParamExtType(3)
 
 
-class PeriodArray(pa.ExtensionArray):
+class PeriodArray(pa.ExtensionArray[pa.Int64Array]):
     pass
 
 
