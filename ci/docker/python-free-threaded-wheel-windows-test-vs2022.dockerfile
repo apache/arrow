@@ -40,19 +40,18 @@ RUN $version = $env:PYTHON_VERSION; \
 ENV PYTHON_CMD="py -${python}t"
 
 SHELL ["cmd", "/S", "/C"]
+# Cython and Pandas wheels for free-threaded are not released yet
 RUN %PYTHON_CMD% -m pip install -U pip setuptools & \
     if "%python%"=="3.13" ( \
         setx REQUIREMENTS_FILE "requirements-wheel-test-3.13t.txt" \
     ) else ( \
         setx REQUIREMENTS_FILE "requirements-wheel-test.txt" \
-    )
-
-# Cython and Pandas wheels for free-threaded are not released yet
-RUN %PYTHON_CMD% -m pip install \
-    --extra-index-url https://pypi.anaconda.org/scientific-python-nightly-wheels/simple \
-    --pre \
-    --prefer-binary \
-    -r C:/arrow/python/%REQUIREMENTS_FILE%
+    ) & \
+    %PYTHON_CMD% -m pip install \
+        --extra-index-url https://pypi.anaconda.org/scientific-python-nightly-wheels/simple \
+        --pre \
+        --prefer-binary \
+        -r C:/arrow/python/%REQUIREMENTS_FILE%
 
 ENV PYTHON="${python}t"
 ENV PYTHON_GIL=0
