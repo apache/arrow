@@ -296,7 +296,7 @@ inline bool BitReader::GetValue(int num_bits, T* v) {
   return GetBatch(num_bits, v, 1) == 1;
 }
 
-namespace internal {
+namespace internal_bit_reader {
 template <typename T>
 struct unpack_detect {
   using type = std::make_unsigned_t<T>;
@@ -306,7 +306,7 @@ template <>
 struct unpack_detect<bool> {
   using type = uint8_t;
 };
-}  // namespace internal
+}  // namespace internal_bit_reader
 
 template <typename T>
 inline int BitReader::GetBatch(int num_bits, T* v, int batch_size) {
@@ -335,7 +335,7 @@ inline int BitReader::GetBatch(int num_bits, T* v, int batch_size) {
     }
   }
 
-  using unpack_t = typename internal::unpack_detect<T>::type;
+  using unpack_t = typename internal_bit_reader::unpack_detect<T>::type;
 
   int num_unpacked = ::arrow::internal::unpack(
       buffer + byte_offset, reinterpret_cast<unpack_t*>(v + i), batch_size - i, num_bits);
