@@ -31,7 +31,7 @@ jobs:
     runs-on: ubuntu-24.04-arm
     {% endif %}
     env:
-      {% if linux_wheel_kind == "musllinux" and linux_wheel_version == "1-2" %}
+      {% if linux_wheel_kind == "musllinux" %}
       ALPINE_LINUX: "3.22"
       {% endif %}
       # archery uses these environment variables
