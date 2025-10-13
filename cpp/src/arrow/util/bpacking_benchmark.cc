@@ -136,15 +136,6 @@ BENCHMARK_CAPTURE(BM_UnpackUint32, ScalarUnaligned, false, &unpack_scalar<uint32
 BENCHMARK_CAPTURE(BM_UnpackUint64, ScalarUnaligned, false, &unpack_scalar<uint64_t>)
     ->ArgsProduct(kBitWidthsNumValues64);
 
-#if defined(ARROW_HAVE_SSE4_2)
-BENCHMARK_CAPTURE(BM_UnpackUint16, Sse42Unaligned, false, &unpack_sse4_2<uint16_t>)
-    ->ArgsProduct(kBitWidthsNumValues16);
-BENCHMARK_CAPTURE(BM_UnpackUint32, Sse42Unaligned, false, &unpack_sse4_2<uint32_t>)
-    ->ArgsProduct(kBitWidthsNumValues32);
-BENCHMARK_CAPTURE(BM_UnpackUint64, Sse42Unaligned, false, &unpack_sse4_2<uint64_t>)
-    ->ArgsProduct(kBitWidthsNumValues64);
-#endif
-
 #if defined(ARROW_HAVE_RUNTIME_AVX2)
 BENCHMARK_CAPTURE(BM_UnpackUint16, Avx2Unaligned, false, &unpack_avx2<uint16_t>,
                   !CpuInfo::GetInstance()->IsSupported(CpuInfo::AVX2),
