@@ -129,6 +129,8 @@ ColumnSelector: TypeAlias = UnarySelector | NullarySelector | NarySelector
 
 class ChunkedArray(_PandasConvertible[pd.Series], Generic[_Scalar_co]):
 
+    def as_py(self) -> list[Any]: ...
+
     @property
     def data(self) -> Self: ...
     @property

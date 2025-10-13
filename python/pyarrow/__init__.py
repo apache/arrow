@@ -37,11 +37,11 @@ import sys as _sys
 import warnings as _warnings
 
 try:
-    from ._generated_version import version as __version__  # type: ignore[import-untyped]
+    from ._generated_version import version as __version__  # type: ignore[import-untyped, import-not-found]
 except ImportError:
     # Package is not installed, parse git tag at runtime
     try:
-        import setuptools_scm  # type: ignore[import-not-found]
+        import setuptools_scm  # type: ignore[import-untyped, import-not-found]
         # Code duplicated from setup.py to avoid a dependency on each other
 
         def parse_git(root, **kwargs):
@@ -49,7 +49,7 @@ except ImportError:
             Parse function for setuptools_scm that ignores tags for non-C++
             subprojects, e.g. apache-arrow-js-XXX tags.
             """
-            from setuptools_scm.git import parse  # type: ignore[import-not-found]
+            from setuptools_scm.git import parse  # type: ignore[import-untyped, import-not-found]
             kwargs['describe_command'] = \
                 "git describe --dirty --tags --long --match 'apache-arrow-[0-9]*.*'"
             return parse(root, **kwargs)

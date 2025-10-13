@@ -28,6 +28,8 @@ if sys.version_info >= (3, 10):
 else:
     from typing_extensions import TypeAlias
 
+import pyarrow.lib as lib
+
 from pyarrow.lib import (
     BinaryType,
     BinaryViewType,
@@ -161,6 +163,7 @@ def is_float_value(obj: Any) -> bool: ...
 
 
 __all__ = [
+    "lib",
     "is_binary",
     "is_binary_view",
     "is_boolean",

@@ -165,7 +165,7 @@ def _resolve_filesystem_and_path(path, filesystem=None, *, memory_map=False):
         file_info = None
         exists_locally = False
     else:
-        exists_locally = (file_info.type != FileType.NotFound)
+        exists_locally = (file_info.type != FileType.NotFound)  # pyright: ignore[reportAttributeAccessIssue]
 
     # if the file or directory doesn't exists locally, then assume that
     # the path is an URI describing the file system as well
@@ -251,7 +251,7 @@ def copy_files(source, destination,
     )
 
     file_info = source_fs.get_file_info(source_path)
-    if file_info.type == FileType.Directory:
+    if file_info.type == FileType.Directory:  # pyright: ignore[reportAttributeAccessIssue]
         source_sel = FileSelector(source_path, recursive=True)
         _copy_files_selector(source_fs, source_sel,
                              destination_fs, destination_path,

@@ -211,6 +211,8 @@ _ScalarT = TypeVar("_ScalarT", bound=Scalar)
 
 class Array(_PandasConvertible[pd.Series], Generic[_Scalar_co]):
 
+    def as_py(self) -> list[Any]: ...
+
     def diff(self, other: Self) -> str: ...
 
     def cast(

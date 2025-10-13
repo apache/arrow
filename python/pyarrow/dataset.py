@@ -429,9 +429,9 @@ def _ensure_single_source(path, filesystem=None):
 
     # depending on the path type either return with a recursive
     # directory selector or as a list containing a single file
-    if file_info.type == FileType.Directory:
+    if file_info.type == FileType.Directory:  # pyright: ignore[reportAttributeAccessIssue]
         paths_or_selector = FileSelector(path, recursive=True)
-    elif file_info.type == FileType.File:
+    elif file_info.type == FileType.File:  # pyright: ignore[reportAttributeAccessIssue]
         paths_or_selector = [path]
     else:
         raise FileNotFoundError(path)
@@ -988,7 +988,7 @@ Table/RecordBatch, or iterable of RecordBatch
     if file_options is None:
         file_options = format.make_write_options()
 
-    if format != file_options.format:
+    if format != file_options.format:  # pyright: ignore[reportAttributeAccessIssue]
         raise TypeError(f"Supplied FileWriteOptions have format {format}, "
                         f"which doesn't match supplied FileFormat {file_options}")
 
