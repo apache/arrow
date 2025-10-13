@@ -49,7 +49,9 @@ try:
 except ImportError:
     class DatasetModuleStub:
         class Dataset:
-            pass
+            @property
+            def schema(self) -> None:  # type: ignore[empty-body]
+                pass
 
         class InMemoryDataset:
             pass

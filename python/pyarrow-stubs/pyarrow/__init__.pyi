@@ -326,6 +326,7 @@ from pyarrow.lib import (
 
 from pyarrow.ipc import serialize_pandas, deserialize_pandas
 import pyarrow.ipc as ipc
+import pyarrow.lib as lib
 
 import pyarrow.types as types
 
@@ -659,6 +660,7 @@ __all__ = [
     "ArrowSerializationError",
     "serialize_pandas",
     "deserialize_pandas",
+    "lib",
     "ipc",
     "types",
     "_deprecate_api",

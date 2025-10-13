@@ -235,6 +235,9 @@ class FileFormat(lib._Weakrefable):
 class Fragment(lib._Weakrefable):
 
     @property
+    def filesystem(self) -> SupportedFileSystem: ...
+
+    @property
     def physical_schema(self) -> lib.Schema: ...
 
     @property

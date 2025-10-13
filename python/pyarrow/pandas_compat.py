@@ -1152,7 +1152,7 @@ def _reconstruct_columns_from_metadata(columns, column_indexes):
 
     # Convert each level to the dtype provided in the metadata
     levels_dtypes = [
-        (level, col_index.get('pandas_type', str(level.dtype)),
+        (level, col_index.get('pandas_type', str(level.dtype)),  # pyright: ignore[reportAttributeAccessIssue]
          col_index.get('numpy_type', None))
         for level, col_index in zip_longest(
             levels, column_indexes, fillvalue={}
@@ -1168,7 +1168,7 @@ def _reconstruct_columns_from_metadata(columns, column_indexes):
         # bytes into unicode strings when json.loads-ing them. We need to
         # convert them back to bytes to preserve metadata.
         if dtype == np.bytes_:
-            level = level.map(encoder)
+            level = level.map(encoder)  # pyright: ignore[reportAttributeAccessIssue]
         # ARROW-13756: if index is timezone aware DataTimeIndex
         elif pandas_dtype == "datetimetz":
             tz = pa.lib.string_to_tzinfo(
@@ -1182,7 +1182,7 @@ def _reconstruct_columns_from_metadata(columns, column_indexes):
         elif pandas_dtype == "decimal":
             level = _pandas_api.pd.Index([decimal.Decimal(i) for i in level])
         elif (
-            level.dtype == "str" and numpy_dtype == "object"
+            level.dtype == "str" and numpy_dtype == "object"  # pyright: ignore[reportAttributeAccessIssue]
             and ("mixed" in pandas_dtype or pandas_dtype in ["unicode", "string"])
         ):
             # the metadata indicate that the original dataframe used object dtype,
@@ -1195,11 +1195,11 @@ def _reconstruct_columns_from_metadata(columns, column_indexes):
             #   for pandas >= 3 we want to use the default string dtype for .columns
             new_levels.append(level)
             continue
-        elif level.dtype != dtype:
-            level = level.astype(dtype)
+        elif level.dtype != dtype:  # pyright: ignore[reportAttributeAccessIssue]
+            level = level.astype(dtype)  # pyright: ignore[reportAttributeAccessIssue]
         # ARROW-9096: if original DataFrame was upcast we keep that
         if level.dtype != numpy_dtype and pandas_dtype != "datetimetz":
-            level = level.astype(numpy_dtype)
+            level = level.astype(numpy_dtype)  # pyright: ignore[reportAttributeAccessIssue]
 
         new_levels.append(level)
 
