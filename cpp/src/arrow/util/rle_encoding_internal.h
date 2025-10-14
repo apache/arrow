@@ -699,6 +699,11 @@ auto RleBitPackedParser::PeekImpl(Handler&& handler) const
   ARROW_DCHECK_LT(value_bytes, internal::max_size_for_v<rle_size_t>);
   const auto bytes_read = header_bytes + static_cast<rle_size_t>(value_bytes);
 
+  if (ARROW_PREDICT_FALSE(bytes_read > data_size_)) {
+    // RLE run would overflow data buffer
+    return {0, ControlFlow::Break};
+  }
+
   auto control =
       handler.OnRleRun(RleRun(data_ + header_bytes, values_count, value_bit_width_));
 
