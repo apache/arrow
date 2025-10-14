@@ -46,6 +46,20 @@ Int LoadInt(const uint8_t* in) {
 
 template<typename Uint, int kBitWidth>
 struct ScalarUnpackerForWidth;
+template<int kBitWidth>
+struct ScalarUnpackerForWidth<bool, kBitWidth> {
+
+  static constexpr int kValuesUnpacked = ScalarUnpackerForWidth<uint32_t, kBitWidth>::kValuesUnpacked;
+
+  static const uint8_t* unpack(const uint8_t* in, bool* out) {
+    uint32_t buffer[kValuesUnpacked] = {};
+    in = ScalarUnpackerForWidth<uint32_t, kBitWidth>::unpack(in, buffer);
+    for(int k = 0; k< kValuesUnpacked; ++k) {
+      out[k] = static_cast<bool>(buffer[k]);
+    }
+    return in;
+  }
+};
 
 template<int kBitWidth>
 struct ScalarUnpackerForWidth<uint8_t, kBitWidth> {

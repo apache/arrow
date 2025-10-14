@@ -48,8 +48,15 @@ LICENSE = """// Licensed to the Apache Software Foundation (ASF) under one
 
 @dataclasses.dataclass
 class UnpackStructGenerator:
-    out_bit_width: int
+    out_type: str
     simd_bit_width: int
+
+    @property
+    def out_bit_width(self) -> int:
+        if self.out_type == "bool":
+            return 8
+        elif self.out_type.startswith("uint"):
+            return int(self.out_type.removeprefix("uint").removesuffix("_t"))
 
     @property
     def simd_byte_width(self) -> int:
@@ -62,10 +69,6 @@ class UnpackStructGenerator:
     @property
     def out_byte_width(self) -> int:
         return self.out_bit_width // 8
-
-    @property
-    def out_type(self) -> str:
-        return f"uint{self.out_bit_width}_t"
 
     @property
     def struct_name(self) -> str:
@@ -279,4 +282,4 @@ if __name__ == "__main__":
     except ValueError:
         raise ValueError(usage)
 
-    main(simd_width, [8, 16, 32, 64])
+    main(simd_width, ["bool", "uint8_t", "uint16_t", "uint32_t", "uint64_t"])

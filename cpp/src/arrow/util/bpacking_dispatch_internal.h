@@ -18,7 +18,7 @@
 #pragma once
 
 #include <cstring>
-#include <utility>
+#include <type_traits>
 
 #include "arrow/util/endian.h"
 #include "arrow/util/logging.h"
@@ -76,7 +76,14 @@ int unpack_width(const uint8_t* in, UnpackedUInt* out, int batch_size) {
 template <template <typename, int> typename Unpacker, typename UnpackedUint>
 static int unpack_jump(const uint8_t* in, UnpackedUint* out, int batch_size,
                        int num_bits) {
-  if constexpr (sizeof(UnpackedUint) == 1) {
+  if constexpr (std::is_same_v<UnpackedUint, bool>) {
+    switch (num_bits) {
+      case 0:
+        return unpack_null(in, out, batch_size);
+      case 1:
+        return unpack_width<1, Unpacker>(in, out, batch_size);
+    }
+  } else if constexpr (sizeof(UnpackedUint) == 1) {
     switch (num_bits) {
       case 0:
         return unpack_null(in, out, batch_size);
@@ -97,8 +104,7 @@ static int unpack_jump(const uint8_t* in, UnpackedUint* out, int batch_size,
       case 8:
         return unpack_full(in, out, batch_size);
     }
-  }
-  if constexpr (sizeof(UnpackedUint) == 2) {
+  } else if constexpr (sizeof(UnpackedUint) == 2) {
     switch (num_bits) {
       case 0:
         return unpack_null(in, out, batch_size);
@@ -135,8 +141,7 @@ static int unpack_jump(const uint8_t* in, UnpackedUint* out, int batch_size,
       case 16:
         return unpack_full(in, out, batch_size);
     }
-  }
-  if constexpr (sizeof(UnpackedUint) == 4) {
+  } else if constexpr (sizeof(UnpackedUint) == 4) {
     switch (num_bits) {
       case 0:
         return unpack_null(in, out, batch_size);
@@ -205,8 +210,7 @@ static int unpack_jump(const uint8_t* in, UnpackedUint* out, int batch_size,
       case 32:
         return unpack_full(in, out, batch_size);
     }
-  }
-  if constexpr (sizeof(UnpackedUint) == 8) {
+  } else if constexpr (sizeof(UnpackedUint) == 8) {
     switch (num_bits) {
       case 0:
         return unpack_null(in, out, batch_size);

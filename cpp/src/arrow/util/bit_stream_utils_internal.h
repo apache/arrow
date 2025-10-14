@@ -304,7 +304,7 @@ struct unpack_detect {
 
 template <>
 struct unpack_detect<bool> {
-  using type = uint8_t;
+  using type = bool;
 };
 }  // namespace internal_bit_reader
 

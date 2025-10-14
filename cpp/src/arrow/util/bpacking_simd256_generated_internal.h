@@ -37,6 +37,21 @@ template<typename Uint, int BitWidth>
 struct Simd256UnpackerForWidth;
 
 template<int kBitWidth>
+struct Simd256UnpackerForWidth<bool, kBitWidth> {
+
+  static constexpr int kValuesUnpacked = Simd256UnpackerForWidth<uint32_t, kBitWidth>::kValuesUnpacked;
+
+  static const uint8_t* unpack(const uint8_t* in, bool* out) {
+    uint32_t buffer[kValuesUnpacked] = {};
+    in = Simd256UnpackerForWidth<uint32_t, kBitWidth>::unpack(in, buffer);
+    for(int k = 0; k< kValuesUnpacked; ++k) {
+      out[k] = static_cast<bool>(buffer[k]);
+    }
+    return in;
+  }
+};
+
+template<int kBitWidth>
 struct Simd256UnpackerForWidth<uint8_t, kBitWidth> {
 
   static constexpr int kValuesUnpacked = Simd256UnpackerForWidth<uint32_t, kBitWidth>::kValuesUnpacked;

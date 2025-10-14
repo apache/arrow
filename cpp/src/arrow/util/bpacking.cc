@@ -59,6 +59,7 @@ int unpack(const uint8_t* in, Uint* out, int batch_size, int num_bits) {
 #endif
 }
 
+template int unpack<bool>(const uint8_t*, bool*, int, int);
 template int unpack<uint8_t>(const uint8_t*, uint8_t*, int, int);
 template int unpack<uint16_t>(const uint8_t*, uint16_t*, int, int);
 template int unpack<uint32_t>(const uint8_t*, uint32_t*, int, int);

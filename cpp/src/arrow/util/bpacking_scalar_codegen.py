@@ -81,16 +81,19 @@ FOOTER = """
 
 @dataclasses.dataclass
 class ScalarUnpackGenerator:
-    out_bit_width: int
+    out_type: str
     smart_halve: bool
+
+    @property
+    def out_bit_width(self) -> int:
+        if self.out_type == "bool":
+            return 8
+        elif self.out_type.startswith("uint"):
+            return int(self.out_type.removeprefix("uint").removesuffix("_t"))
 
     @property
     def out_byte_width(self) -> int:
         return self.out_bit_width // 8
-
-    @property
-    def out_type(self) -> str:
-        return f"uint{self.out_bit_width}_t"
 
     @property
     def out_type_half(self) -> str:
@@ -236,21 +239,26 @@ if __name__ == "__main__":
     print_note()
     print(HEADER)
 
-    gen = ScalarUnpackGenerator(8, smart_halve=False)
+    gen = ScalarUnpackGenerator("", smart_halve=False)
     gen.print_struct_declaration()
-    print()
+
+    gen = ScalarUnpackGenerator("bool", smart_halve=False)
     gen.print_structs()
     print()
 
-    gen = ScalarUnpackGenerator(16, smart_halve=False)
+    gen = ScalarUnpackGenerator("uint8_t", smart_halve=False)
     gen.print_structs()
     print()
 
-    gen = ScalarUnpackGenerator(32, smart_halve=False)
+    gen = ScalarUnpackGenerator("uint16_t", smart_halve=False)
     gen.print_structs()
     print()
 
-    gen = ScalarUnpackGenerator(64, smart_halve=True)
+    gen = ScalarUnpackGenerator("uint32_t", smart_halve=False)
+    gen.print_structs()
+    print()
+
+    gen = ScalarUnpackGenerator("uint64_t", smart_halve=True)
     gen.print_structs()
 
     print(FOOTER)

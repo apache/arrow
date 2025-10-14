@@ -26,6 +26,7 @@ int unpack_scalar(const uint8_t* in, Uint* out, int batch_size, int num_bits) {
   return unpack_jump<ScalarUnpackerForWidth>(in, out, batch_size, num_bits);
 }
 
+template int unpack_scalar<bool>(const uint8_t*, bool*, int, int);
 template int unpack_scalar<uint8_t>(const uint8_t*, uint8_t*, int, int);
 template int unpack_scalar<uint16_t>(const uint8_t*, uint16_t*, int, int);
 template int unpack_scalar<uint32_t>(const uint8_t*, uint32_t*, int, int);

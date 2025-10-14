@@ -62,11 +62,13 @@ std::vector<uint8_t> GenerateRandomPackedValues(int32_t num_values, int32_t bit_
 template <typename Int>
 std::vector<Int> UnpackValues(const uint8_t* packed, int32_t num_values,
                               int32_t bit_width, UnpackFunc<Int> unpack) {
-  std::vector<Int> out(num_values);
-  int values_read = unpack(packed, out.data(), num_values, bit_width);
+  // Using dynamic array to avoid std::vector<bool>
+  auto buffer = std::make_unique<Int[]>(num_values);
+  int values_read = unpack(packed, buffer.get(), num_values, bit_width);
   ARROW_DCHECK_GE(values_read, 0);
-  out.resize(values_read);
-  return out;
+  EXPECT_LE(values_read, num_values);
+
+  return std::vector<Int>(buffer.get(), buffer.get() + values_read);
 }
 
 /// Use BitWriter to pack values into a vector.
@@ -154,8 +156,12 @@ class TestUnpack : public ::testing::TestWithParam<int> {
 
     // Generate bit_width ones
     Int expected_value = 0;
-    for (int i = 0; i < bit_width; ++i) {
-      expected_value = (expected_value << 1) | 1;
+    if constexpr (std::is_same_v<Int, bool>) {
+      expected_value = static_cast<bool>(bit_width);
+    } else {
+      for (int i = 0; i < bit_width; ++i) {
+        expected_value = (expected_value << 1) | 1;
+      }
     }
     const std::vector<Int> expected(static_cast<std::size_t>(num_values), expected_value);
     EXPECT_EQ(unpacked, expected);
@@ -192,7 +198,7 @@ class TestUnpack : public ::testing::TestWithParam<int> {
 
   template <typename Int>
   void TestAll(UnpackFunc<Int> unpack) {
-    constexpr int kMaxBitWidth = 8 * sizeof(Int);
+    constexpr int kMaxBitWidth = std::is_same_v<Int, bool> ? 1 : 8 * sizeof(Int);
     // Given how many edge cases there are in unpacking integers, it is best to test all
     // sizes
     for (int bit_width = 0; bit_width <= kMaxBitWidth; ++bit_width) {
@@ -218,12 +224,19 @@ INSTANTIATE_TEST_SUITE_P(UnpackMultiplesOf64Values, TestUnpack,
                            return "Count" + std::to_string(info.param);
                          });
 
+TEST_P(TestUnpack, UnpackBoolScalar) { this->TestAll(&unpack_scalar<bool>); }
 TEST_P(TestUnpack, Unpack8Scalar) { this->TestAll(&unpack_scalar<uint8_t>); }
 TEST_P(TestUnpack, Unpack16Scalar) { this->TestAll(&unpack_scalar<uint16_t>); }
 TEST_P(TestUnpack, Unpack32Scalar) { this->TestAll(&unpack_scalar<uint32_t>); }
 TEST_P(TestUnpack, Unpack64Scalar) { this->TestAll(&unpack_scalar<uint64_t>); }
 
 #if defined(ARROW_HAVE_RUNTIME_AVX2)
+TEST_P(TestUnpack, UnpackBoolAvx2) {
+  if (!CpuInfo::GetInstance()->IsSupported(CpuInfo::AVX2)) {
+    GTEST_SKIP() << "Test requires AVX2";
+  }
+  this->TestAll(&unpack_avx2<bool>);
+}
 TEST_P(TestUnpack, Unpack8Avx2) {
   if (!CpuInfo::GetInstance()->IsSupported(CpuInfo::AVX2)) {
     GTEST_SKIP() << "Test requires AVX2";
@@ -251,6 +264,12 @@ TEST_P(TestUnpack, Unpack64Avx2) {
 #endif
 
 #if defined(ARROW_HAVE_RUNTIME_AVX512)
+TEST_P(TestUnpack, UnpackBoolAvx512) {
+  if (!CpuInfo::GetInstance()->IsSupported(CpuInfo::AVX512)) {
+    GTEST_SKIP() << "Test requires AVX512";
+  }
+  this->TestAll(&unpack_avx512<bool>);
+}
 TEST_P(TestUnpack, Unpack8Avx512) {
   if (!CpuInfo::GetInstance()->IsSupported(CpuInfo::AVX512)) {
     GTEST_SKIP() << "Test requires AVX512";
@@ -278,12 +297,14 @@ TEST_P(TestUnpack, Unpack64Avx512) {
 #endif
 
 #if defined(ARROW_HAVE_NEON)
+TEST_P(TestUnpack, UnpackBoolNeon) { this->TestAll(&unpack_neon<bool>); }
 TEST_P(TestUnpack, Unpack8Neon) { this->TestAll(&unpack_neon<uint8_t>); }
 TEST_P(TestUnpack, Unpack16Neon) { this->TestAll(&unpack_neon<uint16_t>); }
 TEST_P(TestUnpack, Unpack32Neon) { this->TestAll(&unpack_neon<uint32_t>); }
 TEST_P(TestUnpack, Unpack64Neon) { this->TestAll(&unpack_neon<uint64_t>); }
 #endif
 
+TEST_P(TestUnpack, UnpackBool) { this->TestAll(&unpack<bool>); }
 TEST_P(TestUnpack, Unpack8) { this->TestAll(&unpack<uint8_t>); }
 TEST_P(TestUnpack, Unpack16) { this->TestAll(&unpack<uint16_t>); }
 TEST_P(TestUnpack, Unpack32) { this->TestAll(&unpack<uint32_t>); }
