@@ -241,7 +241,7 @@ def _handle_options(name, options_class, options, args, kwargs):
 
 def _make_generic_wrapper(func_name, func, options_class, arity):
     if options_class is None:
-        def wrapper(*args, memory_pool=None):
+        def wrapper(*args, memory_pool=None):  # type: ignore
             if arity is not Ellipsis and len(args) != arity:
                 raise TypeError(
                     f"{func_name} takes {arity} positional argument(s), "
@@ -608,7 +608,7 @@ def top_k_unstable(values, k, sort_keys=None, *, memory_pool=None):
         sort_keys.append(("dummy", "descending"))
     else:
         sort_keys = map(lambda key_name: (key_name, "descending"), sort_keys)
-    options = SelectKOptions(k, sort_keys)
+    options = SelectKOptions(k, sort_keys)  # type: ignore
     return call_function("select_k_unstable", [values], options, memory_pool)
 
 
@@ -655,7 +655,7 @@ def bottom_k_unstable(values, k, sort_keys=None, *, memory_pool=None):
         sort_keys.append(("dummy", "ascending"))
     else:
         sort_keys = map(lambda key_name: (key_name, "ascending"), sort_keys)
-    options = SelectKOptions(k, sort_keys)
+    options = SelectKOptions(k, sort_keys)  # type: ignore
     return call_function("select_k_unstable", [values], options, memory_pool)
 
 
@@ -681,7 +681,7 @@ def random(n, *, initializer='system', options=None, memory_pool=None):
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
     """
-    options = RandomOptions(initializer=initializer)
+    options = RandomOptions(initializer=initializer)  # type: ignore
     return call_function("random", [], options, memory_pool, length=n)
 
 
@@ -723,7 +723,7 @@ def field(*name_or_index):
         if isinstance(name_or_index[0], (str, int)):
             return Expression._field(name_or_index[0])
         elif isinstance(name_or_index[0], tuple):
-            return Expression._nested_field(name_or_index[0])
+            return Expression._nested_field(name_or_index[0])  # type: ignore
         else:
             raise TypeError(
                 "field reference should be str, multiple str, tuple or "
@@ -731,7 +731,7 @@ def field(*name_or_index):
             )
     # In case of multiple strings not supplied in a tuple
     else:
-        return Expression._nested_field(name_or_index)
+        return Expression._nested_field(name_or_index)  # type: ignore
 
 
 def scalar(value):

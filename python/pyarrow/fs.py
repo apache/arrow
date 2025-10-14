@@ -98,7 +98,7 @@ def _ensure_filesystem(filesystem, *, use_mmap=False):
         prefix = fs.normalize_path(path)
         if prefix:
             # validate that the prefix is pointing to a directory
-            prefix_info = fs.get_file_info([prefix])[0]
+            prefix_info = fs.get_file_info([prefix])[0]  # type: ignore
             if prefix_info.type != FileType.Directory:
                 raise ValueError(
                     "The path component of the filesystem URI must point to a "
@@ -250,16 +250,16 @@ def copy_files(source, destination,
         destination, destination_filesystem
     )
 
-    file_info = source_fs.get_file_info(source_path)
+    file_info = source_fs.get_file_info(source_path)  # type: ignore
     if file_info.type == FileType.Directory:  # pyright: ignore[reportAttributeAccessIssue]
         source_sel = FileSelector(source_path, recursive=True)
         _copy_files_selector(source_fs, source_sel,
                              destination_fs, destination_path,
-                             chunk_size, use_threads)
+                             chunk_size, use_threads)  # type: ignore
     else:
         _copy_files(source_fs, source_path,
                     destination_fs, destination_path,
-                    chunk_size, use_threads)
+                    chunk_size, use_threads)  # type: ignore
 
 
 class FSSpecHandler(FileSystemHandler):
@@ -383,6 +383,7 @@ class FSSpecHandler(FileSystemHandler):
 
     def delete_root_dir_contents(self):
         self._delete_dir_contents("/", False)
+        self._delete_dir_contents("/")  # type: ignore
 
     def delete_file(self, path):
         # fs.rm correctly raises IsADirectoryError when `path` is a directory

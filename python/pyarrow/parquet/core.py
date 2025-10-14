@@ -321,7 +321,7 @@ class ParquetFile:
         filesystem, source = _resolve_filesystem_and_path(
             source, filesystem, memory_map=memory_map)
         if filesystem is not None:
-            source = filesystem.open_input_file(source)
+            source = filesystem.open_input_file(source)  # type: ignore
             self._close_source = True  # We opened it here, ensure we close it.
 
         self.reader = ParquetReader()
@@ -329,13 +329,13 @@ class ParquetFile:
             source, use_memory_map=memory_map,
             buffer_size=buffer_size, pre_buffer=pre_buffer,
             read_dictionary=read_dictionary, metadata=metadata,
-            binary_type=binary_type, list_type=list_type,
+            binary_type=binary_type, list_type=list_type,  # type: ignore
             coerce_int96_timestamp_unit=coerce_int96_timestamp_unit,
             decryption_properties=decryption_properties,
             thrift_string_size_limit=thrift_string_size_limit,
             thrift_container_size_limit=thrift_container_size_limit,
             page_checksum_verification=page_checksum_verification,
-            arrow_extensions_enabled=arrow_extensions_enabled,
+            arrow_extensions_enabled=arrow_extensions_enabled,  # type: ignore
         )
         self.common_metadata = common_metadata
         self._nested_paths_by_prefix = self._build_nested_paths()
@@ -588,7 +588,7 @@ class ParquetFile:
             columns, use_pandas_metadata=use_pandas_metadata)
 
         batches = self.reader.iter_batches(batch_size,
-                                           row_groups=row_groups,
+                                           row_groups=row_groups,  # type: ignore
                                            column_indices=column_indices,
                                            use_threads=use_threads)
         return batches
@@ -1074,7 +1074,7 @@ Examples
             # a filename like foo.parquet.gz is nonconforming, it
             # shouldn't implicitly apply compression.
             sink = self.file_handle = filesystem.open_output_stream(
-                path, compression=None)
+                path, compression=None)  # type: ignore
         else:
             sink = where
         self._metadata_collector = options.pop('metadata_collector', None)
@@ -1082,7 +1082,7 @@ Examples
         self.writer = _parquet.ParquetWriter(
             sink, schema,
             version=version,
-            compression=compression,
+            compression=compression,  # type: ignore
             use_dictionary=use_dictionary,
             write_statistics=write_statistics,
             use_deprecated_int96_timestamps=use_deprecated_int96_timestamps,
@@ -1412,7 +1412,7 @@ Examples
                 filesystem, path_or_paths = _resolve_filesystem_and_path(
                     path_or_paths, filesystem, memory_map=memory_map
                 )
-                finfo = filesystem.get_file_info(path_or_paths)
+                finfo = filesystem.get_file_info(path_or_paths)  # type: ignore
                 if finfo.type == FileType.Directory:  # pyright: ignore[reportAttributeAccessIssue]
                     self._base_dir = path_or_paths
             else:
@@ -1435,7 +1435,7 @@ Examples
             partitioning = ds.HivePartitioning.discover(
                 infer_dictionary=True)
 
-        self._dataset = ds.dataset(path_or_paths, filesystem=filesystem,
+        self._dataset = ds.dataset(path_or_paths, filesystem=filesystem,  # type: ignore
                                    schema=schema, format=parquet_format,
                                    partitioning=partitioning,
                                    ignore_prefixes=ignore_prefixes)
@@ -1560,7 +1560,7 @@ Examples
             if metadata and b"pandas" in metadata:
                 new_metadata = table.schema.metadata or {}
                 new_metadata.update({b"pandas": metadata[b"pandas"]})
-                table = table.replace_schema_metadata(new_metadata)
+                table = table.replace_schema_metadata(new_metadata)  # type: ignore
 
         return table
 
@@ -1908,8 +1908,9 @@ def read_table(source, *, columns=None, use_threads=True,
                     "when the pyarrow.dataset module is not available"
                 )
 
-            source = filesystem.open_input_file(path)
+            source = filesystem.open_input_file(path)  # type: ignore
 
+        # TODO test that source is not a directory or a list
         dataset = ParquetFile(
             source, read_dictionary=read_dictionary,
             binary_type=binary_type,
@@ -2081,7 +2082,7 @@ Examples
 def write_to_dataset(table, root_path, partition_cols=None,
                      filesystem=None, schema=None, partitioning=None,
                      basename_template=None, use_threads=None,
-                     file_visitor=None, existing_data_behavior=None,
+                     file_visitor=None, existing_data_behavior=None,  # type: ignore
                      **kwargs):
     """Wrapper around dataset.write_dataset for writing a Table to
     Parquet format by partitions.
@@ -2251,7 +2252,7 @@ def write_to_dataset(table, root_path, partition_cols=None,
     ds.write_dataset(
         table, root_path, filesystem=filesystem,
         format=parquet_format, file_options=write_options, schema=schema,
-        partitioning=partitioning, use_threads=use_threads,
+        partitioning=partitioning, use_threads=use_threads,  # type: ignore
         file_visitor=file_visitor,
         basename_template=basename_template,
         existing_data_behavior=existing_data_behavior,
@@ -2325,10 +2326,10 @@ def write_metadata(schema, where, metadata_collector=None, filesystem=None,
         for m in metadata_collector:
             metadata.append_row_groups(m)
         if filesystem is not None:
-            with filesystem.open_output_stream(where) as f:
+            with filesystem.open_output_stream(where) as f:  # type: ignore
                 metadata.write_metadata_file(f)
         else:
-            metadata.write_metadata_file(where)
+            metadata.write_metadata_file(where)  # type: ignore
 
 
 def read_metadata(where, memory_map=False, decryption_properties=None,
@@ -2373,7 +2374,7 @@ def read_metadata(where, memory_map=False, decryption_properties=None,
     filesystem, where = _resolve_filesystem_and_path(where, filesystem)
     file_ctx = nullcontext()
     if filesystem is not None:
-        file_ctx = where = filesystem.open_input_file(where)
+        file_ctx = where = filesystem.open_input_file(where)  # type: ignore
 
     with file_ctx:
         file = ParquetFile(where, memory_map=memory_map,
@@ -2418,7 +2419,7 @@ def read_schema(where, memory_map=False, decryption_properties=None,
     filesystem, where = _resolve_filesystem_and_path(where, filesystem)
     file_ctx = nullcontext()
     if filesystem is not None:
-        file_ctx = where = filesystem.open_input_file(where)
+        file_ctx = where = filesystem.open_input_file(where)  # type: ignore
 
     with file_ctx:
         file = ParquetFile(

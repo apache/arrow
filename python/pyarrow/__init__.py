@@ -365,7 +365,7 @@ def create_library_symlinks():
     if _sys.platform == 'linux':
         bundled_libs = glob.glob(_os.path.join(package_cwd, '*.so.*'))
 
-        def get_symlink_path(hard_path):
+        def get_symlink_path(hard_path):  # type: ignore
             return hard_path.rsplit('.', 1)[0]
     else:
         bundled_libs = glob.glob(_os.path.join(package_cwd, '*.*.dylib'))

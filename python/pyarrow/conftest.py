@@ -324,7 +324,7 @@ def unary_func_fixture():
                  "description": "test add function"}
     pc.register_scalar_function(unary_function,
                                 func_name,
-                                unary_doc,
+                                unary_doc,  # type: ignore
                                 {"array": pa.int64()},
                                 pa.int64())
     return unary_function, func_name
@@ -347,7 +347,7 @@ def unary_agg_func_fixture():
 
     pc.register_aggregate_function(func,
                                    func_name,
-                                   func_doc,
+                                   func_doc,  # type: ignore
                                    {
                                        "x": pa.float64(),
                                    },
@@ -376,7 +376,7 @@ def varargs_agg_func_fixture():
 
     pc.register_aggregate_function(func,
                                    func_name,
-                                   func_doc,
+                                   func_doc,  # type: ignore
                                    {
                                        "x": pa.int64(),
                                        "y": pa.float64()
