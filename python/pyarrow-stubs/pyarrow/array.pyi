@@ -249,7 +249,7 @@ class Array(_PandasConvertible[pd.Series], Generic[_Scalar_co]):
     def from_buffers(
         type: _DataTypeT,
         length: int,
-        buffers: list[Buffer],
+        buffers: list[Buffer | None],
         null_count: int = -1,
         offset=0,
         children: NullableCollection[Array[Scalar[_DataTypeT]]] | None = None,
@@ -323,7 +323,7 @@ class Array(_PandasConvertible[pd.Series], Generic[_Scalar_co]):
                  writable: bool = False) -> np.ndarray: ...
 
     def to_pylist(
-        self: Array[Scalar[_BasicDataType[_AsPyType]]],
+        self: Array[Scalar[_BasicDataType[_AsPyType]]] | StructArray | ListArray[Any],
         *,
         maps_as_pydicts: Literal["lossy", "strict"] | None = None,
     ) -> list[_AsPyType | None]: ...
@@ -758,18 +758,18 @@ class RunEndEncodedArray(Array[RunEndEncodedScalar[_RunEndType, _BasicValueT]]):
 
     @staticmethod
     def from_arrays(
-        run_ends: Int16Array | Int32Array | Int64Array,
-        values: Array, type: DataType | None = None,
+        run_ends: Int16Array | Int32Array | Int64Array | list[int],
+        values: Array | list[Any], type: DataType | None = None,
     ) -> RunEndEncodedArray[Any, _BasicValueT]: ...
 
     @staticmethod
     def from_buffers(  # type: ignore[override]
         type: DataType,
         length: int,
-        buffers: list[Buffer],
+        buffers: list[Buffer] | list[None],
         null_count: int = -1,
         offset=0,
-        children: tuple[Array, Array] | None = None,
+        children: tuple[Array, Array] | list[list[int]] | None = None,
     ) -> RunEndEncodedArray[Any, _BasicValueT]: ...
 
     @property
