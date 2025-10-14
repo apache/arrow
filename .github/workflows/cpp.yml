@@ -280,100 +280,13 @@ jobs:
           ci/scripts/cpp_test.sh $(pwd) $(pwd)/build
 
   windows:
-    name: ${{ matrix.title }}
-    runs-on: ${{ matrix.os }}
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
-    timeout-minutes: 60
-    strategy:
-      fail-fast: false
-      matrix:
-        os:
-          - windows-2022
-        include:
-          - os: windows-2022
-            simd-level: AVX2
-            title: AMD64 Windows 2022 AVX2
-    env:
-      ARROW_BOOST_USE_SHARED: OFF
-      ARROW_BUILD_BENCHMARKS: ON
-      ARROW_BUILD_SHARED: ON
-      ARROW_BUILD_STATIC: OFF
-      ARROW_BUILD_TESTS: ON
-      ARROW_DATASET: ON
-      ARROW_FLIGHT: OFF
-      ARROW_HDFS: ON
-      ARROW_HOME: /usr
-      ARROW_JEMALLOC: OFF
-      ARROW_MIMALLOC: ON
-      ARROW_ORC: ON
-      ARROW_PARQUET: ON
-      ARROW_SIMD_LEVEL: ${{ matrix.simd-level }}
-      ARROW_SUBSTRAIT: ON
-      ARROW_USE_GLOG: OFF
-      ARROW_VERBOSE_THIRDPARTY_BUILD: OFF
-      ARROW_WITH_BROTLI: OFF
-      ARROW_WITH_BZ2: OFF
-      ARROW_WITH_LZ4: OFF
-      ARROW_WITH_OPENTELEMETRY: OFF
-      ARROW_WITH_SNAPPY: ON
-      ARROW_WITH_ZLIB: ON
-      ARROW_WITH_ZSTD: ON
-      BOOST_SOURCE: BUNDLED
-      CMAKE_CXX_STANDARD: "17"
-      CMAKE_GENERATOR: Ninja
-      CMAKE_INSTALL_PREFIX: /usr
-      CMAKE_UNITY_BUILD: ON
-    steps:
-      - name: Disable Crash Dialogs
-        run: |
-          reg add `
-            "HKCU\SOFTWARE\Microsoft\Windows\Windows Error Reporting" `
-            /v DontShowUI `
-            /t REG_DWORD `
-            /d 1 `
-            /f
-      - name: Checkout Arrow
-        uses: actions/checkout@v5
-        with:
-          fetch-depth: 0
-          submodules: recursive
-      - name: Download Timezone Database
-        shell: bash
-        run: ci/scripts/download_tz_database.sh
-      - name: Install ccache
-        shell: bash
-        run: |
-          ci/scripts/install_ccache.sh 4.6.3 /usr
-      - name: Setup ccache
-        shell: bash
-        run: |
-          ci/scripts/ccache_setup.sh
-      - name: ccache info
-        id: ccache-info
-        shell: bash
-        run: |
-          echo "cache-dir=$(ccache --get-config cache_dir)" >> $GITHUB_OUTPUT
-      - name: Cache ccache
-        uses: actions/cache@v4
-        with:
-          path: ${{ steps.ccache-info.outputs.cache-dir }}
-          key: cpp-ccache-windows-${{ env.CACHE_VERSION }}-${{ hashFiles('cpp/**') }}
-          restore-keys: cpp-ccache-windows-${{ env.CACHE_VERSION }}-
-        env:
-          # We can invalidate the current cache by updating this.
-          CACHE_VERSION: "2022-09-13"
-      - name: Build
-        shell: cmd
-        run: |
-          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
-          bash -c "ci/scripts/cpp_build.sh $(pwd) $(pwd)/build"
-      - name: Test
-        shell: cmd
-        run: |
-          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
-          # For ORC
-          set TZDIR=C:\msys64\usr\share\zoneinfo
-          bash -c "ci/scripts/cpp_test.sh $(pwd) $(pwd)/build"
+    name: AMD64 Windows 2022 AVX2 C++
+    uses: ./.github/workflows/cpp_windows.yml
+    with:
+      arch: x64
+      os: windows-2022
+      simd-level: AVX2
 
   windows-mingw:
     name: AMD64 Windows MinGW ${{ matrix.msystem_upper }} C++
