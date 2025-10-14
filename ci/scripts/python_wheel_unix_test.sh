@@ -31,9 +31,9 @@ source_dir=${1}
 : "${ARROW_AZURE:=ON}"
 : "${ARROW_FLIGHT:=ON}"
 : "${ARROW_GCS:=ON}"
+: "${CHECK_IMPORTS:=ON}"
 : "${ARROW_S3:=ON}"
 : "${ARROW_SUBSTRAIT:=ON}"
-: "${CHECK_IMPORTS:=ON}"
 : "${CHECK_WHEEL_CONTENT:=ON}"
 : "${CHECK_UNITTESTS:=ON}"
 : "${INSTALL_PYARROW:=ON}"
@@ -106,10 +106,10 @@ is_free_threaded() {
 
 if [ "${CHECK_UNITTESTS}" == "ON" ]; then
   # Install testing dependencies
-  if [ "$(is_free_threaded)" = "ON" ]; then
-    echo "Free-threaded Python build detected"
+  if [ "$(is_free_threaded)" = "ON" ] && [[ "${PYTHON:-}" == *"3.13"* ]]; then
+    echo "Free-threaded Python 3.13 build detected"
     python -m pip install -U -r "${source_dir}/python/requirements-wheel-test-3.13t.txt"
-  elif [ "$(is_free_threaded)" = "OFF" ]; then
+  else
     echo "Regular Python build detected"
     python -m pip install -U -r "${source_dir}/python/requirements-wheel-test.txt"
   fi

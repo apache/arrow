@@ -1176,7 +1176,7 @@ services:
       args:
         arch: ${ARCH}
         arch_short: ${ARCH_SHORT}
-        base: quay.io/pypa/manylinux_2_28_${ARCH_ALIAS}:2024-08-03-32dfa47
+        base: quay.io/pypa/manylinux_2_28_${ARCH_ALIAS}:2025-06-04-496f7e1
         manylinux: 2_28
         python: ${PYTHON}
         python_abi_tag: ${PYTHON_ABI_TAG}
@@ -1201,7 +1201,7 @@ services:
       args:
         arch: ${ARCH}
         arch_short: ${ARCH_SHORT}
-        base: quay.io/pypa/musllinux_1_2_${ARCH_ALIAS}:2025-01-18-a325f1d
+        base: quay.io/pypa/musllinux_1_2_${ARCH_ALIAS}:2025-06-04-496f7e1
         musllinux: 1_2
         python: ${PYTHON}
         python_abi_tag: ${PYTHON_ABI_TAG}
@@ -1237,14 +1237,16 @@ services:
   # TODO: Remove this when the official Docker Python image supports the free-threaded build.
   # See https://github.com/docker-library/python/issues/947 for more info.
   python-free-threaded-wheel-musllinux-test-imports:
-    image: ${REPO}:${ARCH}-python-3.13-free-threaded-wheel-musllinux-test-imports
+    image: ${REPO}:${ARCH}-python-${PYTHON_IMAGE_TAG}-free-threaded-wheel-musllinux-test-imports
     build:
       args:
         base: "${ARCH}/alpine:${ALPINE_LINUX}"
+        python_version: ${PYTHON}
+        python_patch_version: ${PYTHON_PATCH_VERSION}
       context: .
       dockerfile: ci/docker/python-free-threaded-wheel-musllinux-test-imports.dockerfile
       cache_from:
-        - ${REPO}:${ARCH}-python-3.13-free-threaded-wheel-musllinux-test-imports
+        - ${REPO}:${ARCH}-python-${PYTHON_IMAGE_TAG}-free-threaded-wheel-musllinux-test-imports
     shm_size: 2G
     volumes:
       - .:/arrow:delegated
@@ -1252,6 +1254,7 @@ services:
       <<: *common
       CHECK_IMPORTS: "ON"
       CHECK_UNITTESTS: "OFF"
+      PYTHON: ${PYTHON}
     command: /arrow/ci/scripts/python_wheel_unix_test.sh /arrow
 
   python-wheel-musllinux-test-unittests:
@@ -1277,14 +1280,16 @@ services:
   # TODO: Remove this when the official Docker Python image supports the free-threaded build.
   # See https://github.com/docker-library/python/issues/947 for more info.
   python-free-threaded-wheel-musllinux-test-unittests:
-    image: ${REPO}:${ARCH}-python-3.13-free-threaded-wheel-musllinux-test-unittests
+    image: ${REPO}:${ARCH}-python-${PYTHON_IMAGE_TAG}-free-threaded-wheel-musllinux-test-unittests
     build:
       args:
         base: "${ARCH}/alpine:${ALPINE_LINUX}"
+        python_version: ${PYTHON}
+        python_patch_version: ${PYTHON_PATCH_VERSION}
       context: .
       dockerfile: ci/docker/python-free-threaded-wheel-musllinux-test-unittests.dockerfile
       cache_from:
-        - ${REPO}:${ARCH}-python-3.13-free-threaded-wheel-musllinux-test-unittests
+        - ${REPO}:${ARCH}-python-${PYTHON_IMAGE_TAG}-free-threaded-wheel-musllinux-test-unittests
     shm_size: 2G
     volumes:
       - .:/arrow:delegated
@@ -1292,6 +1297,7 @@ services:
       <<: *common
       CHECK_IMPORTS: "OFF"
       CHECK_UNITTESTS: "ON"
+      PYTHON: ${PYTHON}
     command: /arrow/ci/scripts/python_wheel_unix_test.sh /arrow
 
   python-wheel-manylinux-test-imports:
@@ -1309,14 +1315,15 @@ services:
   # TODO: Remove this when the official Docker Python image supports the free-threaded build.
   # See https://github.com/docker-library/python/issues/947 for more info.
   python-free-threaded-wheel-manylinux-test-imports:
-    image: ${REPO}:${ARCH}-python-3.13-free-threaded-wheel-manylinux-test-imports
+    image: ${REPO}:${ARCH}-python-${PYTHON_IMAGE_TAG}-free-threaded-wheel-manylinux-test-imports
     build:
       args:
         base: "${ARCH}/ubuntu:${UBUNTU}"
+        python_version: ${PYTHON}
       context: .
       dockerfile: ci/docker/python-free-threaded-wheel-manylinux-test-imports.dockerfile
       cache_from:
-        - ${REPO}:${ARCH}-python-3.13-free-threaded-wheel-manylinux-test-imports
+        - ${REPO}:${ARCH}-python-${PYTHON_IMAGE_TAG}-free-threaded-wheel-manylinux-test-imports
     shm_size: 2G
     volumes:
       - .:/arrow:delegated
@@ -1324,6 +1331,7 @@ services:
       <<: *common
       CHECK_IMPORTS: "ON"
       CHECK_UNITTESTS: "OFF"
+      PYTHON: ${PYTHON}
     command: /arrow/ci/scripts/python_wheel_unix_test.sh /arrow
 
   python-wheel-manylinux-test-unittests:
@@ -1350,14 +1358,15 @@ services:
   # TODO: Remove this when the official Docker Python image supports the free-threaded build.
   # See https://github.com/docker-library/python/issues/947 for more info.
   python-free-threaded-wheel-manylinux-test-unittests:
-    image: ${REPO}:${ARCH}-python-3.13-free-threaded-wheel-manylinux-test-unittests
+    image: ${REPO}:${ARCH}-python-${PYTHON_IMAGE_TAG}-free-threaded-wheel-manylinux-test-unittests
     build:
       args:
         base: "${ARCH}/ubuntu:${UBUNTU}"
+        python_version: ${PYTHON}
       context: .
       dockerfile: ci/docker/python-free-threaded-wheel-manylinux-test-unittests.dockerfile
       cache_from:
-        - ${REPO}:${ARCH}-python-3.13-free-threaded-wheel-manylinux-test-unittests
+        - ${REPO}:${ARCH}-python-${PYTHON_IMAGE_TAG}-free-threaded-wheel-manylinux-test-unittests
     shm_size: 2G
     volumes:
       - .:/arrow:delegated
@@ -1365,6 +1374,7 @@ services:
       <<: *common
       CHECK_IMPORTS: "OFF"
       CHECK_UNITTESTS: "ON"
+      PYTHON: ${PYTHON}
     command: /arrow/ci/scripts/python_wheel_unix_test.sh /arrow
 
   python-wheel-windows-vs2022-base:
@@ -1439,6 +1449,7 @@ services:
     build:
       args:
         base: ${REPO}:python-wheel-windows-test-vs2022-base-${PYTHON_WHEEL_WINDOWS_TEST_IMAGE_REVISION}
+        python: ${PYTHON}
       context: .
       dockerfile: ci/docker/python-free-threaded-wheel-windows-test-vs2022.dockerfile
     volumes: *python-wheel-windows-vs2022-volumes
