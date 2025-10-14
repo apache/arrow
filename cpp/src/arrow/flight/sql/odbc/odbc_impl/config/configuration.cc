@@ -56,7 +56,7 @@ std::string ReadDsnString(const std::string& dsn, const std::string_view& key,
   }
 
   std::wstring wresult = std::wstring(buf.data(), ret);
-  std::string result = arrow::util::WideStringToUTF8(wresult).ValueOr("");
+  CONVERT_UTF8_STR(const std::string result, wresult);
   return result;
 }
 
@@ -98,7 +98,7 @@ std::vector<std::string> ReadAllKeys(const std::string& dsn) {
     for (cur = begin; *cur != '\0'; ++cur) {
     }
 
-    std::string key = arrow::util::WideStringToUTF8(std::wstring(begin, cur)).ValueOr("");
+    CONVERT_UTF8_STR(const std::string key, std::wstring(begin, cur));
     keys.emplace_back(key);
     begin = ++cur;
   }
@@ -164,7 +164,7 @@ const std::string& Configuration::Get(const std::string_view& key) const {
 }
 
 void Configuration::Set(const std::string_view& key, const std::wstring& wvalue) {
-  std::string value = arrow::util::WideStringToUTF8(wvalue).ValueOr("");
+  CONVERT_UTF8_STR(const std::string value, wvalue);
   Set(key, value);
 }
 

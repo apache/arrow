@@ -36,6 +36,13 @@
     return res.ValueOrDie();                                                      \
   }()
 
+#define CONVERT_UTF8_STR(string_var, wide_str_target)                                \
+  string_var = [&] {                                                                 \
+    arrow::Result<std::string> res = arrow::util::WideStringToUTF8(wide_str_target); \
+    arrow::flight::sql::odbc::util::ThrowIfNotOK(res.status());                      \
+    return res.ValueOrDie();                                                         \
+  }()
+
 namespace arrow::flight::sql::odbc {
 namespace util {
 

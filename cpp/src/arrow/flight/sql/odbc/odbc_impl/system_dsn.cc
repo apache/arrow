@@ -60,15 +60,29 @@ bool DisplayConnectionWindow(void* window_parent, Configuration& config) {
     std::stringstream buf;
     buf << "SQL State: " << err.GetSqlState() << ", Message: " << err.GetMessageText()
         << ", Code: " << err.GetNativeError();
-    std::wstring wmessage = arrow::util::UTF8ToWideString(buf.str()).ValueOr(L"");
+    std::wstring wmessage =
+        arrow::util::UTF8ToWideString(buf.str()).ValueOr(L"Error during load DSN");
     MessageBox(NULL, wmessage.c_str(), L"Error!", MB_ICONEXCLAMATION | MB_OK);
 
-    std::wstring wmessage_text =
-        arrow::util::UTF8ToWideString(err.GetMessageText()).ValueOr(L"");
+    std::wstring wmessage_text = arrow::util::UTF8ToWideString(err.GetMessageText())
+                                     .ValueOr(L"Error during load DSN");
     SQLPostInstallerError(err.GetNativeError(), wmessage_text.c_str());
   }
 
   return false;
+}
+
+void PostError(DWORD error_code, LPCWSTR error_msg) {
+  MessageBox(NULL, error_msg, L"Error!", MB_ICONEXCLAMATION | MB_OK);
+  SQLPostInstallerError(error_code, error_msg);
+}
+
+void PostArrowUtilError(arrow::Status error_status) {
+  std::string error_msg = error_status.message();
+  std::wstring werror_msg = arrow::util::UTF8ToWideString(error_msg).ValueOr(
+      L"Error during utf8 to wide string conversion");
+
+  PostError(ODBC_ERROR_GENERAL_ERR, werror_msg.c_str());
 }
 
 void PostLastInstallerError() {
@@ -81,8 +95,7 @@ void PostLastInstallerError() {
   buf << L"Message: \"" << msg << L"\", Code: " << code;
   std::wstring error_msg = buf.str();
 
-  MessageBox(NULL, error_msg.c_str(), L"Error!", MB_ICONEXCLAMATION | MB_OK);
-  SQLPostInstallerError(code, error_msg.c_str());
+  PostError(code, error_msg.c_str());
 }
 
 /**
@@ -109,7 +122,12 @@ bool UnregisterDsn(const std::wstring& dsn) {
  */
 bool RegisterDsn(const Configuration& config, LPCWSTR driver) {
   const std::string& dsn = config.Get(FlightSqlConnection::DSN);
-  std::wstring wdsn = arrow::util::UTF8ToWideString(dsn).ValueOr(L"");
+  auto wdsn_result = arrow::util::UTF8ToWideString(dsn);
+  if (!wdsn_result.status().ok()) {
+    PostArrowUtilError(wdsn_result.status());
+    return false;
+  }
+  std::wstring wdsn = wdsn_result.ValueOrDie();
 
   if (!SQLWriteDSNToIni(wdsn.c_str(), driver)) {
     PostLastInstallerError();
@@ -124,8 +142,20 @@ bool RegisterDsn(const Configuration& config, LPCWSTR driver) {
       continue;
     }
 
-    std::wstring wkey = arrow::util::UTF8ToWideString(key).ValueOr(L"");
-    std::wstring wvalue = arrow::util::UTF8ToWideString(it->second).ValueOr(L"");
+    auto wkey_result = arrow::util::UTF8ToWideString(key);
+    if (!wkey_result.status().ok()) {
+      PostArrowUtilError(wkey_result.status());
+      return false;
+    }
+    std::wstring wkey = wkey_result.ValueOrDie();
+
+    auto wvalue_result = arrow::util::UTF8ToWideString(it->second);
+    if (!wvalue_result.status().ok()) {
+      PostArrowUtilError(wvalue_result.status());
+      return false;
+    }
+    std::wstring wvalue = wvalue_result.ValueOrDie();
+
     if (!SQLWritePrivateProfileString(wdsn.c_str(), wkey.c_str(), wvalue.c_str(),
                                       L"ODBC.INI")) {
       PostLastInstallerError();
@@ -140,8 +170,14 @@ BOOL INSTAPI ConfigDSNW(HWND hwnd_parent, WORD req, LPCWSTR wdriver,
                         LPCWSTR wattributes) {
   Configuration config;
   ConnectionStringParser parser(config);
-  std::string attributes =
-      arrow::util::WideStringToUTF8(std::wstring(wattributes)).ValueOr("");
+
+  auto attributes_result = arrow::util::WideStringToUTF8(std::wstring(wattributes));
+  if (!attributes_result.status().ok()) {
+    PostArrowUtilError(attributes_result.status());
+    return FALSE;
+  }
+  std::string attributes = attributes_result.ValueOrDie();
+
   parser.ParseConfigAttributes(attributes.c_str());
 
   switch (req) {
@@ -156,12 +192,24 @@ BOOL INSTAPI ConfigDSNW(HWND hwnd_parent, WORD req, LPCWSTR wdriver,
     case ODBC_CONFIG_DSN: {
       const std::string& dsn = config.Get(FlightSqlConnection::DSN);
       auto wdsn_result = arrow::util::UTF8ToWideString(dsn);
-      if (!wdsn_result.status().ok()) return FALSE;
+      if (!wdsn_result.status().ok()) {
+        PostArrowUtilError(wdsn_result.status());
+        return FALSE;
+      }
       std::wstring wdsn = wdsn_result.ValueOrDie();
       if (!SQLValidDSN(wdsn.c_str())) return FALSE;
 
       Configuration loaded(config);
-      loaded.LoadDsn(dsn);
+      try {
+        loaded.LoadDsn(dsn);
+      } catch (const DriverException& err) {
+        std::string error_msg = err.GetMessageText();
+        std::wstring werror_msg =
+            arrow::util::UTF8ToWideString(error_msg).ValueOr(L"Error during DSN load");
+
+        PostError(err.GetNativeError(), werror_msg.c_str());
+        return FALSE;
+      }
 
       if (!DisplayConnectionWindow(hwnd_parent, loaded) || !UnregisterDsn(wdsn.c_str()) ||
           !RegisterDsn(loaded, wdriver))
@@ -173,7 +221,10 @@ BOOL INSTAPI ConfigDSNW(HWND hwnd_parent, WORD req, LPCWSTR wdriver,
     case ODBC_REMOVE_DSN: {
       const std::string& dsn = config.Get(FlightSqlConnection::DSN);
       auto wdsn_result = arrow::util::UTF8ToWideString(dsn);
-      if (!wdsn_result.status().ok()) return FALSE;
+      if (!wdsn_result.status().ok()) {
+        PostArrowUtilError(wdsn_result.status());
+        return FALSE;
+      }
       std::wstring wdsn = wdsn_result.ValueOrDie();
       if (!SQLValidDSN(wdsn.c_str()) || !UnregisterDsn(wdsn)) return FALSE;
 

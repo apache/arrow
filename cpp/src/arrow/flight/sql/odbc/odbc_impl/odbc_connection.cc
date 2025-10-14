@@ -95,8 +95,8 @@ void loadPropertiesFromDSN(const std::string& dsn,
                                BUFFER_SIZE, L"odbc.ini");
 
     std::wstring wvalue = std::wstring(&output_buffer[0]);
-    std::string value = arrow::util::WideStringToUTF8(wvalue).ValueOr("");
-    std::string key = arrow::util::WideStringToUTF8(std::wstring(wkey)).ValueOr("");
+    CONVERT_UTF8_STR(const std::string value, wvalue);
+    CONVERT_UTF8_STR(const std::string key, std::wstring(wkey));
     auto propIter = properties.find(key);
     if (propIter == properties.end()) {
       properties.emplace(std::make_pair(std::move(key), std::move(value)));
