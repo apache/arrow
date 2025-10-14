@@ -260,16 +260,16 @@ def read_table(source, columns=None, memory_map=False, use_threads=True):
 
     column_types = [type(column) for column in columns]
     if all(map(lambda t: t == int, column_types)):
-        table = reader.read_indices(columns)
+        table = reader.read_indices(columns)  # type: ignore
     elif all(map(lambda t: t == str, column_types)):
-        table = reader.read_names(columns)
+        table = reader.read_names(columns)  # type: ignore
     else:
         column_type_names = [t.__name__ for t in column_types]
         raise TypeError("Columns must be indices or names. "
                         f"Got columns {columns} of types {column_type_names}")
 
     # Feather v1 already respects the column selection
-    if reader.version < 3:
+    if reader.version < 3:  # type: ignore
         return table
     # Feather v2 reads with sorted / deduplicated selection
     elif sorted(set(columns)) == columns:

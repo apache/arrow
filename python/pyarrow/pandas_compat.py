@@ -93,20 +93,20 @@ def get_numpy_logical_type_map():
     global _numpy_logical_type_map
     if not _numpy_logical_type_map:
         _numpy_logical_type_map.update({  # type: ignore[arg-type]
-            np.bool_: 'bool',
-            np.int8: 'int8',
-            np.int16: 'int16',
-            np.int32: 'int32',
-            np.int64: 'int64',
-            np.uint8: 'uint8',
-            np.uint16: 'uint16',
-            np.uint32: 'uint32',
-            np.uint64: 'uint64',
-            np.float32: 'float32',
-            np.float64: 'float64',
+            np.bool_: 'bool',  # type: ignore
+            np.int8: 'int8',  # type: ignore
+            np.int16: 'int16',  # type: ignore
+            np.int32: 'int32',  # type: ignore
+            np.int64: 'int64',  # type: ignore
+            np.uint8: 'uint8',  # type: ignore
+            np.uint16: 'uint16',  # type: ignore
+            np.uint32: 'uint32',  # type: ignore
+            np.uint64: 'uint64',  # type: ignore
+            np.float32: 'float32',  # type: ignore
+            np.float64: 'float64',  # type: ignore
             'datetime64[D]': 'date',
-            np.str_: 'string',
-            np.bytes_: 'bytes',
+            np.str_: 'string',  # type: ignore
+            np.bytes_: 'bytes',  # type: ignore
         })
     return _numpy_logical_type_map
 
@@ -176,7 +176,7 @@ def get_column_metadata(column, name, arrow_type, field_name):
 
     if (
         name is not None
-        and not (isinstance(name, float) and np.isnan(name))
+        and not (isinstance(name, float) and np.isnan(name))  # type: ignore
         and not isinstance(name, str)
     ):
         raise TypeError(
@@ -346,7 +346,7 @@ def _column_name_to_strings(name):
         return str(tuple(map(_column_name_to_strings, name)))
     elif isinstance(name, Sequence):
         raise TypeError("Unsupported type for MultiIndex level")
-    elif name is None or (isinstance(name, float) and np.isnan(name)):
+    elif name is None or (isinstance(name, float) and np.isnan(name)):  # type: ignore
         return name
     return str(name)
 
@@ -632,9 +632,9 @@ def dataframe_to_arrays(df, schema, preserve_index, nthreads=1, columns=None,
         return result
 
     def _can_definitely_zero_copy(arr):
-        return (isinstance(arr, np.ndarray) and
+        return (isinstance(arr, np.ndarray) and  # type: ignore
                 arr.flags.contiguous and
-                issubclass(arr.dtype.type, np.integer))
+                issubclass(arr.dtype.type, np.integer))  # type: ignore
 
     if nthreads == 1:
         arrays = [convert_column(c, f)
@@ -686,14 +686,14 @@ def dataframe_to_arrays(df, schema, preserve_index, nthreads=1, columns=None,
 
 
 def get_datetimetz_type(values, dtype, type_):
-    if values.dtype.type != np.datetime64:
+    if values.dtype.type != np.datetime64:  # type: ignore
         return values, type_
 
     if _pandas_api.is_datetimetz(dtype) and type_ is None:
         # If no user type passed, construct a tz-aware timestamp type
         tz = dtype.tz
         unit = dtype.unit
-        type_ = pa.timestamp(unit, tz)
+        type_ = pa.timestamp(unit, tz)  # type: ignore
     elif type_ is None:
         # Trust the NumPy dtype
         type_ = pa.from_numpy_dtype(values.dtype)
@@ -741,7 +741,7 @@ def _reconstruct_block(item, columns=None, extension_columns=None, return_block=
             block_arr, categories=item['dictionary'],
             ordered=item['ordered'])
     elif 'timezone' in item:
-        unit, _ = np.datetime_data(block_arr.dtype)
+        unit, _ = np.datetime_data(block_arr.dtype)  # type: ignore
         dtype = make_datetimetz(unit, item['timezone'])
         if _pandas_api.is_ge_v21():
             arr = _pandas_api.pd.array(
@@ -777,7 +777,7 @@ def make_datetimetz(unit, tz):
     if _pandas_api.is_v1():
         unit = 'ns'  # ARROW-3789: Coerce date/timestamp types to datetime64[ns]
     tz = pa.lib.string_to_tzinfo(tz)
-    return _pandas_api.datetimetz_type(unit, tz=tz)
+    return _pandas_api.datetimetz_type(unit, tz=tz)  # type: ignore
 
 
 def table_to_dataframe(
@@ -823,7 +823,7 @@ def table_to_dataframe(
 
         return df
     else:
-        from pandas.core.internals import BlockManager
+        from pandas.core.internals import BlockManager  # type: ignore
         from pandas import DataFrame
 
         blocks = [
@@ -930,7 +930,7 @@ def _get_extension_dtypes(table, columns_metadata, types_mapper, options, catego
                 or pa.types.is_large_string(field.type)
                 or pa.types.is_string_view(field.type)
             ) and field.name not in categories:
-                ext_columns[field.name] = _pandas_api.pd.StringDtype(na_value=np.nan)
+                ext_columns[field.name] = _pandas_api.pd.StringDtype(na_value=np.nan)  # type: ignore
 
     return ext_columns
 
@@ -1089,12 +1089,12 @@ def get_pandas_logical_type_map():
             'datetime': 'datetime64[ns]',
             'datetimetz': 'datetime64[ns]',
             'unicode': 'str',
-            'bytes': np.bytes_,
+            'bytes': np.bytes_,  # type: ignore
             'string': 'str',
-            'integer': np.int64,
-            'floating': np.float64,
-            'decimal': np.object_,
-            'empty': np.object_,
+            'integer': np.int64,  # type: ignore
+            'floating': np.float64,  # type: ignore
+            'decimal': np.object_,  # type: ignore
+            'empty': np.object_,  # type: ignore
         })
     return _pandas_logical_type_map
 
@@ -1118,8 +1118,8 @@ def _pandas_type_to_numpy_type(pandas_type):
     except KeyError:
         if 'mixed' in pandas_type:
             # catching 'mixed', 'mixed-integer' and 'mixed-integer-float'
-            return np.object_
-        return np.dtype(pandas_type)
+            return np.object_  # type: ignore
+        return np.dtype(pandas_type)  # type: ignore
 
 
 def _reconstruct_columns_from_metadata(columns, column_indexes):
@@ -1167,7 +1167,7 @@ def _reconstruct_columns_from_metadata(columns, column_indexes):
         # Since our metadata is UTF-8 encoded, Python turns things that were
         # bytes into unicode strings when json.loads-ing them. We need to
         # convert them back to bytes to preserve metadata.
-        if dtype == np.bytes_:
+        if dtype == np.bytes_:  # type: ignore
             level = level.map(encoder)  # pyright: ignore[reportAttributeAccessIssue]
         # ARROW-13756: if index is timezone aware DataTimeIndex
         elif pandas_dtype == "datetimetz":
@@ -1177,7 +1177,7 @@ def _reconstruct_columns_from_metadata(columns, column_indexes):
             if _pandas_api.is_ge_v3():
                 # with pandas 3+, to_datetime returns a unit depending on the string
                 # data, so we restore it to the original unit from the metadata
-                level = level.as_unit(np.datetime_data(dtype)[0])
+                level = level.as_unit(np.datetime_data(dtype)[0])  # type: ignore
         # GH-41503: if the column index was decimal, restore to decimal
         elif pandas_dtype == "decimal":
             level = _pandas_api.pd.Index([decimal.Decimal(i) for i in level])
