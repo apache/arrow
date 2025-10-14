@@ -124,7 +124,7 @@ class RecordBatchFileWriter(lib._RecordBatchFileWriter):
 
     def __init__(self, sink, schema, *, options=None, metadata=None):
         options = _get_legacy_format_default(options)
-        self._open(sink, schema, options=options, metadata=metadata)
+        self._open(sink, schema, options=options, metadata=metadata)  # type: ignore
 
 
 def _get_legacy_format_default(options):

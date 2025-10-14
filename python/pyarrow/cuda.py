@@ -18,7 +18,7 @@
 # flake8: noqa
 
 
-from pyarrow._cuda import (Context, IpcMemHandle, CudaBuffer,
+from pyarrow._cuda import (Context, IpcMemHandle, CudaBuffer,  # type: ignore
                            HostBuffer, BufferReader, BufferWriter,
                            new_host_buffer,
                            serialize_record_batch, read_message,
