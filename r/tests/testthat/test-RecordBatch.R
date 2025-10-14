@@ -760,7 +760,6 @@ test_that("RecordBatch to C-interface", {
 })
 
 
-
 test_that("RecordBatchReader to C-interface to arrow_dplyr_query", {
   skip_if_not_available("dataset")
 
