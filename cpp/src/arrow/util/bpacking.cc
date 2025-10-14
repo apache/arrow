@@ -32,7 +32,7 @@ struct UnpackDynamicFunction {
   using FunctionType = decltype(&unpack_scalar<Uint>);
   using Implementation = std::pair<DispatchLevel, FunctionType>;
 
-  static auto implementations() {
+  static constexpr auto implementations() {
     return std::array {
       // Current SIMD unpack algorithm works terribly on SSE4.2 due to lack of variable
       // rhsift and poor xsimd fallback.

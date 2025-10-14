@@ -26,16 +26,19 @@ namespace arrow::internal {
 template <typename Uint>
 ARROW_EXPORT int unpack(const uint8_t* in, Uint* out, int batch_size, int num_bits);
 
-extern template ARROW_TEMPLATE_EXPORT int unpack<uint8_t>(const uint8_t*, uint8_t*, int,
-                                                          int);
+extern template ARROW_TEMPLATE_EXPORT int unpack<uint8_t>(const uint8_t* in, uint8_t* out,
+                                                          int batch_size, int num_bits);
 
-extern template ARROW_TEMPLATE_EXPORT int unpack<uint16_t>(const uint8_t*, uint16_t*, int,
-                                                           int);
+extern template ARROW_TEMPLATE_EXPORT int unpack<uint16_t>(const uint8_t* in,
+                                                           uint16_t* out, int batch_size,
+                                                           int num_bits);
 
-extern template ARROW_TEMPLATE_EXPORT int unpack<uint32_t>(const uint8_t*, uint32_t*, int,
-                                                           int);
+extern template ARROW_TEMPLATE_EXPORT int unpack<uint32_t>(const uint8_t* in,
+                                                           uint32_t* out, int batch_size,
+                                                           int num_bits);
 
-extern template ARROW_TEMPLATE_EXPORT int unpack<uint64_t>(const uint8_t*, uint64_t*, int,
-                                                           int);
+extern template ARROW_TEMPLATE_EXPORT int unpack<uint64_t>(const uint8_t* in,
+                                                           uint64_t* out, int batch_size,
+                                                           int num_bits);
 
 }  // namespace arrow::internal
