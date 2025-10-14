@@ -142,8 +142,8 @@ def _perform_join(join_type, left_operand, left_keys,
         right_keys_order[key] = idx
 
     # By default expose all columns on both left and right table
-    left_columns = left_operand.schema.names
-    right_columns = right_operand.schema.names
+    left_columns = left_operand.schema.names  # type: ignore
+    right_columns = right_operand.schema.names  # type: ignore
 
     # Pick the join type
     if join_type == "left semi" or join_type == "left anti":
@@ -187,14 +187,14 @@ def _perform_join(join_type, left_operand, left_keys,
             join_type, left_keys, right_keys, left_columns, right_columns,
             output_suffix_for_left=left_suffix or "",
             output_suffix_for_right=right_suffix or "",
-            filter_expression=filter_expression,
+            filter_expression=filter_expression,  # type: ignore
         )
     else:
         join_opts = HashJoinNodeOptions(
             join_type, left_keys, right_keys,
             output_suffix_for_left=left_suffix or "",
             output_suffix_for_right=right_suffix or "",
-            filter_expression=filter_expression,
+            filter_expression=filter_expression,  # type: ignore
         )
     decl = Declaration(
         "hashjoin", options=join_opts, inputs=[left_source, right_source]
@@ -257,7 +257,7 @@ def _perform_join(join_type, left_operand, left_keys,
     if output_type == Table:
         return result_table
     elif output_type == ds.InMemoryDataset:
-        return ds.InMemoryDataset(result_table)
+        return ds.InMemoryDataset(result_table)  # type: ignore
     else:
         raise TypeError("Unsupported output type")
 
@@ -307,10 +307,10 @@ def _perform_join_asof(left_operand, left_on, left_by,
 
     # AsofJoin does not return on or by columns for right_operand.
     right_columns = [
-        col for col in right_operand.schema.names
-        if col not in [right_on] + right_by
+        col for col in right_operand.schema.names  # type: ignore
+        if col not in [right_on] + right_by  # type: ignore
     ]
-    columns_collisions = set(left_operand.schema.names) & set(right_columns)
+    columns_collisions = set(left_operand.schema.names) & set(right_columns)  # type: ignore
     if columns_collisions:
         raise ValueError(
             f"Columns {columns_collisions} present in both tables. "
@@ -337,7 +337,7 @@ def _perform_join_asof(left_operand, left_on, left_by,
         )
 
     join_opts = AsofJoinNodeOptions(
-        left_on, left_by, right_on, right_by, tolerance
+        left_on, left_by, right_on, right_by, tolerance  # type: ignore
     )
     decl = Declaration(
         "asofjoin", options=join_opts, inputs=[left_source, right_source]
@@ -348,7 +348,7 @@ def _perform_join_asof(left_operand, left_on, left_by,
     if output_type == Table:
         return result_table
     elif output_type == ds.InMemoryDataset:
-        return ds.InMemoryDataset(result_table)
+        return ds.InMemoryDataset(result_table)  # type: ignore
     else:
         raise TypeError("Unsupported output type")
 
@@ -406,7 +406,7 @@ def _sort_source(table_or_dataset, sort_keys, output_type=Table, **kwargs):
     if output_type == Table:
         return result_table
     elif output_type == ds.InMemoryDataset:
-        return ds.InMemoryDataset(result_table)
+        return ds.InMemoryDataset(result_table)  # type: ignore
     else:
         raise TypeError("Unsupported output type")
 

@@ -371,7 +371,7 @@ def _ensure_multiple_sources(paths, filesystem=None):
     # possible improvement is to group the file_infos by type and raise for
     # multiple paths per error category
     if is_local:
-        for info in filesystem.get_file_info(paths):
+        for info in filesystem.get_file_info(paths):  # type: ignore
             file_type = info.type
             if file_type == FileType.File:
                 continue
@@ -422,10 +422,10 @@ def _ensure_single_source(path, filesystem=None):
     filesystem, path = _resolve_filesystem_and_path(path, filesystem)
 
     # ensure that the path is normalized before passing to dataset discovery
-    path = filesystem.normalize_path(path)
+    path = filesystem.normalize_path(path)  # type: ignore
 
     # retrieve the file descriptor
-    file_info = filesystem.get_file_info(path)
+    file_info = filesystem.get_file_info(path)  # type: ignore
 
     # depending on the path type either return with a recursive
     # directory selector or as a list containing a single file
@@ -473,11 +473,11 @@ def _filesystem_dataset(source, schema=None, filesystem=None,
 
     options = FileSystemFactoryOptions(
         partitioning=partitioning,
-        partition_base_dir=partition_base_dir,
+        partition_base_dir=partition_base_dir,  # type: ignore
         exclude_invalid_files=exclude_invalid_files,
         selector_ignore_prefixes=selector_ignore_prefixes
     )
-    factory = FileSystemDatasetFactory(fs, paths_or_selector, format, options)
+    factory = FileSystemDatasetFactory(fs, paths_or_selector, format, options)  # type: ignore
 
     return factory.finish(schema)
 
@@ -486,7 +486,7 @@ def _in_memory_dataset(source, schema=None, **kwargs):
     if any(v is not None for v in kwargs.values()):
         raise ValueError(
             "For in-memory datasets, you cannot pass any additional arguments")
-    return InMemoryDataset(source, schema)
+    return InMemoryDataset(source, schema)  # type: ignore
 
 
 def _union_dataset(children, schema=None, **kwargs):
@@ -511,7 +511,7 @@ def _union_dataset(children, schema=None, **kwargs):
     # create datasets with the requested schema
     children = [child.replace_schema(schema) for child in children]
 
-    return UnionDataset(schema, children)
+    return UnionDataset(schema, children)  # type: ignore
 
 
 def parquet_dataset(metadata_path, schema=None, filesystem=None, format=None,
@@ -962,10 +962,10 @@ Table/RecordBatch, or iterable of RecordBatch
 
     if isinstance(data, (list, tuple)):
         schema = schema or data[0].schema
-        data = InMemoryDataset(data, schema=schema)
+        data = InMemoryDataset(data, schema=schema)  # type: ignore
     elif isinstance(data, (pa.RecordBatch, pa.Table)):
         schema = schema or data.schema
-        data = InMemoryDataset(data, schema=schema)
+        data = InMemoryDataset(data, schema=schema)  # type: ignore
     elif (
         isinstance(data, pa.ipc.RecordBatchReader)
         or hasattr(data, "__arrow_c_stream__")
@@ -1036,5 +1036,5 @@ Table/RecordBatch, or iterable of RecordBatch
         scanner, base_dir, basename_template, filesystem, partitioning,
         preserve_order, file_options, max_partitions, file_visitor,
         existing_data_behavior, max_open_files, max_rows_per_file,
-        min_rows_per_group, max_rows_per_group, create_dir
+        min_rows_per_group, max_rows_per_group, create_dir  # type: ignore
     )
