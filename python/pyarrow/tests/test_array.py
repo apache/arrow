@@ -292,10 +292,12 @@ def test_to_pandas_zero_copy():
 
     for i in range(10):
         series = arr.to_pandas()
-        assert sys.getrefcount(series) == 2
+        # In Python 3.14 interpreter might avoid some
+        # reference count modifications
+        assert sys.getrefcount(series) in (1, 2)
         series = None  # noqa
 
-    assert sys.getrefcount(arr) == 2
+    assert sys.getrefcount(arr) in (1, 2)
 
     for i in range(10):
         arr = pa.array(range(10))
