@@ -27,6 +27,7 @@
 #include "arrow/flight/sql/odbc/odbc_impl/odbc_statement.h"
 #include "arrow/flight/sql/odbc/odbc_impl/spi/connection.h"
 #include "arrow/flight/sql/odbc/odbc_impl/spi/statement.h"
+#include "arrow/flight/sql/odbc/odbc_impl/util.h"
 
 #include <odbcinst.h>
 #include <sql.h>
@@ -63,7 +64,7 @@ void loadPropertiesFromDSN(const std::string& dsn,
   output_buffer.resize(BUFFER_SIZE, '\0');
   SQLSetConfigMode(ODBC_BOTH_DSN);
 
-  std::wstring wdsn = arrow::util::UTF8ToWideString(dsn).ValueOr(L"");
+  CONVERT_WIDE_STR(const std::wstring wdsn, dsn);
 
   SQLGetPrivateProfileString(wdsn.c_str(), NULL, L"", &output_buffer[0], BUFFER_SIZE,
                              L"odbc.ini");

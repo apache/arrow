@@ -17,7 +17,8 @@
 
 LIBRARY   arrow_flight_sql_odbc
 EXPORTS
-	ConfigDSNW
+	; GH-46574 TODO enable DSN window
+	; ConfigDSNW
 	SQLAllocConnect
 	SQLAllocEnv
 	SQLAllocHandle

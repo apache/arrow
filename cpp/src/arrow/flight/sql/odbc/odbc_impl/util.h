@@ -17,6 +17,8 @@
 
 #pragma once
 
+#include "arrow/util/utf8.h"
+
 #include "arrow/flight/sql/odbc/odbc_impl/exceptions.h"
 #include "arrow/flight/sql/odbc/odbc_impl/spi/connection.h"
 #include "arrow/flight/sql/odbc/odbc_impl/types.h"
@@ -26,6 +28,13 @@
 #include <codecvt>
 #include <functional>
 #include <optional>
+
+#define CONVERT_WIDE_STR(wstring_var, utf8_target)                                \
+  wstring_var = [&] {                                                             \
+    arrow::Result<std::wstring> res = arrow::util::UTF8ToWideString(utf8_target); \
+    arrow::flight::sql::odbc::util::ThrowIfNotOK(res.status());                   \
+    return res.ValueOrDie();                                                      \
+  }()
 
 namespace arrow::flight::sql::odbc {
 namespace util {

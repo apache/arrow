@@ -17,6 +17,7 @@
 
 #include "arrow/flight/sql/odbc/odbc_impl/config/configuration.h"
 #include "arrow/flight/sql/odbc/odbc_impl/flight_sql_connection.h"
+#include "arrow/flight/sql/odbc/odbc_impl/util.h"
 #include "arrow/result.h"
 #include "arrow/util/utf8.h"
 
@@ -36,9 +37,9 @@ static const char DEFAULT_DISABLE_CERT_VERIFICATION[] = FALSE_STR;
 namespace {
 std::string ReadDsnString(const std::string& dsn, const std::string_view& key,
                           const std::string& dflt = "") {
-  std::wstring wdsn = arrow::util::UTF8ToWideString(dsn).ValueOr(L"");
-  std::wstring wkey = arrow::util::UTF8ToWideString(key).ValueOr(L"");
-  std::wstring wdflt = arrow::util::UTF8ToWideString(dflt).ValueOr(L"");
+  CONVERT_WIDE_STR(const std::wstring wdsn, dsn);
+  CONVERT_WIDE_STR(const std::wstring wkey, key);
+  CONVERT_WIDE_STR(const std::wstring wdflt, dflt);
 
 #define BUFFER_SIZE (1024)
   std::vector<wchar_t> buf(BUFFER_SIZE);
@@ -73,7 +74,7 @@ void RemoveAllKnownKeys(std::vector<std::string>& keys) {
 }
 
 std::vector<std::string> ReadAllKeys(const std::string& dsn) {
-  std::wstring wdsn = arrow::util::UTF8ToWideString(dsn).ValueOr(L"");
+  CONVERT_WIDE_STR(const std::wstring wdsn, dsn);
 
   std::vector<wchar_t> buf(BUFFER_SIZE);
 
