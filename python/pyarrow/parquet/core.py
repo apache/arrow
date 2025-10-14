@@ -940,10 +940,11 @@ use_content_defined_chunking : bool or dict, default False
       norm_level=2 to reach a higher deduplication ratio at the expense of
       fragmentation.
 write_time_adjusted_to_utc : bool, default False
-    Specify whether the TIME columns are expressed in reference
-    to midnight in the UTC timezone if True, otherwise it is not tied to UTC,
-    and is expressed in reference to midnight in an unknown,
-    presumably local, timezone.
+    Set the value of isAdjustedTOUTC when writing a TIME column.
+    If True, this tells the Parquet reader that the TIME columns
+    are expressed in reference to midnight in the UTC timezone.
+    If False (the default), the TIME columns are assumed to be expressed
+    in reference to midnight in an unknown, presumably local, timezone.
 """
 
 _parquet_writer_example_doc = """\
