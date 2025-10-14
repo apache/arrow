@@ -241,7 +241,7 @@ def _handle_options(name, options_class, options, args, kwargs):
 
 def _make_generic_wrapper(func_name, func, options_class, arity):
     if options_class is None:
-        def wrapper(*args, memory_pool=None):  # type: ignore
+        def wrapper(*args, memory_pool=None):  # pyright: ignore[reportRedeclaration]
             if arity is not Ellipsis and len(args) != arity:
                 raise TypeError(
                     f"{func_name} takes {arity} positional argument(s), "
