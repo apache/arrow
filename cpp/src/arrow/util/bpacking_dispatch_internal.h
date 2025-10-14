@@ -73,32 +73,274 @@ int unpack_width(const uint8_t* in, UnpackedUInt* out, int batch_size) {
   return batch_size;
 }
 
-template <template <typename, int> typename Unpacker, typename UnpackedUint, int... Is>
-constexpr auto make_unpack_jump_table_impl(std::integer_sequence<int, Is...>) {
-  return std::array{
-      &unpack_null<UnpackedUint>,
-      &unpack_width<Is + 1, Unpacker, UnpackedUint>...,
-      &unpack_full<UnpackedUint>,
-  };
-}
-
-template <template <typename, int> typename Unpacker, typename UnpackedUint>
-constexpr auto make_unpack_jump_table() {
-  return make_unpack_jump_table_impl<Unpacker, UnpackedUint>(
-      std::make_integer_sequence<int, 8 * sizeof(UnpackedUint) - 1>());
-}
-
-template <template <typename, int> typename Unpacker, typename UnpackedUint>
-constexpr auto get_unpack_fn(int packed_width) {
-  constexpr auto kJumpTable = make_unpack_jump_table<Unpacker, UnpackedUint>();
-  return kJumpTable[packed_width];
-}
-
 template <template <typename, int> typename Unpacker, typename UnpackedUint>
 static int unpack_jump(const uint8_t* in, UnpackedUint* out, int batch_size,
                        int num_bits) {
-  ARROW_DCHECK_GE(num_bits, 0);
-  ARROW_DCHECK_LE(num_bits, static_cast<int>(8 * sizeof(UnpackedUint)));
-  return get_unpack_fn<Unpacker, UnpackedUint>(num_bits)(in, out, batch_size);
+  if constexpr (sizeof(UnpackedUint) == 1) {
+    switch (num_bits) {
+      case 0:
+        return unpack_null(in, out, batch_size);
+      case 1:
+        return unpack_width<1, Unpacker>(in, out, batch_size);
+      case 2:
+        return unpack_width<2, Unpacker>(in, out, batch_size);
+      case 3:
+        return unpack_width<3, Unpacker>(in, out, batch_size);
+      case 4:
+        return unpack_width<4, Unpacker>(in, out, batch_size);
+      case 5:
+        return unpack_width<5, Unpacker>(in, out, batch_size);
+      case 6:
+        return unpack_width<6, Unpacker>(in, out, batch_size);
+      case 7:
+        return unpack_width<7, Unpacker>(in, out, batch_size);
+      case 8:
+        return unpack_full(in, out, batch_size);
+    }
+  }
+  if constexpr (sizeof(UnpackedUint) == 2) {
+    switch (num_bits) {
+      case 0:
+        return unpack_null(in, out, batch_size);
+      case 1:
+        return unpack_width<1, Unpacker>(in, out, batch_size);
+      case 2:
+        return unpack_width<2, Unpacker>(in, out, batch_size);
+      case 3:
+        return unpack_width<3, Unpacker>(in, out, batch_size);
+      case 4:
+        return unpack_width<4, Unpacker>(in, out, batch_size);
+      case 5:
+        return unpack_width<5, Unpacker>(in, out, batch_size);
+      case 6:
+        return unpack_width<6, Unpacker>(in, out, batch_size);
+      case 7:
+        return unpack_width<7, Unpacker>(in, out, batch_size);
+      case 8:
+        return unpack_width<8, Unpacker>(in, out, batch_size);
+      case 9:
+        return unpack_width<9, Unpacker>(in, out, batch_size);
+      case 10:
+        return unpack_width<10, Unpacker>(in, out, batch_size);
+      case 11:
+        return unpack_width<11, Unpacker>(in, out, batch_size);
+      case 12:
+        return unpack_width<12, Unpacker>(in, out, batch_size);
+      case 13:
+        return unpack_width<13, Unpacker>(in, out, batch_size);
+      case 14:
+        return unpack_width<14, Unpacker>(in, out, batch_size);
+      case 15:
+        return unpack_width<15, Unpacker>(in, out, batch_size);
+      case 16:
+        return unpack_full(in, out, batch_size);
+    }
+  }
+  if constexpr (sizeof(UnpackedUint) == 4) {
+    switch (num_bits) {
+      case 0:
+        return unpack_null(in, out, batch_size);
+      case 1:
+        return unpack_width<1, Unpacker>(in, out, batch_size);
+      case 2:
+        return unpack_width<2, Unpacker>(in, out, batch_size);
+      case 3:
+        return unpack_width<3, Unpacker>(in, out, batch_size);
+      case 4:
+        return unpack_width<4, Unpacker>(in, out, batch_size);
+      case 5:
+        return unpack_width<5, Unpacker>(in, out, batch_size);
+      case 6:
+        return unpack_width<6, Unpacker>(in, out, batch_size);
+      case 7:
+        return unpack_width<7, Unpacker>(in, out, batch_size);
+      case 8:
+        return unpack_width<8, Unpacker>(in, out, batch_size);
+      case 9:
+        return unpack_width<9, Unpacker>(in, out, batch_size);
+      case 10:
+        return unpack_width<10, Unpacker>(in, out, batch_size);
+      case 11:
+        return unpack_width<11, Unpacker>(in, out, batch_size);
+      case 12:
+        return unpack_width<12, Unpacker>(in, out, batch_size);
+      case 13:
+        return unpack_width<13, Unpacker>(in, out, batch_size);
+      case 14:
+        return unpack_width<14, Unpacker>(in, out, batch_size);
+      case 15:
+        return unpack_width<15, Unpacker>(in, out, batch_size);
+      case 16:
+        return unpack_width<16, Unpacker>(in, out, batch_size);
+      case 17:
+        return unpack_width<17, Unpacker>(in, out, batch_size);
+      case 18:
+        return unpack_width<18, Unpacker>(in, out, batch_size);
+      case 19:
+        return unpack_width<19, Unpacker>(in, out, batch_size);
+      case 20:
+        return unpack_width<20, Unpacker>(in, out, batch_size);
+      case 21:
+        return unpack_width<21, Unpacker>(in, out, batch_size);
+      case 22:
+        return unpack_width<22, Unpacker>(in, out, batch_size);
+      case 23:
+        return unpack_width<23, Unpacker>(in, out, batch_size);
+      case 24:
+        return unpack_width<24, Unpacker>(in, out, batch_size);
+      case 25:
+        return unpack_width<25, Unpacker>(in, out, batch_size);
+      case 26:
+        return unpack_width<26, Unpacker>(in, out, batch_size);
+      case 27:
+        return unpack_width<27, Unpacker>(in, out, batch_size);
+      case 28:
+        return unpack_width<28, Unpacker>(in, out, batch_size);
+      case 29:
+        return unpack_width<29, Unpacker>(in, out, batch_size);
+      case 30:
+        return unpack_width<30, Unpacker>(in, out, batch_size);
+      case 31:
+        return unpack_width<31, Unpacker>(in, out, batch_size);
+      case 32:
+        return unpack_full(in, out, batch_size);
+    }
+  }
+  if constexpr (sizeof(UnpackedUint) == 8) {
+    switch (num_bits) {
+      case 0:
+        return unpack_null(in, out, batch_size);
+      case 1:
+        return unpack_width<1, Unpacker>(in, out, batch_size);
+      case 2:
+        return unpack_width<2, Unpacker>(in, out, batch_size);
+      case 3:
+        return unpack_width<3, Unpacker>(in, out, batch_size);
+      case 4:
+        return unpack_width<4, Unpacker>(in, out, batch_size);
+      case 5:
+        return unpack_width<5, Unpacker>(in, out, batch_size);
+      case 6:
+        return unpack_width<6, Unpacker>(in, out, batch_size);
+      case 7:
+        return unpack_width<7, Unpacker>(in, out, batch_size);
+      case 8:
+        return unpack_width<8, Unpacker>(in, out, batch_size);
+      case 9:
+        return unpack_width<9, Unpacker>(in, out, batch_size);
+      case 10:
+        return unpack_width<10, Unpacker>(in, out, batch_size);
+      case 11:
+        return unpack_width<11, Unpacker>(in, out, batch_size);
+      case 12:
+        return unpack_width<12, Unpacker>(in, out, batch_size);
+      case 13:
+        return unpack_width<13, Unpacker>(in, out, batch_size);
+      case 14:
+        return unpack_width<14, Unpacker>(in, out, batch_size);
+      case 15:
+        return unpack_width<15, Unpacker>(in, out, batch_size);
+      case 16:
+        return unpack_width<16, Unpacker>(in, out, batch_size);
+      case 17:
+        return unpack_width<17, Unpacker>(in, out, batch_size);
+      case 18:
+        return unpack_width<18, Unpacker>(in, out, batch_size);
+      case 19:
+        return unpack_width<19, Unpacker>(in, out, batch_size);
+      case 20:
+        return unpack_width<20, Unpacker>(in, out, batch_size);
+      case 21:
+        return unpack_width<21, Unpacker>(in, out, batch_size);
+      case 22:
+        return unpack_width<22, Unpacker>(in, out, batch_size);
+      case 23:
+        return unpack_width<23, Unpacker>(in, out, batch_size);
+      case 24:
+        return unpack_width<24, Unpacker>(in, out, batch_size);
+      case 25:
+        return unpack_width<25, Unpacker>(in, out, batch_size);
+      case 26:
+        return unpack_width<26, Unpacker>(in, out, batch_size);
+      case 27:
+        return unpack_width<27, Unpacker>(in, out, batch_size);
+      case 28:
+        return unpack_width<28, Unpacker>(in, out, batch_size);
+      case 29:
+        return unpack_width<29, Unpacker>(in, out, batch_size);
+      case 30:
+        return unpack_width<30, Unpacker>(in, out, batch_size);
+      case 31:
+        return unpack_width<31, Unpacker>(in, out, batch_size);
+      case 32:
+        return unpack_width<32, Unpacker>(in, out, batch_size);
+      case 33:
+        return unpack_width<33, Unpacker>(in, out, batch_size);
+      case 34:
+        return unpack_width<34, Unpacker>(in, out, batch_size);
+      case 35:
+        return unpack_width<35, Unpacker>(in, out, batch_size);
+      case 36:
+        return unpack_width<36, Unpacker>(in, out, batch_size);
+      case 37:
+        return unpack_width<37, Unpacker>(in, out, batch_size);
+      case 38:
+        return unpack_width<38, Unpacker>(in, out, batch_size);
+      case 39:
+        return unpack_width<39, Unpacker>(in, out, batch_size);
+      case 40:
+        return unpack_width<40, Unpacker>(in, out, batch_size);
+      case 41:
+        return unpack_width<41, Unpacker>(in, out, batch_size);
+      case 42:
+        return unpack_width<42, Unpacker>(in, out, batch_size);
+      case 43:
+        return unpack_width<43, Unpacker>(in, out, batch_size);
+      case 44:
+        return unpack_width<44, Unpacker>(in, out, batch_size);
+      case 45:
+        return unpack_width<45, Unpacker>(in, out, batch_size);
+      case 46:
+        return unpack_width<46, Unpacker>(in, out, batch_size);
+      case 47:
+        return unpack_width<47, Unpacker>(in, out, batch_size);
+      case 48:
+        return unpack_width<48, Unpacker>(in, out, batch_size);
+      case 49:
+        return unpack_width<49, Unpacker>(in, out, batch_size);
+      case 50:
+        return unpack_width<50, Unpacker>(in, out, batch_size);
+      case 51:
+        return unpack_width<51, Unpacker>(in, out, batch_size);
+      case 52:
+        return unpack_width<52, Unpacker>(in, out, batch_size);
+      case 53:
+        return unpack_width<53, Unpacker>(in, out, batch_size);
+      case 54:
+        return unpack_width<54, Unpacker>(in, out, batch_size);
+      case 55:
+        return unpack_width<55, Unpacker>(in, out, batch_size);
+      case 56:
+        return unpack_width<56, Unpacker>(in, out, batch_size);
+      case 57:
+        return unpack_width<57, Unpacker>(in, out, batch_size);
+      case 58:
+        return unpack_width<58, Unpacker>(in, out, batch_size);
+      case 59:
+        return unpack_width<59, Unpacker>(in, out, batch_size);
+      case 60:
+        return unpack_width<60, Unpacker>(in, out, batch_size);
+      case 61:
+        return unpack_width<61, Unpacker>(in, out, batch_size);
+      case 62:
+        return unpack_width<62, Unpacker>(in, out, batch_size);
+      case 63:
+        return unpack_width<63, Unpacker>(in, out, batch_size);
+      case 64:
+        return unpack_full(in, out, batch_size);
+    }
+  }
+  ARROW_DCHECK(false) << "Unsupported num_bits";
+  return 0;
 }
 }  // namespace arrow::internal
