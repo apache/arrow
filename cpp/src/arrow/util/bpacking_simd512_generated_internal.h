@@ -29,6 +29,7 @@
 #include "arrow/util/ubsan.h"
 
 namespace arrow::internal {
+namespace {
 
 using ::arrow::util::SafeLoadAs;
 
@@ -11217,4 +11218,5 @@ struct Simd512UnpackerForWidth<uint64_t, 63> {
 };
 
 
+}  // namespace
 }  // namespace arrow::internal

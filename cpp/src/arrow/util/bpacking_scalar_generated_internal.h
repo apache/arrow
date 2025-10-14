@@ -37,6 +37,7 @@
 #include "arrow/util/ubsan.h"
 
 namespace arrow::internal {
+namespace {
 
 template <typename Int>
 Int LoadInt(const uint8_t* in) {
@@ -5828,5 +5829,6 @@ struct ScalarUnpackerForWidth<uint64_t, 63> {
 };
 
 
+}  // namespace
 }  // namespace arrow::internal
 

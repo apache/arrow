@@ -65,6 +65,7 @@ HEADER = """
 #include "arrow/util/ubsan.h"
 
 namespace arrow::internal {
+namespace {
 
 template <typename Int>
 Int LoadInt(const uint8_t* in) {
@@ -73,6 +74,7 @@ Int LoadInt(const uint8_t* in) {
 """
 
 FOOTER = """
+}  // namespace
 }  // namespace arrow::internal
 """
 

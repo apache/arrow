@@ -228,10 +228,12 @@ class UnpackFileGenerator:
         self.print_headers()
         print()
         print("namespace arrow::internal {")
+        print("namespace {")
         print()
         print("using ::arrow::util::SafeLoadAs;")
 
     def print_file_bottom(self):
+        print("}  // namespace")
         print("}  // namespace arrow::internal")
 
     def print_structs(self):
