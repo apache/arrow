@@ -44,6 +44,14 @@ std::vector<T> Iota(T length) {
   return Iota(static_cast<T>(0), length);
 }
 
+/// Create a vector containing the values from start with length elements
+template <typename T>
+std::vector<T> Iota(T start, size_t length) {
+  std::vector<T> result(length);
+  std::iota(result.begin(), result.end(), start);
+  return result;
+}
+
 /// Create a range from a callable which takes a single index parameter
 /// and returns the value of iterator on each call and a length.
 /// Only iterators obtained from the same range should be compared, the

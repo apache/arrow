@@ -3270,7 +3270,7 @@ std::shared_ptr<DataType> run_end_encoded(std::shared_ptr<DataType> run_end_type
 std::shared_ptr<DataType> sparse_union(FieldVector child_fields,
                                        std::vector<int8_t> type_codes) {
   if (type_codes.empty()) {
-    type_codes = internal::Iota(static_cast<int8_t>(child_fields.size()));
+    type_codes = internal::Iota<int8_t>(0, child_fields.size());
   }
   return std::make_shared<SparseUnionType>(std::move(child_fields),
                                            std::move(type_codes));
@@ -3278,7 +3278,7 @@ std::shared_ptr<DataType> sparse_union(FieldVector child_fields,
 std::shared_ptr<DataType> dense_union(FieldVector child_fields,
                                       std::vector<int8_t> type_codes) {
   if (type_codes.empty()) {
-    type_codes = internal::Iota(static_cast<int8_t>(child_fields.size()));
+    type_codes = internal::Iota<int8_t>(0, child_fields.size());
   }
   return std::make_shared<DenseUnionType>(std::move(child_fields), std::move(type_codes));
 }
@@ -3310,7 +3310,7 @@ std::shared_ptr<DataType> sparse_union(const ArrayVector& children,
                                        std::vector<std::string> field_names,
                                        std::vector<int8_t> type_codes) {
   if (type_codes.empty()) {
-    type_codes = internal::Iota(static_cast<int8_t>(children.size()));
+    type_codes = internal::Iota<int8_t>(0, children.size());
   }
   auto fields = FieldsFromArraysAndNames(std::move(field_names), children);
   return sparse_union(std::move(fields), std::move(type_codes));
@@ -3320,7 +3320,7 @@ std::shared_ptr<DataType> dense_union(const ArrayVector& children,
                                       std::vector<std::string> field_names,
                                       std::vector<int8_t> type_codes) {
   if (type_codes.empty()) {
-    type_codes = internal::Iota(static_cast<int8_t>(children.size()));
+    type_codes = internal::Iota<int8_t>(0, children.size());
   }
   auto fields = FieldsFromArraysAndNames(std::move(field_names), children);
   return dense_union(std::move(fields), std::move(type_codes));
