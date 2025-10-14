@@ -106,7 +106,7 @@ from textwrap import dedent
 import warnings
 
 import pyarrow as pa
-from pyarrow import _compute_docstrings
+from pyarrow import _compute_docstrings  # type: ignore[attr-defined]
 from pyarrow.vendored import docscrape
 
 
@@ -251,7 +251,7 @@ def _make_generic_wrapper(func_name, func, options_class, arity):
                 return Expression._call(func_name, list(args))
             return func.call(args, None, memory_pool)
     else:
-        def wrapper(*args, memory_pool=None, options=None, **kwargs):
+        def wrapper(*args, memory_pool=None, options=None, **kwargs):  # type: ignore[misc]  # pyright: ignore[reportRedeclaration]
             if arity is not Ellipsis:
                 if len(args) < arity:
                     raise TypeError(
@@ -304,7 +304,7 @@ def _wrap_function(name, func):
 
     wrapper = _make_generic_wrapper(
         name, func, options_class, arity=func.arity)
-    wrapper.__signature__ = _make_signature(arg_names, var_arg_names,
+    wrapper.__signature__ = _make_signature(arg_names, var_arg_names,  # pyright: ignore[reportFunctionMemberAccess]
                                             options_class)
     return _decorate_compute_function(wrapper, name, func, options_class)
 

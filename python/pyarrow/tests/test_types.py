@@ -27,13 +27,14 @@ import hypothesis.strategies as st
 try:
     import hypothesis.extra.pytz as tzst
 except ImportError:
-    tzst = None
+    tzst = None  # type: ignore[assignment]
+from typing import Any
 import weakref
 
 try:
     import numpy as np
 except ImportError:
-    np = None
+    np = None  # type: ignore[assignment]
 import pyarrow as pa
 import pyarrow.types as types
 import pyarrow.tests.strategies as past
@@ -414,7 +415,7 @@ def test_tzinfo_to_string_errors():
 if tzst:
     timezones = tzst.timezones()
 else:
-    timezones = st.none()
+    timezones = st.none()  # type: ignore[assignment]
 
 
 @h.given(timezones)
@@ -468,7 +469,7 @@ def test_convert_custom_tzinfo_objects_to_string():
         def tzname(self, dt):
             return None
 
-        def utcoffset(self, dt):
+        def utcoffset(self, dt):  # type: ignore[override]
             return "one hour"
 
     class BuggyTimezone3(datetime.tzinfo):
@@ -476,7 +477,7 @@ def test_convert_custom_tzinfo_objects_to_string():
         Wrong timezone name type
         """
 
-        def tzname(self, dt):
+        def tzname(self, dt):  # type: ignore[override]
             return 240
 
         def utcoffset(self, dt):
@@ -741,7 +742,7 @@ def test_struct_type():
         ty.field(None)
 
     for a, b in zip(ty, fields):
-        a == b
+        assert a == b
 
     # Construct from list of tuples
     ty = pa.struct([('a', pa.int64()),
@@ -749,7 +750,7 @@ def test_struct_type():
                     ('b', pa.int32())])
     assert list(ty) == fields
     for a, b in zip(ty, fields):
-        a == b
+        assert a == b
 
     # Construct from mapping
     fields = [pa.field('a', pa.int64()),
@@ -758,7 +759,7 @@ def test_struct_type():
                                 ('b', pa.int32())]))
     assert list(ty) == fields
     for a, b in zip(ty, fields):
-        a == b
+        assert a == b
 
     # Invalid args
     with pytest.raises(TypeError):
@@ -1087,12 +1088,12 @@ def test_timedelta_overflow():
         pa.scalar(d, type=pa.duration('ns'))
 
     # microsecond resolution, not overflow
-    pa.scalar(d, type=pa.duration('us')).as_py() == d
+    assert pa.scalar(d, type=pa.duration('us')).as_py() == d
 
     # second/millisecond resolution, not overflow
     for d in [datetime.timedelta.min, datetime.timedelta.max]:
-        pa.scalar(d, type=pa.duration('ms')).as_py() == d
-        pa.scalar(d, type=pa.duration('s')).as_py() == d
+        pa.scalar(d, type=pa.duration('ms')).as_py() == d  # type: ignore[reportUnusedExpression]
+        pa.scalar(d, type=pa.duration('s')).as_py() == d  # type: ignore[reportUnusedExpression]
 
 
 def test_type_equality_operators():
@@ -1397,7 +1398,7 @@ class SchemaWrapper:
         return self.schema.__arrow_c_schema__()
 
 
-class SchemaMapping(Mapping):
+class SchemaMapping(Mapping[Any, Any]):
     def __init__(self, schema):
         self.schema = schema
 

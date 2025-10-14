@@ -21,7 +21,7 @@ import pytest
 try:
     import numpy as np
 except ImportError:
-    np = None
+    np = None  # type: ignore[assignment]
 
 import pyarrow as pa
 from pyarrow import compute as pc
@@ -35,7 +35,7 @@ empty_udf_doc = {"summary": "", "description": ""}
 try:
     import pyarrow.dataset as ds
 except ImportError:
-    ds = None
+    ds = None  # type: ignore[assignment]
 
 
 def mock_udf_context(batch_length=10):

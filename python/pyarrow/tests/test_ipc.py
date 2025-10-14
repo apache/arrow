@@ -28,7 +28,7 @@ import weakref
 try:
     import numpy as np
 except ImportError:
-    np = None
+    np = None  # type: ignore[assignment]
 
 import pyarrow as pa
 from pyarrow.tests.util import changed_environ, invoke_script

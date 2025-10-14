@@ -26,7 +26,7 @@ import hypothesis.strategies as st
 try:
     import numpy as np
 except ImportError:
-    np = None
+    np = None  # type: ignore[assignment]
 
 import pyarrow as pa
 import pyarrow.tests.strategies as past
@@ -72,7 +72,7 @@ def setup_module(module):
 
 
 def teardown_module(module):
-    for path in TEST_FILES:
+    for path in TEST_FILES:  # type: ignore[union-attr]
         try:
             os.remove(path)
         except os.error:
