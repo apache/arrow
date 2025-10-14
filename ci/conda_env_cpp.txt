@@ -41,7 +41,6 @@ meson
 ninja
 nodejs
 orc<2.1.0
-patch
 pkg-config
 python
 rapidjson
