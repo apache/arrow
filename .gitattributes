@@ -1,4 +1,4 @@
-cpp/src/arrow/util/bpacking_*_generated.h linguist-generated=true
+cpp/src/arrow/util/bpacking_*_generated_internal.h linguist-generated=true
 cpp/src/parquet/chunker_*_generated.h linguist-generated=true
 cpp/src/generated/*.cpp linguist-generated=true
 cpp/src/generated/*.h linguist-generated=true
