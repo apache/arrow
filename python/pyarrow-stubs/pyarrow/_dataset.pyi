@@ -216,7 +216,7 @@ class FileFormat(lib._Weakrefable):
 
     def make_fragment(
         self,
-        file: StrPath | IO,
+        file: StrPath | IO | lib.Buffer,
         filesystem: SupportedFileSystem | None = None,
         partition_expression: Expression | None = None,
         *,
@@ -391,7 +391,9 @@ class CsvFragmentScanOptions(FragmentScanOptions):
     read_options: csv.ReadOptions
 
     def __init__(
-        self, convert_options: csv.ConvertOptions, read_options: csv.ReadOptions
+        self,
+        convert_options: csv.ConvertOptions | None = None,
+        read_options: csv.ReadOptions | None = None,
     ) -> None: ...
     def equals(self, other: CsvFragmentScanOptions) -> bool: ...
 
@@ -417,7 +419,9 @@ class JsonFragmentScanOptions(FragmentScanOptions):
     read_options: _json.ReadOptions
 
     def __init__(
-        self, parse_options: _json.ParseOptions, read_options: _json.ReadOptions
+        self,
+        parse_options: _json.ParseOptions | None = None,
+        read_options: _json.ReadOptions | None = None,
     ) -> None: ...
     def equals(self, other: JsonFragmentScanOptions) -> bool: ...
 
@@ -503,7 +507,12 @@ class DatasetFactory(lib._Weakrefable):
     root_partition: Expression
     def finish(self, schema: lib.Schema | None = None) -> Dataset: ...
 
-    def inspect(self) -> lib.Schema: ...
+    def inspect(
+        self,
+        *,
+        promote_options: str = "default",
+        fragments: list[Fragment] | None = None,
+    ) -> lib.Schema: ...
 
     def inspect_schemas(self) -> list[lib.Schema]: ...
 
@@ -530,7 +539,7 @@ class FileSystemDatasetFactory(DatasetFactory):
     def __init__(
         self,
         filesystem: SupportedFileSystem,
-        paths_or_selector: FileSelector,
+        paths_or_selector: list[str] | FileSelector,
         format: FileFormat,
         options: FileSystemFactoryOptions | None = None,
     ) -> None: ...
