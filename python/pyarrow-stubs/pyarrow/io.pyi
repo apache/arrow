@@ -22,6 +22,8 @@ from io import IOBase
 
 from _typeshed import StrPath
 
+import numpy as np
+
 if sys.version_info >= (3, 11):
     from typing import Self
 else:
@@ -286,7 +288,7 @@ def transcoding_input_stream(
 ) -> TransformInputStream: ...
 
 
-def py_buffer(obj: SupportPyBuffer) -> Buffer: ...
+def py_buffer(obj: SupportPyBuffer | np.ndarray) -> Buffer: ...
 
 
 def foreign_buffer(address: int, size: int, base: Any | None = None) -> Buffer: ...
