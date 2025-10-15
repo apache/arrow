@@ -29,6 +29,7 @@ from typing import (
     Generic,
     Literal,
     TypeVar,
+    overload,
 )
 
 import numpy as np
@@ -43,6 +44,7 @@ from pyarrow._stubs_typing import (
     Order,
     SupportArrowArray,
     SupportArrowDeviceArray,
+    SupportPyArrowArray,
 )
 from pyarrow.lib import (
     Buffer,
@@ -123,9 +125,9 @@ from ._stubs_typing import NullableCollection
 
 def array(
     values: NullableCollection[Any] | Iterable[Any] | SupportArrowArray
-    | SupportArrowDeviceArray,
+    | SupportArrowDeviceArray | SupportPyArrowArray,
     type: Any | None = None,
-    mask: Mask | None = None,
+    mask: Mask | pd.Series[bool] | None = None,
     size: int | None = None,
     from_pandas: bool | None = None,
     safe: bool = True,
@@ -276,7 +278,7 @@ class Array(_PandasConvertible[pd.Series], Generic[_Scalar_co]):
     ) -> str: ...
 
     format = to_string
-    def equals(self, other: Self) -> bool: ...
+    def equals(self, other: Array) -> bool: ...
 
     def __len__(self) -> int: ...
 
@@ -290,7 +292,11 @@ class Array(_PandasConvertible[pd.Series], Generic[_Scalar_co]):
         self: Array[Scalar[_BasicDataType[_AsPyType]]], fill_value: _AsPyType
     ) -> Array[Scalar[_BasicDataType[_AsPyType]]]: ...
 
-    def __getitem__(self, key: int | builtins.slice) -> _Scalar_co | Self: ...
+    @overload
+    def __getitem__(self, key: int) -> _Scalar_co: ...
+    
+    @overload
+    def __getitem__(self, key: builtins.slice) -> Self: ...
 
     def slice(self, offset: int = 0, length: int | None = None) -> Self: ...
 
@@ -323,10 +329,10 @@ class Array(_PandasConvertible[pd.Series], Generic[_Scalar_co]):
                  writable: bool = False) -> np.ndarray: ...
 
     def to_pylist(
-        self: Array[Scalar[_BasicDataType[_AsPyType]]] | StructArray | ListArray[Any],
+        self,
         *,
         maps_as_pydicts: Literal["lossy", "strict"] | None = None,
-    ) -> list[_AsPyType | None]: ...
+    ) -> list[Any]: ...
 
     tolist = to_pylist
     def validate(self, *, full: bool = False) -> None: ...
@@ -589,9 +595,9 @@ class FixedSizeListArray(BaseListArray[FixedSizeListScalar[_DataTypeT, _Size]]):
     def from_arrays(
         cls,
         values: Array[Scalar[_DataTypeT]],
-        limit_size: _Size | None = None,
+        list_size: _Size | None = None,
         *,
-        type: None = None,
+        type: DataType | None = None,
         mask: Mask | None = None,
     ) -> FixedSizeListArray[_DataTypeT, _Size | None]: ...
 
@@ -609,11 +615,11 @@ class MapArray(BaseListArray[MapScalar[_MapKeyT, _MapItemT]]):
     def from_arrays(
         cls,
         offsets: Int64Array | list[int] | None,
-        keys: Array[Scalar[_MapKeyT]] | None = None,
-        items: Array[Scalar[_MapItemT]] | None = None,
-        values: Array | None = None,
+        keys: Array[Scalar[_MapKeyT]] | np.ndarray | list | None = None,
+        items: Array[Scalar[_MapItemT]] | np.ndarray | list | None = None,
+        values: Array | DataType | None = None,
         *,
-        type: MapType[_MapKeyT, _MapItemT] | None = None,
+        type: DataType | None = None,
         pool: MemoryPool | None = None,
         mask: Mask | None = None,
     ) -> MapArray[_MapKeyT, _MapItemT]: ...
@@ -644,7 +650,7 @@ class UnionArray(Array[UnionScalar]):
         value_offsets: Int32Array,
         children: NullableCollection[Array],
         field_names: list[str] | None = None,
-        type_codes: Int8Array | None = None,
+        type_codes: Int8Array | list[int] | None = None,
     ) -> UnionArray: ...
 
     @staticmethod
@@ -652,7 +658,7 @@ class UnionArray(Array[UnionScalar]):
         types: Int8Array,
         children: NullableCollection[Array],
         field_names: list[str] | None = None,
-        type_codes: Int8Array | None = None,
+        type_codes: Int8Array | list[int] | None = None,
     ) -> UnionArray: ...
 
 
@@ -725,7 +731,7 @@ class DictionaryArray(Array[DictionaryScalar[_IndexT, _BasicValueT]]):
     @staticmethod
     def from_arrays(
         indices: Indices,
-        dictionary: Array | np.ndarray | pd.Series,
+        dictionary: Array | np.ndarray | pd.Series | list[Any],
         mask: np.ndarray | pd.Series | BooleanArray | None = None,
         ordered: bool = False,
         from_pandas: bool = False,
@@ -742,8 +748,8 @@ class StructArray(Array[StructScalar]):
 
     @staticmethod
     def from_arrays(
-        arrays: Iterable[Array],
-        names: list[str] | None = None,
+        arrays: Iterable[Array | np.ndarray],
+        names: list[str] | list[Field] | None = None,
         fields: list[Field] | None = None,
         mask=None,
         memory_pool: MemoryPool | None = None,

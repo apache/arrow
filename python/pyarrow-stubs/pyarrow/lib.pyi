@@ -38,6 +38,8 @@ class MonthDayNano(NamedTuple):
     months: int
     nanoseconds: int
 
+    def __init__(self, *args, **kwargs) -> None: ...
+
 
 def cpu_count() -> int: ...
 

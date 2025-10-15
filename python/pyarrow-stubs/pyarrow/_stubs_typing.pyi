@@ -98,6 +98,9 @@ class SupportArrowStream(Protocol):
     def __arrow_c_stream__(self, requested_schema=None) -> Any: ...
 
 
+class SupportPyArrowArray(Protocol):
+    def __arrow_array__(self, type=None) -> Any: ...
+
 class SupportArrowArray(Protocol):
     def __arrow_c_array__(self, requested_schema=None) -> Any: ...
 
