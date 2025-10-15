@@ -71,7 +71,7 @@ def test_constructor_raises():
     # This could happen by wrong capitalization.
     # ARROW-2638: prevent calling extension class constructors directly
     with pytest.raises(TypeError):
-        pa.Array([1, 2])
+        pa.Array([1, 2])  # type: ignore[reportCallIssue]
 
 
 def test_list_format():
@@ -325,7 +325,7 @@ def test_asarray():
     np_arr = np.asarray([_ for _ in arr])
     assert np_arr.tolist() == [0, 1, 2, 3]
     assert np_arr.dtype == np.dtype('O')
-    assert isinstance(np_arr[0], pa.lib.Int64Value)
+    assert isinstance(np_arr[0], pa.lib.Int64Value)  # type: ignore[reportAttributeAccessIssue]
 
     # Calling with the arrow array gives back an array with 'int64' dtype
     np_arr = np.asarray(arr)
@@ -649,8 +649,8 @@ def test_array_eq():
 
 @pytest.mark.numpy
 def test_array_from_buffers():
-    values_buf = pa.py_buffer(np.int16([4, 5, 6, 7]))
-    nulls_buf = pa.py_buffer(np.uint8([0b00001101]))
+    values_buf = pa.py_buffer(np.array([4, 5, 6, 7], dtype=np.int16()))
+    nulls_buf = pa.py_buffer(np.array([0b00001101], dtype=np.uint8()))
     arr = pa.Array.from_buffers(pa.int16(), 4, [nulls_buf, values_buf])
     assert arr.type == pa.int16()
     assert arr.to_pylist() == [4, None, 6, 7]
@@ -665,7 +665,7 @@ def test_array_from_buffers():
     assert arr.to_pylist() == [None, 6, 7]
 
     with pytest.raises(TypeError):
-        pa.Array.from_buffers(pa.int16(), 3, ['', ''], offset=1)
+        pa.Array.from_buffers(pa.int16(), 3, ['', ''], offset=1)  # type: ignore[reportArgumentType]
 
 
 def test_string_binary_from_buffers():
@@ -859,7 +859,7 @@ def test_struct_array_from_chunked():
     chunked_arr = pa.chunked_array([[1, 2, 3], [4, 5, 6]])
 
     with pytest.raises(TypeError, match="Expected Array"):
-        pa.StructArray.from_arrays([chunked_arr], ["foo"])
+        pa.StructArray.from_arrays([chunked_arr], ["foo"])  # type: ignore[reportArgumentType]
 
 
 @pytest.mark.parametrize("offset", (0, 1))
@@ -2869,7 +2869,7 @@ def test_buffers_primitive():
 
     assert struct.unpack('hhxxh', buffers[1].to_pybytes()) == (1, 2, 4)
 
-    a = pa.array(np.int8([4, 5, 6]))
+    a = pa.array(np.array([4, 5, 6], dtype=np.int8))
     buffers = a.buffers()
     assert len(buffers) == 2
     # No null bitmap from Numpy int array
@@ -2955,7 +2955,7 @@ def test_nbytes_size():
 def test_invalid_tensor_constructor_repr():
     # ARROW-2638: prevent calling extension class constructors directly
     with pytest.raises(TypeError):
-        repr(pa.Tensor([1]))
+        repr(pa.Tensor([1]))  # type: ignore[reportCallIssue]
 
 
 def test_invalid_tensor_construction():
@@ -3473,7 +3473,7 @@ def test_array_supported_masks():
 
     with pytest.raises(pa.ArrowTypeError):
         arr = pa.array([4, None, 4, 3],
-                       mask=[1.0, 2.0, 3.0, 4.0])
+                       mask=[1.0, 2.0, 3.0, 4.0])  # type: ignore[reportArgumentType]
 
     with pytest.raises(pa.ArrowTypeError):
         arr = pa.array([4, None, 4, 3],
@@ -3760,11 +3760,11 @@ def test_concat_array_invalid_type():
     # ARROW-9920 - do not segfault on non-array input
 
     with pytest.raises(TypeError, match="should contain Array objects"):
-        pa.concat_arrays([None])
+        pa.concat_arrays([None])  # type: ignore[reportArgumentType]
 
     arr = pa.chunked_array([[0, 1], [3, 4]])
     with pytest.raises(TypeError, match="should contain Array objects"):
-        pa.concat_arrays(arr)
+        pa.concat_arrays(arr)  # type: ignore[reportArgumentType]
 
 
 @pytest.mark.pandas
