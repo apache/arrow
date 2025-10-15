@@ -508,7 +508,7 @@ def unregister_extension_type(type_name: str) -> None: ...
 
 class KeyValueMetadata(_Metadata, Mapping[bytes, bytes]):
 
-    def __init__(self, __arg0__: Mapping[bytes, bytes]
+    def __init__(self, __arg0__: Mapping[str | bytes, str | bytes]
                  | None = None, **kwargs) -> None: ...
 
     def equals(self, other: KeyValueMetadata) -> bool: ...
@@ -784,7 +784,7 @@ def dictionary(
 
 def struct(
     fields: Iterable[Field[Any] | tuple[str, Field[Any]] | tuple[str, DataType]]
-    | Mapping[str, Field[Any]],
+    | Mapping[str, Field[Any] | DataType],
 ) -> StructType: ...
 
 
