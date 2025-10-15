@@ -127,7 +127,24 @@ __all__ = [
     "write_dataset",
 ]
 
-_DatasetFormat: TypeAlias = Literal["parquet", "ipc", "arrow", "feather", "csv"]
+_DatasetFormat: TypeAlias = Literal["parquet", "ipc", "arrow", "feather", "csv", "json", "orc", str]
+
+
+@overload
+def partitioning(
+    schema: Schema,
+    dictionaries: dict[str, Array] | Literal["infer"] | None = None,
+) -> Partitioning | PartitioningFactory: ...
+
+@overload
+def partitioning(
+    *,
+    field_names: list[str],
+) -> PartitioningFactory: ...
+
+@overload
+
+def partitioning() -> PartitioningFactory: ...
 
 
 @overload
@@ -187,12 +204,40 @@ def partitioning(
 ) -> Partitioning: ...
 
 
+
+@overload
+def partitioning(
+    schema: Schema,
+    *,
+    flavor: str,
+    dictionaries: dict[str, Array] | Literal["infer"] | None = None,
+) -> Partitioning | PartitioningFactory: ...
+
+@overload
+def partitioning(
+    field_names: list[str],
+    *,
+    flavor: str,
+) -> PartitioningFactory: ...
+
+@overload
+def partitioning(
+    *,
+@overload
+def partitioning(
+    *args: Any,
+    **kwargs: Any,
+) -> Any: ...
+
+    flavor: str,
+) -> PartitioningFactory: ...
+
 def parquet_dataset(
     metadata_path: StrPath,
     schema: Schema | None = None,
     filesystem: SupportedFileSystem | None = None,
     format: ParquetFileFormat | None = None,
-    partitioning: Partitioning | PartitioningFactory | None = None,
+    partitioning: Partitioning | PartitioningFactory | str | None = None,
     partition_base_dir: str | None = None,
 ) -> FileSystemDataset: ...
 
@@ -212,7 +257,7 @@ def dataset(
 
 @overload
 def dataset(
-    source: list[Dataset],
+    source: Sequence[Dataset],
     schema: Schema | None = None,
     format: FileFormat | _DatasetFormat | None = None,
     filesystem: SupportedFileSystem | str | None = None,
@@ -248,15 +293,41 @@ def dataset(
     ignore_prefixes: list[str] | None = None,
 ) -> InMemoryDataset: ...
 
+@overload
+def dataset(
+    source: Any,
+    schema: Schema | None = None,
+    format: FileFormat | _DatasetFormat | None = None,
+    filesystem: SupportedFileSystem | str | None = None,
+    partitioning: Partitioning | PartitioningFactory | str | list[str] | None = None,
+@overload
+def dataset(
+    source: list[Any],
+    schema: Schema | None = None,
+    format: FileFormat | _DatasetFormat | None = None,
+    filesystem: SupportedFileSystem | str | None = None,
+    partitioning: Partitioning | PartitioningFactory | str | list[str] | None = None,
+    partition_base_dir: str | None = None,
+    exclude_invalid_files: bool | None = None,
+    ignore_prefixes: list[str] | None = None,
+) -> Dataset: ...
+
+    partition_base_dir: str | None = None,
+    exclude_invalid_files: bool | None = None,
+    ignore_prefixes: list[str] | None = None,
+) -> Dataset: ...
+
+
 
 def write_dataset(
-    data: Dataset | Table | RecordBatch | RecordBatchReader | list[Table]
-    | Iterable[RecordBatch],
+    data: Any | Dataset | Table | RecordBatch | RecordBatchReader | list[Table]
+    | Iterable[RecordBatch] | Scanner,
     base_dir: StrPath,
+    basename_template: str | None = None,
     *,
     basename_template: str | None = None,
     format: FileFormat | _DatasetFormat | None = None,
-    partitioning: Partitioning | list[str] | None = None,
+    partitioning: Partitioning | PartitioningFactory | list[str] | None = None,
     partitioning_flavor: str | None = None,
     schema: Schema | None = None,
     filesystem: SupportedFileSystem | None = None,
@@ -271,6 +342,7 @@ def write_dataset(
     existing_data_behavior: Literal["error",
                                     "overwrite_or_ignore", "delete_matching"] = "error",
     create_dir: bool = True,
+    preserve_order: bool | None = None,
 ): ...
 
 

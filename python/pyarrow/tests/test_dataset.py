@@ -29,11 +29,12 @@ import time
 from shutil import copytree
 from urllib.parse import quote
 
+from typing import Any, cast
 try:
-    import numpy as np
+    import numpy as np  # type: ignore[import-not-found]
 except ImportError:
-    np = None  # type: ignore[assignment]
-import pytest
+    np = cast(Any, None)
+import pytest  # type: ignore[import-not-found]
 
 import pyarrow as pa
 import pyarrow.compute as pc
@@ -47,19 +48,20 @@ from pyarrow.tests.util import (FSProtocolClass, ProxyHandler,
                                 change_cwd)
 
 try:
-    import pandas as pd
+    import pandas as pd  # type: ignore[import-not-found]
 except ImportError:
-    pd = None  # type: ignore[assignment]
+    pd = cast(Any, None)
 
+from typing import Any, cast
 try:
     import pyarrow.dataset as ds
 except ImportError:
-    ds = None  # type: ignore[assignment]
+    ds = cast(Any, None)
 
 try:
     import pyarrow.parquet as pq
 except ImportError:
-    pq = None  # type: ignore[assignment]
+    pq = cast(Any, None)
 
 # Marks all of the tests in this module
 # Ignore these with pytest ... -m 'not dataset'
@@ -395,14 +397,14 @@ def test_filesystem_dataset(mockfs):
 
     # validation of required arguments
     with pytest.raises(TypeError, match="incorrect type"):
-        ds.FileSystemDataset(fragments, file_format, schema)
+        ds.FileSystemDataset(fragments, file_format, schema)  # type: ignore[arg-type]
     # validation of root_partition
     with pytest.raises(TypeError, match="incorrect type"):
         ds.FileSystemDataset(fragments, schema=schema,
-                             format=file_format, root_partition=1)
+                             format=file_format, root_partition=1)  # type: ignore[arg-type]
     # missing required argument in from_paths
     with pytest.raises(TypeError, match="incorrect type"):
-        ds.FileSystemDataset.from_paths(fragments, format=file_format)
+        ds.FileSystemDataset.from_paths(fragments, format=file_format)  # type: ignore[arg-type]
 
 
 def test_filesystem_dataset_no_filesystem_interaction(dataset_reader):
@@ -486,6 +488,8 @@ def test_dataset(dataset, dataset_reader):
                              False, False, True, True]
     assert_dataset_fragment_convenience_methods(dataset)
 
+
+from typing import Any, cast
 
 def test_dataset_factory_inspect_schema_promotion(promotable_mockfs):
     mockfs, path1, path2 = promotable_mockfs
@@ -820,7 +824,7 @@ def test_partitioning():
         load_back = None
         with pytest.raises(ValueError,
                            match="Expected Partitioning or PartitioningFactory"):
-            load_back = ds.dataset(tempdir, format='ipc', partitioning=int(0))
+            load_back = ds.dataset(tempdir, format='ipc', partitioning=int(0))  # type: ignore[arg-type]
         assert load_back is None
 
 
@@ -2312,9 +2316,9 @@ def test_partitioning_function():
     with pytest.raises(ValueError):
         ds.partitioning()
     with pytest.raises(ValueError, match="Expected list"):
-        ds.partitioning(field_names=schema)
+        ds.partitioning(field_names=schema)  # type: ignore[arg-type]
     with pytest.raises(ValueError, match="Cannot specify both"):
-        ds.partitioning(schema, field_names=schema)
+        ds.partitioning(schema, field_names=schema)  # type: ignore[call-overload]
 
     # Hive partitioning
     part = ds.partitioning(schema, flavor="hive")
@@ -5110,7 +5114,7 @@ def test_write_dataset_s3(s3_example_simple):
     # writing with path + URI as filesystem
     uri = uri_template.format("mybucket")
     ds.write_dataset(
-        table, "dataset3", filesystem=uri, format="feather", partitioning=part
+        table, "dataset3", filesystem=cast(Any, uri), format="feather", partitioning=part
     )
     # check roundtrip
     result = ds.dataset(
@@ -5891,13 +5895,13 @@ def test_make_write_options_error():
              "'pyarrow._dataset_parquet.ParquetFileFormat' objects "
              "doesn't apply to a 'int'")
     with pytest.raises(TypeError) as excinfo:
-        pa.dataset.ParquetFileFormat.make_write_options(43)
+        pa.dataset.ParquetFileFormat.make_write_options(43)  # type: ignore
     assert msg_1 in str(excinfo.value) or msg_2 in str(excinfo.value)
 
     pformat = pa.dataset.ParquetFileFormat()
     msg = "make_write_options\\(\\) takes exactly 0 positional arguments"
     with pytest.raises(TypeError, match=msg):
-        pformat.make_write_options(43)
+        pformat.make_write_options(43)  # type: ignore
 
 
 def test_scanner_from_substrait(dataset):
@@ -5932,3 +5936,4 @@ def test_scanner_from_substrait(dataset):
         filter=ps.BoundExpressions.from_substrait(filtering)
     ).to_table()
     assert result.to_pydict() == {'str': ['4', '4']}
+# Type stubs fixes applied

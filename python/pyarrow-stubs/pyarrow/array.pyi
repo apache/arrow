@@ -216,13 +216,22 @@ class Array(_PandasConvertible[pd.Series], Generic[_Scalar_co]):
     def as_py(self) -> list[Any]: ...
 
     def diff(self, other: Self) -> str: ...
+    
+    # Private attribute used internally (e.g., for column names in batches)
+    _name: str | None
 
     def cast(
         self,
-        target_type: _CastAs,
+        target_type: _CastAs | str,
         safe: bool = True,
         options: CastOptions | None = None,
         memory_pool: MemoryPool | None = None,
+    ) -> Array[Scalar[_CastAs]]: ...
+
+    def cast(self, target_type: _CastAs | str,
+             safe: bool = True,
+             options: CastOptions | None = None,
+             memory_pool: MemoryPool | None = None,
     ) -> Array[Scalar[_CastAs]]: ...
 
     def view(self, target_type: _CastAs) -> Array[Scalar[_CastAs]]: ...

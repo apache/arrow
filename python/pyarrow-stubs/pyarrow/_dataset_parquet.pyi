@@ -19,6 +19,8 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import IO, Any, TypedDict
 
+from .lib import Buffer, BufferReader
+
 from _typeshed import StrPath
 
 from ._compute import Expression
@@ -52,7 +54,7 @@ class ParquetFileFormat(FileFormat):
     @property
     def read_options(self) -> ParquetReadOptions: ...
     def make_write_options(
-        self) -> ParquetFileWriteOptions: ...  # type: ignore[override]
+        self, **kwargs) -> ParquetFileWriteOptions: ...  # type: ignore[override]
 
     def equals(self, other: ParquetFileFormat) -> bool: ...
     @property
@@ -60,7 +62,8 @@ class ParquetFileFormat(FileFormat):
 
     def make_fragment(
         self,
-        file: StrPath | IO,
+        file: StrPath | IO | Buffer | BufferReader,
+
         filesystem: SupportedFileSystem | None = None,
         partition_expression: Expression | None = None,
         row_groups: Iterable[int] | None = None,
@@ -93,7 +96,13 @@ class ParquetFileFragment(FileFragment):
 
     def ensure_complete_metadata(self) -> None: ...
     @property
-    def row_groups(self) -> list[RowGroupInfo]: ...
+    def path(self) -> str: ...
+    @property
+    def filesystem(self) -> SupportedFileSystem: ...
+    def open(self) -> lib.NativeFile: ...
+
+    @property
+    def row_groups(self) -> list[int]: ...
     @property
     def metadata(self) -> FileMetaData: ...
     @property
@@ -149,6 +158,8 @@ class ParquetFileWriteOptions(FileWriteOptions):
     def _set_properties(self) -> None: ...
     def _set_arrow_properties(self) -> None: ...
     def _set_encryption_config(self) -> None: ...
+    # accept passthrough options used in tests
+    def __init__(self, **kwargs) -> None: ...
 
 
 @dataclass(kw_only=True)
