@@ -17,13 +17,13 @@
 
 import sys
 
-from collections.abc import Callable
+from collections.abc import Callable, Iterable, Iterator, Sequence
 
 if sys.version_info >= (3, 11):
     from typing import Self
 else:
     from typing_extensions import Self
-from collections.abc import Iterable, Iterator
+
 from typing import (
     Any,
     Generic,
@@ -251,7 +251,7 @@ class Array(_PandasConvertible[pd.Series], Generic[_Scalar_co]):
     def from_buffers(
         type: _DataTypeT,
         length: int,
-        buffers: list[Buffer | None],
+        buffers: Sequence[Buffer | None],
         null_count: int = -1,
         offset=0,
         children: NullableCollection[Array[Scalar[_DataTypeT]]] | None = None,
@@ -730,7 +730,7 @@ class DictionaryArray(Array[DictionaryScalar[_IndexT, _BasicValueT]]):
 
     @staticmethod
     def from_arrays(
-        indices: Indices,
+        indices: Indices | Sequence[int | None],
         dictionary: Array | np.ndarray | pd.Series | list[Any],
         mask: np.ndarray | pd.Series | BooleanArray | None = None,
         ordered: bool = False,
