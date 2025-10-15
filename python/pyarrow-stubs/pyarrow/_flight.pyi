@@ -24,7 +24,7 @@ if sys.version_info >= (3, 11):
 else:
     from typing_extensions import Self
 from collections.abc import Generator, Iterable, Iterator
-from typing import Generic, NamedTuple, TypeVar
+from typing import Any, Generic, NamedTuple, TypeVar
 
 from typing_extensions import deprecated
 
@@ -38,6 +38,7 @@ from .lib import (
     IpcWriteOptions,
     RecordBatch,
     RecordBatchReader,
+    Scalar,
     Schema,
     Table,
     TimestampScalar,
@@ -61,8 +62,8 @@ class FlightCallOptions(_Weakrefable):
 
 class CertKeyPair(NamedTuple):
 
-    cert: str
-    key: str
+    cert: str | bytes
+    key: str | bytes
 
 
 class FlightError(Exception):
@@ -231,7 +232,7 @@ class FlightEndpoint(_Weakrefable):
         self,
         ticket: Ticket | str | bytes,
         locations: list[str | Location],
-        expiration_time: TimestampScalar | None = ...,
+        expiration_time: Scalar[Any] | None = ...,
         app_metadata: bytes | str = ...,
     ): ...
 
@@ -243,7 +244,7 @@ class FlightEndpoint(_Weakrefable):
 
     def serialize(self) -> bytes: ...
     @property
-    def expiration_time(self) -> TimestampScalar | None: ...
+    def expiration_time(self) -> Scalar[Any] | None: ...
 
     @property
     def app_metadata(self) -> bytes | str: ...
@@ -480,7 +481,7 @@ class FlightDataStream(_Weakrefable):
 
 class RecordBatchStream(FlightDataStream):
 
-    def __init__(self, data_source: RecordBatchReader | Table,
+    def __init__(self, data_source: RecordBatchReader | Table | None = None,
                  options: IpcWriteOptions | None = None) -> None: ...
 
 
@@ -489,7 +490,7 @@ class GeneratorStream(FlightDataStream):
     def __init__(
         self,
         schema: Schema,
-        generator: Iterable[FlightDataStream | Table | RecordBatch | RecordBatchReader],
+        generator: Iterable[FlightDataStream | Table | RecordBatch | RecordBatchReader | tuple[RecordBatch, bytes]],
         options: IpcWriteOptions | None = None,
     ) -> None: ...
 
@@ -661,6 +662,9 @@ class FlightServerBase(_Weakrefable):
     def shutdown(self) -> None: ...
 
     def wait(self) -> None: ...
+
+    def __enter__(self) -> Self: ...
+    def __exit__(self, exc_type: object, exc_val: object, exc_tb: object) -> None: ...
 
     def __enter__(self) -> Self: ...
     def __exit__(self, exc_type, exc_value, traceback): ...

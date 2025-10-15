@@ -49,7 +49,7 @@ from pyarrow._parquet import (
 )
 from pyarrow._stubs_typing import FilterTuple, SingleOrList
 from pyarrow.dataset import ParquetFileFragment, Partitioning
-from pyarrow.lib import NativeFile, RecordBatch, Schema, Table
+from pyarrow.lib import Buffer, NativeFile, RecordBatch, Schema, Table
 from typing_extensions import deprecated
 
 __all__ = (
@@ -258,7 +258,7 @@ class ParquetDataset:
 
 def read_table(
     source: SingleOrList[str]
-    | SingleOrList[Path] | SingleOrList[NativeFile] | SingleOrList[IO],
+    | SingleOrList[Path] | SingleOrList[NativeFile] | SingleOrList[IO] | Buffer,
     *,
     columns: list | None = None,
     use_threads: bool = True,
@@ -281,7 +281,7 @@ def read_table(
 
 
 def read_pandas(
-    source: str | Path | NativeFile | IO, columns: list | None = None, **kwargs
+    source: str | Path | NativeFile | IO | Buffer, columns: list | None = None, **kwargs
 ) -> Table: ...
 
 

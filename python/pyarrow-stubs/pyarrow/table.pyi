@@ -117,7 +117,7 @@ _AggregationPrefixed: TypeAlias = Literal[
     "hash_tdigest",
     "hash_variance",
 ]
-Aggregation: TypeAlias = _Aggregation | _AggregationPrefixed
+Aggregation: TypeAlias = _Aggregation | _AggregationPrefixed | str
 AggregateOptions: TypeAlias = (ScalarAggregateOptions | CountOptions
                                | TDigestOptions | VarianceOptions | FunctionOptions)
 
@@ -401,7 +401,7 @@ class RecordBatch(_Tabular[Array]):
     @classmethod
     def from_arrays(
         cls,
-        arrays: Collection[Array],
+        arrays: Iterable[Any],
         names: list[str] | None = None,
         schema: Schema | None = None,
         metadata: Mapping[str | bytes, str | bytes] | None = None,
@@ -610,7 +610,7 @@ def record_batch(
 
 
 def table(
-    data: Mapping[str, list[Any] | Array[Any]]
+    data: Mapping[str, list[Any] | Array[Any] | ChunkedArray[Any]]
     | Collection[ArrayOrChunkedArray[Any]]
     | pd.DataFrame
     | SupportArrowArray

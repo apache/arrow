@@ -19,6 +19,7 @@ import types as stdlib_types
 from collections.abc import (
     Callable,
     Iterable,
+    Mapping,
     Sequence,
 )
 
@@ -283,7 +284,7 @@ class WinsorizeOptions(FunctionOptions):
 class QuantileOptions(FunctionOptions):
     def __init__(
         self,
-        q: float | Sequence[float],
+        q: float | Sequence[float] = 0.5,
         *,
         interpolation: Literal["linear", "lower",
                                "higher", "nearest", "midpoint"] = "linear",
@@ -529,11 +530,11 @@ class _FunctionDoc(TypedDict):
 
 
 def register_scalar_function(
-    func: Callable,
-    function_name: str,
-    function_doc: _FunctionDoc,
-    in_types: dict[str, lib.DataType],
-    out_type: lib.DataType,
+    func: Callable | None,
+    function_name: str | None,
+    function_doc: _FunctionDoc | dict[str, str],
+    in_types: Mapping[str, lib.DataType] | None,
+    out_type: lib.DataType | None,
     func_registry: FunctionRegistry | None = None,
 ) -> None: ...
 
@@ -541,8 +542,8 @@ def register_scalar_function(
 def register_tabular_function(
     func: Callable,
     function_name: str,
-    function_doc: _FunctionDoc,
-    in_types: dict[str, lib.DataType],
+    function_doc: _FunctionDoc | dict[str, str],
+    in_types: Mapping[str, lib.DataType],
     out_type: lib.DataType,
     func_registry: FunctionRegistry | None = None,
 ) -> None: ...
@@ -551,8 +552,8 @@ def register_tabular_function(
 def register_aggregate_function(
     func: Callable,
     function_name: str,
-    function_doc: _FunctionDoc,
-    in_types: dict[str, lib.DataType],
+    function_doc: _FunctionDoc | dict[str, str],
+    in_types: Mapping[str, lib.DataType],
     out_type: lib.DataType,
     func_registry: FunctionRegistry | None = None,
 ) -> None: ...
@@ -561,8 +562,8 @@ def register_aggregate_function(
 def register_vector_function(
     func: Callable,
     function_name: str,
-    function_doc: _FunctionDoc,
-    in_types: dict[str, lib.DataType],
+    function_doc: _FunctionDoc | dict[str, str],
+    in_types: Mapping[str, lib.DataType],
     out_type: lib.DataType,
     func_registry: FunctionRegistry | None = None,
 ) -> None: ...
@@ -573,6 +574,9 @@ class UdfContext:
     def batch_length(self) -> int: ...
     @property
     def memory_pool(self) -> lib.MemoryPool: ...
+
+
+def _get_udf_context(memory_pool: lib.MemoryPool, batch_length: int) -> UdfContext: ...
 
 # ==================== _compute.pyx Expression ====================
 
@@ -615,8 +619,9 @@ class Expression(lib._Weakrefable):
     def is_nan(self) -> Expression: ...
 
     def cast(
-        self, type: lib.DataType, safe: bool = True, options: CastOptions | None = None
+        self, type: lib.DataType | str, safe: bool = True, options: CastOptions | None = None
     ) -> Expression: ...
     def isin(self, values: lib.Array | Iterable) -> Expression: ...
+    def equals(self, other: Expression) -> bool: ...
 
 # ==================== _compute.py ====================
