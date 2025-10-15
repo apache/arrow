@@ -52,7 +52,7 @@ class Dataset(lib._Weakrefable):
 
     def scanner(
         self,
-        columns: list[str] | None = None,
+        columns: list[str] | dict[str, Expression] | None = None,
         filter: Expression | None = None,
         batch_size: int = ...,
         batch_readahead: int = 16,
@@ -132,7 +132,7 @@ class Dataset(lib._Weakrefable):
     @property
     def schema(self) -> lib.Schema: ...
 
-    def filter(self, expression: Expression) -> Self: ...
+    def filter(self, expression: Expression | None) -> Self: ...
 
     def sort_by(self, sorting: str |
                 list[tuple[str, Order]], **kwargs) -> InMemoryDataset: ...
@@ -161,7 +161,11 @@ class Dataset(lib._Weakrefable):
 
 
 class InMemoryDataset(Dataset):
-    ...
+    def __init__(
+        self,
+        source: lib.Table | lib.RecordBatch | lib.RecordBatchReader | Iterable[lib.RecordBatch] | list[Any],
+        schema: lib.Schema | None = None,
+    ) -> None: ...
 
 
 class UnionDataset(Dataset):
@@ -216,7 +220,7 @@ class FileFormat(lib._Weakrefable):
 
     def make_fragment(
         self,
-        file: StrPath | IO | lib.Buffer,
+        file: StrPath | IO | lib.Buffer | lib.BufferReader,
         filesystem: SupportedFileSystem | None = None,
         partition_expression: Expression | None = None,
         *,
@@ -233,6 +237,12 @@ class FileFormat(lib._Weakrefable):
 
 
 class Fragment(lib._Weakrefable):
+
+    def open(self) -> lib.NativeFile | lib.BufferReader: ...
+    @property
+    def path(self) -> str: ...
+    @property
+    def row_groups(self) -> list[int]: ...
 
     @property
     def filesystem(self) -> SupportedFileSystem: ...
@@ -377,7 +387,7 @@ class CsvFileFormat(FileFormat):
         convert_options: csv.ConvertOptions | None = None,
         read_options: csv.ReadOptions | None = None,
     ) -> None: ...
-    def make_write_options(self) -> csv.WriteOptions: ...  # type: ignore[override]
+    def make_write_options(self, **kwargs) -> CsvFileWriteOptions: ...  # type: ignore[override]
     @property
     def parse_options(self) -> csv.ParseOptions: ...
     @parse_options.setter
@@ -434,6 +444,9 @@ class Partitioning(lib._Weakrefable):
     @property
     def schema(self) -> lib.Schema: ...
 
+    @property
+    def dictionaries(self) -> list[Any]: ...
+
 
 class PartitioningFactory(lib._Weakrefable):
     @property
@@ -442,7 +455,7 @@ class PartitioningFactory(lib._Weakrefable):
 
 class KeyValuePartitioning(Partitioning):
     @property
-    def dictionaries(self) -> list[lib.Array | None]: ...
+    def dictionaries(self) -> list[Any]: ...
 
 
 class DirectoryPartitioning(KeyValuePartitioning):
@@ -511,7 +524,7 @@ class DatasetFactory(lib._Weakrefable):
         self,
         *,
         promote_options: str = "default",
-        fragments: list[Fragment] | None = None,
+        fragments: list[Fragment] | int | str | None = None,
     ) -> lib.Schema: ...
 
     def inspect_schemas(self) -> list[lib.Schema]: ...
@@ -606,7 +619,7 @@ class Scanner(lib._Weakrefable):
 
     @staticmethod
     def from_batches(
-        source: Iterator[lib.RecordBatch] | RecordBatchReader,
+        source: Iterator[lib.RecordBatch] | RecordBatchReader | Any,
         *,
         schema: lib.Schema | None = None,
         columns: list[str] | dict[str, Expression] | None = None,
