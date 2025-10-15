@@ -491,7 +491,7 @@ set(ARROW_UTIL_SRCS
     util/bitmap_ops.cc
     util/bpacking.cc
     util/bpacking_scalar.cc
-    util/bpacking_simd_min.cc
+    util/bpacking_simd_default.cc
     util/byte_size.cc
     util/byte_stream_split_internal.cc
     util/cancel.cc
