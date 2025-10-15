@@ -17,7 +17,7 @@
   under the License.
 -->
 
-# arrow 21.0.0.9000
+# arrow 22.0.0
 
 ## New features
 
