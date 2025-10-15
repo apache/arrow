@@ -71,6 +71,9 @@ class DataType(_Weakrefable):
 
     @property
     def num_buffers(self) -> int: ...
+    
+    @property
+    def has_variadic_buffers(self) -> bool: ...
 
     def __hash__(self) -> int: ...
 
@@ -508,16 +511,16 @@ def unregister_extension_type(type_name: str) -> None: ...
 
 class KeyValueMetadata(_Metadata, Mapping[bytes, bytes]):
 
-    def __init__(self, __arg0__: Mapping[str | bytes, str | bytes]
-                 | None = None, **kwargs) -> None: ...
+    def __init__(self, __arg0__: Mapping[str | bytes, str | bytes] | Iterable[tuple[str, str]] | KeyValueMetadata
+                 | None = None, **kwargs: str | int) -> None: ...
 
     def equals(self, other: KeyValueMetadata) -> bool: ...
 
     def __len__(self) -> int: ...
 
-    def __contains__(self, *, __key: object) -> bool: ...  # type: ignore[override]
+    def __contains__(self, __key: object) -> bool: ...  # type: ignore[override]
 
-    def __getitem__(self, *, __key: Any) -> Any: ...  # type: ignore[override]
+    def __getitem__(self, __key: Any) -> Any: ...  # type: ignore[override]
 
     def __iter__(self) -> Iterator[bytes]: ...
 
@@ -543,11 +546,12 @@ class Field(_Weakrefable, Generic[_DataTypeT]):
 
     @property
     def type(self) -> _DataTypeT: ...
-    def with_metadata(self, metadata: dict[bytes | str, bytes | str]) -> Self: ...
+    def with_metadata(self, metadata: dict[bytes | str, bytes | str] |
+                      Mapping[bytes | str, bytes | str] | Any) -> Self: ...
 
     def remove_metadata(self) -> Self: ...
 
-    def with_type(self, new_type: _DataTypeT) -> Field[_DataTypeT]: ...
+    def with_type(self, new_type: DataType) -> Field: ...
 
     def with_name(self, name: str) -> Self: ...
 
@@ -649,7 +653,7 @@ def unify_schemas(
 ) -> Schema: ...
 
 
-def field(name: SupportArrowSchema | str, type: _DataTypeT | str, nullable: bool = ...,
+def field(name: SupportArrowSchema | str | Any, type: _DataTypeT | str | None = None, nullable: bool = ...,
           metadata: dict[Any, Any] | None = None) -> Field[_DataTypeT] | Field[Any]: ...
 
 
@@ -683,16 +687,16 @@ def int64() -> Int64Type: ...
 def uint64() -> UInt64Type: ...
 
 
-def timestamp(unit: _Unit, tz: _Tz | None = None) -> TimestampType[_Unit, _Tz]: ...
+def timestamp(unit: _Unit | str, tz: _Tz | None = None) -> TimestampType[_Unit, _Tz]: ...
 
 
-def time32(unit: _Time32Unit) -> Time32Type[_Time32Unit]: ...
+def time32(unit: _Time32Unit | str) -> Time32Type[_Time32Unit]: ...
 
 
-def time64(unit: _Time64Unit) -> Time64Type[_Time64Unit]: ...
+def time64(unit: _Time64Unit | str) -> Time64Type[_Time64Unit]: ...
 
 
-def duration(unit: _Unit) -> DurationType[_Unit]: ...
+def duration(unit: _Unit | str) -> DurationType[_Unit]: ...
 
 
 def month_day_nano_interval() -> MonthDayNanoIntervalType: ...
@@ -754,37 +758,39 @@ def string_view() -> StringViewType: ...
 
 
 def list_(
-    value_type: _DataTypeT | Field[_DataTypeT],
+    value_type: _DataTypeT | Field[_DataTypeT] | None = None,
     list_size: Literal[-1] | _Size | None = None
 ) -> ListType[_DataTypeT] | FixedSizeListType[_DataTypeT, _Size]: ...
 
 
 def large_list(value_type: _DataTypeT |
-               Field[_DataTypeT]) -> LargeListType[_DataTypeT]: ...
+               Field[_DataTypeT] | None = None) -> LargeListType[_DataTypeT]: ...
 
 
 def list_view(value_type: _DataTypeT |
-              Field[_DataTypeT]) -> ListViewType[_DataTypeT]: ...
+              Field[_DataTypeT] | None = None) -> ListViewType[_DataTypeT]: ...
 
 
 def large_list_view(
-    value_type: _DataTypeT | Field[_DataTypeT],
+    value_type: _DataTypeT | Field[_DataTypeT] | None = None
 ) -> LargeListViewType[_DataTypeT]: ...
 
 
 def map_(
-    key_type: _K | Field | str, item_type: _ValueT | str, key_sorted: _Ordered | None = None
-) -> MapType[_K, _ValueT, _Ordered]: ...
+    key_type: _K | Field | str | None = None, 
+    item_type: _ValueT | Field | str | None = None, 
+    keys_sorted: bool | None = None
+) -> MapType[_K, _ValueT, Literal[False]]: ...
 
 
 def dictionary(
-    index_type: _IndexT, value_type: _BasicValueT, ordered: _Ordered | None = None
+    index_type: _IndexT | str, value_type: _BasicValueT | str, ordered: _Ordered | None = None
 ) -> DictionaryType[_IndexT, _BasicValueT, _Ordered]: ...
 
 
 def struct(
-    fields: Iterable[Field[Any] | tuple[str, Field[Any]] | tuple[str, DataType]]
-    | Mapping[str, Field[Any] | DataType],
+    fields: Iterable[Field[Any] | tuple[str, Field[Any] | None] | tuple[str, DataType | None]]
+    | Mapping[str, Field[Any] | DataType | None],
 ) -> StructType: ...
 
 
@@ -799,12 +805,12 @@ def dense_union(
 
 
 def union(child_fields: list[Field[Any]],
-          mode: Literal["sparse"] | Literal["dense"] | int,  # noqa: Y030
+          mode: Literal["sparse"] | Literal["dense"] | int | str,  # noqa: Y030
           type_codes: list[int] | None = None) -> SparseUnionType | DenseUnionType: ...
 
 
 def run_end_encoded(
-    run_end_type: _RunEndType, value_type: _BasicValueT
+    run_end_type: _RunEndType | str | None, value_type: _BasicValueT | str | None
 ) -> RunEndEncodedType[_RunEndType, _BasicValueT]: ...
 
 
