@@ -221,7 +221,7 @@ class TestUnpack : public ::testing::TestWithParam<int> {
 INSTANTIATE_TEST_SUITE_P(UnpackMultiplesOf64Values, TestUnpack,
                          ::testing::Values(64, 128, 2048),
                          [](const ::testing::TestParamInfo<TestUnpack::ParamType>& info) {
-                           return "Count" + std::to_string(info.param);
+                           return "Length" + std::to_string(info.param);
                          });
 
 TEST_P(TestUnpack, UnpackBoolScalar) { this->TestAll(&unpack_scalar<bool>); }
