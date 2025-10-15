@@ -25,6 +25,7 @@ else:
 import numpy as np
 
 from pyarrow.lib import _Weakrefable
+from pyarrow._types import DataType
 from scipy.sparse import coo_matrix, csr_matrix
 from sparse import COO  # type: ignore[import-untyped, import-not-found]
 
@@ -61,6 +62,9 @@ class Tensor(_Weakrefable):
 
     @property
     def strides(self) -> tuple[int, ...]: ...
+
+    @property
+    def type(self) -> DataType: ...
 
 
 class SparseCOOTensor(_Weakrefable):

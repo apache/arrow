@@ -305,6 +305,7 @@ from pyarrow.lib import (
     Table,
     table,
     concat_arrays,
+    concat_batches,
     concat_tables,
     TableGroupBy,
     RecordBatchReader,
@@ -330,6 +331,14 @@ import pyarrow.ipc as ipc
 import pyarrow.lib as lib
 
 import pyarrow.types as types
+
+import pyarrow.feather as feather
+
+import pyarrow.compute as compute
+import pyarrow.csv as csv
+import pyarrow.json as json
+
+import pyarrow.dataset as dataset
 
 # ----------------------------------------------------------------------
 # Deprecations
@@ -646,6 +655,7 @@ __all__ = [
     "Table",
     "table",
     "concat_arrays",
+    "concat_batches",
     "concat_tables",
     "TableGroupBy",
     "RecordBatchReader",
@@ -676,9 +686,17 @@ __all__ = [
     "RecordBatchStreamWriter",
     "get_include",
     "_get_pkg_config_executable",
+    "compute",
+    "feather",
+
+    "csv",
+    "json",
+
     "_has_pkg_config",
     "_read_pkg_config_variable",
     "get_libraries",
     "create_library_symlinks",
+    "dataset",
+
     "get_library_dirs",
 ]
