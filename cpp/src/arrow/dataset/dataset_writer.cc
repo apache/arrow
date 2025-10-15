@@ -383,11 +383,8 @@ class DatasetWriterDirectoryQueue
     }
     init_future_ = Future<>::Make();
     auto create_dir_cb = [this] {
-      return DeferNotOk(
-          write_options_.filesystem->io_context().executor()->Submit([this]() {
-            return write_options_.filesystem->CreateDir(directory_,
-                                                        write_options_.create_dir);
-          }));
+      return DeferNotOk(write_options_.filesystem->io_context().executor()->Submit(
+          [this]() { return write_options_.filesystem->CreateDir(directory_); }));
     };
     // We need to notify waiters whether the directory succeeded or failed.
     auto notify_waiters_cb = [this] { init_future_.MarkFinished(); };
