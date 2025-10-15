@@ -649,7 +649,7 @@ def unify_schemas(
 ) -> Schema: ...
 
 
-def field(name: SupportArrowSchema | str, type: _DataTypeT, nullable: bool = ...,
+def field(name: SupportArrowSchema | str, type: _DataTypeT | str, nullable: bool = ...,
           metadata: dict[Any, Any] | None = None) -> Field[_DataTypeT] | Field[Any]: ...
 
 
@@ -773,7 +773,7 @@ def large_list_view(
 
 
 def map_(
-    key_type: _K, item_type: _ValueT, key_sorted: _Ordered | None = None
+    key_type: _K | Field | str, item_type: _ValueT | str, key_sorted: _Ordered | None = None
 ) -> MapType[_K, _ValueT, _Ordered]: ...
 
 
@@ -799,7 +799,7 @@ def dense_union(
 
 
 def union(child_fields: list[Field[Any]],
-          mode: Literal["sparse"] | Literal["dense"],  # noqa: Y030
+          mode: Literal["sparse"] | Literal["dense"] | int,  # noqa: Y030
           type_codes: list[int] | None = None) -> SparseUnionType | DenseUnionType: ...
 
 
