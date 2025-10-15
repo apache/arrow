@@ -35,6 +35,7 @@ from ._dataset import (
 from ._dataset_parquet_encryption import ParquetDecryptionConfig
 from ._fs import SupportedFileSystem
 from ._parquet import FileDecryptionProperties, FileMetaData
+from ._types import DataType, LargeListType, ListType
 from .lib import CacheOptions, Schema, _Weakrefable
 
 parquet_encryption_enabled: bool
@@ -114,13 +115,32 @@ class ParquetReadOptions(_Weakrefable):
 
     def __init__(
         self,
-        dictionary_columns: list[str] | None,
-        coerce_int96_timestamp_unit: str | None = None) -> None: ...
+        dictionary_columns: list[str] | set[str] | None = None,
+        coerce_int96_timestamp_unit: str | None = None,
+        binary_type: DataType | None = None,
+        list_type: type[ListType] | type[LargeListType] | None = None,
+    ) -> None: ...
+
+    @property
+    def dictionary_columns(self) -> set[str]: ...
+    @dictionary_columns.setter
+    def dictionary_columns(self, columns: list[str] | set[str]) -> None: ...
 
     @property
     def coerce_int96_timestamp_unit(self) -> str: ...
     @coerce_int96_timestamp_unit.setter
     def coerce_int96_timestamp_unit(self, unit: str) -> None: ...
+
+    @property
+    def binary_type(self) -> DataType: ...
+    @binary_type.setter
+    def binary_type(self, type: DataType | None) -> None: ...
+
+    @property
+    def list_type(self) -> type[ListType] | type[LargeListType]: ...
+    @list_type.setter
+    def list_type(self, type: type[ListType] | type[LargeListType] | None) -> None: ...
+
     def equals(self, other: ParquetReadOptions) -> bool: ...
 
 
