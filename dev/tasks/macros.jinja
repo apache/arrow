@@ -244,7 +244,7 @@ env:
     uses: actions/download-artifact@v4
     with:
       name: r-libarrow-windows-x86_64
-      path: repo/libarrow
+      path: repo
   {% endif %}
   {% if get_nix %}
     {% for openssl_version in ["1.0", "1.1", "3.0"] %}
@@ -252,7 +252,7 @@ env:
     uses: actions/download-artifact@v4
     with:
       name: r-libarrow-linux-x86_64-openssl-{{ openssl_version }}
-      path: repo/libarrow
+      path: repo
     {% endfor %}
   {% endif %}
   {% if get_mac %}
@@ -262,7 +262,7 @@ env:
     uses: actions/download-artifact@v4
     with:
       name: r-libarrow-darwin-{{ arch }}-openssl-{{ openssl_version }}
-      path: repo/libarrow
+      path: repo
       {% endfor %}
     {% endfor %}
   {% endif %}
@@ -285,7 +285,7 @@ env:
     shell: Rscript {0}
     run: |
       profile_path <- file.path(getwd(), ".Rprofile")
-      repo <- paste0("file://", getwd(), "/repo")
+      repo <- paste0("file://", getwd(), "/repo/")
       str <- paste0("options(arrow.repo = '", repo, "' )")
       print(str)
       write(str, file = profile_path, append = TRUE)

@@ -257,7 +257,7 @@ jobs:
           LIBARROW_BINARY: "true" # has to be set as long as allowlist not updated
           LIBARROW_BUILD: "false"
           ARROW_R_ENFORCE_CHECKSUM: "true"
-          ARROW_R_CHECKSUM_PATH: "{{ '${{ github.workspace }}' }}/repo/libarrow"
+          ARROW_R_CHECKSUM_PATH: "{{ '${{ github.workspace }}' }}/repo"
         run: |
           on_windows <- tolower(Sys.info()[["sysname"]]) == "windows"
 
@@ -346,7 +346,7 @@ jobs:
           LIBARROW_BUILD: "FALSE"
           LIBARROW_BINARY: {{ '${{ matrix.config.libarrow_binary }}' }}
           ARROW_R_ENFORCE_CHECKSUM: "true"
-          ARROW_R_CHECKSUM_PATH: "{{ '${{ github.workspace }}' }}/repo/libarrow"
+          ARROW_R_CHECKSUM_PATH: "{{ '${{ github.workspace }}' }}/repo"
         shell: bash
         run: |
           Rscript -e '
