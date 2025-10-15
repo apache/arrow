@@ -49,6 +49,7 @@ add_arrow_test(utility-test
                SOURCES
                align_util_test.cc
                atfork_test.cc
+               bitmap_test.cc
                byte_size_test.cc
                byte_stream_split_test.cc
                cache_test.cc
