@@ -136,6 +136,9 @@ class ChunkedArray(_PandasConvertible[pd.Series], Generic[_Scalar_co]):
     @property
     def type(self: ChunkedArray[Scalar[_DataTypeT]]) -> _DataTypeT: ...
 
+    # Private attribute used internally for column names
+    _name: str | None
+
     def length(self) -> int: ...
 
     __len__ = length
@@ -161,10 +164,10 @@ class ChunkedArray(_PandasConvertible[pd.Series], Generic[_Scalar_co]):
     def get_total_buffer_size(self) -> int: ...
 
     def __sizeof__(self) -> int: ...
-    
+
     @overload
-    def __getitem__(self, key: int) -> _Scalar_co: ...
-    
+    def __getitem__(self, key: int | np.integer) -> _Scalar_co: ...
+
     @overload
     def __getitem__(self, key: builtins.slice) -> Self: ...
 
@@ -175,9 +178,13 @@ class ChunkedArray(_PandasConvertible[pd.Series], Generic[_Scalar_co]):
 
     def is_valid(self) -> ChunkedArray[BooleanScalar]: ...
 
+    def cast(self, target_type: _CastAs | str | None, safe: bool = True,
+             options: CastOptions | None = None,
+             memory_pool: MemoryPool | None = None) -> ChunkedArray[Scalar[_CastAs]]: ...
+
     def fill_null(self, fill_value: Scalar[_DataTypeT]) -> Self: ...
 
-    def equals(self, other: Self) -> bool: ...
+    def equals(self, other: Self | Any) -> bool: ...
 
     def to_numpy(self, zero_copy_only: bool = False) -> np.ndarray: ...
 
@@ -254,12 +261,24 @@ class ChunkedArray(_PandasConvertible[pd.Series], Generic[_Scalar_co]):
     def is_cpu(self) -> bool: ...
 
 
+@overload
 def chunked_array(
     arrays: Iterable[NullableCollection[Any]]
     | Iterable[Iterable[Any] | SupportArrowStream | SupportArrowArray]
     | Iterable[Array[_ScalarT]] | Array[_ScalarT],
     type: DataType | str | None = None,
 ) -> ChunkedArray[Scalar[Any]] | ChunkedArray[_ScalarT]: ...
+
+@overload
+def chunked_array(
+    arrays: SupportArrowArray | SupportArrowStream,
+    type: DataType | str | None = None,
+) -> ChunkedArray[Scalar[Any]]: ...
+
+def chunked_array(
+    arrays: Any,
+    type: DataType | str | None = None,
+) -> ChunkedArray[Scalar[Any]] | ChunkedArray[Any]: ...
 
 
 _ColumnT = TypeVar("_ColumnT", bound=ArrayOrChunkedArray[Any])
@@ -275,7 +294,7 @@ class _Tabular(_PandasConvertible[pd.DataFrame], Generic[_ColumnT]):
 
     @overload
     def __getitem__(self, key: int | str) -> _ColumnT: ...
-    
+
     @overload
     def __getitem__(self, key: slice) -> Self: ...
 
@@ -293,9 +312,27 @@ class _Tabular(_PandasConvertible[pd.DataFrame], Generic[_ColumnT]):
     def field(self, i: int | str) -> Field: ...
 
     @classmethod
+    @overload
     def from_pydict(
         cls,
-        mapping: Mapping[str, ArrayOrChunkedArray[Any] | list[Any] | np.ndarray],
+        mapping: Mapping[str, ArrayOrChunkedArray[Any] | list[Any] | np.ndarray | range],
+        schema: Schema | None = None,
+        metadata: Mapping[str | bytes, str | bytes] | None = None,
+    ) -> Self: ...
+
+    @classmethod
+    @overload
+    def from_pydict(
+        cls,
+        mapping: Mapping[Any, ArrayOrChunkedArray[Any] | list[Any] | np.ndarray | range],
+        schema: Schema | None = None,
+        metadata: Mapping[str | bytes, str | bytes] | None = None,
+    ) -> Self: ...
+
+    @classmethod
+    def from_pydict(
+        cls,
+        mapping: Mapping[Any, Any],
         schema: Schema | None = None,
         metadata: Mapping[str | bytes, str | bytes] | None = None,
     ) -> Self: ...
@@ -390,7 +427,7 @@ class RecordBatch(_Tabular[Array]):
 
     def slice(self, offset: int = 0, length: int | None = None) -> Self: ...
 
-    def equals(self, other: Self, check_metadata: bool = False) -> bool: ...
+    def equals(self, other: Self | Any, check_metadata: bool = False) -> bool: ...
 
     def select(self, columns: Iterable[str] |
                Iterable[int] | NDArray[np.str_]) -> Self: ...
@@ -402,7 +439,7 @@ class RecordBatch(_Tabular[Array]):
     def from_arrays(
         cls,
         arrays: Iterable[Any],
-        names: list[str] | None = None,
+        names: list[str] | tuple[str, ...] | None = None,
         schema: Schema | None = None,
         metadata: Mapping[str | bytes, str | bytes] | None = None,
     ) -> Self: ...
@@ -496,7 +533,7 @@ class Table(_Tabular[ChunkedArray[Any]]):
 
     def unify_dictionaries(self, memory_pool: MemoryPool | None = None) -> Self: ...
 
-    def equals(self, other: Self, check_metadata: bool = False) -> Self: ...
+    def equals(self, other: Self | Any, check_metadata: bool = False) -> bool: ...
 
     def cast(self, target_schema: Schema, safe: bool | None = None,
              options: CastOptions | None = None) -> Self: ...
@@ -515,8 +552,8 @@ class Table(_Tabular[ChunkedArray[Any]]):
     @classmethod
     def from_arrays(
         cls,
-        arrays: Collection[ArrayOrChunkedArray[Any]],
-        names: list[str] | None = None,
+        arrays: Collection[ArrayOrChunkedArray[Any] | list[Any]],
+        names: list[str] | tuple[str, ...] | None = None,
         schema: Schema | None = None,
         metadata: Mapping[str | bytes, str | bytes] | None = None,
     ) -> Self: ...
@@ -599,7 +636,7 @@ class Table(_Tabular[ChunkedArray[Any]]):
 
 def record_batch(
     data: Mapping[str, list[Any] | Array[Any]]
-    | Collection[Array[Any] | ChunkedArray[Any]]
+    | Collection[Array[Any] | ChunkedArray[Any] | list[Any]]
     | pd.DataFrame
     | SupportArrowArray
     | SupportArrowDeviceArray,
@@ -609,14 +646,40 @@ def record_batch(
 ) -> RecordBatch: ...
 
 
+@overload
 def table(
-    data: Mapping[str, list[Any] | Array[Any] | ChunkedArray[Any]]
-    | Collection[ArrayOrChunkedArray[Any]]
+    data: Mapping[str, list[Any] | Array[Any] | ChunkedArray[Any] | range] | Mapping[str, Any],
+    names: list[str] | Schema | None = None,
+    schema: Schema | None = None,
+    metadata: Mapping[str | bytes, str | bytes] | None = None,
+    nthreads: int | None = None,
+) -> Table: ...
+
+@overload
+def table(
+    data: Mapping[Any, list[Any] | Array[Any] | ChunkedArray[Any] | range],
+    names: list[str] | Schema | None = None,
+    schema: Schema | None = None,
+    metadata: Mapping[str | bytes, str | bytes] | None = None,
+    nthreads: int | None = None,
+) -> Table: ...
+
+@overload
+def table(
+    data: Collection[ArrayOrChunkedArray[Any] | list[Any] | range | str]
     | pd.DataFrame
     | SupportArrowArray
     | SupportArrowStream
     | SupportArrowDeviceArray,
-    names: list[str] | None = None,
+    names: list[str] | Schema | None = None,
+    schema: Schema | None = None,
+    metadata: Mapping[str | bytes, str | bytes] | None = None,
+    nthreads: int | None = None,
+) -> Table: ...
+
+def table(
+    data: Any,
+    names: list[str] | Schema | None = None,
     schema: Schema | None = None,
     metadata: Mapping[str | bytes, str | bytes] | None = None,
     nthreads: int | None = None,

@@ -91,6 +91,10 @@ from pyarrow._compute import register_aggregate_function as register_aggregate_f
 from pyarrow._compute import register_vector_function as register_vector_function
 from pyarrow._compute import register_tabular_function as register_tabular_function
 
+from pyarrow._compute import cast as cast
+from pyarrow._compute import take as take
+from pyarrow._compute import sort_indices as sort_indices
+
 # Function and Kernel classes
 from pyarrow._compute import Function as Function
 from pyarrow._compute import Kernel as Kernel
@@ -114,7 +118,15 @@ _P = ParamSpec("_P")
 _R = TypeVar("_R")
 
 
+class _ExprComparable(Expression):
+    def __ge__(self, other: Any) -> Expression: ...
+    def __le__(self, other: Any) -> Expression: ...
+    def __gt__(self, other: Any) -> Expression: ...
+    def __lt__(self, other: Any) -> Expression: ...
+
 def field(*name_or_index: str | tuple[str, ...] | int) -> Expression: ...
+def __ge__(self, other: Any) -> Expression: ...
+
 
 
 def scalar(value: Any) -> Expression: ...
@@ -218,6 +230,15 @@ _ListArray: TypeAlias = ArrayOrChunkedArray[_ListScalar[_DataTypeT]]
 _LargeListArray: TypeAlias = ArrayOrChunkedArray[_LargeListScalar[_DataTypeT]]
 ListArray: TypeAlias = ArrayOrChunkedArray[ListScalar[_DataTypeT]]
 # =============================== 1. Aggregation ===============================
+def array_take(
+    array: lib.Array | lib.ChunkedArray | lib.Scalar | lib.Table,
+    indices: Any,
+    *,
+    boundscheck: bool | None = None,
+    options: TakeOptions | None = None,
+) -> Any: ...
+
+
 
 # ========================= 1.1 functions =========================
 
