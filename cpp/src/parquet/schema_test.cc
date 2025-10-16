@@ -2358,7 +2358,7 @@ TEST(TestLogicalTypeSerialization, Roundtrips) {
 
 TEST(TestLogicalTypeSerialization, VariantSpecificationVersion) {
   // Confirm that Variant logical type sets specification_version to 1 in thrift serialization
-   auto metadata = PrimitiveNode::Make("metadata", Repetition::REQUIRED, Type::BYTE_ARRAY);
+  auto metadata = PrimitiveNode::Make("metadata", Repetition::REQUIRED, Type::BYTE_ARRAY);
   auto value = PrimitiveNode::Make("value", Repetition::REQUIRED, Type::BYTE_ARRAY);
   NodePtr variant_node = GroupNode::Make("variant", Repetition::REQUIRED, {metadata, value},
                                          LogicalType::Variant());
@@ -2368,17 +2368,12 @@ TEST(TestLogicalTypeSerialization, VariantSpecificationVersion) {
 
   // Verify that logicalType is set and is VARIANT
   ASSERT_EQ(elements[0].name, "variant");
-  ASSERT_TRUE(elements[0].__isset.logicalType)
-      << "Variant logical type failed to generate a logicalType in thrift";
-  ASSERT_TRUE(elements[0].logicalType.__isset.VARIANT)
-      << "Variant logical type did not set VARIANT field in thrift";
+  ASSERT_TRUE(elements[0].__isset.logicalType);
+  ASSERT_TRUE(elements[0].logicalType.__isset.VARIANT);
 
   // Verify that specification_version is set to 1
-  ASSERT_TRUE(elements[0].logicalType.VARIANT.__isset.specification_version)
-      << "VariantType specification_version field is not set";
-  ASSERT_EQ(elements[0].logicalType.VARIANT.specification_version, 1)
-      << "VariantType specification_version should be 1, got: "
-      << static_cast<int>(elements[0].logicalType.VARIANT.specification_version);
+  ASSERT_TRUE(elements[0].logicalType.VARIANT.__isset.specification_version);
+  ASSERT_EQ(elements[0].logicalType.VARIANT.specification_version, 1);
 }
 
 }  // namespace schema
