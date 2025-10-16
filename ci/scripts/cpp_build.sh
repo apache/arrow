@@ -145,7 +145,6 @@ if [ "${ARROW_USE_MESON:-OFF}" = "ON" ]; then
     --pkg-config-path="${CONDA_PREFIX}/lib/pkgconfig/" \
     -Dauto_features=enabled \
     -Dfuzzing=disabled \
-    -Dgcs=disabled \
     -Ds3=disabled \
     . \
     ${source_dir}
