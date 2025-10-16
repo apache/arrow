@@ -735,6 +735,15 @@ bool ODBCStatement::GetData(SQLSMALLINT record_number, SQLSMALLINT c_type,
                                   data_ptr, buffer_length, indicator_ptr);
 }
 
+SQLRETURN ODBCStatement::GetMoreResults() {
+  // Multiple result sets are not supported.
+  if (current_result_) {
+    return SQL_NO_DATA;
+  } else {
+    throw DriverException("Function sequence error", "HY010");
+  }
+}
+
 void ODBCStatement::ReleaseStatement() {
   CloseCursor(true);
   connection_.DropStatement(this);
