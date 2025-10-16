@@ -256,6 +256,8 @@ if __name__ == "__main__":
     gen.print_structs()
     print()
 
+    # Enable "smart_halve" because we want to decode 32 values at a time,
+    # which is half the (uint64_t) word size.
     gen = ScalarUnpackGenerator("uint64_t", smart_halve=True)
     gen.print_structs()
 
