@@ -81,6 +81,11 @@ class ODBCStatement : public ODBCHandle<ODBCStatement> {
                SQLLEN buffer_length, SQLLEN* indicator_ptr);
 
   /**
+   * @brief Get number of rows affected by an UPDATE, INSERT, or DELETE statement
+   */
+  void GetRowCount(SQLLEN* row_count_ptr);
+
+  /**
    * @brief Closes the cursor. This does _not_ un-prepare the statement or change
    * bindings.
    */

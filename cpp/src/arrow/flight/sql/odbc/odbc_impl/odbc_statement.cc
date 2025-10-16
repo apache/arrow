@@ -735,6 +735,16 @@ bool ODBCStatement::GetData(SQLSMALLINT record_number, SQLSMALLINT c_type,
                                   data_ptr, buffer_length, indicator_ptr);
 }
 
+void ODBCStatement::GetRowCount(SQLLEN* row_count_ptr) {
+  if (!row_count_ptr) {
+    // row_count_ptr is not valid, do nothing as ODBC spec does not mention this as an
+    // error
+    return;
+  }
+  // Will always be -1 (number of rows unknown) if only SELECT is supported
+  *row_count_ptr = -1;
+}
+
 void ODBCStatement::ReleaseStatement() {
   CloseCursor(true);
   connection_.DropStatement(this);
