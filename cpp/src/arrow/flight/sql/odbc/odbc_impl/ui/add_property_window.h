@@ -69,7 +69,7 @@ class AddPropertyWindow : public CustomWindow {
    *
    * @return true if the dialog was OK'd, false otherwise.
    */
-  bool GetProperty(std::string& key, std::string& value);
+  bool GetProperty(std::wstring& key, std::wstring& value);
 
  private:
   /**
@@ -96,9 +96,9 @@ class AddPropertyWindow : public CustomWindow {
 
   std::unique_ptr<Window> value_edit_;
 
-  std::string key_;
+  std::wstring key_;
 
-  std::string value_;
+  std::wstring value_;
 
   /** Window width. */
   int width_;

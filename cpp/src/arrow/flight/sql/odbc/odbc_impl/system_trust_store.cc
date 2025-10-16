@@ -15,6 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include "arrow/result.h"
+#include "arrow/util/utf8.h"
+
 #include "arrow/flight/sql/odbc/odbc_impl/system_trust_store.h"
 
 #if defined _WIN32 || defined _WIN64
@@ -28,13 +31,13 @@ bool SystemTrustStore::HasNext() {
 
 std::string SystemTrustStore::GetNext() const {
   DWORD size = 0;
-  CryptBinaryToString(p_context_->pbCertEncoded, p_context_->cbCertEncoded,
-                      CRYPT_STRING_BASE64HEADER, nullptr, &size);
+  CryptBinaryToStringA(p_context_->pbCertEncoded, p_context_->cbCertEncoded,
+                       CRYPT_STRING_BASE64HEADER, nullptr, &size);
 
   std::string cert;
   cert.resize(size);
-  CryptBinaryToString(p_context_->pbCertEncoded, p_context_->cbCertEncoded,
-                      CRYPT_STRING_BASE64HEADER, &cert[0], &size);
+  CryptBinaryToStringA(p_context_->pbCertEncoded, p_context_->cbCertEncoded,
+                       CRYPT_STRING_BASE64HEADER, &cert[0], &size);
   cert.resize(size);
 
   return cert;
@@ -42,7 +45,7 @@ std::string SystemTrustStore::GetNext() const {
 
 bool SystemTrustStore::SystemHasStore() { return h_store_ != nullptr; }
 
-SystemTrustStore::SystemTrustStore(const char* store)
+SystemTrustStore::SystemTrustStore(const wchar_t* store)
     : stores_(store), h_store_(CertOpenSystemStore(NULL, store)), p_context_(nullptr) {}
 
 SystemTrustStore::~SystemTrustStore() {

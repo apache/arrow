@@ -71,7 +71,7 @@ namespace {
 
 #if _WIN32 || _WIN64
 constexpr auto SYSTEM_TRUST_STORE_DEFAULT = true;
-constexpr auto STORES = {"CA", "MY", "ROOT", "SPC"};
+constexpr auto STORES = {L"CA", L"MY", L"ROOT", L"SPC"};
 
 inline std::string GetCerts() {
   std::string certs;

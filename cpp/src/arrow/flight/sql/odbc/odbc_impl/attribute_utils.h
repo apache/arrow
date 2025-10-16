@@ -83,18 +83,21 @@ template <typename O>
 inline SQLRETURN GetAttributeSQLWCHAR(const std::string& attribute_value,
                                       bool is_length_in_bytes, SQLPOINTER output,
                                       O output_size, O* output_len_ptr) {
-  size_t result = ConvertToSqlWChar(
+  size_t length = ConvertToSqlWChar(
       attribute_value, reinterpret_cast<SQLWCHAR*>(output),
       is_length_in_bytes ? output_size : output_size * GetSqlWCharSize());
 
+  if (!is_length_in_bytes) {
+    length = length / GetSqlWCharSize();
+  }
+
   if (output_len_ptr) {
-    *output_len_ptr =
-        static_cast<O>(is_length_in_bytes ? result : result / GetSqlWCharSize());
+    *output_len_ptr = static_cast<O>(length);
   }
 
   if (output &&
       output_size <
-          static_cast<O>(result + (is_length_in_bytes ? GetSqlWCharSize() : 1))) {
+          static_cast<O>(length + (is_length_in_bytes ? GetSqlWCharSize() : 1))) {
     return SQL_SUCCESS_WITH_INFO;
   }
   return SQL_SUCCESS;
