@@ -336,7 +336,7 @@ def _ensure_minio_component_version(component, minimum_year):
                           stderr=subprocess.PIPE, encoding='utf-8') as proc:
         if proc.wait(10) != 0:
             return False
-        stdout = proc.stdout.read()
+        stdout = proc.stdout.read()  # type: ignore[reportOptionalMemberAccess]
         pattern = component + r' version RELEASE\.(\d+)-.*'
         version_match = re.search(pattern, stdout)
         if version_match:
@@ -367,8 +367,8 @@ def _run_mc_command(mcdir, *args):
         cmd_str = ' '.join(full_args)
         print(f'Cmd: {cmd_str}')
         print(f'  Return: {retval}')
-        print(f'  Stdout: {proc.stdout.read()}')
-        print(f'  Stderr: {proc.stderr.read()}')
+        print(f'  Stdout: {proc.stdout.read()}')  # type: ignore[reportOptionalMemberAccess]
+        print(f'  Stderr: {proc.stderr.read()}')  # type: ignore[reportOptionalMemberAccess]
         if retval != 0:
             raise ChildProcessError("Could not run mc")
 

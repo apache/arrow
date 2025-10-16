@@ -16,6 +16,7 @@
 # under the License.
 
 import sys
+from enum import IntEnum
 
 from typing import Any
 
@@ -218,3 +219,9 @@ __all__ = [
     "is_union",
     "is_unsigned_integer",
 ]
+
+
+class TypesEnum(IntEnum):
+    INTERVAL_MONTHS = 0
+    INTERVAL_DAY_TIME = 1
+    INTERVAL_MONTH_DAY_NANO = 2
