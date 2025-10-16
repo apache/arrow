@@ -233,7 +233,7 @@ def test_named_table(use_threads):
     """
 
     buf = pa._substrait._parse_json_plan(tobytes(substrait_query))
-    reader = pa.substrait.run_query(
+    reader = substrait.run_query(
         buf, table_provider=table_provider, use_threads=use_threads)
     res_tb = reader.read_all()
     assert res_tb == test_table_1
@@ -437,7 +437,7 @@ def test_udf_via_substrait(unary_func_fixture, use_threads):
     """
 
     buf = pa._substrait._parse_json_plan(substrait_query)
-    reader = pa.substrait.run_query(
+    reader = substrait.run_query(
         buf, table_provider=table_provider, use_threads=use_threads)
     res_tb = reader.read_all()
 
@@ -561,7 +561,7 @@ def test_udf_via_substrait_wrong_udf_name():
 
     buf = pa._substrait._parse_json_plan(substrait_query)
     with pytest.raises(pa.ArrowKeyError) as excinfo:
-        pa.substrait.run_query(buf, table_provider=table_provider)
+        substrait.run_query(buf, table_provider=table_provider)
     assert "No function registered" in str(excinfo.value)
 
 
@@ -599,7 +599,7 @@ def test_output_field_names(use_threads):
     """
 
     buf = pa._substrait._parse_json_plan(tobytes(substrait_query))
-    reader = pa.substrait.run_query(
+    reader = substrait.run_query(
         buf, table_provider=table_provider, use_threads=use_threads)
     res_tb = reader.read_all()
 
@@ -745,7 +745,7 @@ def test_scalar_aggregate_udf_basic(varargs_agg_func_fixture):
 }
 """
     buf = pa._substrait._parse_json_plan(substrait_query)
-    reader = pa.substrait.run_query(
+    reader = substrait.run_query(
         buf, table_provider=table_provider, use_threads=False)
     res_tb = reader.read_all()
 
@@ -914,7 +914,7 @@ def test_hash_aggregate_udf_basic(varargs_agg_func_fixture):
 }
 """
     buf = pa._substrait._parse_json_plan(substrait_query)
-    reader = pa.substrait.run_query(
+    reader = substrait.run_query(
         buf, table_provider=table_provider, use_threads=False)
     res_tb = reader.read_all()
 
@@ -939,8 +939,8 @@ def test_serializing_expressions(expr):
         pa.field("y", pa.int32())
     ])
 
-    buf = pa.substrait.serialize_expressions([expr], ["test_expr"], schema)
-    returned = pa.substrait.deserialize_expressions(buf)
+    buf = substrait.serialize_expressions([expr], ["test_expr"], schema)
+    returned = substrait.deserialize_expressions(buf)
     assert schema == returned.schema
     assert len(returned.expressions) == 1
     assert "test_expr" in returned.expressions
@@ -958,8 +958,8 @@ def test_arrow_specific_types():
     schema = pa.schema([pa.field(name, typ) for name, (typ, _) in fields.items()])
 
     def check_round_trip(expr):
-        buf = pa.substrait.serialize_expressions([expr], ["test_expr"], schema)
-        returned = pa.substrait.deserialize_expressions(buf)
+        buf = substrait.serialize_expressions([expr], ["test_expr"], schema)
+        returned = substrait.deserialize_expressions(buf)
         assert schema == returned.schema
 
     for name, (typ, val) in fields.items():
@@ -986,8 +986,8 @@ def test_arrow_one_way_types():
 
     def check_one_way(field):
         expr = pc.is_null(pc.field(field.name))
-        buf = pa.substrait.serialize_expressions([expr], ["test_expr"], schema)
-        returned = pa.substrait.deserialize_expressions(buf)
+        buf = substrait.serialize_expressions([expr], ["test_expr"], schema)
+        returned = substrait.deserialize_expressions(buf)
         assert alt_schema == returned.schema
 
     for field in schema:
@@ -1003,14 +1003,14 @@ def test_invalid_expression_ser_des():
     bad_expr = pc.equal(pc.field("z"), 7)
     # Invalid number of names
     with pytest.raises(ValueError) as excinfo:
-        pa.substrait.serialize_expressions([expr], [], schema)
+        substrait.serialize_expressions([expr], [], schema)
     assert 'need to have the same length' in str(excinfo.value)
     with pytest.raises(ValueError) as excinfo:
-        pa.substrait.serialize_expressions([expr], ["foo", "bar"], schema)
+        substrait.serialize_expressions([expr], ["foo", "bar"], schema)
     assert 'need to have the same length' in str(excinfo.value)
     # Expression doesn't match schema
     with pytest.raises(ValueError) as excinfo:
-        pa.substrait.serialize_expressions([bad_expr], ["expr"], schema)
+        substrait.serialize_expressions([bad_expr], ["expr"], schema)
     assert 'No match for FieldRef' in str(excinfo.value)
 
 
@@ -1020,8 +1020,8 @@ def test_serializing_multiple_expressions():
         pa.field("y", pa.int32())
     ])
     exprs = [pc.equal(pc.field("x"), 7), pc.equal(pc.field("x"), pc.field("y"))]
-    buf = pa.substrait.serialize_expressions(exprs, ["first", "second"], schema)
-    returned = pa.substrait.deserialize_expressions(buf)
+    buf = substrait.serialize_expressions(exprs, ["first", "second"], schema)
+    returned = substrait.deserialize_expressions(buf)
     assert schema == returned.schema
     assert len(returned.expressions) == 2
 
@@ -1038,7 +1038,7 @@ def test_serializing_with_compute():
     expr = pc.equal(pc.field("x"), 7)
     expr_norm = pc.equal(pc.field(0), 7)
     buf = expr.to_substrait(schema)
-    returned = pa.substrait.deserialize_expressions(buf)
+    returned = substrait.deserialize_expressions(buf)
 
     assert schema == returned.schema
     assert len(returned.expressions) == 1
@@ -1046,13 +1046,13 @@ def test_serializing_with_compute():
     assert str(returned.expressions["expression"]) == str(expr_norm)
 
     # Compute can't deserialize messages with multiple expressions
-    buf = pa.substrait.serialize_expressions([expr, expr], ["first", "second"], schema)
+    buf = substrait.serialize_expressions([expr, expr], ["first", "second"], schema)
     with pytest.raises(ValueError) as excinfo:
         pc.Expression.from_substrait(buf)
     assert 'contained multiple expressions' in str(excinfo.value)
 
     # Deserialization should be possible regardless of the expression name
-    buf = pa.substrait.serialize_expressions([expr], ["weirdname"], schema)
+    buf = substrait.serialize_expressions([expr], ["weirdname"], schema)
     expr2 = pc.Expression.from_substrait(buf)
     assert str(expr2) == str(expr_norm)
 
@@ -1069,11 +1069,11 @@ def test_serializing_udfs():
     exprs = [pc.shift_left(a, b)]
 
     with pytest.raises(ArrowNotImplementedError):
-        pa.substrait.serialize_expressions(exprs, ["expr"], schema)
+        substrait.serialize_expressions(exprs, ["expr"], schema)
 
-    buf = pa.substrait.serialize_expressions(
+    buf = substrait.serialize_expressions(
         exprs, ["expr"], schema, allow_arrow_extensions=True)
-    returned = pa.substrait.deserialize_expressions(buf)
+    returned = substrait.deserialize_expressions(buf)
     assert schema == returned.schema
     assert len(returned.expressions) == 1
     assert str(returned.expressions["expr"]) == str(exprs[0])
@@ -1085,19 +1085,19 @@ def test_serializing_schema():
         pa.field("x", pa.int32()),
         pa.field("y", pa.string())
     ])
-    returned = pa.substrait.deserialize_schema(substrait_schema)
+    returned = substrait.deserialize_schema(substrait_schema)
     assert expected_schema == returned
 
-    arrow_substrait_schema = pa.substrait.serialize_schema(returned)
+    arrow_substrait_schema = substrait.serialize_schema(returned)
     assert arrow_substrait_schema.schema == substrait_schema
 
-    returned = pa.substrait.deserialize_schema(arrow_substrait_schema)
+    returned = substrait.deserialize_schema(arrow_substrait_schema)
     assert expected_schema == returned
 
-    returned = pa.substrait.deserialize_schema(arrow_substrait_schema.schema)
+    returned = substrait.deserialize_schema(arrow_substrait_schema.schema)
     assert expected_schema == returned
 
-    returned = pa.substrait.deserialize_expressions(arrow_substrait_schema.expression)
+    returned = substrait.deserialize_expressions(arrow_substrait_schema.expression)
     assert returned.schema == expected_schema
 
 
@@ -1114,7 +1114,7 @@ def test_bound_expression_from_Message():
                b'\x1a\x19\n\x06\x12\x04\n\x02\x12\x00\x1a\x0fproject_version'
                b'"0\n\x0fproject_version\n\x0fproject_release'
                b'\x12\x0c\n\x04:\x02\x10\x01\n\x04b\x02\x10\x01')
-    exprs = pa.substrait.BoundExpressions.from_substrait(FakeMessage(message))
+    exprs = substrait.BoundExpressions.from_substrait(FakeMessage(message))
     assert len(exprs.expressions) == 2
     assert 'project_release' in exprs.expressions
     assert 'project_version' in exprs.expressions

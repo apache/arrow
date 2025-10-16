@@ -216,7 +216,7 @@ class Array(_PandasConvertible[pd.Series], Generic[_Scalar_co]):
     def as_py(self) -> list[Any]: ...
 
     def diff(self, other: Self) -> str: ...
-    
+
     # Private attribute used internally (e.g., for column names in batches)
     _name: str | None
 
@@ -303,7 +303,7 @@ class Array(_PandasConvertible[pd.Series], Generic[_Scalar_co]):
 
     @overload
     def __getitem__(self, key: int) -> _Scalar_co: ...
-    
+
     @overload
     def __getitem__(self, key: builtins.slice) -> Self: ...
 
