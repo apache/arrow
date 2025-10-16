@@ -71,7 +71,7 @@ class DataType(_Weakrefable):
 
     @property
     def num_buffers(self) -> int: ...
-    
+
     @property
     def has_variadic_buffers(self) -> bool: ...
 
@@ -512,7 +512,7 @@ def unregister_extension_type(type_name: str) -> None: ...
 class KeyValueMetadata(_Metadata, Mapping[bytes, bytes]):
 
     def __init__(self, __arg0__: Mapping[str | bytes, str | bytes] | Iterable[tuple[str, str]] | KeyValueMetadata
-                 | None = None, **kwargs: str | int) -> None: ...
+                 | None = None, **kwargs: str) -> None: ...
 
     def equals(self, other: KeyValueMetadata) -> bool: ...
 
@@ -777,8 +777,8 @@ def large_list_view(
 
 
 def map_(
-    key_type: _K | Field | str | None = None, 
-    item_type: _ValueT | Field | str | None = None, 
+    key_type: _K | Field | str | None = None,
+    item_type: _ValueT | Field | str | None = None,
     keys_sorted: bool | None = None
 ) -> MapType[_K, _ValueT, Literal[False]]: ...
 
