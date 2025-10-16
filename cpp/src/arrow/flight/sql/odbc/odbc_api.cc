@@ -75,6 +75,10 @@ SQLRETURN SQLAllocHandle(SQLSMALLINT type, SQLHANDLE parent, SQLHANDLE* result) 
         std::shared_ptr<ODBCConnection> conn = environment->CreateConnection();
 
         if (conn) {
+          // Inside `CreateConnection`, the shared_ptr `conn` is kept
+          // in a `std::vector` of connections inside the environment handle.
+          // As long as the parent environment handle is alive, the connection shared_ptr
+          // will be kept alive unless the user frees the connection.
           *result = reinterpret_cast<SQLHDBC>(conn.get());
 
           return SQL_SUCCESS;
