@@ -75,6 +75,7 @@ needs_tests = get_option('tests').enabled()
 needs_acero = get_option('acero').enabled() or needs_dataset
 needs_compute = get_option('compute').enabled() or needs_acero
 needs_flight = get_option('flight').enabled()
+needs_gandiva = false
 needs_ipc = (get_option('ipc').enabled()
     or needs_tests
     or needs_acero
@@ -103,6 +104,7 @@ needs_brotli = get_option('brotli').enabled() or needs_fuzzing
 needs_bz2 = get_option('bz2').enabled()
 needs_lz4 = get_option('lz4').enabled()
 needs_snappy = get_option('snappy').enabled()
+needs_utf8proc = get_option('utf8proc').enabled() or needs_gandiva
 needs_zlib = get_option('zlib').enabled()
 needs_zstd = get_option('zstd').enabled()
 needs_utilities = get_option('utilities').enabled()
