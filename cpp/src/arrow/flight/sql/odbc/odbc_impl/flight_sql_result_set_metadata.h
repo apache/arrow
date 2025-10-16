@@ -77,7 +77,7 @@ class FlightSqlResultSetMetadata : public ResultSetMetadata {
 
   size_t GetOctetLength(int column_position) override;
 
-  std::string GetTypeName(int column_position) override;
+  std::string GetTypeName(int column_position, int data_type) override;
 
   Updatability GetUpdatable(int column_position) override;
 
@@ -87,6 +87,7 @@ class FlightSqlResultSetMetadata : public ResultSetMetadata {
 
   Searchability IsSearchable(int column_position) override;
 
+  /// \brief Returns true if the column is unsigned (not numeric)
   bool IsUnsigned(int column_position) override;
 
   bool IsFixedPrecScale(int column_position) override;
