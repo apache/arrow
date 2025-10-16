@@ -20,15 +20,10 @@
 #include "arrow/sparse_tensor.h"  // IWYU pragma: export
 
 #include <memory>
-#include <utility>
 
-namespace arrow {
-
-namespace internal {
+namespace arrow::internal {
 
 struct SparseTensorConverterMixin {
-  static bool IsNonZero(const uint8_t val) { return val != 0; }
-
   static void AssignIndex(uint8_t* indices, int64_t val, const int elsize);
 
   static int64_t GetIndexValue(const uint8_t* value_ptr, const int elsize);
@@ -65,17 +60,4 @@ Result<std::shared_ptr<Tensor>> MakeTensorFromSparseCSCMatrix(
 Result<std::shared_ptr<Tensor>> MakeTensorFromSparseCSFTensor(
     MemoryPool* pool, const SparseCSFTensor* sparse_tensor);
 
-template <typename Converter>
-struct ConverterVisitor {
-  explicit ConverterVisitor(Converter& converter) : converter(converter) {}
-
-  template <typename... Args>
-  Status operator()(Args&&... args) {
-    return converter.Convert(std::forward<Args>(args)...);
-  }
-
-  Converter& converter;
-};
-
-}  // namespace internal
-}  // namespace arrow
+}  // namespace arrow::internal

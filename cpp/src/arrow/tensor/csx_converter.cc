@@ -28,7 +28,7 @@
 #include "arrow/type.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging_internal.h"
-#include "arrow/util/sparse_tensor_util.h"
+#include "arrow/visit_type_inline.h"
 
 namespace arrow {
 
@@ -48,15 +48,9 @@ class SparseCSXMatrixConverter {
                            MemoryPool* pool)
       : axis_(axis), tensor_(tensor), index_value_type_(index_value_type), pool_(pool) {}
 
-  // Note: The same type is considered for both indices and indptr during
-  // tensor-to-CSX-tensor conversion.
-  template <typename ValueType, typename IndexType, typename IndexPointerType>
-  Status Convert(const ValueType&, const IndexType&, const IndexPointerType&) {
+  Status Convert() {
     RETURN_NOT_OK(::arrow::internal::CheckSparseIndexMaximumValue(index_value_type_,
                                                                   tensor_.shape()));
-    using ValueCType = typename ValueType::c_type;
-    using IndexCType = typename IndexType::c_type;
-
     const int index_elsize = index_value_type_->byte_width();
     const int value_elsize = tensor_.type()->byte_width();
 
@@ -81,37 +75,47 @@ class SparseCSXMatrixConverter {
                           AllocateBuffer(index_elsize * (n_major + 1), pool_));
     ARROW_ASSIGN_OR_RAISE(indices_buffer,
                           AllocateBuffer(index_elsize * nonzero_count, pool_));
-
-    auto* indptr = indptr_buffer->mutable_data_as<IndexCType>();
-    auto* values = values_buffer->mutable_data_as<ValueCType>();
-    auto* indices = indices_buffer->mutable_data_as<IndexCType>();
-
-    std::vector<int64_t> coords(2);
-    int64_t k = 0;
-    indptr[0] = 0;
-    ++indptr;
-    for (int64_t i = 0; i < n_major; ++i) {
-      for (int64_t j = 0; j < n_minor; ++j) {
-        if (axis_ == SparseMatrixCompressedAxis::ROW) {
-          coords = {i, j};
-        } else {
-          coords = {j, i};
-        }
-        auto value = tensor_.Value<ValueType>(coords);
-        if (is_not_zero<ValueType>(value)) {
-          *values++ = value;
-          *indices++ = static_cast<IndexCType>(j);
-          k++;
-        }
-      }
-      *indptr++ = static_cast<IndexCType>(k);
-    }
-
     std::vector<int64_t> indptr_shape({n_major + 1});
     std::shared_ptr<Tensor> indptr_tensor =
         std::make_shared<Tensor>(index_value_type_, indptr_buffer, indptr_shape);
-
     std::vector<int64_t> indices_shape({nonzero_count});
+    std::vector<int64_t> coords(2);
+    int64_t k = 0;
+    auto* indptr = indptr_buffer->mutable_data();
+    auto* indices = indices_buffer->mutable_data();
+
+    auto visitor = [&](const auto& value_type) {
+      using ValueType = std::decay_t<decltype(value_type)>;
+      if constexpr (is_number_type<ValueType>::value) {
+        using ValueCType = typename ValueType::c_type;
+
+        auto* values = values_buffer->mutable_data_as<ValueCType>();
+
+        std::fill_n(indptr, index_elsize, 0);
+        indptr += index_elsize;
+        for (int64_t i = 0; i < n_major; ++i) {
+          for (int64_t j = 0; j < n_minor; ++j) {
+            if (axis_ == SparseMatrixCompressedAxis::ROW) {
+              coords = {i, j};
+            } else {
+              coords = {j, i};
+            }
+            auto value = tensor_.Value<ValueType>(coords);
+            if (is_not_zero<ValueType>(value)) {
+              *values++ = value;
+              SparseTensorConverterMixin::AssignIndex(indices, j, index_elsize);
+              indices += index_elsize;
+              k++;
+            }
+          }
+          SparseTensorConverterMixin::AssignIndex(indptr, k, index_elsize);
+          indptr += index_elsize;
+        }
+      }
+      return Status::OK();
+    };
+    ARROW_RETURN_NOT_OK(VisitType(*tensor_.type(), visitor));
+
     std::shared_ptr<Tensor> indices_tensor =
         std::make_shared<Tensor>(index_value_type_, indices_buffer, indices_shape);
 
@@ -143,9 +147,7 @@ Status MakeSparseCSXMatrixFromTensor(SparseMatrixCompressedAxis axis,
                                      std::shared_ptr<SparseIndex>* out_sparse_index,
                                      std::shared_ptr<Buffer>* out_data) {
   SparseCSXMatrixConverter converter(axis, tensor, index_value_type, pool);
-  ConverterVisitor visitor(converter);
-  ARROW_RETURN_NOT_OK(
-      util::VisitCSXType(*tensor.type(), *index_value_type, *index_value_type, visitor));
+  ARROW_RETURN_NOT_OK(converter.Convert());
   *out_sparse_index = converter.sparse_index;
   *out_data = converter.data;
   return Status::OK();
