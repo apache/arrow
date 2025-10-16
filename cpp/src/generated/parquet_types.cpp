@@ -2066,7 +2066,7 @@ VariantType::~VariantType() noexcept {
 }
 
 VariantType::VariantType() noexcept
-   : specification_version(0) {
+   : specification_version(1) {
 }
 
 void VariantType::__set_specification_version(const int8_t val) {
