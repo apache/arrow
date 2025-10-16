@@ -757,8 +757,8 @@ class StructArray(Array[StructScalar]):
 
     @staticmethod
     def from_arrays(
-        arrays: Iterable[Array | np.ndarray],
-        names: list[str] | list[Field] | None = None,
+        arrays: Iterable[Array | np.ndarray | list],
+        names: Sequence[str] | list[Field] | None = None,
         fields: list[Field] | None = None,
         mask=None,
         memory_pool: MemoryPool | None = None,
