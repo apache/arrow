@@ -21,7 +21,7 @@ import pytest
 try:
     import numpy as np
 except ImportError:
-    np = None  # type: ignore[assignment]
+    pass
 
 import pyarrow as pa
 from pyarrow import compute as pc
@@ -35,7 +35,7 @@ empty_udf_doc = {"summary": "", "description": ""}
 try:
     import pyarrow.dataset as ds
 except ImportError:
-    ds = None  # type: ignore[assignment]
+    pass
 
 
 def mock_udf_context(batch_length=10):
@@ -381,6 +381,7 @@ def check_scalar_function(func_fixture,
 
     func = pc.get_function(name)
     assert func.name == name
+    assert batch_length is not None
 
     result = pc.call_function(name, inputs, length=batch_length)
     expected_output = function(mock_udf_context(batch_length), *inputs)
@@ -581,7 +582,7 @@ def test_wrong_datatype_declaration():
     with pytest.raises(TypeError,
                        match="DataType expected, got <class 'dict'>"):
         pc.register_scalar_function(identity, func_name,
-                                    doc, in_types, out_type)
+                                    doc, in_types, out_type)  # type: ignore[reportArgumentType]
 
 
 def test_wrong_input_type_declaration():
@@ -598,7 +599,7 @@ def test_wrong_input_type_declaration():
     with pytest.raises(TypeError,
                        match="DataType expected, got <class 'NoneType'>"):
         pc.register_scalar_function(identity, func_name, doc,
-                                    in_types, out_type)
+                                    in_types, out_type)  # type: ignore[reportArgumentType]
 
 
 def test_scalar_udf_context(unary_func_fixture):

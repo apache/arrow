@@ -736,10 +736,10 @@ def test_struct_type():
 
     # Neither integer nor string
     with pytest.raises(TypeError):
-        ty[None]
+        ty[None]  # type: ignore[reportArgumentType]
 
     with pytest.raises(TypeError):
-        ty.field(None)
+        ty.field(None)  # type: ignore[reportArgumentType]
 
     for a, b in zip(ty, fields):
         assert a == b
@@ -866,7 +866,7 @@ def test_dictionary_type():
 
     # invalid index type raises
     with pytest.raises(TypeError):
-        pa.dictionary(pa.string(), pa.int64())
+        pa.dictionary(pa.string(), pa.int64())  # type: ignore[reportArgumentType]
 
 
 def test_dictionary_ordered_equals():
@@ -955,7 +955,7 @@ def test_run_end_encoded_type():
         pa.run_end_encoded(None, pa.utf8())
 
     with pytest.raises(ValueError):
-        pa.run_end_encoded(pa.int8(), pa.utf8())
+        pa.run_end_encoded(pa.int8(), pa.utf8())  # type: ignore[reportArgumentType]
 
 
 @pytest.mark.parametrize('t,check_func', [
@@ -1131,11 +1131,11 @@ def test_key_value_metadata():
     assert m1 != {'a': 'A', 'b': 'C'}
 
     with pytest.raises(TypeError):
-        pa.KeyValueMetadata({'a': 1})
+        pa.KeyValueMetadata({'a': 1})  # type: ignore[reportArgumentType]
     with pytest.raises(TypeError):
-        pa.KeyValueMetadata({1: 'a'})
+        pa.KeyValueMetadata({1: 'a'})  # type: ignore[reportArgumentType]
     with pytest.raises(TypeError):
-        pa.KeyValueMetadata(a=1)
+        pa.KeyValueMetadata(a=1)  # type: ignore[reportArgumentType]
 
     expected = [(b'a', b'A'), (b'b', b'B')]
     result = [(k, v) for k, v in m3.items()]
@@ -1262,6 +1262,7 @@ def test_field_metadata():
 
     assert f1.metadata is None
     assert f2.metadata == {}
+    assert f3.metadata is not None
     assert f3.metadata[b'bizz'] == b'bazz'
 
 

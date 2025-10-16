@@ -26,7 +26,7 @@ except ImportError:
 import pyarrow as pa
 
 try:
-    from scipy.sparse import csr_array, coo_array, csr_matrix, coo_matrix
+    from scipy.sparse import csr_array, coo_array, csr_matrix, coo_matrix  # type: ignore[reportMissingModuleSource]
 except ImportError:
     coo_matrix = None  # type: ignore[assignment, misc]
     csr_matrix = None  # type: ignore[assignment, misc]
@@ -36,7 +36,7 @@ except ImportError:
 try:
     import sparse  # type: ignore[import-untyped, import-not-found]
 except ImportError:
-    sparse = None  # type: ignore[assignment]
+    pass
 
 
 tensor_type_pairs = [
