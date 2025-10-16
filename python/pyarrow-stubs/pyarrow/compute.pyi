@@ -124,7 +124,7 @@ class _ExprComparable(Expression):
     def __gt__(self, other: Any) -> Expression: ...
     def __lt__(self, other: Any) -> Expression: ...
 
-def field(*name_or_index: str | tuple[str, ...] | int) -> Expression: ...
+def field(*name_or_index: str | bytes | tuple[str | int, ...] | int) -> Expression: ...
 def __ge__(self, other: Any) -> Expression: ...
 
 
@@ -366,7 +366,7 @@ def product(
 def quantile(
     array: NumericScalar | NumericArray,
     /,
-    q: float = 0.5,
+    q: float | Sequence[float] = 0.5,
     *,
     interpolation: Literal["linear", "lower",
                            "higher", "nearest", "midpoint"] = "linear",
@@ -403,7 +403,7 @@ def sum(
 def tdigest(
     array: NumericScalar | NumericArray,
     /,
-    q: float = 0.5,
+    q: float | Sequence[float] = 0.5,
     *,
     delta: int = 100,
     buffer_size: int = 500,
@@ -424,6 +424,17 @@ def variance(
     options: VarianceOptions | None = None,
     memory_pool: lib.MemoryPool | None = None,
 ) -> lib.DoubleScalar: ...
+
+
+def winsorize(
+    array: _NumericArrayT,
+    /,
+    lower_limit: float = 0.0,
+    upper_limit: float = 1.0,
+    *,
+    options: WinsorizeOptions | None = None,
+    memory_pool: lib.MemoryPool | None = None,
+) -> _NumericArrayT: ...
 
 
 def skew(
@@ -481,9 +492,9 @@ abs_checked = _clone_signature(abs)
 
 def add(
     x: (_NumericOrTemporalScalarT | NumericOrTemporalScalar | _NumericOrTemporalArrayT
-        | Expression | ArrayLike | int),
+        | ArrayLike | int | Expression),
     y: (_NumericOrTemporalScalarT | NumericOrTemporalScalar | _NumericOrTemporalArrayT
-        | Expression | ArrayLike | int),
+        | ArrayLike | int | Expression),
     /,
     *,
     memory_pool: lib.MemoryPool | None = None,
@@ -509,7 +520,7 @@ divide_checked = _clone_signature(divide)
 
 def exp(
     exponent: _FloatArrayT | ArrayOrChunkedArray[NonFloatNumericScalar] | _FloatScalarT
-    | NonFloatNumericScalar | lib.DoubleScalar,
+    | NonFloatNumericScalar | lib.DoubleScalar | Expression,
     /, *, memory_pool: lib.MemoryPool | None = None
 ) -> (
     _FloatArrayT | lib.DoubleArray | _FloatScalarT | lib.DoubleScalar | Expression): ...
@@ -621,7 +632,7 @@ def round(
 
 
 def round_to_multiple(
-    x: _NumericScalarT | _NumericArrayT | Expression,
+    x: _NumericScalarT | _NumericArrayT | list | Expression,
     /,
     multiple: int = 0,
     round_mode: Literal[
@@ -643,9 +654,9 @@ def round_to_multiple(
 
 
 def round_binary(
-    x: _NumericScalarT | _NumericArrayT | Expression,
-    s: int | lib.Int8Scalar | lib.Int16Scalar | lib.Int32Scalar | lib.Int64Scalar
-    | Iterable,
+    x: _NumericScalarT | _NumericArrayT | int | float | list | Expression,
+    s: (int | float | lib.Int8Scalar | lib.Int16Scalar | lib.Int32Scalar | lib.Int64Scalar
+        | lib.Scalar | Iterable | Expression),
     /,
     round_mode: Literal[
         "down",
@@ -703,15 +714,21 @@ logb_checked = _clone_signature(logb)
 # ========================= 2.4 Trigonometric functions =========================
 acos = _clone_signature(ln)
 acos_checked = _clone_signature(ln)
+acosh = _clone_signature(ln)
 asin = _clone_signature(ln)
 asin_checked = _clone_signature(ln)
+asinh = _clone_signature(ln)
 atan = _clone_signature(ln)
+atanh = _clone_signature(ln)
 cos = _clone_signature(ln)
 cos_checked = _clone_signature(ln)
+cosh = _clone_signature(ln)
 sin = _clone_signature(ln)
 sin_checked = _clone_signature(ln)
+sinh = _clone_signature(ln)
 tan = _clone_signature(ln)
 tan_checked = _clone_signature(ln)
+tanh = _clone_signature(ln)
 
 
 def atan2(
@@ -725,8 +742,8 @@ def atan2(
 
 # ========================= 2.5 Comparisons functions =========================
 def equal(
-    x: lib.Scalar | lib.Array | lib.ChunkedArray | Expression | Any,
-    y: lib.Scalar | lib.Array | lib.ChunkedArray | Expression | Any,
+    x: lib.Scalar | lib.Array | lib.ChunkedArray | list | Expression | Any,
+    y: lib.Scalar | lib.Array | lib.ChunkedArray | list | Expression | Any,
     /, *, memory_pool: lib.MemoryPool | None = None
 ) -> lib.BooleanScalar | lib.BooleanArray | Expression: ...
 
@@ -739,11 +756,11 @@ not_equal = _clone_signature(equal)
 
 
 def max_element_wise(
-    *args: ScalarOrArray[_Scalar_CoT] | Expression,
+    *args: ScalarOrArray[_Scalar_CoT] | Expression | ScalarLike | ArrayLike,
     skip_nulls: bool = True,
     options: ElementWiseAggregateOptions | None = None,
     memory_pool: lib.MemoryPool | None = None,
-) -> _Scalar_CoT | Expression: ...
+) -> _Scalar_CoT | Expression | lib.Scalar | lib.Array: ...
 
 
 min_element_wise = _clone_signature(max_element_wise)
@@ -913,7 +930,7 @@ utf8_upper = _clone_signature(utf8_capitalize)
 def ascii_center(
     strings: _StringScalarT | _StringArrayT | Expression,
     /,
-    width: int,
+    width: int | None = None,
     padding: str = " ",
     lean_left_on_odd_padding: bool = True,
     *,
@@ -927,6 +944,18 @@ ascii_rpad = _clone_signature(ascii_center)
 utf8_center = _clone_signature(ascii_center)
 utf8_lpad = _clone_signature(ascii_center)
 utf8_rpad = _clone_signature(ascii_center)
+
+def utf8_zero_fill(
+    strings: _StringScalarT | _StringArrayT | Expression,
+    /,
+    width: int | None = None,
+    padding: str = "0",
+    *,
+    options: ZeroFillOptions | None = None,
+    memory_pool: lib.MemoryPool | None = None,
+) -> _StringScalarT | _StringArrayT | Expression: ...
+
+utf8_zfill = utf8_zero_fill
 
 # ========================= 2.13 String trimming =========================
 
@@ -1009,6 +1038,9 @@ def extract_regex(
 ) -> lib.StructScalar | lib.StructArray | Expression: ...
 
 
+extract_regex_span = _clone_signature(extract_regex)
+
+
 # ========================= 2.16 String join =========================
 def binary_join(
     strings, separator, /, *, memory_pool: lib.MemoryPool | None = None
@@ -1016,7 +1048,7 @@ def binary_join(
 
 
 def binary_join_element_wise(
-    *strings: _StringOrBinaryScalarT | _StringOrBinaryArrayT | Expression,
+    *strings: str | bytes | _StringOrBinaryScalarT | _StringOrBinaryArrayT | Expression | list,
     null_handling: Literal["emit_null", "skip", "replace"] = "emit_null",
     null_replacement: str = "",
     options: JoinOptions | None = None,
@@ -1026,7 +1058,7 @@ def binary_join_element_wise(
 
 # ========================= 2.17 String Slicing =========================
 def binary_slice(
-    strings: _BinaryScalarT | _BinaryArrayT | Expression,
+    strings: _BinaryScalarT | _BinaryArrayT | Expression | lib.Scalar,
     /,
     start: int,
     stop: int | None = None,
@@ -1045,6 +1077,16 @@ def utf8_slice_codeunits(
     step: int = 1,
     *,
     options: SliceOptions | None = None,
+    memory_pool: lib.MemoryPool | None = None,
+) -> _StringScalarT | _StringArrayT | Expression: ...
+
+
+def utf8_normalize(
+    strings: _StringScalarT | _StringArrayT | Expression,
+    /,
+    form: Literal["NFC", "NFKC", "NFD", "NFKD"] = "NFC",
+    *,
+    options: Utf8NormalizeOptions | None = None,
     memory_pool: lib.MemoryPool | None = None,
 ) -> _StringScalarT | _StringArrayT | Expression: ...
 
@@ -1105,7 +1147,7 @@ def is_in(
     skip_nulls: bool = False,
     options: SetLookupOptions | None = None,
     memory_pool: lib.MemoryPool | None = None,
-) -> lib.BooleanScalar | lib.BooleanArray: ...
+) -> lib.BooleanScalar | lib.BooleanArray | Expression: ...
 
 
 match_like = _clone_signature(ends_with)
@@ -1137,7 +1179,7 @@ def is_null(
 
 
 def is_valid(
-    values: lib.Scalar | lib.Array | lib.ChunkedArray | Expression,
+    values: lib.Scalar | lib.Array | lib.ChunkedArray | Expression | ArrayLike,
     /, *, memory_pool: lib.MemoryPool | None = None
 ) -> lib.BooleanScalar | lib.BooleanArray | Expression: ...
 
@@ -1148,10 +1190,10 @@ true_unless_null = _clone_signature(is_valid)
 
 
 def case_when(
-    cond: lib.StructArray | lib.ChunkedArray[lib.StructScalar],
+    cond: lib.StructScalar | lib.StructArray | lib.ChunkedArray[lib.StructScalar] | Expression,
     /,
-    *cases: _ScalarOrArrayT, memory_pool: lib.MemoryPool | None = None
-) -> _ScalarOrArrayT: ...
+    *cases: _ScalarOrArrayT | ArrayLike, memory_pool: lib.MemoryPool | None = None
+) -> _ScalarOrArrayT | lib.Array | Expression: ...
 
 
 def choose(
@@ -1163,8 +1205,8 @@ def choose(
 
 
 def coalesce(
-    *values: _ScalarOrArrayT, memory_pool: lib.MemoryPool | None = None
-) -> _ScalarOrArrayT: ...
+    *values: _ScalarOrArrayT | Expression, memory_pool: lib.MemoryPool | None = None
+) -> _ScalarOrArrayT | Expression: ...
 
 
 def fill_null(
@@ -1193,7 +1235,7 @@ def list_value_length(
 
 
 def make_struct(
-    *args: lib.Scalar | lib.Array | lib.ChunkedArray | Expression,
+    *args: lib.Scalar | lib.Array | lib.ChunkedArray | Expression | ArrayLike,
     field_names: list[str] | tuple[str, ...] = (),
     field_nullability: bool | None = None,
     field_metadata: list[lib.KeyValueMetadata] | None = None,
@@ -1415,7 +1457,7 @@ def assume_timezone(
     timestamps: lib.TimestampScalar | lib.TimestampArray
     | lib.ChunkedArray[lib.TimestampScalar] | Expression,
     /,
-    timezone: str,
+    timezone: str | None = None,
     *,
     ambiguous: Literal["raise", "earliest", "latest"] = "raise",
     nonexistent: Literal["raise", "earliest", "latest"] = "raise",
@@ -1448,14 +1490,14 @@ def random(
 
 # ========================= 3.1 Cumulative Functions =========================
 def cumulative_sum(
-    values: _NumericArrayT | Expression,
+    values: _NumericArrayT | ArrayLike | Expression,
     /,
     start: lib.Scalar | None = None,
     *,
     skip_nulls: bool = False,
     options: CumulativeSumOptions | None = None,
     memory_pool: lib.MemoryPool | None = None,
-) -> _NumericArrayT | Expression: ...
+) -> _NumericArrayT | Expression | lib.Array: ...
 
 
 cumulative_sum_checked = _clone_signature(cumulative_sum)
@@ -1521,6 +1563,7 @@ def array_take(
     | lib.Int16Array
     | lib.Int32Array
     | lib.Int64Array
+    | lib.UInt64Array
     | lib.ChunkedArray[lib.Int16Scalar]
     | lib.ChunkedArray[lib.Int32Scalar]
     | lib.ChunkedArray[lib.Int64Scalar]
@@ -1541,6 +1584,7 @@ def array_take(
     | lib.Int16Array
     | lib.Int32Array
     | lib.Int64Array
+    | lib.UInt64Array
     | lib.ChunkedArray[lib.Int16Scalar]
     | lib.ChunkedArray[lib.Int32Scalar]
     | lib.ChunkedArray[lib.Int64Scalar]
@@ -1605,6 +1649,18 @@ def partition_nth_indices(
 ) -> lib.UInt64Array | Expression: ...
 
 
+def pivot_wider(
+    keys: lib.Array | lib.ChunkedArray | Sequence[str],
+    values: lib.Array | lib.ChunkedArray | Sequence[Any],
+    /,
+    key_names: Sequence[str] | None = None,
+    *,
+    unexpected_key_behavior: Literal["ignore", "raise"] = "ignore",
+    options: PivotWiderOptions | None = None,
+    memory_pool: lib.MemoryPool | None = None,
+) -> lib.StructScalar: ...
+
+
 def rank(
     input: lib.Array | lib.ChunkedArray,
     /,
@@ -1617,11 +1673,32 @@ def rank(
 ) -> lib.UInt64Array: ...
 
 
+def rank_quantile(
+    input: lib.Array | lib.ChunkedArray,
+    /,
+    sort_keys: _Order = "ascending",
+    *,
+    null_placement: _Placement = "at_end",
+    options: RankQuantileOptions | None = None,
+    memory_pool: lib.MemoryPool | None = None,
+) -> lib.DoubleArray: ...
+
+
+def rank_normal(
+    input: lib.Array | lib.ChunkedArray,
+    /,
+    sort_keys: _Order = "ascending",
+    *,
+    null_placement: _Placement = "at_end",
+    options: RankQuantileOptions | None = None,
+    memory_pool: lib.MemoryPool | None = None,
+) -> lib.DoubleArray: ...
+
 def select_k_unstable(
     input: lib.Array | lib.ChunkedArray | lib.RecordBatch | lib.Table | Expression,
     /,
-    k: int,
-    sort_keys: Sequence[tuple[str, _Order]],
+    k: int | None = None,
+    sort_keys: Sequence[tuple[str | Expression, _Order]] | None = None,
     *,
     options: SelectKOptions | None = None,
     memory_pool: lib.MemoryPool | None = None,
@@ -1631,7 +1708,7 @@ def select_k_unstable(
 def sort_indices(
     input: lib.Array | lib.ChunkedArray | lib.RecordBatch | lib.Table | Expression,
     /,
-    sort_keys: Sequence[tuple[str, _Order]] = (),
+    sort_keys: Sequence[tuple[str | Expression, _Order]] | None = None,
     *,
     null_placement: _Placement = "at_end",
     options: SortOptions | None = None,
@@ -1736,10 +1813,19 @@ def pairwise_diff(
 
 
 def run_end_encode(
-    input: _NumericOrTemporalArrayT | Expression, /, *, run_end_type: _RunEndType,
-    value_type: lib.DataType, options: RunEndEncodeOptions | None = None,
+    input: _NumericOrTemporalArrayT | Expression,
+    /,
+    *,
+    run_end_type: _RunEndType | None = None,
+    options: RunEndEncodeOptions | None = None,
     memory_pool: lib.MemoryPool | None = None
 ) -> _NumericOrTemporalArrayT | Expression: ...
 
+def run_end_decode(
+    input: _NumericOrTemporalArrayT | Expression,
+    /,
+    *,
+    memory_pool: lib.MemoryPool | None = None
+) -> _NumericOrTemporalArrayT | Expression: ...
 
 pairwise_diff_checked = _clone_signature(pairwise_diff)
