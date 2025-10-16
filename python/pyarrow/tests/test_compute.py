@@ -31,12 +31,12 @@ import textwrap
 try:
     import numpy as np
 except ImportError:
-    np = None  # type: ignore[assignment]
+    pass
 
 try:
     import pandas as pd
 except ImportError:
-    pd = None  # type: ignore[assignment]
+    pass
 
 import pyarrow as pa
 import pyarrow.compute as pc
@@ -2881,7 +2881,7 @@ def test_select_k_table():
         pc.select_k_unstable(table, k=2, sort_keys=[])
 
     with pytest.raises(ValueError, match="not a valid sort order"):
-        pc.select_k_unstable(table, k=k, sort_keys=[("a", "nonscending")])
+        pc.select_k_unstable(table, k=k, sort_keys=[("a", "nonscending")])  # type: ignore[list-item]
 
     with pytest.raises(ValueError,
                        match="Invalid sort key column: No match for.*unknown"):
@@ -2904,7 +2904,7 @@ def test_array_sort_indices():
     assert result.to_pylist() == [2, 1, 0, 3]
 
     with pytest.raises(ValueError, match="not a valid sort order"):
-        pc.array_sort_indices(arr, order="nonscending")
+        pc.array_sort_indices(arr, order="nonscending")  # type: ignore[arg-type]
 
 
 def test_sort_indices_array():
@@ -2967,7 +2967,7 @@ def test_sort_indices_table():
         pc.sort_indices(table, sort_keys=[("unknown", "ascending")])
 
     with pytest.raises(ValueError, match="not a valid sort order"):
-        pc.sort_indices(table, sort_keys=[("a", "nonscending")])
+        pc.sort_indices(table, sort_keys=[("a", "nonscending")])  # type: ignore[list-item]
 
 
 def test_is_in():
@@ -3047,7 +3047,7 @@ def test_quantile():
     with pytest.raises(ValueError, match="Quantile must be between 0 and 1"):
         pc.quantile(arr, q=1.1)
     with pytest.raises(ValueError, match="not a valid quantile interpolation"):
-        pc.quantile(arr, interpolation='zzz')
+        pc.quantile(arr, interpolation='zzz')  # type: ignore[arg-type]
 
 
 def test_tdigest():
@@ -3458,7 +3458,7 @@ def test_utf8_normalize():
     with pytest.raises(
             ValueError,
             match='"NFZ" is not a valid Unicode normalization form'):
-        pc.utf8_normalize(arr, form="NFZ")
+        pc.utf8_normalize(arr, form="NFZ")  # type: ignore[arg-type]
 
 
 def test_random():
@@ -3485,7 +3485,7 @@ def test_random():
     with pytest.raises(TypeError,
                        match=r"initializer should be 'system', an integer, "
                              r"or a hashable object; got \[\]"):
-        pc.random(100, initializer=[])
+        pc.random(100, initializer=[])  # type: ignore[arg-type]
 
 
 @pytest.mark.parametrize(
@@ -3535,7 +3535,7 @@ def test_rank_options():
                        match=r'"NonExisting" is not a valid tiebreaker'):
         pc.RankOptions(sort_keys="descending",
                        null_placement="at_end",
-                       tiebreaker="NonExisting")
+                       tiebreaker="NonExisting")  # type: ignore[arg-type]
 
 
 def test_rank_quantile_options():
@@ -3565,7 +3565,7 @@ def test_rank_quantile_options():
     assert result.equals(expected_descending)
 
     with pytest.raises(ValueError, match="not a valid sort order"):
-        pc.rank_quantile(arr, sort_keys="XXX")
+        pc.rank_quantile(arr, sort_keys="XXX")  # type: ignore[arg-type]
 
 
 def test_rank_normal_options():
