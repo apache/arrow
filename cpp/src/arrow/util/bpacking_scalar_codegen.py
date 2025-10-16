@@ -73,6 +73,8 @@ FOOTER = """
 @dataclasses.dataclass
 class ScalarUnpackGenerator:
     out_type: str
+    # Used to reduce the number of bytes read on odd bit width by reading
+    # the last input in half width.
     smart_halve: bool
 
     @property
