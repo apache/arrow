@@ -1027,10 +1027,10 @@ TEST_SUCCESS=no
 
 setup_tempdir
 ensure_source_directory
-# Run source and binary tests in subshells so environment variables
+# Run source tests in a subshell so environment variables
 # set for source testing aren't exposed to the binary tests.
 (test_source_distribution)
-(test_binary_distribution)
+test_binary_distribution
 
 TEST_SUCCESS=yes
 
