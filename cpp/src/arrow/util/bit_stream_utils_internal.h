@@ -296,6 +296,18 @@ inline bool BitReader::GetValue(int num_bits, T* v) {
   return GetBatch(num_bits, v, 1) == 1;
 }
 
+namespace internal_bit_reader {
+template <typename T>
+struct unpack_detect {
+  using type = std::make_unsigned_t<T>;
+};
+
+template <>
+struct unpack_detect<bool> {
+  using type = bool;
+};
+}  // namespace internal_bit_reader
+
 template <typename T>
 inline int BitReader::GetBatch(int num_bits, T* v, int batch_size) {
   ARROW_DCHECK(buffer_ != NULL);
@@ -323,47 +335,12 @@ inline int BitReader::GetBatch(int num_bits, T* v, int batch_size) {
     }
   }
 
-  if (sizeof(T) == 4) {
-    int num_unpacked =
-        internal::unpack32(buffer + byte_offset, reinterpret_cast<uint32_t*>(v + i),
-                           batch_size - i, num_bits);
-    i += num_unpacked;
-    byte_offset += num_unpacked * num_bits / 8;
-  } else if (sizeof(T) == 8 && num_bits > 32) {
-    // Use unpack64 only if num_bits is larger than 32
-    // TODO (ARROW-13677): improve the performance of internal::unpack64
-    // and remove the restriction of num_bits
-    int num_unpacked =
-        internal::unpack64(buffer + byte_offset, reinterpret_cast<uint64_t*>(v + i),
-                           batch_size - i, num_bits);
-    i += num_unpacked;
-    byte_offset += num_unpacked * num_bits / 8;
-  } else {
-    // TODO: revisit this limit if necessary
-    ARROW_DCHECK_LE(num_bits, 32);
-    const int buffer_size = 1024;
-    uint32_t unpack_buffer[buffer_size];
-    while (i < batch_size) {
-      int unpack_size = std::min(buffer_size, batch_size - i);
-      int num_unpacked =
-          internal::unpack32(buffer + byte_offset, unpack_buffer, unpack_size, num_bits);
-      if (num_unpacked == 0) {
-        break;
-      }
-      for (int k = 0; k < num_unpacked; ++k) {
-#ifdef _MSC_VER
-#  pragma warning(push)
-#  pragma warning(disable : 4800)
-#endif
-        v[i + k] = static_cast<T>(unpack_buffer[k]);
-#ifdef _MSC_VER
-#  pragma warning(pop)
-#endif
-      }
-      i += num_unpacked;
-      byte_offset += num_unpacked * num_bits / 8;
-    }
-  }
+  using unpack_t = typename internal_bit_reader::unpack_detect<T>::type;
+
+  int num_unpacked = ::arrow::internal::unpack(
+      buffer + byte_offset, reinterpret_cast<unpack_t*>(v + i), batch_size - i, num_bits);
+  i += num_unpacked;
+  byte_offset += num_unpacked * num_bits / 8;
 
   buffered_values =
       detail::ReadLittleEndianWord(buffer + byte_offset, max_bytes - byte_offset);

@@ -15,15 +15,21 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/util/bpacking_neon_internal.h"
-#include "arrow/util/bpacking_simd128_generated_internal.h"
+#include "arrow/util/bpacking_dispatch_internal.h"
+#include "arrow/util/bpacking_simd512_generated_internal.h"
 #include "arrow/util/bpacking_simd_internal.h"
 
 namespace arrow::internal {
 
-int unpack32_neon(const uint8_t* in, uint32_t* out, int batch_size, int num_bits) {
-  return unpack32_specialized<UnpackBits128<DispatchLevel::NEON>>(
-      reinterpret_cast<const uint32_t*>(in), out, batch_size, num_bits);
+template <typename Uint>
+int unpack_avx512(const uint8_t* in, Uint* out, int batch_size, int num_bits) {
+  return unpack_jump<Simd512UnpackerForWidth>(in, out, batch_size, num_bits);
 }
+
+template int unpack_avx512<bool>(const uint8_t*, bool*, int, int);
+template int unpack_avx512<uint8_t>(const uint8_t*, uint8_t*, int, int);
+template int unpack_avx512<uint16_t>(const uint8_t*, uint16_t*, int, int);
+template int unpack_avx512<uint32_t>(const uint8_t*, uint32_t*, int, int);
+template int unpack_avx512<uint64_t>(const uint8_t*, uint64_t*, int, int);
 
 }  // namespace arrow::internal
