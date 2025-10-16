@@ -60,8 +60,10 @@ class ODBCStatement : public ODBCHandle<ODBCStatement> {
 
   /**
    * @brief Returns true if the number of rows fetch was greater than zero.
+   * row_count_ptr and row_status_array are optional arguments, they are only needed for
+   * SQLExtendedFetch
    */
-  bool Fetch(size_t rows);
+  bool Fetch(size_t rows, SQLULEN* row_count_ptr = 0, SQLUSMALLINT* row_status_array = 0);
   bool IsPrepared() const;
 
   void GetStmtAttr(SQLINTEGER statement_attribute, SQLPOINTER output,
