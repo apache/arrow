@@ -410,7 +410,7 @@ struct BsonType {
 struct VariantType {
   // The version of the variant specification that the variant was
   // written with.
-  1: optional i8 specification_version
+  1: optional i8 specification_version = 1
 }
 
 /** Edge interpolation algorithm for Geography logical type */
