@@ -327,6 +327,12 @@ The command line to build Arrow in Debug mode will look something like this:
          -DBOOST_LIBRARYDIR=C:/local/boost_1_63_0/lib64-msvc-14.0
    cmake --build . --config Debug
 
+Depending on the CMake variables or preset you use, you may need to have the
+``patch`` utility in your ``PATH``. There are a number of ways to do this. For
+example, if you're already using  `Git for Windows
+<https://git-scm.com/downloads/win>`_, you could add ``C:\Program
+Files\Git\usr\bin`` to your ``PATH``.
+
 Windows dependency resolution issues
 ====================================
 
