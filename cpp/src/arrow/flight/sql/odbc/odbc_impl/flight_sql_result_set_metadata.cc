@@ -20,6 +20,7 @@
 #include "arrow/flight/sql/column_metadata.h"
 #include "arrow/flight/sql/odbc/odbc_impl/platform.h"
 #include "arrow/flight/sql/odbc/odbc_impl/util.h"
+#include "arrow/util/key_value_metadata.h"
 
 #include <utility>
 #include "arrow/flight/sql/odbc/odbc_impl/exceptions.h"
@@ -40,12 +41,8 @@ constexpr int32_t DefaultDecimalPrecision = 38;
 constexpr int32_t DefaultLengthForVariableLengthColumns = 1024;
 
 namespace {
-std::shared_ptr<const KeyValueMetadata> empty_metadata_map(new KeyValueMetadata);
-
 inline ColumnMetadata GetMetadata(const std::shared_ptr<Field>& field) {
-  const auto& metadata_map = field->metadata();
-
-  ColumnMetadata metadata(metadata_map ? metadata_map : empty_metadata_map);
+  ColumnMetadata metadata(field->metadata());
   return metadata;
 }
 
@@ -207,10 +204,13 @@ size_t FlightSqlResultSetMetadata::GetOctetLength(int column_position) {
       .value_or(DefaultLengthForVariableLengthColumns);
 }
 
-std::string FlightSqlResultSetMetadata::GetTypeName(int column_position) {
+std::string FlightSqlResultSetMetadata::GetTypeName(int column_position, int data_type) {
   ColumnMetadata metadata = GetMetadata(schema_->field(column_position - 1));
 
-  return metadata.GetTypeName().ValueOrElse([] { return ""; });
+  return metadata.GetTypeName().ValueOrElse([data_type] {
+    // If we get an empty type name, figure out the type name from the data_type.
+    return util::GetTypeNameFromSqlDataType(data_type);
+  });
 }
 
 Updatability FlightSqlResultSetMetadata::GetUpdatable(int column_position) {
@@ -241,18 +241,29 @@ bool FlightSqlResultSetMetadata::IsUnsigned(int column_position) {
   const std::shared_ptr<Field>& field = schema_->field(column_position - 1);
 
   switch (field->type()->id()) {
+    case Type::INT8:
+    case Type::INT16:
+    case Type::INT32:
+    case Type::INT64:
+    case Type::DOUBLE:
+    case Type::FLOAT:
+    case Type::HALF_FLOAT:
+    case Type::DECIMAL32:
+    case Type::DECIMAL64:
+    case Type::DECIMAL128:
+    case Type::DECIMAL256:
+      return false;
     case Type::UINT8:
     case Type::UINT16:
     case Type::UINT32:
     case Type::UINT64:
-      return true;
     default:
-      return false;
+      return true;
   }
 }
 
 bool FlightSqlResultSetMetadata::IsFixedPrecScale(int column_position) {
-  // TODO: Flight SQL column metadata does not have this, should we add to the spec?
+  // Precision for Arrow data types are modifiable by the user
   return false;
 }
 

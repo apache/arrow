@@ -77,9 +77,10 @@ std::shared_ptr<Schema> GetTablesReader::GetSchema() {
   const arrow::Result<std::shared_ptr<Schema>>& result =
       arrow::ipc::ReadSchema(&dataset_schema_reader, &in_memo);
   if (!result.ok()) {
-    // TODO: Ignoring this error until we fix the problem on Dremio server
-    // The problem is that complex types columns are being returned without the children
-    // types.
+    // TODO: Test and build the driver against a server that returns
+    // complex types columns with the children
+    // types and handle the failure properly
+    // https://github.com/apache/arrow/issues/46561
     return nullptr;
   }
 

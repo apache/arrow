@@ -17,8 +17,8 @@
 
 #pragma once
 
-#include <arrow/flight/sql/odbc/odbc_impl/spi/connection.h>
 #include "arrow/flight/sql/odbc/odbc_impl/odbc_handle.h"
+#include "arrow/flight/sql/odbc/odbc_impl/spi/connection.h"
 
 #include <sql.h>
 #include <map>
@@ -41,6 +41,9 @@ class ODBCConnection : public ODBCHandle<ODBCConnection> {
   ODBCConnection(const ODBCConnection&) = delete;
   ODBCConnection& operator=(const ODBCConnection&) = delete;
 
+  /// \brief Constructor for ODBCConnection.
+  /// \param[in] environment the parent environment.
+  /// \param[in] spi_connection the underlying spi connection.
   ODBCConnection(ODBCEnvironment& environment,
                  std::shared_ptr<arrow::flight::sql::odbc::Connection> spi_connection);
 
@@ -48,16 +51,22 @@ class ODBCConnection : public ODBCHandle<ODBCConnection> {
 
   const std::string& GetDSN() const;
   bool IsConnected() const;
+
+  /// \brief Connect to Arrow Flight SQL server.
+  /// \param[in] dsn the dsn name.
+  /// \param[in] properties the connection property map extracted from connection string.
+  /// \param[out] missing_properties report the properties that are missing
   void Connect(std::string dsn,
                const arrow::flight::sql::odbc::Connection::ConnPropertyMap& properties,
                std::vector<std::string_view>& missing_properties);
 
-  void GetInfo(SQLUSMALLINT info_type, SQLPOINTER value, SQLSMALLINT buffer_length,
-               SQLSMALLINT* output_length, bool is_unicode);
+  SQLRETURN GetInfo(SQLUSMALLINT info_type, SQLPOINTER value, SQLSMALLINT buffer_length,
+                    SQLSMALLINT* output_length, bool is_unicode);
   void SetConnectAttr(SQLINTEGER attribute, SQLPOINTER value, SQLINTEGER string_length,
-                      bool isUnicode);
-  void GetConnectAttr(SQLINTEGER attribute, SQLPOINTER value, SQLINTEGER buffer_length,
-                      SQLINTEGER* output_length, bool is_unicode);
+                      bool is_unicode);
+  SQLRETURN GetConnectAttr(SQLINTEGER attribute, SQLPOINTER value,
+                           SQLINTEGER buffer_length, SQLINTEGER* output_length,
+                           bool is_unicode);
 
   ~ODBCConnection() = default;
 
@@ -75,8 +84,12 @@ class ODBCConnection : public ODBCHandle<ODBCConnection> {
 
   inline bool IsOdbc2Connection() const { return is_2x_connection_; }
 
-  /// @return the DSN or empty string if Driver was used.
-  static std::string GetPropertiesFromConnString(
+  /// @return the DSN or an empty string if the DSN is not found or is found after the
+  /// driver
+  static std::string GetDsnIfExists(const std::string& conn_str);
+
+  /// Read properties from connection string, but does not read values from DSN
+  static void GetPropertiesFromConnString(
       const std::string& conn_str,
       arrow::flight::sql::odbc::Connection::ConnPropertyMap& properties);
 

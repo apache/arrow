@@ -17,14 +17,14 @@
 
 #pragma once
 
-#include <boost/optional.hpp>
-#include <boost/variant.hpp>
 #include <map>
+#include <optional>
+#include <variant>
 #include <vector>
 
 namespace arrow::flight::sql::odbc {
 
-using boost::optional;
+using std::optional;
 
 class ResultSet;
 
@@ -51,7 +51,7 @@ class Statement {
                     // have no timeout.
   };
 
-  typedef boost::variant<size_t> Attribute;
+  typedef std::variant<size_t> Attribute;
 
   /// \brief Set a statement attribute (may be called at any time)
   ///
@@ -74,9 +74,9 @@ class Statement {
 
   /// \brief Prepares the statement.
   /// Returns ResultSetMetadata if query returns a result set,
-  /// otherwise it returns `boost::none`.
+  /// otherwise it returns `std::nullopt`.
   /// \param query The SQL query to prepare.
-  virtual boost::optional<std::shared_ptr<ResultSetMetadata>> Prepare(
+  virtual std::optional<std::shared_ptr<ResultSetMetadata>> Prepare(
       const std::string& query) = 0;
 
   /// \brief Execute the prepared statement.

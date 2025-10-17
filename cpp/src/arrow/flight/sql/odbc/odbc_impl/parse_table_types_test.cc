@@ -18,7 +18,8 @@
 #include "arrow/flight/sql/odbc/odbc_impl/flight_sql_statement_get_tables.h"
 
 #include "arrow/flight/sql/odbc/odbc_impl/platform.h"
-#include "gtest/gtest.h"
+
+#include <gtest/gtest.h>
 
 namespace arrow::flight::sql::odbc {
 
@@ -49,4 +50,17 @@ TEST(TableTypeParser, ParsingWithSingleQuotesWithoutLeadingWhiteSpace) {
 TEST(TableTypeParser, ParsingWithCommaInsideSingleQuotes) {
   AssertParseTest("'TABLE, TEST', 'VIEW, TEMPORARY'", {"TABLE, TEST", "VIEW, TEMPORARY"});
 }
+
+TEST(TableTypeParser, ParsingWithManyLeadingAndTrailingWhiteSpaces) {
+  AssertParseTest("         TABLE   ,    VIEW     ", {"TABLE", "VIEW"});
+}
+
+TEST(TableTypeParser, ParsingWithOnlyWhiteSpaceBetweenCommas) {
+  AssertParseTest("TABLE,  ,VIEW", {"TABLE", "VIEW"});
+}
+
+TEST(TableTypeParser, ParsingWithWhiteSpaceInsideValue) {
+  AssertParseTest("BASE TABLE", {"BASE TABLE"});
+}
+
 }  // namespace arrow::flight::sql::odbc

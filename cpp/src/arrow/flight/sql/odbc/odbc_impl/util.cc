@@ -56,6 +56,9 @@ SqlDataType GetDefaultSqlCharType(bool use_wide_char) {
 SqlDataType GetDefaultSqlVarcharType(bool use_wide_char) {
   return use_wide_char ? SqlDataType_WVARCHAR : SqlDataType_VARCHAR;
 }
+SqlDataType GetDefaultSqlLongVarcharType(bool use_wide_char) {
+  return use_wide_char ? SqlDataType_WLONGVARCHAR : SqlDataType_LONGVARCHAR;
+}
 CDataType GetDefaultCCharType(bool use_wide_char) {
   return use_wide_char ? CDataType_WCHAR : CDataType_CHAR;
 }
@@ -146,6 +149,9 @@ SqlDataType EnsureRightSqlCharType(SqlDataType data_type, bool use_wide_char) {
     case SqlDataType_VARCHAR:
     case SqlDataType_WVARCHAR:
       return GetDefaultSqlVarcharType(use_wide_char);
+    case SqlDataType_LONGVARCHAR:
+    case SqlDataType_WLONGVARCHAR:
+      return GetDefaultSqlLongVarcharType(use_wide_char);
     default:
       return data_type;
   }
@@ -747,10 +753,12 @@ bool NeedArrayConversion(Type::type original_type_id, CDataType data_type) {
       return data_type != CDataType_BINARY;
     case Type::DECIMAL128:
       return data_type != CDataType_NUMERIC;
+    case Type::DURATION:
     case Type::LIST:
     case Type::LARGE_LIST:
     case Type::FIXED_SIZE_LIST:
     case Type::MAP:
+    case Type::STRING_VIEW:
     case Type::STRUCT:
       return data_type == CDataType_CHAR || data_type == CDataType_WCHAR;
     default:
@@ -926,9 +934,9 @@ ArrayConvertTask GetConverter(Type::type original_type_id, CDataType target_type
 
       auto seconds_from_epoch = GetTodayTimeFromEpoch();
 
-      auto third_converted_array = CheckConversion(
-          arrow::compute::Add(second_converted_array,
-                              std::make_shared<Int64Scalar>(seconds_from_epoch * 1000)));
+      auto third_converted_array = CheckConversion(arrow::compute::Add(
+          second_converted_array,
+          std::make_shared<arrow::Int64Scalar>(seconds_from_epoch * 1000)));
 
       arrow::compute::CastOptions cast_options_2;
       cast_options_2.to_type = arrow::timestamp(TimeUnit::MILLI);
@@ -947,7 +955,7 @@ ArrayConvertTask GetConverter(Type::type original_type_id, CDataType target_type
 
       auto second_converted_array = CheckConversion(arrow::compute::Add(
           first_converted_array,
-          std::make_shared<Int64Scalar>(seconds_from_epoch * 1000000000)));
+          std::make_shared<arrow::Int64Scalar>(seconds_from_epoch * 1000000000)));
 
       arrow::compute::CastOptions cast_options_2;
       cast_options_2.to_type = arrow::timestamp(TimeUnit::NANO);
@@ -971,7 +979,7 @@ ArrayConvertTask GetConverter(Type::type original_type_id, CDataType target_type
   } else if (original_type_id == Type::DECIMAL128 &&
              (target_type == CDataType_CHAR || target_type == CDataType_WCHAR)) {
     return [=](const std::shared_ptr<Array>& original_array) {
-      StringBuilder builder;
+      arrow::StringBuilder builder;
       int64_t length = original_array->length();
       ThrowIfNotOK(builder.ReserveData(length));
 
@@ -1097,30 +1105,30 @@ int32_t GetDecimalTypePrecision(const std::shared_ptr<DataType>& decimal_type) {
   return decimal128_type->precision();
 }
 
-boost::optional<bool> AsBool(const std::string& value) {
+std::optional<bool> AsBool(const std::string& value) {
   if (boost::iequals(value, "true") || boost::iequals(value, "1")) {
     return true;
   } else if (boost::iequals(value, "false") || boost::iequals(value, "0")) {
     return false;
   } else {
-    return boost::none;
+    return std::nullopt;
   }
 }
 
-boost::optional<bool> AsBool(const Connection::ConnPropertyMap& conn_property_map,
-                             const std::string_view& property_name) {
+std::optional<bool> AsBool(const Connection::ConnPropertyMap& conn_property_map,
+                           const std::string_view& property_name) {
   auto extracted_property = conn_property_map.find(std::string(property_name));
 
   if (extracted_property != conn_property_map.end()) {
     return AsBool(extracted_property->second);
   }
 
-  return boost::none;
+  return std::nullopt;
 }
 
-boost::optional<int32_t> AsInt32(int32_t min_value,
-                                 const Connection::ConnPropertyMap& conn_property_map,
-                                 const std::string_view& property_name) {
+std::optional<int32_t> AsInt32(int32_t min_value,
+                               const Connection::ConnPropertyMap& conn_property_map,
+                               const std::string_view& property_name) {
   auto extracted_property = conn_property_map.find(std::string(property_name));
 
   if (extracted_property != conn_property_map.end()) {
@@ -1130,7 +1138,7 @@ boost::optional<int32_t> AsInt32(int32_t min_value,
       return string_column_length;
     }
   }
-  return boost::none;
+  return std::nullopt;
 }
 
 }  // namespace util

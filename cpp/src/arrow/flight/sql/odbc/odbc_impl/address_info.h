@@ -22,11 +22,12 @@
 #include "arrow/flight/sql/odbc/odbc_impl/platform.h"
 
 #include <sys/types.h>
+#include <cstdint>
 #if !_WIN32
 #  include <netdb.h>
 #endif
 
-namespace driver {
+namespace arrow::flight::sql::odbc {
 
 class AddressInfo {
  private:
@@ -39,4 +40,5 @@ class AddressInfo {
 
   bool GetAddressInfo(const std::string& host, char* host_name_info, int64_t max_host);
 };
-}  // namespace driver
+
+}  // namespace arrow::flight::sql::odbc

@@ -17,21 +17,18 @@
 
 #pragma once
 
-#include <arrow/flight/sql/odbc/odbc_impl/diagnostics.h>
-#include <arrow/flight/sql/odbc/odbc_impl/exceptions.h>
-#include <arrow/flight/sql/odbc/odbc_impl/platform.h>
 #include <sql.h>
 #include <sqlext.h>
 #include <algorithm>
 #include <cstring>
 #include <memory>
-
-#include <arrow/flight/sql/odbc/odbc_impl/encoding_utils.h>
+#include "arrow/flight/sql/odbc/odbc_impl/diagnostics.h"
+#include "arrow/flight/sql/odbc/odbc_impl/encoding_utils.h"
+#include "arrow/flight/sql/odbc/odbc_impl/exceptions.h"
+#include "arrow/flight/sql/odbc/odbc_impl/platform.h"
 
 namespace ODBC {
-
 using arrow::flight::sql::odbc::Diagnostics;
-using arrow::flight::sql::odbc::DriverException;
 using arrow::flight::sql::odbc::WcsToUtf8;
 
 template <typename T, typename O>
@@ -48,12 +45,12 @@ inline void GetAttribute(T attribute_value, SQLPOINTER output, O output_size,
 }
 
 template <typename O>
-inline SQLRETURN GetAttributeUTF8(const std::string& attribute_value, SQLPOINTER output,
-                                  O output_size, O* output_len_ptr) {
+inline SQLRETURN GetAttributeUTF8(const std::string_view& attribute_value,
+                                  SQLPOINTER output, O output_size, O* output_len_ptr) {
   if (output) {
     size_t output_len_before_null =
         std::min(static_cast<O>(attribute_value.size()), static_cast<O>(output_size - 1));
-    memcpy(output, attribute_value.c_str(), output_len_before_null);
+    std::memcpy(output, attribute_value.data(), output_len_before_null);
     reinterpret_cast<char*>(output)[output_len_before_null] = '\0';
   }
 
@@ -68,8 +65,8 @@ inline SQLRETURN GetAttributeUTF8(const std::string& attribute_value, SQLPOINTER
 }
 
 template <typename O>
-inline SQLRETURN GetAttributeUTF8(const std::string& attribute_value, SQLPOINTER output,
-                                  O output_size, O* output_len_ptr,
+inline SQLRETURN GetAttributeUTF8(const std::string_view& attribute_value,
+                                  SQLPOINTER output, O output_size, O* output_len_ptr,
                                   Diagnostics& diagnostics) {
   SQLRETURN result =
       GetAttributeUTF8(attribute_value, output, output_size, output_len_ptr);
@@ -80,7 +77,7 @@ inline SQLRETURN GetAttributeUTF8(const std::string& attribute_value, SQLPOINTER
 }
 
 template <typename O>
-inline SQLRETURN GetAttributeSQLWCHAR(const std::string& attribute_value,
+inline SQLRETURN GetAttributeSQLWCHAR(const std::string_view& attribute_value,
                                       bool is_length_in_bytes, SQLPOINTER output,
                                       O output_size, O* output_len_ptr) {
   size_t length = ConvertToSqlWChar(
@@ -104,7 +101,7 @@ inline SQLRETURN GetAttributeSQLWCHAR(const std::string& attribute_value,
 }
 
 template <typename O>
-inline SQLRETURN GetAttributeSQLWCHAR(const std::string& attribute_value,
+inline SQLRETURN GetAttributeSQLWCHAR(const std::string_view& attribute_value,
                                       bool is_length_in_bytes, SQLPOINTER output,
                                       O output_size, O* output_len_ptr,
                                       Diagnostics& diagnostics) {
@@ -117,7 +114,8 @@ inline SQLRETURN GetAttributeSQLWCHAR(const std::string& attribute_value,
 }
 
 template <typename O>
-inline SQLRETURN GetStringAttribute(bool is_unicode, const std::string& attribute_value,
+inline SQLRETURN GetStringAttribute(bool is_unicode,
+                                    const std::string_view& attribute_value,
                                     bool is_length_in_bytes, SQLPOINTER output,
                                     O output_size, O* output_len_ptr,
                                     Diagnostics& diagnostics) {

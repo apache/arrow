@@ -19,7 +19,8 @@
 #include "arrow/scalar.h"
 #include "arrow/testing/builder.h"
 #include "arrow/type.h"
-#include "gtest/gtest.h"
+
+#include <gtest/gtest.h>
 
 namespace arrow::flight::sql::odbc {
 
