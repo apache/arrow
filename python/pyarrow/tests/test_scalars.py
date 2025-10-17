@@ -24,7 +24,7 @@ from collections.abc import Sequence, Mapping
 try:
     import numpy as np
 except ImportError:
-    np = None  # type: ignore[assignment]
+    pass
 
 import pyarrow as pa
 import pyarrow.compute as pc
@@ -577,7 +577,7 @@ def test_binary(value, ty, scalar_typ):
         with pytest.raises(ValueError):
             memoryview(s)
     else:
-        assert buf.to_pybytes() == value
+        assert buf.to_pybytes() == value  # type: ignore[union-attr]
         assert isinstance(buf, pa.Buffer)
         assert bytes(s) == value
 

@@ -451,7 +451,7 @@ class RecordBatch(_Tabular[Array]):
         schema: Schema | None = None,
         preserve_index: bool | None = None,
         nthreads: int | None = None,
-        columns: list[str] | None = None,
+        columns: Sequence[str | int] | None = None,
     ) -> Self: ...
 
     @classmethod
@@ -545,7 +545,7 @@ class Table(_Tabular[ChunkedArray[Any]]):
         schema: Schema | None = None,
         preserve_index: bool | None = None,
         nthreads: int | None = None,
-        columns: list[str] | None = None,
+        columns: Sequence[str | int] | None = None,
         safe: bool = True,
     ) -> Self: ...
 
