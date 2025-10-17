@@ -36,6 +36,7 @@ namespace ODBC {
 using arrow::flight::sql::odbc::DriverException;
 using arrow::flight::sql::odbc::GetSqlWCharSize;
 using arrow::flight::sql::odbc::Utf8ToWcs;
+using arrow::flight::sql::odbc::WcsToUtf8;
 
 // Return the number of bytes required for the conversion.
 template <typename CHAR_TYPE>
@@ -78,6 +79,26 @@ inline size_t ConvertToSqlWChar(const std::string& str, SQLWCHAR* buffer,
       throw DriverException("Encoding is unsupported, SQLWCHAR size: " +
                             std::to_string(GetSqlWCharSize()));
   }
+}
+
+/// \brief Convert buffer of SqlWchar to standard string
+/// \param[in] wchar_msg SqlWchar to convert
+/// \param[in] msg_len Number of characters in wchar_msg
+/// \return wchar_msg in std::string format
+inline std::string SqlWcharToString(SQLWCHAR* wchar_msg, SQLINTEGER msg_len = SQL_NTS) {
+  if (msg_len == 0 || !wchar_msg || wchar_msg[0] == 0) {
+    return std::string();
+  }
+
+  thread_local std::vector<uint8_t> utf8_str;
+
+  if (msg_len == SQL_NTS) {
+    WcsToUtf8((void*)wchar_msg, &utf8_str);
+  } else {
+    WcsToUtf8((void*)wchar_msg, msg_len, &utf8_str);
+  }
+
+  return std::string(utf8_str.begin(), utf8_str.end());
 }
 
 }  // namespace ODBC
