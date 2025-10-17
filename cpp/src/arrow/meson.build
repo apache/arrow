@@ -175,6 +175,8 @@ arrow_util_srcs = [
     'util/bitmap_builders.cc',
     'util/bitmap_ops.cc',
     'util/bpacking.cc',
+    'util/bpacking_scalar.cc',
+    'util/bpacking_simd_default.cc',
     'util/byte_size.cc',
     'util/byte_stream_split_internal.cc',
     'util/cancel.cc',
