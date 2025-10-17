@@ -935,7 +935,7 @@ is_release <- is.na(dev_version) || dev_version < "100"
 
 on_macos <- tolower(Sys.info()[["sysname"]]) == "darwin"
 on_windows <- tolower(Sys.info()[["sysname"]]) == "windows"
-on_linux_dev <-  tolower(Sys.info()[["sysname"]]) == "linux" && grepl("devel", R.version.string)
+on_linux_dev <- tolower(Sys.info()[["sysname"]]) == "linux" && grepl("devel", R.version.string)
 
 # For local debugging, set ARROW_R_DEV=TRUE to make this script print more
 quietly <- !env_is("ARROW_R_DEV", "true")
@@ -976,7 +976,7 @@ if (is_release) {
   }
 } else {
   VERSION_22_OR_LATER <- TRUE
-  arrow_repo <- paste0(getOption("arrow.dev_repo", "https://nightlies.apache.org/arrow/r"), "/libarrow/")
+  arrow_repo <- getOption("arrow.dev_repo", "https://nightlies.apache.org/arrow/r/libarrow/")
 }
 
 # Check if we're authorized to download
