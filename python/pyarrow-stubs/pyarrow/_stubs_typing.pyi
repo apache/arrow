@@ -46,7 +46,7 @@ Compression: TypeAlias = Literal[
 NullEncoding: TypeAlias = Literal["mask", "encode"]
 NullSelectionBehavior: TypeAlias = Literal["drop", "emit_null"]
 Mask: TypeAlias = Sequence[bool | None] | NDArray[np.bool_] | BooleanArray
-Indices: TypeAlias = Sequence[int] | NDArray[np.integer[Any]] | IntegerArray
+Indices: TypeAlias = Sequence[int | None] | NDArray[np.integer[Any]] | IntegerArray
 PyScalar: TypeAlias = (bool | int | float | Decimal | str | bytes |
                        dt.date | dt.datetime | dt.time | dt.timedelta)
 

@@ -28,19 +28,19 @@ from datetime import date, datetime, time, timedelta, timezone
 import hypothesis as h
 import hypothesis.strategies as st
 import pytest
+
+pd = pytest.importorskip("pandas")
+np = pytest.importorskip("numpy")
+
+import numpy.testing as npt
 try:
-    import numpy as np
-    import numpy.testing as npt
-    try:
-        _np_VisibleDeprecationWarning = (
-            np.VisibleDeprecationWarning  # type: ignore[attr-defined]
-        )
-    except AttributeError:
-        from numpy.exceptions import (
-            VisibleDeprecationWarning as _np_VisibleDeprecationWarning
-        )
-except ImportError:
-    np = None  # type: ignore[assignment]
+    _np_VisibleDeprecationWarning = (
+        np.VisibleDeprecationWarning  # type: ignore[attr-defined]
+    )
+except AttributeError:
+    from numpy.exceptions import (
+        VisibleDeprecationWarning as _np_VisibleDeprecationWarning
+    )
 
 from pyarrow.pandas_compat import get_logical_type, _pandas_api
 from pyarrow.tests.util import invoke_script, random_ascii, rands
@@ -54,13 +54,8 @@ try:
 except ImportError:
     pass
 
-try:
-    import pandas as pd
-    import pandas.testing as tm
-    from .pandas_examples import dataframe_with_arrays, dataframe_with_lists
-except ImportError:
-    pass
-
+import pandas.testing as tm
+from .pandas_examples import dataframe_with_arrays, dataframe_with_lists
 
 # Marks all of the tests in this module
 pytestmark = pytest.mark.pandas
@@ -100,7 +95,7 @@ def _alltypes_example(size=100):
 def _check_pandas_roundtrip(df, expected=None, use_threads=False,
                             expected_schema=None,
                             check_dtype=True, schema=None,
-                            preserve_index=False,
+                            preserve_index: bool | None = False,
                             as_batch=False):
     klass = pa.RecordBatch if as_batch else pa.Table
     table = klass.from_pandas(df, schema=schema,
@@ -5094,7 +5089,7 @@ def test_roundtrip_nested_map_array_with_pydicts_sliced():
 
     ty = pa.list_(pa.map_(pa.string(), pa.list_(pa.string())))
 
-    def assert_roundtrip(series: pd.Series, data) -> None:
+    def assert_roundtrip(series: pd.Series, data: pa.ChunkedArray) -> None:  # type: ignore[type-arg]
         array_roundtrip = pa.chunked_array(pa.Array.from_pandas(series, type=ty))
         array_roundtrip.validate(full=True)
         assert data.equals(array_roundtrip)
