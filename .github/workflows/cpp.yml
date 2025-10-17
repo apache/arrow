@@ -279,6 +279,7 @@ jobs:
           ulimit -c unlimited  # must enable within the same shell
           ci/scripts/cpp_test.sh $(pwd) $(pwd)/build
 
+  # This job should be kept up-to-date with the equivalent job in cpp_extra.yml
   windows:
     name: ${{ matrix.title }}
     runs-on: ${{ matrix.os }}
@@ -287,12 +288,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os:
-          - windows-2022
         include:
-          - os: windows-2022
+          - arch: x64
+            os: windows-2022
             simd-level: AVX2
-            title: AMD64 Windows 2022 AVX2
+            title: AMD64 Windows 2022 AVX2 C++
     env:
       ARROW_BOOST_USE_SHARED: OFF
       ARROW_BUILD_BENCHMARKS: ON
@@ -340,10 +340,17 @@ jobs:
       - name: Download Timezone Database
         shell: bash
         run: ci/scripts/download_tz_database.sh
+      - name: Install msys2 (for tzdata for ORC tests)
+        uses: msys2/setup-msys2@v2
+        id: setup-msys2
+      - name: Install cmake
+        shell: bash
+        run: |
+          ci/scripts/install_cmake.sh 4.1.2 /usr
       - name: Install ccache
         shell: bash
         run: |
-          ci/scripts/install_ccache.sh 4.6.3 /usr
+          ci/scripts/install_ccache.sh 4.12.1 /usr
       - name: Setup ccache
         shell: bash
         run: |
@@ -365,14 +372,14 @@ jobs:
       - name: Build
         shell: cmd
         run: |
-          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
+          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" ${{ matrix.arch }}
           bash -c "ci/scripts/cpp_build.sh $(pwd) $(pwd)/build"
       - name: Test
         shell: cmd
         run: |
-          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
+          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" ${{ matrix.arch }}
           # For ORC
-          set TZDIR=C:\msys64\usr\share\zoneinfo
+          set TZDIR=${{ steps.setup-msys2.outputs.msys2-location }}\usr\share\zoneinfo
           bash -c "ci/scripts/cpp_test.sh $(pwd) $(pwd)/build"
 
   windows-mingw:
