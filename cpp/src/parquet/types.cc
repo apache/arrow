@@ -1964,12 +1964,20 @@ class LogicalType::Impl::Variant final : public LogicalType::Impl::Incompatible,
   friend class VariantLogicalType;
 
   OVERRIDE_TOSTRING(Variant)
-  OVERRIDE_TOTHRIFT(VariantType, VARIANT)
+
+  format::LogicalType ToThrift() const override {
+    format::LogicalType type;
+    format::VariantType variant_type;
+    variant_type.__set_specification_version(kSpecificationVersion);
+    type.__set_VARIANT(variant_type);
+    return type;
+  }
 
  private:
   Variant()
       : LogicalType::Impl(LogicalType::Type::VARIANT, SortOrder::UNKNOWN),
         LogicalType::Impl::Inapplicable() {}
+  static constexpr int8_t kSpecificationVersion = 1;
 };
 
 GENERATE_MAKE(Variant)

@@ -1459,7 +1459,7 @@ void swap(BsonType &a, BsonType &b);
 std::ostream& operator<<(std::ostream& out, const BsonType& obj);
 
 typedef struct _VariantType__isset {
-  _VariantType__isset() : specification_version(true) {}
+  _VariantType__isset() : specification_version(false) {}
   bool specification_version :1;
 } _VariantType__isset;
 

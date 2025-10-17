@@ -2357,11 +2357,12 @@ TEST(TestLogicalTypeSerialization, Roundtrips) {
 }
 
 TEST(TestLogicalTypeSerialization, VariantSpecificationVersion) {
-  // Confirm that Variant logical type sets specification_version to 1 in thrift serialization
+  // Confirm that Variant logical type sets specification_version to 1 in thrift
+  // serialization
   auto metadata = PrimitiveNode::Make("metadata", Repetition::REQUIRED, Type::BYTE_ARRAY);
   auto value = PrimitiveNode::Make("value", Repetition::REQUIRED, Type::BYTE_ARRAY);
-  NodePtr variant_node = GroupNode::Make("variant", Repetition::REQUIRED, {metadata, value},
-                                         LogicalType::Variant());
+  NodePtr variant_node = GroupNode::Make("variant", Repetition::REQUIRED,
+                                         {metadata, value}, LogicalType::Variant());
 
   std::vector<format::SchemaElement> elements;
   ToParquet(reinterpret_cast<GroupNode*>(variant_node.get()), &elements);
