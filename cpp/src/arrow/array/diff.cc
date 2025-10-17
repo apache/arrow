@@ -44,6 +44,7 @@
 #include "arrow/util/bit_util.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/float16.h"
+#include "arrow/util/int128_internal.h"
 #include "arrow/util/logging_internal.h"
 #include "arrow/util/range.h"
 #include "arrow/util/ree_util.h"
@@ -57,6 +58,7 @@ namespace arrow {
 using internal::checked_cast;
 using internal::checked_pointer_cast;
 using internal::MakeLazyRange;
+using internal::int128_t;
 
 namespace {
 
@@ -855,6 +857,7 @@ class MakeFormatterImpl {
       // Using unqualified `format` directly would produce ambiguous
       // lookup because of `std::format` (ARROW-15520).
       namespace avd = arrow_vendored::date;
+      using picoseconds = std::chrono::duration<int128_t, std::pico>;
       using std::chrono::nanoseconds;
       using std::chrono::microseconds;
       using std::chrono::milliseconds;
@@ -863,6 +866,9 @@ class MakeFormatterImpl {
         static avd::sys_days epoch{avd::jan / 1 / 1970};
 
         switch (unit) {
+          case TimeUnit::PICO:
+            *os << avd::format(fmt, static_cast<picoseconds>(value) + epoch);
+            break;
           case TimeUnit::NANO:
             *os << avd::format(fmt, static_cast<nanoseconds>(value) + epoch);
             break;
@@ -879,6 +885,9 @@ class MakeFormatterImpl {
         return;
       }
       switch (unit) {
+        case TimeUnit::PICO:
+          *os << avd::format(fmt, static_cast<picoseconds>(value));
+          break;
         case TimeUnit::NANO:
           *os << avd::format(fmt, static_cast<nanoseconds>(value));
           break;

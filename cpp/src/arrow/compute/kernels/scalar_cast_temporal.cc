@@ -140,6 +140,8 @@ Status ExtractTemporal(KernelContext* ctx, const ExecSpan& batch, ExecResult* ou
     case TimeUnit::NANO:
       return TemporalComponentExtract<Op, std::chrono::nanoseconds, TimestampType,
                                       OutType, Args...>::Exec(ctx, batch, out, args...);
+    case TimeUnit::PICO:
+      return Status::Invalid("Picoseconds not yet supported: ", ty);
   }
   return Status::Invalid("Unknown timestamp unit: ", ty);
 }

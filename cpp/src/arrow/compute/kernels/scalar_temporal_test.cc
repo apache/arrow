@@ -608,7 +608,8 @@ TEST_F(ScalarTemporalTest, TestTemporalComponentExtractionAllTemporalTypes) {
 }
 
 TEST_F(ScalarTemporalTest, TestTemporalComponentExtractionWithDifferentUnits) {
-  for (auto u : TimeUnit::values()) {
+  auto units = {TimeUnit::SECOND, TimeUnit::MILLI, TimeUnit::MICRO, TimeUnit::NANO};
+  for (auto u : units) {
     auto unit = timestamp(u);
     CheckScalarUnary("year", unit, times_seconds_precision, int64(), year);
     CheckScalarUnary("is_leap_year", unit, times_seconds_precision, boolean(),
@@ -814,7 +815,8 @@ TEST_F(ScalarTemporalTest, TestZoned1) {
 }
 
 TEST_F(ScalarTemporalTest, TestZoned2) {
-  for (auto u : TimeUnit::values()) {
+  auto units = {TimeUnit::SECOND, TimeUnit::MILLI, TimeUnit::MICRO, TimeUnit::NANO};
+  for (auto u : units) {
     auto unit = timestamp(u, "Australia/Broken_Hill");
     auto month = "[1, 3, 1, 5, 1, 12, 12, 12, 1, 1, 1, 1, 12, 12, 12, 1, null]";
     auto day = "[1, 1, 1, 18, 1, 31, 30, 31, 1, 3, 4, 1, 31, 28, 29, 1, null]";
@@ -906,8 +908,9 @@ TEST_F(ScalarTemporalTest, TestNonexistentTimezone) {
   auto nonexistent_timezones = {
       "Mars/Mariner_Valley", "+25:00", "-25:00", "15:00", "5:00", "500",
       "+05:00:00",           "+050000"};
+  auto units = {TimeUnit::SECOND, TimeUnit::MILLI, TimeUnit::MICRO, TimeUnit::NANO};
   for (auto timezone : nonexistent_timezones) {
-    for (auto u : TimeUnit::values()) {
+    for (auto u : units) {
       auto ts_type = timestamp(u, timezone);
       auto timestamp_array = std::make_shared<NumericArray<TimestampType>>(
           ts_type, 2, data_buffer, null_buffer, 0);
@@ -1026,7 +1029,8 @@ TEST_F(ScalarTemporalTest, DayOfWeek) {
 }
 
 TEST_F(ScalarTemporalTest, TestTemporalDifference) {
-  for (auto u : TimeUnit::values()) {
+  auto units = {TimeUnit::SECOND, TimeUnit::MILLI, TimeUnit::MICRO, TimeUnit::NANO};
+  for (auto u : units) {
     auto unit = timestamp(u);
     auto arr1 = ArrayFromJSON(unit, times_seconds_precision);
     auto arr2 = ArrayFromJSON(unit, times_seconds_precision2);
@@ -1879,8 +1883,9 @@ TEST_F(ScalarTemporalTest, TestLocalTimestamp) {
           "2009-12-30 18:50:20", "2009-12-31 19:55:25", "2010-01-02 21:00:30",
           "2010-01-03 22:05:35", "2005-12-31 23:10:40", "2005-12-31 00:15:45",
           "2008-12-27 14:30:00", "2008-12-28 14:30:00", "2011-12-31 15:32:03", null])";
+  auto units = {TimeUnit::SECOND, TimeUnit::MILLI, TimeUnit::MICRO, TimeUnit::NANO};
 
-  for (auto u : TimeUnit::values()) {
+  for (auto u : units) {
     CheckScalarUnary("local_timestamp", timestamp(u), times_seconds_precision,
                      timestamp(u), times_seconds_precision);
     CheckScalarUnary("local_timestamp", timestamp(u, "UTC"), times_seconds_precision,
@@ -1912,8 +1917,9 @@ TEST_F(ScalarTemporalTest, TestAssumeTimezone) {
   auto options_tbilisi = AssumeTimezoneOptions(timezone_tbilisi);
   auto options_tbilisi_offset = AssumeTimezoneOptions(timezone_tbilisi_offset);
   auto options_invalid = AssumeTimezoneOptions("Europe/Brusselsss");
+  auto units = {TimeUnit::SECOND, TimeUnit::MILLI, TimeUnit::MICRO, TimeUnit::NANO};
 
-  for (auto u : TimeUnit::values()) {
+  for (auto u : units) {
     auto unit = timestamp(u);
     auto unit_utc = timestamp(u, timezone_utc);
     auto unit_kolkata = timestamp(u, timezone_kolkata);
@@ -1956,8 +1962,9 @@ TEST_F(ScalarTemporalTest, TestAssumeTimezoneAmbiguous) {
       AssumeTimezoneOptions(timezone, AssumeTimezoneOptions::AMBIGUOUS_LATEST);
   auto options_raise =
       AssumeTimezoneOptions(timezone, AssumeTimezoneOptions::AMBIGUOUS_RAISE);
+  auto units = {TimeUnit::SECOND, TimeUnit::MILLI, TimeUnit::MICRO, TimeUnit::NANO};
 
-  for (auto u : TimeUnit::values()) {
+  for (auto u : units) {
     auto unit = timestamp(u);
     auto unit_local = timestamp(u, timezone);
     ASSERT_RAISES(Invalid, AssumeTimezone(ArrayFromJSON(unit, times), options_raise));
@@ -1989,8 +1996,9 @@ TEST_F(ScalarTemporalTest, TestAssumeTimezoneNonexistent) {
   auto options_earliest =
       AssumeTimezoneOptions(timezone, AssumeTimezoneOptions::AMBIGUOUS_RAISE,
                             AssumeTimezoneOptions::NONEXISTENT_EARLIEST);
+  auto units = {TimeUnit::SECOND, TimeUnit::MILLI, TimeUnit::MICRO, TimeUnit::NANO};
 
-  for (auto u : TimeUnit::values()) {
+  for (auto u : units) {
     auto unit = timestamp(u);
     auto unit_local = timestamp(u, timezone);
     ASSERT_RAISES(Invalid, AssumeTimezone(ArrayFromJSON(unit, times), options_raise));
@@ -2245,7 +2253,8 @@ TEST_F(ScalarTemporalTest, StrftimeInvalidLocale) {
 }
 
 TEST_F(ScalarTemporalTest, TestTemporalDifferenceZoned) {
-  for (auto u : TimeUnit::values()) {
+  auto units = {TimeUnit::SECOND, TimeUnit::MILLI, TimeUnit::MICRO, TimeUnit::NANO};
+  for (auto u : units) {
     auto unit = timestamp(u, "Pacific/Marquesas");
     auto arr1 = ArrayFromJSON(unit, times_seconds_precision);
     auto arr2 = ArrayFromJSON(unit, times_seconds_precision2);

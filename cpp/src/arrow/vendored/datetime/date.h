@@ -67,6 +67,8 @@
 #include <utility>
 #include <type_traits>
 
+#include "arrow/util/int128_internal.h"
+
 #ifdef __GNUC__
 # pragma GCC diagnostic push
 # if __GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ > 7)
@@ -166,6 +168,8 @@ using ratio_multiply = decltype(std::ratio_multiply<R1, R2>{});
 template <typename R1, typename R2>
 using ratio_divide = decltype(std::ratio_divide<R1, R2>{});
 }  // namespace detail
+
+using ::operator<<;
 
 //-----------+
 // Interface |
