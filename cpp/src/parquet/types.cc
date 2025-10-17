@@ -596,7 +596,12 @@ std::shared_ptr<const LogicalType> LogicalType::FromThrift(
 
     return GeographyLogicalType::Make(std::move(crs), algorithm);
   } else if (type.__isset.VARIANT) {
-    return VariantLogicalType::Make();
+    int8_t specVersion = VARIANT_SPEC_VERSION;
+    if (type.VARIANT.__isset.specification_version) {
+      specVersion = type.VARIANT.specification_version;
+    }
+
+    return VariantLogicalType::Make(specVersion);
   } else {
     // Sentinel type for one we do not recognize
     return UndefinedLogicalType::Make();
@@ -664,8 +669,8 @@ std::shared_ptr<const LogicalType> LogicalType::Geography(
   return GeographyLogicalType::Make(std::move(crs), algorithm);
 }
 
-std::shared_ptr<const LogicalType> LogicalType::Variant() {
-  return VariantLogicalType::Make();
+std::shared_ptr<const LogicalType> LogicalType::Variant(int8_t specVersion) {
+  return VariantLogicalType::Make(specVersion);
 }
 
 std::shared_ptr<const LogicalType> LogicalType::None() { return NoLogicalType::Make(); }
@@ -1963,24 +1968,53 @@ class LogicalType::Impl::Variant final : public LogicalType::Impl::Incompatible,
  public:
   friend class VariantLogicalType;
 
-  OVERRIDE_TOSTRING(Variant)
+  std::string ToString() const override;
+  std::string ToJSON() const override;
+  format::LogicalType ToThrift() const override;
 
-  format::LogicalType ToThrift() const override {
-    format::LogicalType type;
-    format::VariantType variant_type;
-    variant_type.__set_specification_version(kSpecificationVersion);
-    type.__set_VARIANT(variant_type);
-    return type;
-  }
+  int8_t spec_version() const { return specVersion_; }
 
  private:
-  Variant()
+  explicit Variant(const int8_t specVersion)
       : LogicalType::Impl(LogicalType::Type::VARIANT, SortOrder::UNKNOWN),
-        LogicalType::Impl::Inapplicable() {}
-  static constexpr int8_t kSpecificationVersion = 1;
+        LogicalType::Impl::Inapplicable() {
+    this->specVersion_ = specVersion;
+  }
+
+  int8_t specVersion_;
 };
 
-GENERATE_MAKE(Variant)
+int8_t VariantLogicalType::spec_version() const {
+  return (dynamic_cast<const LogicalType::Impl::Variant&>(*impl_)).spec_version();
+}
+
+std::string LogicalType::Impl::Variant::ToString() const {
+  std::stringstream type;
+  type << "Variant(" << static_cast<int>(specVersion_) << ")";
+  return type.str();
+}
+
+std::string LogicalType::Impl::Variant::ToJSON() const {
+  std::stringstream json;
+  json << R"({"Type": "Variant", "SpecVersion": )" << static_cast<int>(specVersion_)
+       << "}";
+
+  return json.str();
+}
+
+format::LogicalType LogicalType::Impl::Variant::ToThrift() const {
+  format::LogicalType type;
+  format::VariantType variant_type;
+  variant_type.__set_specification_version(specVersion_);
+  type.__set_VARIANT(variant_type);
+  return type;
+}
+
+std::shared_ptr<const LogicalType> VariantLogicalType::Make(const int8_t specVersion) {
+  auto logical_type = std::shared_ptr<VariantLogicalType>(new VariantLogicalType());
+  logical_type->impl_.reset(new LogicalType::Impl::Variant(specVersion));
+  return logical_type;
+}
 
 class LogicalType::Impl::No final : public LogicalType::Impl::SimpleCompatible,
                                     public LogicalType::Impl::UniversalApplicable {
