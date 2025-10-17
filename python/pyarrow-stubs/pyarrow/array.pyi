@@ -188,7 +188,7 @@ class _PandasConvertible(_Weakrefable, Generic[_ConvertAs]):
     def to_pandas(
         self,
         memory_pool: MemoryPool | None = None,
-        categories: list | None = None,
+        categories: list | tuple | None = None,
         strings_to_categorical: bool = False,
         zero_copy_only: bool = False,
         integer_object_nulls: bool = False,
@@ -201,7 +201,7 @@ class _PandasConvertible(_Weakrefable, Generic[_ConvertAs]):
         split_blocks: bool = False,
         self_destruct: bool = False,
         maps_as_pydicts: Literal["None", "lossy", "strict"] | None = None,
-        types_mapper: Callable[[DataType], ExtensionDtype | None] | None = None,
+        types_mapper: Any = None,  # Callable[[DataType], ExtensionDtype | None] | None
         coerce_temporal_nanoseconds: bool = False,
     ) -> _ConvertAs: ...
 

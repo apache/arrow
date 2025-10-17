@@ -333,6 +333,12 @@ import pyarrow.lib as lib
 import pyarrow.types as types
 
 import pyarrow.feather as feather
+try:
+    import pyarrow.substrait as substrait
+    import pyarrow._substrait as _substrait
+except ImportError:
+    substrait = None  # type: ignore[assignment]
+    _substrait = None  # type: ignore[assignment]
 
 import pyarrow.compute as compute
 import pyarrow.csv as csv
