@@ -129,7 +129,9 @@ fi
 # * This doesn't test other CMake packages such as ArrowDataset
 if [ "${ARROW_USE_MESON:-OFF}" = "OFF" ] && \
      [ "${ARROW_EMSCRIPTEN:-OFF}" = "OFF" ] && \
-     [ "${ARROW_USE_ASAN:-OFF}" = "OFF" ]; then
+     [ "${ARROW_USE_ASAN:-OFF}" = "OFF" ] && \
+     [ "${ARROW_USE_TSAN:-OFF}" = "OFF" ] && \
+     [ "${ARROW_CSV:-ON}" = "ON" ]; then
   CMAKE_PREFIX_PATH="${CMAKE_INSTALL_PREFIX:-${ARROW_HOME}}"
   case "$(uname)" in
     MINGW*)
