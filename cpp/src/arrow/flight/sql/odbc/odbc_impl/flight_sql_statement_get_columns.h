@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#pragma once
+
 #include <optional>
 #include "arrow/array/builder_binary.h"
 #include "arrow/array/builder_primitive.h"

@@ -20,7 +20,7 @@
 
 #include "arrow/flight/sql/odbc/odbc_impl/system_trust_store.h"
 
-#if defined _WIN32 || defined _WIN64
+#if defined _WIN32
 
 namespace arrow::flight::sql::odbc {
 bool SystemTrustStore::HasNext() {
