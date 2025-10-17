@@ -516,6 +516,8 @@ Status TransferInt96(RecordReader* reader, MemoryPool* pool,
       *data_ptr++ = 0;
     } else {
       switch (int96_arrow_time_unit) {
+        case ::arrow::TimeUnit::PICO:
+          return Status::Invalid("Picoseconds not supported.");
         case ::arrow::TimeUnit::NANO:
           *data_ptr++ = Int96GetNanoSeconds(values[i]);
           break;

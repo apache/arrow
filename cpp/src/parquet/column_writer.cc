@@ -2239,6 +2239,8 @@ struct SerializeFunctor<Int96Type, ::arrow::TimestampType> {
     const int64_t* input = array.raw_values();
     const auto& type = static_cast<const ::arrow::TimestampType&>(*array.type());
     switch (type.unit()) {
+      case ::arrow::TimeUnit::PICO:
+        return Status::Invalid("Picoseconds not supported.");
       case ::arrow::TimeUnit::NANO:
         INT96_CONVERT_LOOP(internal::NanosecondsToImpalaTimestamp);
         break;

@@ -16,6 +16,9 @@
 // under the License.
 #pragma once
 
+#include <iostream>
+#include <iomanip>
+
 #include "arrow/util/config.h"
 #include "arrow/util/macros.h"
 
@@ -43,3 +46,10 @@ using boost::multiprecision::uint128_t;
 
 }  // namespace internal
 }  // namespace arrow
+
+// Write the 128-bit integer val to out, with a minus sign if decimal and neg
+// is true. Obey all of the ostream settings of out for integer display: octal
+// or hexadecimal, upper case letters, plus sign, fill character and width, and
+// fill placement.
+std::ostream& operator<<(std::ostream& out, arrow::internal::uint128_t val);
+std::ostream& operator<<(std::ostream& out, arrow::internal::int128_t val);

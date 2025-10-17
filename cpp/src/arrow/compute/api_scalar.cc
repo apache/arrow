@@ -58,7 +58,7 @@ struct EnumTraits<compute::JoinOptions::NullHandlingBehavior>
 template <>
 struct EnumTraits<TimeUnit::type>
     : BasicEnumTraits<TimeUnit::type, TimeUnit::type::SECOND, TimeUnit::type::MILLI,
-                      TimeUnit::type::MICRO, TimeUnit::type::NANO> {
+                      TimeUnit::type::MICRO, TimeUnit::type::NANO, TimeUnit::type::PICO> {
   static std::string name() { return "TimeUnit::type"; }
   static std::string value_name(TimeUnit::type value) {
     switch (value) {
@@ -70,6 +70,8 @@ struct EnumTraits<TimeUnit::type>
         return "MICRO";
       case TimeUnit::type::NANO:
         return "NANO";
+      case TimeUnit::type::PICO:
+        return "PICO";
     }
     return "<INVALID>";
   }

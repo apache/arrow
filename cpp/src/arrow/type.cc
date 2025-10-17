@@ -249,6 +249,8 @@ std::string ToString(TimeUnit::type unit) {
       return "us";
     case TimeUnit::NANO:
       return "ns";
+    case TimeUnit::PICO:
+      return "ps";
     default:
       DCHECK(false);
       return "";
@@ -1189,6 +1191,9 @@ std::ostream& operator<<(std::ostream& os, TimeUnit::type unit) {
       break;
     case TimeUnit::NANO:
       os << "ns";
+      break;
+    case TimeUnit::PICO:
+      os << "ps";
       break;
   }
   return os;
@@ -2767,6 +2772,8 @@ static char TimeUnitFingerprint(TimeUnit::type unit) {
       return 'u';
     case TimeUnit::NANO:
       return 'n';
+    case TimeUnit::PICO:
+      return 'p';
     default:
       DCHECK(false) << "Unexpected TimeUnit";
       return '\0';
@@ -3542,7 +3549,8 @@ const std::vector<std::shared_ptr<DataType>>& PrimitiveTypes() {
 
 const std::vector<TimeUnit::type>& TimeUnit::values() {
   static std::vector<TimeUnit::type> units = {TimeUnit::SECOND, TimeUnit::MILLI,
-                                              TimeUnit::MICRO, TimeUnit::NANO};
+                                              TimeUnit::MICRO, TimeUnit::NANO,
+                                              TimeUnit::PICO};
   return units;
 }
 

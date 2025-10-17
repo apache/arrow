@@ -195,6 +195,7 @@ static std::shared_ptr<const LogicalType> TimestampLogicalTypeFromArrowTimestamp
       return LogicalType::Timestamp(utc, LogicalType::TimeUnit::NANOS,
                                     /*is_from_converted_type=*/false,
                                     /*force_set_converted_type=*/false);
+    case ::arrow::TimeUnit::PICO:
     case ::arrow::TimeUnit::SECOND:
       // No equivalent parquet logical type.
       break;
@@ -231,6 +232,7 @@ static Status GetTimestampMetadata(const ::arrow::TimestampType& type,
         case ::arrow::TimeUnit::MILLI:
         case ::arrow::TimeUnit::MICRO:
           break;
+        case ::arrow::TimeUnit::PICO:
         case ::arrow::TimeUnit::NANO:
         case ::arrow::TimeUnit::SECOND:
           return Status::NotImplemented("For Parquet version ",
@@ -244,6 +246,7 @@ static Status GetTimestampMetadata(const ::arrow::TimestampType& type,
         case ::arrow::TimeUnit::MICRO:
         case ::arrow::TimeUnit::NANO:
           break;
+        case ::arrow::TimeUnit::PICO:
         case ::arrow::TimeUnit::SECOND:
           return Status::NotImplemented("For Parquet version ",
                                         ::parquet::ParquetVersionToString(version),

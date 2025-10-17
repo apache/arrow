@@ -1221,21 +1221,28 @@ struct SchemaImporter {
     ARROW_ASSIGN_OR_RAISE(auto unit, f_parser_.ParseTimeUnit());
     if (unit == TimeUnit::SECOND || unit == TimeUnit::MILLI) {
       return ProcessPrimitive(time32(unit));
-    } else {
+    } else if (unit != TimeUnit::PICO) {
       return ProcessPrimitive(time64(unit));
     }
+    return f_parser_.Invalid();
   }
 
   Status ProcessDuration() {
     ARROW_ASSIGN_OR_RAISE(auto unit, f_parser_.ParseTimeUnit());
-    return ProcessPrimitive(duration(unit));
+    if (unit != TimeUnit::PICO) {
+      return ProcessPrimitive(duration(unit));
+    }
+    return f_parser_.Invalid();
   }
 
   Status ProcessTimestamp() {
     ARROW_ASSIGN_OR_RAISE(auto unit, f_parser_.ParseTimeUnit());
     RETURN_NOT_OK(f_parser_.CheckNext(':'));
-    type_ = timestamp(unit, std::string(f_parser_.Rest()));
-    return Status::OK();
+    if (unit != TimeUnit::PICO) {
+      type_ = timestamp(unit, std::string(f_parser_.Rest()));
+      return Status::OK();
+    }
+    return f_parser_.Invalid();
   }
 
   Status ProcessFixedSizeBinary() {

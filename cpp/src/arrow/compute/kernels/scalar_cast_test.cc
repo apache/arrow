@@ -2396,7 +2396,8 @@ TEST(Cast, TimestampToDate) {
   CheckCast(timestamps, date_64);
   CheckCast(timestamps_extreme, date_32_extreme);
   CheckCast(timestamps_extreme, date_64_extreme);
-  for (auto u : TimeUnit::values()) {
+  auto units = {TimeUnit::SECOND, TimeUnit::MILLI, TimeUnit::MICRO, TimeUnit::NANO};
+  for (auto u : units) {
     auto unit = timestamp(u);
     CheckCast(ArrayFromJSON(unit, kTimestampSecondsJson), date_32);
     CheckCast(ArrayFromJSON(unit, kTimestampSecondsJson), date_64);
@@ -2438,7 +2439,8 @@ TEST_F(CastTimezone, ZonedTimestampToDate) {
           1230422400000, 1230508800000, 1325376000000, null
       ])");
 
-  for (auto u : TimeUnit::values()) {
+  auto units = {TimeUnit::SECOND, TimeUnit::MILLI, TimeUnit::MICRO, TimeUnit::NANO};
+  for (auto u : units) {
     auto timestamps =
         ArrayFromJSON(timestamp(u, "Australia/Broken_Hill"), kTimestampSecondsJson);
     CheckCast(timestamps, date_32);
@@ -2446,7 +2448,7 @@ TEST_F(CastTimezone, ZonedTimestampToDate) {
   }
 
   // Invalid timezone
-  for (auto u : TimeUnit::values()) {
+  for (auto u : units) {
     auto timestamps =
         ArrayFromJSON(timestamp(u, "Mars/Mariner_Valley"), kTimestampSecondsJson);
     CheckCastFails(timestamps, CastOptions::Unsafe(date32()));
@@ -2583,7 +2585,8 @@ TEST(Cast, TimestampToTime) {
   CheckCast(timestamps_s, times_ms);
 
   // Invalid timezone
-  for (auto u : TimeUnit::values()) {
+  auto units = {TimeUnit::SECOND, TimeUnit::MILLI, TimeUnit::MICRO, TimeUnit::NANO};
+  for (auto u : units) {
     auto timestamps =
         ArrayFromJSON(timestamp(u, "Mars/Mariner_Valley"), kTimestampSecondsJson);
     if (u == TimeUnit::SECOND || u == TimeUnit::MILLI) {
