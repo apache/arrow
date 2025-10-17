@@ -574,7 +574,7 @@ class Schema(_Weakrefable):
 
     def __len__(self) -> int: ...
 
-    def __getitem__(self, key: str) -> Field: ...
+    def __getitem__(self, key: str | int) -> Field: ...
 
     _field = __getitem__
     def __iter__(self) -> Iterator[Field]: ...
@@ -633,6 +633,7 @@ class Schema(_Weakrefable):
         truncate_metadata: bool = True,
         show_field_metadata: bool = True,
         show_schema_metadata: bool = True,
+        element_size_limit: int | None = None,
     ) -> str: ...
 
     def _export_to_c(self, out_ptr: int) -> None: ...
@@ -647,7 +648,7 @@ class Schema(_Weakrefable):
 
 
 def unify_schemas(
-    schemas: list[Schema],
+    schemas: Sequence[Schema],
     *,
     promote_options: Literal["default", "permissive"] = "default"
 ) -> Schema: ...
@@ -838,14 +839,16 @@ def type_for_alias(name: Any) -> DataType: ...
 
 
 def schema(
-    fields: Iterable[Field[Any]]
-    | Iterable[tuple[str, DataType | str]]
-    | Mapping[str, DataType | str],
-    metadata: dict[bytes | str, bytes | str] | None = None,
+    fields: (
+        Iterable[Field[Any]]
+        | Iterable[tuple[str, DataType | str | None]]
+        | Mapping[Any, DataType | str | None]
+    ),
+    metadata: Mapping[bytes, bytes] | Mapping[str, str] | Mapping[bytes, str] | Mapping[str, bytes] | None = None,
 ) -> Schema: ...
 
 
-def from_numpy_dtype(dtype: np.dtype[Any]) -> DataType: ...
+def from_numpy_dtype(dtype: np.dtype[Any] | type | str) -> DataType: ...
 
 
 __all__ = [

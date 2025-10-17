@@ -91,11 +91,11 @@ class Scalar(_Weakrefable, Generic[_DataType_co]):
 
     def cast(
         self,
-        target_type: None | _DataTypeT,
+        target_type: None | _DataTypeT | str,
         safe: bool = True,
         options: CastOptions | None = None,
         memory_pool: MemoryPool | None = None,
-    ) -> Self | Scalar[_DataTypeT]: ...
+    ) -> Self | Scalar[_DataTypeT] | Scalar[Any]: ...
 
     def validate(self, *, full: bool = False) -> None: ...
 
@@ -106,9 +106,37 @@ class Scalar(_Weakrefable, Generic[_DataType_co]):
     def as_py(self: Scalar[Any], *, maps_as_pydicts: Literal["lossy",
               "strict"] | None = None) -> Any: ...
 
+    def as_buffer(self) -> Buffer | None: ...
 
-_NULL: TypeAlias = None
-NA = _NULL
+    # Buffer protocol support
+    def __buffer__(self, flags: int) -> memoryview: ...
+
+    # Methods for structured types (StructScalar, MapScalar, ListScalar, etc.)
+    def __len__(self) -> int: ...
+
+    def __iter__(self) -> Iterator[Any]: ...
+
+    def __getitem__(self, key: int | str) -> Any: ...
+
+    def __contains__(self, key: object) -> bool: ...
+
+    def keys(self) -> Iterator[str]: ...
+
+    def items(self) -> Iterator[tuple[str, Any]]: ...
+
+    def values(self) -> Any: ...
+
+    # Allow values as both property (ListScalar) and method (StructScalar/Mapping)
+    @property
+    def values(self) -> Any: ...  # type: ignore[no-redef]
+
+    # Property for temporal scalar types
+    @property
+    def value(self) -> Any: ...
+
+
+_NULL: NullScalar
+NA: NullScalar
 
 
 class NullScalar(Scalar[NullType]):
@@ -326,7 +354,7 @@ class MapScalar(Scalar[MapType[_K, _ValueT]]):
     def values(self) -> Array | None: ...
     def __len__(self) -> int: ...
 
-    def __getitem__(self, i: int) -> tuple[Scalar[_K], _ValueT, Any]: ...
+    def __getitem__(self, i: int | str) -> tuple[Scalar[_K], _ValueT, Any] | Scalar[Any]: ...
 
     def __iter__(self: Scalar[
         MapType[_BasicDataType[_AsPyTypeK], _BasicDataType[_AsPyTypeV]]]
@@ -399,11 +427,11 @@ class FixedShapeTensorScalar(ExtensionScalar):
 
 def scalar(
     value: Any,
-    type: _DataTypeT | None = None,
+    type: _DataTypeT | str | None = None,
     *,
     from_pandas: bool | None = None,
     memory_pool: MemoryPool | None = None,
-) -> Scalar[_DataTypeT]: ...
+) -> Scalar[_DataTypeT] | Scalar[Any]: ...
 
 
 __all__ = [
