@@ -125,12 +125,17 @@ a :class:`ConvertOptions` instance and pass it to :func:`read_csv`::
        }
    ))
 
+   table = csv.read_csv('tips.csv.gz', convert_options=csv.ConvertOptions(
+       column_type=pa.string()
+   ))
+
 Available convert options are:
 
 .. autosummary::
 
   ~ConvertOptions.check_utf8
   ~ConvertOptions.column_types
+  ~ConvertOptions.column_type
   ~ConvertOptions.null_values
   ~ConvertOptions.true_values
   ~ConvertOptions.false_values

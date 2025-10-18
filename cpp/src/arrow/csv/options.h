@@ -76,6 +76,8 @@ struct ARROW_EXPORT ConvertOptions {
   bool check_utf8 = true;
   /// Optional per-column types (disabling type inference on those columns)
   std::unordered_map<std::string, std::shared_ptr<DataType>> column_types;
+  /// Optional type that will be applied to any column without an explicit entry
+  std::shared_ptr<DataType> column_type;
   /// Recognized spellings for null values
   std::vector<std::string> null_values;
   /// Recognized spellings for boolean true values

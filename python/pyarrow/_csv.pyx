@@ -591,6 +591,10 @@ cdef class ConvertOptions(_Weakrefable):
     column_types : pyarrow.Schema or dict, optional
         Explicitly map column names to column types. Passing this argument
         disables type inference on the defined columns.
+    column_type : DataType or compatible input, optional
+        Apply the provided type to any column that does not have an entry in
+        ``column_types``. When set, type inference is disabled for unspecified
+        columns.
     null_values : list, optional
         A sequence of strings that denote nulls in the data
         (defaults are appropriate in most cases). Note that by default,
@@ -787,7 +791,8 @@ cdef class ConvertOptions(_Weakrefable):
         self.options.reset(
             new CCSVConvertOptions(CCSVConvertOptions.Defaults()))
 
-    def __init__(self, *, check_utf8=None, column_types=None, null_values=None,
+    def __init__(self, *, check_utf8=None, column_types=None, column_type=None,
+                 null_values=None,
                  true_values=None, false_values=None, decimal_point=None,
                  strings_can_be_null=None, quoted_strings_can_be_null=None,
                  include_columns=None, include_missing_columns=None,
@@ -797,6 +802,8 @@ cdef class ConvertOptions(_Weakrefable):
             self.check_utf8 = check_utf8
         if column_types is not None:
             self.column_types = column_types
+        if column_type is not None:
+            self.column_type = column_type
         if null_values is not None:
             self.null_values = null_values
         if true_values is not None:
@@ -878,8 +885,24 @@ cdef class ConvertOptions(_Weakrefable):
             else:
                 k, v = item
             typ = pyarrow_unwrap_data_type(ensure_type(v))
-            assert typ != NULL
             deref(self.options).column_types[tobytes(k)] = typ
+
+    @property
+    def column_type(self):
+        """
+        Default type applied to columns without explicit mappings.
+        """
+        cdef shared_ptr[CDataType] typ = deref(self.options).column_type
+        if typ.get() == NULL:
+            return None
+        return pyarrow_wrap_data_type(typ)
+
+    @column_type.setter
+    def column_type(self, value):
+        if value is None:
+            deref(self.options).column_type.reset()
+            return
+        deref(self.options).column_type = pyarrow_unwrap_data_type(ensure_type(value))
 
     @property
     def null_values(self):

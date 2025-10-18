@@ -253,7 +253,8 @@ def test_convert_options():
         include_columns=[[], ['def', 'abc']],
         include_missing_columns=[False, True],
         auto_dict_encode=[False, True],
-        timestamp_parsers=[[], [ISO8601, '%y-%m']])
+        timestamp_parsers=[[], [ISO8601, '%y-%m']],
+        column_type=[None, pa.string()])
 
     check_options_class_pickling(
         cls, check_utf8=False,
@@ -263,7 +264,8 @@ def test_convert_options():
         include_columns=['def', 'abc'],
         include_missing_columns=False,
         auto_dict_encode=True,
-        timestamp_parsers=[ISO8601, '%y-%m'])
+        timestamp_parsers=[ISO8601, '%y-%m'],
+        column_type=pa.string())
 
     with pytest.raises(ValueError):
         opts.decimal_point = '..'
@@ -312,12 +314,14 @@ def test_convert_options():
     opts = cls(column_types={'a': pa.null()},
                null_values=['N', 'nn'], true_values=['T', 'tt'],
                false_values=['F', 'ff'], auto_dict_max_cardinality=999,
-               timestamp_parsers=[ISO8601, '%Y-%m-%d'])
+               timestamp_parsers=[ISO8601, '%Y-%m-%d'],
+               column_type=pa.string())
     assert opts.column_types == {'a': pa.null()}
     assert opts.null_values == ['N', 'nn']
     assert opts.false_values == ['F', 'ff']
     assert opts.true_values == ['T', 'tt']
     assert opts.auto_dict_max_cardinality == 999
+    assert opts.column_type == pa.string()
     assert opts.timestamp_parsers == [ISO8601, '%Y-%m-%d']
 
 
@@ -1222,6 +1226,39 @@ class BaseCSVTableRead(BaseTestCSV):
         err = str(exc.value)
         assert "In CSV column #1: " in err
         assert "CSV conversion error to float: invalid value 'XXX'" in err
+
+    def test_column_type_default(self):
+        # Apply a single type to all columns without enumerating names
+        rows = b"a,b\n1,2\n3,4\n"
+        opts = ConvertOptions(column_type=pa.string())
+        table = self.read_bytes(rows, convert_options=opts)
+        schema = pa.schema([('a', pa.string()), ('b', pa.string())])
+        assert table.schema == schema
+        assert table.to_pydict() == {'a': ["1", "3"], 'b': ["2", "4"]}
+
+        # Numeric defaults should coerce all inferred columns
+        opts = ConvertOptions(column_type=pa.int64())
+        table = self.read_bytes(rows, convert_options=opts)
+        schema = pa.schema([('a', pa.int64()), ('b', pa.int64())])
+        assert table.schema == schema
+        assert table.to_pydict() == {'a': [1, 3], 'b': [2, 4]}
+
+        # Explicit column_types entries still win over the default
+        opts = ConvertOptions(column_type=pa.float64(),
+                              column_types={'b': pa.string()})
+        table = self.read_bytes(rows, convert_options=opts)
+        schema = pa.schema([('a', pa.float64()), ('b', pa.string())])
+        assert table.schema == schema
+        assert table.to_pydict() == {'a': [1.0, 3.0], 'b': ["2", "4"]}
+
+        # Missing columns should also use the default type when synthesized
+        opts = ConvertOptions(include_columns=['a', 'missing'],
+                              include_missing_columns=True,
+                              column_type=pa.string())
+        table = self.read_bytes(rows, convert_options=opts)
+        schema = pa.schema([('a', pa.string()), ('missing', pa.string())])
+        assert table.schema == schema
+        assert table.to_pydict() == {'a': ["1", "3"], 'missing': [None, None]}
 
     def test_column_types_dict(self):
         # Ask for dict-encoded column types in ConvertOptions

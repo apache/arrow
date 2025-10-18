@@ -652,8 +652,13 @@ class ReaderMixin {
       // Does the named column have a fixed type?
       auto it = convert_options_.column_types.find(col_name);
       if (it == convert_options_.column_types.end()) {
-        conversion_schema_.columns.push_back(
-            ConversionSchema::InferredColumn(std::move(col_name), col_index));
+        if (convert_options_.column_type) {
+          conversion_schema_.columns.push_back(ConversionSchema::TypedColumn(
+              std::move(col_name), col_index, convert_options_.column_type));
+        } else {
+          conversion_schema_.columns.push_back(
+              ConversionSchema::InferredColumn(std::move(col_name), col_index));
+        }
       } else {
         conversion_schema_.columns.push_back(
             ConversionSchema::TypedColumn(std::move(col_name), col_index, it->second));
@@ -666,7 +671,11 @@ class ReaderMixin {
       std::shared_ptr<DataType> type;
       auto it = convert_options_.column_types.find(col_name);
       if (it == convert_options_.column_types.end()) {
-        type = null();
+        if (convert_options_.column_type) {
+          type = convert_options_.column_type;
+        } else {
+          type = null();
+        }
       } else {
         type = it->second;
       }
