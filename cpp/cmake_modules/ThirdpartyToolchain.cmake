@@ -4617,71 +4617,18 @@ function(build_orc)
 
   message(STATUS "Building Apache ORC from source")
 
-  if(LZ4_VENDORED)
-    set(ORC_LZ4_TARGET lz4_static)
-    set(ORC_LZ4_ROOT "${lz4_SOURCE_DIR}")
-    set(ORC_LZ4_INCLUDE_DIR "${lz4_SOURCE_DIR}/lib")
-  else()
-    set(ORC_LZ4_TARGET LZ4::lz4)
-    get_target_property(ORC_LZ4_INCLUDE_DIR ${ORC_LZ4_TARGET}
-                        INTERFACE_INCLUDE_DIRECTORIES)
-    get_filename_component(ORC_LZ4_ROOT "${ORC_LZ4_INCLUDE_DIR}" DIRECTORY)
-  endif()
-
   if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.29)
     fetchcontent_declare(orc
                          ${FC_DECLARE_COMMON_OPTIONS}
-                         URL ${ORC_SOURCE_URL}
-                         URL_HASH "SHA256=${ARROW_ORC_BUILD_SHA256_CHECKSUM}")
+                         GIT_REPOSITORY https://github.com/wgtmac/orc.git
+                         GIT_TAG 315604624b20d540ca00ba87c971bb16dfc1027d
+                        #  SOURCE_DIR "/Users/gangwu/Projects/orc"
+                        #  URL ${ORC_SOURCE_URL}
+                        #  URL_HASH "SHA256=${ARROW_ORC_BUILD_SHA256_CHECKSUM}"
+                         )
     prepare_fetchcontent()
 
     set(CMAKE_UNITY_BUILD FALSE)
-
-    set(ORC_PREFER_STATIC_LZ4 OFF)
-    set(LZ4_HOME "${ORC_LZ4_ROOT}")
-    set(LZ4_INCLUDE_DIR "${ORC_LZ4_INCLUDE_DIR}")
-    set(LZ4_LIBRARY ${ORC_LZ4_TARGET})
-
-    set(ORC_PREFER_STATIC_PROTOBUF OFF)
-    get_target_property(PROTOBUF_INCLUDE_DIR ${ARROW_PROTOBUF_LIBPROTOBUF}
-                        INTERFACE_INCLUDE_DIRECTORIES)
-    get_filename_component(Protobuf_ROOT "${PROTOBUF_INCLUDE_DIR}" DIRECTORY)
-    set(PROTOBUF_HOME ${Protobuf_ROOT})
-    # ORC uses this.
-    if(PROTOBUF_VENDORED)
-      target_include_directories(${ARROW_PROTOBUF_LIBPROTOC}
-                                 INTERFACE "${PROTOBUF_INCLUDE_DIR}")
-    endif()
-    set(PROTOBUF_EXECUTABLE ${ARROW_PROTOBUF_PROTOC})
-    set(PROTOBUF_LIBRARY ${ARROW_PROTOBUF_LIBPROTOBUF})
-    set(PROTOC_LIBRARY ${ARROW_PROTOBUF_LIBPROTOC})
-
-    set(ORC_PREFER_STATIC_SNAPPY OFF)
-    get_target_property(SNAPPY_INCLUDE_DIR ${Snappy_TARGET} INTERFACE_INCLUDE_DIRECTORIES)
-    get_filename_component(Snappy_ROOT "${SNAPPY_INCLUDE_DIR}" DIRECTORY)
-    set(SNAPPY_HOME ${Snappy_ROOT})
-    set(SNAPPY_LIBRARY ${Snappy_TARGET})
-
-    set(ORC_PREFER_STATIC_ZLIB OFF)
-    get_target_property(ZLIB_INCLUDE_DIR ZLIB::ZLIB INTERFACE_INCLUDE_DIRECTORIES)
-    get_filename_component(ZLIB_ROOT "${ZLIB_INCLUDE_DIR}" DIRECTORY)
-    set(ZLIB_HOME ${ZLIB_ROOT})
-    # From CMake 3.21 onwards the set(CACHE) command does not remove
-    # any normal variable of the same name from the current scope. We
-    # have to manually remove the variable via unset to avoid ORC not
-    # finding the ZLIB_LIBRARY.
-    unset(ZLIB_LIBRARY)
-    set(ZLIB_LIBRARY
-        ZLIB::ZLIB
-        CACHE STRING "" FORCE)
-
-    set(ORC_PREFER_STATIC_ZSTD OFF)
-    get_target_property(ZSTD_INCLUDE_DIR ${ARROW_ZSTD_LIBZSTD}
-                        INTERFACE_INCLUDE_DIRECTORIES)
-    get_filename_component(ZSTD_ROOT "${ZSTD_INCLUDE_DIR}" DIRECTORY)
-    set(ZSTD_HOME ${ZSTD_ROOT})
-    set(ZSTD_LIBRARY ${ARROW_ZSTD_LIBZSTD})
-
     set(BUILD_CPP_TESTS OFF)
     set(BUILD_JAVA OFF)
     set(BUILD_LIBHDFSPP OFF)
@@ -4716,6 +4663,17 @@ function(build_orc)
 
     get_target_property(ORC_ZLIB_ROOT ZLIB::ZLIB INTERFACE_INCLUDE_DIRECTORIES)
     get_filename_component(ORC_ZLIB_ROOT "${ORC_ZLIB_ROOT}" DIRECTORY)
+
+    if(LZ4_VENDORED)
+      set(ORC_LZ4_TARGET lz4_static)
+      set(ORC_LZ4_ROOT "${lz4_SOURCE_DIR}")
+      set(ORC_LZ4_INCLUDE_DIR "${lz4_SOURCE_DIR}/lib")
+    else()
+      set(ORC_LZ4_TARGET LZ4::lz4)
+      get_target_property(ORC_LZ4_INCLUDE_DIR ${ORC_LZ4_TARGET}
+                          INTERFACE_INCLUDE_DIRECTORIES)
+      get_filename_component(ORC_LZ4_ROOT "${ORC_LZ4_INCLUDE_DIR}" DIRECTORY)
+    endif()
 
     set(ORC_CMAKE_ARGS
         ${EP_COMMON_CMAKE_ARGS}
