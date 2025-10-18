@@ -15,7 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-
 # Usage: run testthat::test_dir(".") inside of this directory
 
 # Flag so that we just load the functions and don't evaluate them like we do

@@ -59,9 +59,7 @@ tally.Dataset <- tally.ArrowTabular <- tally.RecordBatchReader <- tally.arrow_dp
 # we don't want to depend on dplyr, but we reference these above
 utils::globalVariables(c("n", "desc"))
 
-check_n_name <- function(name,
-                         vars,
-                         call = caller_env()) {
+check_n_name <- function(name, vars, call = caller_env()) {
   if (is.null(name)) {
     name <- n_name(vars)
 

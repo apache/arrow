@@ -26,8 +26,12 @@ arrow_dplyr_query <- function(.data) {
   # An arrow_dplyr_query can contain another arrow_dplyr_query in .data
 
   supported <- c(
-    "Dataset", "RecordBatch", "RecordBatchReader",
-    "Table", "arrow_dplyr_query", "data.frame"
+    "Dataset",
+    "RecordBatch",
+    "RecordBatchReader",
+    "Table",
+    "arrow_dplyr_query",
+    "data.frame"
   )
   if (!inherits(.data, supported)) {
     stop(
@@ -128,7 +132,9 @@ print.arrow_dplyr_query <- function(x, ...) {
       # Expression, so get its type and append the expression
       paste0(
         expr$type(schm)$ToString(),
-        " (", expr$ToString(), ")"
+        " (",
+        expr$ToString(),
+        ")"
       )
     }
   })
@@ -155,7 +161,9 @@ print.arrow_dplyr_query <- function(x, ...) {
       paste(
         paste0(
           arrange_strings,
-          " [", ifelse(x$arrange_desc, "desc", "asc"), "]"
+          " [",
+          ifelse(x$arrange_desc, "desc", "asc"),
+          "]"
         ),
         collapse = ", "
       ),
@@ -414,5 +422,7 @@ has_implicit_order <- function(x) {
   # TODO(GH-34698): FileSystemDataset and RecordBatchReader will have implicit order
   inherits(x$.data, "ArrowTabular") &&
     # But joins, aggregations, etc. will result in non-deterministic order
-    is.null(x$aggregations) && is.null(x$join) && is.null(x$union_all)
+    is.null(x$aggregations) &&
+    is.null(x$join) &&
+    is.null(x$union_all)
 }

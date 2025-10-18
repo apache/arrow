@@ -15,7 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-
 test_that("Alternate type names are supported", {
   expect_equal(
     schema(b = double(), c = bool(), d = string(), e = float(), f = halffloat()),
@@ -253,7 +252,6 @@ test_that("Schema to C-interface", {
 
 test_that("Schemas from lists", {
   name_list_schema <- schema(list(b = double(), c = string(), d = int8()))
-
 
   field_list_schema <- schema(
     list(

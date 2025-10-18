@@ -219,11 +219,14 @@ test_that("case_when()", {
 
   compare_dplyr_binding(
     .input |>
-      filter(case_when(
-        dbl + int - 1.1 == dbl2 ~ TRUE,
-        NA ~ NA,
-        TRUE ~ FALSE
-      ) & !is.na(dbl2)) |>
+      filter(
+        case_when(
+          dbl + int - 1.1 == dbl2 ~ TRUE,
+          NA ~ NA,
+          TRUE ~ FALSE
+        ) &
+          !is.na(dbl2)
+      ) |>
       collect(),
     tbl
   )
@@ -231,11 +234,14 @@ test_that("case_when()", {
   # with namespacing
   compare_dplyr_binding(
     .input |>
-      filter(dplyr::case_when(
-        dbl + int - 1.1 == dbl2 ~ TRUE,
-        NA ~ NA,
-        TRUE ~ FALSE
-      ) & !is.na(dbl2)) |>
+      filter(
+        dplyr::case_when(
+          dbl + int - 1.1 == dbl2 ~ TRUE,
+          NA ~ NA,
+          TRUE ~ FALSE
+        ) &
+          !is.na(dbl2)
+      ) |>
       collect(),
     tbl
   )
@@ -246,11 +252,13 @@ test_that("case_when()", {
     tbl |>
       mutate(i64 = as.integer64(1e10)) |>
       Table$create() |>
-      transmute(cw = case_when(
-        is.na(fct) ~ int,
-        is.na(chr) ~ dbl,
-        TRUE ~ i64
-      )) |>
+      transmute(
+        cw = case_when(
+          is.na(fct) ~ int,
+          is.na(chr) ~ dbl,
+          TRUE ~ i64
+        )
+      ) |>
       collect(),
     tbl |>
       transmute(
@@ -450,15 +458,16 @@ test_that("coalesce()", {
   # singles stay single
   expect_equal(
     (df |>
-      Table$create(schema = schema(
-        w = float32(),
-        x = float32(),
-        y = float32(),
-        z = float32()
-      )) |>
+      Table$create(
+        schema = schema(
+          w = float32(),
+          x = float32(),
+          y = float32(),
+          z = float32()
+        )
+      ) |>
       transmute(c = coalesce(w, x, y, z)) |>
-      compute()
-    )$schema[[1]]$type,
+      compute())$schema[[1]]$type,
     float32()
   )
   # with R literal values

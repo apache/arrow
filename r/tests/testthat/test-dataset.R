@@ -104,7 +104,10 @@ test_that("URI-decoding with directory partitioning", {
     schema(date = timestamp(unit = "s"), string = utf8())
   )
   factory <- FileSystemDatasetFactory$create(
-    fs, selector, NULL, fmt,
+    fs,
+    selector,
+    NULL,
+    fmt,
     partitioning = partitioning
   )
   schm <- factory$Inspect()
@@ -116,7 +119,10 @@ test_that("URI-decoding with directory partitioning", {
     segment_encoding = "none"
   )
   factory <- FileSystemDatasetFactory$create(
-    fs, selector, NULL, fmt,
+    fs,
+    selector,
+    NULL,
+    fmt,
     partitioning = partitioning
   )
   schm <- factory$Inspect()
@@ -126,7 +132,11 @@ test_that("URI-decoding with directory partitioning", {
     c("date", "string")
   )
   factory <- FileSystemDatasetFactory$create(
-    fs, selector, NULL, fmt, partitioning_factory
+    fs,
+    selector,
+    NULL,
+    fmt,
+    partitioning_factory
   )
   schm <- factory$Inspect()
   ds <- factory$Finish(schm)
@@ -144,7 +154,11 @@ test_that("URI-decoding with directory partitioning", {
     segment_encoding = "none"
   )
   factory <- FileSystemDatasetFactory$create(
-    fs, selector, NULL, fmt, partitioning_factory
+    fs,
+    selector,
+    NULL,
+    fmt,
+    partitioning_factory
   )
   schm <- factory$Inspect()
   ds <- factory$Finish(schm)
@@ -167,10 +181,14 @@ test_that("URI-decoding with hive partitioning", {
   write_feather(df1, file.path(dir1, "data.feather"))
 
   partitioning <- hive_partition(
-    date = timestamp(unit = "s"), string = utf8()
+    date = timestamp(unit = "s"),
+    string = utf8()
   )
   factory <- FileSystemDatasetFactory$create(
-    fs, selector, NULL, fmt,
+    fs,
+    selector,
+    NULL,
+    fmt,
     partitioning = partitioning
   )
   schm <- factory$Inspect()
@@ -178,17 +196,26 @@ test_that("URI-decoding with hive partitioning", {
   expect_scan_result(ds, schm)
 
   partitioning <- hive_partition(
-    date = timestamp(unit = "s"), string = utf8(), segment_encoding = "none"
+    date = timestamp(unit = "s"),
+    string = utf8(),
+    segment_encoding = "none"
   )
   factory <- FileSystemDatasetFactory$create(
-    fs, selector, NULL, fmt,
+    fs,
+    selector,
+    NULL,
+    fmt,
     partitioning = partitioning
   )
   expect_error(factory$Finish(schm), "Invalid: error parsing")
 
   partitioning_factory <- hive_partition()
   factory <- FileSystemDatasetFactory$create(
-    fs, selector, NULL, fmt, partitioning_factory
+    fs,
+    selector,
+    NULL,
+    fmt,
+    partitioning_factory
   )
   schm <- factory$Inspect()
   ds <- factory$Finish(schm)
@@ -203,7 +230,11 @@ test_that("URI-decoding with hive partitioning", {
 
   partitioning_factory <- hive_partition(segment_encoding = "none")
   factory <- FileSystemDatasetFactory$create(
-    fs, selector, NULL, fmt, partitioning_factory
+    fs,
+    selector,
+    NULL,
+    fmt,
+    partitioning_factory
   )
   schm <- factory$Inspect()
   ds <- factory$Finish(schm)
@@ -226,10 +257,15 @@ test_that("URI-decoding with hive partitioning with key encoded", {
   write_feather(df1, file.path(dir1, "data.feather"))
 
   partitioning <- hive_partition(
-    `test key` = timestamp(unit = "s"), `test key1` = utf8(), segment_encoding = "uri"
+    `test key` = timestamp(unit = "s"),
+    `test key1` = utf8(),
+    segment_encoding = "uri"
   )
   factory <- FileSystemDatasetFactory$create(
-    fs, selector, NULL, fmt,
+    fs,
+    selector,
+    NULL,
+    fmt,
     partitioning = partitioning
   )
   schm <- factory$Inspect()
@@ -239,7 +275,11 @@ test_that("URI-decoding with hive partitioning with key encoded", {
   # segment encoding for both key and values
   partitioning_factory <- hive_partition(segment_encoding = "uri")
   factory <- FileSystemDatasetFactory$create(
-    fs, selector, NULL, fmt, partitioning_factory
+    fs,
+    selector,
+    NULL,
+    fmt,
+    partitioning_factory
   )
   schm <- factory$Inspect()
   ds <- factory$Finish(schm)
@@ -254,7 +294,11 @@ test_that("URI-decoding with hive partitioning with key encoded", {
   # no segment encoding
   partitioning_factory <- hive_partition(segment_encoding = "none")
   factory <- FileSystemDatasetFactory$create(
-    fs, selector, NULL, fmt, partitioning_factory
+    fs,
+    selector,
+    NULL,
+    fmt,
+    partitioning_factory
   )
   schm <- factory$Inspect()
   ds <- factory$Finish(schm)
@@ -366,7 +410,8 @@ test_that("dim() correctly determine numbers of rows and columns on arrow_dplyr_
 })
 
 test_that("Simple interface for datasets (custom ParquetFileFormat)", {
-  ds <- open_dataset(dataset_dir,
+  ds <- open_dataset(
+    dataset_dir,
     partitioning = schema(part = uint8()),
     format = FileFormat$create("parquet", dict_columns = c("chr"))
   )

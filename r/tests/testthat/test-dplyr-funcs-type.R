@@ -207,10 +207,17 @@ test_that("explicit type conversions with as.*()", {
 })
 
 test_that("is.finite(), is.infinite(), is.nan()", {
-  df <- tibble(x = c(
-    -4.94065645841246544e-324, 1.79769313486231570e+308, 0,
-    NA_real_, NaN, Inf, -Inf
-  ))
+  df <- tibble(
+    x = c(
+      -4.94065645841246544e-324,
+      1.79769313486231570e+308,
+      0,
+      NA_real_,
+      NaN,
+      Inf,
+      -Inf
+    )
+  )
   compare_dplyr_binding(
     .input |>
       transmute(
@@ -372,8 +379,21 @@ test_that("type checks with is() giving Arrow types", {
       ) |>
       extract_logicals(),
     c(
-      FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, TRUE, FALSE, FALSE,
-      FALSE, FALSE, FALSE, FALSE, FALSE, TRUE
+      FALSE,
+      FALSE,
+      FALSE,
+      FALSE,
+      FALSE,
+      FALSE,
+      TRUE,
+      FALSE,
+      FALSE,
+      FALSE,
+      FALSE,
+      FALSE,
+      FALSE,
+      FALSE,
+      TRUE
     )
   )
   # with class2=string
@@ -382,20 +402,21 @@ test_that("type checks with is() giving Arrow types", {
       i32 = Array$create(1, int32()),
       f64 = Array$create(1.1, float64()),
       str = Array$create("a", arrow::string())
-    ) |> transmute(
-      i32_is_i32 = is(i32, "int32"),
-      i32_is_i64 = is(i32, "double"),
-      i32_is_str = is(i32, "string"),
-      i32_is_i32_nmspc = methods::is(i32, "int32"),
-      i32_is_i64_nmspc = methods::is(i32, "double"),
-      i32_is_str_nmspc = methods::is(i32, "string"),
-      f64_is_i32 = is(f64, "int32"),
-      f64_is_i64 = is(f64, "double"),
-      f64_is_str = is(f64, "string"),
-      str_is_i32 = is(str, "int32"),
-      str_is_i64 = is(str, "double"),
-      str_is_str = is(str, "string")
     ) |>
+      transmute(
+        i32_is_i32 = is(i32, "int32"),
+        i32_is_i64 = is(i32, "double"),
+        i32_is_str = is(i32, "string"),
+        i32_is_i32_nmspc = methods::is(i32, "int32"),
+        i32_is_i64_nmspc = methods::is(i32, "double"),
+        i32_is_str_nmspc = methods::is(i32, "string"),
+        f64_is_i32 = is(f64, "int32"),
+        f64_is_i64 = is(f64, "double"),
+        f64_is_str = is(f64, "string"),
+        str_is_i32 = is(str, "int32"),
+        str_is_i64 = is(str, "double"),
+        str_is_str = is(str, "string")
+      ) |>
       extract_logicals(),
     c(TRUE, FALSE, FALSE, TRUE, FALSE, FALSE, FALSE, TRUE, FALSE, FALSE, FALSE, TRUE)
   )
@@ -407,38 +428,61 @@ test_that("type checks with is() giving Arrow types", {
       f64 = Array$create(2.2, float64()),
       lgl = Array$create(TRUE, bool()),
       str = Array$create("a", arrow::string())
-    ) |> transmute(
-      f16_is_f16 = is(f16, "float16"),
-      f16_is_f32 = is(f16, "float32"),
-      f16_is_f64 = is(f16, "float64"),
-      f16_is_lgl = is(f16, "boolean"),
-      f16_is_str = is(f16, "utf8"),
-      f32_is_f16 = is(f32, "float16"),
-      f32_is_f32 = is(f32, "float32"),
-      f32_is_f64 = is(f32, "float64"),
-      f32_is_lgl = is(f32, "boolean"),
-      f32_is_str = is(f32, "utf8"),
-      f64_is_f16 = is(f64, "float16"),
-      f64_is_f32 = is(f64, "float32"),
-      f64_is_f64 = is(f64, "float64"),
-      f64_is_lgl = is(f64, "boolean"),
-      f64_is_str = is(f64, "utf8"),
-      lgl_is_f16 = is(lgl, "float16"),
-      lgl_is_f32 = is(lgl, "float32"),
-      lgl_is_f64 = is(lgl, "float64"),
-      lgl_is_lgl = is(lgl, "boolean"),
-      lgl_is_str = is(lgl, "utf8"),
-      str_is_f16 = is(str, "float16"),
-      str_is_f32 = is(str, "float32"),
-      str_is_f64 = is(str, "float64"),
-      str_is_lgl = is(str, "boolean"),
-      str_is_str = is(str, "utf8")
     ) |>
+      transmute(
+        f16_is_f16 = is(f16, "float16"),
+        f16_is_f32 = is(f16, "float32"),
+        f16_is_f64 = is(f16, "float64"),
+        f16_is_lgl = is(f16, "boolean"),
+        f16_is_str = is(f16, "utf8"),
+        f32_is_f16 = is(f32, "float16"),
+        f32_is_f32 = is(f32, "float32"),
+        f32_is_f64 = is(f32, "float64"),
+        f32_is_lgl = is(f32, "boolean"),
+        f32_is_str = is(f32, "utf8"),
+        f64_is_f16 = is(f64, "float16"),
+        f64_is_f32 = is(f64, "float32"),
+        f64_is_f64 = is(f64, "float64"),
+        f64_is_lgl = is(f64, "boolean"),
+        f64_is_str = is(f64, "utf8"),
+        lgl_is_f16 = is(lgl, "float16"),
+        lgl_is_f32 = is(lgl, "float32"),
+        lgl_is_f64 = is(lgl, "float64"),
+        lgl_is_lgl = is(lgl, "boolean"),
+        lgl_is_str = is(lgl, "utf8"),
+        str_is_f16 = is(str, "float16"),
+        str_is_f32 = is(str, "float32"),
+        str_is_f64 = is(str, "float64"),
+        str_is_lgl = is(str, "boolean"),
+        str_is_str = is(str, "utf8")
+      ) |>
       extract_logicals(),
     c(
-      TRUE, FALSE, FALSE, FALSE, FALSE, FALSE, TRUE, FALSE, FALSE, FALSE, FALSE,
-      FALSE, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE, TRUE, FALSE, FALSE, FALSE,
-      FALSE, FALSE, TRUE
+      TRUE,
+      FALSE,
+      FALSE,
+      FALSE,
+      FALSE,
+      FALSE,
+      TRUE,
+      FALSE,
+      FALSE,
+      FALSE,
+      FALSE,
+      FALSE,
+      TRUE,
+      FALSE,
+      FALSE,
+      FALSE,
+      FALSE,
+      FALSE,
+      TRUE,
+      FALSE,
+      FALSE,
+      FALSE,
+      FALSE,
+      FALSE,
+      TRUE
     )
   )
 })
@@ -975,30 +1019,27 @@ test_that("format date/time", {
     times
   )
 
-  withr::with_timezone(
-    "Pacific/Marquesas",
-    {
-      compare_dplyr_binding(
-        .input |>
-          mutate(
-            x = format(datetime, format = formats, tz = "EST"),
-            x_date = format(date, format = formats_date, tz = "EST")
-          ) |>
-          collect(),
-        times
-      )
+  withr::with_timezone("Pacific/Marquesas", {
+    compare_dplyr_binding(
+      .input |>
+        mutate(
+          x = format(datetime, format = formats, tz = "EST"),
+          x_date = format(date, format = formats_date, tz = "EST")
+        ) |>
+        collect(),
+      times
+    )
 
-      compare_dplyr_binding(
-        .input |>
-          mutate(
-            x = format(datetime, format = formats),
-            x_date = format(date, format = formats_date)
-          ) |>
-          collect(),
-        times
-      )
-    }
-  )
+    compare_dplyr_binding(
+      .input |>
+        mutate(
+          x = format(datetime, format = formats),
+          x_date = format(date, format = formats_date)
+        ) |>
+        collect(),
+      times
+    )
+  })
 })
 
 test_that("format() for unsupported types returns the input as string", {

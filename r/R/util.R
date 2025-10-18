@@ -15,10 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-oxford_paste <- function(x,
-                         conjunction = "and",
-                         quote = TRUE,
-                         quote_symbol = '"') {
+oxford_paste <- function(x, conjunction = "and", quote = TRUE, quote_symbol = '"') {
   if (quote && is.character(x)) {
     x <- paste0(quote_symbol, x, quote_symbol)
   }
@@ -50,8 +47,17 @@ is_list_of <- function(object, class) {
 empty_named_list <- function() structure(list(), .Names = character(0))
 
 r_symbolic_constants <- c(
-  "pi", "TRUE", "FALSE", "NULL", "Inf", "NA", "NaN",
-  "NA_integer_", "NA_real_", "NA_complex_", "NA_character_"
+  "pi",
+  "TRUE",
+  "FALSE",
+  "NULL",
+  "Inf",
+  "NA",
+  "NaN",
+  "NA_integer_",
+  "NA_real_",
+  "NA_complex_",
+  "NA_character_"
 )
 
 is_function <- function(expr, name) {
@@ -267,7 +273,8 @@ parse_compact_col_spec <- function(col_types, col_names) {
 }
 
 col_type_from_compact <- function(x, y) {
-  switch(x,
+  switch(
+    x,
     "c" = utf8(),
     "i" = int32(),
     "n" = float64(),

@@ -27,7 +27,9 @@ minio_port <- Sys.getenv("MINIO_PORT", "9000")
 
 # Start minio server
 dir.create(minio_dir, showWarnings = FALSE)
-pid_minio <- sys::exec_background("minio", c("server", minio_dir, "--address", sprintf(":%s", minio_port)),
+pid_minio <- sys::exec_background(
+  "minio",
+  c("server", minio_dir, "--address", sprintf(":%s", minio_port)),
   std_out = FALSE
 )
 withr::defer(tools::pskill(pid_minio))
