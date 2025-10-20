@@ -21,6 +21,7 @@ import sys
 
 from abc import ABC, abstractmethod
 from typing import overload
+from _typeshed import StrPath
 
 if sys.version_info >= (3, 11):
     from typing import Self
@@ -90,9 +91,9 @@ class FileSelector(_Weakrefable):
 class FileSystem(_Weakrefable):
 
     @classmethod
-    def from_uri(cls, uri: str) -> tuple[Self, str]: ...
+    def from_uri(cls, uri: str | StrPath) -> tuple[Self, str]: ...
 
-    def equals(self, other: FileSystem) -> bool: ...
+    def equals(self, other: FileSystem | object) -> bool: ...
 
     @property
     def type_name(self) -> str: ...
@@ -165,7 +166,7 @@ class _MockFileSystem(FileSystem):
 
 class PyFileSystem(FileSystem):
 
-    def __init__(self, handler: FileSystemHandler) -> None: ...
+    def __init__(self, handler: FileSystemHandler | None) -> None: ...
     @property
     def handler(self) -> FileSystemHandler: ...
 

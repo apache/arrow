@@ -24,7 +24,7 @@ class VersionInfo(NamedTuple):
     patch: int
 
 
-class BuildInfo(NamedTuple):
+class CppBuildInfo(NamedTuple):
     version: str
     version_info: VersionInfo
     so_version: str
@@ -38,12 +38,18 @@ class BuildInfo(NamedTuple):
     build_type: str
 
 
+class BuildInfo(NamedTuple):
+    build_type: str
+    cpp_build_info: CppBuildInfo
+
+
 class RuntimeInfo(NamedTuple):
     simd_level: str
     detected_simd_level: str
 
 
-cpp_build_info: BuildInfo
+build_info: BuildInfo
+cpp_build_info: CppBuildInfo
 cpp_version: str
 cpp_version_info: VersionInfo
 
@@ -55,7 +61,9 @@ def set_timezone_db_path(path: str) -> None: ...
 __all__ = [
     "VersionInfo",
     "BuildInfo",
+    "CppBuildInfo",
     "RuntimeInfo",
+    "build_info",
     "cpp_build_info",
     "cpp_version",
     "cpp_version_info",

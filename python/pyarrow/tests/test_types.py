@@ -34,7 +34,7 @@ import weakref
 try:
     import numpy as np
 except ImportError:
-    np = None  # type: ignore[assignment]
+    pass
 import pyarrow as pa
 import pyarrow.types as types
 import pyarrow.tests.strategies as past

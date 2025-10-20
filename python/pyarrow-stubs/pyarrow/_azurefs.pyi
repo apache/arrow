@@ -23,11 +23,14 @@ from ._fs import FileSystem
 class AzureFileSystem(FileSystem):
     def __init__(
         self,
-        account_name: str,
+        account_name: str | None = None,
         account_key: str | None = None,
         blob_storage_authority: str | None = None,
         dfs_storage_authority: str | None = None,
-        blob_storage_schema: Literal["http", "https"] = "https",
-        dfs_storage_schema: Literal["http", "https"] = "https",
+        blob_storage_scheme: Literal["http", "https"] = "https",
+        dfs_storage_scheme: Literal["http", "https"] = "https",
         sas_token: str | None = None,
+        tenant_id: str | None = None,
+        client_id: str | None = None,
+        client_secret: str | None = None,
     ) -> None: ...

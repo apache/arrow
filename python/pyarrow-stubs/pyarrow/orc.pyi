@@ -21,7 +21,7 @@ if sys.version_info >= (3, 11):
     from typing import Self
 else:
     from typing_extensions import Self
-from typing import IO, Literal
+from typing import IO, Any, Literal, overload
 
 from _typeshed import StrPath
 
@@ -86,9 +86,9 @@ class ORCFile:
     @property
     def file_length(self) -> int: ...
 
-    def read_stripe(self, n: int, columns: list[str] | None = None) -> RecordBatch: ...
+    def read_stripe(self, n: int, columns: list[str | int] | None = None) -> RecordBatch: ...
 
-    def read(self, columns: list[str] | None = None) -> Table: ...
+    def read(self, columns: list[str | int] | None = None) -> Table: ...
 
 
 class ORCWriter:
@@ -100,21 +100,21 @@ class ORCWriter:
         self,
         where: StrPath | NativeFile | IO,
         *,
-        file_version: str = "0.12",
-        batch_size: int = 1024,
-        stripe_size: int = 64 * 1024 * 1024,  # noqa: Y011
-        compression: Literal["UNCOMPRESSED", "ZLIB",
-                             "SNAPPY", "LZ4", "ZSTD"] = "UNCOMPRESSED",
-        compression_block_size: int = 65536,
-        compression_strategy: Literal["COMPRESSION", "SPEED"] = "SPEED",
-        row_index_stride: int = 10000,
-        padding_tolerance: float = 0.0,
-        dictionary_key_size_threshold: float = 0.0,
-        bloom_filter_columns: list[int] | None = None,
-        bloom_filter_fpp: float = 0.05,
+        file_version: Any = "0.12",
+        batch_size: Any = 1024,
+        stripe_size: Any = 64 * 1024 * 1024,  # noqa: Y011
+        compression: Any = "UNCOMPRESSED",
+        compression_block_size: Any = 65536,
+        compression_strategy: Any = "SPEED",
+        row_index_stride: Any = 10000,
+        padding_tolerance: Any = 0.0,
+        dictionary_key_size_threshold: Any = 0.0,
+        bloom_filter_columns: Any = None,
+        bloom_filter_fpp: Any = 0.05,
     ): ...
     def __enter__(self) -> Self: ...
     def __exit__(self, *args, **kwargs) -> None: ...
+    def __getattr__(self, name: str) -> Any: ...
     def write(self, table: Table) -> None: ...
 
     def close(self) -> None: ...
@@ -122,25 +122,44 @@ class ORCWriter:
 
 def read_table(
     source: StrPath | NativeFile | IO,
-    columns: list[str] | None = None,
-    filesystem: SupportedFileSystem | None = None,
+    columns: list[str | int] | None = None,
+    filesystem: SupportedFileSystem | str | None = None,
 ) -> Table: ...
 
-
+# TODO: should not use Any here?
+@overload
 def write_table(
     table: Table,
     where: StrPath | NativeFile | IO,
     *,
-    file_version: str = "0.12",
-    batch_size: int = 1024,
-    stripe_size: int = 64 * 1024 * 1024,  # noqa: Y011
-    compression: Literal["UNCOMPRESSED", "ZLIB",
-                         "SNAPPY", "LZ4", "ZSTD"] = "UNCOMPRESSED",
-    compression_block_size: int = 65536,
-    compression_strategy: Literal["COMPRESSION", "SPEED"] = "SPEED",
-    row_index_stride: int = 10000,
-    padding_tolerance: float = 0.0,
-    dictionary_key_size_threshold: float = 0.0,
-    bloom_filter_columns: list[int] | None = None,
-    bloom_filter_fpp: float = 0.05,
+    file_version: Any = "0.12",
+    batch_size: Any = 1024,
+    stripe_size: Any = 64 * 1024 * 1024,  # noqa: Y011
+    compression: Any = "UNCOMPRESSED",
+    compression_block_size: Any = 65536,
+    compression_strategy: Any = "SPEED",
+    row_index_stride: Any = 10000,
+    padding_tolerance: Any = 0.0,
+    dictionary_key_size_threshold: Any = 0.0,
+    bloom_filter_columns: Any = None,
+    bloom_filter_fpp: Any = 0.05,
+) -> None: ...
+
+# Deprecated argument order for backward compatibility
+@overload
+def write_table(
+    where: StrPath | NativeFile | IO,
+    table: Table,
+    *,
+    file_version: Any = "0.12",
+    batch_size: Any = 1024,
+    stripe_size: Any = 64 * 1024 * 1024,  # noqa: Y011
+    compression: Any = "UNCOMPRESSED",
+    compression_block_size: Any = 65536,
+    compression_strategy: Any = "SPEED",
+    row_index_stride: Any = 10000,
+    padding_tolerance: Any = 0.0,
+    dictionary_key_size_threshold: Any = 0.0,
+    bloom_filter_columns: Any = None,
+    bloom_filter_fpp: Any = 0.05,
 ) -> None: ...

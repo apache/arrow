@@ -640,7 +640,7 @@ def record_batch(
     | pd.DataFrame
     | SupportArrowArray
     | SupportArrowDeviceArray,
-    names: list[str] | None = None,
+    names: list[str] | Schema | None = None,
     schema: Schema | None = None,
     metadata: Mapping[str | bytes, str | bytes] | None = None,
 ) -> RecordBatch: ...

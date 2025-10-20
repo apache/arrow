@@ -20,7 +20,7 @@ import io
 try:
     import numpy as np
 except ImportError:
-    np = None  # type: ignore[assignment]
+    pass
 
 import pyarrow as pa
 from pyarrow.tests import util
