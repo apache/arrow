@@ -63,7 +63,7 @@ def compression(request):
     yield request.param
 
 
-TEST_FILES = None
+TEST_FILES: list[str] | None = None
 
 
 def setup_module(module):
@@ -95,7 +95,8 @@ def _check_pandas_roundtrip(df, expected=None, path=None,
     if version is None:
         version = 2
 
-    TEST_FILES.append(path)
+    assert TEST_FILES is not None
+    assert TEST_FILES is not None; TEST_FILES.append(path)
     write_feather(df, path, compression=compression,
                   compression_level=compression_level, version=version)
 
@@ -114,7 +115,8 @@ def _check_arrow_roundtrip(table, path=None, compression=None):
     if path is None:
         path = random_path()
 
-    TEST_FILES.append(path)
+    assert TEST_FILES is not None
+    assert TEST_FILES is not None; TEST_FILES.append(path)
     write_feather(table, path, compression=compression)
     if not os.path.exists(path):
         raise Exception('file not written')
@@ -130,7 +132,8 @@ def _assert_error_on_write(df, exc, path=None, version=2):
     if path is None:
         path = random_path()
 
-    TEST_FILES.append(path)
+    assert TEST_FILES is not None
+    assert TEST_FILES is not None; TEST_FILES.append(path)
 
     def f():
         write_feather(df, path, version=version)
@@ -149,7 +152,7 @@ def test_dataset(version):
     }
     table = pa.table(data)
 
-    TEST_FILES.extend(paths)
+    assert TEST_FILES is not None; TEST_FILES.extend(paths)
     for index, path in enumerate(paths):
         rows = (
             index * (num_values[0] // num_files),
@@ -181,7 +184,7 @@ def test_read_table(version):
     num_values = (100, 100)
     path = random_path()
 
-    TEST_FILES.append(path)
+    assert TEST_FILES is not None; TEST_FILES.append(path)
 
     values = np.random.randint(0, 100, size=num_values)
     columns = ['col_' + str(i) for i in range(100)]
@@ -206,7 +209,7 @@ def test_use_threads(version):
     num_values = (10, 10)
     path = random_path()
 
-    TEST_FILES.append(path)
+    assert TEST_FILES is not None; TEST_FILES.append(path)
 
     values = np.random.randint(0, 10, size=num_values)
     columns = ['col_' + str(i) for i in range(10)]
@@ -231,7 +234,7 @@ def test_float_nulls(version):
     num_values = 100
 
     path = random_path()
-    TEST_FILES.append(path)
+    assert TEST_FILES is not None; TEST_FILES.append(path)
 
     null_mask = np.random.randint(0, 10, size=num_values) < 3
     dtypes = ['f4', 'f8']
@@ -292,7 +295,7 @@ def test_platform_numpy_integers(version):
 def test_integer_with_nulls(version):
     # pandas requires upcast to float dtype
     path = random_path()
-    TEST_FILES.append(path)
+    assert TEST_FILES is not None; TEST_FILES.append(path)
 
     int_dtypes = ['i1', 'i2', 'i4', 'i8', 'u1', 'u2', 'u4', 'u8']
     num_values = 100
@@ -330,7 +333,7 @@ def test_boolean_no_nulls(version):
 def test_boolean_nulls(version):
     # pandas requires upcast to object dtype
     path = random_path()
-    TEST_FILES.append(path)
+    assert TEST_FILES is not None; TEST_FILES.append(path)
 
     num_values = 100
     np.random.seed(0)
@@ -348,7 +351,7 @@ def test_boolean_nulls(version):
 def test_buffer_bounds_error(version):
     # ARROW-1676
     path = random_path()
-    TEST_FILES.append(path)
+    assert TEST_FILES is not None; TEST_FILES.append(path)
 
     for i in range(16, 256):
         table = pa.Table.from_arrays(
@@ -360,9 +363,10 @@ def test_buffer_bounds_error(version):
 
 @pytest.mark.numpy
 def test_boolean_object_nulls(version):
+    assert np is not None
     repeats = 100
     table = pa.Table.from_arrays(
-        [np.array([False, None, True] * repeats, dtype=object)],
+        [np.array([False, None, True] * repeats, dtype=object)],  # type: ignore[arg-type]
         names=["arr"]
     )
     _check_arrow_roundtrip(table)
@@ -426,7 +430,7 @@ def test_empty_strings(version):
 @pytest.mark.pandas
 def test_all_none(version):
     df = pd.DataFrame({'all_none': [None] * 10})
-    if version == 1 and pa.pandas_compat._pandas_api.uses_string_dtype():
+    if version == 1 and pa.pandas_compat._pandas_api.uses_string_dtype():  # type: ignore[attr-defined]
         expected = df.astype("str")
     else:
         expected = df
@@ -552,7 +556,7 @@ def test_read_columns(version):
 @pytest.mark.numpy
 def test_overwritten_file(version):
     path = random_path()
-    TEST_FILES.append(path)
+    assert TEST_FILES is not None; TEST_FILES.append(path)
 
     num_values = 100
     np.random.seed(0)
@@ -585,12 +589,12 @@ def test_filelike_objects(version):
 @pytest.mark.filterwarnings("ignore:Sparse:FutureWarning")
 @pytest.mark.filterwarnings("ignore:DataFrame.to_sparse:FutureWarning")
 def test_sparse_dataframe(version):
-    if not pa.pandas_compat._pandas_api.has_sparse:
+    if not pa.pandas_compat._pandas_api.has_sparse:  # type: ignore[attr-defined]
         pytest.skip("version of pandas does not support SparseDataFrame")
     # GH #221
     data = {'A': [0, 1, 2],
             'B': [1, 0, 1]}
-    df = pd.DataFrame(data).to_sparse(fill_value=1)
+    df = pd.DataFrame(data).to_sparse(fill_value=1)  # type: ignore[attr-defined]
     expected = df.to_dense()
     _check_pandas_roundtrip(df, expected, version=version)
 
@@ -692,8 +696,9 @@ def test_v2_lz4_default_compression():
     if not pa.Codec.is_available('lz4_frame'):
         pytest.skip("LZ4 compression support is not built in C++")
 
+    assert np is not None
     # some highly compressible data
-    t = pa.table([np.repeat(0, 100000)], names=['f0'])
+    t = pa.table([np.repeat(0, 100000)], names=['f0'])  # type: ignore[arg-type]
 
     buf = io.BytesIO()
     write_feather(t, buf)

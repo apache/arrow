@@ -243,8 +243,8 @@ all_types = st.deferred(
         | struct_types(all_types)  # type: ignore[has-type]
     )
 )
-all_fields = fields(all_types)
-all_schemas = schemas(all_types)
+all_fields = fields(all_types)  # type: ignore[arg-type]
+all_schemas = schemas(all_types)  # type: ignore[arg-type]
 
 
 _default_array_sizes = st.integers(min_value=0, max_value=20)
@@ -286,13 +286,13 @@ def arrays(draw, type, size=None, nullable=True):
     elif pa.types.is_boolean(ty):
         value = st.booleans()
     elif pa.types.is_integer(ty):
-        values = draw(npst.arrays(ty.to_pandas_dtype(), shape=(size,)))
+        values = draw(npst.arrays(ty.to_pandas_dtype(), shape=(size,)))  # type: ignore[union-attr]
         return pa.array(values, type=ty)
     elif pa.types.is_floating(ty):
-        values = draw(npst.arrays(ty.to_pandas_dtype(), shape=(size,)))
+        values = draw(npst.arrays(ty.to_pandas_dtype(), shape=(size,)))  # type: ignore[union-attr]
         # Workaround ARROW-4952: no easy way to assert array equality
         # in a NaN-tolerant way.
-        values[np.isnan(values)] = -42.0
+        values[np.isnan(values)] = -42.0  # type: ignore[union-attr]
         return pa.array(values, type=ty)
     elif pa.types.is_decimal(ty):
         # TODO(kszucs): properly limit the precision
@@ -317,9 +317,11 @@ def arrays(draw, type, size=None, nullable=True):
             offset = ty.tz.split(":")
             offset_hours = int(offset[0])
             offset_min = int(offset[1])
-            tz = datetime.timedelta(hours=offset_hours, minutes=offset_min)
+            tz = datetime.timezone(
+                datetime.timedelta(hours=offset_hours, minutes=offset_min)
+            )
         except ValueError:
-            tz = zoneinfo.ZoneInfo(ty.tz)
+            tz = zoneinfo.ZoneInfo(ty.tz)  # type: ignore[union-attr]
         value = st.datetimes(timezones=st.just(tz), min_value=min_datetime,
                              max_value=max_datetime)
     elif pa.types.is_duration(ty):

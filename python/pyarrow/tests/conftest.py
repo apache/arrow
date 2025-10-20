@@ -64,7 +64,8 @@ if sys.platform == 'win32':
     if os.environ.get('TZDIR', None) is None:
         from importlib import resources
         try:
-            os.environ['TZDIR'] = os.path.join(resources.files('tzdata'), 'zoneinfo')
+            tzdata_path = resources.files('tzdata')
+            os.environ['TZDIR'] = os.path.join(str(tzdata_path), 'zoneinfo')
         except ModuleNotFoundError:
             print(
                 'Package "tzdata" not found. Not setting TZDIR environment variable.'
@@ -191,6 +192,7 @@ def retry(attempts=3, delay=1.0, max_delay=None, backoff=1):
         def wrapper(*args, **kwargs):
             remaining_attempts = attempts
             curr_delay = delay
+            last_exception: Exception | None = None
             while remaining_attempts > 0:
                 try:
                     return func(*args, **kwargs)
@@ -201,6 +203,9 @@ def retry(attempts=3, delay=1.0, max_delay=None, backoff=1):
                     if max_delay:
                         curr_delay = min(curr_delay, max_delay)
                     time.sleep(curr_delay)
+            # At this point, we've exhausted all attempts and last_exception must be set
+            # (since we must have caught at least one exception to exit the loop)
+            assert last_exception is not None, "No attempts were made"
             raise last_exception
         return wrapper
     return decorate

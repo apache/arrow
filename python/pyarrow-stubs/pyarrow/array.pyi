@@ -156,29 +156,32 @@ def repeat(
 ) -> ArrayLike: ...
 
 
-def infer_type(values: Iterable[Any], mask: Mask,
+def infer_type(values: Iterable[Any], mask: Mask | None = None,
                from_pandas: bool = False) -> DataType: ...
 
 
 class ArrayStatistics(_Weakrefable):
 
     @property
-    def null_count(self) -> int: ...
+    def null_count(self) -> int | None: ...
 
     @property
-    def distinct_count(self) -> int: ...
+    def distinct_count(self) -> int | None: ...
 
     @property
-    def min(self) -> Any: ...
+    def is_distinct_count_exact(self) -> bool | None: ...
 
     @property
-    def is_min_exact(self) -> bool: ...
+    def min(self) -> Any | None: ...
 
     @property
-    def max(self) -> Any: ...
+    def is_min_exact(self) -> bool | None: ...
 
     @property
-    def is_max_exact(self) -> bool: ...
+    def max(self) -> Any | None: ...
+
+    @property
+    def is_max_exact(self) -> bool | None: ...
 
 
 _ConvertAs = TypeVar("_ConvertAs", pd.DataFrame, pd.Series)
@@ -287,7 +290,7 @@ class Array(_PandasConvertible[pd.Series], Generic[_Scalar_co]):
     ) -> str: ...
 
     format = to_string
-    def equals(self, other: Array) -> bool: ...
+    def equals(self, other: Array | Any) -> bool: ...
 
     def __len__(self) -> int: ...
 
@@ -514,7 +517,7 @@ class ListArray(BaseListArray[_ScalarT]):
     @classmethod
     def from_arrays(
         cls,
-        offsets: Int32Array | list[int],
+        offsets: Int32Array | list[int] | list[int | None],
         values: Array[Scalar[_DataTypeT]] | list[int] | list[float] | list[str]
         | list[bytes] | list,
         *,
@@ -537,7 +540,7 @@ class LargeListArray(BaseListArray[LargeListScalar[_DataTypeT]]):
     @classmethod
     def from_arrays(
         cls,
-        offsets: Int64Array,
+        offsets: Int64Array | list[int] | list[int | None],
         values: Array[Scalar[_DataTypeT]] | Array,
         *,
         type: _DataTypeT | None = None,
@@ -826,7 +829,7 @@ class FixedShapeTensorArray(ExtensionArray[_ArrayT]):
     def to_tensor(self) -> Tensor: ...
 
     @classmethod
-    def from_numpy_ndarray(cls, obj: np.ndarray) -> Self: ...
+    def from_numpy_ndarray(cls, obj: np.ndarray, dim_names: list[str] | tuple[str, ...] | None = None) -> Self: ...
 
 
 class OpaqueArray(ExtensionArray[_ArrayT]):

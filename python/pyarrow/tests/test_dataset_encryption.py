@@ -79,7 +79,7 @@ def create_encryption_config():
 
 
 def create_decryption_config():
-    return pe.DecryptionConfiguration(cache_lifetime=300)
+    return pe.DecryptionConfiguration(cache_lifetime=timedelta(seconds=300))
 
 
 def create_kms_connection_config():
@@ -105,12 +105,14 @@ def test_dataset_encryption_decryption():
     decryption_config = create_decryption_config()
     kms_connection_config = create_kms_connection_config()
 
+    assert ds is not None
+    assert pe is not None
     crypto_factory = pe.CryptoFactory(kms_factory)
     parquet_encryption_cfg = ds.ParquetEncryptionConfig(
         crypto_factory, kms_connection_config, encryption_config
     )
     parquet_decryption_cfg = ds.ParquetDecryptionConfig(
-        crypto_factory, kms_connection_config, decryption_config
+        crypto_factory, kms_connection_config, decryption_config  # type: ignore[arg-type]
     )
 
     # create write_options with dataset encryption config
@@ -203,11 +205,14 @@ def test_large_row_encryption_decryption():
         plaintext_footer=False,
         data_key_length_bits=128,
     )
+    assert ds is not None
+    assert pe is not None
+    assert pq is not None
     pqe_config = ds.ParquetEncryptionConfig(
         crypto_factory, kms_config, encryption_config
     )
     pqd_config = ds.ParquetDecryptionConfig(
-        crypto_factory, kms_config, pe.DecryptionConfiguration()
+        crypto_factory, kms_config, pe.DecryptionConfiguration()  # type: ignore[arg-type]
     )
     scan_options = ds.ParquetFragmentScanOptions(decryption_config=pqd_config)
     file_format = ds.ParquetFileFormat(default_fragment_scan_options=scan_options)
