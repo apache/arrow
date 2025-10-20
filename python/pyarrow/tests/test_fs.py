@@ -44,17 +44,19 @@ here = os.path.dirname(os.path.abspath(__file__))
 
 
 class DummyHandler(FileSystemHandler):
+    _value: int
+    
     def __init__(self, value=42):
         self._value = value
 
     def __eq__(self, other):
         if isinstance(other, FileSystemHandler):
-            return self._value == other._value
+            return self._value == other._value  # type: ignore[attr-defined]
         return NotImplemented
 
     def __ne__(self, other):
         if isinstance(other, FileSystemHandler):
-            return self._value != other._value
+            return self._value != other._value  # type: ignore[attr-defined]
         return NotImplemented
 
     def get_type_name(self):
@@ -601,7 +603,7 @@ def test_filesystem_equals():
     assert fs0.equals(fs0)
     assert fs0.equals(fs1)
     with pytest.raises(TypeError):
-        fs0.equals('string')
+        fs0.equals('string')  # type: ignore[arg-type]
     assert fs0 == fs0 == fs1
     assert fs0 != 4
 
@@ -1123,7 +1125,7 @@ def test_localfs_options():
     LocalFileSystem(use_mmap=False)
 
     with pytest.raises(TypeError):
-        LocalFileSystem(xxx=False)
+        LocalFileSystem(xxx=False)  # type: ignore[call-arg]
 
 
 def test_localfs_errors(localfs):
@@ -1772,6 +1774,7 @@ def test_py_filesystem_pickling(pickle_module):
     serialized = pickle_module.dumps(fs)
     restored = pickle_module.loads(serialized)
     assert isinstance(restored, FileSystem)
+    assert isinstance(restored, PyFileSystem)
     assert restored == fs
     assert restored.handler == handler
     assert restored.type_name == "py::dummy"
@@ -1931,6 +1934,8 @@ def test_s3_real_aws_region_selection():
     # Taken from a registry of open S3-hosted datasets
     # at https://github.com/awslabs/open-data-registry
     fs, path = FileSystem.from_uri('s3://mf-nwp-models/README.txt')
+    from pyarrow.fs import S3FileSystem
+    assert isinstance(fs, S3FileSystem)
     assert fs.region == 'eu-west-1'
     with fs.open_input_stream(path) as f:
         assert b"Meteo-France Atmospheric models on AWS" in f.read(50)
@@ -1938,6 +1943,8 @@ def test_s3_real_aws_region_selection():
     # Passing an explicit region disables auto-selection
     fs, path = FileSystem.from_uri(
         's3://mf-nwp-models/README.txt?region=us-east-2')
+    from pyarrow.fs import S3FileSystem
+    assert isinstance(fs, S3FileSystem)
     assert fs.region == 'us-east-2'
     # Reading from the wrong region may still work for public buckets...
 
@@ -1948,6 +1955,8 @@ def test_s3_real_aws_region_selection():
     with pytest.raises(IOError, match="Bucket '.*' not found"):
         FileSystem.from_uri('s3://x-arrow..nonexistent-bucket')
     fs, path = FileSystem.from_uri('s3://x-arrow-nonexistent-bucket?region=us-east-3')
+    from pyarrow.fs import S3FileSystem
+    assert isinstance(fs, S3FileSystem)
     assert fs.region == 'us-east-3'
 
     # allow_delayed_open has a side-effect of delaying errors until I/O is performed.

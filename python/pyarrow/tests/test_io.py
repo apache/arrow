@@ -33,7 +33,7 @@ import weakref
 try:
     import numpy as np
 except ImportError:
-    np = None  # type: ignore[assignment]
+    pass
 
 from pyarrow.util import guid
 from pyarrow import Codec
@@ -234,7 +234,7 @@ def test_python_file_read_buffer():
             return memoryview(dst_buf)[:nbytes]
 
     duck_reader = DuckReader()
-    with pa.PythonFile(duck_reader, mode='r') as f:
+    with pa.PythonFile(duck_reader, mode='r') as f:  # type: ignore[arg-type]
         buf = f.read_buffer(length)
         assert len(buf) == length
         assert memoryview(buf).tobytes() == dst_buf[:length]
@@ -474,7 +474,7 @@ def test_buffer_to_numpy():
     byte_array = bytearray(20)
     byte_array[0] = 42
     buf = pa.py_buffer(byte_array)
-    array = np.frombuffer(buf, dtype="uint8")
+    array = np.frombuffer(buf, dtype="uint8")  # type: ignore[arg-type]
     assert array[0] == byte_array[0]
     byte_array[0] += 1
     assert array[0] == byte_array[0]
@@ -640,7 +640,7 @@ def test_buffer_protocol_respects_immutability():
     # immutable
     a = b'12345'
     arrow_ref = pa.py_buffer(a)
-    numpy_ref = np.frombuffer(arrow_ref, dtype=np.uint8)
+    numpy_ref = np.frombuffer(arrow_ref, dtype=np.uint8)  # type: ignore[arg-type]
     assert not numpy_ref.flags.writeable
 
 
@@ -652,7 +652,7 @@ def test_foreign_buffer():
     buf = pa.foreign_buffer(addr, size, obj)
     wr = weakref.ref(obj)
     del obj
-    assert np.frombuffer(buf, dtype=np.int32).tolist() == [1, 2]
+    assert np.frombuffer(buf, dtype=np.int32).tolist() == [1, 2]  # type: ignore[arg-type]
     assert wr() is not None
     del buf
     assert wr() is None
@@ -688,6 +688,7 @@ def test_non_cpu_buffer(pickle_module):
     cuda_buf = ctx.buffer_from_data(data)
     arr = pa.FixedSizeBinaryArray.from_buffers(pa.binary(7), 1, [None, cuda_buf])
     buf_on_gpu = arr.buffers()[1]
+    assert buf_on_gpu is not None
 
     assert buf_on_gpu.size == cuda_buf.size
     assert buf_on_gpu.address == cuda_buf.address
@@ -725,6 +726,7 @@ def test_non_cpu_buffer(pickle_module):
         pa.binary(5), 1, [None, cuda_buf_short]
     )
     buf_on_gpu_short = arr_short.buffers()[1]
+    assert buf_on_gpu_short is not None
     with pytest.raises(NotImplementedError, match=msg):
         buf_on_gpu_sliced.equals(buf_on_gpu_short)
 
@@ -844,6 +846,7 @@ def test_compress_decompress(compression):
 
     assert isinstance(decompressed_bytes, bytes)
 
+    assert isinstance(decompressed_buf, pa.Buffer)
     assert decompressed_buf.equals(test_buf)
     assert decompressed_bytes == test_data
 
@@ -912,6 +915,7 @@ def test_compression_level(compression):
 
         assert isinstance(decompressed_bytes, bytes)
 
+        assert isinstance(decompressed_buf, pa.Buffer)
         assert decompressed_buf.equals(test_buf)
         assert decompressed_bytes == test_data
 
@@ -953,12 +957,12 @@ def test_buffer_memoryview_is_immutable():
     assert result.readonly
 
     with pytest.raises(TypeError) as exc:
-        result[0] = b'h'
+        result[0] = b'h'  # type: ignore[index]
         assert 'cannot modify read-only' in str(exc.value)
 
     b = bytes(buf)
     with pytest.raises(TypeError) as exc:
-        b[0] = b'h'
+        b[0] = b'h'  # type: ignore[index]
         assert 'cannot modify read-only' in str(exc.value)
 
 

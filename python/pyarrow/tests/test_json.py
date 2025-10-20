@@ -23,11 +23,16 @@ import itertools
 import json
 import string
 import unittest
+from typing import TYPE_CHECKING
 
-try:
+if TYPE_CHECKING:
     import numpy as np
-except ImportError:
-    np = None  # type: ignore[assignment]
+else:
+    try:
+        import numpy as np
+    except ImportError:
+        np = None  # type: ignore[assignment]
+
 import pytest
 
 import pyarrow as pa
@@ -317,6 +322,9 @@ class BaseTestJSON(abc.ABC):
 
 class BaseTestJSONRead(BaseTestJSON):
 
+    def read_json(self, *args, **kwargs) -> pa.Table:  # type: ignore[empty-body]
+        ...  # Implemented in subclasses
+
     def read_bytes(self, b, **kwargs):
         return self.read_json(pa.py_buffer(b), **kwargs)
 
@@ -352,6 +360,8 @@ class BaseTestJSONRead(BaseTestJSON):
 
 
 class BaseTestStreamingJSONRead(BaseTestJSON):
+    use_threads: bool = False  # Set by subclasses
+    
     def open_json(self, json, *args, **kwargs):
         """
         Reads the JSON file into memory using pyarrow's open_json

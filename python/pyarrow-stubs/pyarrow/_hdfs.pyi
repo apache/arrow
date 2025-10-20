@@ -24,7 +24,7 @@ class HadoopFileSystem(FileSystem):
 
     def __init__(
         self,
-        host: str,
+        host: str | None = None,
         port: int = 8020,
         *,
         user: str | None = None,
@@ -35,4 +35,4 @@ class HadoopFileSystem(FileSystem):
         extra_conf: dict | None = None,
     ): ...
     @staticmethod
-    def from_uri(uri: str) -> HadoopFileSystem: ...  # type: ignore[override]
+    def from_uri(uri: str | int) -> HadoopFileSystem: ...  # type: ignore[override]

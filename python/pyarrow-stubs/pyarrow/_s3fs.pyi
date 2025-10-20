@@ -25,7 +25,7 @@ from .lib import KeyValueMetadata
 
 
 class _ProxyOptions(TypedDict):
-    schema: Required[Literal["http", "https"]]
+    scheme: Required[Literal["http", "https"]]
     host: Required[str]
     port: Required[int]
     username: NotRequired[str]
@@ -87,15 +87,17 @@ class S3FileSystem(FileSystem):
         scheme: Literal["http", "https"] = "https",
         endpoint_override: str | None = None,
         background_writes: bool = True,
-        default_metadata: dict | KeyValueMetadata | None = None,
+        default_metadata: dict | list | KeyValueMetadata | None = None,
         role_arn: str | None = None,
         session_name: str | None = None,
         external_id: str | None = None,
         load_frequency: int = 900,
-        proxy_options: _ProxyOptions | str | None = None,
+        proxy_options: _ProxyOptions | dict | tuple | str | None = None,
         allow_bucket_creation: bool = False,
         allow_bucket_deletion: bool = False,
+        allow_delayed_open: bool = False,
         check_directory_existence_before_creation: bool = False,
+        tls_ca_file_path: str | None = None,
         retry_strategy: S3RetryStrategy =
         AwsStandardS3RetryStrategy(max_attempts=3),  # noqa: Y011
         force_virtual_addressing: bool = False,
