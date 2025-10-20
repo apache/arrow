@@ -75,6 +75,10 @@ class DataType(_Weakrefable):
     @property
     def has_variadic_buffers(self) -> bool: ...
 
+    # Properties that exist on specific subtypes but accessed generically
+    @property
+    def list_size(self) -> int: ...
+
     def __hash__(self) -> int: ...
 
     def equals(self, other: DataType | str, *,

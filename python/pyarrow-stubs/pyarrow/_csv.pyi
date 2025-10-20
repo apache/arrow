@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from typing import IO, Any, Literal
 
@@ -27,10 +27,10 @@ from . import lib
 @dataclass(kw_only=True)
 class ReadOptions(lib._Weakrefable):
     use_threads: bool = field(default=True, kw_only=False)  # noqa: Y015
-    block_size: int | None = None
+    block_size: int | float | None = None
     skip_rows: int = 0
     skip_rows_after_names: int = 0
-    column_names: list[str] | None = None
+    column_names: Sequence[str] | None = None
     autogenerate_column_names: bool = False
     encoding: str = "utf8"
     def validate(self) -> None: ...
@@ -45,7 +45,7 @@ class ParseOptions(lib._Weakrefable):
     escape_char: str | Literal[False] = False
     newlines_in_values: bool = False
     ignore_empty_lines: bool = True
-    invalid_row_handler: Callable[[InvalidRow], Literal["skip", "error"]] | None = None
+    invalid_row_handler: Callable[[InvalidRow], str] | None = None
 
     def validate(self) -> None: ...
 
@@ -54,7 +54,7 @@ class ParseOptions(lib._Weakrefable):
 class ConvertOptions(lib._Weakrefable):
 
     check_utf8: bool = field(default=True, kw_only=False)  # noqa: Y015
-    column_types: lib.Schema | dict | None = None
+    column_types: lib.Schema | dict | Sequence[tuple[str, lib.DataType]] | None = None
     null_values: list[str] | None = None
     true_values: list[str] | None = None
     false_values: list[str] | None = None
@@ -65,7 +65,7 @@ class ConvertOptions(lib._Weakrefable):
     include_missing_columns: bool = False
     auto_dict_encode: bool = False
     auto_dict_max_cardinality: int | None = None
-    timestamp_parsers: list[str] | None = None
+    timestamp_parsers: Sequence[str | lib._Weakrefable] | None = None
 
     def validate(self) -> None: ...
 

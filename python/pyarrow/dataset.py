@@ -70,7 +70,7 @@ _orc_msg = (
 )
 
 try:
-    from pyarrow._dataset_orc import OrcFileFormat
+    from pyarrow._dataset_orc import OrcFileFormat  # type: ignore[reportMissingModuleSource]
     _orc_available = True
 except ImportError:
     pass

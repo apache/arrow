@@ -16,7 +16,7 @@
 # under the License.
 
 try:
-    from pyarrow._flight import (  # noqa:F401
+    from pyarrow._flight import (  # noqa:F401  # type: ignore[reportMissingModuleSource]
         connect,
         Action,
         ActionType,

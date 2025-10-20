@@ -441,7 +441,7 @@ class RecordBatch(_Tabular[Array]):
         arrays: Iterable[Any],
         names: list[str] | tuple[str, ...] | None = None,
         schema: Schema | None = None,
-        metadata: Mapping[str | bytes, str | bytes] | None = None,
+        metadata: Mapping[str | bytes, str | bytes] | Mapping[bytes, bytes] | Mapping[str, str] | Mapping[bytes, str] | Mapping[str, bytes] | None = None,
     ) -> Self: ...
 
     @classmethod
@@ -555,7 +555,7 @@ class Table(_Tabular[ChunkedArray[Any]]):
         arrays: Collection[ArrayOrChunkedArray[Any] | list[Any]],
         names: list[str] | tuple[str, ...] | None = None,
         schema: Schema | None = None,
-        metadata: Mapping[str | bytes, str | bytes] | None = None,
+        metadata: Mapping[str | bytes, str | bytes] | Mapping[bytes, bytes] | Mapping[str, str] | Mapping[bytes, str] | Mapping[str, bytes] | None = None,
     ) -> Self: ...
 
     @classmethod

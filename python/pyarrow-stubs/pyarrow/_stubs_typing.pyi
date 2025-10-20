@@ -27,6 +27,12 @@ from numpy.typing import NDArray
 
 from pyarrow.lib import BooleanArray, IntegerArray
 
+# Forward declarations for ChunkedArray - avoid circular import
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from pyarrow.scalar import Int16Scalar, Int32Scalar, Int64Scalar
+    from pyarrow.array import ChunkedArray
+
 ArrayLike: TypeAlias = Any
 ScalarLike: TypeAlias = Any
 Order: TypeAlias = Literal["ascending", "descending"]
@@ -45,8 +51,14 @@ Compression: TypeAlias = Literal[
 ]
 NullEncoding: TypeAlias = Literal["mask", "encode"]
 NullSelectionBehavior: TypeAlias = Literal["drop", "emit_null"]
-Mask: TypeAlias = Sequence[bool | None] | NDArray[np.bool_] | BooleanArray
-Indices: TypeAlias = Sequence[int | None] | NDArray[np.integer[Any]] | IntegerArray
+
+if TYPE_CHECKING:
+    Mask: TypeAlias = Sequence[bool | None] | NDArray[np.bool_] | BooleanArray | ChunkedArray[Any]
+    Indices: TypeAlias = Sequence[int | None] | NDArray[np.integer[Any]] | IntegerArray | ChunkedArray[Int16Scalar] | ChunkedArray[Int32Scalar] | ChunkedArray[Int64Scalar]
+else:
+    Mask: TypeAlias = Sequence[bool | None] | NDArray[np.bool_] | BooleanArray
+    Indices: TypeAlias = Sequence[int | None] | NDArray[np.integer[Any]] | IntegerArray
+
 PyScalar: TypeAlias = (bool | int | float | Decimal | str | bytes |
                        dt.date | dt.datetime | dt.time | dt.timedelta)
 
@@ -83,6 +95,7 @@ FilterTuple: TypeAlias = (
     | tuple[str, Literal["<="], SupportLe]
     | tuple[str, Literal[">="], SupportGe]
     | tuple[str, Literal["in", "not in"], Collection]
+    | tuple[str, str, Any]  # Allow general str for operator to avoid type errors
 )
 
 

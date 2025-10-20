@@ -32,6 +32,7 @@ class EncryptionConfiguration(_Weakrefable):
     cache_lifetime: dt.timedelta
     internal_key_material: bool
     data_key_length_bits: int
+    uniform_encryption: bool
 
     def __init__(
         self,
@@ -44,6 +45,7 @@ class EncryptionConfiguration(_Weakrefable):
         cache_lifetime: dt.timedelta | None = None,
         internal_key_material: bool | None = None,
         data_key_length_bits: int | None = None,
+        uniform_encryption: bool | None = None,
     ) -> None: ...
 
 

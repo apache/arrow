@@ -16,7 +16,7 @@
 # under the License.
 
 import sys
-from collections.abc import Iterable, Collection
+from collections.abc import Iterable, Collection, Sequence
 
 if sys.version_info >= (3, 11):
     from typing import Self, LiteralString
@@ -70,11 +70,11 @@ class ExecNodeOptions(lib._Weakrefable):
 
 
 class TableSourceNodeOptions(ExecNodeOptions):
-    def __init__(self, table: lib.Table) -> None: ...
+    def __init__(self, table: lib.Table | lib.RecordBatch | None) -> None: ...
 
 
 class FilterNodeOptions(ExecNodeOptions):
-    def __init__(self, filter_expression: Expression) -> None: ...
+    def __init__(self, filter_expression: Expression | None) -> None: ...
 
 
 class ProjectNodeOptions(ExecNodeOptions):
@@ -99,7 +99,7 @@ class AggregateNodeOptions(ExecNodeOptions):
 class OrderByNodeOptions(ExecNodeOptions):
     def __init__(
         self,
-        sort_keys: Iterable[tuple[str, Literal["ascending", "descending"]]] = (),
+        sort_keys: Iterable[tuple[str | Expression | int, Literal["ascending", "descending"]]] = (),
         *,
         null_placement: Literal["at_start", "at_end"] = "at_end",
     ) -> None: ...
@@ -118,12 +118,13 @@ class HashJoinNodeOptions(ExecNodeOptions):
             "right outer",
             "full outer",
         ],
-        left_keys: _StrOrExpr | list[_StrOrExpr],
-        right_keys: _StrOrExpr | list[_StrOrExpr],
-        left_output: list[_StrOrExpr] | None = None,
-        right_output: list[_StrOrExpr] | None = None,
+        left_keys: _StrOrExpr | Sequence[_StrOrExpr],
+        right_keys: _StrOrExpr | Sequence[_StrOrExpr],
+        left_output: Sequence[_StrOrExpr] | None = None,
+        right_output: Sequence[_StrOrExpr] | None = None,
         output_suffix_for_left: str = "",
         output_suffix_for_right: str = "",
+        filter_expression: lib.BooleanScalar | lib.BooleanArray | Expression | None = None,
     ) -> None: ...
 
 
@@ -131,9 +132,9 @@ class AsofJoinNodeOptions(ExecNodeOptions):
     def __init__(
         self,
         left_on: _StrOrExpr,
-        left_by: _StrOrExpr | list[_StrOrExpr],
+        left_by: _StrOrExpr | Sequence[_StrOrExpr],
         right_on: _StrOrExpr,
-        right_by: _StrOrExpr | list[_StrOrExpr],
+        right_by: _StrOrExpr | Sequence[_StrOrExpr],
         tolerance: int,
     ) -> None: ...
 

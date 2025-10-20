@@ -33,7 +33,7 @@ try:
     import pyarrow.parquet as pq
     from pyarrow.tests.parquet.common import _read_table, _write_table
 except ImportError:
-    pq = None  # type: ignore[assignment]
+    pass
 
 
 try:
@@ -44,7 +44,7 @@ try:
                                                dataframe_with_lists)
     from pyarrow.tests.parquet.common import alltypes_sample
 except ImportError:
-    pd = tm = None  # type: ignore[assignment]
+    pass
 
 
 # Marks all of the tests in this module

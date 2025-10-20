@@ -151,6 +151,10 @@ class Statistics(_Weakrefable):
     def logical_type(self) -> ParquetLogicalType: ...
     @property
     def converted_type(self) -> _ConvertedType | None: ...
+    @property
+    def is_min_exact(self) -> bool: ...
+    @property
+    def is_max_exact(self) -> bool: ...
 
 
 class ParquetLogicalType(_Weakrefable):
@@ -217,6 +221,16 @@ class ColumnChunkMetaData(_Weakrefable):
     def has_column_index(self) -> bool: ...
     @property
     def metadata(self) -> dict[bytes, bytes] | None: ...
+    @property
+    def name(self) -> str: ...
+    @property
+    def max_definition_level(self) -> int: ...
+    @property
+    def max_repetition_level(self) -> int: ...
+    @property
+    def converted_type(self) -> _ConvertedType: ...
+    @property
+    def logical_type(self) -> ParquetLogicalType: ...
 
 
 class _SortingColumn(TypedDict):
@@ -234,13 +248,13 @@ class SortingColumn:
     def from_ordering(
         cls,
         schema: Schema,
-        sort_keys: Sequence[tuple[str, Order]],
+        sort_keys: Sequence[str] | Sequence[tuple[str, Order]] | Sequence[str | tuple[str, Order]],
         null_placement: Literal["at_start", "at_end"] = "at_end",
     ) -> tuple[SortingColumn, ...]: ...
 
     @staticmethod
     def to_ordering(
-        schema: Schema, sorting_columns: tuple[SortingColumn, ...]
+        schema: Schema, sorting_columns: tuple[SortingColumn, ...] | list[SortingColumn]
     ) -> tuple[Sequence[tuple[str, Order]], Literal["at_start", "at_end"]]: ...
     def __hash__(self) -> int: ...
     @property
@@ -282,6 +296,7 @@ class _FileMetaData(TypedDict):
     num_row_groups: int
     format_version: str
     serialized_size: int
+    row_groups: list[Any]  # List of row group metadata dictionaries
 
 
 class FileMetaData(_Weakrefable):
@@ -313,14 +328,14 @@ class FileMetaData(_Weakrefable):
 
 class ParquetSchema(_Weakrefable):
     def __init__(self, container: FileMetaData) -> None: ...
-    def __getitem__(self, i: int) -> ColumnChunkMetaData: ...
+    def __getitem__(self, i: int) -> "ColumnSchema": ...
     def __hash__(self) -> int: ...
     def __len__(self) -> int: ...
     @property
     def names(self) -> list[str]: ...
     def to_arrow_schema(self) -> Schema: ...
     def equals(self, other: ParquetSchema) -> bool: ...
-    def column(self, i: int) -> ColumnSchema: ...
+    def column(self, i: int) -> "ColumnSchema": ...
 
 
 class ColumnSchema(_Weakrefable):
@@ -353,7 +368,7 @@ class ParquetReader(_Weakrefable):
 
     def open(
         self,
-        source: StrPath | NativeFile | IO,
+        source: StrPath | Buffer | NativeFile | IO,
         *,
         use_memory_map: bool = False,
         read_dictionary: Iterable[int] | Iterable[str] | None = None,
@@ -379,10 +394,11 @@ class ParquetReader(_Weakrefable):
 
     def iter_batches(
         self,
-        batch_size: int,
-        row_groups: list[int],
-        column_indices: list[int] | None = None,
+        batch_size: int = 65536,
+        row_groups: list[int] | range | None = None,
+        column_indices: list[str] | list[int] | None = None,
         use_threads: bool = True,
+        use_pandas_metadata: bool = False,
     ) -> Iterator[RecordBatch]: ...
 
     def read_row_group(
@@ -391,16 +407,18 @@ class ParquetReader(_Weakrefable):
 
     def read_row_groups(
         self,
-        row_groups: list[int],
-        column_indices: list[int] | None = None,
+        row_groups: Sequence[int] | range,
+        column_indices: list[str] | list[int] | None = None,
         use_threads: bool = True,
+        use_pandas_metadata: bool = False,
     ) -> Table: ...
 
     def read_all(
         self, column_indices: list[int] | None = None, use_threads: bool = True
     ) -> Table: ...
     def scan_contents(
-        self, column_indices: list[int] | None = None, batch_size: int = 65536): ...
+        self, columns: Sequence[str] | Sequence[int] | None = None, batch_size: int = 65536
+    ) -> int: ...
 
     def column_name_idx(self, column_name: str) -> int: ...
     def read_column(self, column_index: int) -> ChunkedArray: ...

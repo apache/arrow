@@ -117,10 +117,6 @@ root = ["pyarrow", "pyarrow-stubs/pyarrow"]
 [tool.ty.rules]
 unresolved-import = "ignore"
 
-[[tool.ty.overrides]]
-include = ["pyarrow/tests/**"]
-
-[tool.ty.overrides.rules]
 unresolved-attribute = "ignore"
 invalid-context-manager = "ignore"
 too-many-positional-arguments = "ignore"

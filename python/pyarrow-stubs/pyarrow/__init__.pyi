@@ -336,6 +336,10 @@ import pyarrow.types as types
 
 import pyarrow.feather as feather
 try:
+    import pyarrow.pandas_compat as pandas_compat
+except ImportError:
+    pass
+try:
     import pyarrow.substrait as substrait
     import pyarrow._substrait as _substrait
 except ImportError:

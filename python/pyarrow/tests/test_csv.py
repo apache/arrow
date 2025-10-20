@@ -323,7 +323,7 @@ def test_convert_options(pickle_module):
     with pytest.raises(TypeError, match='DataType expected'):
         opts.column_types = {'a': None}
     with pytest.raises(TypeError):
-        opts.column_types = 0
+        opts.column_types = 0  # type: ignore[assignment]
 
     assert isinstance(opts.null_values, list)
     assert '' in opts.null_values
@@ -1158,7 +1158,7 @@ class BaseCSVTableRead(BaseTestCSV):
         table = self.read_bytes(rows, convert_options=opts,
                                 validate_full=False)
         assert table.schema == schema
-        dict_values = table['a'].chunk(0).dictionary
+        dict_values = table['a'].chunk(0).dictionary  # type: ignore[attr-defined]
         assert len(dict_values) == 2
         assert dict_values[0].as_py() == "ab"
         assert dict_values[1].as_buffer() == b"cd\xff"
@@ -1881,8 +1881,8 @@ class BaseTestCompressedCSVRead:
 
     def test_random_csv(self):
         csv, expected = make_random_csv(num_cols=2, num_rows=100)
-        csv_path = os.path.join(self.tmpdir, self.csv_filename)
-        self.write_file(csv_path, csv)
+        csv_path = os.path.join(self.tmpdir, self.csv_filename)  # type: ignore[attr-defined]
+        self.write_file(csv_path, csv)  # type: ignore[attr-defined]
         table = self.read_csv(csv_path)
         table.validate(full=True)
         assert table.schema == expected.schema

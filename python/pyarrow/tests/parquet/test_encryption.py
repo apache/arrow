@@ -21,8 +21,7 @@ try:
     import pyarrow.parquet as pq
     import pyarrow.parquet.encryption as pe
 except ImportError:
-    pq = None  # type: ignore[assignment]
-    pe = None  # type: ignore[assignment]
+    pass
 else:
     from pyarrow.tests.parquet.encryption import (InMemoryKmsClient,
                                                   MockVersioningKmsClient,
@@ -131,7 +130,7 @@ def test_encrypted_parquet_write_read(tempdir, data_table):
         encryption_algorithm="AES_GCM_V1",
         cache_lifetime=timedelta(minutes=5.0),
         data_key_length_bits=256)
-    assert encryption_config.uniform_encryption is False
+    assert encryption_config.uniform_encryption is False  # type: ignore[attr-defined]
 
     kms_connection_config, crypto_factory = write_encrypted_file(
         path, data_table, FOOTER_KEY_NAME, COL_KEY_NAME, FOOTER_KEY, COL_KEY,
@@ -154,11 +153,11 @@ def test_uniform_encrypted_parquet_write_read(tempdir, data_table):
     # Encrypt the footer and all columns with the footer key,
     encryption_config = pe.EncryptionConfiguration(
         footer_key=FOOTER_KEY_NAME,
-        uniform_encryption=True,
+        uniform_encryption=True,  # type: ignore[call-arg]
         encryption_algorithm="AES_GCM_V1",
         cache_lifetime=timedelta(minutes=5.0),
         data_key_length_bits=256)
-    assert encryption_config.uniform_encryption is True
+    assert encryption_config.uniform_encryption is True  # type: ignore[attr-defined]
 
     kms_connection_config, crypto_factory = write_encrypted_file(
         path, data_table, FOOTER_KEY_NAME, COL_KEY_NAME, FOOTER_KEY, b"",
@@ -303,7 +302,7 @@ def test_encrypted_parquet_write_col_key_and_uniform_encryption(tempdir, data_ta
         column_keys={
             COL_KEY_NAME: ["a", "b"],
         },
-        uniform_encryption=True)
+        uniform_encryption=True)  # type: ignore[call-arg]
 
     with pytest.raises(OSError,
                        match=r"Cannot set both column_keys and uniform_encryption"):
@@ -415,7 +414,7 @@ def test_encrypted_parquet_write_kms_factory_type_error(
     def kms_factory(kms_connection_configuration):
         return WrongTypeKmsClient(kms_connection_configuration)
 
-    crypto_factory = pe.CryptoFactory(kms_factory)
+    crypto_factory = pe.CryptoFactory(kms_factory)  # type: ignore[arg-type]
     with pytest.raises(TypeError):
         # Write with encryption properties
         write_encrypted_parquet(path, data_table, encryption_config,
