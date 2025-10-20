@@ -57,14 +57,14 @@ def teardown_module(module):
 
 def test_Context():
     assert cuda.Context.get_num_devices() > 0
-    assert global_context.device_number == 0
-    assert global_context1.device_number == cuda.Context.get_num_devices() - 1
+    assert global_context.device_number == 0  # type: ignore[union-attr]
+    assert global_context1.device_number == cuda.Context.get_num_devices() - 1  # type: ignore[union-attr]
 
-    mm = global_context.memory_manager
+    mm = global_context.memory_manager  # type: ignore[union-attr]
     assert not mm.is_cpu
     assert "<pyarrow.MemoryManager device: CudaDevice" in repr(mm)
 
-    dev = global_context.device
+    dev = global_context.device  # type: ignore[union-attr]
     assert dev == mm.device
 
     assert not dev.is_cpu
@@ -89,11 +89,11 @@ def test_manage_allocate_free_host(size):
 
 
 def test_context_allocate_del():
-    bytes_allocated = global_context.bytes_allocated
-    cudabuf = global_context.new_buffer(128)
-    assert global_context.bytes_allocated == bytes_allocated + 128
+    bytes_allocated = global_context.bytes_allocated  # type: ignore[union-attr]
+    cudabuf = global_context.new_buffer(128)  # type: ignore[union-attr]
+    assert global_context.bytes_allocated == bytes_allocated + 128  # type: ignore[union-attr]
     del cudabuf
-    assert global_context.bytes_allocated == bytes_allocated
+    assert global_context.bytes_allocated == bytes_allocated  # type: ignore[union-attr]
 
 
 def make_random_buffer(size, target='host'):
@@ -103,16 +103,16 @@ def make_random_buffer(size, target='host'):
         assert size >= 0
         buf = pa.allocate_buffer(size)
         assert buf.size == size
-        arr = np.frombuffer(buf, dtype=np.uint8)
+        arr = np.frombuffer(buf, dtype=np.uint8)  # type: ignore[arg-type]
         assert arr.size == size
         arr[:] = np.random.randint(low=1, high=255, size=size, dtype=np.uint8)
         assert arr.sum() > 0 or size == 0
-        arr_ = np.frombuffer(buf, dtype=np.uint8)
+        arr_ = np.frombuffer(buf, dtype=np.uint8)  # type: ignore[arg-type]
         np.testing.assert_equal(arr, arr_)
         return arr, buf
     elif target == 'device':
         arr, buf = make_random_buffer(size, target='host')
-        dbuf = global_context.new_buffer(size)
+        dbuf = global_context.new_buffer(size)  # type: ignore[union-attr]
         assert dbuf.size == size
         dbuf.copy_from_host(buf, position=0, nbytes=size)
         return arr, dbuf
@@ -123,7 +123,7 @@ def make_random_buffer(size, target='host'):
 def test_context_device_buffer(size):
     # Creating device buffer from host buffer;
     arr, buf = make_random_buffer(size)
-    cudabuf = global_context.buffer_from_data(buf)
+    cudabuf = global_context.buffer_from_data(buf)  # type: ignore[union-attr]
     assert cudabuf.size == size
     arr2 = np.frombuffer(cudabuf.copy_to_host(), dtype=np.uint8)
     np.testing.assert_equal(arr, arr2)
@@ -133,13 +133,13 @@ def test_context_device_buffer(size):
         memoryview(cudabuf)
 
     # Creating device buffer from array:
-    cudabuf = global_context.buffer_from_data(arr)
+    cudabuf = global_context.buffer_from_data(arr)  # type: ignore[union-attr]
     assert cudabuf.size == size
     arr2 = np.frombuffer(cudabuf.copy_to_host(), dtype=np.uint8)
     np.testing.assert_equal(arr, arr2)
 
     # Creating device buffer from bytes:
-    cudabuf = global_context.buffer_from_data(arr.tobytes())
+    cudabuf = global_context.buffer_from_data(arr.tobytes())  # type: ignore[union-attr]
     assert cudabuf.size == size
     arr2 = np.frombuffer(cudabuf.copy_to_host(), dtype=np.uint8)
     np.testing.assert_equal(arr, arr2)
@@ -158,7 +158,7 @@ def test_context_device_buffer(size):
         cudabuf2.copy_from_host(arr[:size//2])  # restoring arr
 
     # Creating a device buffer from another device buffer, copy:
-    cudabuf2 = global_context.buffer_from_data(cudabuf)
+    cudabuf2 = global_context.buffer_from_data(cudabuf)  # type: ignore[union-attr]
     assert cudabuf2.size == size
     arr2 = np.frombuffer(cudabuf2.copy_to_host(), dtype=np.uint8)
     np.testing.assert_equal(arr, arr2)
@@ -181,31 +181,31 @@ def test_context_device_buffer(size):
     # Creating a device buffer from a slice of host buffer
     soffset = size//4
     ssize = 2*size//4
-    cudabuf = global_context.buffer_from_data(buf, offset=soffset,
+    cudabuf = global_context.buffer_from_data(buf, offset=soffset,  # type: ignore[union-attr]
                                               size=ssize)
     assert cudabuf.size == ssize
     arr2 = np.frombuffer(cudabuf.copy_to_host(), dtype=np.uint8)
     np.testing.assert_equal(arr[soffset:soffset + ssize], arr2)
 
-    cudabuf = global_context.buffer_from_data(buf.slice(offset=soffset,
+    cudabuf = global_context.buffer_from_data(buf.slice(offset=soffset,  # type: ignore[union-attr]
                                                         length=ssize))
     assert cudabuf.size == ssize
     arr2 = np.frombuffer(cudabuf.copy_to_host(), dtype=np.uint8)
     np.testing.assert_equal(arr[soffset:soffset + ssize], arr2)
 
     # Creating a device buffer from a slice of an array
-    cudabuf = global_context.buffer_from_data(arr, offset=soffset, size=ssize)
+    cudabuf = global_context.buffer_from_data(arr, offset=soffset, size=ssize)  # type: ignore[union-attr]
     assert cudabuf.size == ssize
     arr2 = np.frombuffer(cudabuf.copy_to_host(), dtype=np.uint8)
     np.testing.assert_equal(arr[soffset:soffset + ssize], arr2)
 
-    cudabuf = global_context.buffer_from_data(arr[soffset:soffset+ssize])
+    cudabuf = global_context.buffer_from_data(arr[soffset:soffset+ssize])  # type: ignore[union-attr]
     assert cudabuf.size == ssize
     arr2 = np.frombuffer(cudabuf.copy_to_host(), dtype=np.uint8)
     np.testing.assert_equal(arr[soffset:soffset + ssize], arr2)
 
     # Creating a device buffer from a slice of bytes
-    cudabuf = global_context.buffer_from_data(arr.tobytes(),
+    cudabuf = global_context.buffer_from_data(arr.tobytes(),  # type: ignore[union-attr]
                                               offset=soffset,
                                               size=ssize)
     assert cudabuf.size == ssize
@@ -213,11 +213,11 @@ def test_context_device_buffer(size):
     np.testing.assert_equal(arr[soffset:soffset + ssize], arr2)
 
     # Creating a device buffer from size
-    cudabuf = global_context.new_buffer(size)
+    cudabuf = global_context.new_buffer(size)  # type: ignore[union-attr]
     assert cudabuf.size == size
 
     # Creating device buffer from a slice of another device buffer:
-    cudabuf = global_context.buffer_from_data(arr)
+    cudabuf = global_context.buffer_from_data(arr)  # type: ignore[union-attr]
     cudabuf2 = cudabuf.slice(soffset, ssize)
     assert cudabuf2.size == ssize
     arr2 = np.frombuffer(cudabuf2.copy_to_host(), dtype=np.uint8)
@@ -228,19 +228,19 @@ def test_context_device_buffer(size):
     buf = cuda.new_host_buffer(size)
     arr_ = np.frombuffer(buf, dtype=np.uint8)
     arr_[:] = arr
-    cudabuf = global_context.buffer_from_data(buf)
+    cudabuf = global_context.buffer_from_data(buf)  # type: ignore[union-attr]
     assert cudabuf.size == size
     arr2 = np.frombuffer(cudabuf.copy_to_host(), dtype=np.uint8)
     np.testing.assert_equal(arr, arr2)
 
     # Creating device buffer from HostBuffer slice
 
-    cudabuf = global_context.buffer_from_data(buf, offset=soffset, size=ssize)
+    cudabuf = global_context.buffer_from_data(buf, offset=soffset, size=ssize)  # type: ignore[union-attr]
     assert cudabuf.size == ssize
     arr2 = np.frombuffer(cudabuf.copy_to_host(), dtype=np.uint8)
     np.testing.assert_equal(arr[soffset:soffset+ssize], arr2)
 
-    cudabuf = global_context.buffer_from_data(
+    cudabuf = global_context.buffer_from_data(  # type: ignore[union-attr]
         buf.slice(offset=soffset, length=ssize))
     assert cudabuf.size == ssize
     arr2 = np.frombuffer(cudabuf.copy_to_host(), dtype=np.uint8)
@@ -255,28 +255,28 @@ def test_context_from_object(size):
 
     # Creating device buffer from a CUDA host buffer
     hbuf = cuda.new_host_buffer(size * arr.dtype.itemsize)
-    np.frombuffer(hbuf, dtype=dtype)[:] = arr
-    cbuf2 = ctx.buffer_from_object(hbuf)
+    np.frombuffer(hbuf, dtype=dtype)[:] = arr  # type: ignore[arg-type]
+    cbuf2 = ctx.buffer_from_object(hbuf)  # type: ignore[union-attr]
     assert cbuf2.size == cbuf.size
-    arr2 = np.frombuffer(cbuf2.copy_to_host(), dtype=dtype)
+    arr2 = np.frombuffer(cbuf2.copy_to_host(), dtype=dtype)  # type: ignore[arg-type]
     np.testing.assert_equal(arr, arr2)
 
     # Creating device buffer from a device buffer
-    cbuf2 = ctx.buffer_from_object(cbuf2)
+    cbuf2 = ctx.buffer_from_object(cbuf2)  # type: ignore[union-attr]
     assert cbuf2.size == cbuf.size
-    arr2 = np.frombuffer(cbuf2.copy_to_host(), dtype=dtype)
+    arr2 = np.frombuffer(cbuf2.copy_to_host(), dtype=dtype)  # type: ignore[arg-type]
     np.testing.assert_equal(arr, arr2)
 
     # Trying to create a device buffer from a Buffer
     with pytest.raises(pa.ArrowTypeError,
                        match=('buffer is not backed by a CudaBuffer')):
-        ctx.buffer_from_object(pa.py_buffer(b"123"))
+        ctx.buffer_from_object(pa.py_buffer(b"123"))  # type: ignore[union-attr]
 
     # Trying to create a device buffer from numpy.array
     with pytest.raises(pa.ArrowTypeError,
                        match=("cannot create device buffer view from "
                               ".* \'numpy.ndarray\'")):
-        ctx.buffer_from_object(np.array([1, 2, 3]))
+        ctx.buffer_from_object(np.array([1, 2, 3]))  # type: ignore[union-attr]
 
 
 def test_foreign_buffer():
@@ -287,19 +287,19 @@ def test_foreign_buffer():
 
     # test host buffer memory reference counting
     rc = sys.getrefcount(hbuf)
-    fbuf = ctx.foreign_buffer(hbuf.address, hbuf.size, hbuf)
+    fbuf = ctx.foreign_buffer(hbuf.address, hbuf.size, hbuf)  # type: ignore[union-attr]
     assert sys.getrefcount(hbuf) == rc + 1
     del fbuf
     assert sys.getrefcount(hbuf) == rc
 
     # test postponed deallocation of host buffer memory
-    fbuf = ctx.foreign_buffer(hbuf.address, hbuf.size, hbuf)
+    fbuf = ctx.foreign_buffer(hbuf.address, hbuf.size, hbuf)  # type: ignore[union-attr]
     del hbuf
     fbuf.copy_to_host()
 
     # test deallocating the host buffer memory making it inaccessible
     hbuf = cuda.new_host_buffer(size * dtype.itemsize)
-    fbuf = ctx.foreign_buffer(hbuf.address, hbuf.size)
+    fbuf = ctx.foreign_buffer(hbuf.address, hbuf.size)  # type: ignore[union-attr]
     del hbuf
     with pytest.raises(pa.ArrowIOError,
                        match=('Cuda error ')):
@@ -310,7 +310,7 @@ def test_foreign_buffer():
 def test_CudaBuffer(size):
     arr, buf = make_random_buffer(size)
     assert arr.tobytes() == buf.to_pybytes()
-    cbuf = global_context.buffer_from_data(buf)
+    cbuf = global_context.buffer_from_data(buf)  # type: ignore[union-attr]
     assert cbuf.size == size
     assert not cbuf.is_cpu
     assert arr.tobytes() == cbuf.to_pybytes()
@@ -369,22 +369,22 @@ def test_copy_from_to_host(size):
     buf = pa.allocate_buffer(nbytes, resizable=True)  # in host
     assert isinstance(buf, pa.Buffer)
     assert not isinstance(buf, cuda.CudaBuffer)
-    arr = np.frombuffer(buf, dtype=dt)
+    arr = np.frombuffer(buf, dtype=dt)  # type: ignore[arg-type]
     assert arr.size == size
     arr[:] = range(size)
-    arr_ = np.frombuffer(buf, dtype=dt)
+    arr_ = np.frombuffer(buf, dtype=dt)  # type: ignore[arg-type]
     np.testing.assert_equal(arr, arr_)
 
     # Create a device buffer of the same size and copy from host
-    device_buffer = global_context.new_buffer(nbytes)
+    device_buffer = global_context.new_buffer(nbytes)  # type: ignore[union-attr]
     assert isinstance(device_buffer, cuda.CudaBuffer)
     assert isinstance(device_buffer, pa.Buffer)
     assert device_buffer.size == nbytes
     assert not device_buffer.is_cpu
-    device_buffer.copy_from_host(buf, position=0, nbytes=nbytes)
+    device_buffer.copy_from_host(buf, position=0, nbytes=nbytes)  # type: ignore[attr-defined]
 
     # Copy back to host and compare contents
-    buf2 = device_buffer.copy_to_host(position=0, nbytes=nbytes)
+    buf2 = device_buffer.copy_to_host(position=0, nbytes=nbytes)  # type: ignore[attr-defined]
     arr2 = np.frombuffer(buf2, dtype=dt)
     np.testing.assert_equal(arr, arr2)
 
@@ -393,20 +393,20 @@ def test_copy_from_to_host(size):
 def test_copy_to_host(size):
     arr, dbuf = make_random_buffer(size, target='device')
 
-    buf = dbuf.copy_to_host()
+    buf = dbuf.copy_to_host()  # type: ignore[attr-defined]
     assert buf.is_cpu
-    np.testing.assert_equal(arr, np.frombuffer(buf, dtype=np.uint8))
+    np.testing.assert_equal(arr, np.frombuffer(buf, dtype=np.uint8))  # type: ignore[arg-type]
 
-    buf = dbuf.copy_to_host(position=size//4)
+    buf = dbuf.copy_to_host(position=size//4)  # type: ignore[attr-defined]
     assert buf.is_cpu
-    np.testing.assert_equal(arr[size//4:], np.frombuffer(buf, dtype=np.uint8))
+    np.testing.assert_equal(arr[size//4:], np.frombuffer(buf, dtype=np.uint8))  # type: ignore[arg-type]
 
-    buf = dbuf.copy_to_host(position=size//4, nbytes=size//8)
+    buf = dbuf.copy_to_host(position=size//4, nbytes=size//8)  # type: ignore[attr-defined]
     assert buf.is_cpu
     np.testing.assert_equal(arr[size//4:size//4+size//8],
-                            np.frombuffer(buf, dtype=np.uint8))
+                            np.frombuffer(buf, dtype=np.uint8))  # type: ignore[arg-type]
 
-    buf = dbuf.copy_to_host(position=size//4, nbytes=0)
+    buf = dbuf.copy_to_host(position=size//4, nbytes=0)  # type: ignore[attr-defined]
     assert buf.is_cpu
     assert buf.size == 0
 
@@ -415,7 +415,7 @@ def test_copy_to_host(size):
     ]:
         with pytest.raises(ValueError,
                            match='position argument is out-of-range'):
-            dbuf.copy_to_host(position=position, nbytes=nbytes)
+            dbuf.copy_to_host(position=position, nbytes=nbytes)  # type: ignore[attr-defined]
 
     for (position, nbytes) in [
         (0, size+1), (size//2, (size+1)//2+1), (size, 1)
@@ -423,25 +423,25 @@ def test_copy_to_host(size):
         with pytest.raises(ValueError,
                            match=('requested more to copy than'
                                   ' available from device buffer')):
-            dbuf.copy_to_host(position=position, nbytes=nbytes)
+            dbuf.copy_to_host(position=position, nbytes=nbytes)  # type: ignore[attr-defined]
 
     buf = pa.allocate_buffer(size//4)
-    dbuf.copy_to_host(buf=buf)
-    np.testing.assert_equal(arr[:size//4], np.frombuffer(buf, dtype=np.uint8))
+    dbuf.copy_to_host(buf=buf)  # type: ignore[attr-defined]
+    np.testing.assert_equal(arr[:size//4], np.frombuffer(buf, dtype=np.uint8))  # type: ignore[arg-type]
 
     if size < 12:
         return
 
-    dbuf.copy_to_host(buf=buf, position=12)
+    dbuf.copy_to_host(buf=buf, position=12)  # type: ignore[attr-defined]
     np.testing.assert_equal(arr[12:12+size//4],
-                            np.frombuffer(buf, dtype=np.uint8))
+                            np.frombuffer(buf, dtype=np.uint8))  # type: ignore[arg-type]
 
-    dbuf.copy_to_host(buf=buf, nbytes=12)
-    np.testing.assert_equal(arr[:12], np.frombuffer(buf, dtype=np.uint8)[:12])
+    dbuf.copy_to_host(buf=buf, nbytes=12)  # type: ignore[attr-defined]
+    np.testing.assert_equal(arr[:12], np.frombuffer(buf, dtype=np.uint8)[:12])  # type: ignore[arg-type]
 
-    dbuf.copy_to_host(buf=buf, nbytes=12, position=6)
+    dbuf.copy_to_host(buf=buf, nbytes=12, position=6)  # type: ignore[attr-defined]
     np.testing.assert_equal(arr[6:6+12],
-                            np.frombuffer(buf, dtype=np.uint8)[:12])
+                            np.frombuffer(buf, dtype=np.uint8)[:12])  # type: ignore[arg-type]
 
     for (position, nbytes) in [
             (0, size+10), (10, size-5),
@@ -450,7 +450,7 @@ def test_copy_to_host(size):
         with pytest.raises(ValueError,
                            match=('requested copy does not '
                                   'fit into host buffer')):
-            dbuf.copy_to_host(buf=buf, position=position, nbytes=nbytes)
+            dbuf.copy_to_host(buf=buf, position=position, nbytes=nbytes)  # type: ignore[attr-defined]
 
 
 @pytest.mark.parametrize("dest_ctx", ['same', 'another'])
@@ -460,11 +460,11 @@ def test_copy_from_device(dest_ctx, size):
     lst = arr.tolist()
     if dest_ctx == 'another':
         dest_ctx = global_context1
-        if buf.context.device_number == dest_ctx.device_number:
+        if buf.context.device_number == dest_ctx.device_number:  # type: ignore[attr-defined, union-attr]
             pytest.skip("not a multi-GPU system")
     else:
-        dest_ctx = buf.context
-    dbuf = dest_ctx.new_buffer(size)
+        dest_ctx = buf.context  # type: ignore[attr-defined]
+    dbuf = dest_ctx.new_buffer(size)  # type: ignore[union-attr]
 
     def put(*args, **kwargs):
         dbuf.copy_from_device(buf, *args, **kwargs)
@@ -508,7 +508,7 @@ def test_copy_from_device(dest_ctx, size):
 def test_copy_from_host(size):
     arr, buf = make_random_buffer(size=size, target='host')
     lst = arr.tolist()
-    dbuf = global_context.new_buffer(size)
+    dbuf = global_context.new_buffer(size)  # type: ignore[union-attr]
 
     def put(*args, **kwargs):
         dbuf.copy_from_host(buf, *args, **kwargs)
@@ -563,7 +563,7 @@ def test_buffer_device():
     _, buf = make_random_buffer(size=10, target='device')
     assert buf.device_type == pa.DeviceAllocationType.CUDA
     assert isinstance(buf.device, pa.Device)
-    assert buf.device == global_context.memory_manager.device
+    assert buf.device == global_context.memory_manager.device  # type: ignore[union-attr]
     assert isinstance(buf.memory_manager, pa.MemoryManager)
     assert not buf.is_cpu
     assert not buf.device.is_cpu
@@ -572,7 +572,7 @@ def test_buffer_device():
 
 def test_BufferWriter():
     def allocate(size):
-        cbuf = global_context.new_buffer(size)
+        cbuf = global_context.new_buffer(size)  # type: ignore[union-attr]
         writer = cuda.BufferWriter(cbuf)
         return cbuf, writer
 
@@ -624,7 +624,7 @@ def test_BufferWriter():
 def test_BufferWriter_edge_cases():
     # edge cases, see cuda-test.cc for more information:
     size = 1000
-    cbuf = global_context.new_buffer(size)
+    cbuf = global_context.new_buffer(size)  # type: ignore[union-attr]
     writer = cuda.BufferWriter(cbuf)
     arr, buf = make_random_buffer(size=size, target='host')
 
@@ -765,7 +765,7 @@ def make_table_cuda():
     hbuf = pa.py_buffer(sink.getvalue().to_pybytes())
 
     # Copy the host bytes to a device buffer
-    dbuf = global_context.new_buffer(len(hbuf))
+    dbuf = global_context.new_buffer(len(hbuf))  # type: ignore[union-attr]
     dbuf.copy_from_host(hbuf, nbytes=len(hbuf))
     # Deserialize the device buffer into a Table
     dtable = pa.ipc.open_stream(cuda.BufferReader(dbuf)).read_all()
@@ -807,8 +807,8 @@ def test_create_table_with_device_buffers():
 
 
 def other_process_for_test_IPC(handle_buffer, expected_arr):
-    other_context = pa.cuda.Context(0)
-    ipc_handle = pa.cuda.IpcMemHandle.from_buffer(handle_buffer)
+    other_context = cuda.Context(0)  # type: ignore[attr-defined]
+    ipc_handle = cuda.IpcMemHandle.from_buffer(handle_buffer)  # type: ignore[attr-defined]
     ipc_buf = other_context.open_ipc_buffer(ipc_handle)
     ipc_buf.context.synchronize()
     buf = ipc_buf.copy_to_host()
@@ -823,7 +823,7 @@ def test_IPC(size):
     import multiprocessing
     ctx = multiprocessing.get_context('spawn')
     arr, cbuf = make_random_buffer(size=size, target='device')
-    ipc_handle = cbuf.export_for_ipc()
+    ipc_handle = cbuf.export_for_ipc()  # type: ignore[attr-defined]
     handle_buffer = ipc_handle.serialize()
     p = ctx.Process(target=other_process_for_test_IPC,
                     args=(handle_buffer, arr))
@@ -849,6 +849,7 @@ def test_copy_to():
         batch = pa.record_batch({"col": arr})
         batch_cuda = batch.copy_to(dest)
         buf_cuda = batch_cuda["col"].buffers()[1]
+        assert buf_cuda is not None
         assert not buf_cuda.is_cpu
         assert buf_cuda.device_type == pa.DeviceAllocationType.CUDA
         assert buf_cuda.device == mm_cuda.device
@@ -879,7 +880,7 @@ def test_device_interface_array():
 
     # verify exported struct
     assert c_array.device_type == 2  # ARROW_DEVICE_CUDA 2
-    assert c_array.device_id == global_context.device_number
+    assert c_array.device_id == global_context.device_number  # type: ignore[union-attr]
     assert c_array.array.length == 2
 
     # Delete recreate C++ object from exported pointer
@@ -929,7 +930,7 @@ def test_device_interface_batch_array():
 
     # verify exported struct
     assert c_array.device_type == 2  # ARROW_DEVICE_CUDA 2
-    assert c_array.device_id == global_context.device_number
+    assert c_array.device_id == global_context.device_number  # type: ignore[union-attr]
     assert c_array.array.length == 10
 
     # Delete recreate C++ object from exported pointer
@@ -949,7 +950,7 @@ def test_device_interface_batch_array():
     cbatch._export_to_c_device(ptr_array, ptr_schema)
     # Delete and recreate C++ objects from exported pointers
     del cbatch
-    cbatch_new = pa.RecordBatch._import_from_c_device(ptr_array, ptr_schema)
+    cbatch_new = pa.RecordBatch._import_from_c_device(ptr_array, ptr_schema)  # type: ignore[arg-type]
     assert cbatch_new.schema == schema
     batch_new = cbatch_new.copy_to(pa.default_cpu_memory_manager())
     assert batch_new.equals(batch)
@@ -957,13 +958,13 @@ def test_device_interface_batch_array():
     del cbatch_new
     # Now released
     with pytest.raises(ValueError, match="Cannot import released ArrowSchema"):
-        pa.RecordBatch._import_from_c_device(ptr_array, ptr_schema)
+        pa.RecordBatch._import_from_c_device(ptr_array, ptr_schema)  # type: ignore[arg-type]
 
     # Not a struct type
     pa.int32()._export_to_c(ptr_schema)
     with pytest.raises(ValueError,
                        match="ArrowSchema describes non-struct type"):
-        pa.RecordBatch._import_from_c_device(ptr_array, ptr_schema)
+        pa.RecordBatch._import_from_c_device(ptr_array, ptr_schema)  # type: ignore[arg-type]
 
 
 def test_print_array():

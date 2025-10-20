@@ -55,15 +55,15 @@ class FlightCallOptions(_Weakrefable):
         self,
         timeout: float | None = None,
         write_options: IpcWriteOptions | None = None,
-        headers: list[tuple[str, str]] | None = None,
+        headers: list[tuple[str | bytes, str | bytes]] | None = None,
         read_options: IpcReadOptions | None = None,
     ) -> None: ...
 
 
 class CertKeyPair(NamedTuple):
 
-    cert: str | bytes
-    key: str | bytes
+    cert: str | bytes | None
+    key: str | bytes | None
 
 
 class FlightError(Exception):
@@ -80,7 +80,7 @@ class FlightTimedOutError(FlightError, ArrowException):
 
 
 class FlightCancelledError(FlightError, ArrowCancelled):
-    ...
+    def __init__(self, message: str, *, extra_info: bytes | None = None) -> None: ...
 
 
 class FlightServerError(FlightError, ArrowException):
@@ -107,7 +107,7 @@ class FlightWriteSizeExceededError(ArrowInvalid):
 
 class Action(_Weakrefable):
 
-    def __init__(self, action_type: bytes | str, buf: Buffer | bytes) -> None: ...
+    def __init__(self, action_type: bytes | str, buf: Buffer | bytes | None) -> None: ...
 
     @property
     def type(self) -> str: ...
@@ -230,10 +230,10 @@ class FlightEndpoint(_Weakrefable):
 
     def __init__(
         self,
-        ticket: Ticket | str | bytes,
-        locations: list[str | Location],
-        expiration_time: Scalar[Any] | None = ...,
-        app_metadata: bytes | str = ...,
+        ticket: Ticket | str | bytes | object,
+        locations: list[str | bytes | Location | object],
+        expiration_time: Scalar[Any] | str | datetime | None = ...,
+        app_metadata: bytes | str | object = ...,
     ): ...
 
     @property
@@ -269,17 +269,17 @@ class FlightInfo(_Weakrefable):
 
     def __init__(
         self,
-        schema: Schema,
+        schema: Schema | None,
         descriptor: FlightDescriptor,
         endpoints: list[FlightEndpoint],
-        total_records: int = ...,
-        total_bytes: int = ...,
+        total_records: int | None = ...,
+        total_bytes: int | None = ...,
         ordered: bool = ...,
         app_metadata: bytes | str = ...,
     ) -> None: ...
 
     @property
-    def schema(self) -> Schema: ...
+    def schema(self) -> Schema | None: ...
 
     @property
     def descriptor(self) -> FlightDescriptor: ...
@@ -346,12 +346,14 @@ class FlightStreamReader(MetadataRecordBatchReader):
 
     def read_all(self) -> Table: ...
 
+    def read(self) -> lib.RecordBatch | None: ...
+
 
 class MetadataRecordBatchWriter(_CRecordBatchWriter):
 
     def begin(self, schema: Schema, options: IpcWriteOptions | None = None) -> None: ...
 
-    def write_metadata(self, buf: Buffer) -> None: ...
+    def write_metadata(self, buf: Buffer | bytes) -> None: ...
 
     def write_batch(self, batch: RecordBatch) -> None: ...  # type: ignore[override]
 
@@ -360,7 +362,7 @@ class MetadataRecordBatchWriter(_CRecordBatchWriter):
 
     def close(self) -> None: ...
 
-    def write_with_metadata(self, batch: RecordBatch, buf: Buffer) -> None: ...
+    def write_with_metadata(self, batch: RecordBatch, buf: Buffer | bytes) -> None: ...
 
 
 class FlightStreamWriter(MetadataRecordBatchWriter):
@@ -438,18 +440,18 @@ class FlightClient(_Weakrefable):
     ) -> None: ...
 
     def authenticate_basic_token(
-        self, username: str, password: str, options: FlightCallOptions | None = None
+        self, username: str | bytes, password: str | bytes, options: FlightCallOptions | None = None
     ) -> tuple[str, str]: ...
 
     def list_actions(self, options: FlightCallOptions |
                      None = None) -> list[Action]: ...
 
     def do_action(
-        self, action: Action, options: FlightCallOptions | None = None
+        self, action: Action | tuple[bytes | str, bytes | str] | str, options: FlightCallOptions | None = None
     ) -> Iterator[Result]: ...
 
     def list_flights(
-        self, criteria: str | None = None, options: FlightCallOptions | None = None
+        self, criteria: str | bytes | None = None, options: FlightCallOptions | None = None
     ) -> Generator[FlightInfo, None, None]: ...
 
     def get_flight_info(
@@ -458,7 +460,7 @@ class FlightClient(_Weakrefable):
 
     def get_schema(
         self, descriptor: FlightDescriptor, options: FlightCallOptions | None = None
-    ) -> Schema: ...
+    ) -> SchemaResult: ...
 
     def do_get(
         self, ticket: Ticket, options: FlightCallOptions | None = None
@@ -467,7 +469,7 @@ class FlightClient(_Weakrefable):
     def do_put(
         self,
         descriptor: FlightDescriptor,
-        schema: Schema,
+        schema: Schema | None,
         options: FlightCallOptions | None = None,
     ) -> tuple[FlightStreamWriter, FlightStreamReader]: ...
 
@@ -587,6 +589,9 @@ class ServerMiddleware(_Weakrefable):
 
     def call_completed(self, exception: ArrowException): ...
 
+    @property
+    def trace_context(self) -> dict: ...
+
 
 class TracingServerMiddleware(ServerMiddleware):
     trace_context: dict
@@ -686,5 +691,5 @@ def connect(
     middleware: list[ClientMiddlewareFactory] | None = None,
     write_size_limit_bytes: int | None = None,
     disable_server_verification: bool = False,
-    generic_options: list[tuple[str, int | str]] | None = None,
+    generic_options: Sequence[tuple[str, int | str]] | None = None,
 ) -> FlightClient: ...

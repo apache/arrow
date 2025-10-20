@@ -59,11 +59,15 @@ def test_copy_to():
 
         batch_copied = batch.copy_to(dest)
         assert batch_copied.equals(batch)
-        assert batch_copied["col"].buffers()[1].device == mm.device
-        assert batch_copied["col"].buffers()[1].address != arr.buffers()[1].address
+        buffer = batch_copied["col"].buffers()[1]
+        assert buffer is not None
+        assert buffer.device == mm.device
+        buffer_orig = arr.buffers()[1]
+        assert buffer_orig is not None
+        assert buffer.address != buffer_orig.address
 
     with pytest.raises(TypeError, match="Argument 'destination' has incorrect type"):
-        arr.copy_to(mm.device.device_type)
+        arr.copy_to(mm.device.device_type)  # type: ignore[arg-type]
 
     with pytest.raises(TypeError, match="Argument 'destination' has incorrect type"):
-        batch.copy_to(mm.device.device_type)
+        batch.copy_to(mm.device.device_type)  # type: ignore[arg-type]

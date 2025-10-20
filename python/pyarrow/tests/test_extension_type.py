@@ -79,11 +79,11 @@ class IntegerEmbeddedType(pa.ExtensionType):
 
     def __arrow_ext_serialize__(self):
         # XXX pa.BaseExtensionType should expose C++ serialization method
-        return self.storage_type.__arrow_ext_serialize__()
+        return self.storage_type.__arrow_ext_serialize__()  # type: ignore[attr-defined]
 
     @classmethod
     def __arrow_ext_deserialize__(cls, storage_type, serialized):
-        deserialized_storage_type = storage_type.__arrow_ext_deserialize__(
+        deserialized_storage_type = storage_type.__arrow_ext_deserialize__(  # type: ignore[attr-defined]
             serialized)
         assert deserialized_storage_type == storage_type
         return cls()
@@ -221,7 +221,7 @@ class AnnotatedType(pa.ExtensionType):
     @classmethod
     def __arrow_ext_deserialize__(cls, storage_type, serialized):
         assert serialized == b''
-        return cls(storage_type)
+        return cls(storage_type, annotation=None)
 
 
 def ipc_write_batch(batch):
@@ -432,8 +432,8 @@ def test_ext_array_wrap_array():
     arr.validate(full=True)
     assert isinstance(arr, pa.ChunkedArray)
     assert arr.type == ty
-    assert arr.chunk(0).storage == storage.chunk(0)
-    assert arr.chunk(1).storage == storage.chunk(1)
+    assert arr.chunk(0).storage == storage.chunk(0)  # type: ignore[union-attr]
+    assert arr.chunk(1).storage == storage.chunk(1)  # type: ignore[union-attr]
 
     # Wrong storage type
     storage = pa.array([b"foo", b"bar", None])
@@ -442,7 +442,7 @@ def test_ext_array_wrap_array():
 
     # Not an array or chunked array
     with pytest.raises(TypeError, match="Expected array or chunked array"):
-        ty.wrap_array(None)
+        ty.wrap_array(None)  # type: ignore[arg-type]
 
 
 def test_ext_scalar_from_array():
@@ -876,7 +876,7 @@ class PeriodType(pa.ExtensionType):
     def __eq__(self, other):
         if isinstance(other, pa.BaseExtensionType):
             return (isinstance(self, type(other)) and
-                    self.freq == other.freq)
+                    self.freq == other.freq)  # type: ignore[attr-defined]
         else:
             return NotImplemented
 
@@ -1033,7 +1033,7 @@ def test_generic_ext_array_pickling(registered_period_type, pickle_module):
 def test_generic_ext_type_register(registered_period_type):
     # test that trying to register other type does not segfault
     with pytest.raises(TypeError):
-        pa.register_extension_type(pa.string())
+        pa.register_extension_type(pa.string())  # type: ignore[arg-type]
 
     # register second time raises KeyError
     period_type = PeriodType('D')
@@ -1058,11 +1058,12 @@ def test_parquet_period(tmpdir, registered_period_type):
     # in the serialized arrow schema
     meta = pq.read_metadata(filename)
     assert meta.schema.column(0).physical_type == "INT64"
+    assert meta.metadata is not None
     assert b"ARROW:schema" in meta.metadata
 
     import base64
     decoded_schema = base64.b64decode(meta.metadata[b"ARROW:schema"])
-    schema = pa.ipc.read_schema(pa.BufferReader(decoded_schema))
+    schema = pa.ipc.read_schema(pa.BufferReader(decoded_schema))  # type: ignore[arg-type]
     # Since the type could be reconstructed, the extension type metadata is
     # absent.
     assert schema.field("ext").metadata == {}
@@ -1433,7 +1434,7 @@ def test_tensor_class_methods(np_type_str):
     tensor_type = pa.fixed_shape_tensor(arrow_type, [2, 3])
     storage = pa.array([[1, 2, 3, 4, 5, 6], [7, 8, 9, 10, 11, 12]],
                        pa.list_(arrow_type, 6))
-    arr = pa.ExtensionArray.from_storage(tensor_type, storage)
+    arr: pa.FixedShapeTensorArray = pa.ExtensionArray.from_storage(tensor_type, storage)  # type: ignore[assignment]
     expected = np.array(
         [[[1, 2, 3], [4, 5, 6]], [[7, 8, 9], [10, 11, 12]]],
         dtype=np.dtype(np_type_str)
@@ -1442,7 +1443,7 @@ def test_tensor_class_methods(np_type_str):
     np.testing.assert_array_equal(arr.to_numpy_ndarray(), expected)
 
     expected = np.array([[[7, 8, 9], [10, 11, 12]]], dtype=np.dtype(np_type_str))
-    result = arr[1:].to_numpy_ndarray()
+    result = arr[1:].to_numpy_ndarray()  # type: ignore[union-attr]
     np.testing.assert_array_equal(result, expected)
 
     values = [[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]]
@@ -1451,36 +1452,36 @@ def test_tensor_class_methods(np_type_str):
     storage = pa.array(values, pa.list_(arrow_type, 12))
 
     tensor_type = pa.fixed_shape_tensor(arrow_type, [2, 2, 3], permutation=[0, 1, 2])
-    result = pa.ExtensionArray.from_storage(tensor_type, storage)
+    result: pa.FixedShapeTensorArray = pa.ExtensionArray.from_storage(tensor_type, storage)  # type: ignore[assignment]
     expected = np.array(
         [[[[1, 2, 3], [4, 5, 6]], [[7, 8, 9], [10, 11, 12]]]],
         dtype=np.dtype(np_type_str)
     )
     np.testing.assert_array_equal(result.to_numpy_ndarray(), expected)
 
-    result = flat_arr.reshape(1, 2, 3, 2)
+    result_reshaped = flat_arr.reshape(1, 2, 3, 2)
     expected = np.array(
         [[[[1, 2], [3, 4], [5, 6]], [[7, 8], [9, 10], [11, 12]]]],
         dtype=np.dtype(np_type_str)
     )
-    np.testing.assert_array_equal(result, expected)
+    np.testing.assert_array_equal(result_reshaped, expected)
 
     tensor_type = pa.fixed_shape_tensor(arrow_type, [2, 2, 3], permutation=[0, 2, 1])
-    result = pa.ExtensionArray.from_storage(tensor_type, storage)
+    result: pa.FixedShapeTensorArray = pa.ExtensionArray.from_storage(tensor_type, storage)  # type: ignore[assignment]
     expected = as_strided(flat_arr, shape=(1, 2, 3, 2),
                           strides=(bw * 12, bw * 6, bw, bw * 3))
     np.testing.assert_array_equal(result.to_numpy_ndarray(), expected)
 
     tensor_type = pa.fixed_shape_tensor(arrow_type, [2, 2, 3], permutation=[2, 0, 1])
-    result = pa.ExtensionArray.from_storage(tensor_type, storage)
+    result = pa.ExtensionArray.from_storage(tensor_type, storage)  # type: ignore[assignment]
     expected = as_strided(flat_arr, shape=(1, 3, 2, 2),
                           strides=(bw * 12, bw, bw * 6, bw * 2))
-    np.testing.assert_array_equal(result.to_numpy_ndarray(), expected)
+    np.testing.assert_array_equal(result.to_numpy_ndarray(), expected)  # type: ignore[union-attr]
 
-    assert result.type.permutation == [2, 0, 1]
-    assert result.type.shape == [2, 2, 3]
-    assert result.to_tensor().shape == (1, 3, 2, 2)
-    assert result.to_tensor().strides == (12 * bw, 1 * bw, 6 * bw, 2 * bw)
+    assert result.type.permutation == [2, 0, 1]  # type: ignore[union-attr]
+    assert result.type.shape == [2, 2, 3]  # type: ignore[union-attr]
+    assert result.to_tensor().shape == (1, 3, 2, 2)  # type: ignore[union-attr]
+    assert result.to_tensor().strides == (12 * bw, 1 * bw, 6 * bw, 2 * bw)  # type: ignore[union-attr]
 
 
 @pytest.mark.numpy
@@ -1508,17 +1509,17 @@ def test_tensor_array_from_numpy(np_type_str):
 
     arr = flat_arr.reshape(1, 3, 4)
     tensor_array_from_numpy = pa.FixedShapeTensorArray.from_numpy_ndarray(arr)
-    assert tensor_array_from_numpy.type.shape == [3, 4]
-    assert tensor_array_from_numpy.type.permutation == [0, 1]
-    assert tensor_array_from_numpy.type.dim_names is None
+    assert tensor_array_from_numpy.type.shape == [3, 4]  # type: ignore[attr-defined]
+    assert tensor_array_from_numpy.type.permutation == [0, 1]  # type: ignore[attr-defined]
+    assert tensor_array_from_numpy.type.dim_names is None  # type: ignore[attr-defined]
     assert tensor_array_from_numpy.to_tensor() == pa.Tensor.from_numpy(arr)
 
     arr = as_strided(flat_arr, shape=(1, 2, 3, 2),
                      strides=(bw * 12, bw * 6, bw, bw * 3))
     tensor_array_from_numpy = pa.FixedShapeTensorArray.from_numpy_ndarray(arr)
-    assert tensor_array_from_numpy.type.shape == [2, 2, 3]
-    assert tensor_array_from_numpy.type.permutation == [0, 2, 1]
-    assert tensor_array_from_numpy.type.dim_names is None
+    assert tensor_array_from_numpy.type.shape == [2, 2, 3]  # type: ignore[attr-defined]
+    assert tensor_array_from_numpy.type.permutation == [0, 2, 1]  # type: ignore[attr-defined]
+    assert tensor_array_from_numpy.type.dim_names is None  # type: ignore[attr-defined]
     assert tensor_array_from_numpy.to_tensor() == pa.Tensor.from_numpy(arr)
 
     arr = flat_arr.reshape(1, 2, 3, 2)
@@ -1559,22 +1560,22 @@ def test_tensor_array_from_numpy(np_type_str):
     dim_names = ["a", "b"]
     tensor_array_from_numpy = pa.FixedShapeTensorArray.from_numpy_ndarray(
         arr, dim_names=dim_names)
-    assert tensor_array_from_numpy.type.value_type == arrow_type
-    assert tensor_array_from_numpy.type.shape == [2, 3]
-    assert tensor_array_from_numpy.type.dim_names == dim_names
+    assert tensor_array_from_numpy.type.value_type == arrow_type  # type: ignore[attr-defined]
+    assert tensor_array_from_numpy.type.shape == [2, 3]  # type: ignore[attr-defined]
+    assert tensor_array_from_numpy.type.dim_names == dim_names  # type: ignore[attr-defined]
 
     with pytest.raises(ValueError, match="The length of dim_names"):
         pa.FixedShapeTensorArray.from_numpy_ndarray(arr, dim_names=['only_one'])
 
     with pytest.raises(TypeError, match="dim_names must be a tuple or list"):
-        pa.FixedShapeTensorArray.from_numpy_ndarray(arr, dim_names=123)
+        pa.FixedShapeTensorArray.from_numpy_ndarray(arr, dim_names=123)  # type: ignore[arg-type]
 
     with pytest.raises(TypeError, match="dim_names must be a tuple or list"):
         pa.FixedShapeTensorArray.from_numpy_ndarray(
-            arr, dim_names=(x for x in range(2)))
+            arr, dim_names=(x for x in range(2)))  # type: ignore[arg-type]
 
     with pytest.raises(TypeError, match="Each element of dim_names must be a string"):
-        pa.FixedShapeTensorArray.from_numpy_ndarray(arr, dim_names=[0, 1])
+        pa.FixedShapeTensorArray.from_numpy_ndarray(arr, dim_names=[0, 1])  # type: ignore[arg-type]
 
 
 @pytest.mark.numpy
@@ -1845,14 +1846,18 @@ def test_bool8_to_numpy_conversion():
     assert np.array_equal(arr_to_np, np_arr_no_nulls)
 
     # same underlying buffer
-    assert arr_to_np.ctypes.data == arr_no_nulls.buffers()[1].address
+    buffer = arr_no_nulls.buffers()[1]
+    assert buffer is not None
+    assert arr_to_np.ctypes.data == buffer.address
 
     # if the user requests a writable array, a copy should be performed
     arr_to_np_writable = arr_no_nulls.to_numpy(zero_copy_only=False, writable=True)
     assert np.array_equal(arr_to_np_writable, np_arr_no_nulls)
 
     # different underlying buffer
-    assert arr_to_np_writable.ctypes.data != arr_no_nulls.buffers()[1].address
+    buffer = arr_no_nulls.buffers()[1]
+    assert buffer is not None
+    assert arr_to_np_writable.ctypes.data != buffer.address
 
 
 @pytest.mark.numpy
@@ -1867,7 +1872,9 @@ def test_bool8_from_numpy_conversion():
     assert arr_from_np == canonical_bool8_arr_no_nulls
 
     # same underlying buffer
-    assert arr_from_np.buffers()[1].address == np_arr_no_nulls.ctypes.data
+    buffer = arr_from_np.buffers()[1]
+    assert buffer is not None
+    assert buffer.address == np_arr_no_nulls.ctypes.data
 
     # conversion only valid for 1-D arrays
     with pytest.raises(
@@ -1882,7 +1889,7 @@ def test_bool8_from_numpy_conversion():
         ValueError,
         match="Cannot convert 0-D array to bool8 array",
     ):
-        pa.Bool8Array.from_numpy(np.bool_())
+        pa.Bool8Array.from_numpy(np.bool_(False))  # type: ignore[arg-type]
 
     # must use compatible storage type
     with pytest.raises(

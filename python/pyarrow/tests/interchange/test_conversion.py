@@ -263,10 +263,10 @@ def test_pandas_roundtrip_categorical():
     assert result["weekday"].to_pylist() == table["weekday"].to_pylist()
     assert pa.types.is_dictionary(table["weekday"].type)
     assert pa.types.is_dictionary(result["weekday"].type)
-    assert pa.types.is_string(table["weekday"].chunk(0).dictionary.type)
-    assert pa.types.is_large_string(result["weekday"].chunk(0).dictionary.type)
-    assert pa.types.is_int32(table["weekday"].chunk(0).indices.type)
-    assert pa.types.is_int8(result["weekday"].chunk(0).indices.type)
+    assert pa.types.is_string(table["weekday"].chunk(0).dictionary.type)  # type: ignore[union-attr]
+    assert pa.types.is_large_string(result["weekday"].chunk(0).dictionary.type)  # type: ignore[union-attr]
+    assert pa.types.is_int32(table["weekday"].chunk(0).indices.type)  # type: ignore[union-attr]
+    assert pa.types.is_int8(result["weekday"].chunk(0).indices.type)  # type: ignore[union-attr]
 
     table_protocol = table.__dataframe__()
     result_protocol = result.__dataframe__()
@@ -289,7 +289,7 @@ def test_pandas_roundtrip_categorical():
 
     assert desc_cat_table["is_ordered"] == desc_cat_result["is_ordered"]
     assert desc_cat_table["is_dictionary"] == desc_cat_result["is_dictionary"]
-    assert isinstance(desc_cat_result["categories"]._col, pa.Array)
+    assert isinstance(desc_cat_result["categories"]._col, pa.Array)  # type: ignore[union-attr]
 
 
 @pytest.mark.pandas
@@ -450,7 +450,7 @@ def test_pyarrow_roundtrip_categorical(offset, length):
 
     assert desc_cat_table["is_ordered"] == desc_cat_result["is_ordered"]
     assert desc_cat_table["is_dictionary"] == desc_cat_result["is_dictionary"]
-    assert isinstance(desc_cat_result["categories"]._col, pa.Array)
+    assert isinstance(desc_cat_result["categories"]._col, pa.Array)  # type: ignore[union-attr]
 
 
 @pytest.mark.large_memory

@@ -20,7 +20,7 @@ from numbers import Integral
 import warnings
 
 from pyarrow.lib import Table
-import pyarrow._orc as _orc
+import pyarrow._orc as _orc  # type: ignore[reportMissingModuleSource]
 from pyarrow.fs import _resolve_filesystem_and_path
 
 

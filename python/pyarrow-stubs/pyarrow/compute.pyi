@@ -390,14 +390,14 @@ def stddev(
 
 
 def sum(
-    array: _NumericScalarT | NumericArray[_NumericScalarT],
+    array: _NumericScalarT | NumericArray[_NumericScalarT] | lib.Expression,
     /,
     *,
     skip_nulls: bool = True,
     min_count: int = 1,
     options: ScalarAggregateOptions | None = None,
     memory_pool: lib.MemoryPool | None = None,
-) -> _NumericScalarT: ...
+) -> _NumericScalarT | lib.Expression: ...
 
 
 def tdigest(
@@ -1276,14 +1276,14 @@ round_temporal = _clone_signature(ceil_temporal)
 
 
 def cast(
-    arr: lib.Scalar | lib.Array | lib.ChunkedArray,
-    target_type: _DataTypeT,
+    arr: lib.Scalar | lib.Array | lib.ChunkedArray | lib.Table,
+    target_type: _DataTypeT | str,
     safe: bool | None = None,
     options: CastOptions | None = None,
     memory_pool: lib.MemoryPool | None = None,
 ) -> (
-    lib.Scalar[_DataTypeT] | lib.Array[lib.Scalar[_DataTypeT]]
-    | lib.ChunkedArray[lib.Scalar[_DataTypeT]]): ...
+    lib.Scalar[_DataTypeT] | lib.Scalar[Any] | lib.Array[lib.Scalar[_DataTypeT]] | lib.Array[lib.Scalar[Any]]
+    | lib.ChunkedArray[lib.Scalar[_DataTypeT]] | lib.ChunkedArray[lib.Scalar[Any]] | lib.Table): ...
 
 
 def strftime(
@@ -1519,6 +1519,15 @@ def dictionary_encode(
 ) -> _ScalarOrArrayT | Expression: ...
 
 
+def dictionary_decode(
+    array: _ScalarOrArrayT | Expression,
+    /,
+    *,
+    options=None,
+    memory_pool: lib.MemoryPool | None = None,
+) -> _ScalarOrArrayT | Expression: ...
+
+
 def unique(array: _ArrayT | Expression, /, *, memory_pool: lib.MemoryPool |
            None = None) -> _ArrayT | Expression: ...
 
@@ -1567,7 +1576,8 @@ def array_take(
     | lib.ChunkedArray[lib.Int16Scalar]
     | lib.ChunkedArray[lib.Int32Scalar]
     | lib.ChunkedArray[lib.Int64Scalar]
-    | np.ndarray,
+    | np.ndarray
+    | Expression,
     /,
     *,
     boundscheck: bool = True,
@@ -1588,7 +1598,8 @@ def array_take(
     | lib.ChunkedArray[lib.Int16Scalar]
     | lib.ChunkedArray[lib.Int32Scalar]
     | lib.ChunkedArray[lib.Int64Scalar]
-    | np.ndarray,
+    | np.ndarray
+    | Expression,
     /,
     *,
     boundscheck: bool = True,
@@ -1639,7 +1650,7 @@ def array_sort_indices(
 
 
 def partition_nth_indices(
-    array: lib.Array | lib.ChunkedArray | Expression,
+    array: lib.Array | lib.ChunkedArray | Expression | Iterable,
     /,
     pivot: int,
     *,
@@ -1698,7 +1709,7 @@ def select_k_unstable(
     input: lib.Array | lib.ChunkedArray | lib.RecordBatch | lib.Table | Expression,
     /,
     k: int | None = None,
-    sort_keys: Sequence[tuple[str | Expression, _Order]] | None = None,
+    sort_keys: Sequence[tuple[str | Expression, str]] | None = None,
     *,
     options: SelectKOptions | None = None,
     memory_pool: lib.MemoryPool | None = None,

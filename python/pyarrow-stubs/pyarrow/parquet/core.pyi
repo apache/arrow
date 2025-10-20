@@ -48,7 +48,7 @@ from pyarrow._parquet import (
     Statistics,
 )
 from pyarrow._stubs_typing import FilterTuple, SingleOrList
-from pyarrow.dataset import ParquetFileFragment, Partitioning
+from pyarrow.dataset import ParquetFileFragment, Partitioning, PartitioningFactory
 from pyarrow.lib import Buffer, NativeFile, RecordBatch, Schema, Table
 from typing_extensions import deprecated
 
@@ -98,7 +98,7 @@ class ParquetFile:
 
     def __init__(
         self,
-        source: str | Path | NativeFile | IO,
+        source: str | Path | Buffer | NativeFile | IO,
         *,
         metadata: FileMetaData | None = None,
         common_metadata: FileMetaData | None = None,
@@ -130,15 +130,15 @@ class ParquetFile:
     def read_row_group(
         self,
         i: int,
-        columns: list | None = None,
+        columns: Sequence[str | int] | None = None,
         use_threads: bool = True,
         use_pandas_metadata: bool = False,
     ) -> Table: ...
 
     def read_row_groups(
         self,
-        row_groups: list,
-        columns: list | None = None,
+        row_groups: Sequence[int],
+        columns: Iterable[str | int] | None = None,
         use_threads: bool = True,
         use_pandas_metadata: bool = False,
     ) -> Table: ...
@@ -146,20 +146,21 @@ class ParquetFile:
     def iter_batches(
         self,
         batch_size: int = 65536,
-        row_groups: list | None = None,
-        columns: list | None = None,
+        row_groups: Sequence[int] | None = None,
+        columns: Iterable[str | int] | None = None,
         use_threads: bool = True,
         use_pandas_metadata: bool = False,
     ) -> Iterator[RecordBatch]: ...
 
     def read(
         self,
-        columns: list | None = None,
+        columns: Sequence[str | int] | None = None,
         use_threads: bool = True,
         use_pandas_metadata: bool = False,
     ) -> Table: ...
-    def scan_contents(self, columns: list | None = None,
-                      batch_size: int = 65536) -> int: ...
+    def scan_contents(
+        self, columns: Iterable[str | int] | None = None, batch_size: int = 65536
+    ) -> int: ...
 
 
 class ParquetWriter:
@@ -222,11 +223,11 @@ class ParquetDataset:
         filesystem: SupportedFileSystem | None = None,
         schema: Schema | None = None,
         *,
-        filters: Expression | FilterTuple | list[FilterTuple] | None = None,
+        filters: Expression | FilterTuple | list[FilterTuple] | list[list[FilterTuple]] | None = None,
         read_dictionary: list[str] | None = None,
         memory_map: bool = False,
         buffer_size: int = 0,
-        partitioning: str | list[str] | Partitioning | None = "hive",
+        partitioning: str | list[str] | Partitioning | PartitioningFactory | None = "hive",
         ignore_prefixes: list[str] | None = None,
         pre_buffer: bool = True,
         coerce_int96_timestamp_unit: str | None = None,
@@ -267,7 +268,7 @@ def read_table(
     read_dictionary: list[str] | None = None,
     memory_map: bool = False,
     buffer_size: int = 0,
-    partitioning: str | list[str] | Partitioning | None = "hive",
+    partitioning: str | list[str] | Partitioning | PartitioningFactory | None = "hive",
     filesystem: SupportedFileSystem | None = None,
     filters: Expression | FilterTuple | list[FilterTuple] | None = None,
     ignore_prefixes: list[str] | None = None,
@@ -298,7 +299,7 @@ def write_table(
     allow_truncated_timestamps: bool = False,
     data_page_size: int | None = None,
     flavor: str | None = None,
-    filesystem: SupportedFileSystem | None = None,
+    filesystem: SupportedFileSystem | str | None = None,
     compression_level: int | dict | None = None,
     use_byte_stream_split: bool = False,
     column_encoding: str | dict | None = None,
@@ -345,7 +346,7 @@ def read_metadata(
     where: str | Path | IO | NativeFile,
     memory_map: bool = False,
     decryption_properties: FileDecryptionProperties | None = None,
-    filesystem: SupportedFileSystem | None = None,
+    filesystem: SupportedFileSystem | str | None = None,
 ) -> FileMetaData: ...
 
 
@@ -353,5 +354,5 @@ def read_schema(
     where: str | Path | IO | NativeFile,
     memory_map: bool = False,
     decryption_properties: FileDecryptionProperties | None = None,
-    filesystem: SupportedFileSystem | None = None,
+    filesystem: SupportedFileSystem | str | None = None,
 ) -> Schema: ...
