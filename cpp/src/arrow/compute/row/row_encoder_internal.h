@@ -18,17 +18,19 @@
 #pragma once
 
 #include <cstdint>
-#include <iostream>
 
 #include "arrow/compute/kernels/codegen_internal.h"
 #include "arrow/compute/visibility.h"
 #include "arrow/visit_data_inline.h"
 
-#include <arrow/array/concatenate.h>
-
 namespace arrow {
 
 using internal::checked_cast;
+
+// Forward declaration
+class Array;
+Result<std::shared_ptr<Array>> Concatenate(const std::vector<std::shared_ptr<Array>>& arrays,
+                                            MemoryPool* pool);
 
 namespace compute {
 namespace internal {
@@ -274,7 +276,7 @@ struct ARROW_COMPUTE_EXPORT NullKeyEncoder : KeyEncoder {
 };
 
 template <typename ListType>
-struct ARROW_EXPORT ListKeyEncoder : KeyEncoder {
+struct ListKeyEncoder : KeyEncoder {
   static_assert(is_list_like_type<ListType>(), "ListKeyEncoder only supports ListType");
   using Offset = typename ListType::offset_type;
 
@@ -291,27 +293,25 @@ struct ARROW_EXPORT ListKeyEncoder : KeyEncoder {
       const uint8_t* validity = data.array.buffers[0].data;
       const auto* offsets = data.array.GetValues<Offset>(1);
       // AddLength for each list
-      std::vector<int32_t> child_lengthes;
+      std::vector<int32_t> child_lengths;
       int32_t index{0};
       ArraySpan tmp_child_data(data.array.child_data[0]);
       VisitBitBlocksVoid(
           validity, data.array.offset, data.array.length,
           [&](int64_t i) {
-            ARROW_UNUSED(i);
-            child_lengthes.clear();
             Offset list_length = offsets[i + 1] - offsets[i];
             if (list_length == 0) {
               lengths[index] += kExtraByteForNull + sizeof(Offset);
               ++index;
               return;
             }
-            child_lengthes.resize(list_length, 0);
+            child_lengths.resize(list_length, 0);
             tmp_child_data.SetSlice(offsets[i], list_length);
             this->element_encoder_->AddLength(ExecValue{tmp_child_data}, list_length,
-                                              child_lengthes.data());
+                                              child_lengths.data());
             lengths[index] += kExtraByteForNull + sizeof(Offset);
             for (int32_t j = 0; j < list_length; j++) {
-              lengths[index] += child_lengthes[j];
+              lengths[index] += child_lengths[j];
             }
             ++index;
           },
@@ -326,11 +326,11 @@ struct ARROW_EXPORT ListKeyEncoder : KeyEncoder {
       if (list_scalar.is_valid && list_scalar.value->length() > 0) {
         auto element_count = static_cast<int32_t>(list_scalar.value->length());
         // Counting the size of the encoded list
-        std::vector<int32_t> child_lengthes(element_count, 0);
+        std::vector<int32_t> child_lengths(element_count, 0);
         this->element_encoder_->AddLength(ExecValue{*list_scalar.value->data()},
-                                          element_count, child_lengthes.data());
+                                          element_count, child_lengths.data());
         for (int32_t i = 0; i < element_count; i++) {
-          accum_length += child_lengthes[i];
+          accum_length += child_lengths[i];
         }
       }
       for (int64_t i = 0; i < batch_length; i++) {
@@ -357,12 +357,31 @@ struct ARROW_EXPORT ListKeyEncoder : KeyEncoder {
       *encoded_ptr++ = kValidByte;
       util::SafeStore(encoded_ptr, static_cast<Offset>(child_array.length));
       encoded_ptr += sizeof(Offset);
-      // handling the child data
-      for (int64_t i = 0; i < child_array.length; i++) {
-        ArraySpan tmp_child_data(child_array);
-        tmp_child_data.SetSlice(child_array.offset + i, 1);
-        RETURN_NOT_OK(
-            this->element_encoder_->Encode(ExecValue{tmp_child_data}, 1, &encoded_ptr));
+
+      // Encode all list elements sequentially into the current row's buffer.
+      // The element encoder expects an array of pointers (one per "row" to encode).
+      // For list elements, all elements are encoded into a single row's buffer
+      // sequentially, so we create a vector where element i's pointer is positioned
+      // after all previous elements.
+      if (child_array.length > 0) {
+        std::vector<uint8_t*> element_ptrs(child_array.length);
+        element_ptrs[0] = encoded_ptr;
+
+        // Position each element pointer to start where the previous element ended.
+        // We need to compute the offset for each element based on their encoded sizes.
+        // However, since we don't know the size ahead of time for variable-length types,
+        // we encode one-by-one and chain the pointers.
+        for (int64_t i = 0; i < child_array.length; ++i) {
+          if (i > 0) {
+            element_ptrs[i] = element_ptrs[i - 1];
+          }
+          ArraySpan element_span(child_array);
+          element_span.SetSlice(child_array.offset + i, 1);
+          RETURN_NOT_OK(this->element_encoder_->Encode(ExecValue{element_span}, 1,
+                                                       &element_ptrs[i]));
+        }
+        // Update encoded_ptr to point past all encoded elements
+        encoded_ptr = element_ptrs[child_array.length - 1];
       }
       return Status::OK();
     };
@@ -374,7 +393,6 @@ struct ARROW_EXPORT ListKeyEncoder : KeyEncoder {
       RETURN_NOT_OK(VisitBitBlocks(
           validity, data.array.offset, data.array.length,
           [&](int64_t i) {
-            ARROW_UNUSED(i);
             Offset list_length = offsets[i + 1] - offsets[i];
             tmp_child_data.SetSlice(offsets[i], list_length);
             return handle_valid_value(tmp_child_data);
@@ -386,13 +404,54 @@ struct ARROW_EXPORT ListKeyEncoder : KeyEncoder {
     } else {
       const auto& list_scalar = data.scalar_as<BaseListScalar>();
       if (list_scalar.is_valid) {
+        // Optimization: Encode once, then memcpy for remaining rows
         ArraySpan span(*list_scalar.value->data());
-        for (int64_t i = 0; i < batch_length; i++) {
-          RETURN_NOT_OK(handle_valid_value(span));
+        if (batch_length > 0) {
+          // Encode the first row directly
+          uint8_t* start_ptr = encoded_bytes[0];
+          *encoded_bytes[0]++ = kValidByte;
+          util::SafeStore(encoded_bytes[0], static_cast<Offset>(span.length));
+          encoded_bytes[0] += sizeof(Offset);
+
+          // Encode all list elements
+          if (span.length > 0) {
+            std::vector<uint8_t*> element_ptrs(span.length);
+            element_ptrs[0] = encoded_bytes[0];
+            for (int64_t i = 0; i < span.length; ++i) {
+              if (i > 0) {
+                element_ptrs[i] = element_ptrs[i - 1];
+              }
+              ArraySpan element_span(span);
+              element_span.SetSlice(span.offset + i, 1);
+              RETURN_NOT_OK(this->element_encoder_->Encode(ExecValue{element_span}, 1,
+                                                           &element_ptrs[i]));
+            }
+            encoded_bytes[0] = element_ptrs[span.length - 1];
+          }
+
+          size_t encoded_size = encoded_bytes[0] - start_ptr;
+
+          // Copy to remaining rows
+          for (int64_t i = 1; i < batch_length; i++) {
+            memcpy(encoded_bytes[i], start_ptr, encoded_size);
+            encoded_bytes[i] += encoded_size;
+          }
         }
       } else {
-        for (int64_t i = 0; i < batch_length; i++) {
-          handle_null_value();
+        // Optimization: Encode null once, then memcpy for remaining rows
+        if (batch_length > 0) {
+          // Encode the first null row
+          uint8_t* start_ptr = encoded_bytes[0];
+          *encoded_bytes[0]++ = kNullByte;
+          util::SafeStore(encoded_bytes[0], static_cast<Offset>(0));
+          encoded_bytes[0] += sizeof(Offset);
+          size_t encoded_size = encoded_bytes[0] - start_ptr;
+
+          // Copy to remaining rows
+          for (int64_t i = 1; i < batch_length; i++) {
+            memcpy(encoded_bytes[i], start_ptr, encoded_size);
+            encoded_bytes[i] += encoded_size;
+          }
         }
       }
     }

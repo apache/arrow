@@ -17,6 +17,7 @@
 
 #include "arrow/compute/row/row_encoder_internal.h"
 
+#include "arrow/array/concatenate.h"
 #include "arrow/util/bitmap_writer.h"
 #include "arrow/util/logging_internal.h"
 

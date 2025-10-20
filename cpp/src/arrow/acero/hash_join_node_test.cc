@@ -515,7 +515,7 @@ std::vector<std::shared_ptr<Array>> GenRandomUniqueRecords(
     val_types.push_back(result[i]->type());
   }
   RowEncoder encoder;
-  auto s = encoder.Init(val_types, ctx);
+  ARROW_DCHECK_OK(encoder.Init(val_types, ctx));
   ExecBatch batch({}, num_desired);
   batch.values.resize(result.size());
   for (size_t i = 0; i < result.size(); ++i) {
