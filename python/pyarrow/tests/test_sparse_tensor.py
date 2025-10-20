@@ -474,6 +474,7 @@ def test_sparse_csr_matrix_scipy_roundtrip(dtype_str, arrow_type,
 @pytest.mark.skipif(not sparse, reason="requires pydata/sparse")
 @pytest.mark.parametrize('dtype_str,arrow_type', tensor_type_pairs)
 def test_pydata_sparse_sparse_coo_tensor_roundtrip(dtype_str, arrow_type):
+    assert hasattr(sparse, 'COO')
     dtype = np.dtype(dtype_str)
     data = np.array([1, 2, 3, 4, 5, 6]).astype(dtype)
     coords = np.array([
