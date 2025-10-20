@@ -80,6 +80,21 @@ case "${VERSION}" in
         ${PACKAGE}-${VERSION}
     ;;
 esac
+
+if [ "${REPROTEST:-no}" = "yes" ]; then
+  # Prepare the reprotest environment by copying reportest.sh and
+  # adding execution permissions.
+  run cp /host/reprotest.sh .
+  run chmod +x reprotest.sh
+  # Pin reprotest to 0.7.30 in order to apply patch that removes unconditionall call
+  # to setarch. See: https://salsa.debian.org/reproducible-builds/reprotest/-/issues/15
+  run python3 -m venv /tmp/venv
+  run . /tmp/venv/bin/activate
+  run pip install reprotest==0.7.30
+  # TODO: Programatically find path to apply patch instead of hardcoding.
+  patch -p1 -f /tmp/venv/lib/python3.13/site-packages/reprotest/build.py -i ${SOURCE_DIR}/reprotest.patch
+fi
+
 run cd ${PACKAGE}-${VERSION}/
 platform="${distribution}-${code_name}"
 if [ -d "/host/tmp/debian.${platform}-${architecture}" ]; then
@@ -93,6 +108,9 @@ fi
 # DEB_BUILD_OPTIONS="${DEB_BUILD_OPTIONS} noopt"
 export DEB_BUILD_OPTIONS
 df -h
+if [ "${REPROTEST:-no}" = "yes" ]; then
+  run reprotest --verbosity 2 --vary=-kernel,-fileordering,-domain_host,-build_path -s .. ./reprotest.sh **.deb
+fi
 if [ "${DEBUG:-no}" = "yes" ]; then
   run debuild "${debuild_options[@]}" "${dpkg_buildpackage_options[@]}"
 else

@@ -43,6 +43,7 @@ RUN \
     cmake \
     debhelper \
     devscripts \
+    faketime \
     gi-docgen \
     git \
     libboost-filesystem-dev \
@@ -77,6 +78,7 @@ RUN \
     protobuf-compiler-grpc \
     python3-dev \
     python3-pip \
+    python3-venv \
     rapidjson-dev \
     tzdata \
     valac \
