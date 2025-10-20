@@ -101,6 +101,8 @@ class GdbSession:
         Record output until the gdb prompt displays.  Return recorded output.
         """
         # TODO: add timeout?
+        assert self.proc is not None
+        assert self.proc.stdout is not None
         while (not self.last_stdout_line.startswith(b"(gdb) ") and
                self.proc.poll() is None):
             block = self.proc.stdout.read(4096)
@@ -125,6 +127,8 @@ class GdbSession:
         return out
 
     def issue_command(self, line):
+        assert self.proc is not None
+        assert self.proc.stdin is not None
         line = line.encode('utf-8') + b"\n"
         if self.verbose:
             sys.stdout.buffer.write(line)
@@ -165,6 +169,8 @@ class GdbSession:
 
     def join(self):
         if self.proc is not None:
+            assert self.proc.stdin is not None
+            assert self.proc.stdout is not None
             self.proc.stdin.close()
             self.proc.stdout.close()  # avoid ResourceWarning
             self.proc.kill()

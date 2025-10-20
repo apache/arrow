@@ -50,7 +50,7 @@ except ImportError:
 try:
     import numpy as np
 except ImportError:
-    np = None  # type: ignore[assignment]
+    pass
 
 # Marks all of the tests in this module
 # Ignore these with pytest ... -m 'not parquet'

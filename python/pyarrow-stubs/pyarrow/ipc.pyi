@@ -17,10 +17,12 @@
 
 from io import IOBase
 
+from _typeshed import StrPath
 import pandas as pd
 import pyarrow.lib as lib
 
 from pyarrow.lib import (
+    Alignment,
     IpcReadOptions,
     IpcWriteOptions,
     Message,
@@ -67,7 +69,7 @@ class RecordBatchFileReader(lib._RecordBatchFileReader):
         source: bytes | lib.Buffer | lib.NativeFile | IOBase,
         footer_offset: int | None = None,
         *,
-        options: IpcReadOptions | None,
+        options: IpcReadOptions | None = None,
         memory_pool: lib.MemoryPool | None = None,
     ) -> None: ...
 
@@ -95,7 +97,7 @@ def new_stream(
 def open_stream(
     source: bytes | lib.Buffer | lib.NativeFile | IOBase,
     *,
-    options: IpcReadOptions | None = None,
+    options: Any = None,
     memory_pool: lib.MemoryPool | None = None,
 ) -> RecordBatchStreamReader: ...
 
@@ -106,14 +108,15 @@ def new_file(
     *,
     use_legacy_format: bool | None = None,
     options: IpcWriteOptions | None = None,
+    metadata: lib.KeyValueMetadata | dict[bytes, bytes] | None = None,
 ) -> RecordBatchFileWriter: ...
 
 
 def open_file(
-    source: bytes | lib.Buffer | lib.NativeFile | IOBase,
+    source: StrPath | bytes | lib.Buffer | lib.NativeFile | IOBase,
     footer_offset: int | None = None,
     *,
-    options: IpcReadOptions | None = None,
+    options: Any = None,
     memory_pool: lib.MemoryPool | None = None,
 ) -> RecordBatchFileReader: ...
 
@@ -128,6 +131,7 @@ def deserialize_pandas(
 
 
 __all__ = [
+    "Alignment",
     "IpcReadOptions",
     "IpcWriteOptions",
     "Message",

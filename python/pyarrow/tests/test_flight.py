@@ -33,7 +33,7 @@ from typing import Any
 try:
     import numpy as np
 except ImportError:
-    np = None  # type: ignore[assignment]
+    pass
 import pytest
 import pyarrow as pa
 
@@ -51,15 +51,26 @@ try:
         FlightCallOptions,
     )
 except ImportError:
-    flight = None  # type: ignore[assignment]
-    FlightClient, FlightServerBase = object, object  # type: ignore[assignment, misc]
-    ServerAuthHandler, ClientAuthHandler = (  # type: ignore[misc]
-        object, object)  # type: ignore[assignment]
-    ServerMiddleware, ServerMiddlewareFactory = (  # type: ignore[misc]
-        object, object)  # type: ignore[assignment]
-    ClientMiddleware, ClientMiddlewareFactory = (  # type: ignore[misc]
-        object, object)  # type: ignore[assignment]
-    FlightCallOptions = object  # type: ignore[assignment, misc]
+    from typing import TYPE_CHECKING
+    if TYPE_CHECKING:
+        from pyarrow import flight
+        from pyarrow.flight import (
+            FlightClient, FlightServerBase,
+            ServerAuthHandler, ClientAuthHandler,
+            ServerMiddleware, ServerMiddlewareFactory,
+            ClientMiddleware, ClientMiddlewareFactory,
+            FlightCallOptions,
+        )
+    else:
+        flight = None  # type: ignore[assignment]
+        FlightClient, FlightServerBase = object, object  # type: ignore[assignment, misc]
+        ServerAuthHandler, ClientAuthHandler = (  # type: ignore[misc]
+            object, object)  # type: ignore[assignment]
+        ServerMiddleware, ServerMiddlewareFactory = (  # type: ignore[misc]
+            object, object)  # type: ignore[assignment]
+        ClientMiddleware, ClientMiddlewareFactory = (  # type: ignore[misc]
+            object, object)  # type: ignore[assignment]
+        FlightCallOptions = object  # type: ignore[assignment, misc]
 
 # Marks all of the tests in this module
 # Ignore these with pytest ... -m 'not flight'
@@ -2660,6 +2671,7 @@ def test_do_put_does_not_crash_when_schema_is_none():
 
 def test_headers_trailers():
     """Ensure that server-sent headers/trailers make it through."""
+    assert flight is not None
 
     class HeadersTrailersFlightServer(FlightServerBase):
         def get_flight_info(self, context, descriptor):
@@ -2700,6 +2712,7 @@ def test_headers_trailers():
 
 
 def test_flight_dictionary_deltas_do_exchange():
+    assert flight is not None
     expected_stats = {
         'dict_deltas': ReadStats(
             num_messages=6,
@@ -2722,6 +2735,7 @@ def test_flight_dictionary_deltas_do_exchange():
             expected_table = simple_dicts_table()
             received_table = reader.read_all()
             assert received_table.equals(expected_table)
+            assert descriptor.command is not None
             assert reader.stats == expected_stats[descriptor.command.decode()]
             if descriptor.command == b'dict_deltas':
                 options = pa.ipc.IpcWriteOptions(emit_dictionary_deltas=True)

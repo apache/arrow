@@ -33,7 +33,7 @@ if sys.version_info >= (3, 10):
 else:
     from typing_extensions import TypeAlias
 
-from typing import Any, Literal, SupportsIndex
+from typing import Any, Literal, SupportsIndex, overload
 import builtins
 
 from pyarrow._stubs_typing import Compression, SupportPyBuffer
@@ -104,7 +104,7 @@ class NativeFile(_Weakrefable):
     def __next__(self) -> bytes: ...
     def read_buffer(self, nbytes: int | None = None) -> Buffer: ...
 
-    def truncate(self) -> None: ...
+    def truncate(self, pos: int | None = None) -> int: ...
 
     def writelines(self, lines: list[bytes]): ...
 
@@ -124,13 +124,11 @@ class PythonFile(NativeFile):
     def __init__(self, handle: IOBase,
                  mode: Literal["r", "w"] | None = None) -> None: ...
 
-    def truncate(self, pos: int | None = None) -> None: ...
-
 
 class MemoryMappedFile(NativeFile):
 
     @classmethod
-    def create(cls, path: str, size: int) -> Self: ...
+    def create(cls, path: str, size: int | float) -> Self: ...
 
     def _open(self, path: str,
               mode: Literal["r", "rb", "w", "wb", "r+", "r+b", "rb+"] = "r"): ...
@@ -148,10 +146,12 @@ create_memory_map = MemoryMappedFile.create
 
 class OSFile(NativeFile):
 
+    name: str
+
     def __init__(
         self,
         path: str,
-        mode: Literal["r", "rb", "w", "wb", "a", "ab"],
+        mode: Literal["r", "rb", "w", "wb", "a", "ab"] = "r",
         memory_pool: MemoryPool | None = None,
     ) -> None: ...
 
@@ -199,11 +199,18 @@ class Buffer(_Weakrefable):
 
     @property
     def parent(self) -> Buffer | None: ...
-    def __getitem__(self, key: builtins.slice | int) -> Self | int: ...
+    
+    @overload
+    def __getitem__(self, key: int) -> int: ...
+    
+    @overload
+    def __getitem__(self, key: builtins.slice) -> Self: ...
 
     def slice(self, offset: int = 0, length: int | None = None) -> Self: ...
 
     def equals(self, other: Self) -> bool: ...
+
+    def __buffer__(self, flags: int) -> memoryview: ...
 
     def __reduce_ex__(self, protocol: SupportsIndex) -> str | tuple[Any, ...]: ...
     def to_pybytes(self) -> bytes: ...
@@ -243,7 +250,7 @@ class CompressedInputStream(NativeFile):
     def __init__(
         self,
         stream: StrPath | NativeFile | IOBase,
-        compression: Literal["bz2", "brotli", "gzip", "lz4", "zstd"],
+        compression: str | None,
     ) -> None: ...
 
 
@@ -252,7 +259,7 @@ class CompressedOutputStream(NativeFile):
     def __init__(
         self,
         stream: StrPath | NativeFile | IOBase,
-        compression: Literal["bz2", "brotli", "gzip", "lz4", "zstd"],
+        compression: str,
     ) -> None: ...
 
 
@@ -327,7 +334,7 @@ class CacheOptions(_Weakrefable):
 
 class Codec(_Weakrefable):
 
-    def __init__(self, compression: Compression,
+    def __init__(self, compression: Compression | str | None,
                  compression_level: int | None = None) -> None: ...
 
     @classmethod
@@ -392,15 +399,15 @@ def decompress(
 
 
 def input_stream(
-    source: StrPath | Buffer | IOBase,
-    compression: Literal["detect", "bz2", "brotli", "gzip", "lz4", "zstd"] = "detect",
-    buffer_size: int | None = None,
+    source: StrPath | Buffer | NativeFile | IOBase | SupportPyBuffer,
+    compression: Literal["detect", "bz2", "brotli", "gzip", "lz4", "zstd"] | str | None = "detect",
+    buffer_size: int | str | None = None,
 ) -> BufferReader: ...
 
 
 def output_stream(
-    source: StrPath | Buffer | IOBase,
-    compression: Literal["detect", "bz2", "brotli", "gzip", "lz4", "zstd"] = "detect",
+    source: StrPath | Buffer | NativeFile | IOBase | SupportPyBuffer,
+    compression: Literal["detect", "bz2", "brotli", "gzip", "lz4", "zstd"] | str | None = "detect",
     buffer_size: int | None = None,
 ) -> NativeFile: ...
 

@@ -24,21 +24,27 @@ import random
 import socket
 import threading
 import weakref
+from typing import TYPE_CHECKING
 
-try:
+if TYPE_CHECKING:
     import numpy as np
-except ImportError:
-    np = None  # type: ignore[assignment]
+    import pandas as pd
+    from pandas.testing import assert_frame_equal
+else:
+    try:
+        import numpy as np
+    except ImportError:
+        np = None  # type: ignore[assignment]
+
+    try:
+        from pandas.testing import assert_frame_equal
+        import pandas as pd
+    except ImportError:
+        pd = None  # type: ignore[assignment]
+        assert_frame_equal = None  # type: ignore[assignment]
 
 import pyarrow as pa
 from pyarrow.tests.util import changed_environ, invoke_script
-
-
-try:
-    from pandas.testing import assert_frame_equal
-    import pandas as pd
-except ImportError:
-    pass
 
 
 class IpcFixture:
@@ -47,6 +53,9 @@ class IpcFixture:
     def __init__(self, sink_factory=lambda: io.BytesIO()):
         self._sink_factory = sink_factory
         self.sink = self.get_sink()
+
+    def _get_writer(self, sink, schema) -> pa.ipc.RecordBatchFileWriter | pa.ipc.RecordBatchStreamWriter:  # type: ignore[empty-body]
+        ...  # Implemented in subclasses
 
     def get_sink(self):
         return self._sink_factory()

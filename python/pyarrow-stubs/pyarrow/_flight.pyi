@@ -331,10 +331,16 @@ class _MetadataRecordBatchReader(_Weakrefable, _ReadPandasMixin):
 
 
 class MetadataRecordBatchReader(_MetadataRecordBatchReader):
+
+    @property
+    def stats(self) -> ReadStats: ...
     ...
 
 
 class FlightStreamReader(MetadataRecordBatchReader):
+
+    @property
+    def stats(self) -> ReadStats: ...
 
     def cancel(self) -> None: ...
 
