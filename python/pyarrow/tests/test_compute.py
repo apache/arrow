@@ -2476,10 +2476,10 @@ def test_extract_datetime_components(request):
 
 
 def test_offset_timezone():
-    arr = pc.strptime(["2012-12-12T12:12:12"], format="%Y-%m-%dT%H:%M:%S", unit="s")
+    arr = pc.strptime(pa.array(["2012-12-12T12:12:12"]), format="%Y-%m-%dT%H:%M:%S", unit="s")
     zoned_arr = arr.cast(pa.timestamp("s", tz="+05:30"))
-    assert pc.hour(zoned_arr)[0].as_py() == 17
-    assert pc.minute(zoned_arr)[0].as_py() == 42
+    assert pc.hour(zoned_arr)[0].as_py() == 17  # type: ignore[index,arg-type]
+    assert pc.minute(zoned_arr)[0].as_py() == 42  # type: ignore[index,arg-type]
 
 
 @pytest.mark.parametrize("unit", ["s", "ms", "us", "ns"])

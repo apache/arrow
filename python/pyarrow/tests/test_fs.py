@@ -2222,7 +2222,7 @@ def test_fsspec_delete_root_dir_contents():
     except ImportError:
         pytest.skip("fsspec not installed")
 
-    fs = FSSpecHandler(MemoryFileSystem())
+    fs = FSSpecHandler(MemoryFileSystem())  # type: ignore[abstract]
 
     # Create some files and directories
     fs.create_dir("test_dir", recursive=True)
