@@ -17,7 +17,7 @@
 
 import io
 import json
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 try:
     import numpy as np
@@ -467,7 +467,7 @@ def test_backwards_compatible_column_metadata_handling(datadir):
     table = _read_table(
         path, columns=['a'])
     result = table.to_pandas()
-    tm.assert_frame_equal(result, expected[['a']].reset_index(drop=True))
+    tm.assert_frame_equal(result, cast(pd.DataFrame, expected[['a']].reset_index(drop=True)))
 
 
 @pytest.mark.pandas
@@ -572,15 +572,15 @@ def test_write_to_dataset_pandas_preserve_extensiondtypes(tempdir):
         table, str(tempdir / "case1"), partition_cols=['part'],
     )
     result = pq.read_table(str(tempdir / "case1")).to_pandas()
-    tm.assert_frame_equal(result[["col"]], df[["col"]])
+    tm.assert_frame_equal(result[["col"]], cast(pd.DataFrame, df[["col"]]))
 
     pq.write_to_dataset(table, str(tempdir / "case2"))
     result = pq.read_table(str(tempdir / "case2")).to_pandas()
-    tm.assert_frame_equal(result[["col"]], df[["col"]])
+    tm.assert_frame_equal(result[["col"]], cast(pd.DataFrame, df[["col"]]))
 
     pq.write_table(table, str(tempdir / "data.parquet"))
     result = pq.read_table(str(tempdir / "data.parquet")).to_pandas()
-    tm.assert_frame_equal(result[["col"]], df[["col"]])
+    tm.assert_frame_equal(result[["col"]], cast(pd.DataFrame, df[["col"]]))
 
 
 @pytest.mark.pandas
@@ -597,7 +597,7 @@ def test_write_to_dataset_pandas_preserve_index(tempdir):
         table, str(tempdir / "case1"), partition_cols=['part'],
     )
     result = pq.read_table(str(tempdir / "case1")).to_pandas()
-    tm.assert_frame_equal(result, df_cat)
+    tm.assert_frame_equal(result, cast(pd.DataFrame, df_cat))
 
     pq.write_to_dataset(table, str(tempdir / "case2"))
     result = pq.read_table(str(tempdir / "case2")).to_pandas()
