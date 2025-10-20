@@ -16,6 +16,7 @@
 # under the License.
 
 import io
+from typing import cast
 
 try:
     import numpy as np
@@ -175,5 +176,6 @@ def alltypes_sample(size=10000, seed=0, categorical=False):
         'null_list': [None] * 2 + [[None] * (x % 4) for x in range(size - 2)],
     }
     if categorical:
-        arrays['str_category'] = arrays['str'].astype('category')
+        import pandas as pd
+        arrays['str_category'] = cast(pd.Series, arrays['str']).astype('category')
     return pd.DataFrame(arrays)

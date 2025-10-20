@@ -162,6 +162,7 @@ class GdbSession:
         m = re.search(pat, out)
         if m is None:
             pytest.fail(f"Could not select frame for function {func_name}")
+            return  # Never reached, but helps type checker
 
         frame_num = int(m[1])
         out = self.run_command(f"frame {frame_num}")

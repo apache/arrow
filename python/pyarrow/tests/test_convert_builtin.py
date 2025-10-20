@@ -21,7 +21,7 @@ import decimal
 import itertools
 import math
 import re
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 import hypothesis as h
 import pytest
@@ -1104,11 +1104,11 @@ def test_sequence_timestamp_with_timezone(timezone, unit):
         ),
     ]
     utcdata = [
-        pytz.utc.localize(data[0]),
+        pytz.utc.localize(cast(datetime.datetime, data[0])),
         data[1],
         None,
-        data[3].astimezone(pytz.utc),
-        data[4].astimezone(pytz.utc),
+        cast(datetime.datetime, data[3]).astimezone(pytz.utc),
+        cast(datetime.datetime, data[4]).astimezone(pytz.utc),
     ]
 
     ty = pa.timestamp(unit, tz=timezone)
@@ -1236,9 +1236,9 @@ def test_sequence_timestamp_from_mixed_builtin_and_pandas_datetimes():
         None,
     ]
     utcdata = [
-        data[0].astimezone(pytz.utc),
-        pytz.utc.localize(data[1]),
-        data[2].astimezone(pytz.utc),
+        cast(datetime.datetime, data[0]).astimezone(pytz.utc),
+        pytz.utc.localize(cast(datetime.datetime, data[1])),
+        cast(datetime.datetime, data[2]).astimezone(pytz.utc),
         None,
     ]
 
