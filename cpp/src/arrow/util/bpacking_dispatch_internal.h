@@ -17,11 +17,14 @@
 
 #pragma once
 
+#include <algorithm>
 #include <cstring>
 #include <type_traits>
 
+#include "arrow/util/bit_util.h"
 #include "arrow/util/endian.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/macros.h"
 #include "arrow/util/ubsan.h"
 
 namespace arrow::internal {
@@ -50,6 +53,85 @@ int unpack_full(const uint8_t* in, Uint* out, int batch_size) {
   return batch_size;
 }
 
+/// Compute the maximum spread in bytes that a packed integer can cover.
+///
+/// This is assuming contiguous packed integer starting on a byte aligned boundary.
+/// This function is non-monotonic, for instance three bit integers will be split on the
+/// first byte boundary (hence having a spread of two bytes) while four bit integer will
+/// be well behaved and never spread over byte boundary (hence having a spread of one).
+constexpr int PackedMaxSpreadBytes(int width) {
+  int max = static_cast<int>(bit_util::BytesForBits(width));
+  int start = width;
+  while (start % 8 != 0) {
+    const int byte_start = start / 8;
+    const int byte_end = (start + width - 1) / 8;  // inclusive end bit
+    const int spread = byte_end - byte_start + 1;
+    max = spread > max ? spread : max;
+    start += width;
+  }
+  return max;
+}
+
+// Integer type that tries to contain as much as the spread as possible.
+template <int kSpreadBytes>
+using SpreadBufferUint =
+    std::conditional_t<(kSpreadBytes <= sizeof(uint32_t)), uint_fast32_t, uint_fast64_t>;
+
+/// Unpack integers.
+/// This function works for all input batch sizes but is not the fastest.
+template <int kPackedBitWidth, typename Uint>
+int unpack_epilog(const uint8_t* in, Uint* out, int batch_size) {
+  constexpr int kMaxSpreadBytes = PackedMaxSpreadBytes(kPackedBitWidth);
+  using buffer_uint = SpreadBufferUint<kMaxSpreadBytes>;
+  constexpr int kBufferSize = sizeof(buffer_uint);
+  // Due to misalignment, on large bit width, the spread can be larger than the maximum
+  // size integer. For instance a 63 bit width misaligned packed integer can spread over 9
+  // aligned bytes.
+  constexpr bool kOversized = kBufferSize < kMaxSpreadBytes;
+  constexpr buffer_uint kLowMask =
+      bit_util::LeastSignificantBitMaskInc<buffer_uint>(kPackedBitWidth);
+
+  // Looping over values one by one
+  for (int k = 0; k < batch_size; ++k) {
+    const int start_bit = k * kPackedBitWidth;
+    const int start_byte = start_bit / 8;
+    const int spread_bytes = ((start_bit + kPackedBitWidth - 1) / 8) - start_byte + 1;
+    ARROW_COMPILER_ASSUME(spread_bytes <= kMaxSpreadBytes);
+
+    // Reading the bytes for the current value.
+    // Must be careful not to read out of input bounds.
+    buffer_uint buffer = 0;
+    if constexpr (kOversized) {
+      // We read the max possible bytes in the first pass and handle the rest after.
+      // Even though the worst spread does not happen on all iterations we can still read
+      // all bytes because we will mask them.
+      std::memcpy(&buffer, in + start_byte, std::min(kBufferSize, spread_bytes));
+    } else {
+      std::memcpy(&buffer, in + start_byte, spread_bytes);
+    }
+
+    buffer = bit_util::FromLittleEndian(buffer);
+    const int bit_offset = start_bit % 8;
+    buffer >>= bit_offset;
+    Uint val = static_cast<Uint>(buffer & kLowMask);
+
+    // Handle the oversized bytes
+    if constexpr (kOversized) {
+      // The oversized bytes do not happen at all iterations
+      if (spread_bytes > kBufferSize) {
+        std::memcpy(&buffer, in + start_byte + kBufferSize, spread_bytes - kBufferSize);
+        buffer = bit_util::FromLittleEndian(buffer);
+        buffer <<= 8 * kBufferSize - bit_offset;
+        val |= static_cast<Uint>(buffer & kLowMask);
+      }
+    }
+
+    out[k] = val;
+  }
+
+  return batch_size;
+}
+
 /// Unpack a packed array, delegating to a Unpacker struct.
 ///
 /// @tparam kPackedBitWidth The width in bits of the values in the packed array.
@@ -61,14 +143,17 @@ template <int kPackedBitWidth, template <typename, int> typename Unpacker,
           typename UnpackedUInt>
 int unpack_width(const uint8_t* in, UnpackedUInt* out, int batch_size) {
   using UnpackerForWidth = Unpacker<UnpackedUInt, kPackedBitWidth>;
-
   constexpr auto kValuesUnpacked = UnpackerForWidth::kValuesUnpacked;
-  batch_size = batch_size / kValuesUnpacked * kValuesUnpacked;
-  int num_loops = batch_size / kValuesUnpacked;
 
+  const int num_loops = batch_size / kValuesUnpacked;
   for (int i = 0; i < num_loops; ++i) {
     in = UnpackerForWidth::unpack(in, out + i * kValuesUnpacked);
   }
+
+  const auto epilog_size = batch_size - num_loops * kValuesUnpacked;
+  ARROW_COMPILER_ASSUME(epilog_size < kValuesUnpacked);
+  ARROW_COMPILER_ASSUME(epilog_size >= 0);
+  unpack_epilog<kPackedBitWidth>(in, out + num_loops * kValuesUnpacked, epilog_size);
 
   return batch_size;
 }
