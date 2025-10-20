@@ -211,7 +211,7 @@ jobs:
       - name: Set Reproducible Build Environment
         if: ${{ matrix.id }} == 'debian-trixie-amd64'
         run: |
-          echo "REPRODUCIBLE=yes" >> "${GITHUB_ENV}"
+          echo "REPROTEST=yes" >> "${GITHUB_ENV}"
       - name: Build
         run: |
           pushd dev/tasks/linux-packages
