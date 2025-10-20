@@ -179,7 +179,7 @@ class PARQUET_EXPORT LogicalType {
   };
 
   /// \brief The latest supported Variant specification version by this library
-  static constexpr int8_t VARIANT_SPEC_VERSION = 1;
+  static constexpr int8_t kVariantSpecVersion = 1;
 
   /// \brief If possible, return a logical type equivalent to the given legacy
   /// converted type (and decimal metadata if applicable).
@@ -228,7 +228,7 @@ class PARQUET_EXPORT LogicalType {
   static std::shared_ptr<const LogicalType> UUID();
   static std::shared_ptr<const LogicalType> Float16();
   static std::shared_ptr<const LogicalType> Variant(
-      int8_t specVersion = VARIANT_SPEC_VERSION);
+      int8_t specVersion = kVariantSpecVersion);
 
   static std::shared_ptr<const LogicalType> Geometry(std::string crs = "");
 
@@ -500,7 +500,7 @@ class PARQUET_EXPORT GeographyLogicalType : public LogicalType {
 class PARQUET_EXPORT VariantLogicalType : public LogicalType {
  public:
   static std::shared_ptr<const LogicalType> Make(
-      int8_t specVersion = VARIANT_SPEC_VERSION);
+      int8_t specVersion = kVariantSpecVersion);
 
   int8_t spec_version() const;
 
