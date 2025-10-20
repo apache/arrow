@@ -26,7 +26,7 @@ else:
     from typing_extensions import Self
 
 from collections.abc import Iterable, Iterator, Mapping
-from typing import Literal, NamedTuple
+from typing import Any, Literal, NamedTuple
 
 import pandas as pd
 
@@ -70,22 +70,24 @@ class ReadStats(NamedTuple):
 class IpcReadOptions(_Weakrefable):
     ensure_native_endian: bool
     use_threads: bool
-    included_fields: list[int]
+    ensure_alignment: Alignment
+    included_fields: list[int] | None
 
     def __init__(
         self,
         *,
         ensure_native_endian: bool = True,
         use_threads: bool = True,
+        ensure_alignment: Alignment = ...,
         included_fields: list[int] | None = None,
     ) -> None: ...
 
 
 class IpcWriteOptions(_Weakrefable):
-    metadata_version: MetadataVersion
+    metadata_version: Any
     allow_64bit: bool
     use_legacy_format: bool
-    compression: Codec | Literal["lz4", "zstd"] | None
+    compression: Any
     use_threads: bool
     emit_dictionary_deltas: bool
     unify_dictionaries: bool
@@ -202,11 +204,11 @@ class RecordBatchReader(_Weakrefable):
     def _import_from_c_capsule(cls, stream) -> Self: ...
 
     @classmethod
-    def from_stream(cls, data: SupportArrowStream,
-                    schema: Schema | None = None) -> Self: ...
+    def from_stream(cls, data: Any,
+                    schema: Any = None) -> Self: ...
 
     @classmethod
-    def from_batches(cls, schema: Schema, batches: Iterable[RecordBatch]) -> Self: ...
+    def from_batches(cls, schema: Any, batches: Iterable[RecordBatch]) -> Self: ...
 
 
 class _RecordBatchStreamReader(RecordBatchReader):
@@ -242,6 +244,8 @@ class _RecordBatchFileReader(_Weakrefable):
     def schema(self) -> Schema: ...
     @property
     def stats(self) -> ReadStats: ...
+    @property
+    def metadata(self) -> KeyValueMetadata | None: ...
 
 
 def get_tensor_size(tensor: Tensor) -> int: ...

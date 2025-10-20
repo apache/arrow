@@ -38,11 +38,13 @@ def root_allocator():
         arrow_dir = os.path.join(os.path.dirname(__file__), '..', '..', '..')
     pom_path = os.path.join(arrow_dir, 'java', 'pom.xml')
     tree = ET.parse(pom_path)
-    version = tree.getroot().find(
+    version_element = tree.getroot().find(
         'POM:version',
         namespaces={
             'POM': 'http://maven.apache.org/POM/4.0.0'
-        }).text
+        })
+    assert version_element is not None
+    version = version_element.text
     jar_path = os.path.join(
         arrow_dir, 'java', 'tools', 'target',
         f'arrow-tools-{version}-jar-with-dependencies.jar')

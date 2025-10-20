@@ -26,7 +26,7 @@ import hypothesis.strategies as st
 try:
     import numpy as np
 except ImportError:
-    np = None  # type: ignore[assignment]
+    pass
 
 import pyarrow as pa
 import pyarrow.tests.strategies as past

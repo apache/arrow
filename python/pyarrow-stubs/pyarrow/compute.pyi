@@ -1454,7 +1454,7 @@ years_between = _clone_signature(days_between)
 
 
 def assume_timezone(
-    timestamps: lib.TimestampScalar | lib.TimestampArray
+    timestamps: lib.TimestampScalar | lib.Scalar[lib.TimestampType] | lib.TimestampArray
     | lib.ChunkedArray[lib.TimestampScalar] | Expression,
     /,
     timezone: str | None = None,
