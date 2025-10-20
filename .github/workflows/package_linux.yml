@@ -227,6 +227,10 @@ jobs:
           dev/release/utils-watch-gh-workflow.sh \
             ${GITHUB_REF_NAME} \
             release_candidate.yml
+      - name: Set Reproducible Build Environment
+        if: ${{ matrix.id }} == 'debian-trixie-amd64'
+        run: |
+          echo "REPRODUCIBLE=yes" >> "${GITHUB_ENV}"
       - name: Build
         run: |
           pushd dev/tasks/linux-packages
