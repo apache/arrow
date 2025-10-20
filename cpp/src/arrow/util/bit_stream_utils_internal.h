@@ -339,20 +339,9 @@ inline int BitReader::GetBatch(int num_bits, T* v, int batch_size) {
 
   int num_unpacked = ::arrow::internal::unpack(
       buffer + byte_offset, reinterpret_cast<unpack_t*>(v + i), batch_size - i, num_bits);
-  i += num_unpacked;
-  byte_offset += num_unpacked * num_bits / 8;
+  ARROW_DCHECK_EQ(batch_size - i, num_unpacked);
 
-  buffered_values =
-      detail::ReadLittleEndianWord(buffer + byte_offset, max_bytes - byte_offset);
-
-  for (; i < batch_size; ++i) {
-    detail::GetValue_(num_bits, &v[i], max_bytes, buffer, &bit_offset, &byte_offset,
-                      &buffered_values);
-  }
-
-  bit_offset_ = bit_offset;
-  byte_offset_ = byte_offset;
-  buffered_values_ = buffered_values;
+  this->Advance(batch_size * num_bits);
 
   return batch_size;
 }
