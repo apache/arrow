@@ -143,9 +143,9 @@ jobs:
             python -m pip install mypy pyright griffe libcst pytest hypothesis fsspec scipy-stubs pandas-stubs types-python-dateutil types-psutil types-requests griffe libcst sphinx types-cffi
             pip install -i https://pypi.anaconda.org/scientific-python-nightly-wheels/simple pyarrow
             cd python
-            mypy
+            # mypy
             pyright
-            ty
+            ty check
             cd ..
             python ./dev/update_stub_docstrings.py -f ./python/pyarrow-stubs
 

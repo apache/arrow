@@ -77,6 +77,7 @@ class WriteOptions(lib._Weakrefable):
     batch_size: int = 1024
     delimiter: str = ","
     quoting_style: Literal["needed", "all_valid", "none"] = "needed"
+    quoting_header: Literal["needed", "all_valid", "none"] = "needed"
 
     def validate(self) -> None: ...
 
