@@ -74,8 +74,11 @@ constexpr int PackedMaxSpreadBytes(int width) {
 
 // Integer type that tries to contain as much as the spread as possible.
 template <int kSpreadBytes>
-using SpreadBufferUint =
-    std::conditional_t<(kSpreadBytes <= sizeof(uint32_t)), uint_fast32_t, uint_fast64_t>;
+using SpreadBufferUint = std::conditional_t<
+    (kSpreadBytes <= sizeof(uint8_t)), uint_fast8_t,
+    std::conditional_t<(kSpreadBytes <= sizeof(uint16_t)), uint_fast16_t,
+                       std::conditional_t<(kSpreadBytes <= sizeof(uint32_t)),
+                                          uint_fast32_t, uint_fast64_t>>>;
 
 /// Unpack integers.
 /// This function works for all input batch sizes but is not the fastest.
