@@ -23,9 +23,9 @@ from pyarrow import fs
 try:
     import pyarrow.parquet as pq
     from pyarrow.tests.parquet.common import (_read_table, _test_dataframe,
-                                              _test_table, _range_integers)
+                                              _test_table, _range_integers)  # type: ignore[attr-defined]
 except ImportError:
-    pq = None  # type: ignore[assignment]
+    pass
 
 
 try:
@@ -33,7 +33,7 @@ try:
     import pandas.testing as tm
 
 except ImportError:
-    pd = tm = None  # type: ignore[assignment]
+    pass
 
 
 # Marks all of the tests in this module
@@ -94,10 +94,10 @@ def test_parquet_invalid_writer(tempdir):
     # avoid segfaults with invalid construction
     with pytest.raises(TypeError):
         some_schema = pa.schema([pa.field("x", pa.int32())])
-        pq.ParquetWriter(None, some_schema)
+        pq.ParquetWriter(None, some_schema)  # type: ignore[arg-type]
 
     with pytest.raises(TypeError):
-        pq.ParquetWriter(tempdir / "some_path", None)
+        pq.ParquetWriter(tempdir / "some_path", None)  # type: ignore[arg-type]
 
 
 @pytest.mark.pandas
@@ -335,6 +335,7 @@ def test_parquet_writer_store_schema(tempdir):
         writer.write_table(table)
 
     meta = pq.read_metadata(path1)
+    assert meta.metadata is not None
     assert b'ARROW:schema' in meta.metadata
     assert meta.metadata[b'ARROW:schema']
 
@@ -357,6 +358,7 @@ def test_parquet_writer_append_key_value_metadata(tempdir):
         writer.add_key_value_metadata({'key2': '2', 'key3': '3'})
     reader = pq.ParquetFile(path)
     metadata = reader.metadata.metadata
+    assert metadata is not None
     assert metadata[b'key1'] == b'1'
     assert metadata[b'key2'] == b'2'
     assert metadata[b'key3'] == b'3'

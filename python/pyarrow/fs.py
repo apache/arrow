@@ -40,7 +40,7 @@ FileStats = FileInfo
 
 _not_imported = []
 try:
-    from pyarrow._azurefs import AzureFileSystem  # noqa
+    from pyarrow._azurefs import AzureFileSystem  # noqa  # type: ignore[reportMissingModuleSource]
 except ImportError:
     _not_imported.append("AzureFileSystem")
 
@@ -50,12 +50,12 @@ except ImportError:
     _not_imported.append("HadoopFileSystem")
 
 try:
-    from pyarrow._gcsfs import GcsFileSystem  # noqa
+    from pyarrow._gcsfs import GcsFileSystem  # noqa  # type: ignore[reportMissingModuleSource]
 except ImportError:
     _not_imported.append("GcsFileSystem")
 
 try:
-    from pyarrow._s3fs import (  # noqa
+    from pyarrow._s3fs import (  # noqa  # type: ignore[reportMissingModuleSource]
         AwsDefaultS3RetryStrategy, AwsStandardS3RetryStrategy,
         S3FileSystem, S3LogLevel, S3RetryStrategy, ensure_s3_initialized,
         finalize_s3, ensure_s3_finalized, initialize_s3, resolve_s3_region)

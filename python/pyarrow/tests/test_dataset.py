@@ -31,10 +31,10 @@ from urllib.parse import quote
 
 from typing import Any, cast
 try:
-    import numpy as np  # type: ignore[import-not-found]
+    import numpy as np
 except ImportError:
-    np = cast(Any, None)
-import pytest  # type: ignore[import-not-found]
+    pass
+import pytest
 
 import pyarrow as pa
 import pyarrow.compute as pc
@@ -48,20 +48,19 @@ from pyarrow.tests.util import (FSProtocolClass, ProxyHandler,
                                 change_cwd)
 
 try:
-    import pandas as pd  # type: ignore[import-not-found]
+    import pandas as pd
 except ImportError:
-    pd = cast(Any, None)
+    pass
 
-from typing import Any, cast
 try:
     import pyarrow.dataset as ds
 except ImportError:
-    ds = cast(Any, None)
+    pass
 
 try:
     import pyarrow.parquet as pq
 except ImportError:
-    pq = cast(Any, None)
+    pass
 
 # Marks all of the tests in this module
 # Ignore these with pytest ... -m 'not dataset'
@@ -2350,6 +2349,7 @@ def test_directory_partitioning_dictionary_key(mockfs):
     dataset = ds.dataset(
         "subdir", format="parquet", filesystem=mockfs, partitioning=part
     )
+    assert dataset.partitioning is not None
     assert dataset.partitioning.schema == schema
     table = dataset.to_table()
 
@@ -2370,6 +2370,7 @@ def test_hive_partitioning_dictionary_key(multisourcefs):
     dataset = ds.dataset(
         "hive", format="parquet", filesystem=multisourcefs, partitioning=part
     )
+    assert dataset.partitioning is not None
     assert dataset.partitioning.schema == schema
     table = dataset.to_table()
 
@@ -2377,12 +2378,12 @@ def test_hive_partitioning_dictionary_key(multisourcefs):
     month_dictionary = list(range(1, 13))
     assert table.column('year').type.equals(schema.types[0])
     for chunk in table.column('year').chunks:
-        actual = chunk.dictionary.to_pylist()
+        actual = chunk.dictionary.to_pylist()  # type: ignore[union-attr]
         actual.sort()
         assert actual == year_dictionary
     assert table.column('month').type.equals(schema.types[1])
     for chunk in table.column('month').chunks:
-        actual = chunk.dictionary.to_pylist()
+        actual = chunk.dictionary.to_pylist()  # type: ignore[union-attr]
         actual.sort()
         assert actual == month_dictionary
 
@@ -2582,7 +2583,7 @@ def test_construct_from_mixed_child_datasets(mockfs):
 
     assert len(dataset.children) == 2
     for child in dataset.children:
-        assert child.files == ['subdir/1/xxx/file0.parquet',
+        assert child.files == ['subdir/1/xxx/file0.parquet',  # type: ignore[attr-defined]
                                'subdir/2/yyy/file1.parquet']
 
 
@@ -3159,7 +3160,7 @@ def test_filter_compute_expression(tempdir, dataset_reader):
     filter_ = pc.is_in(ds.field('A'), pa.array(["a", "b"]))
     assert dataset_reader.to_table(dataset, filter=filter_).num_rows == 3
 
-    filter_ = pc.hour(ds.field('B')) >= 3
+    filter_ = pc.hour(ds.field('B')) >= 3  # type: ignore[operator]
     assert dataset_reader.to_table(dataset, filter=filter_).num_rows == 2
 
     days = pc.days_between(ds.field('B'), ds.field("C"))
@@ -3330,7 +3331,7 @@ def test_specified_schema(tempdir, dataset_reader):
     # Specifying with differing field types
     schema = pa.schema([('a', 'int32'), ('b', 'float64')])
     dataset = ds.dataset(str(tempdir / "data.parquet"), schema=schema)
-    expected = pa.table([table['a'].cast('int32'),
+    expected = pa.table([table['a'].cast(pa.int32()),  # type: ignore[arg-type]
                          table['b']],
                         names=['a', 'b'])
     _check_dataset(schema, expected)
@@ -4039,12 +4040,12 @@ def test_filter_mismatching_schema(tempdir, dataset_reader):
     # filtering on a column with such type mismatch should implicitly
     # cast the column
     filtered = dataset_reader.to_table(dataset, filter=ds.field("col") > 2)
-    assert filtered["col"].equals(table["col"].cast('int64').slice(2))
+    assert filtered["col"].equals(table["col"].cast(pa.int64()).slice(2))  # type: ignore[arg-type]
 
     fragment = list(dataset.get_fragments())[0]
     filtered = dataset_reader.to_table(
         fragment, filter=ds.field("col") > 2, schema=schema)
-    assert filtered["col"].equals(table["col"].cast('int64').slice(2))
+    assert filtered["col"].equals(table["col"].cast(pa.int64()).slice(2))  # type: ignore[arg-type]
 
 
 @pytest.mark.parquet
@@ -4189,7 +4190,7 @@ def _sort_table(tab, sort_col):
     import pyarrow.compute as pc
     sorted_indices = pc.sort_indices(
         tab, options=pc.SortOptions([(sort_col, 'ascending')]))
-    return pc.take(tab, sorted_indices)
+    return pc.take(tab, sorted_indices)  # type: ignore[arg-type]
 
 
 def _check_dataset_roundtrip(dataset, base_dir, expected_files, sort_col,
@@ -4635,7 +4636,8 @@ def test_write_dataset_max_open_files(tempdir):
     def _get_compare_pair(data_source, record_batch, file_format, col_id):
         num_of_files_generated = _get_num_of_files_generated(
             base_directory=data_source, file_format=file_format)
-        number_of_partitions = len(pa.compute.unique(record_batch[col_id]))
+        unique_vals = pa.compute.unique(record_batch[col_id])
+        number_of_partitions = len(unique_vals)  # type: ignore[arg-type]
         return num_of_files_generated, number_of_partitions
 
     # CASE 1: when max_open_files=default & max_open_files >= num_of_partitions
@@ -5669,8 +5671,8 @@ def test_dataset_partition_with_slash(tmpdir):
     assert dt_table == read_table.sort_by("exp_id")
 
     exp_meta = dt_table.column(1).to_pylist()
-    exp_meta = sorted(set(exp_meta))  # take unique
-    encoded_paths = ["exp_meta=" + quote(path, safe='') for path in exp_meta]
+    exp_meta = sorted(set(exp_meta), key=lambda x: (x is None, x))  # take unique, handle None
+    encoded_paths = ["exp_meta=" + quote(str(path), safe='') for path in exp_meta]
     file_paths = sorted(os.listdir(path))
 
     assert encoded_paths == file_paths

@@ -19,6 +19,7 @@ import datetime
 import decimal
 from collections import OrderedDict
 import io
+from typing import TYPE_CHECKING
 
 try:
     import numpy as np
@@ -31,20 +32,26 @@ from pyarrow.tests.parquet.common import _check_roundtrip, make_sample_file
 from pyarrow.fs import LocalFileSystem
 from pyarrow.tests import util
 
-try:
-    import pyarrow.parquet as pq
-    from pyarrow.tests.parquet.common import _write_table
-except ImportError:
-    pq = None  # type: ignore[assignment]
-
-
-try:
+if TYPE_CHECKING:
     import pandas as pd
     import pandas.testing as tm
+    import pyarrow.parquet as pq
+    from pyarrow.tests.parquet.common import alltypes_sample, _write_table
+else:
+    try:
+        import pyarrow.parquet as pq
+        from pyarrow.tests.parquet.common import _write_table
+    except ImportError:
+        pq = None  # type: ignore[assignment]
 
-    from pyarrow.tests.parquet.common import alltypes_sample
-except ImportError:
-    pd = tm = None  # type: ignore[assignment]
+
+    try:
+        import pandas as pd
+        import pandas.testing as tm
+
+        from pyarrow.tests.parquet.common import alltypes_sample
+    except ImportError:
+        pd = tm = None  # type: ignore[assignment]
 
 
 # Marks all of the tests in this module
@@ -56,7 +63,7 @@ pytestmark = pytest.mark.parquet
 def test_parquet_metadata_api():
     df = alltypes_sample(size=10000)
     df = df.reindex(columns=sorted(df.columns))
-    df.index = np.random.randint(0, 1000000, size=len(df))
+    df.index = np.random.randint(0, 1000000, size=len(df))  # type: ignore[assignment]
 
     fileh = make_sample_file(df)
     ncols = len(df.columns)
@@ -80,15 +87,15 @@ def test_parquet_metadata_api():
 
     col = schema[0]
     repr(col)
-    assert col.name == df.columns[0]
-    assert col.max_definition_level == 1
-    assert col.max_repetition_level == 0
-    assert col.max_repetition_level == 0
-    assert col.physical_type == 'BOOLEAN'
-    assert col.converted_type == 'NONE'
+    assert col.name == df.columns[0]  # type: ignore[attr-defined]
+    assert col.max_definition_level == 1  # type: ignore[attr-defined]
+    assert col.max_repetition_level == 0  # type: ignore[attr-defined]
+    assert col.max_repetition_level == 0  # type: ignore[attr-defined]
+    assert col.physical_type == 'BOOLEAN'  # type: ignore[attr-defined]
+    assert col.converted_type == 'NONE'  # type: ignore[attr-defined]
 
     col_float16 = schema[5]
-    assert col_float16.logical_type.type == 'FLOAT16'
+    assert col_float16.logical_type.type == 'FLOAT16'  # type: ignore[attr-defined]
 
     with pytest.raises(IndexError):
         schema[ncols + 1]  # +1 for index
@@ -210,15 +217,16 @@ def test_parquet_column_statistics_api(data, type, physical_type, min_value,
     col_meta = rg_meta.column(0)
 
     stat = col_meta.statistics
-    assert stat.has_min_max
-    assert _close(type, stat.min, min_value)
-    assert _close(type, stat.max, max_value)
-    assert stat.null_count == null_count
-    assert stat.num_values == num_values
+    assert stat is not None
+    assert stat.has_min_max  # type: ignore[attr-defined]
+    assert _close(type, stat.min, min_value)  # type: ignore[attr-defined]
+    assert _close(type, stat.max, max_value)  # type: ignore[attr-defined]
+    assert stat.null_count == null_count  # type: ignore[attr-defined]
+    assert stat.num_values == num_values  # type: ignore[attr-defined]
     # TODO(kszucs) until parquet-cpp API doesn't expose HasDistinctCount
     # method, missing distinct_count is represented as zero instead of None
-    assert stat.distinct_count == distinct_count
-    assert stat.physical_type == physical_type
+    assert stat.distinct_count == distinct_count  # type: ignore[attr-defined]
+    assert stat.physical_type == physical_type  # type: ignore[attr-defined]
 
 
 def _close(type, left, right):
@@ -236,8 +244,10 @@ def test_parquet_raise_on_unset_statistics():
     df = pd.DataFrame({"t": pd.Series([pd.NaT], dtype="datetime64[ns]")})
     meta = make_sample_file(pa.Table.from_pandas(df)).metadata
 
-    assert not meta.row_group(0).column(0).statistics.has_min_max
-    assert meta.row_group(0).column(0).statistics.max is None
+    stat = meta.row_group(0).column(0).statistics
+    assert stat is not None
+    assert not stat.has_min_max  # type: ignore[attr-defined]
+    assert stat.max is None  # type: ignore[attr-defined]
 
 
 def test_statistics_convert_logical_types(tempdir):
@@ -271,8 +281,9 @@ def test_statistics_convert_logical_types(tempdir):
         pq.write_table(t, path, version='2.6')
         pf = pq.ParquetFile(path)
         stats = pf.metadata.row_group(0).column(0).statistics
-        assert stats.min == min_val
-        assert stats.max == max_val
+        assert stats is not None
+        assert stats.min == min_val  # type: ignore[attr-defined]
+        assert stats.max == max_val  # type: ignore[attr-defined]
 
 
 def test_parquet_write_disable_statistics(tempdir):
@@ -429,29 +440,36 @@ def test_field_id_metadata():
     pf = pq.ParquetFile(pa.BufferReader(contents))
     schema = pf.schema_arrow
 
-    assert schema[0].metadata[field_id] == b'1'
-    assert schema[0].metadata[b'other'] == b'abc'
+    assert schema[0].metadata is not None
+    assert schema[0].metadata[field_id] == b'1'  # type: ignore[index]
+    assert schema[0].metadata[b'other'] == b'abc'  # type: ignore[index]
 
     list_field = schema[1]
-    assert list_field.metadata[field_id] == b'11'
+    assert list_field.metadata is not None
+    assert list_field.metadata[field_id] == b'11'  # type: ignore[index]
 
     list_item_field = list_field.type.value_field
-    assert list_item_field.metadata[field_id] == b'10'
+    assert list_item_field.metadata is not None
+    assert list_item_field.metadata[field_id] == b'10'  # type: ignore[index]
 
     struct_field = schema[2]
-    assert struct_field.metadata[field_id] == b'102'
+    assert struct_field.metadata is not None
+    assert struct_field.metadata[field_id] == b'102'  # type: ignore[index]
 
     struct_middle_field = struct_field.type[0]
-    assert struct_middle_field.metadata[field_id] == b'101'
+    assert struct_middle_field.metadata is not None
+    assert struct_middle_field.metadata[field_id] == b'101'  # type: ignore[index]
 
     struct_inner_field = struct_middle_field.type[0]
-    assert struct_inner_field.metadata[field_id] == b'100'
+    assert struct_inner_field.metadata is not None
+    assert struct_inner_field.metadata[field_id] == b'100'  # type: ignore[index]
 
     assert schema[3].metadata is None
     # Invalid input is passed through (ok) but does not
     # have field_id in parquet (not tested)
-    assert schema[4].metadata[field_id] == b'xyz'
-    assert schema[5].metadata[field_id] == b'-1000'
+    assert schema[4].metadata is not None
+    assert schema[4].metadata[field_id] == b'xyz'  # type: ignore[index]
+    assert schema[5].metadata[field_id] == b'-1000'  # type: ignore[index]
 
 
 def test_parquet_file_page_index():
@@ -496,12 +514,12 @@ def test_multi_dataset_metadata(tempdir):
 
     # Write merged metadata-only file
     with open(metapath, "wb") as f:
-        _meta.write_metadata_file(f)
+        _meta.write_metadata_file(f)  # type: ignore[union-attr]
 
     # Read back the metadata
     meta = pq.read_metadata(metapath)
     md = meta.to_dict()
-    _md = _meta.to_dict()
+    _md = _meta.to_dict()  # type: ignore[union-attr]
     for key in _md:
         if key != 'serialized_size':
             assert _md[key] == md[key]
@@ -695,13 +713,13 @@ def test_metadata_schema_filesystem(tempdir):
     assert pq.read_metadata(
         file_path, filesystem=LocalFileSystem()).equals(metadata)
     assert pq.read_metadata(
-        fname, filesystem=f'file:///{tempdir}').equals(metadata)
+        fname, filesystem=f'file:///{tempdir}').equals(metadata)  # type: ignore[arg-type]
 
     assert pq.read_schema(file_uri).equals(schema)
     assert pq.read_schema(
         file_path, filesystem=LocalFileSystem()).equals(schema)
     assert pq.read_schema(
-        fname, filesystem=f'file:///{tempdir}').equals(schema)
+        fname, filesystem=f'file:///{tempdir}').equals(schema)  # type: ignore[arg-type]
 
     with util.change_cwd(tempdir):
         # Pass `filesystem` arg
@@ -721,7 +739,7 @@ def test_metadata_equals():
     original_metadata = pq.read_metadata(pa.BufferReader(buf))
     match = "Argument 'other' has incorrect type"
     with pytest.raises(TypeError, match=match):
-        original_metadata.equals(None)
+        original_metadata.equals(None)  # type: ignore[arg-type]
 
 
 @pytest.mark.parametrize("t1,t2,expected_error", (
@@ -810,7 +828,7 @@ def test_internal_class_instantiation():
         pq.ColumnChunkMetaData()
 
     with pytest.raises(TypeError, match=msg("RowGroupMetaData")):
-        pq.RowGroupMetaData()
+        pq.RowGroupMetaData()  # type: ignore[call-arg]
 
     with pytest.raises(TypeError, match=msg("FileMetaData")):
-        pq.FileMetaData()
+        pq.FileMetaData()  # type: ignore[call-arg]

@@ -588,7 +588,7 @@ class ParquetFile:
             columns, use_pandas_metadata=use_pandas_metadata)
 
         batches = self.reader.iter_batches(batch_size,
-                                           row_groups=row_groups,  # type: ignore
+                                           row_groups=row_groups,
                                            column_indices=column_indices,
                                            use_threads=use_threads)
         return batches

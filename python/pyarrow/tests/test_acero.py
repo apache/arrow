@@ -36,8 +36,8 @@ except ImportError:
     pass
 
 try:
-    import pyarrow.dataset as ds
-    from pyarrow._dataset import ScanNodeOptions
+    import pyarrow.dataset as ds  # type: ignore[import-not-found]
+    from pyarrow._dataset import ScanNodeOptions  # type: ignore[import-not-found]
 except ImportError:
     ds = None  # type: ignore[assignment]
     ScanNodeOptions = None  # type: ignore[assignment, misc]
@@ -90,9 +90,9 @@ def test_declaration_to_reader(table_source):
 
 def test_table_source():
     with pytest.raises(TypeError):
-        TableSourceNodeOptions(pa.record_batch([pa.array([1, 2, 3])], ["a"]))
+        TableSourceNodeOptions(pa.record_batch([pa.array([1, 2, 3])], ["a"]))  # type: ignore[arg-type]
 
-    table_source = TableSourceNodeOptions(None)
+    table_source = TableSourceNodeOptions(None)  # type: ignore[arg-type]
     decl = Declaration("table_source", table_source)
     with pytest.raises(
         ValueError, match="TableSourceNode requires table which is not null"
@@ -111,9 +111,9 @@ def test_filter(table_source):
 
     # requires a pyarrow Expression
     with pytest.raises(TypeError):
-        FilterNodeOptions(pa.array([True, False, True]))
+        FilterNodeOptions(pa.array([True, False, True]))  # type: ignore[arg-type]
     with pytest.raises(TypeError):
-        FilterNodeOptions(None)
+        FilterNodeOptions(None)  # type: ignore[arg-type]
 
 
 @pytest.mark.parametrize('source', [
@@ -295,10 +295,10 @@ def test_order_by():
         _ = decl.to_table()
 
     with pytest.raises(ValueError, match="\"decreasing\" is not a valid sort order"):
-        _ = OrderByNodeOptions([("b", "decreasing")])
+        _ = OrderByNodeOptions([("b", "decreasing")])  # type: ignore[arg-type]
 
     with pytest.raises(ValueError, match="\"start\" is not a valid null placement"):
-        _ = OrderByNodeOptions([("b", "ascending")], null_placement="start")
+        _ = OrderByNodeOptions([("b", "ascending")], null_placement="start")  # type: ignore[arg-type]
 
 
 def test_hash_join():
@@ -383,7 +383,7 @@ def test_hash_join_with_residual_filter():
     # test filter expression referencing columns from both side
     join_opts = HashJoinNodeOptions(
         "left outer", left_keys="key", right_keys="key",
-        filter_expression=pc.equal(pc.field("a"), 5) | pc.equal(pc.field("b"), 10)
+        filter_expression=pc.equal(pc.field("a"), 5) | pc.equal(pc.field("b"), 10)  # type: ignore[operator]
     )
     joined = Declaration(
         "hashjoin", options=join_opts, inputs=[left_source, right_source])
@@ -464,8 +464,8 @@ def test_asof_join():
 @pytest.mark.dataset
 def test_scan(tempdir):
     table = pa.table({'a': [1, 2, 3], 'b': [4, 5, 6]})
-    ds.write_dataset(table, tempdir / "dataset", format="parquet")
-    dataset = ds.dataset(tempdir / "dataset", format="parquet")
+    ds.write_dataset(table, tempdir / "dataset", format="parquet")  # type: ignore[union-attr]
+    dataset = ds.dataset(tempdir / "dataset", format="parquet")  # type: ignore[union-attr]
     decl = Declaration("scan", ScanNodeOptions(dataset))  # type: ignore[call-overload]
     result = decl.to_table()
     assert result.schema.names == [

@@ -49,7 +49,7 @@ def teardown_module(module):
 @pytest.mark.parametrize("c", range(len(context_choice_ids)),
                          ids=context_choice_ids)
 def test_context(c):
-    ctx, nb_ctx = context_choices[c]
+    ctx, nb_ctx = context_choices[c]  # type: ignore[misc]
     assert ctx.handle == nb_ctx.handle.value
     assert ctx.handle == ctx.to_numba().handle.value
     ctx2 = cuda.Context.from_numba(nb_ctx)
@@ -62,17 +62,19 @@ def test_context(c):
 def make_random_buffer(size, target='host', dtype='uint8', ctx=None):
     """Return a host or device buffer with random data.
     """
-    dtype = np.dtype(dtype)
+    assert np is not None
+    dtype_obj = np.dtype(dtype)
     if target == 'host':
         assert size >= 0
-        buf = pa.allocate_buffer(size*dtype.itemsize)
-        arr = np.frombuffer(buf, dtype=dtype)
+        buf = pa.allocate_buffer(size*dtype_obj.itemsize)
+        arr = np.frombuffer(buf, dtype=dtype_obj)  # type: ignore[arg-type]
         arr[:] = np.random.randint(low=0, high=255, size=size,
                                    dtype=np.uint8)
         return arr, buf
     elif target == 'device':
         arr, buf = make_random_buffer(size, target='host', dtype=dtype)
-        dbuf = ctx.new_buffer(size * dtype.itemsize)
+        assert ctx is not None
+        dbuf = ctx.new_buffer(size * dtype_obj.itemsize)
         dbuf.copy_from_host(buf, position=0, nbytes=buf.size)
         return arr, dbuf
     raise ValueError('invalid target value')
@@ -83,7 +85,7 @@ def make_random_buffer(size, target='host', dtype='uint8', ctx=None):
 @pytest.mark.parametrize("dtype", dtypes, ids=dtypes)
 @pytest.mark.parametrize("size", [0, 1, 8, 1000])
 def test_from_object(c, dtype, size):
-    ctx, nb_ctx = context_choices[c]
+    ctx, nb_ctx = context_choices[c]  # type: ignore[misc]
     arr, cbuf = make_random_buffer(size, target='device', dtype=dtype, ctx=ctx)
 
     # Creating device buffer from numba DeviceNDArray:
@@ -161,8 +163,9 @@ def test_from_object(c, dtype, size):
                          ids=context_choice_ids)
 @pytest.mark.parametrize("dtype", dtypes, ids=dtypes)
 def test_numba_memalloc(c, dtype):
-    ctx, nb_ctx = context_choices[c]
-    dtype = np.dtype(dtype)
+    assert np is not None
+    ctx, nb_ctx = context_choices[c]  # type: ignore[misc]
+    dtype_obj = np.dtype(dtype)
     # Allocate memory using numba context
     # Warning: this will not be reflected in pyarrow context manager
     # (e.g bytes_allocated does not change)
@@ -184,12 +187,12 @@ def test_numba_memalloc(c, dtype):
                          ids=context_choice_ids)
 @pytest.mark.parametrize("dtype", dtypes, ids=dtypes)
 def test_pyarrow_memalloc(c, dtype):
-    ctx, nb_ctx = context_choices[c]
+    ctx, nb_ctx = context_choices[c]  # type: ignore[misc]
     size = 10
     arr, cbuf = make_random_buffer(size, target='device', dtype=dtype, ctx=ctx)
 
     # wrap CudaBuffer with numba device array
-    mem = cbuf.to_numba()
+    mem = cbuf.to_numba()  # type: ignore[attr-defined]
     darr = DeviceNDArray(arr.shape, arr.strides, arr.dtype, gpu_data=mem)
     np.testing.assert_equal(darr.copy_to_host(), arr)
 
@@ -198,18 +201,19 @@ def test_pyarrow_memalloc(c, dtype):
                          ids=context_choice_ids)
 @pytest.mark.parametrize("dtype", dtypes, ids=dtypes)
 def test_numba_context(c, dtype):
-    ctx, nb_ctx = context_choices[c]
+    assert np is not None
+    ctx, nb_ctx = context_choices[c]  # type: ignore[misc]
     size = 10
     with nb_cuda.gpus[0]:
         arr, cbuf = make_random_buffer(size, target='device',
                                        dtype=dtype, ctx=ctx)
-        assert cbuf.context.handle == nb_ctx.handle.value
-        mem = cbuf.to_numba()
+        assert cbuf.context.handle == nb_ctx.handle.value  # type: ignore[attr-defined]
+        mem = cbuf.to_numba()  # type: ignore[attr-defined]
         darr = DeviceNDArray(arr.shape, arr.strides, arr.dtype, gpu_data=mem)
         np.testing.assert_equal(darr.copy_to_host(), arr)
         darr[0] = 99
-        cbuf.context.synchronize()
-        arr2 = np.frombuffer(cbuf.copy_to_host(), dtype=dtype)
+        cbuf.context.synchronize()  # type: ignore[attr-defined]
+        arr2 = np.frombuffer(cbuf.copy_to_host(), dtype=np.dtype(dtype))  # type: ignore[arg-type, attr-defined]
         assert arr2[0] == 99
 
 
@@ -217,7 +221,8 @@ def test_numba_context(c, dtype):
                          ids=context_choice_ids)
 @pytest.mark.parametrize("dtype", dtypes, ids=dtypes)
 def test_pyarrow_jit(c, dtype):
-    ctx, nb_ctx = context_choices[c]
+    assert np is not None
+    ctx, nb_ctx = context_choices[c]  # type: ignore[misc]
 
     @nb_cuda.jit
     def increment_by_one(an_array):
@@ -230,9 +235,9 @@ def test_pyarrow_jit(c, dtype):
     arr, cbuf = make_random_buffer(size, target='device', dtype=dtype, ctx=ctx)
     threadsperblock = 32
     blockspergrid = (arr.size + (threadsperblock - 1)) // threadsperblock
-    mem = cbuf.to_numba()
+    mem = cbuf.to_numba()  # type: ignore[attr-defined]
     darr = DeviceNDArray(arr.shape, arr.strides, arr.dtype, gpu_data=mem)
     increment_by_one[blockspergrid, threadsperblock](darr)
-    cbuf.context.synchronize()
-    arr1 = np.frombuffer(cbuf.copy_to_host(), dtype=arr.dtype)
+    cbuf.context.synchronize()  # type: ignore[attr-defined]
+    arr1 = np.frombuffer(cbuf.copy_to_host(), dtype=arr.dtype)  # type: ignore[arg-type, attr-defined]
     np.testing.assert_equal(arr1, arr + 1)
