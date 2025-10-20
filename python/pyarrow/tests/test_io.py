@@ -44,7 +44,7 @@ def check_large_seeks(file_factory, expected_error=None):
     if sys.platform in ('win32', 'darwin', 'emscripten'):
         pytest.skip("need sparse file support")
     try:
-        filename = tempfile.mktemp(prefix='test_io')
+        filename = tempfile.mkstemp(prefix='test_io')[1]
         with open(filename, 'wb') as f:
             f.truncate(2 ** 32 + 10)
             f.seek(2 ** 32 + 5)
