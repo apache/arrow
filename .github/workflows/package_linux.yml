@@ -79,7 +79,7 @@ jobs:
       needs.check-labels.outputs.force == 'true' ||
       contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra') ||
       contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra: Package: Linux')
-    timeout-minutes: 75
+    timeout-minutes: 150
     strategy:
       fail-fast: false
       matrix:
@@ -209,7 +209,7 @@ jobs:
             ${GITHUB_REF_NAME} \
             release_candidate.yml
       - name: Set Reproducible Build Environment
-        if: ${{ matrix.id }} == 'debian-trixie-amd64'
+        if: env.ARCHITECTURE == 'amd64'
         run: |
           echo "REPROTEST=yes" >> "${GITHUB_ENV}"
       - name: Build
