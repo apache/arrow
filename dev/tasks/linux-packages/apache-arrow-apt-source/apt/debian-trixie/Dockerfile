@@ -37,5 +37,6 @@ RUN \
     devscripts \
     fakeroot \
     gnupg \
-    lsb-release && \
+    lsb-release \
+    python3-venv && \
   apt clean
