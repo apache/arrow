@@ -22,8 +22,10 @@
 #include "arrow/flight/sql/odbc/odbc_impl/platform.h"
 #include "arrow/flight/sql/odbc/odbc_impl/spi/connection.h"
 
+#if defined _WIN32 || defined _WIN64
 // winuser.h needs to be included after windows.h, which is defined in platform.h
-#include <winuser.h>
+#  include <winuser.h>
+#endif
 
 namespace arrow::flight::sql::odbc {
 namespace config {
@@ -46,13 +48,6 @@ class Configuration {
    */
   ~Configuration();
 
-  /**
-   * Convert configure to connect string.
-   *
-   * @return Connect string.
-   */
-  std::string ToConnectString() const;
-
   void LoadDefaults();
   void LoadDsn(const std::string& dsn);
 
@@ -61,13 +56,13 @@ class Configuration {
   const std::string& Get(const std::string_view& key) const;
   void Set(const std::string_view& key, const std::wstring& wvalue);
   void Set(const std::string_view& key, const std::string& value);
-
+  void Emplace(const std::string_view& key, std::string&& value);
   /**
    * Get properties map.
    */
   const Connection::ConnPropertyMap& GetProperties() const;
 
-  std::vector<std::string_view> GetCustomKeys() const;
+  std::vector<std::string> GetCustomKeys() const;
 
  private:
   Connection::ConnPropertyMap properties_;

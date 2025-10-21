@@ -45,10 +45,10 @@ add_library(arrow_odbc_spi_impl
             config/connection_string_parser.h
             diagnostics.cc
             diagnostics.h
-            error_codes.h
             encoding.cc
             encoding.h
             encoding_utils.h
+            error_codes.h
             exceptions.cc
             exceptions.h
             flight_sql_auth_method.cc
@@ -124,7 +124,9 @@ if(WIN32)
                          ui/dsn_configuration_window.h
                          ui/window.cc
                          ui/window.h
-                         system_dsn.cc)
+                         win_system_dsn.cc
+                         system_dsn.cc
+                         system_dsn.h)
 endif()
 
 target_link_libraries(arrow_odbc_spi_impl PUBLIC arrow_flight_sql_shared
@@ -162,9 +164,11 @@ add_arrow_test(odbc_spi_impl_test
                accessors/time_array_accessor_test.cc
                accessors/timestamp_array_accessor_test.cc
                flight_sql_connection_test.cc
+               flight_sql_stream_chunk_buffer_test.cc
                parse_table_types_test.cc
                json_converter_test.cc
                record_batch_transformer_test.cc
                util_test.cc
                EXTRA_LINK_LIBS
-               arrow_odbc_spi_impl)
+               arrow_odbc_spi_impl
+               arrow_flight_testing_shared)
