@@ -36,7 +36,7 @@ except ImportError:
 try:
     import sparse  # type: ignore[import-untyped, import-not-found]
 except ImportError:
-    pass
+    sparse = None
 
 
 tensor_type_pairs = [
@@ -474,7 +474,6 @@ def test_sparse_csr_matrix_scipy_roundtrip(dtype_str, arrow_type,
 @pytest.mark.skipif(not sparse, reason="requires pydata/sparse")
 @pytest.mark.parametrize('dtype_str,arrow_type', tensor_type_pairs)
 def test_pydata_sparse_sparse_coo_tensor_roundtrip(dtype_str, arrow_type):
-    assert hasattr(sparse, 'COO')
     dtype = np.dtype(dtype_str)
     data = np.array([1, 2, 3, 4, 5, 6]).astype(dtype)
     coords = np.array([
@@ -484,7 +483,7 @@ def test_pydata_sparse_sparse_coo_tensor_roundtrip(dtype_str, arrow_type):
     shape = (4, 6)
     dim_names = ("x", "y")
 
-    sparse_array = sparse.COO(data=data, coords=coords, shape=shape)
+    sparse_array = sparse.COO(data=data, coords=coords, shape=shape)  # type: ignore[reportOptionalMemberAccess]
     sparse_tensor = pa.SparseCOOTensor.from_pydata_sparse(sparse_array,
                                                           dim_names=dim_names)
     out_sparse_array = sparse_tensor.to_pydata_sparse()
