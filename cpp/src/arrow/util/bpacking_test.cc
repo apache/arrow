@@ -19,6 +19,7 @@
 
 #include <gtest/gtest.h>
 
+#include "arrow/testing/random.h"
 #include "arrow/testing/util.h"
 #include "arrow/util/bit_stream_utils_internal.h"
 #include "arrow/util/bit_util.h"
@@ -40,15 +41,24 @@ int GetNumBytes(int num_values, int bit_width, int bit_offset) {
   return static_cast<int>(bit_util::BytesForBits(num_values * bit_width + bit_offset));
 }
 
-/// Generate random bytes as packed integers.
-std::vector<uint8_t> GenerateRandomPackedValues(int num_values, int bit_width,
-                                                int bit_offset) {
+/// Generate random values that can be packed within the given bit width.
+template <typename Uint>
+std::vector<Uint> GenerateRandomValuesForPacking(int num_values, int bit_width) {
   constexpr uint32_t kSeed = 3214;
-  const auto num_bytes = GetNumBytes(num_values, bit_width, bit_offset);
 
-  std::vector<uint8_t> out(std::max(1, num_bytes));  // We need a valid pointer for size 0
-  random_bytes(num_bytes, kSeed, out.data());
+  num_values = std::max(1, num_values);  // We need a valid pointer for size 0
+  std::vector<Uint> out(num_values);
 
+  if (bit_width == 0) {
+    return out;
+  }
+
+  if constexpr (std::is_same_v<Uint, bool>) {
+    random_is_valid(num_values, 0.5, &out, kSeed);
+  } else {
+    const uint64_t max = (uint64_t{1} << (static_cast<uint64_t>(bit_width) - 1)) - 1;
+    rand_uniform_int(out.size(), kSeed, /* min= */ decltype(max){0}, max, out.data());
+  }
   return out;
 }
 
@@ -57,11 +67,16 @@ template <typename Int>
 std::vector<Int> UnpackValues(const uint8_t* packed, int32_t num_values,
                               int32_t bit_width, int32_t bit_offset,
                               UnpackFunc<Int> unpack) {
-  // Using dynamic array to avoid std::vector<bool>
-  auto buffer = std::make_unique<Int[]>(num_values);
-  unpack(packed, buffer.get(), num_values, bit_width, bit_offset);
-
-  return std::vector<Int>(buffer.get(), buffer.get() + num_values);
+  if constexpr (std::is_same_v<Int, bool>) {
+    // Using dynamic array to avoid std::vector<bool>
+    auto buffer = std::make_unique<Int[]>(num_values);
+    unpack(packed, buffer.get(), num_values, bit_width, bit_offset);
+    return std::vector<Int>(buffer.get(), buffer.get() + num_values);
+  } else {
+    std::vector<Int> out(num_values);
+    unpack(packed, out.data(), num_values, bit_width, bit_offset);
+    return out;
+  }
 }
 
 /// Use BitWriter to pack values into a vector.
@@ -87,48 +102,17 @@ std::vector<uint8_t> PackValues(const std::vector<Int>& values, int num_values,
   return out;
 }
 
-template <typename Int>
-void CheckUnpackPackRoundtrip(const uint8_t* packed, int num_values, int bit_width,
-                              int bit_offset, UnpackFunc<Int> unpack) {
-  const auto num_bytes = GetNumBytes(num_values, bit_width, bit_offset);
-
-  const auto unpacked = UnpackValues(packed, num_values, bit_width, bit_offset, unpack);
-  EXPECT_EQ(unpacked.size(), num_values);
-  const auto roundtrip = PackValues(unpacked, num_values, bit_width, bit_offset);
-  EXPECT_EQ(num_bytes, roundtrip.size());
-
-  // Checking all bytes but the first and last (that may not fall aligned)
-  for (int i = 1; i < num_bytes - 1; ++i) {
-    EXPECT_EQ(packed[i], roundtrip[i]) << "differ in position " << i;
-  }
-
-  // Checking last and first byte
-  if (num_bytes >= 1) {
-    // We need to mask the first bits in the packed data that are arbitrary and not used.
-    const auto mask = static_cast<uint8_t>(~((1 << bit_offset) - 1));
-    EXPECT_EQ(packed[0] & mask, roundtrip[0] & mask) << "differ in position " << 0;
-
-    const int i = num_bytes - 1;
-    const int last_bits_cnt = (num_values * bit_width + bit_offset) % 8;
-
-    if (last_bits_cnt == 0) {
-      // Properly aligned, this is the same check as before
-      EXPECT_EQ(packed[i], roundtrip[i]) << "differ in position " << i;
-    } else {
-      // We need to mask the last bits in the packed data that are arbitrary and not used.
-      const auto mask = static_cast<uint8_t>((1 << last_bits_cnt) - 1);
-      EXPECT_EQ(packed[i] & mask, roundtrip[i] & mask) << "differ in position " << i;
-    }
-  }
-}
-
 class TestUnpack : public ::testing::TestWithParam<int> {
  protected:
   template <typename Int>
   void TestRoundtripAlignment(UnpackFunc<Int> unpack, int num_values, int bit_width,
                               int bit_offset) {
-    const auto packed = GenerateRandomPackedValues(num_values, bit_width, bit_offset);
-    CheckUnpackPackRoundtrip(packed.data(), num_values, bit_width, bit_offset, unpack);
+    const auto original = GenerateRandomValuesForPacking<Int>(num_values, bit_width);
+    const auto packed = PackValues(original, num_values, bit_width, bit_offset);
+    const auto unpacked =
+        UnpackValues(packed.data(), num_values, bit_width, bit_offset, unpack);
+    EXPECT_EQ(unpacked.size(), num_values);
+    EXPECT_EQ(original, unpacked);
   }
 
   template <typename Int>
