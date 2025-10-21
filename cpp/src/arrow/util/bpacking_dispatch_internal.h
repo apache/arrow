@@ -80,8 +80,8 @@ using SpreadBufferUint = std::conditional_t<
 
 /// Unpack integers.
 /// This function works for all input batch sizes but is not the fastest.
-template <int kPackedBitWidth, typename Uint>
-int unpack_epilog(const uint8_t* in, Uint* out, int batch_size) {
+template <int kPackedBitWidth, bool kBreakWhenAligned, typename Uint>
+int unpack_exact(const uint8_t* in, Uint* out, int batch_size, int bit_offset = 0) {
   constexpr int kMaxSpreadBytes = PackedMaxSpreadBytes(kPackedBitWidth);
   using buffer_uint = SpreadBufferUint<kMaxSpreadBytes>;
   constexpr int kBufferSize = sizeof(buffer_uint);
@@ -92,9 +92,13 @@ int unpack_epilog(const uint8_t* in, Uint* out, int batch_size) {
   constexpr buffer_uint kLowMask =
       bit_util::LeastSignificantBitMaskInc<buffer_uint>(kPackedBitWidth);
 
+  ARROW_DCHECK_GE(bit_offset, 0);
+  ARROW_DCHECK_LE(bit_offset, 8);
+
   // Looping over values one by one
-  for (int k = 0; k < batch_size; ++k) {
-    const int start_bit = k * kPackedBitWidth;
+  const int start_bit_term = batch_size * kPackedBitWidth + bit_offset;
+  int start_bit = bit_offset;
+  while ((start_bit < start_bit_term) && (!kBreakWhenAligned || (start_bit % 8 != 0))) {
     const int start_byte = start_bit / 8;
     const int spread_bytes = ((start_bit + kPackedBitWidth - 1) / 8) - start_byte + 1;
     ARROW_COMPILER_ASSUME(spread_bytes <= kMaxSpreadBytes);
@@ -127,7 +131,9 @@ int unpack_epilog(const uint8_t* in, Uint* out, int batch_size) {
       }
     }
 
-    out[k] = val;
+    *out = val;
+    out++;
+    start_bit += kPackedBitWidth;
   }
 
   return batch_size;
@@ -154,7 +160,8 @@ void unpack_width(const uint8_t* in, UnpackedUInt* out, int batch_size) {
   const auto epilog_size = batch_size - num_loops * kValuesUnpacked;
   ARROW_COMPILER_ASSUME(epilog_size < kValuesUnpacked);
   ARROW_COMPILER_ASSUME(epilog_size >= 0);
-  unpack_epilog<kPackedBitWidth>(in, out + num_loops * kValuesUnpacked, epilog_size);
+  unpack_exact<kPackedBitWidth, false>(in, out + num_loops * kValuesUnpacked, epilog_size,
+                                       0);
 }
 
 template <template <typename, int> typename Unpacker, typename UnpackedUint>
