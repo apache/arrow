@@ -24,31 +24,31 @@
 namespace arrow::internal {
 
 template <typename Uint>
-ARROW_EXPORT int unpack_scalar(const uint8_t* in, Uint* out, int batch_size,
-                               int num_bits);
+ARROW_EXPORT void unpack_scalar(const uint8_t* in, Uint* out, int batch_size,
+                                int num_bits);
 
-extern template ARROW_TEMPLATE_EXPORT int unpack_scalar<bool>(const uint8_t* in,
-                                                              bool* out, int batch_size,
-                                                              int num_bits);
+extern template ARROW_TEMPLATE_EXPORT void unpack_scalar<bool>(const uint8_t* in,
+                                                               bool* out, int batch_size,
+                                                               int num_bits);
 
-extern template ARROW_TEMPLATE_EXPORT int unpack_scalar<uint8_t>(const uint8_t* in,
-                                                                 uint8_t* out,
-                                                                 int batch_size,
-                                                                 int num_bits);
-
-extern template ARROW_TEMPLATE_EXPORT int unpack_scalar<uint16_t>(const uint8_t* in,
-                                                                  uint16_t* out,
+extern template ARROW_TEMPLATE_EXPORT void unpack_scalar<uint8_t>(const uint8_t* in,
+                                                                  uint8_t* out,
                                                                   int batch_size,
                                                                   int num_bits);
 
-extern template ARROW_TEMPLATE_EXPORT int unpack_scalar<uint32_t>(const uint8_t* in,
-                                                                  uint32_t* out,
-                                                                  int batch_size,
-                                                                  int num_bits);
+extern template ARROW_TEMPLATE_EXPORT void unpack_scalar<uint16_t>(const uint8_t* in,
+                                                                   uint16_t* out,
+                                                                   int batch_size,
+                                                                   int num_bits);
 
-extern template ARROW_TEMPLATE_EXPORT int unpack_scalar<uint64_t>(const uint8_t* in,
-                                                                  uint64_t* out,
-                                                                  int batch_size,
-                                                                  int num_bits);
+extern template ARROW_TEMPLATE_EXPORT void unpack_scalar<uint32_t>(const uint8_t* in,
+                                                                   uint32_t* out,
+                                                                   int batch_size,
+                                                                   int num_bits);
+
+extern template ARROW_TEMPLATE_EXPORT void unpack_scalar<uint64_t>(const uint8_t* in,
+                                                                   uint64_t* out,
+                                                                   int batch_size,
+                                                                   int num_bits);
 
 }  // namespace arrow::internal

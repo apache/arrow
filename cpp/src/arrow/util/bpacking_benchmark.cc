@@ -33,7 +33,7 @@ namespace arrow::internal {
 namespace {
 
 template <typename Int>
-using UnpackFunc = int (*)(const uint8_t*, Int*, int, int);
+using UnpackFunc = void (*)(const uint8_t*, Int*, int, int);
 
 /// Get the number of bytes associate with a packing.
 constexpr int32_t GetNumBytes(int32_t num_values, int32_t bit_width) {

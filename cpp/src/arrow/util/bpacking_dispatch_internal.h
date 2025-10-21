@@ -31,15 +31,14 @@ namespace arrow::internal {
 
 /// Unpack a zero bit packed array.
 template <typename Uint>
-int unpack_null(const uint8_t* in, Uint* out, int batch_size) {
+void unpack_null(const uint8_t* in, Uint* out, int batch_size) {
   std::memset(out, 0, batch_size * sizeof(Uint));
-  return batch_size;
 }
 
 /// Unpack a packed array where packed and unpacked values have exactly the same number of
 /// bits.
 template <typename Uint>
-int unpack_full(const uint8_t* in, Uint* out, int batch_size) {
+void unpack_full(const uint8_t* in, Uint* out, int batch_size) {
   if constexpr (ARROW_LITTLE_ENDIAN == 1) {
     std::memcpy(out, in, batch_size * sizeof(Uint));
   } else {
@@ -50,7 +49,6 @@ int unpack_full(const uint8_t* in, Uint* out, int batch_size) {
       out[k] = FromLittleEndian(SafeLoadAs<Uint>(in + (k * sizeof(Uint))));
     }
   }
-  return batch_size;
 }
 
 /// Compute the maximum spread in bytes that a packed integer can cover.
@@ -144,7 +142,7 @@ int unpack_epilog(const uint8_t* in, Uint* out, int batch_size) {
 /// @tparam UnpackedUInt The type in which we unpack the values.
 template <int kPackedBitWidth, template <typename, int> typename Unpacker,
           typename UnpackedUInt>
-int unpack_width(const uint8_t* in, UnpackedUInt* out, int batch_size) {
+void unpack_width(const uint8_t* in, UnpackedUInt* out, int batch_size) {
   using UnpackerForWidth = Unpacker<UnpackedUInt, kPackedBitWidth>;
   constexpr auto kValuesUnpacked = UnpackerForWidth::kValuesUnpacked;
 
@@ -157,13 +155,11 @@ int unpack_width(const uint8_t* in, UnpackedUInt* out, int batch_size) {
   ARROW_COMPILER_ASSUME(epilog_size < kValuesUnpacked);
   ARROW_COMPILER_ASSUME(epilog_size >= 0);
   unpack_epilog<kPackedBitWidth>(in, out + num_loops * kValuesUnpacked, epilog_size);
-
-  return batch_size;
 }
 
 template <template <typename, int> typename Unpacker, typename UnpackedUint>
-static int unpack_jump(const uint8_t* in, UnpackedUint* out, int batch_size,
-                       int num_bits) {
+static void unpack_jump(const uint8_t* in, UnpackedUint* out, int batch_size,
+                        int num_bits) {
   if constexpr (std::is_same_v<UnpackedUint, bool>) {
     switch (num_bits) {
       case 0:
@@ -433,6 +429,6 @@ static int unpack_jump(const uint8_t* in, UnpackedUint* out, int batch_size,
     }
   }
   ARROW_DCHECK(false) << "Unsupported num_bits";
-  return 0;
+  return;
 }
 }  // namespace arrow::internal

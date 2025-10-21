@@ -337,9 +337,8 @@ inline int BitReader::GetBatch(int num_bits, T* v, int batch_size) {
 
   using unpack_t = typename internal_bit_reader::unpack_detect<T>::type;
 
-  int num_unpacked = ::arrow::internal::unpack(
-      buffer + byte_offset, reinterpret_cast<unpack_t*>(v + i), batch_size - i, num_bits);
-  ARROW_DCHECK_EQ(batch_size - i, num_unpacked);
+  ::arrow::internal::unpack(buffer + byte_offset, reinterpret_cast<unpack_t*>(v + i),
+                            batch_size - i, num_bits);
 
   this->Advance(batch_size * num_bits);
 
