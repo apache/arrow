@@ -32,7 +32,7 @@ try:
     import pandas as pd
     import pandas.testing as tm
 except ImportError:
-    pass
+    pd = None  # type: ignore[assignment]
 
 
 needs_cffi = pytest.mark.skipif(ffi is None,
