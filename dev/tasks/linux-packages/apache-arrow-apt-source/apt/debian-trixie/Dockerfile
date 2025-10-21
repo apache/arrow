@@ -36,6 +36,7 @@ RUN \
     debhelper \
     devscripts \
     fakeroot \
+    faketime \
     gnupg \
     lsb-release \
     python3-venv && \
