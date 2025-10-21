@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-from collections.abc import Callable, Iterable, Sequence
+from collections.abc import Callable, Iterable, Sequence, Mapping
 from typing import Literal, TypeAlias, TypeVar, overload, Any, ParamSpec
 
 import numpy as np
@@ -110,7 +110,7 @@ from pyarrow._compute import HashAggregateKernel as HashAggregateKernel
 # Udf
 
 from pyarrow._compute import _Order, _Placement
-from pyarrow._stubs_typing import ArrayLike, ScalarLike
+from pyarrow._stubs_typing import ArrayLike, ScalarLike, PyScalar
 from pyarrow._types import _RunEndType
 from . import lib
 
@@ -128,8 +128,7 @@ def field(*name_or_index: str | bytes | tuple[str | int, ...] | int) -> Expressi
 def __ge__(self, other: Any) -> Expression: ...
 
 
-
-def scalar(value: Any) -> Expression: ...
+def scalar(value: PyScalar | lib.Scalar[Any] | Mapping | lib.int64() | None) -> Expression: ...
 
 
 def _clone_signature(f: Callable[_P, _R]) -> Callable[_P, _R]: ...
