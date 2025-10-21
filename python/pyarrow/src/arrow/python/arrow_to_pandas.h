@@ -128,6 +128,9 @@ struct PandasOptions {
   bool decode_dictionaries = false;
 
   // Columns that should be casted to categorical
+  //
+  // This is wrapped in a shared_ptr because this struct is copied internally for
+  // each column or nested field (see GH-47861).
   std::shared_ptr<const std::unordered_set<std::string>> categorical_columns;
 
   // Columns that should be passed through to be converted to
