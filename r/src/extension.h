@@ -52,6 +52,8 @@ class RExtensionType : public arrow::ExtensionType {
 
   std::string Serialize() const { return extension_metadata_; }
 
+  std::string ToString(bool show_metadata = false) const;
+  // wrapper for libarrow < 16
   std::string ToString() const;
 
   cpp11::sexp Convert(const std::shared_ptr<arrow::ChunkedArray>& array) const;

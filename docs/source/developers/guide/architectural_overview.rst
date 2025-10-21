@@ -29,8 +29,8 @@
 Architectural Overview
 **********************
 
-A general overview of Apache Arrow project can be found on the 
-`front page <https://arrow.apache.org/>`_ and in the 
+A general overview of Apache Arrow project can be found on the
+`front page <https://arrow.apache.org/>`_ and in the
 `Apache Arrow Overview <https://arrow.apache.org/overview/>`_.
 You can also have a look at the
 `Frequently Asked Questions <https://arrow.apache.org/faq/>`_.
@@ -45,7 +45,7 @@ refer to:
 R package Architectural Overview
 --------------------------------
 
-.. figure:: /developers/images/R_architectural_overview.png
+.. figure:: ../images/R_architectural_overview.png
    :alt: Main parts of R package architecture: dplyr-*,
          dplyr-funcs*, tools, tests and src/.
 

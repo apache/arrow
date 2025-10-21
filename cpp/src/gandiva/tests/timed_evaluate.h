@@ -90,12 +90,15 @@ Status TimedEvaluate(SchemaPtr schema, BaseEvaluator& evaluator,
   int num_fields = schema->num_fields();
   int num_calls = 0;
   Status status;
+  int64_t total_bytes_processed = 0;
+  int64_t total_items_processed = 0;
 
   // Generate batches of data
   std::shared_ptr<arrow::RecordBatch> batches[NUM_BATCHES];
   for (int i = 0; i < NUM_BATCHES; i++) {
     // generate data for all columns in the schema
     std::vector<ArrayPtr> columns;
+    int64_t batch_bytes = 0;
     for (int col = 0; col < num_fields; col++) {
       std::vector<C_TYPE> data = GenerateData<C_TYPE>(batch_size, data_generator);
       std::vector<bool> validity(batch_size, true);
@@ -103,12 +106,14 @@ Status TimedEvaluate(SchemaPtr schema, BaseEvaluator& evaluator,
           MakeArrowArray<TYPE, C_TYPE>(schema->field(col)->type(), data, validity);
 
       columns.push_back(col_data);
+      batch_bytes += data.size() * sizeof(C_TYPE);
     }
 
     // make the record batch
     std::shared_ptr<arrow::RecordBatch> batch =
         arrow::RecordBatch::Make(schema, batch_size, columns);
     batches[i] = batch;
+    total_bytes_processed += batch_bytes;
   }
 
   for (auto _ : state) {
@@ -127,8 +132,12 @@ Status TimedEvaluate(SchemaPtr schema, BaseEvaluator& evaluator,
 
       num_calls++;
       num_remaining -= num_in_batch;
+      total_items_processed += num_in_batch;
     }
   }
+
+  state.SetBytesProcessed(total_bytes_processed);
+  state.SetItemsProcessed(total_items_processed);
 
   return Status::OK();
 }

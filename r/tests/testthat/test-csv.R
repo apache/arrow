@@ -90,7 +90,7 @@ test_that("read_csv_arrow parsing options: col_names", {
 
   tab1 <- read_csv_arrow(tf, col_names = names(tbl))
 
-  expect_identical(names(tab1), names(tbl))
+  expect_named(tab1, names(tbl))
   expect_equal(tbl, tab1)
 
   # This errors (correctly) because I haven't given enough names
@@ -114,7 +114,7 @@ test_that("read_csv_arrow parsing options: skip", {
 
   tab1 <- read_csv_arrow(tf, skip = 2)
 
-  expect_identical(names(tab1), names(tbl))
+  expect_named(tab1, names(tbl))
   expect_equal(tbl, tab1)
 })
 
@@ -209,10 +209,22 @@ test_that("read_csv_arrow(col_types=string, col_names)", {
   df <- read_csv_arrow(tf, col_names = "int", col_types = "d", skip = 1)
   expect_identical(df, tibble::tibble(int = as.numeric(tbl$int)))
 
-  expect_error(read_csv_arrow(tf, col_types = c("i", "d")))
-  expect_error(read_csv_arrow(tf, col_types = "d"))
-  expect_error(read_csv_arrow(tf, col_types = "i", col_names = c("a", "b")))
-  expect_error(read_csv_arrow(tf, col_types = "y", col_names = "a"))
+  expect_error(
+    read_csv_arrow(tf, col_types = c("i", "d")),
+    "`col_types` must be a character vector of size 1"
+  )
+  expect_error(
+    read_csv_arrow(tf, col_types = "d"),
+    "Compact specification for `col_types` requires `col_names` of matching length"
+  )
+  expect_error(
+    read_csv_arrow(tf, col_types = "i", col_names = c("a", "b")),
+    "Compact specification for `col_types` requires `col_names` of matching length"
+  )
+  expect_error(
+    read_csv_arrow(tf, col_types = "y", col_names = "a"),
+    "Unsupported compact specification: 'y' for column 'a'"
+  )
 })
 
 test_that("read_csv_arrow() can read timestamps", {
@@ -336,7 +348,7 @@ test_that("CSV reader works on files with non-UTF-8 encoding", {
   fs <- LocalFileSystem$create()
   reader <- CsvTableReader$create(
     fs$OpenInputStream(tf),
-    read_options = CsvReadOptions$create(encoding = "UTF-16LE")
+    read_options = csv_read_options(encoding = "UTF-16LE")
   )
 
   table <- reader$Read()
@@ -435,7 +447,7 @@ test_that("Write a CSV with custom NA value", {
 
   # Also can use null_value in CsvWriteOptions
   tbl_out1 <- write_csv_arrow(tbl_no_dates, csv_file,
-    write_options = CsvWriteOptions$create(null_string = "another_null")
+    write_options = csv_write_options(null_string = "another_null")
   )
   csv_contents <- readLines(csv_file)
   expect_true(any(grepl("another_null", csv_contents)))
@@ -591,7 +603,7 @@ test_that("write_csv_arrow can write from RecordBatchReader objects", {
   skip_if_not_available("dataset")
   library(dplyr, warn.conflicts = FALSE)
 
-  query_obj <- arrow_table(tbl_no_dates) %>%
+  query_obj <- arrow_table(tbl_no_dates) |>
     filter(lgl == TRUE)
 
   csv_file <- tempfile()
@@ -680,10 +692,80 @@ test_that("CSV reading/parsing/convert options can be passed in as lists", {
 
   tab2 <- read_csv_arrow(
     tf,
-    convert_options = CsvConvertOptions$create(null_values = c(NA, "NA", "NULL"), strings_can_be_null = TRUE),
-    parse_options = CsvParseOptions$create(ignore_empty_lines = FALSE),
-    read_options = CsvReadOptions$create(skip_rows = 1L)
+    convert_options = csv_convert_options(null_values = c(NA, "NA", "NULL"), strings_can_be_null = TRUE),
+    parse_options = csv_parse_options(ignore_empty_lines = FALSE),
+    read_options = csv_read_options(skip_rows = 1L)
   )
 
   expect_equal(tab1, tab2)
+})
+
+test_that("Read literal data directly", {
+  expected <- tibble::tibble(x = c(1L, 3L), y = c(2L, 4L))
+
+  expect_identical(read_csv_arrow(I("x,y\n1,2\n3,4")), expected)
+  expect_identical(read_csv_arrow(I("x,y\r1,2\r3,4")), expected)
+  expect_identical(read_csv_arrow(I("x,y\n\r1,2\n\r3,4")), expected)
+  expect_identical(read_csv_arrow(charToRaw("x,y\n1,2\n3,4")), expected)
+  expect_identical(read_csv_arrow(I(charToRaw("x,y\n1,2\n3,4"))), expected)
+  expect_identical(read_csv_arrow(I(c("x,y", "1,2", "3,4"))), expected)
+})
+
+test_that("skip_rows and skip_rows_after_names option", {
+  txt_raw <- charToRaw(paste0(c("a", 1:4), collapse = "\n"))
+
+  expect_identical(
+    read_csv_arrow(
+      txt_raw,
+      read_options = list(skip_rows_after_names = 1)
+    ),
+    tibble::tibble(a = 2:4)
+  )
+  expect_identical(
+    read_csv_arrow(
+      txt_raw,
+      read_options = list(skip_rows_after_names = 10)
+    ),
+    tibble::tibble(a = vctrs::unspecified())
+  )
+  expect_identical(
+    read_csv_arrow(
+      txt_raw,
+      read_options = list(skip = 1, skip_rows_after_names = 1)
+    ),
+    tibble::tibble(`1` = 3:4)
+  )
+})
+
+test_that("Can read CSV files from a URL", {
+  skip_if_offline()
+  skip_on_cran()
+  csv_url <- "https://raw.githubusercontent.com/apache/arrow-testing/master/data/csv/aggregate_test_100.csv"
+  cu <- read_csv_arrow(csv_url)
+  expect_true(tibble::is_tibble(cu))
+  expect_identical(dim(cu), c(100L, 13L))
+})
+
+test_that("read_csv2_arrow correctly parses comma decimals", {
+  tf <- tempfile()
+  writeLines("x;y\n1,2;c", con = tf)
+  expect_equal(read_csv2_arrow(tf), tibble(x = 1.2, y = "c"))
+})
+
+test_that("altrep columns can roundtrip to table", {
+  tf <- tempfile()
+  on.exit(unlink(tf))
+  write.csv(tbl, tf, row.names = FALSE)
+
+  # read in, some columns will be altrep by default
+  new_df <- read_csv_arrow(tf)
+  expect_equal(tbl, as_tibble(arrow_table(new_df)))
+
+  # but also if we materialize the vector
+  # this could also be accomplished with printing
+  new_df <- read_csv_arrow(tf)
+  test_arrow_altrep_force_materialize(new_df$chr)
+
+  # we should still be able to turn this into a table
+  expect_equal(tbl, as_tibble(arrow_table(new_df)))
 })

@@ -46,7 +46,8 @@ fs <- S3FileSystem$create(
   scheme = "http",
   endpoint_override = paste0("localhost:", minio_port),
   allow_bucket_creation = TRUE,
-  allow_bucket_deletion = TRUE
+  allow_bucket_deletion = TRUE,
+  check_directory_existence_before_creation = TRUE
 )
 limited_fs <- S3FileSystem$create(
   access_key = minio_key,
@@ -54,7 +55,8 @@ limited_fs <- S3FileSystem$create(
   scheme = "http",
   endpoint_override = paste0("localhost:", minio_port),
   allow_bucket_creation = FALSE,
-  allow_bucket_deletion = FALSE
+  allow_bucket_deletion = FALSE,
+  check_directory_existence_before_creation = FALSE
 )
 now <- as.character(as.numeric(Sys.time()))
 fs$CreateDir(now)
@@ -104,6 +106,24 @@ test_that("S3FileSystem input validation", {
     S3FileSystem$create(external_id = "foo"),
     'Cannot specify "external_id" without providing a role_arn string'
   )
+})
+
+test_that("Confirm s3_bucket works with endpoint_override", {
+  bucket <- s3_bucket(
+    now,
+    access_key = minio_key,
+    secret_key = minio_secret,
+    scheme = "http",
+    endpoint_override = paste0("localhost:", minio_port)
+  )
+
+  expect_r6_class(bucket, "SubTreeFileSystem")
+
+  os <- bucket$OpenOutputStream("bucket-test.csv")
+  write_csv_arrow(example_data, os)
+  os$close()
+  expect_true("bucket-test.csv" %in% bucket$ls())
+  bucket$DeleteFile("bucket-test.csv")
 })
 
 # Cleanup

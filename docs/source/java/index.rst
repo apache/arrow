@@ -15,6 +15,8 @@
 .. specific language governing permissions and limitations
 .. under the License.
 
+.. _java:
+
 Java Implementation
 ===================
 
@@ -37,6 +39,8 @@ on the Arrow format and other language bindings see the :doc:`parent documentati
    flight_sql
    flight_sql_jdbc_driver
    dataset
+   substrait
    cdata
    jdbc
    Reference (javadoc) <reference/index>
+   Java cookbook <https://arrow.apache.org/cookbook/java/>

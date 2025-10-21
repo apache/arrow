@@ -55,7 +55,13 @@ class GANDIVA_EXPORT LLVMTypes {
 
   llvm::Type* double_type() { return llvm::Type::getDoubleTy(context_); }
 
-  llvm::PointerType* ptr_type(llvm::Type* type) { return type->getPointerTo(); }
+  llvm::PointerType* ptr_type(llvm::Type* type) {
+#if LLVM_VERSION_MAJOR >= 21
+    return llvm::PointerType::get(context_, 0);
+#else
+    return llvm::PointerType::get(type, 0);
+#endif
+  }
 
   llvm::PointerType* i8_ptr_type() { return ptr_type(i8_type()); }
 
@@ -97,7 +103,7 @@ class GANDIVA_EXPORT LLVMTypes {
     } else if (type->isFloatingPointTy()) {
       return llvm::ConstantFP::get(type, 0);
     } else {
-      DCHECK(type->isPointerTy());
+      ARROW_DCHECK(type->isPointerTy());
       return llvm::ConstantPointerNull::getNullValue(type);
     }
   }
@@ -115,7 +121,7 @@ class GANDIVA_EXPORT LLVMTypes {
 
   std::vector<arrow::Type::type> GetSupportedArrowTypes() {
     std::vector<arrow::Type::type> retval;
-    for (auto const& element : arrow_id_to_llvm_type_map_) {
+    for (const auto& element : arrow_id_to_llvm_type_map_) {
       retval.push_back(element.first);
     }
     return retval;

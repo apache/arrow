@@ -26,7 +26,7 @@
 
 #include "arrow/array.h"
 #include "arrow/compute/api.h"
-#include "arrow/compute/kernels/test_util.h"
+#include "arrow/compute/kernels/test_util_internal.h"
 #include "arrow/testing/builder.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/matchers.h"
@@ -35,6 +35,7 @@
 #include "arrow/type_traits.h"
 #include "arrow/util/bitmap_reader.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/logging_internal.h"
 
 namespace arrow {
 
@@ -1281,7 +1282,7 @@ using CompareNumericBasedTypes =
     ::testing::Types<UInt8Type, UInt16Type, UInt32Type, UInt64Type, Int8Type, Int16Type,
                      Int32Type, Int64Type, FloatType, DoubleType, Date32Type, Date64Type>;
 using CompareParametricTemporalTypes =
-    ::testing::Types<TimestampType, Time32Type, Time64Type>;
+    ::testing::Types<TimestampType, Time32Type, Time64Type, DurationType>;
 using CompareFixedSizeBinaryTypes = ::testing::Types<FixedSizeBinaryType>;
 
 TYPED_TEST_SUITE(TestVarArgsCompareNumeric, CompareNumericBasedTypes);
@@ -2121,6 +2122,11 @@ TEST(TestMaxElementWiseMinElementWise, CommonTemporal) {
                   ScalarFromJSON(date64(), "172800000"),
               }),
               ResultWith(ScalarFromJSON(date64(), "86400000")));
+  EXPECT_THAT(MinElementWise({
+                  ScalarFromJSON(duration(TimeUnit::SECOND), "1"),
+                  ScalarFromJSON(duration(TimeUnit::MILLI), "12000"),
+              }),
+              ResultWith(ScalarFromJSON(duration(TimeUnit::MILLI), "1000")));
 }
 
 }  // namespace compute

@@ -21,15 +21,17 @@ set -eu
 
 declare -A platforms
 platforms=([windows]=Windows
-           [macos]=MacOSX
+           [macos]=macOS
            [linux]=Linux)
 
 declare -A versions
-versions=([3.7]=3.7.9
-          [3.8]=3.8.10
-          [3.9]=3.9.13
-          [3.10]=3.10.8
-          [3.11]=3.11.0)
+versions=([3.10]=3.10.11
+          [3.11]=3.11.9
+          [3.12]=3.12.10
+          [3.13]=3.13.7
+          [3.13t]=3.13.7
+          [3.14]=3.14.0
+          [3.14t]=3.14.0)
 
 if [ "$#" -ne 2 ]; then
   echo "Usage: $0 <platform> <version>"
@@ -43,26 +45,50 @@ platform=${platforms[$1]}
 version=$2
 full_version=${versions[$2]}
 
-if [ $platform = "MacOSX" ]; then
+if [ "$platform" = "macOS" ]; then
     echo "Downloading Python installer..."
 
-    if [ "$(uname -m)" = "arm64" ] || [ "$version" = "3.10" ] || [ "$version" = "3.11" ]; then
-        fname="python-${full_version}-macos11.pkg"
-    else
-        fname="python-${full_version}-macosx10.9.pkg"
-    fi
+    fname="python-${full_version}-macos11.pkg"
     wget "https://www.python.org/ftp/python/${full_version}/${fname}"
 
     echo "Installing Python..."
-    installer -pkg $fname -target /
-    rm $fname
+    if [[ $2 == "3.13t" ]] || [[ $2 == "3.14t" ]]; then
+        # Extract the base version without 't' suffix
+        base_version="${version%t}"
+        # See https://github.com/python/cpython/issues/120098#issuecomment-2151122033 for more info on this.
+        cat > ./choicechanges.plist <<EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<array>
+        <dict>
+                <key>attributeSetting</key>
+                <integer>1</integer>
+                <key>choiceAttribute</key>
+                <string>selected</string>
+                <key>choiceIdentifier</key>
+                <string>org.python.Python.PythonTFramework-${base_version}</string>
+        </dict>
+</array>
+</plist>
+EOF
+        installer -pkg "$fname" -applyChoiceChangesXML ./choicechanges.plist -target /
+        rm ./choicechanges.plist
+    else
+        installer -pkg "$fname" -target /
+    fi
+    rm "$fname"
+
+    python="/Library/Frameworks/Python.framework/Versions/${version}/bin/python${version}"
+    if [[ $2 == "3.13t" ]] || [[ $2 == "3.14t" ]]; then
+        base_version="${version%t}"
+        python="/Library/Frameworks/PythonT.framework/Versions/${base_version}/bin/python${base_version}t"
+    fi
 
     echo "Installing Pip..."
-    python="/Library/Frameworks/Python.framework/Versions/${version}/bin/python${version}"
-    pip="${python} -m pip"
-
     $python -m ensurepip
-    $pip install -U pip setuptools
+    $python -m pip install -U pip setuptools
 else
     echo "Unsupported platform: $platform"
+    exit 1
 fi

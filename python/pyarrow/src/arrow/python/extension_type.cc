@@ -19,11 +19,11 @@
 #include <sstream>
 #include <utility>
 
-#include "arrow/util/checked_cast.h"
-#include "arrow/util/logging.h"
 #include "arrow/python/extension_type.h"
 #include "arrow/python/helpers.h"
 #include "arrow/python/pyarrow.h"
+#include "arrow/util/checked_cast.h"
+#include "arrow/util/logging.h"
 
 namespace arrow {
 
@@ -72,7 +72,7 @@ PyObject* DeserializeExtInstance(PyObject* type_class,
 
 static const char* kExtensionName = "arrow.py_extension_type";
 
-std::string PyExtensionType::ToString() const {
+std::string PyExtensionType::ToString(bool show_metadata) const {
   PyAcquireGIL lock;
 
   std::stringstream ss;
@@ -135,12 +135,12 @@ error:
 }
 
 std::shared_ptr<Array> PyExtensionType::MakeArray(std::shared_ptr<ArrayData> data) const {
-  DCHECK_EQ(data->type->id(), Type::EXTENSION);
+  ARROW_DCHECK_EQ(data->type->id(), Type::EXTENSION);
   return std::make_shared<ExtensionArray>(data);
 }
 
 std::string PyExtensionType::Serialize() const {
-  DCHECK(type_instance_);
+  ARROW_DCHECK(type_instance_);
   return serialized_;
 }
 
@@ -163,7 +163,7 @@ PyObject* PyExtensionType::GetInstance() const {
     PyErr_SetString(PyExc_TypeError, "Not an instance");
     return nullptr;
   }
-  DCHECK(PyWeakref_CheckRef(type_instance_.obj()));
+  ARROW_DCHECK(PyWeakref_CheckRef(type_instance_.obj()));
   PyObject* inst = PyWeakref_GET_OBJECT(type_instance_.obj());
   if (inst != Py_None) {
     // Cached instance still alive
@@ -202,7 +202,7 @@ Status PyExtensionType::FromClass(const std::shared_ptr<DataType> storage_type,
 }
 
 Status RegisterPyExtensionType(const std::shared_ptr<DataType>& type) {
-  DCHECK_EQ(type->id(), Type::EXTENSION);
+  ARROW_DCHECK_EQ(type->id(), Type::EXTENSION);
   auto ext_type = std::dynamic_pointer_cast<ExtensionType>(type);
   return RegisterExtensionType(ext_type);
 }

@@ -15,7 +15,9 @@
 #include <cassert>
 #include <cstdlib>
 #include <iostream>
-#include <sstream>
+#ifdef ARROW_EXTRA_ERROR_CONTEXT
+#  include <sstream>
+#endif
 
 #include "arrow/util/logging.h"
 
@@ -26,18 +28,19 @@ Status::Status(StatusCode code, const std::string& msg)
 
 Status::Status(StatusCode code, std::string msg, std::shared_ptr<StatusDetail> detail) {
   ARROW_CHECK_NE(code, StatusCode::OK) << "Cannot construct ok status with message";
-  state_ = new State;
-  state_->code = code;
-  state_->msg = std::move(msg);
-  if (detail != nullptr) {
-    state_->detail = std::move(detail);
-  }
+  state_ = new State{code, /*is_constant=*/false, std::move(msg), std::move(detail)};
 }
 
 void Status::CopyFrom(const Status& s) {
-  delete state_;
+  if (ARROW_PREDICT_FALSE(state_ != NULL)) {
+    if (!state_->is_constant) {
+      DeleteState();
+    }
+  }
   if (s.state_ == nullptr) {
     state_ = nullptr;
+  } else if (s.state_->is_constant) {
+    state_ = s.state_;
   } else {
     state_ = new State(*s.state_);
   }
@@ -120,6 +123,34 @@ std::string Status::ToString() const {
   return result;
 }
 
+std::string Status::ToStringWithoutContextLines() const {
+  auto message = ToString();
+#ifdef ARROW_EXTRA_ERROR_CONTEXT
+  while (true) {
+    auto last_new_line_position = message.rfind("\n");
+    if (last_new_line_position == std::string::npos) {
+      break;
+    }
+    // TODO: We may want to check /:\d+ /
+    if (message.find(":", last_new_line_position) == std::string::npos) {
+      break;
+    }
+    message = message.substr(0, last_new_line_position);
+  }
+#endif
+  return message;
+}
+
+const std::string& Status::message() const {
+  static const std::string no_message = "";
+  return ok() ? no_message : state_->msg;
+}
+
+const std::shared_ptr<StatusDetail>& Status::detail() const {
+  static std::shared_ptr<StatusDetail> no_detail = NULLPTR;
+  return state_ ? state_->detail : no_detail;
+}
+
 void Status::Abort() const { Abort(std::string()); }
 
 void Status::Abort(const std::string& message) const {
@@ -142,6 +173,10 @@ void Status::AddContextLine(const char* filename, int line, const char* expr) {
   ARROW_CHECK(!ok()) << "Cannot add context line to ok status";
   std::stringstream ss;
   ss << "\n" << filename << ":" << line << "  " << expr;
+  if (state_->is_constant) {
+    // We can't add context lines to a StatusConstant's state, so copy it now
+    state_ = new State{code(), /*is_constant=*/false, message(), detail()};
+  }
   state_->msg += ss.str();
 }
 #endif

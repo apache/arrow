@@ -21,9 +21,9 @@
 #include <vector>
 
 #include "arrow/util/base64.h"
+#include "arrow/util/secure_string.h"
 
-namespace parquet {
-namespace encryption {
+namespace parquet::encryption {
 
 // In the double wrapping mode, each "data encryption key" (DEK) is encrypted with a “key
 // encryption key” (KEK), that in turn is encrypted with a "master encryption key" (MEK).
@@ -33,14 +33,14 @@ namespace encryption {
 // locally, and does not involve an interaction with a KMS server.
 class KeyEncryptionKey {
  public:
-  KeyEncryptionKey(std::string kek_bytes, std::string kek_id,
+  KeyEncryptionKey(::arrow::util::SecureString kek_bytes, std::string kek_id,
                    std::string encoded_wrapped_kek)
       : kek_bytes_(std::move(kek_bytes)),
         kek_id_(std::move(kek_id)),
         encoded_kek_id_(::arrow::util::base64_encode(kek_id_)),
         encoded_wrapped_kek_(std::move(encoded_wrapped_kek)) {}
 
-  const std::string& kek_bytes() const { return kek_bytes_; }
+  const ::arrow::util::SecureString& kek_bytes() const { return kek_bytes_; }
 
   const std::string& kek_id() const { return kek_id_; }
 
@@ -49,11 +49,10 @@ class KeyEncryptionKey {
   const std::string& encoded_wrapped_kek() const { return encoded_wrapped_kek_; }
 
  private:
-  std::string kek_bytes_;
+  ::arrow::util::SecureString kek_bytes_;
   std::string kek_id_;
   std::string encoded_kek_id_;
   std::string encoded_wrapped_kek_;
 };
 
-}  // namespace encryption
-}  // namespace parquet
+}  // namespace parquet::encryption

@@ -55,18 +55,28 @@ class ARROW_EXPORT Array {
   virtual ~Array() = default;
 
   /// \brief Return true if value at index is null. Does not boundscheck
-  bool IsNull(int64_t i) const {
-    return null_bitmap_data_ != NULLPTR
-               ? !bit_util::GetBit(null_bitmap_data_, i + data_->offset)
-               : data_->null_count == data_->length;
-  }
+  bool IsNull(int64_t i) const { return !IsValid(i); }
 
   /// \brief Return true if value at index is valid (not null). Does not
   /// boundscheck
   bool IsValid(int64_t i) const {
-    return null_bitmap_data_ != NULLPTR
-               ? bit_util::GetBit(null_bitmap_data_, i + data_->offset)
-               : data_->null_count != data_->length;
+    if (null_bitmap_data_ != NULLPTR) {
+      return bit_util::GetBit(null_bitmap_data_, i + data_->offset);
+    }
+    // Dispatching with a few conditionals like this makes IsNull more
+    // efficient for how it is used in practice. Making IsNull virtual
+    // would add a vtable lookup to every call and prevent inlining +
+    // a potential inner-branch removal.
+    if (type_id() == Type::SPARSE_UNION) {
+      return !internal::IsNullSparseUnion(*data_, i);
+    }
+    if (type_id() == Type::DENSE_UNION) {
+      return !internal::IsNullDenseUnion(*data_, i);
+    }
+    if (type_id() == Type::RUN_END_ENCODED) {
+      return !internal::IsNullRunEndEncoded(*data_, i);
+    }
+    return data_->null_count != data_->length;
   }
 
   /// \brief Return a Scalar containing the value of this array at i
@@ -85,7 +95,18 @@ class ARROW_EXPORT Array {
   /// function
   int64_t null_count() const;
 
-  std::shared_ptr<DataType> type() const { return data_->type; }
+  /// \brief Computes the logical null count for arrays of all types including
+  /// those that do not have a validity bitmap like union and run-end encoded
+  /// arrays
+  ///
+  /// If the array has a validity bitmap, this function behaves the same as
+  /// null_count(). For types that have no validity bitmap, this function will
+  /// recompute the null count every time it is called.
+  ///
+  /// \see GetNullCount
+  int64_t ComputeLogicalNullCount() const;
+
+  const std::shared_ptr<DataType>& type() const { return data_->type; }
   Type::type type_id() const { return data_->type->id(); }
 
   /// Buffer for the validity (null) bitmap, if any. Note that Union types
@@ -102,6 +123,8 @@ class ARROW_EXPORT Array {
   const uint8_t* null_bitmap_data() const { return null_bitmap_data_; }
 
   /// Equality comparison with another array
+  ///
+  /// Note that arrow::ArrayStatistics is not included in the comparison.
   bool Equals(const Array& arr, const EqualOptions& = EqualOptions::Defaults()) const;
   bool Equals(const std::shared_ptr<Array>& arr,
               const EqualOptions& = EqualOptions::Defaults()) const;
@@ -113,6 +136,8 @@ class ARROW_EXPORT Array {
   /// Approximate equality comparison with another array
   ///
   /// epsilon is only used if this is FloatArray or DoubleArray
+  ///
+  /// Note that arrow::ArrayStatistics is not included in the comparison.
   bool ApproxEquals(const std::shared_ptr<Array>& arr,
                     const EqualOptions& = EqualOptions::Defaults()) const;
   bool ApproxEquals(const Array& arr,
@@ -120,6 +145,8 @@ class ARROW_EXPORT Array {
 
   /// Compare if the range of slots specified are equal for the given array and
   /// this array.  end_idx exclusive.  This methods does not bounds check.
+  ///
+  /// Note that arrow::ArrayStatistics is not included in the comparison.
   bool RangeEquals(int64_t start_idx, int64_t end_idx, int64_t other_start_idx,
                    const Array& other,
                    const EqualOptions& = EqualOptions::Defaults()) const;
@@ -143,6 +170,22 @@ class ARROW_EXPORT Array {
   /// the same item sizes, even though the logical types may be different.
   /// An error is returned if the types are not layout-compatible.
   Result<std::shared_ptr<Array>> View(const std::shared_ptr<DataType>& type) const;
+
+  /// \brief Construct a copy of the array with all buffers on destination
+  /// Memory Manager
+  ///
+  /// This method recursively copies the array's buffers and those of its children
+  /// onto the destination MemoryManager device and returns the new Array.
+  Result<std::shared_ptr<Array>> CopyTo(const std::shared_ptr<MemoryManager>& to) const;
+
+  /// \brief Construct a new array attempting to zero-copy view if possible.
+  ///
+  /// Like CopyTo this method recursively goes through all of the array's buffers
+  /// and those of it's children and first attempts to create zero-copy
+  /// views on the destination MemoryManager device. If it can't, it falls back
+  /// to performing a copy. See Buffer::ViewOrCopy.
+  Result<std::shared_ptr<Array>> ViewOrCopyTo(
+      const std::shared_ptr<MemoryManager>& to) const;
 
   /// Construct a zero-copy slice of the array with the indicated offset and
   /// length
@@ -187,6 +230,22 @@ class ARROW_EXPORT Array {
   /// \return Status
   Status ValidateFull() const;
 
+  /// \brief Return the device_type that this array's data is allocated on
+  ///
+  /// This just delegates to calling device_type on the underlying ArrayData
+  /// object which backs this Array.
+  ///
+  /// \return DeviceAllocationType
+  DeviceAllocationType device_type() const { return data_->device_type(); }
+
+  /// \brief Return the statistics of this Array
+  ///
+  /// This just delegates to calling statistics on the underlying ArrayData
+  /// object which backs this Array.
+  ///
+  /// \return const std::shared_ptr<ArrayStatistics>&
+  const std::shared_ptr<ArrayStatistics>& statistics() const { return data_->statistics; }
+
  protected:
   Array() = default;
   ARROW_DEFAULT_MOVE_AND_ASSIGN(Array);
@@ -206,9 +265,9 @@ class ARROW_EXPORT Array {
 
  private:
   ARROW_DISALLOW_COPY_AND_ASSIGN(Array);
-
-  ARROW_FRIEND_EXPORT friend void PrintTo(const Array& x, std::ostream* os);
 };
+
+ARROW_EXPORT void PrintTo(const Array& x, std::ostream* os);
 
 static inline std::ostream& operator<<(std::ostream& os, const Array& x) {
   os << x.ToString();
@@ -224,15 +283,15 @@ class ARROW_EXPORT FlatArray : public Array {
 /// Base class for arrays of fixed-size logical types
 class ARROW_EXPORT PrimitiveArray : public FlatArray {
  public:
+  /// Does not account for any slice offset
+  const std::shared_ptr<Buffer>& values() const { return data_->buffers[1]; }
+
+ protected:
   PrimitiveArray(const std::shared_ptr<DataType>& type, int64_t length,
                  const std::shared_ptr<Buffer>& data,
                  const std::shared_ptr<Buffer>& null_bitmap = NULLPTR,
                  int64_t null_count = kUnknownNullCount, int64_t offset = 0);
 
-  /// Does not account for any slice offset
-  std::shared_ptr<Buffer> values() const { return data_->buffers[1]; }
-
- protected:
   PrimitiveArray() : raw_values_(NULLPTR) {}
 
   void SetData(const std::shared_ptr<ArrayData>& data) {

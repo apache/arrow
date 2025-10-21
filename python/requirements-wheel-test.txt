@@ -1,32 +1,21 @@
 cffi
 cython
 hypothesis
-pickle5; platform_system != "Windows" and python_version < "3.8"
+packaging
 pytest
-pytest-lazy-fixture
 pytz
+pyuwsgi; sys.platform != 'win32' and python_version < '3.13'
+requests; sys_platform == 'win32'
 tzdata; sys_platform == 'win32'
 
-numpy==1.19.5; platform_system == "Linux"   and platform_machine == "aarch64" and python_version <  "3.7"
-numpy==1.21.3; platform_system == "Linux"   and platform_machine == "aarch64" and python_version >= "3.7" and python_version < "3.11"
-numpy==1.23.4; platform_system == "Linux"   and platform_machine == "aarch64" and python_version >= "3.11"
-numpy==1.19.5; platform_system == "Linux"   and platform_machine != "aarch64" and python_version <  "3.9"
-numpy==1.21.3; platform_system == "Linux"   and platform_machine != "aarch64" and python_version >= "3.9" and python_version < "3.11"
-numpy==1.23.4; platform_system == "Linux"   and platform_machine != "aarch64" and python_version >= "3.11"
-numpy==1.21.3; platform_system == "Darwin"  and platform_machine == "arm64"   and python_version <  "3.11"
-numpy==1.23.4; platform_system == "Darwin"  and platform_machine == "arm64"   and python_version >= "3.11"
-numpy==1.19.5; platform_system == "Darwin"  and platform_machine != "arm64"   and python_version <  "3.9"
-numpy==1.21.3; platform_system == "Darwin"  and platform_machine != "arm64"   and python_version >= "3.9" and python_version < "3.11"
-numpy==1.23.4; platform_system == "Darwin"  and platform_machine != "arm64"   and python_version >= "3.11"
-numpy==1.19.5; platform_system == "Windows"                                   and python_version <  "3.9"
-numpy==1.21.3; platform_system == "Windows"                                   and python_version >= "3.9" and python_version < "3.11"
-numpy==1.23.4; platform_system == "Windows"                                   and python_version >= "3.11"
+# We generally test with the oldest numpy version that supports a given Python
+# version. However, there is no need to make this strictly the oldest version,
+# so it can be broadened to have a single version specification across platforms.
+# (`~=x.y.z` specifies a compatible release as `>=x.y.z, == x.y.*`)
+numpy~=1.21.3; python_version < "3.11"
+numpy~=1.23.2; python_version == "3.11"
+numpy~=1.26.0; python_version == "3.12"
+numpy~=2.1.0; python_version == "3.13"
+numpy~=2.3.3; python_version >= "3.14"
 
-pandas<1.1.0;  platform_system == "Linux"   and platform_machine != "aarch64" and python_version <  "3.8"
-pandas;        platform_system == "Linux"   and platform_machine != "aarch64" and python_version >= "3.8"
-pandas;        platform_system == "Linux"   and platform_machine == "aarch64"
-pandas<1.1.0;  platform_system == "Darwin"  and platform_machine != "arm64"   and python_version <  "3.8"
-pandas;        platform_system == "Darwin"  and platform_machine != "arm64"   and python_version >= "3.8"
-pandas;        platform_system == "Darwin"  and platform_machine == "arm64"
-pandas<1.1.0;  platform_system == "Windows"                                   and python_version <  "3.8"
-pandas;        platform_system == "Windows"                                   and python_version >= "3.8"
+pandas

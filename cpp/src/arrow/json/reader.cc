@@ -33,7 +33,7 @@
 #include "arrow/util/async_generator.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/iterator.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/task_group.h"
 #include "arrow/util/thread_pool.h"
 
@@ -317,7 +317,8 @@ class DecodingOperator {
 
     std::shared_ptr<ChunkedArray> chunked;
     RETURN_NOT_OK(builder->Finish(&chunked));
-    ARROW_ASSIGN_OR_RAISE(auto batch, RecordBatch::FromStructArray(chunked->chunk(0)));
+    ARROW_ASSIGN_OR_RAISE(
+        auto batch, RecordBatch::FromStructArray(chunked->chunk(0), context_->pool()));
 
     return DecodedBlock{std::move(batch), num_bytes};
   }
@@ -552,7 +553,7 @@ Result<std::shared_ptr<RecordBatch>> ParseOne(ParseOptions options,
   std::shared_ptr<ChunkedArray> converted_chunked;
   RETURN_NOT_OK(builder->Finish(&converted_chunked));
 
-  return RecordBatch::FromStructArray(converted_chunked->chunk(0));
+  return RecordBatch::FromStructArray(converted_chunked->chunk(0), context.pool());
 }
 
 }  // namespace json

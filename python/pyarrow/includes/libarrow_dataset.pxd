@@ -22,6 +22,7 @@ from libcpp cimport bool as c_bool
 
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
+from pyarrow.includes.libarrow_acero cimport *
 from pyarrow.includes.libarrow_fs cimport *
 
 
@@ -47,10 +48,11 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         shared_ptr[CSchema] dataset_schema
         shared_ptr[CSchema] projected_schema
         c_bool use_threads
+        c_bool cache_metadata
         CExpression filter
 
     cdef cppclass CScanNodeOptions "arrow::dataset::ScanNodeOptions"(CExecNodeOptions):
-        CScanNodeOptions(shared_ptr[CDataset] dataset, shared_ptr[CScanOptions] scan_options)
+        CScanNodeOptions(shared_ptr[CDataset] dataset, shared_ptr[CScanOptions] scan_options, bint require_sequenced_output, bint implicit_ordering)
 
         shared_ptr[CScanOptions] scan_options
 
@@ -114,6 +116,7 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         CStatus Project(vector[CExpression]& exprs, vector[c_string]& columns)
         CStatus Filter(CExpression filter)
         CStatus UseThreads(c_bool use_threads)
+        CStatus CacheMetadata(c_bool cache_metadata)
         CStatus Pool(CMemoryPool* pool)
         CStatus BatchSize(int64_t batch_size)
         CStatus BatchReadahead(int32_t batch_readahead)
@@ -153,6 +156,7 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
 
     cdef cppclass CInspectOptions "arrow::dataset::InspectOptions":
         int fragments
+        CField.CMergeOptions field_merge_options
 
     cdef cppclass CFinishOptions "arrow::dataset::FinishOptions":
         shared_ptr[CSchema] schema
@@ -177,6 +181,8 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         const c_string& path() const
         const shared_ptr[CFileSystem]& filesystem() const
         const shared_ptr[CBuffer]& buffer() const
+        const int64_t size() const
+        CResult[shared_ptr[CRandomAccessFile]] Open() const
         # HACK: Cython can't handle all the overloads so don't declare them.
         # This means invalid construction of CFileSource won't be caught in
         # the C++ generation phase (though it will still be caught when
@@ -217,6 +223,7 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         shared_ptr[CFileSystem] filesystem
         c_string base_dir
         shared_ptr[CPartitioning] partitioning
+        c_bool preserve_order
         int max_partitions
         c_string basename_template
         function[cb_writer_finish_internal] writer_pre_finish
@@ -276,17 +283,30 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         CCSVReadOptions read_options
         function[StreamWrapFunc] stream_transform_func
 
+    cdef cppclass CJsonFileFormat "arrow::dataset::JsonFileFormat"(CFileFormat):
+        pass
+
+    cdef cppclass CJsonFragmentScanOptions "arrow::dataset::JsonFragmentScanOptions"(CFragmentScanOptions):
+        CJSONParseOptions parse_options
+        CJSONReadOptions read_options
+
+    cdef struct CPartitionPathFormat "arrow::dataset::PartitionPathFormat":
+        c_string directory
+        c_string filename
+
     cdef cppclass CPartitioning "arrow::dataset::Partitioning":
         c_string type_name() const
         CResult[CExpression] Parse(const c_string & path) const
+        CResult[CPartitionPathFormat] Format(const CExpression & expr) const
         const shared_ptr[CSchema] & schema()
+        c_bool Equals(const CPartitioning& other) const
 
     cdef cppclass CSegmentEncoding" arrow::dataset::SegmentEncoding":
-        pass
+        bint operator==(CSegmentEncoding)
 
-    CSegmentEncoding CSegmentEncodingNone\
+    CSegmentEncoding CSegmentEncoding_None\
         " arrow::dataset::SegmentEncoding::None"
-    CSegmentEncoding CSegmentEncodingUri\
+    CSegmentEncoding CSegmentEncoding_Uri\
         " arrow::dataset::SegmentEncoding::Uri"
 
     cdef cppclass CKeyValuePartitioningOptions \
@@ -321,6 +341,7 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
                               CKeyValuePartitioningOptions options)
 
         vector[shared_ptr[CArray]] dictionaries() const
+        CSegmentEncoding segment_encoding()
 
     cdef cppclass CDirectoryPartitioning \
             "arrow::dataset::DirectoryPartitioning"(CPartitioning):
@@ -344,6 +365,7 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
             CHivePartitioningFactoryOptions)
 
         vector[shared_ptr[CArray]] dictionaries() const
+        c_string null_fallback() const
 
     cdef cppclass CFilenamePartitioning \
             "arrow::dataset::FilenamePartitioning"(CPartitioning):
@@ -388,6 +410,14 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         CResult[shared_ptr[CDatasetFactory]] MakeFromSelector "Make"(
             shared_ptr[CFileSystem] filesystem,
             CFileSelector,
+            shared_ptr[CFileFormat] format,
+            CFileSystemFactoryOptions options
+        )
+
+        @staticmethod
+        CResult[shared_ptr[CDatasetFactory]] MakeFromFileInfos "Make"(
+            shared_ptr[CFileSystem] filesystem,
+            vector[CFileInfo] files,
             shared_ptr[CFileFormat] format,
             CFileSystemFactoryOptions options
         )

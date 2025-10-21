@@ -17,10 +17,12 @@
 
 import io
 import os
+import re
 import sys
-from unittest import mock
+import types
 
 import pytest
+from unittest import mock
 
 import pyarrow as pa
 
@@ -210,7 +212,7 @@ def test_iter_batches_columns_reader(tempdir, batch_size):
     filename = tempdir / 'pandas_roundtrip.parquet'
     arrow_table = pa.Table.from_pandas(df)
     _write_table(arrow_table, filename, version='2.6',
-                 coerce_timestamps='ms', chunk_size=chunk_size)
+                 chunk_size=chunk_size)
 
     file_ = pq.ParquetFile(filename)
     for columns in [df.columns[:10], df.columns[10:]]:
@@ -234,7 +236,7 @@ def test_iter_batches_reader(tempdir, chunk_size):
     assert arrow_table.schema.pandas_metadata is not None
 
     _write_table(arrow_table, filename, version='2.6',
-                 coerce_timestamps='ms', chunk_size=chunk_size)
+                 chunk_size=chunk_size)
 
     file_ = pq.ParquetFile(filename)
 
@@ -296,28 +298,6 @@ def test_parquet_file_explicitly_closed(tempdir):
     table = pa.table({'col1': [0, 1], 'col2': [0, 1]})
     pq.write_table(table, fn)
 
-    # read_table (legacy) with opened file (will leave open)
-    with open(fn, 'rb') as f:
-        pq.read_table(f, use_legacy_dataset=True)
-        assert not f.closed  # Didn't close it internally after read_table
-
-    # read_table (legacy) with unopened file (will close)
-    with mock.patch.object(pq.ParquetFile, "close") as mock_close:
-        pq.read_table(fn, use_legacy_dataset=True)
-        mock_close.assert_called()
-
-    # ParquetDataset test (legacy) with unopened file (will close)
-    with mock.patch.object(pq.ParquetFile, "close") as mock_close:
-        pq.ParquetDataset(fn, use_legacy_dataset=True).read()
-        mock_close.assert_called()
-
-    # ParquetDataset test (legacy) with opened file (will leave open)
-    with open(fn, 'rb') as f:
-        # ARROW-8075: support ParquetDataset from file-like, not just path-like
-        with pytest.raises(TypeError, match='not a path-like object'):
-            pq.ParquetDataset(f, use_legacy_dataset=True).read()
-            assert not f.closed
-
     # ParquetFile with opened file (will leave open)
     with open(fn, 'rb') as f:
         with pq.ParquetFile(f) as p:
@@ -338,7 +318,7 @@ def test_parquet_file_explicitly_closed(tempdir):
 
 @pytest.mark.s3
 @pytest.mark.parametrize("use_uri", (True, False))
-def test_parquet_file_with_filesystem(tempdir, s3_example_fs, use_uri):
+def test_parquet_file_with_filesystem(s3_example_fs, use_uri):
     s3_fs, s3_uri, s3_path = s3_example_fs
 
     args = (s3_uri if use_uri else s3_path,)
@@ -357,3 +337,110 @@ def test_parquet_file_with_filesystem(tempdir, s3_example_fs, use_uri):
         assert f.read() == table
         assert not f.closed
     assert f.closed
+
+
+def test_read_statistics():
+    table = pa.table({"value": pa.array([-1, None, 3])})
+    buf = io.BytesIO()
+    _write_table(table, buf)
+    buf.seek(0)
+
+    statistics = pq.ParquetFile(buf).read().columns[0].chunks[0].statistics
+    assert statistics.null_count == 1
+    assert statistics.distinct_count is None
+    # TODO: add tests for is_distinct_count_exact == None and True
+    # once Python API allows
+    assert statistics.is_distinct_count_exact is False
+    assert statistics.min == -1
+    assert statistics.is_min_exact
+    assert statistics.max == 3
+    assert statistics.is_max_exact
+    assert repr(statistics) == ("arrow.ArrayStatistics<"
+                                "null_count=1, distinct_count=None, "
+                                "min=-1, is_min_exact=True, "
+                                "max=3, is_max_exact=True>")
+
+
+def test_read_undefined_logical_type(parquet_test_datadir):
+    test_file = f"{parquet_test_datadir}/unknown-logical-type.parquet"
+
+    table = pq.ParquetFile(test_file).read()
+    assert table.column_names == ["column with known type", "column with unknown type"]
+    assert table["column with unknown type"].to_pylist() == [
+        b"unknown string 1",
+        b"unknown string 2",
+        b"unknown string 3"
+    ]
+
+
+def test_parquet_file_fsspec_support():
+    pytest.importorskip("fsspec")
+
+    table = pa.table({"a": range(10)})
+    pq.write_table(table, "fsspec+memory://example.parquet")
+    table2 = pq.read_table("fsspec+memory://example.parquet")
+    assert table.equals(table2)
+
+    msg = "Unrecognized filesystem type in URI"
+    with pytest.raises(pa.ArrowInvalid, match=msg):
+        pq.read_table("non-existing://example.parquet")
+
+
+def test_parquet_file_fsspec_support_through_filesystem_argument():
+    try:
+        from fsspec.implementations.memory import MemoryFileSystem
+    except ImportError:
+        pytest.skip("fsspec is not installed, skipping test")
+
+    table = pa.table({"b": range(10)})
+
+    fs = MemoryFileSystem()
+    fs.mkdir("/path/to/prefix", create_parents=True)
+    assert fs.exists("/path/to/prefix")
+
+    fs_str = "fsspec+memory://path/to/prefix"
+    pq.write_table(table, "b.parquet", filesystem=fs_str)
+    table2 = pq.read_table("fsspec+memory://path/to/prefix/b.parquet")
+    assert table.equals(table2)
+
+
+def test_parquet_file_hugginface_support():
+    try:
+        from fsspec.implementations.memory import MemoryFileSystem
+    except ImportError:
+        pytest.skip("fsspec is not installed, skipping Hugging Face test")
+
+    fake_hf_module = types.ModuleType("huggingface_hub")
+    fake_hf_module.HfFileSystem = MemoryFileSystem
+    with mock.patch.dict("sys.modules", {"huggingface_hub": fake_hf_module}):
+        uri = "hf://datasets/apache/arrow/test.parquet"
+        table = pa.table({"a": range(10)})
+        pq.write_table(table, uri)
+        table2 = pq.read_table(uri)
+        assert table.equals(table2)
+
+
+def test_fsspec_uri_raises_if_fsspec_is_not_available():
+    # sadly cannot patch sys.modules because cython will still be able to import fsspec
+    try:
+        import fsspec  # noqa: F401
+    except ImportError:
+        pass
+    else:
+        pytest.skip("fsspec is available, skipping test")
+
+    msg = re.escape(
+        "`fsspec` is required to handle `fsspec+<filesystem>://` and `hf://` URIs.")
+    with pytest.raises(ImportError, match=msg):
+        pq.read_table("fsspec+memory://example.parquet")
+
+
+def test_iter_batches_raises_batch_size_zero(tempdir):
+    # See https://github.com/apache/arrow/issues/46811
+    schema = pa.schema([])
+    empty_table = pa.Table.from_batches([], schema=schema)
+    parquet_file_path = tempdir / "empty_file.parquet"
+    pq.write_table(empty_table, parquet_file_path)
+    parquet_file = pq.ParquetFile(parquet_file_path)
+    with pytest.raises(ValueError):
+        parquet_file.iter_batches(batch_size=0)

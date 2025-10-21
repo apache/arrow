@@ -15,20 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# for compatibility with R versions earlier than 4.0.0
-if (!exists("deparse1")) {
-  deparse1 <- function(expr, collapse = " ", width.cutoff = 500L, ...) {
-    paste(deparse(expr, width.cutoff, ...), collapse = collapse)
-  }
-}
-
-# for compatibility with R versions earlier than 3.6.0
-if (!exists("str2lang")) {
-  str2lang <- function(s) {
-    parse(text = s, keep.source = FALSE)[[1]]
-  }
-}
-
 oxford_paste <- function(x,
                          conjunction = "and",
                          quote = TRUE,
@@ -171,7 +157,6 @@ recycle_scalars <- function(arrays) {
   is_scalar <- arr_lens == 1
 
   if (length(arrays) > 1 && any(is_scalar) && !all(is_scalar)) {
-
     # Recycling not supported for tibbles and data.frames
     if (all(map_lgl(arrays, ~ inherits(.x, "data.frame")))) {
       abort(c(
@@ -224,8 +209,9 @@ handle_augmented_field_misuse <- function(msg, call) {
       msg,
       i = paste(
         "`add_filename()` or use of the `__filename` augmented field can only",
-        "be used with with Dataset objects, and can only be added before doing",
-        "an aggregation or a join."
+        "be used with Dataset objects, can only be added before doing",
+        "an aggregation or a join, and cannot be referenced in subsequent",
+        "pipeline steps until either compute() or collect() is called."
       )
     )
     abort(msg, call = call)
@@ -249,4 +235,51 @@ augment_io_error_msg <- function(e, call, schema = NULL, format = NULL) {
 
   handle_augmented_field_misuse(msg, call)
   abort(msg, call = call)
+}
+
+check_named_cols <- function(df) {
+  if (inherits(df, "data.frame") && is.null(names(df))) {
+    abort(
+      c(
+        "Input data frame columns must be named",
+        i = "Column names are NULL"
+      ),
+      call = caller_env(n = 3)
+    )
+  }
+}
+
+parse_compact_col_spec <- function(col_types, col_names) {
+  if (length(col_types) != 1L) {
+    abort("`col_types` must be a character vector of size 1")
+  }
+  n <- nchar(col_types)
+  specs <- substring(col_types, seq_len(n), seq_len(n))
+
+  if (!is_bare_character(col_names, n)) {
+    abort("Compact specification for `col_types` requires `col_names` of matching length")
+  }
+
+  col_types <- set_names(nm = col_names, map2(specs, col_names, ~ col_type_from_compact(.x, .y)))
+  # To "guess" types, omit them from col_types
+  col_types <- keep(col_types, ~ !is.null(.x))
+  schema(col_types)
+}
+
+col_type_from_compact <- function(x, y) {
+  switch(x,
+    "c" = utf8(),
+    "i" = int32(),
+    "n" = float64(),
+    "d" = float64(),
+    "l" = bool(),
+    "f" = dictionary(),
+    "D" = date32(),
+    "T" = timestamp(unit = "ns"),
+    "t" = time32(),
+    "_" = null(),
+    "-" = null(),
+    "?" = NULL,
+    abort(paste0("Unsupported compact specification: '", x, "' for column '", y, "'"))
+  )
 }

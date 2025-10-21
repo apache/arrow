@@ -27,12 +27,16 @@ import threading
 import time
 import traceback
 import json
+from datetime import datetime
 
-import numpy as np
+try:
+    import numpy as np
+except ImportError:
+    np = None
 import pytest
 import pyarrow as pa
 
-from pyarrow.lib import IpcReadOptions, tobytes
+from pyarrow.lib import IpcReadOptions, ReadStats, tobytes
 from pyarrow.util import find_free_port
 from pyarrow.tests import util
 
@@ -43,6 +47,7 @@ try:
         ServerAuthHandler, ClientAuthHandler,
         ServerMiddleware, ServerMiddlewareFactory,
         ClientMiddleware, ClientMiddlewareFactory,
+        FlightCallOptions,
     )
 except ImportError:
     flight = None
@@ -50,6 +55,7 @@ except ImportError:
     ServerAuthHandler, ClientAuthHandler = object, object
     ServerMiddleware, ServerMiddlewareFactory = object, object
     ClientMiddleware, ClientMiddlewareFactory = object, object
+    FlightCallOptions = object
 
 # Marks all of the tests in this module
 # Ignore these with pytest ... -m 'not flight'
@@ -79,9 +85,9 @@ def read_flight_resource(path):
             return f.read()
     except FileNotFoundError:
         raise RuntimeError(
-            "Test resource {} not found; did you initialize the "
-            "test resource submodule?\n{}".format(root / path,
-                                                  traceback.format_exc()))
+            f"Test resource {root / path} not found; did you initialize the "
+            f"test resource submodule?\n{traceback.format_exc()}"
+        )
 
 
 def example_tls_certs():
@@ -110,10 +116,12 @@ def simple_ints_table():
 
 def simple_dicts_table():
     dict_values = pa.array(["foo", "baz", "quux"], type=pa.utf8())
+    new_dict_values = pa.array(["foo", "baz", "quux", "new"], type=pa.utf8())
     data = [
         pa.chunked_array([
             pa.DictionaryArray.from_arrays([1, 0, None], dict_values),
-            pa.DictionaryArray.from_arrays([2, 1], dict_values)
+            pa.DictionaryArray.from_arrays([2, 1], dict_values),
+            pa.DictionaryArray.from_arrays([0, 3], new_dict_values)
         ])
     ]
     return pa.Table.from_arrays(data, names=['some_dicts'])
@@ -149,8 +157,7 @@ class ConstantFlightServer(FlightServerBase):
             yield flight.FlightInfo(
                 pa.schema([]),
                 flight.FlightDescriptor.for_path('/foo'),
-                [],
-                -1, -1
+                []
             )
 
     def do_get(self, context, ticket):
@@ -180,20 +187,19 @@ class MetadataFlightServer(FlightServerBase):
     def do_put(self, context, descriptor, reader, writer):
         counter = 0
         expected_data = [-10, -5, 0, 5, 10]
-        while True:
-            try:
-                batch, buf = reader.read_chunk()
-                assert batch.equals(pa.RecordBatch.from_arrays(
-                    [pa.array([expected_data[counter]])],
-                    ['a']
-                ))
-                assert buf is not None
-                client_counter, = struct.unpack('<i', buf.to_pybytes())
-                assert counter == client_counter
-                writer.write(struct.pack('<i', counter))
-                counter += 1
-            except StopIteration:
-                return
+        assert reader.stats.num_messages == 1
+        for batch, buf in reader:
+            assert batch.equals(pa.RecordBatch.from_arrays(
+                [pa.array([expected_data[counter]])],
+                ['a']
+            ))
+            assert buf is not None
+            client_counter, = struct.unpack('<i', buf.to_pybytes())
+            assert counter == client_counter
+            writer.write(struct.pack('<i', counter))
+            counter += 1
+        assert reader.stats.num_messages == 6
+        assert reader.stats.num_record_batches == 5
 
     @staticmethod
     def number_batches(table):
@@ -252,10 +258,14 @@ class GetInfoFlightServer(FlightServerBase):
                 flight.FlightEndpoint(
                     b'',
                     [flight.Location.for_grpc_tcp('localhost', 5005)],
+                    pa.scalar("2023-04-05T12:34:56.789012345").cast(pa.timestamp("ns")),
+                    "endpoint app metadata"
                 ),
             ],
-            -1,
-            -1,
+            1,
+            42,
+            True,
+            "info app metadata"
         )
 
     def get_schema(self, context, descriptor):
@@ -388,8 +398,7 @@ class ErrorFlightServer(FlightServerBase):
         yield flight.FlightInfo(
             pa.schema([]),
             flight.FlightDescriptor.for_path('/foo'),
-            [],
-            -1, -1
+            []
         )
         raise flight.FlightInternalError("foo")
 
@@ -417,6 +426,7 @@ class ExchangeFlightServer(FlightServerBase):
         self.options = options
 
     def do_exchange(self, context, descriptor, reader, writer):
+        assert reader.stats.num_messages == 0
         if descriptor.descriptor_type != flight.DescriptorType.CMD:
             raise pa.ArrowInvalid("Must provide a command descriptor")
         elif descriptor.command == b"echo":
@@ -429,7 +439,7 @@ class ExchangeFlightServer(FlightServerBase):
             return self.exchange_transform(context, reader, writer)
         else:
             raise pa.ArrowInvalid(
-                "Unknown command: {}".format(descriptor.command))
+                f"Unknown command: {descriptor.command}")
 
     def exchange_do_get(self, context, reader, writer):
         """Emulate DoGet with DoExchange."""
@@ -445,11 +455,14 @@ class ExchangeFlightServer(FlightServerBase):
         for chunk in reader:
             if not chunk.data:
                 raise pa.ArrowInvalid("All chunks must have data.")
+            assert reader.stats.num_messages != 0
             num_batches += 1
+        assert reader.stats.num_record_batches == num_batches
         writer.write_metadata(str(num_batches).encode("utf-8"))
 
     def exchange_echo(self, context, reader, writer):
         """Run a simple echo server."""
+        assert reader.stats.num_messages == 0
         started = False
         for chunk in reader:
             if not started and chunk.data:
@@ -460,16 +473,19 @@ class ExchangeFlightServer(FlightServerBase):
             elif chunk.app_metadata:
                 writer.write_metadata(chunk.app_metadata)
             elif chunk.data:
+                assert reader.stats.num_messages != 0
                 writer.write_batch(chunk.data)
             else:
                 assert False, "Should not happen"
 
     def exchange_transform(self, context, reader, writer):
         """Sum rows in an uploaded table."""
+        assert reader.stats.num_messages == 0
         for field in reader.schema:
             if not pa.types.is_integer(field.type):
                 raise pa.ArrowInvalid("Invalid field: " + repr(field))
         table = reader.read_all()
+        assert reader.stats.num_messages != 0
         sums = [0] * table.num_rows
         for column in table:
             for row, value in enumerate(column):
@@ -577,7 +593,7 @@ class NoopAuthHandler(ServerAuthHandler):
 
 def case_insensitive_header_lookup(headers, lookup_key):
     """Lookup the value of given key in the given headers.
-       The key lookup is case insensitive.
+       The key lookup is case-insensitive.
     """
     for key in headers:
         if key.lower() == lookup_key.lower():
@@ -618,9 +634,10 @@ class ClientHeaderAuthMiddleware(ClientMiddleware):
 
     def received_headers(self, headers):
         auth_header = case_insensitive_header_lookup(headers, 'Authorization')
-        self.factory.set_call_credential([
-            b'authorization',
-            auth_header[0].encode("utf-8")])
+        if auth_header:
+            self.factory.set_call_credential([
+                b'authorization',
+                auth_header[0].encode("utf-8")])
 
 
 class HeaderAuthServerMiddlewareFactory(ServerMiddlewareFactory):
@@ -833,7 +850,7 @@ class MultiHeaderClientMiddleware(ClientMiddleware):
     def received_headers(self, headers):
         # Let the test code know what the last set of headers we
         # received were.
-        self.factory.last_headers = headers
+        self.factory.last_headers.update(headers)
 
 
 class MultiHeaderServerMiddlewareFactory(ServerMiddlewareFactory):
@@ -870,6 +887,200 @@ class LargeMetadataFlightServer(FlightServerBase):
         writer.write_metadata(self._metadata)
 
 
+def test_repr():
+    action_repr = "<pyarrow.flight.Action type='foo' body=(0 bytes)>"
+    action_type_repr = "ActionType(type='foo', description='bar')"
+    basic_auth_repr = "<pyarrow.flight.BasicAuth username=b'user' password=(redacted)>"
+    descriptor_repr = "<pyarrow.flight.FlightDescriptor cmd=b'foo'>"
+    endpoint_repr = ("<pyarrow.flight.FlightEndpoint "
+                     "ticket=<pyarrow.flight.Ticket ticket=b'foo'> "
+                     "locations=[] "
+                     "expiration_time=2023-04-05 12:34:56+00:00 "
+                     "app_metadata=b'endpoint app metadata'>")
+    info_repr = (
+        "<pyarrow.flight.FlightInfo "
+        "schema= "
+        "descriptor=<pyarrow.flight.FlightDescriptor path=[]> "
+        "endpoints=[] "
+        "total_records=1 "
+        "total_bytes=42 "
+        "ordered=True "
+        "app_metadata=b'test app metadata'>")
+    location_repr = "<pyarrow.flight.Location b'grpc+tcp://localhost:1234'>"
+    result_repr = "<pyarrow.flight.Result body=(3 bytes)>"
+    schema_result_repr = "<pyarrow.flight.SchemaResult schema=()>"
+    ticket_repr = "<pyarrow.flight.Ticket ticket=b'foo'>"
+
+    assert repr(flight.Action("foo", b"")) == action_repr
+    assert repr(flight.ActionType("foo", "bar")) == action_type_repr
+    assert repr(flight.BasicAuth("user", "pass")) == basic_auth_repr
+    assert repr(flight.FlightDescriptor.for_command("foo")) == descriptor_repr
+    endpoint = flight.FlightEndpoint(
+        b"foo", [], pa.scalar("2023-04-05T12:34:56").cast(pa.timestamp("s")),
+        b"endpoint app metadata"
+    )
+    assert repr(endpoint) == endpoint_repr
+    info = flight.FlightInfo(
+        pa.schema([]), flight.FlightDescriptor.for_path(), [],
+        1, 42, True, b"test app metadata"
+    )
+    assert repr(info) == info_repr
+    assert repr(flight.Location("grpc+tcp://localhost:1234")) == location_repr
+    assert repr(flight.Result(b"foo")) == result_repr
+    assert repr(flight.SchemaResult(pa.schema([]))) == schema_result_repr
+    assert repr(flight.SchemaResult(pa.schema([("int", "int64")]))) == \
+        "<pyarrow.flight.SchemaResult schema=(int: int64)>"
+    assert repr(flight.Ticket(b"foo")) == ticket_repr
+    assert info.schema == pa.schema([])
+
+    info = flight.FlightInfo(
+        None, flight.FlightDescriptor.for_path(), [],
+        1, 42, True, b"test app metadata"
+    )
+    info_repr = (
+        "<pyarrow.flight.FlightInfo "
+        "schema=None "
+        "descriptor=<pyarrow.flight.FlightDescriptor path=[]> "
+        "endpoints=[] "
+        "total_records=1 "
+        "total_bytes=42 "
+        "ordered=True "
+        "app_metadata=b'test app metadata'>")
+    assert repr(info) == info_repr
+    assert info.schema is None
+
+    with pytest.raises(TypeError):
+        flight.Action("foo", None)
+
+    with pytest.raises(TypeError):
+        flight.FlightEndpoint(object(), [])
+    with pytest.raises(TypeError):
+        flight.FlightEndpoint("foo", ["grpc://test", b"grpc://test", object()])
+    with pytest.raises(TypeError):
+        flight.FlightEndpoint("foo", [], expiration_time="2023-04-05T01:02:03")
+    with pytest.raises(TypeError):
+        flight.FlightEndpoint("foo", [], expiration_time=datetime(2023, 4, 5, 1, 2, 3))
+    with pytest.raises(TypeError):
+        flight.FlightEndpoint("foo", [], app_metadata=object())
+
+
+def test_eq():
+    items = [
+        lambda: (flight.Action("foo", b""), flight.Action("bar", b"")),
+        lambda: (flight.Action("foo", b""), flight.Action("foo", b"bar")),
+        lambda: (flight.ActionType("foo", "bar"),
+                 flight.ActionType("foo", "baz")),
+        lambda: (flight.BasicAuth("user", "pass"),
+                 flight.BasicAuth("user2", "pass")),
+        lambda: (flight.BasicAuth("user", "pass"),
+                 flight.BasicAuth("user", "pass2")),
+        lambda: (flight.FlightDescriptor.for_command("foo"),
+                 flight.FlightDescriptor.for_path("foo")),
+        lambda: (flight.FlightEndpoint(b"foo", []),
+                 flight.FlightEndpoint(b"bar", [])),
+        lambda: (
+            flight.FlightEndpoint(
+                b"foo", [flight.Location("grpc+tcp://localhost:1234")]),
+            flight.FlightEndpoint(
+                b"foo", [flight.Location("grpc+tls://localhost:1234")])
+        ),
+        lambda: (
+            flight.FlightEndpoint(
+                b"foo", [], pa.scalar("2023-04-05T12:34:56").cast(pa.timestamp("s"))),
+            flight.FlightEndpoint(
+                b"foo", [],
+                pa.scalar("2023-04-05T12:34:56.789").cast(pa.timestamp("ms")))),
+        lambda: (flight.FlightEndpoint(b"foo", [], app_metadata=b''),
+                 flight.FlightEndpoint(b"foo", [], app_metadata=b'meta')),
+        lambda: (
+            flight.FlightInfo(
+                pa.schema([]),
+                flight.FlightDescriptor.for_path(), []),
+            flight.FlightInfo(
+                pa.schema([("ints", pa.int64())]),
+                flight.FlightDescriptor.for_path(), [])),
+        lambda: (
+            flight.FlightInfo(
+                pa.schema([]),
+                flight.FlightDescriptor.for_path(), []),
+            flight.FlightInfo(
+                pa.schema([]),
+                flight.FlightDescriptor.for_command(b"foo"), [])),
+        lambda: (
+            flight.FlightInfo(
+                pa.schema([]),
+                flight.FlightDescriptor.for_path(),
+                [flight.FlightEndpoint(b"foo", [])]),
+            flight.FlightInfo(
+                pa.schema([]),
+                flight.FlightDescriptor.for_path(),
+                [flight.FlightEndpoint(b"bar", [])])),
+        lambda: (
+            flight.FlightInfo(
+                pa.schema([]),
+                flight.FlightDescriptor.for_path(), [], total_records=-1),
+            flight.FlightInfo(
+                pa.schema([]),
+                flight.FlightDescriptor.for_path(), [], total_records=1)),
+        lambda: (
+            flight.FlightInfo(
+                pa.schema([]),
+                flight.FlightDescriptor.for_path(), [], total_bytes=-1),
+            flight.FlightInfo(
+                pa.schema([]),
+                flight.FlightDescriptor.for_path(), [], total_bytes=42)),
+        lambda: (
+            flight.FlightInfo(
+                pa.schema([]),
+                flight.FlightDescriptor.for_path(), [], ordered=False),
+            flight.FlightInfo(
+                pa.schema([]),
+                flight.FlightDescriptor.for_path(), [], ordered=True)),
+        lambda: (
+            flight.FlightInfo(
+                pa.schema([]),
+                flight.FlightDescriptor.for_path(), [], app_metadata=b""),
+            flight.FlightInfo(
+                pa.schema([]),
+                flight.FlightDescriptor.for_path(), [], app_metadata=b"meta")),
+        lambda: (flight.Location("grpc+tcp://localhost:1234"),
+                 flight.Location("grpc+tls://localhost:1234")),
+        lambda: (flight.Result(b"foo"), flight.Result(b"bar")),
+        lambda: (flight.SchemaResult(pa.schema([])),
+                 flight.SchemaResult(pa.schema([("ints", pa.int64())]))),
+        lambda: (flight.Ticket(b""), flight.Ticket(b"foo")),
+    ]
+
+    for gen in items:
+        lhs1, rhs1 = gen()
+        lhs2, rhs2 = gen()
+        assert lhs1 == lhs1
+        assert lhs1 == lhs2
+        assert lhs2 == lhs1
+        assert rhs1 == rhs1
+        assert rhs1 == rhs2
+        assert rhs2 == rhs1
+        assert lhs1 != rhs1
+
+
+def test_flight_info_defaults():
+    fi1 = flight.FlightInfo(pa.schema([]), flight.FlightDescriptor.for_path(), [])
+    fi2 = flight.FlightInfo(
+        pa.schema([]),
+        flight.FlightDescriptor.for_path(), [], total_records=-1, total_bytes=-1)
+    fi3 = flight.FlightInfo(
+        pa.schema([]),
+        flight.FlightDescriptor.for_path(), [], total_records=None, total_bytes=None)
+
+    assert fi1.total_records == -1
+    assert fi2.total_records == -1
+    assert fi3.total_records == -1
+
+    assert fi1.total_bytes == -1
+    assert fi2.total_bytes == -1
+    assert fi3.total_bytes == -1
+
+
 def test_flight_server_location_argument():
     locations = [
         None,
@@ -887,6 +1098,7 @@ def test_server_exit_reraises_exception():
             raise ValueError()
 
 
+@pytest.mark.threading
 @pytest.mark.slow
 def test_client_wait_for_available():
     location = ('localhost', find_free_port())
@@ -970,8 +1182,17 @@ def test_flight_do_get_dicts():
 
     with ConstantFlightServer() as server, \
             flight.connect(('localhost', server.port)) as client:
-        data = client.do_get(flight.Ticket(b'dicts')).read_all()
+        reader = client.do_get(flight.Ticket(b'dicts'))
+        assert reader.stats.num_messages == 1
+        data = reader.read_all()
         assert data.equals(table)
+        assert reader.stats == ReadStats(
+            num_messages=6,
+            num_record_batches=3,
+            num_dictionary_batches=2,
+            num_dictionary_deltas=0,
+            num_replaced_dictionaries=1
+        )
 
 
 def test_flight_do_get_ticket():
@@ -989,12 +1210,20 @@ def test_flight_get_info():
     with GetInfoFlightServer() as server:
         client = FlightClient(('localhost', server.port))
         info = client.get_flight_info(flight.FlightDescriptor.for_command(b''))
-        assert info.total_records == -1
-        assert info.total_bytes == -1
+        assert info.total_records == 1
+        assert info.total_bytes == 42
+        assert info.ordered
+        assert info.app_metadata == b"info app metadata"
         assert info.schema == pa.schema([('a', pa.int32())])
         assert len(info.endpoints) == 2
         assert len(info.endpoints[0].locations) == 1
+        assert info.endpoints[0].expiration_time is None
+        assert info.endpoints[0].app_metadata == b""
         assert info.endpoints[0].locations[0] == flight.Location('grpc://test')
+        assert info.endpoints[1].expiration_time == \
+            pa.scalar("2023-04-05T12:34:56.789012345+00:00") \
+              .cast(pa.timestamp("ns", "UTC"))
+        assert info.endpoints[1].app_metadata == b"endpoint app metadata"
         assert info.endpoints[1].locations[0] == \
             flight.Location.for_grpc_tcp('localhost', 5005)
 
@@ -1422,7 +1651,7 @@ def test_tls_override_hostname():
     """Check that incorrectly overriding the hostname fails."""
     certs = example_tls_certs()
 
-    with ConstantFlightServer(tls_certificates=certs["certificates"]) as s,\
+    with ConstantFlightServer(tls_certificates=certs["certificates"]) as s, \
         flight.connect(('localhost', s.port),
                        tls_root_certs=certs["root_cert"],
                        override_hostname="fakehostname") as client:
@@ -1442,17 +1671,45 @@ def test_flight_do_get_metadata():
             FlightClient(('localhost', server.port)) as client:
         reader = client.do_get(flight.Ticket(b''))
         idx = 0
+        for batch, metadata in reader:
+            batches.append(batch)
+            server_idx, = struct.unpack('<i', metadata.to_pybytes())
+            assert idx == server_idx
+            idx += 1
+        data = pa.Table.from_batches(batches)
+        assert data.equals(table)
+
+
+def test_flight_metadata_record_batch_reader_iterator():
+    """Verify the iterator interface works as expected."""
+    batches1 = []
+    batches2 = []
+
+    with MetadataFlightServer() as server, \
+            FlightClient(('localhost', server.port)) as client:
+        reader = client.do_get(flight.Ticket(b''))
+        idx = 0
         while True:
             try:
                 batch, metadata = reader.read_chunk()
-                batches.append(batch)
+                batches1.append(batch)
                 server_idx, = struct.unpack('<i', metadata.to_pybytes())
                 assert idx == server_idx
                 idx += 1
             except StopIteration:
                 break
-        data = pa.Table.from_batches(batches)
-        assert data.equals(table)
+
+    with MetadataFlightServer() as server, \
+            FlightClient(('localhost', server.port)) as client:
+        reader = client.do_get(flight.Ticket(b''))
+        idx = 0
+        for batch, metadata in reader:
+            batches2.append(batch)
+            server_idx, = struct.unpack('<i', metadata.to_pybytes())
+            assert idx == server_idx
+            idx += 1
+
+    assert batches1 == batches2
 
 
 def test_flight_do_get_metadata_v4():
@@ -1490,6 +1747,7 @@ def test_flight_do_put_metadata():
                 assert idx == server_idx
 
 
+@pytest.mark.numpy
 def test_flight_do_put_limit():
     """Try a simple do_put call with a size limit."""
     large_batch = pa.RecordBatch.from_arrays([
@@ -1530,6 +1788,7 @@ def test_cancel_do_get():
             reader.read_chunk()
 
 
+@pytest.mark.threading
 @pytest.mark.slow
 def test_cancel_do_get_threaded():
     """Test canceling a DoGet operation from another thread."""
@@ -1604,21 +1863,29 @@ def test_roundtrip_types():
             flight.FlightEndpoint(
                 b'',
                 [flight.Location.for_grpc_tcp('localhost', 5005)],
+                pa.scalar("2023-04-05T12:34:56.789012345").cast(pa.timestamp("ns")),
+                b'endpoint app metadata'
             ),
         ],
-        -1,
-        -1,
+        1,
+        42,
+        True,
+        b'test app metadata'
     )
     info2 = flight.FlightInfo.deserialize(info.serialize())
     assert info.schema == info2.schema
     assert info.descriptor == info2.descriptor
     assert info.total_bytes == info2.total_bytes
     assert info.total_records == info2.total_records
+    assert info.ordered == info2.ordered
+    assert info.app_metadata == info2.app_metadata
     assert info.endpoints == info2.endpoints
 
     endpoint = flight.FlightEndpoint(
         ticket,
-        ['grpc://test', flight.Location.for_grpc_tcp('localhost', 5005)]
+        ['grpc://test', flight.Location.for_grpc_tcp('localhost', 5005)],
+        pa.scalar("2023-04-05T12:34:56").cast(pa.timestamp("s")),
+        b'endpoint app metadata'
     )
     assert endpoint == flight.FlightEndpoint.deserialize(endpoint.serialize())
 
@@ -1844,6 +2111,8 @@ def test_doexchange_put():
             assert chunk.data is None
             expected_buf = str(len(batches)).encode("utf-8")
             assert chunk.app_metadata == expected_buf
+            # Metadata only message is not counted as an ipc data message
+            assert reader.stats.num_messages == 0
 
 
 def test_doexchange_echo():
@@ -1868,12 +2137,15 @@ def test_doexchange_echo():
 
             # Now write data without metadata.
             writer.begin(data.schema)
+            num_batches = 0
             for batch in batches:
                 writer.write_batch(batch)
                 assert reader.schema == data.schema
                 chunk = reader.read_chunk()
                 assert chunk.data == batch
                 assert chunk.app_metadata is None
+                num_batches += 1
+                assert reader.stats.num_record_batches == num_batches
 
             # And write data with metadata.
             for i, batch in enumerate(batches):
@@ -1882,6 +2154,8 @@ def test_doexchange_echo():
                 chunk = reader.read_chunk()
                 assert chunk.data == batch
                 assert chunk.app_metadata == buf
+                num_batches += 1
+                assert reader.stats.num_record_batches == num_batches
 
 
 def test_doexchange_echo_v4():
@@ -1972,7 +2246,7 @@ def test_generic_options():
         client = flight.connect(('localhost', s.port),
                                 tls_root_certs=certs["root_cert"],
                                 generic_options=options)
-        with pytest.raises(pa.ArrowInvalid):
+        with pytest.raises((pa.ArrowInvalid, flight.FlightCancelledError)):
             client.do_get(flight.Ticket(b'ints'))
         client.close()
 
@@ -1994,15 +2268,14 @@ class CancelFlightServer(FlightServerBase):
             time.sleep(0.5)
 
 
+@pytest.mark.threading
 def test_interrupt():
     if threading.current_thread().ident != threading.main_thread().ident:
         pytest.skip("test only works from main Python thread")
-    # Skips test if not available
-    raise_signal = util.get_raise_signal()
 
     def signal_from_thread():
         time.sleep(0.5)
-        raise_signal(signal.SIGINT)
+        signal.raise_signal(signal.SIGINT)
 
     exc_types = (KeyboardInterrupt, pa.ArrowCancelled)
 
@@ -2250,3 +2523,138 @@ def test_do_put_does_not_crash_when_schema_is_none():
     with pytest.raises(TypeError, match=msg):
         client.do_put(flight.FlightDescriptor.for_command('foo'),
                       schema=None)
+
+
+def test_headers_trailers():
+    """Ensure that server-sent headers/trailers make it through."""
+
+    class HeadersTrailersFlightServer(FlightServerBase):
+        def get_flight_info(self, context, descriptor):
+            context.add_header("x-header", "header-value")
+            context.add_header("x-header-bin", "header\x01value")
+            context.add_trailer("x-trailer", "trailer-value")
+            context.add_trailer("x-trailer-bin", "trailer\x01value")
+            return flight.FlightInfo(
+                pa.schema([]),
+                descriptor,
+                []
+            )
+
+    class HeadersTrailersMiddlewareFactory(ClientMiddlewareFactory):
+        def __init__(self):
+            self.headers = []
+
+        def start_call(self, info):
+            return HeadersTrailersMiddleware(self)
+
+    class HeadersTrailersMiddleware(ClientMiddleware):
+        def __init__(self, factory):
+            self.factory = factory
+
+        def received_headers(self, headers):
+            for key, values in headers.items():
+                for value in values:
+                    self.factory.headers.append((key, value))
+
+    factory = HeadersTrailersMiddlewareFactory()
+    with HeadersTrailersFlightServer() as server, \
+            FlightClient(("localhost", server.port), middleware=[factory]) as client:
+        client.get_flight_info(flight.FlightDescriptor.for_path(""))
+        assert ("x-header", "header-value") in factory.headers
+        assert ("x-header-bin", b"header\x01value") in factory.headers
+        assert ("x-trailer", "trailer-value") in factory.headers
+        assert ("x-trailer-bin", b"trailer\x01value") in factory.headers
+
+
+def test_flight_dictionary_deltas_do_exchange():
+    expected_stats = {
+        'dict_deltas': ReadStats(
+            num_messages=6,
+            num_record_batches=3,
+            num_dictionary_batches=2,
+            num_dictionary_deltas=1,
+            num_replaced_dictionaries=0
+        ),
+        'dict_replacement': ReadStats(
+            num_messages=6,
+            num_record_batches=3,
+            num_dictionary_batches=2,
+            num_dictionary_deltas=0,
+            num_replaced_dictionaries=1
+        )
+    }
+
+    class DeltaFlightServer(ConstantFlightServer):
+        def do_exchange(self, context, descriptor, reader, writer):
+            expected_table = simple_dicts_table()
+            received_table = reader.read_all()
+            assert received_table.equals(expected_table)
+            assert reader.stats == expected_stats[descriptor.command.decode()]
+            if descriptor.command == b'dict_deltas':
+                options = pa.ipc.IpcWriteOptions(emit_dictionary_deltas=True)
+                writer.begin(expected_table.schema, options=options)
+                writer.write_table(expected_table)
+            if descriptor.command == b'dict_replacement':
+                writer.begin(expected_table.schema)
+                writer.write_table(expected_table)
+
+    with DeltaFlightServer() as server, \
+            FlightClient(('localhost', server.port)) as client:
+        expected_table = simple_dicts_table()
+        for command in ["dict_deltas", "dict_replacement"]:
+            descriptor = flight.FlightDescriptor.for_command(command)
+            writer, reader = client.do_exchange(
+                descriptor,
+                options=flight.FlightCallOptions(
+                    write_options=pa.ipc.IpcWriteOptions(
+                        emit_dictionary_deltas=True)
+                )
+            )
+            # Send client table with dictionary updates
+            with writer:
+                writer.begin(expected_table.schema, options=pa.ipc.IpcWriteOptions(
+                    emit_dictionary_deltas=(command == "dict_deltas")))
+                writer.write_table(expected_table)
+                writer.done_writing()
+                received_table = reader.read_all()
+
+            assert received_table.equals(expected_table)
+            assert reader.stats == expected_stats[command]
+
+
+@pytest.fixture
+def call_options_args(request):
+    if request.param == "default":
+        return {
+            "timeout": 3,
+            "headers": None,
+            "write_options": None,
+            "read_options": None,
+        }
+    elif request.param == "all":
+        return {
+            "timeout": 7,
+            "headers": [(b"abc", b"def")],
+            "write_options": pa.ipc.IpcWriteOptions(compression="zstd"),
+            "read_options": pa.ipc.IpcReadOptions(
+                use_threads=False,
+                ensure_alignment=pa.ipc.Alignment.DataTypeSpecific,
+            ),
+        }
+    else:
+        return {}
+
+
+@pytest.mark.parametrize(
+    "call_options_args", ["default", "all"], indirect=True)
+def test_call_options_repr(call_options_args):
+    # https://github.com/apache/arrow/issues/47358
+    call_options = FlightCallOptions(**call_options_args)
+    repr = call_options.__repr__()
+
+    for arg, val in call_options_args.items():
+        if val is None:
+            assert arg in repr
+            continue
+
+        assert f"{arg}={val}" in repr

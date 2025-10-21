@@ -28,8 +28,8 @@
 #' - `f$ToString()`: convert to a string
 #' - `f$Equals(other)`: test for equality. More naturally called as `f == other`
 #'
-#' @rdname Field
 #' @name Field
+#' @rdname Field-class
 #' @export
 Field <- R6Class("Field",
   inherit = ArrowObject,
@@ -63,6 +63,8 @@ Field$create <- function(name, type, metadata, nullable = TRUE) {
 #' @include arrowExports.R
 Field$import_from_c <- ImportField
 
+#' Create a Field
+#'
 #' @param name field name
 #' @param type logical type, instance of [DataType]
 #' @param metadata currently ignored
@@ -71,6 +73,7 @@ Field$import_from_c <- ImportField
 #' @examples
 #' field("x", int32())
 #' @rdname Field
+#' @seealso [Field]
 #' @export
 field <- Field$create
 

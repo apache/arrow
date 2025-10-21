@@ -16,9 +16,10 @@
 // under the License.
 
 // Implementation of casting to extension types
-#include "arrow/compute/kernels/common.h"
+#include "arrow/compute/kernels/common_internal.h"
 #include "arrow/compute/kernels/scalar_cast_internal.h"
 #include "arrow/scalar.h"
+#include "arrow/util/logging_internal.h"
 
 namespace arrow {
 namespace compute {
@@ -56,8 +57,9 @@ Status CastToExtension(KernelContext* ctx, const ExecSpan& batch, ExecResult* ou
 std::shared_ptr<CastFunction> GetCastToExtension(std::string name) {
   auto func = std::make_shared<CastFunction>(std::move(name), Type::EXTENSION);
   for (Type::type in_ty : AllTypeIds()) {
-    DCHECK_OK(
-        func->AddKernel(in_ty, {InputType(in_ty)}, kOutputTargetType, CastToExtension));
+    DCHECK_OK(func->AddKernel(in_ty, {InputType(in_ty)}, kOutputTargetType,
+                              CastToExtension, NullHandling::COMPUTED_NO_PREALLOCATE,
+                              MemAllocation::NO_PREALLOCATE));
   }
   return func;
 }

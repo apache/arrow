@@ -17,16 +17,16 @@
 
 ARG repo
 ARG arch=amd64
-ARG python=3.8
+ARG python=3.10
 FROM ${repo}:${arch}-conda-python-${python}
 
-ARG jdk=8
-ARG maven=3.5
+ARG jdk=11
+ARG maven=3.8.7
 RUN mamba install -q -y \
         maven=${maven} \
         openjdk=${jdk} \
         pandas && \
-    mamba clean --all
+    mamba clean --all --yes
 
 # installing libhdfs (JNI)
 ARG hdfs=3.2.1
@@ -42,6 +42,7 @@ COPY ci/etc/hdfs-site.xml $HADOOP_HOME/etc/hadoop/
 # build cpp with tests
 ENV CC=gcc \
     CXX=g++ \
+    ARROW_ACERO=ON \
     ARROW_BUILD_TESTS=ON \
     ARROW_COMPUTE=ON \
     ARROW_CSV=ON \
@@ -53,5 +54,4 @@ ENV CC=gcc \
     ARROW_JSON=ON \
     ARROW_ORC=OFF \
     ARROW_PARQUET=ON \
-    ARROW_PLASMA=OFF \
     PARQUET_REQUIRE_ENCRYPTION=ON

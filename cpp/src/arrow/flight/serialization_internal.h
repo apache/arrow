@@ -19,10 +19,15 @@
 
 #pragma once
 
-#include "arrow/flight/protocol_internal.h"  // IWYU pragma: keep
 #include "arrow/flight/transport.h"
+#include "arrow/flight/type_fwd.h"
 #include "arrow/flight/types.h"
-#include "arrow/util/macros.h"
+#include "arrow/flight/visibility.h"
+
+namespace google::protobuf {
+class Message;
+class Timestamp;
+}  // namespace google::protobuf
 
 namespace arrow {
 
@@ -34,6 +39,32 @@ class Message;
 }  // namespace ipc
 
 namespace flight {
+// Protobuf types from Flight.proto
+namespace protocol {
+class Action;
+class ActionType;
+class BasicAuth;
+class CancelFlightInfoRequest;
+class CancelFlightInfoResult;
+class Criteria;
+class FlightData;
+class FlightDescriptor;
+class FlightEndpoint;
+class FlightInfo;
+class GetSessionOptionsRequest;
+class Location;
+class PollInfo;
+class RenewFlightEndpointRequest;
+class Result;
+class SchemaResult;
+class SetSessionOptionsRequest;
+class SetSessionOptionsResult;
+class Ticket;
+class GetSessionOptionsRequest;
+class GetSessionOptionsResult;
+class CloseSessionRequest;
+class CloseSessionResult;
+}  // namespace protocol
 namespace pb = arrow::flight::protocol;
 namespace internal {
 
@@ -43,32 +74,111 @@ static constexpr char kAuthHeader[] = "authorization";
 ARROW_FLIGHT_EXPORT
 Status SchemaToString(const Schema& schema, std::string* out);
 
+/// \brief Wraps a protobuf message representing a Flight command in a FlightDescriptor.
+///
+/// A `FlightDescriptor` can carry a string representing a command in any
+/// format the implementation desires. A common pattern in Flight implementations
+/// is to wrap a message in a `protobuf::Any` message, which is then serialized
+/// into the string of the `FlightDescriptor.`
+ARROW_FLIGHT_EXPORT
+Status PackProtoCommand(const google::protobuf::Message& command, FlightDescriptor* out);
+
+/// \brief Wraps a protobuf message representing a Flight action.
+///
+/// A Flight action can carry a string representing an action in any format the
+/// implementation desires. A common pattern in Flight implementations is to
+/// wrap a message in a `protobuf::Any` message, which is then serialized into
+/// the string of the `Action.`
+ARROW_FLIGHT_EXPORT
+Status PackProtoAction(std::string action_type, const google::protobuf::Message& action,
+                       Action* out);
+
+/// \brief Unpacks a protobuf message packed by PackProtoAction.
+ARROW_FLIGHT_EXPORT
+Status UnpackProtoAction(const Action& action, google::protobuf::Message* out);
+
 // These functions depend on protobuf types which are not exported in the Flight DLL.
 
-Status FromProto(const pb::ActionType& pb_type, ActionType* type);
-Status FromProto(const pb::Action& pb_action, Action* action);
-Status FromProto(const pb::Result& pb_result, Result* result);
-Status FromProto(const pb::Criteria& pb_criteria, Criteria* criteria);
-Status FromProto(const pb::Location& pb_location, Location* location);
-Status FromProto(const pb::Ticket& pb_ticket, Ticket* ticket);
-Status FromProto(const pb::FlightData& pb_data, FlightDescriptor* descriptor,
-                 std::unique_ptr<ipc::Message>* message);
-Status FromProto(const pb::FlightDescriptor& pb_descr, FlightDescriptor* descr);
-Status FromProto(const pb::FlightEndpoint& pb_endpoint, FlightEndpoint* endpoint);
-Status FromProto(const pb::FlightInfo& pb_info, FlightInfo::Data* info);
-Status FromProto(const pb::SchemaResult& pb_result, std::string* result);
-Status FromProto(const pb::BasicAuth& pb_basic_auth, BasicAuth* info);
+ARROW_FLIGHT_EXPORT Status FromProto(const google::protobuf::Timestamp& pb_timestamp,
+                                     Timestamp* timestamp);
+ARROW_FLIGHT_EXPORT Status FromProto(const pb::ActionType& pb_type, ActionType* type);
+ARROW_FLIGHT_EXPORT Status FromProto(const pb::Action& pb_action, Action* action);
+ARROW_FLIGHT_EXPORT Status FromProto(const pb::Result& pb_result, Result* result);
+ARROW_FLIGHT_EXPORT Status FromProto(const pb::CancelFlightInfoResult& pb_result,
+                                     CancelFlightInfoResult* result);
+ARROW_FLIGHT_EXPORT Status FromProto(const pb::Criteria& pb_criteria, Criteria* criteria);
+ARROW_FLIGHT_EXPORT Status FromProto(const pb::Location& pb_location, Location* location);
+ARROW_FLIGHT_EXPORT Status FromProto(const pb::Ticket& pb_ticket, Ticket* ticket);
+ARROW_FLIGHT_EXPORT Status FromProto(const pb::FlightData& pb_data,
+                                     FlightDescriptor* descriptor,
+                                     std::unique_ptr<ipc::Message>* message);
+ARROW_FLIGHT_EXPORT Status FromProto(const pb::FlightDescriptor& pb_descr,
+                                     FlightDescriptor* descr);
+ARROW_FLIGHT_EXPORT Status FromProto(const pb::FlightEndpoint& pb_endpoint,
+                                     FlightEndpoint* endpoint);
+ARROW_FLIGHT_EXPORT Status FromProto(const pb::RenewFlightEndpointRequest& pb_request,
+                                     RenewFlightEndpointRequest* request);
+ARROW_FLIGHT_EXPORT Status FromProto(const pb::FlightInfo& pb_info,
+                                     FlightInfo::Data* info);
+ARROW_FLIGHT_EXPORT Status FromProto(const pb::FlightInfo& pb_info,
+                                     std::unique_ptr<FlightInfo>* info);
+ARROW_FLIGHT_EXPORT Status FromProto(const pb::PollInfo& pb_info, PollInfo* info);
+ARROW_FLIGHT_EXPORT Status FromProto(const pb::PollInfo& pb_info,
+                                     std::unique_ptr<PollInfo>* info);
+ARROW_FLIGHT_EXPORT Status FromProto(const pb::CancelFlightInfoRequest& pb_request,
+                                     CancelFlightInfoRequest* request);
+ARROW_FLIGHT_EXPORT Status FromProto(const pb::SchemaResult& pb_result,
+                                     SchemaResult* result);
+ARROW_FLIGHT_EXPORT Status FromProto(const pb::BasicAuth& pb_basic_auth, BasicAuth* info);
+ARROW_FLIGHT_EXPORT Status FromProto(const pb::SetSessionOptionsRequest& pb_request,
+                                     SetSessionOptionsRequest* request);
+ARROW_FLIGHT_EXPORT Status FromProto(const pb::SetSessionOptionsResult& pb_result,
+                                     SetSessionOptionsResult* result);
+ARROW_FLIGHT_EXPORT Status FromProto(const pb::GetSessionOptionsRequest& pb_request,
+                                     GetSessionOptionsRequest* request);
+ARROW_FLIGHT_EXPORT Status FromProto(const pb::GetSessionOptionsResult& pb_result,
+                                     GetSessionOptionsResult* result);
+ARROW_FLIGHT_EXPORT Status FromProto(const pb::CloseSessionRequest& pb_request,
+                                     CloseSessionRequest* request);
+ARROW_FLIGHT_EXPORT Status FromProto(const pb::CloseSessionResult& pb_result,
+                                     CloseSessionResult* result);
 
-Status ToProto(const FlightDescriptor& descr, pb::FlightDescriptor* pb_descr);
-Status ToProto(const FlightEndpoint& endpoint, pb::FlightEndpoint* pb_endpoint);
-Status ToProto(const FlightInfo& info, pb::FlightInfo* pb_info);
-Status ToProto(const ActionType& type, pb::ActionType* pb_type);
-Status ToProto(const Action& action, pb::Action* pb_action);
-Status ToProto(const Result& result, pb::Result* pb_result);
-Status ToProto(const Criteria& criteria, pb::Criteria* pb_criteria);
-Status ToProto(const SchemaResult& result, pb::SchemaResult* pb_result);
-Status ToProto(const Ticket& ticket, pb::Ticket* pb_ticket);
-Status ToProto(const BasicAuth& basic_auth, pb::BasicAuth* pb_basic_auth);
+ARROW_FLIGHT_EXPORT Status ToProto(const Timestamp& timestamp,
+                                   google::protobuf::Timestamp* pb_timestamp);
+ARROW_FLIGHT_EXPORT Status ToProto(const FlightDescriptor& descr,
+                                   pb::FlightDescriptor* pb_descr);
+ARROW_FLIGHT_EXPORT Status ToProto(const FlightEndpoint& endpoint,
+                                   pb::FlightEndpoint* pb_endpoint);
+ARROW_FLIGHT_EXPORT Status ToProto(const RenewFlightEndpointRequest& request,
+                                   pb::RenewFlightEndpointRequest* pb_request);
+ARROW_FLIGHT_EXPORT Status ToProto(const FlightInfo& info, pb::FlightInfo* pb_info);
+ARROW_FLIGHT_EXPORT Status ToProto(const PollInfo& info, pb::PollInfo* pb_info);
+ARROW_FLIGHT_EXPORT Status ToProto(const CancelFlightInfoRequest& request,
+                                   pb::CancelFlightInfoRequest* pb_request);
+ARROW_FLIGHT_EXPORT Status ToProto(const ActionType& type, pb::ActionType* pb_type);
+ARROW_FLIGHT_EXPORT Status ToProto(const Action& action, pb::Action* pb_action);
+ARROW_FLIGHT_EXPORT Status ToProto(const Result& result, pb::Result* pb_result);
+ARROW_FLIGHT_EXPORT Status ToProto(const CancelFlightInfoResult& result,
+                                   pb::CancelFlightInfoResult* pb_result);
+ARROW_FLIGHT_EXPORT Status ToProto(const Criteria& criteria, pb::Criteria* pb_criteria);
+ARROW_FLIGHT_EXPORT Status ToProto(const Location& location, pb::Location* pb_location);
+ARROW_FLIGHT_EXPORT Status ToProto(const SchemaResult& result,
+                                   pb::SchemaResult* pb_result);
+ARROW_FLIGHT_EXPORT Status ToProto(const Ticket& ticket, pb::Ticket* pb_ticket);
+ARROW_FLIGHT_EXPORT Status ToProto(const BasicAuth& basic_auth,
+                                   pb::BasicAuth* pb_basic_auth);
+ARROW_FLIGHT_EXPORT Status ToProto(const SetSessionOptionsRequest& request,
+                                   pb::SetSessionOptionsRequest* pb_request);
+ARROW_FLIGHT_EXPORT Status ToProto(const SetSessionOptionsResult& result,
+                                   pb::SetSessionOptionsResult* pb_result);
+ARROW_FLIGHT_EXPORT Status ToProto(const GetSessionOptionsRequest& request,
+                                   pb::GetSessionOptionsRequest* pb_request);
+ARROW_FLIGHT_EXPORT Status ToProto(const GetSessionOptionsResult& result,
+                                   pb::GetSessionOptionsResult* pb_result);
+ARROW_FLIGHT_EXPORT Status ToProto(const CloseSessionRequest& request,
+                                   pb::CloseSessionRequest* pb_request);
+ARROW_FLIGHT_EXPORT Status ToProto(const CloseSessionResult& result,
+                                   pb::CloseSessionResult* pb_result);
 
 Status ToPayload(const FlightDescriptor& descr, std::shared_ptr<Buffer>* out);
 

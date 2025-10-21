@@ -16,6 +16,7 @@
 # under the License.
 
 from contextlib import contextmanager
+from enum import EnumMeta
 import inspect
 import tokenize
 
@@ -28,21 +29,6 @@ else:
 
 from ..compat import _get_module
 from ..utils.logger import logger
-from ..utils.command import Command, capture_stdout, default_bin
-
-
-class Flake8(Command):
-    def __init__(self, flake8_bin=None):
-        self.bin = default_bin(flake8_bin, "flake8")
-
-
-class Autopep8(Command):
-    def __init__(self, autopep8_bin=None):
-        self.bin = default_bin(autopep8_bin, "autopep8")
-
-    @capture_stdout()
-    def run_captured(self, *args, **kwargs):
-        return self.run(*args, **kwargs)
 
 
 def _tokenize_signature(s):
@@ -102,6 +88,10 @@ def inspect_signature(obj):
 
 
 class NumpyDoc:
+    IGNORE_VALIDATION_ERRORS_FOR_TYPE = {
+        # Enum function signatures should never be documented
+        EnumMeta: ["PR01"]
+    }
 
     def __init__(self, symbols=None):
         if not have_numpydoc:
@@ -219,6 +209,10 @@ class NumpyDoc:
                     continue
                 if disallow_rules and errcode in disallow_rules:
                     continue
+                if any(isinstance(obj, obj_type) and errcode in errcode_list
+                       for obj_type, errcode_list
+                       in NumpyDoc.IGNORE_VALIDATION_ERRORS_FOR_TYPE.items()):
+                    continue
                 errors.append((errcode, errmsg))
 
             if len(errors):
@@ -230,7 +224,7 @@ class NumpyDoc:
                 try:
                     obj = Docstring._load_obj(symbol)
                 except (ImportError, AttributeError):
-                    print('{} is not available for import'.format(symbol))
+                    print(f'{symbol} is not available for import')
                 else:
                     self.traverse(callback, obj, from_package=from_package)
 

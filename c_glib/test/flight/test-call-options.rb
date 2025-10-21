@@ -44,4 +44,10 @@ class TestFlightCallOptions < Test::Unit::TestCase
     @options.clear_headers
     assert_equal([], collect_headers)
   end
+
+  def test_timeout
+    assert_in_delta(-1, @options.timeout)
+    @options.timeout = 10.1
+    assert_in_delta(10.1, @options.timeout)
+  end
 end

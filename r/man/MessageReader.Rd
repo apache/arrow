@@ -3,9 +3,9 @@
 \docType{class}
 \name{MessageReader}
 \alias{MessageReader}
-\title{class arrow::MessageReader}
+\title{MessageReader class}
 \description{
-class arrow::MessageReader
+MessageReader class
 }
 \section{Methods}{
 

@@ -123,7 +123,7 @@ RVectorType GetVectorType(SEXP x) {
         return POSIXLT;
       }
 
-      if (Rf_inherits(x, "arrow_binary")) {
+      if (Rf_inherits(x, "arrow_binary") || Rf_inherits(x, "blob")) {
         return BINARY;
       }
 
@@ -335,7 +335,7 @@ struct RConvert {
   template <typename Type, typename From>
   static enable_if_integer<Type, Result<typename Type::c_type>> Convert(Type*,
                                                                         From from) {
-    return CIntFromRScalarImpl<typename Type::c_type>(from);
+    return CIntFromRScalarImpl<typename Type::c_type>(static_cast<int64_t>(from));
   }
 
   // ---- convert R integer types to double
@@ -461,7 +461,7 @@ class RPrimitiveConverter<
 
     if (std::is_same<typename T::c_type, r_value_type>::value) {
       auto append_value = [this](r_value_type value) {
-        this->primitive_builder_->UnsafeAppend(value);
+        this->primitive_builder_->UnsafeAppend(static_cast<typename T::c_type>(value));
         return Status::OK();
       };
       return VisitVector(it, size, append_null, append_value);
@@ -595,19 +595,23 @@ class RPrimitiveConverter<T, enable_if_t<is_date_type<T>::value>>
     return VisitVector(it, size, append_null, append_value);
   }
 
-  static int FromRDate(const Date32Type*, int from) { return from; }
+  static int FromRDate(const Date32Type*, double from) {
+    return static_cast<int>(std::floor(from));
+  }
 
-  static int64_t FromRDate(const Date64Type*, int from) {
+  static int64_t FromRDate(const Date64Type*, double from) {
     constexpr int64_t kMilliSecondsPerDay = 86400000;
-    return from * kMilliSecondsPerDay;
+    return static_cast<int64_t>(std::floor(from * kMilliSecondsPerDay));
   }
 
   static int FromPosixct(const Date32Type*, double from) {
     constexpr int64_t kSecondsPerDay = 86400;
-    return from / kSecondsPerDay;
+    return static_cast<int>(from / kSecondsPerDay);
   }
 
-  static int64_t FromPosixct(const Date64Type*, double from) { return from * 1000; }
+  static int64_t FromPosixct(const Date64Type*, double from) {
+    return static_cast<int64_t>(from * 1000);
+  }
 };
 
 int64_t get_TimeUnit_multiplier(TimeUnit::type unit) {
@@ -1051,8 +1055,13 @@ struct RConverterTrait;
 template <typename T>
 struct RConverterTrait<
     T, enable_if_t<!is_nested_type<T>::value && !is_interval_type<T>::value &&
-                   !is_extension_type<T>::value>> {
+                   !is_extension_type<T>::value && !is_binary_view_like_type<T>::value>> {
   using type = RPrimitiveConverter<T>;
+};
+
+template <typename T>
+struct RConverterTrait<T, enable_if_binary_view_like<T>> {
+  // not implemented
 };
 
 template <typename T>
@@ -1076,7 +1085,7 @@ class RListConverter : public ListConverter<T, RConverter, RConverterTrait> {
     auto append_value = [this](SEXP value) {
       // TODO: if we decide that this can be run concurrently
       //       we'll have to do vec_size() upfront
-      int n = arrow::r::vec_size(value);
+      R_xlen_t n = arrow::r::vec_size(value);
 
       RETURN_NOT_OK(this->list_builder_->ValidateOverflow(n));
       RETURN_NOT_OK(this->list_builder_->Append());
@@ -1207,11 +1216,11 @@ bool can_reuse_memory(SEXP x, const std::shared_ptr<arrow::DataType>& type) {
   //       because MakeSimpleArray below will force materialization
   switch (type->id()) {
     case Type::INT32:
-      return TYPEOF(x) == INTSXP && !OBJECT(x);
+      return TYPEOF(x) == INTSXP && !Rf_isObject(x);
     case Type::DOUBLE:
-      return TYPEOF(x) == REALSXP && !OBJECT(x);
+      return TYPEOF(x) == REALSXP && !Rf_isObject(x);
     case Type::INT8:
-      return TYPEOF(x) == RAWSXP && !OBJECT(x);
+      return TYPEOF(x) == RAWSXP && !Rf_isObject(x);
     case Type::INT64:
       return TYPEOF(x) == REALSXP && Rf_inherits(x, "integer64");
     default:
@@ -1405,17 +1414,17 @@ bool vector_from_r_memory(SEXP x, const std::shared_ptr<DataType>& type,
 
   switch (type->id()) {
     case Type::INT32:
-      return TYPEOF(x) == INTSXP && !OBJECT(x) &&
+      return TYPEOF(x) == INTSXP && !Rf_isObject(x) &&
              vector_from_r_memory_impl<cpp11::integers, Int32Type>(x, type, columns, j,
                                                                    tasks);
 
     case Type::DOUBLE:
-      return TYPEOF(x) == REALSXP && !OBJECT(x) &&
+      return TYPEOF(x) == REALSXP && !Rf_isObject(x) &&
              vector_from_r_memory_impl<cpp11::doubles, DoubleType>(x, type, columns, j,
                                                                    tasks);
 
     case Type::UINT8:
-      return TYPEOF(x) == RAWSXP && !OBJECT(x) &&
+      return TYPEOF(x) == RAWSXP && !Rf_isObject(x) &&
              vector_from_r_memory_impl<cpp11::raws, UInt8Type>(x, type, columns, j,
                                                                tasks);
 
@@ -1498,7 +1507,7 @@ std::shared_ptr<arrow::Table> Table__from_dots(SEXP lst, SEXP schema_sxp,
     } else if (Rf_inherits(x, "Array")) {
       columns[j] = std::make_shared<arrow::ChunkedArray>(
           cpp11::as_cpp<std::shared_ptr<arrow::Array>>(x));
-    } else if (arrow::r::altrep::is_arrow_altrep(x)) {
+    } else if (arrow::r::altrep::is_unmaterialized_arrow_altrep(x)) {
       columns[j] = arrow::r::altrep::vec_to_arrow_altrep_bypass(x);
     } else {
       arrow::r::RConversionOptions options;

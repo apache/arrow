@@ -23,8 +23,8 @@
 #include <arrow/util/key_value_metadata.h>
 
 // [[arrow::export]]
-r_vec_size Table__num_columns(const std::shared_ptr<arrow::Table>& x) {
-  return r_vec_size(x->num_columns());
+int Table__num_columns(const std::shared_ptr<arrow::Table>& x) {
+  return x->num_columns();
 }
 
 // [[arrow::export]]
@@ -49,14 +49,14 @@ std::shared_ptr<arrow::Table> Table__ReplaceSchemaMetadata(
 
 // [[arrow::export]]
 std::shared_ptr<arrow::ChunkedArray> Table__column(
-    const std::shared_ptr<arrow::Table>& table, R_xlen_t i) {
+    const std::shared_ptr<arrow::Table>& table, int i) {
   arrow::r::validate_index(i, table->num_columns());
   return table->column(i);
 }
 
 // [[arrow::export]]
 std::shared_ptr<arrow::Field> Table__field(const std::shared_ptr<arrow::Table>& table,
-                                           R_xlen_t i) {
+                                           int i) {
   arrow::r::validate_index(i, table->num_columns());
   return table->field(i);
 }
@@ -123,13 +123,13 @@ std::shared_ptr<arrow::ChunkedArray> Table__GetColumnByName(
 
 // [[arrow::export]]
 std::shared_ptr<arrow::Table> Table__RemoveColumn(
-    const std::shared_ptr<arrow::Table>& table, R_xlen_t i) {
+    const std::shared_ptr<arrow::Table>& table, int i) {
   return ValueOrStop(table->RemoveColumn(i));
 }
 
 // [[arrow::export]]
 std::shared_ptr<arrow::Table> Table__AddColumn(
-    const std::shared_ptr<arrow::Table>& table, R_xlen_t i,
+    const std::shared_ptr<arrow::Table>& table, int i,
     const std::shared_ptr<arrow::Field>& field,
     const std::shared_ptr<arrow::ChunkedArray>& column) {
   return ValueOrStop(table->AddColumn(i, field, column));
@@ -137,7 +137,7 @@ std::shared_ptr<arrow::Table> Table__AddColumn(
 
 // [[arrow::export]]
 std::shared_ptr<arrow::Table> Table__SetColumn(
-    const std::shared_ptr<arrow::Table>& table, R_xlen_t i,
+    const std::shared_ptr<arrow::Table>& table, int i,
     const std::shared_ptr<arrow::Field>& field,
     const std::shared_ptr<arrow::ChunkedArray>& column) {
   return ValueOrStop(table->SetColumn(i, field, column));
@@ -228,7 +228,8 @@ arrow::Status AddMetadataFromDots(SEXP lst, int num_fields,
   // "top level" attributes, only relevant if the first object is not named and a data
   // frame
   cpp11::strings names = Rf_getAttrib(lst, R_NamesSymbol);
-  if (names[0] == "" && Rf_inherits(VECTOR_ELT(lst, 0), "data.frame")) {
+  if (names[0] == "" && Rf_inherits(VECTOR_ELT(lst, 0), "data.frame") &&
+      Rf_xlength(lst) == 1) {
     SEXP top_level = metadata[0] = arrow_attributes(VECTOR_ELT(lst, 0), true);
     if (!Rf_isNull(top_level) && XLENGTH(top_level) > 0) {
       has_top_level_metadata = true;
@@ -240,7 +241,7 @@ arrow::Status AddMetadataFromDots(SEXP lst, int num_fields,
 
   // Remove metadata for ExtensionType columns, because these have their own mechanism for
   // preserving R type information
-  for (R_xlen_t i = 0; i < schema->num_fields(); i++) {
+  for (int i = 0; i < schema->num_fields(); i++) {
     if (schema->field(i)->type()->id() == Type::EXTENSION) {
       metadata_columns[i] = R_NilValue;
     }

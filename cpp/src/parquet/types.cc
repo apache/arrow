@@ -15,20 +15,34 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <array>
 #include <cmath>
 #include <cstdint>
+#include <iomanip>
 #include <memory>
 #include <sstream>
 #include <string>
 
+#include "arrow/json/rapidjson_defs.h"  // IWYU pragma: keep
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/compression.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/decimal.h"
+#include "arrow/util/float16.h"
+#include "arrow/util/logging_internal.h"
+
+#include <rapidjson/document.h>
+#include <rapidjson/writer.h>
 
 #include "parquet/exception.h"
+#include "parquet/thrift_internal.h"
 #include "parquet/types.h"
 
 #include "generated/parquet_types.h"
+
+#ifdef _MSC_VER
+// disable warning about inheritance via dominance in the diamond pattern
+#  pragma warning(disable : 4250)
+#endif
 
 using arrow::internal::checked_cast;
 using arrow::util::Codec;
@@ -51,10 +65,11 @@ bool IsCodecSupported(Compression::type codec) {
 }
 
 std::unique_ptr<Codec> GetCodec(Compression::type codec) {
-  return GetCodec(codec, Codec::UseDefaultCompressionLevel());
+  return GetCodec(codec, CodecOptions());
 }
 
-std::unique_ptr<Codec> GetCodec(Compression::type codec, int compression_level) {
+std::unique_ptr<Codec> GetCodec(Compression::type codec,
+                                const CodecOptions& codec_options) {
   std::unique_ptr<Codec> result;
   if (codec == Compression::LZO) {
     throw ParquetException(
@@ -69,40 +84,153 @@ std::unique_ptr<Codec> GetCodec(Compression::type codec, int compression_level) 
     throw ParquetException(ss.str());
   }
 
-  PARQUET_ASSIGN_OR_THROW(result, Codec::Create(codec, compression_level));
+  PARQUET_ASSIGN_OR_THROW(result, Codec::Create(codec, codec_options));
   return result;
 }
 
-std::string FormatStatValue(Type::type parquet_type, ::std::string_view val) {
-  std::stringstream result;
+// use compression level to create Codec
+std::unique_ptr<Codec> GetCodec(Compression::type codec, int compression_level) {
+  return GetCodec(codec, CodecOptions{compression_level});
+}
 
+bool PageCanUseChecksum(PageType::type pageType) {
+  switch (pageType) {
+    case PageType::type::DATA_PAGE:
+    case PageType::type::DATA_PAGE_V2:
+    case PageType::type::DICTIONARY_PAGE:
+      return true;
+    default:
+      return false;
+  }
+}
+
+namespace {
+
+template <typename T>
+std::enable_if_t<std::is_arithmetic_v<T>, std::string> FormatNumericValue(
+    ::std::string_view val) {
+  std::stringstream result;
+  T value{};
+  std::memcpy(&value, val.data(), sizeof(T));
+  result << value;
+  return result.str();
+}
+
+std::string FormatDecimalValue(Type::type parquet_type, ::std::string_view val,
+                               const std::shared_ptr<const LogicalType>& logical_type) {
+  ARROW_DCHECK(logical_type != nullptr && logical_type->is_decimal());
+
+  const auto& decimal_type =
+      ::arrow::internal::checked_cast<const DecimalLogicalType&>(*logical_type);
+  const int32_t scale = decimal_type.scale();
+
+  std::stringstream result;
+  switch (parquet_type) {
+    case Type::INT32: {
+      int32_t int_value{};
+      std::memcpy(&int_value, val.data(), sizeof(int32_t));
+      ::arrow::Decimal128 decimal_value(int_value);
+      result << decimal_value.ToString(scale);
+      break;
+    }
+    case Type::INT64: {
+      int64_t long_value{};
+      std::memcpy(&long_value, val.data(), sizeof(int64_t));
+      ::arrow::Decimal128 decimal_value(long_value);
+      result << decimal_value.ToString(scale);
+      break;
+    }
+    case Type::FIXED_LEN_BYTE_ARRAY:
+    case Type::BYTE_ARRAY: {
+      auto decimal_result = ::arrow::Decimal256::FromBigEndian(
+          reinterpret_cast<const uint8_t*>(val.data()), static_cast<int32_t>(val.size()));
+      if (!decimal_result.ok()) {
+        throw ParquetException("Failed to parse decimal value: ",
+                               decimal_result.status().message());
+      }
+      result << decimal_result.ValueUnsafe().ToString(scale);
+      break;
+    }
+    default:
+      throw ParquetException("Unsupported decimal type: ", TypeToString(parquet_type));
+  }
+
+  return result.str();
+}
+
+std::string FormatNonUTF8Value(::std::string_view val) {
+  if (val.empty()) {
+    return "";
+  }
+
+  std::stringstream result;
+  result << "0x" << std::hex;
+  for (const auto& c : val) {
+    result << std::setw(2) << std::setfill('0')
+           << static_cast<int>(static_cast<unsigned char>(c));
+  }
+  return result.str();
+}
+
+std::string FormatFloat16Value(::std::string_view val) {
+  std::stringstream result;
+  auto float16 = ::arrow::util::Float16::FromLittleEndian(
+      reinterpret_cast<const uint8_t*>(val.data()));
+  result << float16.ToFloat();
+  return result.str();
+}
+
+}  // namespace
+
+std::string FormatStatValue(Type::type parquet_type, ::std::string_view val,
+                            const std::shared_ptr<const LogicalType>& logical_type) {
+  std::stringstream result;
   const char* bytes = val.data();
   switch (parquet_type) {
-    case Type::BOOLEAN:
-      result << reinterpret_cast<const bool*>(bytes)[0];
+    case Type::BOOLEAN: {
+      bool value{};
+      std::memcpy(&value, bytes, sizeof(bool));
+      result << value;
       break;
-    case Type::INT32:
-      result << reinterpret_cast<const int32_t*>(bytes)[0];
-      break;
-    case Type::INT64:
-      result << reinterpret_cast<const int64_t*>(bytes)[0];
-      break;
-    case Type::DOUBLE:
-      result << reinterpret_cast<const double*>(bytes)[0];
-      break;
-    case Type::FLOAT:
-      result << reinterpret_cast<const float*>(bytes)[0];
-      break;
+    }
+    case Type::INT32: {
+      if (logical_type != nullptr && logical_type->is_decimal()) {
+        return FormatDecimalValue(parquet_type, val, logical_type);
+      }
+      return FormatNumericValue<int32_t>(val);
+    }
+    case Type::INT64: {
+      if (logical_type != nullptr && logical_type->is_decimal()) {
+        return FormatDecimalValue(parquet_type, val, logical_type);
+      }
+      return FormatNumericValue<int64_t>(val);
+    }
+    case Type::DOUBLE: {
+      return FormatNumericValue<double>(val);
+    }
+    case Type::FLOAT: {
+      return FormatNumericValue<float>(val);
+    }
     case Type::INT96: {
-      auto const i32_val = reinterpret_cast<const int32_t*>(bytes);
-      result << i32_val[0] << " " << i32_val[1] << " " << i32_val[2];
+      std::array<int32_t, 3> values{};
+      std::memcpy(values.data(), bytes, 3 * sizeof(int32_t));
+      result << values[0] << " " << values[1] << " " << values[2];
       break;
     }
-    case Type::BYTE_ARRAY: {
-      return std::string(val);
-    }
+    case Type::BYTE_ARRAY:
     case Type::FIXED_LEN_BYTE_ARRAY: {
-      return std::string(val);
+      if (logical_type != nullptr) {
+        if (logical_type->is_decimal()) {
+          return FormatDecimalValue(parquet_type, val, logical_type);
+        }
+        if (logical_type->is_string()) {
+          return std::string(val);
+        }
+        if (logical_type->is_float16()) {
+          return FormatFloat16Value(val);
+        }
+      }
+      return FormatNonUTF8Value(val);
     }
     case Type::UNDEFINED:
     default:
@@ -158,6 +286,16 @@ std::string TypeToString(Type::type t) {
     default:
       return "UNKNOWN";
   }
+}
+
+std::string TypeToString(Type::type t, int type_length) {
+  auto s = TypeToString(t);
+  if (t == Type::FIXED_LEN_BYTE_ARRAY) {
+    s += '(';
+    s += std::to_string(type_length);
+    s += ')';
+  }
+  return s;
 }
 
 std::string ConvertedTypeToString(ConvertedType::type t) {
@@ -328,15 +466,25 @@ std::shared_ptr<const LogicalType> LogicalType::FromConvertedType(
     case ConvertedType::DATE:
       return DateLogicalType::Make();
     case ConvertedType::TIME_MILLIS:
-      return TimeLogicalType::Make(true, LogicalType::TimeUnit::MILLIS);
+      // ConvertedType::TIME_{*} are deprecated in favor of LogicalType::Time, the
+      // compatibility for ConvertedType::TIME_{*} are listed in
+      // https://github.com/apache/parquet-format/blob/master/LogicalTypes.md#deprecated-time-convertedtype
+      return TimeLogicalType::Make(/*is_adjusted_to_utc=*/true,
+                                   LogicalType::TimeUnit::MILLIS);
     case ConvertedType::TIME_MICROS:
-      return TimeLogicalType::Make(true, LogicalType::TimeUnit::MICROS);
+      return TimeLogicalType::Make(/*is_adjusted_to_utc=*/true,
+                                   LogicalType::TimeUnit::MICROS);
     case ConvertedType::TIMESTAMP_MILLIS:
-      return TimestampLogicalType::Make(true, LogicalType::TimeUnit::MILLIS,
+      // ConvertedType::TIMESTAMP_{*} are deprecated in favor of LogicalType::Timestamp,
+      // the compatibility for ConvertedType::TIMESTAMP_{*} are listed in
+      // https://github.com/apache/parquet-format/blob/master/LogicalTypes.md#deprecated-timestamp-convertedtype
+      return TimestampLogicalType::Make(/*is_adjusted_to_utc=*/true,
+                                        LogicalType::TimeUnit::MILLIS,
                                         /*is_from_converted_type=*/true,
                                         /*force_set_converted_type=*/false);
     case ConvertedType::TIMESTAMP_MICROS:
-      return TimestampLogicalType::Make(true, LogicalType::TimeUnit::MICROS,
+      return TimestampLogicalType::Make(/*is_adjusted_to_utc=*/true,
+                                        LogicalType::TimeUnit::MICROS,
                                         /*is_from_converted_type=*/true,
                                         /*force_set_converted_type=*/false);
     case ConvertedType::INTERVAL:
@@ -424,8 +572,39 @@ std::shared_ptr<const LogicalType> LogicalType::FromThrift(
     return BSONLogicalType::Make();
   } else if (type.__isset.UUID) {
     return UUIDLogicalType::Make();
+  } else if (type.__isset.FLOAT16) {
+    return Float16LogicalType::Make();
+  } else if (type.__isset.GEOMETRY) {
+    std::string crs;
+    if (type.GEOMETRY.__isset.crs) {
+      crs = type.GEOMETRY.crs;
+    }
+
+    return GeometryLogicalType::Make(std::move(crs));
+  } else if (type.__isset.GEOGRAPHY) {
+    std::string crs;
+    if (type.GEOGRAPHY.__isset.crs) {
+      crs = type.GEOGRAPHY.crs;
+    }
+
+    LogicalType::EdgeInterpolationAlgorithm algorithm;
+    if (!type.GEOGRAPHY.__isset.algorithm) {
+      algorithm = LogicalType::EdgeInterpolationAlgorithm::SPHERICAL;
+    } else {
+      algorithm = LoadEnumSafe(&type.GEOGRAPHY.algorithm);
+    }
+
+    return GeographyLogicalType::Make(std::move(crs), algorithm);
+  } else if (type.__isset.VARIANT) {
+    int8_t spec_version = kVariantSpecVersion;
+    if (type.VARIANT.__isset.specification_version) {
+      spec_version = type.VARIANT.specification_version;
+    }
+
+    return VariantLogicalType::Make(spec_version);
   } else {
-    throw ParquetException("Metadata contains Thrift LogicalType that is not recognized");
+    // Sentinel type for one we do not recognize
+    return UndefinedLogicalType::Make();
   }
 }
 
@@ -476,6 +655,23 @@ std::shared_ptr<const LogicalType> LogicalType::JSON() { return JSONLogicalType:
 std::shared_ptr<const LogicalType> LogicalType::BSON() { return BSONLogicalType::Make(); }
 
 std::shared_ptr<const LogicalType> LogicalType::UUID() { return UUIDLogicalType::Make(); }
+
+std::shared_ptr<const LogicalType> LogicalType::Float16() {
+  return Float16LogicalType::Make();
+}
+
+std::shared_ptr<const LogicalType> LogicalType::Geometry(std::string crs) {
+  return GeometryLogicalType::Make(std::move(crs));
+}
+
+std::shared_ptr<const LogicalType> LogicalType::Geography(
+    std::string crs, LogicalType::EdgeInterpolationAlgorithm algorithm) {
+  return GeographyLogicalType::Make(std::move(crs), algorithm);
+}
+
+std::shared_ptr<const LogicalType> LogicalType::Variant(int8_t spec_version) {
+  return VariantLogicalType::Make(spec_version);
+}
 
 std::shared_ptr<const LogicalType> LogicalType::None() { return NoLogicalType::Make(); }
 
@@ -558,6 +754,10 @@ class LogicalType::Impl {
   class JSON;
   class BSON;
   class UUID;
+  class Float16;
+  class Geometry;
+  class Geography;
+  class Variant;
   class No;
   class Undefined;
 
@@ -627,14 +827,27 @@ bool LogicalType::is_null() const { return impl_->type() == LogicalType::Type::N
 bool LogicalType::is_JSON() const { return impl_->type() == LogicalType::Type::JSON; }
 bool LogicalType::is_BSON() const { return impl_->type() == LogicalType::Type::BSON; }
 bool LogicalType::is_UUID() const { return impl_->type() == LogicalType::Type::UUID; }
+bool LogicalType::is_float16() const {
+  return impl_->type() == LogicalType::Type::FLOAT16;
+}
+bool LogicalType::is_geometry() const {
+  return impl_->type() == LogicalType::Type::GEOMETRY;
+}
+bool LogicalType::is_geography() const {
+  return impl_->type() == LogicalType::Type::GEOGRAPHY;
+}
+bool LogicalType::is_variant() const {
+  return impl_->type() == LogicalType::Type::VARIANT;
+}
 bool LogicalType::is_none() const { return impl_->type() == LogicalType::Type::NONE; }
 bool LogicalType::is_valid() const {
   return impl_->type() != LogicalType::Type::UNDEFINED;
 }
 bool LogicalType::is_invalid() const { return !is_valid(); }
 bool LogicalType::is_nested() const {
-  return (impl_->type() == LogicalType::Type::LIST) ||
-         (impl_->type() == LogicalType::Type::MAP);
+  return impl_->type() == LogicalType::Type::LIST ||
+         impl_->type() == LogicalType::Type::MAP ||
+         impl_->type() == LogicalType::Type::VARIANT;
 }
 bool LogicalType::is_nonnested() const { return !is_nested(); }
 bool LogicalType::is_serialized() const { return impl_->is_serialized(); }
@@ -1539,6 +1752,269 @@ class LogicalType::Impl::UUID final : public LogicalType::Impl::Incompatible,
 };
 
 GENERATE_MAKE(UUID)
+
+class LogicalType::Impl::Float16 final : public LogicalType::Impl::Incompatible,
+                                         public LogicalType::Impl::TypeLengthApplicable {
+ public:
+  friend class Float16LogicalType;
+
+  OVERRIDE_TOSTRING(Float16)
+  OVERRIDE_TOTHRIFT(Float16Type, FLOAT16)
+
+ private:
+  Float16()
+      : LogicalType::Impl(LogicalType::Type::FLOAT16, SortOrder::SIGNED),
+        LogicalType::Impl::TypeLengthApplicable(parquet::Type::FIXED_LEN_BYTE_ARRAY, 2) {}
+};
+
+GENERATE_MAKE(Float16)
+
+namespace {
+void WriteCrsKeyAndValue(const std::string_view crs, std::ostream& json) {
+  // There is no restriction on the crs value here, and it may contain quotes
+  // or backslashes that would result in invalid JSON if unescaped.
+  namespace rj = ::arrow::rapidjson;
+  rj::StringBuffer buffer;
+  rj::Writer<rj::StringBuffer> writer(buffer);
+  rj::Value v;
+  v.SetString(crs.data(), static_cast<int32_t>(crs.size()));
+  v.Accept(writer);
+  json << R"(, "crs": )" << buffer.GetString();
+}
+}  // namespace
+
+class LogicalType::Impl::Geometry final : public LogicalType::Impl::Incompatible,
+                                          public LogicalType::Impl::SimpleApplicable {
+ public:
+  friend class GeometryLogicalType;
+
+  std::string ToString() const override;
+  std::string ToJSON() const override;
+  format::LogicalType ToThrift() const override;
+  bool Equals(const LogicalType& other) const override;
+
+  const std::string& crs() const { return crs_; }
+
+ private:
+  explicit Geometry(std::string crs)
+      : LogicalType::Impl(LogicalType::Type::GEOMETRY, SortOrder::UNKNOWN),
+        LogicalType::Impl::SimpleApplicable(parquet::Type::BYTE_ARRAY),
+        crs_(std::move(crs)) {}
+
+  std::string crs_;
+};
+
+std::string LogicalType::Impl::Geometry::ToString() const {
+  std::stringstream type;
+  type << "Geometry(crs=" << crs_ << ")";
+  return type.str();
+}
+
+std::string LogicalType::Impl::Geometry::ToJSON() const {
+  std::stringstream json;
+  json << R"({"Type": "Geometry")";
+
+  if (!crs_.empty()) {
+    WriteCrsKeyAndValue(crs_, json);
+  }
+
+  json << "}";
+  return json.str();
+}
+
+format::LogicalType LogicalType::Impl::Geometry::ToThrift() const {
+  format::LogicalType type;
+  format::GeometryType geometry_type;
+
+  // Canonically export crs of "" as an unset CRS
+  if (!crs_.empty()) {
+    geometry_type.__set_crs(crs_);
+  }
+
+  type.__set_GEOMETRY(geometry_type);
+  return type;
+}
+
+bool LogicalType::Impl::Geometry::Equals(const LogicalType& other) const {
+  if (other.is_geometry()) {
+    const auto& other_geometry = checked_cast<const GeometryLogicalType&>(other);
+    return crs() == other_geometry.crs();
+  } else {
+    return false;
+  }
+}
+
+const std::string& GeometryLogicalType::crs() const {
+  return (dynamic_cast<const LogicalType::Impl::Geometry&>(*impl_)).crs();
+}
+
+std::shared_ptr<const LogicalType> GeometryLogicalType::Make(std::string crs) {
+  auto logical_type = std::shared_ptr<GeometryLogicalType>(new GeometryLogicalType());
+  logical_type->impl_.reset(new LogicalType::Impl::Geometry(std::move(crs)));
+  return logical_type;
+}
+
+class LogicalType::Impl::Geography final : public LogicalType::Impl::Incompatible,
+                                           public LogicalType::Impl::SimpleApplicable {
+ public:
+  friend class GeographyLogicalType;
+
+  std::string ToString() const override;
+  std::string ToJSON() const override;
+  format::LogicalType ToThrift() const override;
+  bool Equals(const LogicalType& other) const override;
+
+  const std::string& crs() const { return crs_; }
+  LogicalType::EdgeInterpolationAlgorithm algorithm() const { return algorithm_; }
+
+  std::string_view algorithm_name() const {
+    switch (algorithm_) {
+      case LogicalType::EdgeInterpolationAlgorithm::SPHERICAL:
+        return "spherical";
+      case LogicalType::EdgeInterpolationAlgorithm::VINCENTY:
+        return "vincenty";
+      case LogicalType::EdgeInterpolationAlgorithm::THOMAS:
+        return "thomas";
+      case LogicalType::EdgeInterpolationAlgorithm::ANDOYER:
+        return "andoyer";
+      case LogicalType::EdgeInterpolationAlgorithm::KARNEY:
+        return "karney";
+      default:
+        return "unknown";
+    }
+  }
+
+ private:
+  Geography(std::string crs, LogicalType::EdgeInterpolationAlgorithm algorithm)
+      : LogicalType::Impl(LogicalType::Type::GEOGRAPHY, SortOrder::UNKNOWN),
+        LogicalType::Impl::SimpleApplicable(parquet::Type::BYTE_ARRAY),
+        crs_(std::move(crs)),
+        algorithm_(algorithm) {}
+
+  std::string crs_;
+  LogicalType::EdgeInterpolationAlgorithm algorithm_;
+};
+
+std::string LogicalType::Impl::Geography::ToString() const {
+  std::stringstream type;
+  type << "Geography(crs=" << crs_ << ", algorithm=" << algorithm_name() << ")";
+  return type.str();
+}
+
+std::string LogicalType::Impl::Geography::ToJSON() const {
+  std::stringstream json;
+  json << R"({"Type": "Geography")";
+
+  if (!crs_.empty()) {
+    WriteCrsKeyAndValue(crs_, json);
+  }
+
+  if (algorithm_ != LogicalType::EdgeInterpolationAlgorithm::SPHERICAL) {
+    json << R"(, "algorithm": ")" << algorithm_name() << R"(")";
+  }
+
+  json << "}";
+  return json.str();
+}
+
+format::LogicalType LogicalType::Impl::Geography::ToThrift() const {
+  format::LogicalType type;
+  format::GeographyType geography_type;
+
+  // Canonically export crs of "" as an unset CRS
+  if (!crs_.empty()) {
+    geography_type.__set_crs(crs_);
+  }
+
+  if (algorithm_ == LogicalType::EdgeInterpolationAlgorithm::SPHERICAL) {
+    // Canonically export spherical algorithm as unset
+  } else {
+    geography_type.__set_algorithm(::parquet::ToThrift(algorithm_));
+  }
+
+  type.__set_GEOGRAPHY(geography_type);
+  return type;
+}
+
+bool LogicalType::Impl::Geography::Equals(const LogicalType& other) const {
+  if (other.is_geography()) {
+    const auto& other_geography = checked_cast<const GeographyLogicalType&>(other);
+    return crs() == other_geography.crs() && algorithm() == other_geography.algorithm();
+  } else {
+    return false;
+  }
+}
+
+const std::string& GeographyLogicalType::crs() const {
+  return (dynamic_cast<const LogicalType::Impl::Geography&>(*impl_)).crs();
+}
+
+LogicalType::EdgeInterpolationAlgorithm GeographyLogicalType::algorithm() const {
+  return (dynamic_cast<const LogicalType::Impl::Geography&>(*impl_)).algorithm();
+}
+
+std::string_view GeographyLogicalType::algorithm_name() const {
+  return (dynamic_cast<const LogicalType::Impl::Geography&>(*impl_)).algorithm_name();
+}
+
+std::shared_ptr<const LogicalType> GeographyLogicalType::Make(
+    std::string crs, LogicalType::EdgeInterpolationAlgorithm algorithm) {
+  auto logical_type = std::shared_ptr<GeographyLogicalType>(new GeographyLogicalType());
+  logical_type->impl_.reset(new LogicalType::Impl::Geography(std::move(crs), algorithm));
+  return logical_type;
+}
+class LogicalType::Impl::Variant final : public LogicalType::Impl::Incompatible,
+                                         public LogicalType::Impl::Inapplicable {
+ public:
+  friend class VariantLogicalType;
+
+  std::string ToString() const override;
+  std::string ToJSON() const override;
+  format::LogicalType ToThrift() const override;
+
+  int8_t spec_version() const { return spec_version_; }
+
+ private:
+  explicit Variant(const int8_t spec_version)
+      : LogicalType::Impl(LogicalType::Type::VARIANT, SortOrder::UNKNOWN),
+        LogicalType::Impl::Inapplicable() {
+    this->spec_version_ = spec_version;
+  }
+
+  int8_t spec_version_;
+};
+
+int8_t VariantLogicalType::spec_version() const {
+  return (dynamic_cast<const LogicalType::Impl::Variant&>(*impl_)).spec_version();
+}
+
+std::string LogicalType::Impl::Variant::ToString() const {
+  std::stringstream type;
+  type << "Variant(" << static_cast<int>(spec_version_) << ")";
+  return type.str();
+}
+
+std::string LogicalType::Impl::Variant::ToJSON() const {
+  std::stringstream json;
+  json << R"({"Type": "Variant", "SpecVersion": )" << static_cast<int>(spec_version_)
+       << "}";
+
+  return json.str();
+}
+
+format::LogicalType LogicalType::Impl::Variant::ToThrift() const {
+  format::LogicalType type;
+  format::VariantType variant_type;
+  variant_type.__set_specification_version(spec_version_);
+  type.__set_VARIANT(variant_type);
+  return type;
+}
+
+std::shared_ptr<const LogicalType> VariantLogicalType::Make(const int8_t spec_version) {
+  auto logical_type = std::shared_ptr<VariantLogicalType>(new VariantLogicalType());
+  logical_type->impl_.reset(new LogicalType::Impl::Variant(spec_version));
+  return logical_type;
+}
 
 class LogicalType::Impl::No final : public LogicalType::Impl::SimpleCompatible,
                                     public LogicalType::Impl::UniversalApplicable {

@@ -223,36 +223,50 @@ static inline gdv_uint64 murmur3_64_buf(const gdv_uint8* key, gdv_int32 len,
   switch (len & 15) {
     case 15:
       k2 = static_cast<gdv_uint64>(tail[14]) << 48;
+      [[fallthrough]];
     case 14:
       k2 ^= static_cast<gdv_uint64>(tail[13]) << 40;
+      [[fallthrough]];
     case 13:
       k2 ^= static_cast<gdv_uint64>(tail[12]) << 32;
+      [[fallthrough]];
     case 12:
       k2 ^= static_cast<gdv_uint64>(tail[11]) << 24;
+      [[fallthrough]];
     case 11:
       k2 ^= static_cast<gdv_uint64>(tail[10]) << 16;
+      [[fallthrough]];
     case 10:
       k2 ^= static_cast<gdv_uint64>(tail[9]) << 8;
+      [[fallthrough]];
     case 9:
       k2 ^= static_cast<gdv_uint64>(tail[8]);
       k2 *= c2;
       k2 = rotate_left(k2, 33);
       k2 *= c1;
       h2 ^= k2;
+      [[fallthrough]];
     case 8:
       k1 ^= static_cast<gdv_uint64>(tail[7]) << 56;
+      [[fallthrough]];
     case 7:
       k1 ^= static_cast<gdv_uint64>(tail[6]) << 48;
+      [[fallthrough]];
     case 6:
       k1 ^= static_cast<gdv_uint64>(tail[5]) << 40;
+      [[fallthrough]];
     case 5:
       k1 ^= static_cast<gdv_uint64>(tail[4]) << 32;
+      [[fallthrough]];
     case 4:
       k1 ^= static_cast<gdv_uint64>(tail[3]) << 24;
+      [[fallthrough]];
     case 3:
       k1 ^= static_cast<gdv_uint64>(tail[2]) << 16;
+      [[fallthrough]];
     case 2:
       k1 ^= static_cast<gdv_uint64>(tail[1]) << 8;
+      [[fallthrough]];
     case 1:
       k1 ^= static_cast<gdv_uint64>(tail[0]) << 0;
       k1 *= c1;
@@ -308,8 +322,10 @@ static gdv_uint32 murmur3_32_buf(const gdv_uint8* key, gdv_int32 len, gdv_int32 
   switch (len & 3) {
     case 3:
       lk1 = (tail[2] & 0xff) << 16;
+      [[fallthrough]];
     case 2:
       lk1 |= (tail[1] & 0xff) << 8;
+      [[fallthrough]];
     case 1:
       lk1 |= (tail[0] & 0xff);
       lk1 *= c1;

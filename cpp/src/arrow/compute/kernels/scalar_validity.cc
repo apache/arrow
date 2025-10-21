@@ -18,15 +18,19 @@
 #include <cmath>
 
 #include "arrow/compute/api_scalar.h"
-#include "arrow/compute/kernels/common.h"
+#include "arrow/compute/kernels/common_internal.h"
+#include "arrow/compute/registry_internal.h"
 
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_ops.h"
+#include "arrow/util/float16.h"
+#include "arrow/util/logging_internal.h"
 
 namespace arrow {
 
 using internal::CopyBitmap;
 using internal::InvertBitmap;
+using util::Float16;
 
 namespace compute {
 namespace internal {
@@ -34,7 +38,7 @@ namespace {
 
 Status IsValidExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
   const ArraySpan& arr = batch[0].array;
-  ArraySpan* out_span = out->array_span();
+  ArraySpan* out_span = out->array_span_mutable();
   if (arr.type->id() == Type::NA) {
     // Input is all nulls => output is entirely false.
     bit_util::SetBitsTo(out_span->buffers[1].data, out_span->offset, out_span->length,
@@ -59,14 +63,22 @@ Status IsValidExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
 struct IsFiniteOperator {
   template <typename OutType, typename InType>
   static constexpr OutType Call(KernelContext*, const InType& value, Status*) {
-    return std::isfinite(value);
+    if constexpr (std::is_same_v<InType, Float16>) {
+      return value.is_finite();
+    } else {
+      return std::isfinite(value);
+    }
   }
 };
 
 struct IsInfOperator {
   template <typename OutType, typename InType>
   static constexpr OutType Call(KernelContext*, const InType& value, Status*) {
-    return std::isinf(value);
+    if constexpr (std::is_same_v<InType, Float16>) {
+      return value.is_infinity();
+    } else {
+      return std::isinf(value);
+    }
   }
 };
 
@@ -76,7 +88,14 @@ template <typename T>
 static void SetNanBits(const ArraySpan& arr, uint8_t* out_bitmap, int64_t out_offset) {
   const T* data = arr.GetValues<T>(1);
   for (int64_t i = 0; i < arr.length; ++i) {
-    if (std::isnan(data[i])) {
+    bool is_nan(false);
+    if constexpr (std::is_same_v<T, uint16_t>) {
+      is_nan = Float16::FromBits(data[i]).is_nan();
+    } else {
+      is_nan = std::isnan(data[i]);
+    }
+
+    if (is_nan) {
       bit_util::SetBit(out_bitmap, i + out_offset);
     }
   }
@@ -84,7 +103,7 @@ static void SetNanBits(const ArraySpan& arr, uint8_t* out_bitmap, int64_t out_of
 
 Status IsNullExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
   const ArraySpan& arr = batch[0].array;
-  ArraySpan* out_span = out->array_span();
+  ArraySpan* out_span = out->array_span_mutable();
   if (arr.type->id() == Type::NA) {
     bit_util::SetBitsTo(out_span->buffers[1].data, out_span->offset, out_span->length,
                         true);
@@ -110,6 +129,9 @@ Status IsNullExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
       case Type::DOUBLE:
         SetNanBits<double>(arr, out_bitmap, out_span->offset);
         break;
+      case Type::HALF_FLOAT:
+        SetNanBits<uint16_t>(arr, out_bitmap, out_span->offset);
+        break;
       default:
         return Status::NotImplemented("NaN detection not implemented for type ",
                                       arr.type->ToString());
@@ -121,7 +143,11 @@ Status IsNullExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
 struct IsNanOperator {
   template <typename OutType, typename InType>
   static constexpr OutType Call(KernelContext*, const InType& value, Status*) {
-    return std::isnan(value);
+    if constexpr (std::is_same_v<InType, Float16>) {
+      return value.is_nan();
+    } else {
+      return std::isnan(value);
+    }
   }
 };
 
@@ -150,7 +176,7 @@ void AddFloatValidityKernel(const std::shared_ptr<DataType>& ty, ScalarFunction*
 
 template <bool kConstant>
 Status ConstBoolExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
-  ArraySpan* array = out->array_span();
+  ArraySpan* array = out->array_span_mutable();
   bit_util::SetBitsTo(array->buffers[1].data, array->offset, array->length, kConstant);
   return Status::OK();
 }
@@ -160,6 +186,7 @@ std::shared_ptr<ScalarFunction> MakeIsFiniteFunction(std::string name, FunctionD
 
   AddFloatValidityKernel<FloatType, IsFiniteOperator>(float32(), func.get());
   AddFloatValidityKernel<DoubleType, IsFiniteOperator>(float64(), func.get());
+  AddFloatValidityKernel<HalfFloatType, IsFiniteOperator>(float16(), func.get());
 
   for (const auto& ty : IntTypes()) {
     DCHECK_OK(func->AddKernel({InputType(ty->id())}, boolean(), ConstBoolExec<true>));
@@ -169,6 +196,7 @@ std::shared_ptr<ScalarFunction> MakeIsFiniteFunction(std::string name, FunctionD
       func->AddKernel({InputType(Type::DECIMAL128)}, boolean(), ConstBoolExec<true>));
   DCHECK_OK(
       func->AddKernel({InputType(Type::DECIMAL256)}, boolean(), ConstBoolExec<true>));
+  DCHECK_OK(func->AddKernel({InputType(Type::DURATION)}, boolean(), ConstBoolExec<true>));
 
   return func;
 }
@@ -178,6 +206,7 @@ std::shared_ptr<ScalarFunction> MakeIsInfFunction(std::string name, FunctionDoc 
 
   AddFloatValidityKernel<FloatType, IsInfOperator>(float32(), func.get());
   AddFloatValidityKernel<DoubleType, IsInfOperator>(float64(), func.get());
+  AddFloatValidityKernel<HalfFloatType, IsInfOperator>(float16(), func.get());
 
   for (const auto& ty : IntTypes()) {
     DCHECK_OK(func->AddKernel({InputType(ty->id())}, boolean(), ConstBoolExec<false>));
@@ -187,7 +216,8 @@ std::shared_ptr<ScalarFunction> MakeIsInfFunction(std::string name, FunctionDoc 
       func->AddKernel({InputType(Type::DECIMAL128)}, boolean(), ConstBoolExec<false>));
   DCHECK_OK(
       func->AddKernel({InputType(Type::DECIMAL256)}, boolean(), ConstBoolExec<false>));
-
+  DCHECK_OK(
+      func->AddKernel({InputType(Type::DURATION)}, boolean(), ConstBoolExec<false>));
   return func;
 }
 
@@ -196,6 +226,7 @@ std::shared_ptr<ScalarFunction> MakeIsNanFunction(std::string name, FunctionDoc 
 
   AddFloatValidityKernel<FloatType, IsNanOperator>(float32(), func.get());
   AddFloatValidityKernel<DoubleType, IsNanOperator>(float64(), func.get());
+  AddFloatValidityKernel<HalfFloatType, IsNanOperator>(float16(), func.get());
 
   for (const auto& ty : IntTypes()) {
     DCHECK_OK(func->AddKernel({InputType(ty->id())}, boolean(), ConstBoolExec<false>));
@@ -205,12 +236,14 @@ std::shared_ptr<ScalarFunction> MakeIsNanFunction(std::string name, FunctionDoc 
       func->AddKernel({InputType(Type::DECIMAL128)}, boolean(), ConstBoolExec<false>));
   DCHECK_OK(
       func->AddKernel({InputType(Type::DECIMAL256)}, boolean(), ConstBoolExec<false>));
+  DCHECK_OK(
+      func->AddKernel({InputType(Type::DURATION)}, boolean(), ConstBoolExec<false>));
 
   return func;
 }
 
 Status TrueUnlessNullExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
-  ArraySpan* out_span = out->array_span();
+  ArraySpan* out_span = out->array_span_mutable();
   if (out_span->buffers[0].data) {
     // If there is a validity bitmap computed above the kernel
     // invocation, we copy it to the output buffers

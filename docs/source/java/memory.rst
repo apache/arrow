@@ -20,7 +20,7 @@ Memory Management
 =================
 
 The memory modules contain all the functionality that Arrow uses to allocate and deallocate memory. This document is divided in two parts:
-The first part, *Memory Basics*, provides a high-level introduction. The following section, *Arrow Memory In-Depth*, fills in the details. 
+The first part, *Memory Basics*, provides a high-level introduction. The following section, *Arrow Memory In-Depth*, fills in the details.
 
 .. contents::
 
@@ -39,7 +39,7 @@ Getting Started
 
 Arrow's memory management is built around the needs of the columnar format and using off-heap memory.
 Arrow Java has its own independent implementation. It does not wrap the C++ implementation, although the framework is flexible enough
-to be used with memory allocated in C++ that is used by Java code. 
+to be used with memory allocated in C++ that is used by Java code.
 
 Arrow provides multiple modules: the core interfaces, and implementations of the interfaces.
 Users need the core interfaces, and exactly one of the implementations.
@@ -67,9 +67,9 @@ Why Arrow Uses Direct Memory
 BufferAllocator
 ---------------
 
-The `BufferAllocator`_ is primarily an arena or nursery used for accounting of buffers (ArrowBuf instances). 
-As the name suggests, it can allocate new buffers associated with itself, but it can also 
-handle the accounting for buffers allocated elsewhere. For example, it handles the Java-side accounting for 
+The `BufferAllocator`_ is primarily an arena or nursery used for accounting of buffers (ArrowBuf instances).
+As the name suggests, it can allocate new buffers associated with itself, but it can also
+handle the accounting for buffers allocated elsewhere. For example, it handles the Java-side accounting for
 memory allocated in C++ and shared with Java using the C-Data Interface. In the code below it performs an allocation:
 
 .. code-block:: Java
@@ -100,21 +100,21 @@ memory from a child allocator, those allocations are also reflected in all paren
 effectively sets the program-wide memory limit, and serves as the master bookkeeper for all memory allocations.
 
 Child allocators are not strictly required, but can help better organize code. For instance, a lower memory limit can
-be set for a particular section of code. The child allocator can be closed when that section completes, 
-at which point it checks that that section didn't leak any memory. 
+be set for a particular section of code. The child allocator can be closed when that section completes,
+at which point it checks that that section didn't leak any memory.
 Child allocators can also be named, which makes it easier to tell where an ArrowBuf came from during debugging.
 
 Reference counting
 ------------------
 
-Because direct memory is expensive to allocate and deallocate, allocators may share direct buffers. To managed shared buffers 
-deterministically, we use manual reference counting instead of the garbage collector. 
+Because direct memory is expensive to allocate and deallocate, allocators may share direct buffers. To manage shared buffers
+deterministically, we use manual reference counting instead of the garbage collector.
 This simply means that each buffer has a counter keeping track of the number of references to
 the buffer, and the user is responsible for properly incrementing/decrementing the counter as the buffer is used.
 
 In Arrow, each ArrowBuf has an associated `ReferenceManager`_ that tracks the reference count. You can retrieve
-it with ArrowBuf.getReferenceManager(). The reference count is updated using `ReferenceManager.release`_ to decrement the count, 
-and `ReferenceManager.retain`_ to increment it. 
+it with ArrowBuf.getReferenceManager(). The reference count is updated using `ReferenceManager.release`_ to decrement the count,
+and `ReferenceManager.retain`_ to increment it.
 
 Of course, this is tedious and error-prone, so instead of directly working with buffers, we typically use
 higher-level APIs like ValueVector. Such classes generally implement Closeable/AutoCloseable and will automatically
@@ -133,19 +133,17 @@ Development Guidelines
 Applications should generally:
 
 * Use the BufferAllocator interface in APIs instead of RootAllocator.
-* Create one RootAllocator at the start of the program.
+* Create one RootAllocator at the start of the program and explicitly pass it when needed.
 * ``close()`` allocators after use (whether they are child allocators or the RootAllocator), either manually or preferably via a try-with-resources statement.
 
 
 Debugging Memory Leaks/Allocation
 ---------------------------------
 
-In ``DEBUG`` mode, the allocator and
-supporting classes will record additional debug tracking information to
-better track down memory leaks and issues. To enable DEBUG mode, either
-enable Java assertions with ``-ea`` or pass the following system
-property to the VM when starting
-``-Darrow.memory.debug.allocator=true``. 
+In ``DEBUG`` mode, the allocator and supporting classes will record additional
+debug tracking information to better track down memory leaks and issues. To
+enable DEBUG mode pass the following system property to the VM when starting
+``-Darrow.memory.debug.allocator=true``.
 
 When DEBUG is enabled, a log will be kept of allocations. Configure SLF4J to see these logs (e.g. via Logback/Apache Log4j).
 Consider the following example to see how it helps us with the tracking of allocators:
@@ -290,6 +288,53 @@ Finally, enabling the ``TRACE`` logging level will automatically provide this st
    |        at RootAllocator.close (RootAllocator.java:29)
    |        at (#8:1)
 
+Sometimes, explicitly passing allocators around is difficult. For example, it
+can be hard to pass around extra state, like an allocator, through layers of
+existing application or framework code. A global or singleton allocator instance
+can be useful here, though it should not be your first choice.
+
+How this works:
+
+1. Set up a global allocator in a singleton class.
+2. Provide methods to create child allocators from the global allocator.
+3. Give child allocators proper names to make it easier to figure out where
+   allocations occurred in case of errors.
+4. Ensure that resources are properly closed.
+5. Check that the global allocator is empty at some suitable point, such as
+   right before program shutdown.
+6. If it is not empty, review the above allocation bugs.
+
+.. code-block:: java
+
+    //1
+    private static final BufferAllocator allocator = new RootAllocator();
+    private static final AtomicInteger childNumber = new AtomicInteger(0);
+    ...
+    //2
+    public static BufferAllocator getChildAllocator() {
+        return allocator.newChildAllocator(nextChildName(), 0, Long.MAX_VALUE);
+    }
+    ...
+    //3
+    private static String nextChildName() {
+        return "Allocator-Child-" + childNumber.incrementAndGet();
+    }
+    ...
+    //4: Business code
+    try (BufferAllocator allocator = GlobalAllocator.getChildAllocator()) {
+        ...
+    }
+    ...
+    //5
+    public static void checkGlobalCleanUpResources() {
+        ...
+        if (!allocator.getChildAllocators().isEmpty()) {
+          throw new IllegalStateException(...);
+        } else if (allocator.getAllocatedMemory() != 0) {
+          throw new IllegalStateException(...);
+        }
+    }
+
 .. _`ArrowBuf`: https://arrow.apache.org/docs/java/reference/org/apache/arrow/memory/ArrowBuf.html
 .. _`ArrowBuf.print()`: https://arrow.apache.org/docs/java/reference/org/apache/arrow/memory/ArrowBuf.html#print-java.lang.StringBuilder-int-org.apache.arrow.memory.BaseAllocator.Verbosity-
 .. _`BufferAllocator`: https://arrow.apache.org/docs/java/reference/org/apache/arrow/memory/BufferAllocator.html
@@ -325,7 +370,7 @@ Arrow’s memory model is based on the following basic concepts:
    leaks.
 -  The same physical memory can be shared by multiple allocators and the
    allocator must provide an accounting paradigm for this purpose.
-   
+
 Reserving Memory
 ----------------
 
@@ -339,17 +384,17 @@ Arrow provides two different ways to reserve memory:
 -  ``AllocationReservation`` via BufferAllocator.newReservation():
    Allows a short-term preallocation strategy so that a particular
    subsystem can ensure future memory is available to support a
-   particular request.   
-   
+   particular request.
+
 Reference Counting Details
 --------------------------
 
-Typically, the ReferenceManager implementation used is an instance of `BufferLedger`_. 
-A BufferLedger is a ReferenceManager that also maintains the relationship between an ``AllocationManager``, 
+Typically, the ReferenceManager implementation used is an instance of `BufferLedger`_.
+A BufferLedger is a ReferenceManager that also maintains the relationship between an ``AllocationManager``,
 a ``BufferAllocator`` and one or more individual ``ArrowBuf``\ s
 
-All ArrowBufs (direct or sliced) related to a single BufferLedger/BufferAllocator combination 
-share the same reference count and either all will be valid or all will be invalid. 
+All ArrowBufs (direct or sliced) related to a single BufferLedger/BufferAllocator combination
+share the same reference count and either all will be valid or all will be invalid.
 For simplicity of accounting, we treat that memory as being used by one
 of the BufferAllocators associated with the memory. When that allocator
 releases its claim on that memory, the memory ownership is then moved to
@@ -366,7 +411,7 @@ There are several Allocator types in Arrow Java:
 -  ``ChildAllocator`` - A child allocator that derives from the root allocator
 
 Many BufferAllocators can reference the same piece of physical memory at the same
-time. It is the AllocationManager’s responsibility to ensure that in this situation, 
+time. It is the AllocationManager’s responsibility to ensure that in this situation,
 all memory is accurately accounted for from the Root’s perspective
 and also to ensure that the memory is correctly released once all
 BufferAllocators have stopped using that memory.

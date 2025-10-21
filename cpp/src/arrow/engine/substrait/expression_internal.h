@@ -20,19 +20,28 @@
 #pragma once
 
 #include <memory>
+#include <optional>
 
 #include "arrow/compute/type_fwd.h"
 #include "arrow/datum.h"
 #include "arrow/engine/substrait/type_fwd.h"
 #include "arrow/engine/substrait/visibility.h"
 #include "arrow/result.h"
+#include "arrow/util/macros.h"
 
+// GH-44954: silence [[deprecated]] declarations in protobuf-generated code
+ARROW_SUPPRESS_DEPRECATION_WARNING
 #include "substrait/algebra.pb.h"  // IWYU pragma: export
+ARROW_UNSUPPRESS_DEPRECATION_WARNING
 
 namespace arrow {
 namespace engine {
 
 class SubstraitCall;
+
+ARROW_ENGINE_EXPORT
+Result<FieldRef> DirectReferenceFromProto(const substrait::Expression::FieldReference*,
+                                          const ExtensionSet&, const ConversionOptions&);
 
 ARROW_ENGINE_EXPORT
 Result<compute::Expression> FromProto(const substrait::Expression&, const ExtensionSet&,

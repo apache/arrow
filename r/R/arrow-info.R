@@ -39,6 +39,7 @@ arrow_info <- function() {
     version = packageVersion("arrow"),
     options = opts[grep("^arrow\\.", names(opts))],
     capabilities = c(
+      acero = arrow_with_acero(),
       dataset = arrow_with_dataset(),
       substrait = arrow_with_substrait(),
       parquet = arrow_with_parquet(),
@@ -77,6 +78,14 @@ arrow_info <- function() {
 arrow_available <- function() {
   .Deprecated(msg = "Arrow C++ is always available as of 7.0.0")
   TRUE
+}
+
+#' @rdname arrow_info
+#' @export
+arrow_with_acero <- function() {
+  tryCatch(.Call(`_acero_available`), error = function(e) {
+    return(FALSE)
+  })
 }
 
 #' @rdname arrow_info
@@ -130,7 +139,8 @@ arrow_with_json <- function() {
 some_features_are_off <- function(features) {
   # `features` is a named logical vector (as in arrow_info()$capabilities)
   # Let's exclude some less relevant ones
-  blocklist <- c("lzo", "bz2", "brotli", "substrait")
+  # jemalloc is only included because it is sometimes disabled in our build process
+  blocklist <- c("lzo", "bz2", "brotli", "substrait", "jemalloc", "gcs")
   # Return TRUE if any of the other features are FALSE
   !all(features[setdiff(names(features), blocklist)])
 }

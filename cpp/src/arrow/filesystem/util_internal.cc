@@ -17,6 +17,7 @@
 
 #include "arrow/filesystem/util_internal.h"
 
+#include <algorithm>
 #include <cerrno>
 
 #include "arrow/buffer.h"
@@ -24,13 +25,14 @@
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/util/io_util.h"
+#include "arrow/util/string.h"
+#include "arrow/util/uri.h"
 
 namespace arrow {
 
 using internal::StatusDetailFromErrno;
 
-namespace fs {
-namespace internal {
+namespace fs::internal {
 
 TimePoint CurrentTimePoint() {
   auto now = std::chrono::system_clock::now();
@@ -61,9 +63,19 @@ Status PathNotFound(std::string_view path) {
       .WithDetail(StatusDetailFromErrno(ENOENT));
 }
 
+Status IsADir(std::string_view path) {
+  return Status::IOError("Is a directory: '", path, "'")
+      .WithDetail(StatusDetailFromErrno(EISDIR));
+}
+
 Status NotADir(std::string_view path) {
   return Status::IOError("Not a directory: '", path, "'")
       .WithDetail(StatusDetailFromErrno(ENOTDIR));
+}
+
+Status NotEmpty(std::string_view path) {
+  return Status::IOError("Directory not empty: '", path, "'")
+      .WithDetail(StatusDetailFromErrno(ENOTEMPTY));
 }
 
 Status NotAFile(std::string_view path) {
@@ -74,6 +86,114 @@ Status InvalidDeleteDirContents(std::string_view path) {
   return Status::Invalid(
       "DeleteDirContents called on invalid path '", path, "'. ",
       "If you wish to delete the root directory's contents, call DeleteRootDirContents.");
+}
+
+Result<Uri> ParseFileSystemUri(const std::string& uri_string) {
+  Uri uri;
+  auto status = uri.Parse(uri_string);
+  if (!status.ok()) {
+#ifdef _WIN32
+    // Could be a "file:..." URI with backslashes instead of regular slashes.
+    RETURN_NOT_OK(uri.Parse(ToSlashes(uri_string)));
+    if (uri.scheme() != "file") {
+      return status;
+    }
+#else
+    return status;
+#endif
+  }
+  return uri;
+}
+
+#ifdef _WIN32
+static bool IsDriveLetter(char c) {
+  // Can't use locale-dependent functions from the C/C++ stdlib
+  return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z');
+}
+#endif
+
+bool DetectAbsolutePath(const std::string& s) {
+  // Is it a /-prefixed local path?
+  if (s.length() >= 1 && s[0] == '/') {
+    return true;
+  }
+#ifdef _WIN32
+  // Is it a \-prefixed local path?
+  if (s.length() >= 1 && s[0] == '\\') {
+    return true;
+  }
+  // Does it start with a drive letter in addition to being /- or \-prefixed,
+  // e.g. "C:\..."?
+  if (s.length() >= 3 && s[1] == ':' && (s[2] == '/' || s[2] == '\\') &&
+      IsDriveLetter(s[0])) {
+    return true;
+  }
+#endif
+  return false;
+}
+
+Result<std::string> PathFromUriHelper(const std::string& uri_string,
+                                      std::vector<std::string> supported_schemes,
+                                      bool accept_local_paths,
+                                      AuthorityHandlingBehavior authority_handling) {
+  if (internal::DetectAbsolutePath(uri_string)) {
+    if (accept_local_paths) {
+      // Normalize the path and remove any trailing slash
+      return std::string(
+          internal::RemoveTrailingSlash(ToSlashes(uri_string), /*preserve_root=*/true));
+    }
+    return Status::Invalid(
+        "The filesystem is not capable of loading local paths.  Expected a URI but "
+        "received ",
+        uri_string);
+  }
+  Uri uri;
+  ARROW_RETURN_NOT_OK(uri.Parse(uri_string));
+  const auto scheme = uri.scheme();
+  if (std::find(supported_schemes.begin(), supported_schemes.end(), scheme) ==
+      supported_schemes.end()) {
+    std::string expected_schemes =
+        ::arrow::internal::JoinStrings(supported_schemes, ", ");
+    return Status::Invalid("The filesystem expected a URI with one of the schemes (",
+                           expected_schemes, ") but received ", uri_string);
+  }
+  std::string host = uri.host();
+  std::string path = uri.path();
+  if (host.empty()) {
+    // Just a path, may be absolute or relative, only allow relative paths if local
+    if (path[0] == '/') {
+      return std::string(internal::RemoveTrailingSlash(path));
+    }
+    if (accept_local_paths) {
+      return std::string(internal::RemoveTrailingSlash(path));
+    }
+    return Status::Invalid("The filesystem does not support relative paths.  Received ",
+                           uri_string);
+  }
+  if (authority_handling == AuthorityHandlingBehavior::kDisallow) {
+    return Status::Invalid(
+        "The filesystem does not support the authority (host) component of a URI.  "
+        "Received ",
+        uri_string);
+  }
+  if (path[0] != '/') {
+    // This should not be possible
+    return Status::Invalid(
+        "The provided URI has a host component but a relative path which is not "
+        "supported. "
+        "Received ",
+        uri_string);
+  }
+  switch (authority_handling) {
+    case AuthorityHandlingBehavior::kPrepend:
+      return std::string(internal::RemoveTrailingSlash(host + path));
+    case AuthorityHandlingBehavior::kWindows:
+      return std::string(internal::RemoveTrailingSlash("//" + host + path));
+    case AuthorityHandlingBehavior::kIgnore:
+      return std::string(internal::RemoveTrailingSlash(path, /*preserve_root=*/true));
+    default:
+      return Status::Invalid("Unrecognized authority_handling value");
+  }
 }
 
 Result<FileInfoVector> GlobFiles(const std::shared_ptr<FileSystem>& filesystem,
@@ -141,6 +261,6 @@ Result<FileInfoVector> GlobFiles(const std::shared_ptr<FileSystem>& filesystem,
 
 FileSystemGlobalOptions global_options;
 
-}  // namespace internal
-}  // namespace fs
+}  // namespace fs::internal
+
 }  // namespace arrow

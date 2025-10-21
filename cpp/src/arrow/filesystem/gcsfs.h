@@ -27,9 +27,13 @@
 
 namespace arrow {
 namespace fs {
+namespace internal {
 
 // Opaque wrapper for GCS's library credentials to avoid exposing in Arrow headers.
 struct GcsCredentialsHolder;
+
+}  // namespace internal
+
 class GcsFileSystem;
 
 /// \brief Container for GCS Credentials and information necessary to recreate them.
@@ -41,7 +45,9 @@ class ARROW_EXPORT GcsCredentials {
   TimePoint expiration() const { return expiration_; }
   const std::string& target_service_account() const { return target_service_account_; }
   const std::string& json_credentials() const { return json_credentials_; }
-  const std::shared_ptr<GcsCredentialsHolder>& holder() const { return holder_; }
+  const std::shared_ptr<internal::GcsCredentialsHolder>& holder() const {
+    return holder_;
+  }
 
  private:
   GcsCredentials() = default;
@@ -50,7 +56,7 @@ class ARROW_EXPORT GcsCredentials {
   TimePoint expiration_;
   std::string target_service_account_;
   std::string json_credentials_;
-  std::shared_ptr<GcsCredentialsHolder> holder_;
+  std::shared_ptr<internal::GcsCredentialsHolder> holder_;
   friend class GcsFileSystem;
   friend struct GcsOptions;
 };
@@ -76,6 +82,13 @@ struct ARROW_EXPORT GcsOptions {
   ///
   /// This will be ignored if non-empty metadata is passed to OpenOutputStream.
   std::shared_ptr<const KeyValueMetadata> default_metadata;
+
+  /// \brief The project to use for creating buckets.
+  ///
+  /// If not set, the library uses the GOOGLE_CLOUD_PROJECT environment
+  /// variable. Most I/O operations do not need a project id, only applications
+  /// that create new buckets need a project id.
+  std::optional<std::string> project_id;
 
   bool Equals(const GcsOptions& other) const;
 
@@ -133,8 +146,7 @@ struct ARROW_EXPORT GcsOptions {
   static GcsOptions FromServiceAccountCredentials(const std::string& json_object);
 
   /// Initialize from URIs such as "gs://bucket/object".
-  static Result<GcsOptions> FromUri(const arrow::internal::Uri& uri,
-                                    std::string* out_path);
+  static Result<GcsOptions> FromUri(const arrow::util::Uri& uri, std::string* out_path);
   static Result<GcsOptions> FromUri(const std::string& uri, std::string* out_path);
 };
 
@@ -178,6 +190,7 @@ class ARROW_EXPORT GcsFileSystem : public FileSystem {
   const GcsOptions& options() const;
 
   bool Equals(const FileSystem& other) const override;
+  Result<std::string> PathFromUri(const std::string& uri_string) const override;
 
   Result<FileInfo> GetFileInfo(const std::string& path) override;
   Result<FileInfoVector> GetFileInfo(const FileSelector& select) override;
@@ -210,16 +223,12 @@ class ARROW_EXPORT GcsFileSystem : public FileSystem {
       const std::string& path,
       const std::shared_ptr<const KeyValueMetadata>& metadata) override;
 
-  ARROW_DEPRECATED(
-      "Deprecated. "
-      "OpenAppendStream is unsupported on the GCS FileSystem.")
   Result<std::shared_ptr<io::OutputStream>> OpenAppendStream(
       const std::string& path,
       const std::shared_ptr<const KeyValueMetadata>& metadata) override;
 
   /// Create a GcsFileSystem instance from the given options.
-  // TODO(ARROW-16884): make this return Result for consistency
-  static std::shared_ptr<GcsFileSystem> Make(
+  static Result<std::shared_ptr<GcsFileSystem>> Make(
       const GcsOptions& options, const io::IOContext& = io::default_io_context());
 
  private:

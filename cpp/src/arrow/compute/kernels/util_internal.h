@@ -35,6 +35,9 @@ using internal::CountAndSetBits;
 using internal::CountSetBits;
 
 namespace compute {
+
+class ScalarFunction;
+
 namespace internal {
 
 template <typename T>
@@ -135,6 +138,41 @@ int64_t CopyNonNullValues(const ChunkedArray& arr, T* out) {
 ExecValue GetExecValue(const Datum& value);
 
 int64_t GetTrueCount(const ArraySpan& mask);
+
+template <template <typename... Args> class KernelGenerator, typename Op>
+ArrayKernelExec GenerateArithmeticFloatingPoint(detail::GetTypeId get_id) {
+  switch (get_id.id) {
+    case Type::FLOAT:
+      return KernelGenerator<FloatType, FloatType, Op>::Exec;
+    case Type::DOUBLE:
+      return KernelGenerator<DoubleType, DoubleType, Op>::Exec;
+    default:
+      ARROW_DCHECK(false);
+      return nullptr;
+  }
+}
+
+// A scalar kernel that ignores (assumed all-null) inputs and returns null.
+void AddNullExec(ScalarFunction* func);
+
+inline Result<std::shared_ptr<Buffer>> GetOrCopyNullBitmapBuffer(
+    const ArraySpan& in_array, MemoryPool* pool) {
+  if (in_array.buffers[0].data == nullptr) {
+    return nullptr;
+  }
+
+  if (in_array.offset == 0) {
+    return in_array.GetBuffer(0);
+  }
+
+  if (in_array.offset % 8 == 0) {
+    return SliceBuffer(in_array.GetBuffer(0), /*offset=*/in_array.offset / 8);
+  }
+
+  // If a non-zero offset, we need to shift the bitmap
+  return arrow::internal::CopyBitmap(pool, in_array.buffers[0].data, in_array.offset,
+                                     in_array.length);
+}
 
 }  // namespace internal
 }  // namespace compute

@@ -23,13 +23,15 @@
 #include <unordered_set>
 #include <vector>
 
+#include "arrow/util/logging_internal.h"
 #include "gandiva/annotator.h"
 #include "gandiva/dex.h"
-#include "gandiva/function_holder_registry.h"
+#include "gandiva/function_holder_maker_registry.h"
 #include "gandiva/function_registry.h"
 #include "gandiva/function_signature.h"
 #include "gandiva/in_holder.h"
 #include "gandiva/node.h"
+#include "gandiva/regex_functions_holder.h"
 
 namespace gandiva {
 
@@ -81,9 +83,10 @@ Status ExprDecomposer::Visit(const FunctionNode& in_node) {
   std::shared_ptr<FunctionHolder> holder;
   int holder_idx = -1;
   if (native_function->NeedsFunctionHolder()) {
-    auto status = FunctionHolderRegistry::Make(desc->name(), node, &holder);
+    auto function_holder_maker_registry = registry_.GetFunctionHolderMakerRegistry();
+    ARROW_ASSIGN_OR_RAISE(holder,
+                          function_holder_maker_registry.Make(desc->name(), node));
     holder_idx = annotator_.AddHolderPointer(holder.get());
-    ARROW_RETURN_NOT_OK(status);
   }
 
   if (native_function->result_nullable_type() == kResultNullIfNull) {
@@ -246,7 +249,7 @@ Status ExprDecomposer::Visit(const LiteralNode& node) {
   return Status::OK();
 }
 
-// The bolow functions use a stack to detect :
+// The below functions use a stack to detect :
 // a. nested if-else expressions.
 //    In such cases,  the local bitmap can be re-used.
 // b. detect terminal else expressions

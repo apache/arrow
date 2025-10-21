@@ -27,8 +27,12 @@
 #include "arrow/engine/substrait/visibility.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
+#include "arrow/util/macros.h"
 
+// GH-44954: silence [[deprecated]] declarations in protobuf-generated code
+ARROW_SUPPRESS_DEPRECATION_WARNING
 #include "substrait/plan.pb.h"  // IWYU pragma: export
+ARROW_UNSUPPRESS_DEPRECATION_WARNING
 
 namespace arrow {
 namespace engine {
@@ -65,7 +69,7 @@ Result<ExtensionSet> GetExtensionSetFromPlan(
 /// \param[in] conversion_options options to control serialization behavior
 /// \return the serialized plan
 ARROW_ENGINE_EXPORT Result<std::unique_ptr<substrait::Plan>> PlanToProto(
-    const compute::Declaration& declr, ExtensionSet* ext_set,
+    const acero::Declaration& declr, ExtensionSet* ext_set,
     const ConversionOptions& conversion_options = {});
 
 }  // namespace engine

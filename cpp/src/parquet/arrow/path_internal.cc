@@ -66,7 +66,7 @@
 // 3.  In order to keep repetition/definition level populated the algorithm is lazy
 //     in assigning repetition levels. The algorithm tracks whether it is currently
 //     in the middle of a list by comparing the lengths of repetition/definition levels.
-//     If it is currently in the middle of a list the the number of repetition levels
+//     If it is currently in the middle of a list the number of repetition levels
 //     populated will be greater than definition levels (the start of a List requires
 //     adding the first element). If there are equal numbers of definition and repetition
 //     levels populated this indicates a list is waiting to be started and the next list
@@ -102,14 +102,13 @@
 #include "arrow/util/bit_run_reader.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_visit.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/macros.h"
 #include "arrow/visit_array_inline.h"
 
 #include "parquet/properties.h"
 
-namespace parquet {
-namespace arrow {
+namespace parquet::arrow {
 
 namespace {
 
@@ -142,7 +141,7 @@ int64_t LazyNullCount(const Array& array) { return array.data()->null_count.load
 bool LazyNoNulls(const Array& array) {
   int64_t null_count = LazyNullCount(array);
   return null_count == 0 ||
-         // kUnkownNullCount comparison is needed to account
+         // kUnknownNullCount comparison is needed to account
          // for null arrays.
          (null_count == ::arrow::kUnknownNullCount &&
           array.null_bitmap_data() == nullptr);
@@ -201,7 +200,7 @@ struct PathWriteContext {
 
   // Incorporates |range| into visited elements. If the |range| is contiguous
   // with the last range, extend the last range, otherwise add |range| separately
-  // tot he list.
+  // to the list.
   void RecordPostListVisit(const ElementRange& range) {
     if (!visited_elements.empty() && range.start == visited_elements.back().end) {
       visited_elements.back().end = range.end;
@@ -313,7 +312,7 @@ struct NullableTerminalNode {
 // at least one other node).
 //
 // Type parameters:
-//    |RangeSelector| - A strategy for determine the the range of the child node to
+//    |RangeSelector| - A strategy for determine the range of the child node to
 //    process.
 //       this varies depending on the type of list (int32_t* offsets, int64_t* offsets of
 //       fixed.
@@ -828,8 +827,11 @@ class PathBuilder {
                                   " not supported yet");                   \
   }
 
-  // Union types aren't supported in Parquet.
+  // Types not yet supported in Parquet.
   NOT_IMPLEMENTED_VISIT(Union)
+  NOT_IMPLEMENTED_VISIT(RunEndEncoded);
+  NOT_IMPLEMENTED_VISIT(ListView);
+  NOT_IMPLEMENTED_VISIT(LargeListView);
 
 #undef NOT_IMPLEMENTED_VISIT
   std::vector<PathInfo>& paths() { return paths_; }
@@ -900,5 +902,4 @@ Status MultipathLevelBuilder::Write(const Array& array, bool array_field_nullabl
   return Status::OK();
 }
 
-}  // namespace arrow
-}  // namespace parquet
+}  // namespace parquet::arrow

@@ -444,8 +444,8 @@ ExecPlanReader__PlanStatus <- function(reader) {
   .Call(`_arrow_ExecPlanReader__PlanStatus`, reader)
 }
 
-ExecPlan_run <- function(plan, final_node, sort_options, metadata, head) {
-  .Call(`_arrow_ExecPlan_run`, plan, final_node, sort_options, metadata, head)
+ExecPlan_run <- function(plan, final_node, metadata) {
+  .Call(`_arrow_ExecPlan_run`, plan, final_node, metadata)
 }
 
 ExecPlan_ToString <- function(plan) {
@@ -460,12 +460,16 @@ ExecNode_output_schema <- function(node) {
   .Call(`_arrow_ExecNode_output_schema`, node)
 }
 
+ExecNode_has_ordered_batches <- function(node) {
+  .Call(`_arrow_ExecNode_has_ordered_batches`, node)
+}
+
 ExecNode_Scan <- function(plan, dataset, filter, projection) {
   .Call(`_arrow_ExecNode_Scan`, plan, dataset, filter, projection)
 }
 
-ExecPlan_Write <- function(plan, final_node, metadata, file_write_options, filesystem, base_dir, partitioning, basename_template, existing_data_behavior, max_partitions, max_open_files, max_rows_per_file, min_rows_per_group, max_rows_per_group) {
-  invisible(.Call(`_arrow_ExecPlan_Write`, plan, final_node, metadata, file_write_options, filesystem, base_dir, partitioning, basename_template, existing_data_behavior, max_partitions, max_open_files, max_rows_per_file, min_rows_per_group, max_rows_per_group))
+ExecPlan_Write <- function(plan, final_node, schema, file_write_options, filesystem, base_dir, partitioning, basename_template, existing_data_behavior, max_partitions, max_open_files, max_rows_per_file, min_rows_per_group, max_rows_per_group, create_directory) {
+  invisible(.Call(`_arrow_ExecPlan_Write`, plan, final_node, schema, file_write_options, filesystem, base_dir, partitioning, basename_template, existing_data_behavior, max_partitions, max_open_files, max_rows_per_file, min_rows_per_group, max_rows_per_group, create_directory))
 }
 
 ExecNode_Filter <- function(input, filter) {
@@ -480,12 +484,20 @@ ExecNode_Aggregate <- function(input, options, key_names) {
   .Call(`_arrow_ExecNode_Aggregate`, input, options, key_names)
 }
 
-ExecNode_Join <- function(input, join_type, right_data, left_keys, right_keys, left_output, right_output, output_suffix_for_left, output_suffix_for_right) {
-  .Call(`_arrow_ExecNode_Join`, input, join_type, right_data, left_keys, right_keys, left_output, right_output, output_suffix_for_left, output_suffix_for_right)
+ExecNode_Join <- function(input, join_type, right_data, left_keys, right_keys, left_output, right_output, output_suffix_for_left, output_suffix_for_right, na_matches) {
+  .Call(`_arrow_ExecNode_Join`, input, join_type, right_data, left_keys, right_keys, left_output, right_output, output_suffix_for_left, output_suffix_for_right, na_matches)
 }
 
 ExecNode_Union <- function(input, right_data) {
   .Call(`_arrow_ExecNode_Union`, input, right_data)
+}
+
+ExecNode_Fetch <- function(input, offset, limit) {
+  .Call(`_arrow_ExecNode_Fetch`, input, offset, limit)
+}
+
+ExecNode_OrderBy <- function(input, sort_options) {
+  .Call(`_arrow_ExecNode_OrderBy`, input, sort_options)
 }
 
 ExecNode_SourceNode <- function(plan, reader) {
@@ -524,6 +536,10 @@ compute__GetFunctionNames <- function() {
   .Call(`_arrow_compute__GetFunctionNames`)
 }
 
+compute__Initialize <- function() {
+  invisible(.Call(`_arrow_compute__Initialize`))
+}
+
 RegisterScalarUDF <- function(name, func_sexp) {
   invisible(.Call(`_arrow_RegisterScalarUDF`, name, func_sexp))
 }
@@ -554,6 +570,26 @@ csv___ParseOptions__initialize <- function(options) {
 
 csv___ReadOptions__column_names <- function(options) {
   .Call(`_arrow_csv___ReadOptions__column_names`, options)
+}
+
+csv___ReadOptions__block_size <- function(options) {
+  .Call(`_arrow_csv___ReadOptions__block_size`, options)
+}
+
+csv___ReadOptions__skip_rows <- function(options) {
+  .Call(`_arrow_csv___ReadOptions__skip_rows`, options)
+}
+
+csv___ReadOptions__autogenerate_column_names <- function(options) {
+  .Call(`_arrow_csv___ReadOptions__autogenerate_column_names`, options)
+}
+
+csv___ReadOptions__use_threads <- function(options) {
+  .Call(`_arrow_csv___ReadOptions__use_threads`, options)
+}
+
+csv___ReadOptions__skip_rows_after_names <- function(options) {
+  .Call(`_arrow_csv___ReadOptions__skip_rows_after_names`, options)
 }
 
 csv___ConvertOptions__initialize <- function(options) {
@@ -700,6 +736,10 @@ dataset___CsvFileFormat__Make <- function(parse_options, convert_options, read_o
   .Call(`_arrow_dataset___CsvFileFormat__Make`, parse_options, convert_options, read_options)
 }
 
+dataset___JsonFileFormat__Make <- function(parse_options, read_options) {
+  .Call(`_arrow_dataset___JsonFileFormat__Make`, parse_options, read_options)
+}
+
 dataset___FragmentScanOptions__type_name <- function(fragment_scan_options) {
   .Call(`_arrow_dataset___FragmentScanOptions__type_name`, fragment_scan_options)
 }
@@ -708,8 +748,12 @@ dataset___CsvFragmentScanOptions__Make <- function(convert_options, read_options
   .Call(`_arrow_dataset___CsvFragmentScanOptions__Make`, convert_options, read_options)
 }
 
-dataset___ParquetFragmentScanOptions__Make <- function(use_buffered_stream, buffer_size, pre_buffer) {
-  .Call(`_arrow_dataset___ParquetFragmentScanOptions__Make`, use_buffered_stream, buffer_size, pre_buffer)
+dataset___JsonFragmentScanOptions__Make <- function(parse_options, read_options) {
+  .Call(`_arrow_dataset___JsonFragmentScanOptions__Make`, parse_options, read_options)
+}
+
+dataset___ParquetFragmentScanOptions__Make <- function(use_buffered_stream, buffer_size, pre_buffer, thrift_string_size_limit, thrift_container_size_limit) {
+  .Call(`_arrow_dataset___ParquetFragmentScanOptions__Make`, use_buffered_stream, buffer_size, pre_buffer, thrift_string_size_limit, thrift_container_size_limit)
 }
 
 dataset___DirectoryPartitioning <- function(schm, segment_encoding) {
@@ -878,6 +922,14 @@ Date64__initialize <- function() {
 
 Null__initialize <- function() {
   .Call(`_arrow_Null__initialize`)
+}
+
+Decimal32Type__initialize <- function(precision, scale) {
+  .Call(`_arrow_Decimal32Type__initialize`, precision, scale)
+}
+
+Decimal64Type__initialize <- function(precision, scale) {
+  .Call(`_arrow_Decimal64Type__initialize`, precision, scale)
 }
 
 Decimal128Type__initialize <- function(precision, scale) {
@@ -1090,6 +1142,10 @@ compute___expr__is_field_ref <- function(x) {
 
 compute___expr__get_field_ref_name <- function(x) {
   .Call(`_arrow_compute___expr__get_field_ref_name`, x)
+}
+
+compute___expr__field_names_in_expression <- function(x) {
+  .Call(`_arrow_compute___expr__field_names_in_expression`, x)
 }
 
 compute___expr__field_ref <- function(name) {
@@ -1308,10 +1364,6 @@ fs___FileSystem__type_name <- function(file_system) {
   .Call(`_arrow_fs___FileSystem__type_name`, file_system)
 }
 
-fs___LocalFileSystem__create <- function() {
-  .Call(`_arrow_fs___LocalFileSystem__create`)
-}
-
 fs___SubTreeFileSystem__create <- function(base_path, base_fs) {
   .Call(`_arrow_fs___SubTreeFileSystem__create`, base_path, base_fs)
 }
@@ -1332,16 +1384,24 @@ fs___CopyFiles <- function(source_fs, source_sel, destination_fs, destination_ba
   invisible(.Call(`_arrow_fs___CopyFiles`, source_fs, source_sel, destination_fs, destination_base_dir, chunk_size, use_threads))
 }
 
-fs___S3FileSystem__create <- function(anonymous, access_key, secret_key, session_token, role_arn, session_name, external_id, load_frequency, region, endpoint_override, scheme, proxy_options, background_writes, allow_bucket_creation, allow_bucket_deletion, connect_timeout, request_timeout) {
-  .Call(`_arrow_fs___S3FileSystem__create`, anonymous, access_key, secret_key, session_token, role_arn, session_name, external_id, load_frequency, region, endpoint_override, scheme, proxy_options, background_writes, allow_bucket_creation, allow_bucket_deletion, connect_timeout, request_timeout)
+fs___S3FileSystem__create <- function(anonymous, access_key, secret_key, session_token, role_arn, session_name, external_id, load_frequency, region, endpoint_override, scheme, proxy_options, background_writes, allow_bucket_creation, allow_bucket_deletion, check_directory_existence_before_creation, connect_timeout, request_timeout) {
+  .Call(`_arrow_fs___S3FileSystem__create`, anonymous, access_key, secret_key, session_token, role_arn, session_name, external_id, load_frequency, region, endpoint_override, scheme, proxy_options, background_writes, allow_bucket_creation, allow_bucket_deletion, check_directory_existence_before_creation, connect_timeout, request_timeout)
 }
 
 fs___S3FileSystem__region <- function(fs) {
   .Call(`_arrow_fs___S3FileSystem__region`, fs)
 }
 
+FinalizeS3 <- function() {
+  invisible(.Call(`_arrow_FinalizeS3`))
+}
+
 fs___GcsFileSystem__Make <- function(anonymous, options) {
   .Call(`_arrow_fs___GcsFileSystem__Make`, anonymous, options)
+}
+
+fs___GcsFileSystem__options <- function(fs) {
+  .Call(`_arrow_fs___GcsFileSystem__options`, fs)
 }
 
 io___Readable__Read <- function(x, nbytes) {
@@ -1544,6 +1604,26 @@ parquet___arrow___ArrowReaderProperties__Make <- function(use_threads) {
   .Call(`_arrow_parquet___arrow___ArrowReaderProperties__Make`, use_threads)
 }
 
+parquet___arrow___ReaderProperties__Make <- function() {
+  .Call(`_arrow_parquet___arrow___ReaderProperties__Make`)
+}
+
+parquet___arrow___ReaderProperties__get_thrift_string_size_limit <- function(properties) {
+  .Call(`_arrow_parquet___arrow___ReaderProperties__get_thrift_string_size_limit`, properties)
+}
+
+parquet___arrow___ReaderProperties__set_thrift_string_size_limit <- function(properties, size) {
+  invisible(.Call(`_arrow_parquet___arrow___ReaderProperties__set_thrift_string_size_limit`, properties, size))
+}
+
+parquet___arrow___ReaderProperties__get_thrift_container_size_limit <- function(properties) {
+  .Call(`_arrow_parquet___arrow___ReaderProperties__get_thrift_container_size_limit`, properties)
+}
+
+parquet___arrow___ReaderProperties__set_thrift_container_size_limit <- function(properties, size) {
+  invisible(.Call(`_arrow_parquet___arrow___ReaderProperties__set_thrift_container_size_limit`, properties, size))
+}
+
 parquet___arrow___ArrowReaderProperties__set_use_threads <- function(properties, use_threads) {
   invisible(.Call(`_arrow_parquet___arrow___ArrowReaderProperties__set_use_threads`, properties, use_threads))
 }
@@ -1568,8 +1648,8 @@ parquet___arrow___ArrowReaderProperties__get_coerce_int96_timestamp_unit <- func
   .Call(`_arrow_parquet___arrow___ArrowReaderProperties__get_coerce_int96_timestamp_unit`, properties)
 }
 
-parquet___arrow___FileReader__OpenFile <- function(file, props) {
-  .Call(`_arrow_parquet___arrow___FileReader__OpenFile`, file, props)
+parquet___arrow___FileReader__OpenFile <- function(file, props, reader_props) {
+  .Call(`_arrow_parquet___arrow___FileReader__OpenFile`, file, props, reader_props)
 }
 
 parquet___arrow___FileReader__ReadTable1 <- function(reader) {
@@ -1804,6 +1884,10 @@ RecordBatchReader__Head <- function(reader, num_rows) {
   .Call(`_arrow_RecordBatchReader__Head`, reader, num_rows)
 }
 
+MakeSafeRecordBatchReader <- function(reader) {
+  .Call(`_arrow_MakeSafeRecordBatchReader`, reader)
+}
+
 ipc___RecordBatchStreamReader__Open <- function(stream) {
   .Call(`_arrow_ipc___RecordBatchStreamReader__Open`, stream)
 }
@@ -1962,6 +2046,10 @@ Schema__metadata <- function(schema) {
 
 Schema__WithMetadata <- function(schema, metadata) {
   .Call(`_arrow_Schema__WithMetadata`, schema, metadata)
+}
+
+Schema__WithNames <- function(schema, names) {
+  .Call(`_arrow_Schema__WithNames`, schema, names)
 }
 
 Schema__serialize <- function(schema) {

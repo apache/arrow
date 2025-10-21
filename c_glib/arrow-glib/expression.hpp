@@ -19,12 +19,14 @@
 
 #pragma once
 
-#include <arrow/compute/exec/expression.h>
+#include <arrow/compute/expression.h>
 
 #include <arrow-glib/expression.h>
 
-
+GARROW_EXTERN
 GArrowExpression *
 garrow_expression_new_raw(const arrow::compute::Expression &arrow_expression);
+
+GARROW_EXTERN
 arrow::compute::Expression *
 garrow_expression_get_raw(GArrowExpression *expression);

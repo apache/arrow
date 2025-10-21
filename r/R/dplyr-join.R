@@ -25,13 +25,14 @@ do_join <- function(x,
                     suffix = c(".x", ".y"),
                     ...,
                     keep = FALSE,
-                    na_matches,
+                    na_matches = c("na", "never"),
                     join_type) {
   # TODO: handle `copy` arg: ignore?
-  # TODO: handle `na_matches` arg
   x <- as_adq(x)
   y <- as_adq(y)
   by <- handle_join_by(by, x, y)
+
+  na_matches <- match.arg(na_matches)
 
   # For outer joins, we need to output the join keys on both sides so we
   # can coalesce them afterwards.
@@ -54,7 +55,8 @@ do_join <- function(x,
     left_output = left_output,
     right_output = right_output,
     suffix = suffix,
-    keep = keep
+    keep = keep,
+    na_matches = na_matches == "na"
   )
   collapse.arrow_dplyr_query(x)
 }
@@ -116,9 +118,8 @@ semi_join.arrow_dplyr_query <- function(x,
                                         y,
                                         by = NULL,
                                         copy = FALSE,
-                                        suffix = c(".x", ".y"),
                                         ...) {
-  do_join(x, y, by, copy, suffix, ..., join_type = "LEFT_SEMI")
+  do_join(x, y, by, copy, suffix = c(".x", ".y"), ..., join_type = "LEFT_SEMI")
 }
 semi_join.Dataset <- semi_join.ArrowTabular <- semi_join.RecordBatchReader <- semi_join.arrow_dplyr_query
 
@@ -126,9 +127,8 @@ anti_join.arrow_dplyr_query <- function(x,
                                         y,
                                         by = NULL,
                                         copy = FALSE,
-                                        suffix = c(".x", ".y"),
                                         ...) {
-  do_join(x, y, by, copy, suffix, ..., join_type = "LEFT_ANTI")
+  do_join(x, y, by, copy, suffix = c(".x", ".y"), ..., join_type = "LEFT_ANTI")
 }
 anti_join.Dataset <- anti_join.ArrowTabular <- anti_join.RecordBatchReader <- anti_join.arrow_dplyr_query
 

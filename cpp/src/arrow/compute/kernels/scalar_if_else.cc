@@ -23,6 +23,7 @@
 #include "arrow/compute/api.h"
 #include "arrow/compute/kernels/codegen_internal.h"
 #include "arrow/compute/kernels/copy_data_internal.h"
+#include "arrow/compute/registry_internal.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/util/bit_block_counter.h"
@@ -30,6 +31,7 @@
 #include "arrow/util/bitmap.h"
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/bitmap_reader.h"
+#include "arrow/util/logging_internal.h"
 
 namespace arrow {
 
@@ -82,9 +84,9 @@ std::optional<uint64_t> GetConstantValidityWord(const ExecValue& data) {
   return {};
 }
 
-// if the condition is null then output is null otherwise we take validity from the
-// selected argument
-// ie. cond.valid & (cond.data & left.valid | ~cond.data & right.valid)
+/// If the condition is null then output is null otherwise we take validity from the
+/// selected argument
+/// (i.e. cond.valid & (cond.data & left.valid | ~cond.data & right.valid)).
 struct IfElseNullPromoter {
   KernelContext* ctx;
   const ArraySpan& cond;
@@ -165,7 +167,7 @@ struct IfElseNullPromoter {
   }
 
   Status ExecIntoArraySpan() {
-    ArraySpan* out_span = output->array_span();
+    ArraySpan* out_span = output->array_span_mutable();
 
     // cond.valid & (cond.data & left.valid | ~cond.data & right.valid)
     // In the following cases, we dont need to allocate out_valid bitmap
@@ -368,14 +370,14 @@ void RunIfElseLoopInverted(const ArraySpan& cond, const HandleBlock& handle_bloc
 }
 
 /// Runs if-else when cond is a scalar. Two special functions are required,
-/// 1.CopyArrayData, 2. BroadcastScalar
+/// 1. CopyArrayData, 2. BroadcastScalar
 template <typename CopyArrayData, typename BroadcastScalar>
 Status RunIfElseScalar(const BooleanScalar& cond, const ExecValue& left,
                        const ExecValue& right, ExecResult* out,
                        const CopyArrayData& copy_array_data,
                        const BroadcastScalar& broadcast_scalar) {
   // either left or right is an array. Output is always an array`
-  ArraySpan* out_array = out->array_span();
+  ArraySpan* out_array = out->array_span_mutable();
   if (!cond.is_valid) {
     // cond is null; output is all null --> clear validity buffer
     bit_util::ClearBitmap(out_array->buffers[0].data, out_array->offset,
@@ -450,7 +452,7 @@ struct IfElseFunctor<Type,
   //  AAA
   static Status Call(KernelContext* ctx, const ArraySpan& cond, const ArraySpan& left,
                      const ArraySpan& right, ExecResult* out) {
-    T* out_values = out->array_span()->GetValues<T>(1);
+    T* out_values = out->array_span_mutable()->GetValues<T>(1);
 
     // copy right data to out_buff
     std::memcpy(out_values, right.GetValues<T>(1), right.length * sizeof(T));
@@ -468,7 +470,7 @@ struct IfElseFunctor<Type,
   // ASA
   static Status Call(KernelContext* ctx, const ArraySpan& cond, const Scalar& left,
                      const ArraySpan& right, ExecResult* out) {
-    T* out_values = out->array_span()->GetValues<T>(1);
+    T* out_values = out->array_span_mutable()->GetValues<T>(1);
 
     // copy right data to out_buff
     std::memcpy(out_values, right.GetValues<T>(1), right.length * sizeof(T));
@@ -491,7 +493,7 @@ struct IfElseFunctor<Type,
   // AAS
   static Status Call(KernelContext* ctx, const ArraySpan& cond, const ArraySpan& left,
                      const Scalar& right, ExecResult* out) {
-    T* out_values = out->array_span()->GetValues<T>(1);
+    T* out_values = out->array_span_mutable()->GetValues<T>(1);
 
     // copy left data to out_buff
     const T* left_data = left.GetValues<T>(1);
@@ -514,7 +516,7 @@ struct IfElseFunctor<Type,
   // ASS
   static Status Call(KernelContext* ctx, const ArraySpan& cond, const Scalar& left,
                      const Scalar& right, ExecResult* out) {
-    T* out_values = out->array_span()->GetValues<T>(1);
+    T* out_values = out->array_span_mutable()->GetValues<T>(1);
 
     // copy right data to out_buff
     T right_data = internal::UnboxScalar<Type>::Unbox(right);
@@ -557,7 +559,7 @@ struct IfElseFunctor<Type, enable_if_boolean<Type>> {
   // AAA
   static Status Call(KernelContext* ctx, const ArraySpan& cond, const ArraySpan& left,
                      const ArraySpan& right, ExecResult* out) {
-    ArraySpan* out_arr = out->array_span();
+    ArraySpan* out_arr = out->array_span_mutable();
     // out_buff = right & ~cond
     arrow::internal::BitmapAndNot(right.buffers[1].data, right.offset,
                                   cond.buffers[1].data, cond.offset, cond.length,
@@ -578,7 +580,7 @@ struct IfElseFunctor<Type, enable_if_boolean<Type>> {
   // ASA
   static Status Call(KernelContext* ctx, const ArraySpan& cond, const Scalar& left,
                      const ArraySpan& right, ExecResult* out) {
-    ArraySpan* out_arr = out->array_span();
+    ArraySpan* out_arr = out->array_span_mutable();
 
     // out_buff = right & ~cond
     arrow::internal::BitmapAndNot(right.buffers[1].data, right.offset,
@@ -599,7 +601,7 @@ struct IfElseFunctor<Type, enable_if_boolean<Type>> {
   // AAS
   static Status Call(KernelContext* ctx, const ArraySpan& cond, const ArraySpan& left,
                      const Scalar& right, ExecResult* out) {
-    ArraySpan* out_arr = out->array_span();
+    ArraySpan* out_arr = out->array_span_mutable();
 
     // out_buff = left & cond
     arrow::internal::BitmapAnd(left.buffers[1].data, left.offset, cond.buffers[1].data,
@@ -621,7 +623,7 @@ struct IfElseFunctor<Type, enable_if_boolean<Type>> {
   // ASS
   static Status Call(KernelContext* ctx, const ArraySpan& cond, const Scalar& left,
                      const Scalar& right, ExecResult* out) {
-    ArraySpan* out_arr = out->array_span();
+    ArraySpan* out_arr = out->array_span_mutable();
 
     bool left_data = internal::UnboxScalar<BooleanType>::Unbox(left);
     bool right_data = internal::UnboxScalar<BooleanType>::Unbox(right);
@@ -889,7 +891,7 @@ struct IfElseFunctor<Type, enable_if_fixed_size_binary<Type>> {
   //  AAA
   static Status Call(KernelContext* ctx, const ArraySpan& cond, const ArraySpan& left,
                      const ArraySpan& right, ExecResult* out) {
-    ArraySpan* out_arr = out->array_span();
+    ArraySpan* out_arr = out->array_span_mutable();
 
     ARROW_ASSIGN_OR_RAISE(auto byte_width, GetByteWidth(*left.type, *right.type));
     auto* out_values = out_arr->buffers[1].data + out_arr->offset * byte_width;
@@ -912,7 +914,7 @@ struct IfElseFunctor<Type, enable_if_fixed_size_binary<Type>> {
   // ASA
   static Status Call(KernelContext* ctx, const ArraySpan& cond, const Scalar& left,
                      const ArraySpan& right, ExecResult* out) {
-    ArraySpan* out_arr = out->array_span();
+    ArraySpan* out_arr = out->array_span_mutable();
 
     ARROW_ASSIGN_OR_RAISE(auto byte_width, GetByteWidth(*left.type, *right.type));
     auto* out_values = out_arr->buffers[1].data + out_arr->offset * byte_width;
@@ -938,7 +940,7 @@ struct IfElseFunctor<Type, enable_if_fixed_size_binary<Type>> {
   // AAS
   static Status Call(KernelContext* ctx, const ArraySpan& cond, const ArraySpan& left,
                      const Scalar& right, ExecResult* out) {
-    ArraySpan* out_arr = out->array_span();
+    ArraySpan* out_arr = out->array_span_mutable();
 
     ARROW_ASSIGN_OR_RAISE(auto byte_width, GetByteWidth(*left.type, *right.type));
     auto* out_values = out_arr->buffers[1].data + out_arr->offset * byte_width;
@@ -964,7 +966,7 @@ struct IfElseFunctor<Type, enable_if_fixed_size_binary<Type>> {
   // ASS
   static Status Call(KernelContext* ctx, const ArraySpan& cond, const Scalar& left,
                      const Scalar& right, ExecResult* out) {
-    ArraySpan* out_arr = out->array_span();
+    ArraySpan* out_arr = out->array_span_mutable();
 
     ARROW_ASSIGN_OR_RAISE(auto byte_width, GetByteWidth(*left.type, *right.type));
     auto* out_values = out_arr->buffers[1].data + out_arr->offset * byte_width;
@@ -1028,7 +1030,7 @@ struct NestedIfElseExec {
   //  AAA
   static Status Call(KernelContext* ctx, const ArraySpan& cond, const ArraySpan& left,
                      const ArraySpan& right, ExecResult* out) {
-    return RunLoop(
+    return RunLoopOfNestedIfElseExec(
         ctx, cond, out,
         [&](ArrayBuilder* builder, int64_t i, int64_t length) {
           return builder->AppendArraySlice(left, i, length);
@@ -1041,7 +1043,7 @@ struct NestedIfElseExec {
   // ASA
   static Status Call(KernelContext* ctx, const ArraySpan& cond, const Scalar& left,
                      const ArraySpan& right, ExecResult* out) {
-    return RunLoop(
+    return RunLoopOfNestedIfElseExec(
         ctx, cond, out,
         [&](ArrayBuilder* builder, int64_t i, int64_t length) {
           return builder->AppendScalar(left, length);
@@ -1054,7 +1056,7 @@ struct NestedIfElseExec {
   // AAS
   static Status Call(KernelContext* ctx, const ArraySpan& cond, const ArraySpan& left,
                      const Scalar& right, ExecResult* out) {
-    return RunLoop(
+    return RunLoopOfNestedIfElseExec(
         ctx, cond, out,
         [&](ArrayBuilder* builder, int64_t i, int64_t length) {
           return builder->AppendArraySlice(left, i, length);
@@ -1067,7 +1069,7 @@ struct NestedIfElseExec {
   // ASS
   static Status Call(KernelContext* ctx, const ArraySpan& cond, const Scalar& left,
                      const Scalar& right, ExecResult* out) {
-    return RunLoop(
+    return RunLoopOfNestedIfElseExec(
         ctx, cond, out,
         [&](ArrayBuilder* builder, int64_t i, int64_t length) {
           return builder->AppendScalar(left, length);
@@ -1078,8 +1080,9 @@ struct NestedIfElseExec {
   }
 
   template <typename HandleLeft, typename HandleRight>
-  static Status RunLoop(KernelContext* ctx, const ArraySpan& cond, ExecResult* out,
-                        HandleLeft&& handle_left, HandleRight&& handle_right) {
+  static Status RunLoopOfNestedIfElseExec(KernelContext* ctx, const ArraySpan& cond,
+                                          ExecResult* out, HandleLeft&& handle_left,
+                                          HandleRight&& handle_right) {
     std::unique_ptr<ArrayBuilder> raw_builder;
     RETURN_NOT_OK(MakeBuilderExactIndex(ctx->memory_pool(), out->type()->GetSharedPtr(),
                                         &raw_builder));
@@ -1309,8 +1312,9 @@ void AddFixedWidthIfElseKernel(const std::shared_ptr<IfElseFunction>& scalar_fun
 
 void AddNestedIfElseKernels(const std::shared_ptr<IfElseFunction>& scalar_function) {
   for (const auto type_id :
-       {Type::LIST, Type::LARGE_LIST, Type::FIXED_SIZE_LIST, Type::STRUCT,
-        Type::DENSE_UNION, Type::SPARSE_UNION, Type::DICTIONARY}) {
+       {Type::LIST, Type::LARGE_LIST, Type::LIST_VIEW, Type::LARGE_LIST_VIEW,
+        Type::FIXED_SIZE_LIST, Type::MAP, Type::STRUCT, Type::DENSE_UNION,
+        Type::SPARSE_UNION, Type::DICTIONARY}) {
     ScalarKernel kernel({boolean(), InputType(type_id), InputType(type_id)}, LastType,
                         NestedIfElseExec::Exec);
     kernel.null_handling = NullHandling::COMPUTED_NO_PREALLOCATE;
@@ -1447,6 +1451,20 @@ struct CaseWhenFunction : ScalarFunction {
     if (auto kernel = DispatchExactImpl(this, *types)) return kernel;
     return arrow::compute::detail::NoMatchingKernel(this, *types);
   }
+
+  static std::shared_ptr<MatchConstraint> DecimalMatchConstraint() {
+    static auto constraint =
+        MatchConstraint::Make([](const std::vector<TypeHolder>& types) -> bool {
+          DCHECK_GE(types.size(), 2);
+          DCHECK(std::all_of(types.begin() + 1, types.end(), [](const TypeHolder& type) {
+            return is_decimal(type.id());
+          }));
+          return std::all_of(
+              types.begin() + 2, types.end(),
+              [&types](const TypeHolder& type) { return type == types[1]; });
+        });
+    return constraint;
+  }
 };
 
 // Implement a 'case when' (SQL)/'select' (NumPy) function for any scalar conditions
@@ -1481,39 +1499,27 @@ Status ExecScalarCaseWhen(KernelContext* ctx, const ExecSpan& batch, ExecResult*
     result = temp.get();
   }
 
-  // TODO(wesm): clean this up to have less duplication
-  if (out->is_array_data()) {
-    ArrayData* output = out->array_data().get();
-    if (is_dictionary_type<Type>::value) {
-      const ExecValue& dict_from = has_result ? result : batch[1];
-      if (dict_from.is_scalar()) {
-        output->dictionary = checked_cast<const DictionaryScalar&>(*dict_from.scalar)
-                                 .value.dictionary->data();
-      } else {
-        output->dictionary = dict_from.array.ToArrayData()->dictionary;
-      }
+  // Only input types of non-fixed length (which cannot be pre-allocated)
+  // will save the output data in ArrayData. And make sure the FixedLength
+  // types must be output in ArraySpan.
+  static_assert(is_fixed_width(Type::type_id));
+  DCHECK(out->is_array_span());
+
+  ArraySpan* output = out->array_span_mutable();
+  if (is_dictionary_type<Type>::value) {
+    const ExecValue& dict_from = has_result ? result : batch[1];
+    output->child_data.resize(1);
+    if (dict_from.is_scalar()) {
+      output->child_data[0].SetMembers(
+          *checked_cast<const DictionaryScalar&>(*dict_from.scalar)
+               .value.dictionary->data());
+    } else {
+      output->child_data[0] = dict_from.array;
     }
-    CopyValues<Type>(result, /*in_offset=*/0, batch.length,
-                     output->GetMutableValues<uint8_t>(0, 0),
-                     output->GetMutableValues<uint8_t>(1, 0), output->offset);
-  } else {
-    // ArraySpan
-    ArraySpan* output = out->array_span();
-    if (is_dictionary_type<Type>::value) {
-      const ExecValue& dict_from = has_result ? result : batch[1];
-      output->child_data.resize(1);
-      if (dict_from.is_scalar()) {
-        output->child_data[0].SetMembers(
-            *checked_cast<const DictionaryScalar&>(*dict_from.scalar)
-                 .value.dictionary->data());
-      } else {
-        output->child_data[0] = dict_from.array;
-      }
-    }
-    CopyValues<Type>(result, /*in_offset=*/0, batch.length,
-                     output->GetValues<uint8_t>(0, 0), output->GetValues<uint8_t>(1, 0),
-                     output->offset);
   }
+  CopyValues<Type>(result, /*in_offset=*/0, batch.length,
+                   output->GetValues<uint8_t>(0, 0), output->GetValues<uint8_t>(1, 0),
+                   output->offset);
   return Status::OK();
 }
 
@@ -1527,7 +1533,7 @@ Status ExecArrayCaseWhen(KernelContext* ctx, const ExecSpan& batch, ExecResult* 
         "cond struct must not be a null scalar or "
         "have top-level nulls");
   }
-  ArraySpan* output = out->array_span();
+  ArraySpan* output = out->array_span_mutable();
   const int64_t out_offset = output->offset;
   const auto num_value_args = batch.values.size() - 1;
   const bool have_else_arg =
@@ -1846,6 +1852,48 @@ struct CaseWhenFunctor<Type, enable_if_var_size_list<Type>> {
   }
 };
 
+// TODO(GH-41453): a more efficient implementation for list-views is possible
+template <typename Type>
+struct CaseWhenFunctor<Type, enable_if_list_view<Type>> {
+  using offset_type = typename Type::offset_type;
+  using BuilderType = typename TypeTraits<Type>::BuilderType;
+  static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+    /// TODO(wesm): should this be a DCHECK? Or checked elsewhere
+    if (batch[0].null_count() > 0) {
+      return Status::Invalid("cond struct must not have outer nulls");
+    }
+    if (batch[0].is_scalar()) {
+      return ExecVarWidthScalarCaseWhen(ctx, batch, out);
+    }
+    return ExecArray(ctx, batch, out);
+  }
+
+  static Status ExecArray(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+    return ExecVarWidthArrayCaseWhen(
+        ctx, batch, out,
+        // ReserveData
+        [&](ArrayBuilder* raw_builder) {
+          auto builder = checked_cast<BuilderType*>(raw_builder);
+          auto child_builder = builder->value_builder();
+
+          int64_t reservation = 0;
+          for (int arg = 1; arg < batch.num_values(); arg++) {
+            const ExecValue& source = batch[arg];
+            if (!source.is_array()) {
+              const auto& scalar = checked_cast<const BaseListScalar&>(*source.scalar);
+              if (!scalar.value) continue;
+              reservation =
+                  std::max<int64_t>(reservation, batch.length * scalar.value->length());
+            } else {
+              const ArraySpan& array = source.array;
+              reservation = std::max<int64_t>(reservation, array.child_data[0].length);
+            }
+          }
+          return child_builder->Reserve(reservation);
+        });
+  }
+};
+
 // No-op reserve function, pulled out to avoid apparent miscompilation on MinGW
 Status ReserveNoData(ArrayBuilder*) { return Status::OK(); }
 
@@ -2028,7 +2076,7 @@ void InitializeNullSlots(const DataType& type, uint8_t* out_valid, uint8_t* out_
 // Implement 'coalesce' for any mix of scalar/array arguments for any fixed-width type
 template <typename Type>
 Status ExecArrayCoalesce(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
-  ArraySpan* output = out->array_span();
+  ArraySpan* output = out->array_span_mutable();
   const int64_t out_offset = output->offset;
   // Use output validity buffer as mask to decide what values to copy
   uint8_t* out_valid = output->buffers[0].data;
@@ -2108,7 +2156,7 @@ Status ExecArrayCoalesce(KernelContext* ctx, const ExecSpan& batch, ExecResult* 
 template <typename Type>
 Status ExecArrayScalarCoalesce(KernelContext* ctx, const ExecValue& left,
                                const ExecValue& right, int64_t length, ExecResult* out) {
-  ArraySpan* output = out->array_span();
+  ArraySpan* output = out->array_span_mutable();
   const int64_t out_offset = output->offset;
   uint8_t* out_valid = output->buffers[0].data;
   uint8_t* out_values = output->buffers[1].data;
@@ -2174,7 +2222,7 @@ Status ExecArrayScalarCoalesce(KernelContext* ctx, const ExecValue& left,
 template <typename Type>
 Status ExecBinaryCoalesce(KernelContext* ctx, const ExecValue& left,
                           const ExecValue& right, int64_t length, ExecResult* out) {
-  ArraySpan* output = out->array_span();
+  ArraySpan* output = out->array_span_mutable();
   const int64_t out_offset = output->offset;
   uint8_t* out_valid = output->buffers[0].data;
   uint8_t* out_values = output->buffers[1].data;
@@ -2480,7 +2528,7 @@ Status ExecScalarChoose(KernelContext* ctx, const ExecSpan& batch, ExecResult* o
       // TODO(wesm): more graceful implementation than using
       // MakeNullScalar, which is a little bit lazy
       std::shared_ptr<Scalar> source = MakeNullScalar(out->type()->GetSharedPtr());
-      ArraySpan* output = out->array_span();
+      ArraySpan* output = out->array_span_mutable();
       ExecValue copy_source;
       copy_source.SetScalar(source.get());
       CopyValues<Type>(copy_source, /*row=*/0, batch.length,
@@ -2495,7 +2543,7 @@ Status ExecScalarChoose(KernelContext* ctx, const ExecSpan& batch, ExecResult* o
     return Status::IndexError("choose: index ", index, " out of range");
   }
   auto source = batch[index + 1];
-  ArraySpan* output = out->array_span();
+  ArraySpan* output = out->array_span_mutable();
   CopyValues<Type>(source, /*row=*/0, batch.length,
                    output->GetValues<uint8_t>(0, /*absolute_offset=*/0),
                    output->GetValues<uint8_t>(1, /*absolute_offset=*/0), output->offset);
@@ -2504,7 +2552,7 @@ Status ExecScalarChoose(KernelContext* ctx, const ExecSpan& batch, ExecResult* o
 
 template <typename Type>
 Status ExecArrayChoose(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
-  ArraySpan* output = out->array_span();
+  ArraySpan* output = out->array_span_mutable();
   const int64_t out_offset = output->offset;
   // Need a null bitmap if any input has nulls
   uint8_t* out_valid = nullptr;
@@ -2678,10 +2726,11 @@ struct ChooseFunction : ScalarFunction {
 };
 
 void AddCaseWhenKernel(const std::shared_ptr<CaseWhenFunction>& scalar_function,
-                       detail::GetTypeId get_id, ArrayKernelExec exec) {
+                       detail::GetTypeId get_id, ArrayKernelExec exec,
+                       std::shared_ptr<MatchConstraint> constraint = nullptr) {
   ScalarKernel kernel(
       KernelSignature::Make({InputType(Type::STRUCT), InputType(get_id.id)}, LastType,
-                            /*is_varargs=*/true),
+                            /*is_varargs=*/true, std::move(constraint)),
       exec);
   if (is_fixed_width(get_id.id)) {
     kernel.null_handling = NullHandling::COMPUTED_PREALLOCATE;
@@ -2711,6 +2760,25 @@ void AddBinaryCaseWhenKernels(const std::shared_ptr<CaseWhenFunction>& scalar_fu
   }
 }
 
+template <typename ArrowNestedType>
+void AddNestedCaseWhenKernel(const std::shared_ptr<CaseWhenFunction>& scalar_function) {
+  AddCaseWhenKernel(scalar_function, ArrowNestedType::type_id,
+                    CaseWhenFunctor<ArrowNestedType>::Exec);
+}
+
+void AddNestedCaseWhenKernels(const std::shared_ptr<CaseWhenFunction>& scalar_function) {
+  AddNestedCaseWhenKernel<FixedSizeListType>(scalar_function);
+  AddNestedCaseWhenKernel<ListType>(scalar_function);
+  AddNestedCaseWhenKernel<LargeListType>(scalar_function);
+  AddNestedCaseWhenKernel<ListViewType>(scalar_function);
+  AddNestedCaseWhenKernel<LargeListViewType>(scalar_function);
+  AddNestedCaseWhenKernel<MapType>(scalar_function);
+  AddNestedCaseWhenKernel<StructType>(scalar_function);
+  AddNestedCaseWhenKernel<DenseUnionType>(scalar_function);
+  AddNestedCaseWhenKernel<SparseUnionType>(scalar_function);
+  AddNestedCaseWhenKernel<DictionaryType>(scalar_function);
+}
+
 void AddCoalesceKernel(const std::shared_ptr<ScalarFunction>& scalar_function,
                        detail::GetTypeId get_id, ArrayKernelExec exec) {
   ScalarKernel kernel(KernelSignature::Make({InputType(get_id.id)}, FirstType,
@@ -2728,6 +2796,25 @@ void AddPrimitiveCoalesceKernels(const std::shared_ptr<ScalarFunction>& scalar_f
     auto exec = GenerateTypeAgnosticPrimitive<CoalesceFunctor>(*type);
     AddCoalesceKernel(scalar_function, type, std::move(exec));
   }
+}
+
+template <typename ArrowNestedType>
+void AddNestedCoalesceKernel(const std::shared_ptr<ScalarFunction>& scalar_function) {
+  AddCoalesceKernel(scalar_function, ArrowNestedType::type_id,
+                    CoalesceFunctor<ArrowNestedType>::Exec);
+}
+
+void AddNestedCoalesceKernels(const std::shared_ptr<ScalarFunction>& scalar_function) {
+  AddNestedCoalesceKernel<FixedSizeListType>(scalar_function);
+  AddNestedCoalesceKernel<ListType>(scalar_function);
+  AddNestedCoalesceKernel<LargeListType>(scalar_function);
+  AddNestedCoalesceKernel<ListViewType>(scalar_function);
+  AddNestedCoalesceKernel<LargeListViewType>(scalar_function);
+  AddNestedCoalesceKernel<MapType>(scalar_function);
+  AddNestedCoalesceKernel<StructType>(scalar_function);
+  AddNestedCoalesceKernel<DenseUnionType>(scalar_function);
+  AddNestedCoalesceKernel<SparseUnionType>(scalar_function);
+  AddNestedCoalesceKernel<DictionaryType>(scalar_function);
 }
 
 void AddChooseKernel(const std::shared_ptr<ScalarFunction>& scalar_function,
@@ -2798,7 +2885,8 @@ void RegisterScalarIfElse(FunctionRegistry* registry) {
     AddPrimitiveIfElseKernels(func, NumericTypes());
     AddPrimitiveIfElseKernels(func, TemporalTypes());
     AddPrimitiveIfElseKernels(func, IntervalTypes());
-    AddPrimitiveIfElseKernels(func, {boolean()});
+    AddPrimitiveIfElseKernels(func, DurationTypes());
+    AddPrimitiveIfElseKernels(func, {boolean(), float16()});
     AddNullIfElseKernel(func);
     AddBinaryIfElseKernels(func, BaseBinaryTypes());
     AddFixedWidthIfElseKernel<FixedSizeBinaryType>(func);
@@ -2813,21 +2901,16 @@ void RegisterScalarIfElse(FunctionRegistry* registry) {
     AddPrimitiveCaseWhenKernels(func, NumericTypes());
     AddPrimitiveCaseWhenKernels(func, TemporalTypes());
     AddPrimitiveCaseWhenKernels(func, IntervalTypes());
-    AddPrimitiveCaseWhenKernels(func, {boolean(), null()});
+    AddPrimitiveCaseWhenKernels(func, DurationTypes());
+    AddPrimitiveCaseWhenKernels(func, {boolean(), null(), float16()});
     AddCaseWhenKernel(func, Type::FIXED_SIZE_BINARY,
                       CaseWhenFunctor<FixedSizeBinaryType>::Exec);
-    AddCaseWhenKernel(func, Type::DECIMAL128, CaseWhenFunctor<FixedSizeBinaryType>::Exec);
-    AddCaseWhenKernel(func, Type::DECIMAL256, CaseWhenFunctor<FixedSizeBinaryType>::Exec);
+    AddCaseWhenKernel(func, Type::DECIMAL128, CaseWhenFunctor<FixedSizeBinaryType>::Exec,
+                      CaseWhenFunction::DecimalMatchConstraint());
+    AddCaseWhenKernel(func, Type::DECIMAL256, CaseWhenFunctor<FixedSizeBinaryType>::Exec,
+                      CaseWhenFunction::DecimalMatchConstraint());
     AddBinaryCaseWhenKernels(func, BaseBinaryTypes());
-    AddCaseWhenKernel(func, Type::FIXED_SIZE_LIST,
-                      CaseWhenFunctor<FixedSizeListType>::Exec);
-    AddCaseWhenKernel(func, Type::LIST, CaseWhenFunctor<ListType>::Exec);
-    AddCaseWhenKernel(func, Type::LARGE_LIST, CaseWhenFunctor<LargeListType>::Exec);
-    AddCaseWhenKernel(func, Type::MAP, CaseWhenFunctor<MapType>::Exec);
-    AddCaseWhenKernel(func, Type::STRUCT, CaseWhenFunctor<StructType>::Exec);
-    AddCaseWhenKernel(func, Type::DENSE_UNION, CaseWhenFunctor<DenseUnionType>::Exec);
-    AddCaseWhenKernel(func, Type::SPARSE_UNION, CaseWhenFunctor<SparseUnionType>::Exec);
-    AddCaseWhenKernel(func, Type::DICTIONARY, CaseWhenFunctor<DictionaryType>::Exec);
+    AddNestedCaseWhenKernels(func);
     DCHECK_OK(registry->AddFunction(std::move(func)));
   }
   {
@@ -2836,7 +2919,8 @@ void RegisterScalarIfElse(FunctionRegistry* registry) {
     AddPrimitiveCoalesceKernels(func, NumericTypes());
     AddPrimitiveCoalesceKernels(func, TemporalTypes());
     AddPrimitiveCoalesceKernels(func, IntervalTypes());
-    AddPrimitiveCoalesceKernels(func, {boolean(), null()});
+    AddPrimitiveCoalesceKernels(func, DurationTypes());
+    AddPrimitiveCoalesceKernels(func, {boolean(), null(), float16()});
     AddCoalesceKernel(func, Type::FIXED_SIZE_BINARY,
                       CoalesceFunctor<FixedSizeBinaryType>::Exec);
     AddCoalesceKernel(func, Type::DECIMAL128, CoalesceFunctor<FixedSizeBinaryType>::Exec);
@@ -2844,15 +2928,7 @@ void RegisterScalarIfElse(FunctionRegistry* registry) {
     for (const auto& ty : BaseBinaryTypes()) {
       AddCoalesceKernel(func, ty, GenerateTypeAgnosticVarBinaryBase<CoalesceFunctor>(ty));
     }
-    AddCoalesceKernel(func, Type::FIXED_SIZE_LIST,
-                      CoalesceFunctor<FixedSizeListType>::Exec);
-    AddCoalesceKernel(func, Type::LIST, CoalesceFunctor<ListType>::Exec);
-    AddCoalesceKernel(func, Type::LARGE_LIST, CoalesceFunctor<LargeListType>::Exec);
-    AddCoalesceKernel(func, Type::MAP, CoalesceFunctor<MapType>::Exec);
-    AddCoalesceKernel(func, Type::STRUCT, CoalesceFunctor<StructType>::Exec);
-    AddCoalesceKernel(func, Type::DENSE_UNION, CoalesceFunctor<DenseUnionType>::Exec);
-    AddCoalesceKernel(func, Type::SPARSE_UNION, CoalesceFunctor<SparseUnionType>::Exec);
-    AddCoalesceKernel(func, Type::DICTIONARY, CoalesceFunctor<DictionaryType>::Exec);
+    AddNestedCoalesceKernels(func);
     DCHECK_OK(registry->AddFunction(std::move(func)));
   }
   {
@@ -2861,7 +2937,8 @@ void RegisterScalarIfElse(FunctionRegistry* registry) {
     AddPrimitiveChooseKernels(func, NumericTypes());
     AddPrimitiveChooseKernels(func, TemporalTypes());
     AddPrimitiveChooseKernels(func, IntervalTypes());
-    AddPrimitiveChooseKernels(func, {boolean(), null()});
+    AddPrimitiveChooseKernels(func, DurationTypes());
+    AddPrimitiveChooseKernels(func, {boolean(), null(), float16()});
     AddChooseKernel(func, Type::FIXED_SIZE_BINARY,
                     ChooseFunctor<FixedSizeBinaryType>::Exec);
     AddChooseKernel(func, Type::DECIMAL128, ChooseFunctor<FixedSizeBinaryType>::Exec);

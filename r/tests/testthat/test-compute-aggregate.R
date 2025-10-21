@@ -286,7 +286,7 @@ test_that("median passes ... args to quantile", {
     Scalar$create(2)
   )
   expect_error(
-    median(Array$create(c(1, 2)), probs = c(.25, .75))
+    median(Array$create(c(1, 2)), probs = c(0.25, 0.75))
   )
 })
 
@@ -377,7 +377,7 @@ test_that("value_counts", {
     type = struct(values = float64(), counts = int64())
   )
   expect_equal(value_counts(a), result)
-  expect_identical(as.data.frame(value_counts(a)), result_df)
+  expect_equal_data_frame(value_counts(a), result_df)
   expect_identical(as.vector(value_counts(a)$counts), result_df$counts)
 })
 

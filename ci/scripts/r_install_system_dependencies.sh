@@ -21,29 +21,30 @@ set -ex
 
 : ${ARROW_SOURCE_HOME:=/arrow}
 
+# Figure out what package manager we have
+if [ "`which dnf`" ]; then
+  PACKAGE_MANAGER=dnf
+elif [ "`which yum`" ]; then
+  PACKAGE_MANAGER=yum
+elif [ "`which zypper`" ]; then
+  PACKAGE_MANAGER=zypper
+else
+  PACKAGE_MANAGER=apt-get
+  apt-get update
+fi
+
+# Install curl and OpenSSL (technically, only needed for S3/GCS support, but
+# installing the R curl package fails without it)
+case "$PACKAGE_MANAGER" in
+  apt-get)
+    apt-get install -y libcurl4-openssl-dev libssl-dev
+    ;;
+  *)
+    $PACKAGE_MANAGER install -y libcurl-devel openssl-devel
+    ;;
+esac
+
 if [ "$ARROW_S3" == "ON" ] || [ "$ARROW_GCS" == "ON" ] || [ "$ARROW_R_DEV" == "TRUE" ]; then
-  # Figure out what package manager we have
-  if [ "`which dnf`" ]; then
-    PACKAGE_MANAGER=dnf
-  elif [ "`which yum`" ]; then
-    PACKAGE_MANAGER=yum
-  elif [ "`which zypper`" ]; then
-    PACKAGE_MANAGER=zypper
-  else
-    PACKAGE_MANAGER=apt-get
-    apt-get update
-  fi
-
-  # Install curl and OpenSSL for S3/GCS support
-  case "$PACKAGE_MANAGER" in
-    apt-get)
-      apt-get install -y libcurl4-openssl-dev libssl-dev
-      ;;
-    *)
-      $PACKAGE_MANAGER install -y libcurl-devel openssl-devel
-      ;;
-  esac
-
   # The Dockerfile should have put this file here
   if [ "$ARROW_S3" == "ON" ] && [ -f "${ARROW_SOURCE_HOME}/ci/scripts/install_minio.sh" ] && [ "`which wget`" ]; then
     "${ARROW_SOURCE_HOME}/ci/scripts/install_minio.sh" latest /usr/local
@@ -53,10 +54,10 @@ if [ "$ARROW_S3" == "ON" ] || [ "$ARROW_GCS" == "ON" ] || [ "$ARROW_R_DEV" == "T
     case "$PACKAGE_MANAGER" in
       zypper)
         # python3 is Python 3.6 on OpenSUSE 15.3.
-        # PyArrow supports Python 3.7 or later.
-        $PACKAGE_MANAGER install -y python39-pip
-        ln -s /usr/bin/python3.9 /usr/local/bin/python
-        ln -s /usr/bin/pip3.9 /usr/local/bin/pip
+        # PyArrow supports Python 3.10 or later.
+        $PACKAGE_MANAGER install -y python310-pip
+        ln -s /usr/bin/python3.10 /usr/local/bin/python
+        ln -s /usr/bin/pip3.10 /usr/local/bin/pip
         ;;
       *)
         $PACKAGE_MANAGER install -y python3-pip

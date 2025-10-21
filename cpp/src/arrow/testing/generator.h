@@ -23,6 +23,9 @@
 #include <vector>
 
 #include "arrow/array/array_base.h"
+#include "arrow/array/util.h"
+#include "arrow/buffer_builder.h"
+#include "arrow/compute/type_fwd.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/visibility.h"
 #include "arrow/type_fwd.h"
@@ -103,6 +106,14 @@ class ARROW_TESTING_EXPORT ConstantArrayGenerator {
   /// \return a generated Array
   static std::shared_ptr<Array> Int64(int64_t size, int64_t value = 0);
 
+  /// \brief Generates a constant Float16Array
+  ///
+  /// \param[in] size the size of the array to generate
+  /// \param[in] value to repeat
+  ///
+  /// \return a generated Array
+  static std::shared_ptr<Array> Float16(int64_t size, uint16_t value = 0);
+
   /// \brief Generates a constant Float32Array
   ///
   /// \param[in] size the size of the array to generate
@@ -148,6 +159,8 @@ class ARROW_TESTING_EXPORT ConstantArrayGenerator {
         return UInt64(size, static_cast<uint64_t>(value));
       case Type::INT64:
         return Int64(size, static_cast<int64_t>(value));
+      case Type::HALF_FLOAT:
+        return Float16(size, static_cast<uint16_t>(value));
       case Type::FLOAT:
         return Float32(size, static_cast<float>(value));
       case Type::DOUBLE:
@@ -233,5 +246,124 @@ class ARROW_TESTING_EXPORT ConstantArrayGenerator {
 
 ARROW_TESTING_EXPORT
 Result<std::shared_ptr<Array>> ScalarVectorToArray(const ScalarVector& scalars);
+
+namespace gen {
+
+class ARROW_TESTING_EXPORT ArrayGenerator {
+ public:
+  virtual ~ArrayGenerator() = default;
+  virtual Result<std::shared_ptr<Array>> Generate(int64_t num_rows) = 0;
+  virtual std::shared_ptr<DataType> type() const = 0;
+};
+
+// Same as DataGenerator below but instead of returning Result an ok status is EXPECT'd
+class ARROW_TESTING_EXPORT GTestDataGenerator {
+ public:
+  virtual ~GTestDataGenerator() = default;
+  virtual std::shared_ptr<::arrow::RecordBatch> RecordBatch(int64_t num_rows) = 0;
+  virtual std::vector<std::shared_ptr<::arrow::RecordBatch>> RecordBatches(
+      int64_t rows_per_batch, int num_batches) = 0;
+
+  virtual ::arrow::compute::ExecBatch ExecBatch(int64_t num_rows) = 0;
+  virtual std::vector<::arrow::compute::ExecBatch> ExecBatches(int64_t rows_per_batch,
+                                                               int num_batches) = 0;
+
+  virtual std::shared_ptr<::arrow::Table> Table(int64_t rows_per_chunk,
+                                                int num_chunks = 1) = 0;
+  virtual std::shared_ptr<::arrow::Schema> Schema() = 0;
+};
+
+class ARROW_TESTING_EXPORT DataGenerator {
+ public:
+  virtual ~DataGenerator() = default;
+  virtual Result<std::shared_ptr<::arrow::RecordBatch>> RecordBatch(int64_t num_rows) = 0;
+  virtual Result<std::vector<std::shared_ptr<::arrow::RecordBatch>>> RecordBatches(
+      int64_t rows_per_batch, int num_batches) = 0;
+
+  virtual Result<::arrow::compute::ExecBatch> ExecBatch(int64_t num_rows) = 0;
+  virtual Result<std::vector<::arrow::compute::ExecBatch>> ExecBatches(
+      int64_t rows_per_batch, int num_batches) = 0;
+
+  virtual Result<std::shared_ptr<::arrow::Table>> Table(int64_t rows_per_chunk,
+                                                        int num_chunks = 1) = 0;
+  virtual std::shared_ptr<::arrow::Schema> Schema() = 0;
+  /// @brief Converts this generator to a variant that fails (in a googletest sense)
+  ///        if any error is encountered.
+  virtual std::unique_ptr<GTestDataGenerator> FailOnError() = 0;
+};
+
+/// @brief A potentially named field
+///
+/// If name is not specified then a name will be generated automatically (e.g. f0, f1)
+struct ARROW_TESTING_EXPORT GeneratorField {
+ public:
+  GeneratorField(std::shared_ptr<ArrayGenerator> gen)  // NOLINT implicit conversion
+      : name(), gen(std::move(gen)) {}
+  GeneratorField(std::string name, std::shared_ptr<ArrayGenerator> gen)
+      : name(std::move(name)), gen(std::move(gen)) {}
+
+  std::optional<std::string> name;
+  std::shared_ptr<ArrayGenerator> gen;
+};
+
+/// Create a table generator with the given fields
+ARROW_TESTING_EXPORT std::shared_ptr<DataGenerator> Gen(
+    std::vector<GeneratorField> column_gens);
+
+/// make a generator that returns a constant value
+ARROW_TESTING_EXPORT std::shared_ptr<ArrayGenerator> Constant(
+    std::shared_ptr<Scalar> value);
+
+/// make a generator that returns an incrementing value
+///
+/// Note: overflow is not prevented standard unsigned integer overflow applies
+template <typename T = uint32_t>
+std::shared_ptr<ArrayGenerator> Step(T start = 0, T step = 1) {
+  class StepGenerator : public ArrayGenerator {
+   public:
+    // Use [[maybe_unused]] to avoid a compiler warning in Clang versions before 15 that
+    // incorrectly reports 'unused type alias'.
+    using ArrowType [[maybe_unused]] = typename CTypeTraits<T>::ArrowType;
+    static_assert(is_number_type<ArrowType>::value,
+                  "Step generator only supports numeric types");
+
+    StepGenerator(T start, T step) : start_(start), step_(step) {}
+
+    Result<std::shared_ptr<Array>> Generate(int64_t num_rows) override {
+      TypedBufferBuilder<T> builder;
+      ARROW_RETURN_NOT_OK(builder.Reserve(num_rows));
+      T val = start_;
+      for (int64_t i = 0; i < num_rows; i++) {
+        builder.UnsafeAppend(val);
+        val += step_;
+      }
+      start_ = val;
+      ARROW_ASSIGN_OR_RAISE(auto buf, builder.Finish());
+      return MakeArray(ArrayData::Make(TypeTraits<ArrowType>::type_singleton(), num_rows,
+                                       {NULLPTR, std::move(buf)}, /*null_count=*/0));
+    }
+
+    std::shared_ptr<DataType> type() const override {
+      return TypeTraits<ArrowType>::type_singleton();
+    }
+
+   private:
+    T start_;
+    T step_;
+  };
+
+  return std::make_shared<StepGenerator>(start, step);
+}
+
+/// make a generator that returns a random value
+ARROW_TESTING_EXPORT std::shared_ptr<ArrayGenerator> Random(
+    std::shared_ptr<DataType> type);
+/// TODO(if-needed) could add a repeat-scalars generator, e.g. Repeat({1, 2, 3}) for
+/// 1,2,3,1,2,3,1
+///
+/// TODO(if-needed) could add a repeat-from-json generator e.g. Repeat(int32(), "[1, 2,
+/// 3]")), same behavior as repeat-scalars
+
+}  // namespace gen
 
 }  // namespace arrow

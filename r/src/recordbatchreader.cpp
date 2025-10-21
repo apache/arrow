@@ -197,6 +197,34 @@ std::shared_ptr<arrow::RecordBatchReader> RecordBatchReader__Head(
   }
 }
 
+// Some types of RecordBatchReader input (e.g., DuckDB output) will crash or hang
+// if scanned from another thread (e.g., by an ExecPlan). This RecordBatchReader
+// wrapper ensures that ReadNext() is always called from the R thread.
+class SafeRecordBatchReader : public arrow::RecordBatchReader {
+ public:
+  explicit SafeRecordBatchReader(std::shared_ptr<arrow::RecordBatchReader> parent)
+      : parent_(parent) {}
+
+  std::shared_ptr<arrow::Schema> schema() const override { return parent_->schema(); }
+
+  arrow::Status ReadNext(std::shared_ptr<arrow::RecordBatch>* batch_out) override {
+    return SafeCallIntoRVoid(
+        [batch_out, this] { return this->parent_->ReadNext(batch_out); },
+        "SafeRecordBatchReader::ReadNext()");
+  }
+
+  arrow::Status Close() override { return parent_->Close(); }
+
+ private:
+  std::shared_ptr<arrow::RecordBatchReader> parent_;
+};
+
+// [[arrow::export]]
+std::shared_ptr<arrow::RecordBatchReader> MakeSafeRecordBatchReader(
+    const std::shared_ptr<arrow::RecordBatchReader>& reader) {
+  return std::make_shared<SafeRecordBatchReader>(reader);
+}
+
 // -------- RecordBatchStreamReader
 
 // [[arrow::export]]

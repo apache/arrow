@@ -14,14 +14,14 @@
 // KIND, either express or implied.  See the License for the
 // specific language governing permissions and limitations
 // under the License.
-#include "parquet/level_conversion.h"
+
+#include "parquet/level_conversion_bmi2_internal.h"
 
 #define PARQUET_IMPL_NAMESPACE bmi2
 #include "parquet/level_conversion_inc.h"
 #undef PARQUET_IMPL_NAMESPACE
 
-namespace parquet {
-namespace internal {
+namespace parquet::internal {
 void DefLevelsToBitmapBmi2WithRepeatedParent(const int16_t* def_levels,
                                              int64_t num_def_levels, LevelInfo level_info,
                                              ValidityBitmapInputOutput* output) {
@@ -29,5 +29,4 @@ void DefLevelsToBitmapBmi2WithRepeatedParent(const int16_t* def_levels,
                                                             level_info, output);
 }
 
-}  // namespace internal
-}  // namespace parquet
+}  // namespace parquet::internal

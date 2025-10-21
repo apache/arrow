@@ -33,39 +33,29 @@ if not exist %_VERIFICATION_DIR% mkdir %_VERIFICATION_DIR%
 
 cd %_VERIFICATION_DIR%
 
-@rem clone Arrow repository to obtain test requirements
-set GIT_ENV_PATH=%_VERIFICATION_DIR%\_git
-call conda create -p %GIT_ENV_PATH% ^
-    --no-shortcuts -f -q -y git ^
-    || EXIT /B 1
-call activate %GIT_ENV_PATH%
-
-git clone https://github.com/apache/arrow.git || EXIT /B 1
-pushd arrow
-git submodule update --init
-popd
-
 set ARROW_VERSION=%1
 set RC_NUMBER=%2
 
-python arrow\dev\release\download_rc_binaries.py %ARROW_VERSION% %RC_NUMBER% ^
-    --package_type python ^
+python dev\release\download_rc_binaries.py %ARROW_VERSION% %RC_NUMBER% ^
+    --package_type="python" ^
+    --repository="apache/arrow" ^
+    --dest="%_VERIFICATION_DIR%" ^
+    --tag="apache-arrow-%ARROW_VERSION%-rc%RC_NUMBER%" ^
     --regex=".*win_amd64.*" || EXIT /B 1
 
-call deactivate
-
-set ARROW_TEST_DATA=%cd%\arrow\testing\data
-
-CALL :verify_wheel 3.7 m
-if errorlevel 1 GOTO error
-
-CALL :verify_wheel 3.8
-if errorlevel 1 GOTO error
-
-CALL :verify_wheel 3.9
-if errorlevel 1 GOTO error
+set ARROW_TEST_DATA=%cd%\testing\data
+set PARQUET_TEST_DATA=%cd%\cpp\submodules\parquet-testing\data
 
 CALL :verify_wheel 3.10
+if errorlevel 1 GOTO error
+
+CALL :verify_wheel 3.11
+if errorlevel 1 GOTO error
+
+CALL :verify_wheel 3.12
+if errorlevel 1 GOTO error
+
+CALL :verify_wheel 3.13
 if errorlevel 1 GOTO error
 
 :done
@@ -94,19 +84,20 @@ call activate %CONDA_ENV_PATH%
 
 set WHEEL_FILENAME=pyarrow-%ARROW_VERSION%-cp%PY_VERSION_NO_PERIOD%-cp%PY_VERSION_NO_PERIOD%%ABI_TAG%-win_amd64.whl
 
-pip install python-rc\%ARROW_VERSION%-rc%RC_NUMBER%\%WHEEL_FILENAME% || EXIT /B 1
+pip install %_VERIFICATION_DIR%\%WHEEL_FILENAME% || EXIT /B 1
 python -c "import pyarrow" || EXIT /B 1
 python -c "import pyarrow.parquet" || EXIT /B 1
 python -c "import pyarrow.flight" || EXIT /B 1
 python -c "import pyarrow.dataset" || EXIT /B 1
 
-pip install -r arrow\python\requirements-test.txt || EXIT /B 1
+pip install -r %_CURRENT_DIR%\python\requirements-test.txt || EXIT /B 1
 
 set PYARROW_TEST_CYTHON=OFF
+set TZDIR=%CONDA_ENV_PATH%\share\zoneinfo
 pytest %CONDA_ENV_PATH%\Lib\site-packages\pyarrow --pdb -v || EXIT /B 1
 
 :done
 
-call deactivate
+call conda deactivate
 
 EXIT /B 0

@@ -53,13 +53,13 @@ if (process_is_running("demo_flight_server")) {
   })
 
   test_that("flight_get", {
-    expect_identical(as.data.frame(flight_get(client, flight_obj)), example_data)
+    expect_equal_data_frame(flight_get(client, flight_obj), example_data)
   })
 
   test_that("flight_put with RecordBatch", {
     flight_obj2 <- tempfile()
     flight_put(client, RecordBatch$create(example_data), path = flight_obj2)
-    expect_identical(as.data.frame(flight_get(client, flight_obj2)), example_data)
+    expect_equal_data_frame(flight_get(client, flight_obj2), example_data)
   })
 
   test_that("flight_put with overwrite = FALSE", {
@@ -69,7 +69,7 @@ if (process_is_running("demo_flight_server")) {
     )
     # Default is TRUE so this will overwrite
     flight_put(client, example_with_times, path = flight_obj)
-    expect_identical(as.data.frame(flight_get(client, flight_obj)), example_with_times)
+    expect_equal_data_frame(flight_get(client, flight_obj), example_with_times)
   })
 
   test_that("flight_disconnect", {

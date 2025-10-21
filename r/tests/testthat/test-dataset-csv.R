@@ -49,23 +49,23 @@ test_that("CSV dataset", {
   ds <- open_dataset(csv_dir, partitioning = "part", format = "csv")
   expect_r6_class(ds$format, "CsvFileFormat")
   expect_r6_class(ds$filesystem, "LocalFileSystem")
-  expect_identical(names(ds), c(names(df1), "part"))
+  expect_named(ds, c(names(df1), "part"))
   expect_identical(dim(ds), c(20L, 7L))
 
   expect_equal(
-    ds %>%
-      select(string = chr, integer = int, part) %>%
-      filter(integer > 6 & part == 5) %>%
-      collect() %>%
+    ds |>
+      select(string = chr, integer = int, part) |>
+      filter(integer > 6 & part == 5) |>
+      collect() |>
       summarize(mean = mean(as.numeric(integer))), # as.numeric bc they're being parsed as int64
-    df1 %>%
-      select(string = chr, integer = int) %>%
-      filter(integer > 6) %>%
+    df1 |>
+      select(string = chr, integer = int) |>
+      filter(integer > 6) |>
       summarize(mean = mean(integer))
   )
   # Collecting virtual partition column works
   expect_equal(
-    collect(ds) %>% arrange(part) %>% pull(part),
+    collect(ds) |> arrange(part) |> pull(part),
     c(rep(5, 10), rep(6, 10))
   )
 })
@@ -85,13 +85,13 @@ test_that("CSV scan options", {
   write.csv(df, dst_file, row.names = FALSE, quote = FALSE)
 
   ds <- open_dataset(dst_dir, format = "csv")
-  expect_equal(ds %>% collect(), df)
+  expect_equal(ds |> collect(), df)
 
   sb <- ds$NewScan()
   sb$FragmentScanOptions(options)
 
   tab <- sb$Finish()$ToTable()
-  expect_equal(as.data.frame(tab), tibble(chr = c("foo", NA)))
+  expect_equal_data_frame(tab, data.frame(chr = c("foo", NA), stringsAsFactors = FALSE))
 
   # Set default convert options in CsvFileFormat
   csv_format <- CsvFileFormat$create(
@@ -99,7 +99,7 @@ test_that("CSV scan options", {
     strings_can_be_null = TRUE
   )
   ds <- open_dataset(dst_dir, format = csv_format)
-  expect_equal(ds %>% collect(), tibble(chr = c("foo", NA)))
+  expect_equal(ds |> collect(), tibble(chr = c("foo", NA)))
 
   # Set both parse and convert options
   df <- tibble(chr = c("foo", "mynull"), chr2 = c("bar", "baz"))
@@ -110,15 +110,15 @@ test_that("CSV scan options", {
     null_values = c("mynull"),
     strings_can_be_null = TRUE
   )
-  expect_equal(ds %>% collect(), tibble(
+  expect_equal(ds |> collect(), tibble(
     chr = c("foo", NA),
     chr2 = c("bar", "baz")
   ))
   expect_equal(
-    ds %>%
-      group_by(chr2) %>%
-      summarize(na = all(is.na(chr))) %>%
-      arrange(chr2) %>%
+    ds |>
+      group_by(chr2) |>
+      summarize(na = all(is.na(chr))) |>
+      arrange(chr2) |>
       collect(),
     tibble(
       chr2 = c("bar", "baz"),
@@ -138,14 +138,14 @@ test_that("compressed CSV dataset", {
   expect_r6_class(ds$filesystem, "LocalFileSystem")
 
   expect_equal(
-    ds %>%
-      select(string = chr, integer = int) %>%
-      filter(integer > 6 & integer < 11) %>%
-      collect() %>%
+    ds |>
+      select(string = chr, integer = int) |>
+      filter(integer > 6 & integer < 11) |>
+      collect() |>
       summarize(mean = mean(integer)),
-    df1 %>%
-      select(string = chr, integer = int) %>%
-      filter(integer > 6) %>%
+    df1 |>
+      select(string = chr, integer = int) |>
+      filter(integer > 6) |>
       summarize(mean = mean(integer))
   )
 })
@@ -160,18 +160,18 @@ test_that("CSV dataset options", {
   ds <- open_dataset(dst_dir, format = format)
 
   expect_equal(
-    ds %>%
-      select(string = a) %>%
+    ds |>
+      select(string = a) |>
       collect(),
-    df1[-1, ] %>%
+    df1[-1, ] |>
       select(string = chr)
   )
 
   ds <- open_dataset(dst_dir, format = "csv", column_names = c("foo"))
 
   expect_equal(
-    ds %>%
-      select(string = foo) %>%
+    ds |>
+      select(string = foo) |>
       collect(),
     tibble(string = c(c("chr"), letters[1:10]))
   )
@@ -180,33 +180,33 @@ test_that("CSV dataset options", {
 test_that("Other text delimited dataset", {
   ds1 <- open_dataset(tsv_dir, partitioning = "part", format = "tsv")
   expect_equal(
-    ds1 %>%
-      select(string = chr, integer = int, part) %>%
-      filter(integer > 6 & part == 5) %>%
-      collect() %>%
+    ds1 |>
+      select(string = chr, integer = int, part) |>
+      filter(integer > 6 & part == 5) |>
+      collect() |>
       summarize(mean = mean(as.numeric(integer))), # as.numeric bc they're being parsed as int64
-    df1 %>%
-      select(string = chr, integer = int) %>%
-      filter(integer > 6) %>%
+    df1 |>
+      select(string = chr, integer = int) |>
+      filter(integer > 6) |>
       summarize(mean = mean(integer))
   )
 
   ds2 <- open_dataset(tsv_dir, partitioning = "part", format = "text", delimiter = "\t")
   expect_equal(
-    ds2 %>%
-      select(string = chr, integer = int, part) %>%
-      filter(integer > 6 & part == 5) %>%
-      collect() %>%
+    ds2 |>
+      select(string = chr, integer = int, part) |>
+      filter(integer > 6 & part == 5) |>
+      collect() |>
       summarize(mean = mean(as.numeric(integer))), # as.numeric bc they're being parsed as int64
-    df1 %>%
-      select(string = chr, integer = int) %>%
-      filter(integer > 6) %>%
+    df1 |>
+      select(string = chr, integer = int) |>
+      filter(integer > 6) |>
       summarize(mean = mean(integer))
   )
 })
 
 test_that("readr parse options", {
-  arrow_opts <- names(formals(CsvParseOptions$create))
+  arrow_opts <- names(formals(csv_parse_options))
   readr_opts <- names(formals(readr_to_csv_parse_options))
 
   # Arrow and readr parse options must be mutually exclusive, or else the code
@@ -220,7 +220,7 @@ test_that("readr parse options", {
 
   # With not yet supported readr parse options
   expect_error(
-    open_dataset(tsv_dir, partitioning = "part", delim = "\t", quoted_na = TRUE),
+    open_dataset(tsv_dir, partitioning = "part", delim = "\t", col_select = "integer"),
     "supported"
   )
 
@@ -253,7 +253,7 @@ test_that("readr parse options", {
       tsv_dir,
       partitioning = "part",
       format = "text",
-      quo = "\"",
+      del = ","
     ),
     "Ambiguous"
   )
@@ -261,14 +261,14 @@ test_that("readr parse options", {
   # With only readr parse options (and omitting format = "text")
   ds1 <- open_dataset(tsv_dir, partitioning = "part", delim = "\t")
   expect_equal(
-    ds1 %>%
-      select(string = chr, integer = int, part) %>%
-      filter(integer > 6 & part == 5) %>%
-      collect() %>%
+    ds1 |>
+      select(string = chr, integer = int, part) |>
+      filter(integer > 6 & part == 5) |>
+      collect() |>
       summarize(mean = mean(as.numeric(integer))), # as.numeric bc they're being parsed as int64
-    df1 %>%
-      select(string = chr, integer = int) %>%
-      filter(integer > 6) %>%
+    df1 |>
+      select(string = chr, integer = int) |>
+      filter(integer > 6) |>
       summarize(mean = mean(integer))
   )
 })
@@ -281,7 +281,7 @@ test_that("Can set null string values", {
   csv_contents <- readLines(list.files(dst_dir, full.names = TRUE)[1])
   expect_equal(csv_contents, c("\"x\"", "1", "NULL_VALUE", "3"))
 
-  back <- open_dataset(dst_dir, null_values = "NULL_VALUE", format = "csv") %>% collect()
+  back <- open_dataset(dst_dir, null_values = "NULL_VALUE", format = "csv") |> collect()
   expect_equal(df, back)
 
   # Also works with `na` parameter
@@ -291,7 +291,7 @@ test_that("Can set null string values", {
   csv_contents <- readLines(list.files(dst_dir, full.names = TRUE)[1])
   expect_equal(csv_contents, c("\"x\"", "1", "another_null", "3"))
 
-  back <- open_dataset(dst_dir, null_values = "another_null", format = "csv") %>% collect()
+  back <- open_dataset(dst_dir, null_values = "another_null", format = "csv") |> collect()
   expect_equal(df, back)
 })
 
@@ -339,7 +339,7 @@ test_that("Column names can be inferred from schema", {
     format = "csv",
     schema = schema(int = int32(), dbl = float64())
   )
-  expect_equal(ds %>% collect(), tbl)
+  expect_equal(ds |> collect(), tbl)
 })
 
 test_that("Can use col_names readr parameter", {
@@ -349,8 +349,8 @@ test_that("Can use col_names readr parameter", {
     format = "csv",
     col_names = expected_names
   )
-  expect_equal(names(ds), expected_names)
-  expect_equal(ds %>% collect(), set_names(tbl, expected_names))
+  expect_named(ds, expected_names)
+  expect_equal(ds |> collect(), set_names(tbl, expected_names))
 
   # WITHOUT header, makes up names
   ds <- open_dataset(
@@ -358,8 +358,8 @@ test_that("Can use col_names readr parameter", {
     format = "csv",
     col_names = FALSE
   )
-  expect_equal(names(ds), c("f0", "f1"))
-  expect_equal(ds %>% collect(), set_names(tbl, c("f0", "f1")))
+  expect_named(ds, c("f0", "f1"))
+  expect_equal(ds |> collect(), set_names(tbl, c("f0", "f1")))
 
   # WITH header, gets names
   ds <- open_dataset(
@@ -367,8 +367,8 @@ test_that("Can use col_names readr parameter", {
     format = "csv",
     col_names = TRUE
   )
-  expect_equal(names(ds), c("int", "dbl"))
-  expect_equal(ds %>% collect(), tbl)
+  expect_named(ds, c("int", "dbl"))
+  expect_equal(ds |> collect(), tbl)
 
   ds <- open_dataset(
     header_csv_dir,
@@ -376,8 +376,8 @@ test_that("Can use col_names readr parameter", {
     col_names = FALSE,
     skip = 1
   )
-  expect_equal(names(ds), c("f0", "f1"))
-  expect_equal(ds %>% collect(), set_names(tbl, c("f0", "f1")))
+  expect_named(ds, c("f0", "f1"))
+  expect_equal(ds |> collect(), set_names(tbl, c("f0", "f1")))
 
   expect_error(
     open_dataset(headerless_csv_dir, format = "csv", col_names = c("my_int"))
@@ -390,7 +390,7 @@ test_that("open_dataset() deals with BOMs (byte-order-marks) correctly", {
   writeLines("\xef\xbb\xbfa,b\n3,4\n", con = file.path(temp_dir, "file2.csv"))
 
   expect_equal(
-    open_dataset(temp_dir, format = "csv") %>% collect() %>% arrange(b),
+    open_dataset(temp_dir, format = "csv") |> collect() |> arrange(b),
     tibble(a = c(1, 3), b = c(2, 4))
   )
 })
@@ -463,15 +463,15 @@ test_that("CSV reading/parsing/convert options can be passed in as lists", {
     format = "csv",
     convert_options = list(null_values = c("NA", "NULL"), strings_can_be_null = TRUE),
     read_options = list(skip_rows = 1L)
-  ) %>%
+  ) |>
     collect()
 
   ds2 <- open_dataset(
     tf,
     format = "csv",
-    convert_options = CsvConvertOptions$create(null_values = c(NA, "NA", "NULL"), strings_can_be_null = TRUE),
-    read_options = CsvReadOptions$create(skip_rows = 1L)
-  ) %>%
+    convert_options = csv_convert_options(null_values = c(NA, "NA", "NULL"), strings_can_be_null = TRUE),
+    read_options = csv_read_options(skip_rows = 1L)
+  ) |>
     collect()
 
   expect_equal(ds1, ds2)
@@ -481,7 +481,7 @@ test_that("open_delim_dataset params passed through to open_dataset", {
   ds <- open_delim_dataset(csv_dir, delim = ",", partitioning = "part")
   expect_r6_class(ds$format, "CsvFileFormat")
   expect_r6_class(ds$filesystem, "LocalFileSystem")
-  expect_identical(names(ds), c(names(df1), "part"))
+  expect_named(ds, c(names(df1), "part"))
   expect_identical(dim(ds), c(20L, 7L))
 
   # quote
@@ -491,11 +491,11 @@ test_that("open_delim_dataset params passed through to open_dataset", {
   df <- data.frame(a = c(1, 2), b = c("'abc'", "'def'"))
   write.csv(df, dst_file, row.names = FALSE, quote = FALSE)
 
-  ds_quote <- open_csv_dataset(dst_dir, quote = "'") %>% collect()
+  ds_quote <- open_csv_dataset(dst_dir, quote = "'") |> collect()
   expect_equal(ds_quote$b, c("abc", "def"))
 
   # na
-  ds <- open_csv_dataset(csv_dir, partitioning = "part", na = c("", "NA", "FALSE")) %>% collect()
+  ds <- open_csv_dataset(csv_dir, partitioning = "part", na = c("", "NA", "FALSE")) |> collect()
   expect_identical(ds$lgl, c(
     TRUE, NA, NA, TRUE, NA, TRUE, NA, NA, TRUE, NA, TRUE, NA, NA,
     TRUE, NA, TRUE, NA, NA, TRUE, NA
@@ -507,7 +507,7 @@ test_that("open_delim_dataset params passed through to open_dataset", {
     partitioning = "part",
     col_names = paste0("col_", 1:6),
     skip = 1
-  ) %>% collect()
+  ) |> collect()
 
   expect_named(ds, c("col_1", "col_2", "col_3", "col_4", "col_5", "col_6", "part"))
   expect_equal(nrow(ds), 20)
@@ -523,18 +523,33 @@ test_that("open_delim_dataset params passed through to open_dataset", {
   ds_strings <- open_csv_dataset(dst_dir, col_types = data_schema)
   expect_equal(ds_strings$schema, schema(a = string(), b = string()))
 
+  # col_types - as compact schema
+  compact_schema <- schema(
+    int = int32(), dbl = float64(), lgl = bool(), chr = utf8(),
+    fct = dictionary(), ts = timestamp(unit = "ns")
+  )
+
+  ds <- open_csv_dataset(
+    csv_dir,
+    col_names = c("int", "dbl", "lgl", "chr", "fct", "ts"),
+    col_types = "idlcfT",
+    skip = 1
+  )
+
+  expect_equal(schema(ds), compact_schema)
+
   # skip_empty_rows
   tf <- tempfile()
   writeLines('"x"\n"y"\nNA\nNA\n"NULL"\n\n\n', tf)
 
-  ds <- open_csv_dataset(tf, skip_empty_rows = FALSE) %>% collect()
+  ds <- open_csv_dataset(tf, skip_empty_rows = FALSE) |> collect()
   expect_equal(nrow(ds), 7)
 
   # convert_options
   ds <- open_csv_dataset(
     csv_dir,
     convert_options = list(null_values = c("NA", "", "FALSE"), strings_can_be_null = TRUE)
-  ) %>% collect()
+  ) |> collect()
 
   expect_equal(
     ds$lgl,
@@ -545,9 +560,41 @@ test_that("open_delim_dataset params passed through to open_dataset", {
   ds <- open_csv_dataset(
     csv_dir,
     read_options = list(column_names = paste0("col_", 1:6))
-  ) %>% collect()
+  ) |> collect()
 
   expect_named(ds, c("col_1", "col_2", "col_3", "col_4", "col_5", "col_6"))
+
+  # schema
+  ds <- open_csv_dataset(
+    csv_dir,
+    schema = schema(
+      int = int64(), dbl = float64(), lgl = bool(), chr = utf8(),
+      fct = utf8(), ts = timestamp(unit = "s")
+    ),
+    skip = 1
+  ) |> collect()
+
+  expect_named(ds, c("int", "dbl", "lgl", "chr", "fct", "ts"))
+
+  # quoted_na
+  dst_dir <- make_temp_dir()
+  dst_file <- file.path(dst_dir, "data.csv")
+  writeLines("text,num\none,1\ntwo,2\n,3\nfour,4", dst_file)
+  ds <- open_csv_dataset(dst_dir, quoted_na = TRUE) |> collect()
+  expect_equal(ds$text, c("one", "two", NA, "four"))
+
+  ds <- open_csv_dataset(dst_dir, quoted_na = FALSE) |> collect()
+  expect_equal(ds$text, c("one", "two", "", "four"))
+
+  # parse_options
+  dst_dir <- make_temp_dir()
+  dst_file <- file.path(dst_dir, "data.csv")
+  writeLines("x\n\n1\n\n\n2\n\n3", dst_file)
+  ds <- open_csv_dataset(
+    dst_dir,
+    parse_options = csv_parse_options(ignore_empty_lines = FALSE)
+  ) |> collect()
+  expect_equal(ds$x, c(NA, 1L, NA, NA, 2L, NA, 3L))
 
   # timestamp_parsers
   skip("GH-33708: timestamp_parsers don't appear to be working properly")
@@ -558,7 +605,75 @@ test_that("open_delim_dataset params passed through to open_dataset", {
   df <- data.frame(time = "2023-01-16 19:47:57")
   write.csv(df, dst_file, row.names = FALSE, quote = FALSE)
 
-  ds <- open_csv_dataset(dst_dir, timestamp_parsers = c(TimestampParser$create(format = "%d-%m-%y"))) %>% collect()
+  ds <- open_csv_dataset(dst_dir, timestamp_parsers = c(TimestampParser$create(format = "%d-%m-%y"))) |> collect()
 
   expect_equal(ds$time, "16-01-2023")
+})
+
+test_that("CSVReadOptions printing", {
+  default_read_options <- csv_read_options()
+  custom_read_options <- csv_read_options(skip_rows = 102)
+
+  expect_output(print(default_read_options), "skip_rows: 0")
+  expect_output(print(custom_read_options), "skip_rows: 102")
+})
+
+test_that("CSVReadOptions field access", {
+  options <- csv_read_options()
+  expect_equal(options$skip_rows, 0)
+  expect_equal(options$autogenerate_column_names, FALSE)
+  expect_equal(options$skip_rows_after_names, 0)
+  expect_equal(options$use_threads, option_use_threads())
+  expect_equal(options$column_names, character(0))
+  expect_equal(options$block_size, 1048576L)
+  expect_equal(options$encoding, "UTF-8")
+})
+
+test_that("GH-34640 - CSV datasets are read in correctly when both schema and partitioning supplied", {
+  target_schema <- schema(
+    int = int32(), dbl = float32(), lgl = bool(), chr = utf8(),
+    fct = utf8(), ts = timestamp(unit = "s"), part = int8()
+  )
+
+  ds <- open_dataset(
+    csv_dir,
+    partitioning = schema(part = int32()),
+    format = "csv",
+    schema = target_schema,
+    skip = 1
+  )
+  expect_r6_class(ds$format, "CsvFileFormat")
+  expect_r6_class(ds$filesystem, "LocalFileSystem")
+  expect_named(ds, c(names(df1), "part"))
+  expect_named(collect(ds), c(names(df1), "part"))
+
+  expect_identical(dim(ds), c(20L, 7L))
+  expect_equal(schema(ds), target_schema)
+
+  expect_equal(
+    ds |>
+      select(string = chr, integer = int, part) |>
+      filter(integer > 6 & part == 5) |>
+      collect() |>
+      summarize(mean = mean(as.numeric(integer))),
+    df1 |>
+      select(string = chr, integer = int) |>
+      filter(integer > 6) |>
+      summarize(mean = mean(integer))
+  )
+})
+
+test_that("open_dataset() with `decimal_point` argument", {
+  temp_dir <- make_temp_dir()
+  writeLines("x\ty\n1,2\tc", con = file.path(temp_dir, "file1.csv"))
+
+  expect_equal(
+    open_dataset(temp_dir, format = "tsv") |> collect(),
+    tibble(x = "1,2", y = "c")
+  )
+
+  expect_equal(
+    open_dataset(temp_dir, format = "tsv", decimal_point = ",") |> collect(),
+    tibble(x = 1.2, y = "c")
+  )
 })

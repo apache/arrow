@@ -24,7 +24,7 @@
 #include <utility>
 
 #include "arrow/io/caching.h"
-#include "arrow/type.h"
+#include "arrow/type_fwd.h"
 #include "arrow/util/compression.h"
 #include "arrow/util/type_fwd.h"
 #include "parquet/encryption/encryption.h"
@@ -47,6 +47,16 @@ namespace parquet {
 /// DataPageV2 at all.
 enum class ParquetDataPageVersion { V1, V2 };
 
+/// Controls the level of size statistics that are written to the file.
+enum class SizeStatisticsLevel : uint8_t {
+  // No size statistics are written.
+  None = 0,
+  // Only column chunk size statistics are written.
+  ColumnChunk,
+  // Both size statistics in the column chunk and page index are written.
+  PageAndColumnChunk
+};
+
 /// Align the default buffer size to a small multiple of a page size.
 constexpr int64_t kDefaultBufferSize = 4096 * 4;
 
@@ -55,6 +65,9 @@ constexpr int32_t kDefaultThriftStringSizeLimit = 100 * 1000 * 1000;
 // This limits total memory to the same order of magnitude as
 // kDefaultStringSizeLimit.
 constexpr int32_t kDefaultThriftContainerSizeLimit = 1000 * 1000;
+
+// PARQUET-978: Minimize footer reads by reading 64 KB from the end of the file
+constexpr int64_t kDefaultFooterReadSize = 64 * 1024;
 
 class PARQUET_EXPORT ReaderProperties {
  public:
@@ -78,6 +91,10 @@ class PARQUET_EXPORT ReaderProperties {
   void enable_buffered_stream() { buffered_stream_enabled_ = true; }
   /// Disable buffered stream reading.
   void disable_buffered_stream() { buffered_stream_enabled_ = false; }
+
+  bool read_dense_for_nullable() const { return read_dense_for_nullable_; }
+  void enable_read_dense_for_nullable() { read_dense_for_nullable_ = true; }
+  void disable_read_dense_for_nullable() { read_dense_for_nullable_ = false; }
 
   /// Return the size of the buffered stream buffer.
   int64_t buffer_size() const { return buffer_size_; }
@@ -111,12 +128,27 @@ class PARQUET_EXPORT ReaderProperties {
     return file_decryption_properties_;
   }
 
+  bool page_checksum_verification() const { return page_checksum_verification_; }
+  void set_page_checksum_verification(bool check_crc) {
+    page_checksum_verification_ = check_crc;
+  }
+
+  // Set the default read size to read the footer from a file. For high latency
+  // file systems and files with large metadata (>64KB) this can increase performance
+  // by reducing the number of round-trips to retrieve the entire file metadata.
+  void set_footer_read_size(size_t size) { footer_read_size_ = size; }
+  size_t footer_read_size() const { return footer_read_size_; }
+
  private:
   MemoryPool* pool_;
   int64_t buffer_size_ = kDefaultBufferSize;
   int32_t thrift_string_size_limit_ = kDefaultThriftStringSizeLimit;
   int32_t thrift_container_size_limit_ = kDefaultThriftContainerSizeLimit;
   bool buffered_stream_enabled_ = false;
+  bool page_checksum_verification_ = false;
+  // Used with a RecordReader.
+  bool read_dense_for_nullable_ = false;
+  size_t footer_read_size_ = kDefaultFooterReadSize;
   std::shared_ptr<FileDecryptionProperties> file_decryption_properties_;
 };
 
@@ -126,12 +158,15 @@ static constexpr int64_t kDefaultDataPageSize = 1024 * 1024;
 static constexpr bool DEFAULT_IS_DICTIONARY_ENABLED = true;
 static constexpr int64_t DEFAULT_DICTIONARY_PAGE_SIZE_LIMIT = kDefaultDataPageSize;
 static constexpr int64_t DEFAULT_WRITE_BATCH_SIZE = 1024;
-static constexpr int64_t DEFAULT_MAX_ROW_GROUP_LENGTH = 64 * 1024 * 1024;
+static constexpr int64_t DEFAULT_MAX_ROW_GROUP_LENGTH = 1024 * 1024;
 static constexpr bool DEFAULT_ARE_STATISTICS_ENABLED = true;
 static constexpr int64_t DEFAULT_MAX_STATISTICS_SIZE = 4096;
-static constexpr Encoding::type DEFAULT_ENCODING = Encoding::PLAIN;
+static constexpr Encoding::type DEFAULT_ENCODING = Encoding::UNKNOWN;
 static const char DEFAULT_CREATED_BY[] = CREATED_BY_VERSION;
 static constexpr Compression::type DEFAULT_COMPRESSION_TYPE = Compression::UNCOMPRESSED;
+static constexpr bool DEFAULT_IS_PAGE_INDEX_ENABLED = true;
+static constexpr SizeStatisticsLevel DEFAULT_SIZE_STATISTICS_LEVEL =
+    SizeStatisticsLevel::PageAndColumnChunk;
 
 class PARQUET_EXPORT ColumnProperties {
  public:
@@ -139,13 +174,14 @@ class PARQUET_EXPORT ColumnProperties {
                    Compression::type codec = DEFAULT_COMPRESSION_TYPE,
                    bool dictionary_enabled = DEFAULT_IS_DICTIONARY_ENABLED,
                    bool statistics_enabled = DEFAULT_ARE_STATISTICS_ENABLED,
-                   size_t max_stats_size = DEFAULT_MAX_STATISTICS_SIZE)
+                   size_t max_stats_size = DEFAULT_MAX_STATISTICS_SIZE,
+                   bool page_index_enabled = DEFAULT_IS_PAGE_INDEX_ENABLED)
       : encoding_(encoding),
         codec_(codec),
         dictionary_enabled_(dictionary_enabled),
         statistics_enabled_(statistics_enabled),
         max_stats_size_(max_stats_size),
-        compression_level_(Codec::UseDefaultCompressionLevel()) {}
+        page_index_enabled_(page_index_enabled) {}
 
   void set_encoding(Encoding::type encoding) { encoding_ = encoding; }
 
@@ -164,7 +200,18 @@ class PARQUET_EXPORT ColumnProperties {
   }
 
   void set_compression_level(int compression_level) {
-    compression_level_ = compression_level;
+    if (!codec_options_) {
+      codec_options_ = std::make_shared<CodecOptions>();
+    }
+    codec_options_->compression_level = compression_level;
+  }
+
+  void set_codec_options(const std::shared_ptr<CodecOptions>& codec_options) {
+    codec_options_ = codec_options;
+  }
+
+  void set_page_index_enabled(bool page_index_enabled) {
+    page_index_enabled_ = page_index_enabled;
   }
 
   Encoding::type encoding() const { return encoding_; }
@@ -177,7 +224,16 @@ class PARQUET_EXPORT ColumnProperties {
 
   size_t max_statistics_size() const { return max_stats_size_; }
 
-  int compression_level() const { return compression_level_; }
+  int compression_level() const {
+    if (!codec_options_) {
+      return ::arrow::util::kUseDefaultCompressionLevel;
+    }
+    return codec_options_->compression_level;
+  }
+
+  const std::shared_ptr<CodecOptions>& codec_options() const { return codec_options_; }
+
+  bool page_index_enabled() const { return page_index_enabled_; }
 
  private:
   Encoding::type encoding_;
@@ -185,7 +241,46 @@ class PARQUET_EXPORT ColumnProperties {
   bool dictionary_enabled_;
   bool statistics_enabled_;
   size_t max_stats_size_;
-  int compression_level_;
+  std::shared_ptr<CodecOptions> codec_options_;
+  bool page_index_enabled_;
+};
+
+// EXPERIMENTAL: Options for content-defined chunking.
+///
+/// Content-defined chunking is an experimental feature that optimizes parquet
+/// files for content addressable storage (CAS) systems by writing data pages
+/// according to content-defined chunk boundaries. This allows for more
+/// efficient deduplication of data across files, hence more efficient network
+/// transfers and storage.
+/// Each content-defined chunk is written as a separate parquet data page. The
+/// following options control the chunks' size and the chunking process. Note
+/// that the chunk size is calculated based on the logical value of the data,
+/// before any encoding or compression is applied.
+struct PARQUET_EXPORT CdcOptions {
+  /// Minimum chunk size in bytes, default is 256 KiB
+  /// The rolling hash will not be updated until this size is reached for each chunk.
+  /// Note that all data sent through the hash function is counted towards the chunk
+  /// size, including definition and repetition levels if present.
+  int64_t min_chunk_size = 256 * 1024;
+  /// Maximum chunk size in bytes, default is 1024 KiB
+  /// The chunker will create a new chunk whenever the chunk size exceeds this value.
+  /// Note that the parquet writer has a related `pagesize` property that controls
+  /// the maximum size of a parquet data page after encoding. While setting
+  /// `pagesize` to a smaller value than `max_chunk_size` doesn't affect the
+  /// chunking effectiveness, it results in more small parquet data pages.
+  int64_t max_chunk_size = 1024 * 1024;
+  /// Number of bit adjustment to the gearhash mask in order to center the chunk size
+  /// around the average size more aggressively, default is 0
+  /// Increasing the normalization level increases the probability of finding a chunk,
+  /// improving the deduplication ratio, but also increasing the number of small chunks
+  /// resulting in many small parquet data pages. The default value provides a good
+  /// balance between deduplication ratio and fragmentation.
+  /// Use norm_level=1 or norm_level=2 to reach a higher deduplication ratio at the
+  /// expense of fragmentation. Negative values can also be used to reduce the
+  /// probability of finding a chunk, resulting in larger chunks and fewer data pages.
+  /// Note that values outside [-3, 3] are not recommended, prefer using the default
+  /// value of 0 for most use cases.
+  int norm_level = 0;
 };
 
 class PARQUET_EXPORT WriterProperties {
@@ -198,11 +293,61 @@ class PARQUET_EXPORT WriterProperties {
           write_batch_size_(DEFAULT_WRITE_BATCH_SIZE),
           max_row_group_length_(DEFAULT_MAX_ROW_GROUP_LENGTH),
           pagesize_(kDefaultDataPageSize),
-          version_(ParquetVersion::PARQUET_2_4),
+          version_(ParquetVersion::PARQUET_2_6),
           data_page_version_(ParquetDataPageVersion::V1),
           created_by_(DEFAULT_CREATED_BY),
-          store_decimal_as_integer_(false) {}
+          store_decimal_as_integer_(false),
+          page_checksum_enabled_(false),
+          size_statistics_level_(DEFAULT_SIZE_STATISTICS_LEVEL),
+          content_defined_chunking_enabled_(false),
+          content_defined_chunking_options_({}) {}
+
+    explicit Builder(const WriterProperties& properties)
+        : pool_(properties.memory_pool()),
+          dictionary_pagesize_limit_(properties.dictionary_pagesize_limit()),
+          write_batch_size_(properties.write_batch_size()),
+          max_row_group_length_(properties.max_row_group_length()),
+          pagesize_(properties.data_pagesize()),
+          version_(properties.version()),
+          data_page_version_(properties.data_page_version()),
+          created_by_(properties.created_by()),
+          store_decimal_as_integer_(properties.store_decimal_as_integer()),
+          page_checksum_enabled_(properties.page_checksum_enabled()),
+          size_statistics_level_(properties.size_statistics_level()),
+          sorting_columns_(properties.sorting_columns()),
+          default_column_properties_(properties.default_column_properties()),
+          content_defined_chunking_enabled_(
+              properties.content_defined_chunking_enabled()),
+          content_defined_chunking_options_(
+              properties.content_defined_chunking_options()) {}
+
     virtual ~Builder() {}
+
+    /// \brief EXPERIMENTAL: Use content-defined page chunking for all columns.
+    ///
+    /// Optimize parquet files for content addressable storage (CAS) systems by writing
+    /// data pages according to content-defined chunk boundaries. This allows for more
+    /// efficient deduplication of data across files, hence more efficient network
+    /// transfers and storage. The chunking is based on a rolling hash algorithm that
+    /// identifies chunk boundaries based on the actual content of the data.
+    ///
+    /// Note that only the WriteArrow() interface is supported at the moment.
+    Builder* enable_content_defined_chunking() {
+      content_defined_chunking_enabled_ = true;
+      return this;
+    }
+
+    /// \brief EXPERIMENTAL: Disable content-defined page chunking for all columns.
+    Builder* disable_content_defined_chunking() {
+      content_defined_chunking_enabled_ = false;
+      return this;
+    }
+
+    /// \brief EXPERIMENTAL: Specify content-defined chunking options, see CdcOptions.
+    Builder* content_defined_chunking_options(const CdcOptions& options) {
+      content_defined_chunking_options_ = options;
+      return this;
+    }
 
     /// Specify the memory pool for the writer. Default default_memory_pool.
     Builder* memory_pool(MemoryPool* pool) {
@@ -210,36 +355,42 @@ class PARQUET_EXPORT WriterProperties {
       return this;
     }
 
-    /// Enable dictionary encoding in general for all columns. Default enabled.
+    /// Enable dictionary encoding in general for all columns. Default
+    /// enabled.
     Builder* enable_dictionary() {
       default_column_properties_.set_dictionary_enabled(true);
       return this;
     }
 
-    /// Disable dictionary encoding in general for all columns. Default enabled.
+    /// Disable dictionary encoding in general for all columns. Default
+    /// enabled.
     Builder* disable_dictionary() {
       default_column_properties_.set_dictionary_enabled(false);
       return this;
     }
 
-    /// Enable dictionary encoding for column specified by `path`. Default enabled.
+    /// Enable dictionary encoding for column specified by `path`. Default
+    /// enabled.
     Builder* enable_dictionary(const std::string& path) {
       dictionary_enabled_[path] = true;
       return this;
     }
 
-    /// Enable dictionary encoding for column specified by `path`. Default enabled.
+    /// Enable dictionary encoding for column specified by `path`. Default
+    /// enabled.
     Builder* enable_dictionary(const std::shared_ptr<schema::ColumnPath>& path) {
       return this->enable_dictionary(path->ToDotString());
     }
 
-    /// Disable dictionary encoding for column specified by `path`. Default enabled.
+    /// Disable dictionary encoding for column specified by `path`. Default
+    /// enabled.
     Builder* disable_dictionary(const std::string& path) {
       dictionary_enabled_[path] = false;
       return this;
     }
 
-    /// Disable dictionary encoding for column specified by `path`. Default enabled.
+    /// Disable dictionary encoding for column specified by `path`. Default
+    /// enabled.
     Builder* disable_dictionary(const std::shared_ptr<schema::ColumnPath>& path) {
       return this->disable_dictionary(path->ToDotString());
     }
@@ -250,15 +401,15 @@ class PARQUET_EXPORT WriterProperties {
       return this;
     }
 
-    /// Specify the write batch size while writing batches of Arrow values into Parquet.
-    /// Default 1024.
+    /// Specify the write batch size while writing batches of Arrow values
+    /// into Parquet. Default 1024.
     Builder* write_batch_size(int64_t write_batch_size) {
       write_batch_size_ = write_batch_size;
       return this;
     }
 
-    /// Specify the max row group length.
-    /// Default 64M.
+    /// Specify the max number of rows to put in a single row group.
+    /// Default 1Mi rows.
     Builder* max_row_group_length(int64_t max_row_group_length) {
       max_row_group_length_ = max_row_group_length;
       return this;
@@ -279,7 +430,7 @@ class PARQUET_EXPORT WriterProperties {
     }
 
     /// Specify the Parquet file version.
-    /// Default PARQUET_2_4.
+    /// Default PARQUET_2_6.
     Builder* version(ParquetVersion::type version) {
       version_ = version;
       return this;
@@ -290,10 +441,20 @@ class PARQUET_EXPORT WriterProperties {
       return this;
     }
 
+    Builder* enable_page_checksum() {
+      page_checksum_enabled_ = true;
+      return this;
+    }
+
+    Builder* disable_page_checksum() {
+      page_checksum_enabled_ = false;
+      return this;
+    }
+
     /// \brief Define the encoding that is used when we don't utilise dictionary encoding.
     //
-    /// This either apply if dictionary encoding is disabled or if we fallback
-    /// as the dictionary grew too large.
+    /// This is only applied if dictionary encoding is disabled. If the dictionary grows
+    /// too large we always fall back to the PLAIN encoding.
     Builder* encoding(Encoding::type encoding_type) {
       if (encoding_type == Encoding::PLAIN_DICTIONARY ||
           encoding_type == Encoding::RLE_DICTIONARY) {
@@ -306,8 +467,8 @@ class PARQUET_EXPORT WriterProperties {
 
     /// \brief Define the encoding that is used when we don't utilise dictionary encoding.
     //
-    /// This either apply if dictionary encoding is disabled or if we fallback
-    /// as the dictionary grew too large.
+    /// This is only applied if dictionary encoding is disabled. If the dictionary grows
+    /// too large we always fall back to the PLAIN encoding.
     Builder* encoding(const std::string& path, Encoding::type encoding_type) {
       if (encoding_type == Encoding::PLAIN_DICTIONARY ||
           encoding_type == Encoding::RLE_DICTIONARY) {
@@ -320,8 +481,8 @@ class PARQUET_EXPORT WriterProperties {
 
     /// \brief Define the encoding that is used when we don't utilise dictionary encoding.
     //
-    /// This either apply if dictionary encoding is disabled or if we fallback
-    /// as the dictionary grew too large.
+    /// This is only applied if dictionary encoding is disabled. If the dictionary grows
+    /// too large we always fall back to the PLAIN encoding.
     Builder* encoding(const std::shared_ptr<schema::ColumnPath>& path,
                       Encoding::type encoding_type) {
       return this->encoding(path->ToDotString(), encoding_type);
@@ -367,6 +528,9 @@ class PARQUET_EXPORT WriterProperties {
     /// level is selected by the user or if the special
     /// std::numeric_limits<int>::min() value is passed, then Arrow selects the
     /// compression level.
+    ///
+    /// If other compressor-specific options need to be set in addition to the compression
+    /// level, use the codec_options method.
     Builder* compression_level(int compression_level) {
       default_column_properties_.set_compression_level(compression_level);
       return this;
@@ -384,7 +548,10 @@ class PARQUET_EXPORT WriterProperties {
     /// std::numeric_limits<int>::min() value is passed, then Arrow selects the
     /// compression level.
     Builder* compression_level(const std::string& path, int compression_level) {
-      codecs_compression_level_[path] = compression_level;
+      if (!codec_options_[path]) {
+        codec_options_[path] = std::make_shared<CodecOptions>();
+      }
+      codec_options_[path]->compression_level = compression_level;
       return this;
     }
 
@@ -402,6 +569,34 @@ class PARQUET_EXPORT WriterProperties {
     Builder* compression_level(const std::shared_ptr<schema::ColumnPath>& path,
                                int compression_level) {
       return this->compression_level(path->ToDotString(), compression_level);
+    }
+
+    /// \brief Specify the default codec options for the compressor in
+    /// every column.
+    ///
+    /// The codec options allow configuring the compression level as well
+    /// as other codec-specific options.
+    Builder* codec_options(
+        const std::shared_ptr<::arrow::util::CodecOptions>& codec_options) {
+      default_column_properties_.set_codec_options(codec_options);
+      return this;
+    }
+
+    /// \brief Specify the codec options for the compressor for the column
+    /// described by path.
+    Builder* codec_options(
+        const std::string& path,
+        const std::shared_ptr<::arrow::util::CodecOptions>& codec_options) {
+      codec_options_[path] = codec_options;
+      return this;
+    }
+
+    /// \brief Specify the codec options for the compressor for the column
+    /// described by path.
+    Builder* codec_options(
+        const std::shared_ptr<schema::ColumnPath>& path,
+        const std::shared_ptr<::arrow::util::CodecOptions>& codec_options) {
+      return this->codec_options(path->ToDotString(), codec_options);
     }
 
     /// Define the file encryption properties.
@@ -437,6 +632,17 @@ class PARQUET_EXPORT WriterProperties {
     /// Default enabled.
     Builder* enable_statistics(const std::shared_ptr<schema::ColumnPath>& path) {
       return this->enable_statistics(path->ToDotString());
+    }
+
+    /// Define the sorting columns.
+    /// Default empty.
+    ///
+    /// If sorting columns are set, user should ensure that records
+    /// are sorted by sorting columns. Otherwise, the storing data
+    /// will be inconsistent with sorting_columns metadata.
+    Builder* set_sorting_columns(std::vector<SortingColumn> sorting_columns) {
+      sorting_columns_ = std::move(sorting_columns);
+      return this;
     }
 
     /// Disable statistics for the column specified by `path`.
@@ -475,12 +681,65 @@ class PARQUET_EXPORT WriterProperties {
       return this;
     }
 
-    /// Disable decimal logical type with 1 <= precision <= 18 to be stored as
-    /// integer physical type.
+    /// Disable decimal logical type with 1 <= precision <= 18 to be stored
+    /// as integer physical type.
     ///
     /// Default disabled.
     Builder* disable_store_decimal_as_integer() {
       store_decimal_as_integer_ = false;
+      return this;
+    }
+
+    /// Enable writing page index in general for all columns. Default disabled.
+    ///
+    /// Writing statistics to the page index disables the old method of writing
+    /// statistics to each data page header.
+    /// The page index makes filtering more efficient than the page header, as
+    /// it gathers all the statistics for a Parquet file in a single place,
+    /// avoiding scattered I/O.
+    ///
+    /// Please check the link below for more details:
+    /// https://github.com/apache/parquet-format/blob/master/PageIndex.md
+    Builder* enable_write_page_index() {
+      default_column_properties_.set_page_index_enabled(true);
+      return this;
+    }
+
+    /// Disable writing page index in general for all columns. Default disabled.
+    Builder* disable_write_page_index() {
+      default_column_properties_.set_page_index_enabled(false);
+      return this;
+    }
+
+    /// Enable writing page index for column specified by `path`. Default disabled.
+    Builder* enable_write_page_index(const std::string& path) {
+      page_index_enabled_[path] = true;
+      return this;
+    }
+
+    /// Enable writing page index for column specified by `path`. Default disabled.
+    Builder* enable_write_page_index(const std::shared_ptr<schema::ColumnPath>& path) {
+      return this->enable_write_page_index(path->ToDotString());
+    }
+
+    /// Disable writing page index for column specified by `path`. Default disabled.
+    Builder* disable_write_page_index(const std::string& path) {
+      page_index_enabled_[path] = false;
+      return this;
+    }
+
+    /// Disable writing page index for column specified by `path`. Default disabled.
+    Builder* disable_write_page_index(const std::shared_ptr<schema::ColumnPath>& path) {
+      return this->disable_write_page_index(path->ToDotString());
+    }
+
+    /// \brief Set the level to write size statistics for all columns. Default is None.
+    ///
+    /// \param level The level to write size statistics. Note that if page index is not
+    /// enabled, page level size statistics will not be written even if the level
+    /// is set to PageAndColumnChunk.
+    Builder* set_size_statistics_level(SizeStatisticsLevel level) {
+      size_statistics_level_ = level;
       return this;
     }
 
@@ -498,18 +757,22 @@ class PARQUET_EXPORT WriterProperties {
 
       for (const auto& item : encodings_) get(item.first).set_encoding(item.second);
       for (const auto& item : codecs_) get(item.first).set_compression(item.second);
-      for (const auto& item : codecs_compression_level_)
-        get(item.first).set_compression_level(item.second);
+      for (const auto& item : codec_options_)
+        get(item.first).set_codec_options(item.second);
       for (const auto& item : dictionary_enabled_)
         get(item.first).set_dictionary_enabled(item.second);
       for (const auto& item : statistics_enabled_)
         get(item.first).set_statistics_enabled(item.second);
+      for (const auto& item : page_index_enabled_)
+        get(item.first).set_page_index_enabled(item.second);
 
       return std::shared_ptr<WriterProperties>(new WriterProperties(
           pool_, dictionary_pagesize_limit_, write_batch_size_, max_row_group_length_,
-          pagesize_, version_, created_by_, std::move(file_encryption_properties_),
+          pagesize_, version_, created_by_, page_checksum_enabled_,
+          size_statistics_level_, std::move(file_encryption_properties_),
           default_column_properties_, column_properties, data_page_version_,
-          store_decimal_as_integer_));
+          store_decimal_as_integer_, std::move(sorting_columns_),
+          content_defined_chunking_enabled_, content_defined_chunking_options_));
     }
 
    private:
@@ -522,16 +785,25 @@ class PARQUET_EXPORT WriterProperties {
     ParquetDataPageVersion data_page_version_;
     std::string created_by_;
     bool store_decimal_as_integer_;
+    bool page_checksum_enabled_;
+    SizeStatisticsLevel size_statistics_level_;
 
     std::shared_ptr<FileEncryptionProperties> file_encryption_properties_;
+
+    // If empty, there is no sorting columns.
+    std::vector<SortingColumn> sorting_columns_;
 
     // Settings used for each column unless overridden in any of the maps below
     ColumnProperties default_column_properties_;
     std::unordered_map<std::string, Encoding::type> encodings_;
     std::unordered_map<std::string, Compression::type> codecs_;
-    std::unordered_map<std::string, int32_t> codecs_compression_level_;
+    std::unordered_map<std::string, std::shared_ptr<CodecOptions>> codec_options_;
     std::unordered_map<std::string, bool> dictionary_enabled_;
     std::unordered_map<std::string, bool> statistics_enabled_;
+    std::unordered_map<std::string, bool> page_index_enabled_;
+
+    bool content_defined_chunking_enabled_;
+    CdcOptions content_defined_chunking_options_;
   };
 
   inline MemoryPool* memory_pool() const { return pool_; }
@@ -553,6 +825,19 @@ class PARQUET_EXPORT WriterProperties {
   inline std::string created_by() const { return parquet_created_by_; }
 
   inline bool store_decimal_as_integer() const { return store_decimal_as_integer_; }
+
+  inline bool page_checksum_enabled() const { return page_checksum_enabled_; }
+
+  inline bool content_defined_chunking_enabled() const {
+    return content_defined_chunking_enabled_;
+  }
+  inline CdcOptions content_defined_chunking_options() const {
+    return content_defined_chunking_options_;
+  }
+
+  inline SizeStatisticsLevel size_statistics_level() const {
+    return size_statistics_level_;
+  }
 
   inline Encoding::type dictionary_index_encoding() const {
     if (parquet_version_ == ParquetVersion::PARQUET_1_0) {
@@ -589,9 +874,16 @@ class PARQUET_EXPORT WriterProperties {
     return column_properties(path).compression_level();
   }
 
+  const std::shared_ptr<CodecOptions> codec_options(
+      const std::shared_ptr<schema::ColumnPath>& path) const {
+    return column_properties(path).codec_options();
+  }
+
   bool dictionary_enabled(const std::shared_ptr<schema::ColumnPath>& path) const {
     return column_properties(path).dictionary_enabled();
   }
+
+  const std::vector<SortingColumn>& sorting_columns() const { return sorting_columns_; }
 
   bool statistics_enabled(const std::shared_ptr<schema::ColumnPath>& path) const {
     return column_properties(path).statistics_enabled();
@@ -599,6 +891,22 @@ class PARQUET_EXPORT WriterProperties {
 
   size_t max_statistics_size(const std::shared_ptr<schema::ColumnPath>& path) const {
     return column_properties(path).max_statistics_size();
+  }
+
+  bool page_index_enabled(const std::shared_ptr<schema::ColumnPath>& path) const {
+    return column_properties(path).page_index_enabled();
+  }
+
+  bool page_index_enabled() const {
+    if (default_column_properties_.page_index_enabled()) {
+      return true;
+    }
+    for (const auto& item : column_properties_) {
+      if (item.second.page_index_enabled()) {
+        return true;
+      }
+    }
+    return false;
   }
 
   inline FileEncryptionProperties* file_encryption_properties() const {
@@ -614,15 +922,23 @@ class PARQUET_EXPORT WriterProperties {
     }
   }
 
+  // \brief Return the default column properties
+  const ColumnProperties& default_column_properties() const {
+    return default_column_properties_;
+  }
+
  private:
   explicit WriterProperties(
       MemoryPool* pool, int64_t dictionary_pagesize_limit, int64_t write_batch_size,
       int64_t max_row_group_length, int64_t pagesize, ParquetVersion::type version,
-      const std::string& created_by,
+      const std::string& created_by, bool page_write_checksum_enabled,
+      SizeStatisticsLevel size_statistics_level,
       std::shared_ptr<FileEncryptionProperties> file_encryption_properties,
       const ColumnProperties& default_column_properties,
       const std::unordered_map<std::string, ColumnProperties>& column_properties,
-      ParquetDataPageVersion data_page_version, bool store_short_decimal_as_integer)
+      ParquetDataPageVersion data_page_version, bool store_short_decimal_as_integer,
+      std::vector<SortingColumn> sorting_columns, bool content_defined_chunking_enabled,
+      CdcOptions content_defined_chunking_options)
       : pool_(pool),
         dictionary_pagesize_limit_(dictionary_pagesize_limit),
         write_batch_size_(write_batch_size),
@@ -632,9 +948,14 @@ class PARQUET_EXPORT WriterProperties {
         parquet_version_(version),
         parquet_created_by_(created_by),
         store_decimal_as_integer_(store_short_decimal_as_integer),
+        page_checksum_enabled_(page_write_checksum_enabled),
+        size_statistics_level_(size_statistics_level),
         file_encryption_properties_(file_encryption_properties),
+        sorting_columns_(std::move(sorting_columns)),
         default_column_properties_(default_column_properties),
-        column_properties_(column_properties) {}
+        column_properties_(column_properties),
+        content_defined_chunking_enabled_(content_defined_chunking_enabled),
+        content_defined_chunking_options_(content_defined_chunking_options) {}
 
   MemoryPool* pool_;
   int64_t dictionary_pagesize_limit_;
@@ -645,11 +966,18 @@ class PARQUET_EXPORT WriterProperties {
   ParquetVersion::type parquet_version_;
   std::string parquet_created_by_;
   bool store_decimal_as_integer_;
+  bool page_checksum_enabled_;
+  SizeStatisticsLevel size_statistics_level_;
 
   std::shared_ptr<FileEncryptionProperties> file_encryption_properties_;
 
+  std::vector<SortingColumn> sorting_columns_;
+
   ColumnProperties default_column_properties_;
   std::unordered_map<std::string, ColumnProperties> column_properties_;
+
+  bool content_defined_chunking_enabled_;
+  CdcOptions content_defined_chunking_options_;
 };
 
 PARQUET_EXPORT const std::shared_ptr<WriterProperties>& default_writer_properties();
@@ -662,6 +990,9 @@ static constexpr bool kArrowDefaultUseThreads = false;
 // Default number of rows to read when using ::arrow::RecordBatchReader
 static constexpr int64_t kArrowDefaultBatchSize = 64 * 1024;
 
+constexpr inline ::arrow::Type::type kArrowDefaultBinaryType = ::arrow::Type::BINARY;
+constexpr inline ::arrow::Type::type kArrowDefaultListType = ::arrow::Type::LIST;
+
 /// EXPERIMENTAL: Properties for configuring FileReader behavior.
 class PARQUET_EXPORT ArrowReaderProperties {
  public:
@@ -669,9 +1000,14 @@ class PARQUET_EXPORT ArrowReaderProperties {
       : use_threads_(use_threads),
         read_dict_indices_(),
         batch_size_(kArrowDefaultBatchSize),
-        pre_buffer_(false),
-        cache_options_(::arrow::io::CacheOptions::Defaults()),
-        coerce_int96_timestamp_unit_(::arrow::TimeUnit::NANO) {}
+        pre_buffer_(true),
+        cache_options_(::arrow::io::CacheOptions::LazyDefaults()),
+        coerce_int96_timestamp_unit_(::arrow::TimeUnit::NANO),
+        binary_type_(kArrowDefaultBinaryType),
+        list_type_(kArrowDefaultListType),
+        arrow_extensions_enabled_(false),
+        should_load_statistics_(false),
+        smallest_decimal_enabled_(false) {}
 
   /// \brief Set whether to use the IO thread pool to parse columns in parallel.
   ///
@@ -702,11 +1038,42 @@ class PARQUET_EXPORT ArrowReaderProperties {
     }
   }
 
-  /// \brief Set the maximum number of rows to read into a chunk or record batch.
+  /// \brief Set the Arrow binary type to read BYTE_ARRAY columns as.
+  ///
+  /// Allowed values are Type::BINARY, Type::LARGE_BINARY and Type::BINARY_VIEW.
+  /// Default is Type::BINARY.
+  ///
+  /// If a BYTE_ARRAY column has the STRING logical type, it is read as the
+  /// Arrow string type corresponding to the configured binary type (for example
+  /// Type::LARGE_STRING if the configured binary type is Type::LARGE_BINARY).
+  ///
+  /// However, if a serialized Arrow schema is found in the Parquet metadata,
+  /// this setting is ignored and the Arrow schema takes precedence
+  /// (see ArrowWriterProperties::store_schema).
+  void set_binary_type(::arrow::Type::type value) { binary_type_ = value; }
+  /// Return the Arrow binary type to read BYTE_ARRAY columns as.
+  ::arrow::Type::type binary_type() const { return binary_type_; }
+
+  /// \brief Set the Arrow list type to read Parquet list columns as.
+  ///
+  /// Allowed values are Type::LIST and Type::LARGE_LIST.
+  /// Default is Type::LIST.
+  ///
+  /// However, if a serialized Arrow schema is found in the Parquet metadata,
+  /// this setting is ignored and the Arrow schema takes precedence
+  /// (see ArrowWriterProperties::store_schema).
+  void set_list_type(::arrow::Type::type value) { list_type_ = value; }
+  /// Return the Arrow list type to read Parquet list columns as.
+  ::arrow::Type::type list_type() const { return list_type_; }
+
+  /// \brief Set the maximum number of rows to read into a record batch.
   ///
   /// Will only be fewer rows when there are no more rows in the file.
+  /// Note that some APIs such as ReadTable may ignore this setting.
   void set_batch_size(int64_t batch_size) { batch_size_ = batch_size; }
-  /// Return the batch size.
+  /// Return the batch size in rows.
+  ///
+  /// Note that some APIs such as ReadTable may ignore this setting.
   int64_t batch_size() const { return batch_size_; }
 
   /// Enable read coalescing (default false).
@@ -739,6 +1106,45 @@ class PARQUET_EXPORT ArrowReaderProperties {
     return coerce_int96_timestamp_unit_;
   }
 
+  /// Enable Parquet-supported Arrow extension types.
+  ///
+  /// When enabled, Parquet logical types will be mapped to their corresponding Arrow
+  /// extension types at read time, if such exist. Currently only arrow::extension::json()
+  /// extension type is supported. Columns whose LogicalType is JSON will be interpreted
+  /// as arrow::extension::json(), with storage type inferred from the serialized Arrow
+  /// schema if present, or `utf8` by default.
+  void set_arrow_extensions_enabled(bool extensions_enabled) {
+    arrow_extensions_enabled_ = extensions_enabled;
+  }
+  bool get_arrow_extensions_enabled() const { return arrow_extensions_enabled_; }
+
+  /// \brief Set whether to load statistics as much as possible.
+  ///
+  /// Default is false.
+  void set_should_load_statistics(bool should_load_statistics) {
+    should_load_statistics_ = should_load_statistics;
+  }
+  /// Return whether loading statistics as much as possible.
+  bool should_load_statistics() const { return should_load_statistics_; }
+
+  /// \brief Set whether to infer Decimal32/64 from Parquet decimal logical types.
+  ///
+  /// Default is false for compatibility, meaning that only Decimal128 and Decimal256
+  /// can be inferred.
+  void set_smallest_decimal_enabled(bool smallest_decimal_enable) {
+    smallest_decimal_enabled_ = smallest_decimal_enable;
+  }
+  /// \brief Whether to infer Decimal32/64 from Parquet decimal logical types.
+  ///
+  /// When enabled, Parquet decimal columns will be inferred as the smallest possible
+  /// Arrow Decimal type.
+  /// When disabled, Parquet decimal columns will be inferred as either Decimal128 or
+  /// Decimal256, but not Decimal32/64.
+  ///
+  /// Note: if an Arrow schema is found in the Parquet metadata, it will take priority and
+  /// this setting will be ignored.
+  bool smallest_decimal_enabled() const { return smallest_decimal_enabled_; }
+
  private:
   bool use_threads_;
   std::unordered_set<int> read_dict_indices_;
@@ -747,6 +1153,11 @@ class PARQUET_EXPORT ArrowReaderProperties {
   ::arrow::io::IOContext io_context_;
   ::arrow::io::CacheOptions cache_options_;
   ::arrow::TimeUnit::type coerce_int96_timestamp_unit_;
+  ::arrow::Type::type binary_type_;
+  ::arrow::Type::type list_type_;
+  bool arrow_extensions_enabled_;
+  bool should_load_statistics_;
+  bool smallest_decimal_enabled_;
 };
 
 /// EXPERIMENTAL: Constructs the default ArrowReaderProperties
@@ -767,11 +1178,11 @@ class PARQUET_EXPORT ArrowWriterProperties {
           coerce_timestamps_unit_(::arrow::TimeUnit::SECOND),
           truncated_timestamps_allowed_(false),
           store_schema_(false),
-          // TODO: At some point we should flip this.
-          compliant_nested_types_(false),
+          compliant_nested_types_(true),
           engine_version_(V2),
           use_threads_(kArrowDefaultUseThreads),
-          executor_(NULLPTR) {}
+          executor_(NULLPTR),
+          write_time_adjusted_to_utc_(false) {}
     virtual ~Builder() = default;
 
     /// \brief Disable writing legacy int96 timestamps (default disabled).
@@ -823,16 +1234,16 @@ class PARQUET_EXPORT ArrowWriterProperties {
     /// \brief When enabled, will not preserve Arrow field names for list types.
     ///
     /// Instead of using the field names Arrow uses for the values array of
-    /// list types (default "item"), will use "entries", as is specified in
+    /// list types (default "item"), will use "element", as is specified in
     /// the Parquet spec.
     ///
-    /// This is disabled by default, but will be enabled by default in future.
+    /// This is enabled by default.
     Builder* enable_compliant_nested_types() {
       compliant_nested_types_ = true;
       return this;
     }
 
-    /// Preserve Arrow list field name (default behavior).
+    /// Preserve Arrow list field name.
     Builder* disable_compliant_nested_types() {
       compliant_nested_types_ = false;
       return this;
@@ -866,12 +1277,21 @@ class PARQUET_EXPORT ArrowWriterProperties {
       return this;
     }
 
+    /// \brief Set the value of isAdjustedTOUTC when writing a TIME column
+    ///
+    /// Default is false because Arrow TIME data is expressed in an unspecified timezone.
+    /// Note this setting doesn't affect TIMESTAMP data.
+    Builder* set_time_adjusted_to_utc(bool adjusted) {
+      write_time_adjusted_to_utc_ = adjusted;
+      return this;
+    }
+
     /// Create the final properties.
     std::shared_ptr<ArrowWriterProperties> build() {
       return std::shared_ptr<ArrowWriterProperties>(new ArrowWriterProperties(
           write_timestamps_as_int96_, coerce_timestamps_enabled_, coerce_timestamps_unit_,
           truncated_timestamps_allowed_, store_schema_, compliant_nested_types_,
-          engine_version_, use_threads_, executor_));
+          engine_version_, use_threads_, executor_, write_time_adjusted_to_utc_));
     }
 
    private:
@@ -887,6 +1307,8 @@ class PARQUET_EXPORT ArrowWriterProperties {
 
     bool use_threads_;
     ::arrow::internal::Executor* executor_;
+
+    bool write_time_adjusted_to_utc_;
   };
 
   bool support_deprecated_int96_timestamps() const { return write_timestamps_as_int96_; }
@@ -920,6 +1342,11 @@ class PARQUET_EXPORT ArrowWriterProperties {
   /// \brief Returns the executor used to write columns in parallel.
   ::arrow::internal::Executor* executor() const;
 
+  /// \brief The value of isAdjustedTOUTC when writing a TIME column
+  ///
+  /// Note this setting doesn't affect TIMESTAMP data.
+  bool write_time_adjusted_to_utc() const { return write_time_adjusted_to_utc_; }
+
  private:
   explicit ArrowWriterProperties(bool write_nanos_as_int96,
                                  bool coerce_timestamps_enabled,
@@ -927,7 +1354,8 @@ class PARQUET_EXPORT ArrowWriterProperties {
                                  bool truncated_timestamps_allowed, bool store_schema,
                                  bool compliant_nested_types,
                                  EngineVersion engine_version, bool use_threads,
-                                 ::arrow::internal::Executor* executor)
+                                 ::arrow::internal::Executor* executor,
+                                 bool write_time_adjusted_to_utc)
       : write_timestamps_as_int96_(write_nanos_as_int96),
         coerce_timestamps_enabled_(coerce_timestamps_enabled),
         coerce_timestamps_unit_(coerce_timestamps_unit),
@@ -936,7 +1364,8 @@ class PARQUET_EXPORT ArrowWriterProperties {
         compliant_nested_types_(compliant_nested_types),
         engine_version_(engine_version),
         use_threads_(use_threads),
-        executor_(executor) {}
+        executor_(executor),
+        write_time_adjusted_to_utc_(write_time_adjusted_to_utc) {}
 
   const bool write_timestamps_as_int96_;
   const bool coerce_timestamps_enabled_;
@@ -947,6 +1376,7 @@ class PARQUET_EXPORT ArrowWriterProperties {
   const EngineVersion engine_version_;
   const bool use_threads_;
   ::arrow::internal::Executor* executor_;
+  const bool write_time_adjusted_to_utc_;
 };
 
 /// \brief State object used for writing Arrow data directly to a Parquet

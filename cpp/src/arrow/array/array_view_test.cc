@@ -30,7 +30,7 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/type.h"
 #include "arrow/util/endian.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 
 namespace arrow {
 
@@ -124,6 +124,38 @@ TEST(TestArrayView, StringAsBinary) {
   auto expected = ArrayFromJSON(binary(), R"(["foox", "barz", null])");
   CheckView(arr, expected);
   CheckView(expected, arr);
+}
+
+TEST(TestArrayView, StringViewAsBinaryView) {
+  for (auto json : {
+           R"(["foox", "barz", null])",
+           R"(["foox", "barz_not_inlined", null])",
+       }) {
+    auto arr = ArrayFromJSON(utf8_view(), json);
+    auto expected = ArrayFromJSON(binary_view(), json);
+    CheckView(arr, expected);
+    CheckView(expected, arr);
+  }
+}
+
+TEST(TestArrayView, StringViewAsBinaryViewInStruct) {
+  auto padl = ArrayFromJSON(list(int16()), "[[0, -1], [], [42]]");
+  auto padr = ArrayFromJSON(utf8(), R"(["foox", "barz", null])");
+
+  for (auto json : {
+           R"(["foox", "barz", null])",
+           R"(["foox", "barz_not_inlined", null])",
+       }) {
+    auto arr =
+        StructArray::Make({padl, ArrayFromJSON(utf8_view(), json), padr}, {"", "", ""})
+            .ValueOrDie();
+    auto expected =
+        StructArray::Make({padl, ArrayFromJSON(binary_view(), json), padr}, {"", "", ""})
+            .ValueOrDie();
+
+    CheckView(arr, expected);
+    CheckView(expected, arr);
+  }
 }
 
 TEST(TestArrayView, PrimitiveWrongSize) {
@@ -353,11 +385,47 @@ TEST(TestArrayView, SparseUnionAsStruct) {
   CheckView(expected, arr);
 }
 
-TEST(TestArrayView, DecimalRoundTrip) {
-  auto ty1 = decimal(10, 4);
+TEST(TestArrayView, Decimal32RoundTrip) {
+  auto ty1 = decimal32(9, 4);
+  auto arr = ArrayFromJSON(ty1, R"(["123.4567", "-78.9000", null])");
+
+  auto ty2 = fixed_size_binary(4);
+  ASSERT_OK_AND_ASSIGN(auto v, arr->View(ty2));
+  ASSERT_OK(v->ValidateFull());
+  ASSERT_OK_AND_ASSIGN(auto w, v->View(ty1));
+  ASSERT_OK(w->ValidateFull());
+  AssertArraysEqual(*arr, *w);
+}
+
+TEST(TestArrayView, Decimal64RoundTrip) {
+  auto ty1 = decimal64(10, 4);
+  auto arr = ArrayFromJSON(ty1, R"(["123.4567", "-78.9000", null])");
+
+  auto ty2 = fixed_size_binary(8);
+  ASSERT_OK_AND_ASSIGN(auto v, arr->View(ty2));
+  ASSERT_OK(v->ValidateFull());
+  ASSERT_OK_AND_ASSIGN(auto w, v->View(ty1));
+  ASSERT_OK(w->ValidateFull());
+  AssertArraysEqual(*arr, *w);
+}
+
+TEST(TestArrayView, Decimal128RoundTrip) {
+  auto ty1 = decimal128(20, 4);
   auto arr = ArrayFromJSON(ty1, R"(["123.4567", "-78.9000", null])");
 
   auto ty2 = fixed_size_binary(16);
+  ASSERT_OK_AND_ASSIGN(auto v, arr->View(ty2));
+  ASSERT_OK(v->ValidateFull());
+  ASSERT_OK_AND_ASSIGN(auto w, v->View(ty1));
+  ASSERT_OK(w->ValidateFull());
+  AssertArraysEqual(*arr, *w);
+}
+
+TEST(TestArrayView, Decimal256RoundTrip) {
+  auto ty1 = decimal256(10, 4);
+  auto arr = ArrayFromJSON(ty1, R"(["123.4567", "-78.9000", null])");
+
+  auto ty2 = fixed_size_binary(32);
   ASSERT_OK_AND_ASSIGN(auto v, arr->View(ty2));
   ASSERT_OK(v->ValidateFull());
   ASSERT_OK_AND_ASSIGN(auto w, v->View(ty1));

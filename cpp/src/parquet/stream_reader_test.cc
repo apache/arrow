@@ -17,15 +17,14 @@
 
 #include "parquet/stream_reader.h"
 
-#include <fcntl.h>
 #include <gtest/gtest.h>
 
 #include <chrono>
 #include <ctime>
 #include <memory>
-#include <utility>
 
 #include "arrow/io/file.h"
+#include "arrow/util/decimal.h"
 #include "parquet/exception.h"
 #include "parquet/test_util.h"
 
@@ -37,7 +36,7 @@ using optional = StreamReader::optional<T>;
 using ::std::nullopt;
 
 struct TestData {
-  static void init() { std::time(&ts_offset_); }
+  static void Init() { std::time(&ts_offset_); }
 
   static constexpr int num_rows = 2000;
 
@@ -144,18 +143,18 @@ constexpr int TestData::num_rows;
 
 class TestStreamReader : public ::testing::Test {
  public:
-  TestStreamReader() { createTestFile(); }
+  TestStreamReader() { CreateTestFile(); }
 
  protected:
   const char* GetDataFile() const { return "stream_reader_test.parquet"; }
 
-  void SetUp() {
+  void SetUp() override {
     PARQUET_ASSIGN_OR_THROW(auto infile, ::arrow::io::ReadableFile::Open(GetDataFile()));
     auto file_reader = parquet::ParquetFileReader::Open(infile);
     reader_ = StreamReader{std::move(file_reader)};
   }
 
-  void TearDown() { reader_ = StreamReader{}; }
+  void TearDown() override { reader_ = StreamReader{}; }
 
   std::shared_ptr<schema::GroupNode> GetSchema() {
     schema::NodeVector fields;
@@ -200,7 +199,7 @@ class TestStreamReader : public ::testing::Test {
         schema::GroupNode::Make("schema", Repetition::REQUIRED, fields));
   }
 
-  void createTestFile() {
+  void CreateTestFile() {
     PARQUET_ASSIGN_OR_THROW(auto outfile,
                             ::arrow::io::FileOutputStream::Open(GetDataFile()));
 
@@ -208,7 +207,7 @@ class TestStreamReader : public ::testing::Test {
 
     StreamWriter os{std::move(file_writer)};
 
-    TestData::init();
+    TestData::Init();
 
     for (auto i = 0; i < TestData::num_rows; ++i) {
       os << TestData::GetBool(i);
@@ -585,7 +584,7 @@ TEST_F(TestStreamReader, SkipColumns) {
 
 class TestOptionalFields : public ::testing::Test {
  public:
-  TestOptionalFields() { createTestFile(); }
+  TestOptionalFields() { CreateTestFile(); }
 
  protected:
   const char* GetDataFile() const { return "stream_reader_test_optional_fields.parquet"; }
@@ -643,13 +642,13 @@ class TestOptionalFields : public ::testing::Test {
         schema::GroupNode::Make("schema", Repetition::REQUIRED, fields));
   }
 
-  void createTestFile() {
+  void CreateTestFile() {
     PARQUET_ASSIGN_OR_THROW(auto outfile,
                             ::arrow::io::FileOutputStream::Open(GetDataFile()));
 
     StreamWriter os{ParquetFileWriter::Open(outfile, GetSchema())};
 
-    TestData::init();
+    TestData::Init();
 
     for (auto i = 0; i < TestData::num_rows; ++i) {
       os << TestData::GetOptBool(i);
@@ -731,7 +730,7 @@ TEST_F(TestOptionalFields, ReadOptionalFieldAsRequiredField) {
     _provided_ that the optional value is available.
 
     This can be useful if a schema is changed such that a required
-    field beomes optional.  Applications can continue reading the
+    field becomes optional.  Applications can continue reading the
     field as if it were mandatory and do not need to be changed if the
     field value is always provided.
 
@@ -886,7 +885,7 @@ TEST_F(TestReadingDataFiles, Int32Decimal) {
   auto reader = StreamReader{std::move(file_reader)};
 
   int32_t x;
-  int i;
+  int i = 0;
 
   for (i = 1; !reader.eof(); ++i) {
     reader >> x >> EndRow;
@@ -903,13 +902,137 @@ TEST_F(TestReadingDataFiles, Int64Decimal) {
   auto reader = StreamReader{std::move(file_reader)};
 
   int64_t x;
-  int i;
+  int i = 0;
 
   for (i = 1; !reader.eof(); ++i) {
     reader >> x >> EndRow;
     EXPECT_EQ(x, i * 100);
   }
   EXPECT_EQ(i, 25);
+}
+
+TEST_F(TestReadingDataFiles, FLBADecimal) {
+  PARQUET_ASSIGN_OR_THROW(auto infile, ::arrow::io::ReadableFile::Open(
+                                           GetDataFile("fixed_length_decimal.parquet")));
+
+  auto file_reader = ParquetFileReader::Open(infile);
+  auto reader = StreamReader{std::move(file_reader)};
+
+  ::arrow::Decimal128 x;
+  int i = 0;
+
+  for (i = 1; !reader.eof(); ++i) {
+    reader >> x >> EndRow;
+    EXPECT_EQ(x, ::arrow::Decimal128(i * 100));
+  }
+  EXPECT_EQ(i, 25);
+}
+
+TEST_F(TestReadingDataFiles, ByteArrayDecimal) {
+  PARQUET_ASSIGN_OR_THROW(auto infile, ::arrow::io::ReadableFile::Open(
+                                           GetDataFile("byte_array_decimal.parquet")));
+
+  auto file_reader = ParquetFileReader::Open(infile);
+  auto reader = StreamReader{std::move(file_reader)};
+
+  ::arrow::Decimal128 x;
+  int i = 0;
+
+  for (i = 1; !reader.eof(); ++i) {
+    reader >> x >> EndRow;
+    EXPECT_EQ(x, ::arrow::Decimal128(i * 100));
+  }
+  EXPECT_EQ(i, 25);
+}
+
+class TestMultiRowGroupStreamReader : public ::testing::Test {
+ protected:
+  const char* GetDataFile() const { return "stream_reader_multirowgroup_test.parquet"; }
+
+  void SetUp() override {
+    CreateTestFile();
+    PARQUET_ASSIGN_OR_THROW(auto infile, ::arrow::io::ReadableFile::Open(GetDataFile()));
+    auto file_reader = parquet::ParquetFileReader::Open(infile);
+    reader_ = StreamReader{std::move(file_reader)};
+  }
+
+  void TearDown() override { reader_ = StreamReader{}; }
+
+  std::shared_ptr<schema::GroupNode> GetSchema() {
+    schema::NodeVector fields;
+    fields.push_back(schema::PrimitiveNode::Make("row_group_number", Repetition::REQUIRED,
+                                                 Type::INT32, ConvertedType::UINT_16));
+
+    fields.push_back(schema::PrimitiveNode::Make("row_number", Repetition::REQUIRED,
+                                                 Type::INT64, ConvertedType::UINT_64));
+
+    return std::static_pointer_cast<schema::GroupNode>(
+        schema::GroupNode::Make("schema", Repetition::REQUIRED, fields));
+  }
+
+  void CreateTestFile() {
+    PARQUET_ASSIGN_OR_THROW(auto outfile,
+                            ::arrow::io::FileOutputStream::Open(GetDataFile()));
+
+    auto file_writer = ParquetFileWriter::Open(outfile, GetSchema());
+
+    StreamWriter os{std::move(file_writer)};
+
+    int nrows = 0;
+    for (auto group = 0; group < kNumGroups; ++group) {
+      for (auto i = 0; i < kNumRowsPerGroup; ++i) {
+        os << static_cast<uint16_t>(group);
+        os << static_cast<uint64_t>(nrows);
+        os << EndRow;
+        nrows++;
+      }
+      os.EndRowGroup();
+    }
+  }
+
+  void ReadRowAndAssertPosition(uint64_t expected_row_num) {
+    const auto expected_group_num =
+        static_cast<uint16_t>(expected_row_num / kNumRowsPerGroup);
+    ASSERT_FALSE(reader_.eof());
+    uint16_t group_num = 0;
+    uint64_t row_num = 0;
+    reader_ >> group_num >> row_num >> EndRow;
+    ASSERT_EQ(group_num, expected_group_num);
+    ASSERT_EQ(row_num, expected_row_num);
+  }
+
+  StreamReader reader_;
+  static constexpr int kNumGroups = 5;
+  static constexpr int kNumRowsPerGroup = 10;
+};
+
+TEST_F(TestMultiRowGroupStreamReader, SkipRows) {
+  // skip somewhere into the middle of a row group somewhere in the middle of the file
+  auto current_row = 33;
+
+  auto retval = reader_.SkipRows(current_row);
+  ASSERT_EQ(retval, current_row);
+  ReadRowAndAssertPosition(current_row);
+  // reading the row advances by 1
+  current_row += 1;  // row=34
+
+  // skip a few more but stay inside the row group
+  retval = reader_.SkipRows(4);
+  current_row += 4;  // row=38
+  ASSERT_EQ(retval, 4);
+  ReadRowAndAssertPosition(current_row);
+  current_row += 1;  // row=39
+
+  // skip one more row to get to a group boundary
+  retval = reader_.SkipRows(1);
+  current_row += 1;  // row=40
+  ASSERT_EQ(retval, 1);
+  ReadRowAndAssertPosition(current_row);
+
+  // finally, skip off the end of the file
+  retval = reader_.SkipRows(10);
+  ASSERT_EQ(retval, 9);  // requested to skip 10 but only 9 rows left in file
+  EXPECT_TRUE(reader_.eof());
 }
 
 }  // namespace test

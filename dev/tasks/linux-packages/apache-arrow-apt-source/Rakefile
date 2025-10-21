@@ -36,7 +36,7 @@ class ApacheArrowAptSourcePackageTask < PackageTask
     file @archive_name do
       rm_rf(@archive_base_name)
       mkdir(@archive_base_name)
-      download("https://downloads.apache.org/arrow/KEYS",
+      download("https://www.apache.org/dyn/closer.lua?action=download&filename=arrow/KEYS",
                "#{@archive_base_name}/KEYS")
       sh("tar", "czf", @archive_name, @archive_base_name)
       rm_rf(@archive_base_name)

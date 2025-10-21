@@ -26,7 +26,7 @@
 #include "arrow/compare.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/visit_type_inline.h"
 
 namespace arrow {
@@ -301,7 +301,7 @@ Status ValidateSparseCSXIndex(const std::shared_ptr<DataType>& indptr_type,
                               const std::shared_ptr<DataType>& indices_type,
                               const std::vector<int64_t>& indptr_shape,
                               const std::vector<int64_t>& indices_shape,
-                              char const* type_name) {
+                              const char* type_name) {
   if (!is_integer(indptr_type->id())) {
     return Status::TypeError("Type of ", type_name, " indptr must be integer");
   }
@@ -325,7 +325,7 @@ void CheckSparseCSXIndexValidity(const std::shared_ptr<DataType>& indptr_type,
                                  const std::shared_ptr<DataType>& indices_type,
                                  const std::vector<int64_t>& indptr_shape,
                                  const std::vector<int64_t>& indices_shape,
-                                 char const* type_name) {
+                                 const char* type_name) {
   ARROW_CHECK_OK(ValidateSparseCSXIndex(indptr_type, indices_type, indptr_shape,
                                         indices_shape, type_name));
 }

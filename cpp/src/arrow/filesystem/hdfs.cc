@@ -35,7 +35,7 @@ namespace arrow {
 
 using internal::ErrnoFromStatus;
 using internal::ParseValue;
-using internal::Uri;
+using util::Uri;
 
 namespace fs {
 
@@ -363,8 +363,14 @@ Result<HdfsOptions> HdfsOptions::FromUri(const Uri& uri) {
     options_map.emplace(kv.first, kv.second);
   }
 
+  // Special case host = "default" or "hdfs://default" as stated by GH-47560.
+  // If given the string "default", libhdfs selects the default filesystem
+  // from `core-site.xml`.
   std::string host;
-  host = uri.scheme() + "://" + uri.host();
+  if (uri.host() == "default")
+    host = uri.host();
+  else
+    host = uri.scheme() + "://" + uri.host();
 
   // configure endpoint
   const auto port = uri.port();
@@ -471,6 +477,12 @@ bool HadoopFileSystem::Equals(const FileSystem& other) const {
   }
   const auto& hdfs = ::arrow::internal::checked_cast<const HadoopFileSystem&>(other);
   return options().Equals(hdfs.options());
+}
+
+Result<std::string> HadoopFileSystem::PathFromUri(const std::string& uri_string) const {
+  return internal::PathFromUriHelper(uri_string, {"hdfs", "viewfs"},
+                                     /*accept_local_paths=*/false,
+                                     internal::AuthorityHandlingBehavior::kIgnore);
 }
 
 Result<std::vector<FileInfo>> HadoopFileSystem::GetFileInfo(const FileSelector& select) {

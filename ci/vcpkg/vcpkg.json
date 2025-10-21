@@ -5,19 +5,13 @@
   "homepage": "https://arrow.apache.org",
   "supports": "x64 | (arm64 & !windows)",
   "dependencies": [
-    "boost-filesystem",
     {
       "name": "boost-multiprecision",
-      "platform": "windows"
-    },
-    {
-      "name": "boost-system",
       "platform": "windows"
     },
     "brotli",
     "bzip2",
     "curl",
-    "flatbuffers",
     "gflags",
     "glog",
     "lz4",
@@ -43,6 +37,8 @@
       "description": "Development dependencies",
       "dependencies": [
         "benchmark",
+        "boost-crc",
+        "boost-filesystem",
         "boost-process",
         "gtest"
       ]
@@ -79,10 +75,14 @@
         {
           "name": "llvm",
           "default-features": false,
+          "version>=": "18.1",
           "features": [
             "clang",
-            "default-options",
             "default-targets",
+            "enable-bindings",
+            "enable-terminfo",
+            "enable-zlib",
+            "enable-zstd",
             "enable-rtti",
             "lld",
             "tools"
@@ -100,6 +100,16 @@
             "storage"
           ]
         }
+      ]
+    },
+    "azure": {
+      "description": "Azure blob storage support",
+      "dependencies": [
+        "azure-core-cpp",
+        "azure-identity-cpp",
+        "azure-storage-blobs-cpp",
+        "azure-storage-common-cpp",
+        "azure-storage-files-datalake-cpp"
       ]
     },
     "orc": {

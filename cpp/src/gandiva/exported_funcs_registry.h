@@ -21,6 +21,7 @@
 #include <vector>
 
 #include <gandiva/engine.h>
+#include <gandiva/visibility.h>
 
 namespace gandiva {
 
@@ -28,27 +29,27 @@ class ExportedFuncsBase;
 
 /// Registry for classes that export functions which can be accessed by
 /// LLVM/IR code.
-class ExportedFuncsRegistry {
+class GANDIVA_EXPORT ExportedFuncsRegistry {
  public:
   using list_type = std::vector<std::shared_ptr<ExportedFuncsBase>>;
 
   // Add functions from all the registered classes to the engine.
-  static void AddMappings(Engine* engine);
+  static arrow::Status AddMappings(Engine* engine);
 
   static bool Register(std::shared_ptr<ExportedFuncsBase> entry) {
-    registered().push_back(entry);
+    registered()->emplace_back(std::move(entry));
     return true;
   }
 
+  // list all the registered ExportedFuncsBase
+  static const list_type& Registered();
+
  private:
-  static list_type& registered() {
-    static list_type registered_list;
-    return registered_list;
-  }
+  static list_type* registered();
 };
 
-#define REGISTER_EXPORTED_FUNCS(classname) \
-  static bool _registered_##classname =    \
+#define REGISTER_EXPORTED_FUNCS(classname)               \
+  [[maybe_unused]] static bool _registered_##classname = \
       ExportedFuncsRegistry::Register(std::make_shared<classname>())
 
 }  // namespace gandiva

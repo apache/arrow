@@ -23,7 +23,8 @@ class TestDatasetPartitioning < Test::Unit::TestCase
   end
 
   def test_default
-    assert_equal("default", ArrowDataset::DefaultPartitioning.new.type_name)
+    assert_equal("directory",
+                 ArrowDataset::Partitioning.create_default.type_name)
   end
 
   def test_directory

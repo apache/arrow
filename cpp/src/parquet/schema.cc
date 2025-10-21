@@ -28,6 +28,7 @@
 #include "parquet/exception.h"
 #include "parquet/schema_internal.h"
 #include "parquet/thrift_internal.h"
+#include "parquet/windows_fixup.h"  // for OPTIONAL
 
 using parquet::format::SchemaElement;
 
@@ -255,14 +256,14 @@ PrimitiveNode::PrimitiveNode(const std::string& name, Repetition::type repetitio
         converted_type_ = logical_type_->ToConvertedType(&decimal_metadata_);
       } else {
         error << logical_type_->ToString();
-        error << " can not be applied to primitive type ";
+        error << " cannot be applied to primitive type ";
         error << TypeToString(physical_type);
         throw ParquetException(error.str());
       }
     } else {
       error << "Nested logical type ";
       error << logical_type_->ToString();
-      error << " can not be applied to non-group node";
+      error << " cannot be applied to non-group node";
       throw ParquetException(error.str());
     }
   } else {
@@ -344,7 +345,7 @@ GroupNode::GroupNode(const std::string& name, Repetition::type repetition,
       std::stringstream error;
       error << "Logical type ";
       error << logical_type_->ToString();
-      error << " can not be applied to group node";
+      error << " cannot be applied to group node";
       throw ParquetException(error.str());
     }
   } else {
@@ -600,7 +601,7 @@ class SchemaVisitor : public Node::ConstVisitor {
   void Visit(const Node* node) override {
     format::SchemaElement element;
     node->ToParquet(&element);
-    elements_->push_back(element);
+    elements_->push_back(std::move(element));
 
     if (node->is_group()) {
       const GroupNode* group_node = static_cast<const GroupNode*>(node);
@@ -671,7 +672,7 @@ static void PrintType(const PrimitiveNode* node, std::ostream& stream) {
 
 static void PrintConvertedType(const PrimitiveNode* node, std::ostream& stream) {
   auto lt = node->converted_type();
-  auto la = node->logical_type();
+  const auto& la = node->logical_type();
   if (la && la->is_valid() && !la->is_none()) {
     stream << " (" << la->ToString() << ")";
   } else if (lt == ConvertedType::DECIMAL) {
@@ -718,7 +719,7 @@ struct SchemaPrinter : public Node::ConstVisitor {
     stream_ << " group "
             << "field_id=" << node->field_id() << " " << node->name();
     auto lt = node->converted_type();
-    auto la = node->logical_type();
+    const auto& la = node->logical_type();
     if (la && la->is_valid() && !la->is_none()) {
       stream_ << " (" << la->ToString() << ")";
     } else if (lt != ConvertedType::NONE) {

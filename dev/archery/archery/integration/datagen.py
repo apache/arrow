@@ -17,14 +17,18 @@
 
 from collections import namedtuple, OrderedDict
 import binascii
+import gzip
 import json
+import math
 import os
 import random
 import tempfile
+import shutil
 
 import numpy as np
 
 from .util import frombytes, tobytes, random_bytes, random_utf8
+from .util import SKIP_C_SCHEMA, SKIP_C_ARRAY, SKIP_FLIGHT
 
 
 def metadata_key_values(pairs):
@@ -174,6 +178,9 @@ class IntegerField(PrimitiveField):
             ('bitWidth', self.bit_width)
         ])
 
+    def _encode_values(self, values):
+        return list(map(int if self.bit_width < 64 else str, values))
+
     def generate_column(self, size, name=None):
         lower_bound, upper_bound = self._get_generated_data_bounds()
         return self.generate_range(size, lower_bound, upper_bound,
@@ -184,13 +191,29 @@ class IntegerField(PrimitiveField):
         values = np.random.randint(lower, upper, size=size, dtype=np.int64)
         if include_extremes and size >= 2:
             values[:2] = [lower, upper]
-        values = list(map(int if self.bit_width < 64 else str, values))
+        values = self._encode_values(values)
 
         is_valid = self._make_is_valid(size)
 
         if name is None:
             name = self.name
         return PrimitiveColumn(name, size, is_valid, values)
+
+    @property
+    def column_class(self):
+        return PrimitiveColumn
+
+
+# Integer field that fulfils the requirements for the run ends field of REE.
+# The integers are positive and in a strictly increasing sequence
+class RunEndsField(IntegerField):
+    def __init__(self, name, bit_width, *, metadata=None):
+        assert bit_width in (16, 32, 64)
+        super().__init__(name, is_signed=True, bit_width=bit_width,
+                         nullable=False, metadata=metadata)
+
+    def generate_column(self, size, name=None):
+        raise NotImplementedError("cannot be generated directly")
 
 
 class DateField(IntegerField):
@@ -579,9 +602,12 @@ class BinaryField(PrimitiveField):
 
         sizes = self._random_sizes(size)
 
-        for i, nbytes in enumerate(sizes):
+        for i, np_nbytes in enumerate(sizes):
             if is_valid[i]:
-                values.append(random_bytes(nbytes))
+                # We have to cast to int because Python 3.13.4 has a bug
+                # on random_bytes. See the comment here:
+                # https://github.com/apache/arrow/pull/46823#issuecomment-2979376852
+                values.append(random_bytes(int(np_nbytes)))
             else:
                 values.append(b"")
 
@@ -633,6 +659,26 @@ class LargeStringField(StringField):
 
     def _get_type(self):
         return OrderedDict([('name', 'largeutf8')])
+
+
+class BinaryViewField(BinaryField):
+
+    @property
+    def column_class(self):
+        return BinaryViewColumn
+
+    def _get_type(self):
+        return OrderedDict([('name', 'binaryview')])
+
+
+class StringViewField(StringField):
+
+    @property
+    def column_class(self):
+        return StringViewColumn
+
+    def _get_type(self):
+        return OrderedDict([('name', 'utf8view')])
 
 
 class Schema(object):
@@ -712,6 +758,74 @@ class LargeBinaryColumn(_BaseBinaryColumn, _LargeOffsetsMixin):
 
 class LargeStringColumn(_BaseStringColumn, _LargeOffsetsMixin):
     pass
+
+
+class BinaryViewColumn(PrimitiveColumn):
+
+    def _encode_value(self, x):
+        return frombytes(binascii.hexlify(x).upper())
+
+    def _get_buffers(self):
+        views = []
+        data_buffers = []
+        # a small default data buffer size is used so we can exercise
+        # arrays with multiple data buffers with small data sets
+        DEFAULT_BUFFER_SIZE = 32
+        INLINE_SIZE = 12
+
+        for i, v in enumerate(self.values):
+            if not self.is_valid[i]:
+                v = b''
+            assert isinstance(v, bytes)
+
+            if len(v) <= INLINE_SIZE:
+                # Append an inline view, skip data buffer management.
+                views.append(OrderedDict([
+                    ('SIZE', len(v)),
+                    ('INLINED', self._encode_value(v)),
+                ]))
+                continue
+
+            if len(data_buffers) == 0:
+                # No data buffers have been added yet;
+                # add this string whole (we may append to it later).
+                offset = 0
+                data_buffers.append(v)
+            elif len(data_buffers[-1]) + len(v) > DEFAULT_BUFFER_SIZE:
+                # Appending this string to the current active data buffer
+                # would overflow the default buffer size; add it whole.
+                offset = 0
+                data_buffers.append(v)
+            else:
+                # Append this string to the current active data buffer.
+                offset = len(data_buffers[-1])
+                data_buffers[-1] += v
+
+            # the prefix is always 4 bytes so it may not be utf-8
+            # even if the whole string view is
+            prefix = frombytes(binascii.hexlify(v[:4]).upper())
+
+            views.append(OrderedDict([
+                ('SIZE', len(v)),
+                ('PREFIX_HEX', prefix),
+                ('BUFFER_INDEX', len(data_buffers) - 1),
+                ('OFFSET', offset),
+            ]))
+
+        return [
+            ('VALIDITY', [int(x) for x in self.is_valid]),
+            ('VIEWS', views),
+            ('VARIADIC_DATA_BUFFERS', [
+                frombytes(binascii.hexlify(b).upper())
+                for b in data_buffers
+            ]),
+        ]
+
+
+class StringViewColumn(BinaryViewColumn):
+
+    def _encode_value(self, x):
+        return frombytes(x)
 
 
 class FixedSizeBinaryColumn(PrimitiveColumn):
@@ -806,6 +920,83 @@ class ListColumn(_BaseListColumn, _NarrowOffsetsMixin):
 
 
 class LargeListColumn(_BaseListColumn, _LargeOffsetsMixin):
+    pass
+
+
+class ListViewField(Field):
+
+    def __init__(self, name, value_field, *, nullable=True,
+                 metadata=None):
+        super().__init__(name, nullable=nullable,
+                         metadata=metadata)
+        self.value_field = value_field
+
+    @property
+    def column_class(self):
+        return ListViewColumn
+
+    def _get_type(self):
+        return OrderedDict([
+            ('name', 'listview')
+        ])
+
+    def _get_children(self):
+        return [self.value_field.get_json()]
+
+    def generate_column(self, size, name=None):
+        MAX_LIST_SIZE = 4
+        VALUES_SIZE = size * MAX_LIST_SIZE
+
+        is_valid = self._make_is_valid(size)
+
+        MAX_OFFSET = VALUES_SIZE - MAX_LIST_SIZE
+        offsets = np.random.randint(0, MAX_OFFSET + 1, size=size)
+        sizes = np.random.randint(0, MAX_LIST_SIZE + 1, size=size)
+
+        values = self.value_field.generate_column(VALUES_SIZE)
+
+        if name is None:
+            name = self.name
+        return self.column_class(name, size, is_valid, offsets, sizes, values)
+
+
+class LargeListViewField(ListViewField):
+
+    @property
+    def column_class(self):
+        return LargeListViewColumn
+
+    def _get_type(self):
+        return OrderedDict([
+            ('name', 'largelistview')
+        ])
+
+
+class _BaseListViewColumn(Column):
+
+    def __init__(self, name, count, is_valid, offsets, sizes, values):
+        super().__init__(name, count)
+        self.is_valid = is_valid
+        self.offsets = offsets
+        self.sizes = sizes
+        self.values = values
+
+    def _get_buffers(self):
+        return [
+            ('VALIDITY', [int(v) for v in self.is_valid]),
+            ('OFFSET', self._encode_offsets(self.offsets)),
+            ('SIZE', self._encode_offsets(self.sizes)),
+        ]
+
+    def _get_children(self):
+        return [self.values.get_json()]
+
+
+class ListViewColumn(_BaseListViewColumn, _NarrowOffsetsMixin):
+    pass
+
+
+class LargeListViewColumn(_BaseListViewColumn, _LargeOffsetsMixin):
     pass
 
 
@@ -937,6 +1128,54 @@ class StructField(Field):
         if name is None:
             name = self.name
         return StructColumn(name, size, is_valid, field_values)
+
+
+class RunEndEncodedField(Field):
+
+    def __init__(self, name, run_ends_bitwidth, values_field, *, nullable=True,
+                 metadata=None):
+        super().__init__(name, nullable=nullable, metadata=metadata)
+        self.run_ends_field = RunEndsField('run_ends', run_ends_bitwidth)
+        self.values_field = values_field
+
+    def _get_type(self):
+        return OrderedDict([
+            ('name', 'runendencoded')
+        ])
+
+    def _get_children(self):
+        return [
+            self.run_ends_field.get_json(),
+            self.values_field.get_json()
+        ]
+
+    def generate_column(self, size, name=None):
+        # The `size` of a RunEndEncodedField is the logical length of the
+        # run-end-encoded column, so we choose a number of physical runs
+        # that's smaller.
+        if size > 0:
+            num_runs = np.random.randint(1, math.ceil(size * 0.75))
+            # Generate run ends
+            run_ends = np.random.choice(size - 1, num_runs - 1, replace=False) + 1
+            run_ends.sort()
+            run_ends = np.concat((run_ends, [size]))
+            assert len(run_ends) == num_runs
+            assert len(set(run_ends)) == num_runs
+            assert (run_ends > 0).all()
+            assert (run_ends <= size).all()
+        else:
+            num_runs = 0
+            run_ends = []
+        run_ends_is_valid = self._make_is_valid(num_runs, null_probability=0)
+        run_ends = self.run_ends_field._encode_values(run_ends)
+
+        run_end_column = self.run_ends_field.column_class(
+            self.run_ends_field.name, num_runs, run_ends_is_valid, run_ends)
+        values = self.values_field.generate_column(num_runs)
+
+        if name is None:
+            name = self.name
+        return RunEndEncodedColumn(name, size, run_end_column, values)
 
 
 class _BaseUnionField(Field):
@@ -1104,6 +1343,20 @@ class StructColumn(Column):
         return [field.get_json() for field in self.field_values]
 
 
+class RunEndEncodedColumn(Column):
+
+    def __init__(self, name, count, run_ends_field, values_field):
+        super().__init__(name, count)
+        self.run_ends = run_ends_field
+        self.values = values_field
+
+    def _get_buffers(self):
+        return []
+
+    def _get_children(self):
+        return [self.run_ends.get_json(), self.values.get_json()]
+
+
 class SparseUnionColumn(Column):
 
     def __init__(self, name, count, type_ids, field_values):
@@ -1154,15 +1407,16 @@ class RecordBatch(object):
 class File(object):
 
     def __init__(self, name, schema, batches, dictionaries=None,
-                 skip=None, path=None, quirks=None):
+                 skip_testers=None, path=None, quirks=None):
         self.name = name
         self.schema = schema
         self.dictionaries = dictionaries or []
         self.batches = batches
-        self.skip = set()
+        self.skipped_testers = set()
+        self.skipped_formats = {}
         self.path = path
-        if skip:
-            self.skip.update(skip)
+        if skip_testers:
+            self.skipped_testers.update(skip_testers)
         # For tracking flags like whether to validate decimal values
         # fit into the given precision (ARROW-13558).
         self.quirks = set()
@@ -1188,13 +1442,38 @@ class File(object):
             f.write(json.dumps(self.get_json(), indent=2).encode('utf-8'))
         self.path = path
 
-    def skip_category(self, category):
-        """Skip this test for the given category.
-
-        Category should be SKIP_ARROW or SKIP_FLIGHT.
+    def skip_tester(self, tester):
+        """Skip this test for the given tester (such as '.NET').
         """
-        self.skip.add(category)
+        self.skipped_testers.add(tester)
         return self
+
+    def skip_format(self, format, tester='all'):
+        """Skip this test for the given format, and optionally tester.
+        """
+        self.skipped_formats.setdefault(format, set()).add(tester)
+        return self
+
+    def add_skips_from(self, other_file):
+        """Add skips from another File object.
+        """
+        self.skipped_testers.update(other_file.skipped_testers)
+        for format, testers in other_file.skipped_formats.items():
+            self.skipped_formats.setdefault(format, set()).update(testers)
+
+    def should_skip(self, tester, format):
+        """Whether this (tester, format) combination should be skipped.
+        """
+        if tester in self.skipped_testers:
+            return True
+        testers = self.skipped_formats.get(format, ())
+        return 'all' in testers or tester in testers
+
+    @property
+    def num_batches(self):
+        """The number of record batches in this file.
+        """
+        return len(self.batches)
 
 
 def get_field(name, type_, **kwargs):
@@ -1225,8 +1504,8 @@ def get_field(name, type_, **kwargs):
         raise TypeError(dtype)
 
 
-def _generate_file(name, fields, batch_sizes, dictionaries=None, skip=None,
-                   metadata=None):
+def _generate_file(name, fields, batch_sizes, *,
+                   dictionaries=None, metadata=None):
     schema = Schema(fields, metadata=metadata)
     batches = []
     for size in batch_sizes:
@@ -1237,7 +1516,7 @@ def _generate_file(name, fields, batch_sizes, dictionaries=None, skip=None,
 
         batches.append(RecordBatch(size, columns))
 
-    return File(name, schema, batches, dictionaries, skip=skip)
+    return File(name, schema, batches, dictionaries)
 
 
 def generate_custom_metadata_case():
@@ -1283,8 +1562,7 @@ def generate_duplicate_fieldnames_case():
 def generate_primitive_case(batch_sizes, name='primitive'):
     types = ['bool', 'int8', 'int16', 'int32', 'int64',
              'uint8', 'uint16', 'uint32', 'uint64',
-             'float32', 'float64', 'binary', 'utf8',
-             'fixedsizebinary_19', 'fixedsizebinary_120']
+             'float32', 'float64']
 
     fields = []
 
@@ -1295,7 +1573,19 @@ def generate_primitive_case(batch_sizes, name='primitive'):
     return _generate_file(name, fields, batch_sizes)
 
 
-def generate_primitive_large_offsets_case(batch_sizes):
+def generate_binary_case(batch_sizes, name='binary'):
+    types = ['binary', 'utf8', 'fixedsizebinary_19', 'fixedsizebinary_120']
+
+    fields = []
+
+    for type_ in types:
+        fields.append(get_field(type_ + "_nullable", type_, nullable=True))
+        fields.append(get_field(type_ + "_nonnullable", type_, nullable=False))
+
+    return _generate_file(name, fields, batch_sizes)
+
+
+def generate_large_binary_case(batch_sizes):
     types = ['largebinary', 'largeutf8']
 
     fields = []
@@ -1304,7 +1594,7 @@ def generate_primitive_large_offsets_case(batch_sizes):
         fields.append(get_field(type_ + "_nullable", type_, nullable=True))
         fields.append(get_field(type_ + "_nonnullable", type_, nullable=False))
 
-    return _generate_file('primitive_large_offsets', fields, batch_sizes)
+    return _generate_file('large_binary', fields, batch_sizes)
 
 
 def generate_null_case(batch_sizes):
@@ -1328,15 +1618,33 @@ def generate_null_trivial_case(batch_sizes):
     return _generate_file('null_trivial', fields, batch_sizes)
 
 
+def generate_decimal32_case():
+    fields = [
+        DecimalField(name=f'f{i}', precision=precision, scale=2, bit_width=32)
+        for i, precision in enumerate(range(3, 10))
+    ]
+
+    batch_sizes = [7, 10]
+    return _generate_file('decimal32', fields, batch_sizes)
+
+
+def generate_decimal64_case():
+    fields = [
+        DecimalField(name=f'f{i}', precision=precision, scale=2, bit_width=64)
+        for i, precision in enumerate(range(3, 19))
+    ]
+
+    batch_sizes = [7, 10]
+    return _generate_file('decimal64', fields, batch_sizes)
+
+
 def generate_decimal128_case():
     fields = [
-        DecimalField(name='f{}'.format(i), precision=precision, scale=2,
-                     bit_width=128)
+        DecimalField(name=f'f{i}', precision=precision, scale=2, bit_width=128)
         for i, precision in enumerate(range(3, 39))
     ]
 
-    possible_batch_sizes = 7, 10
-    batch_sizes = [possible_batch_sizes[i % 2] for i in range(len(fields))]
+    batch_sizes = [7, 10]
     # 'decimal' is the original name for the test, and it must match
     # provide "gold" files that test backwards compatibility, so they
     # can be appropriately skipped.
@@ -1345,13 +1653,11 @@ def generate_decimal128_case():
 
 def generate_decimal256_case():
     fields = [
-        DecimalField(name='f{}'.format(i), precision=precision, scale=5,
-                     bit_width=256)
+        DecimalField(name=f'f{i}', precision=precision, scale=5, bit_width=256)
         for i, precision in enumerate(range(37, 70))
     ]
 
-    possible_batch_sizes = 7, 10
-    batch_sizes = [possible_batch_sizes[i % 2] for i in range(len(fields))]
+    batch_sizes = [7, 10]
     return _generate_file('decimal256', fields, batch_sizes)
 
 
@@ -1461,6 +1767,37 @@ def generate_recursive_nested_case():
     return _generate_file("recursive_nested", fields, batch_sizes)
 
 
+def generate_run_end_encoded_case():
+    fields = [
+        RunEndEncodedField('ree16_int32', 16, get_field('values', 'int32')),
+        RunEndEncodedField('ree32_utf8', 32, get_field('values', 'utf8')),
+        RunEndEncodedField('ree64_float32', 64, get_field('values', 'float32')),
+        RunEndEncodedField('ree16_bool', 64, get_field('values', 'bool')),
+        # Add a non-REE-encoded field to check column size correctness
+        BooleanField('bool'),
+    ]
+    batch_sizes = [0, 7, 20]
+    return _generate_file("run_end_encoded", fields, batch_sizes)
+
+
+def generate_binary_view_case():
+    fields = [
+        BinaryViewField('bv'),
+        StringViewField('sv'),
+    ]
+    batch_sizes = [0, 7, 256]
+    return _generate_file("binary_view", fields, batch_sizes)
+
+
+def generate_list_view_case():
+    fields = [
+        ListViewField('lv', get_field('item', 'float32')),
+        LargeListViewField('llv', get_field('item', 'float32')),
+    ]
+    batch_sizes = [0, 7, 256]
+    return _generate_file("list_view", fields, batch_sizes)
+
+
 def generate_nested_large_offsets_case():
     fields = [
         LargeListField('large_list_nullable', get_field('item', 'int32')),
@@ -1476,18 +1813,18 @@ def generate_nested_large_offsets_case():
 
 def generate_unions_case():
     fields = [
-        SparseUnionField('sparse', [get_field('f1', 'int32'),
-                                    get_field('f2', 'utf8')],
+        SparseUnionField('sparse_1', [get_field('f1', 'int32'),
+                                      get_field('f2', 'utf8')],
                          type_ids=[5, 7]),
-        DenseUnionField('dense', [get_field('f1', 'int16'),
-                                  get_field('f2', 'binary')],
+        DenseUnionField('dense_1', [get_field('f1', 'int16'),
+                                    get_field('f2', 'binary')],
                         type_ids=[10, 20]),
-        SparseUnionField('sparse', [get_field('f1', 'float32', nullable=False),
-                                    get_field('f2', 'bool')],
+        SparseUnionField('sparse_2', [get_field('f1', 'float32', nullable=False),
+                                      get_field('f2', 'bool')],
                          type_ids=[5, 7], nullable=False),
-        DenseUnionField('dense', [get_field('f1', 'uint8', nullable=False),
-                                  get_field('f2', 'uint16'),
-                                  NullField('f3')],
+        DenseUnionField('dense_2', [get_field('f1', 'uint8', nullable=False),
+                                    get_field('f2', 'uint16'),
+                                    NullField('f3')],
                         type_ids=[42, 43, 44], nullable=False),
     ]
 
@@ -1518,7 +1855,6 @@ def generate_dictionary_unsigned_case():
 
     # TODO: JavaScript does not support uint64 dictionary indices, so disabled
     # for now
-
     # dict3 = Dictionary(3, StringField('dictionary3'), size=5, name='DICT3')
     fields = [
         DictionaryField('f0', get_field('', 'uint8'), dict0),
@@ -1558,7 +1894,7 @@ def generate_nested_dictionary_case():
 def generate_extension_case():
     dict0 = Dictionary(0, StringField('dictionary0'), size=5, name='DICT0')
 
-    uuid_type = ExtensionType('uuid', 'uuid-serialized',
+    uuid_type = ExtensionType('arrow.uuid', '',
                               FixedSizeBinaryField('', 16))
     dict_ext_type = ExtensionType(
         'dict-extension', 'dict-extension-serialized',
@@ -1577,91 +1913,115 @@ def generate_extension_case():
 def get_generated_json_files(tempdir=None):
     tempdir = tempdir or tempfile.mkdtemp(prefix='arrow-integration-')
 
-    def _temp_path():
-        return
-
     file_objs = [
         generate_primitive_case([], name='primitive_no_batches'),
         generate_primitive_case([17, 20], name='primitive'),
         generate_primitive_case([0, 0, 0], name='primitive_zerolength'),
 
-        generate_primitive_large_offsets_case([17, 20])
-        .skip_category('C#')
-        .skip_category('JS'),
+        generate_binary_case([], name='binary_no_batches'),
+        generate_binary_case([17, 20], name='binary'),
+        generate_binary_case([0, 0, 0], name='binary_zerolength'),
 
-        generate_null_case([10, 0])
-        .skip_category('C#')
-        .skip_category('JS'),   # TODO(ARROW-7900)
+        generate_large_binary_case([17, 20]),
 
-        generate_null_trivial_case([0, 0])
-        .skip_category('C#')
-        .skip_category('JS'),   # TODO(ARROW-7900)
+        generate_null_case([10, 0]),
+
+        generate_null_trivial_case([0, 0]),
 
         generate_decimal128_case(),
 
         generate_decimal256_case()
-        .skip_category('JS'),
+        .skip_tester('JS'),
+
+        generate_decimal32_case()
+        .skip_tester('Java')
+        .skip_tester('JS')
+        .skip_tester('nanoarrow')
+        .skip_tester('Rust')
+        .skip_tester('Go'),
+
+        generate_decimal64_case()
+        .skip_tester('Java')
+        .skip_tester('JS')
+        .skip_tester('nanoarrow')
+        .skip_tester('Rust')
+        .skip_tester('Go'),
 
         generate_datetime_case(),
 
-        generate_duration_case()
-        .skip_category('C#')
-        .skip_category('JS'),  # TODO(ARROW-5239): Intervals + JS
+        generate_duration_case(),
 
-        generate_interval_case()
-        .skip_category('C#')
-        .skip_category('JS'),  # TODO(ARROW-5239): Intervals + JS
+        generate_interval_case(),
 
-        generate_month_day_nano_interval_case()
-        .skip_category('C#')
-        .skip_category('JS'),
+        generate_month_day_nano_interval_case(),
 
-        generate_map_case()
-        .skip_category('C#'),
+        generate_map_case(),
 
         generate_non_canonical_map_case()
-        .skip_category('C#')
-        .skip_category('Java')   # TODO(ARROW-8715)
-        .skip_category('JS'),     # TODO(ARROW-8716)
+        .skip_tester('Java')  # TODO(ARROW-8715)
+        # Canonical map names are restored on import, so the schemas are unequal
+        .skip_format(SKIP_C_SCHEMA, 'C++'),
 
-        generate_nested_case()
-        .skip_category('C#'),
+        generate_nested_case(),
 
-        generate_recursive_nested_case()
-        .skip_category('C#'),
+        generate_recursive_nested_case(),
 
         generate_nested_large_offsets_case()
-        .skip_category('C#')
-        .skip_category('JS'),
+        .skip_tester('JS'),
 
-        generate_unions_case()
-        .skip_category('C#')
-        .skip_category('JS'),
+        generate_unions_case(),
 
-        generate_custom_metadata_case()
-        .skip_category('C#')
-        .skip_category('JS'),
+        generate_custom_metadata_case(),
 
         generate_duplicate_fieldnames_case()
-        .skip_category('C#')
-        .skip_category('Go')
-        .skip_category('JS'),
+        .skip_tester('JS'),
 
         generate_dictionary_case()
-        .skip_category('C#'),
+        # TODO(https://github.com/apache/arrow-nanoarrow/issues/622)
+        .skip_tester('nanoarrow')
+        # TODO(https://github.com/apache/arrow/issues/38045)
+        .skip_format(SKIP_FLIGHT, '.NET'),
 
         generate_dictionary_unsigned_case()
-        .skip_category('C#')
-        .skip_category('Java'),  # TODO(ARROW-9377)
+        .skip_tester('nanoarrow')
+        .skip_tester('Java')  # TODO(ARROW-9377)
+        # TODO(https://github.com/apache/arrow/issues/38045)
+        .skip_format(SKIP_FLIGHT, '.NET'),
 
         generate_nested_dictionary_case()
-        .skip_category('C#')
-        .skip_category('Java')  # TODO(ARROW-7779)
-        .skip_category('JS'),
+        # TODO(https://github.com/apache/arrow-nanoarrow/issues/622)
+        .skip_tester('nanoarrow')
+        .skip_tester('Java')  # TODO(ARROW-7779)
+        # TODO(https://github.com/apache/arrow/issues/38045)
+        .skip_format(SKIP_FLIGHT, '.NET'),
+
+        generate_run_end_encoded_case()
+        .skip_tester('.NET')
+        .skip_tester('JS')
+        # TODO(https://github.com/apache/arrow-nanoarrow/issues/618)
+        .skip_tester('nanoarrow')
+        .skip_tester('Rust'),
+
+        generate_binary_view_case()
+        .skip_tester('JS')
+        # TODO(https://github.com/apache/arrow-nanoarrow/issues/618)
+        .skip_tester('nanoarrow')
+        .skip_tester('Rust'),
+
+        generate_list_view_case()
+        .skip_tester('.NET')     # Doesn't support large list views
+        .skip_tester('JS')
+        # TODO(https://github.com/apache/arrow-nanoarrow/issues/618)
+        .skip_tester('nanoarrow')
+        .skip_tester('Rust'),
 
         generate_extension_case()
-        .skip_category('C#')
-        .skip_category('JS'),
+        .skip_tester('nanoarrow')
+        # TODO: ensure the extension is registered in the C++ entrypoint
+        .skip_format(SKIP_C_SCHEMA, 'C++')
+        .skip_format(SKIP_C_ARRAY, 'C++')
+        # TODO(https://github.com/apache/arrow/issues/38045)
+        .skip_format(SKIP_FLIGHT, '.NET'),
     ]
 
     generated_paths = []
@@ -1672,3 +2032,25 @@ def get_generated_json_files(tempdir=None):
         generated_paths.append(file_obj)
 
     return generated_paths
+
+
+def generate_gold_files(tester, gold_dir):
+    os.makedirs(gold_dir, exist_ok=True)
+
+    # Generate JSON files
+    files = get_generated_json_files(gold_dir)
+    for f in files:
+        # For each JSON file, convert it to Arrow IPC file and stream
+        json_path = os.path.join(gold_dir, 'generated_' +
+                                 f.name + '.json')
+        arrow_file_path = os.path.join(gold_dir, 'generated_' +
+                                       f.name + '.arrow_file')
+        stream_path = os.path.join(gold_dir, 'generated_' +
+                                   f.name + '.stream')
+        tester.json_to_file(json_path, arrow_file_path)
+        tester.file_to_stream(arrow_file_path, stream_path)
+        # And GZip-compress the JSON file
+        with open(json_path, 'rb') as f_in:
+            with gzip.open(json_path + '.gz', 'wb') as f_out:
+                shutil.copyfileobj(f_in, f_out)
+        os.unlink(json_path)

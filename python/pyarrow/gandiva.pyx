@@ -19,25 +19,22 @@
 # distutils: language = c++
 # cython: language_level = 3
 
-from libcpp cimport bool as c_bool, nullptr
-from libcpp.memory cimport shared_ptr, unique_ptr, make_shared
+from libcpp.memory cimport shared_ptr
 from libcpp.string cimport string as c_string
 from libcpp.vector cimport vector as c_vector
 from libcpp.unordered_set cimport unordered_set as c_unordered_set
-from libc.stdint cimport int64_t, int32_t, uint8_t, uintptr_t
+from libc.stdint cimport int64_t, int32_t
 
 from pyarrow.includes.libarrow cimport *
-from pyarrow.lib cimport (Array, DataType, Field, MemoryPool, RecordBatch,
+from pyarrow.lib cimport (DataType, Field, MemoryPool, RecordBatch,
                           Schema, check_status, pyarrow_wrap_array,
                           pyarrow_wrap_data_type, ensure_type, _Weakrefable,
                           pyarrow_wrap_field)
-from pyarrow.lib import frombytes
 
 from pyarrow.includes.libgandiva cimport (
     CCondition, CGandivaExpression,
     CNode, CProjector, CFilter,
     CSelectionVector,
-    CSelectionVector_Mode,
     _ensure_selection_mode,
     CConfiguration,
     CConfigurationBuilder,
@@ -69,7 +66,6 @@ from pyarrow.includes.libgandiva cimport (
     TreeExprBuilder_MakeInExpressionDate64,
     TreeExprBuilder_MakeInExpressionTimeStamp,
     TreeExprBuilder_MakeInExpressionString,
-    TreeExprBuilder_MakeInExpressionBinary,
     SelectionVector_MakeInt16,
     SelectionVector_MakeInt32,
     SelectionVector_MakeInt64,
@@ -84,9 +80,8 @@ cdef class Node(_Weakrefable):
         shared_ptr[CNode] node
 
     def __init__(self):
-        raise TypeError("Do not call {}'s constructor directly, use the "
-                        "TreeExprBuilder API directly"
-                        .format(self.__class__.__name__))
+        raise TypeError(f"Do not call {self.__class__.__name__}'s constructor directly, use the "
+                        "TreeExprBuilder API directly")
 
     @staticmethod
     cdef create(shared_ptr[CNode] node):
@@ -99,7 +94,7 @@ cdef class Node(_Weakrefable):
 
     def __repr__(self):
         type_format = object.__repr__(self)
-        return '{0}\n{1}'.format(type_format, str(self))
+        return f"{type_format}\n{self}"
 
     def return_type(self):
         return pyarrow_wrap_data_type(self.node.get().return_type())
@@ -117,7 +112,7 @@ cdef class Expression(_Weakrefable):
 
     def __repr__(self):
         type_format = object.__repr__(self)
-        return '{0}\n{1}'.format(type_format, str(self))
+        return f"{type_format}\n{self}"
 
     def root(self):
         return Node.create(self.expression.get().root())
@@ -131,9 +126,8 @@ cdef class Condition(_Weakrefable):
         shared_ptr[CCondition] condition
 
     def __init__(self):
-        raise TypeError("Do not call {}'s constructor directly, use the "
-                        "TreeExprBuilder API instead"
-                        .format(self.__class__.__name__))
+        raise TypeError(f"Do not call {self.__class__.__name__}'s constructor directly, use the "
+                        "TreeExprBuilder API instead")
 
     @staticmethod
     cdef create(shared_ptr[CCondition] condition):
@@ -146,7 +140,7 @@ cdef class Condition(_Weakrefable):
 
     def __repr__(self):
         type_format = object.__repr__(self)
-        return '{0}\n{1}'.format(type_format, str(self))
+        return f"{type_format}\n{self}"
 
     def root(self):
         return Node.create(self.condition.get().root())
@@ -160,8 +154,8 @@ cdef class SelectionVector(_Weakrefable):
         shared_ptr[CSelectionVector] selection_vector
 
     def __init__(self):
-        raise TypeError("Do not call {}'s constructor directly."
-                        .format(self.__class__.__name__))
+        raise TypeError(
+            f"Do not call {self.__class__.__name__}'s constructor directly.")
 
     @staticmethod
     cdef create(shared_ptr[CSelectionVector] selection_vector):
@@ -180,9 +174,8 @@ cdef class Projector(_Weakrefable):
         MemoryPool pool
 
     def __init__(self):
-        raise TypeError("Do not call {}'s constructor directly, use "
-                        "make_projector instead"
-                        .format(self.__class__.__name__))
+        raise TypeError(f"Do not call {self.__class__.__name__}'s constructor directly, use "
+                        "make_projector instead")
 
     @staticmethod
     cdef create(shared_ptr[CProjector] projector, MemoryPool pool):
@@ -196,6 +189,19 @@ cdef class Projector(_Weakrefable):
         return self.projector.get().DumpIR().decode()
 
     def evaluate(self, RecordBatch batch, SelectionVector selection=None):
+        """
+        Evaluate the specified record batch and return the arrays at the
+        filtered positions.
+
+        Parameters
+        ----------
+        batch : pyarrow.RecordBatch
+        selection : pyarrow.gandiva.SelectionVector
+
+        Returns
+        -------
+        list[pyarrow.Array]
+        """
         cdef vector[shared_ptr[CArray]] results
         if selection is None:
             check_status(self.projector.get().Evaluate(
@@ -217,9 +223,8 @@ cdef class Filter(_Weakrefable):
         shared_ptr[CFilter] filter
 
     def __init__(self):
-        raise TypeError("Do not call {}'s constructor directly, use "
-                        "make_filter instead"
-                        .format(self.__class__.__name__))
+        raise TypeError(f"Do not call {self.__class__.__name__}'s constructor directly, use "
+                        "make_filter instead")
 
     @staticmethod
     cdef create(shared_ptr[CFilter] filter):
@@ -232,6 +237,19 @@ cdef class Filter(_Weakrefable):
         return self.filter.get().DumpIR().decode()
 
     def evaluate(self, RecordBatch batch, MemoryPool pool, dtype='int32'):
+        """
+        Evaluate the specified record batch and return a selection vector.
+
+        Parameters
+        ----------
+        batch : pyarrow.RecordBatch
+        pool : MemoryPool
+        dtype : DataType or str, default int32
+
+        Returns
+        -------
+        pyarrow.gandiva.SelectionVector
+        """
         cdef:
             DataType type = ensure_type(dtype)
             shared_ptr[CSelectionVector] selection
@@ -257,6 +275,18 @@ cdef class Filter(_Weakrefable):
 cdef class TreeExprBuilder(_Weakrefable):
 
     def make_literal(self, value, dtype):
+        """
+        Create a node on a literal.
+
+        Parameters
+        ----------
+        value : a literal value
+        dtype : DataType
+
+        Returns
+        -------
+        pyarrow.gandiva.Node
+        """
         cdef:
             DataType type = ensure_type(dtype)
             shared_ptr[CNode] r
@@ -294,6 +324,19 @@ cdef class TreeExprBuilder(_Weakrefable):
 
     def make_expression(self, Node root_node not None,
                         Field return_field not None):
+        """
+        Create an expression with the specified root_node,
+        and the result written to result_field.
+
+        Parameters
+        ----------
+        root_node : pyarrow.gandiva.Node
+        return_field : pyarrow.Field
+
+        Returns
+        -------
+        pyarrow.gandiva.Expression
+        """
         cdef shared_ptr[CGandivaExpression] r = TreeExprBuilder_MakeExpression(
             root_node.node, return_field.sp_field)
         cdef Expression expression = Expression()
@@ -301,6 +344,19 @@ cdef class TreeExprBuilder(_Weakrefable):
         return expression
 
     def make_function(self, name, children, DataType return_type):
+        """
+        Create a node with a function.
+
+        Parameters
+        ----------
+        name : str
+        children : pyarrow.gandiva.NodeVector
+        return_type : DataType
+
+        Returns
+        -------
+        pyarrow.gandiva.Node
+        """
         cdef c_vector[shared_ptr[CNode]] c_children
         cdef Node child
         for child in children:
@@ -312,17 +368,53 @@ cdef class TreeExprBuilder(_Weakrefable):
         return Node.create(r)
 
     def make_field(self, Field field not None):
+        """
+        Create a node with an Arrow field.
+
+        Parameters
+        ----------
+        field : pyarrow.Field
+
+        Returns
+        -------
+        pyarrow.gandiva.Node
+        """
         cdef shared_ptr[CNode] r = TreeExprBuilder_MakeField(field.sp_field)
         return Node.create(r)
 
     def make_if(self, Node condition not None, Node this_node not None,
                 Node else_node not None, DataType return_type not None):
+        """
+        Create a node with an if-else expression.
+
+        Parameters
+        ----------
+        condition : pyarrow.gandiva.Node
+        this_node : pyarrow.gandiva.Node
+        else_node : pyarrow.gandiva.Node
+        return_type : DataType
+
+        Returns
+        -------
+        pyarrow.gandiva.Node
+        """
         cdef shared_ptr[CNode] r = TreeExprBuilder_MakeIf(
             condition.node, this_node.node, else_node.node,
             return_type.sp_type)
         return Node.create(r)
 
     def make_and(self, children):
+        """
+        Create a Node with a boolean AND expression.
+
+        Parameters
+        ----------
+        children : list[pyarrow.gandiva.Node]
+
+        Returns
+        -------
+        pyarrow.gandiva.Node
+        """
         cdef c_vector[shared_ptr[CNode]] c_children
         cdef Node child
         for child in children:
@@ -333,6 +425,17 @@ cdef class TreeExprBuilder(_Weakrefable):
         return Node.create(r)
 
     def make_or(self, children):
+        """
+        Create a Node with a boolean OR expression.
+
+        Parameters
+        ----------
+        children : list[pyarrow.gandiva.Node]
+
+        Returns
+        -------
+        pyarrow.gandiva.Node
+        """
         cdef c_vector[shared_ptr[CNode]] c_children
         cdef Node child
         for child in children:
@@ -425,6 +528,19 @@ cdef class TreeExprBuilder(_Weakrefable):
         return Node.create(r)
 
     def make_in_expression(self, Node node not None, values, dtype):
+        """
+        Create a Node with an IN expression.
+
+        Parameters
+        ----------
+        node : pyarrow.gandiva.Node
+        values : iterable
+        dtype : DataType
+
+        Returns
+        -------
+        pyarrow.gandiva.Node
+        """
         cdef DataType type = ensure_type(dtype)
 
         if type.id == _Type_INT32:
@@ -449,13 +565,62 @@ cdef class TreeExprBuilder(_Weakrefable):
             raise TypeError("Data type " + str(dtype) + " not supported.")
 
     def make_condition(self, Node condition not None):
+        """
+        Create a condition with the specified node.
+
+        Parameters
+        ----------
+        condition : pyarrow.gandiva.Node
+
+        Returns
+        -------
+        pyarrow.gandiva.Condition
+        """
         cdef shared_ptr[CCondition] r = TreeExprBuilder_MakeCondition(
             condition.node)
         return Condition.create(r)
 
+cdef class Configuration(_Weakrefable):
+    cdef:
+        shared_ptr[CConfiguration] configuration
+
+    def __cinit__(self, bint optimize=True, bint dump_ir=False):
+        """
+        Initialize the configuration with specified options.
+
+        Parameters
+        ----------
+        optimize : bool, default True
+            Whether to enable optimizations.
+        dump_ir : bool, default False
+            Whether to dump LLVM IR.
+        """
+        self.configuration = CConfigurationBuilder().build()
+        self.configuration.get().set_optimize(optimize)
+        self.configuration.get().set_dump_ir(dump_ir)
+
+    @staticmethod
+    cdef create(shared_ptr[CConfiguration] configuration):
+        """
+        Create a Configuration instance from an existing CConfiguration pointer.
+
+        Parameters
+        ----------
+        configuration : shared_ptr[CConfiguration]
+            Existing CConfiguration pointer.
+
+        Returns
+        -------
+        Configuration instance
+        """
+        cdef Configuration self = Configuration.__new__(Configuration)
+        self.configuration = configuration
+        return self
+
 
 cpdef make_projector(Schema schema, children, MemoryPool pool,
-                     str selection_mode="NONE"):
+                     str selection_mode="NONE",
+                     Configuration configuration=None):
     """
     Construct a projection using expressions.
 
@@ -472,6 +637,8 @@ cpdef make_projector(Schema schema, children, MemoryPool pool,
         Memory pool used to allocate output arrays.
     selection_mode : str, default "NONE"
         Possible values are NONE, UINT16, UINT32, UINT64.
+    configuration : pyarrow.gandiva.Configuration, default None
+        Configuration for the projector.
 
     Returns
     -------
@@ -482,6 +649,9 @@ cpdef make_projector(Schema schema, children, MemoryPool pool,
         c_vector[shared_ptr[CGandivaExpression]] c_children
         shared_ptr[CProjector] result
 
+    if configuration is None:
+        configuration = Configuration()
+
     for child in children:
         if child is None:
             raise TypeError("Expressions must not be None")
@@ -490,12 +660,13 @@ cpdef make_projector(Schema schema, children, MemoryPool pool,
     check_status(
         Projector_Make(schema.sp_schema, c_children,
                        _ensure_selection_mode(selection_mode),
-                       CConfigurationBuilder.DefaultConfiguration(),
+                       configuration.configuration,
                        &result))
     return Projector.create(result, pool)
 
 
-cpdef make_filter(Schema schema, Condition condition):
+cpdef make_filter(Schema schema, Condition condition,
+                  Configuration configuration=None):
     """
     Construct a filter based on a condition.
 
@@ -508,6 +679,8 @@ cpdef make_filter(Schema schema, Condition condition):
         Schema for the record batches, and the condition.
     condition : pyarrow.gandiva.Condition
         Filter condition.
+    configuration : pyarrow.gandiva.Configuration, default None
+        Configuration for the filter.
 
     Returns
     -------
@@ -516,8 +689,12 @@ cpdef make_filter(Schema schema, Condition condition):
     cdef shared_ptr[CFilter] result
     if condition is None:
         raise TypeError("Condition must not be None")
+
+    if configuration is None:
+        configuration = Configuration()
+
     check_status(
-        Filter_Make(schema.sp_schema, condition.condition, &result))
+        Filter_Make(schema.sp_schema, condition.condition, configuration.configuration, &result))
     return Filter.create(result)
 
 
@@ -531,8 +708,8 @@ cdef class FunctionSignature(_Weakrefable):
         shared_ptr[CFunctionSignature] signature
 
     def __init__(self):
-        raise TypeError("Do not call {}'s constructor directly."
-                        .format(self.__class__.__name__))
+        raise TypeError(
+            f"Do not call {self.__class__.__name__}'s constructor directly.")
 
     @staticmethod
     cdef create(shared_ptr[CFunctionSignature] signature):

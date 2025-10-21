@@ -41,6 +41,13 @@ class Table;
 
 namespace py {
 
+enum class MapConversionType {
+  DEFAULT,  // convert arrow maps to assoc lists (list of kev-value tuples) in Pandas
+  LOSSY,    // report warnings when lossiness is encountered due to duplicate keys
+  STRICT_,  // raise a Python exception when lossiness is encountered due to duplicate
+            // keys
+};
+
 struct PandasOptions {
   /// arrow::MemoryPool to use for memory allocations
   MemoryPool* pool = default_memory_pool();
@@ -90,6 +97,17 @@ struct PandasOptions {
   /// conversions
   bool self_destruct = false;
 
+  /// \brief The default behavior (DEFAULT), is to convert Arrow Map arrays to
+  /// Python association lists (list-of-tuples) in the same order as the Arrow
+  /// Map, as in [(key1, value1), (key2, value2), ...]
+  /// If LOSSY or STRICT, convert Arrow Map arrays to native Python dicts.
+  /// This can change the ordering of (key, value) pairs, and will deduplicate
+  /// multiple keys, resulting in a possible loss of data.
+  /// If 'lossy', this key deduplication results in a warning printed
+  /// when detected. If 'strict', this instead results in an exception
+  /// being raised when detected.
+  MapConversionType maps_as_pydicts = MapConversionType::DEFAULT;
+
   // Used internally for nested arrays.
   bool decode_dictionaries = false;
 
@@ -99,6 +117,10 @@ struct PandasOptions {
   // Columns that should be passed through to be converted to
   // ExtensionArray/Block
   std::unordered_set<std::string> extension_columns;
+
+  // Used internally to decipher between to_numpy() and to_pandas() when
+  // the expected output differs
+  bool to_numpy = false;
 };
 
 ARROW_PYTHON_EXPORT

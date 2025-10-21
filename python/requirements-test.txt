@@ -1,7 +1,7 @@
 cffi
 hypothesis
+packaging
 pandas
-pickle5; python_version == "3.7"
 pytest
-pytest-lazy-fixture
 pytz
+pyuwsgi; sys.platform != 'win32' and python_version < '3.13'

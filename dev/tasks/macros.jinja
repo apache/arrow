@@ -23,11 +23,14 @@ on:
   push:
     branches:
       - "*-github-*"
+
+env:
+  ARCHERY_DEBUG: 1
 {% endmacro %}
 
-{%- macro github_checkout_arrow(fetch_depth=1, submodules="recursive") -%}
+{%- macro github_checkout_arrow(fetch_depth=1, submodules="recursive", action_v="4") -%}
   - name: Checkout Arrow
-    uses: actions/checkout@v3
+    uses: actions/checkout@v{{ action_v }}
     with:
       fetch-depth: {{ fetch_depth }}
       path: arrow
@@ -58,25 +61,35 @@ on:
     uses: actions/setup-python@v4
     with:
       cache: 'pip'
-      python-version: 3.8
+      python-version: 3.12
   - name: Install Archery
     shell: bash
     run: pip install -e arrow/dev/archery[all]
+{% endmacro %}
+
+{%- macro github_free_space() -%}
+  - name: Free up disk space
+    if: runner.os == 'Linux' && runner.arch == 'X64'
+    shell: bash
+    run: |
+      arrow/ci/scripts/util_free_space.sh
 {% endmacro %}
 
 {%- macro github_upload_releases(pattern) -%}
   - name: Set up Python
     uses: actions/setup-python@v4
     with:
-      python-version: 3.8
+      python-version: 3.12
   - name: Checkout Crossbow
-    uses: actions/checkout@v3
+    uses: actions/checkout@v4
     with:
       path: crossbow
       ref: {{ job.branch }}
   - name: Setup Crossbow
     shell: bash
-    run: pip install -e arrow/dev/archery[crossbow]
+    run: |
+      python3 -m pip install -e arrow/dev/archery[crossbow]
+      echo "$HOME/.local/bin" >> $GITHUB_PATH
   - name: Upload artifacts
     shell: bash
     run: |
@@ -110,16 +123,21 @@ on:
       CROSSBOW_GITHUB_TOKEN: {{ '${{ secrets.CROSSBOW_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}' }}
 {% endmacro %}
 
-{%- macro github_upload_gemfury(pattern) -%}
+{%- macro github_upload_wheel_scientific_python(pattern) -%}
   {%- if arrow.is_default_branch() -%}
-  - name: Upload package to Gemfury
+  - name: Upload wheel to Anaconda scientific-python
     shell: bash
     run: |
-      path=$(ls {{ pattern }})
-      curl -F "package=@${path}" https://${CROSSBOW_GEMFURY_TOKEN}@push.fury.io/${CROSSBOW_GEMFURY_ORG}/
+      # check if completion actually expands to wheel files
+      # to prevent empty dirs from failing silently
+      if ! compgen -G "{{ pattern }}" > /dev/null; then
+          echo "No wheel files found!"
+          exit 1
+      fi
+      python3 -m pip install git+https://github.com/Anaconda-Platform/anaconda-client.git@1.12.3
+      anaconda -t ${CROSSBOW_SCIENTIFIC_PYTHON_UPLOAD_TOKEN} upload --force -u scientific-python-nightly-wheels --label main {{ pattern }}
     env:
-      CROSSBOW_GEMFURY_TOKEN: {{ '${{ secrets.CROSSBOW_GEMFURY_TOKEN }}' }}
-      CROSSBOW_GEMFURY_ORG: {{ '${{ secrets.CROSSBOW_GEMFURY_ORG }}' }}
+      CROSSBOW_SCIENTIFIC_PYTHON_UPLOAD_TOKEN: {{ '${{ secrets.CROSSBOW_SCIENTIFIC_PYTHON_UPLOAD_TOKEN }}' }}
   {% endif %}
 {% endmacro %}
 
@@ -131,97 +149,19 @@ on:
     displayName: Clone arrow
 {% endmacro %}
 
-{%- macro azure_upload_releases(pattern) -%}
-  - task: UsePythonVersion@0
-    inputs:
-      versionSpec: '3.8'
-  - script: pip install -e arrow/dev/archery[crossbow-upload]
-    displayName: Install Crossbow
-  - bash: |
-      archery crossbow \
-        --queue-path $(pwd) \
-        --queue-remote {{ queue_remote_url }} \
-        upload-artifacts \
-        --sha {{ task.branch }} \
-        --tag {{ task.tag }} \
-      {% if pattern is string %}
-        "{{ pattern }}"
-      {% elif pattern is iterable %}
-        {% for p in pattern %}
-        "{{ p }}" {{ "\\" if not loop.last else "" }}
-        {% endfor %}
-      {% endif %}
-    env:
-      CROSSBOW_GITHUB_TOKEN: $(CROSSBOW_GITHUB_TOKEN)
-    displayName: Upload packages as a GitHub release
+{%- macro azure_free_space() -%}
+  - script: arrow/ci/scripts/util_free_space.sh
+    displayName: Free up disk space
 {% endmacro %}
 
 {%- macro azure_upload_anaconda(pattern) -%}
   {%- if arrow.is_default_branch() -%}
-  - task: CondaEnvironment@1
-    inputs:
-      packageSpecs: 'anaconda-client'
-      installOptions: '-c conda-forge'
-      updateConda: no
-  - script: |
-      conda install -y anaconda-client
+  - bash: |
+      conda create -y -n azure_upload_anaconda -c conda-forge anaconda-client
+      source activate azure_upload_anaconda
       anaconda -t $(CROSSBOW_ANACONDA_TOKEN) upload --force {{ pattern }}
     displayName: Upload packages to Anaconda
-  {% endif %}
-{% endmacro %}
 
-{%- macro travis_checkout_arrow() -%}
-  - git clone --no-checkout --branch {{ arrow.branch }} {{ arrow.remote }} arrow
-  - git -C arrow checkout {{ arrow.head }}
-  - git -C arrow submodule update --init --recursive
-{% endmacro %}
-
-{%- macro travis_install_archery() -%}
-  - sudo -H pip3 install --upgrade pip
-  - sudo -H pip3 install docker-compose
-  - sudo -H pip3 install -e arrow/dev/archery[docker]
-{% endmacro %}
-
-{%- macro travis_docker_login() -%}
-  - echo "${DOCKERHUB_TOKEN}" | docker login --username "${DOCKERHUB_USER}" --password-stdin
-{% endmacro %}
-
-{%- macro travis_upload_releases(pattern) -%}
-  - sudo -H pip3 install pygit2==1.8.0 cryptography==36
-  - sudo -H pip3 install -e arrow/dev/archery[crossbow]
-  - |
-    archery crossbow \
-      --queue-path $(pwd) \
-      --queue-remote {{ queue_remote_url }} \
-      upload-artifacts \
-      --sha {{ task.branch }} \
-      --tag {{ task.tag }} \
-    {% if pattern is string %}
-      "{{ pattern }}"
-    {% elif pattern is iterable %}
-      {% for p in pattern %}
-      "{{ p }}" {{ "\\" if not loop.last else "" }}
-      {% endfor %}
-    {% endif %}
-  - git fetch origin {{ job.branch }}:remotes/origin/{{ job.branch }}
-  - |
-    archery crossbow \
-      --queue-path $(pwd) \
-      --queue-remote {{ queue_remote_url }} \
-      status \
-      --task-filter '{{ task.name }}' \
-      --no-fetch \
-      --validate \
-      {{ job.branch }}
-{% endmacro %}
-
-{%- macro travis_upload_gemfury(pattern) -%}
-  {%- if arrow.is_default_branch() -%}
-  - |
-    WHEEL_PATH=$(echo arrow/python/repaired_wheels/*.whl)
-    curl \
-      -F "package=@${WHEEL_PATH}" \
-      "https://${CROSSBOW_GEMFURY_TOKEN}@push.fury.io/${CROSSBOW_GEMFURY_ORG}/"
   {% endif %}
 {% endmacro %}
 
@@ -230,16 +170,17 @@ on:
     env:
       ARROW_FORMULA: ./arrow/dev/tasks/homebrew-formulae/{{ formula }}
     run: |
-      brew update
+      brew update || echo "brew update did not finish successfully"
       brew --version
       brew unlink python@2 || true
       brew config
       brew doctor || true
       # The GHA runners install of python > 3.10 is incompatible with brew so we
-      # have to force overwritting of the symlinks
+      # have to force overwriting of the symlinks
       # see https://github.com/actions/runner-images/issues/6868
-      brew install --overwrite python@3.11 python@3.10
+      brew install --overwrite python@3.12 python@3.11 python@3.10
 
+      set -x
       ARROW_GLIB_FORMULA=$(echo ${ARROW_FORMULA} | sed -e 's/\.rb/-glib.rb/')
       echo "ARROW_GLIB_FORMULA=${ARROW_GLIB_FORMULA}" >> ${GITHUB_ENV}
       for formula in ${ARROW_FORMULA} ${ARROW_GLIB_FORMULA}; do
@@ -249,28 +190,14 @@ on:
         # Pin the current commit in the formula to test so that
         # we're not always pulling from the tip of the default branch
         sed -i '' -E \
-          -e 's@https://github.com/apache/arrow.git"$@{{ arrow.remote }}.git", revision: "{{ arrow.head }}"@' \
+          -e 's@https://github.com/apache/arrow.git", branch: "main"$@{{ arrow.remote }}.git", revision: "{{ arrow.head }}"@' \
           ${formula}
         # Sometimes crossbow gives a remote URL with .git and sometimes not.
         # Make sure there's only one
         sed -i '' -E -e 's@.git.git@.git@' ${formula}
+        cat ${formula}
         cp ${formula} $(brew --repository homebrew/core)/Formula/
       done
-{% endmacro %}
-
-{%- macro pin_brew_formulae(is_fork = false) -%}
-{#- This macro expects the cwd to be arrow/r -#}
-      # Copy all *brew formulae
-      cp ../dev/tasks/homebrew-formulae/autobrew/apache-arrow*.rb tools/
-
-      # Pin the git commit in the formula to match
-      cd tools
-      if [ "{{ is_fork }}" == "true" ]; then
-        sed -i.bak -E -e 's/apache\/arrow.git"$/{{ arrow.github_repo.split("/") | join("\/") }}.git", :revision => "'"{{ arrow.head }}"'"/' apache-arrow*.rb
-      else
-        sed -i.bak -E -e 's/arrow.git"$/arrow.git", :revision => "'"{{ arrow.head }}"'"/' apache-arrow*.rb
-      fi
-      rm -f apache-arrow*.rb.bak
 {% endmacro %}
 
 {%- macro github_change_r_pkg_version(is_fork, version) -%}
@@ -283,8 +210,6 @@ on:
         DESCRIPTION
       head DESCRIPTION
       rm -f DESCRIPTION.bak
-
-      {{ pin_brew_formulae(is_fork) }}
 {% endmacro %}
 
 {%- macro github_test_r_src_pkg() -%}
@@ -297,6 +222,7 @@ on:
     "arrow",
     repos = c(getOption("arrow.dev_repo"), getOption("repos")),
     verbose = TRUE,
+    type = "source",
     INSTALL_opts = "--build"
   )
 
@@ -308,28 +234,40 @@ on:
   stopifnot(packageVersion("arrow") == {{ '"${{needs.source.outputs.pkg_version}}"' }})
 {% endmacro %}
 
-{%- macro github_setup_local_r_repo(get_nix, get_win) -%}
+{%- macro github_setup_local_r_repo(get_nix, get_win, get_mac=False) -%}
+# TODO: improve arg handling
   - name: Setup local repo
     shell: bash
     run: mkdir repo
   {% if get_win %}
   - name: Get windows binary
-    uses: actions/download-artifact@v3
+    uses: actions/download-artifact@v4
     with:
-      name: r-lib__libarrow__bin__windows
-      path: repo/libarrow/bin/windows
+      name: r-libarrow-windows-x86_64
+      path: repo/libarrow
   {% endif %}
   {% if get_nix %}
-    {% for os in ["ubuntu-18.04", "ubuntu-22.04", "centos-7"] %}
-  - name: Get {{ os }} binary
-    uses: actions/download-artifact@v3
+    {% for openssl_version in ["1.0", "1.1", "3.0"] %}
+  - name: Get Linux OpenSSL {{ openssl_version }} binary
+    uses: actions/download-artifact@v4
     with:
-      name: r-lib__libarrow__bin__{{ os }}
-      path: repo/libarrow/bin/{{ os }}
+      name: r-libarrow-linux-x86_64-openssl-{{ openssl_version }}
+      path: repo/libarrow
+    {% endfor %}
+  {% endif %}
+  {% if get_mac %}
+    {% for openssl_version in ["1.1", "3.0"] %}
+      {% for arch in ["x86_64", "arm64"] %}
+  - name: Get macOS {{ arch }} OpenSSL {{ openssl_version }} binary
+    uses: actions/download-artifact@v4
+    with:
+      name: r-libarrow-darwin-{{ arch }}-openssl-{{ openssl_version }}
+      path: repo/libarrow
+      {% endfor %}
     {% endfor %}
   {% endif %}
   - name: Get src pkg
-    uses: actions/download-artifact@v3
+    uses: actions/download-artifact@v4
     with:
       name: r-pkg__src__contrib
       path: repo/src/contrib
@@ -356,7 +294,7 @@ on:
       write(str, file = profile_path, append = TRUE)
       # Set envvar for later steps by appending to $GITHUB_ENV
       write(paste0("R_PROFILE_USER=", profile_path), file = Sys.getenv("GITHUB_ENV"), append = TRUE)
-  {% endmacro %}
+{% endmacro %}
 
 {# Detect if we are using a fork or the upstream repo #}
   {% set is_upstream_b = arrow.github_repo == 'apache/arrow' %}
@@ -380,7 +318,8 @@ on:
             "AWS_ACCESS_KEY_ID": '${{ secrets.AWS_ACCESS_KEY_ID }}',
             "AWS_SECRET_ACCESS_KEY": '${{ secrets.AWS_SECRET_ACCESS_KEY }}',
             "SCCACHE_BUCKET": '${{ secrets.SCCACHE_BUCKET }}',
-            "SCCACHE_S3_KEY_PREFIX": sccache_key_prefix 
+            "SCCACHE_REGION": '${{ secrets.SCCACHE_REGION }}',
+            "SCCACHE_S3_KEY_PREFIX": sccache_key_prefix
           }
  %}
   {% for key, value in sccache_vars.items() %}
@@ -393,11 +332,11 @@ on:
             "AWS_ACCESS_KEY_ID": '$(AWS_ACCESS_KEY_ID)',
             "AWS_SECRET_ACCESS_KEY": '$(AWS_SECRET_ACCESS_KEY)',
             "SCCACHE_BUCKET": '$(SCCACHE_BUCKET)',
-            "SCCACHE_S3_KEY_PREFIX": sccache_key_prefix 
+            "SCCACHE_REGION": '$(SCCACHE_REGION)',
+            "SCCACHE_S3_KEY_PREFIX": sccache_key_prefix
           }
   %}
   {% for key, value in sccache_vars.items() %}
   {{ key }}: "{{ value }}"
   {% endfor %}
 {% endmacro %}
-

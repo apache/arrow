@@ -31,9 +31,17 @@ python -c "import dask.dataframe"
 # pytest -sv --pyargs dask.bytes.tests.test_hdfs
 # pytest -sv --pyargs dask.bytes.tests.test_local
 
-pytest -v --pyargs dask.dataframe.tests.test_dataframe
+# The "skip_with_pyarrow_strings" marker is meant to skip automatically, but that doesn't work with --pyargs, so de-selecting manually
+# - The 'test_categorize_info' test is failing because of change in StringArray's nbytes and
+#   an upstream fix (https://github.com/apache/arrow/issues/39028)
+# - The 'test_describe_empty' test is flakey
+#   upstream issue: https://github.com/dask/dask/issues/10672
+# - The 'test_view' fails because we are not using the dev version of pandas
+#   where pd.Series.view is deprecated (https://pandas.pydata.org/docs/dev/reference/api/pandas.Series.view.html)
+pytest -v --pyargs dask.dataframe.tests.test_dataframe -m "not skip_with_pyarrow_strings" \
+  -k "not test_categorize_info and not test_describe_empty and not test_view"
 pytest -v --pyargs dask.dataframe.io.tests.test_orc
-# skip test until new fsspec release is out (https://github.com/fsspec/filesystem_spec/pull/1139)
-pytest -v --pyargs dask.dataframe.io.tests.test_parquet -k "not test_pyarrow_filesystem_option"
+pytest -v --pyargs dask.dataframe.io.tests.test_parquet \
+  -m "not skip_with_pyarrow_strings and not xfail_with_pyarrow_strings"
 # this file contains parquet tests that use S3 filesystem
 pytest -v --pyargs dask.bytes.tests.test_s3

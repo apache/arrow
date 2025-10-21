@@ -21,9 +21,9 @@
 #include <string>
 
 #include "arrow/extension_type.h"
-#include "arrow/util/macros.h"
 #include "arrow/python/common.h"
 #include "arrow/python/visibility.h"
+#include "arrow/util/macros.h"
 
 namespace arrow {
 namespace py {
@@ -33,7 +33,7 @@ class ARROW_PYTHON_EXPORT PyExtensionType : public ExtensionType {
   // Implement extensionType API
   std::string extension_name() const override { return extension_name_; }
 
-  std::string ToString() const override;
+  std::string ToString(bool show_metadata = false) const override;
 
   bool ExtensionEquals(const ExtensionType& other) const override;
 

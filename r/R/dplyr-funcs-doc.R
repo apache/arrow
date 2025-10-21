@@ -21,7 +21,7 @@
 #'
 #' The `arrow` package contains methods for 37 `dplyr` table functions, many of
 #' which are "verbs" that do transformations to one or more tables.
-#' The package also has mappings of 211 R functions to the corresponding
+#' The package also has mappings of 223 R functions to the corresponding
 #' functions in the Arrow compute library. These allow you to write code inside
 #' of `dplyr` methods that call R functions, including many in packages like
 #' `stringr` and `lubridate`, and they will get translated to Arrow and run
@@ -34,40 +34,40 @@
 #' to a `dbplyr::tbl_lazy`. This means that the verbs do not eagerly evaluate
 #' the query on the data. To run the query, call either `compute()`,
 #' which returns an `arrow` [Table], or `collect()`, which pulls the resulting
-#' Table into an R `data.frame`.
+#' Table into an R `tibble`.
 #'
-#' * [`anti_join()`][dplyr::anti_join()]: the `copy` and `na_matches` arguments are ignored
+#' * [`anti_join()`][dplyr::anti_join()]: the `copy` argument is ignored
 #' * [`arrange()`][dplyr::arrange()]
 #' * [`collapse()`][dplyr::collapse()]
 #' * [`collect()`][dplyr::collect()]
 #' * [`compute()`][dplyr::compute()]
 #' * [`count()`][dplyr::count()]
-#' * [`distinct()`][dplyr::distinct()]: `.keep_all = TRUE` not supported
+#' * [`distinct()`][dplyr::distinct()]: `.keep_all = TRUE` returns a non-missing value if present, only returning missing values if all are missing.
 #' * [`explain()`][dplyr::explain()]
 #' * [`filter()`][dplyr::filter()]
-#' * [`full_join()`][dplyr::full_join()]: the `copy` and `na_matches` arguments are ignored
+#' * [`full_join()`][dplyr::full_join()]: the `copy` argument is ignored
 #' * [`glimpse()`][dplyr::glimpse()]
 #' * [`group_by()`][dplyr::group_by()]
 #' * [`group_by_drop_default()`][dplyr::group_by_drop_default()]
 #' * [`group_vars()`][dplyr::group_vars()]
 #' * [`groups()`][dplyr::groups()]
-#' * [`inner_join()`][dplyr::inner_join()]: the `copy` and `na_matches` arguments are ignored
-#' * [`left_join()`][dplyr::left_join()]: the `copy` and `na_matches` arguments are ignored
-#' * [`mutate()`][dplyr::mutate()]: window functions (e.g. things that require aggregation within groups) not currently supported
+#' * [`inner_join()`][dplyr::inner_join()]: the `copy` argument is ignored
+#' * [`left_join()`][dplyr::left_join()]: the `copy` argument is ignored
+#' * [`mutate()`][dplyr::mutate()]
 #' * [`pull()`][dplyr::pull()]: the `name` argument is not supported; returns an R vector by default but this behavior is deprecated and will return an Arrow [ChunkedArray] in a future release. Provide `as_vector = TRUE/FALSE` to control this behavior, or set `options(arrow.pull_as_vector)` globally.
 #' * [`relocate()`][dplyr::relocate()]
 #' * [`rename()`][dplyr::rename()]
 #' * [`rename_with()`][dplyr::rename_with()]
-#' * [`right_join()`][dplyr::right_join()]: the `copy` and `na_matches` arguments are ignored
+#' * [`right_join()`][dplyr::right_join()]: the `copy` argument is ignored
 #' * [`select()`][dplyr::select()]
-#' * [`semi_join()`][dplyr::semi_join()]: the `copy` and `na_matches` arguments are ignored
+#' * [`semi_join()`][dplyr::semi_join()]: the `copy` argument is ignored
 #' * [`show_query()`][dplyr::show_query()]
 #' * [`slice_head()`][dplyr::slice_head()]: slicing within groups not supported; Arrow datasets do not have row order, so head is non-deterministic; `prop` only supported on queries where `nrow()` is knowable without evaluating
 #' * [`slice_max()`][dplyr::slice_max()]: slicing within groups not supported; `with_ties = TRUE` (dplyr default) is not supported; `prop` only supported on queries where `nrow()` is knowable without evaluating
 #' * [`slice_min()`][dplyr::slice_min()]: slicing within groups not supported; `with_ties = TRUE` (dplyr default) is not supported; `prop` only supported on queries where `nrow()` is knowable without evaluating
 #' * [`slice_sample()`][dplyr::slice_sample()]: slicing within groups not supported; `replace = TRUE` and the `weight_by` argument not supported; `n` only supported on queries where `nrow()` is knowable without evaluating
 #' * [`slice_tail()`][dplyr::slice_tail()]: slicing within groups not supported; Arrow datasets do not have row order, so tail is non-deterministic; `prop` only supported on queries where `nrow()` is knowable without evaluating
-#' * [`summarise()`][dplyr::summarise()]: window functions not currently supported; arguments `.drop = FALSE` and `.groups = "rowwise" not supported
+#' * [`summarise()`][dplyr::summarise()]: window functions not currently supported; arguments `.drop = FALSE` and `.groups = "rowwise"` not supported
 #' * [`tally()`][dplyr::tally()]
 #' * [`transmute()`][dplyr::transmute()]
 #' * [`ungroup()`][dplyr::ungroup()]
@@ -83,7 +83,7 @@
 #' Functions can be called either as `pkg::fun()` or just `fun()`, i.e. both
 #' `str_sub()` and `stringr::str_sub()` work.
 #'
-#' In addition to these functions, you can call any of Arrow's 246 compute
+#' In addition to these functions, you can call any of Arrow's 281 compute
 #' functions directly. Arrow has many functions that don't map to an existing R
 #' function. In other cases where there is an R function mapping, you can still
 #' call the Arrow function directly if you don't want the adaptations that the R
@@ -99,44 +99,51 @@
 #'
 #' ## base
 #'
-#' * [`-`][-()]
 #' * [`!`][!()]
 #' * [`!=`][!=()]
-#' * [`*`][*()]
-#' * [`/`][/()]
-#' * [`&`][&()]
-#' * [`%/%`][%/%()]
 #' * [`%%`][%%()]
+#' * [`%/%`][%/%()]
 #' * [`%in%`][%in%()]
-#' * [`^`][^()]
+#' * [`&`][&()]
+#' * [`*`][*()]
 #' * [`+`][+()]
+#' * [`-`][-()]
+#' * [`/`][/()]
 #' * [`<`][<()]
 #' * [`<=`][<=()]
 #' * [`==`][==()]
 #' * [`>`][>()]
 #' * [`>=`][>=()]
-#' * [`|`][|()]
+#' * [`ISOdate()`][base::ISOdate()]
+#' * [`ISOdatetime()`][base::ISOdatetime()]
+#' * [`^`][^()]
 #' * [`abs()`][base::abs()]
 #' * [`acos()`][base::acos()]
+#' * [`acosh()`][base::acosh()]
 #' * [`all()`][base::all()]
 #' * [`any()`][base::any()]
-#' * [`as.character()`][base::as.character()]
 #' * [`as.Date()`][base::as.Date()]: Multiple `tryFormats` not supported in Arrow.
 #' Consider using the lubridate specialised parsing functions `ymd()`, `ymd()`, etc.
+#' * [`as.character()`][base::as.character()]
 #' * [`as.difftime()`][base::as.difftime()]: only supports `units = "secs"` (the default)
 #' * [`as.double()`][base::as.double()]
 #' * [`as.integer()`][base::as.integer()]
 #' * [`as.logical()`][base::as.logical()]
 #' * [`as.numeric()`][base::as.numeric()]
 #' * [`asin()`][base::asin()]
+#' * [`asinh()`][base::asinh()]
+#' * [`atan()`][base::atan()]
+#' * [`atanh()`][base::atanh()]
 #' * [`ceiling()`][base::ceiling()]
 #' * [`cos()`][base::cos()]
+#' * [`cosh()`][base::cosh()]
 #' * [`data.frame()`][base::data.frame()]: `row.names` and `check.rows` arguments not supported;
 #' `stringsAsFactors` must be `FALSE`
 #' * [`difftime()`][base::difftime()]: only supports `units = "secs"` (the default);
 #' `tz` argument not supported
 #' * [`endsWith()`][base::endsWith()]
 #' * [`exp()`][base::exp()]
+#' * [`expm1()`][base::expm1()]
 #' * [`floor()`][base::floor()]
 #' * [`format()`][base::format()]
 #' * [`grepl()`][base::grepl()]
@@ -153,8 +160,6 @@
 #' * [`is.na()`][base::is.na()]
 #' * [`is.nan()`][base::is.nan()]
 #' * [`is.numeric()`][base::is.numeric()]
-#' * [`ISOdate()`][base::ISOdate()]
-#' * [`ISOdatetime()`][base::ISOdatetime()]
 #' * [`log()`][base::log()]
 #' * [`log10()`][base::log10()]
 #' * [`log1p()`][base::log1p()]
@@ -168,9 +173,11 @@
 #' * [`paste0()`][base::paste0()]: the `collapse` argument is not yet supported
 #' * [`pmax()`][base::pmax()]
 #' * [`pmin()`][base::pmin()]
+#' * [`prod()`][base::prod()]
 #' * [`round()`][base::round()]
 #' * [`sign()`][base::sign()]
 #' * [`sin()`][base::sin()]
+#' * [`sinh()`][base::sinh()]
 #' * [`sqrt()`][base::sqrt()]
 #' * [`startsWith()`][base::startsWith()]
 #' * [`strftime()`][base::strftime()]
@@ -183,9 +190,11 @@
 #' * [`substring()`][base::substring()]
 #' * [`sum()`][base::sum()]
 #' * [`tan()`][base::tan()]
+#' * [`tanh()`][base::tanh()]
 #' * [`tolower()`][base::tolower()]
 #' * [`toupper()`][base::toupper()]
 #' * [`trunc()`][base::trunc()]
+#' * [`|`][|()]
 #'
 #' ## bit64
 #'
@@ -196,7 +205,7 @@
 #'
 #' * [`across()`][dplyr::across()]
 #' * [`between()`][dplyr::between()]
-#' * [`case_when()`][dplyr::case_when()]
+#' * [`case_when()`][dplyr::case_when()]: `.ptype` and `.size` arguments not supported
 #' * [`coalesce()`][dplyr::coalesce()]
 #' * [`desc()`][dplyr::desc()]
 #' * [`if_all()`][dplyr::if_all()]
@@ -204,6 +213,11 @@
 #' * [`if_else()`][dplyr::if_else()]
 #' * [`n()`][dplyr::n()]
 #' * [`n_distinct()`][dplyr::n_distinct()]
+#'
+#' ## hms
+#'
+#' * [`as_hms()`][hms::as_hms()]: subsecond precision not supported for character input
+#' * [`hms()`][hms::hms()]: nanosecond times not supported
 #'
 #' ## lubridate
 #'
@@ -242,8 +256,8 @@
 #' * [`format_ISO8601()`][lubridate::format_ISO8601()]
 #' * [`hour()`][lubridate::hour()]
 #' * [`is.Date()`][lubridate::is.Date()]
-#' * [`is.instant()`][lubridate::is.instant()]
 #' * [`is.POSIXct()`][lubridate::is.POSIXct()]
+#' * [`is.instant()`][lubridate::is.instant()]
 #' * [`is.timepoint()`][lubridate::is.timepoint()]
 #' * [`isoweek()`][lubridate::isoweek()]
 #' * [`isoyear()`][lubridate::isoyear()]
@@ -327,6 +341,7 @@
 #' * [`str_remove_all()`][stringr::str_remove_all()]
 #' * [`str_replace()`][stringr::str_replace()]
 #' * [`str_replace_all()`][stringr::str_replace_all()]
+#' * [`str_replace_na()`][stringr::str_replace_na()]
 #' * [`str_split()`][stringr::str_split()]: Case-insensitive string splitting and splitting into 0 parts not supported
 #' * [`str_starts()`][stringr::str_starts()]
 #' * [`str_sub()`][stringr::str_sub()]: `start` and `end` must be length 1
@@ -352,4 +367,6 @@
 #' * [`starts_with()`][tidyselect::starts_with()]
 #'
 #' @name acero
+#'
+#' @aliases arrow-functions arrow-verbs arrow-dplyr
 NULL

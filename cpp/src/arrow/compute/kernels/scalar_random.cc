@@ -21,8 +21,10 @@
 
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/kernel.h"
-#include "arrow/compute/kernels/common.h"
+#include "arrow/compute/kernels/common_internal.h"
 #include "arrow/compute/registry.h"
+#include "arrow/compute/registry_internal.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/pcg_random.h"
 
 namespace arrow {
@@ -69,7 +71,7 @@ Status ExecRandom(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     std::lock_guard<std::mutex> seed_gen_lock(seed_gen_mutex);
     gen.seed(seed_gen());
   }
-  double* out_values = out->array_span()->GetValues<double>(1);
+  double* out_values = out->array_span_mutable()->GetValues<double>(1);
   for (int64_t i = 0; i < batch.length; ++i) {
     out_values[i] = generate_uniform(&gen);
   }
@@ -87,8 +89,8 @@ const FunctionDoc random_doc{
 
 void RegisterScalarRandom(FunctionRegistry* registry) {
   static auto random_options = RandomOptions::Defaults();
-  auto random_func = std::make_shared<ScalarFunction>("random", Arity::Nullary(),
-                                                      random_doc, &random_options);
+  auto random_func = std::make_shared<ScalarFunction>(
+      "random", Arity::Nullary(), random_doc, &random_options, /*is_pure=*/false);
   ScalarKernel kernel{{}, float64(), ExecRandom, RandomState::Init};
   kernel.null_handling = NullHandling::OUTPUT_NOT_NULL;
   DCHECK_OK(random_func->AddKernel(kernel));

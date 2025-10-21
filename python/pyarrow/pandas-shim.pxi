@@ -18,6 +18,7 @@
 # pandas lazy-loading API shim that reduces API call and import overhead
 
 import warnings
+from threading import Lock
 
 
 cdef class _PandasAPIShim(object):
@@ -34,11 +35,13 @@ cdef class _PandasAPIShim(object):
         object _pd, _types_api, _compat_module
         object _data_frame, _index, _series, _categorical_type
         object _datetimetz_type, _extension_array, _extension_dtype
-        object _array_like_types, _is_extension_array_dtype
+        object _array_like_types, _is_extension_array_dtype, _lock
         bint has_sparse
         bint _pd024
+        bint _is_v1, _is_ge_v21, _is_ge_v23, _is_ge_v3, _is_ge_v3_strict
 
     def __init__(self):
+        self._lock = Lock()
         self._tried_importing_pandas = False
         self._have_pandas = 0
 
@@ -58,20 +61,29 @@ cdef class _PandasAPIShim(object):
         self._pd = pd
         self._version = pd.__version__
         self._loose_version = Version(pd.__version__)
+        self._is_v1 = False
 
         if self._loose_version < Version('1.0.0'):
             self._have_pandas = False
             if raise_:
                 raise ImportError(
-                    "pyarrow requires pandas 1.0.0 or above, pandas {} is "
-                    "installed".format(self._version)
+                    f"pyarrow requires pandas 1.0.0 or above, pandas {self._version} is "
+                    "installed"
                 )
             else:
                 warnings.warn(
-                    "pyarrow requires pandas 1.0.0 or above, pandas {} is "
+                    f"pyarrow requires pandas 1.0.0 or above, pandas {self._version} is "
                     "installed. Therefore, pandas-specific integration is not "
-                    "used.".format(self._version), stacklevel=2)
+                    "used.",
+                    stacklevel=2
+                )
                 return
+
+        self._is_v1 = self._loose_version < Version('2.0.0')
+        self._is_ge_v21 = self._loose_version >= Version('2.1.0')
+        self._is_ge_v23 = self._loose_version >= Version('2.3.0.dev0')
+        self._is_ge_v3 = self._loose_version >= Version('3.0.0.dev0')
+        self._is_ge_v3_strict = self._loose_version >= Version('3.0.0')
 
         self._compat_module = pdcompat
         self._data_frame = pd.DataFrame
@@ -91,13 +103,17 @@ cdef class _PandasAPIShim(object):
         self.has_sparse = False
 
     cdef inline _check_import(self, bint raise_=True):
-        if self._tried_importing_pandas:
-            if not self._have_pandas and raise_:
-                self._import_pandas(raise_)
-            return
+        if not self._tried_importing_pandas:
+            with self._lock:
+                if not self._tried_importing_pandas:
+                    try:
+                        self._import_pandas(raise_)
+                    finally:
+                        self._tried_importing_pandas = True
+                    return
 
-        self._tried_importing_pandas = True
-        self._import_pandas(raise_)
+        if not self._have_pandas and raise_:
+            self._import_pandas(raise_)
 
     def series(self, *args, **kwargs):
         self._check_import()
@@ -150,6 +166,36 @@ cdef class _PandasAPIShim(object):
         self._check_import()
         return self._version
 
+    def is_v1(self):
+        self._check_import()
+        return self._is_v1
+
+    def is_ge_v21(self):
+        self._check_import()
+        return self._is_ge_v21
+
+    def is_ge_v23(self):
+        self._check_import()
+        return self._is_ge_v23
+
+    def is_ge_v3(self):
+        self._check_import()
+        return self._is_ge_v3
+
+    def is_ge_v3_strict(self):
+        self._check_import()
+        return self._is_ge_v3_strict
+
+    def uses_string_dtype(self):
+        if self.is_ge_v3_strict():
+            return True
+        try:
+            if self.is_ge_v23() and self.pd.options.future.infer_string:
+                return True
+        except:
+            pass
+        return False
+
     @property
     def categorical_type(self):
         self._check_import()
@@ -190,7 +236,7 @@ cdef class _PandasAPIShim(object):
 
     cpdef is_sparse(self, obj):
         if self._have_pandas_internal():
-            return self._types_api.is_sparse(obj)
+            return isinstance(obj.dtype, self.pd.SparseDtype)
         else:
             return False
 
@@ -224,10 +270,6 @@ cdef class _PandasAPIShim(object):
                                   self.pd.api.types.PeriodDtype)):
             return obj.array
         return obj.values
-
-    def assert_frame_equal(self, *args, **kwargs):
-        self._check_import()
-        return self._pd.util.testing.assert_frame_equal
 
     def get_rangeindex_attribute(self, level, name):
         # public start/stop/step attributes added in pandas 0.25.0

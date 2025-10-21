@@ -41,16 +41,15 @@ body:
         - C
         - C#
         - C++
-        - C++ - Gandiva
-        - C++ - Plasma
         - Continuous Integration
         - Developer Tools
         - Documentation
         - FlightRPC
         - Format
         - GLib
-        - Go
         - GPU
+        - Gandiva
+        - Go
         - Integration
         - Java
         - JavaScript

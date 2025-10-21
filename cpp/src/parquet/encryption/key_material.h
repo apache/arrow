@@ -29,8 +29,7 @@ class ObjectParser;
 }  // namespace json
 }  // namespace arrow
 
-namespace parquet {
-namespace encryption {
+namespace parquet::encryption {
 
 // KeyMaterial class represents the "key material", keeping the information that allows
 // readers to recover an encryption key (see description of the KeyMetadata class). The
@@ -127,5 +126,4 @@ class PARQUET_EXPORT KeyMaterial {
   std::string encoded_wrapped_dek_;
 };
 
-}  // namespace encryption
-}  // namespace parquet
+}  // namespace parquet::encryption

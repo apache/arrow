@@ -59,7 +59,7 @@ One goal with benchmarking is to detect performance regressions. To this end,
 diff`` sub-command.
 
 In the default invocation, it will compare the current source (known as the
-current workspace in git) with local master branch:
+current workspace in git) with local main branch:
 
 .. code-block:: shell
 
@@ -159,9 +159,9 @@ Writing a benchmark
    By contrast to realtime which is the wall clock time, e.g. the difference
    between end_time - start_time. In a single thread model, the cputime is
    preferable since it is less affected by context switching. In a multi thread
-   scenario, the cputime will give incorrect result since the since it'll
-   be inflated by the number of threads and can be far off realtime. Thus, if
-   the benchmark is multi threaded, it might be better to use
+   scenario, the cputime will give incorrect result since it'll be inflated by
+   the number of threads and can be far off realtime. Thus, if the benchmark is
+   multi threaded, it might be better to use
    ``SetRealtime()``, see this `example <https://github.com/apache/arrow/blob/a9582ea6ab2db055656809a2c579165fe6a811ba/cpp/src/arrow/io/memory-benchmark.cc#L223-L227>`_.
 
 Scripting

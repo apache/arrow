@@ -150,12 +150,12 @@ std::shared_ptr<arrow::DataType> InferArrowTypeFromVector<VECSXP>(SEXP x) {
       return arrow::fixed_size_binary(INTEGER(byte_width)[0]);
     }
 
-    if (Rf_inherits(x, "arrow_binary")) {
-      return arrow::binary();
-    }
-
     if (Rf_inherits(x, "arrow_large_binary")) {
       return arrow::large_binary();
+    }
+
+    if (Rf_inherits(x, "arrow_binary") || Rf_inherits(x, "blob")) {
+      return arrow::binary();
     }
 
     // Check attr(x, "ptype") for an appropriate R prototype
@@ -185,7 +185,7 @@ std::shared_ptr<arrow::DataType> InferArrowTypeFromVector<VECSXP>(SEXP x) {
 }
 
 std::shared_ptr<arrow::DataType> InferArrowType(SEXP x) {
-  if (arrow::r::altrep::is_arrow_altrep(x)) {
+  if (arrow::r::altrep::is_unmaterialized_arrow_altrep(x)) {
     return arrow::r::altrep::vec_to_arrow_altrep_bypass(x)->type();
   }
 

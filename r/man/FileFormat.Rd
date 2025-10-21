@@ -25,7 +25,7 @@ delimiter for text files
 }
 \item \code{...}: Additional format-specific options
 
-`format = "parquet"``:
+\code{format = "parquet"}:
 \itemize{
 \item \code{dict_columns}: Names of columns which should be read as dictionaries.
 \item Any Parquet options from \link{FragmentScanOptions}.

@@ -43,9 +43,9 @@ using gdv_day_time_interval = int64_t;
 
 #ifdef GANDIVA_UNIT_TEST
 // unit tests may be compiled without O2, so inlining may not happen.
-#define FORCE_INLINE
+#  define FORCE_INLINE
 #else
-#define FORCE_INLINE __attribute__((always_inline))
+#  define FORCE_INLINE __attribute__((always_inline))
 #endif
 
 extern "C" {
@@ -231,6 +231,10 @@ gdv_int32 sign_int32(gdv_int32 in);
 gdv_int64 sign_int64(gdv_int64 in);
 gdv_float32 sign_float32(gdv_float32 in);
 gdv_float64 sign_float64(gdv_float64 in);
+gdv_int32 abs_int32(gdv_int32 in);
+gdv_int64 abs_int64(gdv_int64 in);
+gdv_float32 abs_float32(gdv_float32 in);
+gdv_float64 abs_float64(gdv_float64 in);
 gdv_float32 ceiling_float32(gdv_float32 in);
 gdv_float64 ceiling_float64(gdv_float64 in);
 gdv_float32 floor_float32(gdv_float32 in);

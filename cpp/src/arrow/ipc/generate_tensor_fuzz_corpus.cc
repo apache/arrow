@@ -41,7 +41,7 @@ using ::arrow::internal::PlatformFilename;
 Result<PlatformFilename> PrepareDirectory(const std::string& dir) {
   ARROW_ASSIGN_OR_RAISE(auto dir_fn, PlatformFilename::FromString(dir));
   RETURN_NOT_OK(::arrow::internal::CreateDir(dir_fn));
-  return std::move(dir_fn);
+  return dir_fn;
 }
 
 Result<std::shared_ptr<Buffer>> MakeSerializedBuffer(

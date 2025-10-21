@@ -38,33 +38,36 @@ checking_for(checking_message("Homebrew")) do
   end
 end
 
-unless required_pkg_config_package([
-                                     "arrow",
-                                     Arrow::Version::MAJOR,
-                                     Arrow::Version::MINOR,
-                                     Arrow::Version::MICRO,
-                                   ],
-                                   debian: "libarrow-dev",
-                                   fedora: "libarrow-devel",
-                                   homebrew: "apache-arrow",
-                                   msys2: "arrow",
-                                   redhat: "arrow-devel")
-  exit(false)
+unless PKGConfig.have_package("arrow", Arrow::Version::MAJOR)
+  raise <<-MESSAGE
+Apache Arrow C++ >= #{Arrow::Version::MAJOR} isn't found.
+You can install it automatically by enabling rubygems-requirements-system.
+See https://github.com/ruby-gnome/rubygems-requirements-system/ how to enable it.
+  MESSAGE
 end
 
-unless required_pkg_config_package([
-                                     "arrow-glib",
-                                     Arrow::Version::MAJOR,
-                                     Arrow::Version::MINOR,
-                                     Arrow::Version::MICRO,
-                                   ],
-                                   debian: "libarrow-glib-dev",
-                                   fedora: "libarrow-glib-devel",
-                                   homebrew: "apache-arrow-glib",
-                                   msys2: "arrow",
-                                   redhat: "arrow-glib-devel")
-  exit(false)
+unless PKGConfig.have_package("arrow-glib",
+                              Arrow::Version::MAJOR,
+                              Arrow::Version::MINOR,
+                              Arrow::Version::MICRO)
+  version = [
+    Arrow::Version::MAJOR,
+    Arrow::Version::MINOR,
+    Arrow::Version::MICRO,
+  ].join(".")
+  raise <<-MESSAGE
+Apache Arrow GLib >= #{version} isn't found.
+You can install it automatically by enabling rubygems-requirements-system.
+See https://github.com/ruby-gnome/rubygems-requirements-system/ how to enable it.
+  MESSAGE
 end
+
+# Old re2.pc (e.g. re2.pc on Ubuntu 20.04) may add -std=c++11. It
+# causes a build error because Apache Arrow C++ requires C++17 or
+# later.
+#
+# We can remove this when we drop support for Ubuntu 20.04.
+$CXXFLAGS.gsub!("-std=c++11", "")
 
 [
   ["glib2", "ext/glib2"],
@@ -84,7 +87,7 @@ when /darwin/
   symbols_in_external_bundles.each do |symbol|
     $DLDFLAGS << " -Wl,-U,#{symbol}"
   end
-  mmacosx_version_min = "-mmacosx-version-min=10.14"
+  mmacosx_version_min = "-mmacosx-version-min=12.0"
   $CFLAGS << " #{mmacosx_version_min}"
   $CXXFLAGS << " #{mmacosx_version_min}"
 end

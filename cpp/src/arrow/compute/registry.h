@@ -55,7 +55,7 @@ class ARROW_EXPORT FunctionRegistry {
   /// \brief Construct a new nested registry with the given parent.
   ///
   /// Most users only need to use the global registry. The returned registry never changes
-  /// its parent, even when an operation allows overwritting.
+  /// its parent, even when an operation allows overwriting.
   static std::unique_ptr<FunctionRegistry> Make(FunctionRegistry* parent);
 
   /// \brief Check whether a new function can be added to the registry.
@@ -107,6 +107,11 @@ class ARROW_EXPORT FunctionRegistry {
   /// \brief The number of currently registered functions.
   int num_functions() const;
 
+  /// \brief The cast function object registered in AddFunction.
+  ///
+  /// Helpful for get cast function as needed.
+  const Function* cast_function() const;
+
  private:
   FunctionRegistry();
 
@@ -116,9 +121,6 @@ class ARROW_EXPORT FunctionRegistry {
 
   explicit FunctionRegistry(FunctionRegistryImpl* impl);
 };
-
-/// \brief Return the process-global function registry.
-ARROW_EXPORT FunctionRegistry* GetFunctionRegistry();
 
 }  // namespace compute
 }  // namespace arrow

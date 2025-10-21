@@ -27,7 +27,6 @@ call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\Common7\Too
 @rem changes in vcpkg
 
 vcpkg install ^
-    --triplet x64-windows ^
     --x-manifest-root cpp  ^
     --feature-flags=versions ^
     --clean-after-build ^
@@ -52,7 +51,9 @@ pushd cpp\build
 @rem TODO(ianmcook): Add -DARROW_BUILD_BENCHMARKS=ON after the issue described
 @rem at https://github.com/google/benchmark/issues/1046 is resolved
 
-cmake -G "Visual Studio 16 2019" -A x64 ^
+@rem xsimd is bundled to get a more recent version.
+
+cmake -G "Visual Studio 17 2022" -A x64 ^
       -DARROW_BOOST_USE_SHARED=ON ^
       -DARROW_BUILD_SHARED=ON ^
       -DARROW_BUILD_STATIC=OFF ^
@@ -71,6 +72,7 @@ cmake -G "Visual Studio 16 2019" -A x64 ^
       -DARROW_WITH_ZSTD=ON ^
       -DCMAKE_BUILD_TYPE=release ^
       -DCMAKE_UNITY_BUILD=ON ^
+      -Dxsimd_SOURCE=BUNDLED ^
       .. || exit /B 1
 
 cmake --build . --target INSTALL --config Release || exit /B 1
@@ -78,7 +80,8 @@ cmake --build . --target INSTALL --config Release || exit /B 1
 
 @rem Test Arrow C++ library
 
-ctest --output-on-failure ^
+ctest --build-config Release ^
+      --output-on-failure ^
       --parallel %NUMBER_OF_PROCESSORS% ^
       --timeout 300 || exit /B 1
 

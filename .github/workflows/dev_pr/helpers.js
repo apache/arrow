@@ -20,14 +20,12 @@ const https = require('https');
 /**
  * Given the title of a PullRequest return the Issue
  *
- * @param {String} title 
+ * @param {String} title
  * @returns {Issue} or null if no issue detected.
  *
  * @typedef {Object} Issue
- * @property {string} kind - The kind of issue: minor, jira or github
- * @property {string} id   - The id of the issue:
- *                            PARQUET-XXXX for jira
- *                            The numeric issue id for github
+ * @property {string} kind - The kind of issue: minor or github
+ * @property {string} id   - The numeric issue id of the issue
  */
 function detectIssue(title) {
     if (!title) {
@@ -35,10 +33,6 @@ function detectIssue(title) {
     }
     if (title.startsWith("MINOR: ")) {
         return {"kind": "minor"};
-    }
-    const matched_jira = /^(WIP:?\s*)?((PARQUET)-\d+)/.exec(title);
-    if (matched_jira) {
-        return {"kind": "jira", "id": matched_jira[2]};
     }
     const matched_gh = /^(WIP:?\s*)?GH-(\d+)/.exec(title);
     if (matched_gh) {
@@ -48,34 +42,13 @@ function detectIssue(title) {
 }
 
 /**
- * Retrieves information about a JIRA issue.
- * @param {String} jiraID 
- * @returns {Object} the information about a JIRA issue.
- */
-async function getJiraInfo(jiraID) {
-    const jiraURL = `https://issues.apache.org/jira/rest/api/2/issue/${jiraID}`;
-
-    return new Promise((resolve) => {
-        https.get(jiraURL, res => {
-            let data = '';
-
-            res.on('data', chunk => { data += chunk }) 
-
-            res.on('end', () => {
-               resolve(JSON.parse(data));
-            })
-        })
-    });
-}
-
-/**
  * Retrieves information about a GitHub issue.
  * @param {String} issueID
  * @returns {Object} the information about a GitHub issue.
  */
  async function getGitHubInfo(github, context, issueID, pullRequestNumber) {
     try {
-        const response = await github.issues.get({
+        const response = await github.rest.issues.get({
             issue_number: issueID,
             owner: context.repo.owner,
             repo: context.repo.repo,
@@ -89,6 +62,5 @@ async function getJiraInfo(jiraID) {
 
 module.exports = {
     detectIssue,
-    getJiraInfo,
     getGitHubInfo
 };

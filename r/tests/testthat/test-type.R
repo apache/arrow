@@ -201,8 +201,16 @@ test_that("Type strings are correctly canonicalized", {
     sub("^([^([<]+).*$", "\\1", timestamp()$ToString())
   )
   expect_equal(
+    canonical_type_str("decimal32"),
+    sub("^([^([<]+).*$", "\\1", decimal32(3, 2)$ToString())
+  )
+  expect_equal(
+    canonical_type_str("decimal64"),
+    sub("^([^([<]+).*$", "\\1", decimal64(3, 2)$ToString())
+  )
+  expect_equal(
     canonical_type_str("decimal128"),
-    sub("^([^([<]+).*$", "\\1", decimal(3, 2)$ToString())
+    sub("^([^([<]+).*$", "\\1", decimal(31, 2)$ToString())
   )
   expect_equal(
     canonical_type_str("decimal128"),
@@ -280,7 +288,9 @@ test_that("infer_type() gets the right type for Expression", {
   expect_equal(y$type(), infer_type(y))
   expect_equal(infer_type(y), float64())
   expect_equal(add_xy$type(), infer_type(add_xy))
-  expect_equal(infer_type(add_xy), float64())
+  # even though 10 is a float64, arrow will clamp it to the narrowest
+  # type that can exactly represent it when building expressions
+  expect_equal(infer_type(add_xy), float32())
 })
 
 test_that("infer_type() infers type for POSIXlt", {

@@ -29,9 +29,9 @@
 #include "arrow/status.h"
 #include "arrow/util/future.h"
 #include "arrow/util/io_util.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/macros.h"
-#include "arrow/util/memory.h"
+#include "arrow/util/memory_internal.h"
 
 namespace arrow {
 namespace io {
@@ -268,15 +268,9 @@ BufferReader::BufferReader(std::shared_ptr<Buffer> buffer)
       position_(0),
       is_open_(true) {}
 
-BufferReader::BufferReader(const uint8_t* data, int64_t size)
-    : buffer_(nullptr), data_(data), size_(size), position_(0), is_open_(true) {}
-
-BufferReader::BufferReader(const Buffer& buffer)
-    : BufferReader(buffer.data(), buffer.size()) {}
-
-BufferReader::BufferReader(std::string_view data)
-    : BufferReader(reinterpret_cast<const uint8_t*>(data.data()),
-                   static_cast<int64_t>(data.size())) {}
+std::unique_ptr<BufferReader> BufferReader::FromString(std::string data) {
+  return std::make_unique<BufferReader>(Buffer::FromString(std::move(data)));
+}
 
 Status BufferReader::DoClose() {
   is_open_ = false;

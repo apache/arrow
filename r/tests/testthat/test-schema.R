@@ -21,7 +21,7 @@ test_that("Alternate type names are supported", {
     schema(b = double(), c = bool(), d = string(), e = float(), f = halffloat()),
     schema(b = float64(), c = boolean(), d = utf8(), e = float32(), f = float16())
   )
-  expect_equal(names(schema(b = double(), c = bool(), d = string())), c("b", "c", "d"))
+  expect_named(schema(b = double(), c = bool(), d = string()), c("b", "c", "d"))
 })
 
 test_that("Schema print method", {
@@ -43,7 +43,7 @@ test_that("Schema$code()", {
     schema(a = int32(), b = struct(c = double(), d = utf8()), e = list_of(binary()))
   )
 
-  skip_if(packageVersion("rlang") < 1)
+  skip_if(packageVersion("rlang") < "1")
   expect_error(
     eval(schema(x = int32(), y = DayTimeInterval__initialize())$code()),
     "Unsupported type"
@@ -138,6 +138,22 @@ test_that("Schema modification", {
   expect_error(schm[[NA_integer_]] <- int32(), "!is.na(i) is not TRUE", fixed = TRUE)
   expect_error(schm[[TRUE]] <- int32(), "i is not a numeric or integer vector")
   expect_error(schm[[c(2, 4)]] <- int32(), "length(i) not equal to 1", fixed = TRUE)
+})
+
+test_that("Metadata can be reassigned as a whole", {
+  schm <- schema(b = double(), c = string(), d = int8())
+
+  # Check named character vector
+  schm$metadata <- c("foo" = "bar")
+  expect_identical(schm$metadata, list(foo = "bar"))
+
+  # Check list()
+  schm$metadata <- list("foo" = "bar")
+  expect_identical(schm$metadata, list(foo = "bar"))
+
+  # Check NULL for removal
+  schm$metadata <- NULL
+  expect_identical(schm$metadata, set_names(list(), character()))
 })
 
 test_that("Metadata is preserved when modifying Schema", {
@@ -259,4 +275,59 @@ test_that("as_schema() works for Schema objects", {
 test_that("as_schema() works for StructType objects", {
   struct_type <- struct(col1 = int32())
   expect_equal(as_schema(struct_type), schema(col1 = int32()))
+})
+
+test_that("schema name assignment", {
+  schm <- schema(x = int8(), y = string(), z = double())
+  expect_named(schm, c("x", "y", "z"))
+  names(schm) <- c("a", "b", "c")
+  expect_named(schm, c("a", "b", "c"))
+  expect_error(names(schm) <- "f", regexp = "Replacement names must contain same number of items as current names")
+  expect_error(names(schm) <- NULL, regexp = "Replacement names must be character vector, not NULL")
+
+  # Test that R metadata is updated appropriately
+  df <- data.frame(x = 1:3, y = c("a", "b", "c"))
+  schm2 <- arrow_table(df)$schema
+  names(schm2) <- c("col1", "col2")
+  expect_named(schm2, c("col1", "col2"))
+  expect_named(schm2$r_metadata$columns, c("col1", "col2"))
+})
+
+test_that("schema extraction", {
+  skip_if_not_available("dataset")
+
+  tbl <- arrow_table(example_data)
+  expect_equal(schema(example_data), tbl$schema)
+  expect_equal(schema(tbl), tbl$schema)
+
+  expect_equal(
+    schema(data.frame(a = 1, a = "x", check.names = FALSE, stringsAsFactors = FALSE)),
+    schema(a = double(), a = string())
+  )
+
+  expect_equal(schema(data.frame()), schema())
+
+  ds <- InMemoryDataset$create(example_data)
+  expect_equal(schema(ds), ds$schema)
+
+  rdr <- RecordBatchReader$create(record_batch(example_data))
+  expect_equal(schema(rdr), rdr$schema)
+
+  adq <- as_adq(example_data)
+  expect_equal(schema(adq), adq$.data$schema)
+})
+
+test_that("schema print truncation", {
+  tbl <- arrow_table(example_data)
+  out <- print_schema_fields(schema(tbl), truncate = TRUE, max_fields = 1)
+  expect_output(
+    cat(out),
+    "int: int32\n...\n6 more columns\nUse `schema()` to see entire schema",
+    fixed = TRUE
+  )
+
+  expect_error(
+    print_schema_fields(schema(tbl), truncate = TRUE, max_fields = 0),
+    regexp = "max_fields not greater than 0"
+  )
 })

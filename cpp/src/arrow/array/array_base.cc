@@ -39,6 +39,7 @@
 #include "arrow/type_fwd.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/ree_util.h"
 #include "arrow/visit_array_inline.h"
 #include "arrow/visitor.h"
 
@@ -50,6 +51,10 @@ class ExtensionArray;
 // Base array class
 
 int64_t Array::null_count() const { return data_->GetNullCount(); }
+
+int64_t Array::ComputeLogicalNullCount() const {
+  return data_->ComputeLogicalNullCount();
+}
 
 namespace internal {
 
@@ -69,6 +74,10 @@ struct ScalarFromArraySlotImpl {
     return Finish(a.Value(index_));
   }
 
+  Status Visit(const Decimal32Array& a) { return Finish(Decimal32(a.GetValue(index_))); }
+
+  Status Visit(const Decimal64Array& a) { return Finish(Decimal64(a.GetValue(index_))); }
+
   Status Visit(const Decimal128Array& a) {
     return Finish(Decimal128(a.GetValue(index_)));
   }
@@ -82,13 +91,15 @@ struct ScalarFromArraySlotImpl {
     return Finish(a.GetString(index_));
   }
 
+  Status Visit(const BinaryViewArray& a) { return Finish(a.GetString(index_)); }
+
   Status Visit(const FixedSizeBinaryArray& a) { return Finish(a.GetString(index_)); }
 
   Status Visit(const DayTimeIntervalArray& a) { return Finish(a.Value(index_)); }
   Status Visit(const MonthDayNanoIntervalArray& a) { return Finish(a.Value(index_)); }
 
   template <typename T>
-  Status Visit(const BaseListArray<T>& a) {
+  Status Visit(const VarLengthListLikeArray<T>& a) {
     return Finish(a.value_slice(index_));
   }
 
@@ -143,6 +154,15 @@ struct ScalarFromArraySlotImpl {
     return Status::OK();
   }
 
+  Status Visit(const RunEndEncodedArray& a) {
+    ArraySpan span{*a.data()};
+    const int64_t physical_index = ree_util::FindPhysicalIndex(span, index_, span.offset);
+    ScalarFromArraySlotImpl scalar_from_values(*a.values(), physical_index);
+    ARROW_ASSIGN_OR_RAISE(auto value, std::move(scalar_from_values).Finish());
+    out_ = std::make_shared<RunEndEncodedScalar>(std::move(value), a.type());
+    return Status::OK();
+  }
+
   Status Visit(const ExtensionArray& a) {
     ARROW_ASSIGN_OR_RAISE(auto storage, a.storage()->GetScalar(index_));
     out_ = std::make_shared<ExtensionScalar>(std::move(storage), a.type());
@@ -165,7 +185,11 @@ struct ScalarFromArraySlotImpl {
                                 array_.length());
     }
 
-    if (array_.IsNull(index_)) {
+    // Skip checking for nulls in RUN_END_ENCODED arrays to avoid potentially
+    // making two O(log n) searches for the physical index of the slot -- one
+    // here and another in Visit(const RunEndEncodedArray&) in case the values
+    // is not null.
+    if (array_.type()->id() != Type::RUN_END_ENCODED && array_.IsNull(index_)) {
       auto null = MakeNullScalar(array_.type());
       if (is_dictionary(array_.type()->id())) {
         auto& dict_null = checked_cast<DictionaryScalar&>(*null);
@@ -285,6 +309,18 @@ Result<std::shared_ptr<Array>> Array::View(
   ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ArrayData> result,
                         internal::GetArrayView(data_, out_type));
   return MakeArray(result);
+}
+
+Result<std::shared_ptr<Array>> Array::CopyTo(
+    const std::shared_ptr<MemoryManager>& to) const {
+  ARROW_ASSIGN_OR_RAISE(auto copied_data, data()->CopyTo(to));
+  return MakeArray(copied_data);
+}
+
+Result<std::shared_ptr<Array>> Array::ViewOrCopyTo(
+    const std::shared_ptr<MemoryManager>& to) const {
+  ARROW_ASSIGN_OR_RAISE(auto new_data, data()->ViewOrCopyTo(to));
+  return MakeArray(new_data);
 }
 
 // ----------------------------------------------------------------------

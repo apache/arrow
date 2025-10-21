@@ -23,8 +23,7 @@
 #include "parquet/platform.h"
 #include "parquet/schema.h"
 
-namespace parquet {
-namespace internal {
+namespace parquet::internal {
 
 struct PARQUET_EXPORT LevelInfo {
   LevelInfo()
@@ -32,9 +31,10 @@ struct PARQUET_EXPORT LevelInfo {
   LevelInfo(int32_t null_slots, int32_t definition_level, int32_t repetition_level,
             int32_t repeated_ancestor_definition_level)
       : null_slot_usage(null_slots),
-        def_level(definition_level),
-        rep_level(repetition_level),
-        repeated_ancestor_def_level(repeated_ancestor_definition_level) {}
+        def_level(static_cast<int16_t>(definition_level)),
+        rep_level(static_cast<int16_t>(repetition_level)),
+        repeated_ancestor_def_level(
+            static_cast<int16_t>(repeated_ancestor_definition_level)) {}
 
   bool operator==(const LevelInfo& b) const {
     return null_slot_usage == b.null_slot_usage && def_level == b.def_level &&
@@ -100,7 +100,7 @@ struct PARQUET_EXPORT LevelInfo {
     }
   }
 
-  /// Incremetns level for a optional node.
+  /// Increments level for a optional node.
   void IncrementOptional() { def_level++; }
 
   /// Increments levels for the repeated node.  Returns
@@ -112,13 +112,31 @@ struct PARQUET_EXPORT LevelInfo {
     // to distinguish between an empty list and a list with an item in it.
     ++rep_level;
     ++def_level;
-    // For levels >= repeated_ancenstor_def_level it indicates the list was
+    // For levels >= repeated_ancestor_def_level it indicates the list was
     // non-null and had at least one element.  This is important
     // for later decoding because we need to add a slot for these
     // values.  for levels < current_def_level no slots are added
     // to arrays.
     repeated_ancestor_def_level = def_level;
     return last_repeated_ancestor;
+  }
+
+  // Calculates and returns LevelInfo for a column descriptor.
+  static LevelInfo ComputeLevelInfo(const ColumnDescriptor* descr) {
+    LevelInfo level_info;
+    level_info.def_level = descr->max_definition_level();
+    level_info.rep_level = descr->max_repetition_level();
+
+    int16_t min_spaced_def_level = descr->max_definition_level();
+    const ::parquet::schema::Node* node = descr->schema_node().get();
+    while (node && !node->is_repeated()) {
+      if (node->is_optional()) {
+        min_spaced_def_level--;
+      }
+      node = node->parent();
+    }
+    level_info.repeated_ancestor_def_level = min_spaced_def_level;
+    return level_info;
   }
 
   friend std::ostream& operator<<(std::ostream& os, const LevelInfo& levels) {
@@ -150,7 +168,7 @@ struct PARQUET_EXPORT ValidityBitmapInputOutput {
   int64_t values_read = 0;
   // Input/Output. The number of nulls encountered.
   int64_t null_count = 0;
-  // Output only. The validity bitmap to populate. May be be null only
+  // Output only. The validity bitmap to populate. Maybe be null only
   // for DefRepLevelsToListInfo (if all that is needed is list offsets).
   uint8_t* valid_bits = NULLPTR;
   // Input only, offset into valid_bits to start at.
@@ -195,5 +213,4 @@ void PARQUET_EXPORT DefRepLevelsToBitmap(const int16_t* def_levels,
 // (i.e. it isn't hidden by runtime dispatch).
 uint64_t PARQUET_EXPORT TestOnlyExtractBitsSoftware(uint64_t bitmap, uint64_t selection);
 
-}  // namespace internal
-}  // namespace parquet
+}  // namespace parquet::internal

@@ -17,6 +17,7 @@ Testing/
 *.cpp
 pyarrow/lib.h
 pyarrow/*_api.h
+pyarrow/_cuda.h
 pyarrow/_generated_version.py
 cython_debug
 
@@ -44,6 +45,3 @@ pyarrow/_table_api.h
 manylinux1/arrow
 nm_arrow.log
 visible_symbols.log
-
-# plasma store
-pyarrow/plasma-store-server

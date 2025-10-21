@@ -24,10 +24,30 @@
 
 #include "arrow/testing/gtest_util.h"
 #include "arrow/type.h"
+#include "arrow/util/float16.h"
 #include "arrow/util/value_parsing.h"
 
 namespace arrow {
+
+using util::Float16;
+
 namespace internal {
+
+template <typename T, typename E = void>
+struct ConversionValueTrait;
+
+template <typename T>
+struct ConversionValueTrait<T, enable_if_has_c_type<T>> {
+  using Type = typename T::c_type;
+};
+
+template <>
+struct ConversionValueTrait<HalfFloatType> {
+  using Type = Float16;
+};
+
+template <typename T>
+using ConversionValueType = typename ConversionValueTrait<T>::Type;
 
 template <typename T>
 void AssertValueEquals(T a, T b) {
@@ -48,30 +68,31 @@ void AssertValueEquals<double>(double a, double b) {
 
 template <typename T>
 void AssertConversion(StringConverter<T>* converter, const T& type, const std::string& s,
-                      typename T::c_type expected) {
+                      ConversionValueType<T> expected) {
   ARROW_SCOPED_TRACE("When converting: '", s, "', expecting: ", expected);
-  typename T::c_type out{};
+  ConversionValueType<T> out{};
   ASSERT_TRUE(converter->Convert(type, s.data(), s.length(), &out));
   AssertValueEquals(out, expected);
 }
 
 template <typename T>
 void AssertConversion(StringConverter<T>* converter, const std::string& s,
-                      typename T::c_type expected) {
+                      ConversionValueType<T> expected) {
   auto type = checked_pointer_cast<T>(TypeTraits<T>::type_singleton());
   AssertConversion(converter, *type, s, expected);
 }
 
 template <typename T>
-void AssertConversion(const T& type, const std::string& s, typename T::c_type expected) {
+void AssertConversion(const T& type, const std::string& s,
+                      ConversionValueType<T> expected) {
   ARROW_SCOPED_TRACE("When converting: '", s, "', expecting: ", expected);
-  typename T::c_type out{};
+  ConversionValueType<T> out{};
   ASSERT_TRUE(ParseValue(type, s.data(), s.length(), &out));
   AssertValueEquals(out, expected);
 }
 
 template <typename T>
-void AssertConversion(const std::string& s, typename T::c_type expected) {
+void AssertConversion(const std::string& s, ConversionValueType<T> expected) {
   auto type = checked_pointer_cast<T>(TypeTraits<T>::type_singleton());
   AssertConversion(*type, s, expected);
 }
@@ -79,7 +100,7 @@ void AssertConversion(const std::string& s, typename T::c_type expected) {
 template <typename T>
 void AssertConversionFails(StringConverter<T>* converter, const T& type,
                            const std::string& s) {
-  typename T::c_type out{};
+  ConversionValueType<T> out{};
   ASSERT_FALSE(converter->Convert(type, s.data(), s.length(), &out))
       << "Conversion should have failed for '" << s << "' (returned " << out << ")";
 }
@@ -92,7 +113,7 @@ void AssertConversionFails(StringConverter<T>* converter, const std::string& s) 
 
 template <typename T>
 void AssertConversionFails(const T& type, const std::string& s) {
-  typename T::c_type out{};
+  ConversionValueType<T> out{};
   ASSERT_FALSE(ParseValue(type, s.data(), s.length(), &out))
       << "Conversion should have failed for '" << s << "' (returned " << out << ")";
 }
@@ -119,6 +140,9 @@ TEST(StringConversion, ToFloat) {
   AssertConversion<FloatType>("0", 0.0f);
   AssertConversion<FloatType>("-0.0", -0.0f);
   AssertConversion<FloatType>("-1e20", -1e20f);
+  AssertConversion<FloatType>("+Infinity", std::numeric_limits<float>::infinity());
+  AssertConversion<FloatType>("-Infinity", -std::numeric_limits<float>::infinity());
+  AssertConversion<FloatType>("Infinity", std::numeric_limits<float>::infinity());
 
   AssertConversionFails<FloatType>("");
   AssertConversionFails<FloatType>("e");
@@ -135,6 +159,9 @@ TEST(StringConversion, ToDouble) {
   AssertConversion<DoubleType>("0", 0);
   AssertConversion<DoubleType>("-0.0", -0.0);
   AssertConversion<DoubleType>("-1e100", -1e100);
+  AssertConversion<DoubleType>("+Infinity", std::numeric_limits<double>::infinity());
+  AssertConversion<DoubleType>("-Infinity", -std::numeric_limits<double>::infinity());
+  AssertConversion<DoubleType>("Infinity", std::numeric_limits<double>::infinity());
 
   AssertConversionFails<DoubleType>("");
   AssertConversionFails<DoubleType>("e");
@@ -143,6 +170,25 @@ TEST(StringConversion, ToDouble) {
   StringConverter<DoubleType> converter(/*decimal_point=*/',');
   AssertConversion(&converter, "1,5", 1.5);
   AssertConversion(&converter, "0", 0.0);
+  AssertConversionFails(&converter, "1.5");
+}
+
+TEST(StringConversion, ToHalfFloat) {
+  AssertConversion<HalfFloatType>("1.5", Float16(1.5f));
+  AssertConversion<HalfFloatType>("0", Float16(0.0f));
+  AssertConversion<HalfFloatType>("-0.0", Float16(-0.0f));
+  AssertConversion<HalfFloatType>("-1e15", Float16(-1e15));
+  AssertConversion<HalfFloatType>("+Infinity", Float16::FromBits(0x7c00));
+  AssertConversion<HalfFloatType>("-Infinity", Float16::FromBits(0xfc00));
+  AssertConversion<HalfFloatType>("Infinity", Float16::FromBits(0x7c00));
+
+  AssertConversionFails<HalfFloatType>("");
+  AssertConversionFails<HalfFloatType>("e");
+  AssertConversionFails<HalfFloatType>("1,5");
+
+  StringConverter<HalfFloatType> converter(/*decimal_point=*/',');
+  AssertConversion(&converter, "1,5", Float16(1.5f));
+  AssertConversion(&converter, "0", Float16(0.0f));
   AssertConversionFails(&converter, "1.5");
 }
 
@@ -170,6 +216,19 @@ TEST(StringConversion, ToDoubleLocale) {
 
   StringConverter<DoubleType> converter(/*decimal_point=*/'#');
   AssertConversion(&converter, "1#5", 1.5);
+  AssertConversionFails(&converter, "1.5");
+  AssertConversionFails(&converter, "1,5");
+}
+
+TEST(StringConversion, ToHalfFloatLocale) {
+  // French locale uses the comma as decimal point
+  LocaleGuard locale_guard("fr_FR.UTF-8");
+
+  AssertConversion<HalfFloatType>("1.5", Float16(1.5));
+  AssertConversionFails<HalfFloatType>("1,5");
+
+  StringConverter<HalfFloatType> converter(/*decimal_point=*/'#');
+  AssertConversion(&converter, "1#5", Float16(1.5));
   AssertConversionFails(&converter, "1.5");
   AssertConversionFails(&converter, "1,5");
 }
@@ -788,15 +847,33 @@ TEST(TimestampParser, StrptimeZoneOffset) {
   if (!kStrptimeSupportsZone) {
     GTEST_SKIP() << "strptime does not support %z on this platform";
   }
+#ifdef __EMSCRIPTEN__
+  GTEST_SKIP() << "Test temporarily disabled due to emscripten bug "
+                  "https://github.com/emscripten-core/emscripten/issues/20467 ";
+#endif
+
   std::string format = "%Y-%d-%m %H:%M:%S%z";
   auto parser = TimestampParser::MakeStrptime(format);
+
+  std::vector<std::string> values = {
+    "2018-01-01 00:00:00+0000",
+    "2018-01-01 00:00:00+0100",
+#if defined(__GLIBC__) && defined(__GLIBC_MINOR__)
+// glibc < 2.28 doesn't support "-0117" timezone offset.
+// See also: https://github.com/apache/arrow/issues/43808
+#  if ((__GLIBC__ == 2) && (__GLIBC_MINOR__ >= 28)) || (__GLIBC__ >= 3)
+    "2018-01-01 00:00:00-0117",
+#  endif
+#else
+    "2018-01-01 00:00:00-0117",
+#endif
+    "2018-01-01 00:00:00+0130"
+  };
 
   // N.B. GNU %z supports ISO8601 format while BSD %z supports only
   // +HHMM or -HHMM and POSIX doesn't appear to define %z at all
   for (auto unit : TimeUnit::values()) {
-    for (const std::string value :
-         {"2018-01-01 00:00:00+0000", "2018-01-01 00:00:00+0100",
-          "2018-01-01 00:00:00+0130", "2018-01-01 00:00:00-0117"}) {
+    for (const std::string& value : values) {
       SCOPED_TRACE(value);
       int64_t converted = 0;
       int64_t expected = 0;

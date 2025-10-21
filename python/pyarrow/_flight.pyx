@@ -18,12 +18,9 @@
 # cython: language_level = 3
 
 import collections
-import contextlib
 import enum
 import re
-import socket
 import time
-import threading
 import warnings
 import weakref
 
@@ -34,7 +31,7 @@ from libcpp cimport bool as c_bool
 from pyarrow.lib cimport *
 from pyarrow.lib import (ArrowCancelled, ArrowException, ArrowInvalid,
                          SignalStopHandler)
-from pyarrow.lib import as_buffer, frombytes, tobytes
+from pyarrow.lib import as_buffer, frombytes, timestamp, tobytes
 from pyarrow.includes.libarrow_flight cimport *
 from pyarrow.ipc import _get_legacy_format_default, _ReadPandasMixin
 import pyarrow.lib as lib
@@ -43,7 +40,7 @@ import pyarrow.lib as lib
 cdef CFlightCallOptions DEFAULT_CALL_OPTIONS
 
 
-cdef int check_flight_status(const CStatus& status) nogil except -1:
+cdef int check_flight_status(const CStatus& status) except -1 nogil:
     cdef shared_ptr[FlightStatusDetail] detail
 
     if status.ok():
@@ -91,15 +88,13 @@ _FLIGHT_SERVER_ERROR_REGEX = re.compile(
 def _munge_grpc_python_error(message):
     m = _FLIGHT_SERVER_ERROR_REGEX.match(message)
     if m:
-        return ('Flight RPC failed with Python exception \"{}: {}\"'
-                .format(m.group(2), m.group(1)))
+        return f'Flight RPC failed with Python exception "{m.group(2)}: {m.group(1)}"'
     else:
         return message
 
 
 cdef IpcWriteOptions _get_options(options):
-    return <IpcWriteOptions> _get_legacy_format_default(
-        use_legacy_format=None, options=options)
+    return <IpcWriteOptions> _get_legacy_format_default(options=options)
 
 
 cdef class FlightCallOptions(_Weakrefable):
@@ -126,7 +121,6 @@ cdef class FlightCallOptions(_Weakrefable):
             Serialization options for reading IPC format.
         """
         cdef IpcWriteOptions c_write_options
-        cdef IpcReadOptions c_read_options
 
         if timeout is not None:
             self.options.timeout = CTimeoutDuration(timeout)
@@ -135,8 +129,7 @@ cdef class FlightCallOptions(_Weakrefable):
             self.options.write_options = c_write_options.c_options
         if read_options is not None:
             if not isinstance(read_options, IpcReadOptions):
-                raise TypeError("expected IpcReadOptions, got {}"
-                                .format(type(read_options)))
+                raise TypeError(f"expected IpcReadOptions, got {type(read_options)}")
             self.options.read_options = read_options.c_options
         if headers is not None:
             self.options.headers = headers
@@ -147,8 +140,38 @@ cdef class FlightCallOptions(_Weakrefable):
             return &DEFAULT_CALL_OPTIONS
         elif isinstance(obj, FlightCallOptions):
             return &((<FlightCallOptions> obj).options)
-        raise TypeError("Expected a FlightCallOptions object, not "
-                        "'{}'".format(type(obj)))
+        raise TypeError(f"Expected a FlightCallOptions object, not '{type(obj)}'")
+
+    @property
+    def timeout(self):
+        """Get timeout for the call (in seconds)
+        """
+        return self.options.timeout.count()
+
+    @property
+    def headers(self):
+        """Get list of headers (key, value tuples) for client's context
+        """
+        return self.options.headers
+
+    @property
+    def read_options(self):
+        """Get serialization options for reading IPC format
+        """
+        return wrap_ipc_read_options(self.options.read_options)
+
+    @property
+    def write_options(self):
+        """Get IPC write options
+        """
+        return wrap_ipc_write_options(self.options.write_options)
+
+    def __repr__(self):
+        return (f"<pyarrow.flight.FlightCallOptions "
+                f"timeout={self.timeout} "
+                f"headers={self.headers}\n"
+                f" read_options={self.read_options}\n"
+                f" write_options={self.write_options}\n>")
 
 
 _CertKeyPair = collections.namedtuple('_CertKeyPair', ['cert', 'key'])
@@ -187,7 +210,7 @@ cdef class FlightError(Exception):
         self.extra_info = tobytes(extra_info)
 
     cdef CStatus to_status(self):
-        message = tobytes("Flight error: {}".format(str(self)))
+        message = tobytes(f"Flight error: {self}")
         return CStatus_UnknownError(message)
 
 
@@ -285,8 +308,7 @@ cdef class Action(_Weakrefable):
     @staticmethod
     cdef CAction unwrap(action) except *:
         if not isinstance(action, Action):
-            raise TypeError("Must provide Action, not '{}'".format(
-                type(action)))
+            raise TypeError(f"Must provide Action, not '{type(action)}'")
         return (<Action> action).action
 
     def serialize(self):
@@ -313,6 +335,10 @@ cdef class Action(_Weakrefable):
 
     def __eq__(self, Action other):
         return self.action == other.action
+
+    def __repr__(self):
+        return (f"<pyarrow.flight.Action type={self.type!r} "
+                f"body=({self.body.size} bytes)>")
 
 
 _ActionType = collections.namedtuple('_ActionType', ['type', 'description'])
@@ -377,6 +403,9 @@ cdef class Result(_Weakrefable):
     def __eq__(self, Result other):
         return deref(self.result.get()) == deref(other.result.get())
 
+    def __repr__(self):
+        return f"<pyarrow.flight.Result body=({self.body.size} bytes)>"
+
 
 cdef class BasicAuth(_Weakrefable):
     """A container for basic auth."""
@@ -419,6 +448,10 @@ cdef class BasicAuth(_Weakrefable):
 
     def __eq__(self, BasicAuth other):
         return deref(self.basic_auth.get()) == deref(other.basic_auth.get())
+
+    def __repr__(self):
+        return (f"<pyarrow.flight.BasicAuth username={self.username!r} "
+                "password=(redacted)>")
 
 
 class DescriptorType(enum.Enum):
@@ -487,10 +520,9 @@ cdef class FlightDescriptor(_Weakrefable):
         CFlightDescriptor descriptor
 
     def __init__(self):
-        raise TypeError("Do not call {}'s constructor directly, use "
+        raise TypeError(f"Do not call {self.__class__.__name__}'s constructor directly, use "
                         "`pyarrow.flight.FlightDescriptor.for_{path,command}` "
-                        "function instead."
-                        .format(self.__class__.__name__))
+                        "function instead.")
 
     @staticmethod
     def for_path(*path):
@@ -537,17 +569,17 @@ cdef class FlightDescriptor(_Weakrefable):
 
     def __repr__(self):
         if self.descriptor_type == DescriptorType.PATH:
-            return "<FlightDescriptor path: {!r}>".format(self.path)
+            return f"<pyarrow.flight.FlightDescriptor path={self.path!r}>"
         elif self.descriptor_type == DescriptorType.CMD:
-            return "<FlightDescriptor command: {!r}>".format(self.command)
+            return f"<pyarrow.flight.FlightDescriptor cmd={self.command!r}>"
         else:
-            return "<FlightDescriptor type: {!r}>".format(self.descriptor_type)
+            return "<pyarrow.flight.FlightDescriptor UNKNOWN>"
 
     @staticmethod
     cdef CFlightDescriptor unwrap(descriptor) except *:
         if not isinstance(descriptor, FlightDescriptor):
-            raise TypeError("Must provide a FlightDescriptor, not '{}'".format(
-                type(descriptor)))
+            raise TypeError(
+                f"Must provide a FlightDescriptor, not '{type(descriptor)}'")
         return (<FlightDescriptor> descriptor).descriptor
 
     def serialize(self):
@@ -581,14 +613,14 @@ cdef class Ticket(_Weakrefable):
     """A ticket for requesting a Flight stream."""
 
     cdef:
-        CTicket ticket
+        CTicket c_ticket
 
     def __init__(self, ticket):
-        self.ticket.ticket = tobytes(ticket)
+        self.c_ticket.ticket = tobytes(ticket)
 
     @property
     def ticket(self):
-        return self.ticket.ticket
+        return self.c_ticket.ticket
 
     def serialize(self):
         """Get the wire-format representation of this type.
@@ -597,7 +629,7 @@ cdef class Ticket(_Weakrefable):
         services) that may want to return Flight types.
 
         """
-        return GetResultValue(self.ticket.SerializeToString())
+        return GetResultValue(self.c_ticket.SerializeToString())
 
     @classmethod
     def deserialize(cls, serialized):
@@ -608,15 +640,15 @@ cdef class Ticket(_Weakrefable):
 
         """
         cdef Ticket ticket = Ticket.__new__(Ticket)
-        ticket.ticket = GetResultValue(
+        ticket.c_ticket = GetResultValue(
             CTicket.Deserialize(tobytes(serialized)))
         return ticket
 
     def __eq__(self, Ticket other):
-        return self.ticket == other.ticket
+        return self.c_ticket == other.c_ticket
 
     def __repr__(self):
-        return '<Ticket {}>'.format(self.ticket.ticket)
+        return f"<pyarrow.flight.Ticket ticket={self.ticket!r}>"
 
 
 cdef class Location(_Weakrefable):
@@ -628,7 +660,7 @@ cdef class Location(_Weakrefable):
         check_flight_status(CLocation.Parse(tobytes(uri)).Value(&self.location))
 
     def __repr__(self):
-        return '<Location {}>'.format(self.location.ToString())
+        return f'<pyarrow.flight.Location {self.location.ToString()}>'
 
     @property
     def uri(self):
@@ -687,8 +719,7 @@ cdef class Location(_Weakrefable):
                 CLocation.Parse(tobytes(location)).Value(&c_location))
             return c_location
         elif not isinstance(location, Location):
-            raise TypeError("Must provide a Location, not '{}'".format(
-                type(location)))
+            raise TypeError(f"Must provide a Location, not '{type(location)}'")
         return (<Location> location).location
 
 
@@ -697,7 +728,7 @@ cdef class FlightEndpoint(_Weakrefable):
     cdef:
         CFlightEndpoint endpoint
 
-    def __init__(self, ticket, locations):
+    def __init__(self, ticket, locations, expiration_time=None, app_metadata=""):
         """Create a FlightEndpoint from a ticket and list of locations.
 
         Parameters
@@ -706,6 +737,12 @@ cdef class FlightEndpoint(_Weakrefable):
             the ticket needed to access this flight
         locations : list of string URIs
             locations where this flight is available
+        expiration_time : TimestampScalar, default None
+            Expiration time of this stream. If present, clients may assume
+            they can retry DoGet requests. Otherwise, clients should avoid
+            retrying DoGet requests.
+        app_metadata : bytes or str, default ""
+            Application-defined opaque metadata.
 
         Raises
         ------
@@ -717,17 +754,36 @@ cdef class FlightEndpoint(_Weakrefable):
 
         if isinstance(ticket, Ticket):
             self.endpoint.ticket.ticket = tobytes(ticket.ticket)
-        else:
+        elif isinstance(ticket, (str, bytes)):
             self.endpoint.ticket.ticket = tobytes(ticket)
+        else:
+            raise TypeError("Argument ticket must be a Ticket instance, string or bytes, "
+                            f"not '{type(ticket)}'")
 
         for location in locations:
             if isinstance(location, Location):
                 c_location = (<Location> location).location
-            else:
+            elif isinstance(location, (str, bytes)):
                 c_location = CLocation()
                 check_flight_status(
                     CLocation.Parse(tobytes(location)).Value(&c_location))
+            else:
+                raise TypeError("Argument locations must contain Location instances, strings or bytes, "
+                                f"not '{type(location)}'")
             self.endpoint.locations.push_back(c_location)
+
+        if expiration_time is not None:
+            if isinstance(expiration_time, lib.TimestampScalar):
+                self.endpoint.expiration_time = TimePoint_from_ns(
+                    expiration_time.cast(timestamp("ns")).value)
+            else:
+                raise TypeError("Argument expiration_time must be a TimestampScalar, "
+                                f"not '{type(expiration_time)}'")
+
+        if not isinstance(app_metadata, (str, bytes)):
+            raise TypeError("Argument app_metadata must be a string or bytes, "
+                            f"not '{type(app_metadata)}'")
+        self.endpoint.app_metadata = tobytes(app_metadata)
 
     @property
     def ticket(self):
@@ -736,8 +792,29 @@ cdef class FlightEndpoint(_Weakrefable):
 
     @property
     def locations(self):
+        """Get locations where this flight is available."""
         return [Location.wrap(location)
                 for location in self.endpoint.locations]
+
+    @property
+    def expiration_time(self):
+        """Get the expiration time of this stream.
+
+        If present, clients may assume they can retry DoGet requests.
+        Otherwise, clients should avoid retrying DoGet requests.
+
+        """
+        cdef:
+            int64_t time_since_epoch
+        if self.endpoint.expiration_time.has_value():
+            time_since_epoch = TimePoint_to_ns(self.endpoint.expiration_time.value())
+            return lib.scalar(time_since_epoch, timestamp("ns", "UTC"))
+        return None
+
+    @property
+    def app_metadata(self):
+        """Get application-defined opaque metadata."""
+        return self.endpoint.app_metadata
 
     def serialize(self):
         """Get the wire-format representation of this type.
@@ -762,15 +839,17 @@ cdef class FlightEndpoint(_Weakrefable):
         return endpoint
 
     def __repr__(self):
-        return "<FlightEndpoint ticket: {!r} locations: {!r}>".format(
-            self.ticket, self.locations)
+        return (f"<pyarrow.flight.FlightEndpoint ticket={self.ticket!r} "
+                f"locations={self.locations!r} "
+                f"expiration_time={self.expiration_time} "
+                f"app_metadata={self.app_metadata}>")
 
     def __eq__(self, FlightEndpoint other):
         return self.endpoint == other.endpoint
 
 
 cdef class SchemaResult(_Weakrefable):
-    """A result from a getschema request. Holding a schema"""
+    """The serialized schema returned from a GetSchema request."""
     cdef:
         unique_ptr[CSchemaResult] result
 
@@ -821,28 +900,41 @@ cdef class SchemaResult(_Weakrefable):
     def __eq__(self, SchemaResult other):
         return deref(self.result.get()) == deref(other.result.get())
 
+    def __repr__(self):
+        return f"<pyarrow.flight.SchemaResult schema=({self.schema})>"
+
 
 cdef class FlightInfo(_Weakrefable):
     """A description of a Flight stream."""
     cdef:
         unique_ptr[CFlightInfo] info
 
+    @staticmethod
+    cdef wrap(CFlightInfo c_info):
+        cdef FlightInfo obj = FlightInfo.__new__(FlightInfo)
+        obj.info.reset(new CFlightInfo(move(c_info)))
+        return obj
+
     def __init__(self, Schema schema, FlightDescriptor descriptor, endpoints,
-                 total_records, total_bytes):
+                 total_records=None, total_bytes=None, ordered=False, app_metadata=""):
         """Create a FlightInfo object from a schema, descriptor, and endpoints.
 
         Parameters
         ----------
-        schema : Schema
+        schema : Schema, optional
             the schema of the data in this flight.
         descriptor : FlightDescriptor
             the descriptor for this flight.
         endpoints : list of FlightEndpoint
             a list of endpoints where this flight is available.
-        total_records : int
-            the total records in this flight, or -1 if unknown
-        total_bytes : int
-            the total bytes in this flight, or -1 if unknown
+        total_records : int, default None
+            the total records in this flight, -1 or None if unknown.
+        total_bytes : int, default None
+            the total bytes in this flight, -1 or None if unknown.
+        ordered : boolean, default False
+            Whether endpoints are in the same order as the data.
+        app_metadata : bytes or str, default ""
+            Application-defined opaque metadata.
         """
         cdef:
             shared_ptr[CSchema] c_schema = pyarrow_unwrap_schema(schema)
@@ -852,14 +944,16 @@ cdef class FlightInfo(_Weakrefable):
             if isinstance(endpoint, FlightEndpoint):
                 c_endpoints.push_back((<FlightEndpoint> endpoint).endpoint)
             else:
-                raise TypeError('Endpoint {} is not instance of'
-                                ' FlightEndpoint'.format(endpoint))
+                raise TypeError(
+                    f'Endpoint {endpoint} is not instance of FlightEndpoint')
 
         check_flight_status(CreateFlightInfo(c_schema,
                                              descriptor.descriptor,
                                              c_endpoints,
-                                             total_records,
-                                             total_bytes, &self.info))
+                                             total_records if total_records is not None else -1,
+                                             total_bytes if total_bytes is not None else -1,
+                                             ordered,
+                                             tobytes(app_metadata), &self.info))
 
     @property
     def total_records(self):
@@ -872,6 +966,25 @@ cdef class FlightInfo(_Weakrefable):
         return self.info.get().total_bytes()
 
     @property
+    def ordered(self):
+        """Whether endpoints are in the same order as the data."""
+        return self.info.get().ordered()
+
+    @property
+    def app_metadata(self):
+        """
+        Application-defined opaque metadata.
+
+        There is no inherent or required relationship between this and the
+        app_metadata fields in the FlightEndpoints or resulting FlightData
+        messages. Since this metadata is application-defined, a given
+        application could define there to be a relationship, but there is
+        none required by the spec.
+
+        """
+        return self.info.get().app_metadata()
+
+    @property
     def schema(self):
         """The schema of the data in this flight."""
         cdef:
@@ -879,6 +992,8 @@ cdef class FlightInfo(_Weakrefable):
             CDictionaryMemo dummy_memo
 
         check_flight_status(self.info.get().GetSchema(&dummy_memo).Value(&schema))
+        if schema.get() == NULL:
+            return None
         return pyarrow_wrap_schema(schema)
 
     @property
@@ -926,6 +1041,18 @@ cdef class FlightInfo(_Weakrefable):
             CFlightInfo.Deserialize(tobytes(serialized))))
         return info
 
+    def __eq__(self, FlightInfo other):
+        return deref(self.info.get()) == deref(other.info.get())
+
+    def __repr__(self):
+        return (f"<pyarrow.flight.FlightInfo schema={self.schema} "
+                f"descriptor={self.descriptor} "
+                f"endpoints={self.endpoints} "
+                f"total_records={self.total_records} "
+                f"total_bytes={self.total_bytes} "
+                f"ordered={self.ordered} "
+                f"app_metadata={self.app_metadata}>")
+
 
 cdef class FlightStreamChunk(_Weakrefable):
     """A RecordBatch with application metadata on the side."""
@@ -948,8 +1075,7 @@ cdef class FlightStreamChunk(_Weakrefable):
         return iter((self.data, self.app_metadata))
 
     def __repr__(self):
-        return "<FlightStreamChunk with data: {} with metadata: {}>".format(
-            self.chunk.data != NULL, self.chunk.app_metadata != NULL)
+        return f"<FlightStreamChunk with data: {self.chunk.data != NULL} with metadata: {self.chunk.app_metadata != NULL}>"
 
 
 cdef class _MetadataRecordBatchReader(_Weakrefable, _ReadPandasMixin):
@@ -962,8 +1088,10 @@ cdef class _MetadataRecordBatchReader(_Weakrefable, _ReadPandasMixin):
     cdef shared_ptr[CMetadataRecordBatchReader] reader
 
     def __iter__(self):
-        while True:
-            yield self.read_chunk()
+        return self
+
+    def __next__(self):
+        return self.read_chunk()
 
     @property
     def schema(self):
@@ -982,15 +1110,12 @@ cdef class _MetadataRecordBatchReader(_Weakrefable, _ReadPandasMixin):
         return pyarrow_wrap_table(c_table)
 
     def read_chunk(self):
-        """Read the next RecordBatch along with any metadata.
+        """Read the next FlightStreamChunk along with any metadata.
 
         Returns
         -------
-        data : RecordBatch
-            The next RecordBatch in the stream.
-        app_metadata : Buffer or None
-            Application-specific metadata for the batch as defined by
-            Flight.
+        chunk : FlightStreamChunk
+            The next FlightStreamChunk in the stream.
 
         Raises
         ------
@@ -1019,8 +1144,23 @@ cdef class _MetadataRecordBatchReader(_Weakrefable, _ReadPandasMixin):
         """
         cdef RecordBatchReader reader
         reader = RecordBatchReader.__new__(RecordBatchReader)
-        reader.reader = GetResultValue(MakeRecordBatchReader(self.reader))
+        with nogil:
+            reader.reader = GetResultValue(MakeRecordBatchReader(self.reader))
+
         return reader
+
+    @property
+    def stats(self):
+        """
+        Current Flight read statistics.
+
+        Returns
+        -------
+        ReadStats
+        """
+        if not self.reader:
+            raise ValueError("Operation on closed reader")
+        return _wrap_read_stats((<CMetadataRecordBatchReader*> self.reader.get()).stats())
 
 
 cdef class MetadataRecordBatchReader(_MetadataRecordBatchReader):
@@ -1107,8 +1247,8 @@ cdef class MetadataRecordBatchWriter(_CRecordBatchWriter):
         ----------
         table : Table
         max_chunksize : int, default None
-            Maximum size for RecordBatch chunks. Individual chunks may be
-            smaller depending on the chunk layout of individual columns.
+            Maximum number of rows for RecordBatch chunks. Individual chunks may
+            be smaller depending on the chunk layout of individual columns.
         """
         cdef:
             # max_chunksize must be > 0 to have any impact
@@ -1197,6 +1337,66 @@ cdef class FlightMetadataWriter(_Weakrefable):
             check_flight_status(self.writer.get().WriteMetadata(deref(buf)))
 
 
+class AsyncioCall:
+    """State for an async RPC using asyncio."""
+
+    def __init__(self) -> None:
+        import asyncio
+        self._future = asyncio.get_running_loop().create_future()
+
+    def as_awaitable(self) -> object:
+        return self._future
+
+    def wakeup(self, result_or_exception) -> None:
+        # Mark the Future done from within its loop (asyncio
+        # objects are generally not thread-safe)
+        loop = self._future.get_loop()
+        if isinstance(result_or_exception, BaseException):
+            loop.call_soon_threadsafe(
+                self._future.set_exception, result_or_exception)
+        else:
+            loop.call_soon_threadsafe(
+                self._future.set_result, result_or_exception)
+
+
+cdef class AsyncioFlightClient:
+    """
+    A FlightClient with an asyncio-based async interface.
+
+    This interface is EXPERIMENTAL.
+    """
+
+    cdef:
+        FlightClient _client
+
+    def __init__(self, FlightClient client) -> None:
+        self._client = client
+
+    async def get_flight_info(
+        self,
+        descriptor: FlightDescriptor,
+        *,
+        options: FlightCallOptions = None,
+    ):
+        call = AsyncioCall()
+        self._get_flight_info(call, descriptor, options)
+        return await call.as_awaitable()
+
+    cdef _get_flight_info(self, call, descriptor, options):
+        cdef:
+            CFlightCallOptions* c_options = \
+                FlightCallOptions.unwrap(options)
+            CFlightDescriptor c_descriptor = \
+                FlightDescriptor.unwrap(descriptor)
+            CFuture[CFlightInfo] c_future
+
+        with nogil:
+            c_future = self._client.client.get().GetFlightInfoAsync(
+                deref(c_options), c_descriptor)
+
+        BindFuture(move(c_future), call.wakeup, FlightInfo.wrap)
+
+
 cdef class FlightClient(_Weakrefable):
     """A client to a Flight service.
 
@@ -1259,7 +1459,6 @@ cdef class FlightClient(_Weakrefable):
               write_size_limit_bytes, disable_server_verification,
               generic_options):
         cdef:
-            int c_port = 0
             CLocation c_location = Location.unwrap(location)
             CFlightClientOptions c_options = CFlightClientOptions.Defaults()
             function[cb_client_middleware_start_call] start_call = \
@@ -1298,6 +1497,14 @@ cdef class FlightClient(_Weakrefable):
         with nogil:
             check_flight_status(CFlightClient.Connect(c_location, c_options
                                                       ).Value(&self.client))
+
+    @property
+    def supports_async(self):
+        return self.client.get().supports_async()
+
+    def as_async(self) -> None:
+        check_status(self.client.get().CheckAsyncSupport())
+        return AsyncioFlightClient(self)
 
     def wait_for_available(self, timeout=5):
         """Block until the server can be contacted.
@@ -1359,8 +1566,7 @@ cdef class FlightClient(_Weakrefable):
 
         if not isinstance(auth_handler, ClientAuthHandler):
             raise TypeError(
-                "FlightClient.authenticate takes a ClientAuthHandler, "
-                "not '{}'".format(type(auth_handler)))
+                f"FlightClient.authenticate takes a ClientAuthHandler, not '{type(auth_handler)}'")
         handler.reset((<ClientAuthHandler> auth_handler).to_handler())
         with nogil:
             check_flight_status(
@@ -1538,7 +1744,7 @@ cdef class FlightClient(_Weakrefable):
         with nogil:
             check_flight_status(
                 self.client.get().DoGet(
-                    deref(c_options), ticket.ticket).Value(&reader))
+                    deref(c_options), ticket.c_ticket).Value(&reader))
         result = FlightStreamReader()
         result.reader.reset(reader.release())
         return result
@@ -1604,7 +1810,9 @@ cdef class FlightClient(_Weakrefable):
 
     def close(self):
         """Close the client and disconnect."""
-        check_flight_status(self.client.get().Close())
+        client = self.client.get()
+        if client != NULL:
+            check_flight_status(client.Close())
 
     def __del__(self):
         # Not ideal, but close() wasn't originally present so
@@ -1661,7 +1869,7 @@ cdef class RecordBatchStream(FlightDataStream):
         if (not isinstance(data_source, RecordBatchReader) and
                 not isinstance(data_source, lib.Table)):
             raise TypeError("Expected RecordBatchReader or Table, "
-                            "but got: {}".format(type(data_source)))
+                            f"but got: {type(data_source)}")
         self.data_source = data_source
         self.write_options = _get_options(options).c_options
 
@@ -1674,8 +1882,8 @@ cdef class RecordBatchStream(FlightDataStream):
             table = (<Table> self.data_source).table
             reader.reset(new TableBatchReader(deref(table)))
         else:
-            raise RuntimeError("Can't construct RecordBatchStream "
-                               "from type {}".format(type(self.data_source)))
+            raise RuntimeError(
+                f"Can't construct RecordBatchStream from type {type(self.data_source)}")
         return new CRecordBatchStream(reader, self.write_options)
 
 
@@ -1734,6 +1942,14 @@ cdef class ServerCallContext(_Weakrefable):
     def is_cancelled(self):
         """Check if the current RPC call has been canceled by the client."""
         return self.context.is_cancelled()
+
+    def add_header(self, key, value):
+        """Add a response header."""
+        self.context.AddHeader(tobytes(key), tobytes(value))
+
+    def add_trailer(self, key, value):
+        """Add a response trailer."""
+        self.context.AddTrailer(tobytes(key), tobytes(value))
 
     def get_middleware(self, key):
         """
@@ -1909,8 +2125,9 @@ cdef CStatus _data_stream_next(void* self, CFlightPayload* payload) except *:
     max_attempts = 128
     for _ in range(max_attempts):
         if stream.current_stream != nullptr:
-            check_flight_status(
-                stream.current_stream.get().Next().Value(payload))
+            with nogil:
+                check_flight_status(
+                    stream.current_stream.get().Next().Value(payload))
             # If the stream ended, see if there's another stream from the
             # generator
             if payload.ipc_message.metadata != nullptr:
@@ -1948,8 +2165,7 @@ cdef CStatus _data_stream_next(void* self, CFlightPayload* payload) except *:
                 raise ValueError("Got a FlightDataStream whose schema "
                                  "does not match the declared schema of this "
                                  "GeneratorStream. "
-                                 "Got: {}\nExpected: {}".format(
-                                     substream_schema, stream_schema))
+                                 f"Got: {substream_schema}\nExpected: {stream_schema}")
             stream.current_stream.reset(
                 new CPyFlightDataStream(result, move(data_stream)))
             # Loop around and try again
@@ -1960,8 +2176,7 @@ cdef CStatus _data_stream_next(void* self, CFlightPayload* payload) except *:
                 raise ValueError("Got a RecordBatch whose schema does not "
                                  "match the declared schema of this "
                                  "GeneratorStream. "
-                                 "Got: {}\nExpected: {}".format(batch.schema,
-                                                                stream_schema))
+                                 f"Got: {batch.schema}\nExpected: {stream_schema}")
             check_flight_status(GetRecordBatchPayload(
                 deref(batch.batch),
                 stream.c_options,
@@ -1973,7 +2188,7 @@ cdef CStatus _data_stream_next(void* self, CFlightPayload* payload) except *:
             raise TypeError("GeneratorStream must be initialized with "
                             "an iterator of FlightDataStream, Table, "
                             "RecordBatch, or RecordBatchStreamReader objects, "
-                            "not {}.".format(type(result)))
+                            f"not {type(result)}.")
         # Don't loop around
         return CStatus_OK()
     # Ran out of attempts (the RPC handler kept yielding empty tables/readers)
@@ -1995,8 +2210,7 @@ cdef CStatus _list_flights(void* self, const CServerCallContext& context,
         for info in result:
             if not isinstance(info, FlightInfo):
                 raise TypeError("FlightServerBase.list_flights must return "
-                                "FlightInfo instances, but got {}".format(
-                                    type(info)))
+                                f"FlightInfo instances, but got {type(info)}")
             flights.push_back(deref((<FlightInfo> info).info.get()))
         listing.reset(new CSimpleFlightListing(flights))
     except FlightError as flight_error:
@@ -2020,8 +2234,7 @@ cdef CStatus _get_flight_info(void* self, const CServerCallContext& context,
         return (<FlightError> flight_error).to_status()
     if not isinstance(result, FlightInfo):
         raise TypeError("FlightServerBase.get_flight_info must return "
-                        "a FlightInfo instance, but got {}".format(
-                            type(result)))
+                        f"a FlightInfo instance, but got {type(result)}")
     info.reset(new CFlightInfo(deref((<FlightInfo> result).info.get())))
     return CStatus_OK()
 
@@ -2037,8 +2250,7 @@ cdef CStatus _get_schema(void* self, const CServerCallContext& context,
                                         py_descriptor)
     if not isinstance(result, SchemaResult):
         raise TypeError("FlightServerBase.get_schema_info must return "
-                        "a SchemaResult instance, but got {}".format(
-                            type(result)))
+                        f"a SchemaResult instance, but got {type(result)}")
     info.reset(new CSchemaResult(deref((<SchemaResult> result).result.get())))
     return CStatus_OK()
 
@@ -2280,8 +2492,8 @@ cdef dict convert_headers(const CCallHeaders& c_headers):
         CCallHeaders.const_iterator header_iter = c_headers.cbegin()
     headers = {}
     while header_iter != c_headers.cend():
-        header = c_string(deref(header_iter).first).decode("ascii")
-        value = c_string(deref(header_iter).second)
+        header = to_string(deref(header_iter).first).decode("ascii")
+        value = to_string(deref(header_iter).second)
         if not header.endswith("-bin"):
             # Text header values in gRPC (and HTTP/1, HTTP/2) are
             # required to be valid ASCII. Binary header values are
@@ -2560,7 +2772,7 @@ cdef class TracingServerMiddlewareFactory(ServerMiddlewareFactory):
 cdef class ServerMiddleware(_Weakrefable):
     """Server-side middleware for a call, instantiated per RPC.
 
-    Methods here should be fast and must be infalliable: they should
+    Methods here should be fast and must be infallible: they should
     not raise exceptions or stall indefinitely.
 
     """
@@ -2764,7 +2976,7 @@ cdef class FlightServerBase(_Weakrefable):
         if auth_handler:
             if not isinstance(auth_handler, ServerAuthHandler):
                 raise TypeError("auth_handler must be a ServerAuthHandler, "
-                                "not a '{}'".format(type(auth_handler)))
+                                f"not a '{type(auth_handler)}'")
             c_options.get().auth_handler.reset(
                 (<ServerAuthHandler> auth_handler).to_handler())
 
@@ -2995,7 +3207,7 @@ cdef class FlightServerBase(_Weakrefable):
     def serve(self):
         """Block until the server shuts down.
 
-        This method only returns if shutdown() is called or a signal a
+        This method only returns if shutdown() is called or a signal is
         received.
         """
         if self.server.get() == nullptr:
@@ -3020,6 +3232,8 @@ cdef class FlightServerBase(_Weakrefable):
         method, as then the server will block forever waiting for that
         request to finish. Instead, call this method from a background
         thread.
+
+        This method should only be called once.
         """
         # Must not hold the GIL: shutdown waits for pending RPCs to
         # complete. Holding the GIL means Python-implemented Flight

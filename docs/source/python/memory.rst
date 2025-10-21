@@ -46,7 +46,7 @@ parent-child relationships.
 
 There are many implementations of ``arrow::Buffer``, but they all provide a
 standard interface: a data pointer and length. This is similar to Python's
-built-in `buffer protocol` and ``memoryview`` objects.
+built-in ``buffer protocol`` and ``memoryview`` objects.
 
 A :class:`Buffer` can be created from any Python object implementing
 the buffer protocol by calling the :func:`py_buffer` function. Let's consider
@@ -102,7 +102,7 @@ Let's allocate a resizable :class:`Buffer` from the default pool:
    pa.total_allocated_bytes()
 
 The default allocator requests memory in a minimum increment of 64 bytes. If
-the buffer is garbaged-collected, all of the memory is freed:
+the buffer is garbage-collected, all of the memory is freed:
 
 .. ipython:: python
 
@@ -110,12 +110,12 @@ the buffer is garbaged-collected, all of the memory is freed:
    pa.total_allocated_bytes()
 
 Besides the default built-in memory pool, there may be additional memory pools
-to choose (such as `mimalloc <https://github.com/microsoft/mimalloc>`_)
-from depending on how Arrow was built.  One can get the backend
-name for a memory pool::
+to choose from (such as `jemalloc <http://jemalloc.net/>`_)
+depending on how Arrow was built.  One can get the backend name for a memory
+pool::
 
    >>> pa.default_memory_pool().backend_name
-   'jemalloc'
+   'mimalloc'
 
 .. seealso::
    :ref:`API documentation for memory pools <api.memory_pool>`.

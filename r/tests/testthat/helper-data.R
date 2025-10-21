@@ -17,7 +17,7 @@
 
 example_data <- tibble::tibble(
   int = c(1:3, NA_integer_, 5:10),
-  dbl = c(1:8, NA, 10) + .1,
+  dbl = c(1:8, NA, 10) + 0.1,
   dbl2 = rep(5, 10),
   lgl = sample(c(TRUE, FALSE, NA), 10, replace = TRUE),
   false = logical(10),
@@ -59,9 +59,9 @@ haven_data <- tibble::tibble(
 example_with_times <- tibble::tibble(
   date = Sys.Date() + 1:10,
   posixct = lubridate::ymd_hms("2018-10-07 19:04:05") + 1:10,
-  posixct_tz = lubridate::ymd_hms("2018-10-07 19:04:05", tz = "US/Eastern") + 1:10,
+  posixct_tz = lubridate::ymd_hms("2018-10-07 19:04:05", tz = "America/New_York") + 1:10,
   posixlt = as.POSIXlt(lubridate::ymd_hms("2018-10-07 19:04:05") + 1:10),
-  posixlt_tz = as.POSIXlt(lubridate::ymd_hms("2018-10-07 19:04:05", tz = "US/Eastern") + 1:10)
+  posixlt_tz = as.POSIXlt(lubridate::ymd_hms("2018-10-07 19:04:05", tz = "America/New_York") + 1:10)
 )
 
 verses <- list(

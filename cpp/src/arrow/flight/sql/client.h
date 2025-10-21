@@ -101,6 +101,24 @@ class ARROW_FLIGHT_SQL_EXPORT FlightSqlClient {
       const FlightCallOptions& options, const SubstraitPlan& plan,
       const Transaction& transaction = no_transaction());
 
+  /// \brief Execute a bulk ingestion to the server.
+  /// \param[in] options                   RPC-layer hints for this call.
+  /// \param[in] reader                    The records to ingest.
+  /// \param[in] table_definition_options  The behavior for handling the table definition.
+  /// \param[in] table                     The destination table to load into.
+  /// \param[in] schema                    The DB schema of the destination table.
+  /// \param[in] catalog                   The catalog of the destination table.
+  /// \param[in] temporary                 Use a temporary table.
+  /// \param[in] transaction               Ingest as part of this transaction.
+  /// \param[in] ingest_options            Additional, backend-specific options.
+  /// \return The number of rows ingested to the server.
+  arrow::Result<int64_t> ExecuteIngest(
+      const FlightCallOptions& options, const std::shared_ptr<RecordBatchReader>& reader,
+      const TableDefinitionOptions& table_definition_options, const std::string& table,
+      const std::optional<std::string>& schema, const std::optional<std::string>& catalog,
+      const bool temporary, const Transaction& transaction = no_transaction(),
+      const std::unordered_map<std::string, std::string>& ingest_options = {});
+
   /// \brief Request a list of catalogs.
   /// \param[in] options      RPC-layer hints for this call.
   /// \return The FlightInfo describing where to access the dataset.
@@ -131,7 +149,7 @@ class ARROW_FLIGHT_SQL_EXPORT FlightSqlClient {
   /// \param[in] options Per-RPC options
   /// \param[in] ticket The flight ticket to use
   /// \return The returned RecordBatchReader
-  arrow::Result<std::unique_ptr<FlightStreamReader>> DoGet(
+  virtual arrow::Result<std::unique_ptr<FlightStreamReader>> DoGet(
       const FlightCallOptions& options, const Ticket& ticket);
 
   /// \brief Request a list of tables.
@@ -323,36 +341,92 @@ class ARROW_FLIGHT_SQL_EXPORT FlightSqlClient {
   /// \param[in] savepoint    The savepoint.
   Status Rollback(const FlightCallOptions& options, const Savepoint& savepoint);
 
+  /// \brief Explicitly cancel a FlightInfo.
+  ///
+  /// \param[in] options      RPC-layer hints for this call.
+  /// \param[in] request      The CancelFlightInfoRequest.
+  /// \return Arrow result with a canceled result.
+  ::arrow::Result<CancelFlightInfoResult> CancelFlightInfo(
+      const FlightCallOptions& options, const CancelFlightInfoRequest& request) {
+    return impl_->CancelFlightInfo(options, request);
+  }
+
   /// \brief Explicitly cancel a query.
   ///
   /// \param[in] options      RPC-layer hints for this call.
   /// \param[in] info         The FlightInfo of the query to cancel.
+  ///
+  /// \deprecated Deprecated since 13.0.0. Use CancelFlightInfo()
+  /// instead. If you can assume that a server requires 13.0.0 or
+  /// later, you can always use CancelFlightInfo(). Otherwise, you may
+  /// need to use CancelQuery() and/or CancelFlightInfo().
+  ARROW_DEPRECATED(
+      "Deprecated in 13.0.0. Use CancelFlightInfo() instead. "
+      "If you can assume that a server requires 13.0.0 or later, "
+      "you can always use CancelFLightInfo(). Otherwise, you "
+      "may need to use CancelQuery() and/or CancelFlightInfo()")
   ::arrow::Result<CancelResult> CancelQuery(const FlightCallOptions& options,
                                             const FlightInfo& info);
+
+  /// \brief Sets session options.
+  ///
+  /// \param[in] options            RPC-layer hints for this call.
+  /// \param[in] request            The session options to set.
+  ::arrow::Result<SetSessionOptionsResult> SetSessionOptions(
+      const FlightCallOptions& options, const SetSessionOptionsRequest& request) {
+    return impl_->SetSessionOptions(options, request);
+  }
+
+  /// \brief Gets current session options.
+  ///
+  /// \param[in] options            RPC-layer hints for this call.
+  /// \param[in] request            The (empty) GetSessionOptions request object.
+  ::arrow::Result<GetSessionOptionsResult> GetSessionOptions(
+      const FlightCallOptions& options, const GetSessionOptionsRequest& request) {
+    return impl_->GetSessionOptions(options, request);
+  }
+
+  /// \brief Explicitly closes the session if applicable.
+  ///
+  /// \param[in] options      RPC-layer hints for this call.
+  /// \param[in] request      The (empty) CloseSession request object.
+  ::arrow::Result<CloseSessionResult> CloseSession(const FlightCallOptions& options,
+                                                   const CloseSessionRequest& request) {
+    return impl_->CloseSession(options, request);
+  }
+
+  /// \brief Extends the expiration of a FlightEndpoint.
+  ///
+  /// \param[in] options      RPC-layer hints for this call.
+  /// \param[in] request      The RenewFlightEndpointRequest.
+  /// \return Arrow result with a renewed FlightEndpoint
+  ::arrow::Result<FlightEndpoint> RenewFlightEndpoint(
+      const FlightCallOptions& options, const RenewFlightEndpointRequest& request) {
+    return impl_->RenewFlightEndpoint(options, request);
+  }
 
   /// \brief Explicitly shut down and clean up the client.
   Status Close();
 
- protected:
-  virtual Status DoPut(const FlightCallOptions& options,
-                       const FlightDescriptor& descriptor,
-                       const std::shared_ptr<Schema>& schema,
-                       std::unique_ptr<FlightStreamWriter>* writer,
-                       std::unique_ptr<FlightMetadataReader>* reader) {
-    ARROW_ASSIGN_OR_RAISE(auto result, impl_->DoPut(options, descriptor, schema));
-    *writer = std::move(result.writer);
-    *reader = std::move(result.reader);
-    return Status::OK();
+  /// \brief Wrapper around FlightClient::DoGet.
+  ///
+  /// \internal
+  /// Don't call this directly.
+  /// \endinternal
+  virtual ::arrow::Result<FlightClient::DoPutResult> DoPut(
+      const FlightCallOptions& options, const FlightDescriptor& descriptor,
+      const std::shared_ptr<Schema>& schema) {
+    return impl_->DoPut(options, descriptor, schema);
   }
 
-  virtual Status DoGet(const FlightCallOptions& options, const Ticket& ticket,
-                       std::unique_ptr<FlightStreamReader>* stream) {
-    return impl_->DoGet(options, ticket).Value(stream);
-  }
-
-  virtual Status DoAction(const FlightCallOptions& options, const Action& action,
-                          std::unique_ptr<ResultStream>* results) {
-    return impl_->DoAction(options, action).Value(results);
+  /// \brief Wrapper around FlightClient::DoPut. Don't call this directly.
+  ///
+  /// \internal
+  /// Don't call this directly.
+  /// \endinternal
+  virtual ::arrow::Result<std::unique_ptr<ResultStream>> DoAction(
+      const FlightCallOptions& options, const Action& action) {
+    return impl_->DoAction(options, action);
   }
 };
 

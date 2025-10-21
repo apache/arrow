@@ -33,14 +33,7 @@
 #include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/util/checked_cast.h"
-#include "arrow/util/logging.h"
-
-namespace std {
-template <>
-struct hash<arrow::FieldPath> {
-  size_t operator()(const arrow::FieldPath& path) const { return path.hash(); }
-};
-}  // namespace std
+#include "arrow/util/logging_internal.h"
 
 namespace arrow {
 
@@ -54,7 +47,7 @@ using internal::FieldPosition;
 // DictionaryFieldMapper implementation
 
 struct DictionaryFieldMapper::Impl {
-  using FieldPathMap = std::unordered_map<FieldPath, int64_t>;
+  using FieldPathMap = std::unordered_map<FieldPath, int64_t, FieldPath::Hash>;
 
   FieldPathMap field_path_to_id;
 

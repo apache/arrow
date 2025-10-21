@@ -17,9 +17,9 @@
 
 import numpy as np
 import pandas as pd
-import pandas.util.testing as tm
 
 import pyarrow as pa
+from pyarrow.tests.util import rands
 
 
 class PandasConversionsBase(object):
@@ -60,7 +60,7 @@ class ToPandasStrings(object):
 
     def setup(self, uniqueness, total):
         nunique = int(total * uniqueness)
-        unique_values = [tm.rands(self.string_length) for i in range(nunique)]
+        unique_values = [rands(self.string_length) for i in range(nunique)]
         values = unique_values * (total // nunique)
         self.arr = pa.array(values, type=pa.string())
         self.table = pa.Table.from_arrays([self.arr], ['f0'])
@@ -70,26 +70,6 @@ class ToPandasStrings(object):
 
     def time_to_pandas_no_dedup(self, *args):
         self.arr.to_pandas(deduplicate_objects=False)
-
-
-class ZeroCopyPandasRead(object):
-
-    def setup(self):
-        # Transpose to make column-major
-        values = np.random.randn(10, 100000)
-
-        df = pd.DataFrame(values.T)
-        ctx = pa.default_serialization_context()
-
-        self.serialized = ctx.serialize(df)
-        self.as_buffer = self.serialized.to_buffer()
-        self.as_components = self.serialized.to_components()
-
-    def time_deserialize_from_buffer(self):
-        pa.deserialize(self.as_buffer)
-
-    def time_deserialize_from_components(self):
-        pa.deserialize_components(self.as_components)
 
 
 class SerializeDeserializePandas(object):

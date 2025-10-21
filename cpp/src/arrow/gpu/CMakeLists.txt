@@ -32,8 +32,11 @@ endif()
 set(ARROW_CUDA_LINK_LIBS arrow::flatbuffers)
 if(CMAKE_VERSION VERSION_LESS 3.17)
   find_package(CUDA REQUIRED)
-  set(ARROW_CUDA_SHARED_LINK_LIBS ${CUDA_CUDA_LIBRARY})
-  include_directories(SYSTEM ${CUDA_INCLUDE_DIRS})
+  add_library(ArrowCUDA::cuda_driver SHARED IMPORTED)
+  set_target_properties(ArrowCUDA::cuda_driver
+                        PROPERTIES IMPORTED_LOCATION "${CUDA_CUDA_LIBRARY}"
+                                   INTERFACE_INCLUDE_DIRECTORIES "${CUDA_INCLUDE_DIRS}")
+  set(ARROW_CUDA_SHARED_LINK_LIBS ArrowCUDA::cuda_driver)
 else()
   # find_package(CUDA) is deprecated, and for newer CUDA, it doesn't
   # recognize that the CUDA driver library is in the "stubs" dir, but
@@ -42,13 +45,27 @@ else()
   set(ARROW_CUDA_SHARED_LINK_LIBS CUDA::cuda_driver)
 endif()
 
+# If only libarrow_cuda.a is built, "pkg-config --cflags --libs
+# arrow-cuda" will include build flags for static linking not shared
+# linking.
+# The variables ARROW_CUDA_PC_* (except ARROW_CUDA_PC_*_PRIVATE) are used
+# specifically for the static linking case to ensure the correct flags
+# are provided.
+if(NOT ARROW_BUILD_SHARED AND ARROW_BUILD_STATIC)
+  string(APPEND ARROW_CUDA_PC_CFLAGS "${ARROW_CUDA_PC_CFLAGS_PRIVATE}")
+  set(ARROW_CUDA_PC_CFLAGS_PRIVATE "")
+endif()
+
 set(ARROW_CUDA_SRCS cuda_arrow_ipc.cc cuda_context.cc cuda_internal.cc cuda_memory.cc)
 
+set(ARROW_CUDA_PKG_CONFIG_NAME_ARGS)
+if(NOT WINDOWS)
+  list(APPEND ARROW_CUDA_PKG_CONFIG_NAME_ARGS PKG_CONFIG_NAME arrow-cuda)
+endif()
 add_arrow_lib(arrow_cuda
               CMAKE_PACKAGE_NAME
               ArrowCUDA
-              PKG_CONFIG_NAME
-              arrow-cuda
+              ${ARROW_CUDA_PKG_CONFIG_NAME_ARGS}
               SOURCES
               ${ARROW_CUDA_SRCS}
               OUTPUTS
@@ -56,11 +73,12 @@ add_arrow_lib(arrow_cuda
               SHARED_LINK_FLAGS
               ${ARROW_VERSION_SCRIPT_FLAGS} # Defined in cpp/arrow/CMakeLists.txt
               SHARED_LINK_LIBS
-              arrow_shared
               ${ARROW_CUDA_LINK_LIBS}
+              arrow_shared
               ${ARROW_CUDA_SHARED_LINK_LIBS}
               SHARED_INSTALL_INTERFACE_LIBS
               Arrow::arrow_shared
+              ${ARROW_CUDA_SHARED_LINK_LIBS}
               # Static arrow_cuda must also link against CUDA shared libs
               STATIC_LINK_LIBS
               ${ARROW_CUDA_LINK_LIBS}
@@ -72,7 +90,7 @@ add_arrow_lib(arrow_cuda
 add_dependencies(arrow_cuda ${ARROW_CUDA_LIBRARIES})
 
 foreach(LIB_TARGET ${ARROW_CUDA_LIBRARIES})
-  target_compile_definitions(${LIB_TARGET} PRIVATE ARROW_EXPORTING)
+  target_compile_definitions(${LIB_TARGET} PRIVATE ARROW_CUDA_EXPORTING)
 endforeach()
 
 # CUDA build version
@@ -96,9 +114,10 @@ if(ARROW_BUILD_TESTS)
 endif()
 
 if(ARROW_BUILD_BENCHMARKS)
-  add_arrow_benchmark(cuda_benchmark PREFIX "arrow-gpu")
-  target_link_libraries(arrow-gpu-cuda-benchmark
-                        PUBLIC ${ARROW_CUDA_LIBRARY} GTest::gtest
-                               ${ARROW_BENCHMARK_LINK_LIBS})
+  add_arrow_benchmark(cuda_benchmark
+                      PREFIX
+                      "arrow-gpu"
+                      EXTRA_LINK_LIBS
+                      ${ARROW_CUDA_LIBRARY})
   add_dependencies(arrow_cuda-benchmarks arrow-gpu-cuda-benchmark)
 endif()

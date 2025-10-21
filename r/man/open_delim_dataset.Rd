@@ -24,7 +24,9 @@ open_delim_dataset(
   skip = 0L,
   convert_options = NULL,
   read_options = NULL,
-  timestamp_parsers = NULL
+  timestamp_parsers = NULL,
+  quoted_na = TRUE,
+  parse_options = NULL
 )
 
 open_csv_dataset(
@@ -44,7 +46,9 @@ open_csv_dataset(
   skip = 0L,
   convert_options = NULL,
   read_options = NULL,
-  timestamp_parsers = NULL
+  timestamp_parsers = NULL,
+  quoted_na = TRUE,
+  parse_options = NULL
 )
 
 open_tsv_dataset(
@@ -64,7 +68,9 @@ open_tsv_dataset(
   skip = 0L,
   convert_options = NULL,
   read_options = NULL,
-  timestamp_parsers = NULL
+  timestamp_parsers = NULL,
+  quoted_na = TRUE,
+  parse_options = NULL
 )
 }
 \arguments{
@@ -166,9 +172,9 @@ filled with missings.}
 
 \item{skip}{Number of lines to skip before reading data.}
 
-\item{convert_options}{see \link[=CsvReadOptions]{file reader options}}
+\item{convert_options}{see \link[=csv_convert_options]{CSV conversion options}}
 
-\item{read_options}{see \link[=CsvReadOptions]{file reader options}}
+\item{read_options}{see \link[=csv_read_options]{CSV reading options}}
 
 \item{timestamp_parsers}{User-defined timestamp parsers. If more than one
 parser is specified, the CSV conversion logic will try parsing values
@@ -178,10 +184,19 @@ starting from the beginning of this vector. Possible values are:
 \item a character vector of \link[base:strptime]{strptime} parse strings
 \item a list of \link{TimestampParser} objects
 }}
+
+\item{quoted_na}{Should missing values inside quotes be treated as missing
+values (the default) or strings. (Note that this is different from the
+the Arrow C++ default for the corresponding convert option,
+\code{strings_can_be_null}.)}
+
+\item{parse_options}{see \link[=csv_parse_options]{CSV parsing options}.
+If given, this overrides any
+parsing options provided in other arguments (e.g. \code{delim}, \code{quote}, etc.).}
 }
 \description{
 A wrapper around \link{open_dataset} which explicitly includes parameters mirroring \code{\link[=read_csv_arrow]{read_csv_arrow()}},
-\code{\link[=read_delim_arrow]{read_delim_arrow()}}, and \code{\link[=read_tsv_arrow]{read_tsv_arrow()}} to allows for easy switching between functions
+\code{\link[=read_delim_arrow]{read_delim_arrow()}}, and \code{\link[=read_tsv_arrow]{read_tsv_arrow()}} to allow for easy switching between functions
 for opening single files and functions for opening datasets.
 }
 \section{Options currently supported by \code{\link[=read_delim_arrow]{read_delim_arrow()}} which are not supported here}{
@@ -189,7 +204,6 @@ for opening single files and functions for opening datasets.
 \itemize{
 \item \code{file} (instead, please specify files in \code{sources})
 \item \code{col_select} (instead, subset columns after dataset creation)
-\item \code{quoted_na}
 \item \code{as_data_frame} (instead, convert to data frame after dataset creation)
 \item \code{parse_options}
 }
@@ -200,15 +214,22 @@ for opening single files and functions for opening datasets.
 # Set up directory for examples
 tf <- tempfile()
 dir.create(tf)
-df <- data.frame(x = c("1", "2", "NULL"))
 
+df <- data.frame(x = c("1", "2", "NULL"))
 file_path <- file.path(tf, "file1.txt")
 write.table(df, file_path, sep = ",", row.names = FALSE)
 
+# Use readr-style params identically in both `read_csv_dataset()` and `open_csv_dataset()`
 read_csv_arrow(file_path, na = c("", "NA", "NULL"), col_names = "y", skip = 1)
 open_csv_dataset(file_path, na = c("", "NA", "NULL"), col_names = "y", skip = 1)
 
-unlink(tf)
+# Use `col_types` to specify a schema, partial schema, or compact representation
+tf2 <- tempfile()
+write_csv_dataset(cars, tf2)
+
+open_csv_dataset(tf2, col_types = schema(speed = int32(), dist = int32()))
+open_csv_dataset(tf2, col_types = schema(speed = int32()))
+open_csv_dataset(tf2, col_types = "ii", col_names = c("speed", "dist"), skip = 1)
 \dontshow{\}) # examplesIf}
 }
 \seealso{

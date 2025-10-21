@@ -31,7 +31,7 @@
 #include <vector>
 
 #include "arrow/compute/api_aggregate.h"
-#include "arrow/compute/exec/expression.h"
+#include "arrow/compute/expression.h"
 #include "arrow/engine/substrait/type_fwd.h"
 #include "arrow/engine/substrait/visibility.h"
 #include "arrow/result.h"
@@ -67,6 +67,12 @@ constexpr const char* kSubstraitAggregateGenericFunctionsUri =
     "https://github.com/substrait-io/substrait/blob/main/extensions/"
     "functions_aggregate_generic.yaml";
 
+/// If a function call contains this URI then the function is looked up
+/// in the registry directly, all arguments are mapped as value arguments,
+/// and any options are ignored.
+constexpr const char* kArrowSimpleExtensionFunctionsUri =
+    "urn:arrow:substrait_simple_extension_function";
+
 struct ARROW_ENGINE_EXPORT Id {
   std::string_view uri, name;
   bool empty() const { return uri.empty() && name.empty(); }
@@ -80,7 +86,7 @@ struct ARROW_ENGINE_EXPORT IdHashEq {
 /// \brief Owning storage for ids
 ///
 /// Substrait plans may reuse URIs and names in many places.  For convenience
-/// and performance Substarit ids are typically passed around as views.  As we
+/// and performance Substrait ids are typically passed around as views.  As we
 /// convert a plan from Substrait to Arrow we need to copy these strings out of
 /// the Substrait buffer and into owned storage.  This class serves as that owned
 /// storage.
@@ -125,6 +131,9 @@ class ARROW_ENGINE_EXPORT SubstraitCall {
   const std::shared_ptr<DataType>& output_type() const { return output_type_; }
   bool output_nullable() const { return output_nullable_; }
   bool is_hash() const { return is_hash_; }
+  const std::unordered_map<std::string, std::vector<std::string>>& options() const {
+    return options_;
+  }
 
   bool HasEnumArg(int index) const;
   Result<std::string_view> GetEnumArg(int index) const;
@@ -132,10 +141,11 @@ class ARROW_ENGINE_EXPORT SubstraitCall {
   Result<compute::Expression> GetValueArg(int index) const;
   bool HasValueArg(int index) const;
   void SetValueArg(int index, compute::Expression value_arg);
-  std::optional<std::vector<std::string> const*> GetOption(
+  std::optional<const std::vector<std::string>*> GetOption(
       std::string_view option_name) const;
   void SetOption(std::string_view option_name,
                  const std::vector<std::string_view>& option_preferences);
+  bool HasOptions() const;
   int size() const { return size_; }
 
  private:
@@ -283,8 +293,12 @@ class ARROW_ENGINE_EXPORT ExtensionIdRegistry {
 };
 
 constexpr std::string_view kArrowExtTypesUri =
-    "https://github.com/apache/arrow/blob/master/format/substrait/"
+    "https://github.com/apache/arrow/blob/main/format/substrait/"
     "extension_types.yaml";
+// Extension types that don't match 1:1 with a data type (or the data type is
+// parameterized)
+constexpr std::string_view kTimeNanosTypeName = "time_nanos";
+constexpr Id kTimeNanosId = {kArrowExtTypesUri, kTimeNanosTypeName};
 
 /// A default registry with all supported functions and data types registered
 ///
@@ -419,6 +433,15 @@ class ARROW_ENGINE_EXPORT ExtensionSet {
   ///
   /// \return An anchor that can be used to refer to the function within a plan
   Result<uint32_t> EncodeFunction(Id function_id);
+
+  /// \brief Stores a plan-specific id that is not known to the registry
+  ///
+  /// This is used when converting an Arrow execution plan to a Substrait plan.
+  ///
+  /// If the function is a UDF, something that wasn't known to the registry,
+  /// then we need long term storage of the function name (the ids are just
+  /// views)
+  Id RegisterPlanSpecificId(Id id);
 
   /// \brief Return the number of custom functions in this extension set
   std::size_t num_functions() const { return functions_.size(); }

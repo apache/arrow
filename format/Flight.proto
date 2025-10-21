@@ -17,9 +17,10 @@
  */
 
 syntax = "proto3";
+import "google/protobuf/timestamp.proto";
 
 option java_package = "org.apache.arrow.flight.impl";
-option go_package = "github.com/apache/arrow/go/arrow/flight/internal/flight";
+option go_package = "github.com/apache/arrow-go/arrow/flight/gen/flight";
 option csharp_namespace = "Apache.Arrow.Flight.Protocol";
 
 package arrow.flight.protocol;
@@ -63,6 +64,32 @@ service FlightService {
    * service.
    */
   rpc GetFlightInfo(FlightDescriptor) returns (FlightInfo) {}
+
+  /*
+   * For a given FlightDescriptor, start a query and get information
+   * to poll its execution status. This is a useful interface if the
+   * query may be a long-running query. The first PollFlightInfo call
+   * should return as quickly as possible. (GetFlightInfo doesn't
+   * return until the query is complete.)
+   *
+   * A client can consume any available results before
+   * the query is completed. See PollInfo.info for details.
+   *
+   * A client can poll the updated query status by calling
+   * PollFlightInfo() with PollInfo.flight_descriptor. A server
+   * should not respond until the result would be different from last
+   * time. That way, the client can "long poll" for updates
+   * without constantly making requests. Clients can set a short timeout
+   * to avoid blocking calls if desired.
+   *
+   * A client can't use PollInfo.flight_descriptor after
+   * PollInfo.expiration_time passes. A server might not accept the
+   * retry descriptor anymore and the query may be cancelled.
+   *
+   * A client may use the CancelFlightInfo action with
+   * PollInfo.info to cancel the running query.
+   */
+  rpc PollFlightInfo(FlightDescriptor) returns (PollInfo) {}
 
   /*
    * For a given FlightDescriptor, get the Schema as described in Schema.fbs::Schema
@@ -115,7 +142,6 @@ service FlightService {
    * understand the capabilities of the flight service.
    */
   rpc ListActions(Empty) returns (stream ActionType) {}
-
 }
 
 /*
@@ -266,14 +292,178 @@ message FlightInfo {
    * In other words, an application can use multiple endpoints to
    * represent partitioned data.
    *
-   * There is no ordering defined on endpoints. Hence, if the returned
-   * data has an ordering, it should be returned in a single endpoint.
+   * If the returned data has an ordering, an application can use
+   * "FlightInfo.ordered = true" or should return the all data in a
+   * single endpoint. Otherwise, there is no ordering defined on
+   * endpoints or the data within.
+   *
+   * A client can read ordered data by reading data from returned
+   * endpoints, in order, from front to back.
+   *
+   * Note that a client may ignore "FlightInfo.ordered = true". If an
+   * ordering is important for an application, an application must
+   * choose one of them:
+   *
+   * * An application requires that all clients must read data in
+   *   returned endpoints order.
+   * * An application must return the all data in a single endpoint.
    */
   repeated FlightEndpoint endpoint = 3;
 
   // Set these to -1 if unknown.
   int64 total_records = 4;
   int64 total_bytes = 5;
+
+  /*
+   * FlightEndpoints are in the same order as the data.
+   */
+  bool ordered = 6;
+
+  /*
+   * Application-defined metadata.
+   *
+   * There is no inherent or required relationship between this
+   * and the app_metadata fields in the FlightEndpoints or resulting
+   * FlightData messages. Since this metadata is application-defined,
+   * a given application could define there to be a relationship,
+   * but there is none required by the spec.
+   */
+  bytes app_metadata = 7;
+}
+
+/*
+ * The information to process a long-running query.
+ */
+message PollInfo {
+  /*
+   * The currently available results.
+   *
+   * If "flight_descriptor" is not specified, the query is complete
+   * and "info" specifies all results. Otherwise, "info" contains
+   * partial query results.
+   *
+   * Note that each PollInfo response contains a complete
+   * FlightInfo (not just the delta between the previous and current
+   * FlightInfo).
+   *
+   * Subsequent PollInfo responses may only append new endpoints to
+   * info.
+   *
+   * Clients can begin fetching results via DoGet(Ticket) with the
+   * ticket in the info before the query is
+   * completed. FlightInfo.ordered is also valid.
+   */
+  FlightInfo info = 1;
+
+  /*
+   * The descriptor the client should use on the next try.
+   * If unset, the query is complete.
+   */
+  FlightDescriptor flight_descriptor = 2;
+
+  /*
+   * Query progress. If known, must be in [0.0, 1.0] but need not be
+   * monotonic or nondecreasing. If unknown, do not set.
+   */
+  optional double progress = 3;
+
+  /*
+   * Expiration time for this request. After this passes, the server
+   * might not accept the retry descriptor anymore (and the query may
+   * be cancelled). This may be updated on a call to PollFlightInfo.
+   */
+  google.protobuf.Timestamp expiration_time = 4;
+}
+
+/*
+ * The request of the CancelFlightInfo action.
+ *
+ * The request should be stored in Action.body.
+ */
+message CancelFlightInfoRequest {
+  FlightInfo info = 1;
+}
+
+/*
+ * The result of a cancel operation.
+ *
+ * This is used by CancelFlightInfoResult.status.
+ */
+enum CancelStatus {
+  // The cancellation status is unknown. Servers should avoid using
+  // this value (send a NOT_FOUND error if the requested query is
+  // not known). Clients can retry the request.
+  CANCEL_STATUS_UNSPECIFIED = 0;
+  // The cancellation request is complete. Subsequent requests with
+  // the same payload may return CANCELLED or a NOT_FOUND error.
+  CANCEL_STATUS_CANCELLED = 1;
+  // The cancellation request is in progress. The client may retry
+  // the cancellation request.
+  CANCEL_STATUS_CANCELLING = 2;
+  // The query is not cancellable. The client should not retry the
+  // cancellation request.
+  CANCEL_STATUS_NOT_CANCELLABLE = 3;
+}
+
+/*
+ * The result of the CancelFlightInfo action.
+ *
+ * The result should be stored in Result.body.
+ */
+message CancelFlightInfoResult {
+  CancelStatus status = 1;
+}
+
+/*
+ * An opaque identifier that the service can use to retrieve a particular
+ * portion of a stream.
+ *
+ * Tickets are meant to be single use. It is an error/application-defined
+ * behavior to reuse a ticket.
+ */
+message Ticket {
+  bytes ticket = 1;
+}
+
+/*
+ * A location to retrieve a particular stream from. This URI should be one of
+ * the following:
+ *  - An empty string or the string 'arrow-flight-reuse-connection://?':
+ *    indicating that the ticket can be redeemed on the service where the
+ *    ticket was generated via a DoGet request.
+ *  - A valid grpc URI (grpc://, grpc+tls://, grpc+unix://, etc.):
+ *    indicating that the ticket can be redeemed on the service at the given
+ *    URI via a DoGet request.
+ *  - A valid HTTP URI (http://, https://, etc.):
+ *    indicating that the client should perform a GET request against the
+ *    given URI to retrieve the stream. The ticket should be empty
+ *    in this case and should be ignored by the client. Cloud object storage
+ *    can be utilized by presigned URLs or mediating the auth separately and
+ *    returning the full URL (e.g. https://amzn-s3-demo-bucket.s3.us-west-2.amazonaws.com/...).
+ *
+ * We allow non-Flight URIs for the purpose of allowing Flight services to indicate that
+ * results can be downloaded in formats other than Arrow (such as Parquet) or to allow
+ * direct fetching of results from a URI to reduce excess copying and data movement.
+ * In these cases, the following conventions should be followed by servers and clients:
+ *
+ *  - Unless otherwise specified by the 'Content-Type' header of the response,
+ *    a client should assume the response is using the Arrow IPC Streaming format.
+ *    Usage of an IANA media type like 'application/octet-stream' should be assumed to
+ *    be using the Arrow IPC Streaming format.
+ *  - The server may allow the client to choose a specific response format by
+ *    specifying an 'Accept' header in the request, such as 'application/vnd.apache.parquet'
+ *    or 'application/vnd.apache.arrow.stream'. If multiple types are requested and
+ *    supported by the server, the choice of which to use is server-specific. If
+ *    none of the requested content-types are supported, the server may respond with
+ *    either 406 (Not Acceptable) or 415 (Unsupported Media Type), or successfully
+ *    respond with a different format that it does support along with the correct
+ *    'Content-Type' header.
+ *
+ * Note: new schemes may be proposed in the future to allow for more flexibility based
+ * on community requests.
+ */
+message Location {
+  string uri = 1;
 }
 
 /*
@@ -293,35 +483,47 @@ message FlightEndpoint {
    * be redeemed on the current service where the ticket was
    * generated.
    *
-   * If the list is not empty, the expectation is that the ticket can
-   * be redeemed at any of the locations, and that the data returned
-   * will be equivalent. In this case, the ticket may only be redeemed
-   * at one of the given locations, and not (necessarily) on the
-   * current service.
+   * If the list is not empty, the expectation is that the ticket can be
+   * redeemed at any of the locations, and that the data returned will be
+   * equivalent. In this case, the ticket may only be redeemed at one of the
+   * given locations, and not (necessarily) on the current service. If one
+   * of the given locations is "arrow-flight-reuse-connection://?", the
+   * client may redeem the ticket on the service where the ticket was
+   * generated (i.e., the same as above), in addition to the other
+   * locations. (This URI was chosen to maximize compatibility, as 'scheme:'
+   * or 'scheme://' are not accepted by Java's java.net.URI.)
    *
    * In other words, an application can use multiple locations to
    * represent redundant and/or load balanced services.
    */
   repeated Location location = 2;
+
+  /*
+   * Expiration time of this stream. If present, clients may assume
+   * they can retry DoGet requests. Otherwise, it is
+   * application-defined whether DoGet requests may be retried.
+   */
+  google.protobuf.Timestamp expiration_time = 3;
+
+  /*
+   * Application-defined metadata.
+   *
+   * There is no inherent or required relationship between this
+   * and the app_metadata fields in the FlightInfo or resulting
+   * FlightData messages. Since this metadata is application-defined,
+   * a given application could define there to be a relationship,
+   * but there is none required by the spec.
+   */
+  bytes app_metadata = 4;
 }
 
 /*
- * A location where a Flight service will accept retrieval of a particular
- * stream given a ticket.
- */
-message Location {
-  string uri = 1;
-}
-
-/*
- * An opaque identifier that the service can use to retrieve a particular
- * portion of a stream.
+ * The request of the RenewFlightEndpoint action.
  *
- * Tickets are meant to be single use. It is an error/application-defined
- * behavior to reuse a ticket.
+ * The request should be stored in Action.body.
  */
-message Ticket {
-  bytes ticket = 1;
+message RenewFlightEndpointRequest {
+  FlightEndpoint endpoint = 1;
 }
 
 /*
@@ -359,4 +561,118 @@ message FlightData {
  */
 message PutResult {
   bytes app_metadata = 1;
+}
+
+/*
+ * EXPERIMENTAL: Union of possible value types for a Session Option to be set to.
+ *
+ * By convention, an attempt to set a valueless SessionOptionValue should
+ * attempt to unset or clear the named option value on the server.
+ */
+message SessionOptionValue {
+  message StringListValue {
+    repeated string values = 1;
+  }
+
+  oneof option_value {
+    string string_value = 1;
+    bool bool_value = 2;
+    sfixed64 int64_value = 3;
+    double double_value = 4;
+    StringListValue string_list_value = 5;
+  }
+}
+
+/*
+ * EXPERIMENTAL: A request to set session options for an existing or new (implicit)
+ * server session.
+ *
+ * Sessions are persisted and referenced via a transport-level state management, typically
+ * RFC 6265 HTTP cookies when using an HTTP transport.  The suggested cookie name or state
+ * context key is 'arrow_flight_session_id', although implementations may freely choose their
+ * own name.
+ *
+ * Session creation (if one does not already exist) is implied by this RPC request, however
+ * server implementations may choose to initiate a session that also contains client-provided
+ * session options at any other time, e.g. on authentication, or when any other call is made
+ * and the server wishes to use a session to persist any state (or lack thereof).
+ */
+message SetSessionOptionsRequest {
+  map<string, SessionOptionValue> session_options = 1;
+}
+
+/*
+ * EXPERIMENTAL: The results (individually) of setting a set of session options.
+ *
+ * Option names should only be present in the response if they were not successfully
+ * set on the server; that is, a response without an Error for a name provided in the
+ * SetSessionOptionsRequest implies that the named option value was set successfully.
+ */
+message SetSessionOptionsResult {
+  enum ErrorValue {
+    // Protobuf deserialization fallback value: The status is unknown or unrecognized.
+    // Servers should avoid using this value. The request may be retried by the client.
+    UNSPECIFIED = 0;
+    // The given session option name is invalid.
+    INVALID_NAME = 1;
+    // The session option value or type is invalid.
+    INVALID_VALUE = 2;
+    // The session option cannot be set.
+    ERROR = 3;
+  }
+
+  message Error {
+    ErrorValue value = 1;
+  }
+
+  map<string, Error> errors = 1;
+}
+
+/*
+ * EXPERIMENTAL: A request to access the session options for the current server session.
+ *
+ * The existing session is referenced via a cookie header or similar (see
+ * SetSessionOptionsRequest above); it is an error to make this request with a missing,
+ * invalid, or expired session cookie header or other implementation-defined session
+ * reference token.
+ */
+message GetSessionOptionsRequest {
+}
+
+/*
+ * EXPERIMENTAL: The result containing the current server session options.
+ */
+message GetSessionOptionsResult {
+    map<string, SessionOptionValue> session_options = 1;
+}
+
+/*
+ * Request message for the "Close Session" action.
+ *
+ * The exiting session is referenced via a cookie header.
+ */
+message CloseSessionRequest {
+}
+
+/*
+ * The result of closing a session.
+ */
+message CloseSessionResult {
+  enum Status {
+    // Protobuf deserialization fallback value: The session close status is unknown or
+    // not recognized. Servers should avoid using this value (send a NOT_FOUND error if
+    // the requested session is not known or expired). Clients can retry the request.
+    UNSPECIFIED = 0;
+    // The session close request is complete. Subsequent requests with
+    // the same session produce a NOT_FOUND error.
+    CLOSED = 1;
+    // The session close request is in progress. The client may retry
+    // the close request.
+    CLOSING = 2;
+    // The session is not closeable. The client should not retry the
+    // close request.
+    NOT_CLOSEABLE = 3;
+  }
+
+  Status status = 1;
 }

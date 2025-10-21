@@ -20,6 +20,7 @@
 #include <utility>
 #include <vector>
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include "arrow/filesystem/filesystem.h"
@@ -87,6 +88,34 @@ TEST(PathUtil, SplitAbstractPath) {
   AssertPartsEqual(parts, {"abc", "def.ghi"});
 }
 
+TEST(PathUtil, SliceAbstractPath) {
+  std::string path = "abc";
+  ASSERT_EQ("abc", SliceAbstractPath(path, 0, 1));
+  ASSERT_EQ("abc", SliceAbstractPath(path, 0, 2));
+  ASSERT_EQ("", SliceAbstractPath(path, 0, 0));
+  ASSERT_EQ("", SliceAbstractPath(path, 1, 0));
+
+  path = "abc/def\\x/y.ext";
+  ASSERT_EQ("abc/def\\x/y.ext", SliceAbstractPath(path, 0, 4));
+  ASSERT_EQ("abc/def\\x/y.ext", SliceAbstractPath(path, 0, 3));
+  ASSERT_EQ("abc/def\\x", SliceAbstractPath(path, 0, 2));
+  ASSERT_EQ("abc", SliceAbstractPath(path, 0, 1));
+  ASSERT_EQ("def\\x/y.ext", SliceAbstractPath(path, 1, 2));
+  ASSERT_EQ("def\\x/y.ext", SliceAbstractPath(path, 1, 3));
+  ASSERT_EQ("def\\x", SliceAbstractPath(path, 1, 1));
+  ASSERT_EQ("y.ext", SliceAbstractPath(path, 2, 1));
+  ASSERT_EQ("", SliceAbstractPath(path, 3, 1));
+
+  path = "x/y\\z";
+  ASSERT_EQ("x", SliceAbstractPath(path, 0, 1));
+  ASSERT_EQ("x/y", SliceAbstractPath(path, 0, 1, /*sep=*/'\\'));
+
+  // Invalid cases but we shouldn't crash
+  ASSERT_EQ("", SliceAbstractPath(path, -1, 1));
+  ASSERT_EQ("", SliceAbstractPath(path, 0, -1));
+  ASSERT_EQ("", SliceAbstractPath(path, -1, -1));
+}
+
 TEST(PathUtil, GetAbstractPathExtension) {
   ASSERT_EQ(GetAbstractPathExtension("abc.txt"), "txt");
   ASSERT_EQ(GetAbstractPathExtension("dir/abc.txt"), "txt");
@@ -96,6 +125,19 @@ TEST(PathUtil, GetAbstractPathExtension) {
   ASSERT_EQ(GetAbstractPathExtension("abc"), "");
   ASSERT_EQ(GetAbstractPathExtension("/dir/abc"), "");
   ASSERT_EQ(GetAbstractPathExtension("/run.d/abc"), "");
+}
+
+TEST(PathUtil, GetAbstractPathDepth) {
+  ASSERT_EQ(0, GetAbstractPathDepth(""));
+  ASSERT_EQ(0, GetAbstractPathDepth("/"));
+  ASSERT_EQ(1, GetAbstractPathDepth("foo"));
+  ASSERT_EQ(1, GetAbstractPathDepth("foo/"));
+  ASSERT_EQ(1, GetAbstractPathDepth("/foo"));
+  ASSERT_EQ(1, GetAbstractPathDepth("/foo/"));
+  ASSERT_EQ(2, GetAbstractPathDepth("/foo/bar"));
+  ASSERT_EQ(2, GetAbstractPathDepth("/foo/bar/"));
+  ASSERT_EQ(2, GetAbstractPathDepth("foo/bar"));
+  ASSERT_EQ(2, GetAbstractPathDepth("foo/bar/"));
 }
 
 TEST(PathUtil, GetAbstractPathParent) {
@@ -109,6 +151,18 @@ TEST(PathUtil, GetAbstractPathParent) {
   AssertPairEqual(pair, {"abc/def", "ghi"});
   pair = GetAbstractPathParent("abc/def\\ghi");
   AssertPairEqual(pair, {"abc", "def\\ghi"});
+}
+
+TEST(PathUtil, ValidateAbstractPath) {
+  ASSERT_OK(ValidateAbstractPath(""));
+  ASSERT_OK(ValidateAbstractPath("abc"));
+  ASSERT_OK(ValidateAbstractPath("abc/def"));
+  ASSERT_OK(ValidateAbstractPath("abc/def.ghi"));
+  ASSERT_OK(ValidateAbstractPath("abc/def\\ghi"));
+
+  // Extraneous separators
+  ASSERT_RAISES(Invalid, ValidateAbstractPath("//"));
+  ASSERT_RAISES(Invalid, ValidateAbstractPath("abc//def"));
 }
 
 TEST(PathUtil, ValidateAbstractPathParts) {
@@ -578,6 +632,13 @@ TEST_F(TestMockFS, FileSystemFromUri) {
   CheckDirs({});
   ASSERT_OK_AND_ASSIGN(fs_, FileSystemFromUri("mock:///foo/bar?q=zzz", &path));
   ASSERT_EQ(path, "foo/bar");
+  CheckDirs({});
+  ASSERT_OK_AND_ASSIGN(fs_, FileSystemFromUri("mock:/folder+name/bar?q=zzz", &path));
+  ASSERT_EQ(path, "folder+name/bar");
+  CheckDirs({});
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, ::testing::HasSubstr("syntax error at character ' ' (position 12)"),
+      FileSystemFromUri("mock:/folder name/bar", &path));
   CheckDirs({});
 }
 

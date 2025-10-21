@@ -41,7 +41,7 @@ elif [ "`which zypper`" ]; then
   PACKAGE_MANAGER=zypper
 else
   PACKAGE_MANAGER=apt-get
-  apt-get update
+  apt-get update --allow-releaseinfo-change # flag needed for when debian version changes
 fi
 
 # Enable ccache if requested based on http://dirk.eddelbuettel.com/blog/2017/11/27/
@@ -67,32 +67,25 @@ sloppiness = include_file_ctime
 hash_dir = false" >> ~/.ccache/ccache.conf
 fi
 
-# Special hacking to try to reproduce quirks on centos using non-default build
-# tooling.
-if [[ -n "$DEVTOOLSET_VERSION" ]]; then
-  $PACKAGE_MANAGER install -y centos-release-scl
-  $PACKAGE_MANAGER install -y "devtoolset-$DEVTOOLSET_VERSION"
-
-  # Enable devtoolset here so that `which gcc` finds the right compiler below
-  source /opt/rh/devtoolset-${DEVTOOLSET_VERSION}/enable
-
-  # Build images which require the devtoolset don't have CXX17 variables
-  # set as the system compiler doesn't support C++17
-  if [ ! "`{R_BIN} CMD config CXX17`" ]; then
-    mkdir -p ~/.R
-    echo "CC = $(which gcc) -fPIC" >> ~/.R/Makevars
-    echo "CXX17 = $(which g++) -fPIC" >> ~/.R/Makevars
-    echo "CXX17STD = -std=c++17" >> ~/.R/Makevars
-    echo "CXX17FLAGS = ${CXX11FLAGS}" >> ~/.R/Makevars
-  fi
-fi
-
 if [ -f "${ARROW_SOURCE_HOME}/ci/scripts/r_install_system_dependencies.sh" ]; then
   "${ARROW_SOURCE_HOME}/ci/scripts/r_install_system_dependencies.sh"
 fi
 
-# Install rsync for bundling cpp source and curl to make sure it is installed on all images
-$PACKAGE_MANAGER install -y rsync curl
+# Install rsync for bundling cpp source and curl to make sure it is installed on all images,
+# cmake is now a listed sys req.
+$PACKAGE_MANAGER install -y rsync cmake curl
+
+# Update clang version to latest available.
+# This is only for rhub/clang20. If we change the base image from rhub/clang20,
+# we need to update this part too.
+if [ "$R_UPDATE_CLANG" = true ]; then
+  apt update -y --allow-releaseinfo-change # flag needed for when debian version changes
+  apt install -y gnupg
+  curl -fsSL https://apt.llvm.org/llvm-snapshot.gpg.key | gpg --dearmor -o /etc/apt/trusted.gpg.d/llvm.gpg
+  echo "deb http://apt.llvm.org/jammy/ llvm-toolchain-jammy-20 main" > /etc/apt/sources.list.d/llvm20.list
+  apt update -y --allow-releaseinfo-change # flag needed for when debian version changes
+  apt install -y clang-20 lld-20
+fi
 
 # Workaround for html help install failure; see https://github.com/r-lib/devtools/issues/2084#issuecomment-530912786
 Rscript -e 'x <- file.path(R.home("doc"), "html"); if (!file.exists(x)) {dir.create(x, recursive=TRUE); file.copy(system.file("html/R.css", package="stats"), x)}'

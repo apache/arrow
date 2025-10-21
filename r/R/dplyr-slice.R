@@ -18,10 +18,8 @@
 
 # The following S3 methods are registered on load if dplyr is present
 
-slice_head.arrow_dplyr_query <- function(.data, ..., n, prop) {
-  if (length(dplyr::group_vars(.data)) > 0) {
-    arrow_not_supported("Slicing grouped data")
-  }
+slice_head.arrow_dplyr_query <- function(.data, ..., n, prop, by = NULL) {
+  check_not_grouped(.data, {{ by }})
   check_dots_empty()
 
   if (missing(n)) {
@@ -32,10 +30,8 @@ slice_head.arrow_dplyr_query <- function(.data, ..., n, prop) {
 }
 slice_head.Dataset <- slice_head.ArrowTabular <- slice_head.RecordBatchReader <- slice_head.arrow_dplyr_query
 
-slice_tail.arrow_dplyr_query <- function(.data, ..., n, prop) {
-  if (length(dplyr::group_vars(.data)) > 0) {
-    arrow_not_supported("Slicing grouped data")
-  }
+slice_tail.arrow_dplyr_query <- function(.data, ..., n, prop, by = NULL) {
+  check_not_grouped(.data, {{ by }})
   check_dots_empty()
 
   if (missing(n)) {
@@ -46,10 +42,8 @@ slice_tail.arrow_dplyr_query <- function(.data, ..., n, prop) {
 }
 slice_tail.Dataset <- slice_tail.ArrowTabular <- slice_tail.RecordBatchReader <- slice_tail.arrow_dplyr_query
 
-slice_min.arrow_dplyr_query <- function(.data, order_by, ..., n, prop, with_ties = TRUE) {
-  if (length(dplyr::group_vars(.data)) > 0) {
-    arrow_not_supported("Slicing grouped data")
-  }
+slice_min.arrow_dplyr_query <- function(.data, order_by, ..., n, prop, by = NULL, with_ties = TRUE) {
+  check_not_grouped(.data, {{ by }})
   if (with_ties) {
     arrow_not_supported("with_ties = TRUE")
   }
@@ -63,10 +57,8 @@ slice_min.arrow_dplyr_query <- function(.data, order_by, ..., n, prop, with_ties
 }
 slice_min.Dataset <- slice_min.ArrowTabular <- slice_min.RecordBatchReader <- slice_min.arrow_dplyr_query
 
-slice_max.arrow_dplyr_query <- function(.data, order_by, ..., n, prop, with_ties = TRUE) {
-  if (length(dplyr::group_vars(.data)) > 0) {
-    arrow_not_supported("Slicing grouped data")
-  }
+slice_max.arrow_dplyr_query <- function(.data, order_by, ..., n, prop, by = NULL, with_ties = TRUE) {
+  check_not_grouped(.data, {{ by }})
   if (with_ties) {
     arrow_not_supported("with_ties = TRUE")
   }
@@ -91,11 +83,10 @@ slice_sample.arrow_dplyr_query <- function(.data,
                                            ...,
                                            n,
                                            prop,
+                                           by = NULL,
                                            weight_by = NULL,
                                            replace = FALSE) {
-  if (length(dplyr::group_vars(.data)) > 0) {
-    arrow_not_supported("Slicing grouped data")
-  }
+  check_not_grouped(.data, {{ by }})
   if (replace) {
     arrow_not_supported("Sampling with replacement")
   }
@@ -110,7 +101,7 @@ slice_sample.arrow_dplyr_query <- function(.data,
   # just to make sure we get enough, then head(n)
   sampling_n <- missing(prop)
   if (sampling_n) {
-    prop <- min(n_to_prop(.data, n) + .05, 1)
+    prop <- min(n_to_prop(.data, n) + 0.05, 1)
   }
   validate_prop(prop)
 
@@ -157,7 +148,7 @@ prop_to_n <- function(.data, prop) {
 
 validate_prop <- function(prop) {
   if (!is.numeric(prop) || length(prop) != 1 || is.na(prop) || prop < 0 || prop > 1) {
-    stop("`prop` must be a single numeric value between 0 and 1", call. = FALSE)
+    validation_error("`prop` must be a single numeric value between 0 and 1")
   }
 }
 
@@ -167,4 +158,12 @@ n_to_prop <- function(.data, n) {
     arrow_not_supported("slice_sample() with `n` when the query has joins or aggregations")
   }
   n / nrows
+}
+
+
+check_not_grouped <- function(.data, by) {
+  by <- enquo(by)
+  if (length(dplyr::group_vars(.data)) > 0 || !quo_is_null(by)) {
+    arrow_not_supported("Slicing grouped data")
+  }
 }

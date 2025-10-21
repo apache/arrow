@@ -17,9 +17,10 @@
 
 #include "arrow/compute/api_aggregate.h"
 #include "arrow/compute/kernels/aggregate_internal.h"
-#include "arrow/compute/kernels/common.h"
+#include "arrow/compute/kernels/common_internal.h"
+#include "arrow/compute/registry_internal.h"
 #include "arrow/util/bit_run_reader.h"
-#include "arrow/util/tdigest.h"
+#include "arrow/util/tdigest_internal.h"
 
 namespace arrow {
 namespace compute {
@@ -51,6 +52,8 @@ struct TDigestImpl : public ScalarAggregator {
   double ToDouble(T value) const {
     return static_cast<double>(value);
   }
+  double ToDouble(const Decimal32& value) const { return value.ToDouble(decimal_scale); }
+  double ToDouble(const Decimal64& value) const { return value.ToDouble(decimal_scale); }
   double ToDouble(const Decimal128& value) const { return value.ToDouble(decimal_scale); }
   double ToDouble(const Decimal256& value) const { return value.ToDouble(decimal_scale); }
 

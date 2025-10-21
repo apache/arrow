@@ -190,7 +190,7 @@ class ARROW_EXPORT RecordBatchFileReader
   /// \return the read batch
   virtual Result<std::shared_ptr<RecordBatch>> ReadRecordBatch(int i) = 0;
 
-  /// \brief Read a particular record batch along with its custom metadada from the file.
+  /// \brief Read a particular record batch along with its custom metadata from the file.
   /// Does not copy memory if the input source supports zero-copy.
   ///
   /// \param[in] i the index of the record batch to return
@@ -229,6 +229,12 @@ class ARROW_EXPORT RecordBatchFileReader
       const io::IOContext& io_context = io::default_io_context(),
       const io::CacheOptions cache_options = io::CacheOptions::LazyDefaults(),
       arrow::internal::Executor* executor = NULLPTR) = 0;
+
+  /// \brief Collect all batches as a vector of record batches
+  Result<RecordBatchVector> ToRecordBatches();
+
+  /// \brief Collect all batches and concatenate as arrow::Table
+  Result<std::shared_ptr<Table>> ToTable();
 };
 
 /// \brief A general listener class to receive events.
@@ -251,7 +257,8 @@ class ARROW_EXPORT Listener {
   /// \see StreamDecoder
   virtual Status OnEOS();
 
-  /// \brief Called when a record batch is decoded.
+  /// \brief Called when a record batch is decoded and
+  /// OnRecordBatchWithMetadataDecoded() isn't overridden.
   ///
   /// The default implementation just returns
   /// arrow::Status::NotImplemented().
@@ -262,6 +269,21 @@ class ARROW_EXPORT Listener {
   /// \see StreamDecoder
   virtual Status OnRecordBatchDecoded(std::shared_ptr<RecordBatch> record_batch);
 
+  /// \brief Called when a record batch with custom metadata is decoded.
+  ///
+  /// The default implementation just calls OnRecordBatchDecoded()
+  /// without custom metadata.
+  ///
+  /// \param[in] record_batch_with_metadata a record batch with custom
+  /// metadata decoded
+  /// \return Status
+  ///
+  /// \see StreamDecoder
+  ///
+  /// \since 13.0.0
+  virtual Status OnRecordBatchWithMetadataDecoded(
+      RecordBatchWithMetadata record_batch_with_metadata);
+
   /// \brief Called when a schema is decoded.
   ///
   /// The default implementation just returns arrow::Status::OK().
@@ -271,6 +293,21 @@ class ARROW_EXPORT Listener {
   ///
   /// \see StreamDecoder
   virtual Status OnSchemaDecoded(std::shared_ptr<Schema> schema);
+
+  /// \brief Called when a schema is decoded.
+  ///
+  /// The default implementation just calls OnSchemaDecoded(schema)
+  /// (without filtered_schema) to keep backward compatibility.
+  ///
+  /// \param[in] schema a schema decoded
+  /// \param[in] filtered_schema a filtered schema that only has read fields
+  /// \return Status
+  ///
+  /// \see StreamDecoder
+  ///
+  /// \since 13.0.0
+  virtual Status OnSchemaDecoded(std::shared_ptr<Schema> schema,
+                                 std::shared_ptr<Schema> filtered_schema);
 };
 
 /// \brief Collect schema and record batches decoded by StreamDecoder.
@@ -280,30 +317,68 @@ class ARROW_EXPORT Listener {
 /// \since 0.17.0
 class ARROW_EXPORT CollectListener : public Listener {
  public:
-  CollectListener() : schema_(), record_batches_() {}
+  CollectListener() : schema_(), filtered_schema_(), record_batches_(), metadatas_() {}
   virtual ~CollectListener() = default;
 
-  Status OnSchemaDecoded(std::shared_ptr<Schema> schema) override {
+  Status OnSchemaDecoded(std::shared_ptr<Schema> schema,
+                         std::shared_ptr<Schema> filtered_schema) override {
     schema_ = std::move(schema);
+    filtered_schema_ = std::move(filtered_schema);
     return Status::OK();
   }
 
-  Status OnRecordBatchDecoded(std::shared_ptr<RecordBatch> record_batch) override {
-    record_batches_.push_back(std::move(record_batch));
+  Status OnRecordBatchWithMetadataDecoded(
+      RecordBatchWithMetadata record_batch_with_metadata) override {
+    record_batches_.push_back(std::move(record_batch_with_metadata.batch));
+    metadatas_.push_back(std::move(record_batch_with_metadata.custom_metadata));
     return Status::OK();
   }
 
   /// \return the decoded schema
   std::shared_ptr<Schema> schema() const { return schema_; }
 
+  /// \return the filtered schema
+  std::shared_ptr<Schema> filtered_schema() const { return filtered_schema_; }
+
   /// \return the all decoded record batches
-  std::vector<std::shared_ptr<RecordBatch>> record_batches() const {
+  const std::vector<std::shared_ptr<RecordBatch>>& record_batches() const {
     return record_batches_;
+  }
+
+  /// \return the all decoded metadatas
+  const std::vector<std::shared_ptr<KeyValueMetadata>>& metadatas() const {
+    return metadatas_;
+  }
+
+  /// \return the number of collected record batches
+  int64_t num_record_batches() const { return record_batches_.size(); }
+
+  /// \return the last decoded record batch and remove it from
+  /// record_batches
+  std::shared_ptr<RecordBatch> PopRecordBatch() {
+    auto record_batch_with_metadata = PopRecordBatchWithMetadata();
+    return std::move(record_batch_with_metadata.batch);
+  }
+
+  /// \return the last decoded record batch with custom metadata and
+  /// remove it from record_batches
+  RecordBatchWithMetadata PopRecordBatchWithMetadata() {
+    RecordBatchWithMetadata record_batch_with_metadata;
+    if (record_batches_.empty()) {
+      return record_batch_with_metadata;
+    }
+    record_batch_with_metadata.batch = std::move(record_batches_.back());
+    record_batch_with_metadata.custom_metadata = std::move(metadatas_.back());
+    record_batches_.pop_back();
+    metadatas_.pop_back();
+    return record_batch_with_metadata;
   }
 
  private:
   std::shared_ptr<Schema> schema_;
+  std::shared_ptr<Schema> filtered_schema_;
   std::vector<std::shared_ptr<RecordBatch>> record_batches_;
+  std::vector<std::shared_ptr<KeyValueMetadata>> metadatas_;
 };
 
 /// \brief Push style stream decoder that receives data from user.
@@ -349,6 +424,14 @@ class ARROW_EXPORT StreamDecoder {
   /// \param[in] buffer a Buffer to be processed.
   /// \return Status
   Status Consume(std::shared_ptr<Buffer> buffer);
+
+  /// \brief Reset the internal status.
+  ///
+  /// You can reuse this decoder for new stream after calling
+  /// this.
+  ///
+  /// \return Status
+  Status Reset();
 
   /// \return the shared schema of the record batches in the stream
   std::shared_ptr<Schema> schema() const;

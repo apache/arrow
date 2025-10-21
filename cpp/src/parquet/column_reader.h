@@ -22,6 +22,8 @@
 #include <utility>
 #include <vector>
 
+#include "arrow/type_fwd.h"
+#include "arrow/util/macros.h"
 #include "parquet/exception.h"
 #include "parquet/level_conversion.h"
 #include "parquet/metadata.h"
@@ -32,15 +34,13 @@
 
 namespace arrow {
 
-class Array;
-class ChunkedArray;
-
 namespace bit_util {
 class BitReader;
 }  // namespace bit_util
 
 namespace util {
-class RleDecoder;
+template <typename T>
+class RleBitPackedDecoder;
 }  // namespace util
 
 }  // namespace arrow
@@ -96,26 +96,17 @@ class PARQUET_EXPORT LevelDecoder {
   int bit_width_;
   int num_values_remaining_;
   Encoding::type encoding_;
-  std::unique_ptr<::arrow::util::RleDecoder> rle_decoder_;
+  std::unique_ptr<::arrow::util::RleBitPackedDecoder<int16_t>> rle_decoder_;
   std::unique_ptr<::arrow::bit_util::BitReader> bit_packed_decoder_;
   int16_t max_level_;
 };
 
 struct CryptoContext {
-  CryptoContext(bool start_with_dictionary_page, int16_t rg_ordinal, int16_t col_ordinal,
-                std::shared_ptr<Decryptor> meta, std::shared_ptr<Decryptor> data)
-      : start_decrypt_with_dictionary_page(start_with_dictionary_page),
-        row_group_ordinal(rg_ordinal),
-        column_ordinal(col_ordinal),
-        meta_decryptor(std::move(meta)),
-        data_decryptor(std::move(data)) {}
-  CryptoContext() {}
-
   bool start_decrypt_with_dictionary_page = false;
   int16_t row_group_ordinal = -1;
   int16_t column_ordinal = -1;
-  std::shared_ptr<Decryptor> meta_decryptor;
-  std::shared_ptr<Decryptor> data_decryptor;
+  std::function<std::unique_ptr<Decryptor>()> meta_decryptor_factory;
+  std::function<std::unique_ptr<Decryptor>()> data_decryptor_factory;
 };
 
 // Abstract page iterator interface. This way, we can feed column pages to the
@@ -152,6 +143,9 @@ class PARQUET_EXPORT PageReader {
 
   // @returns: shared_ptr<Page>(nullptr) on EOS, std::shared_ptr<Page>
   // containing new Page otherwise
+  //
+  // The returned Page may contain references that aren't guaranteed to live
+  // beyond the next call to NextPage().
   virtual std::shared_ptr<Page> NextPage() = 0;
 
   virtual void set_max_page_header_size(uint32_t size) = 0;
@@ -194,7 +188,7 @@ class PARQUET_EXPORT ColumnReader {
 template <typename DType>
 class TypedColumnReader : public ColumnReader {
  public:
-  typedef typename DType::c_type T;
+  using T = typename DType::c_type;
 
   // Read a batch of repetition levels, definition levels, and values from the
   // column.
@@ -215,48 +209,6 @@ class TypedColumnReader : public ColumnReader {
   // @returns: actual number of levels read (see values_read for number of values read)
   virtual int64_t ReadBatch(int64_t batch_size, int16_t* def_levels, int16_t* rep_levels,
                             T* values, int64_t* values_read) = 0;
-
-  /// Read a batch of repetition levels, definition levels, and values from the
-  /// column and leave spaces for null entries on the lowest level in the values
-  /// buffer.
-  ///
-  /// In comparison to ReadBatch the length of repetition and definition levels
-  /// is the same as of the number of values read for max_definition_level == 1.
-  /// In the case of max_definition_level > 1, the repetition and definition
-  /// levels are larger than the values but the values include the null entries
-  /// with definition_level == (max_definition_level - 1).
-  ///
-  /// To fully exhaust a row group, you must read batches until the number of
-  /// values read reaches the number of stored values according to the metadata.
-  ///
-  /// @param batch_size the number of levels to read
-  /// @param[out] def_levels The Parquet definition levels, output has
-  ///   the length levels_read.
-  /// @param[out] rep_levels The Parquet repetition levels, output has
-  ///   the length levels_read.
-  /// @param[out] values The values in the lowest nested level including
-  ///   spacing for nulls on the lowest levels; output has the length
-  ///   values_read.
-  /// @param[out] valid_bits Memory allocated for a bitmap that indicates if
-  ///   the row is null or on the maximum definition level. For performance
-  ///   reasons the underlying buffer should be able to store 1 bit more than
-  ///   required. If this requires an additional byte, this byte is only read
-  ///   but never written to.
-  /// @param valid_bits_offset The offset in bits of the valid_bits where the
-  ///   first relevant bit resides.
-  /// @param[out] levels_read The number of repetition/definition levels that were read.
-  /// @param[out] values_read The number of values read, this includes all
-  ///   non-null entries as well as all null-entries on the lowest level
-  ///   (i.e. definition_level == max_definition_level - 1)
-  /// @param[out] null_count The number of nulls on the lowest levels.
-  ///   (i.e. (values_read - null_count) is total number of non-null entries)
-  ///
-  /// \deprecated Since 4.0.0
-  ARROW_DEPRECATED("Doesn't handle nesting correctly and unused outside of unit tests.")
-  virtual int64_t ReadBatchSpaced(int64_t batch_size, int16_t* def_levels,
-                                  int16_t* rep_levels, T* values, uint8_t* valid_bits,
-                                  int64_t valid_bits_offset, int64_t* levels_read,
-                                  int64_t* values_read, int64_t* null_count) = 0;
 
   // Skip reading values. This method will work for both repeated and
   // non-repeated fields. Note that this method is skipping values and not
@@ -308,16 +260,27 @@ namespace internal {
 /// \since 1.3.0
 class PARQUET_EXPORT RecordReader {
  public:
+  /// \brief Creates a record reader.
+  /// @param descr Column descriptor
+  /// @param leaf_info Level info, used to determine if a column is nullable or not
+  /// @param pool Memory pool to use for buffering values and rep/def levels
+  /// @param read_dictionary True if reading directly as Arrow dictionary-encoded
+  /// @param read_dense_for_nullable True if reading dense and not leaving space for null
+  /// values
+  /// @param arrow_type Which type to read this column as (optional). Currently
+  /// only used for byte array columns (see BinaryRecordReader::GetBuilderChunks).
   static std::shared_ptr<RecordReader> Make(
       const ColumnDescriptor* descr, LevelInfo leaf_info,
       ::arrow::MemoryPool* pool = ::arrow::default_memory_pool(),
-      const bool read_dictionary = false);
+      bool read_dictionary = false, bool read_dense_for_nullable = false,
+      const std::shared_ptr<::arrow::DataType>& arrow_type = NULLPTR);
 
   virtual ~RecordReader() = default;
 
   /// \brief Attempt to read indicated number of records from column chunk
   /// Note that for repeated fields, a record may have more than one value
-  /// and all of them are read.
+  /// and all of them are read. If read_dense_for_nullable() it will
+  /// not leave any space for null values. Otherwise, it will read spaced.
   /// \return number of records read
   virtual int64_t ReadRecords(int64_t num_records) = 0;
 
@@ -332,6 +295,7 @@ class PARQUET_EXPORT RecordReader {
 
   /// \brief Clear consumed values and repetition/definition levels as the
   /// result of calling ReadRecords
+  /// For FLBA and ByteArray types, call GetBuilderChunks() to reset them.
   virtual void Reset() = 0;
 
   /// \brief Transfer filled values buffer to caller. A new one will be
@@ -351,7 +315,20 @@ class PARQUET_EXPORT RecordReader {
   /// \param[in] reader obtained from RowGroupReader::GetColumnPageReader
   virtual void SetPageReader(std::unique_ptr<PageReader> reader) = 0;
 
+  /// \brief Returns the underlying column reader's descriptor.
+  virtual const ColumnDescriptor* descr() const = 0;
+
   virtual void DebugPrintState() = 0;
+
+  /// \brief Returns the dictionary owned by the current decoder. Throws an
+  /// exception if the current decoder is not for dictionary encoding. The caller is
+  /// responsible for casting the returned pointer to proper type depending on the
+  /// column's physical type. An example:
+  ///   const ByteArray* dict = reinterpret_cast<const ByteArray*>(ReadDictionary(&len));
+  /// or:
+  ///   const float* dict = reinterpret_cast<const float*>(ReadDictionary(&len));
+  /// \param[out] dictionary_length The number of dictionary entries.
+  virtual const void* ReadDictionary(int32_t* dictionary_length) = 0;
 
   /// \brief Decoded definition levels
   int16_t* def_levels() const {
@@ -364,10 +341,15 @@ class PARQUET_EXPORT RecordReader {
   }
 
   /// \brief Decoded values, including nulls, if any
+  /// FLBA and ByteArray types do not use this array and read into their own
+  /// builders.
   uint8_t* values() const { return values_->mutable_data(); }
 
-  /// \brief Number of values written including nulls (if any)
-  /// There is no read-ahead/buffering for values.
+  /// \brief Number of values written, including space left for nulls if any.
+  /// If this Reader was constructed with read_dense_for_nullable(), there is no space for
+  /// nulls and null_count() will be 0. There is no read-ahead/buffering for values. For
+  /// FLBA and ByteArray types this value reflects the values written with the last
+  /// ReadRecords call since those readers will reset the values after each call.
   int64_t values_written() const { return values_written_; }
 
   /// \brief Number of definition / repetition levels (from those that have
@@ -380,7 +362,9 @@ class PARQUET_EXPORT RecordReader {
   /// the record boundaries.
   int64_t levels_written() const { return levels_written_; }
 
-  /// \brief Number of nulls in the leaf that we have read so far.
+  /// \brief Number of nulls in the leaf that we have read so far into the
+  /// values vector. This is only valid when !read_dense_for_nullable(). When
+  /// read_dense_for_nullable() it will always be 0.
   int64_t null_count() const { return null_count_; }
 
   /// \brief True if the leaf values are nullable
@@ -389,8 +373,12 @@ class PARQUET_EXPORT RecordReader {
   /// \brief True if reading directly as Arrow dictionary-encoded
   bool read_dictionary() const { return read_dictionary_; }
 
+  /// \brief True if reading dense for nullable columns.
+  bool read_dense_for_nullable() const { return read_dense_for_nullable_; }
+
  protected:
-  /// \brief Indicates if we can have nullable values.
+  /// \brief Indicates if we can have nullable values. Note that repeated fields
+  /// may or may not be nullable.
   bool nullable_values_;
 
   bool at_record_start_;
@@ -400,8 +388,8 @@ class PARQUET_EXPORT RecordReader {
   /// call. No extra values are buffered for the next call. SkipRecords will not
   /// add any value to this buffer.
   std::shared_ptr<::arrow::ResizableBuffer> values_;
-  /// \brief False for BYTE_ARRAY, in which case we don't allocate the values
-  /// buffer and we directly read into builder classes.
+  /// \brief False for FIXED_LEN_BYTE_ARRAY and BYTE_ARRAY, in which case we
+  /// don't allocate the values buffer and we directly read into builder classes.
   bool uses_values_;
 
   /// \brief Values that we have read into 'values_' + 'null_count_'.
@@ -411,6 +399,8 @@ class PARQUET_EXPORT RecordReader {
 
   /// \brief Each bit corresponds to one element in 'values_' and specifies if it
   /// is null or not null.
+  ///
+  /// Not set if leaf type is not nullable or read_dense_for_nullable_ is true.
   std::shared_ptr<::arrow::ResizableBuffer> valid_bits_;
 
   /// \brief Buffer for definition levels. May contain more levels than
@@ -434,6 +424,12 @@ class PARQUET_EXPORT RecordReader {
   int64_t levels_capacity_;
 
   bool read_dictionary_ = false;
+  // If true, we will not leave any space for the null values in the values_
+  // vector or fill nulls values in BinaryRecordReader/DictionaryRecordReader.
+  //
+  // If read_dense_for_nullable_ is true, the BinaryRecordReader/DictionaryRecordReader
+  // might still populate the validity bitmap buffer.
+  bool read_dense_for_nullable_ = false;
 };
 
 class BinaryRecordReader : virtual public RecordReader {

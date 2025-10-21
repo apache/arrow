@@ -19,12 +19,15 @@
 #include <mutex>
 #include <string>
 
-#ifdef ARROW_WITH_UTF8PROC
-#include <utf8proc.h>
-#endif
-
 #include "arrow/compute/kernels/scalar_string_internal.h"
+#include "arrow/compute/registry_internal.h"
+#include "arrow/util/config.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/utf8_internal.h"
+
+#ifdef ARROW_WITH_UTF8PROC
+#  include <utf8proc.h>
+#endif
 
 namespace arrow {
 namespace compute {
@@ -136,9 +139,12 @@ static inline bool IsDecimalCharacterUnicode(uint32_t codepoint) {
 }
 
 static inline bool IsDigitCharacterUnicode(uint32_t codepoint) {
-  // Python defines this as Numeric_Type=Digit or Numeric_Type=Decimal.
-  // utf8proc has no support for this, this is the best we can do:
-  return HasAnyUnicodeGeneralCategory(codepoint, UTF8PROC_CATEGORY_ND);
+  // Approximates Python's str.isnumeric():
+  // returns true for Nd and No (e.g., '٣', '³'), but excludes Nl like Roman numerals
+  // ('Ⅷ') due to utf8proc limits.
+  // '¾' (vulgar fraction) is treated as a digit by utf8proc 'No'
+  return HasAnyUnicodeGeneralCategory(codepoint, UTF8PROC_CATEGORY_ND,
+                                      UTF8PROC_CATEGORY_NO);
 }
 
 static inline bool IsNumericCharacterUnicode(uint32_t codepoint) {
@@ -929,9 +935,13 @@ struct Utf8PadTransform : public StringTransformBase {
     int64_t left = 0;
     int64_t right = 0;
     if (PadLeft && PadRight) {
-      // If odd number of spaces, put the extra space on the right
-      left = spaces / 2;
-      right = spaces - left;
+      if (options_.lean_left_on_odd_padding) {
+        left = spaces / 2;
+        right = spaces - left;
+      } else {
+        right = spaces / 2;
+        left = spaces - right;
+      }
     } else if (PadLeft) {
       left = spaces;
     } else if (PadRight) {
@@ -981,11 +991,73 @@ const FunctionDoc utf8_rpad_doc(
      "the given UTF8 codeunit.\nNull values emit null."),
     {"strings"}, "PadOptions", /*options_required=*/true);
 
+struct Utf8ZeroFillTransform : public StringTransformBase {
+  using State = OptionsWrapper<ZeroFillOptions>;
+
+  const ZeroFillOptions& options_;
+
+  explicit Utf8ZeroFillTransform(const ZeroFillOptions& options) : options_(options) {}
+
+  Status PreExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) override {
+    if (!options_.padding.empty()) {
+      auto str = reinterpret_cast<const uint8_t*>(options_.padding.data());
+      auto strlen = options_.padding.size();
+      if (util::UTF8Length(str, str + strlen) != 1) {
+        return Status::Invalid("Padding must be one codepoint, got '", options_.padding,
+                               "'");
+      }
+    } else {
+      return Status::Invalid("Padding must be one codepoint, got ''");
+    }
+    return Status::OK();
+  }
+
+  int64_t MaxCodeunits(int64_t ninputs, int64_t input_ncodeunits) override {
+    return input_ncodeunits + 4 * ninputs * options_.width;
+  }
+
+  int64_t Transform(const uint8_t* input, int64_t input_string_ncodeunits,
+                    uint8_t* output) {
+    const int64_t input_width = util::UTF8Length(input, input + input_string_ncodeunits);
+    if (input_width >= options_.width) {
+      std::copy(input, input + input_string_ncodeunits, output);
+      return input_string_ncodeunits;
+    }
+    uint8_t* start = output;
+    // sign-aware padding:
+    if (input_string_ncodeunits > 0 && (input[0] == '+' || input[0] == '-')) {
+      *output++ = input[0];
+      input++;
+      input_string_ncodeunits--;
+    }
+    int64_t num_zeros = options_.width - input_width;
+    while (num_zeros > 0) {
+      output = std::copy(options_.padding.begin(), options_.padding.end(), output);
+      num_zeros--;
+    }
+    output = std::copy(input, input + input_string_ncodeunits, output);
+    return output - start;
+  }
+};
+
+template <typename Type>
+using Utf8ZeroFill = StringTransformExecWithState<Type, Utf8ZeroFillTransform>;
+
+const FunctionDoc utf8_zero_fill_doc(
+    "Left-pad strings to a given width, preserving leading sign characters",
+    ("For each string in `strings`, emit a string of length `width` by \n"
+     "prepending the given padding character (defaults to '0' if not specified). \n"
+     "If the string starts with '+' or '-', the sign is preserved and padding \n"
+     "occurs after the sign. Null values emit null."),
+    {"strings"}, "ZeroFillOptions", /*options_required=*/true);
+
 void AddUtf8StringPad(FunctionRegistry* registry) {
   MakeUnaryStringBatchKernelWithState<Utf8LPad>("utf8_lpad", registry, utf8_lpad_doc);
   MakeUnaryStringBatchKernelWithState<Utf8RPad>("utf8_rpad", registry, utf8_rpad_doc);
   MakeUnaryStringBatchKernelWithState<Utf8Center>("utf8_center", registry,
                                                   utf8_center_doc);
+  MakeUnaryStringBatchKernelWithState<Utf8ZeroFill>("utf8_zero_fill", registry,
+                                                    utf8_zero_fill_doc);
 }
 
 // ----------------------------------------------------------------------
@@ -1090,7 +1162,8 @@ struct SliceCodeunitsTransform : StringSliceTransformBase {
       // on the resulting slice lengths, so return a worst case estimate.
       return input_ncodeunits;
     }
-    int64_t max_slice_codepoints = (opt.stop - opt.start + opt.step - 1) / opt.step;
+    int64_t stop = std::clamp(opt.stop, -input_ncodeunits, input_ncodeunits);
+    int64_t max_slice_codepoints = (stop - opt.start + opt.step - 1) / opt.step;
     // The maximum UTF8 byte size of a codepoint is 4
     return std::min(input_ncodeunits,
                     4 * ninputs * std::max<int64_t>(0, max_slice_codepoints));
@@ -1133,7 +1206,7 @@ struct SliceCodeunitsTransform : StringSliceTransformBase {
       } else if (opt.stop < 0) {
         // or from the end (but we will never need to < begin_sliced)
         RETURN_IF_UTF8_ERROR(arrow::util::UTF8AdvanceCodepointsReverse(
-            begin_sliced, end, &end_sliced, -opt.stop));
+            begin_sliced, end, &end_sliced, Negate(opt.stop)));
       } else {
         // zero length slice
         return 0;
@@ -1158,7 +1231,7 @@ struct SliceCodeunitsTransform : StringSliceTransformBase {
         // or begin_sliced), but begin_sliced and opt.start can be 'out of sync',
         // for instance when start=-100, when the string length is only 10.
         RETURN_IF_UTF8_ERROR(arrow::util::UTF8AdvanceCodepointsReverse(
-            begin_sliced, end, &end_sliced, -opt.stop));
+            begin_sliced, end, &end_sliced, Negate(opt.stop)));
       } else {
         // zero length slice
         return 0;
@@ -1214,11 +1287,12 @@ struct SliceCodeunitsTransform : StringSliceTransformBase {
 
     // similar to opt.start
     if (opt.stop >= 0) {
+      int64_t length = std::min(opt.stop, std::numeric_limits<int64_t>::max() - 1) + 1;
       RETURN_IF_UTF8_ERROR(
-          arrow::util::UTF8AdvanceCodepoints(begin, end, &end_sliced, opt.stop + 1));
+          arrow::util::UTF8AdvanceCodepoints(begin, end, &end_sliced, length));
     } else {
       RETURN_IF_UTF8_ERROR(arrow::util::UTF8AdvanceCodepointsReverse(
-          begin, end, &end_sliced, -opt.stop - 1));
+          begin, end, &end_sliced, Negate(opt.stop) - 1));
     }
     end_sliced--;
 
@@ -1240,6 +1314,12 @@ struct SliceCodeunitsTransform : StringSliceTransformBase {
   }
 
 #undef RETURN_IF_UTF8_ERROR
+
+ private:
+  static int64_t Negate(int64_t v) {
+    constexpr auto max = std::numeric_limits<int64_t>::max();
+    return -max > v ? max : -v;
+  }
 };
 
 template <typename Type>

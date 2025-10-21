@@ -35,6 +35,7 @@
 #include "arrow/type.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/compression.h"
+#include "arrow/util/config.h"
 
 namespace arrow {
 
@@ -264,7 +265,8 @@ TEST_P(TestFeather, TimeTypes) {
 
 TEST_P(TestFeather, VLenPrimitiveRoundTrip) {
   std::shared_ptr<RecordBatch> batch;
-  ASSERT_OK(ipc::test::MakeStringTypesRecordBatch(&batch));
+  ASSERT_OK(ipc::test::MakeStringTypesRecordBatch(&batch, /*with_nulls=*/true,
+                                                  /*with_view_types=*/false));
   CheckRoundtrip(batch);
 }
 
@@ -306,13 +308,32 @@ TEST_P(TestFeather, SliceFloatRoundTrip) {
 
 TEST_P(TestFeather, SliceStringsRoundTrip) {
   std::shared_ptr<RecordBatch> batch;
-  ASSERT_OK(ipc::test::MakeStringTypesRecordBatch(&batch, /*with_nulls=*/true));
+  ASSERT_OK(ipc::test::MakeStringTypesRecordBatch(&batch, /*with_nulls=*/true,
+                                                  /*with_view_types=*/false));
   CheckSlices(batch);
 }
 
 TEST_P(TestFeather, SliceBooleanRoundTrip) {
   std::shared_ptr<RecordBatch> batch;
   ASSERT_OK(ipc::test::MakeBooleanBatchSized(600, &batch));
+  CheckSlices(batch);
+}
+
+TEST_P(TestFeather, SliceListRoundTrip) {
+  if (GetParam().version == kFeatherV1Version) {
+    GTEST_SKIP() << "Feather V1 does not support list types";
+  }
+  std::shared_ptr<RecordBatch> batch;
+  ASSERT_OK(ipc::test::MakeListRecordBatchSized(600, &batch));
+  CheckSlices(batch);
+}
+
+TEST_P(TestFeather, SliceListViewRoundTrip) {
+  if (GetParam().version == kFeatherV1Version) {
+    GTEST_SKIP() << "Feather V1 does not support list view types";
+  }
+  std::shared_ptr<RecordBatch> batch;
+  ASSERT_OK(ipc::test::MakeListViewRecordBatchSized(600, &batch));
   CheckSlices(batch);
 }
 
@@ -327,9 +348,11 @@ namespace {
 const std::vector<test::MakeRecordBatch*> kBatchCases = {
     &ipc::test::MakeIntRecordBatch,
     &ipc::test::MakeListRecordBatch,
+    &ipc::test::MakeListViewRecordBatch,
     &ipc::test::MakeFixedSizeListRecordBatch,
     &ipc::test::MakeNonNullRecordBatch,
     &ipc::test::MakeDeeplyNestedList,
+    &ipc::test::MakeDeeplyNestedListView,
     &ipc::test::MakeStringTypesRecordBatchWithNulls,
     &ipc::test::MakeStruct,
     &ipc::test::MakeUnion,
@@ -345,7 +368,8 @@ const std::vector<test::MakeRecordBatch*> kBatchCases = {
     &ipc::test::MakeDecimal,
     &ipc::test::MakeBooleanBatch,
     &ipc::test::MakeFloatBatch,
-    &ipc::test::MakeIntervals};
+    &ipc::test::MakeIntervals,
+    &ipc::test::MakeRunEndEncoded};
 
 }  // namespace
 

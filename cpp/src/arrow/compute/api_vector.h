@@ -20,8 +20,8 @@
 #include <memory>
 #include <utility>
 
-#include "arrow/compute/function.h"
-#include "arrow/datum.h"
+#include "arrow/compute/function_options.h"
+#include "arrow/compute/ordering.h"
 #include "arrow/result.h"
 #include "arrow/type_fwd.h"
 
@@ -44,7 +44,7 @@ class ARROW_EXPORT FilterOptions : public FunctionOptions {
   };
 
   explicit FilterOptions(NullSelectionBehavior null_selection = DROP);
-  static constexpr char const kTypeName[] = "FilterOptions";
+  static constexpr const char kTypeName[] = "FilterOptions";
   static FilterOptions Defaults() { return FilterOptions(); }
 
   NullSelectionBehavior null_selection_behavior = DROP;
@@ -53,7 +53,7 @@ class ARROW_EXPORT FilterOptions : public FunctionOptions {
 class ARROW_EXPORT TakeOptions : public FunctionOptions {
  public:
   explicit TakeOptions(bool boundscheck = true);
-  static constexpr char const kTypeName[] = "TakeOptions";
+  static constexpr const char kTypeName[] = "TakeOptions";
   static TakeOptions BoundsCheck() { return TakeOptions(true); }
   static TakeOptions NoBoundsCheck() { return TakeOptions(false); }
   static TakeOptions Defaults() { return BoundsCheck(); }
@@ -73,51 +73,27 @@ class ARROW_EXPORT DictionaryEncodeOptions : public FunctionOptions {
   };
 
   explicit DictionaryEncodeOptions(NullEncodingBehavior null_encoding = MASK);
-  static constexpr char const kTypeName[] = "DictionaryEncodeOptions";
+  static constexpr const char kTypeName[] = "DictionaryEncodeOptions";
   static DictionaryEncodeOptions Defaults() { return DictionaryEncodeOptions(); }
 
   NullEncodingBehavior null_encoding_behavior = MASK;
 };
 
-enum class SortOrder {
-  /// Arrange values in increasing order
-  Ascending,
-  /// Arrange values in decreasing order
-  Descending,
-};
-
-enum class NullPlacement {
-  /// Place nulls and NaNs before any non-null values.
-  /// NaNs will come after nulls.
-  AtStart,
-  /// Place nulls and NaNs after any non-null values.
-  /// NaNs will come before nulls.
-  AtEnd,
-};
-
-/// \brief One sort key for PartitionNthIndices (TODO) and SortIndices
-class ARROW_EXPORT SortKey : public util::EqualityComparable<SortKey> {
+/// \brief Options for the run-end encode function
+class ARROW_EXPORT RunEndEncodeOptions : public FunctionOptions {
  public:
-  explicit SortKey(FieldRef target, SortOrder order = SortOrder::Ascending)
-      : target(std::move(target)), order(order) {}
+  explicit RunEndEncodeOptions(std::shared_ptr<DataType> run_end_type = int32());
+  static constexpr const char kTypeName[] = "RunEndEncodeOptions";
+  static RunEndEncodeOptions Defaults() { return RunEndEncodeOptions(); }
 
-  using util::EqualityComparable<SortKey>::Equals;
-  using util::EqualityComparable<SortKey>::operator==;
-  using util::EqualityComparable<SortKey>::operator!=;
-  bool Equals(const SortKey& other) const;
-  std::string ToString() const;
-
-  /// A FieldRef targetting the sort column.
-  FieldRef target;
-  /// How to order by this sort key.
-  SortOrder order;
+  std::shared_ptr<DataType> run_end_type;
 };
 
 class ARROW_EXPORT ArraySortOptions : public FunctionOptions {
  public:
   explicit ArraySortOptions(SortOrder order = SortOrder::Ascending,
                             NullPlacement null_placement = NullPlacement::AtEnd);
-  static constexpr char const kTypeName[] = "ArraySortOptions";
+  static constexpr const char kTypeName[] = "ArraySortOptions";
   static ArraySortOptions Defaults() { return ArraySortOptions(); }
 
   /// Sorting order
@@ -130,8 +106,16 @@ class ARROW_EXPORT SortOptions : public FunctionOptions {
  public:
   explicit SortOptions(std::vector<SortKey> sort_keys = {},
                        NullPlacement null_placement = NullPlacement::AtEnd);
-  static constexpr char const kTypeName[] = "SortOptions";
+  explicit SortOptions(const Ordering& ordering);
+  static constexpr const char kTypeName[] = "SortOptions";
   static SortOptions Defaults() { return SortOptions(); }
+  /// Convenience constructor to create an ordering from SortOptions
+  ///
+  /// Note: Both classes contain the exact same information.  However,
+  /// sort_options should only be used in a "function options" context while Ordering
+  /// is used more generally.
+  Ordering AsOrdering() && { return Ordering(std::move(sort_keys), null_placement); }
+  Ordering AsOrdering() const& { return Ordering(sort_keys, null_placement); }
 
   /// Column key(s) to order by and how to order by these sort keys.
   std::vector<SortKey> sort_keys;
@@ -143,7 +127,7 @@ class ARROW_EXPORT SortOptions : public FunctionOptions {
 class ARROW_EXPORT SelectKOptions : public FunctionOptions {
  public:
   explicit SelectKOptions(int64_t k = -1, std::vector<SortKey> sort_keys = {});
-  static constexpr char const kTypeName[] = "SelectKOptions";
+  static constexpr const char kTypeName[] = "SelectKOptions";
   static SelectKOptions Defaults() { return SelectKOptions(); }
 
   static SelectKOptions TopKDefault(int64_t k, std::vector<std::string> key_names = {}) {
@@ -200,7 +184,7 @@ class ARROW_EXPORT RankOptions : public FunctionOptions {
                        Tiebreaker tiebreaker = RankOptions::First)
       : RankOptions({SortKey("", order)}, null_placement, tiebreaker) {}
 
-  static constexpr char const kTypeName[] = "RankOptions";
+  static constexpr const char kTypeName[] = "RankOptions";
   static RankOptions Defaults() { return RankOptions(); }
 
   /// Column key(s) to order by and how to order by these sort keys.
@@ -211,13 +195,32 @@ class ARROW_EXPORT RankOptions : public FunctionOptions {
   Tiebreaker tiebreaker;
 };
 
+/// \brief Quantile rank options
+class ARROW_EXPORT RankQuantileOptions : public FunctionOptions {
+ public:
+  explicit RankQuantileOptions(std::vector<SortKey> sort_keys = {},
+                               NullPlacement null_placement = NullPlacement::AtEnd);
+  /// Convenience constructor for array inputs
+  explicit RankQuantileOptions(SortOrder order,
+                               NullPlacement null_placement = NullPlacement::AtEnd)
+      : RankQuantileOptions({SortKey("", order)}, null_placement) {}
+
+  static constexpr const char kTypeName[] = "RankQuantileOptions";
+  static RankQuantileOptions Defaults() { return RankQuantileOptions(); }
+
+  /// Column key(s) to order by and how to order by these sort keys.
+  std::vector<SortKey> sort_keys;
+  /// Whether nulls and NaNs are placed at the start or at the end
+  NullPlacement null_placement;
+};
+
 /// \brief Partitioning options for NthToIndices
 class ARROW_EXPORT PartitionNthOptions : public FunctionOptions {
  public:
   explicit PartitionNthOptions(int64_t pivot,
                                NullPlacement null_placement = NullPlacement::AtEnd);
   PartitionNthOptions() : PartitionNthOptions(0) {}
-  static constexpr char const kTypeName[] = "PartitionNthOptions";
+  static constexpr const char kTypeName[] = "PartitionNthOptions";
 
   /// The index into the equivalent sorted array of the partition pivot element.
   int64_t pivot;
@@ -225,25 +228,105 @@ class ARROW_EXPORT PartitionNthOptions : public FunctionOptions {
   NullPlacement null_placement;
 };
 
-/// \brief Options for cumulative sum function
-class ARROW_EXPORT CumulativeSumOptions : public FunctionOptions {
+class ARROW_EXPORT WinsorizeOptions : public FunctionOptions {
  public:
-  explicit CumulativeSumOptions(double start = 0, bool skip_nulls = false,
-                                bool check_overflow = false);
-  explicit CumulativeSumOptions(std::shared_ptr<Scalar> start, bool skip_nulls = false,
-                                bool check_overflow = false);
-  static constexpr char const kTypeName[] = "CumulativeSumOptions";
-  static CumulativeSumOptions Defaults() { return CumulativeSumOptions(); }
+  WinsorizeOptions(double lower_limit, double upper_limit);
+  WinsorizeOptions() : WinsorizeOptions(0, 1) {}
+  static constexpr const char kTypeName[] = "WinsorizeOptions";
 
-  /// Optional starting value for cumulative operation computation
-  std::shared_ptr<Scalar> start;
+  /// The quantile below which all values are replaced with the quantile's value.
+  ///
+  /// For example, if lower_limit = 0.05, then all values in the lower 5% percentile
+  /// will be replaced with the 5% percentile value.
+  double lower_limit;
+
+  /// The quantile above which all values are replaced with the quantile's value.
+  ///
+  /// For example, if upper_limit = 0.95, then all values in the upper 95% percentile
+  /// will be replaced with the 95% percentile value.
+  double upper_limit;
+};
+
+/// \brief Options for cumulative functions
+/// \note Also aliased as CumulativeSumOptions for backward compatibility
+class ARROW_EXPORT CumulativeOptions : public FunctionOptions {
+ public:
+  explicit CumulativeOptions(bool skip_nulls = false);
+  explicit CumulativeOptions(double start, bool skip_nulls = false);
+  explicit CumulativeOptions(std::shared_ptr<Scalar> start, bool skip_nulls = false);
+  static constexpr const char kTypeName[] = "CumulativeOptions";
+  static CumulativeOptions Defaults() { return CumulativeOptions(); }
+
+  /// Optional starting value for cumulative operation computation, default depends on the
+  /// operation and input type.
+  /// - sum: 0
+  /// - prod: 1
+  /// - min: maximum of the input type
+  /// - max: minimum of the input type
+  /// - mean: start is ignored because it has no meaning for mean
+  std::optional<std::shared_ptr<Scalar>> start;
 
   /// If true, nulls in the input are ignored and produce a corresponding null output.
   /// When false, the first null encountered is propagated through the remaining output.
   bool skip_nulls = false;
+};
+using CumulativeSumOptions = CumulativeOptions;  // For backward compatibility
 
-  /// When true, returns an Invalid Status when overflow is detected
-  bool check_overflow = false;
+/// \brief Options for pairwise functions
+class ARROW_EXPORT PairwiseOptions : public FunctionOptions {
+ public:
+  explicit PairwiseOptions(int64_t periods = 1);
+  static constexpr const char kTypeName[] = "PairwiseOptions";
+  static PairwiseOptions Defaults() { return PairwiseOptions(); }
+
+  /// Periods to shift for applying the binary operation, accepts negative values.
+  int64_t periods = 1;
+};
+
+/// \brief Options for list_flatten function
+class ARROW_EXPORT ListFlattenOptions : public FunctionOptions {
+ public:
+  explicit ListFlattenOptions(bool recursive = false);
+  static constexpr const char kTypeName[] = "ListFlattenOptions";
+  static ListFlattenOptions Defaults() { return ListFlattenOptions(); }
+
+  /// \brief If true, the list is flattened recursively until a non-list
+  /// array is formed.
+  bool recursive = false;
+};
+
+/// \brief Options for inverse_permutation function
+class ARROW_EXPORT InversePermutationOptions : public FunctionOptions {
+ public:
+  explicit InversePermutationOptions(int64_t max_index = -1,
+                                     std::shared_ptr<DataType> output_type = NULLPTR);
+  static constexpr const char kTypeName[] = "InversePermutationOptions";
+  static InversePermutationOptions Defaults() { return InversePermutationOptions(); }
+
+  /// \brief The max value in the input indices to allow. The length of the function's
+  /// output will be this value plus 1. If negative, this value will be set to the length
+  /// of the input indices minus 1 and the length of the function's output will be the
+  /// length of the input indices.
+  int64_t max_index = -1;
+  /// \brief The type of the output inverse permutation. If null, the output will be of
+  /// the same type as the input indices, otherwise must be signed integer type. An
+  /// invalid error will be reported if this type is not able to store the length of the
+  /// input indices.
+  std::shared_ptr<DataType> output_type = NULLPTR;
+};
+
+/// \brief Options for scatter function
+class ARROW_EXPORT ScatterOptions : public FunctionOptions {
+ public:
+  explicit ScatterOptions(int64_t max_index = -1);
+  static constexpr const char kTypeName[] = "ScatterOptions";
+  static ScatterOptions Defaults() { return ScatterOptions(); }
+
+  /// \brief The max value in the input indices to allow. The length of the function's
+  /// output will be this value plus 1. If negative, this value will be set to the length
+  /// of the input indices minus 1 and the length of the function's output will be the
+  /// length of the input indices.
+  int64_t max_index = -1;
 };
 
 /// @}
@@ -274,12 +357,18 @@ namespace internal {
 // These internal functions are implemented in kernels/vector_selection.cc
 
 /// \brief Return the number of selected indices in the boolean filter
+///
+/// \param filter a plain or run-end encoded boolean array with or without nulls
+/// \param null_selection how to handle nulls in the filter
 ARROW_EXPORT
 int64_t GetFilterOutputSize(const ArraySpan& filter,
                             FilterOptions::NullSelectionBehavior null_selection);
 
 /// \brief Compute uint64 selection indices for use with Take given a boolean
 /// filter
+///
+/// \param filter a plain or run-end encoded boolean array with or without nulls
+/// \param null_selection how to handle nulls in the filter
 ARROW_EXPORT
 Result<std::shared_ptr<ArrayData>> GetTakeIndices(
     const ArraySpan& filter, FilterOptions::NullSelectionBehavior null_selection,
@@ -396,7 +485,7 @@ Result<std::shared_ptr<Array>> NthToIndices(const Array& values, int64_t n,
 
 /// \brief Return indices that partition an array around n-th sorted element.
 ///
-/// This overload takes a PartitionNthOptions specifiying the pivot index
+/// This overload takes a PartitionNthOptions specifying the pivot index
 /// and the null handling.
 ///
 /// \param[in] values array to be partitioned
@@ -447,7 +536,7 @@ Result<std::shared_ptr<Array>> SortIndices(const Array& array,
 
 /// \brief Return the indices that would sort an array.
 ///
-/// This overload takes a ArraySortOptions specifiying the sort order
+/// This overload takes a ArraySortOptions specifying the sort order
 /// and the null handling.
 ///
 /// \param[in] array array to sort
@@ -481,7 +570,7 @@ Result<std::shared_ptr<Array>> SortIndices(const ChunkedArray& chunked_array,
 
 /// \brief Return the indices that would sort a chunked array.
 ///
-/// This overload takes a ArraySortOptions specifiying the sort order
+/// This overload takes a ArraySortOptions specifying the sort order
 /// and the null handling.
 ///
 /// \param[in] chunked_array chunked array to sort
@@ -580,19 +669,166 @@ Result<Datum> DictionaryEncode(
     const DictionaryEncodeOptions& options = DictionaryEncodeOptions::Defaults(),
     ExecContext* ctx = NULLPTR);
 
+/// \brief Run-end-encode values in an array-like object
+///
+/// The returned run-end encoded type uses the same value type of the input and
+/// run-end type defined in the options.
+///
+/// \param[in] value array-like input
+/// \param[in] options configures encoding behavior
+/// \param[in] ctx the function execution context, optional
+/// \return result with same shape but run-end encoded
+///
+/// \since 12.0.0
+/// \note API not yet finalized
 ARROW_EXPORT
-Result<Datum> CumulativeSum(
-    const Datum& values,
-    const CumulativeSumOptions& options = CumulativeSumOptions::Defaults(),
+Result<Datum> RunEndEncode(
+    const Datum& value,
+    const RunEndEncodeOptions& options = RunEndEncodeOptions::Defaults(),
     ExecContext* ctx = NULLPTR);
 
-// ----------------------------------------------------------------------
-// Deprecated functions
-
-ARROW_DEPRECATED("Deprecated in 3.0.0. Use SortIndices()")
+/// \brief Decode a Run-End Encoded array to a plain array
+///
+/// The output data type is the same as the values array type of run-end encoded
+/// input.
+///
+/// \param[in] value run-end-encoded input
+/// \param[in] ctx the function execution context, optional
+/// \return plain array resulting from decoding the run-end encoded input
+///
+/// \since 12.0.0
+/// \note API not yet finalized
 ARROW_EXPORT
-Result<std::shared_ptr<Array>> SortToIndices(const Array& values,
-                                             ExecContext* ctx = NULLPTR);
+Result<Datum> RunEndDecode(const Datum& value, ExecContext* ctx = NULLPTR);
+
+/// \brief Compute the cumulative sum of an array-like object
+///
+/// \param[in] values array-like input
+/// \param[in] options configures cumulative sum behavior
+/// \param[in] check_overflow whether to check for overflow, if true, return Invalid
+/// status on overflow, otherwise wrap around on overflow
+/// \param[in] ctx the function execution context, optional
+ARROW_EXPORT
+Result<Datum> CumulativeSum(
+    const Datum& values, const CumulativeOptions& options = CumulativeOptions::Defaults(),
+    bool check_overflow = false, ExecContext* ctx = NULLPTR);
+
+/// \brief Compute the cumulative product of an array-like object
+///
+/// \param[in] values array-like input
+/// \param[in] options configures cumulative prod behavior
+/// \param[in] check_overflow whether to check for overflow, if true, return Invalid
+/// status on overflow, otherwise wrap around on overflow
+/// \param[in] ctx the function execution context, optional
+ARROW_EXPORT
+Result<Datum> CumulativeProd(
+    const Datum& values, const CumulativeOptions& options = CumulativeOptions::Defaults(),
+    bool check_overflow = false, ExecContext* ctx = NULLPTR);
+
+/// \brief Compute the cumulative max of an array-like object
+///
+/// \param[in] values array-like input
+/// \param[in] options configures cumulative max behavior
+/// \param[in] ctx the function execution context, optional
+ARROW_EXPORT
+Result<Datum> CumulativeMax(
+    const Datum& values, const CumulativeOptions& options = CumulativeOptions::Defaults(),
+    ExecContext* ctx = NULLPTR);
+
+/// \brief Compute the cumulative min of an array-like object
+///
+/// \param[in] values array-like input
+/// \param[in] options configures cumulative min behavior
+/// \param[in] ctx the function execution context, optional
+ARROW_EXPORT
+Result<Datum> CumulativeMin(
+    const Datum& values, const CumulativeOptions& options = CumulativeOptions::Defaults(),
+    ExecContext* ctx = NULLPTR);
+
+/// \brief Compute the cumulative mean of an array-like object
+///
+/// \param[in] values array-like input
+/// \param[in] options configures cumulative mean behavior, `start` is ignored
+/// \param[in] ctx the function execution context, optional
+ARROW_EXPORT
+Result<Datum> CumulativeMean(
+    const Datum& values, const CumulativeOptions& options = CumulativeOptions::Defaults(),
+    ExecContext* ctx = NULLPTR);
+
+/// \brief Return the first order difference of an array.
+///
+/// Computes the first order difference of an array, i.e.
+///   output[i] = input[i] - input[i - p]  if i >= p
+///   output[i] = null                     otherwise
+/// where p is the period. For example, with p = 1,
+///   Diff([1, 4, 9, 10, 15]) = [null, 3, 5, 1, 5].
+/// With p = 2,
+///   Diff([1, 4, 9, 10, 15]) = [null, null, 8, 6, 6]
+/// p can also be negative, in which case the diff is computed in
+/// the opposite direction.
+/// \param[in] array array input
+/// \param[in] options options, specifying overflow behavior and period
+/// \param[in] check_overflow whether to return error on overflow
+/// \param[in] ctx the function execution context, optional
+/// \return result as array
+ARROW_EXPORT
+Result<std::shared_ptr<Array>> PairwiseDiff(const Array& array,
+                                            const PairwiseOptions& options,
+                                            bool check_overflow = false,
+                                            ExecContext* ctx = NULLPTR);
+
+/// \brief Return the inverse permutation of the given indices.
+///
+/// For indices[i] = x, inverse_permutation[x] = i. And inverse_permutation[x] = null if x
+/// does not appear in the input indices. Indices must be in the range of [0, max_index],
+/// or null, which will be ignored. If multiple indices point to the same value, the last
+/// one is used.
+///
+/// For example, with
+///   indices = [null, 0, null, 2, 4, 1, 1]
+/// the inverse permutation is
+///   [1, 6, 3, null, 4, null, null]
+/// if max_index = 6.
+///
+/// \param[in] indices array-like indices
+/// \param[in] options configures the max index and the output type
+/// \param[in] ctx the function execution context, optional
+/// \return the resulting inverse permutation
+///
+/// \since 20.0.0
+/// \note API not yet finalized
+ARROW_EXPORT
+Result<Datum> InversePermutation(
+    const Datum& indices,
+    const InversePermutationOptions& options = InversePermutationOptions::Defaults(),
+    ExecContext* ctx = NULLPTR);
+
+/// \brief Scatter the values into specified positions according to the indices.
+///
+/// For indices[i] = x, output[x] = values[i]. And output[x] = null if x does not appear
+/// in the input indices. Indices must be in the range of [0, max_index], or null, in
+/// which case the corresponding value will be ignored. If multiple indices point to the
+/// same value, the last one is used.
+///
+/// For example, with
+///   values = [a, b, c, d, e, f, g]
+///   indices = [null, 0, null, 2, 4, 1, 1]
+/// the output is
+///   [b, g, d, null, e, null, null]
+/// if max_index = 6.
+///
+/// \param[in] values datum to scatter
+/// \param[in] indices array-like indices
+/// \param[in] options configures the max index of to scatter
+/// \param[in] ctx the function execution context, optional
+/// \return the resulting datum
+///
+/// \since 20.0.0
+/// \note API not yet finalized
+ARROW_EXPORT
+Result<Datum> Scatter(const Datum& values, const Datum& indices,
+                      const ScatterOptions& options = ScatterOptions::Defaults(),
+                      ExecContext* ctx = NULLPTR);
 
 }  // namespace compute
 }  // namespace arrow

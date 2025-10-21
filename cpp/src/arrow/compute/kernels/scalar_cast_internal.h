@@ -20,7 +20,7 @@
 #include "arrow/compute/api_vector.h"
 #include "arrow/compute/cast.h"           // IWYU pragma: export
 #include "arrow/compute/cast_internal.h"  // IWYU pragma: export
-#include "arrow/compute/kernels/common.h"
+#include "arrow/compute/kernels/common_internal.h"
 #include "arrow/compute/kernels/util_internal.h"
 
 namespace arrow {
@@ -61,8 +61,8 @@ Status CastFromNull(KernelContext* ctx, const ExecSpan& batch, ExecResult* out);
 // types are parameter free (have a type_singleton).
 template <typename InType, typename OutType>
 void AddSimpleCast(InputType in_ty, OutputType out_ty, CastFunction* func) {
-  DCHECK_OK(func->AddKernel(InType::type_id, {in_ty}, out_ty,
-                            CastFunctor<OutType, InType>::Exec));
+  ARROW_DCHECK_OK(func->AddKernel(InType::type_id, {in_ty}, out_ty,
+                                  CastFunctor<OutType, InType>::Exec));
 }
 
 Status ZeroCopyCastExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out);

@@ -17,10 +17,12 @@
 
 #include <array>
 
-#include "arrow/compute/kernels/common.h"
+#include "arrow/compute/kernels/common_internal.h"
+#include "arrow/compute/registry_internal.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap.h"
 #include "arrow/util/bitmap_ops.h"
+#include "arrow/util/logging_internal.h"
 
 namespace arrow {
 
@@ -96,7 +98,7 @@ inline Bitmap GetBitmap(const ArraySpan& arr, int index) {
 }
 
 Status InvertOpExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
-  ArraySpan* out_span = out->array_span();
+  ArraySpan* out_span = out->array_span_mutable();
   GetBitmap(*out_span, 1).CopyFromInverted(GetBitmap(batch[0].array, 1));
   return Status::OK();
 }
@@ -114,7 +116,7 @@ struct AndOp : Commutative<AndOp> {
 
   static Status Call(KernelContext* ctx, const ArraySpan& left, const Scalar& right,
                      ExecResult* out) {
-    ArraySpan* out_span = out->array_span();
+    ArraySpan* out_span = out->array_span_mutable();
     if (right.is_valid) {
       checked_cast<const BooleanScalar&>(right).value
           ? GetBitmap(*out_span, 1).CopyFrom(GetBitmap(left, 1))
@@ -125,7 +127,7 @@ struct AndOp : Commutative<AndOp> {
 
   static Status Call(KernelContext* ctx, const ArraySpan& left, const ArraySpan& right,
                      ExecResult* out) {
-    ArraySpan* out_span = out->array_span();
+    ArraySpan* out_span = out->array_span_mutable();
     ::arrow::internal::BitmapAnd(left.buffers[1].data, left.offset, right.buffers[1].data,
                                  right.offset, right.length, out_span->offset,
                                  out_span->buffers[1].data);
@@ -138,7 +140,7 @@ struct KleeneAndOp : Commutative<KleeneAndOp> {
 
   static Status Call(KernelContext* ctx, const ArraySpan& left, const Scalar& right,
                      ExecResult* out) {
-    ArraySpan* out_span = out->array_span();
+    ArraySpan* out_span = out->array_span_mutable();
     bool right_true = right.is_valid && checked_cast<const BooleanScalar&>(right).value;
     bool right_false = right.is_valid && !checked_cast<const BooleanScalar&>(right).value;
 
@@ -176,7 +178,7 @@ struct KleeneAndOp : Commutative<KleeneAndOp> {
 
   static Status Call(KernelContext* ctx, const ArraySpan& left, const ArraySpan& right,
                      ExecResult* out) {
-    ArraySpan* out_span = out->array_span();
+    ArraySpan* out_span = out->array_span_mutable();
     if (left.GetNullCount() == 0 && right.GetNullCount() == 0) {
       GetBitmap(*out_span, 0).SetBitsTo(true);
       out_span->null_count = 0;
@@ -199,7 +201,7 @@ struct OrOp : Commutative<OrOp> {
 
   static Status Call(KernelContext* ctx, const ArraySpan& left, const Scalar& right,
                      ExecResult* out) {
-    ArraySpan* out_span = out->array_span();
+    ArraySpan* out_span = out->array_span_mutable();
     if (right.is_valid) {
       checked_cast<const BooleanScalar&>(right).value
           ? GetBitmap(*out_span, 1).SetBitsTo(true)
@@ -210,7 +212,7 @@ struct OrOp : Commutative<OrOp> {
 
   static Status Call(KernelContext* ctx, const ArraySpan& left, const ArraySpan& right,
                      ExecResult* out) {
-    ArraySpan* out_span = out->array_span();
+    ArraySpan* out_span = out->array_span_mutable();
     ::arrow::internal::BitmapOr(left.buffers[1].data, left.offset, right.buffers[1].data,
                                 right.offset, right.length, out_span->offset,
                                 out_span->buffers[1].data);
@@ -223,7 +225,7 @@ struct KleeneOrOp : Commutative<KleeneOrOp> {
 
   static Status Call(KernelContext* ctx, const ArraySpan& left, const Scalar& right,
                      ExecResult* out) {
-    ArraySpan* out_span = out->array_span();
+    ArraySpan* out_span = out->array_span_mutable();
     bool right_true = right.is_valid && checked_cast<const BooleanScalar&>(right).value;
     bool right_false = right.is_valid && !checked_cast<const BooleanScalar&>(right).value;
 
@@ -261,7 +263,7 @@ struct KleeneOrOp : Commutative<KleeneOrOp> {
 
   static Status Call(KernelContext* ctx, const ArraySpan& left, const ArraySpan& right,
                      ExecResult* out) {
-    ArraySpan* out_span = out->array_span();
+    ArraySpan* out_span = out->array_span_mutable();
     if (left.GetNullCount() == 0 && right.GetNullCount() == 0) {
       out_span->null_count = 0;
       GetBitmap(*out_span, 0).SetBitsTo(true);
@@ -285,7 +287,7 @@ struct XorOp : Commutative<XorOp> {
 
   static Status Call(KernelContext* ctx, const ArraySpan& left, const Scalar& right,
                      ExecResult* out) {
-    ArraySpan* out_span = out->array_span();
+    ArraySpan* out_span = out->array_span_mutable();
     if (right.is_valid) {
       checked_cast<const BooleanScalar&>(right).value
           ? GetBitmap(*out_span, 1).CopyFromInverted(GetBitmap(left, 1))
@@ -296,7 +298,7 @@ struct XorOp : Commutative<XorOp> {
 
   static Status Call(KernelContext* ctx, const ArraySpan& left, const ArraySpan& right,
                      ExecResult* out) {
-    ArraySpan* out_span = out->array_span();
+    ArraySpan* out_span = out->array_span_mutable();
     ::arrow::internal::BitmapXor(left.buffers[1].data, left.offset, right.buffers[1].data,
                                  right.offset, right.length, out_span->offset,
                                  out_span->buffers[1].data);
@@ -307,7 +309,7 @@ struct XorOp : Commutative<XorOp> {
 struct AndNotOp {
   static Status Call(KernelContext* ctx, const Scalar& left, const ArraySpan& right,
                      ExecResult* out) {
-    ArraySpan* out_span = out->array_span();
+    ArraySpan* out_span = out->array_span_mutable();
     if (left.is_valid) {
       checked_cast<const BooleanScalar&>(left).value
           ? GetBitmap(*out_span, 1).CopyFromInverted(GetBitmap(right, 1))
@@ -323,7 +325,7 @@ struct AndNotOp {
 
   static Status Call(KernelContext* ctx, const ArraySpan& left, const ArraySpan& right,
                      ExecResult* out) {
-    ArraySpan* out_span = out->array_span();
+    ArraySpan* out_span = out->array_span_mutable();
     ::arrow::internal::BitmapAndNot(left.buffers[1].data, left.offset,
                                     right.buffers[1].data, right.offset, right.length,
                                     out_span->offset, out_span->buffers[1].data);
@@ -334,7 +336,7 @@ struct AndNotOp {
 struct KleeneAndNotOp {
   static Status Call(KernelContext* ctx, const Scalar& left, const ArraySpan& right,
                      ExecResult* out) {
-    ArraySpan* out_span = out->array_span();
+    ArraySpan* out_span = out->array_span_mutable();
     bool left_true = left.is_valid && checked_cast<const BooleanScalar&>(left).value;
     bool left_false = left.is_valid && !checked_cast<const BooleanScalar&>(left).value;
 
@@ -377,7 +379,7 @@ struct KleeneAndNotOp {
 
   static Status Call(KernelContext* ctx, const ArraySpan& left, const ArraySpan& right,
                      ExecResult* out) {
-    ArraySpan* out_span = out->array_span();
+    ArraySpan* out_span = out->array_span_mutable();
     if (left.GetNullCount() == 0 && right.GetNullCount() == 0) {
       GetBitmap(*out_span, 0).SetBitsTo(true);
       out_span->null_count = 0;

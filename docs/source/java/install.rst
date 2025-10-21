@@ -29,21 +29,55 @@ Java modules are regularly built and tested on macOS and Linux distributions.
 Java Compatibility
 ==================
 
-Java modules are compatible with JDK 8 and above.
-Currently, JDK 8, 11, 17, and 18 are tested in CI.
+Java modules are compatible with JDK 11 and above. Currently, JDK versions
+11, 17, 21, and latest are tested in CI.
 
-When using Java 9 or later, some JDK internals must be exposed by
-adding ``--add-opens=java.base/java.nio=ALL-UNNAMED`` to the ``java`` command:
+Note that some JDK internals must be exposed by
+adding ``--add-opens=java.base/java.nio=org.apache.arrow.memory.core,ALL-UNNAMED`` to the ``java`` command:
 
 .. code-block:: shell
 
    # Directly on the command line
-   $ java --add-opens=java.base/java.nio=ALL-UNNAMED -jar ...
+   $ java --add-opens=java.base/java.nio=org.apache.arrow.memory.core,ALL-UNNAMED -jar ...
    # Indirectly via environment variables
-   $ env _JAVA_OPTIONS="--add-opens=java.base/java.nio=ALL-UNNAMED" java -jar ...
+   $ env JDK_JAVA_OPTIONS="--add-opens=java.base/java.nio=org.apache.arrow.memory.core,ALL-UNNAMED" java -jar ...
 
 Otherwise, you may see errors like ``module java.base does not "opens
-java.nio" to unnamed module``.
+java.nio" to unnamed module`` or ``module java.base does not "opens
+java.nio" to org.apache.arrow.memory.core``
+
+Note that the command has changed from Arrow 15 and earlier. If you are still using the flags from that version
+(``--add-opens=java.base/java.nio=org.apache.arrow.memory.core,ALL-UNNAMED``) you will see the
+``module java.base does not "opens java.nio" to org.apache.arrow.memory.core`` error.
+
+If you are using flight-core or dependent modules, you will need to mark that flight-core can read unnamed modules.
+Modifying the command above for Flight:
+
+.. code-block:: shell
+
+   # Directly on the command line
+   $ java --add-opens=java.base/java.nio=org.apache.arrow.memory.core,ALL-UNNAMED -jar ...
+   # Indirectly via environment variables
+   $ env JDK_JAVA_OPTIONS="--add-reads=org.apache.arrow.flight.core=ALL-UNNAMED --add-opens=java.base/java.nio=org.apache.arrow.memory.core,ALL-UNNAMED" java -jar ...
+
+Otherwise, you may see errors like ``java.lang.IllegalAccessError: superclass access check failed: class
+org.apache.arrow.flight.ArrowMessage$ArrowBufRetainingCompositeByteBuf (in module org.apache.arrow.flight.core)
+cannot access class io.netty.buffer.CompositeByteBuf (in unnamed module ...) because module
+org.apache.arrow.flight.core does not read unnamed module ...``
+
+Finally, if you are using arrow-dataset, you'll also need to report that JDK internals need to be exposed.
+Modifying the command above for arrow-memory:
+
+.. code-block:: shell
+
+   # Directly on the command line
+   $ java --add-opens=java.base/java.nio=org.apache.arrow.memory.core,ALL-UNNAMED -jar ...
+   # Indirectly via environment variables
+   $ env JDK_JAVA_OPTIONS="--add-opens=java.base/java.nio=org.apache.arrow.dataset,org.apache.arrow.memory.core,ALL-UNNAMED" java -jar ...
+
+Otherwise you may see errors such as ``java.lang.RuntimeException: java.lang.reflect.InaccessibleObjectException:
+Unable to make static void java.nio.Bits.reserveMemory(long,long) accessible: module
+java.base does not "opens java.nio" to module org.apache.arrow.dataset``
 
 If using Maven and Surefire for unit testing, :ref:`this argument must
 be added to Surefire as well <java-install-maven-testing>`.
@@ -81,6 +115,46 @@ arrow-vector, and arrow-memory-netty.
                 <version>${arrow.version}</version>
             </dependency>
         </dependencies>
+    </project>
+
+A bill of materials (BOM) module has been provided to simplify adding
+Arrow modules. This eliminates the need to specify the version for
+every module. An alternative to the above would be:
+
+.. code-block:: xml
+
+    <?xml version="1.0" encoding="UTF-8"?>
+    <project xmlns="http://maven.apache.org/POM/4.0.0"
+             xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+             xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+        <modelVersion>4.0.0</modelVersion>
+        <groupId>org.example</groupId>
+        <artifactId>demo</artifactId>
+        <version>1.0-SNAPSHOT</version>
+        <properties>
+            <arrow.version>15.0.0</arrow.version>
+        </properties>
+        <dependencies>
+            <dependency>
+                <groupId>org.apache.arrow</groupId>
+                <artifactId>arrow-vector</artifactId>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.arrow</groupId>
+                <artifactId>arrow-memory-netty</artifactId>
+            </dependency>
+        </dependencies>
+        <dependencyManagement>
+            <dependencies>
+                <dependency>
+                    <groupId>org.apache.arrow</groupId>
+                    <artifactId>arrow-bom</artifactId>
+                    <version>${arrow.version}</version>
+                    <type>pom</type>
+                    <scope>import</scope>
+                </dependency>
+            </dependencies>
+        </dependencyManagement>
     </project>
 
 To use the Arrow Flight dependencies, also add the ``os-maven-plugin``
@@ -142,7 +216,7 @@ Or they can be added via environment variable, for example when executing your c
 
 .. code-block::
 
-    _JAVA_OPTIONS="--add-opens=java.base/java.nio=ALL-UNNAMED" mvn exec:java -Dexec.mainClass="YourMainCode"
+    JDK_JAVA_OPTIONS="--add-opens=java.base/java.nio=ALL-UNNAMED" mvn exec:java -Dexec.mainClass="YourMainCode"
 
 Installing from Source
 ======================

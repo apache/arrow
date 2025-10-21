@@ -19,6 +19,13 @@
 Arrays
 ======
 
+Base classes
+============
+
+.. doxygenclass:: arrow::ArrayStatistics
+   :project: arrow_cpp
+   :members:
+
 .. doxygenclass:: arrow::ArrayData
    :project: arrow_cpp
    :members:
@@ -26,6 +33,20 @@ Arrays
 .. doxygenclass:: arrow::Array
    :project: arrow_cpp
    :members:
+
+.. doxygenclass:: arrow::FlatArray
+   :project: arrow_cpp
+   :members:
+
+.. doxygenclass:: arrow::PrimitiveArray
+   :project: arrow_cpp
+   :members:
+
+Factory functions
+=================
+
+.. doxygengroup:: array-factories
+   :content-only:
 
 Concrete array subclasses
 =========================
@@ -71,6 +92,11 @@ Extension arrays
 .. doxygenclass:: arrow::ExtensionArray
    :members:
 
+Run-End Encoded Array
+---------------------
+
+.. doxygenclass:: arrow::RunEndEncodedArray
+   :members:
 
 Chunked Arrays
 ==============
@@ -79,6 +105,16 @@ Chunked Arrays
    :project: arrow_cpp
    :members:
 
+.. doxygentypedef:: arrow::ChunkLocation
+   :project: arrow_cpp
+
+.. doxygenstruct:: arrow::TypedChunkLocation
+   :project: arrow_cpp
+   :members:
+
+.. doxygenclass:: arrow::ChunkResolver
+   :project: arrow_cpp
+   :members:
 
 Utilities
 =========
@@ -87,3 +123,11 @@ Utilities
    :project: arrow_cpp
    :members:
    :undoc-members:
+
+.. _api-array-from-json-string:
+
+FromJSONString Helpers
+----------------------
+
+.. doxygengroup:: array-from-json-string
+   :members:

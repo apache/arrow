@@ -23,7 +23,7 @@ source_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 if [ "$#" -ne 1 ]; then
   echo "Usage: $0 VERSION"
-  echo " e.g.: $0 3.8.1"
+  echo " e.g.: $0 3.10.1"
   exit 1
 fi
 

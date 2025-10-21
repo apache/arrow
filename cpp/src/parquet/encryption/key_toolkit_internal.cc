@@ -16,56 +16,52 @@
 // under the License.
 
 #include "arrow/util/base64.h"
+#include "arrow/util/secure_string.h"
 
 #include "parquet/encryption/encryption_internal.h"
 #include "parquet/encryption/key_toolkit_internal.h"
 
-namespace parquet {
-namespace encryption {
-namespace internal {
+using arrow::util::SecureString;
+
+namespace parquet::encryption::internal {
 
 // Acceptable key lengths in number of bits, used to validate the data key lengths
 // configured by users and the master key lengths fetched from KMS server.
 static constexpr const int32_t kAcceptableDataKeyLengths[] = {128, 192, 256};
 
-std::string EncryptKeyLocally(const std::string& key_bytes, const std::string& master_key,
-                              const std::string& aad) {
+std::string EncryptKeyLocally(const SecureString& key_bytes,
+                              const SecureString& master_key, const std::string& aad) {
   AesEncryptor key_encryptor(ParquetCipher::AES_GCM_V1,
                              static_cast<int>(master_key.size()), false,
                              false /*write_length*/);
 
-  int encrypted_key_len =
-      static_cast<int>(key_bytes.size()) + key_encryptor.CiphertextSizeDelta();
+  int32_t encrypted_key_len =
+      key_encryptor.CiphertextLength(static_cast<int64_t>(key_bytes.size()));
   std::string encrypted_key(encrypted_key_len, '\0');
-  encrypted_key_len = key_encryptor.Encrypt(
-      reinterpret_cast<const uint8_t*>(key_bytes.data()),
-      static_cast<int>(key_bytes.size()),
-      reinterpret_cast<const uint8_t*>(master_key.data()),
-      static_cast<int>(master_key.size()), reinterpret_cast<const uint8_t*>(aad.data()),
-      static_cast<int>(aad.size()), reinterpret_cast<uint8_t*>(&encrypted_key[0]));
+  ::arrow::util::span<uint8_t> encrypted_key_span(
+      reinterpret_cast<uint8_t*>(&encrypted_key[0]), encrypted_key_len);
+
+  encrypted_key_len = key_encryptor.Encrypt(key_bytes.as_span(), master_key.as_span(),
+                                            str2span(aad), encrypted_key_span);
 
   return ::arrow::util::base64_encode(
       ::std::string_view(encrypted_key.data(), encrypted_key_len));
 }
 
-std::string DecryptKeyLocally(const std::string& encoded_encrypted_key,
-                              const std::string& master_key, const std::string& aad) {
+SecureString DecryptKeyLocally(const std::string& encoded_encrypted_key,
+                               const SecureString& master_key, const std::string& aad) {
   std::string encrypted_key = ::arrow::util::base64_decode(encoded_encrypted_key);
 
   AesDecryptor key_decryptor(ParquetCipher::AES_GCM_V1,
                              static_cast<int>(master_key.size()), false,
                              false /*contains_length*/);
 
-  int decrypted_key_len =
-      static_cast<int>(encrypted_key.size()) - key_decryptor.CiphertextSizeDelta();
-  std::string decrypted_key(decrypted_key_len, '\0');
+  int32_t decrypted_key_len =
+      key_decryptor.PlaintextLength(static_cast<int>(encrypted_key.size()));
+  SecureString decrypted_key(decrypted_key_len, '\0');
 
-  decrypted_key_len = key_decryptor.Decrypt(
-      reinterpret_cast<const uint8_t*>(encrypted_key.data()),
-      static_cast<int>(encrypted_key.size()),
-      reinterpret_cast<const uint8_t*>(master_key.data()),
-      static_cast<int>(master_key.size()), reinterpret_cast<const uint8_t*>(aad.data()),
-      static_cast<int>(aad.size()), reinterpret_cast<uint8_t*>(&decrypted_key[0]));
+  decrypted_key_len = key_decryptor.Decrypt(str2span(encrypted_key), master_key.as_span(),
+                                            str2span(aad), decrypted_key.as_span());
 
   return decrypted_key;
 }
@@ -77,6 +73,4 @@ bool ValidateKeyLength(int32_t key_length_bits) {
   return found_key_length != std::end(kAcceptableDataKeyLengths);
 }
 
-}  // namespace internal
-}  // namespace encryption
-}  // namespace parquet
+}  // namespace parquet::encryption::internal

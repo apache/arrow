@@ -23,10 +23,14 @@
 
 namespace gandiva {
 
+namespace {
+
 std::string& RemovePatternEscapeChars(const FunctionNode& node, std::string& pattern) {
   pattern.erase(std::remove(pattern.begin(), pattern.end(), '\\'), pattern.end());
   return pattern;
 }
+
+}  // namespace
 
 // Short-circuit pattern matches for the following common sub cases :
 // - starts_with, ends_with and is_substr
@@ -48,9 +52,9 @@ const FunctionNode LikeHolder::TryOptimize(const FunctionNode& node) {
     global_checked = true;
   }
 
-  std::shared_ptr<LikeHolder> holder;
-  auto status = Make(node, &holder);
-  if (status.ok()) {
+  auto maybe_holder = Make(node);
+  if (maybe_holder.ok()) {
+    auto holder = *maybe_holder;
     std::string& pattern = holder->pattern_;
     auto literal_type = node.children().at(1)->return_type();
 
@@ -83,7 +87,7 @@ const FunctionNode LikeHolder::TryOptimize(const FunctionNode& node) {
   return node;
 }
 
-Status LikeHolder::Make(const FunctionNode& node, std::shared_ptr<LikeHolder>* holder) {
+Result<std::shared_ptr<LikeHolder>> LikeHolder::Make(const FunctionNode& node) {
   ARROW_RETURN_IF(node.children().size() != 2 && node.children().size() != 3,
                   Status::Invalid("'like' function requires two or three parameters"));
 
@@ -99,13 +103,14 @@ Status LikeHolder::Make(const FunctionNode& node, std::shared_ptr<LikeHolder>* h
           "'like' function requires a string literal as the second parameter"));
 
   RE2::Options regex_op;
+  regex_op.set_dot_nl(true);  // set dotall mode for the regex.
   if (node.descriptor()->name() == "ilike") {
     regex_op.set_case_sensitive(false);  // set case-insensitive for ilike function.
 
-    return Make(std::get<std::string>(literal->holder()), holder, regex_op);
+    return Make(std::get<std::string>(literal->holder()), regex_op);
   }
   if (node.children().size() == 2) {
-    return Make(std::get<std::string>(literal->holder()), holder);
+    return Make(std::get<std::string>(literal->holder()), regex_op);
   } else {
     auto escape_char = dynamic_cast<LiteralNode*>(node.children().at(2).get());
     ARROW_RETURN_IF(
@@ -118,26 +123,27 @@ Status LikeHolder::Make(const FunctionNode& node, std::shared_ptr<LikeHolder>* h
         Status::Invalid(
             "'like' function requires a string literal as the third parameter"));
     return Make(std::get<std::string>(literal->holder()),
-                std::get<std::string>(escape_char->holder()), holder);
+                std::get<std::string>(escape_char->holder()), regex_op);
   }
 }
 
-Status LikeHolder::Make(const std::string& sql_pattern,
-                        std::shared_ptr<LikeHolder>* holder) {
+Result<std::shared_ptr<LikeHolder>> LikeHolder::Make(const std::string& sql_pattern) {
   std::string pcre_pattern;
   ARROW_RETURN_NOT_OK(RegexUtil::SqlLikePatternToPcre(sql_pattern, pcre_pattern));
 
-  auto lholder = std::shared_ptr<LikeHolder>(new LikeHolder(pcre_pattern));
+  RE2::Options regex_op;
+  regex_op.set_dot_nl(true);  // set dotall mode for the regex.
+  auto lholder = std::shared_ptr<LikeHolder>(new LikeHolder(pcre_pattern, regex_op));
   ARROW_RETURN_IF(!lholder->regex_.ok(),
                   Status::Invalid("Building RE2 pattern '", pcre_pattern,
                                   "' failed with: ", lholder->regex_.error()));
 
-  *holder = std::move(lholder);
-  return Status::OK();
+  return lholder;
 }
 
-Status LikeHolder::Make(const std::string& sql_pattern, const std::string& escape_char,
-                        std::shared_ptr<LikeHolder>* holder) {
+Result<std::shared_ptr<LikeHolder>> LikeHolder::Make(const std::string& sql_pattern,
+                                                     const std::string& escape_char,
+                                                     RE2::Options regex_op) {
   ARROW_RETURN_IF(escape_char.length() > 1,
                   Status::Invalid("The length of escape char ", escape_char,
                                   " in 'like' function is greater than 1"));
@@ -149,33 +155,29 @@ Status LikeHolder::Make(const std::string& sql_pattern, const std::string& escap
     ARROW_RETURN_NOT_OK(RegexUtil::SqlLikePatternToPcre(sql_pattern, pcre_pattern));
   }
 
-  auto lholder = std::shared_ptr<LikeHolder>(new LikeHolder(pcre_pattern));
+  auto lholder = std::shared_ptr<LikeHolder>(new LikeHolder(pcre_pattern, regex_op));
   ARROW_RETURN_IF(!lholder->regex_.ok(),
                   Status::Invalid("Building RE2 pattern '", pcre_pattern,
                                   "' failed with: ", lholder->regex_.error()));
 
-  *holder = std::move(lholder);
-  return Status::OK();
+  return lholder;
 }
 
-Status LikeHolder::Make(const std::string& sql_pattern,
-                        std::shared_ptr<LikeHolder>* holder, RE2::Options regex_op) {
+Result<std::shared_ptr<LikeHolder>> LikeHolder::Make(const std::string& sql_pattern,
+                                                     RE2::Options regex_op) {
   std::string pcre_pattern;
   ARROW_RETURN_NOT_OK(RegexUtil::SqlLikePatternToPcre(sql_pattern, pcre_pattern));
 
-  std::shared_ptr<LikeHolder> lholder;
-  lholder = std::shared_ptr<LikeHolder>(new LikeHolder(pcre_pattern, regex_op));
+  auto lholder = std::shared_ptr<LikeHolder>(new LikeHolder(pcre_pattern, regex_op));
 
   ARROW_RETURN_IF(!lholder->regex_.ok(),
                   Status::Invalid("Building RE2 pattern '", pcre_pattern,
                                   "' failed with: ", lholder->regex_.error()));
 
-  *holder = std::move(lholder);
-  return Status::OK();
+  return lholder;
 }
 
-Status ReplaceHolder::Make(const FunctionNode& node,
-                           std::shared_ptr<ReplaceHolder>* holder) {
+Result<std::shared_ptr<ReplaceHolder>> ReplaceHolder::Make(const FunctionNode& node) {
   ARROW_RETURN_IF(node.children().size() != 3,
                   Status::Invalid("'replace' function requires three parameters"));
 
@@ -190,18 +192,17 @@ Status ReplaceHolder::Make(const FunctionNode& node,
       Status::Invalid(
           "'replace' function requires a string literal as the second parameter"));
 
-  return Make(std::get<std::string>(literal->holder()), holder);
+  return Make(std::get<std::string>(literal->holder()));
 }
 
-Status ReplaceHolder::Make(const std::string& sql_pattern,
-                           std::shared_ptr<ReplaceHolder>* holder) {
+Result<std::shared_ptr<ReplaceHolder>> ReplaceHolder::Make(
+    const std::string& sql_pattern) {
   auto lholder = std::shared_ptr<ReplaceHolder>(new ReplaceHolder(sql_pattern));
   ARROW_RETURN_IF(!lholder->regex_.ok(),
                   Status::Invalid("Building RE2 pattern '", sql_pattern,
                                   "' failed with: ", lholder->regex_.error()));
 
-  *holder = std::move(lholder);
-  return Status::OK();
+  return lholder;
 }
 
 void ReplaceHolder::return_error(ExecutionContext* context, std::string& data,
@@ -211,8 +212,7 @@ void ReplaceHolder::return_error(ExecutionContext* context, std::string& data,
   context->set_error_msg(err_msg.c_str());
 }
 
-Status ExtractHolder::Make(const FunctionNode& node,
-                           std::shared_ptr<ExtractHolder>* holder) {
+Result<std::shared_ptr<ExtractHolder>> ExtractHolder::Make(const FunctionNode& node) {
   ARROW_RETURN_IF(node.children().size() != 3,
                   Status::Invalid("'extract' function requires three parameters"));
 
@@ -221,18 +221,17 @@ Status ExtractHolder::Make(const FunctionNode& node,
       literal == nullptr || !IsArrowStringLiteral(literal->return_type()->id()),
       Status::Invalid("'extract' function requires a literal as the second parameter"));
 
-  return ExtractHolder::Make(std::get<std::string>(literal->holder()), holder);
+  return ExtractHolder::Make(std::get<std::string>(literal->holder()));
 }
 
-Status ExtractHolder::Make(const std::string& sql_pattern,
-                           std::shared_ptr<ExtractHolder>* holder) {
+Result<std::shared_ptr<ExtractHolder>> ExtractHolder::Make(
+    const std::string& sql_pattern) {
   auto lholder = std::shared_ptr<ExtractHolder>(new ExtractHolder(sql_pattern));
   ARROW_RETURN_IF(!lholder->regex_.ok(),
                   Status::Invalid("Building RE2 pattern '", sql_pattern,
                                   "' failed with: ", lholder->regex_.error()));
 
-  *holder = std::move(lholder);
-  return Status::OK();
+  return lholder;
 }
 
 const char* ExtractHolder::operator()(ExecutionContext* ctx, const char* user_input,

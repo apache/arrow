@@ -31,6 +31,8 @@
 \alias{null}
 \alias{timestamp}
 \alias{decimal}
+\alias{decimal32}
+\alias{decimal64}
 \alias{decimal128}
 \alias{decimal256}
 \alias{struct}
@@ -40,7 +42,7 @@
 \alias{fixed_size_list_of}
 \alias{MapType}
 \alias{map_of}
-\title{Apache Arrow data types}
+\title{Create Arrow data types}
 \usage{
 int8()
 
@@ -99,6 +101,10 @@ null()
 timestamp(unit = c("s", "ms", "us", "ns"), timezone = "")
 
 decimal(precision, scale)
+
+decimal32(precision, scale)
+
+decimal64(precision, scale)
 
 decimal128(precision, scale)
 
@@ -201,6 +207,7 @@ Use \code{decimal128()} or \code{decimal256()} as the names are more informative
 \code{decimal()}.
 }
 \examples{
+\dontshow{if (arrow_with_acero()) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
 bool()
 struct(a = int32(), b = double())
 timestamp("ms", timezone = "CEST")
@@ -227,6 +234,7 @@ if (requireNamespace("dplyr", quietly = TRUE)) {
     ) \%>\%
     compute()
 }
+\dontshow{\}) # examplesIf}
 }
 \seealso{
 \code{\link[=dictionary]{dictionary()}} for creating a dictionary (factor-like) type.

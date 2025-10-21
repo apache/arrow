@@ -36,7 +36,7 @@ cpdef enum S3LogLevel:
     Trace = <int8_t> CS3LogLevel_Trace
 
 
-def initialize_s3(S3LogLevel log_level=S3LogLevel.Fatal):
+def initialize_s3(S3LogLevel log_level=S3LogLevel.Fatal, int num_event_loop_threads=1):
     """
     Initialize S3 support
 
@@ -44,6 +44,8 @@ def initialize_s3(S3LogLevel log_level=S3LogLevel.Fatal):
     ----------
     log_level : S3LogLevel
         level of logging
+    num_event_loop_threads : int, default 1
+        how many threads to use for the AWS SDK's I/O event loop
 
     Examples
     --------
@@ -51,11 +53,26 @@ def initialize_s3(S3LogLevel log_level=S3LogLevel.Fatal):
     """
     cdef CS3GlobalOptions options
     options.log_level = <CS3LogLevel> log_level
+    options.num_event_loop_threads = num_event_loop_threads
     check_status(CInitializeS3(options))
+
+
+def ensure_s3_initialized():
+    """
+    Initialize S3 (with default options) if not already initialized
+    """
+    check_status(CEnsureS3Initialized())
 
 
 def finalize_s3():
     check_status(CFinalizeS3())
+
+
+def ensure_s3_finalized():
+    """
+    Finalize S3 if already initialized
+    """
+    check_status(CEnsureS3Finalized())
 
 
 def resolve_s3_region(bucket):
@@ -80,6 +97,8 @@ def resolve_s3_region(bucket):
     cdef:
         c_string c_bucket
         c_string c_region
+
+    ensure_s3_initialized()
 
     c_bucket = tobytes(bucket)
     with nogil:
@@ -130,20 +149,26 @@ cdef class S3FileSystem(FileSystem):
     """
     S3-backed FileSystem implementation
 
-    If neither access_key nor secret_key are provided, and role_arn is also not
-    provided, then attempts to initialize from AWS environment variables,
-    otherwise both access_key and secret_key must be provided.
+    AWS access_key and secret_key can be provided explicitly.
 
     If role_arn is provided instead of access_key and secret_key, temporary
     credentials will be fetched by issuing a request to STS to assume the
     specified role.
 
+    If neither access_key nor secret_key are provided, and role_arn is also not
+    provided, then attempts to establish the credentials automatically.
+    S3FileSystem will try the following methods, in order:
+
+    * ``AWS_ACCESS_KEY_ID``, ``AWS_SECRET_ACCESS_KEY``, and ``AWS_SESSION_TOKEN`` environment variables
+    * configuration files such as ``~/.aws/credentials`` and ``~/.aws/config``
+    * for nodes on Amazon EC2, the EC2 Instance Metadata Service
+
     Note: S3 buckets are special and the operations available on them may be
     limited or more expensive than desired.
 
-    When S3FileSystem creates new buckets (assuming allow_bucket_creation is 
-    True), it does not pass any non-default settings. In AWS S3, the bucket and 
-    all objects will be not publicly visible, and will have no bucket policies 
+    When S3FileSystem creates new buckets (assuming allow_bucket_creation is
+    True), it does not pass any non-default settings. In AWS S3, the bucket and
+    all objects will be not publicly visible, and will have no bucket policies
     and no resource tags. To have more control over how buckets are created,
     use a different API to create them.
 
@@ -158,7 +183,7 @@ cdef class S3FileSystem(FileSystem):
     session_token : str, default None
         AWS Session Token.  An optional session token, required if access_key
         and secret_key are temporary credentials from STS.
-    anonymous : boolean, default False
+    anonymous : bool, default False
         Whether to connect anonymously if access_key and secret_key are None.
         If true, will not attempt to look up credentials using standard AWS
         configuration methods.
@@ -190,7 +215,7 @@ cdef class S3FileSystem(FileSystem):
         S3 connection transport scheme.
     endpoint_override : str, default None
         Override region with a connect string such as "localhost:9000"
-    background_writes : boolean, default True
+    background_writes : bool, default True
         Whether file writes will be issued in the background, without
         blocking.
     default_metadata : mapping or pyarrow.KeyValueMetadata, default None
@@ -209,15 +234,38 @@ cdef class S3FileSystem(FileSystem):
             S3FileSystem(proxy_options={'scheme': 'http', 'host': 'localhost',
                                         'port': 8020, 'username': 'username',
                                         'password': 'password'})
+    allow_delayed_open : bool, default False
+        Whether to allow file-open methods to return before the actual open. This option
+        may reduce latency as it decreases the number of round trips.
+        The downside is failures such as opening a file in a non-existing bucket will
+        only be reported when actual I/O is done (at worst, when attempting to close the
+        file).
     allow_bucket_creation : bool, default False
-        Whether to allow CreateDir at the bucket-level. This option may also be 
+        Whether to allow directory creation at the bucket-level. This option may also be
         passed in a URI query parameter.
     allow_bucket_deletion : bool, default False
-        Whether to allow DeleteDir at the bucket-level. This option may also be 
+        Whether to allow directory deletion at the bucket-level. This option may also be
         passed in a URI query parameter.
+    check_directory_existence_before_creation : bool, default false
+        Whether to check the directory existence before creating it.
+        If false, when creating a directory the code will not check if it already
+        exists or not. It's an optimization to try directory creation and catch the error,
+        rather than issue two dependent I/O calls.
+        If true, when creating a directory the code will only create the directory when necessary
+        at the cost of extra I/O calls. This can be used for key/value cloud storage which has
+        a hard rate limit to number of object mutation operations or scenarios such as
+        the directories already exist and you do not have creation access.
     retry_strategy : S3RetryStrategy, default AwsStandardS3RetryStrategy(max_attempts=3)
         The retry strategy to use with S3; fail after max_attempts. Available
         strategies are AwsStandardS3RetryStrategy, AwsDefaultS3RetryStrategy.
+    force_virtual_addressing : bool, default False
+        Whether to use virtual addressing of buckets.
+        If true, then virtual addressing is always enabled.
+        If false, then virtual addressing is only enabled if `endpoint_override` is empty.
+        This can be used for non-AWS backends that only support virtual hosted-style access.
+    tls_ca_file_path : str, default None
+        If set, this should be the path of a file containing TLS certificates
+        in PEM format which will be used for TLS verification.
 
     Examples
     --------
@@ -225,7 +273,7 @@ cdef class S3FileSystem(FileSystem):
     >>> s3 = fs.S3FileSystem(region='us-west-2')
     >>> s3.get_file_info(fs.FileSelector(
     ...    'power-analysis-ready-datastore/power_901_constants.zarr/FROCEAN', recursive=True
-    ... ))
+    ... )) # doctest: +SKIP
     [<FileInfo for 'power-analysis-ready-datastore/power_901_constants.zarr/FROCEAN/.zarray...
 
     For usage of the methods see examples for :func:`~pyarrow.fs.LocalFileSystem`.
@@ -240,11 +288,19 @@ cdef class S3FileSystem(FileSystem):
                  bint background_writes=True, default_metadata=None,
                  role_arn=None, session_name=None, external_id=None,
                  load_frequency=900, proxy_options=None,
+                 allow_delayed_open=False,
                  allow_bucket_creation=False, allow_bucket_deletion=False,
-                 retry_strategy: S3RetryStrategy = AwsStandardS3RetryStrategy(max_attempts=3)):
+                 check_directory_existence_before_creation=False,
+                 retry_strategy: S3RetryStrategy = AwsStandardS3RetryStrategy(
+                     max_attempts=3),
+                 force_virtual_addressing=False, tls_ca_file_path=None):
         cdef:
-            CS3Options options
+            optional[CS3Options] options
             shared_ptr[CS3FileSystem] wrapped
+
+        # Need to do this before initializing `options` as the S3Options
+        # constructor has a debug check against use after S3 finalization.
+        ensure_s3_initialized()
 
         if access_key is not None and secret_key is None:
             raise ValueError(
@@ -307,56 +363,65 @@ cdef class S3FileSystem(FileSystem):
             options = CS3Options.Defaults()
 
         if region is not None:
-            options.region = tobytes(region)
+            options.value().region = tobytes(region)
         if request_timeout is not None:
-            options.request_timeout = request_timeout
+            options.value().request_timeout = request_timeout
         if connect_timeout is not None:
-            options.connect_timeout = connect_timeout
+            options.value().connect_timeout = connect_timeout
         if scheme is not None:
-            options.scheme = tobytes(scheme)
+            options.value().scheme = tobytes(scheme)
         if endpoint_override is not None:
-            options.endpoint_override = tobytes(endpoint_override)
+            options.value().endpoint_override = tobytes(endpoint_override)
         if background_writes is not None:
-            options.background_writes = background_writes
+            options.value().background_writes = background_writes
         if default_metadata is not None:
             if not isinstance(default_metadata, KeyValueMetadata):
                 default_metadata = KeyValueMetadata(default_metadata)
-            options.default_metadata = pyarrow_unwrap_metadata(
+            options.value().default_metadata = pyarrow_unwrap_metadata(
                 default_metadata)
 
         if proxy_options is not None:
             if isinstance(proxy_options, dict):
-                options.proxy_options.scheme = tobytes(proxy_options["scheme"])
-                options.proxy_options.host = tobytes(proxy_options["host"])
-                options.proxy_options.port = proxy_options["port"]
+                options.value().proxy_options.scheme = tobytes(
+                    proxy_options["scheme"])
+                options.value().proxy_options.host = tobytes(
+                    proxy_options["host"])
+                options.value().proxy_options.port = proxy_options["port"]
                 proxy_username = proxy_options.get("username", None)
                 if proxy_username:
-                    options.proxy_options.username = tobytes(proxy_username)
+                    options.value().proxy_options.username = tobytes(
+                        proxy_username)
                 proxy_password = proxy_options.get("password", None)
                 if proxy_password:
-                    options.proxy_options.password = tobytes(proxy_password)
+                    options.value().proxy_options.password = tobytes(
+                        proxy_password)
             elif isinstance(proxy_options, str):
-                options.proxy_options = GetResultValue(
+                options.value().proxy_options = GetResultValue(
                     CS3ProxyOptions.FromUriString(tobytes(proxy_options)))
             else:
                 raise TypeError(
                     "'proxy_options': expected 'dict' or 'str', "
                     f"got {type(proxy_options)} instead.")
 
-        options.allow_bucket_creation = allow_bucket_creation
-        options.allow_bucket_deletion = allow_bucket_deletion
+        options.value().allow_delayed_open = allow_delayed_open
+        options.value().allow_bucket_creation = allow_bucket_creation
+        options.value().allow_bucket_deletion = allow_bucket_deletion
+        options.value().check_directory_existence_before_creation = check_directory_existence_before_creation
+        options.value().force_virtual_addressing = force_virtual_addressing
 
         if isinstance(retry_strategy, AwsStandardS3RetryStrategy):
-            options.retry_strategy = CS3RetryStrategy.GetAwsStandardRetryStrategy(
+            options.value().retry_strategy = CS3RetryStrategy.GetAwsStandardRetryStrategy(
                 retry_strategy.max_attempts)
         elif isinstance(retry_strategy, AwsDefaultS3RetryStrategy):
-            options.retry_strategy = CS3RetryStrategy.GetAwsDefaultRetryStrategy(
+            options.value().retry_strategy = CS3RetryStrategy.GetAwsDefaultRetryStrategy(
                 retry_strategy.max_attempts)
         else:
             raise ValueError(f'Invalid retry_strategy {retry_strategy!r}')
+        if tls_ca_file_path is not None:
+            options.value().tls_ca_file_path = tobytes(tls_ca_file_path)
 
         with nogil:
-            wrapped = GetResultValue(CS3FileSystem.Make(options))
+            wrapped = GetResultValue(CS3FileSystem.Make(options.value()))
 
         self.init(<shared_ptr[CFileSystem]> wrapped)
 
@@ -364,9 +429,11 @@ cdef class S3FileSystem(FileSystem):
         FileSystem.init(self, wrapped)
         self.s3fs = <CS3FileSystem*> wrapped.get()
 
-    @classmethod
-    def _reconstruct(cls, kwargs):
-        return cls(**kwargs)
+    @staticmethod
+    def _reconstruct(kwargs):
+        # __reduce__ doesn't allow passing named arguments directly to the
+        # reconstructor, hence this wrapper.
+        return S3FileSystem(**kwargs)
 
     def __reduce__(self):
         cdef CS3Options opts = self.s3fs.options()
@@ -399,8 +466,10 @@ cdef class S3FileSystem(FileSystem):
                 external_id=frombytes(opts.external_id),
                 load_frequency=opts.load_frequency,
                 background_writes=opts.background_writes,
+                allow_delayed_open=opts.allow_delayed_open,
                 allow_bucket_creation=opts.allow_bucket_creation,
                 allow_bucket_deletion=opts.allow_bucket_deletion,
+                check_directory_existence_before_creation=opts.check_directory_existence_before_creation,
                 default_metadata=pyarrow_wrap_metadata(opts.default_metadata),
                 proxy_options={'scheme': frombytes(opts.proxy_options.scheme),
                                'host': frombytes(opts.proxy_options.host),
@@ -409,6 +478,8 @@ cdef class S3FileSystem(FileSystem):
                                    opts.proxy_options.username),
                                'password': frombytes(
                                    opts.proxy_options.password)},
+                force_virtual_addressing=opts.force_virtual_addressing,
+                tls_ca_file_path=frombytes(opts.tls_ca_file_path),
             ),)
         )
 

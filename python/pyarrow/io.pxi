@@ -20,7 +20,10 @@
 
 from libc.stdlib cimport malloc, free
 
+from cpython.bytearray cimport PyByteArray_FromStringAndSize
+
 import codecs
+import pickle
 import re
 import sys
 import threading
@@ -29,6 +32,7 @@ import warnings
 from io import BufferedIOBase, IOBase, TextIOBase, UnsupportedOperation
 from queue import Queue, Empty as QueueEmpty
 
+from pyarrow.lib cimport check_status, HaveLibHdfs
 from pyarrow.util import _is_path_like, _stringify_path
 
 
@@ -41,8 +45,17 @@ cdef extern from "Python.h":
     PyObject* PyBytes_FromStringAndSizeNative" PyBytes_FromStringAndSize"(
         char *v, Py_ssize_t len) except NULL
 
-    # Workaround https://github.com/cython/cython/issues/4707
-    bytearray PyByteArray_FromStringAndSize(char *string, Py_ssize_t len)
+
+def have_libhdfs():
+    """
+    Return true if HDFS (HadoopFileSystem) library is set up correctly.
+    """
+    try:
+        with nogil:
+            check_status(HaveLibHdfs())
+        return True
+    except Exception:
+        return False
 
 
 def io_thread_count():
@@ -110,6 +123,7 @@ cdef class NativeFile(_Weakrefable):
         self.is_readable = False
         self.is_writable = False
         self.is_seekable = False
+        self._is_appending = False
 
     def __dealloc__(self):
         if self.own_file:
@@ -138,12 +152,15 @@ cdef class NativeFile(_Weakrefable):
         * rb: binary read
         * wb: binary write
         * rb+: binary read and write
+        * ab: binary append
         """
         # Emulate built-in file modes
         if self.is_readable and self.is_writable:
             return 'rb+'
         elif self.is_readable:
             return 'rb'
+        elif self.is_writable and self._is_appending:
+            return 'ab'
         elif self.is_writable:
             return 'wb'
         else:
@@ -318,8 +335,7 @@ cdef class NativeFile(_Weakrefable):
                 offset = offset + position
             else:
                 with gil:
-                    raise ValueError("Invalid value of whence: {0}"
-                                     .format(whence))
+                    raise ValueError(f"Invalid value of whence: {whence}")
             check_status(handle.get().Seek(offset))
 
         return self.tell()
@@ -575,6 +591,14 @@ cdef class NativeFile(_Weakrefable):
         return line
 
     def read_buffer(self, nbytes=None):
+        """
+        Read from buffer.
+
+        Parameters
+        ----------
+        nbytes : int, optional
+            maximum number of bytes read
+        """
         cdef:
             int64_t c_nbytes
             int64_t bytes_read = 0
@@ -602,6 +626,14 @@ cdef class NativeFile(_Weakrefable):
         raise UnsupportedOperation()
 
     def writelines(self, lines):
+        """
+        Write lines to the file.
+
+        Parameters
+        ----------
+        lines : iterable
+            Iterable of bytes-like objects or exporters of buffer protocol
+        """
         self._assert_writable()
 
         for line in lines:
@@ -624,6 +656,9 @@ cdef class NativeFile(_Weakrefable):
         cdef:
             int64_t bytes_read = 0
             uint8_t* buf
+
+        if not is_threading_enabled():
+            return self._download_nothreads(stream_or_path, buffer_size)
 
         handle = self.get_input_stream()
 
@@ -666,8 +701,7 @@ cdef class NativeFile(_Weakrefable):
         # the passed buffer, so it's hard for us to avoid doubling the memory
         buf = <uint8_t*> malloc(buffer_size)
         if buf == NULL:
-            raise MemoryError("Failed to allocate {0} bytes"
-                              .format(buffer_size))
+            raise MemoryError(f"Failed to allocate {buffer_size} bytes")
 
         writer_thread.start()
 
@@ -704,6 +738,62 @@ cdef class NativeFile(_Weakrefable):
         if exc_info is not None:
             raise exc_info[0], exc_info[1], exc_info[2]
 
+    def _download_nothreads(self, stream_or_path, buffer_size=None):
+        """
+        Internal method to do a download without separate threads, queues etc.
+        Called by download above if is_threading_enabled() == False
+        """
+        cdef:
+            int64_t bytes_read = 0
+            uint8_t* buf
+
+        handle = self.get_input_stream()
+
+        buffer_size = buffer_size or DEFAULT_BUFFER_SIZE
+
+        if not hasattr(stream_or_path, 'read'):
+            stream = open(stream_or_path, 'wb')
+
+            def cleanup():
+                stream.close()
+        else:
+            stream = stream_or_path
+
+            def cleanup():
+                pass
+
+        self.seek(0)
+
+        # This isn't ideal -- PyBytes_FromStringAndSize copies the data from
+        # the passed buffer, so it's hard for us to avoid doubling the memory
+        buf = <uint8_t*> malloc(buffer_size)
+        if buf == NULL:
+            raise MemoryError(f"Failed to allocate {buffer_size} bytes")
+
+        cdef int64_t total_bytes = 0
+        cdef int32_t c_buffer_size = buffer_size
+
+        try:
+            while True:
+                with nogil:
+                    bytes_read = GetResultValue(
+                        handle.get().Read(c_buffer_size, buf))
+
+                total_bytes += bytes_read
+
+                # EOF
+                if bytes_read == 0:
+                    break
+
+                pybuf = cp.PyBytes_FromStringAndSize(<const char*>buf,
+                                                     bytes_read)
+
+                # no background thread - write on main thread
+                stream.write(pybuf)
+        finally:
+            free(buf)
+            cleanup()
+
     def upload(self, stream, buffer_size=None):
         """
         Write from a source stream to this file.
@@ -715,6 +805,9 @@ cdef class NativeFile(_Weakrefable):
         buffer_size : int, optional
             The buffer size to use for data transfers.
         """
+        if not is_threading_enabled():
+            return self._upload_nothreads(stream, buffer_size)
+
         write_queue = Queue(50)
         self._assert_writable()
 
@@ -759,6 +852,24 @@ cdef class NativeFile(_Weakrefable):
         if exc_info is not None:
             raise exc_info[0], exc_info[1], exc_info[2]
 
+    def _upload_nothreads(self, stream, buffer_size=None):
+        """
+        Internal method to do an upload without separate threads, queues etc.
+        Called by upload above if is_threading_enabled() == False
+        """
+        self._assert_writable()
+
+        buffer_size = buffer_size or DEFAULT_BUFFER_SIZE
+
+        while True:
+            buf = stream.read(buffer_size)
+            if not buf:
+                break
+
+            # no threading - just write
+            self.write(buf)
+
+
 BufferedIOBase.register(NativeFile)
 
 # ----------------------------------------------------------------------
@@ -782,6 +893,34 @@ cdef class PythonFile(NativeFile):
     >>> import pyarrow as pa
     >>> pa.PythonFile(io.BytesIO())
     <pyarrow.PythonFile closed=False own_file=False is_seekable=False is_writable=True is_readable=False>
+
+    Create a stream for writing:
+
+    >>> buf = io.BytesIO()
+    >>> f =  pa.PythonFile(buf, mode = 'w')
+    >>> f.writable()
+    True
+    >>> f.write(b'PythonFile')
+    10
+    >>> buf.getvalue()
+    b'PythonFile'
+    >>> f.close()
+    >>> f
+    <pyarrow.PythonFile closed=True own_file=False is_seekable=False is_writable=True is_readable=False>
+
+    Create a stream for reading:
+
+    >>> buf = io.BytesIO(b'PythonFile')
+    >>> f =  pa.PythonFile(buf, mode = 'r')
+    >>> f.mode
+    'rb'
+    >>> f.read()
+    b'PythonFile'
+    >>> f
+    <pyarrow.PythonFile closed=False own_file=False is_seekable=True is_writable=False is_readable=True>
+    >>> f.close()
+    >>> f
+    <pyarrow.PythonFile closed=True own_file=False is_seekable=True is_writable=False is_readable=True>
     """
     cdef:
         object handle
@@ -809,7 +948,7 @@ cdef class PythonFile(NativeFile):
         elif inferred_mode.startswith('r'):
             kind = 'r'
         else:
-            raise ValueError('Invalid file mode: {0}'.format(mode))
+            raise ValueError(f'Invalid file mode: {mode}')
 
         # If mode was given, check it matches the given file
         if mode is not None:
@@ -837,12 +976,35 @@ cdef class PythonFile(NativeFile):
             self.is_writable = True
 
     def truncate(self, pos=None):
+        """
+        Parameters
+        ----------
+        pos : int, optional
+        """
         self.handle.truncate(pos)
 
     def readline(self, size=None):
+        """
+        Read and return a line of bytes from the file.
+
+        If size is specified, read at most size bytes.
+
+        Parameters
+        ----------
+        size : int
+            Maximum number of bytes read
+        """
         return self.handle.readline(size)
 
     def readlines(self, hint=None):
+        """
+        Read lines of the file.
+
+        Parameters
+        ----------
+        hint : int
+            Maximum number of bytes read until we stop
+        """
         return self.handle.readlines(hint)
 
 
@@ -851,6 +1013,23 @@ cdef class MemoryMappedFile(NativeFile):
     A stream that represents a memory-mapped file.
 
     Supports 'r', 'r+', 'w' modes.
+
+    Examples
+    --------
+    Create a new file with memory map:
+
+    >>> import pyarrow as pa
+    >>> mmap = pa.create_memory_map('example_mmap.dat', 10)
+    >>> mmap
+    <pyarrow.MemoryMappedFile closed=False own_file=False is_seekable=True is_writable=True is_readable=True>
+    >>> mmap.close()
+
+    Open an existing file with memory map:
+
+    >>> with pa.memory_map('example_mmap.dat') as mmap:
+    ...     mmap
+    ...
+    <pyarrow.MemoryMappedFile closed=False own_file=False is_seekable=True is_writable=False is_readable=True>
     """
     cdef:
         shared_ptr[CMemoryMappedFile] handle
@@ -905,7 +1084,7 @@ cdef class MemoryMappedFile(NativeFile):
             self.is_readable = True
             self.is_writable = True
         else:
-            raise ValueError('Invalid file mode: {0}'.format(mode))
+            raise ValueError(f'Invalid file mode: {mode}')
 
         with nogil:
             handle = GetResultValue(CMemoryMappedFile.Open(c_path, c_mode))
@@ -967,8 +1146,7 @@ def memory_map(path, mode='r'):
 
 cdef _check_is_file(path):
     if os.path.isdir(path):
-        raise IOError("Expected file path, but {0} is a directory"
-                      .format(path))
+        raise IOError(f"Expected file path, but {path} is a directory")
 
 
 def create_memory_map(path, size):
@@ -1004,6 +1182,47 @@ def create_memory_map(path, size):
 cdef class OSFile(NativeFile):
     """
     A stream backed by a regular file descriptor.
+
+    Examples
+    --------
+    Create a new file to write to:
+
+    >>> import pyarrow as pa
+    >>> with pa.OSFile('example_osfile.arrow', mode='w') as f:
+    ...     f.writable()
+    ...     f.write(b'OSFile')
+    ...     f.seekable()
+    ...
+    True
+    6
+    False
+
+    Open the file to read:
+
+    >>> with pa.OSFile('example_osfile.arrow', mode='r') as f:
+    ...     f.mode
+    ...     f.read()
+    ...
+    'rb'
+    b'OSFile'
+
+    Open the file to append:
+
+    >>> with pa.OSFile('example_osfile.arrow', mode='ab') as f:
+    ...     f.mode
+    ...     f.write(b' is super!')
+    ...
+    'ab'
+    10
+    >>> with pa.OSFile('example_osfile.arrow') as f:
+    ...     f.read()
+    ...
+    b'OSFile is super!'
+
+    Inspect created OSFile:
+
+    >>> pa.OSFile('example_osfile.arrow')
+    <pyarrow.OSFile closed=False own_file=False is_seekable=True is_writable=False is_readable=True>
     """
     cdef:
         object path
@@ -1021,8 +1240,10 @@ cdef class OSFile(NativeFile):
             self._open_readable(c_path, maybe_unbox_memory_pool(memory_pool))
         elif mode in ('w', 'wb'):
             self._open_writable(c_path)
+        elif mode in ('a', 'ab'):
+            self._open_writable(c_path, append=True)
         else:
-            raise ValueError('Invalid file mode: {0}'.format(mode))
+            raise ValueError(f'Invalid file mode: {mode}')
 
     cdef _open_readable(self, c_string path, CMemoryPool* pool):
         cdef shared_ptr[ReadableFile] handle
@@ -1033,10 +1254,13 @@ cdef class OSFile(NativeFile):
         self.is_readable = True
         self.set_random_access_file(<shared_ptr[CRandomAccessFile]> handle)
 
-    cdef _open_writable(self, c_string path):
+    cdef _open_writable(self, c_string path, c_bool append=False):
         with nogil:
-            self.output_stream = GetResultValue(FileOutputStream.Open(path))
+            self.output_stream = GetResultValue(
+                FileOutputStream.OpenWithAppend(path, append)
+            )
         self.is_writable = True
+        self._is_appending = append
 
     def fileno(self):
         self._assert_open()
@@ -1046,6 +1270,26 @@ cdef class OSFile(NativeFile):
 cdef class FixedSizeBufferWriter(NativeFile):
     """
     A stream writing to a Arrow buffer.
+
+    Examples
+    --------
+    Create a stream to write to ``pyarrow.Buffer``:
+
+    >>> import pyarrow as pa
+    >>> buf = pa.allocate_buffer(5)
+    >>> with pa.output_stream(buf) as stream:
+    ...     stream.write(b'abcde')
+    ...     stream
+    ...
+    5
+    <pyarrow.FixedSizeBufferWriter closed=False own_file=False is_seekable=False is_writable=True is_readable=False>
+
+    Inspect the buffer:
+
+    >>> buf.to_pybytes()
+    b'abcde'
+    >>> buf
+    <pyarrow.Buffer address=... size=5 is_cpu=True is_mutable=True>
     """
 
     def __cinit__(self, Buffer buffer):
@@ -1053,16 +1297,31 @@ cdef class FixedSizeBufferWriter(NativeFile):
         self.is_writable = True
 
     def set_memcopy_threads(self, int num_threads):
+        """
+        Parameters
+        ----------
+        num_threads : int
+        """
         cdef CFixedSizeBufferWriter* writer = \
             <CFixedSizeBufferWriter*> self.output_stream.get()
         writer.set_memcopy_threads(num_threads)
 
     def set_memcopy_blocksize(self, int64_t blocksize):
+        """
+        Parameters
+        ----------
+        blocksize : int64
+        """
         cdef CFixedSizeBufferWriter* writer = \
             <CFixedSizeBufferWriter*> self.output_stream.get()
         writer.set_memcopy_blocksize(blocksize)
 
     def set_memcopy_threshold(self, int64_t threshold):
+        """
+        Parameters
+        ----------
+        threshold : int64
+        """
         cdef CFixedSizeBufferWriter* writer = \
             <CFixedSizeBufferWriter*> self.output_stream.get()
         writer.set_memcopy_threshold(threshold)
@@ -1103,6 +1362,10 @@ cdef class Buffer(_Weakrefable):
                 f"is_cpu={self.is_cpu} "
                 f"is_mutable={self.is_mutable}>")
 
+    def _assert_cpu(self):
+        if not self.is_cpu:
+            raise NotImplementedError("Implemented only for data on CPU device")
+
     @property
     def size(self):
         """
@@ -1128,6 +1391,7 @@ cdef class Buffer(_Weakrefable):
         -------
         : bytes
         """
+        self._assert_cpu()
         return self.buffer.get().ToHexString()
 
     @property
@@ -1143,6 +1407,39 @@ cdef class Buffer(_Weakrefable):
         Whether the buffer is CPU-accessible.
         """
         return self.buffer.get().is_cpu()
+
+    @property
+    def device(self):
+        """
+        The device where the buffer resides.
+
+        Returns
+        -------
+        Device
+        """
+        return Device.wrap(self.buffer.get().device())
+
+    @property
+    def memory_manager(self):
+        """
+        The memory manager associated with the buffer.
+
+        Returns
+        -------
+        MemoryManager
+        """
+        return MemoryManager.wrap(self.buffer.get().memory_manager())
+
+    @property
+    def device_type(self):
+        """
+        The device type where the buffer resides.
+
+        Returns
+        -------
+        DeviceAllocationType
+        """
+        return _wrap_device_allocation_type(self.buffer.get().device_type())
 
     @property
     def parent(self):
@@ -1162,6 +1459,7 @@ cdef class Buffer(_Weakrefable):
         return self.getitem(_normalize_index(key, self.size))
 
     cdef getitem(self, int64_t i):
+        self._assert_cpu()
         return self.buffer.get().data()[i]
 
     def slice(self, offset=0, length=None):
@@ -1208,6 +1506,18 @@ cdef class Buffer(_Weakrefable):
         are_equal : bool
             True if buffer contents and size are equal
         """
+        if self.device != other.device:
+            raise ValueError(
+                "Device on which the data resides differs between buffers: "
+                f"{self.device.type_name} and {other.device.type_name}."
+            )
+        if not self.is_cpu:
+            if self.address != other.address:
+                raise NotImplementedError(
+                    "Implemented only for data on CPU device or data with equal "
+                    "addresses"
+                )
+
         cdef c_bool result = False
         with nogil:
             result = self.buffer.get().Equals(deref(other.buffer.get()))
@@ -1220,8 +1530,10 @@ cdef class Buffer(_Weakrefable):
             return self.equals(py_buffer(other))
 
     def __reduce_ex__(self, protocol):
+        self._assert_cpu()
+
         if protocol >= 5:
-            bufobj = builtin_pickle.PickleBuffer(self)
+            bufobj = pickle.PickleBuffer(self)
         elif self.buffer.get().is_mutable():
             # Need to pass a bytearray to recreate a mutable buffer when
             # unpickling.
@@ -1236,11 +1548,15 @@ cdef class Buffer(_Weakrefable):
         """
         Return this buffer as a Python bytes object. Memory is copied.
         """
+        self._assert_cpu()
+
         return cp.PyBytes_FromStringAndSize(
             <const char*>self.buffer.get().data(),
             self.buffer.get().size())
 
     def __getbuffer__(self, cp.Py_buffer* buffer, int flags):
+        self._assert_cpu()
+
         if self.buffer.get().is_mutable():
             buffer.readonly = 0
         else:
@@ -1262,27 +1578,6 @@ cdef class Buffer(_Weakrefable):
         buffer.shape = self.shape
         buffer.strides = self.strides
         buffer.suboffsets = NULL
-
-    def __getsegcount__(self, Py_ssize_t *len_out):
-        if len_out != NULL:
-            len_out[0] = <Py_ssize_t>self.size
-        return 1
-
-    def __getreadbuffer__(self, Py_ssize_t idx, void **p):
-        if idx != 0:
-            raise SystemError("accessing non-existent buffer segment")
-        if p != NULL:
-            p[0] = <void*> self.buffer.get().data()
-        return self.size
-
-    def __getwritebuffer__(self, Py_ssize_t idx, void **p):
-        if not self.buffer.get().is_mutable():
-            raise SystemError("trying to write an immutable buffer")
-        if idx != 0:
-            raise SystemError("accessing non-existent buffer segment")
-        if p != NULL:
-            p[0] = <void*> self.buffer.get().data()
-        return self.size
 
 
 cdef class ResizableBuffer(Buffer):
@@ -1353,6 +1648,27 @@ def allocate_buffer(int64_t size, MemoryPool memory_pool=None,
 
 
 cdef class BufferOutputStream(NativeFile):
+    """
+    An output stream that writes to a resizable buffer.
+
+    The buffer is produced as a result when ``getvalue()`` is called.
+
+    Examples
+    --------
+    Create an output stream, write data to it and finalize it with
+    ``getvalue()``:
+
+    >>> import pyarrow as pa
+    >>> f = pa.BufferOutputStream()
+    >>> f.write(b'pyarrow.Buffer')
+    14
+    >>> f.closed
+    False
+    >>> f.getvalue()
+    <pyarrow.Buffer address=... size=14 is_cpu=True is_mutable=True>
+    >>> f.closed
+    True
+    """
 
     cdef:
         shared_ptr[CResizableBuffer] buffer
@@ -1394,6 +1710,24 @@ cdef class BufferReader(NativeFile):
     Parameters
     ----------
     obj : Python bytes or pyarrow.Buffer
+
+    Examples
+    --------
+    Create an Arrow input stream and inspect it:
+
+    >>> import pyarrow as pa
+    >>> data = b'reader data'
+    >>> buf = memoryview(data)
+    >>> with pa.input_stream(buf) as stream:
+    ...     stream.size()
+    ...     stream.read(6)
+    ...     stream.seek(7)
+    ...     stream.read(15)
+    ...
+    11
+    b'reader'
+    7
+    b'data'
     """
     cdef:
         Buffer buffer
@@ -1419,6 +1753,36 @@ cdef class CompressedInputStream(NativeFile):
         Input stream object to wrap with the compression.
     compression : str
         The compression type ("bz2", "brotli", "gzip", "lz4" or "zstd").
+
+    Examples
+    --------
+    Create an output stream which compresses the data:
+
+    >>> import pyarrow as pa
+    >>> data = b"Compressed stream"
+    >>> raw = pa.BufferOutputStream()
+    >>> with pa.CompressedOutputStream(raw, "gzip") as compressed:
+    ...     compressed.write(data)
+    ...
+    17
+
+    Create an input stream with decompression referencing the
+    buffer with compressed data:
+
+    >>> cdata = raw.getvalue()
+    >>> with pa.input_stream(cdata, compression="gzip") as compressed:
+    ...     compressed.read()
+    ...
+    b'Compressed stream'
+
+    which actually translates to the use of ``BufferReader``and
+    ``CompressedInputStream``:
+
+    >>> raw = pa.BufferReader(cdata)
+    >>> with pa.CompressedInputStream(raw, "gzip") as compressed:
+    ...     compressed.read()
+    ...
+    b'Compressed stream'
     """
 
     def __init__(self, object stream, str compression not None):
@@ -1446,6 +1810,18 @@ cdef class CompressedOutputStream(NativeFile):
         Input stream object to wrap with the compression.
     compression : str
         The compression type ("bz2", "brotli", "gzip", "lz4" or "zstd").
+
+    Examples
+    --------
+    Create an output stream which compresses the data:
+
+    >>> import pyarrow as pa
+    >>> data = b"Compressed stream"
+    >>> raw = pa.BufferOutputStream()
+    >>> with pa.CompressedOutputStream(raw, "gzip") as compressed:
+    ...     compressed.write(data)
+    ...
+    17
     """
 
     def __init__(self, object stream, str compression not None):
@@ -1736,7 +2112,7 @@ def foreign_buffer(address, size, base=None):
         Object that owns the referenced memory.
     """
     cdef:
-        intptr_t c_addr = address
+        uintptr_t c_addr = address
         int64_t c_size = size
         shared_ptr[CBuffer] buf
 
@@ -1832,8 +2208,7 @@ cdef get_writer(object source, shared_ptr[COutputStream]* writer):
         nf = source
         writer[0] = nf.get_output_stream()
     else:
-        raise TypeError('Unable to read from object of type: {0}'
-                        .format(type(source)))
+        raise TypeError(f'Unable to write to object of type: {type(source)}')
 
 
 # ---------------------------------------------------------------------
@@ -1868,7 +2243,140 @@ cdef CCompressionType _ensure_compression(str name) except *:
     elif uppercase == 'ZSTD':
         return CCompressionType_ZSTD
     else:
-        raise ValueError('Invalid value for compression: {!r}'.format(name))
+        raise ValueError(f'Invalid value for compression: {name!r}')
+
+
+cdef class CacheOptions(_Weakrefable):
+    """
+    Cache options for a pre-buffered fragment scan.
+
+    Parameters
+    ----------
+    hole_size_limit : int, default 8KiB
+        The maximum distance in bytes between two consecutive ranges; beyond
+        this value, ranges are not combined.
+    range_size_limit : int, default 32MiB
+        The maximum size in bytes of a combined range; if combining two
+        consecutive ranges would produce a range of a size greater than this,
+        they are not combined
+    lazy : bool, default True
+        lazy = false: request all byte ranges when PreBuffer or WillNeed is called.
+        lazy = True, prefetch_limit = 0: request merged byte ranges only after the reader
+        needs them.
+        lazy = True, prefetch_limit = k: prefetch up to k merged byte ranges ahead of the
+        range that is currently being read.
+    prefetch_limit : int, default 0
+        The maximum number of ranges to be prefetched. This is only used for
+        lazy cache to asynchronously read some ranges after reading the target
+        range.
+    """
+
+    def __init__(self, *, hole_size_limit=None, range_size_limit=None, lazy=None, prefetch_limit=None):
+        self.wrapped = CCacheOptions.LazyDefaults()
+        if hole_size_limit is not None:
+            self.hole_size_limit = hole_size_limit
+        if range_size_limit is not None:
+            self.range_size_limit = range_size_limit
+        if lazy is not None:
+            self.lazy = lazy
+        if prefetch_limit is not None:
+            self.prefetch_limit = prefetch_limit
+
+    cdef void init(self, CCacheOptions options):
+        self.wrapped = options
+
+    cdef inline CCacheOptions unwrap(self):
+        return self.wrapped
+
+    @staticmethod
+    cdef wrap(CCacheOptions options):
+        self = CacheOptions()
+        self.init(options)
+        return self
+
+    @property
+    def hole_size_limit(self):
+        return self.wrapped.hole_size_limit
+
+    @hole_size_limit.setter
+    def hole_size_limit(self, hole_size_limit):
+        self.wrapped.hole_size_limit = hole_size_limit
+
+    @property
+    def range_size_limit(self):
+        return self.wrapped.range_size_limit
+
+    @range_size_limit.setter
+    def range_size_limit(self, range_size_limit):
+        self.wrapped.range_size_limit = range_size_limit
+
+    @property
+    def lazy(self):
+        return self.wrapped.lazy
+
+    @lazy.setter
+    def lazy(self, lazy):
+        self.wrapped.lazy = lazy
+
+    @property
+    def prefetch_limit(self):
+        return self.wrapped.prefetch_limit
+
+    @prefetch_limit.setter
+    def prefetch_limit(self, prefetch_limit):
+        self.wrapped.prefetch_limit = prefetch_limit
+
+    def __eq__(self, CacheOptions other):
+        try:
+            return self.unwrap().Equals(other.unwrap())
+        except TypeError:
+            return False
+
+    @staticmethod
+    def from_network_metrics(time_to_first_byte_millis, transfer_bandwidth_mib_per_sec,
+                             ideal_bandwidth_utilization_frac=0.9, max_ideal_request_size_mib=64):
+        """
+        Create suitable CacheOptions based on provided network metrics.
+
+        Typically this will be used with object storage solutions like Amazon S3,
+        Google Cloud Storage and Azure Blob Storage.
+
+        Parameters
+        ----------
+        time_to_first_byte_millis : int
+            Seek-time or Time-To-First-Byte (TTFB) in milliseconds, also called call
+            setup latency of a new read request. The value is a positive integer.
+        transfer_bandwidth_mib_per_sec : int
+            Data transfer Bandwidth (BW) in MiB/sec (per connection). The value is a positive
+            integer.
+        ideal_bandwidth_utilization_frac : int, default 0.9
+            Transfer bandwidth utilization fraction (per connection) to maximize the net
+            data load. The value is a positive float less than 1.
+        max_ideal_request_size_mib : int, default 64
+            The maximum single data request size (in MiB) to maximize the net data load.
+
+        Returns
+        -------
+        CacheOptions
+        """
+        return CacheOptions.wrap(CCacheOptions.MakeFromNetworkMetrics(
+            time_to_first_byte_millis, transfer_bandwidth_mib_per_sec,
+            ideal_bandwidth_utilization_frac, max_ideal_request_size_mib))
+
+    @staticmethod
+    def _reconstruct(kwargs):
+        # __reduce__ doesn't allow passing named arguments directly to the
+        # reconstructor, hence this wrapper.
+        return CacheOptions(**kwargs)
+
+    def __reduce__(self):
+        kwargs = dict(
+            hole_size_limit=self.hole_size_limit,
+            range_size_limit=self.range_size_limit,
+            lazy=self.lazy,
+            prefetch_limit=self.prefetch_limit,
+        )
+        return CacheOptions._reconstruct, (kwargs,)
 
 
 cdef class Codec(_Weakrefable):
@@ -2297,8 +2805,8 @@ def input_stream(source, compression='detect', buffer_size=None):
           hasattr(source, 'closed')):
         stream = PythonFile(source, 'r')
     else:
-        raise TypeError("pa.input_stream() called with instance of '{}'"
-                        .format(source.__class__))
+        raise TypeError(
+            f"pa.input_stream() called with instance of '{source.__class__}'")
 
     if compression == 'detect':
         # detect for OSFile too
@@ -2389,8 +2897,8 @@ def output_stream(source, compression='detect', buffer_size=None):
           hasattr(source, 'closed')):
         stream = PythonFile(source, 'w')
     else:
-        raise TypeError("pa.output_stream() called with instance of '{}'"
-                        .format(source.__class__))
+        raise TypeError(
+            f"pa.output_stream() called with instance of '{source.__class__}'")
 
     if compression == 'detect':
         compression = _detect_compression(source_path)

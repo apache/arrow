@@ -3,10 +3,16 @@
 #
 
 breathe
+cython>3.1.1
 ipython
+linuxdoc
+myst-parser[linkify]
 numpydoc
-pydata-sphinx-theme==0.8
-sphinx-design
+pydata-sphinx-theme~=0.16
+sphinx-autobuild
 sphinx-copybutton
-sphinx>=4.2
+sphinx-design
+sphinx-lint
+sphinxcontrib-mermaid
+sphinx
 pandas

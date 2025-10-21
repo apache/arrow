@@ -56,7 +56,7 @@ arrow::Status SampleFunction(cp::KernelContext* ctx, const cp::ExecSpan& batch,
   const int64_t* x = batch[0].array.GetValues<int64_t>(1);
   const int64_t* y = batch[1].array.GetValues<int64_t>(1);
   const int64_t* z = batch[2].array.GetValues<int64_t>(1);
-  int64_t* out_values = out->array_span()->GetValues<int64_t>(1);
+  int64_t* out_values = out->array_span_mutable()->GetValues<int64_t>(1);
   for (int64_t i = 0; i < batch.length; ++i) {
     *out_values++ = *x++ + *y++ + *z++;
   }

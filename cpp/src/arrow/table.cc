@@ -30,6 +30,8 @@
 #include "arrow/array/concatenate.h"
 #include "arrow/array/util.h"
 #include "arrow/chunked_array.h"
+#include "arrow/compare.h"
+#include "arrow/compute/cast.h"
 #include "arrow/pretty_print.h"
 #include "arrow/record_batch.h"
 #include "arrow/result.h"
@@ -38,7 +40,7 @@
 #include "arrow/type_fwd.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/vector.h"
 
 namespace arrow {
@@ -248,6 +250,7 @@ Table::Table() : num_rows_(0) {}
 
 std::vector<std::shared_ptr<Field>> Table::fields() const {
   std::vector<std::shared_ptr<Field>> result;
+  result.reserve(this->num_columns());
   for (int i = 0; i < this->num_columns(); ++i) {
     result.emplace_back(this->field(i));
   }
@@ -273,7 +276,7 @@ Result<std::shared_ptr<Table>> Table::MakeEmpty(std::shared_ptr<Schema> schema,
     ARROW_ASSIGN_OR_RAISE(empty_table[i],
                           ChunkedArray::MakeEmpty(schema->field(i)->type(), memory_pool));
   }
-  return Table::Make(schema, empty_table, 0);
+  return Table::Make(std::move(schema), empty_table, 0);
 }
 
 Result<std::shared_ptr<Table>> Table::FromRecordBatchReader(RecordBatchReader* reader) {
@@ -450,6 +453,13 @@ Result<std::shared_ptr<Table>> ConcatenateTables(
 Result<std::shared_ptr<Table>> PromoteTableToSchema(const std::shared_ptr<Table>& table,
                                                     const std::shared_ptr<Schema>& schema,
                                                     MemoryPool* pool) {
+  return PromoteTableToSchema(table, schema, compute::CastOptions::Safe(), pool);
+}
+
+Result<std::shared_ptr<Table>> PromoteTableToSchema(const std::shared_ptr<Table>& table,
+                                                    const std::shared_ptr<Schema>& schema,
+                                                    const compute::CastOptions& options,
+                                                    MemoryPool* pool) {
   const std::shared_ptr<Schema> current_schema = table->schema();
   if (current_schema->Equals(*schema, /*check_metadata=*/false)) {
     return table->ReplaceSchemaMetadata(schema->metadata());
@@ -487,8 +497,8 @@ Result<std::shared_ptr<Table>> PromoteTableToSchema(const std::shared_ptr<Table>
     const int field_index = field_indices[0];
     const auto& current_field = current_schema->field(field_index);
     if (!field->nullable() && current_field->nullable()) {
-      return Status::Invalid("Unable to promote field ", current_field->name(),
-                             ": it was nullable but the target schema was not.");
+      return Status::TypeError("Unable to promote field ", current_field->name(),
+                               ": it was nullable but the target schema was not.");
     }
 
     fields_seen[field_index] = true;
@@ -502,9 +512,15 @@ Result<std::shared_ptr<Table>> PromoteTableToSchema(const std::shared_ptr<Table>
       continue;
     }
 
-    return Status::Invalid("Unable to promote field ", field->name(),
-                           ": incompatible types: ", field->type()->ToString(), " vs ",
-                           current_field->type()->ToString());
+    if (!compute::CanCast(*current_field->type(), *field->type())) {
+      return Status::TypeError("Unable to promote field ", field->name(),
+                               ": incompatible types: ", field->type()->ToString(),
+                               " vs ", current_field->type()->ToString());
+    }
+    compute::ExecContext ctx(pool);
+    ARROW_ASSIGN_OR_RAISE(auto casted, compute::Cast(table->column(field_index),
+                                                     field->type(), options, &ctx));
+    columns.push_back(casted.chunked_array());
   }
 
   auto unseen_field_iter = std::find(fields_seen.begin(), fields_seen.end(), false);
@@ -519,19 +535,52 @@ Result<std::shared_ptr<Table>> PromoteTableToSchema(const std::shared_ptr<Table>
   return Table::Make(schema, std::move(columns));
 }
 
-bool Table::Equals(const Table& other, bool check_metadata) const {
-  if (this == &other) {
+namespace {
+
+bool ContainFloat(const std::shared_ptr<DataType>& type) {
+  if (is_floating(type->id())) {
     return true;
   }
-  if (!schema_->Equals(*other.schema(), check_metadata)) {
-    return false;
+
+  for (const auto& field : type->fields()) {
+    if (ContainFloat(field->type())) {
+      return true;
+    }
   }
-  if (this->num_columns() != other.num_columns()) {
-    return false;
+  return false;
+}
+
+bool CanIgnoreNan(const Schema& schema, const EqualOptions& opts) {
+  if (opts.nans_equal()) {
+    return true;
+  }
+
+  for (auto& field : schema.fields()) {
+    if (ContainFloat(field->type())) {
+      return false;
+    }
+  }
+  return true;
+}
+
+}  // namespace
+
+bool Table::Equals(const Table& other, const EqualOptions& opts) const {
+  if (this == &other) {
+    if (CanIgnoreNan(*schema_, opts)) {
+      return true;
+    }
+  } else {
+    if (num_columns() != other.num_columns() || num_rows_ != other.num_rows()) {
+      return false;
+    } else if (opts.use_schema() &&
+               !schema_->Equals(*other.schema(), opts.use_metadata())) {
+      return false;
+    }
   }
 
   for (int i = 0; i < this->num_columns(); i++) {
-    if (!this->column(i)->Equals(other.column(i))) {
+    if (!this->column(i)->Equals(other.column(i), opts)) {
       return false;
     }
   }
@@ -605,6 +654,7 @@ TableBatchReader::TableBatchReader(const Table& table)
   for (int i = 0; i < table.num_columns(); ++i) {
     column_data_[i] = table.column(i).get();
   }
+  DCHECK(table_.Validate().ok());
 }
 
 TableBatchReader::TableBatchReader(std::shared_ptr<Table> table)
@@ -618,6 +668,7 @@ TableBatchReader::TableBatchReader(std::shared_ptr<Table> table)
   for (int i = 0; i < owned_table_->num_columns(); ++i) {
     column_data_[i] = owned_table_->column(i).get();
   }
+  DCHECK(table_.Validate().ok());
 }
 
 std::shared_ptr<Schema> TableBatchReader::schema() const { return table_.schema(); }

@@ -36,7 +36,7 @@ constexpr int64_t kGpuNumber = 0;
 static void CudaBufferWriterBenchmark(benchmark::State& state, const int64_t total_bytes,
                                       const int64_t chunksize,
                                       const int64_t buffer_size) {
-  CudaDeviceManager* manager;
+  CudaDeviceManager* manager = nullptr;
   ABORT_NOT_OK(CudaDeviceManager::Instance().Value(&manager));
   std::shared_ptr<CudaContext> context;
   ABORT_NOT_OK(manager->GetContext(kGpuNumber).Value(&context));

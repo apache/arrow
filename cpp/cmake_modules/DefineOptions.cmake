@@ -31,24 +31,6 @@ function(check_description_length name description)
   endforeach()
 endfunction()
 
-function(list_join lst glue out)
-  if("${${lst}}" STREQUAL "")
-    set(${out}
-        ""
-        PARENT_SCOPE)
-    return()
-  endif()
-
-  list(GET ${lst} 0 joined)
-  list(REMOVE_AT ${lst} 0)
-  foreach(item ${${lst}})
-    set(joined "${joined}${glue}${item}")
-  endforeach()
-  set(${out}
-      ${joined}
-      PARENT_SCOPE)
-endfunction()
-
 macro(define_option name description default)
   set(options)
   set(one_value_args)
@@ -63,7 +45,7 @@ macro(define_option name description default)
   endif()
 
   check_description_length(${name} ${description})
-  list_join(description "\n" multiline_description)
+  list(JOIN description "\n" multiline_description)
 
   option(${name} "${multiline_description}" ${default})
 
@@ -76,7 +58,7 @@ endmacro()
 
 macro(define_option_string name description default)
   check_description_length(${name} ${description})
-  list_join(description "\n" multiline_description)
+  list(JOIN description "\n" multiline_description)
 
   set(${name}
       ${default}
@@ -87,8 +69,12 @@ macro(define_option_string name description default)
   set("${name}_OPTION_DEFAULT" "\"${default}\"")
   set("${name}_OPTION_TYPE" "string")
   set("${name}_OPTION_POSSIBLE_VALUES" ${ARGN})
-
-  list_join("${name}_OPTION_POSSIBLE_VALUES" "|" "${name}_OPTION_ENUM")
+  list(FIND ${name}_OPTION_POSSIBLE_VALUES "${default}" default_value_index)
+  if(NOT ${default_value_index} EQUAL -1)
+    list(REMOVE_AT ${name}_OPTION_POSSIBLE_VALUES ${default_value_index})
+    list(PREPEND ${name}_OPTION_POSSIBLE_VALUES "${default}")
+  endif()
+  list(JOIN "${name}_OPTION_POSSIBLE_VALUES" "|" "${name}_OPTION_ENUM")
   if(NOT ("${${name}_OPTION_ENUM}" STREQUAL ""))
     set_property(CACHE ${name} PROPERTY STRINGS "${name}_OPTION_POSSIBLE_VALUES")
   endif()
@@ -121,9 +107,23 @@ macro(tsort_bool_option_dependencies)
 endmacro()
 
 macro(resolve_option_dependencies)
+  # Arrow Flight SQL ODBC is available only for Windows for now.
+  if(NOT MSVC_TOOLCHAIN)
+    set(ARROW_FLIGHT_SQL_ODBC OFF)
+  endif()
   if(MSVC_TOOLCHAIN)
-    # Plasma using glog is not fully tested on windows.
     set(ARROW_USE_GLOG OFF)
+  endif()
+  # Tests are crashed with mold + sanitizer checks.
+  if(ARROW_USE_ASAN
+     OR ARROW_USE_TSAN
+     OR ARROW_USE_UBSAN)
+    if(ARROW_USE_MOLD)
+      message(WARNING "ARROW_USE_MOLD is disabled when one of "
+                      "ARROW_USE_ASAN, ARROW_USE_TSAN or ARROW_USE_UBSAN is specified "
+                      "because it causes some problems.")
+      set(ARROW_USE_MOLD OFF)
+    endif()
   endif()
 
   tsort_bool_option_dependencies()
@@ -162,8 +162,6 @@ if(ARROW_DEFINE_OPTIONS)
   define_option_string(ARROW_GIT_DESCRIPTION "The Arrow git commit description (if any)"
                        "")
 
-  define_option(ARROW_NO_DEPRECATED_API "Exclude deprecated APIs from build" OFF)
-
   define_option(ARROW_POSITION_INDEPENDENT_CODE
                 "Whether to create position-independent target" ON)
 
@@ -172,10 +170,9 @@ if(ARROW_DEFINE_OPTIONS)
   define_option(ARROW_USE_SCCACHE "Use sccache when compiling (if available),;\
 takes precedence over ccache if a storage backend is configured" ON)
 
-  define_option(ARROW_USE_LD_GOLD "Use ld.gold for linking on Linux (if available)" OFF)
+  define_option(ARROW_USE_LLD "Use the LLVM lld for linking (if available)" OFF)
 
-  define_option(ARROW_USE_PRECOMPILED_HEADERS "Use precompiled headers when compiling"
-                OFF)
+  define_option(ARROW_USE_MOLD "Use mold for linking on Linux (if available)" OFF)
 
   define_option_string(ARROW_SIMD_LEVEL
                        "Compile-time SIMD optimization level"
@@ -211,8 +208,10 @@ takes precedence over ccache if a storage backend is configured" ON)
 
   define_option(ARROW_WITH_MUSL "Whether the system libc is musl or not" OFF)
 
+  define_option(ARROW_ENABLE_THREADING "Enable threading in Arrow core" ON)
+
   #----------------------------------------------------------------------
-  set_option_category("Test and benchmark")
+  set_option_category("Tests and benchmarks")
 
   define_option(ARROW_BUILD_EXAMPLES "Build the Arrow examples" OFF)
 
@@ -243,9 +242,6 @@ takes precedence over ccache if a storage backend is configured" ON)
   define_option(ARROW_BUILD_BENCHMARKS_REFERENCE
                 "Build the Arrow micro reference benchmarks" OFF)
 
-  define_option(ARROW_BUILD_OPENMP_BENCHMARKS
-                "Build the Arrow benchmarks that rely on OpenMP" OFF)
-
   define_option(ARROW_BUILD_DETAILED_BENCHMARKS
                 "Build benchmarks that do a longer exploration of performance" OFF)
 
@@ -261,21 +257,25 @@ takes precedence over ccache if a storage backend is configured" ON)
                        "shared"
                        "static")
 
-  define_option(ARROW_FUZZING
-                "Build Arrow Fuzzing executables"
+  define_option(ARROW_BUILD_FUZZING_UTILITIES
+                "Build command line utilities for fuzzing"
                 OFF
                 DEPENDS
-                ARROW_TESTING)
+                ARROW_TESTING
+                ARROW_WITH_BROTLI
+                ARROW_WITH_LZ4
+                ARROW_WITH_ZSTD)
+
+  define_option(ARROW_FUZZING
+                "Build Arrow fuzz targets"
+                OFF
+                DEPENDS
+                ARROW_BUILD_FUZZING_UTILITIES)
 
   define_option(ARROW_LARGE_MEMORY_TESTS "Enable unit tests which use large memory" OFF)
 
   #----------------------------------------------------------------------
-  set_option_category("Lint")
-
-  define_option(ARROW_ONLY_LINT "Only define the lint and check-format targets" OFF)
-
-  define_option(ARROW_VERBOSE_LINT
-                "If off, 'quiet' flags will be passed to linting tools" OFF)
+  set_option_category("Coverage")
 
   define_option(ARROW_GENERATE_COVERAGE "Build with C++ code coverage enabled" OFF)
 
@@ -294,9 +294,22 @@ takes precedence over ccache if a storage backend is configured" ON)
   #----------------------------------------------------------------------
   set_option_category("Project component")
 
-  define_option(ARROW_BUILD_UTILITIES "Build Arrow commandline utilities" OFF)
+  define_option(ARROW_ACERO
+                "Build the Arrow Acero Engine Module"
+                OFF
+                DEPENDS
+                ARROW_COMPUTE
+                ARROW_IPC)
 
-  define_option(ARROW_COMPUTE "Build the Arrow Compute Modules" OFF)
+  define_option(ARROW_AZURE
+                "Build Arrow with Azure support (requires the Azure SDK for C++)"
+                OFF
+                DEPENDS
+                ARROW_FILESYSTEM)
+
+  define_option(ARROW_BUILD_UTILITIES "Build Arrow command line utilities" OFF)
+
+  define_option(ARROW_COMPUTE "Build all Arrow Compute kernels" OFF)
 
   define_option(ARROW_CSV "Build the Arrow CSV Parser Module" OFF)
 
@@ -310,7 +323,7 @@ takes precedence over ccache if a storage backend is configured" ON)
                 "Build the Arrow Dataset Modules"
                 OFF
                 DEPENDS
-                ARROW_COMPUTE
+                ARROW_ACERO
                 ARROW_FILESYSTEM)
 
   define_option(ARROW_FILESYSTEM "Build the Arrow Filesystem Layer" OFF)
@@ -327,6 +340,13 @@ takes precedence over ccache if a storage backend is configured" ON)
                 DEPENDS
                 ARROW_FLIGHT)
 
+  define_option(ARROW_FLIGHT_SQL_ODBC
+                "Build the Arrow Flight SQL ODBC extension"
+                OFF
+                DEPENDS
+                ARROW_FLIGHT_SQL
+                ARROW_COMPUTE)
+
   define_option(ARROW_GANDIVA
                 "Build the Gandiva libraries"
                 OFF
@@ -335,33 +355,30 @@ takes precedence over ccache if a storage backend is configured" ON)
                 ARROW_WITH_UTF8PROC)
 
   define_option(ARROW_GCS
-                "Build Arrow with GCS support (requires the GCloud SDK for C++)" OFF)
+                "Build Arrow with GCS support (requires the Google Cloud Platform "
+                "C++ Client Libraries)"
+                OFF
+                DEPENDS
+                ARROW_FILESYSTEM)
 
-  define_option(ARROW_HDFS "Build the Arrow HDFS bridge" OFF)
+  define_option(ARROW_HDFS
+                "Build the Arrow HDFS bridge"
+                OFF
+                DEPENDS
+                ARROW_FILESYSTEM)
 
   define_option(ARROW_IPC "Build the Arrow IPC extensions" ON)
 
-  set(ARROW_JEMALLOC_DESCRIPTION "Build the Arrow jemalloc-based allocator")
-  if(WIN32 OR "${CMAKE_SYSTEM_NAME}" STREQUAL "FreeBSD")
-    # jemalloc is not supported on Windows.
-    #
-    # jemalloc is the default malloc implementation on FreeBSD and can't
-    # be built with --disable-libdl on FreeBSD. Because lazy-lock feature
-    # is required on FreeBSD. Lazy-lock feature requires libdl.
-    define_option(ARROW_JEMALLOC ${ARROW_JEMALLOC_DESCRIPTION} OFF)
-  else()
-    define_option(ARROW_JEMALLOC ${ARROW_JEMALLOC_DESCRIPTION} ON)
-  endif()
+  define_option(ARROW_JEMALLOC "Build the Arrow jemalloc-based allocator" OFF)
 
   define_option(ARROW_JSON "Build Arrow with JSON support (requires RapidJSON)" OFF)
 
-  define_option(ARROW_MIMALLOC "Build the Arrow mimalloc-based allocator" OFF)
+  define_option(ARROW_MIMALLOC "Build the Arrow mimalloc-based allocator" ON)
 
   define_option(ARROW_PARQUET
                 "Build the Parquet libraries"
                 OFF
                 DEPENDS
-                ARROW_COMPUTE
                 ARROW_IPC)
 
   define_option(ARROW_ORC
@@ -373,30 +390,28 @@ takes precedence over ccache if a storage backend is configured" ON)
                 ARROW_WITH_ZLIB
                 ARROW_WITH_ZSTD)
 
-  define_option(ARROW_PLASMA "Build the plasma object store along with Arrow" OFF)
-
   define_option(ARROW_PYTHON
                 "Build some components needed by PyArrow.;\
 (This is a deprecated option. Use CMake presets instead.)"
                 OFF
                 DEPENDS
-                ARROW_COMPUTE
                 ARROW_CSV
                 ARROW_DATASET
                 ARROW_FILESYSTEM
                 ARROW_HDFS
                 ARROW_JSON)
 
-  define_option(ARROW_S3 "Build Arrow with S3 support (requires the AWS SDK for C++)" OFF)
-
-  define_option(ARROW_SKYHOOK
-                "Build the Skyhook libraries"
+  define_option(ARROW_S3
+                "Build Arrow with S3 support (requires the AWS SDK for C++)"
                 OFF
                 DEPENDS
-                ARROW_DATASET
-                ARROW_PARQUET
-                ARROW_WITH_LZ4
-                ARROW_WITH_SNAPPY)
+                ARROW_FILESYSTEM)
+
+  define_option(ARROW_S3_MODULE
+                "Build the Arrow S3 filesystem as a dynamic module"
+                OFF
+                DEPENDS
+                ARROW_S3)
 
   define_option(ARROW_SUBSTRAIT
                 "Build the Arrow Substrait Consumer Module"
@@ -427,11 +442,10 @@ takes precedence over ccache if a storage backend is configured" ON)
   #   one of the other methods, pass -D$NAME_SOURCE=BUNDLED
   # * SYSTEM: Use CMake's find_package and find_library without any custom
   #   paths. If individual packages are on non-default locations, you can pass
-  #   $NAME_ROOT arguments to CMake, or set environment variables for the same
-  #   with CMake 3.11 and higher.  If your system packages are in a non-default
-  #   location, or if you are using a non-standard toolchain, you can also pass
-  #   ARROW_PACKAGE_PREFIX to set the *_ROOT variables to look in that
-  #   directory
+  #   $NAME_ROOT arguments to CMake, or set environment variables for the same.
+  #   If your system packages are in a non-default location, or if you are using
+  #   a non-standard toolchain, you can also pass ARROW_PACKAGE_PREFIX to set
+  #   the *_ROOT variables to look in that directory
   # * CONDA: Same as SYSTEM but set all *_ROOT variables to
   #   ENV{CONDA_PREFIX}. If this is run within an active conda environment,
   #   then ENV{CONDA_PREFIX} will be used for dependencies unless
@@ -476,6 +490,15 @@ takes precedence over ccache if a storage backend is configured" ON)
   define_option(ARROW_JEMALLOC_USE_SHARED
                 "Rely on jemalloc shared libraries where relevant"
                 ${ARROW_DEPENDENCY_USE_SHARED})
+
+  if(MSVC)
+    # LLVM doesn't support shared library with MSVC.
+    set(ARROW_LLVM_USE_SHARED_DEFAULT OFF)
+  else()
+    set(ARROW_LLVM_USE_SHARED_DEFAULT ${ARROW_DEPENDENCY_USE_SHARED})
+  endif()
+  define_option(ARROW_LLVM_USE_SHARED "Rely on LLVM shared libraries where relevant"
+                ${ARROW_LLVM_USE_SHARED_DEFAULT})
 
   define_option(ARROW_LZ4_USE_SHARED "Rely on lz4 shared libraries where relevant"
                 ${ARROW_DEPENDENCY_USE_SHARED})
@@ -523,10 +546,6 @@ takes precedence over ccache if a storage backend is configured" ON)
   define_option(ARROW_WITH_ZLIB "Build with zlib compression" OFF)
   define_option(ARROW_WITH_ZSTD "Build with zstd compression" OFF)
 
-  define_option(ARROW_WITH_UCX
-                "Build with UCX transport for Arrow Flight;(only used if ARROW_FLIGHT is ON)"
-                OFF)
-
   define_option(ARROW_WITH_UTF8PROC
                 "Build with support for Unicode properties using the utf8proc library;(only used if ARROW_COMPUTE is ON or ARROW_GANDIVA is ON)"
                 ON)
@@ -553,7 +572,7 @@ takes precedence over ccache if a storage backend is configured" ON)
 
     if(DEFINED ENV{CONDA_PREFIX})
       # Conda package changes the output name.
-      # https://github.com/conda-forge/snappy-feedstock/blob/master/recipe/windows-static-lib-name.patch
+      # https://github.com/conda-forge/snappy-feedstock/blob/main/recipe/windows-static-lib-name.patch
       set(SNAPPY_MSVC_STATIC_LIB_SUFFIX_DEFAULT "_static")
     else()
       set(SNAPPY_MSVC_STATIC_LIB_SUFFIX_DEFAULT "")
@@ -574,10 +593,6 @@ takes precedence over ccache if a storage backend is configured" ON)
   #----------------------------------------------------------------------
   set_option_category("Parquet")
 
-  define_option(PARQUET_MINIMAL_DEPENDENCY
-                "Depend only on Thirdparty headers to build libparquet.;\
-Always OFF if building binaries" OFF)
-
   define_option(PARQUET_BUILD_EXECUTABLES
                 "Build the Parquet executable CLI tools. Requires static libraries to be built."
                 OFF)
@@ -586,7 +601,10 @@ Always OFF if building binaries" OFF)
                 "Build the Parquet examples. Requires static libraries to be built." OFF)
 
   define_option(PARQUET_REQUIRE_ENCRYPTION
-                "Build support for encryption. Fail if OpenSSL is not found" OFF)
+                "Build support for encryption. Fail if OpenSSL is not found"
+                OFF
+                DEPENDS
+                ARROW_FILESYSTEM)
 
   #----------------------------------------------------------------------
   set_option_category("Gandiva")
@@ -601,6 +619,11 @@ Always OFF if building binaries" OFF)
                        "")
 
   #----------------------------------------------------------------------
+  set_option_category("Cross compiling")
+
+  define_option_string(ARROW_GRPC_CPP_PLUGIN "grpc_cpp_plugin path to be used" "")
+
+  #----------------------------------------------------------------------
   set_option_category("Advanced developer")
 
   define_option(ARROW_EXTRA_ERROR_CONTEXT
@@ -611,6 +634,13 @@ Always OFF if building binaries" OFF)
 advised that if this is enabled 'install' will fail silently on components;\
 that have not been built"
                 OFF)
+
+  define_option_string(ARROW_GDB_INSTALL_DIR
+                       "Use a custom install directory for GDB plugin.;\
+In general, you don't need to specify this because the default;\
+(CMAKE_INSTALL_FULL_BINDIR on Windows, CMAKE_INSTALL_FULL_LIBDIR otherwise);\
+is reasonable."
+                       "")
 
   option(ARROW_BUILD_CONFIG_SUMMARY_JSON "Summarize build configuration in a JSON file"
          ON)
@@ -735,7 +765,7 @@ if(NOT ARROW_GIT_ID)
                   OUTPUT_STRIP_TRAILING_WHITESPACE)
 endif()
 if(NOT ARROW_GIT_DESCRIPTION)
-  execute_process(COMMAND "git" "describe" "--tags" "--dirty"
+  execute_process(COMMAND "git" "describe" "--tags"
                   WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
                   ERROR_QUIET
                   OUTPUT_VARIABLE ARROW_GIT_DESCRIPTION

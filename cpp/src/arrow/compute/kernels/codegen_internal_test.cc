@@ -34,7 +34,7 @@ TEST(TestDispatchBest, CastBinaryDecimalArgs) {
 
   // Any float -> all float
   for (auto mode : modes) {
-    args = {decimal128(3, 2), float64()};
+    args = {decimal128(3, 2), float32(), float64()};
     ASSERT_OK(CastBinaryDecimalArgs(mode, &args));
     AssertTypeEqual(*args[0], *float64());
     AssertTypeEqual(*args[1], *float64());
@@ -129,6 +129,32 @@ TEST(TestDispatchBest, CastDecimalArgs) {
   AssertTypeEqual(*args[2], *utf8());
 }
 
+TEST(TestDecimalPromotion, WidenDecimalToMaxPrecision) {
+  std::shared_ptr<DataType> arg;
+  std::shared_ptr<DataType> expected;
+  std::shared_ptr<DataType> unwrapped;
+
+  arg = decimal32(3, 2);
+  expected = decimal32(9, 2);
+  ASSERT_OK_AND_ASSIGN(unwrapped, WidenDecimalToMaxPrecision(arg));
+  AssertTypeEqual(*unwrapped, *expected);
+
+  arg = decimal64(3, 2);
+  expected = decimal64(18, 2);
+  ASSERT_OK_AND_ASSIGN(unwrapped, WidenDecimalToMaxPrecision(arg));
+  AssertTypeEqual(*unwrapped, *expected);
+
+  arg = decimal128(3, 2);
+  expected = decimal128(38, 2);
+  ASSERT_OK_AND_ASSIGN(unwrapped, WidenDecimalToMaxPrecision(arg));
+  AssertTypeEqual(*unwrapped, *expected);
+
+  arg = decimal256(3, 2);
+  expected = decimal256(76, 2);
+  ASSERT_OK_AND_ASSIGN(unwrapped, WidenDecimalToMaxPrecision(arg));
+  AssertTypeEqual(*unwrapped, *expected);
+}
+
 TEST(TestDispatchBest, CommonTemporal) {
   std::vector<TypeHolder> args;
 
@@ -158,6 +184,18 @@ TEST(TestDispatchBest, CommonTemporal) {
   ASSERT_EQ(CommonTemporal(args.data(), args.size()), nullptr);
   args = {timestamp(TimeUnit::SECOND, "America/Phoenix"),
           timestamp(TimeUnit::SECOND, "UTC")};
+  ASSERT_EQ(CommonTemporal(args.data(), args.size()), nullptr);
+
+  args = {time32(TimeUnit::SECOND), time32(TimeUnit::MILLI)};
+  AssertTypeEqual(*time32(TimeUnit::MILLI), *CommonTemporal(args.data(), args.size()));
+
+  args = {time32(TimeUnit::SECOND), time64(TimeUnit::NANO)};
+  AssertTypeEqual(*time64(TimeUnit::NANO), *CommonTemporal(args.data(), args.size()));
+
+  args = {date32(), time32(TimeUnit::SECOND)};
+  ASSERT_EQ(CommonTemporal(args.data(), args.size()), nullptr);
+
+  args = {timestamp(TimeUnit::SECOND), time32(TimeUnit::SECOND)};
   ASSERT_EQ(CommonTemporal(args.data(), args.size()), nullptr);
 }
 

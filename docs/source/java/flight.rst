@@ -184,7 +184,7 @@ Handshake-based authentication can be enabled by implementing
 ``ServerAuthHandler``. Authentication consists of two parts: on
 initial client connection, the server and client authentication
 implementations can perform any negotiation needed. The client authentication
-handler then provides a token that will be attached to future calls. 
+handler then provides a token that will be attached to future calls.
 
 The client send data to be validated through ``ClientAuthHandler.authenticate``
 The server validate data received through ``ServerAuthHandler.authenticate``.
@@ -200,6 +200,33 @@ Middleware are fairly limited, but they can add headers to a
 request/response. On the server, they can inspect incoming headers and
 fail the request; hence, they can be used to implement custom
 authentication methods.
+
+Adding Services
+===============
+
+Servers can add other gRPC services. For example, to add the `Health Check service <https://github.com/grpc/grpc/blob/master/doc/health-checking.md>`_:
+
+.. code-block:: Java
+
+    final HealthStatusManager statusManager = new HealthStatusManager();
+    final Consumer<NettyServerBuilder> consumer = (builder) -> {
+      builder.addService(statusManager.getHealthService());
+    };
+    final Location location = forGrpcInsecure(LOCALHOST, 5555);
+    try (
+        BufferAllocator a = new RootAllocator(Long.MAX_VALUE);
+        Producer producer = new Producer(a);
+        FlightServer s = FlightServer.builder(a, location, producer)
+            .transportHint("grpc.builderConsumer", consumer).build().start();
+    ) {
+      Channel channel = NettyChannelBuilder.forAddress(location.toSocketAddress()).usePlaintext().build();
+      HealthCheckResponse response = HealthGrpc
+              .newBlockingStub(channel)
+              .check(HealthCheckRequest.getDefaultInstance());
+
+      System.out.println(response.getStatus());
+    }
+
 
 :ref:`Flight best practices <flight-best-practices>`
 ====================================================

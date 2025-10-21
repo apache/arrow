@@ -25,6 +25,7 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
 #include "arrow/testing/util.h"
+#include "arrow/util/logging.h"
 
 #include "arrow/compute/api.h"
 
@@ -47,7 +48,7 @@ static void BuildDictionary(benchmark::State& state) {  // NOLINT non-const refe
   ArrayFromVector<Int64Type, int64_t>(is_valid, values, &arr);
 
   while (state.KeepRunning()) {
-    ABORT_NOT_OK(DictionaryEncode(arr).status());
+    ABORT_NOT_OK(DictionaryEncode(arr));
   }
   state.counters["null_percent"] =
       static_cast<double>(arr->null_count()) / arr->length() * 100;
@@ -74,7 +75,7 @@ static void BuildStringDictionary(
   ArrayFromVector<StringType, std::string>(data, &arr);
 
   while (state.KeepRunning()) {
-    ABORT_NOT_OK(DictionaryEncode(arr).status());
+    ABORT_NOT_OK(DictionaryEncode(arr));
   }
   state.SetBytesProcessed(state.iterations() * total_bytes);
   state.SetItemsProcessed(state.iterations() * data.size());
@@ -86,32 +87,23 @@ struct HashBenchCase {
   double null_probability;
 };
 
-template <typename Type>
+template <typename ArrowType>
 struct HashParams {
-  using T = typename Type::c_type;
-
+  using CType = typename TypeTraits<ArrowType>::CType;
   HashBenchCase params;
 
   void GenerateTestData(std::shared_ptr<Array>* arr) const {
-    std::vector<int64_t> draws;
-    std::vector<T> values;
-    std::vector<bool> is_valid;
-    randint<int64_t>(params.length, 0, params.num_unique, &draws);
-    for (int64_t draw : draws) {
-      values.push_back(static_cast<T>(draw));
-    }
-    if (params.null_probability > 0) {
-      random_is_valid(params.length, params.null_probability, &is_valid);
-      ArrayFromVector<Type, T>(is_valid, values, arr);
-    } else {
-      ArrayFromVector<Type, T>(values, arr);
-    }
+    random::RandomArrayGenerator rand(0);
+    auto min = static_cast<CType>(0);
+    auto max = static_cast<CType>(params.num_unique);
+
+    *arr = rand.Numeric<ArrowType>(params.length, min, max, params.null_probability);
   }
 
   void SetMetadata(benchmark::State& state) const {
     state.counters["null_percent"] = params.null_probability * 100;
     state.counters["num_unique"] = static_cast<double>(params.num_unique);
-    state.SetBytesProcessed(state.iterations() * params.length * sizeof(T));
+    state.SetBytesProcessed(state.iterations() * params.length * sizeof(CType));
     state.SetItemsProcessed(state.iterations() * params.length);
   }
 };
@@ -121,29 +113,10 @@ struct HashParams<StringType> {
   HashBenchCase params;
   int32_t byte_width;
   void GenerateTestData(std::shared_ptr<Array>* arr) const {
-    std::vector<int64_t> draws;
-    randint<int64_t>(params.length, 0, params.num_unique, &draws);
-
-    const int64_t total_bytes = this->byte_width * params.num_unique;
-    std::vector<uint8_t> uniques(total_bytes);
-    const uint32_t seed = 0;
-    random_bytes(total_bytes, seed, uniques.data());
-
-    std::vector<bool> is_valid;
-    if (params.null_probability > 0) {
-      random_is_valid(params.length, params.null_probability, &is_valid);
-    }
-
-    StringBuilder builder;
-    for (int64_t i = 0; i < params.length; ++i) {
-      if (params.null_probability == 0 || is_valid[i]) {
-        ABORT_NOT_OK(builder.Append(uniques.data() + this->byte_width * draws[i],
-                                    this->byte_width));
-      } else {
-        ABORT_NOT_OK(builder.AppendNull());
-      }
-    }
-    ABORT_NOT_OK(builder.Finish(arr));
+    random::RandomArrayGenerator rnd(/*seed=*/0);
+    *arr = rnd.StringWithRepeats(
+        params.length, params.num_unique, /*min_length=*/this->byte_width,
+        /*max_length=*/this->byte_width, params.null_probability);
   }
 
   void SetMetadata(benchmark::State& state) const {
@@ -160,7 +133,7 @@ void BenchUnique(benchmark::State& state, const ParamType& params) {
   params.GenerateTestData(&arr);
 
   while (state.KeepRunning()) {
-    ABORT_NOT_OK(Unique(arr).status());
+    ABORT_NOT_OK(Unique(arr));
   }
   params.SetMetadata(state);
 }
@@ -170,7 +143,7 @@ void BenchDictionaryEncode(benchmark::State& state, const ParamType& params) {
   std::shared_ptr<Array> arr;
   params.GenerateTestData(&arr);
   while (state.KeepRunning()) {
-    ABORT_NOT_OK(DictionaryEncode(arr).status());
+    ABORT_NOT_OK(DictionaryEncode(arr));
   }
   params.SetMetadata(state);
 }
@@ -226,6 +199,33 @@ static void UniqueString100bytes(benchmark::State& state) {
   BenchUnique(state, HashParams<StringType>{general_bench_cases[state.range(0)], 100});
 }
 
+template <typename ParamType>
+void BenchValueCountsDictionaryChunks(benchmark::State& state, const ParamType& params) {
+  std::shared_ptr<Array> arr;
+  params.GenerateTestData(&arr);
+  // chunk arr to 100 slices
+  std::vector<std::shared_ptr<Array>> chunks;
+  const int64_t chunk_size = arr->length() / 100;
+  for (int64_t i = 0; i < 100; ++i) {
+    auto slice = arr->Slice(i * chunk_size, chunk_size);
+    auto datum = DictionaryEncode(slice).ValueOrDie();
+    ARROW_CHECK(datum.is_array());
+    chunks.push_back(datum.make_array());
+  }
+  auto chunked_array = std::make_shared<ChunkedArray>(chunks);
+
+  while (state.KeepRunning()) {
+    ABORT_NOT_OK(ValueCounts(chunked_array));
+  }
+  params.SetMetadata(state);
+}
+
+static void ValueCountsDictionaryChunks(benchmark::State& state) {
+  // Dictionary of byte strings with 10 bytes each
+  BenchValueCountsDictionaryChunks(
+      state, HashParams<StringType>{general_bench_cases[state.range(0)], 10});
+}
+
 void HashSetArgs(benchmark::internal::Benchmark* bench) {
   for (int i = 0; i < static_cast<int>(general_bench_cases.size()); ++i) {
     bench->Arg(i);
@@ -238,6 +238,14 @@ BENCHMARK(BuildStringDictionary);
 BENCHMARK(UniqueInt64)->Apply(HashSetArgs);
 BENCHMARK(UniqueString10bytes)->Apply(HashSetArgs);
 BENCHMARK(UniqueString100bytes)->Apply(HashSetArgs);
+
+void DictionaryChunksHashSetArgs(benchmark::internal::Benchmark* bench) {
+  for (int i = 0; i < static_cast<int>(general_bench_cases.size()); ++i) {
+    bench->Arg(i);
+  }
+}
+
+BENCHMARK(ValueCountsDictionaryChunks)->Apply(DictionaryChunksHashSetArgs);
 
 void UInt8SetArgs(benchmark::internal::Benchmark* bench) {
   for (int i = 0; i < static_cast<int>(uint8_bench_cases.size()); ++i) {

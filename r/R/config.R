@@ -39,10 +39,26 @@ io_thread_count <- function() {
 }
 
 #' @rdname io_thread_count
-#' @param num_threads integer: New number of threads for thread pool
+#' @param num_threads integer: New number of threads for thread pool. At least
+#'   two threads are recommended to support all operations in the arrow
+#'   package.
 #' @export
 set_io_thread_count <- function(num_threads) {
   current_io_thread_count <- io_thread_count()
   SetIOThreadPoolCapacity(as.integer(num_threads))
+
+  # Warn for IO thread count < 2: Arrow C++ makes the assumption that there
+  # is at least one thread available and the R package uses one thread from
+  # the IO thread pool to support calling into R from C++.
+  if (num_threads < 2) {
+    rlang::warn(
+      c(
+        "`arrow::set_io_thread_count()` with num_threads < 2 may",
+        "cause certain operations to hang or crash.",
+        "i" = "Use num_threads >= 2 to support all operations"
+      )
+    )
+  }
+
   invisible(current_io_thread_count)
 }

@@ -4,12 +4,14 @@
 \alias{make_readable_file}
 \title{Handle a range of possible input sources}
 \usage{
-make_readable_file(file, mmap = TRUE)
+make_readable_file(file, mmap = TRUE, random_access = TRUE)
 }
 \arguments{
 \item{file}{A character file name, \code{raw} vector, or an Arrow input stream}
 
 \item{mmap}{Logical: whether to memory-map the file (default \code{TRUE})}
+
+\item{random_access}{Logical: whether the result must be a RandomAccessFile}
 }
 \value{
 An \code{InputStream} or a subclass of one.

@@ -308,11 +308,13 @@ class _PyArrowColumn:
             kind = DtypeKind.DATETIME
             ts = dtype.unit[0]
             tz = dtype.tz if dtype.tz else ""
-            f_string = "ts{ts}:{tz}".format(ts=ts, tz=tz)
+            f_string = f"ts{ts}:{tz}"
             return kind, bit_width, f_string, Endianness.NATIVE
         elif pa.types.is_dictionary(dtype):
             kind = DtypeKind.CATEGORICAL
-            f_string = "L"
+            arr = self._col
+            indices_dtype = arr.indices.type
+            _, f_string = _PYARROW_KINDS.get(indices_dtype)
             return kind, bit_width, f_string, Endianness.NATIVE
         else:
             kind, f_string = _PYARROW_KINDS.get(dtype, (None, None))
@@ -370,7 +372,7 @@ class _PyArrowColumn:
         """
         # In case of no missing values, we need to set ColumnNullType to
         # non nullable as in the current __dataframe__ protocol bit/byte masks
-        # can not be None
+        # cannot be None
         if self.null_count == 0:
             return ColumnNullType.NON_NULLABLE, None
         else:

@@ -25,7 +25,6 @@ import pytest
 import pyarrow as pa
 import pyarrow.tests.util as test_util
 
-
 here = os.path.dirname(os.path.abspath(__file__))
 test_ld_path = os.environ.get('PYARROW_TEST_LD_PATH', '')
 if os.name == 'posix':
@@ -34,7 +33,6 @@ elif os.name == 'nt':
     compiler_opts = ['-D_ENABLE_EXTENDED_ALIGNED_STORAGE', '/std:c++17']
 else:
     compiler_opts = []
-
 
 setup_template = """if 1:
     from setuptools import setup
@@ -77,10 +75,14 @@ def check_cython_example_module(mod):
     cast_scal = mod.cast_scalar(scal, pa.utf8())
     assert cast_scal == pa.scalar("123")
     with pytest.raises(NotImplementedError,
-                       match="casting scalars of type int64 to type list"):
+                       match="Unsupported cast from int64 to list using function "
+                             "cast_list"):
         mod.cast_scalar(scal, pa.list_(pa.int64()))
 
 
+# NumPy is still a required build dependency. It is present in our
+# headers and is required to build for the cython tests.
+@pytest.mark.numpy
 @pytest.mark.cython
 def test_cython_api(tmpdir):
     """
@@ -121,7 +123,7 @@ def test_cython_api(tmpdir):
 
         # Check the extension module is loadable from a subprocess without
         # pyarrow imported first.
-        code = """if 1:
+        code = f"""if 1:
             import sys
             import os
 
@@ -129,17 +131,16 @@ def test_cython_api(tmpdir):
                 # Add dll directory was added on python 3.8
                 # and is required in order to find extra DLLs
                 # only for win32
-                for dir in {library_dirs}:
+                for dir in {pa.get_library_dirs()}:
                     os.add_dll_directory(dir)
             except AttributeError:
                 pass
 
-            mod = __import__({mod_name!r})
+            mod = __import__('pyarrow_cython_example')
             arr = mod.make_null_array(5)
             assert mod.get_array_length(arr) == 5
             assert arr.null_count == 5
-        """.format(mod_name='pyarrow_cython_example',
-                   library_dirs=pa.get_library_dirs())
+        """
 
         path_var = None
         if sys.platform == 'win32':
@@ -163,6 +164,7 @@ def test_cython_api(tmpdir):
                               env=subprocess_env)
 
 
+@pytest.mark.numpy
 @pytest.mark.cython
 def test_visit_strings(tmpdir):
     with tmpdir.as_cwd():

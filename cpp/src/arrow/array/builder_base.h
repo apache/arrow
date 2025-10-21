@@ -36,6 +36,28 @@
 
 namespace arrow {
 
+namespace internal {
+
+template <class Builder, class V>
+class ArrayBuilderExtraOps {
+ public:
+  /// \brief Append a value from an optional or null if it has no value.
+  Status AppendOrNull(const std::optional<V>& value) {
+    auto* self = static_cast<Builder*>(this);
+    return value.has_value() ? self->Append(*value) : self->AppendNull();
+  }
+
+  /// \brief Append a value from an optional or null if it has no value.
+  ///
+  /// Unsafe methods don't check existing size.
+  void UnsafeAppendOrNull(const std::optional<V>& value) {
+    auto* self = static_cast<Builder*>(this);
+    return value.has_value() ? self->UnsafeAppend(*value) : self->UnsafeAppendNull();
+  }
+};
+
+}  // namespace internal
+
 /// \defgroup numeric-builders Concrete builder subclasses for numeric types
 /// @{
 /// @}
@@ -53,6 +75,11 @@ namespace arrow {
 /// @}
 
 /// \defgroup dictionary-builders Concrete builder subclasses for dictionary types
+/// @{
+/// @}
+
+/// \defgroup run-end-encoded-builders Concrete builder subclasses for run-end encoded
+/// arrays
 /// @{
 /// @}
 
@@ -148,19 +175,11 @@ class ARROW_EXPORT ArrayBuilder {
   /// \brief Append a range of values from an array.
   ///
   /// The given array must be the same type as the builder.
-  virtual Status AppendArraySlice(const ArraySpan& array, int64_t offset,
-                                  int64_t length) {
+  virtual Status AppendArraySlice(const ArraySpan& ARROW_ARG_UNUSED(array),
+                                  int64_t ARROW_ARG_UNUSED(offset),
+                                  int64_t ARROW_ARG_UNUSED(length)) {
     return Status::NotImplemented("AppendArraySlice for builder for ", *type());
   }
-
-  /// For cases where raw data was memcpy'd into the internal buffers, allows us
-  /// to advance the length of the builder. It is your responsibility to use
-  /// this function responsibly.
-  ARROW_DEPRECATED(
-      "Deprecated in 6.0.0. ArrayBuilder::Advance is poorly supported and mostly "
-      "untested.\nFor low-level control over buffer construction, use BufferBuilder "
-      "or TypedBufferBuilder directly.")
-  Status Advance(int64_t elements);
 
   /// \brief Return result of builder as an internal generic ArrayData
   /// object. Resets builder except for dictionary builder
@@ -313,7 +332,7 @@ inline Result<std::unique_ptr<ArrayBuilder>> MakeBuilder(
     const std::shared_ptr<DataType>& type, MemoryPool* pool = default_memory_pool()) {
   std::unique_ptr<ArrayBuilder> out;
   ARROW_RETURN_NOT_OK(MakeBuilder(pool, type, &out));
-  return std::move(out);
+  return out;
 }
 
 /// \brief Construct an empty ArrayBuilder corresponding to the data
@@ -327,11 +346,11 @@ inline Result<std::unique_ptr<ArrayBuilder>> MakeBuilderExactIndex(
     const std::shared_ptr<DataType>& type, MemoryPool* pool = default_memory_pool()) {
   std::unique_ptr<ArrayBuilder> out;
   ARROW_RETURN_NOT_OK(MakeBuilderExactIndex(pool, type, &out));
-  return std::move(out);
+  return out;
 }
 
 /// \brief Construct an empty DictionaryBuilder initialized optionally
-/// with a pre-existing dictionary
+/// with a preexisting dictionary
 /// \param[in] pool the MemoryPool to use for allocations
 /// \param[in] type the dictionary type to create the builder for
 /// \param[in] dictionary the initial dictionary, if any. May be nullptr
@@ -346,7 +365,7 @@ inline Result<std::unique_ptr<ArrayBuilder>> MakeDictionaryBuilder(
     MemoryPool* pool = default_memory_pool()) {
   std::unique_ptr<ArrayBuilder> out;
   ARROW_RETURN_NOT_OK(MakeDictionaryBuilder(pool, type, dictionary, &out));
-  return std::move(out);
+  return out;
 }
 
 }  // namespace arrow

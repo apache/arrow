@@ -40,9 +40,9 @@ namespace internal {
 // On overflow, these functions return true.  Otherwise, false is returned
 // and `out` is updated with the result of the operation.
 
-#define OP_WITH_OVERFLOW(_func_name, _psnip_op, _type, _psnip_type) \
-  static inline bool _func_name(_type u, _type v, _type* out) {     \
-    return !psnip_safe_##_psnip_type##_##_psnip_op(out, u, v);      \
+#define OP_WITH_OVERFLOW(_func_name, _psnip_op, _type, _psnip_type)           \
+  [[nodiscard]] static inline bool _func_name(_type u, _type v, _type* out) { \
+    return !psnip_safe_##_psnip_type##_##_psnip_op(out, u, v);                \
   }
 
 #define OPS_WITH_OVERFLOW(_func_name, _psnip_op)            \
@@ -69,7 +69,7 @@ OPS_WITH_OVERFLOW(DivideWithOverflow, div)
 // operation.
 
 #define UNARY_OP_WITH_OVERFLOW(_func_name, _psnip_op, _type, _psnip_type) \
-  static inline bool _func_name(_type u, _type* out) {                    \
+  [[nodiscard]] static inline bool _func_name(_type u, _type* out) {      \
     return !psnip_safe_##_psnip_type##_##_psnip_op(out, u);               \
   }
 

@@ -32,13 +32,13 @@ RUN \
   apt update ${quiet} && \
   apt install -y -V ${quiet} \
     build-essential \
-    ccache \
     clang \
     cmake \
+    curl \
     debhelper \
     devscripts \
+    gi-docgen \
     git \
-    gtk-doc-tools \
     libboost-filesystem-dev \
     libboost-system-dev \
     libbrotli-dev \
@@ -59,9 +59,12 @@ RUN \
     libssl-dev \
     libthrift-dev \
     libutf8proc-dev \
+    libxxhash-dev \
     libzstd-dev \
     llvm-dev \
     lsb-release \
+    meson \
+    mold \
     ninja-build \
     nlohmann-json3-dev \
     pkg-config \
@@ -79,6 +82,13 @@ RUN \
     :; \
   fi && \
   apt clean && \
-  python3 -m pip install --no-use-pep517 meson && \
-  ln -s /usr/local/bin/meson /usr/bin/ && \
   rm -rf /var/lib/apt/lists/*
+
+# We install CMake via apt and create a symbolic link to avoid having to:
+# Temporarily remove the build-depends check on control.in
+# Create the link on debian rules as --buildsystem=cmake expects cmake on /usr/bin
+ARG cmake=3.26.0
+RUN curl -L \
+    "https://github.com/Kitware/CMake/releases/download/v${cmake}/cmake-${cmake}-linux-$(uname -m).tar.gz" | \
+    tar -xzf - --directory /usr/local --strip-components=1 && \
+    ln -fs /usr/local/bin/cmake /usr/bin/cmake

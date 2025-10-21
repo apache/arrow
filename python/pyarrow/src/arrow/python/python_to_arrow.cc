@@ -28,6 +28,7 @@
 #include <vector>
 
 #include "arrow/array.h"
+#include "arrow/array/builder_base.h"
 #include "arrow/array/builder_binary.h"
 #include "arrow/array/builder_decimal.h"
 #include "arrow/array/builder_dict.h"
@@ -36,6 +37,7 @@
 #include "arrow/array/builder_time.h"
 #include "arrow/chunked_array.h"
 #include "arrow/result.h"
+#include "arrow/scalar.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
@@ -45,7 +47,6 @@
 #include "arrow/util/int_util_overflow.h"
 #include "arrow/util/logging.h"
 
-#include "arrow/visit_type_inline.h"
 #include "arrow/python/datetime.h"
 #include "arrow/python/decimal.h"
 #include "arrow/python/helpers.h"
@@ -53,6 +54,8 @@
 #include "arrow/python/iterators.h"
 #include "arrow/python/numpy_convert.h"
 #include "arrow/python/type_traits.h"
+#include "arrow/python/vendored/pythoncapi_compat.h"
+#include "arrow/visit_type_inline.h"
 
 namespace arrow {
 
@@ -119,7 +122,7 @@ const MonthDayNanoAttrData MonthDayNanoTraits<MonthDayNanoField::kNanoseconds>::
      {"minutes", /*minutes_in_hours=*/60},
      {"seconds", /*seconds_in_minute=*/60},
      {"milliseconds", /*milliseconds_in_seconds*/ 1000},
-     {"microseconds", /*microseconds_in_millseconds=*/1000},
+     {"microseconds", /*microseconds_in_milliseconds=*/1000},
      {"nanoseconds", /*nanoseconds_in_microseconds=*/1000},
      {nullptr, 0}};
 
@@ -199,7 +202,7 @@ class PyValue {
       return true;
     } else if (obj == Py_False) {
       return false;
-    } else if (PyArray_IsScalar(obj, Bool)) {
+    } else if (has_numpy() && PyArray_IsScalar(obj, Bool)) {
       return reinterpret_cast<PyBoolScalarObject*>(obj)->obval == NPY_TRUE;
     } else {
       return internal::InvalidValue(obj, "tried to convert to boolean");
@@ -223,9 +226,16 @@ class PyValue {
   }
 
   static Result<uint16_t> Convert(const HalfFloatType*, const O&, I obj) {
-    uint16_t value;
-    RETURN_NOT_OK(PyFloat_AsHalf(obj, &value));
-    return value;
+    if (internal::PyFloatScalar_Check(obj)) {
+      return PyFloat_AsHalf(obj);
+    } else if (internal::PyIntScalar_Check(obj)) {
+      double float_val{};
+      RETURN_NOT_OK(internal::IntegerScalarToDoubleSafe(obj, &float_val));
+      const auto half_val = arrow::util::Float16::FromDouble(float_val);
+      return half_val.bits();
+    } else {
+      return internal::InvalidValue(obj, "tried to convert to float16");
+    }
   }
 
   static Result<float> Convert(const FloatType*, const O&, I obj) {
@@ -254,6 +264,18 @@ class PyValue {
     } else {
       return internal::InvalidValue(obj, "tried to convert to double");
     }
+    return value;
+  }
+
+  static Result<Decimal32> Convert(const Decimal32Type* type, const O&, I obj) {
+    Decimal32 value;
+    RETURN_NOT_OK(internal::DecimalFromPyObject(obj, *type, &value));
+    return value;
+  }
+
+  static Result<Decimal64> Convert(const Decimal64Type* type, const O&, I obj) {
+    Decimal64 value;
+    RETURN_NOT_OK(internal::DecimalFromPyObject(obj, *type, &value));
     return value;
   }
 
@@ -382,10 +404,9 @@ class PyValue {
         default:
           return Status::UnknownError("Invalid time unit");
       }
-    } else if (PyArray_CheckAnyScalarExact(obj)) {
+    } else if (has_numpy() && PyArray_CheckAnyScalarExact(obj)) {
       // validate that the numpy scalar has np.datetime64 dtype
-      std::shared_ptr<DataType> numpy_type;
-      RETURN_NOT_OK(NumPyDtypeToArrow(PyArray_DescrFromScalar(obj), &numpy_type));
+      ARROW_ASSIGN_OR_RAISE(auto numpy_type, NumPyScalarToArrowDataType(obj));
       if (!numpy_type->Equals(*type)) {
         return Status::NotImplemented("Expected np.datetime64 but got: ",
                                       numpy_type->ToString());
@@ -404,7 +425,7 @@ class PyValue {
     RETURN_NOT_OK(PopulateMonthDayNano<MonthDayNanoField::kMonths>::Field(
         obj, &output.months, &found_attrs));
     // on relativeoffset weeks is a property calculated from days.  On
-    // DateOffset is is a field on its own. timedelta doesn't have a weeks
+    // DateOffset is a field on its own. timedelta doesn't have a weeks
     // attribute.
     PyObject* pandas_date_offset_type = internal::BorrowPandasDataOffsetType();
     bool is_date_offset = pandas_date_offset_type == (PyObject*)Py_TYPE(obj);
@@ -462,10 +483,9 @@ class PyValue {
         default:
           return Status::UnknownError("Invalid time unit");
       }
-    } else if (PyArray_CheckAnyScalarExact(obj)) {
+    } else if (has_numpy() && PyArray_CheckAnyScalarExact(obj)) {
       // validate that the numpy scalar has np.datetime64 dtype
-      std::shared_ptr<DataType> numpy_type;
-      RETURN_NOT_OK(NumPyDtypeToArrow(PyArray_DescrFromScalar(obj), &numpy_type));
+      ARROW_ASSIGN_OR_RAISE(auto numpy_type, NumPyScalarToArrowDataType(obj));
       if (!numpy_type->Equals(*type)) {
         return Status::NotImplemented("Expected np.timedelta64 but got: ",
                                       numpy_type->ToString());
@@ -479,10 +499,14 @@ class PyValue {
 
   // The binary-like intermediate representation is PyBytesView because it keeps temporary
   // python objects alive (non-contiguous memoryview) and stores whether the original
-  // object was unicode encoded or not, which is used for unicode -> bytes coersion if
+  // object was unicode encoded or not, which is used for unicode -> bytes coercion if
   // there is a non-unicode object observed.
 
   static Status Convert(const BaseBinaryType*, const O&, I obj, PyBytesView& view) {
+    return view.ParseString(obj);
+  }
+
+  static Status Convert(const BinaryViewType*, const O&, I obj, PyBytesView& view) {
     return view.ParseString(obj);
   }
 
@@ -499,8 +523,8 @@ class PyValue {
   }
 
   template <typename T>
-  static enable_if_string<T, Status> Convert(const T*, const O& options, I obj,
-                                             PyBytesView& view) {
+  static enable_if_t<is_string_type<T>::value || is_string_view_type<T>::value, Status>
+  Convert(const T*, const O& options, I obj, PyBytesView& view) {
     if (options.strict) {
       // Strict conversion, force output to be unicode / utf8 and validate that
       // any binary values are utf8
@@ -525,7 +549,7 @@ class PyConverter : public Converter<PyObject*, PyConversionOptions> {
  public:
   // Iterate over the input values and defer the conversion to the Append method
   Status Extend(PyObject* values, int64_t size, int64_t offset = 0) override {
-    DCHECK_GE(size, offset);
+    ARROW_DCHECK_GE(size, offset);
     /// Ensure we've allocated enough space
     RETURN_NOT_OK(this->Reserve(size - offset));
     // Iterate over the items adding each one
@@ -537,7 +561,7 @@ class PyConverter : public Converter<PyObject*, PyConversionOptions> {
   // Convert and append a sequence of values masked with a numpy array
   Status ExtendMasked(PyObject* values, PyObject* mask, int64_t size,
                       int64_t offset = 0) override {
-    DCHECK_GE(size, offset);
+    ARROW_DCHECK_GE(size, offset);
     /// Ensure we've allocated enough space
     RETURN_NOT_OK(this->Reserve(size - offset));
     // Iterate over the items adding each one
@@ -577,7 +601,8 @@ struct PyConverterTrait<
 };
 
 template <typename T>
-struct PyConverterTrait<T, enable_if_list_like<T>> {
+struct PyConverterTrait<
+    T, enable_if_t<is_list_like_type<T>::value || is_list_view_type<T>::value>> {
   using type = PyListConverter<T>;
 };
 
@@ -599,6 +624,15 @@ class PyPrimitiveConverter<T, enable_if_null<T>>
   Status Append(PyObject* value) override {
     if (PyValue::IsNull(this->options_, value)) {
       return this->primitive_builder_->AppendNull();
+    } else if (arrow::py::is_scalar(value)) {
+      ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Scalar> scalar,
+                            arrow::py::unwrap_scalar(value));
+      if (scalar->is_valid) {
+        return Status::Invalid("Cannot append scalar of type ", scalar->type->ToString(),
+                               " to builder for type null");
+      } else {
+        return this->primitive_builder_->AppendNull();
+      }
     } else {
       ARROW_ASSIGN_OR_RAISE(
           auto converted, PyValue::Convert(this->primitive_type_, this->options_, value));
@@ -620,6 +654,10 @@ class PyPrimitiveConverter<
     // rely on the Unsafe builder API which improves the performance.
     if (PyValue::IsNull(this->options_, value)) {
       this->primitive_builder_->UnsafeAppendNull();
+    } else if (arrow::py::is_scalar(value)) {
+      ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Scalar> scalar,
+                            arrow::py::unwrap_scalar(value));
+      ARROW_RETURN_NOT_OK(this->primitive_builder_->AppendScalar(*scalar));
     } else {
       ARROW_ASSIGN_OR_RAISE(
           auto converted, PyValue::Convert(this->primitive_type_, this->options_, value));
@@ -637,11 +675,15 @@ class PyPrimitiveConverter<
   Status Append(PyObject* value) override {
     if (PyValue::IsNull(this->options_, value)) {
       this->primitive_builder_->UnsafeAppendNull();
+    } else if (arrow::py::is_scalar(value)) {
+      ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Scalar> scalar,
+                            arrow::py::unwrap_scalar(value));
+      ARROW_RETURN_NOT_OK(this->primitive_builder_->AppendScalar(*scalar));
     } else {
       ARROW_ASSIGN_OR_RAISE(
           auto converted, PyValue::Convert(this->primitive_type_, this->options_, value));
       // Numpy NaT sentinels can be checked after the conversion
-      if (PyArray_CheckAnyScalarExact(value) &&
+      if (has_numpy() && PyArray_CheckAnyScalarExact(value) &&
           PyValue::IsNaT(this->primitive_type_, converted)) {
         this->primitive_builder_->UnsafeAppendNull();
       } else {
@@ -659,6 +701,10 @@ class PyPrimitiveConverter<T, enable_if_t<std::is_same<T, FixedSizeBinaryType>::
   Status Append(PyObject* value) override {
     if (PyValue::IsNull(this->options_, value)) {
       this->primitive_builder_->UnsafeAppendNull();
+    } else if (arrow::py::is_scalar(value)) {
+      ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Scalar> scalar,
+                            arrow::py::unwrap_scalar(value));
+      ARROW_RETURN_NOT_OK(this->primitive_builder_->AppendScalar(*scalar));
     } else {
       ARROW_RETURN_NOT_OK(
           PyValue::Convert(this->primitive_type_, this->options_, value, view_));
@@ -672,15 +718,30 @@ class PyPrimitiveConverter<T, enable_if_t<std::is_same<T, FixedSizeBinaryType>::
   PyBytesView view_;
 };
 
+template <typename T, typename Enable = void>
+struct OffsetTypeTrait {
+  using type = typename T::offset_type;
+};
+
 template <typename T>
-class PyPrimitiveConverter<T, enable_if_base_binary<T>>
+struct OffsetTypeTrait<T, enable_if_binary_view_like<T>> {
+  using type = int64_t;
+};
+
+template <typename T>
+class PyPrimitiveConverter<
+    T, enable_if_t<is_base_binary_type<T>::value || is_binary_view_like_type<T>::value>>
     : public PrimitiveConverter<T, PyConverter> {
  public:
-  using OffsetType = typename T::offset_type;
+  using OffsetType = typename OffsetTypeTrait<T>::type;
 
   Status Append(PyObject* value) override {
     if (PyValue::IsNull(this->options_, value)) {
       this->primitive_builder_->UnsafeAppendNull();
+    } else if (arrow::py::is_scalar(value)) {
+      ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Scalar> scalar,
+                            arrow::py::unwrap_scalar(value));
+      ARROW_RETURN_NOT_OK(this->primitive_builder_->AppendScalar(*scalar));
     } else {
       ARROW_RETURN_NOT_OK(
           PyValue::Convert(this->primitive_type_, this->options_, value, view_));
@@ -721,6 +782,10 @@ class PyDictionaryConverter<U, enable_if_has_c_type<U>>
   Status Append(PyObject* value) override {
     if (PyValue::IsNull(this->options_, value)) {
       return this->value_builder_->AppendNull();
+    } else if (arrow::py::is_scalar(value)) {
+      ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Scalar> scalar,
+                            arrow::py::unwrap_scalar(value));
+      return this->value_builder_->AppendScalar(*scalar, 1);
     } else {
       ARROW_ASSIGN_OR_RAISE(auto converted,
                             PyValue::Convert(this->value_type_, this->options_, value));
@@ -736,6 +801,10 @@ class PyDictionaryConverter<U, enable_if_has_string_view<U>>
   Status Append(PyObject* value) override {
     if (PyValue::IsNull(this->options_, value)) {
       return this->value_builder_->AppendNull();
+    } else if (arrow::py::is_scalar(value)) {
+      ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Scalar> scalar,
+                            arrow::py::unwrap_scalar(value));
+      return this->value_builder_->AppendScalar(*scalar, 1);
     } else {
       ARROW_RETURN_NOT_OK(
           PyValue::Convert(this->value_type_, this->options_, value, view_));
@@ -754,15 +823,13 @@ class PyListConverter : public ListConverter<T, PyConverter, PyConverterTrait> {
     if (PyValue::IsNull(this->options_, value)) {
       return this->list_builder_->AppendNull();
     }
-
-    RETURN_NOT_OK(this->list_builder_->Append());
-    if (PyArray_Check(value)) {
+    if (has_numpy() && PyArray_Check(value)) {
       RETURN_NOT_OK(AppendNdarray(value));
     } else if (PySequence_Check(value)) {
       RETURN_NOT_OK(AppendSequence(value));
     } else if (PySet_Check(value) || (Py_TYPE(value) == &PyDictValues_Type)) {
       RETURN_NOT_OK(AppendIterable(value));
-    } else if (PyDict_Check(value) && this->options_.type->id() == Type::MAP) {
+    } else if (PyDict_Check(value) && this->type()->id() == Type::MAP) {
       // Branch to support Python Dict with `map` DataType.
       auto items = PyDict_Items(value);
       OwnedRef item_ref(items);
@@ -776,9 +843,24 @@ class PyListConverter : public ListConverter<T, PyConverter, PyConverterTrait> {
   }
 
  protected:
+  // MapType does not support args in the Append() method
+  Status AppendTo(const MapType*, int64_t size) { return this->list_builder_->Append(); }
+
+  // FixedSizeListType does not support args in the Append() method
+  Status AppendTo(const FixedSizeListType*, int64_t size) {
+    return this->list_builder_->Append();
+  }
+
+  // ListType requires the size argument in the Append() method
+  // in order to be convertible to a ListViewType. ListViewType
+  // requires the size argument in the Append() method always.
+  Status AppendTo(const BaseListType*, int64_t size) {
+    return this->list_builder_->Append(true, size);
+  }
+
   Status ValidateBuilder(const MapType*) {
     if (this->list_builder_->key_builder()->null_count() > 0) {
-      return Status::Invalid("Invalid Map: key field can not contain null values");
+      return Status::Invalid("Invalid Map: key field cannot contain null values");
     } else {
       return Status::OK();
     }
@@ -788,11 +870,14 @@ class PyListConverter : public ListConverter<T, PyConverter, PyConverterTrait> {
 
   Status AppendSequence(PyObject* value) {
     int64_t size = static_cast<int64_t>(PySequence_Size(value));
+    RETURN_NOT_OK(AppendTo(this->list_type_, size));
     RETURN_NOT_OK(this->list_builder_->ValidateOverflow(size));
     return this->value_converter_->Extend(value, size);
   }
 
   Status AppendIterable(PyObject* value) {
+    auto size = static_cast<int64_t>(PyObject_Size(value));
+    RETURN_NOT_OK(AppendTo(this->list_type_, size));
     PyObject* iterator = PyObject_GetIter(value);
     OwnedRef iter_ref(iterator);
     while (PyObject* item = PyIter_Next(iterator)) {
@@ -808,7 +893,12 @@ class PyListConverter : public ListConverter<T, PyConverter, PyConverterTrait> {
     if (PyArray_NDIM(ndarray) != 1) {
       return Status::Invalid("Can only convert 1-dimensional array values");
     }
+    if (PyArray_ISBYTESWAPPED(ndarray)) {
+      // TODO
+      return Status::NotImplemented("Byte-swapped arrays not supported");
+    }
     const int64_t size = PyArray_SIZE(ndarray);
+    RETURN_NOT_OK(AppendTo(this->list_type_, size));
     RETURN_NOT_OK(this->list_builder_->ValidateOverflow(size));
 
     const auto value_type = this->value_converter_->builder()->type();
@@ -884,17 +974,21 @@ class PyStructConverter : public StructConverter<PyConverter, PyConverterTrait> 
   Status Append(PyObject* value) override {
     if (PyValue::IsNull(this->options_, value)) {
       return this->struct_builder_->AppendNull();
+    } else if (arrow::py::is_scalar(value)) {
+      ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Scalar> scalar,
+                            arrow::py::unwrap_scalar(value));
+      return this->struct_builder_->AppendScalar(*scalar);
     }
     switch (input_kind_) {
       case InputKind::DICT:
-        RETURN_NOT_OK(this->struct_builder_->Append());
-        return AppendDict(value);
+        RETURN_NOT_OK(AppendDict(value));
+        return this->struct_builder_->Append();
       case InputKind::TUPLE:
-        RETURN_NOT_OK(this->struct_builder_->Append());
-        return AppendTuple(value);
+        RETURN_NOT_OK(AppendTuple(value));
+        return this->struct_builder_->Append();
       case InputKind::ITEMS:
-        RETURN_NOT_OK(this->struct_builder_->Append());
-        return AppendItems(value);
+        RETURN_NOT_OK(AppendItems(value));
+        return this->struct_builder_->Append();
       default:
         RETURN_NOT_OK(InferInputKind(value));
         return Append(value);
@@ -904,6 +998,10 @@ class PyStructConverter : public StructConverter<PyConverter, PyConverterTrait> 
  protected:
   Status Init(MemoryPool* pool) override {
     RETURN_NOT_OK((StructConverter<PyConverter, PyConverterTrait>::Init(pool)));
+
+    // This implementation will check the child values before appending itself,
+    // so no rewind is necessary
+    this->rewind_on_overflow_ = false;
 
     // Store the field names as a PyObjects for dict matching
     num_fields_ = this->struct_type_->num_fields();
@@ -994,7 +1092,8 @@ class PyStructConverter : public StructConverter<PyConverter, PyConverterTrait> 
       case KeyKind::BYTES:
         return AppendDict(dict, bytes_field_names_.obj());
       default:
-        RETURN_NOT_OK(InferKeyKind(PyDict_Items(dict)));
+        OwnedRef item_ref(PyDict_Items(dict));
+        RETURN_NOT_OK(InferKeyKind(item_ref.obj()));
         if (key_kind_ == KeyKind::UNKNOWN) {
           // was unable to infer the type which means that all keys are absent
           return AppendEmpty();
@@ -1027,11 +1126,13 @@ class PyStructConverter : public StructConverter<PyConverter, PyConverterTrait> 
   Status AppendDict(PyObject* dict, PyObject* field_names) {
     // NOTE we're ignoring any extraneous dict items
     for (int i = 0; i < num_fields_; i++) {
-      PyObject* name = PyList_GET_ITEM(field_names, i);  // borrowed
-      PyObject* value = PyDict_GetItem(dict, name);      // borrowed
-      if (value == NULL) {
-        RETURN_IF_PYERROR();
-      }
+      PyObject* name = PyList_GetItemRef(field_names, i);
+      RETURN_IF_PYERROR();
+      OwnedRef nameref(name);
+      PyObject* value;
+      PyDict_GetItemRef(dict, name, &value);
+      RETURN_IF_PYERROR();
+      OwnedRef valueref(value);
       RETURN_NOT_OK(this->children_[i]->Append(value ? value : Py_None));
     }
     return Status::OK();
@@ -1040,6 +1141,7 @@ class PyStructConverter : public StructConverter<PyConverter, PyConverterTrait> 
   Result<std::pair<PyObject*, PyObject*>> GetKeyValuePair(PyObject* seq, int index) {
     PyObject* pair = PySequence_GetItem(seq, index);
     RETURN_IF_PYERROR();
+    OwnedRef pair_ref(pair);  // ensure reference count is decreased at scope end
     if (!PyTuple_Check(pair) || PyTuple_Size(pair) != 2) {
       return internal::InvalidType(pair, "was expecting tuple of (key, value) pair");
     }
@@ -1060,7 +1162,9 @@ class PyStructConverter : public StructConverter<PyConverter, PyConverterTrait> 
       ARROW_ASSIGN_OR_RAISE(auto pair, GetKeyValuePair(items, i));
 
       // validate that the key and the field name are equal
-      PyObject* name = PyList_GET_ITEM(field_names, i);
+      PyObject* name = PyList_GetItemRef(field_names, i);
+      RETURN_IF_PYERROR();
+      OwnedRef nameref(name);
       bool are_equal = PyObject_RichCompareBool(pair.first, name, Py_EQ);
       RETURN_IF_PYERROR();
 
@@ -1099,6 +1203,7 @@ Status ConvertToSequenceAndInferSize(PyObject* obj, PyObject** seq, int64_t* siz
   if (PySequence_Check(obj)) {
     // obj is already a sequence
     int64_t real_size = static_cast<int64_t>(PySequence_Size(obj));
+    RETURN_IF_PYERROR();
     if (*size < 0) {
       *size = real_size;
     } else {
@@ -1169,7 +1274,7 @@ Result<std::shared_ptr<ChunkedArray>> ConvertPySequence(PyObject* obj, PyObject*
   } else {
     options.strict = true;
   }
-  DCHECK_GE(size, 0);
+  ARROW_DCHECK_GE(size, 0);
 
   ARROW_ASSIGN_OR_RAISE(auto converter, (MakeConverter<PyConverter, PyConverterTrait>(
                                             options.type, options, pool)));

@@ -21,9 +21,12 @@
 
 #include "arrow/builder.h"
 #include "arrow/compute/api_scalar.h"
-#include "arrow/compute/kernels/common.h"
+#include "arrow/compute/kernels/codegen_internal.h"
+#include "arrow/compute/kernels/common_internal.h"
 #include "arrow/compute/kernels/temporal_internal.h"
+#include "arrow/compute/registry_internal.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/time.h"
 #include "arrow/util/value_parsing.h"
 #include "arrow/vendored/datetime.h"
@@ -33,8 +36,7 @@ namespace arrow {
 using internal::checked_cast;
 using internal::checked_pointer_cast;
 
-namespace compute {
-namespace internal {
+namespace compute::internal {
 
 namespace {
 
@@ -57,7 +59,6 @@ using arrow_vendored::date::year;
 using arrow_vendored::date::year_month_day;
 using arrow_vendored::date::year_month_weekday;
 using arrow_vendored::date::years;
-using arrow_vendored::date::zoned_time;
 using arrow_vendored::date::literals::dec;
 using arrow_vendored::date::literals::jan;
 using arrow_vendored::date::literals::last;
@@ -661,15 +662,36 @@ struct Nanosecond {
 
 template <typename Duration>
 struct IsDaylightSavings {
-  explicit IsDaylightSavings(const FunctionOptions* options, const time_zone* tz)
+  explicit IsDaylightSavings(const FunctionOptions* options, const ArrowTimeZone tz)
       : tz_(tz) {}
 
   template <typename T, typename Arg0>
   T Call(KernelContext*, Arg0 arg, Status*) const {
-    return tz_->get_info(sys_time<Duration>{Duration{arg}}).save.count() != 0;
+    return std::visit(
+        [&arg](const auto& tz) -> bool {
+          return tz->get_info(sys_time<Duration>{Duration{arg}}).save.count() != 0;
+        },
+        tz_);
   }
 
-  const time_zone* tz_;
+  const ArrowTimeZone tz_;
+};
+
+// ----------------------------------------------------------------------
+// Extract local timestamp of a given timestamp given its timezone
+
+template <typename Duration, typename Localizer>
+struct LocalTimestamp {
+  explicit LocalTimestamp(const FunctionOptions* options, Localizer&& localizer)
+      : localizer_(std::move(localizer)) {}
+
+  template <typename T, typename Arg0>
+  T Call(KernelContext*, Arg0 arg, Status*) const {
+    const auto t = localizer_.template ConvertTimePoint<Duration>(arg);
+    return static_cast<T>(t.time_since_epoch().count());
+  }
+
+  Localizer localizer_;
 };
 
 // ----------------------------------------------------------------------
@@ -1146,7 +1168,7 @@ Result<std::locale> GetLocale(const std::string& locale) {
 template <typename Duration, typename InType>
 struct Strftime {
   const StrftimeOptions& options;
-  const time_zone* tz;
+  const ArrowTimeZone tz;
   const std::locale locale;
 
   static Result<Strftime> Make(KernelContext* ctx, const DataType& type) {
@@ -1167,9 +1189,7 @@ struct Strftime {
             options.format);
       }
     }
-
-    ARROW_ASSIGN_OR_RAISE(const time_zone* tz,
-                          LocateZone(timezone.empty() ? "UTC" : timezone));
+    ARROW_ASSIGN_OR_RAISE(auto tz, LocateZone(timezone.empty() ? "UTC" : timezone));
 
     ARROW_ASSIGN_OR_RAISE(std::locale locale, GetLocale(options.locale));
 
@@ -1220,7 +1240,6 @@ const std::string GetZone(const std::string& format) {
         zone = "UTC";
         break;
       }
-      cur++;
     } else {
       count = 0;
     }
@@ -1248,7 +1267,7 @@ struct Strptime {
     const ArraySpan& in = batch[0].array;
     ARROW_ASSIGN_OR_RAISE(auto self, Make(ctx, *in.type));
 
-    ArraySpan* out_span = out->array_span();
+    ArraySpan* out_span = out->array_span_mutable();
     int64_t* out_data = out_span->GetValues<int64_t>(1);
 
     if (self.error_is_null) {
@@ -1327,33 +1346,39 @@ Result<TypeHolder> ResolveAssumeTimezoneOutput(KernelContext* ctx,
   return timestamp(in_type.unit(), AssumeTimezoneState::Get(ctx).timezone);
 }
 
+Result<TypeHolder> ResolveLocalTimestampOutput(KernelContext* ctx,
+                                               const std::vector<TypeHolder>& args) {
+  const auto& in_type = checked_cast<const TimestampType&>(*args[0]);
+  return timestamp(in_type.unit());
+}
+
 template <typename Duration>
 struct AssumeTimezone {
-  explicit AssumeTimezone(const AssumeTimezoneOptions* options, const time_zone* tz)
+  explicit AssumeTimezone(const AssumeTimezoneOptions* options, const ArrowTimeZone tz)
       : options(*options), tz_(tz) {}
 
   template <typename T, typename Arg0>
-  T get_local_time(Arg0 arg, const time_zone* tz) const {
-    return static_cast<T>(zoned_time<Duration>(tz, local_time<Duration>(Duration{arg}))
-                              .get_sys_time()
-                              .time_since_epoch()
-                              .count());
+  T get_local_time(Arg0 arg, const ArrowTimeZone* tz) const {
+    const auto lt = local_time<Duration>(Duration{arg});
+    auto local_to_sys_time = [&](auto&& t) {
+      return t.get_sys_time().time_since_epoch().count();
+    };
+    return ApplyTimeZone(tz_, lt, std::nullopt, local_to_sys_time);
   }
 
   template <typename T, typename Arg0>
-  T get_local_time(Arg0 arg, const arrow_vendored::date::choose choose,
-                   const time_zone* tz) const {
-    return static_cast<T>(
-        zoned_time<Duration>(tz, local_time<Duration>(Duration{arg}), choose)
-            .get_sys_time()
-            .time_since_epoch()
-            .count());
+  T get_local_time(Arg0 arg, const choose c, const ArrowTimeZone* tz) const {
+    const auto lt = local_time<Duration>(Duration{arg});
+    auto local_to_sys_time = [&](auto&& t) {
+      return t.get_sys_time().time_since_epoch().count();
+    };
+    return ApplyTimeZone(tz_, lt, c, local_to_sys_time);
   }
 
   template <typename T, typename Arg0>
   T Call(KernelContext*, Arg0 arg, Status* st) const {
     try {
-      return get_local_time<T, Arg0>(arg, tz_);
+      return get_local_time<T, Arg0>(arg, &tz_);
     } catch (const arrow_vendored::date::nonexistent_local_time& e) {
       switch (options.nonexistent) {
         case AssumeTimezoneOptions::Nonexistent::NONEXISTENT_RAISE: {
@@ -1362,11 +1387,12 @@ struct AssumeTimezone {
           return arg;
         }
         case AssumeTimezoneOptions::Nonexistent::NONEXISTENT_EARLIEST: {
-          return get_local_time<T, Arg0>(arg, arrow_vendored::date::choose::latest, tz_) -
+          return get_local_time<T, Arg0>(arg, arrow_vendored::date::choose::latest,
+                                         &tz_) -
                  1;
         }
         case AssumeTimezoneOptions::Nonexistent::NONEXISTENT_LATEST: {
-          return get_local_time<T, Arg0>(arg, arrow_vendored::date::choose::latest, tz_);
+          return get_local_time<T, Arg0>(arg, arrow_vendored::date::choose::latest, &tz_);
         }
       }
     } catch (const arrow_vendored::date::ambiguous_local_time& e) {
@@ -1378,17 +1404,17 @@ struct AssumeTimezone {
         }
         case AssumeTimezoneOptions::Ambiguous::AMBIGUOUS_EARLIEST: {
           return get_local_time<T, Arg0>(arg, arrow_vendored::date::choose::earliest,
-                                         tz_);
+                                         &tz_);
         }
         case AssumeTimezoneOptions::Ambiguous::AMBIGUOUS_LATEST: {
-          return get_local_time<T, Arg0>(arg, arrow_vendored::date::choose::latest, tz_);
+          return get_local_time<T, Arg0>(arg, arrow_vendored::date::choose::latest, &tz_);
         }
       }
     }
     return 0;
   }
   AssumeTimezoneOptions options;
-  const time_zone* tz_;
+  const ArrowTimeZone tz_;
 };
 
 // ----------------------------------------------------------------------
@@ -1488,7 +1514,7 @@ struct ISOCalendar {
     for (int i = 0; i < 3; i++) {
       field_builders.push_back(
           checked_cast<BuilderType*>(struct_builder->field_builder(i)));
-      RETURN_NOT_OK(field_builders[i]->Reserve(1));
+      RETURN_NOT_OK(field_builders[i]->Reserve(in.length));
     }
     auto visit_null = [&]() { return struct_builder->AppendNull(); };
     std::function<Status(typename InType::c_type arg)> visit_value;
@@ -1719,7 +1745,7 @@ const FunctionDoc millisecond_doc{
 
 const FunctionDoc microsecond_doc{
     "Extract microsecond values",
-    ("Millisecond returns number of microseconds since the last full millisecond.\n"
+    ("Microsecond returns number of microseconds since the last full millisecond.\n"
      "Null values emit null.\n"
      "An error is returned if the values have a defined timezone but it\n"
      "cannot be found in the timezone database."),
@@ -1784,6 +1810,15 @@ const FunctionDoc is_dst_doc{
      "An error is returned if the values do not have a defined timezone."),
     {"values"}};
 
+const FunctionDoc local_timestamp_doc{
+    "Convert timestamp to a timezone-naive local time timestamp",
+    ("LocalTimestamp converts timezone-aware timestamp to local timestamp\n"
+     "of the given timestamp's timezone and removes timezone metadata.\n"
+     "Alternative name for this timestamp is also wall clock time.\n"
+     "If input is in UTC or without timezone, then unchanged input values\n"
+     "without timezone metadata are returned.\n"
+     "Null values emit null."),
+    {"values"}};
 const FunctionDoc floor_temporal_doc{
     "Round temporal values down to nearest multiple of specified time unit",
     ("Null values emit null.\n"
@@ -1969,6 +2004,13 @@ void RegisterScalarTemporalUnary(FunctionRegistry* registry) {
                                                               is_dst_doc);
   DCHECK_OK(registry->AddFunction(std::move(is_dst)));
 
+  auto local_timestamp =
+      UnaryTemporalFactory<LocalTimestamp, TemporalComponentExtract, TimestampType>::Make<
+          WithTimestamps>("local_timestamp",
+                          OutputType::Resolver(ResolveLocalTimestampOutput),
+                          local_timestamp_doc);
+  DCHECK_OK(registry->AddFunction(std::move(local_timestamp)));
+
   // Temporal rounding functions
   // Note: UnaryTemporalFactory will not correctly resolve OutputType(FirstType) to
   // output type. See TemporalComponentExtractRound for more.
@@ -1994,6 +2036,5 @@ void RegisterScalarTemporalUnary(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunction(std::move(round_temporal)));
 }
 
-}  // namespace internal
-}  // namespace compute
+}  // namespace compute::internal
 }  // namespace arrow

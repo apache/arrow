@@ -30,7 +30,7 @@
 #include "arrow/type.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/decimal.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/value_parsing.h"
 
 namespace arrow {
@@ -304,6 +304,10 @@ Status MakeConverter(const std::shared_ptr<DataType>& out_type, MemoryPool* pool
     CONVERTER_CASE(Type::STRING, BinaryConverter<StringType>);
     CONVERTER_CASE(Type::LARGE_BINARY, BinaryConverter<LargeBinaryType>);
     CONVERTER_CASE(Type::LARGE_STRING, BinaryConverter<LargeStringType>);
+    CONVERTER_CASE(Type::BINARY_VIEW, BinaryConverter<BinaryViewType>);
+    CONVERTER_CASE(Type::STRING_VIEW, BinaryConverter<StringViewType>);
+    CONVERTER_CASE(Type::DECIMAL32, DecimalConverter<Decimal32Type>);
+    CONVERTER_CASE(Type::DECIMAL64, DecimalConverter<Decimal64Type>);
     CONVERTER_CASE(Type::DECIMAL128, DecimalConverter<Decimal128Type>);
     CONVERTER_CASE(Type::DECIMAL256, DecimalConverter<Decimal256Type>);
     default:

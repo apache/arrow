@@ -61,7 +61,6 @@ install_arrow <- function(nightly = FALSE,
                           verbose = Sys.getenv("ARROW_R_DEV", FALSE),
                           repos = getOption("repos"),
                           ...) {
-  sysname <- tolower(Sys.info()[["sysname"]])
   conda <- isTRUE(grepl("conda", R.Version()$platform))
 
   if (conda) {
@@ -77,22 +76,14 @@ install_arrow <- function(nightly = FALSE,
       ARROW_R_DEV = verbose,
       ARROW_USE_PKG_CONFIG = use_system
     )
-    # On the M1, we can't use the usual autobrew, which pulls Intel dependencies
-    apple_m1 <- grepl("arm-apple|aarch64.*darwin", R.Version()$platform)
-    # On Rosetta, we have to build without JEMALLOC, so we also can't autobrew
-    rosetta <- identical(sysname, "darwin") && identical(system("sysctl -n sysctl.proc_translated", intern = TRUE), "1")
-    if (rosetta) {
+    # On Rosetta, we have to build without JEMALLOC
+    if (on_rosetta()) {
       Sys.setenv(ARROW_JEMALLOC = "OFF")
-    }
-    if (apple_m1 || rosetta) {
       Sys.setenv(FORCE_BUNDLED_BUILD = "true")
     }
 
     opts <- list()
-    if (apple_m1 || rosetta) {
-      # Skip binaries (esp. for rosetta)
-      opts$pkgType <- "source"
-    } else if (isTRUE(binary)) {
+    if (isTRUE(binary)) {
       # Unless otherwise directed, don't consider newer source packages when
       # options(pkgType) == "both" (default on win/mac)
       opts$install.packages.check.source <- "no"
@@ -171,7 +162,7 @@ reload_arrow <- function() {
 #'
 #' ### Using a computer with internet access, pre-download the dependencies:
 #' * Install the `arrow` package _or_ run
-#'   `source("https://raw.githubusercontent.com/apache/arrow/master/r/R/install-arrow.R")`
+#'   `source("https://raw.githubusercontent.com/apache/arrow/main/r/R/install-arrow.R")`
 #' * Run `create_package_with_all_dependencies("my_arrow_pkg.tar.gz")`
 #' * Copy the newly created `my_arrow_pkg.tar.gz` to the computer without internet access
 #'
@@ -217,19 +208,25 @@ create_package_with_all_dependencies <- function(dest_file = NULL, source_file =
   untar_dir <- tempfile()
   on.exit(unlink(untar_dir, recursive = TRUE), add = TRUE)
   utils::untar(source_file, exdir = untar_dir)
-  tools_dir <- file.path(untar_dir, "arrow/tools")
+  tools_dir <- file.path(normalizePath(untar_dir, winslash = "/"), "arrow/tools")
   download_dependencies_sh <- file.path(tools_dir, "download_dependencies_R.sh")
   # If you change this path, also need to edit nixlibs.R
   download_dir <- file.path(tools_dir, "thirdparty_dependencies")
   dir.create(download_dir)
   download_script <- tempfile(fileext = ".R")
+
+  if (isTRUE(Sys.info()["sysname"] == "Windows")) {
+    download_dependencies_sh <- wslify_path(download_dependencies_sh)
+  }
+
   parse_versions_success <- system2(
     "bash", c(download_dependencies_sh, download_dir),
     stdout = download_script,
     stderr = FALSE
   ) == 0
+
   if (!parse_versions_success) {
-    stop("Failed to parse versions.txt")
+    stop(paste("Failed to parse versions.txt; view ", download_script, "for more information", collapse = ""))
   }
   # `source` the download_script to use R to download all the dependency bundles
   source(download_script)
@@ -246,9 +243,32 @@ create_package_with_all_dependencies <- function(dest_file = NULL, source_file =
   setwd(untar_dir)
 
   message("Repacking tar.gz file to ", dest_file)
-  tar_successful <- utils::tar(dest_file, compression = "gz") == 0
+  tar_successful <- utils::tar(dest_file, compression = "gz", extra_flags = NULL) == 0
   if (!tar_successful) {
     stop("Failed to create new tar.gz file")
   }
   invisible(dest_file)
+}
+
+# Convert a Windows path to a WSL path
+# e.g. wslify_path("C:/Users/user/AppData/") returns "/mnt/c/Users/user/AppData"
+wslify_path <- function(path) {
+  m <- regexpr("[A-Z]:/", path)
+  drive_expr <- regmatches(path, m)
+  drive_letter <- strsplit(drive_expr, ":/")[[1]]
+  wslified_drive <- paste0("/mnt/", tolower(drive_letter))
+  end_path <- strsplit(path, drive_expr)[[1]][-1]
+  file.path(wslified_drive, end_path)
+}
+
+on_rosetta <- function() {
+  # make sure to suppress warnings and ignore the stderr so that this is silent where proc_translated doesn't exist
+  sysctl_out <- tryCatch(
+    suppressWarnings(system("sysctl -n sysctl.proc_translated", intern = TRUE, ignore.stderr = TRUE)),
+    error = function(e) {
+      # If this has errored, we assume that this is not on rosetta
+      return("0")
+    }
+  )
+  identical(tolower(Sys.info()[["sysname"]]), "darwin") && identical(sysctl_out, "1")
 }

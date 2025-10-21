@@ -199,12 +199,12 @@ class FunctionTest < Test::Unit::TestCase
   end
 
   def test_call
-      or_function = Arrow::Function.find("or")
-      args = [
-        Arrow::BooleanArray.new([true, false, false]),
-        Arrow::BooleanArray.new([true, false, true]),
-      ]
-      assert_equal([true, false, true],
-                   or_function.call(args).value.to_a)
+    or_function = Arrow::Function.find("or")
+    args = [
+      Arrow::BooleanArray.new([true, false, false]),
+      Arrow::BooleanArray.new([true, false, true]),
+    ]
+    assert_equal([true, false, true],
+                 or_function.call(args).value.to_a)
   end
 end

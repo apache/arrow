@@ -25,9 +25,9 @@ Red Arrow Flight SQL is the Ruby bindings of Apache Arrow Flight SQL. Red Arrow 
 
 [GObject Introspection](https://wiki.gnome.org/action/show/Projects/GObjectIntrospection) is a middleware for language bindings of C library. GObject Introspection can generate language bindings automatically at runtime.
 
-Red Arrow Flight SQL uses [Apache Arrow Flight SQL GLib](https://github.com/apache/arrow/tree/master/c_glib/arrow-flight-sql) and [gobject-introspection gem](https://rubygems.org/gems/gobject-introspection) to generate Ruby bindings of Apache Arrow Flight SQL.
+Red Arrow Flight SQL uses [Apache Arrow Flight SQL GLib](https://github.com/apache/arrow/tree/main/c_glib/arrow-flight-sql) and [gobject-introspection gem](https://rubygems.org/gems/gobject-introspection) to generate Ruby bindings of Apache Arrow Flight SQL.
 
-Apache Arrow Flight SQL GLib is a C wrapper for [Apache Arrow Flight SQL C++](https://github.com/apache/arrow/tree/master/cpp/src/arrow/flight/sql). GObject Introspection can't use Apache Arrow Flight SQL C++ directly. Apache Arrow Flight SQL GLib is a bridge between Apache Arrow Flight SQL C++ and GObject Introspection.
+Apache Arrow Flight SQL GLib is a C wrapper for [Apache Arrow Flight SQL C++](https://github.com/apache/arrow/tree/main/cpp/src/arrow/flight/sql). GObject Introspection can't use Apache Arrow Flight SQL C++ directly. Apache Arrow Flight SQL GLib is a bridge between Apache Arrow Flight SQL C++ and GObject Introspection.
 
 gobject-introspection gem is a Ruby bindings of GObject Introspection. Red Arrow Flight SQL uses GObject Introspection via gobject-introspection gem.
 

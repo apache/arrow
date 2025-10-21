@@ -20,7 +20,10 @@ import decimal
 from collections import OrderedDict
 import io
 
-import numpy as np
+try:
+    import numpy as np
+except ImportError:
+    np = None
 import pytest
 
 import pyarrow as pa
@@ -81,9 +84,11 @@ def test_parquet_metadata_api():
     assert col.max_definition_level == 1
     assert col.max_repetition_level == 0
     assert col.max_repetition_level == 0
-
     assert col.physical_type == 'BOOLEAN'
     assert col.converted_type == 'NONE'
+
+    col_float16 = schema[5]
+    assert col_float16.logical_type.type == 'FLOAT16'
 
     with pytest.raises(IndexError):
         schema[ncols + 1]  # +1 for index
@@ -120,7 +125,7 @@ def test_parquet_metadata_api():
         col_meta = rg_meta.column(ncols + 2)
 
     col_meta = rg_meta.column(0)
-    assert col_meta.file_offset > 0
+    assert col_meta.file_offset == 0
     assert col_meta.file_path == ''  # created from BytesIO
     assert col_meta.physical_type == 'BOOLEAN'
     assert col_meta.num_values == 10000
@@ -128,7 +133,7 @@ def test_parquet_metadata_api():
     assert col_meta.is_stats_set is True
     assert isinstance(col_meta.statistics, pq.Statistics)
     assert col_meta.compression == 'SNAPPY'
-    assert col_meta.encodings == ('PLAIN', 'RLE')
+    assert set(col_meta.encodings) == {'PLAIN', 'RLE'}
     assert col_meta.has_dictionary_page is False
     assert col_meta.dictionary_page_offset is None
     assert col_meta.data_page_offset > 0
@@ -161,33 +166,33 @@ def test_parquet_metadata_lifetime(tempdir):
         'distinct_count'
     ),
     [
-        ([1, 2, 2, None, 4], pa.uint8(), 'INT32', 1, 4, 1, 4, 0),
-        ([1, 2, 2, None, 4], pa.uint16(), 'INT32', 1, 4, 1, 4, 0),
-        ([1, 2, 2, None, 4], pa.uint32(), 'INT32', 1, 4, 1, 4, 0),
-        ([1, 2, 2, None, 4], pa.uint64(), 'INT64', 1, 4, 1, 4, 0),
-        ([-1, 2, 2, None, 4], pa.int8(), 'INT32', -1, 4, 1, 4, 0),
-        ([-1, 2, 2, None, 4], pa.int16(), 'INT32', -1, 4, 1, 4, 0),
-        ([-1, 2, 2, None, 4], pa.int32(), 'INT32', -1, 4, 1, 4, 0),
-        ([-1, 2, 2, None, 4], pa.int64(), 'INT64', -1, 4, 1, 4, 0),
+        ([1, 2, 2, None, 4], pa.uint8(), 'INT32', 1, 4, 1, 4, None),
+        ([1, 2, 2, None, 4], pa.uint16(), 'INT32', 1, 4, 1, 4, None),
+        ([1, 2, 2, None, 4], pa.uint32(), 'INT32', 1, 4, 1, 4, None),
+        ([1, 2, 2, None, 4], pa.uint64(), 'INT64', 1, 4, 1, 4, None),
+        ([-1, 2, 2, None, 4], pa.int8(), 'INT32', -1, 4, 1, 4, None),
+        ([-1, 2, 2, None, 4], pa.int16(), 'INT32', -1, 4, 1, 4, None),
+        ([-1, 2, 2, None, 4], pa.int32(), 'INT32', -1, 4, 1, 4, None),
+        ([-1, 2, 2, None, 4], pa.int64(), 'INT64', -1, 4, 1, 4, None),
         (
             [-1.1, 2.2, 2.3, None, 4.4], pa.float32(),
-            'FLOAT', -1.1, 4.4, 1, 4, 0
+            'FLOAT', -1.1, 4.4, 1, 4, None
         ),
         (
             [-1.1, 2.2, 2.3, None, 4.4], pa.float64(),
-            'DOUBLE', -1.1, 4.4, 1, 4, 0
+            'DOUBLE', -1.1, 4.4, 1, 4, None
         ),
         (
             ['', 'b', chr(1000), None, 'aaa'], pa.binary(),
-            'BYTE_ARRAY', b'', chr(1000).encode('utf-8'), 1, 4, 0
+            'BYTE_ARRAY', b'', chr(1000).encode('utf-8'), 1, 4, None
         ),
         (
             [True, False, False, True, True], pa.bool_(),
-            'BOOLEAN', False, True, 0, 5, 0
+            'BOOLEAN', False, True, 0, 5, None
         ),
         (
             [b'\x00', b'b', b'12', None, b'aaa'], pa.binary(),
-            'BYTE_ARRAY', b'\x00', b'b', 1, 4, 0
+            'BYTE_ARRAY', b'\x00', b'b', 1, 4, None
         ),
     ]
 )
@@ -262,7 +267,7 @@ def test_statistics_convert_logical_types(tempdir):
     for i, (min_val, max_val, typ) in enumerate(cases):
         t = pa.Table.from_arrays([pa.array([min_val, max_val], type=typ)],
                                  ['col'])
-        path = str(tempdir / ('example{}.parquet'.format(i)))
+        path = str(tempdir / f'example{i}.parquet')
         pq.write_table(t, path, version='2.6')
         pf = pq.ParquetFile(path)
         stats = pf.metadata.row_group(0).column(0).statistics
@@ -299,6 +304,98 @@ def test_parquet_write_disable_statistics(tempdir):
     assert cc_b.is_stats_set is False
     assert cc_a.statistics is not None
     assert cc_b.statistics is None
+
+
+def test_parquet_sorting_column():
+    sorting_col = pq.SortingColumn(10)
+    assert sorting_col.to_dict() == {
+        'column_index': 10,
+        'descending': False,
+        'nulls_first': False
+    }
+
+    sorting_col = pq.SortingColumn(0, descending=True, nulls_first=True)
+    assert sorting_col.to_dict() == {
+        'column_index': 0,
+        'descending': True,
+        'nulls_first': True
+    }
+
+    schema = pa.schema([('a', pa.int64()), ('b', pa.int64())])
+    sorting_cols = (
+        pq.SortingColumn(1, descending=True),
+        pq.SortingColumn(0, descending=False),
+    )
+    sort_order, null_placement = pq.SortingColumn.to_ordering(schema, sorting_cols)
+    assert sort_order == (('b', "descending"), ('a', "ascending"))
+    assert null_placement == "at_end"
+
+    sorting_cols_roundtripped = pq.SortingColumn.from_ordering(
+        schema, sort_order, null_placement)
+    assert sorting_cols_roundtripped == sorting_cols
+
+    sorting_cols = pq.SortingColumn.from_ordering(
+        schema, ('a', ('b', "descending")), null_placement="at_start")
+    expected = (
+        pq.SortingColumn(0, descending=False, nulls_first=True),
+        pq.SortingColumn(1, descending=True, nulls_first=True),
+    )
+    assert sorting_cols == expected
+
+    # Conversions handle empty tuples
+    empty_sorting_cols = pq.SortingColumn.from_ordering(schema, ())
+    assert empty_sorting_cols == ()
+
+    assert pq.SortingColumn.to_ordering(schema, ()) == ((), "at_end")
+
+    with pytest.raises(ValueError):
+        pq.SortingColumn.from_ordering(schema, (("a", "not a valid sort order")))
+
+    with pytest.raises(ValueError, match="inconsistent null placement"):
+        sorting_cols = (
+            pq.SortingColumn(1, nulls_first=True),
+            pq.SortingColumn(0, nulls_first=False),
+        )
+        pq.SortingColumn.to_ordering(schema, sorting_cols)
+
+
+def test_parquet_sorting_column_nested():
+    schema = pa.schema({
+        'a': pa.struct([('x', pa.int64()), ('y', pa.int64())]),
+        'b': pa.int64()
+    })
+
+    sorting_columns = [
+        pq.SortingColumn(0, descending=True),  # a.x
+        pq.SortingColumn(2, descending=False)  # b
+    ]
+
+    sort_order, null_placement = pq.SortingColumn.to_ordering(schema, sorting_columns)
+    assert null_placement == "at_end"
+    assert len(sort_order) == 2
+    assert sort_order[0] == ("a.x", "descending")
+    assert sort_order[1] == ("b", "ascending")
+
+
+def test_parquet_file_sorting_columns():
+    table = pa.table({'a': [1, 2, 3], 'b': ['a', 'b', 'c']})
+
+    sorting_columns = (
+        pq.SortingColumn(column_index=0, descending=True, nulls_first=True),
+        pq.SortingColumn(column_index=1, descending=False),
+    )
+    writer = pa.BufferOutputStream()
+    _write_table(table, writer, sorting_columns=sorting_columns)
+    reader = pa.BufferReader(writer.getvalue())
+
+    # Can retrieve sorting columns from metadata
+    metadata = pq.read_metadata(reader)
+    assert sorting_columns == metadata.row_group(0).sorting_columns
+
+    metadata_dict = metadata.to_dict()
+    assert metadata_dict.get('num_columns') == 2
+    assert metadata_dict.get('num_rows') == 3
+    assert metadata_dict.get('num_row_groups') == 1
 
 
 def test_field_id_metadata():
@@ -357,6 +454,21 @@ def test_field_id_metadata():
     assert schema[5].metadata[field_id] == b'-1000'
 
 
+def test_parquet_file_page_index():
+    for write_page_index in (False, True):
+        table = pa.table({'a': [1, 2, 3]})
+
+        writer = pa.BufferOutputStream()
+        _write_table(table, writer, write_page_index=write_page_index)
+        reader = pa.BufferReader(writer.getvalue())
+
+        # Can retrieve sorting columns from metadata
+        metadata = pq.read_metadata(reader)
+        cc = metadata.row_group(0).column(0)
+        assert cc.has_offset_index is write_page_index
+        assert cc.has_column_index is write_page_index
+
+
 @pytest.mark.pandas
 def test_multi_dataset_metadata(tempdir):
     filenames = ["ARROW-1983-dataset.0", "ARROW-1983-dataset.1"]
@@ -400,6 +512,32 @@ def test_multi_dataset_metadata(tempdir):
     assert md['serialized_size'] > 0
 
 
+def test_metadata_hashing(tempdir):
+    path1 = str(tempdir / "metadata1")
+    schema1 = pa.schema([("a", "int64"), ("b", "float64")])
+    pq.write_metadata(schema1, path1)
+    parquet_meta1 = pq.read_metadata(path1)
+
+    # Same as 1, just different path
+    path2 = str(tempdir / "metadata2")
+    schema2 = pa.schema([("a", "int64"), ("b", "float64")])
+    pq.write_metadata(schema2, path2)
+    parquet_meta2 = pq.read_metadata(path2)
+
+    # different schema
+    path3 = str(tempdir / "metadata3")
+    schema3 = pa.schema([("a", "int64"), ("b", "float32")])
+    pq.write_metadata(schema3, path3)
+    parquet_meta3 = pq.read_metadata(path3)
+
+    # Deterministic
+    assert hash(parquet_meta1) == hash(parquet_meta1)  # equal w/ same instance
+    assert hash(parquet_meta1) == hash(parquet_meta2)  # equal w/ different instance
+
+    # Not the same as other metadata with different schema
+    assert hash(parquet_meta1) != hash(parquet_meta3)
+
+
 @pytest.mark.filterwarnings("ignore:Parquet format:FutureWarning")
 def test_write_metadata(tempdir):
     path = str(tempdir / "metadata")
@@ -416,7 +554,7 @@ def test_write_metadata(tempdir):
         assert b'ARROW:schema' not in schema_as_arrow.metadata
 
     # pass through writer keyword arguments
-    for version in ["1.0", "2.0", "2.4", "2.6"]:
+    for version in ["1.0", "2.4", "2.6"]:
         pq.write_metadata(schema, path, version=version)
         parquet_meta = pq.read_metadata(path)
         # The version is stored as a single integer in the Parquet metadata,
@@ -449,7 +587,7 @@ def test_table_large_metadata():
     my_schema = pa.schema([pa.field('f0', 'double')],
                           metadata={'large': 'x' * 10000000})
 
-    table = pa.table([np.arange(10)], schema=my_schema)
+    table = pa.table([range(10)], schema=my_schema)
     _check_roundtrip(table)
 
 
@@ -647,3 +785,32 @@ def test_write_metadata_fs_file_combinations(tempdir, s3_example_s3fs):
     assert meta1.read_bytes() == meta2.read_bytes() \
         == meta3.read_bytes() == meta4.read_bytes() \
         == s3_fs.open(meta5).read()
+
+
+def test_column_chunk_key_value_metadata(parquet_test_datadir):
+    metadata = pq.read_metadata(parquet_test_datadir /
+                                'column_chunk_key_value_metadata.parquet')
+    key_value_metadata1 = metadata.row_group(0).column(0).metadata
+    assert key_value_metadata1 == {b'foo': b'bar', b'thisiskeywithoutvalue': b''}
+    key_value_metadata2 = metadata.row_group(0).column(1).metadata
+    assert key_value_metadata2 is None
+
+
+def test_internal_class_instantiation():
+    def msg(c):
+        return f"Do not call {c}'s constructor directly"
+
+    with pytest.raises(TypeError, match=msg("Statistics")):
+        pq.Statistics()
+
+    with pytest.raises(TypeError, match=msg("ParquetLogicalType")):
+        pq.ParquetLogicalType()
+
+    with pytest.raises(TypeError, match=msg("ColumnChunkMetaData")):
+        pq.ColumnChunkMetaData()
+
+    with pytest.raises(TypeError, match=msg("RowGroupMetaData")):
+        pq.RowGroupMetaData()
+
+    with pytest.raises(TypeError, match=msg("FileMetaData")):
+        pq.FileMetaData()

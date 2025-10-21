@@ -30,7 +30,8 @@
 #include "arrow/type_traits.h"
 #include "arrow/util/bit_run_reader.h"
 #include "arrow/util/checked_cast.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/float16.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/ubsan.h"
 #include "arrow/visit_data_inline.h"
 #include "parquet/encoding.h"
@@ -41,7 +42,9 @@
 using arrow::default_memory_pool;
 using arrow::MemoryPool;
 using arrow::internal::checked_cast;
+using arrow::util::Float16;
 using arrow::util::SafeCopy;
+using arrow::util::SafeLoad;
 
 namespace parquet {
 namespace {
@@ -51,6 +54,23 @@ namespace {
 
 constexpr int value_length(int value_length, const ByteArray& value) { return value.len; }
 constexpr int value_length(int type_length, const FLBA& value) { return type_length; }
+
+// Static "constants" for normalizing float16 min/max values. These need to be expressed
+// as pointers because `Float16LogicalType` represents an FLBA.
+struct Float16Constants {
+  static constexpr const uint8_t* lowest() { return lowest_.data(); }
+  static constexpr const uint8_t* max() { return max_.data(); }
+  static constexpr const uint8_t* positive_zero() { return positive_zero_.data(); }
+  static constexpr const uint8_t* negative_zero() { return negative_zero_.data(); }
+
+ private:
+  using Bytes = std::array<uint8_t, 2>;
+  static constexpr Bytes lowest_ =
+      std::numeric_limits<Float16>::lowest().ToLittleEndian();
+  static constexpr Bytes max_ = std::numeric_limits<Float16>::max().ToLittleEndian();
+  static constexpr Bytes positive_zero_ = (+Float16::FromBits(0)).ToLittleEndian();
+  static constexpr Bytes negative_zero_ = (-Float16::FromBits(0)).ToLittleEndian();
+};
 
 template <typename DType, bool is_signed>
 struct CompareHelper {
@@ -162,7 +182,7 @@ struct BinaryLikeComparer<T, /*is_signed=*/false> {
     int a_length = value_length(type_length, a);
     int b_length = value_length(type_length, b);
     // Unsigned comparison is used for non-numeric types so straight
-    // lexiographic comparison makes sense. (a.ptr is always unsigned)....
+    // lexicographic comparison makes sense. (a.ptr is always unsigned)....
     return std::lexicographical_compare(a.ptr, a.ptr + a_length, b.ptr, b.ptr + b_length);
   }
 };
@@ -185,7 +205,7 @@ struct BinaryLikeComparer<T, /*is_signed=*/true> {
     // We can short circuit for different signed numbers or
     // for equal length bytes arrays that have different first bytes.
     // The equality requirement is necessary for sign extension cases.
-    // 0xFF10 should be eqaul to 0x10 (due to big endian sign extension).
+    // 0xFF10 should be equal to 0x10 (due to big endian sign extension).
     if ((0x80 & first_a) != (0x80 & first_b) ||
         (a_length == b_length && first_a != first_b)) {
       return first_a < first_b;
@@ -227,7 +247,7 @@ struct BinaryLikeComparer<T, /*is_signed=*/true> {
         //        a must be the lesser value: return true
         //
         //    positive values:
-        //      b  is the longer value.
+        //      b is the longer value.
         //        values in b must be greater than a: return true
         //      else:
         //        values in a must be greater than b: return false
@@ -276,11 +296,48 @@ template <bool is_signed>
 struct CompareHelper<FLBAType, is_signed>
     : public BinaryLikeCompareHelperBase<FLBAType, is_signed> {};
 
+template <>
+struct CompareHelper<Float16LogicalType, /*is_signed=*/true> {
+  using T = FLBA;
+
+  static T DefaultMin() { return T{Float16Constants::max()}; }
+  static T DefaultMax() { return T{Float16Constants::lowest()}; }
+
+  static T Coalesce(T val, T fallback) {
+    return (val.ptr == nullptr || Float16::FromLittleEndian(val.ptr).is_nan()) ? fallback
+                                                                               : val;
+  }
+
+  static inline bool Compare(int type_length, const T& a, const T& b) {
+    const auto lhs = Float16::FromLittleEndian(a.ptr);
+    const auto rhs = Float16::FromLittleEndian(b.ptr);
+    // NaN is handled here (same behavior as native float compare)
+    return lhs < rhs;
+  }
+
+  static T Min(int type_length, const T& a, const T& b) {
+    if (a.ptr == nullptr) return b;
+    if (b.ptr == nullptr) return a;
+    return Compare(type_length, a, b) ? a : b;
+  }
+
+  static T Max(int type_length, const T& a, const T& b) {
+    if (a.ptr == nullptr) return b;
+    if (b.ptr == nullptr) return a;
+    return Compare(type_length, a, b) ? b : a;
+  }
+};
+
 using ::std::optional;
 
 template <typename T>
 ::arrow::enable_if_t<std::is_integral<T>::value, optional<std::pair<T, T>>>
-CleanStatistic(std::pair<T, T> min_max) {
+CleanStatistic(std::pair<T, T> min_max, LogicalType::Type::type) {
+  return min_max;
+}
+
+std::optional<std::pair<Int96, Int96>> CleanStatistic(std::pair<Int96, Int96> min_max,
+                                                      LogicalType::Type::type) {
   return min_max;
 }
 
@@ -291,7 +348,7 @@ CleanStatistic(std::pair<T, T> min_max) {
 // - If max is -0.0f, replace with 0.0f
 template <typename T>
 ::arrow::enable_if_t<std::is_floating_point<T>::value, optional<std::pair<T, T>>>
-CleanStatistic(std::pair<T, T> min_max) {
+CleanStatistic(std::pair<T, T> min_max, LogicalType::Type::type) {
   T min = min_max.first;
   T max = min_max.second;
 
@@ -317,25 +374,67 @@ CleanStatistic(std::pair<T, T> min_max) {
   return {{min, max}};
 }
 
-optional<std::pair<FLBA, FLBA>> CleanStatistic(std::pair<FLBA, FLBA> min_max) {
+optional<std::pair<FLBA, FLBA>> CleanFloat16Statistic(std::pair<FLBA, FLBA> min_max) {
+  FLBA min_flba = min_max.first;
+  FLBA max_flba = min_max.second;
+  Float16 min = Float16::FromLittleEndian(min_flba.ptr);
+  Float16 max = Float16::FromLittleEndian(max_flba.ptr);
+
+  if (min.is_nan() || max.is_nan()) {
+    return ::std::nullopt;
+  }
+
+  if (min == std::numeric_limits<Float16>::max() &&
+      max == std::numeric_limits<Float16>::lowest()) {
+    return ::std::nullopt;
+  }
+
+  if (min.is_zero() && !min.signbit()) {
+    min_flba = FLBA{Float16Constants::negative_zero()};
+  }
+  if (max.is_zero() && max.signbit()) {
+    max_flba = FLBA{Float16Constants::positive_zero()};
+  }
+
+  return {{min_flba, max_flba}};
+}
+
+optional<std::pair<FLBA, FLBA>> CleanStatistic(std::pair<FLBA, FLBA> min_max,
+                                               LogicalType::Type::type logical_type) {
   if (min_max.first.ptr == nullptr || min_max.second.ptr == nullptr) {
     return ::std::nullopt;
+  }
+  if (logical_type == LogicalType::Type::FLOAT16) {
+    return CleanFloat16Statistic(std::move(min_max));
   }
   return min_max;
 }
 
 optional<std::pair<ByteArray, ByteArray>> CleanStatistic(
-    std::pair<ByteArray, ByteArray> min_max) {
+    std::pair<ByteArray, ByteArray> min_max, LogicalType::Type::type) {
   if (min_max.first.ptr == nullptr || min_max.second.ptr == nullptr) {
     return ::std::nullopt;
   }
   return min_max;
 }
 
+template <typename T>
+struct RebindLogical {
+  using DType = T;
+  using c_type = typename DType::c_type;
+};
+
+template <>
+struct RebindLogical<Float16LogicalType> {
+  using DType = FLBAType;
+  using c_type = DType::c_type;
+};
+
 template <bool is_signed, typename DType>
-class TypedComparatorImpl : virtual public TypedComparator<DType> {
+class TypedComparatorImpl
+    : virtual public TypedComparator<typename RebindLogical<DType>::DType> {
  public:
-  using T = typename DType::c_type;
+  using T = typename RebindLogical<DType>::c_type;
   using Helper = CompareHelper<DType, is_signed>;
 
   explicit TypedComparatorImpl(int type_length = -1) : type_length_(type_length) {}
@@ -344,16 +443,16 @@ class TypedComparatorImpl : virtual public TypedComparator<DType> {
     return Helper::Compare(type_length_, a, b);
   }
 
-  bool Compare(const T& a, const T& b) override { return CompareInline(a, b); }
+  bool Compare(const T& a, const T& b) const override { return CompareInline(a, b); }
 
-  std::pair<T, T> GetMinMax(const T* values, int64_t length) override {
+  std::pair<T, T> GetMinMax(const T* values, int64_t length) const override {
     DCHECK_GT(length, 0);
 
     T min = Helper::DefaultMin();
     T max = Helper::DefaultMax();
 
     for (int64_t i = 0; i < length; i++) {
-      auto val = values[i];
+      const auto val = SafeLoad(values + i);
       min = Helper::Min(type_length_, min, Helper::Coalesce(val, Helper::DefaultMin()));
       max = Helper::Max(type_length_, max, Helper::Coalesce(val, Helper::DefaultMax()));
     }
@@ -363,7 +462,7 @@ class TypedComparatorImpl : virtual public TypedComparator<DType> {
 
   std::pair<T, T> GetMinMaxSpaced(const T* values, int64_t length,
                                   const uint8_t* valid_bits,
-                                  int64_t valid_bits_offset) override {
+                                  int64_t valid_bits_offset) const override {
     DCHECK_GT(length, 0);
 
     T min = Helper::DefaultMin();
@@ -372,7 +471,7 @@ class TypedComparatorImpl : virtual public TypedComparator<DType> {
     ::arrow::internal::VisitSetBitRunsVoid(
         valid_bits, valid_bits_offset, length, [&](int64_t position, int64_t length) {
           for (int64_t i = 0; i < length; i++) {
-            const auto val = values[i + position];
+            const auto val = SafeLoad(values + i + position);
             min = Helper::Min(type_length_, min,
                               Helper::Coalesce(val, Helper::DefaultMin()));
             max = Helper::Max(type_length_, max,
@@ -383,7 +482,9 @@ class TypedComparatorImpl : virtual public TypedComparator<DType> {
     return {min, max};
   }
 
-  std::pair<T, T> GetMinMax(const ::arrow::Array& values) override;
+  std::pair<T, T> GetMinMax(const ::arrow::Array& values) const override {
+    ParquetException::NYI(values.type()->ToString());
+  }
 
  private:
   int type_length_;
@@ -395,7 +496,7 @@ class TypedComparatorImpl : virtual public TypedComparator<DType> {
 template <>
 std::pair<int32_t, int32_t>
 TypedComparatorImpl</*is_signed=*/false, Int32Type>::GetMinMax(const int32_t* values,
-                                                               int64_t length) {
+                                                               int64_t length) const {
   DCHECK_GT(length, 0);
 
   const uint32_t* unsigned_values = reinterpret_cast<const uint32_t*>(values);
@@ -409,12 +510,6 @@ TypedComparatorImpl</*is_signed=*/false, Int32Type>::GetMinMax(const int32_t* va
   }
 
   return {SafeCopy<int32_t>(min), SafeCopy<int32_t>(max)};
-}
-
-template <bool is_signed, typename DType>
-std::pair<typename DType::c_type, typename DType::c_type>
-TypedComparatorImpl<is_signed, DType>::GetMinMax(const ::arrow::Array& values) {
-  ParquetException::NYI(values.type()->ToString());
 }
 
 template <bool is_signed>
@@ -436,10 +531,14 @@ std::pair<ByteArray, ByteArray> GetMinMaxBinaryHelper(
   if (::arrow::is_binary_like(values.type_id())) {
     ::arrow::VisitArraySpanInline<::arrow::BinaryType>(
         *values.data(), std::move(valid_func), std::move(null_func));
-  } else {
-    DCHECK(::arrow::is_large_binary_like(values.type_id()));
+  } else if (::arrow::is_large_binary_like(values.type_id())) {
     ::arrow::VisitArraySpanInline<::arrow::LargeBinaryType>(
         *values.data(), std::move(valid_func), std::move(null_func));
+  } else if (::arrow::is_binary_view_like(values.type_id())) {
+    ::arrow::VisitArraySpanInline<::arrow::BinaryViewType>(
+        *values.data(), std::move(valid_func), std::move(null_func));
+  } else {
+    throw ParquetException("Only binary-like data supported");
   }
 
   return {min, max};
@@ -447,14 +546,24 @@ std::pair<ByteArray, ByteArray> GetMinMaxBinaryHelper(
 
 template <>
 std::pair<ByteArray, ByteArray> TypedComparatorImpl<true, ByteArrayType>::GetMinMax(
-    const ::arrow::Array& values) {
+    const ::arrow::Array& values) const {
   return GetMinMaxBinaryHelper<true>(*this, values);
 }
 
 template <>
 std::pair<ByteArray, ByteArray> TypedComparatorImpl<false, ByteArrayType>::GetMinMax(
-    const ::arrow::Array& values) {
+    const ::arrow::Array& values) const {
   return GetMinMaxBinaryHelper<false>(*this, values);
+}
+
+LogicalType::Type::type LogicalTypeId(const ColumnDescriptor* descr) {
+  if (const auto& logical_type = descr->logical_type()) {
+    return logical_type->type();
+  }
+  return LogicalType::Type::NONE;
+}
+LogicalType::Type::type LogicalTypeId(const Statistics& stats) {
+  return LogicalTypeId(stats.descr());
 }
 
 template <typename DType>
@@ -462,51 +571,73 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
  public:
   using T = typename DType::c_type;
 
+  // Create an empty stats.
   TypedStatisticsImpl(const ColumnDescriptor* descr, MemoryPool* pool)
       : descr_(descr),
         pool_(pool),
         min_buffer_(AllocateBuffer(pool_, 0)),
-        max_buffer_(AllocateBuffer(pool_, 0)) {
-    auto comp = Comparator::Make(descr);
-    comparator_ = std::static_pointer_cast<TypedComparator<DType>>(comp);
-    Reset();
-    has_null_count_ = true;
-    has_distinct_count_ = true;
+        max_buffer_(AllocateBuffer(pool_, 0)),
+        logical_type_(LogicalTypeId(descr_)) {
+    if (descr->sort_order() != SortOrder::UNKNOWN) {
+      comparator_ = MakeComparator<DType>(descr);
+    }
+    TypedStatisticsImpl::Reset();
   }
 
+  // Create stats from provided values.
   TypedStatisticsImpl(const T& min, const T& max, int64_t num_values, int64_t null_count,
                       int64_t distinct_count)
       : pool_(default_memory_pool()),
         min_buffer_(AllocateBuffer(pool_, 0)),
         max_buffer_(AllocateBuffer(pool_, 0)) {
-    IncrementNumValues(num_values);
-    IncrementNullCount(null_count);
-    IncrementDistinctCount(distinct_count);
+    TypedStatisticsImpl::IncrementNumValues(num_values);
+    TypedStatisticsImpl::IncrementNullCount(null_count);
+    SetDistinctCount(distinct_count);
 
     Copy(min, &min_, min_buffer_.get());
     Copy(max, &max_, max_buffer_.get());
     has_min_max_ = true;
+    statistics_.is_min_value_exact = true;
+    statistics_.is_max_value_exact = true;
   }
 
+  // Create stats from a thrift Statistics object.
   TypedStatisticsImpl(const ColumnDescriptor* descr, const std::string& encoded_min,
                       const std::string& encoded_max, int64_t num_values,
                       int64_t null_count, int64_t distinct_count, bool has_min_max,
                       bool has_null_count, bool has_distinct_count, MemoryPool* pool)
+      : TypedStatisticsImpl(descr, encoded_min, encoded_max, num_values, null_count,
+                            distinct_count, has_min_max, has_null_count,
+                            has_distinct_count,
+                            /*is_min_value_exact=*/std::nullopt,
+                            /*is_max_value_exact=*/std::nullopt, pool) {}
+
+  TypedStatisticsImpl(const ColumnDescriptor* descr, const std::string& encoded_min,
+                      const std::string& encoded_max, int64_t num_values,
+                      int64_t null_count, int64_t distinct_count, bool has_min_max,
+                      bool has_null_count, bool has_distinct_count,
+                      std::optional<bool> is_min_value_exact,
+                      std::optional<bool> is_max_value_exact, MemoryPool* pool)
       : TypedStatisticsImpl(descr, pool) {
-    IncrementNumValues(num_values);
-    if (has_null_count_) {
-      IncrementNullCount(null_count);
+    TypedStatisticsImpl::IncrementNumValues(num_values);
+    if (has_null_count) {
+      TypedStatisticsImpl::IncrementNullCount(null_count);
+    } else {
+      has_null_count_ = false;
     }
     if (has_distinct_count) {
-      IncrementDistinctCount(distinct_count);
+      SetDistinctCount(distinct_count);
+    } else {
+      has_distinct_count_ = false;
     }
 
-    if (!encoded_min.empty()) {
+    if (has_min_max) {
       PlainDecode(encoded_min, &min_);
-    }
-    if (!encoded_max.empty()) {
       PlainDecode(encoded_max, &max_);
+      statistics_.is_min_value_exact = is_min_value_exact;
+      statistics_.is_max_value_exact = is_max_value_exact;
     }
+
     has_min_max_ = has_min_max;
   }
 
@@ -521,8 +652,26 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
 
   void IncrementNumValues(int64_t n) override { num_values_ += n; }
 
+  static bool IsMeaningfulLogicalType(LogicalType::Type::type type) {
+    switch (type) {
+      case LogicalType::Type::FLOAT16:
+        return true;
+      default:
+        return false;
+    }
+  }
+
   bool Equals(const Statistics& raw_other) const override {
     if (physical_type() != raw_other.physical_type()) return false;
+
+    const auto other_logical_type = LogicalTypeId(raw_other);
+    // Only compare against logical types that influence the interpretation of the
+    // physical type
+    if (IsMeaningfulLogicalType(logical_type_)) {
+      if (logical_type_ != other_logical_type) return false;
+    } else if (IsMeaningfulLogicalType(other_logical_type)) {
+      return false;
+    }
 
     const auto& other = checked_cast<const TypedStatisticsImpl&>(raw_other);
 
@@ -533,16 +682,16 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
 
     return null_count() == other.null_count() &&
            distinct_count() == other.distinct_count() &&
-           num_values() == other.num_values();
+           num_values() == other.num_values() &&
+           is_min_value_exact() == other.is_min_value_exact() &&
+           is_max_value_exact() == other.is_max_value_exact();
   }
 
   bool MinMaxEqual(const TypedStatisticsImpl& other) const;
 
   void Reset() override {
     ResetCounts();
-    has_min_max_ = false;
-    has_distinct_count_ = false;
-    has_null_count_ = false;
+    ResetHasFlags();
   }
 
   void SetMinMax(const T& arg_min, const T& arg_max) override {
@@ -551,12 +700,25 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
 
   void Merge(const TypedStatistics<DType>& other) override {
     this->num_values_ += other.num_values();
+    // null_count is always valid when merging page statistics into
+    // column chunk statistics.
     if (other.HasNullCount()) {
       this->statistics_.null_count += other.null_count();
+    } else {
+      this->has_null_count_ = false;
     }
-    if (other.HasDistinctCount()) {
-      this->statistics_.distinct_count += other.distinct_count();
+    if (has_distinct_count_ && other.HasDistinctCount() &&
+        (distinct_count() == 0 || other.distinct_count() == 0)) {
+      // We can merge distinct counts if either side is zero.
+      statistics_.distinct_count =
+          std::max(statistics_.distinct_count, other.distinct_count());
+    } else {
+      // Otherwise clear has_distinct_count_ as distinct count cannot be merged.
+      this->has_distinct_count_ = false;
     }
+    // Do not clear min/max here if the other side does not provide
+    // min/max which may happen when other is an empty stats or all
+    // its values are null and/or NaN.
     if (other.HasMinMax()) {
       SetMinMax(other.min(), other.max());
     }
@@ -577,6 +739,7 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
       return;
     }
 
+    if (comparator_ == nullptr) return;
     SetMinMaxPair(comparator_->GetMinMax(values));
   }
 
@@ -605,9 +768,16 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
     if (HasMinMax()) {
       s.set_min(this->EncodeMin());
       s.set_max(this->EncodeMax());
+      s.is_min_value_exact = this->is_min_value_exact();
+      s.is_max_value_exact = this->is_max_value_exact();
     }
     if (HasNullCount()) {
       s.set_null_count(this->null_count());
+      // num_values_ is reliable and it means number of non-null values.
+      s.all_null_value = num_values_ == 0;
+    }
+    if (HasDistinctCount()) {
+      s.set_distinct_count(this->distinct_count());
     }
     return s;
   }
@@ -615,6 +785,12 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
   int64_t null_count() const override { return statistics_.null_count; }
   int64_t distinct_count() const override { return statistics_.distinct_count; }
   int64_t num_values() const override { return num_values_; }
+  std::optional<bool> is_min_value_exact() const override {
+    return statistics_.is_min_value_exact;
+  }
+  std::optional<bool> is_max_value_exact() const override {
+    return statistics_.is_max_value_exact;
+  }
 
  private:
   const ColumnDescriptor* descr_;
@@ -624,18 +800,25 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
   T min_;
   T max_;
   ::arrow::MemoryPool* pool_;
+  // Number of non-null values.
+  // Please note that num_values_ is reliable when has_null_count_ is set.
+  // When has_null_count_ is not set, e.g. a page statistics created from
+  // a statistics thrift message which doesn't have the optional null_count,
+  // `num_values_` may include null values.
   int64_t num_values_ = 0;
   EncodedStatistics statistics_;
   std::shared_ptr<TypedComparator<DType>> comparator_;
   std::shared_ptr<ResizableBuffer> min_buffer_, max_buffer_;
+  LogicalType::Type::type logical_type_ = LogicalType::Type::NONE;
 
   void PlainEncode(const T& src, std::string* dst) const;
   void PlainDecode(const std::string& src, T* dst) const;
 
   void Copy(const T& src, T* dst, ResizableBuffer*) { *dst = src; }
 
-  void IncrementDistinctCount(int64_t n) {
-    statistics_.distinct_count += n;
+  void SetDistinctCount(int64_t n) {
+    // distinct count can only be "set", and cannot be incremented.
+    statistics_.distinct_count = n;
     has_distinct_count_ = true;
   }
 
@@ -645,9 +828,21 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
     this->num_values_ = 0;
   }
 
+  void ResetHasFlags() {
+    // has_min_max_ will only be set when it meets any valid value.
+    this->has_min_max_ = false;
+    // has_distinct_count_ will only be set once SetDistinctCount()
+    // is called because distinct count calculation is not cheap and
+    // disabled by default.
+    this->has_distinct_count_ = false;
+    // Null count calculation is cheap and enabled by default.
+    this->has_null_count_ = true;
+  }
+
   void SetMinMaxPair(std::pair<T, T> min_max) {
+    if (comparator_ == nullptr) return;
     // CleanStatistic can return a nullopt in case of erroneous values, e.g. NaN
-    auto maybe_min_max = CleanStatistic(min_max);
+    auto maybe_min_max = CleanStatistic(min_max, logical_type_);
     if (!maybe_min_max) return;
 
     auto min = maybe_min_max.value().first;
@@ -661,6 +856,8 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
       Copy(comparator_->Compare(min_, min) ? min_ : min, &min_, min_buffer_.get());
       Copy(comparator_->Compare(max_, max) ? max : max_, &max_, max_buffer_.get());
     }
+    statistics_.is_min_value_exact = true;
+    statistics_.is_max_value_exact = true;
   }
 };
 
@@ -706,7 +903,7 @@ void TypedStatisticsImpl<DType>::Update(const T* values, int64_t num_values,
   IncrementNullCount(null_count);
   IncrementNumValues(num_values);
 
-  if (num_values == 0) return;
+  if (num_values == 0 || comparator_ == nullptr) return;
   SetMinMaxPair(comparator_->GetMinMax(values, num_values));
 }
 
@@ -721,7 +918,7 @@ void TypedStatisticsImpl<DType>::UpdateSpaced(const T* values, const uint8_t* va
   IncrementNullCount(null_count);
   IncrementNumValues(num_values);
 
-  if (num_values == 0) return;
+  if (num_values == 0 || comparator_ == nullptr) return;
   SetMinMaxPair(comparator_->GetMinMaxSpaced(values, num_spaced_values, valid_bits,
                                              valid_bits_offset));
 }
@@ -732,7 +929,7 @@ void TypedStatisticsImpl<DType>::PlainEncode(const T& src, std::string* dst) con
   encoder->Put(&src, 1);
   auto buffer = encoder->FlushValues();
   auto ptr = reinterpret_cast<const char*>(buffer->data());
-  dst->assign(ptr, buffer->size());
+  dst->assign(ptr, static_cast<size_t>(buffer->size()));
 }
 
 template <typename DType>
@@ -740,7 +937,10 @@ void TypedStatisticsImpl<DType>::PlainDecode(const std::string& src, T* dst) con
   auto decoder = MakeTypedDecoder<DType>(Encoding::PLAIN, descr_);
   decoder->SetData(1, reinterpret_cast<const uint8_t*>(src.c_str()),
                    static_cast<int>(src.size()));
-  decoder->Decode(dst, 1);
+  int decoded_values = decoder->Decode(dst, 1);
+  if (decoded_values != 1) {
+    throw ParquetException("Failed to decode statistic value from plain encoded string");
+  }
 }
 
 template <>
@@ -756,12 +956,8 @@ void TypedStatisticsImpl<ByteArrayType>::PlainDecode(const std::string& src,
   dst->ptr = reinterpret_cast<const uint8_t*>(src.c_str());
 }
 
-}  // namespace
-
-// ----------------------------------------------------------------------
-// Public factory functions
-
-std::shared_ptr<Comparator> Comparator::Make(Type::type physical_type,
+std::shared_ptr<Comparator> DoMakeComparator(Type::type physical_type,
+                                             LogicalType::Type::type logical_type,
                                              SortOrder::type sort_order,
                                              int type_length) {
   if (SortOrder::SIGNED == sort_order) {
@@ -781,6 +977,10 @@ std::shared_ptr<Comparator> Comparator::Make(Type::type physical_type,
       case Type::BYTE_ARRAY:
         return std::make_shared<TypedComparatorImpl<true, ByteArrayType>>();
       case Type::FIXED_LEN_BYTE_ARRAY:
+        if (logical_type == LogicalType::Type::FLOAT16) {
+          return std::make_shared<TypedComparatorImpl<true, Float16LogicalType>>(
+              type_length);
+        }
         return std::make_shared<TypedComparatorImpl<true, FLBAType>>(type_length);
       default:
         ParquetException::NYI("Signed Compare not implemented");
@@ -806,8 +1006,21 @@ std::shared_ptr<Comparator> Comparator::Make(Type::type physical_type,
   return nullptr;
 }
 
+}  // namespace
+
+// ----------------------------------------------------------------------
+// Public factory functions
+
+std::shared_ptr<Comparator> Comparator::Make(Type::type physical_type,
+                                             SortOrder::type sort_order,
+                                             int type_length) {
+  return DoMakeComparator(physical_type, LogicalType::Type::NONE, sort_order,
+                          type_length);
+}
+
 std::shared_ptr<Comparator> Comparator::Make(const ColumnDescriptor* descr) {
-  return Make(descr->physical_type(), descr->sort_order(), descr->type_length());
+  return DoMakeComparator(descr->physical_type(), LogicalTypeId(descr),
+                          descr->sort_order(), descr->type_length());
 }
 
 std::shared_ptr<Statistics> Statistics::Make(const ColumnDescriptor* descr,
@@ -866,7 +1079,8 @@ std::shared_ptr<Statistics> Statistics::Make(const ColumnDescriptor* descr,
   return Make(descr, encoded_stats->min(), encoded_stats->max(), num_values,
               encoded_stats->null_count, encoded_stats->distinct_count,
               encoded_stats->has_min && encoded_stats->has_max,
-              encoded_stats->has_null_count, encoded_stats->has_distinct_count, pool);
+              encoded_stats->has_null_count, encoded_stats->has_distinct_count,
+              encoded_stats->is_min_value_exact, encoded_stats->is_max_value_exact, pool);
 }
 
 std::shared_ptr<Statistics> Statistics::Make(const ColumnDescriptor* descr,
@@ -876,16 +1090,30 @@ std::shared_ptr<Statistics> Statistics::Make(const ColumnDescriptor* descr,
                                              int64_t distinct_count, bool has_min_max,
                                              bool has_null_count, bool has_distinct_count,
                                              ::arrow::MemoryPool* pool) {
+  return Statistics::Make(descr, encoded_min, encoded_max, num_values, null_count,
+                          distinct_count, has_min_max, has_null_count, has_distinct_count,
+                          /*is_min_value_exact=*/std::nullopt,
+                          /*is_max_value_exact=*/std::nullopt, pool);
+}
+
+std::shared_ptr<Statistics> Statistics::Make(
+    const ColumnDescriptor* descr, const std::string& encoded_min,
+    const std::string& encoded_max, int64_t num_values, int64_t null_count,
+    int64_t distinct_count, bool has_min_max, bool has_null_count,
+    bool has_distinct_count, std::optional<bool> is_min_value_exact,
+    std::optional<bool> is_max_value_exact, ::arrow::MemoryPool* pool) {
 #define MAKE_STATS(CAP_TYPE, KLASS)                                              \
   case Type::CAP_TYPE:                                                           \
     return std::make_shared<TypedStatisticsImpl<KLASS>>(                         \
         descr, encoded_min, encoded_max, num_values, null_count, distinct_count, \
-        has_min_max, has_null_count, has_distinct_count, pool)
+        has_min_max, has_null_count, has_distinct_count, is_min_value_exact,     \
+        is_max_value_exact, pool)
 
   switch (descr->physical_type()) {
     MAKE_STATS(BOOLEAN, BooleanType);
     MAKE_STATS(INT32, Int32Type);
     MAKE_STATS(INT64, Int64Type);
+    MAKE_STATS(INT96, Int96Type);
     MAKE_STATS(FLOAT, FloatType);
     MAKE_STATS(DOUBLE, DoubleType);
     MAKE_STATS(BYTE_ARRAY, ByteArrayType);

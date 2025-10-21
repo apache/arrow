@@ -38,6 +38,7 @@ Aggregations
    min
    min_max
    mode
+   pivot_wider
    product
    quantile
    stddev
@@ -52,9 +53,11 @@ Aggregations
 Cumulative Functions
 --------------------
 
-Cumulative functions are vector functions that perform a running total on their
-input and output an array containing the corresponding intermediate running values.
-By default these functions do not detect overflow. They are also
+Cumulative functions are vector functions that perform a running accumulation on
+their input using a given binary associative operation with an identity element
+(a monoid) and output an array containing the corresponding intermediate running
+values. The input is expected to be of numeric type. By default these functions
+do not detect overflow. They are also
 available in an overflow-checking variant, suffixed ``_checked``, which
 throws an ``ArrowInvalid`` exception when overflow is detected.
 
@@ -63,6 +66,10 @@ throws an ``ArrowInvalid`` exception when overflow is detected.
 
    cumulative_sum
    cumulative_sum_checked
+   cumulative_prod
+   cumulative_prod_checked
+   cumulative_max
+   cumulative_min
 
 Arithmetic Functions
 --------------------
@@ -167,7 +174,7 @@ variants which detect domain errors where appropriate.
 Comparisons
 -----------
 
-These functions expect two inputs of the same type. If one of the inputs is `null`
+These functions expect two inputs of the same type. If one of the inputs is ``null``
 they return ``null``.
 
 .. autosummary::
@@ -292,6 +299,7 @@ String Padding
    utf8_center
    utf8_lpad
    utf8_rpad
+   utf8_zero_fill
 
 String Trimming
 ---------------
@@ -402,6 +410,8 @@ Conversions
    ceil_temporal
    floor_temporal
    round_temporal
+   run_end_decode
+   run_end_encode
    strftime
    strptime
 
@@ -460,6 +470,7 @@ Timezone Handling
    :toctree: ../generated/
 
    assume_timezone
+   local_timestamp
 
 Associative Transforms
 ----------------------
@@ -500,6 +511,7 @@ Structural Transforms
 .. autosummary::
    :toctree: ../generated/
 
+   fill_null
    fill_null_backward
    fill_null_forward
    list_element
@@ -512,6 +524,14 @@ Structural Transforms
    replace_with_mask
    struct_field
 
+Pairwise Functions
+------------------
+
+.. autosummary::
+   :toctree: ../generated/
+
+   pairwise_diff
+
 Compute Options
 ---------------
 
@@ -521,7 +541,6 @@ Compute Options
    ArraySortOptions
    AssumeTimezoneOptions
    CastOptions
-   CountOptions
    CountOptions
    CumulativeSumOptions
    DayOfWeekOptions
@@ -538,14 +557,17 @@ Compute Options
    ModeOptions
    NullOptions
    PadOptions
+   ZeroFillOptions
+   PairwiseOptions
    PartitionNthOptions
+   PivotWiderOptions
    QuantileOptions
    ReplaceSliceOptions
    ReplaceSubstringOptions
    RoundOptions
    RoundTemporalOptions
    RoundToMultipleOptions
-   ScalarAggregateOptions
+   RunEndEncodeOptions
    ScalarAggregateOptions
    SelectKOptions
    SetLookupOptions
@@ -558,7 +580,6 @@ Compute Options
    StructFieldOptions
    TakeOptions
    TDigestOptions
-   TDigestOptions
    TrimOptions
    VarianceOptions
    WeekOptions
@@ -570,4 +591,13 @@ User-Defined Functions
    :toctree: ../generated/
 
    register_scalar_function
-   ScalarUdfContext
+   UdfContext
+
+Expression Functions
+--------------------
+
+.. autosummary::
+   :toctree: ../generated/
+
+   field
+   scalar

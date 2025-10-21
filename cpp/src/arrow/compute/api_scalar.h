@@ -24,7 +24,7 @@
 #include <string>
 #include <utility>
 
-#include "arrow/compute/function.h"
+#include "arrow/compute/function_options.h"
 #include "arrow/compute/type_fwd.h"
 #include "arrow/datum.h"
 #include "arrow/result.h"
@@ -41,14 +41,14 @@ namespace compute {
 class ARROW_EXPORT ArithmeticOptions : public FunctionOptions {
  public:
   explicit ArithmeticOptions(bool check_overflow = false);
-  static constexpr char const kTypeName[] = "ArithmeticOptions";
+  static constexpr const char kTypeName[] = "ArithmeticOptions";
   bool check_overflow;
 };
 
 class ARROW_EXPORT ElementWiseAggregateOptions : public FunctionOptions {
  public:
   explicit ElementWiseAggregateOptions(bool skip_nulls = true);
-  static constexpr char const kTypeName[] = "ElementWiseAggregateOptions";
+  static constexpr const char kTypeName[] = "ElementWiseAggregateOptions";
   static ElementWiseAggregateOptions Defaults() { return ElementWiseAggregateOptions{}; }
   bool skip_nulls;
 };
@@ -83,7 +83,7 @@ class ARROW_EXPORT RoundOptions : public FunctionOptions {
  public:
   explicit RoundOptions(int64_t ndigits = 0,
                         RoundMode round_mode = RoundMode::HALF_TO_EVEN);
-  static constexpr char const kTypeName[] = "RoundOptions";
+  static constexpr const char kTypeName[] = "RoundOptions";
   static RoundOptions Defaults() { return RoundOptions(); }
   /// Rounding precision (number of digits to round to)
   int64_t ndigits;
@@ -94,7 +94,7 @@ class ARROW_EXPORT RoundOptions : public FunctionOptions {
 class ARROW_EXPORT RoundBinaryOptions : public FunctionOptions {
  public:
   explicit RoundBinaryOptions(RoundMode round_mode = RoundMode::HALF_TO_EVEN);
-  static constexpr char const kTypeName[] = "RoundBinaryOptions";
+  static constexpr const char kTypeName[] = "RoundBinaryOptions";
   static RoundBinaryOptions Defaults() { return RoundBinaryOptions(); }
   /// Rounding and tie-breaking mode
   RoundMode round_mode;
@@ -120,7 +120,7 @@ class ARROW_EXPORT RoundTemporalOptions : public FunctionOptions {
                                 bool week_starts_monday = true,
                                 bool ceil_is_strictly_greater = false,
                                 bool calendar_based_origin = false);
-  static constexpr char const kTypeName[] = "RoundTemporalOptions";
+  static constexpr const char kTypeName[] = "RoundTemporalOptions";
   static RoundTemporalOptions Defaults() { return RoundTemporalOptions(); }
 
   /// Number of units to round to
@@ -156,7 +156,7 @@ class ARROW_EXPORT RoundToMultipleOptions : public FunctionOptions {
                                   RoundMode round_mode = RoundMode::HALF_TO_EVEN);
   explicit RoundToMultipleOptions(std::shared_ptr<Scalar> multiple,
                                   RoundMode round_mode = RoundMode::HALF_TO_EVEN);
-  static constexpr char const kTypeName[] = "RoundToMultipleOptions";
+  static constexpr const char kTypeName[] = "RoundToMultipleOptions";
   static RoundToMultipleOptions Defaults() { return RoundToMultipleOptions(); }
   /// Rounding scale (multiple to round to).
   ///
@@ -182,7 +182,7 @@ class ARROW_EXPORT JoinOptions : public FunctionOptions {
   };
   explicit JoinOptions(NullHandlingBehavior null_handling = EMIT_NULL,
                        std::string null_replacement = "");
-  static constexpr char const kTypeName[] = "JoinOptions";
+  static constexpr const char kTypeName[] = "JoinOptions";
   static JoinOptions Defaults() { return JoinOptions(); }
   NullHandlingBehavior null_handling;
   std::string null_replacement;
@@ -192,7 +192,7 @@ class ARROW_EXPORT MatchSubstringOptions : public FunctionOptions {
  public:
   explicit MatchSubstringOptions(std::string pattern, bool ignore_case = false);
   MatchSubstringOptions();
-  static constexpr char const kTypeName[] = "MatchSubstringOptions";
+  static constexpr const char kTypeName[] = "MatchSubstringOptions";
 
   /// The exact substring (or regex, depending on kernel) to look for inside input values.
   std::string pattern;
@@ -203,7 +203,7 @@ class ARROW_EXPORT MatchSubstringOptions : public FunctionOptions {
 class ARROW_EXPORT SplitOptions : public FunctionOptions {
  public:
   explicit SplitOptions(int64_t max_splits = -1, bool reverse = false);
-  static constexpr char const kTypeName[] = "SplitOptions";
+  static constexpr const char kTypeName[] = "SplitOptions";
 
   /// Maximum number of splits allowed, or unlimited when -1
   int64_t max_splits;
@@ -216,7 +216,7 @@ class ARROW_EXPORT SplitPatternOptions : public FunctionOptions {
   explicit SplitPatternOptions(std::string pattern, int64_t max_splits = -1,
                                bool reverse = false);
   SplitPatternOptions();
-  static constexpr char const kTypeName[] = "SplitPatternOptions";
+  static constexpr const char kTypeName[] = "SplitPatternOptions";
 
   /// The exact substring to split on.
   std::string pattern;
@@ -230,7 +230,7 @@ class ARROW_EXPORT ReplaceSliceOptions : public FunctionOptions {
  public:
   explicit ReplaceSliceOptions(int64_t start, int64_t stop, std::string replacement);
   ReplaceSliceOptions();
-  static constexpr char const kTypeName[] = "ReplaceSliceOptions";
+  static constexpr const char kTypeName[] = "ReplaceSliceOptions";
 
   /// Index to start slicing at
   int64_t start;
@@ -245,7 +245,7 @@ class ARROW_EXPORT ReplaceSubstringOptions : public FunctionOptions {
   explicit ReplaceSubstringOptions(std::string pattern, std::string replacement,
                                    int64_t max_replacements = -1);
   ReplaceSubstringOptions();
-  static constexpr char const kTypeName[] = "ReplaceSubstringOptions";
+  static constexpr const char kTypeName[] = "ReplaceSubstringOptions";
 
   /// Pattern to match, literal, or regular expression depending on which kernel is used
   std::string pattern;
@@ -259,7 +259,17 @@ class ARROW_EXPORT ExtractRegexOptions : public FunctionOptions {
  public:
   explicit ExtractRegexOptions(std::string pattern);
   ExtractRegexOptions();
-  static constexpr char const kTypeName[] = "ExtractRegexOptions";
+  static constexpr const char kTypeName[] = "ExtractRegexOptions";
+
+  /// Regular expression with named capture fields
+  std::string pattern;
+};
+
+class ARROW_EXPORT ExtractRegexSpanOptions : public FunctionOptions {
+ public:
+  explicit ExtractRegexSpanOptions(std::string pattern);
+  ExtractRegexSpanOptions();
+  static constexpr const char kTypeName[] = "ExtractRegexSpanOptions";
 
   /// Regular expression with named capture fields
   std::string pattern;
@@ -268,19 +278,49 @@ class ARROW_EXPORT ExtractRegexOptions : public FunctionOptions {
 /// Options for IsIn and IndexIn functions
 class ARROW_EXPORT SetLookupOptions : public FunctionOptions {
  public:
-  explicit SetLookupOptions(Datum value_set, bool skip_nulls = false);
+  /// How to handle null values.
+  enum NullMatchingBehavior {
+    /// MATCH, any null in `value_set` is successfully matched in
+    /// the input.
+    MATCH,
+    /// SKIP, any null in `value_set` is ignored and nulls in the input
+    /// produce null (IndexIn) or false (IsIn) values in the output.
+    SKIP,
+    /// EMIT_NULL, any null in `value_set` is ignored and nulls in the
+    /// input produce null (IndexIn and IsIn) values in the output.
+    EMIT_NULL,
+    /// INCONCLUSIVE, null values are regarded as unknown values, which is
+    /// sql-compatible. nulls in the input produce null (IndexIn and IsIn)
+    /// values in the output. Besides, if `value_set` contains a null,
+    /// non-null unmatched values in the input also produce null values
+    /// (IndexIn and IsIn) in the output.
+    INCONCLUSIVE
+  };
+
+  explicit SetLookupOptions(Datum value_set, NullMatchingBehavior = MATCH);
   SetLookupOptions();
-  static constexpr char const kTypeName[] = "SetLookupOptions";
+
+  // DEPRECATED(will be removed after removing of skip_nulls)
+  explicit SetLookupOptions(Datum value_set, bool skip_nulls);
+
+  static constexpr const char kTypeName[] = "SetLookupOptions";
 
   /// The set of values to look up input values into.
   Datum value_set;
+
+  NullMatchingBehavior null_matching_behavior;
+
+  // DEPRECATED(will be removed after removing of skip_nulls)
+  NullMatchingBehavior GetNullMatchingBehavior() const;
+
+  // DEPRECATED(use null_matching_behavior instead)
   /// Whether nulls in `value_set` count for lookup.
   ///
   /// If true, any null in `value_set` is ignored and nulls in the input
   /// produce null (IndexIn) or false (IsIn) values in the output.
   /// If false, any null in `value_set` is successfully matched in
   /// the input.
-  bool skip_nulls;
+  std::optional<bool> skip_nulls;
 };
 
 /// Options for struct_field function
@@ -290,7 +330,7 @@ class ARROW_EXPORT StructFieldOptions : public FunctionOptions {
   explicit StructFieldOptions(std::initializer_list<int>);
   explicit StructFieldOptions(FieldRef field_ref);
   StructFieldOptions();
-  static constexpr char const kTypeName[] = "StructFieldOptions";
+  static constexpr const char kTypeName[] = "StructFieldOptions";
 
   /// The FieldRef specifying what to extract from struct or union.
   FieldRef field_ref;
@@ -301,7 +341,7 @@ class ARROW_EXPORT StrptimeOptions : public FunctionOptions {
   explicit StrptimeOptions(std::string format, TimeUnit::type unit,
                            bool error_is_null = false);
   StrptimeOptions();
-  static constexpr char const kTypeName[] = "StrptimeOptions";
+  static constexpr const char kTypeName[] = "StrptimeOptions";
 
   /// The desired format string.
   std::string format;
@@ -316,7 +356,7 @@ class ARROW_EXPORT StrftimeOptions : public FunctionOptions {
   explicit StrftimeOptions(std::string format, std::string locale = "C");
   StrftimeOptions();
 
-  static constexpr char const kTypeName[] = "StrftimeOptions";
+  static constexpr const char kTypeName[] = "StrftimeOptions";
 
   static constexpr const char* kDefaultFormat = "%Y-%m-%dT%H:%M:%S";
 
@@ -328,13 +368,30 @@ class ARROW_EXPORT StrftimeOptions : public FunctionOptions {
 
 class ARROW_EXPORT PadOptions : public FunctionOptions {
  public:
-  explicit PadOptions(int64_t width, std::string padding = " ");
+  explicit PadOptions(int64_t width, std::string padding = " ",
+                      bool lean_left_on_odd_padding = true);
   PadOptions();
-  static constexpr char const kTypeName[] = "PadOptions";
+  static constexpr const char kTypeName[] = "PadOptions";
 
   /// The desired string length.
   int64_t width;
   /// What to pad the string with. Should be one codepoint (Unicode)/byte (ASCII).
+  std::string padding;
+  /// What to do if there is an odd number of padding characters (in case of centered
+  /// padding). Defaults to aligning on the left (i.e. adding the extra padding character
+  /// on the right)
+  bool lean_left_on_odd_padding = true;
+};
+
+class ARROW_EXPORT ZeroFillOptions : public FunctionOptions {
+ public:
+  explicit ZeroFillOptions(int64_t width, std::string padding = "0");
+  ZeroFillOptions();
+  static constexpr const char kTypeName[] = "ZeroFillOptions";
+
+  /// The desired string length.
+  int64_t width;
+  /// What to pad the string with. Should be one codepoint (Unicode).
   std::string padding;
 };
 
@@ -342,7 +399,7 @@ class ARROW_EXPORT TrimOptions : public FunctionOptions {
  public:
   explicit TrimOptions(std::string characters);
   TrimOptions();
-  static constexpr char const kTypeName[] = "TrimOptions";
+  static constexpr const char kTypeName[] = "TrimOptions";
 
   /// The individual characters to be trimmed from the string.
   std::string characters;
@@ -353,7 +410,7 @@ class ARROW_EXPORT SliceOptions : public FunctionOptions {
   explicit SliceOptions(int64_t start, int64_t stop = std::numeric_limits<int64_t>::max(),
                         int64_t step = 1);
   SliceOptions();
-  static constexpr char const kTypeName[] = "SliceOptions";
+  static constexpr const char kTypeName[] = "SliceOptions";
   int64_t start, stop, step;
 };
 
@@ -363,7 +420,7 @@ class ARROW_EXPORT ListSliceOptions : public FunctionOptions {
                             int64_t step = 1,
                             std::optional<bool> return_fixed_size_list = std::nullopt);
   ListSliceOptions();
-  static constexpr char const kTypeName[] = "ListSliceOptions";
+  static constexpr const char kTypeName[] = "ListSliceOptions";
   /// The start of list slicing.
   int64_t start;
   /// Optional stop of list slicing. If not set, then slice to end. (NotImplemented)
@@ -379,7 +436,7 @@ class ARROW_EXPORT ListSliceOptions : public FunctionOptions {
 class ARROW_EXPORT NullOptions : public FunctionOptions {
  public:
   explicit NullOptions(bool nan_is_null = false);
-  static constexpr char const kTypeName[] = "NullOptions";
+  static constexpr const char kTypeName[] = "NullOptions";
   static NullOptions Defaults() { return NullOptions{}; }
 
   bool nan_is_null;
@@ -406,7 +463,7 @@ class ARROW_EXPORT MakeStructOptions : public FunctionOptions {
                     std::vector<std::shared_ptr<const KeyValueMetadata>> m);
   explicit MakeStructOptions(std::vector<std::string> n);
   MakeStructOptions();
-  static constexpr char const kTypeName[] = "MakeStructOptions";
+  static constexpr const char kTypeName[] = "MakeStructOptions";
 
   /// Names for wrapped columns
   std::vector<std::string> field_names;
@@ -421,7 +478,7 @@ class ARROW_EXPORT MakeStructOptions : public FunctionOptions {
 struct ARROW_EXPORT DayOfWeekOptions : public FunctionOptions {
  public:
   explicit DayOfWeekOptions(bool count_from_zero = true, uint32_t week_start = 1);
-  static constexpr char const kTypeName[] = "DayOfWeekOptions";
+  static constexpr const char kTypeName[] = "DayOfWeekOptions";
   static DayOfWeekOptions Defaults() { return DayOfWeekOptions(); }
 
   /// Number days from 0 if true and from 1 if false
@@ -454,14 +511,14 @@ struct ARROW_EXPORT AssumeTimezoneOptions : public FunctionOptions {
                                  Ambiguous ambiguous = AMBIGUOUS_RAISE,
                                  Nonexistent nonexistent = NONEXISTENT_RAISE);
   AssumeTimezoneOptions();
-  static constexpr char const kTypeName[] = "AssumeTimezoneOptions";
+  static constexpr const char kTypeName[] = "AssumeTimezoneOptions";
 
   /// Timezone to convert timestamps from
   std::string timezone;
 
   /// How to interpret ambiguous local times (due to DST shifts)
   Ambiguous ambiguous;
-  /// How to interpret non-existent local times (due to DST shifts)
+  /// How to interpret nonexistent local times (due to DST shifts)
   Nonexistent nonexistent;
 };
 
@@ -469,7 +526,7 @@ struct ARROW_EXPORT WeekOptions : public FunctionOptions {
  public:
   explicit WeekOptions(bool week_starts_monday = true, bool count_from_zero = false,
                        bool first_week_is_fully_in_year = false);
-  static constexpr char const kTypeName[] = "WeekOptions";
+  static constexpr const char kTypeName[] = "WeekOptions";
   static WeekOptions Defaults() { return WeekOptions{}; }
   static WeekOptions ISODefaults() {
     return WeekOptions{/*week_starts_monday*/ true,
@@ -498,7 +555,7 @@ struct ARROW_EXPORT Utf8NormalizeOptions : public FunctionOptions {
 
   explicit Utf8NormalizeOptions(Form form = NFC);
   static Utf8NormalizeOptions Defaults() { return Utf8NormalizeOptions(); }
-  static constexpr char const kTypeName[] = "Utf8NormalizeOptions";
+  static constexpr const char kTypeName[] = "Utf8NormalizeOptions";
 
   /// The Unicode normalization form to apply
   Form form;
@@ -513,7 +570,7 @@ class ARROW_EXPORT RandomOptions : public FunctionOptions {
 
   RandomOptions(Initializer initializer, uint64_t seed);
   RandomOptions();
-  static constexpr char const kTypeName[] = "RandomOptions";
+  static constexpr const char kTypeName[] = "RandomOptions";
   static RandomOptions Defaults() { return RandomOptions(); }
 
   /// The type of initialization for random number generation - system or provided seed.
@@ -537,7 +594,7 @@ class ARROW_EXPORT MapLookupOptions : public FunctionOptions {
   explicit MapLookupOptions(std::shared_ptr<Scalar> query_key, Occurrence occurrence);
   MapLookupOptions();
 
-  constexpr static char const kTypeName[] = "MapLookupOptions";
+  constexpr static const char kTypeName[] = "MapLookupOptions";
 
   /// The key to lookup in the map
   std::shared_ptr<Scalar> query_key;
@@ -649,6 +706,18 @@ Result<Datum> Power(const Datum& left, const Datum& right,
 ARROW_EXPORT
 Result<Datum> Exp(const Datum& arg, ExecContext* ctx = NULLPTR);
 
+/// \brief More accurately calculate `exp(arg) - 1` for values close to zero.
+/// If the exponent value is null the result will be null.
+///
+/// This function is more accurate than calculating `exp(value) - 1` directly for values
+/// close to zero.
+///
+/// \param[in] arg the exponent
+/// \param[in] ctx the function execution context, optional
+/// \return the element-wise Euler's number raised to the power of exponent minus 1
+ARROW_EXPORT
+Result<Datum> Expm1(const Datum& arg, ExecContext* ctx = NULLPTR);
+
 /// \brief Left shift the left array by the right array. Array values must be the
 /// same length. If either operand is null, the result will be null.
 ///
@@ -736,6 +805,52 @@ Result<Datum> Atan(const Datum& arg, ExecContext* ctx = NULLPTR);
 /// \return the elementwise inverse tangent of the values
 ARROW_EXPORT
 Result<Datum> Atan2(const Datum& y, const Datum& x, ExecContext* ctx = NULLPTR);
+
+/// \brief Compute the hyperbolic sine of the array values.
+/// \param[in] arg The values to compute the hyperbolic sine for.
+/// \param[in] ctx the function execution context, optional
+/// \return the elementwise hyperbolic sine of the values
+ARROW_EXPORT
+Result<Datum> Sinh(const Datum& arg, ExecContext* ctx = NULLPTR);
+
+/// \brief Compute the hyperbolic cosine of the array values.
+/// \param[in] arg The values to compute the hyperbolic cosine for.
+/// \param[in] ctx the function execution context, optional
+/// \return the elementwise hyperbolic cosine of the values
+ARROW_EXPORT
+Result<Datum> Cosh(const Datum& arg, ExecContext* ctx = NULLPTR);
+
+/// \brief Compute the hyperbolic tangent of the array values.
+/// \param[in] arg The values to compute the hyperbolic tangent for.
+/// \param[in] ctx the function execution context, optional
+/// \return the elementwise hyperbolic tangent of the values
+ARROW_EXPORT
+Result<Datum> Tanh(const Datum& arg, ExecContext* ctx = NULLPTR);
+
+/// \brief Compute the inverse hyperbolic sine of the array values.
+/// \param[in] arg The values to compute the inverse hyperbolic sine for.
+/// \param[in] ctx the function execution context, optional
+/// \return the elementwise inverse hyperbolic sine of the values
+ARROW_EXPORT
+Result<Datum> Asinh(const Datum& arg, ExecContext* ctx = NULLPTR);
+
+/// \brief Compute the inverse hyperbolic cosine of the array values.
+/// \param[in] arg The values to compute the inverse hyperbolic cosine for.
+/// \param[in] options arithmetic options (enable/disable overflow checking), optional
+/// \param[in] ctx the function execution context, optional
+/// \return the elementwise inverse hyperbolic cosine of the values
+ARROW_EXPORT
+Result<Datum> Acosh(const Datum& arg, ArithmeticOptions options = ArithmeticOptions(),
+                    ExecContext* ctx = NULLPTR);
+
+/// \brief Compute the inverse hyperbolic tangent of the array values.
+/// \param[in] arg The values to compute the inverse hyperbolic tangent for.
+/// \param[in] options arithmetic options (enable/disable overflow checking), optional
+/// \param[in] ctx the function execution context, optional
+/// \return the elementwise inverse hyperbolic tangent of the values
+ARROW_EXPORT
+Result<Datum> Atanh(const Datum& arg, ArithmeticOptions options = ArithmeticOptions(),
+                    ExecContext* ctx = NULLPTR);
 
 /// \brief Get the natural log of a value.
 ///
@@ -969,24 +1084,6 @@ ARROW_EXPORT
 Result<Datum> RoundTemporal(
     const Datum& arg, RoundTemporalOptions options = RoundTemporalOptions::Defaults(),
     ExecContext* ctx = NULLPTR);
-
-/// \brief Compare a numeric array with a scalar.
-///
-/// \param[in] left datum to compare, must be an Array
-/// \param[in] right datum to compare, must be a Scalar of the same type than
-///            left Datum.
-/// \param[in] options compare options
-/// \param[in] ctx the function execution context, optional
-/// \return resulting datum
-///
-/// Note on floating point arrays, this uses ieee-754 compare semantics.
-///
-/// \since 1.0.0
-/// \note API not yet finalized
-ARROW_DEPRECATED("Deprecated in 5.0.0. Use each compare function directly")
-ARROW_EXPORT
-Result<Datum> Compare(const Datum& left, const Datum& right, CompareOptions options,
-                      ExecContext* ctx = NULLPTR);
 
 /// \brief Invert the values of a boolean datum
 /// \param[in] value datum to invert
@@ -1518,6 +1615,17 @@ ARROW_EXPORT Result<Datum> AssumeTimezone(const Datum& values,
 ARROW_EXPORT Result<Datum> IsDaylightSavings(const Datum& values,
                                              ExecContext* ctx = NULLPTR);
 
+/// \brief LocalTimestamp converts timestamp to timezone naive local timestamp
+///
+/// \param[in] values input to convert to local time
+/// \param[in] ctx the function execution context, optional
+/// \return the resulting datum
+///
+/// \since 12.0.0
+/// \note API not yet finalized
+ARROW_EXPORT Result<Datum> LocalTimestamp(const Datum& values,
+                                          ExecContext* ctx = NULLPTR);
+
 /// \brief Years Between finds the number of years between two values
 ///
 /// \param[in] left input treated as the start time
@@ -1566,7 +1674,7 @@ ARROW_EXPORT Result<Datum> MonthsBetween(const Datum& left, const Datum& right,
 ARROW_EXPORT Result<Datum> WeeksBetween(const Datum& left, const Datum& right,
                                         ExecContext* ctx = NULLPTR);
 
-/// \brief Month Day Nano Between finds the number of months, days, and nonaseconds
+/// \brief Month Day Nano Between finds the number of months, days, and nanoseconds
 /// between two values
 ///
 /// \param[in] left input treated as the start time

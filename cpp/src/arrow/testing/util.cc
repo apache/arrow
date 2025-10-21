@@ -30,19 +30,20 @@
 #include <winsock2.h>
 // clang-format on
 #else
-#include <arpa/inet.h>   // IWYU pragma: keep
-#include <netinet/in.h>  // IWYU pragma: keep
-#include <sys/socket.h>  // IWYU pragma: keep
-#include <sys/stat.h>    // IWYU pragma: keep
-#include <sys/types.h>   // IWYU pragma: keep
-#include <sys/wait.h>    // IWYU pragma: keep
-#include <unistd.h>      // IWYU pragma: keep
+#  include <arpa/inet.h>   // IWYU pragma: keep
+#  include <netinet/in.h>  // IWYU pragma: keep
+#  include <sys/socket.h>  // IWYU pragma: keep
+#  include <sys/stat.h>    // IWYU pragma: keep
+#  include <sys/types.h>   // IWYU pragma: keep
+#  include <sys/wait.h>    // IWYU pragma: keep
+#  include <unistd.h>      // IWYU pragma: keep
 #endif
 
 #include "arrow/config.h"
 #include "arrow/table.h"
 #include "arrow/testing/random.h"
 #include "arrow/type.h"
+#include "arrow/util/cpu_info.h"
 #include "arrow/util/io_util.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/pcg_random.h"
@@ -87,6 +88,16 @@ std::string random_string(int64_t n, uint32_t seed) {
 
 void random_ascii(int64_t n, uint32_t seed, uint8_t* out) {
   rand_uniform_int(n, seed, static_cast<int32_t>('A'), static_cast<int32_t>('z'), out);
+}
+
+void random_alnum(int64_t n, uint32_t seed, uint8_t* out) {
+  static const char charset[] =
+      "0123456789"
+      "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+      "abcdefghijklmnopqrstuvwxyz";
+  pcg32_fast gen(seed);
+  std::uniform_int_distribution<uint32_t> d(0, sizeof(charset) - 2);
+  std::generate(out, out + n, [&d, &gen] { return charset[d(gen)]; });
 }
 
 int64_t CountNulls(const std::vector<uint8_t>& valid_bytes) {
@@ -143,8 +154,8 @@ int GetListenPort() {
     return internal::WinErrorMessage(WSAGetLastError());
   };
 #else
-#define INVALID_SOCKET -1
-#define SOCKET_ERROR -1
+#  define INVALID_SOCKET -1
+#  define SOCKET_ERROR -1
   int sock_fd;
   auto sin_len = static_cast<socklen_t>(sizeof(sin));
   auto errno_message = []() -> std::string { return internal::ErrnoMessage(errno); };
@@ -197,7 +208,7 @@ std::string GetListenAddress() {
     ss << "." << byte;
   }
 #else
-  // On MacOS, only 127.0.0.1 is a valid loopback address by default.
+  // On macOS, only 127.0.0.1 is a valid loopback address by default.
   ss << "127.0.0.1";
 #endif
   // Append port number
@@ -205,10 +216,30 @@ std::string GetListenAddress() {
   return ss.str();
 }
 
+std::string GetListenAddress(const std::string& host) {
+  std::stringstream ss;
+  ss << host << ":" << GetListenPort();
+  return ss.str();
+}
+
 const std::vector<std::shared_ptr<DataType>>& all_dictionary_index_types() {
   static std::vector<std::shared_ptr<DataType>> types = {
       int8(), uint8(), int16(), uint16(), int32(), uint32(), int64(), uint64()};
   return types;
+}
+
+std::vector<int64_t> GetSupportedHardwareFlags(
+    const std::vector<int64_t>& candidate_flags) {
+  std::vector<int64_t> hardware_flags;
+  // Always test fallback codepaths
+  hardware_flags.push_back(0);
+  for (const int64_t candidate_flag : candidate_flags) {
+    if (candidate_flag != 0 &&
+        internal::CpuInfo::GetInstance()->IsSupported(candidate_flag)) {
+      hardware_flags.push_back(candidate_flag);
+    }
+  }
+  return hardware_flags;
 }
 
 }  // namespace arrow

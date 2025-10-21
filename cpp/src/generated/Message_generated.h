@@ -6,6 +6,13 @@
 
 #include "flatbuffers/flatbuffers.h"
 
+// Ensure the included flatbuffers.h is the same version as when this file was
+// generated, otherwise it may not be compatible.
+static_assert(FLATBUFFERS_VERSION_MAJOR == 24 &&
+              FLATBUFFERS_VERSION_MINOR == 3 &&
+              FLATBUFFERS_VERSION_REVISION == 6,
+             "Non-compatible flatbuffers version included");
+
 #include "Schema_generated.h"
 #include "SparseTensor_generated.h"
 #include "Tensor_generated.h"
@@ -29,17 +36,17 @@ struct DictionaryBatchBuilder;
 struct Message;
 struct MessageBuilder;
 
-enum class CompressionType : int8_t {
-  LZ4_FRAME = 0,
-  ZSTD = 1,
-  MIN = LZ4_FRAME,
-  MAX = ZSTD
+enum CompressionType : int8_t {
+  CompressionType_LZ4_FRAME = 0,
+  CompressionType_ZSTD = 1,
+  CompressionType_MIN = CompressionType_LZ4_FRAME,
+  CompressionType_MAX = CompressionType_ZSTD
 };
 
 inline const CompressionType (&EnumValuesCompressionType())[2] {
   static const CompressionType values[] = {
-    CompressionType::LZ4_FRAME,
-    CompressionType::ZSTD
+    CompressionType_LZ4_FRAME,
+    CompressionType_ZSTD
   };
   return values;
 }
@@ -54,7 +61,7 @@ inline const char * const *EnumNamesCompressionType() {
 }
 
 inline const char *EnumNameCompressionType(CompressionType e) {
-  if (flatbuffers::IsOutRange(e, CompressionType::LZ4_FRAME, CompressionType::ZSTD)) return "";
+  if (::flatbuffers::IsOutRange(e, CompressionType_LZ4_FRAME, CompressionType_ZSTD)) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesCompressionType()[index];
 }
@@ -62,7 +69,7 @@ inline const char *EnumNameCompressionType(CompressionType e) {
 /// Provided for forward compatibility in case we need to support different
 /// strategies for compressing the IPC message body (like whole-body
 /// compression rather than buffer-level) in the future
-enum class BodyCompressionMethod : int8_t {
+enum BodyCompressionMethod : int8_t {
   /// Each constituent buffer is first compressed with the indicated
   /// compressor, and then written with the uncompressed length in the first 8
   /// bytes as a 64-bit little-endian signed integer followed by the compressed
@@ -70,14 +77,14 @@ enum class BodyCompressionMethod : int8_t {
   /// uncompressed length may be set to -1 to indicate that the data that
   /// follows is not compressed, which can be useful for cases where
   /// compression does not yield appreciable savings.
-  BUFFER = 0,
-  MIN = BUFFER,
-  MAX = BUFFER
+  BodyCompressionMethod_BUFFER = 0,
+  BodyCompressionMethod_MIN = BodyCompressionMethod_BUFFER,
+  BodyCompressionMethod_MAX = BodyCompressionMethod_BUFFER
 };
 
 inline const BodyCompressionMethod (&EnumValuesBodyCompressionMethod())[1] {
   static const BodyCompressionMethod values[] = {
-    BodyCompressionMethod::BUFFER
+    BodyCompressionMethod_BUFFER
   };
   return values;
 }
@@ -91,7 +98,7 @@ inline const char * const *EnumNamesBodyCompressionMethod() {
 }
 
 inline const char *EnumNameBodyCompressionMethod(BodyCompressionMethod e) {
-  if (flatbuffers::IsOutRange(e, BodyCompressionMethod::BUFFER, BodyCompressionMethod::BUFFER)) return "";
+  if (::flatbuffers::IsOutRange(e, BodyCompressionMethod_BUFFER, BodyCompressionMethod_BUFFER)) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesBodyCompressionMethod()[index];
 }
@@ -104,25 +111,25 @@ inline const char *EnumNameBodyCompressionMethod(BodyCompressionMethod e) {
 /// Arrow implementations do not need to implement all of the message types,
 /// which may include experimental metadata types. For maximum compatibility,
 /// it is best to send data using RecordBatch
-enum class MessageHeader : uint8_t {
-  NONE = 0,
-  Schema = 1,
-  DictionaryBatch = 2,
-  RecordBatch = 3,
-  Tensor = 4,
-  SparseTensor = 5,
-  MIN = NONE,
-  MAX = SparseTensor
+enum MessageHeader : uint8_t {
+  MessageHeader_NONE = 0,
+  MessageHeader_Schema = 1,
+  MessageHeader_DictionaryBatch = 2,
+  MessageHeader_RecordBatch = 3,
+  MessageHeader_Tensor = 4,
+  MessageHeader_SparseTensor = 5,
+  MessageHeader_MIN = MessageHeader_NONE,
+  MessageHeader_MAX = MessageHeader_SparseTensor
 };
 
 inline const MessageHeader (&EnumValuesMessageHeader())[6] {
   static const MessageHeader values[] = {
-    MessageHeader::NONE,
-    MessageHeader::Schema,
-    MessageHeader::DictionaryBatch,
-    MessageHeader::RecordBatch,
-    MessageHeader::Tensor,
-    MessageHeader::SparseTensor
+    MessageHeader_NONE,
+    MessageHeader_Schema,
+    MessageHeader_DictionaryBatch,
+    MessageHeader_RecordBatch,
+    MessageHeader_Tensor,
+    MessageHeader_SparseTensor
   };
   return values;
 }
@@ -141,37 +148,37 @@ inline const char * const *EnumNamesMessageHeader() {
 }
 
 inline const char *EnumNameMessageHeader(MessageHeader e) {
-  if (flatbuffers::IsOutRange(e, MessageHeader::NONE, MessageHeader::SparseTensor)) return "";
+  if (::flatbuffers::IsOutRange(e, MessageHeader_NONE, MessageHeader_SparseTensor)) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesMessageHeader()[index];
 }
 
 template<typename T> struct MessageHeaderTraits {
-  static const MessageHeader enum_value = MessageHeader::NONE;
+  static const MessageHeader enum_value = MessageHeader_NONE;
 };
 
 template<> struct MessageHeaderTraits<org::apache::arrow::flatbuf::Schema> {
-  static const MessageHeader enum_value = MessageHeader::Schema;
+  static const MessageHeader enum_value = MessageHeader_Schema;
 };
 
 template<> struct MessageHeaderTraits<org::apache::arrow::flatbuf::DictionaryBatch> {
-  static const MessageHeader enum_value = MessageHeader::DictionaryBatch;
+  static const MessageHeader enum_value = MessageHeader_DictionaryBatch;
 };
 
 template<> struct MessageHeaderTraits<org::apache::arrow::flatbuf::RecordBatch> {
-  static const MessageHeader enum_value = MessageHeader::RecordBatch;
+  static const MessageHeader enum_value = MessageHeader_RecordBatch;
 };
 
 template<> struct MessageHeaderTraits<org::apache::arrow::flatbuf::Tensor> {
-  static const MessageHeader enum_value = MessageHeader::Tensor;
+  static const MessageHeader enum_value = MessageHeader_Tensor;
 };
 
 template<> struct MessageHeaderTraits<org::apache::arrow::flatbuf::SparseTensor> {
-  static const MessageHeader enum_value = MessageHeader::SparseTensor;
+  static const MessageHeader enum_value = MessageHeader_SparseTensor;
 };
 
-bool VerifyMessageHeader(flatbuffers::Verifier &verifier, const void *obj, MessageHeader type);
-bool VerifyMessageHeaderVector(flatbuffers::Verifier &verifier, const flatbuffers::Vector<flatbuffers::Offset<void>> *values, const flatbuffers::Vector<uint8_t> *types);
+bool VerifyMessageHeader(::flatbuffers::Verifier &verifier, const void *obj, MessageHeader type);
+bool VerifyMessageHeaderVector(::flatbuffers::Verifier &verifier, const ::flatbuffers::Vector<::flatbuffers::Offset<void>> *values, const ::flatbuffers::Vector<uint8_t> *types);
 
 /// ----------------------------------------------------------------------
 /// Data structures for describing a table row batch (a collection of
@@ -193,19 +200,19 @@ FLATBUFFERS_MANUALLY_ALIGNED_STRUCT(8) FieldNode FLATBUFFERS_FINAL_CLASS {
         null_count_(0) {
   }
   FieldNode(int64_t _length, int64_t _null_count)
-      : length_(flatbuffers::EndianScalar(_length)),
-        null_count_(flatbuffers::EndianScalar(_null_count)) {
+      : length_(::flatbuffers::EndianScalar(_length)),
+        null_count_(::flatbuffers::EndianScalar(_null_count)) {
   }
   /// The number of value slots in the Arrow array at this level of a nested
   /// tree
   int64_t length() const {
-    return flatbuffers::EndianScalar(length_);
+    return ::flatbuffers::EndianScalar(length_);
   }
   /// The number of observed nulls. Fields with null_count == 0 may choose not
   /// to write their physical validity bitmap out as a materialized buffer,
   /// instead setting the length of the bitmap buffer to 0.
   int64_t null_count() const {
-    return flatbuffers::EndianScalar(null_count_);
+    return ::flatbuffers::EndianScalar(null_count_);
   }
 };
 FLATBUFFERS_STRUCT_END(FieldNode, 16);
@@ -213,7 +220,7 @@ FLATBUFFERS_STRUCT_END(FieldNode, 16);
 /// Optional compression for the memory buffers constituting IPC message
 /// bodies. Intended for use with RecordBatch but could be used for other
 /// message types
-struct BodyCompression FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+struct BodyCompression FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   typedef BodyCompressionBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_CODEC = 4,
@@ -228,39 +235,39 @@ struct BodyCompression FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   org::apache::arrow::flatbuf::BodyCompressionMethod method() const {
     return static_cast<org::apache::arrow::flatbuf::BodyCompressionMethod>(GetField<int8_t>(VT_METHOD, 0));
   }
-  bool Verify(flatbuffers::Verifier &verifier) const {
+  bool Verify(::flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
-           VerifyField<int8_t>(verifier, VT_CODEC) &&
-           VerifyField<int8_t>(verifier, VT_METHOD) &&
+           VerifyField<int8_t>(verifier, VT_CODEC, 1) &&
+           VerifyField<int8_t>(verifier, VT_METHOD, 1) &&
            verifier.EndTable();
   }
 };
 
 struct BodyCompressionBuilder {
   typedef BodyCompression Table;
-  flatbuffers::FlatBufferBuilder &fbb_;
-  flatbuffers::uoffset_t start_;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
   void add_codec(org::apache::arrow::flatbuf::CompressionType codec) {
     fbb_.AddElement<int8_t>(BodyCompression::VT_CODEC, static_cast<int8_t>(codec), 0);
   }
   void add_method(org::apache::arrow::flatbuf::BodyCompressionMethod method) {
     fbb_.AddElement<int8_t>(BodyCompression::VT_METHOD, static_cast<int8_t>(method), 0);
   }
-  explicit BodyCompressionBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+  explicit BodyCompressionBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  flatbuffers::Offset<BodyCompression> Finish() {
+  ::flatbuffers::Offset<BodyCompression> Finish() {
     const auto end = fbb_.EndTable(start_);
-    auto o = flatbuffers::Offset<BodyCompression>(end);
+    auto o = ::flatbuffers::Offset<BodyCompression>(end);
     return o;
   }
 };
 
-inline flatbuffers::Offset<BodyCompression> CreateBodyCompression(
-    flatbuffers::FlatBufferBuilder &_fbb,
-    org::apache::arrow::flatbuf::CompressionType codec = org::apache::arrow::flatbuf::CompressionType::LZ4_FRAME,
-    org::apache::arrow::flatbuf::BodyCompressionMethod method = org::apache::arrow::flatbuf::BodyCompressionMethod::BUFFER) {
+inline ::flatbuffers::Offset<BodyCompression> CreateBodyCompression(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    org::apache::arrow::flatbuf::CompressionType codec = org::apache::arrow::flatbuf::CompressionType_LZ4_FRAME,
+    org::apache::arrow::flatbuf::BodyCompressionMethod method = org::apache::arrow::flatbuf::BodyCompressionMethod_BUFFER) {
   BodyCompressionBuilder builder_(_fbb);
   builder_.add_method(method);
   builder_.add_codec(codec);
@@ -270,13 +277,14 @@ inline flatbuffers::Offset<BodyCompression> CreateBodyCompression(
 /// A data header describing the shared memory layout of a "record" or "row"
 /// batch. Some systems call this a "row batch" internally and others a "record
 /// batch".
-struct RecordBatch FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+struct RecordBatch FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   typedef RecordBatchBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_LENGTH = 4,
     VT_NODES = 6,
     VT_BUFFERS = 8,
-    VT_COMPRESSION = 10
+    VT_COMPRESSION = 10,
+    VT_VARIADICBUFFERCOUNTS = 12
   };
   /// number of records / rows. The arrays in the batch should all have this
   /// length
@@ -284,8 +292,8 @@ struct RecordBatch FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
     return GetField<int64_t>(VT_LENGTH, 0);
   }
   /// Nodes correspond to the pre-ordered flattened logical schema
-  const flatbuffers::Vector<const org::apache::arrow::flatbuf::FieldNode *> *nodes() const {
-    return GetPointer<const flatbuffers::Vector<const org::apache::arrow::flatbuf::FieldNode *> *>(VT_NODES);
+  const ::flatbuffers::Vector<const org::apache::arrow::flatbuf::FieldNode *> *nodes() const {
+    return GetPointer<const ::flatbuffers::Vector<const org::apache::arrow::flatbuf::FieldNode *> *>(VT_NODES);
   }
   /// Buffers correspond to the pre-ordered flattened buffer tree
   ///
@@ -293,81 +301,108 @@ struct RecordBatch FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   /// example, most primitive arrays will have 2 buffers, 1 for the validity
   /// bitmap and 1 for the values. For struct arrays, there will only be a
   /// single buffer for the validity (nulls) bitmap
-  const flatbuffers::Vector<const org::apache::arrow::flatbuf::Buffer *> *buffers() const {
-    return GetPointer<const flatbuffers::Vector<const org::apache::arrow::flatbuf::Buffer *> *>(VT_BUFFERS);
+  const ::flatbuffers::Vector<const org::apache::arrow::flatbuf::Buffer *> *buffers() const {
+    return GetPointer<const ::flatbuffers::Vector<const org::apache::arrow::flatbuf::Buffer *> *>(VT_BUFFERS);
   }
   /// Optional compression of the message body
   const org::apache::arrow::flatbuf::BodyCompression *compression() const {
     return GetPointer<const org::apache::arrow::flatbuf::BodyCompression *>(VT_COMPRESSION);
   }
-  bool Verify(flatbuffers::Verifier &verifier) const {
+  /// Some types such as Utf8View are represented using a variable number of buffers.
+  /// For each such Field in the pre-ordered flattened logical schema, there will be
+  /// an entry in variadicBufferCounts to indicate the number of number of variadic
+  /// buffers which belong to that Field in the current RecordBatch.
+  ///
+  /// For example, the schema
+  ///     col1: Struct<alpha: Int32, beta: BinaryView, gamma: Float64>
+  ///     col2: Utf8View
+  /// contains two Fields with variadic buffers so variadicBufferCounts will have
+  /// two entries, the first counting the variadic buffers of `col1.beta` and the
+  /// second counting `col2`'s.
+  ///
+  /// This field may be omitted if and only if the schema contains no Fields with
+  /// a variable number of buffers, such as BinaryView and Utf8View.
+  const ::flatbuffers::Vector<int64_t> *variadicBufferCounts() const {
+    return GetPointer<const ::flatbuffers::Vector<int64_t> *>(VT_VARIADICBUFFERCOUNTS);
+  }
+  bool Verify(::flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
-           VerifyField<int64_t>(verifier, VT_LENGTH) &&
+           VerifyField<int64_t>(verifier, VT_LENGTH, 8) &&
            VerifyOffset(verifier, VT_NODES) &&
            verifier.VerifyVector(nodes()) &&
            VerifyOffset(verifier, VT_BUFFERS) &&
            verifier.VerifyVector(buffers()) &&
            VerifyOffset(verifier, VT_COMPRESSION) &&
            verifier.VerifyTable(compression()) &&
+           VerifyOffset(verifier, VT_VARIADICBUFFERCOUNTS) &&
+           verifier.VerifyVector(variadicBufferCounts()) &&
            verifier.EndTable();
   }
 };
 
 struct RecordBatchBuilder {
   typedef RecordBatch Table;
-  flatbuffers::FlatBufferBuilder &fbb_;
-  flatbuffers::uoffset_t start_;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
   void add_length(int64_t length) {
     fbb_.AddElement<int64_t>(RecordBatch::VT_LENGTH, length, 0);
   }
-  void add_nodes(flatbuffers::Offset<flatbuffers::Vector<const org::apache::arrow::flatbuf::FieldNode *>> nodes) {
+  void add_nodes(::flatbuffers::Offset<::flatbuffers::Vector<const org::apache::arrow::flatbuf::FieldNode *>> nodes) {
     fbb_.AddOffset(RecordBatch::VT_NODES, nodes);
   }
-  void add_buffers(flatbuffers::Offset<flatbuffers::Vector<const org::apache::arrow::flatbuf::Buffer *>> buffers) {
+  void add_buffers(::flatbuffers::Offset<::flatbuffers::Vector<const org::apache::arrow::flatbuf::Buffer *>> buffers) {
     fbb_.AddOffset(RecordBatch::VT_BUFFERS, buffers);
   }
-  void add_compression(flatbuffers::Offset<org::apache::arrow::flatbuf::BodyCompression> compression) {
+  void add_compression(::flatbuffers::Offset<org::apache::arrow::flatbuf::BodyCompression> compression) {
     fbb_.AddOffset(RecordBatch::VT_COMPRESSION, compression);
   }
-  explicit RecordBatchBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+  void add_variadicBufferCounts(::flatbuffers::Offset<::flatbuffers::Vector<int64_t>> variadicBufferCounts) {
+    fbb_.AddOffset(RecordBatch::VT_VARIADICBUFFERCOUNTS, variadicBufferCounts);
+  }
+  explicit RecordBatchBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  flatbuffers::Offset<RecordBatch> Finish() {
+  ::flatbuffers::Offset<RecordBatch> Finish() {
     const auto end = fbb_.EndTable(start_);
-    auto o = flatbuffers::Offset<RecordBatch>(end);
+    auto o = ::flatbuffers::Offset<RecordBatch>(end);
     return o;
   }
 };
 
-inline flatbuffers::Offset<RecordBatch> CreateRecordBatch(
-    flatbuffers::FlatBufferBuilder &_fbb,
+inline ::flatbuffers::Offset<RecordBatch> CreateRecordBatch(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
     int64_t length = 0,
-    flatbuffers::Offset<flatbuffers::Vector<const org::apache::arrow::flatbuf::FieldNode *>> nodes = 0,
-    flatbuffers::Offset<flatbuffers::Vector<const org::apache::arrow::flatbuf::Buffer *>> buffers = 0,
-    flatbuffers::Offset<org::apache::arrow::flatbuf::BodyCompression> compression = 0) {
+    ::flatbuffers::Offset<::flatbuffers::Vector<const org::apache::arrow::flatbuf::FieldNode *>> nodes = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<const org::apache::arrow::flatbuf::Buffer *>> buffers = 0,
+    ::flatbuffers::Offset<org::apache::arrow::flatbuf::BodyCompression> compression = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<int64_t>> variadicBufferCounts = 0) {
   RecordBatchBuilder builder_(_fbb);
   builder_.add_length(length);
+  builder_.add_variadicBufferCounts(variadicBufferCounts);
   builder_.add_compression(compression);
   builder_.add_buffers(buffers);
   builder_.add_nodes(nodes);
   return builder_.Finish();
 }
 
-inline flatbuffers::Offset<RecordBatch> CreateRecordBatchDirect(
-    flatbuffers::FlatBufferBuilder &_fbb,
+inline ::flatbuffers::Offset<RecordBatch> CreateRecordBatchDirect(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
     int64_t length = 0,
     const std::vector<org::apache::arrow::flatbuf::FieldNode> *nodes = nullptr,
     const std::vector<org::apache::arrow::flatbuf::Buffer> *buffers = nullptr,
-    flatbuffers::Offset<org::apache::arrow::flatbuf::BodyCompression> compression = 0) {
+    ::flatbuffers::Offset<org::apache::arrow::flatbuf::BodyCompression> compression = 0,
+    const std::vector<int64_t> *variadicBufferCounts = nullptr) {
   auto nodes__ = nodes ? _fbb.CreateVectorOfStructs<org::apache::arrow::flatbuf::FieldNode>(*nodes) : 0;
   auto buffers__ = buffers ? _fbb.CreateVectorOfStructs<org::apache::arrow::flatbuf::Buffer>(*buffers) : 0;
+  auto variadicBufferCounts__ = variadicBufferCounts ? _fbb.CreateVector<int64_t>(*variadicBufferCounts) : 0;
   return org::apache::arrow::flatbuf::CreateRecordBatch(
       _fbb,
       length,
       nodes__,
       buffers__,
-      compression);
+      compression,
+      variadicBufferCounts__);
 }
 
 /// For sending dictionary encoding information. Any Field can be
@@ -376,7 +411,7 @@ inline flatbuffers::Offset<RecordBatch> CreateRecordBatchDirect(
 /// There is one vector / column per dictionary, but that vector / column
 /// may be spread across multiple dictionary batches by using the isDelta
 /// flag
-struct DictionaryBatch FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+struct DictionaryBatch FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   typedef DictionaryBatchBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_ID = 4,
@@ -395,44 +430,44 @@ struct DictionaryBatch FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   bool isDelta() const {
     return GetField<uint8_t>(VT_ISDELTA, 0) != 0;
   }
-  bool Verify(flatbuffers::Verifier &verifier) const {
+  bool Verify(::flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
-           VerifyField<int64_t>(verifier, VT_ID) &&
+           VerifyField<int64_t>(verifier, VT_ID, 8) &&
            VerifyOffset(verifier, VT_DATA) &&
            verifier.VerifyTable(data()) &&
-           VerifyField<uint8_t>(verifier, VT_ISDELTA) &&
+           VerifyField<uint8_t>(verifier, VT_ISDELTA, 1) &&
            verifier.EndTable();
   }
 };
 
 struct DictionaryBatchBuilder {
   typedef DictionaryBatch Table;
-  flatbuffers::FlatBufferBuilder &fbb_;
-  flatbuffers::uoffset_t start_;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
   void add_id(int64_t id) {
     fbb_.AddElement<int64_t>(DictionaryBatch::VT_ID, id, 0);
   }
-  void add_data(flatbuffers::Offset<org::apache::arrow::flatbuf::RecordBatch> data) {
+  void add_data(::flatbuffers::Offset<org::apache::arrow::flatbuf::RecordBatch> data) {
     fbb_.AddOffset(DictionaryBatch::VT_DATA, data);
   }
   void add_isDelta(bool isDelta) {
     fbb_.AddElement<uint8_t>(DictionaryBatch::VT_ISDELTA, static_cast<uint8_t>(isDelta), 0);
   }
-  explicit DictionaryBatchBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+  explicit DictionaryBatchBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  flatbuffers::Offset<DictionaryBatch> Finish() {
+  ::flatbuffers::Offset<DictionaryBatch> Finish() {
     const auto end = fbb_.EndTable(start_);
-    auto o = flatbuffers::Offset<DictionaryBatch>(end);
+    auto o = ::flatbuffers::Offset<DictionaryBatch>(end);
     return o;
   }
 };
 
-inline flatbuffers::Offset<DictionaryBatch> CreateDictionaryBatch(
-    flatbuffers::FlatBufferBuilder &_fbb,
+inline ::flatbuffers::Offset<DictionaryBatch> CreateDictionaryBatch(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
     int64_t id = 0,
-    flatbuffers::Offset<org::apache::arrow::flatbuf::RecordBatch> data = 0,
+    ::flatbuffers::Offset<org::apache::arrow::flatbuf::RecordBatch> data = 0,
     bool isDelta = false) {
   DictionaryBatchBuilder builder_(_fbb);
   builder_.add_id(id);
@@ -441,7 +476,7 @@ inline flatbuffers::Offset<DictionaryBatch> CreateDictionaryBatch(
   return builder_.Finish();
 }
 
-struct Message FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+struct Message FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   typedef MessageBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_VERSION = 4,
@@ -461,33 +496,33 @@ struct Message FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   }
   template<typename T> const T *header_as() const;
   const org::apache::arrow::flatbuf::Schema *header_as_Schema() const {
-    return header_type() == org::apache::arrow::flatbuf::MessageHeader::Schema ? static_cast<const org::apache::arrow::flatbuf::Schema *>(header()) : nullptr;
+    return header_type() == org::apache::arrow::flatbuf::MessageHeader_Schema ? static_cast<const org::apache::arrow::flatbuf::Schema *>(header()) : nullptr;
   }
   const org::apache::arrow::flatbuf::DictionaryBatch *header_as_DictionaryBatch() const {
-    return header_type() == org::apache::arrow::flatbuf::MessageHeader::DictionaryBatch ? static_cast<const org::apache::arrow::flatbuf::DictionaryBatch *>(header()) : nullptr;
+    return header_type() == org::apache::arrow::flatbuf::MessageHeader_DictionaryBatch ? static_cast<const org::apache::arrow::flatbuf::DictionaryBatch *>(header()) : nullptr;
   }
   const org::apache::arrow::flatbuf::RecordBatch *header_as_RecordBatch() const {
-    return header_type() == org::apache::arrow::flatbuf::MessageHeader::RecordBatch ? static_cast<const org::apache::arrow::flatbuf::RecordBatch *>(header()) : nullptr;
+    return header_type() == org::apache::arrow::flatbuf::MessageHeader_RecordBatch ? static_cast<const org::apache::arrow::flatbuf::RecordBatch *>(header()) : nullptr;
   }
   const org::apache::arrow::flatbuf::Tensor *header_as_Tensor() const {
-    return header_type() == org::apache::arrow::flatbuf::MessageHeader::Tensor ? static_cast<const org::apache::arrow::flatbuf::Tensor *>(header()) : nullptr;
+    return header_type() == org::apache::arrow::flatbuf::MessageHeader_Tensor ? static_cast<const org::apache::arrow::flatbuf::Tensor *>(header()) : nullptr;
   }
   const org::apache::arrow::flatbuf::SparseTensor *header_as_SparseTensor() const {
-    return header_type() == org::apache::arrow::flatbuf::MessageHeader::SparseTensor ? static_cast<const org::apache::arrow::flatbuf::SparseTensor *>(header()) : nullptr;
+    return header_type() == org::apache::arrow::flatbuf::MessageHeader_SparseTensor ? static_cast<const org::apache::arrow::flatbuf::SparseTensor *>(header()) : nullptr;
   }
   int64_t bodyLength() const {
     return GetField<int64_t>(VT_BODYLENGTH, 0);
   }
-  const flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::flatbuf::KeyValue>> *custom_metadata() const {
-    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::flatbuf::KeyValue>> *>(VT_CUSTOM_METADATA);
+  const ::flatbuffers::Vector<::flatbuffers::Offset<org::apache::arrow::flatbuf::KeyValue>> *custom_metadata() const {
+    return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<org::apache::arrow::flatbuf::KeyValue>> *>(VT_CUSTOM_METADATA);
   }
-  bool Verify(flatbuffers::Verifier &verifier) const {
+  bool Verify(::flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
-           VerifyField<int16_t>(verifier, VT_VERSION) &&
-           VerifyField<uint8_t>(verifier, VT_HEADER_TYPE) &&
+           VerifyField<int16_t>(verifier, VT_VERSION, 2) &&
+           VerifyField<uint8_t>(verifier, VT_HEADER_TYPE, 1) &&
            VerifyOffset(verifier, VT_HEADER) &&
            VerifyMessageHeader(verifier, header(), header_type()) &&
-           VerifyField<int64_t>(verifier, VT_BODYLENGTH) &&
+           VerifyField<int64_t>(verifier, VT_BODYLENGTH, 8) &&
            VerifyOffset(verifier, VT_CUSTOM_METADATA) &&
            verifier.VerifyVector(custom_metadata()) &&
            verifier.VerifyVectorOfTables(custom_metadata()) &&
@@ -517,41 +552,41 @@ template<> inline const org::apache::arrow::flatbuf::SparseTensor *Message::head
 
 struct MessageBuilder {
   typedef Message Table;
-  flatbuffers::FlatBufferBuilder &fbb_;
-  flatbuffers::uoffset_t start_;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
   void add_version(org::apache::arrow::flatbuf::MetadataVersion version) {
     fbb_.AddElement<int16_t>(Message::VT_VERSION, static_cast<int16_t>(version), 0);
   }
   void add_header_type(org::apache::arrow::flatbuf::MessageHeader header_type) {
     fbb_.AddElement<uint8_t>(Message::VT_HEADER_TYPE, static_cast<uint8_t>(header_type), 0);
   }
-  void add_header(flatbuffers::Offset<void> header) {
+  void add_header(::flatbuffers::Offset<void> header) {
     fbb_.AddOffset(Message::VT_HEADER, header);
   }
   void add_bodyLength(int64_t bodyLength) {
     fbb_.AddElement<int64_t>(Message::VT_BODYLENGTH, bodyLength, 0);
   }
-  void add_custom_metadata(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::flatbuf::KeyValue>>> custom_metadata) {
+  void add_custom_metadata(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<org::apache::arrow::flatbuf::KeyValue>>> custom_metadata) {
     fbb_.AddOffset(Message::VT_CUSTOM_METADATA, custom_metadata);
   }
-  explicit MessageBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+  explicit MessageBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  flatbuffers::Offset<Message> Finish() {
+  ::flatbuffers::Offset<Message> Finish() {
     const auto end = fbb_.EndTable(start_);
-    auto o = flatbuffers::Offset<Message>(end);
+    auto o = ::flatbuffers::Offset<Message>(end);
     return o;
   }
 };
 
-inline flatbuffers::Offset<Message> CreateMessage(
-    flatbuffers::FlatBufferBuilder &_fbb,
-    org::apache::arrow::flatbuf::MetadataVersion version = org::apache::arrow::flatbuf::MetadataVersion::V1,
-    org::apache::arrow::flatbuf::MessageHeader header_type = org::apache::arrow::flatbuf::MessageHeader::NONE,
-    flatbuffers::Offset<void> header = 0,
+inline ::flatbuffers::Offset<Message> CreateMessage(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    org::apache::arrow::flatbuf::MetadataVersion version = org::apache::arrow::flatbuf::MetadataVersion_V1,
+    org::apache::arrow::flatbuf::MessageHeader header_type = org::apache::arrow::flatbuf::MessageHeader_NONE,
+    ::flatbuffers::Offset<void> header = 0,
     int64_t bodyLength = 0,
-    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::flatbuf::KeyValue>>> custom_metadata = 0) {
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<org::apache::arrow::flatbuf::KeyValue>>> custom_metadata = 0) {
   MessageBuilder builder_(_fbb);
   builder_.add_bodyLength(bodyLength);
   builder_.add_custom_metadata(custom_metadata);
@@ -561,14 +596,14 @@ inline flatbuffers::Offset<Message> CreateMessage(
   return builder_.Finish();
 }
 
-inline flatbuffers::Offset<Message> CreateMessageDirect(
-    flatbuffers::FlatBufferBuilder &_fbb,
-    org::apache::arrow::flatbuf::MetadataVersion version = org::apache::arrow::flatbuf::MetadataVersion::V1,
-    org::apache::arrow::flatbuf::MessageHeader header_type = org::apache::arrow::flatbuf::MessageHeader::NONE,
-    flatbuffers::Offset<void> header = 0,
+inline ::flatbuffers::Offset<Message> CreateMessageDirect(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    org::apache::arrow::flatbuf::MetadataVersion version = org::apache::arrow::flatbuf::MetadataVersion_V1,
+    org::apache::arrow::flatbuf::MessageHeader header_type = org::apache::arrow::flatbuf::MessageHeader_NONE,
+    ::flatbuffers::Offset<void> header = 0,
     int64_t bodyLength = 0,
-    const std::vector<flatbuffers::Offset<org::apache::arrow::flatbuf::KeyValue>> *custom_metadata = nullptr) {
-  auto custom_metadata__ = custom_metadata ? _fbb.CreateVector<flatbuffers::Offset<org::apache::arrow::flatbuf::KeyValue>>(*custom_metadata) : 0;
+    const std::vector<::flatbuffers::Offset<org::apache::arrow::flatbuf::KeyValue>> *custom_metadata = nullptr) {
+  auto custom_metadata__ = custom_metadata ? _fbb.CreateVector<::flatbuffers::Offset<org::apache::arrow::flatbuf::KeyValue>>(*custom_metadata) : 0;
   return org::apache::arrow::flatbuf::CreateMessage(
       _fbb,
       version,
@@ -578,28 +613,28 @@ inline flatbuffers::Offset<Message> CreateMessageDirect(
       custom_metadata__);
 }
 
-inline bool VerifyMessageHeader(flatbuffers::Verifier &verifier, const void *obj, MessageHeader type) {
+inline bool VerifyMessageHeader(::flatbuffers::Verifier &verifier, const void *obj, MessageHeader type) {
   switch (type) {
-    case MessageHeader::NONE: {
+    case MessageHeader_NONE: {
       return true;
     }
-    case MessageHeader::Schema: {
+    case MessageHeader_Schema: {
       auto ptr = reinterpret_cast<const org::apache::arrow::flatbuf::Schema *>(obj);
       return verifier.VerifyTable(ptr);
     }
-    case MessageHeader::DictionaryBatch: {
+    case MessageHeader_DictionaryBatch: {
       auto ptr = reinterpret_cast<const org::apache::arrow::flatbuf::DictionaryBatch *>(obj);
       return verifier.VerifyTable(ptr);
     }
-    case MessageHeader::RecordBatch: {
+    case MessageHeader_RecordBatch: {
       auto ptr = reinterpret_cast<const org::apache::arrow::flatbuf::RecordBatch *>(obj);
       return verifier.VerifyTable(ptr);
     }
-    case MessageHeader::Tensor: {
+    case MessageHeader_Tensor: {
       auto ptr = reinterpret_cast<const org::apache::arrow::flatbuf::Tensor *>(obj);
       return verifier.VerifyTable(ptr);
     }
-    case MessageHeader::SparseTensor: {
+    case MessageHeader_SparseTensor: {
       auto ptr = reinterpret_cast<const org::apache::arrow::flatbuf::SparseTensor *>(obj);
       return verifier.VerifyTable(ptr);
     }
@@ -607,10 +642,10 @@ inline bool VerifyMessageHeader(flatbuffers::Verifier &verifier, const void *obj
   }
 }
 
-inline bool VerifyMessageHeaderVector(flatbuffers::Verifier &verifier, const flatbuffers::Vector<flatbuffers::Offset<void>> *values, const flatbuffers::Vector<uint8_t> *types) {
+inline bool VerifyMessageHeaderVector(::flatbuffers::Verifier &verifier, const ::flatbuffers::Vector<::flatbuffers::Offset<void>> *values, const ::flatbuffers::Vector<uint8_t> *types) {
   if (!values || !types) return !values && !types;
   if (values->size() != types->size()) return false;
-  for (flatbuffers::uoffset_t i = 0; i < values->size(); ++i) {
+  for (::flatbuffers::uoffset_t i = 0; i < values->size(); ++i) {
     if (!VerifyMessageHeader(
         verifier,  values->Get(i), types->GetEnum<MessageHeader>(i))) {
       return false;
@@ -620,32 +655,32 @@ inline bool VerifyMessageHeaderVector(flatbuffers::Verifier &verifier, const fla
 }
 
 inline const org::apache::arrow::flatbuf::Message *GetMessage(const void *buf) {
-  return flatbuffers::GetRoot<org::apache::arrow::flatbuf::Message>(buf);
+  return ::flatbuffers::GetRoot<org::apache::arrow::flatbuf::Message>(buf);
 }
 
 inline const org::apache::arrow::flatbuf::Message *GetSizePrefixedMessage(const void *buf) {
-  return flatbuffers::GetSizePrefixedRoot<org::apache::arrow::flatbuf::Message>(buf);
+  return ::flatbuffers::GetSizePrefixedRoot<org::apache::arrow::flatbuf::Message>(buf);
 }
 
 inline bool VerifyMessageBuffer(
-    flatbuffers::Verifier &verifier) {
+    ::flatbuffers::Verifier &verifier) {
   return verifier.VerifyBuffer<org::apache::arrow::flatbuf::Message>(nullptr);
 }
 
 inline bool VerifySizePrefixedMessageBuffer(
-    flatbuffers::Verifier &verifier) {
+    ::flatbuffers::Verifier &verifier) {
   return verifier.VerifySizePrefixedBuffer<org::apache::arrow::flatbuf::Message>(nullptr);
 }
 
 inline void FinishMessageBuffer(
-    flatbuffers::FlatBufferBuilder &fbb,
-    flatbuffers::Offset<org::apache::arrow::flatbuf::Message> root) {
+    ::flatbuffers::FlatBufferBuilder &fbb,
+    ::flatbuffers::Offset<org::apache::arrow::flatbuf::Message> root) {
   fbb.Finish(root);
 }
 
 inline void FinishSizePrefixedMessageBuffer(
-    flatbuffers::FlatBufferBuilder &fbb,
-    flatbuffers::Offset<org::apache::arrow::flatbuf::Message> root) {
+    ::flatbuffers::FlatBufferBuilder &fbb,
+    ::flatbuffers::Offset<org::apache::arrow::flatbuf::Message> root) {
   fbb.FinishSizePrefixed(root);
 }
 

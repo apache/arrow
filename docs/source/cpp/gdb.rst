@@ -77,7 +77,7 @@ and here is a :class:`arrow::Decimal128Scalar`::
 
 Fortunately, GDB also allows custom extensions to override the default printing
 for specific types.  We provide a
-`GDB extension <https://github.com/apache/arrow/blob/master/cpp/gdb_arrow.py>`_
+`GDB extension <https://github.com/apache/arrow/blob/main/cpp/gdb_arrow.py>`_
 written in Python that enables pretty-printing for common Arrow C++ classes,
 so as to enable a more productive debugging experience.  For example,
 here is how the aforementioned :class:`arrow::Status` instance will be
@@ -94,7 +94,7 @@ Manual loading
 --------------
 
 To enable the GDB extension for Arrow, you can simply
-`download it <https://github.com/apache/arrow/blob/master/cpp/gdb_arrow.py>`_
+`download it <https://github.com/apache/arrow/blob/main/cpp/gdb_arrow.py>`_
 somewhere on your computer and ``source`` it from the GDB prompt::
 
    (gdb) source path/to/gdb_arrow.py

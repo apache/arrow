@@ -179,10 +179,11 @@ test_that("RBR methods", {
   expect_output(
     print(reader),
     "RecordBatchStreamReader
+2 columns
 x: int32
 y: string"
   )
-  expect_equal(names(reader), c("x", "y"))
+  expect_named(reader, c("x", "y"))
   expect_identical(dim(reader), c(NA_integer_, 2L))
 
   expect_equal(
@@ -268,4 +269,10 @@ test_that("as_record_batch_reader() works for function", {
     reader$read_next_batch(),
     "Expected fun\\(\\) to return batch with schema 'a: string'"
   )
+})
+
+test_that("as_record_batch_reader() errors on data.frame with NULL names", {
+  df <- data.frame(a = 1, b = "two")
+  names(df) <- NULL
+  expect_error(as_record_batch_reader(df), "Input data frame columns must be named")
 })

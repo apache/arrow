@@ -15,13 +15,19 @@
 .. specific language governing permissions and limitations
 .. under the License.
 
+.. _python:
+
+Python
+======
+
 PyArrow - Apache Arrow Python bindings
-======================================
+--------------------------------------
 
 This is the documentation of the Python API of Apache Arrow.
 
-Apache Arrow is a development platform for in-memory analytics.
-It contains a set of technologies that enable big data systems to store, process and move data fast.
+Apache Arrow is a universal columnar format and multi-language toolbox for fast
+data interchange and in-memory analytics. It contains a set of technologies that
+enable data systems to efficiently store, process, and move data.
 
 See the :doc:`parent documentation <../index>` for additional details on
 the Arrow Project itself, on the Arrow format and the other language bindings.
@@ -44,10 +50,10 @@ files into Arrow structures.
    memory
    ipc
    filesystems
-   filesystems_deprecated
-   plasma
    numpy
    pandas
+   interchange_protocol
+   dlpack
    timestamps
    orc
    csv
@@ -62,3 +68,4 @@ files into Arrow structures.
    api
    getting_involved
    benchmarks
+   Python cookbook <https://arrow.apache.org/cookbook/py/>

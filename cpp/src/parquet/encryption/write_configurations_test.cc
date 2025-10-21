@@ -33,7 +33,7 @@
  * This file contains unit-tests for writing encrypted Parquet files with
  * different encryption configurations.
  * The files are saved in temporary folder and will be deleted after reading
- * them in encryption-read-configurations-test.cc test.
+ * them in read_configurations_test.cc test.
  *
  * A detailed description of the Parquet Modular Encryption specification can be found
  * here:
@@ -60,9 +60,7 @@
  *                                  keys. Use the alternative (AES_GCM_CTR_V1) algorithm.
  */
 
-namespace parquet {
-namespace encryption {
-namespace test {
+namespace parquet::encryption::test {
 
 using FileClass = ::arrow::io::FileOutputStream;
 
@@ -78,9 +76,9 @@ class TestEncryptionConfiguration : public ::testing::Test {
   std::string path_to_double_field_ = kDoubleFieldName;
   std::string path_to_float_field_ = kFloatFieldName;
   std::string file_name_;
-  std::string kFooterEncryptionKey_ = std::string(kFooterEncryptionKey);
-  std::string kColumnEncryptionKey1_ = std::string(kColumnEncryptionKey1);
-  std::string kColumnEncryptionKey2_ = std::string(kColumnEncryptionKey2);
+  SecureString kFooterEncryptionKey_ = kFooterEncryptionKey;
+  SecureString kColumnEncryptionKey1_ = kColumnEncryptionKey1;
+  SecureString kColumnEncryptionKey2_ = kColumnEncryptionKey2;
   std::string kFileName_ = std::string(kFileName);
 
   void EncryptFile(
@@ -119,7 +117,7 @@ TEST_F(TestEncryptionConfiguration, EncryptTwoColumnsAndTheFooter) {
       kFooterEncryptionKey_);
 
   this->EncryptFile(file_encryption_builder_2.footer_key_metadata("kf")
-                        ->encrypted_columns(encryption_cols2)
+                        ->encrypted_columns(std::move(encryption_cols2))
                         ->build(),
                     "tmp_encrypt_columns_and_footer.parquet.encrypted");
 }
@@ -143,7 +141,7 @@ TEST_F(TestEncryptionConfiguration, EncryptTwoColumnsWithPlaintextFooter) {
       kFooterEncryptionKey_);
 
   this->EncryptFile(file_encryption_builder_3.footer_key_metadata("kf")
-                        ->encrypted_columns(encryption_cols3)
+                        ->encrypted_columns(std::move(encryption_cols3))
                         ->set_plaintext_footer()
                         ->build(),
                     "tmp_encrypt_columns_plaintext_footer.parquet.encrypted");
@@ -167,7 +165,7 @@ TEST_F(TestEncryptionConfiguration, EncryptTwoColumnsAndFooterWithAadPrefix) {
       kFooterEncryptionKey_);
 
   this->EncryptFile(file_encryption_builder_4.footer_key_metadata("kf")
-                        ->encrypted_columns(encryption_cols4)
+                        ->encrypted_columns(std::move(encryption_cols4))
                         ->aad_prefix(kFileName_)
                         ->build(),
                     "tmp_encrypt_columns_and_footer_aad.parquet.encrypted");
@@ -192,7 +190,7 @@ TEST_F(TestEncryptionConfiguration,
       kFooterEncryptionKey_);
 
   this->EncryptFile(
-      file_encryption_builder_5.encrypted_columns(encryption_cols5)
+      file_encryption_builder_5.encrypted_columns(std::move(encryption_cols5))
           ->footer_key_metadata("kf")
           ->aad_prefix(kFileName_)
           ->disable_aad_prefix_storage()
@@ -219,7 +217,7 @@ TEST_F(TestEncryptionConfiguration, EncryptTwoColumnsAndFooterUseAES_GCM_CTR) {
 
   EXPECT_NO_THROW(
       this->EncryptFile(file_encryption_builder_6.footer_key_metadata("kf")
-                            ->encrypted_columns(encryption_cols6)
+                            ->encrypted_columns(std::move(encryption_cols6))
                             ->algorithm(parquet::ParquetCipher::AES_GCM_CTR_V1)
                             ->build(),
                         "tmp_encrypt_columns_and_footer_ctr.parquet.encrypted"));
@@ -227,8 +225,8 @@ TEST_F(TestEncryptionConfiguration, EncryptTwoColumnsAndFooterUseAES_GCM_CTR) {
 
 // Set temp_dir before running the write/read tests. The encrypted files will
 // be written/read from this directory.
-void TestEncryptionConfiguration::SetUpTestCase() { temp_dir = *temp_data_dir(); }
+void TestEncryptionConfiguration::SetUpTestCase() {
+  temp_dir = temp_data_dir().ValueOrDie();
+}
 
-}  // namespace test
-}  // namespace encryption
-}  // namespace parquet
+}  // namespace parquet::encryption::test

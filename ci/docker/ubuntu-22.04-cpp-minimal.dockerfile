@@ -29,10 +29,14 @@ RUN apt-get update -y -q && \
         ccache \
         cmake \
         curl \
+        gdb \
         git \
         libssl-dev \
         libcurl4-openssl-dev \
+        patch \
         python3-pip \
+        python3-venv \
+        tzdata \
         wget && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists*
@@ -65,6 +69,10 @@ RUN latest_system_llvm=14 && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists*
 
+ARG cmake
+COPY ci/scripts/install_cmake.sh /arrow/ci/scripts/
+RUN /arrow/ci/scripts/install_cmake.sh ${cmake} /usr/local/
+
 COPY ci/scripts/install_minio.sh /arrow/ci/scripts/
 RUN /arrow/ci/scripts/install_minio.sh latest /usr/local
 
@@ -74,7 +82,9 @@ RUN /arrow/ci/scripts/install_gcs_testbench.sh default
 COPY ci/scripts/install_sccache.sh /arrow/ci/scripts/
 RUN /arrow/ci/scripts/install_sccache.sh unknown-linux-musl /usr/local/bin
 
-ENV ARROW_BUILD_TESTS=ON \
+ENV ARROW_ACERO=ON \
+    ARROW_AZURE=OFF \
+    ARROW_BUILD_TESTS=ON \
     ARROW_DATASET=ON \
     ARROW_FLIGHT=ON \
     ARROW_GANDIVA=ON \
@@ -82,10 +92,8 @@ ENV ARROW_BUILD_TESTS=ON \
     ARROW_HDFS=ON \
     ARROW_HOME=/usr/local \
     ARROW_INSTALL_NAME_RPATH=OFF \
-    ARROW_NO_DEPRECATED_API=ON \
     ARROW_ORC=ON \
     ARROW_PARQUET=ON \
-    ARROW_PLASMA=ON \
     ARROW_S3=ON \
     ARROW_USE_CCACHE=ON \
     ARROW_WITH_BROTLI=ON \

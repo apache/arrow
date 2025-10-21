@@ -52,6 +52,24 @@ class ObjectParser::Impl {
     return document_[key].GetString();
   }
 
+  Result<std::unordered_map<std::string, std::string>> GetStringMap() const {
+    std::unordered_map<std::string, std::string> map;
+    for (auto itr = document_.MemberBegin(); itr != document_.MemberEnd(); ++itr) {
+      const auto& json_name = itr->name;
+      const auto& json_value = itr->value;
+      if (!json_name.IsString()) {
+        return Status::TypeError("Key is not a string");
+      }
+      std::string name = json_name.GetString();
+      if (!json_value.IsString()) {
+        return Status::TypeError("Key '", name, "' does not have a string value");
+      }
+      std::string value = json_value.GetString();
+      map.insert({std::move(name), std::move(value)});
+    }
+    return map;
+  }
+
   Result<bool> GetBool(const char* key) const {
     if (!document_.HasMember(key)) {
       return Status::KeyError("Key '", key, "' does not exist");
@@ -77,6 +95,10 @@ Result<std::string> ObjectParser::GetString(const char* key) const {
 }
 
 Result<bool> ObjectParser::GetBool(const char* key) const { return impl_->GetBool(key); }
+
+Result<std::unordered_map<std::string, std::string>> ObjectParser::GetStringMap() const {
+  return impl_->GetStringMap();
+}
 
 }  // namespace internal
 }  // namespace json

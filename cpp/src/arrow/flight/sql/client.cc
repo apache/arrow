@@ -24,12 +24,14 @@
 #include <google/protobuf/any.pb.h>
 
 #include "arrow/buffer.h"
+#include "arrow/flight/serialization_internal.h"
 #include "arrow/flight/sql/protocol_internal.h"
 #include "arrow/flight/types.h"
 #include "arrow/io/memory.h"
 #include "arrow/ipc/reader.h"
 #include "arrow/result.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/macros.h"
 
 namespace flight_sql_pb = arrow::flight::protocol::sql;
 
@@ -38,18 +40,12 @@ namespace flight {
 namespace sql {
 
 namespace {
+
 arrow::Result<FlightDescriptor> GetFlightDescriptorForCommand(
     const google::protobuf::Message& command) {
-  google::protobuf::Any any;
-  if (!any.PackFrom(command)) {
-    return Status::SerializationError("Failed to pack ", command.GetTypeName());
-  }
-
-  std::string buf;
-  if (!any.SerializeToString(&buf)) {
-    return Status::SerializationError("Failed to serialize ", command.GetTypeName());
-  }
-  return FlightDescriptor::Command(buf);
+  FlightDescriptor descriptor;
+  RETURN_NOT_OK(flight::internal::PackProtoCommand(command, &descriptor));
+  return descriptor;
 }
 
 arrow::Result<std::unique_ptr<FlightInfo>> GetFlightInfoForCommand(
@@ -68,24 +64,14 @@ arrow::Result<std::unique_ptr<SchemaResult>> GetSchemaForCommand(
   return client->GetSchema(options, descriptor);
 }
 
-::arrow::Result<Action> PackAction(const std::string& action_type,
-                                   const google::protobuf::Message& message) {
-  google::protobuf::Any any;
-  if (!any.PackFrom(message)) {
-    return Status::SerializationError("Could not pack ", message.GetTypeName(),
-                                      " into Any");
-  }
-
-  std::string buffer;
-  if (!any.SerializeToString(&buffer)) {
-    return Status::SerializationError("Could not serialize packed ",
-                                      message.GetTypeName());
-  }
-
-  Action action;
-  action.type = action_type;
-  action.body = Buffer::FromString(std::move(buffer));
-  return action;
+// Pack a protobuf action and send it to the server.
+arrow::Result<std::unique_ptr<ResultStream>> DoProtoAction(
+    FlightSqlClient* client, const FlightCallOptions& options, std::string action_type,
+    const google::protobuf::Message& action) {
+  Action packed_action;
+  RETURN_NOT_OK(
+      flight::internal::PackProtoAction(std::move(action_type), action, &packed_action));
+  return client->DoAction(options, packed_action);
 }
 
 void SetPlan(const SubstraitPlan& plan, flight_sql_pb::SubstraitPlan* pb_plan) {
@@ -112,13 +98,24 @@ Status ReadResult(ResultStream* results, google::protobuf::Message* message) {
   return Status::OK();
 }
 
-Status DrainResultStream(ResultStream* results) {
+arrow::Result<std::shared_ptr<Buffer>> BindParameters(FlightClient* client,
+                                                      const FlightCallOptions& options,
+                                                      const FlightDescriptor& descriptor,
+                                                      RecordBatchReader* params) {
+  ARROW_ASSIGN_OR_RAISE(auto stream,
+                        client->DoPut(options, descriptor, params->schema()));
   while (true) {
-    ARROW_ASSIGN_OR_RAISE(auto result, results->Next());
-    if (!result) break;
+    ARROW_ASSIGN_OR_RAISE(auto batch, params->Next());
+    if (!batch) break;
+    ARROW_RETURN_NOT_OK(stream.writer->WriteRecordBatch(*batch));
   }
-  return Status::OK();
+  ARROW_RETURN_NOT_OK(stream.writer->DoneWriting());
+  std::shared_ptr<Buffer> metadata;
+  ARROW_RETURN_NOT_OK(stream.reader->ReadMetadata(&metadata));
+  ARROW_RETURN_NOT_OK(stream.writer->Close());
+  return metadata;
 }
+
 }  // namespace
 
 const Transaction& no_transaction() {
@@ -205,22 +202,20 @@ arrow::Result<int64_t> FlightSqlClient::ExecuteUpdate(const FlightCallOptions& o
   ARROW_ASSIGN_OR_RAISE(FlightDescriptor descriptor,
                         GetFlightDescriptorForCommand(command));
 
-  std::unique_ptr<FlightStreamWriter> writer;
-  std::unique_ptr<FlightMetadataReader> reader;
-
-  ARROW_RETURN_NOT_OK(DoPut(options, descriptor, arrow::schema({}), &writer, &reader));
+  ARROW_ASSIGN_OR_RAISE(auto result, DoPut(options, descriptor, arrow::schema({})))
   std::shared_ptr<Buffer> metadata;
-  ARROW_RETURN_NOT_OK(reader->ReadMetadata(&metadata));
-  ARROW_RETURN_NOT_OK(writer->Close());
+  ARROW_RETURN_NOT_OK(result.reader->ReadMetadata(&metadata));
+  ARROW_RETURN_NOT_OK(result.writer->Close());
 
   if (!metadata) return Status::IOError("Server did not send a response");
 
-  flight_sql_pb::DoPutUpdateResult result;
-  if (!result.ParseFromArray(metadata->data(), static_cast<int>(metadata->size()))) {
+  flight_sql_pb::DoPutUpdateResult update_result;
+  if (!update_result.ParseFromArray(metadata->data(),
+                                    static_cast<int>(metadata->size()))) {
     return Status::Invalid("Unable to parse DoPutUpdateResult");
   }
 
-  return result.record_count();
+  return update_result.record_count();
 }
 
 arrow::Result<int64_t> FlightSqlClient::ExecuteSubstraitUpdate(
@@ -235,21 +230,127 @@ arrow::Result<int64_t> FlightSqlClient::ExecuteSubstraitUpdate(
   ARROW_ASSIGN_OR_RAISE(FlightDescriptor descriptor,
                         GetFlightDescriptorForCommand(command));
 
-  std::unique_ptr<FlightStreamWriter> writer;
-  std::unique_ptr<FlightMetadataReader> reader;
-
-  ARROW_RETURN_NOT_OK(DoPut(options, descriptor, arrow::schema({}), &writer, &reader));
+  ARROW_ASSIGN_OR_RAISE(auto result, DoPut(options, descriptor, arrow::schema({})));
 
   std::shared_ptr<Buffer> metadata;
-  ARROW_RETURN_NOT_OK(reader->ReadMetadata(&metadata));
-  ARROW_RETURN_NOT_OK(writer->Close());
+  ARROW_RETURN_NOT_OK(result.reader->ReadMetadata(&metadata));
+  ARROW_RETURN_NOT_OK(result.writer->Close());
 
-  flight_sql_pb::DoPutUpdateResult result;
-  if (!result.ParseFromArray(metadata->data(), static_cast<int>(metadata->size()))) {
+  flight_sql_pb::DoPutUpdateResult update_result;
+  if (!update_result.ParseFromArray(metadata->data(),
+                                    static_cast<int>(metadata->size()))) {
     return Status::Invalid("Unable to parse DoPutUpdateResult");
   }
 
-  return result.record_count();
+  return update_result.record_count();
+}
+
+arrow::Result<int64_t> FlightSqlClient::ExecuteIngest(
+    const FlightCallOptions& options, const std::shared_ptr<RecordBatchReader>& reader,
+    const TableDefinitionOptions& table_definition_options, const std::string& table,
+    const std::optional<std::string>& schema, const std::optional<std::string>& catalog,
+    const bool temporary, const Transaction& transaction,
+    const std::unordered_map<std::string, std::string>& ingest_options) {
+  flight_sql_pb::CommandStatementIngest command;
+
+  flight_sql_pb::CommandStatementIngest_TableDefinitionOptions*
+      pb_table_definition_options =
+          new flight_sql_pb::CommandStatementIngest_TableDefinitionOptions();
+  switch (table_definition_options.if_not_exist) {
+    case TableDefinitionOptionsTableNotExistOption::kUnspecified:
+      pb_table_definition_options->set_if_not_exist(
+          flight_sql_pb::
+              CommandStatementIngest_TableDefinitionOptions_TableNotExistOption_TABLE_NOT_EXIST_OPTION_UNSPECIFIED);  // NOLINT(whitespace/line_length)
+      break;
+    case TableDefinitionOptionsTableNotExistOption::kCreate:
+      pb_table_definition_options->set_if_not_exist(
+          flight_sql_pb::
+              CommandStatementIngest_TableDefinitionOptions_TableNotExistOption_TABLE_NOT_EXIST_OPTION_CREATE);  // NOLINT(whitespace/line_length)
+      break;
+    case TableDefinitionOptionsTableNotExistOption::kFail:
+      pb_table_definition_options->set_if_not_exist(
+          flight_sql_pb::
+              CommandStatementIngest_TableDefinitionOptions_TableNotExistOption_TABLE_NOT_EXIST_OPTION_FAIL);  // NOLINT(whitespace/line_length)
+      break;
+
+    default:
+      break;
+  }
+
+  switch (table_definition_options.if_exists) {
+    case TableDefinitionOptionsTableExistsOption::kUnspecified:
+      pb_table_definition_options->set_if_exists(
+          flight_sql_pb::
+              CommandStatementIngest_TableDefinitionOptions_TableExistsOption_TABLE_EXISTS_OPTION_UNSPECIFIED);  // NOLINT(whitespace/line_length)
+      break;
+    case TableDefinitionOptionsTableExistsOption::kFail:
+      pb_table_definition_options->set_if_exists(
+          flight_sql_pb::
+              CommandStatementIngest_TableDefinitionOptions_TableExistsOption_TABLE_EXISTS_OPTION_FAIL);  // NOLINT(whitespace/line_length)
+      break;
+    case TableDefinitionOptionsTableExistsOption::kAppend:
+      pb_table_definition_options->set_if_exists(
+          flight_sql_pb::
+              CommandStatementIngest_TableDefinitionOptions_TableExistsOption_TABLE_EXISTS_OPTION_APPEND);  // NOLINT(whitespace/line_length)
+      break;
+    case TableDefinitionOptionsTableExistsOption::kReplace:
+      pb_table_definition_options->set_if_exists(
+          flight_sql_pb::
+              CommandStatementIngest_TableDefinitionOptions_TableExistsOption_TABLE_EXISTS_OPTION_REPLACE);  // NOLINT(whitespace/line_length)
+      break;
+
+    default:
+      break;
+  }
+
+  command.set_allocated_table_definition_options(pb_table_definition_options);
+  command.set_table(table);
+
+  if (schema.has_value()) {
+    command.set_schema(schema.value());
+  }
+
+  if (catalog.has_value()) {
+    command.set_catalog(catalog.value());
+  }
+
+  command.set_temporary(temporary);
+
+  if (transaction.is_valid()) {
+    command.set_transaction_id(transaction.transaction_id());
+  }
+
+  auto command_options = command.mutable_options();
+  for (const auto& [key, val] : ingest_options) {
+    (*command_options)[key] = val;
+  }
+
+  ARROW_ASSIGN_OR_RAISE(FlightDescriptor descriptor,
+                        GetFlightDescriptorForCommand(command));
+
+  auto reader_ = reader.get();
+  ARROW_ASSIGN_OR_RAISE(auto stream, DoPut(options, descriptor, reader_->schema()));
+
+  while (true) {
+    ARROW_ASSIGN_OR_RAISE(auto batch, reader_->Next());
+    if (!batch) break;
+    ARROW_RETURN_NOT_OK(stream.writer->WriteRecordBatch(*batch));
+  }
+
+  ARROW_RETURN_NOT_OK(stream.writer->DoneWriting());
+  std::shared_ptr<Buffer> metadata;
+  ARROW_RETURN_NOT_OK(stream.reader->ReadMetadata(&metadata));
+  ARROW_RETURN_NOT_OK(stream.writer->Close());
+
+  if (!metadata) return Status::IOError("Server did not send a response");
+
+  flight_sql_pb::DoPutUpdateResult update_result;
+  if (!update_result.ParseFromArray(metadata->data(),
+                                    static_cast<int>(metadata->size()))) {
+    return Status::Invalid("Unable to parse DoPutUpdateResult");
+  }
+
+  return update_result.record_count();
 }
 
 arrow::Result<std::unique_ptr<FlightInfo>> FlightSqlClient::GetCatalogs(
@@ -470,10 +571,7 @@ arrow::Result<std::unique_ptr<SchemaResult>> FlightSqlClient::GetSqlInfoSchema(
 
 arrow::Result<std::unique_ptr<FlightStreamReader>> FlightSqlClient::DoGet(
     const FlightCallOptions& options, const Ticket& ticket) {
-  std::unique_ptr<FlightStreamReader> stream;
-  ARROW_RETURN_NOT_OK(DoGet(options, ticket, &stream));
-
-  return std::move(stream);
+  return impl_->DoGet(options, ticket);
 }
 
 arrow::Result<std::shared_ptr<PreparedStatement>> FlightSqlClient::Prepare(
@@ -485,10 +583,8 @@ arrow::Result<std::shared_ptr<PreparedStatement>> FlightSqlClient::Prepare(
     request.set_transaction_id(transaction.transaction_id());
   }
 
-  std::unique_ptr<ResultStream> results;
-  ARROW_ASSIGN_OR_RAISE(auto action, PackAction("CreatePreparedStatement", request));
-  ARROW_RETURN_NOT_OK(DoAction(options, action, &results));
-
+  ARROW_ASSIGN_OR_RAISE(auto results,
+                        DoProtoAction(this, options, "CreatePreparedStatement", request))
   return PreparedStatement::ParseResponse(this, std::move(results));
 }
 
@@ -501,10 +597,8 @@ arrow::Result<std::shared_ptr<PreparedStatement>> FlightSqlClient::PrepareSubstr
     request.set_transaction_id(transaction.transaction_id());
   }
 
-  std::unique_ptr<ResultStream> results;
-  ARROW_ASSIGN_OR_RAISE(auto action, PackAction("CreatePreparedSubstraitPlan", request));
-  ARROW_RETURN_NOT_OK(DoAction(options, action, &results));
-
+  ARROW_ASSIGN_OR_RAISE(
+      auto results, DoProtoAction(this, options, "CreatePreparedSubstraitPlan", request));
   return PreparedStatement::ParseResponse(this, std::move(results));
 }
 
@@ -520,13 +614,17 @@ arrow::Result<std::shared_ptr<PreparedStatement>> PreparedStatement::ParseRespon
 
   std::shared_ptr<Schema> dataset_schema;
   if (!serialized_dataset_schema.empty()) {
-    io::BufferReader dataset_schema_reader(serialized_dataset_schema);
+    // Create a non-owned Buffer to avoid copying
+    io::BufferReader dataset_schema_reader(
+        std::make_shared<Buffer>(serialized_dataset_schema));
     ipc::DictionaryMemo in_memo;
     ARROW_ASSIGN_OR_RAISE(dataset_schema, ReadSchema(&dataset_schema_reader, &in_memo));
   }
   std::shared_ptr<Schema> parameter_schema;
   if (!serialized_parameter_schema.empty()) {
-    io::BufferReader parameter_schema_reader(serialized_parameter_schema);
+    // Create a non-owned Buffer to avoid copying
+    io::BufferReader parameter_schema_reader(
+        std::make_shared<Buffer>(serialized_parameter_schema));
     ipc::DictionaryMemo in_memo;
     ARROW_ASSIGN_OR_RAISE(parameter_schema,
                           ReadSchema(&parameter_schema_reader, &in_memo));
@@ -535,24 +633,6 @@ arrow::Result<std::shared_ptr<PreparedStatement>> PreparedStatement::ParseRespon
 
   return std::make_shared<PreparedStatement>(client, handle, dataset_schema,
                                              parameter_schema);
-}
-
-arrow::Result<std::shared_ptr<Buffer>> BindParameters(FlightClient* client,
-                                                      const FlightCallOptions& options,
-                                                      const FlightDescriptor& descriptor,
-                                                      RecordBatchReader* params) {
-  ARROW_ASSIGN_OR_RAISE(auto stream,
-                        client->DoPut(options, descriptor, params->schema()));
-  while (true) {
-    ARROW_ASSIGN_OR_RAISE(auto batch, params->Next());
-    if (!batch) break;
-    ARROW_RETURN_NOT_OK(stream.writer->WriteRecordBatch(*batch));
-  }
-  ARROW_RETURN_NOT_OK(stream.writer->DoneWriting());
-  std::shared_ptr<Buffer> metadata;
-  ARROW_RETURN_NOT_OK(stream.reader->ReadMetadata(&metadata));
-  ARROW_RETURN_NOT_OK(stream.writer->Close());
-  return metadata;
 }
 
 arrow::Result<std::unique_ptr<FlightInfo>> PreparedStatement::Execute(
@@ -571,7 +651,7 @@ arrow::Result<std::unique_ptr<FlightInfo>> PreparedStatement::Execute(
                                          parameter_binding_.get()));
   }
   ARROW_ASSIGN_OR_RAISE(auto flight_info, client_->GetFlightInfo(options, descriptor));
-  return std::move(flight_info);
+  return flight_info;
 }
 
 arrow::Result<int64_t> PreparedStatement::ExecuteUpdate(
@@ -645,15 +725,12 @@ Status PreparedStatement::Close(const FlightCallOptions& options) {
   if (is_closed_) {
     return Status::Invalid("Statement with handle '", handle_, "' already closed");
   }
-
   flight_sql_pb::ActionClosePreparedStatementRequest request;
   request.set_prepared_statement_handle(handle_);
 
-  std::unique_ptr<ResultStream> results;
-  ARROW_ASSIGN_OR_RAISE(auto action, PackAction("ClosePreparedStatement", request));
-  ARROW_RETURN_NOT_OK(client_->DoAction(options, action, &results));
-  ARROW_RETURN_NOT_OK(DrainResultStream(results.get()));
-
+  ARROW_ASSIGN_OR_RAISE(
+      auto results, DoProtoAction(client_, options, "ClosePreparedStatement", request));
+  ARROW_RETURN_NOT_OK(results->Drain());
   is_closed_ = true;
   return Status::OK();
 }
@@ -662,9 +739,8 @@ Status PreparedStatement::Close(const FlightCallOptions& options) {
     const FlightCallOptions& options) {
   flight_sql_pb::ActionBeginTransactionRequest request;
 
-  std::unique_ptr<ResultStream> results;
-  ARROW_ASSIGN_OR_RAISE(auto action, PackAction("BeginTransaction", request));
-  ARROW_RETURN_NOT_OK(DoAction(options, action, &results));
+  ARROW_ASSIGN_OR_RAISE(auto results,
+                        DoProtoAction(this, options, "BeginTransaction", request));
 
   flight_sql_pb::ActionBeginTransactionResult transaction;
   ARROW_RETURN_NOT_OK(ReadResult(results.get(), &transaction));
@@ -672,7 +748,7 @@ Status PreparedStatement::Close(const FlightCallOptions& options) {
     return Status::Invalid("Server returned an empty transaction ID");
   }
 
-  ARROW_RETURN_NOT_OK(DrainResultStream(results.get()));
+  ARROW_RETURN_NOT_OK(results->Drain());
   return Transaction(transaction.transaction_id());
 }
 
@@ -680,16 +756,14 @@ Status PreparedStatement::Close(const FlightCallOptions& options) {
     const FlightCallOptions& options, const Transaction& transaction,
     const std::string& name) {
   flight_sql_pb::ActionBeginSavepointRequest request;
-
   if (!transaction.is_valid()) {
     return Status::Invalid("Must provide an active transaction");
   }
   request.set_transaction_id(transaction.transaction_id());
   request.set_name(name);
 
-  std::unique_ptr<ResultStream> results;
-  ARROW_ASSIGN_OR_RAISE(auto action, PackAction("BeginSavepoint", request));
-  ARROW_RETURN_NOT_OK(DoAction(options, action, &results));
+  ARROW_ASSIGN_OR_RAISE(auto results,
+                        DoProtoAction(this, options, "BeginSavepoint", request));
 
   flight_sql_pb::ActionBeginSavepointResult savepoint;
   ARROW_RETURN_NOT_OK(ReadResult(results.get(), &savepoint));
@@ -697,50 +771,41 @@ Status PreparedStatement::Close(const FlightCallOptions& options) {
     return Status::Invalid("Server returned an empty savepoint ID");
   }
 
-  ARROW_RETURN_NOT_OK(DrainResultStream(results.get()));
+  ARROW_RETURN_NOT_OK(results->Drain());
   return Savepoint(savepoint.savepoint_id());
 }
 
 Status FlightSqlClient::Commit(const FlightCallOptions& options,
                                const Transaction& transaction) {
   flight_sql_pb::ActionEndTransactionRequest request;
-
   if (!transaction.is_valid()) {
     return Status::Invalid("Must provide an active transaction");
   }
   request.set_transaction_id(transaction.transaction_id());
   request.set_action(flight_sql_pb::ActionEndTransactionRequest::END_TRANSACTION_COMMIT);
 
-  std::unique_ptr<ResultStream> results;
-  ARROW_ASSIGN_OR_RAISE(auto action, PackAction("EndTransaction", request));
-  ARROW_RETURN_NOT_OK(DoAction(options, action, &results));
-
-  ARROW_RETURN_NOT_OK(DrainResultStream(results.get()));
-  return Status::OK();
+  ARROW_ASSIGN_OR_RAISE(auto results,
+                        DoProtoAction(this, options, "EndTransaction", request));
+  return results->Drain();
 }
 
 Status FlightSqlClient::Release(const FlightCallOptions& options,
                                 const Savepoint& savepoint) {
   flight_sql_pb::ActionEndSavepointRequest request;
-
   if (!savepoint.is_valid()) {
     return Status::Invalid("Must provide an active savepoint");
   }
   request.set_savepoint_id(savepoint.savepoint_id());
   request.set_action(flight_sql_pb::ActionEndSavepointRequest::END_SAVEPOINT_RELEASE);
 
-  std::unique_ptr<ResultStream> results;
-  ARROW_ASSIGN_OR_RAISE(auto action, PackAction("EndSavepoint", request));
-  ARROW_RETURN_NOT_OK(DoAction(options, action, &results));
-
-  ARROW_RETURN_NOT_OK(DrainResultStream(results.get()));
-  return Status::OK();
+  ARROW_ASSIGN_OR_RAISE(auto results,
+                        DoProtoAction(this, options, "EndSavepoint", request));
+  return results->Drain();
 }
 
 Status FlightSqlClient::Rollback(const FlightCallOptions& options,
                                  const Transaction& transaction) {
   flight_sql_pb::ActionEndTransactionRequest request;
-
   if (!transaction.is_valid()) {
     return Status::Invalid("Must provide an active transaction");
   }
@@ -748,45 +813,39 @@ Status FlightSqlClient::Rollback(const FlightCallOptions& options,
   request.set_action(
       flight_sql_pb::ActionEndTransactionRequest::END_TRANSACTION_ROLLBACK);
 
-  std::unique_ptr<ResultStream> results;
-  ARROW_ASSIGN_OR_RAISE(auto action, PackAction("EndTransaction", request));
-  ARROW_RETURN_NOT_OK(DoAction(options, action, &results));
-
-  ARROW_RETURN_NOT_OK(DrainResultStream(results.get()));
-  return Status::OK();
+  ARROW_ASSIGN_OR_RAISE(auto results,
+                        DoProtoAction(this, options, "EndTransaction", request));
+  return results->Drain();
 }
 
 Status FlightSqlClient::Rollback(const FlightCallOptions& options,
                                  const Savepoint& savepoint) {
   flight_sql_pb::ActionEndSavepointRequest request;
-
   if (!savepoint.is_valid()) {
     return Status::Invalid("Must provide an active savepoint");
   }
   request.set_savepoint_id(savepoint.savepoint_id());
   request.set_action(flight_sql_pb::ActionEndSavepointRequest::END_SAVEPOINT_ROLLBACK);
 
-  std::unique_ptr<ResultStream> results;
-  ARROW_ASSIGN_OR_RAISE(auto action, PackAction("EndSavepoint", request));
-  ARROW_RETURN_NOT_OK(DoAction(options, action, &results));
-
-  ARROW_RETURN_NOT_OK(DrainResultStream(results.get()));
-  return Status::OK();
+  ARROW_ASSIGN_OR_RAISE(auto results,
+                        DoProtoAction(this, options, "EndSavepoint", request));
+  return results->Drain();
 }
 
+// ActionCancelQuery{Request,Result} are deprecated
+ARROW_SUPPRESS_DEPRECATION_WARNING
 ::arrow::Result<CancelResult> FlightSqlClient::CancelQuery(
     const FlightCallOptions& options, const FlightInfo& info) {
-  flight_sql_pb::ActionCancelQueryRequest request;
+  flight_sql_pb::ActionCancelQueryRequest cancel_query;
   ARROW_ASSIGN_OR_RAISE(auto serialized_info, info.SerializeToString());
-  request.set_info(std::move(serialized_info));
+  cancel_query.set_info(std::move(serialized_info));
 
-  std::unique_ptr<ResultStream> results;
-  ARROW_ASSIGN_OR_RAISE(auto action, PackAction("CancelQuery", request));
-  ARROW_RETURN_NOT_OK(DoAction(options, action, &results));
+  ARROW_ASSIGN_OR_RAISE(auto results,
+                        DoProtoAction(this, options, "CancelQuery", cancel_query));
 
   flight_sql_pb::ActionCancelQueryResult result;
   ARROW_RETURN_NOT_OK(ReadResult(results.get(), &result));
-  ARROW_RETURN_NOT_OK(DrainResultStream(results.get()));
+  ARROW_RETURN_NOT_OK(results->Drain());
   switch (result.result()) {
     case flight_sql_pb::ActionCancelQueryResult::CANCEL_RESULT_UNSPECIFIED:
       return CancelResult::kUnspecified;
@@ -801,6 +860,7 @@ Status FlightSqlClient::Rollback(const FlightCallOptions& options,
   }
   return Status::IOError("Server returned unknown result ", result.result());
 }
+ARROW_UNSUPPRESS_DEPRECATION_WARNING
 
 Status FlightSqlClient::Close() { return impl_->Close(); }
 

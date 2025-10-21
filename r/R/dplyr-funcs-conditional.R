@@ -21,9 +21,16 @@ register_bindings_conditional <- function() {
     value_set <- Array$create(table)
     # If possible, `table` should be the same type as `x`
     # Try downcasting here; otherwise Acero may upcast x to table's type
+    x_type <- x$type()
+    # GH-43440: `is_in` doesn't want a DictionaryType in the value_set,
+    # so we'll cast to its value_type
+    # TODO: should this be pushed into cast_or_parse? Is this a bigger issue?
+    if (inherits(x_type, "DictionaryType")) {
+      x_type <- x_type$value_type
+    }
     try(
-      value_set <- cast_or_parse(value_set, x$type()),
-      silent = TRUE
+      value_set <- cast_or_parse(value_set, x_type),
+      silent = !getOption("arrow.debug", FALSE)
     )
 
     expr <- Expression$create("is_in", x,
@@ -37,7 +44,7 @@ register_bindings_conditional <- function() {
   register_binding("dplyr::coalesce", function(...) {
     args <- list2(...)
     if (length(args) < 1) {
-      abort("At least one argument must be supplied to coalesce()")
+      validation_error("At least one argument must be supplied to coalesce()")
     }
 
     # Treat NaN like NA for consistency with dplyr::coalesce(), but if *all*
@@ -55,7 +62,7 @@ register_bindings_conditional <- function() {
       }
 
       if (last_arg && arg$type_id() %in% TYPES_WITH_NAN) {
-        # store the NA_real_ in the same type as arg to avoid avoid casting
+        # store the NA_real_ in the same type as arg to avoid casting
         # smaller float types to larger float types
         NA_expr <- Expression$scalar(Scalar$create(NA_real_, type = arg$type()))
         Expression$create("if_else", Expression$create("is_nan", arg), NA_expr, arg)
@@ -90,11 +97,19 @@ register_bindings_conditional <- function() {
     out
   })
 
-  register_binding("dplyr::case_when", function(...) {
+  register_binding("dplyr::case_when", function(..., .default = NULL, .ptype = NULL, .size = NULL) {
+    if (!is.null(.ptype)) {
+      arrow_not_supported("`case_when()` with `.ptype` specified")
+    }
+
+    if (!is.null(.size)) {
+      arrow_not_supported("`case_when()` with `.size` specified")
+    }
+
     formulas <- list2(...)
     n <- length(formulas)
     if (n == 0) {
-      abort("No cases provided in case_when()")
+      validation_error("No cases provided")
     }
     query <- vector("list", n)
     value <- vector("list", n)
@@ -102,16 +117,21 @@ register_bindings_conditional <- function() {
     for (i in seq_len(n)) {
       f <- formulas[[i]]
       if (!inherits(f, "formula")) {
-        abort("Each argument to case_when() must be a two-sided formula")
+        validation_error("Each argument to case_when() must be a two-sided formula")
       }
       query[[i]] <- arrow_eval(f[[2]], mask)
       value[[i]] <- arrow_eval(f[[3]], mask)
       if (!call_binding("is.logical", query[[i]])) {
-        abort("Left side of each formula in case_when() must be a logical expression")
+        validation_error("Left side of each formula in case_when() must be a logical expression")
       }
-      if (inherits(value[[i]], "try-error")) {
-        abort(handle_arrow_not_supported(value[[i]], format_expr(f[[3]])))
+    }
+    if (!is.null(.default)) {
+      if (length(.default) != 1) {
+        validation_error(paste0("`.default` must have size 1, not size ", length(.default), "."))
       }
+
+      query[n + 1] <- TRUE
+      value[n + 1] <- .default
     }
     Expression$create(
       "case_when",
@@ -124,5 +144,5 @@ register_bindings_conditional <- function() {
         value
       )
     )
-  })
+  }, notes = "`.ptype` and `.size` arguments not supported")
 }

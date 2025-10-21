@@ -36,7 +36,13 @@ set -x
 SOURCE_DIR="$(cd "${SOURCE_DIR}" && pwd)"
 DEST_DIR="$(mkdir -p "${DEST_DIR}" && cd "${DEST_DIR}" && pwd)"
 
-: ${N_JOBS:="$(nproc)"}
+if [ "$N_JOBS" = "" ]; then
+  if [ "`uname -s`" = "Darwin" ]; then
+    N_JOBS="$(sysctl -n hw.logicalcpu)"
+  else
+    N_JOBS="$(nproc)"
+  fi
+fi
 
 # Make some env vars case-insensitive
 if [ "$LIBARROW_MINIMAL" != "" ]; then
@@ -49,17 +55,28 @@ else
   ARROW_DEFAULT_PARAM="OFF"
 fi
 
+# Disable mimalloc on IntelLLVM because the bundled version (2.0.x) does not support it
+case "$CXX" in
+  *icpx*)
+    ARROW_MIMALLOC="OFF"
+    ;;
+esac
+
 mkdir -p "${BUILD_DIR}"
 pushd "${BUILD_DIR}"
 ${CMAKE} -DARROW_BOOST_USE_SHARED=OFF \
+    -DARROW_SNAPPY_USE_SHARED=OFF \
     -DARROW_BUILD_TESTS=OFF \
     -DARROW_BUILD_SHARED=OFF \
     -DARROW_BUILD_STATIC=ON \
+    -DARROW_ACERO=${ARROW_ACERO:-ON} \
     -DARROW_COMPUTE=ON \
     -DARROW_CSV=ON \
     -DARROW_DATASET=${ARROW_DATASET:-ON} \
     -DARROW_DEPENDENCY_SOURCE=${ARROW_DEPENDENCY_SOURCE:-AUTO} \
     -DAWSSDK_SOURCE=${AWSSDK_SOURCE:-} \
+    -DBoost_SOURCE=${Boost_SOURCE:-} \
+    -Dlz4_SOURCE=${lz4_SOURCE:-} \
     -DARROW_FILESYSTEM=ON \
     -DARROW_GCS=${ARROW_GCS:-$ARROW_DEFAULT_PARAM} \
     -DARROW_JEMALLOC=${ARROW_JEMALLOC:-$ARROW_DEFAULT_PARAM} \
@@ -83,6 +100,8 @@ ${CMAKE} -DARROW_BOOST_USE_SHARED=OFF \
     -DCMAKE_EXPORT_NO_PACKAGE_REGISTRY=ON \
     -DCMAKE_FIND_PACKAGE_NO_PACKAGE_REGISTRY=ON \
     -DCMAKE_UNITY_BUILD=${CMAKE_UNITY_BUILD:-OFF} \
+    -DOPENSSL_ROOT_DIR=${OPENSSL_ROOT_DIR} \
+    -Dre2_SOURCE=${re2_SOURCE:-BUNDLED} \
     -Dxsimd_SOURCE=${xsimd_SOURCE:-} \
     -Dzstd_SOURCE=${zstd_SOURCE:-} \
     ${EXTRA_CMAKE_FLAGS} \

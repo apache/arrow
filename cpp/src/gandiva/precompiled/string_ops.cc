@@ -16,7 +16,7 @@
 // under the License.
 
 // String functions
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/value_parsing.h"
 
 extern "C" {
@@ -152,7 +152,7 @@ gdv_int32 utf8_char_length(char c) {
 
 FORCE_INLINE
 void set_error_for_invalid_utf(int64_t execution_context, char val) {
-  char const* fmt = "unexpected byte \\%02hhx encountered while decoding utf8 string";
+  const char* fmt = "unexpected byte \\%02hhx encountered while decoding utf8 string";
   int size = static_cast<int>(strlen(fmt)) + 64;
   char* error = reinterpret_cast<char*>(malloc(size));
   snprintf(error, size, fmt, (unsigned char)val);
@@ -1377,7 +1377,7 @@ gdv_int32 ascii_utf8(const char* data, gdv_int32 data_len) {
   if (data_len == 0) {
     return 0;
   }
-  return static_cast<gdv_int32>(data[0]);
+  return static_cast<gdv_int32>(static_cast<signed char>(data[0]));
 }
 
 // Returns the ASCII character having the binary equivalent to A.
@@ -1705,7 +1705,7 @@ gdv_int32 levenshtein(int64_t context, const char* in1, int32_t in1_len, const c
     return in1_len;
   }
 
-  // arr_larger and arr_smaller is one pointer for entrys
+  // arr_larger and arr_smaller is one pointer for entries
   const char* arr_larger;
   const char* arr_smaller;
   // len_larger and len_smaller is one copy from lengths
@@ -1733,7 +1733,7 @@ gdv_int32 levenshtein(int64_t context, const char* in1, int32_t in1_len, const c
     return 0;
   }
 
-  // MEMORY ADRESS MALLOC
+  // MEMORY ADDRESS MALLOC
   // v0 -> (0, ..., &ptr[in2_len])
   // v1 -> (in2_len+1, ..., &ptr[in2_len * 2])
   int* v0;
@@ -1742,7 +1742,7 @@ gdv_int32 levenshtein(int64_t context, const char* in1, int32_t in1_len, const c
   v0 = &ptr[0];
   v1 = &ptr[len_smaller + 1];
 
-  // Initializate v0
+  // Initialize v0
   for (int i = 0; i <= len_smaller; i++) {
     v0[i] = i;
   }
@@ -1778,7 +1778,7 @@ gdv_int32 levenshtein(int64_t context, const char* in1, int32_t in1_len, const c
       v1[j + 1] = min;
     }
 
-    // Swaping v0 and v1
+    // Swapping v0 and v1
     aux = v0;
     v0 = v1;
     v1 = aux;

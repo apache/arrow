@@ -75,12 +75,9 @@ Result<int64_t> StdinStream::Tell() const { return pos_; }
 
 Result<int64_t> StdinStream::Read(int64_t nbytes, void* out) {
   std::cin.read(reinterpret_cast<char*>(out), nbytes);
-  if (std::cin) {
-    pos_ += nbytes;
-    return nbytes;
-  } else {
-    return 0;
-  }
+  nbytes = std::cin.gcount();
+  pos_ += nbytes;
+  return nbytes;
 }
 
 Result<std::shared_ptr<Buffer>> StdinStream::Read(int64_t nbytes) {
@@ -88,7 +85,8 @@ Result<std::shared_ptr<Buffer>> StdinStream::Read(int64_t nbytes) {
   ARROW_ASSIGN_OR_RAISE(int64_t bytes_read, Read(nbytes, buffer->mutable_data()));
   ARROW_RETURN_NOT_OK(buffer->Resize(bytes_read, false));
   buffer->ZeroPadding();
-  return std::move(buffer);
+  // R build with openSUSE155 requires an explicit shared_ptr construction
+  return std::shared_ptr<Buffer>(std::move(buffer));
 }
 
 }  // namespace io

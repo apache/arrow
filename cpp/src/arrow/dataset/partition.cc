@@ -30,7 +30,7 @@
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/api_vector.h"
 #include "arrow/compute/cast.h"
-#include "arrow/compute/exec/expression_internal.h"
+#include "arrow/compute/expression_internal.h"
 #include "arrow/compute/row/grouper.h"
 #include "arrow/dataset/dataset_internal.h"
 #include "arrow/filesystem/path_util.h"
@@ -53,7 +53,7 @@ namespace dataset {
 namespace {
 /// Apply UriUnescape, then ensure the results are valid UTF-8.
 Result<std::string> SafeUriUnescape(std::string_view encoded) {
-  auto decoded = ::arrow::internal::UriUnescape(encoded);
+  auto decoded = ::arrow::util::UriUnescape(encoded);
   if (!util::ValidateUTF8(decoded)) {
     return Status::Invalid("Partition segment was not valid UTF-8 after URL decoding: ",
                            encoded);
@@ -75,32 +75,7 @@ std::string StripNonPrefix(const std::string& path) {
 }  // namespace
 
 std::shared_ptr<Partitioning> Partitioning::Default() {
-  class DefaultPartitioning : public Partitioning {
-   public:
-    DefaultPartitioning() : Partitioning(::arrow::schema({})) {}
-
-    std::string type_name() const override { return "default"; }
-
-    bool Equals(const Partitioning& other) const override {
-      return type_name() == other.type_name();
-    }
-
-    Result<compute::Expression> Parse(const std::string& path) const override {
-      return compute::literal(true);
-    }
-
-    Result<PartitionPathFormat> Format(const compute::Expression& expr) const override {
-      return Status::NotImplemented("formatting paths from ", type_name(),
-                                    " Partitioning");
-    }
-
-    Result<PartitionedBatches> Partition(
-        const std::shared_ptr<RecordBatch>& batch) const override {
-      return PartitionedBatches{{batch}, {compute::literal(true)}};
-    }
-  };
-
-  return std::make_shared<DefaultPartitioning>();
+  return std::make_shared<DirectoryPartitioning>(arrow::schema({}));
 }
 
 static Result<RecordBatchVector> ApplyGroupings(
@@ -780,7 +755,7 @@ Result<PartitionPathFormat> HivePartitioning::FormatValues(
       // field_index <-> path nesting relation
       segments[i] = name + "=" + hive_options_.null_fallback;
     } else {
-      segments[i] = name + "=" + arrow::internal::UriEscape(values[i]->ToString());
+      segments[i] = name + "=" + arrow::util::UriEscape(values[i]->ToString());
     }
   }
 

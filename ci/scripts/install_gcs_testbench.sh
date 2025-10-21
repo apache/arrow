@@ -17,7 +17,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-set -e
+set -ex
 
 if [ "$#" -ne 1 ]; then
   echo "Usage: $0 <storage-testbench version>"
@@ -35,9 +35,25 @@ case "$(uname -m)" in
 esac
 
 version=$1
-if [[ "${version}" -eq "default" ]]; then
-  version="v0.32.0"
+if [[ "${version}" = "default" ]]; then
+  version="v0.55.0"
 fi
 
-${PYTHON:-python3} -m pip install \
+# The Python to install pipx with
+: "${PIPX_BASE_PYTHON:=$(which python3)}"
+# The Python to install the GCS testbench with
+: "${PIPX_PYTHON:=${PIPX_BASE_PYTHON:-$(which python3)}}"
+
+export PIP_BREAK_SYSTEM_PACKAGES=1
+${PIPX_BASE_PYTHON} -m pip install -U pipx
+
+pipx_flags=(--verbose --python "${PIPX_PYTHON}")
+if [[ $(id -un) == "root" ]]; then
+  # Install globally as /root/.local/bin is typically not in $PATH
+  pipx_flags+=(--global)
+fi
+if [[ -n "${PIPX_PIP_ARGS}" ]]; then
+  pipx_flags+=(--pip-args "'${PIPX_PIP_ARGS}'")
+fi
+${PIPX_BASE_PYTHON} -m pipx install "${pipx_flags[@]}" \
   "https://github.com/googleapis/storage-testbench/archive/${version}.tar.gz"

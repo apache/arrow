@@ -20,14 +20,14 @@
 #include <algorithm>
 #include <chrono>
 
+#include "arrow/python/platform.h"
+#include "arrow/python/visibility.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/int_util_overflow.h"
 #include "arrow/util/logging.h"
-#include "arrow/python/platform.h"
-#include "arrow/python/visibility.h"
 
 // By default, PyDateTimeAPI is a *static* variable.  This forces
 // PyDateTime_IMPORT to be called in every C/C++ module using the
@@ -35,9 +35,9 @@
 // Instead, we redefine PyDateTimeAPI to point to a global variable,
 // which is initialized once by calling InitDatetime().
 #ifdef PYPY_VERSION
-#include "datetime.h"
+#  include "datetime.h"
 #else
-#define PyDateTimeAPI ::arrow::py::internal::datetime_api
+#  define PyDateTimeAPI ::arrow::py::internal::datetime_api
 #endif
 
 namespace arrow {
@@ -220,7 +220,7 @@ ARROW_PYTHON_EXPORT
 Result<PyObject*> MonthDayNanoIntervalArrayToPyList(
     const MonthDayNanoIntervalArray& array);
 
-/// \brief Convert the Scalar obect to a pyarrow.MonthDayNano (or None if
+/// \brief Convert the Scalar object to a pyarrow.MonthDayNano (or None if
 /// is isn't valid).
 ARROW_PYTHON_EXPORT
 Result<PyObject*> MonthDayNanoIntervalScalarToPyObject(

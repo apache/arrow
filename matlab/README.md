@@ -21,9 +21,42 @@
 
 ## Status
 
+> **Warning** The MATLAB interface is under active development and should be considered experimental.
+
 This is a very early stage MATLAB interface to the Apache Arrow C++ libraries.
 
-The current code only supports reading/writing numeric types from/to Feather v1 files.
+Currently, the MATLAB interface supports:
+
+1. Converting between a subset of Arrow `Array` types and MATLAB array types (see table below)
+2. Converting between MATLAB `table`s and `arrow.tabular.RecordBatch`s
+3. Creating Arrow `Field`s, `Schema`s, and `Type`s
+4. Reading and writing Feather V1 files
+
+Supported `arrow.array.Array` types are included in the table below.
+
+**NOTE**: All Arrow `Array` classes listed below are part of the `arrow.array` package (e.g. `arrow.array.Float64Array`).
+
+| MATLAB Array Type | Arrow Array Type |
+| ----------------- | ---------------- |
+| `uint8`           | `UInt8Array`     |
+| `uint16`          | `UInt16Array`    |
+| `uint32`          | `UInt32Array`    |
+| `uint64`          | `UInt64Array`    |
+| `int8`            | `Int8Array`      |
+| `int16`           | `Int16Array`     |
+| `int32`           | `Int32Array`     |
+| `int64`           | `Int64Array`     |
+| `single`          | `Float32Array`   |
+| `double`          | `Float64Array`   |
+| `logical`         | `BooleanArray`   |
+| `string`          | `StringArray`    |
+| `datetime`        | `TimestampArray` |
+| `datetime`        | `Date32Array`    |
+| `datetime`        | `Date64Array`    |
+| `duration`        | `Time32Array`    |
+| `duration`        | `Time64Array`    |
+| `cell`            | `ListArray`      |
+| `table`           | `StructArray`    |
 
 ## Prerequisites
 
@@ -53,7 +86,7 @@ $ cd arrow/matlab
 To build the MATLAB interface, use [CMake](https://cmake.org/cmake/help/latest/):
 
 ```console
-$ cmake -S . -B build 
+$ cmake -S . -B build
 $ cmake --build build --config Release
 ```
 
@@ -71,47 +104,491 @@ As part of the install step, the installation directory is added to the [MATLAB 
 
 ## Test
 
-There are two kinds of tests for the MATLAB Interface: MATLAB and C++. 
-
-### MATLAB
-
-To run the MATLAB tests, start MATLAB in the `arrow/matlab` directory and call the [`runtests`](https://mathworks.com/help/matlab/ref/runtests.html) command on the `test` directory:
+To run the MATLAB tests, start MATLAB in the `arrow/matlab` directory and call the [`runtests`](https://mathworks.com/help/matlab/ref/runtests.html) command on the `test` directory with `IncludeSubFolders=true`:
 
 ``` matlab
->> runtests test;
+>> runtests("test", IncludeSubFolders=true);
 ```
 
-### C++
-
-To enable the C++ tests, set the `MATLAB_BUILD_TESTS` flag to `ON` at build time: 
-
-```console
-$ cmake -S . -B build -D MATLAB_BUILD_TESTS=ON
-$ cmake --build build --config Release
-```
-
-After building with the `MATLAB_BUILD_TESTS` flag enabled, the C++ tests can be run using [CTest](https://cmake.org/cmake/help/latest/manual/ctest.1.html):
-
-```console
-$ ctest --test-dir build
-```
+Refer to [Testing Guidelines](doc/testing_guidelines_for_the_matlab_interface_to_apache_arrow.md) for more information.
 
 ## Usage
 
 Included below are some example code snippets that illustrate how to use the MATLAB interface.
 
-### Write a MATLAB table to a Feather v1 file
+### Arrow `Array` classes (i.e. `arrow.array.<Array>`)
 
-``` matlab
->> t = array2table(rand(10, 10));
->> filename = 'table.feather';
->> featherwrite(filename,t);
+#### Create an Arrow `Float64Array` from a MATLAB `double` array
+
+```matlab
+>> matlabArray = double([1, 2, 3])
+
+matlabArray =
+
+     1     2     3
+
+>> arrowArray = arrow.array(matlabArray)
+
+arrowArray = 
+
+  Float64Array with 3 elements and 0 null values:
+
+    1 | 2 | 3
 ```
 
-### Read a Feather v1 file into a MATLAB table
+#### Create a MATLAB `logical` array from an Arrow `BooleanArray`
+
+```matlab
+>> arrowArray = arrow.array([true, false, true])
+
+arrowArray = 
+
+  BooleanArray with 3 elements and 0 null values:
+
+    true | false | true
+
+>> matlabArray = toMATLAB(arrowArray)
+
+matlabArray =
+
+  3×1 logical array
+
+   1
+   0
+   1
+```
+
+#### Specify `Null` Values when constructing an `arrow.array.Int8Array`
+
+```matlab
+>> matlabArray = int8([122, -1, 456, -10, 789])
+
+matlabArray =
+
+  1×5 int8 row vector
+
+    122     -1    127    -10    127
+
+% Treat all negative array elements as Null
+>> validElements = matlabArray > 0
+
+validElements =
+
+  1×5 logical array
+
+   1   0   1   0   1
+
+% Specify which values are Null/Valid by supplying a logical validity "mask"
+>> arrowArray = arrow.array(matlabArray, Valid=validElements)
+
+arrowArray = 
+
+  Int8Array with 5 elements and 2 null values:
+
+    122 | null | 127 | null | 127
+```
+
+### Arrow `RecordBatch` class
+
+#### Create an Arrow `RecordBatch` from a MATLAB `table`
+
+```matlab
+>> matlabTable = table(["A"; "B"; "C"], [1; 2; 3], [true; false; true])
+
+matlabTable =
+
+  3x3 table
+
+    Var1    Var2    Var3
+    ____    ____    _____
+
+    "A"      1      true
+    "B"      2      false
+    "C"      3      true
+
+>> arrowRecordBatch = arrow.recordBatch(matlabTable)
+
+arrowRecordBatch = 
+
+  Arrow RecordBatch with 3 rows and 3 columns:
+
+    Schema:
+
+        Var1: String | Var2: Float64 | Var3: Boolean
+
+    First Row:
+
+        "A" | 1 | true
+```
+
+#### Create a MATLAB `table` from an Arrow `RecordBatch`
+
+```matlab
+>> arrowRecordBatch
+
+arrowRecordBatch = 
+
+  Arrow RecordBatch with 3 rows and 3 columns:
+
+    Schema:
+
+        Var1: String | Var2: Float64 | Var3: Boolean
+
+    First Row:
+
+        "A" | 1 | true
+
+>> matlabTable = table(arrowRecordBatch)
+
+matlabTable =
+
+  3x3 table
+
+    Var1    Var2    Var3
+    ____    ____    _____
+
+    "A"      1      true
+    "B"      2      false
+    "C"      3      true
+```
+
+#### Create an Arrow `RecordBatch` from multiple Arrow `Array`s
+
+
+```matlab
+>> stringArray = arrow.array(["A", "B", "C"])
+
+stringArray = 
+
+  StringArray with 3 elements and 0 null values:
+
+    "A" | "B" | "C"
+
+>> timestampArray = arrow.array([datetime(1997, 01, 01), datetime(1998, 01, 01), datetime(1999, 01, 01)])
+
+timestampArray = 
+
+  TimestampArray with 3 elements and 0 null values:
+
+    1997-01-01 00:00:00.000000 | 1998-01-01 00:00:00.000000 | 1999-01-01 00:00:00.000000
+
+>> booleanArray = arrow.array([true, false, true])
+
+booleanArray = 
+
+  BooleanArray with 3 elements and 0 null values:
+
+    true | false | true
+
+>> arrowRecordBatch = arrow.tabular.RecordBatch.fromArrays(stringArray, timestampArray, booleanArray)
+
+arrowRecordBatch = 
+
+  Arrow RecordBatch with 3 rows and 3 columns:
+
+    Schema:
+
+        Column1: String | Column2: Timestamp | Column3: Boolean
+
+    First Row:
+
+        "A" | 1997-01-01 00:00:00.000000 | true
+```
+
+#### Extract a column from a `RecordBatch` by index
+
+```matlab
+>> arrowRecordBatch = arrow.tabular.RecordBatch.fromArrays(stringArray, timestampArray, booleanArray)
+
+arrowRecordBatch = 
+
+  Arrow RecordBatch with 3 rows and 3 columns:
+
+    Schema:
+
+        Column1: String | Column2: Timestamp | Column3: Boolean
+
+    First Row:
+
+        "A" | 1997-01-01 00:00:00.000000 | true
+
+>> timestampArray = arrowRecordBatch.column(2)
+
+timestampArray = 
+
+  TimestampArray with 3 elements and 0 null values:
+
+    1997-01-01 00:00:00.000000 | 1998-01-01 00:00:00.000000 | 1999-01-01 00:00:00.000000
+```
+
+### Arrow `Type` classes (i.e. `arrow.type.<Type>`)
+
+#### Create an Arrow `Int8Type` object
+
+```matlab
+>> type = arrow.int8()
+
+type =
+
+  Int8Type with properties:
+
+    ID: Int8
+```
+
+#### Create an Arrow `TimestampType` object with a specific `TimeUnit` and `TimeZone`
+
+```matlab
+>> type = arrow.timestamp(TimeUnit="Second", TimeZone="Asia/Kolkata")
+
+type =
+
+  TimestampType with properties:
+
+          ID: Timestamp
+    TimeUnit: Second
+    TimeZone: "Asia/Kolkata"
+```
+
+
+#### Get the type enumeration `ID` for an Arrow `Type` object
+
+```matlab
+>> type.ID
+
+ans =
+
+  ID enumeration
+
+    Timestamp
+
+>> type = arrow.string()
+
+type =
+
+  StringType with properties:
+
+    ID: String
+
+>> type.ID
+
+ans =
+
+  ID enumeration
+
+    String
+```
+
+### Arrow `Field` class
+
+#### Create an Arrow `Field` with type `Int8Type`
+
+```matlab
+>> field = arrow.field("Number", arrow.int8())
+
+field = 
+
+  Field with properties:
+
+    Name: "Number"
+    Type: [1x1 arrow.type.Int8Type]
+
+>> field.Name
+
+ans =
+
+    "Number"
+
+>> field.Type
+
+ans =
+
+  Int8Type with properties:
+
+    ID: Int8
+
+```
+
+#### Create an Arrow `Field` with type `StringType`
+
+```matlab
+>> field = arrow.field("Letter", arrow.string())
+
+field = 
+
+  Field with properties:
+
+    Name: "Letter"
+    Type: [1x1 arrow.type.StringType]
+
+>> field.Name
+
+ans =
+
+    "Letter"
+
+>> field.Type
+
+ans =
+
+  StringType with properties:
+
+    ID: String
+```
+
+#### Extract an Arrow `Field` from an Arrow `Schema` by index
+
+```matlab
+>> arrowSchema
+
+arrowSchema = 
+
+  Arrow Schema with 2 fields:
+
+    Letter: String | Number: Int8
+
+% Specify the field to extract by its index (i.e. 2)
+>> field = arrowSchema.field(2)
+
+field = 
+
+  Field with properties:
+
+    Name: "Number"
+    Type: [1x1 arrow.type.Int8Type]
+```
+
+#### Extract an Arrow `Field` from an Arrow `Schema` by name
+
+```matlab
+>> arrowSchema
+
+arrowSchema = 
+
+  Arrow Schema with 2 fields:
+
+    Letter: String | Number: Int8
+
+% Specify the field to extract by its name (i.e. "Letter")
+>> field = arrowSchema.field("Letter")
+
+field = 
+
+  Field with properties:
+
+    Name: "Letter"
+    Type: [1x1 arrow.type.StringType]
+```
+
+### Arrow `Schema` class
+
+#### Create an Arrow `Schema` from multiple Arrow `Field`s
+
+```matlab
+>> letter = arrow.field("Letter", arrow.string())
+
+letter = 
+
+  Field with properties:
+
+    Name: "Letter"
+    Type: [1x1 arrow.type.StringType]
+
+>> number = arrow.field("Number", arrow.int8())
+
+number = 
+
+  Field with properties:
+
+    Name: "Number"
+    Type: [1x1 arrow.type.Int8Type]
+
+>> schema = arrow.schema([letter, number])
+
+schema = 
+
+  Arrow Schema with 2 fields:
+
+    Letter: String | Number: Int8
+```
+
+#### Get the `Schema` of an Arrow `RecordBatch`
+
+```matlab
+>> matlabTable = table(["A"; "B"; "C"], [1; 2; 3], VariableNames=["Letter", "Number"])
+
+matlabTable =
+
+  3x2 table
+
+    Letter    Number
+    ______    ______
+
+     "A"        1
+     "B"        2
+     "C"        3
+
+>> arrowRecordBatch = arrow.recordBatch(matlabTable)
+
+arrowRecordBatch = 
+
+  Arrow RecordBatch with 3 rows and 2 columns:
+
+    Schema:
+
+        Letter: String | Number: Float64
+
+    First Row:
+
+        "A" | 1
+
+>> arrowSchema = arrowRecordBatch.Schema
+
+arrowSchema = 
+
+  Arrow Schema with 2 fields:
+
+    Letter: String | Number: Float64
+```
+
+### Feather V1
+
+#### Write a MATLAB table to a Feather V1 file
 
 ``` matlab
->> filename = 'table.feather';
->> t = featherread(filename);
+>> t = table(["A"; "B"; "C"], [1; 2; 3], [true; false; true])
+
+t =
+
+  3×3 table
+
+    Var1    Var2    Var3
+    ____    ____    _____
+
+    "A"      1      true
+    "B"      2      false
+    "C"      3      true
+
+>> filename = "table.feather";
+
+>> featherwrite(filename, t)
+```
+
+#### Read a Feather V1 file into a MATLAB table
+
+``` matlab
+>> filename = "table.feather";
+
+>> t = featherread(filename)
+
+t =
+
+  3×3 table
+
+    Var1    Var2    Var3
+    ____    ____    _____
+
+    "A"      1      true
+    "B"      2      false
+    "C"      3      true
 ```
 

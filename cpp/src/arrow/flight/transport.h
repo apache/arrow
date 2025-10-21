@@ -19,8 +19,6 @@
 /// Internal (but not private) interface for implementing
 /// alternate network transports in Flight.
 ///
-/// \warning EXPERIMENTAL. Subject to change.
-///
 /// To implement a transport, implement ServerTransport and
 /// ClientTransport, and register the desired URI schemes with
 /// TransportRegistry. Flight takes care of most of the per-RPC
@@ -64,7 +62,9 @@
 #include <vector>
 
 #include "arrow/flight/type_fwd.h"
+#include "arrow/flight/types.h"
 #include "arrow/flight/visibility.h"
+#include "arrow/ipc/options.h"
 #include "arrow/type_fwd.h"
 
 namespace arrow {
@@ -166,7 +166,7 @@ class ARROW_FLIGHT_EXPORT ClientTransport {
 
   /// Initialize the client.
   virtual Status Init(const FlightClientOptions& options, const Location& location,
-                      const arrow::internal::Uri& uri) = 0;
+                      const arrow::util::Uri& uri) = 0;
   /// Close the client. Once this returns, the client is no longer usable.
   virtual Status Close() = 0;
 
@@ -182,6 +182,12 @@ class ARROW_FLIGHT_EXPORT ClientTransport {
   virtual Status GetFlightInfo(const FlightCallOptions& options,
                                const FlightDescriptor& descriptor,
                                std::unique_ptr<FlightInfo>* info);
+  virtual void GetFlightInfoAsync(const FlightCallOptions& options,
+                                  const FlightDescriptor& descriptor,
+                                  std::shared_ptr<AsyncListener<FlightInfo>> listener);
+  virtual Status PollFlightInfo(const FlightCallOptions& options,
+                                const FlightDescriptor& descriptor,
+                                std::unique_ptr<PollInfo>* info);
   virtual arrow::Result<std::unique_ptr<SchemaResult>> GetSchema(
       const FlightCallOptions& options, const FlightDescriptor& descriptor);
   virtual Status ListFlights(const FlightCallOptions& options, const Criteria& criteria,
@@ -192,6 +198,16 @@ class ARROW_FLIGHT_EXPORT ClientTransport {
                        std::unique_ptr<ClientDataStream>* stream);
   virtual Status DoExchange(const FlightCallOptions& options,
                             std::unique_ptr<ClientDataStream>* stream);
+
+  bool supports_async() const { return CheckAsyncSupport().ok(); }
+  virtual Status CheckAsyncSupport() const {
+    return Status::NotImplemented(
+        "this Flight transport does not support async operations");
+  }
+
+  static void SetAsyncRpc(AsyncListenerBase* listener, std::unique_ptr<AsyncRpc>&& rpc);
+  static AsyncRpc* GetAsyncRpc(AsyncListenerBase* listener);
+  static std::unique_ptr<AsyncRpc> ReleaseAsyncRpc(AsyncListenerBase* listener);
 };
 
 /// A registry of transport implementations.
@@ -223,23 +239,30 @@ ARROW_FLIGHT_EXPORT
 TransportRegistry* GetDefaultTransportRegistry();
 
 //------------------------------------------------------------
-// Error propagation helpers
+// Async APIs
 
-/// \brief Abstract status code as per the Flight specification.
-enum class TransportStatusCode {
-  kOk = 0,
-  kUnknown = 1,
-  kInternal = 2,
-  kInvalidArgument = 3,
-  kTimedOut = 4,
-  kNotFound = 5,
-  kAlreadyExists = 6,
-  kCancelled = 7,
-  kUnauthenticated = 8,
-  kUnauthorized = 9,
-  kUnimplemented = 10,
-  kUnavailable = 11,
+/// \brief Transport-specific state for an async RPC.
+///
+/// Transport implementations may subclass this to store their own
+/// state, and stash an instance in a user-supplied AsyncListener via
+/// ClientTransport::GetAsyncRpc and ClientTransport::SetAsyncRpc.
+class ARROW_FLIGHT_EXPORT AsyncRpc {
+ public:
+  virtual ~AsyncRpc() = default;
+  /// \brief Request cancellation of the RPC.
+  virtual void TryCancel() {}
+
+  /// Only needed for DoPut/DoExchange
+  virtual void Begin(const FlightDescriptor& descriptor, std::shared_ptr<Schema> schema) {
+  }
+  /// Only needed for DoPut/DoExchange
+  virtual void Write(arrow::flight::FlightStreamChunk chunk) {}
+  /// Only needed for DoPut/DoExchange
+  virtual void DoneWriting() {}
 };
+
+//------------------------------------------------------------
+// Error propagation helpers
 
 /// \brief Abstract error status.
 ///

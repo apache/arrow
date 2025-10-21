@@ -18,110 +18,123 @@
 library(dplyr, warn.conflicts = FALSE)
 suppressPackageStartupMessages(library(bit64))
 
+skip_if_not_available("acero")
+# Skip these tests on CRAN due to build times > 10 mins
+skip_on_cran()
 
 tbl <- example_data
 tbl$verses <- verses[[1]]
 tbl$another_chr <- tail(letters, 10)
 
+test_that("%in% handles dictionary type", {
+  df <- tibble::tibble(x = factor(c("a", "b", "c")))
+  compare_dplyr_binding(
+    .input |>
+      filter(x %in% "a") |>
+      collect(),
+    df
+  )
+})
+
 test_that("if_else and ifelse", {
   compare_dplyr_binding(
-    .input %>%
+    .input |>
       mutate(
         y = if_else(int > 5, 1, 0),
         y2 = dplyr::if_else(int > 6, 1, 0)
-      ) %>%
+      ) |>
       collect(),
     tbl
   )
 
   compare_dplyr_binding(
-    .input %>%
+    .input |>
       mutate(
         y = if_else(int > 5, int, 0L)
-      ) %>%
+      ) |>
       collect(),
     tbl
   )
 
   expect_error(
-    Table$create(tbl) %>%
+    Table$create(tbl) |>
       mutate(
         y = if_else(int > 5, 1, FALSE)
-      ) %>%
+      ) |>
       collect(),
     "NotImplemented: Function 'if_else' has no kernel matching input types"
   )
 
   compare_dplyr_binding(
-    .input %>%
+    .input |>
       mutate(
         y = if_else(int > 5, 1, NA_real_)
-      ) %>%
+      ) |>
       collect(),
     tbl
   )
 
   compare_dplyr_binding(
-    .input %>%
+    .input |>
       mutate(
         y = ifelse(int > 5, 1, 0),
         y2 = base::ifelse(int > 6, 1, 0)
-      ) %>%
+      ) |>
       collect(),
     tbl
   )
 
   compare_dplyr_binding(
-    .input %>%
+    .input |>
       mutate(
         y = if_else(dbl > 5, TRUE, FALSE)
-      ) %>%
+      ) |>
       collect(),
     tbl
   )
 
   compare_dplyr_binding(
-    .input %>%
+    .input |>
       mutate(
         y = if_else(chr %in% letters[1:3], 1L, 3L)
-      ) %>%
+      ) |>
       collect(),
     tbl
   )
 
   compare_dplyr_binding(
-    .input %>%
+    .input |>
       mutate(
         y = if_else(int > 5, "one", "zero")
-      ) %>%
+      ) |>
       collect(),
     tbl
   )
 
   compare_dplyr_binding(
-    .input %>%
+    .input |>
       mutate(
         y = if_else(int > 5, chr, another_chr)
-      ) %>%
+      ) |>
       collect(),
     tbl
   )
 
   compare_dplyr_binding(
-    .input %>%
+    .input |>
       mutate(
         y = if_else(int > 5, "true", chr, missing = "MISSING")
-      ) %>%
+      ) |>
       collect(),
     tbl
   )
 
   compare_dplyr_binding(
-    .input %>%
+    .input |>
       mutate(
         y = if_else(int > 5, fct, factor("a"))
-      ) %>%
-      collect() %>%
+      ) |>
+      collect() |>
       # Arrow if_else() kernel does not preserve unused factor levels,
       # so reset the levels of all the factor columns to make the test pass
       # (ARROW-14649)
@@ -134,10 +147,10 @@ test_that("if_else and ifelse", {
 
   # detecting NA and NaN works just fine
   compare_dplyr_binding(
-    .input %>%
+    .input |>
       mutate(
         y = if_else(is.na(dbl), chr, "false", missing = "MISSING")
-      ) %>%
+      ) |>
       collect(),
     example_data_for_sorting
   )
@@ -145,18 +158,18 @@ test_that("if_else and ifelse", {
   # However, currently comparisons with NaNs return false and not NaNs or NAs
   skip("ARROW-13364")
   compare_dplyr_binding(
-    .input %>%
+    .input |>
       mutate(
         y = if_else(dbl > 5, chr, another_chr, missing = "MISSING")
-      ) %>%
+      ) |>
       collect(),
     example_data_for_sorting
   )
 
   skip("TODO: could? should? we support the autocasting in ifelse")
   compare_dplyr_binding(
-    .input %>%
-      mutate(y = ifelse(int > 5, 1, FALSE)) %>%
+    .input |>
+      mutate(y = ifelse(int > 5, 1, FALSE)) |>
       collect(),
     tbl
   )
@@ -164,42 +177,65 @@ test_that("if_else and ifelse", {
 
 test_that("case_when()", {
   compare_dplyr_binding(
-    .input %>%
-      transmute(cw = case_when(lgl ~ dbl, !false ~ dbl + dbl2)) %>%
+    .input |>
+      transmute(cw = case_when(lgl ~ dbl, !false ~ dbl + dbl2)) |>
       collect(),
     tbl
   )
   compare_dplyr_binding(
-    .input %>%
-      mutate(cw = case_when(int > 5 ~ 1, TRUE ~ 0)) %>%
+    .input |>
+      mutate(cw = case_when(int > 5 ~ 1, TRUE ~ 0)) |>
       collect(),
     tbl
   )
+
   compare_dplyr_binding(
-    .input %>%
-      transmute(cw = case_when(chr %in% letters[1:3] ~ 1L) + 41L) %>%
+    .input |>
+      mutate(cw = case_when(int > 5 ~ 1, .default = 0)) |>
       collect(),
     tbl
   )
+
   compare_dplyr_binding(
-    .input %>%
+    .input |>
+      transmute(cw = case_when(chr %in% letters[1:3] ~ 1L) + 41L) |>
+      collect(),
+    tbl
+  )
+
+  # Test finding R functions from the user's environment
+  isIn <- function(x, y) x %in% y
+  withr::with_options(list(arrow.debug = TRUE), {
+    expect_output(
+      compare_dplyr_binding(
+        .input |>
+          transmute(cw = case_when(isIn(chr, letters[1:3]) ~ 1L) + 41L) |>
+          collect(),
+        tbl
+      ),
+      "Adding isIn to the function environment"
+    )
+  })
+
+  compare_dplyr_binding(
+    .input |>
       filter(case_when(
         dbl + int - 1.1 == dbl2 ~ TRUE,
         NA ~ NA,
         TRUE ~ FALSE
-      ) & !is.na(dbl2)) %>%
+      ) & !is.na(dbl2)) |>
       collect(),
     tbl
   )
 
   # with namespacing
   compare_dplyr_binding(
-    .input %>%
+    .input |>
       filter(dplyr::case_when(
         dbl + int - 1.1 == dbl2 ~ TRUE,
         NA ~ NA,
         TRUE ~ FALSE
-      ) & !is.na(dbl2)) %>%
+      ) & !is.na(dbl2)) |>
       collect(),
     tbl
   )
@@ -207,87 +243,85 @@ test_that("case_when()", {
   # dplyr::case_when() errors if values on right side of formulas do not have
   # exactly the same type, but the Arrow case_when kernel allows compatible types
   expect_equal(
-    tbl %>%
-      mutate(i64 = as.integer64(1e10)) %>%
-      Table$create() %>%
+    tbl |>
+      mutate(i64 = as.integer64(1e10)) |>
+      Table$create() |>
       transmute(cw = case_when(
         is.na(fct) ~ int,
         is.na(chr) ~ dbl,
         TRUE ~ i64
-      )) %>%
+      )) |>
       collect(),
-    tbl %>%
+    tbl |>
       transmute(
         cw = ifelse(is.na(fct), int, ifelse(is.na(chr), dbl, 1e10))
       )
   )
 
-  # expected errors (which are caught by abandon_ship() and changed to warnings)
-  # TODO: Find a way to test these directly without abandon_ship() interfering
-  expect_error(
-    # no cases
-    expect_warning(
-      tbl %>%
-        Table$create() %>%
-        transmute(cw = case_when()),
-      "case_when"
-    )
+  # validation errors
+  expect_arrow_eval_error(
+    case_when(),
+    "No cases provided",
+    class = "validation_error"
   )
-  expect_error(
-    # argument not a formula
-    expect_warning(
-      tbl %>%
-        Table$create() %>%
-        transmute(cw = case_when(TRUE ~ FALSE, TRUE)),
-      "case_when"
-    )
+  expect_arrow_eval_error(
+    case_when(TRUE ~ FALSE, TRUE),
+    "Each argument to case_when\\(\\) must be a two-sided formula",
+    class = "validation_error"
   )
-  expect_error(
-    # non-logical R scalar on left side of formula
-    expect_warning(
-      tbl %>%
-        Table$create() %>%
-        transmute(cw = case_when(0L ~ FALSE, TRUE ~ FALSE)),
-      "case_when"
-    )
+  expect_arrow_eval_error(
+    case_when(0L ~ FALSE, TRUE ~ FALSE),
+    "Left side of each formula in case_when\\(\\) must be a logical expression",
+    class = "validation_error"
   )
-  expect_error(
+  expect_arrow_eval_error(
     # non-logical Arrow column reference on left side of formula
-    expect_warning(
-      tbl %>%
-        Table$create() %>%
-        transmute(cw = case_when(int ~ FALSE)),
-      "case_when"
-    )
+    case_when(int ~ FALSE),
+    "Left side of each formula in case_when\\(\\) must be a logical expression",
+    class = "validation_error"
   )
-  expect_error(
-    # non-logical Arrow expression on left side of formula
-    expect_warning(
-      tbl %>%
-        Table$create() %>%
-        transmute(cw = case_when(dbl + 3.14159 ~ TRUE)),
-      "case_when"
-    )
+  expect_arrow_eval_error(
+    # non-logical Arrow column reference on left side of formula
+    case_when(dbl + 3.14159 ~ TRUE),
+    "Left side of each formula in case_when\\(\\) must be a logical expression",
+    class = "validation_error"
+  )
+  expect_arrow_eval_error(
+    case_when(int > 5 ~ 1, .default = c(0, 1)),
+    "`.default` must have size 1, not size 2",
+    class = "validation_error"
+  )
+
+  expect_arrow_eval_error(
+    case_when(int > 5 ~ 1, .ptype = integer()),
+    "`case_when\\(\\)` with `.ptype` specified not supported in Arrow",
+    class = "arrow_not_supported"
+  )
+
+  expect_arrow_eval_error(
+    case_when(int > 5 ~ 1, .size = 10),
+    "`case_when\\(\\)` with `.size` specified not supported in Arrow",
+    class = "arrow_not_supported"
   )
 
   compare_dplyr_binding(
-    .input %>%
-      transmute(cw = case_when(lgl ~ "abc")) %>%
+    .input |>
+      transmute(cw = case_when(lgl ~ "abc")) |>
       collect(),
     tbl
   )
   compare_dplyr_binding(
-    .input %>%
-      transmute(cw = case_when(lgl ~ verses, !false ~ paste(chr, chr))) %>%
+    .input |>
+      transmute(cw = case_when(lgl ~ verses, !false ~ paste(chr, chr))) |>
       collect(),
     tbl
   )
 
   compare_dplyr_binding(
-    .input %>%
+    .input |>
       mutate(
         cw = case_when(!(!(!(lgl))) ~ factor(chr), TRUE ~ fct)
-      ) %>%
+      ) |>
       collect(),
     tbl,
     warning = TRUE
@@ -303,45 +337,45 @@ test_that("coalesce()", {
     z = c("a", "b", "c")
   )
   compare_dplyr_binding(
-    .input %>%
+    .input |>
       mutate(
         cw = coalesce(w),
         cz = coalesce(z),
         cwx = coalesce(w, x),
         cwxy = coalesce(w, x, y),
         cwxyz = coalesce(w, x, y, z)
-      ) %>%
+      ) |>
       collect(),
     df
   )
 
   # with namespacing
   compare_dplyr_binding(
-    .input %>%
+    .input |>
       mutate(
         cw = dplyr::coalesce(w),
         cz = dplyr::coalesce(z),
         cwx = dplyr::coalesce(w, x),
         cwxy = dplyr::coalesce(w, x, y),
         cwxyz = dplyr::coalesce(w, x, y, z)
-      ) %>%
+      ) |>
       collect(),
     df
   )
 
   # factor
-  df_fct <- df %>%
+  df_fct <- df |>
     transmute(across(everything(), ~ factor(.x, levels = c("a", "b", "c"))))
   compare_dplyr_binding(
-    .input %>%
+    .input |>
       mutate(
         cw = coalesce(w),
         cz = coalesce(z),
         cwx = coalesce(w, x),
         cwxy = coalesce(w, x, y),
         cwxyz = coalesce(w, x, y, z)
-      ) %>%
-      collect() %>%
+      ) |>
+      collect() |>
       # Arrow coalesce() kernel does not preserve unused factor levels,
       # so reset the levels of all the factor columns to make the test pass
       # (ARROW-14649)
@@ -357,14 +391,14 @@ test_that("coalesce()", {
     z = 1:3
   )
   compare_dplyr_binding(
-    .input %>%
+    .input |>
       mutate(
         cw = coalesce(w),
         cz = coalesce(z),
         cwx = coalesce(w, x),
         cwxy = coalesce(w, x, y),
         cwxyz = coalesce(w, x, y, z)
-      ) %>%
+      ) |>
       collect(),
     df
   )
@@ -376,49 +410,60 @@ test_that("coalesce()", {
     y = c(NA_real_, 2.2, 3.3),
     z = c(1.1, 2.2, 3.3)
   )
-  compare_dplyr_binding(
-    .input %>%
+
+  # we can't use compare_dplyr_binding here as dplyr silently converts NaN to NA in coalesce()
+  # see https://github.com/tidyverse/dplyr/issues/6833
+  expect_identical(
+    arrow_table(df) |>
       mutate(
         cw = coalesce(w),
         cz = coalesce(z),
         cwx = coalesce(w, x),
         cwxy = coalesce(w, x, y),
         cwxyz = coalesce(w, x, y, z)
-      ) %>%
+      ) |>
       collect(),
-    df
+    mutate(
+      df,
+      cw = c(NA, NaN, NA),
+      cz = c(1.1, 2.2, 3.3),
+      cwx = c(NA, NaN, 3.3),
+      cwxy = c(NA, 2.2, 3.3),
+      cwxyz = c(1.1, 2.2, 3.3)
+    )
   )
+
   # NaNs stay NaN and are not converted to NA in the results
   # (testing this requires expect_identical())
   expect_identical(
-    df %>% Table$create() %>% mutate(cwx = coalesce(w, x)) %>% collect(),
-    df %>% mutate(cwx = coalesce(w, x))
+    df |> Table$create() |> mutate(cwx = coalesce(w, x)) |> collect(),
+    df |> mutate(cwx = c(NA, NaN, 3.3))
   )
   expect_identical(
-    df %>% Table$create() %>% transmute(cw = coalesce(w)) %>% collect(),
-    df %>% transmute(cw = coalesce(w))
+    df |> Table$create() |> transmute(cw = coalesce(w)) |> collect(),
+    df |> transmute(cw = w)
   )
   expect_identical(
-    df %>% Table$create() %>% transmute(cn = coalesce(NaN)) %>% collect(),
-    df %>% transmute(cn = coalesce(NaN))
+    df |> Table$create() |> transmute(cn = coalesce(NaN)) |> collect(),
+    df |> transmute(cn = NaN)
   )
   # singles stay single
   expect_equal(
-    (df %>%
+    (df |>
       Table$create(schema = schema(
         w = float32(),
         x = float32(),
         y = float32(),
         z = float32()
-      )) %>%
-      transmute(c = coalesce(w, x, y, z)) %>%
+      )) |>
+      transmute(c = coalesce(w, x, y, z)) |>
       compute()
     )$schema[[1]]$type,
     float32()
   )
   # with R literal values
-  compare_dplyr_binding(
-    .input %>%
+  expect_identical(
+    arrow_table(df) |>
       mutate(
         c1 = coalesce(4.4),
         c2 = coalesce(NA_real_),
@@ -426,15 +471,40 @@ test_that("coalesce()", {
         c4 = coalesce(w, x, y, 5.5),
         c5 = coalesce(w, x, y, NA_real_),
         c6 = coalesce(w, x, y, NaN)
-      ) %>%
+      ) |>
       collect(),
-    df
+    mutate(
+      df,
+      c1 = 4.4,
+      c2 = NA_real_,
+      c3 = NaN,
+      c4 = c(5.5, 2.2, 3.3),
+      c5 = c(NA, 2.2, 3.3),
+      c6 = c(NaN, 2.2, 3.3)
+    )
   )
 
   # no arguments
-  expect_error(
-    call_binding("coalesce"),
-    "At least one argument must be supplied to coalesce()",
-    fixed = TRUE
+  expect_arrow_eval_error(
+    coalesce(),
+    "At least one argument must be supplied to coalesce\\(\\)",
+    class = "validation_error"
+  )
+})
+
+test_that("external objects are found when they're not in the global environment, #46636", {
+  dat <- arrow_table(x = c("a", "b"))
+  pattern <- "a"
+  expect_identical(
+    dat |>
+      mutate(x2 = case_when(x == pattern ~ "foo")) |>
+      collect(),
+    tibble(x = c("a", "b"), x2 = c("foo", NA))
+  )
+  expect_identical(
+    dat |>
+      mutate(x2 = if_else(x == pattern, "foo", NA_character_)) |>
+      collect(),
+    tibble(x = c("a", "b"), x2 = c("foo", NA))
   )
 })

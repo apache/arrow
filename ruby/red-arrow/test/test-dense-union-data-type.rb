@@ -35,7 +35,7 @@ class DenseUnionDataTypeTest < Test::Unit::TestCase
     test("description") do
       assert_equal("dense_union<visible: bool=2, count: int32=9>",
                    Arrow::DenseUnionDataType.new(fields: @fields,
-                                                  type_codes: [2, 9]).to_s)
+                                                 type_codes: [2, 9]).to_s)
     end
   end
 end

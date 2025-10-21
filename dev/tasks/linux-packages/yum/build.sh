@@ -93,7 +93,7 @@ fi
 repositories="/host/repositories"
 repository="${repositories}/${distribution}/${distribution_version}"
 rpm_dir="${repository}/${architecture}/Packages"
-srpm_dir="${repository}/source/SRPMS"
+srpm_dir="${repository}/Source/Packages"
 run mkdir -p "${rpm_dir}" "${srpm_dir}"
 
 # for debug
@@ -129,6 +129,8 @@ run cp \
     /host/tmp/${PACKAGE}.spec \
     rpmbuild/SPECS/
 
+df -h
+
 run cat <<BUILD > build.sh
 #!/usr/bin/env bash
 
@@ -157,6 +159,8 @@ else
     run ./build.sh > /dev/null
   fi
 fi
+
+df -h
 
 if which ccache > /dev/null 2>&1; then
   ccache --show-stats --verbose || :

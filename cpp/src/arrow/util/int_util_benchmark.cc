@@ -64,6 +64,7 @@ static void DetectUIntWidthNoNulls(
     benchmark::DoNotOptimize(result);
   }
   state.SetBytesProcessed(state.iterations() * values.size() * sizeof(uint64_t));
+  state.SetItemsProcessed(state.iterations() * values.size());
 }
 
 static void DetectUIntWidthNulls(benchmark::State& state) {  // NOLINT non-const reference
@@ -76,6 +77,7 @@ static void DetectUIntWidthNulls(benchmark::State& state) {  // NOLINT non-const
     benchmark::DoNotOptimize(result);
   }
   state.SetBytesProcessed(state.iterations() * values.size() * sizeof(uint64_t));
+  state.SetItemsProcessed(state.iterations() * values.size());
 }
 
 static void DetectIntWidthNoNulls(
@@ -87,6 +89,7 @@ static void DetectIntWidthNoNulls(
     benchmark::DoNotOptimize(result);
   }
   state.SetBytesProcessed(state.iterations() * values.size() * sizeof(uint64_t));
+  state.SetItemsProcessed(state.iterations() * values.size());
 }
 
 static void DetectIntWidthNulls(benchmark::State& state) {  // NOLINT non-const reference
@@ -99,6 +102,7 @@ static void DetectIntWidthNulls(benchmark::State& state) {  // NOLINT non-const 
     benchmark::DoNotOptimize(result);
   }
   state.SetBytesProcessed(state.iterations() * values.size() * sizeof(uint64_t));
+  state.SetItemsProcessed(state.iterations() * values.size());
 }
 
 static void CheckIndexBoundsInt32(

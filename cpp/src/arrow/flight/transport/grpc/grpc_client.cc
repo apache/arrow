@@ -17,22 +17,21 @@
 
 #include "arrow/flight/transport/grpc/grpc_client.h"
 
+#include <condition_variable>
+#include <deque>
 #include <map>
 #include <memory>
 #include <mutex>
 #include <sstream>
 #include <string>
+#include <thread>
 #include <unordered_map>
 #include <utility>
 
-#include "arrow/util/config.h"
-#ifdef GRPCPP_PP_INCLUDE
 #include <grpcpp/grpcpp.h>
+#include <grpcpp/support/client_callback.h>
 #if defined(GRPC_NAMESPACE_FOR_TLS_CREDENTIALS_OPTIONS)
-#include <grpcpp/security/tls_credentials_options.h>
-#endif
-#else
-#include <grpc++/grpc++.h>
+#  include <grpcpp/security/tls_credentials_options.h>
 #endif
 
 #include <grpc/grpc_security_constants.h>
@@ -42,7 +41,7 @@
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/util/base64.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/string.h"
 #include "arrow/util/uri.h"
 
@@ -56,6 +55,7 @@
 #include "arrow/flight/transport/grpc/serialization_internal.h"
 #include "arrow/flight/transport/grpc/util_internal.h"
 #include "arrow/flight/types.h"
+#include "arrow/flight/types_async.h"
 
 namespace arrow {
 
@@ -112,9 +112,9 @@ class GrpcClientInterceptorAdapter : public ::grpc::experimental::Interceptor {
  public:
   explicit GrpcClientInterceptorAdapter(
       std::vector<std::unique_ptr<ClientMiddleware>> middleware)
-      : middleware_(std::move(middleware)), received_headers_(false) {}
+      : middleware_(std::move(middleware)) {}
 
-  void Intercept(::grpc::experimental::InterceptorBatchMethods* methods) {
+  void Intercept(::grpc::experimental::InterceptorBatchMethods* methods) override {
     using InterceptionHookPoints = ::grpc::experimental::InterceptionHookPoints;
     if (methods->QueryInterceptionHookPoint(
             InterceptionHookPoints::PRE_SEND_INITIAL_METADATA)) {
@@ -147,10 +147,6 @@ class GrpcClientInterceptorAdapter : public ::grpc::experimental::Interceptor {
  private:
   void ReceivedHeaders(
       const std::multimap<::grpc::string_ref, ::grpc::string_ref>& metadata) {
-    if (received_headers_) {
-      return;
-    }
-    received_headers_ = true;
     CallHeaders headers;
     for (const auto& entry : metadata) {
       headers.insert({std::string_view(entry.first.data(), entry.first.length()),
@@ -162,20 +158,14 @@ class GrpcClientInterceptorAdapter : public ::grpc::experimental::Interceptor {
   }
 
   std::vector<std::unique_ptr<ClientMiddleware>> middleware_;
-  // When communicating with a gRPC-Java server, the server may not
-  // send back headers if the call fails right away. Instead, the
-  // headers will be consolidated into the trailers. We don't want to
-  // call the client middleware callback twice, so instead track
-  // whether we saw headers - if not, then we need to check trailers.
-  bool received_headers_;
 };
 
 class GrpcClientInterceptorAdapterFactory
     : public ::grpc::experimental::ClientInterceptorFactoryInterface {
  public:
-  GrpcClientInterceptorAdapterFactory(
+  explicit GrpcClientInterceptorAdapterFactory(
       std::vector<std::shared_ptr<ClientMiddlewareFactory>> middleware)
-      : middleware_(middleware) {}
+      : middleware_(std::move(middleware)) {}
 
   ::grpc::experimental::Interceptor* CreateClientInterceptor(
       ::grpc::experimental::ClientRpcInfo* info) override {
@@ -189,6 +179,8 @@ class GrpcClientInterceptorAdapterFactory
       flight_method = FlightMethod::ListFlights;
     } else if (EndsWith(method, "/GetFlightInfo")) {
       flight_method = FlightMethod::GetFlightInfo;
+    } else if (EndsWith(method, "/PollFlightInfo")) {
+      flight_method = FlightMethod::PollFlightInfo;
     } else if (EndsWith(method, "/GetSchema")) {
       flight_method = FlightMethod::GetSchema;
     } else if (EndsWith(method, "/DoGet")) {
@@ -285,7 +277,7 @@ class FinishableDataStream : public internal::ClientDataStream {
     // reader finishes, so it's OK to assume the client no longer
     // wants to read and drain the read side. (If the client wants to
     // indicate that it is done writing, but not done reading, it
-    // should use DoneWriting.
+    // should use DoneWriting.)
     ReadPayloadType message;
     while (ReadPayload(stream_.get(), &message)) {
       // Drain the read side to avoid gRPC hanging in Finish()
@@ -510,8 +502,12 @@ class GrpcResultStream : public ResultStream {
   ~GrpcResultStream() override {
     if (stream_) {
       rpc_.context.TryCancel();
-      ARROW_WARN_NOT_OK(FromGrpcStatus(stream_->Finish(), &rpc_.context),
-                        "DoAction result was not fully consumed");
+      auto status = FromGrpcStatus(stream_->Finish(), &rpc_.context);
+      if (!status.ok() && !status.IsCancelled()) {
+        ARROW_LOG(DEBUG)
+            << "DoAction result was not fully consumed, server returned error: "
+            << status.ToString();
+      }
     }
   }
 
@@ -560,6 +556,127 @@ class GrpcResultStream : public ResultStream {
   std::unique_ptr<::grpc::ClientReader<pb::Result>> stream_;
 };
 
+#ifdef GRPC_ENABLE_ASYNC
+/// Force destruction to wait for RPC completion.
+class FinishedFlag {
+ public:
+  ~FinishedFlag() { Wait(); }
+
+  void Finish() {
+    std::lock_guard<std::mutex> guard(mutex_);
+    finished_ = true;
+    cv_.notify_all();
+  }
+  void Wait() const {
+    std::unique_lock<std::mutex> guard(mutex_);
+    cv_.wait(guard, [&]() { return finished_; });
+  }
+
+ private:
+  mutable std::mutex mutex_;
+  mutable std::condition_variable cv_;
+  bool finished_{false};
+};
+
+// XXX: it appears that if we destruct gRPC resources (like a
+// ClientContext) from a gRPC callback, we will be running on a gRPC
+// thread and we may attempt to join ourselves (because gRPC
+// apparently refcounts threads).  Avoid that by transferring gRPC
+// resources to a dedicated thread for destruction.
+class GrpcGarbageBin {
+ public:
+  GrpcGarbageBin() {
+    grpc_destructor_thread_ = std::thread([&]() {
+      while (true) {
+        std::unique_lock<std::mutex> guard(grpc_destructor_mutex_);
+        grpc_destructor_cv_.wait(guard,
+                                 [&]() { return !running_ || !garbage_bin_.empty(); });
+
+        garbage_bin_.clear();
+
+        if (!running_) return;
+      }
+    });
+  }
+
+  void Dispose(std::unique_ptr<internal::AsyncRpc> trash) {
+    std::unique_lock<std::mutex> guard(grpc_destructor_mutex_);
+    if (!running_) return;
+    garbage_bin_.push_back(std::move(trash));
+    grpc_destructor_cv_.notify_all();
+  }
+
+  void Stop() {
+    {
+      std::unique_lock<std::mutex> guard(grpc_destructor_mutex_);
+      running_ = false;
+      grpc_destructor_cv_.notify_all();
+    }
+    grpc_destructor_thread_.join();
+  }
+
+ private:
+  bool running_ = true;
+  std::thread grpc_destructor_thread_;
+  std::mutex grpc_destructor_mutex_;
+  std::condition_variable grpc_destructor_cv_;
+  std::deque<std::unique_ptr<internal::AsyncRpc>> garbage_bin_;
+};
+
+template <typename Result, typename Request, typename Response>
+class UnaryUnaryAsyncCall : public ::grpc::ClientUnaryReactor, public internal::AsyncRpc {
+ public:
+  ClientRpc rpc;
+  std::shared_ptr<AsyncListener<Result>> listener;
+  std::shared_ptr<GrpcGarbageBin> garbage_bin_;
+
+  Request pb_request;
+  Response pb_response;
+  Status client_status;
+
+  // Destruct last
+  FinishedFlag finished;
+
+  explicit UnaryUnaryAsyncCall(const FlightCallOptions& options,
+                               std::shared_ptr<AsyncListener<Result>> listener,
+                               std::shared_ptr<GrpcGarbageBin> garbage_bin)
+      : rpc(options),
+        listener(std::move(listener)),
+        garbage_bin_(std::move(garbage_bin)) {}
+
+  void TryCancel() override { rpc.context.TryCancel(); }
+
+  void OnDone(const ::grpc::Status& status) override {
+    if (status.ok()) {
+      FlightInfo::Data info_data;
+      client_status = internal::FromProto(pb_response, &info_data);
+      if (client_status.ok()) {
+        listener->OnNext(FlightInfo{std::move(info_data)});
+      }
+    }
+    Finish(status);
+  }
+
+  void Finish(const ::grpc::Status& status) {
+    auto listener = std::move(this->listener);
+    listener->OnFinish(
+        CombinedTransportStatus(status, std::move(client_status), &rpc.context));
+    // SetAsyncRpc may trigger destruction, so Finish() first
+    finished.Finish();
+    // Instead of potentially destructing gRPC resources here,
+    // transfer it to a dedicated background thread
+    garbage_bin_->Dispose(
+        flight::internal::ClientTransport::ReleaseAsyncRpc(listener.get()));
+  }
+};
+
+#  define LISTENER_NOT_OK(LISTENER, EXPR)                 \
+    if (auto arrow_status = (EXPR); !arrow_status.ok()) { \
+      (LISTENER)->OnFinish(std::move(arrow_status));      \
+      return;                                             \
+    }
+#endif
+
 class GrpcClientImpl : public internal::ClientTransport {
  public:
   static arrow::Result<std::unique_ptr<internal::ClientTransport>> Make() {
@@ -567,20 +684,20 @@ class GrpcClientImpl : public internal::ClientTransport {
   }
 
   Status Init(const FlightClientOptions& options, const Location& location,
-              const arrow::internal::Uri& uri) override {
+              const arrow::util::Uri& uri) override {
     const std::string& scheme = location.scheme();
 
     std::stringstream grpc_uri;
     std::shared_ptr<::grpc::ChannelCredentials> creds;
     if (scheme == kSchemeGrpc || scheme == kSchemeGrpcTcp || scheme == kSchemeGrpcTls) {
-      grpc_uri << arrow::internal::UriEncodeHost(uri.host()) << ':' << uri.port_text();
+      grpc_uri << arrow::util::UriEncodeHost(uri.host()) << ':' << uri.port_text();
 
       if (scheme == kSchemeGrpcTls) {
         if (options.disable_server_verification) {
 #if defined(GRPC_NAMESPACE_FOR_TLS_CREDENTIALS_OPTIONS)
           namespace ge = ::GRPC_NAMESPACE_FOR_TLS_CREDENTIALS_OPTIONS;
 
-#if defined(GRPC_USE_CERTIFICATE_VERIFIER)
+#  if defined(GRPC_USE_CERTIFICATE_VERIFIER)
           // gRPC >= 1.43
           class NoOpCertificateVerifier : public ge::ExternalCertificateVerifier {
            public:
@@ -595,10 +712,10 @@ class GrpcClientImpl : public internal::ClientTransport {
           auto cert_verifier =
               ge::ExternalCertificateVerifier::Create<NoOpCertificateVerifier>();
 
-#else   // defined(GRPC_USE_CERTIFICATE_VERIFIER)
-        // gRPC < 1.43
-        // A callback to supply to TlsCredentialsOptions that accepts any server
-        // arguments.
+#  else   // defined(GRPC_USE_CERTIFICATE_VERIFIER)
+          // gRPC < 1.43
+          // A callback to supply to TlsCredentialsOptions that accepts any server
+          // arguments.
           struct NoOpTlsAuthorizationCheck
               : public ge::TlsServerAuthorizationCheckInterface {
             int Schedule(ge::TlsServerAuthorizationCheckArg* arg) override {
@@ -610,33 +727,33 @@ class GrpcClientImpl : public internal::ClientTransport {
           auto server_authorization_check = std::make_shared<NoOpTlsAuthorizationCheck>();
           noop_auth_check_ = std::make_shared<ge::TlsServerAuthorizationCheckConfig>(
               server_authorization_check);
-#endif  // defined(GRPC_USE_CERTIFICATE_VERIFIER)
+#  endif  // defined(GRPC_USE_CERTIFICATE_VERIFIER)
 
-#if defined(GRPC_USE_TLS_CHANNEL_CREDENTIALS_OPTIONS)
+#  if defined(GRPC_USE_TLS_CHANNEL_CREDENTIALS_OPTIONS)
           auto certificate_provider =
               std::make_shared<::grpc::experimental::StaticDataCertificateProvider>(
                   kDummyRootCert);
-#if defined(GRPC_USE_TLS_CHANNEL_CREDENTIALS_OPTIONS_ROOT_CERTS)
+#    if defined(GRPC_USE_TLS_CHANNEL_CREDENTIALS_OPTIONS_ROOT_CERTS)
           ::grpc::experimental::TlsChannelCredentialsOptions tls_options(
               certificate_provider);
-#else   // defined(GRPC_USE_TLS_CHANNEL_CREDENTIALS_OPTIONS_ROOT_CERTS)
-        // While gRPC >= 1.36 does not require a root cert (it has a default)
-        // in practice the path it hardcodes is broken. See grpc/grpc#21655.
+#    else   // defined(GRPC_USE_TLS_CHANNEL_CREDENTIALS_OPTIONS_ROOT_CERTS)
+            // While gRPC >= 1.36 does not require a root cert (it has a default)
+            // in practice the path it hardcodes is broken. See grpc/grpc#21655.
           ::grpc::experimental::TlsChannelCredentialsOptions tls_options;
           tls_options.set_certificate_provider(certificate_provider);
-#endif  // defined(GRPC_USE_TLS_CHANNEL_CREDENTIALS_OPTIONS_ROOT_CERTS)
+#    endif  // defined(GRPC_USE_TLS_CHANNEL_CREDENTIALS_OPTIONS_ROOT_CERTS)
           tls_options.watch_root_certs();
           tls_options.set_root_cert_name("dummy");
-#if defined(GRPC_USE_CERTIFICATE_VERIFIER)
+#    if defined(GRPC_USE_CERTIFICATE_VERIFIER)
           tls_options.set_certificate_verifier(std::move(cert_verifier));
           tls_options.set_check_call_host(false);
           tls_options.set_verify_server_certs(false);
-#else   // defined(GRPC_USE_CERTIFICATE_VERIFIER)
+#    else   // defined(GRPC_USE_CERTIFICATE_VERIFIER)
           tls_options.set_server_verification_option(
               grpc_tls_server_verification_option::GRPC_TLS_SKIP_ALL_SERVER_VERIFICATION);
           tls_options.set_server_authorization_check_config(noop_auth_check_);
-#endif  // defined(GRPC_USE_CERTIFICATE_VERIFIER)
-#elif defined(GRPC_NAMESPACE_FOR_TLS_CREDENTIALS_OPTIONS)
+#    endif  // defined(GRPC_USE_CERTIFICATE_VERIFIER)
+#  elif defined(GRPC_NAMESPACE_FOR_TLS_CREDENTIALS_OPTIONS)
           // continues defined(GRPC_USE_TLS_CHANNEL_CREDENTIALS_OPTIONS)
           auto materials_config = std::make_shared<ge::TlsKeyMaterialsConfig>();
           materials_config->set_pem_root_certs(kDummyRootCert);
@@ -644,7 +761,7 @@ class GrpcClientImpl : public internal::ClientTransport {
               GRPC_SSL_DONT_REQUEST_CLIENT_CERTIFICATE,
               GRPC_TLS_SKIP_ALL_SERVER_VERIFICATION, materials_config,
               std::shared_ptr<ge::TlsCredentialReloadConfig>(), noop_auth_check_);
-#endif  // defined(GRPC_USE_TLS_CHANNEL_CREDENTIALS_OPTIONS)
+#  endif  // defined(GRPC_USE_TLS_CHANNEL_CREDENTIALS_OPTIONS)
           creds = ge::TlsCredentials(tls_options);
 #else   // defined(GRPC_NAMESPACE_FOR_TLS_CREDENTIALS_OPTIONS)
           return Status::NotImplemented(
@@ -713,14 +830,30 @@ class GrpcClientImpl : public internal::ClientTransport {
     stub_ = pb::FlightService::NewStub(
         ::grpc::experimental::CreateCustomChannelWithInterceptors(
             grpc_uri.str(), creds, args, std::move(interceptors)));
+
+#ifdef GRPC_ENABLE_ASYNC
+    garbage_bin_ = std::make_shared<GrpcGarbageBin>();
+#endif
+
     return Status::OK();
   }
 
   Status Close() override {
-    // TODO(ARROW-15473): if we track ongoing RPCs, we can cancel them first
-    // gRPC does not offer a real Close(). We could reset() the gRPC
-    // client but that can cause gRPC to hang in shutdown
-    // (ARROW-15793).
+#ifdef GRPC_ENABLE_ASYNC
+    // TODO(https://github.com/apache/arrow/issues/30949): if there are async
+    // RPCs running when the client is stopped, then when they go to use the
+    // garbage bin, they'll instead synchronously dispose of resources from
+    // the callback thread, and will likely crash. We could instead cancel
+    // them first and wait for completion before stopping the thread, but
+    // tracking all of the RPCs may be unacceptable overhead for clients that
+    // are making many small concurrent RPC calls, so it remains to be seen
+    // whether there's a pressing need for this.
+    garbage_bin_->Stop();
+#endif
+    // TODO(https://github.com/apache/arrow/issues/30949): if we track ongoing
+    // RPCs, we can cancel them first gRPC does not offer a real Close(). We
+    // could reset() the gRPC client but that can cause gRPC to hang in
+    // shutdown (https://github.com/apache/arrow/issues/31235).
     return Status::OK();
   }
 
@@ -728,38 +861,16 @@ class GrpcClientImpl : public internal::ClientTransport {
                       std::unique_ptr<ClientAuthHandler> auth_handler) override {
     auth_handler_ = std::move(auth_handler);
     ClientRpc rpc(options);
-    std::shared_ptr<
-        ::grpc::ClientReaderWriter<pb::HandshakeRequest, pb::HandshakeResponse>>
-        stream = stub_->Handshake(&rpc.context);
-    GrpcClientAuthSender outgoing{stream};
-    GrpcClientAuthReader incoming{stream};
-    RETURN_NOT_OK(auth_handler_->Authenticate(&outgoing, &incoming));
-    // Explicitly close our side of the connection
-    bool finished_writes = stream->WritesDone();
-    RETURN_NOT_OK(FromGrpcStatus(stream->Finish(), &rpc.context));
-    if (!finished_writes) {
-      return MakeFlightError(FlightStatusCode::Internal,
-                             "Could not finish writing before closing");
-    }
-    return Status::OK();
+    return AuthenticateInternal(rpc);
   }
 
   arrow::Result<std::pair<std::string, std::string>> AuthenticateBasicToken(
       const FlightCallOptions& options, const std::string& username,
       const std::string& password) override {
-    // Add basic auth headers to outgoing headers.
     ClientRpc rpc(options);
+    // Add basic auth headers to outgoing headers.
     AddBasicAuthHeaders(&rpc.context, username, password);
-    std::shared_ptr<
-        ::grpc::ClientReaderWriter<pb::HandshakeRequest, pb::HandshakeResponse>>
-        stream = stub_->Handshake(&rpc.context);
-    // Explicitly close our side of the connection.
-    bool finished_writes = stream->WritesDone();
-    RETURN_NOT_OK(FromGrpcStatus(stream->Finish(), &rpc.context));
-    if (!finished_writes) {
-      return MakeFlightError(FlightStatusCode::Internal,
-                             "Could not finish writing before closing");
-    }
+    RETURN_NOT_OK(AuthenticateInternal(rpc));
     // Grab bearer token from incoming headers.
     return GetBearerTokenHeader(rpc.context);
   }
@@ -831,7 +942,26 @@ class GrpcClientImpl : public internal::ClientTransport {
 
     FlightInfo::Data info_data;
     RETURN_NOT_OK(internal::FromProto(pb_response, &info_data));
-    info->reset(new FlightInfo(std::move(info_data)));
+    *info = std::make_unique<FlightInfo>(std::move(info_data));
+    return Status::OK();
+  }
+
+  Status PollFlightInfo(const FlightCallOptions& options,
+                        const FlightDescriptor& descriptor,
+                        std::unique_ptr<PollInfo>* info) override {
+    pb::FlightDescriptor pb_descriptor;
+    pb::PollInfo pb_response;
+
+    RETURN_NOT_OK(internal::ToProto(descriptor, &pb_descriptor));
+
+    ClientRpc rpc(options);
+    RETURN_NOT_OK(rpc.SetToken(auth_handler_.get()));
+    Status s = FromGrpcStatus(
+        stub_->PollFlightInfo(&rpc.context, pb_descriptor, &pb_response), &rpc.context);
+    RETURN_NOT_OK(s);
+
+    info->reset(new PollInfo());
+    RETURN_NOT_OK(internal::FromProto(pb_response, info->get()));
     return Status::OK();
   }
 
@@ -848,9 +978,9 @@ class GrpcClientImpl : public internal::ClientTransport {
                               &rpc.context);
     RETURN_NOT_OK(s);
 
-    std::string str;
-    RETURN_NOT_OK(internal::FromProto(pb_response, &str));
-    return std::make_unique<SchemaResult>(std::move(str));
+    auto schema_result = std::make_unique<SchemaResult>();
+    RETURN_NOT_OK(internal::FromProto(pb_response, schema_result.get()));
+    return schema_result;
   }
 
   Status DoGet(const FlightCallOptions& options, const Ticket& ticket,
@@ -888,7 +1018,64 @@ class GrpcClientImpl : public internal::ClientTransport {
     return Status::OK();
   }
 
+#ifdef GRPC_ENABLE_ASYNC
+  void GetFlightInfoAsync(const FlightCallOptions& options,
+                          const FlightDescriptor& descriptor,
+                          std::shared_ptr<AsyncListener<FlightInfo>> listener) override {
+    using AsyncCall =
+        UnaryUnaryAsyncCall<FlightInfo, pb::FlightDescriptor, pb::FlightInfo>;
+    auto call = std::make_unique<AsyncCall>(options, listener, garbage_bin_);
+    LISTENER_NOT_OK(listener, internal::ToProto(descriptor, &call->pb_request));
+    LISTENER_NOT_OK(listener, call->rpc.SetToken(auth_handler_.get()));
+
+    stub_->experimental_async()->GetFlightInfo(&call->rpc.context, &call->pb_request,
+                                               &call->pb_response, call.get());
+    ClientTransport::SetAsyncRpc(listener.get(), std::move(call));
+    arrow::internal::checked_cast<AsyncCall*>(
+        ClientTransport::GetAsyncRpc(listener.get()))
+        ->StartCall();
+  }
+
+  Status CheckAsyncSupport() const override { return Status::OK(); }
+#else
+  void GetFlightInfoAsync(const FlightCallOptions& options,
+                          const FlightDescriptor& descriptor,
+                          std::shared_ptr<AsyncListener<FlightInfo>> listener) override {
+    listener->OnFinish(CheckAsyncSupport());
+  }
+
+  Status CheckAsyncSupport() const override {
+    return Status::NotImplemented("gRPC 1.40 or newer is required to use async");
+  }
+#endif
+
  private:
+  Status AuthenticateInternal(ClientRpc& rpc) {
+    std::shared_ptr<
+        ::grpc::ClientReaderWriter<pb::HandshakeRequest, pb::HandshakeResponse>>
+        stream = stub_->Handshake(&rpc.context);
+    if (auth_handler_) {
+      GrpcClientAuthSender outgoing{stream};
+      GrpcClientAuthReader incoming{stream};
+      RETURN_NOT_OK(auth_handler_->Authenticate(&outgoing, &incoming));
+    }
+    // Explicitly close our side of the connection
+    bool finished_writes = stream->WritesDone();
+    if (!finished_writes) {
+      return MakeFlightError(FlightStatusCode::Internal,
+                             "Could not finish writing before closing");
+    }
+    // Drain the read side, as otherwise gRPC Finish() will hang. We
+    // only call Finish() when the client closes the writer or the
+    // reader finishes, so it's OK to assume the client no longer
+    // wants to read and drain the read side.
+    pb::HandshakeResponse response;
+    while (stream->Read(&response)) {
+    }
+    RETURN_NOT_OK(FromGrpcStatus(stream->Finish(), &rpc.context));
+    return Status::OK();
+  }
+
   std::unique_ptr<pb::FlightService::Stub> stub_;
   std::shared_ptr<ClientAuthHandler> auth_handler_;
 #if defined(GRPC_NAMESPACE_FOR_TLS_CREDENTIALS_OPTIONS) && \
@@ -900,6 +1087,10 @@ class GrpcClientImpl : public internal::ClientTransport {
   std::shared_ptr<
       ::GRPC_NAMESPACE_FOR_TLS_CREDENTIALS_OPTIONS::TlsServerAuthorizationCheckConfig>
       noop_auth_check_;
+#endif
+
+#ifdef GRPC_ENABLE_ASYNC
+  std::shared_ptr<GrpcGarbageBin> garbage_bin_;
 #endif
 };
 std::once_flag kGrpcClientTransportInitialized;
@@ -913,6 +1104,8 @@ void InitializeFlightGrpcClient() {
     }
   });
 }
+
+#undef LISTENER_NOT_OK
 
 }  // namespace grpc
 }  // namespace transport

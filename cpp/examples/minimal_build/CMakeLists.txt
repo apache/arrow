@@ -15,13 +15,18 @@
 # specific language governing permissions and limitations
 # under the License.
 
-cmake_minimum_required(VERSION 3.0)
+cmake_minimum_required(VERSION 3.25)
 
 project(ArrowMinimalExample)
 
-option(ARROW_LINK_SHARED "Link to the Arrow shared library" ON)
-
 find_package(Arrow REQUIRED)
+
+include(CMakeDependentOption)
+cmake_dependent_option(ARROW_LINK_SHARED
+                       "Link to the Arrow shared library if possible"
+                       ON
+                       ARROW_BUILD_SHARED
+                       OFF)
 
 if(NOT DEFINED CMAKE_CXX_STANDARD)
   set(CMAKE_CXX_STANDARD 17)
@@ -30,7 +35,7 @@ endif()
 # We require a C++17 compliant compiler
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-if(NOT DEFINED CMAKE_BUILD_TYPE)
+if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Release)
 endif()
 

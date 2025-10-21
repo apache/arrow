@@ -35,26 +35,68 @@ namespace internal {
 ///////////////////////////////////////////////////////////////////////
 // Helper tracking memory statistics
 
-class MemoryPoolStats {
+/// \brief Memory pool statistics
+///
+/// 64-byte aligned so that all atomic values are on the same cache line.
+class alignas(64) MemoryPoolStats {
+ private:
+  // All atomics are updated according to Acquire-Release ordering.
+  // https://en.cppreference.com/w/cpp/atomic/memory_order#Release-Acquire_ordering
+  //
+  // max_memory_, total_allocated_bytes_, and num_allocs_ only go up (they are
+  // monotonically increasing) which can allow some optimizations.
+  std::atomic<int64_t> max_memory_{0};
+  std::atomic<int64_t> bytes_allocated_{0};
+  std::atomic<int64_t> total_allocated_bytes_{0};
+  std::atomic<int64_t> num_allocs_{0};
+
  public:
-  MemoryPoolStats() : bytes_allocated_(0), max_memory_(0) {}
+  int64_t max_memory() const { return max_memory_.load(std::memory_order_acquire); }
 
-  int64_t max_memory() const { return max_memory_.load(); }
+  int64_t bytes_allocated() const {
+    return bytes_allocated_.load(std::memory_order_acquire);
+  }
 
-  int64_t bytes_allocated() const { return bytes_allocated_.load(); }
+  int64_t total_bytes_allocated() const {
+    return total_allocated_bytes_.load(std::memory_order_acquire);
+  }
 
-  inline void UpdateAllocatedBytes(int64_t diff) {
-    auto allocated = bytes_allocated_.fetch_add(diff) + diff;
-    // "maximum" allocated memory is ill-defined in multi-threaded code,
-    // so don't try to be too rigorous here
-    if (diff > 0 && allocated > max_memory_) {
-      max_memory_ = allocated;
+  int64_t num_allocations() const { return num_allocs_.load(std::memory_order_acquire); }
+
+  inline void DidAllocateBytes(int64_t size) {
+    // Issue the load before everything else. max_memory_ is monotonically increasing,
+    // so we can use a relaxed load before the read-modify-write.
+    auto max_memory = max_memory_.load(std::memory_order_relaxed);
+    const auto old_bytes_allocated =
+        bytes_allocated_.fetch_add(size, std::memory_order_acq_rel);
+    // Issue store operations on values that we don't depend on to proceed
+    // with execution. When done, max_memory and old_bytes_allocated have
+    // a higher chance of being available on CPU registers. This also has the
+    // nice side-effect of putting 3 atomic stores close to each other in the
+    // instruction stream.
+    total_allocated_bytes_.fetch_add(size, std::memory_order_acq_rel);
+    num_allocs_.fetch_add(1, std::memory_order_acq_rel);
+
+    // If other threads are updating max_memory_ concurrently we leave the loop without
+    // updating knowing that it already reached a value even higher than ours.
+    const auto allocated = old_bytes_allocated + size;
+    while (max_memory < allocated && !max_memory_.compare_exchange_weak(
+                                         /*expected=*/max_memory, /*desired=*/allocated,
+                                         std::memory_order_acq_rel)) {
     }
   }
 
- protected:
-  std::atomic<int64_t> bytes_allocated_;
-  std::atomic<int64_t> max_memory_;
+  inline void DidReallocateBytes(int64_t old_size, int64_t new_size) {
+    if (new_size > old_size) {
+      DidAllocateBytes(new_size - old_size);
+    } else {
+      DidFreeBytes(old_size - new_size);
+    }
+  }
+
+  inline void DidFreeBytes(int64_t size) {
+    bytes_allocated_.fetch_sub(size, std::memory_order_acq_rel);
+  }
 };
 
 }  // namespace internal
@@ -109,6 +151,12 @@ class ARROW_EXPORT MemoryPool {
   /// unable to fulfill the request due to fragmentation.
   virtual void ReleaseUnused() {}
 
+  /// Print statistics
+  ///
+  /// Print allocation statistics on stderr. The output format is
+  /// implementation-specific. Not all memory pools implement this method.
+  virtual void PrintStats() {}
+
   /// The number of bytes that were allocated and not yet free'd through
   /// this allocator.
   virtual int64_t bytes_allocated() const = 0;
@@ -118,6 +166,12 @@ class ARROW_EXPORT MemoryPool {
   /// \return Maximum bytes allocated. If not known (or not implemented),
   /// returns -1
   virtual int64_t max_memory() const;
+
+  /// The number of bytes that were allocated.
+  virtual int64_t total_bytes_allocated() const = 0;
+
+  /// The number of allocations or reallocations that were requested.
+  virtual int64_t num_allocations() const = 0;
 
   /// The name of the backend used by this MemoryPool (e.g. "system" or "jemalloc").
   virtual std::string backend_name() const = 0;
@@ -139,10 +193,16 @@ class ARROW_EXPORT LoggingMemoryPool : public MemoryPool {
   Status Reallocate(int64_t old_size, int64_t new_size, int64_t alignment,
                     uint8_t** ptr) override;
   void Free(uint8_t* buffer, int64_t size, int64_t alignment) override;
+  void ReleaseUnused() override;
+  void PrintStats() override;
 
   int64_t bytes_allocated() const override;
 
   int64_t max_memory() const override;
+
+  int64_t total_bytes_allocated() const override;
+
+  int64_t num_allocations() const override;
 
   std::string backend_name() const override;
 
@@ -167,10 +227,16 @@ class ARROW_EXPORT ProxyMemoryPool : public MemoryPool {
   Status Reallocate(int64_t old_size, int64_t new_size, int64_t alignment,
                     uint8_t** ptr) override;
   void Free(uint8_t* buffer, int64_t size, int64_t alignment) override;
+  void ReleaseUnused() override;
+  void PrintStats() override;
 
   int64_t bytes_allocated() const override;
 
   int64_t max_memory() const override;
+
+  int64_t total_bytes_allocated() const override;
+
+  int64_t num_allocations() const override;
 
   std::string backend_name() const override;
 

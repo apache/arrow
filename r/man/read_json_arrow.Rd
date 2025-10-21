@@ -13,19 +13,23 @@ read_json_arrow(
 )
 }
 \arguments{
-\item{file}{A character file name or URI, \code{raw} vector, an Arrow input stream,
-or a \code{FileSystem} with path (\code{SubTreeFileSystem}).
+\item{file}{A character file name or URI, connection, literal data (either a
+single string or a \link{raw} vector), an Arrow input stream, or a \code{FileSystem}
+with path (\code{SubTreeFileSystem}).
+
 If a file name, a memory-mapped Arrow \link{InputStream} will be opened and
 closed when finished; compression will be detected from the file extension
 and handled automatically. If an input stream is provided, it will be left
-open.}
+open.
+
+To be recognised as literal data, the input must be wrapped with \code{I()}.}
 
 \item{col_select}{A character vector of column names to keep, as in the
 "select" argument to \code{data.table::fread()}, or a
 \link[tidyselect:eval_select]{tidy selection specification}
 of columns, as used in \code{dplyr::select()}.}
 
-\item{as_data_frame}{Should the function return a \code{data.frame} (default) or
+\item{as_data_frame}{Should the function return a \code{tibble} (default) or
 an Arrow \link{Table}?}
 
 \item{schema}{\link{Schema} that describes the table.}
@@ -33,7 +37,7 @@ an Arrow \link{Table}?}
 \item{...}{Additional options passed to \code{JsonTableReader$create()}}
 }
 \value{
-A \code{data.frame}, or a Table if \code{as_data_frame = FALSE}.
+A \code{tibble}, or a Table if \code{as_data_frame = FALSE}.
 }
 \description{
 Wrapper around \link{JsonTableReader} to read a newline-delimited JSON (ndjson) file into a
@@ -65,6 +69,10 @@ writeLines('
     { "hello": 3.25, "world": null }
     { "hello": 0.0, "world": true, "yo": null }
   ', tf, useBytes = TRUE)
+
 read_json_arrow(tf)
+
+# Read directly from strings with `I()`
+read_json_arrow(I(c('{"x": 1, "y": 2}', '{"x": 3, "y": 4}')))
 \dontshow{\}) # examplesIf}
 }

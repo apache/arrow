@@ -145,13 +145,13 @@ class ARROW_EXPORT FixedSizeBufferWriter : public WritableFile {
 class ARROW_EXPORT BufferReader
     : public internal::RandomAccessFileConcurrencyWrapper<BufferReader> {
  public:
+  /// \brief Instantiate from std::shared_ptr<Buffer>.
+  ///
+  /// This is a zero-copy constructor.
   explicit BufferReader(std::shared_ptr<Buffer> buffer);
-  explicit BufferReader(const Buffer& buffer);
-  BufferReader(const uint8_t* data, int64_t size);
 
-  /// \brief Instantiate from std::string or std::string_view. Does not
-  /// own data
-  explicit BufferReader(std::string_view data);
+  /// \brief Instantiate from std::string. Owns data.
+  static std::unique_ptr<BufferReader> FromString(std::string data);
 
   bool closed() const override;
 

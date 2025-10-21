@@ -146,6 +146,49 @@ void AssertIteratorNext(T expected, Iterator<T>& it) {
   ASSERT_EQ(expected, actual);
 }
 
+template <typename T>
+class DeleteDetectableIterator {
+ public:
+  explicit DeleteDetectableIterator(std::vector<T> values, bool* deleted)
+      : values_(std::move(values)), i_(0), deleted_(deleted) {}
+
+  DeleteDetectableIterator(DeleteDetectableIterator&& source)
+      : values_(std::move(source.values_)), i_(source.i_), deleted_(source.deleted_) {
+    source.deleted_ = nullptr;
+  }
+
+  ~DeleteDetectableIterator() {
+    if (deleted_) {
+      *deleted_ = true;
+    }
+  }
+
+  Result<T> Next() {
+    if (i_ == values_.size()) {
+      return IterationTraits<T>::End();
+    }
+    return std::move(values_[i_++]);
+  }
+
+ private:
+  std::vector<T> values_;
+  size_t i_;
+  bool* deleted_;
+};
+
+// Generic iterator tests
+
+TEST(TestIterator, DeleteOnEnd) {
+  bool deleted = false;
+  Iterator<TestInt> it(DeleteDetectableIterator<TestInt>({1}, &deleted));
+  ASSERT_FALSE(deleted);
+  AssertIteratorNext({1}, it);
+  ASSERT_FALSE(deleted);
+  ASSERT_OK_AND_ASSIGN(auto value, it.Next());
+  ASSERT_TRUE(IsIterationEnd(value));
+  ASSERT_TRUE(deleted);
+}
+
 // --------------------------------------------------------------------
 // Synchronous iterator tests
 
@@ -307,10 +350,10 @@ TEST(TestFunctionIterator, RangeForLoop) {
   int expected_i = 0;
   for (auto maybe_i : fails_at_3) {
     if (expected_i < 3) {
-      ASSERT_OK(maybe_i.status());
+      ASSERT_OK(maybe_i);
       ASSERT_EQ(*maybe_i, expected_i);
     } else if (expected_i == 3) {
-      ASSERT_RAISES(IndexError, maybe_i.status());
+      ASSERT_RAISES(IndexError, maybe_i);
     }
     ASSERT_LE(expected_i, 3) << "iteration stops after an error is encountered";
     ++expected_i;
@@ -438,10 +481,12 @@ TEST(ReadaheadIterator, Trace) {
     ASSERT_EQ(values[i], TestInt());
   }
 
+#ifdef ARROW_ENABLE_THREADING
   // Values were all emitted from the same thread, and it's not this thread
   const auto& thread_ids = tracing->thread_ids();
   ASSERT_EQ(thread_ids.size(), 1);
   ASSERT_NE(*thread_ids.begin(), std::this_thread::get_id());
+#endif
 }
 
 TEST(ReadaheadIterator, NextError) {
@@ -454,7 +499,7 @@ TEST(ReadaheadIterator, NextError) {
   ASSERT_OK_AND_ASSIGN(
       auto it, MakeReadaheadIterator(Iterator<TestInt>(std::move(tracing_it)), 2));
 
-  ASSERT_RAISES(IOError, it.Next().status());
+  ASSERT_RAISES(IOError, it.Next());
 
   AssertIteratorExhausted(it);
   SleepABit();

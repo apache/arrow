@@ -35,7 +35,7 @@ std::shared_ptr<::arrow::io::BufferOutputStream> CreateOutputStream(MemoryPool* 
 
 std::shared_ptr<ResizableBuffer> AllocateBuffer(MemoryPool* pool, int64_t size) {
   PARQUET_ASSIGN_OR_THROW(auto result, ::arrow::AllocateResizableBuffer(size, pool));
-  return std::move(result);
+  return result;
 }
 
 }  // namespace parquet

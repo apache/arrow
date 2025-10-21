@@ -19,24 +19,35 @@ name: R
 
 on:
   push:
+    branches:
+      - '**'
+      - '!dependabot/**'
+    tags:
+      - '**'
     paths:
+      - '.dockerignore'
       - ".github/workflows/r.yml"
-      - "ci/scripts/r_*.sh"
-      - "ci/scripts/cpp_*.sh"
-      - "ci/scripts/PKGBUILD"
-      - "ci/etc/rprofile"
       - "ci/docker/**"
+      - "ci/etc/rprofile"
+      - "ci/scripts/PKGBUILD"
+      - "ci/scripts/cpp_*.sh"
+      - "ci/scripts/install_minio.sh"
+      - "ci/scripts/r_*.sh"
       - "cpp/**"
+      - "docker-compose.yml"
       - "r/**"
   pull_request:
     paths:
+      - '.dockerignore'
       - ".github/workflows/r.yml"
-      - "ci/scripts/r_*.sh"
-      - "ci/scripts/cpp_*.sh"
-      - "ci/scripts/PKGBUILD"
-      - "ci/etc/rprofile"
       - "ci/docker/**"
+      - "ci/etc/rprofile"
+      - "ci/scripts/PKGBUILD"
+      - "ci/scripts/cpp_*.sh"
+      - "ci/scripts/install_minio.sh"
+      - "ci/scripts/r_*.sh"
       - "cpp/**"
+      - "docker-compose.yml"
       - "r/**"
 
 concurrency:
@@ -47,6 +58,7 @@ permissions:
   contents: read
 
 env:
+  ARCHERY_DEBUG: 1
   DOCKER_VOLUME_PREFIX: ".docker/"
 
 jobs:
@@ -58,20 +70,23 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        r: ["4.2"]
-        ubuntu: [20.04]
+        r: ["4.4"]
+        ubuntu: [24.04]
         force-tests: ["true"]
     env:
       R: ${{ matrix.r }}
       UBUNTU: ${{ matrix.ubuntu }}
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v3
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           fetch-depth: 0
           submodules: recursive
+      - name: Free up disk space
+        run: |
+          ci/scripts/util_free_space.sh
       - name: Cache Docker Volumes
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: .docker
           # As this key is identical on both matrix builds only one will be able to successfully cache,
@@ -80,12 +95,10 @@ jobs:
           restore-keys: |
             ubuntu-${{ matrix.ubuntu }}-r-${{ matrix.r }}-${{ hashFiles('cpp/src/**/*.cc','cpp/src/**/*.h)') }}-
             ubuntu-${{ matrix.ubuntu }}-r-${{ matrix.r }}-
-      - name: Check pkgdown reference sections
-        run: ci/scripts/r_pkgdown_check.sh
       - name: Setup Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6.0.0
         with:
-          python-version: 3.8
+          python-version: 3.12
       - name: Setup Archery
         run: pip install -e dev/archery[docker]
       - name: Execute Docker Build
@@ -93,8 +106,7 @@ jobs:
           ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
           ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
         run: |
-          sudo sysctl -w kernel.core_pattern="core.%e.%p"
-          ulimit -c unlimited
+          source ci/scripts/util_enable_core_dumps.sh
           # Setting a non-default and non-probable Marquesas French Polynesia time
           # it has both with a .45 offset and very very few people who live there.
           archery docker run -e TZ=MART -e ARROW_R_FORCE_TESTS=${{ matrix.force-tests }} ubuntu-r
@@ -106,12 +118,16 @@ jobs:
         if: always()
       - name: Save the test output
         if: always()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: test-output
+          name: test-output-${{ matrix.ubuntu }}-${{ matrix.r }}
           path: r/check/arrow.Rcheck/tests/testthat.Rout*
       - name: Docker Push
-        if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
+        if: >-
+          success() &&
+          github.event_name == 'push' &&
+          github.repository == 'apache/arrow' &&
+          github.ref_name == 'main'
         env:
           ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
           ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
@@ -127,22 +143,21 @@ jobs:
       fail-fast: false
       matrix:
         config:
-          - { org: "rhub", image: "debian-gcc-devel", tag: "latest", devtoolset: "" }
+          - { org: "rhub", image: "ubuntu-gcc12", tag: "latest" }
     env:
       R_ORG: ${{ matrix.config.org }}
       R_IMAGE: ${{ matrix.config.image }}
       R_TAG: ${{ matrix.config.tag }}
-      DEVTOOLSET_VERSION: ${{ matrix.config.devtoolset }}
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v3
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           fetch-depth: 0
           submodules: recursive
       - name: Setup Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6.0.0
         with:
-          python-version: 3.8
+          python-version: 3.12
       - name: Setup Archery
         run: pip install -e dev/archery[docker]
       - name: Execute Docker Build
@@ -150,8 +165,7 @@ jobs:
           ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
           ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
         run: |
-          sudo sysctl -w kernel.core_pattern="core.%e.%p"
-          ulimit -c unlimited
+          source ci/scripts/util_enable_core_dumps.sh
           # Don't set a TZ here to test that case. These builds will have the following warning in them:
           #   System has not been booted with systemd as init system (PID 1). Can't operate.
           #   Failed to connect to bus: Host is down
@@ -164,12 +178,16 @@ jobs:
         if: always()
       - name: Save the test output
         if: always()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: test-output
+          name: test-output-bundled
           path: r/check/arrow.Rcheck/tests/testthat.Rout*
       - name: Docker Push
-        if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
+        if: >-
+          success() &&
+          github.event_name == 'push' &&
+          github.repository == 'apache/arrow' &&
+          github.ref_name == 'main'
         env:
           ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
           ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
@@ -178,7 +196,7 @@ jobs:
 
   windows-cpp:
     name: AMD64 Windows C++ RTools ${{ matrix.config.rtools }} ${{ matrix.config.arch }}
-    runs-on: windows-2019
+    runs-on: windows-2022
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     timeout-minutes: 90
     strategy:
@@ -189,7 +207,7 @@ jobs:
     steps:
       - run: git config --global core.autocrlf false
       - name: Checkout Arrow
-        uses: actions/checkout@v3
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
       - name: Setup ccache
@@ -198,7 +216,7 @@ jobs:
           ci/scripts/ccache_setup.sh
           echo "CCACHE_DIR=$(cygpath --absolute --windows ccache)" >> $GITHUB_ENV
       - name: Cache ccache
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: ccache
           key: r-${{ matrix.config.rtools }}-ccache-mingw-${{ matrix.config.arch }}-${{ hashFiles('cpp/src/**/*.cc','cpp/src/**/*.h)') }}-${{ github.run_id }}
@@ -207,6 +225,9 @@ jobs:
             r-${{ matrix.config.rtools }}-ccache-mingw-${{ matrix.config.arch }}-
       - uses: r-lib/actions/setup-r@v2
         with:
+          # Note: RTools must be 40 here because RTools40 + ucrt is how we build the Arrow C++
+          # static library. The R is not used here but R 4.1 was the last R to use
+          # Rtools40.
           r-version: "4.1"
           rtools-version: 40
           Ncpus: 2
@@ -219,36 +240,45 @@ jobs:
         # So that they're unique when multiple are downloaded in the next step
         shell: bash
         run: mv libarrow.zip libarrow-rtools${{ matrix.config.rtools }}-${{ matrix.config.arch }}.zip
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: libarrow-rtools${{ matrix.config.rtools }}-${{ matrix.config.arch }}.zip
           path: libarrow-rtools${{ matrix.config.rtools }}-${{ matrix.config.arch }}.zip
 
   windows-r:
     needs: [windows-cpp]
-    name: AMD64 Windows R ${{ matrix.config.rversion }} RTools ${{ matrix.config.rtools }}
-    runs-on: windows-2019
+    name: AMD64 Windows R ${{ matrix.config.rversion }}
+    runs-on: windows-2022
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     timeout-minutes: 75
     strategy:
       fail-fast: false
       matrix:
         config:
-        - { rtools: 42, rversion: "4.2" }
-        - { rtools: 42, rversion: "devel" }
+        - { rversion: "release" }
+
     env:
       ARROW_R_CXXFLAGS: "-Werror"
       _R_CHECK_TESTS_NLINES_: 0
     steps:
       - run: git config --global core.autocrlf false
       - name: Checkout Arrow
-        uses: actions/checkout@v3
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
+      # This must be done before r-lib/actions/setup-r because curl in
+      # Rtools doesn't work on non Rtools' MSYS2 environment. If we
+      # use "shell: bash" after r-lib/actions/setup-r, bash in Rtools
+      # is used on non Rtools' MSYS2 environment.
+      - name: Install MinIO
+        shell: bash
+        run: |
+          mkdir -p "$HOME/.local/bin"
+          ci/scripts/install_minio.sh latest "$HOME/.local"
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
       - run: mkdir r/windows
       - name: Download artifacts
-        if: ${{ matrix.config.rtools == 42 }}
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v5.0.0
         with:
           name: libarrow-rtools40-ucrt64.zip
           path: r/windows
@@ -261,7 +291,6 @@ jobs:
       - uses: r-lib/actions/setup-r@v2
         with:
           r-version: ${{ matrix.config.rversion }}
-          rtools-version: ${{ matrix.config.rtools }}
           Ncpus: 2
       - uses: r-lib/actions/setup-r-dependencies@v2
         env:
@@ -273,15 +302,7 @@ jobs:
           working-directory: 'r'
           extra-packages: |
             any::rcmdcheck
-      - name: Install MinIO
-        shell: bash
-        run: |
-          mkdir -p "$HOME/.local/bin"
-          curl \
-            --output "$HOME/.local/bin/minio.exe" \
-            https://dl.min.io/server/minio/release/windows-amd64/archive/minio.RELEASE.2022-05-26T05-48-41Z
-          chmod +x "$HOME/.local/bin/minio.exe"
-          echo "$HOME/.local/bin" >> $GITHUB_PATH
+            any::cyclocomp
       # TODO(ARROW-17149): figure out why the GCS tests are hanging on Windows
       # - name: Install Google Cloud Storage Testbench
       #   shell: bash
@@ -299,33 +320,17 @@ jobs:
             RWINLIB_LOCAL = file.path(Sys.getenv("GITHUB_WORKSPACE"), "r", "windows", "libarrow.zip"),
             MAKEFLAGS = paste0("-j", parallel::detectCores()),
             ARROW_R_DEV = TRUE,
-            "_R_CHECK_FORCE_SUGGESTS_" = FALSE
+            "_R_CHECK_FORCE_SUGGESTS_" = FALSE,
+            "_R_CHECK_STOP_ON_INVALID_NUMERIC_VERSION_INPUTS_" = TRUE,
+            "_R_CHECK_DONTTEST_EXAMPLES_" = TRUE
           )
           rcmdcheck::rcmdcheck(".",
             build_args = '--no-build-vignettes',
-            args = c('--no-manual', '--as-cran', '--ignore-vignettes', '--run-donttest'),
+            args = c('--no-manual', '--as-cran', '--ignore-vignettes'),
             error_on = 'warning',
             check_dir = 'check',
             timeout = 3600
           )
-      - name: Run lintr
-        if: ${{ matrix.config.rversion == '4.2' }}
-        env:
-          NOT_CRAN: "true"
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        shell: Rscript {0}
-        working-directory: r
-        run: |
-          Sys.setenv(
-            RWINLIB_LOCAL = file.path(Sys.getenv("GITHUB_WORKSPACE"), "r", "windows", "libarrow.zip"),
-            MAKEFLAGS = paste0("-j", parallel::detectCores()),
-            ARROW_R_DEV = TRUE,
-            "_R_CHECK_FORCE_SUGGESTS_" = FALSE
-          )
-          # we use pak for package installation since it is faster, safer and more convenient
-          pak::local_install()
-          pak::pak("lintr")
-          lintr::expect_lint_free()
       - name: Dump install logs
         shell: cmd
         run: cat r/check/arrow.Rcheck/00install.out

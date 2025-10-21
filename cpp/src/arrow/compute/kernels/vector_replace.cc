@@ -16,10 +16,13 @@
 // under the License.
 
 #include "arrow/compute/api_scalar.h"
-#include "arrow/compute/kernels/common.h"
+#include "arrow/compute/kernels/codegen_internal.h"
+#include "arrow/compute/kernels/common_internal.h"
 #include "arrow/compute/kernels/copy_data_internal.h"
 #include "arrow/compute/kernels/util_internal.h"
+#include "arrow/compute/registry_internal.h"
 #include "arrow/util/bitmap_ops.h"
+#include "arrow/util/logging_internal.h"
 
 namespace arrow {
 namespace compute {
@@ -798,8 +801,6 @@ struct FillNullBackwardChunked {
   }
 };
 
-}  // namespace
-
 void AddKernel(Type::type type_id, std::shared_ptr<KernelSignature> signature,
                ArrayKernelExec exec, VectorKernel::ChunkedExec exec_chunked,
                FunctionRegistry* registry, VectorFunction* func) {
@@ -841,6 +842,7 @@ void RegisterVectorFunction(FunctionRegistry* registry,
   }
   add_primitive_kernel(null());
   add_primitive_kernel(boolean());
+  add_primitive_kernel(float16());
   AddKernel(Type::FIXED_SIZE_BINARY,
             Functor<FixedSizeBinaryType>::GetSignature(Type::FIXED_SIZE_BINARY),
             Functor<FixedSizeBinaryType>::Exec, ChunkedFunctor<FixedSizeBinaryType>::Exec,
@@ -865,6 +867,8 @@ void RegisterVectorFunction(FunctionRegistry* registry,
 
   // TODO(ARROW-9431): "replace_with_indices"
 }
+
+}  // namespace
 
 const FunctionDoc replace_with_mask_doc(
     "Replace items selected with a mask",

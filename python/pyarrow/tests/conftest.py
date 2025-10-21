@@ -15,16 +15,20 @@
 # specific language governing permissions and limitations
 # under the License.
 
+import functools
 import os
 import pathlib
 import subprocess
 import sys
-from tempfile import TemporaryDirectory
+import time
+import urllib.request
 
 import pytest
 import hypothesis as h
+
 from ..conftest import groups, defaults
 
+from pyarrow import set_timezone_db_path
 from pyarrow.util import find_free_port
 
 
@@ -45,6 +49,28 @@ h.settings.load_profile(os.environ.get('HYPOTHESIS_PROFILE', 'dev'))
 os.environ['AWS_CONFIG_FILE'] = "/dev/null"
 
 
+if sys.platform == 'win32':
+    tzdata_set_path = os.environ.get('PYARROW_TZDATA_PATH', None)
+    if tzdata_set_path:
+        set_timezone_db_path(tzdata_set_path)
+
+
+# GH-45295: For ORC, try to populate TZDIR env var from tzdata package resource
+# path.
+#
+# Note this is a different kind of database than what we allow to be set by
+# `PYARROW_TZDATA_PATH` and passed to set_timezone_db_path.
+if sys.platform == 'win32':
+    if os.environ.get('TZDIR', None) is None:
+        from importlib import resources
+        try:
+            os.environ['TZDIR'] = os.path.join(resources.files('tzdata'), 'zoneinfo')
+        except ModuleNotFoundError:
+            print(
+                'Package "tzdata" not found. Not setting TZDIR environment variable.'
+            )
+
+
 def pytest_addoption(parser):
     # Create options to selectively enable test groups
     def bool_env(name, default=None):
@@ -57,17 +83,16 @@ def pytest_addoption(parser):
         elif value in {'0', 'false', 'off', 'no', 'n'}:
             return False
         else:
-            raise ValueError('{}={} is not parsable as boolean'
-                             .format(name.upper(), value))
+            raise ValueError(f'{name.upper()}={value} is not parsable as boolean')
 
     for group in groups:
-        default = bool_env('PYARROW_TEST_{}'.format(group), defaults[group])
-        parser.addoption('--enable-{}'.format(group),
+        default = bool_env(f'PYARROW_TEST_{group}', defaults[group])
+        parser.addoption(f'--enable-{group}',
                          action='store_true', default=default,
-                         help=('Enable the {} test group'.format(group)))
-        parser.addoption('--disable-{}'.format(group),
+                         help=(f'Enable the {group} test group'))
+        parser.addoption(f'--disable-{group}',
                          action='store_true', default=False,
-                         help=('Disable the {} test group'.format(group)))
+                         help=(f'Disable the {group} test group'))
 
 
 class PyArrowConfig:
@@ -81,7 +106,7 @@ class PyArrowConfig:
 
     def requires(self, group):
         if not self.is_enabled[group]:
-            pytest.skip('{} NOT enabled'.format(group))
+            pytest.skip(f'{group} NOT enabled')
 
 
 def pytest_configure(config):
@@ -93,8 +118,8 @@ def pytest_configure(config):
             "markers", mark,
         )
 
-        enable_flag = '--enable-{}'.format(mark)
-        disable_flag = '--disable-{}'.format(mark)
+        enable_flag = f'--enable-{mark}'
+        disable_flag = f'--disable-{mark}'
 
         is_enabled = (config.getoption(enable_flag) and not
                       config.getoption(disable_flag))
@@ -141,57 +166,99 @@ def hdfs_connection():
 
 @pytest.fixture(scope='session')
 def s3_connection():
-    host, port = 'localhost', find_free_port()
+    host, port = '127.0.0.1', find_free_port()
     access_key, secret_key = 'arrow', 'apachearrow'
     return host, port, access_key, secret_key
 
 
+def retry(attempts=3, delay=1.0, max_delay=None, backoff=1):
+    """
+    Retry decorator
+
+    Parameters
+    ----------
+    attempts : int, default 3
+        The number of attempts.
+    delay : float, default 1
+        Initial delay in seconds.
+    max_delay : float, optional
+        The max delay between attempts.
+    backoff : float, default 1
+        The multiplier to delay after each attempt.
+    """
+    def decorate(func):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            remaining_attempts = attempts
+            curr_delay = delay
+            while remaining_attempts > 0:
+                try:
+                    return func(*args, **kwargs)
+                except Exception as err:
+                    remaining_attempts -= 1
+                    last_exception = err
+                    curr_delay *= backoff
+                    if max_delay:
+                        curr_delay = min(curr_delay, max_delay)
+                    time.sleep(curr_delay)
+            raise last_exception
+        return wrapper
+    return decorate
+
+
 @pytest.fixture(scope='session')
-def s3_server(s3_connection):
+def s3_server(s3_connection, tmpdir_factory):
+    @retry(attempts=5, delay=1, backoff=2)
+    def minio_server_health_check(address):
+        resp = urllib.request.urlopen(f"http://{address}/minio/health/live")
+        assert resp.getcode() == 200
+
+    tmpdir = tmpdir_factory.getbasetemp()
     host, port, access_key, secret_key = s3_connection
 
-    address = '{}:{}'.format(host, port)
+    address = f'{host}:{port}'
     env = os.environ.copy()
     env.update({
         'MINIO_ACCESS_KEY': access_key,
         'MINIO_SECRET_KEY': secret_key
     })
 
-    with TemporaryDirectory() as tempdir:
-        args = ['minio', '--compat', 'server', '--quiet', '--address',
-                address, tempdir]
-        proc = None
-        try:
-            proc = subprocess.Popen(args, env=env)
-        except OSError:
-            pytest.skip('`minio` command cannot be located')
-        else:
-            yield {
-                'connection': s3_connection,
-                'process': proc,
-                'tempdir': tempdir
-            }
-        finally:
-            if proc is not None:
-                proc.kill()
-                proc.wait()
+    args = ['minio', '--compat', 'server', '--quiet', '--address',
+            address, tmpdir]
+    proc = None
+    try:
+        proc = subprocess.Popen(args, env=env)
+    except OSError:
+        pytest.skip('`minio` command cannot be located')
+    else:
+        # Wait for the server to startup before yielding
+        minio_server_health_check(address)
+
+        yield {
+            'connection': s3_connection,
+            'process': proc,
+            'tempdir': tmpdir
+        }
+    finally:
+        if proc is not None:
+            proc.kill()
+            proc.wait()
 
 
 @pytest.fixture(scope='session')
 def gcs_server():
     port = find_free_port()
     env = os.environ.copy()
-    args = [sys.executable, '-m', 'testbench', '--port', str(port)]
+    exe = 'storage-testbench'
+    args = [exe, '--port', str(port)]
     proc = None
     try:
-        # check first if testbench module is available
-        import testbench  # noqa:F401
         # start server
         proc = subprocess.Popen(args, env=env)
         # Make sure the server is alive.
         if proc.poll() is not None:
             pytest.skip(f"Command {args} did not start server successfully!")
-    except (ModuleNotFoundError, OSError) as e:
+    except OSError as e:
         pytest.skip(f"Command {args} failed to execute: {e}")
     else:
         yield {
@@ -202,3 +269,62 @@ def gcs_server():
         if proc is not None:
             proc.kill()
             proc.wait()
+
+
+@pytest.fixture(scope='session')
+def azure_server(tmpdir_factory):
+    port = find_free_port()
+    env = os.environ.copy()
+    tmpdir = tmpdir_factory.getbasetemp()
+    # We only need blob service emulator, not queue or table.
+    args = ['azurite-blob', "--location", tmpdir, "--blobPort", str(port)]
+    # For old Azurite. We can't install the latest Azurite with old
+    # Node.js on old Ubuntu.
+    args += ["--skipApiVersionCheck"]
+    proc = None
+    try:
+        proc = subprocess.Popen(args, env=env)
+        # Make sure the server is alive.
+        if proc.poll() is not None:
+            pytest.skip(f"Command {args} did not start server successfully!")
+    except (ModuleNotFoundError, OSError) as e:
+        pytest.skip(f"Command {args} failed to execute: {e}")
+    else:
+        yield {
+            # Use the standard azurite account_name and account_key.
+            # https://learn.microsoft.com/en-us/azure/storage/common/storage-use-emulator#authorize-with-shared-key-credentials
+            'connection': ('127.0.0.1', port, 'devstoreaccount1',
+                           'Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2'
+                           'UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw=='),
+            'process': proc,
+            'tempdir': tmpdir,
+        }
+    finally:
+        if proc is not None:
+            proc.kill()
+            proc.wait()
+
+
+@pytest.fixture(
+    params=[
+        'builtin_pickle',
+        'cloudpickle'
+    ],
+    scope='session'
+)
+def pickle_module(request):
+    return request.getfixturevalue(request.param)
+
+
+@pytest.fixture(scope='session')
+def builtin_pickle():
+    import pickle
+    return pickle
+
+
+@pytest.fixture(scope='session')
+def cloudpickle():
+    cp = pytest.importorskip('cloudpickle')
+    if 'HIGHEST_PROTOCOL' not in cp.__dict__:
+        cp.HIGHEST_PROTOCOL = cp.DEFAULT_PROTOCOL
+    return cp

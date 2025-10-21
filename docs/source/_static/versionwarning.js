@@ -17,6 +17,8 @@
 
 (function() {
     // adapted 2022-11 from https://mne.tools/versionwarning.js
+    // Not used anymore for versions 14.0.0 and higher
+    // Kept for older docs versions (13.0.0 and lower)
     if (location.hostname == 'arrow.apache.org') {
         $.getJSON("https://arrow.apache.org/docs/_static/versions.json", function(data){
             var latestStable = data[1].name.replace(" (stable)","");
@@ -30,6 +32,7 @@
             // Path of the page
             var location_array = location.pathname.split('/');
             var versionPath = location_array[2];
+            var majorVersionNumber = Number(versionPath.match(/^\d+/))
             var subPath = location_array[3];
             var filePath = location_array.slice(3).join('/');
             // Links to stable or dev versions
@@ -54,8 +57,8 @@
                         $('.container-fluid').prepend(`${showWarning}`)
                     }
                 });
-            } else if (versionPath.match(/^\d/) < "4") {
-                // old versions 1.0,. 2.0 or 3.0
+            } else if (majorVersionNumber < 4) {
+                // old versions 1.0, 2.0 or 3.0
                 $.ajax({
                     type: 'HEAD',
                     url: `${uri_stable}`,
@@ -85,7 +88,7 @@
                         });
                     }
                 });
-            } else if (versionPath.match(/^\d/) && subPath == 'developers') {
+            } else if (majorVersionNumber && subPath == 'developers') {
                 // older versions of developers section (with numbered version in the URL)
                 $.ajax({
                     type: 'HEAD',
@@ -101,7 +104,7 @@
                         $('.container-fluid').prepend(`${showWarning}`)
                     }
                 });
-            } else if (versionPath.match(/^\d/)) {
+            } else if (majorVersionNumber) {
                 // older versions (with numbered version in the URL)
                 $.ajax({
                     type: 'HEAD',

@@ -15,11 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# The glimpse output for tests with `example_data` is different on R < 3.6
-# because the `lgl` column is generated with `sample()` and the RNG
-# algorithm is different in older R versions.
-skip_on_r_older_than("3.6")
-
 library(dplyr, warn.conflicts = FALSE)
 
 test_that("glimpse() Table/ChunkedArray", {
@@ -49,14 +44,14 @@ test_that("glimpse prints message about schema if there are complex types", {
 
 test_that("glimpse() calls print() instead of showing data for RBR", {
   expect_snapshot({
-    example_data %>%
-      as_record_batch_reader() %>%
+    example_data |>
+      as_record_batch_reader() |>
       glimpse()
   })
   expect_snapshot({
-    example_data %>%
-      as_record_batch_reader() %>%
-      select(int) %>%
+    example_data |>
+      as_record_batch_reader() |>
+      select(int) |>
       glimpse()
   })
 })
@@ -80,10 +75,10 @@ test_that("glimpse() on Dataset query only shows data for streaming eval", {
   # the whole output. Instead check for an indication that glimpse method ran
   # instead of the regular print() method that is the fallback
   expect_output(
-    ds %>%
-      select(int, chr) %>%
-      filter(int > 2) %>%
-      mutate(twice = int * 2) %>%
+    ds |>
+      select(int, chr) |>
+      filter(int > 2) |>
+      mutate(twice = int * 2) |>
       glimpse(),
     "Call `print()` for query details",
     fixed = TRUE
@@ -91,17 +86,17 @@ test_that("glimpse() on Dataset query only shows data for streaming eval", {
 
   # This doesn't show the data and falls back to print()
   expect_snapshot({
-    ds %>%
-      summarize(max(int)) %>%
+    ds |>
+      summarize(max(int)) |>
       glimpse()
   })
 })
 
 test_that("glimpse() on in-memory query shows data even if aggregating", {
   expect_snapshot({
-    example_data %>%
-      arrow_table() %>%
-      summarize(sum(int, na.rm = TRUE)) %>%
+    example_data |>
+      arrow_table() |>
+      summarize(sum(int, na.rm = TRUE)) |>
       glimpse()
   })
 })

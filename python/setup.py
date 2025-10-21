@@ -24,6 +24,7 @@ from os.path import join as pjoin
 import re
 import shlex
 import sys
+import warnings
 
 if sys.version_info >= (3, 10):
     import sysconfig
@@ -31,8 +32,7 @@ else:
     # Get correct EXT_SUFFIX on Windows (https://bugs.python.org/issue39825)
     from distutils import sysconfig
 
-import pkg_resources
-from setuptools import setup, Extension, Distribution, find_namespace_packages
+from setuptools import setup, Extension, Distribution
 
 from Cython.Distutils import build_ext as _build_ext
 import Cython
@@ -40,8 +40,17 @@ import Cython
 # Check if we're running 64-bit Python
 is_64_bit = sys.maxsize > 2**32
 
-if Cython.__version__ < '0.29.22':
-    raise Exception('Please upgrade to Cython 0.29.22 or newer')
+# We can't use sys.platform in a cross-compiling situation
+# as here it may be set to the host not target platform
+is_emscripten = (
+    sysconfig.get_config_var("SOABI")
+    and sysconfig.get_config_var("SOABI").find("emscripten") != -1
+)
+
+
+if Cython.__version__ < '3.1':
+    raise Exception(
+        'Please update your Cython version. Supported Cython >= 3.1')
 
 setup_dir = os.path.abspath(os.path.dirname(__file__))
 
@@ -75,11 +84,29 @@ def strtobool(val):
         raise ValueError("invalid truth value %r" % (val,))
 
 
+MSG_DEPR_SETUP_BUILD_FLAGS = """
+  !!
+
+        ***********************************************************************
+        The '{}' flag is being passed to setup.py, but this is
+        deprecated.
+
+        If a certain component is available in Arrow C++, it will automatically
+        be enabled for the PyArrow build as well. If you want to force the
+        build of a certain component, you can still use the
+        PYARROW_WITH_$COMPONENT environment variable.
+        ***********************************************************************
+
+  !!
+"""
+
+
 class build_ext(_build_ext):
     _found_names = ()
 
     def build_extensions(self):
-        numpy_incl = pkg_resources.resource_filename('numpy', 'core/include')
+        import numpy
+        numpy_incl = numpy.get_include()
 
         self.extensions = [ext for ext in self.extensions
                            if ext.name != '__dummy__']
@@ -107,18 +134,18 @@ class build_ext(_build_ext):
                      ('with-cuda', None, 'build the Cuda extension'),
                      ('with-flight', None, 'build the Flight extension'),
                      ('with-substrait', None, 'build the Substrait extension'),
+                     ('with-acero', None, 'build the Acero Engine extension'),
                      ('with-dataset', None, 'build the Dataset extension'),
                      ('with-parquet', None, 'build the Parquet extension'),
                      ('with-parquet-encryption', None,
                       'build the Parquet encryption extension'),
+                     ('with-azure', None,
+                      'build the Azure Blob Storage extension'),
                      ('with-gcs', None,
                       'build the Google Cloud Storage (GCS) extension'),
                      ('with-s3', None, 'build the Amazon S3 extension'),
                      ('with-static-parquet', None, 'link parquet statically'),
                      ('with-static-boost', None, 'link boost statically'),
-                     ('with-plasma', None, 'build the Plasma extension'),
-                     ('with-tensorflow', None,
-                      'build pyarrow with TensorFlow support'),
                      ('with-orc', None, 'build the ORC extension'),
                      ('with-gandiva', None, 'build the Gandiva extension'),
                      ('generate-coverage', None,
@@ -131,9 +158,7 @@ class build_ext(_build_ext):
                      ('bundle-arrow-cpp', None,
                       'bundle the Arrow C++ libraries'),
                      ('bundle-arrow-cpp-headers', None,
-                      'bundle the Arrow C++ headers'),
-                     ('bundle-plasma-executable', None,
-                      'bundle the plasma-store-server executable')] +
+                      'bundle the Arrow C++ headers')] +
                     _build_ext.user_options)
 
     def initialize_options(self):
@@ -144,8 +169,6 @@ class build_ext(_build_ext):
         self.extra_cmake_args = os.environ.get('PYARROW_CMAKE_OPTIONS', '')
         self.build_type = os.environ.get('PYARROW_BUILD_TYPE',
                                          'release').lower()
-        self.boost_namespace = os.environ.get('PYARROW_BOOST_NAMESPACE',
-                                              'boost')
 
         self.cmake_cxxflags = os.environ.get('PYARROW_CXXFLAGS', '')
 
@@ -155,51 +178,26 @@ class build_ext(_build_ext):
             if not hasattr(sys, 'gettotalrefcount'):
                 self.build_type = 'release'
 
-        self.with_gcs = strtobool(
-            os.environ.get('PYARROW_WITH_GCS', '0'))
-        self.with_s3 = strtobool(
-            os.environ.get('PYARROW_WITH_S3', '0'))
-        self.with_hdfs = strtobool(
-            os.environ.get('PYARROW_WITH_HDFS', '0'))
-        self.with_cuda = strtobool(
-            os.environ.get('PYARROW_WITH_CUDA', '0'))
-        self.with_substrait = strtobool(
-            os.environ.get('PYARROW_WITH_SUBSTRAIT', '0'))
-        self.with_flight = strtobool(
-            os.environ.get('PYARROW_WITH_FLIGHT', '0'))
-        self.with_dataset = strtobool(
-            os.environ.get('PYARROW_WITH_DATASET', '0'))
-        self.with_parquet = strtobool(
-            os.environ.get('PYARROW_WITH_PARQUET', '0'))
-        self.with_static_parquet = strtobool(
-            os.environ.get('PYARROW_WITH_STATIC_PARQUET', '0'))
-        self.with_parquet_encryption = strtobool(
-            os.environ.get('PYARROW_WITH_PARQUET_ENCRYPTION', '0'))
-        self.with_static_boost = strtobool(
-            os.environ.get('PYARROW_WITH_STATIC_BOOST', '0'))
-        self.with_plasma = strtobool(
-            os.environ.get('PYARROW_WITH_PLASMA', '0'))
-        self.with_tensorflow = strtobool(
-            os.environ.get('PYARROW_WITH_TENSORFLOW', '0'))
-        self.with_orc = strtobool(
-            os.environ.get('PYARROW_WITH_ORC', '0'))
-        self.with_gandiva = strtobool(
-            os.environ.get('PYARROW_WITH_GANDIVA', '0'))
+        self.with_azure = None
+        self.with_gcs = None
+        self.with_s3 = None
+        self.with_hdfs = None
+        self.with_cuda = None
+        self.with_substrait = None
+        self.with_flight = None
+        self.with_acero = None
+        self.with_dataset = None
+        self.with_parquet = None
+        self.with_parquet_encryption = None
+        self.with_orc = None
+        self.with_gandiva = None
+
         self.generate_coverage = strtobool(
             os.environ.get('PYARROW_GENERATE_COVERAGE', '0'))
         self.bundle_arrow_cpp = strtobool(
             os.environ.get('PYARROW_BUNDLE_ARROW_CPP', '0'))
         self.bundle_cython_cpp = strtobool(
             os.environ.get('PYARROW_BUNDLE_CYTHON_CPP', '0'))
-        self.bundle_boost = strtobool(
-            os.environ.get('PYARROW_BUNDLE_BOOST', '0'))
-        self.bundle_arrow_cpp_headers = strtobool(
-            os.environ.get('PYARROW_BUNDLE_ARROW_CPP_HEADERS', '1'))
-        self.bundle_plasma_executable = strtobool(
-            os.environ.get('PYARROW_BUNDLE_PLASMA_EXECUTABLE', '1'))
-
-        self.with_parquet_encryption = (self.with_parquet_encryption and
-                                        self.with_parquet)
 
     CYTHON_MODULE_NAMES = [
         'lib',
@@ -212,18 +210,17 @@ class build_ext(_build_ext):
         '_dataset',
         '_dataset_orc',
         '_dataset_parquet',
-        '_exec_plan',
+        '_acero',
         '_feather',
         '_parquet',
         '_parquet_encryption',
         '_pyarrow_cpp_tests',
         '_orc',
-        '_plasma',
+        '_azurefs',
         '_gcsfs',
         '_s3fs',
         '_substrait',
         '_hdfs',
-        '_hdfsio',
         'gandiva']
 
     def _run_cmake(self):
@@ -275,47 +272,48 @@ class build_ext(_build_ext):
             ]
 
             def append_cmake_bool(value, varname):
-                cmake_options.append('-D{0}={1}'.format(
-                    varname, 'on' if value else 'off'))
+                cmake_options.append(f'-D{varname}={"on" if value else "off"}')
+
+            def append_cmake_component(flag, varname):
+                # only pass this to cmake if the user pass the --with-component
+                # flag to setup.py build_ext
+                if flag is not None:
+                    flag_name = (
+                        "--with-"
+                        + varname.removeprefix("PYARROW_").lower().replace("_", "-"))
+                    warnings.warn(
+                        MSG_DEPR_SETUP_BUILD_FLAGS.format(flag_name),
+                        UserWarning, stacklevel=2
+                    )
+                    append_cmake_bool(flag, varname)
 
             if self.cmake_generator:
                 cmake_options += ['-G', self.cmake_generator]
 
-            append_cmake_bool(self.with_cuda, 'PYARROW_BUILD_CUDA')
-            append_cmake_bool(self.with_substrait, 'PYARROW_BUILD_SUBSTRAIT')
-            append_cmake_bool(self.with_flight, 'PYARROW_BUILD_FLIGHT')
-            append_cmake_bool(self.with_gandiva, 'PYARROW_BUILD_GANDIVA')
-            append_cmake_bool(self.with_dataset, 'PYARROW_BUILD_DATASET')
-            append_cmake_bool(self.with_orc, 'PYARROW_BUILD_ORC')
-            append_cmake_bool(self.with_parquet, 'PYARROW_BUILD_PARQUET')
-            append_cmake_bool(self.with_parquet_encryption,
-                              'PYARROW_BUILD_PARQUET_ENCRYPTION')
-            append_cmake_bool(self.with_plasma, 'PYARROW_BUILD_PLASMA')
-            append_cmake_bool(self.with_gcs, 'PYARROW_BUILD_GCS')
-            append_cmake_bool(self.with_s3, 'PYARROW_BUILD_S3')
-            append_cmake_bool(self.with_hdfs, 'PYARROW_BUILD_HDFS')
-            append_cmake_bool(self.with_tensorflow, 'PYARROW_USE_TENSORFLOW')
+            append_cmake_component(self.with_cuda, 'PYARROW_CUDA')
+            append_cmake_component(self.with_substrait, 'PYARROW_SUBSTRAIT')
+            append_cmake_component(self.with_flight, 'PYARROW_FLIGHT')
+            append_cmake_component(self.with_gandiva, 'PYARROW_GANDIVA')
+            append_cmake_component(self.with_acero, 'PYARROW_ACERO')
+            append_cmake_component(self.with_dataset, 'PYARROW_DATASET')
+            append_cmake_component(self.with_orc, 'PYARROW_ORC')
+            append_cmake_component(self.with_parquet, 'PYARROW_PARQUET')
+            append_cmake_component(self.with_parquet_encryption,
+                                   'PYARROW_PARQUET_ENCRYPTION')
+            append_cmake_component(self.with_azure, 'PYARROW_AZURE')
+            append_cmake_component(self.with_gcs, 'PYARROW_GCS')
+            append_cmake_component(self.with_s3, 'PYARROW_S3')
+            append_cmake_component(self.with_hdfs, 'PYARROW_HDFS')
+
             append_cmake_bool(self.bundle_arrow_cpp,
                               'PYARROW_BUNDLE_ARROW_CPP')
-            append_cmake_bool(self.bundle_boost,
-                              'PYARROW_BUNDLE_BOOST')
             append_cmake_bool(self.bundle_cython_cpp,
                               'PYARROW_BUNDLE_CYTHON_CPP')
-            append_cmake_bool(self.bundle_plasma_executable,
-                              'PYARROW_BUNDLE_PLASMA_EXECUTABLE')
             append_cmake_bool(self.generate_coverage,
                               'PYARROW_GENERATE_COVERAGE')
-            append_cmake_bool(not self.with_static_boost,
-                              'PYARROW_BOOST_USE_SHARED')
-            append_cmake_bool(not self.with_static_parquet,
-                              'PYARROW_PARQUET_USE_SHARED')
 
             cmake_options.append(
                 f'-DCMAKE_BUILD_TYPE={self.build_type.lower()}')
-
-            if self.boost_namespace != 'boost':
-                cmake_options.append(
-                    f'-DBoost_NAMESPACE={self.boost_namespace}')
 
             extra_cmake_args = shlex.split(self.extra_cmake_args)
 
@@ -332,8 +330,14 @@ class build_ext(_build_ext):
                     build_tool_args.append(f'-j{parallel}')
 
             # Generate the build files
-            print("-- Running cmake for PyArrow")
-            self.spawn(['cmake'] + extra_cmake_args + cmake_options + [source])
+            if is_emscripten:
+                print("-- Running emcmake cmake for PyArrow on Emscripten")
+                self.spawn(['emcmake', 'cmake'] + extra_cmake_args +
+                           cmake_options + [source])
+            else:
+                print("-- Running cmake for PyArrow")
+                self.spawn(['cmake'] + extra_cmake_args + cmake_options + [source])
+
             print("-- Finished cmake for PyArrow")
 
             print("-- Running cmake --build for PyArrow")
@@ -349,50 +353,8 @@ class build_ext(_build_ext):
             self._found_names = []
             for name in self.CYTHON_MODULE_NAMES:
                 built_path = pjoin(install_prefix, name + ext_suffix)
-                if not os.path.exists(built_path):
-                    print(f'Did not find {built_path}')
-                    if self._failure_permitted(name):
-                        print(f'Cython module {name} failure permitted')
-                        continue
-                    raise RuntimeError('PyArrow C-extension failed to build:',
-                                       os.path.abspath(built_path))
-
-                self._found_names.append(name)
-
-    def _failure_permitted(self, name):
-        if name == '_parquet' and not self.with_parquet:
-            return True
-        if name == '_parquet_encryption' and not self.with_parquet_encryption:
-            return True
-        if name == '_plasma' and not self.with_plasma:
-            return True
-        if name == '_orc' and not self.with_orc:
-            return True
-        if name == '_flight' and not self.with_flight:
-            return True
-        if name == '_substrait' and not self.with_substrait:
-            return True
-        if name == '_gcsfs' and not self.with_gcs:
-            return True
-        if name == '_s3fs' and not self.with_s3:
-            return True
-        if name == '_hdfs' and not self.with_hdfs:
-            return True
-        if name == '_dataset' and not self.with_dataset:
-            return True
-        if name == '_dataset_orc' and not (
-                self.with_orc and self.with_dataset
-        ):
-            return True
-        if name == '_dataset_parquet' and not (
-                self.with_parquet and self.with_dataset
-        ):
-            return True
-        if name == '_cuda' and not self.with_cuda:
-            return True
-        if name == 'gandiva' and not self.with_gandiva:
-            return True
-        return False
+                if os.path.exists(built_path):
+                    self._found_names.append(name)
 
     def _get_build_dir(self):
         # Get the package directory from build_py
@@ -428,120 +390,16 @@ class build_ext(_build_ext):
                 for name in self.get_names()]
 
 
-# If the event of not running from a git clone (e.g. from a git archive
-# or a Python sdist), see if we can set the version number ourselves
-default_version = '12.0.0-SNAPSHOT'
-if (not os.path.exists('../.git') and
-        not os.environ.get('SETUPTOOLS_SCM_PRETEND_VERSION')):
-    os.environ['SETUPTOOLS_SCM_PRETEND_VERSION'] = \
-        default_version.replace('-SNAPSHOT', 'a0')
-
-
-# See https://github.com/pypa/setuptools_scm#configuration-parameters
-scm_version_write_to_prefix = os.environ.get(
-    'SETUPTOOLS_SCM_VERSION_WRITE_TO_PREFIX', setup_dir)
-
-
-def parse_git(root, **kwargs):
-    """
-    Parse function for setuptools_scm that ignores tags for non-C++
-    subprojects, e.g. apache-arrow-js-XXX tags.
-    """
-    from setuptools_scm.git import parse
-    kwargs['describe_command'] =\
-        'git describe --dirty --tags --long --match "apache-arrow-[0-9]*.*"'
-    return parse(root, **kwargs)
-
-
-def guess_next_dev_version(version):
-    if version.exact:
-        return version.format_with('{tag}')
-    else:
-        def guess_next_version(tag_version):
-            return default_version.replace('-SNAPSHOT', '')
-        return version.format_next_version(guess_next_version)
-
-
-with open('README.md') as f:
-    long_description = f.read()
-
-
 class BinaryDistribution(Distribution):
     def has_ext_modules(foo):
         return True
 
 
-install_requires = (
-    'numpy >= 1.16.6',
-)
-
-
-# Only include pytest-runner in setup_requires if we're invoking tests
-if {'pytest', 'test', 'ptr'}.intersection(sys.argv):
-    setup_requires = ['pytest-runner']
-else:
-    setup_requires = []
-
-
-if strtobool(os.environ.get('PYARROW_INSTALL_TESTS', '1')):
-    packages = find_namespace_packages(include=['pyarrow*'])
-    exclude_package_data = {}
-else:
-    packages = find_namespace_packages(include=['pyarrow*'],
-                                       exclude=["pyarrow.tests*"])
-    # setuptools adds back importable packages even when excluded.
-    # https://github.com/pypa/setuptools/issues/3260
-    # https://github.com/pypa/setuptools/issues/3340#issuecomment-1219383976
-    exclude_package_data = {"pyarrow": ["tests*"]}
-
-
 setup(
-    name='pyarrow',
-    packages=packages,
-    zip_safe=False,
-    package_data={'pyarrow': ['*.pxd', '*.pyx', 'includes/*.pxd']},
-    include_package_data=True,
-    exclude_package_data=exclude_package_data,
     distclass=BinaryDistribution,
     # Dummy extension to trigger build_ext
     ext_modules=[Extension('__dummy__', sources=[])],
     cmdclass={
         'build_ext': build_ext
-    },
-    entry_points={
-        'console_scripts': [
-            'plasma_store = pyarrow:_plasma_store_entry_point'
-        ]
-    },
-    use_scm_version={
-        'root': os.path.dirname(setup_dir),
-        'parse': parse_git,
-        'write_to': os.path.join(scm_version_write_to_prefix,
-                                 'pyarrow/_generated_version.py'),
-        'version_scheme': guess_next_dev_version
-    },
-    setup_requires=['setuptools_scm', 'cython >= 0.29'] + setup_requires,
-    install_requires=install_requires,
-    tests_require=['pytest', 'pandas', 'hypothesis'],
-    python_requires='>=3.7',
-    description='Python library for Apache Arrow',
-    long_description=long_description,
-    long_description_content_type='text/markdown',
-    classifiers=[
-        'License :: OSI Approved :: Apache Software License',
-        'Programming Language :: Python :: 3.7',
-        'Programming Language :: Python :: 3.8',
-        'Programming Language :: Python :: 3.9',
-        'Programming Language :: Python :: 3.10',
-        'Programming Language :: Python :: 3.11',
-    ],
-    license='Apache License, Version 2.0',
-    maintainer='Apache Arrow Developers',
-    maintainer_email='dev@arrow.apache.org',
-    test_suite='pyarrow.tests',
-    url='https://arrow.apache.org/',
-    project_urls={
-        'Documentation': 'https://arrow.apache.org/docs/python',
-        'Source': 'https://github.com/apache/arrow',
     },
 )

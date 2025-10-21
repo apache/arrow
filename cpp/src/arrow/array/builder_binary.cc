@@ -34,11 +34,73 @@
 #include "arrow/util/bit_util.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/decimal.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/int_util_overflow.h"
+#include "arrow/util/logging_internal.h"
+#include "arrow/visit_data_inline.h"
 
 namespace arrow {
 
 using internal::checked_cast;
+using internal::MultiplyWithOverflow;
+
+// ----------------------------------------------------------------------
+// Binary/StringView
+BinaryViewBuilder::BinaryViewBuilder(const std::shared_ptr<DataType>& type,
+                                     MemoryPool* pool)
+    : BinaryViewBuilder(pool) {}
+
+Status BinaryViewBuilder::AppendArraySlice(const ArraySpan& array, int64_t offset,
+                                           int64_t length) {
+  auto bitmap = array.GetValues<uint8_t>(0, 0);
+  auto values = array.GetValues<BinaryViewType::c_type>(1) + offset;
+
+  int64_t out_of_line_total = 0, i = 0;
+  VisitNullBitmapInline(
+      array.buffers[0].data, array.offset + offset, length, array.null_count,
+      [&] {
+        if (!values[i].is_inline()) {
+          out_of_line_total += static_cast<int64_t>(values[i].size());
+        }
+        ++i;
+      },
+      [&] { ++i; });
+
+  RETURN_NOT_OK(Reserve(length));
+  RETURN_NOT_OK(ReserveData(out_of_line_total));
+
+  for (int64_t i = 0; i < length; i++) {
+    if (bitmap && !bit_util::GetBit(bitmap, array.offset + offset + i)) {
+      UnsafeAppendNull();
+      continue;
+    }
+
+    UnsafeAppend(util::FromBinaryView(values[i], array.GetVariadicBuffers().data()));
+  }
+  return Status::OK();
+}
+
+Status BinaryViewBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
+  ARROW_ASSIGN_OR_RAISE(auto null_bitmap, null_bitmap_builder_.FinishWithLength(length_));
+  ARROW_ASSIGN_OR_RAISE(auto data, data_builder_.FinishWithLength(length_));
+  ARROW_ASSIGN_OR_RAISE(auto byte_buffers, data_heap_builder_.Finish());
+  BufferVector buffers(byte_buffers.size() + 2);
+  buffers[0] = std::move(null_bitmap);
+  buffers[1] = std::move(data);
+  std::move(byte_buffers.begin(), byte_buffers.end(), buffers.begin() + 2);
+  *out = ArrayData::Make(type(), length_, std::move(buffers), null_count_);
+  Reset();
+  return Status::OK();
+}
+
+Status BinaryViewBuilder::ReserveData(int64_t length) {
+  return data_heap_builder_.Reserve(length);
+}
+
+void BinaryViewBuilder::Reset() {
+  ArrayBuilder::Reset();
+  data_builder_.Reset();
+  data_heap_builder_.Reset();
+}
 
 // ----------------------------------------------------------------------
 // Fixed width binary
@@ -102,7 +164,13 @@ void FixedSizeBinaryBuilder::Reset() {
 
 Status FixedSizeBinaryBuilder::Resize(int64_t capacity) {
   RETURN_NOT_OK(CheckCapacity(capacity));
-  RETURN_NOT_OK(byte_builder_.Resize(capacity * byte_width_));
+  int64_t dest_capacity_bytes;
+  if (ARROW_PREDICT_FALSE(
+          MultiplyWithOverflow(capacity, byte_width_, &dest_capacity_bytes))) {
+    return Status::CapacityError("Resize: capacity overflows (requested: ", capacity,
+                                 ", byte_width: ", byte_width_, ")");
+  }
+  RETURN_NOT_OK(byte_builder_.Resize(dest_capacity_bytes));
   return ArrayBuilder::Resize(capacity);
 }
 
@@ -125,8 +193,8 @@ const uint8_t* FixedSizeBinaryBuilder::GetValue(int64_t i) const {
 
 std::string_view FixedSizeBinaryBuilder::GetView(int64_t i) const {
   const uint8_t* data_ptr = byte_builder_.data();
-  return std::string_view(reinterpret_cast<const char*>(data_ptr + i * byte_width_),
-                          byte_width_);
+  return {reinterpret_cast<const char*>(data_ptr + i * byte_width_),
+          static_cast<size_t>(byte_width_)};
 }
 
 // ----------------------------------------------------------------------
@@ -173,10 +241,10 @@ Status ChunkedStringBuilder::Finish(ArrayVector* out) {
   RETURN_NOT_OK(ChunkedBinaryBuilder::Finish(out));
 
   // Change data type to string/utf8
-  for (size_t i = 0; i < out->size(); ++i) {
-    std::shared_ptr<ArrayData> data = (*out)[i]->data();
+  for (auto& chunk : *out) {
+    std::shared_ptr<ArrayData> data = chunk->data()->Copy();
     data->type = ::arrow::utf8();
-    (*out)[i] = std::make_shared<StringArray>(data);
+    chunk = std::make_shared<StringArray>(std::move(data));
   }
   return Status::OK();
 }

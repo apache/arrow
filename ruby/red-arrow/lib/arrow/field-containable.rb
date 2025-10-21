@@ -29,7 +29,7 @@ module Arrow
         return nil if index < 0 or index >= n_fields
         get_field(index)
       else
-        message = "field name or index must be String, Symbol or Integer"
+        message = +"field name or index must be String, Symbol or Integer"
         message << ": <#{name_or_index.inspect}>"
         raise ArgumentError, message
       end

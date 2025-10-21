@@ -26,12 +26,16 @@
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/cast.h"
 #include "arrow/compute/kernels/base_arithmetic_internal.h"
-#include "arrow/compute/kernels/common.h"
+#include "arrow/compute/kernels/codegen_internal.h"
+#include "arrow/compute/kernels/common_internal.h"
 #include "arrow/compute/kernels/util_internal.h"
+#include "arrow/compute/registry_internal.h"
 #include "arrow/type.h"
+#include "arrow/type_fwd.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/decimal.h"
 #include "arrow/util/int_util_overflow.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/macros.h"
 #include "arrow/visit_scalar_inline.h"
 
@@ -176,6 +180,14 @@ struct SinChecked {
   }
 };
 
+struct Sinh {
+  template <typename T, typename Arg0>
+  static enable_if_floating_value<Arg0, T> Call(KernelContext*, Arg0 val, Status*) {
+    static_assert(std::is_same<T, Arg0>::value, "");
+    return std::sinh(val);
+  }
+};
+
 struct Cos {
   template <typename T, typename Arg0>
   static enable_if_floating_value<Arg0, T> Call(KernelContext*, Arg0 val, Status*) {
@@ -193,6 +205,14 @@ struct CosChecked {
       return val;
     }
     return std::cos(val);
+  }
+};
+
+struct Cosh {
+  template <typename T, typename Arg0>
+  static enable_if_floating_value<Arg0, T> Call(KernelContext*, Arg0 val, Status*) {
+    static_assert(std::is_same<T, Arg0>::value, "");
+    return std::cosh(val);
   }
 };
 
@@ -214,6 +234,14 @@ struct TanChecked {
     }
     // Cannot raise range errors (overflow) since PI/2 is not exactly representable
     return std::tan(val);
+  }
+};
+
+struct Tanh {
+  template <typename T, typename Arg0>
+  static enable_if_floating_value<Arg0, T> Call(KernelContext*, Arg0 val, Status*) {
+    static_assert(std::is_same<T, Arg0>::value, "");
+    return std::tanh(val);
   }
 };
 
@@ -240,6 +268,14 @@ struct AsinChecked {
   }
 };
 
+struct Asinh {
+  template <typename T, typename Arg0>
+  static enable_if_floating_value<Arg0, T> Call(KernelContext*, Arg0 val, Status*) {
+    static_assert(std::is_same<T, Arg0>::value, "");
+    return std::asinh(val);
+  }
+};
+
 struct Acos {
   template <typename T, typename Arg0>
   static enable_if_floating_value<Arg0, T> Call(KernelContext*, Arg0 val, Status*) {
@@ -263,11 +299,63 @@ struct AcosChecked {
   }
 };
 
+struct Acosh {
+  template <typename T, typename Arg0>
+  static enable_if_floating_value<Arg0, T> Call(KernelContext*, Arg0 val, Status*) {
+    static_assert(std::is_same<T, Arg0>::value, "");
+    if (ARROW_PREDICT_FALSE(val < 1.0)) {
+      return std::numeric_limits<T>::quiet_NaN();
+    }
+    return std::acosh(val);
+  }
+};
+
+struct AcoshChecked {
+  template <typename T, typename Arg0>
+  static enable_if_floating_value<Arg0, T> Call(KernelContext*, Arg0 val, Status* st) {
+    static_assert(std::is_same<T, Arg0>::value, "");
+    if (ARROW_PREDICT_FALSE(val < 1.0)) {
+      *st = Status::Invalid("domain error");
+      return val;
+    }
+    return std::acosh(val);
+  }
+};
+
 struct Atan {
   template <typename T, typename Arg0>
   static enable_if_floating_value<Arg0, T> Call(KernelContext*, Arg0 val, Status*) {
     static_assert(std::is_same<T, Arg0>::value, "");
     return std::atan(val);
+  }
+};
+
+struct Atanh {
+  template <typename T, typename Arg0>
+  static enable_if_floating_value<Arg0, T> Call(KernelContext*, Arg0 val, Status*) {
+    static_assert(std::is_same<T, Arg0>::value, "");
+    if (ARROW_PREDICT_FALSE((val < -1.0 || val > 1.0))) {
+      // N.B. This predicate does *not* match the predicate in AtanhChecked. In
+      // GH-44630 it was decided that the checked version should error when asked
+      // for +/- 1 as an input and the unchecked version should return +/- oo
+      return std::numeric_limits<T>::quiet_NaN();
+    }
+    return std::atanh(val);
+  }
+};
+
+struct AtanhChecked {
+  template <typename T, typename Arg0>
+  static enable_if_floating_value<Arg0, T> Call(KernelContext*, Arg0 val, Status* st) {
+    static_assert(std::is_same<T, Arg0>::value, "");
+    if (ARROW_PREDICT_FALSE((val <= -1.0 || val >= 1.0))) {
+      // N.B. This predicate does *not* match the predicate in Atanh. In GH-44630 it was
+      // decided that the checked version should error when asked for +/- 1 as an input
+      // and the unchecked version should return +/- oo
+      *st = Status::Invalid("domain error");
+      return val;
+    }
+    return std::atanh(val);
   }
 };
 
@@ -497,16 +585,19 @@ Result<TypeHolder> ResolveDecimalBinaryOperationOutput(
   DCHECK_EQ(left_type.id(), right_type.id());
 
   int32_t precision, scale;
-  std::tie(precision, scale) = getter(left_type.precision(), left_type.scale(),
-                                      right_type.precision(), right_type.scale());
+  ARROW_ASSIGN_OR_RAISE(std::tie(precision, scale),
+                        ToResult(getter(left_type.precision(), left_type.scale(),
+                                        right_type.precision(), right_type.scale())));
   ARROW_ASSIGN_OR_RAISE(auto type, DecimalType::Make(left_type.id(), precision, scale));
-  return std::move(type);
+  return type;
 }
 
 Result<TypeHolder> ResolveDecimalAdditionOrSubtractionOutput(
     KernelContext*, const std::vector<TypeHolder>& types) {
   return ResolveDecimalBinaryOperationOutput(
-      types, [](int32_t p1, int32_t s1, int32_t p2, int32_t s2) {
+      types,
+      [](int32_t p1, int32_t s1, int32_t p2,
+         int32_t s2) -> Result<std::pair<int32_t, int32_t>> {
         DCHECK_EQ(s1, s2);
         const int32_t scale = s1;
         const int32_t precision = std::max(p1 - s1, p2 - s2) + scale + 1;
@@ -517,7 +608,9 @@ Result<TypeHolder> ResolveDecimalAdditionOrSubtractionOutput(
 Result<TypeHolder> ResolveDecimalMultiplicationOutput(
     KernelContext*, const std::vector<TypeHolder>& types) {
   return ResolveDecimalBinaryOperationOutput(
-      types, [](int32_t p1, int32_t s1, int32_t p2, int32_t s2) {
+      types,
+      [](int32_t p1, int32_t s1, int32_t p2,
+         int32_t s2) -> Result<std::pair<int32_t, int32_t>> {
         const int32_t scale = s1 + s2;
         const int32_t precision = p1 + p2 + 1;
         return std::make_pair(precision, scale);
@@ -527,7 +620,9 @@ Result<TypeHolder> ResolveDecimalMultiplicationOutput(
 Result<TypeHolder> ResolveDecimalDivisionOutput(KernelContext*,
                                                 const std::vector<TypeHolder>& types) {
   return ResolveDecimalBinaryOperationOutput(
-      types, [](int32_t p1, int32_t s1, int32_t p2, int32_t s2) {
+      types,
+      [](int32_t p1, int32_t s1, int32_t p2,
+         int32_t s2) -> Result<std::pair<int32_t, int32_t>> {
         DCHECK_GE(s1, s2);
         const int32_t scale = s1 - s2;
         const int32_t precision = p1;
@@ -549,7 +644,7 @@ Result<TypeHolder> ResolveTemporalOutput(KernelContext*,
   }
 
   auto type = duration(right_type.unit());
-  return std::move(type);
+  return type;
 }
 
 template <typename Op>
@@ -566,9 +661,11 @@ void AddDecimalUnaryKernels(ScalarFunction* func) {
 template <typename Op>
 void AddDecimalBinaryKernels(const std::string& name, ScalarFunction* func) {
   OutputType out_type(null());
+  std::shared_ptr<MatchConstraint> constraint = nullptr;
   const std::string op = name.substr(0, name.find("_"));
   if (op == "add" || op == "subtract") {
     out_type = OutputType(ResolveDecimalAdditionOrSubtractionOutput);
+    constraint = DecimalsHaveSameScale();
   } else if (op == "multiply") {
     out_type = OutputType(ResolveDecimalMultiplicationOutput);
   } else if (op == "divide") {
@@ -581,8 +678,18 @@ void AddDecimalBinaryKernels(const std::string& name, ScalarFunction* func) {
   auto in_type256 = InputType(Type::DECIMAL256);
   auto exec128 = ScalarBinaryNotNullEqualTypes<Decimal128Type, Decimal128Type, Op>::Exec;
   auto exec256 = ScalarBinaryNotNullEqualTypes<Decimal256Type, Decimal256Type, Op>::Exec;
-  DCHECK_OK(func->AddKernel({in_type128, in_type128}, out_type, exec128));
-  DCHECK_OK(func->AddKernel({in_type256, in_type256}, out_type, exec256));
+  DCHECK_OK(func->AddKernel({in_type128, in_type128}, out_type, exec128, /*init=*/nullptr,
+                            constraint));
+  DCHECK_OK(func->AddKernel({in_type256, in_type256}, out_type, exec256, /*init=*/nullptr,
+                            constraint));
+}
+
+template <typename Op>
+void AddHalfFloatUnaryKernel(ScalarFunction* func) {
+  OutputType out_type(FirstType);
+  auto in_type = InputType(Type::HALF_FLOAT);
+  auto exec = ScalarUnaryNotNull<HalfFloatType, HalfFloatType, Op>::Exec;
+  DCHECK_OK(func->AddKernel({in_type}, out_type, exec));
 }
 
 // Generate a kernel given an arithmetic functor
@@ -619,6 +726,17 @@ ArrayKernelExec GenerateArithmeticWithFixedIntOutType(detail::GetTypeId get_id) 
 struct ArithmeticFunction : ScalarFunction {
   using ScalarFunction::ScalarFunction;
 
+  Result<const Kernel*> DispatchExact(
+      const std::vector<TypeHolder>& types) const override {
+    if ((name_ == "divide" || name_ == "divide_checked") && HasDecimal(types)) {
+      // Decimal division ALWAYS scales up the dividend, so there will NEVER be an exact
+      // match.
+      return arrow::compute::detail::NoMatchingKernel(this, types);
+    }
+
+    return ScalarFunction::DispatchExact(types);
+  }
+
   Result<const Kernel*> DispatchBest(std::vector<TypeHolder>* types) const override {
     RETURN_NOT_OK(CheckArity(types->size()));
 
@@ -639,6 +757,11 @@ struct ArithmeticFunction : ScalarFunction {
         if (TypeHolder type = CommonNumeric(*types)) {
           ReplaceTypes(type, types);
         }
+      }
+
+      if (name_ == "multiply" || name_ == "multiply_checked" || name_ == "divide" ||
+          name_ == "divide_checked") {
+        PromoteIntegerForDurationArithmetic(types);
       }
     }
 
@@ -760,16 +883,6 @@ struct ArithmeticFloatingPointFunction : public ArithmeticFunction {
     return arrow::compute::detail::NoMatchingKernel(this, *types);
   }
 };
-
-// A scalar kernel that ignores (assumed all-null) inputs and returns null.
-Status NullToNullExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
-  return Status::OK();
-}
-
-void AddNullExec(ScalarFunction* func) {
-  std::vector<InputType> input_types(func->arity().num_args, InputType(Type::NA));
-  DCHECK_OK(func->AddKernel(std::move(input_types), OutputType(null()), NullToNullExec));
-}
 
 template <typename Op, typename FunctionImpl = ArithmeticFunction>
 std::shared_ptr<ScalarFunction> MakeArithmeticFunction(std::string name,
@@ -1075,6 +1188,12 @@ const FunctionDoc exp_doc{
     ("If exponent is null the result will be null."),
     {"exponent"}};
 
+const FunctionDoc expm1_doc{
+    "Compute Euler's number raised to the power of specified exponent, "
+    "then decrement 1, element-wise",
+    ("If exponent is null the result will be null."),
+    {"exponent"}};
+
 const FunctionDoc pow_checked_doc{
     "Raise arguments to power element-wise",
     ("An error is returned when integer to negative integer power is encountered,\n"
@@ -1160,6 +1279,8 @@ const FunctionDoc sin_checked_doc{"Compute the sine",
                                    "to return NaN instead, see \"sin\"."),
                                   {"x"}};
 
+const FunctionDoc sinh_doc{"Compute the hyperbolic sine", (""), {"x"}};
+
 const FunctionDoc cos_doc{"Compute the cosine",
                           ("NaN is returned for invalid input values;\n"
                            "to raise an error instead, see \"cos_checked\"."),
@@ -1169,6 +1290,8 @@ const FunctionDoc cos_checked_doc{"Compute the cosine",
                                   ("Infinite values raise an error;\n"
                                    "to return NaN instead, see \"cos\"."),
                                   {"x"}};
+
+const FunctionDoc cosh_doc{"Compute the hyperbolic cosine", (""), {"x"}};
 
 const FunctionDoc tan_doc{"Compute the tangent",
                           ("NaN is returned for invalid input values;\n"
@@ -1180,6 +1303,8 @@ const FunctionDoc tan_checked_doc{"Compute the tangent",
                                    "to return NaN instead, see \"tan\"."),
                                   {"x"}};
 
+const FunctionDoc tanh_doc{"Compute the hyperbolic tangent", (""), {"x"}};
+
 const FunctionDoc asin_doc{"Compute the inverse sine",
                            ("NaN is returned for invalid input values;\n"
                             "to raise an error instead, see \"asin_checked\"."),
@@ -1189,6 +1314,8 @@ const FunctionDoc asin_checked_doc{"Compute the inverse sine",
                                    ("Invalid input values raise an error;\n"
                                     "to return NaN instead, see \"asin\"."),
                                    {"x"}};
+
+const FunctionDoc asinh_doc{"Compute the inverse hyperbolic sine", (""), {"x"}};
 
 const FunctionDoc acos_doc{"Compute the inverse cosine",
                            ("NaN is returned for invalid input values;\n"
@@ -1200,6 +1327,16 @@ const FunctionDoc acos_checked_doc{"Compute the inverse cosine",
                                     "to return NaN instead, see \"acos\"."),
                                    {"x"}};
 
+const FunctionDoc acosh_doc{"Compute the inverse hyperbolic cosine",
+                            ("NaN is returned for input values < 1.0;\n"
+                             "to raise an error instead, see \"acosh_checked\"."),
+                            {"x"}};
+
+const FunctionDoc acosh_checked_doc{"Compute the inverse hyperbolic cosine",
+                                    ("Input values < 1.0 raise an error;\n"
+                                     "to return NaN instead, see \"acosh\"."),
+                                    {"x"}};
+
 const FunctionDoc atan_doc{"Compute the inverse tangent of x",
                            ("The return value is in the range [-pi/2, pi/2];\n"
                             "for a full return range [-pi, pi], see \"atan2\"."),
@@ -1208,6 +1345,17 @@ const FunctionDoc atan_doc{"Compute the inverse tangent of x",
 const FunctionDoc atan2_doc{"Compute the inverse tangent of y/x",
                             ("The return value is in the range [-pi, pi]."),
                             {"y", "x"}};
+
+const FunctionDoc atanh_doc{"Compute the inverse hyperbolic tangent",
+                            ("NaN is returned for input values x with |x| > 1.\n"
+                             "At x = +/- 1, returns +/- infinity.\n"
+                             "To raise an error instead, see \"atanh_checked\"."),
+                            {"x"}};
+
+const FunctionDoc atanh_checked_doc{"Compute the inverse hyperbolic tangent",
+                                    ("Input values x with |x| >= 1.0 raise an error\n"
+                                     "to return NaN instead, see \"atanh\"."),
+                                    {"x"}};
 
 const FunctionDoc ln_doc{
     "Compute natural logarithm",
@@ -1289,12 +1437,27 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
   auto absolute_value =
       MakeUnaryArithmeticFunction<AbsoluteValue>("abs", absolute_value_doc);
   AddDecimalUnaryKernels<AbsoluteValue>(absolute_value.get());
+
+  // abs(duration)
+  for (auto unit : TimeUnit::values()) {
+    auto exec = ArithmeticExecFromOp<ScalarUnary, AbsoluteValue>(duration(unit));
+    DCHECK_OK(
+        absolute_value->AddKernel({duration(unit)}, OutputType(duration(unit)), exec));
+  }
+
   DCHECK_OK(registry->AddFunction(std::move(absolute_value)));
 
   // ----------------------------------------------------------------------
   auto absolute_value_checked = MakeUnaryArithmeticFunctionNotNull<AbsoluteValueChecked>(
       "abs_checked", absolute_value_checked_doc);
   AddDecimalUnaryKernels<AbsoluteValueChecked>(absolute_value_checked.get());
+  // abs_checked(duraton)
+  for (auto unit : TimeUnit::values()) {
+    auto exec =
+        ArithmeticExecFromOp<ScalarUnaryNotNull, AbsoluteValueChecked>(duration(unit));
+    DCHECK_OK(absolute_value_checked->AddKernel({duration(unit)},
+                                                OutputType(duration(unit)), exec));
+  }
   DCHECK_OK(registry->AddFunction(std::move(absolute_value_checked)));
 
   // ----------------------------------------------------------------------
@@ -1513,6 +1676,14 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
     DCHECK_OK(
         divide->AddKernel({duration(unit), int64()}, duration(unit), std::move(exec)));
   }
+
+  // Add divide(duration, duration) -> float64
+  for (auto unit : TimeUnit::values()) {
+    auto exec =
+        ScalarBinaryNotNull<DoubleType, Int64Type, Int64Type, FloatingDivide>::Exec;
+    DCHECK_OK(
+        divide->AddKernel({duration(unit), duration(unit)}, float64(), std::move(exec)));
+  }
   DCHECK_OK(registry->AddFunction(std::move(divide)));
 
   // ----------------------------------------------------------------------
@@ -1527,17 +1698,42 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
                                         std::move(exec)));
   }
 
+  // Add divide_checked(duration, duration) -> float64
+  for (auto unit : TimeUnit::values()) {
+    auto exec = ScalarBinaryNotNull<DoubleType, Int64Type, Int64Type,
+                                    FloatingDivideChecked>::Exec;
+    DCHECK_OK(divide_checked->AddKernel({duration(unit), duration(unit)}, float64(),
+                                        std::move(exec)));
+  }
+
   DCHECK_OK(registry->AddFunction(std::move(divide_checked)));
 
   // ----------------------------------------------------------------------
   auto negate = MakeUnaryArithmeticFunction<Negate>("negate", negate_doc);
   AddDecimalUnaryKernels<Negate>(negate.get());
+  AddHalfFloatUnaryKernel<Negate>(negate.get());
+
+  // Add neg(duration) -> duration
+  for (auto unit : TimeUnit::values()) {
+    auto exec = ArithmeticExecFromOp<ScalarUnary, Negate>(duration(unit));
+    DCHECK_OK(negate->AddKernel({duration(unit)}, OutputType(duration(unit)), exec));
+  }
+
   DCHECK_OK(registry->AddFunction(std::move(negate)));
 
   // ----------------------------------------------------------------------
   auto negate_checked = MakeUnarySignedArithmeticFunctionNotNull<NegateChecked>(
       "negate_checked", negate_checked_doc);
   AddDecimalUnaryKernels<NegateChecked>(negate_checked.get());
+  AddHalfFloatUnaryKernel<NegateChecked>(negate_checked.get());
+
+  // Add neg_checked(duration) -> duration
+  for (auto unit : TimeUnit::values()) {
+    auto exec = ArithmeticExecFromOp<ScalarUnaryNotNull, Negate>(duration(unit));
+    DCHECK_OK(
+        negate_checked->AddKernel({duration(unit)}, OutputType(duration(unit)), exec));
+  }
+
   DCHECK_OK(registry->AddFunction(std::move(negate_checked)));
 
   // ----------------------------------------------------------------------
@@ -1557,6 +1753,10 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunction(std::move(exp)));
 
   // ----------------------------------------------------------------------
+  auto expm1 = MakeUnaryArithmeticFunctionFloatingPoint<Expm1>("expm1", expm1_doc);
+  DCHECK_OK(registry->AddFunction(std::move(expm1)));
+
+  // ----------------------------------------------------------------------
   auto sqrt = MakeUnaryArithmeticFunctionFloatingPoint<SquareRoot>("sqrt", sqrt_doc);
   DCHECK_OK(registry->AddFunction(std::move(sqrt)));
 
@@ -1568,6 +1768,15 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
   // ----------------------------------------------------------------------
   auto sign =
       MakeUnaryArithmeticFunctionWithFixedIntOutType<Sign, Int8Type>("sign", sign_doc);
+  // sign(duration)
+  for (auto unit : TimeUnit::values()) {
+    auto exec = ScalarUnary<Int8Type, Int64Type, Sign>::Exec;
+    DCHECK_OK(sign->AddKernel({duration(unit)}, int8(), std::move(exec)));
+  }
+  {
+    auto exec = ScalarUnary<HalfFloatType, HalfFloatType, Sign>::Exec;
+    DCHECK_OK(sign->AddKernel({InputType(Type::HALF_FLOAT)}, float16(), std::move(exec)));
+  }
   DCHECK_OK(registry->AddFunction(std::move(sign)));
 
   // ----------------------------------------------------------------------
@@ -1618,12 +1827,18 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
       "sin_checked", sin_checked_doc);
   DCHECK_OK(registry->AddFunction(std::move(sin_checked)));
 
+  auto sinh = MakeUnaryArithmeticFunctionFloatingPoint<Sinh>("sinh", sinh_doc);
+  DCHECK_OK(registry->AddFunction(std::move(sinh)));
+
   auto cos = MakeUnaryArithmeticFunctionFloatingPoint<Cos>("cos", cos_doc);
   DCHECK_OK(registry->AddFunction(std::move(cos)));
 
   auto cos_checked = MakeUnaryArithmeticFunctionFloatingPointNotNull<CosChecked>(
       "cos_checked", cos_checked_doc);
   DCHECK_OK(registry->AddFunction(std::move(cos_checked)));
+
+  auto cosh = MakeUnaryArithmeticFunctionFloatingPoint<Cosh>("cosh", cosh_doc);
+  DCHECK_OK(registry->AddFunction(std::move(cosh)));
 
   auto tan = MakeUnaryArithmeticFunctionFloatingPoint<Tan>("tan", tan_doc);
   DCHECK_OK(registry->AddFunction(std::move(tan)));
@@ -1632,12 +1847,18 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
       "tan_checked", tan_checked_doc);
   DCHECK_OK(registry->AddFunction(std::move(tan_checked)));
 
+  auto tanh = MakeUnaryArithmeticFunctionFloatingPoint<Tanh>("tanh", tanh_doc);
+  DCHECK_OK(registry->AddFunction(std::move(tanh)));
+
   auto asin = MakeUnaryArithmeticFunctionFloatingPoint<Asin>("asin", asin_doc);
   DCHECK_OK(registry->AddFunction(std::move(asin)));
 
   auto asin_checked = MakeUnaryArithmeticFunctionFloatingPointNotNull<AsinChecked>(
       "asin_checked", asin_checked_doc);
   DCHECK_OK(registry->AddFunction(std::move(asin_checked)));
+
+  auto asinh = MakeUnaryArithmeticFunctionFloatingPoint<Asinh>("asinh", asinh_doc);
+  DCHECK_OK(registry->AddFunction(std::move(asinh)));
 
   auto acos = MakeUnaryArithmeticFunctionFloatingPoint<Acos>("acos", acos_doc);
   DCHECK_OK(registry->AddFunction(std::move(acos)));
@@ -1646,11 +1867,25 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
       "acos_checked", acos_checked_doc);
   DCHECK_OK(registry->AddFunction(std::move(acos_checked)));
 
+  auto acosh = MakeUnaryArithmeticFunctionFloatingPoint<Acosh>("acosh", acosh_doc);
+  DCHECK_OK(registry->AddFunction(std::move(acosh)));
+
+  auto acosh_checked = MakeUnaryArithmeticFunctionFloatingPointNotNull<AcoshChecked>(
+      "acosh_checked", acosh_checked_doc);
+  DCHECK_OK(registry->AddFunction(std::move(acosh_checked)));
+
   auto atan = MakeUnaryArithmeticFunctionFloatingPoint<Atan>("atan", atan_doc);
   DCHECK_OK(registry->AddFunction(std::move(atan)));
 
   auto atan2 = MakeArithmeticFunctionFloatingPoint<Atan2>("atan2", atan2_doc);
   DCHECK_OK(registry->AddFunction(std::move(atan2)));
+
+  auto atanh = MakeUnaryArithmeticFunctionFloatingPoint<Atanh>("atanh", atanh_doc);
+  DCHECK_OK(registry->AddFunction(std::move(atanh)));
+
+  auto atanh_checked = MakeUnaryArithmeticFunctionFloatingPointNotNull<AtanhChecked>(
+      "atanh_checked", atanh_checked_doc);
+  DCHECK_OK(registry->AddFunction(std::move(atanh_checked)));
 
   // ----------------------------------------------------------------------
   // Logarithms

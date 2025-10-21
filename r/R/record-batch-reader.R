@@ -100,7 +100,7 @@ RecordBatchReader <- R6Class("RecordBatchReader",
     read_table = function() Table__from_RecordBatchReader(self),
     Close = function() RecordBatchReader__Close(self),
     export_to_c = function(stream_ptr) ExportRecordBatchReader(self, stream_ptr),
-    ToString = function() self$schema$ToString(),
+    ToString = function() format_schema(self),
     .unsafe_delete = function() {
       RecordBatchReader__UnsafeDelete(self)
       super$.unsafe_delete()
@@ -237,6 +237,7 @@ as_record_batch_reader.RecordBatch <- function(x, ...) {
 #' @rdname as_record_batch_reader
 #' @export
 as_record_batch_reader.data.frame <- function(x, ...) {
+  check_named_cols(x)
   RecordBatchReader$create(as_record_batch(x))
 }
 

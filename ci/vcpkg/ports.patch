@@ -1,66 +1,80 @@
 diff --git a/ports/curl/portfile.cmake b/ports/curl/portfile.cmake
-index 5a14562..924b1b7 100644
+index 6788bc7b7f..6b689dedf0 100644
 --- a/ports/curl/portfile.cmake
 +++ b/ports/curl/portfile.cmake
-@@ -87,8 +87,11 @@ vcpkg_cmake_configure(
-         -DENABLE_MANUAL=OFF
-         -DCURL_CA_FALLBACK=ON
-         -DCURL_USE_LIBPSL=OFF
+@@ -83,10 +83,13 @@ vcpkg_cmake_configure(
+         -DENABLE_CURL_MANUAL=OFF
+         -DIMPORT_LIB_SUFFIX=   # empty
+         -DSHARE_LIB_OBJECT=OFF
 +        -DCURL_CA_PATH=none
 +        -DCURL_CA_BUNDLE=none
-     OPTIONS_DEBUG
-         -DENABLE_DEBUG=ON
+         -DCURL_USE_PKGCONFIG=ON
+         -DCMAKE_DISABLE_FIND_PACKAGE_Perl=ON
+     MAYBE_UNUSED_VARIABLES
+         PKG_CONFIG_EXECUTABLE
 +        ${EXTRA_ARGS_DEBUG}
  )
  vcpkg_cmake_install()
  vcpkg_copy_pdbs()
-diff --git a/ports/snappy/portfile.cmake b/ports/snappy/portfile.cmake
-index df95a08..d740ce7 100644
---- a/ports/snappy/portfile.cmake
-+++ b/ports/snappy/portfile.cmake
-@@ -9,6 +9,7 @@ vcpkg_from_github(
-     HEAD_REF master
-     PATCHES
-         fix_clang-cl_build.patch
-+        "snappy-disable-bmi.patch"
+diff --git a/ports/llvm/portfile.cmake b/ports/llvm/portfile.cmake
+index 7764357a6d..da7374ecec 100644
+--- a/ports/llvm/portfile.cmake
++++ b/ports/llvm/portfile.cmake
+@@ -302,6 +302,8 @@ vcpkg_cmake_configure(
+         ${FEATURE_OPTIONS}
+     MAYBE_UNUSED_VARIABLES 
+         COMPILER_RT_ENABLE_IOS
++        BOLT_TOOLS_INSTALL_DIR
++        LIBOMP_INSTALL_ALIASES
  )
  
- vcpkg_cmake_configure(
-diff --git a/ports/snappy/snappy-disable-bmi.patch b/ports/snappy/snappy-disable-bmi.patch
+ vcpkg_cmake_install(ADD_BIN_TO_PATH)
+diff --git a/ports/orc/orc-fix-exception-propagation.diff b/ports/orc/orc-fix-exception-propagation.diff
 new file mode 100644
-index 0000000000..a57ce0c22f
+index 0000000000..25568e70cd
 --- /dev/null
-+++ b/ports/snappy/snappy-disable-bmi.patch
-@@ -0,0 +1,19 @@
-+diff --git a/snappy.cc b/snappy.cc
-+index 79dc0e8..f3153ea 100644
-+--- a/snappy.cc
-++++ b/snappy.cc
-+@@ -965,14 +965,10 @@ static inline void Report(const char *algorithm, size_t compressed_size,
-+ static inline uint32_t ExtractLowBytes(uint32_t v, int n) {
-+   assert(n >= 0);
-+   assert(n <= 4);
-+-#if SNAPPY_HAVE_BMI2
-+-  return _bzhi_u32(v, 8 * n);
-+-#else
-+   // This needs to be wider than uint32_t otherwise `mask << 32` will be
-+   // undefined.
-+   uint64_t mask = 0xffffffff;
-+   return v & ~(mask << (8 * n));
-+-#endif
-+ }
++++ b/ports/orc/orc-fix-exception-propagation.diff
+@@ -0,0 +1,30 @@
++diff --git a/c++/src/Timezone.cc b/c++/src/Timezone.cc
++index 384f8ea99..07c75e0a7 100644
++--- a/c++/src/Timezone.cc
+++++ b/c++/src/Timezone.cc
++@@ -696,12 +696,21 @@ namespace orc {
++     std::string filename_;
++     mutable std::unique_ptr<TimezoneImpl> impl_;
++     mutable std::once_flag initialized_;
+++    mutable std::exception_ptr init_exception_;
 + 
-+ static inline bool LeftShiftOverflows(uint8_t value, uint32_t shift) {
-diff --git a/scripts/cmake/vcpkg_find_acquire_program.cmake b/scripts/cmake/vcpkg_find_acquire_program.cmake
-index 4611af6..d11936f 100644
---- a/scripts/cmake/vcpkg_find_acquire_program.cmake
-+++ b/scripts/cmake/vcpkg_find_acquire_program.cmake
-@@ -239,7 +239,7 @@ function(vcpkg_find_acquire_program program)
-             set(paths_to_search "${DOWNLOADS}/tools/python/${tool_subdirectory}")
-             vcpkg_list(SET post_install_command "${CMAKE_COMMAND}" -E rm python310._pth)
-         else()
--            set(program_name python3)
-+            set(program_name python)
-             set(brew_package_name "python")
-             set(apt_package_name "python3")
-         endif()
++     TimezoneImpl* getImpl() const {
++-      std::call_once(initialized_, [&]() {
++-        auto buffer = loadTZDB(filename_);
++-        impl_ = std::make_unique<TimezoneImpl>(filename_, std::move(buffer));
++-      });
+++        std::call_once(initialized_, [&]() {
+++          try {
+++            auto buffer = loadTZDB(filename_);
+++            impl_ = std::make_unique<TimezoneImpl>(filename_, std::move(buffer));
+++          } catch (...) {
+++            // If initialization failed, re-throw the exception
+++            init_exception_ = std::current_exception();
+++          }
+++        });
+++      if (init_exception_) {
+++        std::rethrow_exception(init_exception_);
+++      }
++       return impl_.get();
++     }
++ 
+diff --git a/ports/orc/portfile.cmake b/ports/orc/portfile.cmake
+index 77ebf41ec3..4d065594a7 100644
+--- a/ports/orc/portfile.cmake
++++ b/ports/orc/portfile.cmake
+@@ -6,6 +6,8 @@ vcpkg_from_github(
+   REF "v${VERSION}"
+   SHA512 eabee16a6e984452a8cb715d0524041b20dd1bd88d78bb32534db93e5dbdd786aa4df8c05975406cb0728241eb3025a506c4fefb8c334ef0d8a27e6cb920d44c
+   HEAD_REF master
++  PATCHES
++    orc-fix-exception-propagation.diff
+ )
+ 
+ file(REMOVE "${SOURCE_PATH}/cmake_modules/FindGTest.cmake")

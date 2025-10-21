@@ -16,8 +16,7 @@
 # under the License.
 
 apache-rat-*.jar
-arrow-src.tar
-arrow-src.tar.gz
+apache-arrow.tar.gz
 
 # Compiled source
 *.a
@@ -90,3 +89,21 @@ java-native-cpp/
 
 # archery files
 dev/archery/build
+
+swift/Arrow/.build
+
+# Go dependencies
+go/vendor
+# go debug binaries
+__debug_bin
+
+# direnv
+.envrc
+
+# Develocity
+java/.mvn/.gradle-enterprise/
+java/.mvn/.develocity/
+
+# rat
+filtered_rat.txt
+rat.txt

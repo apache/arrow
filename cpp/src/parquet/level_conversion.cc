@@ -14,6 +14,7 @@
 // KIND, either express or implied.  See the License for the
 // specific language governing permissions and limitations
 // under the License.
+
 #include "parquet/level_conversion.h"
 
 #include <algorithm>
@@ -27,12 +28,15 @@
 #include "parquet/exception.h"
 
 #include "parquet/level_comparison.h"
+#if defined(ARROW_HAVE_RUNTIME_BMI2)
+#  include "parquet/level_conversion_bmi2_internal.h"
+#endif
+
 #define PARQUET_IMPL_NAMESPACE standard
 #include "parquet/level_conversion_inc.h"
 #undef PARQUET_IMPL_NAMESPACE
 
-namespace parquet {
-namespace internal {
+namespace parquet::internal {
 namespace {
 
 using ::arrow::internal::CpuInfo;
@@ -82,7 +86,7 @@ void DefRepLevelsToListInfo(const int16_t* def_levels, const int16_t* rep_levels
       // offsets until we get to the children).
       if (offsets != nullptr) {
         ++offsets;
-        // Use cumulative offsets because variable size lists are more common then
+        // Use cumulative offsets because variable size lists are more common than
         // fixed size lists so it should be cheaper to make these cumulative and
         // subtract when validating fixed size lists.
         *offsets = *(offsets - 1);
@@ -124,13 +128,6 @@ void DefRepLevelsToListInfo(const int16_t* def_levels, const int16_t* rep_levels
 
 }  // namespace
 
-#if defined(ARROW_HAVE_RUNTIME_BMI2)
-// defined in level_conversion_bmi2.cc for dynamic dispatch.
-void DefLevelsToBitmapBmi2WithRepeatedParent(const int16_t* def_levels,
-                                             int64_t num_def_levels, LevelInfo level_info,
-                                             ValidityBitmapInputOutput* output);
-#endif
-
 void DefLevelsToBitmap(const int16_t* def_levels, int64_t num_def_levels,
                        LevelInfo level_info, ValidityBitmapInputOutput* output) {
   // It is simpler to rely on rep_level here until PARQUET-1899 is done and the code
@@ -171,7 +168,7 @@ void DefRepLevelsToList(const int16_t* def_levels, const int16_t* rep_levels,
 void DefRepLevelsToBitmap(const int16_t* def_levels, const int16_t* rep_levels,
                           int64_t num_def_levels, LevelInfo level_info,
                           ValidityBitmapInputOutput* output) {
-  // DefReplevelsToListInfo assumes it for the actual list method and this
+  // DefRepLevelsToListInfo assumes it for the actual list method and this
   // method is for parent structs, so we need to bump def and ref level.
   level_info.rep_level += 1;
   level_info.def_level += 1;
@@ -179,5 +176,4 @@ void DefRepLevelsToBitmap(const int16_t* def_levels, const int16_t* rep_levels,
                                   output, /*offsets=*/nullptr);
 }
 
-}  // namespace internal
-}  // namespace parquet
+}  // namespace parquet::internal

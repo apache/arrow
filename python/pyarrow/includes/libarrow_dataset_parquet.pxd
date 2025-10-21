@@ -18,7 +18,21 @@
 # distutils: language = c++
 
 from pyarrow.includes.libarrow_dataset cimport *
+from pyarrow.includes.libparquet_encryption cimport *
+
 from pyarrow._parquet cimport *
+
+
+cdef extern from "arrow/dataset/parquet_encryption_config.h" namespace "arrow::dataset" nogil:
+    cdef cppclass CParquetEncryptionConfig "arrow::dataset::ParquetEncryptionConfig":
+        shared_ptr[CCryptoFactory] crypto_factory
+        shared_ptr[CKmsConnectionConfig] kms_connection_config
+        shared_ptr[CEncryptionConfiguration] encryption_config
+
+    cdef cppclass CParquetDecryptionConfig "arrow::dataset::ParquetDecryptionConfig":
+        shared_ptr[CCryptoFactory] crypto_factory
+        shared_ptr[CKmsConnectionConfig] kms_connection_config
+        shared_ptr[CDecryptionConfiguration] decryption_config
 
 
 cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
@@ -31,6 +45,7 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
             "arrow::dataset::ParquetFileWriteOptions"(CFileWriteOptions):
         shared_ptr[WriterProperties] writer_properties
         shared_ptr[ArrowWriterProperties] arrow_writer_properties
+        shared_ptr[CParquetEncryptionConfig] parquet_encryption_config
 
     cdef cppclass CParquetFileFragment "arrow::dataset::ParquetFileFragment"(
             CFileFragment):
@@ -48,6 +63,8 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
             "arrow::dataset::ParquetFileFormat::ReaderOptions":
         unordered_set[c_string] dict_columns
         TimeUnit coerce_int96_timestamp_unit
+        Type binary_type
+        Type list_type
 
     cdef cppclass CParquetFileFormat "arrow::dataset::ParquetFileFormat"(
             CFileFormat):
@@ -62,6 +79,7 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
             "arrow::dataset::ParquetFragmentScanOptions"(CFragmentScanOptions):
         shared_ptr[CReaderProperties] reader_properties
         shared_ptr[ArrowReaderProperties] arrow_reader_properties
+        shared_ptr[CParquetDecryptionConfig] parquet_decryption_config
 
     cdef cppclass CParquetFactoryOptions \
             "arrow::dataset::ParquetFactoryOptions":

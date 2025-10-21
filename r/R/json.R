@@ -38,7 +38,7 @@
 #' @param schema [Schema] that describes the table.
 #' @param ... Additional options passed to `JsonTableReader$create()`
 #'
-#' @return A `data.frame`, or a Table if `as_data_frame = FALSE`.
+#' @return A `tibble`, or a Table if `as_data_frame = FALSE`.
 #' @export
 #' @examplesIf arrow_with_json()
 #' tf <- tempfile()
@@ -48,12 +48,24 @@
 #'     { "hello": 3.25, "world": null }
 #'     { "hello": 0.0, "world": true, "yo": null }
 #'   ', tf, useBytes = TRUE)
+#'
 #' read_json_arrow(tf)
+#'
+#' # Read directly from strings with `I()`
+#' read_json_arrow(I(c('{"x": 1, "y": 2}', '{"x": 3, "y": 4}')))
 read_json_arrow <- function(file,
                             col_select = NULL,
                             as_data_frame = TRUE,
                             schema = NULL,
                             ...) {
+  if (inherits(file, "AsIs")) {
+    if (is.raw(file)) {
+      file <- unclass(file)
+    } else {
+      file <- charToRaw(paste(file, collapse = "\n"))
+    }
+  }
+
   if (!inherits(file, "InputStream")) {
     compression <- detect_compression(file)
     file <- make_readable_file(file)
@@ -72,7 +84,7 @@ read_json_arrow <- function(file,
   }
 
   if (isTRUE(as_data_frame)) {
-    tab <- as.data.frame(tab)
+    tab <- collect.ArrowTabular(tab)
   }
   tab
 }

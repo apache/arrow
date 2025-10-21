@@ -19,6 +19,7 @@ class TestClient < Test::Unit::TestCase
   def setup
     @server = nil
     omit("Unstable on Windows") if Gem.win_platform?
+    omit("Unstable on x86_64 macOS") if /x86_64-darwin/.match?(RUBY_PLATFORM)
     @server = Helper::Server.new
     @server.listen("grpc://127.0.0.1:0")
     @location = "grpc://127.0.0.1:#{@server.port}"
@@ -38,5 +39,28 @@ class TestClient < Test::Unit::TestCase
     reader = @sql_client.do_get(endpoint.ticket)
     assert_equal(generator.page_view_table,
                  reader.read_all)
+  end
+
+  def test_prepare
+    insert_sql = "INSERT INTO page_view_table VALUES ($1, true)"
+    block_called = false
+    options = ArrowFlight::CallOptions.new
+    options.add_header("x-access-key", "secret")
+    @sql_client.prepare(insert_sql, options) do |statement|
+      block_called = true
+      assert_equal([
+                     Arrow::Schema.new(count: :uint64, private: :boolean),
+                     Arrow::Schema.new(count: :uint64),
+                   ],
+                   [
+                     statement.dataset_schema,
+                     statement.parameter_schema,
+                   ])
+      counts = Arrow::UInt64Array.new([1, 2, 3])
+      parameters = Arrow::RecordBatch.new(count: counts)
+      statement.set_record_batch(parameters)
+      assert_equal(3, statement.execute_update)
+    end
+    assert_true(block_called)
   end
 end

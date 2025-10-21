@@ -23,7 +23,9 @@
 #include <mutex>
 #include <vector>
 
+#include "arrow/compute/api_vector.h"
 #include "arrow/type_fwd.h"
+#include "arrow/util/logging_internal.h"
 
 namespace arrow {
 namespace compute {
@@ -56,9 +58,28 @@ Result<TypeHolder> LastType(KernelContext*, const std::vector<TypeHolder>& types
   return types.back();
 }
 
-Result<TypeHolder> ListValuesType(KernelContext*, const std::vector<TypeHolder>& args) {
-  const auto& list_type = checked_cast<const BaseListType&>(*args[0].type);
-  return list_type.value_type().get();
+Result<TypeHolder> ListValuesType(KernelContext* ctx,
+                                  const std::vector<TypeHolder>& args) {
+  auto list_type = checked_cast<const BaseListType*>(args[0].type);
+  auto value_type = list_type->value_type().get();
+
+  auto recursive =
+      ctx->state() ? OptionsWrapper<ListFlattenOptions>::Get(ctx).recursive : false;
+  if (!recursive) {
+    return value_type;
+  }
+
+  for (auto value_kind = value_type->id();
+       is_list(value_kind) || is_list_view(value_kind); value_kind = value_type->id()) {
+    list_type = checked_cast<const BaseListType*>(list_type->value_type().get());
+    value_type = list_type->value_type().get();
+  }
+  return value_type;
+}
+
+Result<TypeHolder> MaxPrecisionDecimalType(KernelContext*,
+                                           const std::vector<TypeHolder>& args) {
+  return WidenDecimalToMaxPrecision(args[0].GetSharedPtr());
 }
 
 void EnsureDictionaryDecoded(std::vector<TypeHolder>* types) {
@@ -250,7 +271,8 @@ TypeHolder CommonTemporal(const TypeHolder* begin, size_t count) {
   const std::string* timezone = nullptr;
   bool saw_date32 = false;
   bool saw_date64 = false;
-
+  bool saw_duration = false;
+  bool saw_time_since_midnight = false;
   const TypeHolder* end = begin + count;
   for (auto it = begin; it != end; it++) {
     auto id = it->type->id();
@@ -271,18 +293,56 @@ TypeHolder CommonTemporal(const TypeHolder* begin, size_t count) {
         finest_unit = std::max(finest_unit, ty.unit());
         continue;
       }
+      case Type::TIME32: {
+        const auto& type = checked_cast<const Time32Type&>(*it->type);
+        finest_unit = std::max(finest_unit, type.unit());
+        saw_time_since_midnight = true;
+        continue;
+      }
+      case Type::TIME64: {
+        const auto& type = checked_cast<const Time64Type&>(*it->type);
+        finest_unit = std::max(finest_unit, type.unit());
+        saw_time_since_midnight = true;
+        continue;
+      }
+      case Type::DURATION: {
+        const auto& ty = checked_cast<const DurationType&>(*it->type);
+        finest_unit = std::max(finest_unit, ty.unit());
+        saw_duration = true;
+        continue;
+      }
       default:
         return TypeHolder(nullptr);
     }
   }
 
-  if (timezone) {
-    // At least one timestamp seen
-    return timestamp(finest_unit, *timezone);
-  } else if (saw_date64) {
-    return date64();
-  } else if (saw_date32) {
-    return date32();
+  bool saw_timestamp_or_date = timezone || saw_date64 || saw_date32 || saw_duration;
+
+  if (saw_time_since_midnight && saw_timestamp_or_date) {
+    // Cannot find common type
+    return TypeHolder(nullptr);
+  }
+  if (saw_timestamp_or_date) {
+    if (timezone) {
+      // At least one timestamp seen
+      return timestamp(finest_unit, *timezone);
+    } else if (saw_date64) {
+      return date64();
+    } else if (saw_date32) {
+      return date32();
+    } else if (saw_duration) {
+      return duration(finest_unit);
+    }
+  }
+  if (saw_time_since_midnight) {
+    switch (finest_unit) {
+      case TimeUnit::SECOND:
+      case TimeUnit::MILLI:
+        return time32(finest_unit);
+      case TimeUnit::MICRO:
+      case TimeUnit::NANO:
+        return time64(finest_unit);
+    }
   }
   return TypeHolder(nullptr);
 }
@@ -338,12 +398,11 @@ Status CastBinaryDecimalArgs(DecimalPromotion promotion, std::vector<TypeHolder>
   const DataType& right_type = *(*types)[1];
   DCHECK(is_decimal(left_type.id()) || is_decimal(right_type.id()));
 
-  // decimal + float = float
-  if (is_floating(left_type.id())) {
-    (*types)[1] = (*types)[0];
-    return Status::OK();
-  } else if (is_floating(right_type.id())) {
-    (*types)[0] = (*types)[1];
+  // decimal + float64 = float64
+  // decimal + float32 is roughly float64 + float32 so we choose float64
+  if (is_floating(left_type.id()) || is_floating(right_type.id())) {
+    (*types)[0] = float64();
+    (*types)[1] = float64();
     return Status::OK();
   }
 
@@ -474,6 +533,28 @@ Status CastDecimalArgs(TypeHolder* begin, size_t count) {
   return Status::OK();
 }
 
+Result<std::shared_ptr<DataType>> WidenDecimalToMaxPrecision(
+    std::shared_ptr<DataType> type) {
+  DCHECK(is_decimal(type->id()));
+  auto cast_type = checked_pointer_cast<DecimalType>(type);
+  switch (type->id()) {
+    case Type::DECIMAL32:
+      return Decimal32Type::Make(Decimal32Type::kMaxPrecision, cast_type->scale());
+    case Type::DECIMAL64:
+      return Decimal64Type::Make(Decimal64Type::kMaxPrecision, cast_type->scale());
+    case Type::DECIMAL128:
+      return Decimal128Type::Make(Decimal128Type::kMaxPrecision, cast_type->scale());
+    case Type::DECIMAL256:
+      return Decimal256Type::Make(Decimal256Type::kMaxPrecision, cast_type->scale());
+    default:
+      DCHECK(false) << "An unknown DecimalType was passed to WidenDecimalToMaxPrecision: "
+                    << type->ToString();
+      return Status::TypeError(
+          "An unknown DecimalType was passed to WidenDecimalToMaxPrecision: " +
+          type->ToString());
+  }
+}
+
 bool HasDecimal(const std::vector<TypeHolder>& types) {
   for (const auto& th : types) {
     if (is_decimal(th.id())) {
@@ -481,6 +562,21 @@ bool HasDecimal(const std::vector<TypeHolder>& types) {
     }
   }
   return false;
+}
+
+void PromoteIntegerForDurationArithmetic(std::vector<TypeHolder>* types) {
+  bool has_duration = std::any_of(types->begin(), types->end(), [](const TypeHolder& t) {
+    return t.id() == Type::DURATION;
+  });
+
+  if (!has_duration) return;
+
+  // Require implicit casts to int64 to match duration's bit width
+  for (auto& type : *types) {
+    if (is_integer(type.id())) {
+      type = int64();
+    }
+  }
 }
 
 }  // namespace internal

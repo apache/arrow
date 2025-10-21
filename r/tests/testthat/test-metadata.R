@@ -57,7 +57,7 @@ test_that("Table R metadata", {
     "$r$columns$c$columns$c1$attributes$extra_attr",
     fixed = TRUE
   )
-  expect_identical(as.data.frame(tab), example_with_metadata)
+  expect_equal_data_frame(tab, example_with_metadata)
 })
 
 test_that("R metadata is not stored for types that map to Arrow types (factor, Date, etc.)", {
@@ -94,7 +94,7 @@ test_that("Garbage R metadata doesn't break things", {
   tab <- Table$create(example_data[1:6])
   tab$metadata$r <- "garbage"
   expect_warning(
-    expect_identical(as.data.frame(tab), example_data[1:6]),
+    as.data.frame(tab),
     "Invalid metadata$r",
     fixed = TRUE
   )
@@ -103,9 +103,91 @@ test_that("Garbage R metadata doesn't break things", {
   tab <- Table$create(example_data[1:6])
   tab$metadata$r <- rawToChar(serialize("garbage", NULL, ascii = TRUE))
   expect_warning(
-    expect_identical(as.data.frame(tab), example_data[1:6]),
+    as.data.frame(tab),
     "Invalid metadata$r",
     fixed = TRUE
+  )
+
+  bad <- new.env(parent = emptyenv())
+  makeActiveBinding("columns", function() stop("This should not run"), bad)
+  tab$metadata <- list(r = rawToChar(serialize(bad, NULL, ascii = TRUE)))
+  expect_warning(
+    as.data.frame(tab),
+    "Invalid metadata$r",
+    fixed = TRUE
+  )
+
+  # https://hiddenlayer.com/research/r-bitrary-code-execution/
+  tab$metadata <- list(r = "A
+3
+262913
+197888
+5
+UTF-8
+5
+252
+6
+1
+262153
+7
+message
+2
+16
+1
+262153
+32
+arbitrary\040code\040was\040just\040executed
+254
+")
+  expect_message(
+    expect_warning(
+      as.data.frame(tab),
+      "Invalid metadata$r",
+      fixed = TRUE
+    ),
+    NA
+  )
+})
+
+test_that("R metadata processing doesn't choke on packageVersion() output", {
+  metadata <- list(version = packageVersion("base"))
+  expect_identical(safe_r_metadata(metadata), metadata)
+
+  df <- example_data[1:6]
+  attr(df, "version") <- packageVersion("base")
+  expect_equal_data_frame(Table$create(df), df)
+})
+
+test_that("Complex or unsafe attributes are pruned from R metadata, if they exist", {
+  tab <- Table$create(example_data[1:6])
+  bad <- new.env()
+  makeActiveBinding("class", function() stop("This should not run"), bad)
+  tab$metadata <- list(r = rawToChar(serialize(list(attributes = bad), NULL, ascii = TRUE)))
+  expect_warning(
+    as.data.frame(tab),
+    "Potentially unsafe or invalid elements have been discarded from R metadata.
+i Type: \"environment\"
+> If you trust the source, you can set `options(arrow.unsafe_metadata = TRUE)` to preserve them.",
+    fixed = TRUE
+  )
+  # Try hiding it even further, in attributes
+  bad_meta <- list(attributes = structure(list(), hidden_attr = bad))
+  tab$metadata <- list(r = rawToChar(serialize(bad_meta, NULL, ascii = TRUE)))
+  expect_warning(
+    as.data.frame(tab),
+    "Potentially unsafe or invalid elements have been discarded from R metadata.
+i Type: \"environment\"
+> If you trust the source, you can set `options(arrow.unsafe_metadata = TRUE)` to preserve them.",
+    fixed = TRUE
+  )
+
+  # You can set an option to allow them through.
+  # It still warns, just differently, and it doesn't prune the attributes
+  withr::local_options(list("arrow.unsafe_metadata" = TRUE))
+  expect_warning(
+    as.data.frame(tab),
+    "R metadata may have unsafe or invalid elements
+i Type: \"environment\""
   )
 })
 
@@ -164,7 +246,7 @@ test_that("RecordBatch metadata", {
 })
 
 test_that("RecordBatch R metadata", {
-  expect_identical(as.data.frame(record_batch(example_with_metadata)), example_with_metadata)
+  expect_equal_data_frame(record_batch(example_with_metadata), example_with_metadata)
 })
 
 test_that("R metadata roundtrip via parquet", {
@@ -195,14 +277,14 @@ test_that("haven types roundtrip via feather", {
 test_that("Date/time type roundtrip", {
   rb <- record_batch(example_with_times)
   expect_r6_class(rb$schema$posixlt$type, "VctrsExtensionType")
-  expect_identical(as.data.frame(rb), example_with_times)
+  expect_equal_data_frame(rb, example_with_times)
 })
 
 test_that("metadata keeps attribute of top level data frame", {
   df <- structure(data.frame(x = 1, y = 2), foo = "bar")
   tab <- Table$create(df)
   expect_identical(attr(as.data.frame(tab), "foo"), "bar")
-  expect_identical(as.data.frame(tab), df)
+  expect_equal_data_frame(tab, df)
 })
 
 
@@ -254,6 +336,8 @@ test_that("Row-level metadata (does not) roundtrip in datasets", {
   skip_if_not_available("dataset")
   skip_if_not_available("parquet")
 
+  library(dplyr, warn.conflicts = FALSE)
+
   df <- tibble::tibble(
     metadata = list(
       structure(1, my_value_as_attr = 1),
@@ -295,7 +379,7 @@ test_that("Row-level metadata (does not) roundtrip in datasets", {
 
   # however there is *no* warning if we don't select the metadata column
   expect_warning(
-    df_from_ds <- ds %>% dplyr::select(int) %>% dplyr::collect(),
+    df_from_ds <- ds |> dplyr::select(int) |> dplyr::collect(),
     NA
   )
 })
@@ -313,9 +397,9 @@ test_that("Dataset writing does handle other metadata", {
 
   ds <- open_dataset(dst_dir)
   expect_equal(
-    ds %>%
+    ds |>
       # partitioning on b puts it last, so move it back
-      select(a, b, c, d) %>%
+      select(a, b, c, d) |>
       collect(),
     example_with_metadata
   )
@@ -328,45 +412,45 @@ test_that("dplyr with metadata", {
   skip_if_not_available("dataset")
 
   compare_dplyr_binding(
-    .input %>%
+    .input |>
       collect(),
     example_with_metadata
   )
   compare_dplyr_binding(
-    .input %>%
-      select(a) %>%
+    .input |>
+      select(a) |>
       collect(),
     example_with_metadata
   )
   compare_dplyr_binding(
-    .input %>%
-      mutate(z = b * 4) %>%
-      select(z, a) %>%
+    .input |>
+      mutate(z = b * 4) |>
+      select(z, a) |>
       collect(),
     example_with_metadata
   )
   compare_dplyr_binding(
-    .input %>%
-      mutate(z = nchar(d)) %>%
-      select(z, a) %>%
+    .input |>
+      mutate(z = nchar(d)) |>
+      select(z, a) |>
       collect(),
     example_with_metadata
   )
   # dplyr drops top-level attributes if you do summarize, though attributes
   # of grouping columns appear to come through
   compare_dplyr_binding(
-    .input %>%
-      group_by(d) %>%
-      summarize(n()) %>%
+    .input |>
+      group_by(d) |>
+      summarize(n()) |>
       collect(),
     example_with_metadata
   )
   # Same name in output but different data, so the column metadata shouldn't
   # carry through
   compare_dplyr_binding(
-    .input %>%
-      mutate(a = b) %>%
-      select(a) %>%
+    .input |>
+      mutate(a = b) |>
+      select(a) |>
       collect(),
     example_with_metadata
   )
@@ -387,7 +471,18 @@ test_that("grouped_df non-arrow metadata is preserved", {
   grouped_tab <- arrow_table(grouped)
 
   expect_equal(
-    attributes(as.data.frame(grouped_tab))$other_metadata,
+    attributes(collect.ArrowTabular(grouped_tab))$other_metadata,
     "look I'm still here!"
   )
+})
+
+test_that("data.frame class attribute is not saved", {
+  df <- data.frame(x = 1:5)
+  df_arrow <- arrow_table(df)
+  expect_null(df_arrow$r_metadata$attributes)
+
+  df <- data.frame(x = 1:5)
+  attributes(df)$foo <- "bar"
+  df_arrow <- arrow_table(df)
+  expect_identical(df_arrow$r_metadata, list(attributes = list(foo = "bar"), columns = list(x = NULL)))
 })

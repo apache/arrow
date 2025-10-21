@@ -16,24 +16,29 @@
 # under the License.
 
 ARG arch=amd64
-FROM ${arch}/ubuntu:18.04
+FROM ${arch}/ubuntu:22.04
 
 # install build essentials
 RUN export DEBIAN_FRONTEND=noninteractive && \
     apt-get update -y -q && \
-    apt-get install -y -q curl wget tzdata libc6-dbg gdb \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
+    apt-get install -y -q \
+    curl \
+    gdb \
+    libc6-dbg \
+    tzdata \
+    wget && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 
-# install conda and mamba via mambaforge
+# install conda and mamba via miniforge
 COPY ci/scripts/install_conda.sh /arrow/ci/scripts/
-RUN /arrow/ci/scripts/install_conda.sh mambaforge latest /opt/conda
+RUN /arrow/ci/scripts/install_conda.sh miniforge3 latest /opt/conda
 ENV PATH=/opt/conda/bin:$PATH
 
 # create a conda environment
 ADD ci/conda_env_unix.txt /arrow/ci/
 RUN mamba create -n arrow --file arrow/ci/conda_env_unix.txt git && \
-    mamba clean --all
+    mamba clean --all --yes
 
 # activate the created environment by default
 RUN echo "conda activate arrow" >> ~/.profile

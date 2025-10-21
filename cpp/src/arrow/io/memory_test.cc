@@ -42,9 +42,10 @@
 #include "arrow/testing/util.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/config.h"
 #include "arrow/util/future.h"
 #include "arrow/util/iterator.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/parallel.h"
 
 namespace arrow {
@@ -167,11 +168,11 @@ TEST(TestBufferReader, FromStrings) {
   std::string data = "data123456";
   auto view = std::string_view(data);
 
-  BufferReader reader1(data);
-  BufferReader reader2(view);
+  std::unique_ptr<BufferReader> reader1 = BufferReader::FromString(data);
+  BufferReader reader2(std::make_shared<::arrow::Buffer>(view));
 
   std::shared_ptr<Buffer> piece;
-  ASSERT_OK_AND_ASSIGN(piece, reader1.Read(4));
+  ASSERT_OK_AND_ASSIGN(piece, reader1->Read(4));
   ASSERT_EQ(0, memcmp(piece->data(), data.data(), 4));
 
   ASSERT_OK(reader2.Seek(2));
@@ -190,17 +191,17 @@ TEST(TestBufferReader, FromNullBuffer) {
 TEST(TestBufferReader, Seeking) {
   std::string data = "data123456";
 
-  BufferReader reader(data);
-  ASSERT_OK_AND_EQ(0, reader.Tell());
+  std::unique_ptr<BufferReader> reader = BufferReader::FromString(data);
+  ASSERT_OK_AND_EQ(0, reader->Tell());
 
-  ASSERT_OK(reader.Seek(9));
-  ASSERT_OK_AND_EQ(9, reader.Tell());
+  ASSERT_OK(reader->Seek(9));
+  ASSERT_OK_AND_EQ(9, reader->Tell());
 
-  ASSERT_OK(reader.Seek(10));
-  ASSERT_OK_AND_EQ(10, reader.Tell());
+  ASSERT_OK(reader->Seek(10));
+  ASSERT_OK_AND_EQ(10, reader->Tell());
 
-  ASSERT_RAISES(IOError, reader.Seek(11));
-  ASSERT_OK_AND_EQ(10, reader.Tell());
+  ASSERT_RAISES(IOError, reader->Seek(11));
+  ASSERT_OK_AND_EQ(10, reader->Tell());
 }
 
 TEST(TestBufferReader, Peek) {
@@ -282,12 +283,37 @@ TEST(TestBufferReader, WillNeed) {
   }
   {
     std::string data = "data123456";
-    BufferReader reader(reinterpret_cast<const uint8_t*>(data.data()),
-                        static_cast<int64_t>(data.size()));
+    auto reader = BufferReader::FromString(data);
 
-    ASSERT_OK(reader.WillNeed({{0, 4}, {4, 6}}));
-    ASSERT_RAISES(IOError, reader.WillNeed({{11, 1}}));  // Out of bounds
+    ASSERT_OK(reader->WillNeed({{0, 4}, {4, 6}}));
+    ASSERT_RAISES(IOError, reader->WillNeed({{11, 1}}));  // Out of bounds
   }
+}
+
+void TestBufferReaderLifetime(
+    std::function<std::unique_ptr<BufferReader>(std::string&)> fn) {
+  std::shared_ptr<Buffer> result;
+  std::string data = "data12345678910111213";
+  {
+    std::string data_inner = data;
+    std::unique_ptr<BufferReader> reader = fn(data_inner);
+    EXPECT_EQ(true, reader->supports_zero_copy());
+    ASSERT_OK_AND_ASSIGN(result, reader->Read(data.length()));
+  }
+  EXPECT_EQ(std::string_view(data), std::string_view(*result));
+}
+
+TEST(TestBufferReader, Lifetime) {
+  // BufferReader(std::shared_ptr<Buffer>)
+  TestBufferReaderLifetime([](std::string& data) -> std::unique_ptr<BufferReader> {
+    auto buffer = Buffer::FromString(std::move(data));
+    return std::make_unique<BufferReader>(std::move(buffer));
+  });
+
+  // BufferReader(std::string)
+  TestBufferReaderLifetime([](std::string& data) -> std::unique_ptr<BufferReader> {
+    return BufferReader::FromString(std::move(data));
+  });
 }
 
 TEST(TestRandomAccessFile, GetStream) {
@@ -378,7 +404,7 @@ template <typename SlowStreamType>
 void TestSlowInputStream() {
   using clock = std::chrono::high_resolution_clock;
 
-  auto stream = std::make_shared<BufferReader>(std::string_view("abcdefghijkl"));
+  std::shared_ptr<RandomAccessFile> stream = BufferReader::FromString("abcdefghijkl");
   const double latency = 0.6;
   auto slow = std::make_shared<SlowStreamType>(stream, latency);
 
@@ -493,7 +519,7 @@ class TestTransformInputStream : public ::testing::Test {
   TransformInputStream::TransformFunc transform() const { return T(); }
 
   void TestEmptyStream() {
-    auto wrapped = std::make_shared<BufferReader>(std::string_view());
+    std::shared_ptr<InputStream> wrapped = BufferReader::FromString({});
     auto stream = std::make_shared<TransformInputStream>(wrapped, transform());
 
     ASSERT_OK_AND_EQ(0, stream->Tell());
@@ -655,7 +681,7 @@ TEST(TestInputStreamIterator, Closed) {
   AssertBufferEqual(*buf, "dat");
   // Close stream and read from iterator
   ASSERT_OK(reader->Close());
-  ASSERT_RAISES(Invalid, it.Next().status());
+  ASSERT_RAISES(Invalid, it.Next());
 }
 
 TEST(CoalesceReadRanges, Basics) {
@@ -729,7 +755,7 @@ TEST(RangeReadCache, Basics) {
   for (auto lazy : std::vector<bool>{false, true}) {
     SCOPED_TRACE(lazy);
     options.lazy = lazy;
-    auto file = std::make_shared<CountingBufferReader>(Buffer(data));
+    auto file = std::make_shared<CountingBufferReader>(std::make_shared<Buffer>(data));
     internal::ReadRangeCache cache(file, {}, options);
 
     ASSERT_OK(cache.Cache({{1, 2}, {3, 2}, {8, 2}, {20, 2}, {25, 0}}));
@@ -771,7 +797,7 @@ TEST(RangeReadCache, Basics) {
 TEST(RangeReadCache, Concurrency) {
   std::string data = "abcdefghijklmnopqrstuvwxyz";
 
-  auto file = std::make_shared<BufferReader>(Buffer(data));
+  auto file = std::make_shared<BufferReader>(std::make_shared<Buffer>(data));
   std::vector<ReadRange> ranges{{1, 2},  {3, 2},  {8, 2},  {20, 2},
                                 {25, 0}, {10, 4}, {14, 0}, {15, 4}};
 
@@ -807,7 +833,7 @@ TEST(RangeReadCache, Concurrency) {
 TEST(RangeReadCache, Lazy) {
   std::string data = "abcdefghijklmnopqrstuvwxyz";
 
-  auto file = std::make_shared<CountingBufferReader>(Buffer(data));
+  auto file = std::make_shared<CountingBufferReader>(std::make_shared<Buffer>(data));
   CacheOptions options = CacheOptions::LazyDefaults();
   options.hole_size_limit = 2;
   options.range_size_limit = 10;
@@ -845,6 +871,54 @@ TEST(RangeReadCache, Lazy) {
   ASSERT_EQ(3, file->read_count());
 }
 
+TEST(RangeReadCache, LazyWithPrefetching) {
+  std::string data = "abcdefghijklmnopqrstuvwxyz";
+
+  auto file = std::make_shared<CountingBufferReader>(std::make_shared<Buffer>(data));
+  CacheOptions options = CacheOptions::LazyDefaults();
+  options.hole_size_limit = 1;
+  options.range_size_limit = 3;
+  options.prefetch_limit = 2;
+  internal::ReadRangeCache cache(file, {}, options);
+
+  ASSERT_OK(cache.Cache({{1, 1}, {3, 1}, {5, 2}, {8, 2}, {20, 2}, {25, 0}}));
+
+  // Lazy cache doesn't fetch ranges until requested
+  ASSERT_EQ(0, file->read_count());
+
+  ASSERT_OK_AND_ASSIGN(auto buf, cache.Read({8, 2}));
+  AssertBufferEqual(*buf, "ij");
+  // Read {8, 2} and prefetch {20, 2}
+  ASSERT_EQ(2, file->read_count());
+
+  ASSERT_OK_AND_ASSIGN(buf, cache.Read({20, 2}));
+  AssertBufferEqual(*buf, "uv");
+  // Read count remains 2 as the range {20, 2} has already been prefetched
+  ASSERT_EQ(2, file->read_count());
+
+  ASSERT_OK_AND_ASSIGN(buf, cache.Read({1, 1}));
+  AssertBufferEqual(*buf, "b");
+  // Read {1, 3} and prefetch {5, 2}
+  ASSERT_EQ(4, file->read_count());
+
+  ASSERT_OK_AND_ASSIGN(buf, cache.Read({3, 1}));
+  AssertBufferEqual(*buf, "d");
+  // Already prefetched
+  ASSERT_EQ(4, file->read_count());
+
+  // Requested ranges are still cached
+  ASSERT_OK_AND_ASSIGN(buf, cache.Read({5, 1}));
+  AssertBufferEqual(*buf, "f");
+  // Already prefetched
+  ASSERT_EQ(4, file->read_count());
+
+  // Non-cached ranges
+  ASSERT_RAISES(Invalid, cache.Read({20, 3}));
+  ASSERT_RAISES(Invalid, cache.Read({19, 3}));
+  ASSERT_RAISES(Invalid, cache.Read({0, 3}));
+  ASSERT_RAISES(Invalid, cache.Read({25, 2}));
+}
+
 TEST(CacheOptions, Basics) {
   auto check = [](const CacheOptions actual, const double expected_hole_size_limit_MiB,
                   const double expected_range_size_limit_MiB) -> void {
@@ -870,6 +944,9 @@ TEST(CacheOptions, Basics) {
 }
 
 TEST(IOThreadPool, Capacity) {
+#ifndef ARROW_ENABLE_THREADING
+  GTEST_SKIP() << "Test requires threading enabled";
+#endif
   // Simple sanity check
   auto pool = internal::GetIOThreadPool();
   int capacity = pool->GetCapacity();

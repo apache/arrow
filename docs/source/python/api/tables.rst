@@ -32,6 +32,7 @@ Factory Functions
    concat_arrays
    concat_tables
    record_batch
+   concat_batches
    table
 
 Classes
@@ -45,6 +46,14 @@ Classes
    Table
    TableGroupBy
    RecordBatchReader
+
+Dataframe Interchange Protocol
+------------------------------
+
+.. autosummary::
+   :toctree: ../generated/
+
+   interchange.from_dataframe
 
 .. _api.tensor:
 

@@ -21,14 +21,12 @@
 
 from cython.operator cimport dereference as deref
 
-import codecs
 from collections import namedtuple
 from collections.abc import Mapping
 
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
-from pyarrow.includes.libarrow_python cimport (MakeInvalidRowHandler,
-                                               PyInvalidRowCallback)
+from pyarrow.includes.libarrow_python cimport *
 from pyarrow.lib cimport (check_status, Field, MemoryPool, Schema,
                           RecordBatchReader, ensure_type,
                           maybe_unbox_memory_pool, get_input_stream,
@@ -39,7 +37,6 @@ from pyarrow.lib cimport (check_status, Field, MemoryPool, Schema,
                           pyarrow_unwrap_data_type, Table, RecordBatch,
                           StopToken, _CRecordBatchWriter)
 from pyarrow.lib import frombytes, tobytes, SignalStopHandler
-from pyarrow.util import _stringify_path
 
 
 cdef unsigned char _single_char(s) except 0:
@@ -110,7 +107,7 @@ cdef class ReadOptions(_Weakrefable):
         block, and empty rows are counted.
         The order of application is as follows:
         - `skip_rows` is applied (if non-zero);
-        - column names aread (unless `column_names` is set);
+        - column names are read (unless `column_names` is set);
         - `skip_rows_after_names` is applied (if non-zero).
     column_names : list, optional
         The column names of the target table.  If empty, fall back on
@@ -251,7 +248,7 @@ cdef class ReadOptions(_Weakrefable):
         block, and empty rows are counted.
         The order of application is as follows:
         - `skip_rows` is applied (if non-zero);
-        - column names aread (unless `column_names` is set);
+        - column names are read (unless `column_names` is set);
         - `skip_rows_after_names` is applied (if non-zero).
         """
         return deref(self.options).skip_rows_after_names
@@ -292,6 +289,15 @@ cdef class ReadOptions(_Weakrefable):
         check_status(deref(self.options).Validate())
 
     def equals(self, ReadOptions other):
+        """
+        Parameters
+        ----------
+        other : pyarrow.csv.ReadOptions
+
+        Returns
+        -------
+        bool
+        """
         return (
             self.use_threads == other.use_threads and
             self.block_size == other.block_size and
@@ -364,7 +370,14 @@ cdef class ParseOptions(_Weakrefable):
     Defining an example file from bytes object:
 
     >>> import io
-    >>> s = "animals;n_legs;entry\\nFlamingo;2;2022-03-01\\n# Comment here:\\nHorse;4;2022-03-02\\nBrittle stars;5;2022-03-03\\nCentipede;100;2022-03-04"
+    >>> s = (
+    ...     "animals;n_legs;entry\\n"
+    ...     "Flamingo;2;2022-03-01\\n"
+    ...     "# Comment here:\\n"
+    ...     "Horse;4;2022-03-02\\n"
+    ...     "Brittle stars;5;2022-03-03\\n"
+    ...     "Centipede;100;2022-03-04"
+    ... )
     >>> print(s)
     animals;n_legs;entry
     Flamingo;2;2022-03-01
@@ -531,6 +544,15 @@ cdef class ParseOptions(_Weakrefable):
         check_status(deref(self.options).Validate())
 
     def equals(self, ParseOptions other):
+        """
+        Parameters
+        ----------
+        other : pyarrow.csv.ParseOptions
+
+        Returns
+        -------
+        bool
+        """
         return (
             self.delimiter == other.delimiter and
             self.quote_char == other.quote_char and
@@ -652,7 +674,14 @@ cdef class ConvertOptions(_Weakrefable):
     Defining an example data:
 
     >>> import io
-    >>> s = "animals,n_legs,entry,fast\\nFlamingo,2,01/03/2022,Yes\\nHorse,4,02/03/2022,Yes\\nBrittle stars,5,03/03/2022,No\\nCentipede,100,04/03/2022,No\\n,6,05/03/2022,"
+    >>> s = (
+    ...     "animals,n_legs,entry,fast\\n"
+    ...     "Flamingo,2,01/03/2022,Yes\\n"
+    ...     "Horse,4,02/03/2022,Yes\\n"
+    ...     "Brittle stars,5,03/03/2022,No\\n"
+    ...     "Centipede,100,04/03/2022,No\\n"
+    ...     ",6,05/03/2022,"
+    ... )
     >>> print(s)
     animals,n_legs,entry,fast
     Flamingo,2,01/03/2022,Yes
@@ -1053,6 +1082,15 @@ cdef class ConvertOptions(_Weakrefable):
         check_status(deref(self.options).Validate())
 
     def equals(self, ConvertOptions other):
+        """
+        Parameters
+        ----------
+        other : pyarrow.csv.ConvertOptions
+
+        Returns
+        -------
+        bool
+        """
         return (
             self.check_utf8 == other.check_utf8 and
             self.column_types == other.column_types and
@@ -1135,9 +1173,8 @@ cdef class CSVStreamingReader(RecordBatchReader):
         Schema schema
 
     def __init__(self):
-        raise TypeError("Do not call {}'s constructor directly, "
-                        "use pyarrow.csv.open_csv() instead."
-                        .format(self.__class__.__name__))
+        raise TypeError(f"Do not call {self.__class__.__name__}'s constructor directly, "
+                        "use pyarrow.csv.open_csv() instead.")
 
     # Note about cancellation: we cannot create a SignalStopHandler
     # by default here, as several CSVStreamingReader instances may be
@@ -1201,7 +1238,13 @@ def read_csv(input_file, read_options=None, parse_options=None,
     Defining an example file from bytes object:
 
     >>> import io
-    >>> s = "animals,n_legs,entry\\nFlamingo,2,2022-03-01\\nHorse,4,2022-03-02\\nBrittle stars,5,2022-03-03\\nCentipede,100,2022-03-04"
+    >>> s = (
+    ...     "animals,n_legs,entry\\n"
+    ...     "Flamingo,2,2022-03-01\\n"
+    ...     "Horse,4,2022-03-02\\n"
+    ...     "Brittle stars,5,2022-03-03\\n"
+    ...     "Centipede,100,2022-03-04"
+    ... )
     >>> print(s)
     animals,n_legs,entry
     Flamingo,2,2022-03-01
@@ -1229,7 +1272,7 @@ def read_csv(input_file, read_options=None, parse_options=None,
         CCSVParseOptions c_parse_options
         CCSVConvertOptions c_convert_options
         CIOContext io_context
-        shared_ptr[CCSVReader] reader
+        SharedPtrNoGIL[CCSVReader] reader
         shared_ptr[CTable] table
 
     _get_reader(input_file, read_options, &stream)
@@ -1274,7 +1317,7 @@ def open_csv(input_file, read_options=None, parse_options=None,
         Options for converting CSV data
         (see pyarrow.csv.ConvertOptions constructor for defaults)
     memory_pool : MemoryPool, optional
-        Pool to allocate Table memory from
+        Pool to allocate RecordBatch memory from
 
     Returns
     -------
@@ -1344,13 +1387,16 @@ cdef class WriteOptions(_Weakrefable):
         - "none": do not enclose any values in quotes; values containing
           special characters (such as quotes, cell delimiters or line endings)
           will raise an error.
+    quoting_header : str, optional (default "needed")
+        Same as quoting_style, but for header column names. Accepts same values.
+        Note : both "needed" and "all_valid" have the same effect of quoting all column names.
     """
 
     # Avoid mistakingly creating attributes
     __slots__ = ()
 
     def __init__(self, *, include_header=None, batch_size=None,
-                 delimiter=None, quoting_style=None):
+                 delimiter=None, quoting_style=None, quoting_header=None):
         self.options.reset(new CCSVWriteOptions(CCSVWriteOptions.Defaults()))
         if include_header is not None:
             self.include_header = include_header
@@ -1360,6 +1406,8 @@ cdef class WriteOptions(_Weakrefable):
             self.delimiter = delimiter
         if quoting_style is not None:
             self.quoting_style = quoting_style
+        if quoting_header is not None:
+            self.quoting_header = quoting_header
 
     @property
     def include_header(self):
@@ -1412,6 +1460,18 @@ cdef class WriteOptions(_Weakrefable):
     @quoting_style.setter
     def quoting_style(self, value):
         deref(self.options).quoting_style = unwrap_quoting_style(value)
+
+    @property
+    def quoting_header(self):
+        """
+        Same as quoting_style, but for header column names.
+        Note : both "needed" and "all_valid" have the same effect of quoting all column names.
+        """
+        return wrap_quoting_style(deref(self.options).quoting_header)
+
+    @quoting_header.setter
+    def quoting_header(self, value):
+        deref(self.options).quoting_header = unwrap_quoting_style(value)
 
     @staticmethod
     cdef WriteOptions wrap(CCSVWriteOptions options):

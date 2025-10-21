@@ -26,15 +26,29 @@
 #include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/util/checked_cast.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 
 namespace arrow {
+
+// ----------------------------------------------------------------------
+// VarLengthListLikeBuilder / BaseListBuilder / BaseListViewBuilder
+
+template class VarLengthListLikeBuilder<ListType>;
+template class VarLengthListLikeBuilder<LargeListType>;
+template class VarLengthListLikeBuilder<ListViewType>;
+template class VarLengthListLikeBuilder<LargeListViewType>;
+
+template class BaseListBuilder<ListType>;
+template class BaseListBuilder<LargeListType>;
+
+template class BaseListViewBuilder<ListViewType>;
+template class BaseListViewBuilder<LargeListViewType>;
 
 // ----------------------------------------------------------------------
 // MapBuilder
 
 MapBuilder::MapBuilder(MemoryPool* pool, const std::shared_ptr<ArrayBuilder>& key_builder,
-                       std::shared_ptr<ArrayBuilder> const& item_builder,
+                       const std::shared_ptr<ArrayBuilder>& item_builder,
                        const std::shared_ptr<DataType>& type)
     : ArrayBuilder(pool), key_builder_(key_builder), item_builder_(item_builder) {
   auto map_type = internal::checked_cast<const MapType*>(type.get());

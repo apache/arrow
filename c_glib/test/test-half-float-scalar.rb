@@ -41,7 +41,7 @@ class TestHalfFloatScalar < Test::Unit::TestCase
   end
 
   def test_to_s
-    assert_equal("[\n  #{@half_float}\n]", @scalar.to_s)
+    assert_equal("1.0009765625", @scalar.to_s)
   end
 
   def test_value

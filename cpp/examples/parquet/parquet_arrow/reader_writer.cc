@@ -68,8 +68,8 @@ void read_whole_file() {
                                                         arrow::default_memory_pool()));
 
   std::unique_ptr<parquet::arrow::FileReader> reader;
-  PARQUET_THROW_NOT_OK(
-      parquet::arrow::OpenFile(infile, arrow::default_memory_pool(), &reader));
+  PARQUET_ASSIGN_OR_THROW(reader,
+                          parquet::arrow::OpenFile(infile, arrow::default_memory_pool()));
   std::shared_ptr<arrow::Table> table;
   PARQUET_THROW_NOT_OK(reader->ReadTable(&table));
   std::cout << "Loaded " << table->num_rows() << " rows in " << table->num_columns()
@@ -85,8 +85,8 @@ void read_single_rowgroup() {
                                                         arrow::default_memory_pool()));
 
   std::unique_ptr<parquet::arrow::FileReader> reader;
-  PARQUET_THROW_NOT_OK(
-      parquet::arrow::OpenFile(infile, arrow::default_memory_pool(), &reader));
+  PARQUET_ASSIGN_OR_THROW(reader,
+                          parquet::arrow::OpenFile(infile, arrow::default_memory_pool()));
   std::shared_ptr<arrow::Table> table;
   PARQUET_THROW_NOT_OK(reader->RowGroup(0)->ReadTable(&table));
   std::cout << "Loaded " << table->num_rows() << " rows in " << table->num_columns()
@@ -102,8 +102,8 @@ void read_single_column() {
                                                         arrow::default_memory_pool()));
 
   std::unique_ptr<parquet::arrow::FileReader> reader;
-  PARQUET_THROW_NOT_OK(
-      parquet::arrow::OpenFile(infile, arrow::default_memory_pool(), &reader));
+  PARQUET_ASSIGN_OR_THROW(reader,
+                          parquet::arrow::OpenFile(infile, arrow::default_memory_pool()));
   std::shared_ptr<arrow::ChunkedArray> array;
   PARQUET_THROW_NOT_OK(reader->ReadColumn(0, &array));
   PARQUET_THROW_NOT_OK(arrow::PrettyPrint(*array, 4, &std::cout));
@@ -122,8 +122,8 @@ void read_single_column_chunk() {
                                                         arrow::default_memory_pool()));
 
   std::unique_ptr<parquet::arrow::FileReader> reader;
-  PARQUET_THROW_NOT_OK(
-      parquet::arrow::OpenFile(infile, arrow::default_memory_pool(), &reader));
+  PARQUET_ASSIGN_OR_THROW(reader,
+                          parquet::arrow::OpenFile(infile, arrow::default_memory_pool()));
   std::shared_ptr<arrow::ChunkedArray> array;
   PARQUET_THROW_NOT_OK(reader->RowGroup(0)->Column(0)->Read(&array));
   PARQUET_THROW_NOT_OK(arrow::PrettyPrint(*array, 4, &std::cout));

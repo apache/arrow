@@ -24,20 +24,26 @@
 #include <utility>
 #include <vector>
 
+#include "arrow/compute/cast.h"
 #include "arrow/compute/exec.h"
 #include "arrow/dataset/dataset_internal.h"
+#include "arrow/dataset/parquet_encryption_config.h"
 #include "arrow/dataset/scanner.h"
 #include "arrow/filesystem/path_util.h"
 #include "arrow/table.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/future.h"
 #include "arrow/util/iterator.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/range.h"
+#include "arrow/util/thread_pool.h"
 #include "arrow/util/tracing_internal.h"
 #include "parquet/arrow/reader.h"
 #include "parquet/arrow/schema.h"
 #include "parquet/arrow/writer.h"
+#include "parquet/encryption/crypto_factory.h"
+#include "parquet/encryption/encryption.h"
+#include "parquet/encryption/kms_client.h"
 #include "parquet/file_reader.h"
 #include "parquet/properties.h"
 #include "parquet/statistics.h"
@@ -54,10 +60,13 @@ using parquet::arrow::SchemaField;
 using parquet::arrow::SchemaManifest;
 using parquet::arrow::StatisticsAsScalars;
 
+using compute::Cast;
+
 namespace {
 
 parquet::ReaderProperties MakeReaderProperties(
     const ParquetFileFormat& format, ParquetFragmentScanOptions* parquet_scan_options,
+    const std::string& path = "", std::shared_ptr<fs::FileSystem> filesystem = nullptr,
     MemoryPool* pool = default_memory_pool()) {
   // Can't mutate pool after construction
   parquet::ReaderProperties properties(pool);
@@ -67,12 +76,35 @@ parquet::ReaderProperties MakeReaderProperties(
     properties.disable_buffered_stream();
   }
   properties.set_buffer_size(parquet_scan_options->reader_properties->buffer_size());
-  properties.file_decryption_properties(
-      parquet_scan_options->reader_properties->file_decryption_properties());
+
+  auto file_decryption_prop =
+      parquet_scan_options->reader_properties->file_decryption_properties();
+
+#ifdef PARQUET_REQUIRE_ENCRYPTION
+  auto parquet_decrypt_config = parquet_scan_options->parquet_decryption_config;
+
+  if (parquet_decrypt_config != nullptr) {
+    file_decryption_prop =
+        parquet_decrypt_config->crypto_factory->GetFileDecryptionProperties(
+            *parquet_decrypt_config->kms_connection_config,
+            *parquet_decrypt_config->decryption_config, path, filesystem);
+  }
+#else
+  if (parquet_scan_options->parquet_decryption_config != nullptr) {
+    parquet::ParquetException::NYI("Encryption is not supported in this build.");
+  }
+#endif
+
+  properties.file_decryption_properties(file_decryption_prop);
+
   properties.set_thrift_string_size_limit(
       parquet_scan_options->reader_properties->thrift_string_size_limit());
   properties.set_thrift_container_size_limit(
       parquet_scan_options->reader_properties->thrift_container_size_limit());
+
+  properties.set_page_checksum_verification(
+      parquet_scan_options->reader_properties->page_checksum_verification());
+
   return properties;
 }
 
@@ -85,21 +117,56 @@ parquet::ArrowReaderProperties MakeArrowReaderProperties(
   }
   properties.set_coerce_int96_timestamp_unit(
       format.reader_options.coerce_int96_timestamp_unit);
+  properties.set_binary_type(format.reader_options.binary_type);
+  properties.set_list_type(format.reader_options.list_type);
   return properties;
 }
 
-template <typename M>
+parquet::ArrowReaderProperties MakeArrowReaderProperties(
+    const ParquetFileFormat& format, const parquet::FileMetaData& metadata,
+    const ScanOptions& options, const ParquetFragmentScanOptions& parquet_scan_options) {
+  auto arrow_properties = MakeArrowReaderProperties(format, metadata);
+  arrow_properties.set_batch_size(options.batch_size);
+  // Must be set here since the sync ScanTask handles pre-buffering itself
+  arrow_properties.set_pre_buffer(
+      parquet_scan_options.arrow_reader_properties->pre_buffer());
+  arrow_properties.set_cache_options(
+      parquet_scan_options.arrow_reader_properties->cache_options());
+  arrow_properties.set_io_context(
+      parquet_scan_options.arrow_reader_properties->io_context());
+  arrow_properties.set_use_threads(options.use_threads);
+  arrow_properties.set_arrow_extensions_enabled(
+      parquet_scan_options.arrow_reader_properties->get_arrow_extensions_enabled());
+  return arrow_properties;
+}
+
 Result<std::shared_ptr<SchemaManifest>> GetSchemaManifest(
-    const M& metadata, const parquet::ArrowReaderProperties& properties) {
+    const parquet::FileMetaData& metadata,
+    const parquet::ArrowReaderProperties& properties) {
   auto manifest = std::make_shared<SchemaManifest>();
-  const std::shared_ptr<const ::arrow::KeyValueMetadata>& key_value_metadata = nullptr;
+  const std::shared_ptr<const ::arrow::KeyValueMetadata>& key_value_metadata =
+      metadata.key_value_metadata();
   RETURN_NOT_OK(SchemaManifest::Make(metadata.schema(), key_value_metadata, properties,
                                      manifest.get()));
   return manifest;
 }
 
+bool IsNan(const Scalar& value) {
+  if (value.is_valid) {
+    if (value.type->id() == Type::FLOAT) {
+      const FloatScalar& float_scalar = checked_cast<const FloatScalar&>(value);
+      return std::isnan(float_scalar.value);
+    } else if (value.type->id() == Type::DOUBLE) {
+      const DoubleScalar& double_scalar = checked_cast<const DoubleScalar&>(value);
+      return std::isnan(double_scalar.value);
+    }
+  }
+  return false;
+}
+
 std::optional<compute::Expression> ColumnChunkStatisticsAsExpression(
-    const SchemaField& schema_field, const parquet::RowGroupMetaData& metadata) {
+    const FieldRef& field_ref, const SchemaField& schema_field,
+    const parquet::RowGroupMetaData& metadata) {
   // For the remaining of this function, failure to extract/parse statistics
   // are ignored by returning nullptr. The goal is two fold. First
   // avoid an optimization which breaks the computation. Second, allow the
@@ -112,50 +179,14 @@ std::optional<compute::Expression> ColumnChunkStatisticsAsExpression(
 
   auto column_metadata = metadata.ColumnChunk(schema_field.column_index);
   auto statistics = column_metadata->statistics();
+  const auto& field = schema_field.field;
+
   if (statistics == nullptr) {
     return std::nullopt;
   }
 
-  const auto& field = schema_field.field;
-  auto field_expr = compute::field_ref(field->name());
-
-  // Optimize for corner case where all values are nulls
-  if (statistics->num_values() == 0 && statistics->null_count() > 0) {
-    return is_null(std::move(field_expr));
-  }
-
-  std::shared_ptr<Scalar> min, max;
-  if (!StatisticsAsScalars(*statistics, &min, &max).ok()) {
-    return std::nullopt;
-  }
-
-  auto maybe_min = min->CastTo(field->type());
-  auto maybe_max = max->CastTo(field->type());
-  if (maybe_min.ok() && maybe_max.ok()) {
-    min = maybe_min.MoveValueUnsafe();
-    max = maybe_max.MoveValueUnsafe();
-
-    if (min->Equals(max)) {
-      auto single_value = compute::equal(field_expr, compute::literal(std::move(min)));
-
-      if (statistics->null_count() == 0) {
-        return single_value;
-      }
-      return compute::or_(std::move(single_value), is_null(std::move(field_expr)));
-    }
-
-    auto lower_bound =
-        compute::greater_equal(field_expr, compute::literal(std::move(min)));
-    auto upper_bound = compute::less_equal(field_expr, compute::literal(std::move(max)));
-
-    auto in_range = compute::and_(std::move(lower_bound), std::move(upper_bound));
-    if (statistics->null_count() != 0) {
-      return compute::or_(std::move(in_range), compute::is_null(field_expr));
-    }
-    return in_range;
-  }
-
-  return std::nullopt;
+  return ParquetFileFragment::EvaluateStatisticsAsExpression(*field, field_ref,
+                                                             *statistics);
 }
 
 void AddColumnIndices(const SchemaField& schema_field,
@@ -248,6 +279,28 @@ Status ResolveOneFieldRef(
   return Status::OK();
 }
 
+// Converts a field ref into a position-independent ref (containing only a sequence of
+// names) based on the dataset schema. Returns `false` if no conversion was needed.
+Result<FieldRef> MaybeConvertFieldRef(FieldRef ref, const Schema& dataset_schema) {
+  if (ARROW_PREDICT_TRUE(ref.IsNameSequence())) {
+    return ref;
+  }
+
+  ARROW_ASSIGN_OR_RAISE(auto path, ref.FindOne(dataset_schema));
+  std::vector<FieldRef> named_refs;
+  named_refs.reserve(path.indices().size());
+
+  const FieldVector* child_fields = &dataset_schema.fields();
+  for (auto index : path) {
+    const auto& child_field = *(*child_fields)[index];
+    named_refs.emplace_back(child_field.name());
+    child_fields = &child_field.type()->fields();
+  }
+
+  return named_refs.size() == 1 ? std::move(named_refs[0])
+                                : FieldRef(std::move(named_refs));
+}
+
 // Compute the column projection based on the scan options
 Result<std::vector<int>> InferColumnProjection(const parquet::arrow::FileReader& reader,
                                                const ScanOptions& options) {
@@ -272,7 +325,13 @@ Result<std::vector<int>> InferColumnProjection(const parquet::arrow::FileReader&
   }
 
   std::vector<int> columns_selection;
-  for (const auto& ref : field_refs) {
+  for (auto& ref : field_refs) {
+    // In the (unlikely) absence of a known dataset schema, we require that all
+    // materialized refs are named.
+    if (options.dataset_schema) {
+      ARROW_ASSIGN_OR_RAISE(
+          ref, MaybeConvertFieldRef(std::move(ref), *options.dataset_schema));
+    }
     RETURN_NOT_OK(ResolveOneFieldRef(manifest, ref, field_lookup, duplicate_fields,
                                      &columns_selection));
   }
@@ -306,6 +365,75 @@ Result<bool> IsSupportedParquetFile(const ParquetFileFormat& format,
 
 }  // namespace
 
+std::optional<compute::Expression> ParquetFileFragment::EvaluateStatisticsAsExpression(
+    const Field& field, const FieldRef& field_ref,
+    const parquet::Statistics& statistics) {
+  auto field_expr = compute::field_ref(field_ref);
+
+  bool may_have_null = !statistics.HasNullCount() || statistics.null_count() > 0;
+  // Optimize for corner case where all values are nulls
+  if (statistics.num_values() == 0) {
+    // If there are no non-null values, column `field_ref` in the fragment
+    // might be empty or all values are nulls. In this case, we also return
+    // a null expression.
+    return is_null(std::move(field_expr));
+  }
+
+  std::shared_ptr<Scalar> min, max;
+  if (!StatisticsAsScalars(statistics, &min, &max).ok()) {
+    return std::nullopt;
+  }
+
+  auto maybe_min = Cast(min, field.type());
+  auto maybe_max = Cast(max, field.type());
+  if (maybe_min.ok() && maybe_max.ok()) {
+    min = maybe_min.MoveValueUnsafe().scalar();
+    max = maybe_max.MoveValueUnsafe().scalar();
+
+    if (min->Equals(*max)) {
+      auto single_value = compute::equal(field_expr, compute::literal(std::move(min)));
+
+      if (!may_have_null) {
+        return single_value;
+      }
+      return compute::or_(std::move(single_value), is_null(std::move(field_expr)));
+    }
+
+    auto lower_bound = compute::greater_equal(field_expr, compute::literal(min));
+    auto upper_bound = compute::less_equal(field_expr, compute::literal(max));
+    compute::Expression in_range;
+
+    // Since the minimum & maximum values are NaN, useful statistics
+    // cannot be extracted for checking the presence of a value within
+    // range
+    if (IsNan(*min) && IsNan(*max)) {
+      return std::nullopt;
+    }
+
+    // If either minimum or maximum is NaN, it should be ignored for the
+    // range computation
+    if (IsNan(*min)) {
+      in_range = std::move(upper_bound);
+    } else if (IsNan(*max)) {
+      in_range = std::move(lower_bound);
+    } else {
+      in_range = compute::and_(std::move(lower_bound), std::move(upper_bound));
+    }
+    if (may_have_null) {
+      return compute::or_(std::move(in_range), compute::is_null(std::move(field_expr)));
+    }
+    return in_range;
+  }
+  return std::nullopt;
+}
+
+std::optional<compute::Expression> ParquetFileFragment::EvaluateStatisticsAsExpression(
+    const Field& field, const parquet::Statistics& statistics) {
+  auto field_name = field.name();
+  return EvaluateStatisticsAsExpression(field, FieldRef(std::move(field_name)),
+                                        statistics);
+}
+
 ParquetFileFormat::ParquetFileFormat()
     : FileFormat(std::make_shared<ParquetFragmentScanOptions>()) {}
 
@@ -318,7 +446,9 @@ bool ParquetFileFormat::Equals(const FileFormat& other) const {
   // FIXME implement comparison for decryption options
   return (reader_options.dict_columns == other_reader_options.dict_columns &&
           reader_options.coerce_int96_timestamp_unit ==
-              other_reader_options.coerce_int96_timestamp_unit);
+              other_reader_options.coerce_int96_timestamp_unit &&
+          reader_options.binary_type == other_reader_options.binary_type &&
+          reader_options.list_type == other_reader_options.list_type);
 }
 
 ParquetFileFormat::ParquetFileFormat(const parquet::ReaderProperties& reader_properties)
@@ -347,48 +477,91 @@ Result<std::shared_ptr<Schema>> ParquetFileFormat::Inspect(
 
 Result<std::shared_ptr<parquet::arrow::FileReader>> ParquetFileFormat::GetReader(
     const FileSource& source, const std::shared_ptr<ScanOptions>& options) const {
-  return GetReaderAsync(source, options).result();
+  return GetReader(source, options, /*metadata=*/nullptr);
 }
 
-Future<std::shared_ptr<parquet::arrow::FileReader>> ParquetFileFormat::GetReaderAsync(
-    const FileSource& source, const std::shared_ptr<ScanOptions>& options) const {
+Result<std::shared_ptr<parquet::arrow::FileReader>> ParquetFileFormat::GetReader(
+    const FileSource& source, const std::shared_ptr<ScanOptions>& options,
+    const std::shared_ptr<parquet::FileMetaData>& metadata) const {
   ARROW_ASSIGN_OR_RAISE(
       auto parquet_scan_options,
       GetFragmentScanOptions<ParquetFragmentScanOptions>(kParquetTypeName, options.get(),
                                                          default_fragment_scan_options));
   auto properties =
-      MakeReaderProperties(*this, parquet_scan_options.get(), options->pool);
+      MakeReaderProperties(*this, parquet_scan_options.get(), "", nullptr, options->pool);
   ARROW_ASSIGN_OR_RAISE(auto input, source.Open());
-  // TODO(ARROW-12259): workaround since we have Future<(move-only type)>
-  auto reader_fut =
-      parquet::ParquetFileReader::OpenAsync(std::move(input), std::move(properties));
-  auto path = source.path();
+  // `parquet::ParquetFileReader::Open` will not wrap the exception as status,
+  // so using `open_parquet_file` to wrap it.
+  auto open_parquet_file = [&]() -> Result<std::unique_ptr<parquet::ParquetFileReader>> {
+    BEGIN_PARQUET_CATCH_EXCEPTIONS
+    auto reader = parquet::ParquetFileReader::Open(std::move(input),
+                                                   std::move(properties), metadata);
+    return reader;
+    END_PARQUET_CATCH_EXCEPTIONS
+  };
+
+  auto reader_opt = open_parquet_file();
+  if (!reader_opt.ok()) {
+    return WrapSourceError(reader_opt.status(), source.path());
+  }
+  auto reader = std::move(reader_opt).ValueOrDie();
+
+  std::shared_ptr<parquet::FileMetaData> reader_metadata = reader->metadata();
+  auto arrow_properties =
+      MakeArrowReaderProperties(*this, *reader_metadata, *options, *parquet_scan_options);
+  std::unique_ptr<parquet::arrow::FileReader> arrow_reader;
+  RETURN_NOT_OK(parquet::arrow::FileReader::Make(
+      options->pool, std::move(reader), std::move(arrow_properties), &arrow_reader));
+  // R build with openSUSE155 requires an explicit shared_ptr construction
+  return std::shared_ptr<parquet::arrow::FileReader>(std::move(arrow_reader));
+}
+
+Future<std::shared_ptr<parquet::arrow::FileReader>> ParquetFileFormat::GetReaderAsync(
+    const FileSource& source, const std::shared_ptr<ScanOptions>& options) const {
+  return GetReaderAsync(source, options, nullptr);
+}
+
+Future<std::shared_ptr<parquet::arrow::FileReader>> ParquetFileFormat::GetReaderAsync(
+    const FileSource& source, const std::shared_ptr<ScanOptions>& options,
+    const std::shared_ptr<parquet::FileMetaData>& metadata) const {
+  ARROW_ASSIGN_OR_RAISE(
+      auto parquet_scan_options,
+      GetFragmentScanOptions<ParquetFragmentScanOptions>(kParquetTypeName, options.get(),
+                                                         default_fragment_scan_options));
+  auto properties = MakeReaderProperties(*this, parquet_scan_options.get(), source.path(),
+                                         source.filesystem(), options->pool);
   auto self = checked_pointer_cast<const ParquetFileFormat>(shared_from_this());
-  return reader_fut.Then(
-      [=](const std::unique_ptr<parquet::ParquetFileReader>&) mutable
-      -> Result<std::shared_ptr<parquet::arrow::FileReader>> {
-        ARROW_ASSIGN_OR_RAISE(std::unique_ptr<parquet::ParquetFileReader> reader,
-                              reader_fut.MoveResult());
-        std::shared_ptr<parquet::FileMetaData> metadata = reader->metadata();
-        auto arrow_properties = MakeArrowReaderProperties(*self, *metadata);
-        arrow_properties.set_batch_size(options->batch_size);
-        // Must be set here since the sync ScanTask handles pre-buffering itself
-        arrow_properties.set_pre_buffer(
-            parquet_scan_options->arrow_reader_properties->pre_buffer());
-        arrow_properties.set_cache_options(
-            parquet_scan_options->arrow_reader_properties->cache_options());
-        arrow_properties.set_io_context(
-            parquet_scan_options->arrow_reader_properties->io_context());
-        arrow_properties.set_use_threads(options->use_threads);
-        std::unique_ptr<parquet::arrow::FileReader> arrow_reader;
-        RETURN_NOT_OK(parquet::arrow::FileReader::Make(options->pool, std::move(reader),
-                                                       std::move(arrow_properties),
-                                                       &arrow_reader));
-        return std::move(arrow_reader);
-      },
-      [path](
-          const Status& status) -> Result<std::shared_ptr<parquet::arrow::FileReader>> {
-        return WrapSourceError(status, path);
+
+  return source.OpenAsync().Then(
+      [self = self, properties = std::move(properties), source = source,
+       options = options, metadata = metadata,
+       parquet_scan_options = parquet_scan_options](
+          const std::shared_ptr<io::RandomAccessFile>& input) mutable {
+        return parquet::ParquetFileReader::OpenAsync(input, properties, metadata)
+            .Then(
+                [=](const std::unique_ptr<parquet::ParquetFileReader>& reader) mutable
+                -> Result<std::shared_ptr<parquet::arrow::FileReader>> {
+                  auto arrow_properties = MakeArrowReaderProperties(
+                      *self, *reader->metadata(), *options, *parquet_scan_options);
+
+                  std::unique_ptr<parquet::arrow::FileReader> arrow_reader;
+                  RETURN_NOT_OK(parquet::arrow::FileReader::Make(
+                      options->pool,
+                      // TODO(ARROW-12259): workaround since we have Future<(move-only
+                      // type)> It *wouldn't* be safe to const_cast reader except that
+                      // here we know there are no other waiters on the reader.
+                      std::move(const_cast<std::unique_ptr<parquet::ParquetFileReader>&>(
+                          reader)),
+                      arrow_properties, &arrow_reader));
+
+                  // R build with openSUSE155 requires an explicit shared_ptr construction
+                  return std::shared_ptr<parquet::arrow::FileReader>(
+                      std::move(arrow_reader));
+                },
+                [path = source.path()](const Status& status)
+                    -> Result<std::shared_ptr<parquet::arrow::FileReader>> {
+                  return WrapSourceError(status, path);
+                });
       });
 }
 
@@ -443,7 +616,7 @@ Result<RecordBatchGenerator> ParquetFileFormat::ScanBatchesAsync(
   // If RowGroup metadata is cached completely we can pre-filter RowGroups before opening
   // a FileReader, potentially avoiding IO altogether if all RowGroups are excluded due to
   // prior statistics knowledge. In the case where a RowGroup doesn't have statistics
-  // metdata, it will not be excluded.
+  // metadata, it will not be excluded.
   if (parquet_fragment->metadata() != nullptr) {
     ARROW_ASSIGN_OR_RAISE(row_groups, parquet_fragment->FilterRowGroups(options->filter));
     pre_filtered = true;
@@ -470,10 +643,12 @@ Result<RecordBatchGenerator> ParquetFileFormat::ScanBatchesAsync(
             kParquetTypeName, options.get(), default_fragment_scan_options));
     int batch_readahead = options->batch_readahead;
     int64_t rows_to_readahead = batch_readahead * options->batch_size;
-    ARROW_ASSIGN_OR_RAISE(auto generator,
-                          reader->GetRecordBatchGenerator(
-                              reader, row_groups, column_projection,
-                              ::arrow::internal::GetCpuThreadPool(), rows_to_readahead));
+    // Use the executor from scan options if provided.
+    auto cpu_executor = options->cpu_executor ? options->cpu_executor
+                                              : ::arrow::internal::GetCpuThreadPool();
+    ARROW_ASSIGN_OR_RAISE(auto generator, reader->GetRecordBatchGenerator(
+                                              reader, row_groups, column_projection,
+                                              cpu_executor, rows_to_readahead));
     RecordBatchGenerator sliced =
         SlicingGenerator(std::move(generator), options->batch_size);
     if (batch_readahead == 0) {
@@ -483,8 +658,9 @@ Result<RecordBatchGenerator> ParquetFileFormat::ScanBatchesAsync(
         MakeSerialReadaheadGenerator(std::move(sliced), batch_readahead);
     return sliced_readahead;
   };
-  auto generator = MakeFromFuture(GetReaderAsync(parquet_fragment->source(), options)
-                                      .Then(std::move(make_generator)));
+  auto generator = MakeFromFuture(
+      GetReaderAsync(parquet_fragment->source(), options, parquet_fragment->metadata())
+          .Then(std::move(make_generator)));
   WRAP_ASYNC_GENERATOR_WITH_CHILD_SPAN(
       generator, "arrow::dataset::ParquetFileFormat::ScanBatchesAsync::Next");
   return generator;
@@ -546,10 +722,40 @@ Result<std::shared_ptr<FileWriter>> ParquetFileFormat::MakeWriter(
   auto parquet_options = checked_pointer_cast<ParquetFileWriteOptions>(options);
 
   std::unique_ptr<parquet::arrow::FileWriter> parquet_writer;
-  ARROW_ASSIGN_OR_RAISE(parquet_writer, parquet::arrow::FileWriter::Open(
-                                            *schema, default_memory_pool(), destination,
-                                            parquet_options->writer_properties,
-                                            parquet_options->arrow_writer_properties));
+
+#ifdef PARQUET_REQUIRE_ENCRYPTION
+  auto parquet_encrypt_config = parquet_options->parquet_encryption_config;
+
+  if (parquet_encrypt_config != nullptr) {
+    auto file_encryption_prop =
+        parquet_encrypt_config->crypto_factory->GetFileEncryptionProperties(
+            *parquet_encrypt_config->kms_connection_config,
+            *parquet_encrypt_config->encryption_config, destination_locator.path,
+            destination_locator.filesystem);
+
+    auto writer_properties =
+        parquet::WriterProperties::Builder(*parquet_options->writer_properties)
+            .encryption(std::move(file_encryption_prop))
+            ->build();
+
+    ARROW_ASSIGN_OR_RAISE(
+        parquet_writer, parquet::arrow::FileWriter::Open(
+                            *schema, writer_properties->memory_pool(), destination,
+                            writer_properties, parquet_options->arrow_writer_properties));
+  }
+#else
+  if (parquet_options->parquet_encryption_config != nullptr) {
+    return Status::NotImplemented("Encryption is not supported in this build.");
+  }
+#endif
+
+  if (parquet_writer == nullptr) {
+    ARROW_ASSIGN_OR_RAISE(parquet_writer,
+                          parquet::arrow::FileWriter::Open(
+                              *schema, parquet_options->writer_properties->memory_pool(),
+                              destination, parquet_options->writer_properties,
+                              parquet_options->arrow_writer_properties));
+  }
 
   return std::shared_ptr<FileWriter>(
       new ParquetFileWriter(std::move(destination), std::move(parquet_writer),
@@ -588,6 +794,11 @@ ParquetFileFragment::ParquetFileFragment(FileSource source,
       parquet_format_(checked_cast<ParquetFileFormat&>(*format_)),
       row_groups_(std::move(row_groups)) {}
 
+std::shared_ptr<parquet::FileMetaData> ParquetFileFragment::metadata() {
+  auto lock = physical_schema_mutex_.Lock();
+  return metadata_;
+}
+
 Status ParquetFileFragment::EnsureCompleteMetadata(parquet::arrow::FileReader* reader) {
   auto lock = physical_schema_mutex_.Lock();
   if (metadata_ != nullptr) {
@@ -601,14 +812,12 @@ Status ParquetFileFragment::EnsureCompleteMetadata(parquet::arrow::FileReader* r
     return EnsureCompleteMetadata(reader.get());
   }
 
-  std::shared_ptr<Schema> schema;
-  RETURN_NOT_OK(reader->GetSchema(&schema));
-  if (physical_schema_ && !physical_schema_->Equals(*schema)) {
+  RETURN_NOT_OK(reader->GetSchema(&physical_schema_));
+  if (given_physical_schema_ && !given_physical_schema_->Equals(*physical_schema_)) {
     return Status::Invalid("Fragment initialized with physical schema ",
-                           *physical_schema_, " but ", source_.path(), " has schema ",
-                           *schema);
+                           *given_physical_schema_, " but ", source_.path(),
+                           " has schema ", *physical_schema_);
   }
-  physical_schema_ = std::move(schema);
 
   if (!row_groups_) {
     row_groups_ = Iota(reader->num_row_groups());
@@ -622,14 +831,24 @@ Status ParquetFileFragment::EnsureCompleteMetadata(parquet::arrow::FileReader* r
 
 Status ParquetFileFragment::SetMetadata(
     std::shared_ptr<parquet::FileMetaData> metadata,
-    std::shared_ptr<parquet::arrow::SchemaManifest> manifest) {
+    std::shared_ptr<parquet::arrow::SchemaManifest> manifest,
+    std::shared_ptr<parquet::FileMetaData> original_metadata) {
   DCHECK(row_groups_.has_value());
 
   metadata_ = std::move(metadata);
   manifest_ = std::move(manifest);
+  original_metadata_ = original_metadata ? std::move(original_metadata) : metadata_;
+  // The SchemaDescriptor needs to be owned by a FileMetaData instance,
+  // because SchemaManifest only stores a raw pointer (GH-39562).
+  DCHECK_EQ(manifest_->descr, original_metadata_->schema())
+      << "SchemaDescriptor should be owned by the original FileMetaData";
+
+  if (!physical_schema_) {
+    physical_schema_ = given_physical_schema_;
+  }
 
   statistics_expressions_.resize(row_groups_->size(), compute::literal(true));
-  statistics_expressions_complete_.resize(physical_schema_->num_fields(), false);
+  statistics_expressions_complete_.resize(manifest_->descr->num_columns(), false);
 
   for (int row_group : *row_groups_) {
     // Ensure RowGroups are indexing valid RowGroups before augmenting.
@@ -641,6 +860,13 @@ Status ParquetFileFragment::SetMetadata(
   }
 
   return Status::OK();
+}
+
+Status ParquetFileFragment::ClearCachedMetadata() {
+  metadata_.reset();
+  manifest_.reset();
+  original_metadata_.reset();
+  return FileFragment::ClearCachedMetadata();
 }
 
 Result<FragmentVector> ParquetFileFragment::SplitByRowGroup(
@@ -655,7 +881,8 @@ Result<FragmentVector> ParquetFileFragment::SplitByRowGroup(
                           parquet_format_.MakeFragment(source_, partition_expression(),
                                                        physical_schema_, {row_group}));
 
-    RETURN_NOT_OK(fragment->SetMetadata(metadata_, manifest_));
+    RETURN_NOT_OK(fragment->SetMetadata(metadata_, manifest_,
+                                        /*original_metadata=*/original_metadata_));
     fragments[i++] = std::move(fragment);
   }
 
@@ -719,16 +946,25 @@ Result<std::vector<compute::Expression>> ParquetFileFragment::TestRowGroups(
     ARROW_ASSIGN_OR_RAISE(auto match, ref.FindOneOrNone(*physical_schema_));
 
     if (match.empty()) continue;
-    if (statistics_expressions_complete_[match[0]]) continue;
-    statistics_expressions_complete_[match[0]] = true;
+    const SchemaField* schema_field = &manifest_->schema_fields[match[0]];
 
-    const SchemaField& schema_field = manifest_->schema_fields[match[0]];
+    for (size_t i = 1; i < match.indices().size(); ++i) {
+      if (schema_field->field->type()->id() != Type::STRUCT) {
+        return Status::Invalid("nested paths only supported for structs");
+      }
+      schema_field = &schema_field->children[match[i]];
+    }
+
+    if (!schema_field->is_leaf()) continue;
+    if (statistics_expressions_complete_[schema_field->column_index]) continue;
+    statistics_expressions_complete_[schema_field->column_index] = true;
+
     int i = 0;
     for (int row_group : *row_groups_) {
       auto row_group_metadata = metadata_->RowGroup(row_group);
 
-      if (auto minmax =
-              ColumnChunkStatisticsAsExpression(schema_field, *row_group_metadata)) {
+      if (auto minmax = ColumnChunkStatisticsAsExpression(ref, *schema_field,
+                                                          *row_group_metadata)) {
         FoldingAnd(&statistics_expressions_[i], std::move(*minmax));
         ARROW_ASSIGN_OR_RAISE(statistics_expressions_[i],
                               statistics_expressions_[i].Bind(*physical_schema_));
@@ -815,6 +1051,8 @@ static inline Result<std::string> FileFromRowGroup(
   return filesystem->NormalizePath(std::move(path));
 }
 
+namespace {
+
 Result<std::shared_ptr<Schema>> GetSchema(
     const parquet::FileMetaData& metadata,
     const parquet::ArrowReaderProperties& properties) {
@@ -823,6 +1061,8 @@ Result<std::shared_ptr<Schema>> GetSchema(
       metadata.schema(), properties, metadata.key_value_metadata(), &schema));
   return schema;
 }
+
+}  // namespace
 
 Result<std::shared_ptr<DatasetFactory>> ParquetDatasetFactory::Make(
     const std::string& metadata_path, std::shared_ptr<fs::FileSystem> filesystem,
@@ -906,7 +1146,8 @@ ParquetDatasetFactory::CollectParquetFragments(const Partitioning& partitioning)
         format_->MakeFragment({path, filesystem_}, std::move(partition_expression),
                               physical_schema_, std::move(row_groups)));
 
-    RETURN_NOT_OK(fragment->SetMetadata(metadata_subset, manifest_));
+    RETURN_NOT_OK(fragment->SetMetadata(metadata_subset, manifest_,
+                                        /*original_metadata=*/metadata_));
     fragments[i++] = std::move(fragment);
   }
 

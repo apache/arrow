@@ -19,14 +19,17 @@
 // Parquet column chunk within a row group. It could be extended in the future
 // to iterate through all data pages in all chunks in a file.
 
+#include <numeric>
 #include <sstream>
 
-#include <arrow/io/file.h>
-
+#include "arrow/io/file.h"
 #include "arrow/testing/future_util.h"
+#include "arrow/util/unreachable.h"
+
 #include "parquet/encryption/test_encryption_util.h"
 #include "parquet/file_reader.h"
 #include "parquet/file_writer.h"
+#include "parquet/page_index.h"
 #include "parquet/test_util.h"
 
 using ::arrow::io::FileOutputStream;
@@ -37,9 +40,7 @@ using parquet::Type;
 using parquet::schema::GroupNode;
 using parquet::schema::PrimitiveNode;
 
-namespace parquet {
-namespace encryption {
-namespace test {
+namespace parquet::encryption::test {
 
 std::string data_file(const char* file) {
   std::string dir_string(parquet::test::get_data_dir());
@@ -48,17 +49,21 @@ std::string data_file(const char* file) {
   return ss.str();
 }
 
-std::unordered_map<std::string, std::string> BuildKeyMap(const char* const* column_ids,
-                                                         const char* const* column_keys,
-                                                         const char* footer_id,
-                                                         const char* footer_key) {
-  std::unordered_map<std::string, std::string> key_map;
+std::unordered_map<std::string, SecureString> BuildKeyMap(const char* const* column_ids,
+                                                          const char* const* column_keys,
+                                                          const char* footer_id,
+                                                          const char* footer_key) {
+  std::unordered_map<std::string, SecureString> key_map;
   // add column keys
   for (int i = 0; i < 6; i++) {
-    key_map.insert({column_ids[i], column_keys[i]});
+    // this is not safe to do as column_keys[i] is not protected by SecureString
+    // do not do outside test code
+    key_map.insert({column_ids[i], SecureString(column_keys[i])});
   }
   // add footer key
-  key_map.insert({footer_id, footer_key});
+  // this is not safe to do as footer_key[i] is not protected by SecureString
+  // do not do outside test code
+  key_map.insert({footer_id, SecureString(footer_key)});
 
   return key_map;
 }
@@ -115,9 +120,9 @@ ColumnData<Int64Type> GenerateSampleData<Int64Type>(int rows) {
     int64_t value = i * 1000 * 1000;
     value *= 1000 * 1000;
     int16_t definition_level = 1;
-    int16_t repetition_level = 0;
+    int16_t repetition_level = 1;
     if ((i % 2) == 0) {
-      repetition_level = 1;  // start of a new record
+      repetition_level = 0;  // start of a new record
     }
     int64_col.values.push_back(value);
     int64_col.definition_levels.push_back(definition_level);
@@ -208,6 +213,7 @@ void FileEncryptor::EncryptFile(
   WriterProperties::Builder prop_builder;
   prop_builder.compression(parquet::Compression::UNCOMPRESSED);
   prop_builder.encryption(encryption_configurations);
+  prop_builder.enable_write_page_index();
   std::shared_ptr<WriterProperties> writer_properties = prop_builder.build();
 
   PARQUET_ASSIGN_OR_THROW(auto out_file, FileOutputStream::Open(file));
@@ -322,18 +328,32 @@ void ReadAndVerifyColumn(RowGroupReader* rg_reader, RowGroupMetadata* rg_md,
   }
   ASSERT_EQ(rows_read, rows_should_read);
   ASSERT_EQ(values_read, rows_should_read);
-  ASSERT_EQ(read_col_data.values, expected_column_data.values);
   // make sure we got the same number of values the metadata says
   ASSERT_EQ(col_md->num_values(), rows_read);
+  // GH-35571: need to use approximate floating-point comparison because of
+  // precision issues on MinGW32 (the values generated in the C++ test code
+  // may not exactly match those from the parquet-testing data files).
+  if constexpr (std::is_floating_point_v<typename DType::c_type>) {
+    ASSERT_EQ(read_col_data.rows(), expected_column_data.rows());
+    for (int i = 0; i < read_col_data.rows(); ++i) {
+      if constexpr (std::is_same_v<float, typename DType::c_type>) {
+        EXPECT_FLOAT_EQ(expected_column_data.values[i], read_col_data.values[i]);
+      } else {
+        EXPECT_DOUBLE_EQ(expected_column_data.values[i], read_col_data.values[i]);
+      }
+    }
+  } else {
+    ASSERT_EQ(expected_column_data.values, read_col_data.values);
+  }
 }
 
 void FileDecryptor::DecryptFile(
-    std::string file,
-    std::shared_ptr<FileDecryptionProperties> file_decryption_properties) {
+    const std::string& file,
+    const std::shared_ptr<FileDecryptionProperties>& file_decryption_properties) {
   std::string exception_msg;
   parquet::ReaderProperties reader_properties = parquet::default_reader_properties();
   if (file_decryption_properties) {
-    reader_properties.file_decryption_properties(file_decryption_properties->DeepClone());
+    reader_properties.file_decryption_properties(file_decryption_properties);
   }
 
   std::shared_ptr<::arrow::io::RandomAccessFile> source;
@@ -341,22 +361,23 @@ void FileDecryptor::DecryptFile(
       source, ::arrow::io::ReadableFile::Open(file, reader_properties.memory_pool()));
 
   auto file_reader = parquet::ParquetFileReader::Open(source, reader_properties);
-  CheckFile(file_reader.get(), file_decryption_properties.get());
+  CheckFile(file_reader.get(), file_decryption_properties);
 
   if (file_decryption_properties) {
-    reader_properties.file_decryption_properties(file_decryption_properties->DeepClone());
+    reader_properties.file_decryption_properties(file_decryption_properties);
   }
   auto fut = parquet::ParquetFileReader::OpenAsync(source, reader_properties);
   ASSERT_FINISHES_OK(fut);
   ASSERT_OK_AND_ASSIGN(file_reader, fut.MoveResult());
-  CheckFile(file_reader.get(), file_decryption_properties.get());
+  CheckFile(file_reader.get(), file_decryption_properties);
 
   file_reader->Close();
   PARQUET_THROW_NOT_OK(source->Close());
 }
 
-void FileDecryptor::CheckFile(parquet::ParquetFileReader* file_reader,
-                              FileDecryptionProperties* file_decryption_properties) {
+void FileDecryptor::CheckFile(
+    parquet::ParquetFileReader* file_reader,
+    const std::shared_ptr<FileDecryptionProperties>& file_decryption_properties) {
   // Get the File MetaData
   std::shared_ptr<parquet::FileMetaData> file_metadata = file_reader->metadata();
 
@@ -497,6 +518,161 @@ void FileDecryptor::CheckFile(parquet::ParquetFileReader* file_reader,
   }
 }
 
-}  // namespace test
-}  // namespace encryption
-}  // namespace parquet
+void FileDecryptor::DecryptPageIndex(
+    const std::string& file,
+    const std::shared_ptr<FileDecryptionProperties>& file_decryption_properties) {
+  std::string exception_msg;
+  parquet::ReaderProperties reader_properties = parquet::default_reader_properties();
+  if (file_decryption_properties) {
+    reader_properties.file_decryption_properties(file_decryption_properties);
+  }
+
+  std::shared_ptr<::arrow::io::RandomAccessFile> source;
+  PARQUET_ASSIGN_OR_THROW(
+      source, ::arrow::io::ReadableFile::Open(file, reader_properties.memory_pool()));
+
+  auto file_reader = parquet::ParquetFileReader::Open(source, reader_properties);
+  CheckPageIndex(file_reader.get(), file_decryption_properties);
+
+  ASSERT_NO_FATAL_FAILURE(file_reader->Close());
+  PARQUET_THROW_NOT_OK(source->Close());
+}
+
+template <typename DType, typename c_type = typename DType::c_type>
+void AssertColumnIndex(const std::shared_ptr<ColumnIndex>& column_index,
+                       const std::vector<int64_t>& expected_null_counts,
+                       const std::vector<c_type>& expected_min_values,
+                       const std::vector<c_type>& expected_max_values) {
+  auto typed_column_index =
+      std::dynamic_pointer_cast<TypedColumnIndex<DType>>(column_index);
+  ASSERT_NE(typed_column_index, nullptr);
+  ASSERT_EQ(typed_column_index->null_counts(), expected_null_counts);
+  if constexpr (std::is_same_v<FLBAType, DType>) {
+    ASSERT_EQ(typed_column_index->min_values().size(), expected_min_values.size());
+    ASSERT_EQ(typed_column_index->max_values().size(), expected_max_values.size());
+    for (size_t i = 0; i < expected_min_values.size(); ++i) {
+      ASSERT_EQ(
+          FixedLenByteArrayToString(typed_column_index->min_values()[i], kFixedLength),
+          FixedLenByteArrayToString(expected_min_values[i], kFixedLength));
+    }
+    for (size_t i = 0; i < expected_max_values.size(); ++i) {
+      ASSERT_EQ(
+          FixedLenByteArrayToString(typed_column_index->max_values()[i], kFixedLength),
+          FixedLenByteArrayToString(expected_max_values[i], kFixedLength));
+    }
+  } else {
+    ASSERT_EQ(typed_column_index->min_values(), expected_min_values);
+    ASSERT_EQ(typed_column_index->max_values(), expected_max_values);
+  }
+}
+
+void FileDecryptor::CheckPageIndex(
+    parquet::ParquetFileReader* file_reader,
+    const std::shared_ptr<FileDecryptionProperties>& file_decryption_properties) {
+  std::shared_ptr<PageIndexReader> page_index_reader = file_reader->GetPageIndexReader();
+  ASSERT_NE(page_index_reader, nullptr);
+
+  const std::shared_ptr<parquet::FileMetaData> file_metadata = file_reader->metadata();
+  const int num_row_groups = file_metadata->num_row_groups();
+  const int num_columns = file_metadata->num_columns();
+  ASSERT_EQ(num_columns, 8);
+
+  // We cannot read page index of encrypted columns in the plaintext mode
+  std::vector<int32_t> need_row_groups(num_row_groups);
+  std::iota(need_row_groups.begin(), need_row_groups.end(), 0);
+  std::vector<int32_t> need_columns;
+  if (file_decryption_properties == nullptr) {
+    need_columns = {0, 1, 2, 3, 6, 7};
+  } else {
+    need_columns = {0, 1, 2, 3, 4, 5, 6, 7};
+  }
+
+  // Provide hint of requested columns to avoid accessing encrypted columns without
+  // decryption properties.
+  page_index_reader->WillNeed(
+      need_row_groups, need_columns,
+      PageIndexSelection{/*column_index=*/true, /*offset_index=*/true});
+
+  // Iterate over all the RowGroups in the file.
+  for (int r = 0; r < num_row_groups; ++r) {
+    auto row_group_page_index_reader = page_index_reader->RowGroup(r);
+    ASSERT_NE(row_group_page_index_reader, nullptr);
+
+    for (int c = 0; c < num_columns; ++c) {
+      // Skip reading encrypted columns without decryption properties.
+      if (file_decryption_properties == nullptr && (c == 4 || c == 5)) {
+        continue;
+      }
+
+      constexpr size_t kExpectedNumPages = 1;
+
+      // Check offset index.
+      auto offset_index = row_group_page_index_reader->GetOffsetIndex(c);
+      ASSERT_NE(offset_index, nullptr);
+      ASSERT_EQ(offset_index->page_locations().size(), kExpectedNumPages);
+      const auto& first_page = offset_index->page_locations()[0];
+      ASSERT_EQ(first_page.first_row_index, 0);
+      ASSERT_GT(first_page.compressed_page_size, 0);
+
+      // Int96 column does not have column index.
+      if (c == 3) {
+        continue;
+      }
+
+      // Check column index
+      auto column_index = row_group_page_index_reader->GetColumnIndex(c);
+      ASSERT_NE(column_index, nullptr);
+      ASSERT_EQ(column_index->null_pages().size(), kExpectedNumPages);
+      ASSERT_EQ(column_index->null_pages()[0], false);
+      ASSERT_EQ(column_index->encoded_min_values().size(), kExpectedNumPages);
+      ASSERT_EQ(column_index->encoded_max_values().size(), kExpectedNumPages);
+      ASSERT_TRUE(column_index->has_null_counts());
+
+      switch (c) {
+        case 0: {
+          AssertColumnIndex<BooleanType>(column_index, /*expected_null_counts=*/{0},
+                                         /*expected_min_values=*/{false},
+                                         /*expected_max_values=*/{true});
+        } break;
+        case 1: {
+          AssertColumnIndex<Int32Type>(column_index, /*expected_null_counts=*/{0},
+                                       /*expected_min_values=*/{0},
+                                       /*expected_max_values=*/{49});
+        } break;
+        case 2: {
+          AssertColumnIndex<Int64Type>(column_index, /*expected_null_counts=*/{0},
+                                       /*expected_min_values=*/{0},
+                                       /*expected_max_values=*/{99000000000000});
+        } break;
+        case 4: {
+          AssertColumnIndex<FloatType>(column_index, /*expected_null_counts=*/{0},
+                                       /*expected_min_values=*/{0.0F},
+                                       /*expected_max_values=*/{53.9F});
+        } break;
+        case 5: {
+          AssertColumnIndex<DoubleType>(column_index, /*expected_null_counts=*/{0},
+                                        /*expected_min_values=*/{0.0},
+                                        /*expected_max_values=*/{54.4444439});
+        } break;
+        case 6: {
+          AssertColumnIndex<ByteArrayType>(
+              column_index, /*expected_null_counts=*/{25},
+              /*expected_min_values=*/{ByteArray("parquet000")},
+              /*expected_max_values=*/{ByteArray("parquet048")});
+        } break;
+        case 7: {
+          const std::vector<uint8_t> kExpectedMinValue(kFixedLength, 0);
+          const std::vector<uint8_t> kExpectedMaxValue(kFixedLength, 49);
+          AssertColumnIndex<FLBAType>(
+              column_index, /*expected_null_counts=*/{0},
+              /*expected_min_values=*/{FLBA(kExpectedMinValue.data())},
+              /*expected_max_values=*/{FLBA(kExpectedMaxValue.data())});
+        } break;
+        default:
+          ::arrow::Unreachable("Unexpected column index " + std::to_string(c));
+      }
+    }
+  }
+}
+
+}  // namespace parquet::encryption::test

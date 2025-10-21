@@ -21,9 +21,11 @@
 #include <memory>
 #include <string>
 
+#include <cuda.h>
+
 #include "arrow/device.h"
+#include "arrow/gpu/visibility.h"
 #include "arrow/result.h"
-#include "arrow/util/visibility.h"
 
 namespace arrow {
 namespace cuda {
@@ -39,7 +41,7 @@ class CudaMemoryManager;
 
 // XXX Should CudaContext be merged into CudaMemoryManager?
 
-class ARROW_EXPORT CudaDeviceManager {
+class ARROW_CUDA_EXPORT CudaDeviceManager {
  public:
   static Result<CudaDeviceManager*> Instance();
 
@@ -86,12 +88,16 @@ class ARROW_EXPORT CudaDeviceManager {
 ///
 /// Each CudaDevice instance is tied to a particular CUDA device
 /// (identified by its logical device number).
-class ARROW_EXPORT CudaDevice : public Device {
+class ARROW_CUDA_EXPORT CudaDevice : public Device {
  public:
   const char* type_name() const override;
   std::string ToString() const override;
   bool Equals(const Device&) const override;
   std::shared_ptr<MemoryManager> default_memory_manager() override;
+  DeviceAllocationType device_type() const override {
+    return DeviceAllocationType::kCUDA;
+  }
+  int64_t device_id() const override { return device_number(); }
 
   /// \brief Return a CudaDevice instance for a particular device
   /// \param[in] device_number the CUDA device number
@@ -136,6 +142,90 @@ class ARROW_EXPORT CudaDevice : public Device {
   /// \param[in] size The buffer size in bytes
   Result<std::shared_ptr<CudaHostBuffer>> AllocateHostBuffer(int64_t size);
 
+  /// \brief EXPERIMENTAL: Wrapper for CUstreams
+  ///
+  /// Does not *own* the CUstream object which must be separately constructed
+  /// and freed using cuStreamCreate and cuStreamDestroy (or equivalent).
+  /// Default construction will use the cuda default stream, and does not allow
+  /// construction from literal 0 or nullptr.
+  class ARROW_CUDA_EXPORT Stream : public Device::Stream {
+   public:
+    ~Stream() = default;
+
+    [[nodiscard]] inline CUstream value() const noexcept {
+      if (!stream_) {
+        return CUstream{};
+      }
+      return *reinterpret_cast<CUstream*>(stream_.get());
+    }
+    operator CUstream() const noexcept { return value(); }
+
+    const void* get_raw() const noexcept override { return stream_.get(); }
+    Status WaitEvent(const Device::SyncEvent&) override;
+    Status Synchronize() const override;
+
+   protected:
+    friend class CudaDevice;
+
+    explicit Stream(std::shared_ptr<CudaContext> ctx, CUstream* st,
+                    Device::Stream::release_fn_t release_fn)
+        : Device::Stream(reinterpret_cast<void*>(st), release_fn),
+          context_{std::move(ctx)} {}
+
+    // disable construction from literal 0
+    explicit Stream(std::shared_ptr<CudaContext>, int,
+                    Device::Stream::release_fn_t) = delete;  // Prevent cast from 0
+    explicit Stream(std::shared_ptr<CudaContext>, std::nullptr_t,
+                    Device::Stream::release_fn_t) = delete;  // Prevent cast from nullptr
+
+   private:
+    std::shared_ptr<CudaContext> context_;
+  };
+
+  Result<std::shared_ptr<Device::Stream>> MakeStream() override { return MakeStream(0); }
+
+  /// \brief Create a CUstream wrapper in the current context
+  Result<std::shared_ptr<Device::Stream>> MakeStream(unsigned int flags) override;
+
+  /// @brief Wrap a pointer to an existing stream
+  ///
+  /// @param device_stream passed in stream (should be a CUstream*)
+  /// @param release_fn destructor to free the stream. `nullptr` may be passed
+  ///        to indicate there is no destruction/freeing necessary.
+  Result<std::shared_ptr<Device::Stream>> WrapStream(
+      void* device_stream, Stream::release_fn_t release_fn) override;
+
+  class ARROW_CUDA_EXPORT SyncEvent : public Device::SyncEvent {
+   public:
+    [[nodiscard]] CUevent value() const {
+      if (sync_event_) {
+        return *static_cast<CUevent*>(sync_event_.get());
+      }
+      return CUevent{};
+    }
+    operator CUevent() const noexcept { return value(); }
+
+    /// @brief Block until the sync event is marked completed
+    Status Wait() override;
+
+    /// @brief Record the wrapped event on the stream
+    ///
+    /// Once the stream completes the tasks previously added to it,
+    /// it will trigger the event.
+    Status Record(const Device::Stream&) override;
+
+   protected:
+    friend class CudaMemoryManager;
+
+    explicit SyncEvent(std::shared_ptr<CudaContext> ctx, CUevent* ev,
+                       Device::SyncEvent::release_fn_t release_ev)
+        : Device::SyncEvent(reinterpret_cast<void*>(ev), release_ev),
+          context_{std::move(ctx)} {}
+
+   private:
+    std::shared_ptr<CudaContext> context_;
+  };
+
  protected:
   struct Impl;
 
@@ -150,17 +240,17 @@ class ARROW_EXPORT CudaDevice : public Device {
 };
 
 /// \brief Return whether a device instance is a CudaDevice
-ARROW_EXPORT
+ARROW_CUDA_EXPORT
 bool IsCudaDevice(const Device& device);
 
 /// \brief Cast a device instance to a CudaDevice
 ///
 /// An error is returned if the device is not a CudaDevice.
-ARROW_EXPORT
+ARROW_CUDA_EXPORT
 Result<std::shared_ptr<CudaDevice>> AsCudaDevice(const std::shared_ptr<Device>& device);
 
 /// \brief MemoryManager implementation for CUDA
-class ARROW_EXPORT CudaMemoryManager : public MemoryManager {
+class ARROW_CUDA_EXPORT CudaMemoryManager : public MemoryManager {
  public:
   Result<std::shared_ptr<io::RandomAccessFile>> GetBufferReader(
       std::shared_ptr<Buffer> buf) override;
@@ -174,6 +264,20 @@ class ARROW_EXPORT CudaMemoryManager : public MemoryManager {
   /// This is a useful shorthand returning a concrete-typed pointer, avoiding
   /// having to cast the `device()` result.
   std::shared_ptr<CudaDevice> cuda_device() const;
+
+  /// \brief Creates a wrapped CUevent.
+  ///
+  /// Will call cuEventCreate and it will call cuEventDestroy internally
+  /// when the event is destructed.
+  Result<std::shared_ptr<Device::SyncEvent>> MakeDeviceSyncEvent() override;
+
+  /// \brief Wraps an existing event into a sync event.
+  ///
+  /// @param sync_event the event to wrap, must be a CUevent*
+  /// @param release_sync_event a function to call during destruction, `nullptr` or
+  ///        a no-op function can be passed to indicate ownership is maintained externally
+  Result<std::shared_ptr<Device::SyncEvent>> WrapDeviceSyncEvent(
+      void* sync_event, Device::SyncEvent::release_fn_t release_sync_event) override;
 
  protected:
   using MemoryManager::MemoryManager;
@@ -200,19 +304,19 @@ class ARROW_EXPORT CudaMemoryManager : public MemoryManager {
 };
 
 /// \brief Return whether a MemoryManager instance is a CudaMemoryManager
-ARROW_EXPORT
+ARROW_CUDA_EXPORT
 bool IsCudaMemoryManager(const MemoryManager& mm);
 
 /// \brief Cast a MemoryManager instance to a CudaMemoryManager
 ///
 /// An error is returned if the MemoryManager is not a CudaMemoryManager.
-ARROW_EXPORT
+ARROW_CUDA_EXPORT
 Result<std::shared_ptr<CudaMemoryManager>> AsCudaMemoryManager(
     const std::shared_ptr<MemoryManager>& mm);
 
 /// \class CudaContext
 /// \brief Object-oriented interface to the low-level CUDA driver API
-class ARROW_EXPORT CudaContext : public std::enable_shared_from_this<CudaContext> {
+class ARROW_CUDA_EXPORT CudaContext : public std::enable_shared_from_this<CudaContext> {
  public:
   ~CudaContext();
 

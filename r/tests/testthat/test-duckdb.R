@@ -17,6 +17,8 @@
 
 skip_if_not_available("dataset")
 skip_on_cran()
+# DuckDB 0.7.1-1 may have errors with R<4.0
+skip_on_r_older_than("4.0")
 
 # this test needs to be the first one since all other test blocks are skipped
 # if duckdb is not installed
@@ -32,7 +34,7 @@ test_that("meaningful error message when duckdb is not installed", {
   )
 })
 
-skip_if_not_installed("duckdb", minimum_version = "0.3.1")
+skip_if_not_installed("duckdb", minimum_version = "0.3.2")
 skip_if_not_installed("dbplyr")
 
 library(duckdb, quietly = TRUE)
@@ -42,24 +44,24 @@ test_that("to_duckdb", {
   ds <- InMemoryDataset$create(example_data)
 
   expect_identical(
-    ds %>%
-      to_duckdb() %>%
-      collect() %>%
+    ds |>
+      to_duckdb() |>
+      collect() |>
       # factors don't roundtrip https://github.com/duckdb/duckdb/issues/1879
-      select(!fct) %>%
+      select(!fct) |>
       arrange(int),
-    example_data %>%
-      select(!fct) %>%
+    example_data |>
+      select(!fct) |>
       arrange(int)
   )
 
   expect_identical(
-    ds %>%
-      select(int, lgl, dbl) %>%
-      to_duckdb() %>%
-      group_by(lgl) %>%
-      summarise(mean_int = mean(int, na.rm = TRUE), mean_dbl = mean(dbl, na.rm = TRUE)) %>%
-      collect() %>%
+    ds |>
+      select(int, lgl, dbl) |>
+      to_duckdb() |>
+      group_by(lgl) |>
+      summarise(mean_int = mean(int, na.rm = TRUE), mean_dbl = mean(dbl, na.rm = TRUE)) |>
+      collect() |>
       arrange(mean_int),
     tibble::tibble(
       lgl = c(TRUE, NA, FALSE),
@@ -70,12 +72,12 @@ test_that("to_duckdb", {
 
   # can group_by before the to_duckdb
   expect_identical(
-    ds %>%
-      select(int, lgl, dbl) %>%
-      group_by(lgl) %>%
-      to_duckdb() %>%
-      summarise(mean_int = mean(int, na.rm = TRUE), mean_dbl = mean(dbl, na.rm = TRUE)) %>%
-      collect() %>%
+    ds |>
+      select(int, lgl, dbl) |>
+      group_by(lgl) |>
+      to_duckdb() |>
+      summarise(mean_int = mean(int, na.rm = TRUE), mean_dbl = mean(dbl, na.rm = TRUE)) |>
+      collect() |>
       arrange(mean_int),
     tibble::tibble(
       lgl = c(TRUE, NA, FALSE),
@@ -88,41 +90,41 @@ test_that("to_duckdb", {
 test_that("to_duckdb then to_arrow", {
   ds <- InMemoryDataset$create(example_data)
 
-  ds_rt <- ds %>%
-    to_duckdb() %>%
+  ds_rt <- ds |>
+    to_duckdb() |>
     # factors don't roundtrip https://github.com/duckdb/duckdb/issues/1879
-    select(-fct) %>%
+    select(-fct) |>
     to_arrow()
 
   expect_identical(
     collect(ds_rt),
-    ds %>%
-      select(-fct) %>%
+    ds |>
+      select(-fct) |>
       collect()
   )
 
   # And we can continue the pipeline
-  ds_rt <- ds %>%
-    to_duckdb() %>%
+  ds_rt <- ds |>
+    to_duckdb() |>
     # factors don't roundtrip https://github.com/duckdb/duckdb/issues/1879
-    select(-fct) %>%
-    to_arrow() %>%
+    select(-fct) |>
+    to_arrow() |>
     filter(int > 5)
 
   expect_identical(
-    ds_rt %>%
-      collect() %>%
+    ds_rt |>
+      collect() |>
       arrange(int),
-    ds %>%
-      select(-fct) %>%
-      filter(int > 5) %>%
-      collect() %>%
+    ds |>
+      select(-fct) |>
+      filter(int > 5) |>
+      collect() |>
       arrange(int)
   )
 
   # Now check errors
-  ds_rt <- ds %>%
-    to_duckdb() %>%
+  ds_rt <- ds |>
+    to_duckdb() |>
     # factors don't roundtrip https://github.com/duckdb/duckdb/issues/1879
     select(-fct)
 
@@ -136,9 +138,6 @@ test_that("to_duckdb then to_arrow", {
 })
 
 test_that("to_arrow roundtrip, with dataset", {
-  # these will continue to error until 0.3.2 is released
-  # https://github.com/duckdb/duckdb/pull/2957
-  skip_if_not_installed("duckdb", minimum_version = "0.3.2")
   # With a multi-part dataset
   tf <- tempfile()
   new_ds <- rbind(
@@ -152,28 +151,26 @@ test_that("to_arrow roundtrip, with dataset", {
   ds <- open_dataset(tf)
 
   expect_identical(
-    ds %>%
-      to_duckdb() %>%
-      select(-fct) %>%
-      mutate(dbl_plus = dbl + 1) %>%
-      to_arrow() %>%
-      filter(int > 5 & part > 1) %>%
-      collect() %>%
-      arrange(part, int) %>%
+    ds |>
+      to_duckdb() |>
+      select(-fct) |>
+      mutate(dbl_plus = dbl + 1) |>
+      to_arrow() |>
+      filter(int > 5 & part > 1) |>
+      collect() |>
+      arrange(part, int) |>
       as.data.frame(),
-    ds %>%
-      select(-fct) %>%
-      filter(int > 5 & part > 1) %>%
-      mutate(dbl_plus = dbl + 1) %>%
-      collect() %>%
-      arrange(part, int)
+    ds |>
+      select(-fct) |>
+      filter(int > 5 & part > 1) |>
+      mutate(dbl_plus = dbl + 1) |>
+      collect() |>
+      arrange(part, int) |>
+      as.data.frame()
   )
 })
 
 test_that("to_arrow roundtrip, with dataset (without wrapping)", {
-  # these will continue to error until 0.3.2 is released
-  # https://github.com/duckdb/duckdb/pull/2957
-  skip_if_not_installed("duckdb", minimum_version = "0.3.2")
   # With a multi-part dataset
   tf <- tempfile()
   new_ds <- rbind(
@@ -184,10 +181,10 @@ test_that("to_arrow roundtrip, with dataset (without wrapping)", {
   )
   write_dataset(new_ds, tf, partitioning = "part")
 
-  out <- open_dataset(tf) %>%
-    to_duckdb() %>%
-    select(-fct) %>%
-    mutate(dbl_plus = dbl + 1) %>%
+  out <- open_dataset(tf) |>
+    to_duckdb() |>
+    select(-fct) |>
+    mutate(dbl_plus = dbl + 1) |>
     to_arrow()
 
   expect_r6_class(out, "RecordBatchReader")
@@ -202,10 +199,6 @@ dbExecute(con, "PRAGMA threads=2")
 on.exit(dbDisconnect(con, shutdown = TRUE), add = TRUE)
 
 test_that("Joining, auto-cleanup enabled", {
-  # ARROW-17643, ARROW-17818: A change in duckdb 0.5.0 caused this test to fail
-  # TODO: ARROW-17809 Follow up with the latest duckdb release to solve the issue
-  skip("ARROW-17818: Latest DuckDB causes this test to fail")
-
   ds <- InMemoryDataset$create(example_data)
 
   table_one_name <- "my_arrow_table_1"
@@ -248,23 +241,26 @@ test_that("to_duckdb with a table", {
   tab <- Table$create(example_data)
 
   expect_identical(
-    tab %>%
-      to_duckdb() %>%
-      group_by(int > 4) %>%
+    tab |>
+      to_duckdb() |>
+      group_by(int > 4) |>
       summarise(
         int_mean = mean(int, na.rm = TRUE),
         dbl_mean = mean(dbl, na.rm = TRUE)
-      ) %>%
-      collect(),
+      ) |>
+      collect() |>
+      arrange(int_mean),
     tibble::tibble(
-      "int > 4" = c(FALSE, NA, TRUE),
-      int_mean = c(2, NA, 7.5),
-      dbl_mean = c(2.1, 4.1, 7.3)
+      "int > 4" = c(FALSE, TRUE, NA),
+      int_mean = c(2, 7.5, NA),
+      dbl_mean = c(2.1, 7.3, 4.1)
     )
   )
 })
 
 test_that("to_duckdb passing a connection", {
+  skip_if_not_installed("stringr")
+
   ds <- InMemoryDataset$create(example_data)
 
   con_separate <- dbConnect(duckdb::duckdb())
@@ -280,11 +276,14 @@ test_that("to_duckdb passing a connection", {
   )
   DBI::dbWriteTable(con_separate, "separate_join_table", new_df)
 
-  table_four <- ds %>%
-    select(int, lgl, dbl) %>%
+  table_four <- ds |>
+    select(int, lgl, dbl) |>
     to_duckdb(con = con_separate, auto_disconnect = FALSE)
-  # dbplyr 2.2.0 renames this internal attribute to lazy_query
-  table_four_name <- table_four$ops$x %||% table_four$lazy_query$x
+
+  # Generates a query like SELECT * FROM arrow_xxx
+  table_four_query <- paste(dbplyr::sql_build(table_four), collapse = "\n")
+  table_four_name <- stringr::str_extract(table_four_query, "arrow_[0-9]{3}")
+  expect_false(is.na(table_four_name))
 
   result <- DBI::dbGetQuery(
     con_separate,

@@ -39,7 +39,7 @@ DatasetFactory <- R6Class("DatasetFactory",
 )
 DatasetFactory$create <- function(x,
                                   filesystem = NULL,
-                                  format = c("parquet", "arrow", "ipc", "feather", "csv", "tsv", "text"),
+                                  format = c("parquet", "arrow", "ipc", "feather", "csv", "tsv", "text", "json"),
                                   partitioning = NULL,
                                   hive_style = NA,
                                   factory_options = list(),
@@ -49,7 +49,7 @@ DatasetFactory$create <- function(x,
   }
 
   if (is.character(format)) {
-    format <- FileFormat$create(match.arg(format), ...)
+    format <- FileFormat$create(match.arg(format), partitioning = partitioning, ...)
   } else {
     assert_is(format, "FileFormat")
   }
@@ -205,7 +205,7 @@ handle_partitioning <- function(partitioning, path_and_fs, hive_style) {
 #'     (but if you're providing the file list, you can filter invalid files
 #'     yourself).
 #' @param ... Additional format-specific options, passed to
-#' `FileFormat$create()`. For CSV options, note that you can specify them either
+#' [`FileFormat$create()`][FileFormat]. For CSV options, note that you can specify them either
 #' with the Arrow C++ library naming ("delimiter", "quoting", etc.) or the
 #' `readr`-style naming used in [read_csv_arrow()] ("delim", "quote", etc.).
 #' Not all `readr` options are currently supported; please file an issue if you

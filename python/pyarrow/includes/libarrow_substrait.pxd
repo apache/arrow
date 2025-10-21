@@ -21,8 +21,9 @@ from libcpp.vector cimport vector as std_vector
 
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
+from pyarrow.includes.libarrow_acero cimport *
 
-ctypedef CResult[CDeclaration] CNamedTableProvider(const std_vector[c_string]&)
+ctypedef CResult[CDeclaration] CNamedTableProvider(const std_vector[c_string]&, const CSchema&)
 
 cdef extern from "arrow/engine/substrait/options.h" namespace "arrow::engine" nogil:
     cdef enum ConversionStrictness \
@@ -36,16 +37,58 @@ cdef extern from "arrow/engine/substrait/options.h" namespace "arrow::engine" no
 
     cdef cppclass CConversionOptions \
             "arrow::engine::ConversionOptions":
-        ConversionStrictness conversion_strictness
+        CConversionOptions()
+        ConversionStrictness strictness
         function[CNamedTableProvider] named_table_provider
+        c_bool allow_arrow_extensions
 
 cdef extern from "arrow/engine/substrait/extension_set.h" \
         namespace "arrow::engine" nogil:
+
+    cdef struct CSubstraitId "arrow::engine::Id":
+        cpp_string_view uri
+        cpp_string_view name
+
+    cdef struct CExtensionSetTypeRecord "arrow::engine::ExtensionSet::TypeRecord":
+        CSubstraitId id
+        shared_ptr[CDataType] type
+
+    cdef cppclass CExtensionSet "arrow::engine::ExtensionSet":
+        CExtensionSet()
+        unordered_map[uint32_t, cpp_string_view]& uris()
+        CResult[uint32_t] EncodeType(const CDataType&)
+        CResult[CExtensionSetTypeRecord] DecodeType(uint32_t)
 
     cdef cppclass ExtensionIdRegistry:
         std_vector[c_string] GetSupportedSubstraitFunctions()
 
     ExtensionIdRegistry* default_extension_id_registry()
+
+cdef extern from "arrow/engine/substrait/relation.h" namespace "arrow::engine" nogil:
+
+    cdef cppclass CNamedExpression "arrow::engine::NamedExpression":
+        CExpression expression
+        c_string name
+
+    cdef cppclass CBoundExpressions "arrow::engine::BoundExpressions":
+        std_vector[CNamedExpression] named_expressions
+        shared_ptr[CSchema] schema
+
+cdef extern from "arrow/engine/substrait/serde.h" namespace "arrow::engine" nogil:
+
+    CResult[shared_ptr[CBuffer]] SerializeExpressions(
+        const CBoundExpressions& bound_expressions, const CConversionOptions& conversion_options)
+
+    CResult[CBoundExpressions] DeserializeExpressions(
+        const CBuffer& serialized_expressions)
+
+    CResult[shared_ptr[CBuffer]] SerializeSchema(
+        const CSchema &schema, CExtensionSet* extension_set,
+        const CConversionOptions& conversion_options)
+
+    CResult[shared_ptr[CSchema]] DeserializeSchema(
+        const CBuffer& serialized_schema, const CExtensionSet& extension_set,
+        const CConversionOptions& conversion_options)
 
 
 cdef extern from "arrow/engine/substrait/util.h" namespace "arrow::engine" nogil:

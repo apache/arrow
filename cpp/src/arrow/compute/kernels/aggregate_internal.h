@@ -17,16 +17,17 @@
 
 #pragma once
 
+#include <cmath>
+#include <initializer_list>
+
 #include "arrow/compute/kernels/util_internal.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/bit_run_reader.h"
 #include "arrow/util/int128_internal.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 
-namespace arrow {
-namespace compute {
-namespace internal {
+namespace arrow::compute::internal {
 
 // Find the largest compatible primitive type for a primitive type.
 template <typename I, typename Enable = void>
@@ -50,6 +51,16 @@ struct FindAccumulatorType<I, enable_if_unsigned_integer<I>> {
 template <typename I>
 struct FindAccumulatorType<I, enable_if_floating_point<I>> {
   using Type = DoubleType;
+};
+
+template <typename I>
+struct FindAccumulatorType<I, enable_if_decimal32<I>> {
+  using Type = Decimal32Type;
+};
+
+template <typename I>
+struct FindAccumulatorType<I, enable_if_decimal64<I>> {
+  using Type = Decimal64Type;
 };
 
 template <typename I>
@@ -100,17 +111,21 @@ struct ScalarAggregator : public KernelState {
 // kernel implementations together
 enum class VarOrStd : bool { Var, Std };
 
+// Helper to differentiate between first/last calculation so we can fold
+// kernel implementations together
+enum class FirstOrLast : bool { First, Last };
+
 // Helper to differentiate between min/max calculation so we can fold
 // kernel implementations together
 enum class MinOrMax : uint8_t { Min = 0, Max };
 
 void AddAggKernel(std::shared_ptr<KernelSignature> sig, KernelInit init,
                   ScalarAggregateFunction* func,
-                  SimdLevel::type simd_level = SimdLevel::NONE);
+                  SimdLevel::type simd_level = SimdLevel::NONE, bool ordered = false);
 
 void AddAggKernel(std::shared_ptr<KernelSignature> sig, KernelInit init,
                   ScalarAggregateFinalize finalize, ScalarAggregateFunction* func,
-                  SimdLevel::type simd_level = SimdLevel::NONE);
+                  SimdLevel::type simd_level = SimdLevel::NONE, bool ordered = false);
 
 using arrow::internal::VisitSetBitRunsVoid;
 
@@ -240,6 +255,4 @@ SumType SumArray(const ArraySpan& data) {
       data, [](ValueType v) { return static_cast<SumType>(v); });
 }
 
-}  // namespace internal
-}  // namespace compute
-}  // namespace arrow
+}  // namespace arrow::compute::internal

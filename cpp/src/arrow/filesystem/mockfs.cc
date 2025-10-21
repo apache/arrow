@@ -35,7 +35,7 @@
 #include "arrow/io/memory.h"
 #include "arrow/util/async_generator.h"
 #include "arrow/util/future.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/windows_fixup.h"
 
 namespace arrow {
@@ -108,10 +108,7 @@ struct Directory {
     return p.second;
   }
 
-  void AssignEntry(const std::string& s, std::unique_ptr<Entry> entry) {
-    DCHECK(!s.empty());
-    entries[s] = std::move(entry);
-  }
+  void AssignEntry(const std::string& s, std::unique_ptr<Entry> entry);
 
   bool DeleteEntry(const std::string& s) { return entries.erase(s) > 0; }
 
@@ -187,6 +184,11 @@ class Entry : public EntryBase {
   ARROW_DISALLOW_COPY_AND_ASSIGN(Entry);
 };
 
+void Directory::AssignEntry(const std::string& s, std::unique_ptr<Entry> entry) {
+  DCHECK(!s.empty());
+  entries[s] = std::move(entry);
+}
+
 ////////////////////////////////////////////////////////////////////////////
 // Streams
 
@@ -255,12 +257,12 @@ class MockFSInputStream : public io::BufferReader {
 
 }  // namespace
 
-std::ostream& operator<<(std::ostream& os, const MockDirInfo& di) {
+ARROW_EXPORT std::ostream& operator<<(std::ostream& os, const MockDirInfo& di) {
   return os << "'" << di.full_path << "' [mtime=" << di.mtime.time_since_epoch().count()
             << "]";
 }
 
-std::ostream& operator<<(std::ostream& os, const MockFileInfo& di) {
+ARROW_EXPORT std::ostream& operator<<(std::ostream& os, const MockFileInfo& di) {
   return os << "'" << di.full_path << "' [mtime=" << di.mtime.time_since_epoch().count()
             << ", size=" << di.data.length() << "]";
 }
@@ -435,6 +437,14 @@ MockFileSystem::MockFileSystem(TimePoint current_time, const io::IOContext& io_c
 }
 
 bool MockFileSystem::Equals(const FileSystem& other) const { return this == &other; }
+
+Result<std::string> MockFileSystem::PathFromUri(const std::string& uri_string) const {
+  ARROW_ASSIGN_OR_RAISE(
+      std::string parsed_path,
+      internal::PathFromUriHelper(uri_string, {"mock"}, /*accept_local_paths=*/true,
+                                  internal::AuthorityHandlingBehavior::kDisallow));
+  return std::string(internal::RemoveLeadingSlash(parsed_path));
+}
 
 Status MockFileSystem::CreateDir(const std::string& path, bool recursive) {
   RETURN_NOT_OK(ValidatePath(path));

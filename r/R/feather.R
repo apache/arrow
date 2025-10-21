@@ -24,12 +24,12 @@
 #' a legacy version available starting in 2016, and the Version 2 (V2),
 #' which is the Apache Arrow IPC file format.
 #' The default version is V2.
-#' V1 files are distinct from Arrow IPC files and lack many feathures,
+#' V1 files are distinct from Arrow IPC files and lack many features,
 #' such as the ability to store all Arrow data tyeps, and compression support.
 #' [write_ipc_file()] can only write V2 files.
 #'
 #' @param x `data.frame`, [RecordBatch], or [Table]
-#' @param sink A string file path, URI, or [OutputStream], or path in a file
+#' @param sink A string file path, connection, URI, or [OutputStream], or path in a file
 #' system (`SubTreeFileSystem`)
 #' @param version integer Feather file version, Version 1 or Version 2. Version 2 is the default.
 #' @param chunk_size For V2 files, the number of rows that each chunk of data
@@ -91,7 +91,7 @@ write_feather <- function(x,
     }
   }
   if (is.null(compression_level)) {
-    # Use -1 as sentinal for "default"
+    # Use -1 as sentinel for "default"
     compression_level <- -1L
   }
   compression_level <- as.integer(compression_level)
@@ -157,7 +157,7 @@ write_ipc_file <- function(x,
 #' @inheritParams read_delim_arrow
 #' @inheritParams make_readable_file
 #'
-#' @return A `data.frame` if `as_data_frame` is `TRUE` (the default), or an
+#' @return A `tibble` if `as_data_frame` is `TRUE` (the default), or an
 #' Arrow [Table] otherwise
 #'
 #' @export
@@ -196,7 +196,8 @@ read_feather <- function(file, col_select = NULL, as_data_frame = TRUE, mmap = T
   )
 
   if (isTRUE(as_data_frame)) {
-    out <- as.data.frame(out)
+    df <- out$to_data_frame()
+    out <- apply_arrow_r_metadata(df, out$metadata$r)
   }
   out
 }

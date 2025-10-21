@@ -19,7 +19,7 @@
 
 set -ex
 
-if [[ $# < 2 ]]; then
+if [[ $# -lt 2 ]]; then
   echo "Usage: $0 <Arrow dir> <build dir> [ctest args ...]"
   exit 1
 fi
@@ -37,60 +37,130 @@ export LD_LIBRARY_PATH=${ARROW_HOME}/${CMAKE_INSTALL_LIBDIR:-lib}:${LD_LIBRARY_P
 # to retrieve metadata. Disable this so that S3FileSystem tests run faster.
 export AWS_EC2_METADATA_DISABLED=TRUE
 
-# Enable memory debug checks.
-export ARROW_DEBUG_MEMORY_POOL=trap
+# Enable memory debug checks if the env is not set already
+if [ -z "${ARROW_DEBUG_MEMORY_POOL}" ]; then
+  export ARROW_DEBUG_MEMORY_POOL=trap
+fi
 
+exclude_tests=()
 ctest_options=()
+if ! type azurite >/dev/null 2>&1; then
+  exclude_tests+=("arrow-azurefs-test")
+fi
+if ! type storage-testbench >/dev/null 2>&1; then
+  exclude_tests+=("arrow-gcsfs-test")
+fi
+if ! type minio >/dev/null 2>&1; then
+  exclude_tests+=("arrow-s3fs-test")
+fi
 case "$(uname)" in
   Linux)
     n_jobs=$(nproc)
     ;;
   Darwin)
     n_jobs=$(sysctl -n hw.ncpu)
+    # TODO: https://github.com/apache/arrow/issues/40410
+    exclude_tests+=("arrow-s3fs-test")
     ;;
   MINGW*)
     n_jobs=${NUMBER_OF_PROCESSORS:-1}
     # TODO: Enable these crashed tests.
     # https://issues.apache.org/jira/browse/ARROW-9072
-    exclude_tests="gandiva-internals-test"
-    exclude_tests="${exclude_tests}|gandiva-projector-test"
-    exclude_tests="${exclude_tests}|gandiva-utf8-test"
-    exclude_tests="${exclude_tests}|gandiva-binary-test"
-    exclude_tests="${exclude_tests}|gandiva-boolean-expr-test"
-    exclude_tests="${exclude_tests}|gandiva-date-time-test"
-    exclude_tests="${exclude_tests}|gandiva-decimal-single-test"
-    exclude_tests="${exclude_tests}|gandiva-decimal-test"
-    exclude_tests="${exclude_tests}|gandiva-filter-project-test"
-    exclude_tests="${exclude_tests}|gandiva-filter-test"
-    exclude_tests="${exclude_tests}|gandiva-hash-test"
-    exclude_tests="${exclude_tests}|gandiva-if-expr-test"
-    exclude_tests="${exclude_tests}|gandiva-in-expr-test"
-    exclude_tests="${exclude_tests}|gandiva-literal-test"
-    exclude_tests="${exclude_tests}|gandiva-null-validity-test"
-    exclude_tests="${exclude_tests}|gandiva-precompiled-test"
-    exclude_tests="${exclude_tests}|gandiva-projector-test"
-    ctest_options+=(--exclude-regex "${exclude_tests}")
+    exclude_tests+=("gandiva-binary-test")
+    exclude_tests+=("gandiva-boolean-expr-test")
+    exclude_tests+=("gandiva-date-time-test")
+    exclude_tests+=("gandiva-decimal-single-test")
+    exclude_tests+=("gandiva-decimal-test")
+    exclude_tests+=("gandiva-filter-project-test")
+    exclude_tests+=("gandiva-filter-test")
+    exclude_tests+=("gandiva-hash-test")
+    exclude_tests+=("gandiva-if-expr-test")
+    exclude_tests+=("gandiva-in-expr-test")
+    exclude_tests+=("gandiva-internals-test")
+    exclude_tests+=("gandiva-literal-test")
+    exclude_tests+=("gandiva-null-validity-test")
+    exclude_tests+=("gandiva-precompiled-test")
+    exclude_tests+=("gandiva-projector-test")
+    exclude_tests+=("gandiva-utf8-test")
     ;;
   *)
     n_jobs=${NPROC:-1}
     ;;
 esac
+if [ "${#exclude_tests[@]}" -gt 0 ]; then
+  IFS="|"
+  ctest_options+=(--exclude-regex "${exclude_tests[*]}")
+  unset IFS
+fi
 
-pushd ${build_dir}
+if [ "${ARROW_EMSCRIPTEN:-OFF}" = "ON" ]; then
+  n_jobs=1 # avoid spurious fails on emscripten due to loading too many big executables
+fi
+
+pushd "${build_dir}"
 
 if [ -z "${PYTHON}" ] && ! which python > /dev/null 2>&1; then
   export PYTHON="${PYTHON:-python3}"
 fi
-ctest \
+if [ "${ARROW_USE_MESON:-OFF}" = "ON" ]; then
+  ARROW_BUILD_EXAMPLES=OFF # TODO: Remove this
+  meson test \
+    --max-lines=0 \
+    --no-rebuild \
+    --print-errorlogs \
+    --suite arrow \
+    --timeout-multiplier=10 \
+    "$@"
+else
+  ctest \
     --label-regex unittest \
     --output-on-failure \
-    --parallel ${n_jobs} \
-    --timeout ${ARROW_CTEST_TIMEOUT:-300} \
+    --parallel "${n_jobs}" \
+    --repeat until-pass:3 \
+    --timeout "${ARROW_CTEST_TIMEOUT:-300}" \
     "${ctest_options[@]}" \
-    $@
+    "$@"
+fi
+
+# This is for testing find_package(Arrow).
+#
+# Note that this is not a perfect solution. We should improve this
+# later.
+#
+# * This is ad-hoc
+# * This doesn't test other CMake packages such as ArrowDataset
+if [ "${ARROW_USE_MESON:-OFF}" = "OFF" ] && \
+     [ "${ARROW_EMSCRIPTEN:-OFF}" = "OFF" ] && \
+     [ "${ARROW_USE_ASAN:-OFF}" = "OFF" ] && \
+     [ "${ARROW_USE_TSAN:-OFF}" = "OFF" ] && \
+     [ "${ARROW_CSV:-ON}" = "ON" ]; then
+  CMAKE_PREFIX_PATH="${CMAKE_INSTALL_PREFIX:-${ARROW_HOME}}"
+  case "$(uname)" in
+    MINGW*)
+      # <prefix>/lib/cmake/ isn't searched on Windows.
+      #
+      # See also:
+      # https://cmake.org/cmake/help/latest/command/find_package.html#config-mode-search-procedure
+      CMAKE_PREFIX_PATH+="/lib/cmake/"
+      ;;
+  esac
+  if [ -n "${VCPKG_ROOT}" ] && [ -n "${VCPKG_DEFAULT_TRIPLET}" ]; then
+    CMAKE_PREFIX_PATH+=";${VCPKG_ROOT}/installed/${VCPKG_DEFAULT_TRIPLET}"
+  fi
+  cmake \
+    -S "${source_dir}/examples/minimal_build" \
+    -B "${build_dir}/examples/minimal_build" \
+    -DCMAKE_PREFIX_PATH="${CMAKE_PREFIX_PATH}"
+  cmake --build "${build_dir}/examples/minimal_build"
+  pushd "${source_dir}/examples/minimal_build"
+  # PATH= is for Windows.
+  PATH="${CMAKE_INSTALL_PREFIX:-${ARROW_HOME}}/bin:${PATH}" \
+    "${build_dir}/examples/minimal_build/arrow-example"
+  popd
+fi
 
 if [ "${ARROW_BUILD_EXAMPLES}" == "ON" ]; then
-    examples=$(find ${binary_output_dir} -executable -name "*example")
+    examples=$(find "${binary_output_dir}" -executable -name "*example")
     if [ "${examples}" == "" ]; then
         echo "=================="
         echo "No examples found!"
@@ -108,13 +178,17 @@ fi
 
 if [ "${ARROW_FUZZING}" == "ON" ]; then
     # Fuzzing regression tests
-    ${binary_output_dir}/arrow-ipc-stream-fuzz ${ARROW_TEST_DATA}/arrow-ipc-stream/crash-*
-    ${binary_output_dir}/arrow-ipc-stream-fuzz ${ARROW_TEST_DATA}/arrow-ipc-stream/*-testcase-*
-    ${binary_output_dir}/arrow-ipc-file-fuzz ${ARROW_TEST_DATA}/arrow-ipc-file/*-testcase-*
-    ${binary_output_dir}/arrow-ipc-tensor-stream-fuzz ${ARROW_TEST_DATA}/arrow-ipc-tensor-stream/*-testcase-*
+    # Some fuzz regression files may trigger huge memory allocations,
+    # let the allocator return null instead of aborting.
+    export ASAN_OPTIONS="$ASAN_OPTIONS allocator_may_return_null=1"
+    "${binary_output_dir}/arrow-ipc-stream-fuzz" "${ARROW_TEST_DATA}"/arrow-ipc-stream/crash-*
+    "${binary_output_dir}/arrow-ipc-stream-fuzz" "${ARROW_TEST_DATA}"/arrow-ipc-stream/*-testcase-*
+    "${binary_output_dir}/arrow-ipc-file-fuzz" "${ARROW_TEST_DATA}"/arrow-ipc-file/*-testcase-*
+    "${binary_output_dir}/arrow-ipc-tensor-stream-fuzz" "${ARROW_TEST_DATA}"/arrow-ipc-tensor-stream/*-testcase-*
     if [ "${ARROW_PARQUET}" == "ON" ]; then
-      ${binary_output_dir}/parquet-arrow-fuzz ${ARROW_TEST_DATA}/parquet/fuzzing/*-testcase-*
+      "${binary_output_dir}/parquet-arrow-fuzz" "${ARROW_TEST_DATA}"/parquet/fuzzing/*-testcase-*
     fi
+    # TODO run CSV fuzz regression tests once we have any
 fi
 
 popd

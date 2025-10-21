@@ -60,6 +60,9 @@ Expression <- R6Class("Expression",
     is_field_ref = function() {
       compute___expr__is_field_ref(self)
     },
+    field_names_in_expression = function() {
+      compute___expr__field_names_in_expression(self)
+    },
     cast = function(to_type, safe = TRUE, ...) {
       opts <- cast_options(safe, ...)
       opts$to_type <- as_type(to_type)

@@ -31,7 +31,8 @@
 #include "arrow/compute/kernel.h"
 #include "arrow/compute/kernels/codegen_internal.h"
 #include "arrow/compute/registry.h"
-#include "arrow/util/logging.h"
+#include "arrow/compute/registry_internal.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/reflection_internal.h"
 
 namespace arrow {
@@ -222,6 +223,16 @@ CastOptions::CastOptions(bool safe)
       allow_decimal_truncate(!safe),
       allow_float_truncate(!safe),
       allow_invalid_utf8(!safe) {}
+
+bool CastOptions::is_safe() const {
+  return !allow_int_overflow && !allow_time_truncate && !allow_time_overflow &&
+         !allow_decimal_truncate && !allow_float_truncate && !allow_invalid_utf8;
+}
+
+bool CastOptions::is_unsafe() const {
+  return allow_int_overflow && allow_time_truncate && allow_time_overflow &&
+         allow_decimal_truncate && allow_float_truncate && allow_invalid_utf8;
+}
 
 constexpr char CastOptions::kTypeName[];
 

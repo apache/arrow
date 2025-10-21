@@ -27,11 +27,13 @@ API Reference
    api/thread
    api/datatype
    api/array
+   api/extension
    api/scalar
    api/builder
    api/table
    api/c_abi
    api/compute
+   api/acero
    api/gandiva
    api/tensor
    api/utilities

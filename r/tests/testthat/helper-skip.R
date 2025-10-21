@@ -38,11 +38,11 @@ skip_if_not_available <- function(feature) {
     skip_on_linux_devel()
   }
 
-  # curl/ssl on MacOS is too old to support S3 filesystems without
+  # curl/ssl on macOS is too old to support S3 filesystems without
   # crashing when the process exits.
   if (feature == "s3") {
     if (on_macos_10_13_or_lower()) {
-      skip("curl/ssl runtime on MacOS 10.13 is too old")
+      skip("curl/ssl runtime on macOS 10.13 is too old")
     }
   }
 
@@ -57,6 +57,7 @@ skip_if_no_pyarrow <- function() {
     return()
   }
 
+  skip_on_cran()
   skip_on_linux_devel()
   skip_on_os("windows")
 
@@ -115,11 +116,16 @@ skip_on_python_older_than <- function(python_version) {
     return()
   }
 
-  if (!reticulate::py_available(initialize = TRUE)) {
+  # We want to be careful not to initialize reticulate in this helper function
+  config <- reticulate::py_discover_config()
+
+  # It isn't documented, but config should be NULL when py_discovery_config()
+  # fails to find a valid Python installation
+  if (is.null(config)) {
     skip("Python isn't available")
   }
 
-  if (reticulate::py_version() < python_version) {
+  if (config$version < python_version) {
     skip(paste("Python version:", reticulate::py_version()))
   }
 }
@@ -134,12 +140,15 @@ process_is_running <- function(x) {
   if (tolower(Sys.info()[["sysname"]]) == "windows") {
     # Batch scripts (CMD.exe) doesn't provide a command that shows the original
     # call arguments, which we need for testbench since it's launched from Python.
-    inner_cmd <- paste("WMIC path win32_process get Commandline",
-                       sprintf("| Select-String %s", x),
-                       "| Select-String powershell.exe -NotMatch")
+    inner_cmd <- paste(
+      "WMIC path win32_process get Commandline",
+      sprintf("| Select-String %s", x),
+      "| Select-String powershell.exe -NotMatch"
+    )
     cmd <- sprintf("powershell -command \"%s\"", inner_cmd)
     tryCatch(length(system(cmd, intern = TRUE, show.output.on.console = FALSE)) > 0,
-      error = function(e) FALSE)
+      error = function(e) FALSE
+    )
   } else {
     cmd <- sprintf("ps aux | grep '%s' | grep -v grep", x)
     tryCatch(system(cmd, ignore.stdout = TRUE) == 0, error = function(e) FALSE)

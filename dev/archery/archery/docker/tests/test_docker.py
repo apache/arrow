@@ -140,39 +140,39 @@ x-limit-presets:
 
 services:
   conda-cpp:
-    image: org/conda-cpp
+    image: ${REPO}:conda-cpp
     build:
       context: .
       dockerfile: ci/docker/conda-cpp.dockerfile
   conda-python:
-    image: org/conda-python
+    image: ${REPO}:conda-python
     build:
       context: .
       dockerfile: ci/docker/conda-cpp.dockerfile
       args:
         python: 3.8
   conda-python-pandas:
-    image: org/conda-python-pandas
+    image: ${REPO}:conda-python-pandas
     build:
       context: .
       dockerfile: ci/docker/conda-python-pandas.dockerfile
   conda-python-dask:
-    image: org/conda-python-dask
+    image: ${REPO}:conda-python-dask
   ubuntu-cpp:
-    image: org/ubuntu-cpp
+    image: ${REPO}:ubuntu-cpp
     build:
       context: .
       dockerfile: ci/docker/ubuntu-${UBUNTU}-cpp.dockerfile
   ubuntu-cpp-cmake32:
-    image: org/ubuntu-cpp-cmake32
+    image: ${REPO}:ubuntu-cpp-cmake32
   ubuntu-c-glib:
-    image: org/ubuntu-c-glib
+    image: ${REPO}:ubuntu-c-glib
     environment:
       <<: [*sccache]
   ubuntu-ruby:
-    image: org/ubuntu-ruby
+    image: ${REPO}:ubuntu-ruby
   ubuntu-cuda:
-    image: org/ubuntu-cuda
+    image: ${REPO}:ubuntu-cuda
     environment:
       CUDA_ENV: 1
       OTHER_ENV: 2
@@ -182,6 +182,7 @@ services:
 """
 
 arrow_compose_env = {
+    'REPO': 'apache/arrow',
     'UBUNTU': '20.04',  # overridden below
     'PYTHON': '3.8',
     'PANDAS': 'latest',
@@ -199,7 +200,7 @@ def create_config(directory, yml_content, env_content=None):
     if env_content is not None:
         with env_path.open('w') as fp:
             for k, v in env_content.items():
-                fp.write("{}={}\n".format(k, v))
+                fp.write(f"{k}={v}\n")
 
     return config_path
 
@@ -215,6 +216,14 @@ def format_run(args):
 @pytest.fixture
 def arrow_compose_path(tmpdir):
     return create_config(tmpdir, arrow_compose_yml, arrow_compose_env)
+
+
+@pytest.fixture(autouse=True)
+def no_ci_env_variables(monkeypatch):
+    """Make sure that the tests behave the same on CI as when run locally"""
+    monkeypatch.delenv("APPVEYOR", raising=False)
+    monkeypatch.delenv("BUILD_BUILDURI", raising=False)
+    monkeypatch.delenv("GITHUB_ACTIONS", raising=False)
 
 
 def test_config_validation(tmpdir):
@@ -243,7 +252,7 @@ def assert_docker_calls(compose, expected_args):
 
 
 def assert_compose_calls(compose, expected_args, env=mock.ANY):
-    base_command = ['docker-compose', '--file', str(compose.config.path)]
+    base_command = ['docker', 'compose', f'--file={compose.config.path}']
     expected_commands = []
     for args in expected_args:
         if isinstance(args, str):
@@ -286,7 +295,7 @@ def test_forwarding_env_variables(arrow_compose_path):
             compose.build('conda-cpp')
 
 
-def test_compose_pull(arrow_compose_path):
+def test_compose_pull(arrow_compose_path, monkeypatch):
     compose = DockerCompose(arrow_compose_path)
 
     expected_calls = [
@@ -312,6 +321,16 @@ def test_compose_pull(arrow_compose_path):
     with assert_compose_calls(compose, expected_calls):
         compose.clear_pull_memory()
         compose.pull('conda-python-pandas', pull_leaf=False)
+
+    with monkeypatch.context() as m:
+        # `--quiet` is passed to `docker` on CI
+        m.setenv("GITHUB_ACTIONS", "true")
+        expected_calls = [
+            "pull --quiet --ignore-pull-failures conda-cpp",
+        ]
+        with assert_compose_calls(compose, expected_calls):
+            compose.clear_pull_memory()
+            compose.pull('conda-cpp')
 
 
 def test_compose_pull_params(arrow_compose_path):
@@ -466,7 +485,7 @@ def test_compose_run_with_resource_limits(arrow_compose_path):
             "--cpuset-cpus=0,1",
             "--memory=7g",
             "--memory-swap=7g",
-            "org/conda-cpp"
+            "apache/arrow:conda-cpp"
         ]),
     ]
     compose = DockerCompose(arrow_compose_path)
@@ -475,18 +494,36 @@ def test_compose_run_with_resource_limits(arrow_compose_path):
 
 
 def test_compose_push(arrow_compose_path):
-    compose = DockerCompose(arrow_compose_path, params=dict(PYTHON='3.9'))
+    compose = DockerCompose(arrow_compose_path, params=dict(PYTHON="3.9"))
     expected_env = PartialEnv(PYTHON="3.9")
     expected_calls = [
-        mock.call(["docker", "login", "-u", "user", "-p", "pass"], check=True),
+        mock.call(["docker", "login", "--username", "user",
+                  "--password-stdin"], input=b"pass", check=True),
     ]
     for image in ["conda-cpp", "conda-python", "conda-python-pandas"]:
         expected_calls.append(
-            mock.call(["docker-compose", "--file", str(compose.config.path),
+            mock.call(["docker", "compose", f"--file={compose.config.path}",
                        "push", image], check=True, env=expected_env)
         )
     with assert_subprocess_calls(expected_calls):
-        compose.push('conda-python-pandas', user='user', password='pass')
+        compose.push("conda-python-pandas", user="user", password="pass")
+
+
+def test_compose_push_custom_server(arrow_compose_path):
+    compose = DockerCompose(arrow_compose_path, params=dict(
+        PYTHON="3.9", REPO="ghcr.io/apache/arrow-dev"))
+    expected_env = PartialEnv(PYTHON="3.9")
+    expected_calls = [
+        mock.call(["docker", "login", "--username", "user", "--password-stdin",
+                  "ghcr.io"], input=b"pass", check=True),
+    ]
+    for image in ["conda-cpp", "conda-python", "conda-python-pandas"]:
+        expected_calls.append(
+            mock.call(["docker", "compose", f"--file={compose.config.path}",
+                       "push", image], check=True, env=expected_env)
+        )
+    with assert_subprocess_calls(expected_calls):
+        compose.push("conda-python-pandas", user="user", password="pass")
 
 
 def test_compose_error(arrow_compose_path):
@@ -514,8 +551,8 @@ def test_image_with_gpu(arrow_compose_path):
             "run", "--rm", "--gpus", "all",
             "-e", "CUDA_ENV=1",
             "-e", "OTHER_ENV=2",
-            "-v", "/host:/container:rw",
-            "org/ubuntu-cuda",
+            "-v", "/host:/container",
+            "apache/arrow:ubuntu-cuda",
             "/bin/bash", "-c", "echo 1 > /tmp/dummy && cat /tmp/dummy",
         ]
     ]
@@ -542,7 +579,7 @@ def test_service_info(arrow_compose_path):
     compose = DockerCompose(arrow_compose_path)
     service = compose.config.raw_config["services"]["conda-cpp"]
     assert compose.info(service) == [
-        "  image: org/conda-cpp",
+        "  image: ${REPO}:conda-cpp",
         "  build",
         "    context: .",
         "    dockerfile: ci/docker/conda-cpp.dockerfile"

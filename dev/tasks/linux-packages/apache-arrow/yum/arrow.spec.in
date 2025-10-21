@@ -22,22 +22,21 @@
 %define _amzn %{?amzn:%{amzn}}%{!?amzn:0}
 %define is_amazon_linux (%{_amzn} != 0)
 
-%define is_centos_7 (%{rhel} == 7 && !%{is_amazon_linux})
+%define _rhel %{?rhel:%{rhel}}%{!?rhel:0}
+%define is_rhel (%{_rhel} != 0)
 
-%define major_version %(echo @VERSION@ | grep -o '^[0-9]*')
+%define is_centos_7 (%{_rhel} == 7 && !%{is_amazon_linux})
+
+%define major_version %(echo @VERSION@ | cut -d. -f 1)
+%define minor_version %(echo @VERSION@ | cut -d. -f 2)
+%define so_version %(expr %{major_version} '*' 100 + %{minor_version})
 
 %define boost_version %( \
-  if [ %{rhel} -eq 7 ]; then \
+  if [ %{_rhel} -eq 7 ]; then \
     echo 169; \
   fi)
 %define cmake_version %( \
-  if [ %{rhel} -lt 8 ]; then \
-    echo 3; \
-  fi)
-%define python_version %( \
-  if [ %{rhel} -lt 9 ]; then \
-    echo 39; \
-  else \
+  if [ %{_rhel} -eq 7 ]; then \
     echo 3; \
   fi)
 
@@ -46,7 +45,7 @@
     echo ">= 1.8.0"; \
   fi)
 
-%if %{rhel} >= 9
+%if %{_rhel} >= 9 || %{_amzn} >= 2023
 %define arrow_cmake_builddir %{__cmake_builddir}
 %define arrow_cmake %cmake
 %define arrow_cmake_build make -C %{arrow_cmake_builddir} %{?_smp_mflags}
@@ -64,24 +63,31 @@
 %define gcc_package gcc
 %endif
 
-%define use_boost (!%{is_amazon_linux})
-# TODO: Enable this on aarch64 too. This causes timeout on Travis CI.
-%define use_flight (%{rhel} >= 8 && "%{_arch}" != "aarch64")
-%define use_gandiva (%{rhel} >= 8 && "%{_arch}" != "aarch64")
-%define use_gcs (%{rhel} >= 8)
+%define use_azure (%{_rhel} >= 8 || %{_amzn} >= 2023)
+%define use_bundled_nlohmann_json (%{_rhel} == 8)
+%define use_flight (%{_rhel} >= 8 || %{_amzn} >= 2023)
+%define use_gandiva (%{_rhel} >= 8 || %{_amzn} >= 2023)
+%define use_gcs (%{_rhel} >= 8)
 %define use_gflags (!%{is_amazon_linux})
-%define use_glog (%{rhel} <= 8)
-%define use_mimalloc (%{rhel} >= 8)
+## TODO: Enable this when glog stopped depending on gflags-devel.
+# %%define use_glog (%%{_rhel} <= 8)
+%define use_glog 0
+%define use_mimalloc (%{_rhel} >= 8)
 # TODO: Enable this. This works on local but is fragile on GitHub Actions and
 # Travis CI.
-# %%define use_s3 (%%{rhel} >= 8)
+# %%define use_s3 (%%{_rhel} >= 8)
 %define use_s3 0
+%define use_vala (%{_rhel} >= 8 || %{is_amazon_linux})
 
-%define have_rapidjson (%{rhel} != 8)
-%define have_re2 (%{rhel} >= 8)
-%define have_thrift (%{rhel} >= 8)
-%define have_utf8proc (%{rhel} >= 9)
-%define have_zstd (!%{is_amazon_linux})
+%define have_grpc (%{_rhel} >= 10 || %{_amzn} >= 2023)
+%define have_lz4_libs (%{_rhel} >= 8 || %{_amzn} >= 2023)
+%define have_orc (%{_rhel} >= 10)
+%define have_rapidjson (%{_rhel} != 8)
+%define have_re2 (%{_rhel} >= 8 || %{_amzn} >= 2023)
+%define have_thrift (%{_rhel} >= 8)
+%define have_utf8proc (%{_rhel} >= 9 || %{_amzn} >= 2023)
+
+%define enable_glib_doc (%{_rhel} >= 9 || %{is_amazon_linux})
 
 Name:		@PACKAGE@
 Version:	@VERSION@
@@ -93,9 +99,7 @@ URL:		https://arrow.apache.org/
 Source0:	https://dist.apache.org/repos/dist/release/@PACKAGE@/@PACKAGE@-%{version}/apache-@PACKAGE@-%{version}.tar.gz
 
 BuildRequires:	bison
-%if %{use_boost}
 BuildRequires:	boost%{boost_version}-devel
-%endif
 BuildRequires:	brotli-devel
 BuildRequires:	bzip2-devel
 %if %{use_flight}
@@ -112,12 +116,17 @@ BuildRequires:	git
 %if %{use_glog}
 BuildRequires:	glog-devel
 %endif
-%if %{use_gcs}
+%if %{have_grpc}
+BuildRequires:	grpc-devel
+BuildRequires:	grpc-plugins
+%endif
+%if %{use_gcs} && !%{use_bundled_nlohmann_json}
 BuildRequires:	json-devel
 %endif
-%if %{have_zstd}
-BuildRequires:	libzstd-devel
+%if %{use_azure}
+BuildRequires:	libxml2-devel
 %endif
+BuildRequires:	libzstd-devel
 BuildRequires:	lz4-devel %{lz4_requirement}
 BuildRequires:	ninja-build
 BuildRequires:	openssl-devel
@@ -143,8 +152,9 @@ BuildRequires:	ncurses-devel
 %endif
 
 BuildRequires:	gobject-introspection-devel
-BuildRequires:	gtk-doc
+%if %{use_vala}
 BuildRequires:	vala
+%endif
 
 %description
 Apache Arrow is a data processing library for analysis.
@@ -156,6 +166,9 @@ Apache Arrow is a data processing library for analysis.
 cpp_build_type=release
 cd cpp
 %arrow_cmake \
+%if %{use_azure}
+  -DARROW_AZURE=ON \
+%endif
   -DARROW_BUILD_UTILITIES=ON \
   -DARROW_CSV=ON \
   -DARROW_DATASET=ON \
@@ -177,7 +190,6 @@ cd cpp
   -DARROW_ORC=ON \
   -DARROW_PACKAGE_KIND=rpm \
   -DARROW_PARQUET=ON \
-  -DARROW_PLASMA=ON \
 %if %{use_s3}
   -DARROW_S3=ON \
 %endif
@@ -191,18 +203,26 @@ cd cpp
   -DCMAKE_BUILD_TYPE=$cpp_build_type \
   -DPARQUET_BUILD_EXECUTABLES=ON \
   -DPARQUET_REQUIRE_ENCRYPTION=ON \
+%if %{use_bundled_nlohmann_json}
+  -Dnlohmann_json_SOURCE=BUNDLED \
+%endif
   -G"Unix Makefiles"
 %arrow_cmake_build
 cd -
 
 cd c_glib
-%if (%{rhel} >= 8 || "%{_arch}" != "aarch64")
-  pip3 install meson
+%if %{_amzn} >= 2023
+  # Do nothing
 %else
-  # Meson 0.57.0 or later requires Ninja 1.8.2 or later but EPEL for
-  # Amazon Linux 2 aarch64 provides Ninja 1.7.2. We can remove
-  # '<0.57.0' once we drop support for Amazon Linux 2.
-  pip3 install 'meson<0.57.0'
+  %if %{is_centos_7}
+    # Meson 0.62.0 or later requires Python 3.7 or later.
+    pip3 install 'meson<0.62.0'
+  %else
+    pip3 install meson
+  %endif
+%endif
+%if %{enable_glib_doc}
+  pip3 install gi-docgen
 %endif
 meson setup build \
   --default-library=both \
@@ -210,8 +230,12 @@ meson setup build \
   --prefix=%{_prefix} \
   -Darrow_cpp_build_dir=../cpp/%{arrow_cmake_builddir} \
   -Darrow_cpp_build_type=$cpp_build_type \
-  -Dgtk_doc=true \
+%if %{enable_glib_doc}
+  -Ddoc=true \
+%endif
+%if %{use_vala}
   -Dvapi=true
+%endif
 
 LD_LIBRARY_PATH=$PWD/../cpp/%{arrow_cmake_builddir}/$cpp_build_type \
   meson compile -C build %{?_smp_mflags}
@@ -229,33 +253,19 @@ cd cpp
 rm -rf %{buildroot}%{_docdir}/arrow/
 cd -
 
-%package -n %{name}%{major_version}-libs
+%package -n %{name}%{so_version}-libs
 Summary:	Runtime libraries for Apache Arrow C++
 License:	Apache-2.0
-Requires:	brotli
-%if %{use_gflags}
-Requires:	gflags
-%endif
-%if %{use_glog}
-Requires:	glog
-%endif
-%if %{have_zstd}
-Requires:	libzstd
-%endif
+%if %{have_lz4_libs}
+Requires:	lz4-libs %{lz4_requirement}
+%else
 Requires:	lz4 %{lz4_requirement}
-%if %{have_re2}
-Requires:	re2
 %endif
-Requires:	snappy
-%if %{have_utf8proc}
-Requires:	utf8proc
-%endif
-Requires:	zlib
 
-%description -n %{name}%{major_version}-libs
+%description -n %{name}%{so_version}-libs
 This package contains the libraries for Apache Arrow C++.
 
-%files -n %{name}%{major_version}-libs
+%files -n %{name}%{so_version}-libs
 %defattr(-,root,root,-)
 %doc README.md
 %license LICENSE.txt NOTICE.txt
@@ -264,7 +274,7 @@ This package contains the libraries for Apache Arrow C++.
 %package tools
 Summary:	Tools for Apache Arrow C++
 License:	Apache-2.0
-Requires:	%{name}%{major_version}-libs = %{version}-%{release}
+Requires:	%{name}%{so_version}-libs = %{version}-%{release}
 
 %description tools
 Tools for Apache Arrow C++.
@@ -278,21 +288,19 @@ Tools for Apache Arrow C++.
 %package devel
 Summary:	Libraries and header files for Apache Arrow C++
 License:	Apache-2.0
-Requires:	%{name}%{major_version}-libs = %{version}-%{release}
+Requires:	%{name}%{so_version}-libs = %{version}-%{release}
 Requires:	brotli-devel
 Requires:	bzip2-devel
-%if %{use_flight}
-Requires:	c-ares-devel
-%endif
 Requires:	curl-devel
-%if %{use_gcs}
+%if %{use_gcs} && !%{use_bundled_nlohmann_json}
 Requires:	json-devel
 %endif
-%if %{have_zstd}
 Requires:	libzstd-devel
-%endif
 Requires:	lz4-devel %{lz4_requirement}
 Requires:	openssl-devel
+%if %{have_orc}
+Requires:	liborc-devel
+%endif
 %if %{have_rapidjson}
 Requires:	rapidjson-devel
 %endif
@@ -315,31 +323,98 @@ Libraries and header files for Apache Arrow C++.
 %{_datadir}/arrow/gdb/
 %{_datadir}/gdb/auto-load/
 %{_includedir}/arrow/
+%exclude %{_includedir}/arrow/acero/
+%exclude %{_includedir}/arrow/compute/row
 %exclude %{_includedir}/arrow/dataset/
 %if %{use_flight}
 %exclude %{_includedir}/arrow/flight/
 %endif
-%exclude %{_includedir}/arrow/python/
 %{_libdir}/cmake/Arrow/
 %{_libdir}/libarrow.a
 %{_libdir}/libarrow.so
 %{_libdir}/libarrow_bundled_dependencies.a
-%{_libdir}/pkgconfig/arrow-compute.pc
 %{_libdir}/pkgconfig/arrow-csv.pc
 %{_libdir}/pkgconfig/arrow-filesystem.pc
 %{_libdir}/pkgconfig/arrow-json.pc
 %{_libdir}/pkgconfig/arrow-orc.pc
 %{_libdir}/pkgconfig/arrow.pc
 
-%package -n %{name}%{major_version}-dataset-libs
+%package -n %{name}%{so_version}-compute-libs
+Summary:	C++ library for extra compute functions
+License:	Apache-2.0
+Requires:	%{name}%{so_version}-libs = %{version}-%{release}
+
+%description -n %{name}%{so_version}-compute-libs
+This package contains the libraries for Apache Arrow Compute.
+
+%files -n %{name}%{so_version}-compute-libs
+%defattr(-,root,root,-)
+%doc README.md
+%license LICENSE.txt NOTICE.txt
+%{_libdir}/libarrow_compute.so.*
+
+%package compute-devel
+Summary:	Libraries and header files for Apache Arrow Compute
+License:	Apache-2.0
+Requires:	%{name}%{so_version}-compute-libs = %{version}-%{release}
+Requires:	%{name}-devel = %{version}-%{release}
+
+%description compute-devel
+Libraries and header files for Apache Arrow Compute
+
+%files compute-devel
+%defattr(-,root,root,-)
+%doc README.md
+%license LICENSE.txt NOTICE.txt
+%{_includedir}/arrow/compute/row
+%{_libdir}/cmake/ArrowCompute/
+%{_libdir}/libarrow_compute.a
+%{_libdir}/libarrow_compute.so
+%{_libdir}/pkgconfig/arrow-compute.pc
+
+%package -n %{name}%{so_version}-acero-libs
+Summary:	C++ library to execute a query in streaming
+License:	Apache-2.0
+Requires:	%{name}%{so_version}-compute-libs = %{version}-%{release}
+
+%description -n %{name}%{so_version}-acero-libs
+This package contains the libraries for Apache Arrow Acero.
+
+%files -n %{name}%{so_version}-acero-libs
+%defattr(-,root,root,-)
+%doc README.md
+%license LICENSE.txt NOTICE.txt
+%{_libdir}/libarrow_acero.so.*
+
+%package acero-devel
+Summary:	Libraries and header files for Apache Arrow Acero
+License:	Apache-2.0
+Requires:	%{name}%{so_version}-acero-libs = %{version}-%{release}
+Requires:	%{name}-devel = %{version}-%{release}
+
+%description acero-devel
+Libraries and header files for Apache Arrow Acero
+
+%files acero-devel
+%defattr(-,root,root,-)
+%doc README.md
+%license LICENSE.txt NOTICE.txt
+%{_includedir}/arrow/acero/
+%{_libdir}/cmake/ArrowAcero/
+%{_libdir}/libarrow_acero.a
+%{_libdir}/libarrow_acero.so
+%{_libdir}/pkgconfig/arrow-acero.pc
+
+%package -n %{name}%{so_version}-dataset-libs
 Summary:	C++ library to read and write semantic datasets stored in different locations and formats
 License:	Apache-2.0
-Requires:	%{name}%{major_version}-libs = %{version}-%{release}
+Requires:	%{name}%{so_version}-acero-libs = %{version}-%{release}
+Requires:	parquet%{so_version}-libs = %{version}-%{release}
 
-%description -n %{name}%{major_version}-dataset-libs
+%description -n %{name}%{so_version}-dataset-libs
 This package contains the libraries for Apache Arrow dataset.
 
-%files -n %{name}%{major_version}-dataset-libs
+%files -n %{name}%{so_version}-dataset-libs
 %defattr(-,root,root,-)
 %doc README.md
 %license LICENSE.txt NOTICE.txt
@@ -348,8 +423,9 @@ This package contains the libraries for Apache Arrow dataset.
 %package dataset-devel
 Summary:	Libraries and header files for Apache Arrow dataset.
 License:	Apache-2.0
-Requires:	%{name}%{major_version}-dataset-libs = %{version}-%{release}
-Requires:	%{name}-devel = %{version}-%{release}
+Requires:	%{name}%{so_version}-dataset-libs = %{version}-%{release}
+Requires:	%{name}-acero-devel = %{version}-%{release}
+Requires:	parquet-devel = %{version}-%{release}
 
 %description dataset-devel
 Libraries and header files for Apache Arrow dataset.
@@ -365,17 +441,15 @@ Libraries and header files for Apache Arrow dataset.
 %{_libdir}/pkgconfig/arrow-dataset.pc
 
 %if %{use_flight}
-%package -n %{name}%{major_version}-flight-libs
+%package -n %{name}%{so_version}-flight-libs
 Summary:	C++ library for fast data transport.
 License:	Apache-2.0
-Requires:	%{name}%{major_version}-libs = %{version}-%{release}
-Requires:	c-ares
-Requires:	openssl
+Requires:	%{name}%{so_version}-libs = %{version}-%{release}
 
-%description -n %{name}%{major_version}-flight-libs
+%description -n %{name}%{so_version}-flight-libs
 This package contains the libraries for Apache Arrow Flight.
 
-%files -n %{name}%{major_version}-flight-libs
+%files -n %{name}%{so_version}-flight-libs
 %defattr(-,root,root,-)
 %doc README.md
 %license LICENSE.txt NOTICE.txt
@@ -384,8 +458,13 @@ This package contains the libraries for Apache Arrow Flight.
 %package flight-devel
 Summary:	Libraries and header files for Apache Arrow Flight.
 License:	Apache-2.0
-Requires:	%{name}%{major_version}-flight-libs = %{version}-%{release}
+Requires:	%{name}%{so_version}-flight-libs = %{version}-%{release}
 Requires:	%{name}-devel = %{version}-%{release}
+Requires:	c-ares-devel
+%if %{have_grpc}
+Requires:	grpc-devel
+Requires:	grpc-plugins
+%endif
 
 %description flight-devel
 Libraries and header files for Apache Arrow Flight.
@@ -401,15 +480,15 @@ Libraries and header files for Apache Arrow Flight.
 %{_libdir}/libarrow_flight.so
 %{_libdir}/pkgconfig/arrow-flight.pc
 
-%package -n %{name}%{major_version}-flight-sql-libs
+%package -n %{name}%{so_version}-flight-sql-libs
 Summary:	C++ library for interacting with SQL databases.
 License:	Apache-2.0
-Requires:	%{name}%{major_version}-flight-libs = %{version}-%{release}
+Requires:	%{name}%{so_version}-flight-libs = %{version}-%{release}
 
-%description -n %{name}%{major_version}-flight-sql-libs
+%description -n %{name}%{so_version}-flight-sql-libs
 This package contains the libraries for Apache Arrow Flight SQL.
 
-%files -n %{name}%{major_version}-flight-sql-libs
+%files -n %{name}%{so_version}-flight-sql-libs
 %defattr(-,root,root,-)
 %doc README.md
 %license LICENSE.txt NOTICE.txt
@@ -418,7 +497,7 @@ This package contains the libraries for Apache Arrow Flight SQL.
 %package flight-sql-devel
 Summary:	Libraries and header files for Apache Arrow Flight SQL.
 License:	Apache-2.0
-Requires:	%{name}%{major_version}-flight-sql-libs = %{version}-%{release}
+Requires:	%{name}%{so_version}-flight-sql-libs = %{version}-%{release}
 Requires:	%{name}-devel = %{version}-%{release}
 
 %description flight-sql-devel
@@ -436,16 +515,15 @@ Libraries and header files for Apache Arrow Flight SQL.
 %endif
 
 %if %{use_gandiva}
-%package -n gandiva%{major_version}-libs
+%package -n gandiva%{so_version}-libs
 Summary:	C++ library for compiling and evaluating expressions on Apache Arrow data.
 License:	Apache-2.0
-Requires:	%{name}%{major_version}-libs = %{version}-%{release}
-Requires:	ncurses-libs
+Requires:	%{name}%{so_version}-libs = %{version}-%{release}
 
-%description -n gandiva%{major_version}-libs
+%description -n gandiva%{so_version}-libs
 This package contains the libraries for Gandiva.
 
-%files -n gandiva%{major_version}-libs
+%files -n gandiva%{so_version}-libs
 %defattr(-,root,root,-)
 %doc README.md
 %license LICENSE.txt NOTICE.txt
@@ -455,7 +533,7 @@ This package contains the libraries for Gandiva.
 Summary:	Libraries and header files for Gandiva.
 License:	Apache-2.0
 Requires:	%{name}-devel = %{version}-%{release}
-Requires:	gandiva%{major_version}-libs = %{version}-%{release}
+Requires:	gandiva%{so_version}-libs = %{version}-%{release}
 Requires:	llvm-devel
 
 %description -n gandiva-devel
@@ -472,63 +550,15 @@ Libraries and header files for Gandiva.
 %{_libdir}/pkgconfig/gandiva.pc
 %endif
 
-%package -n plasma%{major_version}-libs
-Summary:	Runtime libraries for Plasma in-memory object store
-License:	Apache-2.0
-Requires:	%{name}%{major_version}-libs = %{version}-%{release}
-
-%description -n plasma%{major_version}-libs
-This package contains the libraries for Plasma in-memory object store.
-
-%files -n plasma%{major_version}-libs
-%defattr(-,root,root,-)
-%doc README.md
-%license LICENSE.txt NOTICE.txt
-%{_libdir}/libplasma.so.*
-
-%package -n plasma-store-server
-Summary:	Server for Plasma in-memory object store
-License:	Apache-2.0
-Requires:	plasma%{major_version}-libs = %{version}-%{release}
-
-%description -n plasma-store-server
-This package contains the server for Plasma in-memory object store.
-
-%files -n plasma-store-server
-%defattr(-,root,root,-)
-%doc README.md
-%license LICENSE.txt NOTICE.txt
-%{_bindir}/plasma-store-server
-
-%package -n plasma-devel
-Summary:	Libraries and header files for Plasma in-memory object store
-License:	Apache-2.0
-Requires:	%{name}-devel = %{version}-%{release}
-Requires:	plasma%{major_version}-libs = %{version}-%{release}
-
-%description -n plasma-devel
-Libraries and header files for Plasma in-memory object store.
-
-%files -n plasma-devel
-%defattr(-,root,root,-)
-%doc README.md
-%license LICENSE.txt NOTICE.txt
-%{_includedir}/plasma/
-%{_libdir}/cmake/Plasma/
-%{_libdir}/libplasma.a
-%{_libdir}/libplasma.so
-%{_libdir}/pkgconfig/plasma*.pc
-
-%package -n parquet%{major_version}-libs
+%package -n parquet%{so_version}-libs
 Summary:	Runtime libraries for Apache Parquet C++
 License:	Apache-2.0
-Requires:	%{name}%{major_version}-libs = %{version}-%{release}
-Requires:	openssl
+Requires:	%{name}%{so_version}-libs = %{version}-%{release}
 
-%description -n parquet%{major_version}-libs
+%description -n parquet%{so_version}-libs
 This package contains the libraries for Apache Parquet C++.
 
-%files -n parquet%{major_version}-libs
+%files -n parquet%{so_version}-libs
 %defattr(-,root,root,-)
 %doc README.md
 %license LICENSE.txt NOTICE.txt
@@ -537,7 +567,7 @@ This package contains the libraries for Apache Parquet C++.
 %package -n parquet-tools
 Summary:	Tools for Apache Parquet C++
 License:	Apache-2.0
-Requires:	parquet%{major_version}-libs = %{version}-%{release}
+Requires:	parquet%{so_version}-libs = %{version}-%{release}
 
 %description -n parquet-tools
 Tools for Apache Parquet C++.
@@ -552,7 +582,7 @@ Tools for Apache Parquet C++.
 Summary:	Libraries and header files for Apache Parquet C++
 License:	Apache-2.0
 Requires:	%{name}-devel = %{version}-%{release}
-Requires:	parquet%{major_version}-libs = %{version}-%{release}
+Requires:	parquet%{so_version}-libs = %{version}-%{release}
 Requires:	zlib-devel
 
 %description -n parquet-devel
@@ -568,16 +598,15 @@ Libraries and header files for Apache Parquet C++.
 %{_libdir}/libparquet.so
 %{_libdir}/pkgconfig/parquet*.pc
 
-%package -n %{name}%{major_version}-glib-libs
+%package -n %{name}%{so_version}-glib-libs
 Summary:	Runtime libraries for Apache Arrow GLib
 License:	Apache-2.0
-Requires:	%{name}%{major_version}-libs = %{version}-%{release}
-Requires:	glib2
+Requires:	%{name}%{so_version}-libs = %{version}-%{release}
 
-%description -n %{name}%{major_version}-glib-libs
+%description -n %{name}%{so_version}-glib-libs
 This package contains the libraries for Apache Arrow GLib.
 
-%files -n %{name}%{major_version}-glib-libs
+%files -n %{name}%{so_version}-glib-libs
 %defattr(-,root,root,-)
 %doc README.md
 %license LICENSE.txt NOTICE.txt
@@ -587,8 +616,8 @@ This package contains the libraries for Apache Arrow GLib.
 %package glib-devel
 Summary:	Libraries and header files for Apache Arrow GLib
 License:	Apache-2.0
-Requires:	%{name}-devel = %{version}-%{release}
-Requires:	%{name}%{major_version}-glib-libs = %{version}-%{release}
+Requires:	%{name}-acero-devel = %{version}-%{release}
+Requires:	%{name}%{so_version}-glib-libs = %{version}-%{release}
 Requires:	glib2-devel
 Requires:	gobject-introspection-devel
 
@@ -601,7 +630,9 @@ Libraries and header files for Apache Arrow GLib.
 %license LICENSE.txt NOTICE.txt
 %{_datadir}/arrow-glib/example/
 %{_datadir}/gir-1.0/Arrow-*.gir
+%if %{use_vala}
 %{_datadir}/vala/vapi/arrow-glib.*
+%endif
 %{_includedir}/arrow-glib/
 %{_libdir}/libarrow-glib.a
 %{_libdir}/libarrow-glib.so
@@ -619,19 +650,22 @@ Documentation for Apache Arrow GLib.
 %defattr(-,root,root,-)
 %doc README.md
 %license LICENSE.txt NOTICE.txt
+%{_datadir}/arrow-glib/*.txt
+%{_datadir}/arrow-glib/*.md
+%if %{enable_glib_doc}
 %{_docdir}/arrow-glib/
-%{_datadir}/gtk-doc/html/arrow-glib/
+%endif
 
-%package -n %{name}%{major_version}-dataset-glib-libs
+%package -n %{name}%{so_version}-dataset-glib-libs
 Summary:	Runtime libraries for Apache Arrow Dataset GLib
 License:	Apache-2.0
-Requires:	%{name}%{major_version}-dataset-libs = %{version}-%{release}
-Requires:	%{name}%{major_version}-glib-libs = %{version}-%{release}
+Requires:	%{name}%{so_version}-dataset-libs = %{version}-%{release}
+Requires:	%{name}%{so_version}-glib-libs = %{version}-%{release}
 
-%description -n %{name}%{major_version}-dataset-glib-libs
+%description -n %{name}%{so_version}-dataset-glib-libs
 This package contains the libraries for Apache Arrow Dataset GLib.
 
-%files -n %{name}%{major_version}-dataset-glib-libs
+%files -n %{name}%{so_version}-dataset-glib-libs
 %defattr(-,root,root,-)
 %doc README.md
 %license LICENSE.txt NOTICE.txt
@@ -641,7 +675,7 @@ This package contains the libraries for Apache Arrow Dataset GLib.
 %package dataset-glib-devel
 Summary:	Libraries and header files for Apache Arrow Dataset GLib
 License:	Apache-2.0
-Requires:	%{name}%{major_version}-dataset-glib-libs = %{version}-%{release}
+Requires:	%{name}%{so_version}-dataset-glib-libs = %{version}-%{release}
 Requires:	%{name}-dataset-devel = %{version}-%{release}
 Requires:	%{name}-glib-devel = %{version}-%{release}
 
@@ -653,7 +687,9 @@ Libraries and header files for Apache Arrow Dataset GLib.
 %doc README.md
 %license LICENSE.txt NOTICE.txt
 %{_datadir}/gir-1.0/ArrowDataset-*.gir
+%if %{use_vala}
 %{_datadir}/vala/vapi/arrow-dataset-glib.*
+%endif
 %{_includedir}/arrow-dataset-glib/
 %{_libdir}/libarrow-dataset-glib.a
 %{_libdir}/libarrow-dataset-glib.so
@@ -670,19 +706,21 @@ Documentation for Apache Arrow dataset GLib.
 %defattr(-,root,root,-)
 %doc README.md
 %license LICENSE.txt NOTICE.txt
-%{_datadir}/gtk-doc/html/arrow-dataset-glib/
+%if %{enable_glib_doc}
+%{_docdir}/arrow-dataset-glib/
+%endif
 
 %if %{use_flight}
-%package -n %{name}%{major_version}-flight-glib-libs
+%package -n %{name}%{so_version}-flight-glib-libs
 Summary:	Runtime libraries for Apache Arrow Flight GLib
 License:	Apache-2.0
-Requires:	%{name}%{major_version}-flight-libs = %{version}-%{release}
-Requires:	%{name}%{major_version}-glib-libs = %{version}-%{release}
+Requires:	%{name}%{so_version}-flight-libs = %{version}-%{release}
+Requires:	%{name}%{so_version}-glib-libs = %{version}-%{release}
 
-%description -n %{name}%{major_version}-flight-glib-libs
+%description -n %{name}%{so_version}-flight-glib-libs
 This package contains the libraries for Apache Arrow Flight GLib.
 
-%files -n %{name}%{major_version}-flight-glib-libs
+%files -n %{name}%{so_version}-flight-glib-libs
 %defattr(-,root,root,-)
 %doc README.md
 %license LICENSE.txt NOTICE.txt
@@ -692,7 +730,7 @@ This package contains the libraries for Apache Arrow Flight GLib.
 %package flight-glib-devel
 Summary:	Libraries and header files for Apache Arrow Flight GLib
 License:	Apache-2.0
-Requires:	%{name}%{major_version}-flight-glib-libs = %{version}-%{release}
+Requires:	%{name}%{so_version}-flight-glib-libs = %{version}-%{release}
 Requires:	%{name}-flight-devel = %{version}-%{release}
 Requires:	%{name}-glib-devel = %{version}-%{release}
 
@@ -704,7 +742,9 @@ Libraries and header files for Apache Arrow Flight GLib.
 %doc README.md
 %license LICENSE.txt NOTICE.txt
 %{_datadir}/gir-1.0/ArrowFlight-*.gir
+%if %{use_vala}
 %{_datadir}/vala/vapi/arrow-flight-glib.*
+%endif
 %{_includedir}/arrow-flight-glib/
 %{_libdir}/libarrow-flight-glib.a
 %{_libdir}/libarrow-flight-glib.so
@@ -721,18 +761,20 @@ Documentation for Apache Arrow Flight GLib.
 %defattr(-,root,root,-)
 %doc README.md
 %license LICENSE.txt NOTICE.txt
-%{_datadir}/gtk-doc/html/arrow-flight-glib/
+%if %{enable_glib_doc}
+%{_docdir}/arrow-flight-glib/
+%endif
 
-%package -n %{name}%{major_version}-flight-sql-glib-libs
+%package -n %{name}%{so_version}-flight-sql-glib-libs
 Summary:	Runtime libraries for Apache Arrow Flight SQL GLib
 License:	Apache-2.0
-Requires:	%{name}%{major_version}-flight-sql-libs = %{version}-%{release}
-Requires:	%{name}%{major_version}-flight-glib-libs = %{version}-%{release}
+Requires:	%{name}%{so_version}-flight-sql-libs = %{version}-%{release}
+Requires:	%{name}%{so_version}-flight-glib-libs = %{version}-%{release}
 
-%description -n %{name}%{major_version}-flight-sql-glib-libs
+%description -n %{name}%{so_version}-flight-sql-glib-libs
 This package contains the libraries for Apache Arrow Flight SQL GLib.
 
-%files -n %{name}%{major_version}-flight-sql-glib-libs
+%files -n %{name}%{so_version}-flight-sql-glib-libs
 %defattr(-,root,root,-)
 %doc README.md
 %license LICENSE.txt NOTICE.txt
@@ -742,7 +784,7 @@ This package contains the libraries for Apache Arrow Flight SQL GLib.
 %package flight-sql-glib-devel
 Summary:	Libraries and header files for Apache Arrow Flight SQL GLib
 License:	Apache-2.0
-Requires:	%{name}%{major_version}-flight-sql-glib-libs = %{version}-%{release}
+Requires:	%{name}%{so_version}-flight-sql-glib-libs = %{version}-%{release}
 Requires:	%{name}-flight-sql-devel = %{version}-%{release}
 Requires:	%{name}-flight-glib-devel = %{version}-%{release}
 
@@ -754,7 +796,9 @@ Libraries and header files for Apache Arrow Flight SQL GLib.
 %doc README.md
 %license LICENSE.txt NOTICE.txt
 %{_datadir}/gir-1.0/ArrowFlightSQL-*.gir
+%if %{use_vala}
 %{_datadir}/vala/vapi/arrow-flight-sql-glib.*
+%endif
 %{_includedir}/arrow-flight-sql-glib/
 %{_libdir}/libarrow-flight-sql-glib.a
 %{_libdir}/libarrow-flight-sql-glib.so
@@ -771,20 +815,22 @@ Documentation for Apache Arrow Flight SQL GLib.
 %defattr(-,root,root,-)
 %doc README.md
 %license LICENSE.txt NOTICE.txt
-%{_datadir}/gtk-doc/html/arrow-flight-sql-glib/
+  %if %{enable_glib_doc}
+%{_docdir}/arrow-flight-sql-glib/
+  %endif
 %endif
 
 %if %{use_gandiva}
-%package -n gandiva%{major_version}-glib-libs
+%package -n gandiva%{so_version}-glib-libs
 Summary:	Runtime libraries for Gandiva GLib
 License:	Apache-2.0
-Requires:	%{name}%{major_version}-glib-libs = %{version}-%{release}
-Requires:	gandiva%{major_version}-libs = %{version}-%{release}
+Requires:	%{name}%{so_version}-glib-libs = %{version}-%{release}
+Requires:	gandiva%{so_version}-libs = %{version}-%{release}
 
-%description -n gandiva%{major_version}-glib-libs
+%description -n gandiva%{so_version}-glib-libs
 This package contains the libraries for Gandiva GLib.
 
-%files -n gandiva%{major_version}-glib-libs
+%files -n gandiva%{so_version}-glib-libs
 %defattr(-,root,root,-)
 %doc README.md
 %license LICENSE.txt NOTICE.txt
@@ -795,7 +841,7 @@ This package contains the libraries for Gandiva GLib.
 Summary:	Libraries and header files for Gandiva GLib
 License:	Apache-2.0
 Requires:	%{name}-glib-devel = %{version}-%{release}
-Requires:	gandiva%{major_version}-glib-libs = %{version}-%{release}
+Requires:	gandiva%{so_version}-glib-libs = %{version}-%{release}
 Requires:	gandiva-devel = %{version}-%{release}
 
 %description -n gandiva-glib-devel
@@ -806,7 +852,9 @@ Libraries and header files for Gandiva GLib.
 %doc README.md
 %license LICENSE.txt NOTICE.txt
 %{_datadir}/gir-1.0/Gandiva-*.gir
+%if %{use_vala}
 %{_datadir}/vala/vapi/gandiva-glib.*
+%endif
 %{_includedir}/gandiva-glib/
 %{_libdir}/libgandiva-glib.a
 %{_libdir}/libgandiva-glib.so
@@ -823,69 +871,21 @@ Documentation for Gandiva GLib.
 %defattr(-,root,root,-)
 %doc README.md
 %license LICENSE.txt NOTICE.txt
-%{_datadir}/gtk-doc/html/gandiva-glib/
+  %if %{enable_glib_doc}
+%{_docdir}/gandiva-glib/
+  %endif
 %endif
 
-%package -n plasma%{major_version}-glib-libs
-Summary:	Runtime libraries for Plasma GLib
-License:	Apache-2.0
-Requires:	%{name}%{major_version}-glib-libs = %{version}-%{release}
-Requires:	plasma%{major_version}-libs = %{version}-%{release}
-
-%description -n plasma%{major_version}-glib-libs
-This package contains the libraries for Plasma GLib.
-
-%files -n plasma%{major_version}-glib-libs
-%defattr(-,root,root,-)
-%doc README.md
-%license LICENSE.txt NOTICE.txt
-%{_libdir}/girepository-1.0/Plasma-*.typelib
-%{_libdir}/libplasma-glib.so.*
-
-%package -n plasma-glib-devel
-Summary:	Libraries and header files for Plasma GLib
-License:	Apache-2.0
-Requires:	%{name}-glib-devel = %{version}-%{release}
-Requires:	plasma%{major_version}-glib-libs = %{version}-%{release}
-Requires:	plasma-devel = %{version}-%{release}
-
-%description -n plasma-glib-devel
-Libraries and header files for Plasma GLib.
-
-%files -n plasma-glib-devel
-%defattr(-,root,root,-)
-%doc README.md
-%license LICENSE.txt NOTICE.txt
-%{_datadir}/gir-1.0/Plasma-*gir
-%{_datadir}/vala/vapi/plasma-glib.*
-%{_includedir}/plasma-glib/
-%{_libdir}/libplasma-glib.a
-%{_libdir}/libplasma-glib.so
-%{_libdir}/pkgconfig/plasma-glib.pc
-
-%package -n plasma-glib-doc
-Summary:	Documentation for Plasma GLib
-License:	Apache-2.0
-
-%description -n plasma-glib-doc
-Documentation for Plasma GLib.
-
-%files -n plasma-glib-doc
-%defattr(-,root,root,-)
-%doc README.md
-%license LICENSE.txt NOTICE.txt
-%{_datadir}/gtk-doc/html/plasma-glib/
-
-%package -n parquet%{major_version}-glib-libs
+%package -n parquet%{so_version}-glib-libs
 Summary:	Runtime libraries for Apache Parquet GLib
 License:	Apache-2.0
-Requires:	%{name}%{major_version}-glib-libs = %{version}-%{release}
-Requires:	parquet%{major_version}-libs = %{version}-%{release}
+Requires:	%{name}%{so_version}-glib-libs = %{version}-%{release}
+Requires:	parquet%{so_version}-libs = %{version}-%{release}
 
-%description -n parquet%{major_version}-glib-libs
+%description -n parquet%{so_version}-glib-libs
 This package contains the libraries for Apache Parquet GLib.
 
-%files -n parquet%{major_version}-glib-libs
+%files -n parquet%{so_version}-glib-libs
 %defattr(-,root,root,-)
 %doc README.md
 %license LICENSE.txt NOTICE.txt
@@ -896,7 +896,7 @@ This package contains the libraries for Apache Parquet GLib.
 Summary:	Libraries and header files for Apache Parquet GLib
 License:	Apache-2.0
 Requires:	%{name}-glib-devel = %{version}-%{release}
-Requires:	parquet%{major_version}-glib-libs = %{version}-%{release}
+Requires:	parquet%{so_version}-glib-libs = %{version}-%{release}
 Requires:	parquet-devel = %{version}-%{release}
 
 %description -n parquet-glib-devel
@@ -907,7 +907,9 @@ Libraries and header files for Apache Parquet GLib.
 %doc README.md
 %license LICENSE.txt NOTICE.txt
 %{_datadir}/gir-1.0/Parquet-*.gir
+%if %{use_vala}
 %{_datadir}/vala/vapi/parquet-glib.*
+%endif
 %{_includedir}/parquet-glib/
 %{_libdir}/libparquet-glib.a
 %{_libdir}/libparquet-glib.so
@@ -924,9 +926,65 @@ Documentation for Apache Parquet GLib.
 %defattr(-,root,root,-)
 %doc README.md
 %license LICENSE.txt NOTICE.txt
-%{_datadir}/gtk-doc/html/parquet-glib/
+%if %{enable_glib_doc}
+%{_docdir}/parquet-glib/
+%endif
 
 %changelog
+* Fri Jul 11 2025 Bryce Mecum <petridish@gmail.com> - 21.0.0-1
+- New upstream release.
+
+* Tue Apr 22 2025 Jacob Wujciak-Jens <jacob@wujciak.de> - 20.0.0-1
+- New upstream release.
+
+* Tue Feb 11 2025 Bryce Mecum <petridish@gmail.com> - 19.0.1-1
+- New upstream release.
+
+* Tue Jan 07 2025 Bryce Mecum <petridish@gmail.com> - 19.0.0-1
+- New upstream release.
+
+* Wed Nov 13 2024 Bryce Mecum <petridish@gmail.com> - 18.1.0-1
+- New upstream release.
+
+* Wed Oct 16 2024 Sutou Kouhei <kou@clear-code.com> - 18.0.0-1
+- New upstream release.
+
+* Thu Jul 11 2024 Raúl Cumplido <raulcumplido@gmail.com> - 17.0.0-1
+- New upstream release.
+
+* Thu May 09 2024 Raúl Cumplido <raulcumplido@gmail.com> - 16.1.0-1
+- New upstream release.
+
+* Tue Apr 16 2024 Raúl Cumplido <raulcumplido@gmail.com> - 16.0.0-1
+- New upstream release.
+
+* Wed Mar 13 2024 Raúl Cumplido <raulcumplido@gmail.com> - 15.0.2-1
+- New upstream release.
+
+* Fri Feb 23 2024 Raúl Cumplido <raulcumplido@gmail.com> - 15.0.1-1
+- New upstream release.
+
+* Tue Jan 16 2024 Raúl Cumplido <raulcumplido@gmail.com> - 15.0.0-1
+- New upstream release.
+
+* Tue Dec 12 2023 Raúl Cumplido <raulcumplido@gmail.com> - 14.0.2-1
+- New upstream release.
+
+* Mon Nov 06 2023 Raúl Cumplido <raulcumplido@gmail.com> - 14.0.1-1
+- New upstream release.
+
+* Thu Oct 19 2023 Raúl Cumplido <raulcumplido@gmail.com> - 14.0.0-1
+- New upstream release.
+
+* Thu Aug 17 2023 Raúl Cumplido <raulcumplido@gmail.com> - 13.0.0-1
+- New upstream release.
+
+* Wed Jun 07 2023 Raúl Cumplido <raulcumplido@gmail.com> - 12.0.1-1
+- New upstream release.
+
+* Fri Apr 21 2023 Raúl Cumplido <raulcumplido@gmail.com> - 12.0.0-1
+- New upstream release.
+
 * Wed Jan 18 2023 Raúl Cumplido <raulcumplido@gmail.com> - 11.0.0-1
 - New upstream release.
 

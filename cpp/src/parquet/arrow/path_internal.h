@@ -116,7 +116,7 @@ class PARQUET_EXPORT MultipathLevelBuilder {
   ///
   /// \param[in] array The array to process.
   /// \param[in] array_field_nullable Whether the algorithm should consider
-  ///   the the array column as nullable (as determined by its type's parent
+  ///   the array column as nullable (as determined by its type's parent
   ///   field).
   /// \param[in, out] context for use when allocating memory, etc.
   /// \param[out] write_leaf_callback Callback to receive results.
@@ -129,7 +129,7 @@ class PARQUET_EXPORT MultipathLevelBuilder {
   ///
   /// \param[in] array The array to process.
   /// \param[in] array_field_nullable Whether the algorithm should consider
-  ///   the the array column as nullable (as determined by its type's parent
+  ///   the array column as nullable (as determined by its type's parent
   ///   field).
   static ::arrow::Result<std::unique_ptr<MultipathLevelBuilder>> Make(
       const ::arrow::Array& array, bool array_field_nullable);

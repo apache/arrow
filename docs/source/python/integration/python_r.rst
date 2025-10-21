@@ -29,7 +29,7 @@ marshaling and unmarshaling data.
 
     The article takes for granted that you have a ``Python`` environment
     with ``pyarrow`` correctly installed and an ``R`` environment with
-    ``arrow`` library correctly installed. 
+    ``arrow`` library correctly installed.
     See `Python Install Instructions <https://arrow.apache.org/docs/python/install.html>`_
     and `R Install instructions <https://arrow.apache.org/docs/r/#installation>`_
     for further details.
@@ -52,7 +52,7 @@ We could save such a function in a ``addthree.R`` file so that we can
 make it available for reuse.
 
 Once the ``addthree.R`` file is created we can invoke any of its functions
-from Python using the 
+from Python using the
 `rpy2 <https://rpy2.github.io/doc/latest/html/index.html>`_ library which
 enables a R runtime within the Python interpreter.
 
@@ -91,12 +91,12 @@ to access the ``R`` function and print the expected result:
 
 .. code-block:: bash
 
-    $ python addthree.py 
+    $ python addthree.py
     6
 
 If instead of passing around basic data types we want to pass around
 Arrow Arrays, we can do so relying on the
-`rpy2-arrow <https://rpy2.github.io/rpy2-arrow/version/main/html/index.html>`_ 
+`rpy2-arrow <https://rpy2.github.io/rpy2-arrow/version/main/html/index.html>`_
 module which implements ``rpy2`` support for Arrow types.
 
 ``rpy2-arrow`` can be installed through ``pip``:
@@ -189,7 +189,7 @@ Invoking the ``addthree.R`` script will print the outcome of adding
 
 .. code-block:: bash
 
-    $ R --silent -f addthree.R 
+    $ R --silent -f addthree.R
     Array
     <double>
     [
@@ -219,7 +219,7 @@ necessary to import an Arrow Array in R from the C Data interface.
 That work will be done by the ``addthree_cdata`` function which invokes the
 ``addthree`` function once the Array is imported.
 
-Our ``addthree.R`` will thus have both the ``addthree_cdata`` and the 
+Our ``addthree.R`` will thus have both the ``addthree_cdata`` and the
 ``addthree`` functions:
 
 .. code-block:: R
@@ -261,7 +261,7 @@ Our ``addthree.py`` will thus become:
     # Import the pyarrow module that provides access to the C Data interface
     from pyarrow.cffi import ffi as arrow_c
 
-    # Allocate structures where we will export the Array data 
+    # Allocate structures where we will export the Array data
     # and the Array schema. They will be released when we exit the with block.
     with arrow_c.new("struct ArrowArray*") as c_array, \
          arrow_c.new("struct ArrowSchema*") as c_schema:
@@ -274,7 +274,7 @@ Our ``addthree.py`` will thus become:
         array.type._export_to_c(c_schema_ptr)
 
         # Invoke the R addthree_cdata function passing the references
-        # to the array and schema C Data structures. 
+        # to the array and schema C Data structures.
         # Those references are passed as strings as R doesn't have
         # native support for 64bit integers, so the integers are
         # converted to their string representation for R to convert it back.
@@ -289,16 +289,16 @@ Our ``addthree.py`` will thus become:
         # Once the returned array is exported to a C Data infrastructure
         # we can import it back into pyarrow using Array._import_from_c
         py_array = pyarrow.Array._import_from_c(c_array_ptr, c_schema_ptr)
-    
+
     print("RESULT", py_array)
 
 Running the newly changed ``addthree.py`` will now print the Array resulting
-from adding ``3`` to all the elements of the original 
+from adding ``3`` to all the elements of the original
 ``pyarrow.array((1, 2, 3))`` array:
 
 .. code-block:: bash
 
-    $ python addthree.py 
+    $ python addthree.py
     R[write to console]: Attaching package: ‘arrow’
     RESULT [
       4,

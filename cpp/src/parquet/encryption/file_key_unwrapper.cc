@@ -22,22 +22,54 @@
 #include "parquet/encryption/file_key_unwrapper.h"
 #include "parquet/encryption/key_metadata.h"
 
-namespace parquet {
-namespace encryption {
+using ::arrow::util::SecureString;
 
-using internal::KeyWithMasterId;
+namespace parquet::encryption {
 
-FileKeyUnwrapper::FileKeyUnwrapper(KeyToolkit* key_toolkit,
-                                   const KmsConnectionConfig& kms_connection_config,
-                                   double cache_lifetime_seconds)
-    : key_toolkit_(key_toolkit),
+FileKeyUnwrapper::FileKeyUnwrapper(
+    std::shared_ptr<KeyToolkit> key_toolkit,
+    const KmsConnectionConfig& kms_connection_config, double cache_lifetime_seconds,
+    const std::string& file_path,
+    const std::shared_ptr<::arrow::fs::FileSystem>& file_system)
+    : FileKeyUnwrapper(std::move(key_toolkit), /*key_toolkit=*/nullptr,
+                       kms_connection_config, cache_lifetime_seconds,
+                       /*key_material_store=*/nullptr, file_path, file_system) {}
+
+FileKeyUnwrapper::FileKeyUnwrapper(
+    KeyToolkit* key_toolkit, const KmsConnectionConfig& kms_connection_config,
+    double cache_lifetime_seconds, const std::string& file_path,
+    const std::shared_ptr<::arrow::fs::FileSystem>& file_system)
+    : FileKeyUnwrapper(/*key_toolkit_owner=*/nullptr, key_toolkit, kms_connection_config,
+                       cache_lifetime_seconds, /*key_material_store=*/nullptr, file_path,
+                       file_system) {}
+
+FileKeyUnwrapper::FileKeyUnwrapper(
+    KeyToolkit* key_toolkit, const KmsConnectionConfig& kms_connection_config,
+    double cache_lifetime_seconds,
+    std::shared_ptr<FileKeyMaterialStore> key_material_store)
+    : FileKeyUnwrapper(/*key_toolkit_owner=*/nullptr, key_toolkit, kms_connection_config,
+                       cache_lifetime_seconds, std::move(key_material_store),
+                       /*file_path=*/"",
+                       /*file_system=*/nullptr) {}
+
+FileKeyUnwrapper::FileKeyUnwrapper(
+    std::shared_ptr<KeyToolkit> key_toolkit_owner, KeyToolkit* key_toolkit,
+    const KmsConnectionConfig& kms_connection_config, double cache_lifetime_seconds,
+    std::shared_ptr<FileKeyMaterialStore> key_material_store,
+    const std::string& file_path,
+    const std::shared_ptr<::arrow::fs::FileSystem>& file_system)
+    : key_toolkit_owner_(std::move(key_toolkit_owner)),
+      key_toolkit_(key_toolkit ? key_toolkit : key_toolkit_owner_.get()),
       kms_connection_config_(kms_connection_config),
-      cache_entry_lifetime_seconds_(cache_lifetime_seconds) {
+      cache_entry_lifetime_seconds_(cache_lifetime_seconds),
+      key_material_store_(std::move(key_material_store)),
+      file_path_(file_path),
+      file_system_(file_system) {
   kek_per_kek_id_ = key_toolkit_->kek_read_cache_per_token().GetOrCreateInternalCache(
       kms_connection_config.key_access_token(), cache_entry_lifetime_seconds_);
 }
 
-std::string FileKeyUnwrapper::GetKey(const std::string& key_metadata_bytes) {
+SecureString FileKeyUnwrapper::GetKey(const std::string& key_metadata_bytes) {
   // key_metadata is expected to be in UTF8 encoding
   ::arrow::util::InitializeUTF8();
   if (!::arrow::util::ValidateUTF8(
@@ -47,11 +79,24 @@ std::string FileKeyUnwrapper::GetKey(const std::string& key_metadata_bytes) {
   }
   KeyMetadata key_metadata = KeyMetadata::Parse(key_metadata_bytes);
 
-  if (!key_metadata.key_material_stored_internally()) {
-    throw ParquetException("External key material store is not supported yet.");
+  KeyMaterial key_material;
+  if (key_metadata.key_material_stored_internally()) {
+    key_material = key_metadata.key_material();
+  } else {
+    if (key_material_store_ == nullptr) {
+      key_material_store_ =
+          FileSystemKeyMaterialStore::Make(file_path_, file_system_, false);
+    }
+    // External key material storage: key metadata contains a reference
+    // to a key in the material store
+    std::string key_id_in_file = key_metadata.key_reference();
+    std::string key_material_string = key_material_store_->GetKeyMaterial(key_id_in_file);
+    if (key_material_string.empty()) {
+      throw ParquetException("Could not find key material with ID '" + key_id_in_file +
+                             "' in external key material file");
+    }
+    key_material = KeyMaterial::Parse(key_material_string);
   }
-
-  const KeyMaterial& key_material = key_metadata.key_material();
 
   return GetDataEncryptionKey(key_material).data_key();
 }
@@ -63,7 +108,7 @@ KeyWithMasterId FileKeyUnwrapper::GetDataEncryptionKey(const KeyMaterial& key_ma
   const std::string& master_key_id = key_material.master_key_id();
   const std::string& encoded_wrapped_dek = key_material.wrapped_dek();
 
-  std::string data_key;
+  SecureString data_key;
   if (!double_wrapping) {
     data_key = kms_client->UnwrapKey(encoded_wrapped_dek, master_key_id);
   } else {
@@ -71,7 +116,7 @@ KeyWithMasterId FileKeyUnwrapper::GetDataEncryptionKey(const KeyMaterial& key_ma
     const std::string& encoded_kek_id = key_material.kek_id();
     const std::string& encoded_wrapped_kek = key_material.wrapped_kek();
 
-    std::string kek_bytes = kek_per_kek_id_->GetOrInsert(
+    const SecureString kek_bytes = kek_per_kek_id_->GetOrInsert(
         encoded_kek_id, [kms_client, encoded_wrapped_kek, master_key_id]() {
           return kms_client->UnwrapKey(encoded_wrapped_kek, master_key_id);
         });
@@ -81,7 +126,7 @@ KeyWithMasterId FileKeyUnwrapper::GetDataEncryptionKey(const KeyMaterial& key_ma
     data_key = internal::DecryptKeyLocally(encoded_wrapped_dek, kek_bytes, aad);
   }
 
-  return KeyWithMasterId(data_key, master_key_id);
+  return KeyWithMasterId(std::move(data_key), master_key_id);
 }
 
 std::shared_ptr<KmsClient> FileKeyUnwrapper::GetKmsClientFromConfigOrKeyMaterial(
@@ -110,5 +155,4 @@ std::shared_ptr<KmsClient> FileKeyUnwrapper::GetKmsClientFromConfigOrKeyMaterial
                                     cache_entry_lifetime_seconds_);
 }
 
-}  // namespace encryption
-}  // namespace parquet
+}  // namespace parquet::encryption

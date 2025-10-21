@@ -16,11 +16,8 @@
 # under the License.
 
 add_arrow_test(concatenate_test)
-
-if(ARROW_COMPUTE)
-  # This unit test uses compute code
-  add_arrow_test(diff_test)
-endif()
+add_arrow_test(data_test)
+add_arrow_test(diff_test)
 
 # Headers: top level
 arrow_install_all_headers("arrow/array")

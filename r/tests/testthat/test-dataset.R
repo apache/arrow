@@ -50,24 +50,24 @@ test_that("IPC/Feather format data", {
   ds <- open_dataset(ipc_dir, partitioning = "part", format = "feather")
   expect_r6_class(ds$format, "IpcFileFormat")
   expect_r6_class(ds$filesystem, "LocalFileSystem")
-  expect_identical(names(ds), c(names(df1), "part"))
+  expect_named(ds, c(names(df1), "part"))
   expect_identical(dim(ds), c(20L, 7L))
 
   expect_equal(
-    ds %>%
-      select(string = chr, integer = int, part) %>%
-      filter(integer > 6 & part == 3) %>%
-      collect() %>%
+    ds |>
+      select(string = chr, integer = int, part) |>
+      filter(integer > 6 & part == 3) |>
+      collect() |>
       summarize(mean = mean(integer)),
-    df1 %>%
-      select(string = chr, integer = int) %>%
-      filter(integer > 6) %>%
+    df1 |>
+      select(string = chr, integer = int) |>
+      filter(integer > 6) |>
       summarize(mean = mean(integer))
   )
 
   # Collecting virtual partition column works
   expect_equal(
-    ds %>% arrange(part) %>% pull(part) %>% as.vector(),
+    ds |> arrange(part) |> pull(part) |> as.vector(),
     c(rep(3, 10), rep(4, 10))
   )
 })
@@ -85,8 +85,8 @@ expect_scan_result <- function(ds, schm) {
   tab <- scn$ToTable()
   expect_r6_class(tab, "Table")
 
-  expect_equal(
-    as.data.frame(tab),
+  expect_equal_data_frame(
+    tab,
     df1[8, c("chr", "lgl")]
   )
 }
@@ -132,11 +132,11 @@ test_that("URI-decoding with directory partitioning", {
   ds <- factory$Finish(schm)
   # Can't directly inspect partition expressions, so do it implicitly via scan
   expect_equal(
-    ds %>%
-      filter(date == "2021-05-04 00:00:00", string == "$") %>%
-      select(int) %>%
+    ds |>
+      filter(date == "2021-05-04 00:00:00", string == "$") |>
+      select(int) |>
       collect(),
-    df1 %>% select(int) %>% collect()
+    df1 |> select(int) |> collect()
   )
 
   partitioning_factory <- DirectoryPartitioningFactory$create(
@@ -149,11 +149,11 @@ test_that("URI-decoding with directory partitioning", {
   schm <- factory$Inspect()
   ds <- factory$Finish(schm)
   expect_equal(
-    ds %>%
-      filter(date == "2021-05-04 00%3A00%3A00", string == "%24") %>%
-      select(int) %>%
+    ds |>
+      filter(date == "2021-05-04 00%3A00%3A00", string == "%24") |>
+      select(int) |>
       collect(),
-    df1 %>% select(int) %>% collect()
+    df1 |> select(int) |> collect()
   )
 })
 
@@ -194,11 +194,11 @@ test_that("URI-decoding with hive partitioning", {
   ds <- factory$Finish(schm)
   # Can't directly inspect partition expressions, so do it implicitly via scan
   expect_equal(
-    ds %>%
-      filter(date == "2021-05-04 00:00:00", string == "$") %>%
-      select(int) %>%
+    ds |>
+      filter(date == "2021-05-04 00:00:00", string == "$") |>
+      select(int) |>
       collect(),
-    df1 %>% select(int) %>% collect()
+    df1 |> select(int) |> collect()
   )
 
   partitioning_factory <- hive_partition(segment_encoding = "none")
@@ -208,11 +208,11 @@ test_that("URI-decoding with hive partitioning", {
   schm <- factory$Inspect()
   ds <- factory$Finish(schm)
   expect_equal(
-    ds %>%
-      filter(date == "2021-05-04 00%3A00%3A00", string == "%24") %>%
-      select(int) %>%
+    ds |>
+      filter(date == "2021-05-04 00%3A00%3A00", string == "%24") |>
+      select(int) |>
       collect(),
-    df1 %>% select(int) %>% collect()
+    df1 |> select(int) |> collect()
   )
 })
 
@@ -244,11 +244,11 @@ test_that("URI-decoding with hive partitioning with key encoded", {
   schm <- factory$Inspect()
   ds <- factory$Finish(schm)
   expect_equal(
-    ds %>%
-      filter(`test key` == "2021-05-04 00:00:00", `test key1` == "$") %>%
-      select(int) %>%
+    ds |>
+      filter(`test key` == "2021-05-04 00:00:00", `test key1` == "$") |>
+      select(int) |>
       collect(),
-    df1 %>% select(int) %>% collect()
+    df1 |> select(int) |> collect()
   )
 
   # no segment encoding
@@ -259,11 +259,11 @@ test_that("URI-decoding with hive partitioning with key encoded", {
   schm <- factory$Inspect()
   ds <- factory$Finish(schm)
   expect_equal(
-    ds %>%
-      filter(`test%20key` == "2021-05-04 00%3A00%3A00", `test%20key1` == "%24") %>%
-      select(int) %>%
+    ds |>
+      filter(`test%20key` == "2021-05-04 00%3A00%3A00", `test%20key1` == "%24") |>
+      select(int) |>
       collect(),
-    df1 %>% select(int) %>% collect()
+    df1 |> select(int) |> collect()
   )
 })
 
@@ -281,10 +281,10 @@ test_that("Simple interface for datasets", {
   expect_r6_class(ds$filesystem, "LocalFileSystem")
   expect_r6_class(ds, "Dataset")
   expect_equal(
-    ds %>%
-      select(chr, dbl) %>%
-      filter(dbl > 7 & dbl < 53L) %>% # Testing the auto-casting of scalars
-      collect() %>%
+    ds |>
+      select(chr, dbl) |>
+      filter(dbl > 7 & dbl < 53L) |> # Testing the auto-casting of scalars
+      collect() |>
       arrange(dbl),
     rbind(
       df1[8:10, c("chr", "dbl")],
@@ -293,20 +293,20 @@ test_that("Simple interface for datasets", {
   )
 
   expect_equal(
-    ds %>%
-      select(string = chr, integer = int, part) %>%
-      filter(integer > 6 & part == 1) %>% # 6 not 6L to test autocasting
-      collect() %>%
+    ds |>
+      select(string = chr, integer = int, part) |>
+      filter(integer > 6 & part == 1) |> # 6 not 6L to test autocasting
+      collect() |>
       summarize(mean = mean(integer)),
-    df1 %>%
-      select(string = chr, integer = int) %>%
-      filter(integer > 6) %>%
+    df1 |>
+      select(string = chr, integer = int) |>
+      filter(integer > 6) |>
       summarize(mean = mean(integer))
   )
 
   # Collecting virtual partition column works
   expect_equal(
-    ds %>% arrange(part) %>% pull(part) %>% as.vector(),
+    ds |> arrange(part) |> pull(part) |> as.vector(),
     c(rep(1, 10), rep(2, 10))
   )
 })
@@ -334,26 +334,32 @@ test_that("dim method returns the correct number of rows and columns", {
   expect_identical(dim(ds), c(20L, 7L))
 })
 
+test_that("dimnames, colnames on Dataset objects", {
+  ds <- open_dataset(dataset_dir, partitioning = schema(part = uint8()))
+  col_names <- c("int", "dbl", "lgl", "chr", "fct", "ts", "part")
+  expect_identical(dimnames(ds), list(NULL, col_names))
+  expect_identical(colnames(ds), col_names)
+})
 
 test_that("dim() correctly determine numbers of rows and columns on arrow_dplyr_query object", {
   ds <- open_dataset(dataset_dir, partitioning = schema(part = uint8()))
 
   expect_identical(
-    ds %>%
-      filter(chr == "a") %>%
+    ds |>
+      filter(chr == "a") |>
       dim(),
     c(2L, 7L)
   )
   expect_equal(
-    ds %>%
-      select(chr, fct, int) %>%
+    ds |>
+      select(chr, fct, int) |>
       dim(),
     c(20L, 3L)
   )
   expect_identical(
-    ds %>%
-      select(chr, fct, int) %>%
-      filter(chr == "a") %>%
+    ds |>
+      select(chr, fct, int) |>
+      filter(chr == "a") |>
       dim(),
     c(2L, 3L)
   )
@@ -371,11 +377,11 @@ test_that("Hive partitioning", {
   ds <- open_dataset(hive_dir, partitioning = hive_partition(other = utf8(), group = uint8()))
   expect_r6_class(ds, "Dataset")
   expect_equal(
-    ds %>%
-      filter(group == 2) %>%
-      select(chr, dbl) %>%
-      filter(dbl > 7 & dbl < 53) %>%
-      collect() %>%
+    ds |>
+      filter(group == 2) |>
+      select(chr, dbl) |>
+      filter(dbl > 7 & dbl < 53) |>
+      collect() |>
       arrange(dbl),
     df2[1:2, c("chr", "dbl")]
   )
@@ -390,27 +396,27 @@ test_that("input validation", {
 test_that("Partitioning inference", {
   # These are the same tests as above, just using the *PartitioningFactory
   ds1 <- open_dataset(dataset_dir, partitioning = "part")
-  expect_identical(names(ds1), c(names(df1), "part"))
+  expect_named(ds1, c(names(df1), "part"))
   expect_equal(
-    ds1 %>%
-      select(string = chr, integer = int, part) %>%
-      filter(integer > 6 & part == 1) %>%
-      collect() %>%
+    ds1 |>
+      select(string = chr, integer = int, part) |>
+      filter(integer > 6 & part == 1) |>
+      collect() |>
       summarize(mean = mean(integer)),
-    df1 %>%
-      select(string = chr, integer = int) %>%
-      filter(integer > 6) %>%
+    df1 |>
+      select(string = chr, integer = int) |>
+      filter(integer > 6) |>
       summarize(mean = mean(integer))
   )
 
   ds2 <- open_dataset(hive_dir)
-  expect_identical(names(ds2), c(names(df1), "group", "other"))
+  expect_named(ds2, c(names(df1), "group", "other"))
   expect_equal(
-    ds2 %>%
-      filter(group == 2) %>%
-      select(chr, dbl) %>%
-      filter(dbl > 7 & dbl < 53) %>%
-      collect() %>%
+    ds2 |>
+      filter(group == 2) |>
+      select(chr, dbl) |>
+      filter(dbl > 7 & dbl < 53) |>
+      collect() |>
       arrange(dbl),
     df2[1:2, c("chr", "dbl")]
   )
@@ -505,7 +511,7 @@ test_that("Including partition columns in schema and partitioning, hive style CS
 
 test_that("partitioning = NULL to ignore partition information (but why?)", {
   ds <- open_dataset(hive_dir, partitioning = NULL)
-  expect_identical(names(ds), names(df1)) # i.e. not c(names(df1), "group", "other")
+  expect_named(ds, names(df1)) # i.e. not c(names(df1), "group", "other")
 })
 
 test_that("Dataset with multiple file formats", {
@@ -514,15 +520,15 @@ test_that("Dataset with multiple file formats", {
     open_dataset(dataset_dir, format = "parquet", partitioning = "part"),
     open_dataset(ipc_dir, format = "arrow", partitioning = "part")
   ))
-  expect_identical(names(ds), c(names(df1), "part"))
+  expect_named(ds, c(names(df1), "part"))
   expect_equal(
-    ds %>%
-      filter(int > 6 & part %in% c(1, 3)) %>%
-      select(string = chr, integer = int) %>%
+    ds |>
+      filter(int > 6 & part %in% c(1, 3)) |>
+      select(string = chr, integer = int) |>
       collect(),
-    df1 %>%
-      select(string = chr, integer = int) %>%
-      filter(integer > 6) %>%
+    df1 |>
+      select(string = chr, integer = int) |>
+      filter(integer > 6) |>
       rbind(., .) # Stack it twice
   )
 })
@@ -533,10 +539,10 @@ test_that("Creating UnionDataset", {
   union1 <- open_dataset(list(ds1, ds2))
   expect_r6_class(union1, "UnionDataset")
   expect_equal(
-    union1 %>%
-      select(chr, dbl) %>%
-      filter(dbl > 7 & dbl < 53L) %>% # Testing the auto-casting of scalars
-      collect() %>%
+    union1 |>
+      select(chr, dbl) |>
+      filter(dbl > 7 & dbl < 53L) |> # Testing the auto-casting of scalars
+      collect() |>
       arrange(dbl),
     rbind(
       df1[8:10, c("chr", "dbl")],
@@ -548,10 +554,10 @@ test_that("Creating UnionDataset", {
   union2 <- c(ds1, ds2)
   expect_r6_class(union2, "UnionDataset")
   expect_equal(
-    union2 %>%
-      select(chr, dbl) %>%
-      filter(dbl > 7 & dbl < 53L) %>% # Testing the auto-casting of scalars
-      collect() %>%
+    union2 |>
+      select(chr, dbl) |>
+      filter(dbl > 7 & dbl < 53L) |> # Testing the auto-casting of scalars
+      collect() |>
       arrange(dbl),
     rbind(
       df1[8:10, c("chr", "dbl")],
@@ -582,8 +588,8 @@ test_that("UnionDataset can merge schemas", {
   ds2 <- open_dataset(path2, format = "parquet")
 
   ds <- c(ds1, ds2)
-  actual <- ds %>%
-    collect() %>%
+  actual <- ds |>
+    collect() |>
     arrange(x)
   expect_equal(colnames(actual), c("x", "y", "z"))
 
@@ -603,10 +609,10 @@ test_that("UnionDataset can merge schemas", {
   ds <- open_dataset(list(ds1, ds2), unify_schemas = FALSE)
   expected <- union_all_common(
     as_tibble(sub_df1),
-    as_tibble(sub_df2) %>% select(x)
+    as_tibble(sub_df2) |> select(x)
   )
-  actual <- ds %>%
-    collect() %>%
+  actual <- ds |>
+    collect() |>
     arrange(x)
   expect_equal(colnames(actual), c("x", "y"))
   expect_equal(actual, expected)
@@ -625,8 +631,8 @@ test_that("UnionDataset handles InMemoryDatasets", {
   ds1 <- InMemoryDataset$create(sub_df1)
   ds2 <- InMemoryDataset$create(sub_df2)
   ds <- c(ds1, ds2)
-  actual <- ds %>%
-    arrange(x) %>%
+  actual <- ds |>
+    arrange(x) |>
     compute()
   expected <- concat_tables(sub_df1, sub_df2)
   expect_equal(actual, expected)
@@ -637,16 +643,16 @@ test_that("scalar aggregates with many batches (ARROW-16904)", {
   write_parquet(data.frame(x = 1:100), tf, chunk_size = 20)
 
   ds <- open_dataset(tf)
-  replicate(100, ds %>% summarize(min(x)) %>% pull())
+  replicate(100, ds |> summarize(min(x)) |> pull())
 
   expect_true(
     all(
-      replicate(100, ds %>% summarize(min(x)) %>% pull() %>% as.vector()) == 1
+      replicate(100, ds |> summarize(min(x)) |> pull() |> as.vector()) == 1
     )
   )
   expect_true(
     all(
-      replicate(100, ds %>% summarize(max(x)) %>% pull() %>% as.vector()) == 100
+      replicate(100, ds |> summarize(max(x)) |> pull() |> as.vector()) == 100
     )
   )
 })
@@ -658,57 +664,57 @@ test_that("streaming map_batches into an ExecPlan", {
 
   # summarize returns arrow_dplyr_query, which gets collected into a tibble
   expect_equal(
-    ds %>%
-      filter(int > 5) %>%
-      select(int, lgl) %>%
-      map_batches(~ summarize(., min_int = min(int))) %>%
-      arrange(min_int) %>%
+    ds |>
+      filter(int > 5) |>
+      select(int, lgl) |>
+      map_batches(~ summarize(., min_int = min(int))) |>
+      arrange(min_int) |>
       collect(),
     tibble(min_int = c(6L, 101L))
   )
 
   # $num_rows returns integer vector, so we need to wrap it in a RecordBatch
   expect_equal(
-    ds %>%
-      filter(int > 5) %>%
-      select(int, lgl) %>%
-      map_batches(~ record_batch(nrows = .$num_rows)) %>%
-      pull(nrows) %>%
-      as.vector() %>%
+    ds |>
+      filter(int > 5) |>
+      select(int, lgl) |>
+      map_batches(~ record_batch(nrows = .$num_rows)) |>
+      pull(nrows) |>
+      as.vector() |>
       sort(),
     c(5, 10)
   )
 
   # Can take a raw dataset as X argument
   expect_equal(
-    ds %>%
-      map_batches(~ count(., part)) %>%
-      arrange(part) %>%
+    ds |>
+      map_batches(~ count(., part)) |>
+      arrange(part) |>
       collect(),
     tibble(part = c(1, 2), n = c(10, 10))
   )
 
   # $Take returns RecordBatch
   expect_equal(
-    ds %>%
-      filter(int > 5) %>%
-      select(int, lgl) %>%
-      map_batches(~ .$Take(0)) %>%
-      arrange(int) %>%
+    ds |>
+      filter(int > 5) |>
+      select(int, lgl) |>
+      map_batches(~ .$Take(0)) |>
+      arrange(int) |>
       collect(),
     tibble(int = c(6, 101), lgl = c(TRUE, TRUE))
   )
 
   # Do things in R and put back into Arrow
   expect_equal(
-    ds %>%
-      filter(int < 5) %>%
-      select(int) %>%
+    ds |>
+      filter(int < 5) |>
+      select(int) |>
       map_batches(
-        # as_mapper() can't handle %>%?
+        # as_mapper() can't handle |>?
         ~ mutate(as.data.frame(.), lets = letters[int])
-      ) %>%
-      arrange(int) %>%
+      ) |>
+      arrange(int) |>
       collect(),
     tibble(int = 1:4, lets = letters[1:4])
   )
@@ -806,19 +812,19 @@ test_that("head/tail", {
   big_df <- rbind(df1, df2)
 
   # No n provided (default is 6, all from one batch)
-  expect_equal(as.data.frame(head(ds)), head(df1))
-  expect_equal(as.data.frame(tail(ds)), tail(df2))
+  expect_equal_data_frame(head(ds), head(df1))
+  expect_equal_data_frame(tail(ds), tail(df2))
 
   # n = 0: have to drop `fct` because factor levels don't come through from
   # arrow when there are 0 rows
   zero_df <- big_df[FALSE, names(big_df) != "fct"]
-  expect_equal(as.data.frame(head(ds, 0))[, names(ds) != "fct"], zero_df)
-  expect_equal(as.data.frame(tail(ds, 0))[, names(ds) != "fct"], zero_df)
+  expect_equal_data_frame(as.data.frame(head(ds, 0))[, names(ds) != "fct"], zero_df)
+  expect_equal_data_frame(as.data.frame(tail(ds, 0))[, names(ds) != "fct"], zero_df)
 
   # Two more cases: more than 1 batch, and more than nrow
   for (n in c(12, 1000)) {
-    expect_equal(as.data.frame(head(ds, n)), head(big_df, n))
-    expect_equal(as.data.frame(tail(ds, n)), tail(big_df, n))
+    expect_equal_data_frame(head(ds, n), head(big_df, n))
+    expect_equal_data_frame(tail(ds, n), tail(big_df, n))
   }
   expect_error(head(ds, -1)) # Not yet implemented
   expect_error(tail(ds, -1)) # Not yet implemented
@@ -836,8 +842,8 @@ test_that("unique()", {
   expect_s3_class(unique(rbr), "arrow_dplyr_query")
 
   # on a arrow_dplyr_query
-  adq_eg <- ds %>%
-    select(fct) %>%
+  adq_eg <- ds |>
+    select(fct) |>
     unique()
   expect_s3_class(adq_eg, "arrow_dplyr_query")
 
@@ -846,14 +852,14 @@ test_that("unique()", {
 
   # on a arrow table
   expect_equal(
-    at %>%
-      unique() %>%
+    at |>
+      unique() |>
       collect(),
     unique(in_r_mem)
   )
   expect_equal(
-    rbr %>%
-      unique() %>%
+    rbr |>
+      unique() |>
       collect(),
     unique(in_r_mem)
   )
@@ -864,18 +870,18 @@ test_that("unique()", {
 test_that("Dataset [ (take by index)", {
   ds <- open_dataset(dataset_dir)
   # Taking only from one file
-  expect_equal(
-    as.data.frame(ds[c(4, 5, 9), 3:4]),
+  expect_equal_data_frame(
+    ds[c(4, 5, 9), 3:4],
     df1[c(4, 5, 9), 3:4]
   )
   # Taking from more than one
-  expect_equal(
-    as.data.frame(ds[c(4, 5, 9, 12, 13), 3:4]),
+  expect_equal_data_frame(
+    ds[c(4, 5, 9, 12, 13), 3:4],
     rbind(df1[c(4, 5, 9), 3:4], df2[2:3, 3:4])
   )
   # Taking out of order
-  expect_equal(
-    as.data.frame(ds[c(4, 13, 9, 12, 5), ]),
+  expect_equal_data_frame(
+    ds[c(4, 13, 9, 12, 5), ],
     rbind(
       df1[4, ],
       df2[3, ],
@@ -886,11 +892,11 @@ test_that("Dataset [ (take by index)", {
   )
 
   # Take from a query
-  ds2 <- ds %>%
-    filter(int > 6) %>%
+  ds2 <- ds |>
+    filter(int > 6) |>
     select(int, lgl)
-  expect_equal(
-    as.data.frame(ds2[c(2, 5), ]),
+  expect_equal_data_frame(
+    ds2[c(2, 5), ],
     rbind(
       df1[8, c("int", "lgl")],
       df2[1, c("int", "lgl")]
@@ -900,15 +906,20 @@ test_that("Dataset [ (take by index)", {
 
 test_that("Dataset and query print methods", {
   ds <- open_dataset(hive_dir)
+
+  # See https://github.com/apache/arrow/pull/45685#discussion_r1991143334
+  dict_index_type <- ifelse(arrow_cpp_version_at_least("20.0.0"), "int8", "int32")
+
   expect_output(
     print(ds),
     paste(
       "FileSystemDataset with 2 Parquet files",
+      "8 columns",
       "int: int32",
       "dbl: double",
       "lgl: bool",
       "chr: string",
-      "fct: dictionary<values=string, indices=int32>",
+      paste("fct: dictionary<values=string, indices=", dict_index_type, ">", sep = ""),
       "ts: timestamp[us, tz=UTC]",
       "group: int32",
       "other: string",
@@ -932,7 +943,7 @@ test_that("Dataset and query print methods", {
     fixed = TRUE
   )
   expect_output(
-    print(q %>% filter(integer == 6) %>% group_by(lgl)),
+    print(q |> filter(integer == 6) |> group_by(lgl)),
     paste(
       "Dataset (query)",
       "string: string",
@@ -957,13 +968,15 @@ test_that("Can delete filesystem dataset files after collection", {
   write_dataset(ds0, dataset_dir2)
 
   ds <- open_dataset(dataset_dir2)
-  collected <- ds %>% arrange(int) %>% collect()
+  collected <- ds |>
+    arrange(int) |>
+    collect()
   unlink(dataset_dir2, recursive = TRUE)
   expect_false(dir.exists(dataset_dir2))
 
   expect_identical(
     collected,
-    ds0 %>% arrange(int) %>% collect()
+    ds0 |> arrange(int) |> collect()
   )
 
   # Also try with head(), since this creates a nested query whose interior
@@ -971,13 +984,17 @@ test_that("Can delete filesystem dataset files after collection", {
   # dataset
   write_dataset(ds0, dataset_dir2)
   ds <- open_dataset(dataset_dir2)
-  collected <- ds %>% arrange(int) %>% head() %>% arrange(int) %>% collect()
+  collected <- ds |>
+    arrange(int) |>
+    head() |>
+    arrange(int) |>
+    collect()
   unlink(dataset_dir2, recursive = TRUE)
   expect_false(dir.exists(dataset_dir2))
 
   expect_identical(
     collected,
-    ds0 %>% arrange(int) %>% head() %>% arrange(int) %>% collect()
+    ds0 |> arrange(int) |> head() |> arrange(int) |> collect()
   )
 })
 
@@ -985,24 +1002,24 @@ test_that("Scanner$ScanBatches", {
   ds <- open_dataset(ipc_dir, format = "feather")
   batches <- ds$NewScan()$Finish()$ScanBatches()
   table <- Table$create(!!!batches)
-  expect_equal(as.data.frame(table), rbind(df1, df2))
+  expect_equal_data_frame(table, rbind(df1, df2))
 
   batches <- ds$NewScan()$Finish()$ScanBatches()
   table <- Table$create(!!!batches)
-  expect_equal(as.data.frame(table), rbind(df1, df2))
+  expect_equal_data_frame(table, rbind(df1, df2))
 })
 
 test_that("Scanner$ToRecordBatchReader()", {
   ds <- open_dataset(dataset_dir, partitioning = "part")
-  scan <- ds %>%
-    filter(part == 1) %>%
-    select(int, lgl) %>%
-    filter(int > 6) %>%
+  scan <- ds |>
+    filter(part == 1) |>
+    select(int, lgl) |>
+    filter(int > 6) |>
     Scanner$create()
   reader <- scan$ToRecordBatchReader()
   expect_r6_class(reader, "RecordBatchReader")
-  expect_identical(
-    as.data.frame(reader$read_table()),
+  expect_equal_data_frame(
+    reader$read_table(),
     df1[df1$int > 6, c("int", "lgl")]
   )
 })
@@ -1011,18 +1028,18 @@ test_that("Scanner$create() filter/projection pushdown", {
   ds <- open_dataset(dataset_dir, partitioning = "part")
 
   # the standard to compare all Scanner$create()s against
-  scan_one <- ds %>%
-    filter(int > 7 & dbl < 57) %>%
-    select(int, dbl, lgl) %>%
-    mutate(int_plus = int + 1, dbl_minus = dbl - 1) %>%
+  scan_one <- ds |>
+    filter(int > 7 & dbl < 57) |>
+    select(int, dbl, lgl) |>
+    mutate(int_plus = int + 1, dbl_minus = dbl - 1) |>
     Scanner$create()
 
   # select a column in projection
-  scan_two <- ds %>%
-    filter(int > 7 & dbl < 57) %>%
+  scan_two <- ds |>
+    filter(int > 7 & dbl < 57) |>
     # select an extra column, since we are going to
-    select(int, dbl, lgl, chr) %>%
-    mutate(int_plus = int + 1, dbl_minus = dbl - 1) %>%
+    select(int, dbl, lgl, chr) |>
+    mutate(int_plus = int + 1, dbl_minus = dbl - 1) |>
     Scanner$create(projection = c("int", "dbl", "lgl", "int_plus", "dbl_minus"))
   expect_identical(
     as.data.frame(scan_one$ToRecordBatchReader()$read_table()),
@@ -1030,10 +1047,10 @@ test_that("Scanner$create() filter/projection pushdown", {
   )
 
   # adding filters to Scanner$create
-  scan_three <- ds %>%
-    filter(int > 7) %>%
-    select(int, dbl, lgl) %>%
-    mutate(int_plus = int + 1, dbl_minus = dbl - 1) %>%
+  scan_three <- ds |>
+    filter(int > 7) |>
+    select(int, dbl, lgl) |>
+    mutate(int_plus = int + 1, dbl_minus = dbl - 1) |>
     Scanner$create(
       filter = Expression$create("less", Expression$field_ref("dbl"), Expression$scalar(57))
     )
@@ -1043,8 +1060,8 @@ test_that("Scanner$create() filter/projection pushdown", {
   )
 
   expect_error(
-    ds %>%
-      select(int, dbl, lgl) %>%
+    ds |>
+      select(int, dbl, lgl) |>
       Scanner$create(projection = "not_a_col"),
     # Full message is "attempting to project with unknown columns" >= 4.0.0, but
     # prior versions have a less nice "all(projection %in% names(proj)) is not TRUE"
@@ -1052,8 +1069,8 @@ test_that("Scanner$create() filter/projection pushdown", {
   )
 
   expect_error(
-    ds %>%
-      select(int, dbl, lgl) %>%
+    ds |>
+      select(int, dbl, lgl) |>
       Scanner$create(filter = list("foo", "bar")),
     "filter expressions must be either an expression or a list of expressions"
   )
@@ -1072,14 +1089,14 @@ test_that("Assembling a Dataset manually and getting a Table", {
   expect_r6_class(schm, "Schema")
 
   phys_schm <- ParquetFileReader$create(files[1])$GetSchema()
-  expect_equal(names(phys_schm), names(df1))
-  expect_equal(names(schm), c(names(phys_schm), "part"))
+  expect_named(phys_schm, names(df1))
+  expect_named(schm, c(names(phys_schm), "part"))
 
   child <- factory$Finish(schm)
   expect_r6_class(child, "FileSystemDataset")
   expect_r6_class(child$schema, "Schema")
   expect_r6_class(child$format, "ParquetFileFormat")
-  expect_equal(names(schm), names(child$schema))
+  expect_named(schm, names(child$schema))
   expect_equal(child$files, files)
 
   ds <- Dataset$create(list(child), schm)
@@ -1099,12 +1116,12 @@ test_that("Assembling multiple DatasetFactories with DatasetFactory", {
   expect_r6_class(schm, "Schema")
 
   phys_schm <- ParquetFileReader$create(files[1])$GetSchema()
-  expect_equal(names(phys_schm), names(df1))
+  expect_named(phys_schm, names(df1))
 
   ds <- factory$Finish(schm)
   expect_r6_class(ds, "UnionDataset")
   expect_r6_class(ds$schema, "Schema")
-  expect_equal(names(schm), names(ds$schema))
+  expect_named(schm, names(ds$schema))
   expect_equal(unlist(map(ds$children, ~ .$files)), files)
 
   expect_scan_result(ds, schm)
@@ -1119,7 +1136,7 @@ test_that("Collecting zero columns from a dataset doesn't return entire dataset"
   tmp <- tempfile()
   write_dataset(mtcars, tmp, format = "parquet")
   expect_equal(
-    open_dataset(tmp) %>% select() %>% collect() %>% dim(),
+    open_dataset(tmp) |> select() |> collect() |> dim(),
     c(32, 0)
   )
 })
@@ -1134,15 +1151,15 @@ test_that("dataset RecordBatchReader to C-interface to arrow_dplyr_query", {
   reader$export_to_c(stream_ptr)
 
   expect_equal(
-    RecordBatchStreamReader$import_from_c(stream_ptr) %>%
-      filter(int < 8 | int > 55) %>%
-      mutate(part_plus = group + 6) %>%
-      arrange(dbl) %>%
+    RecordBatchStreamReader$import_from_c(stream_ptr) |>
+      filter(int < 8 | int > 55) |>
+      mutate(part_plus = group + 6) |>
+      arrange(dbl) |>
       collect(),
-    ds %>%
-      filter(int < 8 | int > 55) %>%
-      mutate(part_plus = group + 6) %>%
-      arrange(dbl) %>%
+    ds |>
+      filter(int < 8 | int > 55) |>
+      mutate(part_plus = group + 6) |>
+      arrange(dbl) |>
       collect()
   )
 
@@ -1154,7 +1171,7 @@ test_that("dataset to C-interface to arrow_dplyr_query with proj/filter", {
   ds <- open_dataset(hive_dir)
 
   # filter the dataset
-  ds <- ds %>%
+  ds <- ds |>
     filter(int > 2)
 
   # export the RecordBatchReader via the C-interface
@@ -1174,14 +1191,14 @@ test_that("dataset to C-interface to arrow_dplyr_query with proj/filter", {
   reader_adq <- arrow_dplyr_query(circle)
 
   expect_equal(
-    reader_adq %>%
-      mutate(part_plus = group + 6) %>%
-      arrange(dbl) %>%
+    reader_adq |>
+      mutate(part_plus = group + 6) |>
+      arrange(dbl) |>
       collect(),
-    ds %>%
-      filter(int < 8, int > 2) %>%
-      mutate(part_plus = group + 6) %>%
-      arrange(dbl) %>%
+    ds |>
+      filter(int < 8, int > 2) |>
+      mutate(part_plus = group + 6) |>
+      arrange(dbl) |>
       collect()
   )
 
@@ -1197,20 +1214,20 @@ test_that("Filter parquet dataset with is.na ARROW-15312", {
 
   # OK: Collect then filter: returns row 3, as expected
   expect_identical(
-    open_dataset(ds_path) %>% collect() %>% filter(is.na(y)),
-    df %>% collect() %>% filter(is.na(y))
+    open_dataset(ds_path) |> collect() |> filter(is.na(y)),
+    df |> collect() |> filter(is.na(y))
   )
 
   # Before the fix: Filter then collect on y returned a 0-row tibble
   expect_identical(
-    open_dataset(ds_path) %>% filter(is.na(y)) %>% collect(),
-    df %>% filter(is.na(y)) %>% collect()
+    open_dataset(ds_path) |> filter(is.na(y)) |> collect(),
+    df |> filter(is.na(y)) |> collect()
   )
 
   # OK: Filter then collect (on z) returns row 3, as expected
   expect_identical(
-    open_dataset(ds_path) %>% filter(is.na(z)) %>% collect(),
-    df %>% filter(is.na(z)) %>% collect()
+    open_dataset(ds_path) |> filter(is.na(z)) |> collect(),
+    df |> filter(is.na(z)) |> collect()
   )
 })
 
@@ -1226,9 +1243,9 @@ test_that("FileSystemFactoryOptions with DirectoryPartitioning", {
     factory_options = list(partition_base_dir = ds_path)
   )
   expect_equal(
-    ds %>%
-      arrange(cyl) %>%
-      pull(cyl) %>%
+    ds |>
+      arrange(cyl) |>
+      pull(cyl) |>
       as.vector(),
     sort(mtcars$cyl)
   )
@@ -1245,9 +1262,9 @@ test_that("FileSystemFactoryOptions with DirectoryPartitioning", {
     )
   )
   expect_equal(
-    ds %>%
-      arrange(cyl) %>%
-      pull(cyl) %>%
+    ds |>
+      arrange(cyl) |>
+      pull(cyl) |>
       as.vector(),
     sort(mtcars$cyl)
   )
@@ -1262,9 +1279,9 @@ test_that("FileSystemFactoryOptions with DirectoryPartitioning", {
     )
   )
   expect_equal(
-    ds %>%
-      arrange(cyl) %>%
-      pull(cyl) %>%
+    ds |>
+      arrange(cyl) |>
+      pull(cyl) |>
       as.vector(),
     sort(mtcars$cyl)
   )
@@ -1281,9 +1298,9 @@ test_that("FileSystemFactoryOptions with DirectoryPartitioning", {
     )
   )
   expect_equal(
-    ds %>%
-      arrange(cyl) %>%
-      pull(cyl) %>%
+    ds |>
+      arrange(cyl) |>
+      pull(cyl) |>
       as.vector(),
     sort(mtcars$cyl)
   )
@@ -1296,11 +1313,11 @@ test_that("FileSystemFactoryOptions with DirectoryPartitioning", {
     )
   )
   expect_equal(
-    ds %>%
-      summarize(sum(gear)) %>%
-      collect() %>%
+    ds |>
+      summarize(sum(gear)) |>
+      collect() |>
       as.data.frame(),
-    mtcars %>%
+    mtcars |>
       summarize(sum(gear))
   )
 })
@@ -1316,9 +1333,9 @@ test_that("FileSystemFactoryOptions with HivePartitioning", {
   # With Hive partitioning, partition_base_dir isn't needed
   expect_setequal(names(ds), names(mtcars))
   expect_equal(
-    ds %>%
-      arrange(cyl) %>%
-      pull(cyl) %>%
+    ds |>
+      arrange(cyl) |>
+      pull(cyl) |>
       as.vector(),
     sort(mtcars$cyl)
   )
@@ -1333,9 +1350,9 @@ test_that("FileSystemFactoryOptions with HivePartitioning", {
     )
   )
   expect_equal(
-    ds %>%
-      arrange(cyl) %>%
-      pull(cyl) %>%
+    ds |>
+      arrange(cyl) |>
+      pull(cyl) |>
       as.vector(),
     sort(mtcars$cyl)
   )
@@ -1348,9 +1365,9 @@ test_that("FileSystemFactoryOptions with HivePartitioning", {
     )
   )
   expect_equal(
-    ds %>%
-      arrange(cyl) %>%
-      pull(cyl) %>%
+    ds |>
+      arrange(cyl) |>
+      pull(cyl) |>
       as.vector(),
     sort(mtcars$cyl)
   )
@@ -1365,9 +1382,9 @@ test_that("FileSystemFactoryOptions with HivePartitioning", {
     )
   )
   expect_equal(
-    ds %>%
-      arrange(cyl) %>%
-      pull(cyl) %>%
+    ds |>
+      arrange(cyl) |>
+      pull(cyl) |>
       as.vector(),
     sort(mtcars$cyl)
   )
@@ -1418,8 +1435,8 @@ test_that("FileSystemFactoryOptions input validation", {
 test_that("can add in augmented fields", {
   ds <- open_dataset(hive_dir)
 
-  observed <- ds %>%
-    mutate(file_name = add_filename()) %>%
+  observed <- ds |>
+    mutate(file_name = add_filename()) |>
     collect()
 
   expect_named(
@@ -1434,14 +1451,15 @@ test_that("can add in augmented fields", {
 
   error_regex <- paste(
     "`add_filename()` or use of the `__filename` augmented field can only",
-    "be used with with Dataset objects, and can only be added before doing",
-    "an aggregation or a join."
+    "be used with Dataset objects, can only be added before doing",
+    "an aggregation or a join, and cannot be referenced in subsequent",
+    "pipeline steps until either compute() or collect() is called."
   )
 
   # errors appropriately with ArrowTabular objects
   expect_error(
-    arrow_table(mtcars) %>%
-      mutate(file = add_filename()) %>%
+    arrow_table(mtcars) |>
+      mutate(file = add_filename()) |>
       collect(),
     regexp = error_regex,
     fixed = TRUE
@@ -1449,9 +1467,9 @@ test_that("can add in augmented fields", {
 
   # errors appropriately with aggregation
   expect_error(
-    ds %>%
-      summarise(max_int = max(int)) %>%
-      mutate(file_name = add_filename()) %>%
+    ds |>
+      summarise(max_int = max(int)) |>
+      mutate(file_name = add_filename()) |>
       collect(),
     regexp = error_regex,
     fixed = TRUE
@@ -1460,9 +1478,9 @@ test_that("can add in augmented fields", {
   # joins to tables
   another_table <- select(example_data, int, dbl2)
   expect_error(
-    ds %>%
-      left_join(another_table, by = "int") %>%
-      mutate(file = add_filename()) %>%
+    ds |>
+      left_join(another_table, by = "int") |>
+      mutate(file = add_filename()) |>
       collect(),
     regexp = error_regex,
     fixed = TRUE
@@ -1474,18 +1492,18 @@ test_that("can add in augmented fields", {
   another_dataset <- write_dataset(another_table, another_dataset_dir)
 
   expect_error(
-    ds %>%
-      left_join(open_dataset(another_dataset_dir), by = "int") %>%
-      mutate(file = add_filename()) %>%
+    ds |>
+      left_join(open_dataset(another_dataset_dir), by = "int") |>
+      mutate(file = add_filename()) |>
       collect(),
     regexp = error_regex,
     fixed = TRUE
   )
 
   # this hits the implicit_schema path by joining afterwards
-  join_after <- ds %>%
-    mutate(file = add_filename()) %>%
-    left_join(open_dataset(another_dataset_dir), by = "int") %>%
+  join_after <- ds |>
+    mutate(file = add_filename()) |>
+    left_join(open_dataset(another_dataset_dir), by = "int") |>
     collect()
 
   expect_named(
@@ -1499,14 +1517,28 @@ test_that("can add in augmented fields", {
   )
 
   # another test on the explicit_schema path
-  summarise_after <- ds %>%
-    mutate(file = add_filename()) %>%
-    group_by(file) %>%
-    summarise(max_int = max(int)) %>%
+  summarise_after <- ds |>
+    mutate(file = add_filename()) |>
+    group_by(file) |>
+    summarise(max_int = max(int)) |>
     collect()
 
   expect_equal(
     sort(summarise_after$file),
     list.files(hive_dir, full.names = TRUE, recursive = TRUE)
+  )
+})
+
+test_that("can set thrift size string and container limits for datasets", {
+  expect_r6_class(open_dataset(dataset_dir, thrift_string_size_limit = 1000000), "FileSystemDataset")
+  expect_error(
+    open_dataset(dataset_dir, thrift_string_size_limit = 1),
+    "TProtocolException: Exceeded size limit"
+  )
+
+  expect_r6_class(open_dataset(dataset_dir, thrift_container_size_limit = 1000000), "FileSystemDataset")
+  expect_error(
+    open_dataset(dataset_dir, thrift_container_size_limit = 1),
+    "TProtocolException: Exceeded size limit"
   )
 })

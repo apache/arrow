@@ -20,11 +20,12 @@
 #include <mutex>
 
 #ifndef _WIN32
-#include <pthread.h>
-#include <atomic>
+#  include <pthread.h>
+#  include <atomic>
 #endif
 
-#include "arrow/util/logging.h"
+#include "arrow/util/config.h"
+#include "arrow/util/logging_internal.h"
 
 namespace arrow {
 namespace util {
@@ -35,9 +36,12 @@ struct Mutex::Impl {
 
 Mutex::Guard::Guard(Mutex* locked)
     : locked_(locked, [](Mutex* locked) {
+#ifdef ARROW_ENABLE_THREADING
         DCHECK(!locked->impl_->mutex_.try_lock());
+#endif
         locked->impl_->mutex_.unlock();
-      }) {}
+      }) {
+}
 
 Mutex::Guard Mutex::TryLock() {
   DCHECK_NE(impl_, nullptr);

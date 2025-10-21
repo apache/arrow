@@ -58,18 +58,11 @@ except ImportError:
     except ImportError:
         __version__ = None
 
-# ARROW-8684: Disable GC while initializing Cython extension module,
-# to workaround Cython bug in https://github.com/cython/cython/issues/3603
-_gc_enabled = _gc.isenabled()
-_gc.disable()
 import pyarrow.lib as _lib
-if _gc_enabled:
-    _gc.enable()
-
-from pyarrow.lib import (BuildInfo, RuntimeInfo, MonthDayNano,
-                         VersionInfo, cpp_build_info, cpp_version,
-                         cpp_version_info, runtime_info, cpu_count,
-                         set_cpu_count, enable_signal_handlers,
+from pyarrow.lib import (BuildInfo, CppBuildInfo, RuntimeInfo, set_timezone_db_path,
+                         MonthDayNano, VersionInfo, build_info, cpp_build_info,
+                         cpp_version, cpp_version_info, runtime_info,
+                         cpu_count, set_cpu_count, enable_signal_handlers,
                          io_thread_count, set_io_thread_count)
 
 
@@ -81,16 +74,18 @@ def show_versions():
         print(f"{label: <26}: {value: <8}")
 
     print("pyarrow version info\n--------------------")
-    print_entry("Package kind", cpp_build_info.package_kind
-                if len(cpp_build_info.package_kind) > 0
+    print_entry("Package kind", build_info.cpp_build_info.package_kind
+                if len(build_info.cpp_build_info.package_kind) > 0
                 else "not indicated")
-    print_entry("Arrow C++ library version", cpp_build_info.version)
+    print_entry("Arrow C++ library version", build_info.cpp_build_info.version)
     print_entry("Arrow C++ compiler",
-                f"{cpp_build_info.compiler_id} {cpp_build_info.compiler_version}")
-    print_entry("Arrow C++ compiler flags", cpp_build_info.compiler_flags)
-    print_entry("Arrow C++ git revision", cpp_build_info.git_id)
-    print_entry("Arrow C++ git description", cpp_build_info.git_description)
-    print_entry("Arrow C++ build type", cpp_build_info.build_type)
+                (f"{build_info.cpp_build_info.compiler_id} "
+                 f"{build_info.cpp_build_info.compiler_version}"))
+    print_entry("Arrow C++ compiler flags", build_info.cpp_build_info.compiler_flags)
+    print_entry("Arrow C++ git revision", build_info.cpp_build_info.git_id)
+    print_entry("Arrow C++ git description", build_info.cpp_build_info.git_description)
+    print_entry("Arrow C++ build type", build_info.cpp_build_info.build_type)
+    print_entry("PyArrow build type", build_info.build_type)
 
 
 def _module_is_available(module):
@@ -139,13 +134,14 @@ def show_info():
 
     print("\nOptional modules:")
     modules = ["csv", "cuda", "dataset", "feather", "flight", "fs", "gandiva", "json",
-               "orc", "parquet", "plasma"]
+               "orc", "parquet"]
     for module in modules:
         status = "Enabled" if _module_is_available(module) else "-"
         print(f"  {module: <20}: {status: <8}")
 
     print("\nFilesystems:")
-    filesystems = ["GcsFileSystem", "HadoopFileSystem", "S3FileSystem"]
+    filesystems = ["AzureFileSystem", "GcsFileSystem",
+                   "HadoopFileSystem", "S3FileSystem"]
     for fs in filesystems:
         status = "Enabled" if _filesystem_is_available(fs) else "-"
         print(f"  {fs: <20}: {status: <8}")
@@ -163,21 +159,28 @@ from pyarrow.lib import (null, bool_,
                          time32, time64, timestamp, date32, date64, duration,
                          month_day_nano_interval,
                          float16, float32, float64,
-                         binary, string, utf8,
+                         binary, string, utf8, binary_view, string_view,
                          large_binary, large_string, large_utf8,
-                         decimal128, decimal256,
-                         list_, large_list, map_, struct,
+                         decimal32, decimal64, decimal128, decimal256,
+                         list_, large_list, list_view, large_list_view,
+                         map_, struct,
                          union, sparse_union, dense_union,
                          dictionary,
+                         run_end_encoded,
+                         bool8, fixed_shape_tensor, json_, opaque, uuid,
                          field,
                          type_for_alias,
                          DataType, DictionaryType, StructType,
-                         ListType, LargeListType, MapType, FixedSizeListType,
-                         UnionType, SparseUnionType, DenseUnionType,
+                         ListType, LargeListType, FixedSizeListType,
+                         ListViewType, LargeListViewType,
+                         MapType, UnionType, SparseUnionType, DenseUnionType,
                          TimestampType, Time32Type, Time64Type, DurationType,
-                         FixedSizeBinaryType, Decimal128Type, Decimal256Type,
+                         FixedSizeBinaryType,
+                         Decimal32Type, Decimal64Type, Decimal128Type, Decimal256Type,
                          BaseExtensionType, ExtensionType,
-                         PyExtensionType, UnknownExtensionType,
+                         RunEndEncodedType, Bool8Type, FixedShapeTensorType,
+                         JsonType, OpaqueType, UuidType,
+                         UnknownExtensionType,
                          register_extension_type, unregister_extension_type,
                          DictionaryMemo,
                          KeyValueMetadata,
@@ -190,6 +193,7 @@ from pyarrow.lib import (null, bool_,
                          SparseCOOTensor, SparseCSRMatrix, SparseCSCMatrix,
                          SparseCSFTensor,
                          infer_type, from_numpy_dtype,
+                         arange,
                          NullArray,
                          NumericArray, IntegerArray, FloatingPointArray,
                          BooleanArray,
@@ -197,34 +201,45 @@ from pyarrow.lib import (null, bool_,
                          Int16Array, UInt16Array,
                          Int32Array, UInt32Array,
                          Int64Array, UInt64Array,
-                         ListArray, LargeListArray, MapArray,
-                         FixedSizeListArray, UnionArray,
+                         HalfFloatArray, FloatArray, DoubleArray,
+                         ListArray, LargeListArray, FixedSizeListArray,
+                         ListViewArray, LargeListViewArray,
+                         MapArray, UnionArray,
                          BinaryArray, StringArray,
                          LargeBinaryArray, LargeStringArray,
+                         BinaryViewArray, StringViewArray,
                          FixedSizeBinaryArray,
                          DictionaryArray,
                          Date32Array, Date64Array, TimestampArray,
                          Time32Array, Time64Array, DurationArray,
                          MonthDayNanoIntervalArray,
-                         Decimal128Array, Decimal256Array, StructArray, ExtensionArray,
+                         Decimal32Array, Decimal64Array, Decimal128Array, Decimal256Array,
+                         StructArray, ExtensionArray,
+                         RunEndEncodedArray, Bool8Array, FixedShapeTensorArray,
+                         JsonArray, OpaqueArray, UuidArray,
                          scalar, NA, _NULL as NULL, Scalar,
                          NullScalar, BooleanScalar,
                          Int8Scalar, Int16Scalar, Int32Scalar, Int64Scalar,
                          UInt8Scalar, UInt16Scalar, UInt32Scalar, UInt64Scalar,
                          HalfFloatScalar, FloatScalar, DoubleScalar,
-                         Decimal128Scalar, Decimal256Scalar,
+                         Decimal32Scalar, Decimal64Scalar, Decimal128Scalar, Decimal256Scalar,
                          ListScalar, LargeListScalar, FixedSizeListScalar,
+                         ListViewScalar, LargeListViewScalar,
                          Date32Scalar, Date64Scalar,
                          Time32Scalar, Time64Scalar,
                          TimestampScalar, DurationScalar,
                          MonthDayNanoIntervalScalar,
-                         BinaryScalar, LargeBinaryScalar,
-                         StringScalar, LargeStringScalar,
+                         BinaryScalar, LargeBinaryScalar, BinaryViewScalar,
+                         StringScalar, LargeStringScalar, StringViewScalar,
                          FixedSizeBinaryScalar, DictionaryScalar,
                          MapScalar, StructScalar, UnionScalar,
-                         ExtensionScalar)
+                         RunEndEncodedScalar, Bool8Scalar, ExtensionScalar,
+                         FixedShapeTensorScalar, JsonScalar, OpaqueScalar, UuidScalar)
 
 # Buffers, allocation
+from pyarrow.lib import (DeviceAllocationType, Device, MemoryManager,
+                         default_cpu_memory_manager)
+
 from pyarrow.lib import (Buffer, ResizableBuffer, foreign_buffer, py_buffer,
                          Codec, compress, decompress, allocate_buffer)
 
@@ -238,20 +253,19 @@ from pyarrow.lib import (MemoryPool, LoggingMemoryPool, ProxyMemoryPool,
 
 # I/O
 from pyarrow.lib import (NativeFile, PythonFile,
-                         BufferedInputStream, BufferedOutputStream,
+                         BufferedInputStream, BufferedOutputStream, CacheOptions,
                          CompressedInputStream, CompressedOutputStream,
                          TransformInputStream, transcoding_input_stream,
                          FixedSizeBufferWriter,
                          BufferReader, BufferOutputStream,
                          OSFile, MemoryMappedFile, memory_map,
                          create_memory_map, MockOutputStream,
-                         input_stream, output_stream)
-
-from pyarrow._hdfsio import HdfsFile, have_libhdfs
+                         input_stream, output_stream,
+                         have_libhdfs)
 
 from pyarrow.lib import (ChunkedArray, RecordBatch, Table, table,
                          concat_arrays, concat_tables, TableGroupBy,
-                         RecordBatchReader)
+                         RecordBatchReader, concat_batches)
 
 # Exceptions
 from pyarrow.lib import (ArrowCancelled,
@@ -266,100 +280,10 @@ from pyarrow.lib import (ArrowCancelled,
                          ArrowTypeError,
                          ArrowSerializationError)
 
-# Serialization
-from pyarrow.lib import (deserialize_from, deserialize,
-                         deserialize_components,
-                         serialize, serialize_to, read_serialized,
-                         SerializationCallbackError,
-                         DeserializationCallbackError)
-
-import pyarrow.hdfs as hdfs
-
 from pyarrow.ipc import serialize_pandas, deserialize_pandas
 import pyarrow.ipc as ipc
 
-from pyarrow.serialization import (default_serialization_context,
-                                   register_default_serialization_handlers,
-                                   register_torch_serialization_handlers)
-
 import pyarrow.types as types
-
-
-# deprecated top-level access
-
-
-from pyarrow.filesystem import FileSystem as _FileSystem
-from pyarrow.filesystem import LocalFileSystem as _LocalFileSystem
-from pyarrow.hdfs import HadoopFileSystem as _HadoopFileSystem
-
-from pyarrow.lib import SerializationContext as _SerializationContext
-from pyarrow.lib import SerializedPyObject as _SerializedPyObject
-
-
-_localfs = _LocalFileSystem._get_instance()
-
-
-_msg = (
-    "pyarrow.{0} is deprecated as of 2.0.0, please use pyarrow.fs.{1} instead."
-)
-
-_serialization_msg = (
-    "'pyarrow.{0}' is deprecated and will be removed in a future version. "
-    "Use pickle or the pyarrow IPC functionality instead."
-)
-
-_deprecated = {
-    "localfs": (_localfs, "LocalFileSystem"),
-    "FileSystem": (_FileSystem, "FileSystem"),
-    "LocalFileSystem": (_LocalFileSystem, "LocalFileSystem"),
-    "HadoopFileSystem": (_HadoopFileSystem, "HadoopFileSystem"),
-}
-
-_serialization_deprecatd = {
-    "SerializationContext": _SerializationContext,
-    "SerializedPyObject": _SerializedPyObject,
-}
-
-
-def __getattr__(name):
-    if name in _deprecated:
-        obj, new_name = _deprecated[name]
-        _warnings.warn(_msg.format(name, new_name),
-                       FutureWarning, stacklevel=2)
-        return obj
-    elif name in _serialization_deprecatd:
-        _warnings.warn(_serialization_msg.format(name),
-                       FutureWarning, stacklevel=2)
-        return _serialization_deprecatd[name]
-
-    raise AttributeError(
-        "module 'pyarrow' has no attribute '{0}'".format(name)
-    )
-
-
-# Entry point for starting the plasma store
-
-
-def _plasma_store_entry_point():
-    """
-    DEPRECATED: Entry point for starting the plasma store.
-
-    This can be used by invoking e.g.
-    ``plasma_store -s /tmp/plasma -m 1000000000``
-    from the command line and will start the plasma_store executable with the
-    given arguments.
-
-    .. deprecated:: 10.0.0
-       Plasma is deprecated since Arrow 10.0.0. It will be removed in 12.0.0 or so.
-    """
-    _warnings.warn(
-        "Plasma is deprecated since Arrow 10.0.0. It will be removed in 12.0.0 or so.",
-        DeprecationWarning)
-
-    import pyarrow
-    plasma_store_executable = _os.path.join(pyarrow.__path__[0],
-                                            "plasma-store-server")
-    _os.execv(plasma_store_executable, _sys.argv)
 
 
 # ----------------------------------------------------------------------
@@ -487,7 +411,7 @@ def get_library_dirs():
                 if not library_dir.startswith("-L"):
                     raise ValueError(
                         "pkg-config --libs-only-L returned unexpected "
-                        "value {!r}".format(library_dir))
+                        f"value {library_dir!r}")
                 append_library_dir(library_dir[2:])
 
     if _sys.platform == 'win32':
@@ -498,6 +422,14 @@ def get_library_dirs():
 
         if _os.path.exists(_os.path.join(library_dir, 'arrow.lib')):
             append_library_dir(library_dir)
+
+        # GH-45530: Add pyarrow.libs dir containing delvewheel-mangled
+        # msvcp140.dll
+        pyarrow_libs_dir = _os.path.abspath(
+            _os.path.join(_os.path.dirname(__file__), _os.pardir, "pyarrow.libs")
+        )
+        if _os.path.exists(pyarrow_libs_dir):
+            append_library_dir(pyarrow_libs_dir)
 
     # ARROW-4074: Allow for ARROW_HOME to be set to some other directory
     if _os.environ.get('ARROW_HOME'):

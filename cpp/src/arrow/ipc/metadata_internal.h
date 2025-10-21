@@ -60,13 +60,13 @@ using KVVector = flatbuffers::Vector<KeyValueOffset>;
 constexpr int32_t kIpcContinuationToken = -1;
 
 static constexpr flatbuf::MetadataVersion kCurrentMetadataVersion =
-    flatbuf::MetadataVersion::V5;
+    flatbuf::MetadataVersion::MetadataVersion_V5;
 
 static constexpr flatbuf::MetadataVersion kLatestMetadataVersion =
-    flatbuf::MetadataVersion::V5;
+    flatbuf::MetadataVersion::MetadataVersion_V5;
 
 static constexpr flatbuf::MetadataVersion kMinMetadataVersion =
-    flatbuf::MetadataVersion::V4;
+    flatbuf::MetadataVersion::MetadataVersion_V4;
 
 // These functions are used in unit tests
 ARROW_EXPORT
@@ -201,7 +201,8 @@ Status WriteRecordBatchMessage(
     const int64_t length, const int64_t body_length,
     const std::shared_ptr<const KeyValueMetadata>& custom_metadata,
     const std::vector<FieldMetadata>& nodes, const std::vector<BufferMetadata>& buffers,
-    const IpcWriteOptions& options, std::shared_ptr<Buffer>* out);
+    const std::vector<int64_t>& variadic_counts, const IpcWriteOptions& options,
+    std::shared_ptr<Buffer>* out);
 
 ARROW_EXPORT
 Result<std::shared_ptr<Buffer>> WriteTensorMessage(const Tensor& tensor,
@@ -225,7 +226,8 @@ Status WriteDictionaryMessage(
     const int64_t body_length,
     const std::shared_ptr<const KeyValueMetadata>& custom_metadata,
     const std::vector<FieldMetadata>& nodes, const std::vector<BufferMetadata>& buffers,
-    const IpcWriteOptions& options, std::shared_ptr<Buffer>* out);
+    const std::vector<int64_t>& variadic_counts, const IpcWriteOptions& options,
+    std::shared_ptr<Buffer>* out);
 
 static inline Result<std::shared_ptr<Buffer>> WriteFlatbufferBuilder(
     flatbuffers::FlatBufferBuilder& fbb,  // NOLINT non-const reference
@@ -236,7 +238,8 @@ static inline Result<std::shared_ptr<Buffer>> WriteFlatbufferBuilder(
 
   uint8_t* dst = result->mutable_data();
   memcpy(dst, fbb.GetBufferPointer(), size);
-  return std::move(result);
+  // R build with openSUSE155 requires an explicit shared_ptr construction
+  return std::shared_ptr<Buffer>(std::move(result));
 }
 
 ARROW_EXPORT

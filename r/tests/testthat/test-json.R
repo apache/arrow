@@ -80,10 +80,10 @@ test_that("read_json_arrow() supports col_select=", {
   ', tf)
 
   tab1 <- read_json_arrow(tf, col_select = c(hello, world))
-  expect_equal(names(tab1), c("hello", "world"))
+  expect_named(tab1, c("hello", "world"))
 
   tab2 <- read_json_arrow(tf, col_select = 1:2)
-  expect_equal(names(tab2), c("hello", "world"))
+  expect_named(tab2, c("hello", "world"))
 })
 
 test_that("read_json_arrow(schema=) with empty schema", {
@@ -252,4 +252,13 @@ test_that("Can read json file with list<struct<T...>> nested columns (ARROW-7740
   one <- tibble::tibble(b = c(1, 2))
   expected <- tibble::tibble(a = c(list(one), list(one)))
   expect_equal(read_json_arrow(tf), expected, ignore_attr = TRUE)
+})
+
+test_that("Read literal data directly", {
+  expected <- tibble::tibble(x = c(1L, 3L), y = c(2L, 4L))
+
+  expect_identical(read_json_arrow(I('{"x": 1, "y": 2}\n{"x": 3, "y": 4}')), expected)
+  expect_identical(read_json_arrow(charToRaw('{"x": 1, "y": 2}\n{"x": 3, "y": 4}')), expected)
+  expect_identical(read_json_arrow(I(charToRaw('{"x": 1, "y": 2}\n{"x": 3, "y": 4}'))), expected)
+  expect_identical(read_json_arrow(I(c('{"x": 1, "y": 2}', '{"x": 3, "y": 4}'))), expected)
 })

@@ -248,6 +248,7 @@ test_that("ChunkedArray supports empty arrays (ARROW-13761)", {
     int8(), int16(), int32(), int64(), uint8(), uint16(), uint32(),
     uint64(), float32(), float64(), timestamp("ns"), binary(),
     large_binary(), fixed_size_binary(32), date32(), date64(),
+    decimal32(4, 2), decimal64(4, 2),
     decimal128(4, 2), decimal256(4, 2),
     dictionary(), struct(x = int32())
   )
@@ -463,22 +464,15 @@ test_that("Converting a chunked array unifies factors (ARROW-8374)", {
 })
 
 test_that("Handling string data with embedded nuls", {
-  raws <- structure(list(
+  raws <- blob::as_blob(list(
     as.raw(c(0x70, 0x65, 0x72, 0x73, 0x6f, 0x6e)),
     as.raw(c(0x77, 0x6f, 0x6d, 0x61, 0x6e)),
     as.raw(c(0x6d, 0x61, 0x00, 0x6e)), # <-- there's your nul, 0x00
     as.raw(c(0x66, 0x00, 0x00, 0x61, 0x00, 0x6e)), # multiple nuls
     as.raw(c(0x63, 0x61, 0x6d, 0x65, 0x72, 0x61)),
     as.raw(c(0x74, 0x76))
-  ),
-  class = c("arrow_binary", "vctrs_vctr", "list")
-  )
+  ))
   chunked_array_with_nul <- ChunkedArray$create(raws)$cast(utf8())
-
-  # The behavior of the warnings/errors is slightly different with and without
-  # altrep. Without it (i.e. 3.5.0 and below, the error would trigger immediately
-  # on `as.vector()` where as with it, the error only happens on materialization)
-  skip_on_r_older_than("3.6")
 
   v <- expect_error(as.vector(chunked_array_with_nul), NA)
 

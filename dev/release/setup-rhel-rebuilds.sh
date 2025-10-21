@@ -27,7 +27,7 @@ dnf -y install 'dnf-command(config-manager)'
 dnf config-manager --set-enabled powertools
 dnf -y update
 dnf -y module disable nodejs
-dnf -y module enable nodejs:16
+dnf -y module enable nodejs:18
 dnf -y module disable ruby
 dnf -y module enable ruby:2.7
 dnf -y groupinstall "Development Tools"
@@ -35,17 +35,14 @@ dnf -y install \
   cmake \
   git \
   gobject-introspection-devel \
-  java-1.8.0-openjdk-devel \
   libcurl-devel \
   llvm-devel \
   llvm-toolset \
-  maven \
   ncurses-devel \
   ninja-build \
   nodejs \
   openssl-devel \
-  python38-devel \
-  python38-pip \
+  python3.12-devel \
   ruby-devel \
   sqlite-devel \
   vala-devel \
@@ -54,5 +51,4 @@ dnf -y install \
 
 npm install -g yarn
 
-python3 -m pip install -U pip
-alternatives --set python /usr/bin/python3
+python3 -m ensurepip --upgrade

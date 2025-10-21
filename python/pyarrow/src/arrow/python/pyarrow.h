@@ -75,7 +75,12 @@ DECLARE_WRAP_FUNCTIONS(table, Table)
 
 namespace internal {
 
+// If status is ok, return 0.
+// If status is not ok, set Python error indicator and return -1.
 ARROW_PYTHON_EXPORT int check_status(const Status& status);
+
+// Convert status to a Python exception object.  Status must not be ok.
+ARROW_PYTHON_EXPORT PyObject* convert_status(const Status& status);
 
 }  // namespace internal
 }  // namespace py

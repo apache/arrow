@@ -19,3 +19,5 @@ BasedOnStyle: Google
 ColumnLimit: 90
 DerivePointerAlignment: false
 IncludeBlocks: Preserve
+IndentPPDirectives: AfterHash
+QualifierAlignment: Left

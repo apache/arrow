@@ -18,8 +18,9 @@
 // Cast types to boolean
 
 #include "arrow/array/builder_primitive.h"
-#include "arrow/compute/kernels/common.h"
+#include "arrow/compute/kernels/common_internal.h"
 #include "arrow/compute/kernels/scalar_cast_internal.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/value_parsing.h"
 
 namespace arrow {
@@ -54,13 +55,18 @@ std::vector<std::shared_ptr<CastFunction>> GetBooleanCasts() {
 
   for (const auto& ty : NumericTypes()) {
     ArrayKernelExec exec =
-        GenerateNumeric<applicator::ScalarUnary, BooleanType, ArrayKernelExec, IsNonZero>(
-            *ty);
+        GenerateNumeric<applicator::ScalarUnary, BooleanType, IsNonZero>(*ty);
     DCHECK_OK(func->AddKernel(ty->id(), {ty}, boolean(), exec));
   }
   for (const auto& ty : BaseBinaryTypes()) {
     ArrayKernelExec exec = GenerateVarBinaryBase<applicator::ScalarUnaryNotNull,
                                                  BooleanType, ParseBooleanString>(*ty);
+    DCHECK_OK(func->AddKernel(ty->id(), {ty}, boolean(), exec));
+  }
+  for (const auto& ty : BinaryViewTypes()) {
+    ArrayKernelExec exec =
+        GenerateVarBinaryViewBase<applicator::ScalarUnaryNotNull, BooleanType,
+                                  ParseBooleanString>(*ty);
     DCHECK_OK(func->AddKernel(ty->id(), {ty}, boolean(), exec));
   }
   return {func};

@@ -22,10 +22,11 @@
 #'
 #' @inheritParams read_feather
 #' @param props [ParquetArrowReaderProperties]
+#' @param mmap Use TRUE to use memory mapping where possible
 #' @param ... Additional arguments passed to `ParquetFileReader$create()`
 #'
-#' @return A [arrow::Table][Table], or a `data.frame` if `as_data_frame` is
-#' `TRUE` (the default).
+#' @return A `tibble` if `as_data_frame` is `TRUE` (the default), or an
+#' Arrow [Table] otherwise.
 #' @examplesIf arrow_with_parquet() && !getFromNamespace("on_linux_dev", "arrow")()
 #' tf <- tempfile()
 #' on.exit(unlink(tf))
@@ -43,14 +44,15 @@ read_parquet <- function(file,
                          # Assembling `props` yourself is something you do with
                          # ParquetFileReader but not here.
                          props = ParquetArrowReaderProperties$create(),
+                         mmap = TRUE,
                          ...) {
   if (!inherits(file, "RandomAccessFile")) {
     # Compression is handled inside the parquet file format, so we don't need
     # to detect from the file extension and wrap in a CompressedInputStream
-    file <- make_readable_file(file)
+    file <- make_readable_file(file, mmap = mmap)
     on.exit(file$close())
   }
-  reader <- ParquetFileReader$create(file, props = props, ...)
+  reader <- ParquetFileReader$create(file, props = props, mmap = mmap, ...)
 
   col_select <- enquo(col_select)
   if (!quo_is_null(col_select)) {
@@ -70,7 +72,7 @@ read_parquet <- function(file,
   }
 
   if (as_data_frame) {
-    tab <- as.data.frame(tab)
+    tab <- collect.ArrowTabular(tab)
   }
   tab
 }
@@ -88,7 +90,7 @@ read_parquet <- function(file,
 #' article} for examples of this.
 #'
 #' @param x `data.frame`, [RecordBatch], or [Table]
-#' @param sink A string file path, URI, or [OutputStream], or path in a file
+#' @param sink A string file path, connection, URI, or [OutputStream], or path in a file
 #' system (`SubTreeFileSystem`)
 #' @param chunk_size how many rows of data to write to disk at once. This
 #'    directly corresponds to how many rows will be in each row group in
@@ -96,8 +98,8 @@ read_parquet <- function(file,
 #'    the number of columns and number of rows), though if the data has fewer
 #'    than 250 million cells (rows x cols), then the total number of rows is
 #'    used.
-#' @param version parquet version: "1.0", "2.0" (deprecated), "2.4" (default),
-#'    "2.6", or "latest" (currently equivalent to 2.6). Numeric values are
+#' @param version parquet version: "1.0", "2.4" (default), "2.6", or
+#'    "latest" (currently equivalent to 2.6). Numeric values are
 #'    coerced to character.
 #' @param compression compression algorithm. Default "snappy". See details.
 #' @param compression_level compression level. Meaning depends on compression
@@ -126,7 +128,7 @@ read_parquet <- function(file,
 #'  - A named vector, to specify the value for the named columns, the default
 #'    value for the setting is used when not supplied
 #'
-#' The `compression` argument can be any of the following (case insensitive):
+#' The `compression` argument can be any of the following (case-insensitive):
 #' "uncompressed", "snappy", "gzip", "brotli", "zstd", "lz4", "lzo" or "bz2".
 #' Only "uncompressed" is guaranteed to be available, but "snappy" and "gzip"
 #' are almost always included. See [codec_is_available()].
@@ -230,7 +232,6 @@ ParquetArrowWriterProperties$create <- function(use_deprecated_int96_timestamps 
 
 valid_parquet_version <- c(
   "1.0" = ParquetVersionType$PARQUET_1_0,
-  "2.0" = ParquetVersionType$PARQUET_2_0,
   "2.4" = ParquetVersionType$PARQUET_2_4,
   "2.6" = ParquetVersionType$PARQUET_2_6,
   "latest" = ParquetVersionType$PARQUET_2_6
@@ -250,15 +251,7 @@ make_valid_parquet_version <- function(version, valid_versions = valid_parquet_v
       call. = FALSE
     )
   }
-  out <- valid_versions[[arg_match(version, values = names(valid_versions))]]
-
-  if (identical(out, ParquetVersionType$PARQUET_2_0)) {
-    warning(
-      'Parquet format version "2.0" is deprecated. Use "2.4" or "2.6" to select format features.',
-      call. = FALSE
-    )
-  }
-  out
+  valid_versions[[arg_match(version, values = names(valid_versions))]]
 }
 
 #' @title ParquetWriterProperties class
@@ -417,6 +410,7 @@ ParquetWriterProperties$create <- function(column_names,
 #' @section Methods:
 #'
 #' - `WriteTable` Write a [Table] to `sink`
+#' - `WriteBatch` Write a [RecordBatch] to `sink`
 #' - `Close` Close the writer. Note: does not close the `sink`.
 #'   [arrow::io::OutputStream][OutputStream] has its own `close()` method.
 #'
@@ -426,7 +420,13 @@ ParquetFileWriter <- R6Class("ParquetFileWriter",
   inherit = ArrowObject,
   public = list(
     WriteTable = function(table, chunk_size) {
+      assert_is(table, "Table")
       parquet___arrow___FileWriter__WriteTable(self, table, chunk_size)
+    },
+    WriteBatch = function(batch, ...) {
+      assert_is(batch, "RecordBatch")
+      table <- Table$create(batch)
+      self$WriteTable(table, ...)
     },
     Close = function() parquet___arrow___FileWriter__Close(self)
   )
@@ -457,6 +457,7 @@ ParquetFileWriter$create <- function(schema,
 #'    (e.g. `RandomAccessFile`).
 #' - `props` Optional [ParquetArrowReaderProperties]
 #' - `mmap` Logical: whether to memory-map the file (default `TRUE`)
+#' - `reader_props` Optional [ParquetReaderProperties]
 #' - `...` Additional arguments, currently ignored
 #'
 #' @section Methods:
@@ -541,12 +542,13 @@ ParquetFileReader <- R6Class("ParquetFileReader",
 ParquetFileReader$create <- function(file,
                                      props = ParquetArrowReaderProperties$create(),
                                      mmap = TRUE,
+                                     reader_props = ParquetReaderProperties$create(),
                                      ...) {
   file <- make_readable_file(file, mmap)
   assert_is(props, "ParquetArrowReaderProperties")
   assert_is(file, "RandomAccessFile")
 
-  parquet___arrow___FileReader__OpenFile(file, props)
+  parquet___arrow___FileReader__OpenFile(file, props, reader_props)
 }
 
 #' @title ParquetArrowReaderProperties class
@@ -606,7 +608,6 @@ ParquetArrowReaderProperties$create <- function(use_threads = option_use_threads
 calculate_chunk_size <- function(rows, columns,
                                  target_cells_per_group = getOption("arrow.parquet_cells_per_group", 2.5e8),
                                  max_chunks = getOption("arrow.parquet_max_chunks", 200)) {
-
   # Ensure is a float to prevent integer overflow issues
   num_cells <- as.numeric(rows) * as.numeric(columns)
 
@@ -625,4 +626,48 @@ calculate_chunk_size <- function(rows, columns,
   chunk_size <- ceiling(rows / num_chunks)
 
   chunk_size
+}
+
+#' @title ParquetReaderProperties class
+#' @rdname ParquetReaderProperties
+#' @name ParquetReaderProperties
+#' @docType class
+#' @usage NULL
+#' @format NULL
+#' @description This class holds settings to control how a Parquet file is read
+#' by [ParquetFileReader].
+#'
+#' @section Factory:
+#'
+#' The `ParquetReaderProperties$create()` factory method instantiates the object
+#' and takes no arguments.
+#'
+#' @section Methods:
+#'
+#' - `$thrift_string_size_limit()`
+#' - `$set_thrift_string_size_limit()`
+#' - `$thrift_container_size_limit()`
+#' - `$set_thrift_container_size_limit()`
+#'
+#' @export
+ParquetReaderProperties <- R6Class("ParquetReaderProperties",
+  inherit = ArrowObject,
+  public = list(
+    thrift_string_size_limit = function() {
+      parquet___arrow___ReaderProperties__get_thrift_string_size_limit(self)
+    },
+    set_thrift_string_size_limit = function(size) {
+      parquet___arrow___ReaderProperties__set_thrift_string_size_limit(self, size)
+    },
+    thrift_container_size_limit = function() {
+      parquet___arrow___ReaderProperties__get_thrift_container_size_limit(self)
+    },
+    set_thrift_container_size_limit = function(size) {
+      parquet___arrow___ReaderProperties__set_thrift_container_size_limit(self, size)
+    }
+  )
+)
+
+ParquetReaderProperties$create <- function() {
+  parquet___arrow___ReaderProperties__Make()
 }

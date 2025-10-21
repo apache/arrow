@@ -21,9 +21,12 @@
 #include <optional>
 
 #include "arrow/compute/api_scalar.h"
-#include "arrow/compute/kernels/common.h"
+#include "arrow/compute/kernels/common_internal.h"
+#include "arrow/compute/registry_internal.h"
+#include "arrow/type.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_ops.h"
+#include "arrow/util/logging_internal.h"
 
 namespace arrow {
 
@@ -261,7 +264,7 @@ struct CompareKernel {
     DCHECK(kernel);
     const auto kernel_data = checked_cast<const CompareData*>(kernel->data.get());
 
-    ArraySpan* out_arr = out->array_span();
+    ArraySpan* out_arr = out->array_span_mutable();
 
     // TODO: implement path for offset not multiple of 8
     const bool out_is_byte_aligned = out_arr->offset % 8 == 0;
@@ -433,8 +436,8 @@ std::shared_ptr<ScalarFunction> MakeCompareFunction(std::string name, FunctionDo
 
   for (const auto id : {Type::DECIMAL128, Type::DECIMAL256}) {
     auto exec = GenerateDecimal<applicator::ScalarBinaryEqualTypes, BooleanType, Op>(id);
-    DCHECK_OK(
-        func->AddKernel({InputType(id), InputType(id)}, boolean(), std::move(exec)));
+    DCHECK_OK(func->AddKernel({InputType(id), InputType(id)}, boolean(), std::move(exec),
+                              /*init=*/nullptr, DecimalsHaveSameScale()));
   }
 
   {
@@ -490,8 +493,9 @@ template <typename OutType, typename Op>
 struct ScalarMinMax {
   using OutValue = typename GetOutputType<OutType>::T;
 
-  static void ExecScalar(const ExecSpan& batch,
-                         const ElementWiseAggregateOptions& options, Scalar* out) {
+  static Result<std::shared_ptr<Scalar>> ExecScalar(
+      const ExecSpan& batch, const ElementWiseAggregateOptions& options,
+      std::shared_ptr<DataType> type) {
     // All arguments are scalar
     OutValue value{};
     bool valid = false;
@@ -501,8 +505,8 @@ struct ScalarMinMax {
       const Scalar& scalar = *arg.scalar;
       if (!scalar.is_valid) {
         if (options.skip_nulls) continue;
-        out->is_valid = false;
-        return;
+        valid = false;
+        break;
       }
       if (!valid) {
         value = UnboxScalar<OutType>::Unbox(scalar);
@@ -512,9 +516,10 @@ struct ScalarMinMax {
             value, UnboxScalar<OutType>::Unbox(scalar));
       }
     }
-    out->is_valid = valid;
     if (valid) {
-      BoxScalar<OutType>::Box(value, out);
+      return MakeScalar(std::move(type), std::move(value));
+    } else {
+      return MakeNullScalar(std::move(type));
     }
   }
 
@@ -536,8 +541,7 @@ struct ScalarMinMax {
     bool initialize_output = true;
     if (scalar_count > 0) {
       ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Scalar> temp_scalar,
-                            MakeScalar(out->type()->GetSharedPtr(), 0));
-      ExecScalar(batch, options, temp_scalar.get());
+                            ExecScalar(batch, options, out->type()->GetSharedPtr()));
       if (temp_scalar->is_valid) {
         const auto value = UnboxScalar<OutType>::Unbox(*temp_scalar);
         initialize_output = false;
@@ -670,11 +674,7 @@ struct BinaryScalarMinMax {
         }
       }
 
-      if (result) {
-        RETURN_NOT_OK(builder.Append(*result));
-      } else {
-        builder.UnsafeAppendNull();
-      }
+      RETURN_NOT_OK(builder.AppendOrNull(result));
     }
 
     std::shared_ptr<Array> string_array;
@@ -803,6 +803,14 @@ std::shared_ptr<ScalarFunction> MakeScalarMinMax(std::string name, FunctionDoc d
     DCHECK_OK(func->AddKernel(std::move(kernel)));
   }
   for (const auto& ty : TemporalTypes()) {
+    auto exec = GeneratePhysicalNumeric<ScalarMinMax, Op>(ty);
+    ScalarKernel kernel{KernelSignature::Make({ty}, ty, /*is_varargs=*/true), exec,
+                        MinMaxState::Init};
+    kernel.null_handling = NullHandling::type::COMPUTED_NO_PREALLOCATE;
+    kernel.mem_allocation = MemAllocation::type::PREALLOCATE;
+    DCHECK_OK(func->AddKernel(std::move(kernel)));
+  }
+  for (const auto& ty : DurationTypes()) {
     auto exec = GeneratePhysicalNumeric<ScalarMinMax, Op>(ty);
     ScalarKernel kernel{KernelSignature::Make({ty}, ty, /*is_varargs=*/true), exec,
                         MinMaxState::Init};

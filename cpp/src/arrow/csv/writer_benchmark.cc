@@ -97,7 +97,7 @@ void BenchmarkWriteCsv(benchmark::State& state, const WriteOptions& options,
                        const RecordBatch& batch) {
   int64_t total_size = 0;
 
-  while (state.KeepRunning()) {
+  for (auto _ : state) {
     auto out = io::BufferOutputStream::Create().ValueOrDie();
     ABORT_NOT_OK(WriteCSV(batch, options, out.get()));
     auto buffer = out->Finish().ValueOrDie();
@@ -106,10 +106,11 @@ void BenchmarkWriteCsv(benchmark::State& state, const WriteOptions& options,
 
   // byte size of the generated csv dataset
   state.SetBytesProcessed(total_size);
+  state.SetItemsProcessed(state.iterations() * batch.num_columns() * batch.num_rows());
   state.counters["null_percent"] = static_cast<double>(state.range(0));
 }
 
-// Exercies UnQuotedColumnPopulator with integer
+// Exercises UnQuotedColumnPopulator with integer
 void WriteCsvNumeric(benchmark::State& state) {
   auto batch = MakeIntTestBatch(kCsvRows, kCsvCols, state.range(0));
   BenchmarkWriteCsv(state, WriteOptions::Defaults(), *batch);

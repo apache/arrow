@@ -8,7 +8,7 @@
     "id": 429706959,
     "node_id": "MDExOlB1bGxSZXF1ZXN0MjY3Nzg1NTUy",
     "number": 26,
-    "title": "Unittests for GithubHook + native asyncio syntax",
+    "title": "Unittests for GitHubHook + native asyncio syntax",
     "user": {
         "login": "kszucs",
         "id": 961747,
@@ -46,7 +46,7 @@
         "diff_url": "https://github.com/ursa-labs/ursabot/pull/26.diff",
         "patch_url": "https://github.com/ursa-labs/ursabot/pull/26.patch"
     },
-    "body": "Resolves:\r\n- #26 Unittests for GithubHook + native asyncio syntax\r\n- #27 Use native async/await keywords instead of @inlineCallbacks and yield\r\n",
+    "body": "Resolves:\r\n- #26 Unittests for GitHubHook + native asyncio syntax\r\n- #27 Use native async/await keywords instead of @inlineCallbacks and yield\r\n",
     "closed_by": {
         "login": "kszucs",
         "id": 961747,

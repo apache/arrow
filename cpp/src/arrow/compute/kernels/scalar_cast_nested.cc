@@ -18,23 +18,25 @@
 // Implementation of casting to (or between) list types
 
 #include <limits>
+#include <map>
 #include <utility>
 #include <vector>
 
 #include "arrow/array/builder_nested.h"
+#include "arrow/array/builder_primitive.h"
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/cast.h"
-#include "arrow/compute/kernels/common.h"
+#include "arrow/compute/kernels/common_internal.h"
 #include "arrow/compute/kernels/scalar_cast_internal.h"
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/int_util.h"
+#include "arrow/util/logging_internal.h"
 
 namespace arrow {
 
 using internal::CopyBitmap;
 
-namespace compute {
-namespace internal {
+namespace compute::internal {
 
 namespace {
 
@@ -111,17 +113,11 @@ struct CastList {
     const ArraySpan& in_array = batch[0].array;
 
     ArrayData* out_array = out->array_data().get();
-    out_array->buffers[0] = in_array.GetBuffer(0);
+    ARROW_ASSIGN_OR_RAISE(out_array->buffers[0],
+                          GetOrCopyNullBitmapBuffer(in_array, ctx->memory_pool()));
     out_array->buffers[1] = in_array.GetBuffer(1);
 
     std::shared_ptr<ArrayData> values = in_array.child_data[0].ToArrayData();
-
-    // Shift bitmap in case the source offset is non-zero
-    if (in_array.offset != 0 && in_array.buffers[0].data != nullptr) {
-      ARROW_ASSIGN_OR_RAISE(out_array->buffers[0],
-                            CopyBitmap(ctx->memory_pool(), in_array.buffers[0].data,
-                                       in_array.offset, in_array.length));
-    }
 
     RETURN_NOT_OK(HandleOffsets(ctx, in_array, out_array, &values));
 
@@ -144,6 +140,160 @@ void AddListCast(CastFunction* func) {
   kernel.null_handling = NullHandling::COMPUTED_NO_PREALLOCATE;
   DCHECK_OK(func->AddKernel(SrcType::type_id, std::move(kernel)));
 }
+
+template <typename DestType>
+struct CastFixedToVarList {
+  using dest_offset_type = typename DestType::offset_type;
+
+  static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+    const CastOptions& options = CastState::Get(ctx);
+
+    auto child_type = checked_cast<const DestType&>(*out->type()).value_type();
+
+    const ArraySpan& in_array = batch[0].array;
+
+    ArrayData* out_array = out->array_data().get();
+    ARROW_ASSIGN_OR_RAISE(out_array->buffers[0],
+                          GetOrCopyNullBitmapBuffer(in_array, ctx->memory_pool()));
+
+    const auto& in_type = checked_cast<const FixedSizeListType&>(*in_array.type);
+    const int32_t list_size = in_type.list_size();
+
+    // Allocate a new offsets buffer
+    ARROW_ASSIGN_OR_RAISE(out_array->buffers[1],
+                          ctx->Allocate(sizeof(dest_offset_type) * (batch.length + 1)));
+    auto* offsets = out_array->GetMutableValues<dest_offset_type>(1);
+    dest_offset_type offset = 0;
+    for (int64_t i = 0; i <= batch.length; ++i) {
+      offsets[i] = offset;
+      offset += list_size;
+    }
+
+    // Handle values
+    std::shared_ptr<ArrayData> values = in_array.child_data[0].ToArrayData();
+    if (in_array.offset > 0) {
+      values = values->Slice(in_array.offset * list_size, in_array.length * list_size);
+    }
+    ARROW_ASSIGN_OR_RAISE(Datum cast_values,
+                          Cast(values, child_type, options, ctx->exec_context()));
+    DCHECK(cast_values.is_array());
+    out_array->child_data.push_back(cast_values.array());
+
+    return Status::OK();
+  }
+};
+
+template <typename SrcType>
+struct CastVarToFixedList {
+  using src_offset_type = typename SrcType::offset_type;
+
+  // Validate the lengths of each list are equal to the list size.
+  // Additionally, checks if the null slots are all the list size. Returns true
+  // if so, which can be used to optimize the cast.
+  static Result<bool> ValidateLengths(const ArraySpan& in_array, int32_t list_size) {
+    const auto* offsets = in_array.GetValues<src_offset_type>(1);
+    src_offset_type expected_offset = offsets[0] + list_size;
+    // If there are nulls, it's possible that the null slots are the correct
+    // size. That enables an optimization later in this function.
+    bool nulls_have_correct_length = true;
+    if (in_array.GetNullCount() > 0) {
+      for (int64_t i = 1; i <= in_array.length; ++i) {
+        if (in_array.IsNull(i - 1)) {
+          if (offsets[i] != expected_offset) {
+            nulls_have_correct_length = false;
+          }
+          // If element is null, it can be any size, so the next offset is valid.
+          expected_offset = offsets[i] + list_size;
+        } else {
+          if (offsets[i] != expected_offset) {
+            return Status::Invalid("ListType can only be casted to FixedSizeListType ",
+                                   "if the lists are all the expected size.");
+          }
+          expected_offset += list_size;
+        }
+      }
+    } else {
+      // Don't need to check null slots if there are no nulls
+      for (int64_t i = 1; i <= in_array.length; ++i) {
+        if (offsets[i] != expected_offset) {
+          return Status::Invalid("ListType can only be casted to FixedSizeListType ",
+                                 "if the lists are all the expected size.");
+        }
+        expected_offset += list_size;
+      }
+    }
+    return nulls_have_correct_length;
+  }
+
+  // Build take indices for the values. This is used to fill in the null slots
+  // if they aren't already the correct size.
+  static Result<std::shared_ptr<Array>> BuildTakeIndices(const ArraySpan& in_array,
+                                                         int32_t list_size,
+                                                         KernelContext* ctx) {
+    const auto* offsets = in_array.GetValues<src_offset_type>(1);
+    // We need to fill in the null slots, so we'll use Take on the values.
+    auto builder = Int64Builder(ctx->memory_pool());
+    RETURN_NOT_OK(builder.Reserve(in_array.length * list_size));
+    for (int64_t offset_i = 0; offset_i < in_array.length; ++offset_i) {
+      if (in_array.IsNull(offset_i)) {
+        // If element is null, just fill in the null slots with first value.
+        for (int64_t j = 0; j < list_size; ++j) {
+          builder.UnsafeAppend(0);
+        }
+      } else {
+        int64_t value_i = offsets[offset_i];
+        for (int64_t j = 0; j < list_size; ++j) {
+          builder.UnsafeAppend(value_i++);
+        }
+      }
+    }
+    return builder.Finish();
+  }
+
+  static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+    const CastOptions& options = CastState::Get(ctx);
+
+    auto child_type = checked_cast<const FixedSizeListType&>(*out->type()).value_type();
+
+    const ArraySpan& in_array = batch[0].array;
+
+    const auto& out_type = checked_cast<const FixedSizeListType&>(*out->type());
+    const int32_t list_size = out_type.list_size();
+
+    ARROW_ASSIGN_OR_RAISE(bool nulls_have_correct_length,
+                          ValidateLengths(in_array, list_size));
+
+    ArrayData* out_array = out->array_data().get();
+    ARROW_ASSIGN_OR_RAISE(out_array->buffers[0],
+                          GetOrCopyNullBitmapBuffer(in_array, ctx->memory_pool()));
+
+    // Handle values
+    std::shared_ptr<ArrayData> values = in_array.child_data[0].ToArrayData();
+    ARROW_ASSIGN_OR_RAISE(Datum cast_values_datum,
+                          Cast(values, child_type, options, ctx->exec_context()));
+
+    DCHECK(cast_values_datum.is_array());
+    std::shared_ptr<ArrayData> cast_values = cast_values_datum.array();
+
+    const auto* offsets = in_array.GetValues<src_offset_type>(1);
+    if (in_array.GetNullCount() > 0 && !nulls_have_correct_length) {
+      // We need to fill in the null slots, so we'll use Take on the values.
+      ARROW_ASSIGN_OR_RAISE(auto indices, BuildTakeIndices(in_array, list_size, ctx));
+      ARROW_ASSIGN_OR_RAISE(auto take_result,
+                            Take(cast_values, Datum(indices),
+                                 TakeOptions::NoBoundsCheck(), ctx->exec_context()));
+      DCHECK(take_result.is_array());
+      cast_values = take_result.array();
+    } else if (offsets[0] != 0) {
+      // No nulls, but we need to slice the values
+      cast_values = cast_values->Slice(offsets[0], in_array.length * list_size);
+    }
+
+    out_array->child_data.emplace_back(std::move(cast_values));
+
+    return Status::OK();
+  }
+};
 
 struct CastFixedList {
   static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
@@ -178,6 +328,8 @@ struct CastFixedList {
 
 struct CastStruct {
   static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+    static constexpr int kFillNullSentinel = -2;
+
     const CastOptions& options = CastState::Get(ctx);
     const auto& in_type = checked_cast<const StructType&>(*batch[0].type());
     const auto& out_type = checked_cast<const StructType&>(*out->type());
@@ -186,25 +338,26 @@ struct CastStruct {
 
     std::vector<int> fields_to_select(out_field_count, -1);
 
-    int out_field_index = 0;
-    for (int in_field_index = 0;
-         in_field_index < in_field_count && out_field_index < out_field_count;
-         ++in_field_index) {
-      const auto& in_field = in_type.field(in_field_index);
-      const auto& out_field = out_type.field(out_field_index);
-      if (in_field->name() == out_field->name()) {
-        if (in_field->nullable() && !out_field->nullable()) {
-          return Status::TypeError("cannot cast nullable field to non-nullable field: ",
-                                   in_type.ToString(), " ", out_type.ToString());
-        }
-        fields_to_select[out_field_index++] = in_field_index;
-      }
+    std::multimap<std::string, int> in_fields;
+    for (int in_field_index = 0; in_field_index < in_field_count; ++in_field_index) {
+      in_fields.insert({in_type.field(in_field_index)->name(), in_field_index});
     }
 
-    if (out_field_index < out_field_count) {
-      return Status::TypeError(
-          "struct fields don't match or are in the wrong order: Input fields: ",
-          in_type.ToString(), " output fields: ", out_type.ToString());
+    for (int out_field_index = 0; out_field_index < out_field_count; ++out_field_index) {
+      const auto& out_field = out_type.field(out_field_index);
+
+      // Take the first field with matching name, if any. Extract it from the map so it
+      // can't be reused.
+      auto maybe_in_field_index = in_fields.extract(out_field->name());
+      if (!maybe_in_field_index.empty()) {
+        fields_to_select[out_field_index] = maybe_in_field_index.mapped();
+      } else if (out_field->nullable()) {
+        fields_to_select[out_field_index] = kFillNullSentinel;
+      } else {
+        return Status::TypeError("struct fields don't match: non-nullable out field `",
+                                 out_field->name(), "` not found in in fields ",
+                                 in_type.ToString());
+      }
     }
 
     const ArraySpan& in_array = batch[0].array;
@@ -216,17 +369,31 @@ struct CastStruct {
                                        in_array.offset, in_array.length));
     }
 
-    out_field_index = 0;
-    for (int field_index : fields_to_select) {
-      const auto& values = (in_array.child_data[field_index].ToArrayData()->Slice(
-          in_array.offset, in_array.length));
-      const auto& target_type = out->type()->field(out_field_index++)->type();
-
-      ARROW_ASSIGN_OR_RAISE(Datum cast_values,
-                            Cast(values, target_type, options, ctx->exec_context()));
-
-      DCHECK(cast_values.is_array());
-      out_array->child_data.push_back(cast_values.array());
+    int out_field_index = 0;
+    for (int in_field_index : fields_to_select) {
+      const auto& out_field = out_type.field(out_field_index++);
+      const auto& out_field_type = out_field->type();
+      if (in_field_index == kFillNullSentinel) {
+        ARROW_ASSIGN_OR_RAISE(
+            auto nulls, MakeArrayOfNull(out_field_type->GetSharedPtr(), batch.length,
+                                        ctx->memory_pool()));
+        out_array->child_data.push_back(nulls->data());
+      } else {
+        const auto& in_field = in_type.field(in_field_index);
+        const auto& in_values = (in_array.child_data[in_field_index].ToArrayData()->Slice(
+            in_array.offset, in_array.length));
+        if (in_field->nullable() && !out_field->nullable() &&
+            in_values->GetNullCount() > 0) {
+          return Status::Invalid(
+              "field '", in_field->name(), "' of type ", in_field->type()->ToString(),
+              " has nulls. Can't cast to non-nullable field '", out_field->name(),
+              "' of type ", out_field_type->ToString());
+        }
+        ARROW_ASSIGN_OR_RAISE(Datum cast_values, Cast(in_values, out_field_type, options,
+                                                      ctx->exec_context()));
+        DCHECK(cast_values.is_array());
+        out_array->child_data.push_back(cast_values.array());
+      }
     }
 
     return Status::OK();
@@ -239,7 +406,7 @@ void AddTypeToTypeCast(CastFunction* func) {
   kernel.exec = CastFunctor::Exec;
   kernel.signature = KernelSignature::Make({InputType(SrcT::type_id)}, kOutputTargetType);
   kernel.null_handling = NullHandling::COMPUTED_NO_PREALLOCATE;
-  DCHECK_OK(func->AddKernel(StructType::type_id, std::move(kernel)));
+  DCHECK_OK(func->AddKernel(SrcT::type_id, std::move(kernel)));
 }
 
 template <typename DestType>
@@ -318,13 +485,20 @@ std::vector<std::shared_ptr<CastFunction>> GetNestedCasts() {
   auto cast_list = std::make_shared<CastFunction>("cast_list", Type::LIST);
   AddCommonCasts(Type::LIST, kOutputTargetType, cast_list.get());
   AddListCast<ListType, ListType>(cast_list.get());
+  AddListCast<ListViewType, ListType>(cast_list.get());
   AddListCast<LargeListType, ListType>(cast_list.get());
+  AddListCast<LargeListViewType, ListType>(cast_list.get());
+  AddTypeToTypeCast<CastFixedToVarList<ListType>, FixedSizeListType>(cast_list.get());
 
   auto cast_large_list =
       std::make_shared<CastFunction>("cast_large_list", Type::LARGE_LIST);
   AddCommonCasts(Type::LARGE_LIST, kOutputTargetType, cast_large_list.get());
   AddListCast<ListType, LargeListType>(cast_large_list.get());
+  AddListCast<ListViewType, LargeListType>(cast_large_list.get());
   AddListCast<LargeListType, LargeListType>(cast_large_list.get());
+  AddListCast<LargeListViewType, LargeListType>(cast_large_list.get());
+  AddTypeToTypeCast<CastFixedToVarList<LargeListType>, FixedSizeListType>(
+      cast_large_list.get());
 
   auto cast_map = std::make_shared<CastFunction>("cast_map", Type::MAP);
   AddCommonCasts(Type::MAP, kOutputTargetType, cast_map.get());
@@ -337,6 +511,12 @@ std::vector<std::shared_ptr<CastFunction>> GetNestedCasts() {
       std::make_shared<CastFunction>("cast_fixed_size_list", Type::FIXED_SIZE_LIST);
   AddCommonCasts(Type::FIXED_SIZE_LIST, kOutputTargetType, cast_fsl.get());
   AddTypeToTypeCast<CastFixedList, FixedSizeListType>(cast_fsl.get());
+  AddTypeToTypeCast<CastVarToFixedList<ListType>, ListType>(cast_fsl.get());
+  AddTypeToTypeCast<CastVarToFixedList<ListViewType>, ListViewType>(cast_fsl.get());
+  AddTypeToTypeCast<CastVarToFixedList<LargeListType>, LargeListType>(cast_fsl.get());
+  AddTypeToTypeCast<CastVarToFixedList<LargeListViewType>, LargeListViewType>(
+      cast_fsl.get());
+  AddTypeToTypeCast<CastVarToFixedList<ListType>, MapType>(cast_fsl.get());
 
   // So is struct
   auto cast_struct = std::make_shared<CastFunction>("cast_struct", Type::STRUCT);
@@ -351,6 +531,5 @@ std::vector<std::shared_ptr<CastFunction>> GetNestedCasts() {
   return {cast_list, cast_large_list, cast_map, cast_fsl, cast_struct, cast_dictionary};
 }
 
-}  // namespace internal
-}  // namespace compute
+}  // namespace compute::internal
 }  // namespace arrow

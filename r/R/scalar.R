@@ -52,7 +52,7 @@
 #'     to a different type
 #'
 #' @name Scalar
-#' @rdname Scalar
+#' @rdname Scalar-class
 #' @examples
 #' Scalar$create(pi)
 #' Scalar$create(404)
@@ -104,7 +104,25 @@ Scalar$create <- function(x, type = NULL) {
   Array__GetScalar(Array$create(x, type = type), 0)
 }
 
-#' @rdname array
+#' @title Create an Arrow Scalar
+#'
+#' @name scalar
+#' @rdname scalar
+#'
+#' @param x An R vector, list, or `data.frame`
+#' @param type An optional [data type][data-type] for `x`. If omitted, the type will be inferred from the data.
+#' @examples
+#' scalar(pi)
+#' scalar(404)
+#' # If you pass a vector into scalar(), you get a list containing your items
+#' scalar(c(1, 2, 3))
+#'
+#' scalar(9) == scalar(10)
+#'
+#' @export
+scalar <- Scalar$create
+
+#' @rdname scalar
 #' @usage NULL
 #' @format NULL
 #' @export

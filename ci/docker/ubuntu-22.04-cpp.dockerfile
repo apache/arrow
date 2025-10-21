@@ -41,7 +41,7 @@ RUN latest_system_llvm=14 && \
           wget && \
       wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | apt-key add - && \
       code_name=$(lsb_release --codename --short) && \
-      if [ ${llvm} -gt 10 ]; then \
+      if [ ${llvm} -gt ${latest_system_llvm} ]; then \
         echo "deb https://apt.llvm.org/${code_name}/ llvm-toolchain-${code_name}-${llvm} main" > \
            /etc/apt/sources.list.d/llvm.list; \
       fi && \
@@ -65,9 +65,9 @@ RUN latest_system_llvm=14 && \
 RUN apt-get update -y -q && \
     apt-get install -y -q --no-install-recommends \
         autoconf \
+        bzip2 \
         ca-certificates \
         ccache \
-        cmake \
         curl \
         gdb \
         git \
@@ -79,6 +79,7 @@ RUN apt-get update -y -q && \
         libc-ares-dev \
         libcurl4-openssl-dev \
         libgflags-dev \
+        libgmock-dev \
         libgoogle-glog-dev \
         libgrpc++-dev \
         libidn2-dev \
@@ -89,6 +90,7 @@ RUN apt-get update -y -q && \
         libprotobuf-dev \
         libprotoc-dev \
         libpsl-dev \
+        libradospp-dev \
         libre2-dev \
         librtmp-dev \
         libsnappy-dev \
@@ -98,53 +100,73 @@ RUN apt-get update -y -q && \
         libssl-dev \
         libthrift-dev \
         libutf8proc-dev \
+        libxml2-dev \
         libzstd-dev \
         make \
+        mold \
         ninja-build \
         nlohmann-json3-dev \
+        npm \
+        patch \
         pkg-config \
         protobuf-compiler \
         protobuf-compiler-grpc \
         python3-dev \
         python3-pip \
+        python3-rados \
+        python3-venv \
+        rados-objclass-dev \
         rapidjson-dev \
         rsync \
         tzdata \
-        wget && \
+        uuid-runtime \
+        wget \
+        xz-utils && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists*
 
-ARG gcc_version=""
-RUN if [ "${gcc_version}" = "" ]; then \
+# install emscripten using EMSDK
+ARG emscripten_version="3.1.45"
+RUN cd ~ && git clone https://github.com/emscripten-core/emsdk.git && \
+    cd emsdk && \
+    ./emsdk install ${emscripten_version} && \
+    ./emsdk activate ${emscripten_version} && \
+    echo "Installed emsdk to:" ~/emsdk
+
+
+ARG gcc=""
+RUN if [ "${gcc}" = "" ]; then \
       apt-get update -y -q && \
       apt-get install -y -q --no-install-recommends \
           g++ \
           gcc; \
     else \
-      if [ "${gcc_version}" -gt "12" ]; then \
-          apt-get update -y -q && \
-          apt-get install -y -q --no-install-recommends software-properties-common && \
-          add-apt-repository ppa:ubuntu-toolchain-r/volatile; \
-      fi; \
       apt-get update -y -q && \
       apt-get install -y -q --no-install-recommends \
-          g++-${gcc_version} \
-          gcc-${gcc_version} && \
-      update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-${gcc_version} 100 && \
-      update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-${gcc_version} 100 && \
+          g++-${gcc} \
+          gcc-${gcc} && \
+      update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-${gcc} 100 && \
+      update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-${gcc} 100 && \
       update-alternatives --install \
         /usr/bin/$(uname --machine)-linux-gnu-gcc \
         $(uname --machine)-linux-gnu-gcc \
-        /usr/bin/$(uname --machine)-linux-gnu-gcc-${gcc_version} 100 && \
+        /usr/bin/$(uname --machine)-linux-gnu-gcc-${gcc} 100 && \
       update-alternatives --install \
         /usr/bin/$(uname --machine)-linux-gnu-g++ \
         $(uname --machine)-linux-gnu-g++ \
-        /usr/bin/$(uname --machine)-linux-gnu-g++-${gcc_version} 100 && \
+        /usr/bin/$(uname --machine)-linux-gnu-g++-${gcc} 100 && \
       update-alternatives --install /usr/bin/cc cc /usr/bin/gcc 100 && \
       update-alternatives --set cc /usr/bin/gcc && \
       update-alternatives --install /usr/bin/c++ c++ /usr/bin/g++ 100 && \
       update-alternatives --set c++ /usr/bin/g++; \
     fi
+
+# make sure zlib is cached in the EMSDK folder
+RUN source ~/emsdk/emsdk_env.sh && embuilder --pic build zlib
+
+ARG cmake
+COPY ci/scripts/install_cmake.sh /arrow/ci/scripts/
+RUN /arrow/ci/scripts/install_cmake.sh ${cmake} /usr/local/
 
 COPY ci/scripts/install_minio.sh /arrow/ci/scripts/
 RUN /arrow/ci/scripts/install_minio.sh latest /usr/local
@@ -152,20 +174,22 @@ RUN /arrow/ci/scripts/install_minio.sh latest /usr/local
 COPY ci/scripts/install_gcs_testbench.sh /arrow/ci/scripts/
 RUN /arrow/ci/scripts/install_gcs_testbench.sh default
 
+COPY ci/scripts/install_ceph.sh /arrow/ci/scripts/
+RUN /arrow/ci/scripts/install_ceph.sh
+
 COPY ci/scripts/install_sccache.sh /arrow/ci/scripts/
 RUN /arrow/ci/scripts/install_sccache.sh unknown-linux-musl /usr/local/bin
 
-# Prioritize system packages and local installation
+# Prioritize system packages and local installation.
+#
 # The following dependencies will be downloaded due to missing/invalid packages
 # provided by the distribution:
 # - Abseil is old
 # - libc-ares-dev does not install CMake config files
-# - flatbuffer is not packaged
-# - libgtest-dev only provide sources
-# - libprotobuf-dev only provide sources
-# ARROW-17051: this build uses static Protobuf, so we must also use
-# static Arrow to run Flight/Flight SQL tests
+# - opentelemetry-cpp-dev is not packaged
 ENV absl_SOURCE=BUNDLED \
+    ARROW_ACERO=ON \
+    ARROW_AZURE=ON \
     ARROW_BUILD_STATIC=ON \
     ARROW_BUILD_TESTS=ON \
     ARROW_DEPENDENCY_SOURCE=SYSTEM \
@@ -177,13 +201,14 @@ ENV absl_SOURCE=BUNDLED \
     ARROW_HDFS=ON \
     ARROW_HOME=/usr/local \
     ARROW_INSTALL_NAME_RPATH=OFF \
-    ARROW_NO_DEPRECATED_API=ON \
+    ARROW_JEMALLOC=ON \
     ARROW_ORC=ON \
     ARROW_PARQUET=ON \
-    ARROW_PLASMA=ON \
     ARROW_S3=ON \
+    ARROW_SUBSTRAIT=ON \
     ARROW_USE_ASAN=OFF \
     ARROW_USE_CCACHE=ON \
+    ARROW_USE_MOLD=ON \
     ARROW_USE_UBSAN=OFF \
     ARROW_WITH_BROTLI=ON \
     ARROW_WITH_BZ2=ON \
@@ -192,13 +217,14 @@ ENV absl_SOURCE=BUNDLED \
     ARROW_WITH_SNAPPY=ON \
     ARROW_WITH_ZLIB=ON \
     ARROW_WITH_ZSTD=ON \
+    ASAN_SYMBOLIZER_PATH=/usr/lib/llvm-${llvm}/bin/llvm-symbolizer \
     AWSSDK_SOURCE=BUNDLED \
+    Azure_SOURCE=BUNDLED \
     google_cloud_cpp_storage_SOURCE=BUNDLED \
-    GTest_SOURCE=BUNDLED \
+    opentelemetry_cpp_SOURCE=BUNDLED \
     ORC_SOURCE=BUNDLED \
     PARQUET_BUILD_EXAMPLES=ON \
     PARQUET_BUILD_EXECUTABLES=ON \
     PATH=/usr/lib/ccache/:$PATH \
-    Protobuf_SOURCE=BUNDLED \
     PYTHON=python3 \
     xsimd_SOURCE=BUNDLED

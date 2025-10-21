@@ -30,7 +30,7 @@ must end with an empty line.
 
 \code{CsvReadOptions$create()} further accepts these additional arguments:
 \itemize{
-\item \code{skip_rows} Number of lines to skip before reading data (default 0)
+\item \code{skip_rows} Number of lines to skip before reading data (default 0).
 \item \code{column_names} Character vector to supply column names. If length-0
 (the default), the first non-skipped row will be parsed to generate column
 names, unless \code{autogenerate_column_names} is \code{TRUE}.
@@ -38,16 +38,24 @@ names, unless \code{autogenerate_column_names} is \code{TRUE}.
 using the first non-skipped row (the default)? If \code{TRUE}, column names will
 be "f0", "f1", ..., "fN".
 \item \code{encoding} The file encoding. (default \code{"UTF-8"})
+\item \code{skip_rows_after_names} Number of lines to skip after the column names (default 0).
+This number can be larger than the number of rows in one block, and empty rows are counted.
+The order of application is as follows:
+\itemize{
+\item \code{skip_rows} is applied (if non-zero);
+\item column names are read (unless \code{column_names} is set);
+\item \code{skip_rows_after_names} is applied (if non-zero).
+}
 }
 
 \code{CsvParseOptions$create()} takes the following arguments:
 \itemize{
 \item \code{delimiter} Field delimiting character (default \code{","})
 \item \code{quoting} Logical: are strings quoted? (default \code{TRUE})
-\item \code{quote_char} Quoting character, if \code{quoting} is \code{TRUE}
+\item \code{quote_char} Quoting character, if \code{quoting} is \code{TRUE} (default \code{'"'})
 \item \code{double_quote} Logical: are quotes inside values double-quoted? (default \code{TRUE})
 \item \code{escaping} Logical: whether escaping is used (default \code{FALSE})
-\item \code{escape_char} Escaping character, if \code{escaping} is \code{TRUE}
+\item \code{escape_char} Escaping character, if \code{escaping} is \code{TRUE} (default \code{"\\\\"})
 \item \code{newlines_in_values} Logical: are values allowed to contain CR (\code{0x0d})
 and LF (\code{0x0a}) characters? (default \code{FALSE})
 \item \code{ignore_empty_lines} Logical: should empty lines be ignored (default) or
@@ -86,6 +94,7 @@ starting from the beginning of this vector. Possible values are
 (a) \code{NULL}, the default, which uses the ISO-8601 parser;
 (b) a character vector of \link[base:strptime]{strptime} parse strings; or
 (c) a list of \link{TimestampParser} objects.
+\item \code{decimal_point} Character to use for decimal point in floating point numbers. Default: "."
 }
 
 \code{TimestampParser$create()} takes an optional \code{format} string argument.
@@ -98,6 +107,11 @@ The \code{CsvWriteOptions$create()} factory method takes the following arguments
 \item \code{batch_size} Maximum number of rows processed at a time. Default is 1024.
 \item \code{null_string} The string to be written for null values. Must not contain
 quotation marks. Default is an empty string (\code{""}).
+\item \code{eol} The end of line character to use for ending rows.
+\item \code{delimiter} Field delimiter
+\item \code{quoting_style} Quoting style: "Needed" (Only enclose values in quotes which need them, because their CSV
+rendering can contain quotes itself (e.g. strings or binary values)), "AllValid" (Enclose all valid values in
+quotes), or "None" (Do not enclose any values in quotes).
 }
 }
 

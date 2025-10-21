@@ -31,8 +31,8 @@ cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
 
     cdef cppclass CFileInfo "arrow::fs::FileInfo":
         CFileInfo()
-        CFileInfo(CFileInfo&&)
-        CFileInfo& operator=(CFileInfo&&)
+        CFileInfo(CFileInfo)
+        CFileInfo& operator=(CFileInfo)
         CFileInfo(const CFileInfo&)
         CFileInfo& operator=(const CFileInfo&)
 
@@ -61,6 +61,7 @@ cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
         shared_ptr[CFileSystem] shared_from_this()
         c_string type_name() const
         CResult[c_string] NormalizePath(c_string path)
+        CResult[c_string] MakeUri(c_string path)
         CResult[CFileInfo] GetFileInfo(const c_string& path)
         CResult[vector[CFileInfo]] GetFileInfo(
             const vector[c_string]& paths)
@@ -85,6 +86,8 @@ cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
         c_bool Equals(shared_ptr[CFileSystem] other)
 
     CResult[shared_ptr[CFileSystem]] CFileSystemFromUri \
+        "arrow::fs::FileSystemFromUri"(const c_string& uri)
+    CResult[shared_ptr[CFileSystem]] CFileSystemFromUri \
         "arrow::fs::FileSystemFromUri"(const c_string& uri, c_string* out_path)
     CResult[shared_ptr[CFileSystem]] CFileSystemFromUriOrPath \
         "arrow::fs::FileSystemFromUriOrPath"(const c_string& uri,
@@ -97,19 +100,6 @@ cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
 
     CStatus CFileSystemsInitialize "arrow::fs::Initialize" \
         (const CFileSystemGlobalOptions& options)
-
-    cdef cppclass CLocalFileSystemOptions "arrow::fs::LocalFileSystemOptions":
-        c_bool use_mmap
-
-        @staticmethod
-        CLocalFileSystemOptions Defaults()
-
-        c_bool Equals(const CLocalFileSystemOptions& other)
-
-    cdef cppclass CLocalFileSystem "arrow::fs::LocalFileSystem"(CFileSystem):
-        CLocalFileSystem()
-        CLocalFileSystem(CLocalFileSystemOptions)
-        CLocalFileSystemOptions options()
 
     cdef cppclass CSubTreeFileSystem \
             "arrow::fs::SubTreeFileSystem"(CFileSystem):
@@ -129,6 +119,7 @@ cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
 
     cdef struct CS3GlobalOptions "arrow::fs::S3GlobalOptions":
         CS3LogLevel log_level
+        int num_event_loop_threads
 
     cdef cppclass CS3ProxyOptions "arrow::fs::S3ProxyOptions":
         c_string scheme
@@ -164,8 +155,12 @@ cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
         c_string endpoint_override
         c_string scheme
         c_bool background_writes
+        c_bool allow_delayed_open
         c_bool allow_bucket_creation
         c_bool allow_bucket_deletion
+        c_bool check_directory_existence_before_creation
+        c_bool force_virtual_addressing
+        c_string tls_ca_file_path
         shared_ptr[const CKeyValueMetadata] default_metadata
         c_string role_arn
         c_string session_name
@@ -208,7 +203,9 @@ cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
 
     cdef CStatus CInitializeS3 "arrow::fs::InitializeS3"(
         const CS3GlobalOptions& options)
+    cdef CStatus CEnsureS3Initialized "arrow::fs::EnsureS3Initialized"()
     cdef CStatus CFinalizeS3 "arrow::fs::FinalizeS3"()
+    cdef CStatus CEnsureS3Finalized "arrow::fs::EnsureS3Finalized"()
 
     cdef CResult[c_string] ResolveS3BucketRegion(const c_string& bucket)
 
@@ -223,6 +220,7 @@ cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
         c_string endpoint_override
         c_string scheme
         c_string default_bucket_location
+        optional[c_string] project_id
         optional[double] retry_limit_seconds
         shared_ptr[const CKeyValueMetadata] default_metadata
         c_bool Equals(const CS3Options& other)
@@ -245,6 +243,27 @@ cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
         @staticmethod
         CResult[shared_ptr[CGcsFileSystem]] Make(const CGcsOptions& options)
         CGcsOptions options()
+
+    cdef cppclass CAzureOptions "arrow::fs::AzureOptions":
+        c_string account_name
+        c_string blob_storage_authority
+        c_string dfs_storage_authority
+        c_string blob_storage_scheme
+        c_string dfs_storage_scheme
+
+        c_bool Equals(const CAzureOptions& other)
+        CStatus ConfigureDefaultCredential()
+        CStatus ConfigureAccountKeyCredential(c_string account_key)
+        CStatus ConfigureSASCredential(c_string sas_token)
+        CStatus ConfigureManagedIdentityCredential(c_string client_id)
+        CStatus ConfigureClientSecretCredential(c_string tenant_id,
+                                                c_string client_id,
+                                                c_string client_secret)
+
+    cdef cppclass CAzureFileSystem "arrow::fs::AzureFileSystem":
+        @staticmethod
+        CResult[shared_ptr[CAzureFileSystem]] Make(const CAzureOptions& options)
+        CAzureOptions options()
 
     cdef cppclass CHdfsOptions "arrow::fs::HdfsOptions":
         HdfsConnectionConfig connection_config

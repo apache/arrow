@@ -39,7 +39,7 @@ TEST_DIRNAME=$(cd $(dirname $1); pwd)
 TEST_FILENAME=$(basename $1)
 shift
 TEST_EXECUTABLE="$TEST_DIRNAME/$TEST_FILENAME"
-TEST_NAME=$(echo $TEST_FILENAME | perl -pe 's/\..+?$//') # Remove path and extension (if any).
+TEST_NAME=$(echo $TEST_FILENAME | sed -E -e 's/\..+$//') # Remove path and extension (if any).
 
 # We run each test in its own subdir to avoid core file related races.
 TEST_WORKDIR=$OUTPUT_ROOT/build/test-work/$TEST_NAME
@@ -75,10 +75,10 @@ function setup_sanitizers() {
   UBSAN_OPTIONS="$UBSAN_OPTIONS suppressions=$ROOT/build-support/ubsan-suppressions.txt"
   export UBSAN_OPTIONS
 
-  # Enable leak detection even under LLVM 3.4, where it was disabled by default.
-  # This flag only takes effect when running an ASAN build.
-  # ASAN_OPTIONS="$ASAN_OPTIONS detect_leaks=1"
-  # export ASAN_OPTIONS
+  # Set up suppressions for AddressSanitizer
+  ASAN_OPTIONS="$ASAN_OPTIONS suppressions=$ROOT/build-support/asan-suppressions.txt"
+  ASAN_OPTIONS="$ASAN_OPTIONS allocator_may_return_null=1"
+  export ASAN_OPTIONS
 
   # Set up suppressions for LeakSanitizer
   LSAN_OPTIONS="$LSAN_OPTIONS suppressions=$ROOT/build-support/lsan-suppressions.txt"
@@ -97,7 +97,6 @@ function run_test() {
   cat $LOGFILE.raw \
     | ${PYTHON:-python} $ROOT/build-support/asan_symbolize.py \
     | ${CXXFILT:-c++filt} \
-    | $ROOT/build-support/stacktrace_addr2line.pl $TEST_EXECUTABLE \
     | $pipe_cmd 2>&1 | tee $LOGFILE
   rm -f $LOGFILE.raw
 
@@ -122,12 +121,15 @@ function print_coredumps() {
   # patterns must be set with prefix `core.{test-executable}*`:
   #
   # In case of macOS:
-  #   sudo sysctl -w kern.corefile=core.%N.%P
+  #   sudo sysctl -w kern.corefile=/tmp/core.%N.%P
   # On Linux:
-  #   sudo sysctl -w kernel.core_pattern=core.%e.%p
+  #   sudo sysctl -w kernel.core_pattern=/tmp/core.%e.%p
   #
   # and the ulimit must be increased:
   #   ulimit -c unlimited
+  #
+  # If the tests are run in a Docker container, the instructions are slightly
+  # different: see the 'Coredumps' comment section in `docker-compose.yml`.
 
   # filename is truncated to the first 15 characters in case of linux, so limit
   # the pattern for the first 15 characters
@@ -135,19 +137,21 @@ function print_coredumps() {
   FILENAME=$(echo ${FILENAME} | cut -c-15)
   PATTERN="^core\.${FILENAME}"
 
-  COREFILES=$(ls | grep $PATTERN)
+  COREFILES=$(ls /tmp | grep $PATTERN)
   if [ -n "$COREFILES" ]; then
-    echo "Found core dump, printing backtrace:"
-
     for COREFILE in $COREFILES; do
+      COREPATH="/tmp/${COREFILE}"
+      echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+      echo "Running '${TEST_EXECUTABLE}' produced core dump at '${COREPATH}', printing backtrace:"
       # Print backtrace
       if [ "$(uname)" == "Darwin" ]; then
-        lldb -c "${COREFILE}" --batch --one-line "thread backtrace all -e true"
+        lldb -c "${COREPATH}" --batch --one-line "thread backtrace all -e true"
       else
-        gdb -c "${COREFILE}" $TEST_EXECUTABLE -ex "thread apply all bt" -ex "set pagination 0" -batch
+        gdb -c "${COREPATH}" $TEST_EXECUTABLE -ex "thread apply all bt" -ex "set pagination 0" -batch
       fi
-      # Remove the coredump, regenerate it via running the test case directly
-      rm "${COREFILE}"
+      echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+      # Remove the coredump, it can be regenerated via running the test case directly
+      rm "${COREPATH}"
     done
   fi
 }
@@ -157,15 +161,15 @@ function post_process_tests() {
   # case result to the XML file for the leak report. Otherwise Jenkins won't show
   # us which tests had LSAN errors.
   if grep -E -q "ERROR: LeakSanitizer: detected memory leaks" $LOGFILE ; then
-      echo Test had memory leaks. Editing XML
-      perl -p -i -e '
-      if (m#</testsuite>#) {
-        print "<testcase name=\"LeakSanitizer\" status=\"run\" classname=\"LSAN\">\n";
-        print "  <failure message=\"LeakSanitizer failed\" type=\"\">\n";
-        print "    See txt log file for details\n";
-        print "  </failure>\n";
-        print "</testcase>\n";
-      }' $XMLFILE
+    echo Test had memory leaks. Editing XML
+    sed -i.bak -e '/<\/testsuite>/ i\
+  <testcase name="LeakSanitizer" status="run" classname="LSAN">\
+    <failure message="LeakSanitizer failed" type="">\
+      See txt log file for details\
+    </failure>\
+  </testcase>' \
+      $XMLFILE
+    mv $XMLFILE.bak $XMLFILE
   fi
 }
 

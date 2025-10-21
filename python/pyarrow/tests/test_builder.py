@@ -15,12 +15,11 @@
 # specific language governing permissions and limitations
 # under the License.
 
+import math
 import weakref
 
-import numpy as np
-
 import pyarrow as pa
-from pyarrow.lib import StringBuilder
+from pyarrow.lib import StringBuilder, StringViewBuilder
 
 
 def test_weakref():
@@ -35,7 +34,7 @@ def test_string_builder_append():
     sbuilder = StringBuilder()
     sbuilder.append(b"a byte string")
     sbuilder.append("a string")
-    sbuilder.append(np.nan)
+    sbuilder.append(math.nan)
     sbuilder.append(None)
     assert len(sbuilder) == 4
     assert sbuilder.null_count == 2
@@ -50,7 +49,7 @@ def test_string_builder_append():
 
 def test_string_builder_append_values():
     sbuilder = StringBuilder()
-    sbuilder.append_values([np.nan, None, "text", None, "other text"])
+    sbuilder.append_values([math.nan, None, "text", None, "other text"])
     assert sbuilder.null_count == 3
     arr = sbuilder.finish()
     assert arr.null_count == 3
@@ -60,8 +59,27 @@ def test_string_builder_append_values():
 
 def test_string_builder_append_after_finish():
     sbuilder = StringBuilder()
-    sbuilder.append_values([np.nan, None, "text", None, "other text"])
+    sbuilder.append_values([math.nan, None, "text", None, "other text"])
     arr = sbuilder.finish()
     sbuilder.append("No effect")
     expected = [None, None, "text", None, "other text"]
+    assert arr.to_pylist() == expected
+
+
+def test_string_view_builder():
+    builder = StringViewBuilder()
+    builder.append(b"a byte string")
+    builder.append("a string")
+    builder.append("a longer not-inlined string")
+    builder.append(math.nan)
+    builder.append_values([None, "text"])
+    assert len(builder) == 6
+    assert builder.null_count == 2
+    arr = builder.finish()
+    assert isinstance(arr, pa.Array)
+    assert arr.null_count == 2
+    assert arr.type == 'string_view'
+    expected = [
+        "a byte string", "a string", "a longer not-inlined string", None, None, "text"
+    ]
     assert arr.to_pylist() == expected

@@ -19,7 +19,7 @@
 
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
-#include "arrow/util/tdigest.h"
+#include "arrow/util/tdigest_internal.h"
 
 namespace arrow {
 namespace util {
@@ -37,7 +37,8 @@ static void BenchmarkTDigest(benchmark::State& state) {
     for (double value : values) {
       td.Add(value);
     }
-    benchmark::DoNotOptimize(td.Quantile(0));
+    auto quantile = td.Quantile(0);
+    benchmark::DoNotOptimize(quantile);
   }
   state.SetItemsProcessed(state.iterations() * items);
 }

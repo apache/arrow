@@ -26,12 +26,14 @@
 #include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/decimal.h"
+#include "arrow/util/float16.h"
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/pcg_random.h"
 
 namespace arrow {
 
 using internal::checked_cast;
+using util::Float16;
 
 namespace random {
 
@@ -70,7 +72,7 @@ class RandomArrayTest : public ::testing::TestWithParam<RandomTestParam> {
   }
 
   bool HasList(const DataType& type) {
-    if (is_list_like(type.id()) && type.id() != Type::FIXED_SIZE_LIST) {
+    if (is_var_length_list_like(type.id())) {
       return true;
     }
     for (const auto& child : type.fields()) {
@@ -99,7 +101,7 @@ TEST_P(RandomArrayTest, GenerateArrayAlignment) {
   const int64_t alignment = 1024;
   auto field = GetField();
   if (HasList(*field->type())) {
-    GTEST_SKIP() << "ListArray::FromArrays does not conserve buffer alignment";
+    GTEST_SKIP() << "List[View]Array::FromArrays does not conserve buffer alignment";
   }
   auto array = GenerateArray(*field, /*size=*/13, 0xDEADBEEF, alignment);
   AssertTypeEqual(field->type(), array->type());
@@ -160,11 +162,13 @@ auto values = ::testing::Values(
     field("uint32", uint32()), field("int32", int32()), field("uint64", uint64()),
     field("int64", int64()), field("float16", float16()), field("float32", float32()),
     field("float64", float64()), field("string", utf8()), field("binary", binary()),
-    field("fixed_size_binary", fixed_size_binary(8)),
-    field("decimal128", decimal128(8, 3)), field("decimal128", decimal128(29, -5)),
-    field("decimal256", decimal256(16, 4)), field("decimal256", decimal256(57, -6)),
-    field("date32", date32()), field("date64", date64()),
-    field("timestampns", timestamp(TimeUnit::NANO)),
+    field("string_view", utf8_view()), field("binary_view", binary_view()),
+    field("fixed_size_binary", fixed_size_binary(8)), field("decimal32", decimal32(8, 3)),
+    field("decimal32", decimal32(9, -5)), field("decimal64", decimal64(16, 3)),
+    field("decimal64", decimal64(16, -5)), field("decimal128", decimal128(8, 3)),
+    field("decimal128", decimal128(29, -5)), field("decimal256", decimal256(16, 4)),
+    field("decimal256", decimal256(57, -6)), field("date32", date32()),
+    field("date64", date64()), field("timestampns", timestamp(TimeUnit::NANO)),
     field("timestamps", timestamp(TimeUnit::SECOND, "America/Phoenix")),
     field("time32ms", time32(TimeUnit::MILLI)), field("time64ns", time64(TimeUnit::NANO)),
     field("time32s", time32(TimeUnit::SECOND)),
@@ -175,6 +179,13 @@ auto values = ::testing::Values(
     field("listint8emptynulls", list(int8()), true,
           key_value_metadata({{"force_empty_nulls", "true"}})),
     field("listint81024values", list(int8()), true,
+          key_value_metadata({{"values", "1024"}})),
+    field("listviewint8", list_view(int8())),
+    field("listviewlistviewint8", list_view(list_view(int8()))),
+    field("listviewint8emptynulls", list_view(int8()), true,
+          key_value_metadata(
+              {{"force_empty_nulls", "true"}, {"zero_undefined_offsets", "true"}})),
+    field("listviewint81024values", list_view(int8()), true,
           key_value_metadata({{"values", "1024"}})),
     field("structints", struct_({
                             field("int8", int8()),
@@ -200,7 +211,8 @@ auto values = ::testing::Values(
     field("fixedsizelist", fixed_size_list(int8(), 4)),
     field("durationns", duration(TimeUnit::NANO)), field("largestring", large_utf8()),
     field("largebinary", large_binary()),
-    field("largelistlistint8", large_list(list(int8()))));
+    field("largelistlistint8", large_list(list(int8()))),
+    field("largelistviewlistviewint8", large_list_view(list_view(int8()))));
 
 INSTANTIATE_TEST_SUITE_P(
     TestRandomArrayGeneration, RandomArrayTest, values,
@@ -232,8 +244,14 @@ TYPED_TEST(RandomNumericArrayTest, GenerateMinMax) {
   auto array = this->Downcast(batch->column(0));
   for (auto slot : *array) {
     if (!slot.has_value()) continue;
-    ASSERT_GE(slot, typename TypeParam::c_type(0));
-    ASSERT_LE(slot, typename TypeParam::c_type(127));
+    if constexpr (is_half_float_type<TypeParam>::value) {
+      const auto f16_slot = Float16::FromBits(*slot);
+      ASSERT_GE(f16_slot, Float16(0));
+      ASSERT_LE(f16_slot, Float16(127));
+    } else {
+      ASSERT_GE(slot, typename TypeParam::c_type(0));
+      ASSERT_LE(slot, typename TypeParam::c_type(127));
+    }
   }
 }
 
@@ -246,7 +264,11 @@ TYPED_TEST(RandomNumericArrayTest, EmptyRange) {
   auto array = this->Downcast(batch->column(0));
   for (auto slot : *array) {
     if (!slot.has_value()) continue;
-    ASSERT_EQ(slot, typename TypeParam::c_type(42));
+    if constexpr (is_half_float_type<TypeParam>::value) {
+      ASSERT_EQ(Float16::FromBits(*slot), Float16(42));
+    } else {
+      ASSERT_EQ(slot, typename TypeParam::c_type(42));
+    }
   }
 }
 
@@ -304,14 +326,21 @@ class RandomDecimalArrayTest : public ::testing::Test {
   }
 };
 
-using DecimalTypes = ::testing::Types<Decimal128Type, Decimal256Type>;
+using DecimalTypes =
+    ::testing::Types<Decimal32Type, Decimal64Type, Decimal128Type, Decimal256Type>;
 TYPED_TEST_SUITE(RandomDecimalArrayTest, DecimalTypes);
 
 TYPED_TEST(RandomDecimalArrayTest, Basic) {
   random::RandomArrayGenerator rng(42);
 
+  using DecimalType = typename TestFixture::DecimalValue;
+
   for (const int32_t precision :
        {1, 2, 5, 9, 18, 19, 25, this->max_precision() - 1, this->max_precision()}) {
+    if (precision > DecimalType::kMaxPrecision) {
+      continue;
+    }
+
     ARROW_SCOPED_TRACE("precision = ", precision);
     const auto type = this->type(precision, 5);
     auto array = rng.ArrayOf(type, /*size=*/1000, /*null_probability=*/0.2);
@@ -340,6 +369,18 @@ TEST(TypeSpecificTests, DictionaryValues) {
   auto array = internal::checked_pointer_cast<DictionaryArray>(base_array);
   ASSERT_OK(array->ValidateFull());
   ASSERT_EQ(16, array->dictionary()->length());
+}
+
+TEST(TypeSpecificTests, Float16Nan) {
+  auto field = arrow::field("float16", float16(),
+                            key_value_metadata({{"nan_probability", "1.0"}}));
+  auto base_array = GenerateArray(*field, kExpectedLength, 0xDEADBEEF);
+  AssertTypeEqual(field->type(), base_array->type());
+  auto array = internal::checked_pointer_cast<NumericArray<HalfFloatType>>(base_array);
+  ASSERT_OK(array->ValidateFull());
+  for (const auto& value : *array) {
+    ASSERT_TRUE(!value.has_value() || Float16::FromBits(*value).is_nan());
+  }
 }
 
 TEST(TypeSpecificTests, Float32Nan) {
@@ -389,6 +430,39 @@ TEST(TypeSpecificTests, ListLengths) {
     auto base_array = GenerateArray(*field, kExpectedLength, 0xDEADBEEF);
     AssertTypeEqual(field->type(), base_array->type());
     auto array = internal::checked_pointer_cast<LargeListArray>(base_array);
+    ASSERT_EQ(array->length(), kExpectedLength);
+    ASSERT_OK(array->ValidateFull());
+    for (int i = 0; i < kExpectedLength; i++) {
+      if (!array->IsNull(i)) {
+        ASSERT_EQ(10, array->value_length(i));
+      }
+    }
+  }
+}
+
+TEST(TypeSpecificTests, ListViewLengths) {
+  {
+    auto field =
+        arrow::field("list_view", list_view(int8()),
+                     key_value_metadata({{"min_length", "1"}, {"max_length", "1"}}));
+    auto base_array = GenerateArray(*field, kExpectedLength, 0xDEADBEEF);
+    AssertTypeEqual(field->type(), base_array->type());
+    auto array = internal::checked_pointer_cast<ListViewArray>(base_array);
+    ASSERT_OK(array->ValidateFull());
+    ASSERT_EQ(array->length(), kExpectedLength);
+    for (int i = 0; i < kExpectedLength; i++) {
+      if (!array->IsNull(i)) {
+        ASSERT_EQ(1, array->value_length(i));
+      }
+    }
+  }
+  {
+    auto field =
+        arrow::field("list_view", large_list_view(int8()),
+                     key_value_metadata({{"min_length", "10"}, {"max_length", "10"}}));
+    auto base_array = GenerateArray(*field, kExpectedLength, 0xDEADBEEF);
+    AssertTypeEqual(field->type(), base_array->type());
+    auto array = internal::checked_pointer_cast<LargeListViewArray>(base_array);
     ASSERT_EQ(array->length(), kExpectedLength);
     ASSERT_OK(array->ValidateFull());
     for (int i = 0; i < kExpectedLength; i++) {
@@ -496,6 +570,97 @@ TEST(RandomList, Basics) {
       null_count += array->IsNull(i);
     }
     ASSERT_EQ(null_count, array->data()->null_count);
+  }
+}
+
+TEST(RandomListView, Basics) {
+  random::RandomArrayGenerator rng(42);
+  for (const double null_probability : {0.0, 0.1, 0.98}) {
+    SCOPED_TRACE("null_probability = " + std::to_string(null_probability));
+    auto values = rng.Int16(1234, 0, 10000, null_probability);
+    auto array = rng.ListView(*values, 45, null_probability);
+    ASSERT_OK(array->ValidateFull());
+    ASSERT_EQ(array->length(), 45);
+    const auto& list_view_array = checked_cast<const ListViewArray&>(*array);
+    ASSERT_EQ(list_view_array.values()->length(), 1234);
+    int64_t null_count = 0;
+    for (int64_t i = 0; i < array->length(); ++i) {
+      null_count += array->IsNull(i);
+    }
+    ASSERT_EQ(null_count, array->data()->null_count);
+  }
+}
+
+TEST(RandomChildFieldNullablity, List) {
+  random::RandomArrayGenerator rng(42);
+
+  auto item = arrow::field("item", arrow::int8(), true);
+  auto nest_list_field = arrow::field("list", arrow::list(item), false);
+  auto list_field = arrow::field("list", arrow::list(nest_list_field), true);
+  auto array = rng.ArrayOf(*list_field, 428);
+  ARROW_EXPECT_OK(array->ValidateFull());
+
+  auto batch = rng.BatchOf({list_field}, 428);
+  ARROW_EXPECT_OK(batch->ValidateFull());
+}
+
+TEST(RandomChildFieldNullablity, ListView) {
+  random::RandomArrayGenerator rng(42);
+
+  auto item = arrow::field("item", arrow::int8(), true);
+  auto nest_list_view_field = arrow::field("list_view", list_view(item), false);
+  auto list_view_field = arrow::field("list_view", list_view(nest_list_view_field), true);
+  auto array = rng.ArrayOf(*list_view_field, 428);
+  ARROW_EXPECT_OK(array->ValidateFull());
+
+  auto batch = rng.BatchOf({list_view_field}, 428);
+  ARROW_EXPECT_OK(batch->ValidateFull());
+}
+
+TEST(RandomChildFieldNullablity, Struct) {
+  random::RandomArrayGenerator rng(42);
+
+  auto item = arrow::field("item", arrow::int8(), true);
+  auto nest_struct_field = arrow::field("struct", arrow::struct_({item}), false);
+  auto struct_field = arrow::field("struct", arrow::struct_({nest_struct_field}), true);
+  auto array = rng.ArrayOf(*struct_field, 428);
+  ARROW_EXPECT_OK(array->ValidateFull());
+
+  auto batch = rng.BatchOf({struct_field}, 428);
+  ARROW_EXPECT_OK(batch->ValidateFull());
+}
+
+TEST(RandomChildFieldNullablity, Map) {
+  random::RandomArrayGenerator rng(42);
+  auto item = arrow::field("item", arrow::int8(), true);
+  auto nest_map_field =
+      arrow::field("map", arrow::map(arrow::int8(), item, false), false);
+  auto map_field =
+      arrow::field("struct", arrow::map(arrow::int8(), nest_map_field, false), true);
+  auto array = rng.ArrayOf(*map_field, 428);
+  ARROW_EXPECT_OK(array->ValidateFull());
+
+  auto batch = rng.BatchOf({map_field}, 428);
+  ARROW_EXPECT_OK(batch->ValidateFull());
+}
+
+TEST(RandomRunEndEncoded, Basics) {
+  random::RandomArrayGenerator rng(42);
+  for (const double null_probability : {0.0, 0.1, 1.0}) {
+    SCOPED_TRACE("null_probability = " + std::to_string(null_probability));
+    auto array = rng.ArrayOf(run_end_encoded(int32(), int16()), 12345, null_probability);
+    ASSERT_OK(array->ValidateFull());
+    ASSERT_EQ(array->length(), 12345);
+    const auto& ree_array = checked_cast<const RunEndEncodedArray&>(*array);
+    ASSERT_EQ(*ree_array.type(), *run_end_encoded(int32(), int16()));
+    const int64_t physical_length = ree_array.run_ends()->length();
+    ASSERT_EQ(ree_array.values()->length(), physical_length);
+    if (null_probability == 0.0) {
+      ASSERT_EQ(ree_array.values()->null_count(), 0);
+    }
+    if (null_probability == 1.0) {
+      ASSERT_EQ(ree_array.values()->null_count(), physical_length);
+    }
   }
 }
 

@@ -36,7 +36,6 @@ int main(int argc, char** argv) {
   const std::string COLUMNS_PREFIX = "--columns=";
   const std::string BATCH_SIZE_PREFIX = "--batch-size=";
   std::vector<int> columns;
-  int num_columns = 0;
 
   char *param, *value;
   for (int i = 1; i < argc; i++) {
@@ -45,7 +44,6 @@ int main(int argc, char** argv) {
       while (value) {
         columns.push_back(std::atoi(value));
         value = std::strtok(nullptr, ",");
-        num_columns++;
       }
     } else if ((param = std::strstr(argv[i], BATCH_SIZE_PREFIX.c_str()))) {
       value = std::strtok(param + BATCH_SIZE_PREFIX.length(), " ");

@@ -19,12 +19,14 @@ import datetime
 import io
 import warnings
 
-import numpy as np
+try:
+    import numpy as np
+except ImportError:
+    np = None
 import pytest
 
 import pyarrow as pa
-from pyarrow.tests.parquet.common import (
-    _check_roundtrip, parametrize_legacy_dataset)
+from pyarrow.tests.parquet.common import _check_roundtrip
 
 try:
     import pyarrow.parquet as pq
@@ -48,11 +50,12 @@ pytestmark = pytest.mark.parquet
 
 
 @pytest.mark.pandas
-@parametrize_legacy_dataset
-def test_pandas_parquet_datetime_tz(use_legacy_dataset):
-    s = pd.Series([datetime.datetime(2017, 9, 6)])
+def test_pandas_parquet_datetime_tz():
+    # Pandas v2 defaults to [ns], but Arrow defaults to [us] time units
+    # so we need to cast the pandas dtype. Pandas v1 will always silently
+    # coerce to [ns] due to lack of non-[ns] support.
+    s = pd.Series([datetime.datetime(2017, 9, 6)], dtype='datetime64[us]')
     s = s.dt.tz_localize('utc')
-
     s.index = s
 
     # Both a column and an index to hit both use cases
@@ -64,24 +67,22 @@ def test_pandas_parquet_datetime_tz(use_legacy_dataset):
 
     arrow_table = pa.Table.from_pandas(df)
 
-    _write_table(arrow_table, f, coerce_timestamps='ms')
+    _write_table(arrow_table, f)
     f.seek(0)
 
-    table_read = pq.read_pandas(f, use_legacy_dataset=use_legacy_dataset)
+    table_read = pq.read_pandas(f)
 
     df_read = table_read.to_pandas()
     tm.assert_frame_equal(df, df_read)
 
 
 @pytest.mark.pandas
-@parametrize_legacy_dataset
-def test_datetime_timezone_tzinfo(use_legacy_dataset):
+def test_datetime_timezone_tzinfo():
     value = datetime.datetime(2018, 1, 1, 1, 23, 45,
                               tzinfo=datetime.timezone.utc)
     df = pd.DataFrame({'foo': [value]})
 
-    _roundtrip_pandas_dataframe(
-        df, write_kwargs={}, use_legacy_dataset=use_legacy_dataset)
+    _roundtrip_pandas_dataframe(df, write_kwargs={})
 
 
 @pytest.mark.pandas
@@ -118,7 +119,7 @@ def test_coerce_timestamps(tempdir):
     df_expected = df.copy()
     for i, x in enumerate(df_expected['datetime64']):
         if isinstance(x, np.ndarray):
-            df_expected['datetime64'][i] = x.astype('M8[us]')
+            df_expected.loc[i, 'datetime64'] = x.astype('M8[us]')
 
     tm.assert_frame_equal(df_expected, df_read)
 
@@ -153,7 +154,7 @@ def test_coerce_timestamps_truncated(tempdir):
     df_ms = table_ms.to_pandas()
 
     arrays_expected = {'datetime64': [dt_ms, dt_ms]}
-    df_expected = pd.DataFrame(arrays_expected)
+    df_expected = pd.DataFrame(arrays_expected, dtype='datetime64[ms]')
     tm.assert_frame_equal(df_expected, df_ms)
 
 
@@ -333,12 +334,14 @@ def test_coerce_int96_timestamp_overflow(pq_reader_method, tempdir):
         pq_reader_method, filename, coerce_int96_timestamp_unit="s"
     )
     df_correct = tab_correct.to_pandas(timestamp_as_object=True)
+    df["a"] = df["a"].astype(object)
     tm.assert_frame_equal(df, df_correct)
 
 
-def test_timestamp_restore_timezone():
+@pytest.mark.parametrize('unit', ['ms', 'us', 'ns'])
+def test_timestamp_restore_timezone(unit):
     # ARROW-5888, restore timezone from serialized metadata
-    ty = pa.timestamp('ms', tz='America/New_York')
+    ty = pa.timestamp(unit, tz='America/New_York')
     arr = pa.array([1, 2, 3], type=ty)
     t = pa.table([arr], names=['f0'])
     _check_roundtrip(t)
@@ -346,20 +349,20 @@ def test_timestamp_restore_timezone():
 
 def test_timestamp_restore_timezone_nanosecond():
     # ARROW-9634, also restore timezone for nanosecond data that get stored
-    # as microseconds in the parquet file
+    # as microseconds in the parquet file for Parquet ver 2.4 and less
     ty = pa.timestamp('ns', tz='America/New_York')
     arr = pa.array([1000, 2000, 3000], type=ty)
     table = pa.table([arr], names=['f0'])
     ty_us = pa.timestamp('us', tz='America/New_York')
     expected = pa.table([arr.cast(ty_us)], names=['f0'])
-    _check_roundtrip(table, expected=expected)
+    _check_roundtrip(table, expected=expected, version='2.4')
 
 
 @pytest.mark.pandas
 def test_list_of_datetime_time_roundtrip():
     # ARROW-4135
     times = pd.to_datetime(['09:00', '09:30', '10:00', '10:30', '11:00',
-                            '11:30', '12:00'])
+                            '11:30', '12:00'], format="%H:%M")
     df = pd.DataFrame({'time': [times.time]})
     _roundtrip_pandas_dataframe(df, write_kwargs={})
 
@@ -378,28 +381,31 @@ def test_parquet_version_timestamp_differences():
     a_us = pa.array(d_us, type=pa.timestamp('us'))
     a_ns = pa.array(d_ns, type=pa.timestamp('ns'))
 
+    all_versions = ['1.0', '2.4', '2.6']
+
     names = ['ts:s', 'ts:ms', 'ts:us', 'ts:ns']
     table = pa.Table.from_arrays([a_s, a_ms, a_us, a_ns], names)
 
-    # Using Parquet version 1.0, seconds should be coerced to milliseconds
+    # Using Parquet version 1.0 and 2.4, seconds should be coerced to milliseconds
     # and nanoseconds should be coerced to microseconds by default
     expected = pa.Table.from_arrays([a_ms, a_ms, a_us, a_us], names)
-    _check_roundtrip(table, expected)
+    _check_roundtrip(table, expected, version='1.0')
+    _check_roundtrip(table, expected, version='2.4')
 
-    # Using Parquet version 2.0, seconds should be coerced to milliseconds
+    # Using Parquet version 2.6, seconds should be coerced to milliseconds
     # and nanoseconds should be retained by default
     expected = pa.Table.from_arrays([a_ms, a_ms, a_us, a_ns], names)
     _check_roundtrip(table, expected, version='2.6')
 
-    # Using Parquet version 1.0, coercing to milliseconds or microseconds
+    # For either Parquet version coercing to milliseconds or microseconds
     # is allowed
     expected = pa.Table.from_arrays([a_ms, a_ms, a_ms, a_ms], names)
-    _check_roundtrip(table, expected, coerce_timestamps='ms')
+    for ver in all_versions:
+        _check_roundtrip(table, expected, coerce_timestamps='ms', version=ver)
 
-    # Using Parquet version 2.0, coercing to milliseconds or microseconds
-    # is allowed
     expected = pa.Table.from_arrays([a_us, a_us, a_us, a_us], names)
-    _check_roundtrip(table, expected, version='2.6', coerce_timestamps='us')
+    for ver in all_versions:
+        _check_roundtrip(table, expected, version=ver, coerce_timestamps='us')
 
     # TODO: after pyarrow allows coerce_timestamps='ns', tests like the
     # following should pass ...
@@ -416,10 +422,9 @@ def test_parquet_version_timestamp_differences():
     # For either Parquet version, coercing to nanoseconds is allowed
     # if Int96 storage is used
     expected = pa.Table.from_arrays([a_ns, a_ns, a_ns, a_ns], names)
-    _check_roundtrip(table, expected,
-                     use_deprecated_int96_timestamps=True)
-    _check_roundtrip(table, expected, version='2.6',
-                     use_deprecated_int96_timestamps=True)
+    for ver in all_versions:
+        _check_roundtrip(table, expected, version=ver,
+                         use_deprecated_int96_timestamps=True)
 
 
 @pytest.mark.pandas
@@ -428,7 +433,7 @@ def test_noncoerced_nanoseconds_written_without_exception(tempdir):
     # nanosecond timestamps by default
     n = 9
     df = pd.DataFrame({'x': range(n)},
-                      index=pd.date_range('2017-01-01', freq='1n', periods=n))
+                      index=pd.date_range('2017-01-01', freq='ns', periods=n))
     tb = pa.Table.from_pandas(df)
 
     filename = tempdir / 'written.parquet'

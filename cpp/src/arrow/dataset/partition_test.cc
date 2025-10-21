@@ -28,9 +28,10 @@
 
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/api_vector.h"
+#include "arrow/compute/cast.h"
 #include "arrow/dataset/dataset.h"
 #include "arrow/dataset/file_ipc.h"
-#include "arrow/dataset/test_util.h"
+#include "arrow/dataset/test_util_internal.h"
 #include "arrow/filesystem/path_util.h"
 #include "arrow/status.h"
 #include "arrow/testing/builder.h"
@@ -39,6 +40,8 @@
 #include "arrow/util/uri.h"
 
 namespace arrow {
+
+using compute::Cast;
 
 using internal::checked_pointer_cast;
 
@@ -189,6 +192,12 @@ TEST_F(TestPartitioning, Partition) {
                   expected_expressions);
 }
 
+TEST_F(TestPartitioning, DefaultPartitioningIsDirectoryPartitioning) {
+  auto partitioning = Partitioning::Default();
+  ASSERT_EQ(partitioning->type_name(), "directory");
+  AssertSchemaEqual(partitioning->schema(), schema({}));
+}
+
 TEST_F(TestPartitioning, DirectoryPartitioning) {
   partitioning_ = std::make_shared<DirectoryPartitioning>(
       schema({field("alpha", int32()), field("beta", utf8())}));
@@ -207,6 +216,18 @@ TEST_F(TestPartitioning, DirectoryPartitioning) {
 
   AssertParse("/0/foo/ignored=2341", and_(equal(field_ref("alpha"), literal(0)),
                                           equal(field_ref("beta"), literal("foo"))));
+}
+
+TEST_F(TestPartitioning, DirectoryPartitioningEmpty) {
+  partitioning_ = std::make_shared<DirectoryPartitioning>(schema({}));
+  written_schema_ = partitioning_->schema();
+
+  // No partitioning info
+  AssertParse("", literal(true));
+  // Files can be in subdirectories
+  AssertParse("/foo/", literal(true));
+  // Partitioning info is discarded on write
+  AssertFormat(equal(field_ref("alpha"), literal(7)), "");
 }
 
 TEST_F(TestPartitioning, DirectoryPartitioningEquals) {
@@ -295,7 +316,7 @@ TEST_F(TestPartitioning, DirectoryPartitioningFormatDictionary) {
                                                           ArrayVector{dictionary});
   written_schema_ = partitioning_->schema();
 
-  ASSERT_OK_AND_ASSIGN(auto dict_hello, MakeScalar("hello")->CastTo(DictStr("")->type()));
+  ASSERT_OK_AND_ASSIGN(auto dict_hello, Cast(MakeScalar("hello"), DictStr("")->type()));
   AssertFormat(equal(field_ref("alpha"), literal(dict_hello)), "hello");
 }
 
@@ -308,7 +329,7 @@ TEST_F(TestPartitioning, DirectoryPartitioningFormatDictionaryCustomIndex) {
       schema({field("alpha", dict_type)}), ArrayVector{dictionary});
   written_schema_ = partitioning_->schema();
 
-  ASSERT_OK_AND_ASSIGN(auto dict_hello, MakeScalar("hello")->CastTo(dict_type));
+  ASSERT_OK_AND_ASSIGN(auto dict_hello, Cast(MakeScalar("hello"), dict_type));
   AssertFormat(equal(field_ref("alpha"), literal(dict_hello)), "hello");
 }
 
@@ -317,7 +338,7 @@ TEST_F(TestPartitioning, DirectoryPartitioningWithTemporal) {
     partitioning_ = std::make_shared<DirectoryPartitioning>(
         schema({field("year", int32()), field("month", int8()), field("day", temporal)}));
 
-    ASSERT_OK_AND_ASSIGN(auto day, StringScalar("2020-06-08").CastTo(temporal));
+    ASSERT_OK_AND_ASSIGN(auto day, Cast(StringScalar("2020-06-08"), temporal));
     AssertParse("/2020/06/2020-06-08/",
                 and_({equal(field_ref("year"), literal(2020)),
                       equal(field_ref("month"), literal<int8_t>(6)),
@@ -529,6 +550,9 @@ TEST_F(TestPartitioning, HivePartitioningFormat) {
   AssertFormatError<StatusCode::TypeError>(
       and_(equal(field_ref("alpha"), literal("0.0")),
            equal(field_ref("beta"), literal("hello"))));
+
+  partitioning_ = std::make_shared<HivePartitioning>(schema({field("x", large_utf8())}));
+  AssertFormat(equal(field_ref("x"), literal("hello")), "x=hello");
 }
 
 TEST_F(TestPartitioning, FilenamePartitioningFormat) {
@@ -911,7 +935,7 @@ TEST_F(TestPartitioning, WriteHiveWithSlashesInValues) {
       "experiment/A/f.csv", "experiment/B/f.csv", "experiment/C/k.csv",
       "experiment/M/i.csv"};
   for (auto partition : unique_partitions) {
-    encoded_paths.push_back("part=" + arrow::internal::UriEscape(partition));
+    encoded_paths.push_back("part=" + arrow::util::UriEscape(partition));
   }
 
   ASSERT_EQ(all_dirs.size(), encoded_paths.size());

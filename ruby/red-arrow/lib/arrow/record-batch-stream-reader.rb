@@ -20,6 +20,8 @@ module Arrow
     include Enumerable
 
     def each
+      return to_enum(__method__) unless block_given?
+
       loop do
         record_batch = next_record_batch
         break if record_batch.nil?

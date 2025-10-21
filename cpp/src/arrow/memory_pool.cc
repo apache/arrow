@@ -28,7 +28,7 @@
 #include <optional>
 
 #if defined(sun) || defined(__sun)
-#include <stdlib.h>
+#  include <stdlib.h>
 #endif
 
 #include "arrow/buffer.h"
@@ -40,17 +40,17 @@
 #include "arrow/util/debug.h"
 #include "arrow/util/int_util_overflow.h"
 #include "arrow/util/io_util.h"
-#include "arrow/util/logging.h"  // IWYU pragma: keep
+#include "arrow/util/logging_internal.h"  // IWYU pragma: keep
 #include "arrow/util/string.h"
 #include "arrow/util/thread_pool.h"
 #include "arrow/util/ubsan.h"
 
 #ifdef __GLIBC__
-#include <malloc.h>
+#  include <malloc.h>
 #endif
 
 #ifdef ARROW_MIMALLOC
-#include <mimalloc.h>
+#  include <mimalloc.h>
 #endif
 
 namespace arrow {
@@ -85,19 +85,17 @@ struct SupportedBackend {
 
 const std::vector<SupportedBackend>& SupportedBackends() {
   static std::vector<SupportedBackend> backends = {
-  // ARROW-12316: Apple => mimalloc first, then jemalloc
-  //              non-Apple => jemalloc first, then mimalloc
-#if defined(ARROW_JEMALLOC) && !defined(__APPLE__)
-    {"jemalloc", MemoryPoolBackend::Jemalloc},
-#endif
+  // mimalloc is our preferred allocator for several reasons:
+  // 1) it has good performance
+  // 2) it is well-supported on all our main platforms (Linux, macOS, Windows)
+  // 3) it is easy to configure and has a consistent API.
 #ifdef ARROW_MIMALLOC
-    {"mimalloc", MemoryPoolBackend::Mimalloc},
+      {"mimalloc", MemoryPoolBackend::Mimalloc},
 #endif
-#if defined(ARROW_JEMALLOC) && defined(__APPLE__)
-    {"jemalloc", MemoryPoolBackend::Jemalloc},
+#ifdef ARROW_JEMALLOC
+      {"jemalloc", MemoryPoolBackend::Jemalloc},
 #endif
-    {"system", MemoryPoolBackend::System}
-  };
+      {"system", MemoryPoolBackend::System}};
   return backends;
 }
 
@@ -195,7 +193,7 @@ bool IsDebugEnabled() {
       return false;
     }
     auto env_value = *std::move(maybe_env_value);
-    if (env_value.empty()) {
+    if (env_value.empty() || env_value == "none") {
       return false;
     }
     auto debug_state = DebugState::Instance();
@@ -212,7 +210,7 @@ bool IsDebugEnabled() {
       return true;
     }
     ARROW_LOG(WARNING) << "Invalid value for " << kDebugMemoryEnvVar << ": '" << env_value
-                       << "'. Valid values are 'abort', 'trap', 'warn'.";
+                       << "'. Valid values are 'abort', 'trap', 'warn', 'none'.";
     return false;
   }();
 
@@ -267,6 +265,8 @@ class DebugAllocator {
       WrappedAllocator::DeallocateAligned(ptr, size + kOverhead, alignment);
     }
   }
+
+  static void PrintStats() { WrappedAllocator::PrintStats(); }
 
  private:
   static Result<int64_t> RawSize(int64_t size) {
@@ -382,6 +382,12 @@ class SystemAllocator {
     ARROW_UNUSED(malloc_trim(0));
 #endif
   }
+
+  static void PrintStats() {
+#ifdef __GLIBC__
+    malloc_stats();
+#endif
+  }
 };
 
 #ifdef ARROW_MIMALLOC
@@ -432,6 +438,8 @@ class MimallocAllocator {
       mi_free(ptr);
     }
   }
+
+  static void PrintStats() { mi_stats_print_out(nullptr, nullptr); }
 };
 
 #endif  // defined(ARROW_MIMALLOC)
@@ -472,7 +480,7 @@ class BaseMemoryPoolImpl : public MemoryPool {
     }
 #endif
 
-    stats_.UpdateAllocatedBytes(size);
+    stats_.DidAllocateBytes(size);
     return Status::OK();
   }
 
@@ -494,7 +502,7 @@ class BaseMemoryPoolImpl : public MemoryPool {
     }
 #endif
 
-    stats_.UpdateAllocatedBytes(new_size - old_size);
+    stats_.DidReallocateBytes(old_size, new_size);
     return Status::OK();
   }
 
@@ -509,14 +517,22 @@ class BaseMemoryPoolImpl : public MemoryPool {
 #endif
     Allocator::DeallocateAligned(buffer, size, alignment);
 
-    stats_.UpdateAllocatedBytes(-size);
+    stats_.DidFreeBytes(size);
   }
 
   void ReleaseUnused() override { Allocator::ReleaseUnused(); }
 
+  void PrintStats() override { Allocator::PrintStats(); }
+
   int64_t bytes_allocated() const override { return stats_.bytes_allocated(); }
 
   int64_t max_memory() const override { return stats_.max_memory(); }
+
+  int64_t total_bytes_allocated() const override {
+    return stats_.total_bytes_allocated();
+  }
+
+  int64_t num_allocations() const override { return stats_.num_allocations(); }
 
  protected:
   internal::MemoryPoolStats stats_;
@@ -720,6 +736,10 @@ void LoggingMemoryPool::Free(uint8_t* buffer, int64_t size, int64_t alignment) {
   std::cout << "Free: size = " << size << ", alignment = " << alignment << std::endl;
 }
 
+void LoggingMemoryPool::ReleaseUnused() { pool_->ReleaseUnused(); }
+
+void LoggingMemoryPool::PrintStats() { pool_->PrintStats(); }
+
 int64_t LoggingMemoryPool::bytes_allocated() const {
   int64_t nb_bytes = pool_->bytes_allocated();
   std::cout << "bytes_allocated: " << nb_bytes << std::endl;
@@ -729,6 +749,18 @@ int64_t LoggingMemoryPool::bytes_allocated() const {
 int64_t LoggingMemoryPool::max_memory() const {
   int64_t mem = pool_->max_memory();
   std::cout << "max_memory: " << mem << std::endl;
+  return mem;
+}
+
+int64_t LoggingMemoryPool::total_bytes_allocated() const {
+  int64_t mem = pool_->total_bytes_allocated();
+  std::cout << "total_bytes_allocated: " << mem << std::endl;
+  return mem;
+}
+
+int64_t LoggingMemoryPool::num_allocations() const {
+  int64_t mem = pool_->num_allocations();
+  std::cout << "num_allocations: " << mem << std::endl;
   return mem;
 }
 
@@ -743,25 +775,37 @@ class ProxyMemoryPool::ProxyMemoryPoolImpl {
 
   Status Allocate(int64_t size, int64_t alignment, uint8_t** out) {
     RETURN_NOT_OK(pool_->Allocate(size, alignment, out));
-    stats_.UpdateAllocatedBytes(size);
+    stats_.DidAllocateBytes(size);
     return Status::OK();
   }
 
   Status Reallocate(int64_t old_size, int64_t new_size, int64_t alignment,
                     uint8_t** ptr) {
     RETURN_NOT_OK(pool_->Reallocate(old_size, new_size, alignment, ptr));
-    stats_.UpdateAllocatedBytes(new_size - old_size);
+    stats_.DidReallocateBytes(old_size, new_size);
     return Status::OK();
   }
 
   void Free(uint8_t* buffer, int64_t size, int64_t alignment) {
     pool_->Free(buffer, size, alignment);
-    stats_.UpdateAllocatedBytes(-size);
+    stats_.DidFreeBytes(size);
+  }
+
+  void ReleaseUnused() { pool_->ReleaseUnused(); }
+
+  void PrintStats() {
+    // XXX these are the allocation stats for the underlying allocator, not
+    // the subset allocated through the ProxyMemoryPool
+    pool_->PrintStats();
   }
 
   int64_t bytes_allocated() const { return stats_.bytes_allocated(); }
 
   int64_t max_memory() const { return stats_.max_memory(); }
+
+  int64_t total_bytes_allocated() const { return stats_.total_bytes_allocated(); }
+
+  int64_t num_allocations() const { return stats_.num_allocations(); }
 
   std::string backend_name() const { return pool_->backend_name(); }
 
@@ -789,9 +833,19 @@ void ProxyMemoryPool::Free(uint8_t* buffer, int64_t size, int64_t alignment) {
   return impl_->Free(buffer, size, alignment);
 }
 
+void ProxyMemoryPool::ReleaseUnused() { impl_->ReleaseUnused(); }
+
+void ProxyMemoryPool::PrintStats() { impl_->PrintStats(); }
+
 int64_t ProxyMemoryPool::bytes_allocated() const { return impl_->bytes_allocated(); }
 
 int64_t ProxyMemoryPool::max_memory() const { return impl_->max_memory(); }
+
+int64_t ProxyMemoryPool::total_bytes_allocated() const {
+  return impl_->total_bytes_allocated();
+}
+
+int64_t ProxyMemoryPool::num_allocations() const { return impl_->num_allocations(); }
 
 std::string ProxyMemoryPool::backend_name() const { return impl_->backend_name(); }
 
@@ -832,7 +886,7 @@ class PoolBuffer final : public ResizableBuffer {
     }
     uint8_t* ptr = mutable_data();
     if (!ptr || capacity > capacity_) {
-      int64_t new_capacity = bit_util::RoundUpToMultipleOf64(capacity);
+      ARROW_ASSIGN_OR_RAISE(int64_t new_capacity, RoundCapacity(capacity));
       if (ptr) {
         RETURN_NOT_OK(pool_->Reallocate(capacity_, new_capacity, alignment_, &ptr));
       } else {
@@ -852,7 +906,7 @@ class PoolBuffer final : public ResizableBuffer {
     if (ptr && shrink_to_fit && new_size <= size_) {
       // Buffer is non-null and is not growing, so shrink to the requested size without
       // excess space.
-      int64_t new_capacity = bit_util::RoundUpToMultipleOf64(new_size);
+      ARROW_ASSIGN_OR_RAISE(int64_t new_capacity, RoundCapacity(new_size));
       if (capacity_ != new_capacity) {
         // Buffer hasn't got yet the requested size.
         RETURN_NOT_OK(pool_->Reallocate(capacity_, new_capacity, alignment_, &ptr));
@@ -890,6 +944,13 @@ class PoolBuffer final : public ResizableBuffer {
   }
 
  private:
+  static Result<int64_t> RoundCapacity(int64_t capacity) {
+    if (capacity > std::numeric_limits<int64_t>::max() - 63) {
+      return Status::OutOfMemory("capacity too large");
+    }
+    return bit_util::RoundUpToMultipleOf64(capacity);
+  }
+
   MemoryPool* pool_;
   int64_t alignment_;
 };

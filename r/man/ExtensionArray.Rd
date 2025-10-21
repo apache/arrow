@@ -3,9 +3,9 @@
 \docType{class}
 \name{ExtensionArray}
 \alias{ExtensionArray}
-\title{class arrow::ExtensionArray}
+\title{ExtensionArray class}
 \description{
-class arrow::ExtensionArray
+ExtensionArray class
 }
 \section{Methods}{
 

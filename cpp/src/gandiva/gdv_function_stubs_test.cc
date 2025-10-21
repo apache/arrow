@@ -73,7 +73,7 @@ TEST(TestGdvFnStubs, TestCastVarbinaryNumeric) {
   EXPECT_FALSE(ctx.has_error());
 
   gdv_fn_castVARBINARY_int32_int64(ctx_ptr, 347, -1, &out_len);
-  EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr("Buffer length can not be negative"));
+  EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr("Buffer length cannot be negative"));
   ctx.Reset();
 
   // tests for big integer values as input
@@ -122,7 +122,7 @@ TEST(TestGdvFnStubs, TestBase64Encode) {
   value = gdv_fn_base64_encode_binary(ctx_ptr, "test", -5, &out_len);
   out_value = std::string(value, out_len);
   EXPECT_EQ(out_value, "");
-  EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr("Buffer length can not be negative"));
+  EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr("Buffer length cannot be negative"));
   ctx.Reset();
 }
 
@@ -151,7 +151,7 @@ TEST(TestGdvFnStubs, TestBase64Decode) {
   value = gdv_fn_base64_decode_utf8(ctx_ptr, "test", -5, &out_len);
   out_value = std::string(value, out_len);
   EXPECT_EQ(out_value, "");
-  EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr("Buffer length can not be negative"));
+  EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr("Buffer length cannot be negative"));
   ctx.Reset();
 }
 
@@ -323,7 +323,7 @@ TEST(TestGdvFnStubs, TestCastVARCHARFromInt32) {
   EXPECT_FALSE(ctx.has_error());
 
   out_str = gdv_fn_castVARCHAR_int32_int64(ctx_ptr, 347, -1, &out_len);
-  EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr("Buffer length can not be negative"));
+  EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr("Buffer length cannot be negative"));
   ctx.Reset();
 }
 
@@ -464,7 +464,7 @@ TEST(TestGdvFnStubs, TestSubstringIndex) {
   EXPECT_FALSE(ctx.has_error());
 
   out_str = gdv_fn_substring_index(ctx_ptr, "Abc.DE.fGh", 10, ".", 1, -2, &out_len);
-  EXPECT_EQ(std::string(out_str, out_len), "fGh");
+  EXPECT_EQ(std::string(out_str, out_len), "DE.fGh");
   EXPECT_FALSE(ctx.has_error());
 
   out_str = gdv_fn_substring_index(ctx_ptr, "S;DCGS;JO!L", 11, ";", 1, 1, &out_len);
@@ -472,7 +472,7 @@ TEST(TestGdvFnStubs, TestSubstringIndex) {
   EXPECT_FALSE(ctx.has_error());
 
   out_str = gdv_fn_substring_index(ctx_ptr, "S;DCGS;JO!L", 11, ";", 1, -1, &out_len);
-  EXPECT_EQ(std::string(out_str, out_len), "DCGS;JO!L");
+  EXPECT_EQ(std::string(out_str, out_len), "JO!L");
   EXPECT_FALSE(ctx.has_error());
 
   out_str = gdv_fn_substring_index(ctx_ptr, "www.mysql.com", 13, "Q", 1, 1, &out_len);
@@ -496,7 +496,7 @@ TEST(TestGdvFnStubs, TestSubstringIndex) {
   EXPECT_FALSE(ctx.has_error());
 
   out_str = gdv_fn_substring_index(ctx_ptr, "www||mysql||com", 15, "||", 2, -2, &out_len);
-  EXPECT_EQ(std::string(out_str, out_len), "com");
+  EXPECT_EQ(std::string(out_str, out_len), "mysql||com");
   EXPECT_FALSE(ctx.has_error());
 
   out_str = gdv_fn_substring_index(ctx_ptr, "MÜNCHEN", 8, "Ü", 2, 1, &out_len);
@@ -505,6 +505,10 @@ TEST(TestGdvFnStubs, TestSubstringIndex) {
 
   out_str = gdv_fn_substring_index(ctx_ptr, "MÜNCHEN", 8, "Ü", 2, -1, &out_len);
   EXPECT_EQ(std::string(out_str, out_len), "NCHEN");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = gdv_fn_substring_index(ctx_ptr, "MÜëCHEN", 9, "Ü", 2, -1, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "ëCHEN");
   EXPECT_FALSE(ctx.has_error());
 
   out_str = gdv_fn_substring_index(ctx_ptr, "citroën", 8, "ë", 2, -1, &out_len);
@@ -1341,4 +1345,84 @@ TEST(TestGdvFnStubs, TestMask) {
   EXPECT_EQ(std::string(result, out_len), expected);
 }
 
+TEST(TestGdvFnStubs, TestAesEncryptDecrypt16) {
+  gandiva::ExecutionContext ctx;
+  std::string key16 = "12345678abcdefgh";
+  auto key16_len = static_cast<int32_t>(key16.length());
+  int32_t cipher_len = 0;
+  int32_t decrypted_len = 0;
+  std::string data = "test string";
+  auto data_len = static_cast<int32_t>(data.length());
+  int64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
+
+  const char* cipher = gdv_fn_aes_encrypt(ctx_ptr, data.c_str(), data_len, key16.c_str(),
+                                          key16_len, &cipher_len);
+  const char* decrypted_value = gdv_fn_aes_decrypt(
+      ctx_ptr, cipher, cipher_len, key16.c_str(), key16_len, &decrypted_len);
+
+  EXPECT_EQ(data,
+            std::string(reinterpret_cast<const char*>(decrypted_value), decrypted_len));
+}
+
+TEST(TestGdvFnStubs, TestAesEncryptDecrypt24) {
+  gandiva::ExecutionContext ctx;
+  std::string key24 = "12345678abcdefgh12345678";
+  auto key24_len = static_cast<int32_t>(key24.length());
+  int32_t cipher_len = 0;
+  int32_t decrypted_len = 0;
+  std::string data = "test string";
+  auto data_len = static_cast<int32_t>(data.length());
+  int64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
+
+  const char* cipher = gdv_fn_aes_encrypt(ctx_ptr, data.c_str(), data_len, key24.c_str(),
+                                          key24_len, &cipher_len);
+
+  const char* decrypted_value = gdv_fn_aes_decrypt(
+      ctx_ptr, cipher, cipher_len, key24.c_str(), key24_len, &decrypted_len);
+
+  EXPECT_EQ(data,
+            std::string(reinterpret_cast<const char*>(decrypted_value), decrypted_len));
+}
+
+TEST(TestGdvFnStubs, TestAesEncryptDecrypt32) {
+  gandiva::ExecutionContext ctx;
+  std::string key32 = "12345678abcdefgh12345678abcdefgh";
+  auto key32_len = static_cast<int32_t>(key32.length());
+  int32_t cipher_len = 0;
+  int32_t decrypted_len = 0;
+  std::string data = "test string";
+  auto data_len = static_cast<int32_t>(data.length());
+  int64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
+
+  const char* cipher = gdv_fn_aes_encrypt(ctx_ptr, data.c_str(), data_len, key32.c_str(),
+                                          key32_len, &cipher_len);
+
+  const char* decrypted_value = gdv_fn_aes_decrypt(
+      ctx_ptr, cipher, cipher_len, key32.c_str(), key32_len, &decrypted_len);
+
+  EXPECT_EQ(data,
+            std::string(reinterpret_cast<const char*>(decrypted_value), decrypted_len));
+}
+
+TEST(TestGdvFnStubs, TestAesEncryptDecryptValidation) {
+  gandiva::ExecutionContext ctx;
+  std::string key33 = "12345678abcdefgh12345678abcdefghb";
+  auto key33_len = static_cast<int32_t>(key33.length());
+  int32_t decrypted_len = 0;
+  std::string data = "test string";
+  auto data_len = static_cast<int32_t>(data.length());
+  int64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
+  std::string cipher = "12345678abcdefgh12345678abcdefghb";
+  auto cipher_len = static_cast<int32_t>(cipher.length());
+
+  gdv_fn_aes_encrypt(ctx_ptr, data.c_str(), data_len, key33.c_str(), key33_len,
+                     &cipher_len);
+  EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr("invalid key length"));
+  ctx.Reset();
+
+  gdv_fn_aes_decrypt(ctx_ptr, cipher.c_str(), cipher_len, key33.c_str(), key33_len,
+                     &decrypted_len);
+  EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr("invalid key length"));
+  ctx.Reset();
+}
 }  // namespace gandiva

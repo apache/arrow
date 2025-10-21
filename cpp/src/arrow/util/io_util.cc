@@ -17,7 +17,7 @@
 
 // Ensure 64-bit off_t for platforms where it matters
 #ifdef _FILE_OFFSET_BITS
-#undef _FILE_OFFSET_BITS
+#  undef _FILE_OFFSET_BITS
 #endif
 
 #define _FILE_OFFSET_BITS 64
@@ -27,8 +27,8 @@
 // is the best way to enable modern POSIX APIs, such as posix_madvise(), on Solaris.
 // (see also
 // https://github.com/illumos/illumos-gate/blob/master/usr/src/uts/common/sys/mman.h)
-#undef __EXTENSIONS__
-#define __EXTENSIONS__
+#  undef __EXTENSIONS__
+#  define __EXTENSIONS__
 #endif
 
 #include "arrow/util/windows_compatibility.h"  // IWYU pragma: keep
@@ -45,6 +45,7 @@
 #include <random>
 #include <sstream>
 #include <string>
+#include <string_view>
 #include <thread>
 #include <utility>
 #include <vector>
@@ -59,34 +60,34 @@
 // file compatibility stuff
 
 #ifdef _WIN32
-#include <direct.h>
-#include <io.h>
-#include <share.h>
+#  include <direct.h>
+#  include <io.h>
+#  include <share.h>
 #else  // POSIX-like platforms
-#include <dirent.h>
+#  include <dirent.h>
 #endif
 
 #ifdef _WIN32
-#include "arrow/io/mman.h"
-#undef Realloc
-#undef Free
+#  include "arrow/io/mman.h"
+#  undef Realloc
+#  undef Free
 #else  // POSIX-like platforms
-#include <sys/mman.h>
-#include <unistd.h>
+#  include <sys/mman.h>
+#  include <unistd.h>
 #endif
 
 // define max read/write count
 #ifdef _WIN32
-#define ARROW_MAX_IO_CHUNKSIZE INT32_MAX
+#  define ARROW_MAX_IO_CHUNKSIZE INT32_MAX
 #else
 
-#ifdef __APPLE__
+#  ifdef __APPLE__
 // due to macOS bug, we need to set read/write max
-#define ARROW_MAX_IO_CHUNKSIZE INT32_MAX
-#else
+#    define ARROW_MAX_IO_CHUNKSIZE INT32_MAX
+#  else
 // see notes on Linux read/write manpage
-#define ARROW_MAX_IO_CHUNKSIZE 0x7ffff000
-#endif
+#    define ARROW_MAX_IO_CHUNKSIZE 0x7ffff000
+#  endif
 
 #endif
 
@@ -94,32 +95,36 @@
 #include "arrow/result.h"
 #include "arrow/util/atfork_internal.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/config.h"
 #include "arrow/util/io_util.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/mutex.h"
 
 // For filename conversion
 #if defined(_WIN32)
-#include "arrow/util/utf8.h"
+#  include "arrow/util/utf8.h"
 #endif
 
 #ifdef _WIN32
-#include <psapi.h>
+#  include <psapi.h>
 
 #elif __APPLE__
-#include <mach/mach.h>
-#include <sys/sysctl.h>
+#  include <mach/mach.h>
+#  include <sys/sysctl.h>
 
 #elif __linux__
-#include <sys/sysinfo.h>
-#include <fstream>
+#  include <sys/sysinfo.h>
+#  include <fstream>
+#  include <limits>
 #endif
 
-namespace arrow {
+#ifdef _WIN32
+#  include <windows.h>
+#else
+#  include <dlfcn.h>
+#endif
 
-using internal::checked_cast;
-
-namespace internal {
+namespace arrow::internal {
 
 namespace {
 
@@ -135,11 +140,11 @@ std::basic_string<CharT> ReplaceChars(std::basic_string<CharT> s, CharT find, Ch
   return s;
 }
 
-Result<NativePathString> StringToNative(const std::string& s) {
+Result<NativePathString> StringToNative(std::string_view s) {
 #if _WIN32
   return ::arrow::util::UTF8ToWideString(s);
 #else
-  return s;
+  return std::string(s);
 #endif
 }
 
@@ -193,7 +198,7 @@ NativePathString NativeParent(const NativePathString& s) {
   }
 }
 
-Status ValidatePath(const std::string& s) {
+Status ValidatePath(std::string_view s) {
   if (s.find_first_of('\0') != std::string::npos) {
     return Status::Invalid("Embedded NUL char in path: '", s, "'");
   }
@@ -448,6 +453,13 @@ std::shared_ptr<StatusDetail> StatusDetailFromErrno(int errnum) {
   return std::make_shared<ErrnoDetail>(errnum);
 }
 
+std::optional<int> ErrnoFromStatusDetail(const StatusDetail& detail) {
+  if (detail.type_id() == kErrnoDetailTypeId) {
+    return checked_cast<const ErrnoDetail&>(detail).errnum();
+  }
+  return std::nullopt;
+}
+
 #if _WIN32
 std::shared_ptr<StatusDetail> StatusDetailFromWinError(int errnum) {
   if (!errnum) {
@@ -589,7 +601,7 @@ Result<PlatformFilename> PlatformFilename::Real() const {
   return PlatformFilename(std::move(real));
 }
 
-Result<PlatformFilename> PlatformFilename::FromString(const std::string& file_name) {
+Result<PlatformFilename> PlatformFilename::FromString(std::string_view file_name) {
   RETURN_NOT_OK(ValidatePath(file_name));
   ARROW_ASSIGN_OR_RAISE(auto ns, StringToNative(file_name));
   return PlatformFilename(std::move(ns));
@@ -603,8 +615,9 @@ PlatformFilename PlatformFilename::Join(const PlatformFilename& child) const {
   }
 }
 
-Result<PlatformFilename> PlatformFilename::Join(const std::string& child_name) const {
-  ARROW_ASSIGN_OR_RAISE(auto child, PlatformFilename::FromString(child_name));
+Result<PlatformFilename> PlatformFilename::Join(std::string_view child_name) const {
+  ARROW_ASSIGN_OR_RAISE(auto child,
+                        PlatformFilename::FromString(std::string(child_name)));
   return Join(child);
 }
 
@@ -1057,8 +1070,11 @@ Result<FileDescriptor> FileOpenReadable(const PlatformFilename& file_name) {
   }
   fd = FileDescriptor(ret);
 #else
-  int ret = open(file_name.ToNative().c_str(), O_RDONLY);
-  if (ret < 0) {
+  int ret;
+  do {
+    ret = open(file_name.ToNative().c_str(), O_RDONLY);
+  } while (ret == -1 && errno == EINTR);
+  if (ret == -1) {
     return IOErrorFromErrno(errno, "Failed to open local file '", file_name.ToString(),
                             "'");
   }
@@ -1072,7 +1088,7 @@ Result<FileDescriptor> FileOpenReadable(const PlatformFilename& file_name) {
   }
 #endif
 
-  return std::move(fd);
+  return fd;
 }
 
 Result<FileDescriptor> FileOpenWritable(const PlatformFilename& file_name,
@@ -1124,7 +1140,10 @@ Result<FileDescriptor> FileOpenWritable(const PlatformFilename& file_name,
     oflag |= O_RDWR;
   }
 
-  int ret = open(file_name.ToNative().c_str(), oflag, 0666);
+  int ret;
+  do {
+    ret = open(file_name.ToNative().c_str(), oflag, 0666);
+  } while (ret == -1 && errno == EINTR);
   if (ret == -1) {
     return IOErrorFromErrno(errno, "Failed to open local file '", file_name.ToString(),
                             "'");
@@ -1136,7 +1155,7 @@ Result<FileDescriptor> FileOpenWritable(const PlatformFilename& file_name,
     // Seek to end, as O_APPEND does not necessarily do it
     RETURN_NOT_OK(lseek64_compat(fd.fd(), 0, SEEK_END));
   }
-  return std::move(fd);
+  return fd;
 }
 
 Result<int64_t> FileTell(int fd) {
@@ -1211,11 +1230,11 @@ Status SetPipeFileDescriptorNonBlocking(int fd) {
 namespace {
 
 #ifdef WIN32
-#define PIPE_WRITE _write
-#define PIPE_READ _read
+#  define PIPE_WRITE _write
+#  define PIPE_READ _read
 #else
-#define PIPE_WRITE write
-#define PIPE_READ read
+#  define PIPE_WRITE write
+#  define PIPE_READ read
 #endif
 
 class SelfPipeImpl : public SelfPipe, public std::enable_shared_from_this<SelfPipeImpl> {
@@ -1435,7 +1454,7 @@ Status MemoryMapRemap(void* addr, size_t old_size, size_t new_size, int fildes,
 
   SetFilePointer(h, new_size_low, &new_size_high, FILE_BEGIN);
   SetEndOfFile(h);
-  fm = CreateFileMapping(h, NULL, PAGE_READWRITE, 0, 0, "");
+  fm = CreateFileMappingW(h, NULL, PAGE_READWRITE, 0, 0, L"");
   if (fm == NULL) {
     return StatusFromMmapErrno("CreateFileMapping failed");
   }
@@ -1464,7 +1483,7 @@ Status MemoryMapRemap(void* addr, size_t old_size, size_t new_size, int fildes,
     return StatusFromMmapErrno("ftruncate failed");
   }
   // we set READ / WRITE flags on the new map, since we could only have
-  // unlarged a RW map in the first place
+  // enlarged a RW map in the first place
   *new_addr = mmap(NULL, new_size, PROT_READ | PROT_WRITE, MAP_SHARED, fildes, 0);
   if (*new_addr == MAP_FAILED) {
     return StatusFromMmapErrno("mmap failed");
@@ -1474,6 +1493,7 @@ Status MemoryMapRemap(void* addr, size_t old_size, size_t new_size, int fildes,
 }
 
 Status MemoryAdviseWillNeed(const std::vector<MemoryRegion>& regions) {
+#ifndef __EMSCRIPTEN__
   const auto page_size = static_cast<size_t>(GetPageSize());
   DCHECK_GT(page_size, 0);
   const size_t page_mask = ~(page_size - 1);
@@ -1487,7 +1507,7 @@ Status MemoryAdviseWillNeed(const std::vector<MemoryRegion>& regions) {
             region.size + static_cast<size_t>(addr - aligned_addr)};
   };
 
-#ifdef _WIN32
+#  ifdef _WIN32
   // PrefetchVirtualMemory() is available on Windows 8 or later
   struct PrefetchEntry {  // Like WIN32_MEMORY_RANGE_ENTRY
     void* VirtualAddress;
@@ -1515,7 +1535,7 @@ Status MemoryAdviseWillNeed(const std::vector<MemoryRegion>& regions) {
     }
   }
   return Status::OK();
-#elif defined(POSIX_MADV_WILLNEED)
+#  elif defined(POSIX_MADV_WILLNEED)
   for (const auto& region : regions) {
     if (region.size != 0) {
       const auto aligned = align_region(region);
@@ -1529,6 +1549,9 @@ Status MemoryAdviseWillNeed(const std::vector<MemoryRegion>& regions) {
     }
   }
   return Status::OK();
+#  else
+  return Status::OK();
+#  endif
 #else
   return Status::OK();
 #endif
@@ -1860,11 +1883,11 @@ std::vector<NativePathString> GetPlatformTemporaryDirs() {
 
 #else
   selectors = {{"TMPDIR", ""}, {"TMP", ""}, {"TEMP", ""}, {"TEMPDIR", ""}};
-#ifdef __ANDROID__
+#  ifdef __ANDROID__
   fallback_tmp = "/data/local/tmp";
-#else
+#  else
   fallback_tmp = "/tmp";
-#endif
+#  endif
 #endif
 
   std::vector<NativePathString> temp_dirs;
@@ -1895,7 +1918,8 @@ std::vector<NativePathString> GetPlatformTemporaryDirs() {
 }
 
 std::string MakeRandomName(int num_chars) {
-  static const std::string chars = "0123456789abcdefghijklmnopqrstuvwxyz";
+  constexpr std::string_view chars = "0123456789abcdefghijklmnopqrstuvwxyz";
+
   std::default_random_engine gen(
       static_cast<std::default_random_engine::result_type>(GetRandomSeed()));
   std::uniform_int_distribution<int> dist(0, static_cast<int>(chars.length() - 1));
@@ -1950,7 +1974,7 @@ Result<std::unique_ptr<TemporaryDir>> TemporaryDir::Make(const std::string& pref
   for (const auto& base_dir : base_dirs) {
     ARROW_ASSIGN_OR_RAISE(auto ptr, TryCreatingDirectory(base_dir));
     if (ptr) {
-      return std::move(ptr);
+      return ptr;
     }
     // Cannot create in this directory, try the next one
   }
@@ -2055,7 +2079,9 @@ Status SendSignal(int signum) {
 }
 
 Status SendSignalToThread(int signum, uint64_t thread_id) {
-#ifdef _WIN32
+#ifndef ARROW_ENABLE_THREADING
+  return Status::NotImplemented("Can't send signal with no threads");
+#elif defined(_WIN32)
   return Status::NotImplemented("Cannot send signal to specific thread on Windows");
 #else
   // Have to use a C-style cast because pthread_t can be a pointer *or* integer type
@@ -2122,11 +2148,6 @@ uint64_t GetThreadId() {
   return equiv;
 }
 
-uint64_t GetOptionalThreadId() {
-  auto tid = GetThreadId();
-  return (tid == 0) ? tid - 1 : tid;
-}
-
 // Returns the current resident set size (physical memory use) measured
 // in bytes, or zero if the value cannot be determined on this OS.
 int64_t GetCurrentRSS() {
@@ -2137,7 +2158,8 @@ int64_t GetCurrentRSS() {
   return static_cast<int64_t>(info.WorkingSetSize);
 
 #elif defined(__APPLE__)
-  // OSX ------------------------------------------------------
+// OSX ------------------------------------------------------
+#  ifdef MACH_TASK_BASIC_INFO
   struct mach_task_basic_info info;
   mach_msg_type_number_t infoCount = MACH_TASK_BASIC_INFO_COUNT;
   if (task_info(mach_task_self(), MACH_TASK_BASIC_INFO, (task_info_t)&info, &infoCount) !=
@@ -2145,6 +2167,15 @@ int64_t GetCurrentRSS() {
     ARROW_LOG(WARNING) << "Can't resolve RSS value";
     return 0;
   }
+#  else
+  struct task_basic_info info;
+  mach_msg_type_number_t infoCount = TASK_BASIC_INFO_COUNT;
+  if (task_info(mach_task_self(), TASK_BASIC_INFO, (task_info_t)&info, &infoCount) !=
+      KERN_SUCCESS) {
+    ARROW_LOG(WARNING) << "Can't resolve RSS value";
+    return 0;
+  }
+#  endif
   return static_cast<int64_t>(info.resident_size);
 
 #elif defined(__linux__)
@@ -2195,5 +2226,74 @@ int64_t GetTotalMemoryBytes() {
 #endif
 }
 
-}  // namespace internal
-}  // namespace arrow
+Result<int32_t> GetNumAffinityCores() {
+#if defined(__linux__)
+  cpu_set_t mask;
+  if (sched_getaffinity(0, sizeof(mask), &mask) == 0) {
+    auto count = CPU_COUNT(&mask);
+    if (count > 0 &&
+        static_cast<uint64_t>(count) < std::numeric_limits<uint32_t>::max()) {
+      return static_cast<uint32_t>(count);
+    }
+  }
+  return IOErrorFromErrno(errno, "Could not read the CPU affinity.");
+#else
+  return Status::NotImplemented("Only implemented for Linux");
+#endif
+}
+
+Result<void*> LoadDynamicLibrary(const char* path) {
+#ifdef _WIN32
+  ARROW_ASSIGN_OR_RAISE(auto platform_path, PlatformFilename::FromString(path));
+  return LoadDynamicLibrary(platform_path);
+#else
+  constexpr int kFlags =
+      // All undefined symbols in the shared object are resolved before dlopen() returns.
+      RTLD_NOW
+      // Symbols defined in this shared object are not made available to
+      // resolve references in subsequently loaded shared objects.
+      | RTLD_LOCAL;
+  if (void* handle = dlopen(path, kFlags)) return handle;
+  // dlopen(3) man page: "If dlopen() fails for any reason, it returns NULL."
+  // There is no null-returning non-error condition.
+  auto* error = dlerror();
+  return Status::IOError("dlopen(", path, ") failed: ", error ? error : "unknown error");
+#endif
+}
+
+Result<void*> LoadDynamicLibrary(const PlatformFilename& path) {
+#ifdef _WIN32
+  if (void* handle = LoadLibraryW(path.ToNative().c_str())) {
+    return handle;
+  }
+  // win32 api doc: "If the function fails, the return value is NULL."
+  // There is no null-returning non-error condition.
+  return IOErrorFromWinError(GetLastError(), "LoadLibrary(", path.ToString(), ") failed");
+#else
+  return LoadDynamicLibrary(path.ToNative().c_str());
+#endif
+}
+
+Result<void*> GetSymbol(void* handle, const char* name) {
+  if (handle == nullptr) {
+    return Status::Invalid("Attempting to retrieve symbol '", name,
+                           "' from null library handle");
+  }
+#ifdef _WIN32
+  if (void* sym = reinterpret_cast<void*>(
+          GetProcAddress(reinterpret_cast<HMODULE>(handle), name))) {
+    return sym;
+  }
+  // win32 api doc: "If the function fails, the return value is NULL."
+  // There is no null-returning non-error condition.
+  return IOErrorFromWinError(GetLastError(), "GetProcAddress(", name, ") failed.");
+#else
+  if (void* sym = dlsym(handle, name)) return sym;
+  // dlsym(3) man page: "On failure, they return NULL"
+  // There is no null-returning non-error condition.
+  auto* error = dlerror();
+  return Status::IOError("dlsym(", name, ") failed: ", error ? error : "unknown error");
+#endif
+}
+
+}  // namespace arrow::internal

@@ -96,7 +96,7 @@ Status MakeRandomStringArray(int64_t length, bool include_nulls, MemoryPool* poo
 
 ARROW_TESTING_EXPORT
 Status MakeStringTypesRecordBatch(std::shared_ptr<RecordBatch>* out,
-                                  bool with_nulls = true);
+                                  bool with_nulls = true, bool with_view_types = true);
 
 ARROW_TESTING_EXPORT
 Status MakeStringTypesRecordBatchWithNulls(std::shared_ptr<RecordBatch>* out);
@@ -105,7 +105,16 @@ ARROW_TESTING_EXPORT
 Status MakeNullRecordBatch(std::shared_ptr<RecordBatch>* out);
 
 ARROW_TESTING_EXPORT
+Status MakeListRecordBatchSized(int length, std::shared_ptr<RecordBatch>* out);
+
+ARROW_TESTING_EXPORT
 Status MakeListRecordBatch(std::shared_ptr<RecordBatch>* out);
+
+ARROW_TESTING_EXPORT
+Status MakeListViewRecordBatchSized(int length, std::shared_ptr<RecordBatch>* out);
+
+ARROW_TESTING_EXPORT
+Status MakeListViewRecordBatch(std::shared_ptr<RecordBatch>* out);
 
 ARROW_TESTING_EXPORT
 Status MakeFixedSizeListRecordBatch(std::shared_ptr<RecordBatch>* out);
@@ -120,7 +129,13 @@ ARROW_TESTING_EXPORT
 Status MakeDeeplyNestedList(std::shared_ptr<RecordBatch>* out);
 
 ARROW_TESTING_EXPORT
+Status MakeDeeplyNestedListView(std::shared_ptr<RecordBatch>* out);
+
+ARROW_TESTING_EXPORT
 Status MakeStruct(std::shared_ptr<RecordBatch>* out);
+
+ARROW_TESTING_EXPORT
+Status MakeRunEndEncoded(std::shared_ptr<RecordBatch>* out);
 
 ARROW_TESTING_EXPORT
 Status MakeUnion(std::shared_ptr<RecordBatch>* out);
@@ -174,6 +189,9 @@ ARROW_TESTING_EXPORT
 Status MakeRandomTensor(const std::shared_ptr<DataType>& type,
                         const std::vector<int64_t>& shape, bool row_major_p,
                         std::shared_ptr<Tensor>* out, uint32_t seed = 0);
+
+ARROW_TESTING_EXPORT Status RoundtripBatch(const std::shared_ptr<RecordBatch>& batch,
+                                           std::shared_ptr<RecordBatch>* out);
 
 }  // namespace test
 }  // namespace ipc

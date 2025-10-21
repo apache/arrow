@@ -41,19 +41,10 @@ if(Python3Alt_FIND_QUIETLY)
   list(APPEND Python3Alt_NumPy_FIND_PACKAGE_OPTIONS QUIET)
 endif()
 
-# Need CMake 3.15 or later for Python3_FIND_STRATEGY
-if(${CMAKE_VERSION} VERSION_LESS "3.15.0")
-  find_package(PythonLibsNew ${Python3Alt_FIND_PACKAGE_OPTIONS})
-  find_package(NumPy ${Python3Alt_NumPy_FIND_PACKAGE_OPTIONS})
-  find_package_handle_standard_args(
-    Python3Alt REQUIRED_VARS PYTHON_EXECUTABLE PYTHON_INCLUDE_DIRS NUMPY_INCLUDE_DIRS)
-  return()
-endif()
-
-if(${CMAKE_VERSION} VERSION_LESS "3.18.0" OR ARROW_BUILD_TESTS)
-  # When building arrow-python-test, we need libpython to be present, so ask for
-  # the full "Development" component.  Also ask for it on CMake < 3.18,
-  # where "Development.Module" is not available.
+if(CMAKE_VERSION VERSION_LESS 3.18.0)
+  # We need libpython to be present, so ask for the full "Development"
+  # component on CMake < 3.18, where "Development.Module" is not
+  # available.
   find_package(Python3 ${Python3Alt_FIND_PACKAGE_OPTIONS} COMPONENTS Interpreter
                                                                      Development NumPy)
 else()
@@ -76,7 +67,7 @@ get_target_property(NUMPY_INCLUDE_DIRS Python3::NumPy INTERFACE_INCLUDE_DIRECTOR
 # detect it ourselves.
 # (https://gitlab.kitware.com/cmake/cmake/issues/20408)
 execute_process(COMMAND "${PYTHON_EXECUTABLE}" "-c"
-                        "from distutils import sysconfig; print(sysconfig.get_config_var('EXT_SUFFIX'))"
+                        "import sysconfig; print(sysconfig.get_config_var('EXT_SUFFIX'))"
                 RESULT_VARIABLE _PYTHON_RESULT
                 OUTPUT_VARIABLE _PYTHON_STDOUT
                 ERROR_VARIABLE _PYTHON_STDERR)

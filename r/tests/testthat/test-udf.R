@@ -20,7 +20,6 @@ test_that("list_compute_functions() works", {
   expect_true(all(!grepl("^hash_", list_compute_functions())))
 })
 
-
 test_that("arrow_scalar_function() works", {
   # check in/out type as schema/data type
   fun <- arrow_scalar_function(
@@ -91,7 +90,7 @@ test_that("register_scalar_function() adds a compute function to the registry", 
     int32(), float64(),
     auto_convert = TRUE
   )
-  on.exit(unregister_binding("times_32", update_cache = TRUE))
+  on.exit(unregister_binding("times_32"))
 
   expect_true("times_32" %in% names(asNamespace("arrow")$.cache$functions))
   expect_true("times_32" %in% list_compute_functions())
@@ -106,9 +105,11 @@ test_that("register_scalar_function() adds a compute function to the registry", 
     Scalar$create(32L, float64())
   )
 
+  skip_if_not_available("acero")
+
   expect_identical(
-    record_batch(a = 1L) %>%
-      dplyr::mutate(b = times_32(a)) %>%
+    record_batch(a = 1L) |>
+      dplyr::mutate(b = times_32(a)) |>
       dplyr::collect(),
     tibble::tibble(a = 1L, b = 32.0)
   )
@@ -123,7 +124,7 @@ test_that("arrow_scalar_function() with bad return type errors", {
     int32(),
     float64()
   )
-  on.exit(unregister_binding("times_32_bad_return_type_array", update_cache = TRUE))
+  on.exit(unregister_binding("times_32_bad_return_type_array"))
 
   expect_error(
     call_function("times_32_bad_return_type_array", Array$create(1L)),
@@ -136,7 +137,7 @@ test_that("arrow_scalar_function() with bad return type errors", {
     int32(),
     float64()
   )
-  on.exit(unregister_binding("times_32_bad_return_type_scalar", update_cache = TRUE))
+  on.exit(unregister_binding("times_32_bad_return_type_scalar"))
 
   expect_error(
     call_function("times_32_bad_return_type_scalar", Array$create(1L)),
@@ -154,7 +155,7 @@ test_that("register_scalar_function() can register multiple kernels", {
     out_type = function(in_types) in_types[[1]],
     auto_convert = TRUE
   )
-  on.exit(unregister_binding("times_32", update_cache = TRUE))
+  on.exit(unregister_binding("times_32"))
 
   expect_equal(
     call_function("times_32", Scalar$create(1L, int32())),
@@ -237,23 +238,23 @@ test_that("user-defined functions work during multi-threaded execution", {
     float64(),
     auto_convert = TRUE
   )
-  on.exit(unregister_binding("times_32", update_cache = TRUE))
+  on.exit(unregister_binding("times_32"))
 
   # check a regular collect()
-  result <- open_dataset(tf_dataset) %>%
-    dplyr::mutate(fun_result = times_32(value)) %>%
-    dplyr::collect() %>%
+  result <- open_dataset(tf_dataset) |>
+    dplyr::mutate(fun_result = times_32(value)) |>
+    dplyr::collect() |>
     dplyr::arrange(row_num)
 
   expect_identical(result$fun_result, example_df$value * 32)
 
   # check a write_dataset()
-  open_dataset(tf_dataset) %>%
-    dplyr::mutate(fun_result = times_32(value)) %>%
+  open_dataset(tf_dataset) |>
+    dplyr::mutate(fun_result = times_32(value)) |>
     write_dataset(tf_dest)
 
-  result2 <- dplyr::collect(open_dataset(tf_dest)) %>%
-    dplyr::arrange(row_num) %>%
+  result2 <- dplyr::collect(open_dataset(tf_dest)) |>
+    dplyr::arrange(row_num) |>
     dplyr::collect()
 
   expect_identical(result2$fun_result, example_df$value * 32)
@@ -270,26 +271,26 @@ test_that("nested exec plans can contain user-defined functions", {
     float64(),
     auto_convert = TRUE
   )
-  on.exit(unregister_binding("times_32", update_cache = TRUE))
+  on.exit(unregister_binding("times_32"))
 
   stream_plan_with_udf <- function() {
-    record_batch(a = 1:1000) %>%
-      dplyr::mutate(b = times_32(a)) %>%
-      as_record_batch_reader() %>%
+    record_batch(a = 1:1000) |>
+      dplyr::mutate(b = times_32(a)) |>
+      as_record_batch_reader() |>
       as_arrow_table()
   }
 
   collect_plan_with_head <- function() {
-    record_batch(a = 1:1000) %>%
-      dplyr::mutate(fun_result = times_32(a)) %>%
-      head(11) %>%
+    record_batch(a = 1:1000) |>
+      dplyr::mutate(fun_result = times_32(a)) |>
+      head(11) |>
       dplyr::collect()
   }
 
   expect_equal(
     stream_plan_with_udf(),
-    record_batch(a = 1:1000) %>%
-      dplyr::mutate(b = times_32(a)) %>%
+    record_batch(a = 1:1000) |>
+      dplyr::mutate(b = times_32(a)) |>
       dplyr::collect(as_data_frame = FALSE)
   )
 
@@ -309,12 +310,12 @@ test_that("head() on exec plan containing user-defined functions", {
     float64(),
     auto_convert = TRUE
   )
-  on.exit(unregister_binding("times_32", update_cache = TRUE))
+  on.exit(unregister_binding("times_32"))
 
-  result <- record_batch(a = 1:1000) %>%
-    dplyr::mutate(b = times_32(a)) %>%
-    as_record_batch_reader() %>%
-    head(11) %>%
+  result <- record_batch(a = 1:1000) |>
+    dplyr::mutate(b = times_32(a)) |>
+    as_record_batch_reader() |>
+    head(11) |>
     dplyr::collect()
 
   expect_equal(nrow(result), 11)

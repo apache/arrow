@@ -20,7 +20,9 @@
 #include <gmock/gmock-matchers.h>
 #include <gtest/gtest.h>
 
+#include "arrow/result.h"
 #include "arrow/status.h"
+#include "arrow/status_internal.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/matchers.h"
 
@@ -35,6 +37,25 @@ class TestStatusDetail : public StatusDetail {
 };
 
 }  // namespace
+
+namespace my_namespace {
+
+struct StatusLike {
+  int value;  // ok if 42
+};
+
+}  // namespace my_namespace
+
+template <>
+struct IntoStatus<my_namespace::StatusLike> {
+  static inline Status ToStatus(my_namespace::StatusLike v) {
+    if (v.value == 42) {
+      return Status::OK();
+    } else {
+      return Status::UnknownError("StatusLike: ", v.value);
+    }
+  }
+};
 
 TEST(StatusTest, TestCodeAndMessage) {
   Status ok = Status::OK();
@@ -74,6 +95,27 @@ TEST(StatusTest, TestWithDetail) {
 
 TEST(StatusTest, TestCoverageWarnNotOK) {
   ARROW_WARN_NOT_OK(Status::Invalid("invalid"), "Expected warning");
+}
+
+TEST(StatusTest, StatusConstant) {
+  internal::StatusConstant constant{StatusCode::Invalid, "default error"};
+  Status st = constant;
+
+  ASSERT_EQ(st.code(), StatusCode::Invalid);
+  ASSERT_EQ(st.message(), "default error");
+  ASSERT_EQ(st.detail(), nullptr);
+
+  Status copy = st;
+  ASSERT_EQ(&st.message(), &copy.message());
+  Status moved = std::move(st);
+  ASSERT_EQ(&copy.message(), &moved.message());
+  ASSERT_OK(st);
+
+  Status other = constant;
+  ASSERT_EQ(other.code(), StatusCode::Invalid);
+  ASSERT_EQ(other.message(), "default error");
+  ASSERT_EQ(other.detail(), nullptr);
+  ASSERT_EQ(&other.message(), &moved.message());
 }
 
 TEST(StatusTest, AndStatus) {
@@ -210,6 +252,94 @@ TEST(StatusTest, TestDetailEquality) {
   ASSERT_EQ(status_with_detail, status_with_detail2);
   ASSERT_NE(status_with_detail, status_without_detail);
   ASSERT_NE(status_without_detail, status_with_detail);
+}
+
+TEST(StatusTest, OrElse) {
+  int called = 0;
+
+  auto or_else_returning_status = [&](Status st) {
+    ++called;
+    return st.WithMessage("Prefixed: ", st.message());
+  };
+  auto or_else_returning_result = [&](Status st) {
+    ++called;
+    return Result<int>(st.WithMessage("Prefixed: ", st.message()));
+  };
+  auto or_else_returning_user_class = [&](Status st) {
+    ++called;
+    return my_namespace::StatusLike{43};
+  };
+  auto or_else_returning_void = [&](auto) { ++called; };
+
+  auto ok_status = Status::OK();
+  auto error_status = Status::IOError("some message");
+  Status st;
+
+  st = ok_status.OrElse(or_else_returning_status);
+  ASSERT_TRUE(st.ok());
+  st = ok_status.OrElse(or_else_returning_result);
+  ASSERT_TRUE(st.ok());
+  st = ok_status.OrElse(or_else_returning_void);
+  ASSERT_TRUE(st.ok());
+  st = ok_status.OrElse(or_else_returning_user_class);
+  ASSERT_TRUE(st.ok());
+  ASSERT_EQ(called, 0);
+
+  st = error_status.OrElse(or_else_returning_status);
+  ASSERT_EQ(st.code(), StatusCode::IOError);
+  ASSERT_EQ(st.message(), "Prefixed: some message");
+  ASSERT_EQ(called, 1);
+  st = error_status.OrElse(or_else_returning_result);
+  ASSERT_EQ(st.code(), StatusCode::IOError);
+  ASSERT_EQ(st.message(), "Prefixed: some message");
+  ASSERT_EQ(called, 2);
+  st = error_status.OrElse(or_else_returning_void);
+  ASSERT_EQ(st.code(), StatusCode::IOError);
+  ASSERT_EQ(st.message(), "some message");
+  ASSERT_EQ(called, 3);
+  st = error_status.OrElse(or_else_returning_user_class);
+  ASSERT_EQ(st.code(), StatusCode::UnknownError);
+  ASSERT_EQ(st.message(), "StatusLike: 43");
+  ASSERT_EQ(called, 4);
+}
+
+std::string StripContext(const std::string& message) {
+#ifdef ARROW_EXTRA_ERROR_CONTEXT
+  auto pos = message.find_first_of('\n');
+  if (pos != message.npos) {
+    return message.substr(0, pos);
+  }
+#endif
+  return message;
+}
+
+TEST(StatusTest, ReturnIfNotOk) {
+  auto f = [](auto v) {
+    RETURN_NOT_OK(v);
+    return Status::OK();
+  };
+
+  auto ok_status = Status::OK();
+  auto error_status = Status::IOError("some message");
+  Status st;
+
+  st = f(ok_status);
+  ASSERT_TRUE(st.ok());
+  st = f(error_status);
+  ASSERT_EQ(st.code(), StatusCode::IOError);
+  ASSERT_EQ(StripContext(st.message()), error_status.message());
+
+  st = f(Result<int>(42));
+  ASSERT_TRUE(st.ok());
+  st = f(Result<int>(error_status));
+  ASSERT_EQ(st.code(), StatusCode::IOError);
+  ASSERT_EQ(StripContext(st.message()), error_status.message());
+
+  st = f(my_namespace::StatusLike{42});
+  ASSERT_TRUE(st.ok());
+  st = f(my_namespace::StatusLike{43});
+  ASSERT_EQ(st.code(), StatusCode::UnknownError);
+  ASSERT_EQ(StripContext(st.message()), "StatusLike: 43");
 }
 
 }  // namespace arrow

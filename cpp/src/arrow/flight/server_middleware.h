@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// Interfaces for defining middleware for Flight servers. Currently
-// experimental.
+// Interfaces for defining middleware for Flight servers.
 
 #pragma once
 
@@ -24,6 +23,7 @@
 #include <string>
 
 #include "arrow/flight/middleware.h"
+#include "arrow/flight/type_fwd.h"
 #include "arrow/flight/visibility.h"  // IWYU pragma: keep
 #include "arrow/status.h"
 
@@ -65,9 +65,8 @@ class ARROW_FLIGHT_EXPORT ServerMiddlewareFactory {
   ///
   /// Return a non-OK status to reject the call with the given status.
   ///
-  /// \param info Information about the call.
-  /// \param incoming_headers Headers sent by the client for this call.
-  ///     Do not retain a reference to this object.
+  /// \param[in] info Information about the call.
+  /// \param[in] context The call context.
   /// \param[out] middleware The middleware instance for this call. If
   ///     null, no middleware will be added to this call instance from
   ///     this factory.
@@ -75,7 +74,7 @@ class ARROW_FLIGHT_EXPORT ServerMiddlewareFactory {
   ///     given status. Middleware previously in the chain will have
   ///     their CallCompleted callback called. Other middleware
   ///     factories will not be called.
-  virtual Status StartCall(const CallInfo& info, const CallHeaders& incoming_headers,
+  virtual Status StartCall(const CallInfo& info, const ServerCallContext& context,
                            std::shared_ptr<ServerMiddleware>* middleware) = 0;
 };
 

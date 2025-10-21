@@ -39,9 +39,9 @@ RUN \
     git \
     glog-devel \
     gobject-introspection-devel \
-    gtk-doc \
     json-devel \
     libarchive \
+    libxml2-devel \
     libzstd-devel \
     llvm-devel \
     llvm-static \
@@ -51,8 +51,8 @@ RUN \
     ninja-build \
     openssl-devel \
     pkg-config \
-    python39 \
-    python39-pip \
+    python3.12 \
+    python3.12-pip \
     re2-devel \
     # rapidjson-devel \
     rpmdevtools \
@@ -61,5 +61,6 @@ RUN \
     thrift-devel \
     # utf8proc-devel \
     vala \
+    which \
     zlib-devel && \
   dnf clean ${quiet} all

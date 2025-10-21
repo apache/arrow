@@ -29,6 +29,7 @@
 #include <arrow-glib/compute.hpp>
 #include <arrow-glib/data-type.hpp>
 #include <arrow-glib/datum.hpp>
+#include <arrow-glib/decoder.hpp>
 #include <arrow-glib/error.hpp>
 #include <arrow-glib/expression.hpp>
 #include <arrow-glib/field.hpp>

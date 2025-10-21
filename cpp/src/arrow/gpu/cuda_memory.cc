@@ -27,10 +27,11 @@
 #include <cuda.h>
 
 #include "arrow/buffer.h"
+#include "arrow/device.h"
 #include "arrow/io/memory.h"
 #include "arrow/memory_pool.h"
 #include "arrow/status.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 
 #include "arrow/gpu/cuda_context.h"
 #include "arrow/gpu/cuda_internal.h"
@@ -88,7 +89,7 @@ Result<std::shared_ptr<Buffer>> CudaIpcMemHandle::Serialize(MemoryPool* pool) co
     memcpy(buffer->mutable_data() + sizeof(impl_->memory_size), &impl_->ipc_handle,
            sizeof(impl_->ipc_handle));
   }
-  return std::move(buffer);
+  return buffer;
 }
 
 const void* CudaIpcMemHandle::handle() const { return &impl_->ipc_handle; }
@@ -198,9 +199,14 @@ Result<std::shared_ptr<CudaIpcMemHandle>> CudaBuffer::ExportForIpc() {
   return handle;
 }
 
+CudaHostBuffer::CudaHostBuffer(uint8_t* data, const int64_t size)
+    : MutableBuffer(data, size) {
+  device_type_ = DeviceAllocationType::kCUDA_HOST;
+}
+
 CudaHostBuffer::~CudaHostBuffer() {
   auto maybe_manager = CudaDeviceManager::Instance();
-  ARROW_CHECK_OK(maybe_manager.status());
+  ARROW_CHECK_OK(maybe_manager);
   ARROW_CHECK_OK((*maybe_manager)->FreeHost(const_cast<uint8_t*>(data_), size_));
 }
 
@@ -479,6 +485,42 @@ Result<uint8_t*> GetHostAddress(uintptr_t device_ptr) {
       cuPointerGetAttribute(&ptr, CU_POINTER_ATTRIBUTE_HOST_POINTER, device_ptr));
   return static_cast<uint8_t*>(ptr);
 }
+
+Result<std::shared_ptr<MemoryManager>> DefaultMemoryMapper(ArrowDeviceType device_type,
+                                                           int64_t device_id) {
+  switch (device_type) {
+    case ARROW_DEVICE_CPU:
+      return default_cpu_memory_manager();
+    case ARROW_DEVICE_CUDA:
+    case ARROW_DEVICE_CUDA_HOST:
+    case ARROW_DEVICE_CUDA_MANAGED: {
+      ARROW_ASSIGN_OR_RAISE(auto device,
+                            arrow::cuda::CudaDevice::Make(static_cast<int>(device_id)));
+      return device->default_memory_manager();
+    }
+    default:
+      return Status::NotImplemented("memory manager not implemented for device");
+  }
+}
+
+namespace {
+
+Result<std::shared_ptr<MemoryManager>> DefaultCUDADeviceMapper(int64_t device_id) {
+  ARROW_ASSIGN_OR_RAISE(auto device,
+                        arrow::cuda::CudaDevice::Make(static_cast<int>(device_id)));
+  return device->default_memory_manager();
+}
+
+bool RegisterCUDADeviceInternal() {
+  DCHECK_OK(RegisterDeviceMapper(DeviceAllocationType::kCUDA, DefaultCUDADeviceMapper));
+  // TODO add the CUDA_HOST and CUDA_MANAGED allocation types when they are supported in
+  // the CudaDevice
+  return true;
+}
+
+static auto cuda_registered = RegisterCUDADeviceInternal();
+
+}  // namespace
 
 }  // namespace cuda
 }  // namespace arrow

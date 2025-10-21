@@ -21,8 +21,9 @@
 
 #include "arrow/compute/api_aggregate.h"
 #include "arrow/compute/kernels/aggregate_internal.h"
-#include "arrow/compute/kernels/common.h"
+#include "arrow/compute/kernels/common_internal.h"
 #include "arrow/compute/kernels/util_internal.h"
+#include "arrow/compute/registry_internal.h"
 #include "arrow/result.h"
 #include "arrow/stl_allocator.h"
 #include "arrow/type_traits.h"
@@ -115,7 +116,7 @@ Status Finalize(KernelContext* ctx, const DataType& type, ExecResult* out,
   return Status::OK();
 }
 
-// count value occurances for integers with narrow value range
+// count value occurrences for integers with narrow value range
 // O(1) space, O(n) time
 template <typename T>
 struct CountModer {
@@ -495,10 +496,9 @@ void RegisterScalarAggregateMode(FunctionRegistry* registry) {
                     ModeExecutorChunked<StructType, BooleanType>::Exec)));
   for (const auto& type : NumericTypes()) {
     // TODO(wesm):
-    DCHECK_OK(func->AddKernel(NewModeKernel(
-        type, GenerateNumeric<ModeExecutor, StructType>(*type),
-        GenerateNumeric<ModeExecutorChunked, StructType, VectorKernel::ChunkedExec>(
-            *type))));
+    DCHECK_OK(func->AddKernel(
+        NewModeKernel(type, GenerateNumeric<ModeExecutor, StructType>(*type),
+                      GenerateNumeric<ModeExecutorChunked, StructType>(*type))));
   }
   // Type parameters are ignored
   DCHECK_OK(func->AddKernel(

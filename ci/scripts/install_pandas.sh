@@ -28,19 +28,19 @@ pandas=$1
 numpy=${2:-"latest"}
 
 if [ "${numpy}" = "nightly" ]; then
-  pip install --extra-index-url https://pypi.anaconda.org/scipy-wheels-nightly/simple --pre numpy
+  pip install --extra-index-url https://pypi.anaconda.org/scientific-python-nightly-wheels/simple --pre numpy
 elif [ "${numpy}" = "latest" ]; then
   pip install numpy
 else
-  pip install numpy==${numpy}
+  pip install numpy=="${numpy}"
 fi
 
 if [ "${pandas}" = "upstream_devel" ]; then
   pip install git+https://github.com/pandas-dev/pandas.git
 elif [ "${pandas}" = "nightly" ]; then
-  pip install --extra-index-url https://pypi.anaconda.org/scipy-wheels-nightly/simple --pre pandas
+  pip install --extra-index-url https://pypi.anaconda.org/scientific-python-nightly-wheels/simple --pre pandas
 elif [ "${pandas}" = "latest" ]; then
   pip install pandas
 else
-  pip install pandas==${pandas}
+  pip install pandas=="${pandas}"
 fi

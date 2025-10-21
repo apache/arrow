@@ -24,7 +24,7 @@
 #include <utility>
 
 #include "arrow/dataset/partition.h"
-#include "arrow/dataset/test_util.h"
+#include "arrow/dataset/test_util_internal.h"
 #include "arrow/filesystem/test_util.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/type_fwd.h"
@@ -117,9 +117,15 @@ TEST_F(MockDatasetFactoryTest, UnifySchemas) {
 
   MakeFactory({schema({i32, f64}), schema({f64, i32_fake})});
   // Unification fails when fields with the same name have clashing types.
-  ASSERT_RAISES(Invalid, factory_->Inspect());
+  ASSERT_RAISES(TypeError, factory_->Inspect());
   // Return the individual schema for closer inspection should not fail.
   AssertInspectSchemas({schema({i32, f64}), schema({f64, i32_fake})});
+
+  MakeFactory({schema({field("num", int32())}), schema({field("num", float64())})});
+  ASSERT_RAISES(TypeError, factory_->Inspect());
+  InspectOptions permissive_options;
+  permissive_options.field_merge_options = Field::MergeOptions::Permissive();
+  AssertInspect(schema({field("num", float64())}), permissive_options);
 }
 
 class FileSystemDatasetFactoryTest : public DatasetFactoryTest {
@@ -138,7 +144,8 @@ class FileSystemDatasetFactoryTest : public DatasetFactoryTest {
     }
     options_ = std::make_shared<ScanOptions>();
     options_->dataset_schema = schema;
-    ASSERT_OK_AND_ASSIGN(auto projection, ProjectionDescr::Default(*schema));
+    ASSERT_OK_AND_ASSIGN(auto projection, ProjectionDescr::Default(
+                                              *schema, options_->add_augmented_fields));
     SetProjection(options_.get(), std::move(projection));
     ASSERT_OK_AND_ASSIGN(dataset_, factory_->Finish(schema));
     ASSERT_OK_AND_ASSIGN(auto fragment_it, dataset_->GetFragments());
@@ -335,7 +342,7 @@ TEST_F(FileSystemDatasetFactoryTest, FinishWithIncompatibleSchemaShouldFail) {
   ASSERT_OK_AND_ASSIGN(auto dataset, factory_->Finish(options));
 
   MakeFactory({fs::File("test")});
-  ASSERT_RAISES(Invalid, factory_->Finish(options));
+  ASSERT_RAISES(TypeError, factory_->Finish(options));
 
   // Disable validation
   options.validate_fragments = false;
@@ -463,8 +470,8 @@ TEST(UnionDatasetFactoryTest, ConflictingSchemas) {
                            {dataset_factory_1, dataset_factory_2, dataset_factory_3}));
 
   // schema_3 conflicts with other, Inspect/Finish should not work
-  ASSERT_RAISES(Invalid, factory->Inspect());
-  ASSERT_RAISES(Invalid, factory->Finish());
+  ASSERT_RAISES(TypeError, factory->Inspect());
+  ASSERT_RAISES(TypeError, factory->Finish());
 
   // The user can inspect without error
   ASSERT_OK_AND_ASSIGN(auto schemas, factory->InspectSchemas({}));
@@ -474,6 +481,12 @@ TEST(UnionDatasetFactoryTest, ConflictingSchemas) {
   auto i32_schema = schema({i32});
   ASSERT_OK_AND_ASSIGN(auto dataset, factory->Finish(i32_schema));
   EXPECT_EQ(*dataset->schema(), *i32_schema);
+
+  // The user decided to allow merging the types.
+  FinishOptions options;
+  options.inspect_options.field_merge_options = Field::MergeOptions::Permissive();
+  ASSERT_OK_AND_ASSIGN(dataset, factory->Finish(options));
+  EXPECT_EQ(*dataset->schema(), *schema({f64, i32}));
 }
 
 }  // namespace dataset

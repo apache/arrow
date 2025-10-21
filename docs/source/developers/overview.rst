@@ -31,12 +31,12 @@ checklist for using ``git``:
 
 * Work off of your **personal fork** of ``apache/arrow`` and submit pull requests
   "upstream".
-* Keep your fork's **master branch synced** with ``upstream/master``.
-* **Develop on branches**, rather than your own "master" branch.
+* Keep your fork's **main branch synced** with ``upstream/main``.
+* **Develop on branches**, rather than your own "main" branch.
 * It does not matter what you call your branch. Some people like to use the GitHub
   issue number as branch name, others use descriptive names.
-* **Sync your branch** with ``upstream/master`` **regularly**, as many commits are
-  merged to master every day.
+* **Sync your branch** with ``upstream/main`` **regularly**, as many commits are
+  merged to main every day.
 * It is recommended to use ``git rebase`` rather than ``git merge``.
 * In case there are conflicts, and your local commit history has multiple commits,
   you may simplify the conflict resolution process by **squashing your local commits
@@ -45,7 +45,7 @@ checklist for using ``git``:
 
   .. dropdown:: How to squash local commits?
     :animate: fade-in-slide-down
-    :class-container: sd-shadow-md
+    :class-container: sd-shadow-none
 
     Abort the rebase with:
 
@@ -75,10 +75,10 @@ checklist for using ``git``:
     locally, for example if additional commits have been made by a colleague.  By using
     ``--force-with-lease`` instead of ``--force``, you ensure those commits are not overwritten
     and can fetch those changes if desired.
-    
+
   .. dropdown:: Setting rebase to be default
     :animate: fade-in-slide-down
-    :class-container: sd-shadow-md
+    :class-container: sd-shadow-none
 
     If you set the following in your repo's ``.git/config``, the ``--rebase`` option can be
     omitted from the ``git pull`` command, as it is implied by default.
@@ -96,13 +96,10 @@ Pull request and review
 
 When contributing a patch, use this list as a checklist of Apache Arrow workflow:
 
-* Submit the patch as a **GitHub pull request** against the **master branch**.
+* Submit the patch as a **GitHub pull request** against the **main branch**.
 * So that your pull request syncs with the GitHub issue, **prefix your pull request
   title with the GitHub issue id** (ex:
   `GH-14866: [C++] Remove internal GroupBy implementation <https://github.com/apache/arrow/pull/14867>`_).
-  Similarly **prefix your pull request name with the JIRA issue id** (ex:
-  `ARROW-767: [C++] Filesystem abstraction <https://github.com/apache/arrow/pull/4225>`_)
-  in case the issue is still located in Jira.
 * Give the pull request a **clear, brief description**: when the pull request is
   merged, this will be retained in the extended commit message.
 * Make sure that your code **passes the unit tests**. You can find instructions how
@@ -136,10 +133,10 @@ will merge the pull request. This is done with a
 
 .. dropdown:: Details on squash merge
   :animate: fade-in-slide-down
-  :class-container: sd-shadow-md
+  :class-container: sd-shadow-none
 
   A pull request is merged with a squash merge so that all of your commits will be
-  registered as a single commit to the master branch; this simplifies the
+  registered as a single commit to the main branch; this simplifies the
   connection between GitHub issues and commits, makes it easier to bisect
   history to identify where changes were introduced, and helps us be able to
   cherry-pick individual patches onto a maintenance branch.
@@ -202,4 +199,3 @@ Implementations that do not intend to implement cross endian support:
 
 For other libraries, a discussion to gather consensus on the mailing-list
 should be had before submitting PRs.
-

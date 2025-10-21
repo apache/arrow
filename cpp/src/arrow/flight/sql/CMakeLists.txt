@@ -19,6 +19,15 @@ add_custom_target(arrow_flight_sql)
 
 arrow_install_all_headers("arrow/flight/sql")
 
+# If libarrow_flight_sql.a is only built, "pkg-config --cflags --libs
+# arrow-flight-sql" outputs build flags for static linking not shared
+# linking. ARROW_FLIGHT_SQL_PC_* except ARROW_FLIGHT_PC_SQL_*_PRIVATE
+# are for the static linking case.
+if(NOT ARROW_BUILD_SHARED AND ARROW_BUILD_STATIC)
+  string(APPEND ARROW_FLIGHT_SQL_PC_CFLAGS "${ARROW_FLIGHT_SQL_PC_CFLAGS_PRIVATE}")
+  set(ARROW_FLIGHT_SQL_PC_CFLAGS_PRIVATE "")
+endif()
+
 set(FLIGHT_SQL_PROTO_PATH "${ARROW_SOURCE_DIR}/../format")
 set(FLIGHT_SQL_PROTO ${ARROW_SOURCE_DIR}/../format/FlightSql.proto)
 
@@ -27,13 +36,20 @@ set(FLIGHT_SQL_GENERATED_PROTO_FILES "${CMAKE_CURRENT_BINARY_DIR}/FlightSql.pb.c
 
 set(PROTO_DEPENDS ${FLIGHT_SQL_PROTO} ${ARROW_PROTOBUF_LIBPROTOBUF})
 
+set(FLIGHT_SQL_PROTOC_COMMAND
+    ${ARROW_PROTOBUF_PROTOC} "-I${FLIGHT_SQL_PROTO_PATH}"
+    "--cpp_out=dllexport_decl=ARROW_FLIGHT_SQL_EXPORT:${CMAKE_CURRENT_BINARY_DIR}")
+if(Protobuf_VERSION VERSION_LESS 3.15)
+  list(APPEND FLIGHT_SQL_PROTOC_COMMAND "--experimental_allow_proto3_optional")
+endif()
+list(APPEND FLIGHT_SQL_PROTOC_COMMAND "${FLIGHT_SQL_PROTO}")
+
 add_custom_command(OUTPUT ${FLIGHT_SQL_GENERATED_PROTO_FILES}
-                   COMMAND ${ARROW_PROTOBUF_PROTOC} "-I${FLIGHT_SQL_PROTO_PATH}"
-                           "--cpp_out=dllexport_decl=ARROW_FLIGHT_SQL_EXPORT:${CMAKE_CURRENT_BINARY_DIR}"
-                           "${FLIGHT_SQL_PROTO}"
+                   COMMAND ${FLIGHT_SQL_PROTOC_COMMAND}
                    DEPENDS ${PROTO_DEPENDS})
 
-set_source_files_properties(${FLIGHT_SQL_GENERATED_PROTO_FILES} PROPERTIES GENERATED TRUE)
+arrow_set_generated_proto_files_properties(${FLIGHT_SQL_GENERATED_PROTO_FILES})
+
 add_custom_target(flight_sql_protobuf_gen ALL DEPENDS ${FLIGHT_SQL_GENERATED_PROTO_FILES})
 
 set(ARROW_FLIGHT_SQL_SRCS
@@ -41,7 +57,8 @@ set(ARROW_FLIGHT_SQL_SRCS
     sql_info_internal.cc
     column_metadata.cc
     client.cc
-    protocol_internal.cc)
+    protocol_internal.cc
+    server_session_middleware.cc)
 
 add_arrow_lib(arrow_flight_sql
               CMAKE_PACKAGE_NAME
@@ -58,8 +75,12 @@ add_arrow_lib(arrow_flight_sql
               ${ARROW_VERSION_SCRIPT_FLAGS} # Defined in cpp/arrow/CMakeLists.txt
               SHARED_LINK_LIBS
               arrow_flight_shared
+              SHARED_INSTALL_INTERFACE_LIBS
+              ArrowFlight::arrow_flight_shared
               STATIC_LINK_LIBS
               arrow_flight_static
+              STATIC_INSTALL_INTERFACE_LIBS
+              ArrowFlight::arrow_flight_static
               PRIVATE_INCLUDES
               "${Protobuf_INCLUDE_DIRS}")
 
@@ -94,9 +115,12 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_EXAMPLES)
       example/sqlite_server.cc
       example/sqlite_tables_schema_batch_reader.cc)
 
-  set(ARROW_FLIGHT_SQL_TEST_SRCS server_test.cc)
-  set(ARROW_FLIGHT_SQL_TEST_LIBS ${SQLite3_LIBRARIES})
+  set(ARROW_FLIGHT_SQL_TEST_SRCS server_test.cc
+                                 server_session_middleware_internals_test.cc)
+
+  set(ARROW_FLIGHT_SQL_TEST_LIBS ${SQLite3_LIBRARIES} Boost::headers)
   set(ARROW_FLIGHT_SQL_ACERO_SRCS example/acero_server.cc)
+  set(ARROW_FLIGHT_SQL_TEST_EXTRA_LINK_LIBS "")
 
   if(ARROW_COMPUTE
      AND ARROW_PARQUET
@@ -107,6 +131,7 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_EXAMPLES)
     else()
       list(APPEND ARROW_FLIGHT_SQL_TEST_LIBS arrow_substrait_shared)
     endif()
+    list(APPEND ARROW_FLIGHT_SQL_TEST_EXTRA_LINK_LIBS arrow_compute_testing)
 
     if(ARROW_BUILD_EXAMPLES)
       add_executable(acero-flight-sql-server ${ARROW_FLIGHT_SQL_ACERO_SRCS}
@@ -124,6 +149,8 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_EXAMPLES)
                  STATIC_LINK_LIBS
                  ${ARROW_FLIGHT_SQL_TEST_LINK_LIBS}
                  ${ARROW_FLIGHT_SQL_TEST_LIBS}
+                 EXTRA_LINK_LIBS
+                 ${ARROW_FLIGHT_SQL_TEST_EXTRA_LINK_LIBS}
                  EXTRA_INCLUDES
                  "${CMAKE_CURRENT_BINARY_DIR}/../"
                  LABELS
@@ -132,12 +159,12 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_EXAMPLES)
   add_executable(flight-sql-test-server test_server_cli.cc
                                         ${ARROW_FLIGHT_SQL_TEST_SERVER_SRCS})
   target_link_libraries(flight-sql-test-server
-                        PRIVATE ${ARROW_FLIGHT_SQL_TEST_LINK_LIBS} ${GFLAGS_LIBRARIES}
-                                ${SQLite3_LIBRARIES})
+                        PRIVATE ${ARROW_FLIGHT_SQL_TEST_LINK_LIBS}
+                                ${ARROW_FLIGHT_SQL_TEST_LIBS} ${GFLAGS_LIBRARIES})
 
   add_executable(flight-sql-test-app test_app_cli.cc)
   target_link_libraries(flight-sql-test-app PRIVATE ${ARROW_FLIGHT_SQL_TEST_LINK_LIBS}
-                                                    ${GFLAGS_LIBRARIES})
+                                                    Boost::headers ${GFLAGS_LIBRARIES})
 
   if(ARROW_FLIGHT_TEST_LINKAGE STREQUAL "static" AND ARROW_BUILD_STATIC)
     foreach(TEST_TARGET arrow-flight-sql-test flight-sql-test-server flight-sql-test-app)
@@ -145,4 +172,8 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_EXAMPLES)
                                                        ARROW_FLIGHT_SQL_STATIC)
     endforeach()
   endif()
+endif()
+
+if(ARROW_FLIGHT_SQL_ODBC)
+  add_subdirectory(odbc)
 endif()

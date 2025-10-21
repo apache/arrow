@@ -1,0 +1,153 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+{% import 'macros.jinja' as macros with context %}
+
+{{ macros.github_header() }}
+
+permissions:
+  packages: write
+
+jobs:
+  build:
+    name: "Build wheel for {{ linux_wheel_kind }} {{ linux_wheel_version }}"
+    {% if arch == "amd64" %}
+    runs-on: ubuntu-latest
+    {% else %}
+    runs-on: ubuntu-24.04-arm
+    {% endif %}
+    env:
+      {% if linux_wheel_kind == "musllinux" %}
+      ALPINE_LINUX: "3.22"
+      {% endif %}
+      # archery uses these environment variables
+      {% if arch == "amd64" %}
+      ARCH: amd64
+      {% else %}
+      ARCH: arm64v8
+      {% endif %}
+      PYTHON: "{{ python_version }}"
+      PYTHON_ABI_TAG: "{{ python_abi_tag }}"
+      {% if python_version == "3.14" %}
+      PYTHON_IMAGE_TAG: "3.14"
+      PYTHON_PATCH_VERSION: "3.14.0"
+      {% elif python_version == "3.13" %}
+      PYTHON_IMAGE_TAG: "{{ python_version }}"
+      PYTHON_PATCH_VERSION: "3.13.7"
+      {% else %}
+      PYTHON_IMAGE_TAG: "{{ python_version }}"
+      {% endif %}
+
+    steps:
+      {{ macros.github_checkout_arrow()|indent }}
+      {{ macros.github_install_archery()|indent }}
+      {{ macros.github_login_dockerhub()|indent }}
+
+      # Detect free-threaded Python builds
+      - name: Prepare
+        run: |
+          if [[ "${PYTHON_ABI_TAG}" == *t ]]; then
+            test_image_prefix=python-free-threaded
+          else
+            test_image_prefix=python
+          fi
+          echo "TEST_IMAGE_PREFIX=${test_image_prefix}" >> ${GITHUB_ENV}
+
+      - name: Build wheel
+        shell: bash
+        env:
+          GITHUB_TOKEN: {{ '${{ secrets.GITHUB_TOKEN }}' }}
+        run: |
+          if [ "{{ linux_wheel_kind }}" = "musllinux" ] && [ "{{ arch }}" = "arm64" ]; then
+            # We can't use NuGet on musl arm systems because the official NuGet binary for arm doesn't exist.
+            :
+          else
+            export VCPKG_BINARY_SOURCES="clear;nuget,GitHub,readwrite"
+          fi
+          archery docker run \
+            -e SETUPTOOLS_SCM_PRETEND_VERSION={{ arrow.no_rc_version }} \
+            python-wheel-{{ linux_wheel_kind }}-{{ linux_wheel_version }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wheel
+          path: arrow/python/repaired_wheels/*.whl
+
+      # TODO(kszucs): auditwheel show
+      - name: Test wheel
+        shell: bash
+        run: |
+          source arrow/ci/scripts/util_enable_core_dumps.sh
+          archery docker run ${TEST_IMAGE_PREFIX}-wheel-{{ linux_wheel_kind }}-test-imports
+          archery docker run ${TEST_IMAGE_PREFIX}-wheel-{{ linux_wheel_kind }}-test-unittests
+
+      - name: Test wheel on AlmaLinux 8
+        shell: bash
+        if: |
+          '{{ python_version }}' == '3.12' && '{{ linux_wheel_kind }}' == 'manylinux'
+        env:
+          ALMALINUX: "8"
+        run: |
+          archery docker run \
+            -e ARROW_GANDIVA=OFF \
+            -e TEST_DEFAULT=0 \
+            -e TEST_PYARROW_VERSION={{ arrow.no_rc_version }} \
+            -e TEST_PYTHON_VERSIONS={{ python_version }} \
+            -e TEST_WHEEL_PLATFORM_TAGS={{ wheel_platform_tag }} \
+            -e TEST_WHEELS=1 \
+            almalinux-verify-rc
+
+      - name: Test wheel on Ubuntu 22.04
+        shell: bash
+        if: |
+          '{{ python_version }}' == '3.10' && '{{ linux_wheel_kind }}' == 'manylinux'
+        env:
+          UBUNTU: "22.04"
+        run: |
+          archery docker run \
+            -e TEST_DEFAULT=0 \
+            -e TEST_PYARROW_VERSION={{ arrow.no_rc_version }} \
+            -e TEST_PYTHON_VERSIONS={{ python_version }} \
+            -e TEST_WHEEL_PLATFORM_TAGS={{ wheel_platform_tag }} \
+            -e TEST_WHEELS=1 \
+            ubuntu-verify-rc
+
+      - name: Test wheel on Ubuntu 24.04
+        shell: bash
+        if: |
+          '{{ python_version }}' == '3.12' && '{{ linux_wheel_kind }}' == 'manylinux'
+        env:
+          UBUNTU: "24.04"
+        run: |
+          archery docker run \
+            -e TEST_DEFAULT=0 \
+            -e TEST_PYARROW_VERSION={{ arrow.no_rc_version }} \
+            -e TEST_PYTHON_VERSIONS={{ python_version }} \
+            -e TEST_WHEEL_PLATFORM_TAGS={{ wheel_platform_tag }} \
+            -e TEST_WHEELS=1 \
+            ubuntu-verify-rc
+
+      {{ macros.github_upload_releases("arrow/python/repaired_wheels/*.whl")|indent }}
+      {{ macros.github_upload_wheel_scientific_python("arrow/python/repaired_wheels/*.whl")|indent }}
+
+      {% if arrow.is_default_branch() %}
+      - name: Push Docker images
+        shell: bash
+        run: |
+          archery docker push python-wheel-{{ linux_wheel_kind }}-{{ linux_wheel_version }}
+          archery docker push ${TEST_IMAGE_PREFIX}-wheel-{{ linux_wheel_kind }}-test-unittests
+      {% endif %}

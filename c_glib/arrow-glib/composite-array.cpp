@@ -57,12 +57,21 @@ G_BEGIN_DECLS
  * #GArrowSparseUnionArray is a class for sparse union array.
  *
  * #GArrowDictionaryArray is a class for dictionary array. It can
- * store data with dictionary and indices. It's space effective than
- * normal array when the array has many same values. You can convert a
- * normal array to dictionary array by garrow_array_dictionary_encode().
+ * store data with dictionary and indices. It's more space effective
+ * than normal array when the array has many same values. You can
+ * convert a normal array to a dictionary array by
+ * garrow_array_dictionary_encode().
+ *
+ * #GArrowRunEndEncodedArray is a class for run-end encoded array. It
+ * can store data with run-ends and values. It's more space effective
+ * than normal array when the array has many continuous same
+ * values. You can convert a normal array to a run-end encoded array
+ * by garrow_array_run_end_encode(). You can convert a run-end encoded
+ * array to a normal array by garrow_run_end_encoded_array_decode().
  */
 
-typedef struct GArrowListArrayPrivate_ {
+typedef struct GArrowListArrayPrivate_
+{
   GArrowArray *raw_values;
 } GArrowListArrayPrivate;
 
@@ -70,14 +79,11 @@ enum {
   PROP_RAW_VALUES = 1,
 };
 
-G_DEFINE_TYPE_WITH_PRIVATE(GArrowListArray,
-                           garrow_list_array,
-                           GARROW_TYPE_ARRAY)
+G_DEFINE_TYPE_WITH_PRIVATE(GArrowListArray, garrow_list_array, GARROW_TYPE_ARRAY)
 
-#define GARROW_LIST_ARRAY_GET_PRIVATE(obj)      \
-  static_cast<GArrowListArrayPrivate *>(        \
-    garrow_list_array_get_instance_private(     \
-      GARROW_LIST_ARRAY(obj)))
+#define GARROW_LIST_ARRAY_GET_PRIVATE(obj)                                               \
+  static_cast<GArrowListArrayPrivate *>(                                                 \
+    garrow_list_array_get_instance_private(GARROW_LIST_ARRAY(obj)))
 
 G_END_DECLS
 template <typename LIST_ARRAY_CLASS>
@@ -93,21 +99,24 @@ garrow_base_list_array_new(GArrowDataType *data_type,
   const auto arrow_value_offsets = garrow_buffer_get_raw(value_offsets);
   const auto arrow_values = garrow_array_get_raw(values);
   const auto arrow_null_bitmap = garrow_buffer_get_raw(null_bitmap);
-  auto arrow_list_array =
-    std::make_shared<LIST_ARRAY_CLASS>(arrow_data_type,
-                                       length,
-                                       arrow_value_offsets,
-                                       arrow_values,
-                                       arrow_null_bitmap,
-                                       n_nulls);
-  auto arrow_array =
-    std::static_pointer_cast<arrow::Array>(arrow_list_array);
+  auto arrow_list_array = std::make_shared<LIST_ARRAY_CLASS>(arrow_data_type,
+                                                             length,
+                                                             arrow_value_offsets,
+                                                             arrow_values,
+                                                             arrow_null_bitmap,
+                                                             n_nulls);
+  auto arrow_array = std::static_pointer_cast<arrow::Array>(arrow_list_array);
   return garrow_array_new_raw(&arrow_array,
-                              "array", &arrow_array,
-                              "value-data-type", data_type,
-                              "null-bitmap", null_bitmap,
-                              "buffer1", value_offsets,
-                              "raw-values", values,
+                              "array",
+                              &arrow_array,
+                              "value-data-type",
+                              data_type,
+                              "null-bitmap",
+                              null_bitmap,
+                              "buffer1",
+                              value_offsets,
+                              "raw-values",
+                              values,
                               NULL);
 };
 
@@ -116,25 +125,19 @@ GArrowDataType *
 garrow_base_list_array_get_value_type(GArrowArray *array)
 {
   auto arrow_array = garrow_array_get_raw(array);
-  auto arrow_list_array =
-    std::static_pointer_cast<LIST_ARRAY_CLASS>(arrow_array);
+  auto arrow_list_array = std::static_pointer_cast<LIST_ARRAY_CLASS>(arrow_array);
   auto arrow_value_type = arrow_list_array->value_type();
   return garrow_data_type_new_raw(&arrow_value_type);
 };
 
 template <typename LIST_ARRAY_CLASS>
 GArrowArray *
-garrow_base_list_array_get_value(GArrowArray *array,
-                                 gint64 i)
+garrow_base_list_array_get_value(GArrowArray *array, gint64 i)
 {
   auto arrow_array = garrow_array_get_raw(array);
-  auto arrow_list_array =
-    std::static_pointer_cast<LIST_ARRAY_CLASS>(arrow_array);
+  auto arrow_list_array = std::static_pointer_cast<LIST_ARRAY_CLASS>(arrow_array);
   auto arrow_list = arrow_list_array->value_slice(i);
-  return garrow_array_new_raw(&arrow_list,
-                              "array", &arrow_list,
-                              "parent", array,
-                              NULL);
+  return garrow_array_new_raw(&arrow_list, "array", &arrow_list, "parent", array, NULL);
 };
 
 template <typename LIST_ARRAY_CLASS>
@@ -142,12 +145,13 @@ GArrowArray *
 garrow_base_list_array_get_values(GArrowArray *array)
 {
   auto arrow_array = garrow_array_get_raw(array);
-  auto arrow_list_array =
-    std::static_pointer_cast<LIST_ARRAY_CLASS>(arrow_array);
+  auto arrow_list_array = std::static_pointer_cast<LIST_ARRAY_CLASS>(arrow_array);
   auto arrow_values = arrow_list_array->values();
   return garrow_array_new_raw(&arrow_values,
-                              "array", &arrow_values,
-                              "parent", array,
+                              "array",
+                              &arrow_values,
+                              "parent",
+                              array,
                               NULL);
 };
 
@@ -156,8 +160,7 @@ typename LIST_ARRAY_CLASS::offset_type
 garrow_base_list_array_get_value_offset(GArrowArray *array, gint64 i)
 {
   auto arrow_array = garrow_array_get_raw(array);
-  auto arrow_list_array =
-    std::static_pointer_cast<LIST_ARRAY_CLASS>(arrow_array);
+  auto arrow_list_array = std::static_pointer_cast<LIST_ARRAY_CLASS>(arrow_array);
   return arrow_list_array->value_offset(i);
 };
 
@@ -166,8 +169,7 @@ typename LIST_ARRAY_CLASS::offset_type
 garrow_base_list_array_get_value_length(GArrowArray *array, gint64 i)
 {
   auto arrow_array = garrow_array_get_raw(array);
-  auto arrow_list_array =
-    std::static_pointer_cast<LIST_ARRAY_CLASS>(arrow_array);
+  auto arrow_list_array = std::static_pointer_cast<LIST_ARRAY_CLASS>(arrow_array);
   return arrow_list_array->value_length(i);
 };
 
@@ -177,11 +179,9 @@ garrow_base_list_array_get_value_offsets(GArrowArray *array, gint64 *n_offsets)
 {
   auto arrow_array = garrow_array_get_raw(array);
   *n_offsets = arrow_array->length() + 1;
-  auto arrow_list_array =
-    std::static_pointer_cast<LIST_ARRAY_CLASS>(arrow_array);
+  auto arrow_list_array = std::static_pointer_cast<LIST_ARRAY_CLASS>(arrow_array);
   return arrow_list_array->raw_value_offsets();
 };
-
 
 G_BEGIN_DECLS
 
@@ -194,7 +194,6 @@ garrow_list_array_dispose(GObject *object)
     g_object_unref(priv->raw_values);
     priv->raw_values = NULL;
   }
-
 
   G_OBJECT_CLASS(garrow_list_array_parent_class)->dispose(object);
 }
@@ -250,12 +249,12 @@ garrow_list_array_class_init(GArrowListArrayClass *klass)
   gobject_class->get_property = garrow_list_array_get_property;
 
   GParamSpec *spec;
-  spec = g_param_spec_object("raw-values",
-                             "Raw values",
-                             "The raw values",
-                             GARROW_TYPE_ARRAY,
-                             static_cast<GParamFlags>(G_PARAM_READWRITE |
-                                                      G_PARAM_CONSTRUCT_ONLY));
+  spec = g_param_spec_object(
+    "raw-values",
+    "Raw values",
+    "The raw values",
+    GARROW_TYPE_ARRAY,
+    static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_RAW_VALUES, spec);
 }
 
@@ -284,13 +283,12 @@ garrow_list_array_new(GArrowDataType *data_type,
                       GArrowBuffer *null_bitmap,
                       gint64 n_nulls)
 {
-  auto list_array = garrow_base_list_array_new<arrow::ListArray>(
-    data_type,
-    length,
-    value_offsets,
-    values,
-    null_bitmap,
-    n_nulls);
+  auto list_array = garrow_base_list_array_new<arrow::ListArray>(data_type,
+                                                                 length,
+                                                                 value_offsets,
+                                                                 values,
+                                                                 null_bitmap,
+                                                                 n_nulls);
   return GARROW_LIST_ARRAY(list_array);
 }
 
@@ -303,8 +301,7 @@ garrow_list_array_new(GArrowDataType *data_type,
 GArrowDataType *
 garrow_list_array_get_value_type(GArrowListArray *array)
 {
-  return garrow_base_list_array_get_value_type<arrow::ListArray>(
-    GARROW_ARRAY(array));
+  return garrow_base_list_array_get_value_type<arrow::ListArray>(GARROW_ARRAY(array));
 }
 
 /**
@@ -315,11 +312,9 @@ garrow_list_array_get_value_type(GArrowListArray *array)
  * Returns: (transfer full): The i-th list.
  */
 GArrowArray *
-garrow_list_array_get_value(GArrowListArray *array,
-                            gint64 i)
+garrow_list_array_get_value(GArrowListArray *array, gint64 i)
 {
-  return garrow_base_list_array_get_value<arrow::ListArray>(
-    GARROW_ARRAY(array), i);
+  return garrow_base_list_array_get_value<arrow::ListArray>(GARROW_ARRAY(array), i);
 }
 
 /**
@@ -333,8 +328,7 @@ garrow_list_array_get_value(GArrowListArray *array,
 GArrowArray *
 garrow_list_array_get_values(GArrowListArray *array)
 {
-  return garrow_base_list_array_get_values<arrow::ListArray>(
-    GARROW_ARRAY(array));
+  return garrow_base_list_array_get_values<arrow::ListArray>(GARROW_ARRAY(array));
 }
 
 /**
@@ -349,8 +343,8 @@ garrow_list_array_get_values(GArrowListArray *array)
 gint32
 garrow_list_array_get_value_offset(GArrowListArray *array, gint64 i)
 {
-  return garrow_base_list_array_get_value_offset<arrow::ListArray>(
-    GARROW_ARRAY(array), i);
+  return garrow_base_list_array_get_value_offset<arrow::ListArray>(GARROW_ARRAY(array),
+                                                                   i);
 }
 
 /**
@@ -365,8 +359,8 @@ garrow_list_array_get_value_offset(GArrowListArray *array, gint64 i)
 gint32
 garrow_list_array_get_value_length(GArrowListArray *array, gint64 i)
 {
-  return garrow_base_list_array_get_value_length<arrow::ListArray>(
-    GARROW_ARRAY(array), i);
+  return garrow_base_list_array_get_value_length<arrow::ListArray>(GARROW_ARRAY(array),
+                                                                   i);
 }
 
 /**
@@ -382,12 +376,12 @@ garrow_list_array_get_value_length(GArrowListArray *array, gint64 i)
 const gint32 *
 garrow_list_array_get_value_offsets(GArrowListArray *array, gint64 *n_offsets)
 {
-  return garrow_base_list_array_get_value_offsets<arrow::ListArray>(
-    GARROW_ARRAY(array), n_offsets);
+  return garrow_base_list_array_get_value_offsets<arrow::ListArray>(GARROW_ARRAY(array),
+                                                                    n_offsets);
 }
 
-
-typedef struct GArrowLargeListArrayPrivate_ {
+typedef struct GArrowLargeListArrayPrivate_
+{
   GArrowArray *raw_values;
 } GArrowLargeListArrayPrivate;
 
@@ -395,10 +389,9 @@ G_DEFINE_TYPE_WITH_PRIVATE(GArrowLargeListArray,
                            garrow_large_list_array,
                            GARROW_TYPE_ARRAY)
 
-#define GARROW_LARGE_LIST_ARRAY_GET_PRIVATE(obj)        \
-  static_cast<GArrowLargeListArrayPrivate *>(           \
-    garrow_large_list_array_get_instance_private(       \
-      GARROW_LARGE_LIST_ARRAY(obj)))
+#define GARROW_LARGE_LIST_ARRAY_GET_PRIVATE(obj)                                         \
+  static_cast<GArrowLargeListArrayPrivate *>(                                            \
+    garrow_large_list_array_get_instance_private(GARROW_LARGE_LIST_ARRAY(obj)))
 
 static void
 garrow_large_list_array_dispose(GObject *object)
@@ -464,12 +457,12 @@ garrow_large_list_array_class_init(GArrowLargeListArrayClass *klass)
   gobject_class->get_property = garrow_large_list_array_get_property;
 
   GParamSpec *spec;
-  spec = g_param_spec_object("raw-values",
-                             "Raw values",
-                             "The raw values",
-                             GARROW_TYPE_ARRAY,
-                             static_cast<GParamFlags>(G_PARAM_READWRITE |
-                                                      G_PARAM_CONSTRUCT_ONLY));
+  spec = g_param_spec_object(
+    "raw-values",
+    "Raw values",
+    "The raw values",
+    GARROW_TYPE_ARRAY,
+    static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_RAW_VALUES, spec);
 }
 
@@ -498,13 +491,12 @@ garrow_large_list_array_new(GArrowDataType *data_type,
                             GArrowBuffer *null_bitmap,
                             gint64 n_nulls)
 {
-  auto large_list_array = garrow_base_list_array_new<arrow::LargeListArray>(
-    data_type,
-    length,
-    value_offsets,
-    values,
-    null_bitmap,
-    n_nulls);
+  auto large_list_array = garrow_base_list_array_new<arrow::LargeListArray>(data_type,
+                                                                            length,
+                                                                            value_offsets,
+                                                                            values,
+                                                                            null_bitmap,
+                                                                            n_nulls);
   return GARROW_LARGE_LIST_ARRAY(large_list_array);
 }
 
@@ -533,12 +525,9 @@ garrow_large_list_array_get_value_type(GArrowLargeListArray *array)
  * Since: 0.16.0
  */
 GArrowArray *
-garrow_large_list_array_get_value(GArrowLargeListArray *array,
-                                  gint64 i)
+garrow_large_list_array_get_value(GArrowLargeListArray *array, gint64 i)
 {
-  return garrow_base_list_array_get_value<arrow::LargeListArray>(
-    GARROW_ARRAY(array),
-    i);
+  return garrow_base_list_array_get_value<arrow::LargeListArray>(GARROW_ARRAY(array), i);
 }
 
 /**
@@ -552,8 +541,7 @@ garrow_large_list_array_get_value(GArrowLargeListArray *array,
 GArrowArray *
 garrow_large_list_array_get_values(GArrowLargeListArray *array)
 {
-  return garrow_base_list_array_get_values<arrow::LargeListArray>(
-    GARROW_ARRAY(array));
+  return garrow_base_list_array_get_values<arrow::LargeListArray>(GARROW_ARRAY(array));
 }
 
 /**
@@ -569,7 +557,8 @@ gint64
 garrow_large_list_array_get_value_offset(GArrowLargeListArray *array, gint64 i)
 {
   return garrow_base_list_array_get_value_offset<arrow::LargeListArray>(
-    GARROW_ARRAY(array), i);
+    GARROW_ARRAY(array),
+    i);
 }
 
 /**
@@ -585,7 +574,8 @@ gint64
 garrow_large_list_array_get_value_length(GArrowLargeListArray *array, gint64 i)
 {
   return garrow_base_list_array_get_value_length<arrow::LargeListArray>(
-    GARROW_ARRAY(array), i);
+    GARROW_ARRAY(array),
+    i);
 }
 
 /**
@@ -599,26 +589,24 @@ garrow_large_list_array_get_value_length(GArrowLargeListArray *array, gint64 i)
  * Since: 2.0.0
  */
 const gint64 *
-garrow_large_list_array_get_value_offsets(GArrowLargeListArray *array,
-                                          gint64 *n_offsets)
+garrow_large_list_array_get_value_offsets(GArrowLargeListArray *array, gint64 *n_offsets)
 {
-  return garrow_base_list_array_get_value_offsets<arrow::LargeListArray>(
-    GARROW_ARRAY(array), n_offsets);
+  auto value_offsets =
+    garrow_base_list_array_get_value_offsets<arrow::LargeListArray>(GARROW_ARRAY(array),
+                                                                    n_offsets);
+  return reinterpret_cast<const gint64 *>(value_offsets);
 }
 
-
-typedef struct GArrowStructArrayPrivate_ {
+typedef struct GArrowStructArrayPrivate_
+{
   GPtrArray *fields;
 } GArrowStructArrayPrivate;
 
-G_DEFINE_TYPE_WITH_PRIVATE(GArrowStructArray,
-                           garrow_struct_array,
-                           GARROW_TYPE_ARRAY)
+G_DEFINE_TYPE_WITH_PRIVATE(GArrowStructArray, garrow_struct_array, GARROW_TYPE_ARRAY)
 
-#define GARROW_STRUCT_ARRAY_GET_PRIVATE(obj)    \
-  static_cast<GArrowStructArrayPrivate *>(      \
-    garrow_struct_array_get_instance_private(   \
-      GARROW_STRUCT_ARRAY(obj)))
+#define GARROW_STRUCT_ARRAY_GET_PRIVATE(obj)                                             \
+  static_cast<GArrowStructArrayPrivate *>(                                               \
+    garrow_struct_array_get_instance_private(GARROW_STRUCT_ARRAY(obj)))
 
 static void
 garrow_struct_array_dispose(GObject *object)
@@ -676,19 +664,18 @@ garrow_struct_array_new(GArrowDataType *data_type,
     arrow_fields.push_back(garrow_array_get_raw(field));
   }
   const auto arrow_null_bitmap = garrow_buffer_get_raw(null_bitmap);
-  auto arrow_struct_array =
-    std::make_shared<arrow::StructArray>(arrow_data_type,
-                                         length,
-                                         arrow_fields,
-                                         arrow_null_bitmap,
-                                         n_nulls);
-  auto arrow_array =
-    std::static_pointer_cast<arrow::Array>(arrow_struct_array);
-  auto struct_array =
-    garrow_array_new_raw(&arrow_array,
-                         "array", &arrow_array,
-                         "null-bitmap", null_bitmap,
-                         NULL);
+  auto arrow_struct_array = std::make_shared<arrow::StructArray>(arrow_data_type,
+                                                                 length,
+                                                                 arrow_fields,
+                                                                 arrow_null_bitmap,
+                                                                 n_nulls);
+  auto arrow_array = std::static_pointer_cast<arrow::Array>(arrow_struct_array);
+  auto struct_array = garrow_array_new_raw(&arrow_array,
+                                           "array",
+                                           &arrow_array,
+                                           "null-bitmap",
+                                           null_bitmap,
+                                           NULL);
   auto priv = GARROW_STRUCT_ARRAY_GET_PRIVATE(struct_array);
   priv->fields = g_ptr_array_sized_new(arrow_fields.size());
   g_ptr_array_set_free_func(priv->fields, g_object_unref);
@@ -705,8 +692,7 @@ garrow_struct_array_get_fields_internal(GArrowStructArray *array)
   auto priv = GARROW_STRUCT_ARRAY_GET_PRIVATE(array);
   if (!priv->fields) {
     auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
-    auto arrow_struct_array =
-      std::static_pointer_cast<arrow::StructArray>(arrow_array);
+    auto arrow_struct_array = std::static_pointer_cast<arrow::StructArray>(arrow_array);
     auto arrow_fields = arrow_struct_array->fields();
     priv->fields = g_ptr_array_sized_new(arrow_fields.size());
     g_ptr_array_set_free_func(priv->fields, g_object_unref);
@@ -725,8 +711,7 @@ garrow_struct_array_get_fields_internal(GArrowStructArray *array)
  * Returns: (transfer full): The i-th field.
  */
 GArrowArray *
-garrow_struct_array_get_field(GArrowStructArray *array,
-                              gint i)
+garrow_struct_array_get_field(GArrowStructArray *array, gint i)
 {
   auto fields = garrow_struct_array_get_fields_internal(array);
   if (i < 0) {
@@ -777,8 +762,7 @@ GList *
 garrow_struct_array_flatten(GArrowStructArray *array, GError **error)
 {
   const auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
-  auto arrow_struct_array =
-    std::static_pointer_cast<arrow::StructArray>(arrow_array);
+  auto arrow_struct_array = std::static_pointer_cast<arrow::StructArray>(arrow_array);
 
   auto memory_pool = arrow::default_memory_pool();
   auto arrow_arrays = arrow_struct_array->Flatten(memory_pool);
@@ -795,8 +779,8 @@ garrow_struct_array_flatten(GArrowStructArray *array, GError **error)
   return g_list_reverse(arrays);
 }
 
-
-typedef struct GArrowMapArrayPrivate_ {
+typedef struct GArrowMapArrayPrivate_
+{
   GArrowArray *offsets;
   GArrowArray *keys;
   GArrowArray *items;
@@ -808,14 +792,11 @@ enum {
   PROP_ITEMS,
 };
 
-G_DEFINE_TYPE_WITH_PRIVATE(GArrowMapArray,
-                           garrow_map_array,
-                           GARROW_TYPE_LIST_ARRAY)
+G_DEFINE_TYPE_WITH_PRIVATE(GArrowMapArray, garrow_map_array, GARROW_TYPE_LIST_ARRAY)
 
-#define GARROW_MAP_ARRAY_GET_PRIVATE(obj)       \
-  static_cast<GArrowMapArrayPrivate *>(         \
-    garrow_map_array_get_instance_private(      \
-      GARROW_MAP_ARRAY(obj)))
+#define GARROW_MAP_ARRAY_GET_PRIVATE(obj)                                                \
+  static_cast<GArrowMapArrayPrivate *>(                                                  \
+    garrow_map_array_get_instance_private(GARROW_MAP_ARRAY(obj)))
 
 static void
 garrow_map_array_dispose(GObject *object)
@@ -903,28 +884,28 @@ garrow_map_array_class_init(GArrowMapArrayClass *klass)
   gobject_class->get_property = garrow_map_array_get_property;
 
   GParamSpec *spec;
-  spec = g_param_spec_object("offsets",
-                             "Offsets",
-                             "The GArrowArray for offsets",
-                             GARROW_TYPE_ARRAY,
-                             static_cast<GParamFlags>(G_PARAM_READWRITE |
-                                                      G_PARAM_CONSTRUCT_ONLY));
+  spec = g_param_spec_object(
+    "offsets",
+    "Offsets",
+    "The GArrowArray for offsets",
+    GARROW_TYPE_ARRAY,
+    static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_OFFSETS, spec);
 
-  spec = g_param_spec_object("keys",
-                             "Keys",
-                             "The GArrowArray for keys",
-                             GARROW_TYPE_ARRAY,
-                             static_cast<GParamFlags>(G_PARAM_READWRITE |
-                                                      G_PARAM_CONSTRUCT_ONLY));
+  spec = g_param_spec_object(
+    "keys",
+    "Keys",
+    "The GArrowArray for keys",
+    GARROW_TYPE_ARRAY,
+    static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_KEYS, spec);
 
-  spec = g_param_spec_object("items",
-                             "Items",
-                             "The GArrowArray for items",
-                             GARROW_TYPE_ARRAY,
-                             static_cast<GParamFlags>(G_PARAM_READWRITE |
-                                                      G_PARAM_CONSTRUCT_ONLY));
+  spec = g_param_spec_object(
+    "items",
+    "Items",
+    "The GArrowArray for items",
+    GARROW_TYPE_ARRAY,
+    static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_ITEMS, spec);
 }
 
@@ -957,10 +938,14 @@ garrow_map_array_new(GArrowArray *offsets,
   if (garrow::check(error, arrow_array_result, "[map-array][new]")) {
     auto arrow_array = *arrow_array_result;
     return GARROW_MAP_ARRAY(garrow_array_new_raw(&arrow_array,
-                                                 "array", &arrow_array,
-                                                 "offsets", offsets,
-                                                 "keys", keys,
-                                                 "items", items,
+                                                 "array",
+                                                 &arrow_array,
+                                                 "offsets",
+                                                 offsets,
+                                                 "keys",
+                                                 keys,
+                                                 "items",
+                                                 items,
                                                  NULL));
   } else {
     return NULL;
@@ -985,8 +970,7 @@ garrow_map_array_get_keys(GArrowMapArray *array)
   }
 
   auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
-  auto arrow_map_array =
-    std::static_pointer_cast<arrow::MapArray>(arrow_array);
+  auto arrow_map_array = std::static_pointer_cast<arrow::MapArray>(arrow_array);
   auto arrow_keys = arrow_map_array->keys();
   return garrow_array_new_raw(&arrow_keys);
 }
@@ -1009,14 +993,13 @@ garrow_map_array_get_items(GArrowMapArray *array)
   }
 
   auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
-  auto arrow_map_array =
-    std::static_pointer_cast<arrow::MapArray>(arrow_array);
+  auto arrow_map_array = std::static_pointer_cast<arrow::MapArray>(arrow_array);
   auto arrow_items = arrow_map_array->items();
   return garrow_array_new_raw(&arrow_items);
 }
 
-
-typedef struct GArrowUnionArrayPrivate_ {
+typedef struct GArrowUnionArrayPrivate_
+{
   GArrowInt8Array *type_ids;
   GPtrArray *fields;
 } GArrowUnionArrayPrivate;
@@ -1026,14 +1009,11 @@ enum {
   PROP_FIELDS,
 };
 
-G_DEFINE_TYPE_WITH_PRIVATE(GArrowUnionArray,
-                           garrow_union_array,
-                           GARROW_TYPE_ARRAY)
+G_DEFINE_TYPE_WITH_PRIVATE(GArrowUnionArray, garrow_union_array, GARROW_TYPE_ARRAY)
 
-#define GARROW_UNION_ARRAY_GET_PRIVATE(obj)     \
-  static_cast<GArrowUnionArrayPrivate *>(       \
-    garrow_union_array_get_instance_private(    \
-      GARROW_UNION_ARRAY(obj)))
+#define GARROW_UNION_ARRAY_GET_PRIVATE(obj)                                              \
+  static_cast<GArrowUnionArrayPrivate *>(                                                \
+    garrow_union_array_get_instance_private(GARROW_UNION_ARRAY(obj)))
 
 static void
 garrow_union_array_dispose(GObject *object)
@@ -1104,13 +1084,47 @@ garrow_union_array_class_init(GArrowUnionArrayClass *klass)
   gobject_class->get_property = garrow_union_array_get_property;
 
   GParamSpec *spec;
-  spec = g_param_spec_object("type-ids",
-                             "Type IDs",
-                             "The GArrowInt8Array for type IDs",
-                             GARROW_TYPE_INT8_ARRAY,
-                             static_cast<GParamFlags>(G_PARAM_READWRITE |
-                                                      G_PARAM_CONSTRUCT_ONLY));
+  spec = g_param_spec_object(
+    "type-ids",
+    "Type IDs",
+    "The GArrowInt8Array for type IDs",
+    GARROW_TYPE_INT8_ARRAY,
+    static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_TYPE_IDS, spec);
+}
+
+/**
+ * garrow_union_array_get_type_code:
+ * @array: A #GArrowUnionArray.
+ * @i: The index of the logical type code of the value in the union.
+ *
+ * Returns: The i-th logical type code of the value.
+ *
+ * Since: 12.0.0
+ */
+gint8
+garrow_union_array_get_type_code(GArrowUnionArray *array, gint64 i)
+{
+  auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
+  auto arrow_union_array = std::static_pointer_cast<arrow::UnionArray>(arrow_array);
+  return arrow_union_array->type_code(i);
+}
+
+/**
+ * garrow_union_array_get_child_id:
+ * @array: A #GArrowUnionArray.
+ * @i: The index of the physical child ID containing value in the union.
+ *
+ * Returns: The physical child ID containing the i-th value.
+ *
+ * Since: 12.0.0
+ */
+gint
+garrow_union_array_get_child_id(GArrowUnionArray *array, gint64 i)
+{
+  auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
+  auto arrow_union_array = std::static_pointer_cast<arrow::UnionArray>(arrow_array);
+  return arrow_union_array->child_id(i);
 }
 
 /**
@@ -1122,14 +1136,12 @@ garrow_union_array_class_init(GArrowUnionArrayClass *klass)
  *   #GArrowArray or %NULL on out of range.
  */
 GArrowArray *
-garrow_union_array_get_field(GArrowUnionArray *array,
-                             gint i)
+garrow_union_array_get_field(GArrowUnionArray *array, gint i)
 {
   auto priv = GARROW_UNION_ARRAY_GET_PRIVATE(array);
   if (!priv->fields) {
     auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
-    auto arrow_union_array =
-      std::static_pointer_cast<arrow::UnionArray>(arrow_array);
+    auto arrow_union_array = std::static_pointer_cast<arrow::UnionArray>(arrow_array);
     auto n_fields = arrow_union_array->num_fields();
     priv->fields = g_ptr_array_sized_new(n_fields);
     g_ptr_array_set_free_func(priv->fields, g_object_unref);
@@ -1153,10 +1165,7 @@ garrow_union_array_get_field(GArrowUnionArray *array,
   return field;
 }
 
-
-G_DEFINE_TYPE(GArrowSparseUnionArray,
-              garrow_sparse_union_array,
-              GARROW_TYPE_UNION_ARRAY)
+G_DEFINE_TYPE(GArrowSparseUnionArray, garrow_sparse_union_array, GARROW_TYPE_UNION_ARRAY)
 
 static void
 garrow_sparse_union_array_init(GArrowSparseUnionArray *object)
@@ -1199,16 +1208,16 @@ garrow_sparse_union_array_new_internal(GArrowSparseUnionDataType *data_type,
     arrow_sparse_union_array_result =
       arrow::SparseUnionArray::Make(*arrow_type_ids, arrow_fields);
   }
-  if (garrow::check(error,
-                    arrow_sparse_union_array_result,
-                    context)) {
+  if (garrow::check(error, arrow_sparse_union_array_result, context)) {
     auto arrow_sparse_union_array = *arrow_sparse_union_array_result;
-    auto sparse_union_array =
-      garrow_array_new_raw(&arrow_sparse_union_array,
-                           "array", &arrow_sparse_union_array,
-                           "value-data-type", data_type,
-                           "type-ids", type_ids,
-                           NULL);
+    auto sparse_union_array = garrow_array_new_raw(&arrow_sparse_union_array,
+                                                   "array",
+                                                   &arrow_sparse_union_array,
+                                                   "value-data-type",
+                                                   data_type,
+                                                   "type-ids",
+                                                   type_ids,
+                                                   NULL);
     auto priv = GARROW_UNION_ARRAY_GET_PRIVATE(sparse_union_array);
     priv->fields = g_ptr_array_sized_new(arrow_fields.size());
     g_ptr_array_set_free_func(priv->fields, g_object_unref);
@@ -1235,9 +1244,7 @@ garrow_sparse_union_array_new_internal(GArrowSparseUnionDataType *data_type,
  * Since: 0.12.0
  */
 GArrowSparseUnionArray *
-garrow_sparse_union_array_new(GArrowInt8Array *type_ids,
-                              GList *fields,
-                              GError **error)
+garrow_sparse_union_array_new(GArrowInt8Array *type_ids, GList *fields, GError **error)
 {
   return garrow_sparse_union_array_new_internal(NULL,
                                                 type_ids,
@@ -1265,16 +1272,15 @@ garrow_sparse_union_array_new_data_type(GArrowSparseUnionDataType *data_type,
                                         GList *fields,
                                         GError **error)
 {
-  return garrow_sparse_union_array_new_internal(
-    data_type,
-    type_ids,
-    fields,
-    error,
-    "[sparse-union-array][new][data-type]");
+  return garrow_sparse_union_array_new_internal(data_type,
+                                                type_ids,
+                                                fields,
+                                                error,
+                                                "[sparse-union-array][new][data-type]");
 }
 
-
-typedef struct GArrowDenseUnionArrayPrivate_ {
+typedef struct GArrowDenseUnionArrayPrivate_
+{
   GArrowInt32Array *value_offsets;
 } GArrowDenseUnionArrayPrivate;
 
@@ -1286,10 +1292,9 @@ G_DEFINE_TYPE_WITH_PRIVATE(GArrowDenseUnionArray,
                            garrow_dense_union_array,
                            GARROW_TYPE_UNION_ARRAY)
 
-#define GARROW_DENSE_UNION_ARRAY_GET_PRIVATE(obj)       \
-  static_cast<GArrowDenseUnionArrayPrivate *>(          \
-    garrow_dense_union_array_get_instance_private(      \
-      GARROW_DENSE_UNION_ARRAY(obj)))
+#define GARROW_DENSE_UNION_ARRAY_GET_PRIVATE(obj)                                        \
+  static_cast<GArrowDenseUnionArrayPrivate *>(                                           \
+    garrow_dense_union_array_get_instance_private(GARROW_DENSE_UNION_ARRAY(obj)))
 
 static void
 garrow_dense_union_array_dispose(GObject *object)
@@ -1355,12 +1360,12 @@ garrow_dense_union_array_class_init(GArrowDenseUnionArrayClass *klass)
   gobject_class->get_property = garrow_dense_union_array_get_property;
 
   GParamSpec *spec;
-  spec = g_param_spec_object("value-offsets",
-                             "Value offsets",
-                             "The GArrowInt32Array for value offsets",
-                             GARROW_TYPE_INT32_ARRAY,
-                             static_cast<GParamFlags>(G_PARAM_READWRITE |
-                                                      G_PARAM_CONSTRUCT_ONLY));
+  spec = g_param_spec_object(
+    "value-offsets",
+    "Value offsets",
+    "The GArrowInt32Array for value offsets",
+    GARROW_TYPE_INT32_ARRAY,
+    static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_VALUE_OFFSETS, spec);
 }
 
@@ -1396,21 +1401,20 @@ garrow_dense_union_array_new_internal(GArrowDenseUnionDataType *data_type,
                                    arrow_union_data_type->type_codes());
   } else {
     arrow_dense_union_array_result =
-      arrow::DenseUnionArray::Make(*arrow_type_ids,
-                                   *arrow_value_offsets,
-                                   arrow_fields);
+      arrow::DenseUnionArray::Make(*arrow_type_ids, *arrow_value_offsets, arrow_fields);
   }
-  if (garrow::check(error,
-                    arrow_dense_union_array_result,
-                    context)) {
+  if (garrow::check(error, arrow_dense_union_array_result, context)) {
     auto arrow_dense_union_array = *arrow_dense_union_array_result;
-    auto dense_union_array =
-      garrow_array_new_raw(&arrow_dense_union_array,
-                           "array", &arrow_dense_union_array,
-                           "value-data-type", data_type,
-                           "type-ids", type_ids,
-                           "value-offsets", value_offsets,
-                           NULL);
+    auto dense_union_array = garrow_array_new_raw(&arrow_dense_union_array,
+                                                  "array",
+                                                  &arrow_dense_union_array,
+                                                  "value-data-type",
+                                                  data_type,
+                                                  "type-ids",
+                                                  type_ids,
+                                                  "value-offsets",
+                                                  value_offsets,
+                                                  NULL);
     auto priv = GARROW_UNION_ARRAY_GET_PRIVATE(dense_union_array);
     priv->fields = g_ptr_array_sized_new(arrow_fields.size());
     g_ptr_array_set_free_func(priv->fields, g_object_unref);
@@ -1474,17 +1478,34 @@ garrow_dense_union_array_new_data_type(GArrowDenseUnionDataType *data_type,
                                        GList *fields,
                                        GError **error)
 {
-  return garrow_dense_union_array_new_internal(
-    data_type,
-    type_ids,
-    value_offsets,
-    fields,
-    error,
-    "[dense-union-array][new][data-type]");
+  return garrow_dense_union_array_new_internal(data_type,
+                                               type_ids,
+                                               value_offsets,
+                                               fields,
+                                               error,
+                                               "[dense-union-array][new][data-type]");
 }
 
+/**
+ * garrow_dense_union_array_get_value_offset:
+ * @array: A #GArrowUnionArray.
+ * @i: The index of the offset of the value in the union.
+ *
+ * Returns: The offset of the i-th value.
+ *
+ * Since: 12.0.0
+ */
+gint32
+garrow_dense_union_array_get_value_offset(GArrowDenseUnionArray *array, gint64 i)
+{
+  auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
+  auto arrow_dense_union_array =
+    std::static_pointer_cast<arrow::DenseUnionArray>(arrow_array);
+  return arrow_dense_union_array->value_offset(i);
+}
 
-typedef struct GArrowDictionaryArrayPrivate_ {
+typedef struct GArrowDictionaryArrayPrivate_
+{
   GArrowArray *indices;
   GArrowArray *dictionary;
 } GArrowDictionaryArrayPrivate;
@@ -1498,10 +1519,9 @@ G_DEFINE_TYPE_WITH_PRIVATE(GArrowDictionaryArray,
                            garrow_dictionary_array,
                            GARROW_TYPE_ARRAY)
 
-#define GARROW_DICTIONARY_ARRAY_GET_PRIVATE(obj)        \
-  static_cast<GArrowDictionaryArrayPrivate *>(          \
-    garrow_dictionary_array_get_instance_private(       \
-      GARROW_DICTIONARY_ARRAY(obj)))
+#define GARROW_DICTIONARY_ARRAY_GET_PRIVATE(obj)                                         \
+  static_cast<GArrowDictionaryArrayPrivate *>(                                           \
+    garrow_dictionary_array_get_instance_private(GARROW_DICTIONARY_ARRAY(obj)))
 
 static void
 garrow_dictionary_array_dispose(GObject *object)
@@ -1578,20 +1598,20 @@ garrow_dictionary_array_class_init(GArrowDictionaryArrayClass *klass)
   gobject_class->get_property = garrow_dictionary_array_get_property;
 
   GParamSpec *spec;
-  spec = g_param_spec_object("indices",
-                             "The indices",
-                             "The GArrowArray for indices",
-                             GARROW_TYPE_ARRAY,
-                             static_cast<GParamFlags>(G_PARAM_READWRITE |
-                                                      G_PARAM_CONSTRUCT_ONLY));
+  spec = g_param_spec_object(
+    "indices",
+    "The indices",
+    "The GArrowArray for indices",
+    GARROW_TYPE_ARRAY,
+    static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_INDICES, spec);
 
-  spec = g_param_spec_object("dictionary",
-                             "The dictionary",
-                             "The GArrowArray for dictionary",
-                             GARROW_TYPE_ARRAY,
-                             static_cast<GParamFlags>(G_PARAM_READWRITE |
-                                                      G_PARAM_CONSTRUCT_ONLY));
+  spec = g_param_spec_object(
+    "dictionary",
+    "The dictionary",
+    "The GArrowArray for dictionary",
+    GARROW_TYPE_ARRAY,
+    static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_DICTIONARY, spec);
 }
 
@@ -1617,20 +1637,19 @@ garrow_dictionary_array_new(GArrowDataType *data_type,
   const auto arrow_indices = garrow_array_get_raw(indices);
   const auto arrow_dictionary = garrow_array_get_raw(dictionary);
   auto arrow_dictionary_array_result =
-    arrow::DictionaryArray::FromArrays(
-      arrow_data_type,
-      arrow_indices,
-      arrow_dictionary);
-  if (garrow::check(error,
-                    arrow_dictionary_array_result,
-                    "[dictionary-array][new]")) {
+    arrow::DictionaryArray::FromArrays(arrow_data_type, arrow_indices, arrow_dictionary);
+  if (garrow::check(error, arrow_dictionary_array_result, "[dictionary-array][new]")) {
     auto arrow_array =
       std::static_pointer_cast<arrow::Array>(*arrow_dictionary_array_result);
     auto dictionary_array = garrow_array_new_raw(&arrow_array,
-                                                 "array", &arrow_array,
-                                                 "value-data-type", data_type,
-                                                 "indices", indices,
-                                                 "dictionary", dictionary,
+                                                 "array",
+                                                 &arrow_array,
+                                                 "value-data-type",
+                                                 data_type,
+                                                 "indices",
+                                                 indices,
+                                                 "dictionary",
+                                                 dictionary,
                                                  NULL);
     return GARROW_DICTIONARY_ARRAY(dictionary_array);
   } else {
@@ -1701,6 +1720,328 @@ garrow_dictionary_array_get_dictionary_data_type(GArrowDictionaryArray *array)
 {
   auto data_type = garrow_array_get_value_data_type(GARROW_ARRAY(array));
   return GARROW_DICTIONARY_DATA_TYPE(data_type);
+}
+
+struct GArrowRunEndEncodedArrayPrivate
+{
+  GArrowArray *run_ends;
+  GArrowArray *values;
+};
+
+enum {
+  PROP_RUN_ENDS = 1,
+  PROP_VALUES,
+};
+
+G_DEFINE_TYPE_WITH_PRIVATE(GArrowRunEndEncodedArray,
+                           garrow_run_end_encoded_array,
+                           GARROW_TYPE_ARRAY)
+
+#define GARROW_RUN_END_ENCODED_ARRAY_GET_PRIVATE(obj)                                    \
+  static_cast<GArrowRunEndEncodedArrayPrivate *>(                                        \
+    garrow_run_end_encoded_array_get_instance_private(                                   \
+      GARROW_RUN_END_ENCODED_ARRAY(obj)))
+
+static void
+garrow_run_end_encoded_array_dispose(GObject *object)
+{
+  auto priv = GARROW_RUN_END_ENCODED_ARRAY_GET_PRIVATE(object);
+
+  if (priv->run_ends) {
+    g_object_unref(priv->run_ends);
+    priv->run_ends = nullptr;
+  }
+
+  if (priv->values) {
+    g_object_unref(priv->values);
+    priv->values = nullptr;
+  }
+
+  G_OBJECT_CLASS(garrow_run_end_encoded_array_parent_class)->dispose(object);
+}
+
+static void
+garrow_run_end_encoded_array_set_property(GObject *object,
+                                          guint prop_id,
+                                          const GValue *value,
+                                          GParamSpec *pspec)
+{
+  auto priv = GARROW_RUN_END_ENCODED_ARRAY_GET_PRIVATE(object);
+
+  switch (prop_id) {
+  case PROP_RUN_ENDS:
+    priv->run_ends = GARROW_ARRAY(g_value_dup_object(value));
+    break;
+  case PROP_VALUES:
+    priv->values = GARROW_ARRAY(g_value_dup_object(value));
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_run_end_encoded_array_get_property(GObject *object,
+                                          guint prop_id,
+                                          GValue *value,
+                                          GParamSpec *pspec)
+{
+  auto priv = GARROW_RUN_END_ENCODED_ARRAY_GET_PRIVATE(object);
+
+  switch (prop_id) {
+  case PROP_RUN_ENDS:
+    g_value_set_object(value, priv->run_ends);
+    break;
+  case PROP_VALUES:
+    g_value_set_object(value, priv->values);
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_run_end_encoded_array_init(GArrowRunEndEncodedArray *object)
+{
+}
+
+static void
+garrow_run_end_encoded_array_class_init(GArrowRunEndEncodedArrayClass *klass)
+{
+  auto gobject_class = G_OBJECT_CLASS(klass);
+
+  gobject_class->dispose = garrow_run_end_encoded_array_dispose;
+  gobject_class->set_property = garrow_run_end_encoded_array_set_property;
+  gobject_class->get_property = garrow_run_end_encoded_array_get_property;
+
+  GParamSpec *spec;
+  spec = g_param_spec_object(
+    "run-ends",
+    "The run-ends",
+    "The GArrowArray for run-ends",
+    GARROW_TYPE_ARRAY,
+    static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY));
+  g_object_class_install_property(gobject_class, PROP_RUN_ENDS, spec);
+
+  spec = g_param_spec_object(
+    "values",
+    "The values",
+    "The GArrowArray for values",
+    GARROW_TYPE_ARRAY,
+    static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY));
+  g_object_class_install_property(gobject_class, PROP_VALUES, spec);
+}
+
+/**
+ * garrow_run_end_encoded_array_new:
+ * @data_type: The data type of the run-end encoded array.
+ * @logical_length: The logical length of the run-end encoded array.
+ * @run_ends: The run-ends of the run-end encoded array.
+ * @values: The values of the run-end encoded array.
+ * @logical_offset: The offset of the run-end encoded array.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: (nullable): A newly created #GArrowRunEndEncodedArray
+ *   or %NULL on error.
+ *
+ * Since: 13.0.0
+ */
+GArrowRunEndEncodedArray *
+garrow_run_end_encoded_array_new(GArrowDataType *data_type,
+                                 gint64 logical_length,
+                                 GArrowArray *run_ends,
+                                 GArrowArray *values,
+                                 gint64 logical_offset,
+                                 GError **error)
+{
+  const auto arrow_data_type = garrow_data_type_get_raw(data_type);
+  const auto arrow_run_ends = garrow_array_get_raw(run_ends);
+  const auto arrow_values = garrow_array_get_raw(values);
+  auto arrow_run_end_encoded_array_result =
+    arrow::RunEndEncodedArray::Make(arrow_data_type,
+                                    logical_length,
+                                    arrow_run_ends,
+                                    arrow_values,
+                                    logical_offset);
+  if (garrow::check(error,
+                    arrow_run_end_encoded_array_result,
+                    "[run-end-encoded-array][new]")) {
+    auto arrow_array =
+      std::static_pointer_cast<arrow::Array>(*arrow_run_end_encoded_array_result);
+    auto run_end_encoded_array = garrow_array_new_raw(&arrow_array,
+                                                      "array",
+                                                      &arrow_array,
+                                                      "value-data-type",
+                                                      data_type,
+                                                      "run-ends",
+                                                      run_ends,
+                                                      "values",
+                                                      values,
+                                                      NULL);
+    return GARROW_RUN_END_ENCODED_ARRAY(run_end_encoded_array);
+  } else {
+    return nullptr;
+  }
+}
+
+/**
+ * garrow_run_end_encoded_array_get_run_ends:
+ * @array: A #GArrowRunEndEncodedArray.
+ *
+ * Returns: (transfer full): The indexes of each run-end.
+ *
+ *   The physical offset to the array is applied.
+ *
+ * Since: 13.0.0
+ */
+GArrowArray *
+garrow_run_end_encoded_array_get_run_ends(GArrowRunEndEncodedArray *array)
+{
+  auto priv = GARROW_RUN_END_ENCODED_ARRAY_GET_PRIVATE(array);
+  if (priv->run_ends) {
+    g_object_ref(priv->run_ends);
+    return priv->run_ends;
+  }
+
+  auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
+  auto arrow_run_end_encoded_array =
+    std::static_pointer_cast<arrow::RunEndEncodedArray>(arrow_array);
+  auto arrow_run_ends = arrow_run_end_encoded_array->run_ends();
+  return garrow_array_new_raw(&arrow_run_ends);
+}
+
+/**
+ * garrow_run_end_encoded_array_get_values:
+ * @array: A #GArrowRunEndEncodedArray.
+ *
+ * Returns: (transfer full): The values of each run.
+ *
+ *   The physical offset to the array is applied.
+ *
+ * Since: 13.0.0
+ */
+GArrowArray *
+garrow_run_end_encoded_array_get_values(GArrowRunEndEncodedArray *array)
+{
+  auto priv = GARROW_RUN_END_ENCODED_ARRAY_GET_PRIVATE(array);
+  if (priv->values) {
+    g_object_ref(priv->values);
+    return priv->values;
+  }
+
+  auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
+  auto arrow_run_end_encoded_array =
+    std::static_pointer_cast<arrow::RunEndEncodedArray>(arrow_array);
+  auto arrow_values = arrow_run_end_encoded_array->values();
+  return garrow_array_new_raw(&arrow_values);
+}
+
+/**
+ * garrow_run_end_encoded_array_get_logical_run_ends:
+ * @array: A #GArrowRunEndEncodedArray.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: (transfer full): The logical indexes of each run-end or
+ *   %NULL on error.
+ *
+ *   If a non-zero logical offset is set, this function allocates a
+ *   new array and rewrites all the run end values to be relative to
+ *   the logical offset and cuts the end of the array to the logical
+ *   length.
+ *
+ * Since: 13.0.0
+ */
+GArrowArray *
+garrow_run_end_encoded_array_get_logical_run_ends(GArrowRunEndEncodedArray *array,
+                                                  GError **error)
+{
+  auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
+  auto arrow_run_end_encoded_array =
+    std::static_pointer_cast<arrow::RunEndEncodedArray>(arrow_array);
+  auto arrow_memory_pool = arrow::default_memory_pool();
+  auto arrow_logical_run_ends_result =
+    arrow_run_end_encoded_array->LogicalRunEnds(arrow_memory_pool);
+  if (garrow::check(error,
+                    arrow_logical_run_ends_result,
+                    "[run-end-encoded-array][get-logical-run-ends]")) {
+    auto arrow_array =
+      std::static_pointer_cast<arrow::Array>(*arrow_logical_run_ends_result);
+    return garrow_array_new_raw(&arrow_array, "array", &arrow_array, NULL);
+  } else {
+    return nullptr;
+  }
+}
+
+/**
+ * garrow_run_end_encoded_array_get_logical_values:
+ * @array: A #GArrowRunEndEncodedArray.
+ *
+ * Returns: (transfer full): The logical values of each run.
+ *
+ *   If a non-zero logical offset is set, this function allocates a
+ *   new array containing only the values within the logical range.
+ *
+ * Since: 13.0.0
+ */
+GArrowArray *
+garrow_run_end_encoded_array_get_logical_values(GArrowRunEndEncodedArray *array)
+{
+  auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
+  auto arrow_run_end_encoded_array =
+    std::static_pointer_cast<arrow::RunEndEncodedArray>(arrow_array);
+  auto arrow_logical_values =
+    std::static_pointer_cast<arrow::Array>(arrow_run_end_encoded_array->LogicalValues());
+  return garrow_array_new_raw(&arrow_logical_values,
+                              "array",
+                              &arrow_logical_values,
+                              NULL);
+}
+
+/**
+ * garrow_run_end_encoded_array_find_physical_offset:
+ * @array: A #GArrowRunEndEncodedArray.
+ *
+ * Returns: Find the physical offset of this array.
+ *
+ *   This function uses binary-search, so it has a O(log N) cost.
+ *
+ * Since: 13.0.0
+ */
+gint64
+garrow_run_end_encoded_array_find_physical_offset(GArrowRunEndEncodedArray *array)
+{
+  auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
+  auto arrow_run_end_encoded_array =
+    std::static_pointer_cast<arrow::RunEndEncodedArray>(arrow_array);
+  return arrow_run_end_encoded_array->FindPhysicalOffset();
+}
+
+/**
+ * garrow_run_end_encoded_array_find_physical_length:
+ * @array: A #GArrowRunEndEncodedArray.
+ *
+ * Returns: Find the physical length of this array.
+ *
+ *   The physical length of an run-end encoded array is the number of
+ *   physical values (and run-ends) necessary to represent the logical
+ *   range of values from offset to length.
+ *
+ *   Avoid calling this function if the physical length can be
+ *   established in some other way (e.g. when iterating over the runs
+ *   sequentially until the end). This function uses binary-search, so
+ *   it has a O(log N) cost.
+ *
+ * Since: 13.0.0
+ */
+gint64
+garrow_run_end_encoded_array_find_physical_length(GArrowRunEndEncodedArray *array)
+{
+  auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
+  auto arrow_run_end_encoded_array =
+    std::static_pointer_cast<arrow::RunEndEncodedArray>(arrow_array);
+  return arrow_run_end_encoded_array->FindPhysicalLength();
 }
 
 G_END_DECLS

@@ -33,6 +33,7 @@
 #include <vector>
 
 #include <google/protobuf/descriptor.h>
+#include <google/protobuf/wrappers.pb.h>
 
 #include "arrow/array/array_base.h"
 #include "arrow/array/array_nested.h"
@@ -41,8 +42,9 @@
 #include "arrow/buffer.h"
 #include "arrow/builder.h"
 #include "arrow/compute/api_scalar.h"
-#include "arrow/compute/exec/expression.h"
-#include "arrow/compute/exec/expression_internal.h"
+#include "arrow/compute/cast.h"
+#include "arrow/compute/expression.h"
+#include "arrow/compute/expression_internal.h"
 #include "arrow/engine/substrait/extension_set.h"
 #include "arrow/engine/substrait/extension_types.h"
 #include "arrow/engine/substrait/options.h"
@@ -56,9 +58,11 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/decimal.h"
 #include "arrow/util/endian.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
+#include "arrow/util/macros.h"
 #include "arrow/util/small_vector.h"
 #include "arrow/util/string.h"
+#include "arrow/util/unreachable.h"
 #include "arrow/visit_scalar_inline.h"
 
 namespace arrow {
@@ -70,6 +74,9 @@ namespace engine {
 
 namespace {
 
+constexpr int64_t kMicrosPerSecond = 1000000;
+constexpr int64_t kMicrosPerMilli = 1000;
+
 Id NormalizeFunctionName(Id id) {
   // Substrait plans encode the types into the function name so it might look like
   // add:opt_i32_i32.  We don't care about  the :opt_i32_i32 so we just trim it
@@ -80,8 +87,6 @@ Id NormalizeFunctionName(Id id) {
   }
   return {id.uri, func_name};
 }
-
-}  // namespace
 
 Status DecodeArg(const substrait::FunctionArgument& arg, int idx, SubstraitCall* call,
                  const ExtensionSet& ext_set,
@@ -126,16 +131,108 @@ Result<SubstraitCall> DecodeScalarFunction(
   for (const auto& opt : scalar_fn.options()) {
     ARROW_RETURN_NOT_OK(DecodeOption(opt, &call));
   }
-  return std::move(call);
+  return call;
 }
 
-std::string EnumToString(int value, const google::protobuf::EnumDescriptor* descriptor) {
-  const google::protobuf::EnumValueDescriptor* value_desc =
-      descriptor->FindValueByNumber(value);
-  if (value_desc == nullptr) {
-    return "unknown";
+Result<compute::Expression> FromProto(const substrait::Expression::ReferenceSegment* ref,
+                                      const ExtensionSet& ext_set,
+                                      const ConversionOptions& conversion_options,
+                                      std::optional<compute::Expression> in_expr) {
+  auto in_ref = ref;
+  auto& current = in_expr;
+  while (ref != nullptr) {
+    switch (ref->reference_type_case()) {
+      case substrait::Expression::ReferenceSegment::kStructField: {
+        auto index = ref->struct_field().field();
+        if (!current) {
+          // Root StructField (column selection)
+          current = compute::field_ref(FieldRef(index));
+        } else if (auto current_ref = current->field_ref()) {
+          // Nested StructFields on the root (selection of struct-typed column
+          // combined with selecting struct fields)
+          current = compute::field_ref(FieldRef(*current_ref, index));
+        } else if (current->call() && current->call()->function_name == "struct_field") {
+          // Nested StructFields on top of an arbitrary expression
+          auto* field_options =
+              checked_cast<compute::StructFieldOptions*>(current->call()->options.get());
+          field_options->field_ref = FieldRef(std::move(field_options->field_ref), index);
+        } else {
+          // First StructField on top of an arbitrary expression
+          current = compute::call("struct_field", {std::move(*current)},
+                                  arrow::compute::StructFieldOptions({index}));
+        }
+
+        // Segment handled, continue with child segment (if any)
+        if (ref->struct_field().has_child()) {
+          ref = &ref->struct_field().child();
+        } else {
+          ref = nullptr;
+        }
+        break;
+      }
+      case substrait::Expression::ReferenceSegment::kListElement: {
+        if (!current) {
+          // Root ListField (illegal)
+          return Status::Invalid(
+              "substrait::ListElement cannot take a Relation as an argument");
+        }
+
+        // ListField on top of an arbitrary expression
+        current = compute::call(
+            "list_element",
+            {std::move(*current), compute::literal(ref->list_element().offset())});
+
+        // Segment handled, continue with child segment (if any)
+        if (ref->list_element().has_child()) {
+          ref = &ref->list_element().child();
+        } else {
+          ref = nullptr;
+        }
+        break;
+      }
+      default:
+        // Unimplemented construct, break current of loop
+        current.reset();
+        ref = nullptr;
+    }
   }
-  return value_desc->name();
+  if (current) {
+    return *std::move(current);
+  }
+
+  return Status::NotImplemented(
+      "conversion to arrow::compute::Expression from Substrait reference segment: ",
+      in_ref ? in_ref->DebugString() : "null");
+}
+
+Result<compute::Expression> FromProto(const substrait::Expression::FieldReference* fref,
+                                      const ExtensionSet& ext_set,
+                                      const ConversionOptions& conversion_options,
+                                      std::optional<compute::Expression> in_expr) {
+  if (fref->reference_type_case() !=
+          substrait::Expression::FieldReference::kDirectReference ||
+      fref->root_type_case() != substrait::Expression::FieldReference::kRootReference) {
+    return Status::NotImplemented("substrait::FieldReference not direct root reference");
+  }
+  auto& dref = fref->direct_reference();
+  return FromProto(&dref, ext_set, conversion_options, std::move(in_expr));
+}
+
+}  // namespace
+
+Result<FieldRef> DirectReferenceFromProto(
+    const substrait::Expression::FieldReference* fref, const ExtensionSet& ext_set,
+    const ConversionOptions& conversion_options) {
+  ARROW_ASSIGN_OR_RAISE(compute::Expression expr,
+                        FromProto(fref, ext_set, conversion_options, {}));
+  const FieldRef* field_ref = expr.field_ref();
+  if (field_ref) {
+    return *field_ref;
+  } else {
+    return Status::Invalid(
+        "A direct reference was expected but a more complex expression was given "
+        "instead");
+  }
 }
 
 Result<SubstraitCall> FromProto(const substrait::AggregateFunction& func, bool is_hash,
@@ -170,7 +267,10 @@ Result<SubstraitCall> FromProto(const substrait::AggregateFunction& func, bool i
     ARROW_RETURN_NOT_OK(DecodeArg(func.arguments(i), static_cast<uint32_t>(i), &call,
                                   ext_set, conversion_options));
   }
-  return std::move(call);
+  for (int i = 0; i < func.options_size(); i++) {
+    ARROW_RETURN_NOT_OK(DecodeOption(func.options(i), &call));
+  }
+  return call;
 }
 
 Result<compute::Expression> FromProto(const substrait::Expression& expr,
@@ -193,67 +293,7 @@ Result<compute::Expression> FromProto(const substrait::Expression& expr,
       }
 
       const auto* ref = &expr.selection().direct_reference();
-      while (ref != nullptr) {
-        switch (ref->reference_type_case()) {
-          case substrait::Expression::ReferenceSegment::kStructField: {
-            auto index = ref->struct_field().field();
-            if (!out) {
-              // Root StructField (column selection)
-              out = compute::field_ref(FieldRef(index));
-            } else if (auto out_ref = out->field_ref()) {
-              // Nested StructFields on the root (selection of struct-typed column
-              // combined with selecting struct fields)
-              out = compute::field_ref(FieldRef(*out_ref, index));
-            } else if (out->call() && out->call()->function_name == "struct_field") {
-              // Nested StructFields on top of an arbitrary expression
-              auto* field_options =
-                  checked_cast<compute::StructFieldOptions*>(out->call()->options.get());
-              field_options->field_ref =
-                  FieldRef(std::move(field_options->field_ref), index);
-            } else {
-              // First StructField on top of an arbitrary expression
-              out = compute::call("struct_field", {std::move(*out)},
-                                  arrow::compute::StructFieldOptions({index}));
-            }
-
-            // Segment handled, continue with child segment (if any)
-            if (ref->struct_field().has_child()) {
-              ref = &ref->struct_field().child();
-            } else {
-              ref = nullptr;
-            }
-            break;
-          }
-          case substrait::Expression::ReferenceSegment::kListElement: {
-            if (!out) {
-              // Root ListField (illegal)
-              return Status::Invalid(
-                  "substrait::ListElement cannot take a Relation as an argument");
-            }
-
-            // ListField on top of an arbitrary expression
-            out = compute::call(
-                "list_element",
-                {std::move(*out), compute::literal(ref->list_element().offset())});
-
-            // Segment handled, continue with child segment (if any)
-            if (ref->list_element().has_child()) {
-              ref = &ref->list_element().child();
-            } else {
-              ref = nullptr;
-            }
-            break;
-          }
-          default:
-            // Unimplemented construct, break out of loop
-            out.reset();
-            ref = nullptr;
-        }
-      }
-      if (out) {
-        return *std::move(out);
-      }
-      break;
+      return FromProto(ref, ext_set, conversion_options, std::move(out));
     }
 
     case substrait::Expression::kIfThen: {
@@ -296,6 +336,22 @@ Result<compute::Expression> FromProto(const substrait::Expression& expr,
       return compute::call("case_when", std::move(args));
     }
 
+    case substrait::Expression::kSingularOrList: {
+      const auto& or_list = expr.singular_or_list();
+
+      ARROW_ASSIGN_OR_RAISE(compute::Expression value,
+                            FromProto(or_list.value(), ext_set, conversion_options));
+
+      std::vector<compute::Expression> option_eqs;
+      for (const auto& option : or_list.options()) {
+        ARROW_ASSIGN_OR_RAISE(compute::Expression arrow_option,
+                              FromProto(option, ext_set, conversion_options));
+        option_eqs.push_back(compute::call("equal", {value, arrow_option}));
+      }
+
+      return compute::or_(option_eqs);
+    }
+
     case substrait::Expression::kScalarFunction: {
       const auto& scalar_fn = expr.scalar_function();
 
@@ -320,6 +376,39 @@ Result<compute::Expression> FromProto(const substrait::Expression& expr,
       return function_converter(substrait_call);
     }
 
+    case substrait::Expression::kCast: {
+      const auto& cast_exp = expr.cast();
+      ARROW_ASSIGN_OR_RAISE(auto input,
+                            FromProto(cast_exp.input(), ext_set, conversion_options));
+
+      ARROW_ASSIGN_OR_RAISE(auto type_nullable,
+                            FromProto(cast_exp.type(), ext_set, conversion_options));
+
+      if (!type_nullable.second &&
+          conversion_options.strictness == ConversionStrictness::EXACT_ROUNDTRIP) {
+        return Status::Invalid("Substrait cast type must be of nullable type");
+      }
+
+      if (cast_exp.failure_behavior() ==
+          substrait::Expression::Cast::FailureBehavior::
+              Expression_Cast_FailureBehavior_FAILURE_BEHAVIOR_THROW_EXCEPTION) {
+        return compute::call(
+            "cast", {std::move(input)},
+            compute::CastOptions::Unsafe(std::move(type_nullable.first)));
+      } else if (cast_exp.failure_behavior() ==
+                 substrait::Expression::Cast::FailureBehavior::
+                     Expression_Cast_FailureBehavior_FAILURE_BEHAVIOR_RETURN_NULL) {
+        return Status::NotImplemented(
+            "Unsupported cast failure behavior: "
+            "FAILURE_BEHAVIOR_RETURN_NULL");
+        // i.e. if unspecified
+      } else {
+        return Status::Invalid(
+            "substrait::Expression::Cast::FailureBehavior unspecified; must be "
+            "FAILURE_BEHAVIOR_RETURN_NULL or FAILURE_BEHAVIOR_THROW_EXCEPTION");
+      }
+    }
+
     default:
       break;
   }
@@ -328,6 +417,82 @@ Result<compute::Expression> FromProto(const substrait::Expression& expr,
       "conversion to arrow::compute::Expression from Substrait expression ",
       expr.DebugString());
 }
+
+namespace {
+struct UserDefinedLiteralToArrow {
+  Status Visit(const DataType& type) {
+    return Status::NotImplemented("User defined literals of type ", type);
+  }
+  Status Visit(const IntegerType& type) {
+    google::protobuf::UInt64Value value;
+    if (ARROW_PREDICT_FALSE(!user_defined_->value().UnpackTo(&value))) {
+      return FailedToUnpack("integer", "UInt64Value");
+    }
+    ARROW_ASSIGN_OR_RAISE(scalar_, MakeScalar(type.GetSharedPtr(), value.value()));
+    return Status::OK();
+  }
+  Status Visit(const Time32Type& type) {
+    google::protobuf::Int32Value value;
+    if (ARROW_PREDICT_FALSE(!user_defined_->value().UnpackTo(&value))) {
+      return FailedToUnpack("time32", "Int32Value");
+    }
+    ARROW_ASSIGN_OR_RAISE(scalar_, MakeScalar(type.GetSharedPtr(), value.value()));
+    return Status::OK();
+  }
+  Status Visit(const Time64Type& type) {
+    google::protobuf::Int64Value value;
+    if (ARROW_PREDICT_FALSE(!user_defined_->value().UnpackTo(&value))) {
+      return FailedToUnpack("time64", "Int64Value");
+    }
+    ARROW_ASSIGN_OR_RAISE(scalar_, MakeScalar(type.GetSharedPtr(), value.value()));
+    return Status::OK();
+  }
+  Status Visit(const Date64Type& type) {
+    google::protobuf::Int64Value value;
+    if (ARROW_PREDICT_FALSE(!user_defined_->value().UnpackTo(&value))) {
+      return FailedToUnpack("date64", "Int64Value");
+    }
+    ARROW_ASSIGN_OR_RAISE(scalar_, MakeScalar(type.GetSharedPtr(), value.value()));
+    return Status::OK();
+  }
+  Status Visit(const HalfFloatType& type) {
+    google::protobuf::UInt32Value value;
+    if (ARROW_PREDICT_FALSE(!user_defined_->value().UnpackTo(&value))) {
+      return FailedToUnpack("half_float", "UInt32Value");
+    }
+    uint16_t half_float_value = value.value();
+    ARROW_ASSIGN_OR_RAISE(scalar_, MakeScalar(type.GetSharedPtr(), half_float_value));
+    return Status::OK();
+  }
+  Status Visit(const LargeStringType& type) {
+    google::protobuf::StringValue value;
+    if (ARROW_PREDICT_FALSE(!user_defined_->value().UnpackTo(&value))) {
+      return FailedToUnpack("large_string", "StringValue");
+    }
+    ARROW_ASSIGN_OR_RAISE(scalar_,
+                          MakeScalar(type.GetSharedPtr(), std::string(value.value())));
+    return Status::OK();
+  }
+  Status Visit(const LargeBinaryType& type) {
+    google::protobuf::BytesValue value;
+    if (ARROW_PREDICT_FALSE(!user_defined_->value().UnpackTo(&value))) {
+      return FailedToUnpack("large_binary", "BytesValue");
+    }
+    ARROW_ASSIGN_OR_RAISE(scalar_,
+                          MakeScalar(type.GetSharedPtr(), std::string(value.value())));
+    return Status::OK();
+  }
+  Status operator()(const DataType& type) { return VisitTypeInline(type, this); }
+  Status FailedToUnpack(const char* from, const char* to) {
+    return Status::Invalid("Failed to unpack user defined ", from, " literal to ", to);
+  }
+
+  std::shared_ptr<Scalar> scalar_;
+  const substrait::Expression::Literal::UserDefined* user_defined_;
+  const ExtensionSet* ext_set_;
+  const ConversionOptions& conversion_options_;
+};
+}  // namespace
 
 Result<Datum> FromProto(const substrait::Expression::Literal& lit,
                         const ExtensionSet& ext_set,
@@ -363,6 +528,7 @@ Result<Datum> FromProto(const substrait::Expression::Literal& lit,
     case substrait::Expression::Literal::kBinary:
       return Datum(BinaryScalar(lit.binary()));
 
+      ARROW_SUPPRESS_DEPRECATION_WARNING
     case substrait::Expression::Literal::kTimestamp:
       return Datum(
           TimestampScalar(static_cast<int64_t>(lit.timestamp()), TimeUnit::MICRO));
@@ -370,7 +536,17 @@ Result<Datum> FromProto(const substrait::Expression::Literal& lit,
     case substrait::Expression::Literal::kTimestampTz:
       return Datum(TimestampScalar(static_cast<int64_t>(lit.timestamp_tz()),
                                    TimeUnit::MICRO, TimestampTzTimezoneString()));
-
+      ARROW_UNSUPPRESS_DEPRECATION_WARNING
+    case substrait::Expression::Literal::kPrecisionTimestamp: {
+      // https://github.com/substrait-io/substrait/issues/611
+      // TODO(GH-40741) don't break, return precision timestamp
+      break;
+    }
+    case substrait::Expression::Literal::kPrecisionTimestampTz: {
+      // https://github.com/substrait-io/substrait/issues/611
+      // TODO(GH-40741) don't break, return precision timestamp
+      break;
+    }
     case substrait::Expression::Literal::kDate:
       return Datum(Date32Scalar(lit.date()));
     case substrait::Expression::Literal::kTime:
@@ -493,7 +669,7 @@ Result<Datum> FromProto(const substrait::Expression::Literal& lit,
       for (int i = 0; i < map.key_values_size(); ++i) {
         const auto& kv = map.key_values(i);
 
-        static const std::array<char const*, 4> kMissing = {"key and value", "value",
+        static const std::array<const char*, 4> kMissing = {"key and value", "value",
                                                             "key", nullptr};
         if (auto missing = kMissing[kv.has_key() + kv.has_value() * 2]) {
           return Status::Invalid("While converting to MapScalar encountered missing ",
@@ -582,18 +758,30 @@ Result<Datum> FromProto(const substrait::Expression::Literal& lit,
       return Datum(MakeNullScalar(std::move(type_nullable.first)));
     }
 
+    case substrait::Expression::Literal::kUserDefined: {
+      const auto& user_defined = lit.user_defined();
+      ARROW_ASSIGN_OR_RAISE(auto type_record,
+                            ext_set.DecodeType(user_defined.type_reference()));
+      UserDefinedLiteralToArrow visitor{nullptr, &user_defined, &ext_set,
+                                        conversion_options};
+      ARROW_RETURN_NOT_OK((visitor)(*type_record.type));
+      return Datum(std::move(visitor.scalar_));
+    }
+
+    case substrait::Expression::Literal::LITERAL_TYPE_NOT_SET:
+      return Status::Invalid("substrait literal did not have any literal type set");
+
     default:
       break;
   }
 
-  return Status::NotImplemented("conversion to arrow::Datum from Substrait literal ",
-                                lit.DebugString());
+  return Status::NotImplemented("conversion to arrow::Datum from Substrait literal `",
+                                lit.DebugString(), "`");
 }
 
 namespace {
-struct ScalarToProtoImpl {
-  Status Visit(const NullScalar& s) { return NotImplemented(s); }
 
+struct ScalarToProtoImpl {
   using Lit = substrait::Expression::Literal;
 
   template <typename Arg, typename PrimitiveScalar>
@@ -610,6 +798,25 @@ struct ScalarToProtoImpl {
     return Status::OK();
   }
 
+  Status EncodeUserDefined(const DataType& data_type,
+                           const google::protobuf::Message& value) {
+    ARROW_ASSIGN_OR_RAISE(auto anchor, ext_set_->EncodeType(data_type));
+    auto user_defined = std::make_unique<Lit::UserDefined>();
+    user_defined->set_type_reference(anchor);
+    auto value_any = std::make_unique<google::protobuf::Any>();
+    value_any->PackFrom(value);
+    user_defined->set_allocated_value(value_any.release());
+    lit_->set_allocated_user_defined(user_defined.release());
+    return Status::OK();
+  }
+
+  Status Visit(const NullScalar& s) {
+    ARROW_ASSIGN_OR_RAISE(auto anchor, ext_set_->EncodeType(*s.type));
+    auto user_defined = std::make_unique<Lit::UserDefined>();
+    user_defined->set_type_reference(anchor);
+    lit_->set_allocated_user_defined(user_defined.release());
+    return Status::OK();
+  }
   Status Visit(const BooleanScalar& s) { return Primitive(&Lit::set_boolean, s); }
 
   Status Visit(const Int8Scalar& s) { return Primitive(&Lit::set_i8, s); }
@@ -617,12 +824,31 @@ struct ScalarToProtoImpl {
   Status Visit(const Int32Scalar& s) { return Primitive(&Lit::set_i32, s); }
   Status Visit(const Int64Scalar& s) { return Primitive(&Lit::set_i64, s); }
 
-  Status Visit(const UInt8Scalar& s) { return NotImplemented(s); }
-  Status Visit(const UInt16Scalar& s) { return NotImplemented(s); }
-  Status Visit(const UInt32Scalar& s) { return NotImplemented(s); }
-  Status Visit(const UInt64Scalar& s) { return NotImplemented(s); }
-
-  Status Visit(const HalfFloatScalar& s) { return NotImplemented(s); }
+  Status Visit(const UInt8Scalar& s) {
+    google::protobuf::UInt64Value value;
+    value.set_value(s.value);
+    return EncodeUserDefined(*s.type, value);
+  }
+  Status Visit(const UInt16Scalar& s) {
+    google::protobuf::UInt64Value value;
+    value.set_value(s.value);
+    return EncodeUserDefined(*s.type, value);
+  }
+  Status Visit(const UInt32Scalar& s) {
+    google::protobuf::UInt64Value value;
+    value.set_value(s.value);
+    return EncodeUserDefined(*s.type, value);
+  }
+  Status Visit(const UInt64Scalar& s) {
+    google::protobuf::UInt64Value value;
+    value.set_value(s.value);
+    return EncodeUserDefined(*s.type, value);
+  }
+  Status Visit(const HalfFloatScalar& s) {
+    google::protobuf::UInt32Value value;
+    value.set_value(s.value);
+    return EncodeUserDefined(*s.type, value);
+  }
   Status Visit(const FloatScalar& s) { return Primitive(&Lit::set_fp32, s); }
   Status Visit(const DoubleScalar& s) { return Primitive(&Lit::set_fp64, s); }
 
@@ -630,7 +856,15 @@ struct ScalarToProtoImpl {
     return FromBuffer([](Lit* lit, std::string&& s) { lit->set_string(std::move(s)); },
                       s);
   }
+  Status Visit(const StringViewScalar& s) {
+    return FromBuffer([](Lit* lit, std::string&& s) { lit->set_string(std::move(s)); },
+                      s);
+  }
   Status Visit(const BinaryScalar& s) {
+    return FromBuffer([](Lit* lit, std::string&& s) { lit->set_binary(std::move(s)); },
+                      s);
+  }
+  Status Visit(const BinaryViewScalar& s) {
     return FromBuffer([](Lit* lit, std::string&& s) { lit->set_binary(std::move(s)); },
                       s);
   }
@@ -641,42 +875,81 @@ struct ScalarToProtoImpl {
   }
 
   Status Visit(const Date32Scalar& s) { return Primitive(&Lit::set_date, s); }
-  Status Visit(const Date64Scalar& s) { return NotImplemented(s); }
+  Status Visit(const Date64Scalar& s) {
+    google::protobuf::Int64Value value;
+    value.set_value(s.value);
+    return EncodeUserDefined(*s.type, value);
+  }
 
   Status Visit(const TimestampScalar& s) {
     const auto& t = checked_cast<const TimestampType&>(*s.type);
 
-    if (t.unit() != TimeUnit::MICRO) return NotImplemented(s);
-
-    if (t.timezone() == "") return Primitive(&Lit::set_timestamp, s);
-
-    if (t.timezone() == TimestampTzTimezoneString()) {
-      return Primitive(&Lit::set_timestamp_tz, s);
+    uint64_t micros;
+    switch (t.unit()) {
+      case TimeUnit::SECOND:
+        micros = s.value * kMicrosPerSecond;
+        break;
+      case TimeUnit::MILLI:
+        micros = s.value * kMicrosPerMilli;
+        break;
+      case TimeUnit::MICRO:
+        micros = s.value;
+        break;
+      case TimeUnit::NANO:
+        // TODO(GH-40741): can support nanos when
+        // https://github.com/substrait-io/substrait/issues/611 is resolved
+        return NotImplemented(s);
+      default:
+        return NotImplemented(s);
     }
 
-    return NotImplemented(s);
+    // Remove these and use precision timestamp once
+    // https://github.com/substrait-io/substrait/issues/611 is resolved
+    ARROW_SUPPRESS_DEPRECATION_WARNING
+
+    if (t.timezone() == "") {
+      lit_->set_timestamp(micros);
+    } else {
+      // Some loss of info here, Substrait doesn't store timezone
+      // in field data
+      lit_->set_timestamp_tz(micros);
+    }
+    ARROW_UNSUPPRESS_DEPRECATION_WARNING
+
+    return Status::OK();
   }
 
-  Status Visit(const Time32Scalar& s) { return NotImplemented(s); }
+  // Need to support parameterized UDTs
+  Status Visit(const Time32Scalar& s) {
+    google::protobuf::Int32Value value;
+    value.set_value(s.value);
+    return EncodeUserDefined(*s.type, value);
+  }
   Status Visit(const Time64Scalar& s) {
-    if (checked_cast<const Time64Type&>(*s.type).unit() != TimeUnit::MICRO) {
-      return NotImplemented(s);
+    if (checked_cast<const Time64Type&>(*s.type).unit() == TimeUnit::MICRO) {
+      return Primitive(&Lit::set_time, s);
+    } else {
+      google::protobuf::Int64Value value;
+      value.set_value(s.value);
+      return EncodeUserDefined(*s.type, value);
     }
-    return Primitive(&Lit::set_time, s);
   }
 
   Status Visit(const MonthIntervalScalar& s) { return NotImplemented(s); }
   Status Visit(const DayTimeIntervalScalar& s) { return NotImplemented(s); }
 
-  Status Visit(const Decimal128Scalar& s) {
+  template <typename T, typename TypeClass = typename T::TypeClass>
+  enable_if_decimal<TypeClass, Status> Visit(const T& s) {
+    using ValueType = typename T::ValueType;
+
     auto decimal = std::make_unique<Lit::Decimal>();
 
-    auto decimal_type = checked_cast<const Decimal128Type*>(s.type.get());
+    auto decimal_type = checked_cast<const TypeClass*>(s.type.get());
     decimal->set_precision(decimal_type->precision());
     decimal->set_scale(decimal_type->scale());
 
     decimal->set_value(reinterpret_cast<const char*>(s.value.native_endian_bytes()),
-                       sizeof(Decimal128));
+                       sizeof(ValueType));
 #if !ARROW_LITTLE_ENDIAN
     std::reverse(decimal->mutable_value()->begin(), decimal->mutable_value()->end());
 #endif
@@ -684,9 +957,7 @@ struct ScalarToProtoImpl {
     return Status::OK();
   }
 
-  Status Visit(const Decimal256Scalar& s) { return NotImplemented(s); }
-
-  Status Visit(const ListScalar& s) {
+  Status Visit(const BaseListScalar& s) {
     if (s.value->length() == 0) {
       ARROW_ASSIGN_OR_RAISE(auto list_type, ToProto(*s.type, /*nullable=*/true, ext_set_,
                                                     conversion_options_));
@@ -713,6 +984,10 @@ struct ScalarToProtoImpl {
     return Status::OK();
   }
 
+  Status Visit(const LargeListViewScalar& s) {
+    return Status::NotImplemented("list-view to proto");
+  }
+
   Status Visit(const StructScalar& s) {
     lit_->set_allocated_struct_(new Lit::Struct());
 
@@ -728,7 +1003,10 @@ struct ScalarToProtoImpl {
 
   Status Visit(const SparseUnionScalar& s) { return NotImplemented(s); }
   Status Visit(const DenseUnionScalar& s) { return NotImplemented(s); }
-  Status Visit(const DictionaryScalar& s) { return NotImplemented(s); }
+  Status Visit(const DictionaryScalar& s) {
+    ARROW_ASSIGN_OR_RAISE(auto encoded, s.GetEncodedValue());
+    return (*this)(*encoded);
+  }
 
   Status Visit(const MapScalar& s) {
     if (s.value->length() == 0) {
@@ -761,6 +1039,8 @@ struct ScalarToProtoImpl {
     }
     return Status::OK();
   }
+
+  Status Visit(const RunEndEncodedScalar& s) { return (*this)(*s.value); }
 
   Status Visit(const ExtensionScalar& s) {
     if (UnwrapUuid(*s.type)) {
@@ -810,10 +1090,21 @@ struct ScalarToProtoImpl {
     return NotImplemented(s);
   }
 
+  // Need support for parameterized UDTs
   Status Visit(const FixedSizeListScalar& s) { return NotImplemented(s); }
   Status Visit(const DurationScalar& s) { return NotImplemented(s); }
-  Status Visit(const LargeStringScalar& s) { return NotImplemented(s); }
-  Status Visit(const LargeBinaryScalar& s) { return NotImplemented(s); }
+
+  Status Visit(const LargeStringScalar& s) {
+    google::protobuf::StringValue value;
+    value.set_value(s.view().data(), s.view().size());
+    return EncodeUserDefined(*s.type, value);
+  }
+  Status Visit(const LargeBinaryScalar& s) {
+    google::protobuf::BytesValue value;
+    value.set_value(s.view().data(), s.view().size());
+    return EncodeUserDefined(*s.type, value);
+  }
+  // Need support for parameterized UDTs
   Status Visit(const LargeListScalar& s) { return NotImplemented(s); }
   Status Visit(const MonthDayNanoIntervalScalar& s) { return NotImplemented(s); }
 
@@ -828,6 +1119,7 @@ struct ScalarToProtoImpl {
   ExtensionSet* ext_set_;
   const ConversionOptions& conversion_options_;
 };
+
 }  // namespace
 
 Result<std::unique_ptr<substrait::Expression::Literal>> ToProto(
@@ -849,10 +1141,12 @@ Result<std::unique_ptr<substrait::Expression::Literal>> ToProto(
     out->set_allocated_null(type.release());
   }
 
-  return std::move(out);
+  return out;
 }
 
-static Status AddChildToReferenceSegment(
+namespace {
+
+Status AddChildToReferenceSegment(
     substrait::Expression::ReferenceSegment& segment,
     std::unique_ptr<substrait::Expression::ReferenceSegment>&& child) {
   auto status = Status::Invalid("Attempt to add child to incomplete reference segment");
@@ -897,7 +1191,7 @@ static Status AddChildToReferenceSegment(
 
 // Indexes the given Substrait expression or root (if expr is empty) using the given
 // ReferenceSegment.
-static Result<std::unique_ptr<substrait::Expression>> MakeDirectReference(
+Result<std::unique_ptr<substrait::Expression>> MakeDirectReference(
     std::unique_ptr<substrait::Expression>&& expr,
     std::unique_ptr<substrait::Expression::ReferenceSegment>&& ref_segment) {
   // If expr is already a selection expression, add the index to its index stack.
@@ -922,12 +1216,12 @@ static Result<std::unique_ptr<substrait::Expression>> MakeDirectReference(
 
   auto out = std::make_unique<substrait::Expression>();
   out->set_allocated_selection(selection.release());
-  return std::move(out);
+  return out;
 }
 
 // Indexes the given Substrait struct-typed expression or root (if expr is empty) using
 // the given field index.
-static Result<std::unique_ptr<substrait::Expression>> MakeStructFieldReference(
+Result<std::unique_ptr<substrait::Expression>> MakeStructFieldReference(
     std::unique_ptr<substrait::Expression>&& expr, int field) {
   auto struct_field =
       std::make_unique<substrait::Expression::ReferenceSegment::StructField>();
@@ -940,7 +1234,7 @@ static Result<std::unique_ptr<substrait::Expression>> MakeStructFieldReference(
 }
 
 // Indexes the given Substrait list-typed expression using the given offset.
-static Result<std::unique_ptr<substrait::Expression>> MakeListElementReference(
+Result<std::unique_ptr<substrait::Expression>> MakeListElementReference(
     std::unique_ptr<substrait::Expression>&& expr, int offset) {
   auto list_element =
       std::make_unique<substrait::Expression::ReferenceSegment::ListElement>();
@@ -978,8 +1272,69 @@ Result<std::unique_ptr<substrait::Expression::ScalarFunction>> EncodeSubstraitCa
                              " arguments but no argument could be found at index ", i);
     }
   }
-  return std::move(scalar_fn);
+
+  for (const auto& option : call.options()) {
+    substrait::FunctionOption* fn_option = scalar_fn->add_options();
+    fn_option->set_name(option.first);
+    for (const auto& opt_val : option.second) {
+      std::string* pref = fn_option->add_preference();
+      *pref = opt_val;
+    }
+  }
+
+  return scalar_fn;
 }
+
+Result<std::vector<std::unique_ptr<substrait::Expression>>> DatumToLiterals(
+    const Datum& datum, ExtensionSet* ext_set,
+    const ConversionOptions& conversion_options) {
+  std::vector<std::unique_ptr<substrait::Expression>> literals;
+
+  auto ScalarToLiteralExpr = [&](const std::shared_ptr<Scalar>& scalar)
+      -> Result<std::unique_ptr<substrait::Expression>> {
+    ARROW_ASSIGN_OR_RAISE(std::unique_ptr<substrait::Expression::Literal> literal,
+                          ToProto(scalar, ext_set, conversion_options));
+    auto literal_expr = std::make_unique<substrait::Expression>();
+    literal_expr->set_allocated_literal(literal.release());
+    return literal_expr;
+  };
+
+  switch (datum.kind()) {
+    case Datum::Kind::SCALAR: {
+      ARROW_ASSIGN_OR_RAISE(auto literal_expr, ScalarToLiteralExpr(datum.scalar()));
+      literals.push_back(std::move(literal_expr));
+      break;
+    }
+    case Datum::Kind::ARRAY: {
+      std::shared_ptr<Array> values = datum.make_array();
+      for (int64_t i = 0; i < values->length(); i++) {
+        ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Scalar> scalar, values->GetScalar(i));
+        ARROW_ASSIGN_OR_RAISE(auto literal_expr, ScalarToLiteralExpr(scalar));
+        literals.push_back(std::move(literal_expr));
+      }
+      break;
+    }
+    case Datum::Kind::CHUNKED_ARRAY: {
+      std::shared_ptr<ChunkedArray> values = datum.chunked_array();
+      for (const auto& chunk : values->chunks()) {
+        for (int64_t i = 0; i < chunk->length(); i++) {
+          ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Scalar> scalar, chunk->GetScalar(i));
+          ARROW_ASSIGN_OR_RAISE(auto literal_expr, ScalarToLiteralExpr(scalar));
+          literals.push_back(std::move(literal_expr));
+        }
+      }
+      break;
+    }
+    case Datum::Kind::RECORD_BATCH:
+    case Datum::Kind::TABLE:
+    case Datum::Kind::NONE:
+      return Status::Invalid("Expected a literal or an array of literals, got ",
+                             datum.ToString());
+  }
+  return literals;
+}
+
+}  // namespace
 
 Result<std::unique_ptr<substrait::Expression>> ToProto(
     const compute::Expression& expr, ExtensionSet* ext_set,
@@ -993,7 +1348,7 @@ Result<std::unique_ptr<substrait::Expression>> ToProto(
   if (auto datum = expr.literal()) {
     ARROW_ASSIGN_OR_RAISE(auto literal, ToProto(*datum, ext_set, conversion_options));
     out->set_allocated_literal(literal.release());
-    return std::move(out);
+    return out;
   }
 
   if (auto param = expr.parameter()) {
@@ -1004,7 +1359,7 @@ Result<std::unique_ptr<substrait::Expression>> ToProto(
       ARROW_ASSIGN_OR_RAISE(out, MakeStructFieldReference(std::move(out), index));
     }
 
-    return std::move(out);
+    return out;
   }
 
   auto call = CallNotNull(expr);
@@ -1036,7 +1391,7 @@ Result<std::unique_ptr<substrait::Expression>> ToProto(
       if_then_->set_allocated_else_(arguments.back().release());
 
       out->set_allocated_if_then(if_then_.release());
-      return std::move(out);
+      return out;
     }
   }
 
@@ -1060,7 +1415,7 @@ Result<std::unique_ptr<substrait::Expression>> ToProto(
     for (int index : field_path.indices()) {
       ARROW_ASSIGN_OR_RAISE(out, MakeStructFieldReference(std::move(out), index));
     }
-    return std::move(out);
+    return out;
   }
 
   if (call->function_name == "list_element") {
@@ -1086,18 +1441,92 @@ Result<std::unique_ptr<substrait::Expression>> ToProto(
     if_then->set_allocated_else_(arguments[2].release());
 
     out->set_allocated_if_then(if_then.release());
-    return std::move(out);
+    return out;
+  } else if (call->function_name == "cast") {
+    auto cast = std::make_unique<substrait::Expression::Cast>();
+
+    // Arrow's cast function does not have a "return null" option and so throw exception
+    // is the only behavior we can support.
+    cast->set_failure_behavior(
+        substrait::Expression::Cast::FAILURE_BEHAVIOR_THROW_EXCEPTION);
+
+    std::shared_ptr<compute::CastOptions> cast_options =
+        internal::checked_pointer_cast<compute::CastOptions>(call->options);
+    if (!cast_options->is_unsafe()) {
+      return Status::Invalid("Substrait is only capable of representing unsafe casts");
+    }
+
+    if (arguments.size() != 1) {
+      return Status::Invalid(
+          "A call to the cast function must have exactly one argument");
+    }
+
+    cast->set_allocated_input(arguments[0].release());
+
+    ARROW_ASSIGN_OR_RAISE(std::unique_ptr<substrait::Type> to_type,
+                          ToProto(*cast_options->to_type.type, /*nullable=*/true, ext_set,
+                                  conversion_options));
+
+    cast->set_allocated_type(to_type.release());
+
+    out->set_allocated_cast(cast.release());
+    return out;
+  } else if (call->function_name == "is_in") {
+    auto or_list = std::make_unique<substrait::Expression::SingularOrList>();
+
+    if (arguments.size() != 1) {
+      return Status::Invalid(
+          "A call to the is_in function must have exactly one argument");
+    }
+
+    or_list->set_allocated_value(arguments[0].release());
+    std::shared_ptr<compute::SetLookupOptions> is_in_options =
+        internal::checked_pointer_cast<compute::SetLookupOptions>(call->options);
+
+    // TODO(GH-36420) Acero does not currently handle nulls correctly
+    ARROW_ASSIGN_OR_RAISE(
+        std::vector<std::unique_ptr<substrait::Expression>> options,
+        DatumToLiterals(is_in_options->value_set, ext_set, conversion_options));
+    for (auto& option : options) {
+      or_list->mutable_options()->AddAllocated(option.release());
+    }
+    out->set_allocated_singular_or_list(or_list.release());
+    return out;
   }
 
   // other expression types dive into extensions immediately
-  ARROW_ASSIGN_OR_RAISE(
-      ExtensionIdRegistry::ArrowToSubstraitCall converter,
-      ext_set->registry()->GetArrowToSubstraitCall(call->function_name));
-  ARROW_ASSIGN_OR_RAISE(SubstraitCall substrait_call, converter(*call));
-  ARROW_ASSIGN_OR_RAISE(std::unique_ptr<substrait::Expression::ScalarFunction> scalar_fn,
-                        EncodeSubstraitCall(substrait_call, ext_set, conversion_options));
+  Result<ExtensionIdRegistry::ArrowToSubstraitCall> maybe_converter =
+      ext_set->registry()->GetArrowToSubstraitCall(call->function_name);
+
+  ExtensionIdRegistry::ArrowToSubstraitCall converter;
+  std::unique_ptr<substrait::Expression::ScalarFunction> scalar_fn;
+  if (maybe_converter.ok()) {
+    converter = *maybe_converter;
+    ARROW_ASSIGN_OR_RAISE(SubstraitCall substrait_call, converter(*call));
+    ARROW_ASSIGN_OR_RAISE(
+        scalar_fn, EncodeSubstraitCall(substrait_call, ext_set, conversion_options));
+  } else if (maybe_converter.status().IsNotImplemented() &&
+             conversion_options.allow_arrow_extensions) {
+    if (call->options) {
+      return Status::NotImplemented(
+          "The function ", call->function_name,
+          " has no Substrait mapping.  Arrow extensions are enabled but the call "
+          "contains function options and there is no current mechanism to encode those.");
+    }
+    Id persistent_id = ext_set->RegisterPlanSpecificId(
+        {kArrowSimpleExtensionFunctionsUri, call->function_name});
+    SubstraitCall substrait_call(persistent_id, call->type.GetSharedPtr(),
+                                 /*nullable=*/true);
+    for (int i = 0; i < static_cast<int>(call->arguments.size()); i++) {
+      substrait_call.SetValueArg(i, call->arguments[i]);
+    }
+    ARROW_ASSIGN_OR_RAISE(
+        scalar_fn, EncodeSubstraitCall(substrait_call, ext_set, conversion_options));
+  } else {
+    return maybe_converter.status();
+  }
   out->set_allocated_scalar_function(scalar_fn.release());
-  return std::move(out);
+  return out;
 }
 
 }  // namespace engine

@@ -19,6 +19,7 @@
 #include <gtest/gtest.h>
 
 #include "arrow/testing/gtest_compat.h"
+#include "arrow/util/config.h"
 
 #include "parquet/column_reader.h"
 #include "parquet/column_writer.h"
@@ -75,6 +76,7 @@ class TestSerialize : public PrimitiveTypedTest<TestType> {
     for (int rg = 0; rg < num_rowgroups_ / 2; ++rg) {
       RowGroupWriter* row_group_writer;
       row_group_writer = file_writer->AppendRowGroup();
+      EXPECT_EQ(rows_per_rowgroup_ * rg, file_writer->num_rows());
       for (int col = 0; col < num_columns_; ++col) {
         auto column_writer =
             static_cast<TypedColumnWriter<TestType>*>(row_group_writer->NextColumn());
@@ -84,13 +86,19 @@ class TestSerialize : public PrimitiveTypedTest<TestType> {
         // Ensure column() API which is specific to BufferedRowGroup cannot be called
         ASSERT_THROW(row_group_writer->column(col), ParquetException);
       }
-
+      EXPECT_EQ(0, row_group_writer->total_compressed_bytes());
+      EXPECT_NE(0, row_group_writer->total_bytes_written());
+      EXPECT_NE(0, row_group_writer->total_compressed_bytes_written());
       row_group_writer->Close();
+      EXPECT_EQ(0, row_group_writer->total_compressed_bytes());
+      EXPECT_NE(0, row_group_writer->total_bytes_written());
+      EXPECT_NE(0, row_group_writer->total_compressed_bytes_written());
     }
     // Write half BufferedRowGroups
     for (int rg = 0; rg < num_rowgroups_ / 2; ++rg) {
       RowGroupWriter* row_group_writer;
       row_group_writer = file_writer->AppendBufferedRowGroup();
+      EXPECT_EQ(rows_per_rowgroup_ * (rg + num_rowgroups_ / 2), file_writer->num_rows());
       for (int batch = 0; batch < (rows_per_rowgroup_ / rows_per_batch_); ++batch) {
         for (int col = 0; col < num_columns_; ++col) {
           auto column_writer =
@@ -102,12 +110,19 @@ class TestSerialize : public PrimitiveTypedTest<TestType> {
           ASSERT_THROW(row_group_writer->NextColumn(), ParquetException);
         }
       }
+      // total_compressed_bytes() may equal to 0 if no dictionary enabled and no buffered
+      // values.
+      EXPECT_EQ(0, row_group_writer->total_bytes_written());
+      EXPECT_EQ(0, row_group_writer->total_compressed_bytes_written());
       for (int col = 0; col < num_columns_; ++col) {
         auto column_writer =
             static_cast<TypedColumnWriter<TestType>*>(row_group_writer->column(col));
         column_writer->Close();
       }
       row_group_writer->Close();
+      EXPECT_EQ(0, row_group_writer->total_compressed_bytes());
+      EXPECT_NE(0, row_group_writer->total_bytes_written());
+      EXPECT_NE(0, row_group_writer->total_compressed_bytes_written());
     }
     file_writer->Close();
 
@@ -322,7 +337,7 @@ TYPED_TEST(TestSerialize, SmallFileBrotli) {
 }
 #endif
 
-#ifdef ARROW_WITH_GZIP
+#ifdef ARROW_WITH_ZLIB
 TYPED_TEST(TestSerialize, SmallFileGzip) {
   ASSERT_NO_FATAL_FAILURE(this->FileSerializeTest(Compression::GZIP));
 }

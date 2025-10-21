@@ -66,9 +66,9 @@
 #'   auto_convert = TRUE
 #' )
 #'
-#' as_arrow_table(mtcars) %>%
-#'   transmute(mpg, mpg_predicted = mtcars_predict_mpg(disp, cyl)) %>%
-#'   collect() %>%
+#' as_arrow_table(mtcars) |>
+#'   transmute(mpg, mpg_predicted = mtcars_predict_mpg(disp, cyl)) |>
+#'   collect() |>
 #'   head()
 #'
 register_scalar_function <- function(name, fun, in_type, out_type,
@@ -95,12 +95,7 @@ register_scalar_function <- function(name, fun, in_type, out_type,
   body(binding_fun) <- expr_substitute(body(binding_fun), sym("name"), name)
   environment(binding_fun) <- asNamespace("arrow")
 
-  register_binding(
-    name,
-    binding_fun,
-    update_cache = TRUE
-  )
-
+  register_binding(name, binding_fun)
   invisible(NULL)
 }
 
@@ -154,7 +149,7 @@ arrow_scalar_function <- function(fun, in_type, out_type, auto_convert = FALSE) 
       sprintf(
         paste0(
           "Expected `fun` to accept %d argument(s)\n",
-          "but found a function that acccepts %d argument(s)\n",
+          "but found a function that accepts %d argument(s)\n",
           "Did you forget to include `context` as the first argument?"
         ),
         expected_n_args,

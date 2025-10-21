@@ -30,8 +30,11 @@ module ArrowFlight
 
     def require_libraries
       require "arrow-flight/call-options"
+      require "arrow-flight/client"
       require "arrow-flight/client-options"
       require "arrow-flight/location"
+      require "arrow-flight/record-batch-reader"
+      require "arrow-flight/server-call-context"
       require "arrow-flight/server-options"
       require "arrow-flight/ticket"
     end

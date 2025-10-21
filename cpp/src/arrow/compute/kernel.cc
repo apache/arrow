@@ -24,12 +24,13 @@
 
 #include "arrow/buffer.h"
 #include "arrow/compute/exec.h"
+#include "arrow/device_allocation_type_set.h"
 #include "arrow/result.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/hash_util.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/macros.h"
 
 namespace arrow {
@@ -75,7 +76,7 @@ Result<std::unique_ptr<KernelState>> ScalarAggregateKernel::MergeAll(
   for (auto& state : states) {
     RETURN_NOT_OK(kernel->merge(ctx, std::move(*state), out.get()));
   }
-  return std::move(out);
+  return out;
 }
 
 // ----------------------------------------------------------------------
@@ -275,6 +276,80 @@ std::shared_ptr<TypeMatcher> FixedSizeBinaryLike() {
   return std::make_shared<FixedSizeBinaryLikeMatcher>();
 }
 
+class RunEndIntegerMatcher : public TypeMatcher {
+ public:
+  ~RunEndIntegerMatcher() override = default;
+
+  bool Matches(const DataType& type) const override { return is_run_end_type(type.id()); }
+
+  bool Equals(const TypeMatcher& other) const override {
+    auto casted = dynamic_cast<const RunEndIntegerMatcher*>(&other);
+    return casted != nullptr;
+  }
+
+  std::string ToString() const override { return "run-end-integer"; }
+};
+
+std::shared_ptr<TypeMatcher> RunEndInteger() {
+  return std::make_shared<RunEndIntegerMatcher>();
+}
+
+class RunEndEncodedMatcher : public TypeMatcher {
+ public:
+  RunEndEncodedMatcher(std::shared_ptr<TypeMatcher> run_end_type_matcher,
+                       std::shared_ptr<TypeMatcher> value_type_matcher)
+      : run_end_type_matcher{std::move(run_end_type_matcher)},
+        value_type_matcher{std::move(value_type_matcher)} {}
+
+  ~RunEndEncodedMatcher() override = default;
+
+  bool Matches(const DataType& type) const override {
+    if (type.id() == Type::RUN_END_ENCODED) {
+      const auto& ree_type = dynamic_cast<const RunEndEncodedType&>(type);
+      // This invariant is enforced in RunEndEncodedType's constructor
+      DCHECK(is_run_end_type(ree_type.run_end_type()->id()));
+      return run_end_type_matcher->Matches(*ree_type.run_end_type()) &&
+             value_type_matcher->Matches(*ree_type.value_type());
+    }
+    return false;
+  }
+
+  bool Equals(const TypeMatcher& other) const override {
+    if (this == &other) {
+      return true;
+    }
+    const auto* casted = dynamic_cast<const RunEndEncodedMatcher*>(&other);
+    return casted != nullptr && value_type_matcher->Equals(*casted->value_type_matcher) &&
+           run_end_type_matcher->Equals(*casted->run_end_type_matcher);
+  }
+
+  std::string ToString() const override {
+    return "run_end_encoded(" + run_end_type_matcher->ToString() + ", " +
+           value_type_matcher->ToString() + ")";
+  };
+
+ private:
+  std::shared_ptr<TypeMatcher> run_end_type_matcher;
+  std::shared_ptr<TypeMatcher> value_type_matcher;
+};
+
+std::shared_ptr<TypeMatcher> RunEndEncoded(
+    std::shared_ptr<TypeMatcher> value_type_matcher) {
+  return std::make_shared<RunEndEncodedMatcher>(RunEndInteger(),
+                                                std::move(value_type_matcher));
+}
+
+std::shared_ptr<TypeMatcher> RunEndEncoded(Type::type value_type_id) {
+  return RunEndEncoded(SameTypeId(value_type_id));
+}
+
+std::shared_ptr<TypeMatcher> RunEndEncoded(
+    std::shared_ptr<TypeMatcher> run_end_type_matcher,
+    std::shared_ptr<TypeMatcher> value_type_matcher) {
+  return std::make_shared<RunEndEncodedMatcher>(std::move(run_end_type_matcher),
+                                                std::move(value_type_matcher));
+}
+
 }  // namespace match
 
 // ----------------------------------------------------------------------
@@ -287,7 +362,8 @@ size_t InputType::Hash() const {
     case InputType::EXACT_TYPE:
       hash_combine(result, type_->Hash());
       break;
-    default:
+    case InputType::ANY_TYPE:
+    case InputType::USE_TYPE_MATCHER:
       break;
   }
   return result;
@@ -304,10 +380,8 @@ std::string InputType::ToString() const {
       break;
     case InputType::USE_TYPE_MATCHER: {
       ss << type_matcher_->ToString();
-    } break;
-    default:
-      DCHECK(false);
       break;
+    }
   }
   return ss.str();
 }
@@ -326,9 +400,8 @@ bool InputType::Equals(const InputType& other) const {
       return type_->Equals(*other.type_);
     case InputType::USE_TYPE_MATCHER:
       return type_matcher_->Equals(*other.type_matcher_);
-    default:
-      return false;
   }
+  return false;
 }
 
 bool InputType::Matches(const DataType& type) const {
@@ -337,21 +410,23 @@ bool InputType::Matches(const DataType& type) const {
       return type_->Equals(type);
     case InputType::USE_TYPE_MATCHER:
       return type_matcher_->Matches(type);
-    default:
-      // ANY_TYPE
+    case InputType::ANY_TYPE:
       return true;
   }
+  return false;
 }
 
 bool InputType::Matches(const Datum& value) const {
   switch (value.kind()) {
+    case Datum::NONE:
+    case Datum::RECORD_BATCH:
+    case Datum::TABLE:
+      DCHECK(false) << "Matches expects ARRAY, CHUNKED_ARRAY or SCALAR";
+      return false;
     case Datum::ARRAY:
     case Datum::CHUNKED_ARRAY:
     case Datum::SCALAR:
       break;
-    default:
-      DCHECK(false);
-      return false;
   }
   return Matches(*value.type());
 }
@@ -371,11 +446,13 @@ const TypeMatcher& InputType::type_matcher() const {
 
 Result<TypeHolder> OutputType::Resolve(KernelContext* ctx,
                                        const std::vector<TypeHolder>& types) const {
-  if (kind_ == OutputType::FIXED) {
-    return type_.get();
-  } else {
-    return resolver_(ctx, types);
+  switch (kind_) {
+    case OutputType::FIXED:
+      return type_;
+    case OutputType::COMPUTED:
+      break;
   }
+  return resolver_(ctx, types);
 }
 
 const std::shared_ptr<DataType>& OutputType::type() const {
@@ -389,30 +466,78 @@ const OutputType::Resolver& OutputType::resolver() const {
 }
 
 std::string OutputType::ToString() const {
-  if (kind_ == OutputType::FIXED) {
-    return type_->ToString();
-  } else {
-    return "computed";
+  switch (kind_) {
+    case OutputType::FIXED:
+      return type_->ToString();
+    case OutputType::COMPUTED:
+      break;
   }
+  return "computed";
+}
+
+// ----------------------------------------------------------------------
+// MatchConstraint
+
+std::shared_ptr<MatchConstraint> MatchConstraint::Make(
+    std::function<bool(const std::vector<TypeHolder>&)> matches) {
+  class FunctionMatchConstraint : public MatchConstraint {
+   public:
+    explicit FunctionMatchConstraint(
+        std::function<bool(const std::vector<TypeHolder>&)> matches)
+        : matches_(std::move(matches)) {}
+
+    bool Matches(const std::vector<TypeHolder>& types) const override {
+      return matches_(types);
+    }
+
+   private:
+    std::function<bool(const std::vector<TypeHolder>&)> matches_;
+  };
+
+  return std::make_shared<FunctionMatchConstraint>(std::move(matches));
+}
+
+std::shared_ptr<MatchConstraint> DecimalsHaveSameScale() {
+  class DecimalsHaveSameScaleConstraint : public MatchConstraint {
+   public:
+    bool Matches(const std::vector<TypeHolder>& types) const override {
+      DCHECK_GE(types.size(), 2);
+      DCHECK(std::all_of(types.begin(), types.end(),
+                         [](const TypeHolder& type) { return is_decimal(type.id()); }));
+      const auto& ty0 = checked_cast<const DecimalType&>(*types[0].type);
+      auto s0 = ty0.scale();
+      for (size_t i = 1; i < types.size(); ++i) {
+        const auto& ty = checked_cast<const DecimalType&>(*types[i].type);
+        if (ty.scale() != s0) {
+          return false;
+        }
+      }
+      return true;
+    }
+  };
+  static auto instance = std::make_shared<DecimalsHaveSameScaleConstraint>();
+  return instance;
 }
 
 // ----------------------------------------------------------------------
 // KernelSignature
 
 KernelSignature::KernelSignature(std::vector<InputType> in_types, OutputType out_type,
-                                 bool is_varargs)
+                                 bool is_varargs,
+                                 std::shared_ptr<MatchConstraint> constraint)
     : in_types_(std::move(in_types)),
       out_type_(std::move(out_type)),
       is_varargs_(is_varargs),
+      constraint_(std::move(constraint)),
       hash_code_(0) {
   DCHECK(!is_varargs || (is_varargs && (in_types_.size() >= 1)));
 }
 
-std::shared_ptr<KernelSignature> KernelSignature::Make(std::vector<InputType> in_types,
-                                                       OutputType out_type,
-                                                       bool is_varargs) {
+std::shared_ptr<KernelSignature> KernelSignature::Make(
+    std::vector<InputType> in_types, OutputType out_type, bool is_varargs,
+    std::shared_ptr<MatchConstraint> constraint) {
   return std::make_shared<KernelSignature>(std::move(in_types), std::move(out_type),
-                                           is_varargs);
+                                           is_varargs, std::move(constraint));
 }
 
 bool KernelSignature::Equals(const KernelSignature& other) const {
@@ -446,6 +571,9 @@ bool KernelSignature::MatchesInputs(const std::vector<TypeHolder>& types) const 
         return false;
       }
     }
+  }
+  if (constraint_ && !constraint_->Matches(types)) {
+    return false;
   }
   return true;
 }

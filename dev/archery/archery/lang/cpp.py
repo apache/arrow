@@ -56,14 +56,12 @@ class CppConfiguration:
                  with_hiveserver2=None,
                  with_ipc=True, with_json=None,
                  with_mimalloc=None, with_jemalloc=None,
-                 with_parquet=None, with_plasma=None, with_python=True,
+                 with_parquet=None, with_python=True,
                  with_r=None, with_s3=None,
                  # Compressions
                  with_brotli=None, with_bz2=None, with_lz4=None,
                  with_snappy=None, with_zlib=None, with_zstd=None,
                  # extras
-                 with_lint_only=False,
-                 use_gold_linker=True,
                  simd_level="DEFAULT",
                  cmake_extras=None):
         self._cc = cc
@@ -104,7 +102,6 @@ class CppConfiguration:
         self.with_mimalloc = with_mimalloc
         self.with_jemalloc = with_jemalloc
         self.with_parquet = with_parquet
-        self.with_plasma = with_plasma
         self.with_python = with_python
         self.with_r = with_r
         self.with_s3 = with_s3
@@ -116,8 +113,6 @@ class CppConfiguration:
         self.with_zlib = with_zlib
         self.with_zstd = with_zstd
 
-        self.with_lint_only = with_lint_only
-        self.use_gold_linker = use_gold_linker
         self.simd_level = simd_level
 
         self.cmake_extras = cmake_extras
@@ -165,7 +160,7 @@ class CppConfiguration:
             return self._cc
 
         if self.with_fuzzing:
-            return "clang-{}".format(LLVM_VERSION)
+            return f"clang-{LLVM_VERSION}"
 
         return None
 
@@ -175,7 +170,7 @@ class CppConfiguration:
             return self._cxx
 
         if self.with_fuzzing:
-            return "clang++-{}".format(LLVM_VERSION)
+            return f"clang++-{LLVM_VERSION}"
 
         return None
 
@@ -185,10 +180,8 @@ class CppConfiguration:
 
         yield ("CMAKE_EXPORT_COMPILE_COMMANDS", truthifier(True))
         yield ("CMAKE_BUILD_TYPE", self.build_type)
-
-        if not self.with_lint_only:
-            yield ("BUILD_WARNING_LEVEL",
-                   or_else(self.warn_level, "production"))
+        yield ("BUILD_WARNING_LEVEL",
+               or_else(self.warn_level, "production"))
 
         # if not ctx.quiet:
         #   yield ("ARROW_VERBOSE_THIRDPARTY_BUILD", "ON")
@@ -232,7 +225,6 @@ class CppConfiguration:
         yield ("ARROW_MIMALLOC", truthifier(self.with_mimalloc))
         yield ("ARROW_JEMALLOC", truthifier(self.with_jemalloc))
         yield ("ARROW_PARQUET", truthifier(self.with_parquet))
-        yield ("ARROW_PLASMA", truthifier(self.with_plasma))
         yield ("ARROW_S3", truthifier(self.with_s3))
 
         # Compressions
@@ -243,12 +235,6 @@ class CppConfiguration:
         yield ("ARROW_WITH_ZLIB", truthifier(self.with_zlib))
         yield ("ARROW_WITH_ZSTD", truthifier(self.with_zstd))
 
-        yield ("ARROW_LINT_ONLY", truthifier(self.with_lint_only))
-
-        # Some configurations don't like gnu gold linker.
-        broken_with_gold_ld = [self.with_fuzzing, self.with_gandiva]
-        if self.use_gold_linker and not any(broken_with_gold_ld):
-            yield ("ARROW_USE_LD_GOLD", truthifier(self.use_gold_linker))
         yield ("ARROW_SIMD_LEVEL", or_else(self.simd_level, "DEFAULT"))
 
         # Detect custom conda toolchain
@@ -279,7 +265,7 @@ class CppConfiguration:
     @property
     def definitions(self):
         extras = list(self.cmake_extras) if self.cmake_extras else []
-        definitions = ["-D{}={}".format(d[0], d[1]) for d in self._gen_defs()]
+        definitions = [f"-D{d[0]}={d[1]}" for d in self._gen_defs()]
         return definitions + extras
 
     @property

@@ -38,11 +38,7 @@ class TestLargeBinaryScalar < Test::Unit::TestCase
   end
 
   def test_to_s
-    assert_equal(<<-BINARY.strip, @scalar.to_s)
-[
-  030102
-]
-                 BINARY
+    assert_equal("\x03\x01\x02", @scalar.to_s)
   end
 
   def test_value

@@ -24,6 +24,7 @@ from dotenv import dotenv_values
 from ruamel.yaml import YAML
 
 from ..utils.command import Command, default_bin
+from ..utils.logger import running_in_ci
 from ..utils.source import arrow_path
 from ..compat import _ensure_path
 
@@ -58,12 +59,21 @@ class UndefinedImage(Exception):
 
 class ComposeConfig:
 
-    def __init__(self, config_path, dotenv_path, compose_bin, params=None):
+    def __init__(self, config_path, dotenv_path, compose_bin,
+                 using_docker=False, using_buildx=False,
+                 params=None, debug=False):
+        self.using_docker = using_docker
+        self.using_buildx = using_buildx
+        self.debug = debug
         config_path = _ensure_path(config_path)
         if dotenv_path:
             dotenv_path = _ensure_path(dotenv_path)
         else:
             dotenv_path = config_path.parent / '.env'
+        if self.debug:
+            # Log docker version
+            Docker().run('version')
+
         self._read_env(dotenv_path, params)
         self._read_config(config_path, compose_bin)
 
@@ -107,34 +117,39 @@ class ComposeConfig:
         for name in self.with_gpus:
             if name not in services:
                 errors.append(
-                    'Service `{}` defined in `x-with-gpus` bot not in '
-                    '`services`'.format(name)
+                    f'Service `{name}` defined in `x-with-gpus` bot not in '
+                    '`services`'
                 )
         for name in nodes - services:
             errors.append(
-                'Service `{}` is defined in `x-hierarchy` bot not in '
-                '`services`'.format(name)
+                f'Service `{name}` is defined in `x-hierarchy` bot not in '
+                '`services`'
             )
         for name in services - nodes:
             errors.append(
-                'Service `{}` is defined in `services` but not in '
-                '`x-hierarchy`'.format(name)
+                f'Service `{name}` is defined in `services` but not in '
+                '`x-hierarchy`'
             )
 
-        # trigger docker-compose's own validation
-        compose = Command('docker-compose')
-        args = ['--file', str(config_path), 'config']
+        # trigger Docker Compose's own validation
+        if self.using_docker:
+            compose = Docker()
+            args = ['compose']
+        else:
+            compose = Command(compose_bin)
+            args = []
+        args += [f'--file={config_path}', 'config']
         result = compose.run(*args, env=self.env, check=False,
                              stderr=subprocess.PIPE, stdout=subprocess.PIPE)
 
         if result.returncode != 0:
-            # strip the intro line of docker-compose errors
+            # strip the intro line of docker compose errors
             errors += result.stderr.decode().splitlines()
 
         if errors:
-            msg = '\n'.join([' - {}'.format(msg) for msg in errors])
+            msg = '\n'.join([f' - {msg}' for msg in errors])
             raise ValueError(
-                'Found errors with docker-compose:\n{}'.format(msg)
+                f'Found errors with docker-compose:\n{msg}'
             )
 
         rendered_config = StringIO(result.stdout.decode())
@@ -154,6 +169,9 @@ class ComposeConfig:
     def __getitem__(self, service_name):
         return self.get(service_name)
 
+    def verbosity_args(self):
+        return ['--quiet'] if running_in_ci() else []
+
 
 class Docker(Command):
 
@@ -164,10 +182,12 @@ class Docker(Command):
 class DockerCompose(Command):
 
     def __init__(self, config_path, dotenv_path=None, compose_bin=None,
-                 params=None):
-        compose_bin = default_bin(compose_bin, 'docker-compose')
+                 using_docker=False, using_buildx=False, params=None,
+                 debug=False):
+        compose_bin = default_bin(compose_bin, 'docker compose')
         self.config = ComposeConfig(config_path, dotenv_path, compose_bin,
-                                    params)
+                                    params=params, using_docker=using_docker,
+                                    using_buildx=using_buildx, debug=debug)
         self.bin = compose_bin
         self.pull_memory = set()
 
@@ -177,7 +197,7 @@ class DockerCompose(Command):
     def _execute_compose(self, *args, **kwargs):
         # execute as a docker compose command
         try:
-            result = super().run('--file', str(self.config.path), *args,
+            result = super().run(f'--file={self.config.path}', *args,
                                  env=self.config.env, **kwargs)
             result.check_returncode()
         except subprocess.CalledProcessError as e:
@@ -187,7 +207,7 @@ class DockerCompose(Command):
                 )
             msg = (
                 "`{cmd}` exited with a non-zero exit code {code}, see the "
-                "process log above.\n\nThe docker-compose command was "
+                "process log above.\n\nThe {bin} command was "
                 "invoked with the following parameters:\n\nDefaults defined "
                 "in .env:\n{dotenv}\n\nArchery was called with:\n{params}"
             )
@@ -195,6 +215,7 @@ class DockerCompose(Command):
                 msg.format(
                     cmd=' '.join(e.cmd),
                     code=e.returncode,
+                    bin=self.bin,
                     dotenv=formatdict(self.config.dotenv, template='  {}: {}'),
                     params=formatdict(
                         self.config.params, template='  export {}={}'
@@ -209,19 +230,16 @@ class DockerCompose(Command):
             result.check_returncode()
         except subprocess.CalledProcessError as e:
             raise RuntimeError(
-                "{} exited with non-zero exit code {}".format(
-                    ' '.join(e.cmd), e.returncode
-                )
+                f'{e.cmd} exited with non-zero exit code {e.returncode}'
             )
 
-    def pull(self, service_name, pull_leaf=True, using_docker=False,
-             ignore_pull_failures=True):
+    def pull(self, service_name, pull_leaf=True, ignore_pull_failures=True):
         def _pull(service):
-            args = ['pull']
+            args = ['pull'] + self.config.verbosity_args()
             if service['image'] in self.pull_memory:
                 return
 
-            if using_docker:
+            if self.config.using_docker:
                 try:
                     self._execute_docker(*args, service['image'])
                 except Exception as e:
@@ -244,7 +262,7 @@ class DockerCompose(Command):
             _pull(service)
 
     def build(self, service_name, use_cache=True, use_leaf_cache=True,
-              using_docker=False, using_buildx=False, pull_parents=True):
+              pull_parents=True):
         def _build(service, use_cache):
             if 'build' not in service:
                 # nothing to do
@@ -272,16 +290,14 @@ class DockerCompose(Command):
             if self.config.env.get('BUILDKIT_INLINE_CACHE') == '1':
                 args.extend(['--build-arg', 'BUILDKIT_INLINE_CACHE=1'])
 
-            if using_buildx:
+            if self.config.using_buildx:
                 for k, v in service['build'].get('args', {}).items():
-                    args.extend(['--build-arg', '{}={}'.format(k, v)])
+                    args.extend(['--build-arg', f'{k}={v}'])
 
                 if use_cache:
-                    cache_ref = '{}-cache'.format(service['image'])
-                    cache_from = 'type=registry,ref={}'.format(cache_ref)
-                    cache_to = (
-                        'type=registry,ref={},mode=max'.format(cache_ref)
-                    )
+                    cache_ref = f'{service["image"]}-cache'
+                    cache_from = f'type=registry,ref={cache_ref}'
+                    cache_to = f'type=registry,ref={cache_ref},mode=max'
                     args.extend([
                         '--cache-from', cache_from,
                         '--cache-to', cache_to,
@@ -294,12 +310,14 @@ class DockerCompose(Command):
                     service['build'].get('context', '.')
                 ])
                 self._execute_docker("buildx", "build", *args)
-            elif using_docker:
+            elif self.config.using_docker:
                 # better for caching
+                if self.config.debug and os.name != "nt":
+                    args.append("--progress=plain")
                 for k, v in service['build'].get('args', {}).items():
-                    args.extend(['--build-arg', '{}={}'.format(k, v)])
+                    args.extend(['--build-arg', f'{k}={v}'])
                 for img in cache_from:
-                    args.append('--cache-from="{}"'.format(img))
+                    args.append(f'--cache-from="{img}"')
                 args.extend([
                     '-f', arrow_path(service['build']['dockerfile']),
                     '-t', service['image'],
@@ -307,6 +325,8 @@ class DockerCompose(Command):
                 ])
                 self._execute_docker("build", *args)
             else:
+                if self.config.debug and os.name != "nt":
+                    args.append("--progress=plain")
                 self._execute_compose("build", *args, service['name'])
 
         service = self.config.get(service_name)
@@ -317,22 +337,13 @@ class DockerCompose(Command):
         _build(service, use_cache=use_cache and use_leaf_cache)
 
     def run(self, service_name, command=None, *, env=None, volumes=None,
-            user=None, using_docker=False, resource_limit=None):
+            user=None, resource_limit=None):
         service = self.config.get(service_name)
 
         args = []
-        if user is not None:
-            args.extend(['-u', user])
 
-        if env is not None:
-            for k, v in env.items():
-                args.extend(['-e', '{}={}'.format(k, v)])
-
-        if volumes is not None:
-            for volume in volumes:
-                args.extend(['--volume', volume])
-
-        if using_docker or service['need_gpu'] or resource_limit:
+        use_docker = self.config.using_docker or service['need_gpu'] or resource_limit
+        if use_docker:
             # use gpus, requires docker>=19.03
             if service['need_gpu']:
                 args.extend(['--gpus', 'all'])
@@ -343,14 +354,18 @@ class DockerCompose(Command):
             # append env variables from the compose conf
             for k, v in service.get('environment', {}).items():
                 if v is not None:
-                    args.extend(['-e', '{}={}'.format(k, v)])
+                    args.extend(['-e', f'{k}={v}'])
 
             # append volumes from the compose conf
             for v in service.get('volumes', []):
                 if not isinstance(v, str):
                     # if not the compact string volume definition
-                    v = "{}:{}".format(v['source'], v['target'])
+                    v = f'{v["source"]}:{v["target"]}'
                 args.extend(['-v', v])
+
+            # append capabilities from the compose conf
+            for c in service.get('cap_add', []):
+                args.extend([f'--cap-add={c}'])
 
             # infer whether an interactive shell is desired or not
             if command in ['cmd.exe', 'bash', 'sh', 'powershell']:
@@ -369,6 +384,18 @@ class DockerCompose(Command):
                     args.append(f'--memory={memory}')
                     args.append(f'--memory-swap={memory}')
 
+        if user is not None:
+            args.extend(['-u', user])
+
+        if env is not None:
+            for k, v in env.items():
+                args.extend(['-e', f'{k}={v}'])
+
+        if volumes is not None:
+            for volume in volumes:
+                args.extend(['--volume', volume])
+
+        if use_docker:
             # get the actual docker image name instead of the compose service
             # name which we refer as image in general
             args.append(service['image'])
@@ -380,38 +407,50 @@ class DockerCompose(Command):
                 cmd = service.get('command', '')
                 if cmd:
                     # service command might be already defined as a list
-                    # on the docker-compose yaml file.
+                    # in docker-compose.yml.
                     if isinstance(cmd, list):
                         cmd = shlex.join(cmd)
+                    # Match behaviour from Docker Compose
+                    # to interpolate environment variables
+                    # https://docs.docker.com/compose/compose-file/12-interpolation/
+                    cmd = cmd.replace("$$", "$")
                     args.extend(shlex.split(cmd))
 
             # execute as a plain docker cli command
             self._execute_docker('run', '--rm', *args)
         else:
-            # execute as a docker-compose command
+            # execute as a docker compose command
             args.append(service_name)
             if command is not None:
                 args.append(command)
             self._execute_compose('run', '--rm', *args)
 
-    def push(self, service_name, user=None, password=None, using_docker=False):
+    def push(self, service_name, user=None, password=None):
         def _push(service):
-            if using_docker:
-                return self._execute_docker('push', service['image'])
+            args = ['push'] + self.config.verbosity_args()
+            if self.config.using_docker:
+                return self._execute_docker(*args, service['image'])
             else:
-                return self._execute_compose('push', service['name'])
-
-        if user is not None:
-            try:
-                # TODO(kszucs): have an option for a prompt
-                self._execute_docker('login', '-u', user, '-p', password)
-            except subprocess.CalledProcessError:
-                # hide credentials
-                msg = ('Failed to push `{}`, check the passed credentials'
-                       .format(service_name))
-                raise RuntimeError(msg) from None
+                return self._execute_compose(*args, service['name'])
 
         service = self.config.get(service_name)
+
+        if user is not None:
+            login_args = ['--username', user, '--password-stdin']
+            login_kwargs = {'input': password.encode()}
+            image = service['image']
+            # [[HOST[:PORT]/]NAMESPACE/]REPOSITORY[:TAG]
+            components = image.split('/', 3)
+            if len(components) == 3:
+                server = components[0]
+                login_args.append(server)
+            try:
+                self._execute_docker('login', *login_args, **login_kwargs)
+            except subprocess.CalledProcessError:
+                # hide credentials
+                msg = f'Failed to push `{service_name}`, check the passed credentials'
+                raise RuntimeError(msg) from None
+
         for ancestor in service['ancestors']:
             _push(self.config.get(ancestor))
         _push(service)

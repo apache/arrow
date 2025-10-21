@@ -35,14 +35,14 @@ namespace flight {
 namespace internal {
 
 /// \brief Case insensitive comparator for use by cookie caching map. Cookies are not
-/// case sensitive.
+/// case-sensitive.
 class ARROW_FLIGHT_EXPORT CaseInsensitiveComparator {
  public:
   bool operator()(const std::string& t1, const std::string& t2) const;
 };
 
 /// \brief Case insensitive hasher for use by cookie caching map. Cookies are not
-/// case sensitive.
+/// case-sensitive.
 class ARROW_FLIGHT_EXPORT CaseInsensitiveHash {
  public:
   size_t operator()(const std::string& key) const;

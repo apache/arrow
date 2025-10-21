@@ -18,15 +18,12 @@
 ARG FROM=quay.io/centos/centos:stream9
 FROM ${FROM}
 
-ENV SCL=gcc-toolset-12
-
 ARG DEBUG
 
 RUN \
   quiet=$([ "${DEBUG}" = "yes" ] || echo "--quiet") && \
   dnf install -y ${quiet} epel-release && \
   dnf install --enablerepo=crb -y ${quiet} \
-    ${SCL} \
     bison \
     boost-devel \
     brotli-devel \
@@ -41,12 +38,11 @@ RUN \
     gflags-devel \
     git \
     gobject-introspection-devel \
-    gtk-doc \
     json-devel \
     libarchive \
+    libxml2-devel \
     libzstd-devel \
     llvm-devel \
-    llvm-static \
     lz4-devel \
     make \
     ncurses-devel \
@@ -63,13 +59,6 @@ RUN \
     thrift-devel \
     utf8proc-devel \
     vala \
+    which \
     zlib-devel && \
   dnf clean ${quiet} all
-
-# Workaround: We can remove this once redhat-rpm-config uses "annobin"
-# not "gcc-annobin".
-RUN \
-  sed \
-    -i \
-    -e 's/gcc-annobin/annobin/g' \
-    /usr/lib/rpm/redhat/redhat-annobin-select-gcc-built-plugin

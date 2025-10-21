@@ -19,25 +19,31 @@
 
 #pragma once
 
+#include <glib-object.h>
+
 #include <arrow-glib/file-mode.h>
-#include <arrow-glib/gobject-type.h>
 #include <arrow-glib/version.h>
 
 G_BEGIN_DECLS
 
 #define GARROW_TYPE_FILE (garrow_file_get_type())
-G_DECLARE_INTERFACE(GArrowFile,
-                    garrow_file,
-                    GARROW,
-                    FILE,
-                    GObject)
+GARROW_AVAILABLE_IN_ALL
+G_DECLARE_INTERFACE(GArrowFile, garrow_file, GARROW, FILE, GObject)
 
-gboolean garrow_file_close(GArrowFile *file,
-                           GError **error);
+GARROW_AVAILABLE_IN_ALL
+gboolean
+garrow_file_close(GArrowFile *file, GError **error);
+
 GARROW_AVAILABLE_IN_0_13
-gboolean garrow_file_is_closed(GArrowFile *file);
-gint64 garrow_file_tell(GArrowFile *file,
-                           GError **error);
-GArrowFileMode garrow_file_get_mode(GArrowFile *file);
+gboolean
+garrow_file_is_closed(GArrowFile *file);
+
+GARROW_AVAILABLE_IN_ALL
+gint64
+garrow_file_tell(GArrowFile *file, GError **error);
+
+GARROW_AVAILABLE_IN_ALL
+GArrowFileMode
+garrow_file_get_mode(GArrowFile *file);
 
 G_END_DECLS

@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-expand_across <- function(.data, quos_in) {
+expand_across <- function(.data, quos_in, exclude_cols = NULL) {
   quos_out <- list()
   # retrieve items using their values to preserve naming of quos other than across
   for (quo_i in seq_along(quos_in)) {
@@ -34,7 +34,11 @@ expand_across <- function(.data, quos_in) {
       )
 
       if (!all(names(across_call[-1]) %in% c(".cols", ".fns", ".names"))) {
-        abort("`...` argument to `across()` is deprecated in dplyr and not supported in Arrow")
+        arrow_not_supported(
+          "`...` argument to `across()` is deprecated in dplyr and",
+          body = c(">" = "Convert your call into a function or formula including the arguments"),
+          call = rlang::caller_call()
+        )
       }
 
       if (!is.null(across_call[[".cols"]])) {
@@ -49,7 +53,8 @@ expand_across <- function(.data, quos_in) {
         names = across_call[[".names"]],
         .caller_env = quo_env,
         mask = .data,
-        inline = TRUE
+        inline = TRUE,
+        exclude_cols = exclude_cols
       )
 
       new_quos <- quosures_from_setup(setup, quo_env)
@@ -106,10 +111,11 @@ quosures_from_setup <- function(setup, quo_env) {
   set_names(new_quo_list, setup$names)
 }
 
-across_setup <- function(cols, fns, names, .caller_env, mask, inline = FALSE) {
+across_setup <- function(cols, fns, names, .caller_env, mask, inline = FALSE, exclude_cols = NULL) {
   cols <- enquo(cols)
 
-  vars <- names(dplyr::select(mask, !!cols))
+  sim_df <- dplyr::select(as.data.frame(implicit_schema(mask)), !(!!exclude_cols))
+  vars <- names(dplyr::select(sim_df, !!cols))
 
   if (is.null(fns)) {
     if (!is.null(names)) {
@@ -143,7 +149,6 @@ across_setup <- function(cols, fns, names, .caller_env, mask, inline = FALSE) {
     fns <- call_args(fns)
   }
 
-  # ARROW-14071
   if (all(map_lgl(fns, is_call, name = "function"))) {
     abort("Anonymous functions are not yet supported in Arrow")
   }

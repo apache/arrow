@@ -18,8 +18,23 @@
 require_relative "flight-info-generator"
 
 module Helper
+  class FlightAuthHandler < ArrowFlight::ServerCustomAuthHandler
+    type_register
+
+    private
+    def virtual_do_authenticate(context, sender, reader)
+      true
+    end
+
+    def virtual_do_is_valid(context, token)
+      "identity"
+    end
+  end
+
   class FlightServer < ArrowFlight::Server
     type_register
+
+    attr_reader :uploaded_table
 
     private
     def virtual_do_list_flights(context, criteria)
@@ -40,6 +55,15 @@ module Helper
       table = generator.page_view_table
       reader = Arrow::TableBatchReader.new(table)
       ArrowFlight::RecordBatchStream.new(reader)
+    end
+
+    def virtual_do_do_put(context, reader, writer)
+      @uploaded_table = reader.read_all
+      writer.write(Arrow::Buffer.new("done"))
+      if @uploaded_table.n_rows.zero?
+        raise Arrow::Error::Invalid.new("empty table")
+      end
+      true
     end
   end
 end

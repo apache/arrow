@@ -23,7 +23,7 @@
 #include <cmath>
 #include <limits>
 
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 #include "gandiva/decimal_type_util.h"
 #include "gandiva/decimal_xlarge.h"
 #include "gandiva/gdv_function_stubs.h"
@@ -351,7 +351,7 @@ BasicDecimal128 Divide(int64_t context, const BasicDecimalScalar128& x,
                        const BasicDecimalScalar128& y, int32_t out_precision,
                        int32_t out_scale, bool* overflow) {
   if (y.value() == 0) {
-    char const* err_msg = "divide by zero error";
+    const char* err_msg = "divide by zero error";
     gdv_fn_context_set_error_msg(context, err_msg);
     return 0;
   }
@@ -396,12 +396,12 @@ BasicDecimal128 Mod(int64_t context, const BasicDecimalScalar128& x,
                     const BasicDecimalScalar128& y, int32_t out_precision,
                     int32_t out_scale, bool* overflow) {
   if (y.value() == 0) {
-    char const* err_msg = "divide by zero error";
+    const char* err_msg = "divide by zero error";
     gdv_fn_context_set_error_msg(context, err_msg);
     return 0;
   }
 
-  // Adsjust x and y to the same scale (higher one), and then, do a integer mod.
+  // Adjust x and y to the same scale (higher one), and then, do a integer mod.
   *overflow = false;
   BasicDecimal128 result;
   int32_t min_lz = MinLeadingZeros(x, y);
@@ -559,7 +559,7 @@ enum RoundType {
                           // else if -ve and trailing value is >= half of base, -1.
 };
 
-// Compute the rounding delta for the givven rounding type.
+// Compute the rounding delta for the given rounding type.
 static int32_t ComputeRoundingDelta(const BasicDecimal128& x, int32_t x_scale,
                                     int32_t out_scale, RoundType type) {
   if (type == kRoundTypeTrunc ||  // no rounding for this type.

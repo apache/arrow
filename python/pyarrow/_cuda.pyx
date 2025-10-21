@@ -16,10 +16,9 @@
 # under the License.
 
 
-from pyarrow.lib import tobytes
 from pyarrow.lib cimport *
 from pyarrow.includes.libarrow_cuda cimport *
-from pyarrow.lib import py_buffer, allocate_buffer, as_buffer, ArrowTypeError
+from pyarrow.lib import allocate_buffer, as_buffer, ArrowTypeError
 from pyarrow.util import get_contiguous_span
 cimport cpython as cp
 
@@ -185,6 +184,28 @@ cdef class Context(_Weakrefable):
         with nogil:
             cudabuf = GetResultValue(self.context.get().Allocate(nbytes))
         return pyarrow_wrap_cudabuffer(cudabuf)
+
+    @property
+    def memory_manager(self):
+        """
+        The default memory manager tied to this context's device.
+
+        Returns
+        -------
+        MemoryManager
+        """
+        return MemoryManager.wrap(self.context.get().memory_manager())
+
+    @property
+    def device(self):
+        """
+        The device instance associated with this context.
+
+        Returns
+        -------
+        Device
+        """
+        return Device.wrap(self.context.get().device())
 
     def foreign_buffer(self, address, size, base=None):
         """
@@ -430,9 +451,9 @@ cdef class CudaBuffer(Buffer):
           Device buffer as a view of numba MemoryPointer.
         """
         ctx = Context.from_numba(mem.context)
-        if mem.device_pointer.value is None and mem.size==0:
+        if mem.device_pointer_value is None and mem.size==0:
             return ctx.new_buffer(0)
-        return ctx.foreign_buffer(mem.device_pointer.value, mem.size, base=mem)
+        return ctx.foreign_buffer(mem.device_pointer_value, mem.size, base=mem)
 
     def to_numba(self):
         """Return numba memory pointer of CudaBuffer instance.
@@ -494,7 +515,7 @@ cdef class CudaBuffer(Buffer):
                     raise ValueError(
                         'requested more to copy than available from '
                         'device buffer')
-                # copy nbytes starting from position to new host buffeer
+                # copy nbytes starting from position to new host buffer
                 c_nbytes = nbytes
             buf = allocate_buffer(c_nbytes, memory_pool=memory_pool,
                                   resizable=resizable)
@@ -755,7 +776,6 @@ cdef class BufferReader(NativeFile):
         """
         cdef:
             int64_t c_nbytes
-            int64_t bytes_read = 0
             shared_ptr[CCudaBuffer] output
 
         if nbytes is None:
@@ -821,8 +841,7 @@ cdef class BufferWriter(NativeFile):
                 offset = offset + position
             else:
                 with gil:
-                    raise ValueError("Invalid value of whence: {0}"
-                                     .format(whence))
+                    raise ValueError(f"Invalid value of whence: {whence}")
             check_status(self.writer.Seek(offset))
         return self.tell()
 

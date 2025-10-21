@@ -25,8 +25,7 @@
 #include "parquet/encryption/kms_client_factory.h"
 #include "parquet/platform.h"
 
-namespace parquet {
-namespace encryption {
+namespace parquet::encryption {
 
 static constexpr ParquetCipher::type kDefaultEncryptionAlgorithm =
     ParquetCipher::AES_GCM_V1;
@@ -44,8 +43,8 @@ struct PARQUET_EXPORT EncryptionConfiguration {
   /// ID of the master key for footer encryption/signing
   std::string footer_key;
 
-  /// List of columns to encrypt, with master key IDs (see HIVE-21848).
-  /// Format: "masterKeyID:colName,colName;masterKeyID:colName..."
+  /// List of columns to encrypt, with column master key IDs (see HIVE-21848).
+  /// Format: "columnKeyID:colName,colName;columnKeyID:colName..."
   /// Either
   /// (1) column_keys must be set
   /// or
@@ -105,31 +104,49 @@ class PARQUET_EXPORT CryptoFactory {
   /// GetFileEncryptionProperties()/GetFileDecryptionProperties() methods.
   void RegisterKmsClientFactory(std::shared_ptr<KmsClientFactory> kms_client_factory);
 
+  /// Get the encryption properties for a Parquet file.
+  /// If external key material is used then a file system and path to the
+  /// parquet file must be provided.
   std::shared_ptr<FileEncryptionProperties> GetFileEncryptionProperties(
       const KmsConnectionConfig& kms_connection_config,
-      const EncryptionConfiguration& encryption_config);
+      const EncryptionConfiguration& encryption_config, const std::string& file_path = "",
+      const std::shared_ptr<::arrow::fs::FileSystem>& file_system = NULLPTR);
 
-  /// The returned FileDecryptionProperties object will use the cache inside this
-  /// CryptoFactory object, so please keep this
-  /// CryptoFactory object alive along with the returned
-  /// FileDecryptionProperties object.
+  /// Get decryption properties for a Parquet file.
+  /// If external key material is used then a file system and path to the
+  /// parquet file must be provided.
   std::shared_ptr<FileDecryptionProperties> GetFileDecryptionProperties(
       const KmsConnectionConfig& kms_connection_config,
-      const DecryptionConfiguration& decryption_config);
+      const DecryptionConfiguration& decryption_config, const std::string& file_path = "",
+      const std::shared_ptr<::arrow::fs::FileSystem>& file_system = NULLPTR);
 
   void RemoveCacheEntriesForToken(const std::string& access_token) {
-    key_toolkit_.RemoveCacheEntriesForToken(access_token);
+    key_toolkit_->RemoveCacheEntriesForToken(access_token);
   }
 
-  void RemoveCacheEntriesForAllTokens() { key_toolkit_.RemoveCacheEntriesForAllTokens(); }
+  void RemoveCacheEntriesForAllTokens() {
+    key_toolkit_->RemoveCacheEntriesForAllTokens();
+  }
+
+  /// Rotates master encryption keys for a Parquet file that uses external key material.
+  /// In single wrapping mode, data encryption keys are decrypted with the old master keys
+  /// and then re-encrypted with new master keys.
+  /// In double wrapping mode, key encryption keys are decrypted with the old master keys
+  /// and then re-encrypted with new master keys.
+  /// This relies on the KMS supporting versioning, such that the old master key is
+  /// used when unwrapping a key, and the latest version is used when wrapping a key.
+  void RotateMasterKeys(const KmsConnectionConfig& kms_connection_config,
+                        const std::string& parquet_file_path,
+                        const std::shared_ptr<::arrow::fs::FileSystem>& file_system,
+                        bool double_wrapping = kDefaultDoubleWrapping,
+                        double cache_lifetime_seconds = kDefaultCacheLifetimeSeconds);
 
  private:
   ColumnPathToEncryptionPropertiesMap GetColumnEncryptionProperties(
       int dek_length, const std::string& column_keys, FileKeyWrapper* key_wrapper);
 
   /// Key utilities object for kms client initialization and cache control
-  KeyToolkit key_toolkit_;
+  std::shared_ptr<KeyToolkit> key_toolkit_ = std::make_shared<KeyToolkit>();
 };
 
-}  // namespace encryption
-}  // namespace parquet
+}  // namespace parquet::encryption

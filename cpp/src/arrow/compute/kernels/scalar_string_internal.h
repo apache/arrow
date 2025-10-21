@@ -20,7 +20,7 @@
 #include <sstream>
 
 #include "arrow/compute/api_scalar.h"
-#include "arrow/compute/kernels/common.h"
+#include "arrow/compute/kernels/common_internal.h"
 
 namespace arrow {
 namespace compute {
@@ -106,7 +106,7 @@ struct StringTransformExecBase {
       }
       output_string_offsets[i + 1] = output_ncodeunits;
     }
-    DCHECK_LE(output_ncodeunits, max_output_ncodeunits);
+    ARROW_DCHECK_LE(output_ncodeunits, max_output_ncodeunits);
 
     // Trim the codepoint buffer, since we may have allocated too much
     return values_buffer->Resize(output_ncodeunits, /*shrink_to_fit=*/true);
@@ -154,9 +154,9 @@ void MakeUnaryStringBatchKernel(
     auto exec = GenerateVarBinaryToVarBinary<ExecFunctor>(ty);
     ScalarKernel kernel{{ty}, ty, std::move(exec)};
     kernel.mem_allocation = mem_allocation;
-    DCHECK_OK(func->AddKernel(std::move(kernel)));
+    ARROW_DCHECK_OK(func->AddKernel(std::move(kernel)));
   }
-  DCHECK_OK(registry->AddFunction(std::move(func)));
+  ARROW_DCHECK_OK(registry->AddFunction(std::move(func)));
 }
 
 template <template <typename> class ExecFunctor>
@@ -168,15 +168,15 @@ void MakeUnaryStringBatchKernelWithState(
     using t32 = ExecFunctor<StringType>;
     ScalarKernel kernel{{utf8()}, utf8(), t32::Exec, t32::State::Init};
     kernel.mem_allocation = mem_allocation;
-    DCHECK_OK(func->AddKernel(std::move(kernel)));
+    ARROW_DCHECK_OK(func->AddKernel(std::move(kernel)));
   }
   {
     using t64 = ExecFunctor<LargeStringType>;
     ScalarKernel kernel{{large_utf8()}, large_utf8(), t64::Exec, t64::State::Init};
     kernel.mem_allocation = mem_allocation;
-    DCHECK_OK(func->AddKernel(std::move(kernel)));
+    ARROW_DCHECK_OK(func->AddKernel(std::move(kernel)));
   }
-  DCHECK_OK(registry->AddFunction(std::move(func)));
+  ARROW_DCHECK_OK(registry->AddFunction(std::move(func)));
 }
 
 // ----------------------------------------------------------------------
@@ -221,7 +221,7 @@ struct StringPredicateFunctor {
     EnsureUtf8LookupTablesFilled();
     const ArraySpan& input = batch[0].array;
     ArrayIterator<Type> input_it(input);
-    ArraySpan* out_arr = out->array_span();
+    ArraySpan* out_arr = out->array_span_mutable();
     ::arrow::internal::GenerateBitsUnrolled(
         out_arr->buffers[1].data, out_arr->offset, input.length, [&]() -> bool {
           std::string_view val = input_it();
@@ -238,9 +238,9 @@ void AddUnaryStringPredicate(std::string name, FunctionRegistry* registry,
   auto func = std::make_shared<ScalarFunction>(name, Arity::Unary(), std::move(doc));
   for (const auto& ty : StringTypes()) {
     auto exec = GenerateVarBinaryToVarBinary<StringPredicateFunctor, Predicate>(ty);
-    DCHECK_OK(func->AddKernel({ty}, boolean(), std::move(exec)));
+    ARROW_DCHECK_OK(func->AddKernel({ty}, boolean(), std::move(exec)));
   }
-  DCHECK_OK(registry->AddFunction(std::move(func)));
+  ARROW_DCHECK_OK(registry->AddFunction(std::move(func)));
 }
 
 // ----------------------------------------------------------------------
@@ -250,6 +250,8 @@ struct StringSliceTransformBase : public StringTransformBase {
   using State = OptionsWrapper<SliceOptions>;
 
   const SliceOptions* options;
+  StringSliceTransformBase() = default;
+  explicit StringSliceTransformBase(const SliceOptions& options) : options{&options} {}
 
   Status PreExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) override {
     options = &State::Get(ctx);
@@ -306,7 +308,7 @@ struct StringSplitExec {
   using ListOffsetsBuilderType = TypedBufferBuilder<list_offset_type>;
   using State = OptionsWrapper<Options>;
 
-  // Keep the temporary storage accross individual values, to minimize reallocations
+  // Keep the temporary storage across individual values, to minimize reallocations
   std::vector<std::string_view> parts;
   Options options;
 
@@ -331,7 +333,7 @@ struct StringSplitExec {
     ArrayData* output_list = out->array_data().get();
     // List offsets were preallocated
     auto* list_offsets = output_list->GetMutableValues<list_offset_type>(1);
-    DCHECK_NE(list_offsets, nullptr);
+    ARROW_DCHECK_NE(list_offsets, nullptr);
     // Initial value
     *list_offsets++ = 0;
     for (int64_t i = 0; i < input.length(); ++i) {

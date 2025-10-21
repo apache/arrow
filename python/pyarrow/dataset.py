@@ -20,36 +20,45 @@
 import pyarrow as pa
 from pyarrow.util import _is_iterable, _stringify_path, _is_path_like
 
-from pyarrow._dataset import (  # noqa
-    CsvFileFormat,
-    CsvFragmentScanOptions,
-    Dataset,
-    DatasetFactory,
-    DirectoryPartitioning,
-    FeatherFileFormat,
-    FilenamePartitioning,
-    FileFormat,
-    FileFragment,
-    FileSystemDataset,
-    FileSystemDatasetFactory,
-    FileSystemFactoryOptions,
-    FileWriteOptions,
-    Fragment,
-    FragmentScanOptions,
-    HivePartitioning,
-    IpcFileFormat,
-    IpcFileWriteOptions,
-    InMemoryDataset,
-    Partitioning,
-    PartitioningFactory,
-    Scanner,
-    TaggedRecordBatch,
-    UnionDataset,
-    UnionDatasetFactory,
-    WrittenFile,
-    _get_partition_keys,
-    _filesystemdataset_write,
-)
+try:
+    from pyarrow._dataset import (  # noqa
+        CsvFileFormat,
+        CsvFragmentScanOptions,
+        JsonFileFormat,
+        JsonFragmentScanOptions,
+        Dataset,
+        DatasetFactory,
+        DirectoryPartitioning,
+        FeatherFileFormat,
+        FilenamePartitioning,
+        FileFormat,
+        FileFragment,
+        FileSystemDataset,
+        FileSystemDatasetFactory,
+        FileSystemFactoryOptions,
+        FileWriteOptions,
+        Fragment,
+        FragmentScanOptions,
+        HivePartitioning,
+        IpcFileFormat,
+        IpcFileWriteOptions,
+        InMemoryDataset,
+        Partitioning,
+        PartitioningFactory,
+        Scanner,
+        TaggedRecordBatch,
+        UnionDataset,
+        UnionDatasetFactory,
+        WrittenFile,
+        get_partition_keys,
+        get_partition_keys as _get_partition_keys,  # keep for backwards compatibility
+        _filesystemdataset_write,
+    )
+except ImportError as exc:
+    raise ImportError(
+        f"The pyarrow installation is not built with support for 'dataset' ({str(exc)})"
+    ) from None
+
 # keep Expression functionality exposed here for backwards compatibility
 from pyarrow.compute import Expression, scalar, field  # noqa
 
@@ -88,6 +97,15 @@ except ImportError:
     pass
 
 
+try:
+    from pyarrow._dataset_parquet_encryption import (  # noqa
+        ParquetDecryptionConfig,
+        ParquetEncryptionConfig,
+    )
+except ImportError:
+    pass
+
+
 def __getattr__(name):
     if name == "OrcFileFormat" and not _orc_available:
         raise ImportError(_orc_msg)
@@ -96,7 +114,7 @@ def __getattr__(name):
         raise ImportError(_parquet_msg)
 
     raise AttributeError(
-        "module 'pyarrow.dataset' has no attribute '{0}'".format(name)
+        f"module 'pyarrow.dataset' has no attribute '{name}'"
     )
 
 
@@ -151,7 +169,7 @@ def partitioning(schema=None, field_names=None, flavor=None,
     Returns
     -------
     Partitioning or PartitioningFactory
-        The partioning scheme
+        The partitioning scheme
 
     Examples
     --------
@@ -216,8 +234,7 @@ def partitioning(schema=None, field_names=None, flavor=None,
                 return DirectoryPartitioning.discover(field_names)
             else:
                 raise ValueError(
-                    "Expected list of field names, got {}".format(
-                        type(field_names)))
+                    f"Expected list of field names, got {type(field_names)}")
         else:
             raise ValueError(
                 "For the default directory flavor, need to specify "
@@ -235,8 +252,7 @@ def partitioning(schema=None, field_names=None, flavor=None,
                 return FilenamePartitioning.discover(field_names)
             else:
                 raise ValueError(
-                    "Expected list of field names, got {}".format(
-                        type(field_names)))
+                    f"Expected list of field names, got {type(field_names)}")
         else:
             raise ValueError(
                 "For the filename flavor, need to specify "
@@ -251,8 +267,7 @@ def partitioning(schema=None, field_names=None, flavor=None,
                 return HivePartitioning(schema, dictionaries)
             else:
                 raise ValueError(
-                    "Expected Schema for 'schema', got {}".format(
-                        type(schema)))
+                    f"Expected Schema for 'schema', got {type(schema)}")
         else:
             return HivePartitioning.discover()
     else:
@@ -274,8 +289,8 @@ def _ensure_partitioning(scheme):
     elif isinstance(scheme, (Partitioning, PartitioningFactory)):
         pass
     else:
-        ValueError("Expected Partitioning or PartitioningFactory, got {}"
-                   .format(type(scheme)))
+        raise ValueError(
+            f"Expected Partitioning or PartitioningFactory, got {type(scheme)}")
     return scheme
 
 
@@ -296,8 +311,10 @@ def _ensure_format(obj):
         if not _orc_available:
             raise ValueError(_orc_msg)
         return OrcFileFormat()
+    elif obj == "json":
+        return JsonFileFormat()
     else:
-        raise ValueError("format '{}' is not supported".format(obj))
+        raise ValueError(f"format '{obj}' is not supported")
 
 
 def _ensure_multiple_sources(paths, filesystem=None):
@@ -362,16 +379,15 @@ def _ensure_multiple_sources(paths, filesystem=None):
                 raise FileNotFoundError(info.path)
             elif file_type == FileType.Directory:
                 raise IsADirectoryError(
-                    'Path {} points to a directory, but only file paths are '
+                    f'Path {info.path} points to a directory, but only file paths are '
                     'supported. To construct a nested or union dataset pass '
-                    'a list of dataset objects instead.'.format(info.path)
+                    'a list of dataset objects instead.'
                 )
             else:
                 raise IOError(
-                    'Path {} exists but its type is unknown (could be a '
+                    f'Path {info.path} exists but its type is unknown (could be a '
                     'special file such as a Unix socket or character device, '
-                    'or Windows NUL / CON / ...)'.format(info.path)
-                )
+                    'or Windows NUL / CON / ...)')
 
     return filesystem, paths
 
@@ -436,11 +452,22 @@ def _filesystem_dataset(source, schema=None, filesystem=None,
     -------
     FileSystemDataset
     """
+    from pyarrow.fs import LocalFileSystem, _ensure_filesystem, FileInfo
+
     format = _ensure_format(format or 'parquet')
     partitioning = _ensure_partitioning(partitioning)
 
     if isinstance(source, (list, tuple)):
-        fs, paths_or_selector = _ensure_multiple_sources(source, filesystem)
+        if source and isinstance(source[0], FileInfo):
+            if filesystem is None:
+                # fall back to local file system as the default
+                fs = LocalFileSystem()
+            else:
+                # construct a filesystem if it is a valid URI
+                fs = _ensure_filesystem(filesystem)
+            paths_or_selector = source
+        else:
+            fs, paths_or_selector = _ensure_multiple_sources(source, filesystem)
     else:
         fs, paths_or_selector = _ensure_single_source(source, filesystem)
 
@@ -491,7 +518,7 @@ def parquet_dataset(metadata_path, schema=None, filesystem=None, format=None,
                     partitioning=None, partition_base_dir=None):
     """
     Create a FileSystemDataset from a `_metadata` file created via
-    `pyarrrow.parquet.write_metadata`.
+    `pyarrow.parquet.write_metadata`.
 
     Parameters
     ----------
@@ -514,7 +541,7 @@ def parquet_dataset(metadata_path, schema=None, filesystem=None, format=None,
     partitioning : Partitioning, PartitioningFactory, str, list of str
         The partitioning scheme specified with the ``partitioning()``
         function. A flavor string can be used as shortcut, and with a list of
-        field names a DirectionaryPartitioning will be inferred.
+        field names a DirectoryPartitioning will be inferred.
     partition_base_dir : str, optional
         For the purposes of applying the partitioning, paths will be
         stripped of the partition_base_dir. Files not matching the
@@ -597,7 +624,7 @@ RecordBatch or Table, iterable of RecordBatch, RecordBatchReader, or URI
         Optionally provide the Schema for the Dataset, in which case it will
         not be inferred from the source.
     format : FileFormat or str
-        Currently "parquet", "ipc"/"arrow"/"feather", "csv", and "orc" are
+        Currently "parquet", "ipc"/"arrow"/"feather", "csv", "json", and "orc" are
         supported. For Feather, only version 2 files are supported.
     filesystem : FileSystem or URI string, default None
         If a single path is given as source and filesystem is None, then the
@@ -610,14 +637,14 @@ RecordBatch or Table, iterable of RecordBatch, RecordBatchReader, or URI
     partitioning : Partitioning, PartitioningFactory, str, list of str
         The partitioning scheme specified with the ``partitioning()``
         function. A flavor string can be used as shortcut, and with a list of
-        field names a DirectionaryPartitioning will be inferred.
+        field names a DirectoryPartitioning will be inferred.
     partition_base_dir : str, optional
         For the purposes of applying the partitioning, paths will be
         stripped of the partition_base_dir. Files not matching the
         partition_base_dir prefix will be skipped for partitioning discovery.
         The ignored files will still be part of the Dataset, but will not
         have partition information.
-    exclude_invalid_files : bool, optional (default True)
+    exclude_invalid_files : bool, optional (default False)
         If True, invalid files will be excluded (file format specific check).
         This will incur IO for each files in a serial and single threaded
         fashion. Disabling this feature will skip the IO, but unsupported
@@ -747,6 +774,7 @@ RecordBatch or Table, iterable of RecordBatch, RecordBatchReader, or URI
     ...     dataset("local/path/to/data", format="ipc")
     ... ]) # doctest: +SKIP
     """
+    from pyarrow.fs import FileInfo
     # collect the keyword arguments for later reuse
     kwargs = dict(
         schema=schema,
@@ -761,7 +789,7 @@ RecordBatch or Table, iterable of RecordBatch, RecordBatchReader, or URI
     if _is_path_like(source):
         return _filesystem_dataset(source, **kwargs)
     elif isinstance(source, (tuple, list)):
-        if all(_is_path_like(elem) for elem in source):
+        if all(_is_path_like(elem) or isinstance(elem, FileInfo) for elem in source):
             return _filesystem_dataset(source, **kwargs)
         elif all(isinstance(elem, Dataset) for elem in source):
             return _union_dataset(source, **kwargs)
@@ -770,18 +798,18 @@ RecordBatch or Table, iterable of RecordBatch, RecordBatchReader, or URI
             return _in_memory_dataset(source, **kwargs)
         else:
             unique_types = set(type(elem).__name__ for elem in source)
-            type_names = ', '.join('{}'.format(t) for t in unique_types)
+            type_names = ', '.join(f'{t}' for t in unique_types)
             raise TypeError(
                 'Expected a list of path-like or dataset objects, or a list '
                 'of batches or tables. The given list contains the following '
-                'types: {}'.format(type_names)
+                f'types: {type_names}'
             )
-    elif isinstance(source, (pa.RecordBatch, pa.Table)):
+    elif isinstance(source, (pa.RecordBatch, pa.Table, pa.RecordBatchReader)):
         return _in_memory_dataset(source, **kwargs)
     else:
         raise TypeError(
             'Expected a path-like, list of path-likes or a list of Datasets '
-            'instead of the given type: {}'.format(type(source).__name__)
+            f'instead of the given type: {type(source).__name__}'
         )
 
 
@@ -816,9 +844,9 @@ def _ensure_write_partitioning(part, schema, flavor):
 
 
 def write_dataset(data, base_dir, *, basename_template=None, format=None,
-                  partitioning=None, partitioning_flavor=None, schema=None,
-                  filesystem=None, file_options=None, use_threads=True,
-                  max_partitions=None, max_open_files=None,
+                  partitioning=None, partitioning_flavor=None,
+                  schema=None, filesystem=None, file_options=None, use_threads=True,
+                  preserve_order=False, max_partitions=None, max_open_files=None,
                   max_rows_per_file=None, min_rows_per_group=None,
                   max_rows_per_group=None, file_visitor=None,
                   existing_data_behavior='error', create_dir=True):
@@ -861,7 +889,13 @@ Table/RecordBatch, or iterable of RecordBatch
         ``FileFormat.make_write_options()`` function.
     use_threads : bool, default True
         Write files in parallel. If enabled, then maximum parallelism will be
-        used determined by the number of available CPU cores.
+        used determined by the number of available CPU cores. Using multiple
+        threads may change the order of rows in the written dataset if
+        preserve_order is set to False.
+    preserve_order : bool, default False
+        Preserve the order of rows. If enabled, order of rows in the dataset are
+        guaranteed to be preserved even if use_threads is set to True. This may
+        cause notable performance degradation.
     max_partitions : int, default 1024
         Maximum number of partitions any batch may be written into.
     max_open_files : int, default 1024
@@ -932,7 +966,11 @@ Table/RecordBatch, or iterable of RecordBatch
     elif isinstance(data, (pa.RecordBatch, pa.Table)):
         schema = schema or data.schema
         data = InMemoryDataset(data, schema=schema)
-    elif isinstance(data, pa.ipc.RecordBatchReader) or _is_iterable(data):
+    elif (
+        isinstance(data, pa.ipc.RecordBatchReader)
+        or hasattr(data, "__arrow_c_stream__")
+        or _is_iterable(data)
+    ):
         data = Scanner.from_batches(data, schema=schema)
         schema = None
     elif not isinstance(data, (Dataset, Scanner)):
@@ -951,9 +989,8 @@ Table/RecordBatch, or iterable of RecordBatch
         file_options = format.make_write_options()
 
     if format != file_options.format:
-        raise TypeError("Supplied FileWriteOptions have format {}, "
-                        "which doesn't match supplied FileFormat {}".format(
-                            format, file_options))
+        raise TypeError(f"Supplied FileWriteOptions have format {format}, "
+                        f"which doesn't match supplied FileFormat {file_options}")
 
     if basename_template is None:
         basename_template = "part-{i}." + format.default_extname
@@ -997,7 +1034,7 @@ Table/RecordBatch, or iterable of RecordBatch
 
     _filesystemdataset_write(
         scanner, base_dir, basename_template, filesystem, partitioning,
-        file_options, max_partitions, file_visitor, existing_data_behavior,
-        max_open_files, max_rows_per_file,
+        preserve_order, file_options, max_partitions, file_visitor,
+        existing_data_behavior, max_open_files, max_rows_per_file,
         min_rows_per_group, max_rows_per_group, create_dir
     )

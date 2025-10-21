@@ -25,7 +25,6 @@ import warnings
 
 from git import Repo
 from github import Github
-from jira import JIRA
 from semver import VersionInfo as SemVer
 
 from ..utils.source import ArrowSources
@@ -51,26 +50,12 @@ class Version(SemVer):
         return cls(**SemVer.parse(version).to_dict(), **kwargs)
 
     @classmethod
-    def from_jira(cls, jira_version):
-        return cls.parse(
-            jira_version.name,
-            released=jira_version.released,
-            release_date=getattr(jira_version, 'releaseDate', None)
-        )
-
-    @classmethod
     def from_milestone(cls, milestone):
         return cls.parse(
             milestone.title,
             released=milestone.state == "closed",
             release_date=milestone.due_on
         )
-
-
-ORIGINAL_ARROW_REGEX = re.compile(
-    r"\*This issue was originally created as " +
-    r"\[(?P<issue>ARROW\-(?P<issue_id>(\d+)))\]"
-)
 
 
 class Issue:
@@ -83,19 +68,9 @@ class Issue:
         self._github_issue = github_issue
 
     @classmethod
-    def from_jira(cls, jira_issue):
-        return cls(
-            key=jira_issue.key,
-            type=jira_issue.fields.issuetype.name,
-            summary=jira_issue.fields.summary
-        )
-
-    @classmethod
     def from_github(cls, github_issue):
-        original_jira = cls.original_jira_id(github_issue)
-        key = original_jira or github_issue.number
         return cls(
-            key=key,
+            key=github_issue.number,
             type=next(
                 iter(
                     [
@@ -123,25 +98,6 @@ class Issue:
     @cached_property
     def is_pr(self):
         return bool(self._github_issue and self._github_issue.pull_request)
-
-    @classmethod
-    def original_jira_id(cls, github_issue):
-        # All migrated issues contain body
-        if not github_issue.body:
-            return None
-        matches = ORIGINAL_ARROW_REGEX.search(github_issue.body)
-        if matches:
-            values = matches.groupdict()
-            return values['issue']
-
-
-class Jira(JIRA):
-
-    def __init__(self, url='https://issues.apache.org/jira'):
-        super().__init__(url)
-
-    def issue(self, key):
-        return Issue.from_jira(super().issue(key))
 
 
 class IssueTracker:
@@ -227,7 +183,7 @@ class CommitTitle:
         matches = _TITLE_REGEX.match(headline)
         if matches is None:
             warnings.warn(
-                "Unable to parse commit message `{}`".format(headline)
+                f"Unable to parse commit message `{headline}`"
             )
             return CommitTitle(headline)
 
@@ -247,10 +203,10 @@ class CommitTitle:
     def to_string(self, with_issue=True, with_components=True):
         out = ""
         if with_issue and self.issue:
-            out += "{}: ".format(self.issue)
+            out += f"{self.issue}: "
         if with_components and self.components:
             for component in self.components:
-                out += "[{}]".format(component)
+                out += f"[{component}]"
             out += " "
         out += self.summary
         return out
@@ -269,13 +225,12 @@ class Commit:
             return getattr(self._wrapped, attr)
 
     def __repr__(self):
-        template = '<Commit sha={!r} issue={!r} components={!r} summary={!r}>'
-        return template.format(self.hexsha, self.issue, self.components,
-                               self.summary)
+        return (f'<Commit sha={self.hexsha!r} issue={self.issue!r} '
+                f'components={self.components!r} summary={self.summary!r}>')
 
     @property
     def url(self):
-        return 'https://github.com/apache/arrow/commit/{}'.format(self.hexsha)
+        return f'https://github.com/apache/arrow/commit/{self.hexsha}'
 
     @property
     def title(self):
@@ -420,10 +375,6 @@ class Release:
         return list(map(Commit, self.repo.iter_commits(commit_range)))
 
     @cached_property
-    def jira_instance(self):
-        return Jira()
-
-    @cached_property
     def default_branch(self):
         default_branch_name = os.getenv("ARCHERY_DEFAULT_BRANCH")
 
@@ -451,9 +402,7 @@ class Release:
                 default_branch_name = origin_head_name_tokenized[-1]
             except (KeyError, IndexError):
                 # Use a hard-coded default value to set default_branch_name
-                # TODO: ARROW-18011 to track changing the hard coded default
-                # value from "master" to "main".
-                default_branch_name = "master"
+                default_branch_name = "main"
                 warnings.warn('Unable to determine default branch name: '
                               'ARCHERY_DEFAULT_BRANCH environment variable is '
                               'not set. Git repository does not contain a '
@@ -479,20 +428,12 @@ class Release:
                 else:
                     outside.append(
                         (self.issue_tracker.issue(int(c.issue_id)), c))
-            elif c.project == 'ARROW':
-                if c.issue in release_issues:
-                    within.append((release_issues[c.issue], c))
-                else:
-                    outside.append((self.jira_instance.issue(c.issue), c))
-            elif c.project == 'PARQUET':
-                parquet.append((self.jira_instance.issue(c.issue), c))
             else:
                 warnings.warn(
-                    f'Issue {c.issue} is not MINOR nor pertains to GH' +
-                    ', ARROW or PARQUET')
+                    f'Issue {c.issue} does not pertain to GH')
                 outside.append((c.issue, c))
 
-        # remaining jira tickets
+        # remaining tickets
         within_keys = {i.key for i, c in within}
         # Take into account that some issues milestoned are prs
         nopatch = [issue for key, issue in release_issues.items()
@@ -508,12 +449,10 @@ class Release:
         # get organized report for the release
         curation = self.curate()
 
-        # jira tickets having patches in the release
+        # issues having patches in the release
         issue_commit_pairs.extend(curation.within)
-        # parquet patches in the release
-        issue_commit_pairs.extend(curation.parquet)
 
-        # jira tickets without patches
+        # issues without patches
         for issue in curation.nopatch:
             issue_commit_pairs.append((issue, None))
 
@@ -596,7 +535,7 @@ class Release:
             logger.info(f"Checking out branch {self.branch}")
             self.repo.git.checkout(self.branch)
 
-        # cherry pick the commits based on the jira tickets
+        # cherry pick the commits based on the GH issue
         for commit in self.commits_to_pick():
             logger.info(f"Cherry-picking commit {commit.hexsha}")
             self.repo.git.cherry_pick(commit.hexsha)

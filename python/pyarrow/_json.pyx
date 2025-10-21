@@ -21,10 +21,11 @@
 
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
-from pyarrow.lib cimport (check_status, _Weakrefable, Field, MemoryPool,
-                          ensure_type, maybe_unbox_memory_pool,
+
+from pyarrow.lib cimport (_Weakrefable, Schema,
+                          RecordBatchReader, MemoryPool,
+                          maybe_unbox_memory_pool,
                           get_input_stream, pyarrow_wrap_table,
-                          pyarrow_wrap_data_type, pyarrow_unwrap_data_type,
                           pyarrow_wrap_schema, pyarrow_unwrap_schema)
 
 
@@ -41,8 +42,6 @@ cdef class ReadOptions(_Weakrefable):
         This will determine multi-threading granularity as well as
         the size of individual chunks in the Table.
     """
-    cdef:
-        CJSONReadOptions options
 
     # Avoid mistakingly creating attributes
     __slots__ = ()
@@ -85,6 +84,33 @@ cdef class ReadOptions(_Weakrefable):
             self.block_size
         )
 
+    def equals(self, ReadOptions other):
+        """
+        Parameters
+        ----------
+        other : pyarrow.json.ReadOptions
+
+        Returns
+        -------
+        bool
+        """
+        return (
+            self.use_threads == other.use_threads and
+            self.block_size == other.block_size
+        )
+
+    def __eq__(self, other):
+        try:
+            return self.equals(other)
+        except TypeError:
+            return False
+
+    @staticmethod
+    cdef ReadOptions wrap(CJSONReadOptions options):
+        out = ReadOptions()
+        out.options = options  # shallow copy
+        return out
+
 
 cdef class ParseOptions(_Weakrefable):
     """
@@ -107,9 +133,6 @@ cdef class ParseOptions(_Weakrefable):
          - "infer": unexpected JSON fields are type-inferred and included in
            the output
     """
-
-    cdef:
-        CJSONParseOptions options
 
     __slots__ = ()
 
@@ -193,11 +216,39 @@ cdef class ParseOptions(_Weakrefable):
             v = CUnexpectedFieldBehavior_InferType
         else:
             raise ValueError(
-                "Unexpected value `{}` for `unexpected_field_behavior`, pass "
-                "either `ignore`, `error` or `infer`.".format(value)
+                f"Unexpected value `{value}` for `unexpected_field_behavior`, pass "
+                f"either `ignore`, `error` or `infer`."
             )
 
         self.options.unexpected_field_behavior = v
+
+    def equals(self, ParseOptions other):
+        """
+        Parameters
+        ----------
+        other : pyarrow.json.ParseOptions
+
+        Returns
+        -------
+        bool
+        """
+        return (
+            self.explicit_schema == other.explicit_schema and
+            self.newlines_in_values == other.newlines_in_values and
+            self.unexpected_field_behavior == other.unexpected_field_behavior
+        )
+
+    def __eq__(self, other):
+        try:
+            return self.equals(other)
+        except TypeError:
+            return False
+
+    @staticmethod
+    cdef ParseOptions wrap(CJSONParseOptions options):
+        out = ParseOptions()
+        out.options = options  # shallow copy
+        return out
 
 
 cdef _get_reader(input_file, shared_ptr[CInputStream]* out):
@@ -215,6 +266,38 @@ cdef _get_parse_options(ParseOptions parse_options, CJSONParseOptions* out):
         out[0] = CJSONParseOptions.Defaults()
     else:
         out[0] = parse_options.options
+
+
+cdef class JSONStreamingReader(RecordBatchReader):
+    """An object that reads record batches incrementally from a JSON file.
+
+    Should not be instantiated directly by user code.
+    """
+    cdef readonly:
+        Schema schema
+
+    def __init__(self):
+        raise TypeError(f"Do not call {self.__class__.__name__}'s "
+                        "constructor directly, "
+                        "use pyarrow.json.open_json() instead.")
+
+    cdef _open(self, shared_ptr[CInputStream] stream,
+               CJSONReadOptions c_read_options,
+               CJSONParseOptions c_parse_options,
+               MemoryPool memory_pool):
+        cdef:
+            shared_ptr[CSchema] c_schema
+            CIOContext io_context
+
+        io_context = CIOContext(maybe_unbox_memory_pool(memory_pool))
+
+        with nogil:
+            self.reader = <shared_ptr[CRecordBatchReader]> GetResultValue(
+                CJSONStreamingReader.Make(stream, move(c_read_options),
+                                          move(c_parse_options), io_context))
+            c_schema = self.reader.get().schema()
+
+        self.schema = pyarrow_wrap_schema(c_schema)
 
 
 def read_json(input_file, read_options=None, parse_options=None,
@@ -259,3 +342,45 @@ def read_json(input_file, read_options=None, parse_options=None,
         table = GetResultValue(reader.get().Read())
 
     return pyarrow_wrap_table(table)
+
+
+def open_json(input_file, read_options=None, parse_options=None,
+              MemoryPool memory_pool=None):
+    """
+    Open a streaming reader of JSON data.
+
+    Reading using this function is always single-threaded.
+
+    Parameters
+    ----------
+    input_file : string, path or file-like object
+        The location of JSON data.  If a string or path, and if it ends
+        with a recognized compressed file extension (e.g. ".gz" or ".bz2"),
+        the data is automatically decompressed when reading.
+    read_options : pyarrow.json.ReadOptions, optional
+        Options for the JSON reader (see pyarrow.json.ReadOptions constructor
+        for defaults)
+    parse_options : pyarrow.json.ParseOptions, optional
+        Options for the JSON parser
+        (see pyarrow.json.ParseOptions constructor for defaults)
+    memory_pool : MemoryPool, optional
+        Pool to allocate RecordBatch memory from
+
+    Returns
+    -------
+    :class:`pyarrow.json.JSONStreamingReader`
+    """
+    cdef:
+        shared_ptr[CInputStream] stream
+        CJSONReadOptions c_read_options
+        CJSONParseOptions c_parse_options
+        JSONStreamingReader reader
+
+    _get_reader(input_file, &stream)
+    _get_read_options(read_options, &c_read_options)
+    _get_parse_options(parse_options, &c_parse_options)
+
+    reader = JSONStreamingReader.__new__(JSONStreamingReader)
+    reader._open(stream, move(c_read_options), move(c_parse_options),
+                 memory_pool)
+    return reader

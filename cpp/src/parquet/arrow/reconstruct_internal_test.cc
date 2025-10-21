@@ -33,7 +33,7 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/checked_cast.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 
 #include "parquet/arrow/reader.h"
 #include "parquet/arrow/schema.h"
@@ -65,8 +65,7 @@ using testing::Eq;
 using testing::NotNull;
 using testing::SizeIs;
 
-namespace parquet {
-namespace arrow {
+namespace parquet::arrow {
 
 using parquet::schema::GroupNode;
 using parquet::schema::NodePtr;
@@ -190,7 +189,9 @@ class FileTester {
  protected:
   Status Open(std::shared_ptr<Buffer> buffer, MemoryPool* pool) {
     pool_ = pool;
-    return OpenFile(std::make_shared<BufferReader>(buffer), pool_, &file_reader_);
+    ARROW_ASSIGN_OR_RAISE(file_reader_,
+                          OpenFile(std::make_shared<BufferReader>(buffer), pool_));
+    return Status::OK();
   }
 
   MemoryPool* pool_;
@@ -1637,5 +1638,4 @@ TEST_F(TestReconstructColumn, ListList6) {
 
 // TODO legacy-list-in-struct etc.?
 
-}  // namespace arrow
-}  // namespace parquet
+}  // namespace parquet::arrow

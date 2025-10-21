@@ -27,21 +27,10 @@ SOURCE_DIR="$CWD/../src"
 PYTHON_SOURCE_DIR="$CWD/../../python"
 FORMAT_DIR="$CWD/../../format"
 TOP="$FORMAT_DIR/.."
-FLATC="flatc"
+FLATC="flatc --cpp --cpp-std c++11 --scoped-enums"
 
 OUT_DIR="$SOURCE_DIR/generated"
 FILES=($(find $FORMAT_DIR -name '*.fbs'))
 FILES+=("$SOURCE_DIR/arrow/ipc/feather.fbs")
 
-$FLATC --cpp --cpp-std c++11 \
-  --scoped-enums \
-  -o "$OUT_DIR" \
-  "${FILES[@]}"
-
-PLASMA_FBS=("$SOURCE_DIR"/plasma/{plasma,common}.fbs)
-
-$FLATC --cpp --cpp-std c++11 \
-  -o "$SOURCE_DIR/plasma" \
-  --gen-object-api \
-  --scoped-enums \
-  "${PLASMA_FBS[@]}"
+$FLATC -o "$OUT_DIR" "${FILES[@]}"

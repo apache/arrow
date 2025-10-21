@@ -23,12 +23,25 @@
 #include <utility>
 
 #include "arrow/type_fwd.h"
-#include "arrow/util/string_builder.h"
+#include "arrow/util/string_util.h"
 #include "parquet/platform.h"
+
+#ifdef _MSC_VER
+#  pragma warning(push)
+// Disable warning for STL types usage in DLL interface
+// https://web.archive.org/web/20130317015847/http://connect.microsoft.com/VisualStudio/feedback/details/696593/vc-10-vs-2010-basic-string-exports
+#  pragma warning(disable : 4275 4251)
+// Disable diamond inheritance warnings
+#  pragma warning(disable : 4250)
+// Disable macro redefinition warnings
+#  pragma warning(disable : 4005)
+// Disable extern before exported template warnings
+#  pragma warning(disable : 4910)
+#endif
 
 // PARQUET-1085
 #if !defined(ARROW_UNUSED)
-#define ARROW_UNUSED(x) UNUSED(x)
+#  define ARROW_UNUSED(x) UNUSED(x)
 #endif
 
 // Parquet exception to Arrow Status
@@ -59,18 +72,18 @@
 
 // Arrow Status to Parquet exception
 
-#define PARQUET_IGNORE_NOT_OK(s)                                \
-  do {                                                          \
-    ::arrow::Status _s = ::arrow::internal::GenericToStatus(s); \
-    ARROW_UNUSED(_s);                                           \
+#define PARQUET_IGNORE_NOT_OK(s)               \
+  do {                                         \
+    ::arrow::Status _s = ::arrow::ToStatus(s); \
+    ARROW_UNUSED(_s);                          \
   } while (0)
 
-#define PARQUET_THROW_NOT_OK(s)                                 \
-  do {                                                          \
-    ::arrow::Status _s = ::arrow::internal::GenericToStatus(s); \
-    if (!_s.ok()) {                                             \
-      throw ::parquet::ParquetStatusException(std::move(_s));   \
-    }                                                           \
+#define PARQUET_THROW_NOT_OK(s)                               \
+  do {                                                        \
+    ::arrow::Status _s = ::arrow::ToStatus(s);                \
+    if (!_s.ok()) {                                           \
+      throw ::parquet::ParquetStatusException(std::move(_s)); \
+    }                                                         \
   } while (0)
 
 #define PARQUET_ASSIGN_OR_THROW_IMPL(status_name, lhs, rexpr) \
@@ -84,7 +97,7 @@
 
 namespace parquet {
 
-class ParquetException : public std::exception {
+class PARQUET_EXPORT ParquetException : public std::exception {
  public:
   PARQUET_NORETURN static void EofException(const std::string& msg = "") {
     static std::string prefix = "Unexpected end of stream";
@@ -100,7 +113,7 @@ class ParquetException : public std::exception {
 
   template <typename... Args>
   explicit ParquetException(Args&&... args)
-      : msg_(::arrow::util::StringBuilder(std::forward<Args>(args)...)) {}
+      : msg_(::arrow::internal::JoinToString(std::forward<Args>(args)...)) {}
 
   explicit ParquetException(std::string msg) : msg_(std::move(msg)) {}
 
@@ -156,3 +169,7 @@ void ThrowNotOk(StatusReturnBlock&& b) {
 }
 
 }  // namespace parquet
+
+#ifdef _MSC_VER
+#  pragma warning(pop)
+#endif

@@ -47,7 +47,7 @@ Executors
 Individual jobs are executed on public CI services, currently:
 
 - Linux: GitHub Actions, Travis CI, Azure Pipelines
-- macOS: GitHub Actions, Travis CI, Azure Pipelines
+- macOS: GitHub Actions, Azure Pipelines
 - Windows: GitHub Actions, Azure Pipelines
 
 Queue
@@ -59,7 +59,7 @@ queue for the tasks. Anyone can host a ``queue`` repository (usually
 named ``<ghuser>/crossbow``).
 
 A job is a git commit on a particular git branch, containing the required
-configuration files to run the requested builds (like ``.travis.yml``, 
+configuration files to run the requested builds (like ``.travis.yml``,
 ``azure-pipelines.yml``, or ``crossbow.yml`` for `GitHub Actions`_ ).
 
 Scheduler
@@ -75,13 +75,13 @@ The following guide depends on GitHub, but theoretically any git
 server can be used.
 
 If you are not using the `ursacomputing/crossbow`_
-repository, you will need to complete the first two steps, otherwise procede
+repository, you will need to complete the first two steps, otherwise proceed
 to step 3:
 
 1. `Create the queue repository`_
 
-2. Enable `Travis CI`_ and `Azure Pipelines`_ integrations for the newly
-   created queue repository.
+2. Enable `Azure Pipelines`_ integrations for the newly created queue
+   repository.
 
 3. Clone either `ursacomputing/crossbow`_ if you are using that, or the newly
    created repository next to the arrow repository:
@@ -104,33 +104,22 @@ to step 3:
 
    .. code:: bash
 
-      export CROSSBOW_GITHUB_TOKEN=<token>
+      export GH_TOKEN=<token>
 
    or pass as an argument to the CLI script ``--github-token``
 
-6. Add the previously created GitHub token to **Travis CI**:
-
-   Use ``CROSSBOW_GITHUB_TOKEN`` encrypted environment variable. You can
-   set it at the following URL, where ``ghuser`` is the GitHub
-   username and ``ghrepo`` is the GitHub repository name (typically
-   ``crossbow``):
-
-   ``https://travis-ci.com/<ghuser>/<ghrepo>/settings``
-
-   - Confirm the `auto cancellation`_ feature is turned off for branch builds. This should be the default setting.
-   
-7. Install Python (minimum supported version is 3.7):
+6. Install Python (minimum supported version is 3.10):
 
    | Miniconda is preferred, see installation instructions:
    | https://conda.io/docs/user-guide/install/index.html
 
-8. Install the archery toolset containing crossbow itself:
+7. Install the archery toolset containing crossbow itself:
 
    .. code::
 
       $ pip install -e "arrow/dev/archery[crossbow]"
 
-9. Try running it:
+8. Try running it:
 
    .. code::
 
@@ -245,7 +234,7 @@ see its help page:
 .. _Wheels: python-wheels
 .. _Linux packages: linux-packages
 .. _Create the queue repository: https://docs.github.com/en/repositories/creating-and-managing-repositories/creating-a-new-repository
-.. _Github Actions: https://docs.github.com/en/actions/quickstart
+.. _GitHub Actions: https://docs.github.com/en/actions/quickstart
 .. _Travis CI: https://travis-ci.com/getting-started/
 .. _Azure Pipelines: https://docs.microsoft.com/en-us/azure/devops/pipelines/get-started/pipelines-sign-up
 .. _auto cancellation: https://docs.travis-ci.com/user/customizing-the-build/#building-only-the-latest-commit

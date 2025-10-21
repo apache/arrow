@@ -17,7 +17,12 @@
 # specific language governing permissions and limitations
 # under the License.
 
-%define use_dnf (%{rhel} >= 8)
+%define _amzn %{?amzn:%{amzn}}%{!?amzn:0}
+%define _rhel %{?rhel:%{rhel}}%{!?rhel:0}
+
+%define use_dnf (%{_rhel} >= 8 || %{_amzn} >= 2023)
+%define use_epel (%{_amzn} < 2023)
+
 %if %{use_dnf}
 %define yum_repository_enable() (dnf config-manager --set-enabled %1)
 %define yum_repository_disable() (dnf config-manager --set-disabled %1)
@@ -37,7 +42,9 @@ Source0:	@PACKAGE@-%{version}.tar.gz
 
 BuildArch:	noarch
 
+%if %{use_epel}
 Requires:	epel-release
+%endif
 %if %{use_dnf}
 Requires:	dnf-command(config-manager)
 %else
@@ -54,7 +61,7 @@ Apache Arrow release files.
 distribution=$(. /etc/os-release && echo "${ID}")
 if [ "${distribution}" = "rhel" ]; then
   # We use distribution version explicitly for RHEL because we can't
-  # use symbolic link on Artifactory. CentOS and AlmaLinux uses 7 and
+  # use symbolic link on Artifactory. CentOS and AlmaLinux use 7 and
   # 8 but RHEL uses 7Server and 8Server for $releasever. If we can use
   # symbolic link on Artifactory we can use $releasever directly.
   distribution_version=$(. /etc/os-release && echo "${VERSION_ID}")
@@ -80,8 +87,8 @@ rm -rf $RPM_BUILD_ROOT
 %config(noreplace) %{_sysconfdir}/yum.repos.d/Apache-Arrow.repo
 
 %post
-if grep -q 'Amazon Linux release 2' /etc/system-release 2>/dev/null; then
-  %{yum_repository_enable apache-arrow-amazon-linux}
+if grep -q 'Amazon Linux release 2023' /etc/system-release 2>/dev/null; then
+  %{yum_repository_enable apache-arrow-amazon-linux-2023}
 elif grep -q 'Red Hat Enterprise Linux Server release 7' /etc/system-release 2>/dev/null; then
   %{yum_repository_enable apache-arrow-rhel7}
 elif grep -q 'Red Hat Enterprise Linux' /etc/system-release 2>/dev/null; then
@@ -95,6 +102,60 @@ else
 fi
 
 %changelog
+* Fri Jul 11 2025 Bryce Mecum <petridish@gmail.com> - 21.0.0-1
+- New upstream release.
+
+* Tue Apr 22 2025 Jacob Wujciak-Jens <jacob@wujciak.de> - 20.0.0-1
+- New upstream release.
+
+* Tue Feb 11 2025 Bryce Mecum <petridish@gmail.com> - 19.0.1-1
+- New upstream release.
+
+* Tue Jan 07 2025 Bryce Mecum <petridish@gmail.com> - 19.0.0-1
+- New upstream release.
+
+* Wed Nov 13 2024 Bryce Mecum <petridish@gmail.com> - 18.1.0-1
+- New upstream release.
+
+* Wed Oct 16 2024 Sutou Kouhei <kou@clear-code.com> - 18.0.0-1
+- New upstream release.
+
+* Thu Jul 11 2024 Raúl Cumplido <raulcumplido@gmail.com> - 17.0.0-1
+- New upstream release.
+
+* Thu May 09 2024 Raúl Cumplido <raulcumplido@gmail.com> - 16.1.0-1
+- New upstream release.
+
+* Tue Apr 16 2024 Raúl Cumplido <raulcumplido@gmail.com> - 16.0.0-1
+- New upstream release.
+
+* Wed Mar 13 2024 Raúl Cumplido <raulcumplido@gmail.com> - 15.0.2-1
+- New upstream release.
+
+* Fri Feb 23 2024 Raúl Cumplido <raulcumplido@gmail.com> - 15.0.1-1
+- New upstream release.
+
+* Tue Jan 16 2024 Raúl Cumplido <raulcumplido@gmail.com> - 15.0.0-1
+- New upstream release.
+
+* Tue Dec 12 2023 Raúl Cumplido <raulcumplido@gmail.com> - 14.0.2-1
+- New upstream release.
+
+* Mon Nov 06 2023 Raúl Cumplido <raulcumplido@gmail.com> - 14.0.1-1
+- New upstream release.
+
+* Thu Oct 19 2023 Raúl Cumplido <raulcumplido@gmail.com> - 14.0.0-1
+- New upstream release.
+
+* Thu Aug 17 2023 Raúl Cumplido <raulcumplido@gmail.com> - 13.0.0-1
+- New upstream release.
+
+* Wed Jun 07 2023 Raúl Cumplido <raulcumplido@gmail.com> - 12.0.1-1
+- New upstream release.
+
+* Fri Apr 21 2023 Raúl Cumplido <raulcumplido@gmail.com> - 12.0.0-1
+- New upstream release.
+
 * Wed Jan 18 2023 Raúl Cumplido <raulcumplido@gmail.com> - 11.0.0-1
 - New upstream release.
 

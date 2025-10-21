@@ -35,12 +35,6 @@
 
 namespace arrow {
 namespace fs {
-struct GcsCredentialsHolder {
-  // Constructor needed for make_shared
-  explicit GcsCredentialsHolder(std::shared_ptr<google::cloud::Credentials> credentials)
-      : credentials(std::move(credentials)) {}
-  std::shared_ptr<google::cloud::Credentials> credentials;
-};
 
 bool GcsCredentials::Equals(const GcsCredentials& other) const {
   if (holder_->credentials == other.holder_->credentials) {
@@ -58,14 +52,6 @@ namespace gcs = google::cloud::storage;
 using GcsCode = google::cloud::StatusCode;
 using GcsStatus = google::cloud::Status;
 
-// Change the default upload buffer size. In general, sending larger buffers is more
-// efficient with GCS, as each buffer requires a roundtrip to the service. With formatted
-// output (when using `operator<<`), keeping a larger buffer in memory before uploading
-// makes sense.  With unformatted output (the only choice given gcs::io::OutputStream's
-// API) it is better to let the caller provide as large a buffer as they want. The GCS C++
-// client library will upload this buffer with zero copies if possible.
-auto constexpr kUploadBufferSize = 256 * 1024;
-
 struct GcsPath {
   std::string full_path;
   std::string bucket;
@@ -76,7 +62,7 @@ struct GcsPath {
       return Status::Invalid(
           "Expected a GCS object path of the form 'bucket/key...', got a URI: '", s, "'");
     }
-    auto const first_sep = s.find_first_of(internal::kSep);
+    const auto first_sep = s.find_first_of(internal::kSep);
     if (first_sep == 0) {
       return Status::Invalid("Path cannot start with a separator ('", s, "')");
     }
@@ -87,7 +73,16 @@ struct GcsPath {
     path.full_path = s;
     path.bucket = s.substr(0, first_sep);
     path.object = s.substr(first_sep + 1);
+    RETURN_NOT_OK(Validate(path));
     return path;
+  }
+
+  static Status Validate(const GcsPath& path) {
+    auto st = internal::ValidateAbstractPath(path.full_path);
+    if (!st.ok()) {
+      return Status::Invalid(st.message(), " in path ", path.full_path);
+    }
+    return Status::OK();
   }
 
   GcsPath parent() const {
@@ -243,35 +238,44 @@ class GcsOutputStream : public arrow::io::OutputStream {
 };
 
 using InputStreamFactory = std::function<Result<std::shared_ptr<GcsInputStream>>(
-    gcs::Generation, gcs::ReadFromOffset)>;
+    gcs::Generation, gcs::ReadRange, gcs::ReadFromOffset)>;
 
 class GcsRandomAccessFile : public arrow::io::RandomAccessFile {
  public:
-  GcsRandomAccessFile(InputStreamFactory factory, gcs::ObjectMetadata metadata,
-                      std::shared_ptr<GcsInputStream> stream)
-      : factory_(std::move(factory)),
-        metadata_(std::move(metadata)),
-        stream_(std::move(stream)) {}
+  GcsRandomAccessFile(InputStreamFactory factory, gcs::ObjectMetadata metadata)
+      : factory_(std::move(factory)), metadata_(std::move(metadata)) {}
   ~GcsRandomAccessFile() override = default;
 
   //@{
   // @name FileInterface
-  Status Close() override { return stream_->Close(); }
-  Status Abort() override { return stream_->Abort(); }
-  Result<int64_t> Tell() const override { return stream_->TellOr(metadata_.size()); }
-  bool closed() const override { return stream_->closed(); }
+  Status Close() override {
+    ARROW_RETURN_NOT_OK(InitializeStream());
+    return stream_->Close();
+  }
+  Status Abort() override {
+    ARROW_RETURN_NOT_OK(InitializeStream());
+    return stream_->Abort();
+  }
+  Result<int64_t> Tell() const override {
+    ARROW_RETURN_NOT_OK(InitializeStream());
+    return stream_->TellOr(metadata_.size());
+  }
+  bool closed() const override {
+    auto status = InitializeStream();
+    if (!status.ok()) return true;
+    return stream_->closed();
+  }
   //@}
 
   //@{
   // @name Readable
   Result<int64_t> Read(int64_t nbytes, void* out) override {
+    ARROW_RETURN_NOT_OK(InitializeStream());
     return stream_->Read(nbytes, out);
   }
   Result<std::shared_ptr<Buffer>> Read(int64_t nbytes) override {
+    ARROW_RETURN_NOT_OK(InitializeStream());
     return stream_->Read(nbytes);
-  }
-  const arrow::io::IOContext& io_context() const override {
-    return stream_->io_context();
   }
   //@}
 
@@ -289,14 +293,16 @@ class GcsRandomAccessFile : public arrow::io::RandomAccessFile {
     if (closed()) return Status::Invalid("Cannot read from closed file");
     std::shared_ptr<io::InputStream> stream;
     ARROW_ASSIGN_OR_RAISE(stream, factory_(gcs::Generation(metadata_.generation()),
-                                           gcs::ReadFromOffset(position)));
+                                           gcs::ReadRange(position, position + nbytes),
+                                           gcs::ReadFromOffset()));
     return stream->Read(nbytes, out);
   }
   Result<std::shared_ptr<Buffer>> ReadAt(int64_t position, int64_t nbytes) override {
     if (closed()) return Status::Invalid("Cannot read from closed file");
     std::shared_ptr<io::InputStream> stream;
     ARROW_ASSIGN_OR_RAISE(stream, factory_(gcs::Generation(metadata_.generation()),
-                                           gcs::ReadFromOffset(position)));
+                                           gcs::ReadRange(position, position + nbytes),
+                                           gcs::ReadFromOffset()));
     return stream->Read(nbytes);
   }
   //@}
@@ -304,51 +310,31 @@ class GcsRandomAccessFile : public arrow::io::RandomAccessFile {
   // from Seekable
   Status Seek(int64_t position) override {
     if (closed()) return Status::Invalid("Cannot seek in a closed file");
-    ARROW_ASSIGN_OR_RAISE(stream_, factory_(gcs::Generation(metadata_.generation()),
-                                            gcs::ReadFromOffset(position)));
+    ARROW_ASSIGN_OR_RAISE(
+        stream_, factory_(gcs::Generation(metadata_.generation()), gcs::ReadRange(),
+                          gcs::ReadFromOffset(position)));
     return Status::OK();
   }
 
  private:
+  Status InitializeStream() const {
+    if (!stream_) {
+      ARROW_ASSIGN_OR_RAISE(stream_, factory_(gcs::Generation(metadata_.generation()),
+                                              gcs::ReadRange(), gcs::ReadFromOffset()));
+    }
+    return Status::OK();
+  }
   InputStreamFactory factory_;
   gcs::ObjectMetadata metadata_;
-  std::shared_ptr<GcsInputStream> stream_;
+  std::shared_ptr<GcsInputStream> mutable stream_;
 };
-
-google::cloud::Options AsGoogleCloudOptions(const GcsOptions& o) {
-  auto options = google::cloud::Options{};
-  std::string scheme = o.scheme;
-  if (scheme.empty()) scheme = "https";
-  if (scheme == "https") {
-    options.set<google::cloud::UnifiedCredentialsOption>(
-        google::cloud::MakeGoogleDefaultCredentials());
-  } else {
-    options.set<google::cloud::UnifiedCredentialsOption>(
-        google::cloud::MakeInsecureCredentials());
-  }
-  options.set<gcs::UploadBufferSizeOption>(kUploadBufferSize);
-  if (!o.endpoint_override.empty()) {
-    options.set<gcs::RestEndpointOption>(scheme + "://" + o.endpoint_override);
-  }
-  if (o.credentials.holder() && o.credentials.holder()->credentials) {
-    options.set<google::cloud::UnifiedCredentialsOption>(
-        o.credentials.holder()->credentials);
-  }
-  if (o.retry_limit_seconds.has_value()) {
-    options.set<gcs::RetryPolicyOption>(
-        gcs::LimitedTimeRetryPolicy(
-            std::chrono::milliseconds(static_cast<int>(*o.retry_limit_seconds * 1000)))
-            .clone());
-  }
-  return options;
-}
 
 }  // namespace
 
 class GcsFileSystem::Impl {
  public:
   explicit Impl(GcsOptions o)
-      : options_(std::move(o)), client_(AsGoogleCloudOptions(options_)) {}
+      : options_(std::move(o)), client_(internal::AsGoogleCloudOptions(options_)) {}
 
   const GcsOptions& options() const { return options_; }
 
@@ -367,12 +353,16 @@ class GcsFileSystem::Impl {
     // matches the prefix we assume it is a directory.
     std::string canonical = internal::EnsureTrailingSlash(path.object);
     auto list_result = client_.ListObjects(path.bucket, gcs::Prefix(canonical));
-    if (list_result.begin() != list_result.end()) {
-      // If there is at least one result it indicates this is a directory (at
-      // least one object exists that starts with "path/")
+
+    for (auto&& object_metadata : list_result) {
+      if (!object_metadata) {
+        continue;
+      }
+      // If there is at least one valid result, it indicates this is a
+      // directory (at least one object exists that starts with "path/")
       return FileInfo(path.full_path, FileType::Directory);
     }
-    // Return the original not-found info if there was no match.
+    // Return the original not-found info if there was no valid result.
     return info;
   }
 
@@ -394,7 +384,7 @@ class GcsFileSystem::Impl {
     auto include_trailing = select.recursive ? gcs::IncludeTrailingDelimiter(false)
                                              : gcs::IncludeTrailingDelimiter(true);
     FileInfoVector result;
-    for (auto const& o :
+    for (const auto& o :
          client_.ListObjects(p.bucket, prefix, delimiter, include_trailing)) {
       if (!o.ok()) {
         if (select.allow_not_found &&
@@ -451,7 +441,7 @@ class GcsFileSystem::Impl {
   }
 
   Status CreateDirMarkerRecursive(const std::string& bucket, const std::string& name) {
-    auto get_parent = [](std::string const& path) {
+    auto get_parent = [](const std::string& path) {
       return std::move(internal::GetAbstractPathParent(path).first);
     };
     // Find the list of missing parents. In the process we discover if any elements in
@@ -488,7 +478,7 @@ class GcsFileSystem::Impl {
 
     // Note that the list of parents are sorted from deepest to most shallow, this is
     // convenient because as soon as we find a directory we can stop the iteration.
-    for (auto const& d : missing_parents) {
+    for (const auto& d : missing_parents) {
       auto o = CreateDirMarker(bucket, d);
       if (o) {
         if (IsDirectory(*o)) continue;
@@ -616,8 +606,9 @@ class GcsFileSystem::Impl {
 
   Result<std::shared_ptr<GcsInputStream>> OpenInputStream(const GcsPath& path,
                                                           gcs::Generation generation,
+                                                          gcs::ReadRange range,
                                                           gcs::ReadFromOffset offset) {
-    auto stream = client_.ReadObject(path.bucket, path.object, generation, offset);
+    auto stream = client_.ReadObject(path.bucket, path.object, generation, range, offset);
     ARROW_GCS_RETURN_NOT_OK(stream.status());
     return std::make_shared<GcsInputStream>(std::move(stream), path, generation, client_);
   }
@@ -711,7 +702,7 @@ class GcsFileSystem::Impl {
 };
 
 GcsOptions::GcsOptions() {
-  this->credentials.holder_ = std::make_shared<GcsCredentialsHolder>(
+  this->credentials.holder_ = std::make_shared<internal::GcsCredentialsHolder>(
       google::cloud::MakeGoogleDefaultCredentials());
   this->scheme = "https";
 }
@@ -720,7 +711,8 @@ bool GcsOptions::Equals(const GcsOptions& other) const {
   return credentials.Equals(other.credentials) &&
          endpoint_override == other.endpoint_override && scheme == other.scheme &&
          default_bucket_location == other.default_bucket_location &&
-         retry_limit_seconds == other.retry_limit_seconds;
+         retry_limit_seconds == other.retry_limit_seconds &&
+         project_id == other.project_id;
 }
 
 GcsOptions GcsOptions::Defaults() {
@@ -730,8 +722,8 @@ GcsOptions GcsOptions::Defaults() {
 
 GcsOptions GcsOptions::Anonymous() {
   GcsOptions options{};
-  options.credentials.holder_ =
-      std::make_shared<GcsCredentialsHolder>(google::cloud::MakeInsecureCredentials());
+  options.credentials.holder_ = std::make_shared<internal::GcsCredentialsHolder>(
+      google::cloud::MakeInsecureCredentials());
   options.credentials.anonymous_ = true;
   options.scheme = "http";
   return options;
@@ -740,8 +732,8 @@ GcsOptions GcsOptions::Anonymous() {
 GcsOptions GcsOptions::FromAccessToken(const std::string& access_token,
                                        TimePoint expiration) {
   GcsOptions options{};
-  options.credentials.holder_ =
-      std::make_shared<GcsCredentialsHolder>(google::cloud::MakeAccessTokenCredentials(
+  options.credentials.holder_ = std::make_shared<internal::GcsCredentialsHolder>(
+      google::cloud::MakeAccessTokenCredentials(
           access_token,
           std::chrono::time_point_cast<std::chrono::system_clock::time_point::duration>(
               expiration)));
@@ -755,7 +747,7 @@ GcsOptions GcsOptions::FromImpersonatedServiceAccount(
     const GcsCredentials& base_credentials, const std::string& target_service_account) {
   GcsOptions options{};
   options.credentials = base_credentials;
-  options.credentials.holder_ = std::make_shared<GcsCredentialsHolder>(
+  options.credentials.holder_ = std::make_shared<internal::GcsCredentialsHolder>(
       google::cloud::MakeImpersonateServiceAccountCredentials(
           base_credentials.holder_->credentials, target_service_account));
   options.credentials.target_service_account_ = target_service_account;
@@ -765,14 +757,14 @@ GcsOptions GcsOptions::FromImpersonatedServiceAccount(
 
 GcsOptions GcsOptions::FromServiceAccountCredentials(const std::string& json_object) {
   GcsOptions options{};
-  options.credentials.holder_ = std::make_shared<GcsCredentialsHolder>(
+  options.credentials.holder_ = std::make_shared<internal::GcsCredentialsHolder>(
       google::cloud::MakeServiceAccountCredentials(json_object));
   options.credentials.json_credentials_ = json_object;
   options.scheme = "https";
   return options;
 }
 
-Result<GcsOptions> GcsOptions::FromUri(const arrow::internal::Uri& uri,
+Result<GcsOptions> GcsOptions::FromUri(const arrow::util::Uri& uri,
                                        std::string* out_path) {
   const auto bucket = uri.host();
   auto path = uri.path();
@@ -824,6 +816,8 @@ Result<GcsOptions> GcsOptions::FromUri(const arrow::internal::Uri& uri,
                                kv.second, "'");
       }
       options.retry_limit_seconds = parsed_seconds;
+    } else if (kv.first == "project_id") {
+      options.project_id = kv.second;
     } else {
       return Status::Invalid("Unexpected query parameter in GCS URI: '", kv.first, "'");
     }
@@ -834,7 +828,7 @@ Result<GcsOptions> GcsOptions::FromUri(const arrow::internal::Uri& uri,
 
 Result<GcsOptions> GcsOptions::FromUri(const std::string& uri_string,
                                        std::string* out_path) {
-  arrow::internal::Uri uri;
+  arrow::util::Uri uri;
   RETURN_NOT_OK(uri.Parse(uri_string));
   return FromUri(uri, out_path);
 }
@@ -851,6 +845,12 @@ bool GcsFileSystem::Equals(const FileSystem& other) const {
   }
   const auto& fs = ::arrow::internal::checked_cast<const GcsFileSystem&>(other);
   return impl_->options().Equals(fs.impl_->options());
+}
+
+Result<std::string> GcsFileSystem::PathFromUri(const std::string& uri_string) const {
+  return internal::PathFromUriHelper(uri_string, {"gs", "gcs"},
+                                     /*accept_local_paths=*/false,
+                                     internal::AuthorityHandlingBehavior::kPrepend);
 }
 
 Result<FileInfo> GcsFileSystem::GetFileInfo(const std::string& path) {
@@ -905,7 +905,8 @@ Result<std::shared_ptr<io::InputStream>> GcsFileSystem::OpenInputStream(
     const std::string& path) {
   ARROW_RETURN_NOT_OK(internal::AssertNoTrailingSlash(path));
   ARROW_ASSIGN_OR_RAISE(auto p, GcsPath::FromString(path));
-  return impl_->OpenInputStream(p, gcs::Generation(), gcs::ReadFromOffset());
+  return impl_->OpenInputStream(p, gcs::Generation(), gcs::ReadRange(),
+                                gcs::ReadFromOffset());
 }
 
 Result<std::shared_ptr<io::InputStream>> GcsFileSystem::OpenInputStream(
@@ -916,7 +917,8 @@ Result<std::shared_ptr<io::InputStream>> GcsFileSystem::OpenInputStream(
   }
   ARROW_RETURN_NOT_OK(internal::AssertNoTrailingSlash(info.path()));
   ARROW_ASSIGN_OR_RAISE(auto p, GcsPath::FromString(info.path()));
-  return impl_->OpenInputStream(p, gcs::Generation(), gcs::ReadFromOffset());
+  return impl_->OpenInputStream(p, gcs::Generation(), gcs::ReadRange(),
+                                gcs::ReadFromOffset());
 }
 
 Result<std::shared_ptr<io::RandomAccessFile>> GcsFileSystem::OpenInputFile(
@@ -925,16 +927,13 @@ Result<std::shared_ptr<io::RandomAccessFile>> GcsFileSystem::OpenInputFile(
   ARROW_ASSIGN_OR_RAISE(auto p, GcsPath::FromString(path));
   auto metadata = impl_->GetObjectMetadata(p);
   ARROW_GCS_RETURN_NOT_OK(metadata.status());
-  auto impl = impl_;
-  auto open_stream = [impl, p](gcs::Generation g, gcs::ReadFromOffset offset) {
-    return impl->OpenInputStream(p, g, offset);
+  auto open_stream = [impl = impl_, p](gcs::Generation g, gcs::ReadRange range,
+                                       gcs::ReadFromOffset offset) {
+    return impl->OpenInputStream(p, g, range, offset);
   };
-  ARROW_ASSIGN_OR_RAISE(auto stream,
-                        impl_->OpenInputStream(p, gcs::Generation(metadata->generation()),
-                                               gcs::ReadFromOffset()));
 
   return std::make_shared<GcsRandomAccessFile>(std::move(open_stream),
-                                               *std::move(metadata), std::move(stream));
+                                               *std::move(metadata));
 }
 
 Result<std::shared_ptr<io::RandomAccessFile>> GcsFileSystem::OpenInputFile(
@@ -947,16 +946,12 @@ Result<std::shared_ptr<io::RandomAccessFile>> GcsFileSystem::OpenInputFile(
   ARROW_ASSIGN_OR_RAISE(auto p, GcsPath::FromString(info.path()));
   auto metadata = impl_->GetObjectMetadata(p);
   ARROW_GCS_RETURN_NOT_OK(metadata.status());
-  auto impl = impl_;
-  auto open_stream = [impl, p](gcs::Generation g, gcs::ReadFromOffset offset) {
-    return impl->OpenInputStream(p, g, offset);
+  auto open_stream = [impl = impl_, p](gcs::Generation g, gcs::ReadRange range,
+                                       gcs::ReadFromOffset offset) {
+    return impl->OpenInputStream(p, g, range, offset);
   };
-  ARROW_ASSIGN_OR_RAISE(auto stream,
-                        impl_->OpenInputStream(p, gcs::Generation(metadata->generation()),
-                                               gcs::ReadFromOffset()));
-
   return std::make_shared<GcsRandomAccessFile>(std::move(open_stream),
-                                               *std::move(metadata), std::move(stream));
+                                               *std::move(metadata));
 }
 
 Result<std::shared_ptr<io::OutputStream>> GcsFileSystem::OpenOutputStream(
@@ -971,10 +966,11 @@ Result<std::shared_ptr<io::OutputStream>> GcsFileSystem::OpenAppendStream(
   return Status::NotImplemented("Append is not supported in GCS");
 }
 
-std::shared_ptr<GcsFileSystem> GcsFileSystem::Make(const GcsOptions& options,
-                                                   const io::IOContext& context) {
+Result<std::shared_ptr<GcsFileSystem>> GcsFileSystem::Make(
+    const GcsOptions& options, const io::IOContext& io_context) {
   // Cannot use `std::make_shared<>` as the constructor is private.
-  return std::shared_ptr<GcsFileSystem>(new GcsFileSystem(options, context));
+  std::shared_ptr<GcsFileSystem> ptr(new GcsFileSystem(options, io_context));
+  return ptr;
 }
 
 GcsFileSystem::GcsFileSystem(const GcsOptions& options, const io::IOContext& context)

@@ -49,7 +49,7 @@ documentation itself, you can search for an issue in GitHub.
 
 Documentation improvements are also a great way to gain some
 experience with our submission and review process without
-requiring a lot of local development environment setup. 
+requiring a lot of local development environment setup.
 
 .. note::
    Many documentation-only changes can be made directly in the
@@ -57,13 +57,13 @@ requiring a lot of local development environment setup.
    on the right top corner of the documentations page. This
    will handle making a fork and a pull request for you.
 
-   .. figure:: /developers/images/edit_page.jpeg
+   .. figure:: ../images/edit_page.jpeg
       :scale: 20 %
       :alt: click on edit this page
 
       On the right corner of the file in GitHub click on pen icon.
 
-   .. figure:: /developers/images/github_edit_page.jpeg
+   .. figure:: ../images/github_edit_page.jpeg
       :scale: 30 %
       :alt: edit file in GitHub.
 
@@ -84,7 +84,7 @@ library. Source folder includes:
 
 - **C++ documentation** section: ``docs/source/cpp``.
 - **Development** section: ``docs/source/developers``.
-- **Specificatons and protocols** section: ``docs/source/format``.
+- **Specifications and protocols** section: ``docs/source/format``.
 - **Language documentation**
 
   **C (GLib), Java, JavaScript** and **Python** documentation is located
@@ -114,4 +114,3 @@ library. Source folder includes:
 
 **Cookbooks** have their own repository `<https://github.com/apache/arrow-cookbook>`_
 and can be separately cloned and built.
-

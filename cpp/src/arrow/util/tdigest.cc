@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/util/tdigest.h"
+#include "arrow/util/tdigest_internal.h"
 
 #include <algorithm>
 #include <cmath>
@@ -26,6 +26,7 @@
 #include <vector>
 
 #include "arrow/status.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/math_constants.h"
 
 namespace arrow {
@@ -341,7 +342,7 @@ class TDigest::TDigestImpl {
   double total_weight() const { return total_weight_; }
 
  private:
-  // must be delcared before merger_, see constructor initialization list
+  // must be declared before merger_, see constructor initialization list
   const uint32_t delta_;
 
   TDigestMerger<> merger_;

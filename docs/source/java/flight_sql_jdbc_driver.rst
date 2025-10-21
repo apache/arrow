@@ -28,7 +28,7 @@ This driver can be used with any database that implements Flight SQL.
 Installation and Requirements
 =============================
 
-The driver is compatible with JDK 8+.  On JDK 9+, the following JVM
+The driver is compatible with JDK 11+. Note that the following JVM
 parameter is required:
 
 .. code-block:: shell
@@ -48,7 +48,7 @@ To add a dependency via Maven, use a ``pom.xml`` like the following:
      <artifactId>demo</artifactId>
      <version>1.0-SNAPSHOT</version>
      <properties>
-       <arrow.version>10.0.0</arrow.version>
+       <arrow.version>18.1.0</arrow.version>
      </properties>
      <dependencies>
        <dependency>
@@ -80,8 +80,8 @@ The components of the URI are as follows.
 * **HOSTNAME** is the hostname of the Flight SQL service.
 * **PORT** is the port of the Flight SQL service.
 
-Additional options can be passed as query parameters.  The supported
-parameters are:
+Additional options can be passed as query parameters. Parameter names are
+case-sensitive. The supported parameters are:
 
 .. list-table::
    :header-rows: 1
@@ -114,15 +114,63 @@ parameters are:
      - null
      - When TLS is enabled, the password for the certificate store
 
-   * - useEncryption
-     - false
-     - Whether to use TLS (the default is an insecure, plaintext
-       connection)
+   * - tlsRootCerts
+     - null
+     - Path to PEM-encoded root certificates for TLS - use this as
+       an alternative to ``trustStore``
 
-   * - username
+   * - clientCertificate
+     - null
+     - Path to PEM-encoded client mTLS certificate when the Flight
+       SQL server requires client verification.
+
+   * - clientKey
+     - null
+     - Path to PEM-encoded client mTLS key when the Flight
+       SQL server requires client verification.
+
+   * - useEncryption
+     - true
+     - Whether to use TLS (the default is an encrypted connection)
+
+   * - user
      - null
      - The username for user/password authentication
 
    * - useSystemTrustStore
      - true
      - When TLS is enabled, whether to use the system certificate store
+
+   * - retainCookies
+     - true
+     - Whether to use cookies from the initial connection in subsequent
+       internal connections when retrieving streams from separate endpoints.
+
+   * - retainAuth
+     - true
+     - Whether to use bearer tokens obtained from the initial connection
+       in subsequent internal connections used for retrieving streams
+       from separate endpoints.
+
+Note that URI values must be URI-encoded if they contain characters such
+as !, @, $, etc.
+
+Any URI parameters that are not handled by the driver are passed to
+the Flight SQL service as gRPC headers. For example, the following URI ::
+
+  jdbc:arrow-flight-sql://localhost:12345/?useEncryption=0&database=mydb
+
+This will connect without authentication or encryption, to a Flight
+SQL service running on ``localhost`` on port 12345. Each request will
+also include a ``database=mydb`` gRPC header.
+
+Connection parameters may also be supplied using the Properties object
+when using the JDBC Driver Manager to connect. When supplying using
+the Properties object, values should *not* be URI-encoded.
+
+Parameters specified by the URI supercede parameters supplied by the
+Properties object. When calling the `user/password overload of
+DriverManager#getConnection()
+<https://docs.oracle.com/javase/8/docs/api/java/sql/DriverManager.html#getConnection-java.lang.String-java.lang.String-java.lang.String->`_,
+the username and password supplied on the URI supercede the username and
+password arguments to the function call.

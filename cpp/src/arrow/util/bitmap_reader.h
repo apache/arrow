@@ -31,6 +31,8 @@ namespace internal {
 
 class BitmapReader {
  public:
+  BitmapReader() = default;
+
   BitmapReader(const uint8_t* bitmap, int64_t start_offset, int64_t length)
       : bitmap_(bitmap), position_(0), length_(length) {
     current_byte_ = 0;
@@ -256,7 +258,7 @@ class BitmapWordReader {
   }
 };
 
-/// \brief Index into a possibly non-existent bitmap
+/// \brief Index into a possibly nonexistent bitmap
 struct OptionalBitIndexer {
   const uint8_t* bitmap;
   const int64_t offset;

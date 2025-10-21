@@ -23,6 +23,7 @@
 #include <vector>
 
 #include "arrow/chunked_array.h"  // IWYU pragma: keep
+#include "arrow/compare.h"
 #include "arrow/record_batch.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
@@ -75,7 +76,7 @@ class ARROW_EXPORT Table {
 
   /// \brief Construct a Table from a RecordBatchReader.
   ///
-  /// \param[in] reader the arrow::Schema for each batch
+  /// \param[in] reader the arrow::RecordBatchReader that produces batches
   static Result<std::shared_ptr<Table>> FromRecordBatchReader(RecordBatchReader* reader);
 
   /// \brief Construct a Table from RecordBatches, using schema supplied by the first
@@ -203,16 +204,32 @@ class ARROW_EXPORT Table {
   /// \brief Return the number of rows (equal to each column's logical length)
   int64_t num_rows() const { return num_rows_; }
 
-  /// \brief Determine if tables are equal
+  /// \brief Determine if two tables are equal
   ///
-  /// Two tables can be equal only if they have equal schemas.
-  /// However, they may be equal even if they have different chunkings.
-  bool Equals(const Table& other, bool check_metadata = false) const;
+  /// \param[in] other the table to compare with
+  /// \param[in] opts the options for equality comparisons
+  /// \return true if two tables are equal
+  bool Equals(const Table& other, const EqualOptions& opts) const;
+
+  /// \brief Determine if two tables are equal
+  ///
+  /// \param[in] other the table to compare with
+  /// \param[in] check_metadata if true, the schema metadata will be compared,
+  ///            regardless of the value set in \ref EqualOptions::use_metadata
+  /// \param[in] opts the options for equality comparisons
+  /// \return true if two tables are equal
+  bool Equals(const Table& other, bool check_metadata = false,
+              const EqualOptions& opts = EqualOptions::Defaults()) const {
+    return Equals(other, opts.use_metadata(check_metadata));
+  }
 
   /// \brief Make a new table by combining the chunks this table has.
   ///
   /// All the underlying chunks in the ChunkedArray of each column are
   /// concatenated into zero or one chunk.
+  ///
+  /// To avoid buffer overflow, binary columns may be combined into
+  /// multiple chunks. Chunks will have the maximum possible length.
   ///
   /// \param[in] pool The pool for buffer allocations
   Result<std::shared_ptr<Table>> CombineChunks(
@@ -241,6 +258,8 @@ class ARROW_EXPORT Table {
 ///
 /// The conversion is zero-copy: each record batch is a view over a slice
 /// of the table's columns.
+///
+/// The table is expected to be valid prior to using it with the batch reader.
 class ARROW_EXPORT TableBatchReader : public RecordBatchReader {
  public:
   /// \brief Construct a TableBatchReader for the given table
@@ -251,9 +270,9 @@ class ARROW_EXPORT TableBatchReader : public RecordBatchReader {
 
   Status ReadNext(std::shared_ptr<RecordBatch>* out) override;
 
-  /// \brief Set the desired maximum chunk size of record batches
+  /// \brief Set the desired maximum number of rows for record batches
   ///
-  /// The actual chunk size of each record batch may be smaller, depending
+  /// The actual number of rows in each record batch may be smaller, depending
   /// on actual chunking characteristics of each table column.
   void set_chunksize(int64_t chunksize);
 
@@ -267,11 +286,6 @@ class ARROW_EXPORT TableBatchReader : public RecordBatchReader {
   int64_t max_chunksize_;
 };
 
-/// \defgroup concat-tables ConcatenateTables function.
-///
-/// ConcatenateTables function.
-/// @{
-
 /// \brief Controls the behavior of ConcatenateTables().
 struct ARROW_EXPORT ConcatenateTablesOptions {
   /// If true, the schemas of the tables will be first unified with fields of
@@ -281,6 +295,9 @@ struct ARROW_EXPORT ConcatenateTablesOptions {
   /// is the result of concatenating the corresponding columns in all input tables.
   bool unify_schemas = false;
 
+  /// options to control how fields are merged when unifying schemas
+  ///
+  /// This field will be ignored if unify_schemas is false
   Field::MergeOptions field_merge_options = Field::MergeOptions::Defaults();
 
   static ConcatenateTablesOptions Defaults() { return {}; }
@@ -303,23 +320,29 @@ struct ARROW_EXPORT ConcatenateTablesOptions {
 /// \param[in] memory_pool MemoryPool to be used if null-filled arrays need to
 /// be created or if existing column chunks need to endure type conversion
 /// \return new Table
-
 ARROW_EXPORT
 Result<std::shared_ptr<Table>> ConcatenateTables(
     const std::vector<std::shared_ptr<Table>>& tables,
     ConcatenateTablesOptions options = ConcatenateTablesOptions::Defaults(),
     MemoryPool* memory_pool = default_memory_pool());
 
+namespace compute {
+class CastOptions;
+}
+
 /// \brief Promotes a table to conform to the given schema.
 ///
-/// If a field in the schema does not have a corresponding column in the
-/// table, a column of nulls will be added to the resulting table.
-/// If the corresponding column is of type Null, it will be promoted to
-/// the type specified by schema, with null values filled.
+/// If a field in the schema does not have a corresponding column in
+/// the table, a column of nulls will be added to the resulting table.
+/// If the corresponding column is of type Null, it will be promoted
+/// to the type specified by schema, with null values filled. The
+/// column will be casted to the type specified by the schema.
+///
 /// Returns an error:
 /// - if the corresponding column's type is not compatible with the
 ///   schema.
 /// - if there is a column in the table that does not exist in the schema.
+/// - if the cast fails or casting would be required but is not available.
 ///
 /// \param[in] table the input Table
 /// \param[in] schema the target schema to promote to
@@ -329,5 +352,29 @@ ARROW_EXPORT
 Result<std::shared_ptr<Table>> PromoteTableToSchema(
     const std::shared_ptr<Table>& table, const std::shared_ptr<Schema>& schema,
     MemoryPool* pool = default_memory_pool());
+
+/// \brief Promotes a table to conform to the given schema.
+///
+/// If a field in the schema does not have a corresponding column in
+/// the table, a column of nulls will be added to the resulting table.
+/// If the corresponding column is of type Null, it will be promoted
+/// to the type specified by schema, with null values filled. The column
+/// will be casted to the type specified by the schema.
+///
+/// Returns an error:
+/// - if the corresponding column's type is not compatible with the
+///   schema.
+/// - if there is a column in the table that does not exist in the schema.
+/// - if the cast fails or casting would be required but is not available.
+///
+/// \param[in] table the input Table
+/// \param[in] schema the target schema to promote to
+/// \param[in] options The cast options to allow promotion of types
+/// \param[in] pool The memory pool to be used if null-filled arrays need to
+/// be created.
+ARROW_EXPORT
+Result<std::shared_ptr<Table>> PromoteTableToSchema(
+    const std::shared_ptr<Table>& table, const std::shared_ptr<Schema>& schema,
+    const compute::CastOptions& options, MemoryPool* pool = default_memory_pool());
 
 }  // namespace arrow

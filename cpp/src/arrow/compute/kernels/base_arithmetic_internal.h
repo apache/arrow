@@ -17,13 +17,16 @@
 
 #pragma once
 
+#include <limits>
 #include "arrow/compute/api_scalar.h"
-#include "arrow/compute/kernels/common.h"
+#include "arrow/compute/kernels/common_internal.h"
 #include "arrow/compute/kernels/util_internal.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/decimal.h"
+#include "arrow/util/float16.h"
 #include "arrow/util/int_util_overflow.h"
+#include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 
 namespace arrow {
@@ -33,6 +36,7 @@ using internal::DivideWithOverflow;
 using internal::MultiplyWithOverflow;
 using internal::NegateWithOverflow;
 using internal::SubtractWithOverflow;
+using util::Float16;
 
 namespace compute {
 namespace internal {
@@ -425,9 +429,52 @@ struct DivideChecked {
   }
 };
 
+struct FloatingDivide {
+  template <typename T, typename Arg0, typename Arg1>
+  static enable_if_floating_value<Arg0> Call(KernelContext*, Arg0 left, Arg1 right,
+                                             Status*) {
+    return left / right;
+  }
+
+  template <typename T, typename Arg0, typename Arg1>
+  static enable_if_integer_value<Arg0, double> Call(KernelContext* ctx, Arg0 left,
+                                                    Arg1 right, Status* st) {
+    static_assert(std::is_same<Arg0, Arg1>::value);
+    return Call<double>(ctx, static_cast<double>(left), static_cast<double>(right), st);
+  }
+
+  // TODO: Add decimal
+};
+
+struct FloatingDivideChecked {
+  template <typename T, typename Arg0, typename Arg1>
+  static enable_if_floating_value<Arg0> Call(KernelContext*, Arg0 left, Arg1 right,
+                                             Status* st) {
+    static_assert(std::is_same<T, Arg0>::value && std::is_same<T, Arg1>::value);
+    if (ARROW_PREDICT_FALSE(right == 0)) {
+      *st = Status::Invalid("divide by zero");
+      return 0;
+    }
+    return left / right;
+  }
+
+  template <typename T, typename Arg0, typename Arg1>
+  static enable_if_integer_value<Arg0, double> Call(KernelContext* ctx, Arg0 left,
+                                                    Arg1 right, Status* st) {
+    static_assert(std::is_same<Arg0, Arg1>::value);
+    return Call<double>(ctx, static_cast<double>(left), static_cast<double>(right), st);
+  }
+  // TODO: Add decimal
+};
+
 struct Negate {
   template <typename T, typename Arg>
   static constexpr enable_if_floating_value<T> Call(KernelContext*, Arg arg, Status*) {
+    return -arg;
+  }
+
+  template <typename T, typename Arg>
+  static constexpr enable_if_half_float_value<T> Call(KernelContext*, Arg arg, Status*) {
     return -arg;
   }
 
@@ -466,14 +513,20 @@ struct NegateChecked {
   static enable_if_unsigned_integer_value<Arg, T> Call(KernelContext* ctx, Arg arg,
                                                        Status* st) {
     static_assert(std::is_same<T, Arg>::value, "");
-    DCHECK(false) << "This is included only for the purposes of instantiability from the "
-                     "arithmetic kernel generator";
+    ARROW_DCHECK(false) << "This is included only for the purposes of instantiability "
+                           "from the arithmetic kernel generator";
     return 0;
   }
 
   template <typename T, typename Arg>
   static constexpr enable_if_floating_value<Arg, T> Call(KernelContext*, Arg arg,
                                                          Status* st) {
+    static_assert(std::is_same<T, Arg>::value, "");
+    return -arg;
+  }
+
+  template <typename T, typename Arg>
+  static constexpr enable_if_half_float_value<T> Call(KernelContext*, Arg arg, Status*) {
     static_assert(std::is_same<T, Arg>::value, "");
     return -arg;
   }
@@ -490,6 +543,14 @@ struct Exp {
   static T Call(KernelContext*, Arg exp, Status*) {
     static_assert(std::is_same<T, Arg>::value, "");
     return std::exp(exp);
+  }
+};
+
+struct Expm1 {
+  template <typename T, typename Arg>
+  static T Call(KernelContext*, Arg exp, Status*) {
+    static_assert(std::is_same<T, Arg>::value);
+    return std::expm1(exp);
   }
 };
 
@@ -587,6 +648,15 @@ struct Sign {
   }
 
   template <typename T, typename Arg>
+  static constexpr enable_if_half_float_value<Arg, T> Call(KernelContext*, Arg arg,
+                                                           Status*) {
+    return arg.is_nan()
+               ? arg
+               : (arg.is_zero() ? Float16::zero()
+                                : (arg.signbit() ? -Float16::one() : Float16::one()));
+  }
+
+  template <typename T, typename Arg>
   static constexpr enable_if_unsigned_integer_value<Arg, T> Call(KernelContext*, Arg arg,
                                                                  Status*) {
     return (arg > 0) ? 1 : 0;
@@ -602,6 +672,102 @@ struct Sign {
   static constexpr enable_if_decimal_value<Arg, T> Call(KernelContext*, Arg arg,
                                                         Status*) {
     return (arg == 0) ? 0 : arg.Sign();
+  }
+};
+
+struct Max {
+  template <typename T, typename Arg0, typename Arg1>
+  static constexpr enable_if_not_floating_value<T> Call(KernelContext*, Arg0 arg0,
+                                                        Arg1 arg1, Status*) {
+    static_assert(std::is_same<T, Arg0>::value && std::is_same<Arg0, Arg1>::value);
+    return std::max(arg0, arg1);
+  }
+
+  template <typename T, typename Arg0, typename Arg1>
+  static constexpr enable_if_floating_value<T> Call(KernelContext*, Arg0 left, Arg1 right,
+                                                    Status*) {
+    static_assert(std::is_same<T, Arg0>::value && std::is_same<Arg0, Arg1>::value);
+    if (std::isnan(left)) {
+      return right;
+    } else if (std::isnan(right)) {
+      return left;
+    } else {
+      return std::max(left, right);
+    }
+  }
+};
+
+struct Min {
+  template <typename T, typename Arg0, typename Arg1>
+  static constexpr enable_if_not_floating_value<T> Call(KernelContext*, Arg0 arg0,
+                                                        Arg1 arg1, Status*) {
+    static_assert(std::is_same<T, Arg0>::value && std::is_same<Arg0, Arg1>::value);
+    return std::min(arg0, arg1);
+  }
+
+  template <typename T, typename Arg0, typename Arg1>
+  static constexpr enable_if_floating_value<T> Call(KernelContext*, Arg0 left, Arg1 right,
+                                                    Status*) {
+    static_assert(std::is_same<T, Arg0>::value && std::is_same<Arg0, Arg1>::value);
+    if (std::isnan(left)) {
+      return right;
+    } else if (std::isnan(right)) {
+      return left;
+    } else {
+      return std::min(left, right);
+    }
+  }
+};
+
+/// The term identity is from the mathematical notation monoid.
+/// For any associative binary operation, identity is defined as:
+///     Op(identity, x) = x for all x.
+template <typename Op>
+struct Identity;
+
+template <>
+struct Identity<Add> {
+  template <typename Value>
+  static constexpr Value value() {
+    if constexpr (std::is_same_v<Float16, Value>) {
+      return Float16::zero();
+    } else {
+      return 0;
+    }
+  }
+};
+
+template <>
+struct Identity<AddChecked> : Identity<Add> {};
+
+template <>
+struct Identity<Multiply> {
+  template <typename Value>
+  static constexpr Value value() {
+    if constexpr (std::is_same_v<Float16, Value>) {
+      return Float16::one();
+    } else {
+      return 1;
+    }
+  }
+};
+
+template <>
+struct Identity<MultiplyChecked> : Identity<Multiply> {};
+
+template <>
+struct Identity<Max> {
+  template <typename Value>
+  static constexpr Value value() {
+    return std::numeric_limits<Value>::min();
+  }
+};
+
+template <>
+struct Identity<Min> {
+  template <typename Value>
+  static constexpr Value value() {
+    return std::numeric_limits<Value>::max();
   }
 };
 

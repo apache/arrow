@@ -180,8 +180,7 @@ cdef class FileInfo(_Weakrefable):
     @staticmethod
     cdef CFileInfo unwrap_safe(obj):
         if not isinstance(obj, FileInfo):
-            raise TypeError("Expected FileInfo instance, got {0}"
-                            .format(type(obj)))
+            raise TypeError(f"Expected FileInfo instance, got {type(obj)}")
         return (<FileInfo> obj).unwrap()
 
     def __repr__(self):
@@ -406,8 +405,7 @@ cdef class FileSelector(_Weakrefable):
         self.selector.recursive = recursive
 
     def __repr__(self):
-        return ("<FileSelector base_dir={0.base_dir!r} "
-                "recursive={0.recursive}>".format(self))
+        return f"<FileSelector base_dir={self.base_dir!r} recursive={self.recursive}>"
 
 
 cdef class FileSystem(_Weakrefable):
@@ -419,6 +417,44 @@ cdef class FileSystem(_Weakrefable):
         raise TypeError("FileSystem is an abstract class, instantiate one of "
                         "the subclasses instead: LocalFileSystem or "
                         "SubTreeFileSystem")
+
+    @staticmethod
+    def _from_uri(uri):
+        fs, _path = FileSystem.from_uri(uri)
+        return fs
+
+    @staticmethod
+    def _fsspec_from_uri(uri):
+        """Instantiate FSSpecHandler and path for the given URI."""
+        try:
+            import fsspec
+        except ImportError:
+            raise ImportError(
+                "`fsspec` is required to handle `fsspec+<filesystem>://` and `hf://` URIs."
+            )
+        from .fs import FSSpecHandler
+
+        uri = uri.removeprefix("fsspec+")
+        fs, path = fsspec.url_to_fs(uri)
+        fs = PyFileSystem(FSSpecHandler(fs))
+
+        return fs, path
+
+    @staticmethod
+    def _native_from_uri(uri):
+        """Instantiate native FileSystem and path for the given URI."""
+        cdef:
+            c_string c_path
+            c_string c_uri
+            CResult[shared_ptr[CFileSystem]] result
+
+        if isinstance(uri, pathlib.Path):
+            # Make absolute
+            uri = uri.resolve().absolute()
+        c_uri = tobytes(_stringify_path(uri))
+        with nogil:
+            result = CFileSystemFromUriOrPath(c_uri, &c_path)
+        return FileSystem.wrap(GetResultValue(result)), frombytes(c_path)
 
     @staticmethod
     def from_uri(uri):
@@ -444,7 +480,7 @@ cdef class FileSystem(_Weakrefable):
         --------
         Create a new FileSystem subclass from a URI:
 
-        >>> uri = 'file:///{}/pyarrow-fs-example.dat'.format(local_path)
+        >>> uri = f'file:///{local_path}/pyarrow-fs-example.dat'
         >>> local_new, path_new = fs.FileSystem.from_uri(uri)
         >>> local_new
         <pyarrow._fs.LocalFileSystem object at ...
@@ -455,19 +491,16 @@ cdef class FileSystem(_Weakrefable):
 
         >>> fs.FileSystem.from_uri("s3://usgs-landsat/collection02/")
         (<pyarrow._s3fs.S3FileSystem object at ...>, 'usgs-landsat/collection02')
-        """
-        cdef:
-            c_string c_path
-            c_string c_uri
-            CResult[shared_ptr[CFileSystem]] result
 
-        if isinstance(uri, pathlib.Path):
-            # Make absolute
-            uri = uri.resolve().absolute()
-        c_uri = tobytes(_stringify_path(uri))
-        with nogil:
-            result = CFileSystemFromUriOrPath(c_uri, &c_path)
-        return FileSystem.wrap(GetResultValue(result)), frombytes(c_path)
+        Or from an fsspec+ URI:
+
+        >>> fs.FileSystem.from_uri("fsspec+memory:///path/to/file")
+        (<pyarrow._fs.PyFileSystem object at ...>, '/path/to/file')
+        """
+        if isinstance(uri, str) and uri.startswith(("fsspec+", "hf://")):
+            return FileSystem._fsspec_from_uri(uri)
+        else:
+            return FileSystem._native_from_uri(uri)
 
     cdef init(self, const shared_ptr[CFileSystem]& wrapped):
         self.wrapped = wrapped
@@ -490,6 +523,9 @@ cdef class FileSystem(_Weakrefable):
         elif typ == 'gcs':
             from pyarrow._gcsfs import GcsFileSystem
             self = GcsFileSystem.__new__(GcsFileSystem)
+        elif typ == 'abfs':
+            from pyarrow._azurefs import AzureFileSystem
+            self = AzureFileSystem.__new__(AzureFileSystem)
         elif typ == 'hdfs':
             from pyarrow._hdfs import HadoopFileSystem
             self = HadoopFileSystem.__new__(HadoopFileSystem)
@@ -504,7 +540,16 @@ cdef class FileSystem(_Weakrefable):
     cdef inline shared_ptr[CFileSystem] unwrap(self) nogil:
         return self.wrapped
 
-    def equals(self, FileSystem other):
+    def equals(self, FileSystem other not None):
+        """
+        Parameters
+        ----------
+        other : pyarrow.fs.FileSystem
+
+        Returns
+        -------
+        bool
+        """
         return self.fs.Equals(other.unwrap())
 
     def __eq__(self, other):
@@ -547,7 +592,7 @@ cdef class FileSystem(_Weakrefable):
         --------
         >>> local
         <pyarrow._fs.LocalFileSystem object at ...>
-        >>> local.get_file_info("/{}/pyarrow-fs-example.dat".format(local_path))
+        >>> local.get_file_info(f"/{local_path}/pyarrow-fs-example.dat")
         <FileInfo for '/.../pyarrow-fs-example.dat': type=FileType.File, size=4>
         """
         cdef:
@@ -920,7 +965,7 @@ cdef class FileSystem(_Weakrefable):
         ...     f.write(b'+newly added')
         12
 
-        Print out the content fo the file:
+        Print out the content to the file:
 
         >>> with local.open_input_file(path) as f:
         ...     print(f.readall())
@@ -1001,7 +1046,7 @@ cdef class LocalFileSystem(FileSystem):
 
     Create a FileSystem object inferred from a URI of the saved file:
 
-    >>> local_new, path = fs.LocalFileSystem().from_uri('/tmp/local_fs.dat')
+    >>> local_new, path = fs.LocalFileSystem.from_uri('/tmp/local_fs.dat')
     >>> local_new
     <pyarrow._fs.LocalFileSystem object at ...
     >>> path
@@ -1084,29 +1129,18 @@ cdef class LocalFileSystem(FileSystem):
 
     def __init__(self, *, use_mmap=False):
         cdef:
-            CLocalFileSystemOptions opts
-            shared_ptr[CLocalFileSystem] fs
+            shared_ptr[CFileSystem] fs
+            c_string c_uri
 
-        opts = CLocalFileSystemOptions.Defaults()
-        opts.use_mmap = use_mmap
-
-        fs = make_shared[CLocalFileSystem](opts)
+        # from_uri needs a non-empty path, so just use a placeholder of /_
+        c_uri = tobytes(f"file:///_?use_mmap={int(use_mmap)}")
+        with nogil:
+            fs = GetResultValue(CFileSystemFromUri(c_uri))
         self.init(<shared_ptr[CFileSystem]> fs)
 
-    cdef init(self, const shared_ptr[CFileSystem]& c_fs):
-        FileSystem.init(self, c_fs)
-        self.localfs = <CLocalFileSystem*> c_fs.get()
-
-    @classmethod
-    def _reconstruct(cls, kwargs):
-        # __reduce__ doesn't allow passing named arguments directly to the
-        # reconstructor, hence this wrapper.
-        return cls(**kwargs)
-
     def __reduce__(self):
-        cdef CLocalFileSystemOptions opts = self.localfs.options()
-        return LocalFileSystem._reconstruct, (dict(
-            use_mmap=opts.use_mmap),)
+        uri = frombytes(GetResultValue(self.fs.MakeUri(b"/_")))
+        return FileSystem._from_uri, (uri,)
 
 
 cdef class SubTreeFileSystem(FileSystem):
@@ -1186,8 +1220,7 @@ cdef class SubTreeFileSystem(FileSystem):
         self.subtreefs = <CSubTreeFileSystem*> wrapped.get()
 
     def __repr__(self):
-        return ("SubTreeFileSystem(base_path={}, base_fs={}"
-                .format(self.base_path, self.base_fs))
+        return f"SubTreeFileSystem(base_path={self.base_path}, base_fs={self.base_fs})"
 
     def __reduce__(self):
         return SubTreeFileSystem, (
@@ -1254,8 +1287,8 @@ cdef class PyFileSystem(FileSystem):
             shared_ptr[CPyFileSystem] wrapped
 
         if not isinstance(handler, FileSystemHandler):
-            raise TypeError("Expected a FileSystemHandler instance, got {0}"
-                            .format(type(handler)))
+            raise TypeError(
+                f"Expected a FileSystemHandler instance, got {type(handler)}")
 
         vtable.get_type_name = _cb_get_type_name
         vtable.equals = _cb_equals
@@ -1590,9 +1623,6 @@ def _copy_files(FileSystem source_fs, str source_path,
         vector[CFileLocator] c_sources
         CFileLocator c_destination
         vector[CFileLocator] c_destinations
-        FileSystem fs
-        CStatus c_status
-        shared_ptr[CFileSystem] c_fs
 
     c_source.filesystem = source_fs.unwrap()
     c_source.path = tobytes(source_path)

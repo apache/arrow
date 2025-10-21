@@ -1,0 +1,119 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+name: RC
+
+on:
+  push:
+    branches:
+      - '**'
+      - '!dependabot/**'
+    tags:
+      - "apache-arrow-*-rc*"
+    paths:
+      - ".github/workflows/release_candidate.sh"
+      - "dev/release/utils-create-release-tarball.sh"
+      - "dev/release/utils-generate-checksum.sh"
+  pull_request:
+    paths:
+      - ".github/workflows/release_candidate.sh"
+      - "dev/release/utils-create-release-tarball.sh"
+      - "dev/release/utils-generate-checksum.sh"
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    name: Publish
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout Arrow
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Install dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y -V gpg reprotest
+      - name: Store Version and Release Candidate Number
+        run: |
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            version_with_rc=${GITHUB_REF_NAME#apache-arrow-}
+            version=${version_with_rc%-rc*}
+            rc_num=${version_with_rc#${version}-rc}
+          else
+            version=$(grep '^set(ARROW_VERSION ' cpp/CMakeLists.txt | \
+                        grep -E -o '[0-9]+\.[0-9]+\.[0-9]+')
+            rc_num=999
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git tag \
+              -a \
+              "apache-arrow-${version}-rc${rc_num}" \
+              -m "Apache Arrow ${version} RC${rc_num}"
+          fi
+          echo "VERSION=${version}" >> ${GITHUB_ENV}
+          echo "RC_NUM=${rc_num}" >> ${GITHUB_ENV}
+      - name: Create Release Candidate Title
+        run: |
+          title="Apache Arrow ${VERSION} RC${RC_NUM}"
+          echo "RELEASE_CANDIDATE_TITLE=${title}" >> ${GITHUB_ENV}
+      - name: Create Release Candidate Notes
+        run: |
+          release_notes="Release Candidate: ${VERSION} RC${RC_NUM}"
+          echo "RELEASE_CANDIDATE_NOTES=${release_notes}" >> ${GITHUB_ENV}
+      - name: Create Release tarball
+        env:
+          ARROW_GPG_KEY_UID: A2AC7132B5DA7C273A7A147665F4A8CA9769ECD7
+          ARROW_GPG_SECRET_KEY: ${{ secrets.ARROW_GPG_SECRET_KEY }}
+        run: |
+          sudo reprotest \
+            "dev/release/utils-create-release-tarball.sh ${VERSION} ${RC_NUM}" \
+            apache-arrow-${VERSION}.tar.gz
+          dev/release/utils-create-release-tarball.sh ${VERSION} ${RC_NUM}
+          RELEASE_TARBALL=apache-arrow-${VERSION}.tar.gz
+          echo "RELEASE_TARBALL=${RELEASE_TARBALL}" >> ${GITHUB_ENV}
+          dev/release/run-rat.sh "${RELEASE_TARBALL}"
+          dev/release/utils-generate-checksum.sh "${RELEASE_TARBALL}"
+          if [ -n "${ARROW_GPG_SECRET_KEY}" ]; then
+            echo "${ARROW_GPG_SECRET_KEY}" | gpg --import
+            gpg \
+              --armor \
+              --detach-sign \
+              --local-user "${ARROW_GPG_KEY_UID}" \
+              --output "${RELEASE_TARBALL}.asc" \
+              "${RELEASE_TARBALL}"
+          fi
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: release-candidate
+          path: ${{ env.RELEASE_TARBALL }}*
+      - name: Create GitHub Release
+        if: |
+          github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create ${GITHUB_REF_NAME} \
+            --verify-tag \
+            --prerelease \
+            --title "${RELEASE_CANDIDATE_TITLE}" \
+            --notes "Release Notes: ${RELEASE_CANDIDATE_NOTES}" \
+            ${RELEASE_TARBALL}*

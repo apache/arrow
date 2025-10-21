@@ -62,10 +62,10 @@ class Report:
         return url[:-4] if url.endswith('.git') else url
 
     def url(self, query):
-        return '{}/branches/all?query={}'.format(self.repo_url, query)
+        return f'{self.repo_url}/branches/all?query={query}'
 
     def branch_url(self, branch):
-        return '{}/tree/{}'.format(self.repo_url, branch)
+        return f'{self.repo_url}/tree/{branch}'
 
     def task_url(self, task):
         build_links = task.status().build_links
@@ -155,7 +155,7 @@ class ConsoleReport(Report):
         line = self.HEADER.format(
             state=state.upper(),
             branch=branch,
-            content='uploaded {} / {}'.format(n_uploaded, n_expected)
+            content=f'uploaded {n_uploaded} / {n_expected}'
         )
         return click.style(line, fg=self.COLORS[state.lower()])
 
@@ -166,7 +166,7 @@ class ConsoleReport(Report):
             content='Artifacts'
         )
         delimiter = '-' * len(header)
-        return '{}\n{}'.format(header, delimiter)
+        return f"{header}\n{delimiter}"
 
     def artifact(self, state, pattern, asset):
         if asset is None:
@@ -217,6 +217,7 @@ class ConsoleReport(Report):
 class ChatReport(JinjaReport):
     templates = {
         'text': 'chat_nightly_report.txt.j2',
+        'workflow_report': 'chat_nightly_workflow_report.txt.j2',
     }
     fields = [
         'report',
@@ -246,13 +247,19 @@ class ReportUtils:
     @classmethod
     def send_email(cls, smtp_user, smtp_password, smtp_server, smtp_port,
                    recipient_email, message):
-        import smtplib
+        from smtplib import SMTP, SMTP_SSL
 
-        server = smtplib.SMTP_SSL(smtp_server, smtp_port)
-        server.ehlo()
-        server.login(smtp_user, smtp_password)
-        server.sendmail(smtp_user, recipient_email, message)
-        server.close()
+        if smtp_port == 465:
+            smtp_cls = SMTP_SSL
+        else:
+            smtp_cls = SMTP
+        with smtp_cls(smtp_server, smtp_port) as smtp:
+            if smtp_port == 465:
+                smtp.ehlo()
+            else:
+                smtp.starttls()
+            smtp.login(smtp_user, smtp_password)
+            smtp.sendmail(smtp_user, recipient_email, message)
 
     @classmethod
     def write_csv(cls, report, add_headers=True):
@@ -267,6 +274,7 @@ class EmailReport(JinjaReport):
     templates = {
         'nightly_report': 'email_nightly_report.txt.j2',
         'token_expiration': 'email_token_expiration.txt.j2',
+        'workflow_report': 'email_workflow_report.txt.j2',
     }
     fields = [
         'report',
@@ -282,9 +290,9 @@ class CommentReport(Report):
 
     badges = {
         'github': _markdown_badge.format(
-            title='Github Actions',
+            title='GitHub Actions',
             badge=(
-                'https://github.com/{repo}/workflows/Crossbow/'
+                'https://github.com/{repo}/actions/workflows/crossbow.yml/'
                 'badge.svg?branch={branch}'
             ),
         ),
@@ -324,9 +332,9 @@ class CommentReport(Report):
         url = 'https://github.com/{repo}/branches/all?query={branch}'
         sha = self.job.target.head
 
-        msg = 'Revision: {}\n\n'.format(sha)
+        msg = f'Revision: {sha}\n\n'
         msg += 'Submitted crossbow builds: [{repo} @ {branch}]'
-        msg += '({})\n'.format(url)
+        msg += f'({url})\n'
         msg += '\n|Task|Status|\n|----|------|'
 
         tasks = sorted(self.job.tasks.items(), key=operator.itemgetter(0))
@@ -342,8 +350,8 @@ class CommentReport(Report):
                     url=self.task_url(task)
                 )
             except KeyError:
-                badge = 'unsupported CI service `{}`'.format(task.ci)
+                badge = f'unsupported CI service `{task.ci}`'
 
-            msg += '\n|{}|{}|'.format(key, badge)
+            msg += f'\n|{key}|{badge}|'
 
         return msg.format(repo=self.crossbow_repo, branch=self.job.branch)

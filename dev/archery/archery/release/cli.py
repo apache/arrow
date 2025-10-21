@@ -28,11 +28,11 @@ from .core import IssueTracker, Release
               callback=validate_arrow_sources,
               help="Specify Arrow source directory.")
 @click.option('--github-token', '-t', default=None,
-              envvar="CROSSBOW_GITHUB_TOKEN",
+              envvar=['GH_TOKEN', 'CROSSBOW_GITHUB_TOKEN'],
               help='OAuth token for GitHub authentication')
 @click.pass_obj
 def release(obj, src, github_token):
-    """Release releated commands."""
+    """Release related commands."""
 
     obj['issue_tracker'] = IssueTracker(github_token=github_token)
     obj['repo'] = src.path
@@ -98,7 +98,7 @@ def release_changelog_generate(obj, version, output):
 @release_changelog.command('regenerate')
 @click.pass_obj
 def release_changelog_regenerate(obj):
-    """Regeneretate the whole CHANGELOG.md file"""
+    """Regenerate the whole CHANGELOG.md file"""
     issue_tracker, repo = obj['issue_tracker'], obj['repo']
     changelogs = []
     issue_tracker = IssueTracker(issue_tracker=issue_tracker)
@@ -108,7 +108,7 @@ def release_changelog_regenerate(obj):
             continue
         release = Release(version, repo=repo,
                           issue_tracker=issue_tracker)
-        click.echo('Querying changelog for version: {}'.format(version))
+        click.echo(f'Querying changelog for version: {version}')
         changelogs.append(release.changelog())
 
     click.echo('Rendering new CHANGELOG.md file...')
@@ -139,4 +139,4 @@ def release_cherry_pick(obj, version, dry_run, recreate):
     else:
         click.echo(f'git checkout -b {release.branch} {release.base_branch}')
         for commit in release.commits_to_pick():
-            click.echo('git cherry-pick {}'.format(commit.hexsha))
+            click.echo(f'git cherry-pick {commit.hexsha}')

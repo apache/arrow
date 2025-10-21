@@ -21,85 +21,64 @@
 # SOFTWARE.
 
 sources:
-  "10.0.0":
-    url: "https://github.com/apache/arrow/archive/apache-arrow-10.0.0.tar.gz"
-    sha256: "2852b21f93ee84185a9d838809c9a9c41bf6deca741bed1744e0fdba6cc19e3f"
-  "8.0.1":
-    url: "https://github.com/apache/arrow/archive/apache-arrow-8.0.1.tar.gz"
-    sha256: "e4c86329be769f2c8778aacc8d6220a9a13c90d59d4988f9349d51299dacbd11"
-  "8.0.0":
-    url: "https://github.com/apache/arrow/archive/apache-arrow-8.0.0.tar.gz"
-    sha256: "19ece12de48e51ce4287d2dee00dc358fbc5ff02f41629d16076f77b8579e272"
-  "7.0.0":
-    url: "https://github.com/apache/arrow/archive/apache-arrow-7.0.0.tar.gz"
-    sha256: "57e13c62f27b710e1de54fd30faed612aefa22aa41fa2c0c3bacd204dd18a8f3"
-  "2.0.0":
-    url: "https://github.com/apache/arrow/archive/apache-arrow-2.0.0.tar.gz"
-    sha256: "ea299df9cf440cfc43393ce12ee6d9a4c9d0dfa9fde33c3bc9b70ec25520a844"
-  "1.0.0":
-    url: "https://github.com/apache/arrow/archive/apache-arrow-1.0.0.tar.gz"
-    sha256: "08fbd4c633c08939850d619ca0224c75d7a0526467c721c0838b8aa7efccb270"
+  "20.0.0":
+    url: "https://www.apache.org/dyn/closer.lua/arrow/arrow-20.0.0/apache-arrow-20.0.0.tar.gz?action=download"
+    sha256: "89efbbf852f5a1f79e9c99ab4c217e2eb7f991837c005cba2d4a2fbd35fad212"
+  "19.0.1":
+    url: "https://www.apache.org/dyn/closer.lua/arrow/arrow-19.0.1/apache-arrow-19.0.1.tar.gz?action=download"
+    sha256: "acb76266e8b0c2fbb7eb15d542fbb462a73b3fd1e32b80fad6c2fafd95a51160"
+  "18.1.0":
+    url: "https://www.apache.org/dyn/closer.lua/arrow/arrow-18.1.0/apache-arrow-18.1.0.tar.gz?action=download"
+    sha256: "2dc8da5f8796afe213ecc5e5aba85bb82d91520eff3cf315784a52d0fa61d7fc"
+  "18.0.0":
+    url: "https://www.apache.org/dyn/closer.lua/arrow/arrow-18.0.0/apache-arrow-18.0.0.tar.gz?action=download"
+    sha256: "abcf1934cd0cdddd33664e9f2d9a251d6c55239d1122ad0ed223b13a583c82a9"
+  "17.0.0":
+    url: "https://www.apache.org/dyn/closer.lua/arrow/arrow-17.0.0/apache-arrow-17.0.0.tar.gz?action=download"
+    sha256: "9d280d8042e7cf526f8c28d170d93bfab65e50f94569f6a790982a878d8d898d"
+  "16.1.0":
+    url: "https://www.apache.org/dyn/closer.lua/arrow/arrow-16.1.0/apache-arrow-16.1.0.tar.gz?action=download"
+    sha256: "c9e60c7e87e59383d21b20dc874b17153729ee153264af6d21654b7dff2c60d7"
+  "15.0.0":
+    url: "https://www.apache.org/dyn/closer.lua/arrow/arrow-15.0.0/apache-arrow-15.0.0.tar.gz?action=download"
+    sha256: "01dd3f70e85d9b5b933ec92c0db8a4ef504a5105f78d2d8622e84279fb45c25d"
+  "14.0.2":
+    url: "https://www.apache.org/dyn/closer.lua/arrow/arrow-14.0.2/apache-arrow-14.0.2.tar.gz?action=download"
+    sha256: "1304dedb41896008b89fe0738c71a95d9b81752efc77fa70f264cb1da15d9bc2"
 patches:
-  "10.0.0":
-    - patch_file: "patches/10.0.0-0001-mallctl-takes-size_t.patch"
-      patch_description: "use size_t instead of ssize_t"
-      patch_type: "backport"
-    - patch_file: "patches/10.0.0-0002-fix-cmake.patch"
+  "20.0.0":
+    - patch_file: "patches/20.0.0-0001-fix-downloaded-mimalloc.patch"
       patch_description: "use cci package"
       patch_type: "conan"
-  "8.0.1":
-    - patch_file: "patches/8.0.0-0003-mallctl-takes-size_t.patch"
-      patch_description: "use size_t instead of ssize_t"
-      patch_type: "backport"
-    - patch_file: "patches/8.0.0-0005-install-utils.patch"
-      patch_description: "enable utilis installation"
-      patch_type: "conan"
-    - patch_file: "patches/8.0.0-0006-fix-cmake.patch"
+  "19.0.1":
+    - patch_file: "patches/19.0.1-0001-fix-cmake.patch"
       patch_description: "use cci package"
       patch_type: "conan"
-  "8.0.0":
-    - patch_file: "patches/8.0.0-0003-mallctl-takes-size_t.patch"
-      patch_description: "use size_t instead of ssize_t"
-      patch_type: "backport"
-    - patch_file: "patches/8.0.0-0005-install-utils.patch"
-      patch_description: "enable utilis installation"
-      patch_type: "conan"
-    - patch_file: "patches/8.0.0-0006-fix-cmake.patch"
+    - patch_file: "patches/19.0.1-0002-fix-downloaded-mimalloc.patch"
       patch_description: "use cci package"
       patch_type: "conan"
-  "7.0.0":
-    - patch_file: "patches/7.0.0-0003-mallctl-takes-size_t.patch"
-      patch_description: "use size_t instead of ssize_t"
-      patch_type: "backport"
-    - patch_file: "patches/7.0.0-0006-install-utils.patch"
-      patch_description: "enable utilis installation"
-      patch_type: "conan"
-    - patch_file: "patches/7.0.0-0007-fix-cmake.patch"
+  "18.1.0":
+    - patch_file: "patches/18.0.0-0001-fix-cmake.patch"
       patch_description: "use cci package"
       patch_type: "conan"
-  "2.0.0":
-    - patch_file: "patches/2.0.0-0003-fix-shared-msvc.patch"
-      patch_description: "make shared enabled in msvc"
-      patch_type: "backport"
-    - patch_file: "patches/1.0.0-0004-mallctl-takes-size_t.patch"
-      patch_description: "use size_t instead of ssize_t"
-      patch_type: "backport"
-    - patch_file: "patches/2.0.0-0005-gandiva-engine.patch"
-      patch_description: "fix grandiva compilation error"
-      patch_type: "backport"
-    - patch_file: "patches/2.0.0-0008-fix-cmake.patch"
+  "18.0.0":
+    - patch_file: "patches/18.0.0-0001-fix-cmake.patch"
       patch_description: "use cci package"
       patch_type: "conan"
-  "1.0.0":
-    - patch_file: "patches/1.0.0-0003-fix-shared-msvc.patch"
-      patch_description: "make shared enabled in msvc"
-      patch_type: "backport"
-    - patch_file: "patches/1.0.0-0004-mallctl-takes-size_t.patch"
-      patch_description: "use size_t instead of ssize_t"
-      patch_type: "backport"
-    - patch_file: "patches/1.0.0-0005-fix-make12-namespace.patch"
-      patch_description: "fix ambiguous `make12` function between std and date"
-      patch_type: "backport"
-    - patch_file: "patches/1.0.0-0006-fix-cmake.patch"
+  "17.0.0":
+    - patch_file: "patches/16.0.0-0001-fix-cmake.patch"
       patch_description: "use cci package"
       patch_type: "conan"
+  "16.1.0":
+    - patch_file: "patches/16.0.0-0001-fix-cmake.patch"
+      patch_description: "use cci package"
+      patch_type: "conan"
+  "15.0.0":
+    - patch_file: "patches/11.0.0-0001-fix-cmake.patch"
+      patch_description: "use cci package"
+      patch_type: "conan"
+  "14.0.2":
+    - patch_file: "patches/11.0.0-0001-fix-cmake.patch"
+      patch_description: "use cci package"
+      patch_type: "conan"
+

@@ -30,7 +30,7 @@ User Guide
    tables
    compute
    gandiva
-   streaming_execution
+   acero
    io
    ipc
    orc
@@ -41,4 +41,5 @@ User Guide
    flight
    gdb
    threading
+   opentelemetry
    env_vars

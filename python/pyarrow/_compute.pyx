@@ -24,28 +24,68 @@ from cython.operator cimport dereference as deref
 
 from collections import namedtuple
 
-from pyarrow.lib import frombytes, tobytes, ordered_dict, ArrowInvalid
+from pyarrow.lib import frombytes, tobytes, ArrowInvalid
 from pyarrow.lib cimport *
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
 import pyarrow.lib as lib
-
+from pyarrow.util import _DEPR_MSG
 from libcpp cimport bool as c_bool
 
 import inspect
-import numpy as np
+try:
+    import numpy as np
+except ImportError:
+    np = None
+import warnings
+
+
+# Call to initialize the compute module (register kernels) on import
+check_status(InitializeCompute())
+
+
+__pas = None
+_substrait_msg = (
+    "The pyarrow installation is not built with support for Substrait."
+)
+
+
+SUPPORTED_INPUT_ARR_TYPES = (list, tuple)
+if np is not None:
+    SUPPORTED_INPUT_ARR_TYPES += (np.ndarray, )
+
+
+def _pas():
+    global __pas
+    if __pas is None:
+        try:
+            import pyarrow.substrait as pas
+            __pas = pas
+        except ImportError:
+            raise ImportError(_substrait_msg)
+    return __pas
 
 
 def _forbid_instantiation(klass, subclasses_instead=True):
-    msg = '{} is an abstract class thus cannot be initialized.'.format(
-        klass.__name__
-    )
+    msg = f'{klass.__name__} is an abstract class thus cannot be initialized.'
     if subclasses_instead:
         subclasses = [cls.__name__ for cls in klass.__subclasses__]
-        msg += ' Use one of the subclasses instead: {}'.format(
-            ', '.join(subclasses)
-        )
+        msg += f' Use one of the subclasses instead: {", ".join(subclasses)}'
     raise TypeError(msg)
+
+
+cdef vector[CSortKey] unwrap_sort_keys(sort_keys, allow_str=True):
+    cdef vector[CSortKey] c_sort_keys
+    if allow_str and isinstance(sort_keys, str):
+        c_sort_keys.push_back(
+            CSortKey(_ensure_field_ref(""), unwrap_sort_order(sort_keys))
+        )
+    else:
+        for name, order in sort_keys:
+            c_sort_keys.push_back(
+                CSortKey(_ensure_field_ref(name), unwrap_sort_order(order))
+            )
+    return c_sort_keys
 
 
 cdef wrap_scalar_function(const shared_ptr[CFunction]& sp_func):
@@ -161,8 +201,7 @@ cdef class Kernel(_Weakrefable):
     """
 
     def __init__(self):
-        raise TypeError("Do not call {}'s constructor directly"
-                        .format(self.__class__.__name__))
+        raise TypeError(f"Do not call {self.__class__.__name__}'s constructor directly")
 
 
 cdef class ScalarKernel(Kernel):
@@ -172,8 +211,7 @@ cdef class ScalarKernel(Kernel):
         self.kernel = kernel
 
     def __repr__(self):
-        return ("ScalarKernel<{}>"
-                .format(frombytes(self.kernel.signature.get().ToString())))
+        return f"ScalarKernel<{frombytes(self.kernel.signature.get().ToString())}>"
 
 
 cdef class VectorKernel(Kernel):
@@ -183,8 +221,7 @@ cdef class VectorKernel(Kernel):
         self.kernel = kernel
 
     def __repr__(self):
-        return ("VectorKernel<{}>"
-                .format(frombytes(self.kernel.signature.get().ToString())))
+        return f"VectorKernel<{frombytes(self.kernel.signature.get().ToString())}>"
 
 
 cdef class ScalarAggregateKernel(Kernel):
@@ -194,8 +231,7 @@ cdef class ScalarAggregateKernel(Kernel):
         self.kernel = kernel
 
     def __repr__(self):
-        return ("ScalarAggregateKernel<{}>"
-                .format(frombytes(self.kernel.signature.get().ToString())))
+        return f"ScalarAggregateKernel<{frombytes(self.kernel.signature.get().ToString())}>"
 
 
 cdef class HashAggregateKernel(Kernel):
@@ -205,8 +241,7 @@ cdef class HashAggregateKernel(Kernel):
         self.kernel = kernel
 
     def __repr__(self):
-        return ("HashAggregateKernel<{}>"
-                .format(frombytes(self.kernel.signature.get().ToString())))
+        return f"HashAggregateKernel<{frombytes(self.kernel.signature.get().ToString())}>"
 
 
 FunctionDoc = namedtuple(
@@ -258,17 +293,14 @@ cdef class Function(_Weakrefable):
     }
 
     def __init__(self):
-        raise TypeError("Do not call {}'s constructor directly"
-                        .format(self.__class__.__name__))
+        raise TypeError(f"Do not call {self.__class__.__name__}'s constructor directly")
 
     cdef void init(self, const shared_ptr[CFunction]& sp_func) except *:
         self.sp_func = sp_func
         self.base_func = sp_func.get()
 
     def __repr__(self):
-        return ("arrow.compute.Function<name={}, kind={}, "
-                "arity={}, num_kernels={}>"
-                .format(self.name, self.kind, self.arity, self.num_kernels))
+        return f"arrow.compute.Function<name={self.name}, kind={self.kind}, arity={self.arity}, num_kernels={self.num_kernels}>"
 
     def __reduce__(self):
         # Reduction uses the global registry
@@ -455,7 +487,7 @@ cdef class MetaFunction(Function):
 
 cdef _pack_compute_args(object values, vector[CDatum]* out):
     for val in values:
-        if isinstance(val, (list, np.ndarray)):
+        if isinstance(val, SUPPORTED_INPUT_ARR_TYPES):
             val = lib.asarray(val)
 
         if isinstance(val, Array):
@@ -882,6 +914,30 @@ class RoundOptions(_RoundOptions):
         self._set_options(ndigits, round_mode)
 
 
+cdef class _RoundBinaryOptions(FunctionOptions):
+    def _set_options(self, round_mode):
+        self.wrapped.reset(
+            new CRoundBinaryOptions(unwrap_round_mode(round_mode))
+        )
+
+
+class RoundBinaryOptions(_RoundBinaryOptions):
+    """
+    Options for rounding numbers when ndigits is provided by a second array
+
+    Parameters
+    ----------
+    round_mode : str, default "half_to_even"
+        Rounding and tie-breaking mode.
+        Accepted values are "down", "up", "towards_zero", "towards_infinity",
+        "half_down", "half_up", "half_towards_zero", "half_towards_infinity",
+        "half_to_even", "half_to_odd".
+    """
+
+    def __init__(self, round_mode="half_to_even"):
+        self._set_options(round_mode)
+
+
 cdef CCalendarUnit unwrap_round_temporal_unit(unit) except *:
     if unit == "nanosecond":
         return CCalendarUnit_NANOSECOND
@@ -1066,8 +1122,8 @@ class MatchSubstringOptions(_MatchSubstringOptions):
 
 
 cdef class _PadOptions(FunctionOptions):
-    def _set_options(self, width, padding):
-        self.wrapped.reset(new CPadOptions(width, tobytes(padding)))
+    def _set_options(self, width, padding, lean_left_on_odd_padding):
+        self.wrapped.reset(new CPadOptions(width, tobytes(padding), lean_left_on_odd_padding))
 
 
 class PadOptions(_PadOptions):
@@ -1080,9 +1136,43 @@ class PadOptions(_PadOptions):
         Desired string length.
     padding : str, default " "
         What to pad the string with. Should be one byte or codepoint.
+    lean_left_on_odd_padding : bool, default True
+        What to do if there is an odd number of padding characters (in case
+        of centered padding). Defaults to aligning on the left (i.e. adding
+        the extra padding character on the right).
     """
 
-    def __init__(self, width, padding=' '):
+    def __init__(self, width, padding=' ', lean_left_on_odd_padding=True):
+        self._set_options(width, padding, lean_left_on_odd_padding)
+
+
+cdef class _ZeroFillOptions(FunctionOptions):
+    def _set_options(self, width, padding):
+        self.wrapped.reset(new CZeroFillOptions(width, tobytes(padding)))
+
+
+class ZeroFillOptions(_ZeroFillOptions):
+    """
+    Options for utf8_zero_fill.
+
+    Parameters
+    ----------
+    width : int
+        Desired string length.
+    padding : str, default "0"
+        Padding character. Should be one Unicode codepoint.
+
+    Examples
+    --------
+    >>> import pyarrow as pa
+    >>> import pyarrow.compute as pc
+    >>> arr = pa.array(["1", "-2", "+3"])
+    >>> opts = pc.ZeroFillOptions(width=4)
+    >>> pc.utf8_zero_fill(arr, options=opts).to_pylist()
+    ['0001', '-002', '+003']
+    """
+
+    def __init__(self, width, padding='0'):
         self._set_options(width, padding)
 
 
@@ -1154,6 +1244,25 @@ class ExtractRegexOptions(_ExtractRegexOptions):
         self._set_options(pattern)
 
 
+cdef class _ExtractRegexSpanOptions(FunctionOptions):
+    def _set_options(self, pattern):
+        self.wrapped.reset(new CExtractRegexSpanOptions(tobytes(pattern)))
+
+
+class ExtractRegexSpanOptions(_ExtractRegexSpanOptions):
+    """
+    Options for the `extract_regex_span` function.
+
+    Parameters
+    ----------
+    pattern : str
+        Regular expression with named capture fields.
+    """
+
+    def __init__(self, pattern):
+        self._set_options(pattern)
+
+
 cdef class _SliceOptions(FunctionOptions):
     def _set_options(self, start, stop, step):
         self.wrapped.reset(new CSliceOptions(start, stop, step))
@@ -1177,6 +1286,8 @@ class SliceOptions(_SliceOptions):
     def __init__(self, start, stop=None, step=1):
         if stop is None:
             stop = sys.maxsize
+            if step < 0:
+                stop = -stop
         self._set_options(start, stop, step)
 
 
@@ -1311,6 +1422,28 @@ class DictionaryEncodeOptions(_DictionaryEncodeOptions):
         self._set_options(null_encoding)
 
 
+cdef class _RunEndEncodeOptions(FunctionOptions):
+    def _set_options(self, run_end_type):
+        run_end_ty = ensure_type(run_end_type)
+        self.wrapped.reset(new CRunEndEncodeOptions(pyarrow_unwrap_data_type(run_end_ty)))
+
+
+class RunEndEncodeOptions(_RunEndEncodeOptions):
+    """
+    Options for run-end encoding.
+
+    Parameters
+    ----------
+    run_end_type : DataType, default pyarrow.int32()
+        The data type of the run_ends array.
+
+        Accepted values are pyarrow.{int16(), int32(), int64()}.
+    """
+
+    def __init__(self, run_end_type=lib.int32()):
+        self._set_options(run_end_type)
+
+
 cdef class _TakeOptions(FunctionOptions):
     def _set_options(self, boundscheck):
         self.wrapped.reset(new CTakeOptions(boundscheck))
@@ -1324,7 +1457,7 @@ class TakeOptions(_TakeOptions):
     ----------
     boundscheck : boolean, default True
         Whether to check indices are within bounds. If False and an
-        index is out of boundes, behavior is undefined (the process
+        index is out of bounds, behavior is undefined (the process
         may crash).
     """
 
@@ -1371,38 +1504,43 @@ class MakeStructOptions(_MakeStructOptions):
         self._set_options(field_names, field_nullability, field_metadata)
 
 
+cdef CFieldRef _ensure_field_ref(value) except *:
+    cdef:
+        CFieldRef field_ref
+        const CFieldRef* field_ref_ptr
+
+    if isinstance(value, (list, tuple)):
+        value = Expression._nested_field(tuple(value))
+
+    if isinstance(value, Expression):
+        field_ref_ptr = (<Expression>value).unwrap().field_ref()
+        if field_ref_ptr is NULL:
+            raise ValueError("Unable to get FieldRef from Expression")
+        field_ref = <CFieldRef>deref(field_ref_ptr)
+    elif isinstance(value, (bytes, str)):
+        if value.startswith(b'.' if isinstance(value, bytes) else '.'):
+            field_ref = GetResultValue(
+                CFieldRef.FromDotPath(<c_string>tobytes(value)))
+        else:
+            field_ref = CFieldRef(<c_string>tobytes(value))
+    elif isinstance(value, int):
+        field_ref = CFieldRef(<int> value)
+    else:
+        raise TypeError("Expected a field reference as a str or int, list of "
+                        f"str or int, or Expression. Got {type(value)} instead.")
+    return field_ref
+
+
 cdef class _StructFieldOptions(FunctionOptions):
     def _set_options(self, indices):
-        cdef:
-            CFieldRef field_ref
-            const CFieldRef* field_ref_ptr
 
-        if isinstance(indices, (list, tuple)):
-            if len(indices):
-                indices = Expression._nested_field(tuple(indices))
-            else:
-                # Allow empty indices; effecitively return same array
-                self.wrapped.reset(
-                    new CStructFieldOptions(<vector[int]>indices))
-                return
+        if isinstance(indices, (list, tuple)) and not len(indices):
+            # Allow empty indices; effectively return same array
+            self.wrapped.reset(
+                new CStructFieldOptions(<vector[int]>indices))
+            return
 
-        if isinstance(indices, Expression):
-            field_ref_ptr = (<Expression>indices).unwrap().field_ref()
-            if field_ref_ptr is NULL:
-                raise ValueError("Unable to get CFieldRef from Expression")
-            field_ref = <CFieldRef>deref(field_ref_ptr)
-        elif isinstance(indices, (bytes, str)):
-            if indices.startswith(b'.' if isinstance(indices, bytes) else '.'):
-                field_ref = GetResultValue(
-                    CFieldRef.FromDotPath(<c_string>tobytes(indices)))
-            else:
-                field_ref = CFieldRef(<c_string>tobytes(indices))
-        elif isinstance(indices, int):
-            field_ref = CFieldRef(<int> indices)
-        else:
-            raise TypeError("Expected List[str], List[int], List[bytes], "
-                            "Expression, bytes, str, or int. "
-                            f"Got: {type(indices)}")
+        cdef CFieldRef field_ref = _ensure_field_ref(indices)
         self.wrapped.reset(new CStructFieldOptions(field_ref))
 
 
@@ -1514,7 +1652,7 @@ class MapLookupOptions(_MapLookupOptions):
 
     Parameters
     ----------
-    query_key : Scalar
+    query_key : Scalar or Object can be converted to Scalar
         The key to search for.
     occurrence : str
         The occurrence(s) to return from the Map
@@ -1522,6 +1660,9 @@ class MapLookupOptions(_MapLookupOptions):
     """
 
     def __init__(self, query_key, occurrence):
+        if not isinstance(query_key, lib.Scalar):
+            query_key = lib.scalar(query_key)
+
         self._set_options(query_key, occurrence)
 
 
@@ -1608,6 +1749,9 @@ class StrptimeOptions(_StrptimeOptions):
     ----------
     format : str
         Pattern for parsing input strings as timestamps, such as "%Y/%m/%d".
+        Note that the semantics of the format follow the C/C++ strptime, not the Python one.
+        There are differences in behavior, for example how the "%y" placeholder
+        handles years with less than four digits.
     unit : str
         Timestamp unit of the output.
         Accepted values are "s", "ms", "us", "ns".
@@ -1786,6 +1930,28 @@ class VarianceOptions(_VarianceOptions):
         self._set_options(ddof, skip_nulls, min_count)
 
 
+cdef class _SkewOptions(FunctionOptions):
+    def _set_options(self, skip_nulls, biased, min_count):
+        self.wrapped.reset(new CSkewOptions(skip_nulls, biased, min_count))
+
+
+class SkewOptions(_SkewOptions):
+    __doc__ = f"""
+    Options for the `skew` and `kurtosis` functions.
+
+    Parameters
+    ----------
+    {_skip_nulls_doc()}
+    biased : bool, default True
+        Whether the calculated value is biased.
+        If False, the value computed includes a correction factor to reduce bias.
+    {_min_count_doc(default=0)}
+    """
+
+    def __init__(self, *, skip_nulls=True, biased=True, min_count=0):
+        self._set_options(skip_nulls, biased, min_count)
+
+
 cdef class _SplitOptions(FunctionOptions):
     def _set_options(self, max_splits, reverse):
         self.wrapped.reset(new CSplitOptions(max_splits, reverse))
@@ -1877,32 +2043,126 @@ class PartitionNthOptions(_PartitionNthOptions):
         self._set_options(pivot, null_placement)
 
 
-cdef class _CumulativeSumOptions(FunctionOptions):
+cdef class _WinsorizeOptions(FunctionOptions):
+    def _set_options(self, lower_limit, upper_limit):
+        self.wrapped.reset(new CWinsorizeOptions(lower_limit, upper_limit))
+
+
+class WinsorizeOptions(_WinsorizeOptions):
+    """
+    Options for the `winsorize` function.
+
+    Parameters
+    ----------
+    lower_limit : float, between 0 and 1
+        The quantile below which all values are replaced with the quantile's value.
+    upper_limit : float, between 0 and 1
+        The quantile above which all values are replaced with the quantile's value.
+    """
+
+    def __init__(self, lower_limit, upper_limit):
+        self._set_options(lower_limit, upper_limit)
+
+
+cdef class _CumulativeOptions(FunctionOptions):
     def _set_options(self, start, skip_nulls):
-        if not isinstance(start, Scalar):
+        if start is None:
+            self.wrapped.reset(new CCumulativeOptions(skip_nulls))
+        elif isinstance(start, Scalar):
+            self.wrapped.reset(new CCumulativeOptions(
+                pyarrow_unwrap_scalar(start), skip_nulls))
+        else:
             try:
                 start = lib.scalar(start)
+                self.wrapped.reset(new CCumulativeOptions(
+                    pyarrow_unwrap_scalar(start), skip_nulls))
             except Exception:
                 _raise_invalid_function_option(
-                    start, "`start` type for CumulativeSumOptions", TypeError)
-
-        self.wrapped.reset(new CCumulativeSumOptions((<Scalar> start).unwrap(), skip_nulls))
+                    start, "`start` type for CumulativeOptions", TypeError)
 
 
-class CumulativeSumOptions(_CumulativeSumOptions):
+class CumulativeOptions(_CumulativeOptions):
+    """
+    Options for `cumulative_*` functions.
+
+    - cumulative_sum
+    - cumulative_sum_checked
+    - cumulative_prod
+    - cumulative_prod_checked
+    - cumulative_max
+    - cumulative_min
+
+    Parameters
+    ----------
+    start : Scalar, default None
+        Starting value for the cumulative operation. If none is given,
+        a default value depending on the operation and input type is used.
+    skip_nulls : bool, default False
+        When false, the first encountered null is propagated.
+    """
+
+    def __init__(self, start=None, *, skip_nulls=False):
+        self._set_options(start, skip_nulls)
+
+
+class CumulativeSumOptions(_CumulativeOptions):
     """
     Options for `cumulative_sum` function.
 
     Parameters
     ----------
-    start : Scalar, default 0.0
+    start : Scalar, default None
         Starting value for sum computation
     skip_nulls : bool, default False
         When false, the first encountered null is propagated.
     """
 
-    def __init__(self, start=0.0, *, skip_nulls=False):
+    def __init__(self, start=None, *, skip_nulls=False):
+        warnings.warn(
+            _DEPR_MSG.format("CumulativeSumOptions", "14.0", "CumulativeOptions"),
+            FutureWarning,
+            stacklevel=2
+        )
         self._set_options(start, skip_nulls)
+
+
+cdef class _PairwiseOptions(FunctionOptions):
+    def _set_options(self, period):
+        self.wrapped.reset(new CPairwiseOptions(period))
+
+
+class PairwiseOptions(_PairwiseOptions):
+    """
+    Options for `pairwise` functions.
+
+    Parameters
+    ----------
+    period : int, default 1
+        Period for applying the period function.
+    """
+
+    def __init__(self, period=1):
+        self._set_options(period)
+
+
+cdef class _ListFlattenOptions(FunctionOptions):
+    def _set_options(self, recursive):
+        self.wrapped.reset(new CListFlattenOptions(recursive))
+
+
+class ListFlattenOptions(_ListFlattenOptions):
+    """
+    Options for `list_flatten` function
+
+    Parameters
+    ----------
+    recursive : bool, default False
+        When True, the list array is flattened recursively until an array
+        of non-list values is formed.
+    """
+
+    def __init__(self, recursive=False):
+        self._set_options(recursive)
 
 
 cdef class _ArraySortOptions(FunctionOptions):
@@ -1931,13 +2191,9 @@ class ArraySortOptions(_ArraySortOptions):
 
 cdef class _SortOptions(FunctionOptions):
     def _set_options(self, sort_keys, null_placement):
-        cdef vector[CSortKey] c_sort_keys
-        for name, order in sort_keys:
-            c_sort_keys.push_back(
-                CSortKey(tobytes(name), unwrap_sort_order(order))
-            )
         self.wrapped.reset(new CSortOptions(
-            c_sort_keys, unwrap_null_placement(null_placement)))
+            unwrap_sort_keys(sort_keys, allow_str=False),
+            unwrap_null_placement(null_placement)))
 
 
 class SortOptions(_SortOptions):
@@ -1950,6 +2206,7 @@ class SortOptions(_SortOptions):
         Names of field/column keys to sort the input on,
         along with the order each field/column is sorted in.
         Accepted values for `order` are "ascending", "descending".
+        The field name can be a string column name or expression.
     null_placement : str, default "at_end"
         Where nulls in input should be sorted, only applying to
         columns/fields mentioned in `sort_keys`.
@@ -1962,12 +2219,7 @@ class SortOptions(_SortOptions):
 
 cdef class _SelectKOptions(FunctionOptions):
     def _set_options(self, k, sort_keys):
-        cdef vector[CSortKey] c_sort_keys
-        for name, order in sort_keys:
-            c_sort_keys.push_back(
-                CSortKey(tobytes(name), unwrap_sort_order(order))
-            )
-        self.wrapped.reset(new CSelectKOptions(k, c_sort_keys))
+        self.wrapped.reset(new CSelectKOptions(k, unwrap_sort_keys(sort_keys, allow_str=False)))
 
 
 class SelectKOptions(_SelectKOptions):
@@ -1984,6 +2236,7 @@ class SelectKOptions(_SelectKOptions):
         Names of field/column keys to sort the input on,
         along with the order each field/column is sorted in.
         Accepted values for `order` are "ascending", "descending".
+        The field name can be a string column name or expression.
     """
 
     def __init__(self, k, sort_keys):
@@ -2016,7 +2269,8 @@ class QuantileOptions(_QuantileOptions):
     Parameters
     ----------
     q : double or sequence of double, default 0.5
-        Quantiles to compute. All values must be in [0, 1].
+        Probability levels of the quantiles to compute. All values must be in
+        [0, 1].
     interpolation : str, default "linear"
         How to break ties between competing data points for a given quantile.
         Accepted values are:
@@ -2032,7 +2286,7 @@ class QuantileOptions(_QuantileOptions):
 
     def __init__(self, q=0.5, *, interpolation="linear", skip_nulls=True,
                  min_count=0):
-        if not isinstance(q, (list, tuple, np.ndarray)):
+        if not isinstance(q, SUPPORTED_INPUT_ARR_TYPES):
             q = [q]
         self._set_options(q, interpolation, skip_nulls, min_count)
 
@@ -2053,7 +2307,8 @@ class TDigestOptions(_TDigestOptions):
     Parameters
     ----------
     q : double or sequence of double, default 0.5
-        Quantiles to approximate. All values must be in [0, 1].
+        Probability levels of the quantiles to approximate. All values must be
+        in [0, 1].
     delta : int, default 100
         Compression parameter for the T-digest algorithm.
     buffer_size : int, default 500
@@ -2064,7 +2319,7 @@ class TDigestOptions(_TDigestOptions):
 
     def __init__(self, q=0.5, *, delta=100, buffer_size=500, skip_nulls=True,
                  min_count=0):
-        if not isinstance(q, (list, tuple, np.ndarray)):
+        if not isinstance(q, SUPPORTED_INPUT_ARR_TYPES):
             q = [q]
         self._set_options(q, delta, buffer_size, skip_nulls, min_count)
 
@@ -2151,19 +2406,9 @@ cdef class _RankOptions(FunctionOptions):
     }
 
     def _set_options(self, sort_keys, null_placement, tiebreaker):
-        cdef vector[CSortKey] c_sort_keys
-        if isinstance(sort_keys, str):
-            c_sort_keys.push_back(
-                CSortKey(tobytes(""), unwrap_sort_order(sort_keys))
-            )
-        else:
-            for name, order in sort_keys:
-                c_sort_keys.push_back(
-                    CSortKey(tobytes(name), unwrap_sort_order(order))
-                )
         try:
             self.wrapped.reset(
-                new CRankOptions(c_sort_keys,
+                new CRankOptions(unwrap_sort_keys(sort_keys),
                                  unwrap_null_placement(null_placement),
                                  self._tiebreaker_map[tiebreaker])
             )
@@ -2181,6 +2426,7 @@ class RankOptions(_RankOptions):
         Names of field/column keys to sort the input on,
         along with the order each field/column is sorted in.
         Accepted values for `order` are "ascending", "descending".
+        The field name can be a string column name or expression.
         Alternatively, one can simply pass "ascending" or "descending" as a string
         if the input is array-like.
     null_placement : str, default "at_end"
@@ -2203,37 +2449,79 @@ class RankOptions(_RankOptions):
         self._set_options(sort_keys, null_placement, tiebreaker)
 
 
-def _group_by(args, keys, aggregations):
-    cdef:
-        vector[CDatum] c_args
-        vector[CDatum] c_keys
-        vector[CAggregate] c_aggregations
-        CDatum result
-        CAggregate c_aggr
+cdef class _RankQuantileOptions(FunctionOptions):
 
-    _pack_compute_args(args, &c_args)
-    _pack_compute_args(keys, &c_keys)
-
-    # reference into the flattened list of arguments for the aggregations
-    field_ref = 0
-    for aggr_arg_names, aggr_func_name, aggr_opts in aggregations:
-        c_aggr.function = tobytes(aggr_func_name)
-        if aggr_opts is not None:
-            c_aggr.options = (<FunctionOptions?>aggr_opts).wrapped
-        else:
-            c_aggr.options = <shared_ptr[CFunctionOptions]>nullptr
-        for _ in aggr_arg_names:
-            c_aggr.target.push_back(CFieldRef(<int> field_ref))
-            field_ref += 1
-
-        c_aggregations.push_back(move(c_aggr))
-
-    with nogil:
-        result = GetResultValue(
-            GroupBy(c_args, c_keys, c_aggregations)
+    def _set_options(self, sort_keys, null_placement):
+        self.wrapped.reset(
+            new CRankQuantileOptions(unwrap_sort_keys(sort_keys),
+                                     unwrap_null_placement(null_placement))
         )
 
-    return wrap_datum(result)
+
+class RankQuantileOptions(_RankQuantileOptions):
+    """
+    Options for the `rank_quantile` function.
+
+    Parameters
+    ----------
+    sort_keys : sequence of (name, order) tuples or str, default "ascending"
+        Names of field/column keys to sort the input on,
+        along with the order each field/column is sorted in.
+        Accepted values for `order` are "ascending", "descending".
+        The field name can be a string column name or expression.
+        Alternatively, one can simply pass "ascending" or "descending" as a string
+        if the input is array-like.
+    null_placement : str, default "at_end"
+        Where nulls in input should be sorted.
+        Accepted values are "at_start", "at_end".
+    """
+
+    def __init__(self, sort_keys="ascending", *, null_placement="at_end"):
+        self._set_options(sort_keys, null_placement)
+
+
+cdef class _PivotWiderOptions(FunctionOptions):
+
+    def _set_options(self, key_names, unexpected_key_behavior):
+        cdef:
+            vector[c_string] c_key_names
+            PivotWiderUnexpectedKeyBehavior c_unexpected_key_behavior
+        if unexpected_key_behavior == "ignore":
+            c_unexpected_key_behavior = PivotWiderUnexpectedKeyBehavior_Ignore
+        elif unexpected_key_behavior == "raise":
+            c_unexpected_key_behavior = PivotWiderUnexpectedKeyBehavior_Raise
+        else:
+            raise ValueError(
+                f"Unsupported value for unexpected_key_behavior: "
+                f"expected 'ignore' or 'raise', got {unexpected_key_behavior!r}")
+
+        for k in key_names:
+            c_key_names.push_back(tobytes(k))
+
+        self.wrapped.reset(
+            new CPivotWiderOptions(move(c_key_names), c_unexpected_key_behavior)
+        )
+
+
+class PivotWiderOptions(_PivotWiderOptions):
+    """
+    Options for the `pivot_wider` function.
+
+    Parameters
+    ----------
+    key_names : sequence of str
+        The pivot key names expected in the pivot key column.
+        For each entry in `key_names`, a column with the same name is emitted
+        in the struct output.
+    unexpected_key_behavior : str, default "ignore"
+        The behavior when pivot keys not in `key_names` are encountered.
+        Accepted values are "ignore", "raise".
+        If "ignore", unexpected keys are silently ignored.
+        If "raise", unexpected keys raise a KeyError.
+    """
+
+    def __init__(self, key_names, *, unexpected_key_behavior="ignore"):
+        self._set_options(key_names, unexpected_key_behavior)
 
 
 cdef class Expression(_Weakrefable):
@@ -2267,7 +2555,7 @@ cdef class Expression(_Weakrefable):
       1,
       2,
       3
-    ], skip_nulls=false})>
+    ], null_matching_behavior=MATCH})>
     """
 
     def __init__(self):
@@ -2287,15 +2575,74 @@ cdef class Expression(_Weakrefable):
         return self.expr
 
     def equals(self, Expression other):
+        """
+        Parameters
+        ----------
+        other : pyarrow.dataset.Expression
+
+        Returns
+        -------
+        bool
+        """
         return self.expr.Equals(other.unwrap())
 
     def __str__(self):
         return frombytes(self.expr.ToString())
 
     def __repr__(self):
-        return "<pyarrow.compute.{0} {1}>".format(
-            self.__class__.__name__, str(self)
-        )
+        return f"<pyarrow.compute.{self.__class__.__name__} {self}>"
+
+    @staticmethod
+    def from_substrait(object message not None):
+        """
+        Deserialize an expression from Substrait
+
+        The serialized message must be an ExtendedExpression message that has
+        only a single expression.  The name of the expression and the schema
+        the expression was bound to will be ignored.  Use
+        pyarrow.substrait.deserialize_expressions if this information is needed
+        or if the message might contain multiple expressions.
+
+        Parameters
+        ----------
+        message : bytes or Buffer or a protobuf Message
+            The Substrait message to deserialize
+
+        Returns
+        -------
+        Expression
+            The deserialized expression
+        """
+        expressions = _pas().BoundExpressions.from_substrait(message).expressions
+        if len(expressions) == 0:
+            raise ValueError("Substrait message did not contain any expressions")
+        if len(expressions) > 1:
+            raise ValueError(
+                "Substrait message contained multiple expressions.  Use pyarrow.substrait.deserialize_expressions instead")
+        return next(iter(expressions.values()))
+
+    def to_substrait(self, Schema schema not None, c_bool allow_arrow_extensions=False):
+        """
+        Serialize the expression using Substrait
+
+        The expression will be serialized as an ExtendedExpression message that has a
+        single expression named "expression"
+
+        Parameters
+        ----------
+        schema : Schema
+            The input schema the expression will be bound to
+        allow_arrow_extensions : bool, default False
+            If False then only functions that are part of the core Substrait function
+            definitions will be allowed.  Set this to True to allow pyarrow-specific functions
+            but the result may not be accepted by other compute libraries.
+
+        Returns
+        -------
+        Buffer
+            A buffer containing the serialized Protobuf plan.
+        """
+        return _pas().serialize_expressions([self], ["expression"], schema, allow_arrow_extensions=allow_arrow_extensions)
 
     @staticmethod
     def _deserialize(Buffer buffer not None):
@@ -2412,6 +2759,19 @@ cdef class Expression(_Weakrefable):
         options = NullOptions(nan_is_null=nan_is_null)
         return Expression._call("is_null", [self], options)
 
+    def is_nan(self):
+        """
+        Check whether the expression is NaN.
+
+        This creates a new expression equivalent to calling the
+        `is_nan` compute function on this expression.
+
+        Returns
+        -------
+        is_nan : Expression
+        """
+        return Expression._call("is_nan", [self])
+
     def cast(self, type=None, safe=None, options=None):
         """
         Explicitly set or change the expression's data type.
@@ -2525,7 +2885,7 @@ cdef CExpression _bind(Expression filter, Schema schema) except *:
         deref(pyarrow_unwrap_schema(schema).get())))
 
 
-cdef class ScalarUdfContext:
+cdef class UdfContext:
     """
     Per-invocation function context/state.
 
@@ -2534,10 +2894,9 @@ cdef class ScalarUdfContext:
     """
 
     def __init__(self):
-        raise TypeError("Do not call {}'s constructor directly"
-                        .format(self.__class__.__name__))
+        raise TypeError(f"Do not call {self.__class__.__name__}'s constructor directly")
 
-    cdef void init(self, const CScalarUdfContext &c_context):
+    cdef void init(self, const CUdfContext &c_context):
         self.c_context = c_context
 
     @property
@@ -2586,26 +2945,26 @@ cdef inline CFunctionDoc _make_function_doc(dict func_doc) except *:
     return f_doc
 
 
-cdef object box_scalar_udf_context(const CScalarUdfContext& c_context):
-    cdef ScalarUdfContext context = ScalarUdfContext.__new__(ScalarUdfContext)
+cdef object box_udf_context(const CUdfContext& c_context):
+    cdef UdfContext context = UdfContext.__new__(UdfContext)
     context.init(c_context)
     return context
 
 
-cdef _udf_callback(user_function, const CScalarUdfContext& c_context, inputs):
+cdef _udf_callback(user_function, const CUdfContext& c_context, inputs):
     """
-    Helper callback function used to wrap the ScalarUdfContext from Python to C++
+    Helper callback function used to wrap the UdfContext from Python to C++
     execution.
     """
-    context = box_scalar_udf_context(c_context)
+    context = box_udf_context(c_context)
     return user_function(context, *inputs)
 
 
-def _get_scalar_udf_context(memory_pool, batch_length):
-    cdef CScalarUdfContext c_context
+def _get_udf_context(memory_pool, batch_length):
+    cdef CUdfContext c_context
     c_context.pool = maybe_unbox_memory_pool(memory_pool)
     c_context.batch_length = batch_length
-    context = box_scalar_udf_context(c_context)
+    context = box_udf_context(c_context)
     return context
 
 
@@ -2631,10 +2990,23 @@ cdef get_register_tabular_function():
     return reg
 
 
+cdef get_register_aggregate_function():
+    cdef RegisterUdf reg = RegisterUdf.__new__(RegisterUdf)
+    reg.register_func = RegisterAggregateFunction
+    return reg
+
+cdef get_register_vector_function():
+    cdef RegisterUdf reg = RegisterUdf.__new__(RegisterUdf)
+    reg.register_func = RegisterVectorFunction
+    return reg
+
+
 def register_scalar_function(func, function_name, function_doc, in_types, out_type,
                              func_registry=None):
     """
     Register a user-defined scalar function.
+
+    This API is EXPERIMENTAL.
 
     A scalar function is a function that executes elementwise
     operations on arrays or scalars, i.e. a scalar function must
@@ -2650,17 +3022,18 @@ def register_scalar_function(func, function_name, function_doc, in_types, out_ty
     func : callable
         A callable implementing the user-defined function.
         The first argument is the context argument of type
-        ScalarUdfContext.
+        UdfContext.
         Then, it must take arguments equal to the number of
         in_types defined. It must return an Array or Scalar
         matching the out_type. It must return a Scalar if
         all arguments are scalar, else it must return an Array.
 
         To define a varargs function, pass a callable that takes
-        varargs. The last in_type will be the type of all varargs
+        ``*args``. The last in_type will be the type of all varargs
         arguments.
     function_name : str
-        Name of the function. This name must be globally unique.
+        Name of the function. There should only be one function
+        registered with this name in the function registry.
     function_doc : dict
         A dictionary object with keys "summary" (str),
         and "description" (str).
@@ -2704,9 +3077,175 @@ def register_scalar_function(func, function_name, function_doc, in_types, out_ty
       21
     ]
     """
-    return _register_scalar_like_function(get_register_scalar_function(),
-                                          func, function_name, function_doc, in_types,
-                                          out_type, func_registry)
+    return _register_user_defined_function(get_register_scalar_function(),
+                                           func, function_name, function_doc, in_types,
+                                           out_type, func_registry)
+
+
+def register_vector_function(func, function_name, function_doc, in_types, out_type,
+                             func_registry=None):
+    """
+    Register a user-defined vector function.
+
+    This API is EXPERIMENTAL.
+
+    A vector function is a function that executes vector
+    operations on arrays. Vector function is often used
+    when compute doesn't fit other more specific types of
+    functions (e.g., scalar and aggregate).
+
+    Parameters
+    ----------
+    func : callable
+        A callable implementing the user-defined function.
+        The first argument is the context argument of type
+        UdfContext.
+        Then, it must take arguments equal to the number of
+        in_types defined. It must return an Array or Scalar
+        matching the out_type. It must return a Scalar if
+        all arguments are scalar, else it must return an Array.
+
+        To define a varargs function, pass a callable that takes
+        *args. The last in_type will be the type of all varargs
+        arguments.
+    function_name : str
+        Name of the function. There should only be one function
+        registered with this name in the function registry.
+    function_doc : dict
+        A dictionary object with keys "summary" (str),
+        and "description" (str).
+    in_types : Dict[str, DataType]
+        A dictionary mapping function argument names to
+        their respective DataType.
+        The argument names will be used to generate
+        documentation for the function. The number of
+        arguments specified here determines the function
+        arity.
+    out_type : DataType
+        Output type of the function.
+    func_registry : FunctionRegistry
+        Optional function registry to use instead of the default global one.
+
+    Examples
+    --------
+    >>> import pyarrow as pa
+    >>> import pyarrow.compute as pc
+    >>>
+    >>> func_doc = {}
+    >>> func_doc["summary"] = "percent rank"
+    >>> func_doc["description"] = "compute percent rank"
+    >>>
+    >>> def list_flatten_udf(ctx, x):
+    ...     return pc.list_flatten(x)
+    >>>
+    >>> func_name = "list_flatten_udf"
+    >>> in_types = {"array": pa.list_(pa.int64())}
+    >>> out_type = pa.int64()
+    >>> pc.register_vector_function(list_flatten_udf, func_name, func_doc,
+    ...                   in_types, out_type)
+    >>>
+    >>> answer = pc.call_function(func_name, [pa.array([[1, 2], [3, 4]])])
+    >>> answer
+    <pyarrow.lib.Int64Array object at ...>
+    [
+      1,
+      2,
+      3,
+      4
+    ]
+    """
+    return _register_user_defined_function(get_register_vector_function(),
+                                           func, function_name, function_doc, in_types,
+                                           out_type, func_registry)
+
+
+def register_aggregate_function(func, function_name, function_doc, in_types, out_type,
+                                func_registry=None):
+    """
+    Register a user-defined non-decomposable aggregate function.
+
+    This API is EXPERIMENTAL.
+
+    A non-decomposable aggregation function is a function that executes
+    aggregate operations on the whole data that it is aggregating.
+    In other words, non-decomposable aggregate function cannot be
+    split into consume/merge/finalize steps.
+
+    This is often used with ordered or segmented aggregation where groups
+    can be emit before accumulating all of the input data.
+
+    Note that currently the size of any input column cannot exceed 2 GB
+    for a single segment (all groups combined).
+
+    Parameters
+    ----------
+    func : callable
+        A callable implementing the user-defined function.
+        The first argument is the context argument of type
+        UdfContext.
+        Then, it must take arguments equal to the number of
+        in_types defined. It must return a Scalar matching the
+        out_type.
+        To define a varargs function, pass a callable that takes
+        *args. The in_type needs to match in type of inputs when
+        the function gets called.
+    function_name : str
+        Name of the function. This name must be unique, i.e.,
+        there should only be one function registered with
+        this name in the function registry.
+    function_doc : dict
+        A dictionary object with keys "summary" (str),
+        and "description" (str).
+    in_types : Dict[str, DataType]
+        A dictionary mapping function argument names to
+        their respective DataType.
+        The argument names will be used to generate
+        documentation for the function. The number of
+        arguments specified here determines the function
+        arity.
+    out_type : DataType
+        Output type of the function.
+    func_registry : FunctionRegistry
+        Optional function registry to use instead of the default global one.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import pyarrow as pa
+    >>> import pyarrow.compute as pc
+    >>>
+    >>> func_doc = {}
+    >>> func_doc["summary"] = "simple median udf"
+    >>> func_doc["description"] = "compute median"
+    >>>
+    >>> def compute_median(ctx, array):
+    ...     return pa.scalar(np.median(array))
+    >>>
+    >>> func_name = "py_compute_median"
+    >>> in_types = {"array": pa.int64()}
+    >>> out_type = pa.float64()
+    >>> pc.register_aggregate_function(compute_median, func_name, func_doc,
+    ...                   in_types, out_type)
+    >>>
+    >>> func = pc.get_function(func_name)
+    >>> func.name
+    'py_compute_median'
+    >>> answer = pc.call_function(func_name, [pa.array([20, 40])])
+    >>> answer
+    <pyarrow.DoubleScalar: 30.0>
+    >>> table = pa.table([pa.array([1, 1, 2, 2]), pa.array([10, 20, 30, 40])], names=['k', 'v'])
+    >>> result = table.group_by('k').aggregate([('v', 'py_compute_median')])
+    >>> result
+    pyarrow.Table
+    k: int64
+    v_py_compute_median: double
+    ----
+    k: [[1,2]]
+    v_py_compute_median: [[15,35]]
+    """
+    return _register_user_defined_function(get_register_aggregate_function(),
+                                           func, function_name, function_doc, in_types,
+                                           out_type, func_registry)
 
 
 def register_tabular_function(func, function_name, function_doc, in_types, out_type,
@@ -2714,22 +3253,25 @@ def register_tabular_function(func, function_name, function_doc, in_types, out_t
     """
     Register a user-defined tabular function.
 
+    This API is EXPERIMENTAL.
+
     A tabular function is one accepting a context argument of type
-    ScalarUdfContext and returning a generator of struct arrays.
+    UdfContext and returning a generator of struct arrays.
     The in_types argument must be empty and the out_type argument
     specifies a schema. Each struct array must have field types
-    correspoding to the schema.
+    corresponding to the schema.
 
     Parameters
     ----------
     func : callable
         A callable implementing the user-defined function.
         The only argument is the context argument of type
-        ScalarUdfContext. It must return a callable that
+        UdfContext. It must return a callable that
         returns on each invocation a StructArray matching
         the out_type, where an empty array indicates end.
     function_name : str
-        Name of the function. This name must be globally unique.
+        Name of the function. There should only be one function
+        registered with this name in the function registry.
     function_doc : dict
         A dictionary object with keys "summary" (str),
         and "description" (str).
@@ -2749,46 +3291,34 @@ def register_tabular_function(func, function_name, function_doc, in_types, out_t
         with nogil:
             c_type = <shared_ptr[CDataType]>make_shared[CStructType](deref(c_schema).fields())
         out_type = pyarrow_wrap_data_type(c_type)
-    return _register_scalar_like_function(get_register_tabular_function(),
-                                          func, function_name, function_doc, in_types,
-                                          out_type, func_registry)
+    return _register_user_defined_function(get_register_tabular_function(),
+                                           func, function_name, function_doc, in_types,
+                                           out_type, func_registry)
 
 
-def _register_scalar_like_function(register_func, func, function_name, function_doc, in_types,
-                                   out_type, func_registry=None):
+def _register_user_defined_function(register_func, func, function_name, function_doc, in_types,
+                                    out_type, func_registry=None):
     """
-    Register a user-defined scalar-like function.
+    Register a user-defined function.
 
-    A scalar-like function is a callable accepting a first
-    context argument of type ScalarUdfContext as well as
-    possibly additional Arrow arguments, and returning a
-    an Arrow result appropriate for the kind of function.
-    A scalar function and a tabular function are examples
-    for scalar-like functions.
-    This function is normally not called directly but via
-    register_scalar_function or register_tabular_function.
+    This method itself doesn't care about the type of the UDF
+    (i.e., scalar vs tabular vs aggregate)
 
     Parameters
     ----------
     register_func: object
-        An object holding a CRegisterUdf in a "register_func" attribute. Use
-        get_register_scalar_function() for a scalar function and
-        get_register_tabular_function() for a tabular function.
+        An object holding a CRegisterUdf in a "register_func" attribute.
     func : callable
         A callable implementing the user-defined function.
-        See register_scalar_function and
-        register_tabular_function for details.
-
     function_name : str
-        Name of the function. This name must be globally unique.
+        Name of the function. There should only be one function
+        registered with this name in the function registry.
     function_doc : dict
         A dictionary object with keys "summary" (str),
         and "description" (str).
     in_types : Dict[str, DataType]
         A dictionary mapping function argument names to
         their respective DataType.
-        See register_scalar_function and
-        register_tabular_function for details.
     out_type : DataType
         Output type of the function.
     func_registry : FunctionRegistry

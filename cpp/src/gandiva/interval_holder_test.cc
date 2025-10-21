@@ -20,8 +20,8 @@
 #include <gtest/gtest.h>
 
 #include <memory>
-#include <vector>
 
+#include "arrow/testing/gtest_util.h"
 #include "gandiva/execution_context.h"
 
 namespace gandiva {
@@ -32,14 +32,8 @@ class TestIntervalHolder : public ::testing::Test {
 };
 
 TEST_F(TestIntervalHolder, TestMatchAllPeriods) {
-  std::shared_ptr<IntervalDaysHolder> interval_days_holder;
-  std::shared_ptr<IntervalYearsHolder> interval_years_holder;
-
-  auto status = IntervalDaysHolder::Make(0, &interval_days_holder);
-  EXPECT_EQ(status.ok(), true) << status.message();
-
-  status = IntervalYearsHolder::Make(0, &interval_years_holder);
-  EXPECT_EQ(status.ok(), true) << status.message();
+  EXPECT_OK_AND_ASSIGN(auto interval_days_holder, IntervalDaysHolder::Make(0));
+  EXPECT_OK_AND_ASSIGN(auto interval_years_holder, IntervalYearsHolder::Make(0));
 
   auto& cast_interval_day = *interval_days_holder;
   auto& cast_interval_year = *interval_years_holder;
@@ -289,14 +283,8 @@ TEST_F(TestIntervalHolder, TestMatchAllPeriods) {
 }
 
 TEST_F(TestIntervalHolder, TestMatchErrorsForCastIntervalDay) {
-  std::shared_ptr<IntervalDaysHolder> interval_days_holder;
-  std::shared_ptr<IntervalYearsHolder> interval_years_holder;
-
-  auto status = IntervalDaysHolder::Make(0, &interval_days_holder);
-  EXPECT_EQ(status.ok(), true) << status.message();
-
-  status = IntervalYearsHolder::Make(0, &interval_years_holder);
-  EXPECT_EQ(status.ok(), true) << status.message();
+  EXPECT_OK_AND_ASSIGN(auto interval_days_holder, IntervalDaysHolder::Make(0));
+  EXPECT_OK_AND_ASSIGN(auto interval_years_holder, IntervalYearsHolder::Make(0));
 
   auto& cast_interval_day = *interval_days_holder;
   auto& cast_interval_year = *interval_years_holder;
@@ -440,12 +428,8 @@ TEST_F(TestIntervalHolder, TestMatchErrorsForCastIntervalDay) {
 }
 
 TEST_F(TestIntervalHolder, TestUsingWeekFormatterForCastIntervalDay) {
-  std::shared_ptr<IntervalDaysHolder> interval_holder;
-
-  auto status = IntervalDaysHolder::Make(0, &interval_holder);
-  EXPECT_EQ(status.ok(), true) << status.message();
-
-  auto& cast_interval_day = *interval_holder;
+  EXPECT_OK_AND_ASSIGN(auto interval_days_holder, IntervalDaysHolder::Make(0));
+  auto& cast_interval_day = *interval_days_holder;
 
   bool out_valid;
   std::string data("P1W");
@@ -465,12 +449,8 @@ TEST_F(TestIntervalHolder, TestUsingWeekFormatterForCastIntervalDay) {
 }
 
 TEST_F(TestIntervalHolder, TestUsingCompleteFormatterForCastIntervalDay) {
-  std::shared_ptr<IntervalDaysHolder> interval_holder;
-
-  auto status = IntervalDaysHolder::Make(0, &interval_holder);
-  EXPECT_EQ(status.ok(), true) << status.message();
-
-  auto& cast_interval_day = *interval_holder;
+  EXPECT_OK_AND_ASSIGN(auto interval_days_holder, IntervalDaysHolder::Make(0));
+  auto& cast_interval_day = *interval_days_holder;
 
   bool out_valid;
   std::string data("1742461111");
@@ -528,11 +508,7 @@ TEST_F(TestIntervalHolder, TestUsingCompleteFormatterForCastIntervalDay) {
 }
 
 TEST_F(TestIntervalHolder, TestUsingCompleteFormatterForCastIntervalYear) {
-  std::shared_ptr<IntervalYearsHolder> interval_years_holder;
-
-  auto status = IntervalYearsHolder::Make(0, &interval_years_holder);
-  EXPECT_EQ(status.ok(), true) << status.message();
-
+  EXPECT_OK_AND_ASSIGN(auto interval_years_holder, IntervalYearsHolder::Make(0));
   auto& cast_interval_years = *interval_years_holder;
 
   bool out_valid;

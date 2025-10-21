@@ -29,6 +29,7 @@
 #include "arrow/dataset/partition.h"
 #include "arrow/dataset/type_fwd.h"
 #include "arrow/filesystem/path_util.h"
+#include "arrow/record_batch.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/string.h"
 
@@ -37,6 +38,22 @@ namespace arrow {
 using internal::StartsWith;
 
 namespace dataset {
+
+namespace {
+
+bool StartsWithAnyOf(const std::string& path, const std::vector<std::string>& prefixes) {
+  if (prefixes.empty()) {
+    return false;
+  }
+
+  auto parts = fs::internal::SplitAbstractPath(path);
+  return std::any_of(parts.cbegin(), parts.cend(), [&](std::string_view part) {
+    return std::any_of(prefixes.cbegin(), prefixes.cend(),
+                       [&](std::string_view prefix) { return StartsWith(part, prefix); });
+  });
+}
+
+}  // namespace
 
 DatasetFactory::DatasetFactory() : root_partition_(compute::literal(true)) {}
 
@@ -47,7 +64,7 @@ Result<std::shared_ptr<Schema>> DatasetFactory::Inspect(InspectOptions options) 
     return arrow::schema({});
   }
 
-  return UnifySchemas(schemas);
+  return UnifySchemas(schemas, options.field_merge_options);
 }
 
 Result<std::shared_ptr<Dataset>> DatasetFactory::Finish() {
@@ -156,18 +173,6 @@ Result<std::shared_ptr<DatasetFactory>> FileSystemDatasetFactory::Make(
                                    std::move(format), std::move(options)));
 }
 
-bool StartsWithAnyOf(const std::string& path, const std::vector<std::string>& prefixes) {
-  if (prefixes.empty()) {
-    return false;
-  }
-
-  auto parts = fs::internal::SplitAbstractPath(path);
-  return std::any_of(parts.cbegin(), parts.cend(), [&](std::string_view part) {
-    return std::any_of(prefixes.cbegin(), prefixes.cend(),
-                       [&](std::string_view prefix) { return StartsWith(part, prefix); });
-  });
-}
-
 Result<std::shared_ptr<DatasetFactory>> FileSystemDatasetFactory::Make(
     std::shared_ptr<fs::FileSystem> filesystem, fs::FileSelector selector,
     std::shared_ptr<FileFormat> format, FileSystemFactoryOptions options) {
@@ -244,8 +249,7 @@ Result<std::vector<std::shared_ptr<Schema>>> FileSystemDatasetFactory::InspectSc
     if (ARROW_PREDICT_FALSE(!result.ok())) {
       return result.status().WithMessage(
           "Error creating dataset. Could not read schema from '", info.path(),
-          "': ", result.status().message(), ". Is this a '", format_->type_name(),
-          "' file?");
+          "'. Is this a '", format_->type_name(), "' file?: ", result.status().message());
     }
     schemas.push_back(result.MoveValueUnsafe());
   }

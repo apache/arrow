@@ -25,8 +25,7 @@
 #include "parquet/encryption/local_wrap_kms_client.h"
 #include "parquet/platform.h"
 
-namespace parquet {
-namespace encryption {
+namespace parquet::encryption {
 
 // This is a mock class, built for testing only. Don't use it as an example of
 // LocalWrapKmsClient implementation.
@@ -35,13 +34,15 @@ class TestOnlyLocalWrapInMemoryKms : public LocalWrapKmsClient {
   explicit TestOnlyLocalWrapInMemoryKms(const KmsConnectionConfig& kms_connection_config);
 
   static void InitializeMasterKeys(
-      const std::unordered_map<std::string, std::string>& master_keys_map);
+      const std::unordered_map<std::string, ::arrow::util::SecureString>&
+          master_keys_map);
 
  protected:
-  std::string GetMasterKeyFromServer(const std::string& master_key_identifier) override;
+  const ::arrow::util::SecureString& GetMasterKeyFromServer(
+      const std::string& master_key_identifier) override;
 
  private:
-  static std::unordered_map<std::string, std::string> master_key_map_;
+  static std::unordered_map<std::string, ::arrow::util::SecureString> master_key_map_;
 };
 
 // This is a mock class, built for testing only. Don't use it as an example of KmsClient
@@ -49,18 +50,30 @@ class TestOnlyLocalWrapInMemoryKms : public LocalWrapKmsClient {
 class TestOnlyInServerWrapKms : public KmsClient {
  public:
   static void InitializeMasterKeys(
-      const std::unordered_map<std::string, std::string>& master_keys_map);
+      const std::unordered_map<std::string, ::arrow::util::SecureString>&
+          master_keys_map);
 
-  std::string WrapKey(const std::string& key_bytes,
+  std::string WrapKey(const ::arrow::util::SecureString& key_bytes,
                       const std::string& master_key_identifier) override;
 
-  std::string UnwrapKey(const std::string& wrapped_key,
-                        const std::string& master_key_identifier) override;
+  ::arrow::util::SecureString UnwrapKey(
+      const std::string& wrapped_key, const std::string& master_key_identifier) override;
+
+  static void StartKeyRotation(
+      const std::unordered_map<std::string, ::arrow::util::SecureString>&
+          new_master_keys_map);
+  static void FinishKeyRotation();
 
  private:
-  std::string GetMasterKeyFromServer(const std::string& master_key_identifier);
+  ::arrow::util::SecureString GetMasterKeyFromServer(
+      const std::string& master_key_identifier);
 
-  static std::unordered_map<std::string, std::string> master_key_map_;
+  // Different wrapping and unwrapping key maps to imitate versioning
+  // and support key rotation.
+  static std::unordered_map<std::string, ::arrow::util::SecureString>
+      unwrapping_master_key_map_;
+  static std::unordered_map<std::string, ::arrow::util::SecureString>
+      wrapping_master_key_map_;
 };
 
 // This is a mock class, built for testing only. Don't use it as an example of
@@ -69,7 +82,7 @@ class TestOnlyInMemoryKmsClientFactory : public KmsClientFactory {
  public:
   TestOnlyInMemoryKmsClientFactory(
       bool wrap_locally,
-      const std::unordered_map<std::string, std::string>& master_keys_map)
+      const std::unordered_map<std::string, ::arrow::util::SecureString>& master_keys_map)
       : KmsClientFactory(wrap_locally) {
     TestOnlyLocalWrapInMemoryKms::InitializeMasterKeys(master_keys_map);
     TestOnlyInServerWrapKms::InitializeMasterKeys(master_keys_map);
@@ -85,5 +98,4 @@ class TestOnlyInMemoryKmsClientFactory : public KmsClientFactory {
   }
 };
 
-}  // namespace encryption
-}  // namespace parquet
+}  // namespace parquet::encryption

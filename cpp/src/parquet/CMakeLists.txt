@@ -21,6 +21,17 @@ add_custom_target(parquet-benchmarks)
 add_custom_target(parquet-tests)
 add_dependencies(parquet-all parquet parquet-tests parquet-benchmarks)
 
+# If libparquet.a is only built, "pkg-config --cflags --libs parquet"
+# outputs build flags for static linking not shared
+# linking. PARQUET_PC_* except PARQUET_PC_*_PRIVATE are for the static
+# linking case.
+if(NOT ARROW_BUILD_SHARED AND ARROW_BUILD_STATIC)
+  string(APPEND PARQUET_PC_CFLAGS "${PARQUET_PC_CFLAGS_PRIVATE}")
+  set(PARQUET_PC_CFLAGS_PRIVATE "")
+  string(APPEND PARQUET_PC_REQUIRES "${PARQUET_PC_REQUIRES_PRIVATE}")
+  set(PARQUET_PC_REQUIRES_PRIVATE "")
+endif()
+
 function(ADD_PARQUET_TEST REL_TEST_NAME)
   set(one_value_args)
   set(multi_value_args EXTRA_DEPENDENCIES LABELS)
@@ -35,13 +46,15 @@ function(ADD_PARQUET_TEST REL_TEST_NAME)
   if(ARROW_TEST_LINKAGE STREQUAL "static")
     add_test_case(${REL_TEST_NAME}
                   STATIC_LINK_LIBS
-                  ${PARQUET_STATIC_TEST_LINK_LIBS}
+                  parquet_static
+                  ${PARQUET_TEST_LINK_LIBS}
                   ${TEST_ARGUMENTS}
                   ${ARG_UNPARSED_ARGUMENTS})
   else()
     add_test_case(${REL_TEST_NAME}
                   STATIC_LINK_LIBS
-                  ${PARQUET_SHARED_TEST_LINK_LIBS}
+                  parquet_shared
+                  ${PARQUET_TEST_LINK_LIBS}
                   ${TEST_ARGUMENTS}
                   ${ARG_UNPARSED_ARGUMENTS})
   endif()
@@ -105,36 +118,29 @@ endfunction()
 # TODO(wesm): Handling of ABI/SO version
 
 if(ARROW_BUILD_STATIC)
-  set(PARQUET_STATIC_LINK_LIBS arrow_static ${ARROW_STATIC_LINK_LIBS})
+  set(PARQUET_STATIC_LINK_LIBS arrow_static)
   set(PARQUET_STATIC_INSTALL_INTERFACE_LIBS Arrow::arrow_static)
-  set(ARROW_LIBRARIES_FOR_STATIC_TESTS arrow_testing_static arrow_static
-                                       ${ARROW_STATIC_LINK_LIBS})
 else()
   set(PARQUET_STATIC_INSTALL_INTERFACE_LIBS)
-  set(ARROW_LIBRARIES_FOR_STATIC_TESTS arrow_testing_shared arrow_shared)
 endif()
 
-set(PARQUET_MIN_TEST_LIBS GTest::gtest_main GTest::gtest Boost::headers)
-
+set(PARQUET_TEST_LINK_LIBS ${ARROW_TEST_LINK_LIBS} thrift::thrift Boost::headers)
 if(APPLE)
-  set(PARQUET_MIN_TEST_LIBS ${PARQUET_MIN_TEST_LIBS} ${CMAKE_DL_LIBS})
+  list(APPEND PARQUET_TEST_LINK_LIBS ${CMAKE_DL_LIBS})
 elseif(NOT MSVC)
-  set(PARQUET_MIN_TEST_LIBS ${PARQUET_MIN_TEST_LIBS} pthread ${CMAKE_DL_LIBS})
+  if(ARROW_ENABLE_THREADING)
+    list(APPEND PARQUET_TEST_LINK_LIBS Threads::Threads)
+  endif()
+  list(APPEND PARQUET_TEST_LINK_LIBS ${CMAKE_DL_LIBS})
 endif()
-
-set(PARQUET_SHARED_TEST_LINK_LIBS arrow_testing_shared ${PARQUET_MIN_TEST_LIBS}
-                                  parquet_shared thrift::thrift)
-
-set(PARQUET_STATIC_TEST_LINK_LIBS ${PARQUET_MIN_TEST_LIBS} parquet_static thrift::thrift
-                                  ${ARROW_LIBRARIES_FOR_STATIC_TESTS})
 
 #
 # Generated Thrift sources
-set_source_files_properties(src/generated/parquet_types.cpp src/generated/parquet_types.h
-                            src/generated/parquet_constants.cpp
-                            src/generated/parquet_constants.h
-                            PROPERTIES SKIP_PRECOMPILE_HEADERS ON
-                                       SKIP_UNITY_BUILD_INCLUSION ON)
+set(PARQUET_THRIFT_SOURCE_DIR "${ARROW_SOURCE_DIR}/src/generated/")
+
+set_source_files_properties("${PARQUET_THRIFT_SOURCE_DIR}/parquet_types.cpp"
+                            "${PARQUET_THRIFT_SOURCE_DIR}/parquet_types.h"
+                            PROPERTIES SKIP_UNITY_BUILD_INCLUSION ON)
 
 if(NOT MSVC)
   set_source_files_properties(src/parquet/parquet_types.cpp
@@ -150,29 +156,36 @@ set(PARQUET_SRCS
     arrow/reader_internal.cc
     arrow/schema.cc
     arrow/schema_internal.cc
+    arrow/variant_internal.cc
     arrow/writer.cc
     bloom_filter.cc
+    bloom_filter_reader.cc
+    chunker_internal.cc
     column_reader.cc
     column_scanner.cc
     column_writer.cc
-    encoding.cc
+    decoder.cc
+    encoder.cc
     encryption/encryption.cc
     encryption/internal_file_decryptor.cc
     encryption/internal_file_encryptor.cc
     exception.cc
     file_reader.cc
     file_writer.cc
+    geospatial/statistics.cc
+    geospatial/util_internal.cc
+    geospatial/util_json_internal.cc
     level_comparison.cc
     level_conversion.cc
     metadata.cc
-    murmur3.cc
+    xxhasher.cc
     page_index.cc
-    "${ARROW_SOURCE_DIR}/src/generated/parquet_constants.cpp"
-    "${ARROW_SOURCE_DIR}/src/generated/parquet_types.cpp"
+    "${PARQUET_THRIFT_SOURCE_DIR}/parquet_types.cpp"
     platform.cc
     printer.cc
     properties.cc
     schema.cc
+    size_statistics.cc
     statistics.cc
     stream_reader.cc
     stream_writer.cc
@@ -192,9 +205,8 @@ if(ARROW_HAVE_RUNTIME_AVX2)
   if(NOT MSVC)
     string(APPEND AVX2_FLAGS " ${CMAKE_CXX_FLAGS_RELEASE}")
   endif()
-  set_source_files_properties(level_comparison_avx2.cc
-                              PROPERTIES SKIP_PRECOMPILE_HEADERS ON COMPILE_FLAGS
-                                                                    "${AVX2_FLAGS}")
+  set_source_files_properties(level_comparison_avx2.cc PROPERTIES COMPILE_FLAGS
+                                                                  "${AVX2_FLAGS}")
   # WARNING: DO NOT BLINDLY COPY THIS CODE FOR OTHER BMI2 USE CASES.
   # This code is always guarded by runtime dispatch which verifies
   # BMI2 is present.  For a very small number of CPUs AVX2 does not
@@ -207,20 +219,35 @@ if(ARROW_HAVE_RUNTIME_AVX2)
   #
   # TODO: Use COMPILE_OPTIONS instead of COMPILE_FLAGS when we require
   # CMake 3.11 or later.
-  set(BMI2_FLAGS "${AVX2_FLAGS} -DARROW_HAVE_BMI2 -mbmi2")
-  set_source_files_properties(level_conversion_bmi2.cc
-                              PROPERTIES SKIP_PRECOMPILE_HEADERS ON COMPILE_FLAGS
+  if(ARROW_HAVE_RUNTIME_BMI2)
+    # Need to pass ARROW_HAVE_BMI2 for level_conversion_inc.h to compile
+    # the BMI2 path.
+    set(BMI2_FLAGS "${AVX2_FLAGS} ${ARROW_BMI2_FLAG} -DARROW_HAVE_BMI2")
+    set_source_files_properties(level_conversion_bmi2.cc PROPERTIES COMPILE_FLAGS
                                                                     "${BMI2_FLAGS}")
+  endif()
+endif()
+
+set(PARQUET_SHARED_LINK_LIBS)
+set(PARQUET_SHARED_PRIVATE_LINK_LIBS)
+
+if(ARROW_USE_XSIMD)
+  list(APPEND PARQUET_SHARED_LINK_LIBS ${ARROW_XSIMD})
+  list(APPEND PARQUET_SHARED_PRIVATE_LINK_LIBS ${ARROW_XSIMD})
+  list(APPEND PARQUET_STATIC_LINK_LIBS ${ARROW_XSIMD})
 endif()
 
 if(PARQUET_REQUIRE_ENCRYPTION)
-  set(PARQUET_SRCS ${PARQUET_SRCS} encryption/encryption_internal.cc)
+  list(APPEND PARQUET_SHARED_PRIVATE_LINK_LIBS ${ARROW_OPENSSL_LIBS})
+  set(PARQUET_SRCS ${PARQUET_SRCS} encryption/encryption_internal.cc
+                   encryption/openssl_internal.cc)
   # Encryption key management
   set(PARQUET_SRCS
       ${PARQUET_SRCS}
       encryption/crypto_factory.cc
       encryption/file_key_unwrapper.cc
       encryption/file_key_wrapper.cc
+      encryption/file_system_key_material_store.cc
       encryption/kms_client.cc
       encryption/key_material.cc
       encryption/key_metadata.cc
@@ -231,19 +258,25 @@ else()
   set(PARQUET_SRCS ${PARQUET_SRCS} encryption/encryption_internal_nossl.cc)
 endif()
 
-if(NOT PARQUET_MINIMAL_DEPENDENCY)
-  set(PARQUET_SHARED_LINK_LIBS arrow_shared)
+list(APPEND PARQUET_SHARED_LINK_LIBS arrow_shared)
 
-  # These are libraries that we will link privately with parquet_shared (as they
-  # do not need to be linked transitively by other linkers)
-  set(PARQUET_SHARED_PRIVATE_LINK_LIBS thrift::thrift)
+# Add RapidJSON libraries
+list(APPEND PARQUET_SHARED_PRIVATE_LINK_LIBS RapidJSON)
+list(APPEND PARQUET_STATIC_LINK_LIBS RapidJSON)
 
-  # Link publicly with parquet_static (because internal users need to
-  # transitively link all dependencies)
-  list(APPEND PARQUET_STATIC_LINK_LIBS thrift::thrift)
-  if(NOT THRIFT_VENDORED)
-    list(APPEND PARQUET_STATIC_INSTALL_INTERFACE_LIBS thrift::thrift)
-  endif()
+# These are libraries that we will link privately with parquet_shared (as they
+# do not need to be linked transitively by other linkers)
+list(APPEND PARQUET_SHARED_PRIVATE_LINK_LIBS thrift::thrift)
+
+# Link publicly with parquet_static (because internal users need to
+# transitively link all dependencies)
+list(APPEND PARQUET_STATIC_LINK_LIBS thrift::thrift)
+if(NOT THRIFT_VENDORED)
+  list(APPEND PARQUET_STATIC_INSTALL_INTERFACE_LIBS thrift::thrift)
+endif()
+
+if(ARROW_WITH_OPENTELEMETRY)
+  list(APPEND PARQUET_SHARED_PRIVATE_LINK_LIBS ${ARROW_OPENTELEMETRY_LIBS})
 endif()
 
 if(CXX_LINKER_SUPPORTS_VERSION_SCRIPT)
@@ -258,8 +291,6 @@ add_arrow_lib(parquet
               parquet
               SOURCES
               ${PARQUET_SRCS}
-              PRECOMPILED_HEADERS
-              "$<$<COMPILE_LANGUAGE:CXX>:parquet/pch.h>"
               OUTPUTS
               PARQUET_LIBRARIES
               SHARED_LINK_FLAGS
@@ -277,18 +308,27 @@ add_arrow_lib(parquet
 
 if(WIN32 AND NOT (ARROW_TEST_LINKAGE STREQUAL "static"))
   add_library(parquet_test_support STATIC
-              "${ARROW_SOURCE_DIR}/src/generated/parquet_constants.cpp"
-              "${ARROW_SOURCE_DIR}/src/generated/parquet_types.cpp")
+              "${PARQUET_THRIFT_SOURCE_DIR}/parquet_types.cpp")
   target_link_libraries(parquet_test_support thrift::thrift)
-  set(PARQUET_SHARED_TEST_LINK_LIBS ${PARQUET_SHARED_TEST_LINK_LIBS} parquet_test_support)
-  set(PARQUET_LIBRARIES ${PARQUET_LIBRARIES} parquet_test_support)
+  list(PREPEND PARQUET_TEST_LINK_LIBS parquet_test_support)
+  list(APPEND PARQUET_LIBRARIES parquet_test_support)
+endif()
+
+if(ARROW_TESTING)
+  add_library(parquet_testing OBJECT test_util.cc)
+  # Even though this is still just an object library we still need to
+  # "link" our dependencies so that include paths are configured
+  # correctly
+  target_link_libraries(parquet_testing PUBLIC ${ARROW_GTEST_GMOCK})
+  list(APPEND PARQUET_TEST_LINK_LIBS parquet_testing RapidJSON)
 endif()
 
 if(NOT ARROW_BUILD_SHARED)
-  set(PARQUET_BENCHMARK_LINK_OPTION STATIC_LINK_LIBS benchmark::benchmark_main
-                                    ${PARQUET_STATIC_TEST_LINK_LIBS})
+  set(PARQUET_BENCHMARK_LINK_OPTION STATIC_LINK_LIBS parquet_static
+                                    ${PARQUET_TEST_LINK_LIBS} benchmark::benchmark_main)
 else()
-  set(PARQUET_BENCHMARK_LINK_OPTION EXTRA_LINK_LIBS ${PARQUET_SHARED_TEST_LINK_LIBS})
+  set(PARQUET_BENCHMARK_LINK_OPTION EXTRA_LINK_LIBS parquet_shared
+                                    ${PARQUET_TEST_LINK_LIBS})
 endif()
 
 if(ARROW_BUILD_STATIC AND WIN32)
@@ -319,6 +359,7 @@ endif()
 add_subdirectory(api)
 add_subdirectory(arrow)
 add_subdirectory(encryption)
+add_subdirectory(geospatial)
 
 arrow_install_all_headers("parquet")
 
@@ -327,20 +368,23 @@ configure_file(parquet_version.h.in "${CMAKE_CURRENT_BINARY_DIR}/parquet_version
 install(FILES "${CMAKE_CURRENT_BINARY_DIR}/parquet_version.h"
         DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/parquet")
 
+set_source_files_properties(public_api_test.cc PROPERTIES SKIP_UNITY_BUILD_INCLUSION ON)
+
 add_parquet_test(internals-test
                  SOURCES
+                 bloom_filter_reader_test.cc
                  bloom_filter_test.cc
-                 properties_test.cc
-                 statistics_test.cc
-                 encoding_test.cc
+                 geospatial/statistics_test.cc
+                 geospatial/util_internal_test.cc
                  metadata_test.cc
                  page_index_test.cc
+                 properties_test.cc
                  public_api_test.cc
-                 types_test.cc
-                 test_util.cc)
+                 size_statistics_test.cc
+                 statistics_test.cc
+                 types_test.cc)
 
-set_source_files_properties(public_api_test.cc PROPERTIES SKIP_PRECOMPILE_HEADERS ON
-                                                          SKIP_UNITY_BUILD_INCLUSION ON)
+add_parquet_test(encoding-test SOURCES encoding_test.cc)
 
 add_parquet_test(reader-test
                  SOURCES
@@ -348,37 +392,36 @@ add_parquet_test(reader-test
                  level_conversion_test.cc
                  column_scanner_test.cc
                  reader_test.cc
-                 stream_reader_test.cc
-                 test_util.cc)
+                 stream_reader_test.cc)
 
 add_parquet_test(writer-test
                  SOURCES
                  column_writer_test.cc
                  file_serialize_test.cc
-                 stream_writer_test.cc
-                 test_util.cc)
+                 stream_writer_test.cc)
 
-add_parquet_test(arrow-test
+add_parquet_test(chunker-test SOURCES chunker_internal_test.cc)
+
+add_parquet_test(arrow-reader-writer-test
                  SOURCES
                  arrow/arrow_reader_writer_test.cc
-                 arrow/arrow_schema_test.cc
                  arrow/arrow_statistics_test.cc
-                 test_util.cc)
+                 arrow/variant_test.cc)
 
-add_parquet_test(arrow-internals-test
-                 SOURCES
-                 arrow/path_internal_test.cc
-                 arrow/reconstruct_internal_test.cc
-                 test_util.cc)
+add_parquet_test(arrow-internals-test SOURCES arrow/path_internal_test.cc
+                 arrow/reconstruct_internal_test.cc)
+
+add_parquet_test(arrow-metadata-test SOURCES arrow/arrow_metadata_test.cc
+                 arrow/arrow_schema_test.cc)
 
 if(PARQUET_REQUIRE_ENCRYPTION)
   add_parquet_test(encryption-test
                    SOURCES
+                   encryption/encryption_internal_test.cc
                    encryption/write_configurations_test.cc
                    encryption/read_configurations_test.cc
                    encryption/properties_test.cc
-                   encryption/test_encryption_util.cc
-                   test_util.cc)
+                   encryption/test_encryption_util.cc)
   add_parquet_test(encryption-key-management-test
                    SOURCES
                    encryption/key_management_test.cc
@@ -386,41 +429,22 @@ if(PARQUET_REQUIRE_ENCRYPTION)
                    encryption/key_wrapping_test.cc
                    encryption/test_encryption_util.cc
                    encryption/test_in_memory_kms.cc
-                   encryption/two_level_cache_with_expiration_test.cc
-                   test_util.cc)
+                   encryption/two_level_cache_with_expiration_test.cc)
 endif()
 
 # Those tests need to use static linking as they access thrift-generated
 # symbols which are not exported by parquet.dll on Windows (PARQUET-1420).
-add_parquet_test(file_deserialize_test SOURCES file_deserialize_test.cc test_util.cc)
+add_parquet_test(file_deserialize_test SOURCES file_deserialize_test.cc)
 add_parquet_test(schema_test)
 
+add_parquet_benchmark(bloom_filter_benchmark SOURCES bloom_filter_benchmark.cc
+                      benchmark_util.cc)
 add_parquet_benchmark(column_reader_benchmark)
 add_parquet_benchmark(column_io_benchmark)
 add_parquet_benchmark(encoding_benchmark)
 add_parquet_benchmark(level_conversion_benchmark)
+add_parquet_benchmark(metadata_benchmark)
+add_parquet_benchmark(page_index_benchmark SOURCES page_index_benchmark.cc
+                      benchmark_util.cc)
 add_parquet_benchmark(arrow/reader_writer_benchmark PREFIX "parquet-arrow")
-
-if(ARROW_WITH_BROTLI)
-  add_definitions(-DARROW_WITH_BROTLI)
-endif()
-
-if(ARROW_WITH_BZ2)
-  add_definitions(-DARROW_WITH_BZ2)
-endif()
-
-if(ARROW_WITH_LZ4)
-  add_definitions(-DARROW_WITH_LZ4)
-endif()
-
-if(ARROW_WITH_SNAPPY)
-  add_definitions(-DARROW_WITH_SNAPPY)
-endif()
-
-if(ARROW_WITH_ZLIB)
-  add_definitions(-DARROW_WITH_ZLIB)
-endif()
-
-if(ARROW_WITH_ZSTD)
-  add_definitions(-DARROW_WITH_ZSTD)
-endif()
+add_parquet_benchmark(arrow/size_stats_benchmark PREFIX "parquet-arrow")

@@ -1,3 +1,5 @@
-usr/share/gtk-doc/html/arrow-flight-glib usr/share/doc/libarrow-flight-glib-doc/arrow-flight-glib 
+usr/share/doc/libarrow-flight-glib-doc/arrow-flight-glib usr/share/devhelp/books/arrow-flight-glib
+usr/share/doc/libarrow-glib-doc/arrow-glib usr/share/doc/libarrow-flight-glib-doc/arrow-glib
+usr/share/doc/libglib2.0-doc/gio usr/share/doc/libarrow-flight-glib-doc/gio
 usr/share/doc/libglib2.0-doc/glib usr/share/doc/libarrow-flight-glib-doc/glib
 usr/share/doc/libglib2.0-doc/gobject usr/share/doc/libarrow-flight-glib-doc/gobject

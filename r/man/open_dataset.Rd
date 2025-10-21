@@ -10,7 +10,7 @@ open_dataset(
   partitioning = hive_partition(),
   hive_style = NA,
   unify_schemas = NULL,
-  format = c("parquet", "arrow", "ipc", "feather", "csv", "tsv", "text"),
+  format = c("parquet", "arrow", "ipc", "feather", "csv", "tsv", "text", "json"),
   factory_options = list(),
   ...
 )
@@ -74,10 +74,11 @@ only version 2 files are supported
 \item "csv"/"text", aliases for the same thing (because comma is the default
 delimiter for text files
 \item "tsv", equivalent to passing \verb{format = "text", delimiter = "\\t"}
-}
-
+\item "json", for JSON format datasets Note: only newline-delimited JSON (aka ND-JSON) datasets
+are currently supported
 Default is "parquet", unless a \code{delimiter} is also specified, in which case
-it is assumed to be "text".}
+it is assumed to be "text".
+}}
 
 \item{factory_options}{list of optional FileSystemFactoryOptions:
 \itemize{
@@ -141,7 +142,7 @@ what names to give the virtual columns that come from the path segments.
 
 The default behavior in \code{open_dataset()} is to inspect the file paths
 contained in the provided directory, and if they look like Hive-style, parse
-them as Hive. If your dataset has Hive-style partioning in the file paths,
+them as Hive. If your dataset has Hive-style partitioning in the file paths,
 you do not need to provide anything in the \code{partitioning} argument to
 \code{open_dataset()} to use them. If you do provide a character vector of
 partition column names, they will be ignored if they match what is detected,
@@ -165,7 +166,6 @@ information will be taken from the file paths.
 # Set up directory for examples
 tf <- tempfile()
 dir.create(tf)
-on.exit(unlink(tf))
 
 write_dataset(mtcars, tf, partitioning = "cyl")
 
@@ -179,7 +179,6 @@ open_dataset(c(file.path(tf, "cyl=4/part-0.parquet"), file.path(tf, "cyl=8/part-
 ## You must specify the file format if using a format other than parquet.
 tf2 <- tempfile()
 dir.create(tf2)
-on.exit(unlink(tf2))
 write_dataset(mtcars, tf2, format = "ipc")
 # This line will results in errors when you try to work with the data
 \dontrun{
@@ -192,7 +191,6 @@ open_dataset(tf2, format = "ipc")
 # Create a temporary directory and write example dataset
 tf3 <- tempfile()
 dir.create(tf3)
-on.exit(unlink(tf3))
 write_dataset(airquality, tf3, partitioning = c("Month", "Day"), hive_style = FALSE)
 
 # View files - you can see the partitioning means that files have been written

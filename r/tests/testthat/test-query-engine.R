@@ -17,6 +17,8 @@
 
 library(dplyr, warn.conflicts = FALSE)
 
+skip_if_not_available("acero")
+
 test_that("ExecPlanReader does not start evaluating a query", {
   skip_if_not(CanRunWithCapturedR())
 
@@ -133,7 +135,7 @@ test_that("do_exec_plan_substrait can evaluate a simple plan", {
   result <- do_exec_plan_substrait(substrait_json)
   expect_identical(
     # TODO(ARROW-15585) The "select(i, b)" should not be needed
-    tibble::as_tibble(result) %>% select(i, b),
+    tibble::as_tibble(result) |> select(i, b),
     tibble::as_tibble(df)
   )
 })

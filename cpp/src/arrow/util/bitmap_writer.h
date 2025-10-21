@@ -124,7 +124,7 @@ class FirstTimeBitmapWriter {
       // unset so no additional accounting is needed for when number_of_bits <
       // bits_to_carry.
       current_byte_ |= (word & bit_util::kPrecedingBitmask[bits_to_carry]) << bit_offset;
-      // Check if everything is transfered into current_byte_.
+      // Check if everything is transferred into current_byte_.
       if (ARROW_PREDICT_FALSE(number_of_bits < bits_to_carry)) {
         return;
       }

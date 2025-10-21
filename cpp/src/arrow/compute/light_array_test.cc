@@ -15,16 +15,17 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/compute/light_array.h"
+#include "arrow/compute/light_array_internal.h"
 
 #include <gtest/gtest.h>
 #include <numeric>
 
-#include "arrow/compute/exec/test_util.h"
+#include "arrow/memory_pool.h"
 #include "arrow/testing/generator.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/type.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/vector.h"
 
 namespace arrow {
 namespace compute {
@@ -33,6 +34,16 @@ const std::vector<std::shared_ptr<DataType>> kSampleFixedDataTypes = {
     int8(),   int16(),  int32(),  int64(),           uint8(),
     uint16(), uint32(), uint64(), decimal128(38, 6), decimal256(76, 6)};
 const std::vector<std::shared_ptr<DataType>> kSampleBinaryTypes = {utf8(), binary()};
+
+static ExecBatch JSONToExecBatch(const std::vector<TypeHolder>& types,
+                                 std::string_view json) {
+  auto fields = ::arrow::internal::MapVector(
+      [](const TypeHolder& th) { return field("", th.GetSharedPtr()); }, types);
+
+  ExecBatch batch{*RecordBatchFromJSON(schema(std::move(fields)), json)};
+
+  return batch;
+}
 
 TEST(KeyColumnMetadata, FromDataType) {
   KeyColumnMetadata metadata = ColumnMetadataFromDataType(boolean()).ValueOrDie();
@@ -216,25 +227,64 @@ TEST(KeyColumnArray, SliceBool) {
   }
 }
 
-TEST(KeyColumnArray, FromExecBatch) {
-  ExecBatch batch =
-      ExecBatchFromJSON({int64(), boolean()}, "[[1, true], [2, false], [null, null]]");
-  std::vector<KeyColumnArray> arrays;
-  ASSERT_OK(ColumnArraysFromExecBatch(batch, &arrays));
+struct SliceTestCase {
+  int offset;
+  int length;
+  std::vector<std::string> expected;
+};
 
-  ASSERT_EQ(2, arrays.size());
-  ASSERT_EQ(8, arrays[0].metadata().fixed_length);
-  ASSERT_EQ(0, arrays[1].metadata().fixed_length);
-  ASSERT_EQ(3, arrays[0].length());
-  ASSERT_EQ(3, arrays[1].length());
+template <typename OffsetType>
+void GenericTestSlice(const std::shared_ptr<DataType>& type, const char* json_data,
+                      const std::vector<SliceTestCase>& testCases) {
+  auto array = ArrayFromJSON(type, json_data);
+  KeyColumnArray kc_array =
+      ColumnArrayFromArrayData(array->data(), 0, array->length()).ValueOrDie();
 
-  ASSERT_OK(ColumnArraysFromExecBatch(batch, 1, 1, &arrays));
+  for (const auto& testCase : testCases) {
+    ARROW_SCOPED_TRACE("Offset: ", testCase.offset, " Length: ", testCase.length);
+    KeyColumnArray sliced = kc_array.Slice(testCase.offset, testCase.length);
 
-  ASSERT_EQ(2, arrays.size());
-  ASSERT_EQ(8, arrays[0].metadata().fixed_length);
-  ASSERT_EQ(0, arrays[1].metadata().fixed_length);
-  ASSERT_EQ(1, arrays[0].length());
-  ASSERT_EQ(1, arrays[1].length());
+    // Extract binary data from the sliced KeyColumnArray
+    std::vector<std::string> sliced_data;
+    const auto* offset_data = reinterpret_cast<const OffsetType*>(sliced.data(1));
+    const auto* string_data = reinterpret_cast<const char*>(sliced.data(2));
+
+    for (auto i = 0; i < testCase.length; ++i) {
+      auto start = offset_data[i];
+      auto end = offset_data[i + 1];
+      sliced_data.push_back(std::string(string_data + start, string_data + end));
+    }
+
+    // Compare the sliced values to the expected string
+    ASSERT_EQ(testCase.expected, sliced_data);
+  }
+}
+
+TEST(KeyColumnArray, SliceBinaryTest) {
+  const char* json_test_strings = R"(["Hello", "World", "Slice", "Binary", "Test"])";
+  std::vector<SliceTestCase> testCases = {
+      {0, 1, {"Hello"}},
+      {1, 1, {"World"}},
+      {2, 1, {"Slice"}},
+      {3, 1, {"Binary"}},
+      {4, 1, {"Test"}},
+      {0, 2, {"Hello", "World"}},
+      {1, 2, {"World", "Slice"}},
+      {2, 2, {"Slice", "Binary"}},
+      {3, 2, {"Binary", "Test"}},
+      {0, 3, {"Hello", "World", "Slice"}},
+      {1, 3, {"World", "Slice", "Binary"}},
+      {2, 3, {"Slice", "Binary", "Test"}},
+      {0, 4, {"Hello", "World", "Slice", "Binary"}},
+      {1, 4, {"World", "Slice", "Binary", "Test"}},
+      {0, 5, {"Hello", "World", "Slice", "Binary", "Test"}},
+  };
+
+  // Run tests with binary type
+  GenericTestSlice<int32_t>(binary(), json_test_strings, testCases);
+
+  // Run tests with large binary type
+  GenericTestSlice<int64_t>(large_binary(), json_test_strings, testCases);
 }
 
 TEST(ResizableArrayData, Basic) {
@@ -245,7 +295,7 @@ TEST(ResizableArrayData, Basic) {
         arrow::internal::checked_pointer_cast<FixedWidthType>(type)->bit_width() / 8;
     {
       ResizableArrayData array;
-      array.Init(type, pool.get(), /*log_num_rows_min=*/16);
+      ASSERT_OK(array.Init(type, pool.get(), /*log_num_rows_min=*/16));
       ASSERT_EQ(0, array.num_rows());
       ASSERT_OK(array.ResizeFixedLengthBuffers(2));
       ASSERT_EQ(2, array.num_rows());
@@ -280,11 +330,11 @@ TEST(ResizableArrayData, Binary) {
     ARROW_SCOPED_TRACE("Type: ", type->ToString());
     {
       ResizableArrayData array;
-      array.Init(type, pool.get(), /*log_num_rows_min=*/4);
+      ASSERT_OK(array.Init(type, pool.get(), /*log_num_rows_min=*/4));
       ASSERT_EQ(0, array.num_rows());
       ASSERT_OK(array.ResizeFixedLengthBuffers(2));
       ASSERT_EQ(2, array.num_rows());
-      // At this point the offets memory has been allocated and needs to be filled
+      // At this point the offsets memory has been allocated and needs to be filled
       // in before we allocate the variable length memory
       int offsets_width =
           static_cast<int>(arrow::internal::checked_pointer_cast<BaseBinaryType>(type)
@@ -315,14 +365,142 @@ TEST(ResizableArrayData, Binary) {
   }
 }
 
+TEST(ExecBatchBuilder, AppendNullsBeyondLimit) {
+  std::unique_ptr<MemoryPool> owned_pool = MemoryPool::CreateDefault();
+  int num_rows_max = ExecBatchBuilder::num_rows_max();
+  MemoryPool* pool = owned_pool.get();
+  {
+    ExecBatchBuilder builder;
+    ASSERT_OK(builder.AppendNulls(pool, {int64(), boolean()}, 10));
+    ASSERT_RAISES(CapacityError,
+                  builder.AppendNulls(pool, {int64(), boolean()}, num_rows_max + 1 - 10));
+    ExecBatch built = builder.Flush();
+    ASSERT_EQ(10, built.length);
+    ASSERT_NE(0, pool->bytes_allocated());
+  }
+  ASSERT_EQ(0, pool->bytes_allocated());
+}
+
+TEST(ExecBatchBuilder, AppendValuesBeyondLimit) {
+  std::unique_ptr<MemoryPool> owned_pool = MemoryPool::CreateDefault();
+  MemoryPool* pool = owned_pool.get();
+  int num_rows_max = ExecBatchBuilder::num_rows_max();
+  std::shared_ptr<Array> values = ConstantArrayGenerator::Int32(num_rows_max + 1);
+  std::shared_ptr<Array> trimmed_values = ConstantArrayGenerator::Int32(10);
+  ExecBatch batch({values}, num_rows_max + 1);
+  ExecBatch trimmed_batch({trimmed_values}, 10);
+  std::vector<uint16_t> first_set_row_ids(10);
+  std::iota(first_set_row_ids.begin(), first_set_row_ids.end(), 0);
+  std::vector<uint16_t> second_set_row_ids(num_rows_max + 1 - 10);
+  std::iota(second_set_row_ids.begin(), second_set_row_ids.end(), 10);
+  {
+    ExecBatchBuilder builder;
+    ASSERT_OK(builder.AppendSelected(pool, batch, 10, first_set_row_ids.data(),
+                                     /*num_cols=*/1));
+    ASSERT_RAISES(CapacityError,
+                  builder.AppendSelected(pool, batch, num_rows_max + 1 - 10,
+                                         second_set_row_ids.data(),
+                                         /*num_cols=*/1));
+    ExecBatch built = builder.Flush();
+    ASSERT_EQ(trimmed_batch, built);
+    ASSERT_NE(0, pool->bytes_allocated());
+  }
+  ASSERT_EQ(0, pool->bytes_allocated());
+}
+
+TEST(ExecBatchBuilder, AppendVarLengthBeyondLimit) {
+  // GH-39332: check appending variable-length data past 2GB.
+  if constexpr (sizeof(void*) == 4) {
+    GTEST_SKIP() << "Test only works on 64-bit platforms";
+  }
+
+  std::unique_ptr<MemoryPool> owned_pool = MemoryPool::CreateDefault();
+  MemoryPool* pool = owned_pool.get();
+  constexpr auto eight_mb = 8 * 1024 * 1024;
+  constexpr auto eight_mb_minus_one = eight_mb - 1;
+  // String of size 8mb to repetitively fill the heading multiple of 8mbs of an array
+  // of int32_max bytes.
+  std::string str_8mb(eight_mb, 'a');
+  // String of size (8mb - 1) to be the last element of an array of int32_max bytes.
+  std::string str_8mb_minus_1(eight_mb_minus_one, 'b');
+  std::shared_ptr<Array> values_8mb = ConstantArrayGenerator::String(1, str_8mb);
+  std::shared_ptr<Array> values_8mb_minus_1 =
+      ConstantArrayGenerator::String(1, str_8mb_minus_1);
+
+  ExecBatch batch_8mb({values_8mb}, 1);
+  ExecBatch batch_8mb_minus_1({values_8mb_minus_1}, 1);
+
+  auto num_rows = std::numeric_limits<int32_t>::max() / eight_mb;
+  std::vector<uint16_t> body_row_ids(num_rows, 0);
+  std::vector<uint16_t> tail_row_id(1, 0);
+
+  {
+    // Building an array of (int32_max + 1) = (8mb * num_rows + 8mb) bytes should raise an
+    // error of overflow.
+    ExecBatchBuilder builder;
+    ASSERT_OK(builder.AppendSelected(pool, batch_8mb, num_rows, body_row_ids.data(),
+                                     /*num_cols=*/1));
+    std::stringstream ss;
+    ss << "Invalid: Overflow detected in ExecBatchBuilder when appending " << num_rows + 1
+       << "-th element of length " << eight_mb << " bytes to current length "
+       << eight_mb * num_rows << " bytes";
+    ASSERT_RAISES_WITH_MESSAGE(
+        Invalid, ss.str(),
+        builder.AppendSelected(pool, batch_8mb, 1, tail_row_id.data(),
+                               /*num_cols=*/1));
+  }
+
+  {
+    // Building an array of int32_max = (8mb * num_rows + 8mb - 1) bytes should succeed.
+    ExecBatchBuilder builder;
+    ASSERT_OK(builder.AppendSelected(pool, batch_8mb, num_rows, body_row_ids.data(),
+                                     /*num_cols=*/1));
+    ASSERT_OK(builder.AppendSelected(pool, batch_8mb_minus_1, 1, tail_row_id.data(),
+                                     /*num_cols=*/1));
+    ExecBatch built = builder.Flush();
+    auto datum = built[0];
+    ASSERT_TRUE(datum.is_array());
+    auto array = datum.array_as<StringArray>();
+    ASSERT_EQ(array->length(), num_rows + 1);
+    for (int i = 0; i < num_rows; ++i) {
+      ASSERT_EQ(array->GetString(i), str_8mb);
+    }
+    ASSERT_EQ(array->GetString(num_rows), str_8mb_minus_1);
+    ASSERT_NE(0, pool->bytes_allocated());
+  }
+
+  ASSERT_EQ(0, pool->bytes_allocated());
+}
+
+TEST(KeyColumnArray, FromExecBatch) {
+  ExecBatch batch =
+      JSONToExecBatch({int64(), boolean()}, "[[1, true], [2, false], [null, null]]");
+  std::vector<KeyColumnArray> arrays;
+  ASSERT_OK(ColumnArraysFromExecBatch(batch, &arrays));
+
+  ASSERT_EQ(2, arrays.size());
+  ASSERT_EQ(8, arrays[0].metadata().fixed_length);
+  ASSERT_EQ(0, arrays[1].metadata().fixed_length);
+  ASSERT_EQ(3, arrays[0].length());
+  ASSERT_EQ(3, arrays[1].length());
+
+  ASSERT_OK(ColumnArraysFromExecBatch(batch, 1, 1, &arrays));
+
+  ASSERT_EQ(2, arrays.size());
+  ASSERT_EQ(8, arrays[0].metadata().fixed_length);
+  ASSERT_EQ(0, arrays[1].metadata().fixed_length);
+  ASSERT_EQ(1, arrays[0].length());
+  ASSERT_EQ(1, arrays[1].length());
+}
+
 TEST(ExecBatchBuilder, AppendBatches) {
   std::unique_ptr<MemoryPool> owned_pool = MemoryPool::CreateDefault();
   MemoryPool* pool = owned_pool.get();
   ExecBatch batch_one =
-      ExecBatchFromJSON({int64(), boolean()}, "[[1, true], [2, false], [null, null]]");
+      JSONToExecBatch({int64(), boolean()}, "[[1, true], [2, false], [null, null]]");
   ExecBatch batch_two =
-      ExecBatchFromJSON({int64(), boolean()}, "[[null, true], [5, true], [6, false]]");
-  ExecBatch combined = ExecBatchFromJSON(
+      JSONToExecBatch({int64(), boolean()}, "[[null, true], [5, true], [6, false]]");
+  ExecBatch combined = JSONToExecBatch(
       {int64(), boolean()},
       "[[1, true], [2, false], [null, null], [null, true], [5, true], [6, false]]");
   {
@@ -341,10 +519,10 @@ TEST(ExecBatchBuilder, AppendBatchesSomeRows) {
   std::unique_ptr<MemoryPool> owned_pool = MemoryPool::CreateDefault();
   MemoryPool* pool = owned_pool.get();
   ExecBatch batch_one =
-      ExecBatchFromJSON({int64(), boolean()}, "[[1, true], [2, false], [null, null]]");
+      JSONToExecBatch({int64(), boolean()}, "[[1, true], [2, false], [null, null]]");
   ExecBatch batch_two =
-      ExecBatchFromJSON({int64(), boolean()}, "[[null, true], [5, true], [6, false]]");
-  ExecBatch combined = ExecBatchFromJSON(
+      JSONToExecBatch({int64(), boolean()}, "[[null, true], [5, true], [6, false]]");
+  ExecBatch combined = JSONToExecBatch(
       {int64(), boolean()}, "[[1, true], [2, false], [null, true], [5, true]]");
   {
     ExecBatchBuilder builder;
@@ -358,17 +536,106 @@ TEST(ExecBatchBuilder, AppendBatchesSomeRows) {
   ASSERT_EQ(0, pool->bytes_allocated());
 }
 
+TEST(ExecBatchBuilder, AppendBatchDupRows) {
+  std::unique_ptr<MemoryPool> owned_pool = MemoryPool::CreateDefault();
+  MemoryPool* pool = owned_pool.get();
+
+  // Case of cross-word copying for the last row, which may exceed the buffer boundary.
+  //
+  {
+    // This is a simplified case of GH-32570
+    // 64-byte data fully occupying one minimal 64-byte aligned memory region.
+    ExecBatch batch_string = JSONToExecBatch({binary()}, R"([
+        ["123456789ABCDEF0"],
+        ["123456789ABCDEF0"],
+        ["123456789ABCDEF0"],
+        ["ABCDEF0"],
+        ["123456789"]])");  // 9-byte tail row, larger than a word.
+    ASSERT_EQ(batch_string[0].array()->buffers[1]->capacity(), 64);
+    ASSERT_EQ(batch_string[0].array()->buffers[2]->capacity(), 64);
+    ExecBatchBuilder builder;
+    uint16_t row_ids[2] = {4, 4};
+    ASSERT_OK(builder.AppendSelected(pool, batch_string, 2, row_ids, /*num_cols=*/1));
+    ExecBatch built = builder.Flush();
+    ExecBatch batch_string_appended =
+        JSONToExecBatch({binary()}, R"([["123456789"], ["123456789"]])");
+    ASSERT_EQ(batch_string_appended, built);
+    ASSERT_NE(0, pool->bytes_allocated());
+  }
+
+  {
+    // This is a simplified case of GH-39583, using fsb(3) type.
+    // 63-byte data occupying almost one minimal 64-byte aligned memory region.
+    ExecBatch batch_fsb = JSONToExecBatch({fixed_size_binary(3)}, R"([
+        ["000"],
+        ["000"],
+        ["000"],
+        ["000"],
+        ["000"],
+        ["000"],
+        ["000"],
+        ["000"],
+        ["000"],
+        ["000"],
+        ["000"],
+        ["000"],
+        ["000"],
+        ["000"],
+        ["000"],
+        ["000"],
+        ["000"],
+        ["000"],
+        ["000"],
+        ["000"],
+        ["123"]])");  // 3-byte tail row, not aligned to a word.
+    ASSERT_EQ(batch_fsb[0].array()->buffers[1]->capacity(), 64);
+    ExecBatchBuilder builder;
+    uint16_t row_ids[4] = {20, 20, 20,
+                           20};  // Get the last row 4 times, 3 to skip a word.
+    ASSERT_OK(builder.AppendSelected(pool, batch_fsb, 4, row_ids, /*num_cols=*/1));
+    ExecBatch built = builder.Flush();
+    ExecBatch batch_fsb_appended = JSONToExecBatch(
+        {fixed_size_binary(3)}, R"([["123"], ["123"], ["123"], ["123"]])");
+    ASSERT_EQ(batch_fsb_appended, built);
+    ASSERT_NE(0, pool->bytes_allocated());
+  }
+
+  {
+    // This is a simplified case of GH-39583, using fsb(9) type.
+    // 63-byte data occupying almost one minimal 64-byte aligned memory region.
+    ExecBatch batch_fsb = JSONToExecBatch({fixed_size_binary(9)}, R"([
+        ["000000000"],
+        ["000000000"],
+        ["000000000"],
+        ["000000000"],
+        ["000000000"],
+        ["000000000"],
+        ["123456789"]])");  // 9-byte tail row, not aligned to a word.
+    ASSERT_EQ(batch_fsb[0].array()->buffers[1]->capacity(), 64);
+    ExecBatchBuilder builder;
+    uint16_t row_ids[2] = {6, 6};  // Get the last row 2 times, 1 to skip a word.
+    ASSERT_OK(builder.AppendSelected(pool, batch_fsb, 2, row_ids, /*num_cols=*/1));
+    ExecBatch built = builder.Flush();
+    ExecBatch batch_fsb_appended =
+        JSONToExecBatch({fixed_size_binary(9)}, R"([["123456789"], ["123456789"]])");
+    ASSERT_EQ(batch_fsb_appended, built);
+    ASSERT_NE(0, pool->bytes_allocated());
+  }
+
+  ASSERT_EQ(0, pool->bytes_allocated());
+}
+
 TEST(ExecBatchBuilder, AppendBatchesSomeCols) {
   std::unique_ptr<MemoryPool> owned_pool = MemoryPool::CreateDefault();
   MemoryPool* pool = owned_pool.get();
   ExecBatch batch_one =
-      ExecBatchFromJSON({int64(), boolean()}, "[[1, true], [2, false], [null, null]]");
+      JSONToExecBatch({int64(), boolean()}, "[[1, true], [2, false], [null, null]]");
   ExecBatch batch_two =
-      ExecBatchFromJSON({int64(), boolean()}, "[[null, true], [5, true], [6, false]]");
+      JSONToExecBatch({int64(), boolean()}, "[[null, true], [5, true], [6, false]]");
   ExecBatch first_col_only =
-      ExecBatchFromJSON({int64()}, "[[1], [2], [null], [null], [5], [6]]");
-  ExecBatch last_col_only = ExecBatchFromJSON(
-      {boolean()}, "[[true], [false], [null], [true], [true], [false]]");
+      JSONToExecBatch({int64()}, "[[1], [2], [null], [null], [5], [6]]");
+  ExecBatch last_col_only =
+      JSONToExecBatch({boolean()}, "[[true], [false], [null], [true], [true], [false]]");
   {
     ExecBatchBuilder builder;
     uint16_t row_ids[3] = {0, 1, 2};
@@ -410,12 +677,12 @@ TEST(ExecBatchBuilder, AppendNulls) {
   std::unique_ptr<MemoryPool> owned_pool = MemoryPool::CreateDefault();
   MemoryPool* pool = owned_pool.get();
   ExecBatch batch_one =
-      ExecBatchFromJSON({int64(), boolean()}, "[[1, true], [2, false], [null, null]]");
-  ExecBatch combined = ExecBatchFromJSON(
+      JSONToExecBatch({int64(), boolean()}, "[[1, true], [2, false], [null, null]]");
+  ExecBatch combined = JSONToExecBatch(
       {int64(), boolean()},
       "[[1, true], [2, false], [null, null], [null, null], [null, null]]");
   ExecBatch just_nulls =
-      ExecBatchFromJSON({int64(), boolean()}, "[[null, null], [null, null]]");
+      JSONToExecBatch({int64(), boolean()}, "[[null, null], [null, null]]");
   {
     ExecBatchBuilder builder;
     uint16_t row_ids[3] = {0, 1, 2};
@@ -430,49 +697,6 @@ TEST(ExecBatchBuilder, AppendNulls) {
     ASSERT_OK(builder.AppendNulls(pool, {int64(), boolean()}, 2));
     ExecBatch built = builder.Flush();
     ASSERT_EQ(just_nulls, built);
-    ASSERT_NE(0, pool->bytes_allocated());
-  }
-  ASSERT_EQ(0, pool->bytes_allocated());
-}
-
-TEST(ExecBatchBuilder, AppendNullsBeyondLimit) {
-  std::unique_ptr<MemoryPool> owned_pool = MemoryPool::CreateDefault();
-  int num_rows_max = ExecBatchBuilder::num_rows_max();
-  MemoryPool* pool = owned_pool.get();
-  {
-    ExecBatchBuilder builder;
-    ASSERT_OK(builder.AppendNulls(pool, {int64(), boolean()}, 10));
-    ASSERT_RAISES(CapacityError,
-                  builder.AppendNulls(pool, {int64(), boolean()}, num_rows_max + 1 - 10));
-    ExecBatch built = builder.Flush();
-    ASSERT_EQ(10, built.length);
-    ASSERT_NE(0, pool->bytes_allocated());
-  }
-  ASSERT_EQ(0, pool->bytes_allocated());
-}
-
-TEST(ExecBatchBuilder, AppendValuesBeyondLimit) {
-  std::unique_ptr<MemoryPool> owned_pool = MemoryPool::CreateDefault();
-  MemoryPool* pool = owned_pool.get();
-  int num_rows_max = ExecBatchBuilder::num_rows_max();
-  std::shared_ptr<Array> values = ConstantArrayGenerator::Int32(num_rows_max + 1);
-  std::shared_ptr<Array> trimmed_values = ConstantArrayGenerator::Int32(10);
-  ExecBatch batch({values}, num_rows_max + 1);
-  ExecBatch trimmed_batch({trimmed_values}, 10);
-  std::vector<uint16_t> first_set_row_ids(10);
-  std::iota(first_set_row_ids.begin(), first_set_row_ids.end(), 0);
-  std::vector<uint16_t> second_set_row_ids(num_rows_max + 1 - 10);
-  std::iota(second_set_row_ids.begin(), second_set_row_ids.end(), 10);
-  {
-    ExecBatchBuilder builder;
-    ASSERT_OK(builder.AppendSelected(pool, batch, 10, first_set_row_ids.data(),
-                                     /*num_cols=*/1));
-    ASSERT_RAISES(CapacityError,
-                  builder.AppendSelected(pool, batch, num_rows_max + 1 - 10,
-                                         second_set_row_ids.data(),
-                                         /*num_cols=*/1));
-    ExecBatch built = builder.Flush();
-    ASSERT_EQ(trimmed_batch, built);
     ASSERT_NE(0, pool->bytes_allocated());
   }
   ASSERT_EQ(0, pool->bytes_allocated());

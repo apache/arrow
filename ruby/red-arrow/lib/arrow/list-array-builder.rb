@@ -55,6 +55,7 @@ module Arrow
           append_null
         when ::Array
           append_value_raw
+          return if value.empty?
           @value_builder ||= value_builder
           @value_builder.append(*value)
         else

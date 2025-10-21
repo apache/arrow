@@ -4,6 +4,7 @@
 \alias{FragmentScanOptions}
 \alias{CsvFragmentScanOptions}
 \alias{ParquetFragmentScanOptions}
+\alias{JsonFragmentScanOptions}
 \title{Format-specific scan options}
 \description{
 A \code{FragmentScanOptions} holds options specific to a \code{FileFormat} and a scan
@@ -20,7 +21,7 @@ operation.
 }
 \item \code{...}: Additional format-specific options
 
-`format = "parquet"``:
+\code{format = "parquet"}:
 \itemize{
 \item \code{use_buffered_stream}: Read files through buffered input streams rather than
 loading entire row groups at once. This may be enabled
@@ -28,6 +29,13 @@ to reduce memory overhead. Disabled by default.
 \item \code{buffer_size}: Size of buffered stream, if enabled. Default is 8KB.
 \item \code{pre_buffer}: Pre-buffer the raw Parquet data. This can improve performance
 on high-latency filesystems. Disabled by default.
+\item \code{thrift_string_size_limit}: Maximum string size allocated for decoding thrift
+strings. May need to be increased in order to read
+files with especially large headers. Default value
+100000000.
+\item \code{thrift_container_size_limit}: Maximum size of thrift containers.  May need to be
+increased in order to read files with especially large
+headers. Default value 1000000.
 \code{format = "text"}: see \link{CsvConvertOptions}. Note that options can only be
 specified with the Arrow C++ library naming. Also, "block_size" from
 \link{CsvReadOptions} may be given.

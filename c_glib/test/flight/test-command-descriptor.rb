@@ -22,7 +22,7 @@ class TestFlightCommandDescriptor < Test::Unit::TestCase
 
   def test_to_s
     descriptor = ArrowFlight::CommandDescriptor.new("command")
-    assert_equal("FlightDescriptor<cmd = 'command'>",
+    assert_equal("<FlightDescriptor cmd='command'>",
                  descriptor.to_s)
   end
 

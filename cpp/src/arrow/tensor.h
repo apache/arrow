@@ -33,7 +33,7 @@
 
 namespace arrow {
 
-static inline bool is_tensor_supported(Type::type type_id) {
+constexpr bool is_tensor_supported(Type::type type_id) {
   switch (type_id) {
     case Type::UINT8:
     case Type::INT8:
@@ -76,6 +76,10 @@ Status ValidateTensorParameters(const std::shared_ptr<DataType>& type,
                                 const std::vector<int64_t>& shape,
                                 const std::vector<int64_t>& strides,
                                 const std::vector<std::string>& dim_names);
+
+ARROW_EXPORT
+Status RecordBatchToTensor(const RecordBatch& batch, bool null_to_nan, bool row_major,
+                           MemoryPool* pool, std::shared_ptr<Tensor>* tensor);
 
 }  // namespace internal
 

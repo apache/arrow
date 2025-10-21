@@ -20,13 +20,13 @@
 #include "arrow/testing/extension_type.h"
 
 #ifdef _WIN32
-#include <crtdbg.h>
-#include <io.h>
+#  include <crtdbg.h>
+#  include <io.h>
 #else
-#include <fcntl.h>     // IWYU pragma: keep
-#include <sys/stat.h>  // IWYU pragma: keep
-#include <sys/wait.h>  // IWYU pragma: keep
-#include <unistd.h>    // IWYU pragma: keep
+#  include <fcntl.h>     // IWYU pragma: keep
+#  include <sys/stat.h>  // IWYU pragma: keep
+#  include <sys/wait.h>  // IWYU pragma: keep
+#  include <unistd.h>    // IWYU pragma: keep
 #endif
 
 #include <algorithm>
@@ -48,17 +48,29 @@
 #include "arrow/array.h"
 #include "arrow/buffer.h"
 #include "arrow/datum.h"
-#include "arrow/ipc/json_simple.h"
+#include "arrow/extension/json.h"
+#include "arrow/io/memory.h"
+#include "arrow/ipc/reader.h"
+#include "arrow/ipc/writer.h"
+#include "arrow/json/from_string.h"
+#include "arrow/json/rapidjson_defs.h"  // IWYU pragma: keep
 #include "arrow/pretty_print.h"
+#include "arrow/record_batch.h"
 #include "arrow/status.h"
 #include "arrow/table.h"
+#include "arrow/tensor.h"
 #include "arrow/type.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/config.h"
 #include "arrow/util/future.h"
 #include "arrow/util/io_util.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/thread_pool.h"
 #include "arrow/util/windows_compatibility.h"
+
+#include <rapidjson/document.h>
+
+namespace rj = arrow::rapidjson;
 
 namespace arrow {
 
@@ -143,42 +155,46 @@ void AssertScalarsApproxEqual(const Scalar& expected, const Scalar& actual, bool
 }
 
 void AssertBatchesEqual(const RecordBatch& expected, const RecordBatch& actual,
-                        bool check_metadata) {
+                        bool check_metadata, const EqualOptions& options) {
   AssertTsSame(expected, actual,
                [&](const RecordBatch& expected, const RecordBatch& actual) {
-                 return expected.Equals(actual, check_metadata);
+                 return expected.Equals(actual, check_metadata, options);
                });
 }
 
-void AssertBatchesApproxEqual(const RecordBatch& expected, const RecordBatch& actual) {
+void AssertBatchesApproxEqual(const RecordBatch& expected, const RecordBatch& actual,
+                              const EqualOptions& options) {
   AssertTsSame(expected, actual,
                [&](const RecordBatch& expected, const RecordBatch& actual) {
-                 return expected.ApproxEquals(actual);
+                 return expected.ApproxEquals(actual, options);
                });
 }
 
-void AssertChunkedEqual(const ChunkedArray& expected, const ChunkedArray& actual) {
+void AssertChunkedEqual(const ChunkedArray& expected, const ChunkedArray& actual,
+                        const EqualOptions& options) {
   ASSERT_EQ(expected.num_chunks(), actual.num_chunks()) << "# chunks unequal";
-  if (!actual.Equals(expected)) {
+  if (!actual.Equals(expected, options)) {
     std::stringstream diff;
     for (int i = 0; i < actual.num_chunks(); ++i) {
       auto c1 = actual.chunk(i);
       auto c2 = expected.chunk(i);
       diff << "# chunk " << i << std::endl;
-      ARROW_IGNORE_EXPR(c1->Equals(c2, EqualOptions().diff_sink(&diff)));
+      ARROW_IGNORE_EXPR(c1->Equals(c2, options.diff_sink(&diff)));
     }
     FAIL() << diff.str();
   }
 }
 
-void AssertChunkedEqual(const ChunkedArray& actual, const ArrayVector& expected) {
-  AssertChunkedEqual(ChunkedArray(expected, actual.type()), actual);
+void AssertChunkedEqual(const ChunkedArray& actual, const ArrayVector& expected,
+                        const EqualOptions& options) {
+  AssertChunkedEqual(ChunkedArray(expected, actual.type()), actual, options);
 }
 
-void AssertChunkedEquivalent(const ChunkedArray& expected, const ChunkedArray& actual) {
+void AssertChunkedEquivalent(const ChunkedArray& expected, const ChunkedArray& actual,
+                             const EqualOptions& options) {
   // XXX: AssertChunkedEqual in gtest_util.h does not permit the chunk layouts
   // to be different
-  if (!actual.Equals(expected)) {
+  if (!actual.Equals(expected, options)) {
     std::stringstream pp_expected;
     std::stringstream pp_actual;
     ::arrow::PrettyPrintOptions options(/*indent=*/2);
@@ -212,7 +228,7 @@ void AssertBufferEqual(const Buffer& buffer, const std::vector<uint8_t>& expecte
   }
 }
 
-void AssertBufferEqual(const Buffer& buffer, const std::string& expected) {
+void AssertBufferEqual(const Buffer& buffer, std::string_view expected) {
   ASSERT_EQ(static_cast<size_t>(buffer.size()), expected.length())
       << "Mismatching buffer size";
   const uint8_t* buffer_data = buffer.data();
@@ -227,20 +243,11 @@ void AssertBufferEqual(const Buffer& buffer, const Buffer& expected) {
 }
 
 template <typename T>
-std::string ToStringWithMetadata(const T& t, bool show_metadata) {
-  return t.ToString(show_metadata);
-}
-
-std::string ToStringWithMetadata(const DataType& t, bool show_metadata) {
-  return t.ToString();
-}
-
-template <typename T>
 void AssertFingerprintablesEqual(const T& left, const T& right, bool check_metadata,
                                  const char* types_plural) {
   ASSERT_TRUE(left.Equals(right, check_metadata))
-      << types_plural << " '" << ToStringWithMetadata(left, check_metadata) << "' and '"
-      << ToStringWithMetadata(right, check_metadata) << "' should have compared equal";
+      << types_plural << " '" << left.ToString(check_metadata) << "' and '"
+      << right.ToString(check_metadata) << "' should have compared equal";
   auto lfp = left.fingerprint();
   auto rfp = right.fingerprint();
   // Note: all types tested in this file should implement fingerprinting,
@@ -250,9 +257,8 @@ void AssertFingerprintablesEqual(const T& left, const T& right, bool check_metad
     rfp += right.metadata_fingerprint();
   }
   ASSERT_EQ(lfp, rfp) << "Fingerprints for " << types_plural << " '"
-                      << ToStringWithMetadata(left, check_metadata) << "' and '"
-                      << ToStringWithMetadata(right, check_metadata)
-                      << "' should have compared equal";
+                      << left.ToString(check_metadata) << "' and '"
+                      << right.ToString(check_metadata) << "' should have compared equal";
 }
 
 template <typename T>
@@ -268,8 +274,8 @@ template <typename T>
 void AssertFingerprintablesNotEqual(const T& left, const T& right, bool check_metadata,
                                     const char* types_plural) {
   ASSERT_FALSE(left.Equals(right, check_metadata))
-      << types_plural << " '" << ToStringWithMetadata(left, check_metadata) << "' and '"
-      << ToStringWithMetadata(right, check_metadata) << "' should have compared unequal";
+      << types_plural << " '" << left.ToString(check_metadata) << "' and '"
+      << right.ToString(check_metadata) << "' should have compared unequal";
   auto lfp = left.fingerprint();
   auto rfp = right.fingerprint();
   // Note: all types tested in this file should implement fingerprinting,
@@ -280,8 +286,8 @@ void AssertFingerprintablesNotEqual(const T& left, const T& right, bool check_me
       rfp += right.metadata_fingerprint();
     }
     ASSERT_NE(lfp, rfp) << "Fingerprints for " << types_plural << " '"
-                        << ToStringWithMetadata(left, check_metadata) << "' and '"
-                        << ToStringWithMetadata(right, check_metadata)
+                        << left.ToString(check_metadata) << "' and '"
+                        << right.ToString(check_metadata)
                         << "' should have compared unequal";
   }
 }
@@ -319,21 +325,23 @@ ASSERT_EQUAL_IMPL(Field, Field, "fields")
 ASSERT_EQUAL_IMPL(Schema, Schema, "schemas")
 #undef ASSERT_EQUAL_IMPL
 
-void AssertDatumsEqual(const Datum& expected, const Datum& actual, bool verbose) {
+void AssertDatumsEqual(const Datum& expected, const Datum& actual, bool verbose,
+                       const EqualOptions& options) {
   ASSERT_EQ(expected.kind(), actual.kind())
       << "expected:" << expected.ToString() << " got:" << actual.ToString();
 
   switch (expected.kind()) {
     case Datum::SCALAR:
-      AssertScalarsEqual(*expected.scalar(), *actual.scalar(), verbose);
+      AssertScalarsEqual(*expected.scalar(), *actual.scalar(), verbose, options);
       break;
     case Datum::ARRAY: {
       auto expected_array = expected.make_array();
       auto actual_array = actual.make_array();
-      AssertArraysEqual(*expected_array, *actual_array, verbose);
+      AssertArraysEqual(*expected_array, *actual_array, verbose, options);
     } break;
     case Datum::CHUNKED_ARRAY:
-      AssertChunkedEquivalent(*expected.chunked_array(), *actual.chunked_array());
+      AssertChunkedEquivalent(*expected.chunked_array(), *actual.chunked_array(),
+                              options);
       break;
     default:
       // TODO: Implement better print
@@ -372,23 +380,21 @@ void AssertDatumsApproxEqual(const Datum& expected, const Datum& actual, bool ve
 
 std::shared_ptr<Array> ArrayFromJSON(const std::shared_ptr<DataType>& type,
                                      std::string_view json) {
-  EXPECT_OK_AND_ASSIGN(auto out, ipc::internal::json::ArrayFromJSON(type, json));
+  EXPECT_OK_AND_ASSIGN(auto out, json::ArrayFromJSONString(type, json));
   return out;
 }
 
 std::shared_ptr<Array> DictArrayFromJSON(const std::shared_ptr<DataType>& type,
                                          std::string_view indices_json,
                                          std::string_view dictionary_json) {
-  std::shared_ptr<Array> out;
-  ABORT_NOT_OK(
-      ipc::internal::json::DictArrayFromJSON(type, indices_json, dictionary_json, &out));
+  EXPECT_OK_AND_ASSIGN(
+      auto out, json::DictArrayFromJSONString(type, indices_json, dictionary_json));
   return out;
 }
 
 std::shared_ptr<ChunkedArray> ChunkedArrayFromJSON(const std::shared_ptr<DataType>& type,
                                                    const std::vector<std::string>& json) {
-  std::shared_ptr<ChunkedArray> out;
-  ABORT_NOT_OK(ipc::internal::json::ChunkedArrayFromJSON(type, json, &out));
+  EXPECT_OK_AND_ASSIGN(auto out, json::ChunkedArrayFromJSONString(type, json));
   return out;
 }
 
@@ -396,7 +402,7 @@ std::shared_ptr<RecordBatch> RecordBatchFromJSON(const std::shared_ptr<Schema>& 
                                                  std::string_view json) {
   // Parse as a StructArray
   auto struct_type = struct_(schema->fields());
-  std::shared_ptr<Array> struct_array = ArrayFromJSON(struct_type, json);
+  std::shared_ptr<Array> struct_array = arrow::ArrayFromJSON(struct_type, json);
 
   // Convert StructArray to RecordBatch
   return *RecordBatch::FromStructArray(struct_array);
@@ -404,17 +410,15 @@ std::shared_ptr<RecordBatch> RecordBatchFromJSON(const std::shared_ptr<Schema>& 
 
 std::shared_ptr<Scalar> ScalarFromJSON(const std::shared_ptr<DataType>& type,
                                        std::string_view json) {
-  std::shared_ptr<Scalar> out;
-  ABORT_NOT_OK(ipc::internal::json::ScalarFromJSON(type, json, &out));
+  EXPECT_OK_AND_ASSIGN(auto out, json::ScalarFromJSONString(type, json));
   return out;
 }
 
 std::shared_ptr<Scalar> DictScalarFromJSON(const std::shared_ptr<DataType>& type,
                                            std::string_view index_json,
                                            std::string_view dictionary_json) {
-  std::shared_ptr<Scalar> out;
-  ABORT_NOT_OK(
-      ipc::internal::json::DictScalarFromJSON(type, index_json, dictionary_json, &out));
+  EXPECT_OK_AND_ASSIGN(auto out,
+                       json::DictScalarFromJSONString(type, index_json, dictionary_json));
   return out;
 }
 
@@ -425,6 +429,43 @@ std::shared_ptr<Table> TableFromJSON(const std::shared_ptr<Schema>& schema,
     batches.push_back(RecordBatchFromJSON(schema, batch_json));
   }
   return *Table::FromRecordBatches(schema, std::move(batches));
+}
+
+std::shared_ptr<Tensor> TensorFromJSON(const std::shared_ptr<DataType>& type,
+                                       std::string_view data, std::string_view shape,
+                                       std::string_view strides,
+                                       std::string_view dim_names) {
+  std::shared_ptr<Array> array = arrow::ArrayFromJSON(type, data);
+
+  rj::Document json_shape;
+  json_shape.Parse(shape.data(), shape.length());
+  std::vector<int64_t> shape_vector;
+  for (auto& x : json_shape.GetArray()) {
+    shape_vector.emplace_back(x.GetInt64());
+  }
+  rj::Document json_strides;
+  json_strides.Parse(strides.data(), strides.length());
+  std::vector<int64_t> strides_vector;
+  for (auto& x : json_strides.GetArray()) {
+    strides_vector.emplace_back(x.GetInt64());
+  }
+  rj::Document json_dim_names;
+  json_dim_names.Parse(dim_names.data(), dim_names.length());
+  std::vector<std::string> dim_names_vector;
+  for (auto& x : json_dim_names.GetArray()) {
+    dim_names_vector.emplace_back(x.GetString());
+  }
+  return *Tensor::Make(type, array->data()->buffers[1], shape_vector, strides_vector,
+                       dim_names_vector);
+}
+
+std::shared_ptr<Tensor> TensorFromJSON(const std::shared_ptr<DataType>& type,
+                                       std::string_view data,
+                                       const std::vector<int64_t>& shape,
+                                       const std::vector<int64_t>& strides,
+                                       const std::vector<std::string>& dim_names) {
+  std::shared_ptr<Array> array = arrow::ArrayFromJSON(type, data);
+  return *Tensor::Make(type, array->data()->buffers[1], shape, strides, dim_names);
 }
 
 Result<std::optional<std::string>> PrintArrayDiff(const ChunkedArray& expected,
@@ -459,7 +500,7 @@ Result<std::optional<std::string>> PrintArrayDiff(const ChunkedArray& expected,
 }
 
 void AssertTablesEqual(const Table& expected, const Table& actual, bool same_chunk_layout,
-                       bool combine_chunks) {
+                       bool combine_chunks, const EqualOptions& options) {
   ASSERT_EQ(expected.num_columns(), actual.num_columns());
 
   if (combine_chunks) {
@@ -467,13 +508,13 @@ void AssertTablesEqual(const Table& expected, const Table& actual, bool same_chu
     ASSERT_OK_AND_ASSIGN(auto new_expected, expected.CombineChunks(pool));
     ASSERT_OK_AND_ASSIGN(auto new_actual, actual.CombineChunks(pool));
 
-    AssertTablesEqual(*new_expected, *new_actual, false, false);
+    AssertTablesEqual(*new_expected, *new_actual, false, false, options);
     return;
   }
 
   if (same_chunk_layout) {
     for (int i = 0; i < actual.num_columns(); ++i) {
-      AssertChunkedEqual(*expected.column(i), *actual.column(i));
+      AssertChunkedEqual(*expected.column(i), *actual.column(i), options);
     }
   } else {
     std::stringstream ss;
@@ -513,17 +554,18 @@ void CompareBatchWith(const RecordBatch& left, const RecordBatch& right,
 }
 
 void CompareBatch(const RecordBatch& left, const RecordBatch& right,
-                  bool compare_metadata) {
+                  bool compare_metadata, const EqualOptions& options) {
   return CompareBatchWith(
       left, right, compare_metadata,
-      [](const Array& left, const Array& right) { return left.Equals(right); });
+      [&](const Array& left, const Array& right) { return left.Equals(right, options); });
 }
 
 void ApproxCompareBatch(const RecordBatch& left, const RecordBatch& right,
-                        bool compare_metadata) {
-  return CompareBatchWith(
-      left, right, compare_metadata,
-      [](const Array& left, const Array& right) { return left.ApproxEquals(right); });
+                        bool compare_metadata, const EqualOptions& options) {
+  return CompareBatchWith(left, right, compare_metadata,
+                          [&](const Array& left, const Array& right) {
+                            return left.ApproxEquals(right, options);
+                          });
 }
 
 std::shared_ptr<Array> TweakValidityBit(const std::shared_ptr<Array>& array,
@@ -706,8 +748,25 @@ void TestInitialized(const ArrayData& array) {
 }
 
 void SleepFor(double seconds) {
+#ifdef ARROW_ENABLE_THREADING
   std::this_thread::sleep_for(
       std::chrono::nanoseconds(static_cast<int64_t>(seconds * 1e9)));
+#else
+  using Clock = std::chrono::steady_clock;
+  using DurationDouble = std::chrono::duration<double>;
+
+  auto secs_left = DurationDouble(seconds);
+  auto start_time = Clock::now();
+  auto end_time = start_time + secs_left;
+  while (Clock::now() < end_time) {
+    bool run_task = arrow::internal::SerialExecutor::RunTasksOnAllExecutors();
+    if (!run_task) {
+      // all executors are empty, just sleep for the rest of the time
+      std::this_thread::sleep_for(end_time - Clock::now());
+    }
+    // run one task then check time
+  }
+#endif
 }
 
 #ifdef _WIN32
@@ -770,17 +829,17 @@ Future<> SleepABitAsync() {
 ///////////////////////////////////////////////////////////////////////////
 // Extension types
 
-bool UuidType::ExtensionEquals(const ExtensionType& other) const {
+bool ExampleUuidType::ExtensionEquals(const ExtensionType& other) const {
   return (other.extension_name() == this->extension_name());
 }
 
-std::shared_ptr<Array> UuidType::MakeArray(std::shared_ptr<ArrayData> data) const {
+std::shared_ptr<Array> ExampleUuidType::MakeArray(std::shared_ptr<ArrayData> data) const {
   DCHECK_EQ(data->type->id(), Type::EXTENSION);
   DCHECK_EQ("uuid", static_cast<const ExtensionType&>(*data->type).extension_name());
-  return std::make_shared<UuidArray>(data);
+  return std::make_shared<ExampleUuidArray>(data);
 }
 
-Result<std::shared_ptr<DataType>> UuidType::Deserialize(
+Result<std::shared_ptr<DataType>> ExampleUuidType::Deserialize(
     std::shared_ptr<DataType> storage_type, const std::string& serialized) const {
   if (serialized != "uuid-serialized") {
     return Status::Invalid("Type identifier did not match: '", serialized, "'");
@@ -789,7 +848,7 @@ Result<std::shared_ptr<DataType>> UuidType::Deserialize(
     return Status::Invalid("Invalid storage type for UuidType: ",
                            storage_type->ToString());
   }
-  return std::make_shared<UuidType>();
+  return std::make_shared<ExampleUuidType>();
 }
 
 bool SmallintType::ExtensionEquals(const ExtensionType& other) const {
@@ -883,6 +942,30 @@ Result<std::shared_ptr<DataType>> DictExtensionType::Deserialize(
   return std::make_shared<DictExtensionType>();
 }
 
+bool BinaryViewExtensionType::ExtensionEquals(const ExtensionType& other) const {
+  return (other.extension_name() == this->extension_name());
+}
+
+std::shared_ptr<Array> BinaryViewExtensionType::MakeArray(
+    std::shared_ptr<ArrayData> data) const {
+  DCHECK_EQ(data->type->id(), Type::EXTENSION);
+  DCHECK_EQ("binary_view",
+            static_cast<const ExtensionType&>(*data->type).extension_name());
+  return std::make_shared<TinyintArray>(data);
+}
+
+Result<std::shared_ptr<DataType>> BinaryViewExtensionType::Deserialize(
+    std::shared_ptr<DataType> storage_type, const std::string& serialized) const {
+  if (serialized != "binary_view_serialized") {
+    return Status::Invalid("Type identifier did not match: '", serialized, "'");
+  }
+  if (!storage_type->Equals(*int16())) {
+    return Status::Invalid("Invalid storage type for BinaryViewExtensionType: ",
+                           storage_type->ToString());
+  }
+  return std::make_shared<BinaryViewExtensionType>();
+}
+
 bool Complex128Type::ExtensionEquals(const ExtensionType& other) const {
   return (other.extension_name() == this->extension_name());
 }
@@ -905,7 +988,7 @@ Result<std::shared_ptr<DataType>> Complex128Type::Deserialize(
   return std::make_shared<Complex128Type>();
 }
 
-std::shared_ptr<DataType> uuid() { return std::make_shared<UuidType>(); }
+std::shared_ptr<DataType> uuid() { return std::make_shared<ExampleUuidType>(); }
 
 std::shared_ptr<DataType> smallint() { return std::make_shared<SmallintType>(); }
 
@@ -913,6 +996,10 @@ std::shared_ptr<DataType> tinyint() { return std::make_shared<TinyintType>(); }
 
 std::shared_ptr<DataType> list_extension_type() {
   return std::make_shared<ListExtensionType>();
+}
+
+std::shared_ptr<DataType> binary_view_extension_type() {
+  return std::make_shared<BinaryViewExtensionType>();
 }
 
 std::shared_ptr<DataType> dict_extension_type() {
@@ -931,19 +1018,19 @@ std::shared_ptr<Array> MakeComplex128(const std::shared_ptr<Array>& real,
 }
 
 std::shared_ptr<Array> ExampleUuid() {
-  auto arr = ArrayFromJSON(
+  auto arr = arrow::ArrayFromJSON(
       fixed_size_binary(16),
       "[null, \"abcdefghijklmno0\", \"abcdefghijklmno1\", \"abcdefghijklmno2\"]");
   return ExtensionType::WrapArray(uuid(), arr);
 }
 
 std::shared_ptr<Array> ExampleSmallint() {
-  auto arr = ArrayFromJSON(int16(), "[-32768, null, 1, 2, 3, 4, 32767]");
+  auto arr = arrow::ArrayFromJSON(int16(), "[-32768, null, 1, 2, 3, 4, 32767]");
   return ExtensionType::WrapArray(smallint(), arr);
 }
 
 std::shared_ptr<Array> ExampleTinyint() {
-  auto arr = ArrayFromJSON(int8(), "[-128, null, 1, 2, 3, 4, 127]");
+  auto arr = arrow::ArrayFromJSON(int8(), "[-128, null, 1, 2, 3, 4, 127]");
   return ExtensionType::WrapArray(tinyint(), arr);
 }
 
@@ -954,8 +1041,8 @@ std::shared_ptr<Array> ExampleDictExtension() {
 }
 
 std::shared_ptr<Array> ExampleComplex128() {
-  auto arr = ArrayFromJSON(struct_({field("", float64()), field("", float64())}),
-                           "[[1.0, -2.5], null, [3.0, -4.5]]");
+  auto arr = arrow::ArrayFromJSON(struct_({field("", float64()), field("", float64())}),
+                                  "[[1.0, -2.5], null, [3.0, -4.5]]");
   return ExtensionType::WrapArray(complex128(), arr);
 }
 
@@ -1017,7 +1104,57 @@ class GatingTask::Impl : public std::enable_shared_from_this<GatingTask::Impl> {
     return unlocked_future_;
   }
 
+  void WaitForEndOrUnlocked(std::chrono::time_point<std::chrono::steady_clock> end_time,
+                            arrow::internal::Executor* executor, Future<> future) {
+    if (unlocked_) {
+      num_finished_++;
+      future.MarkFinished(Status::OK());
+      return;
+    }
+    if (std::chrono::steady_clock::now() > end_time) {
+      num_finished_++;
+      future.MarkFinished(
+          Status::Invalid("Task unlock never happened - if threads are disabled you "
+                          "can't wait on gatedtask"));
+      return;
+    }
+
+    SleepABit();
+    auto spawn_status = executor->Spawn([this, end_time, executor, future]() {
+      WaitForEndOrUnlocked(end_time, executor, future);
+    });
+    if (!spawn_status.ok()) {
+      status_ &= Status::Invalid("Couldn't spawn gating task unlock waiter");
+    }
+  }
+
+  Future<> RunTaskFuture() {
+    num_running_++;
+    // post the unlock check as a separate task
+    // otherwise we'll never let anything else run
+    // so nothing can unlock us
+    using Clock = std::chrono::steady_clock;
+    using DurationDouble = std::chrono::duration<double>;
+    using DurationClock = std::chrono::steady_clock::duration;
+
+    auto start_time = Clock::now();
+    auto secs_left = DurationDouble(timeout_seconds_);
+    auto end_time = std::chrono::time_point_cast<DurationClock, Clock, DurationDouble>(
+        start_time + secs_left);
+    auto executor = arrow::internal::GetCpuThreadPool();
+    auto future = Future<>::Make();
+    auto spawn_status = executor->Spawn([this, end_time, executor, future]() {
+      WaitForEndOrUnlocked(end_time, executor, future);
+    });
+    if (!spawn_status.ok()) {
+      status_ &= Status::Invalid("Couldn't spawn gating task unlock waiter");
+      future.MarkFinished(Status::Invalid(""));
+    }
+    return future;
+  }
+
   void RunTask() {
+#ifdef ARROW_ENABLE_THREADING
     std::unique_lock<std::mutex> lk(mx_);
     num_running_++;
     running_cv_.notify_all();
@@ -1029,9 +1166,16 @@ class GatingTask::Impl : public std::enable_shared_from_this<GatingTask::Impl> {
                                  " seconds) waiting for the gating task to be unlocked");
     }
     num_finished_++;
+#else
+    // can't wait here for anything, so make a future to do the waiting
+    num_running_++;
+    auto future = RunTaskFuture();
+    future.Wait();
+#endif
   }
 
   Status WaitForRunning(int count) {
+#ifdef ARROW_ENABLE_THREADING
     std::unique_lock<std::mutex> lk(mx_);
     if (running_cv_.wait_for(
             lk, std::chrono::nanoseconds(static_cast<int64_t>(timeout_seconds_ * 1e9)),
@@ -1039,6 +1183,14 @@ class GatingTask::Impl : public std::enable_shared_from_this<GatingTask::Impl> {
       return Status::OK();
     }
     return Status::Invalid("Timed out waiting for tasks to launch");
+#else
+    BusyWait(timeout_seconds_, [this, count] { return num_running_ >= count; });
+    if (num_running_ >= count) {
+      return Status::OK();
+    } else {
+      return Status::Invalid("Timed out waiting for tasks to launch");
+    }
+#endif
   }
 
   Status Unlock() {
@@ -1048,6 +1200,12 @@ class GatingTask::Impl : public std::enable_shared_from_this<GatingTask::Impl> {
       unlocked_cv_.notify_all();
     }
     unlocked_future_.MarkFinished();
+#ifndef ARROW_ENABLE_THREADING
+    while (num_finished_ != num_running_) {
+      arrow::internal::SerialExecutor::RunTasksOnAllExecutors();
+    }
+#endif
+
     return status_;
   }
 
@@ -1078,6 +1236,32 @@ Status GatingTask::WaitForRunning(int count) { return impl_->WaitForRunning(coun
 
 std::shared_ptr<GatingTask> GatingTask::Make(double timeout_seconds) {
   return std::make_shared<GatingTask>(timeout_seconds);
+}
+
+std::shared_ptr<ArrayData> UnalignBuffers(const ArrayData& array) {
+  std::vector<std::shared_ptr<Buffer>> new_buffers;
+  new_buffers.reserve(array.buffers.size());
+
+  for (const auto& buffer : array.buffers) {
+    if (!buffer) {
+      new_buffers.emplace_back();
+      continue;
+    }
+    EXPECT_OK_AND_ASSIGN(std::shared_ptr<Buffer> padded,
+                         AllocateBuffer(buffer->size() + 1, default_memory_pool()));
+    memcpy(padded->mutable_data() + 1, buffer->data(), buffer->size());
+    std::shared_ptr<Buffer> unaligned = SliceBuffer(padded, 1);
+    new_buffers.push_back(std::move(unaligned));
+  }
+
+  std::shared_ptr<ArrayData> array_data = std::make_shared<ArrayData>(array);
+  array_data->buffers = std::move(new_buffers);
+  return array_data;
+}
+
+std::shared_ptr<Array> UnalignBuffers(const Array& array) {
+  std::shared_ptr<ArrayData> array_data = UnalignBuffers(*array.data());
+  return MakeArray(array_data);
 }
 
 }  // namespace arrow

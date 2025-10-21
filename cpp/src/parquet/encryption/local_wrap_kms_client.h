@@ -25,8 +25,7 @@
 #include "parquet/encryption/kms_client.h"
 #include "parquet/platform.h"
 
-namespace parquet {
-namespace encryption {
+namespace parquet::encryption {
 
 /// This class supports local wrapping mode, master keys will be fetched from the KMS
 /// server and used to encrypt other keys (data encryption keys or key encryption keys).
@@ -36,16 +35,16 @@ class PARQUET_EXPORT LocalWrapKmsClient : public KmsClient {
 
   explicit LocalWrapKmsClient(const KmsConnectionConfig& kms_connection_config);
 
-  std::string WrapKey(const std::string& key_bytes,
+  std::string WrapKey(const ::arrow::util::SecureString& key_bytes,
                       const std::string& master_key_identifier) override;
 
-  std::string UnwrapKey(const std::string& wrapped_key,
-                        const std::string& master_key_identifier) override;
+  ::arrow::util::SecureString UnwrapKey(
+      const std::string& wrapped_key, const std::string& master_key_identifier) override;
 
  protected:
   /// Get master key from the remote KMS server.
   /// Note: this function might be called by multiple threads
-  virtual std::string GetMasterKeyFromServer(
+  virtual const ::arrow::util::SecureString& GetMasterKeyFromServer(
       const std::string& master_key_identifier) = 0;
 
  private:
@@ -85,12 +84,12 @@ class PARQUET_EXPORT LocalWrapKmsClient : public KmsClient {
     std::string master_key_version_;
   };
 
-  std::string GetKeyFromServer(const std::string& key_identifier);
+  const ::arrow::util::SecureString& GetKeyFromServer(const std::string& key_identifier);
 
  protected:
   KmsConnectionConfig kms_connection_config_;
-  ::arrow::util::ConcurrentMap<std::string, std::string> master_key_cache_;
+  ::arrow::util::ConcurrentMap<std::string, ::arrow::util::SecureString>
+      master_key_cache_;
 };
 
-}  // namespace encryption
-}  // namespace parquet
+}  // namespace parquet::encryption

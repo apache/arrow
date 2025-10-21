@@ -19,9 +19,11 @@
 #include <array>
 #include <cmath>
 #include <cstdint>
+#include <iterator>
 #include <ostream>
 #include <string>
 #include <tuple>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -38,6 +40,7 @@
 #include "arrow/util/decimal.h"
 #include "arrow/util/endian.h"
 #include "arrow/util/int128_internal.h"
+#include "arrow/util/int_util_overflow.h"
 #include "arrow/util/macros.h"
 
 namespace arrow {
@@ -46,10 +49,14 @@ using internal::checked_cast;
 using internal::int128_t;
 using internal::uint128_t;
 
-using DecimalTypes = ::testing::Types<Decimal128, Decimal256>;
+using DecimalTypes = ::testing::Types<Decimal32, Decimal64, Decimal128, Decimal256>;
 
 static const int128_t kInt128Max =
     (static_cast<int128_t>(INT64_MAX) << 64) + static_cast<int128_t>(UINT64_MAX);
+
+void PrintTo(const BasicDecimal128& v, std::ostream* os) { *os << Decimal128(v); }
+
+void PrintTo(const BasicDecimal256& v, std::ostream* os) { *os << Decimal256(v); }
 
 template <typename DecimalType>
 void AssertDecimalFromString(const std::string& s, const DecimalType& expected,
@@ -90,6 +97,16 @@ template <typename DecimalType>
 struct DecimalTraits {};
 
 template <>
+struct DecimalTraits<Decimal32> {
+  using ArrowType = Decimal32Type;
+};
+
+template <>
+struct DecimalTraits<Decimal64> {
+  using ArrowType = Decimal64Type;
+};
+
+template <>
 struct DecimalTraits<Decimal128> {
   using ArrowType = Decimal128Type;
 };
@@ -109,8 +126,10 @@ class DecimalFromStringTest : public ::testing::Test {
 
   void TestStringStartingWithPlus() {
     AssertDecimalFromString("+234.567", DecimalType(234567), 6, 3);
-    AssertDecimalFromString("+2342394230592.232349023094",
-                            DecimalType("2342394230592232349023094"), 25, 12);
+    if constexpr (DecimalType::kMaxPrecision >= 25) {
+      AssertDecimalFromString("+2342394230592.232349023094",
+                              DecimalType("2342394230592232349023094"), 25, 12);
+    }
   }
 
   void TestInvalidInput() {
@@ -119,7 +138,7 @@ class DecimalFromStringTest : public ::testing::Test {
           "00a", "1e1a", "0.00123D/3", "1.23eA8", "1.23E+3A", "-1.23E--5",
           "1.2345E+++07"}) {
       ARROW_SCOPED_TRACE("invalid_value = '", invalid_value, "'");
-      ASSERT_RAISES(Invalid, Decimal128::FromString(invalid_value));
+      ASSERT_RAISES(Invalid, DecimalType::FromString(invalid_value));
     }
   }
 
@@ -199,6 +218,28 @@ class DecimalFromStringTest : public ::testing::Test {
     }
   }
 };
+
+TEST(Decimal32Test, TestIntMinNegate) {
+  Decimal32 d(INT32_MIN);
+  auto neg = d.Negate();
+  ASSERT_EQ(neg, Decimal32(arrow::internal::SafeSignedNegate(INT32_MIN)));
+}
+
+TEST(Decimal32Test, TestIntMinFitsPrecision) {
+  Decimal32 d(INT32_MIN);
+  ASSERT_FALSE(d.FitsInPrecision(9));
+}
+
+TEST(Decimal64Test, TestIntMinNegate) {
+  Decimal64 d(INT64_MIN);
+  auto neg = d.Negate();
+  ASSERT_EQ(neg, Decimal64(arrow::internal::SafeSignedNegate(INT64_MIN)));
+}
+
+TEST(Decimal64Test, TestIntMinFitsPrecision) {
+  Decimal64 d(INT64_MIN);
+  ASSERT_FALSE(d.FitsInPrecision(18));
+}
 
 TYPED_TEST_SUITE(DecimalFromStringTest, DecimalTypes);
 
@@ -576,17 +617,21 @@ class DecimalFromIntegerTest : public ::testing::Test {
   }
 
   void TestConstructibleFromAnyIntegerType() {
-    CheckConstructFrom<char>();                // NOLINT
-    CheckConstructFrom<signed char>();         // NOLINT
-    CheckConstructFrom<unsigned char>();       // NOLINT
-    CheckConstructFrom<short>();               // NOLINT
-    CheckConstructFrom<unsigned short>();      // NOLINT
-    CheckConstructFrom<int>();                 // NOLINT
-    CheckConstructFrom<unsigned int>();        // NOLINT
-    CheckConstructFrom<long>();                // NOLINT
-    CheckConstructFrom<unsigned long>();       // NOLINT
-    CheckConstructFrom<long long>();           // NOLINT
-    CheckConstructFrom<unsigned long long>();  // NOLINT
+    CheckConstructFrom<char>();            // NOLINT
+    CheckConstructFrom<signed char>();     // NOLINT
+    CheckConstructFrom<unsigned char>();   // NOLINT
+    CheckConstructFrom<short>();           // NOLINT
+    CheckConstructFrom<unsigned short>();  // NOLINT
+    CheckConstructFrom<int>();             // NOLINT
+    CheckConstructFrom<unsigned int>();    // NOLINT
+    if constexpr (DecimalType::kMaxPrecision > 9) {
+      CheckConstructFrom<long>();           // NOLINT
+      CheckConstructFrom<unsigned long>();  // NOLINT
+    }
+    if constexpr (DecimalType::kMaxPrecision > 18) {
+      CheckConstructFrom<long long>();           // NOLINT
+      CheckConstructFrom<unsigned long long>();  // NOLINT
+    }
   }
 
   void TestConstructibleFromBool() {
@@ -605,21 +650,26 @@ class DecimalFromIntegerTest : public ::testing::Test {
     TestNumericLimit<UInt8Type>();
     TestNumericLimit<Int16Type>();
     TestNumericLimit<UInt16Type>();
-    TestNumericLimit<Int32Type>();
-    TestNumericLimit<UInt32Type>();
-    TestNumericLimit<Int64Type>();
-    TestNumericLimit<UInt64Type>();
+    if constexpr (DecimalType::kMaxPrecision > 9) {
+      TestNumericLimit<Int32Type>();
+      TestNumericLimit<UInt32Type>();
+    }
+    if constexpr (DecimalType::kMaxPrecision > 18) {
+      TestNumericLimit<Int64Type>();
+      TestNumericLimit<UInt64Type>();
+    }
   }
 
   template <typename ArrowType>
   void TestNumericLimit() {
     using c_type = typename ArrowType::c_type;
-    ASSERT_OK_AND_ASSIGN(const int32_t precision,
+    ASSERT_OK_AND_ASSIGN(int32_t precision,
                          MaxDecimalDigitsForInteger(ArrowType::type_id));
+
     DecimalType min_value(std::numeric_limits<c_type>::min());
-    ASSERT_TRUE(min_value.FitsInPrecision(precision));
+    ASSERT_TRUE(min_value.FitsInPrecision(precision)) << "precision " << precision;
     DecimalType max_value(std::numeric_limits<c_type>::max());
-    ASSERT_TRUE(max_value.FitsInPrecision(precision));
+    ASSERT_TRUE(max_value.FitsInPrecision(precision)) << "precision " << precision;
   }
 };
 
@@ -683,22 +733,22 @@ struct ToStringTestParam {
 };
 
 static const ToStringTestParam kToStringTestData[] = {
-    {0, -1, "0.E+1"},
+    {0, -1, "0E+1"},
     {0, 0, "0"},
     {0, 1, "0.0"},
     {0, 6, "0.000000"},
-    {2, 7, "2.E-7"},
-    {2, -1, "2.E+1"},
+    {2, 7, "2E-7"},
+    {2, -1, "2E+1"},
     {2, 0, "2"},
     {2, 1, "0.2"},
     {2, 6, "0.000002"},
-    {-2, 7, "-2.E-7"},
-    {-2, 7, "-2.E-7"},
-    {-2, -1, "-2.E+1"},
+    {-2, 7, "-2E-7"},
+    {-2, 7, "-2E-7"},
+    {-2, -1, "-2E+1"},
     {-2, 0, "-2"},
     {-2, 1, "-0.2"},
     {-2, 6, "-0.000002"},
-    {-2, 7, "-2.E-7"},
+    {-2, 7, "-2E-7"},
     {123, -3, "1.23E+5"},
     {123, -1, "1.23E+3"},
     {123, 1, "12.3"},
@@ -753,7 +803,7 @@ TEST_P(Decimal128ToStringTest, ToString) {
   const ToStringTestParam& param = GetParam();
   const Decimal128 value(param.test_value);
   const std::string printed_value = value.ToString(param.scale);
-  ASSERT_EQ(param.expected_string, printed_value);
+  EXPECT_EQ(param.expected_string, printed_value);
 }
 
 INSTANTIATE_TEST_SUITE_P(Decimal128ToStringTest, Decimal128ToStringTest,
@@ -763,14 +813,20 @@ template <typename Decimal, typename Real>
 void CheckDecimalFromReal(Real real, int32_t precision, int32_t scale,
                           const std::string& expected) {
   ASSERT_OK_AND_ASSIGN(auto dec, Decimal::FromReal(real, precision, scale));
-  ASSERT_EQ(dec.ToString(scale), expected);
+  EXPECT_EQ(dec.ToString(scale), expected);
+  const std::string expected_neg = (dec) ? "-" + expected : expected;
+  ASSERT_OK_AND_ASSIGN(dec, Decimal::FromReal(-real, precision, scale));
+  EXPECT_EQ(dec.ToString(scale), expected_neg);
 }
 
 template <typename Decimal, typename Real>
 void CheckDecimalFromRealIntegerString(Real real, int32_t precision, int32_t scale,
                                        const std::string& expected) {
   ASSERT_OK_AND_ASSIGN(auto dec, Decimal::FromReal(real, precision, scale));
-  ASSERT_EQ(dec.ToIntegerString(), expected);
+  EXPECT_EQ(dec.ToIntegerString(), expected);
+  const std::string expected_neg = (dec) ? "-" + expected : expected;
+  ASSERT_OK_AND_ASSIGN(dec, Decimal::FromReal(-real, precision, scale));
+  EXPECT_EQ(dec.ToIntegerString(), expected_neg);
 }
 
 template <typename Real>
@@ -802,46 +858,35 @@ class TestDecimalFromReal : public ::testing::Test {
     const std::vector<ParamType> params{
         // clang-format off
         {0.0f, 1, 0, "0"},
-        {-0.0f, 1, 0, "0"},
         {0.0f, 19, 4, "0.0000"},
-        {-0.0f, 19, 4, "0.0000"},
         {123.0f, 7, 4, "123.0000"},
-        {-123.0f, 7, 4, "-123.0000"},
         {456.78f, 7, 4, "456.7800"},
-        {-456.78f, 7, 4, "-456.7800"},
         {456.784f, 5, 2, "456.78"},
-        {-456.784f, 5, 2, "-456.78"},
         {456.786f, 5, 2, "456.79"},
-        {-456.786f, 5, 2, "-456.79"},
         {999.99f, 5, 2, "999.99"},
-        {-999.99f, 5, 2, "-999.99"},
         {123.0f, 19, 0, "123"},
-        {-123.0f, 19, 0, "-123"},
         {123.4f, 19, 0, "123"},
-        {-123.4f, 19, 0, "-123"},
         {123.6f, 19, 0, "124"},
-        {-123.6f, 19, 0, "-124"},
         // 2**62
-        {4.611686e+18f, 19, 0, "4611686018427387904"},
-        {-4.611686e+18f, 19, 0, "-4611686018427387904"},
+        {4.6116860184273879e+18, 19, 0, "4611686018427387904"},
         // 2**63
-        {9.223372e+18f, 19, 0, "9223372036854775808"},
-        {-9.223372e+18f, 19, 0, "-9223372036854775808"},
+        {9.2233720368547758e+18, 19, 0, "9223372036854775808"},
         // 2**64
-        {1.8446744e+19f, 20, 0, "18446744073709551616"},
-        {-1.8446744e+19f, 20, 0, "-18446744073709551616"}
+        {1.8446744073709552e+19, 20, 0, "18446744073709551616"},
         // clang-format on
     };
     for (const ParamType& param : params) {
-      CheckDecimalFromReal<Decimal>(param.real, param.precision, param.scale,
-                                    param.expected);
+      if (Decimal::kMaxPrecision > param.precision) {
+        CheckDecimalFromReal<Decimal>(param.real, param.precision, param.scale,
+                                      param.expected);
+      }
     }
   }
 
   void TestErrors() {
-    ASSERT_RAISES(Invalid, Decimal::FromReal(INFINITY, 19, 4));
-    ASSERT_RAISES(Invalid, Decimal::FromReal(-INFINITY, 19, 4));
-    ASSERT_RAISES(Invalid, Decimal::FromReal(NAN, 19, 4));
+    ASSERT_RAISES(Invalid, Decimal::FromReal(INFINITY, Decimal::kMaxPrecision / 2, 4));
+    ASSERT_RAISES(Invalid, Decimal::FromReal(-INFINITY, Decimal::kMaxPrecision / 2, 4));
+    ASSERT_RAISES(Invalid, Decimal::FromReal(NAN, Decimal::kMaxPrecision / 2, 4));
     // Overflows
     ASSERT_RAISES(Invalid, Decimal::FromReal(1000.0, 3, 0));
     ASSERT_RAISES(Invalid, Decimal::FromReal(-1000.0, 3, 0));
@@ -849,13 +894,17 @@ class TestDecimalFromReal : public ::testing::Test {
     ASSERT_RAISES(Invalid, Decimal::FromReal(-1000.0, 5, 2));
     ASSERT_RAISES(Invalid, Decimal::FromReal(999.996, 5, 2));
     ASSERT_RAISES(Invalid, Decimal::FromReal(-999.996, 5, 2));
-    ASSERT_RAISES(Invalid, Decimal::FromReal(1e+38, 38, 0));
-    ASSERT_RAISES(Invalid, Decimal::FromReal(-1e+38, 38, 0));
+    if constexpr (Decimal::kMaxPrecision >= 36) {
+      ASSERT_RAISES(Invalid, Decimal::FromReal(1e+36, 36, 0));
+      ASSERT_RAISES(Invalid, Decimal::FromReal(-1e+36, 36, 0));
+    }
   }
 };
 
 using RealTypes =
-    ::testing::Types<std::pair<Decimal128, float>, std::pair<Decimal128, double>,
+    ::testing::Types<std::pair<Decimal32, float>, std::pair<Decimal32, double>,
+                     std::pair<Decimal64, float>, std::pair<Decimal64, double>,
+                     std::pair<Decimal128, float>, std::pair<Decimal128, double>,
                      std::pair<Decimal256, float>, std::pair<Decimal256, double>>;
 TYPED_TEST_SUITE(TestDecimalFromReal, RealTypes);
 
@@ -868,46 +917,59 @@ template <typename T>
 class TestDecimalFromRealFloat : public ::testing::Test {
  protected:
   std::vector<FromFloatTestParam> GetValues() {
-    return {// 2**63 + 2**40 (exactly representable in a float's 24 bits of precision)
-            FromFloatTestParam{9.223373e+18f, 19, 0, "9223373136366403584"},
-            FromFloatTestParam{-9.223373e+18f, 19, 0, "-9223373136366403584"},
-            FromFloatTestParam{9.223373e+14f, 19, 4, "922337313636640.3584"},
-            FromFloatTestParam{-9.223373e+14f, 19, 4, "-922337313636640.3584"},
-            // 2**64 - 2**40 (exactly representable in a float)
-            FromFloatTestParam{1.8446743e+19f, 20, 0, "18446742974197923840"},
-            FromFloatTestParam{-1.8446743e+19f, 20, 0, "-18446742974197923840"},
-            // 2**64 + 2**41 (exactly representable in a float)
-            FromFloatTestParam{1.8446746e+19f, 20, 0, "18446746272732807168"},
-            FromFloatTestParam{-1.8446746e+19f, 20, 0, "-18446746272732807168"},
-            FromFloatTestParam{1.8446746e+15f, 20, 4, "1844674627273280.7168"},
-            FromFloatTestParam{-1.8446746e+15f, 20, 4, "-1844674627273280.7168"},
-            // Almost 10**38 (minus 2**103)
-            FromFloatTestParam{9.999999e+37f, 38, 0,
-                               "99999986661652122824821048795547566080"},
-            FromFloatTestParam{-9.999999e+37f, 38, 0,
-                               "-99999986661652122824821048795547566080"}};
+    return {
+        // -- Stress the 24 bits of precision of a float
+        // 2**63 + 2**40
+        FromFloatTestParam{9.223373e+18f, 19, 0, "9223373136366403584"},
+        // 2**64 - 2**40
+        FromFloatTestParam{1.8446743e+19f, 20, 0, "18446742974197923840"},
+        // 2**64 + 2**41
+        FromFloatTestParam{1.8446746e+19f, 20, 0, "18446746272732807168"},
+        // 2**14 - 2**-10
+        FromFloatTestParam{16383.999f, 8, 3, "16383.999"},
+        FromFloatTestParam{16383.999f, 19, 3, "16383.999"},
+        // 1 - 2**-24
+        FromFloatTestParam{0.99999994f, 10, 10, "0.9999999404"},
+        FromFloatTestParam{0.99999994f, 15, 15, "0.999999940395355"},
+        FromFloatTestParam{0.99999994f, 20, 20, "0.99999994039535522461"},
+        FromFloatTestParam{0.99999994f, 21, 21, "0.999999940395355224609"},
+        FromFloatTestParam{0.99999994f, 38, 38,
+                           "0.99999994039535522460937500000000000000"},
+        // -- Other cases
+        // 10**38 - 2**103
+        FromFloatTestParam{9.999999e+37f, 38, 0,
+                           "99999986661652122824821048795547566080"},
+    };
   }
 };
 TYPED_TEST_SUITE(TestDecimalFromRealFloat, DecimalTypes);
 
 TYPED_TEST(TestDecimalFromRealFloat, SuccessConversion) {
   for (const auto& param : this->GetValues()) {
-    CheckDecimalFromReal<TypeParam>(param.real, param.precision, param.scale,
-                                    param.expected);
+    if (TypeParam::kMaxPrecision > param.precision) {
+      CheckDecimalFromReal<TypeParam>(param.real, param.precision, param.scale,
+                                      param.expected);
+    }
   }
 }
 
 TYPED_TEST(TestDecimalFromRealFloat, LargeValues) {
+  constexpr auto kMaxScale = TypeParam::kMaxScale;
   // Test the entire float range
   for (int32_t scale = -38; scale <= 38; ++scale) {
-    float real = std::pow(10.0f, static_cast<float>(scale));
-    CheckDecimalFromRealIntegerString<TypeParam>(real, 1, -scale, "1");
+    if (TypeParam::kMaxScale >= std::abs(scale)) {
+      float real = std::pow(10.0f, static_cast<float>(scale));
+      CheckDecimalFromRealIntegerString<TypeParam>(real, 1, -scale, "1");
+    }
   }
+
   for (int32_t scale = -37; scale <= 36; ++scale) {
-    float real = 123.f * std::pow(10.f, static_cast<float>(scale));
-    CheckDecimalFromRealIntegerString<TypeParam>(real, 2, -scale - 1, "12");
-    CheckDecimalFromRealIntegerString<TypeParam>(real, 3, -scale, "123");
-    CheckDecimalFromRealIntegerString<TypeParam>(real, 4, -scale + 1, "1230");
+    if (scale >= (-kMaxScale + 1) && scale <= (kMaxScale - 2)) {
+      float real = 123.f * std::pow(10.f, static_cast<float>(scale));
+      CheckDecimalFromRealIntegerString<TypeParam>(real, 2, -scale - 1, "12");
+      CheckDecimalFromRealIntegerString<TypeParam>(real, 3, -scale, "123");
+      CheckDecimalFromRealIntegerString<TypeParam>(real, 4, -scale + 1, "1230");
+    }
   }
 }
 
@@ -916,72 +978,123 @@ template <typename T>
 class TestDecimalFromRealDouble : public ::testing::Test {
  protected:
   std::vector<FromDoubleTestParam> GetValues() {
-    return {// 2**63 + 2**11 (exactly representable in a double's 53 bits of precision)
-            FromDoubleTestParam{9.223372036854778e+18, 19, 0, "9223372036854777856"},
-            FromDoubleTestParam{-9.223372036854778e+18, 19, 0, "-9223372036854777856"},
-            FromDoubleTestParam{9.223372036854778e+10, 19, 8, "92233720368.54777856"},
-            FromDoubleTestParam{-9.223372036854778e+10, 19, 8, "-92233720368.54777856"},
-            // 2**64 - 2**11 (exactly representable in a double)
-            FromDoubleTestParam{1.844674407370955e+19, 20, 0, "18446744073709549568"},
-            FromDoubleTestParam{-1.844674407370955e+19, 20, 0, "-18446744073709549568"},
-            // 2**64 + 2**11 (exactly representable in a double)
-            FromDoubleTestParam{1.8446744073709556e+19, 20, 0, "18446744073709555712"},
-            FromDoubleTestParam{-1.8446744073709556e+19, 20, 0, "-18446744073709555712"},
-            FromDoubleTestParam{1.8446744073709556e+15, 20, 4, "1844674407370955.5712"},
-            FromDoubleTestParam{-1.8446744073709556e+15, 20, 4, "-1844674407370955.5712"},
-            // Almost 10**38 (minus 2**73)
-            FromDoubleTestParam{9.999999999999998e+37, 38, 0,
-                                "99999999999999978859343891977453174784"},
-            FromDoubleTestParam{-9.999999999999998e+37, 38, 0,
-                                "-99999999999999978859343891977453174784"},
-            FromDoubleTestParam{9.999999999999998e+27, 38, 10,
-                                "9999999999999997885934389197.7453174784"},
-            FromDoubleTestParam{-9.999999999999998e+27, 38, 10,
-                                "-9999999999999997885934389197.7453174784"}};
+    std::vector<FromDoubleTestParam> values = {
+        // -- Stress the 53 bits of precision of a double
+        // 2**63 + 2**11
+        FromDoubleTestParam{9.223372036854778e+18, 19, 0, "9223372036854777856"},
+        // 2**64 - 2**11
+        FromDoubleTestParam{1.844674407370955e+19, 20, 0, "18446744073709549568"},
+        // 2**64 + 2**11
+        FromDoubleTestParam{1.8446744073709556e+19, 20, 0, "18446744073709555712"},
+        // 2**126
+        FromDoubleTestParam{8.507059173023462e+37, 38, 0,
+                            "85070591730234615865843651857942052864"},
+        // 2**126 - 2**74
+        FromDoubleTestParam{8.50705917302346e+37, 38, 0,
+                            "85070591730234596976377720379361198080"},
+        // 2**36 - 2**-16
+        FromDoubleTestParam{68719476735.999985, 11, 0, "68719476736"},
+        FromDoubleTestParam{68719476735.999985, 38, 27,
+                            "68719476735.999984741210937500000000000"},
+        // -- Other cases
+        // Almost 10**38 (minus 2**73)
+        FromDoubleTestParam{9.999999999999998e+37, 38, 0,
+                            "99999999999999978859343891977453174784"},
+        FromDoubleTestParam{9.999999999999998e+27, 38, 10,
+                            "9999999999999997384096481280.0000000000"},
+        // 10**N (sometimes fits in N digits)
+        FromDoubleTestParam{1e23, 23, 0, "99999999999999991611392"},
+        FromDoubleTestParam{1e23, 24, 1, "99999999999999991611392.0"},
+        FromDoubleTestParam{1e36, 37, 0, "1000000000000000042420637374017961984"},
+        FromDoubleTestParam{1e36, 38, 1, "1000000000000000042420637374017961984.0"},
+        FromDoubleTestParam{1e37, 37, 0, "9999999999999999538762658202121142272"},
+        FromDoubleTestParam{1e37, 38, 1, "9999999999999999538762658202121142272.0"},
+        FromDoubleTestParam{1e38, 38, 0, "99999999999999997748809823456034029568"},
+        // Hand-picked test cases that can involve precision issues.
+        // More comprehensive testing is done in the PyArrow test suite.
+        FromDoubleTestParam{9.223372036854778e+10, 19, 8, "92233720368.54777527"},
+        FromDoubleTestParam{1.8446744073709556e+15, 20, 4, "1844674407370955.5000"},
+        FromDoubleTestParam{999999999999999.0, 16, 1, "999999999999999.0"},
+        FromDoubleTestParam{9999999999999998.0, 17, 1, "9999999999999998.0"},
+        FromDoubleTestParam{999999999999999.9, 16, 1, "999999999999999.9"},
+        FromDoubleTestParam{9999999987., 38, 22, "9999999987.0000000000000000000000"},
+        FromDoubleTestParam{9999999987., 38, 28,
+                            "9999999987.0000000000000000000000000000"},
+    };
+    std::vector<FromDoubleTestParam> type_dependent_values;
+    if (std::is_same_v<T, Decimal128>) {
+      // clang-format off
+      type_dependent_values = {
+        // 1 - 2**-52
+        // XXX the result should be 0.99999999999999977795539507496869191527
+        // but our algorithm loses the right digit.
+        FromDoubleTestParam{0.9999999999999998, 38, 38,
+                            "0.99999999999999977795539507496869191520"},
+        FromDoubleTestParam{0.9999999999999998, 20, 20, "0.99999999999999977796"},
+        FromDoubleTestParam{0.9999999999999998, 16, 16, "0.9999999999999998"},
+      };
+      // clang-format on
+    } else if (std::is_same_v<T, Decimal256>) {
+      // clang-format off
+      type_dependent_values = {
+        // 1 - 2**-52
+        FromDoubleTestParam{
+          0.9999999999999998, 76, 76,
+          ("0.9999999999999997779553950749686919152736663818359375"
+           "000000000000000000000000")},
+        FromDoubleTestParam{0.9999999999999998, 76, 52,
+                            "0.9999999999999997779553950749686919152736663818359375"},
+        FromDoubleTestParam{0.9999999999999998, 76, 51,
+                            "0.999999999999999777955395074968691915273666381835938"},
+        FromDoubleTestParam{0.9999999999999998, 38, 38,
+                            "0.99999999999999977795539507496869191527"},
+        FromDoubleTestParam{0.9999999999999998, 20, 20, "0.99999999999999977796"},
+        FromDoubleTestParam{0.9999999999999998, 16, 16, "0.9999999999999998"},
+        // Almost 10**76
+        FromDoubleTestParam{9.999999999999999e+75, 76, 0,
+                            "999999999999999886366330070006442034959750906670402"
+                            "8242075715752105414230016"},
+        FromDoubleTestParam{
+          9.999999999999999e+65, 76, 10,
+          ("999999999999999945322333868247445125709646570021247924665841614848"
+           ".0000000000")},
+      };
+      // clang-format on
+    }
+    values.insert(values.end(), type_dependent_values.begin(),
+                  type_dependent_values.end());
+    return values;
   }
 };
 TYPED_TEST_SUITE(TestDecimalFromRealDouble, DecimalTypes);
 
 TYPED_TEST(TestDecimalFromRealDouble, SuccessConversion) {
   for (const auto& param : this->GetValues()) {
-    CheckDecimalFromReal<TypeParam>(param.real, param.precision, param.scale,
-                                    param.expected);
+    if (TypeParam::kMaxPrecision >= param.precision) {
+      CheckDecimalFromReal<TypeParam>(param.real, param.precision, param.scale,
+                                      param.expected);
+    }
   }
 }
 
 TYPED_TEST(TestDecimalFromRealDouble, LargeValues) {
-  // Test the entire double range
-  for (int32_t scale = -308; scale <= 308; ++scale) {
-    double real = std::pow(10.0, static_cast<double>(scale));
-    CheckDecimalFromRealIntegerString<TypeParam>(real, 1, -scale, "1");
+  constexpr auto kMaxScale = TypeParam::kMaxScale;
+  for (int32_t scale = -kMaxScale; scale <= kMaxScale; ++scale) {
+    if (std::abs(1 - scale) < kMaxScale) {
+      double real = std::pow(10.0, static_cast<double>(scale));
+      ARROW_SCOPED_TRACE("scale = ", scale, ", real = ", real);
+      CheckDecimalFromRealIntegerString<TypeParam>(real, 1, -scale, "1");
+    }
   }
-  for (int32_t scale = -307; scale <= 306; ++scale) {
-    double real = 123. * std::pow(10.0, static_cast<double>(scale));
-    CheckDecimalFromRealIntegerString<TypeParam>(real, 2, -scale - 1, "12");
-    CheckDecimalFromRealIntegerString<TypeParam>(real, 3, -scale, "123");
-    CheckDecimalFromRealIntegerString<TypeParam>(real, 4, -scale + 1, "1230");
-  }
-}
 
-// Additional values that only apply to Decimal256
-TEST(TestDecimal256FromRealDouble, ExtremeValues) {
-  const std::vector<FromDoubleTestParam> values = {
-      // Almost 10**76
-      FromDoubleTestParam{9.999999999999999e+75, 76, 0,
-                          "999999999999999886366330070006442034959750906670402"
-                          "8242075715752105414230016"},
-      FromDoubleTestParam{-9.999999999999999e+75, 76, 0,
-                          "-999999999999999886366330070006442034959750906670402"
-                          "8242075715752105414230016"},
-      FromDoubleTestParam{9.999999999999999e+65, 76, 10,
-                          "999999999999999886366330070006442034959750906670402"
-                          "824207571575210.5414230016"},
-      FromDoubleTestParam{-9.999999999999999e+65, 76, 10,
-                          "-999999999999999886366330070006442034959750906670402"
-                          "824207571575210.5414230016"}};
-  for (const auto& param : values) {
-    CheckDecimalFromReal<Decimal256>(param.real, param.precision, param.scale,
-                                     param.expected);
+  for (int32_t scale = -kMaxScale + 1; scale <= kMaxScale - 1; ++scale) {
+    if (std::abs(4 - scale) < kMaxScale) {
+      double real = 123. * std::pow(10.0, static_cast<double>(scale));
+      ARROW_SCOPED_TRACE("scale = ", scale, ", real = ", real);
+      CheckDecimalFromRealIntegerString<TypeParam>(real, 2, -scale - 1, "12");
+      CheckDecimalFromRealIntegerString<TypeParam>(real, 3, -scale, "123");
+      CheckDecimalFromRealIntegerString<TypeParam>(real, 4, -scale + 1, "1230");
+    }
   }
 }
 
@@ -998,24 +1111,51 @@ using ToDoubleTestParam = ToRealTestParam<double>;
 template <typename Decimal, typename Real>
 void CheckDecimalToReal(const std::string& decimal_value, int32_t scale, Real expected) {
   Decimal dec(decimal_value);
-  ASSERT_EQ(dec.template ToReal<Real>(scale), expected)
-      << "Decimal value: " << decimal_value << " Scale: " << scale;
+  Real actual = dec.template ToReal<Real>(scale);
+  ASSERT_EQ(actual, expected) << "Decimal value: " << decimal_value
+                              << ", scale: " << scale << ", expected: " << expected
+                              << ", actual: " << actual;
+}
+
+template <typename Decimal, typename Real>
+void CheckDecimalToRealWithinOneULP(const std::string& decimal_value, int32_t scale,
+                                    Real expected) {
+  Decimal dec(decimal_value);
+  Real actual = dec.template ToReal<Real>(scale);
+  ASSERT_TRUE(actual == expected || actual == std::nextafter(expected, expected + 1) ||
+              actual == std::nextafter(expected, expected - 1))
+      << "Decimal value: " << decimal_value << ", scale: " << scale
+      << ", expected: " << expected << ", actual: " << actual;
+}
+
+template <typename Decimal, typename Real>
+void CheckDecimalToRealWithinEpsilon(const std::string& decimal_value, int32_t scale,
+                                     Real epsilon, Real expected) {
+  Decimal dec(decimal_value);
+  Real actual = dec.template ToReal<Real>(scale);
+  ASSERT_LE(std::abs(actual - expected), epsilon)
+      << "Decimal value: " << decimal_value << ", scale: " << scale
+      << ", expected: " << expected << ", actual: " << actual;
 }
 
 template <typename Decimal>
 void CheckDecimalToRealApprox(const std::string& decimal_value, int32_t scale,
                               float expected) {
   Decimal dec(decimal_value);
-  ASSERT_FLOAT_EQ(dec.template ToReal<float>(scale), expected)
-      << "Decimal value: " << decimal_value << " Scale: " << scale;
+  float actual = dec.template ToReal<float>(scale);
+  ASSERT_FLOAT_EQ(actual, expected)
+      << "Decimal value: " << decimal_value << ", scale: " << scale
+      << ", expected: " << expected << ", actual: " << actual;
 }
 
 template <typename Decimal>
 void CheckDecimalToRealApprox(const std::string& decimal_value, int32_t scale,
                               double expected) {
   Decimal dec(decimal_value);
-  ASSERT_DOUBLE_EQ(dec.template ToReal<double>(scale), expected)
-      << "Decimal value: " << decimal_value << " Scale: " << scale;
+  double actual = dec.template ToReal<double>(scale);
+  ASSERT_DOUBLE_EQ(actual, expected)
+      << "Decimal value: " << decimal_value << ", scale: " << scale
+      << ", expected: " << expected << ", actual: " << actual;
 }
 
 // Common tests for Decimal128::ToReal<T> and Decimal256::ToReal<T>
@@ -1055,66 +1195,99 @@ class TestDecimalToReal : public ::testing::Test {
         // clang-format on
     };
     for (const ParamType& param : params) {
-      CheckDecimalToReal<Decimal, Real>(param.decimal_value, param.scale, param.expected);
-      if (param.decimal_value != "0") {
-        CheckDecimalToReal<Decimal, Real>("-" + param.decimal_value, param.scale,
-                                          -param.expected);
+      if (param.decimal_value.size() < Decimal::kMaxPrecision &&
+          std::abs(param.scale) < Decimal::kMaxScale) {
+        CheckDecimalToReal<Decimal, Real>(param.decimal_value, param.scale,
+                                          param.expected);
+        if (param.decimal_value != "0") {
+          CheckDecimalToReal<Decimal, Real>("-" + param.decimal_value, param.scale,
+                                            -param.expected);
+        }
       }
-    }
-  }
-
-  // Test precision of conversions to float values
-  void TestPrecision() {
-    // 2**63 + 2**40 (exactly representable in a float's 24 bits of precision)
-    CheckDecimalToReal<Decimal, Real>("9223373136366403584", 0, 9.223373e+18f);
-    CheckDecimalToReal<Decimal, Real>("-9223373136366403584", 0, -9.223373e+18f);
-    // 2**64 + 2**41 (exactly representable in a float)
-    CheckDecimalToReal<Decimal, Real>("18446746272732807168", 0, 1.8446746e+19f);
-    CheckDecimalToReal<Decimal, Real>("-18446746272732807168", 0, -1.8446746e+19f);
-  }
-
-  // Test conversions with a range of scales
-  void TestLargeValues(int32_t max_scale) {
-    // Note that exact comparisons would succeed on some platforms (Linux, macOS).
-    // Nevertheless, power-of-ten factors are not all exactly representable
-    // in binary floating point.
-    for (int32_t scale = -max_scale; scale <= max_scale; scale++) {
-#ifdef _WIN32
-      // MSVC gives pow(10.f, -45.f) == 0 even though 1e-45f is nonzero
-      if (scale == 45) continue;
-#endif
-      CheckDecimalToRealApprox<Decimal>("1", scale, Pow10(-scale));
-    }
-    for (int32_t scale = -max_scale; scale <= max_scale - 2; scale++) {
-#ifdef _WIN32
-      // MSVC gives pow(10.f, -45.f) == 0 even though 1e-45f is nonzero
-      if (scale == 45) continue;
-#endif
-      const Real factor = static_cast<Real>(123);
-      CheckDecimalToRealApprox<Decimal>("123", scale, factor * Pow10(-scale));
     }
   }
 };
 
 TYPED_TEST_SUITE(TestDecimalToReal, RealTypes);
-
 TYPED_TEST(TestDecimalToReal, TestSuccess) { this->TestSuccess(); }
 
-// Custom test for Decimal128::ToReal<float>
-class TestDecimal128ToRealFloat : public TestDecimalToReal<std::pair<Decimal128, float>> {
-};
-TEST_F(TestDecimal128ToRealFloat, LargeValues) { TestLargeValues(/*max_scale=*/38); }
-TEST_F(TestDecimal128ToRealFloat, Precision) { this->TestPrecision(); }
-// Custom test for Decimal256::ToReal<float>
-class TestDecimal256ToRealFloat : public TestDecimalToReal<std::pair<Decimal256, float>> {
-};
-TEST_F(TestDecimal256ToRealFloat, LargeValues) { TestLargeValues(/*max_scale=*/76); }
-TEST_F(TestDecimal256ToRealFloat, Precision) { this->TestPrecision(); }
+// Custom test for Decimal::ToReal<float>
+template <typename DecimalType>
+class TestDecimalToRealFloat : public TestDecimalToReal<std::pair<DecimalType, float>> {};
+TYPED_TEST_SUITE(TestDecimalToRealFloat, DecimalTypes);
+
+TYPED_TEST(TestDecimalToRealFloat, LargeValues) {
+  auto max_scale = TypeParam::kMaxScale;
+  // Note that exact comparisons would succeed on some platforms (Linux, macOS).
+  // Nevertheless, power-of-ten factors are not all exactly representable
+  // in binary floating point.
+  for (int32_t scale = -max_scale; scale <= max_scale; scale++) {
+#ifdef _WIN32
+    // MSVC gives pow(10.f, -45.f) == 0 even though 1e-45f is nonzero
+    if (scale == 45) continue;
+#endif
+    CheckDecimalToRealApprox<TypeParam>("1", scale, this->Pow10(-scale));
+  }
+  for (int32_t scale = -max_scale; scale <= max_scale - 2; scale++) {
+#ifdef _WIN32
+    // MSVC gives pow(10.f, -45.f) == 0 even though 1e-45f is nonzero
+    if (scale == 45) continue;
+#endif
+    const auto factor = static_cast<float>(123);
+    CheckDecimalToRealApprox<TypeParam>("123", scale, factor * this->Pow10(-scale));
+  }
+}
+
+TYPED_TEST(TestDecimalToRealFloat, Precision) {
+  if constexpr (TypeParam::kMaxPrecision >= 19) {
+    // 2**63 + 2**40 (exactly representable in a float's 24 bits of precision)
+    CheckDecimalToReal<TypeParam, float>("9223373136366403584", 0, 9.223373e+18f);
+    CheckDecimalToReal<TypeParam, float>("-9223373136366403584", 0, -9.223373e+18f);
+
+    // 2**64 + 2**41 (exactly representable in a float)
+    CheckDecimalToReal<TypeParam, float>("18446746272732807168", 0, 1.8446746e+19f);
+    CheckDecimalToReal<TypeParam, float>("-18446746272732807168", 0, -1.8446746e+19f);
+  }
+  // Integers are always exact
+  auto scale = TypeParam::kMaxScale - 1;
+  std::string seven = "7.";
+  seven.append(scale, '0');  // pad with trailing zeros
+  CheckDecimalToReal<TypeParam, float>(seven, scale, 7.0f);
+  CheckDecimalToReal<TypeParam, float>("-" + seven, scale, -7.0f);
+
+  if constexpr (TypeParam::kMaxPrecision >= 20) {
+    CheckDecimalToReal<TypeParam, float>("99999999999999999999.0000000000000000", 16,
+                                         99999999999999999999.0f);
+    CheckDecimalToReal<TypeParam, float>("-99999999999999999999.0000000000000000", 16,
+                                         -99999999999999999999.0f);
+  }
+
+  // Small fractions are within one ULP
+  CheckDecimalToRealWithinOneULP<TypeParam, float>("9999999.9", 1, 9999999.9f);
+  CheckDecimalToRealWithinOneULP<TypeParam, float>("-9999999.9", 1, -9999999.9f);
+  if constexpr (TypeParam::kMaxPrecision >= 13) {
+    CheckDecimalToRealWithinOneULP<TypeParam, float>("9999999.999999", 6,
+                                                     9999999.999999f);
+    CheckDecimalToRealWithinOneULP<TypeParam, float>("-9999999.999999", 6,
+                                                     -9999999.999999f);
+  }
+
+  if constexpr (TypeParam::kMaxScale >= 23) {
+    // Large fractions are within 2^-23
+    constexpr float epsilon = 1.1920928955078125e-07f;  // 2^-23
+    CheckDecimalToRealWithinEpsilon<TypeParam, float>(
+        "112334829348925.99070703983306884765625", 23, epsilon,
+        112334829348925.99070703983306884765625f);
+    CheckDecimalToRealWithinEpsilon<TypeParam, float>(
+        "1.987748987892758765582589910934859345", 36, epsilon,
+        1.987748987892758765582589910934859345f);
+  }
+}
 
 // ToReal<double> tests are disabled on MinGW because of precision issues in results
 #ifndef __MINGW32__
 
-// Custom test for Decimal128::ToReal<double>
+// Custom test for Decimal::ToReal<double>
 template <typename DecimalType>
 class TestDecimalToRealDouble : public TestDecimalToReal<std::pair<DecimalType, double>> {
 };
@@ -1124,47 +1297,89 @@ TYPED_TEST(TestDecimalToRealDouble, LargeValues) {
   // Note that exact comparisons would succeed on some platforms (Linux, macOS).
   // Nevertheless, power-of-ten factors are not all exactly representable
   // in binary floating point.
-  for (int32_t scale = -308; scale <= 308; scale++) {
+  constexpr auto kMaxScale = TypeParam::kMaxScale;
+  for (int32_t scale = -kMaxScale; scale <= kMaxScale; scale++) {
     CheckDecimalToRealApprox<TypeParam>("1", scale, this->Pow10(-scale));
   }
-  for (int32_t scale = -308; scale <= 306; scale++) {
+  for (int32_t scale = -kMaxScale; scale <= kMaxScale; scale++) {
     const double factor = 123.;
     CheckDecimalToRealApprox<TypeParam>("123", scale, factor * this->Pow10(-scale));
   }
 }
 
 TYPED_TEST(TestDecimalToRealDouble, Precision) {
-  // 2**63 + 2**11 (exactly representable in a double's 53 bits of precision)
-  CheckDecimalToReal<TypeParam, double>("9223372036854777856", 0, 9.223372036854778e+18);
-  CheckDecimalToReal<TypeParam, double>("-9223372036854777856", 0,
-                                        -9.223372036854778e+18);
-  // 2**64 - 2**11 (exactly representable in a double)
-  CheckDecimalToReal<TypeParam, double>("18446744073709549568", 0, 1.844674407370955e+19);
-  CheckDecimalToReal<TypeParam, double>("-18446744073709549568", 0,
-                                        -1.844674407370955e+19);
-  // 2**64 + 2**11 (exactly representable in a double)
-  CheckDecimalToReal<TypeParam, double>("18446744073709555712", 0,
-                                        1.8446744073709556e+19);
-  CheckDecimalToReal<TypeParam, double>("-18446744073709555712", 0,
-                                        -1.8446744073709556e+19);
-  // Almost 10**38 (minus 2**73)
-  CheckDecimalToReal<TypeParam, double>("99999999999999978859343891977453174784", 0,
-                                        9.999999999999998e+37);
-  CheckDecimalToReal<TypeParam, double>("-99999999999999978859343891977453174784", 0,
-                                        -9.999999999999998e+37);
-  CheckDecimalToReal<TypeParam, double>("99999999999999978859343891977453174784", 10,
-                                        9.999999999999998e+27);
-  CheckDecimalToReal<TypeParam, double>("-99999999999999978859343891977453174784", 10,
-                                        -9.999999999999998e+27);
-  CheckDecimalToReal<TypeParam, double>("99999999999999978859343891977453174784", -10,
-                                        9.999999999999998e+47);
-  CheckDecimalToReal<TypeParam, double>("-99999999999999978859343891977453174784", -10,
-                                        -9.999999999999998e+47);
+  if constexpr (TypeParam::kMaxPrecision >= 19) {
+    // 2**63 + 2**11 (exactly representable in a double's 53 bits of precision)
+    CheckDecimalToReal<TypeParam, double>("9223372036854777856", 0,
+                                          9.223372036854778e+18);
+    CheckDecimalToReal<TypeParam, double>("-9223372036854777856", 0,
+                                          -9.223372036854778e+18);
+    // 2**64 - 2**11 (exactly representable in a double)
+    CheckDecimalToReal<TypeParam, double>("18446744073709549568", 0,
+                                          1.844674407370955e+19);
+    CheckDecimalToReal<TypeParam, double>("-18446744073709549568", 0,
+                                          -1.844674407370955e+19);
+    // 2**64 + 2**11 (exactly representable in a double)
+    CheckDecimalToReal<TypeParam, double>("18446744073709555712", 0,
+                                          1.8446744073709556e+19);
+    CheckDecimalToReal<TypeParam, double>("-18446744073709555712", 0,
+                                          -1.8446744073709556e+19);
+
+    // Almost 10**38 (minus 2**73)
+    CheckDecimalToReal<TypeParam, double>("99999999999999978859343891977453174784", 0,
+                                          9.999999999999998e+37);
+    CheckDecimalToReal<TypeParam, double>("-99999999999999978859343891977453174784", 0,
+                                          -9.999999999999998e+37);
+    CheckDecimalToReal<TypeParam, double>("99999999999999978859343891977453174784", 10,
+                                          9.999999999999998e+27);
+    CheckDecimalToReal<TypeParam, double>("-99999999999999978859343891977453174784", 10,
+                                          -9.999999999999998e+27);
+    CheckDecimalToReal<TypeParam, double>("99999999999999978859343891977453174784", -10,
+                                          9.999999999999998e+47);
+    CheckDecimalToReal<TypeParam, double>("-99999999999999978859343891977453174784", -10,
+                                          -9.999999999999998e+47);
+  }
+  // Integers are always exact
+  auto scale = TypeParam::kMaxScale - 1;
+  std::string seven = "7.";
+  seven.append(scale, '0');
+  CheckDecimalToReal<TypeParam, double>(seven, scale, 7.0);
+  CheckDecimalToReal<TypeParam, double>("-" + seven, scale, -7.0);
+  if constexpr (TypeParam::kMaxPrecision >= 20) {
+    CheckDecimalToReal<TypeParam, double>("99999999999999999999.0000000000000000", 16,
+                                          99999999999999999999.0);
+    CheckDecimalToReal<TypeParam, double>("-99999999999999999999.0000000000000000", 16,
+                                          -99999999999999999999.0);
+  }
+
+  // Small fractions are within one ULP
+  CheckDecimalToRealWithinOneULP<TypeParam, double>("9999999.9", 1, 9999999.9);
+  CheckDecimalToRealWithinOneULP<TypeParam, double>("-9999999.9", 1, -9999999.9);
+  if constexpr (TypeParam::kMaxPrecision >= 23) {
+    CheckDecimalToRealWithinOneULP<TypeParam, double>("9999999.999999999999999", 15,
+                                                      9999999.999999999999999);
+    CheckDecimalToRealWithinOneULP<TypeParam, double>("-9999999.999999999999999", 15,
+                                                      -9999999.999999999999999);
+    // Large fractions are within 2^-52
+    constexpr double epsilon = 2.220446049250313080847263336181640625e-16;  // 2^-52
+    CheckDecimalToRealWithinEpsilon<TypeParam, double>(
+        "112334829348925.99070703983306884765625", 23, epsilon,
+        112334829348925.99070703983306884765625);
+    CheckDecimalToRealWithinEpsilon<TypeParam, double>(
+        "1.987748987892758765582589910934859345", 36, epsilon,
+        1.987748987892758765582589910934859345);
+  }
 }
 
 #endif  // __MINGW32__
 
-TEST(Decimal128Test, TestFromBigEndian) {
+template <typename DecimalType>
+class TestBasicDecimalFunctionality : public ::testing::Test {};
+// Decimal256 tests don't fit the same mold as the others for easy generic tests
+using BasicFunctionalityDecimalTypes = ::testing::Types<Decimal32, Decimal64, Decimal128>;
+TYPED_TEST_SUITE(TestBasicDecimalFunctionality, BasicFunctionalityDecimalTypes);
+
+TYPED_TEST(TestBasicDecimalFunctionality, TestFromBigEndian) {
   // We test out a variety of scenarios:
   //
   // * Positive values that are left shifted
@@ -1178,11 +1393,13 @@ TEST(Decimal128Test, TestFromBigEndian) {
   //
   // We use a number of bit patterns to increase the coverage
   // of scenarios
+  constexpr int WidthMinusOne = TypeParam::kByteWidth - 1;
+
   for (int32_t start : {1, 15, /* 00001111 */
                         85,    /* 01010101 */
                         127 /* 01111111 */}) {
-    Decimal128 value(start);
-    for (int ii = 0; ii < 16; ++ii) {
+    TypeParam value(start);
+    for (int ii = 0; ii < TypeParam::kByteWidth; ++ii) {
       auto native_endian = value.ToBytes();
 #if ARROW_LITTLE_ENDIAN
       std::reverse(native_endian.begin(), native_endian.end());
@@ -1191,8 +1408,8 @@ TEST(Decimal128Test, TestFromBigEndian) {
       // sure that it works correctly. That's why all of the
       // 'start' values don't have a 1 in the most significant
       // bit place
-      ASSERT_OK_AND_EQ(value,
-                       Decimal128::FromBigEndian(native_endian.data() + 15 - ii, ii + 1));
+      ASSERT_OK_AND_EQ(value, TypeParam::FromBigEndian(
+                                  native_endian.data() + WidthMinusOne - ii, ii + 1));
 
       // Negate it
       auto negated = -value;
@@ -1202,8 +1419,8 @@ TEST(Decimal128Test, TestFromBigEndian) {
       std::reverse(native_endian.begin(), native_endian.end());
 #endif
       // The sign bit is looked up in the MSB
-      ASSERT_OK_AND_EQ(negated,
-                       Decimal128::FromBigEndian(native_endian.data() + 15 - ii, ii + 1));
+      ASSERT_OK_AND_EQ(negated, TypeParam::FromBigEndian(
+                                    native_endian.data() + WidthMinusOne - ii, ii + 1));
 
       // Take the complement
       auto complement = ~value;
@@ -1212,24 +1429,25 @@ TEST(Decimal128Test, TestFromBigEndian) {
       // convert to big endian
       std::reverse(native_endian.begin(), native_endian.end());
 #endif
-      ASSERT_OK_AND_EQ(complement, Decimal128::FromBigEndian(native_endian.data(), 16));
+      ASSERT_OK_AND_EQ(complement, TypeParam::FromBigEndian(native_endian.data(),
+                                                            TypeParam::kByteWidth));
 
-      value <<= 8;
-      value += Decimal128(start);
+      value <<= 2;
+      value += TypeParam(start);
     }
   }
 }
 
-TEST(Decimal128Test, TestFromBigEndianBadLength) {
-  ASSERT_RAISES(Invalid, Decimal128::FromBigEndian(0, -1));
-  ASSERT_RAISES(Invalid, Decimal128::FromBigEndian(0, 17));
+TYPED_TEST(TestBasicDecimalFunctionality, TestFromBigEndianBadLength) {
+  ASSERT_RAISES(Invalid, TypeParam::FromBigEndian(0, -1));
+  ASSERT_RAISES(Invalid, TypeParam::FromBigEndian(0, TypeParam::kByteWidth + 1));
 }
 
-TEST(Decimal128Test, TestToInteger) {
-  Decimal128 value1("1234");
+TYPED_TEST(TestBasicDecimalFunctionality, TestToInteger) {
+  TypeParam value1("1234");
   int32_t out1;
 
-  Decimal128 value2("-1234");
+  TypeParam value2("-1234");
   int64_t out2;
 
   ASSERT_OK(value1.ToInteger(&out1));
@@ -1243,12 +1461,6 @@ TEST(Decimal128Test, TestToInteger) {
 
   ASSERT_OK(value2.ToInteger(&out2));
   ASSERT_EQ(-1234, out2);
-
-  Decimal128 invalid_int32(static_cast<int64_t>(std::pow(2, 31)));
-  ASSERT_RAISES(Invalid, invalid_int32.ToInteger(&out1));
-
-  Decimal128 invalid_int64("12345678912345678901");
-  ASSERT_RAISES(Invalid, invalid_int64.ToInteger(&out2));
 }
 
 template <typename ArrowType, typename CType = typename ArrowType::c_type>
@@ -1265,53 +1477,61 @@ std::vector<CType> GetRandomNumbers(int32_t size) {
   return ret;
 }
 
-TEST(Decimal128Test, Multiply) {
-  ASSERT_EQ(Decimal128(60501), Decimal128(301) * Decimal128(201));
+TYPED_TEST(TestBasicDecimalFunctionality, Multiply) {
+  ASSERT_EQ(TypeParam(60501), TypeParam(301) * TypeParam(201));
 
-  ASSERT_EQ(Decimal128(-60501), Decimal128(-301) * Decimal128(201));
+  ASSERT_EQ(TypeParam(-60501), TypeParam(-301) * TypeParam(201));
 
-  ASSERT_EQ(Decimal128(-60501), Decimal128(301) * Decimal128(-201));
+  ASSERT_EQ(TypeParam(-60501), TypeParam(301) * TypeParam(-201));
 
-  ASSERT_EQ(Decimal128(60501), Decimal128(-301) * Decimal128(-201));
+  ASSERT_EQ(TypeParam(60501), TypeParam(-301) * TypeParam(-201));
 
   // Test some random numbers.
   for (auto x : GetRandomNumbers<Int32Type>(16)) {
     for (auto y : GetRandomNumbers<Int32Type>(16)) {
-      Decimal128 result = Decimal128(x) * Decimal128(y);
-      ASSERT_EQ(Decimal128(static_cast<int64_t>(x) * y), result)
+      TypeParam result = TypeParam(x) * TypeParam(y);
+      ASSERT_EQ(TypeParam(static_cast<int64_t>(x) * y), result)
           << " x: " << x << " y: " << y;
-      // Test by multiplying with an additional 32 bit factor, then additional
-      // factor of 2^30 to test results in the range of -2^123 to 2^123 without overflow.
-      for (auto z : GetRandomNumbers<Int32Type>(32)) {
-        int128_t w = static_cast<int128_t>(x) * y * (1ull << 30);
-        Decimal128 expected = Decimal128FromInt128(static_cast<int128_t>(w) * z);
-        Decimal128 actual = Decimal128FromInt128(w) * Decimal128(z);
-        ASSERT_EQ(expected, actual) << " w: " << x << " * " << y << " * 2^30 z: " << z;
+
+      // for Decimal128
+      if constexpr (std::is_same_v<TypeParam, Decimal128>) {
+        // Test by multiplying with an additional 32 bit factor, then additional
+        // factor of 2^30 to test results in the range of -2^123 to 2^123 without
+        // overflow.
+        for (auto z : GetRandomNumbers<Int32Type>(32)) {
+          int128_t w = static_cast<int128_t>(x) * y * (1ull << 30);
+          TypeParam expected = Decimal128FromInt128(static_cast<int128_t>(w) * z);
+          TypeParam actual = Decimal128FromInt128(w) * TypeParam(z);
+          ASSERT_EQ(expected, actual) << " w: " << x << " * " << y << " * 2^30 z: " << z;
+        }
       }
     }
   }
 
-  // Test some edge cases
-  for (auto x : std::vector<int128_t>{-INT64_MAX, -INT32_MAX, 0, INT32_MAX, INT64_MAX}) {
-    for (auto y :
-         std::vector<int128_t>{-INT32_MAX, -32, -2, -1, 0, 1, 2, 32, INT32_MAX}) {
-      Decimal128 decimal_x = Decimal128FromInt128(x);
-      Decimal128 decimal_y = Decimal128FromInt128(y);
-      Decimal128 result = decimal_x * decimal_y;
-      EXPECT_EQ(Decimal128FromInt128(x * y), result)
-          << " x: " << decimal_x << " y: " << decimal_y;
+  // Test edge cases for Decimal128
+  if constexpr (std::is_same_v<TypeParam, Decimal128>) {
+    for (auto x :
+         std::vector<int128_t>{-INT64_MAX, -INT32_MAX, 0, INT32_MAX, INT64_MAX}) {
+      for (auto y :
+           std::vector<int128_t>{-INT32_MAX, -32, -2, -1, 0, 1, 2, 32, INT32_MAX}) {
+        Decimal128 decimal_x = Decimal128FromInt128(x);
+        Decimal128 decimal_y = Decimal128FromInt128(y);
+        Decimal128 result = decimal_x * decimal_y;
+        EXPECT_EQ(Decimal128FromInt128(x * y), result)
+            << " x: " << decimal_x << " y: " << decimal_y;
+      }
     }
   }
 }
 
-TEST(Decimal128Test, Divide) {
-  ASSERT_EQ(Decimal128(66), Decimal128(20100) / Decimal128(301));
+TYPED_TEST(TestBasicDecimalFunctionality, Divide) {
+  ASSERT_EQ(TypeParam(66), TypeParam(20100) / TypeParam(301));
 
-  ASSERT_EQ(Decimal128(-66), Decimal128(-20100) / Decimal128(301));
+  ASSERT_EQ(TypeParam(-66), TypeParam(-20100) / TypeParam(301));
 
-  ASSERT_EQ(Decimal128(-66), Decimal128(20100) / Decimal128(-301));
+  ASSERT_EQ(TypeParam(-66), TypeParam(20100) / TypeParam(-301));
 
-  ASSERT_EQ(Decimal128(66), Decimal128(-20100) / Decimal128(-301));
+  ASSERT_EQ(TypeParam(66), TypeParam(-20100) / TypeParam(-301));
 
   // Test some random numbers.
   for (auto x : GetRandomNumbers<Int32Type>(16)) {
@@ -1320,65 +1540,75 @@ TEST(Decimal128Test, Divide) {
         continue;
       }
 
-      Decimal128 result = Decimal128(x) / Decimal128(y);
-      ASSERT_EQ(Decimal128(static_cast<int64_t>(x) / y), result)
+      TypeParam result = TypeParam(x) / TypeParam(y);
+      ASSERT_EQ(TypeParam(static_cast<int64_t>(x) / y), result)
           << " x: " << x << " y: " << y;
     }
   }
 
-  // Test some edge cases
-  for (auto x : std::vector<int128_t>{-INT64_MAX, -INT32_MAX, 0, INT32_MAX, INT64_MAX}) {
-    for (auto y : std::vector<int128_t>{-INT32_MAX, -32, -2, -1, 1, 2, 32, INT32_MAX}) {
-      Decimal128 decimal_x = Decimal128FromInt128(x);
-      Decimal128 decimal_y = Decimal128FromInt128(y);
-      Decimal128 result = decimal_x / decimal_y;
-      EXPECT_EQ(Decimal128FromInt128(x / y), result)
-          << " x: " << decimal_x << " y: " << decimal_y;
+  // Edge cases for Decimal128
+  if constexpr (std::is_same_v<TypeParam, Decimal128>) {
+    for (auto x :
+         std::vector<int128_t>{-INT64_MAX, -INT32_MAX, 0, INT32_MAX, INT64_MAX}) {
+      for (auto y : std::vector<int128_t>{-INT32_MAX, -32, -2, -1, 1, 2, 32, INT32_MAX}) {
+        Decimal128 decimal_x = Decimal128FromInt128(x);
+        Decimal128 decimal_y = Decimal128FromInt128(y);
+        Decimal128 result = decimal_x / decimal_y;
+        EXPECT_EQ(Decimal128FromInt128(x / y), result)
+            << " x: " << decimal_x << " y: " << decimal_y;
+      }
     }
   }
 }
 
-TEST(Decimal128Test, Rescale) {
-  ASSERT_OK_AND_EQ(Decimal128(11100), Decimal128(111).Rescale(0, 2));
-  ASSERT_OK_AND_EQ(Decimal128(111), Decimal128(11100).Rescale(2, 0));
-  ASSERT_OK_AND_EQ(Decimal128(5), Decimal128(500000).Rescale(6, 1));
-  ASSERT_OK_AND_EQ(Decimal128(500000), Decimal128(5).Rescale(1, 6));
-  ASSERT_RAISES(Invalid, Decimal128(555555).Rescale(6, 1));
+TYPED_TEST(TestBasicDecimalFunctionality, Rescale) {
+  ASSERT_OK_AND_EQ(TypeParam(11100), TypeParam(111).Rescale(0, 2));
+  ASSERT_OK_AND_EQ(TypeParam(111), TypeParam(11100).Rescale(2, 0));
+  ASSERT_OK_AND_EQ(TypeParam(5), TypeParam(500000).Rescale(6, 1));
+  ASSERT_OK_AND_EQ(TypeParam(500000), TypeParam(5).Rescale(1, 6));
+  ASSERT_RAISES(Invalid, TypeParam(555555).Rescale(6, 1));
+
+  using OrigScaleType =
+      std::conditional_t<std::is_same_v<TypeParam, Decimal32>, Int8Type, Int16Type>;
+  using ValueType =
+      std::conditional_t<std::is_same_v<TypeParam, Decimal32>, Int16Type, Int32Type>;
 
   // Test some random numbers.
-  for (auto original_scale : GetRandomNumbers<Int16Type>(16)) {
-    for (auto value : GetRandomNumbers<Int32Type>(16)) {
-      Decimal128 unscaled_value = Decimal128(value);
-      Decimal128 scaled_value = unscaled_value;
-      for (int32_t new_scale = original_scale; new_scale < original_scale + 29;
-           new_scale++, scaled_value *= Decimal128(10)) {
+  for (auto original_scale : GetRandomNumbers<OrigScaleType>(16)) {
+    for (auto value : GetRandomNumbers<ValueType>(16)) {
+      TypeParam unscaled_value = TypeParam(value);
+      TypeParam scaled_value = unscaled_value;
+      for (int32_t new_scale = original_scale;
+           new_scale < original_scale + (TypeParam::kMaxScale / 1.8);
+           new_scale++, scaled_value *= TypeParam(10)) {
         ASSERT_OK_AND_EQ(scaled_value, unscaled_value.Rescale(original_scale, new_scale));
         ASSERT_OK_AND_EQ(unscaled_value, scaled_value.Rescale(new_scale, original_scale));
       }
     }
   }
 
-  for (auto original_scale : GetRandomNumbers<Int16Type>(16)) {
-    Decimal128 value(1);
-    for (int32_t new_scale = original_scale; new_scale < original_scale + 39;
-         new_scale++, value *= Decimal128(10)) {
-      Decimal128 negative_value = value * -1;
-      ASSERT_OK_AND_EQ(value, Decimal128(1).Rescale(original_scale, new_scale));
-      ASSERT_OK_AND_EQ(negative_value, Decimal128(-1).Rescale(original_scale, new_scale));
-      ASSERT_OK_AND_EQ(Decimal128(1), value.Rescale(new_scale, original_scale));
-      ASSERT_OK_AND_EQ(Decimal128(-1), negative_value.Rescale(new_scale, original_scale));
+  for (auto original_scale : GetRandomNumbers<OrigScaleType>(16)) {
+    TypeParam value(1);
+    for (int32_t new_scale = original_scale;
+         new_scale < original_scale + TypeParam::kMaxScale + 1;
+         new_scale++, value *= TypeParam(10)) {
+      TypeParam negative_value = value * -1;
+      ASSERT_OK_AND_EQ(value, TypeParam(1).Rescale(original_scale, new_scale));
+      ASSERT_OK_AND_EQ(negative_value, TypeParam(-1).Rescale(original_scale, new_scale));
+      ASSERT_OK_AND_EQ(TypeParam(1), value.Rescale(new_scale, original_scale));
+      ASSERT_OK_AND_EQ(TypeParam(-1), negative_value.Rescale(new_scale, original_scale));
     }
   }
 }
 
-TEST(Decimal128Test, Mod) {
-  ASSERT_EQ(Decimal128(234), Decimal128(20100) % Decimal128(301));
+TYPED_TEST(TestBasicDecimalFunctionality, Mod) {
+  ASSERT_EQ(TypeParam(234), TypeParam(20100) % TypeParam(301));
 
-  ASSERT_EQ(Decimal128(-234), Decimal128(-20100) % Decimal128(301));
+  ASSERT_EQ(TypeParam(-234), TypeParam(-20100) % TypeParam(301));
 
-  ASSERT_EQ(Decimal128(234), Decimal128(20100) % Decimal128(-301));
+  ASSERT_EQ(TypeParam(234), TypeParam(20100) % TypeParam(-301));
 
-  ASSERT_EQ(Decimal128(-234), Decimal128(-20100) % Decimal128(-301));
+  ASSERT_EQ(TypeParam(-234), TypeParam(-20100) % TypeParam(-301));
 
   // Test some random numbers.
   for (auto x : GetRandomNumbers<Int32Type>(16)) {
@@ -1387,174 +1617,298 @@ TEST(Decimal128Test, Mod) {
         continue;
       }
 
-      Decimal128 result = Decimal128(x) % Decimal128(y);
-      ASSERT_EQ(Decimal128(static_cast<int64_t>(x) % y), result)
+      TypeParam result = TypeParam(x) % TypeParam(y);
+      ASSERT_EQ(TypeParam(static_cast<int64_t>(x) % y), result)
           << " x: " << x << " y: " << y;
     }
   }
 
-  // Test some edge cases
-  for (auto x : std::vector<int128_t>{-INT64_MAX, -INT32_MAX, 0, INT32_MAX, INT64_MAX}) {
-    for (auto y : std::vector<int128_t>{-INT32_MAX, -32, -2, -1, 1, 2, 32, INT32_MAX}) {
-      Decimal128 decimal_x = Decimal128FromInt128(x);
-      Decimal128 decimal_y = Decimal128FromInt128(y);
-      Decimal128 result = decimal_x % decimal_y;
-      EXPECT_EQ(Decimal128FromInt128(x % y), result)
-          << " x: " << decimal_x << " y: " << decimal_y;
+  // Edge cases for Decimal128
+  if constexpr (std::is_same_v<TypeParam, Decimal128>) {
+    // Test some edge cases
+    for (auto x :
+         std::vector<int128_t>{-INT64_MAX, -INT32_MAX, 0, INT32_MAX, INT64_MAX}) {
+      for (auto y : std::vector<int128_t>{-INT32_MAX, -32, -2, -1, 1, 2, 32, INT32_MAX}) {
+        Decimal128 decimal_x = Decimal128FromInt128(x);
+        Decimal128 decimal_y = Decimal128FromInt128(y);
+        Decimal128 result = decimal_x % decimal_y;
+        EXPECT_EQ(Decimal128FromInt128(x % y), result)
+            << " x: " << decimal_x << " y: " << decimal_y;
+      }
     }
   }
 }
 
-TEST(Decimal128Test, Sign) {
-  ASSERT_EQ(1, Decimal128(999999).Sign());
-  ASSERT_EQ(-1, Decimal128(-999999).Sign());
-  ASSERT_EQ(1, Decimal128(0).Sign());
+TYPED_TEST(TestBasicDecimalFunctionality, Sign) {
+  ASSERT_EQ(1, TypeParam(999999).Sign());
+  ASSERT_EQ(-1, TypeParam(-999999).Sign());
+  ASSERT_EQ(1, TypeParam(0).Sign());
 }
 
-TEST(Decimal128Test, GetWholeAndFraction) {
-  Decimal128 value("123456");
-  Decimal128 whole;
-  Decimal128 fraction;
-  int32_t out;
+TYPED_TEST(TestBasicDecimalFunctionality, GetWholeAndFraction) {
+  TypeParam value("123456");
 
-  value.GetWholeAndFraction(0, &whole, &fraction);
-  ASSERT_OK(whole.ToInteger(&out));
-  ASSERT_EQ(123456, out);
-  ASSERT_OK(fraction.ToInteger(&out));
-  ASSERT_EQ(0, out);
+  auto check = [value](int32_t scale, std::pair<int32_t, int32_t> expected) {
+    TypeParam whole, fraction;
+    int32_t out;
+    value.GetWholeAndFraction(scale, &whole, &fraction);
+    ASSERT_OK(whole.ToInteger(&out));
+    ASSERT_EQ(expected.first, out);
+    ASSERT_OK(fraction.ToInteger(&out));
+    ASSERT_EQ(expected.second, out);
+  };
 
-  value.GetWholeAndFraction(1, &whole, &fraction);
-  ASSERT_OK(whole.ToInteger(&out));
-  ASSERT_EQ(12345, out);
-  ASSERT_OK(fraction.ToInteger(&out));
-  ASSERT_EQ(6, out);
-
-  value.GetWholeAndFraction(5, &whole, &fraction);
-  ASSERT_OK(whole.ToInteger(&out));
-  ASSERT_EQ(1, out);
-  ASSERT_OK(fraction.ToInteger(&out));
-  ASSERT_EQ(23456, out);
-
-  value.GetWholeAndFraction(7, &whole, &fraction);
-  ASSERT_OK(whole.ToInteger(&out));
-  ASSERT_EQ(0, out);
-  ASSERT_OK(fraction.ToInteger(&out));
-  ASSERT_EQ(123456, out);
+  check(0, {123456, 0});
+  check(1, {12345, 6});
+  check(5, {1, 23456});
+  check(7, {0, 123456});
 }
 
-TEST(Decimal128Test, GetWholeAndFractionNegative) {
-  Decimal128 value("-123456");
-  Decimal128 whole;
-  Decimal128 fraction;
-  int32_t out;
+TYPED_TEST(TestBasicDecimalFunctionality, GetWholeAndFractionNegative) {
+  TypeParam value("-123456");
 
-  value.GetWholeAndFraction(0, &whole, &fraction);
-  ASSERT_OK(whole.ToInteger(&out));
-  ASSERT_EQ(-123456, out);
-  ASSERT_OK(fraction.ToInteger(&out));
-  ASSERT_EQ(0, out);
+  auto check = [value](int32_t scale, std::pair<int32_t, int32_t> expected) {
+    TypeParam whole, fraction;
+    int32_t out;
+    value.GetWholeAndFraction(scale, &whole, &fraction);
+    ASSERT_OK(whole.ToInteger(&out));
+    ASSERT_EQ(expected.first, out);
+    ASSERT_OK(fraction.ToInteger(&out));
+    ASSERT_EQ(expected.second, out);
+  };
 
-  value.GetWholeAndFraction(1, &whole, &fraction);
-  ASSERT_OK(whole.ToInteger(&out));
-  ASSERT_EQ(-12345, out);
-  ASSERT_OK(fraction.ToInteger(&out));
-  ASSERT_EQ(-6, out);
-
-  value.GetWholeAndFraction(5, &whole, &fraction);
-  ASSERT_OK(whole.ToInteger(&out));
-  ASSERT_EQ(-1, out);
-  ASSERT_OK(fraction.ToInteger(&out));
-  ASSERT_EQ(-23456, out);
-
-  value.GetWholeAndFraction(7, &whole, &fraction);
-  ASSERT_OK(whole.ToInteger(&out));
-  ASSERT_EQ(0, out);
-  ASSERT_OK(fraction.ToInteger(&out));
-  ASSERT_EQ(-123456, out);
+  check(0, {-123456, 0});
+  check(1, {-12345, -6});
+  check(5, {-1, -23456});
+  check(7, {0, -123456});
 }
 
-TEST(Decimal128Test, IncreaseScale) {
-  Decimal128 result;
+TYPED_TEST(TestBasicDecimalFunctionality, IncreaseScale) {
+  TypeParam result;
   int32_t out;
 
-  result = Decimal128("1234").IncreaseScaleBy(0);
+  result = TypeParam("1234").IncreaseScaleBy(0);
   ASSERT_OK(result.ToInteger(&out));
   ASSERT_EQ(1234, out);
 
-  result = Decimal128("1234").IncreaseScaleBy(3);
+  result = TypeParam("1234").IncreaseScaleBy(3);
   ASSERT_OK(result.ToInteger(&out));
   ASSERT_EQ(1234000, out);
 
-  result = Decimal128("-1234").IncreaseScaleBy(3);
+  result = TypeParam("-1234").IncreaseScaleBy(3);
   ASSERT_OK(result.ToInteger(&out));
   ASSERT_EQ(-1234000, out);
 }
 
-TEST(Decimal128Test, ReduceScaleAndRound) {
-  Decimal128 result;
-  int32_t out;
+TYPED_TEST(TestBasicDecimalFunctionality, ReduceScaleAndRound) {
+  auto check = [](std::string val, int32_t reduce_by, bool round, int32_t expected) {
+    int32_t out;
 
-  result = Decimal128("123456").ReduceScaleBy(0);
-  ASSERT_OK(result.ToInteger(&out));
-  ASSERT_EQ(123456, out);
+    TypeParam result = TypeParam(val).ReduceScaleBy(reduce_by, round);
+    ASSERT_OK(result.ToInteger(&out));
+    ASSERT_EQ(expected, out);
+  };
 
-  result = Decimal128("123456").ReduceScaleBy(1, false);
-  ASSERT_OK(result.ToInteger(&out));
-  ASSERT_EQ(12345, out);
-
-  result = Decimal128("123456").ReduceScaleBy(1, true);
-  ASSERT_OK(result.ToInteger(&out));
-  ASSERT_EQ(12346, out);
-
-  result = Decimal128("123451").ReduceScaleBy(1, true);
-  ASSERT_OK(result.ToInteger(&out));
-  ASSERT_EQ(12345, out);
-
-  result = Decimal128("5").ReduceScaleBy(1, true);
-  ASSERT_OK(result.ToInteger(&out));
-  ASSERT_EQ(1, out);
-
-  result = Decimal128("0").ReduceScaleBy(1, true);
-  ASSERT_OK(result.ToInteger(&out));
-  ASSERT_EQ(0, out);
-
-  result = Decimal128("-123789").ReduceScaleBy(2, true);
-  ASSERT_OK(result.ToInteger(&out));
-  ASSERT_EQ(-1238, out);
-
-  result = Decimal128("-123749").ReduceScaleBy(2, true);
-  ASSERT_OK(result.ToInteger(&out));
-  ASSERT_EQ(-1237, out);
-
-  result = Decimal128("-123750").ReduceScaleBy(2, true);
-  ASSERT_OK(result.ToInteger(&out));
-  ASSERT_EQ(-1238, out);
-
-  result = Decimal128("-5").ReduceScaleBy(1, true);
-  ASSERT_OK(result.ToInteger(&out));
-  ASSERT_EQ(-1, out);
+  check("123456", 0, false, 123456);
+  check("123456", 1, false, 12345);
+  check("123456", 1, true, 12346);
+  check("123451", 1, true, 12345);
+  check("5", 1, true, 1);
+  check("0", 1, true, 0);
+  check("-123789", 2, true, -1238);
+  check("-123749", 2, true, -1237);
+  check("-123750", 2, true, -1238);
+  check("-5", 1, true, -1);
 }
 
-TEST(Decimal128Test, FitsInPrecision) {
-  ASSERT_TRUE(Decimal128("0").FitsInPrecision(1));
-  ASSERT_TRUE(Decimal128("9").FitsInPrecision(1));
-  ASSERT_TRUE(Decimal128("-9").FitsInPrecision(1));
-  ASSERT_FALSE(Decimal128("10").FitsInPrecision(1));
-  ASSERT_FALSE(Decimal128("-10").FitsInPrecision(1));
+TYPED_TEST(TestBasicDecimalFunctionality, FitsInPrecision) {
+  ASSERT_TRUE(TypeParam("0").FitsInPrecision(1));
+  ASSERT_TRUE(TypeParam("9").FitsInPrecision(1));
+  ASSERT_TRUE(TypeParam("-9").FitsInPrecision(1));
+  ASSERT_FALSE(TypeParam("10").FitsInPrecision(1));
+  ASSERT_FALSE(TypeParam("-10").FitsInPrecision(1));
 
-  ASSERT_TRUE(Decimal128("0").FitsInPrecision(2));
-  ASSERT_TRUE(Decimal128("10").FitsInPrecision(2));
-  ASSERT_TRUE(Decimal128("-10").FitsInPrecision(2));
-  ASSERT_TRUE(Decimal128("99").FitsInPrecision(2));
-  ASSERT_TRUE(Decimal128("-99").FitsInPrecision(2));
-  ASSERT_FALSE(Decimal128("100").FitsInPrecision(2));
-  ASSERT_FALSE(Decimal128("-100").FitsInPrecision(2));
+  ASSERT_TRUE(TypeParam("0").FitsInPrecision(2));
+  ASSERT_TRUE(TypeParam("10").FitsInPrecision(2));
+  ASSERT_TRUE(TypeParam("-10").FitsInPrecision(2));
+  ASSERT_TRUE(TypeParam("99").FitsInPrecision(2));
+  ASSERT_TRUE(TypeParam("-99").FitsInPrecision(2));
+  ASSERT_FALSE(TypeParam("100").FitsInPrecision(2));
+  ASSERT_FALSE(TypeParam("-100").FitsInPrecision(2));
 
-  ASSERT_TRUE(Decimal128("99999999999999999999999999999999999999").FitsInPrecision(38));
-  ASSERT_TRUE(Decimal128("-99999999999999999999999999999999999999").FitsInPrecision(38));
-  ASSERT_FALSE(Decimal128("100000000000000000000000000000000000000").FitsInPrecision(38));
-  ASSERT_FALSE(
-      Decimal128("-100000000000000000000000000000000000000").FitsInPrecision(38));
+  std::string max_nines(TypeParam::kMaxPrecision, '9');
+  ASSERT_TRUE(TypeParam(max_nines).FitsInPrecision(TypeParam::kMaxPrecision));
+  ASSERT_TRUE(TypeParam("-" + max_nines).FitsInPrecision(TypeParam::kMaxPrecision));
+
+  std::string max_zeros(TypeParam::kMaxPrecision, '0');
+  ASSERT_FALSE(TypeParam("1" + max_zeros).FitsInPrecision(TypeParam::kMaxPrecision));
+  ASSERT_FALSE(TypeParam("-1" + max_zeros).FitsInPrecision(TypeParam::kMaxPrecision));
+}
+
+TEST(Decimal32Test, LeftShift) {
+  auto check = [](int32_t x, uint32_t bits) {
+    auto expected = Decimal32(arrow::internal::SafeLeftShift(x, bits));
+    auto actual = Decimal32(x) << bits;
+    ASSERT_EQ(actual.value(), expected.value());
+  };
+
+  ASSERT_EQ(Decimal32("0"), Decimal32("0") << 0);
+  ASSERT_EQ(Decimal32("0"), Decimal32("0") << 1);
+  ASSERT_EQ(Decimal32("0"), Decimal32("0") << 15);
+  ASSERT_EQ(Decimal32("0"), Decimal32("0") << 31);
+
+  check(123, 0);
+  check(123, 1);
+  check(123, 15);
+  check(123, 16);
+  check(123, 30);
+
+  ASSERT_EQ(Decimal32("1999999998"), Decimal32("999999999") << 1);
+  ASSERT_EQ(Decimal32("12799872"), Decimal32("99999") << 7);
+  ASSERT_EQ(Decimal32("1638383616"), Decimal32("99999") << 14);
+
+  ASSERT_EQ(Decimal32("123456789"), Decimal32("123456789") << 0);
+  ASSERT_EQ(Decimal32("246913578"), Decimal32("123456789") << 1);
+  ASSERT_EQ(Decimal32("877920256"), Decimal32("123456789") << 18);
+
+  check(-123, 0);
+  check(-123, 1);
+  check(-123, 15);
+  check(-123, 16);
+  check(-123, 30);
+
+  ASSERT_EQ(Decimal32("-1999999998"), Decimal32("-999999999") << 1);
+  ASSERT_EQ(Decimal32("-12799872"), Decimal32("-99999") << 7);
+  ASSERT_EQ(Decimal32("-1638383616"), Decimal32("-99999") << 14);
+
+  ASSERT_EQ(Decimal32("-123456789"), Decimal32("-123456789") << 0);
+  ASSERT_EQ(Decimal32("-246913578"), Decimal32("-123456789") << 1);
+  ASSERT_EQ(Decimal32("-877920256"), Decimal32("-123456789") << 18);
+}
+
+TEST(Decimal32Test, RightShift) {
+  ASSERT_EQ(Decimal32("0"), Decimal32("0") >> 0);
+  ASSERT_EQ(Decimal32("0"), Decimal32("0") >> 1);
+  ASSERT_EQ(Decimal32("0"), Decimal32("0") >> 15);
+  ASSERT_EQ(Decimal32("0"), Decimal32("0") >> 31);
+
+  ASSERT_EQ(Decimal32("1"), Decimal32("1") >> 0);
+  ASSERT_EQ(Decimal32("0"), Decimal32("1") >> 1);
+  ASSERT_EQ(Decimal32("0"), Decimal32("1") >> 15);
+  ASSERT_EQ(Decimal32("0"), Decimal32("1") >> 31);
+
+  ASSERT_EQ(Decimal32("-1"), Decimal32("-1") >> 0);
+  ASSERT_EQ(Decimal32("-1"), Decimal32("-1") >> 1);
+  ASSERT_EQ(Decimal32("-1"), Decimal32("-1") >> 15);
+  ASSERT_EQ(Decimal32("-1"), Decimal32("-1") >> 31);
+
+  ASSERT_EQ(Decimal32("120563"), Decimal32("123456789") >> 10);
+  ASSERT_EQ(Decimal32("1883"), Decimal32("123456789") >> 16);
+  ASSERT_EQ(Decimal32("117"), Decimal32("123456789") >> 20);
+  ASSERT_EQ(Decimal32("0"), Decimal32("123456789") >> 30);
+  ASSERT_EQ(Decimal32("0"), Decimal32("123456789") >> 31);
+
+  ASSERT_EQ(Decimal32("-120564"), Decimal32("-123456789") >> 10);
+  ASSERT_EQ(Decimal32("-1884"), Decimal32("-123456789") >> 16);
+  ASSERT_EQ(Decimal32("-118"), Decimal32("-123456789") >> 20);
+  ASSERT_EQ(Decimal32("-1"), Decimal32("-123456789") >> 30);
+  ASSERT_EQ(Decimal32("-1"), Decimal32("-123456789") >> 31);
+}
+
+TEST(Decimal32Test, Negate) {
+  auto check = [](Decimal32 pos, Decimal32 neg) {
+    EXPECT_EQ(-pos, neg);
+    EXPECT_EQ(-neg, pos);
+  };
+
+  check(Decimal32(0), Decimal32(0));
+  check(Decimal32(1), Decimal32(0xFFFFFFFF));
+  check(Decimal32(2), Decimal32(0xFFFFFFFE));
+  check(Decimal32(0x8000000), Decimal32(0xF8000000));
+  check(Decimal32(12), Decimal32(-12));
+}
+
+TEST(Decimal64Test, LeftShift) {
+  auto check = [](int64_t x, uint32_t bits) {
+    auto expected = Decimal64(arrow::internal::SafeLeftShift(x, bits));
+    auto actual = Decimal64(x) << bits;
+    ASSERT_EQ(actual.value(), expected.value());
+  };
+
+  ASSERT_EQ(Decimal64("0"), Decimal64("0") << 0);
+  ASSERT_EQ(Decimal64("0"), Decimal64("0") << 1);
+  ASSERT_EQ(Decimal64("0"), Decimal64("0") << 15);
+  ASSERT_EQ(Decimal64("0"), Decimal64("0") << 31);
+
+  check(123, 0);
+  check(123, 1);
+  check(123, 31);
+  check(123, 32);
+  check(123, 62);
+
+  ASSERT_EQ(Decimal64("19999999998"), Decimal64("9999999999") << 1);
+  ASSERT_EQ(Decimal64("327679999967232"), Decimal64("9999999999") << 15);
+  ASSERT_EQ(Decimal64("167772159983222784"), Decimal64("9999999999") << 24);
+
+  ASSERT_EQ(Decimal64("1234567890123456"), Decimal64("1234567890123456") << 0);
+  ASSERT_EQ(Decimal64("2469135780246912"), Decimal64("1234567890123456") << 1);
+  ASSERT_EQ(Decimal64("6917529027641081856"), Decimal64("1234567890123456") << 55);
+
+  check(-123, 0);
+  check(-123, 1);
+  check(-123, 31);
+  check(-123, 32);
+  check(-123, 62);
+
+  ASSERT_EQ(Decimal64("-19999999998"), Decimal64("-9999999999") << 1);
+  ASSERT_EQ(Decimal64("-327679999967232"), Decimal64("-9999999999") << 15);
+  ASSERT_EQ(Decimal64("-167772159983222784"), Decimal64("-9999999999") << 24);
+
+  ASSERT_EQ(Decimal64("-1234567890123456"), Decimal64("-1234567890123456") << 0);
+  ASSERT_EQ(Decimal64("-2469135780246912"), Decimal64("-1234567890123456") << 1);
+  ASSERT_EQ(Decimal64("-6917529027641081856"), Decimal64("-1234567890123456") << 55);
+}
+
+TEST(Decimal64Test, RightShift) {
+  ASSERT_EQ(Decimal64("0"), Decimal64("0") >> 0);
+  ASSERT_EQ(Decimal64("0"), Decimal64("0") >> 1);
+  ASSERT_EQ(Decimal64("0"), Decimal64("0") >> 31);
+  ASSERT_EQ(Decimal64("0"), Decimal64("0") >> 63);
+
+  ASSERT_EQ(Decimal64("1"), Decimal64("1") >> 0);
+  ASSERT_EQ(Decimal64("0"), Decimal64("1") >> 1);
+  ASSERT_EQ(Decimal64("0"), Decimal64("1") >> 31);
+  ASSERT_EQ(Decimal64("0"), Decimal64("1") >> 63);
+
+  ASSERT_EQ(Decimal64("-1"), Decimal64("-1") >> 0);
+  ASSERT_EQ(Decimal64("-1"), Decimal64("-1") >> 1);
+  ASSERT_EQ(Decimal64("-1"), Decimal64("-1") >> 31);
+  ASSERT_EQ(Decimal64("-1"), Decimal64("-1") >> 63);
+
+  ASSERT_EQ(Decimal64("18838011018"), Decimal64("1234567890123456") >> 16);
+  ASSERT_EQ(Decimal64("287445"), Decimal64("1234567890123456") >> 32);
+  ASSERT_EQ(Decimal64("4"), Decimal64("1234567890123456") >> 48);
+  ASSERT_EQ(Decimal64("0"), Decimal64("1234567890123456") >> 55);
+  ASSERT_EQ(Decimal64("0"), Decimal64("1234567890123456") >> 63);
+
+  ASSERT_EQ(Decimal64("-18838011019"), Decimal64("-1234567890123456") >> 16);
+  ASSERT_EQ(Decimal64("-287446"), Decimal64("-1234567890123456") >> 32);
+  ASSERT_EQ(Decimal64("-5"), Decimal64("-1234567890123456") >> 48);
+  ASSERT_EQ(Decimal64("-1"), Decimal64("-1234567890123456") >> 55);
+  ASSERT_EQ(Decimal64("-1"), Decimal64("-1234567890123456") >> 63);
+}
+
+TEST(Decimal64Test, Negate) {
+  auto check = [](Decimal64 pos, Decimal64 neg) {
+    EXPECT_EQ(-pos, neg);
+    EXPECT_EQ(-neg, pos);
+  };
+
+  check(Decimal64(0), Decimal64(0));
+  check(Decimal64(1), Decimal64(0xFFFFFFFFFFFFFFFFLL));
+  check(Decimal64(2), Decimal64(0xFFFFFFFFFFFFFFFELL));
+  check(Decimal64(0x800000000000000), Decimal64(0xF800000000000000));
+  check(Decimal64(12), Decimal64(-12));
 }
 
 TEST(Decimal128Test, LeftShift) {
@@ -1797,7 +2151,7 @@ TEST(Decimal256Test, Multiply) {
   }
 }
 
-TEST(Decimal256Test, Shift) {
+TEST(Decimal256Test, LeftShift) {
   {
     // Values compared against python's implementation of shift.
     Decimal256 v(967);
@@ -1842,6 +2196,91 @@ TEST(Decimal256Test, Shift) {
     v <<= 66;
     ASSERT_EQ(v,
               Decimal256("-32054097189358332105678889809255994470201895906771963215872"));
+  }
+}
+
+TEST(Decimal256Test, RightShift) {
+  // Values compared against python's implementation of shift.
+  {
+    Decimal256 v(9876);
+    ASSERT_EQ(v >> 1, Decimal256(4938));
+    ASSERT_EQ(v >> 3, Decimal256(1234));
+    ASSERT_EQ(v >> 8, Decimal256(38));
+    ASSERT_EQ(v >> 63, Decimal256(0));
+    ASSERT_EQ(v >> 92, Decimal256(0));
+    ASSERT_EQ(v >> 255, Decimal256(0));
+    ASSERT_EQ(v >> 256, Decimal256(0));
+    ASSERT_EQ(v >> 257, Decimal256(0));
+  }
+  {
+    Decimal256 v(-9876);
+    ASSERT_EQ(v >> 1, Decimal256(-4938));
+    ASSERT_EQ(v >> 3, Decimal256(-1235));
+    ASSERT_EQ(v >> 8, Decimal256(-39));
+    ASSERT_EQ(v >> 63, Decimal256(-1));
+    ASSERT_EQ(v >> 92, Decimal256(-1));
+    ASSERT_EQ(v >> 255, Decimal256(-1));
+    ASSERT_EQ(v >> 256, Decimal256(-1));
+    ASSERT_EQ(v >> 257, Decimal256(-1));
+  }
+  {
+    Decimal256 v("98765643210987654321098765632109876543");
+    ASSERT_EQ(v >> 1, Decimal256("49382821605493827160549382816054938271"));
+    ASSERT_EQ(v >> 63, Decimal256("10708192493628102678"));
+    ASSERT_EQ(v >> 64, Decimal256("5354096246814051339"));
+    ASSERT_EQ(v >> 65, Decimal256("2677048123407025669"));
+    ASSERT_EQ(v >> 120, Decimal256(74));
+    ASSERT_EQ(v >> 127, Decimal256(0));
+    ASSERT_EQ(v >> 128, Decimal256(0));
+    ASSERT_EQ(v >> 255, Decimal256(0));
+  }
+  {
+    Decimal256 v("-98765643210987654321098765632109876543");
+    ASSERT_EQ(v >> 1, Decimal256("-49382821605493827160549382816054938272"));
+    ASSERT_EQ(v >> 63, Decimal256("-10708192493628102679"));
+    ASSERT_EQ(v >> 64, Decimal256("-5354096246814051340"));
+    ASSERT_EQ(v >> 65, Decimal256("-2677048123407025670"));
+    ASSERT_EQ(v >> 120, Decimal256(-75));
+    ASSERT_EQ(v >> 127, Decimal256(-1));
+    ASSERT_EQ(v >> 128, Decimal256(-1));
+    ASSERT_EQ(v >> 255, Decimal256(-1));
+  }
+  {
+    Decimal256 v(
+        "9876543210987654321098765432109876543210987654321098765432109876543210987654");
+    ASSERT_EQ(v >> 1, Decimal256("4938271605493827160549382716054938271605493827160549382"
+                                 "716054938271605493827"));
+    ASSERT_EQ(v >> 62,
+              Decimal256("2141633921199954920344235701999924550815608299808123329980"));
+    ASSERT_EQ(v >> 64,
+              Decimal256("535408480299988730086058925499981137703902074952030832495"));
+    ASSERT_EQ(v >> 67,
+              Decimal256("66926060037498591260757365687497642212987759369003854061"));
+    ASSERT_EQ(v >> 128, Decimal256("29024551875420509196283165267081523552"));
+    ASSERT_EQ(v >> 129, Decimal256("14512275937710254598141582633540761776"));
+    ASSERT_EQ(v >> 240, Decimal256(5589));
+    ASSERT_EQ(v >> 252, Decimal256(1));
+    ASSERT_EQ(v >> 253, Decimal256(0));
+  }
+  {
+    Decimal256 v(
+        "-9876543210987654321098765432109876543210987654321098765432109876543210987654");
+    ASSERT_EQ(v >> 1, Decimal256("-493827160549382716054938271605493827160549382716054938"
+                                 "2716054938271605493827"));
+    ASSERT_EQ(v >> 62,
+              Decimal256("-2141633921199954920344235701999924550815608299808123329981"));
+    ASSERT_EQ(v >> 64,
+              Decimal256("-535408480299988730086058925499981137703902074952030832496"));
+    ASSERT_EQ(v >> 67,
+              Decimal256("-66926060037498591260757365687497642212987759369003854062"));
+    ASSERT_EQ(v >> 128, Decimal256("-29024551875420509196283165267081523553"));
+    ASSERT_EQ(v >> 129, Decimal256("-14512275937710254598141582633540761777"));
+    ASSERT_EQ(v >> 240, Decimal256(-5590));
+    ASSERT_EQ(v >> 252, Decimal256(-2));
+    ASSERT_EQ(v >> 253, Decimal256(-1));
+    ASSERT_EQ(v >> 255, Decimal256(-1));
+    ASSERT_EQ(v >> 256, Decimal256(-1));
+    ASSERT_EQ(v >> 257, Decimal256(-1));
   }
 }
 

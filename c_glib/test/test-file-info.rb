@@ -164,7 +164,7 @@ class TestFileInfo < Test::Unit::TestCase
   end
 
   test("#to_s") do
-    assert_equal("FileInfo(FileType::Unknown, )",
+    assert_equal("FileInfo(FileType::Unknown, , -1, -1)",
                  @file_info.to_s)
   end
 end

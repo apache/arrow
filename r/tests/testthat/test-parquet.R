@@ -32,7 +32,7 @@ test_that("simple int column roundtrip", {
   pq_tmp_file <- tempfile() # You can specify the .parquet here but that's probably not necessary
 
   write_parquet(df, pq_tmp_file)
-  df_read <- read_parquet(pq_tmp_file)
+  df_read <- read_parquet(pq_tmp_file, mmap = FALSE)
   expect_equal(df, df_read)
   # Make sure file connection is cleaned up
   expect_error(file.remove(pq_tmp_file), NA)
@@ -42,10 +42,10 @@ test_that("simple int column roundtrip", {
 test_that("read_parquet() supports col_select", {
   skip_if_not_available("snappy")
   df <- read_parquet(pq_file, col_select = c(x, y, z))
-  expect_equal(names(df), c("x", "y", "z"))
+  expect_named(df, c("x", "y", "z"))
 
   df <- read_parquet(pq_file, col_select = starts_with("c"))
-  expect_equal(names(df), c("carat", "cut", "color", "clarity"))
+  expect_named(df, c("carat", "cut", "color", "clarity"))
 })
 
 test_that("read_parquet() with raw data", {
@@ -106,7 +106,7 @@ test_that("write_parquet() accepts RecordBatch too", {
 
 test_that("write_parquet() handles grouped_df", {
   library(dplyr, warn.conflicts = FALSE)
-  df <- tibble::tibble(a = 1:4, b = 5) %>% group_by(b)
+  df <- tibble::tibble(a = 1:4, b = 5) |> group_by(b)
   # Since `df` is a "grouped_df", this test asserts that we get a grouped_df back
   expect_parquet_roundtrip(df, as_data_frame = TRUE)
 })
@@ -134,12 +134,6 @@ test_that("make_valid_parquet_version()", {
     make_valid_parquet_version("1.0"),
     ParquetVersionType$PARQUET_1_0
   )
-  expect_deprecated(
-    expect_equal(
-      make_valid_parquet_version("2.0"),
-      ParquetVersionType$PARQUET_2_0
-    )
-  )
   expect_equal(
     make_valid_parquet_version("2.4"),
     ParquetVersionType$PARQUET_2_4
@@ -154,9 +148,6 @@ test_that("make_valid_parquet_version()", {
   )
 
   expect_equal(make_valid_parquet_version(1), ParquetVersionType$PARQUET_1_0)
-  expect_deprecated(
-    expect_equal(make_valid_parquet_version(2), ParquetVersionType$PARQUET_2_0)
-  )
   expect_equal(make_valid_parquet_version(1.0), ParquetVersionType$PARQUET_1_0)
   expect_equal(make_valid_parquet_version(2.4), ParquetVersionType$PARQUET_2_4)
 })
@@ -288,15 +279,21 @@ test_that("write_parquet() returns its input", {
 
 test_that("write_parquet() handles version argument", {
   df <- tibble::tibble(x = 1:5)
-  tf <- tempfile()
-  on.exit(unlink(tf))
 
-  purrr::walk(list("1.0", "2.4", "2.6", "latest", 1.0, 2.4, 2.6, 1L), ~ {
-    write_parquet(df, tf, version = .x)
+  versions <- list("1.0", "2.4", "2.6", "latest", 1.0, 2.4, 2.6, 1L)
+  purrr::walk(versions, function(x) {
+    tf <- tempfile()
+    on.exit(unlink(tf))
+
+    write_parquet(df, tf, version = x)
     expect_identical(read_parquet(tf), df)
   })
-  purrr::walk(list("3.0", 3.0, 3L, "A"), ~ {
-    expect_error(write_parquet(df, tf, version = .x))
+
+  invalid_versions <- list("3.0", 3.0, 3L, "A")
+  purrr::walk(invalid_versions, function(x) {
+    tf <- tempfile()
+    on.exit(unlink(tf))
+    expect_error(write_parquet(df, tf, version = x))
   })
 })
 
@@ -449,7 +446,7 @@ test_that("deprecated int96 timestamp unit can be specified when reading Parquet
   )
 
   expect_identical(result$some_datetime$type$unit(), TimeUnit$MILLI)
-  expect_true(result$some_datetime == table$some_datetime)
+  expect_equal(result$some_datetime, table$some_datetime$cast(result$some_datetime$type))
 })
 
 test_that("Can read parquet with nested lists and maps", {
@@ -466,9 +463,88 @@ test_that("Can read parquet with nested lists and maps", {
   parquet_test_data <- file.path(base_path, "cpp", "submodules", "parquet-testing", "data")
   skip_if_not(dir.exists(parquet_test_data) | force_tests(), "Parquet test data missing")
 
+  skip_if_not_available("snappy")
+
   pq <- read_parquet(paste0(parquet_test_data, "/nested_lists.snappy.parquet"), as_data_frame = FALSE)
   expect_type_equal(pq$a, list_of(field("element", list_of(field("element", list_of(field("element", utf8())))))))
 
   pq <- read_parquet(paste0(parquet_test_data, "/nested_maps.snappy.parquet"), as_data_frame = FALSE)
   expect_true(pq$a$type == map_of(utf8(), map_of(int32(), field("value", boolean(), nullable = FALSE))))
+})
+
+test_that("Can read Parquet files from a URL", {
+  skip_if_offline()
+  skip_on_cran()
+  skip_if_not_available("snappy")
+  parquet_url <- "https://github.com/apache/arrow/blob/64f2cc7986ce672dd1a8cb268d193617a80a1653/r/inst/v0.7.1.parquet?raw=true" # nolint
+  pu <- read_parquet(parquet_url)
+  expect_true(tibble::is_tibble(pu))
+  expect_identical(dim(pu), c(10L, 11L))
+})
+
+test_that("thrift string and container size can be specified when reading Parquet files", {
+  tf <- tempfile()
+  on.exit(unlink(tf))
+  table <- arrow_table(example_data)
+  write_parquet(table, tf)
+  file <- make_readable_file(tf)
+  on.exit(file$close())
+
+  # thrift string size
+  reader_props <- ParquetReaderProperties$create()
+  reader_props$set_thrift_string_size_limit(1)
+  expect_identical(reader_props$thrift_string_size_limit(), 1L)
+
+  # We get an error if we set the Thrift string size limit too small
+  expect_error(ParquetFileReader$create(file, reader_props = reader_props), "TProtocolException: Exceeded size limit")
+
+  # Increase the size and we can read successfully
+  reader_props$set_thrift_string_size_limit(10000)
+  reader <- ParquetFileReader$create(file, reader_props = reader_props)
+  data <- reader$ReadTable()
+  expect_identical(collect.ArrowTabular(data), example_data)
+
+  # thrift container size
+  reader_props_container <- ParquetReaderProperties$create()
+  reader_props_container$set_thrift_container_size_limit(1)
+  expect_identical(reader_props_container$thrift_container_size_limit(), 1L)
+
+  expect_error(
+    ParquetFileReader$create(file, reader_props = reader_props_container),
+    "TProtocolException: Exceeded size limit"
+  )
+
+  reader_props_container$set_thrift_container_size_limit(100)
+
+  reader_container <- ParquetFileReader$create(file, reader_props = reader_props_container)
+  data <- reader_container$ReadTable()
+  expect_identical(collect.ArrowTabular(data), example_data)
+})
+
+test_that("We can use WriteBatch on ParquetFileWriter", {
+  tf <- tempfile()
+  on.exit(unlink(tf))
+  sink <- FileOutputStream$create(tf)
+  sch <- schema(a = int32())
+  props <- ParquetWriterProperties$create(column_names = names(sch))
+  writer <- ParquetFileWriter$create(schema = sch, sink = sink, properties = props)
+
+  batch <- RecordBatch$create(data.frame(a = 1:10))
+  writer$WriteBatch(batch, chunk_size = 10)
+  writer$WriteBatch(batch, chunk_size = 10)
+  writer$WriteBatch(batch, chunk_size = 10)
+  writer$Close()
+
+  tbl <- read_parquet(tf)
+  expect_equal(nrow(tbl), 30)
+})
+
+test_that("WriteBatch on ParquetFileWriter errors when called on closed sink", {
+  sink <- FileOutputStream$create(tempfile())
+  sch <- schema(a = int32())
+  props <- ParquetWriterProperties$create(column_names = names(sch))
+  writer <- ParquetFileWriter$create(schema = sch, sink = sink, properties = props)
+  writer$Close()
+  batch <- RecordBatch$create(data.frame(a = 1:10))
+  expect_error(writer$WriteBatch(batch, chunk_size = 10), "Operation on closed file")
 })

@@ -31,6 +31,7 @@ require "gi"
 
 Gio = GI.load("Gio")
 Arrow = GI.load("Arrow")
+Arrow.compute_initialize
 module Arrow
   class Buffer
     alias_method :initialize_raw, :initialize
@@ -90,11 +91,6 @@ begin
 rescue GObjectIntrospection::RepositoryError::TypelibNotFound
 end
 
-begin
-  Plasma = GI.load("Plasma")
-rescue GObjectIntrospection::RepositoryError::TypelibNotFound
-end
-
 require "fileutils"
 require "find"
 require "rbconfig"
@@ -111,7 +107,6 @@ if defined?(ArrowFlightSQL)
   require_relative "helper/flight-sql-server"
 end
 require_relative "helper/omittable"
-require_relative "helper/plasma-store"
 require_relative "helper/readable"
 require_relative "helper/writable"
 

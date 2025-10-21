@@ -17,8 +17,9 @@
 
 #include "benchmark/benchmark.h"
 
+#include "arrow/array/array_base.h"
+#include "arrow/chunked_array.h"
 #include "arrow/compute/api_vector.h"
-#include "arrow/compute/kernels/test_util.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
 #include "arrow/util/benchmark_util.h"
@@ -30,7 +31,7 @@ constexpr auto kSeed = 0x0ff1ce;
 static void NthToIndicesBenchmark(benchmark::State& state,
                                   const std::shared_ptr<Array>& values, int64_t n) {
   for (auto _ : state) {
-    ABORT_NOT_OK(NthToIndices(*values, n).status());
+    ABORT_NOT_OK(NthToIndices(*values, n));
   }
   state.SetItemsProcessed(state.iterations() * values->length());
 }
@@ -52,7 +53,6 @@ BENCHMARK(NthToIndicesInt64)
     ->Apply(RegressionSetArgs)
     ->Args({1 << 20, 100})
     ->Args({1 << 23, 100})
-    ->MinTime(1.0)
     ->Unit(benchmark::TimeUnit::kNanosecond);
 
 }  // namespace compute

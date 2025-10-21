@@ -31,12 +31,19 @@
 #include "arrow/buffer.h"
 #include "arrow/compute/exec.h"
 #include "arrow/datum.h"
+#include "arrow/device_allocation_type_set.h"
 #include "arrow/memory_pool.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
+
+// macOS defines PREALLOCATE as a preprocessor macro in the header sys/vnode.h.
+// No other BSD seems to do so. The name is used as an identifier in MemAllocation enum.
+#if defined(__APPLE__) && defined(PREALLOCATE)
+#  undef PREALLOCATE
+#endif
 
 namespace arrow {
 namespace compute {
@@ -140,6 +147,31 @@ ARROW_EXPORT std::shared_ptr<TypeMatcher> FixedSizeBinaryLike();
 // \brief Match any primitive type (boolean or any type representable as a C
 // Type)
 ARROW_EXPORT std::shared_ptr<TypeMatcher> Primitive();
+
+// \brief Match any integer type that can be used as run-end in run-end encoded
+// arrays
+ARROW_EXPORT std::shared_ptr<TypeMatcher> RunEndInteger();
+
+/// \brief Match run-end encoded types that use any valid run-end type and
+/// encode specific value types
+///
+/// @param[in] value_type_matcher a matcher that is applied to the values field
+ARROW_EXPORT std::shared_ptr<TypeMatcher> RunEndEncoded(
+    std::shared_ptr<TypeMatcher> value_type_matcher);
+
+/// \brief Match run-end encoded types that use any valid run-end type and
+/// encode specific value types
+///
+/// @param[in] value_type_id a type id that the type of the values field should match
+ARROW_EXPORT std::shared_ptr<TypeMatcher> RunEndEncoded(Type::type value_type_id);
+
+/// \brief Match run-end encoded types that encode specific run-end and value types
+///
+/// @param[in] run_end_type_matcher a matcher that is applied to the run_ends field
+/// @param[in] value_type_matcher a matcher that is applied to the values field
+ARROW_EXPORT std::shared_ptr<TypeMatcher> RunEndEncoded(
+    std::shared_ptr<TypeMatcher> run_end_type_matcher,
+    std::shared_ptr<TypeMatcher> value_type_matcher);
 
 }  // namespace match
 
@@ -258,14 +290,16 @@ class ARROW_EXPORT OutputType {
   ///
   /// This function SHOULD _not_ be used to check for arity, that is to be
   /// performed one or more layers above.
-  using Resolver = Result<TypeHolder> (*)(KernelContext*, const std::vector<TypeHolder>&);
+  using Resolver =
+      std::function<Result<TypeHolder>(KernelContext*, const std::vector<TypeHolder>&)>;
 
   /// \brief Output an exact type
   OutputType(std::shared_ptr<DataType> type)  // NOLINT implicit construction
       : kind_(FIXED), type_(std::move(type)) {}
 
   /// \brief Output a computed type depending on actual input types
-  OutputType(Resolver resolver)  // NOLINT implicit construction
+  template <typename Fn>
+  OutputType(Fn resolver)  // NOLINT implicit construction
       : kind_(COMPUTED), resolver_(std::move(resolver)) {}
 
   OutputType(const OutputType& other) {
@@ -314,7 +348,24 @@ class ARROW_EXPORT OutputType {
   Resolver resolver_ = NULLPTR;
 };
 
-/// \brief Holds the input types and output type of the kernel.
+/// \brief Additional constraints to apply to the input types of a kernel when matching a
+/// specific kernel signature.
+class ARROW_EXPORT MatchConstraint {
+ public:
+  virtual ~MatchConstraint() = default;
+
+  /// \brief Return true if the input types satisfy the constraint.
+  virtual bool Matches(const std::vector<TypeHolder>& types) const = 0;
+
+  /// \brief Convenience function to create a MatchConstraint from a match function.
+  static std::shared_ptr<MatchConstraint> Make(
+      std::function<bool(const std::vector<TypeHolder>&)> matches);
+};
+
+/// \brief Constraint that all input types are decimal types and have the same scale.
+ARROW_EXPORT std::shared_ptr<MatchConstraint> DecimalsHaveSameScale();
+
+/// \brief Holds the input types, optional match constraint and output type of the kernel.
 ///
 /// VarArgs functions with minimum N arguments should pass up to N input types to be
 /// used to validate the input types of a function invocation. The first N-1 types
@@ -323,15 +374,16 @@ class ARROW_EXPORT OutputType {
 class ARROW_EXPORT KernelSignature {
  public:
   KernelSignature(std::vector<InputType> in_types, OutputType out_type,
-                  bool is_varargs = false);
+                  bool is_varargs = false,
+                  std::shared_ptr<MatchConstraint> constraint = NULLPTR);
 
   /// \brief Convenience ctor since make_shared can be awkward
-  static std::shared_ptr<KernelSignature> Make(std::vector<InputType> in_types,
-                                               OutputType out_type,
-                                               bool is_varargs = false);
+  static std::shared_ptr<KernelSignature> Make(
+      std::vector<InputType> in_types, OutputType out_type, bool is_varargs = false,
+      std::shared_ptr<MatchConstraint> constraint = NULLPTR);
 
-  /// \brief Return true if the signature if compatible with the list of input
-  /// value descriptors.
+  /// \brief Return true if the signature is compatible with the list of input
+  /// value descriptors and satisfies the match constraint, if any.
   bool MatchesInputs(const std::vector<TypeHolder>& types) const;
 
   /// \brief Returns true if the input types of each signature are
@@ -367,6 +419,7 @@ class ARROW_EXPORT KernelSignature {
   std::vector<InputType> in_types_;
   OutputType out_type_;
   bool is_varargs_;
+  std::shared_ptr<MatchConstraint> constraint_;
 
   // For caching the hash code after it's computed the first time
   mutable uint64_t hash_code_;
@@ -454,7 +507,7 @@ using KernelInit = std::function<Result<std::unique_ptr<KernelState>>(
 /// \brief Base type for kernels. Contains the function signature and
 /// optionally the state initialization function, along with some common
 /// attributes
-struct Kernel {
+struct ARROW_EXPORT Kernel {
   Kernel() = default;
 
   Kernel(std::shared_ptr<KernelSignature> sig, KernelInit init)
@@ -505,7 +558,7 @@ using ArrayKernelExec = Status (*)(KernelContext*, const ExecSpan&, ExecResult*)
 /// \brief Kernel data structure for implementations of ScalarFunction. In
 /// addition to the members found in Kernel, contains the null handling
 /// and memory pre-allocation preferences.
-struct ScalarKernel : public Kernel {
+struct ARROW_EXPORT ScalarKernel : public Kernel {
   ScalarKernel() = default;
 
   ScalarKernel(std::shared_ptr<KernelSignature> sig, ArrayKernelExec exec,
@@ -542,7 +595,7 @@ struct ScalarKernel : public Kernel {
 /// contains an optional finalizer function, the null handling and memory
 /// pre-allocation preferences (which have different defaults from
 /// ScalarKernel), and some other execution-related options.
-struct VectorKernel : public Kernel {
+struct ARROW_EXPORT VectorKernel : public Kernel {
   /// \brief See VectorKernel::finalize member for usage
   using FinalizeFunc = std::function<Status(KernelContext*, std::vector<Datum>*)>;
 
@@ -624,23 +677,23 @@ using ScalarAggregateFinalize = Status (*)(KernelContext*, Datum*);
 /// * merge: combines one KernelState with another.
 /// * finalize: produces the end result of the aggregation using the
 ///   KernelState in the KernelContext.
-struct ScalarAggregateKernel : public Kernel {
-  ScalarAggregateKernel() = default;
-
+struct ARROW_EXPORT ScalarAggregateKernel : public Kernel {
   ScalarAggregateKernel(std::shared_ptr<KernelSignature> sig, KernelInit init,
                         ScalarAggregateConsume consume, ScalarAggregateMerge merge,
-                        ScalarAggregateFinalize finalize)
+                        ScalarAggregateFinalize finalize, const bool ordered)
       : Kernel(std::move(sig), std::move(init)),
         consume(consume),
         merge(merge),
-        finalize(finalize) {}
+        finalize(finalize),
+        ordered(ordered) {}
 
   ScalarAggregateKernel(std::vector<InputType> in_types, OutputType out_type,
                         KernelInit init, ScalarAggregateConsume consume,
-                        ScalarAggregateMerge merge, ScalarAggregateFinalize finalize)
+                        ScalarAggregateMerge merge, ScalarAggregateFinalize finalize,
+                        const bool ordered)
       : ScalarAggregateKernel(
             KernelSignature::Make(std::move(in_types), std::move(out_type)),
-            std::move(init), consume, merge, finalize) {}
+            std::move(init), consume, merge, finalize, ordered) {}
 
   /// \brief Merge a vector of KernelStates into a single KernelState.
   /// The merged state will be returned and will be set on the KernelContext.
@@ -651,6 +704,14 @@ struct ScalarAggregateKernel : public Kernel {
   ScalarAggregateConsume consume;
   ScalarAggregateMerge merge;
   ScalarAggregateFinalize finalize;
+  /// \brief Whether this kernel requires ordering
+  /// Some aggregations, such as, "first", requires some kind of input order. The
+  /// order can be implicit, e.g., the order of the input data, or explicit, e.g.
+  /// the ordering specified with a window aggregation.
+  /// The caller of the aggregate kernel is responsible for passing data in some
+  /// defined order to the kernel. The flag here is a way for the kernel to tell
+  /// the caller that data passed to the kernel must be defined in some order.
+  bool ordered = false;
 };
 
 // ----------------------------------------------------------------------
@@ -675,30 +736,36 @@ using HashAggregateFinalize = Status (*)(KernelContext*, Datum*);
 /// * merge: combines one KernelState with another.
 /// * finalize: produces the end result of the aggregation using the
 ///   KernelState in the KernelContext.
-struct HashAggregateKernel : public Kernel {
+struct ARROW_EXPORT HashAggregateKernel : public Kernel {
   HashAggregateKernel() = default;
 
   HashAggregateKernel(std::shared_ptr<KernelSignature> sig, KernelInit init,
                       HashAggregateResize resize, HashAggregateConsume consume,
-                      HashAggregateMerge merge, HashAggregateFinalize finalize)
+                      HashAggregateMerge merge, HashAggregateFinalize finalize,
+                      const bool ordered)
       : Kernel(std::move(sig), std::move(init)),
         resize(resize),
         consume(consume),
         merge(merge),
-        finalize(finalize) {}
+        finalize(finalize),
+        ordered(ordered) {}
 
   HashAggregateKernel(std::vector<InputType> in_types, OutputType out_type,
                       KernelInit init, HashAggregateConsume consume,
                       HashAggregateResize resize, HashAggregateMerge merge,
-                      HashAggregateFinalize finalize)
+                      HashAggregateFinalize finalize, const bool ordered)
       : HashAggregateKernel(
             KernelSignature::Make(std::move(in_types), std::move(out_type)),
-            std::move(init), resize, consume, merge, finalize) {}
+            std::move(init), resize, consume, merge, finalize, ordered) {}
 
   HashAggregateResize resize;
   HashAggregateConsume consume;
   HashAggregateMerge merge;
   HashAggregateFinalize finalize;
+  /// @brief whether the summarizer requires ordering
+  /// This is similar to ScalarAggregateKernel. See ScalarAggregateKernel
+  /// for detailed doc of this variable.
+  bool ordered = false;
 };
 
 }  // namespace compute

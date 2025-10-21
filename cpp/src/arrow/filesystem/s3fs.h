@@ -25,20 +25,16 @@
 #include "arrow/util/macros.h"
 #include "arrow/util/uri.h"
 
-namespace Aws {
-namespace Auth {
-
+namespace Aws::Auth {
 class AWSCredentialsProvider;
 class STSAssumeRoleCredentialsProvider;
+}  // namespace Aws::Auth
 
-}  // namespace Auth
-namespace STS {
+namespace Aws::STS {
 class STSClient;
-}
-}  // namespace Aws
+}  // namespace Aws::STS
 
-namespace arrow {
-namespace fs {
+namespace arrow::fs {
 
 /// Options for using a proxy for S3
 struct ARROW_EXPORT S3ProxyOptions {
@@ -51,7 +47,7 @@ struct ARROW_EXPORT S3ProxyOptions {
   /// Initialize from URI such as http://username:password@host:port
   /// or http://host:port
   static Result<S3ProxyOptions> FromUri(const std::string& uri);
-  static Result<S3ProxyOptions> FromUri(const ::arrow::internal::Uri& uri);
+  static Result<S3ProxyOptions> FromUri(const ::arrow::util::Uri& uri);
 
   bool Equals(const S3ProxyOptions& other) const;
 };
@@ -100,6 +96,12 @@ class ARROW_EXPORT S3RetryStrategy {
 
 /// Options for the S3FileSystem implementation.
 struct ARROW_EXPORT S3Options {
+  /// \brief Smart defaults for option values
+  ///
+  /// The possible values for this setting are explained in the AWS docs:
+  /// https://docs.aws.amazon.com/sdkref/latest/guide/feature-smart-config-defaults.html
+  std::string smart_defaults = "standard";
+
   /// \brief AWS region to connect to.
   ///
   /// If unset, the AWS SDK will choose a default value.  The exact algorithm
@@ -130,7 +132,7 @@ struct ARROW_EXPORT S3Options {
   std::string role_arn;
   /// Optional identifier for an assumed role session.
   std::string session_name;
-  /// Optional external idenitifer to pass to STS when assuming a role
+  /// Optional external identifier to pass to STS when assuming a role
   std::string external_id;
   /// Frequency (in seconds) to refresh temporary credentials from assumed role
   int load_frequency = 900;
@@ -143,6 +145,14 @@ struct ARROW_EXPORT S3Options {
 
   /// Type of credentials being used. Set along with credentials_provider.
   S3CredentialsKind credentials_kind = S3CredentialsKind::Default;
+
+  /// Whether to use virtual addressing of buckets
+  ///
+  /// If true, then virtual addressing is always enabled.
+  /// If false, then virtual addressing is only enabled if `endpoint_override` is empty.
+  ///
+  /// This can be used for non-AWS backends that only support virtual hosted-style access.
+  bool force_virtual_addressing = false;
 
   /// Whether OutputStream writes will be issued in the background, without blocking.
   bool background_writes = true;
@@ -158,6 +168,27 @@ struct ARROW_EXPORT S3Options {
   /// Whether to allow deletion of buckets
   bool allow_bucket_deletion = false;
 
+  /// Whether to allow pessimistic directory creation in CreateDir function
+  ///
+  /// By default, CreateDir function will try to create the directory without checking its
+  /// existence. It's an optimization to try directory creation and catch the error,
+  /// rather than issue two dependent I/O calls.
+  /// Though for key/value storage like Google Cloud Storage, too many creation calls will
+  /// breach the rate limit for object mutation operations and cause serious consequences.
+  /// It's also possible you don't have creation access for the parent directory. Set it
+  /// to be true to address these scenarios.
+  bool check_directory_existence_before_creation = false;
+
+  /// Whether to allow file-open methods to return before the actual open.
+  ///
+  /// Enabling this may reduce the latency of `OpenInputStream`, `OpenOutputStream`,
+  /// and similar methods, by reducing the number of roundtrips necessary. It may also
+  /// allow usage of more efficient S3 APIs for small files.
+  /// The downside is that failure conditions such as attempting to open a file in a
+  /// non-existing bucket will only be reported when actual I/O is done (at worse,
+  /// when attempting to close the file).
+  bool allow_delayed_open = false;
+
   /// \brief Default metadata for OpenOutputStream.
   ///
   /// This will be ignored if non-empty metadata is passed to OpenOutputStream.
@@ -166,6 +197,37 @@ struct ARROW_EXPORT S3Options {
   /// Optional retry strategy to determine which error types should be retried, and the
   /// delay between retries.
   std::shared_ptr<S3RetryStrategy> retry_strategy;
+
+  /// Optional customer-provided key for server-side encryption (SSE-C).
+  ///
+  /// This should be the 32-byte AES-256 key, unencoded.
+  std::string sse_customer_key;
+
+  /// Optional path to a single PEM file holding all TLS CA certificates
+  ///
+  /// If empty, global filesystem options will be used (see FileSystemGlobalOptions);
+  /// if the corresponding global filesystem option is also empty, the underlying
+  /// TLS library's defaults will be used.
+  ///
+  /// Note this option may be ignored on some systems (Windows, macOS).
+  std::string tls_ca_file_path;
+
+  /// Optional path to a directory holding TLS CA
+  ///
+  /// The given directory should contain CA certificates as individual PEM files
+  /// named along the OpenSSL "hashed" format.
+  ///
+  /// If empty, global filesystem options will be used (see FileSystemGlobalOptions);
+  /// if the corresponding global filesystem option is also empty, the underlying
+  /// TLS library's defaults will be used.
+  ///
+  /// Note this option may be ignored on some systems (Windows, macOS).
+  std::string tls_ca_dir_path;
+
+  /// Whether to verify the S3 endpoint's TLS certificate
+  ///
+  /// This option applies if the scheme is "https".
+  bool tls_verify_certificates = true;
 
   S3Options();
 
@@ -185,7 +247,7 @@ struct ARROW_EXPORT S3Options {
       const std::string& external_id = "", int load_frequency = 900,
       const std::shared_ptr<Aws::STS::STSClient>& stsClient = NULLPTR);
 
-  /// Configure with credentials from role assumed using a web identitiy token
+  /// Configure with credentials from role assumed using a web identity token
   void ConfigureAssumeRoleWithWebIdentityCredentials();
 
   std::string GetAccessKey() const;
@@ -224,7 +286,7 @@ struct ARROW_EXPORT S3Options {
   /// generate temporary credentials.
   static S3Options FromAssumeRoleWithWebIdentity();
 
-  static Result<S3Options> FromUri(const ::arrow::internal::Uri& uri,
+  static Result<S3Options> FromUri(const ::arrow::util::Uri& uri,
                                    std::string* out_path = NULLPTR);
   static Result<S3Options> FromUri(const std::string& uri,
                                    std::string* out_path = NULLPTR);
@@ -247,21 +309,28 @@ class ARROW_EXPORT S3FileSystem : public FileSystem {
   std::string region() const;
 
   bool Equals(const FileSystem& other) const override;
+  Result<std::string> PathFromUri(const std::string& uri_string) const override;
+  Result<std::string> MakeUri(std::string path) const override;
 
   /// \cond FALSE
+  using FileSystem::CreateDir;
+  using FileSystem::DeleteDirContents;
+  using FileSystem::DeleteDirContentsAsync;
   using FileSystem::GetFileInfo;
+  using FileSystem::OpenAppendStream;
+  using FileSystem::OpenOutputStream;
   /// \endcond
+
   Result<FileInfo> GetFileInfo(const std::string& path) override;
   Result<std::vector<FileInfo>> GetFileInfo(const FileSelector& select) override;
 
   FileInfoGenerator GetFileInfoGenerator(const FileSelector& select) override;
 
-  Status CreateDir(const std::string& path, bool recursive = true) override;
+  Status CreateDir(const std::string& path, bool recursive) override;
 
   Status DeleteDir(const std::string& path) override;
-  Status DeleteDirContents(const std::string& path, bool missing_dir_ok = false) override;
-  Future<> DeleteDirContentsAsync(const std::string& path,
-                                  bool missing_dir_ok = false) override;
+  Status DeleteDirContents(const std::string& path, bool missing_dir_ok) override;
+  Future<> DeleteDirContentsAsync(const std::string& path, bool missing_dir_ok) override;
   Status DeleteRootDirContents() override;
 
   Status DeleteFile(const std::string& path) override;
@@ -303,11 +372,11 @@ class ARROW_EXPORT S3FileSystem : public FileSystem {
   /// implementing your own background execution strategy.
   Result<std::shared_ptr<io::OutputStream>> OpenOutputStream(
       const std::string& path,
-      const std::shared_ptr<const KeyValueMetadata>& metadata = {}) override;
+      const std::shared_ptr<const KeyValueMetadata>& metadata) override;
 
   Result<std::shared_ptr<io::OutputStream>> OpenAppendStream(
       const std::string& path,
-      const std::shared_ptr<const KeyValueMetadata>& metadata = {}) override;
+      const std::shared_ptr<const KeyValueMetadata>& metadata) override;
 
   /// Create a S3FileSystem instance from the given options.
   static Result<std::shared_ptr<S3FileSystem>> Make(
@@ -323,15 +392,45 @@ class ARROW_EXPORT S3FileSystem : public FileSystem {
 enum class S3LogLevel : int8_t { Off, Fatal, Error, Warn, Info, Debug, Trace };
 
 struct ARROW_EXPORT S3GlobalOptions {
+  /// The log level for S3-originating messages.
   S3LogLevel log_level;
+
+  /// The number of threads to configure when creating AWS' I/O event loop
+  ///
+  /// Defaults to 1 as recommended by AWS' doc when the # of connections is
+  /// expected to be, at most, in the hundreds
+  ///
+  /// For more details see Aws::Crt::Io::EventLoopGroup
+  int num_event_loop_threads = 1;
+
+  /// Whether to install a process-wide SIGPIPE handler
+  ///
+  /// The AWS SDK may sometimes emit SIGPIPE signals for certain errors;
+  /// by default, they would abort the current process.
+  /// This option, if enabled, will install a process-wide signal handler
+  /// that logs and otherwise ignore incoming SIGPIPE signals.
+  ///
+  /// This option has no effect on Windows.
+  bool install_sigpipe_handler = false;
+
+  /// \brief Initialize with default options
+  ///
+  /// For log_level, this method first tries to extract a suitable value from the
+  /// environment variable ARROW_S3_LOG_LEVEL.
+  static S3GlobalOptions Defaults();
 };
 
-/// Initialize the S3 APIs.  It is required to call this function at least once
-/// before using S3FileSystem.
+/// \brief Initialize the S3 APIs with the specified set of options.
+///
+/// It is required to call this function at least once before using S3FileSystem.
+///
+/// Once this function is called you MUST call FinalizeS3 before the end of the
+/// application in order to avoid a segmentation fault at shutdown.
 ARROW_EXPORT
 Status InitializeS3(const S3GlobalOptions& options);
 
-/// Ensure the S3 APIs are initialized, but only if not already done.
+/// \brief Ensure the S3 APIs are initialized, but only if not already done.
+///
 /// If necessary, this will call InitializeS3() with some default options.
 ARROW_EXPORT
 Status EnsureS3Initialized();
@@ -340,16 +439,29 @@ Status EnsureS3Initialized();
 ARROW_EXPORT
 bool IsS3Initialized();
 
-/// Shutdown the S3 APIs.
+/// Whether S3 was finalized.
+ARROW_EXPORT
+bool IsS3Finalized();
+
+/// \brief Shutdown the S3 APIs.
+///
+/// This can wait for some S3 concurrent calls to finish so as to avoid
+/// race conditions.
+/// After this function has been called, all S3 calls will fail with an error.
+///
+/// Calls to InitializeS3() and FinalizeS3() should be serialized by the
+/// application (this also applies to EnsureS3Initialized() and
+/// EnsureS3Finalized()).
 ARROW_EXPORT
 Status FinalizeS3();
 
-/// Ensure the S3 APIs are shutdown, but only if not already done.
+/// \brief Ensure the S3 APIs are shutdown, but only if not already done.
+///
+/// If necessary, this will call FinalizeS3().
 ARROW_EXPORT
 Status EnsureS3Finalized();
 
 ARROW_EXPORT
 Result<std::string> ResolveS3BucketRegion(const std::string& bucket);
 
-}  // namespace fs
-}  // namespace arrow
+}  // namespace arrow::fs

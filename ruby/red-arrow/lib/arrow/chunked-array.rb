@@ -24,12 +24,24 @@ module Arrow
     include GenericTakeable
     include InputReferable
 
+    def freeze
+      unless frozen?
+        # Ensure caching
+        chunks
+      end
+      super
+    end
+
     def to_arrow
       self
     end
 
     def to_arrow_array
-      combine
+      if n_chunks.zero?
+        value_data_type.build_array([])
+      else
+        combine
+      end
     end
 
     def to_arrow_chunked_array

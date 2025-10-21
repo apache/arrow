@@ -21,14 +21,15 @@
 
 #include <cstdint>
 #include <limits>
+#include <memory>
 #include <string>
 #include <vector>
 
 #include "arrow/flight/platform.h"
 
 #if defined(_MSC_VER)
-#pragma warning(push)
-#pragma warning(disable : 4267)
+#  pragma warning(push)
+#  pragma warning(disable : 4267)
 #endif
 
 #include <google/protobuf/io/coded_stream.h>
@@ -36,16 +37,11 @@
 #include <google/protobuf/wire_format_lite.h>
 
 #include <grpc/byte_buffer_reader.h>
-#ifdef GRPCPP_PP_INCLUDE
 #include <grpcpp/grpcpp.h>
 #include <grpcpp/impl/codegen/proto_utils.h>
-#else
-#include <grpc++/grpc++.h>
-#include <grpc++/impl/codegen/proto_utils.h>
-#endif
 
 #if defined(_MSC_VER)
-#pragma warning(pop)
+#  pragma warning(pop)
 #endif
 
 #include "arrow/buffer.h"
@@ -56,7 +52,7 @@
 #include "arrow/ipc/message.h"
 #include "arrow/ipc/writer.h"
 #include "arrow/util/bit_util.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 
 namespace arrow {
 namespace flight {
@@ -72,6 +68,8 @@ using google::protobuf::io::CodedInputStream;
 using google::protobuf::io::CodedOutputStream;
 
 using ::grpc::ByteBuffer;
+
+namespace {
 
 bool ReadBytesZeroCopy(const std::shared_ptr<Buffer>& source_data,
                        CodedInputStream* input, std::shared_ptr<Buffer>* out) {
@@ -155,7 +153,7 @@ class GrpcBuffer : public MutableBuffer {
 };
 
 // Destructor callback for grpc::Slice
-static void ReleaseBuffer(void* buf_ptr) {
+void ReleaseBuffer(void* buf_ptr) {
   delete reinterpret_cast<std::shared_ptr<Buffer>*>(buf_ptr);
 }
 
@@ -178,7 +176,7 @@ arrow::Result<::grpc::Slice> SliceFromBuffer(const std::shared_ptr<Buffer>& buf)
   return slice;
 }
 
-static const uint8_t kPaddingBytes[8] = {0, 0, 0, 0, 0, 0, 0, 0};
+const uint8_t kPaddingBytes[8] = {0, 0, 0, 0, 0, 0, 0, 0};
 
 // Update the sizes of our Protobuf fields based on the given IPC payload.
 ::grpc::Status IpcMessageHeaderSize(const arrow::ipc::IpcPayload& ipc_msg, bool has_body,
@@ -198,6 +196,8 @@ static const uint8_t kPaddingBytes[8] = {0, 0, 0, 0, 0, 0, 0, 0};
 
   return ::grpc::Status::OK;
 }
+
+}  // namespace
 
 ::grpc::Status FlightDataSerialize(const FlightPayload& msg, ByteBuffer* out,
                                    bool* own_buffer) {
@@ -288,7 +288,7 @@ static const uint8_t kPaddingBytes[8] = {0, 0, 0, 0, 0, 0, 0, 0};
       for (const auto& buffer : ipc_msg.body_buffers) {
         // Buffer may be null when the row length is zero, or when all
         // entries are invalid.
-        if (!buffer) continue;
+        if (!buffer || buffer->size() == 0) continue;
 
         ::grpc::Slice slice;
         auto status = SliceFromBuffer(buffer).Value(&slice);
@@ -302,7 +302,7 @@ static const uint8_t kPaddingBytes[8] = {0, 0, 0, 0, 0, 0, 0, 0};
         const auto remainder = static_cast<int>(
             bit_util::RoundUpToMultipleOf8(buffer->size()) - buffer->size());
         if (remainder) {
-          slices.push_back(::grpc::Slice(kPaddingBytes, remainder));
+          slices.emplace_back(kPaddingBytes, remainder);
         }
       }
     }
@@ -321,7 +321,7 @@ static const uint8_t kPaddingBytes[8] = {0, 0, 0, 0, 0, 0, 0, 0};
 ::grpc::Status FlightDataDeserialize(ByteBuffer* buffer,
                                      arrow::flight::internal::FlightData* out) {
   if (!buffer) {
-    return ::grpc::Status(::grpc::StatusCode::INTERNAL, "No payload");
+    return {::grpc::StatusCode::INTERNAL, "No payload"};
   }
 
   // Reset fields in case the caller reuses a single allocation
@@ -347,42 +347,45 @@ static const uint8_t kPaddingBytes[8] = {0, 0, 0, 0, 0, 0, 0, 0};
         pb::FlightDescriptor pb_descriptor;
         uint32_t length;
         if (!pb_stream.ReadVarint32(&length)) {
-          return ::grpc::Status(::grpc::StatusCode::INTERNAL,
-                                "Unable to parse length of FlightDescriptor");
+          return {::grpc::StatusCode::INTERNAL,
+                  "Unable to parse length of FlightDescriptor"};
         }
         // Can't use ParseFromCodedStream as this reads the entire
         // rest of the stream into the descriptor command field.
         std::string buffer;
         pb_stream.ReadString(&buffer, length);
         if (!pb_descriptor.ParseFromString(buffer)) {
-          return ::grpc::Status(::grpc::StatusCode::INTERNAL,
-                                "Unable to parse FlightDescriptor");
+          return {::grpc::StatusCode::INTERNAL, "Unable to parse FlightDescriptor"};
         }
         arrow::flight::FlightDescriptor descriptor;
         GRPC_RETURN_NOT_OK(
             arrow::flight::internal::FromProto(pb_descriptor, &descriptor));
-        out->descriptor.reset(new arrow::flight::FlightDescriptor(descriptor));
+        out->descriptor = std::make_unique<arrow::flight::FlightDescriptor>(descriptor);
       } break;
       case pb::FlightData::kDataHeaderFieldNumber: {
         if (!ReadBytesZeroCopy(wrapped_buffer, &pb_stream, &out->metadata)) {
-          return ::grpc::Status(::grpc::StatusCode::INTERNAL,
-                                "Unable to read FlightData metadata");
+          return {::grpc::StatusCode::INTERNAL, "Unable to read FlightData metadata"};
         }
       } break;
       case pb::FlightData::kAppMetadataFieldNumber: {
         if (!ReadBytesZeroCopy(wrapped_buffer, &pb_stream, &out->app_metadata)) {
-          return ::grpc::Status(::grpc::StatusCode::INTERNAL,
-                                "Unable to read FlightData application metadata");
+          return {::grpc::StatusCode::INTERNAL,
+                  "Unable to read FlightData application metadata"};
         }
       } break;
       case pb::FlightData::kDataBodyFieldNumber: {
         if (!ReadBytesZeroCopy(wrapped_buffer, &pb_stream, &out->body)) {
-          return ::grpc::Status(::grpc::StatusCode::INTERNAL,
-                                "Unable to read FlightData body");
+          return {::grpc::StatusCode::INTERNAL, "Unable to read FlightData body"};
         }
       } break;
-      default:
-        DCHECK(false) << "cannot happen";
+      default: {
+        // Unknown field. We should skip it for compatibility.
+        if (!WireFormatLite::SkipField(&pb_stream, tag)) {
+          return {::grpc::StatusCode::INTERNAL,
+                  "Could not skip unknown field tag in FlightData"};
+        }
+        break;
+      }
     }
   }
   buffer->Clear();
@@ -401,8 +404,8 @@ static const uint8_t kPaddingBytes[8] = {0, 0, 0, 0, 0, 0, 0, 0};
 
 // The pointer bitcast hack below causes legitimate warnings, silence them.
 #ifndef _WIN32
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wstrict-aliasing"
+#  pragma GCC diagnostic push
+#  pragma GCC diagnostic ignored "-Wstrict-aliasing"
 #endif
 
 // Pointer bitcast explanation: grpc::*Writer<T>::Write() and grpc::*Reader<T>::Read()
@@ -479,7 +482,7 @@ bool ReadPayload(::grpc::ClientReaderWriter<pb::FlightData, pb::PutResult>* read
 }
 
 #ifndef _WIN32
-#pragma GCC diagnostic pop
+#  pragma GCC diagnostic pop
 #endif
 
 }  // namespace grpc

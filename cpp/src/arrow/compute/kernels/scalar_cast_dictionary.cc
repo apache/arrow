@@ -25,6 +25,7 @@
 #include "arrow/compute/kernels/scalar_cast_internal.h"
 #include "arrow/compute/kernels/util_internal.h"
 #include "arrow/util/int_util.h"
+#include "arrow/util/logging_internal.h"
 
 namespace arrow {
 using internal::CopyBitmap;
@@ -32,18 +33,29 @@ using internal::CopyBitmap;
 namespace compute {
 namespace internal {
 
+namespace {
+
 Status CastToDictionary(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
   const CastOptions& options = CastState::Get(ctx);
   const auto& out_type = checked_cast<const DictionaryType&>(*out->type());
 
+  std::shared_ptr<ArrayData> in_array = batch[0].array.ToArrayData();
+
   // if out type is same as in type, return input
   if (out_type.Equals(*batch[0].type())) {
     /// XXX: This is the wrong place to do a zero-copy optimization
-    out->value = batch[0].array.ToArrayData();
+    out->value = in_array;
     return Status::OK();
   }
 
-  std::shared_ptr<ArrayData> in_array = batch[0].array.ToArrayData();
+  // If the input type is string or binary-like, it is first encoded as a dictionary to
+  // facilitate processing. This approach allows the subsequent code to uniformly handle
+  // string or binary-like inputs as if they were originally provided in dictionary
+  // format. Encoding as a dictionary helps in reusing the same logic for dictionary
+  // operations.
+  if (is_base_binary_like(in_array->type->id())) {
+    in_array = DictionaryEncode(in_array)->array();
+  }
   const auto& in_type = checked_cast<const DictionaryType&>(*in_array->type);
 
   ArrayData* out_array = out->array_data().get();
@@ -77,17 +89,26 @@ Status CastToDictionary(KernelContext* ctx, const ExecSpan& batch, ExecResult* o
   return Status::OK();
 }
 
-std::vector<std::shared_ptr<CastFunction>> GetDictionaryCasts() {
-  auto func = std::make_shared<CastFunction>("cast_dictionary", Type::DICTIONARY);
-
-  AddCommonCasts(Type::DICTIONARY, kOutputTargetType, func.get());
-  ScalarKernel kernel({InputType(Type::DICTIONARY)}, kOutputTargetType, CastToDictionary);
+template <typename SrcType>
+void AddDictionaryCast(CastFunction* func) {
+  ScalarKernel kernel({InputType(SrcType::type_id)}, kOutputTargetType, CastToDictionary);
   kernel.null_handling = NullHandling::COMPUTED_NO_PREALLOCATE;
   kernel.mem_allocation = MemAllocation::NO_PREALLOCATE;
+  DCHECK_OK(func->AddKernel(SrcType::type_id, std::move(kernel)));
+}
 
-  DCHECK_OK(func->AddKernel(Type::DICTIONARY, std::move(kernel)));
+}  // namespace
 
-  return {func};
+std::vector<std::shared_ptr<CastFunction>> GetDictionaryCasts() {
+  auto cast_dict = std::make_shared<CastFunction>("cast_dictionary", Type::DICTIONARY);
+  AddCommonCasts(Type::DICTIONARY, kOutputTargetType, cast_dict.get());
+  AddDictionaryCast<DictionaryType>(cast_dict.get());
+  AddDictionaryCast<StringType>(cast_dict.get());
+  AddDictionaryCast<LargeStringType>(cast_dict.get());
+  AddDictionaryCast<BinaryType>(cast_dict.get());
+  AddDictionaryCast<LargeBinaryType>(cast_dict.get());
+
+  return {cast_dict};
 }
 
 }  // namespace internal

@@ -15,8 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-skip_on_r_older_than("3.6")
-
 test_that("altrep test functions do not include base altrep", {
   expect_false(is_arrow_altrep(1:10))
   expect_identical(test_arrow_altrep_is_materialized(1:10), NA)
@@ -172,7 +170,7 @@ test_that("element access methods for int32 ALTREP with nulls", {
   expect_identical(test_arrow_altrep_copy_by_region(altrep, 123), original)
   expect_false(test_arrow_altrep_is_materialized(altrep))
 
-  # because there are no nulls, DATAPTR() does not materialize
+  # because there are nulls, DATAPTR() does materialize
   expect_identical(test_arrow_altrep_copy_by_dataptr(altrep), original)
   expect_true(test_arrow_altrep_is_materialized(altrep))
 
@@ -195,7 +193,7 @@ test_that("element access methods for double ALTREP with nulls", {
   expect_identical(test_arrow_altrep_copy_by_region(altrep, 123), original)
   expect_false(test_arrow_altrep_is_materialized(altrep))
 
-  # because there are no nulls, DATAPTR() does not materialize
+  # because there are nulls, DATAPTR() does materialize
   expect_identical(test_arrow_altrep_copy_by_dataptr(altrep), original)
   expect_true(test_arrow_altrep_is_materialized(altrep))
 
@@ -246,14 +244,13 @@ test_that("element access methods for character ALTREP", {
   expect_identical(test_arrow_altrep_copy_by_element(altrep), original)
   expect_false(test_arrow_altrep_is_materialized(altrep))
 
-  # DATAPTR() should always materialize for strings
-  expect_identical(test_arrow_altrep_copy_by_dataptr(altrep), original)
+  # match() calls DATAPTR() internally which materializes the vector
+  match(altrep, c("1", "40", "999"))
   expect_true(test_arrow_altrep_is_materialized(altrep))
 
   # test element access after materialization
   expect_true(test_arrow_altrep_is_materialized(altrep))
   expect_identical(test_arrow_altrep_copy_by_element(altrep), original)
-  expect_identical(test_arrow_altrep_copy_by_dataptr(altrep), original)
 })
 
 test_that("element access methods for character ALTREP from large_utf8()", {
@@ -267,14 +264,13 @@ test_that("element access methods for character ALTREP from large_utf8()", {
   expect_identical(test_arrow_altrep_copy_by_element(altrep), original)
   expect_false(test_arrow_altrep_is_materialized(altrep))
 
-  # DATAPTR() should always materialize for strings
-  expect_identical(test_arrow_altrep_copy_by_dataptr(altrep), original)
+  # match() calls DATAPTR() internally which materializes the vector
+  match(altrep, c("1", "40", "999"))
   expect_true(test_arrow_altrep_is_materialized(altrep))
 
   # test element access after materialization
   expect_true(test_arrow_altrep_is_materialized(altrep))
   expect_identical(test_arrow_altrep_copy_by_element(altrep), original)
-  expect_identical(test_arrow_altrep_copy_by_dataptr(altrep), original)
 })
 
 test_that("empty vectors are not altrep", {
@@ -373,6 +369,11 @@ test_that("altrep min/max/sum identical to R versions for double", {
   expect_altrep_roundtrip(x, max)
   expect_altrep_roundtrip(x, sum)
 
+  # On valgrind the NA_real_ is sometimes transformed to NaN
+  # https://stat.ethz.ch/pipermail/r-devel/2021-April/080683.html
+  # so we skip these there to avoid complicated NA == NaN logic,
+  # and they are tested on a number of other platforms / conditions
+  skip_on_linux_devel()
   x <- c(1, 2, NA_real_)
   expect_altrep_roundtrip(x, min, na.rm = TRUE)
   expect_altrep_roundtrip(x, max, na.rm = TRUE)
@@ -607,7 +608,6 @@ test_that("element access methods for ALTREP factors", {
   }
 })
 
-
 test_that("R checks for bounds", {
   v_int <- Array$create(c(1, 2, 3))$as_vector()
   v_dbl <- Array$create(c(1L, 2L, 3L))$as_vector()
@@ -630,4 +630,24 @@ test_that("Operations on altrep R vectors don't modify the original", {
   b_int <- a_int$as_vector()
   c_int <- -b_int
   expect_false(isTRUE(all.equal(b_int, c_int)))
+})
+
+test_that("Materialized ALTREP arrays don't cause arrow to crash when attempting to bypass", {
+  a_int <- Array$create(c(1L, 2L, 3L))
+  b_int <- a_int$as_vector()
+  expect_true(is_arrow_altrep(b_int))
+  expect_false(test_arrow_altrep_is_materialized(b_int))
+
+  # Some operations that use altrep bypass
+  expect_equal(infer_type(b_int), int32())
+  expect_equal(as_arrow_array(b_int), a_int)
+
+  # Still shouldn't have materialized yet
+  expect_false(test_arrow_altrep_is_materialized(b_int))
+
+  # Force it to materialize and check again
+  test_arrow_altrep_force_materialize(b_int)
+  expect_true(test_arrow_altrep_is_materialized(b_int))
+  expect_equal(infer_type(b_int), int32())
+  expect_equal(as_arrow_array(b_int), a_int)
 })

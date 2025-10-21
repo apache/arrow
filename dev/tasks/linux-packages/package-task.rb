@@ -120,6 +120,7 @@ class PackageTask
     build_command_line = [
       "docker",
       "build",
+      "--build-arg", "BUILDKIT_INLINE_CACHE=1",
       "--cache-from", image,
       "--tag", image,
     ]
@@ -159,7 +160,8 @@ class PackageTask
     if File.exist?(File.join(id, "Dockerfile"))
       docker_context = id
     else
-      from = File.readlines(File.join(id, "from")).find do |line|
+      lines = File.readlines(File.join(id, "from"), encoding: "UTF-8")
+      from = lines.find do |line|
         /^[a-z-]/i =~ line
       end
       from_components = from.chomp.split
@@ -266,18 +268,16 @@ class PackageTask
     # Disable arm64 targets by default for now
     # because they require some setups on host.
     [
-      "debian-bullseye",
-      # "debian-bullseye-arm64",
       "debian-bookworm",
       # "debian-bookworm-arm64",
-      "ubuntu-bionic",
-      # "ubuntu-bionic-arm64",
-      "ubuntu-focal",
-      # "ubuntu-focal-arm64",
+      "debian-trixie",
+      # "debian-trixie-arm64",
+      "debian-forky",
+      # "debian-forky-arm64",
       "ubuntu-jammy",
       # "ubuntu-jammy-arm64",
-      "ubuntu-kinetic",
-      # "ubuntu-kinetic-arm64",
+      "ubuntu-noble",
+      # "ubuntu-noble-arm64",
     ]
   end
 
@@ -311,7 +311,7 @@ class PackageTask
     cp_r(source_debian_dir, prepared_debian_dir)
     control_in_path = "#{prepared_debian_dir}/control.in"
     if File.exist?(control_in_path)
-      control_in = File.read(control_in_path)
+      control_in = File.read(control_in_path, encoding: "UTF-8")
       rm_f(control_in_path)
       File.open("#{prepared_debian_dir}/control", "w") do |control|
         prepared_control = apt_prepare_debian_control(control_in, target)
@@ -412,16 +412,16 @@ VERSION=#{@deb_upstream_version}
     # Disable aarch64 targets by default for now
     # because they require some setups on host.
     [
+      "almalinux-10",
+      # "almalinux-10-arch64",
       "almalinux-9",
       # "almalinux-9-arch64",
       "almalinux-8",
       # "almalinux-8-arch64",
-      "amazon-linux-2",
-      # "amazon-linux-2-arch64",
+      "amazon-linux-2023",
+      # "amazon-linux-2023-arch64",
       "centos-9-stream",
       # "centos-9-stream-aarch64",
-      "centos-8-stream",
-      # "centos-8-stream-aarch64",
       "centos-7",
       # "centos-7-aarch64",
     ]
@@ -478,7 +478,7 @@ RELEASE=#{@rpm_release}
     end
 
     spec = "#{tmp_dir}/#{@rpm_package}.spec"
-    spec_in_data = File.read(yum_spec_in_path)
+    spec_in_data = File.read(yum_spec_in_path, encoding: "UTF-8")
     spec_data = substitute_content(spec_in_data) do |key, matched|
       yum_expand_variable(key) || matched
     end
@@ -571,7 +571,7 @@ RELEASE=#{@rpm_release}
 
   def update_content(path)
     if File.exist?(path)
-      content = File.read(path)
+      content = File.read(path, encoding: "UTF-8")
     else
       content = ""
     end

@@ -19,20 +19,14 @@
 # distutils: language = c++
 
 from datetime import timedelta
-import io
-import warnings
 
-from libcpp cimport nullptr
-
+from cpython.bytes cimport PyBytes_FromStringAndSize
 from cython.operator cimport dereference as deref
+
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
 from pyarrow.lib cimport _Weakrefable
-
-from pyarrow.lib import (ArrowException,
-                         tobytes, frombytes)
-
-cimport cpython as cp
+from pyarrow.lib import tobytes, frombytes
 
 
 cdef ParquetCipher cipher_from_name(name):
@@ -51,17 +45,15 @@ cdef cipher_to_name(ParquetCipher cipher):
     elif ParquetCipher_AES_GCM_CTR_V1 == cipher:
         return 'AES_GCM_CTR_V1'
     else:
-        raise ValueError('Invalid cipher value: {0}'.format(cipher))
+        raise ValueError(f'Invalid cipher value: {cipher}')
 
 cdef class EncryptionConfiguration(_Weakrefable):
     """Configuration of the encryption, such as which columns to encrypt"""
-    cdef:
-        shared_ptr[CEncryptionConfiguration] configuration
-
     # Avoid mistakingly creating attributes
     __slots__ = ()
 
     def __init__(self, footer_key, *, column_keys=None,
+                 uniform_encryption=None,
                  encryption_algorithm=None,
                  plaintext_footer=None, double_wrapping=None,
                  cache_lifetime=None, internal_key_material=None,
@@ -70,6 +62,8 @@ cdef class EncryptionConfiguration(_Weakrefable):
             new CEncryptionConfiguration(tobytes(footer_key)))
         if column_keys is not None:
             self.column_keys = column_keys
+        if uniform_encryption is not None:
+            self.uniform_encryption = uniform_encryption
         if encryption_algorithm is not None:
             self.encryption_algorithm = encryption_algorithm
         if plaintext_footer is not None:
@@ -110,8 +104,20 @@ cdef class EncryptionConfiguration(_Weakrefable):
             # to the string defined by the spec
             # 'key1: col1 , col2; key2: col3 , col4'
             column_keys = "; ".join(
-                ["{}: {}".format(k, ", ".join(v)) for k, v in value.items()])
+                [f"{k}: {', '.join(v)}" for k, v in value.items()])
             self.configuration.get().column_keys = tobytes(column_keys)
+
+    @property
+    def uniform_encryption(self):
+        """Whether to encrypt footer and all columns with the same encryption key.
+
+        This cannot be used together with column_keys.
+        """
+        return self.configuration.get().uniform_encryption
+
+    @uniform_encryption.setter
+    def uniform_encryption(self, value):
+        self.configuration.get().uniform_encryption = value
 
     @property
     def encryption_algorithm(self):
@@ -187,9 +193,6 @@ cdef class EncryptionConfiguration(_Weakrefable):
 
 cdef class DecryptionConfiguration(_Weakrefable):
     """Configuration of the decryption, such as cache timeout."""
-    cdef:
-        shared_ptr[CDecryptionConfiguration] configuration
-
     # Avoid mistakingly creating attributes
     __slots__ = ()
 
@@ -213,9 +216,6 @@ cdef class DecryptionConfiguration(_Weakrefable):
 
 cdef class KmsConnectionConfig(_Weakrefable):
     """Configuration of the connection to the Key Management Service (KMS)"""
-    cdef:
-        shared_ptr[CKmsConnectionConfig] configuration
-
     # Avoid mistakingly creating attributes
     __slots__ = ()
 
@@ -301,8 +301,10 @@ cdef class KmsConnectionConfig(_Weakrefable):
 
 # Callback definitions for CPyKmsClientVtable
 cdef void _cb_wrap_key(
-        handler, const c_string& key_bytes,
+        handler, const CSecureString& key,
         const c_string& master_key_identifier, c_string* out) except *:
+    view = <cpp_string_view>key.as_view()
+    key_bytes = <bytes>PyBytes_FromStringAndSize(view.data(), view.size())
     mkid_str = frombytes(master_key_identifier)
     wrapped_key = handler.wrap_key(key_bytes, mkid_str)
     out[0] = tobytes(wrapped_key)
@@ -310,11 +312,12 @@ cdef void _cb_wrap_key(
 
 cdef void _cb_unwrap_key(
         handler, const c_string& wrapped_key,
-        const c_string& master_key_identifier, c_string* out) except *:
+        const c_string& master_key_identifier, CSecureString* out) except *:
     mkid_str = frombytes(master_key_identifier)
     wk_str = frombytes(wrapped_key)
     key = handler.unwrap_key(wk_str, mkid_str)
-    out[0] = tobytes(key)
+    cstr = <c_string>tobytes(key)
+    out[0] = CSecureString(move(cstr))
 
 
 cdef class KmsClient(_Weakrefable):
@@ -356,8 +359,7 @@ cdef void _cb_create_kms_client(
     result = handler(connection_config)
     if not isinstance(result, KmsClient):
         raise TypeError(
-            "callable must return KmsClient instances, but got {}".format(
-                type(result)))
+            f"callable must return KmsClient instances, but got {type(result)}")
 
     out[0] = (<KmsClient> result).unwrap()
 
@@ -365,9 +367,6 @@ cdef void _cb_create_kms_client(
 cdef class CryptoFactory(_Weakrefable):
     """ A factory that produces the low-level FileEncryptionProperties and
     FileDecryptionProperties objects, from the high-level parameters."""
-    cdef:
-        unique_ptr[CPyCryptoFactory] factory
-
     # Avoid mistakingly creating attributes
     __slots__ = ()
 
@@ -473,3 +472,31 @@ cdef class CryptoFactory(_Weakrefable):
 
     def remove_cache_entries_for_all_tokens(self):
         self.factory.get().RemoveCacheEntriesForAllTokens()
+
+    cdef inline shared_ptr[CPyCryptoFactory] unwrap(self):
+        return self.factory
+
+
+cdef shared_ptr[CCryptoFactory] pyarrow_unwrap_cryptofactory(object crypto_factory) except *:
+    if isinstance(crypto_factory, CryptoFactory):
+        pycf = (<CryptoFactory> crypto_factory).unwrap()
+        return static_pointer_cast[CCryptoFactory, CPyCryptoFactory](pycf)
+    raise TypeError("Expected CryptoFactory, got %s" % type(crypto_factory))
+
+
+cdef shared_ptr[CKmsConnectionConfig] pyarrow_unwrap_kmsconnectionconfig(object kmsconnectionconfig) except *:
+    if isinstance(kmsconnectionconfig, KmsConnectionConfig):
+        return (<KmsConnectionConfig> kmsconnectionconfig).unwrap()
+    raise TypeError("Expected KmsConnectionConfig, got %s" % type(kmsconnectionconfig))
+
+
+cdef shared_ptr[CEncryptionConfiguration] pyarrow_unwrap_encryptionconfig(object encryptionconfig) except *:
+    if isinstance(encryptionconfig, EncryptionConfiguration):
+        return (<EncryptionConfiguration> encryptionconfig).unwrap()
+    raise TypeError("Expected EncryptionConfiguration, got %s" % type(encryptionconfig))
+
+
+cdef shared_ptr[CDecryptionConfiguration] pyarrow_unwrap_decryptionconfig(object decryptionconfig) except *:
+    if isinstance(decryptionconfig, DecryptionConfiguration):
+        return (<DecryptionConfiguration> decryptionconfig).unwrap()
+    raise TypeError("Expected DecryptionConfiguration, got %s" % type(decryptionconfig))

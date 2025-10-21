@@ -16,16 +16,26 @@
 # under the License.
 
 import pytest
+
+import os
+import pyarrow as pa
 from pyarrow import Codec
 from pyarrow import fs
+from pyarrow.lib import is_threading_enabled
+from pyarrow.tests.util import windows_has_tzdata
+import sys
+
 
 groups = [
+    'acero',
+    'azure',
     'brotli',
     'bz2',
     'cython',
     'dataset',
     'hypothesis',
     'fastparquet',
+    'flight',
     'gandiva',
     'gcs',
     'gdb',
@@ -35,22 +45,27 @@ groups = [
     'lz4',
     'memory_leak',
     'nopandas',
+    'nonumpy',
+    'numpy',
     'orc',
     'pandas',
     'parquet',
     'parquet_encryption',
-    'plasma',
-    's3',
-    'snappy',
-    'substrait',
-    'tensorflow',
-    'flight',
-    'slow',
+    'processes',
     'requires_testing_data',
+    's3',
+    'slow',
+    'snappy',
+    'sockets',
+    'substrait',
+    'threading',
+    'timezone_data',
     'zstd',
 ]
 
 defaults = {
+    'acero': False,
+    'azure': False,
     'brotli': Codec.is_available('brotli'),
     'bz2': Codec.is_available('bz2'),
     'cython': False,
@@ -67,19 +82,36 @@ defaults = {
     'lz4': Codec.is_available('lz4'),
     'memory_leak': False,
     'nopandas': False,
+    'nonumpy': False,
+    'numpy': False,
     'orc': False,
     'pandas': False,
     'parquet': False,
     'parquet_encryption': False,
-    'plasma': False,
+    'processes': True,
     'requires_testing_data': True,
     's3': False,
     'slow': False,
     'snappy': Codec.is_available('snappy'),
+    'sockets': True,
     'substrait': False,
-    'tensorflow': False,
+    'threading': is_threading_enabled(),
+    'timezone_data': True,
     'zstd': Codec.is_available('zstd'),
 }
+
+if sys.platform == "emscripten":
+    # Emscripten doesn't support subprocess,
+    # multiprocessing, gdb or socket based
+    # networking
+    defaults['gdb'] = False
+    defaults['processes'] = False
+    defaults['sockets'] = False
+
+if sys.platform == "win32":
+    defaults['timezone_data'] = windows_has_tzdata()
+elif sys.platform == "emscripten":
+    defaults['timezone_data'] = os.path.exists("/usr/share/zoneinfo")
 
 try:
     import cython  # noqa
@@ -100,6 +132,12 @@ except ImportError:
     pass
 
 try:
+    import pyarrow.acero  # noqa
+    defaults['acero'] = True
+except ImportError:
+    pass
+
+try:
     import pyarrow.dataset  # noqa
     defaults['dataset'] = True
 except ImportError:
@@ -107,7 +145,13 @@ except ImportError:
 
 try:
     import pyarrow.orc  # noqa
-    defaults['orc'] = True
+    if sys.platform == "win32":
+        defaults['orc'] = True
+    else:
+        # orc tests on non-Windows platforms only work
+        # if timezone data exists, so skip them if
+        # not.
+        defaults['orc'] = defaults['timezone_data']
 except ImportError:
     pass
 
@@ -116,6 +160,12 @@ try:
     defaults['pandas'] = True
 except ImportError:
     defaults['nopandas'] = True
+
+try:
+    import numpy  # noqa
+    defaults['numpy'] = True
+except ImportError:
+    defaults['nonumpy'] = True
 
 try:
     import pyarrow.parquet  # noqa
@@ -129,22 +179,15 @@ try:
 except ImportError:
     pass
 
-
-try:
-    import pyarrow.plasma  # noqa
-    defaults['plasma'] = True
-except ImportError:
-    pass
-
-try:
-    import tensorflow  # noqa
-    defaults['tensorflow'] = True
-except ImportError:
-    pass
-
 try:
     import pyarrow.flight  # noqa
     defaults['flight'] = True
+except ImportError:
+    pass
+
+try:
+    from pyarrow.fs import AzureFileSystem  # noqa
+    defaults['azure'] = True
 except ImportError:
     pass
 
@@ -153,7 +196,6 @@ try:
     defaults['gcs'] = True
 except ImportError:
     pass
-
 
 try:
     from pyarrow.fs import S3FileSystem  # noqa
@@ -175,39 +217,38 @@ except ImportError:
 
 
 # Doctest should ignore files for the modules that are not built
-def pytest_ignore_collect(path, config):
+def pytest_ignore_collect(collection_path, config):
     if config.option.doctestmodules:
         # don't try to run doctests on the /tests directory
-        if "/pyarrow/tests/" in str(path):
+        if "/pyarrow/tests/" in str(collection_path):
             return True
 
         doctest_groups = [
             'dataset',
             'orc',
             'parquet',
-            'plasma',
             'flight',
             'substrait',
         ]
 
         # handle cuda, flight, etc
         for group in doctest_groups:
-            if 'pyarrow/{}'.format(group) in str(path):
+            if f'pyarrow/{group}' in str(collection_path):
                 if not defaults[group]:
                     return True
 
-        if 'pyarrow/parquet/encryption' in str(path):
+        if 'pyarrow/parquet/encryption' in str(collection_path):
             if not defaults['parquet_encryption']:
                 return True
 
-        if 'pyarrow/cuda' in str(path):
+        if 'pyarrow/cuda' in str(collection_path):
             try:
                 import pyarrow.cuda  # noqa
                 return False
             except ImportError:
                 return True
 
-        if 'pyarrow/fs' in str(path):
+        if 'pyarrow/fs' in str(collection_path):
             try:
                 from pyarrow.fs import S3FileSystem  # noqa
                 return False
@@ -215,9 +256,9 @@ def pytest_ignore_collect(path, config):
                 return True
 
     if getattr(config.option, "doctest_cython", False):
-        if "/pyarrow/tests/" in str(path):
+        if "/pyarrow/tests/" in str(collection_path):
             return True
-        if "/pyarrow/_parquet_encryption" in str(path):
+        if "/pyarrow/_parquet_encryption" in str(collection_path):
             return True
 
     return False
@@ -265,3 +306,81 @@ def add_fs(doctest_namespace, request, tmp_path):
         doctest_namespace["local_path"] = str(tmp_path)
         doctest_namespace["path"] = str(path)
     yield
+
+
+# Define udf fixture for test_udf.py and test_substrait.py
+@pytest.fixture(scope="session")
+def unary_func_fixture():
+    """
+    Register a unary scalar function.
+    """
+    from pyarrow import compute as pc
+
+    def unary_function(ctx, x):
+        return pc.call_function("add", [x, 1],
+                                memory_pool=ctx.memory_pool)
+    func_name = "y=x+1"
+    unary_doc = {"summary": "add function",
+                 "description": "test add function"}
+    pc.register_scalar_function(unary_function,
+                                func_name,
+                                unary_doc,
+                                {"array": pa.int64()},
+                                pa.int64())
+    return unary_function, func_name
+
+
+@pytest.fixture(scope="session")
+def unary_agg_func_fixture():
+    """
+    Register a unary aggregate function (mean)
+    """
+    from pyarrow import compute as pc
+    import numpy as np
+
+    def func(ctx, x):
+        return pa.scalar(np.nanmean(x))
+
+    func_name = "mean_udf"
+    func_doc = {"summary": "y=avg(x)",
+                "description": "find mean of x"}
+
+    pc.register_aggregate_function(func,
+                                   func_name,
+                                   func_doc,
+                                   {
+                                       "x": pa.float64(),
+                                   },
+                                   pa.float64()
+                                   )
+    return func, func_name
+
+
+@pytest.fixture(scope="session")
+def varargs_agg_func_fixture():
+    """
+    Register a unary aggregate function
+    """
+    from pyarrow import compute as pc
+    import numpy as np
+
+    def func(ctx, *args):
+        sum = 0.0
+        for arg in args:
+            sum += np.nanmean(arg)
+        return pa.scalar(sum)
+
+    func_name = "sum_mean"
+    func_doc = {"summary": "Varargs aggregate",
+                "description": "Varargs aggregate"}
+
+    pc.register_aggregate_function(func,
+                                   func_name,
+                                   func_doc,
+                                   {
+                                       "x": pa.int64(),
+                                       "y": pa.float64()
+                                   },
+                                   pa.float64()
+                                   )
+    return func, func_name

@@ -27,6 +27,8 @@
 
 extern "C" {
 
+ARROW_SUPPRESS_MISSING_DECLARATIONS_WARNING
+
 #define MD5_HASH_FUNCTION(TYPE)                                                    \
   GANDIVA_EXPORT                                                                   \
   const char* gdv_fn_md5_##TYPE(int64_t context, gdv_##TYPE value, bool validity,  \
@@ -212,11 +214,13 @@ const char* gdv_fn_sha1_decimal128(int64_t context, int64_t x_high, uint64_t x_l
   const gandiva::BasicDecimal128 decimal_128(x_high, x_low);
   return gandiva::gdv_sha1_hash(context, decimal_128.ToBytes().data(), 16, out_length);
 }
+
+ARROW_UNSUPPRESS_MISSING_DECLARATIONS_WARNING
 }
 
 namespace gandiva {
 
-void ExportedHashFunctions::AddMappings(Engine* engine) const {
+arrow::Status ExportedHashFunctions::AddMappings(Engine* engine) const {
   std::vector<llvm::Type*> args;
   auto types = engine->types();
 
@@ -1041,5 +1045,6 @@ void ExportedHashFunctions::AddMappings(Engine* engine) const {
   engine->AddGlobalMappingForFunc("gdv_fn_md5_decimal128",
                                   types->i8_ptr_type() /*return_type*/, args,
                                   reinterpret_cast<void*>(gdv_fn_md5_decimal128));
+  return arrow::Status::OK();
 }
 }  // namespace gandiva

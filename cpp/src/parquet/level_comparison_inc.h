@@ -22,11 +22,9 @@
 
 // Used to make sure ODR rule isn't violated.
 #ifndef PARQUET_IMPL_NAMESPACE
-#error "PARQUET_IMPL_NAMESPACE must be defined"
+#  error "PARQUET_IMPL_NAMESPACE must be defined"
 #endif
-namespace parquet {
-namespace internal {
-namespace PARQUET_IMPL_NAMESPACE {
+namespace parquet::internal::PARQUET_IMPL_NAMESPACE {
 /// Builds a bitmap by applying predicate to the level vector provided.
 ///
 /// \param[in] levels Rep or def level array.
@@ -60,6 +58,4 @@ inline uint64_t GreaterThanBitmapImpl(const int16_t* levels, int64_t num_levels,
   return LevelsToBitmap(levels, num_levels, [rhs](int16_t value) { return value > rhs; });
 }
 
-}  // namespace PARQUET_IMPL_NAMESPACE
-}  // namespace internal
-}  // namespace parquet
+}  // namespace parquet::internal::PARQUET_IMPL_NAMESPACE

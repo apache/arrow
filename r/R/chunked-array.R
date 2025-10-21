@@ -55,7 +55,7 @@
 #' - `$Validate()`: Perform any validation checks to determine obvious inconsistencies
 #'    within the array's internal data. This can be an expensive check, potentially `O(length)`
 #'
-#' @rdname ChunkedArray
+#' @rdname ChunkedArray-class
 #' @name ChunkedArray
 #' @seealso [Array]
 #' @examples
@@ -154,9 +154,26 @@ c.ChunkedArray <- function(...) {
   ChunkedArray$create(...)
 }
 
-#' @param \dots Vectors to coerce
-#' @param type currently ignored
-#' @rdname ChunkedArray
+#' Create a Chunked Array
+#'
+#' @param ... R objects to coerce into a ChunkedArray. They must be of the same type.
+#' @param type An optional [data type][data-type]. If omitted, the type will be inferred from the data.
+#' @rdname chunked_array
+#' @examples
+#' # Pass items into chunked_array as separate objects to create chunks
+#' class_scores <- chunked_array(c(87, 88, 89), c(94, 93, 92), c(71, 72, 73))
+#'
+#' # If you pass a list into chunked_array, you get a list of length 1
+#' list_scores <- chunked_array(list(c(9.9, 9.6, 9.5), c(8.2, 8.3, 8.4), c(10.0, 9.9, 9.8)))
+#'
+#' # When constructing a ChunkedArray, the first chunk is used to infer type.
+#' infer_type(chunked_array(c(1, 2, 3), c(5L, 6L, 7L)))
+#'
+#' # Concatenating chunked arrays returns a new chunked array containing all chunks
+#' a <- chunked_array(c(1, 2), 3)
+#' b <- chunked_array(c(4, 5), 6)
+#' c(a, b)
+#' @seealso [ChunkedArray]
 #' @export
 chunked_array <- ChunkedArray$create
 

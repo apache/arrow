@@ -61,7 +61,7 @@ Codec$create <- function(type = "gzip", compression_level = NA) {
 #' the Arrow C++ library. This function lets you know which are available for
 #' use.
 #' @param type A string, one of "uncompressed", "snappy", "gzip", "brotli",
-#' "zstd", "lz4", "lzo", or "bz2", case insensitive.
+#' "zstd", "lz4", "lzo", or "bz2", case-insensitive.
 #' @return Logical: is `type` available?
 #' @export
 #' @examples

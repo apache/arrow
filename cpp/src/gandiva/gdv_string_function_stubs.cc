@@ -15,8 +15,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-//#pragma once
-
 #include "gandiva/gdv_function_stubs.h"
 
 #include <utf8proc.h>
@@ -25,7 +23,7 @@
 #include <unordered_map>
 #include <vector>
 
-#include "arrow/util/double_conversion.h"
+#include "arrow/util/double_conversion_internal.h"
 #include "arrow/util/utf8_internal.h"
 #include "arrow/util/value_parsing.h"
 
@@ -36,6 +34,8 @@
 #include "gandiva/regex_functions_holder.h"
 
 extern "C" {
+
+ARROW_SUPPRESS_MISSING_DECLARATIONS_WARNING
 
 bool gdv_fn_like_utf8_utf8(int64_t ptr, const char* data, int data_len,
                            const char* pattern, int pattern_len) {
@@ -86,7 +86,7 @@ const char* gdv_fn_regexp_extract_utf8_utf8_int32(int64_t ptr, int64_t holder_pt
   const char* gdv_fn_cast##CAST_NAME##_##IN_TYPE##_int64(                         \
       int64_t context, gdv_##IN_TYPE value, int64_t len, int32_t * out_len) {     \
     if (len < 0) {                                                                \
-      gdv_fn_context_set_error_msg(context, "Buffer length can not be negative"); \
+      gdv_fn_context_set_error_msg(context, "Buffer length cannot be negative");  \
       *out_len = 0;                                                               \
       return "";                                                                  \
     }                                                                             \
@@ -122,7 +122,7 @@ const char* gdv_fn_regexp_extract_utf8_utf8_int32(int64_t ptr, int64_t holder_pt
   const char* gdv_fn_cast##CAST_NAME##_##IN_TYPE##_int64(                         \
       int64_t context, gdv_##IN_TYPE value, int64_t len, int32_t * out_len) {     \
     if (len < 0) {                                                                \
-      gdv_fn_context_set_error_msg(context, "Buffer length can not be negative"); \
+      gdv_fn_context_set_error_msg(context, "Buffer length cannot be negative");  \
       *out_len = 0;                                                               \
       return "";                                                                  \
     }                                                                             \
@@ -169,7 +169,7 @@ CAST_VARLEN_TYPE_FROM_NUMERIC(VARBINARY)
 
 GDV_FORCE_INLINE
 void gdv_fn_set_error_for_invalid_utf8(int64_t execution_context, char val) {
-  char const* fmt = "unexpected byte \\%02hhx encountered while decoding utf8 string";
+  const char* fmt = "unexpected byte \\%02hhx encountered while decoding utf8 string";
   int size = static_cast<int>(strlen(fmt)) + 64;
   char* error = reinterpret_cast<char*>(malloc(size));
   snprintf(error, size, fmt, (unsigned char)val);
@@ -413,10 +413,13 @@ const char* gdv_fn_substring_index(int64_t context, const char* txt, int32_t txt
     return out;
   } else if (static_cast<int32_t>(abs(cnt)) <= static_cast<int32_t>(occ.size()) &&
              cnt < 0) {
+    int32_t sz = static_cast<int32_t>(occ.size());
     int32_t temp = static_cast<int32_t>(abs(cnt));
-    memcpy(out, txt + occ[temp - 1] + pat_len, txt_len - occ[temp - 1] - pat_len);
-    *out_len = txt_len - occ[temp - 1] - pat_len;
+
+    memcpy(out, txt + occ[sz - temp] + pat_len, txt_len - occ[sz - temp] - pat_len);
+    *out_len = txt_len - occ[sz - temp] - pat_len;
     return out;
+
   } else {
     *out_len = txt_len;
     memcpy(out, txt, txt_len);
@@ -754,11 +757,13 @@ const char* translate_utf8_utf8_utf8(int64_t context, const char* in, int32_t in
   *out_len = result_len;
   return result;
 }
+
+ARROW_UNSUPPRESS_MISSING_DECLARATIONS_WARNING
 }
 
 namespace gandiva {
 
-void ExportedStringFunctions::AddMappings(Engine* engine) const {
+arrow::Status ExportedStringFunctions::AddMappings(Engine* engine) const {
   std::vector<llvm::Type*> args;
   auto types = engine->types();
 
@@ -985,5 +990,6 @@ void ExportedStringFunctions::AddMappings(Engine* engine) const {
   engine->AddGlobalMappingForFunc("translate_utf8_utf8_utf8",
                                   types->i8_ptr_type() /*return_type*/, args,
                                   reinterpret_cast<void*>(translate_utf8_utf8_utf8));
+  return arrow::Status::OK();
 }
 }  // namespace gandiva

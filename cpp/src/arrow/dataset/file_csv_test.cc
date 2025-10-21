@@ -21,12 +21,13 @@
 #include <utility>
 #include <vector>
 
+#include "arrow/acero/exec_plan.h"
 #include "arrow/csv/writer.h"
 #include "arrow/dataset/dataset_internal.h"
 #include "arrow/dataset/file_base.h"
 #include "arrow/dataset/partition.h"
 #include "arrow/dataset/plan.h"
-#include "arrow/dataset/test_util.h"
+#include "arrow/dataset/test_util_internal.h"
 #include "arrow/filesystem/mockfs.h"
 #include "arrow/io/compressed.h"
 #include "arrow/io/memory.h"
@@ -35,6 +36,7 @@
 #include "arrow/testing/generator.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/util.h"
+#include "arrow/util/config.h"
 
 namespace arrow {
 namespace dataset {
@@ -135,10 +137,10 @@ class TestCsvFileFormat : public FileFormatFixtureMixin<CsvFormatHelper>,
     if (UseScanV2()) {
       ScanV2Options v2_options = MigrateLegacyOptions(fragment);
       EXPECT_TRUE(ScanV2Options::AddFieldsNeededForFilter(&v2_options).ok());
-      EXPECT_OK_AND_ASSIGN(std::unique_ptr<RecordBatchReader> reader,
-                           compute::DeclarationToReader(
-                               compute::Declaration("scan2", std::move(v2_options)),
-                               /*use_threads=*/false));
+      EXPECT_OK_AND_ASSIGN(
+          std::unique_ptr<RecordBatchReader> reader,
+          acero::DeclarationToReader(acero::Declaration("scan2", std::move(v2_options)),
+                                     /*use_threads=*/false));
       struct ReaderIterator {
         Result<std::shared_ptr<RecordBatch>> Next() { return reader->Next(); }
         std::unique_ptr<RecordBatchReader> reader;
@@ -457,35 +459,41 @@ INSTANTIATE_TEST_SUITE_P(TestUncompressedCsv, TestCsvFileFormat,
 INSTANTIATE_TEST_SUITE_P(TestUncompressedCsvV2, TestCsvFileFormat,
                          ::testing::Values(CsvFileFormatParams{Compression::UNCOMPRESSED,
                                                                true}));
-#ifdef ARROW_WITH_BZ2
+
+// Writing even small CSV files takes a lot of time in valgrind.  The various compression
+// codecs should be independently tested and so we do not need to cover those with
+// valgrind here.
+#ifndef ARROW_VALGRIND
+#  ifdef ARROW_WITH_BZ2
 INSTANTIATE_TEST_SUITE_P(TestBZ2Csv, TestCsvFileFormat,
                          ::testing::Values(CsvFileFormatParams{Compression::BZ2, false}));
 INSTANTIATE_TEST_SUITE_P(TestBZ2CsvV2, TestCsvFileFormat,
                          ::testing::Values(CsvFileFormatParams{Compression::BZ2, true}));
-#endif
-#ifdef ARROW_WITH_LZ4
+#  endif
+#  ifdef ARROW_WITH_LZ4
 INSTANTIATE_TEST_SUITE_P(TestLZ4Csv, TestCsvFileFormat,
                          ::testing::Values(CsvFileFormatParams{Compression::LZ4_FRAME,
                                                                false}));
 INSTANTIATE_TEST_SUITE_P(TestLZ4CsvV2, TestCsvFileFormat,
                          ::testing::Values(CsvFileFormatParams{Compression::LZ4_FRAME,
                                                                true}));
-#endif
+#  endif
 // Snappy does not support streaming compression
-#ifdef ARROW_WITH_ZLIB
+#  ifdef ARROW_WITH_ZLIB
 INSTANTIATE_TEST_SUITE_P(TestGzipCsv, TestCsvFileFormat,
                          ::testing::Values(CsvFileFormatParams{Compression::GZIP,
                                                                false}));
 INSTANTIATE_TEST_SUITE_P(TestGzipCsvV2, TestCsvFileFormat,
                          ::testing::Values(CsvFileFormatParams{Compression::GZIP, true}));
-#endif
-#ifdef ARROW_WITH_ZSTD
+#  endif
+#  ifdef ARROW_WITH_ZSTD
 INSTANTIATE_TEST_SUITE_P(TestZSTDCsv, TestCsvFileFormat,
                          ::testing::Values(CsvFileFormatParams{Compression::ZSTD,
                                                                false}));
 INSTANTIATE_TEST_SUITE_P(TestZSTDCsvV2, TestCsvFileFormat,
                          ::testing::Values(CsvFileFormatParams{Compression::ZSTD, true}));
-#endif
+#  endif
+#endif  // ARROW_VALGRIND
 
 class TestCsvFileFormatScan : public FileFormatScanMixin<CsvFormatHelper> {};
 

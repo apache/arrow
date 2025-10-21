@@ -25,23 +25,24 @@
 #include <set>
 #include <sstream>
 
+#include "arrow/acero/exec_plan.h"
+#include "arrow/acero/options.h"
+#include "arrow/acero/query_context.h"
 #include "arrow/array/array_primitive.h"
 #include "arrow/array/util.h"
 #include "arrow/compute/api_aggregate.h"
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/api_vector.h"
 #include "arrow/compute/cast.h"
-#include "arrow/compute/exec/exec_plan.h"
-#include "arrow/compute/exec/options.h"
-#include "arrow/compute/exec/query_context.h"
 #include "arrow/dataset/dataset.h"
 #include "arrow/dataset/dataset_internal.h"
 #include "arrow/dataset/plan.h"
+#include "arrow/record_batch.h"
 #include "arrow/table.h"
 #include "arrow/util/async_generator.h"
 #include "arrow/util/config.h"
 #include "arrow/util/iterator.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/task_group.h"
 #include "arrow/util/thread_pool.h"
 #include "arrow/util/tracing_internal.h"
@@ -141,19 +142,17 @@ Result<std::shared_ptr<Schema>> GetProjectedSchemaFromExpression(
     if (call->function_name != "make_struct") {
       return Status::Invalid("Top level projection expression call must be make_struct");
     }
-    for (const compute::Expression& arg : call->arguments) {
-      if (auto field_ref = arg.field_ref()) {
-        if (field_ref->IsName()) {
-          field_names.emplace(*field_ref->name());
-        } else if (field_ref->IsNested()) {
-          // We keep the top-level field name.
-          auto nested_field_refs = *field_ref->nested_refs();
-          field_names.emplace(*nested_field_refs[0].name());
-        } else {
-          return Status::Invalid(
-              "No projected schema was supplied and we could not infer the projected "
-              "schema from the projection expression.");
-        }
+    for (auto field_ref : compute::FieldsInExpression(projection)) {
+      if (field_ref.IsName()) {
+        field_names.emplace(*field_ref.name());
+      } else if (field_ref.IsNested()) {
+        // We keep the top-level field name.
+        auto nested_field_refs = *field_ref.nested_refs();
+        field_names.emplace(*nested_field_refs[0].name());
+      } else {
+        return Status::Invalid(
+            "No projected schema was supplied and we could not infer the projected "
+            "schema from the projection expression.");
       }
     }
   }
@@ -213,7 +212,8 @@ Status NormalizeScanOptions(const std::shared_ptr<ScanOptions>& scan_options,
         // create the projected schema only if the provided expressions
         // produces valid set of fields.
         ARROW_ASSIGN_OR_RAISE(auto projection_descr,
-                              ProjectionDescr::Default(*projected_schema));
+                              ProjectionDescr::Default(
+                                  *projected_schema, scan_options->add_augmented_fields));
         scan_options->projected_schema = std::move(projection_descr.schema);
         scan_options->projection = projection_descr.expression;
         ARROW_ASSIGN_OR_RAISE(scan_options->projection,
@@ -222,7 +222,8 @@ Status NormalizeScanOptions(const std::shared_ptr<ScanOptions>& scan_options,
         // if projected_fields are not found, we default to creating the projected_schema
         // and projection from the dataset_schema.
         ARROW_ASSIGN_OR_RAISE(auto projection_descr,
-                              ProjectionDescr::Default(*dataset_schema));
+                              ProjectionDescr::Default(
+                                  *dataset_schema, scan_options->add_augmented_fields));
         scan_options->projected_schema = std::move(projection_descr.schema);
         scan_options->projection = projection_descr.expression;
       }
@@ -233,7 +234,7 @@ Status NormalizeScanOptions(const std::shared_ptr<ScanOptions>& scan_options,
     ARROW_ASSIGN_OR_RAISE(
         auto projection_descr,
         ProjectionDescr::FromNames(scan_options->projected_schema->field_names(),
-                                   *dataset_schema));
+                                   *dataset_schema, scan_options->add_augmented_fields));
     scan_options->projection = projection_descr.expression;
   }
 
@@ -318,10 +319,14 @@ Result<EnumeratedRecordBatchGenerator> FragmentToBatches(
       RecordBatch::Make(options->dataset_schema, /*num_rows=*/0, std::move(columns)));
   auto enumerated_batch_gen = MakeEnumeratedGenerator(std::move(batch_gen));
 
-  auto combine_fn =
-      [fragment](const Enumerated<std::shared_ptr<RecordBatch>>& record_batch) {
-        return EnumeratedRecordBatch{record_batch, fragment};
-      };
+  auto combine_fn = [fragment, cache_metadata = options->cache_metadata](
+                        const Enumerated<std::shared_ptr<RecordBatch>>& record_batch) {
+    if (!cache_metadata && record_batch.last) {
+      ARROW_WARN_NOT_OK(fragment.value->ClearCachedMetadata(),
+                        "Could not clear cached metadata on fragment");
+    }
+    return EnumeratedRecordBatch{record_batch, fragment};
+  };
 
   return MakeMappedGenerator(enumerated_batch_gen, std::move(combine_fn));
 }
@@ -343,7 +348,7 @@ class OneShotFragment : public Fragment {
   OneShotFragment(std::shared_ptr<Schema> schema, RecordBatchIterator batch_it)
       : Fragment(compute::literal(true), std::move(schema)),
         batch_it_(std::move(batch_it)) {
-    DCHECK_NE(physical_schema_, nullptr);
+    DCHECK_NE(given_physical_schema_, nullptr);
   }
   Status CheckConsumed() {
     if (!batch_it_) return Status::Invalid("OneShotFragment was already scanned");
@@ -355,14 +360,15 @@ class OneShotFragment : public Fragment {
     ARROW_ASSIGN_OR_RAISE(
         auto background_gen,
         MakeBackgroundGenerator(std::move(batch_it_), options->io_context.executor()));
-    return MakeTransferredGenerator(std::move(background_gen),
-                                    ::arrow::internal::GetCpuThreadPool());
+    auto cpu_executor = options->cpu_executor ? options->cpu_executor
+                                              : ::arrow::internal::GetCpuThreadPool();
+    return MakeTransferredGenerator(std::move(background_gen), cpu_executor);
   }
   std::string type_name() const override { return "one-shot"; }
 
  protected:
   Result<std::shared_ptr<Schema>> ReadPhysicalSchemaImpl() override {
-    return physical_schema_;
+    return given_physical_schema_;
   }
 
   RecordBatchIterator batch_it_;
@@ -382,7 +388,7 @@ Result<TaggedRecordBatchIterator> AsyncScanner::ScanBatches() {
       [this](::arrow::internal::Executor* executor) {
         return ScanBatchesAsync(executor);
       },
-      scan_options_->use_threads);
+      scan_options_->use_threads, scan_options_->cpu_executor);
 }
 
 Result<EnumeratedRecordBatchIterator> AsyncScanner::ScanBatchesUnordered() {
@@ -390,7 +396,7 @@ Result<EnumeratedRecordBatchIterator> AsyncScanner::ScanBatchesUnordered() {
       [this](::arrow::internal::Executor* executor) {
         return ScanBatchesUnorderedAsync(executor);
       },
-      scan_options_->use_threads);
+      scan_options_->use_threads, scan_options_->cpu_executor);
 }
 
 Result<std::shared_ptr<Table>> AsyncScanner::ToTable() {
@@ -400,7 +406,9 @@ Result<std::shared_ptr<Table>> AsyncScanner::ToTable() {
 }
 
 Result<EnumeratedRecordBatchGenerator> AsyncScanner::ScanBatchesUnorderedAsync() {
-  return ScanBatchesUnorderedAsync(::arrow::internal::GetCpuThreadPool(),
+  return ScanBatchesUnorderedAsync(scan_options_->cpu_executor
+                                       ? scan_options_->cpu_executor
+                                       : ::arrow::internal::GetCpuThreadPool(),
                                    /*sequence_fragments=*/false);
 }
 
@@ -433,11 +441,11 @@ Result<EnumeratedRecordBatchGenerator> AsyncScanner::ScanBatchesUnorderedAsync(
   auto exec_context =
       std::make_shared<compute::ExecContext>(scan_options_->pool, cpu_executor);
 
-  compute::QueryOptions query_options;
+  acero::QueryOptions query_options;
   query_options.use_legacy_batching = use_legacy_batching;
 
   ARROW_ASSIGN_OR_RAISE(auto plan,
-                        compute::ExecPlan::Make(query_options, *exec_context.get()));
+                        acero::ExecPlan::Make(query_options, *exec_context.get()));
   AsyncGenerator<std::optional<compute::ExecBatch>> sink_gen;
 
   auto exprs = scan_options_->projection.call()->arguments;
@@ -446,14 +454,14 @@ Result<EnumeratedRecordBatchGenerator> AsyncScanner::ScanBatchesUnorderedAsync(
                    ->field_names;
 
   RETURN_NOT_OK(
-      compute::Declaration::Sequence(
+      acero::Declaration::Sequence(
           {
               {"scan", ScanNodeOptions{dataset_, scan_options_, sequence_fragments}},
-              {"filter", compute::FilterNodeOptions{scan_options_->filter}},
+              {"filter", acero::FilterNodeOptions{scan_options_->filter}},
               {"augmented_project",
-               compute::ProjectNodeOptions{std::move(exprs), std::move(names)}},
-              {"sink", compute::SinkNodeOptions{&sink_gen, /*schema=*/nullptr,
-                                                scan_options_->backpressure}},
+               acero::ProjectNodeOptions{std::move(exprs), std::move(names)}},
+              {"sink", acero::SinkNodeOptions{&sink_gen, /*schema=*/nullptr,
+                                              scan_options_->backpressure}},
           })
           .AddToPlan(plan.get()));
 
@@ -601,7 +609,9 @@ Result<std::shared_ptr<Table>> AsyncScanner::Head(int64_t num_rows) {
 }
 
 Result<TaggedRecordBatchGenerator> AsyncScanner::ScanBatchesAsync() {
-  return ScanBatchesAsync(::arrow::internal::GetCpuThreadPool());
+  return ScanBatchesAsync(scan_options_->cpu_executor
+                              ? scan_options_->cpu_executor
+                              : ::arrow::internal::GetCpuThreadPool());
 }
 
 Result<TaggedRecordBatchGenerator> AsyncScanner::ScanBatchesAsync(
@@ -727,12 +737,13 @@ Future<int64_t> AsyncScanner::CountRowsAsync(Executor* executor) {
 
   compute::ExecContext exec_context(scan_options_->pool, executor);
 
-  ARROW_ASSIGN_OR_RAISE(auto plan, compute::ExecPlan::Make(exec_context));
+  ARROW_ASSIGN_OR_RAISE(auto plan, acero::ExecPlan::Make(exec_context));
   // Drop projection since we only need to count rows
   const auto options = std::make_shared<ScanOptions>(*scan_options_);
   ARROW_ASSIGN_OR_RAISE(auto empty_projection,
                         ProjectionDescr::FromNames(std::vector<std::string>(),
-                                                   *scan_options_->dataset_schema));
+                                                   *scan_options_->dataset_schema,
+                                                   scan_options_->add_augmented_fields));
   SetProjection(options.get(), empty_projection);
 
   auto total = std::make_shared<std::atomic<int64_t>>(0);
@@ -755,16 +766,16 @@ Future<int64_t> AsyncScanner::CountRowsAsync(Executor* executor) {
             });
       });
 
-  compute::Declaration count_plan = compute::Declaration::Sequence(
+  acero::Declaration count_plan = acero::Declaration::Sequence(
       {{"scan",
         ScanNodeOptions{std::make_shared<FragmentDataset>(scan_options_->dataset_schema,
                                                           std::move(fragment_gen)),
                         options}},
-       {"project", compute::ProjectNodeOptions{{options->filter}, {"mask"}}},
-       {"aggregate", compute::AggregateNodeOptions{{compute::Aggregate{
+       {"project", acero::ProjectNodeOptions{{options->filter}, {"mask"}}},
+       {"aggregate", acero::AggregateNodeOptions{{compute::Aggregate{
                          "sum", nullptr, "mask", "selected_count"}}}}});
 
-  return compute::DeclarationToBatchesAsync(std::move(count_plan), exec_context)
+  return acero::DeclarationToBatchesAsync(std::move(count_plan), exec_context)
       .Then([total](const RecordBatchVector& batches) -> Result<int64_t> {
         DCHECK_EQ(1, batches.size());
         ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Scalar> count_scalar,
@@ -777,7 +788,9 @@ Future<int64_t> AsyncScanner::CountRowsAsync(Executor* executor) {
 }
 
 Future<int64_t> AsyncScanner::CountRowsAsync() {
-  return CountRowsAsync(::arrow::internal::GetCpuThreadPool());
+  return CountRowsAsync(scan_options_->cpu_executor
+                            ? scan_options_->cpu_executor
+                            : ::arrow::internal::GetCpuThreadPool());
 }
 
 Result<int64_t> AsyncScanner::CountRows() {
@@ -830,7 +843,8 @@ Result<ProjectionDescr> ProjectionDescr::FromExpressions(
 }
 
 Result<ProjectionDescr> ProjectionDescr::FromNames(std::vector<std::string> names,
-                                                   const Schema& dataset_schema) {
+                                                   const Schema& dataset_schema,
+                                                   bool add_augmented_fields) {
   std::vector<compute::Expression> exprs(names.size());
   for (size_t i = 0; i < exprs.size(); ++i) {
     // If name isn't in schema, try finding it by dotted path.
@@ -848,15 +862,19 @@ Result<ProjectionDescr> ProjectionDescr::FromNames(std::vector<std::string> name
     }
   }
   auto fields = dataset_schema.fields();
-  for (const auto& aug_field : kAugmentedFields) {
-    fields.push_back(aug_field);
+  if (add_augmented_fields) {
+    for (const auto& aug_field : kAugmentedFields) {
+      fields.push_back(aug_field);
+    }
   }
   return ProjectionDescr::FromExpressions(std::move(exprs), std::move(names),
                                           Schema(fields, dataset_schema.metadata()));
 }
 
-Result<ProjectionDescr> ProjectionDescr::Default(const Schema& dataset_schema) {
-  return ProjectionDescr::FromNames(dataset_schema.field_names(), dataset_schema);
+Result<ProjectionDescr> ProjectionDescr::Default(const Schema& dataset_schema,
+                                                 bool add_augmented_fields) {
+  return ProjectionDescr::FromNames(dataset_schema.field_names(), dataset_schema,
+                                    add_augmented_fields);
 }
 
 void SetProjection(ScanOptions* options, ProjectionDescr projection) {
@@ -901,7 +919,8 @@ const std::shared_ptr<Schema>& ScannerBuilder::projected_schema() const {
 Status ScannerBuilder::Project(std::vector<std::string> columns) {
   ARROW_ASSIGN_OR_RAISE(
       auto projection,
-      ProjectionDescr::FromNames(std::move(columns), *scan_options_->dataset_schema));
+      ProjectionDescr::FromNames(std::move(columns), *scan_options_->dataset_schema,
+                                 scan_options_->add_augmented_fields));
   SetProjection(scan_options_.get(), std::move(projection));
   return Status::OK();
 }
@@ -926,6 +945,11 @@ Status ScannerBuilder::Filter(const compute::Expression& filter) {
 
 Status ScannerBuilder::UseThreads(bool use_threads) {
   scan_options_->use_threads = use_threads;
+  return Status::OK();
+}
+
+Status ScannerBuilder::CacheMetadata(bool cache_metadata) {
+  scan_options_->cache_metadata = cache_metadata;
   return Status::OK();
 }
 
@@ -966,7 +990,7 @@ Status ScannerBuilder::FragmentScanOptions(
   return Status::OK();
 }
 
-Status ScannerBuilder::Backpressure(compute::BackpressureOptions backpressure) {
+Status ScannerBuilder::Backpressure(acero::BackpressureOptions backpressure) {
   scan_options_->backpressure = backpressure;
   return Status::OK();
 }
@@ -986,13 +1010,14 @@ Result<std::shared_ptr<Scanner>> ScannerBuilder::Finish() {
 
 namespace {
 
-Result<compute::ExecNode*> MakeScanNode(compute::ExecPlan* plan,
-                                        std::vector<compute::ExecNode*> inputs,
-                                        const compute::ExecNodeOptions& options) {
+Result<acero::ExecNode*> MakeScanNode(acero::ExecPlan* plan,
+                                      std::vector<acero::ExecNode*> inputs,
+                                      const acero::ExecNodeOptions& options) {
   const auto& scan_node_options = checked_cast<const ScanNodeOptions&>(options);
   auto scan_options = scan_node_options.scan_options;
   auto dataset = scan_node_options.dataset;
   bool require_sequenced_output = scan_node_options.require_sequenced_output;
+  bool implicit_ordering = scan_node_options.implicit_ordering;
 
   RETURN_NOT_OK(NormalizeScanOptions(scan_options, dataset->schema()));
 
@@ -1053,20 +1078,24 @@ Result<compute::ExecNode*> MakeScanNode(compute::ExecPlan* plan,
         return batch;
       });
 
+  auto ordering = implicit_ordering ? Ordering::Implicit() : Ordering::Unordered();
+
   auto fields = scan_options->dataset_schema->fields();
-  for (const auto& aug_field : kAugmentedFields) {
-    fields.push_back(aug_field);
+  if (scan_options->add_augmented_fields) {
+    for (const auto& aug_field : kAugmentedFields) {
+      fields.push_back(aug_field);
+    }
   }
 
-  return compute::MakeExecNode(
+  return acero::MakeExecNode(
       "source", plan, {},
-      compute::SourceNodeOptions{schema(std::move(fields)), std::move(gen)});
+      acero::SourceNodeOptions{schema(std::move(fields)), std::move(gen), ordering});
 }
 
-Result<compute::ExecNode*> MakeAugmentedProjectNode(
-    compute::ExecPlan* plan, std::vector<compute::ExecNode*> inputs,
-    const compute::ExecNodeOptions& options) {
-  const auto& project_options = checked_cast<const compute::ProjectNodeOptions&>(options);
+Result<acero::ExecNode*> MakeAugmentedProjectNode(acero::ExecPlan* plan,
+                                                  std::vector<acero::ExecNode*> inputs,
+                                                  const acero::ExecNodeOptions& options) {
+  const auto& project_options = checked_cast<const acero::ProjectNodeOptions&>(options);
   auto exprs = project_options.expressions;
   auto names = project_options.names;
 
@@ -1081,14 +1110,14 @@ Result<compute::ExecNode*> MakeAugmentedProjectNode(
     exprs.push_back(compute::field_ref(aug_field->name()));
     names.push_back(aug_field->name());
   }
-  return compute::MakeExecNode(
+  return acero::MakeExecNode(
       "project", plan, std::move(inputs),
-      compute::ProjectNodeOptions{std::move(exprs), std::move(names)});
+      acero::ProjectNodeOptions{std::move(exprs), std::move(names)});
 }
 
-Result<compute::ExecNode*> MakeOrderedSinkNode(compute::ExecPlan* plan,
-                                               std::vector<compute::ExecNode*> inputs,
-                                               const compute::ExecNodeOptions& options) {
+Result<acero::ExecNode*> MakeOrderedSinkNode(acero::ExecPlan* plan,
+                                             std::vector<acero::ExecNode*> inputs,
+                                             const acero::ExecNodeOptions& options) {
   if (inputs.size() != 1) {
     return Status::Invalid("Ordered SinkNode requires exactly 1 input, got ",
                            inputs.size());
@@ -1097,8 +1126,8 @@ Result<compute::ExecNode*> MakeOrderedSinkNode(compute::ExecPlan* plan,
 
   AsyncGenerator<std::optional<compute::ExecBatch>> unordered;
   ARROW_ASSIGN_OR_RAISE(auto node,
-                        compute::MakeExecNode("sink", plan, std::move(inputs),
-                                              compute::SinkNodeOptions{&unordered}));
+                        acero::MakeExecNode("sink", plan, std::move(inputs),
+                                            acero::SinkNodeOptions{&unordered}));
 
   const Schema& schema = *input->output_schema();
   ARROW_ASSIGN_OR_RAISE(FieldPath match, FieldRef("__fragment_index").FindOne(schema));
@@ -1158,7 +1187,7 @@ Result<compute::ExecNode*> MakeOrderedSinkNode(compute::ExecPlan* plan,
            last_in_fragment(*prev) && batch_index(*next) == 0;
   };
 
-  const auto& sink_options = checked_cast<const compute::SinkNodeOptions&>(options);
+  const auto& sink_options = checked_cast<const acero::SinkNodeOptions&>(options);
   *sink_options.generator =
       MakeSequencingGenerator(std::move(unordered), left_after_right, is_next,
                               std::make_optional(std::move(before_any)));
@@ -1169,7 +1198,7 @@ Result<compute::ExecNode*> MakeOrderedSinkNode(compute::ExecPlan* plan,
 }  // namespace
 
 namespace internal {
-void InitializeScanner(arrow::compute::ExecFactoryRegistry* registry) {
+void InitializeScanner(arrow::acero::ExecFactoryRegistry* registry) {
   DCHECK_OK(registry->AddFactory("scan", MakeScanNode));
   DCHECK_OK(registry->AddFactory("ordered_sink", MakeOrderedSinkNode));
   DCHECK_OK(registry->AddFactory("augmented_project", MakeAugmentedProjectNode));

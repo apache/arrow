@@ -29,13 +29,15 @@
 #include <aws/core/client/RetryStrategy.h>
 #include <aws/core/http/HttpTypes.h>
 #include <aws/core/utils/DateTime.h>
+#include <aws/core/utils/HashingUtils.h>
 #include <aws/core/utils/StringUtils.h>
 
 #include "arrow/filesystem/filesystem.h"
 #include "arrow/filesystem/s3fs.h"
 #include "arrow/status.h"
+#include "arrow/util/base64.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/print.h"
+#include "arrow/util/print_internal.h"
 #include "arrow/util/string.h"
 
 namespace arrow {
@@ -187,8 +189,12 @@ Status ErrorToStatus(const std::string& prefix, const std::string& operation,
                          "'.";
     }
   }
+
+  auto request_id = error.GetRequestId();
+  auto request_str = request_id.empty() ? "" : (" (Request ID: " + request_id + ")");
+
   return Status::IOError(prefix, "AWS Error ", ss.str(), " during ", operation,
-                         " operation: ", error.GetMessage(),
+                         " operation: ", error.GetMessage(), request_str,
                          wrong_region_msg.value_or(""));
 }
 
@@ -290,6 +296,60 @@ class ConnectRetryStrategy : public Aws::Client::RetryStrategy {
   int32_t retry_interval_;
   int32_t max_retry_duration_;
 };
+
+/// \brief calculate the MD5 of the input SSE-C key (raw key, not base64 encoded)
+/// \param sse_customer_key is the input SSE-C key
+/// \return the base64 encoded MD5 for the input key
+inline Result<std::string> CalculateSSECustomerKeyMD5(
+    const std::string& sse_customer_key) {
+  // The key needs to be 256 bits (32 bytes) according to
+  // https://docs.aws.amazon.com/AmazonS3/latest/userguide/ServerSideEncryptionCustomerKeys.html#specifying-s3-c-encryption
+  if (sse_customer_key.length() != 32) {
+    return Status::Invalid("32 bytes SSE-C key is expected");
+  }
+
+  // Convert the raw binary key to an Aws::String
+  Aws::String sse_customer_key_aws_string(sse_customer_key.data(),
+                                          sse_customer_key.length());
+
+  // Compute the MD5 hash of the raw binary key
+  Aws::Utils::ByteBuffer sse_customer_key_md5 =
+      Aws::Utils::HashingUtils::CalculateMD5(sse_customer_key_aws_string);
+
+  // Base64-encode the MD5 hash
+  return arrow::util::base64_encode(std::string_view(
+      reinterpret_cast<const char*>(sse_customer_key_md5.GetUnderlyingData()),
+      sse_customer_key_md5.GetLength()));
+}
+
+struct SSECustomerKeyHeaders {
+  std::string sse_customer_key;
+  std::string sse_customer_key_md5;
+  std::string sse_customer_algorithm;
+};
+
+inline Result<std::optional<SSECustomerKeyHeaders>> GetSSECustomerKeyHeaders(
+    const std::string& sse_customer_key) {
+  if (sse_customer_key.empty()) {
+    return std::nullopt;
+  }
+  ARROW_ASSIGN_OR_RAISE(auto md5, internal::CalculateSSECustomerKeyMD5(sse_customer_key));
+  return SSECustomerKeyHeaders{arrow::util::base64_encode(sse_customer_key), md5,
+                               "AES256"};
+}
+
+template <typename S3RequestType>
+Status SetSSECustomerKey(S3RequestType* request, const std::string& sse_customer_key) {
+  ARROW_ASSIGN_OR_RAISE(auto maybe_headers, GetSSECustomerKeyHeaders(sse_customer_key));
+  if (!maybe_headers.has_value()) {
+    return Status::OK();
+  }
+  auto headers = std::move(maybe_headers).value();
+  request->SetSSECustomerKey(headers.sse_customer_key);
+  request->SetSSECustomerKeyMD5(headers.sse_customer_key_md5);
+  request->SetSSECustomerAlgorithm(headers.sse_customer_algorithm);
+  return Status::OK();
+}
 
 }  // namespace internal
 }  // namespace fs

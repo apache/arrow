@@ -18,7 +18,7 @@
 # under the License.
 #
 # Script which tries to determine the most recent git hash in the current
-# branch which originates from master by checking for the 
+# branch which originates from main by checking for the 
 # 'ARROW-1234: Description` commit message
 set -e
 

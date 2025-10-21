@@ -26,7 +26,8 @@
 #' @importFrom rlang expr caller_env is_character quo_name is_quosure enexpr enexprs as_quosure
 #' @importFrom rlang is_list call2 is_empty as_function as_label arg_match is_symbol is_call call_args
 #' @importFrom rlang quo_set_env quo_get_env is_formula quo_is_call f_rhs parse_expr f_env new_quosure
-#' @importFrom rlang new_quosures expr_text caller_env check_dots_empty dots_list
+#' @importFrom rlang new_quosures expr_text caller_env check_dots_empty check_dots_empty0 dots_list is_string inform
+#' @importFrom rlang is_bare_list call_name
 #' @importFrom tidyselect vars_pull eval_select eval_rename
 #' @importFrom glue glue
 #' @useDynLib arrow, .registration = TRUE
@@ -40,17 +41,14 @@ supported_dplyr_methods <- list(
   collect = NULL,
   summarise = c(
     "window functions not currently supported;",
-    'arguments `.drop = FALSE` and `.groups = "rowwise" not supported'
+    'arguments `.drop = FALSE` and `.groups = "rowwise"` not supported'
   ),
   group_by = NULL,
   groups = NULL,
   group_vars = NULL,
   group_by_drop_default = NULL,
   ungroup = NULL,
-  mutate = c(
-    "window functions (e.g. things that require aggregation within groups)",
-    "not currently supported"
-  ),
+  mutate = NULL,
   transmute = NULL,
   arrange = NULL,
   rename = NULL,
@@ -64,13 +62,16 @@ supported_dplyr_methods <- list(
   relocate = NULL,
   compute = NULL,
   collapse = NULL,
-  distinct = "`.keep_all = TRUE` not supported",
-  left_join = "the `copy` and `na_matches` arguments are ignored",
-  right_join = "the `copy` and `na_matches` arguments are ignored",
-  inner_join = "the `copy` and `na_matches` arguments are ignored",
-  full_join = "the `copy` and `na_matches` arguments are ignored",
-  semi_join = "the `copy` and `na_matches` arguments are ignored",
-  anti_join = "the `copy` and `na_matches` arguments are ignored",
+  distinct = c(
+    "`.keep_all = TRUE` returns a non-missing value if present,",
+    "only returning missing values if all are missing."
+  ),
+  left_join = "the `copy` argument is ignored",
+  right_join = "the `copy` argument is ignored",
+  inner_join = "the `copy` argument is ignored",
+  full_join = "the `copy` argument is ignored",
+  semi_join = "the `copy` argument is ignored",
+  anti_join = "the `copy` argument is ignored",
   count = NULL,
   tally = NULL,
   rename_with = NULL,
@@ -105,6 +106,15 @@ supported_dplyr_methods <- list(
   show_query = NULL,
   explain = NULL
 )
+
+# This should be run at session exit and must be called
+# to avoid a segmentation fault at shutdown
+finalize_s3 <- function(env) {
+  FinalizeS3()
+}
+
+# Helper environment to register the exit hook
+s3_finalizer <- new.env(parent = emptyenv())
 
 #' @importFrom vctrs s3_register vec_size vec_cast vec_unique
 .onLoad <- function(...) {
@@ -147,6 +157,11 @@ supported_dplyr_methods <- list(
   # Register extension types that we use internally
   reregister_extension_type(vctrs_extension_type(vctrs::unspecified()))
 
+  # Registers a callback to run at session exit
+  # This can't be done in .onUnload or .onDetach because those hooks are
+  # not guaranteed to run (e.g. they only run if the user unloads arrow)
+  reg.finalizer(s3_finalizer, finalize_s3, onexit = TRUE)
+
   invisible()
 }
 
@@ -167,21 +182,54 @@ configure_tzdb <- function() {
 .onAttach <- function(libname, pkgname) {
   # Just to be extra safe, let's wrap this in a try();
   # we don't want a failed startup message to prevent the package from loading
-  try({
-    features <- arrow_info()$capabilities
-    # That has all of the #ifdef features, plus the compression libs and the
-    # string libraries (but not the memory allocators, they're added elsewhere)
-    #
-    # Let's print a message if some are off
-    if (some_features_are_off(features)) {
-      packageStartupMessage(
-        paste(
-          "Some features are not enabled in this build of Arrow.",
-          "Run `arrow_info()` for more information."
+  try(
+    {
+      # On macOS only, Check if we are running in under emulation, and warn this will not work
+      if (on_rosetta()) {
+        packageStartupMessage(
+          paste(
+            "Warning:",
+            "  It appears that you are running R and Arrow in emulation (i.e. you're",
+            "  running an Intel version of R on a non-Intel mac). This configuration is",
+            "  not supported by arrow, you should install a native (arm64) build of R",
+            "  and use arrow with that. See https://cran.r-project.org/bin/macosx/",
+            "",
+            sep = "\n"
+          )
         )
-      )
-    }
-  })
+      }
+
+
+      features <- arrow_info()$capabilities
+      # That has all of the #ifdef features, plus the compression libs and the
+      # string libraries (but not the memory allocators, they're added elsewhere)
+      #
+      # Let's print a message if some are off
+      if (some_features_are_off(features)) {
+        packageStartupMessage(
+          paste(
+            "Some features are not enabled in this build of Arrow.",
+            "Run `arrow_info()` for more information."
+          )
+        )
+        # On macOS binaries from CRAN can be hobbled. They sometimes restrict access to our
+        # dependency source downloading even though we can build from source on their machines.
+        # They also refuse to allow libarrow binaries to be downloaded, so instead distribute
+        # hobbled arrow binaries
+        # If on macOS, and features are disabled, advise that reinstalling might help
+        if (identical(tolower(Sys.info()[["sysname"]]), "darwin")) {
+          packageStartupMessage(
+            paste0(
+              "The repository you retrieved Arrow from did not include all of Arrow's features.\n",
+              "You can install a fully-featured version by running:\n",
+              "`install.packages('arrow', repos = 'https://apache.r-universe.dev')`."
+            )
+          )
+        }
+      }
+    },
+    silent = TRUE
+  )
 }
 
 # Clean up the StopSource that was registered in .onLoad() so that if the

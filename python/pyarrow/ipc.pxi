@@ -15,9 +15,11 @@
 # specific language governing permissions and limitations
 # under the License.
 
+from cpython.pycapsule cimport PyCapsule_CheckExact, PyCapsule_GetPointer, PyCapsule_New
+
 from collections import namedtuple
 import warnings
-
+from cython import sizeof
 
 cpdef enum MetadataVersion:
     V1 = <char> CMetadataVersion_V1
@@ -44,6 +46,26 @@ cdef CMetadataVersion _unwrap_metadata_version(
     elif version == MetadataVersion.V5:
         return CMetadataVersion_V5
     raise ValueError("Not a metadata version: " + repr(version))
+
+
+cpdef enum Alignment:
+    Any = <int64_t> CAlignment_Any
+    DataTypeSpecific = <int64_t> CAlignment_DataTypeSpecific
+    At64Byte = <int64_t> CAlignment_64Byte
+
+
+cdef object _wrap_alignment(CAlignment alignment):
+    return Alignment(<int64_t> alignment)
+
+
+cdef CAlignment _unwrap_alignment(Alignment alignment) except *:
+    if alignment == Alignment.Any:
+        return CAlignment_Any
+    elif alignment == Alignment.DataTypeSpecific:
+        return CAlignment_DataTypeSpecific
+    elif alignment == Alignment.At64Byte:
+        return CAlignment_64Byte
+    raise ValueError("Not an alignment: " + repr(alignment))
 
 
 _WriteStats = namedtuple(
@@ -103,7 +125,6 @@ class ReadStats(_ReadStats):
     __slots__ = ()
 
 
-@staticmethod
 cdef _wrap_read_stats(CIpcReadStats c):
     return ReadStats(c.num_messages, c.num_record_batches,
                      c.num_dictionary_batches, c.num_dictionary_deltas,
@@ -118,6 +139,10 @@ cdef class IpcReadOptions(_Weakrefable):
     ----------
     ensure_native_endian : bool, default True
         Whether to convert incoming data to platform-native endianness.
+    ensure_alignment : Alignment, default Alignment.Any
+        Data is copied to aligned memory locations if mis-aligned.
+        Some use cases might require data to have a specific alignment, for example,
+        for the data buffer of an int32 array to be aligned on a 4-byte boundary.
     use_threads : bool
         Whether to use the global CPU thread pool to parallelize any
         computational tasks like decompression
@@ -131,9 +156,11 @@ cdef class IpcReadOptions(_Weakrefable):
     # cdef block is in lib.pxd
 
     def __init__(self, *, bint ensure_native_endian=True,
+                 Alignment ensure_alignment=Alignment.Any,
                  bint use_threads=True, list included_fields=None):
         self.c_options = CIpcReadOptions.Defaults()
         self.ensure_native_endian = ensure_native_endian
+        self.ensure_alignment = ensure_alignment
         self.use_threads = use_threads
         if included_fields is not None:
             self.included_fields = included_fields
@@ -145,6 +172,14 @@ cdef class IpcReadOptions(_Weakrefable):
     @ensure_native_endian.setter
     def ensure_native_endian(self, bint value):
         self.c_options.ensure_native_endian = value
+
+    @property
+    def ensure_alignment(self):
+        return _wrap_alignment(self.c_options.ensure_alignment)
+
+    @ensure_alignment.setter
+    def ensure_alignment(self, Alignment value):
+        self.c_options.ensure_alignment = _unwrap_alignment(value)
 
     @property
     def use_threads(self):
@@ -161,6 +196,34 @@ cdef class IpcReadOptions(_Weakrefable):
     @included_fields.setter
     def included_fields(self, list value not None):
         self.c_options.included_fields = value
+
+    def __repr__(self):
+        alignment = Alignment(self.ensure_alignment).name
+
+        return (f"<pyarrow.ipc.IpcReadOptions "
+                f"ensure_native_endian={self.ensure_native_endian} "
+                f"ensure_alignment={alignment} "
+                f"use_threads={self.use_threads} "
+                f"included_fields={self.included_fields}>")
+
+
+cdef IpcReadOptions wrap_ipc_read_options(CIpcReadOptions c):
+    """Get Python's IpcReadOptions from C++'s IpcReadOptions
+    """
+
+    return IpcReadOptions(
+        ensure_native_endian=c.ensure_native_endian,
+        ensure_alignment=c.ensure_alignment,
+        use_threads=c.use_threads,
+        included_fields=c.included_fields,
+    )
+
+
+cdef object _get_compression_from_codec(shared_ptr[CCodec] codec):
+    if codec == nullptr:
+        return None
+    else:
+        return frombytes(codec.get().name())
 
 
 cdef class IpcWriteOptions(_Weakrefable):
@@ -242,10 +305,7 @@ cdef class IpcWriteOptions(_Weakrefable):
 
     @property
     def compression(self):
-        if self.c_options.codec == nullptr:
-            return None
-        else:
-            return frombytes(self.c_options.codec.get().name())
+        return _get_compression_from_codec(self.c_options.codec)
 
     @compression.setter
     def compression(self, value):
@@ -289,6 +349,36 @@ cdef class IpcWriteOptions(_Weakrefable):
     def unify_dictionaries(self, bint value):
         self.c_options.unify_dictionaries = value
 
+    def __repr__(self):
+        compression_repr = f"compression=\"{self.compression}\" " \
+            if self.compression is not None else ""
+
+        metadata_version = MetadataVersion(self.metadata_version).name
+
+        return (f"<pyarrow.ipc.IpcWriteOptions "
+                f"allow_64bit={self.allow_64bit} "
+                f"use_legacy_format={self.use_legacy_format} "
+                f"metadata_version={metadata_version} "
+                f"{compression_repr}"
+                f"use_threads={self.use_threads} "
+                f"emit_dictionary_deltas={self.emit_dictionary_deltas} "
+                f"unify_dictionaries={self.unify_dictionaries}>")
+
+
+cdef IpcWriteOptions wrap_ipc_write_options(CIpcWriteOptions c):
+    """Get Python's IpcWriteOptions from C++'s IpcWriteOptions
+    """
+
+    return IpcWriteOptions(
+        metadata_version=c.metadata_version,
+        allow_64bit=c.allow_64bit,
+        use_legacy_format=c.write_legacy_ipc_format,
+        compression=_get_compression_from_codec(c.codec),
+        use_threads=c.use_threads,
+        emit_dictionary_deltas=c.emit_dictionary_deltas,
+        unify_dictionaries=c.unify_dictionaries,
+    )
+
 
 cdef class Message(_Weakrefable):
     """
@@ -299,9 +389,8 @@ cdef class Message(_Weakrefable):
         pass
 
     def __init__(self):
-        raise TypeError("Do not call {}'s constructor directly, use "
-                        "`pyarrow.ipc.read_message` function instead."
-                        .format(self.__class__.__name__))
+        raise TypeError(f"Do not call {self.__class__.__name__}'s constructor directly, use "
+                        "`pyarrow.ipc.read_message` function instead.")
 
     @property
     def type(self):
@@ -391,9 +480,9 @@ cdef class Message(_Weakrefable):
         body_len = 0 if body is None else body.size
 
         return """pyarrow.Message
-type: {0}
-metadata length: {1}
-body length: {2}""".format(self.type, metadata_len, body_len)
+type: {self.type}
+metadata length: {metadata_len}
+body length: {body_len}"""
 
 
 cdef class MessageReader(_Weakrefable):
@@ -408,9 +497,9 @@ cdef class MessageReader(_Weakrefable):
         pass
 
     def __init__(self):
-        raise TypeError("Do not call {}'s constructor directly, use "
+        raise TypeError(f"Do not call {self.__class__.__name__}'s constructor directly, use "
                         "`pyarrow.ipc.MessageReader.open_stream` function "
-                        "instead.".format(self.__class__.__name__))
+                        "instead.")
 
     @staticmethod
     def open_stream(source):
@@ -436,8 +525,10 @@ cdef class MessageReader(_Weakrefable):
         return result
 
     def __iter__(self):
-        while True:
-            yield self.read_next_message()
+        return self
+
+    def __next__(self):
+        return self.read_next_message()
 
     def read_next_message(self):
         """
@@ -511,8 +602,8 @@ cdef class _CRecordBatchWriter(_Weakrefable):
         ----------
         table : Table
         max_chunksize : int, default None
-            Maximum size for RecordBatch chunks. Individual chunks may be
-            smaller depending on the chunk layout of individual columns.
+            Maximum number of rows for RecordBatch chunks. Individual chunks may
+            be smaller depending on the chunk layout of individual columns.
         """
         cdef:
             # max_chunksize must be > 0 to have any impact
@@ -628,7 +719,7 @@ cdef class RecordBatchReader(_Weakrefable):
     Notes
     -----
     To import and export using the Arrow C stream interface, use the
-    ``_import_from_c`` and ``_export_from_c`` methods. However, keep in mind this
+    ``_import_from_c`` and ``_export_to_c`` methods. However, keep in mind this
     interface is intended for expert users.
 
     Examples
@@ -645,18 +736,25 @@ cdef class RecordBatchReader(_Weakrefable):
     ...     print(batch)
     pyarrow.RecordBatch
     x: int64
+    ----
+    x: [1,2,3]
     pyarrow.RecordBatch
     x: int64
+    ----
+    x: [1,2,3]
     """
 
     # cdef block is in lib.pxd
 
+    def __init__(self):
+        raise TypeError(f"Do not call {self.__class__.__name__}'s constructor directly, "
+                        "use one of the RecordBatchReader.from_* functions instead.")
+
     def __iter__(self):
-        while True:
-            try:
-                yield self.read_next_batch()
-            except StopIteration:
-                return
+        return self
+
+    def __next__(self):
+        return self.read_next_batch()
 
     @property
     def schema(self):
@@ -765,6 +863,38 @@ cdef class RecordBatchReader(_Weakrefable):
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.close()
 
+    def cast(self, target_schema):
+        """
+        Wrap this reader with one that casts each batch lazily as it is pulled.
+        Currently only a safe cast to target_schema is implemented.
+
+        Parameters
+        ----------
+        target_schema : Schema
+            Schema to cast to, the names and order of fields must match.
+
+        Returns
+        -------
+        RecordBatchReader
+        """
+        cdef:
+            shared_ptr[CSchema] c_schema
+            shared_ptr[CRecordBatchReader] c_reader
+            RecordBatchReader out
+
+        if self.schema.names != target_schema.names:
+            raise ValueError("Target schema's field names are not matching "
+                             f"the table's field names: {self.schema.names}, "
+                             f"{target_schema.names}")
+
+        c_schema = pyarrow_unwrap_schema(target_schema)
+        c_reader = GetResultValue(CCastingRecordBatchReader.Make(
+            self.reader, c_schema))
+
+        out = RecordBatchReader.__new__(RecordBatchReader)
+        out.reader = c_reader
+        return out
+
     def _export_to_c(self, out_ptr):
         """
         Export to a C ArrowArrayStream struct, given its pointer.
@@ -809,6 +939,110 @@ cdef class RecordBatchReader(_Weakrefable):
         self = RecordBatchReader.__new__(RecordBatchReader)
         self.reader = c_reader
         return self
+
+    def __arrow_c_stream__(self, requested_schema=None):
+        """
+        Export to a C ArrowArrayStream PyCapsule.
+
+        Parameters
+        ----------
+        requested_schema : PyCapsule, default None
+            The schema to which the stream should be casted, passed as a
+            PyCapsule containing a C ArrowSchema representation of the
+            requested schema.
+
+        Returns
+        -------
+        PyCapsule
+            A capsule containing a C ArrowArrayStream struct.
+        """
+        cdef:
+            ArrowArrayStream* c_stream
+
+        if requested_schema is not None:
+            out_schema = Schema._import_from_c_capsule(requested_schema)
+            if self.schema != out_schema:
+                return self.cast(out_schema).__arrow_c_stream__()
+
+        stream_capsule = alloc_c_stream(&c_stream)
+
+        with nogil:
+            check_status(ExportRecordBatchReader(self.reader, c_stream))
+
+        return stream_capsule
+
+    @staticmethod
+    def _import_from_c_capsule(stream):
+        """
+        Import RecordBatchReader from a C ArrowArrayStream PyCapsule.
+
+        Parameters
+        ----------
+        stream: PyCapsule
+            A capsule containing a C ArrowArrayStream PyCapsule.
+
+        Returns
+        -------
+        RecordBatchReader
+        """
+        cdef:
+            ArrowArrayStream* c_stream
+            shared_ptr[CRecordBatchReader] c_reader
+            RecordBatchReader self
+
+        c_stream = <ArrowArrayStream*>PyCapsule_GetPointer(
+            stream, 'arrow_array_stream'
+        )
+
+        with nogil:
+            c_reader = GetResultValue(ImportRecordBatchReader(c_stream))
+
+        self = RecordBatchReader.__new__(RecordBatchReader)
+        self.reader = c_reader
+        return self
+
+    @staticmethod
+    def from_stream(data, schema=None):
+        """
+        Create RecordBatchReader from a Arrow-compatible stream object.
+
+        This accepts objects implementing the Arrow PyCapsule Protocol for
+        streams, i.e. objects that have a ``__arrow_c_stream__`` method.
+
+        Parameters
+        ----------
+        data : Arrow-compatible stream object
+            Any object that implements the Arrow PyCapsule Protocol for
+            streams.
+        schema : Schema, default None
+            The schema to which the stream should be casted, if supported
+            by the stream object.
+
+        Returns
+        -------
+        RecordBatchReader
+        """
+
+        if not hasattr(data, "__arrow_c_stream__"):
+            raise TypeError(
+                "Expected an object implementing the Arrow PyCapsule Protocol for "
+                "streams (i.e. having a `__arrow_c_stream__` method), "
+                f"got {type(data)!r}."
+            )
+
+        if schema is not None:
+            if not hasattr(schema, "__arrow_c_schema__"):
+                raise TypeError(
+                    "Expected an object implementing the Arrow PyCapsule Protocol for "
+                    "schema (i.e. having a `__arrow_c_schema__` method), "
+                    f"got {type(schema)!r}."
+                )
+            requested = schema.__arrow_c_schema__()
+        else:
+            requested = None
+
+        capsule = data.__arrow_c_stream__(requested)
+        return RecordBatchReader._import_from_c_capsule(capsule)
 
     @staticmethod
     def from_batches(Schema schema not None, batches):
@@ -872,15 +1106,21 @@ cdef class _RecordBatchStreamReader(RecordBatchReader):
 cdef class _RecordBatchFileWriter(_RecordBatchStreamWriter):
 
     def _open(self, sink, Schema schema not None,
-              IpcWriteOptions options=IpcWriteOptions()):
+              IpcWriteOptions options=IpcWriteOptions(),
+              metadata=None):
         cdef:
             shared_ptr[COutputStream] c_sink
+            shared_ptr[const CKeyValueMetadata] c_meta
 
         self.options = options.c_options
         get_writer(sink, &c_sink)
+
+        metadata = ensure_metadata(metadata, allow_none=True)
+        c_meta = pyarrow_unwrap_metadata(metadata)
+
         with nogil:
             self.writer = GetResultValue(
-                MakeFileWriter(c_sink, schema.sp_schema, self.options))
+                MakeFileWriter(c_sink, schema.sp_schema, self.options, c_meta))
 
 _RecordBatchWithMetadata = namedtuple(
     'RecordBatchWithMetadata',
@@ -906,7 +1146,7 @@ cdef _wrap_record_batch_with_metadata(CRecordBatchWithMetadata c):
 
 cdef class _RecordBatchFileReader(_Weakrefable):
     cdef:
-        shared_ptr[CRecordBatchFileReader] reader
+        SharedPtrNoGIL[CRecordBatchFileReader] reader
         shared_ptr[CRandomAccessFile] file
         CIpcReadOptions options
 
@@ -968,7 +1208,7 @@ cdef class _RecordBatchFileReader(_Weakrefable):
         cdef shared_ptr[CRecordBatch] batch
 
         if i < 0 or i >= self.num_record_batches:
-            raise ValueError('Batch number {0} out of range'.format(i))
+            raise ValueError(f'Batch number {i} out of range')
 
         with nogil:
             batch = GetResultValue(self.reader.get().ReadRecordBatch(i))
@@ -981,7 +1221,7 @@ cdef class _RecordBatchFileReader(_Weakrefable):
 
     def get_batch_with_custom_metadata(self, int i):
         """
-        Read the record batch with the given index along with 
+        Read the record batch with the given index along with
         its custom metadata
 
         Parameters
@@ -998,7 +1238,7 @@ cdef class _RecordBatchFileReader(_Weakrefable):
             CRecordBatchWithMetadata batch_with_metadata
 
         if i < 0 or i >= self.num_record_batches:
-            raise ValueError('Batch number {0} out of range'.format(i))
+            raise ValueError(f'Batch number {i} out of range')
 
         with nogil:
             batch_with_metadata = GetResultValue(
@@ -1043,6 +1283,15 @@ cdef class _RecordBatchFileReader(_Weakrefable):
         if not self.reader:
             raise ValueError("Operation on closed reader")
         return _wrap_read_stats(self.reader.get().stats())
+
+    @property
+    def metadata(self):
+        """
+        File-level custom metadata as dict, where both keys and values are byte-like.
+        This kind of metadata can be written via ``ipc.new_file(..., metadata=...)``.
+        """
+        wrapped = pyarrow_wrap_metadata(self.reader.get().metadata())
+        return wrapped.to_dict() if wrapped is not None else None
 
 
 def get_tensor_size(Tensor tensor):
@@ -1111,8 +1360,8 @@ cdef NativeFile as_native_file(source):
             source = BufferReader(source)
 
     if not isinstance(source, NativeFile):
-        raise ValueError('Unable to read message from object with type: {0}'
-                         .format(type(source)))
+        raise ValueError(
+            f'Unable to read message from object with type: {type(source)}')
     return source
 
 

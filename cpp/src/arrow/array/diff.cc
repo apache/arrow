@@ -21,6 +21,7 @@
 #include <chrono>
 #include <functional>
 #include <memory>
+#include <optional>
 #include <sstream>
 #include <string>
 #include <string_view>
@@ -32,6 +33,7 @@
 #include "arrow/array/array_decimal.h"
 #include "arrow/array/array_nested.h"
 #include "arrow/array/array_primitive.h"
+#include "arrow/array/array_run_end.h"
 #include "arrow/buffer.h"
 #include "arrow/buffer_builder.h"
 #include "arrow/extension_type.h"
@@ -41,9 +43,12 @@
 #include "arrow/type_traits.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/checked_cast.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/float16.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/range.h"
+#include "arrow/util/ree_util.h"
 #include "arrow/util/string.h"
+#include "arrow/util/unreachable.h"
 #include "arrow/vendored/datetime.h"
 #include "arrow/visit_type_inline.h"
 
@@ -52,6 +57,8 @@ namespace arrow {
 using internal::checked_cast;
 using internal::checked_pointer_cast;
 using internal::MakeLazyRange;
+
+namespace {
 
 template <typename ArrayType>
 auto GetView(const ArrayType& array, int64_t index) -> decltype(array.GetView(index)) {
@@ -88,48 +95,261 @@ struct UnitSlice {
 
 // FIXME(bkietz) this is inefficient;
 // StructArray's fields can be diffed independently then merged
-static UnitSlice GetView(const StructArray& array, int64_t index) {
+UnitSlice GetView(const StructArray& array, int64_t index) {
   return UnitSlice{&array, index};
 }
 
-static UnitSlice GetView(const UnionArray& array, int64_t index) {
+UnitSlice GetView(const UnionArray& array, int64_t index) {
   return UnitSlice{&array, index};
 }
 
-using ValueComparator = std::function<bool(const Array&, int64_t, const Array&, int64_t)>;
+/// \brief A simple virtual comparator interface for two arrays.
+///
+/// The base and target array ara bound at construction time. Then
+/// Equals(base_index, target_index) should return true if the values
+/// at the given indices are equal.
+struct ValueComparator {
+  virtual ~ValueComparator() = default;
 
-struct ValueComparatorVisitor {
+  /// \brief Compare the validity and values at the given indices in the base and target
+  /// arrays.
+  ///
+  /// \param base_index The index in the base array.
+  /// \param target_index The index in the target array.
+  /// \return true if the values at the given indices are equal, false otherwise.
+  /// \pre base_index and target_index are valid indices in their respective arrays.
+  virtual bool Equals(int64_t base_index, int64_t target_index) = 0;
+
+  /// \brief Return the run length of equal values starting at the given indices in the
+  /// base and target arrays.
+  ///
+  /// \param base_index The starting index in the base array.
+  /// \param base_length The length of the base array.
+  /// \param target_index The starting index in the target array.
+  /// \param target_length The length of the target array.
+  /// \return The run length of equal values starting at the given indices in the base
+  /// and target arrays.
+  virtual int64_t RunLengthOfEqualsFrom(int64_t base_index, int64_t base_length,
+                                        int64_t target_index, int64_t target_length) {
+    int64_t run_length_of_equals = 0;
+    while (base_index < base_length && target_index < target_length) {
+      if (!Equals(base_index, target_index)) {
+        break;
+      }
+      base_index += 1;
+      target_index += 1;
+      run_length_of_equals += 1;
+    }
+    return run_length_of_equals;
+  }
+};
+
+template <typename ArrayType>
+struct DefaultValueComparator : public ValueComparator {
+  const ArrayType& base;
+  const ArrayType& target;
+
+  DefaultValueComparator(const ArrayType& base, const ArrayType& target)
+      : base(base), target(target) {}
+
+  ~DefaultValueComparator() override = default;
+
+  bool Equals(int64_t base_index, int64_t target_index) override {
+    const bool base_valid = base.IsValid(base_index);
+    const bool target_valid = target.IsValid(target_index);
+    if (base_valid && target_valid) {
+      return GetView(base, base_index) == GetView(target, target_index);
+    }
+    return base_valid == target_valid;
+  }
+};
+
+template <typename RunEndCType>
+class REEValueComparator : public ValueComparator {
+ private:
+  const RunEndEncodedArray& base_;
+  const RunEndEncodedArray& target_;
+  std::unique_ptr<ValueComparator> inner_value_comparator_;
+  ree_util::PhysicalIndexFinder<RunEndCType> base_physical_index_finder_;
+  ree_util::PhysicalIndexFinder<RunEndCType> target_physical_index_finder_;
+
+ public:
+  REEValueComparator(const RunEndEncodedArray& base, const RunEndEncodedArray& target,
+                     std::unique_ptr<ValueComparator>&& inner_value_comparator)
+      : base_(base),
+        target_(target),
+        inner_value_comparator_(std::move(inner_value_comparator)),
+        base_physical_index_finder_(*base_.data()),
+        target_physical_index_finder_(*target_.data()) {
+    DCHECK_EQ(*base_.type(), *target_.type());
+  }
+
+  ~REEValueComparator() override = default;
+
+ private:
+  /// \pre 0 <= i < base_.length()
+  inline int64_t FindPhysicalIndexOnBase(int64_t i) {
+    return base_physical_index_finder_.FindPhysicalIndex(i);
+  }
+
+  /// \pre 0 <= i < target_.length()
+  inline int64_t FindPhysicalIndexOnTarget(int64_t i) {
+    return target_physical_index_finder_.FindPhysicalIndex(i);
+  }
+
+  const RunEndCType* base_run_ends() { return base_physical_index_finder_.run_ends; }
+
+  const RunEndCType* target_run_ends() { return target_physical_index_finder_.run_ends; }
+
+ public:
+  int64_t RunLengthOfEqualsFrom(int64_t base_index, int64_t base_length,
+                                int64_t target_index, int64_t target_length) override {
+    // Ensure the first search for physical index on the values arrays is safe.
+    if (base_index >= base_length || target_index >= target_length) {
+      // Without values on either side, there is no run of equal values.
+      return 0;
+    }
+
+    // Translate the two logical indices into physical indices.
+    int64_t physical_base_index = FindPhysicalIndexOnBase(base_index);
+    int64_t physical_target_index = FindPhysicalIndexOnTarget(target_index);
+
+    int64_t run_length_of_equals = 0;
+    // The loop invariant (base_index < base_length && target_index < target_length)
+    // is valid when the loop starts because of the check above.
+    for (;;) {
+      const auto base_run_end =
+          static_cast<int64_t>(base_run_ends()[physical_base_index]) - base_.offset();
+      const auto target_run_end =
+          static_cast<int64_t>(target_run_ends()[physical_target_index]) -
+          target_.offset();
+      // The end of the runs containing the logical indices, by definition, ends
+      // after the logical indices.
+      DCHECK_LT(base_index, base_run_end);
+      DCHECK_LT(target_index, target_run_end);
+
+      // Compare the physical values that make up the runs containing base_index
+      // and target_index.
+      if (!inner_value_comparator_->Equals(physical_base_index, physical_target_index)) {
+        // First difference found, stop because the run of equal values cannot
+        // be extended further.
+        break;
+      }
+
+      const int64_t base_run = std::min(base_run_end, base_length) - base_index;
+      const int64_t target_run = std::min(target_run_end, target_length) - target_index;
+      // Due to the loop-invariant (base_index < base_length && target_index <
+      // target_length) and properties of the run-ends asserted above, both base_run and
+      // target_run are strictly greater than zero.
+      DCHECK_GT(base_run, 0);
+      DCHECK_GT(target_run, 0);
+
+      // Skip the smallest run (or both runs if they are equal)
+      const int64_t increment = std::min(base_run, target_run);
+      physical_base_index += increment == base_run;
+      physical_target_index += increment == target_run;
+
+      // Since both base_run and target_run are greater than zero,
+      // increment is also greater than zero...
+      DCHECK_GT(increment, 0);
+      // ...which implies that the loop will make progress and eventually terminate
+      // because base_index or target_index will equal base_length or target_length,
+      // respectively.
+      base_index += increment;
+      target_index += increment;
+      // The value representing the two runs are equal, so we can assume that at
+      // least `increment` (size of smallest run) values are equal.
+      run_length_of_equals += increment;
+
+      if (base_index >= base_length || target_index >= target_length) {
+        break;
+      }
+    }
+
+    return run_length_of_equals;
+  }
+
+  bool Equals(int64_t base_index, int64_t target_index) override {
+    const int64_t physical_base_index = FindPhysicalIndexOnBase(base_index);
+    const int64_t physical_target_index = FindPhysicalIndexOnTarget(target_index);
+    return inner_value_comparator_->Equals(physical_base_index, physical_target_index);
+  }
+};
+
+class ValueComparatorFactory {
+ private:
+  std::unique_ptr<ValueComparator> comparator_;
+
+ public:
   template <typename T>
-  Status Visit(const T&) {
+  Status Visit(const T&, const Array& base, const Array& target) {
     using ArrayType = typename TypeTraits<T>::ArrayType;
-    out = [](const Array& base, int64_t base_index, const Array& target,
-             int64_t target_index) {
-      return (GetView(checked_cast<const ArrayType&>(base), base_index) ==
-              GetView(checked_cast<const ArrayType&>(target), target_index));
-    };
+    comparator_ = std::make_unique<DefaultValueComparator<ArrayType>>(
+        checked_cast<const ArrayType&>(base), checked_cast<const ArrayType&>(target));
     return Status::OK();
   }
 
-  Status Visit(const NullType&) { return Status::NotImplemented("null type"); }
+  Status Visit(const NullType&, const Array&, const Array&) {
+    return Status::NotImplemented("null type");
+  }
+  Status Visit(const ListViewType&, const Array&, const Array&) {
+    return Status::NotImplemented("list-view type");
+  }
 
-  Status Visit(const ExtensionType&) { return Status::NotImplemented("extension type"); }
+  Status Visit(const LargeListViewType&, const Array&, const Array&) {
+    return Status::NotImplemented("list-view type");
+  }
 
-  Status Visit(const DictionaryType&) {
+  Status Visit(const ExtensionType&, const Array&, const Array&) {
+    return Status::NotImplemented("extension type");
+  }
+
+  Status Visit(const DictionaryType&, const Array& base, const Array& target) {
     return Status::NotImplemented("dictionary type");
   }
 
-  ValueComparator Create(const DataType& type) {
-    DCHECK_OK(VisitTypeInline(type, this));
-    return out;
+  Status Visit(const RunEndEncodedType& ree_type, const Array& base,
+               const Array& target) {
+    const auto& base_ree = checked_cast<const RunEndEncodedArray&>(base);
+    const auto& target_ree = checked_cast<const RunEndEncodedArray&>(target);
+
+    ARROW_ASSIGN_OR_RAISE(
+        auto inner_values_comparator,
+        Create(*ree_type.value_type(), *base_ree.values(), *target_ree.values()));
+
+    // Instantiate the specialized comparator types with operator new instead of
+    // make_unique<T>() to avoid binary bloat. unique_ptr<T>'s constructor is templated
+    // on the type of the deleter and we're fine with destructor calls being virtually
+    // dispatched via ValueComparator.
+    ValueComparator* ree_value_comparator = nullptr;
+    switch (ree_type.run_end_type()->id()) {
+      case Type::INT16:
+        ree_value_comparator = new REEValueComparator<int16_t>(
+            base_ree, target_ree, std::move(inner_values_comparator));
+        break;
+      case Type::INT32:
+        ree_value_comparator = new REEValueComparator<int32_t>(
+            base_ree, target_ree, std::move(inner_values_comparator));
+        break;
+      case Type::INT64:
+        ree_value_comparator = new REEValueComparator<int64_t>(
+            base_ree, target_ree, std::move(inner_values_comparator));
+        break;
+      default:
+        Unreachable();
+    }
+    comparator_.reset(ree_value_comparator);
+    return Status::OK();
   }
 
-  ValueComparator out;
+  static Result<std::unique_ptr<ValueComparator>> Create(const DataType& type,
+                                                         const Array& base,
+                                                         const Array& target) {
+    ValueComparatorFactory self;
+    RETURN_NOT_OK(VisitTypeInline(type, &self, base, target));
+    return std::move(self.comparator_);
+  }
 };
-
-ValueComparator GetValueComparator(const DataType& type) {
-  ValueComparatorVisitor type_visitor;
-  return type_visitor.Create(type);
-}
 
 // represents an intermediate state in the comparison of two arrays
 struct EditPoint {
@@ -157,33 +377,9 @@ struct EditPoint {
 class QuadraticSpaceMyersDiff {
  public:
   QuadraticSpaceMyersDiff(const Array& base, const Array& target, MemoryPool* pool)
-      : base_(base),
-        target_(target),
-        pool_(pool),
-        value_comparator_(GetValueComparator(*base.type())),
-        base_begin_(0),
-        base_end_(base.length()),
-        target_begin_(0),
-        target_end_(target.length()),
-        endpoint_base_({ExtendFrom({base_begin_, target_begin_}).base}),
-        insert_({true}) {
-    if ((base_end_ - base_begin_ == target_end_ - target_begin_) &&
-        endpoint_base_[0] == base_end_) {
-      // trivial case: base == target
-      finish_index_ = 0;
-    }
-  }
+      : base_(base), target_(target), pool_(pool) {}
 
-  bool ValuesEqual(int64_t base_index, int64_t target_index) const {
-    bool base_null = base_.IsNull(base_index);
-    bool target_null = target_.IsNull(target_index);
-    if (base_null || target_null) {
-      // If only one is null, then this is false, otherwise true
-      return base_null && target_null;
-    }
-    return value_comparator_(base_, base_index, target_, target_index);
-  }
-
+ private:
   // increment the position within base (the element pointed to was deleted)
   // then extend maximally
   EditPoint DeleteOne(EditPoint p) const {
@@ -205,11 +401,10 @@ class QuadraticSpaceMyersDiff {
   // increment the position within base and target (the elements skipped in this way were
   // present in both sequences)
   EditPoint ExtendFrom(EditPoint p) const {
-    for (; p.base != base_end_ && p.target != target_end_; ++p.base, ++p.target) {
-      if (!ValuesEqual(p.base, p.target)) {
-        break;
-      }
-    }
+    const int64_t run_length_of_equals =
+        _comparator->RunLengthOfEqualsFrom(p.base, base_end_, p.target, target_end_);
+    p.base += run_length_of_equals;
+    p.target += run_length_of_equals;
     return p;
   }
 
@@ -317,7 +512,24 @@ class QuadraticSpaceMyersDiff {
         {field("insert", boolean()), field("run_length", int64())});
   }
 
+ public:
   Result<std::shared_ptr<StructArray>> Diff() {
+    base_begin_ = 0;
+    base_end_ = base_.length();
+    target_begin_ = 0;
+    target_end_ = target_.length();
+    ARROW_ASSIGN_OR_RAISE(_comparator,
+                          ValueComparatorFactory::Create(*base_.type(), base_, target_));
+
+    finish_index_ = -1;
+    edit_count_ = 0;
+    endpoint_base_ = {ExtendFrom({base_begin_, target_begin_}).base};
+    insert_ = {true};
+    if ((base_end_ - base_begin_ == target_end_ - target_begin_) &&
+        endpoint_base_[0] == base_end_) {
+      // trivial case: base == target
+      finish_index_ = 0;
+    }
     while (!Done()) {
       Next();
     }
@@ -325,14 +537,19 @@ class QuadraticSpaceMyersDiff {
   }
 
  private:
+  // Constructor-injected references
   const Array& base_;
   const Array& target_;
   MemoryPool* pool_;
-  ValueComparator value_comparator_;
+
+  // Initialized on Diff() and immutable thereafter
+  int64_t base_begin_ = 0, base_end_ = -1;
+  int64_t target_begin_ = 0, target_end_ = -1;
+  std::unique_ptr<ValueComparator> _comparator;
+
+  // Initialized on Next() and mutated throughout the diffing process
   int64_t finish_index_ = -1;
   int64_t edit_count_ = 0;
-  int64_t base_begin_, base_end_;
-  int64_t target_begin_, target_end_;
   // each element of endpoint_base_ is the furthest position in base reachable given an
   // edit_count and (# insertions) - (# deletions). Each bit of insert_ records whether
   // the corresponding furthest position was reached via an insertion or a deletion
@@ -368,25 +585,6 @@ Result<std::shared_ptr<StructArray>> NullDiff(const Array& base, const Array& ta
                            {field("insert", boolean()), field("run_length", int64())});
 }
 
-Result<std::shared_ptr<StructArray>> Diff(const Array& base, const Array& target,
-                                          MemoryPool* pool) {
-  if (!base.type()->Equals(target.type())) {
-    return Status::TypeError("only taking the diff of like-typed arrays is supported.");
-  }
-
-  if (base.type()->id() == Type::NA) {
-    return NullDiff(base, target, pool);
-  } else if (base.type()->id() == Type::EXTENSION) {
-    auto base_storage = checked_cast<const ExtensionArray&>(base).storage();
-    auto target_storage = checked_cast<const ExtensionArray&>(target).storage();
-    return Diff(*base_storage, *target_storage, pool);
-  } else if (base.type()->id() == Type::DICTIONARY) {
-    return Status::NotImplemented("diffing arrays of type ", *base.type());
-  } else {
-    return QuadraticSpaceMyersDiff(base, target, pool).Diff();
-  }
-}
-
 using Formatter = std::function<void(const Array&, int64_t index, std::ostream*)>;
 
 static Result<Formatter> MakeFormatter(const DataType& type);
@@ -398,14 +596,18 @@ class MakeFormatterImpl {
     return std::move(impl_);
   }
 
- private:
-  template <typename VISITOR, typename... ARGS>
-  friend Status VisitTypeInline(const DataType&, VISITOR*, ARGS&&... args);
-
   // factory implementation
   Status Visit(const BooleanType&) {
     impl_ = [](const Array& array, int64_t index, std::ostream* os) {
       *os << (checked_cast<const BooleanArray&>(array).Value(index) ? "true" : "false");
+    };
+    return Status::OK();
+  }
+
+  Status Visit(const HalfFloatType&) {
+    impl_ = [](const Array& array, int64_t index, std::ostream* os) {
+      const auto& float16_arr = checked_cast<const HalfFloatArray&>(array);
+      *os << arrow::util::Float16::FromBits(float16_arr.Value(index));
     };
     return Status::OK();
   }
@@ -470,30 +672,29 @@ class MakeFormatterImpl {
     return Status::OK();
   }
 
-  // format Binary, LargeBinary and FixedSizeBinary in hexadecimal
   template <typename T>
-  enable_if_binary_like<T, Status> Visit(const T&) {
+  enable_if_has_string_view<T, Status> Visit(const T&) {
     using ArrayType = typename TypeTraits<T>::ArrayType;
     impl_ = [](const Array& array, int64_t index, std::ostream* os) {
-      *os << HexEncode(checked_cast<const ArrayType&>(array).GetView(index));
+      std::string_view view = checked_cast<const ArrayType&>(array).GetView(index);
+      if constexpr (T::is_utf8) {
+        // format String and StringView with \"\n\r\t\\ escaped
+        *os << '"' << Escape(view) << '"';
+      } else {
+        // format Binary, LargeBinary, BinaryView, and FixedSizeBinary in hexadecimal
+        *os << HexEncode(view);
+      }
     };
     return Status::OK();
   }
 
-  // format Strings with \"\n\r\t\\ escaped
+  // format Decimals with Decimal___Array::FormatValue
   template <typename T>
-  enable_if_string_like<T, Status> Visit(const T&) {
-    using ArrayType = typename TypeTraits<T>::ArrayType;
+  enable_if_decimal<T, Status> Visit(const T&) {
     impl_ = [](const Array& array, int64_t index, std::ostream* os) {
-      *os << "\"" << Escape(checked_cast<const ArrayType&>(array).GetView(index)) << "\"";
-    };
-    return Status::OK();
-  }
-
-  // format Decimals with Decimal128Array::FormatValue
-  Status Visit(const Decimal128Type&) {
-    impl_ = [](const Array& array, int64_t index, std::ostream* os) {
-      *os << checked_cast<const Decimal128Array&>(array).FormatValue(index);
+      const auto& decimal_array =
+          checked_cast<const typename TypeTraits<T>::ArrayType&>(array);
+      *os << decimal_array.FormatValue(index);
     };
     return Status::OK();
   }
@@ -522,6 +723,14 @@ class MakeFormatterImpl {
     ARROW_ASSIGN_OR_RAISE(auto values_formatter, MakeFormatter(*t.value_type()));
     impl_ = ListImpl(std::move(values_formatter));
     return Status::OK();
+  }
+
+  Status Visit(const ListViewType& t) {
+    return Status::NotImplemented("formatting diffs between arrays of type ", t);
+  }
+
+  Status Visit(const LargeListViewType& t) {
+    return Status::NotImplemented("formatting diffs between arrays of type ", t);
   }
 
   // TODO(bkietz) format maps better
@@ -633,6 +842,10 @@ class MakeFormatterImpl {
     return Status::NotImplemented("formatting diffs between arrays of type ", t);
   }
 
+  Status Visit(const RunEndEncodedType& t) {
+    return Status::NotImplemented("formatting diffs between arrays of type ", t);
+  }
+
   template <typename T, bool AddEpoch>
   Formatter MakeTimeFormatter(const std::string& fmt_str) {
     return [fmt_str](const Array& array, int64_t index, std::ostream* os) {
@@ -685,46 +898,8 @@ class MakeFormatterImpl {
   Formatter impl_;
 };
 
-static Result<Formatter> MakeFormatter(const DataType& type) {
+Result<Formatter> MakeFormatter(const DataType& type) {
   return MakeFormatterImpl{}.Make(type);
-}
-
-Status VisitEditScript(
-    const Array& edits,
-    const std::function<Status(int64_t delete_begin, int64_t delete_end,
-                               int64_t insert_begin, int64_t insert_end)>& visitor) {
-  static const auto edits_type =
-      struct_({field("insert", boolean()), field("run_length", int64())});
-  DCHECK(edits.type()->Equals(*edits_type));
-  DCHECK_GE(edits.length(), 1);
-
-  auto insert = checked_pointer_cast<BooleanArray>(
-      checked_cast<const StructArray&>(edits).field(0));
-  auto run_lengths =
-      checked_pointer_cast<Int64Array>(checked_cast<const StructArray&>(edits).field(1));
-
-  DCHECK(!insert->Value(0));
-
-  auto length = run_lengths->Value(0);
-  int64_t base_begin, base_end, target_begin, target_end;
-  base_begin = base_end = target_begin = target_end = length;
-  for (int64_t i = 1; i < edits.length(); ++i) {
-    if (insert->Value(i)) {
-      ++target_end;
-    } else {
-      ++base_end;
-    }
-    length = run_lengths->Value(i);
-    if (length != 0) {
-      RETURN_NOT_OK(visitor(base_begin, base_end, target_begin, target_end));
-      base_begin = base_end = base_end + length;
-      target_begin = target_end = target_end + length;
-    }
-  }
-  if (length == 0) {
-    return visitor(base_begin, base_end, target_begin, target_end);
-  }
-  return Status::OK();
 }
 
 class UnifiedDiffFormatter {
@@ -776,6 +951,8 @@ class UnifiedDiffFormatter {
   Formatter formatter_;
 };
 
+}  // namespace
+
 Result<std::function<Status(const Array& edits, const Array& base, const Array& target)>>
 MakeUnifiedDiffFormatter(const DataType& type, std::ostream* os) {
   if (type.id() == Type::NA) {
@@ -791,6 +968,66 @@ MakeUnifiedDiffFormatter(const DataType& type, std::ostream* os) {
 
   ARROW_ASSIGN_OR_RAISE(auto formatter, MakeFormatter(type));
   return UnifiedDiffFormatter(os, std::move(formatter));
+}
+
+Status VisitEditScript(
+    const Array& edits,
+    const std::function<Status(int64_t delete_begin, int64_t delete_end,
+                               int64_t insert_begin, int64_t insert_end)>& visitor) {
+  static const auto edits_type =
+      struct_({field("insert", boolean()), field("run_length", int64())});
+  DCHECK(edits.type()->Equals(*edits_type));
+  DCHECK_GE(edits.length(), 1);
+
+  auto insert = checked_pointer_cast<BooleanArray>(
+      checked_cast<const StructArray&>(edits).field(0));
+  auto run_lengths =
+      checked_pointer_cast<Int64Array>(checked_cast<const StructArray&>(edits).field(1));
+
+  DCHECK(!insert->Value(0));
+
+  auto length = run_lengths->Value(0);
+  int64_t base_begin, base_end, target_begin, target_end;
+  base_begin = base_end = target_begin = target_end = length;
+  for (int64_t i = 1; i < edits.length(); ++i) {
+    if (insert->Value(i)) {
+      ++target_end;
+    } else {
+      ++base_end;
+    }
+    length = run_lengths->Value(i);
+    if (length != 0) {
+      RETURN_NOT_OK(visitor(base_begin, base_end, target_begin, target_end));
+      base_begin = base_end = base_end + length;
+      target_begin = target_end = target_end + length;
+    }
+  }
+  if (length == 0) {
+    return visitor(base_begin, base_end, target_begin, target_end);
+  }
+  return Status::OK();
+}
+
+Result<std::shared_ptr<StructArray>> Diff(const Array& base, const Array& target,
+                                          MemoryPool* pool) {
+  if (!base.type()->Equals(target.type())) {
+    return Status::TypeError("only taking the diff of like-typed arrays is supported.");
+  }
+
+  if (base.type()->id() == Type::NA) {
+    return NullDiff(base, target, pool);
+  } else if (base.type()->id() == Type::EXTENSION) {
+    auto base_storage = checked_cast<const ExtensionArray&>(base).storage();
+    auto target_storage = checked_cast<const ExtensionArray&>(target).storage();
+    return Diff(*base_storage, *target_storage, pool);
+  } else if (base.type()->id() == Type::DICTIONARY) {
+    return Status::NotImplemented("diffing arrays of type ", *base.type());
+  } else if (base.type()->id() == Type::LIST_VIEW ||
+             base.type()->id() == Type::LARGE_LIST_VIEW) {
+    return Status::NotImplemented("diffing arrays of type ", *base.type());
+  } else {
+    return QuadraticSpaceMyersDiff(base, target, pool).Diff();
+  }
 }
 
 }  // namespace arrow

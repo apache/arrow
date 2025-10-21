@@ -1,8 +1,0 @@
-// Compiler configuration to build the ES2015 ESModules target
-{
-  "extends": "./tsconfig.base.json",
-  "compilerOptions": {
-    "target": "ES2015",
-    "module": "ES2015"
-  }
-}
