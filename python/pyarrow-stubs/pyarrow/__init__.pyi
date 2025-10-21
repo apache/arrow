@@ -374,12 +374,6 @@ def show_info() -> None: ...
 def _module_is_available(module: str) -> bool: ...
 def _filesystem_is_available(fs: str) -> bool: ...
 
-
-# ----------------------------------------------------------------------
-# Returning absolute path to the pyarrow include directory (if bundled, e.g. in
-# wheels)
-
-
 def get_include() -> str: ...
 def _get_pkg_config_executable() -> str: ...
 def _has_pkg_config(pkgname: str) -> bool: ...
@@ -699,15 +693,12 @@ __all__ = [
     "_get_pkg_config_executable",
     "compute",
     "feather",
-
     "csv",
     "json",
-
     "_has_pkg_config",
     "_read_pkg_config_variable",
     "get_libraries",
     "create_library_symlinks",
     "dataset",
-
     "get_library_dirs",
 ]

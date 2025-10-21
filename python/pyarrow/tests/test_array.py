@@ -34,7 +34,7 @@ else:
     try:
         import numpy as np
     except ImportError:
-        pass
+        np = None
 
 import pyarrow as pa
 import pyarrow.tests.strategies as past

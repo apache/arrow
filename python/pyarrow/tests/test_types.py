@@ -34,11 +34,11 @@ else:
     try:
         import numpy as np
     except ImportError:
-        pass
+        np = None
     try:
         import hypothesis.extra.pytz as tzst
     except ImportError:
-        pass
+        tzst = None
 
 import pyarrow as pa
 import pyarrow.types as types

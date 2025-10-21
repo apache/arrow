@@ -32,7 +32,7 @@ else:
     try:
         import numpy as np
     except ImportError:
-        pass
+        np = None
 
 from pyarrow.pandas_compat import _pandas_api  # noqa
 import pyarrow as pa
