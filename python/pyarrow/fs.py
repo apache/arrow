@@ -375,7 +375,7 @@ class FSSpecHandler(FileSystemHandler):
             elif self.fs.isfile(subpath):
                 self.fs.rm(subpath)
 
-    def delete_dir_contents(self, path, missing_dir_ok=False):  # pyright: ignore[reportIncompatibleMethodOverride]
+    def delete_dir_contents(self, path, missing_dir_ok):  # pyright: ignore[reportIncompatibleMethodOverride]
         if path.strip("/") == "":
             raise ValueError(
                 "delete_dir_contents called on path '", path, "'")
@@ -383,7 +383,6 @@ class FSSpecHandler(FileSystemHandler):
 
     def delete_root_dir_contents(self):
         self._delete_dir_contents("/", False)
-        self._delete_dir_contents("/")  # type: ignore
 
     def delete_file(self, path):
         # fs.rm correctly raises IsADirectoryError when `path` is a directory

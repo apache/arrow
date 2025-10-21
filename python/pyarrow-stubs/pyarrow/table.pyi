@@ -180,7 +180,7 @@ class ChunkedArray(_PandasConvertible[pd.Series], Generic[_Scalar_co]):
 
     def cast(self, target_type: _CastAs | str | None, safe: bool = True,
              options: CastOptions | None = None,
-             memory_pool: MemoryPool | None = None) -> ChunkedArray[Scalar[_CastAs]]: ...
+             memory_pool: MemoryPool | None = None) ->  Self | ChunkedArray[Scalar[_CastAs]]: ...
 
     def fill_null(self, fill_value: Scalar[_DataTypeT]) -> Self: ...
 
@@ -190,13 +190,6 @@ class ChunkedArray(_PandasConvertible[pd.Series], Generic[_Scalar_co]):
 
     def __array__(self, dtype: np.dtype | None = None,
                   copy: bool | None = None) -> np.ndarray: ...
-
-    def cast(
-        self,
-        target_type: None | _CastAs = None,
-        safe: bool | None = None,
-        options: CastOptions | None = None,
-    ) -> Self | ChunkedArray[Scalar[_CastAs]]: ...
 
     def dictionary_encode(self, null_encoding: NullEncoding = "mask") -> Self: ...
 
@@ -261,24 +254,13 @@ class ChunkedArray(_PandasConvertible[pd.Series], Generic[_Scalar_co]):
     def is_cpu(self) -> bool: ...
 
 
-@overload
 def chunked_array(
     arrays: Iterable[NullableCollection[Any]]
     | Iterable[Iterable[Any] | SupportArrowStream | SupportArrowArray]
-    | Iterable[Array[_ScalarT]] | Array[_ScalarT],
+    | Iterable[Array[_ScalarT]] | Array[_ScalarT]
+    | SupportArrowArray | SupportArrowStream,
     type: DataType | str | None = None,
 ) -> ChunkedArray[Scalar[Any]] | ChunkedArray[_ScalarT]: ...
-
-@overload
-def chunked_array(
-    arrays: SupportArrowArray | SupportArrowStream,
-    type: DataType | str | None = None,
-) -> ChunkedArray[Scalar[Any]]: ...
-
-def chunked_array(
-    arrays: Any,
-    type: DataType | str | None = None,
-) -> ChunkedArray[Scalar[Any]] | ChunkedArray[Any]: ...
 
 
 _ColumnT = TypeVar("_ColumnT", bound=ArrayOrChunkedArray[Any])
@@ -312,27 +294,9 @@ class _Tabular(_PandasConvertible[pd.DataFrame], Generic[_ColumnT]):
     def field(self, i: int | str) -> Field: ...
 
     @classmethod
-    @overload
-    def from_pydict(
-        cls,
-        mapping: Mapping[str, ArrayOrChunkedArray[Any] | list[Any] | np.ndarray | range],
-        schema: Schema | None = None,
-        metadata: Mapping[str | bytes, str | bytes] | None = None,
-    ) -> Self: ...
-
-    @classmethod
-    @overload
     def from_pydict(
         cls,
         mapping: Mapping[Any, ArrayOrChunkedArray[Any] | list[Any] | np.ndarray | range],
-        schema: Schema | None = None,
-        metadata: Mapping[str | bytes, str | bytes] | None = None,
-    ) -> Self: ...
-
-    @classmethod
-    def from_pydict(
-        cls,
-        mapping: Mapping[Any, Any],
         schema: Schema | None = None,
         metadata: Mapping[str | bytes, str | bytes] | None = None,
     ) -> Self: ...
@@ -645,46 +609,18 @@ def record_batch(
     metadata: Mapping[str | bytes, str | bytes] | None = None,
 ) -> RecordBatch: ...
 
-
-@overload
-def table(
-    data: Mapping[str, list[Any] | Array[Any] | ChunkedArray[Any] | range] | Mapping[str, Any],
-    names: list[str] | Schema | None = None,
-    schema: Schema | None = None,
-    metadata: Mapping[str | bytes, str | bytes] | None = None,
-    nthreads: int | None = None,
-) -> Table: ...
-
-@overload
-def table(
-    data: Mapping[Any, list[Any] | Array[Any] | ChunkedArray[Any] | range],
-    names: list[str] | Schema | None = None,
-    schema: Schema | None = None,
-    metadata: Mapping[str | bytes, str | bytes] | None = None,
-    nthreads: int | None = None,
-) -> Table: ...
-
-@overload
 def table(
     data: Collection[ArrayOrChunkedArray[Any] | list[Any] | range | str]
     | pd.DataFrame
     | SupportArrowArray
     | SupportArrowStream
-    | SupportArrowDeviceArray,
+    | SupportArrowDeviceArray
+    | Mapping[str, list[Any] | Array[Any] | ChunkedArray[Any] | range] | Mapping[str, Any],
     names: list[str] | Schema | None = None,
     schema: Schema | None = None,
     metadata: Mapping[str | bytes, str | bytes] | None = None,
     nthreads: int | None = None,
 ) -> Table: ...
-
-def table(
-    data: Any,
-    names: list[str] | Schema | None = None,
-    schema: Schema | None = None,
-    metadata: Mapping[str | bytes, str | bytes] | None = None,
-    nthreads: int | None = None,
-) -> Table: ...
-
 
 def concat_tables(
     tables: Iterable[Table],

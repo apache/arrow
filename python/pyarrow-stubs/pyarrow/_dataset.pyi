@@ -26,6 +26,7 @@ from typing import (
     IO,
     Any,
     Generic,
+    Iterable,
     Literal,
     NamedTuple,
     TypeVar,

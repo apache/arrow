@@ -491,22 +491,22 @@ def test_chunked_array_unify_dictionaries():
     chunk_0 = arr.chunk(0)
     assert isinstance(chunk_0, pa.DictionaryArray)
     assert chunk_0.dictionary.equals(pa.array(["foo", "bar"]))
-    
+
     chunk_1 = arr.chunk(1)
     assert isinstance(chunk_1, pa.DictionaryArray)
     assert chunk_1.dictionary.equals(pa.array(["quux", "foo"]))
-    
+
     arr = arr.unify_dictionaries()
     expected_dict = pa.array(["foo", "bar", "quux"])
-    
+
     chunk_0 = arr.chunk(0)
     assert isinstance(chunk_0, pa.DictionaryArray)
     assert chunk_0.dictionary.equals(expected_dict)
-    
+
     chunk_1 = arr.chunk(1)
     assert isinstance(chunk_1, pa.DictionaryArray)
     assert chunk_1.dictionary.equals(expected_dict)
-    
+
     assert arr.to_pylist() == ["foo", "bar", None, "foo", "quux", None, "foo"]
 
 
@@ -950,7 +950,7 @@ def test_table_from_struct_array_chunked_array():
     )
     assert isinstance(chunked_struct_array.type, pa.StructType)
     # Cast to the proper type for type checker
-    struct_chunked_array = cast(pa.ChunkedArray[pa.StructScalar], chunked_struct_array)
+    struct_chunked_array = cast(pa.ChunkedArray, chunked_struct_array)
     result = pa.Table.from_struct_array(struct_chunked_array)
     assert result.equals(pa.Table.from_arrays(
         [
@@ -1901,15 +1901,15 @@ def test_table_unify_dictionaries():
     chunk_0_0 = table.column(0).chunk(0)
     assert isinstance(chunk_0_0, pa.DictionaryArray)
     assert chunk_0_0.dictionary.equals(pa.array(["foo", "bar"]))
-    
+
     chunk_0_1 = table.column(0).chunk(1)
     assert isinstance(chunk_0_1, pa.DictionaryArray)
     assert chunk_0_1.dictionary.equals(pa.array(["quux", "foo"]))
-    
+
     chunk_1_0 = table.column(1).chunk(0)
     assert isinstance(chunk_1_0, pa.DictionaryArray)
     assert chunk_1_0.dictionary.equals(pa.array([123, 456, 789]))
-    
+
     chunk_1_1 = table.column(1).chunk(1)
     assert isinstance(chunk_1_1, pa.DictionaryArray)
     assert chunk_1_1.dictionary.equals(pa.array([456, 789]))
@@ -1917,19 +1917,19 @@ def test_table_unify_dictionaries():
     table = table.unify_dictionaries(pa.default_memory_pool())
     expected_dict_0 = pa.array(["foo", "bar", "quux"])
     expected_dict_1 = pa.array([123, 456, 789])
-    
+
     chunk_0_0 = table.column(0).chunk(0)
     assert isinstance(chunk_0_0, pa.DictionaryArray)
     assert chunk_0_0.dictionary.equals(expected_dict_0)
-    
+
     chunk_0_1 = table.column(0).chunk(1)
     assert isinstance(chunk_0_1, pa.DictionaryArray)
     assert chunk_0_1.dictionary.equals(expected_dict_0)
-    
+
     chunk_1_0 = table.column(1).chunk(0)
     assert isinstance(chunk_1_0, pa.DictionaryArray)
     assert chunk_1_0.dictionary.equals(expected_dict_1)
-    
+
     chunk_1_1 = table.column(1).chunk(1)
     assert isinstance(chunk_1_1, pa.DictionaryArray)
     assert chunk_1_1.dictionary.equals(expected_dict_1)

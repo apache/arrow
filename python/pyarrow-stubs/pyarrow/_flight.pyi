@@ -23,12 +23,12 @@ if sys.version_info >= (3, 11):
     from typing import Self
 else:
     from typing_extensions import Self
-from collections.abc import Generator, Iterable, Iterator
+from collections.abc import Generator, Iterable, Iterator, Sequence
 from typing import Any, Generic, NamedTuple, TypeVar
-
+from datetime import datetime
 from typing_extensions import deprecated
 
-from .ipc import _ReadPandasMixin
+from .ipc import _ReadPandasMixin, ReadStats
 from .lib import (
     ArrowCancelled,
     ArrowException,
@@ -41,7 +41,6 @@ from .lib import (
     Scalar,
     Schema,
     Table,
-    TimestampScalar,
     _CRecordBatchWriter,
     _Weakrefable,
 )
@@ -346,7 +345,7 @@ class FlightStreamReader(MetadataRecordBatchReader):
 
     def read_all(self) -> Table: ...
 
-    def read(self) -> lib.RecordBatch | None: ...
+    def read(self) -> RecordBatch | None: ...
 
 
 class MetadataRecordBatchWriter(_CRecordBatchWriter):
@@ -675,10 +674,7 @@ class FlightServerBase(_Weakrefable):
     def wait(self) -> None: ...
 
     def __enter__(self) -> Self: ...
-    def __exit__(self, exc_type: object, exc_val: object, exc_tb: object) -> None: ...
-
-    def __enter__(self) -> Self: ...
-    def __exit__(self, exc_type, exc_value, traceback): ...
+    def __exit__(self, exc_type: object, exc_value: object, traceback: object) -> None: ...
 
 
 def connect(

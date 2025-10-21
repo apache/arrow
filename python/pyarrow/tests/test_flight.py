@@ -1893,7 +1893,7 @@ def test_flight_do_put_metadata():
                 writer.write_with_metadata(batch, metadata)
                 buf = metadata_reader.read()
                 assert buf is not None
-                server_idx, = struct.unpack('<i', buf.to_pybytes())
+                server_idx, = struct.unpack('<i', buf.to_pybytes())  # type: ignore[attr-defined]
                 assert idx == server_idx
 
 

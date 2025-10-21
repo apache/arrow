@@ -20,6 +20,7 @@ import decimal
 import pytest
 import weakref
 from collections.abc import Sequence, Mapping
+from typing import cast
 
 try:
     import numpy as np
@@ -360,7 +361,7 @@ def test_time_from_datetime_time():
 def test_temporal_values(value, time_type: pa.DataType):
     time_scalar = pa.scalar(value, type=time_type)
     time_scalar.validate(full=True)
-    assert time_scalar.value == value  # type: ignore[attr-defined]
+    assert time_scalar.value == value  # type: ignore[union-attr, reportAttributeAccessIssue]
 
 
 def test_cast():
@@ -422,7 +423,7 @@ def test_timestamp():
         expected = pd.Timestamp('2000-01-01 12:34:56')
 
         assert arrow_arr[0].as_py() == expected
-        assert arrow_arr[0].value * 1000**i == expected.value
+        assert cast(pa.TimestampScalar, arrow_arr[0]).value * 1000**i == expected.value
 
         tz = 'America/New_York'
         arrow_type = pa.timestamp(unit, tz=tz)
@@ -434,7 +435,7 @@ def test_timestamp():
                     .tz_convert(tz))
 
         assert arrow_arr[0].as_py() == expected
-        assert arrow_arr[0].value * 1000**i == expected.value
+        assert cast(pa.TimestampScalar, arrow_arr[0]).value * 1000**i == expected.value
 
 
 @pytest.mark.nopandas

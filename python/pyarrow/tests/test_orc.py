@@ -71,13 +71,13 @@ def fix_example_values(actual_cols, expected_cols):
             # date fields are represented as strings in JSON files
             expected = expected.dt.date
         elif typ is decimal.Decimal:
-            converted_decimals: list[None | decimal.Decimal] = [None] * len(expected)
+            converted_decimals = [None] * len(expected)
             # decimal fields are represented as reals in JSON files
             for i, (d, v) in enumerate(zip(actual, expected)):
                 if not pd.isnull(v):
                     exp = d.as_tuple().exponent
                     factor = 10 ** -exp
-                    converted_decimals[i] = (
+                    converted_decimals[i] = (  # type: ignore[call-overload,assignment]
                         decimal.Decimal(round(v * factor)).scaleb(exp))
             expected = pd.Series(converted_decimals)
 

@@ -825,8 +825,8 @@ def test_empty_row_groups(tempdir):
 
 
 def test_reads_over_batch(tempdir):
-    data: list[list[int] | None] = [None] * (1 << 20)
-    data.append([1])
+    data = [None] * (1 << 20)
+    data.append([1])  # type: ignore[reportArgumentType]
     # Large list<int64> with mostly nones and one final
     # value.  This should force batched reads when
     # reading back.
