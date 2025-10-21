@@ -28,7 +28,7 @@ import shutil
 import numpy as np
 
 from .util import frombytes, tobytes, random_bytes, random_utf8
-from .util import SKIP_C_SCHEMA, SKIP_C_ARRAY, SKIP_FLIGHT
+from .util import SKIP_C_SCHEMA, SKIP_FLIGHT
 
 
 def metadata_key_values(pairs):
