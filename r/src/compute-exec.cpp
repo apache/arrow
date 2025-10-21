@@ -318,7 +318,7 @@ void ExecPlan_Write(const std::shared_ptr<acero::ExecPlan>& plan,
                     arrow::dataset::ExistingDataBehavior existing_data_behavior,
                     int max_partitions, uint32_t max_open_files,
                     uint64_t max_rows_per_file, uint64_t min_rows_per_group,
-                    uint64_t max_rows_per_group) {
+                    uint64_t max_rows_per_group, bool create_directory) {
   arrow::dataset::internal::Initialize();
 
   // TODO(ARROW-16200): expose FileSystemDatasetWriteOptions in R
@@ -335,6 +335,7 @@ void ExecPlan_Write(const std::shared_ptr<acero::ExecPlan>& plan,
   opts.max_rows_per_file = max_rows_per_file;
   opts.min_rows_per_group = min_rows_per_group;
   opts.max_rows_per_group = max_rows_per_group;
+  opts.create_dir = create_directory;
 
   ds::WriteNodeOptions options(std::move(opts));
   options.custom_schema = std::move(schema);
