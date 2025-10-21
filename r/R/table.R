@@ -184,6 +184,15 @@ concat_tables <- function(..., unify_schemas = TRUE) {
     abort("Must pass at least one Table.")
   }
 
+  # Convert any RecordBatch objects to Tables
+  tables <- lapply(tables, function(x) {
+    if (inherits(x, "RecordBatch")) {
+      arrow_table(x)
+    } else {
+      x
+    }
+  })
+
   if (!unify_schemas) {
     # assert they have same schema
     schema <- tables[[1]]$schema
