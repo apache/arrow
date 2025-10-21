@@ -20,11 +20,6 @@ import decimal
 from collections import OrderedDict
 import io
 from typing import TYPE_CHECKING
-
-try:
-    import numpy as np
-except ImportError:
-    pass
 import pytest
 
 import pyarrow as pa
@@ -33,25 +28,24 @@ from pyarrow.fs import LocalFileSystem
 from pyarrow.tests import util
 
 if TYPE_CHECKING:
+    import numpy as np
     import pandas as pd
-    import pandas.testing as tm
     import pyarrow.parquet as pq
     from pyarrow.tests.parquet.common import alltypes_sample, _write_table
 else:
     try:
         import pyarrow.parquet as pq
-        from pyarrow.tests.parquet.common import _write_table
+        from pyarrow.tests.parquet.common import _write_table, alltypes_sample
     except ImportError:
-        pq = None  # type: ignore[assignment]
-
-
+        pass
     try:
         import pandas as pd
-        import pandas.testing as tm
-
-        from pyarrow.tests.parquet.common import alltypes_sample
     except ImportError:
-        pd = tm = None  # type: ignore[assignment]
+        pass
+    try:
+        import numpy as np
+    except ImportError:
+        pass
 
 
 # Marks all of the tests in this module

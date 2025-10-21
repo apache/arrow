@@ -48,15 +48,13 @@ else:
         from pyarrow.tests.parquet.common import (
             _read_table, _test_dataframe, _test_table, _write_table)
     except ImportError:
-        pq = None  # type: ignore[assignment]
-
+        pass
 
     try:
         import pandas as pd
         import pandas.testing as tm
-
     except ImportError:
-        pd = tm = None  # type: ignore[assignment]
+        pass
 
 
 # Marks all of the tests in this module

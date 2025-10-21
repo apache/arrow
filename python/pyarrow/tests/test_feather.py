@@ -47,7 +47,7 @@ def datadir(base_datadir):
 
 
 def random_path(prefix='feather_'):
-    return tempfile.mkstemp(prefix=prefix)[1]
+    return tempfile.mktemp(prefix=prefix)  # type: ignore[deprecated]
 
 
 @pytest.fixture(scope="module", params=[1, 2])
