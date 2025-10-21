@@ -104,7 +104,7 @@ jobs:
       - name: Install Dependencies
         shell: bash
         run: |
-          gem install test-unit
+          gem install test-unit openssl
           pip install "cython>=3.1" setuptools pytest requests setuptools-scm
       - name: Run Release Test
         shell: bash
