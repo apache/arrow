@@ -27,7 +27,7 @@ Linux distributions. We strongly recommend using a 64-bit system.
 Python Compatibility
 --------------------
 
-PyArrow is currently compatible with Python 3.10, 3.11, 3.12 and 3.13.
+PyArrow is currently compatible with Python 3.10, 3.11, 3.12, 3.13 and 3.14.
 
 Using Conda
 -----------
