@@ -33,7 +33,7 @@
 namespace arrow::internal {
 
 template <typename Int>
-using UnpackFunc = void (*)(const uint8_t*, Int*, int, int);
+using UnpackFunc = void (*)(const uint8_t*, Int*, int, int, int);
 
 /// Get the number of bytes associate with a packing.
 int32_t GetNumBytes(int32_t num_values, int32_t bit_width) {
@@ -57,7 +57,7 @@ std::vector<Int> UnpackValues(const uint8_t* packed, int32_t num_values,
                               int32_t bit_width, UnpackFunc<Int> unpack) {
   // Using dynamic array to avoid std::vector<bool>
   auto buffer = std::make_unique<Int[]>(num_values);
-  unpack(packed, buffer.get(), num_values, bit_width);
+  unpack(packed, buffer.get(), num_values, bit_width, /* bit_offset = */ 0);
 
   return std::vector<Int>(buffer.get(), buffer.get() + num_values);
 }

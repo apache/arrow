@@ -26,62 +26,48 @@ namespace arrow::internal {
 #if defined(ARROW_HAVE_NEON)
 
 template <typename Uint>
-ARROW_EXPORT void unpack_neon(const uint8_t* in, Uint* out, int batch_size, int num_bits);
+ARROW_EXPORT void unpack_neon(const uint8_t* in, Uint* out, int batch_size, int num_bits,
+                              int bit_offset);
 
 extern template ARROW_TEMPLATE_EXPORT void unpack_neon<bool>(const uint8_t* in, bool* out,
-                                                             int batch_size,
-                                                             int num_bits);
+                                                             int batch_size, int num_bits,
+                                                             int bit_offset);
 
-extern template ARROW_TEMPLATE_EXPORT void unpack_neon<uint8_t>(const uint8_t* in,
-                                                                uint8_t* out,
-                                                                int batch_size,
-                                                                int num_bits);
+extern template ARROW_TEMPLATE_EXPORT void unpack_neon<uint8_t>(
+    const uint8_t* in, uint8_t* out, int batch_size, int num_bits, int bit_offset);
 
-extern template ARROW_TEMPLATE_EXPORT void unpack_neon<uint16_t>(const uint8_t* in,
-                                                                 uint16_t* out,
-                                                                 int batch_size,
-                                                                 int num_bits);
+extern template ARROW_TEMPLATE_EXPORT void unpack_neon<uint16_t>(
+    const uint8_t* in, uint16_t* out, int batch_size, int num_bits, int bit_offset);
 
-extern template ARROW_TEMPLATE_EXPORT void unpack_neon<uint32_t>(const uint8_t* in,
-                                                                 uint32_t* out,
-                                                                 int batch_size,
-                                                                 int num_bits);
+extern template ARROW_TEMPLATE_EXPORT void unpack_neon<uint32_t>(
+    const uint8_t* in, uint32_t* out, int batch_size, int num_bits, int bit_offset);
 
-extern template ARROW_TEMPLATE_EXPORT void unpack_neon<uint64_t>(const uint8_t* in,
-                                                                 uint64_t* out,
-                                                                 int batch_size,
-                                                                 int num_bits);
+extern template ARROW_TEMPLATE_EXPORT void unpack_neon<uint64_t>(
+    const uint8_t* in, uint64_t* out, int batch_size, int num_bits, int bit_offset);
 
 #endif
 
 #if defined(ARROW_HAVE_AVX2) || defined(ARROW_HAVE_RUNTIME_AVX2)
 
 template <typename Uint>
-ARROW_EXPORT void unpack_avx2(const uint8_t* in, Uint* out, int batch_size, int num_bits);
+ARROW_EXPORT void unpack_avx2(const uint8_t* in, Uint* out, int batch_size, int num_bits,
+                              int bit_offset);
 
 extern template ARROW_TEMPLATE_EXPORT void unpack_avx2<bool>(const uint8_t* in, bool* out,
-                                                             int batch_size,
-                                                             int num_bits);
+                                                             int batch_size, int num_bits,
+                                                             int bit_offset);
 
-extern template ARROW_TEMPLATE_EXPORT void unpack_avx2<uint8_t>(const uint8_t* in,
-                                                                uint8_t* out,
-                                                                int batch_size,
-                                                                int num_bits);
+extern template ARROW_TEMPLATE_EXPORT void unpack_avx2<uint8_t>(
+    const uint8_t* in, uint8_t* out, int batch_size, int num_bits, int bit_offset);
 
-extern template ARROW_TEMPLATE_EXPORT void unpack_avx2<uint16_t>(const uint8_t* in,
-                                                                 uint16_t* out,
-                                                                 int batch_size,
-                                                                 int num_bits);
+extern template ARROW_TEMPLATE_EXPORT void unpack_avx2<uint16_t>(
+    const uint8_t* in, uint16_t* out, int batch_size, int num_bits, int bit_offset);
 
-extern template ARROW_TEMPLATE_EXPORT void unpack_avx2<uint32_t>(const uint8_t* in,
-                                                                 uint32_t* out,
-                                                                 int batch_size,
-                                                                 int num_bits);
+extern template ARROW_TEMPLATE_EXPORT void unpack_avx2<uint32_t>(
+    const uint8_t* in, uint32_t* out, int batch_size, int num_bits, int bit_offset);
 
-extern template ARROW_TEMPLATE_EXPORT void unpack_avx2<uint64_t>(const uint8_t* in,
-                                                                 uint64_t* out,
-                                                                 int batch_size,
-                                                                 int num_bits);
+extern template ARROW_TEMPLATE_EXPORT void unpack_avx2<uint64_t>(
+    const uint8_t* in, uint64_t* out, int batch_size, int num_bits, int bit_offset);
 
 #endif
 
@@ -89,31 +75,24 @@ extern template ARROW_TEMPLATE_EXPORT void unpack_avx2<uint64_t>(const uint8_t* 
 
 template <typename Uint>
 ARROW_EXPORT void unpack_avx512(const uint8_t* in, Uint* out, int batch_size,
-                                int num_bits);
+                                int num_bits, int bit_offset);
 
 extern template ARROW_TEMPLATE_EXPORT void unpack_avx512<bool>(const uint8_t* in,
                                                                bool* out, int batch_size,
-                                                               int num_bits);
+                                                               int num_bits,
+                                                               int bit_offset);
 
-extern template ARROW_TEMPLATE_EXPORT void unpack_avx512<uint8_t>(const uint8_t* in,
-                                                                  uint8_t* out,
-                                                                  int batch_size,
-                                                                  int num_bits);
+extern template ARROW_TEMPLATE_EXPORT void unpack_avx512<uint8_t>(
+    const uint8_t* in, uint8_t* out, int batch_size, int num_bits, int bit_offset);
 
-extern template ARROW_TEMPLATE_EXPORT void unpack_avx512<uint16_t>(const uint8_t* in,
-                                                                   uint16_t* out,
-                                                                   int batch_size,
-                                                                   int num_bits);
+extern template ARROW_TEMPLATE_EXPORT void unpack_avx512<uint16_t>(
+    const uint8_t* in, uint16_t* out, int batch_size, int num_bits, int bit_offset);
 
-extern template ARROW_TEMPLATE_EXPORT void unpack_avx512<uint32_t>(const uint8_t* in,
-                                                                   uint32_t* out,
-                                                                   int batch_size,
-                                                                   int num_bits);
+extern template ARROW_TEMPLATE_EXPORT void unpack_avx512<uint32_t>(
+    const uint8_t* in, uint32_t* out, int batch_size, int num_bits, int bit_offset);
 
-extern template ARROW_TEMPLATE_EXPORT void unpack_avx512<uint64_t>(const uint8_t* in,
-                                                                   uint64_t* out,
-                                                                   int batch_size,
-                                                                   int num_bits);
+extern template ARROW_TEMPLATE_EXPORT void unpack_avx512<uint64_t>(
+    const uint8_t* in, uint64_t* out, int batch_size, int num_bits, int bit_offset);
 
 #endif
 
