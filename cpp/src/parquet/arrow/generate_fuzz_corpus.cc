@@ -75,7 +75,8 @@ struct Column {
   }
 };
 
-std::shared_ptr<Field> FieldForArray(const std::shared_ptr<Array>& array, std::string name) {
+std::shared_ptr<Field> FieldForArray(const std::shared_ptr<Array>& array,
+                                     std::string name) {
   return field(std::move(name), array->type(), /*nullable=*/array->null_count() != 0);
 }
 
@@ -102,7 +103,8 @@ std::vector<WriteConfig> GetWriteConfigurations() {
   return configs;
 }
 
-Result<std::vector<Column>> ExampleColumns(int32_t length, double null_probability = 0.2) {
+Result<std::vector<Column>> ExampleColumns(int32_t length,
+                                           double null_probability = 0.2) {
   std::vector<Column> columns;
 
   random::RandomArrayGenerator gen(42);
@@ -113,8 +115,8 @@ Result<std::vector<Column>> ExampleColumns(int32_t length, double null_probabili
 
   auto int16_array = gen.Int16(length, -30000, 30000, null_probability);
   auto int32_array = gen.Int32(length, -2000000000, 2000000000, null_probability);
-  auto int64_array = gen.Int64(length, -9000000000000000000LL, 9000000000000000000LL,
-                               null_probability);
+  auto int64_array =
+      gen.Int64(length, -9000000000000000000LL, 9000000000000000000LL, null_probability);
   auto non_null_float64_array =
       gen.Float64(length, -1e10, 1e10, /*null_probability=*/0.0);
   auto tiny_strings_array = gen.String(length, 0, 3, null_probability);
@@ -158,9 +160,9 @@ Result<std::vector<Column>> ExampleColumns(int32_t length, double null_probabili
       auto time32_s,
       gen.Int32(length, 0, 86399, null_probability)->View(time32(TimeUnit::SECOND)));
   columns.push_back({name_gen(), time32_s});
-  ARROW_ASSIGN_OR_RAISE(auto time32_ms,
-                        gen.Int32(length, 0, 86399999, null_probability)
-                            ->View(time32(TimeUnit::MILLI)));
+  ARROW_ASSIGN_OR_RAISE(
+      auto time32_ms,
+      gen.Int32(length, 0, 86399999, null_probability)->View(time32(TimeUnit::MILLI)));
   columns.push_back({name_gen(), time32_ms});
   ARROW_ASSIGN_OR_RAISE(auto time64_us,
                         gen.Int64(length, 0, 86399999999LL, null_probability)
@@ -209,8 +211,8 @@ Result<std::vector<Column>> ExampleColumns(int32_t length, double null_probabili
                     null_probability);
     ARROW_ASSIGN_OR_RAISE(auto inner_lists,
                           ListArray::FromArrays(*inner_offsets, *inner_values));
-    auto offsets = gen.Offsets(
-        length + 1, 0, static_cast<int32_t>(inner_lists->length()), null_probability);
+    auto offsets = gen.Offsets(length + 1, 0, static_cast<int32_t>(inner_lists->length()),
+                               null_probability);
     ARROW_ASSIGN_OR_RAISE(auto lists, ListArray::FromArrays(*offsets, *inner_lists));
     columns.push_back({name_gen(), lists});
   }
@@ -271,7 +273,8 @@ Result<std::shared_ptr<RecordBatch>> BatchFromColumn(const Column& col) {
 }
 
 Result<std::vector<std::shared_ptr<RecordBatch>>> Batches() {
-  ARROW_ASSIGN_OR_RAISE(auto columns, ExampleColumns(kBatchSize, /*null_probability=*/0.2));
+  ARROW_ASSIGN_OR_RAISE(auto columns,
+                        ExampleColumns(kBatchSize, /*null_probability=*/0.2));
   std::vector<std::shared_ptr<RecordBatch>> batches;
   for (const auto& col : columns) {
     // Since Parquet columns are laid out and read independently of each other,
