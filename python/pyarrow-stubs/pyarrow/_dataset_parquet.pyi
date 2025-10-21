@@ -19,8 +19,6 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import IO, Any, TypedDict
 
-from .lib import Buffer, BufferReader
-
 from _typeshed import StrPath
 
 from ._compute import Expression
@@ -38,7 +36,7 @@ from ._dataset_parquet_encryption import ParquetDecryptionConfig
 from ._fs import SupportedFileSystem
 from ._parquet import FileDecryptionProperties, FileMetaData
 from ._types import DataType, LargeListType, ListType
-from .lib import CacheOptions, Schema, _Weakrefable
+from .lib import CacheOptions, Schema, _Weakrefable, NativeFile, Buffer, BufferReader
 
 parquet_encryption_enabled: bool
 
@@ -99,7 +97,7 @@ class ParquetFileFragment(FileFragment):
     def path(self) -> str: ...
     @property
     def filesystem(self) -> SupportedFileSystem: ...
-    def open(self) -> lib.NativeFile: ...
+    def open(self) -> NativeFile: ...
 
     @property
     def row_groups(self) -> list[int]: ...

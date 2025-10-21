@@ -22,6 +22,7 @@ import subprocess
 import weakref
 from uuid import uuid4, UUID
 import sys
+from typing import cast
 
 import pytest
 try:
@@ -848,7 +849,7 @@ def test_ipc_registered():
         assert arr.type == ParamExtType(3)
 
 
-class PeriodArray(pa.ExtensionArray[pa.Int64Array]):
+class PeriodArray(pa.ExtensionArray):
     pass
 
 
@@ -1434,7 +1435,8 @@ def test_tensor_class_methods(np_type_str):
     tensor_type = pa.fixed_shape_tensor(arrow_type, [2, 3])
     storage = pa.array([[1, 2, 3, 4, 5, 6], [7, 8, 9, 10, 11, 12]],
                        pa.list_(arrow_type, 6))
-    arr: pa.FixedShapeTensorArray = pa.ExtensionArray.from_storage(tensor_type, storage)  # type: ignore[assignment]
+    arr = pa.ExtensionArray.from_storage(tensor_type, storage)
+    arr = cast(pa.FixedShapeTensorArray, arr)
     expected = np.array(
         [[[1, 2, 3], [4, 5, 6]], [[7, 8, 9], [10, 11, 12]]],
         dtype=np.dtype(np_type_str)
@@ -1452,7 +1454,8 @@ def test_tensor_class_methods(np_type_str):
     storage = pa.array(values, pa.list_(arrow_type, 12))
 
     tensor_type = pa.fixed_shape_tensor(arrow_type, [2, 2, 3], permutation=[0, 1, 2])
-    result: pa.FixedShapeTensorArray = pa.ExtensionArray.from_storage(tensor_type, storage)  # type: ignore[assignment]
+    result = pa.ExtensionArray.from_storage(tensor_type, storage)
+    result = cast(pa.FixedShapeTensorArray, result)
     expected = np.array(
         [[[[1, 2, 3], [4, 5, 6]], [[7, 8, 9], [10, 11, 12]]]],
         dtype=np.dtype(np_type_str)
@@ -1467,7 +1470,8 @@ def test_tensor_class_methods(np_type_str):
     np.testing.assert_array_equal(result_reshaped, expected)
 
     tensor_type = pa.fixed_shape_tensor(arrow_type, [2, 2, 3], permutation=[0, 2, 1])
-    result: pa.FixedShapeTensorArray = pa.ExtensionArray.from_storage(tensor_type, storage)  # type: ignore[assignment]
+    result = pa.ExtensionArray.from_storage(tensor_type, storage)
+    result = cast(pa.FixedShapeTensorArray, result)
     expected = as_strided(flat_arr, shape=(1, 2, 3, 2),
                           strides=(bw * 12, bw * 6, bw, bw * 3))
     np.testing.assert_array_equal(result.to_numpy_ndarray(), expected)

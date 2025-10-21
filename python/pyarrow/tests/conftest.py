@@ -192,7 +192,7 @@ def retry(attempts=3, delay=1.0, max_delay=None, backoff=1):
         def wrapper(*args, **kwargs):
             remaining_attempts = attempts
             curr_delay = delay
-            last_exception: Exception | None = None
+            last_exception = None
             while remaining_attempts > 0:
                 try:
                     return func(*args, **kwargs)

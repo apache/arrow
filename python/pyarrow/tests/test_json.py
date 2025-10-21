@@ -361,7 +361,7 @@ class BaseTestJSONRead(BaseTestJSON):
 
 class BaseTestStreamingJSONRead(BaseTestJSON):
     use_threads: bool = False  # Set by subclasses
-    
+
     def open_json(self, json, *args, **kwargs):
         """
         Reads the JSON file into memory using pyarrow's open_json

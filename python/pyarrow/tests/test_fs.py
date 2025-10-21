@@ -45,7 +45,7 @@ here = os.path.dirname(os.path.abspath(__file__))
 
 class DummyHandler(FileSystemHandler):
     _value: int
-    
+
     def __init__(self, value=42):
         self._value = value
 
@@ -108,7 +108,7 @@ class DummyHandler(FileSystemHandler):
     def delete_dir(self, path):
         assert path == "delete_dir"
 
-    def delete_dir_contents(self, path, missing_dir_ok=False):  # type: ignore[override]
+    def delete_dir_contents(self, path, missing_dir_ok):  # type: ignore[override]
         if not path.strip("/"):
             raise ValueError
         assert path == "delete_dir_contents"

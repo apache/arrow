@@ -59,7 +59,7 @@ except ImportError:
         __version__ = None  # type: ignore[assignment]
 
 import pyarrow.lib as _lib
-from pyarrow.lib import (BuildInfo, CppBuildInfo, RuntimeInfo, set_timezone_db_path,  # type: ignore[attr-defined]  # pyright: ignore[reportAttributeAccessIssue]
+from pyarrow.lib import (BuildInfo, CppBuildInfo, RuntimeInfo, set_timezone_db_path,  # type: ignore[attr-defined, reportAttributeAccessIssue]
                          MonthDayNano, VersionInfo, build_info, cpp_build_info,  # pyright: ignore[reportAttributeAccessIssue]
                          cpp_version, cpp_version_info, runtime_info,
                          cpu_count, set_cpu_count, enable_signal_handlers,
