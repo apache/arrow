@@ -34,14 +34,12 @@ else:
     try:
         import numpy as np
     except ImportError:
-        np = None  # type: ignore[assignment]
-
+        pass
     try:
         from pandas.testing import assert_frame_equal
         import pandas as pd
     except ImportError:
-        pd = None  # type: ignore[assignment]
-        assert_frame_equal = None  # type: ignore[assignment]
+        pass
 
 import pyarrow as pa
 from pyarrow.tests.util import changed_environ, invoke_script

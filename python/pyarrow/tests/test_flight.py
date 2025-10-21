@@ -40,8 +40,9 @@ import pyarrow as pa
 from pyarrow.lib import IpcReadOptions, ReadStats, tobytes
 from pyarrow.util import find_free_port
 from pyarrow.tests import util
+from typing import TYPE_CHECKING
 
-try:
+if TYPE_CHECKING:
     from pyarrow import flight
     from pyarrow.flight import (
         FlightClient, FlightServerBase,
@@ -50,9 +51,8 @@ try:
         ClientMiddleware, ClientMiddlewareFactory,
         FlightCallOptions,
     )
-except ImportError:
-    from typing import TYPE_CHECKING
-    if TYPE_CHECKING:
+else:
+    try:
         from pyarrow import flight
         from pyarrow.flight import (
             FlightClient, FlightServerBase,
@@ -61,7 +61,7 @@ except ImportError:
             ClientMiddleware, ClientMiddlewareFactory,
             FlightCallOptions,
         )
-    else:
+    except ImportError:
         flight = None  # type: ignore[assignment]
         FlightClient, FlightServerBase = object, object  # type: ignore[assignment, misc]
         ServerAuthHandler, ClientAuthHandler = (  # type: ignore[misc]
@@ -70,7 +70,7 @@ except ImportError:
             object, object)  # type: ignore[assignment]
         ClientMiddleware, ClientMiddlewareFactory = (  # type: ignore[misc]
             object, object)  # type: ignore[assignment]
-        FlightCallOptions = object  # type: ignore[assignment, misc]
+        # FlightCallOptions = object  # type: ignore[assignment, misc]
 
 # Marks all of the tests in this module
 # Ignore these with pytest ... -m 'not flight'
