@@ -679,8 +679,8 @@ set(ARROW_TESTING_SRCS
 #
 
 if(ARROW_BUILD_INTEGRATION OR ARROW_BUILD_TESTS)
-  arrow_add_object_library(ARROW_INTEGRATION integration/c_data_integration_internal.cc
-                           integration/json_integration.cc integration/json_internal.cc)
+  arrow_add_object_library(ARROW_INTEGRATION integration/json_integration.cc
+                           integration/json_internal.cc)
   foreach(ARROW_INTEGRATION_TARGET ${ARROW_INTEGRATION_TARGETS})
     target_link_libraries(${ARROW_INTEGRATION_TARGET} PRIVATE RapidJSON)
   endforeach()

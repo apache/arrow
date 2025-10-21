@@ -2017,9 +2017,6 @@ def get_generated_json_files(tempdir=None):
 
         generate_extension_case()
         .skip_tester('nanoarrow')
-        # TODO: ensure the extension is registered in the C++ entrypoint
-        .skip_format(SKIP_C_SCHEMA, 'C++')
-        .skip_format(SKIP_C_ARRAY, 'C++')
         # TODO(https://github.com/apache/arrow/issues/38045)
         .skip_format(SKIP_FLIGHT, '.NET'),
     ]
