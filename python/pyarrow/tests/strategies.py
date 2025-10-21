@@ -17,6 +17,7 @@
 
 import datetime
 import sys
+from typing import Any
 
 import pytest  # type: ignore[import-not-found]
 import hypothesis as h  # type: ignore[import-not-found]
@@ -134,12 +135,12 @@ elif zoneinfo:
     timezones = st.one_of(st.none(), st.timezones())
 else:
     timezones = st.none()
-timestamp_types = st.builds(
+timestamp_types: Any = st.builds(
     pa.timestamp,
     unit=st.sampled_from(['s', 'ms', 'us', 'ns']),
     tz=timezones
 )
-duration_types = st.builds(
+duration_types: Any = st.builds(
     pa.duration,
     st.sampled_from(['s', 'ms', 'us', 'ns'])
 )

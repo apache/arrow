@@ -25,13 +25,7 @@ import numpy as np
 
 from numpy.typing import NDArray
 
-from pyarrow.lib import BooleanArray, IntegerArray
-
-# Forward declarations for ChunkedArray - avoid circular import
-from typing import TYPE_CHECKING
-if TYPE_CHECKING:
-    from pyarrow.scalar import Int16Scalar, Int32Scalar, Int64Scalar
-    from pyarrow.array import ChunkedArray
+from pyarrow.lib import BooleanArray, IntegerArray, ChunkedArray
 
 ArrayLike: TypeAlias = Any
 ScalarLike: TypeAlias = Any
@@ -51,13 +45,8 @@ Compression: TypeAlias = Literal[
 ]
 NullEncoding: TypeAlias = Literal["mask", "encode"]
 NullSelectionBehavior: TypeAlias = Literal["drop", "emit_null"]
-
-if TYPE_CHECKING:
-    Mask: TypeAlias = Sequence[bool | None] | NDArray[np.bool_] | BooleanArray | ChunkedArray[Any]
-    Indices: TypeAlias = Sequence[int | None] | NDArray[np.integer[Any]] | IntegerArray | ChunkedArray[Int16Scalar] | ChunkedArray[Int32Scalar] | ChunkedArray[Int64Scalar]
-else:
-    Mask: TypeAlias = Sequence[bool | None] | NDArray[np.bool_] | BooleanArray
-    Indices: TypeAlias = Sequence[int | None] | NDArray[np.integer[Any]] | IntegerArray
+Mask: TypeAlias = Sequence[bool | None] | NDArray[np.bool_] | BooleanArray | ChunkedArray[Any]
+Indices: TypeAlias = Sequence[int | None] | NDArray[np.integer[Any]] | IntegerArray | ChunkedArray[Any]
 
 PyScalar: TypeAlias = (bool | int | float | Decimal | str | bytes |
                        dt.date | dt.datetime | dt.time | dt.timedelta)
@@ -113,6 +102,7 @@ class SupportArrowStream(Protocol):
 
 class SupportPyArrowArray(Protocol):
     def __arrow_array__(self, type=None) -> Any: ...
+
 
 class SupportArrowArray(Protocol):
     def __arrow_c_array__(self, requested_schema=None) -> Any: ...

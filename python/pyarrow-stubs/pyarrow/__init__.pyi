@@ -339,12 +339,9 @@ try:
     import pyarrow.pandas_compat as pandas_compat
 except ImportError:
     pass
-try:
-    import pyarrow.substrait as substrait
-    import pyarrow._substrait as _substrait
-except ImportError:
-    substrait = None  # type: ignore[assignment]
-    _substrait = None  # type: ignore[assignment]
+import pyarrow.substrait as substrait
+import pyarrow._substrait as _substrait
+
 
 import pyarrow.compute as compute
 import pyarrow.csv as csv

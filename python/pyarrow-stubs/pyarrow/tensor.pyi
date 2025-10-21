@@ -79,7 +79,7 @@ class SparseCOOTensor(_Weakrefable):
         cls,
         data: np.ndarray,
         coords: np.ndarray,
-        shape: Sequence[int, ...],
+        shape: Sequence[int],
         dim_names: Sequence[str] | None = None,
     ) -> Self: ...
 
@@ -136,7 +136,7 @@ class SparseCSRMatrix(_Weakrefable):
         data: np.ndarray,
         indptr: np.ndarray,
         indices: np.ndarray,
-        shape: Sequence[int, ...],
+        shape: Sequence[int],
         dim_names: Sequence[str] | None = None,
     ) -> Self: ...
 

@@ -29,7 +29,7 @@ from pyarrow.lib import ArrowInvalid, ArrowNotImplementedError
 # Ignore these with pytest ... -m 'not substrait'
 pytestmark = pytest.mark.substrait
 substrait = pytest.importorskip('pyarrow.substrait')
-
+_substrait = pytest.importorskip('pyarrow._substrait')
 
 def mock_udf_context(batch_length=10):
     from pyarrow._compute import _get_udf_context
@@ -81,7 +81,7 @@ def test_run_serialized_query(tmpdir, use_threads):
     query = tobytes(substrait_query.replace(
         "FILENAME_PLACEHOLDER", pathlib.Path(path).as_uri()))
 
-    buf = pa._substrait._parse_json_plan  # type: ignore[attr-defined](query)
+    buf = _substrait._parse_json_plan(query)
 
     reader = substrait.run_query(buf, use_threads=use_threads)
     res_tb = reader.read_all()
@@ -112,7 +112,7 @@ def test_invalid_plan():
         ]
     }
     """
-    buf = pa._substrait._parse_json_plan  # type: ignore[attr-defined](tobytes(query))
+    buf = _substrait._parse_json_plan(tobytes(query))
     exec_message = "Plan has no relations"
     with pytest.raises(ArrowInvalid, match=exec_message):
         substrait.run_query(buf)
@@ -158,7 +158,7 @@ def test_binary_conversion_with_json_options(tmpdir, use_threads):
     path = _write_dummy_data_to_disk(tmpdir, file_name, table)
     query = tobytes(substrait_query.replace(
         "FILENAME_PLACEHOLDER", pathlib.Path(path).as_uri()))
-    buf = pa._substrait._parse_json_plan  # type: ignore[attr-defined](tobytes(query))
+    buf = _substrait._parse_json_plan(tobytes(query))
 
     reader = substrait.run_query(buf, use_threads=use_threads)
     res_tb = reader.read_all()
@@ -177,7 +177,7 @@ def has_function(fns, ext_file, fn_name):
 
 
 def test_get_supported_functions():
-    supported_functions = pa._substrait.get_supported_functions  # type: ignore[attr-defined]()
+    supported_functions = _substrait.get_supported_functions()
     # It probably doesn't make sense to exhaustively verify this list but
     # we can check a sample aggregate and a sample non-aggregate entry
     assert has_function(supported_functions,
@@ -228,7 +228,7 @@ def test_named_table(use_threads):
     }
     """
 
-    buf = pa._substrait._parse_json_plan  # type: ignore[attr-defined](tobytes(substrait_query))
+    buf = _substrait._parse_json_plan(tobytes(substrait_query))
     reader = substrait.run_query(
         buf, table_provider=table_provider, use_threads=use_threads)
     res_tb = reader.read_all()
@@ -271,7 +271,7 @@ def test_named_table_invalid_table_name():
     }
     """
 
-    buf = pa._substrait._parse_json_plan  # type: ignore[attr-defined](tobytes(substrait_query))
+    buf = _substrait._parse_json_plan(tobytes(substrait_query))
     exec_message = "Invalid NamedTable Source"
     with pytest.raises(ArrowInvalid, match=exec_message):
         substrait.run_query(buf, table_provider=table_provider)
@@ -313,7 +313,7 @@ def test_named_table_empty_names():
     }
     """
     query = tobytes(substrait_query)
-    buf = pa._substrait._parse_json_plan  # type: ignore[attr-defined](tobytes(query))
+    buf = _substrait._parse_json_plan(tobytes(query))
     exec_message = "names for NamedTable not provided"
     with pytest.raises(ArrowInvalid, match=exec_message):
         substrait.run_query(buf, table_provider=table_provider)
@@ -432,7 +432,7 @@ def test_udf_via_substrait(unary_func_fixture, use_threads):
 }
     """
 
-    buf = pa._substrait._parse_json_plan  # type: ignore[attr-defined](substrait_query)
+    buf = _substrait._parse_json_plan(substrait_query)
     reader = substrait.run_query(
         buf, table_provider=table_provider, use_threads=use_threads)
     res_tb = reader.read_all()
@@ -555,7 +555,7 @@ def test_udf_via_substrait_wrong_udf_name():
 }
     """
 
-    buf = pa._substrait._parse_json_plan  # type: ignore[attr-defined](substrait_query)
+    buf = _substrait._parse_json_plan(substrait_query)
     with pytest.raises(pa.ArrowKeyError) as excinfo:
         substrait.run_query(buf, table_provider=table_provider)
     assert "No function registered" in str(excinfo.value)
@@ -594,7 +594,7 @@ def test_output_field_names(use_threads):
     }
     """
 
-    buf = pa._substrait._parse_json_plan  # type: ignore[attr-defined](tobytes(substrait_query))
+    buf = _substrait._parse_json_plan(tobytes(substrait_query))
     reader = substrait.run_query(
         buf, table_provider=table_provider, use_threads=use_threads)
     res_tb = reader.read_all()
@@ -740,7 +740,7 @@ def test_scalar_aggregate_udf_basic(varargs_agg_func_fixture):
   ],
 }
 """
-    buf = pa._substrait._parse_json_plan  # type: ignore[attr-defined](substrait_query)
+    buf = _substrait._parse_json_plan(substrait_query)
     reader = substrait.run_query(
         buf, table_provider=table_provider, use_threads=False)
     res_tb = reader.read_all()
@@ -909,7 +909,7 @@ def test_hash_aggregate_udf_basic(varargs_agg_func_fixture):
   ],
 }
 """
-    buf = pa._substrait._parse_json_plan  # type: ignore[attr-defined](substrait_query)
+    buf = _substrait._parse_json_plan(substrait_query)
     reader = substrait.run_query(
         buf, table_provider=table_provider, use_threads=False)
     res_tb = reader.read_all()
