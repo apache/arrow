@@ -81,7 +81,7 @@ using SpreadBufferUint = std::conditional_t<
 /// Unpack integers.
 /// This function works for all input batch sizes but is not the fastest.
 template <int kPackedBitWidth, bool kBreakWhenAligned, typename Uint>
-int unpack_exact(const uint8_t* in, Uint* out, int batch_size, int bit_offset = 0) {
+int unpack_exact(const uint8_t* in, Uint* out, int batch_size, int bit_offset) {
   constexpr int kMaxSpreadBytes = PackedMaxSpreadBytes(kPackedBitWidth);
   using buffer_uint = SpreadBufferUint<kMaxSpreadBytes>;
   constexpr int kBufferSize = sizeof(buffer_uint);
@@ -166,7 +166,7 @@ void unpack_width(const uint8_t* in, UnpackedUInt* out, int batch_size) {
 
 template <template <typename, int> typename Unpacker, typename UnpackedUint>
 static void unpack_jump(const uint8_t* in, UnpackedUint* out, int batch_size,
-                        int num_bits) {
+                        int num_bits, int bit_offset) {
   if constexpr (std::is_same_v<UnpackedUint, bool>) {
     switch (num_bits) {
       case 0:
