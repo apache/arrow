@@ -26,11 +26,15 @@ import struct
 import subprocess
 import sys
 import weakref
+from typing import TYPE_CHECKING
 
-try:
+if TYPE_CHECKING:
     import numpy as np
-except ImportError:
-    pass
+else:
+    try:
+        import numpy as np
+    except ImportError:
+        pass
 
 import pyarrow as pa
 import pyarrow.tests.strategies as past

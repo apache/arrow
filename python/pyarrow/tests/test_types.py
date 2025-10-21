@@ -24,17 +24,22 @@ import sys
 import pytest
 import hypothesis as h
 import hypothesis.strategies as st
-try:
-    import hypothesis.extra.pytz as tzst
-except ImportError:
-    tzst = None  # type: ignore[assignment]
-from typing import Any
+from typing import Any, TYPE_CHECKING
 import weakref
 
-try:
+if TYPE_CHECKING:
     import numpy as np
-except ImportError:
-    pass
+    import hypothesis.extra.pytz as tzst
+else:
+    try:
+        import numpy as np
+    except ImportError:
+        pass
+    try:
+        import hypothesis.extra.pytz as tzst
+    except ImportError:
+        pass
+
 import pyarrow as pa
 import pyarrow.types as types
 import pyarrow.tests.strategies as past

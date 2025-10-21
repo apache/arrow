@@ -31,7 +31,6 @@ from pyarrow.util import guid
 from pyarrow.vendored.version import Version
 
 if TYPE_CHECKING:
-    # For type checking, pretend these are always available
     import pandas as pd
     import pandas.testing as tm
     import pyarrow.parquet as pq
@@ -43,19 +42,15 @@ else:
     try:
         import pyarrow.parquet as pq
         from pyarrow.tests.parquet.common import (_read_table, _test_dataframe,
-                                                  _write_table)
+                                                  _write_table, _roundtrip_pandas_dataframe,
+                                                  alltypes_sample)
     except ImportError:
-        pq = None  # type: ignore[assignment]
-
-
+        pass
     try:
         import pandas as pd
         import pandas.testing as tm
-
-        from pyarrow.tests.parquet.common import (_roundtrip_pandas_dataframe,
-                                                  alltypes_sample)
     except ImportError:
-        pd = tm = None  # type: ignore[assignment]
+        pass
 
 
 # Marks all of the tests in this module
