@@ -16,7 +16,9 @@
 // under the License.
 
 #include "arrow/util/bpacking_dispatch_internal.h"
-#include "arrow/util/bpacking_simd128_generated_internal.h"
+#if defined(ARROW_HAVE_NEON)
+#  include "arrow/util/bpacking_simd128_generated_internal.h"
+#endif
 #include "arrow/util/bpacking_simd_internal.h"
 
 namespace arrow::internal {
