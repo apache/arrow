@@ -50,7 +50,7 @@ struct UnpackDynamicFunction {
 }  // namespace
 
 template <typename Uint>
-int unpack(const uint8_t* in, Uint* out, int batch_size, int num_bits) {
+void unpack(const uint8_t* in, Uint* out, int batch_size, int num_bits) {
 #if defined(ARROW_HAVE_NEON)
   return unpack_neon(in, out, batch_size, num_bits);
 #else
@@ -59,10 +59,10 @@ int unpack(const uint8_t* in, Uint* out, int batch_size, int num_bits) {
 #endif
 }
 
-template int unpack<bool>(const uint8_t*, bool*, int, int);
-template int unpack<uint8_t>(const uint8_t*, uint8_t*, int, int);
-template int unpack<uint16_t>(const uint8_t*, uint16_t*, int, int);
-template int unpack<uint32_t>(const uint8_t*, uint32_t*, int, int);
-template int unpack<uint64_t>(const uint8_t*, uint64_t*, int, int);
+template void unpack<bool>(const uint8_t*, bool*, int, int);
+template void unpack<uint8_t>(const uint8_t*, uint8_t*, int, int);
+template void unpack<uint16_t>(const uint8_t*, uint16_t*, int, int);
+template void unpack<uint32_t>(const uint8_t*, uint32_t*, int, int);
+template void unpack<uint64_t>(const uint8_t*, uint64_t*, int, int);
 
 }  // namespace arrow::internal

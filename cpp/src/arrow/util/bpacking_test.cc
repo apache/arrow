@@ -25,7 +25,6 @@
 #include "arrow/util/bpacking_internal.h"
 #include "arrow/util/bpacking_scalar_internal.h"
 #include "arrow/util/bpacking_simd_internal.h"
-#include "arrow/util/logging.h"
 
 #if defined(ARROW_HAVE_RUNTIME_AVX2)
 #  include "arrow/util/cpu_info.h"
@@ -34,7 +33,7 @@
 namespace arrow::internal {
 
 template <typename Int>
-using UnpackFunc = int (*)(const uint8_t*, Int*, int, int);
+using UnpackFunc = void (*)(const uint8_t*, Int*, int, int);
 
 /// Get the number of bytes associate with a packing.
 int32_t GetNumBytes(int32_t num_values, int32_t bit_width) {
@@ -58,11 +57,9 @@ std::vector<Int> UnpackValues(const uint8_t* packed, int32_t num_values,
                               int32_t bit_width, UnpackFunc<Int> unpack) {
   // Using dynamic array to avoid std::vector<bool>
   auto buffer = std::make_unique<Int[]>(num_values);
-  int values_read = unpack(packed, buffer.get(), num_values, bit_width);
-  ARROW_DCHECK_GE(values_read, 0);
-  EXPECT_LE(values_read, num_values);
+  unpack(packed, buffer.get(), num_values, bit_width);
 
-  return std::vector<Int>(buffer.get(), buffer.get() + values_read);
+  return std::vector<Int>(buffer.get(), buffer.get() + num_values);
 }
 
 /// Use BitWriter to pack values into a vector.
