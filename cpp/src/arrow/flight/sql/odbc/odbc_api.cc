@@ -253,16 +253,105 @@ SQLRETURN SQLGetEnvAttr(SQLHENV env, SQLINTEGER attr, SQLPOINTER value_ptr,
   ARROW_LOG(DEBUG) << "SQLGetEnvAttr called with env: " << env << ", attr: " << attr
                    << ", value_ptr: " << value_ptr << ", buffer_length: " << buffer_length
                    << ", str_len_ptr: " << static_cast<const void*>(str_len_ptr);
-  // GH-46575 TODO: Implement SQLGetEnvAttr
-  return SQL_INVALID_HANDLE;
+
+  using ODBC::ODBCEnvironment;
+
+  ODBCEnvironment* environment = reinterpret_cast<ODBCEnvironment*>(env);
+
+  return ODBCEnvironment::ExecuteWithDiagnostics(environment, SQL_ERROR, [=]() {
+    switch (attr) {
+      case SQL_ATTR_ODBC_VERSION: {
+        if (!value_ptr && !str_len_ptr) {
+          throw DriverException("Invalid null pointer for attribute.", "HY000");
+        }
+
+        if (value_ptr) {
+          SQLINTEGER* value = reinterpret_cast<SQLINTEGER*>(value_ptr);
+          *value = static_cast<SQLSMALLINT>(environment->GetODBCVersion());
+        }
+
+        if (str_len_ptr) {
+          *str_len_ptr = sizeof(SQLINTEGER);
+        }
+
+        return SQL_SUCCESS;
+      }
+
+      case SQL_ATTR_OUTPUT_NTS: {
+        if (!value_ptr && !str_len_ptr) {
+          throw DriverException("Invalid null pointer for attribute.", "HY000");
+        }
+
+        if (value_ptr) {
+          // output nts always returns SQL_TRUE
+          SQLINTEGER* value = reinterpret_cast<SQLINTEGER*>(value_ptr);
+          *value = SQL_TRUE;
+        }
+
+        if (str_len_ptr) {
+          *str_len_ptr = sizeof(SQLINTEGER);
+        }
+
+        return SQL_SUCCESS;
+      }
+
+      case SQL_ATTR_CONNECTION_POOLING: {
+        throw DriverException("Optional feature not supported.", "HYC00");
+      }
+
+      default: {
+        throw DriverException("Invalid attribute", "HYC00");
+      }
+    }
+  });
 }
 
 SQLRETURN SQLSetEnvAttr(SQLHENV env, SQLINTEGER attr, SQLPOINTER value_ptr,
                         SQLINTEGER str_len) {
   ARROW_LOG(DEBUG) << "SQLSetEnvAttr called with env: " << env << ", attr: " << attr
                    << ", value_ptr: " << value_ptr << ", str_len: " << str_len;
-  // GH-46575 TODO: Implement SQLSetEnvAttr
-  return SQL_INVALID_HANDLE;
+
+  using ODBC::ODBCEnvironment;
+
+  ODBCEnvironment* environment = reinterpret_cast<ODBCEnvironment*>(env);
+
+  return ODBCEnvironment::ExecuteWithDiagnostics(environment, SQL_ERROR, [=]() {
+    if (!value_ptr) {
+      throw DriverException("Invalid null pointer for attribute.", "HY024");
+    }
+
+    switch (attr) {
+      case SQL_ATTR_ODBC_VERSION: {
+        SQLINTEGER version =
+            static_cast<SQLINTEGER>(reinterpret_cast<intptr_t>(value_ptr));
+        if (version == SQL_OV_ODBC2 || version == SQL_OV_ODBC3) {
+          environment->SetODBCVersion(version);
+
+          return SQL_SUCCESS;
+        } else {
+          throw DriverException("Invalid value for attribute", "HY024");
+        }
+      }
+
+      case SQL_ATTR_OUTPUT_NTS: {
+        // output nts can not be set to SQL_FALSE, is always SQL_TRUE
+        SQLINTEGER value = static_cast<SQLINTEGER>(reinterpret_cast<intptr_t>(value_ptr));
+        if (value == SQL_TRUE) {
+          return SQL_SUCCESS;
+        } else {
+          throw DriverException("Invalid value for attribute", "HY024");
+        }
+      }
+
+      case SQL_ATTR_CONNECTION_POOLING: {
+        throw DriverException("Optional feature not supported.", "HYC00");
+      }
+
+      default: {
+        throw DriverException("Invalid attribute", "HY092");
+      }
+    }
+  });
 }
 
 SQLRETURN SQLGetConnectAttr(SQLHDBC conn, SQLINTEGER attribute, SQLPOINTER value_ptr,
