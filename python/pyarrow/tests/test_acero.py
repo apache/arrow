@@ -494,4 +494,4 @@ def test_scan(tempdir):
     # "a" is included in the result (needed later on for the actual projection)
     assert result["a"].to_pylist() == [1, 2, 3]
     # "b" is still included, but without data as it will be removed by the projection
-    assert pc.all(result["b"].is_null()).as_py()
+    assert pc.all(result.column("b").is_null()).as_py()

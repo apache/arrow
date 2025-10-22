@@ -28,7 +28,6 @@ from typing import (
     Literal,
     TypeAlias,
     TypedDict,
-    overload,
 )
 
 from . import lib
@@ -208,13 +207,8 @@ class IndexOptions(FunctionOptions):
 
 
 class JoinOptions(FunctionOptions):
-    @overload
     def __init__(
-        self, null_handling: Literal["emit_null", "skip"] = "emit_null") -> None: ...
-
-    @overload
-    def __init__(self, null_handling: Literal["replace"],
-                 null_replacement: str = "") -> None: ...
+        self, null_handling: Literal["emit_null", "skip", "replace"] = "emit_null", *, null_replacement: str = "") -> None: ...
 
 
 class ListSliceOptions(FunctionOptions):

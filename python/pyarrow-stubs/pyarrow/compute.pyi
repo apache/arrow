@@ -153,7 +153,7 @@ SignedIntegerScalar: TypeAlias = (
 UnsignedIntegerScalar: TypeAlias = (
     lib.Scalar[lib.UInt8Type]
     | lib.Scalar[lib.UInt16Type]
-    | lib.Scalar[lib.Uint32Type]
+    | lib.Scalar[lib.UInt32Type]
     | lib.Scalar[lib.UInt64Type]
 )
 IntegerScalar: TypeAlias = SignedIntegerScalar | UnsignedIntegerScalar
@@ -1539,33 +1539,19 @@ def value_counts(
 # ========================= 3.3 Selections =========================
 
 
-@overload
 def array_filter(
-    array: _ArrayT,
+    array: _ArrayT | Expression,
     selection_filter: list[bool] | list[bool | None] | BooleanArray,
     /,
     null_selection_behavior: Literal["drop", "emit_null"] = "drop",
     *,
     options: FilterOptions | None = None,
     memory_pool: lib.MemoryPool | None = None,
-) -> _ArrayT: ...
+) -> _ArrayT | Expression: ...
 
 
-@overload
-def array_filter(
-    array: Expression,
-    selection_filter: list[bool] | list[bool | None] | BooleanArray,
-    /,
-    null_selection_behavior: Literal["drop", "emit_null"] = "drop",
-    *,
-    options: FilterOptions | None = None,
-    memory_pool: lib.MemoryPool | None = None,
-) -> Expression: ...
-
-
-@overload
 def array_take(
-    array: _ArrayT,
+    array: _ArrayT | Expression,
     indices: list[int]
     | list[int | None]
     | lib.Int16Array
@@ -1582,40 +1568,11 @@ def array_take(
     boundscheck: bool = True,
     options: TakeOptions | None = None,
     memory_pool: lib.MemoryPool | None = None,
-) -> _ArrayT: ...
+) -> _ArrayT | Expression: ...
 
 
-@overload
-def array_take(
-    array: Expression,
-    indices: list[int]
-    | list[int | None]
-    | lib.Int16Array
-    | lib.Int32Array
-    | lib.Int64Array
-    | lib.UInt64Array
-    | lib.ChunkedArray[lib.Int16Scalar]
-    | lib.ChunkedArray[lib.Int32Scalar]
-    | lib.ChunkedArray[lib.Int64Scalar]
-    | np.ndarray
-    | Expression,
-    /,
-    *,
-    boundscheck: bool = True,
-    options: TakeOptions | None = None,
-    memory_pool: lib.MemoryPool | None = None,
-) -> Expression: ...
-
-
-@overload
-def drop_null(input: _ArrayT, /, *, memory_pool: lib.MemoryPool |
-              None = None) -> _ArrayT: ...
-
-
-@overload
-def drop_null(
-    input: Expression, /, *, memory_pool: lib.MemoryPool | None = None
-) -> Expression: ...
+def drop_null(input: _ArrayT | Expression, /, *, memory_pool: lib.MemoryPool |
+              None = None) -> _ArrayT | Expression: ...
 
 
 filter = array_filter

@@ -143,7 +143,7 @@ def test_direct_read_dictionary():
                            read_dictionary=['f0'])
 
     # Compute dictionary-encoded subfield
-    expected = pa.table([table[0].dictionary_encode()], names=['f0'])
+    expected = pa.table([table.column(0).dictionary_encode()], names=['f0'])
     assert result.equals(expected)
 
 
@@ -175,7 +175,7 @@ def test_direct_read_dictionary_subfield():
     expected = pa.table([expected_arr], names=['f0'])
 
     assert result.equals(expected)
-    assert result[0].num_chunks == 1
+    assert result.column(0).num_chunks == 1
 
 
 @pytest.mark.numpy
@@ -261,8 +261,8 @@ def test_single_pylist_column_roundtrip(tempdir, dtype,):
     _write_table(table, filename)
     table_read = _read_table(filename)
     for i in range(table.num_columns):
-        col_written = table[i]
-        col_read = table_read[i]
+        col_written = table.column(i)
+        col_read = table_read.column(i)
         assert table.field(i).name == table_read.field(i).name
         assert col_read.num_chunks == 1
         data_written = col_written.chunk(0)
