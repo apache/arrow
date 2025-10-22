@@ -27,10 +27,7 @@
 namespace arrow::flight::sql::odbc {
 
 template <typename T>
-class ConnectionInfoTest : public T {
- public:
-  using List = std::list<T>;
-};
+class ConnectionInfoTest : public T {};
 
 class ConnectionInfoMockTest : public FlightSQLODBCMockTestBase {};
 using TestTypes = ::testing::Types<ConnectionInfoMockTest, FlightSQLODBCRemoteTestBase>;
@@ -75,10 +72,10 @@ void Validate(SQLHDBC connection, SQLUSMALLINT info_type, SQLULEN expected_value
 // Validate wchar string SQLWCHAR return value
 void Validate(SQLHDBC connection, SQLUSMALLINT info_type,
               const SQLWCHAR* expected_value) {
-  SQLWCHAR info_value[ODBC_BUFFER_SIZE] = L"";
+  SQLWCHAR info_value[kOdbcBufferSize] = L"";
   SQLSMALLINT message_length;
 
-  ASSERT_EQ(SQL_SUCCESS, SQLGetInfo(connection, info_type, info_value, ODBC_BUFFER_SIZE,
+  ASSERT_EQ(SQL_SUCCESS, SQLGetInfo(connection, info_type, info_value, kOdbcBufferSize,
                                     &message_length));
 
   EXPECT_EQ(*expected_value, *info_value);
@@ -111,11 +108,11 @@ void ValidateGreaterThan(SQLHDBC connection, SQLUSMALLINT info_type,
 // Validate wchar string SQLWCHAR return value is not empty
 void ValidateNotEmptySQLWCHAR(SQLHDBC connection, SQLUSMALLINT info_type,
                               bool allow_truncation) {
-  SQLWCHAR info_value[ODBC_BUFFER_SIZE] = L"";
+  SQLWCHAR info_value[kOdbcBufferSize] = L"";
   SQLSMALLINT message_length;
 
   SQLRETURN ret =
-      SQLGetInfo(connection, info_type, info_value, ODBC_BUFFER_SIZE, &message_length);
+      SQLGetInfo(connection, info_type, info_value, kOdbcBufferSize, &message_length);
   if (allow_truncation && ret == SQL_SUCCESS_WITH_INFO) {
     ASSERT_EQ(SQL_SUCCESS_WITH_INFO, ret);
   } else {
