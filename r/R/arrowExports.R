@@ -940,6 +940,10 @@ Decimal256Type__initialize <- function(precision, scale) {
   .Call(`_arrow_Decimal256Type__initialize`, precision, scale)
 }
 
+SmallestDecimal__initialize <- function(precision, scale) {
+  .Call(`_arrow_SmallestDecimal__initialize`, precision, scale)
+}
+
 DayTimeInterval__initialize <- function() {
   .Call(`_arrow_DayTimeInterval__initialize`)
 }
