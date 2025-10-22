@@ -30,10 +30,7 @@
 namespace arrow::flight::sql::odbc {
 
 template <typename T>
-class StatementAttributeTest : public T {
- public:
-  using List = std::list<T>;
-};
+class StatementAttributeTest : public T {};
 
 using TestTypes =
     ::testing::Types<FlightSQLODBCMockTestBase, FlightSQLODBCRemoteTestBase>;
@@ -158,7 +155,7 @@ TYPED_TEST(StatementAttributeTest, TestSQLGetStmtAttrAsyncEnable) {
 #ifdef SQL_ATTR_ASYNC_STMT_EVENT
 TYPED_TEST(StatementAttributeTest, TestSQLGetStmtAttrAsyncStmtEventUnsupported) {
   // Optional feature not implemented
-  ValidateGetStmtAttrErrorCode(this->stmt, SQL_ATTR_ASYNC_STMT_EVENT, error_state_HYC00);
+  ValidateGetStmtAttrErrorCode(this->stmt, SQL_ATTR_ASYNC_STMT_EVENT, kErrorStateHYC00);
 }
 #endif
 
@@ -166,7 +163,7 @@ TYPED_TEST(StatementAttributeTest, TestSQLGetStmtAttrAsyncStmtEventUnsupported) 
 TYPED_TEST(StatementAttributeTest, TestSQLGetStmtAttrAsyncStmtPCCallbackUnsupported) {
   // Optional feature not implemented
   ValidateGetStmtAttrErrorCode(this->stmt, SQL_ATTR_ASYNC_STMT_PCALLBACK,
-                               error_state_HYC00);
+                               kErrorStateHYC00);
 }
 #endif
 
@@ -174,7 +171,7 @@ TYPED_TEST(StatementAttributeTest, TestSQLGetStmtAttrAsyncStmtPCCallbackUnsuppor
 TYPED_TEST(StatementAttributeTest, TestSQLGetStmtAttrAsyncStmtPCContextUnsupported) {
   // Optional feature not implemented
   ValidateGetStmtAttrErrorCode(this->stmt, SQL_ATTR_ASYNC_STMT_PCONTEXT,
-                               error_state_HYC00);
+                               kErrorStateHYC00);
 }
 #endif
 
@@ -360,7 +357,7 @@ TYPED_TEST(StatementAttributeTest, TestSQLSetStmtAttrAppRowDesc) {
 TYPED_TEST(StatementAttributeTest, TestSQLSetStmtAttrAsyncEnableUnsupported) {
   // Optional feature not implemented
   ValidateSetStmtAttrErrorCode(this->stmt, SQL_ATTR_ASYNC_ENABLE, SQL_ASYNC_ENABLE_OFF,
-                               error_state_HYC00);
+                               kErrorStateHYC00);
 }
 #endif
 
@@ -368,14 +365,14 @@ TYPED_TEST(StatementAttributeTest, TestSQLSetStmtAttrAsyncEnableUnsupported) {
 TYPED_TEST(StatementAttributeTest, TestSQLSetStmtAttrAsyncStmtEventUnsupported) {
   // Driver does not support asynchronous notification
   ValidateSetStmtAttrErrorCode(this->stmt, SQL_ATTR_ASYNC_STMT_EVENT, 0,
-                               error_state_HY118);
+                               kErrorStateHY118);
 }
 #endif
 
 #ifdef SQL_ATTR_ASYNC_STMT_PCALLBACK
 TYPED_TEST(StatementAttributeTest, TestSQLSetStmtAttrAsyncStmtPCCallbackUnsupported) {
   ValidateSetStmtAttrErrorCode(this->stmt, SQL_ATTR_ASYNC_STMT_PCALLBACK, 0,
-                               error_state_HYC00);
+                               kErrorStateHYC00);
 }
 #endif
 
@@ -383,7 +380,7 @@ TYPED_TEST(StatementAttributeTest, TestSQLSetStmtAttrAsyncStmtPCCallbackUnsuppor
 TYPED_TEST(StatementAttributeTest, TestSQLSetStmtAttrAsyncStmtPCContextUnsupported) {
   // Optional feature not implemented
   ValidateSetStmtAttrErrorCode(this->stmt, SQL_ATTR_ASYNC_STMT_PCONTEXT, 0,
-                               error_state_HYC00);
+                               kErrorStateHYC00);
 }
 #endif
 
@@ -419,13 +416,13 @@ TYPED_TEST(StatementAttributeTest, TestSQLSetStmtAttrFetchBookmarkPointer) {
 TYPED_TEST(StatementAttributeTest, TestSQLSetStmtAttrIMPParamDesc) {
   // Invalid use of an automatically allocated descriptor handle
   ValidateSetStmtAttrErrorCode(this->stmt, SQL_ATTR_IMP_PARAM_DESC,
-                               static_cast<SQLULEN>(0), error_state_HY017);
+                               static_cast<SQLULEN>(0), kErrorStateHY017);
 }
 
 TYPED_TEST(StatementAttributeTest, TestSQLSetStmtAttrIMPRowDesc) {
   // Invalid use of an automatically allocated descriptor handle
   ValidateSetStmtAttrErrorCode(this->stmt, SQL_ATTR_IMP_ROW_DESC, static_cast<SQLULEN>(0),
-                               error_state_HY017);
+                               kErrorStateHY017);
 }
 
 TYPED_TEST(StatementAttributeTest, TestSQLSetStmtAttrKeysetSizeUnsupported) {
@@ -439,7 +436,7 @@ TYPED_TEST(StatementAttributeTest, TestSQLSetStmtAttrMaxLength) {
 TYPED_TEST(StatementAttributeTest, TestSQLSetStmtAttrMaxRows) {
   // Cannot set read-only attribute
   ValidateSetStmtAttrErrorCode(this->stmt, SQL_ATTR_MAX_ROWS, static_cast<SQLULEN>(0),
-                               error_state_HY092);
+                               kErrorStateHY092);
 }
 
 TYPED_TEST(StatementAttributeTest, TestSQLSetStmtAttrMetadataID) {
@@ -534,7 +531,7 @@ TYPED_TEST(StatementAttributeTest, TestSQLSetStmtAttrRowBindType) {
 TYPED_TEST(StatementAttributeTest, TestSQLSetStmtAttrRowNumber) {
   // Cannot set read-only attribute
   ValidateSetStmtAttrErrorCode(this->stmt, SQL_ATTR_ROW_NUMBER, static_cast<SQLULEN>(0),
-                               error_state_HY092);
+                               kErrorStateHY092);
 }
 
 TYPED_TEST(StatementAttributeTest, TestSQLSetStmtAttrRowOperationPtr) {
