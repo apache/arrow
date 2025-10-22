@@ -24,6 +24,7 @@ import warnings
 
 from collections import OrderedDict
 from datetime import date, datetime, time, timedelta, timezone
+from typing import cast
 
 import hypothesis as h
 import hypothesis.strategies as st
@@ -703,7 +704,7 @@ class TestConvertMetadata:
         # OPTION 1: casting after conversion
         table = pa.Table.from_pandas(df)
         # cast the "datetime" column to be tz-aware
-        new_col = table["datetime"].cast(pa.timestamp('ns', tz="UTC"))
+        new_col = table.column(0).cast(pa.timestamp('ns', tz="UTC"))
         new_table1 = table.set_column(
             0, pa.field("datetime", new_col.type), new_col
         )
@@ -971,7 +972,7 @@ class TestConvertPrimitiveTypes:
             schema = pa.schema([pa.field('has_nulls', ty)])
             result = pa.Table.from_pandas(df, schema=schema,
                                           preserve_index=False)
-            assert result[0].chunk(0).equals(expected)
+            assert result.column(0).chunk(0).equals(expected)
 
     def test_int_object_nulls(self):
         arr = np.array([None, 1, np.int64(3)] * 5, dtype=object)
@@ -1133,7 +1134,7 @@ class TestConvertDateTimeLikeTypes:
         })
 
         table = pa.Table.from_pandas(df)
-        assert isinstance(table[0].chunk(0), pa.TimestampArray)
+        assert isinstance(table.column(0).chunk(0), pa.TimestampArray)
 
         result = table.to_pandas()
         # Pandas v2 defaults to [ns], but Arrow defaults to [us] time units
@@ -1190,7 +1191,7 @@ class TestConvertDateTimeLikeTypes:
         df = pd.DataFrame({"datetime": pd.Series(date_array, dtype=object)})
 
         table = pa.Table.from_pandas(df)
-        assert isinstance(table[0].chunk(0), pa.TimestampArray)
+        assert isinstance(table.column(0).chunk(0), pa.TimestampArray)
 
         result = table.to_pandas()
 
@@ -1214,7 +1215,7 @@ class TestConvertDateTimeLikeTypes:
         df = pd.DataFrame({"date": pd.Series(date_array, dtype=object)})
 
         table = pa.Table.from_pandas(df)
-        assert isinstance(table[0].chunk(0), pa.Date32Array)
+        assert isinstance(table.column(0).chunk(0), pa.Date32Array)
 
         result = table.to_pandas()
         expected_df = pd.DataFrame(
@@ -1726,7 +1727,7 @@ class TestConvertStringLikeTypes:
         df = pd.DataFrame({'strings': values})
 
         table = pa.Table.from_pandas(df)
-        assert table[0].type == pa.binary()
+        assert table.column(0).type == pa.binary()
 
         values2 = [b'qux', b'foo', None, b'barz', b'qux', None]
         expected = pd.DataFrame({'strings': values2})
@@ -1747,7 +1748,7 @@ class TestConvertStringLikeTypes:
         arr = None
 
         table = pa.Table.from_pandas(df)
-        assert table[0].num_chunks == 2
+        assert table.column(0).num_chunks == 2
 
     @pytest.mark.large_memory
     @pytest.mark.parametrize('char', ['x', b'x'])
@@ -1889,12 +1890,12 @@ class TestConvertStringLikeTypes:
                             zero_copy_only=True)
 
         # chunked array
-        result = table["strings"].to_pandas(strings_to_categorical=True)
+        result = table.column("strings").to_pandas(strings_to_categorical=True)
         expected = pd.Series(pd.Categorical(values), name="strings")
         tm.assert_series_equal(result, expected)
 
         with pytest.raises(pa.ArrowInvalid):
-            table["strings"].to_pandas(strings_to_categorical=True,
+            table.column("strings").to_pandas(strings_to_categorical=True,
                                        zero_copy_only=True)
 
     @pytest.mark.parametrize(
@@ -1916,12 +1917,12 @@ class TestConvertStringLikeTypes:
                             zero_copy_only=True)
 
         # chunked array
-        result = table["strings"].to_pandas(strings_to_categorical=True)
+        result = table.column("strings").to_pandas(strings_to_categorical=True)
         expected = pd.Series(pd.Categorical(values), name="strings")
         tm.assert_series_equal(result, expected)
 
         with pytest.raises(pa.ArrowInvalid):
-            table["strings"].to_pandas(strings_to_categorical=True,
+            table.column("strings").to_pandas(strings_to_categorical=True,
                                        zero_copy_only=True)
 
     # Regression test for ARROW-2101
@@ -2504,7 +2505,7 @@ class TestConvertListTypes:
         table = pa.Table.from_pandas(df)
         table.validate(full=True)
 
-        column_a = table[0]
+        column_a = table.column(0)
         assert column_a.num_chunks == 2
         assert len(column_a.chunk(0)) == 2**21 - 1
         assert len(column_a.chunk(1)) == 1
@@ -3764,8 +3765,8 @@ def test_recordbatchlist_to_pandas():
 def test_recordbatch_table_pass_name_to_pandas():
     rb = pa.record_batch([pa.array([1, 2, 3, 4])], names=['a0'])
     t = pa.table([pa.array([1, 2, 3, 4])], names=['a0'])
-    assert rb[0].to_pandas().name == 'a0'
-    assert t[0].to_pandas().name == 'a0'
+    assert rb.column(0).to_pandas().name == 'a0'
+    assert t.column(0).to_pandas().name == 'a0'
 
 
 # ----------------------------------------------------------------------
@@ -4303,13 +4304,13 @@ def test_array_protocol():
     # default conversion
     result = pa.table(df)
     expected = pa.array([1, 2, None], pa.int64())
-    assert result[0].chunk(0).equals(expected)
+    assert result.column(0).chunk(0).equals(expected)
 
     # with specifying schema
     schema = pa.schema([('a', pa.float64())])
     result = pa.table(df, schema=schema)
     expected2 = pa.array([1, 2, None], pa.float64())
-    assert result[0].chunk(0).equals(expected2)
+    assert result.column(0).chunk(0).equals(expected2)
 
     # pass Series to pa.array
     result = pa.array(df['a'])
@@ -4539,7 +4540,7 @@ def test_array_to_pandas():
         expected = pd.Series(arr)
         tm.assert_series_equal(result, expected)
 
-        result = pa.table({"col": arr})["col"].to_pandas()
+        result = pa.table({"col": arr}).column("col").to_pandas()
         expected = pd.Series(arr, name="col")
         tm.assert_series_equal(result, expected)
 

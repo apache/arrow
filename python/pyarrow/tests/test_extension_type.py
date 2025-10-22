@@ -1537,7 +1537,7 @@ def test_tensor_array_from_numpy(np_type_str):
     arr = np.array([[1, 2, 3, 4, 5, 6], [7, 8, 9, 10, 11, 12]],
                    dtype=np.dtype(np_type_str))
     expected = arr[1:]
-    result = pa.FixedShapeTensorArray.from_numpy_ndarray(arr)[1:].to_numpy_ndarray()
+    result = cast(pa.FixedShapeTensorArray, pa.FixedShapeTensorArray.from_numpy_ndarray(arr)[1:]).to_numpy_ndarray()
     np.testing.assert_array_equal(result, expected)
 
     arr = np.array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], dtype=np.dtype(np_type_str))

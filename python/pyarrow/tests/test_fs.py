@@ -19,6 +19,7 @@ from datetime import datetime, timezone, timedelta
 import gzip
 import os
 import pathlib
+from typing import cast
 from urllib.request import urlopen
 import subprocess
 import sys
@@ -1168,7 +1169,7 @@ def test_mockfs_mtime_roundtrip(mockfs):
 
     with fs.open_output_stream('foo'):
         pass
-    [info] = fs.get_file_info(['foo'])
+    [info] = cast(list[FileInfo], fs.get_file_info(['foo']))
     assert info.mtime == dt
 
 
@@ -1711,7 +1712,7 @@ def test_filesystem_from_uri_s3(s3_server):
     assert path == "mybucket/foo/bar"
 
     fs.create_dir(path)
-    [info] = fs.get_file_info([path])
+    [info] = cast(list[FileInfo], fs.get_file_info([path]))
     assert info.path == path
     assert info.type == FileType.Directory
 
@@ -1731,7 +1732,7 @@ def test_filesystem_from_uri_gcs(gcs_server):
     assert path == "mybucket/foo/bar"
 
     fs.create_dir(path)
-    [info] = fs.get_file_info([path])
+    [info] = cast(list[FileInfo], fs.get_file_info([path]))
     assert info.path == path
     assert info.type == FileType.Directory
 
@@ -1805,15 +1806,15 @@ def test_py_filesystem_get_file_info():
     handler = DummyHandler()
     fs = PyFileSystem(handler)
 
-    [info] = fs.get_file_info(['some/dir'])
+    [info] = cast(list[FileInfo], fs.get_file_info(['some/dir']))
     assert info.path == 'some/dir'
     assert info.type == FileType.Directory
 
-    [info] = fs.get_file_info(['some/file'])
+    [info] = cast(list[FileInfo], fs.get_file_info(['some/file']))
     assert info.path == 'some/file'
     assert info.type == FileType.File
 
-    [info] = fs.get_file_info(['notfound'])
+    [info] = cast(list[FileInfo], fs.get_file_info(['notfound']))
     assert info.path == 'notfound'
     assert info.type == FileType.NotFound
 
@@ -1829,7 +1830,7 @@ def test_py_filesystem_get_file_info_selector():
     fs = PyFileSystem(handler)
 
     selector = FileSelector(base_dir="somedir")
-    infos = fs.get_file_info(selector)
+    infos = cast(list[FileInfo], fs.get_file_info(selector))
     assert len(infos) == 2
     assert infos[0].path == "somedir/file1"
     assert infos[0].type == FileType.File
@@ -1839,7 +1840,7 @@ def test_py_filesystem_get_file_info_selector():
     assert infos[1].size is None
 
     selector = FileSelector(base_dir="somedir", recursive=True)
-    infos = fs.get_file_info(selector)
+    infos = cast(list[FileInfo], fs.get_file_info(selector))
     assert len(infos) == 3
     assert infos[0].path == "somedir/file1"
     assert infos[1].path == "somedir/subdir1"
@@ -1916,8 +1917,8 @@ def test_s3_real_aws():
     assert fs.region == default_region
 
     fs = S3FileSystem(anonymous=True, region='us-east-2')
-    entries = fs.get_file_info(FileSelector(
-        'voltrondata-labs-datasets/nyc-taxi'))
+    entries = cast(list[FileInfo], fs.get_file_info(FileSelector(
+        'voltrondata-labs-datasets/nyc-taxi')))
     assert len(entries) > 0
     key = 'voltrondata-labs-datasets/nyc-taxi/year=2019/month=6/part-0.parquet'
     with fs.open_input_stream(key) as f:
@@ -2236,7 +2237,7 @@ def test_fsspec_delete_root_dir_contents():
 
     # Verify files exist before deletion
     def get_type(path):
-        return fs.get_file_info([path])[0].type
+        return cast(list[FileInfo], fs.get_file_info([path]))[0].type
 
     assert get_type("test_file.txt") == FileType.File
     assert get_type("test_dir") == FileType.Directory

@@ -28,6 +28,7 @@ import pytest  # type: ignore[import-not-found]
 import random
 import sys
 import tempfile
+from typing import cast
 import weakref
 
 try:
@@ -598,22 +599,22 @@ def test_buffer_slicing():
 
     with pytest.raises(IndexError):
         buf.slice(len(buf) + 1)
-    assert buf[11:].to_pybytes() == b""
+    assert cast(pa.Buffer, buf[11:]).to_pybytes() == b""
 
     # Slice stop exceeds buffer length
     with pytest.raises(IndexError):
         buf.slice(1, len(buf))
-    assert buf[1:11].to_pybytes() == buf.to_pybytes()[1:]
+    assert cast(pa.Buffer, buf[1:11]).to_pybytes() == buf.to_pybytes()[1:]
 
     # Negative length
     with pytest.raises(IndexError):
         buf.slice(1, -1)
 
     # Test slice notation
-    assert buf[2:].equals(buf.slice(2))
-    assert buf[2:5].equals(buf.slice(2, 3))
-    assert buf[-5:].equals(buf.slice(len(buf) - 5))
-    assert buf[-5:-2].equals(buf.slice(len(buf) - 5, 3))
+    assert cast(pa.Buffer, buf[2:]).equals(buf.slice(2))
+    assert cast(pa.Buffer, buf[2:5]).equals(buf.slice(2, 3))
+    assert cast(pa.Buffer, buf[-5:]).equals(buf.slice(len(buf) - 5))
+    assert cast(pa.Buffer, buf[-5:-2]).equals(buf.slice(len(buf) - 5, 3))
 
     with pytest.raises(IndexError):
         buf[::-1]
@@ -623,7 +624,7 @@ def test_buffer_slicing():
     n = len(buf)
     for start in range(-n * 2, n * 2):
         for stop in range(-n * 2, n * 2):
-            assert buf[start:stop].to_pybytes() == buf.to_pybytes()[start:stop]
+            assert cast(pa.Buffer, buf[start:stop]).to_pybytes() == buf.to_pybytes()[start:stop]
 
 
 def test_buffer_hashing():
@@ -709,7 +710,7 @@ def test_non_cpu_buffer(pickle_module):
     assert cuda_sliced.to_pybytes() == b'st'
 
     # Sliced buffers with same address
-    assert buf_on_gpu_sliced.equals(cuda_buf[2:4])
+    assert cast(pa.Buffer, buf_on_gpu_sliced).equals(cuda_buf[2:4])
 
     # Buffers on different devices
     msg_device = "Device on which the data resides differs between buffers"
@@ -721,14 +722,14 @@ def test_non_cpu_buffer(pickle_module):
     arr_short = np.array([b'sting'])
     cuda_buf_short = ctx.buffer_from_data(arr_short)
     with pytest.raises(NotImplementedError, match=msg):
-        buf_on_gpu_sliced.equals(cuda_buf_short)
+        cast(pa.Buffer, buf_on_gpu_sliced).equals(cuda_buf_short)
     arr_short = pa.FixedSizeBinaryArray.from_buffers(
         pa.binary(5), 1, [None, cuda_buf_short]
     )
     buf_on_gpu_short = arr_short.buffers()[1]
     assert buf_on_gpu_short is not None
     with pytest.raises(NotImplementedError, match=msg):
-        buf_on_gpu_sliced.equals(buf_on_gpu_short)
+        cast(pa.Buffer, buf_on_gpu_sliced).equals(buf_on_gpu_short)
 
     with pytest.raises(NotImplementedError, match=msg):
         buf_on_gpu.hex()

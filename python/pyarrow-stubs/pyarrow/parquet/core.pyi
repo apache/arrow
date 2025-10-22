@@ -318,7 +318,7 @@ def write_table(
 
 
 def write_to_dataset(
-    table: Table,
+    table: Table | ChunkedArray,
     root_path: str | Path,
     partition_cols: list[str] | None = None,
     filesystem: SupportedFileSystem | None = None,

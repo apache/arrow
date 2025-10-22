@@ -16,7 +16,7 @@
 # under the License.
 
 from collections.abc import Callable, Iterable, Sequence
-from typing import Literal, TypeAlias, overload
+from typing import Literal, TypeAlias, Any
 
 from _typeshed import StrPath
 from pyarrow._dataset import (
@@ -130,107 +130,15 @@ __all__ = [
 _DatasetFormat: TypeAlias = Literal["parquet", "ipc", "arrow", "feather", "csv", "json", "orc", str]
 
 
-@overload
 def partitioning(
-    schema: Schema,
+    /,
+    schema: Schema = None,
+    *,
+    field_names: list[str] = None,
+    flavor: Literal["hive"] | str = None,
     dictionaries: dict[str, Array] | Literal["infer"] | None = None,
 ) -> Partitioning | PartitioningFactory: ...
 
-@overload
-def partitioning(
-    *,
-    field_names: list[str],
-) -> PartitioningFactory: ...
-
-@overload
-
-def partitioning() -> PartitioningFactory: ...
-
-
-@overload
-def partitioning(
-    schema: Schema,
-) -> Partitioning: ...
-
-
-@overload
-def partitioning(
-    schema: Schema,
-    *,
-    flavor: Literal["filename"],
-    dictionaries: dict[str, Array] | None = None,
-) -> Partitioning: ...
-
-
-@overload
-def partitioning(
-    schema: Schema,
-    *,
-    flavor: Literal["filename"],
-    dictionaries: Literal["infer"],
-) -> PartitioningFactory: ...
-
-
-@overload
-def partitioning(
-    field_names: list[str],
-    *,
-    flavor: Literal["filename"],
-) -> PartitioningFactory: ...
-
-
-@overload
-def partitioning(
-    schema: Schema,
-    *,
-    flavor: Literal["hive"],
-    dictionaries: Literal["infer"],
-) -> PartitioningFactory: ...
-
-
-@overload
-def partitioning(
-    *,
-    flavor: Literal["hive"],
-) -> PartitioningFactory: ...
-
-
-@overload
-def partitioning(
-    schema: Schema,
-    *,
-    flavor: Literal["hive"],
-    dictionaries: dict[str, Array] | None = None,
-) -> Partitioning: ...
-
-
-
-@overload
-def partitioning(
-    schema: Schema,
-    *,
-    flavor: str,
-    dictionaries: dict[str, Array] | Literal["infer"] | None = None,
-) -> Partitioning | PartitioningFactory: ...
-
-@overload
-def partitioning(
-    field_names: list[str],
-    *,
-    flavor: str,
-) -> PartitioningFactory: ...
-
-@overload
-def partitioning(
-    *,
-@overload
-def partitioning(
-    *args: Any,
-    **kwargs: Any,
-) -> Any: ...
-
-    flavor: str,
-) -> PartitioningFactory: ...
 
 def parquet_dataset(
     metadata_path: StrPath,
@@ -242,9 +150,8 @@ def parquet_dataset(
 ) -> FileSystemDataset: ...
 
 
-@overload
 def dataset(
-    source: StrPath | Sequence[StrPath],
+    source: StrPath | Sequence[Dataset] | Sequence[StrPath] | Iterable[RecordBatch] | Iterable[Table] | RecordBatchReader | RecordBatch | Table,
     schema: Schema | None = None,
     format: FileFormat | _DatasetFormat | None = None,
     filesystem: SupportedFileSystem | str | None = None,
@@ -252,85 +159,20 @@ def dataset(
     partition_base_dir: str | None = None,
     exclude_invalid_files: bool | None = None,
     ignore_prefixes: list[str] | None = None,
-) -> FileSystemDataset: ...
-
-
-@overload
-def dataset(
-    source: Sequence[Dataset],
-    schema: Schema | None = None,
-    format: FileFormat | _DatasetFormat | None = None,
-    filesystem: SupportedFileSystem | str | None = None,
-    partitioning: Partitioning | PartitioningFactory | str | list[str] | None = None,
-    partition_base_dir: str | None = None,
-    exclude_invalid_files: bool | None = None,
-    ignore_prefixes: list[str] | None = None,
-) -> UnionDataset: ...
-
-
-@overload
-def dataset(
-    source: Iterable[RecordBatch] | Iterable[Table] | RecordBatchReader,
-    schema: Schema | None = None,
-    format: FileFormat | _DatasetFormat | None = None,
-    filesystem: SupportedFileSystem | str | None = None,
-    partitioning: Partitioning | PartitioningFactory | str | list[str] | None = None,
-    partition_base_dir: str | None = None,
-    exclude_invalid_files: bool | None = None,
-    ignore_prefixes: list[str] | None = None,
-) -> InMemoryDataset: ...
-
-
-@overload
-def dataset(
-    source: RecordBatch | Table,
-    schema: Schema | None = None,
-    format: FileFormat | _DatasetFormat | None = None,
-    filesystem: SupportedFileSystem | str | None = None,
-    partitioning: Partitioning | PartitioningFactory | str | list[str] | None = None,
-    partition_base_dir: str | None = None,
-    exclude_invalid_files: bool | None = None,
-    ignore_prefixes: list[str] | None = None,
-) -> InMemoryDataset: ...
-
-@overload
-def dataset(
-    source: Any,
-    schema: Schema | None = None,
-    format: FileFormat | _DatasetFormat | None = None,
-    filesystem: SupportedFileSystem | str | None = None,
-    partitioning: Partitioning | PartitioningFactory | str | list[str] | None = None,
-@overload
-def dataset(
-    source: list[Any],
-    schema: Schema | None = None,
-    format: FileFormat | _DatasetFormat | None = None,
-    filesystem: SupportedFileSystem | str | None = None,
-    partitioning: Partitioning | PartitioningFactory | str | list[str] | None = None,
-    partition_base_dir: str | None = None,
-    exclude_invalid_files: bool | None = None,
-    ignore_prefixes: list[str] | None = None,
-) -> Dataset: ...
-
-    partition_base_dir: str | None = None,
-    exclude_invalid_files: bool | None = None,
-    ignore_prefixes: list[str] | None = None,
-) -> Dataset: ...
-
+) -> FileSystemDataset | UnionDataset | InMemoryDataset | Dataset: ...
 
 
 def write_dataset(
     data: Any | Dataset | Table | RecordBatch | RecordBatchReader | list[Table]
     | Iterable[RecordBatch] | Scanner,
     base_dir: StrPath,
-    basename_template: str | None = None,
     *,
     basename_template: str | None = None,
     format: FileFormat | _DatasetFormat | None = None,
     partitioning: Partitioning | PartitioningFactory | list[str] | None = None,
     partitioning_flavor: str | None = None,
     schema: Schema | None = None,
-    filesystem: SupportedFileSystem | None = None,
+    filesystem: SupportedFileSystem | str | None = None,
     file_options: FileWriteOptions | None = None,
     use_threads: bool = True,
     max_partitions: int = 1024,

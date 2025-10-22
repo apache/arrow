@@ -53,7 +53,7 @@ def check_chunked_overflow(name: str, col) -> None: ...
 
 
 def write_feather(
-    df: pd.DataFrame | Table,
+    df: pd.DataFrame | Table | lib.ChunkedArray,
     dest: StrPath | IO,
     compression: Literal["zstd", "lz4", "uncompressed", "snappy"] | None = None,
     compression_level: int | None = None,
