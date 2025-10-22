@@ -423,7 +423,8 @@ SQLRETURN SQLGetDiagRec(SQLSMALLINT handle_type, SQLHANDLE handle, SQLSMALLINT r
     // Microsoft documentation does not mention
     // any SQLGetDiagRec return value that is associated with `sql_state` buffer, so
     // the return value for writing `sql_state` buffer is ignored by the driver.
-    GetStringAttribute(is_unicode, state, false, sql_state, size, &size, *diagnostics);
+    ARROW_UNUSED(GetStringAttribute(is_unicode, state, false, sql_state, size, &size,
+                                    *diagnostics));
   }
 
   if (native_error_ptr) {
