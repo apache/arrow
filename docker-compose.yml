@@ -995,6 +995,7 @@ services:
         base: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cuda-${CUDA}-cpp
         numba: ${NUMBA}
         numba_cuda: ${NUMBA_CUDA}
+        cuda: ${CUDA}
     shm_size: *shm-size
     environment:
       <<: [*common, *ccache, *sccache]
