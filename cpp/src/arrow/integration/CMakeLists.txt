@@ -38,7 +38,7 @@ elseif(ARROW_BUILD_INTEGRATION)
                 SOURCES
                 c_data_integration_internal.cc
                 SHARED_LINK_LIBS
-                ${ARROW_TEST_SHARED_LINK_LIBS}
+                arrow_testing_shared
                 STATIC_LINK_LIBS
-                ${ARROW_TEST_STATIC_LINK_LIBS})
+                arrow_testing_static)
 endif()
