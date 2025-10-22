@@ -16,8 +16,15 @@
 # under the License.
 
 from __future__ import absolute_import
+from typing import TYPE_CHECKING
 
-import cffi
+if TYPE_CHECKING:
+    import cffi
+else:
+    try:
+        import cffi
+    except ImportError:
+        pass
 
 c_source = """
     struct ArrowSchema {
