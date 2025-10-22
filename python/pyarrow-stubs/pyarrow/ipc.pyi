@@ -16,6 +16,7 @@
 # under the License.
 
 from io import IOBase
+from typing import Any
 
 from _typeshed import StrPath
 import pandas as pd
@@ -95,7 +96,7 @@ def new_stream(
 
 
 def open_stream(
-    source: bytes | lib.Buffer | lib.NativeFile | IOBase,
+    source: bytes | int | lib.Buffer | lib.NativeFile | IOBase,
     *,
     options: Any = None,
     memory_pool: lib.MemoryPool | None = None,

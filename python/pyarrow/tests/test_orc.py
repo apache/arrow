@@ -314,7 +314,7 @@ def test_buffer_readwrite():
     # deprecated keyword order
     buffer_output_stream = pa.BufferOutputStream()
     with pytest.warns(FutureWarning):
-        orc.write_table(buffer_output_stream, table)
+        orc.write_table(buffer_output_stream, table)  # type: ignore[arg-type]
     buffer_reader = pa.BufferReader(buffer_output_stream.getvalue())
     orc_file = orc.ORCFile(buffer_reader)
     output_table = orc_file.read()
@@ -356,8 +356,8 @@ def test_buffer_readwrite_with_writeoptions():
     buffer_output_stream = pa.BufferOutputStream()
     with pytest.warns(FutureWarning):
         orc.write_table(
-            buffer_output_stream,
-            table,
+            buffer_output_stream,  # type: ignore[arg-type]
+            table,  # type: ignore[arg-type]
             compression='uncompressed',
             file_version='0.11',
             row_index_stride=20000,

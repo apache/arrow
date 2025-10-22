@@ -129,7 +129,7 @@ class Int16Type(_BasicDataType[int]):
     ...
 
 
-class Uint32Type(_BasicDataType[int]):
+class UInt32Type(_BasicDataType[int]):
     ...
 
 
@@ -331,7 +331,7 @@ _IndexT = TypeVar(
     Int8Type,
     UInt16Type,
     Int16Type,
-    Uint32Type,
+    UInt32Type,
     Int32Type,
     UInt64Type,
     Int64Type,
@@ -680,7 +680,7 @@ def uint16() -> UInt16Type: ...
 def int16() -> Int16Type: ...
 
 
-def uint32() -> Uint32Type: ...
+def uint32() -> UInt32Type: ...
 
 
 def int32() -> Int32Type: ...
@@ -866,7 +866,7 @@ __all__ = [
     "Int8Type",
     "UInt16Type",
     "Int16Type",
-    "Uint32Type",
+    "UInt32Type",
     "Int32Type",
     "UInt64Type",
     "Int64Type",

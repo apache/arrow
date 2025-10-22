@@ -853,7 +853,7 @@ def test_dictionary(pickle_module):
     assert arr.to_pylist() == expected
 
     for j, (i, v) in enumerate(zip(indices, expected)):
-        s = arr[j]
+        s = cast(pa.DictionaryScalar, arr[j])
 
         assert s.as_py() == v
         assert s.value.as_py() == v
@@ -869,14 +869,14 @@ def test_run_end_encoded():
     values = [1, 2, 1, None, 3]
     arr = pa.RunEndEncodedArray.from_arrays(run_ends, values)
 
-    scalar = arr[0]
+    scalar = cast(pa.RunEndEncodedScalar, arr[0])
     assert isinstance(scalar, pa.RunEndEncodedScalar)
     assert isinstance(scalar.value, pa.Int64Scalar)
     assert scalar.value == pa.array(values)[0]
     assert scalar.as_py() == 1
 
     # null -> .value is still a scalar, as_py returns None
-    scalar = arr[10]
+    scalar = cast(pa.RunEndEncodedScalar, arr[10])
     assert isinstance(scalar.value, pa.Int64Scalar)
     assert scalar.as_py() is None
 
@@ -902,13 +902,13 @@ def test_union(pickle_module):
         with pytest.raises(pa.ArrowNotImplementedError):
             pickle_module.loads(pickle_module.dumps(s))
 
-    assert arr[0].type_code == 0
+    assert cast(pa.UnionScalar, arr[0]).type_code == 0
     assert arr[0].as_py() == "a"
-    assert arr[1].type_code == 0
+    assert cast(pa.UnionScalar, arr[1]).type_code == 0
     assert arr[1].as_py() == "b"
-    assert arr[2].type_code == 1
+    assert cast(pa.UnionScalar, arr[2]).type_code == 1
     assert arr[2].as_py() == 3
-    assert arr[3].type_code == 1
+    assert cast(pa.UnionScalar, arr[3]).type_code == 1
     assert arr[3].as_py() == 4
 
     # dense
@@ -928,9 +928,9 @@ def test_union(pickle_module):
         with pytest.raises(pa.ArrowNotImplementedError):
             pickle_module.loads(pickle_module.dumps(s))
 
-    assert arr[0].type_code == 0
+    assert cast(pa.UnionScalar, arr[0]).type_code == 0
     assert arr[0].as_py() == b'a'
-    assert arr[5].type_code == 1
+    assert cast(pa.UnionScalar, arr[5]).type_code == 1
     assert arr[5].as_py() == 3
 
 

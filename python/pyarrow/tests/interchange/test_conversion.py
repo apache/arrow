@@ -163,8 +163,8 @@ def test_pandas_roundtrip_string():
     result = pi.from_dataframe(pandas_df)
 
     assert result["a"].to_pylist() == table["a"].to_pylist()
-    assert pa.types.is_string(table["a"].type)
-    assert pa.types.is_large_string(result["a"].type)
+    assert pa.types.is_string(table.column("a").type)
+    assert pa.types.is_large_string(result.column("a").type)
 
     table_protocol = table.__dataframe__()
     result_protocol = result.__dataframe__()
@@ -193,8 +193,8 @@ def test_pandas_roundtrip_large_string():
         result = pi.from_dataframe(pandas_df)
 
         assert result["a_large"].to_pylist() == table["a_large"].to_pylist()
-        assert pa.types.is_large_string(table["a_large"].type)
-        assert pa.types.is_large_string(result["a_large"].type)
+        assert pa.types.is_large_string(table.column("a_large").type)
+        assert pa.types.is_large_string(result.column("a_large").type)
 
         table_protocol = table.__dataframe__()
         result_protocol = result.__dataframe__()
@@ -231,12 +231,12 @@ def test_pandas_roundtrip_string_with_missing():
         result = pi.from_dataframe(pandas_df)
 
         assert result["a"].to_pylist() == table["a"].to_pylist()
-        assert pa.types.is_string(table["a"].type)
-        assert pa.types.is_large_string(result["a"].type)
+        assert pa.types.is_string(table.column("a").type)
+        assert pa.types.is_large_string(result.column("a").type)
 
         assert result["a_large"].to_pylist() == table["a_large"].to_pylist()
-        assert pa.types.is_large_string(table["a_large"].type)
-        assert pa.types.is_large_string(result["a_large"].type)
+        assert pa.types.is_large_string(table.column("a_large").type)
+        assert pa.types.is_large_string(result.column("a_large").type)
     else:
         # older versions of pandas do not have bitmask support
         # https://github.com/pandas-dev/pandas/issues/49888
@@ -261,8 +261,8 @@ def test_pandas_roundtrip_categorical():
     result = pi.from_dataframe(pandas_df)
 
     assert result["weekday"].to_pylist() == table["weekday"].to_pylist()
-    assert pa.types.is_dictionary(table["weekday"].type)
-    assert pa.types.is_dictionary(result["weekday"].type)
+    assert pa.types.is_dictionary(table.column("weekday").type)
+    assert pa.types.is_dictionary(result.column("weekday").type)
     assert pa.types.is_string(table["weekday"].chunk(0).dictionary.type)  # type: ignore[union-attr]
     assert pa.types.is_large_string(result["weekday"].chunk(0).dictionary.type)  # type: ignore[union-attr]
     assert pa.types.is_int32(table["weekday"].chunk(0).indices.type)  # type: ignore[union-attr]
@@ -464,8 +464,8 @@ def test_pyarrow_roundtrip_large_string():
     col = result.__dataframe__().get_column(0)
 
     assert col.size() == 3*1024**2
-    assert pa.types.is_large_string(table[0].type)
-    assert pa.types.is_large_string(result[0].type)
+    assert pa.types.is_large_string(table.column(0).type)
+    assert pa.types.is_large_string(result.column(0).type)
 
     assert table.equals(result)
 

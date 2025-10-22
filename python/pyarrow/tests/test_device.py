@@ -59,7 +59,7 @@ def test_copy_to():
 
         batch_copied = batch.copy_to(dest)
         assert batch_copied.equals(batch)
-        buffer = batch_copied["col"].buffers()[1]
+        buffer = batch_copied.column("col").buffers()[1]
         assert buffer is not None
         assert buffer.device == mm.device
         buffer_orig = arr.buffers()[1]

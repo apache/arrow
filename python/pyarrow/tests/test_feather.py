@@ -159,7 +159,7 @@ def test_dataset(version):
             (index + 1) * (num_values[0] // num_files),
         )
 
-        write_feather(table[rows[0]: rows[1]], path, version=version)
+        write_feather(table[rows[0]: rows[1]], path, version=version)  # type: ignore[arg-type]
 
     data = FeatherDataset(paths).read_table()
     assert data.equals(table)
