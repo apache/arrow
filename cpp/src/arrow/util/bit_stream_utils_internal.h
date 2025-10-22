@@ -268,8 +268,8 @@ inline int BitReader::GetBatch(int num_bits, T* v, int batch_size) {
   }
 
   if constexpr (std::is_same_v<T, bool>) {
-    ::arrow::internal::unpack(buffer_ + byte_offset_, reinterpret_cast<bool*>(v),
-                              batch_size, num_bits, bit_offset_);
+    ::arrow::internal::unpack(buffer_ + byte_offset_, v, batch_size, num_bits,
+                              bit_offset_);
 
   } else {
     ::arrow::internal::unpack(buffer_ + byte_offset_,
