@@ -147,6 +147,12 @@ TEST(StringConversion, ToFloat) {
   AssertConversionFails<FloatType>("");
   AssertConversionFails<FloatType>("e");
   AssertConversionFails<FloatType>("1,5");
+  AssertConversionFails<FloatType>("-");
+  AssertConversionFails<FloatType>("+");
+  AssertConversionFails<FloatType>("-+");
+  AssertConversionFails<FloatType>("+-");
+  AssertConversionFails<FloatType>("--0");
+  AssertConversionFails<FloatType>("++0");
 
   StringConverter<FloatType> converter(/*decimal_point=*/',');
   AssertConversion(&converter, "1,5", 1.5f);

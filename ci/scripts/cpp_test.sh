@@ -188,7 +188,7 @@ if [ "${ARROW_FUZZING}" == "ON" ]; then
     if [ "${ARROW_PARQUET}" == "ON" ]; then
       "${binary_output_dir}/parquet-arrow-fuzz" "${ARROW_TEST_DATA}"/parquet/fuzzing/*-testcase-*
     fi
-    # TODO run CSV fuzz regression tests once we have any
+    "${binary_output_dir}/arrow-csv-fuzz" "${ARROW_TEST_DATA}"/csv/fuzzing/*-testcase-*
 fi
 
 popd
