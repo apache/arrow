@@ -27,10 +27,7 @@
 namespace arrow::flight::sql::odbc {
 
 template <typename T>
-class ConnectionTest : public T {
- public:
-  using List = std::list<T>;
-};
+class ConnectionTest : public T {};
 
 // GH-46574 TODO: add remote server test cases using `ConnectionRemoteTest`
 class ConnectionRemoteTest : public FlightSQLODBCRemoteTestBase {};
