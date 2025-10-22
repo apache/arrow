@@ -21,17 +21,16 @@
 Support Policy
 ==============
 
-Official Support Policy
-=======================
+Official Support Policy for Apache Arrow C++
+============================================
 
-The Apache Arrow project houses a collection of libraries for different
-programming languages supporting various build systems, operating systems and architectures.
-This has generated a growing ecosystem of Continuous Integration (CI) jobs
-to maintain in order to ensure the matrix of supported platforms is properly tested.
+The Apache Arrow C++ implementation supports various build systems, operating systems,
+and architectures. This has generated a growing ecosystem of Continuous Integration (CI)
+jobs to maintain in order to ensure the matrix of supported platforms is properly tested.
 
-This page documents how a platform (Operation System, architecture or build system)
-is supported in Arrow along with a list of platforms that are currently supported for
-the Arrow C++ implementation.
+This page documents how a platform (operation system, architecture or build system)
+is supported in the Arrow C++ implementation along with a list of platforms that
+are currently supported for the Arrow C++ implementation.
 
 Support tiers
 =============
