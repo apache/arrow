@@ -83,6 +83,10 @@ std::vector<Int> UnpackValues(const uint8_t* packed, int32_t num_values,
 template <typename Int>
 std::vector<uint8_t> PackValues(const std::vector<Int>& values, int num_values,
                                 int bit_width, int bit_offset) {
+  if (bit_width == 0) {
+    return {};
+  }
+
   const auto num_bytes = GetNumBytes(num_values, bit_width, bit_offset);
 
   std::vector<uint8_t> out(static_cast<std::size_t>(num_bytes));
