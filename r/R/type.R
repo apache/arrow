@@ -604,16 +604,7 @@ timestamp <- function(unit = c("s", "ms", "us", "ns"), timezone = "") {
 #' @export
 decimal <- function(precision, scale) {
   args <- check_decimal_args(precision, scale)
-
-  if (args$precision > 38) {
-    decimal256(args$precision, args$scale)
-  } else if (args$precision > 18) {
-    decimal128(args$precision, args$scale)
-  } else if (args$precision > 9) {
-    decimal64(args$precision, args$scale)
-  } else {
-    decimal32(args$precision, args$scale)
-  }
+  SmallestDecimal__initialize(args$precision, args$scale)
 }
 
 #' @rdname data-type
