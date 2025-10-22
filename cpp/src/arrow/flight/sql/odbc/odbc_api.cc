@@ -36,26 +36,179 @@ SQLRETURN SQLAllocHandle(SQLSMALLINT type, SQLHANDLE parent, SQLHANDLE* result) 
   ARROW_LOG(DEBUG) << "SQLAllocHandle called with type: " << type
                    << ", parent: " << parent
                    << ", result: " << static_cast<const void*>(result);
-  // GH-46096 TODO: Implement SQLAllocEnv
-  // GH-46097 TODO: Implement SQLAllocConnect, pre-requisite requires SQLAllocEnv
-  // implementation
-
-  // GH-47706 TODO: Implement SQLAllocStmt, pre-requisite requires
+  // GH-47706 TODO: Add tests for SQLAllocStmt, pre-requisite requires
   // SQLDriverConnect implementation
 
-  // GH-47707 TODO: Implement SQL_HANDLE_DESC for
+  // GH-47707 TODO: Add tests for SQL_HANDLE_DESC implementation for
   // descriptor handle, pre-requisite requires SQLAllocStmt
-  return SQL_INVALID_HANDLE;
+
+  *result = nullptr;
+
+  switch (type) {
+    case SQL_HANDLE_ENV: {
+      using ODBC::ODBCEnvironment;
+
+      *result = SQL_NULL_HENV;
+
+      try {
+        static std::shared_ptr<FlightSqlDriver> odbc_driver =
+            std::make_shared<FlightSqlDriver>();
+        *result = reinterpret_cast<SQLHENV>(new ODBCEnvironment(odbc_driver));
+
+        return SQL_SUCCESS;
+      } catch (const std::bad_alloc&) {
+        // allocating environment failed so cannot log diagnostic error here
+        return SQL_ERROR;
+      }
+    }
+
+    case SQL_HANDLE_DBC: {
+      using ODBC::ODBCConnection;
+      using ODBC::ODBCEnvironment;
+
+      *result = SQL_NULL_HDBC;
+
+      ODBCEnvironment* environment = reinterpret_cast<ODBCEnvironment*>(parent);
+
+      return ODBCEnvironment::ExecuteWithDiagnostics(environment, SQL_ERROR, [=]() {
+        std::shared_ptr<ODBCConnection> conn = environment->CreateConnection();
+
+        if (conn) {
+          // Inside `CreateConnection`, the shared_ptr `conn` is kept
+          // in a `std::vector` of connections inside the environment handle.
+          // As long as the parent environment handle is alive, the connection shared_ptr
+          // will be kept alive unless the user frees the connection.
+          *result = reinterpret_cast<SQLHDBC>(conn.get());
+
+          return SQL_SUCCESS;
+        }
+
+        return SQL_ERROR;
+      });
+    }
+
+    case SQL_HANDLE_STMT: {
+      using ODBC::ODBCConnection;
+      using ODBC::ODBCStatement;
+
+      *result = SQL_NULL_HSTMT;
+
+      ODBCConnection* connection = reinterpret_cast<ODBCConnection*>(parent);
+
+      return ODBCConnection::ExecuteWithDiagnostics(connection, SQL_ERROR, [=]() {
+        std::shared_ptr<ODBCStatement> statement = connection->CreateStatement();
+
+        if (statement) {
+          *result = reinterpret_cast<SQLHSTMT>(statement.get());
+
+          return SQL_SUCCESS;
+        }
+
+        return SQL_ERROR;
+      });
+    }
+
+    case SQL_HANDLE_DESC: {
+      using ODBC::ODBCConnection;
+      using ODBC::ODBCDescriptor;
+
+      *result = SQL_NULL_HDESC;
+
+      ODBCConnection* connection = reinterpret_cast<ODBCConnection*>(parent);
+
+      return ODBCConnection::ExecuteWithDiagnostics(connection, SQL_ERROR, [=]() {
+        std::shared_ptr<ODBCDescriptor> descriptor = connection->CreateDescriptor();
+
+        if (descriptor) {
+          *result = reinterpret_cast<SQLHDESC>(descriptor.get());
+
+          return SQL_SUCCESS;
+        }
+
+        return SQL_ERROR;
+      });
+    }
+
+    default:
+      break;
+  }
+
+  return SQL_ERROR;
 }
 
 SQLRETURN SQLFreeHandle(SQLSMALLINT type, SQLHANDLE handle) {
   ARROW_LOG(DEBUG) << "SQLFreeHandle called with type: " << type
                    << ", handle: " << handle;
-  // GH-46096 TODO: Implement SQLFreeEnv
-  // GH-46097 TODO: Implement SQLFreeConnect
-  // GH-47706 TODO: Implement SQLFreeStmt
-  // GH-47707 TODO: Implement SQL_HANDLE_DESC for descriptor handle
-  return SQL_INVALID_HANDLE;
+  // GH-47706 TODO: Add tests for SQLFreeStmt, pre-requisite requires
+  // SQLAllocStmt tests
+
+  // GH-47707 TODO: Add tests for SQL_HANDLE_DESC implementation for
+  // descriptor handle
+  switch (type) {
+    case SQL_HANDLE_ENV: {
+      using ODBC::ODBCEnvironment;
+
+      ODBCEnvironment* environment = reinterpret_cast<ODBCEnvironment*>(handle);
+
+      if (!environment) {
+        return SQL_INVALID_HANDLE;
+      }
+
+      delete environment;
+
+      return SQL_SUCCESS;
+    }
+
+    case SQL_HANDLE_DBC: {
+      using ODBC::ODBCConnection;
+
+      ODBCConnection* conn = reinterpret_cast<ODBCConnection*>(handle);
+
+      if (!conn) {
+        return SQL_INVALID_HANDLE;
+      }
+
+      // `ReleaseConnection` does the equivalent of `delete`.
+      // `ReleaseConnection` removes the connection `shared_ptr` from the `std::vector` of
+      // connections, and the `shared_ptr` is automatically destructed afterwards.
+      conn->ReleaseConnection();
+
+      return SQL_SUCCESS;
+    }
+
+    case SQL_HANDLE_STMT: {
+      using ODBC::ODBCStatement;
+
+      ODBCStatement* statement = reinterpret_cast<ODBCStatement*>(handle);
+
+      if (!statement) {
+        return SQL_INVALID_HANDLE;
+      }
+
+      statement->ReleaseStatement();
+
+      return SQL_SUCCESS;
+    }
+
+    case SQL_HANDLE_DESC: {
+      using ODBC::ODBCDescriptor;
+
+      ODBCDescriptor* descriptor = reinterpret_cast<ODBCDescriptor*>(handle);
+
+      if (!descriptor) {
+        return SQL_INVALID_HANDLE;
+      }
+
+      descriptor->ReleaseDescriptor();
+
+      return SQL_SUCCESS;
+    }
+
+    default:
+      break;
+  }
+
+  return SQL_ERROR;
 }
 
 SQLRETURN SQLFreeStmt(SQLHSTMT handle, SQLUSMALLINT option) {
