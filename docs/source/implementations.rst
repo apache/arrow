@@ -85,6 +85,35 @@ designed to help produce and consume Arrow data.
      - `nanoarrow Docs <https://arrow.apache.org/nanoarrow>`_ :fa:`external-link-alt`
      - `nanoarrow Source <http://github.com/apache/arrow-nanoarrow>`_
 
+Third-party Implementations
+============================
+
+The following open-source projects provide additional implementations of Apache Arrow:
+
+.. list-table::
+   :header-rows: 1
+
+   * - Project
+     - Language
+     - Description
+     - Docs
+     - Source
+   * - cuDF
+     - Python/C++/CUDA
+     - GPU DataFrames with Apache Arrow compatibility
+     - `cuDF Docs <https://docs.rapids.ai/api/cudf/stable/>`_ :fa:`external-link-alt`
+     - `cuDF Source <https://github.com/rapidsai/cudf>`_ :fa:`external-link-alt`
+   * - Sparrow
+     - C++
+     - C++20 implementation of Apache Arrow
+     - `Sparrow Docs <https://github.com/man-group/sparrow>`_ :fa:`external-link-alt`
+     - `Sparrow Source <https://github.com/man-group/sparrow>`_ :fa:`external-link-alt`
+   * - arro3
+     - Python
+     - Python library for Apache Arrow using WebAssembly
+     - `arro3 Docs <https://github.com/kylebarron/arro3>`_ :fa:`external-link-alt`
+     - `arro3 Source <https://github.com/kylebarron/arro3>`_ :fa:`external-link-alt`
+
 Implementation Status
 =====================
 
