@@ -848,7 +848,7 @@ def test_copy_to():
 
         batch = pa.record_batch({"col": arr})
         batch_cuda = batch.copy_to(dest)
-        buf_cuda = batch_cuda["col"].buffers()[1]
+        buf_cuda = batch_cuda.column("col").buffers()[1]
         assert buf_cuda is not None
         assert not buf_cuda.is_cpu
         assert buf_cuda.device_type == pa.DeviceAllocationType.CUDA

@@ -731,7 +731,7 @@ def test_recordbatch_take():
 def test_recordbatch_column_sets_private_name():
     # ARROW-6429
     rb = pa.record_batch([pa.array([1, 2, 3, 4])], names=['a0'])
-    assert rb[0]._name == 'a0'
+    assert rb.column(0)._name == 'a0'
 
 
 def test_recordbatch_from_arrays_validate_schema():
@@ -1357,7 +1357,7 @@ def test_recordbatchlist_schema_equals():
 def test_table_column_sets_private_name():
     # ARROW-6429
     t = pa.table([pa.array([1, 2, 3, 4])], names=['a0'])
-    assert t[0]._name == 'a0'
+    assert t.column(0)._name == 'a0'
 
 
 def test_table_equals():
@@ -2765,8 +2765,8 @@ def test_table_function_unicode_schema():
     schema = pa.schema([(col_a, pa.int32()), (col_b, pa.string())])
 
     result = pa.table(d, schema=schema)
-    assert result[0].chunk(0).equals(pa.array([1, 2, 3], type='int32'))
-    assert result[1].chunk(0).equals(pa.array(['a', 'b', 'c'], type='string'))
+    assert result.column(0).chunk(0).equals(pa.array([1, 2, 3], type='int32'))
+    assert result.column(1).chunk(0).equals(pa.array(['a', 'b', 'c'], type='string'))
 
 
 def test_table_take_vanilla_functionality():

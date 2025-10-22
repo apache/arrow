@@ -34,6 +34,7 @@ import numpy as np
 
 from pyarrow._compute import CastOptions
 from pyarrow.lib import Array, Buffer, MemoryPool, MonthDayNano, Tensor, _Weakrefable
+from pyarrow.table import ArrayOrChunkedArray
 from typing_extensions import TypeVar
 
 from ._types import (  # noqa: F401
@@ -59,7 +60,7 @@ from ._types import (  # noqa: F401
     ListViewType,
     OpaqueType, DictionaryType, MapType, _BasicDataType,
     StructType, RunEndEncodedType,
-    UInt16Type, Int16Type, Uint32Type, Int32Type, UInt64Type, Int64Type,
+    UInt16Type, Int16Type, UInt32Type, Int32Type, UInt64Type, Int64Type,
     UnionType, ExtensionType, BaseExtensionType, Bool8Type, UuidType, JsonType,
     _BasicValueT,
     _DataTypeT,
@@ -99,7 +100,7 @@ class Scalar(_Weakrefable, Generic[_DataType_co]):
 
     def validate(self, *, full: bool = False) -> None: ...
 
-    def equals(self, other: Scalar) -> bool: ...
+    def equals(self, other: Scalar | ArrayOrChunkedArray) -> bool: ...
 
     def __hash__(self) -> int: ...
 
@@ -161,7 +162,7 @@ class Int16Scalar(Scalar[Int16Type]):
     ...
 
 
-class UInt32Scalar(Scalar[Uint32Type]):
+class UInt32Scalar(Scalar[UInt32Type]):
     ...
 
 

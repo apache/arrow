@@ -25,6 +25,7 @@ import json
 import os
 import re
 import operator
+from typing import cast
 
 import pyarrow as pa
 
@@ -1444,8 +1445,9 @@ Examples
         if not isinstance(other, ParquetDataset):
             raise TypeError('`other` must be an instance of ParquetDataset')
 
+        from pyarrow import dataset as ds
         return (self.schema == other.schema and
-                self._dataset.format == other._dataset.format and
+                cast(ds.FileSystemDataset, self._dataset).format == cast(ds.FileSystemDataset, other._dataset).format and
                 self.filesystem == other.filesystem and
                 # self.fragments == other.fragments and
                 self.files == other.files)
@@ -1671,21 +1673,24 @@ Examples
         >>> dataset.files
         ['dataset_v2_files/year=2019/...-0.parquet', ...
         """
-        return self._dataset.files
+        from pyarrow import dataset as ds
+        return cast(ds.FileSystemDataset, self._dataset).files
 
     @property
     def filesystem(self):
         """
         The filesystem type of the Dataset source.
         """
-        return self._dataset.filesystem
+        from pyarrow import dataset as ds
+        return cast(ds.FileSystemDataset, self._dataset).filesystem
 
     @property
     def partitioning(self):
         """
         The partitioning of the Dataset source, if discovered.
         """
-        return self._dataset.partitioning
+        from pyarrow import dataset as ds
+        return cast(ds.FileSystemDataset, self._dataset).partitioning
 
 
 _read_table_docstring = """
@@ -2241,7 +2246,7 @@ def write_to_dataset(table, root_path, partition_cols=None,
 
     if partition_cols:
         part_schema = table.select(partition_cols).schema
-        partitioning = ds.partitioning(part_schema, flavor="hive")
+        partitioning = ds.partitioning(schema=part_schema, flavor="hive")
 
     if basename_template is None:
         basename_template = guid() + '-{i}.parquet'

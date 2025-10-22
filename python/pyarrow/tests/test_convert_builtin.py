@@ -858,7 +858,7 @@ def test_large_binary_value(ty):
     assert isinstance(arr, pa.Array)
     assert arr.type == ty
     assert len(arr) == 4
-    buf = arr[1].as_buffer()
+    buf = cast(pa.FixedSizeBinaryScalar, arr[1]).as_buffer()
     assert len(buf) == len(s) * nrepeats
 
 

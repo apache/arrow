@@ -127,29 +127,9 @@ def read_table(
 ) -> Table: ...
 
 # TODO: should not use Any here?
-@overload
 def write_table(
     table: Table,
     where: StrPath | NativeFile | IO,
-    *,
-    file_version: Any = "0.12",
-    batch_size: Any = 1024,
-    stripe_size: Any = 64 * 1024 * 1024,  # noqa: Y011
-    compression: Any = "UNCOMPRESSED",
-    compression_block_size: Any = 65536,
-    compression_strategy: Any = "SPEED",
-    row_index_stride: Any = 10000,
-    padding_tolerance: Any = 0.0,
-    dictionary_key_size_threshold: Any = 0.0,
-    bloom_filter_columns: Any = None,
-    bloom_filter_fpp: Any = 0.05,
-) -> None: ...
-
-# Deprecated argument order for backward compatibility
-@overload
-def write_table(
-    where: StrPath | NativeFile | IO,
-    table: Table,
     *,
     file_version: Any = "0.12",
     batch_size: Any = 1024,

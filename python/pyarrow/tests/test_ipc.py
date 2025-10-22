@@ -24,7 +24,7 @@ import random
 import socket
 import threading
 import weakref
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 if TYPE_CHECKING:
     import numpy as np
@@ -936,7 +936,7 @@ def test_ipc_file_stream_has_eos():
     buffer = sink.getvalue()
 
     # skip the file magic
-    reader = pa.ipc.open_stream(buffer[8:])
+    reader = pa.ipc.open_stream(cast(pa.Buffer, buffer[8:]))
 
     # will fail if encounters footer data instead of eos
     rdf = reader.read_pandas()
