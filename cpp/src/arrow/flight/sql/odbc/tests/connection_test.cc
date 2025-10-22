@@ -66,11 +66,11 @@ TEST(SQLAllocHandle, TestSQLAllocHandleConnect) {
   // Allocate a connection using alloc handle
   ASSERT_EQ(SQL_SUCCESS, SQLAllocHandle(SQL_HANDLE_DBC, env, &conn));
 
-  // Free an environment handle
-  ASSERT_EQ(SQL_SUCCESS, SQLFreeHandle(SQL_HANDLE_ENV, env));
-
   // Free a connection handle
   ASSERT_EQ(SQL_SUCCESS, SQLFreeHandle(SQL_HANDLE_DBC, conn));
+
+  // Free an environment handle
+  ASSERT_EQ(SQL_SUCCESS, SQLFreeHandle(SQL_HANDLE_ENV, env));
 }
 
 TEST(SQLAllocConnect, TestSQLAllocHandleConnect) {
@@ -83,23 +83,27 @@ TEST(SQLAllocConnect, TestSQLAllocHandleConnect) {
   // Allocate a connection using alloc handle
   ASSERT_EQ(SQL_SUCCESS, SQLAllocConnect(env, &conn));
 
-  // Free an environment handle
-  ASSERT_EQ(SQL_SUCCESS, SQLFreeEnv(env));
-
   // Free a connection handle
   ASSERT_EQ(SQL_SUCCESS, SQLFreeConnect(conn));
+
+  // Free an environment handle
+  ASSERT_EQ(SQL_SUCCESS, SQLFreeEnv(env));
 }
 
-TYPED_TEST(ConnectionTest, TestFreeNullHandles) {
+TEST(SQLFreeHandle, TestFreeNullHandles) {
+  SQLHENV env = NULL;
+  SQLHDBC conn = NULL;
+  SQLHSTMT stmt = NULL;
+
   // Verifies attempt to free invalid handle does not cause segfault
   // Attempt to free null statement handle
-  ASSERT_EQ(SQL_INVALID_HANDLE, SQLFreeHandle(SQL_HANDLE_STMT, this->stmt));
+  ASSERT_EQ(SQL_INVALID_HANDLE, SQLFreeHandle(SQL_HANDLE_STMT, stmt));
 
   // Attempt to free null connection handle
-  ASSERT_EQ(SQL_INVALID_HANDLE, SQLFreeHandle(SQL_HANDLE_DBC, this->conn));
+  ASSERT_EQ(SQL_INVALID_HANDLE, SQLFreeHandle(SQL_HANDLE_DBC, conn));
 
   // Attempt to free null environment handle
-  ASSERT_EQ(SQL_INVALID_HANDLE, SQLFreeHandle(SQL_HANDLE_ENV, this->env));
+  ASSERT_EQ(SQL_INVALID_HANDLE, SQLFreeHandle(SQL_HANDLE_ENV, env));
 }
 
 }  // namespace arrow::flight::sql::odbc
