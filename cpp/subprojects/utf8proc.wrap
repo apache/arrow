@@ -1,0 +1,30 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+[wrap-file]
+directory = utf8proc-2.10.0
+source_url = https://github.com/JuliaStrings/utf8proc/releases/download/v2.10.0/utf8proc-2.10.0.tar.gz
+source_filename = utf8proc-2.10.0.tar.gz
+source_hash = 276a37dc4d1dd24d7896826a579f4439d1e5fe33603add786bb083cab802e23e
+patch_filename = utf8proc_2.10.0-1_patch.zip
+patch_url = https://wrapdb.mesonbuild.com/v2/utf8proc_2.10.0-1/get_patch
+patch_hash = be16c4514603e922f9636045699fe1a6f844d340b9b7c14b809e47253b06a844
+source_fallback_url = https://github.com/mesonbuild/wrapdb/releases/download/utf8proc_2.10.0-1/utf8proc-2.10.0.tar.gz
+wrapdb_version = 2.10.0-1
+
+[provide]
+libutf8proc = utf8proc_dep
