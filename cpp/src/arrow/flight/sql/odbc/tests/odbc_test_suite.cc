@@ -169,6 +169,16 @@ void FlightSQLOdbcV2RemoteTestBase::SetUp() {
   connected_ = true;
 }
 
+void FlightSQLOdbcEnvConnHandleRemoteTestBase::SetUp() { AllocEnvConnHandles(); }
+
+void FlightSQLOdbcEnvConnHandleRemoteTestBase::TearDown() {
+  // Free connection handle
+  EXPECT_EQ(SQL_SUCCESS, SQLFreeHandle(SQL_HANDLE_DBC, conn));
+
+  // Free environment handle
+  EXPECT_EQ(SQL_SUCCESS, SQLFreeHandle(SQL_HANDLE_ENV, env));
+}
+
 std::string FindTokenInCallHeaders(const CallHeaders& incoming_headers) {
   // Lambda function to compare characters without case sensitivity.
   auto char_compare = [](const char& char1, const char& char2) {
@@ -355,6 +365,21 @@ void FlightSQLOdbcV2MockTestBase::SetUp() {
   this->Initialize();
   this->Connect(SQL_OV_ODBC2);
   connected_ = true;
+}
+
+void FlightSQLOdbcEnvConnHandleMockTestBase::SetUp() {
+  this->Initialize();
+  AllocEnvConnHandles();
+}
+
+void FlightSQLOdbcEnvConnHandleMockTestBase::TearDown() {
+  // Free connection handle
+  EXPECT_EQ(SQL_SUCCESS, SQLFreeHandle(SQL_HANDLE_DBC, conn));
+
+  // Free environment handle
+  EXPECT_EQ(SQL_SUCCESS, SQLFreeHandle(SQL_HANDLE_ENV, env));
+
+  ASSERT_OK(server_->Shutdown());
 }
 
 bool CompareConnPropertyMap(Connection::ConnPropertyMap map1,
