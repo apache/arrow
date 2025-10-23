@@ -87,4 +87,7 @@ inline void AssertIteratorExhausted(Iterator<T>& it) {
 
 Transformer<TestInt, TestStr> MakeFilter(std::function<bool(TestInt&)> filter);
 
+// Assert equal contents of a memory area and a vector of bytes
+void AssertBytesEqual(const uint8_t* left, const std::vector<uint8_t>& right);
+
 }  // namespace arrow
