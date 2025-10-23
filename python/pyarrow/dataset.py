@@ -70,7 +70,8 @@ _orc_msg = (
 )
 
 try:
-    from pyarrow._dataset_orc import OrcFileFormat  # type: ignore[reportMissingModuleSource]
+    # type: ignore[reportMissingModuleSource]
+    from pyarrow._dataset_orc import OrcFileFormat
     _orc_available = True
 except ImportError:
     pass
@@ -371,7 +372,8 @@ def _ensure_multiple_sources(paths, filesystem=None):
     # possible improvement is to group the file_infos by type and raise for
     # multiple paths per error category
     if is_local:
-        for info in filesystem.get_file_info(paths):  # type: ignore[reportGeneralTypeIssues]
+        # type: ignore[reportGeneralTypeIssues]
+        for info in filesystem.get_file_info(paths):
             file_type = info.type
             if file_type == FileType.File:
                 continue

@@ -77,7 +77,8 @@ def test_filesystem_uri(tempdir):
 
     # filesystem URI
     result = pq.read_table(  # type: ignore[attr-defined]
-        "data_dir/data.parquet", filesystem=util._filesystem_uri(tempdir))  # type: ignore[arg-type]
+        # type: ignore[arg-type]
+        "data_dir/data.parquet", filesystem=util._filesystem_uri(tempdir))
     assert result.equals(table)
 
 
@@ -683,7 +684,8 @@ def test_read_multiple_files(tempdir):
     out = pq.read_table(dirpath, columns=col_names)
     expected = pa.Table.from_arrays([result.column(i) for i in to_read],
                                     names=col_names,
-                                    metadata=result.schema.metadata)  # type: ignore[arg-type]
+                                    # type: ignore[arg-type]
+                                    metadata=result.schema.metadata)
     assert out.equals(expected)
 
     # Read with multiple threads

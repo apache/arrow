@@ -63,7 +63,8 @@ else:
         )
     except ImportError:
         flight = None  # type: ignore[assignment]
-        FlightClient, FlightServerBase = object, object  # type: ignore[assignment, misc]
+        # type: ignore[assignment, misc]
+        FlightClient, FlightServerBase = object, object
         ServerAuthHandler, ClientAuthHandler = (  # type: ignore[misc]
             object, object)  # type: ignore[assignment]
         ServerMiddleware, ServerMiddlewareFactory = (  # type: ignore[misc]
@@ -598,7 +599,8 @@ class TokenServerAuthHandler(ServerAuthHandler):
         username = incoming.read()
         password = incoming.read()
         if username in self.creds and self.creds[username] == password:
-            outgoing.write(base64.b64encode(b'secret:' + username))  # type: ignore[arg-type]
+            outgoing.write(
+                base64.b64encode(b'secret:' + username))  # type: ignore[arg-type]
         else:
             raise flight.FlightUnauthenticatedError(
                 "invalid username/password")
@@ -700,7 +702,9 @@ class HeaderAuthServerMiddlewareFactory(ServerMiddlewareFactory):
             'Authorization'
         )
         if auth_header:
-            values = auth_header[0].split(b' ') if isinstance(auth_header[0], bytes) else auth_header[0].split(' ')  # type: ignore[arg-type]
+            values = auth_header[0].split(b' ') if isinstance(
+                # type: ignore[arg-type]
+                auth_header[0], bytes) else auth_header[0].split(' ')
         token = ''
         error_message = 'Invalid credentials'
 
@@ -778,8 +782,10 @@ class ArbitraryHeadersFlightServer(FlightServerBase):
                 'test-header-2'
             )
             if header_1 and header_2:
-                value1 = header_1[0].encode("utf-8") if isinstance(header_1[0], str) else header_1[0]
-                value2 = header_2[0].encode("utf-8") if isinstance(header_2[0], str) else header_2[0]
+                value1 = header_1[0].encode(
+                    "utf-8") if isinstance(header_1[0], str) else header_1[0]
+                value2 = header_2[0].encode(
+                    "utf-8") if isinstance(header_2[0], str) else header_2[0]
                 return [value1, value2]
         raise flight.FlightServerError("No headers middleware found")
 
@@ -814,7 +820,8 @@ class MultiHeaderFlightServer(FlightServerBase):
     def do_action(self, context, action):
         middleware = context.get_middleware("test")
         if middleware:
-            headers = repr(middleware.client_headers).encode("utf-8")  # type: ignore[attr-defined]
+            headers = repr(middleware.client_headers  # type: ignore[attr-defined]
+                           ).encode("utf-8")
             return [headers]
 
 
@@ -1893,7 +1900,8 @@ def test_flight_do_put_metadata():
                 writer.write_with_metadata(batch, metadata)
                 buf = metadata_reader.read()
                 assert buf is not None
-                server_idx, = struct.unpack('<i', buf.to_pybytes())  # type: ignore[attr-defined]
+                server_idx, = struct.unpack(
+                    '<i', buf.to_pybytes())  # type: ignore[attr-defined]
                 assert idx == server_idx
 
 

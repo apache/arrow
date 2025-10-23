@@ -508,7 +508,7 @@ class Table(_Tabular[ChunkedArray[Any]]):
     @classmethod
     def from_arrays(
         cls,
-        arrays: Collection[ArrayOrChunkedArray[Any] | list[Any]],
+        arrays: Collection[ArrayOrChunkedArray[Any] | Collection[NDArray[Any]] | list[Any]],
         names: list[str] | tuple[str, ...] | None = None,
         schema: Schema | None = None,
         metadata: Mapping[str | bytes, str | bytes] | Mapping[bytes, bytes] | Mapping[str, str] | Mapping[bytes, str] | Mapping[str, bytes] | None = None,

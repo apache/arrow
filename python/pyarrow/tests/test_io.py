@@ -624,7 +624,8 @@ def test_buffer_slicing():
     n = len(buf)
     for start in range(-n * 2, n * 2):
         for stop in range(-n * 2, n * 2):
-            assert cast(pa.Buffer, buf[start:stop]).to_pybytes() == buf.to_pybytes()[start:stop]
+            assert cast(pa.Buffer, buf[start:stop]).to_pybytes(
+            ) == buf.to_pybytes()[start:stop]
 
 
 def test_buffer_hashing():
@@ -653,7 +654,8 @@ def test_foreign_buffer():
     buf = pa.foreign_buffer(addr, size, obj)
     wr = weakref.ref(obj)
     del obj
-    assert np.frombuffer(buf, dtype=np.int32).tolist() == [1, 2]  # type: ignore[arg-type]
+    assert (np.frombuffer(buf, dtype=np.int32).tolist()  # type: ignore[arg-type]
+            == [1, 2])
     assert wr() is not None
     del buf
     assert wr() is None

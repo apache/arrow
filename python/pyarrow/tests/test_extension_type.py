@@ -80,12 +80,14 @@ class IntegerEmbeddedType(pa.ExtensionType):
 
     def __arrow_ext_serialize__(self):
         # XXX pa.BaseExtensionType should expose C++ serialization method
-        return self.storage_type.__arrow_ext_serialize__()  # type: ignore[attr-defined]
+        assert isinstance(self.storage_type, IntegerType)
+        return self.storage_type.__arrow_ext_serialize__()
 
     @classmethod
     def __arrow_ext_deserialize__(cls, storage_type, serialized):
-        deserialized_storage_type = storage_type.__arrow_ext_deserialize__(  # type: ignore[attr-defined]
-            serialized)
+        assert isinstance(storage_type, IntegerType)
+        deserialized_storage_type = storage_type.__arrow_ext_deserialize__(
+            storage_type, serialized)
         assert deserialized_storage_type == storage_type
         return cls()
 
@@ -1064,7 +1066,8 @@ def test_parquet_period(tmpdir, registered_period_type):
 
     import base64
     decoded_schema = base64.b64decode(meta.metadata[b"ARROW:schema"])
-    schema = pa.ipc.read_schema(pa.BufferReader(decoded_schema))  # type: ignore[arg-type]
+    schema = pa.ipc.read_schema(pa.BufferReader(
+        decoded_schema))
     # Since the type could be reconstructed, the extension type metadata is
     # absent.
     assert schema.field("ext").metadata == {}
@@ -1477,15 +1480,21 @@ def test_tensor_class_methods(np_type_str):
     np.testing.assert_array_equal(result.to_numpy_ndarray(), expected)
 
     tensor_type = pa.fixed_shape_tensor(arrow_type, [2, 2, 3], permutation=[2, 0, 1])
-    result = pa.ExtensionArray.from_storage(tensor_type, storage)  # type: ignore[assignment]
+    result = pa.ExtensionArray.from_storage(
+        tensor_type, storage)  # type: ignore[assignment]
     expected = as_strided(flat_arr, shape=(1, 3, 2, 2),
                           strides=(bw * 12, bw, bw * 6, bw * 2))
-    np.testing.assert_array_equal(result.to_numpy_ndarray(), expected)  # type: ignore[union-attr]
+    np.testing.assert_array_equal(
+        result.to_numpy_ndarray(), expected)  # type: ignore[union-attr]
 
-    assert result.type.permutation == [2, 0, 1]  # type: ignore[union-attr]
-    assert result.type.shape == [2, 2, 3]  # type: ignore[union-attr]
-    assert result.to_tensor().shape == (1, 3, 2, 2)  # type: ignore[union-attr]
-    assert result.to_tensor().strides == (12 * bw, 1 * bw, 6 * bw, 2 * bw)  # type: ignore[union-attr]
+    result_type = result.type
+    assert isinstance(result, pa.FixedShapeTensorArray)
+    assert isinstance(result_type, pa.FixedShapeTensorType)
+    assert result_type.permutation == [2, 0, 1]
+    assert result_type.shape == [2, 2, 3]
+    assert result.to_tensor().shape == (1, 3, 2, 2)
+    assert result.to_tensor().strides == (12 * bw, 1 * bw, 6 * bw,
+                                          2 * bw)
 
 
 @pytest.mark.numpy
@@ -1513,17 +1522,23 @@ def test_tensor_array_from_numpy(np_type_str):
 
     arr = flat_arr.reshape(1, 3, 4)
     tensor_array_from_numpy = pa.FixedShapeTensorArray.from_numpy_ndarray(arr)
-    assert tensor_array_from_numpy.type.shape == [3, 4]  # type: ignore[attr-defined]
-    assert tensor_array_from_numpy.type.permutation == [0, 1]  # type: ignore[attr-defined]
-    assert tensor_array_from_numpy.type.dim_names is None  # type: ignore[attr-defined]
+    result_type = tensor_array_from_numpy.type
+    assert isinstance(tensor_array_from_numpy, pa.FixedShapeTensorArray)
+    assert isinstance(result_type, pa.FixedShapeTensorType)
+    assert result_type.shape == [3, 4]
+    assert result_type.permutation == [0, 1]
+    assert result_type.dim_names is None
     assert tensor_array_from_numpy.to_tensor() == pa.Tensor.from_numpy(arr)
 
     arr = as_strided(flat_arr, shape=(1, 2, 3, 2),
                      strides=(bw * 12, bw * 6, bw, bw * 3))
     tensor_array_from_numpy = pa.FixedShapeTensorArray.from_numpy_ndarray(arr)
-    assert tensor_array_from_numpy.type.shape == [2, 2, 3]  # type: ignore[attr-defined]
-    assert tensor_array_from_numpy.type.permutation == [0, 2, 1]  # type: ignore[attr-defined]
-    assert tensor_array_from_numpy.type.dim_names is None  # type: ignore[attr-defined]
+    result_type = tensor_array_from_numpy.type
+    assert isinstance(tensor_array_from_numpy, pa.FixedShapeTensorArray)
+    assert isinstance(result_type, pa.FixedShapeTensorType)
+    assert result_type.shape == [2, 2, 3]
+    assert result_type.permutation == [0, 2, 1]
+    assert result_type.dim_names is None
     assert tensor_array_from_numpy.to_tensor() == pa.Tensor.from_numpy(arr)
 
     arr = flat_arr.reshape(1, 2, 3, 2)
@@ -1537,7 +1552,8 @@ def test_tensor_array_from_numpy(np_type_str):
     arr = np.array([[1, 2, 3, 4, 5, 6], [7, 8, 9, 10, 11, 12]],
                    dtype=np.dtype(np_type_str))
     expected = arr[1:]
-    result = cast(pa.FixedShapeTensorArray, pa.FixedShapeTensorArray.from_numpy_ndarray(arr)[1:]).to_numpy_ndarray()
+    result = cast(pa.FixedShapeTensorArray, pa.FixedShapeTensorArray.from_numpy_ndarray(
+        arr)[1:]).to_numpy_ndarray()
     np.testing.assert_array_equal(result, expected)
 
     arr = np.array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], dtype=np.dtype(np_type_str))
@@ -1564,22 +1580,27 @@ def test_tensor_array_from_numpy(np_type_str):
     dim_names = ["a", "b"]
     tensor_array_from_numpy = pa.FixedShapeTensorArray.from_numpy_ndarray(
         arr, dim_names=dim_names)
-    assert tensor_array_from_numpy.type.value_type == arrow_type  # type: ignore[attr-defined]
-    assert tensor_array_from_numpy.type.shape == [2, 3]  # type: ignore[attr-defined]
-    assert tensor_array_from_numpy.type.dim_names == dim_names  # type: ignore[attr-defined]
+    result_type = tensor_array_from_numpy.type
+    assert isinstance(tensor_array_from_numpy, pa.FixedShapeTensorArray)
+    assert isinstance(result_type, pa.FixedShapeTensorType)
+    assert result_type.value_type == arrow_type
+    assert result_type.shape == [2, 3]
+    assert result_type.dim_names == dim_names
 
     with pytest.raises(ValueError, match="The length of dim_names"):
         pa.FixedShapeTensorArray.from_numpy_ndarray(arr, dim_names=['only_one'])
 
     with pytest.raises(TypeError, match="dim_names must be a tuple or list"):
-        pa.FixedShapeTensorArray.from_numpy_ndarray(arr, dim_names=123)  # type: ignore[arg-type]
+        pa.FixedShapeTensorArray.from_numpy_ndarray(
+            arr, dim_names=123)  # type: ignore[arg-type]
 
     with pytest.raises(TypeError, match="dim_names must be a tuple or list"):
         pa.FixedShapeTensorArray.from_numpy_ndarray(
             arr, dim_names=(x for x in range(2)))  # type: ignore[arg-type]
 
     with pytest.raises(TypeError, match="Each element of dim_names must be a string"):
-        pa.FixedShapeTensorArray.from_numpy_ndarray(arr, dim_names=[0, 1])  # type: ignore[arg-type]
+        pa.FixedShapeTensorArray.from_numpy_ndarray(
+            arr, dim_names=[0, 1])  # type: ignore[arg-type]
 
 
 @pytest.mark.numpy

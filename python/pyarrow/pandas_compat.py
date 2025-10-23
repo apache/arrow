@@ -822,7 +822,8 @@ def table_to_dataframe(
     result = pa.lib.table_to_blocks(options, table, categories,
                                     list(ext_columns_dtypes.keys()))
     if _pandas_api.is_ge_v3():
-        from pandas.api.internals import create_dataframe_from_blocks  # type: ignore[import-not-found]
+        # type: ignore[import-not-found]
+        from pandas.api.internals import create_dataframe_from_blocks
 
         blocks = [
             _reconstruct_block(
@@ -844,7 +845,8 @@ def table_to_dataframe(
         axes = [columns, index]
         mgr = BlockManager(blocks, axes)
         if _pandas_api.is_ge_v21():
-            df = DataFrame._from_mgr(mgr, mgr.axes)  # type: ignore[reportAttributeAccessIssue]
+            # type: ignore[reportAttributeAccessIssue]
+            df = DataFrame._from_mgr(mgr, mgr.axes)
         else:
             df = DataFrame(mgr)
 
@@ -1188,12 +1190,14 @@ def _reconstruct_columns_from_metadata(columns, column_indexes):
             if _pandas_api.is_ge_v3():
                 # with pandas 3+, to_datetime returns a unit depending on the string
                 # data, so we restore it to the original unit from the metadata
-                level = level.as_unit(np.datetime_data(dtype)[0])  # type: ignore[reportArgumentType]
+                # type: ignore[reportArgumentType]
+                level = level.as_unit(np.datetime_data(dtype)[0])
         # GH-41503: if the column index was decimal, restore to decimal
         elif pandas_dtype == "decimal":
             level = _pandas_api.pd.Index([decimal.Decimal(i) for i in level])
         elif (
-            level.dtype == "str" and numpy_dtype == "object"  # pyright: ignore[reportAttributeAccessIssue]
+            # pyright: ignore[reportAttributeAccessIssue]
+            level.dtype == "str" and numpy_dtype == "object"
             and ("mixed" in pandas_dtype or pandas_dtype in ["unicode", "string"])
         ):
             # the metadata indicate that the original dataframe used object dtype,
@@ -1210,7 +1214,8 @@ def _reconstruct_columns_from_metadata(columns, column_indexes):
             level = level.astype(dtype)  # pyright: ignore[reportAttributeAccessIssue]
         # ARROW-9096: if original DataFrame was upcast we keep that
         if level.dtype != numpy_dtype and pandas_dtype != "datetimetz":
-            level = level.astype(numpy_dtype)  # pyright: ignore[reportAttributeAccessIssue]
+            # pyright: ignore[reportAttributeAccessIssue]
+            level = level.astype(numpy_dtype)
 
         new_levels.append(level)
 
