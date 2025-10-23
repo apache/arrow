@@ -174,9 +174,12 @@ def test_in_expr_todo():
     assert result.to_array().equals(pa.array([1, 2], type=pa.uint32()))
 
     # timestamp
-    datetime_1 = datetime.datetime.fromtimestamp(1542238951.621877, tz=datetime.timezone.utc)
-    datetime_2 = datetime.datetime.fromtimestamp(1542238911.621877, tz=datetime.timezone.utc)
-    datetime_3 = datetime.datetime.fromtimestamp(1542238051.621877, tz=datetime.timezone.utc)
+    datetime_1 = datetime.datetime.fromtimestamp(
+        1542238951.621877, tz=datetime.timezone.utc)
+    datetime_2 = datetime.datetime.fromtimestamp(
+        1542238911.621877, tz=datetime.timezone.utc)
+    datetime_3 = datetime.datetime.fromtimestamp(
+        1542238051.621877, tz=datetime.timezone.utc)
 
     arr = pa.array([datetime_1, datetime_2, datetime_3])
     table = pa.Table.from_arrays([arr], ["a"])

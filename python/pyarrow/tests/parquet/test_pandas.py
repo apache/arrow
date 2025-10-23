@@ -462,7 +462,8 @@ def test_backwards_compatible_column_metadata_handling(datadir):
     table = _read_table(
         path, columns=['a'])
     result = table.to_pandas()
-    tm.assert_frame_equal(result, cast(pd.DataFrame, expected[['a']].reset_index(drop=True)))
+    tm.assert_frame_equal(result, cast(
+        pd.DataFrame, expected[['a']].reset_index(drop=True)))
 
 
 @pytest.mark.pandas

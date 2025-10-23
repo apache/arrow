@@ -312,7 +312,8 @@ def test_export_import_schema_float_pointer():
     with pytest.warns(UserWarning, match=match):
         make_schema()._export_to_c(float(ptr_schema))  # type: ignore[arg-type]
     with pytest.warns(UserWarning, match=match):
-        schema_new = pa.Schema._import_from_c(float(ptr_schema))  # type: ignore[arg-type]
+        schema_new = pa.Schema._import_from_c(
+            float(ptr_schema))  # type: ignore[arg-type]
     assert schema_new == make_schema()
 
 

@@ -679,7 +679,8 @@ class BaseTestCSV(abc.ABC):
             InvalidRow(2, 1, row_num(2), "c"),
             InvalidRow(2, 3, row_num(4), "f,g,h"),
         ]
-        assert parse_opts.invalid_row_handler.rows == expected_rows  # type: ignore[attr-defined]
+        # type: ignore[attr-defined]
+        assert parse_opts.invalid_row_handler.rows == expected_rows
 
         # Error requested
         parse_opts.invalid_row_handler = InvalidRowHandler('error')
@@ -688,7 +689,8 @@ class BaseTestCSV(abc.ABC):
                 match="Expected 2 columns, got 1: c"):
             self.read_bytes(rows, parse_options=parse_opts)
         expected_rows = [InvalidRow(2, 1, row_num(2), "c")]
-        assert parse_opts.invalid_row_handler.rows == expected_rows  # type: ignore[attr-defined]
+        # type: ignore[attr-defined]
+        assert parse_opts.invalid_row_handler.rows == expected_rows
 
         # Test ser/de
         parse_opts.invalid_row_handler = InvalidRowHandler('skip')
@@ -1881,7 +1883,8 @@ class BaseTestCompressedCSVRead:
 
     def test_random_csv(self):
         csv, expected = make_random_csv(num_cols=2, num_rows=100)
-        csv_path = os.path.join(self.tmpdir, self.csv_filename)  # type: ignore[attr-defined]
+        # type: ignore[attr-defined]
+        csv_path = os.path.join(self.tmpdir, self.csv_filename)
         self.write_file(csv_path, csv)  # type: ignore[attr-defined]
         table = self.read_csv(csv_path)
         table.validate(full=True)

@@ -779,9 +779,11 @@ def test_min_max():
     assert s.as_py() == {'min': 1, 'max': 6}
     s = pc.min_max(data, options=pc.ScalarAggregateOptions())  # type: ignore[arg-type]
     assert s.as_py() == {'min': 1, 'max': 6}
-    s = pc.min_max(data, options=pc.ScalarAggregateOptions(skip_nulls=True))  # type: ignore[arg-type]
+    s = pc.min_max(data, options=pc.ScalarAggregateOptions(
+        skip_nulls=True))  # type: ignore[arg-type]
     assert s.as_py() == {'min': 1, 'max': 6}
-    s = pc.min_max(data, options=pc.ScalarAggregateOptions(skip_nulls=False))  # type: ignore[arg-type]
+    s = pc.min_max(data, options=pc.ScalarAggregateOptions(
+        skip_nulls=False))  # type: ignore[arg-type]
     assert s.as_py() == {'min': None, 'max': None}
 
     # Options as dict of kwargs
@@ -794,7 +796,8 @@ def test_min_max():
     # Both options and named arguments
     with pytest.raises(TypeError):
         s = pc.min_max(
-            data, options=pc.ScalarAggregateOptions(), skip_nulls=False)  # type: ignore[arg-type]
+            # type: ignore[arg-type]
+            data, options=pc.ScalarAggregateOptions(), skip_nulls=False)
 
     # Wrong options type
     options = pc.TakeOptions()
@@ -1762,10 +1765,12 @@ def test_round():
     for ndigits, expected in ndigits_and_expected.items():
         options = pc.RoundOptions(ndigits, "half_towards_infinity")
         result = pc.round(values, options=options)  # type: ignore[arg-type]
-        np.testing.assert_allclose(result, pa.array(expected), equal_nan=True)  # type: ignore[arg-type]
+        np.testing.assert_allclose(result, pa.array(
+            expected), equal_nan=True)  # type: ignore[arg-type]
         assert pc.round(values, ndigits,  # type: ignore[arg-type]
                         round_mode="half_towards_infinity") == result
-        assert pc.round(values, ndigits, "half_towards_infinity") == result  # type: ignore[arg-type]
+        # type: ignore[arg-type]
+        assert pc.round(values, ndigits, "half_towards_infinity") == result
 
 
 @pytest.mark.numpy
@@ -1782,7 +1787,8 @@ def test_round_to_multiple():
     for multiple, expected in multiple_and_expected.items():
         options = pc.RoundToMultipleOptions(multiple, "half_towards_infinity")
         result = pc.round_to_multiple(values, options=options)  # type: ignore[arg-type]
-        np.testing.assert_allclose(result, pa.array(expected), equal_nan=True)  # type: ignore[arg-type]
+        np.testing.assert_allclose(result, pa.array(
+            expected), equal_nan=True)  # type: ignore[arg-type]
         assert pc.round_to_multiple(values, multiple,  # type: ignore[arg-type]
                                     "half_towards_infinity") == result
 
@@ -1978,7 +1984,8 @@ def test_logical():
 def test_dictionary_decode():
     array = pa.array(["a", "a", "b", "c", "b"])
     dictionary_array = array.dictionary_encode()
-    dictionary_array_decode = pc.dictionary_decode(dictionary_array)  # type: ignore[attr-defined]
+    dictionary_array_decode = pc.dictionary_decode(
+        dictionary_array)  # type: ignore[attr-defined]
 
     assert array != dictionary_array
 
@@ -2250,7 +2257,8 @@ def test_cast_float_to_decimal_random(float_ty, decimal_traits):
                     expected = decimal.Decimal(mantissa) / 2**-float_exp
                 expected_as_int = round(expected.scaleb(scale))
                 actual = pc.cast(
-                    pa.scalar(float_val, type=float_ty), decimal_ty).as_py()  # type: ignore[union-attr]
+                    # type: ignore[union-attr]
+                    pa.scalar(float_val, type=float_ty), decimal_ty).as_py()
                 actual_as_int = round(actual.scaleb(scale))  # type: ignore[union-attr]
                 # We allow for a minor rounding error between expected and actual
                 assert abs(actual_as_int - expected_as_int) <= 1
@@ -2476,7 +2484,8 @@ def test_extract_datetime_components(request):
 
 
 def test_offset_timezone():
-    arr = pc.strptime(pa.array(["2012-12-12T12:12:12"]), format="%Y-%m-%dT%H:%M:%S", unit="s")
+    arr = pc.strptime(pa.array(["2012-12-12T12:12:12"]),
+                      format="%Y-%m-%dT%H:%M:%S", unit="s")
     zoned_arr = arr.cast(pa.timestamp("s", tz="+05:30"))
     assert pc.hour(zoned_arr)[0].as_py() == 17  # type: ignore[index,arg-type]
     assert pc.minute(zoned_arr)[0].as_py() == 42  # type: ignore[index,arg-type]
@@ -2576,12 +2585,14 @@ def test_assume_timezone():
                              f"timezone '{timezone}'"):
         pc.assume_timezone(ambiguous_array, options=options_ambiguous_raise)
 
-    expected = ambiguous.tz_localize(timezone, ambiguous=[True, True, True])  # type: ignore[arg-type]
+    expected = ambiguous.tz_localize(
+        timezone, ambiguous=[True, True, True])  # type: ignore[arg-type]
     result = pc.assume_timezone(
         ambiguous_array, options=options_ambiguous_earliest)
     result.equals(pa.array(expected))
 
-    expected = ambiguous.tz_localize(timezone, ambiguous=[False, False, False])  # type: ignore[arg-type]
+    expected = ambiguous.tz_localize(
+        timezone, ambiguous=[False, False, False])  # type: ignore[arg-type]
     result = pc.assume_timezone(
         ambiguous_array, options=options_ambiguous_latest)
     result.equals(pa.array(expected))
@@ -2670,7 +2681,8 @@ def _check_temporal_rounding(ts, values, unit):
 
         expected = np.where(
             expected == ts,
-            expected + pd.Timedelta(value, unit_shorthand[unit]),  # type: ignore[arg-type]
+            # type: ignore[arg-type]
+            expected + pd.Timedelta(value, unit_shorthand[unit]),
             expected)
         np.testing.assert_array_equal(result, expected)
 
@@ -2881,7 +2893,8 @@ def test_select_k_table():
         pc.select_k_unstable(table, k=2, sort_keys=[])
 
     with pytest.raises(ValueError, match="not a valid sort order"):
-        pc.select_k_unstable(table, k=k, sort_keys=[("a", "nonscending")])  # type: ignore[list-item]
+        # type: ignore[list-item]
+        pc.select_k_unstable(table, k=k, sort_keys=[("a", "nonscending")])
 
     with pytest.raises(ValueError,
                        match="Invalid sort key column: No match for.*unknown"):
@@ -2967,23 +2980,28 @@ def test_sort_indices_table():
         pc.sort_indices(table, sort_keys=[("unknown", "ascending")])
 
     with pytest.raises(ValueError, match="not a valid sort order"):
-        pc.sort_indices(table, sort_keys=[("a", "nonscending")])  # type: ignore[list-item]
+        # type: ignore[list-item]
+        pc.sort_indices(table, sort_keys=[("a", "nonscending")])
 
 
 def test_is_in():
     arr = pa.array([1, 2, None, 1, 2, 3])
 
     result = pc.is_in(arr, value_set=pa.array([1, 3, None]))
-    assert result.to_pylist() == [True, False, True, True, False, True]  # type: ignore[union-attr]
+    assert result.to_pylist() == [True, False, True, True,
+                                  False, True]  # type: ignore[union-attr]
 
     result = pc.is_in(arr, value_set=pa.array([1, 3, None]), skip_nulls=True)
-    assert result.to_pylist() == [True, False, False, True, False, True]  # type: ignore[union-attr]
+    assert result.to_pylist() == [True, False, False, True,
+                                  False, True]  # type: ignore[union-attr]
 
     result = pc.is_in(arr, value_set=pa.array([1, 3]))
-    assert result.to_pylist() == [True, False, False, True, False, True]  # type: ignore[union-attr]
+    assert result.to_pylist() == [True, False, False, True,
+                                  False, True]  # type: ignore[union-attr]
 
     result = pc.is_in(arr, value_set=pa.array([1, 3]), skip_nulls=True)
-    assert result.to_pylist() == [True, False, False, True, False, True]  # type: ignore[union-attr]
+    assert result.to_pylist() == [True, False, False, True,
+                                  False, True]  # type: ignore[union-attr]
 
 
 def test_index_in():
@@ -3270,7 +3288,8 @@ def test_cumulative_max(start, skip_nulls):
                 expected_arrays[i], strt if strt is not None else -1e9,
                 skip_nulls=False)
             np.testing.assert_array_almost_equal(result.to_numpy(  # type: ignore[union-attr]
-                zero_copy_only=False), expected.to_numpy(zero_copy_only=False))  # type: ignore[union-attr]
+                # type: ignore[union-attr]
+                zero_copy_only=False), expected.to_numpy(zero_copy_only=False))
 
     for strt in ['a', pa.scalar('arrow'), 1.1]:
         with pytest.raises(pa.ArrowInvalid):
@@ -3328,7 +3347,8 @@ def test_cumulative_min(start, skip_nulls):
                 expected_arrays[i], strt if strt is not None else 1e9,
                 skip_nulls=False)
             np.testing.assert_array_almost_equal(result.to_numpy(  # type: ignore[union-attr]
-                zero_copy_only=False), expected.to_numpy(zero_copy_only=False))  # type: ignore[union-attr]
+                # type: ignore[union-attr]
+                zero_copy_only=False), expected.to_numpy(zero_copy_only=False))
 
     for strt in ['a', pa.scalar('arrow'), 1.1]:
         with pytest.raises(pa.ArrowInvalid):

@@ -361,7 +361,8 @@ def test_time_from_datetime_time():
 def test_temporal_values(value, time_type: pa.DataType):
     time_scalar = pa.scalar(value, type=time_type)
     time_scalar.validate(full=True)
-    assert time_scalar.value == value  # type: ignore[union-attr, reportAttributeAccessIssue]
+    assert (time_scalar.value  # type: ignore[union-attr, reportAttributeAccessIssue]
+            == value)
 
 
 def test_cast():

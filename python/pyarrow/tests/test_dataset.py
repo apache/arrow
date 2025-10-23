@@ -400,10 +400,12 @@ def test_filesystem_dataset(mockfs):
     # validation of root_partition
     with pytest.raises(TypeError, match="incorrect type"):
         ds.FileSystemDataset(fragments, schema=schema,
-                             format=file_format, root_partition=1)  # type: ignore[arg-type]
+                             # type: ignore[arg-type]
+                             format=file_format, root_partition=1)
     # missing required argument in from_paths
     with pytest.raises(TypeError, match="incorrect type"):
-        ds.FileSystemDataset.from_paths(fragments, format=file_format)  # type: ignore[arg-type]
+        ds.FileSystemDataset.from_paths(
+            fragments, format=file_format)  # type: ignore[arg-type]
 
 
 def test_filesystem_dataset_no_filesystem_interaction(dataset_reader):
@@ -821,7 +823,8 @@ def test_partitioning():
         load_back = None
         with pytest.raises(ValueError,
                            match="Expected Partitioning or PartitioningFactory"):
-            load_back = ds.dataset(tempdir, format='ipc', partitioning=int(0))  # type: ignore[arg-type]
+            # type: ignore[arg-type]
+            load_back = ds.dataset(tempdir, format='ipc', partitioning=int(0))
         assert load_back is None
 
 
@@ -1248,7 +1251,8 @@ def test_make_fragment_with_size(s3_example_simple):
 
     # true sizes -> works
     dataset_file_info = [dataset.filesystem.get_file_info(x) for x in dataset.files]
-    sizes_true = [x.size if isinstance(x, FileInfo) else None for x in dataset_file_info]
+    sizes_true = [x.size if isinstance(
+        x, FileInfo) else None for x in dataset_file_info]
     fragments_with_size = [file_format.make_fragment(path, fs, file_size=size)
                            for path, size in zip(paths, sizes_true)]
     dataset_with_size = ds.FileSystemDataset(
@@ -3236,7 +3240,8 @@ def test_union_dataset_from_other_datasets(tempdir, multisourcefs):
         ('color', pa.string()),
         ('date', pa.date32()),
     ])
-    assembled = ds.dataset([child1, child3], schema=expected_schema)  # type: ignore[arg-type]
+    # type: ignore[arg-type]
+    assembled = ds.dataset([child1, child3], schema=expected_schema)
     assert assembled.to_table().schema.equals(expected_schema)
 
     expected_schema = pa.schema([
@@ -3244,7 +3249,8 @@ def test_union_dataset_from_other_datasets(tempdir, multisourcefs):
         ('color', pa.string()),
         ('unknown', pa.string())  # fill with nulls
     ])
-    assembled = ds.dataset([child1, child3], schema=expected_schema)  # type: ignore[arg-type]
+    # type: ignore[arg-type]
+    assembled = ds.dataset([child1, child3], schema=expected_schema)
     assert assembled.to_table().schema.equals(expected_schema)
 
     # incompatible schemas, date and index columns have conflicting types
@@ -4048,12 +4054,14 @@ def test_filter_mismatching_schema(tempdir, dataset_reader):
     # filtering on a column with such type mismatch should implicitly
     # cast the column
     filtered = dataset_reader.to_table(dataset, filter=ds.field("col") > 2)
-    assert filtered["col"].equals(table["col"].cast(pa.int64()).slice(2))  # type: ignore[arg-type]
+    assert filtered["col"].equals(table["col"].cast(
+        pa.int64()).slice(2))  # type: ignore[arg-type]
 
     fragment = list(dataset.get_fragments())[0]
     filtered = dataset_reader.to_table(
         fragment, filter=ds.field("col") > 2, schema=schema)
-    assert filtered["col"].equals(table["col"].cast(pa.int64()).slice(2))  # type: ignore[arg-type]
+    assert filtered["col"].equals(table["col"].cast(
+        pa.int64()).slice(2))  # type: ignore[arg-type]
 
 
 @pytest.mark.parquet
@@ -5686,7 +5694,8 @@ def test_dataset_partition_with_slash(tmpdir):
     assert dt_table == read_table.sort_by("exp_id")
 
     exp_meta = dt_table.column(1).to_pylist()
-    exp_meta = sorted(set(exp_meta), key=lambda x: (x is None, x))  # take unique, handle None
+    exp_meta = sorted(set(exp_meta), key=lambda x: (
+        x is None, x))  # take unique, handle None
     encoded_paths = ["exp_meta=" + quote(str(path), safe='') for path in exp_meta]
     file_paths = sorted(os.listdir(path))
 

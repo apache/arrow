@@ -26,7 +26,8 @@ except ImportError:
 import pyarrow as pa
 
 try:
-    from scipy.sparse import csr_array, coo_array, csr_matrix, coo_matrix  # type: ignore[reportMissingModuleSource]
+    from scipy.sparse import (  # type: ignore[reportMissingModuleSource]
+        csr_array, coo_array, csr_matrix, coo_matrix)
 except ImportError:
     coo_matrix = None  # type: ignore[assignment, misc]
     csr_matrix = None  # type: ignore[assignment, misc]
@@ -483,7 +484,8 @@ def test_pydata_sparse_sparse_coo_tensor_roundtrip(dtype_str, arrow_type):
     shape = (4, 6)
     dim_names = ("x", "y")
 
-    sparse_array = sparse.COO(data=data, coords=coords, shape=shape)  # type: ignore[reportOptionalMemberAccess]
+    sparse_array = sparse.COO(  # type: ignore[reportOptionalMemberAccess]
+        data=data, coords=coords, shape=shape)
     sparse_tensor = pa.SparseCOOTensor.from_pydata_sparse(sparse_array,
                                                           dim_names=dim_names)
     out_sparse_array = sparse_tensor.to_pydata_sparse()

@@ -2199,13 +2199,16 @@ def test_uwsgi_integration():
 
 def test_fsspec_filesystem_from_uri():
     try:
-        from fsspec.implementations.local import LocalFileSystem  # type: ignore[import-untyped]
-        from fsspec.implementations.memory import MemoryFileSystem  # type: ignore[import-untyped]
+        # type: ignore[import-untyped]
+        from fsspec.implementations.local import LocalFileSystem
+        # type: ignore[import-untyped]
+        from fsspec.implementations.memory import MemoryFileSystem
     except ImportError:
         pytest.skip("fsspec not installed")
 
     fs, path = FileSystem.from_uri("fsspec+memory://path/to/data.parquet")
-    expected_fs = PyFileSystem(FSSpecHandler(MemoryFileSystem()))  # type: ignore[abstract]
+    expected_fs = PyFileSystem(FSSpecHandler(
+        MemoryFileSystem()))  # type: ignore[abstract]
     assert fs == expected_fs
     assert path == "/path/to/data.parquet"
 
@@ -2213,7 +2216,8 @@ def test_fsspec_filesystem_from_uri():
     # arrow local filesystem
     uri = "file:///tmp/my.file"
     fs, _ = FileSystem.from_uri(f"fsspec+{uri}")
-    expected_fs = PyFileSystem(FSSpecHandler(LocalFileSystem()))  # type: ignore[abstract]
+    expected_fs = PyFileSystem(FSSpecHandler(
+        LocalFileSystem()))  # type: ignore[abstract]
     assert fs == expected_fs
 
 
