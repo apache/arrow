@@ -113,6 +113,11 @@ option(
 
 option('snappy', type: 'feature', description: 'Build with snappy compression')
 option(
+    'substrait',
+    type: 'feature',
+    description: 'Build the Arrow Substrait Consumer Module',
+)
+option(
     's3',
     type: 'feature',
     description: 'Build Arrow with S3 support (requires the AWS SDK for C++)',
