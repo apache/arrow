@@ -80,7 +80,7 @@ if(ARROW_WITH_ZSTD)
 endif()
 
 if(ARROW_ORC)
-  if(ORC_SOURCE STREQUAL "SYSTEM")
+  if(orc_SOURCE STREQUAL "SYSTEM")
     list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS orc::orc)
   endif()
 endif()
