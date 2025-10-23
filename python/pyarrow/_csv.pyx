@@ -605,25 +605,21 @@ cdef class ParseOptions(_Weakrefable):
         except TypeError:
             return False
 
+    def _repr_base(self):
+        return (f"""
+delimiter={self.delimiter!r}
+quote_char={self.quote_char!r}
+double_quote={self.double_quote}
+escape_char={self.escape_char!r}
+newlines_in_values={self.newlines_in_values}
+ignore_empty_lines={self.ignore_empty_lines}
+invalid_row_handler={getattr(self.invalid_row_handler, '__name__', self.invalid_row_handler)}""")
+
     def __repr__(self):
-        return (f"<pyarrow.csv.ParseOptions("
-                f"delimiter={self.delimiter!r}, "
-                f"quote_char={self.quote_char!r}, "
-                f"double_quote={self.double_quote}, "
-                f"escape_char={self.escape_char!r}, "
-                f"newlines_in_values={self.newlines_in_values}, "
-                f"ignore_empty_lines={self.ignore_empty_lines}, "
-                f"invalid_row_handler={self.invalid_row_handler})>")
+        return (f"<pyarrow.csv.ParseOptions>({self._repr_base()})")
 
     def __str__(self):
-        return (f"ParseOptions("
-                f"delimiter={self.delimiter!r}, "
-                f"quote_char={self.quote_char!r}, "
-                f"double_quote={self.double_quote}, "
-                f"escape_char={self.escape_char!r}, "
-                f"newlines_in_values={self.newlines_in_values}, "
-                f"ignore_empty_lines={self.ignore_empty_lines}, "
-                f"invalid_row_handler={self.invalid_row_handler})")
+        return (f"ParseOptions({self._repr_base()})")
 
 
 cdef class _ISO8601(_Weakrefable):

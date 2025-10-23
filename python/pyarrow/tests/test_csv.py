@@ -293,25 +293,17 @@ def test_parse_options(pickle_module):
         opts.escape_char = "\r"
         opts.validate()
 
-    expected_repr = ("<pyarrow.csv.ParseOptions("
-                     f"delimiter={opts.delimiter!r}, "
-                     f"quote_char={opts.quote_char!r}, "
-                     f"double_quote={opts.double_quote}, "
-                     f"escape_char={opts.escape_char!r}, "
-                     f"newlines_in_values={opts.newlines_in_values}, "
-                     f"ignore_empty_lines={opts.ignore_empty_lines}, "
-                     f"invalid_row_handler={opts.invalid_row_handler})>")
-    assert repr(opts) == expected_repr
+    expected_repr_inner = r"""
+delimiter=','
+quote_char='"'
+double_quote=True
+escape_char='\r'
+newlines_in_values=False
+ignore_empty_lines=True
+invalid_row_handler=None"""
 
-    expected_str = (f"ParseOptions("
-                    f"delimiter={opts.delimiter!r}, "
-                    f"quote_char={opts.quote_char!r}, "
-                    f"double_quote={opts.double_quote}, "
-                    f"escape_char={opts.escape_char!r}, "
-                    f"newlines_in_values={opts.newlines_in_values}, "
-                    f"ignore_empty_lines={opts.ignore_empty_lines}, "
-                    f"invalid_row_handler={opts.invalid_row_handler})")
-    assert str(opts) == expected_str
+    assert repr(opts) == f"<pyarrow.csv.ParseOptions>({expected_repr_inner})"
+    assert str(opts) == f"ParseOptions({expected_repr_inner})"
 
 
 def test_convert_options(pickle_module):
