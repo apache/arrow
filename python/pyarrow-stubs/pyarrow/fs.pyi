@@ -69,7 +69,7 @@ def _resolve_filesystem_and_path(
     filesystem: FileSystem | str | object | None = None,
     *,
     memory_map: bool = False
-) -> tuple[FileSystem | None, str | object]: ...
+) -> tuple[FileSystem, str]: ...
 
 
 class FSSpecHandler(FileSystemHandler):  # type: ignore[misc]  # All abstract methods implemented via fsspec delegation

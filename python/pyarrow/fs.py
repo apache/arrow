@@ -98,7 +98,7 @@ def _ensure_filesystem(filesystem, *, use_mmap=False):
         prefix = fs.normalize_path(path)
         if prefix:
             # validate that the prefix is pointing to a directory
-            prefix_info = fs.get_file_info([prefix])[0]  # type: ignore
+            prefix_info = fs.get_file_info([prefix])[0]
             if prefix_info.type != FileType.Directory:
                 raise ValueError(
                     "The path component of the filesystem URI must point to a "
@@ -165,7 +165,8 @@ def _resolve_filesystem_and_path(path, filesystem=None, *, memory_map=False):
         file_info = None
         exists_locally = False
     else:
-        exists_locally = (file_info.type != FileType.NotFound)  # pyright: ignore[reportAttributeAccessIssue]
+        assert isinstance(file_info, FileInfo)
+        exists_locally = (file_info.type != FileType.NotFound)
 
     # if the file or directory doesn't exists locally, then assume that
     # the path is an URI describing the file system as well
@@ -250,16 +251,18 @@ def copy_files(source, destination,
         destination, destination_filesystem
     )
 
-    file_info = source_fs.get_file_info(source_path)  # type: ignore
-    if file_info.type == FileType.Directory:  # pyright: ignore[reportAttributeAccessIssue]
+    assert isinstance(source_fs, FileSystem)
+    file_info = source_fs.get_file_info(source_path)
+    assert isinstance(file_info, FileInfo)
+    if file_info.type == FileType.Directory:
         source_sel = FileSelector(source_path, recursive=True)
         _copy_files_selector(source_fs, source_sel,
                              destination_fs, destination_path,
-                             chunk_size, use_threads)  # type: ignore
+                             chunk_size, use_threads)
     else:
         _copy_files(source_fs, source_path,
                     destination_fs, destination_path,
-                    chunk_size, use_threads)  # type: ignore
+                    chunk_size, use_threads)
 
 
 class FSSpecHandler(FileSystemHandler):
@@ -375,7 +378,7 @@ class FSSpecHandler(FileSystemHandler):
             elif self.fs.isfile(subpath):
                 self.fs.rm(subpath)
 
-    def delete_dir_contents(self, path, missing_dir_ok):  # pyright: ignore[reportIncompatibleMethodOverride]
+    def delete_dir_contents(self, path, missing_dir_ok):
         if path.strip("/") == "":
             raise ValueError(
                 "delete_dir_contents called on path '", path, "'")

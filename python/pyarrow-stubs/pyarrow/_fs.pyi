@@ -55,6 +55,9 @@ class FileInfo(_Weakrefable):
         mtime_ns: int | None = None,
         size: int | None = None,
     ): ...
+
+    def __getitem__(self, int) -> FileInfo: ...
+
     @property
     def type(self) -> FileType: ...
 
@@ -98,7 +101,7 @@ class FileSystem(_Weakrefable):
     @property
     def type_name(self) -> str: ...
 
-    def get_file_info(self, paths_or_selector: str | list[str] | FileSelector) -> FileInfo | list[FileInfo]: ...
+    def get_file_info(self, paths_or_selector: str | list[str] | FileSelector) -> list[FileInfo] | FileInfo: ...
 
     def create_dir(self, path: str, *, recursive: bool = True) -> None: ...
 
@@ -220,9 +223,8 @@ SupportedFileSystem: TypeAlias = AbstractFileSystem | FileSystem
 def _copy_files(
     source_fs: FileSystem,
     source_path: str,
-    destination_fs: FileSystem,
+    destination_fs: SupportedFileSystem | None,
     destination_path: str,
-    *,
     chunk_size: int = 1048576,
     use_threads: bool = True,
 ) -> None: ...
@@ -231,9 +233,8 @@ def _copy_files(
 def _copy_files_selector(
     source_fs: FileSystem,
     source_sel: FileSelector,
-    destination_fs: FileSystem,
+    destination_fs: SupportedFileSystem | None,
     destination_base_dir: str,
-    *,
     chunk_size: int = 1048576,
     use_threads: bool = True,
 ) -> None: ...

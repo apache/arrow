@@ -31,6 +31,9 @@ from .lib import (
     Schema,
     Table,
     _Weakrefable,
+    DataType,
+    ListType,
+    LargeListType
 )
 
 _PhysicalType: TypeAlias = Literal[
@@ -373,6 +376,8 @@ class ParquetReader(_Weakrefable):
         use_memory_map: bool = False,
         read_dictionary: Iterable[int] | Iterable[str] | None = None,
         metadata: FileMetaData | None = None,
+        binary_type: DataType | None = None,
+        list_type: ListType | LargeListType | None = None,
         buffer_size: int = 0,
         pre_buffer: bool = False,
         coerce_int96_timestamp_unit: str | None = None,
@@ -380,7 +385,9 @@ class ParquetReader(_Weakrefable):
         thrift_string_size_limit: int | None = None,
         thrift_container_size_limit: int | None = None,
         page_checksum_verification: bool = False,
-    ): ...
+        arrow_extensions_enabled: bool | None = None,
+    ) -> None: ...
+
     @property
     def column_paths(self) -> list[str]: ...
     @property
@@ -433,7 +440,7 @@ class ParquetWriter(_Weakrefable):
         where: StrPath | NativeFile | IO,
         schema: Schema,
         use_dictionary: bool | list[str] | None = None,
-        compression: _Compression | dict[str, _Compression] | None = None,
+        compression: _Compression | dict[str, _Compression] | str | None = None,
         version: str | None = None,
         write_statistics: bool | list[str] | None = None,
         memory_pool: MemoryPool | None = None,

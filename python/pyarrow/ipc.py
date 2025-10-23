@@ -49,7 +49,7 @@ class RecordBatchStreamReader(lib._RecordBatchStreamReader):
 
     def __init__(self, source, *, options=None, memory_pool=None):
         options = _ensure_default_ipc_read_options(options)
-        self._open(source, options=options, memory_pool=memory_pool)  # pyright: ignore[reportAttributeAccessIssue]
+        self._open(source, options=options, memory_pool=memory_pool)
 
 
 _ipc_writer_class_doc = """\
@@ -112,7 +112,7 @@ class RecordBatchFileReader(lib._RecordBatchFileReader):
     def __init__(self, source, footer_offset=None, *, options=None,
                  memory_pool=None):
         options = _ensure_default_ipc_read_options(options)
-        self._open(source, footer_offset=footer_offset,  # pyright: ignore[reportAttributeAccessIssue]
+        self._open(source, footer_offset=footer_offset,
                    options=options, memory_pool=memory_pool)
 
 
@@ -124,7 +124,7 @@ class RecordBatchFileWriter(lib._RecordBatchFileWriter):
 
     def __init__(self, sink, schema, *, options=None, metadata=None):
         options = _get_legacy_format_default(options)
-        self._open(sink, schema, options=options, metadata=metadata)  # type: ignore
+        self._open(sink, schema, options=options, metadata=metadata)
 
 
 def _get_legacy_format_default(options):
