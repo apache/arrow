@@ -1208,23 +1208,19 @@ inline void DoInBatchesRepeated(const int16_t* def_levels, const int16_t* rep_le
     ARROW_DCHECK_LE(offset, end_offset);
     ARROW_DCHECK_LE(check_page_limit_end_offset, end_offset);
 
-    if (end_offset < num_levels) {
-      // This is not the last chunk of batch and end_offset is a record boundary.
+    if (check_page_limit_end_offset >= 0) {
+      // At least one record boundary is included in this batch.
       // It is a good chance to check the page limit.
-      action(offset, end_offset - offset, /*check_page_limit=*/true);
-    } else {
+      action(offset, check_page_limit_end_offset - offset, /*check_page_limit=*/true);
+      offset = check_page_limit_end_offset;
+    }
+    if (end_offset > offset) {
+      // The is the last chunk of batch, and we do not know whether end_offset is a
+      // record boundary so we cannot check page limit if pages cannot change on
+      // record boundaries.
       ARROW_DCHECK_EQ(end_offset, num_levels);
-      if (offset <= check_page_limit_end_offset) {
-        action(offset, check_page_limit_end_offset - offset, /*check_page_limit=*/true);
-        offset = check_page_limit_end_offset;
-      }
-      if (offset < end_offset) {
-        // This is the last chunk of batch, and we do not know whether end_offset is a
-        // record boundary so we cannot check page limit if pages cannot change on
-        // record boundaries.
-        action(offset, end_offset - offset,
-               /*check_page_limit=*/!pages_change_on_record_boundaries);
-      }
+      action(offset, end_offset - offset,
+             /*check_page_limit=*/!pages_change_on_record_boundaries);
     }
 
     offset = end_offset;
