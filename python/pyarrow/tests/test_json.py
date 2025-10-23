@@ -80,15 +80,12 @@ def test_read_options(pickle_module):
     assert opts.block_size == 1234
     assert opts.use_threads is False
 
-    expected_repr = ("<pyarrow.json.ReadOptions("
-                     f"use_threads={opts.use_threads}, "
-                     f"block_size={opts.block_size})>")
-    assert repr(opts) == expected_repr
+    expected_repr_inner = """
+use_threads=False
+block_size=1234"""
 
-    expected_str = (f"ReadOptions("
-                    f"use_threads={opts.use_threads}, "
-                    f"block_size={opts.block_size})")
-    assert str(opts) == expected_str
+    assert repr(opts) == f"<pyarrow.json.ReadOptions>({expected_repr_inner})"
+    assert str(opts) == f"ReadOptions({expected_repr_inner})"
 
     check_options_class_pickling(cls, pickler=pickle_module,
                                  block_size=1234,
@@ -104,17 +101,13 @@ def test_parse_options(pickle_module):
     opts.newlines_in_values = True
     assert opts.newlines_in_values is True
 
-    expected_repr = ("<pyarrow.json.ParseOptions("
-                     f"explicit_schema={opts.explicit_schema}, "
-                     f"newlines_in_values={opts.newlines_in_values}, "
-                     f"unexpected_field_behavior='{opts.unexpected_field_behavior}')>")
-    assert repr(opts) == expected_repr
+    expected_repr_inner = """
+explicit_schema=None
+newlines_in_values=True
+unexpected_field_behavior='infer'"""
 
-    expected_str = (f"ParseOptions("
-                    f"explicit_schema={opts.explicit_schema}, "
-                    f"newlines_in_values={opts.newlines_in_values}, "
-                    f"unexpected_field_behavior='{opts.unexpected_field_behavior}')")
-    assert str(opts) == expected_str
+    assert repr(opts) == f"<pyarrow.json.ParseOptions>({expected_repr_inner})"
+    assert str(opts) == f"ParseOptions({expected_repr_inner})"
 
     schema = pa.schema([pa.field('foo', pa.int32())])
     opts.explicit_schema = schema
