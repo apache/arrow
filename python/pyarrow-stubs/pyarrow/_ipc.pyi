@@ -33,7 +33,7 @@ import pandas as pd
 from pyarrow._stubs_typing import SupportPyBuffer
 from pyarrow.lib import MemoryPool, RecordBatch, Schema, Table, Tensor, _Weakrefable
 
-from .io import Buffer, Codec, NativeFile
+from .io import Buffer, Codec, NativeFile, BufferReader
 from ._types import DictionaryMemo, KeyValueMetadata
 
 
@@ -280,7 +280,7 @@ def read_tensor(source: NativeFile) -> Tensor: ...
 def read_message(source: NativeFile | IOBase | SupportPyBuffer) -> Message: ...
 
 
-def read_schema(obj: Buffer | Message, dictionary_memo: DictionaryMemo |
+def read_schema(obj: Buffer | Message | BufferReader, dictionary_memo: DictionaryMemo |
                 None = None) -> Schema: ...
 
 

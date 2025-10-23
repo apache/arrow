@@ -707,7 +707,8 @@ def test_metadata_schema_filesystem(tempdir):
     assert pq.read_metadata(
         file_path, filesystem=LocalFileSystem()).equals(metadata)
     assert pq.read_metadata(
-        fname, filesystem=f'file:///{tempdir}').equals(metadata)  # type: ignore[arg-type]
+        # type: ignore[arg-type]
+        fname, filesystem=f'file:///{tempdir}').equals(metadata)
 
     assert pq.read_schema(file_uri).equals(schema)
     assert pq.read_schema(

@@ -581,8 +581,8 @@ def test_wrong_datatype_declaration():
     }
     with pytest.raises(TypeError,
                        match="DataType expected, got <class 'dict'>"):
-        pc.register_scalar_function(identity, func_name,
-                                    doc, in_types, out_type)  # type: ignore[reportArgumentType]
+        pc.register_scalar_function(
+            identity, func_name, doc, in_types, out_type)  # type: ignore[arg-type]
 
 
 def test_wrong_input_type_declaration():
@@ -598,8 +598,9 @@ def test_wrong_input_type_declaration():
     }
     with pytest.raises(TypeError,
                        match="DataType expected, got <class 'NoneType'>"):
-        pc.register_scalar_function(identity, func_name, doc,
-                                    in_types, out_type)  # type: ignore[reportArgumentType]
+        pc.register_scalar_function(
+            identity, func_name, doc, in_types,  # type: ignore[arg-type]
+            out_type)
 
 
 def test_scalar_udf_context(unary_func_fixture):

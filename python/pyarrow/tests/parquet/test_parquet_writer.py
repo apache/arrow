@@ -23,7 +23,8 @@ from pyarrow import fs
 try:
     import pyarrow.parquet as pq
     from pyarrow.tests.parquet.common import (_read_table, _test_dataframe,
-                                              _test_table, _range_integers)  # type: ignore[attr-defined]
+                                              # type: ignore[attr-defined]
+                                              _test_table, _range_integers)
 except ImportError:
     pass
 
