@@ -327,8 +327,11 @@ jobs:
           ../minimal_build.build/arrow-example
 
   report-extra-cpp:
+    if: github.event_name == 'schedule' && always()
     needs:
       - docker
+      - jni-linux
       - jni-macos
+      - msvc-arm64
     uses: ./.github/workflows/report_ci.yml
     secrets: inherit

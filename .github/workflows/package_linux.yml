@@ -314,6 +314,7 @@ jobs:
           popd
 
   report-package-linux:
+    if: github.event_name == 'schedule' && always()
     needs:
       - package
     uses: ./.github/workflows/report_ci.yml
