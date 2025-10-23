@@ -1,0 +1,124 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+name: C++ Windows MSVC Reusable
+
+on:
+  workflow_call:
+    inputs:
+      arch:
+        description: "The architecture to build for"
+        required: true
+        type: string
+      os:
+        description: "The runner label to run the job on"
+        required: true
+        type: string
+      simd-level:
+        description: "The Arrow SIMD level to build with"
+        required: true
+        type: string
+
+jobs:
+  windows:
+    runs-on: ${{ inputs.os }}
+    timeout-minutes: 60
+    env:
+      ARROW_BOOST_USE_SHARED: OFF
+      ARROW_BUILD_BENCHMARKS: ON
+      ARROW_BUILD_SHARED: ON
+      ARROW_BUILD_STATIC: OFF
+      ARROW_BUILD_TESTS: ON
+      ARROW_DATASET: ON
+      ARROW_FLIGHT: OFF
+      ARROW_HDFS: ON
+      ARROW_HOME: /usr
+      ARROW_JEMALLOC: OFF
+      ARROW_MIMALLOC: ON
+      ARROW_ORC: ON
+      ARROW_PARQUET: ON
+      ARROW_SIMD_LEVEL: ${{ inputs.simd-level }}
+      ARROW_SUBSTRAIT: ON
+      ARROW_USE_GLOG: OFF
+      ARROW_VERBOSE_THIRDPARTY_BUILD: OFF
+      ARROW_WITH_BROTLI: OFF
+      ARROW_WITH_BZ2: OFF
+      ARROW_WITH_LZ4: OFF
+      ARROW_WITH_OPENTELEMETRY: OFF
+      ARROW_WITH_SNAPPY: ON
+      ARROW_WITH_ZLIB: ON
+      ARROW_WITH_ZSTD: ON
+      BOOST_SOURCE: BUNDLED
+      CMAKE_CXX_STANDARD: "17"
+      CMAKE_GENERATOR: Ninja
+      CMAKE_INSTALL_PREFIX: /usr
+      CMAKE_UNITY_BUILD: ON
+    steps:
+      - name: Disable Crash Dialogs
+        run: |
+          reg add `
+            "HKCU\SOFTWARE\Microsoft\Windows\Windows Error Reporting" `
+            /v DontShowUI `
+            /t REG_DWORD `
+            /d 1 `
+            /f
+      - name: Checkout Arrow
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          submodules: recursive
+      - name: Download Timezone Database
+        shell: bash
+        run: ci/scripts/download_tz_database.sh
+      - name: Install msys2 (for tzdata for ORC tests)
+        uses: msys2/setup-msys2@v2
+        id: setup-msys2
+      - name: Install cmake
+        shell: bash
+        run: |
+          ci/scripts/install_cmake.sh 4.1.2 /usr
+      - name: Install ccache
+        shell: bash
+        run: |
+          ci/scripts/install_ccache.sh 4.12.1 /usr
+      - name: Setup ccache
+        shell: bash
+        run: |
+          ci/scripts/ccache_setup.sh
+      - name: ccache info
+        id: ccache-info
+        shell: bash
+        run: |
+          echo "cache-dir=$(ccache --get-config cache_dir)" >> $GITHUB_OUTPUT
+      - name: Cache ccache
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.ccache-info.outputs.cache-dir }}
+          key: cpp-ccache-windows-${{ inputs.arch }}-${{ hashFiles('cpp/**') }}
+          restore-keys: cpp-ccache-windows-${{ inputs.arch }}-
+      - name: Build
+        shell: cmd
+        run: |
+          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" ${{ inputs.arch }}
+          bash -c "ci/scripts/cpp_build.sh $(pwd) $(pwd)/build"
+      - name: Test
+        shell: cmd
+        run: |
+          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" ${{ inputs.arch }}
+          # For ORC
+          set TZDIR=${{ steps.setup-msys2.outputs.msys2-location }}\usr\share\zoneinfo
+          bash -c "ci/scripts/cpp_test.sh $(pwd) $(pwd)/build"

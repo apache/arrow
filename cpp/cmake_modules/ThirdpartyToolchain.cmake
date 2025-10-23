@@ -1118,6 +1118,11 @@ function(build_boost)
     # This is for https://github.com/boostorg/container/issues/305
     string(APPEND CMAKE_C_FLAGS " -Wno-strict-prototypes")
   endif()
+  if(MSVC AND "${CMAKE_SYSTEM_PROCESSOR}" STREQUAL "ARM64")
+    set(BOOST_CONTEXT_IMPLEMENTATION
+        winfib
+        CACHE STRING "" FORCE)
+  endif()
   set(CMAKE_UNITY_BUILD OFF)
 
   fetchcontent_makeavailable(boost)
