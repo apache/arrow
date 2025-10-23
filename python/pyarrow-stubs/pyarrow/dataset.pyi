@@ -131,7 +131,6 @@ _DatasetFormat: TypeAlias = Literal["parquet", "ipc", "arrow", "feather", "csv",
 
 
 def partitioning(
-    /,
     schema: Schema = None,
     *,
     field_names: list[str] = None,
@@ -174,7 +173,7 @@ def write_dataset(
     schema: Schema | None = None,
     filesystem: SupportedFileSystem | str | None = None,
     file_options: FileWriteOptions | None = None,
-    use_threads: bool = True,
+    use_threads: bool | None = True,
     max_partitions: int = 1024,
     max_open_files: int = 1024,
     max_rows_per_file: int = 0,
@@ -182,7 +181,7 @@ def write_dataset(
     max_rows_per_group: int = 1024 * 1024,  # noqa: Y011
     file_visitor: Callable[[str], None] | None = None,
     existing_data_behavior: Literal["error",
-                                    "overwrite_or_ignore", "delete_matching"] = "error",
+                                    "overwrite_or_ignore", "delete_matching"] | str = "error",
     create_dir: bool = True,
     preserve_order: bool | None = None,
 ): ...

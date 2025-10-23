@@ -371,7 +371,7 @@ def _ensure_multiple_sources(paths, filesystem=None):
     # possible improvement is to group the file_infos by type and raise for
     # multiple paths per error category
     if is_local:
-        for info in filesystem.get_file_info(paths):  # type: ignore
+        for info in filesystem.get_file_info(paths):  # type: ignore[reportGeneralTypeIssues]
             file_type = info.type
             if file_type == FileType.File:
                 continue
@@ -422,16 +422,17 @@ def _ensure_single_source(path, filesystem=None):
     filesystem, path = _resolve_filesystem_and_path(path, filesystem)
 
     # ensure that the path is normalized before passing to dataset discovery
-    path = filesystem.normalize_path(path)  # type: ignore
+    assert isinstance(path, str)
+    path = filesystem.normalize_path(path)
 
     # retrieve the file descriptor
-    file_info = filesystem.get_file_info(path)  # type: ignore
+    file_info = filesystem.get_file_info(path)
 
     # depending on the path type either return with a recursive
     # directory selector or as a list containing a single file
-    if file_info.type == FileType.Directory:  # pyright: ignore[reportAttributeAccessIssue]
+    if file_info.type == FileType.Directory:  # type: ignore[reportAttributeAccessIssue]
         paths_or_selector = FileSelector(path, recursive=True)
-    elif file_info.type == FileType.File:  # pyright: ignore[reportAttributeAccessIssue]
+    elif file_info.type == FileType.File:  # type: ignore[reportAttributeAccessIssue]
         paths_or_selector = [path]
     else:
         raise FileNotFoundError(path)
@@ -473,11 +474,11 @@ def _filesystem_dataset(source, schema=None, filesystem=None,
 
     options = FileSystemFactoryOptions(
         partitioning=partitioning,
-        partition_base_dir=partition_base_dir,  # type: ignore
+        partition_base_dir=partition_base_dir,
         exclude_invalid_files=exclude_invalid_files,
         selector_ignore_prefixes=selector_ignore_prefixes
     )
-    factory = FileSystemDatasetFactory(fs, paths_or_selector, format, options)  # type: ignore
+    factory = FileSystemDatasetFactory(fs, paths_or_selector, format, options)
 
     return factory.finish(schema)
 
@@ -486,7 +487,7 @@ def _in_memory_dataset(source, schema=None, **kwargs):
     if any(v is not None for v in kwargs.values()):
         raise ValueError(
             "For in-memory datasets, you cannot pass any additional arguments")
-    return InMemoryDataset(source, schema)  # type: ignore
+    return InMemoryDataset(source, schema)
 
 
 def _union_dataset(children, schema=None, **kwargs):
@@ -511,7 +512,7 @@ def _union_dataset(children, schema=None, **kwargs):
     # create datasets with the requested schema
     children = [child.replace_schema(schema) for child in children]
 
-    return UnionDataset(schema, children)  # type: ignore
+    return UnionDataset(schema, children)
 
 
 def parquet_dataset(metadata_path, schema=None, filesystem=None, format=None,
@@ -962,10 +963,10 @@ Table/RecordBatch, or iterable of RecordBatch
 
     if isinstance(data, (list, tuple)):
         schema = schema or data[0].schema
-        data = InMemoryDataset(data, schema=schema)  # type: ignore
+        data = InMemoryDataset(data, schema=schema)
     elif isinstance(data, (pa.RecordBatch, pa.Table)):
         schema = schema or data.schema
-        data = InMemoryDataset(data, schema=schema)  # type: ignore
+        data = InMemoryDataset(data, schema=schema)
     elif (
         isinstance(data, pa.ipc.RecordBatchReader)
         or hasattr(data, "__arrow_c_stream__")
@@ -988,7 +989,7 @@ Table/RecordBatch, or iterable of RecordBatch
     if file_options is None:
         file_options = format.make_write_options()
 
-    if format != file_options.format:  # pyright: ignore[reportAttributeAccessIssue]
+    if format != file_options.format:
         raise TypeError(f"Supplied FileWriteOptions have format {format}, "
                         f"which doesn't match supplied FileFormat {file_options}")
 
@@ -1036,5 +1037,5 @@ Table/RecordBatch, or iterable of RecordBatch
         scanner, base_dir, basename_template, filesystem, partitioning,
         preserve_order, file_options, max_partitions, file_visitor,
         existing_data_behavior, max_open_files, max_rows_per_file,
-        min_rows_per_group, max_rows_per_group, create_dir  # type: ignore
+        min_rows_per_group, max_rows_per_group, create_dir
     )

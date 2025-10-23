@@ -328,7 +328,7 @@ def write_to_dataset(
     use_threads: bool | None = None,
     file_visitor: Callable[[str], None] | None = None,
     existing_data_behavior: Literal["overwrite_or_ignore", "error", "delete_matching"]
-    | None = None,
+    | str | None = None,
     **kwargs,
 ) -> None: ...
 

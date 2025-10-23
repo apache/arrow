@@ -106,7 +106,7 @@ from textwrap import dedent
 import warnings
 
 import pyarrow as pa
-from pyarrow import _compute_docstrings  # type: ignore[attr-defined]
+from pyarrow import _compute_docstrings  # type: ignore[reportAttributeAccessIssue]
 from pyarrow.vendored import docscrape
 
 

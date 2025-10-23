@@ -18,6 +18,11 @@
 from io import IOBase
 from typing import Any
 
+if sys.version_info >= (3, 11):
+    from typing import Self
+else:
+    from typing_extensions import Self
+
 from _typeshed import StrPath
 import pandas as pd
 import pyarrow.lib as lib
@@ -73,7 +78,6 @@ class RecordBatchFileReader(lib._RecordBatchFileReader):
         options: IpcReadOptions | None = None,
         memory_pool: lib.MemoryPool | None = None,
     ) -> None: ...
-
 
 class RecordBatchFileWriter(lib._RecordBatchFileWriter):
     def __init__(

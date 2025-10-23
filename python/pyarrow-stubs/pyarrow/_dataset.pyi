@@ -18,7 +18,7 @@
 import sys
 
 if sys.version_info >= (3, 11):
-    from typing import Self
+    from typing import Self, Collection
 else:
     from typing_extensions import Self
 from collections.abc import Callable, Iterator
@@ -160,6 +160,8 @@ class Dataset(lib._Weakrefable):
         right_by: str | list[str] | None = None,
     ) -> InMemoryDataset: ...
 
+    @property
+    def format(self) -> FileFormat: ...
 
 class InMemoryDataset(Dataset):
     def __init__(
@@ -170,10 +172,14 @@ class InMemoryDataset(Dataset):
 
 
 class UnionDataset(Dataset):
+    def __init__(
+        self,
+        schema: lib.Schema | None = None,
+        children: list[Dataset] | None = None,
+    ) -> None: ...
 
     @property
     def children(self) -> list[Dataset]: ...
-
 
 class FileSystemDataset(Dataset):
 
@@ -204,9 +210,6 @@ class FileSystemDataset(Dataset):
 
     @property
     def files(self) -> list[str]: ...
-
-    @property
-    def format(self) -> FileFormat: ...
 
 
 class FileWriteOptions(lib._Weakrefable):
@@ -541,9 +544,9 @@ class FileSystemFactoryOptions(lib._Weakrefable):
 
     def __init__(
         self,
-        artition_base_dir: str | None = None,
+        partition_base_dir: str | None = None,
         partitioning: Partitioning | PartitioningFactory | None = None,
-        exclude_invalid_files: bool = True,
+        exclude_invalid_files: bool | None = True,
         selector_ignore_prefixes: list[str] | None = None,
     ) -> None: ...
 
@@ -553,7 +556,7 @@ class FileSystemDatasetFactory(DatasetFactory):
     def __init__(
         self,
         filesystem: SupportedFileSystem,
-        paths_or_selector: list[str] | FileSelector,
+        paths_or_selector: Collection[str] | FileSelector,
         format: FileFormat,
         options: FileSystemFactoryOptions | None = None,
     ) -> None: ...
@@ -670,10 +673,11 @@ def _filesystemdataset_write(
     basename_template: str,
     filesystem: SupportedFileSystem,
     partitioning: Partitioning,
+    preserve_order: bool,
     file_options: FileWriteOptions,
     max_partitions: int,
-    file_visitor: Callable[[str], None],
-    existing_data_behavior: Literal["error", "overwrite_or_ignore", "delete_matching"],
+    file_visitor: Callable[[str], None] | None,
+    existing_data_behavior: Literal["error", "overwrite_or_ignore", "delete_matching"] | str,
     max_open_files: int,
     max_rows_per_file: int,
     min_rows_per_group: int,
