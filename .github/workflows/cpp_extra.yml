@@ -327,7 +327,7 @@ jobs:
           ../minimal_build.build/arrow-example
 
   report-extra-cpp:
-    if: github.event_name == 'schedule' && always()
+    if: always()
     needs:
       - docker
       - jni-macos
