@@ -177,7 +177,7 @@ TYPED_TEST(ConnectionAttributeTest, TestSQLGetConnectAttrTraceFileDMOnly) {
   out_str_len /= arrow::flight::sql::odbc::GetSqlWCharSize();
   std::string out_connection_string =
       ODBC::SqlWcharToString(out_str, static_cast<SQLSMALLINT>(out_str_len));
-  EXPECT_TRUE(!out_connection_string.empty());
+  EXPECT_FALSE(out_connection_string.empty());
 }
 
 TYPED_TEST(ConnectionAttributeTest, TestSQLGetConnectAttrTranslateLibUnsupported) {
