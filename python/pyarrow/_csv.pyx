@@ -613,7 +613,8 @@ double_quote={self.double_quote}
 escape_char={self.escape_char!r}
 newlines_in_values={self.newlines_in_values}
 ignore_empty_lines={self.ignore_empty_lines}
-invalid_row_handler={getattr(self.invalid_row_handler, '__name__', self.invalid_row_handler)}""")
+invalid_row_handler={getattr(self.invalid_row_handler, '__name__',
+                             self.invalid_row_handler)}""")
 
     def __repr__(self):
         return (f"<pyarrow.csv.ParseOptions>({self._repr_base()})")
@@ -1517,19 +1518,18 @@ cdef class WriteOptions(_Weakrefable):
     def validate(self):
         check_status(self.options.get().Validate())
 
+    def _repr_base(self):
+        return (f"""
+include_header={self.include_header}
+batch_size={self.batch_size}
+delimiter={self.delimiter!r}
+quoting_style='{self.quoting_style}'""")
+
     def __repr__(self):
-        return (f"<pyarrow.csv.WriteOptions("
-                f"include_header={self.include_header}, "
-                f"batch_size={self.batch_size}, "
-                f"delimiter={self.delimiter!r}, "
-                f"quoting_style='{self.quoting_style}')>")
+        return (f"<pyarrow.csv.WriteOptions>({self._repr_base()})")
 
     def __str__(self):
-        return (f"WriteOptions("
-                f"include_header={self.include_header}, "
-                f"batch_size={self.batch_size}, "
-                f"delimiter={self.delimiter!r}, "
-                f"quoting_style='{self.quoting_style}')")
+        return (f"WriteOptions({self._repr_base()})")
 
 
 cdef _get_write_options(WriteOptions write_options, CCSVWriteOptions* out):
