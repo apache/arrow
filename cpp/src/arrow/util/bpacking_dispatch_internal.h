@@ -109,7 +109,7 @@ int unpack_exact(const uint8_t* in, Uint* out, int batch_size, int bit_offset) {
   // aligned bytes.
   constexpr bool kOversized = kBufferSize < kMaxSpreadBytes;
   constexpr buffer_uint kLowMask =
-      bit_util::LeastSignificantBitMaskInc<buffer_uint>(kPackedBitWidth);
+      bit_util::LeastSignificantBitMask<buffer_uint, true>(kPackedBitWidth);
 
   ARROW_DCHECK_GE(bit_offset, 0);
   ARROW_DCHECK_LE(bit_offset, 8);
