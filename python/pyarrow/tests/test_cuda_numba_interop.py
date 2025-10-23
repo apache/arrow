@@ -213,7 +213,8 @@ def test_numba_context(c, dtype):
         np.testing.assert_equal(darr.copy_to_host(), arr)
         darr[0] = 99
         cbuf.context.synchronize()  # type: ignore[attr-defined]
-        arr2 = np.frombuffer(cbuf.copy_to_host(), dtype=np.dtype(dtype))  # type: ignore[arg-type, attr-defined]
+        # type: ignore[arg-type, attr-defined]
+        arr2 = np.frombuffer(cbuf.copy_to_host(), dtype=np.dtype(dtype))
         assert arr2[0] == 99
 
 
@@ -239,5 +240,6 @@ def test_pyarrow_jit(c, dtype):
     darr = DeviceNDArray(arr.shape, arr.strides, arr.dtype, gpu_data=mem)
     increment_by_one[blockspergrid, threadsperblock](darr)
     cbuf.context.synchronize()  # type: ignore[attr-defined]
-    arr1 = np.frombuffer(cbuf.copy_to_host(), dtype=arr.dtype)  # type: ignore[arg-type, attr-defined]
+    # type: ignore[arg-type, attr-defined]
+    arr1 = np.frombuffer(cbuf.copy_to_host(), dtype=arr.dtype)
     np.testing.assert_equal(arr1, arr + 1)

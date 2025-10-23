@@ -52,7 +52,8 @@ class IpcFixture:
         self._sink_factory = sink_factory
         self.sink = self.get_sink()
 
-    def _get_writer(self, sink, schema) -> pa.ipc.RecordBatchFileWriter | pa.ipc.RecordBatchStreamWriter:  # type: ignore[empty-body]
+    # type: ignore[empty-body]
+    def _get_writer(self, sink, schema) -> pa.ipc.RecordBatchFileWriter | pa.ipc.RecordBatchStreamWriter:
         ...  # Implemented in subclasses
 
     def get_sink(self):

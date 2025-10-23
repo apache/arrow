@@ -31,6 +31,7 @@ pytestmark = pytest.mark.substrait
 substrait = pytest.importorskip('pyarrow.substrait')
 _substrait = pytest.importorskip('pyarrow._substrait')
 
+
 def mock_udf_context(batch_length=10):
     from pyarrow._compute import _get_udf_context
     return _get_udf_context(pa.default_memory_pool(), batch_length)

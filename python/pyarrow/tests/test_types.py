@@ -1097,8 +1097,8 @@ def test_timedelta_overflow():
 
     # second/millisecond resolution, not overflow
     for d in [datetime.timedelta.min, datetime.timedelta.max]:
-        pa.scalar(d, type=pa.duration('ms')).as_py() == d  # type: ignore[reportUnusedExpression]
-        pa.scalar(d, type=pa.duration('s')).as_py() == d  # type: ignore[reportUnusedExpression]
+        _ = pa.scalar(d, type=pa.duration('ms')).as_py() == d
+        _ = pa.scalar(d, type=pa.duration('s')).as_py() == d
 
 
 def test_type_equality_operators():

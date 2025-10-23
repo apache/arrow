@@ -112,7 +112,8 @@ def test_dataset_encryption_decryption():
         crypto_factory, kms_connection_config, encryption_config
     )
     parquet_decryption_cfg = ds.ParquetDecryptionConfig(
-        crypto_factory, kms_connection_config, decryption_config  # type: ignore[arg-type]
+        # type: ignore[arg-type]
+        crypto_factory, kms_connection_config, decryption_config
     )
 
     # create write_options with dataset encryption config
@@ -212,7 +213,8 @@ def test_large_row_encryption_decryption():
         crypto_factory, kms_config, encryption_config
     )
     pqd_config = ds.ParquetDecryptionConfig(
-        crypto_factory, kms_config, pe.DecryptionConfiguration()  # type: ignore[arg-type]
+        # type: ignore[arg-type]
+        crypto_factory, kms_config, pe.DecryptionConfiguration()
     )
     scan_options = ds.ParquetFragmentScanOptions(decryption_config=pqd_config)
     file_format = ds.ParquetFileFormat(default_fragment_scan_options=scan_options)
