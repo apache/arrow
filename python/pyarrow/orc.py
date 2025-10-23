@@ -137,7 +137,7 @@ class ORCFile:
             if isinstance(col, Integral):
                 col = int(col)
                 if 0 <= col < len(schema):
-                    col = schema[col].name  # type: ignore
+                    col = schema[col].name
                     names.append(col)
                 else:
                     raise ValueError("Column indices must be in 0 <= ind < %d,"
@@ -255,9 +255,9 @@ where : str or pyarrow.io.NativeFile
             file_version=file_version,
             batch_size=batch_size,
             stripe_size=stripe_size,
-            compression=compression,  # type: ignore
+            compression=compression,
             compression_block_size=compression_block_size,
-            compression_strategy=compression_strategy,  # type: ignore
+            compression_strategy=compression_strategy,
             row_index_stride=row_index_stride,
             padding_tolerance=padding_tolerance,
             dictionary_key_size_threshold=dictionary_key_size_threshold,
@@ -300,7 +300,7 @@ where : str or pyarrow.io.NativeFile
 def read_table(source, columns=None, filesystem=None):
     filesystem, path = _resolve_filesystem_and_path(source, filesystem)
     if filesystem is not None:
-        source = filesystem.open_input_file(path)  # type: ignore
+        source = filesystem.open_input_file(path)
 
     if columns is not None and len(columns) == 0:
         result = ORCFile(source).read().select(columns)

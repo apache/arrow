@@ -350,7 +350,7 @@ class RecordBatch(_Tabular[Array]):
     def validate(self, *, full: bool = False) -> None: ...
 
     def replace_schema_metadata(
-        self, metadata: dict[str | bytes, str | bytes] | None = None
+        self, metadata: dict[str, str] | dict[bytes, bytes] | dict[bytes, str] | dict[str, bytes] | None = None
     ) -> Self: ...
 
     @property
@@ -480,7 +480,7 @@ class Table(_Tabular[ChunkedArray[Any]]):
                Iterable[int] | NDArray[np.str_]) -> Self: ...
 
     def replace_schema_metadata(
-        self, metadata: dict[str | bytes, str | bytes] | None = None
+        self, metadata: dict[str, str] | dict[bytes, bytes] | dict[bytes, str] | dict[str, bytes] | None = None
     ) -> Self: ...
 
     def flatten(self, memory_pool: MemoryPool | None = None) -> Self: ...

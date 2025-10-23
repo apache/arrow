@@ -30,7 +30,7 @@ from typing import Any, Literal, NamedTuple
 
 import pandas as pd
 
-from pyarrow._stubs_typing import SupportArrowStream, SupportPyBuffer
+from pyarrow._stubs_typing import SupportPyBuffer
 from pyarrow.lib import MemoryPool, RecordBatch, Schema, Table, Tensor, _Weakrefable
 
 from .io import Buffer, Codec, NativeFile
@@ -161,8 +161,13 @@ class _RecordBatchStreamWriter(_CRecordBatchWriter):
     def _use_legacy_format(self) -> bool: ...
     @property
     def _metadata_version(self) -> MetadataVersion: ...  # noqa: Y011
-    def _open(self, sink, schema: Schema,
-              options: IpcWriteOptions = IpcWriteOptions()): ...  # noqa: Y011
+    def _open(
+        self,
+        sink,
+        schema: Schema,
+        options: IpcWriteOptions = IpcWriteOptions(),  # noqa: Y011
+        metadata: dict[bytes, bytes] | None = None,
+    ): ...
 
 
 class _ReadPandasMixin:
@@ -185,7 +190,6 @@ class RecordBatchReader(_Weakrefable):
 
     def read_all(self) -> Table: ...
 
-    # pyright: ignore[reportUnknownMemberType,reportUnknownVariableType]
     read_pandas = _ReadPandasMixin.read_pandas
     def close(self) -> None: ...
 
@@ -215,6 +219,13 @@ class _RecordBatchStreamReader(RecordBatchReader):
     @property
     def stats(self) -> ReadStats: ...
 
+    def _open(
+        self,
+        source,
+        options: IpcReadOptions | None = None,
+        memory_pool: MemoryPool | None = None,
+    ) -> Self: ...
+
 
 class _RecordBatchFileWriter(_RecordBatchStreamWriter):
     ...
@@ -236,7 +247,6 @@ class _RecordBatchFileReader(_Weakrefable):
 
     def read_all(self) -> Table: ...
 
-    # pyright: ignore[reportUnknownMemberType,reportUnknownVariableType]
     read_pandas = _ReadPandasMixin.read_pandas
     def __enter__(self) -> Self: ...
     def __exit__(self, exc_type, exc_val, exc_tb): ...
@@ -247,6 +257,13 @@ class _RecordBatchFileReader(_Weakrefable):
     @property
     def metadata(self) -> KeyValueMetadata | None: ...
 
+    def _open(
+        self,
+        source,
+        footer_offset: int | None = None,
+        options: IpcReadOptions | None = None,
+        memory_pool: MemoryPool | None = None,
+    ) -> Self: ...
 
 def get_tensor_size(tensor: Tensor) -> int: ...
 
