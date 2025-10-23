@@ -22,8 +22,10 @@
 #include <type_traits>
 #include <vector>
 
+#include "arrow/result.h"
 #include "arrow/type.h"
 #include "arrow/util/bit_util.h"
+#include "arrow/util/macros.h"
 
 namespace arrow {
 
@@ -595,6 +597,19 @@ struct TypeTraits<ExtensionType> {
   constexpr static bool is_parameter_free = false;
 };
 /// @}
+
+/// \brief Create a data type instance from a type ID for parameter-free types
+///
+/// This function creates a data type instance for types that don't require
+/// additional parameters (where TypeTraits<T>::is_parameter_free is true).
+/// For types that require parameters (like TimestampType or ListType),
+/// this function will return an error.
+///
+/// \param[in] id The type ID to create a type instance for
+/// \return Result with a shared pointer to the created DataType instance,
+///         or an error if the type requires parameters
+ARROW_EXPORT
+Result<std::shared_ptr<DataType>> type_singleton(Type::type id);
 
 namespace internal {
 
