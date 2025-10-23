@@ -86,7 +86,7 @@ if(ARROW_ORC)
 endif()
 
 if(ARROW_USE_GLOG)
-  if(GLOG_SOURCE STREQUAL "SYSTEM")
+  if(glog_SOURCE STREQUAL "SYSTEM")
     list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS glog::glog)
   endif()
 endif()
