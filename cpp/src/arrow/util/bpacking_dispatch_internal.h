@@ -99,6 +99,7 @@ template <int kPackedBitWidth, bool kIsProlog, typename Uint>
 int unpack_exact(const uint8_t* in, Uint* out, int batch_size, int bit_offset) {
   // For the epilog we adapt the max spread since better alignment give shorter spreads
   ARROW_DCHECK(kIsProlog || bit_offset == 0);
+  ARROW_DCHECK(bit_offset >= 0 && bit_offset < 8);
   constexpr int kMaxSpreadBytes = kIsProlog ? PackedMaxSpreadBytes(kPackedBitWidth)
                                             : PackedMaxSpreadBytes(kPackedBitWidth, 0);
   using buffer_uint = SpreadBufferUint<kMaxSpreadBytes>;
