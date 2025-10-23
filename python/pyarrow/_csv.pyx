@@ -1148,37 +1148,27 @@ cdef class ConvertOptions(_Weakrefable):
         except TypeError:
             return False
 
+    def _repr_base(self):
+        return (f"""
+check_utf8={self.check_utf8}
+column_types={self.column_types}
+null_values={self.null_values}
+true_values={self.true_values}
+false_values={self.false_values}
+decimal_point={self.decimal_point!r}
+strings_can_be_null={self.strings_can_be_null}
+quoted_strings_can_be_null={self.quoted_strings_can_be_null}
+include_columns={self.include_columns}
+include_missing_columns={self.include_missing_columns}
+auto_dict_encode={self.auto_dict_encode}
+auto_dict_max_cardinality={self.auto_dict_max_cardinality}
+timestamp_parsers={[str(i) for i in self.timestamp_parsers]}""")
+
     def __repr__(self):
-        return (f"<pyarrow.csv.ConvertOptions("
-                f"check_utf8={self.check_utf8}, "
-                f"column_types={self.column_types}, "
-                f"null_values={self.null_values}, "
-                f"true_values={self.true_values}, "
-                f"false_values={self.false_values}, "
-                f"decimal_point={self.decimal_point!r}, "
-                f"strings_can_be_null={self.strings_can_be_null}, "
-                f"quoted_strings_can_be_null={self.quoted_strings_can_be_null}, "
-                f"include_columns={self.include_columns}, "
-                f"include_missing_columns={self.include_missing_columns}, "
-                f"auto_dict_encode={self.auto_dict_encode}, "
-                f"auto_dict_max_cardinality={self.auto_dict_max_cardinality}, "
-                f"timestamp_parsers={self.timestamp_parsers})>")
+        return (f"<pyarrow.csv.ConvertOptions>({self._repr_base()})")
 
     def __str__(self):
-        return (f"ConvertOptions("
-                f"check_utf8={self.check_utf8}, "
-                f"column_types={self.column_types}, "
-                f"null_values={self.null_values}, "
-                f"true_values={self.true_values}, "
-                f"false_values={self.false_values}, "
-                f"decimal_point={self.decimal_point!r}, "
-                f"strings_can_be_null={self.strings_can_be_null}, "
-                f"quoted_strings_can_be_null={self.quoted_strings_can_be_null}, "
-                f"include_columns={self.include_columns}, "
-                f"include_missing_columns={self.include_missing_columns}, "
-                f"auto_dict_encode={self.auto_dict_encode}, "
-                f"auto_dict_max_cardinality={self.auto_dict_max_cardinality}, "
-                f"timestamp_parsers={self.timestamp_parsers})")
+        return (f"ConvertOptions({self._repr_base()})")
 
 
 cdef _get_reader(input_file, ReadOptions read_options,

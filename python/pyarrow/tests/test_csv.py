@@ -394,37 +394,22 @@ def test_convert_options(pickle_module):
     assert opts.auto_dict_max_cardinality == 999
     assert opts.timestamp_parsers == [ISO8601, '%Y-%m-%d']
 
-    expected_repr = ("<pyarrow.csv.ConvertOptions("
-                     f"check_utf8={opts.check_utf8}, "
-                     f"column_types={opts.column_types}, "
-                     f"null_values={opts.null_values}, "
-                     f"true_values={opts.true_values}, "
-                     f"false_values={opts.false_values}, "
-                     f"decimal_point={opts.decimal_point!r}, "
-                     f"strings_can_be_null={opts.strings_can_be_null}, "
-                     f"quoted_strings_can_be_null={opts.quoted_strings_can_be_null}, "
-                     f"include_columns={opts.include_columns}, "
-                     f"include_missing_columns={opts.include_missing_columns}, "
-                     f"auto_dict_encode={opts.auto_dict_encode}, "
-                     f"auto_dict_max_cardinality={opts.auto_dict_max_cardinality}, "
-                     f"timestamp_parsers={opts.timestamp_parsers})>")
-    assert repr(opts) == expected_repr
-
-    expected_str = (f"ConvertOptions("
-                    f"check_utf8={opts.check_utf8}, "
-                    f"column_types={opts.column_types}, "
-                    f"null_values={opts.null_values}, "
-                    f"true_values={opts.true_values}, "
-                    f"false_values={opts.false_values}, "
-                    f"decimal_point={opts.decimal_point!r}, "
-                    f"strings_can_be_null={opts.strings_can_be_null}, "
-                    f"quoted_strings_can_be_null={opts.quoted_strings_can_be_null}, "
-                    f"include_columns={opts.include_columns}, "
-                    f"include_missing_columns={opts.include_missing_columns}, "
-                    f"auto_dict_encode={opts.auto_dict_encode}, "
-                    f"auto_dict_max_cardinality={opts.auto_dict_max_cardinality}, "
-                    f"timestamp_parsers={opts.timestamp_parsers})")
-    assert str(opts) == expected_str
+    expected_repr_inner = ("""
+check_utf8=True
+column_types={'a': DataType(null)}
+null_values=['N', 'nn']
+true_values=['T', 'tt']
+false_values=['F', 'ff']
+decimal_point='.'
+strings_can_be_null=False
+quoted_strings_can_be_null=True
+include_columns=[]
+include_missing_columns=False
+auto_dict_encode=False
+auto_dict_max_cardinality=999
+timestamp_parsers=['ISO8601', '%Y-%m-%d']""")
+    assert repr(opts) == f"<pyarrow.csv.ConvertOptions>({expected_repr_inner})"
+    assert str(opts) == f"ConvertOptions({expected_repr_inner})"
 
 
 def test_write_options():
