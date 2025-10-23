@@ -253,7 +253,7 @@ def field(jvm_field):
     else:
         metadata = {str(entry.getKey()): str(entry.getValue())
                     for entry in jvm_metadata.entrySet()}
-    return pa.field(name, typ, nullable, metadata)  # type: ignore
+    return pa.field(name, typ, nullable, metadata)
 
 
 def schema(jvm_schema):
@@ -277,7 +277,7 @@ def schema(jvm_schema):
     else:
         metadata = {str(entry.getKey()): str(entry.getValue())
                     for entry in jvm_metadata.entrySet()}
-    return pa.schema(fields, metadata)  # type: ignore
+    return pa.schema(fields, metadata)
 
 
 def array(jvm_array):
@@ -331,5 +331,5 @@ def record_batch(jvm_vector_schema_root):
     return pa.RecordBatch.from_arrays(
         arrays,
         pa_schema.names,
-        metadata=pa_schema.metadata  # type: ignore
+        metadata=pa_schema.metadata
     )

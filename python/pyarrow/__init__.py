@@ -29,19 +29,17 @@ streaming messaging and interprocess communication.
 For more information see the official page at https://arrow.apache.org
 """
 
-import gc as _gc
 import importlib as _importlib
 import os as _os
 import platform as _platform
 import sys as _sys
-import warnings as _warnings
 
 try:
-    from ._generated_version import version as __version__  # type: ignore[import-untyped, import-not-found]
+    from ._generated_version import version as __version__
 except ImportError:
     # Package is not installed, parse git tag at runtime
     try:
-        import setuptools_scm  # type: ignore[import-untyped, import-not-found]
+        import setuptools_scm
         # Code duplicated from setup.py to avoid a dependency on each other
 
         def parse_git(root, **kwargs):
@@ -49,7 +47,7 @@ except ImportError:
             Parse function for setuptools_scm that ignores tags for non-C++
             subprojects, e.g. apache-arrow-js-XXX tags.
             """
-            from setuptools_scm.git import parse  # type: ignore[import-untyped, import-not-found]
+            from setuptools_scm.git import parse
             kwargs['describe_command'] = \
                 "git describe --dirty --tags --long --match 'apache-arrow-[0-9]*.*'"
             return parse(root, **kwargs)
@@ -59,8 +57,8 @@ except ImportError:
         __version__ = None  # type: ignore[assignment]
 
 import pyarrow.lib as _lib
-from pyarrow.lib import (BuildInfo, CppBuildInfo, RuntimeInfo, set_timezone_db_path,  # type: ignore[attr-defined, reportAttributeAccessIssue]
-                         MonthDayNano, VersionInfo, build_info, cpp_build_info,  # pyright: ignore[reportAttributeAccessIssue]
+from pyarrow.lib import (BuildInfo, CppBuildInfo, RuntimeInfo, set_timezone_db_path,
+                         MonthDayNano, VersionInfo, build_info, cpp_build_info,
                          cpp_version, cpp_version_info, runtime_info,
                          cpu_count, set_cpu_count, enable_signal_handlers,
                          io_thread_count, set_io_thread_count)
@@ -149,7 +147,7 @@ def show_info():
     print("\nCompression Codecs:")
     codecs = ["brotli", "bz2", "gzip", "lz4_frame", "lz4", "snappy", "zstd"]
     for codec in codecs:
-        status = "Enabled" if Codec.is_available(codec) else "-"  # pyright: ignore[reportArgumentType]
+        status = "Enabled" if Codec.is_available(codec) else "-"
         print(f"  {codec: <20}: {status: <8}")
 
 
@@ -193,7 +191,7 @@ from pyarrow.lib import (null, bool_,
                          SparseCOOTensor, SparseCSRMatrix, SparseCSCMatrix,
                          SparseCSFTensor,
                          infer_type, from_numpy_dtype,
-                         arange,  # type: ignore[attr-defined]
+                         arange,
                          NullArray,
                          NumericArray, IntegerArray, FloatingPointArray,
                          BooleanArray,
@@ -365,7 +363,7 @@ def create_library_symlinks():
     if _sys.platform == 'linux':
         bundled_libs = glob.glob(_os.path.join(package_cwd, '*.so.*'))
 
-        def get_symlink_path(hard_path):  # type: ignore
+        def get_symlink_path(hard_path):  # type: ignore[reportRedeclaration]
             return hard_path.rsplit('.', 1)[0]
     else:
         bundled_libs = glob.glob(_os.path.join(package_cwd, '*.*.dylib'))

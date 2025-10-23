@@ -22,7 +22,7 @@
 # distutils: language = c++
 # cython: language_level = 3
 
-from pyarrow.lib import Table, RecordBatch, array
+from pyarrow.lib import Table, RecordBatch, array, Schema
 from pyarrow.compute import Expression, field
 
 try:
@@ -50,11 +50,12 @@ except ImportError:
     class DatasetModuleStub:
         class Dataset:
             @property
-            def schema(self) -> None:  # type: ignore[empty-body]
-                pass
+            def schema(self):
+                return Schema()
 
         class InMemoryDataset:
-            pass
+            def __init__(self, source):
+                pass
     ds = DatasetModuleStub  # type: ignore[assignment]
 
 
@@ -142,8 +143,8 @@ def _perform_join(join_type, left_operand, left_keys,
         right_keys_order[key] = idx
 
     # By default expose all columns on both left and right table
-    left_columns = left_operand.schema.names  # type: ignore
-    right_columns = right_operand.schema.names  # type: ignore
+    left_columns = left_operand.schema.names
+    right_columns = right_operand.schema.names
 
     # Pick the join type
     if join_type == "left semi" or join_type == "left anti":
@@ -187,14 +188,14 @@ def _perform_join(join_type, left_operand, left_keys,
             join_type, left_keys, right_keys, left_columns, right_columns,
             output_suffix_for_left=left_suffix or "",
             output_suffix_for_right=right_suffix or "",
-            filter_expression=filter_expression,  # type: ignore
+            filter_expression=filter_expression,
         )
     else:
         join_opts = HashJoinNodeOptions(
             join_type, left_keys, right_keys,
             output_suffix_for_left=left_suffix or "",
             output_suffix_for_right=right_suffix or "",
-            filter_expression=filter_expression,  # type: ignore
+            filter_expression=filter_expression,
         )
     decl = Declaration(
         "hashjoin", options=join_opts, inputs=[left_source, right_source]
@@ -257,7 +258,7 @@ def _perform_join(join_type, left_operand, left_keys,
     if output_type == Table:
         return result_table
     elif output_type == ds.InMemoryDataset:
-        return ds.InMemoryDataset(result_table)  # type: ignore
+        return ds.InMemoryDataset(result_table)
     else:
         raise TypeError("Unsupported output type")
 
@@ -307,10 +308,10 @@ def _perform_join_asof(left_operand, left_on, left_by,
 
     # AsofJoin does not return on or by columns for right_operand.
     right_columns = [
-        col for col in right_operand.schema.names  # type: ignore
-        if col not in [right_on] + right_by  # type: ignore
+        col for col in right_operand.schema.names
+        if col not in [right_on] + right_by  # type: ignore[reportOperatorIssue]
     ]
-    columns_collisions = set(left_operand.schema.names) & set(right_columns)  # type: ignore
+    columns_collisions = set(left_operand.schema.names) & set(right_columns)
     if columns_collisions:
         raise ValueError(
             f"Columns {columns_collisions} present in both tables. "
@@ -337,7 +338,7 @@ def _perform_join_asof(left_operand, left_on, left_by,
         )
 
     join_opts = AsofJoinNodeOptions(
-        left_on, left_by, right_on, right_by, tolerance  # type: ignore
+        left_on, left_by, right_on, right_by, tolerance
     )
     decl = Declaration(
         "asofjoin", options=join_opts, inputs=[left_source, right_source]
@@ -348,7 +349,7 @@ def _perform_join_asof(left_operand, left_on, left_by,
     if output_type == Table:
         return result_table
     elif output_type == ds.InMemoryDataset:
-        return ds.InMemoryDataset(result_table)  # type: ignore
+        return ds.InMemoryDataset(result_table)
     else:
         raise TypeError("Unsupported output type")
 
@@ -406,7 +407,7 @@ def _sort_source(table_or_dataset, sort_keys, output_type=Table, **kwargs):
     if output_type == Table:
         return result_table
     elif output_type == ds.InMemoryDataset:
-        return ds.InMemoryDataset(result_table)  # type: ignore
+        return ds.InMemoryDataset(result_table)
     else:
         raise TypeError("Unsupported output type")
 

@@ -282,7 +282,7 @@ class ProxyHandler(pyarrow.fs.FileSystemHandler):
     def delete_dir(self, path):
         return self._fs.delete_dir(path)
 
-    def delete_dir_contents(self, path, missing_dir_ok=False):  # type: ignore[override]
+    def delete_dir_contents(self, path, missing_dir_ok):
         return self._fs.delete_dir_contents(path,
                                             missing_dir_ok=missing_dir_ok)
 
@@ -336,7 +336,8 @@ def _ensure_minio_component_version(component, minimum_year):
                           stderr=subprocess.PIPE, encoding='utf-8') as proc:
         if proc.wait(10) != 0:
             return False
-        stdout = proc.stdout.read()  # type: ignore[reportOptionalMemberAccess]
+        assert proc.stdout is not None
+        stdout = proc.stdout.read()
         pattern = component + r' version RELEASE\.(\d+)-.*'
         version_match = re.search(pattern, stdout)
         if version_match:
@@ -367,8 +368,10 @@ def _run_mc_command(mcdir, *args):
         cmd_str = ' '.join(full_args)
         print(f'Cmd: {cmd_str}')
         print(f'  Return: {retval}')
-        print(f'  Stdout: {proc.stdout.read()}')  # type: ignore[reportOptionalMemberAccess]
-        print(f'  Stderr: {proc.stderr.read()}')  # type: ignore[reportOptionalMemberAccess]
+        assert proc.stdout is not None
+        assert proc.stderr is not None
+        print(f'  Stdout: {proc.stdout.read()}')
+        print(f'  Stderr: {proc.stderr.read()}')
         if retval != 0:
             raise ChildProcessError("Could not run mc")
 
