@@ -213,25 +213,18 @@ def test_read_options(pickle_module):
         opts.column_names = ('a', 'b')
         opts.validate()
 
-    expected_repr = ("<pyarrow.csv.ReadOptions("
-                     f"use_threads={opts.use_threads}, "
-                     f"block_size={opts.block_size}, "
-                     f"skip_rows={opts.skip_rows}, "
-                     f"skip_rows_after_names={opts.skip_rows_after_names}, "
-                     f"column_names={opts.column_names}, "
-                     f"autogenerate_column_names={opts.autogenerate_column_names}, "
-                     f"encoding='{opts.encoding}')>")
-    assert repr(opts) == expected_repr
+    expected_repr_inner = """
+use_threads=True
+block_size=1048576
+skip_rows=0
+skip_rows_after_names=0
+column_names=['a', 'b']
+autogenerate_column_names=True
+encoding='utf8'"""
 
-    expected_str = (f"ReadOptions("
-                    f"use_threads={opts.use_threads}, "
-                    f"block_size={opts.block_size}, "
-                    f"skip_rows={opts.skip_rows}, "
-                    f"skip_rows_after_names={opts.skip_rows_after_names}, "
-                    f"column_names={opts.column_names}, "
-                    f"autogenerate_column_names={opts.autogenerate_column_names}, "
-                    f"encoding='{opts.encoding}')")
-    assert str(opts) == expected_str
+    assert repr(opts) == f"<pyarrow.csv.ReadOptions>({expected_repr_inner})"
+    assert str(opts) == f"ReadOptions({expected_repr_inner})"
+
 
 
 def test_parse_options(pickle_module):

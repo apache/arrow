@@ -332,25 +332,21 @@ cdef class ReadOptions(_Weakrefable):
         except TypeError:
             return False
 
+    def _repr_base(self):
+        return (f"""
+use_threads={self.use_threads}
+block_size={self.block_size}
+skip_rows={self.skip_rows}
+skip_rows_after_names={self.skip_rows_after_names}
+column_names={self.column_names}
+autogenerate_column_names={self.autogenerate_column_names}
+encoding='{self.encoding}'""")
+
     def __repr__(self):
-        return (f"<pyarrow.csv.ReadOptions("
-                f"use_threads={self.use_threads}, "
-                f"block_size={self.block_size}, "
-                f"skip_rows={self.skip_rows}, "
-                f"skip_rows_after_names={self.skip_rows_after_names}, "
-                f"column_names={self.column_names}, "
-                f"autogenerate_column_names={self.autogenerate_column_names}, "
-                f"encoding='{self.encoding}')>")
+        return (f"<pyarrow.csv.ReadOptions>({self._repr_base()})")
 
     def __str__(self):
-        return (f"ReadOptions("
-                f"use_threads={self.use_threads}, "
-                f"block_size={self.block_size}, "
-                f"skip_rows={self.skip_rows}, "
-                f"skip_rows_after_names={self.skip_rows_after_names}, "
-                f"column_names={self.column_names}, "
-                f"autogenerate_column_names={self.autogenerate_column_names}, "
-                f"encoding='{self.encoding}')")
+        return (f"ReadOptions({self._repr_base()})")
 
 
 cdef class ParseOptions(_Weakrefable):
