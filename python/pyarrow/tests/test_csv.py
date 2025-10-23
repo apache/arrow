@@ -427,19 +427,14 @@ def test_write_options():
         opts.batch_size = 0
         opts.validate()
 
-    expected_repr = ("<pyarrow.csv.WriteOptions("
-                     f"include_header={opts.include_header}, "
-                     f"batch_size={opts.batch_size}, "
-                     f"delimiter={opts.delimiter!r}, "
-                     f"quoting_style='{opts.quoting_style}')>")
-    assert repr(opts) == expected_repr
+    expected_repr_inner = """
+include_header=True
+batch_size=0
+delimiter=','
+quoting_style='needed'"""
 
-    expected_str = (f"WriteOptions("
-                    f"include_header={opts.include_header}, "
-                    f"batch_size={opts.batch_size}, "
-                    f"delimiter={opts.delimiter!r}, "
-                    f"quoting_style='{opts.quoting_style}')")
-    assert str(opts) == expected_str
+    assert repr(opts) == f"<pyarrow.csv.WriteOptions>({expected_repr_inner})"
+    assert str(opts) == f"WriteOptions({expected_repr_inner})"
 
 
 class BaseTestCSV(abc.ABC):
