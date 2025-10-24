@@ -29,7 +29,7 @@ else:
 from typing import Literal
 
 from . import lib
-from .compute import Expression, FunctionOptions
+from .compute import Expression
 from .dataset import InMemoryDataset, Dataset
 from .table import Aggregation, AggregateOptions
 
@@ -96,10 +96,13 @@ class AggregateNodeOptions(ExecNodeOptions):
         keys: Iterable[str | Expression] | None = None,
     ) -> None: ...
 
+
 class OrderByNodeOptions(ExecNodeOptions):
     def __init__(
         self,
-        sort_keys: Iterable[tuple[str | Expression | int, Literal["ascending", "descending"]]] = (),
+        sort_keys:
+        Iterable[tuple[str | Expression | int, Literal["ascending", "descending"]]]
+        = (),
         *,
         null_placement: Literal["at_start", "at_end"] = "at_end",
     ) -> None: ...
@@ -124,7 +127,8 @@ class HashJoinNodeOptions(ExecNodeOptions):
         right_output: Sequence[_StrOrExpr] | None = None,
         output_suffix_for_left: str = "",
         output_suffix_for_right: str = "",
-        filter_expression: lib.BooleanScalar | lib.BooleanArray | Expression | None = None,
+        filter_expression:
+        lib.BooleanScalar | lib.BooleanArray | Expression | None = None,
     ) -> None: ...
 
 

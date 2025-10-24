@@ -241,7 +241,7 @@ def _handle_options(name, options_class, options, args, kwargs):
 
 def _make_generic_wrapper(func_name, func, options_class, arity):
     if options_class is None:
-        def wrapper(*args, memory_pool=None):  # pyright: ignore[reportRedeclaration]
+        def wrapper(*args, memory_pool=None):  # type: ignore[misc]
             if arity is not Ellipsis and len(args) != arity:
                 raise TypeError(
                     f"{func_name} takes {arity} positional argument(s), "
@@ -251,8 +251,8 @@ def _make_generic_wrapper(func_name, func, options_class, arity):
                 return Expression._call(func_name, list(args))
             return func.call(args, None, memory_pool)
     else:
-        # pyright: ignore[reportRedeclaration]
-        def wrapper(*args, memory_pool=None, options=None, **kwargs):
+        def wrapper(  # type: ignore[misc]
+                *args, memory_pool=None, options=None, **kwargs):
             if arity is not Ellipsis:
                 if len(args) < arity:
                     raise TypeError(
@@ -305,7 +305,7 @@ def _wrap_function(name, func):
 
     wrapper = _make_generic_wrapper(
         name, func, options_class, arity=func.arity)
-    wrapper.__signature__ = _make_signature(arg_names, var_arg_names,  # pyright: ignore[reportFunctionMemberAccess]
+    wrapper.__signature__ = _make_signature(arg_names, var_arg_names,
                                             options_class)
     return _decorate_compute_function(wrapper, name, func, options_class)
 

@@ -68,17 +68,16 @@ def test_filesystem_uri(tempdir):
     directory = tempdir / "data_dir"
     directory.mkdir()
     path = directory / "data.parquet"
-    pq.write_table(table, str(path))  # type: ignore[attr-defined]
+    pq.write_table(table, str(path))
 
     # filesystem object
-    result = pq.read_table(  # type: ignore[attr-defined]
+    result = pq.read_table(
         path, filesystem=LocalFileSystem())
     assert result.equals(table)
 
     # filesystem URI
-    result = pq.read_table(  # type: ignore[attr-defined]
-        # type: ignore[arg-type]
-        "data_dir/data.parquet", filesystem=util._filesystem_uri(tempdir))
+    result = pq.read_table("data_dir/data.parquet",
+                           filesystem=util._filesystem_uri(tempdir))
     assert result.equals(table)
 
 
@@ -96,7 +95,7 @@ def test_read_partitioned_columns_selection(tempdir):
     base_path = tempdir
     _partition_test_for_filesystem(local, base_path)
 
-    dataset = pq.ParquetDataset(base_path)  # type: ignore[attr-defined]
+    dataset = pq.ParquetDataset(base_path)
     result = dataset.read(columns=["values"])
     assert result.column_names == ["values"]
 
@@ -126,9 +125,9 @@ def test_filters_equivalency(tempdir):
 
     # Old filters syntax:
     #  integer == 1 AND string != b AND boolean == True
-    dataset = pq.ParquetDataset(  # type: ignore[attr-defined]
+    dataset = pq.ParquetDataset(
         base_path, filesystem=local,
-        filters=[('integer', '=', 1), ('string', '!=', 'b'),  # type: ignore[arg-type]
+        filters=[('integer', '=', 1), ('string', '!=', 'b'),
                  ('boolean', '==', 'True')],
     )
     table = dataset.read()
@@ -150,8 +149,8 @@ def test_filters_equivalency(tempdir):
         ],
         [('integer', '=', 0), ('boolean', '==', 'False')]
     ]
-    dataset = pq.ParquetDataset(  # type: ignore[attr-defined]
-        base_path, filesystem=local, filters=filters)  # type: ignore[arg-type]
+    dataset = pq.ParquetDataset(
+        base_path, filesystem=local, filters=filters)
     table = dataset.read()
     result_df = table.to_pandas().reset_index(drop=True)
 
@@ -167,7 +166,7 @@ def test_filters_equivalency(tempdir):
 
     for filters in [[[('string', '==', b'1\0a')]],
                     [[('string', '==', '1\0a')]]]:
-        dataset = pq.ParquetDataset(  # type: ignore[attr-defined]
+        dataset = pq.ParquetDataset(
             base_path, filesystem=local, filters=filters)
         assert dataset.read().num_rows == 0
 
@@ -579,8 +578,6 @@ def _generate_partition_directories(fs, base_dir, partition_spec, df):
 
             if level == DEPTH - 1:
                 # Generate example data
-                from pyarrow.fs import FileType
-
                 file_path = pathsep.join([level_dir, guid()])
                 filtered_df = _filter_partition(df, this_part_keys)
                 part_table = pa.Table.from_pandas(filtered_df)
@@ -637,7 +634,7 @@ def test_filter_before_validate_schema(tempdir):
     pq.write_table(table2, dir2 / 'data.parquet')
 
     # read single file using filter
-    table = pq.read_table(tempdir, filters=[[('A', '==', 0)]])  # type: ignore[arg-type]
+    table = pq.read_table(tempdir, filters=[[('A', '==', 0)]])
     assert table.column('B').equals(pa.chunked_array([[1, 2, 3]]))
 
 
@@ -652,7 +649,7 @@ def test_read_multiple_files(tempdir):
     test_data = []
     paths = []
     for i in range(nfiles):
-        df = _test_dataframe(size, seed=i)  # type: ignore[name-defined]
+        df = _test_dataframe(size, seed=i)
 
         # Hack so that we don't have a dtype cast in v1 files
         df['uint32'] = df['uint32'].astype(np.int64)
@@ -660,7 +657,7 @@ def test_read_multiple_files(tempdir):
         path = dirpath / f'{i}.parquet'
 
         table = pa.Table.from_pandas(df)
-        _write_table(table, path)  # type: ignore[name-defined]
+        _write_table(table, path)
 
         test_data.append(table)
         paths.append(path)
@@ -684,7 +681,6 @@ def test_read_multiple_files(tempdir):
     out = pq.read_table(dirpath, columns=col_names)
     expected = pa.Table.from_arrays([result.column(i) for i in to_read],
                                     names=col_names,
-                                    # type: ignore[arg-type]
                                     metadata=result.schema.metadata)
     assert out.equals(expected)
 
@@ -692,11 +688,11 @@ def test_read_multiple_files(tempdir):
     pq.read_table(dirpath, use_threads=True)
 
     # Test failure modes with non-uniform metadata
-    bad_apple = _test_dataframe(size, seed=i).iloc[:, :4]  # type: ignore[name-defined]
+    bad_apple = _test_dataframe(size, seed=i).iloc[:, :4]
     bad_apple_path = tempdir / f'{guid()}.parquet'
 
     t = pa.Table.from_pandas(bad_apple)
-    _write_table(t, bad_apple_path)  # type: ignore[name-defined]
+    _write_table(t, bad_apple_path)
 
     # TODO(dataset) Dataset API skips bad files
 
@@ -726,14 +722,14 @@ def test_dataset_read_pandas(tempdir):
     frames = []
     paths = []
     for i in range(nfiles):
-        df = _test_dataframe(size, seed=i)  # type: ignore[name-defined]
+        df = _test_dataframe(size, seed=i)
         df.index = np.arange(i * size, (i + 1) * size)  # type: ignore[assignment]
         df.index.name = 'index'  # type: ignore[attr-defined]
 
         path = dirpath / f'{i}.parquet'
 
         table = pa.Table.from_pandas(df)
-        _write_table(table, path)  # type: ignore[name-defined]
+        _write_table(table, path)
         test_data.append(table)
         frames.append(df)
         paths.append(path)
@@ -758,9 +754,9 @@ def test_dataset_memory_map(tempdir):
     dirpath = tempdir / guid()
     dirpath.mkdir()
 
-    table = _test_table(10, seed=0)  # type: ignore[name-defined]
+    table = _test_table(10, seed=0)
     path = dirpath / '0.parquet'
-    _write_table(table, path, version='2.6')  # type: ignore[name-defined]
+    _write_table(table, path, version='2.6')
 
     dataset = pq.ParquetDataset(
         dirpath, memory_map=True)
@@ -772,9 +768,9 @@ def test_dataset_enable_buffered_stream(tempdir):
     dirpath = tempdir / guid()
     dirpath.mkdir()
 
-    table = _test_table(10, seed=0)  # type: ignore[name-defined]
+    table = _test_table(10, seed=0)
     path = dirpath / '0.parquet'
-    _write_table(table, path, version='2.6')  # type: ignore[name-defined]
+    _write_table(table, path, version='2.6')
 
     with pytest.raises(ValueError):
         pq.ParquetDataset(
@@ -1244,11 +1240,11 @@ def test_dataset_partitioning(tempdir):
     # read_table
     part = ds.partitioning(field_names=["year", "month", "day"])
     result = pq.read_table(
-        str(root_path), partitioning=part)  # type: ignore[arg-type]
+        str(root_path), partitioning=part)
     assert result.column_names == ["a", "year", "month", "day"]
 
     result = pq.ParquetDataset(
-        str(root_path), partitioning=part).read()  # type: ignore[arg-type]
+        str(root_path), partitioning=part).read()
     assert result.column_names == ["a", "year", "month", "day"]
 
 

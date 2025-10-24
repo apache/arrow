@@ -288,8 +288,7 @@ def test_coerce_int96_timestamp_unit(unit):
     # For either Parquet version, coercing to nanoseconds is allowed
     # if Int96 storage is used
     array_for_unit = arrays.get(unit, a_ns)
-    expected = pa.Table.from_arrays(
-        [array_for_unit] * 4, names)  # type: ignore[arg-type]
+    expected = pa.Table.from_arrays([array_for_unit] * 4, names)
     read_table_kwargs = {"coerce_int96_timestamp_unit": unit}
     _check_roundtrip(table, expected,
                      read_table_kwargs=read_table_kwargs,
@@ -325,18 +324,19 @@ def test_coerce_int96_timestamp_overflow(pq_reader_method, tempdir):
     # with the default resolution of ns, we get wrong values for INT96
     # that are out of bounds for nanosecond range
     tab_error = get_table(pq_reader_method, filename)
+    assert tab_error is not None
     with warnings.catch_warnings():
         warnings.filterwarnings("ignore",
                                 "Discarding nonzero nanoseconds in conversion",
                                 UserWarning)
-        assert tab_error["a"].to_pylist() != oob_dts  # type: ignore[index]
+        assert tab_error["a"].to_pylist() != oob_dts
 
     # avoid this overflow by specifying the resolution to use for INT96 values
     tab_correct = get_table(
         pq_reader_method, filename, coerce_int96_timestamp_unit="s"
     )
-    df_correct = tab_correct.to_pandas(
-        timestamp_as_object=True)  # type: ignore[attr-defined]
+    assert tab_correct is not None
+    df_correct = tab_correct.to_pandas(timestamp_as_object=True)
     df["a"] = df["a"].astype(object)
     tm.assert_frame_equal(df, df_correct)
 
