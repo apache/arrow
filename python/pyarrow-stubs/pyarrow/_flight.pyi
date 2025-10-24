@@ -49,7 +49,6 @@ _T = TypeVar("_T")
 
 
 class FlightCallOptions(_Weakrefable):
-
     def __init__(
         self,
         timeout: float | None = None,
@@ -60,13 +59,11 @@ class FlightCallOptions(_Weakrefable):
 
 
 class CertKeyPair(NamedTuple):
-
     cert: str | bytes | None
     key: str | bytes | None
 
 
 class FlightError(Exception):
-
     extra_info: bytes
 
 
@@ -99,13 +96,11 @@ class FlightUnavailableError(FlightError, ArrowException):
 
 
 class FlightWriteSizeExceededError(ArrowInvalid):
-
     limit: int
     actual: int
 
 
 class Action(_Weakrefable):
-
     def __init__(
         self, action_type: bytes | str, buf: Buffer | bytes | None) -> None: ...
 
@@ -122,7 +117,6 @@ class Action(_Weakrefable):
 
 
 class ActionType(NamedTuple):
-
     type: str
     description: str
 
@@ -130,7 +124,6 @@ class ActionType(NamedTuple):
 
 
 class Result(_Weakrefable):
-
     def __init__(self, buf: Buffer | bytes) -> None: ...
 
     @property
@@ -143,7 +136,6 @@ class Result(_Weakrefable):
 
 
 class BasicAuth(_Weakrefable):
-
     def __init__(
         self, username: str | bytes | None = None, password: str | bytes | None = None
     ) -> None: ...
@@ -158,14 +150,12 @@ class BasicAuth(_Weakrefable):
 
 
 class DescriptorType(enum.Enum):
-
     UNKNOWN = 0
     PATH = 1
     CMD = 2
 
 
 class FlightMethod(enum.Enum):
-
     INVALID = 0
     HANDSHAKE = 1
     LIST_FLIGHTS = 2
@@ -179,7 +169,6 @@ class FlightMethod(enum.Enum):
 
 
 class FlightDescriptor(_Weakrefable):
-
     @staticmethod
     def for_path(*path: str | bytes) -> FlightDescriptor: ...
 
@@ -201,7 +190,6 @@ class FlightDescriptor(_Weakrefable):
 
 
 class Ticket(_Weakrefable):
-
     def __init__(self, ticket: str | bytes) -> None: ...
     @property
     def ticket(self) -> bytes: ...
@@ -211,7 +199,6 @@ class Ticket(_Weakrefable):
 
 
 class Location(_Weakrefable):
-
     def __init__(self, uri: str | bytes) -> None: ...
     @property
     def uri(self) -> bytes: ...
@@ -227,7 +214,6 @@ class Location(_Weakrefable):
 
 
 class FlightEndpoint(_Weakrefable):
-
     def __init__(
         self,
         ticket: Ticket | str | bytes | object,
@@ -254,7 +240,6 @@ class FlightEndpoint(_Weakrefable):
 
 
 class SchemaResult(_Weakrefable):
-
     def __init__(self, schema: Schema) -> None: ...
 
     @property
@@ -266,7 +251,6 @@ class SchemaResult(_Weakrefable):
 
 
 class FlightInfo(_Weakrefable):
-
     def __init__(
         self,
         schema: Schema | None,
@@ -305,7 +289,6 @@ class FlightInfo(_Weakrefable):
 
 
 class FlightStreamChunk(_Weakrefable):
-
     @property
     def data(self) -> RecordBatch | None: ...
     @property
@@ -314,7 +297,6 @@ class FlightStreamChunk(_Weakrefable):
 
 
 class _MetadataRecordBatchReader(_Weakrefable, _ReadPandasMixin):
-
     # Needs to be separate class so the "real" class can subclass the
     # pure-Python mixin class
 
@@ -347,7 +329,6 @@ class FlightStreamReader(MetadataRecordBatchReader):
 
 
 class MetadataRecordBatchWriter(_CRecordBatchWriter):
-
     def begin(self, schema: Schema, options: IpcWriteOptions | None = None) -> None: ...
 
     def write_metadata(self, buf: Buffer | bytes) -> None: ...
@@ -363,22 +344,18 @@ class MetadataRecordBatchWriter(_CRecordBatchWriter):
 
 
 class FlightStreamWriter(MetadataRecordBatchWriter):
-
     def done_writing(self) -> None: ...
 
 
 class FlightMetadataReader(_Weakrefable):
-
     def read(self) -> Buffer | None: ...
 
 
 class FlightMetadataWriter(_Weakrefable):
-
     def write(self, message: Buffer) -> None: ...
 
 
 class AsyncioCall(Generic[_T]):
-
     _future: asyncio.Future[_T]
 
     def as_awaitable(self) -> asyncio.Future[_T]: ...
@@ -386,7 +363,6 @@ class AsyncioCall(Generic[_T]):
 
 
 class AsyncioFlightClient:
-
     def __init__(self, client: FlightClient) -> None: ...
 
     async def get_flight_info(
@@ -398,7 +374,6 @@ class AsyncioFlightClient:
 
 
 class FlightClient(_Weakrefable):
-
     def __init__(
         self,
         location: str | tuple[str, int] | Location,
@@ -412,6 +387,7 @@ class FlightClient(_Weakrefable):
         disable_server_verification: bool = False,
         generic_options: list[tuple[str, int | str]] | None = None,
     ): ...
+
     @property
     def supports_async(self) -> bool: ...
     def as_async(self) -> AsyncioFlightClient: ...
@@ -508,7 +484,6 @@ class GeneratorStream(FlightDataStream):
 
 
 class ServerCallContext(_Weakrefable):
-
     def peer_identity(self) -> bytes: ...
 
     def peer(self) -> str: ...
@@ -524,51 +499,42 @@ class ServerCallContext(_Weakrefable):
 
 
 class ServerAuthReader(_Weakrefable):
-
     def read(self) -> str: ...
 
 
 class ServerAuthSender(_Weakrefable):
-
     def write(self, message: str) -> None: ...
 
 
 class ClientAuthReader(_Weakrefable):
-
     def read(self) -> str: ...
 
 
 class ClientAuthSender(_Weakrefable):
-
     def write(self, message: str) -> None: ...
 
 
 class ServerAuthHandler(_Weakrefable):
-
     def authenticate(self, outgoing: ServerAuthSender, incoming: ServerAuthReader): ...
 
     def is_valid(self, token: str) -> bool: ...
 
 
 class ClientAuthHandler(_Weakrefable):
-
     def authenticate(self, outgoing: ClientAuthSender, incoming: ClientAuthReader): ...
 
     def get_token(self) -> str: ...
 
 
 class CallInfo(NamedTuple):
-
     method: FlightMethod
 
 
 class ClientMiddlewareFactory(_Weakrefable):
-
     def start_call(self, info: CallInfo) -> ClientMiddleware | None: ...
 
 
 class ClientMiddleware(_Weakrefable):
-
     def sending_headers(self) -> dict[str, list[str] | list[bytes]]: ...
 
     def received_headers(self, headers: dict[str, list[str] | list[bytes]]): ...
@@ -577,7 +543,6 @@ class ClientMiddleware(_Weakrefable):
 
 
 class ServerMiddlewareFactory(_Weakrefable):
-
     def start_call(
         self, info: CallInfo, headers: dict[str, list[str] | list[bytes]]
     ) -> ServerMiddleware | None: ...
@@ -588,7 +553,6 @@ class TracingServerMiddlewareFactory(ServerMiddlewareFactory):
 
 
 class ServerMiddleware(_Weakrefable):
-
     def sending_headers(self) -> dict[str, list[str] | list[bytes]]: ...
 
     def call_completed(self, exception: ArrowException): ...
@@ -603,7 +567,6 @@ class TracingServerMiddleware(ServerMiddleware):
 
 
 class _ServerMiddlewareFactoryWrapper(ServerMiddlewareFactory):
-
     def __init__(self, factories: dict[str, ServerMiddlewareFactory]) -> None: ...
 
     def start_call(  # type: ignore[override]
@@ -623,7 +586,6 @@ class _FlightServerFinalizer(_Weakrefable):
 
 
 class FlightServerBase(_Weakrefable):
-
     def __init__(
         self,
         location: str | tuple[str, int] | Location | None = None,
@@ -633,6 +595,7 @@ class FlightServerBase(_Weakrefable):
         root_certificates: str | None = None,
         middleware: dict[str, ServerMiddlewareFactory] | None = None,
     ): ...
+
     @property
     def port(self) -> int: ...
 

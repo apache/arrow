@@ -159,7 +159,6 @@ def infer_type(values: Iterable[Any], mask: Mask | None = None,
 
 
 class ArrayStatistics(_Weakrefable):
-
     @property
     def null_count(self) -> int | None: ...
 
@@ -213,7 +212,6 @@ _ScalarT = TypeVar("_ScalarT", bound=Scalar)
 
 
 class Array(_PandasConvertible[pd.Series], Generic[_Scalar_co]):
-
     def as_py(self) -> list[Any]: ...
 
     def diff(self, other: Self) -> str: ...
@@ -381,7 +379,6 @@ class NullArray(Array[NullScalar]):
 
 
 class BooleanArray(Array[BooleanScalar]):
-
     @property
     def false_count(self) -> int: ...
     @property
@@ -501,7 +498,6 @@ class BaseListArray(Array[_ScalarT]):
 
 
 class ListArray(BaseListArray[_ScalarT]):
-
     @classmethod
     def from_arrays(
         cls,
@@ -524,7 +520,6 @@ class ListArray(BaseListArray[_ScalarT]):
 
 
 class LargeListArray(BaseListArray[LargeListScalar[_DataTypeT]]):
-
     @classmethod
     def from_arrays(
         cls,
@@ -544,7 +539,6 @@ class LargeListArray(BaseListArray[LargeListScalar[_DataTypeT]]):
 
 
 class ListViewArray(BaseListArray[ListViewScalar[_DataTypeT]]):
-
     @classmethod
     def from_arrays(
         cls,
@@ -567,7 +561,6 @@ class ListViewArray(BaseListArray[ListViewScalar[_DataTypeT]]):
 
 
 class LargeListViewArray(BaseListArray[LargeListScalar[_DataTypeT]]):
-
     @classmethod
     def from_arrays(
         cls,
@@ -590,7 +583,6 @@ class LargeListViewArray(BaseListArray[LargeListScalar[_DataTypeT]]):
 
 
 class FixedSizeListArray(BaseListArray[FixedSizeListScalar[_DataTypeT, _Size]]):
-
     @classmethod
     def from_arrays(
         cls,
@@ -610,7 +602,6 @@ _MapItemT = TypeVar("_MapItemT", bound=_BasicDataType)
 
 
 class MapArray(BaseListArray[MapScalar[_MapKeyT, _MapItemT]]):
-
     @classmethod
     def from_arrays(
         cls,
@@ -632,7 +623,6 @@ class MapArray(BaseListArray[MapScalar[_MapKeyT, _MapItemT]]):
 
 
 class UnionArray(Array[UnionScalar]):
-
     @deprecated("Use fields() instead")
     def child(self, pos: int) -> Field: ...
 
@@ -663,7 +653,6 @@ class UnionArray(Array[UnionScalar]):
 
 
 class StringArray(Array[StringScalar]):
-
     @staticmethod
     def from_buffers(  # type: ignore[override]
         length: int,
@@ -676,7 +665,6 @@ class StringArray(Array[StringScalar]):
 
 
 class LargeStringArray(Array[LargeStringScalar]):
-
     @staticmethod
     def from_buffers(  # type: ignore[override]
         length: int,
@@ -693,13 +681,11 @@ class StringViewArray(Array[StringViewScalar]):
 
 
 class BinaryArray(Array[BinaryScalar]):
-
     @property
     def total_values_length(self) -> int: ...
 
 
 class LargeBinaryArray(Array[LargeBinaryScalar]):
-
     @property
     def total_values_length(self) -> int: ...
 
@@ -709,7 +695,6 @@ class BinaryViewArray(Array[BinaryViewScalar]):
 
 
 class DictionaryArray(Array[DictionaryScalar[_IndexT, _BasicValueT]]):
-
     def dictionary_encode(self) -> Self: ...  # type: ignore[override]
     def dictionary_decode(self) -> Array[Scalar[_BasicValueT]]: ...
 
@@ -741,7 +726,6 @@ class DictionaryArray(Array[DictionaryScalar[_IndexT, _BasicValueT]]):
 
 
 class StructArray(Array[StructScalar]):
-
     def field(self, index: int | str) -> Array: ...
 
     def flatten(self, memory_pool: MemoryPool | None = None) -> list[Array]: ...
@@ -761,7 +745,6 @@ class StructArray(Array[StructScalar]):
 
 
 class RunEndEncodedArray(Array[RunEndEncodedScalar[_RunEndType, _BasicValueT]]):
-
     @staticmethod
     def from_arrays(
         run_ends: Int16Array | Int32Array | Int64Array | list[int],
@@ -793,7 +776,6 @@ _ArrayT = TypeVar("_ArrayT", bound=Array)
 
 
 class ExtensionArray(Array[ExtensionScalar], Generic[_ArrayT]):
-
     @property
     def storage(self) -> Any: ...
 
@@ -811,7 +793,6 @@ class UuidArray(ExtensionArray[_ArrayT]):
 
 
 class FixedShapeTensorArray(ExtensionArray[_ArrayT]):
-
     def to_numpy_ndarray(self) -> np.ndarray: ...
 
     def to_tensor(self) -> Tensor: ...
@@ -828,7 +809,6 @@ class OpaqueArray(ExtensionArray[_ArrayT]):
 
 
 class Bool8Array(ExtensionArray):
-
     def to_numpy(self, zero_copy_only: bool = ...,
                  writable: bool = ...) -> np.ndarray: ...
 

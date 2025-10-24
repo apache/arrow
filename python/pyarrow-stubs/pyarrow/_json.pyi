@@ -23,9 +23,7 @@ from .lib import MemoryPool, RecordBatchReader, Schema, Table, _Weakrefable
 
 
 class ReadOptions(_Weakrefable):
-
     use_threads: bool
-
     block_size: int
 
     def __init__(self, use_threads: bool | None = None,
@@ -35,11 +33,8 @@ class ReadOptions(_Weakrefable):
 
 
 class ParseOptions(_Weakrefable):
-
     explicit_schema: Schema
-
     newlines_in_values: bool
-
     unexpected_field_behavior: Literal["ignore", "error", "infer"]
 
     def __init__(

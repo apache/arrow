@@ -26,7 +26,6 @@ from ._stubs_typing import ArrayLike
 
 
 class Context(lib._Weakrefable):
-
     def __init__(self, device_number: int = 0, handle: int | None = None) -> None: ...
 
     @staticmethod
@@ -74,7 +73,6 @@ class Context(lib._Weakrefable):
 
 
 class IpcMemHandle(lib._Weakrefable):
-
     @staticmethod
     def from_buffer(opaque_handle: lib.Buffer) -> IpcMemHandle: ...
 
@@ -82,7 +80,6 @@ class IpcMemHandle(lib._Weakrefable):
 
 
 class CudaBuffer(lib.Buffer):
-
     @staticmethod
     def from_buffer(buf: lib.Buffer) -> CudaBuffer: ...
 
@@ -118,19 +115,16 @@ class CudaBuffer(lib.Buffer):
 
 
 class HostBuffer(lib.Buffer):
-
     @property
     def size(self) -> int: ...
 
 
 class BufferReader(lib.NativeFile):
-
     def __init__(self, obj: CudaBuffer) -> None: ...
     def read_buffer(self, nbytes: int | None = None) -> CudaBuffer: ...
 
 
 class BufferWriter(lib.NativeFile):
-
     def __init__(self, obj: CudaBuffer) -> None: ...
     def writeat(self, position: int, data: ArrayLike) -> None: ...
 

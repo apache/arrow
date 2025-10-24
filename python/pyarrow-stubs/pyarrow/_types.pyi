@@ -55,7 +55,6 @@ class _Metadata(_Weakrefable):
 
 
 class DataType(_Weakrefable):
-
     def field(self, i: int) -> Field: ...
 
     @property
@@ -210,7 +209,6 @@ _Time32Unit = TypeVar("_Time32Unit", bound=Literal["s", "ms"])
 
 
 class Time32Type(_BasicDataType[dt.time], Generic[_Time32Unit]):
-
     @property
     def unit(self) -> _Time32Unit: ...
 
@@ -219,13 +217,11 @@ _Time64Unit = TypeVar("_Time64Unit", bound=Literal["us", "ns"])
 
 
 class Time64Type(_BasicDataType[dt.time], Generic[_Time64Unit]):
-
     @property
     def unit(self) -> _Time64Unit: ...
 
 
 class DurationType(_BasicDataType[dt.timedelta], Generic[_Unit]):
-
     @property
     def unit(self) -> _Unit: ...
 
@@ -239,7 +235,6 @@ _Scale = TypeVar("_Scale", default=Any)
 
 
 class Decimal32Type(FixedSizeBinaryType, Generic[_Precision, _Scale]):
-
     @property
     def precision(self) -> _Precision: ...
 
@@ -248,7 +243,6 @@ class Decimal32Type(FixedSizeBinaryType, Generic[_Precision, _Scale]):
 
 
 class Decimal64Type(FixedSizeBinaryType, Generic[_Precision, _Scale]):
-
     @property
     def precision(self) -> _Precision: ...
 
@@ -257,7 +251,6 @@ class Decimal64Type(FixedSizeBinaryType, Generic[_Precision, _Scale]):
 
 
 class Decimal128Type(FixedSizeBinaryType, Generic[_Precision, _Scale]):
-
     @property
     def precision(self) -> _Precision: ...
 
@@ -266,7 +259,6 @@ class Decimal128Type(FixedSizeBinaryType, Generic[_Precision, _Scale]):
 
 
 class Decimal256Type(FixedSizeBinaryType, Generic[_Precision, _Scale]):
-
     @property
     def precision(self) -> _Precision: ...
 
@@ -275,7 +267,6 @@ class Decimal256Type(FixedSizeBinaryType, Generic[_Precision, _Scale]):
 
 
 class ListType(DataType, Generic[_DataTypeT]):
-
     @property
     def value_field(self) -> Field[_DataTypeT]: ...
 
@@ -284,7 +275,6 @@ class ListType(DataType, Generic[_DataTypeT]):
 
 
 class LargeListType(DataType, Generic[_DataTypeT]):
-
     @property
     def value_field(self) -> Field[_DataTypeT]: ...
     @property
@@ -292,7 +282,6 @@ class LargeListType(DataType, Generic[_DataTypeT]):
 
 
 class ListViewType(DataType, Generic[_DataTypeT]):
-
     @property
     def value_field(self) -> Field[_DataTypeT]: ...
 
@@ -301,7 +290,6 @@ class ListViewType(DataType, Generic[_DataTypeT]):
 
 
 class LargeListViewType(DataType, Generic[_DataTypeT]):
-
     @property
     def value_field(self) -> Field[_DataTypeT]: ...
 
@@ -310,7 +298,6 @@ class LargeListViewType(DataType, Generic[_DataTypeT]):
 
 
 class FixedSizeListType(DataType, Generic[_DataTypeT, _Size]):
-
     @property
     def value_field(self) -> Field[_DataTypeT]: ...
 
@@ -342,7 +329,6 @@ _Ordered = TypeVar("_Ordered", Literal[True], Literal[False], default=Literal[Fa
 
 
 class DictionaryType(DataType, Generic[_IndexT, _BasicValueT, _Ordered]):
-
     @property
     def ordered(self) -> _Ordered: ...
 
@@ -357,7 +343,6 @@ _K = TypeVar("_K", bound=DataType)
 
 
 class MapType(DataType, Generic[_K, _ValueT, _Ordered]):
-
     @property
     def key_field(self) -> Field[_K]: ...
 
@@ -378,7 +363,6 @@ _Size = TypeVar("_Size", default=int)
 
 
 class StructType(DataType):
-
     def get_field_index(self, name: str) -> int: ...
 
     def field(self, i: int | str) -> Field: ...
@@ -398,7 +382,6 @@ class StructType(DataType):
 
 
 class UnionType(DataType):
-
     @property
     def mode(self) -> Literal["sparse", "dense"]: ...
 
@@ -415,13 +398,11 @@ class UnionType(DataType):
 
 
 class SparseUnionType(UnionType):
-
     @property
     def mode(self) -> Literal["sparse"]: ...
 
 
 class DenseUnionType(UnionType):
-
     @property
     def mode(self) -> Literal["dense"]: ...
 
@@ -430,7 +411,6 @@ _RunEndType = TypeVar("_RunEndType", Int16Type, Int32Type, Int64Type)
 
 
 class RunEndEncodedType(DataType, Generic[_RunEndType, _BasicValueT]):
-
     @property
     def run_end_type(self) -> _RunEndType: ...
     @property
@@ -441,7 +421,6 @@ _StorageT = TypeVar("_StorageT", bound=Array | ChunkedArray)
 
 
 class BaseExtensionType(DataType):
-
     def __arrow_ext_class__(self) -> type[ExtensionArray]: ...
 
     def __arrow_ext_scalar_class__(self) -> type[ExtensionScalar]: ...
@@ -456,7 +435,6 @@ class BaseExtensionType(DataType):
 
 
 class ExtensionType(BaseExtensionType):
-
     def __init__(self, storage_type: DataType, extension_name: str) -> None: ...
 
     def __arrow_ext_serialize__(self) -> bytes: ...
@@ -467,7 +445,6 @@ class ExtensionType(BaseExtensionType):
 
 
 class FixedShapeTensorType(BaseExtensionType, Generic[_ValueT]):
-
     @property
     def value_type(self) -> _ValueT: ...
 
@@ -494,7 +471,6 @@ class JsonType(BaseExtensionType):
 
 
 class OpaqueType(BaseExtensionType):
-
     @property
     def type_name(self) -> str: ...
 
@@ -503,7 +479,6 @@ class OpaqueType(BaseExtensionType):
 
 
 class UnknownExtensionType(ExtensionType):
-
     def __init__(self, storage_type: DataType, serialized: bytes) -> None: ...
 
 
@@ -514,7 +489,6 @@ def unregister_extension_type(type_name: str) -> None: ...
 
 
 class KeyValueMetadata(_Metadata, Mapping[bytes, bytes]):
-
     def __init__(
         self, __arg0__: Mapping[str | bytes, str | bytes]
         | Iterable[tuple[str, str]]
@@ -538,7 +512,6 @@ class KeyValueMetadata(_Metadata, Mapping[bytes, bytes]):
 
 
 class Field(_Weakrefable, Generic[_DataTypeT]):
-
     def equals(self, other: Field, check_metadata: bool = False) -> bool: ...
 
     def __hash__(self) -> int: ...
@@ -579,7 +552,6 @@ class Field(_Weakrefable, Generic[_DataTypeT]):
 
 
 class Schema(_Weakrefable):
-
     def __len__(self) -> int: ...
 
     def __getitem__(self, key: str | int) -> Field: ...
