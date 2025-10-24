@@ -45,7 +45,7 @@ from pyarrow._parquet import (ParquetReader, Statistics,  # noqa
                               FileDecryptionProperties,
                               SortingColumn)
 from pyarrow.fs import (LocalFileSystem, FileType, _resolve_filesystem_and_path,
-                        _ensure_filesystem)
+                        _ensure_filesystem, FileInfo)
 from pyarrow.util import guid, _is_path_like, _stringify_path, _deprecate_api
 
 
@@ -1407,6 +1407,7 @@ Examples
                     path_or_paths, filesystem, memory_map=memory_map
                 )
                 finfo = filesystem.get_file_info(path_or_paths)
+                assert isinstance(finfo, FileInfo)
                 if finfo.type == FileType.Directory:
                     self._base_dir = path_or_paths
             else:
@@ -1567,6 +1568,7 @@ Examples
         for name in ["_common_metadata", "_metadata"]:
             metadata_path = os.path.join(str(self._base_dir), name)
             finfo = self.filesystem.get_file_info(metadata_path)
+            assert isinstance(finfo, FileInfo)
             if finfo.is_file:
                 pq_meta = read_metadata(
                     metadata_path, filesystem=self.filesystem)
@@ -1665,6 +1667,7 @@ Examples
         >>> dataset.files
         ['dataset_v2_files/year=2019/...-0.parquet', ...
         """
+        assert isinstance(self._dataset, pa.dataset.FileSystemDataset)
         return self._dataset.files
 
     @property
@@ -1672,6 +1675,7 @@ Examples
         """
         The filesystem type of the Dataset source.
         """
+        assert isinstance(self._dataset, pa.dataset.FileSystemDataset)
         return self._dataset.filesystem
 
     @property
@@ -1679,6 +1683,7 @@ Examples
         """
         The partitioning of the Dataset source, if discovered.
         """
+        assert isinstance(self._dataset, pa.dataset.FileSystemDataset)
         return self._dataset.partitioning
 
 
@@ -2060,7 +2065,8 @@ Examples
 def write_to_dataset(table, root_path, partition_cols=None,
                      filesystem=None, schema=None, partitioning=None,
                      basename_template=None, use_threads=None,
-                     file_visitor=None, existing_data_behavior=None,
+                     file_visitor=None,  # type: ignore[reportRedeclaration]
+                     existing_data_behavior=None,
                      **kwargs):
     """Wrapper around dataset.write_dataset for writing a Table to
     Parquet format by partitions.
@@ -2289,7 +2295,7 @@ def write_metadata(schema, where, metadata_collector=None, filesystem=None,
     filesystem, where = _resolve_filesystem_and_path(where, filesystem)
 
     if hasattr(where, "seek"):  # file-like
-        cursor_position = where.tell()
+        cursor_position = where.tell()  # type: ignore[reportAttributeAccessIssue]
 
     writer = ParquetWriter(where, schema, filesystem, **kwargs)
     writer.close()
@@ -2298,8 +2304,8 @@ def write_metadata(schema, where, metadata_collector=None, filesystem=None,
         # ParquetWriter doesn't expose the metadata until it's written. Write
         # it and read it again.
         metadata = read_metadata(where, filesystem=filesystem)
-        if hasattr(where, "seek"):
-            where.seek(cursor_position)  # file-like, set cursor back.
+        if hasattr(where, "seek"):  # file-like, set cursor back.
+            where.seek(cursor_position)  # type: ignore[reportAttributeAccessIssue]
 
         for m in metadata_collector:
             metadata.append_row_groups(m)

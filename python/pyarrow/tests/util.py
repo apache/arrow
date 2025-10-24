@@ -336,6 +336,7 @@ def _ensure_minio_component_version(component, minimum_year):
                           stderr=subprocess.PIPE, encoding='utf-8') as proc:
         if proc.wait(10) != 0:
             return False
+        assert proc.stdout is not None
         stdout = proc.stdout.read()
         pattern = component + r' version RELEASE\.(\d+)-.*'
         version_match = re.search(pattern, stdout)
@@ -367,6 +368,8 @@ def _run_mc_command(mcdir, *args):
         cmd_str = ' '.join(full_args)
         print(f'Cmd: {cmd_str}')
         print(f'  Return: {retval}')
+        assert proc.stdout is not None
+        assert proc.stderr is not None
         print(f'  Stdout: {proc.stdout.read()}')
         print(f'  Stderr: {proc.stderr.read()}')
         if retval != 0:

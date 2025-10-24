@@ -24,21 +24,25 @@ import random
 import socket
 import threading
 import weakref
+from typing import TYPE_CHECKING, cast
 
-try:
+if TYPE_CHECKING:
     import numpy as np
-except ImportError:
-    np = None
+    import pandas as pd
+    from pandas.testing import assert_frame_equal
+else:
+    try:
+        import numpy as np
+    except ImportError:
+        pass
+    try:
+        from pandas.testing import assert_frame_equal
+        import pandas as pd
+    except ImportError:
+        pass
 
 import pyarrow as pa
 from pyarrow.tests.util import changed_environ, invoke_script
-
-
-try:
-    from pandas.testing import assert_frame_equal
-    import pandas as pd
-except ImportError:
-    pass
 
 
 class IpcFixture:
@@ -47,6 +51,9 @@ class IpcFixture:
     def __init__(self, sink_factory=lambda: io.BytesIO()):
         self._sink_factory = sink_factory
         self.sink = self.get_sink()
+
+    def _get_writer(self, sink, schema):
+        ...  # Implemented in subclasses
 
     def get_sink(self):
         return self._sink_factory()
@@ -59,6 +66,7 @@ class IpcFixture:
         schema = pa.schema([('one', pa.float64()), ('two', pa.utf8())])
 
         writer = self._get_writer(self.sink, schema)
+        assert writer is not None
 
         batches = []
         for i in range(num_batches):
@@ -929,7 +937,7 @@ def test_ipc_file_stream_has_eos():
     buffer = sink.getvalue()
 
     # skip the file magic
-    reader = pa.ipc.open_stream(buffer[8:])
+    reader = pa.ipc.open_stream(cast(pa.Buffer, buffer[8:]))
 
     # will fail if encounters footer data instead of eos
     rdf = reader.read_pandas()
