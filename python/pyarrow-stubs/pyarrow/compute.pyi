@@ -299,12 +299,12 @@ def first(
 
 
 def first_last(
-    array: lib.Array[Any] | lib.ChunkedArray[Any],
+    array: lib.Array[Any] | lib.ChunkedArray[Any] | list[Any],
     /,
     *,
     skip_nulls: bool = True,
     min_count: int = 1,
-    options: ScalarAggregateOptions | None = None,
+    options: ScalarAggregateOptions | Mapping[Any, Any] | None = None,
     memory_pool: lib.MemoryPool | None = None,
 ) -> lib.StructScalar: ...
 
@@ -609,7 +609,7 @@ floor = _clone_signature(ceil)
 
 
 def round(
-    x: _NumericScalarT | _NumericArrayT | Expression,
+    x: _NumericScalarT | _NumericArrayT | Expression | list,
     /,
     ndigits: int = 0,
     round_mode: Literal[
@@ -1276,7 +1276,7 @@ round_temporal = _clone_signature(ceil_temporal)
 
 def cast(
     arr: lib.Scalar | lib.Array | lib.ChunkedArray | lib.Table,
-    target_type: _DataTypeT | str,
+    target_type: _DataTypeT | str | None = None,
     safe: bool | None = None,
     options: CastOptions | None = None,
     memory_pool: lib.MemoryPool | None = None,
@@ -1403,6 +1403,9 @@ def year_month_day(
     values: TemporalScalar | TemporalArray | Expression, /, *,
     memory_pool: lib.MemoryPool | None = None
 ) -> lib.StructScalar | lib.StructArray | Expression: ...
+
+
+iso_calendar = _clone_signature(year_month_day)
 
 
 # ========================= 2.24 Temporal difference =========================

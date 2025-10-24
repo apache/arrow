@@ -244,8 +244,8 @@ all_types = st.deferred(
         | struct_types(all_types)  # type: ignore[has-type]
     )
 )
-all_fields = fields(all_types)  # type: ignore[arg-type]
-all_schemas = schemas(all_types)  # type: ignore[arg-type]
+all_fields = fields(all_types)
+all_schemas = schemas(all_types)
 
 
 _default_array_sizes = st.integers(min_value=0, max_value=20)
@@ -281,21 +281,21 @@ def arrays(draw, type, size=None, nullable=True):
     elif not isinstance(size, int):
         raise TypeError('Size must be an integer')
 
+    assert npst is not None
     if pa.types.is_null(ty):
         h.assume(nullable)
         value = st.none()
     elif pa.types.is_boolean(ty):
         value = st.booleans()
     elif pa.types.is_integer(ty):
-        # type: ignore[union-attr]
         values = draw(npst.arrays(ty.to_pandas_dtype(), shape=(size,)))
         return pa.array(values, type=ty)
     elif pa.types.is_floating(ty):
-        # type: ignore[union-attr]
         values = draw(npst.arrays(ty.to_pandas_dtype(), shape=(size,)))
         # Workaround ARROW-4952: no easy way to assert array equality
         # in a NaN-tolerant way.
-        values[np.isnan(values)] = -42.0  # type: ignore[union-attr]
+        assert np is not None
+        values[np.isnan(values)] = -42.0
         return pa.array(values, type=ty)
     elif pa.types.is_decimal(ty):
         # TODO(kszucs): properly limit the precision

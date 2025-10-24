@@ -21,7 +21,7 @@ if sys.version_info >= (3, 11):
     from typing import Self
 else:
     from typing_extensions import Self
-from typing import IO, Any, Literal, overload
+from typing import IO, Any, Literal
 
 from _typeshed import StrPath
 
@@ -86,7 +86,9 @@ class ORCFile:
     @property
     def file_length(self) -> int: ...
 
-    def read_stripe(self, n: int, columns: list[str | int] | None = None) -> RecordBatch: ...
+    def read_stripe(
+        self, n: int, columns: list[str | int] | None = None
+    ) -> RecordBatch: ...
 
     def read(self, columns: list[str | int] | None = None) -> Table: ...
 
@@ -125,6 +127,7 @@ def read_table(
     columns: list[str | int] | None = None,
     filesystem: SupportedFileSystem | str | None = None,
 ) -> Table: ...
+
 
 # TODO: should not use Any here?
 def write_table(

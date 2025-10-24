@@ -24,16 +24,30 @@ import warnings
 
 from collections import OrderedDict
 from datetime import date, datetime, time, timedelta, timezone
-from typing import cast
 
 import hypothesis as h
 import hypothesis.strategies as st
 import pytest
 
+import pyarrow as pa
+from pyarrow.pandas_compat import get_logical_type, _pandas_api
+from pyarrow.tests.util import invoke_script, random_ascii, rands
+import pyarrow.tests.strategies as past
+import pyarrow.tests.util as test_util
+from pyarrow.vendored.version import Version
+
+try:
+    from pyarrow import parquet as pq
+except ImportError:
+    pass
+
 pd = pytest.importorskip("pandas")
 np = pytest.importorskip("numpy")
 
-import numpy.testing as npt
+import numpy.testing as npt  # noqa: E402
+import pandas.testing as tm  # noqa: E402
+from .pandas_examples import dataframe_with_arrays, dataframe_with_lists  # noqa: E402
+
 try:
     _np_VisibleDeprecationWarning = (
         np.VisibleDeprecationWarning  # type: ignore[attr-defined]
@@ -42,21 +56,6 @@ except AttributeError:
     from numpy.exceptions import (
         VisibleDeprecationWarning as _np_VisibleDeprecationWarning
     )
-
-from pyarrow.pandas_compat import get_logical_type, _pandas_api
-from pyarrow.tests.util import invoke_script, random_ascii, rands
-import pyarrow.tests.strategies as past
-import pyarrow.tests.util as test_util
-from pyarrow.vendored.version import Version
-
-import pyarrow as pa
-try:
-    from pyarrow import parquet as pq
-except ImportError:
-    pass
-
-import pandas.testing as tm
-from .pandas_examples import dataframe_with_arrays, dataframe_with_lists
 
 # Marks all of the tests in this module
 pytestmark = pytest.mark.pandas

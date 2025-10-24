@@ -775,28 +775,27 @@ def test_split_pattern_regex():
 def test_min_max():
     # An example generated function wrapper with possible options
     data = [4, 5, 6, None, 1]
-    s = pc.min_max(data)  # type: ignore[arg-type]
+    s = pc.min_max(data)
     assert s.as_py() == {'min': 1, 'max': 6}
-    s = pc.min_max(data, options=pc.ScalarAggregateOptions())  # type: ignore[arg-type]
-    assert s.as_py() == {'min': 1, 'max': 6}
-    s = pc.min_max(data, options=pc.ScalarAggregateOptions(
-        skip_nulls=True))  # type: ignore[arg-type]
+    s = pc.min_max(data, options=pc.ScalarAggregateOptions())
     assert s.as_py() == {'min': 1, 'max': 6}
     s = pc.min_max(data, options=pc.ScalarAggregateOptions(
-        skip_nulls=False))  # type: ignore[arg-type]
+        skip_nulls=True))
+    assert s.as_py() == {'min': 1, 'max': 6}
+    s = pc.min_max(data, options=pc.ScalarAggregateOptions(
+        skip_nulls=False))
     assert s.as_py() == {'min': None, 'max': None}
 
     # Options as dict of kwargs
-    s = pc.min_max(data, options={'skip_nulls': False})  # type: ignore[arg-type]
+    s = pc.min_max(data, options={'skip_nulls': False})
     assert s.as_py() == {'min': None, 'max': None}
     # Options as named functions arguments
-    s = pc.min_max(data, skip_nulls=False)  # type: ignore[arg-type]
+    s = pc.min_max(data, skip_nulls=False)
     assert s.as_py() == {'min': None, 'max': None}
 
     # Both options and named arguments
     with pytest.raises(TypeError):
         s = pc.min_max(
-            # type: ignore[arg-type]
             data, options=pc.ScalarAggregateOptions(), skip_nulls=False)
 
     # Wrong options type
@@ -1696,7 +1695,7 @@ def test_compare_chunked_array_mixed():
         (arr_chunked, arr_chunked2),
     ]:
         result = pc.equal(left, right)
-        assert result.equals(expected)  # type: ignore[arg-type]
+        assert result.equals(expected)
 
 
 def test_arithmetic_add():
@@ -1746,7 +1745,8 @@ def test_round_to_integer(ty):
         "half_to_odd": [3, 3, 4, 5, -3, -3, -4, None],
     }
     for round_mode, expected in rmode_and_expected.items():
-        options = RoundOptions(round_mode=round_mode)  # type: ignore[arg-type]
+        options = RoundOptions(
+            round_mode=round_mode)  # type: ignore[arg-type]
         result = round(values, options=options)  # type: ignore[arg-type]
         expected_array = pa.array(expected, type=pa.float64())
         assert expected_array.equals(result)
@@ -1764,12 +1764,12 @@ def test_round():
     }
     for ndigits, expected in ndigits_and_expected.items():
         options = pc.RoundOptions(ndigits, "half_towards_infinity")
-        result = pc.round(values, options=options)  # type: ignore[arg-type]
-        np.testing.assert_allclose(result, pa.array(
-            expected), equal_nan=True)  # type: ignore[arg-type]
-        assert pc.round(values, ndigits,  # type: ignore[arg-type]
+        result = pc.round(values, options=options)
+        assert isinstance(result, pa.Array)
+        np.testing.assert_allclose(
+            result, pa.array(expected), equal_nan=True)
+        assert pc.round(values, ndigits,
                         round_mode="half_towards_infinity") == result
-        # type: ignore[arg-type]
         assert pc.round(values, ndigits, "half_towards_infinity") == result
 
 
@@ -1786,10 +1786,10 @@ def test_round_to_multiple():
     }
     for multiple, expected in multiple_and_expected.items():
         options = pc.RoundToMultipleOptions(multiple, "half_towards_infinity")
-        result = pc.round_to_multiple(values, options=options)  # type: ignore[arg-type]
-        np.testing.assert_allclose(result, pa.array(
-            expected), equal_nan=True)  # type: ignore[arg-type]
-        assert pc.round_to_multiple(values, multiple,  # type: ignore[arg-type]
+        result = pc.round_to_multiple(values, options=options)
+        assert isinstance(result, pa.Array)
+        np.testing.assert_allclose(result, pa.array(expected), equal_nan=True)
+        assert pc.round_to_multiple(values, multiple,
                                     "half_towards_infinity") == result
 
     for multiple in [0, -2, pa.scalar(-10.4)]:
@@ -1937,7 +1937,7 @@ def test_fill_null_chunked_array(arrow_type):
     assert result.equals(expected)
 
     # Implicit conversions
-    result = arr.fill_null(5)  # type: ignore[arg-type]
+    result = arr.fill_null(5)
     assert result.equals(expected)
 
     result = arr.fill_null(pa.scalar(5, type='int8'))
@@ -1985,12 +1985,12 @@ def test_dictionary_decode():
     array = pa.array(["a", "a", "b", "c", "b"])
     dictionary_array = array.dictionary_encode()
     dictionary_array_decode = pc.dictionary_decode(
-        dictionary_array)  # type: ignore[attr-defined]
+        dictionary_array)
 
     assert array != dictionary_array
 
     assert array == dictionary_array_decode
-    assert array == pc.dictionary_decode(array)  # type: ignore[attr-defined]
+    assert array == pc.dictionary_decode(array)
     assert pc.dictionary_encode(dictionary_array) == dictionary_array
 
 
@@ -1999,15 +1999,15 @@ def test_cast():
     options = pc.CastOptions(pa.int8())
 
     with pytest.raises(TypeError):
-        pc.cast(arr, target_type=None)  # type: ignore[arg-type]
+        pc.cast(arr, target_type=None)
 
     with pytest.raises(ValueError):
         pc.cast(arr, 'int32', options=options)
 
     with pytest.raises(ValueError):
-        pc.cast(arr, safe=True, options=options)  # type: ignore[call-arg]
+        pc.cast(arr, safe=True, options=options)
 
-    assert pc.cast(arr, options=options) == pa.array(  # type: ignore[call-arg]
+    assert pc.cast(arr, options=options) == pa.array(
         [1, 2, 3, 4], type='int8')
 
     arr = pa.array([2 ** 63 - 1], type='int64')
@@ -2019,7 +2019,7 @@ def test_cast():
 
     assert pc.cast(arr, 'int32', safe=False) == pa.array([-1], type='int32')
 
-    assert pc.cast(arr, options=allow_overflow_options) == pa.array(  # type: ignore[call-arg]
+    assert pc.cast(arr, options=allow_overflow_options) == pa.array(
         [-1], type='int32')
 
     arr = pa.array(
@@ -2257,8 +2257,8 @@ def test_cast_float_to_decimal_random(float_ty, decimal_traits):
                     expected = decimal.Decimal(mantissa) / 2**-float_exp
                 expected_as_int = round(expected.scaleb(scale))
                 actual = pc.cast(
-                    # type: ignore[union-attr]
-                    pa.scalar(float_val, type=float_ty), decimal_ty).as_py()
+                    pa.scalar(float_val, type=float_ty), decimal_ty
+                ).as_py()  # type: ignore[union-attr]
                 actual_as_int = round(actual.scaleb(scale))  # type: ignore[union-attr]
                 # We allow for a minor rounding error between expected and actual
                 assert abs(actual_as_int - expected_as_int) <= 1
@@ -2422,7 +2422,7 @@ def _check_datetime_components(timestamps, timezone=None):
     assert pc.day_of_year(tsa).equals(pa.array(dayofyear))
     assert pc.iso_year(tsa).equals(pa.array(iso_year))
     assert pc.iso_week(tsa).equals(pa.array(iso_week))
-    assert pc.iso_calendar(tsa).equals(iso_calendar)  # type: ignore[attr-defined]
+    assert pc.iso_calendar(tsa).equals(iso_calendar)
     assert pc.quarter(tsa).equals(pa.array(quarter))
     assert pc.hour(tsa).equals(pa.array(hour))
     assert pc.minute(tsa).equals(pa.array(minute))
@@ -2496,7 +2496,7 @@ def test_iso_calendar_longer_array(unit):
     # https://github.com/apache/arrow/issues/38655
     # ensure correct result for array length > 32
     arr = pa.array([datetime.datetime(2022, 1, 2, 9)]*50, pa.timestamp(unit))
-    result = pc.iso_calendar(arr)  # type: ignore[attr-defined]
+    result = pc.iso_calendar(arr)
     expected = pa.StructArray.from_arrays(
         [[2021]*50, [52]*50, [7]*50],
         names=['iso_year', 'iso_week', 'iso_day_of_week']
@@ -2586,13 +2586,13 @@ def test_assume_timezone():
         pc.assume_timezone(ambiguous_array, options=options_ambiguous_raise)
 
     expected = ambiguous.tz_localize(
-        timezone, ambiguous=[True, True, True])  # type: ignore[arg-type]
+        timezone, ambiguous=np.array([True, True, True]))
     result = pc.assume_timezone(
         ambiguous_array, options=options_ambiguous_earliest)
     result.equals(pa.array(expected))
 
     expected = ambiguous.tz_localize(
-        timezone, ambiguous=[False, False, False])  # type: ignore[arg-type]
+        timezone, ambiguous=np.array([False, False, False]))
     result = pc.assume_timezone(
         ambiguous_array, options=options_ambiguous_latest)
     result.equals(pa.array(expected))
@@ -2681,8 +2681,9 @@ def _check_temporal_rounding(ts, values, unit):
 
         expected = np.where(
             expected == ts,
-            # type: ignore[arg-type]
-            expected + pd.Timedelta(value, unit_shorthand[unit]),
+            expected + pd.Timedelta(
+                value, unit_shorthand[unit]  # type: ignore[arg-type]
+            ),
             expected)
         np.testing.assert_array_equal(result, expected)
 
@@ -2893,7 +2894,6 @@ def test_select_k_table():
         pc.select_k_unstable(table, k=2, sort_keys=[])
 
     with pytest.raises(ValueError, match="not a valid sort order"):
-        # type: ignore[list-item]
         pc.select_k_unstable(table, k=k, sort_keys=[("a", "nonscending")])
 
     with pytest.raises(ValueError,
@@ -2980,8 +2980,9 @@ def test_sort_indices_table():
         pc.sort_indices(table, sort_keys=[("unknown", "ascending")])
 
     with pytest.raises(ValueError, match="not a valid sort order"):
-        # type: ignore[list-item]
-        pc.sort_indices(table, sort_keys=[("a", "nonscending")])
+        pc.sort_indices(
+            table, sort_keys=[("a", "nonscending")]  # type: ignore[list-item]
+        )
 
 
 def test_is_in():
@@ -2989,40 +2990,40 @@ def test_is_in():
 
     result = pc.is_in(arr, value_set=pa.array([1, 3, None]))
     assert result.to_pylist() == [True, False, True, True,
-                                  False, True]  # type: ignore[union-attr]
+                                  False, True]
 
     result = pc.is_in(arr, value_set=pa.array([1, 3, None]), skip_nulls=True)
     assert result.to_pylist() == [True, False, False, True,
-                                  False, True]  # type: ignore[union-attr]
+                                  False, True]
 
     result = pc.is_in(arr, value_set=pa.array([1, 3]))
     assert result.to_pylist() == [True, False, False, True,
-                                  False, True]  # type: ignore[union-attr]
+                                  False, True]
 
     result = pc.is_in(arr, value_set=pa.array([1, 3]), skip_nulls=True)
     assert result.to_pylist() == [True, False, False, True,
-                                  False, True]  # type: ignore[union-attr]
+                                  False, True]
 
 
 def test_index_in():
     arr = pa.array([1, 2, None, 1, 2, 3])
 
     result = pc.index_in(arr, value_set=pa.array([1, 3, None]))
-    assert result.to_pylist() == [0, None, 2, 0, None, 1]  # type: ignore[union-attr]
+    assert result.to_pylist() == [0, None, 2, 0, None, 1]
 
     result = pc.index_in(arr, value_set=pa.array([1, 3, None]),
                          skip_nulls=True)
-    assert result.to_pylist() == [0, None, None, 0, None, 1]  # type: ignore[union-attr]
+    assert result.to_pylist() == [0, None, None, 0, None, 1]
 
     result = pc.index_in(arr, value_set=pa.array([1, 3]))
-    assert result.to_pylist() == [0, None, None, 0, None, 1]  # type: ignore[union-attr]
+    assert result.to_pylist() == [0, None, None, 0, None, 1]
 
     result = pc.index_in(arr, value_set=pa.array([1, 3]), skip_nulls=True)
-    assert result.to_pylist() == [0, None, None, 0, None, 1]  # type: ignore[union-attr]
+    assert result.to_pylist() == [0, None, None, 0, None, 1]
 
     # Positional value_set
     result = pc.index_in(arr, pa.array([1, 3]), skip_nulls=True)
-    assert result.to_pylist() == [0, None, None, 0, None, 1]  # type: ignore[union-attr]
+    assert result.to_pylist() == [0, None, None, 0, None, 1]
 
 
 def test_quantile():
@@ -3287,9 +3288,10 @@ def test_cumulative_max(start, skip_nulls):
             expected = pc.max_element_wise(
                 expected_arrays[i], strt if strt is not None else -1e9,
                 skip_nulls=False)
-            np.testing.assert_array_almost_equal(result.to_numpy(  # type: ignore[union-attr]
-                # type: ignore[union-attr]
-                zero_copy_only=False), expected.to_numpy(zero_copy_only=False))
+            np.testing.assert_array_almost_equal(
+                result.to_numpy(zero_copy_only=False),
+                expected.to_numpy(zero_copy_only=False)
+            )
 
     for strt in ['a', pa.scalar('arrow'), 1.1]:
         with pytest.raises(pa.ArrowInvalid):
@@ -3346,9 +3348,10 @@ def test_cumulative_min(start, skip_nulls):
             expected = pc.min_element_wise(
                 expected_arrays[i], strt if strt is not None else 1e9,
                 skip_nulls=False)
-            np.testing.assert_array_almost_equal(result.to_numpy(  # type: ignore[union-attr]
-                # type: ignore[union-attr]
-                zero_copy_only=False), expected.to_numpy(zero_copy_only=False))
+            np.testing.assert_array_almost_equal(
+                result.to_numpy(zero_copy_only=False),
+                expected.to_numpy(zero_copy_only=False)
+            )
 
     for strt in ['a', pa.scalar('arrow'), 1.1]:
         with pytest.raises(pa.ArrowInvalid):

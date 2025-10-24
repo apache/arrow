@@ -23,7 +23,7 @@ if sys.version_info >= (3, 11):
     from typing import Self
 else:
     from typing_extensions import Self
-from collections.abc import Callable, Iterator, Sequence
+from collections.abc import Callable, Iterator, Iterable, Sequence
 from typing import IO, Literal
 
 if sys.version_info >= (3, 10):
@@ -49,7 +49,7 @@ from pyarrow._parquet import (
 )
 from pyarrow._stubs_typing import FilterTuple, SingleOrList
 from pyarrow.dataset import ParquetFileFragment, Partitioning, PartitioningFactory
-from pyarrow.lib import Buffer, NativeFile, RecordBatch, Schema, Table
+from pyarrow.lib import Buffer, NativeFile, RecordBatch, Schema, Table, ChunkedArray
 from typing_extensions import deprecated
 
 __all__ = (
@@ -158,6 +158,7 @@ class ParquetFile:
         use_threads: bool = True,
         use_pandas_metadata: bool = False,
     ) -> Table: ...
+
     def scan_contents(
         self, columns: Iterable[str | int] | None = None, batch_size: int = 65536
     ) -> int: ...
@@ -223,11 +224,19 @@ class ParquetDataset:
         filesystem: SupportedFileSystem | None = None,
         schema: Schema | None = None,
         *,
-        filters: Expression | FilterTuple | list[FilterTuple] | list[list[FilterTuple]] | None = None,
+        filters: Expression
+        | FilterTuple
+        | list[FilterTuple]
+        | list[list[FilterTuple]]
+        | None = None,
         read_dictionary: list[str] | None = None,
         memory_map: bool = False,
         buffer_size: int = 0,
-        partitioning: str | list[str] | Partitioning | PartitioningFactory | None = "hive",
+        partitioning: str
+        | list[str]
+        | Partitioning
+        | PartitioningFactory
+        | None = "hive",
         ignore_prefixes: list[str] | None = None,
         pre_buffer: bool = True,
         coerce_int96_timestamp_unit: str | None = None,
@@ -269,8 +278,12 @@ def read_table(
     memory_map: bool = False,
     buffer_size: int = 0,
     partitioning: str | list[str] | Partitioning | PartitioningFactory | None = "hive",
-    filesystem: SupportedFileSystem | None = None,
-    filters: Expression | FilterTuple | list[FilterTuple] | None = None,
+    filesystem: SupportedFileSystem | str | None = None,
+    filters: Expression
+    | FilterTuple
+    | list[FilterTuple]
+    | Sequence[Sequence[tuple]]
+    | None = None,
     ignore_prefixes: list[str] | None = None,
     pre_buffer: bool = True,
     coerce_int96_timestamp_unit: str | None = None,
@@ -328,7 +341,7 @@ def write_to_dataset(
     use_threads: bool | None = None,
     file_visitor: Callable[[str], None] | None = None,
     existing_data_behavior: Literal["overwrite_or_ignore", "error", "delete_matching"]
-    | str | None = None,
+    | None = None,
     **kwargs,
 ) -> None: ...
 

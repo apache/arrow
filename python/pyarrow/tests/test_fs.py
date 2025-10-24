@@ -2199,10 +2199,10 @@ def test_uwsgi_integration():
 
 def test_fsspec_filesystem_from_uri():
     try:
-        # type: ignore[import-untyped]
-        from fsspec.implementations.local import LocalFileSystem
-        # type: ignore[import-untyped]
-        from fsspec.implementations.memory import MemoryFileSystem
+        from fsspec.implementations.local import (  # type: ignore[import-untyped]
+            LocalFileSystem)
+        from fsspec.implementations.memory import (  # type: ignore[import-untyped]
+            MemoryFileSystem)
     except ImportError:
         pytest.skip("fsspec not installed")
 

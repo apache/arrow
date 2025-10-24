@@ -33,7 +33,6 @@ except ImportError:
     pass
 
 try:
-    import pandas as pd
     import pandas.testing as tm
 
     from pyarrow.tests.parquet.common import alltypes_sample
