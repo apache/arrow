@@ -3720,6 +3720,17 @@ TEST(TestChoose, FixedSizeBinary) {
               *MakeArrayOfNull(type, 5));
 }
 
+// GH-47807: Null count in ArraySpan not updated correctly when executing chunked.
+TEST(TestChoose, WrongNullCountForChunked) {
+  auto indices = ArrayFromJSON(int64(), "[0, 1, 0, 1, 0, null]");
+  auto values1 = ArrayFromJSON(int64(), "[10, 11, 12, 13, 14, 15]");
+  auto values2 = ChunkedArrayFromJSON(int64(), {"[100, 101]", "[102, 103, 104, 105]"});
+  ASSERT_OK_AND_ASSIGN(auto result, CallFunction("choose", {indices, values1, values2}));
+  ASSERT_OK(result.chunked_array()->ValidateFull());
+  AssertDatumsEqual(ChunkedArrayFromJSON(int64(), {"[10, 101]", "[12, 103, 14, null]"}),
+                    result);
+}
+
 TEST(TestChooseKernel, DispatchBest) {
   ASSERT_OK_AND_ASSIGN(auto function, GetFunctionRegistry()->GetFunction("choose"));
   auto Check = [&](std::vector<TypeHolder> original_values) {

@@ -22,7 +22,7 @@
 
 namespace parquet {
 // Abstract class for hash
-class Hasher {
+class PARQUET_EXPORT Hasher {
  public:
   /// Compute hash for 32 bits value by using its plain encoding result.
   ///

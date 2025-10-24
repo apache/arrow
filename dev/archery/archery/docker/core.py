@@ -433,16 +433,24 @@ class DockerCompose(Command):
             else:
                 return self._execute_compose(*args, service['name'])
 
+        service = self.config.get(service_name)
+
         if user is not None:
+            login_args = ['--username', user, '--password-stdin']
+            login_kwargs = {'input': password.encode()}
+            image = service['image']
+            # [[HOST[:PORT]/]NAMESPACE/]REPOSITORY[:TAG]
+            components = image.split('/', 3)
+            if len(components) == 3:
+                server = components[0]
+                login_args.append(server)
             try:
-                # TODO(kszucs): have an option for a prompt
-                self._execute_docker('login', '-u', user, '-p', password)
+                self._execute_docker('login', *login_args, **login_kwargs)
             except subprocess.CalledProcessError:
                 # hide credentials
                 msg = f'Failed to push `{service_name}`, check the passed credentials'
                 raise RuntimeError(msg) from None
 
-        service = self.config.get(service_name)
         for ancestor in service['ancestors']:
             _push(self.config.get(ancestor))
         _push(service)

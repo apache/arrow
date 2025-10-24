@@ -91,7 +91,8 @@ std::string ParquetVersionToString(ParquetVersion::type ver) {
 
 template <typename DType>
 static std::shared_ptr<Statistics> MakeTypedColumnStats(
-    const format::ColumnMetaData& metadata, const ColumnDescriptor* descr) {
+    const format::ColumnMetaData& metadata, const ColumnDescriptor* descr,
+    ::arrow::MemoryPool* pool) {
   std::optional<bool> min_exact =
       metadata.statistics.__isset.is_min_value_exact
           ? std::optional<bool>(metadata.statistics.is_min_value_exact)
@@ -108,7 +109,7 @@ static std::shared_ptr<Statistics> MakeTypedColumnStats(
         metadata.statistics.null_count, metadata.statistics.distinct_count,
         metadata.statistics.__isset.max_value && metadata.statistics.__isset.min_value,
         metadata.statistics.__isset.null_count,
-        metadata.statistics.__isset.distinct_count, min_exact, max_exact);
+        metadata.statistics.__isset.distinct_count, min_exact, max_exact, pool);
   }
   // Default behavior
   return MakeStatistics<DType>(
@@ -117,7 +118,7 @@ static std::shared_ptr<Statistics> MakeTypedColumnStats(
       metadata.statistics.null_count, metadata.statistics.distinct_count,
       metadata.statistics.__isset.max && metadata.statistics.__isset.min,
       metadata.statistics.__isset.null_count, metadata.statistics.__isset.distinct_count,
-      min_exact, max_exact);
+      min_exact, max_exact, pool);
 }
 
 namespace {
@@ -134,7 +135,8 @@ std::shared_ptr<geospatial::GeoStatistics> MakeColumnGeometryStats(
 }
 
 std::shared_ptr<Statistics> MakeColumnStats(const format::ColumnMetaData& meta_data,
-                                            const ColumnDescriptor* descr) {
+                                            const ColumnDescriptor* descr,
+                                            ::arrow::MemoryPool* pool) {
   auto metadata_type = LoadEnumSafe(&meta_data.type);
   if (descr->physical_type() != metadata_type) {
     throw ParquetException(
@@ -143,21 +145,21 @@ std::shared_ptr<Statistics> MakeColumnStats(const format::ColumnMetaData& meta_d
   }
   switch (metadata_type) {
     case Type::BOOLEAN:
-      return MakeTypedColumnStats<BooleanType>(meta_data, descr);
+      return MakeTypedColumnStats<BooleanType>(meta_data, descr, pool);
     case Type::INT32:
-      return MakeTypedColumnStats<Int32Type>(meta_data, descr);
+      return MakeTypedColumnStats<Int32Type>(meta_data, descr, pool);
     case Type::INT64:
-      return MakeTypedColumnStats<Int64Type>(meta_data, descr);
+      return MakeTypedColumnStats<Int64Type>(meta_data, descr, pool);
     case Type::INT96:
-      return MakeTypedColumnStats<Int96Type>(meta_data, descr);
+      return MakeTypedColumnStats<Int96Type>(meta_data, descr, pool);
     case Type::DOUBLE:
-      return MakeTypedColumnStats<DoubleType>(meta_data, descr);
+      return MakeTypedColumnStats<DoubleType>(meta_data, descr, pool);
     case Type::FLOAT:
-      return MakeTypedColumnStats<FloatType>(meta_data, descr);
+      return MakeTypedColumnStats<FloatType>(meta_data, descr, pool);
     case Type::BYTE_ARRAY:
-      return MakeTypedColumnStats<ByteArrayType>(meta_data, descr);
+      return MakeTypedColumnStats<ByteArrayType>(meta_data, descr, pool);
     case Type::FIXED_LEN_BYTE_ARRAY:
-      return MakeTypedColumnStats<FLBAType>(meta_data, descr);
+      return MakeTypedColumnStats<FLBAType>(meta_data, descr, pool);
     case Type::UNDEFINED:
       break;
   }
@@ -363,7 +365,8 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
     if (is_stats_set()) {
       const std::lock_guard<std::mutex> guard(stats_mutex_);
       if (possible_stats_ == nullptr) {
-        possible_stats_ = MakeColumnStats(*column_metadata_, descr_);
+        possible_stats_ =
+            MakeColumnStats(*column_metadata_, descr_, properties_.memory_pool());
       }
       return possible_stats_;
     }

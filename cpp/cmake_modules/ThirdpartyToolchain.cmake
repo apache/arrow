@@ -1118,6 +1118,11 @@ function(build_boost)
     # This is for https://github.com/boostorg/container/issues/305
     string(APPEND CMAKE_C_FLAGS " -Wno-strict-prototypes")
   endif()
+  if(MSVC AND "${CMAKE_SYSTEM_PROCESSOR}" STREQUAL "ARM64")
+    set(BOOST_CONTEXT_IMPLEMENTATION
+        winfib
+        CACHE STRING "" FORCE)
+  endif()
   set(CMAKE_UNITY_BUILD OFF)
 
   fetchcontent_makeavailable(boost)
@@ -1784,6 +1789,7 @@ function(build_thrift)
     endif()
   endif()
   set(WITH_NODEJS OFF)
+  set(WITH_OPENSSL OFF)
   set(WITH_PYTHON OFF)
   set(WITH_QT5 OFF)
   set(WITH_ZLIB OFF)
@@ -2275,9 +2281,9 @@ if(ARROW_MIMALLOC)
   endif()
 
   set(MIMALLOC_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/mimalloc_ep/src/mimalloc_ep")
-  set(MIMALLOC_INCLUDE_DIR "${MIMALLOC_PREFIX}/include/mimalloc-2.2")
+  set(MIMALLOC_INCLUDE_DIR "${MIMALLOC_PREFIX}/include")
   set(MIMALLOC_STATIC_LIB
-      "${MIMALLOC_PREFIX}/lib/mimalloc-2.2/${CMAKE_STATIC_LIBRARY_PREFIX}${MIMALLOC_LIB_BASE_NAME}${CMAKE_STATIC_LIBRARY_SUFFIX}"
+      "${MIMALLOC_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}${MIMALLOC_LIB_BASE_NAME}${CMAKE_STATIC_LIBRARY_SUFFIX}"
   )
 
   set(MIMALLOC_C_FLAGS ${EP_C_FLAGS})
@@ -2286,20 +2292,31 @@ if(ARROW_MIMALLOC)
     set(MIMALLOC_C_FLAGS "${MIMALLOC_C_FLAGS} -DERROR_COMMITMENT_MINIMUM=635")
   endif()
 
+  set(MIMALLOC_PATCH_COMMAND "")
+  if(${UPPERCASE_BUILD_TYPE} STREQUAL "DEBUG")
+    find_program(PATCH patch REQUIRED)
+    set(MIMALLOC_PATCH_COMMAND ${PATCH} -p1 -i
+                               ${CMAKE_CURRENT_LIST_DIR}/mimalloc-1138.patch)
+  endif()
+
   set(MIMALLOC_CMAKE_ARGS
       ${EP_COMMON_CMAKE_ARGS}
       "-DCMAKE_C_FLAGS=${MIMALLOC_C_FLAGS}"
       "-DCMAKE_INSTALL_PREFIX=${MIMALLOC_PREFIX}"
+      -DMI_INSTALL_TOPLEVEL=ON
       -DMI_OVERRIDE=OFF
       -DMI_LOCAL_DYNAMIC_TLS=ON
       -DMI_BUILD_OBJECT=OFF
       -DMI_BUILD_SHARED=OFF
-      -DMI_BUILD_TESTS=OFF)
+      -DMI_BUILD_TESTS=OFF
+      # GH-47229: Force mimalloc to generate armv8.0 binary
+      -DMI_NO_OPT_ARCH=ON)
 
   externalproject_add(mimalloc_ep
                       ${EP_COMMON_OPTIONS}
                       URL ${MIMALLOC_SOURCE_URL}
                       URL_HASH "SHA256=${ARROW_MIMALLOC_BUILD_SHA256_CHECKSUM}"
+                      PATCH_COMMAND ${MIMALLOC_PATCH_COMMAND}
                       CMAKE_ARGS ${MIMALLOC_CMAKE_ARGS}
                       BUILD_BYPRODUCTS "${MIMALLOC_STATIC_LIB}")
 
@@ -4605,22 +4622,6 @@ function(build_orc)
 
   message(STATUS "Building Apache ORC from source")
 
-  set(ORC_PATCHES)
-  if(MSVC)
-    # We can remove this once bundled Apache ORC is 2.2.1 or later.
-    list(APPEND ORC_PATCHES ${CMAKE_CURRENT_LIST_DIR}/orc-2345.patch)
-  endif()
-  if(Protobuf_VERSION VERSION_GREATER_EQUAL 32.0)
-    # We can remove this once bundled Apache ORC is 2.2.1 or later.
-    list(APPEND ORC_PATCHES ${CMAKE_CURRENT_LIST_DIR}/orc-2357.patch)
-  endif()
-  if(ORC_PATCHES)
-    find_program(PATCH patch REQUIRED)
-    set(ORC_PATCH_COMMAND ${PATCH} -p1 -i ${ORC_PATCHES})
-  else()
-    set(ORC_PATCH_COMMAND)
-  endif()
-
   if(LZ4_VENDORED)
     set(ORC_LZ4_TARGET lz4_static)
     set(ORC_LZ4_ROOT "${lz4_SOURCE_DIR}")
@@ -4635,7 +4636,6 @@ function(build_orc)
   if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.29)
     fetchcontent_declare(orc
                          ${FC_DECLARE_COMMON_OPTIONS}
-                         PATCH_COMMAND ${ORC_PATCH_COMMAND}
                          URL ${ORC_SOURCE_URL}
                          URL_HASH "SHA256=${ARROW_ORC_BUILD_SHA256_CHECKSUM}")
     prepare_fetchcontent()
@@ -4763,7 +4763,6 @@ function(build_orc)
                                 ${Snappy_TARGET}
                                 ${ORC_LZ4_TARGET}
                                 ZLIB::ZLIB
-                        PATCH_COMMAND ${ORC_PATCH_COMMAND}
                         URL ${ORC_SOURCE_URL}
                         URL_HASH "SHA256=${ARROW_ORC_BUILD_SHA256_CHECKSUM}")
     add_library(orc::orc STATIC IMPORTED)

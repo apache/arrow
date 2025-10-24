@@ -174,6 +174,11 @@ elif [ "${ARROW_EMSCRIPTEN:-OFF}" = "ON" ]; then
     -DCMAKE_UNITY_BUILD=${CMAKE_UNITY_BUILD:-OFF} \
     ${ARROW_CMAKE_ARGS} \
     ${source_dir}
+elif [ -n "${CMAKE_PRESET}" ]; then
+  cmake \
+    --preset="${CMAKE_PRESET}" \
+    ${ARROW_CMAKE_ARGS} \
+    ${source_dir}
 else
   cmake \
     -Dabsl_SOURCE=${absl_SOURCE:-} \
@@ -228,7 +233,6 @@ else
     -DARROW_USE_ASAN=${ARROW_USE_ASAN:-OFF} \
     -DARROW_USE_CCACHE=${ARROW_USE_CCACHE:-ON} \
     -DARROW_USE_GLOG=${ARROW_USE_GLOG:-OFF} \
-    -DARROW_USE_LD_GOLD=${ARROW_USE_LD_GOLD:-OFF} \
     -DARROW_USE_LLD=${ARROW_USE_LLD:-OFF} \
     -DARROW_USE_MOLD=${ARROW_USE_MOLD:-OFF} \
     -DARROW_USE_STATIC_CRT=${ARROW_USE_STATIC_CRT:-OFF} \
@@ -308,10 +312,14 @@ fi
 popd
 
 if [ -x "$(command -v ldconfig)" ]; then
-  if [ -x "$(command -v sudo)" ]; then
-    SUDO=sudo
-  else
+  if [ "$(id --user)" -eq 0 ]; then
     SUDO=
+  else
+    if [ -x "$(command -v sudo)" ]; then
+      SUDO=sudo
+    else
+      SUDO=
+    fi
   fi
   ${SUDO} ldconfig ${ARROW_HOME}/${CMAKE_INSTALL_LIBDIR:-lib}
 fi

@@ -2175,10 +2175,10 @@ TEST_F(ScalarTemporalTest, StrftimeCLocale) {
                    string_milliseconds, &options);
   CheckScalarUnary("strftime", timestamp(TimeUnit::MICRO, "Asia/Kolkata"), microseconds,
                    utf8(), string_microseconds, &options);
-  CheckScalarUnary("strftime", timestamp(TimeUnit::NANO, "US/Hawaii"), nanoseconds,
+  CheckScalarUnary("strftime", timestamp(TimeUnit::NANO, "Pacific/Honolulu"), nanoseconds,
                    utf8(), string_nanoseconds, &options);
 
-  CheckScalarUnary("strftime", timestamp(TimeUnit::NANO, "US/Hawaii"), nanoseconds,
+  CheckScalarUnary("strftime", timestamp(TimeUnit::NANO, "Pacific/Honolulu"), nanoseconds,
                    utf8(), string_locale_specific, &options_locale_specific);
 }
 

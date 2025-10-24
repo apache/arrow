@@ -19,7 +19,7 @@ project(
     'arrow',
     'cpp',
     'c',
-    version: '22.0.0-SNAPSHOT',
+    version: '23.0.0-SNAPSHOT',
     license: 'Apache-2.0',
     meson_version: '>=1.3.0',
     default_options: ['c_std=gnu11,c11', 'warning_level=2', 'cpp_std=c++17'],
@@ -52,16 +52,19 @@ if git_description == '' and not meson.is_subproject()
 endif
 
 needs_benchmarks = get_option('benchmarks').enabled()
-needs_compute = get_option('compute').enabled()
 needs_csv = get_option('csv').enabled()
+needs_dataset = get_option('dataset').enabled()
 needs_azure = get_option('azure').enabled()
 needs_gcs = get_option('gcs').enabled()
 needs_hdfs = get_option('hdfs').enabled()
+needs_opentelemetry = false
+needs_orc = false
 needs_parquet = get_option('parquet').enabled()
 needs_parquet_encryption = get_option('parquet_require_encryption').enabled()
 needs_s3 = get_option('s3').enabled()
 needs_filesystem = (get_option('filesystem').enabled()
     or needs_azure
+    or needs_dataset
     or needs_gcs
     or needs_hdfs
     or needs_parquet_encryption
@@ -69,8 +72,10 @@ needs_filesystem = (get_option('filesystem').enabled()
 )
 needs_integration = get_option('integration').enabled()
 needs_tests = get_option('tests').enabled()
-needs_acero = get_option('acero').enabled()
+needs_acero = get_option('acero').enabled() or needs_dataset
+needs_compute = get_option('compute').enabled() or needs_acero
 needs_flight = get_option('flight').enabled()
+needs_gandiva = false
 needs_ipc = (get_option('ipc').enabled()
     or needs_tests
     or needs_acero
@@ -99,6 +104,7 @@ needs_brotli = get_option('brotli').enabled() or needs_fuzzing
 needs_bz2 = get_option('bz2').enabled()
 needs_lz4 = get_option('lz4').enabled()
 needs_snappy = get_option('snappy').enabled()
+needs_utf8proc = get_option('utf8proc').enabled() or needs_gandiva
 needs_zlib = get_option('zlib').enabled()
 needs_zstd = get_option('zstd').enabled()
 needs_utilities = get_option('utilities').enabled()
@@ -111,4 +117,12 @@ if needs_parquet
     if get_option('parquet_build_examples').enabled()
         subdir('examples/parquet')
     endif
+endif
+
+if needs_dataset
+    # Unlike the CMake configuration we need to add dataset support in the top level
+    # because it potentially requires parquet, which in turn requires arrow.
+    # When included in the subdir('src/arrow') call with parquet enabled, you end up
+    # with a circular dependency
+    subdir('src/arrow/dataset')
 endif

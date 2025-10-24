@@ -67,6 +67,10 @@
 #' group and when this number of rows is exceeded, it is split and the next set
 #' of rows is written to the next group. This value must be set such that it is
 #' greater than `min_rows_per_group`. Default is 1024 * 1024.
+#' @param create_directory whether to create the directories written into.
+#' Requires appropriate permissions on the storage backend. If set to FALSE,
+#' directories are assumed to be already present if writing on a classic
+#' hierarchical filesystem. Default is TRUE
 #' @param ... additional format-specific arguments. For available Parquet
 #' options, see [write_parquet()]. The available Feather options are:
 #' - `use_legacy_format` logical: write data formatted so that Arrow libraries
@@ -132,6 +136,7 @@ write_dataset <- function(dataset,
                           max_rows_per_file = 0L,
                           min_rows_per_group = 0L,
                           max_rows_per_group = bitwShiftL(1, 20),
+                          create_directory = TRUE,
                           ...) {
   format <- match.arg(format)
   if (format %in% c("feather", "ipc")) {
@@ -224,7 +229,7 @@ write_dataset <- function(dataset,
     partitioning, basename_template,
     existing_data_behavior, max_partitions,
     max_open_files, max_rows_per_file,
-    min_rows_per_group, max_rows_per_group
+    min_rows_per_group, max_rows_per_group, create_directory
   )
 }
 

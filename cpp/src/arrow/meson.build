@@ -175,6 +175,8 @@ arrow_util_srcs = [
     'util/bitmap_builders.cc',
     'util/bitmap_ops.cc',
     'util/bpacking.cc',
+    'util/bpacking_scalar.cc',
+    'util/bpacking_simd_default.cc',
     'util/byte_size.cc',
     'util/byte_stream_split_internal.cc',
     'util/cancel.cc',
@@ -500,6 +502,12 @@ arrow_dep = declare_dependency(
 meson.override_dependency('arrow', arrow_dep)
 
 if needs_compute
+    arrow_compute_deps = []
+    if needs_utf8proc
+        utf8proc_dep = dependency('libutf8proc')
+        arrow_compute_deps += [utf8proc_dep]
+    endif
+
     arrow_compute_lib_sources = [
         'compute/initialize.cc',
         'compute/kernels/aggregate_basic.cc',
@@ -525,7 +533,6 @@ if needs_compute
         'compute/kernels/scalar_temporal_binary.cc',
         'compute/kernels/scalar_temporal_unary.cc',
         'compute/kernels/scalar_validity.cc',
-        'compute/kernels/temporal_internal.cc',
         'compute/kernels/util_internal.cc',
         'compute/kernels/vector_array_sort.cc',
         'compute/kernels/vector_cumulative_ops.cc',
@@ -552,7 +559,7 @@ if needs_compute
     arrow_compute_lib = library(
         'arrow-compute',
         sources: arrow_compute_lib_sources,
-        dependencies: arrow_dep,
+        dependencies: [arrow_dep, arrow_compute_deps],
         install: true,
         gnu_symbol_visibility: 'inlineshidden',
         cpp_shared_args: ['-DARROW_COMPUTE_EXPORTING'],
@@ -560,7 +567,7 @@ if needs_compute
     arrow_compute_dep = declare_dependency(
         link_with: arrow_compute_lib,
         include_directories: include_dir,
-        dependencies: arrow_dep,
+        dependencies: [arrow_dep, arrow_compute_deps],
     )
     meson.override_dependency('arrow-compute', arrow_compute_dep)
 else

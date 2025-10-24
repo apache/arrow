@@ -19,6 +19,7 @@
     "re2",
     "snappy",
     "utf8proc",
+    "xsimd",
     "zlib",
     "zstd",
     {
