@@ -280,7 +280,6 @@ if needs_integration or needs_tests
     arrow_components += {
         'arrow_integration': {
             'sources': [
-                'integration/c_data_integration_internal.cc',
                 'integration/json_integration.cc',
                 'integration/json_internal.cc',
             ],
