@@ -25,6 +25,7 @@
 #include <xsimd/xsimd.hpp>
 
 #include "arrow/util/bit_util.h"
+#include "arrow/util/bpacking_dispatch_internal.h"
 
 namespace arrow::internal {
 
@@ -38,30 +39,11 @@ namespace arrow::internal {
 // - Shifts per swizzle can be improved when self.packed_max_byte_spread == 1 and the
 //   byte can be reused (when val_bit_width divides packed_max_byte_spread).
 
-/// Compute the maximum spread in bytes that a packed integer can cover.
-///
-/// This is assuming contiguous packed integer starting on a byte aligned boundary.
-/// This function is non-monotonic, for instance three bit integers will be split on the
-/// first byte boundary (hence having a spread of two bytes) while four bit integer will
-/// be well behaved and never spread over byte boundary (hence having a spread of one).
-constexpr int PackedMaxSpreadBytes(int width) {
-  int max = static_cast<int>(bit_util::BytesForBits(width));
-  int start = width;
-  while (start % 8 != 0) {
-    const int byte_start = start / 8;
-    const int byte_end = (start + width - 1) / 8;  // inclusive end bit
-    const int spread = byte_end - byte_start + 1;
-    max = spread > max ? spread : max;
-    start += width;
-  }
-  return max;
-}
-
 struct KernelShape {
   const int simd_bit_size_;
   const int unpacked_bit_size_;
   const int packed_bit_size_;
-  const int packed_max_spread_bytes_ = PackedMaxSpreadBytes(packed_bit_size_);
+  const int packed_max_spread_bytes_ = PackedMaxSpreadBytes(packed_bit_size_, 0);
 
   /// Properties of an SIMD batch
   constexpr int simd_bit_size() const { return simd_bit_size_; }
@@ -138,7 +120,7 @@ constexpr KernelPlanSize BuildPlanSize(const KernelShape& shape) {
   int packed_start_bit = 0;
   do {
     int new_swizzles_per_read = swizzles_per_read_for_offset(packed_start_bit % 8);
-    if (new_swizzles_per_read <= swizzles_per_read) {
+    if (new_swizzles_per_read < swizzles_per_read) {
       swizzles_per_read = new_swizzles_per_read;
       packed_start_bit = 0;
       reads_per_kernel = 0;
@@ -177,7 +159,7 @@ struct KernelPlan {
     return unpacked_per_shifts() * kPlanSize.shifts_per_swizzle();
   }
   static constexpr int unpacked_per_read() {
-    return unpacked_per_swizzle() * kPlanSize.swizzle_per_read();
+    return unpacked_per_swizzle() * kPlanSize.swizzles_per_read();
   }
   static constexpr int unpacked_per_kernel() {
     return unpacked_per_read() * kPlanSize.reads_per_kernel();
@@ -199,8 +181,8 @@ constexpr KernelPlan<UnpackedUint, kPackedBitSize, kSimdBitSize> BuildPlan() {
 
   int packed_start_bit = 0;
   for (int r = 0; r < kPlanSize.reads_per_kernel(); ++r) {
-    plan.reads.at(r) = packed_start_bit / 8;
-    packed_start_bit = packed_start_bit % 8;
+    const int read_start_byte = packed_start_bit / 8;
+    plan.reads.at(r) = read_start_byte;
 
     for (int sw = 0; sw < kPlanSize.swizzles_per_read(); ++sw) {
       for (int sh = 0; sh < kPlanSize.shifts_per_swizzle(); ++sh) {
@@ -209,12 +191,13 @@ constexpr KernelPlan<UnpackedUint, kPackedBitSize, kSimdBitSize> BuildPlan() {
 
         for (int u = 0; u < kShape.unpacked_per_simd(); ++u) {
           const int packed_start_byte = packed_start_bit / 8;
+          const int packed_byte_in_read = packed_start_byte - read_start_byte;
           const int u_offset_byte = u * kShape.unpacked_byte_size();
           const int sw_offset_byte = sh_offset_bytes + u_offset_byte;
 
           // Looping over the multiple bytes needed for current values
           for (int b = 0; b < kShape.packed_max_spread_bytes(); ++b) {
-            plan.swizzles.at(r).at(sw).at(sw_offset_byte + b) = packed_start_byte + b;
+            plan.swizzles.at(r).at(sw).at(sw_offset_byte + b) = packed_byte_in_read + b;
           }
           // Shift is a single value but many packed values may be swizzles to a sing
           // unpacked value
@@ -228,5 +211,76 @@ constexpr KernelPlan<UnpackedUint, kPackedBitSize, kSimdBitSize> BuildPlan() {
 
   return plan;
 }
+
+template <typename UnpackedUint, int kPackedBitSize, int kSimdBitSize>
+struct Kernel {
+  static constexpr auto kPlan = BuildPlan<UnpackedUint, kPackedBitSize, kSimdBitSize>();
+  static constexpr auto kPlanSize = kPlan.kPlanSize;
+  static constexpr auto kShape = kPlan.kShape;
+  using Traits = typename decltype(kPlan)::Traits;
+  using unpacked_type = typename Traits::unpacked_type;
+  using simd_batch = typename Traits::simd_batch;
+  using simd_bytes = typename Traits::simd_bytes;
+  using arch_type = typename Traits::arch_type;
+
+  static constexpr int kValuesUnpacked = kPlan.unpacked_per_kernel();
+
+  template <int kReadIdx, int kSwizzleIdx, int kShiftIdx>
+  static void unpack_one_shift_impl(const simd_batch& words, unpacked_type* out) {
+    struct MakeShifts {
+      static constexpr unpacked_type get(int i, int n) {
+        return kPlan.shifts.at(kReadIdx).at(kSwizzleIdx).at(kShiftIdx).at(i);
+      }
+    };
+
+    constexpr auto kShifts =
+        xsimd::make_batch_constant<unpacked_type, arch_type, MakeShifts>();
+    constexpr auto kMask = kPlan.mask;
+    constexpr auto kOutOffset = (kReadIdx * kPlan.unpacked_per_read() +
+                                 kSwizzleIdx * kPlan.unpacked_per_swizzle() +
+                                 kShiftIdx * kPlan.unpacked_per_shifts());
+
+    const auto vals = (words >> kShifts) & kMask;
+    xsimd::store_unaligned(out + kOutOffset, vals);
+  }
+
+  template <int kReadIdx, int kSwizzleIdx, int... kShiftIds>
+  static void unpack_one_swizzle_impl(const simd_bytes& bytes, unpacked_type* out,
+                                      std::integer_sequence<int, kShiftIds...>) {
+    struct MakeSwizzles {
+      static constexpr int get(int i, int n) {
+        return kPlan.swizzles.at(kReadIdx).at(kSwizzleIdx).at(i);
+      }
+    };
+
+    constexpr auto kSwizzles =
+        xsimd::make_batch_constant<uint8_t, arch_type, MakeSwizzles>();
+
+    const auto swizzled = xsimd::swizzle(bytes, kSwizzles);
+    const auto words = xsimd::bitwise_cast<unpacked_type>(swizzled);
+    (unpack_one_shift_impl<kReadIdx, kSwizzleIdx, kShiftIds>(words, out), ...);
+  }
+
+  template <int kReadIdx, int... kSwizzleIds>
+  static void unpack_one_read_impl(const uint8_t* in, unpacked_type* out,
+                                   std::integer_sequence<int, kSwizzleIds...>) {
+    using ShiftSeq = std::make_integer_sequence<int, kPlanSize.shifts_per_swizzle()>;
+    const auto bytes = simd_bytes::load_unaligned(in + kPlan.reads.at(kReadIdx));
+    (unpack_one_swizzle_impl<kReadIdx, kSwizzleIds>(bytes, out, ShiftSeq{}), ...);
+  }
+
+  template <int... kReadIds>
+  static void unpack_all_impl(const uint8_t* in, unpacked_type* out,
+                              std::integer_sequence<int, kReadIds...>) {
+    using SwizzleSeq = std::make_integer_sequence<int, kPlanSize.swizzles_per_read()>;
+    (unpack_one_read_impl<kReadIds>(in, out, SwizzleSeq{}), ...);
+  }
+
+  static const uint8_t* unpack(const uint8_t* in, unpacked_type* out) {
+    using ReadSeq = std::make_integer_sequence<int, kPlanSize.reads_per_kernel()>;
+    unpack_all_impl(in, out, ReadSeq{});
+    return in + (kPlan.unpacked_per_kernel() * kShape.packed_bit_size()) / 8;
+  }
+};
 
 }  // namespace arrow::internal
