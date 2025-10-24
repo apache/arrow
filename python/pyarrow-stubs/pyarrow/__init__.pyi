@@ -331,22 +331,11 @@ from pyarrow.lib import (
 from pyarrow.ipc import serialize_pandas, deserialize_pandas
 import pyarrow.ipc as ipc
 import pyarrow.lib as lib
-
 import pyarrow.types as types
-
 import pyarrow.feather as feather
-try:
-    import pyarrow.pandas_compat as pandas_compat
-except ImportError:
-    pass
-import pyarrow.substrait as substrait
-import pyarrow._substrait as _substrait
-
-
 import pyarrow.compute as compute
 import pyarrow.csv as csv
 import pyarrow.json as json
-
 import pyarrow.dataset as dataset
 
 # ----------------------------------------------------------------------
@@ -373,6 +362,7 @@ def show_versions() -> None: ...
 def show_info() -> None: ...
 def _module_is_available(module: str) -> bool: ...
 def _filesystem_is_available(fs: str) -> bool: ...
+
 
 def get_include() -> str: ...
 def _get_pkg_config_executable() -> str: ...

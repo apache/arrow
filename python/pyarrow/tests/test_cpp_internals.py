@@ -20,8 +20,8 @@ from os.path import join as pjoin
 
 import pytest
 
-# type: ignore[import-not-found, import-untyped]
-from pyarrow._pyarrow_cpp_tests import get_cpp_tests
+from pyarrow._pyarrow_cpp_tests import (  # type: ignore[import-not-found, import-untyped] # noqa: E501
+    get_cpp_tests)
 
 
 def inject_cpp_tests(ns):

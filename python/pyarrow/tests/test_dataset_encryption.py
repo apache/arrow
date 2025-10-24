@@ -112,7 +112,6 @@ def test_dataset_encryption_decryption():
         crypto_factory, kms_connection_config, encryption_config
     )
     parquet_decryption_cfg = ds.ParquetDecryptionConfig(
-        # type: ignore[arg-type]
         crypto_factory, kms_connection_config, decryption_config
     )
 

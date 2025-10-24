@@ -52,8 +52,7 @@ class IpcFixture:
         self._sink_factory = sink_factory
         self.sink = self.get_sink()
 
-    # type: ignore[empty-body]
-    def _get_writer(self, sink, schema) -> pa.ipc.RecordBatchFileWriter | pa.ipc.RecordBatchStreamWriter:
+    def _get_writer(self, sink, schema):
         ...  # Implemented in subclasses
 
     def get_sink(self):
@@ -67,6 +66,7 @@ class IpcFixture:
         schema = pa.schema([('one', pa.float64()), ('two', pa.utf8())])
 
         writer = self._get_writer(self.sink, schema)
+        assert writer is not None
 
         batches = []
         for i in range(num_batches):

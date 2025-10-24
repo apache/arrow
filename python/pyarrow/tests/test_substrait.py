@@ -27,9 +27,9 @@ from pyarrow.lib import ArrowInvalid, ArrowNotImplementedError
 
 # Marks all of the tests in this module
 # Ignore these with pytest ... -m 'not substrait'
-pytestmark = pytest.mark.substrait
 substrait = pytest.importorskip('pyarrow.substrait')
 _substrait = pytest.importorskip('pyarrow._substrait')
+pytestmark = pytest.mark.substrait
 
 
 def mock_udf_context(batch_length=10):

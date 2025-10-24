@@ -27,7 +27,7 @@ else:
     from typing_extensions import TypeAlias
 from collections.abc import (
     Collection, Generator, Iterable, Iterator, Sequence, Mapping)
-from typing import (Any, Generic, Literal, TypeAlias, TypeVar, overload)
+from typing import Any, Generic, Literal, TypeVar
 import builtins
 
 import numpy as np
@@ -165,7 +165,8 @@ class ChunkedArray(_PandasConvertible[pd.Series], Generic[_Scalar_co]):
 
     def __sizeof__(self) -> int: ...
 
-    def __getitem__(self, key: int | np.integer | builtins.slice) -> _Scalar_co | Self: ...
+    def __getitem__(
+        self, key: int | np.integer | builtins.slice) -> _Scalar_co | Self: ...
 
     def getitem(self, i: int) -> Scalar: ...
     def is_null(self, *, nan_is_null: bool = False) -> ChunkedArray[BooleanScalar]: ...
@@ -174,11 +175,13 @@ class ChunkedArray(_PandasConvertible[pd.Series], Generic[_Scalar_co]):
 
     def is_valid(self) -> ChunkedArray[BooleanScalar]: ...
 
-    def cast(self, target_type: _CastAs | str | None, safe: bool = True,
-             options: CastOptions | None = None,
-             memory_pool: MemoryPool | None = None) ->  Self | ChunkedArray[Scalar[_CastAs]]: ...
+    def cast(
+        self, target_type: _CastAs | str | None, safe: bool = True,
+        options: CastOptions | None = None,
+        memory_pool: MemoryPool | None = None
+    ) -> Self | ChunkedArray[Scalar[_CastAs]]: ...
 
-    def fill_null(self, fill_value: Scalar[_DataTypeT]) -> Self: ...
+    def fill_null(self, fill_value: Scalar[_DataTypeT] | Any) -> Self: ...
 
     def equals(self, other: Self | Any) -> bool: ...
 
@@ -288,7 +291,8 @@ class _Tabular(_PandasConvertible[pd.DataFrame], Generic[_ColumnT]):
     @classmethod
     def from_pydict(
         cls,
-        mapping: Mapping[Any, ArrayOrChunkedArray[Any] | list[Any] | np.ndarray | range],
+        mapping:
+        Mapping[Any, ArrayOrChunkedArray[Any] | list[Any] | np.ndarray | range],
         schema: Schema | None = None,
         metadata: Mapping[str | bytes, str | bytes] | None = None,
     ) -> Self: ...
@@ -350,7 +354,12 @@ class RecordBatch(_Tabular[Array]):
     def validate(self, *, full: bool = False) -> None: ...
 
     def replace_schema_metadata(
-        self, metadata: dict[str, str] | dict[bytes, bytes] | dict[bytes, str] | dict[str, bytes] | None = None
+        self,
+        metadata: dict[str, str]
+        | dict[bytes, bytes]
+        | dict[bytes, str]
+        | dict[str, bytes]
+        | None = None
     ) -> Self: ...
 
     @property
@@ -397,7 +406,11 @@ class RecordBatch(_Tabular[Array]):
         arrays: Iterable[Any],
         names: list[str] | tuple[str, ...] | None = None,
         schema: Schema | None = None,
-        metadata: Mapping[str | bytes, str | bytes] | Mapping[bytes, bytes] | Mapping[str, str] | Mapping[bytes, str] | Mapping[str, bytes] | None = None,
+        metadata: Mapping[bytes, bytes]
+        | Mapping[str, str]
+        | Mapping[bytes, str]
+        | Mapping[str, bytes]
+        | None = None,
     ) -> Self: ...
 
     @classmethod
@@ -480,7 +493,11 @@ class Table(_Tabular[ChunkedArray[Any]]):
                Iterable[int] | NDArray[np.str_]) -> Self: ...
 
     def replace_schema_metadata(
-        self, metadata: dict[str, str] | dict[bytes, bytes] | dict[bytes, str] | dict[str, bytes] | None = None
+        self, metadata: dict[str, str]
+        | dict[bytes, bytes]
+        | dict[bytes, str]
+        | dict[str, bytes]
+        | None = None
     ) -> Self: ...
 
     def flatten(self, memory_pool: MemoryPool | None = None) -> Self: ...
@@ -508,10 +525,14 @@ class Table(_Tabular[ChunkedArray[Any]]):
     @classmethod
     def from_arrays(
         cls,
-        arrays: Collection[ArrayOrChunkedArray[Any] | Collection[NDArray[Any]] | list[Any]],
+        arrays:
+        Collection[ArrayOrChunkedArray[Any] | Collection[NDArray[Any]] | list[Any]],
         names: list[str] | tuple[str, ...] | None = None,
         schema: Schema | None = None,
-        metadata: Mapping[str | bytes, str | bytes] | Mapping[bytes, bytes] | Mapping[str, str] | Mapping[bytes, str] | Mapping[str, bytes] | None = None,
+        metadata: Mapping[bytes, bytes]
+        | Mapping[str, str]
+        | Mapping[bytes, str]
+        | Mapping[str, bytes] | None = None,
     ) -> Self: ...
 
     @classmethod
@@ -601,18 +622,21 @@ def record_batch(
     metadata: Mapping[str | bytes, str | bytes] | None = None,
 ) -> RecordBatch: ...
 
+
 def table(
     data: Collection[ArrayOrChunkedArray[Any] | list[Any] | range | str]
     | pd.DataFrame
     | SupportArrowArray
     | SupportArrowStream
     | SupportArrowDeviceArray
-    | Mapping[str, list[Any] | Array[Any] | ChunkedArray[Any] | range] | Mapping[str, Any],
+    | Mapping[str, list[Any] | Array[Any] | ChunkedArray[Any] | range]
+    | Mapping[str, Any],
     names: list[str] | Schema | None = None,
     schema: Schema | None = None,
     metadata: Mapping[str | bytes, str | bytes] | None = None,
     nthreads: int | None = None,
 ) -> Table: ...
+
 
 def concat_tables(
     tables: Iterable[Table],

@@ -18,15 +18,14 @@
 import sys
 
 if sys.version_info >= (3, 11):
-    from typing import Self, Collection
+    from typing import Self
 else:
     from typing_extensions import Self
-from collections.abc import Callable, Iterator
+from collections.abc import Collection, Callable, Iterator, Iterable
 from typing import (
     IO,
     Any,
     Generic,
-    Iterable,
     Literal,
     NamedTuple,
     TypeVar,
@@ -163,10 +162,15 @@ class Dataset(lib._Weakrefable):
     @property
     def format(self) -> FileFormat: ...
 
+
 class InMemoryDataset(Dataset):
     def __init__(
         self,
-        source: lib.Table | lib.RecordBatch | lib.RecordBatchReader | Iterable[lib.RecordBatch] | list[Any],
+        source: lib.Table
+        | lib.RecordBatch
+        | lib.RecordBatchReader
+        | Iterable[lib.RecordBatch]
+        | list[Any],
         schema: lib.Schema | None = None,
     ) -> None: ...
 
@@ -181,8 +185,8 @@ class UnionDataset(Dataset):
     @property
     def children(self) -> list[Dataset]: ...
 
-class FileSystemDataset(Dataset):
 
+class FileSystemDataset(Dataset):
     def __init__(
         self,
         fragments: list[Fragment],
@@ -391,7 +395,9 @@ class CsvFileFormat(FileFormat):
         convert_options: csv.ConvertOptions | None = None,
         read_options: csv.ReadOptions | None = None,
     ) -> None: ...
-    def make_write_options(self, **kwargs) -> CsvFileWriteOptions: ...  # type: ignore[override]
+    def make_write_options(
+        self, **kwargs) -> CsvFileWriteOptions: ...  # type: ignore[override]
+
     @property
     def parse_options(self) -> csv.ParseOptions: ...
     @parse_options.setter
@@ -677,7 +683,7 @@ def _filesystemdataset_write(
     file_options: FileWriteOptions,
     max_partitions: int,
     file_visitor: Callable[[str], None] | None,
-    existing_data_behavior: Literal["error", "overwrite_or_ignore", "delete_matching"] | str,
+    existing_data_behavior: Literal["error", "overwrite_or_ignore", "delete_matching"],
     max_open_files: int,
     max_rows_per_file: int,
     min_rows_per_group: int,

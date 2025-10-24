@@ -23,10 +23,6 @@ if sys.version_info >= (3, 11):
     from typing import Self
 else:
     from typing_extensions import Self
-if sys.version_info >= (3, 10):
-    from typing import TypeAlias
-else:
-    from typing_extensions import TypeAlias
 from collections.abc import Iterator
 from typing import Any, Generic, Literal
 
@@ -344,9 +340,11 @@ class StructScalar(Scalar[StructType], collections.abc.Mapping[str, Scalar]):
 
     def __getitem__(self, key: int | str) -> Scalar[Any]: ...
 
-    def keys(self) -> collections.abc.KeysView[str]: ...  # type: ignore[override]
+    def keys(self) -> collections.abc.KeysView[str]:  # type: ignore[override]
+        ...
 
-    def items(self) -> collections.abc.ItemsView[str, Scalar[Any]]: ...  # type: ignore[override]
+    def items(self) -> collections.abc.ItemsView[str, Scalar[Any]]:  # type: ignore[override] # noqa: E501
+        ...
 
     def _as_py_tuple(self) -> list[tuple[str, Any]]: ...
 
@@ -357,7 +355,8 @@ class MapScalar(Scalar[MapType[_K, _ValueT]]):
     def values(self) -> Array | None: ...
     def __len__(self) -> int: ...
 
-    def __getitem__(self, i: int | str) -> tuple[Scalar[_K], _ValueT, Any] | Scalar[Any]: ...
+    def __getitem__(self, i: int | str) -> (
+        tuple[Scalar[_K], _ValueT, Any] | Scalar[Any]): ...
 
     def __iter__(self: Scalar[
         MapType[_BasicDataType[_AsPyTypeK], _BasicDataType[_AsPyTypeV]]]
@@ -422,8 +421,8 @@ class OpaqueScalar(Scalar[OpaqueType]):
 
 
 class FixedShapeTensorScalar(ExtensionScalar):
-
-    def to_numpy(self, zero_copy_only: bool = True, writable: bool = False) -> np.ndarray: ...  # type: ignore[override]
+    def to_numpy(self, zero_copy_only: bool = True, writable: bool = False) -> (
+            np.ndarray): ...  # type: ignore[override]
 
     def to_tensor(self) -> Tensor: ...
 
