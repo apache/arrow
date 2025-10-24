@@ -614,8 +614,23 @@ TEST_F(TestRecordBatch, FromSlicedStructArray) {
   StructArray struct_array(struct_({field("x", int64())}), kLength, {x_arr});
   std::shared_ptr<Array> sliced = struct_array.Slice(5, 3);
   ASSERT_OK_AND_ASSIGN(auto batch, RecordBatch::FromStructArray(sliced));
+  ASSERT_OK(batch->ValidateFull());
 
   std::shared_ptr<Array> expected_arr = ArrayFromJSON(int64(), "[5, 6, 7]");
+  std::shared_ptr<RecordBatch> expected =
+      RecordBatch::Make(schema({field("x", int64())}), 3, {expected_arr});
+  AssertBatchesEqual(*expected, *batch);
+}
+
+TEST_F(TestRecordBatch, FromSlicedStructArrayWithOffsetZero) {
+  static constexpr int64_t kLength = 5;
+  std::shared_ptr<Array> x_arr = ArrayFromJSON(int64(), "[0, 1, 2, 3, 4]");
+  StructArray struct_array(struct_({field("x", int64())}), kLength, {x_arr});
+  std::shared_ptr<Array> sliced = struct_array.Slice(0, 3);
+  ASSERT_OK_AND_ASSIGN(auto batch, RecordBatch::FromStructArray(sliced));
+  ASSERT_OK(batch->ValidateFull());
+
+  std::shared_ptr<Array> expected_arr = ArrayFromJSON(int64(), "[0, 1, 2]");
   std::shared_ptr<RecordBatch> expected =
       RecordBatch::Make(schema({field("x", int64())}), 3, {expected_arr});
   AssertBatchesEqual(*expected, *batch);
