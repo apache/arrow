@@ -71,7 +71,7 @@ class NoBufferPresent(Exception):
 
 class _PyArrowColumn:
     _col: Array | ChunkedArray
-    
+
     def __init__(self, column: Array | ChunkedArray,
                  allow_copy: bool = True) -> None: ...
 
