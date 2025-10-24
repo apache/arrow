@@ -106,4 +106,118 @@ TEST(SQLFreeHandle, TestFreeNullHandles) {
   ASSERT_EQ(SQL_INVALID_HANDLE, SQLFreeHandle(SQL_HANDLE_ENV, env));
 }
 
+TEST(SQLGetEnvAttr, TestSQLGetEnvAttrODBCVersion) {
+  SQLHENV env;
+
+  SQLINTEGER version;
+
+  // Allocate an environment handle
+  ASSERT_EQ(SQL_SUCCESS, SQLAllocEnv(&env));
+
+  ASSERT_EQ(SQL_SUCCESS, SQLGetEnvAttr(env, SQL_ATTR_ODBC_VERSION, &version, 0, 0));
+
+  ASSERT_EQ(SQL_OV_ODBC2, version);
+
+  ASSERT_EQ(SQL_SUCCESS, SQLFreeEnv(env));
+}
+
+TEST(SQLSetEnvAttr, TestSQLSetEnvAttrODBCVersionValid) {
+  SQLHENV env;
+
+  // Allocate an environment handle
+  ASSERT_EQ(SQL_SUCCESS, SQLAllocEnv(&env));
+
+  // Attempt to set to supported version
+  ASSERT_EQ(SQL_SUCCESS, SQLSetEnvAttr(env, SQL_ATTR_ODBC_VERSION,
+                                       reinterpret_cast<void*>(SQL_OV_ODBC2), 0));
+
+  SQLINTEGER version;
+  // Check ODBC version is set
+  ASSERT_EQ(SQL_SUCCESS, SQLGetEnvAttr(env, SQL_ATTR_ODBC_VERSION, &version, 0, 0));
+
+  ASSERT_EQ(SQL_OV_ODBC2, version);
+
+  ASSERT_EQ(SQL_SUCCESS, SQLFreeEnv(env));
+}
+
+TEST(SQLSetEnvAttr, TestSQLSetEnvAttrODBCVersionInvalid) {
+  SQLHENV env;
+
+  // Allocate an environment handle
+  ASSERT_EQ(SQL_SUCCESS, SQLAllocEnv(&env));
+
+  // Attempt to set to unsupported version
+  ASSERT_EQ(SQL_ERROR,
+            SQLSetEnvAttr(env, SQL_ATTR_ODBC_VERSION, reinterpret_cast<void*>(1), 0));
+
+  ASSERT_EQ(SQL_SUCCESS, SQLFreeEnv(env));
+}
+
+// GH-46574 TODO: enable TestSQLGetEnvAttrOutputNTS which requires connection support
+TYPED_TEST(ConnectionTest, DISABLED_TestSQLGetEnvAttrOutputNTS) {
+  SQLINTEGER output_nts;
+
+  ASSERT_EQ(SQL_SUCCESS,
+            SQLGetEnvAttr(this->env, SQL_ATTR_OUTPUT_NTS, &output_nts, 0, 0));
+
+  ASSERT_EQ(SQL_TRUE, output_nts);
+}
+
+TYPED_TEST(ConnectionTest, DISABLED_TestSQLGetEnvAttrGetLength) {
+  // Test is disabled because call to SQLGetEnvAttr is handled by the driver manager on
+  // Windows. Windows driver manager ignores the length pointer.
+  // This test case can be potentially used on macOS/Linux
+  SQLINTEGER length;
+  ASSERT_EQ(SQL_SUCCESS,
+            SQLGetEnvAttr(this->env, SQL_ATTR_ODBC_VERSION, nullptr, 0, &length));
+
+  EXPECT_EQ(sizeof(SQLINTEGER), length);
+}
+
+TYPED_TEST(ConnectionTest, DISABLED_TestSQLGetEnvAttrNullValuePointer) {
+  // Test is disabled because call to SQLGetEnvAttr is handled by the driver manager on
+  // Windows. The Windows driver manager doesn't error out when null pointer is passed.
+  // This test case can be potentially used on macOS/Linux
+  ASSERT_EQ(SQL_ERROR,
+            SQLGetEnvAttr(this->env, SQL_ATTR_ODBC_VERSION, nullptr, 0, nullptr));
+}
+
+TEST(SQLSetEnvAttr, TestSQLSetEnvAttrOutputNTSValid) {
+  SQLHENV env;
+
+  // Allocate an environment handle
+  ASSERT_EQ(SQL_SUCCESS, SQLAllocEnv(&env));
+
+  // Attempt to set to output nts to supported version
+  ASSERT_EQ(SQL_SUCCESS, SQLSetEnvAttr(env, SQL_ATTR_OUTPUT_NTS,
+                                       reinterpret_cast<void*>(SQL_TRUE), 0));
+
+  ASSERT_EQ(SQL_SUCCESS, SQLFreeEnv(env));
+}
+
+TEST(SQLSetEnvAttr, TestSQLSetEnvAttrOutputNTSInvalid) {
+  SQLHENV env;
+
+  // Allocate an environment handle
+  ASSERT_EQ(SQL_SUCCESS, SQLAllocEnv(&env));
+
+  // Attempt to set to output nts to unsupported false
+  ASSERT_EQ(SQL_ERROR, SQLSetEnvAttr(env, SQL_ATTR_OUTPUT_NTS,
+                                     reinterpret_cast<void*>(SQL_FALSE), 0));
+
+  ASSERT_EQ(SQL_SUCCESS, SQLFreeEnv(env));
+}
+
+TEST(SQLSetEnvAttr, TestSQLSetEnvAttrNullValuePointer) {
+  SQLHENV env;
+
+  // Allocate an environment handle
+  ASSERT_EQ(SQL_SUCCESS, SQLAllocEnv(&env));
+
+  // Attempt to set using bad data pointer
+  ASSERT_EQ(SQL_ERROR, SQLSetEnvAttr(env, SQL_ATTR_ODBC_VERSION, nullptr, 0));
+
+  ASSERT_EQ(SQL_SUCCESS, SQLFreeEnv(env));
+}
+
 }  // namespace arrow::flight::sql::odbc
