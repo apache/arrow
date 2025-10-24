@@ -18,7 +18,7 @@
 from ._dataset_parquet import ParquetFileWriteOptions, ParquetFragmentScanOptions
 from ._parquet import FileDecryptionProperties
 from ._parquet_encryption import (CryptoFactory, EncryptionConfiguration,
-    DecryptionConfiguration, KmsConnectionConfig)
+                                  DecryptionConfiguration, KmsConnectionConfig)
 from .lib import _Weakrefable
 
 

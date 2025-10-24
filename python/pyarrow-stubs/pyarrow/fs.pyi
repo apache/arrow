@@ -72,7 +72,7 @@ def _resolve_filesystem_and_path(
 ) -> tuple[FileSystem, str]: ...
 
 
-class FSSpecHandler(FileSystemHandler):  # type: ignore[misc]  # All abstract methods implemented via fsspec delegation
+class FSSpecHandler(FileSystemHandler):  # type: ignore[misc]  # All abstract methods implemented via fsspec delegation # noqa: E501
     fs: SupportedFileSystem
     def __init__(self, fs: SupportedFileSystem) -> None: ...
 
