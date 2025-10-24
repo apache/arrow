@@ -38,7 +38,6 @@ class DeviceAllocationType(enum.Enum):
 
 
 class Device(_Weakrefable):
-
     @property
     def type_name(self) -> str: ...
 
@@ -53,7 +52,6 @@ class Device(_Weakrefable):
 
 
 class MemoryManager(_Weakrefable):
-
     @property
     def device(self) -> Device: ...
 

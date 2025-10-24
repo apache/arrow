@@ -79,7 +79,6 @@ _DataType_co = TypeVar("_DataType_co", bound=DataType, covariant=True)
 
 
 class Scalar(_Weakrefable, Generic[_DataType_co]):
-
     @property
     def type(self) -> _DataType_co: ...
 
@@ -207,78 +206,64 @@ class Date32Scalar(Scalar[Date32Type]):
 
 
 class Date64Scalar(Scalar[Date64Type]):
-
     @property
     def value(self) -> dt.date | None: ...
 
 
 class Time32Scalar(Scalar[Time32Type[_Time32Unit]]):
-
     @property
     def value(self) -> dt.time | None: ...
 
 
 class Time64Scalar(Scalar[Time64Type[_Time64Unit]]):
-
     @property
     def value(self) -> dt.time | None: ...
 
 
 class TimestampScalar(Scalar[TimestampType[_Unit, _Tz]]):
-
     @property
     def value(self) -> int | None: ...
 
 
 class DurationScalar(Scalar[DurationType[_Unit]]):
-
     @property
     def value(self) -> dt.timedelta | None: ...
 
 
 class MonthDayNanoIntervalScalar(Scalar[MonthDayNanoIntervalType]):
-
     @property
     def value(self) -> MonthDayNano | None: ...
 
 
 class BinaryScalar(Scalar[BinaryType]):
-
     def as_buffer(self) -> Buffer: ...
 
 
 class LargeBinaryScalar(Scalar[LargeBinaryType]):
-
     def as_buffer(self) -> Buffer: ...
 
 
 class FixedSizeBinaryScalar(Scalar[FixedSizeBinaryType]):
-
     def as_buffer(self) -> Buffer: ...
 
 
 class StringScalar(Scalar[StringType]):
-
     def as_buffer(self) -> Buffer: ...
 
 
 class LargeStringScalar(Scalar[LargeStringType]):
-
     def as_buffer(self) -> Buffer: ...
 
 
 class BinaryViewScalar(Scalar[BinaryViewType]):
-
     def as_buffer(self) -> Buffer: ...
 
 
 class StringViewScalar(Scalar[StringViewType]):
-
     def as_buffer(self) -> Buffer: ...
 
 
 class ListScalar(Scalar[ListType[_DataTypeT]]):
-
     @property
     def values(self) -> Array | None: ...
     def __len__(self) -> int: ...
@@ -289,7 +274,6 @@ class ListScalar(Scalar[ListType[_DataTypeT]]):
 
 
 class FixedSizeListScalar(Scalar[FixedSizeListType[_DataTypeT, _Size]]):
-
     @property
     def values(self) -> Array | None: ...
     def __len__(self) -> int: ...
@@ -300,7 +284,6 @@ class FixedSizeListScalar(Scalar[FixedSizeListType[_DataTypeT, _Size]]):
 
 
 class LargeListScalar(Scalar[LargeListType[_DataTypeT]]):
-
     @property
     def values(self) -> Array | None: ...
     def __len__(self) -> int: ...
@@ -311,7 +294,6 @@ class LargeListScalar(Scalar[LargeListType[_DataTypeT]]):
 
 
 class ListViewScalar(Scalar[ListViewType[_DataTypeT]]):
-
     @property
     def values(self) -> Array | None: ...
     def __len__(self) -> int: ...
@@ -322,7 +304,6 @@ class ListViewScalar(Scalar[ListViewType[_DataTypeT]]):
 
 
 class LargeListViewScalar(Scalar[LargeListViewType[_DataTypeT]]):
-
     @property
     def values(self) -> Array | None: ...
     def __len__(self) -> int: ...
@@ -333,7 +314,6 @@ class LargeListViewScalar(Scalar[LargeListViewType[_DataTypeT]]):
 
 
 class StructScalar(Scalar[StructType], collections.abc.Mapping[str, Scalar]):
-
     def __len__(self) -> int: ...
 
     def __iter__(self) -> Iterator[str]: ...
@@ -350,7 +330,6 @@ class StructScalar(Scalar[StructType], collections.abc.Mapping[str, Scalar]):
 
 
 class MapScalar(Scalar[MapType[_K, _ValueT]]):
-
     @property
     def values(self) -> Array | None: ...
     def __len__(self) -> int: ...
@@ -369,7 +348,6 @@ class MapScalar(Scalar[MapType[_K, _ValueT]]):
 
 
 class DictionaryScalar(Scalar[DictionaryType[_IndexT, _BasicValueT]]):
-
     @property
     def index(self) -> Scalar[_IndexT]: ...
 
@@ -381,13 +359,11 @@ class DictionaryScalar(Scalar[DictionaryType[_IndexT, _BasicValueT]]):
 
 
 class RunEndEncodedScalar(Scalar[RunEndEncodedType[_RunEndType, _BasicValueT]]):
-
     @property
     def value(self) -> tuple[int, _BasicValueT] | None: ...
 
 
 class UnionScalar(Scalar[UnionType]):
-
     @property
     def value(self) -> Any | None: ...
 
@@ -396,7 +372,6 @@ class UnionScalar(Scalar[UnionType]):
 
 
 class ExtensionScalar(Scalar[ExtensionType]):
-
     @property
     def value(self) -> Any | None: ...
 

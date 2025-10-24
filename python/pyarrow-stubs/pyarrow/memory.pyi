@@ -19,7 +19,6 @@ from pyarrow.lib import _Weakrefable
 
 
 class MemoryPool(_Weakrefable):
-
     def release_unused(self) -> None: ...
 
     def bytes_allocated(self) -> int: ...

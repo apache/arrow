@@ -56,7 +56,6 @@ Mode: TypeAlias = Literal["rb", "wb", "rb+", "ab"]
 
 
 class NativeFile(_Weakrefable):
-
     _default_chunk_size: int
 
     def __enter__(self) -> Self: ...
@@ -120,13 +119,11 @@ class NativeFile(_Weakrefable):
 
 
 class PythonFile(NativeFile):
-
     def __init__(self, handle: IOBase,
                  mode: Literal["r", "w"] | None = None) -> None: ...
 
 
 class MemoryMappedFile(NativeFile):
-
     @classmethod
     def create(cls, path: str, size: float) -> Self: ...
 
@@ -145,7 +142,6 @@ create_memory_map = MemoryMappedFile.create
 
 
 class OSFile(NativeFile):
-
     name: str
 
     def __init__(
@@ -157,7 +153,6 @@ class OSFile(NativeFile):
 
 
 class FixedSizeBufferWriter(NativeFile):
-
     def __init__(self, buffer: Buffer) -> None: ...
     def set_memcopy_threads(self, num_threads: int) -> None: ...
 
@@ -170,7 +165,6 @@ class FixedSizeBufferWriter(NativeFile):
 # Arrow buffers
 
 class Buffer(_Weakrefable):
-
     def __len__(self) -> int: ...
 
     def _assert_cpu(self) -> None: ...
@@ -213,7 +207,6 @@ class Buffer(_Weakrefable):
 
 
 class ResizableBuffer(Buffer):
-
     def resize(self, new_size: int, shrink_to_fit: bool = False) -> None: ...
 
 
@@ -227,7 +220,6 @@ def allocate_buffer(
 # ----------------------------------------------------------------------
 # Arrow Stream
 class BufferOutputStream(NativeFile):
-
     def __init__(self, memory_pool: MemoryPool | None = None) -> None: ...
     def getvalue(self) -> Buffer: ...
 
@@ -237,12 +229,10 @@ class MockOutputStream(NativeFile):
 
 
 class BufferReader(NativeFile):
-
     def __init__(self, obj) -> None: ...
 
 
 class CompressedInputStream(NativeFile):
-
     def __init__(
         self,
         stream: StrPath | NativeFile | IOBase,
@@ -251,7 +241,6 @@ class CompressedInputStream(NativeFile):
 
 
 class CompressedOutputStream(NativeFile):
-
     def __init__(
         self,
         stream: StrPath | NativeFile | IOBase,
@@ -260,7 +249,6 @@ class CompressedOutputStream(NativeFile):
 
 
 class BufferedInputStream(NativeFile):
-
     def __init__(self, stream: NativeFile, buffer_size: int,
                  memory_pool: MemoryPool | None = None) -> None: ...
 
@@ -268,7 +256,6 @@ class BufferedInputStream(NativeFile):
 
 
 class BufferedOutputStream(NativeFile):
-
     def __init__(self, stream: NativeFile, buffer_size: int,
                  memory_pool: MemoryPool | None = None) -> None: ...
 
@@ -276,7 +263,6 @@ class BufferedOutputStream(NativeFile):
 
 
 class TransformInputStream(NativeFile):
-
     def __init__(self, stream: NativeFile,
                  transform_func: Callable[[Buffer], Any]) -> None: ...
 
@@ -303,7 +289,6 @@ def as_buffer(o: Buffer | SupportPyBuffer) -> Buffer: ...
 
 
 class CacheOptions(_Weakrefable):
-
     hole_size_limit: int
     range_size_limit: int
     lazy: bool
@@ -329,7 +314,6 @@ class CacheOptions(_Weakrefable):
 
 
 class Codec(_Weakrefable):
-
     def __init__(self, compression: Compression | str | None,
                  compression_level: int | None = None) -> None: ...
 

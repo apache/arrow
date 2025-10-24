@@ -23,7 +23,6 @@ from .lib import _Weakrefable
 
 
 class ParquetEncryptionConfig(_Weakrefable):
-
     def __init__(
         self,
         crypto_factory: CryptoFactory,
@@ -33,7 +32,6 @@ class ParquetEncryptionConfig(_Weakrefable):
 
 
 class ParquetDecryptionConfig(_Weakrefable):
-
     def __init__(
         self,
         crypto_factory: CryptoFactory,

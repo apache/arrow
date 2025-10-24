@@ -42,7 +42,6 @@ from .ipc import IpcWriteOptions, RecordBatchReader
 
 
 class Dataset(lib._Weakrefable):
-
     @property
     def partition_expression(self) -> Expression: ...
 
@@ -245,7 +244,6 @@ class FileFormat(lib._Weakrefable):
 
 
 class Fragment(lib._Weakrefable):
-
     def open(self) -> lib.NativeFile | lib.BufferReader: ...
     @property
     def path(self) -> str: ...
@@ -346,7 +344,6 @@ class Fragment(lib._Weakrefable):
 
 
 class FileFragment(Fragment):
-
     def open(self) -> lib.NativeFile: ...
 
     @property
@@ -363,7 +360,6 @@ class FileFragment(Fragment):
 
 
 class FragmentScanOptions(lib._Weakrefable):
-
     @property
     def type_name(self) -> str: ...
 
@@ -387,7 +383,6 @@ class FeatherFileFormat(IpcFileFormat):
 
 
 class CsvFileFormat(FileFormat):
-
     def __init__(
         self,
         parse_options: csv.ParseOptions | None = None,
@@ -406,7 +401,6 @@ class CsvFileFormat(FileFormat):
 
 
 class CsvFragmentScanOptions(FragmentScanOptions):
-
     convert_options: csv.ConvertOptions
     read_options: csv.ReadOptions
 
@@ -423,7 +417,6 @@ class CsvFileWriteOptions(FileWriteOptions):
 
 
 class JsonFileFormat(FileFormat):
-
     def __init__(
         self,
         default_fragment_scan_options: JsonFragmentScanOptions | None = None,
@@ -434,7 +427,6 @@ class JsonFileFormat(FileFormat):
 
 
 class JsonFragmentScanOptions(FragmentScanOptions):
-
     parse_options: _json.ParseOptions
     read_options: _json.ReadOptions
 
@@ -469,7 +461,6 @@ class KeyValuePartitioning(Partitioning):
 
 
 class DirectoryPartitioning(KeyValuePartitioning):
-
     @staticmethod
     def discover(
         field_names: list[str] | None = None,
@@ -488,7 +479,6 @@ class DirectoryPartitioning(KeyValuePartitioning):
 
 
 class HivePartitioning(KeyValuePartitioning):
-
     def __init__(
         self,
         schema: lib.Schema,
@@ -508,7 +498,6 @@ class HivePartitioning(KeyValuePartitioning):
 
 
 class FilenamePartitioning(KeyValuePartitioning):
-
     def __init__(
         self,
         schema: lib.Schema,
@@ -526,7 +515,6 @@ class FilenamePartitioning(KeyValuePartitioning):
 
 
 class DatasetFactory(lib._Weakrefable):
-
     root_partition: Expression
     def finish(self, schema: lib.Schema | None = None) -> Dataset: ...
 
@@ -541,7 +529,6 @@ class DatasetFactory(lib._Weakrefable):
 
 
 class FileSystemFactoryOptions(lib._Weakrefable):
-
     partitioning: Partitioning
     partitioning_factory: PartitioningFactory
     partition_base_dir: str
@@ -558,7 +545,6 @@ class FileSystemFactoryOptions(lib._Weakrefable):
 
 
 class FileSystemDatasetFactory(DatasetFactory):
-
     def __init__(
         self,
         filesystem: SupportedFileSystem,
@@ -569,7 +555,6 @@ class FileSystemDatasetFactory(DatasetFactory):
 
 
 class UnionDatasetFactory(DatasetFactory):
-
     def __init__(self, factories: list[DatasetFactory]) -> None: ...
 
 
@@ -577,25 +562,21 @@ _RecordBatchT = TypeVar("_RecordBatchT", bound=lib.RecordBatch)
 
 
 class RecordBatchIterator(lib._Weakrefable, Generic[_RecordBatchT]):
-
     def __iter__(self) -> Self: ...
     def __next__(self) -> _RecordBatchT: ...
 
 
 class TaggedRecordBatch(NamedTuple):
-
     record_batch: lib.RecordBatch
     fragment: Fragment
 
 
 class TaggedRecordBatchIterator(lib._Weakrefable):
-
     def __iter__(self) -> Self: ...
     def __next__(self) -> TaggedRecordBatch: ...
 
 
 class Scanner(lib._Weakrefable):
-
     @staticmethod
     def from_dataset(
         dataset: Dataset,
@@ -668,7 +649,6 @@ def get_partition_keys(partition_expression: Expression) -> dict[str, Any]: ...
 
 
 class WrittenFile(lib._Weakrefable):
-
     def __init__(self, path: str, metadata: _parquet.FileMetaData |
                  None, size: int) -> None: ...
 
@@ -697,7 +677,6 @@ class _ScanNodeOptions(ExecNodeOptions):
 
 
 class ScanNodeOptions(_ScanNodeOptions):
-
     def __init__(
         self, dataset: Dataset, require_sequenced_output: bool = False, **kwargs
     ) -> None: ...

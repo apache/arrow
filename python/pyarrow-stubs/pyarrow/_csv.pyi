@@ -38,7 +38,6 @@ class ReadOptions(lib._Weakrefable):
 
 @dataclass(kw_only=True)
 class ParseOptions(lib._Weakrefable):
-
     delimiter: str = field(default=",", kw_only=False)  # noqa: Y015
     quote_char: str | Literal[False] = '"'
     double_quote: bool = True
@@ -52,7 +51,6 @@ class ParseOptions(lib._Weakrefable):
 
 @dataclass(kw_only=True)
 class ConvertOptions(lib._Weakrefable):
-
     check_utf8: bool = field(default=True, kw_only=False)  # noqa: Y015
     column_types: lib.Schema | dict | Sequence[tuple[str, lib.DataType]] | None = None
     null_values: list[str] | None = None
@@ -72,7 +70,6 @@ class ConvertOptions(lib._Weakrefable):
 
 @dataclass(kw_only=True)
 class WriteOptions(lib._Weakrefable):
-
     include_header: bool = field(default=True, kw_only=False)  # noqa: Y015
     batch_size: int = 1024
     delimiter: str = ","
@@ -84,7 +81,6 @@ class WriteOptions(lib._Weakrefable):
 
 @dataclass
 class InvalidRow(lib._Weakrefable):
-
     expected_columns: int
     actual_columns: int
     number: int | None
@@ -92,7 +88,6 @@ class InvalidRow(lib._Weakrefable):
 
 
 class CSVWriter(lib._CRecordBatchWriter):
-
     def __init__(
         self,
         # TODO: OutputStream

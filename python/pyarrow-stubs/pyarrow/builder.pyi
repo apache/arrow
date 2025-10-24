@@ -23,7 +23,6 @@ from .array import StringArray, StringViewArray
 
 
 class StringBuilder(_Weakrefable):
-
     def __init__(self, memory_pool: MemoryPool | None = None) -> None: ...
     def append(self, value: str | bytes | float | None): ...
 
@@ -37,7 +36,6 @@ class StringBuilder(_Weakrefable):
 
 
 class StringViewBuilder(_Weakrefable):
-
     def __init__(self, memory_pool: MemoryPool | None = None) -> None: ...
     def append(self, value: str | bytes | float | None): ...
 

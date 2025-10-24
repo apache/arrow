@@ -42,7 +42,6 @@ parquet_encryption_enabled: bool
 
 
 class ParquetFileFormat(FileFormat):
-
     def __init__(
         self,
         read_options: ParquetReadOptions | None = None,
@@ -76,7 +75,6 @@ class _NameStats(TypedDict):
 
 
 class RowGroupInfo:
-
     id: int
     metadata: FileMetaData
     schema: Schema
@@ -91,7 +89,6 @@ class RowGroupInfo:
 
 
 class ParquetFileFragment(FileFragment):
-
     def ensure_complete_metadata(self) -> None: ...
     @property
     def path(self) -> str: ...
@@ -119,7 +116,6 @@ class ParquetFileFragment(FileFragment):
 
 
 class ParquetReadOptions(_Weakrefable):
-
     def __init__(
         self,
         dictionary_columns: list[str] | set[str] | None = None,
@@ -162,7 +158,6 @@ class ParquetFileWriteOptions(FileWriteOptions):
 
 @dataclass(kw_only=True)
 class ParquetFragmentScanOptions(FragmentScanOptions):
-
     use_buffered_stream: bool = False
     buffer_size: int = 8192
     pre_buffer: bool = True
@@ -185,7 +180,6 @@ class ParquetFactoryOptions(_Weakrefable):
 
 
 class ParquetDatasetFactory(DatasetFactory):
-
     def __init__(
         self,
         metadata_path: str,
