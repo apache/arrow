@@ -75,7 +75,7 @@ PandasOptions MakeInnerOptions(PandasOptions options) {
   // Make sure conversion of inner dictionary arrays always returns an array,
   // not a dict {'indices': array, 'dictionary': array, 'ordered': bool}
   options.decode_dictionaries = true;
-  options.categorical_columns.clear();
+  options.categorical_columns.reset();
   options.strings_to_categorical = false;
 
   // In ARROW-7723, we found as a result of ARROW-3789 that second
@@ -2337,7 +2337,7 @@ class ConsolidatedBlockCreator : public PandasBlockCreator {
   }
 
   Status GetBlockType(int column_index, PandasWriter::type* out) {
-    if (options_.extension_columns.count(fields_[column_index]->name())) {
+    if (options_.IsExtensionColumn(fields_[column_index]->name())) {
       *out = PandasWriter::EXTENSION;
       return Status::OK();
     } else {
@@ -2458,7 +2458,7 @@ class SplitBlockCreator : public PandasBlockCreator {
   Status GetWriter(int i, std::shared_ptr<PandasWriter>* writer) {
     PandasWriter::type output_type = PandasWriter::OBJECT;
     const DataType& type = *arrays_[i]->type();
-    if (options_.extension_columns.count(fields_[i]->name())) {
+    if (options_.IsExtensionColumn(fields_[i]->name())) {
       output_type = PandasWriter::EXTENSION;
     } else {
       // Null count needed to determine output type
@@ -2516,10 +2516,10 @@ Status ConvertCategoricals(const PandasOptions& options, ChunkedArrayVector* arr
     return Status::OK();
   };
 
-  if (!options.categorical_columns.empty()) {
+  if (options.HasCategoricalColumns()) {
     for (int i = 0; i < static_cast<int>(arrays->size()); i++) {
       if ((*arrays)[i]->type()->id() != Type::DICTIONARY &&
-          options.categorical_columns.count((*fields)[i]->name())) {
+          options.IsCategoricalColumn((*fields)[i]->name())) {
         columns_to_encode.push_back(i);
       }
     }
@@ -2625,7 +2625,7 @@ Status ConvertTableToPandas(const PandasOptions& options, std::shared_ptr<Table>
 
   PandasOptions modified_options = options;
   modified_options.strings_to_categorical = false;
-  modified_options.categorical_columns.clear();
+  modified_options.categorical_columns.reset();
 
   if (options.split_blocks) {
     modified_options.allow_zero_copy_blocks = true;
