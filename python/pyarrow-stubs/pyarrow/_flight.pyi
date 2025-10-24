@@ -106,7 +106,8 @@ class FlightWriteSizeExceededError(ArrowInvalid):
 
 class Action(_Weakrefable):
 
-    def __init__(self, action_type: bytes | str, buf: Buffer | bytes | None) -> None: ...
+    def __init__(
+        self, action_type: bytes | str, buf: Buffer | bytes | None) -> None: ...
 
     @property
     def type(self) -> str: ...
@@ -330,14 +331,11 @@ class _MetadataRecordBatchReader(_Weakrefable, _ReadPandasMixin):
 
 
 class MetadataRecordBatchReader(_MetadataRecordBatchReader):
-
     @property
     def stats(self) -> ReadStats: ...
-    ...
 
 
 class FlightStreamReader(MetadataRecordBatchReader):
-
     @property
     def stats(self) -> ReadStats: ...
 
@@ -439,18 +437,21 @@ class FlightClient(_Weakrefable):
     ) -> None: ...
 
     def authenticate_basic_token(
-        self, username: str | bytes, password: str | bytes, options: FlightCallOptions | None = None
+        self, username: str | bytes, password: str | bytes,
+        options: FlightCallOptions | None = None
     ) -> tuple[str, str]: ...
 
     def list_actions(self, options: FlightCallOptions |
                      None = None) -> list[Action]: ...
 
     def do_action(
-        self, action: Action | tuple[bytes | str, bytes | str] | str, options: FlightCallOptions | None = None
+        self, action: Action | tuple[bytes | str, bytes | str] | str,
+        options: FlightCallOptions | None = None
     ) -> Iterator[Result]: ...
 
     def list_flights(
-        self, criteria: str | bytes | None = None, options: FlightCallOptions | None = None
+        self, criteria: str | bytes | None = None,
+        options: FlightCallOptions | None = None
     ) -> Generator[FlightInfo, None, None]: ...
 
     def get_flight_info(
@@ -487,17 +488,21 @@ class FlightDataStream(_Weakrefable):
 
 
 class RecordBatchStream(FlightDataStream):
-
     def __init__(self, data_source: RecordBatchReader | Table | None = None,
                  options: IpcWriteOptions | None = None) -> None: ...
 
 
 class GeneratorStream(FlightDataStream):
-
     def __init__(
         self,
         schema: Schema,
-        generator: Iterable[FlightDataStream | Table | RecordBatch | RecordBatchReader | tuple[RecordBatch, bytes]],
+        generator: Iterable[
+            FlightDataStream
+            | Table
+            | RecordBatch
+            | RecordBatchReader
+            | tuple[RecordBatch, bytes]
+        ],
         options: IpcWriteOptions | None = None,
     ) -> None: ...
 
@@ -674,7 +679,8 @@ class FlightServerBase(_Weakrefable):
     def wait(self) -> None: ...
 
     def __enter__(self) -> Self: ...
-    def __exit__(self, exc_type: object, exc_value: object, traceback: object) -> None: ...
+    def __exit__(
+        self, exc_type: object, exc_value: object, traceback: object) -> None: ...
 
 
 def connect(

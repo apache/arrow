@@ -515,16 +515,20 @@ def unregister_extension_type(type_name: str) -> None: ...
 
 class KeyValueMetadata(_Metadata, Mapping[bytes, bytes]):
 
-    def __init__(self, __arg0__: Mapping[str | bytes, str | bytes] | Iterable[tuple[str, str]] | KeyValueMetadata
-                 | None = None, **kwargs: str) -> None: ...
+    def __init__(
+        self, __arg0__: Mapping[str | bytes, str | bytes]
+        | Iterable[tuple[str, str]]
+        | KeyValueMetadata
+        | None = None, **kwargs: str
+    ) -> None: ...
 
     def equals(self, other: KeyValueMetadata) -> bool: ...
 
     def __len__(self) -> int: ...
 
-    def __contains__(self, __key: object) -> bool: ...  # type: ignore[override]
+    def __contains__(self, /, __key: object) -> bool: ...  # type: ignore[override]
 
-    def __getitem__(self, __key: Any) -> Any: ...  # type: ignore[override]
+    def __getitem__(self, /, __key: Any) -> Any: ...  # type: ignore[override]
 
     def __iter__(self) -> Iterator[bytes]: ...
 
@@ -658,8 +662,11 @@ def unify_schemas(
 ) -> Schema: ...
 
 
-def field(name: SupportArrowSchema | str | Any, type: _DataTypeT | str | None = None, nullable: bool = ...,
-          metadata: dict[Any, Any] | None = None) -> Field[_DataTypeT] | Field[Any]: ...
+def field(
+    name: SupportArrowSchema | str | Any, type: _DataTypeT | str | None = None,
+    nullable: bool = ...,
+    metadata: dict[Any, Any] | None = None
+) -> Field[_DataTypeT] | Field[Any]: ...
 
 
 def null() -> NullType: ...
@@ -692,7 +699,8 @@ def int64() -> Int64Type: ...
 def uint64() -> UInt64Type: ...
 
 
-def timestamp(unit: _Unit | str, tz: _Tz | None = None) -> TimestampType[_Unit, _Tz]: ...
+def timestamp(
+    unit: _Unit | str, tz: _Tz | None = None) -> TimestampType[_Unit, _Tz]: ...
 
 
 def time32(unit: _Time32Unit | str) -> Time32Type[_Time32Unit]: ...
@@ -789,13 +797,18 @@ def map_(
 
 
 def dictionary(
-    index_type: _IndexT | str, value_type: _BasicValueT | str, ordered: _Ordered | None = None
+    index_type: _IndexT | str,
+    value_type: _BasicValueT | str,
+    ordered: _Ordered | None = None
 ) -> DictionaryType[_IndexT, _BasicValueT, _Ordered]: ...
 
 
 def struct(
-    fields: Iterable[Field[Any] | tuple[str, Field[Any] | None] | tuple[str, DataType | None]]
-    | Mapping[str, Field[Any] | DataType | None],
+    fields: Iterable[
+        Field[Any]
+        | tuple[str, Field[Any] | None]
+        | tuple[str, DataType | None]
+    ] | Mapping[str, Field[Any] | DataType | None],
 ) -> StructType: ...
 
 
@@ -809,9 +822,9 @@ def dense_union(
 ) -> DenseUnionType: ...
 
 
-def union(child_fields: list[Field[Any]],
-          mode: Literal["sparse"] | Literal["dense"] | int | str,  # noqa: Y030
-          type_codes: list[int] | None = None) -> SparseUnionType | DenseUnionType: ...
+def union(
+    child_fields: list[Field[Any]], mode: Literal["sparse" | "dense"] | int | str,
+    type_codes: list[int] | None = None) -> SparseUnionType | DenseUnionType: ...
 
 
 def run_end_encoded(
@@ -848,7 +861,10 @@ def schema(
         | Iterable[tuple[str, DataType | str | None]]
         | Mapping[Any, DataType | str | None]
     ),
-    metadata: Mapping[bytes, bytes] | Mapping[str, str] | Mapping[bytes, str] | Mapping[str, bytes] | None = None,
+    metadata: Mapping[bytes, bytes]
+    | Mapping[str, str]
+    | Mapping[bytes, str]
+    | Mapping[str, bytes] | None = None,
 ) -> Schema: ...
 
 
