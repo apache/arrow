@@ -33,7 +33,7 @@ if sys.version_info >= (3, 10):
 else:
     from typing_extensions import TypeAlias
 
-from typing import Any, Literal, SupportsIndex, overload
+from typing import Any, Literal, SupportsIndex
 import builtins
 
 from pyarrow._stubs_typing import Compression, SupportPyBuffer
@@ -128,7 +128,7 @@ class PythonFile(NativeFile):
 class MemoryMappedFile(NativeFile):
 
     @classmethod
-    def create(cls, path: str, size: int | float) -> Self: ...
+    def create(cls, path: str, size: float) -> Self: ...
 
     def _open(self, path: str,
               mode: Literal["r", "rb", "w", "wb", "r+", "r+b", "rb+"] = "r"): ...
@@ -396,14 +396,16 @@ def decompress(
 
 def input_stream(
     source: StrPath | Buffer | NativeFile | IOBase | SupportPyBuffer,
-    compression: Literal["detect", "bz2", "brotli", "gzip", "lz4", "zstd"] | str | None = "detect",
+    compression:
+    Literal["detect", "bz2", "brotli", "gzip", "lz4", "zstd"] | None = "detect",
     buffer_size: int | str | None = None,
 ) -> BufferReader: ...
 
 
 def output_stream(
     source: StrPath | Buffer | NativeFile | IOBase | SupportPyBuffer,
-    compression: Literal["detect", "bz2", "brotli", "gzip", "lz4", "zstd"] | str | None = "detect",
+    compression:
+    Literal["detect", "bz2", "brotli", "gzip", "lz4", "zstd"] | None = "detect",
     buffer_size: int | None = None,
 ) -> NativeFile: ...
 
