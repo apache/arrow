@@ -22,7 +22,6 @@ from .lib import KeyValueMetadata
 
 
 class GcsFileSystem(FileSystem):
-
     def __init__(
         self,
         *,

@@ -31,7 +31,6 @@ from .lib import KeyValueMetadata, NativeFile, RecordBatch, Schema, Table
 
 
 class ORCFile:
-
     reader: _orc.ORCReader
     def __init__(self, source: StrPath | NativeFile | IO) -> None: ...
     @property
@@ -94,7 +93,6 @@ class ORCFile:
 
 
 class ORCWriter:
-
     writer: _orc.ORCWriter
     is_open: bool
 

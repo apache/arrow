@@ -44,7 +44,6 @@ class FileType(enum.IntFlag):
 
 
 class FileInfo(_Weakrefable):
-
     def __init__(
         self,
         path: str,
@@ -82,7 +81,6 @@ class FileInfo(_Weakrefable):
 
 
 class FileSelector(_Weakrefable):
-
     base_dir: str
     allow_not_found: bool
     recursive: bool
@@ -91,7 +89,6 @@ class FileSelector(_Weakrefable):
 
 
 class FileSystem(_Weakrefable):
-
     @classmethod
     def from_uri(cls, uri: str | StrPath) -> tuple[Self, str]: ...
 
@@ -146,12 +143,10 @@ class FileSystem(_Weakrefable):
 
 
 class LocalFileSystem(FileSystem):
-
     def __init__(self, *, use_mmap: bool = False) -> None: ...
 
 
 class SubTreeFileSystem(FileSystem):
-
     def __init__(self, base_path: str, base_fs: FileSystem): ...
     @property
     def base_path(self) -> str: ...
@@ -164,14 +159,12 @@ class _MockFileSystem(FileSystem):
 
 
 class PyFileSystem(FileSystem):
-
     def __init__(self, handler: FileSystemHandler | None) -> None: ...
     @property
     def handler(self) -> FileSystemHandler: ...
 
 
 class FileSystemHandler(ABC):
-
     @abstractmethod
     def get_type_name(self) -> str: ...
 

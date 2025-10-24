@@ -21,7 +21,6 @@ from ._fs import FileSystem
 
 
 class HadoopFileSystem(FileSystem):
-
     def __init__(
         self,
         host: str | None = None,
