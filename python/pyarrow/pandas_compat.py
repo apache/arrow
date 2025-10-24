@@ -1094,7 +1094,7 @@ def _is_generated_index_name(name):
 
 
 def get_pandas_logical_type_map():
-    global _pandas_logical_type_map
+    global _pandas_logical_type_map  # noqa: F824
 
     if not _pandas_logical_type_map:
         _pandas_logical_type_map.update({  # type: ignore[reportCallIssue]

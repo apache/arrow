@@ -23,15 +23,7 @@ import pandas as pd
 from pyarrow import lib
 from pyarrow.lib import Table
 from pyarrow._typing import StrPath
-
-__all__ = [
-    "FeatherError",
-    "FeatherDataset",
-    "check_chunked_overflow",
-    "write_feather",
-    "read_feather",
-    "read_table",
-]
+from ._feather import FeatherError
 
 
 class FeatherDataset:
@@ -58,7 +50,7 @@ def write_feather(
     compression: Literal["zstd", "lz4", "uncompressed", "snappy"] | None = None,
     compression_level: int | None = None,
     chunksize: int | None = None,
-    version: Literal[1, 2] | int = 2,
+    version: Literal[1, 2] = 2,
 ) -> None: ...
 
 
@@ -77,3 +69,13 @@ def read_table(
     memory_map: bool = False,
     use_threads: bool = True,
 ) -> Table: ...
+
+
+__all__ = [
+    "FeatherError",
+    "FeatherDataset",
+    "check_chunked_overflow",
+    "write_feather",
+    "read_feather",
+    "read_table",
+]

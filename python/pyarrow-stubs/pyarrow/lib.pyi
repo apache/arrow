@@ -31,6 +31,9 @@ from .scalar import *  # noqa: F401, F403
 from .table import *  # noqa: F401, F403
 from .tensor import *  # noqa: F401, F403
 from ._types import *  # noqa: F401, F403
+from .memory import MemoryPool
+from .array import Array
+from ._types import DataType
 
 
 class MonthDayNano(NamedTuple):

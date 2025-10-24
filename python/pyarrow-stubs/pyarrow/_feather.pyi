@@ -15,7 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
-from typing import IO, Sequence
+from typing import IO
+from collections.abc import Sequence
 
 from _typeshed import StrPath
 
