@@ -414,6 +414,109 @@ TEST_F(S3OptionsTest, FromAssumeRole) {
   options = S3Options::FromAssumeRole("my_role_arn", "session", "id", 42, sts_client);
 }
 
+TEST_F(S3OptionsTest, RetryStrategyEquals) {
+  // Test DefaultRetryStrategy equality
+  auto default_strategy1 = S3RetryStrategy::GetAwsDefaultRetryStrategy(3);
+  auto default_strategy2 = S3RetryStrategy::GetAwsDefaultRetryStrategy(3);
+  auto default_strategy3 = S3RetryStrategy::GetAwsDefaultRetryStrategy(5);
+
+  ASSERT_TRUE(default_strategy1->Equals(*default_strategy2));
+  ASSERT_FALSE(default_strategy1->Equals(*default_strategy3));
+
+  // Test StandardRetryStrategy equality
+  auto standard_strategy1 = S3RetryStrategy::GetAwsStandardRetryStrategy(3);
+  auto standard_strategy2 = S3RetryStrategy::GetAwsStandardRetryStrategy(3);
+  auto standard_strategy3 = S3RetryStrategy::GetAwsStandardRetryStrategy(5);
+
+  ASSERT_TRUE(standard_strategy1->Equals(*standard_strategy2));
+  ASSERT_FALSE(standard_strategy1->Equals(*standard_strategy3));
+
+  // Test different strategy types
+  ASSERT_FALSE(default_strategy1->Equals(*standard_strategy1));
+  ASSERT_FALSE(standard_strategy1->Equals(*default_strategy1));
+}
+
+TEST_F(S3OptionsTest, RetryStrategyInS3Options) {
+  // Test S3Options with null retry strategy
+  S3Options options_null = S3Options::Defaults();
+  ASSERT_EQ(options_null.retry_strategy, nullptr);
+
+  // Test S3Options with DefaultRetryStrategy - different max_attempts
+  S3Options options_default_3 = S3Options::Defaults();
+  options_default_3.retry_strategy = S3RetryStrategy::GetAwsDefaultRetryStrategy(3);
+  ASSERT_NE(options_default_3.retry_strategy, nullptr);
+
+  S3Options options_default_5 = S3Options::Defaults();
+  options_default_5.retry_strategy = S3RetryStrategy::GetAwsDefaultRetryStrategy(5);
+  ASSERT_NE(options_default_5.retry_strategy, nullptr);
+
+  // Test S3Options with StandardRetryStrategy - different max_attempts
+  S3Options options_standard_3 = S3Options::Defaults();
+  options_standard_3.retry_strategy = S3RetryStrategy::GetAwsStandardRetryStrategy(3);
+  ASSERT_NE(options_standard_3.retry_strategy, nullptr);
+
+  S3Options options_standard_5 = S3Options::Defaults();
+  options_standard_5.retry_strategy = S3RetryStrategy::GetAwsStandardRetryStrategy(5);
+  ASSERT_NE(options_standard_5.retry_strategy, nullptr);
+
+  // Test equality: same strategy type and max_attempts should be equal
+  S3Options options_default_3_copy = S3Options::Defaults();
+  options_default_3_copy.retry_strategy = S3RetryStrategy::GetAwsDefaultRetryStrategy(3);
+  ASSERT_TRUE(options_default_3.Equals(options_default_3_copy));
+
+  S3Options options_standard_5_copy = S3Options::Defaults();
+  options_standard_5_copy.retry_strategy =
+      S3RetryStrategy::GetAwsStandardRetryStrategy(5);
+  ASSERT_TRUE(options_standard_5.Equals(options_standard_5_copy));
+
+  // Test inequality: different max_attempts should not be equal
+  ASSERT_FALSE(options_default_3.Equals(options_default_5));
+  ASSERT_FALSE(options_standard_3.Equals(options_standard_5));
+
+  // Test inequality: different strategy types should not be equal
+  ASSERT_FALSE(options_default_3.Equals(options_standard_3));
+  ASSERT_FALSE(options_standard_5.Equals(options_default_5));
+
+  // Test inequality: null vs non-null retry strategy should not be equal
+  ASSERT_FALSE(options_null.Equals(options_default_3));
+  ASSERT_FALSE(options_default_3.Equals(options_null));
+}
+
+TEST_F(S3OptionsTest, RetryStrategyInS3FileSystem) {
+  // Test S3FileSystem with null retry strategy
+  S3Options options_null = S3Options::Defaults();
+  ASSERT_OK_AND_ASSIGN(auto fs_null, S3FileSystem::Make(options_null));
+  ASSERT_EQ(fs_null->options().retry_strategy, nullptr);
+
+  // Test S3FileSystem with DefaultRetryStrategy
+  S3Options options_default = S3Options::Defaults();
+  options_default.retry_strategy = S3RetryStrategy::GetAwsDefaultRetryStrategy(3);
+  ASSERT_OK_AND_ASSIGN(auto fs_default, S3FileSystem::Make(options_default));
+  ASSERT_NE(fs_default->options().retry_strategy, nullptr);
+  ASSERT_TRUE(
+      fs_default->options().retry_strategy->Equals(*options_default.retry_strategy));
+
+  // Test that same default strategy but different max_attempts create different file
+  // systems
+  S3Options options_default_5 = S3Options::Defaults();
+  options_default_5.retry_strategy = S3RetryStrategy::GetAwsDefaultRetryStrategy(5);
+  ASSERT_OK_AND_ASSIGN(auto fs_default_5, S3FileSystem::Make(options_default_5));
+  ASSERT_FALSE(fs_default->Equals(*fs_default_5));
+
+  // Test S3FileSystem with StandardRetryStrategy
+  S3Options options_standard = S3Options::Defaults();
+  options_standard.retry_strategy = S3RetryStrategy::GetAwsStandardRetryStrategy(5);
+  ASSERT_OK_AND_ASSIGN(auto fs_standard, S3FileSystem::Make(options_standard));
+  ASSERT_NE(fs_standard->options().retry_strategy, nullptr);
+  ASSERT_TRUE(
+      fs_standard->options().retry_strategy->Equals(*options_standard.retry_strategy));
+
+  // Test that different retry strategies create different file systems
+  ASSERT_FALSE(fs_null->Equals(*fs_default));
+  ASSERT_FALSE(fs_default->Equals(*fs_standard));
+  ASSERT_FALSE(fs_null->Equals(*fs_standard));
+}
+
 ////////////////////////////////////////////////////////////////////////////
 // Region resolution test
 
