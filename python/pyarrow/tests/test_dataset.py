@@ -399,9 +399,9 @@ def test_filesystem_dataset(mockfs):
         ds.FileSystemDataset(fragments, file_format, schema)  # type: ignore[arg-type]
     # validation of root_partition
     with pytest.raises(TypeError, match="incorrect type"):
-        ds.FileSystemDataset(fragments, schema=schema,
-                             # type: ignore[arg-type]
-                             format=file_format, root_partition=1)
+        ds.FileSystemDataset(
+            fragments, schema=schema, format=file_format,
+            root_partition=1)  # type: ignore[arg-type]
     # missing required argument in from_paths
     with pytest.raises(TypeError, match="incorrect type"):
         ds.FileSystemDataset.from_paths(
@@ -823,8 +823,8 @@ def test_partitioning():
         load_back = None
         with pytest.raises(ValueError,
                            match="Expected Partitioning or PartitioningFactory"):
-            # type: ignore[arg-type]
-            load_back = ds.dataset(tempdir, format='ipc', partitioning=int(0))
+            load_back = ds.dataset(
+                tempdir, format='ipc', partitioning=int(0))  # type: ignore[arg-type]
         assert load_back is None
 
 
@@ -2595,8 +2595,8 @@ def test_construct_from_mixed_child_datasets(mockfs):
 
     assert len(dataset.children) == 2
     for child in dataset.children:
-        assert child.files == ['subdir/1/xxx/file0.parquet',  # type: ignore[attr-defined]
-                               'subdir/2/yyy/file1.parquet']
+        assert child.files == [  # type: ignore[attr-defined]
+            'subdir/1/xxx/file0.parquet', 'subdir/2/yyy/file1.parquet']
 
 
 def test_construct_empty_dataset():

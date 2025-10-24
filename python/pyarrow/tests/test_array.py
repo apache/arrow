@@ -669,8 +669,9 @@ def test_array_from_buffers():
     assert arr.to_pylist() == [None, 6, 7]
 
     with pytest.raises(TypeError):
-        # type: ignore[reportArgumentType]
-        pa.Array.from_buffers(pa.int16(), 3, ['', ''], offset=1)
+        pa.Array.from_buffers(
+            pa.int16(), 3, ['', ''], offset=1  # type: ignore[reportArgumentType]
+        )
 
 
 def test_string_binary_from_buffers():
@@ -864,8 +865,8 @@ def test_struct_array_from_chunked():
     chunked_arr = pa.chunked_array([[1, 2, 3], [4, 5, 6]])
 
     with pytest.raises(TypeError, match="Expected Array"):
-        # type: ignore[reportArgumentType]
-        pa.StructArray.from_arrays([chunked_arr], ["foo"])
+        pa.StructArray.from_arrays(
+            [chunked_arr], ["foo"])  # type: ignore[reportArgumentType]
 
 
 @pytest.mark.parametrize("offset", (0, 1))

@@ -41,9 +41,11 @@ if TYPE_CHECKING:
 else:
     try:
         import pyarrow.parquet as pq
-        from pyarrow.tests.parquet.common import (_read_table, _test_dataframe,
-                                                  _write_table, _roundtrip_pandas_dataframe,
-                                                  alltypes_sample)
+        from pyarrow.tests.parquet.common import (
+            _read_table, _test_dataframe, _write_table, alltypes_sample,
+            _roundtrip_pandas_dataframe
+        )
+
     except ImportError:
         pass
     try:

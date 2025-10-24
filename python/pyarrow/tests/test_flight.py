@@ -690,7 +690,8 @@ class ClientHeaderAuthMiddleware(ClientMiddleware):
         if auth_header:
             self.factory.set_call_credential([
                 b'authorization',
-                auth_header[0].encode("utf-8") if isinstance(auth_header[0], str) else auth_header[0]])
+                auth_header[0].encode("utf-8") if isinstance(auth_header[0], str)
+                else auth_header[0]])
 
 
 class HeaderAuthServerMiddlewareFactory(ServerMiddlewareFactory):

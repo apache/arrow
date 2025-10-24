@@ -36,8 +36,8 @@ except ImportError:
     pass
 
 try:
-    import pyarrow.dataset as ds  # type: ignore[import-not-found]
-    from pyarrow._dataset import ScanNodeOptions  # type: ignore[import-not-found]
+    import pyarrow.dataset as ds
+    from pyarrow._dataset import ScanNodeOptions
 except ImportError:
     ds = None  # type: ignore[assignment]
     ScanNodeOptions = None  # type: ignore[assignment, misc]
@@ -54,7 +54,6 @@ def table_source():
 
 
 def test_declaration():
-
     table = pa.table({'a': [1, 2, 3], 'b': [4, 5, 6]})
     table_opts = TableSourceNodeOptions(table)
     filter_opts = FilterNodeOptions(field('a') > 1)
@@ -93,7 +92,7 @@ def test_table_source():
         TableSourceNodeOptions(pa.record_batch(
             [pa.array([1, 2, 3])], ["a"]))  # type: ignore[arg-type]
 
-    table_source = TableSourceNodeOptions(None)  # type: ignore[arg-type]
+    table_source = TableSourceNodeOptions(None)
     decl = Declaration("table_source", table_source)
     with pytest.raises(
         ValueError, match="TableSourceNode requires table which is not null"
@@ -299,8 +298,9 @@ def test_order_by():
         _ = OrderByNodeOptions([("b", "decreasing")])  # type: ignore[arg-type]
 
     with pytest.raises(ValueError, match="\"start\" is not a valid null placement"):
-        # type: ignore[arg-type]
-        _ = OrderByNodeOptions([("b", "ascending")], null_placement="start")
+        _ = OrderByNodeOptions(
+            [("b", "ascending")], null_placement="start"  # type: ignore[arg-type]
+        )
 
 
 def test_hash_join():
@@ -385,8 +385,9 @@ def test_hash_join_with_residual_filter():
     # test filter expression referencing columns from both side
     join_opts = HashJoinNodeOptions(
         "left outer", left_keys="key", right_keys="key",
-        filter_expression=pc.equal(pc.field("a"), 5) | pc.equal(
-            pc.field("b"), 10)  # type: ignore[operator]
+        filter_expression=(
+            pc.equal(pc.field("a"), 5)
+            | pc.equal(pc.field("b"), 10))  # type: ignore[arg-type]
     )
     joined = Declaration(
         "hashjoin", options=join_opts, inputs=[left_source, right_source])
@@ -466,12 +467,12 @@ def test_asof_join():
 
 @pytest.mark.dataset
 def test_scan(tempdir):
+    assert ds is not None
+    assert ScanNodeOptions is not None
     table = pa.table({'a': [1, 2, 3], 'b': [4, 5, 6]})
-    # type: ignore[union-attr]
     ds.write_dataset(table, tempdir / "dataset", format="parquet")
-    # type: ignore[union-attr]
     dataset = ds.dataset(tempdir / "dataset", format="parquet")
-    decl = Declaration("scan", ScanNodeOptions(dataset))  # type: ignore[call-overload]
+    decl = Declaration("scan", ScanNodeOptions(dataset))
     result = decl.to_table()
     assert result.schema.names == [
         "a", "b", "__fragment_index", "__batch_index",
@@ -481,21 +482,17 @@ def test_scan(tempdir):
 
     # using a filter only does pushdown (depending on file format), not actual filter
 
-    scan_opts = ScanNodeOptions(dataset, filter=field('a') >
-                                1)  # type: ignore[operator]
+    scan_opts = ScanNodeOptions(dataset, filter=field('a') > 1)
     decl = Declaration("scan", scan_opts)
     # fragment not filtered based on min/max statistics
-    assert decl.to_table().num_rows == 3  # type: ignore[union-attr]
+    assert decl.to_table().num_rows == 3
 
-    scan_opts = ScanNodeOptions(dataset, filter=field('a') >
-                                4)  # type: ignore[operator]
+    scan_opts = ScanNodeOptions(dataset, filter=field('a') > 4)
     decl = Declaration("scan", scan_opts)
     # full fragment filtered based on min/max statistics
-    assert decl.to_table().num_rows == 0  # type: ignore[union-attr]
+    assert decl.to_table().num_rows == 0
 
     # projection scan option
-
-    # type: ignore[call-overload]
     scan_opts = ScanNodeOptions(dataset, columns={"a2": pc.multiply(field("a"), 2)})
     decl = Declaration("scan", scan_opts)
     result = decl.to_table()

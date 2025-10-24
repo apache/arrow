@@ -70,8 +70,8 @@ _orc_msg = (
 )
 
 try:
-    # type: ignore[reportMissingModuleSource]
-    from pyarrow._dataset_orc import OrcFileFormat
+    from pyarrow._dataset_orc import (  # type: ignore[import-not-found]
+        OrcFileFormat)
     _orc_available = True
 except ImportError:
     pass
@@ -1038,6 +1038,7 @@ Table/RecordBatch, or iterable of RecordBatch
     _filesystemdataset_write(
         scanner, base_dir, basename_template, filesystem, partitioning,
         preserve_order, file_options, max_partitions, file_visitor,
-        existing_data_behavior, max_open_files, max_rows_per_file,
-        min_rows_per_group, max_rows_per_group, create_dir
+        existing_data_behavior,  # type: ignore[reportArgumentType]
+        max_open_files, max_rows_per_file, min_rows_per_group,
+        max_rows_per_group, create_dir
     )
