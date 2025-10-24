@@ -18,10 +18,15 @@
 #pragma once
 
 #include <chrono>
+#include <cstdlib>
 #include <memory>
+#include <optional>
+#include <type_traits>
 #include <utility>
 
 #include "arrow/type_fwd.h"
+#include "arrow/util/int_util_overflow.h"
+#include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -66,17 +71,26 @@ VisitDuration(TimeUnit::type unit, Visitor&& visitor, Args&&... args) {
   return visitor(std::chrono::seconds{}, std::forward<Args>(args)...);
 }
 
-/// Convert a count of seconds to the corresponding count in a different TimeUnit
-struct CastSecondsToUnitImpl {
-  template <typename Duration>
-  int64_t operator()(Duration, int64_t seconds) {
-    auto duration = std::chrono::duration_cast<Duration>(std::chrono::seconds{seconds});
-    return static_cast<int64_t>(duration.count());
-  }
-};
+inline std::optional<int64_t> CastSecondsToUnit(TimeUnit::type unit, int64_t seconds) {
+  auto cast_seconds_to_unit = [](auto duration,
+                                 int64_t seconds) -> std::optional<int64_t> {
+    constexpr auto kMultiplier = static_cast<int64_t>(decltype(duration)::period::den);
+    int64_t out;
+    if (ARROW_PREDICT_FALSE(
+            ::arrow::internal::MultiplyWithOverflow(seconds, kMultiplier, &out))) {
+      return {};
+    }
+    return out;
+  };
+  return VisitDuration(unit, cast_seconds_to_unit, seconds);
+}
 
-inline int64_t CastSecondsToUnit(TimeUnit::type unit, int64_t seconds) {
-  return VisitDuration(unit, CastSecondsToUnitImpl{}, seconds);
+inline bool CastSecondsToUnit(TimeUnit::type unit, int64_t seconds, int64_t* out) {
+  auto maybe_value = CastSecondsToUnit(unit, seconds);
+  if (ARROW_PREDICT_TRUE(maybe_value.has_value())) {
+    *out = *maybe_value;
+  }
+  return maybe_value.has_value();
 }
 
 }  // namespace util
