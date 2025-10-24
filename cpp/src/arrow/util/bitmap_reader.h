@@ -136,7 +136,7 @@ class BitmapUInt64Reader {
     memcpy(&word, bitmap_, num_bytes);
     bitmap_ += num_bytes;
     return (bit_util::ToLittleEndian(word) >> bit_offset) &
-           bit_util::LeastSignificantBitMask(num_bits);
+           bit_util::LeastSignificantBitMask<uint64_t>(num_bits);
   }
 
   const uint8_t* bitmap_;
