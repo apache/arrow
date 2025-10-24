@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <tuple>
 #include "arrow/testing/gtest_util.h"
 #include "benchmark/benchmark.h"
 
@@ -82,10 +83,9 @@ static void ParquetScanToTableCastStrings(benchmark::State& state) {
 }
 
 static void ParquetScanBenchmark_Customize(benchmark::internal::Benchmark* b) {
-  for (const int32_t num_batches : {1000}) {
-    for (const int batch_size : {10, 100, 1000}) {
-      b->Args({num_batches, batch_size});
-    }
+  auto params = {std::make_tuple(1000, 1000), std::make_tuple(10000, 100), std::make_tuple(100000, 10)};
+  for (auto param : params) {
+    b->Args({std::get<0>(param), std::get<1>(param)});
   }
   b->ArgNames({"num_batches", "batch_size"});
 }
