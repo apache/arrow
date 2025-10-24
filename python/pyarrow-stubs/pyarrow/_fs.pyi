@@ -20,7 +20,6 @@ import enum
 import sys
 
 from abc import ABC, abstractmethod
-from typing import overload
 from _typeshed import StrPath
 
 if sys.version_info >= (3, 11):
@@ -101,7 +100,9 @@ class FileSystem(_Weakrefable):
     @property
     def type_name(self) -> str: ...
 
-    def get_file_info(self, paths_or_selector: str | list[str] | FileSelector) -> list[FileInfo] | FileInfo: ...
+    def get_file_info(
+        self, paths_or_selector: str | list[str] | FileSelector
+    ) -> list[FileInfo] | FileInfo: ...
 
     def create_dir(self, path: str, *, recursive: bool = True) -> None: ...
 

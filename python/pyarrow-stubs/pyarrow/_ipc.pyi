@@ -160,7 +160,8 @@ class _RecordBatchStreamWriter(_CRecordBatchWriter):
     @property
     def _use_legacy_format(self) -> bool: ...
     @property
-    def _metadata_version(self) -> MetadataVersion: ...  # noqa: Y011
+    def _metadata_version(self) -> MetadataVersion: ...
+
     def _open(
         self,
         sink,
@@ -264,6 +265,7 @@ class _RecordBatchFileReader(_Weakrefable):
         options: IpcReadOptions | None = None,
         memory_pool: MemoryPool | None = None,
     ) -> Self: ...
+
 
 def get_tensor_size(tensor: Tensor) -> int: ...
 

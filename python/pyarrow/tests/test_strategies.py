@@ -25,7 +25,7 @@ import pyarrow.tests.strategies as past
 
 @h.given(past.all_types)
 def test_types(ty):
-    assert isinstance(ty, pa.lib.DataType)
+    assert isinstance(ty, pa.DataType)
 
 
 @h.given(past.all_fields)
@@ -41,7 +41,7 @@ def test_schemas(schema):
 @pytest.mark.numpy
 @h.given(past.all_arrays)
 def test_arrays(array):
-    assert isinstance(array, pa.lib.Array)
+    assert isinstance(array, pa.Array)
 
 
 @pytest.mark.numpy

@@ -329,9 +329,11 @@ def test_function_attributes():
 def test_input_type_conversion():
     # Automatic array conversion from Python
     arr = pc.add([1, 2], [4, None])
+    assert isinstance(arr, pa.Array)
     assert arr.to_pylist() == [5, None]
     # Automatic scalar conversion from Python
     arr = pc.add([1, 2], 4)
+    assert isinstance(arr, pa.Array)
     assert arr.to_pylist() == [5, 6]
     # Other scalar type
     assert pc.equal(["foo", "bar", None],
@@ -3175,6 +3177,7 @@ def test_cumulative_sum(start, skip_nulls):
             # Add `start` offset to expected array before comparing
             expected = pc.add(expected_arrays[i], strt if strt is not None
                               else 0)
+            assert isinstance(expected, pa.Array)
             np.testing.assert_array_almost_equal(result.to_numpy(
                 zero_copy_only=False), expected.to_numpy(zero_copy_only=False))
 
@@ -3230,6 +3233,7 @@ def test_cumulative_prod(start, skip_nulls):
             # Multiply `start` offset to expected array before comparing
             expected = pc.multiply(expected_arrays[i], strt if strt is not None
                                    else 1)
+            assert isinstance(expected, pa.Array)
             np.testing.assert_array_almost_equal(result.to_numpy(
                 zero_copy_only=False), expected.to_numpy(zero_copy_only=False))
 

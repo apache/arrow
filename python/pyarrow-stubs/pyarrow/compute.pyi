@@ -16,7 +16,7 @@
 # under the License.
 
 from collections.abc import Callable, Iterable, Sequence, Mapping
-from typing import Literal, TypeAlias, TypeVar, overload, Any, ParamSpec
+from typing import Literal, TypeAlias, TypeVar, Any, ParamSpec
 
 import numpy as np
 
@@ -25,20 +25,22 @@ from pyarrow._compute import ArraySortOptions as ArraySortOptions
 from pyarrow._compute import AssumeTimezoneOptions as AssumeTimezoneOptions
 from pyarrow._compute import CastOptions as CastOptions
 from pyarrow._compute import CountOptions as CountOptions
-from pyarrow._compute import CumulativeOptions as CumulativeOptions
+from pyarrow._compute import CumulativeOptions as CumulativeOptions  # noqa: F401
 from pyarrow._compute import CumulativeSumOptions as CumulativeSumOptions
 from pyarrow._compute import DayOfWeekOptions as DayOfWeekOptions
-from pyarrow._compute import DictionaryEncodeOptions as DictionaryEncodeOptions
+from pyarrow._compute import (  # noqa: F401
+    DictionaryEncodeOptions as DictionaryEncodeOptions)
 from pyarrow._compute import ElementWiseAggregateOptions as ElementWiseAggregateOptions
 
 # Expressions
 from pyarrow._compute import Expression as Expression
 from pyarrow._compute import ExtractRegexOptions as ExtractRegexOptions
-from pyarrow._compute import ExtractRegexSpanOptions as ExtractRegexSpanOptions
+from pyarrow._compute import (  # noqa: F401
+    ExtractRegexSpanOptions as ExtractRegexSpanOptions)
 from pyarrow._compute import FilterOptions as FilterOptions
 from pyarrow._compute import FunctionOptions as FunctionOptions  # noqa: F401
-from pyarrow._compute import IndexOptions as IndexOptions
-from pyarrow._compute import JoinOptions as JoinOptions
+from pyarrow._compute import IndexOptions as IndexOptions  # noqa: F401
+from pyarrow._compute import JoinOptions as JoinOptions  # noqa: F401
 from pyarrow._compute import ListFlattenOptions as ListFlattenOptions
 from pyarrow._compute import ListSliceOptions as ListSliceOptions
 from pyarrow._compute import MakeStructOptions as MakeStructOptions
@@ -68,7 +70,7 @@ from pyarrow._compute import SkewOptions as SkewOptions
 from pyarrow._compute import SliceOptions as SliceOptions
 from pyarrow._compute import SortOptions as SortOptions
 from pyarrow._compute import SplitOptions as SplitOptions
-from pyarrow._compute import SplitPatternOptions as SplitPatternOptions
+from pyarrow._compute import SplitPatternOptions as SplitPatternOptions  # noqa: F401
 from pyarrow._compute import StrftimeOptions as StrftimeOptions
 from pyarrow._compute import StrptimeOptions as StrptimeOptions
 from pyarrow._compute import StructFieldOptions as StructFieldOptions
@@ -82,30 +84,34 @@ from pyarrow._compute import WinsorizeOptions as WinsorizeOptions
 from pyarrow._compute import ZeroFillOptions as ZeroFillOptions
 
 # Functions
-from pyarrow._compute import call_function as call_function
-from pyarrow._compute import call_tabular_function as call_tabular_function
-from pyarrow._compute import get_function as get_function
-from pyarrow._compute import list_functions as list_functions
-from pyarrow._compute import register_scalar_function as register_scalar_function
-from pyarrow._compute import register_aggregate_function as register_aggregate_function
-from pyarrow._compute import register_vector_function as register_vector_function
-from pyarrow._compute import register_tabular_function as register_tabular_function
-
-from pyarrow._compute import cast as cast
-from pyarrow._compute import take as take
-from pyarrow._compute import sort_indices as sort_indices
+from pyarrow._compute import call_function as call_function  # noqa: F401
+from pyarrow._compute import (  # noqa: F401
+    call_tabular_function as call_tabular_function)
+from pyarrow._compute import get_function as get_function  # noqa: F401
+from pyarrow._compute import list_functions as list_functions  # noqa: F401
+from pyarrow._compute import (  # noqa: F401
+    register_scalar_function as register_scalar_function)
+from pyarrow._compute import (  # noqa: F401
+    register_aggregate_function as register_aggregate_function)
+from pyarrow._compute import (  # noqa: F401
+    register_vector_function as register_vector_function)
+from pyarrow._compute import (  # noqa: F401
+    register_tabular_function as register_tabular_function)
 
 # Function and Kernel classes
-from pyarrow._compute import Function as Function
-from pyarrow._compute import Kernel as Kernel
-from pyarrow._compute import ScalarFunction as ScalarFunction
-from pyarrow._compute import ScalarKernel as ScalarKernel
-from pyarrow._compute import VectorFunction as VectorFunction
-from pyarrow._compute import VectorKernel as VectorKernel
-from pyarrow._compute import ScalarAggregateFunction as ScalarAggregateFunction
-from pyarrow._compute import ScalarAggregateKernel as ScalarAggregateKernel
-from pyarrow._compute import HashAggregateFunction as HashAggregateFunction
-from pyarrow._compute import HashAggregateKernel as HashAggregateKernel
+from pyarrow._compute import Function as Function  # noqa: F401
+from pyarrow._compute import Kernel as Kernel  # noqa: F401
+from pyarrow._compute import ScalarFunction as ScalarFunction  # noqa: F401
+from pyarrow._compute import ScalarKernel as ScalarKernel  # noqa: F401
+from pyarrow._compute import VectorFunction as VectorFunction  # noqa: F401
+from pyarrow._compute import VectorKernel as VectorKernel  # noqa: F401
+from pyarrow._compute import (  # noqa: F401
+    ScalarAggregateFunction as ScalarAggregateFunction)
+from pyarrow._compute import (  # noqa: F401
+    ScalarAggregateKernel as ScalarAggregateKernel)
+from pyarrow._compute import (  # noqa: F401
+    HashAggregateFunction as HashAggregateFunction)
+from pyarrow._compute import HashAggregateKernel as HashAggregateKernel  # noqa: F401
 
 # Udf
 
@@ -123,6 +129,7 @@ class _ExprComparable(Expression):
     def __le__(self, other: Any) -> Expression: ...
     def __gt__(self, other: Any) -> Expression: ...
     def __lt__(self, other: Any) -> Expression: ...
+
 
 def field(*name_or_index: str | bytes | tuple[str | int, ...] | int) -> Expression: ...
 def __ge__(self, other: Any) -> Expression: ...
@@ -228,15 +235,29 @@ _TemporalArrayT = TypeVar("_TemporalArrayT", bound=TemporalArray)
 _ListArray: TypeAlias = ArrayOrChunkedArray[_ListScalar[_DataTypeT]]
 _LargeListArray: TypeAlias = ArrayOrChunkedArray[_LargeListScalar[_DataTypeT]]
 ListArray: TypeAlias = ArrayOrChunkedArray[ListScalar[_DataTypeT]]
+
 # =============================== 1. Aggregation ===============================
+
+
 def array_take(
-    array: lib.Array | lib.ChunkedArray | lib.Scalar | lib.Table,
-    indices: Any,
+    array: _ArrayT | lib.Scalar | lib.Table | Expression,
+    indices: list[int]
+    | list[int | None]
+    | lib.Int16Array
+    | lib.Int32Array
+    | lib.Int64Array
+    | lib.UInt64Array
+    | lib.ChunkedArray[lib.Int16Scalar]
+    | lib.ChunkedArray[lib.Int32Scalar]
+    | lib.ChunkedArray[lib.Int64Scalar]
+    | np.ndarray
+    | Expression,
+    /,
     *,
     boundscheck: bool | None = None,
     options: TakeOptions | None = None,
-) -> Any: ...
-
+    memory_pool: lib.MemoryPool | None = None,
+) -> _ArrayT | Expression: ...
 
 
 # ========================= 1.1 functions =========================
@@ -653,9 +674,15 @@ def round_to_multiple(
 
 
 def round_binary(
-    x: _NumericScalarT | _NumericArrayT | int | float | list | Expression,
-    s: (int | float | lib.Int8Scalar | lib.Int16Scalar | lib.Int32Scalar | lib.Int64Scalar
-        | lib.Scalar | Iterable | Expression),
+    x: _NumericScalarT | _NumericArrayT | float | list | Expression,
+    s: lib.Int8Scalar
+    | lib.Int16Scalar
+    | lib.Int32Scalar
+    | lib.Int64Scalar
+    | lib.Scalar
+    | Iterable
+    | float
+    | Expression,
     /,
     round_mode: Literal[
         "down",
@@ -944,6 +971,7 @@ utf8_center = _clone_signature(ascii_center)
 utf8_lpad = _clone_signature(ascii_center)
 utf8_rpad = _clone_signature(ascii_center)
 
+
 def utf8_zero_fill(
     strings: _StringScalarT | _StringArrayT | Expression,
     /,
@@ -953,6 +981,7 @@ def utf8_zero_fill(
     options: ZeroFillOptions | None = None,
     memory_pool: lib.MemoryPool | None = None,
 ) -> _StringScalarT | _StringArrayT | Expression: ...
+
 
 utf8_zfill = utf8_zero_fill
 
@@ -1047,7 +1076,12 @@ def binary_join(
 
 
 def binary_join_element_wise(
-    *strings: str | bytes | _StringOrBinaryScalarT | _StringOrBinaryArrayT | Expression | list,
+    *strings: str
+    | bytes
+    | _StringOrBinaryScalarT
+    | _StringOrBinaryArrayT
+    | Expression
+    | list,
     null_handling: Literal["emit_null", "skip", "replace"] = "emit_null",
     null_replacement: str = "",
     options: JoinOptions | None = None,
@@ -1189,7 +1223,10 @@ true_unless_null = _clone_signature(is_valid)
 
 
 def case_when(
-    cond: lib.StructScalar | lib.StructArray | lib.ChunkedArray[lib.StructScalar] | Expression,
+    cond: lib.StructScalar
+    | lib.StructArray
+    | lib.ChunkedArray[lib.StructScalar]
+    | Expression,
     /,
     *cases: _ScalarOrArrayT | ArrayLike, memory_pool: lib.MemoryPool | None = None
 ) -> _ScalarOrArrayT | lib.Array | Expression: ...
@@ -1281,8 +1318,10 @@ def cast(
     options: CastOptions | None = None,
     memory_pool: lib.MemoryPool | None = None,
 ) -> (
-    lib.Scalar[_DataTypeT] | lib.Scalar[Any] | lib.Array[lib.Scalar[_DataTypeT]] | lib.Array[lib.Scalar[Any]]
-    | lib.ChunkedArray[lib.Scalar[_DataTypeT]] | lib.ChunkedArray[lib.Scalar[Any]] | lib.Table): ...
+    lib.Scalar[_DataTypeT] | lib.Scalar[Any] | lib.Array[lib.Scalar[_DataTypeT]]
+    | lib.Array[lib.Scalar[Any]] | lib.ChunkedArray[lib.Scalar[_DataTypeT]]
+    | lib.ChunkedArray[lib.Scalar[Any]] | lib.Table
+): ...
 
 
 def strftime(
@@ -1553,27 +1592,6 @@ def array_filter(
 ) -> _ArrayT | Expression: ...
 
 
-def array_take(
-    array: _ArrayT | Expression,
-    indices: list[int]
-    | list[int | None]
-    | lib.Int16Array
-    | lib.Int32Array
-    | lib.Int64Array
-    | lib.UInt64Array
-    | lib.ChunkedArray[lib.Int16Scalar]
-    | lib.ChunkedArray[lib.Int32Scalar]
-    | lib.ChunkedArray[lib.Int64Scalar]
-    | np.ndarray
-    | Expression,
-    /,
-    *,
-    boundscheck: bool = True,
-    options: TakeOptions | None = None,
-    memory_pool: lib.MemoryPool | None = None,
-) -> _ArrayT | Expression: ...
-
-
 def drop_null(input: _ArrayT | Expression, /, *, memory_pool: lib.MemoryPool |
               None = None) -> _ArrayT | Expression: ...
 
@@ -1663,6 +1681,7 @@ def rank_normal(
     options: RankQuantileOptions | None = None,
     memory_pool: lib.MemoryPool | None = None,
 ) -> lib.DoubleArray: ...
+
 
 def select_k_unstable(
     input: lib.Array | lib.ChunkedArray | lib.RecordBatch | lib.Table | Expression,
@@ -1791,11 +1810,13 @@ def run_end_encode(
     memory_pool: lib.MemoryPool | None = None
 ) -> _NumericOrTemporalArrayT | Expression: ...
 
+
 def run_end_decode(
     input: _NumericOrTemporalArrayT | Expression,
     /,
     *,
     memory_pool: lib.MemoryPool | None = None
 ) -> _NumericOrTemporalArrayT | Expression: ...
+
 
 pairwise_diff_checked = _clone_signature(pairwise_diff)

@@ -183,6 +183,7 @@ def write_feather(df, dest, compression=None, compression_level=None,
                              f'one of {_FEATHER_SUPPORTED_CODECS}')
 
     try:
+        assert version in (1, 2)
         _feather.write_feather(table, dest, compression=compression,
                                compression_level=compression_level,
                                chunksize=chunksize, version=version)

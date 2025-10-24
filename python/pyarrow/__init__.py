@@ -39,7 +39,7 @@ try:
 except ImportError:
     # Package is not installed, parse git tag at runtime
     try:
-        import setuptools_scm  # type: ignore[import-not-found]
+        import setuptools_scm  # type: ignore[import-not-found, import-untyped]
         # Code duplicated from setup.py to avoid a dependency on each other
 
         def parse_git(root, **kwargs):
@@ -47,7 +47,7 @@ except ImportError:
             Parse function for setuptools_scm that ignores tags for non-C++
             subprojects, e.g. apache-arrow-js-XXX tags.
             """
-            from setuptools_scm.git import parse  # type: ignore[import-not-found]
+            from setuptools_scm.git import parse  # type: ignore[import-not-found, import-untyped] # noqa: E501
             kwargs['describe_command'] = \
                 "git describe --dirty --tags --long --match 'apache-arrow-[0-9]*.*'"
             return parse(root, **kwargs)
@@ -151,6 +151,8 @@ def show_info():
         print(f"  {codec: <20}: {status: <8}")
 
 
+from pyarrow.lib import (
+    DataType, Array, MemoryPool)  # type: ignore[reportAttributeAccessIssue]
 from pyarrow.lib import (null, bool_,
                          int8, int16, int32, int64,
                          uint8, uint16, uint32, uint64,
@@ -168,7 +170,7 @@ from pyarrow.lib import (null, bool_,
                          bool8, fixed_shape_tensor, json_, opaque, uuid,
                          field,
                          type_for_alias,
-                         DataType, DictionaryType, StructType,
+                         DictionaryType, StructType,
                          ListType, LargeListType, FixedSizeListType,
                          ListViewType, LargeListViewType,
                          MapType, UnionType, SparseUnionType, DenseUnionType,
@@ -185,8 +187,7 @@ from pyarrow.lib import (null, bool_,
                          Field,
                          Schema,
                          schema,
-                         unify_schemas,
-                         Array, Tensor,
+                         unify_schemas, Tensor,
                          array, chunked_array, record_batch, nulls, repeat,
                          SparseCOOTensor, SparseCSRMatrix, SparseCSCMatrix,
                          SparseCSFTensor,
@@ -241,7 +242,7 @@ from pyarrow.lib import (DeviceAllocationType, Device, MemoryManager,
 from pyarrow.lib import (Buffer, ResizableBuffer, foreign_buffer, py_buffer,
                          Codec, compress, decompress, allocate_buffer)
 
-from pyarrow.lib import (MemoryPool, LoggingMemoryPool, ProxyMemoryPool,
+from pyarrow.lib import (LoggingMemoryPool, ProxyMemoryPool,
                          total_allocated_bytes, set_memory_pool,
                          default_memory_pool, system_memory_pool,
                          jemalloc_memory_pool, mimalloc_memory_pool,
