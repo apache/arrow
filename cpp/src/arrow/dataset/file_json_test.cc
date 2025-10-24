@@ -74,7 +74,11 @@ struct WriteVisitor {
   template <typename T>
   enable_if_physical_unsigned_integer<T, Status> Visit(const T*) {
     const auto& scalar = checked_cast<const NumericScalar<T>&>(scalar_);
-    return OK(writer_.Uint64(scalar.value));
+    if constexpr (is_half_float_type<T>::value) {
+      return OK(writer_.Uint64(scalar.value.bits()));
+    } else {
+      return OK(writer_.Uint64(scalar.value));
+    }
   }
 
   template <typename T>
