@@ -32,7 +32,6 @@ from sparse import COO  # type: ignore[import-untyped, import-not-found]
 
 
 class Tensor(_Weakrefable):
-
     @classmethod
     def from_numpy(cls, obj: np.ndarray,
                    dim_names: Sequence[str] | None = None) -> Self: ...
@@ -69,7 +68,6 @@ class Tensor(_Weakrefable):
 
 
 class SparseCOOTensor(_Weakrefable):
-
     @classmethod
     def from_dense_numpy(cls, obj: np.ndarray,
                          dim_names: list[str] | None = None) -> Self: ...
@@ -125,7 +123,6 @@ class SparseCOOTensor(_Weakrefable):
 
 
 class SparseCSRMatrix(_Weakrefable):
-
     @classmethod
     def from_dense_numpy(cls, obj: np.ndarray,
                          dim_names: list[str] | None = None) -> Self: ...
@@ -174,7 +171,6 @@ class SparseCSRMatrix(_Weakrefable):
 
 
 class SparseCSCMatrix(_Weakrefable):
-
     @classmethod
     def from_dense_numpy(cls, obj: np.ndarray,
                          dim_names: list[str] | None = None) -> Self: ...
@@ -221,7 +217,6 @@ class SparseCSCMatrix(_Weakrefable):
 
 
 class SparseCSFTensor(_Weakrefable):
-
     @classmethod
     def from_dense_numpy(cls, obj: np.ndarray,
                          dim_names: Sequence[str] | None = None) -> Self: ...

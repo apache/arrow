@@ -350,7 +350,6 @@ class _Tabular(_PandasConvertible[pd.DataFrame], Generic[_ColumnT]):
 
 
 class RecordBatch(_Tabular[Array]):
-
     def validate(self, *, full: bool = False) -> None: ...
 
     def replace_schema_metadata(
@@ -484,7 +483,6 @@ JoinType: TypeAlias = Literal[
 
 
 class Table(_Tabular[ChunkedArray[Any]]):
-
     def validate(self, *, full: bool = False) -> None: ...
 
     def slice(self, offset: int = 0, length: int | None = None) -> Self: ...
