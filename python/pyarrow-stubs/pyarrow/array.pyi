@@ -17,7 +17,7 @@
 
 import sys
 
-from collections.abc import Callable, Iterable, Iterator, Sequence
+from collections.abc import Iterable, Iterator, Sequence
 
 if sys.version_info >= (3, 11):
     from typing import Self
@@ -29,13 +29,11 @@ from typing import (
     Generic,
     Literal,
     TypeVar,
-    overload,
 )
 
 import numpy as np
 import pandas as pd
 
-from pandas.core.dtypes.base import ExtensionDtype
 from pyarrow._compute import CastOptions
 from pyarrow._stubs_typing import (
     ArrayLike,
@@ -819,7 +817,10 @@ class FixedShapeTensorArray(ExtensionArray[_ArrayT]):
     def to_tensor(self) -> Tensor: ...
 
     @classmethod
-    def from_numpy_ndarray(cls, obj: np.ndarray, dim_names: list[str] | tuple[str, ...] | None = None) -> Self: ...
+    def from_numpy_ndarray(
+        cls, obj: np.ndarray,
+        dim_names: list[str] | tuple[str, ...] | None = None
+    ) -> Self: ...
 
 
 class OpaqueArray(ExtensionArray[_ArrayT]):
