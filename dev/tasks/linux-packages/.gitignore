@@ -19,6 +19,8 @@
 /*/apt/build.sh
 /*/apt/build/
 /*/apt/env.sh
+/*/apt/reprotest.patch
+/*/apt/reprotest.sh
 /*/apt/repositories/
 /*/apt/tmp/
 /*/yum/build.sh
