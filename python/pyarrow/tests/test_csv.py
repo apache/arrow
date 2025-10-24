@@ -226,7 +226,6 @@ encoding='utf8'"""
     assert str(opts) == f"ReadOptions({expected_repr_inner})"
 
 
-
 def test_parse_options(pickle_module):
     cls = ParseOptions
     skip_handler = InvalidRowHandler('skip')
