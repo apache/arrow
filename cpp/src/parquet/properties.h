@@ -57,6 +57,9 @@ enum class SizeStatisticsLevel : uint8_t {
   PageAndColumnChunk
 };
 
+// 16 MB is the default maximum page header size
+static constexpr uint32_t kDefaultMaxPageHeaderSize = 16 * 1024 * 1024;
+
 /// Align the default buffer size to a small multiple of a page size.
 constexpr int64_t kDefaultBufferSize = 4096 * 4;
 
@@ -101,6 +104,11 @@ class PARQUET_EXPORT ReaderProperties {
   /// Set the size of the buffered stream buffer in bytes.
   void set_buffer_size(int64_t size) { buffer_size_ = size; }
 
+  /// Return the size of the buffered stream buffer. 0 means default
+  uint32_t max_page_header_size() const { return max_page_header_size_; }
+  /// Set the size of the buffered stream buffer in bytes. 0 means default
+  void set_max_page_header_size(uint32_t size) { max_page_header_size_ = size; }
+
   /// \brief Return the size limit on thrift strings.
   ///
   /// This limit helps prevent space and time bombs in files, but may need to
@@ -142,6 +150,7 @@ class PARQUET_EXPORT ReaderProperties {
  private:
   MemoryPool* pool_;
   int64_t buffer_size_ = kDefaultBufferSize;
+  uint32_t max_page_header_size_ = kDefaultMaxPageHeaderSize;
   int32_t thrift_string_size_limit_ = kDefaultThriftStringSizeLimit;
   int32_t thrift_container_size_limit_ = kDefaultThriftContainerSizeLimit;
   bool buffered_stream_enabled_ = false;
