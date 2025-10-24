@@ -356,8 +356,8 @@ def test_buffer_readwrite_with_writeoptions():
     buffer_output_stream = pa.BufferOutputStream()
     with pytest.warns(FutureWarning):
         orc.write_table(
-            buffer_output_stream,  # type: ignore[arg-type]
-            table,  # type: ignore[arg-type]
+            buffer_output_stream,  # type: ignore[reportArgumentType]
+            table,  # type: ignore[reportArgumentType]
             compression='uncompressed',
             file_version='0.11',
             row_index_stride=20000,
@@ -444,20 +444,20 @@ def test_buffer_readwrite_with_bad_writeoptions():
         orc.write_table(
             table,
             buffer_output_stream,
-            compression=0,
+            compression=0,  # type: ignore[reportArgumentType]
         )
 
     with pytest.raises(ValueError):
         orc.write_table(
             table,
             buffer_output_stream,
-            compression='none',
+            compression='none',  # type: ignore[reportArgumentType]
         )
     with pytest.raises(ValueError):
         orc.write_table(
             table,
             buffer_output_stream,
-            compression='zlid',
+            compression='zlid',  # type: ignore[reportArgumentType]
         )
 
     # compression_block_size must be a positive integer
@@ -487,20 +487,20 @@ def test_buffer_readwrite_with_bad_writeoptions():
         orc.write_table(
             table,
             buffer_output_stream,
-            compression_strategy=0,
+            compression_strategy=0,  # type: ignore[reportArgumentType]
         )
 
     with pytest.raises(ValueError):
         orc.write_table(
             table,
             buffer_output_stream,
-            compression_strategy='no',
+            compression_strategy='no',  # type: ignore[reportArgumentType]
         )
     with pytest.raises(ValueError):
         orc.write_table(
             table,
             buffer_output_stream,
-            compression_strategy='large',
+            compression_strategy='large',  # type: ignore[reportArgumentType]
         )
 
     # row_index_stride must be a positive integer

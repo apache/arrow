@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-from typing import IO, Literal
+from typing import IO, Literal, Any
 
 from .lib import (
     Buffer,
@@ -64,10 +64,9 @@ class ORCWriter(_Weakrefable):
         file_version: str | None = None,
         batch_size: int | None = None,
         stripe_size: int | None = None,
-        compression: Literal["UNCOMPRESSED", "ZLIB",
-                             "SNAPPY", "LZ4", "ZSTD"] | str | None = None,
+        compression: Any = 'UNCOMPRESSED',
         compression_block_size: int | None = None,
-        compression_strategy: Literal["COMPRESSION", "SPEED"] | str | None = None,
+        compression_strategy: Any = 'SPEED',
         row_index_stride: int | None = None,
         padding_tolerance: float | None = None,
         dictionary_key_size_threshold: float | None = None,

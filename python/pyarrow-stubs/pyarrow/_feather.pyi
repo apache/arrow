@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-from typing import IO
+from typing import IO, Literal
 from collections.abc import Sequence
 
 from _typeshed import StrPath
@@ -33,7 +33,7 @@ def write_feather(
     compression: str | None = None,
     compression_level: int | None = None,
     chunksize: int | None = None,
-    version: int = 2,
+    version: Literal[1, 2] = 2,
 ): ...
 
 

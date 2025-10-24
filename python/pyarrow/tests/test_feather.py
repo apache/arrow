@@ -128,6 +128,7 @@ def _check_arrow_roundtrip(table, path=None, compression=None):
 def _assert_error_on_write(df, exc, path=None, version=2):
     # check that we are raising the exception
     # on writing
+    assert version in (1, 2)
 
     if path is None:
         path = random_path()

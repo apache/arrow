@@ -2030,7 +2030,7 @@ def test_input_stream_native_file():
 def test_input_stream_errors(tmpdir):
     buf = memoryview(b"")
     with pytest.raises(ValueError):
-        pa.input_stream(buf, compression="foo")
+        pa.input_stream(buf, compression="foo")  # type: ignore[reportArgumentType]
 
     for arg in [bytearray(), StringIO()]:
         with pytest.raises(TypeError):
@@ -2207,7 +2207,7 @@ def test_output_stream_python_file(tmpdir):
 def test_output_stream_errors(tmpdir):
     buf = memoryview(bytearray())
     with pytest.raises(ValueError):
-        pa.output_stream(buf, compression="foo")
+        pa.output_stream(buf, compression="foo")  # type: ignore[reportArgumentType]
 
     for arg in [bytearray(), StringIO()]:
         with pytest.raises(TypeError):

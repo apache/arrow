@@ -127,14 +127,16 @@ __all__ = [
     "write_dataset",
 ]
 
-_DatasetFormat: TypeAlias = Literal["parquet", "ipc", "arrow", "feather", "csv", "json", "orc", str]
+_DatasetFormat: TypeAlias = (
+    Literal["parquet", "ipc", "arrow", "feather", "csv", "json", "orc", str]
+)
 
 
 def partitioning(
     schema: Schema = None,
     *,
     field_names: list[str] = None,
-    flavor: Literal["hive"] | str = None,
+    flavor: Literal["hive"] = None,
     dictionaries: dict[str, Array] | Literal["infer"] | None = None,
 ) -> Partitioning | PartitioningFactory: ...
 
@@ -150,7 +152,14 @@ def parquet_dataset(
 
 
 def dataset(
-    source: StrPath | Sequence[Dataset] | Sequence[StrPath] | Iterable[RecordBatch] | Iterable[Table] | RecordBatchReader | RecordBatch | Table,
+    source: StrPath
+    | Sequence[Dataset]
+    | Sequence[StrPath]
+    | Iterable[RecordBatch]
+    | Iterable[Table]
+    | RecordBatchReader
+    | RecordBatch
+    | Table,
     schema: Schema | None = None,
     format: FileFormat | _DatasetFormat | None = None,
     filesystem: SupportedFileSystem | str | None = None,
@@ -180,8 +189,8 @@ def write_dataset(
     min_rows_per_group: int = 0,
     max_rows_per_group: int = 1024 * 1024,  # noqa: Y011
     file_visitor: Callable[[str], None] | None = None,
-    existing_data_behavior: Literal["error",
-                                    "overwrite_or_ignore", "delete_matching"] | str = "error",
+    existing_data_behavior:
+    Literal["error", "overwrite_or_ignore", "delete_matching"] = "error",
     create_dir: bool = True,
     preserve_order: bool | None = None,
 ): ...
