@@ -16,7 +16,7 @@ to look in the \verb{inst/} directory for included modules.}
 Load a Python Flight server
 }
 \examples{
-\dontshow{if (FALSE) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
+\dontshow{if (FALSE) withAutoprint(\{ # examplesIf}
 load_flight_server("demo_flight_server")
 \dontshow{\}) # examplesIf}
 }

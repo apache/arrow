@@ -61,7 +61,7 @@ falling back to \code{\link[=utf8]{utf8()}} if a conversion error occurs.
 When \code{as_data_frame = TRUE}, Arrow types are further converted to R types.
 }
 \examples{
-\dontshow{if (arrow_with_json()) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
+\dontshow{if (arrow_with_json()) withAutoprint(\{ # examplesIf}
 tf <- tempfile()
 on.exit(unlink(tf))
 writeLines('
