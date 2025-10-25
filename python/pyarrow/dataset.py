@@ -54,6 +54,9 @@ try:
         get_partition_keys as _get_partition_keys,  # keep for backwards compatibility
         _filesystemdataset_write,
     )
+    from pyarrow.fs import FileInfo
+
+
 except ImportError as exc:
     raise ImportError(
         f"The pyarrow installation is not built with support for 'dataset' ({str(exc)})"
@@ -429,6 +432,7 @@ def _ensure_single_source(path, filesystem=None):
 
     # retrieve the file descriptor
     file_info = filesystem.get_file_info(path)
+    assert isinstance(file_info, FileInfo)
 
     # depending on the path type either return with a recursive
     # directory selector or as a list containing a single file

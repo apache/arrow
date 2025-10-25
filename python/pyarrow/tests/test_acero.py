@@ -90,7 +90,7 @@ def test_declaration_to_reader(table_source):
 def test_table_source():
     with pytest.raises(TypeError):
         TableSourceNodeOptions(pa.record_batch(
-            [pa.array([1, 2, 3])], ["a"]))  # type: ignore[arg-type]
+            [pa.array([1, 2, 3])], ["a"]))
 
     table_source = TableSourceNodeOptions(None)
     decl = Declaration("table_source", table_source)
@@ -387,7 +387,7 @@ def test_hash_join_with_residual_filter():
         "left outer", left_keys="key", right_keys="key",
         filter_expression=(
             pc.equal(pc.field("a"), 5)
-            | pc.equal(pc.field("b"), 10))  # type: ignore[arg-type]
+            | pc.equal(pc.field("b"), 10))  # type: ignore[reportOperatorIssue]
     )
     joined = Declaration(
         "hashjoin", options=join_opts, inputs=[left_source, right_source])

@@ -464,8 +464,9 @@ def test_backwards_compatible_column_metadata_handling(datadir):
     table = _read_table(
         path, columns=['a'])
     result = table.to_pandas()
-    tm.assert_frame_equal(result, cast(
-        pd.DataFrame, expected[['a']].reset_index(drop=True)))
+    expected_df = expected[['a']].reset_index(drop=True)
+    assert isinstance(expected_df, pd.DataFrame)
+    tm.assert_frame_equal(result, expected_df)
 
 
 @pytest.mark.pandas
@@ -525,7 +526,7 @@ def test_pandas_categorical_roundtrip():
     codes = np.array([2, 0, 0, 2, 0, -1, 2], dtype='int32')
     categories = ['foo', 'bar', 'baz']
     df = pd.DataFrame({'x': pd.Categorical.from_codes(
-        codes, categories=pd.Index(categories))})  # type: ignore[arg-type]
+        codes, categories=categories)})  # type: ignore[arg-type]
 
     buf = pa.BufferOutputStream()
     pq.write_table(pa.table(df), buf)
