@@ -40,13 +40,15 @@ suppressPackageStartupMessages({
   library(vctrs)
 })
 
+cbind_unnested_functions <- function(data) {
+  vec_cbind(data, vec_rbind(!!!pull(data, functions)))
+}
+
 get_exported_functions <- function(decorations, export_tag) {
   out <- decorations |>
     filter(decoration %in% paste0(export_tag, "::export")) |>
     mutate(functions = map(context, decor:::parse_cpp_function)) |>
-    {
-      vec_cbind(., vec_rbind(!!!pull(., functions)))
-    } |>
+    cbind_unnested_functions() |>
     select(-functions) |>
     mutate(decoration = sub("::export", "", decoration))
   message(glue("*** > {n} functions decorated with [[{tags}::export]]", n = nrow(out), tags = paste0(export_tag, collapse = "|")))
