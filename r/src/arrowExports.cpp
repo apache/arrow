@@ -2588,6 +2588,15 @@ BEGIN_CPP11
 END_CPP11
 }
 // datatype.cpp
+std::shared_ptr<arrow::DataType> SmallestDecimal__initialize(int32_t precision, int32_t scale);
+extern "C" SEXP _arrow_SmallestDecimal__initialize(SEXP precision_sexp, SEXP scale_sexp){
+BEGIN_CPP11
+	arrow::r::Input<int32_t>::type precision(precision_sexp);
+	arrow::r::Input<int32_t>::type scale(scale_sexp);
+	return cpp11::as_sexp(SmallestDecimal__initialize(precision, scale));
+END_CPP11
+}
+// datatype.cpp
 std::shared_ptr<arrow::DataType> DayTimeInterval__initialize();
 extern "C" SEXP _arrow_DayTimeInterval__initialize(){
 BEGIN_CPP11
@@ -5933,6 +5942,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_Decimal64Type__initialize", (DL_FUNC) &_arrow_Decimal64Type__initialize, 2}, 
 		{ "_arrow_Decimal128Type__initialize", (DL_FUNC) &_arrow_Decimal128Type__initialize, 2}, 
 		{ "_arrow_Decimal256Type__initialize", (DL_FUNC) &_arrow_Decimal256Type__initialize, 2}, 
+		{ "_arrow_SmallestDecimal__initialize", (DL_FUNC) &_arrow_SmallestDecimal__initialize, 2}, 
 		{ "_arrow_DayTimeInterval__initialize", (DL_FUNC) &_arrow_DayTimeInterval__initialize, 0}, 
 		{ "_arrow_FixedSizeBinary__initialize", (DL_FUNC) &_arrow_FixedSizeBinary__initialize, 1}, 
 		{ "_arrow_FixedSizeBinary__byte_width", (DL_FUNC) &_arrow_FixedSizeBinary__byte_width, 1}, 
