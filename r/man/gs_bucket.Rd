@@ -21,7 +21,7 @@ are authorized to access the bucket's contents.
 that holds onto its relative path
 }
 \examples{
-\dontshow{if (FALSE) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
+\dontshow{if (FALSE) withAutoprint(\{ # examplesIf}
 bucket <- gs_bucket("voltrondata-labs-datasets")
 \dontshow{\}) # examplesIf}
 }

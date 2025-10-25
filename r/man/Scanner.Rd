@@ -47,7 +47,7 @@ query and returns an Arrow \link{Table}.
 }
 
 \examples{
-\dontshow{if (arrow_with_dataset() & arrow_with_parquet()) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
+\dontshow{if (arrow_with_dataset() & arrow_with_parquet()) withAutoprint(\{ # examplesIf}
 # Set up directory for examples
 tf <- tempfile()
 dir.create(tf)

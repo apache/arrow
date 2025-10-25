@@ -339,7 +339,8 @@ expect_altrep_roundtrip <- function(x, fn, ..., .expect_warning = NA) {
   alt <- Array$create(x)$as_vector()
   expect_true(is_arrow_altrep(alt))
   expect_warning(
-    expect_identical(fn(alt, ...), suppressWarnings(fn(x, ...))), .expect_warning
+    expect_identical(fn(alt, ...), suppressWarnings(fn(x, ...))),
+    .expect_warning
   )
   expect_false(test_arrow_altrep_is_materialized(alt))
 
@@ -347,7 +348,8 @@ expect_altrep_roundtrip <- function(x, fn, ..., .expect_warning = NA) {
   alt2 <- ChunkedArray$create(x, x)$as_vector()
   expect_true(is_arrow_altrep(alt2))
   expect_warning(
-    expect_identical(fn(alt2, ...), suppressWarnings(fn(c(x, x), ...))), .expect_warning
+    expect_identical(fn(alt2, ...), suppressWarnings(fn(c(x, x), ...))),
+    .expect_warning
   )
   expect_false(test_arrow_altrep_is_materialized(alt2))
 
@@ -355,7 +357,8 @@ expect_altrep_roundtrip <- function(x, fn, ..., .expect_warning = NA) {
   alt3 <- Array$create(x)$as_vector()
   expect_true(test_arrow_altrep_force_materialize(alt3))
   expect_warning(
-    expect_identical(fn(alt3, ...), suppressWarnings(fn(x, ...))), .expect_warning
+    expect_identical(fn(alt3, ...), suppressWarnings(fn(x, ...))),
+    .expect_warning
   )
 }
 

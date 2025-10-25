@@ -39,7 +39,8 @@
 #' @rdname Expression
 #' @include arrowExports.R
 #' @export
-Expression <- R6Class("Expression",
+Expression <- R6Class(
+  "Expression",
   inherit = ArrowObject,
   public = list(
     ToString = function() compute___expr__ToString(self),
@@ -73,10 +74,7 @@ Expression <- R6Class("Expression",
     field_name = function() compute___expr__get_field_ref_name(self)
   )
 )
-Expression$create <- function(function_name,
-                              ...,
-                              args = list(...),
-                              options = empty_named_list()) {
+Expression$create <- function(function_name, ..., args = list(...), options = empty_named_list()) {
   assert_that(is.string(function_name))
   # Make sure all inputs are Expressions
   args <- lapply(args, function(x) {
@@ -122,7 +120,9 @@ get_nested_field <- function(expr, name) {
       # Because we have the type, we can validate that the field exists
       if (!(name %in% names(expr_type))) {
         stop(
-          "field '", name, "' not found in ",
+          "field '",
+          name,
+          "' not found in ",
           expr_type$ToString(),
           call. = FALSE
         )
@@ -136,7 +136,8 @@ get_nested_field <- function(expr, name) {
       # TODO(#33757): if expr is list type and name is integer or Expression,
       # call list_element
       stop(
-        "Cannot extract a field from an Expression of type ", expr_type$ToString(),
+        "Cannot extract a field from an Expression of type ",
+        expr_type$ToString(),
         call. = FALSE
       )
     }
@@ -166,9 +167,7 @@ Expression$scalar <- function(x) {
 # (2) wraps R input args as Array or Scalar and attempts to cast them to
 #     match the type of the columns/fields in the expression. This is to prevent
 #     upcasting all of the data where a simple downcast of a Scalar works.
-Expression$op <- function(FUN,
-                          ...,
-                          args = list(...)) {
+Expression$op <- function(FUN, ..., args = list(...)) {
   if (FUN == "-" && length(args) == 1L) {
     if (inherits(args[[1]], c("ArrowObject", "Expression"))) {
       return(Expression$create("negate_checked", args[[1]]))

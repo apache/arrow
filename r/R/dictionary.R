@@ -29,7 +29,8 @@
 #'
 #' @rdname DictionaryType
 #' @name DictionaryType
-DictionaryType <- R6Class("DictionaryType",
+DictionaryType <- R6Class(
+  "DictionaryType",
   inherit = FixedWidthType,
   public = list(
     ToString = function() {
@@ -56,9 +57,7 @@ DictionaryType <- R6Class("DictionaryType",
     ordered = function() DictionaryType__ordered(self)
   )
 )
-DictionaryType$create <- function(index_type = int32(),
-                                  value_type = utf8(),
-                                  ordered = FALSE) {
+DictionaryType$create <- function(index_type = int32(), value_type = utf8(), ordered = FALSE) {
   assert_is(index_type, "DataType")
   assert_is(value_type, "DataType")
   DictionaryType__initialize(index_type, value_type, ordered)

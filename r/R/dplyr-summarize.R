@@ -212,7 +212,9 @@ aggregate_target_names <- function(data, name) {
 # This function returns a named list of the data types of the aggregate columns
 # returned by an aggregation
 aggregate_types <- function(.data, hash, schema = NULL) {
-  if (hash) dummy_groups <- Scalar$create(1L, uint32())
+  if (hash) {
+    dummy_groups <- Scalar$create(1L, uint32())
+  }
   map(
     .data$aggregations,
     ~ if (hash) {

@@ -101,7 +101,6 @@ test_that("count returns an ungrouped tibble", {
 })
 
 test_that("tally raises appropriate error and message for names", {
-
   expect_message(
     tbl |>
       arrow_table() |>

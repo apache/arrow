@@ -15,7 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-
 .unary_function_map <- list(
   # NOTE: Each of the R functions mapped here takes exactly *one* argument, maps
   # *directly* to an Arrow C++ compute kernel, and does not require any

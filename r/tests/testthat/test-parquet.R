@@ -222,7 +222,8 @@ test_that("Lists are preserved when writing/reading from Parquet", {
 })
 
 test_that("Maps are preserved when writing/reading from Parquet", {
-  string_bool <- Array$create(list(data.frame(key = c("a", "b"), value = c(TRUE, FALSE), stringsAsFactors = FALSE)),
+  string_bool <- Array$create(
+    list(data.frame(key = c("a", "b"), value = c(TRUE, FALSE), stringsAsFactors = FALSE)),
     type = map_of(utf8(), boolean())
   )
   int_struct <- Array$create(

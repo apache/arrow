@@ -61,10 +61,12 @@ duration_from_chunks <- function(chunks) {
         "named `difftime` units other than:",
         oxford_paste(accepted_chunks, quote_symbol = "`")
       ),
-      body = c(i = paste(
-        "Invalid `difftime` parts:",
-        oxford_paste(names(chunks[is.na(matched_chunks)]), quote_symbol = "`")
-      ))
+      body = c(
+        i = paste(
+          "Invalid `difftime` parts:",
+          oxford_paste(names(chunks[is.na(matched_chunks)]), quote_symbol = "`")
+        )
+      )
     )
   }
 
@@ -88,10 +90,7 @@ duration_from_chunks <- function(chunks) {
 }
 
 
-binding_as_date <- function(x,
-                            format = NULL,
-                            tryFormats = "%Y-%m-%d",
-                            origin = "1970-01-01") {
+binding_as_date <- function(x, format = NULL, tryFormats = "%Y-%m-%d", origin = "1970-01-01") {
   if (call_binding("is.Date", x)) {
     return(x)
 
@@ -107,9 +106,7 @@ binding_as_date <- function(x,
   cast(x, date32())
 }
 
-binding_as_date_character <- function(x,
-                                      format = NULL,
-                                      tryFormats = "%Y-%m-%d") {
+binding_as_date_character <- function(x, format = NULL, tryFormats = "%Y-%m-%d") {
   format <- format %||% tryFormats[[1]]
   # unit = 0L is the identifier for seconds in valid_time32_units
   Expression$create("strptime", x, options = list(format = format, unit = 0L))
@@ -434,8 +431,17 @@ parse_period_unit <- function(x) {
   str_multiple <- substr(x, capture_start[[1]], capture_end[[1]])
 
   known_units <- c(
-    "nanosecond", "microsecond", "millisecond", "second",
-    "minute", "hour", "day", "week", "month", "quarter", "year"
+    "nanosecond",
+    "microsecond",
+    "millisecond",
+    "second",
+    "minute",
+    "hour",
+    "day",
+    "week",
+    "month",
+    "quarter",
+    "year"
   )
 
   # match the period unit
@@ -504,12 +510,14 @@ parse_period_unit <- function(x) {
 # library natively handles Sunday and Monday so in those cases we pass the
 # week_starts_monday option through. Other week_start values are handled here
 shift_temporal_to_week <- function(fn, x, week_start, options) {
-  if (week_start == 7) { # Sunday
+  if (week_start == 7) {
+    # Sunday
     options$week_starts_monday <- FALSE
     return(Expression$create(fn, x, options = options))
   }
 
-  if (week_start == 1) { # Monday
+  if (week_start == 1) {
+    # Monday
     options$week_starts_monday <- TRUE
     return(Expression$create(fn, x, options = options))
   }

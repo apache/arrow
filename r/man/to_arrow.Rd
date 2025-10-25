@@ -23,17 +23,17 @@ function once. To work around this limitation, you should either only call
 result to materialize the entire Table in-memory.
 }
 \examples{
-\dontshow{if (getFromNamespace("run_duckdb_examples", "arrow")()) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
+\dontshow{if (getFromNamespace("run_duckdb_examples", "arrow")()) withAutoprint(\{ # examplesIf}
 library(dplyr)
 
 ds <- InMemoryDataset$create(mtcars)
 
-ds \%>\%
-  filter(mpg < 30) \%>\%
-  to_duckdb() \%>\%
-  group_by(cyl) \%>\%
-  summarize(mean_mpg = mean(mpg, na.rm = TRUE)) \%>\%
-  to_arrow() \%>\%
+ds |>
+  filter(mpg < 30) |>
+  to_duckdb() |>
+  group_by(cyl) |>
+  summarize(mean_mpg = mean(mpg, na.rm = TRUE)) |>
+  to_arrow() |>
   collect()
 \dontshow{\}) # examplesIf}
 }

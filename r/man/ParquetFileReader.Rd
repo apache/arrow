@@ -47,7 +47,7 @@ The optional \verb{column_indices=} argument is a 0-based integer vector indicat
 }
 
 \examples{
-\dontshow{if (arrow_with_parquet()) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
+\dontshow{if (arrow_with_parquet()) withAutoprint(\{ # examplesIf}
 f <- system.file("v0.7.1.parquet", package = "arrow")
 pq <- ParquetFileReader$create(f)
 pq$GetSchema()

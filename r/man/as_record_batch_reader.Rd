@@ -45,7 +45,7 @@ A \link{RecordBatchReader}
 Convert an object to an Arrow RecordBatchReader
 }
 \examples{
-\dontshow{if (arrow_with_dataset()) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
+\dontshow{if (arrow_with_dataset()) withAutoprint(\{ # examplesIf}
 reader <- as_record_batch_reader(data.frame(col1 = 1, col2 = "two"))
 reader$read_next_batch()
 \dontshow{\}) # examplesIf}
