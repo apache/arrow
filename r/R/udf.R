@@ -71,8 +71,7 @@
 #'   collect() |>
 #'   head()
 #'
-register_scalar_function <- function(name, fun, in_type, out_type,
-                                     auto_convert = FALSE) {
+register_scalar_function <- function(name, fun, in_type, out_type, auto_convert = FALSE) {
   assert_that(is.string(name))
 
   scalar_function <- arrow_scalar_function(

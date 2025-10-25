@@ -76,7 +76,8 @@
 #' - `$columns`: Returns a list of `ChunkedArray`s
 #' @rdname Table-class
 #' @export
-Table <- R6Class("Table",
+Table <- R6Class(
+  "Table",
   inherit = ArrowTabular,
   public = list(
     column = function(i) Table__column(self, i),
@@ -244,9 +245,7 @@ cbind.Table <- function(...) {
       as.list(input)
     } else {
       if (name == "") {
-        abort("Vector and array arguments must have names",
-          i = sprintf("Argument ..%d is missing a name", i)
-        )
+        abort("Vector and array arguments must have names", i = sprintf("Argument ..%d is missing a name", i))
       }
       list2("{name}" := input)
     }

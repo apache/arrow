@@ -270,7 +270,8 @@ test_that("purrr-style lambda functions are supported", {
   expect_identical(
     arrow:::expr_substitute(
       quote(~ round(.x * 2, digits = 0)),
-      sym(".x"), sym("dbl2")
+      sym(".x"),
+      sym("dbl2")
     ),
     quote(~ round(dbl2 * 2, digits = 0))
   )
@@ -288,11 +289,20 @@ test_that("ARROW-14071 - R functions from a user's environment", {
 
 test_that("function(x)-style lambda functions are not supported", {
   expect_error(
-    expand_across(as_adq(example_data), quos(across(.cols = c(dbl, dbl2), list(function(x) {
-      head(x, 1)
-    }, function(x) {
-      head(x, 1)
-    })))),
+    expand_across(
+      as_adq(example_data),
+      quos(across(
+        .cols = c(dbl, dbl2),
+        list(
+          function(x) {
+            head(x, 1)
+          },
+          function(x) {
+            head(x, 1)
+          }
+        )
+      ))
+    ),
     regexp = "Anonymous functions are not yet supported in Arrow"
   )
 

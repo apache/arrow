@@ -53,11 +53,7 @@
 #'
 #' # Read directly from strings with `I()`
 #' read_json_arrow(I(c('{"x": 1, "y": 2}', '{"x": 3, "y": 4}')))
-read_json_arrow <- function(file,
-                            col_select = NULL,
-                            as_data_frame = TRUE,
-                            schema = NULL,
-                            ...) {
+read_json_arrow <- function(file, col_select = NULL, as_data_frame = TRUE, schema = NULL, ...) {
   if (inherits(file, "AsIs")) {
     if (is.raw(file)) {
       file <- unclass(file)
@@ -95,17 +91,20 @@ read_json_arrow <- function(file,
 #' @format NULL
 #' @docType class
 #' @export
-JsonTableReader <- R6Class("JsonTableReader",
+JsonTableReader <- R6Class(
+  "JsonTableReader",
   inherit = ArrowObject,
   public = list(
     Read = function() json___TableReader__Read(self)
   )
 )
-JsonTableReader$create <- function(file,
-                                   read_options = JsonReadOptions$create(),
-                                   parse_options = JsonParseOptions$create(schema = schema),
-                                   schema = NULL,
-                                   ...) {
+JsonTableReader$create <- function(
+  file,
+  read_options = JsonReadOptions$create(),
+  parse_options = JsonParseOptions$create(schema = schema),
+  schema = NULL,
+  ...
+) {
   assert_is(file, "InputStream")
   json___TableReader__Make(file, read_options, parse_options)
 }

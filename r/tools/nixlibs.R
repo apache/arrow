@@ -35,9 +35,11 @@ exit <- function(..., .status = 1) {
 
 
 # checks the nightly repo for the latest nightly version X.Y.Z.100<dev>
-find_latest_nightly <- function(description_version,
-                                list_uri = "https://nightlies.apache.org/arrow/r/src/contrib/PACKAGES",
-                                hush = quietly) {
+find_latest_nightly <- function(
+  description_version,
+  list_uri = "https://nightlies.apache.org/arrow/r/src/contrib/PACKAGES",
+  hush = quietly
+) {
   if (!startsWith(arrow_repo, "https://nightlies.apache.org/arrow/r")) {
     lg("Detected non standard dev repo: %s, not checking latest nightly version.", arrow_repo)
     return(description_version)
@@ -107,8 +109,7 @@ validate_checksum <- function(binary_url, libfile, hush = quietly) {
   enforce_checksum <- env_is("ARROW_R_ENFORCE_CHECKSUM", "true")
   checksum_path <- Sys.getenv("ARROW_R_CHECKSUM_PATH", "tools/checksums")
   # validate binary checksum for CRAN release only
-  if (!skip_checksum && dir.exists(checksum_path) && is_release ||
-    enforce_checksum) {
+  if (!skip_checksum && dir.exists(checksum_path) && is_release || enforce_checksum) {
     # Munge the path to the correct sha file which we include during the
     # release process
     if (VERSION_22_OR_LATER) {
@@ -128,7 +129,8 @@ validate_checksum <- function(binary_url, libfile, hush = quietly) {
       args = c("--status", "-a", "512", "-c", checksum_file),
       stdout = ifelse(quietly, FALSE, ""),
       stderr = ifelse(quietly, FALSE, "")
-    )) == 0
+    )) ==
+      0
 
     if (!checksum_ok) {
       checksum_ok <- suppressWarnings(system2(
@@ -136,7 +138,8 @@ validate_checksum <- function(binary_url, libfile, hush = quietly) {
         args = c("--status", "-c", checksum_file),
         stdout = ifelse(quietly, FALSE, ""),
         stderr = ifelse(quietly, FALSE, "")
-      )) == 0
+      )) ==
+        0
     }
 
     if (checksum_ok) {
@@ -169,7 +172,8 @@ download_binary <- function(lib) {
     # TODO: should we condense these together and only call them when verbose?
     lg(
       "Unable to retrieve libarrow for version %s (%s)",
-      VERSION, lib
+      VERSION,
+      lib
     )
     if (!quietly) {
       lg(
@@ -231,7 +235,10 @@ identify_binary <- function(lib = Sys.getenv("LIBARROW_BINARY"), info = distro()
   lib
 }
 
-check_allowlist <- function(os, allowed = "https://raw.githubusercontent.com/apache/arrow/main/r/tools/nixlibs-allowlist.txt") {
+check_allowlist <- function(
+  os,
+  allowed = "https://raw.githubusercontent.com/apache/arrow/main/r/tools/nixlibs-allowlist.txt"
+) {
   allowlist <- tryCatch(
     # Try a remote allowlist so that we can add/remove without a release
     suppressWarnings(readLines(allowed)),
@@ -242,9 +249,11 @@ check_allowlist <- function(os, allowed = "https://raw.githubusercontent.com/apa
   any(grepl(paste(allowlist, collapse = "|"), os))
 }
 
-select_binary <- function(os = tolower(Sys.info()[["sysname"]]),
-                          arch = tolower(Sys.info()[["machine"]]),
-                          test_program = test_for_curl_and_openssl) {
+select_binary <- function(
+  os = tolower(Sys.info()[["sysname"]]),
+  arch = tolower(Sys.info()[["machine"]]),
+  test_program = test_for_curl_and_openssl
+) {
   if (identical(os, "darwin") || (identical(os, "linux") && identical(arch, "x86_64"))) {
     # We only host x86 linux binaries and x86 & arm64 macos today
     binary <- tryCatch(
@@ -669,13 +678,17 @@ ensure_cmake <- function(cmake_minimum_required = "3.26") {
     } else {
       exit(paste0(
         "*** cmake was not found locally.\n",
-        "    Please make sure cmake >= ", cmake_minimum_required,
+        "    Please make sure cmake >= ",
+        cmake_minimum_required,
         " is installed and available on your PATH."
       ))
     }
     cmake_binary_url <- paste0(
-      "https://github.com/Kitware/CMake/releases/download/v", CMAKE_VERSION,
-      "/cmake-", CMAKE_VERSION, postfix
+      "https://github.com/Kitware/CMake/releases/download/v",
+      CMAKE_VERSION,
+      "/cmake-",
+      CMAKE_VERSION,
+      postfix
     )
     cmake_tar <- tempfile()
     cmake_dir <- tempfile()
@@ -683,9 +696,12 @@ ensure_cmake <- function(cmake_minimum_required = "3.26") {
     if (!download_successful) {
       exit(paste0(
         "*** cmake was not found locally and download failed.\n",
-        "    Make sure cmake >= ", cmake_minimum_required,
+        "    Make sure cmake >= ",
+        cmake_minimum_required,
         " is installed and available on your PATH,\n",
-        "    or download ", cmake_binary_url, "\n",
+        "    or download ",
+        cmake_binary_url,
+        "\n",
         "    and define the CMAKE environment variable.\n"
       ))
     }
@@ -700,7 +716,9 @@ ensure_cmake <- function(cmake_minimum_required = "3.26") {
     }
     cmake <- paste0(
       cmake_dir,
-      "/cmake-", CMAKE_VERSION, sub(".tar.gz", "", postfix, fixed = TRUE),
+      "/cmake-",
+      CMAKE_VERSION,
+      sub(".tar.gz", "", postfix, fixed = TRUE),
       "/",
       bin_dir,
       "/cmake"
@@ -710,14 +728,16 @@ ensure_cmake <- function(cmake_minimum_required = "3.26") {
   cmake
 }
 
-find_cmake <- function(paths = c(
-                         Sys.getenv("CMAKE"),
-                         Sys.which("cmake"),
-                         # CRAN has it here, not on PATH
-                         if (on_macos) "/Applications/CMake.app/Contents/bin/cmake",
-                         Sys.which("cmake3")
-                       ),
-                       version_required) {
+find_cmake <- function(
+  paths = c(
+    Sys.getenv("CMAKE"),
+    Sys.which("cmake"),
+    # CRAN has it here, not on PATH
+    if (on_macos) "/Applications/CMake.app/Contents/bin/cmake",
+    Sys.which("cmake3")
+  ),
+  version_required
+) {
   # Given a list of possible cmake paths, return the first one that exists and is new enough
   # version_required should be a string or packageVersion; numeric version
   # can be misleading (e.g. 3.10 is actually 3.1)
@@ -810,9 +830,7 @@ get_component_names <- function() {
   if (!deps_bash_success) {
     stop("Failed to run download_dependencies_R.sh")
   }
-  deps_df <- read.csv(csv_tempfile,
-    stringsAsFactors = FALSE, row.names = NULL, quote = "'"
-  )
+  deps_df <- read.csv(csv_tempfile, stringsAsFactors = FALSE, row.names = NULL, quote = "'")
   stopifnot(
     names(deps_df) == c("env_varname", "filename"),
     nrow(deps_df) > 0
@@ -906,8 +924,10 @@ cmake_find_package <- function(pkg, version = NULL, env_var_list) {
   writeLines(find_package, file.path(td, "CMakeLists.txt"))
   env_vars <- env_vars_as_string(env_var_list)
   cmake_cmd <- paste0(
-    "export ", env_vars,
-    " && cd ", td,
+    "export ",
+    env_vars,
+    " && cd ",
+    td,
     " && $CMAKE ",
     " -DCMAKE_EXPORT_NO_PACKAGE_REGISTRY=ON",
     " -DCMAKE_FIND_PACKAGE_NO_PACKAGE_REGISTRY=ON",
@@ -935,7 +955,7 @@ is_release <- is.na(dev_version) || dev_version < "100"
 
 on_macos <- tolower(Sys.info()[["sysname"]]) == "darwin"
 on_windows <- tolower(Sys.info()[["sysname"]]) == "windows"
-on_linux_dev <-  tolower(Sys.info()[["sysname"]]) == "linux" && grepl("devel", R.version.string)
+on_linux_dev <- tolower(Sys.info()[["sysname"]]) == "linux" && grepl("devel", R.version.string)
 
 # For local debugging, set ARROW_R_DEV=TRUE to make this script print more
 quietly <- !env_is("ARROW_R_DEV", "true")
@@ -969,10 +989,16 @@ if (is_release) {
   VERSION_MAJOR <- unlist(VERSION)[1]
   if (VERSION_MAJOR >= "22") {
     VERSION_22_OR_LATER <- TRUE
-    arrow_repo <- getOption("arrow.repo", sprintf("https://github.com/apache/arrow/releases/download/apache-arrow-%s/", VERSION))
+    arrow_repo <- getOption(
+      "arrow.repo",
+      sprintf("https://github.com/apache/arrow/releases/download/apache-arrow-%s/", VERSION)
+    )
   } else {
     VERSION_22_OR_LATER <- FALSE
-    arrow_repo <- paste0(getOption("arrow.repo", sprintf("https://apache.jfrog.io/artifactory/arrow/r/%s", VERSION)), "/libarrow/")
+    arrow_repo <- paste0(
+      getOption("arrow.repo", sprintf("https://apache.jfrog.io/artifactory/arrow/r/%s", VERSION)),
+      "/libarrow/"
+    )
   }
 } else {
   VERSION_22_OR_LATER <- TRUE

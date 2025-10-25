@@ -205,17 +205,13 @@ repos:
           ^r/.*\.(R|Rmd)$
   - repo: local
     hooks:
-      - id: styler
+      - id: air-format
         alias: r
-        name: R Format
-        language: r
-        additional_dependencies:
-          - roxygen2
-          - styler
-        entry: |
-          Rscript -e "styler::style_file(commandArgs(TRUE)[1])"
+        name: R Format (Air)
+        language: system
+        entry: air format r --check
         files: >-
-          ^r/.*\.(R|Rmd)$
+            ^r/.*\.R$
   - repo: https://github.com/pre-commit/mirrors-clang-format
     rev: v14.0.6
     hooks:

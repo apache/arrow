@@ -482,10 +482,7 @@ test_that("Writing a dataset: CSV format options", {
   dst_dir <- make_temp_dir()
   write_dataset(df, dst_dir, format = "csv", include_header = FALSE)
   expect_true(dir.exists(dst_dir))
-  new_ds <- open_dataset(dst_dir,
-    format = "csv",
-    column_names = c("int", "dbl", "lgl", "chr")
-  )
+  new_ds <- open_dataset(dst_dir, format = "csv", column_names = c("int", "dbl", "lgl", "chr"))
   expect_equal(new_ds |> collect(), df)
 })
 
@@ -645,8 +642,10 @@ test_that("Dataset write max open files", {
   )
 
   table <- Table$create(
-    d1 = record_batch_1, d2 = record_batch_2,
-    d3 = record_batch_3, d4 = record_batch_4
+    d1 = record_batch_1,
+    d2 = record_batch_2,
+    d3 = record_batch_3,
+    d4 = record_batch_4
   )
 
   write_dataset(table, path = dst_dir, format = file_format, partitioning = partitioning)

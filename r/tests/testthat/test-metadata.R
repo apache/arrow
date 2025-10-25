@@ -118,7 +118,8 @@ test_that("Garbage R metadata doesn't break things", {
   )
 
   # https://hiddenlayer.com/research/r-bitrary-code-execution/
-  tab$metadata <- list(r = "A
+  tab$metadata <- list(
+    r = "A
 3
 262913
 197888
@@ -138,7 +139,8 @@ message
 32
 arbitrary\040code\040was\040just\040executed
 254
-")
+"
+  )
   expect_message(
     expect_warning(
       as.data.frame(tab),
@@ -295,13 +297,15 @@ test_that("metadata drops readr's problems attribute", {
   )
   attributes(readr_like) <- append(
     attributes(readr_like),
-    list(problems = tibble::tibble(
-      row = 1L,
-      col = NA_character_,
-      expected = "2 columns",
-      actual = "1 columns",
-      file = "'test'"
-    ))
+    list(
+      problems = tibble::tibble(
+        row = 1L,
+        col = NA_character_,
+        expected = "2 columns",
+        actual = "1 columns",
+        file = "'test'"
+      )
+    )
   )
 
   tab <- Table$create(readr_like)

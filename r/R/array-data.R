@@ -41,7 +41,8 @@
 #' @rdname ArrayData
 #' @name ArrayData
 #' @include type.R
-ArrayData <- R6Class("ArrayData",
+ArrayData <- R6Class(
+  "ArrayData",
   inherit = ArrowObject,
   active = list(
     type = function() ArrayData__get_type(self),

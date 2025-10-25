@@ -105,7 +105,8 @@
 #' na_array2 == na_array # element-wise comparison
 #' na_array2$Equals(na_array) # overall comparison
 #' @export
-Array <- R6Class("Array",
+Array <- R6Class(
+  "Array",
   inherit = ArrowDatum,
   public = list(
     IsNull = function(i) Array__IsNull(self, i),
@@ -199,7 +200,8 @@ Array$create <- function(x, type = NULL) {
     error = function(cnd) {
       attempt <- try(vec_to_Array(x, NULL)$cast(type), silent = TRUE)
       abort(
-        c(conditionMessage(cnd),
+        c(
+          conditionMessage(cnd),
           i = if (!inherits(attempt, "try-error")) {
             "You might want to try casting manually with `Array$create(...)$cast(...)`."
           }
@@ -397,7 +399,8 @@ c.Array <- function(...) {
 #' @usage NULL
 #' @format NULL
 #' @export
-DictionaryArray <- R6Class("DictionaryArray",
+DictionaryArray <- R6Class(
+  "DictionaryArray",
   inherit = Array,
   public = list(
     indices = function() DictionaryArray__indices(self),
@@ -429,7 +432,8 @@ DictionaryArray$create <- function(x, dict = NULL) {
 #' @usage NULL
 #' @format NULL
 #' @export
-StructArray <- R6Class("StructArray",
+StructArray <- R6Class(
+  "StructArray",
   inherit = Array,
   public = list(
     field = function(i) StructArray__field(self, i),
@@ -480,7 +484,8 @@ as.data.frame.StructArray <- function(x, row.names = NULL, optional = FALSE, ...
 #' @usage NULL
 #' @format NULL
 #' @export
-ListArray <- R6Class("ListArray",
+ListArray <- R6Class(
+  "ListArray",
   inherit = Array,
   public = list(
     values = function() ListArray__values(self),
@@ -497,7 +502,8 @@ ListArray <- R6Class("ListArray",
 #' @usage NULL
 #' @format NULL
 #' @export
-LargeListArray <- R6Class("LargeListArray",
+LargeListArray <- R6Class(
+  "LargeListArray",
   inherit = Array,
   public = list(
     values = function() LargeListArray__values(self),
@@ -514,7 +520,8 @@ LargeListArray <- R6Class("LargeListArray",
 #' @usage NULL
 #' @format NULL
 #' @export
-FixedSizeListArray <- R6Class("FixedSizeListArray",
+FixedSizeListArray <- R6Class(
+  "FixedSizeListArray",
   inherit = Array,
   public = list(
     values = function() FixedSizeListArray__values(self),
@@ -527,7 +534,8 @@ FixedSizeListArray <- R6Class("FixedSizeListArray",
   )
 )
 
-is.Array <- function(x, type = NULL) { # nolint
+is.Array <- function(x, type = NULL) {
+  # nolint
   is_it <- inherits(x, c("Array", "ChunkedArray"))
   if (is_it && !is.null(type)) {
     is_it <- x$type$ToString() %in% type
@@ -539,7 +547,8 @@ is.Array <- function(x, type = NULL) { # nolint
 #' @usage NULL
 #' @format NULL
 #' @export
-MapArray <- R6Class("MapArray",
+MapArray <- R6Class(
+  "MapArray",
   inherit = ListArray,
   public = list(
     keys = function() MapArray__keys(self),

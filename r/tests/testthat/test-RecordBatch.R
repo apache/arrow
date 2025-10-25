@@ -30,8 +30,10 @@ test_that("RecordBatch", {
   expect_equal(
     batch$schema,
     schema(
-      int = int32(), dbl = float64(),
-      lgl = boolean(), chr = utf8(),
+      int = int32(),
+      dbl = float64(),
+      lgl = boolean(),
+      chr = utf8(),
       fct = dictionary(int8(), utf8())
     )
   )
