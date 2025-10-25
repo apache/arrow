@@ -29,13 +29,13 @@ be useful to increase the log level. See the Notes section in
 \code{\link{S3FileSystem}} for more information or see Examples below.
 }
 \examples{
-\dontshow{if (FALSE) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
+\dontshow{if (FALSE) withAutoprint(\{ # examplesIf}
 bucket <- s3_bucket("voltrondata-labs-datasets")
 \dontshow{\}) # examplesIf}
-\dontshow{if (FALSE) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
+\dontshow{if (FALSE) withAutoprint(\{ # examplesIf}
 # Turn on debug logging. The following line of code should be run in a fresh
 # R session prior to any calls to `s3_bucket()` (or other S3 functions)
-Sys.setenv("ARROW_S3_LOG_LEVEL"="DEBUG")
+Sys.setenv("ARROW_S3_LOG_LEVEL" = "DEBUG")
 bucket <- s3_bucket("voltrondata-labs-datasets")
 \dontshow{\}) # examplesIf}
 }

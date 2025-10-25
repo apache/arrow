@@ -106,7 +106,7 @@ binary storage formats, and by specifying relevant partitioning, you can
 make it much faster to read and query.
 }
 \examples{
-\dontshow{if (arrow_with_dataset() & arrow_with_parquet() & requireNamespace("dplyr", quietly = TRUE)) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
+\dontshow{if (arrow_with_dataset() & arrow_with_parquet() & requireNamespace("dplyr", quietly = TRUE)) withAutoprint(\{ # examplesIf}
 # You can write datasets partitioned by the values in a column (here: "cyl").
 # This creates a structure of the form cyl=X/part-Z.parquet.
 one_level_tree <- tempfile()
@@ -130,8 +130,8 @@ list.files(two_levels_tree, recursive = TRUE)
 # output directory will be different.
 library(dplyr)
 two_levels_tree_2 <- tempfile()
-mtcars \%>\%
-  group_by(cyl, gear) \%>\%
+mtcars |>
+  group_by(cyl, gear) |>
   write_dataset(two_levels_tree_2)
 list.files(two_levels_tree_2, recursive = TRUE)
 
@@ -140,8 +140,8 @@ list.files(two_levels_tree_2, recursive = TRUE)
 
 # Write a structure X/Y/part-Z.parquet.
 two_levels_tree_no_hive <- tempfile()
-mtcars \%>\%
-  group_by(cyl, gear) \%>\%
+mtcars |>
+  group_by(cyl, gear) |>
   write_dataset(two_levels_tree_no_hive, hive_style = FALSE)
 list.files(two_levels_tree_no_hive, recursive = TRUE)
 \dontshow{\}) # examplesIf}
