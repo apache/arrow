@@ -20,10 +20,10 @@ ARROW_R_DEV="TRUE"
 ARROW_LARGE_MEMORY_TESTS=$(ARROW_R_DEV)
 
 style:
-	pre-commit run --show-diff-on-failure --color=always styler
+	pre-commit run --show-diff-on-failure --color=always r
 
 style-all:
-	pre-commit run --show-diff-on-failure --color=always --all-files styler
+	pre-commit run --show-diff-on-failure --color=always --all-files r
 
 doc: style
 	R -s -f data-raw/docgen.R
