@@ -211,7 +211,7 @@ repos:
         language: system
         entry: air format r --check
         files: >-
-            ^r/.*\.(R|Rmd)$
+            ^r/.*\.R$
   - repo: https://github.com/pre-commit/mirrors-clang-format
     rev: v14.0.6
     hooks:
