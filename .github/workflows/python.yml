@@ -148,7 +148,7 @@ jobs:
       matrix:
         include:
           - architecture: AMD64
-            macos-version: "13"
+            macos-version: "15-intel"
           - architecture: ARM64
             macos-version: "14"
     env:
@@ -219,7 +219,7 @@ jobs:
       - name: Build
         shell: bash
         run: |
-          if [ "${{ matrix.macos-version }}" = "13" ]; then
+          if [ "${{ matrix.macos-version }}" = "15-intel" ]; then
             # This is a workaround.
             #
             # Homebrew uses /usr/local as prefix. So packages
