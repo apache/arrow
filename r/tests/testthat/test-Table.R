@@ -478,6 +478,20 @@ test_that("Tables can be combined with concat_tables()", {
   expect_equal(expected, concat_tables(expected))
 })
 
+test_that("concat_tables() handles RecordBatch objects (GH-47000)", {
+  # concat_tables() should automatically convert RecordBatch to Table
+  tbl <- arrow_table(a = 1:5, b = letters[1:5])
+  rb <- record_batch(a = 6:10, b = letters[6:10])
+
+  # Concatenating a Table with a RecordBatch should work (not segfault)
+  result <- concat_tables(tbl, rb)
+  expect_s3_class(result, "Table")
+  expect_equal(
+    result,
+    arrow_table(a = 1:10, b = letters[1:10])
+  )
+})
+
 test_that("Table supports rbind", {
   expect_error(
     rbind(arrow_table(a = 1:10), arrow_table(a = c("a", "b"))),
