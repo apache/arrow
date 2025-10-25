@@ -94,7 +94,7 @@ TEST(Metadata, TestBuildAccess) {
   WriterProperties::Builder prop_builder;
 
   std::shared_ptr<WriterProperties> props =
-      prop_builder.version(ParquetVersion::PARQUET_2_6)->build();
+      prop_builder.version(ParquetVersion::PARQUET_2_LATEST)->build();
 
   fields.push_back(parquet::schema::Int32("int_col", Repetition::REQUIRED));
   fields.push_back(parquet::schema::Float("float_col", Repetition::REQUIRED));
@@ -137,7 +137,7 @@ TEST(Metadata, TestBuildAccess) {
     ASSERT_EQ(nrows, f_accessors[loop_index]->num_rows());
     ASSERT_LE(0, static_cast<int>(f_accessors[loop_index]->size()));
     ASSERT_EQ(2, f_accessors[loop_index]->num_row_groups());
-    ASSERT_EQ(ParquetVersion::PARQUET_2_6, f_accessors[loop_index]->version());
+    ASSERT_EQ(ParquetVersion::PARQUET_2_LATEST, f_accessors[loop_index]->version());
     ASSERT_EQ(DEFAULT_CREATED_BY, f_accessors[loop_index]->created_by());
     ASSERT_EQ(3, f_accessors[loop_index]->num_schema_elements());
 
@@ -256,7 +256,7 @@ TEST(Metadata, TestBuildAccess) {
   ASSERT_EQ(4, f_accessor->num_row_groups());
   ASSERT_EQ(nrows * 2, f_accessor->num_rows());
   ASSERT_LE(0, static_cast<int>(f_accessor->size()));
-  ASSERT_EQ(ParquetVersion::PARQUET_2_6, f_accessor->version());
+  ASSERT_EQ(ParquetVersion::PARQUET_2_LATEST, f_accessor->version());
   ASSERT_EQ(DEFAULT_CREATED_BY, f_accessor->created_by());
   ASSERT_EQ(3, f_accessor->num_schema_elements());
 

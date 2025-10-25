@@ -1113,7 +1113,7 @@ cdef class FileMetaData(_Weakrefable):
         """
         Parquet format version used in file (str, such as '1.0', '2.4').
 
-        If version is missing or unparsable, will default to assuming '2.6'.
+        If version is missing or unparsable, will default to assuming '2.12'.
         """
         cdef ParquetVersion version = self._metadata.version()
         if version == ParquetVersion_V1:
@@ -1122,9 +1122,21 @@ cdef class FileMetaData(_Weakrefable):
             return '2.4'
         elif version == ParquetVersion_V2_6:
             return '2.6'
+        elif version == ParquetVersion_V2_7:
+            return '2.7'
+        elif version == ParquetVersion_V2_8:
+            return '2.8'
+        elif version == ParquetVersion_V2_9:
+            return '2.9'
+        elif version == ParquetVersion_V2_10:
+            return '2.10'
+        elif version == ParquetVersion_V2_11:
+            return '2.11'
+        elif version == ParquetVersion_V2_12:
+            return '2.12'
         else:
-            warnings.warn(f'Unrecognized file version, assuming 2.6: {version}')
-            return '2.6'
+            warnings.warn(f'Unrecognized file version, assuming 2.12: {version}')
+            return '2.12'
 
     @property
     def created_by(self):
