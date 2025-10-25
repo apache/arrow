@@ -324,7 +324,7 @@ def arrays(draw, type, size=None, nullable=True):
                 datetime.timedelta(hours=offset_hours, minutes=offset_min)
             )
         except ValueError:
-            tz = zoneinfo.ZoneInfo(ty.tz)  # type: ignore[union-attr]
+            tz = zoneinfo.ZoneInfo(str(ty.tz))
         value = st.datetimes(timezones=st.just(tz), min_value=min_datetime,
                              max_value=max_datetime)
     elif pa.types.is_duration(ty):

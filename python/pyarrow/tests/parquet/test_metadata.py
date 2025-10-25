@@ -240,8 +240,8 @@ def test_parquet_raise_on_unset_statistics():
 
     stat = meta.row_group(0).column(0).statistics
     assert stat is not None
-    assert not stat.has_min_max  # type: ignore[attr-defined]
-    assert stat.max is None  # type: ignore[attr-defined]
+    assert not stat.has_min_max
+    assert stat.max is None
 
 
 def test_statistics_convert_logical_types(tempdir):
@@ -507,6 +507,7 @@ def test_multi_dataset_metadata(tempdir):
             _meta.append_row_groups(meta[0])
 
     # Write merged metadata-only file
+    assert _meta is not None
     with open(metapath, "wb") as f:
         _meta.write_metadata_file(f)  # type: ignore[union-attr]
 
