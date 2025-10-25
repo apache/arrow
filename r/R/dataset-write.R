@@ -124,7 +124,6 @@
 #'   write_dataset(two_levels_tree_no_hive, hive_style = FALSE)
 #' list.files(two_levels_tree_no_hive, recursive = TRUE)
 #' @export
-<<<<<<< HEAD
 write_dataset <- function(dataset,
                           path,
                           format = c("parquet", "feather", "arrow", "ipc", "csv", "tsv", "txt", "text"),
@@ -139,23 +138,6 @@ write_dataset <- function(dataset,
                           max_rows_per_group = bitwShiftL(1, 20),
                           create_directory = TRUE,
                           ...) {
-=======
-write_dataset <- function(
-  dataset,
-  path,
-  format = c("parquet", "feather", "arrow", "ipc", "csv", "tsv", "txt", "text"),
-  partitioning = dplyr::group_vars(dataset),
-  basename_template = paste0("part-{i}.", as.character(format)),
-  hive_style = TRUE,
-  existing_data_behavior = c("overwrite", "error", "delete_matching"),
-  max_partitions = 1024L,
-  max_open_files = 900L,
-  max_rows_per_file = 0L,
-  min_rows_per_group = 0L,
-  max_rows_per_group = bitwShiftL(1, 20),
-  ...
-) {
->>>>>>> a05b1ccf0b (Reformat all files with air)
   format <- match.arg(format)
   if (format %in% c("feather", "ipc")) {
     format <- "arrow"
@@ -243,25 +225,11 @@ write_dataset <- function(
 
   plan$Write(
     final_node,
-<<<<<<< HEAD
     options, path_and_fs$fs, path_and_fs$path,
     partitioning, basename_template,
     existing_data_behavior, max_partitions,
     max_open_files, max_rows_per_file,
     min_rows_per_group, max_rows_per_group, create_directory
-=======
-    options,
-    path_and_fs$fs,
-    path_and_fs$path,
-    partitioning,
-    basename_template,
-    existing_data_behavior,
-    max_partitions,
-    max_open_files,
-    max_rows_per_file,
-    min_rows_per_group,
-    max_rows_per_group
->>>>>>> a05b1ccf0b (Reformat all files with air)
   )
 }
 
