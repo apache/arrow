@@ -733,7 +733,7 @@ class PARQUET_EXPORT WriterProperties {
       return this->disable_write_page_index(path->ToDotString());
     }
 
-    /// \brief Set the level to write size statistics for all columns. Default is None.
+    /// \brief Set the level to write size statistics for all columns. Default is PageAndColumnChunk.
     ///
     /// \param level The level to write size statistics. Note that if page index is not
     /// enabled, page level size statistics will not be written even if the level
