@@ -63,7 +63,6 @@ else:
         )
     except ImportError:
         flight = None  # type: ignore[assignment]
-        # type: ignore[assignment, misc]
         FlightClient, FlightServerBase = object, object
         ServerAuthHandler, ClientAuthHandler = (  # type: ignore[misc]
             object, object)  # type: ignore[assignment]
@@ -704,7 +703,6 @@ class HeaderAuthServerMiddlewareFactory(ServerMiddlewareFactory):
         )
         if auth_header:
             values = auth_header[0].split(b' ') if isinstance(
-                # type: ignore[arg-type]
                 auth_header[0], bytes) else auth_header[0].split(' ')
         token = ''
         error_message = 'Invalid credentials'

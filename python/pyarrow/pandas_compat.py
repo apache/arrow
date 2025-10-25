@@ -92,21 +92,21 @@ def get_logical_type(arrow_type):
 def get_numpy_logical_type_map():
     global _numpy_logical_type_map  # noqa: F824
     if not _numpy_logical_type_map:
-        _numpy_logical_type_map.update({  # type: ignore[arg-type]
-            np.bool_: 'bool',  # type: ignore
-            np.int8: 'int8',  # type: ignore
-            np.int16: 'int16',  # type: ignore
-            np.int32: 'int32',  # type: ignore
-            np.int64: 'int64',  # type: ignore
-            np.uint8: 'uint8',  # type: ignore
-            np.uint16: 'uint16',  # type: ignore
-            np.uint32: 'uint32',  # type: ignore
-            np.uint64: 'uint64',  # type: ignore
-            np.float32: 'float32',  # type: ignore
-            np.float64: 'float64',  # type: ignore
+        _numpy_logical_type_map.update({  # type: ignore[reportCallIssue]
+            np.bool_: 'bool',
+            np.int8: 'int8',
+            np.int16: 'int16',
+            np.int32: 'int32',
+            np.int64: 'int64',
+            np.uint8: 'uint8',
+            np.uint16: 'uint16',
+            np.uint32: 'uint32',
+            np.uint64: 'uint64',
+            np.float32: 'float32',
+            np.float64: 'float64',
             'datetime64[D]': 'date',
-            np.str_: 'string',  # type: ignore
-            np.bytes_: 'bytes',  # type: ignore
+            np.str_: 'string',
+            np.bytes_: 'bytes',
         })
     return _numpy_logical_type_map
 
@@ -788,7 +788,7 @@ def make_datetimetz(unit, tz):
     if _pandas_api.is_v1():
         unit = 'ns'  # ARROW-3789: Coerce date/timestamp types to datetime64[ns]
     tz = pa.lib.string_to_tzinfo(tz)
-    return _pandas_api.datetimetz_type(unit, tz=tz)  # type: ignore
+    return _pandas_api.datetimetz_type(unit, tz=tz)  # type: ignore[reportArgumentType]
 
 
 def table_to_dataframe(
@@ -835,7 +835,8 @@ def table_to_dataframe(
 
         return df
     else:
-        from pandas.core.internals import BlockManager  # type: ignore
+        from pandas.core.internals import (  # type: ignore[reportMissingImports]
+            BlockManager)
         from pandas import DataFrame
 
         blocks = [

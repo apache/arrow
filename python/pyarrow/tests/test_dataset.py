@@ -3345,7 +3345,7 @@ def test_specified_schema(tempdir, dataset_reader):
     # Specifying with differing field types
     schema = pa.schema([('a', 'int32'), ('b', 'float64')])
     dataset = ds.dataset(str(tempdir / "data.parquet"), schema=schema)
-    expected = pa.table([table['a'].cast(pa.int32()),  # type: ignore[arg-type]
+    expected = pa.table([table['a'].cast('int32'),  # type: ignore[arg-type]
                          table['b']],
                         names=['a', 'b'])
     _check_dataset(schema, expected)
@@ -4055,13 +4055,13 @@ def test_filter_mismatching_schema(tempdir, dataset_reader):
     # cast the column
     filtered = dataset_reader.to_table(dataset, filter=ds.field("col") > 2)
     assert filtered["col"].equals(table["col"].cast(
-        pa.int64()).slice(2))  # type: ignore[arg-type]
+        'int64').slice(2))  # type: ignore[arg-type]
 
     fragment = list(dataset.get_fragments())[0]
     filtered = dataset_reader.to_table(
         fragment, filter=ds.field("col") > 2, schema=schema)
     assert filtered["col"].equals(table["col"].cast(
-        pa.int64()).slice(2))  # type: ignore[arg-type]
+        'int64').slice(2))  # type: ignore[arg-type]
 
 
 @pytest.mark.parquet
