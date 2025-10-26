@@ -83,9 +83,11 @@ static void ParquetScanToTableCastStrings(benchmark::State& state) {
 }
 
 static void ParquetScanBenchmark_Customize(benchmark::internal::Benchmark* b) {
-  auto params = {std::make_tuple(1000, 1000), std::make_tuple(10000, 100), std::make_tuple(100000, 10)};
-  for (auto param : params) {
-    b->Args({std::get<0>(param), std::get<1>(param)});
+  std::vector<int64_t> num_batches = {1000, 100, 10};
+  std::vector<int64_t> batch_sizes = {1000, 10000, 100000};
+
+  for (size_t i = 0; i < batch_sizes.size(); i++) {
+    b->Args({(num_batches[i]), batch_sizes[i]});
   }
   b->ArgNames({"num_batches", "batch_size"});
 }
