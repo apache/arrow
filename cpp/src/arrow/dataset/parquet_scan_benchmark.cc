@@ -15,7 +15,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <tuple>
 #include "arrow/testing/gtest_util.h"
 #include "benchmark/benchmark.h"
 
