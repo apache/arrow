@@ -48,7 +48,7 @@ sync-cpp:
 	cp -p ../LICENSE.txt tools/
 	sed -i"" -e "s/\.env/dotenv/g" tools/cpp/CMakeLists.txt
 
-build: doc sync-cpp
+build: clean doc sync-cpp
 	R CMD build ${args} .
 
 check: build
@@ -67,5 +67,5 @@ clean:
 	-rm src/Makevars.win
 	-rm -rf arrow.Rcheck/
 	-rm -rf libarrow/
-	-rm -rf tools/cpp/ tools/dotenv tools/NOTICE.txt tools/LICENSE.txt tools/checksums
+	-rm -rf tools/cpp/ tools/dotenv tools/NOTICE.txt tools/LICENSE.txt
 	-find . -name "*.orig" -delete
