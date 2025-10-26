@@ -572,7 +572,7 @@ struct AltrepFactor : public AltrepVectorBase<AltrepFactor> {
 
   static SEXP Duplicate(SEXP alt, Rboolean /* deep */) {
     // the representation integer vector
-    SEXP dup = PROTECT(Rf_lazy_duplicate(Materialize(alt)));
+    SEXP dup = PROTECT(Rf_shallow_duplicate(Materialize(alt)));
 
     // additional attributes from the altrep
     SEXP atts = PROTECT(Rf_duplicate(ATTRIB(alt)));
