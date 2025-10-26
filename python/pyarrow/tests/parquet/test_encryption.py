@@ -64,6 +64,15 @@ def basic_encryption_config():
         })
     return basic_encryption_config
 
+@pytest.fixture(scope='module')
+def external_encryption_config():
+    basic_encryption_config = pe.EncryptionConfiguration(
+        footer_key=FOOTER_KEY_NAME,
+        column_keys={
+            COL_KEY_NAME: ["a", "b"],
+        },
+        internal_key_material = False)
+    return basic_encryption_config
 
 def setup_encryption_environment(custom_kms_conf):
     """
@@ -106,7 +115,7 @@ def write_encrypted_file(path, data_table, footer_key_name, col_key_name,
 def test_encrypted_parquet_write_read(tempdir, data_table):
     """Write an encrypted parquet, verify it's encrypted, and then read it."""
     path = tempdir / PARQUET_NAME
-
+    
     # Encrypt the footer with the footer key,
     # encrypt column `a` and column `b` with another key,
     # keep `c` plaintext
@@ -163,8 +172,12 @@ def test_uniform_encrypted_parquet_write_read(tempdir, data_table):
 
 def write_encrypted_parquet(path, table, encryption_config,
                             kms_connection_config, crypto_factory):
-    file_encryption_properties = crypto_factory.file_encryption_properties(
-        kms_connection_config, encryption_config)
+    if encryption_config.internal_key_material:
+        file_encryption_properties = crypto_factory.file_encryption_properties(
+            kms_connection_config, encryption_config)
+    else:
+        file_encryption_properties = crypto_factory.file_encryption_properties(
+            kms_connection_config, encryption_config, path)
     assert file_encryption_properties is not None
     with pq.ParquetWriter(
             path, table.schema,
@@ -173,9 +186,15 @@ def write_encrypted_parquet(path, table, encryption_config,
 
 
 def read_encrypted_parquet(path, decryption_config,
-                           kms_connection_config, crypto_factory):
-    file_decryption_properties = crypto_factory.file_decryption_properties(
-        kms_connection_config, decryption_config)
+                           kms_connection_config, crypto_factory,
+                           internal_key_material=True):
+    if internal_key_material:
+        file_decryption_properties = crypto_factory.file_decryption_properties(
+            kms_connection_config, decryption_config)
+    else:
+        file_decryption_properties = crypto_factory.file_decryption_properties(
+            kms_connection_config, decryption_config, path)
+
     assert file_decryption_properties is not None
     meta = pq.read_metadata(
         path, decryption_properties=file_decryption_properties)
@@ -514,31 +533,33 @@ def test_encrypted_parquet_write_read_plain_footer_single_wrapping(
     # assert table.num_rows == result_table.num_rows
 
 
-@pytest.mark.xfail(reason="External key material not supported yet")
-def test_encrypted_parquet_write_external(tempdir, data_table):
-    """Write an encrypted parquet, with external key
-    material.
-    Currently it's not implemented, so should throw
-    an exception"""
+def test_encrypted_parquet_write_read_external(tempdir, data_table, 
+                                               external_encryption_config):
+    """Write an encrypted parquet with external key material.
+    """
     path = tempdir / PARQUET_NAME
 
-    # Encrypt the file with the footer key
-    encryption_config = pe.EncryptionConfiguration(
-        footer_key=FOOTER_KEY_NAME,
-        column_keys={},
+    kms_connection_config, crypto_factory = write_encrypted_file(
+        path, data_table, FOOTER_KEY_NAME, COL_KEY_NAME, FOOTER_KEY, COL_KEY,
+        external_encryption_config)
+
+    verify_file_encrypted(path)
+    
+    decryption_config = pe.DecryptionConfiguration()
+    result_table = read_encrypted_parquet(
+        path, decryption_config, kms_connection_config, crypto_factory, 
         internal_key_material=False)
-
-    kms_connection_config = pe.KmsConnectionConfig(
-        custom_kms_conf={FOOTER_KEY_NAME: FOOTER_KEY.decode("UTF-8")}
-    )
-
-    def kms_factory(kms_connection_configuration):
-        return InMemoryKmsClient(kms_connection_configuration)
-
-    crypto_factory = pe.CryptoFactory(kms_factory)
-    # Write with encryption properties
-    write_encrypted_parquet(path, data_table, encryption_config,
-                            kms_connection_config, crypto_factory)
+    
+    try:
+        store = pa._parquet_encryption.FileSystemKeyMaterialStore.for_file(
+            path)
+        assert len(key_ids := store.get_key_id_set()) == (
+            len(external_encryption_config.column_keys[COL_KEY_NAME]) + 1 )
+        assert all([store.get_key_material(k) is not None for k in key_ids ])
+    except:
+        pytest.fail("Unable to read external key material store.")
+    
+    assert data_table.equals(result_table)
 
 
 def test_encrypted_parquet_loop(tempdir, data_table, basic_encryption_config):

@@ -25,7 +25,7 @@
 
 #include "parquet/encryption/file_system_key_material_store.h"
 #include "parquet/encryption/key_material.h"
-#include "parquet/exception.h"
+
 
 namespace parquet::encryption {
 
