@@ -30,8 +30,6 @@
 namespace arrow {
 namespace internal {
 
-// static inline bool check_add_int32_int32(int32_t a, int32_t b, int32_t* ret)
-
 // Define functions AddWithOverflow, SubtractWithOverflow, MultiplyWithOverflow
 // with the signature `bool(T u, T v, T* out)` where T is an integer type.
 // On overflow, these functions return true.  Otherwise, false is returned
@@ -63,46 +61,69 @@ using transformed_int_t =
 template <typename Int>
 using upscaled_int32_t = transformed_int_t<Int, int32_t, uint32_t>;
 
-// TODO use builtins on clang/gcc
+// Use GCC/CLang builtins for checked arithmetic, promising better performance
+// than SafeInt's hand-written implementations.
+#if defined __has_builtin
+#  if __has_builtin(__builtin_object_size)
+#    define USE_CHECKED_ARITHMETIC_BUILTINS 1
+#  else
+#    define USE_CHECKED_ARITHMETIC_BUILTINS 0
+#  endif
+#endif
 
 template <typename Int>
 [[nodiscard]] bool AddWithOverflowGeneric(Int u, Int v, Int* out) {
+#if USE_CHECKED_ARITHMETIC_BUILTINS
+  return __builtin_add_overflow(u, v, out);
+#else
   if constexpr (sizeof(Int) < 4) {
     auto r =
-        static_cast<upscaled_int32_t<Int>>(u) + static_cast<upscaled_int32_t<Int>>(v);
+        static_cast<upscaled_int32_t<Int> >(u) + static_cast<upscaled_int32_t<Int> >(v);
     *out = static_cast<Int>(r);
     return r != *out;
   } else {
     return SafeIntAddWithOverflow(u, v, out);
   }
+#endif
 }
 
 template <typename Int>
 [[nodiscard]] bool SubtractWithOverflowGeneric(Int u, Int v, Int* out) {
+#if USE_CHECKED_ARITHMETIC_BUILTINS
+  return __builtin_sub_overflow(u, v, out);
+#else
   if constexpr (sizeof(Int) < 4) {
     auto r =
-        static_cast<upscaled_int32_t<Int>>(u) - static_cast<upscaled_int32_t<Int>>(v);
+        static_cast<upscaled_int32_t<Int> >(u) - static_cast<upscaled_int32_t<Int> >(v);
     *out = static_cast<Int>(r);
     return r != *out;
   } else {
     return SafeIntSubtractWithOverflow(u, v, out);
   }
+#endif
 }
 
 template <typename Int>
 [[nodiscard]] bool MultiplyWithOverflowGeneric(Int u, Int v, Int* out) {
+#if USE_CHECKED_ARITHMETIC_BUILTINS
+  return __builtin_mul_overflow(u, v, out);
+#else
   if constexpr (sizeof(Int) < 4) {
     auto r =
-        static_cast<upscaled_int32_t<Int>>(u) * static_cast<upscaled_int32_t<Int>>(v);
+        static_cast<upscaled_int32_t<Int> >(u) * static_cast<upscaled_int32_t<Int> >(v);
     *out = static_cast<Int>(r);
     return r != *out;
   } else {
     return SafeIntMultiplyWithOverflow(u, v, out);
   }
+#endif
 }
 
 template <typename Int>
 [[nodiscard]] bool DivideWithOverflowGeneric(Int u, Int v, Int* out) {
+  if (v == 0) {
+    return true;
+  }
   if constexpr (sizeof(Int) < 4) {
     using UpscaledInt = upscaled_int32_t<Int>;
     UpscaledInt r;
