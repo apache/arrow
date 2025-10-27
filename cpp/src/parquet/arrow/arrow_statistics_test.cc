@@ -22,6 +22,7 @@
 #include "arrow/array/builder_time.h"
 #include "arrow/table.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/util/logger.h"
 
 #include "parquet/api/reader.h"
 #include "parquet/api/writer.h"
@@ -236,7 +237,8 @@ void TestStatisticsReadArray(std::shared_ptr<::arrow::DataType> arrow_type) {
   auto statistics = typed_read_array->statistics();
   ASSERT_NE(nullptr, statistics);
   ASSERT_EQ(true, statistics->null_count.has_value());
-  ASSERT_EQ(1, statistics->null_count.value());
+  ASSERT_EQ(true, std::holds_alternative<int64_t>(statistics->null_count.value()));
+  ASSERT_EQ(1, std::get<int64_t>(statistics->null_count.value()));
   ASSERT_EQ(false, statistics->distinct_count.has_value());
   ASSERT_EQ(true, statistics->min.has_value());
   ASSERT_EQ(true, std::holds_alternative<MinMaxType>(*statistics->min));
@@ -356,7 +358,8 @@ TEST(TestStatisticsRead, MultipleRowGroupsShouldLoadStatistics) {
   auto statistics = typed_read_array->statistics();
   ASSERT_NE(nullptr, statistics);
   ASSERT_EQ(true, statistics->null_count.has_value());
-  ASSERT_EQ(1, statistics->null_count.value());
+  ASSERT_EQ(true, std::holds_alternative<int64_t>(statistics->null_count.value()));
+  ASSERT_EQ(1, std::get<int64_t>(statistics->null_count.value()));
   ASSERT_EQ(false, statistics->distinct_count.has_value());
   ASSERT_EQ(true, statistics->min.has_value());
   // This is not -1 because this array has only the first 2 elements.
