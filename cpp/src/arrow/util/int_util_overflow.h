@@ -40,16 +40,15 @@ namespace internal {
     return !check_##_op_name##_##_type##_##_type(u, v, out);                        \
   }
 
-#define SAFE_INT_OPS_WITH_OVERFLOW(_func_name, _psnip_op)            \
-  SAFE_INT_OP_WITH_OVERFLOW(_func_name, _psnip_op, int32_t, int32)   \
-  SAFE_INT_OP_WITH_OVERFLOW(_func_name, _psnip_op, int64_t, int64)   \
-  SAFE_INT_OP_WITH_OVERFLOW(_func_name, _psnip_op, uint32_t, uint32) \
-  SAFE_INT_OP_WITH_OVERFLOW(_func_name, _psnip_op, uint64_t, uint64)
+#define SAFE_INT_OPS_WITH_OVERFLOW(_func_name, _op_name)            \
+  SAFE_INT_OP_WITH_OVERFLOW(_func_name, _op_name, int32_t, int32)   \
+  SAFE_INT_OP_WITH_OVERFLOW(_func_name, _op_name, int64_t, int64)   \
+  SAFE_INT_OP_WITH_OVERFLOW(_func_name, _op_name, uint32_t, uint32) \
+  SAFE_INT_OP_WITH_OVERFLOW(_func_name, _op_name, uint64_t, uint64)
 
 SAFE_INT_OPS_WITH_OVERFLOW(SafeIntAddWithOverflow, add)
 SAFE_INT_OPS_WITH_OVERFLOW(SafeIntSubtractWithOverflow, sub)
 SAFE_INT_OPS_WITH_OVERFLOW(SafeIntMultiplyWithOverflow, mul)
-SAFE_INT_OPS_WITH_OVERFLOW(SafeIntDivideWithOverflow, div)
 
 #undef SAFE_INT_OP_WITH_OVERFLOW
 #undef SAFE_INT_OPS_WITH_OVERFLOW
@@ -77,8 +76,8 @@ template <typename Int>
   return __builtin_add_overflow(u, v, out);
 #else
   if constexpr (sizeof(Int) < 4) {
-    auto r =
-        static_cast<upscaled_int32_t<Int> >(u) + static_cast<upscaled_int32_t<Int> >(v);
+    using UpscaledInt = upscaled_int32_t<Int>;
+    auto r = static_cast<UpscaledInt>(u) + static_cast<UpscaledInt>(v);
     *out = static_cast<Int>(r);
     return r != *out;
   } else {
@@ -93,8 +92,8 @@ template <typename Int>
   return __builtin_sub_overflow(u, v, out);
 #else
   if constexpr (sizeof(Int) < 4) {
-    auto r =
-        static_cast<upscaled_int32_t<Int> >(u) - static_cast<upscaled_int32_t<Int> >(v);
+    using UpscaledInt = upscaled_int32_t<Int>;
+    auto r = static_cast<UpscaledInt>(u) - static_cast<UpscaledInt>(v);
     *out = static_cast<Int>(r);
     return r != *out;
   } else {
@@ -109,8 +108,8 @@ template <typename Int>
   return __builtin_mul_overflow(u, v, out);
 #else
   if constexpr (sizeof(Int) < 4) {
-    auto r =
-        static_cast<upscaled_int32_t<Int> >(u) * static_cast<upscaled_int32_t<Int> >(v);
+    using UpscaledInt = upscaled_int32_t<Int>;
+    auto r = static_cast<UpscaledInt>(u) * static_cast<UpscaledInt>(v);
     *out = static_cast<Int>(r);
     return r != *out;
   } else {
@@ -125,15 +124,15 @@ template <typename Int>
     *out = Int{};
     return true;
   }
-  if constexpr (sizeof(Int) < 4) {
-    using UpscaledInt = upscaled_int32_t<Int>;
-    UpscaledInt r;
-    bool error = SafeIntDivideWithOverflow(UpscaledInt{u}, UpscaledInt{v}, &r);
-    *out = static_cast<Int>(r);
-    return error || r != *out;
-  } else {
-    return SafeIntDivideWithOverflow(u, v, out);
+  if constexpr (std::is_signed_v<Int>) {
+    constexpr auto kMin = std::numeric_limits<Int>::min();
+    if (u == kMin && v == -1) {
+      *out = kMin;
+      return true;
+    }
   }
+  *out = u / v;
+  return false;
 }
 
 // Define non-generic versions of the above so as to benefit from automatic
@@ -142,7 +141,7 @@ template <typename Int>
 
 #define NON_GENERIC_OP_WITH_OVERFLOW(_func_name, _c_type)                    \
   [[nodiscard]] inline bool _func_name(_c_type u, _c_type v, _c_type* out) { \
-    return _func_name##Generic(u, v, out);                                   \
+    return ARROW_PREDICT_FALSE(_func_name##Generic(u, v, out));              \
   }
 
 #define NON_GENERIC_OPS_WITH_OVERFLOW(_func_name)    \
