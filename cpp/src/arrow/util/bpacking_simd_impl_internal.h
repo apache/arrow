@@ -31,11 +31,9 @@ namespace arrow::internal {
 
 // https://github.com/fast-pack/LittleIntPacker/blob/master/src/horizontalpacking32.c
 // TODO
-// - No zero and full size unpack here
 // - _mm_cvtepi8_epi32
-// - var rshifts no avail on SSE
+// - no _mm_srlv_epi32 (128bit) in xsimd with AVX2 required arch
 // -  no need for while loop (for up to 8 is sufficient)
-// -  no need for the top functions
 // - Shifts per swizzle can be improved when self.packed_max_byte_spread == 1 and the
 //   byte can be reused (when val_bit_width divides packed_max_byte_spread).
 
@@ -212,6 +210,19 @@ constexpr KernelPlan<UnpackedUint, kPackedBitSize, kSimdBitSize> BuildPlan() {
   return plan;
 }
 
+/// Simple constexpr maximum element suited for non empty arrays.
+template <typename T, std::size_t N>
+constexpr T max_value(const std::array<T, N>& arr) {
+  static_assert(N > 0);
+  T out = 0;
+  for (const T& v : arr) {
+    if (v > out) {
+      out = v;
+    }
+  }
+  return out;
+}
+
 template <typename UnpackedUint, int kPackedBitSize, int kSimdBitSize>
 struct Kernel {
   static constexpr auto kPlan = BuildPlan<UnpackedUint, kPackedBitSize, kSimdBitSize>();
@@ -227,20 +238,51 @@ struct Kernel {
 
   template <int kReadIdx, int kSwizzleIdx, int kShiftIdx>
   static void unpack_one_shift_impl(const simd_batch& words, unpacked_type* out) {
-    struct MakeShifts {
-      static constexpr unpacked_type get(int i, int n) {
-        return kPlan.shifts.at(kReadIdx).at(kSwizzleIdx).at(kShiftIdx).at(i);
-      }
-    };
+    static constexpr auto kRightShiftsArr =
+        kPlan.shifts.at(kReadIdx).at(kSwizzleIdx).at(kShiftIdx);
 
-    constexpr auto kShifts =
-        xsimd::make_batch_constant<unpacked_type, arch_type, MakeShifts>();
+    constexpr bool kHasSse2 = xsimd::supported_architectures::contains<xsimd::sse2>();
+    constexpr bool kHasAvx2 = xsimd::supported_architectures::contains<xsimd::avx2>();
+
+    // Intel x86-64 does not have variable right shifts before AVX2.
+    // Instead, since we know the packed value can safely be left shifted up to the
+    // maximum already in the batch, we use a multiplication to emulate a left shits,
+    // followed by a static right shift.
+    // Trick from Daniel Lemire and Leonid Boytsov, Decoding billions of integers per
+    // second through vectorization, Software Practice & Experience 45 (1), 2015.
+    // http://arxiv.org/abs/1209.2137
+    simd_batch shifted;
+    if constexpr (kHasSse2 && !kHasAvx2) {
+      static constexpr unpacked_type kMaxRightShift = max_value(kRightShiftsArr);
+
+      struct MakeMults {
+        static constexpr unpacked_type get(int i, int n) {
+          // Equivalent to left shift of kMaxRightShift - kRightShifts.at(i).
+          return unpacked_type{1} << (kMaxRightShift - kRightShiftsArr.at(i));
+        }
+      };
+
+      constexpr auto kMults =
+          xsimd::make_batch_constant<unpacked_type, arch_type, MakeMults>();
+
+      shifted = (words * kMults) >> kMaxRightShift;
+    } else {
+      struct MakeRightShifts {
+        static constexpr unpacked_type get(int i, int n) { return kRightShiftsArr.at(i); }
+      };
+
+      constexpr auto kRightShifts =
+          xsimd::make_batch_constant<unpacked_type, arch_type, MakeRightShifts>();
+
+      shifted = words >> kRightShifts;
+    }
+
     constexpr auto kMask = kPlan.mask;
     constexpr auto kOutOffset = (kReadIdx * kPlan.unpacked_per_read() +
                                  kSwizzleIdx * kPlan.unpacked_per_swizzle() +
                                  kShiftIdx * kPlan.unpacked_per_shifts());
 
-    const auto vals = (words >> kShifts) & kMask;
+    const auto vals = shifted & kMask;
     xsimd::store_unaligned(out + kOutOffset, vals);
   }
 
