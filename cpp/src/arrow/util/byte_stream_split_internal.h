@@ -29,8 +29,9 @@
 #include <cstdint>
 #include <cstring>
 
-#if defined(ARROW_HAVE_NEON) || defined(ARROW_HAVE_SSE4_2) || \
-    defined(ARROW_HAVE_RUNTIME_AVX2)
+// ARROW_HAVE_RUNTIME_SSE4_2 is used on x86-64 to include ARROW_HAVE_SSE4_2 and
+// ARROW_RUNTIME_SIMD_LEVEL != NONE.
+#if defined(ARROW_HAVE_NEON) || defined(ARROW_HAVE_RUNTIME_SSE4_2)
 #  include <xsimd/xsimd.hpp>
 #  define ARROW_HAVE_SIMD_SPLIT
 #endif
