@@ -29,6 +29,9 @@ on:
       - '.github/workflows/report_ci.yml'
       - 'cpp/**'
       - 'c_glib/**'
+      - 'dev/release/binary-task.rb'
+      - 'dev/release/verify-apt.rb'
+      - 'dev/release/verify-yum.rb'
       - 'dev/tasks/linux-packages/**'
       - 'format/Flight.proto'
     tags:
@@ -40,6 +43,9 @@ on:
       - '.github/workflows/report_ci.yml'
       - 'cpp/**'
       - 'c_glib/**'
+      - 'dev/release/binary-task.rb'
+      - 'dev/release/verify-apt.rb'
+      - 'dev/release/verify-yum.rb'
       - 'dev/tasks/linux-packages/**'
       - 'format/Flight.proto'
     types:

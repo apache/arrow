@@ -1579,7 +1579,7 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
         base_dists_dir = "#{base_dir}/#{distribution}/dists/#{code_name}"
         merged_dists_dir = "#{merged_dir}/#{distribution}/dists/#{code_name}"
         rm_rf(merged_dists_dir)
-        if Dir.empty?(base_dists_dir)
+        if Dir.exist?(base_dists_dir) and Dir.empty?(base_dists_dir)
           mkdir_p(File.dirname(merged_dists_dir))
           cp_r(dists_dir, File.dirname(merged_dists_dir))
         else
