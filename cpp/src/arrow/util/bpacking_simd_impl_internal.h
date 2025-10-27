@@ -34,6 +34,8 @@ namespace arrow::internal {
 // - _mm_cvtepi8_epi32
 // - no _mm_srlv_epi32 (128bit) in xsimd with AVX2 required arch
 // -  no need for while loop (for up to 8 is sufficient)
+// - upstream var lshift to xsimd
+// - array to batch constant to xsimd
 // - Shifts per swizzle can be improved when self.packed_max_byte_spread == 1 and the
 //   byte can be reused (when val_bit_width divides packed_max_byte_spread).
 
@@ -143,7 +145,7 @@ struct KernelPlan {
 
   using ReadsPerKernel = std::array<int, kPlanSize.reads_per_kernel()>;
 
-  using Swizzle = std::array<int, kShape.simd_byte_size()>;
+  using Swizzle = std::array<uint8_t, kShape.simd_byte_size()>;
   using SwizzlesPerRead = std::array<Swizzle, kPlanSize.swizzles_per_read()>;
   using SwizzlesPerKernel = std::array<SwizzlesPerRead, kPlanSize.reads_per_kernel()>;
 
@@ -174,6 +176,7 @@ constexpr KernelPlan<UnpackedUint, kPackedBitSize, kSimdBitSize> BuildPlan() {
   using Plan = KernelPlan<UnpackedUint, kPackedBitSize, kSimdBitSize>;
   constexpr auto kShape = Plan::kShape;
   constexpr auto kPlanSize = Plan::kPlanSize;
+  static_assert(kShape.packed_max_spread_bytes() <= kShape.unpacked_byte_size());
 
   Plan plan = {};
 
@@ -195,7 +198,8 @@ constexpr KernelPlan<UnpackedUint, kPackedBitSize, kSimdBitSize> BuildPlan() {
 
           // Looping over the multiple bytes needed for current values
           for (int b = 0; b < kShape.packed_max_spread_bytes(); ++b) {
-            plan.swizzles.at(r).at(sw).at(sw_offset_byte + b) = packed_byte_in_read + b;
+            plan.swizzles.at(r).at(sw).at(sw_offset_byte + b) =
+                static_cast<uint8_t>(packed_byte_in_read + b);
           }
           // Shift is a single value but many packed values may be swizzles to a sing
           // unpacked value
@@ -221,6 +225,19 @@ constexpr T max_value(const std::array<T, N>& arr) {
     }
   }
   return out;
+}
+
+template <const auto& kArr, typename Arch, std::size_t... Is>
+constexpr auto make_batch_constant_impl(std::index_sequence<Is...>) {
+  using Array = std::decay_t<decltype(kArr)>;
+  using value_type = typename Array::value_type;
+
+  return xsimd::batch_constant<value_type, Arch, kArr[Is]...>{};
+}
+
+template <const auto& kArr, typename Arch>
+constexpr auto make_batch_constant() {
+  return make_batch_constant_impl<kArr, Arch>(std::make_index_sequence<kArr.size()>());
 }
 
 template <typename UnpackedUint, int kPackedBitSize, int kSimdBitSize>
@@ -267,12 +284,7 @@ struct Kernel {
 
       shifted = (words * kMults) >> kMaxRightShift;
     } else {
-      struct MakeRightShifts {
-        static constexpr unpacked_type get(int i, int n) { return kRightShiftsArr.at(i); }
-      };
-
-      constexpr auto kRightShifts =
-          xsimd::make_batch_constant<unpacked_type, arch_type, MakeRightShifts>();
+      constexpr auto kRightShifts = make_batch_constant<kRightShiftsArr, arch_type>();
 
       shifted = words >> kRightShifts;
     }
@@ -289,14 +301,8 @@ struct Kernel {
   template <int kReadIdx, int kSwizzleIdx, int... kShiftIds>
   static void unpack_one_swizzle_impl(const simd_bytes& bytes, unpacked_type* out,
                                       std::integer_sequence<int, kShiftIds...>) {
-    struct MakeSwizzles {
-      static constexpr int get(int i, int n) {
-        return kPlan.swizzles.at(kReadIdx).at(kSwizzleIdx).at(i);
-      }
-    };
-
-    constexpr auto kSwizzles =
-        xsimd::make_batch_constant<uint8_t, arch_type, MakeSwizzles>();
+    static constexpr auto kSwizzlesArr = kPlan.swizzles.at(kReadIdx).at(kSwizzleIdx);
+    constexpr auto kSwizzles = make_batch_constant<kSwizzlesArr, arch_type>();
 
     const auto swizzled = xsimd::swizzle(bytes, kSwizzles);
     const auto words = xsimd::bitwise_cast<unpacked_type>(swizzled);
