@@ -29,7 +29,8 @@
 #include <cstdint>
 #include <cstring>
 
-#if defined(ARROW_HAVE_NEON) || defined(ARROW_HAVE_SSE4_2)
+#if defined(ARROW_HAVE_NEON) || defined(ARROW_HAVE_SSE4_2) || \
+    defined(ARROW_HAVE_RUNTIME_AVX2)
 #  include <xsimd/xsimd.hpp>
 #  define ARROW_HAVE_SIMD_SPLIT
 #endif
