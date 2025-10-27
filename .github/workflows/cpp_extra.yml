@@ -37,7 +37,7 @@ on:
       - 'ci/scripts/msys2_*'
       - 'ci/scripts/util_*'
       - 'cpp/**'
-      - 'docker-compose.yml'
+      - 'compose.yaml'
       - 'format/Flight.proto'
       - 'testing'
     tags:
@@ -58,7 +58,7 @@ on:
       - 'ci/scripts/msys2_*'
       - 'ci/scripts/util_*'
       - 'cpp/**'
-      - 'docker-compose.yml'
+      - 'compose.yaml'
       - 'format/Flight.proto'
       - 'testing'
     types:

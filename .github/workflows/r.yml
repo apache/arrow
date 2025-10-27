@@ -34,7 +34,7 @@ on:
       - "ci/scripts/install_minio.sh"
       - "ci/scripts/r_*.sh"
       - "cpp/**"
-      - "docker-compose.yml"
+      - "compose.yaml"
       - "r/**"
   pull_request:
     paths:
@@ -47,7 +47,7 @@ on:
       - "ci/scripts/install_minio.sh"
       - "ci/scripts/r_*.sh"
       - "cpp/**"
-      - "docker-compose.yml"
+      - "compose.yaml"
       - "r/**"
 
 concurrency:

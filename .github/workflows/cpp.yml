@@ -37,7 +37,7 @@ on:
       - 'ci/scripts/msys2_*'
       - 'ci/scripts/util_*'
       - 'cpp/**'
-      - 'docker-compose.yml'
+      - 'compose.yaml'
       - 'format/Flight.proto'
       - 'testing'
   pull_request:
@@ -54,7 +54,7 @@ on:
       - 'ci/scripts/msys2_*'
       - 'ci/scripts/util_*'
       - 'cpp/**'
-      - 'docker-compose.yml'
+      - 'compose.yaml'
       - 'format/Flight.proto'
       - 'testing'
 

@@ -101,7 +101,7 @@ class ComposeConfig:
 
     def _read_config(self, config_path, compose_bin):
         """
-        Validate and read the docker-compose.yml
+        Validate and read the compose.yaml
         """
         yaml = YAML()
         with config_path.open() as fp:
@@ -149,7 +149,7 @@ class ComposeConfig:
         if errors:
             msg = '\n'.join([f' - {msg}' for msg in errors])
             raise ValueError(
-                f'Found errors with docker-compose:\n{msg}'
+                f'Found errors with docker compose:\n{msg}'
             )
 
         rendered_config = StringIO(result.stdout.decode())
@@ -407,7 +407,7 @@ class DockerCompose(Command):
                 cmd = service.get('command', '')
                 if cmd:
                     # service command might be already defined as a list
-                    # in docker-compose.yml.
+                    # in compose.yaml.
                     if isinstance(cmd, list):
                         cmd = shlex.join(cmd)
                     # Match behaviour from Docker Compose
