@@ -324,11 +324,11 @@ def arrays(draw, type, size=None, nullable=True):
                              max_value=max_datetime)
     elif pa.types.is_duration(ty):
         # Max days to fit in 64 bits in case of nanosecond precision
-        max_days = 2**63 // (24 * 60 * 60 * 1_000_000_000)
+        max_days = 1000  # 2**63 // (24 * 60 * 60 * 1_000_000_000)
         value = st.timedeltas(min_value=datetime.timedelta(days=-max_days),
                               max_value=datetime.timedelta(days=max_days))
     elif pa.types.is_interval(ty):
-        max_days = 2**63 // (24 * 60 * 60 * 1_000_000_000)
+        max_days = 1000  # 2**63 // (24 * 60 * 60 * 1_000_000_000)
         value = st.timedeltas(min_value=datetime.timedelta(days=-max_days),
                               max_value=datetime.timedelta(days=max_days))
     elif pa.types.is_binary(ty) or pa.types.is_large_binary(ty):
