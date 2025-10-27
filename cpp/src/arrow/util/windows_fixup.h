@@ -26,7 +26,7 @@
 #    undef min
 #  endif
 
-// The Windows API defines macros *File resolving to either
+// The Windows API defines macros from *File resolving to either
 // *FileA or *FileW.  Need to undo them.
 #  ifdef CopyFile
 #    undef CopyFile
@@ -36,12 +36,6 @@
 #  endif
 #  ifdef DeleteFile
 #    undef DeleteFile
-#  endif
-#  ifdef GetObject
-#    undef GetObject
-#  endif
-#  ifdef GetMessage
-#    undef GetMessage
 #  endif
 
 // Other annoying Windows macro definitions...

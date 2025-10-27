@@ -279,7 +279,6 @@ Status InferringColumnBuilder::TryConvertChunk(int64_t chunk_index) {
 
   if (kind != infer_status_.kind()) {
     // infer_kind_ was changed by another task, reconvert
-    kind = infer_status_.kind();
     lock.unlock();
     ScheduleConvertChunk(chunk_index);
     return Status::OK();

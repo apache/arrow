@@ -562,7 +562,6 @@ TEST(Formatting, Timestamp) {
                      "2018-11-13 17:11:10.000000007");
     AssertFormatting(formatter, -2203932304LL * 1000000000LL + 8,
                      "1900-02-28 12:34:56.000000008");
-    // XXX check with NumPy?
     AssertFormatting(formatter, std::numeric_limits<int64_t>::min(),
                      "1677-09-21 00:12:43.145224192");
     AssertFormatting(formatter, std::numeric_limits<int64_t>::max(),
