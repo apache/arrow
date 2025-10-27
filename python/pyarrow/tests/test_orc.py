@@ -177,7 +177,12 @@ def test_timezone_absent(datadir, tmpdir):
         shutil.copytree(source_tzdir, tzdir, symlinks=True)
     except OSError as e:
         pytest.skip(f"Failed to copy timezone database: {e}")
+    # ORC 2.1.1 Creates an alias between some legacy Timezones
+    # https://github.com/apache/orc/pull/2422
+    # Example US/Pacific -> America/Los_Angeles
+    # Remove both to simulate missing timezone and avoid alias resolution
     (tzdir / 'US' / 'Pacific').unlink(missing_ok=True)
+    (tzdir / 'America' / 'Los_Angeles').unlink(missing_ok=True)
 
     path = datadir / 'TestOrcFile.testDate1900.orc'
     code = f"""if 1:
@@ -189,7 +194,8 @@ def test_timezone_absent(datadir, tmpdir):
         try:
             orc_file.read()
         except Exception as e:
-            assert "zoneinfo/US/Pacific" in str(e), e
+            timezones = ["zoneinfo/US/Pacific", "zoneinfo/America/Los_Angeles"]
+            assert any(tz in str(e) for tz in timezones), e
         else:
             assert False, "Should have raised exception"
     """
