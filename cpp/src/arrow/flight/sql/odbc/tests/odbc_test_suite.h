@@ -97,9 +97,9 @@ class FlightSQLOdbcEnvConnHandleRemoteTestBase : public FlightSQLODBCRemoteTestB
   void TearDown() override;
 };
 
-static constexpr std::string_view authorization_header = "authorization";
-static constexpr std::string_view bearer_prefix = "Bearer ";
-static constexpr std::string_view test_token = "t0k3n";
+static constexpr std::string_view kAuthorizationHeader = "authorization";
+static constexpr std::string_view kBearerPrefix = "Bearer ";
+static constexpr std::string_view kTestToken = "t0k3n";
 
 std::string FindTokenInCallHeaders(const CallHeaders& incoming_headers);
 
