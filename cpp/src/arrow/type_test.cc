@@ -2191,6 +2191,36 @@ TEST(TestUnionType, Basics) {
   ASSERT_EQ(ty6->child_ids(), child_ids2);
 }
 
+TEST(TestUnionType, MaxTypeCode) {
+  std::vector<std::shared_ptr<Field>> fields;
+  for (int32_t i = 0; i <= UnionType::kMaxTypeCode; i++) {
+    fields.push_back(field(std::to_string(i), int32()));
+  }
+
+  std::vector<int8_t> type_codes(fields.size());
+  std::iota(type_codes.begin(), type_codes.end(), 0);
+
+  auto t1 = checked_pointer_cast<UnionType>(dense_union(fields, type_codes));
+  ASSERT_EQ(t1->type_codes().size(), UnionType::kMaxTypeCode + 1);
+  ASSERT_EQ(t1->child_ids().size(), UnionType::kMaxTypeCode + 1);
+
+  auto t2 = checked_pointer_cast<UnionType>(dense_union(fields));
+  ASSERT_EQ(t2->type_codes().size(), UnionType::kMaxTypeCode + 1);
+  ASSERT_EQ(t2->child_ids().size(), UnionType::kMaxTypeCode + 1);
+
+  AssertTypeEqual(*t1, *t2);
+
+  auto t3 = checked_pointer_cast<UnionType>(sparse_union(fields, type_codes));
+  ASSERT_EQ(t3->type_codes().size(), UnionType::kMaxTypeCode + 1);
+  ASSERT_EQ(t3->child_ids().size(), UnionType::kMaxTypeCode + 1);
+
+  auto t4 = checked_pointer_cast<UnionType>(sparse_union(fields));
+  ASSERT_EQ(t4->type_codes().size(), UnionType::kMaxTypeCode + 1);
+  ASSERT_EQ(t4->child_ids().size(), UnionType::kMaxTypeCode + 1);
+
+  AssertTypeEqual(*t3, *t4);
+}
+
 TEST(TestDictionaryType, Basics) {
   auto value_type = int32();
 
