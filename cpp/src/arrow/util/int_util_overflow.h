@@ -122,6 +122,7 @@ template <typename Int>
 template <typename Int>
 [[nodiscard]] bool DivideWithOverflowGeneric(Int u, Int v, Int* out) {
   if (v == 0) {
+    *out = Int{};
     return true;
   }
   if constexpr (sizeof(Int) < 4) {
