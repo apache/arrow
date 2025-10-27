@@ -173,6 +173,13 @@ BENCHMARK_CAPTURE(BM_UnpackUint32, NeonUnaligned, false, &unpack_neon<uint32_t>)
     ->ArgsProduct(kBitWidthsNumValues32);
 BENCHMARK_CAPTURE(BM_UnpackUint64, NeonUnaligned, false, &unpack_neon<uint64_t>)
     ->ArgsProduct(kBitWidthsNumValues64);
+#elif defined(ARROW_HAVE_SSE4_2)
+BENCHMARK_CAPTURE(BM_UnpackUint16, Sse42Unaligned, false, &unpack_sse4_2<uint16_t>)
+    ->ArgsProduct(kBitWidthsNumValues16);
+BENCHMARK_CAPTURE(BM_UnpackUint32, Sse42Unaligned, false, &unpack_sse4_2<uint32_t>)
+    ->ArgsProduct(kBitWidthsNumValues32);
+BENCHMARK_CAPTURE(BM_UnpackUint64, Sse42Unaligned, false, &unpack_sse4_2<uint64_t>)
+    ->ArgsProduct(kBitWidthsNumValues64);
 #endif
 
 BENCHMARK_CAPTURE(BM_UnpackUint16, DynamicAligned, true, &unpack<uint16_t>)

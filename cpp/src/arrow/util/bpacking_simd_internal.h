@@ -45,6 +45,29 @@ extern template ARROW_TEMPLATE_EXPORT void unpack_neon<uint32_t>(
 extern template ARROW_TEMPLATE_EXPORT void unpack_neon<uint64_t>(
     const uint8_t* in, uint64_t* out, int batch_size, int num_bits, int bit_offset);
 
+#elif defined(ARROW_HAVE_SSE4_2)
+
+template <typename Uint>
+ARROW_EXPORT void unpack_sse4_2(const uint8_t* in, Uint* out, int batch_size,
+                                int num_bits, int bit_offset);
+
+extern template ARROW_TEMPLATE_EXPORT void unpack_sse4_2<bool>(const uint8_t* in,
+                                                               bool* out, int batch_size,
+                                                               int num_bits,
+                                                               int bit_offset);
+
+extern template ARROW_TEMPLATE_EXPORT void unpack_sse4_2<uint8_t>(
+    const uint8_t* in, uint8_t* out, int batch_size, int num_bits, int bit_offset);
+
+extern template ARROW_TEMPLATE_EXPORT void unpack_sse4_2<uint16_t>(
+    const uint8_t* in, uint16_t* out, int batch_size, int num_bits, int bit_offset);
+
+extern template ARROW_TEMPLATE_EXPORT void unpack_sse4_2<uint32_t>(
+    const uint8_t* in, uint32_t* out, int batch_size, int num_bits, int bit_offset);
+
+extern template ARROW_TEMPLATE_EXPORT void unpack_sse4_2<uint64_t>(
+    const uint8_t* in, uint64_t* out, int batch_size, int num_bits, int bit_offset);
+
 #endif
 
 #if defined(ARROW_HAVE_AVX2) || defined(ARROW_HAVE_RUNTIME_AVX2)
