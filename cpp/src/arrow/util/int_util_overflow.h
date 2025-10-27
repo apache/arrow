@@ -26,10 +26,8 @@
 #include "arrow/util/visibility.h"
 
 // "safe-math.h" includes <intsafe.h> from the Windows headers.
-#include "arrow/util/windows_compatibility.h"
 #include "arrow/vendored/portable-snippets/safe-math.h"
 // clang-format off (avoid include reordering)
-#include "arrow/util/windows_fixup.h"
 // clang-format on
 
 namespace arrow {
