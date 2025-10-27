@@ -240,6 +240,42 @@ constexpr auto make_batch_constant() {
   return make_batch_constant_impl<kArr, Arch>(std::make_index_sequence<kArr.size()>());
 }
 
+// Intel x86-64 does not have variable right shifts before AVX2.
+//
+// When we know that the relevant bits will not overflow, we can instead shift left all
+// values to align them with the one with the largest right shifts followed by a constant
+// shift on all values.
+// In doing so, we replace the variable left shift by a variable multiply with a power of
+// two.
+//
+// This trick is borrowed from Daniel Lemire and Leonid Boytsov, Decoding billions of
+// integers per second through vectorization, Software Practice & Experience 45 (1), 2015.
+// http://arxiv.org/abs/1209.2137
+template <typename Arch, typename Int, Int... kShifts>
+auto overflow_right_shift(const xsimd::batch<Int, Arch>& batch,
+                          xsimd::batch_constant<Int, Arch, kShifts...> shifts) {
+  constexpr bool kHasSse2 = xsimd::supported_architectures::contains<xsimd::sse2>();
+  constexpr bool kHasAvx2 = xsimd::supported_architectures::contains<xsimd::avx2>();
+
+  if constexpr (kHasSse2 && !kHasAvx2) {
+    static constexpr auto kShiftsArr = std::array{kShifts...};
+    static constexpr Int kMaxRightShift = max_value(kShiftsArr);
+
+    struct MakeMults {
+      static constexpr Int get(int i, int n) {
+        // Equivalent to left shift of kMaxRightShift - kRightShifts.at(i).
+        return Int{1} << (kMaxRightShift - kShiftsArr.at(i));
+      }
+    };
+
+    constexpr auto kMults = xsimd::make_batch_constant<Int, Arch, MakeMults>();
+    return (batch * kMults) >> kMaxRightShift;
+
+  } else {
+    return batch >> shifts;
+  }
+}
+
 template <typename UnpackedUint, int kPackedBitSize, int kSimdBitSize>
 struct Kernel {
   static constexpr auto kPlan = BuildPlan<UnpackedUint, kPackedBitSize, kSimdBitSize>();
@@ -257,43 +293,16 @@ struct Kernel {
   static void unpack_one_shift_impl(const simd_batch& words, unpacked_type* out) {
     static constexpr auto kRightShiftsArr =
         kPlan.shifts.at(kReadIdx).at(kSwizzleIdx).at(kShiftIdx);
-
-    constexpr bool kHasSse2 = xsimd::supported_architectures::contains<xsimd::sse2>();
-    constexpr bool kHasAvx2 = xsimd::supported_architectures::contains<xsimd::avx2>();
-
-    // Intel x86-64 does not have variable right shifts before AVX2.
-    // Instead, since we know the packed value can safely be left shifted up to the
-    // maximum already in the batch, we use a multiplication to emulate a left shits,
-    // followed by a static right shift.
-    // Trick from Daniel Lemire and Leonid Boytsov, Decoding billions of integers per
-    // second through vectorization, Software Practice & Experience 45 (1), 2015.
-    // http://arxiv.org/abs/1209.2137
-    simd_batch shifted;
-    if constexpr (kHasSse2 && !kHasAvx2) {
-      static constexpr unpacked_type kMaxRightShift = max_value(kRightShiftsArr);
-
-      struct MakeMults {
-        static constexpr unpacked_type get(int i, int n) {
-          // Equivalent to left shift of kMaxRightShift - kRightShifts.at(i).
-          return unpacked_type{1} << (kMaxRightShift - kRightShiftsArr.at(i));
-        }
-      };
-
-      constexpr auto kMults =
-          xsimd::make_batch_constant<unpacked_type, arch_type, MakeMults>();
-
-      shifted = (words * kMults) >> kMaxRightShift;
-    } else {
-      constexpr auto kRightShifts = make_batch_constant<kRightShiftsArr, arch_type>();
-
-      shifted = words >> kRightShifts;
-    }
-
+    constexpr auto kRightShifts = make_batch_constant<kRightShiftsArr, arch_type>();
     constexpr auto kMask = kPlan.mask;
     constexpr auto kOutOffset = (kReadIdx * kPlan.unpacked_per_read() +
                                  kSwizzleIdx * kPlan.unpacked_per_swizzle() +
                                  kShiftIdx * kPlan.unpacked_per_shifts());
 
+    // Intel x86-64 does not have variable right shifts before AVX2.
+    // We know the packed value can safely be left shifted up to the largest offset so we
+    // can use the fallback on these platforms.
+    const auto shifted = overflow_right_shift(words, kRightShifts);
     const auto vals = shifted & kMask;
     xsimd::store_unaligned(out + kOutOffset, vals);
   }
