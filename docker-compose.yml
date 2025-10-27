@@ -960,10 +960,10 @@ services:
         arch: ${ARCH}
         clang_tools: ${CLANG_TOOLS}
         llvm: ${LLVM}
-        pyodide_version: "0.26.0"
+        pyodide_version: "0.28.1"
         chrome_version: "134"
         selenium_version: "4.15.2"
-        required_python_min: "(3,12)"
+        required_python_min: "(3,13)"
         python: ${PYTHON}
     shm_size: *shm-size
     volumes: *ubuntu-volumes

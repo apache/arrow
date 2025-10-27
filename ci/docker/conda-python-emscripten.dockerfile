@@ -17,21 +17,26 @@
 
 ARG repo
 ARG arch
-ARG python="3.12"
+ARG python="3.13"
 FROM ${repo}:${arch}-conda-python-${python}
 
 ARG selenium_version="4.15.2"
-ARG pyodide_version="0.26.0"
+ARG pyodide_version="0.28.1"
 ARG chrome_version="latest"
-ARG required_python_min="(3,12)"
-# fail if python version < 3.12
+ARG required_python_min="(3,13)"
+# fail if python version < 3.13
 RUN echo "check PYTHON>=${required_python_min}" && python -c "import sys;sys.exit(0 if sys.version_info>=${required_python_min} else 1)"
 
-# install selenium and recent pyodide-build and recent python
+RUN apt-get update -y -q && \
+    apt-get install -y -q --no-install-recommends \
+        libatomic1 && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 
 # needs to be a login shell so ~/.profile is read
 SHELL ["/bin/bash", "--login", "-c", "-o", "pipefail"]
 
+# install selenium and recent pyodide-build and recent python
 RUN python -m pip install --no-cache-dir selenium==${selenium_version} && \
     python -m pip install --no-cache-dir --upgrade pyodide-build>=${pyodide_version}
 
@@ -46,9 +51,9 @@ RUN bash /arrow/ci/scripts/install_emscripten.sh ~ /pyodide
 # make sure zlib is cached in the EMSDK folder
 RUN source ~/emsdk/emsdk_env.sh && embuilder --pic build zlib
 
-# install node 20 (needed for async call support)
+# install node 22 (needed for async call support and JSPI)
 # and pthread-stubs for build, and unzip needed for chrome build to work
-RUN conda install nodejs=20  unzip pthread-stubs make -c conda-forge
+RUN conda install nodejs=22  unzip pthread-stubs make -c conda-forge
 
 # install chrome for testing browser based runner
 COPY ci/scripts/install_chromedriver.sh /arrow/ci/scripts/
