@@ -247,6 +247,14 @@ TEST_P(TestUnpack, Unpack16Scalar) { this->TestAll(&unpack_scalar<uint16_t>); }
 TEST_P(TestUnpack, Unpack32Scalar) { this->TestAll(&unpack_scalar<uint32_t>); }
 TEST_P(TestUnpack, Unpack64Scalar) { this->TestAll(&unpack_scalar<uint64_t>); }
 
+#if defined(ARROW_HAVE_SSE4_2)
+TEST_P(TestUnpack, UnpackBoolSse4_2) { this->TestAll(&unpack_sse4_2<bool>); }
+TEST_P(TestUnpack, Unpack8Sse4_2) { this->TestAll(&unpack_sse4_2<uint8_t>); }
+TEST_P(TestUnpack, Unpack16Sse4_2) { this->TestAll(&unpack_sse4_2<uint16_t>); }
+TEST_P(TestUnpack, Unpack32Sse4_2) { this->TestAll(&unpack_sse4_2<uint32_t>); }
+TEST_P(TestUnpack, Unpack64Sse4_2) { this->TestAll(&unpack_sse4_2<uint64_t>); }
+#endif
+
 #if defined(ARROW_HAVE_RUNTIME_AVX2)
 TEST_P(TestUnpack, UnpackBoolAvx2) {
   if (!CpuInfo::GetInstance()->IsSupported(CpuInfo::AVX2)) {
