@@ -241,7 +241,10 @@ class TestUnaryArithmetic : public TestBaseUnaryArithmetic<T, ArithmeticOptions>
  protected:
   using Base = TestBaseUnaryArithmetic<T, ArithmeticOptions>;
   using Base::options_;
-  void SetOverflowCheck(bool value) { options_.check_overflow = value; }
+  void SetOverflowCheck(bool value) {
+    ARROW_SCOPED_TRACE("check_overflow = ", value);
+    options_.check_overflow = value;
+  }
 };
 
 template <typename T>
@@ -421,7 +424,10 @@ class TestBinaryArithmetic : public TestBaseArithmetic<T> {
     AssertArraysApproxEqual(*expected, *actual, /*verbose=*/true, equal_options_);
   }
 
-  void SetOverflowCheck(bool value = true) { options_.check_overflow = value; }
+  void SetOverflowCheck(bool value) {
+    ARROW_SCOPED_TRACE("check_overflow = ", value);
+    options_.check_overflow = value;
+  }
 
   void SetNansEqual(bool value = true) {
     this->equal_options_ = equal_options_.nans_equal(value);
