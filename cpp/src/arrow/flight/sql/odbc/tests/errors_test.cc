@@ -84,7 +84,7 @@ TYPED_TEST(ErrorsHandleTest, TestSQLGetDiagFieldWForConnectFailure) {
 
   EXPECT_EQ(SQL_SUCCESS,
             SQLGetDiagField(SQL_HANDLE_DBC, this->conn, RECORD_1, SQL_DIAG_SERVER_NAME,
-                            server_name, ODBC_BUFFER_SIZE, &server_name_length));
+                            server_name, kOdbcBufferSize, &server_name_length));
 
   // SQL_DIAG_MESSAGE_TEXT
   SQLWCHAR message_text[kOdbcBufferSize];
@@ -92,7 +92,7 @@ TYPED_TEST(ErrorsHandleTest, TestSQLGetDiagFieldWForConnectFailure) {
 
   EXPECT_EQ(SQL_SUCCESS,
             SQLGetDiagField(SQL_HANDLE_DBC, this->conn, RECORD_1, SQL_DIAG_MESSAGE_TEXT,
-                            message_text, ODBC_BUFFER_SIZE, &message_text_length));
+                            message_text, kOdbcBufferSize, &message_text_length));
 
   EXPECT_GT(message_text_length, 100);
 
@@ -276,7 +276,7 @@ TYPED_TEST(ErrorsHandleTest, TestSQLGetDiagRecForConnectFailure) {
   SQLSMALLINT message_length;
   ASSERT_EQ(SQL_SUCCESS,
             SQLGetDiagRec(SQL_HANDLE_DBC, this->conn, 1, sql_state, &native_error,
-                          message, ODBC_BUFFER_SIZE, &message_length));
+                          message, kOdbcBufferSize, &message_length));
 
   EXPECT_GT(message_length, 120);
 
