@@ -150,12 +150,17 @@ std::wstring ODBCRemoteTestBase::GetQueryAllDataTypes() {
 
 void ODBCRemoteTestBase::SetUp() {
   if (arrow::internal::GetEnvVar(kTestConnectStr.data()).ValueOr("").empty()) {
+    skipping_test_ = true;
     GTEST_SKIP() << "Skipping test: kTestConnectStr not set";
   }
 }
 
 void FlightSQLODBCRemoteTestBase::SetUp() {
   ODBCRemoteTestBase::SetUp();
+  if (skipping_test_) {
+    return;
+  }
+
   this->Connect();
   connected_ = true;
 }
@@ -169,16 +174,30 @@ void FlightSQLODBCRemoteTestBase::TearDown() {
 
 void FlightSQLOdbcV2RemoteTestBase::SetUp() {
   ODBCRemoteTestBase::SetUp();
+  if (skipping_test_) {
+    return;
+  }
+
   this->Connect(SQL_OV_ODBC2);
   connected_ = true;
 }
 
 void FlightSQLOdbcHandleRemoteTestBase::SetUp() {
   ODBCRemoteTestBase::SetUp();
+  if (skipping_test_) {
+    return;
+  }
+
   this->AllocEnvConnHandles();
+  allocated_ = true;
 }
 
-void FlightSQLOdbcHandleRemoteTestBase::TearDown() { this->FreeEnvConnHandles(); }
+void FlightSQLOdbcHandleRemoteTestBase::TearDown() {
+  if (allocated_) {
+    this->FreeEnvConnHandles();
+    allocated_ = false;
+  }
+}
 
 std::string FindTokenInCallHeaders(const CallHeaders& incoming_headers) {
   // Lambda function to compare characters without case sensitivity.

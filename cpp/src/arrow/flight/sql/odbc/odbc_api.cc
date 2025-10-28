@@ -31,7 +31,7 @@
 #include "arrow/flight/sql/odbc/odbc_impl/spi/connection.h"
 #include "arrow/util/logging.h"
 
-#if defined _WIN32 || defined _WIN64
+#if defined _WIN32
 // For displaying DSN Window
 #  include "arrow/flight/sql/odbc/odbc_impl/system_dsn.h"
 #endif
@@ -785,7 +785,7 @@ SQLRETURN SQLDriverConnect(SQLHDBC conn, SQLHWND window_handle,
 
     // GH-46448 TODO: Implement SQL_DRIVER_COMPLETE_REQUIRED in SQLDriverConnect according
     // to the spec
-#if defined _WIN32 || defined _WIN64
+#if defined _WIN32
     // Load the DSN window according to driver_completion
     if (driver_completion == SQL_DRIVER_PROMPT) {
       // Load DSN window before first attempt to connect

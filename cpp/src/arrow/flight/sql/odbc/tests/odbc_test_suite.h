@@ -79,6 +79,8 @@ class ODBCRemoteTestBase : public ::testing::Test {
 
  protected:
   void SetUp() override;
+
+  bool skipping_test_ = false;
 };
 
 /// \brief Base test fixture for running tests against a remote server.
@@ -107,6 +109,8 @@ class FlightSQLOdbcHandleRemoteTestBase : public FlightSQLODBCRemoteTestBase {
  protected:
   void SetUp() override;
   void TearDown() override;
+
+  bool allocated_ = false;
 };
 
 static constexpr std::string_view kAuthorizationHeader = "authorization";

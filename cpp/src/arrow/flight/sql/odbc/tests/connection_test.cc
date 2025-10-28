@@ -162,7 +162,8 @@ TYPED_TEST(ConnectionTest, TestSQLGetEnvAttrOutputNTS) {
 
 TYPED_TEST(ConnectionTest, DISABLED_TestSQLGetEnvAttrGetLength) {
   // Test is disabled because call to SQLGetEnvAttr is handled by the driver manager on
-  // Windows. This test case can be potentially used on macOS/Linux
+  // Windows. Windows driver manager ignores the length pointer.
+  // This test case can be potentially used on macOS/Linux
   SQLINTEGER length;
   ASSERT_EQ(SQL_SUCCESS,
             SQLGetEnvAttr(this->env, SQL_ATTR_ODBC_VERSION, nullptr, 0, &length));
@@ -172,7 +173,8 @@ TYPED_TEST(ConnectionTest, DISABLED_TestSQLGetEnvAttrGetLength) {
 
 TYPED_TEST(ConnectionTest, DISABLED_TestSQLGetEnvAttrNullValuePointer) {
   // Test is disabled because call to SQLGetEnvAttr is handled by the driver manager on
-  // Windows. This test case can be potentially used on macOS/Linux
+  // Windows. The Windows driver manager doesn't error out when null pointer is passed.
+  // This test case can be potentially used on macOS/Linux
   ASSERT_EQ(SQL_ERROR,
             SQLGetEnvAttr(this->env, SQL_ATTR_ODBC_VERSION, nullptr, 0, nullptr));
 }
@@ -229,7 +231,8 @@ TYPED_TEST(ConnectionHandleTest, TestSQLDriverConnect) {
   ASSERT_EQ(SQL_SUCCESS,
             SQLDriverConnect(this->conn, NULL, &connect_str0[0],
                              static_cast<SQLSMALLINT>(connect_str0.size()), out_str,
-                             kOdbcBufferSize, &out_str_len, SQL_DRIVER_NOPROMPT));
+                             kOdbcBufferSize, &out_str_len, SQL_DRIVER_NOPROMPT))
+      << GetOdbcErrorMessage(SQL_HANDLE_DBC, this->conn);
 
   // Check that out_str has same content as connect_str
   std::string out_connection_string = ODBC::SqlWcharToString(out_str, out_str_len);
@@ -241,10 +244,11 @@ TYPED_TEST(ConnectionHandleTest, TestSQLDriverConnect) {
   ASSERT_TRUE(CompareConnPropertyMap(out_properties, in_properties));
 
   // Disconnect from ODBC
-  ASSERT_EQ(SQL_SUCCESS, SQLDisconnect(this->conn));
+  ASSERT_EQ(SQL_SUCCESS, SQLDisconnect(this->conn))
+      << GetOdbcErrorMessage(SQL_HANDLE_DBC, this->conn);
 }
 
-#if defined _WIN32 || defined _WIN64
+#if defined _WIN32
 TYPED_TEST(ConnectionHandleTest, TestSQLDriverConnectDsn) {
   // Connect string
   std::string connect_str = this->GetConnectionString();
@@ -270,13 +274,15 @@ TYPED_TEST(ConnectionHandleTest, TestSQLDriverConnectDsn) {
   ASSERT_EQ(SQL_SUCCESS,
             SQLDriverConnect(this->conn, NULL, &connect_str0[0],
                              static_cast<SQLSMALLINT>(connect_str0.size()), out_str,
-                             kOdbcBufferSize, &out_str_len, SQL_DRIVER_NOPROMPT));
+                             kOdbcBufferSize, &out_str_len, SQL_DRIVER_NOPROMPT))
+      << GetOdbcErrorMessage(SQL_HANDLE_DBC, this->conn);
 
   // Remove DSN
   ASSERT_TRUE(UnregisterDsn(wdsn));
 
   // Disconnect from ODBC
-  ASSERT_EQ(SQL_SUCCESS, SQLDisconnect(this->conn));
+  ASSERT_EQ(SQL_SUCCESS, SQLDisconnect(this->conn))
+      << GetOdbcErrorMessage(SQL_HANDLE_DBC, this->conn);
 }
 
 TYPED_TEST(ConnectionHandleTest, TestSQLConnect) {
@@ -300,13 +306,15 @@ TYPED_TEST(ConnectionHandleTest, TestSQLConnect) {
   ASSERT_EQ(SQL_SUCCESS,
             SQLConnect(this->conn, dsn0.data(), static_cast<SQLSMALLINT>(dsn0.size()),
                        uid0.data(), static_cast<SQLSMALLINT>(uid0.size()), pwd0.data(),
-                       static_cast<SQLSMALLINT>(pwd0.size())));
+                       static_cast<SQLSMALLINT>(pwd0.size())))
+      << GetOdbcErrorMessage(SQL_HANDLE_DBC, this->conn);
 
   // Remove DSN
   ASSERT_TRUE(UnregisterDsn(wdsn));
 
   // Disconnect from ODBC
-  ASSERT_EQ(SQL_SUCCESS, SQLDisconnect(this->conn));
+  ASSERT_EQ(SQL_SUCCESS, SQLDisconnect(this->conn))
+      << GetOdbcErrorMessage(SQL_HANDLE_DBC, this->conn);
 }
 
 TEST_F(ConnectionRemoteTest, TestSQLConnectInputUidPwd) {
@@ -339,13 +347,15 @@ TEST_F(ConnectionRemoteTest, TestSQLConnectInputUidPwd) {
   ASSERT_EQ(SQL_SUCCESS,
             SQLConnect(this->conn, dsn0.data(), static_cast<SQLSMALLINT>(dsn0.size()),
                        uid0.data(), static_cast<SQLSMALLINT>(uid0.size()), pwd0.data(),
-                       static_cast<SQLSMALLINT>(pwd0.size())));
+                       static_cast<SQLSMALLINT>(pwd0.size())))
+      << GetOdbcErrorMessage(SQL_HANDLE_DBC, conn);
 
   // Remove DSN
   ASSERT_TRUE(UnregisterDsn(wdsn));
 
   // Disconnect from ODBC
-  ASSERT_EQ(SQL_SUCCESS, SQLDisconnect(this->conn));
+  ASSERT_EQ(SQL_SUCCESS, SQLDisconnect(this->conn))
+      << GetOdbcErrorMessage(SQL_HANDLE_DBC, conn);
 }
 
 TEST_F(ConnectionRemoteTest, TestSQLConnectInvalidUid) {
@@ -411,13 +421,15 @@ TEST_F(ConnectionRemoteTest, TestSQLConnectDSNPrecedence) {
   ASSERT_EQ(SQL_SUCCESS,
             SQLConnect(this->conn, dsn0.data(), static_cast<SQLSMALLINT>(dsn0.size()),
                        uid0.data(), static_cast<SQLSMALLINT>(uid0.size()), pwd0.data(),
-                       static_cast<SQLSMALLINT>(pwd0.size())));
+                       static_cast<SQLSMALLINT>(pwd0.size())))
+      << GetOdbcErrorMessage(SQL_HANDLE_DBC, conn);
 
   // Remove DSN
   ASSERT_TRUE(UnregisterDsn(wdsn));
 
   // Disconnect from ODBC
-  ASSERT_EQ(SQL_SUCCESS, SQLDisconnect(this->conn));
+  ASSERT_EQ(SQL_SUCCESS, SQLDisconnect(this->conn))
+      << GetOdbcErrorMessage(SQL_HANDLE_DBC, conn);
 }
 
 #endif
@@ -456,5 +468,4 @@ TYPED_TEST(ConnectionHandleTest, TestSQLDisconnectWithoutConnection) {
 TYPED_TEST(ConnectionTest, TestConnect) {
   // Verifies connect and disconnect works on its own
 }
-
 }  // namespace arrow::flight::sql::odbc
