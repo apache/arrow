@@ -1414,22 +1414,32 @@ Status FuzzReader(std::unique_ptr<FileReader> reader) {
 }  // namespace
 
 Status FuzzReader(const uint8_t* data, int64_t size) {
-  auto buffer = std::make_shared<::arrow::Buffer>(data, size);
   Status st;
+
+  auto buffer = std::make_shared<::arrow::Buffer>(data, size);
+  auto file = std::make_shared<::arrow::io::BufferReader>(buffer);
+  auto pool = ::arrow::default_memory_pool();
+
+  // Read Parquet file metadata only once, which will reduce iteration time slightly
+  std::shared_ptr<FileMetaData> pq_md;
+  BEGIN_PARQUET_CATCH_EXCEPTIONS
+  pq_md = ParquetFileReader::Open(file)->metadata();
+  END_PARQUET_CATCH_EXCEPTIONS
+
   // Note that very small batch sizes probably make fuzzing slower
   for (auto batch_size : std::vector<std::optional<int>>{std::nullopt, 13, 300}) {
-    auto file = std::make_shared<::arrow::io::BufferReader>(buffer);
-    FileReaderBuilder builder;
     ArrowReaderProperties properties;
     if (batch_size) {
       properties.set_batch_size(batch_size.value());
     }
-    builder.properties(properties);
 
-    RETURN_NOT_OK(builder.Open(std::move(file)));
+    std::unique_ptr<ParquetFileReader> pq_file_reader;
+    BEGIN_PARQUET_CATCH_EXCEPTIONS
+    pq_file_reader = ParquetFileReader::Open(file, default_reader_properties(), pq_md);
+    END_PARQUET_CATCH_EXCEPTIONS
 
     std::unique_ptr<FileReader> reader;
-    RETURN_NOT_OK(builder.Build(&reader));
+    RETURN_NOT_OK(FileReader::Make(pool, std::move(pq_file_reader), properties, &reader));
     st &= FuzzReader(std::move(reader));
   }
   return st;
