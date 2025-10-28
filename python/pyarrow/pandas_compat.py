@@ -279,11 +279,11 @@ def construct_metadata(columns_to_convert, df, column_names, index_levels,
 
     try:
         json.dumps(attributes)
-    except (TypeError, OverflowError):
+    except Exception as e:
         attributes = {}
         warnings.warn(
-            "Could not serialize pd.attrs, "
-            "defaulting to empty attributes",
+            f"Could not serialize pd.DataFrame.attrs: {e},"
+            f" defaulting to empty attributes.",
             UserWarning, stacklevel=4)
 
     return {
