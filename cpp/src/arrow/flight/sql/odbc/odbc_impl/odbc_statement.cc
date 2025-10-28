@@ -375,6 +375,14 @@ void ODBCStatement::GetStmtAttr(SQLINTEGER statement_attribute, SQLPOINTER outpu
       return;
     case SQL_ATTR_PARAM_BIND_TYPE:
       current_apd_->GetHeaderField(SQL_DESC_BIND_TYPE, output, buffer_size, str_len_ptr);
+      if (output) {
+        // Convert SQLINTEGER output to SQLULEN, since SQL_DESC_BIND_TYPE is SQLINTEGER
+        // and SQL_ATTR_PARAM_BIND_TYPE is SQLULEN
+        SQLINTEGER* output_int_ptr = reinterpret_cast<SQLINTEGER*>(output);
+        SQLINTEGER output_int = *output_int_ptr;
+        SQLULEN* typed_output = reinterpret_cast<SQLULEN*>(output);
+        *typed_output = static_cast<SQLULEN>(output_int);
+      }
       return;
     case SQL_ATTR_PARAM_OPERATION_PTR:
       current_apd_->GetHeaderField(SQL_DESC_ARRAY_STATUS_PTR, output, buffer_size,
@@ -398,6 +406,14 @@ void ODBCStatement::GetStmtAttr(SQLINTEGER statement_attribute, SQLPOINTER outpu
       return;
     case SQL_ATTR_ROW_BIND_TYPE:
       current_ard_->GetHeaderField(SQL_DESC_BIND_TYPE, output, buffer_size, str_len_ptr);
+      if (output) {
+        // Convert SQLINTEGER output to SQLULEN, since SQL_DESC_BIND_TYPE is SQLINTEGER
+        // and SQL_ATTR_ROW_BIND_TYPE is SQLULEN
+        SQLINTEGER* output_int_ptr = reinterpret_cast<SQLINTEGER*>(output);
+        SQLINTEGER output_int = *output_int_ptr;
+        SQLULEN* typed_output = reinterpret_cast<SQLULEN*>(output);
+        *typed_output = static_cast<SQLULEN>(output_int);
+      }
       return;
     case SQL_ATTR_ROW_OPERATION_PTR:
       current_ard_->GetHeaderField(SQL_DESC_ARRAY_STATUS_PTR, output, buffer_size,
