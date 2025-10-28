@@ -90,6 +90,27 @@
         }
       ]
     },
+    "gandiva-llvm": {
+      "description": "Gandiva support",
+      "dependencies": [
+        {
+          "name": "llvm",
+          "default-features": false,
+          "version>=": "21.1.1",
+          "features": [
+            "clang",
+            "default-targets",
+            "enable-bindings",
+            "enable-terminfo",
+            "enable-zlib",
+            "enable-zstd",
+            "enable-rtti",
+            "lld",
+            "tools"
+          ]
+        }
+      ]
+    },
     "gcs": {
       "description": "GCS support",
       "dependencies": [
