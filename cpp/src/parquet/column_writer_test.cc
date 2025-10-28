@@ -998,31 +998,26 @@ TEST(TestColumnWriter, ReproInvalidDictIndex) {
   auto schema = std::static_pointer_cast<GroupNode>(
       GroupNode::Make("schema", Repetition::REQUIRED,
                       {
-                          PrimitiveNode::Make("item", Repetition::REQUIRED, Type::FLOAT),
+                          PrimitiveNode::Make("item", Repetition::REQUIRED, Type::INT32),
                       }));
   auto properties =
       WriterProperties::Builder().data_pagesize(1024 * 1024 * 1024)->build();
   auto file_writer = ParquetFileWriter::Open(sink, schema, properties);
   auto rg_writer = file_writer->AppendRowGroup();
 
-  constexpr int32_t num_rows = 50'000'000;
-  constexpr float nan_proportion = 0.6f;
+  constexpr int32_t num_batches = 50'000'000;
+  constexpr int32_t batch_size = 3;
   constexpr int32_t unique_count = 200'000;
 
-  std::vector<float> values(3, 0.0f);
+  std::vector<int32_t> values(batch_size, 0);
 
   std::default_random_engine gen(1);
   std::uniform_int_distribution<int32_t> val_dist(0, unique_count - 1);
-  std::uniform_real_distribution<float_t> nan_dist(0.0f, 1.0f);
 
-  auto col_writer = static_cast<parquet::FloatWriter*>(rg_writer->NextColumn());
-  for (int32_t i = 0; i < num_rows; i++) {
-    if (nan_dist(gen) < nan_proportion) {
-      values[0] = std::numeric_limits<float>::quiet_NaN();
-    } else {
-      values[0] = static_cast<float>(val_dist(gen)) / 100.0f;
-    }
-    col_writer->WriteBatch(3, nullptr, nullptr, values.data());
+  auto col_writer = static_cast<parquet::Int32Writer*>(rg_writer->NextColumn());
+  for (int32_t i = 0; i < num_batches; i++) {
+    values[0] = val_dist(gen);
+    col_writer->WriteBatch(batch_size, nullptr, nullptr, values.data());
   }
   file_writer->Close();
 
@@ -1033,13 +1028,13 @@ TEST(TestColumnWriter, ReproInvalidDictIndex) {
   auto metadata = file_reader->metadata();
   ASSERT_EQ(1, metadata->num_row_groups());
   auto row_group_reader = file_reader->RowGroup(0);
-  auto col_reader = std::static_pointer_cast<FloatReader>(row_group_reader->Column(0));
+  auto col_reader = std::static_pointer_cast<Int32Reader>(row_group_reader->Column(0));
 
   constexpr size_t buffer_size = 1024 * 1024;
   values.resize(buffer_size);
 
   size_t levels_read = 0;
-  while (levels_read < num_rows * 3) {
+  while (levels_read < num_batches * batch_size) {
     int64_t batch_values;
     int64_t batch_levels = col_reader->ReadBatch(buffer_size, nullptr, nullptr,
                                                  values.data(), &batch_values);
