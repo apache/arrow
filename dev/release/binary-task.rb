@@ -1129,7 +1129,6 @@ class BinaryTask
   def define
     define_apt_tasks
     define_yum_tasks
-    define_r_tasks
     define_summary_tasks
   end
 
@@ -1580,10 +1579,15 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
         base_dists_dir = "#{base_dir}/#{distribution}/dists/#{code_name}"
         merged_dists_dir = "#{merged_dir}/#{distribution}/dists/#{code_name}"
         rm_rf(merged_dists_dir)
-        merger = APTDistsMerge::Merger.new(base_dists_dir,
-                                           dists_dir,
-                                           merged_dists_dir)
-        merger.merge
+        if Dir.exist?(base_dists_dir) and Dir.empty?(base_dists_dir)
+          mkdir_p(File.dirname(merged_dists_dir))
+          cp_r(dists_dir, File.dirname(merged_dists_dir))
+        else
+          merger = APTDistsMerge::Merger.new(base_dists_dir,
+                                             dists_dir,
+                                             merged_dists_dir)
+          merger.merge
+        end
 
         in_release_path = "#{merged_dists_dir}/InRelease"
         release_path = "#{merged_dists_dir}/Release"
@@ -1649,41 +1653,22 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
             pool_dir = "#{distribution_dir}/pool/#{code_name}"
             rm_rf(pool_dir, verbose: verbose?)
             mkdir_p(pool_dir, verbose: verbose?)
+
             source_dir_prefix = "#{artifacts_dir}/#{distribution}-#{code_name}"
-            # apache/arrow uses debian-bookworm-{amd64,arm64} but
-            # apache/arrow-adbc uses debian-bookworm. So the following
+            # apache/arrow uses debian-bookworm-{amd64,arm64}.tar.gz but
+            # apache/arrow-adbc uses debian-bookworm.tar.gz So the following
             # glob must much both of them.
-            Dir.glob("#{source_dir_prefix}*/*") do |path|
-              base_name = File.basename(path)
-              package_name = ENV["DEB_PACKAGE_NAME"]
-              if package_name.nil? or package_name.empty?
-                if base_name.start_with?("apache-arrow-apt-source")
-                  package_name = "apache-arrow-apt-source"
-                else
-                  package_name = "apache-arrow"
-                end
-              end
-              destination_path = [
-                pool_dir,
-                component,
-                package_name[0],
-                package_name,
-                base_name,
-              ].join("/")
-              copy_artifact(path,
-                            destination_path,
-                            progress_reporter)
-              case base_name
-              when /\A[^_]+-apt-source_.*\.deb\z/
-                latest_apt_source_package_path = [
-                  distribution_dir,
-                  "#{package_name}-latest-#{code_name}.deb"
-                ].join("/")
-                copy_artifact(path,
-                              latest_apt_source_package_path,
-                              progress_reporter)
-              end
+            Dir.glob("#{source_dir_prefix}*.tar.gz") do |tar_gz|
+              sh("tar", "xf", tar_gz, "-C", incoming_dir)
+              progress_reporter.advance
             end
+
+            if distribution == "ubuntu"
+              universe_dir = "#{pool_dir}/universe"
+              next unless File.exist?(universe_dir)
+              mv(universe_dir, "#{pool_dir}/main")
+            end
+
             progress_reporter.finish
           end
         end
@@ -1876,7 +1861,6 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
       ["almalinux", "8"],
       ["amazon-linux", "2023"],
       ["centos", "9-stream"],
-      ["centos", "8-stream"],
       ["centos", "7"],
     ]
   end
@@ -2043,59 +2027,40 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
             progress_label = "Copying: #{distribution} #{distribution_version}"
             progress_reporter = ProgressReporter.new(progress_label)
 
-            destination_prefix = [
-              incoming_dir,
-              distribution,
-              distribution_version,
-            ].join("/")
-            rm_rf(destination_prefix, verbose: verbose?)
+            destination_dir = File.join(incoming_dir,
+                                        distribution,
+                                        distribution_version)
+            rm_rf(destination_dir, verbose: verbose?)
+            mkdir_p(destination_dir, verbose: verbose?)
+
             source_dir_prefix =
               "#{artifacts_dir}/#{distribution}-#{distribution_version}"
-            Dir.glob("#{source_dir_prefix}*/*.rpm") do |path|
-              base_name = File.basename(path)
-              type = base_name.split(".")[-2]
-              destination_paths = []
-              case type
-              when "src"
-                destination_paths << [
-                  destination_prefix,
-                  "Source",
-                  "SPackages",
-                  base_name,
-                ].join("/")
-              when "noarch"
-                yum_architectures.each do |architecture|
-                  destination_paths << [
-                    destination_prefix,
-                    architecture,
-                    "Packages",
-                    base_name,
-                  ].join("/")
-                end
-              else
-                destination_paths << [
-                  destination_prefix,
-                  type,
-                  "Packages",
-                  base_name,
-                ].join("/")
-              end
-              destination_paths.each do |destination_path|
-                copy_artifact(path,
-                              destination_path,
-                              progress_reporter)
-              end
-              case base_name
-              when /\A(apache-arrow-release)-.*\.noarch\.rpm\z/
-                package_name = $1
-                latest_release_package_path = [
-                  destination_prefix,
-                  "#{package_name}-latest.rpm"
-                ].join("/")
-                copy_artifact(path,
-                              latest_release_package_path,
-                              progress_reporter)
-              end
+            # apache/arrow uses almalinux-10-{amd64,arm64}.tar.gz but
+            # apache/arrow-adbc uses almalinux-10.tar.gz So the
+            # following glob must much both of them.
+            Dir.glob("#{source_dir_prefix}*.tar.gz") do |tar_gz|
+              sh("tar", "xf", tar_gz, "-C", incoming_dir)
+              progress_reporter.advance
+            end
+
+            case "#{distribution}-#{distribution_version}"
+            when "almalinux-10",
+                 "almalinux-9",
+                 "almalinux-8",
+                 "amazon-linux-2023",
+                 "centos-9-stream",
+                 "centos-7"
+              # Adjust source packages directory for backward
+              # compatibility. We don't need this for new supported
+              # distribution because we don't need to care about
+              # backward compatibility for them.
+              #
+              # Example:
+              #   almalinux/10/Source/Packages/ ->
+              #   almalinux/10/Source/SPackages/
+              mv(File.join(destination_dir, "Source", "Packages"),
+                 File.join(destination_dir, "Source", "SPackages"),
+                 verbose: true)
             end
 
             progress_reporter.finish
@@ -2364,6 +2329,8 @@ class LocalBinaryTask < BinaryTask
       # "debian-bookworm-arm64",
       "debian-trixie",
       # "debian-trixie-arm64",
+      "debian-forky",
+      # "debian-forky-arm64",
       "ubuntu-jammy",
       # "ubuntu-jammy-arm64",
       "ubuntu-noble",
@@ -2424,8 +2391,6 @@ class LocalBinaryTask < BinaryTask
       # "amazon-linux-2023-aarch64",
       "centos-9-stream",
       # "centos-9-stream-aarch64",
-      "centos-8-stream",
-      # "centos-8-stream-aarch64",
       "centos-7",
       # "centos-7-aarch64",
     ]

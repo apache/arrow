@@ -326,10 +326,16 @@ as_record_batch_reader.pyarrow.lib.RecordBatchReader <- function(x, ...) {
 #' @export
 install_pyarrow <- function(envname = NULL, nightly = FALSE, ...) {
   if (nightly) {
-    reticulate::py_install("pyarrow",
-      envname = envname, ...,
+    reticulate::py_install(
+      "pyarrow",
+      envname = envname,
+      ...,
       # Nightly for pip
-      pip_options = "--extra-index-url https://repo.fury.io/arrow-nightlies/ --pre --upgrade",
+      pip_options = c(
+        "--extra-index-url https://pypi.anaconda.org/scientific-python-nightly-wheels/simple",
+        "--pre",
+        "--upgrade"
+      ),
       # Nightly for conda
       channel = "arrow-nightlies"
     )

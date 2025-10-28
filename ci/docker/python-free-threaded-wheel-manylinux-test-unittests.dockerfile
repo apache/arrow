@@ -18,6 +18,8 @@
 ARG base
 FROM ${base}
 
+ARG python_version=3.13
+
 ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update -y -q && \
@@ -27,14 +29,14 @@ RUN apt-get update -y -q && \
     apt install -y -q --no-install-recommends \
         build-essential \
         libffi-dev \
-        python3.13-dev \
-        python3.13-nogil \
-        python3.13-venv && \
+        python${python_version}-dev \
+        python${python_version}-nogil \
+        python${python_version}-venv && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists*
 
 ENV ARROW_PYTHON_VENV /arrow-dev
-RUN python3.13t -m venv ${ARROW_PYTHON_VENV}
+RUN python${python_version}t -m venv ${ARROW_PYTHON_VENV}
 
 ENV PYTHON_GIL 0
 ENV PATH "${ARROW_PYTHON_VENV}/bin:${PATH}"

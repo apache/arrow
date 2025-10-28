@@ -83,7 +83,8 @@
 #' b <- chunked_array(c(4, 5), 6)
 #' c(a, b)
 #' @export
-ChunkedArray <- R6Class("ChunkedArray",
+ChunkedArray <- R6Class(
+  "ChunkedArray",
   inherit = ArrowDatum,
   public = list(
     length = function() ChunkedArray__length(self),

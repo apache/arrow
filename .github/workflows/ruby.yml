@@ -36,7 +36,7 @@ on:
       - 'ci/scripts/util_*'
       - 'c_glib/**'
       - 'cpp/**'
-      - 'docker-compose.yml'
+      - 'compose.yaml'
       - 'ruby/**'
   pull_request:
     paths:
@@ -51,7 +51,7 @@ on:
       - 'ci/scripts/util_*'
       - 'c_glib/**'
       - 'cpp/**'
-      - 'docker-compose.yml'
+      - 'compose.yaml'
       - 'ruby/**'
 
 concurrency:

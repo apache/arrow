@@ -75,6 +75,11 @@ struct Column {
   }
 };
 
+std::shared_ptr<Field> FieldForArray(const std::shared_ptr<Array>& array,
+                                     std::string name) {
+  return field(std::move(name), array->type(), /*nullable=*/array->null_count() != 0);
+}
+
 std::vector<WriteConfig> GetWriteConfigurations() {
   // clang-format off
   auto w_brotli = WriterProperties::Builder()
@@ -98,34 +103,28 @@ std::vector<WriteConfig> GetWriteConfigurations() {
   return configs;
 }
 
-Result<std::shared_ptr<RecordBatch>> ExampleBatch1() {
-  constexpr double kNullProbability = 0.2;
+Result<std::vector<Column>> ExampleColumns(int32_t length,
+                                           double null_probability = 0.2) {
+  std::vector<Column> columns;
 
   random::RandomArrayGenerator gen(42);
   auto name_gen = Column::NameGenerator();
-
-  auto field_for_array_named = [&](const std::shared_ptr<Array>& array,
-                                   std::string name) {
-    return field(std::move(name), array->type(), /*nullable=*/array->null_count() != 0);
-  };
   auto field_for_array = [&](const std::shared_ptr<Array>& array) {
-    return field_for_array_named(array, name_gen());
+    return FieldForArray(array, name_gen());
   };
 
-  std::vector<Column> columns;
-
-  auto int16_array = gen.Int16(kBatchSize, -30000, 30000, kNullProbability);
-  auto int32_array = gen.Int32(kBatchSize, -2000000000, 2000000000, kNullProbability);
-  auto int64_array = gen.Int64(kBatchSize, -9000000000000000000LL, 9000000000000000000LL,
-                               kNullProbability);
+  auto int16_array = gen.Int16(length, -30000, 30000, null_probability);
+  auto int32_array = gen.Int32(length, -2000000000, 2000000000, null_probability);
+  auto int64_array =
+      gen.Int64(length, -9000000000000000000LL, 9000000000000000000LL, null_probability);
   auto non_null_float64_array =
-      gen.Float64(kBatchSize, -1e10, 1e10, /*null_probability=*/0.0);
-  auto tiny_strings_array = gen.String(kBatchSize, 0, 3, kNullProbability);
+      gen.Float64(length, -1e10, 1e10, /*null_probability=*/0.0);
+  auto tiny_strings_array = gen.String(length, 0, 3, null_probability);
   auto large_strings_array =
-      gen.LargeString(kBatchSize, /*min_length=*/0, /*max_length=*/20, kNullProbability);
+      gen.LargeString(length, /*min_length=*/0, /*max_length=*/20, null_probability);
   auto string_view_array =
-      gen.StringView(kBatchSize, /*min_length=*/8, /*max_length=*/30, kNullProbability);
-  ARROW_ASSIGN_OR_RAISE(auto null_array, MakeArrayOfNull(null(), kBatchSize));
+      gen.StringView(length, /*min_length=*/8, /*max_length=*/30, null_probability);
+  ARROW_ASSIGN_OR_RAISE(auto null_array, MakeArrayOfNull(null(), length));
 
   // Null
   columns.push_back({name_gen(), null_array});
@@ -133,24 +132,24 @@ Result<std::shared_ptr<RecordBatch>> ExampleBatch1() {
   columns.push_back({name_gen(), int16_array});
   columns.push_back({name_gen(), non_null_float64_array});
   columns.push_back(
-      {name_gen(), gen.Float16(kBatchSize, Float16::FromDouble(-1e4),
-                               Float16::FromDouble(1e4), kNullProbability)});
+      {name_gen(), gen.Float16(length, Float16::FromDouble(-1e4),
+                               Float16::FromDouble(1e4), null_probability)});
   columns.push_back({name_gen(), int64_array});
   // Decimals
   columns.push_back(
-      {name_gen(), gen.Decimal128(decimal128(24, 7), kBatchSize, kNullProbability)});
+      {name_gen(), gen.Decimal128(decimal128(24, 7), length, null_probability)});
   columns.push_back(
-      {name_gen(), gen.Decimal256(decimal256(43, 7), kBatchSize, kNullProbability)});
+      {name_gen(), gen.Decimal256(decimal256(43, 7), length, null_probability)});
   columns.push_back(
-      {name_gen(), gen.Decimal64(decimal64(12, 3), kBatchSize, kNullProbability)});
+      {name_gen(), gen.Decimal64(decimal64(12, 3), length, null_probability)});
   columns.push_back(
-      {name_gen(), gen.Decimal32(decimal32(7, 3), kBatchSize, kNullProbability)});
+      {name_gen(), gen.Decimal32(decimal32(7, 3), length, null_probability)});
 
   // Timestamp
   // (Parquet doesn't have seconds timestamps so the values are going to be
   //  multiplied by 10)
   auto int64_timestamps_array =
-      gen.Int64(kBatchSize, -9000000000000000LL, 9000000000000000LL, kNullProbability);
+      gen.Int64(length, -9000000000000000LL, 9000000000000000LL, null_probability);
   for (auto unit : TimeUnit::values()) {
     ARROW_ASSIGN_OR_RAISE(auto timestamps,
                           int64_timestamps_array->View(timestamp(unit, "UTC")));
@@ -159,71 +158,71 @@ Result<std::shared_ptr<RecordBatch>> ExampleBatch1() {
   // Time32, time64
   ARROW_ASSIGN_OR_RAISE(
       auto time32_s,
-      gen.Int32(kBatchSize, 0, 86399, kNullProbability)->View(time32(TimeUnit::SECOND)));
+      gen.Int32(length, 0, 86399, null_probability)->View(time32(TimeUnit::SECOND)));
   columns.push_back({name_gen(), time32_s});
-  ARROW_ASSIGN_OR_RAISE(auto time32_ms,
-                        gen.Int32(kBatchSize, 0, 86399999, kNullProbability)
-                            ->View(time32(TimeUnit::MILLI)));
+  ARROW_ASSIGN_OR_RAISE(
+      auto time32_ms,
+      gen.Int32(length, 0, 86399999, null_probability)->View(time32(TimeUnit::MILLI)));
   columns.push_back({name_gen(), time32_ms});
   ARROW_ASSIGN_OR_RAISE(auto time64_us,
-                        gen.Int64(kBatchSize, 0, 86399999999LL, kNullProbability)
+                        gen.Int64(length, 0, 86399999999LL, null_probability)
                             ->View(time64(TimeUnit::MICRO)));
   columns.push_back({name_gen(), time64_us});
   ARROW_ASSIGN_OR_RAISE(auto time64_ns,
-                        gen.Int64(kBatchSize, 0, 86399999999999LL, kNullProbability)
+                        gen.Int64(length, 0, 86399999999999LL, null_probability)
                             ->View(time64(TimeUnit::NANO)));
   columns.push_back({name_gen(), time64_ns});
   // Date32, date64
   ARROW_ASSIGN_OR_RAISE(
       auto date32_array,
-      gen.Int32(kBatchSize, -1000 * 365, 1000 * 365, kNullProbability)->View(date32()));
+      gen.Int32(length, -1000 * 365, 1000 * 365, null_probability)->View(date32()));
   columns.push_back({name_gen(), date32_array});
   columns.push_back(
-      {name_gen(), gen.Date64(kBatchSize, -1000 * 365, 1000 * 365, kNullProbability)});
+      {name_gen(), gen.Date64(length, -1000 * 365, 1000 * 365, null_probability)});
 
   // A column of tiny strings that will hopefully trigger dict encoding
   columns.push_back({name_gen(), tiny_strings_array});
   columns.push_back({name_gen(), large_strings_array});
   columns.push_back({name_gen(), string_view_array});
   columns.push_back(
-      {name_gen(), gen.FixedSizeBinary(kBatchSize, /*byte_width=*/7, kNullProbability)});
+      {name_gen(), gen.FixedSizeBinary(length, /*byte_width=*/7, null_probability)});
 
   // A column of lists/large lists
   {
-    auto values = gen.Int64(kBatchSize * 10, -10000, 10000, kNullProbability);
-    auto offsets = gen.Offsets(kBatchSize + 1, 0, static_cast<int32_t>(values->length()));
+    auto values = gen.Int64(length * 10, -10000, 10000, null_probability);
+    auto offsets = gen.Offsets(length + 1, 0, static_cast<int32_t>(values->length()));
     ARROW_ASSIGN_OR_RAISE(auto lists, ListArray::FromArrays(*offsets, *values));
     columns.push_back({name_gen(), lists});
-    auto large_offsets = gen.LargeOffsets(kBatchSize + 1, 0, values->length());
+    auto large_offsets = gen.LargeOffsets(length + 1, 0, values->length());
     ARROW_ASSIGN_OR_RAISE(auto large_lists,
                           LargeListArray::FromArrays(*large_offsets, *values));
     columns.push_back({name_gen(), large_lists});
   }
   // A column of a repeated constant that will hopefully trigger RLE encoding
   {
-    ARROW_ASSIGN_OR_RAISE(auto values, MakeArrayFromScalar(Int16Scalar(42), kBatchSize));
+    ARROW_ASSIGN_OR_RAISE(auto values, MakeArrayFromScalar(Int16Scalar(42), length));
     columns.push_back({name_gen(), values});
   }
   // A column of lists of lists
   {
-    auto inner_values = gen.Int64(kBatchSize * 9, -10000, 10000, kNullProbability);
+    auto inner_values = gen.Int64(length * 9, -10000, 10000, null_probability);
     auto inner_offsets =
-        gen.Offsets(kBatchSize * 3 + 1, 0, static_cast<int32_t>(inner_values->length()),
-                    kNullProbability);
+        gen.Offsets(length * 3 + 1, 0, static_cast<int32_t>(inner_values->length()),
+                    null_probability);
     ARROW_ASSIGN_OR_RAISE(auto inner_lists,
                           ListArray::FromArrays(*inner_offsets, *inner_values));
-    auto offsets = gen.Offsets(
-        kBatchSize + 1, 0, static_cast<int32_t>(inner_lists->length()), kNullProbability);
+    auto offsets = gen.Offsets(length + 1, 0, static_cast<int32_t>(inner_lists->length()),
+                               null_probability);
     ARROW_ASSIGN_OR_RAISE(auto lists, ListArray::FromArrays(*offsets, *inner_lists));
     columns.push_back({name_gen(), lists});
   }
   // A column of maps
   {
-    constexpr auto kChildSize = kBatchSize * 3;
+    const auto kChildSize = length * 3;
     auto keys = gen.String(kChildSize, /*min_length=*/4, /*max_length=*/7,
                            /*null_probability=*/0);
-    auto values = gen.Float32(kChildSize, -1e10, 1e10, kNullProbability);
-    columns.push_back({name_gen(), gen.Map(keys, values, kBatchSize, kNullProbability)});
+    auto values = gen.Float32(kChildSize, -1e10, 1e10, null_probability);
+    columns.push_back({name_gen(), gen.Map(keys, values, length, null_probability)});
   }
   // A column of nested non-nullable structs
   {
@@ -239,13 +238,13 @@ Result<std::shared_ptr<RecordBatch>> ExampleBatch1() {
   }
   // A column of nested nullable structs
   {
-    auto null_bitmap = gen.NullBitmap(kBatchSize, kNullProbability);
+    auto null_bitmap = gen.NullBitmap(length, null_probability);
     ARROW_ASSIGN_OR_RAISE(auto inner_a,
                           StructArray::Make({int16_array, non_null_float64_array},
                                             {field_for_array(int16_array),
                                              field_for_array(non_null_float64_array)},
                                             std::move(null_bitmap)));
-    null_bitmap = gen.NullBitmap(kBatchSize, kNullProbability);
+    null_bitmap = gen.NullBitmap(length, null_probability);
     ARROW_ASSIGN_OR_RAISE(
         auto structs,
         StructArray::Make({inner_a, tiny_strings_array},
@@ -257,25 +256,37 @@ Result<std::shared_ptr<RecordBatch>> ExampleBatch1() {
   // TODO extension types: UUID, JSON, GEOMETRY, GEOGRAPHY
 
   // A non-dict-encoded column (see GetWriteConfigurations)
-  columns.push_back({"no_dict", gen.String(kBatchSize, 0, 30, kNullProbability)});
+  columns.push_back({"no_dict", gen.String(length, 0, 30, null_probability)});
   // A column that should be quite compressible (see GetWriteConfigurations)
-  columns.push_back({"compressed", gen.Int64(kBatchSize, -10, 10, kNullProbability)});
+  columns.push_back({"compressed", gen.Int64(length, -10, 10, null_probability)});
 
-  FieldVector fields;
-  ArrayVector arrays;
-  for (const auto& col : columns) {
-    fields.push_back(field_for_array_named(col.array, col.name));
-    arrays.push_back(col.array);
-  }
+  return columns;
+}
+
+Result<std::shared_ptr<RecordBatch>> BatchFromColumn(const Column& col) {
+  FieldVector fields{FieldForArray(col.array, col.name)};
+  ArrayVector arrays{col.array};
+
   auto md = key_value_metadata({"key1", "key2"}, {"value1", ""});
   auto schema = ::arrow::schema(std::move(fields), std::move(md));
   return RecordBatch::Make(std::move(schema), kBatchSize, std::move(arrays));
 }
 
 Result<std::vector<std::shared_ptr<RecordBatch>>> Batches() {
+  ARROW_ASSIGN_OR_RAISE(auto columns,
+                        ExampleColumns(kBatchSize, /*null_probability=*/0.2));
   std::vector<std::shared_ptr<RecordBatch>> batches;
-  ARROW_ASSIGN_OR_RAISE(auto batch, ExampleBatch1());
-  batches.push_back(batch);
+  for (const auto& col : columns) {
+    // Since Parquet columns are laid out and read independently of each other,
+    // we estimate that fuzzing is more efficient if we submit multiple one-column
+    // files than one single file in all columns.  The fuzzer should indeed be able
+    // to test many more variations per unit of time.
+    // This has to be verified in the OSS-Fuzz fuzzer statistics
+    // (https://oss-fuzz.com/fuzzer-stats) by looking at the `avg_exec_per_sec`
+    // column.
+    ARROW_ASSIGN_OR_RAISE(auto batch, BatchFromColumn(col));
+    batches.push_back(batch);
+  }
   return batches;
 }
 

@@ -28,7 +28,7 @@
 
 #if defined(_WIN32) || defined(__CYGWIN__)
 
-#  if defined(_MSC_VER)
+#  ifdef _MSC_VER
 #    pragma warning(push)
 // Disable warning for STL types usage in DLL interface
 // https://web.archive.org/web/20130317015847/http://connect.microsoft.com/VisualStudio/feedback/details/696593/vc-10-vs-2010-basic-string-exports
@@ -110,3 +110,7 @@ std::shared_ptr<ResizableBuffer> AllocateBuffer(
     ::arrow::MemoryPool* pool = ::arrow::default_memory_pool(), int64_t size = 0);
 
 }  // namespace parquet
+
+#ifdef _MSC_VER
+#  pragma warning(pop)
+#endif

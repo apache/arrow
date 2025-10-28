@@ -40,6 +40,11 @@ option(
 )
 option('csv', type: 'feature', description: 'Build the Arrow CSV Parser Module')
 option(
+    'dataset',
+    type: 'feature',
+    description: 'Build the Arrow Dataset Modules',
+)
+option(
     'filesystem',
     type: 'feature',
     description: 'Build the Arrow Filesystem Layer',
@@ -129,7 +134,14 @@ option(
     type: 'feature',
     description: 'Build the Arrow googletest unit tests',
 )
-
+option(
+    'utf8proc',
+    type: 'feature',
+    description: '''
+Build with support for Unicode properties using the utf8proc library;
+(only used if compute or gandiva is enabled)''',
+    value: 'enabled',
+)
 option(
     'utilities',
     type: 'feature',

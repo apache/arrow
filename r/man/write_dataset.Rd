@@ -17,6 +17,7 @@ write_dataset(
   max_rows_per_file = 0L,
   min_rows_per_group = 0L,
   max_rows_per_group = bitwShiftL(1, 20),
+  create_directory = TRUE,
   ...
 )
 }
@@ -81,6 +82,11 @@ group and when this number of rows is exceeded, it is split and the next set
 of rows is written to the next group. This value must be set such that it is
 greater than \code{min_rows_per_group}. Default is 1024 * 1024.}
 
+\item{create_directory}{whether to create the directories written into.
+Requires appropriate permissions on the storage backend. If set to FALSE,
+directories are assumed to be already present if writing on a classic
+hierarchical filesystem. Default is TRUE}
+
 \item{...}{additional format-specific arguments. For available Parquet
 options, see \code{\link[=write_parquet]{write_parquet()}}. The available Feather options are:
 \itemize{
@@ -106,7 +112,7 @@ binary storage formats, and by specifying relevant partitioning, you can
 make it much faster to read and query.
 }
 \examples{
-\dontshow{if (arrow_with_dataset() & arrow_with_parquet() & requireNamespace("dplyr", quietly = TRUE)) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
+\dontshow{if (arrow_with_dataset() & arrow_with_parquet() & requireNamespace("dplyr", quietly = TRUE)) withAutoprint(\{ # examplesIf}
 # You can write datasets partitioned by the values in a column (here: "cyl").
 # This creates a structure of the form cyl=X/part-Z.parquet.
 one_level_tree <- tempfile()
@@ -130,8 +136,8 @@ list.files(two_levels_tree, recursive = TRUE)
 # output directory will be different.
 library(dplyr)
 two_levels_tree_2 <- tempfile()
-mtcars \%>\%
-  group_by(cyl, gear) \%>\%
+mtcars |>
+  group_by(cyl, gear) |>
   write_dataset(two_levels_tree_2)
 list.files(two_levels_tree_2, recursive = TRUE)
 
@@ -140,8 +146,8 @@ list.files(two_levels_tree_2, recursive = TRUE)
 
 # Write a structure X/Y/part-Z.parquet.
 two_levels_tree_no_hive <- tempfile()
-mtcars \%>\%
-  group_by(cyl, gear) \%>\%
+mtcars |>
+  group_by(cyl, gear) |>
   write_dataset(two_levels_tree_no_hive, hive_style = FALSE)
 list.files(two_levels_tree_no_hive, recursive = TRUE)
 \dontshow{\}) # examplesIf}

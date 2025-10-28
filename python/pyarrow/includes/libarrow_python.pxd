@@ -198,8 +198,8 @@ cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:
         c_bool self_destruct
         MapConversionType maps_as_pydicts
         c_bool decode_dictionaries
-        unordered_set[c_string] categorical_columns
-        unordered_set[c_string] extension_columns
+        shared_ptr[const unordered_set[c_string]] categorical_columns
+        shared_ptr[const unordered_set[c_string]] extension_columns
         c_bool to_numpy
 
 

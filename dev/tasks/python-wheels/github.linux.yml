@@ -31,8 +31,8 @@ jobs:
     runs-on: ubuntu-24.04-arm
     {% endif %}
     env:
-      {% if linux_wheel_kind == "musllinux" and linux_wheel_version == "1-2" %}
-      ALPINE_LINUX: "3.21"
+      {% if linux_wheel_kind == "musllinux" %}
+      ALPINE_LINUX: "3.22"
       {% endif %}
       # archery uses these environment variables
       {% if arch == "amd64" %}
@@ -42,16 +42,25 @@ jobs:
       {% endif %}
       PYTHON: "{{ python_version }}"
       PYTHON_ABI_TAG: "{{ python_abi_tag }}"
+      {% if python_version == "3.14" %}
+      PYTHON_IMAGE_TAG: "3.14"
+      PYTHON_PATCH_VERSION: "3.14.0"
+      {% elif python_version == "3.13" %}
       PYTHON_IMAGE_TAG: "{{ python_version }}"
+      PYTHON_PATCH_VERSION: "3.13.7"
+      {% else %}
+      PYTHON_IMAGE_TAG: "{{ python_version }}"
+      {% endif %}
 
     steps:
       {{ macros.github_checkout_arrow()|indent }}
       {{ macros.github_install_archery()|indent }}
       {{ macros.github_login_dockerhub()|indent }}
 
+      # Detect free-threaded Python builds
       - name: Prepare
         run: |
-          if [ "${PYTHON_ABI_TAG}" = "cp313t" ]; then
+          if [[ "${PYTHON_ABI_TAG}" == *t ]]; then
             test_image_prefix=python-free-threaded
           else
             test_image_prefix=python

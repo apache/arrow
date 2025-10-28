@@ -41,7 +41,8 @@
 #' @export
 #' @include arrow-object.R
 #' @include enums.R
-Buffer <- R6Class("Buffer",
+Buffer <- R6Class(
+  "Buffer",
   inherit = ArrowObject,
   public = list(
     ZeroPadding = function() Buffer__ZeroPadding(self),

@@ -1095,6 +1095,16 @@ TYPED_TEST(TestIfElseDict, DifferentDictionaries) {
   CheckDictionary("if_else", {MakeNullScalar(boolean()), values1, values2});
 }
 
+// GH-47825: BitmapOp overrides partial leading byte for unaligned chunked execution.
+TEST(TestIfElse, ChunkedUnalignedBitmapOp) {
+  auto cond = ArrayFromJSON(boolean(), "[true, true]");
+  auto if_true = ChunkedArrayFromJSON(boolean(), {"[true]", "[true]"});
+  auto if_false = ArrayFromJSON(boolean(), "[true, true]");
+  ASSERT_OK_AND_ASSIGN(auto result, CallFunction("if_else", {cond, if_true, if_false}));
+  ASSERT_OK(result.chunked_array()->ValidateFull());
+  AssertDatumsEqual(ChunkedArrayFromJSON(boolean(), {"[true, true]"}), result);
+}
+
 Datum MakeStruct(const std::vector<Datum>& conds) {
   if (conds.size() == 0) {
     // The tests below want a struct scalar when no condition values passed,
@@ -3718,6 +3728,17 @@ TEST(TestChoose, FixedSizeBinary) {
   auto scalar_null = ScalarFromJSON(type, "null");
   CheckScalar("choose", {ScalarFromJSON(int64(), "0"), scalar_null, values2},
               *MakeArrayOfNull(type, 5));
+}
+
+// GH-47807: Null count in ArraySpan not updated correctly when executing chunked.
+TEST(TestChoose, WrongNullCountForChunked) {
+  auto indices = ArrayFromJSON(int64(), "[0, 1, 0, 1, 0, null]");
+  auto values1 = ArrayFromJSON(int64(), "[10, 11, 12, 13, 14, 15]");
+  auto values2 = ChunkedArrayFromJSON(int64(), {"[100, 101]", "[102, 103, 104, 105]"});
+  ASSERT_OK_AND_ASSIGN(auto result, CallFunction("choose", {indices, values1, values2}));
+  ASSERT_OK(result.chunked_array()->ValidateFull());
+  AssertDatumsEqual(ChunkedArrayFromJSON(int64(), {"[10, 101]", "[12, 103, 14, null]"}),
+                    result);
 }
 
 TEST(TestChooseKernel, DispatchBest) {

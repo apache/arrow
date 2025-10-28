@@ -95,7 +95,7 @@ disable compression, set \code{compression = "uncompressed"}.
 Note that "uncompressed" columns may still have dictionary encoding.
 }
 \examples{
-\dontshow{if (arrow_with_parquet()) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
+\dontshow{if (arrow_with_parquet()) withAutoprint(\{ # examplesIf}
 tf1 <- tempfile(fileext = ".parquet")
 write_parquet(data.frame(x = 1:5), tf1)
 

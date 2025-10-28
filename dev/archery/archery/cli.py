@@ -125,8 +125,6 @@ def _apply_options(cmd, options):
               help="Use CMAKE_UNITY_BUILD")
 @click.option("--warn-level", default="production", type=warn_level_type,
               help="Controls compiler warnings -W(no-)error.")
-@click.option("--use-gold-linker", default=True, type=BOOL,
-              help="Toggles ARROW_USE_LD_GOLD option.")
 @click.option("--simd-level", default="DEFAULT", type=simd_level,
               help="Toggles ARROW_SIMD_LEVEL option.")
 # Tests and benchmarks

@@ -482,6 +482,28 @@ def test_schema_set_field():
     assert s3.field(0).nullable is False
 
 
+def test_schema_hash_metadata():
+    fields = [
+        pa.field("foo", pa.int32()),
+    ]
+
+    schema1 = pa.schema(fields, metadata={b'foo': b'bar'})
+    schema2 = pa.schema(fields, metadata={b'foo': b'bar'})
+    schema3 = pa.schema(fields, metadata={b'foo_different': b'bar'})
+    schema4 = pa.schema(fields, metadata={b'foo': b'bar_different'})
+
+    assert hash(schema1) == hash(schema2)
+    assert hash(schema1) != hash(schema3)
+    assert hash(schema1) != hash(schema4)
+    assert hash(schema3) != hash(schema4)
+
+    schema_empty1 = pa.schema(fields, metadata={})
+    schema_empty2 = pa.schema(fields, metadata=None)
+
+    assert hash(schema_empty1) == hash(schema_empty2)
+    assert hash(schema_empty1) != hash(schema1)
+
+
 def test_schema_equals():
     fields = [
         pa.field('foo', pa.int32()),

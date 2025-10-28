@@ -7,7 +7,8 @@
 concat_tables(..., unify_schemas = TRUE)
 }
 \arguments{
-\item{...}{A \link{Table}}
+\item{...}{One or more \link{Table} or \link{RecordBatch} objects. RecordBatch objects
+will be automatically converted to Tables.}
 
 \item{unify_schemas}{If TRUE, the schemas of the tables will be first unified
 with fields of the same name being merged, then each table will be promoted
@@ -24,4 +25,8 @@ tbl <- arrow_table(name = rownames(mtcars), mtcars)
 prius <- arrow_table(name = "Prius", mpg = 58, cyl = 4, disp = 1.8)
 combined <- concat_tables(tbl, prius)
 tail(combined)$to_data_frame()
+
+# Can also pass RecordBatch objects
+batch <- record_batch(name = "Volt", mpg = 53, cyl = 4, disp = 1.5)
+combined2 <- concat_tables(tbl, batch)
 }

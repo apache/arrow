@@ -164,25 +164,27 @@
 #' # Read directly from strings with `I()`
 #' read_csv_arrow(I("x,y\n1,2\n3,4"))
 #' read_delim_arrow(I(c("x y", "1 2", "3 4")), delim = " ")
-read_delim_arrow <- function(file,
-                             delim = ",",
-                             quote = '"',
-                             escape_double = TRUE,
-                             escape_backslash = FALSE,
-                             schema = NULL,
-                             col_names = TRUE,
-                             col_types = NULL,
-                             col_select = NULL,
-                             na = c("", "NA"),
-                             quoted_na = TRUE,
-                             skip_empty_rows = TRUE,
-                             skip = 0L,
-                             parse_options = NULL,
-                             convert_options = NULL,
-                             read_options = NULL,
-                             as_data_frame = TRUE,
-                             timestamp_parsers = NULL,
-                             decimal_point = ".") {
+read_delim_arrow <- function(
+  file,
+  delim = ",",
+  quote = '"',
+  escape_double = TRUE,
+  escape_backslash = FALSE,
+  schema = NULL,
+  col_names = TRUE,
+  col_types = NULL,
+  col_select = NULL,
+  na = c("", "NA"),
+  quoted_na = TRUE,
+  skip_empty_rows = TRUE,
+  skip = 0L,
+  parse_options = NULL,
+  convert_options = NULL,
+  read_options = NULL,
+  as_data_frame = TRUE,
+  timestamp_parsers = NULL,
+  decimal_point = "."
+) {
   if (inherits(schema, "Schema")) {
     col_names <- names(schema)
     col_types <- schema
@@ -261,23 +263,25 @@ read_delim_arrow <- function(file,
 
 #' @rdname read_delim_arrow
 #' @export
-read_csv_arrow <- function(file,
-                           quote = '"',
-                           escape_double = TRUE,
-                           escape_backslash = FALSE,
-                           schema = NULL,
-                           col_names = TRUE,
-                           col_types = NULL,
-                           col_select = NULL,
-                           na = c("", "NA"),
-                           quoted_na = TRUE,
-                           skip_empty_rows = TRUE,
-                           skip = 0L,
-                           parse_options = NULL,
-                           convert_options = NULL,
-                           read_options = NULL,
-                           as_data_frame = TRUE,
-                           timestamp_parsers = NULL) {
+read_csv_arrow <- function(
+  file,
+  quote = '"',
+  escape_double = TRUE,
+  escape_backslash = FALSE,
+  schema = NULL,
+  col_names = TRUE,
+  col_types = NULL,
+  col_select = NULL,
+  na = c("", "NA"),
+  quoted_na = TRUE,
+  skip_empty_rows = TRUE,
+  skip = 0L,
+  parse_options = NULL,
+  convert_options = NULL,
+  read_options = NULL,
+  as_data_frame = TRUE,
+  timestamp_parsers = NULL
+) {
   mc <- match.call()
   mc$delim <- ","
   mc[[1]] <- get("read_delim_arrow", envir = asNamespace("arrow"))
@@ -286,23 +290,25 @@ read_csv_arrow <- function(file,
 
 #' @rdname read_delim_arrow
 #' @export
-read_csv2_arrow <- function(file,
-                            quote = '"',
-                            escape_double = TRUE,
-                            escape_backslash = FALSE,
-                            schema = NULL,
-                            col_names = TRUE,
-                            col_types = NULL,
-                            col_select = NULL,
-                            na = c("", "NA"),
-                            quoted_na = TRUE,
-                            skip_empty_rows = TRUE,
-                            skip = 0L,
-                            parse_options = NULL,
-                            convert_options = NULL,
-                            read_options = NULL,
-                            as_data_frame = TRUE,
-                            timestamp_parsers = NULL) {
+read_csv2_arrow <- function(
+  file,
+  quote = '"',
+  escape_double = TRUE,
+  escape_backslash = FALSE,
+  schema = NULL,
+  col_names = TRUE,
+  col_types = NULL,
+  col_select = NULL,
+  na = c("", "NA"),
+  quoted_na = TRUE,
+  skip_empty_rows = TRUE,
+  skip = 0L,
+  parse_options = NULL,
+  convert_options = NULL,
+  read_options = NULL,
+  as_data_frame = TRUE,
+  timestamp_parsers = NULL
+) {
   mc <- match.call()
   mc$delim <- ";"
   mc$decimal_point <- ","
@@ -312,23 +318,25 @@ read_csv2_arrow <- function(file,
 
 #' @rdname read_delim_arrow
 #' @export
-read_tsv_arrow <- function(file,
-                           quote = '"',
-                           escape_double = TRUE,
-                           escape_backslash = FALSE,
-                           schema = NULL,
-                           col_names = TRUE,
-                           col_types = NULL,
-                           col_select = NULL,
-                           na = c("", "NA"),
-                           quoted_na = TRUE,
-                           skip_empty_rows = TRUE,
-                           skip = 0L,
-                           parse_options = NULL,
-                           convert_options = NULL,
-                           read_options = NULL,
-                           as_data_frame = TRUE,
-                           timestamp_parsers = NULL) {
+read_tsv_arrow <- function(
+  file,
+  quote = '"',
+  escape_double = TRUE,
+  escape_backslash = FALSE,
+  schema = NULL,
+  col_names = TRUE,
+  col_types = NULL,
+  col_select = NULL,
+  na = c("", "NA"),
+  quoted_na = TRUE,
+  skip_empty_rows = TRUE,
+  skip = 0L,
+  parse_options = NULL,
+  convert_options = NULL,
+  read_options = NULL,
+  as_data_frame = TRUE,
+  timestamp_parsers = NULL
+) {
   mc <- match.call()
   mc$delim <- "\t"
   mc[[1]] <- get("read_delim_arrow", envir = asNamespace("arrow"))
@@ -361,17 +369,20 @@ read_tsv_arrow <- function(file,
 #'
 #' @include arrow-object.R
 #' @export
-CsvTableReader <- R6Class("CsvTableReader",
+CsvTableReader <- R6Class(
+  "CsvTableReader",
   inherit = ArrowObject,
   public = list(
     Read = function() csv___TableReader__Read(self)
   )
 )
-CsvTableReader$create <- function(file,
-                                  read_options = csv_read_options(),
-                                  parse_options = csv_parse_options(),
-                                  convert_options = csv_convert_options(),
-                                  ...) {
+CsvTableReader$create <- function(
+  file,
+  read_options = csv_read_options(),
+  parse_options = csv_parse_options(),
+  convert_options = csv_convert_options(),
+  ...
+) {
   assert_is(file, "InputStream")
 
   if (is.list(read_options)) {
@@ -420,13 +431,15 @@ CsvTableReader$create <- function(file,
 #' read_csv_arrow(tf, read_options = csv_read_options(skip_rows = 1))
 #' open_csv_dataset(tf, read_options = csv_read_options(skip_rows = 1))
 #' @export
-csv_read_options <- function(use_threads = option_use_threads(),
-                             block_size = 1048576L,
-                             skip_rows = 0L,
-                             column_names = character(0),
-                             autogenerate_column_names = FALSE,
-                             encoding = "UTF-8",
-                             skip_rows_after_names = 0L) {
+csv_read_options <- function(
+  use_threads = option_use_threads(),
+  block_size = 1048576L,
+  skip_rows = 0L,
+  column_names = character(0),
+  autogenerate_column_names = FALSE,
+  encoding = "UTF-8",
+  skip_rows_after_names = 0L
+) {
   assert_that(is.string(encoding))
 
   options <- csv___ReadOptions__initialize(
@@ -550,15 +563,21 @@ csv_read_options <- function(use_threads = option_use_threads(),
 #' - `column_names`: from `CsvReadOptions`
 #'
 #' @export
-CsvReadOptions <- R6Class("CsvReadOptions",
+CsvReadOptions <- R6Class(
+  "CsvReadOptions",
   inherit = ArrowObject,
   public = list(
     encoding = NULL,
     print = function(...) {
       cat("CsvReadOptions\n")
       for (attr in c(
-        "column_names", "block_size", "skip_rows", "autogenerate_column_names",
-        "use_threads", "skip_rows_after_names", "encoding"
+        "column_names",
+        "block_size",
+        "skip_rows",
+        "autogenerate_column_names",
+        "use_threads",
+        "skip_rows_after_names",
+        "encoding"
       )) {
         cat(sprintf("%s: %s\n", attr, self[[attr]]))
       }
@@ -577,12 +596,14 @@ CsvReadOptions <- R6Class("CsvReadOptions",
 
 CsvReadOptions$create <- csv_read_options
 
-readr_to_csv_write_options <- function(col_names = TRUE,
-                                       batch_size = 1024L,
-                                       delim = ",",
-                                       na = "",
-                                       eol = "\n",
-                                       quote = c("needed", "all", "none")) {
+readr_to_csv_write_options <- function(
+  col_names = TRUE,
+  batch_size = 1024L,
+  delim = ",",
+  na = "",
+  eol = "\n",
+  quote = c("needed", "all", "none")
+) {
   quoting_style_arrow_opts <- c("Needed", "AllValid", "None")
   quote <- match(match.arg(quote), c("needed", "all", "none"))
   quote <- quoting_style_arrow_opts[quote]
@@ -613,12 +634,14 @@ readr_to_csv_write_options <- function(col_names = TRUE,
 #' on.exit(unlink(tf))
 #' write_csv_arrow(airquality, tf, write_options = csv_write_options(null_string = "-99"))
 #' @export
-csv_write_options <- function(include_header = TRUE,
-                              batch_size = 1024L,
-                              null_string = "",
-                              delimiter = ",",
-                              eol = "\n",
-                              quoting_style = c("Needed", "AllValid", "None")) {
+csv_write_options <- function(
+  include_header = TRUE,
+  batch_size = 1024L,
+  null_string = "",
+  delimiter = ",",
+  eol = "\n",
+  quoting_style = c("Needed", "AllValid", "None")
+) {
   quoting_style <- match.arg(quoting_style)
   quoting_style_opts <- c("Needed", "AllValid", "None")
   quoting_style <- match(quoting_style, quoting_style_opts) - 1L
@@ -680,14 +703,16 @@ readr_to_csv_read_options <- function(skip = 0, col_names = TRUE) {
 #' read_csv_arrow(tf, parse_options = csv_parse_options(ignore_empty_lines = FALSE))
 #' open_csv_dataset(tf, parse_options = csv_parse_options(ignore_empty_lines = FALSE))
 #' @export
-csv_parse_options <- function(delimiter = ",",
-                              quoting = TRUE,
-                              quote_char = '"',
-                              double_quote = TRUE,
-                              escaping = FALSE,
-                              escape_char = "\\",
-                              newlines_in_values = FALSE,
-                              ignore_empty_lines = TRUE) {
+csv_parse_options <- function(
+  delimiter = ",",
+  quoting = TRUE,
+  quote_char = '"',
+  double_quote = TRUE,
+  escaping = FALSE,
+  escape_char = "\\",
+  newlines_in_values = FALSE,
+  ignore_empty_lines = TRUE
+) {
   csv___ParseOptions__initialize(
     list(
       delimiter = delimiter,
@@ -710,11 +735,13 @@ csv_parse_options <- function(delimiter = ",",
 CsvParseOptions <- R6Class("CsvParseOptions", inherit = ArrowObject)
 CsvParseOptions$create <- csv_parse_options
 
-readr_to_csv_parse_options <- function(delim = ",",
-                                       quote = '"',
-                                       escape_double = TRUE,
-                                       escape_backslash = FALSE,
-                                       skip_empty_rows = TRUE) {
+readr_to_csv_parse_options <- function(
+  delim = ",",
+  quote = '"',
+  escape_double = TRUE,
+  escape_backslash = FALSE,
+  skip_empty_rows = TRUE
+) {
   # This function translates from the readr argument list to the arrow arg names
   # TODO: validate inputs
   csv_parse_options(
@@ -734,7 +761,8 @@ readr_to_csv_parse_options <- function(delim = ",",
 #' @format NULL
 #' @docType class
 #' @export
-TimestampParser <- R6Class("TimestampParser",
+TimestampParser <- R6Class(
+  "TimestampParser",
   inherit = ArrowObject,
   public = list(
     kind = function() TimestampParser__kind(self),
@@ -788,18 +816,20 @@ TimestampParser$create <- function(format = NULL) {
 #' read_csv_arrow(tf, convert_options = csv_convert_options(null_values = c("", "NA", "NULL")))
 #' open_csv_dataset(tf, convert_options = csv_convert_options(null_values = c("", "NA", "NULL")))
 #' @export
-csv_convert_options <- function(check_utf8 = TRUE,
-                                null_values = c("", "NA"),
-                                true_values = c("T", "true", "TRUE"),
-                                false_values = c("F", "false", "FALSE"),
-                                strings_can_be_null = FALSE,
-                                col_types = NULL,
-                                auto_dict_encode = FALSE,
-                                auto_dict_max_cardinality = 50L,
-                                include_columns = character(),
-                                include_missing_columns = FALSE,
-                                timestamp_parsers = NULL,
-                                decimal_point = ".") {
+csv_convert_options <- function(
+  check_utf8 = TRUE,
+  null_values = c("", "NA"),
+  true_values = c("T", "true", "TRUE"),
+  false_values = c("F", "false", "FALSE"),
+  strings_can_be_null = FALSE,
+  col_types = NULL,
+  auto_dict_encode = FALSE,
+  auto_dict_max_cardinality = 50L,
+  include_columns = character(),
+  include_missing_columns = FALSE,
+  timestamp_parsers = NULL,
+  decimal_point = "."
+) {
   if (!is.null(col_types) && !inherits(col_types, "Schema")) {
     abort(c(
       "Unsupported `col_types` specification.",
@@ -833,12 +863,14 @@ csv_convert_options <- function(check_utf8 = TRUE,
 CsvConvertOptions <- R6Class("CsvConvertOptions", inherit = ArrowObject)
 CsvConvertOptions$create <- csv_convert_options
 
-readr_to_csv_convert_options <- function(na,
-                                         quoted_na,
-                                         decimal_point,
-                                         col_types = NULL,
-                                         col_names = NULL,
-                                         timestamp_parsers = NULL) {
+readr_to_csv_convert_options <- function(
+  na,
+  quoted_na,
+  decimal_point,
+  col_types = NULL,
+  col_names = NULL,
+  timestamp_parsers = NULL
+) {
   include_columns <- character()
 
   if (is.character(col_types)) {
@@ -887,15 +919,17 @@ readr_to_csv_convert_options <- function(na,
 #' on.exit(unlink(tf))
 #' write_csv_arrow(mtcars, tf)
 #' @include arrow-object.R
-write_csv_arrow <- function(x,
-                            sink,
-                            file = NULL,
-                            include_header = TRUE,
-                            col_names = NULL,
-                            batch_size = 1024L,
-                            na = "",
-                            write_options = NULL,
-                            ...) {
+write_csv_arrow <- function(
+  x,
+  sink,
+  file = NULL,
+  include_header = TRUE,
+  col_names = NULL,
+  batch_size = 1024L,
+  na = "",
+  write_options = NULL,
+  ...
+) {
   unsupported_passed_args <- names(list(...))
 
   if (length(unsupported_passed_args)) {
@@ -951,7 +985,9 @@ write_csv_arrow <- function(x,
           abort(
             paste0(
               "x must be an object of class 'data.frame', 'RecordBatch', ",
-              "'Dataset', 'Table', or 'RecordBatchReader' not '", class(x)[1], "'."
+              "'Dataset', 'Table', or 'RecordBatchReader' not '",
+              class(x)[1],
+              "'."
             ),
             parent = NA
           )

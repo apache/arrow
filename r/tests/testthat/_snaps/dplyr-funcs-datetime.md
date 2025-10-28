@@ -1,8 +1,8 @@
 # `as.Date()` and `as_date()`
 
     Code
-      test_df %>% InMemoryDataset$create() %>% transmute(date_char_ymd = as.Date(
-        character_ymd_var, tryFormats = c("%Y-%m-%d", "%Y/%m/%d"))) %>% collect()
+      collect(transmute(InMemoryDataset$create(test_df), date_char_ymd = as.Date(
+        character_ymd_var, tryFormats = c("%Y-%m-%d", "%Y/%m/%d"))))
     Condition
       Error in `as.Date()`:
       ! `as.Date()` with multiple `tryFormats` not supported in Arrow

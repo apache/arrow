@@ -66,13 +66,12 @@
 #'   auto_convert = TRUE
 #' )
 #'
-#' as_arrow_table(mtcars) %>%
-#'   transmute(mpg, mpg_predicted = mtcars_predict_mpg(disp, cyl)) %>%
-#'   collect() %>%
+#' as_arrow_table(mtcars) |>
+#'   transmute(mpg, mpg_predicted = mtcars_predict_mpg(disp, cyl)) |>
+#'   collect() |>
 #'   head()
 #'
-register_scalar_function <- function(name, fun, in_type, out_type,
-                                     auto_convert = FALSE) {
+register_scalar_function <- function(name, fun, in_type, out_type, auto_convert = FALSE) {
   assert_that(is.string(name))
 
   scalar_function <- arrow_scalar_function(

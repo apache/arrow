@@ -38,7 +38,8 @@
 #' @rdname Codec
 #' @name Codec
 #' @export
-Codec <- R6Class("Codec",
+Codec <- R6Class(
+  "Codec",
   inherit = ArrowObject,
   active = list(
     name = function() util___Codec__name(self),
@@ -48,7 +49,8 @@ Codec <- R6Class("Codec",
 Codec$create <- function(type = "gzip", compression_level = NA) {
   if (is.string(type)) {
     type <- util___Codec__Create(
-      compression_from_name(type), compression_level
+      compression_from_name(type),
+      compression_level
     )
   }
   assert_is(type, "Codec")

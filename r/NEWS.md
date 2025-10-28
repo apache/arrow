@@ -17,7 +17,17 @@
   under the License.
 -->
 
-# arrow 21.0.0.9000
+# arrow 22.0.0.9000
+
+# arrow 22.0.0
+
+## New features
+
+- `stringr::str_replace_na()` binding implemented (#47521).
+
+##  Minor improvements and fixes
+
+- Subsecond time variables no longer truncated in  `hms::hms()` bindings (#47278)
 
 # arrow 21.0.0.1
 
