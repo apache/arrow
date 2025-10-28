@@ -48,7 +48,10 @@ sync-cpp:
 	cp -p ../LICENSE.txt tools/
 	sed -i"" -e "s/\.env/dotenv/g" tools/cpp/CMakeLists.txt
 
-build: clean doc sync-cpp
+build:
+	$(MAKE) clean
+	$(MAKE) doc
+	$(MAKE) sync-cpp
 	R CMD build ${args} .
 
 check: build
