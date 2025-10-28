@@ -44,8 +44,8 @@ class NoOpClientAuthHandler : public ClientAuthHandler {
   NoOpClientAuthHandler() {}
 
   Status Authenticate(ClientAuthSender* outgoing, ClientAuthReader* incoming) override {
-    // Write a blank string. The server should ignore this and just accept any Handshake
-    // request.
+    // The server should ignore this and just accept any Handshake
+    // request. Some servers do not allow authentication with no handshakes.
     return outgoing->Write(std::string());
   }
 

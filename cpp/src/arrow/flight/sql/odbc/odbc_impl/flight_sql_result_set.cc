@@ -29,12 +29,12 @@
 namespace arrow::flight::sql::odbc {
 
 FlightSqlResultSet::FlightSqlResultSet(
-    FlightSqlClient& flight_sql_client, const FlightCallOptions& call_options,
-    const std::shared_ptr<FlightInfo>& flight_info,
+    FlightSqlClient& flight_sql_client, const FlightClientOptions& client_options,
+    const FlightCallOptions& call_options, const std::shared_ptr<FlightInfo>& flight_info,
     const std::shared_ptr<RecordBatchTransformer>& transformer, Diagnostics& diagnostics,
     const MetadataSettings& metadata_settings)
     : metadata_settings_(metadata_settings),
-      chunk_buffer_(flight_sql_client, call_options, flight_info,
+      chunk_buffer_(flight_sql_client, client_options, call_options, flight_info,
                     metadata_settings_.chunk_buffer_capacity),
       transformer_(transformer),
       metadata_(transformer
