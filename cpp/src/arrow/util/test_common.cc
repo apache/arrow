@@ -65,4 +65,9 @@ Transformer<TestInt, TestStr> MakeFilter(std::function<bool(TestInt&)> filter) {
   };
 }
 
+void AssertBytesEqual(const uint8_t* left, const std::vector<uint8_t>& right) {
+  auto left_array = std::vector<uint8_t>(left, left + right.size());
+  ASSERT_EQ(left_array, right);
+}
+
 }  // namespace arrow

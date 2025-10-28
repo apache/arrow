@@ -370,13 +370,25 @@ void UnalignedBitmapOp(const uint8_t* left, int64_t left_offset, const uint8_t* 
   }
 }
 
+// XXX: The bits before left/right/out_offset, if unaligned, are untouched. But not for
+// the bits after length. Caller should ensure proper alignment for the tail bits if
+// necessary, or correct the tail bits by subsequent calls.
 template <template <typename> class BitOp>
 void BitmapOp(const uint8_t* left, int64_t left_offset, const uint8_t* right,
               int64_t right_offset, int64_t length, int64_t out_offset, uint8_t* dest) {
-  if ((out_offset % 8 == left_offset % 8) && (out_offset % 8 == right_offset % 8)) {
-    // Fast case: can use bytewise AND
-    AlignedBitmapOp<BitOp>(left, left_offset, right, right_offset, dest, out_offset,
-                           length);
+  if (out_offset % 8 == left_offset % 8 && out_offset % 8 == right_offset % 8) {
+    // Fast case: can use byte-wise BitOp after handling leading unaligned bits.
+    int64_t leading_unaligned_bits = (8 - left_offset % 8) % 8;
+    if (leading_unaligned_bits > 0) {
+      UnalignedBitmapOp<BitOp>(left, left_offset, right, right_offset, dest, out_offset,
+                               leading_unaligned_bits);
+    }
+    if (length > leading_unaligned_bits) {
+      AlignedBitmapOp<BitOp>(left, left_offset + leading_unaligned_bits, right,
+                             right_offset + leading_unaligned_bits, dest,
+                             out_offset + leading_unaligned_bits,
+                             length - leading_unaligned_bits);
+    }
   } else {
     // Unaligned
     UnalignedBitmapOp<BitOp>(left, left_offset, right, right_offset, dest, out_offset,
