@@ -20,6 +20,7 @@
 #include <array>
 #include <cstdint>
 #include <cstring>
+#include <numeric>
 #include <utility>
 
 #include <xsimd/xsimd.hpp>
@@ -38,6 +39,10 @@ namespace arrow::internal {
 // - array to batch constant to xsimd
 // - Shifts per swizzle can be improved when self.packed_max_byte_spread == 1 and the
 //   byte can be reused (when val_bit_width divides packed_max_byte_spread).
+// - Try for uint16_t and uint8_t
+// - For Avx2:
+//   - Inspect how swizzle across lanes are handled
+//   - Investigate AVX2 with 128 bit register
 
 struct KernelShape {
   const int simd_bit_size_;
@@ -340,4 +345,69 @@ struct Kernel {
   }
 };
 
+template <typename UnpackedUint, int kPackedBitSize, int kSimdBitSize>
+struct OversizedKernelPlan {
+  using Traits = KernelTraits<UnpackedUint, kPackedBitSize, kSimdBitSize>;
+  static constexpr auto kShape = Traits::kShape;
+
+  static constexpr int kUnpackedPerkernel = std::lcm(kShape.unpacked_per_simd(), 8);
+  static constexpr int kReadsPerKernel = static_cast<int>(bit_util::CeilDiv(
+      kUnpackedPerkernel * kShape.packed_bit_size(), kShape.simd_bit_size()));
+
+  using ReadsPerKernel = std::array<int, kReadsPerKernel>;
+
+  using Swizzle = std::array<int, kShape.simd_byte_size()>;
+  using SwizzlesPerKernel = std::array<Swizzle, kReadsPerKernel>;
+
+  using Shift = std::array<UnpackedUint, kReadsPerKernel>;
+  using ShitsPerKernel = std::array<Shift, kReadsPerKernel>;
+
+  ReadsPerKernel reads;
+  SwizzlesPerKernel low_swizzles;
+  SwizzlesPerKernel high_swizzles;
+  ShitsPerKernel low_rshifts;
+  ShitsPerKernel high_lshifts;
+  UnpackedUint mask = bit_util::LeastSignificantBitMask<UnpackedUint>(kPackedBitSize);
+};
+
+template <typename UnpackedUint, int kPackedBitSize, int kSimdBitSize>
+constexpr OversizedKernelPlan<UnpackedUint, kPackedBitSize, kSimdBitSize>
+BuildOversizedPlan() {
+  using Plan = OversizedKernelPlan<UnpackedUint, kPackedBitSize, kSimdBitSize>;
+  constexpr auto kShape = Plan::kShape;
+  static_assert(kShape.unpacked_byte_size() < kShape.max_spread_bytes());
+  constexpr int kOverBytes =
+      kShape.packed_max_spread_bytes() - kShape.unpacked_byte_size();
+
+  Plan plan = {};
+
+  int packed_start_bit = 0;
+  for (int r = 0; r < Plan::kReadsPerKernel; ++r) {
+    const int read_start_byte = packed_start_bit / 8;
+    plan.reads.at(r) = read_start_byte;
+
+    for (int u = 0; u < kShape.unpacked_per_simd(); ++u) {
+      const int packed_start_byte = packed_start_bit / 8;
+      const int packed_byte_in_read = packed_start_byte - read_start_byte;
+
+      // Looping over maximum number of bytes that can fit a value
+      // We fill more than necessary in the high swizzle because in the absence of
+      // variable right shifts, we will erase some bits from the low sizzled values.
+      for (int b = 0; b < kShape.unpacked_byte_size(); ++b) {
+        const auto idx = u * kShape.unpacked_byte_size() + b;
+        plan.low_swizzles.at(r).at(idx) = packed_byte_in_read + b;
+        plan.high_swizzles.at(r).at(idx) = packed_byte_in_read + b + kOverBytes;
+      }
+
+      // low and high swizzles need to be rshifted but the oversized bytes created a
+      // larger lshift for high values.
+      plan.low_rshifts.at(r).at(u) = packed_start_bit % 8;
+      plan.high_lshifts.at(r).at(u) = 8 * kOverBytes - (packed_start_bit % 8);
+
+      packed_start_bit += kShape.packed_bit_size();
+    }
+  }
+
+  return plan;
+}
 }  // namespace arrow::internal
