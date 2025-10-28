@@ -63,11 +63,11 @@ release: build
 	rm -rf arrow.Rcheck/
 
 clean:
-	-rm src/*.o
-	-rm src/*.so
-	-rm src/*.dll
-	-rm src/Makevars
-	-rm src/Makevars.win
+	-rm -f src/*.o
+	-rm -f src/*.so
+	-rm -f src/*.dll
+	-rm -f src/Makevars
+	-rm -f src/Makevars.win
 	-rm -rf arrow.Rcheck/
 	-rm -rf libarrow/
 	-rm -rf tools/cpp/ tools/dotenv tools/NOTICE.txt tools/LICENSE.txt
