@@ -321,8 +321,6 @@ class PARQUET_EXPORT WriterProperties {
           content_defined_chunking_options_(
               properties.content_defined_chunking_options()) {}
 
-    virtual ~Builder() {}
-
     /// \brief EXPERIMENTAL: Use content-defined page chunking for all columns.
     ///
     /// Optimize parquet files for content addressable storage (CAS) systems by writing
@@ -1183,7 +1181,6 @@ class PARQUET_EXPORT ArrowWriterProperties {
           use_threads_(kArrowDefaultUseThreads),
           executor_(NULLPTR),
           write_time_adjusted_to_utc_(false) {}
-    virtual ~Builder() = default;
 
     /// \brief Disable writing legacy int96 timestamps (default disabled).
     Builder* disable_deprecated_int96_timestamps() {

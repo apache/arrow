@@ -1416,7 +1416,8 @@ Status FuzzReader(std::unique_ptr<FileReader> reader) {
 Status FuzzReader(const uint8_t* data, int64_t size) {
   auto buffer = std::make_shared<::arrow::Buffer>(data, size);
   Status st;
-  for (auto batch_size : std::vector<std::optional<int>>{std::nullopt, 1, 13, 300}) {
+  // Note that very small batch sizes probably make fuzzing slower
+  for (auto batch_size : std::vector<std::optional<int>>{std::nullopt, 13, 300}) {
     auto file = std::make_shared<::arrow::io::BufferReader>(buffer);
     FileReaderBuilder builder;
     ArrowReaderProperties properties;

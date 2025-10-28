@@ -81,25 +81,68 @@ std::shared_ptr<Field> FieldForArray(const std::shared_ptr<Array>& array,
 }
 
 std::vector<WriteConfig> GetWriteConfigurations() {
+  auto default_properties_builder = [] {
+    auto builder = WriterProperties::Builder();
+    // Override current default of 1MB
+    builder.data_pagesize(10'000);
+    // Reduce max dictionary page size so that less pages are dict-encoded.
+    builder.dictionary_pagesize_limit(1'000);
+    // Emit various physical types for decimal columns
+    builder.enable_store_decimal_as_integer();
+    // DataPageV2 has more interesting features such as selective compression
+    builder.data_page_version(parquet::ParquetDataPageVersion::V2);
+    return builder;
+  };
+
+  auto default_arrow_properties_builder = [] {
+    auto builder = ArrowWriterProperties::Builder();
+    // Store the Arrow schema so as to exercise more data types when reading
+    builder.store_schema();
+    return builder;
+  };
+
   // clang-format off
-  auto w_brotli = WriterProperties::Builder()
-      .disable_dictionary("no_dict")
-      ->compression("compressed", Compression::BROTLI)
-      // Override current default of 1MB
-      ->data_pagesize(20'000)
-      // Reduce max dictionary page size so that less pages are dict-encoded.
-      ->dictionary_pagesize_limit(1'000)
-      // Emit various physical types for decimal columns
-      ->enable_store_decimal_as_integer()
+  auto w_uncompressed = default_properties_builder()
+      .build();
+  // compressed columns with dictionary disabled
+  auto w_brotli = default_properties_builder()
+      .disable_dictionary()
+      ->compression(Compression::BROTLI)
       ->build();
-  // Store the Arrow schema so as to exercise more data types when reading
-  auto a_default = ArrowWriterProperties::Builder{}
-      .store_schema()
+  auto w_gzip = default_properties_builder()
+      .disable_dictionary()
+      ->compression(Compression::GZIP)
       ->build();
+  auto w_lz4 = default_properties_builder()
+      .disable_dictionary()
+      ->compression(Compression::LZ4)
+      ->build();
+  auto w_snappy = default_properties_builder()
+      .disable_dictionary()
+      ->compression(Compression::SNAPPY)
+      ->build();
+  auto w_zstd = default_properties_builder()
+      .disable_dictionary()
+      ->compression(Compression::ZSTD)
+      ->build();
+  // v1 data pages
+  auto w_pages_v1 = default_properties_builder()
+      .disable_dictionary()
+      ->compression(Compression::LZ4)
+      ->data_page_version(parquet::ParquetDataPageVersion::V1)
+      ->build();
+
+  auto a_default = default_arrow_properties_builder().build();
   // clang-format on
 
   std::vector<WriteConfig> configs;
+  configs.push_back({w_uncompressed, a_default});
   configs.push_back({w_brotli, a_default});
+  configs.push_back({w_gzip, a_default});
+  configs.push_back({w_lz4, a_default});
+  configs.push_back({w_snappy, a_default});
+  configs.push_back({w_zstd, a_default});
+  configs.push_back({w_pages_v1, a_default});
   return configs;
 }
 
@@ -255,8 +298,6 @@ Result<std::vector<Column>> ExampleColumns(int32_t length,
 
   // TODO extension types: UUID, JSON, GEOMETRY, GEOGRAPHY
 
-  // A non-dict-encoded column (see GetWriteConfigurations)
-  columns.push_back({"no_dict", gen.String(length, 0, 30, null_probability)});
   // A column that should be quite compressible (see GetWriteConfigurations)
   columns.push_back({"compressed", gen.Int64(length, -10, 10, null_probability)});
 
