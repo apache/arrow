@@ -212,6 +212,23 @@ struct NumericScalar : public internal::PrimitiveScalar<T> {
   NumericScalar() : Base(TypeTraits<T>::type_singleton()) {}
 };
 
+template <>
+struct NumericScalar<HalfFloatType>
+    : public internal::PrimitiveScalar<HalfFloatType, util::Float16> {
+  using Base = internal::PrimitiveScalar<HalfFloatType, util::Float16>;
+  using Base::Base;
+
+  explicit NumericScalar(ValueType value)
+      : Base(value, TypeTraits<TypeClass>::type_singleton()) {}
+
+  explicit NumericScalar(uint16_t value)
+      : NumericScalar(util::Float16::FromBits(value)) {}
+  NumericScalar(uint16_t value, std::shared_ptr<DataType> type)
+      : Base(util::Float16::FromBits(value), std::move(type)) {}
+
+  NumericScalar() : Base(TypeTraits<TypeClass>::type_singleton()) {}
+};
+
 struct ARROW_EXPORT Int8Scalar : public NumericScalar<Int8Type> {
   using NumericScalar<Int8Type>::NumericScalar;
 };
@@ -246,12 +263,6 @@ struct ARROW_EXPORT UInt64Scalar : public NumericScalar<UInt64Type> {
 
 struct ARROW_EXPORT HalfFloatScalar : public NumericScalar<HalfFloatType> {
   using NumericScalar<HalfFloatType>::NumericScalar;
-
-  explicit HalfFloatScalar(util::Float16 value)
-      : NumericScalar(value.bits(), float16()) {}
-
-  HalfFloatScalar(util::Float16 value, std::shared_ptr<DataType> type)
-      : NumericScalar(value.bits(), std::move(type)) {}
 };
 
 struct ARROW_EXPORT FloatScalar : public NumericScalar<FloatType> {
@@ -976,12 +987,10 @@ struct MakeScalarImpl {
     return Status::OK();
   }
 
-  // This isn't captured by the generic case above because `util::Float16` isn't implicity
-  // convertible to `uint16_t` (HalfFloat's ValueType)
+  // Enable constructing half-float scalars from uint16_t
   template <typename T>
-  std::enable_if_t<std::is_same_v<std::decay_t<ValueRef>, util::Float16> &&
-                       is_half_float_type<T>::value,
-                   Status>
+  std::enable_if_t<
+      std::is_convertible_v<ValueRef, uint16_t> && is_half_float_type<T>::value, Status>
   Visit(const T& t) {
     out_ = std::make_shared<HalfFloatScalar>(static_cast<ValueRef>(value_),
                                              std::move(type_));
