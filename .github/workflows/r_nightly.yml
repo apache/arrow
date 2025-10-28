@@ -128,6 +128,7 @@ jobs:
             pattern = "r-lib",
             recursive = TRUE
           )
+          current_path <- c(current_pkg_path, current_lib_path)
           files <- c(
             sub("r-pkg", repo_root, current_pkg_path),
             sub("r-lib", paste0(repo_root, "__r-lib"), current_lib_path),
