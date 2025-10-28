@@ -1005,18 +1005,17 @@ TEST(TestColumnWriter, ReproInvalidDictIndex) {
   auto file_writer = ParquetFileWriter::Open(sink, schema, properties);
   auto rg_writer = file_writer->AppendRowGroup();
 
-  constexpr int32_t num_batches = 50'000'000;
-  constexpr int32_t batch_size = 3;
+  constexpr int32_t num_batches = 150;
+  constexpr int32_t batch_size = 1'000'000;
   constexpr int32_t unique_count = 200'000;
 
   std::vector<int32_t> values(batch_size, 0);
 
-  std::default_random_engine gen(1);
-  std::uniform_int_distribution<int32_t> val_dist(0, unique_count - 1);
-
   auto col_writer = static_cast<parquet::Int32Writer*>(rg_writer->NextColumn());
   for (int32_t i = 0; i < num_batches; i++) {
-    values[0] = val_dist(gen);
+    for (int32_t j = 0; j < batch_size; j++) {
+      values[j] = j % unique_count;
+    }
     col_writer->WriteBatch(batch_size, nullptr, nullptr, values.data());
   }
   file_writer->Close();
