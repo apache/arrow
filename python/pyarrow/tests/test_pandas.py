@@ -5274,7 +5274,7 @@ def test_json_unserializable_pd_df_attrs():
 
     with pytest.warns(
         UserWarning,
-        match=r"Could not serialize pd.DataFrame.attrs: \w+",
+        match="Could not serialize pd.DataFrame.attrs:",
     ):
         df_table = pa.table(df)
 
