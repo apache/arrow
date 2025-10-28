@@ -1243,6 +1243,8 @@ services:
         base: "${ARCH}/alpine:${ALPINE_LINUX}"
         python_version: ${PYTHON}
         python_patch_version: ${PYTHON_PATCH_VERSION}
+        build_date: "20251014"  # python-build-standalone release date
+        arch: ${ARCH_ALIAS}
       context: .
       dockerfile: ci/docker/python-free-threaded-wheel-musllinux-test-imports.dockerfile
       cache_from:
@@ -1286,6 +1288,8 @@ services:
         base: "${ARCH}/alpine:${ALPINE_LINUX}"
         python_version: ${PYTHON}
         python_patch_version: ${PYTHON_PATCH_VERSION}
+        build_date: "20251014"  # python-build-standalone release date
+        arch: ${ARCH_ALIAS}
       context: .
       dockerfile: ci/docker/python-free-threaded-wheel-musllinux-test-unittests.dockerfile
       cache_from:
