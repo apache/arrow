@@ -192,7 +192,7 @@ arrow_compose_env = {
 
 def create_config(directory, yml_content, env_content=None):
     env_path = directory / '.env'
-    config_path = directory / 'docker-compose.yml'
+    config_path = directory / 'compose.yaml'
 
     with config_path.open('w') as fp:
         fp.write(yml_content)

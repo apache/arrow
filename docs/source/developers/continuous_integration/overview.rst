@@ -24,13 +24,13 @@ Continuous Integration for Arrow is fairly complex as it needs to run across dif
 
 Some files central to Arrow CI are:
 
-- ``docker-compose.yml`` - here we define docker services which can be configured using either environment variables, or the default values for these variables.
-- ``.env`` - here we define default values to configure the services in ``docker-compose.yml``
+- ``compose.yaml`` - here we define docker services which can be configured using either environment variables, or the default values for these variables.
+- ``.env`` - here we define default values to configure the services in ``compose.yaml``
 - ``appveyor.yml`` - here we define workflows that run on Appveyor
 
 We use :ref:`Docker<docker-builds>` in order to have portable and reproducible Linux builds, as well as running Windows builds in Windows containers.  We use :ref:`Archery<Archery>` and :ref:`Crossbow<Crossbow>` to help coordinate the various CI tasks.
 
-One thing to note is that some of the services defined in ``docker-compose.yml`` are interdependent.  When running services locally, you must either manually build its dependencies first, or build it via the use of ``archery docker run ...`` which automatically finds and builds dependencies.
+One thing to note is that some of the services defined in ``compose.yaml`` are interdependent.  When running services locally, you must either manually build its dependencies first, or build it via the use of ``archery docker run ...`` which automatically finds and builds dependencies.
 
 There are numerous important directories in the Arrow project which relate to CI:
 
@@ -70,4 +70,4 @@ Crossbow is a subcomponent of Archery and can be used to manually trigger builds
 
 Most of these tasks are run as part of the nightly builds, though they can also be triggered manually by adding a comment to a PR which begins with ``@github-actions crossbow submit`` followed by the name of the task to be run.
 
-For convenience purpose, the tasks in ``dev/tasks/tasks.yml`` are defined in groups, which makes it simpler for multiple tasks to be submitted to Crossbow at once.  The task definitions here contain information about which service defined in ``docker-compose.yml`` to run, the CI service to run the task on, and which template file to use as the basis for that task.
+For convenience purpose, the tasks in ``dev/tasks/tasks.yml`` are defined in groups, which makes it simpler for multiple tasks to be submitted to Crossbow at once.  The task definitions here contain information about which service defined in ``compose.yaml`` to run, the CI service to run the task on, and which template file to use as the basis for that task.
