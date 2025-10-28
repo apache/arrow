@@ -5267,14 +5267,14 @@ def test_is_data_frame_race_condition():
     test_util.invoke_script('arrow_39313.py')
 
 
-def test_json_unserializable_pd_attrs():
+def test_json_unserializable_pd_df_attrs():
     df = pd.DataFrame({"x": [1, 2, 3]})
 
     df.attrs["timestamp"] = datetime.fromisoformat("2025-10-28T14:20:42")
 
     with pytest.warns(
         UserWarning,
-        match="Could not serialize pd.attrs, defaulting to empty attributes",
+        match=r"Could not serialize pd.DataFrame.attrs: \w+",
     ):
         df_table = pa.table(df)
 
