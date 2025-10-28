@@ -44,11 +44,39 @@ namespace arrow::internal {
 //   - Inspect how swizzle across lanes are handled
 //   - Investigate AVX2 with 128 bit register
 
+constexpr bool PackedIsOversizedForSimd(int simd_bit_size, int unpacked_bit_size,
+                                        int packed_bit_size) {
+  const int unpacked_per_simd = simd_bit_size / unpacked_bit_size;
+
+  const auto packed_per_read_for_offset = [&](int bit_offset) -> int {
+    return (simd_bit_size - bit_offset) / packed_bit_size;
+  };
+
+  int packed_start_bit = 0;
+  do {
+    int packed_per_read = packed_per_read_for_offset(packed_start_bit % 8);
+    if (packed_per_read < unpacked_per_simd) {
+      return true;
+    }
+    packed_start_bit += unpacked_per_simd * packed_bit_size;
+  } while (packed_start_bit % 8 != 0);
+
+  return false;
+}
+
 struct KernelShape {
   const int simd_bit_size_;
   const int unpacked_bit_size_;
   const int packed_bit_size_;
   const int packed_max_spread_bytes_ = PackedMaxSpreadBytes(packed_bit_size_, 0);
+  const bool is_oversized_ =
+      PackedIsOversizedForSimd(simd_bit_size_, unpacked_bit_size_, packed_bit_size_);
+
+  constexpr bool is_medium() const {
+    return packed_max_spread_bytes() <= unpacked_byte_size();
+  }
+  constexpr bool is_large() const { return !is_medium() && !is_oversized(); }
+  constexpr bool is_oversized() const { return is_oversized_; }
 
   /// Properties of an SIMD batch
   constexpr int simd_bit_size() const { return simd_bit_size_; }
@@ -78,7 +106,7 @@ struct KernelTraits {
   using arch_type = typename simd_batch::arch_type;
 };
 
-struct KernelPlanSize {
+struct MediumKernelPlanSize {
   int reads_per_kernel_;
   int swizzles_per_read_;
   int shifts_per_swizzle_;
@@ -99,7 +127,7 @@ struct KernelPlanSize {
   }
 };
 
-constexpr KernelPlanSize BuildPlanSize(const KernelShape& shape) {
+constexpr MediumKernelPlanSize BuildMediumPlanSize(const KernelShape& shape) {
   const int shifts_per_swizzle =
       shape.unpacked_byte_size() / shape.packed_max_spread_bytes();
 
@@ -143,10 +171,10 @@ constexpr KernelPlanSize BuildPlanSize(const KernelShape& shape) {
 }
 
 template <typename UnpackedUint, int kPackedBitSize, int kSimdBitSize>
-struct KernelPlan {
+struct MediumKernelPlan {
   using Traits = KernelTraits<UnpackedUint, kPackedBitSize, kSimdBitSize>;
   static constexpr auto kShape = Traits::kShape;
-  static constexpr auto kPlanSize = BuildPlanSize(kShape);
+  static constexpr auto kPlanSize = BuildMediumPlanSize(kShape);
 
   using ReadsPerKernel = std::array<int, kPlanSize.reads_per_kernel()>;
 
@@ -177,11 +205,11 @@ struct KernelPlan {
 };
 
 template <typename UnpackedUint, int kPackedBitSize, int kSimdBitSize>
-constexpr KernelPlan<UnpackedUint, kPackedBitSize, kSimdBitSize> BuildPlan() {
-  using Plan = KernelPlan<UnpackedUint, kPackedBitSize, kSimdBitSize>;
+constexpr MediumKernelPlan<UnpackedUint, kPackedBitSize, kSimdBitSize> BuildMediumPlan() {
+  using Plan = MediumKernelPlan<UnpackedUint, kPackedBitSize, kSimdBitSize>;
   constexpr auto kShape = Plan::kShape;
   constexpr auto kPlanSize = Plan::kPlanSize;
-  static_assert(kShape.packed_max_spread_bytes() <= kShape.unpacked_byte_size());
+  static_assert(kShape.is_medium());
 
   Plan plan = {};
 
@@ -310,8 +338,9 @@ auto overflow_right_shift(const xsimd::batch<Int, Arch>& batch,
 }
 
 template <typename UnpackedUint, int kPackedBitSize, int kSimdBitSize>
-struct Kernel {
-  static constexpr auto kPlan = BuildPlan<UnpackedUint, kPackedBitSize, kSimdBitSize>();
+struct MediumKernel {
+  static constexpr auto kPlan =
+      BuildMediumPlan<UnpackedUint, kPackedBitSize, kSimdBitSize>();
   static constexpr auto kPlanSize = kPlan.kPlanSize;
   static constexpr auto kShape = kPlan.kShape;
   using Traits = typename decltype(kPlan)::Traits;
@@ -374,7 +403,7 @@ struct Kernel {
 };
 
 template <typename UnpackedUint, int kPackedBitSize, int kSimdBitSize>
-struct OversizedKernelPlan {
+struct LargeKernelPlan {
   using Traits = KernelTraits<UnpackedUint, kPackedBitSize, kSimdBitSize>;
   static constexpr auto kShape = Traits::kShape;
 
@@ -400,11 +429,10 @@ struct OversizedKernelPlan {
 };
 
 template <typename UnpackedUint, int kPackedBitSize, int kSimdBitSize>
-constexpr OversizedKernelPlan<UnpackedUint, kPackedBitSize, kSimdBitSize>
-BuildOversizedPlan() {
-  using Plan = OversizedKernelPlan<UnpackedUint, kPackedBitSize, kSimdBitSize>;
+constexpr LargeKernelPlan<UnpackedUint, kPackedBitSize, kSimdBitSize> BuildLargePlan() {
+  using Plan = LargeKernelPlan<UnpackedUint, kPackedBitSize, kSimdBitSize>;
   constexpr auto kShape = Plan::kShape;
-  static_assert(kShape.unpacked_byte_size() < kShape.packed_max_spread_bytes());
+  static_assert(kShape.is_large());
   constexpr int kOverBytes =
       kShape.packed_max_spread_bytes() - kShape.unpacked_byte_size();
 
@@ -447,9 +475,9 @@ BuildOversizedPlan() {
 }
 
 template <typename UnpackedUint, int kPackedBitSize, int kSimdBitSize>
-struct OversizedKernel {
+struct LargeKernel {
   static constexpr auto kPlan =
-      BuildOversizedPlan<UnpackedUint, kPackedBitSize, kSimdBitSize>();
+      BuildLargePlan<UnpackedUint, kPackedBitSize, kSimdBitSize>();
   static constexpr auto kShape = kPlan.kShape;
   using Traits = typename decltype(kPlan)::Traits;
   using unpacked_type = typename Traits::unpacked_type;
