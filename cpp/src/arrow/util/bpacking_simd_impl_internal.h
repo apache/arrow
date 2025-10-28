@@ -556,4 +556,37 @@ struct LargeKernel {
     return in + (kPlan.kUnpackedPerkernel * kShape.packed_bit_size()) / 8;
   }
 };
+
+template <typename UnpackedUint, int kPackedBitSize, int kSimdBitSize>
+struct OversizedKernel {
+  using unpacked_type = UnpackedUint;
+
+  static constexpr int kValuesUnpacked = 0;
+
+  static const uint8_t* unpack(const uint8_t* in, unpacked_type* out) { return in; }
+};
+
+template <typename UnpackedUint, int kPackedBitSize, int kSimdBitSize>
+constexpr auto DispatchKernel() {
+  using kTraits = KernelTraits<UnpackedUint, kPackedBitSize, kSimdBitSize>;
+  if constexpr (kTraits::kShape.is_medium()) {
+    return MediumKernel<UnpackedUint, kPackedBitSize, kSimdBitSize>{};
+  } else if constexpr (kTraits::kShape.is_large()) {
+    return LargeKernel<UnpackedUint, kPackedBitSize, kSimdBitSize>{};
+  } else {
+    return OversizedKernel<UnpackedUint, kPackedBitSize, kSimdBitSize>{};
+  }
+}
+
+template <typename UnpackedUint, int kPackedBitSize, int kSimdBitSize>
+using DispatchKernelType =
+    decltype(DispatchKernel<UnpackedUint, kPackedBitSize, kSimdBitSize>());
+
+template <typename UnpackedUint, int kPackedBitSize, int kSimdBitSize>
+struct Kernel : DispatchKernelType<UnpackedUint, kPackedBitSize, kSimdBitSize> {
+  using Base = DispatchKernelType<UnpackedUint, kPackedBitSize, kSimdBitSize>;
+  using Base::kValuesUnpacked;
+  using Base::unpack;
+};
+
 }  // namespace arrow::internal
