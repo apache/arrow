@@ -246,7 +246,7 @@ class InferringColumnBuilder : public ConcreteColumnBuilder {
   // The parsers corresponding to each chunk (for reconverting)
   std::vector<std::shared_ptr<BlockParser>> parsers_;
 
-  // The inferrence kind for which the current chunks_ were obtained
+  // The inference kind for which the current chunks_ were obtained
   std::vector<std::optional<InferKind>> chunk_kinds_;
 };
 
