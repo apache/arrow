@@ -777,7 +777,7 @@ cdef class ArrayStatistics(_Weakrefable):
     @property
     def is_null_count_exact(self):
         """
-        Whether the number of distinct values is a valid exact value or not.
+        Whether the number of null values is a valid exact value or not.
         """
         null_count = self.sp_statistics.get().null_count
         if not null_count.has_value():
