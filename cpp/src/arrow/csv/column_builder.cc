@@ -19,6 +19,7 @@
 #include <cstdint>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <sstream>
 #include <string>
 #include <utility>
@@ -82,7 +83,7 @@ class ConcreteColumnBuilder : public ColumnBuilder {
     ReserveChunksUnlocked(block_index);
   }
 
-  void ReserveChunksUnlocked(int64_t block_index) {
+  virtual void ReserveChunksUnlocked(int64_t block_index) {
     // Create a null Array pointer at the back at the list.
     size_t chunk_index = static_cast<size_t>(block_index);
     if (chunks_.size() <= chunk_index) {
@@ -232,6 +233,7 @@ class InferringColumnBuilder : public ConcreteColumnBuilder {
   Status TryConvertChunk(int64_t chunk_index);
   // This must be called unlocked!
   void ScheduleConvertChunk(int64_t chunk_index);
+  void ReserveChunksUnlocked(int64_t block_index) override;
 
   // CAUTION: ConvertOptions can grow large (if it customizes hundreds or
   // thousands of columns), so avoid copying it in each InferringColumnBuilder.
@@ -243,6 +245,9 @@ class InferringColumnBuilder : public ConcreteColumnBuilder {
 
   // The parsers corresponding to each chunk (for reconverting)
   std::vector<std::shared_ptr<BlockParser>> parsers_;
+
+  // The inference kind for which the current chunks_ were obtained
+  std::vector<std::optional<InferKind>> chunk_kinds_;
 };
 
 Status InferringColumnBuilder::Init() { return UpdateType(); }
@@ -261,7 +266,12 @@ Status InferringColumnBuilder::TryConvertChunk(int64_t chunk_index) {
   std::shared_ptr<BlockParser> parser = parsers_[chunk_index];
   InferKind kind = infer_status_.kind();
 
-  DCHECK_NE(parser, nullptr);
+  if (chunks_[chunk_index] && chunk_kinds_[chunk_index] == kind) {
+    // Already tried, nothing to do
+    return Status::OK();
+  }
+
+  DCHECK_NE(parser, nullptr) << " for chunk_index " << chunk_index;
 
   lock.unlock();
   auto maybe_array = converter->Convert(*parser, col_index_);
@@ -280,32 +290,43 @@ Status InferringColumnBuilder::TryConvertChunk(int64_t chunk_index) {
       // We won't try to reconvert anymore
       parsers_[chunk_index].reset();
     }
+    chunk_kinds_[chunk_index] = kind;
     return SetChunkUnlocked(chunk_index, maybe_array);
   }
 
   // Conversion failed, try another type
   infer_status_.LoosenType(maybe_array.status());
   RETURN_NOT_OK(UpdateType());
+  kind = infer_status_.kind();
 
   // Reconvert past finished chunks
   // (unfinished chunks will notice by themselves if they need reconverting)
   const auto nchunks = static_cast<int64_t>(chunks_.size());
+  std::vector<int64_t> chunks_to_reconvert;
   for (int64_t i = 0; i < nchunks; ++i) {
-    if (i != chunk_index && chunks_[i]) {
-      // We're assuming the chunk was converted using the wrong type
-      // (which should be true unless the executor reorders tasks)
+    if (i != chunk_index && chunks_[i] && chunk_kinds_[i] != kind) {
+      // That chunk was converted using the wrong type
       chunks_[i].reset();
-      lock.unlock();
-      ScheduleConvertChunk(i);
-      lock.lock();
+      chunk_kinds_[i].reset();
+      chunks_to_reconvert.push_back(i);
     }
   }
+  // Reconvert this chunk too
+  chunks_to_reconvert.push_back(chunk_index);
 
-  // Reconvert this chunk
   lock.unlock();
-  ScheduleConvertChunk(chunk_index);
-
+  for (auto i : chunks_to_reconvert) {
+    ScheduleConvertChunk(i);
+  }
   return Status::OK();
+}
+
+void InferringColumnBuilder::ReserveChunksUnlocked(int64_t block_index) {
+  ConcreteColumnBuilder::ReserveChunksUnlocked(block_index);
+  size_t chunk_index = static_cast<size_t>(block_index);
+  if (chunk_kinds_.size() <= chunk_index) {
+    chunk_kinds_.resize(chunk_index + 1);
+  }
 }
 
 void InferringColumnBuilder::Insert(int64_t block_index,
