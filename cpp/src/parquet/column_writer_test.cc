@@ -993,6 +993,87 @@ TEST_F(TestValuesWriterInt32Type, PagesSplitWithListAlignedWrites) {
   ASSERT_EQ(values_out_, values_);
 }
 
+TEST(TestColumnWriter, ReproInvalidDictIndex) {
+  auto sink = CreateOutputStream();
+  auto schema = std::static_pointer_cast<GroupNode>(GroupNode::Make(
+      "schema", Repetition::REQUIRED,
+      {
+          GroupNode::Make(
+              "x", Repetition::OPTIONAL,
+              {GroupNode::Make(
+                  "list", Repetition::REPEATED,
+                  {PrimitiveNode::Make("item", Repetition::REQUIRED, Type::FLOAT)})},
+              LogicalType::List()),
+      }));
+  auto properties =
+      WriterProperties::Builder().data_pagesize(1024 * 1024 * 1024)->build();
+  auto file_writer = ParquetFileWriter::Open(sink, schema, properties);
+  auto rg_writer = file_writer->AppendRowGroup();
+
+  constexpr int32_t num_rows = 50'000'000;
+  constexpr float nan_proportion = 0.6f;
+  constexpr int32_t unique_count = 200'000;
+
+  std::vector<int16_t> def_levels(3, 2);
+  std::vector<int16_t> rep_levels(3, 1);
+  std::vector<float> values(3, 0.0f);
+  rep_levels[0] = 0;
+
+  std::default_random_engine gen(1);
+  std::uniform_int_distribution<int32_t> val_dist(0, unique_count - 1);
+  std::uniform_real_distribution<float_t> nan_dist(0.0f, 1.0f);
+
+  auto col_writer = static_cast<parquet::FloatWriter*>(rg_writer->NextColumn());
+  for (int32_t i = 0; i < num_rows; i++) {
+    if (nan_dist(gen) < nan_proportion) {
+      values[0] = std::numeric_limits<float>::quiet_NaN();
+    } else {
+      values[0] = static_cast<float>(val_dist(gen)) / 100.0f;
+    }
+    col_writer->WriteBatch(3, def_levels.data(), rep_levels.data(), values.data());
+  }
+  file_writer->Close();
+
+  ASSERT_OK_AND_ASSIGN(auto buffer, sink->Finish());
+
+  auto file_reader = ParquetFileReader::Open(
+      std::make_shared<::arrow::io::BufferReader>(buffer), default_reader_properties());
+  auto metadata = file_reader->metadata();
+  ASSERT_EQ(1, metadata->num_row_groups());
+  auto row_group_reader = file_reader->RowGroup(0);
+  auto col_reader = std::static_pointer_cast<FloatReader>(row_group_reader->Column(0));
+
+  auto page_reader = row_group_reader->GetColumnPageReader(0);
+  int64_t page_count = 0;
+  while (true) {
+    auto page = page_reader->NextPage();
+    if (page == nullptr) {
+      break;
+    }
+    if (page_count == 0) {
+      ASSERT_EQ(page->type(), PageType::DICTIONARY_PAGE);
+    } else {
+      ASSERT_EQ(page->type(), PageType::DATA_PAGE);
+    }
+    page_count++;
+  }
+  ASSERT_EQ(page_count, 2);
+
+  constexpr size_t buffer_size = 1024 * 1024;
+  def_levels.resize(buffer_size);
+  rep_levels.resize(buffer_size);
+  values.resize(buffer_size);
+
+  size_t levels_read = 0;
+  while (levels_read < num_rows * 3) {
+    int64_t batch_values;
+    int64_t batch_levels = col_reader->ReadBatch(
+        buffer_size, def_levels.data(), rep_levels.data(), values.data(), &batch_values);
+    levels_read += batch_levels;
+  }
+  std::cout << "Read " << levels_read << " levels" << std::endl;
+}
+
 TEST(TestPageWriter, ThrowsOnPagesTooLarge) {
   NodePtr item = schema::Int32("item");  // optional item
   NodePtr list(GroupNode::Make("b", Repetition::REPEATED, {item}, ConvertedType::LIST));
