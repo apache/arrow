@@ -22,7 +22,6 @@
 #include "arrow/array/builder_time.h"
 #include "arrow/table.h"
 #include "arrow/testing/gtest_util.h"
-#include "arrow/util/logger.h"
 
 #include "parquet/api/reader.h"
 #include "parquet/api/writer.h"
