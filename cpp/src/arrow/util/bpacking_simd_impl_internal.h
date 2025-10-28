@@ -112,8 +112,8 @@ constexpr KernelPlanSize BuildPlanSize(const KernelShape& shape) {
   };
 
   // If after a whole swizzle reading iteration we fall unaligned, the remaining
-  // iterations will start with an aligned first value, reducing the effective capacity of
-  // the SIMD batch.
+  // iterations will start with an unaligned first value, reducing the effective capacity
+  // of the SIMD batch.
   // We must check that our read iteration size still works with subsequent misalignment
   // by looping until aligned.
   // One may think that using such large reading iterations risks overshooting an aligned
@@ -245,6 +245,34 @@ constexpr auto make_batch_constant() {
   return make_batch_constant_impl<kArr, Arch>(std::make_index_sequence<kArr.size()>());
 }
 
+// Intel x86-64 does not have variable left shifts before AVX2.
+//
+// We replace the variable left shift by a variable multiply with a power of two.
+//
+// This trick is borrowed from Daniel Lemire and Leonid Boytsov, Decoding billions of
+// integers per second through vectorization, Software Practice & Experience 45 (1), 2015.
+// http://arxiv.org/abs/1209.2137
+template <typename Arch, typename Int, Int... kShifts>
+auto left_shift(const xsimd::batch<Int, Arch>& batch,
+                xsimd::batch_constant<Int, Arch, kShifts...> shifts) {
+  constexpr bool kHasSse2 = xsimd::supported_architectures::contains<xsimd::sse2>();
+  constexpr bool kHasAvx2 = xsimd::supported_architectures::contains<xsimd::avx2>();
+
+  if constexpr (kHasSse2 && !kHasAvx2) {
+    static constexpr auto kShiftsArr = std::array{kShifts...};
+
+    struct MakeMults {
+      static constexpr Int get(int i, int n) { return Int{1} << kShiftsArr.at(i); }
+    };
+
+    constexpr auto kMults = xsimd::make_batch_constant<Int, Arch, MakeMults>();
+    return batch * kMults;
+
+  } else {
+    return batch << shifts;
+  }
+}
+
 // Intel x86-64 does not have variable right shifts before AVX2.
 //
 // When we know that the relevant bits will not overflow, we can instead shift left all
@@ -356,10 +384,10 @@ struct OversizedKernelPlan {
 
   using ReadsPerKernel = std::array<int, kReadsPerKernel>;
 
-  using Swizzle = std::array<int, kShape.simd_byte_size()>;
+  using Swizzle = std::array<uint8_t, kShape.simd_byte_size()>;
   using SwizzlesPerKernel = std::array<Swizzle, kReadsPerKernel>;
 
-  using Shift = std::array<UnpackedUint, kReadsPerKernel>;
+  using Shift = std::array<UnpackedUint, kShape.unpacked_per_simd()>;
   using ShitsPerKernel = std::array<Shift, kReadsPerKernel>;
 
   ReadsPerKernel reads;
@@ -367,7 +395,8 @@ struct OversizedKernelPlan {
   SwizzlesPerKernel high_swizzles;
   ShitsPerKernel low_rshifts;
   ShitsPerKernel high_lshifts;
-  UnpackedUint mask = bit_util::LeastSignificantBitMask<UnpackedUint>(kPackedBitSize);
+  UnpackedUint low_mask;
+  UnpackedUint high_mask;
 };
 
 template <typename UnpackedUint, int kPackedBitSize, int kSimdBitSize>
@@ -375,7 +404,7 @@ constexpr OversizedKernelPlan<UnpackedUint, kPackedBitSize, kSimdBitSize>
 BuildOversizedPlan() {
   using Plan = OversizedKernelPlan<UnpackedUint, kPackedBitSize, kSimdBitSize>;
   constexpr auto kShape = Plan::kShape;
-  static_assert(kShape.unpacked_byte_size() < kShape.max_spread_bytes());
+  static_assert(kShape.unpacked_byte_size() < kShape.packed_max_spread_bytes());
   constexpr int kOverBytes =
       kShape.packed_max_spread_bytes() - kShape.unpacked_byte_size();
 
@@ -408,6 +437,95 @@ BuildOversizedPlan() {
     }
   }
 
+  constexpr auto mask = bit_util::LeastSignificantBitMask<UnpackedUint>(kPackedBitSize);
+  constexpr auto half_low_bit_mask =
+      bit_util::LeastSignificantBitMask<UnpackedUint>(kShape.unpacked_bit_size() / 2);
+  plan.low_mask = mask & half_low_bit_mask;
+  plan.high_mask = mask & (~half_low_bit_mask);
+
   return plan;
 }
+
+template <typename UnpackedUint, int kPackedBitSize, int kSimdBitSize>
+struct OversizedKernel {
+  static constexpr auto kPlan =
+      BuildOversizedPlan<UnpackedUint, kPackedBitSize, kSimdBitSize>();
+  static constexpr auto kShape = kPlan.kShape;
+  using Traits = typename decltype(kPlan)::Traits;
+  using unpacked_type = typename Traits::unpacked_type;
+  using simd_batch = typename Traits::simd_batch;
+  using simd_bytes = typename Traits::simd_bytes;
+  using arch_type = typename Traits::arch_type;
+
+  static constexpr int kValuesUnpacked = kPlan.kUnpackedPerkernel;
+
+  template <int kReadIdx, int kSwizzleIdx, int kShiftIdx>
+  static void unpack_one_shift_impl(const simd_batch& words, unpacked_type* out) {
+    static constexpr auto kRightShiftsArr =
+        kPlan.shifts.at(kReadIdx).at(kSwizzleIdx).at(kShiftIdx);
+    constexpr auto kRightShifts = make_batch_constant<kRightShiftsArr, arch_type>();
+    constexpr auto kMask = kPlan.mask;
+    constexpr auto kOutOffset = (kReadIdx * kPlan.unpacked_per_read() +
+                                 kSwizzleIdx * kPlan.unpacked_per_swizzle() +
+                                 kShiftIdx * kPlan.unpacked_per_shifts());
+
+    // Intel x86-64 does not have variable right shifts before AVX2.
+    // We know the packed value can safely be left shifted up to the largest offset so we
+    // can use the fallback on these platforms.
+    const auto shifted = overflow_right_shift(words, kRightShifts);
+    const auto vals = shifted & kMask;
+    xsimd::store_unaligned(out + kOutOffset, vals);
+  }
+
+  template <int kReadIdx, int kSwizzleIdx, int... kShiftIds>
+  static void unpack_one_swizzle_impl(const simd_bytes& bytes, unpacked_type* out,
+                                      std::integer_sequence<int, kShiftIds...>) {
+    static constexpr auto kSwizzlesArr = kPlan.swizzles.at(kReadIdx).at(kSwizzleIdx);
+    constexpr auto kSwizzles = make_batch_constant<kSwizzlesArr, arch_type>();
+
+    const auto swizzled = xsimd::swizzle(bytes, kSwizzles);
+    const auto words = xsimd::bitwise_cast<unpacked_type>(swizzled);
+    (unpack_one_shift_impl<kReadIdx, kSwizzleIdx, kShiftIds>(words, out), ...);
+  }
+
+  template <int kReadIdx>
+  static void unpack_one_read_impl(const uint8_t* in, unpacked_type* out) {
+    static constexpr auto kLowSwizzlesArr = kPlan.low_swizzles.at(kReadIdx);
+    constexpr auto kLowSwizzles = make_batch_constant<kLowSwizzlesArr, arch_type>();
+    static constexpr auto kLowRShiftsArr = kPlan.low_rshifts.at(kReadIdx);
+    constexpr auto kLowRShifts = make_batch_constant<kLowRShiftsArr, arch_type>();
+
+    static constexpr auto kHighSwizzlesArr = kPlan.high_swizzles.at(kReadIdx);
+    constexpr auto kHighSwizzles = make_batch_constant<kHighSwizzlesArr, arch_type>();
+    static constexpr auto kHighLShiftsArr = kPlan.high_lshifts.at(kReadIdx);
+    constexpr auto kHighLShifts = make_batch_constant<kHighLShiftsArr, arch_type>();
+
+    const auto bytes = simd_bytes::load_unaligned(in + kPlan.reads.at(kReadIdx));
+
+    const auto low_swizzled = xsimd::swizzle(bytes, kLowSwizzles);
+    const auto low_words = xsimd::bitwise_cast<unpacked_type>(low_swizzled);
+    const auto low_shifted = overflow_right_shift(low_words, kLowRShifts);
+    const auto low_half_vals = low_shifted & kPlan.low_mask;
+
+    const auto high_swizzled = xsimd::swizzle(bytes, kHighSwizzles);
+    const auto high_words = xsimd::bitwise_cast<unpacked_type>(high_swizzled);
+    const auto high_shifted = left_shift(high_words, kHighLShifts);
+    const auto high_half_vals = high_shifted & kPlan.high_mask;
+
+    const auto vals = low_half_vals | high_half_vals;
+    xsimd::store_unaligned(out + kReadIdx * kShape.unpacked_per_simd(), vals);
+  }
+
+  template <int... kReadIds>
+  static void unpack_all_impl(const uint8_t* in, unpacked_type* out,
+                              std::integer_sequence<int, kReadIds...>) {
+    (unpack_one_read_impl<kReadIds>(in, out), ...);
+  }
+
+  static const uint8_t* unpack(const uint8_t* in, unpacked_type* out) {
+    using ReadSeq = std::make_integer_sequence<int, kPlan.kReadsPerKernel>;
+    unpack_all_impl(in, out, ReadSeq{});
+    return in + (kPlan.kUnpackedPerkernel * kShape.packed_bit_size()) / 8;
+  }
+};
 }  // namespace arrow::internal
