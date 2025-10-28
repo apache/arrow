@@ -214,6 +214,12 @@ std::shared_ptr<arrow::DataType> Decimal256Type__initialize(int32_t precision,
 }
 
 // [[arrow::export]]
+std::shared_ptr<arrow::DataType> SmallestDecimal__initialize(int32_t precision,
+                                                             int32_t scale) {
+  return arrow::smallest_decimal(precision, scale);
+}
+
+// [[arrow::export]]
 std::shared_ptr<arrow::DataType> DayTimeInterval__initialize() {
   return arrow::day_time_interval();
 }
