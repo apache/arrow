@@ -4846,9 +4846,9 @@ TEST_P(TestArrowWriteDictionary, StatisticsUnifiedDictionary) {
 }
 
 // ----------------------------------------------------------------------
-// Tests for directly reading DictionaryArray and RunEndEncodedArray
+// Tests for directly reading DictionaryArray
 
-class TestArrowReadDictionaryAndRunEndEncoded : public ::testing::TestWithParam<double> {
+class TestArrowReadDictionary : public ::testing::TestWithParam<double> {
  public:
   static constexpr int kNumRowGroups = 16;
 
@@ -4859,7 +4859,6 @@ class TestArrowReadDictionaryAndRunEndEncoded : public ::testing::TestWithParam<
   } options;
 
   void SetUp() override {
-    ASSERT_OK(::arrow::compute::Initialize());
     properties_ = default_arrow_reader_properties();
 
     GenerateData(GetParam());
@@ -4929,7 +4928,7 @@ void AsDictionary32Encoded(const Array& arr, std::shared_ptr<Array>* out) {
   ASSERT_OK(builder.Finish(out));
 }
 
-TEST_P(TestArrowReadDictionaryAndRunEndEncoded, DictionaryReadWholeFile) {
+TEST_P(TestArrowReadDictionary, ReadWholeFileDict) {
   properties_.set_read_dictionary(0, true);
 
   WriteSimple();
@@ -4946,7 +4945,7 @@ TEST_P(TestArrowReadDictionaryAndRunEndEncoded, DictionaryReadWholeFile) {
   CheckReadWholeFile(*ex_table);
 }
 
-TEST_P(TestArrowReadDictionaryAndRunEndEncoded, DictionaryZeroChunksList) {
+TEST_P(TestArrowReadDictionary, ZeroChunksListOfDictionary) {
   // ARROW-8799
   properties_.set_read_dictionary(0, true);
   dense_values_.reset();
@@ -4971,7 +4970,7 @@ TEST_P(TestArrowReadDictionaryAndRunEndEncoded, DictionaryZeroChunksList) {
   ASSERT_EQ(chunked_out->num_chunks(), 1);
 }
 
-TEST_P(TestArrowReadDictionaryAndRunEndEncoded, DictionaryIncrementalReads) {
+TEST_P(TestArrowReadDictionary, IncrementalReads) {
   // ARROW-6895
   options.num_rows = 100;
   options.num_uniques = 10;
@@ -5005,7 +5004,7 @@ TEST_P(TestArrowReadDictionaryAndRunEndEncoded, DictionaryIncrementalReads) {
   }
 }
 
-TEST_P(TestArrowReadDictionaryAndRunEndEncoded, DictionaryStreamReadWholeFile) {
+TEST_P(TestArrowReadDictionary, StreamReadWholeFileDict) {
   // ARROW-6895 and ARROW-7545 reading a parquet file with a dictionary of
   // binary data, e.g. String, will return invalid values when using the
   // RecordBatchReader (stream) interface. In some cases, this will trigger an
@@ -5024,13 +5023,80 @@ TEST_P(TestArrowReadDictionaryAndRunEndEncoded, DictionaryStreamReadWholeFile) {
   CheckStreamReadWholeFile(*expected_dense_);
 }
 
-TEST_P(TestArrowReadDictionaryAndRunEndEncoded, DictionaryReadWholeFileDense) {
+TEST_P(TestArrowReadDictionary, ReadWholeFileDense) {
   properties_.set_read_dictionary(0, false);
   WriteSimple();
   CheckReadWholeFile(*expected_dense_);
 }
 
-TEST_P(TestArrowReadDictionaryAndRunEndEncoded, ReeReadWholeFile) {
+INSTANTIATE_TEST_SUITE_P(
+    ReadDictionary, TestArrowReadDictionary,
+    ::testing::ValuesIn(TestArrowReadDictionary::null_probabilities()));
+
+class TestArrowReadRunEndEncoded : public ::testing::TestWithParam<double> {
+ public:
+  static constexpr int kNumRowGroups = 16;
+
+  struct {
+    int num_rows = 1024 * kNumRowGroups;
+    int num_row_groups = kNumRowGroups;
+    int num_uniques = 128;
+  } options;
+
+  void SetUp() override {
+    ASSERT_OK(::arrow::compute::Initialize());
+    properties_ = default_arrow_reader_properties();
+
+    GenerateData(GetParam());
+  }
+
+  void GenerateData(double null_probability) {
+    constexpr int64_t min_length = 2;
+    constexpr int64_t max_length = 100;
+    ::arrow::random::RandomArrayGenerator rag(0);
+    dense_values_ = rag.StringWithRepeats(options.num_rows, options.num_uniques,
+                                          min_length, max_length, null_probability);
+    expected_dense_ = MakeSimpleTable(dense_values_, /*nullable=*/true);
+  }
+
+  void TearDown() override {}
+
+  void WriteSimple() {
+    // Write `num_row_groups` row groups; each row group will have a different dictionary
+    ASSERT_NO_FATAL_FAILURE(
+        WriteTableToBuffer(expected_dense_, options.num_rows / options.num_row_groups,
+                           default_arrow_writer_properties(), &buffer_));
+  }
+
+  void CheckReadWholeFile(const Table& expected) {
+    ASSERT_OK_AND_ASSIGN(auto reader, GetReader());
+
+    std::shared_ptr<Table> actual;
+    ASSERT_OK_NO_THROW(reader->ReadTable(&actual));
+    ::arrow::AssertTablesEqual(expected, *actual, /*same_chunk_layout=*/false);
+  }
+
+  static std::vector<double> null_probabilities() { return {0.0, 0.5, 1}; }
+
+ protected:
+  std::shared_ptr<Array> dense_values_;
+  std::shared_ptr<Table> expected_dense_;
+  std::shared_ptr<Table> expected_dict_;
+  std::shared_ptr<Buffer> buffer_;
+  ArrowReaderProperties properties_;
+
+  ::arrow::Result<std::unique_ptr<FileReader>> GetReader() {
+    std::unique_ptr<FileReader> reader;
+
+    FileReaderBuilder builder;
+    RETURN_NOT_OK(builder.Open(std::make_shared<BufferReader>(buffer_)));
+    RETURN_NOT_OK(builder.properties(properties_)->Build(&reader));
+
+    return reader;
+  }
+};
+
+TEST_P(TestArrowReadRunEndEncoded, ReadWholeFile) {
   properties_.set_read_ree(0, true);
 
   WriteSimple();
@@ -5049,74 +5115,9 @@ TEST_P(TestArrowReadDictionaryAndRunEndEncoded, ReeReadWholeFile) {
   CheckReadWholeFile(*ex_table);
 }
 
-TEST_P(TestArrowReadDictionaryAndRunEndEncoded, ReeZeroChunksList) {
-  // ARROW-8799
-  properties_.set_read_ree(0, true);
-  dense_values_.reset();
-  auto values = std::make_shared<ChunkedArray>(::arrow::ArrayVector{},
-                                               ::arrow::list(::arrow::utf8()));
-  options.num_rows = 0;
-  options.num_uniques = 0;
-  options.num_row_groups = 1;
-  expected_dense_ = MakeSimpleTable(values, false);
-
-  WriteSimple();
-
-  ASSERT_OK_AND_ASSIGN(auto reader, GetReader());
-
-  std::unique_ptr<ColumnReader> column_reader;
-  ASSERT_OK_NO_THROW(reader->GetColumn(0, &column_reader));
-
-  std::shared_ptr<ChunkedArray> chunked_out;
-  ASSERT_OK(column_reader->NextBatch(1 << 15, &chunked_out));
-
-  ASSERT_EQ(chunked_out->length(), 0);
-  ASSERT_EQ(chunked_out->num_chunks(), 1);
-}
-
-TEST_P(TestArrowReadDictionaryAndRunEndEncoded, ReeIncrementalReads) {
-  // ARROW-6895
-  options.num_rows = 100;
-  options.num_uniques = 10;
-  SetUp();
-
-  properties_.set_read_ree(0, true);
-
-  // Just write a single row group
-  ASSERT_NO_FATAL_FAILURE(WriteTableToBuffer(
-      expected_dense_, options.num_rows, default_arrow_writer_properties(), &buffer_));
-
-  // Read in one shot
-  ASSERT_OK_AND_ASSIGN(std::unique_ptr<FileReader> reader, GetReader());
-  std::shared_ptr<Table> expected;
-  ASSERT_OK_NO_THROW(reader->ReadTable(&expected));
-
-  ASSERT_OK_AND_ASSIGN(reader, GetReader());
-  std::unique_ptr<ColumnReader> col;
-  ASSERT_OK(reader->GetColumn(0, &col));
-
-  int num_reads = 4;
-  int batch_size = options.num_rows / num_reads;
-
-  for (int i = 0; i < num_reads; ++i) {
-    std::shared_ptr<ChunkedArray> chunk;
-    ASSERT_OK(col->NextBatch(batch_size, &chunk));
-    ASSERT_OK_AND_ASSIGN(::arrow::Datum decoded_datum,
-        ::arrow::compute::RunEndDecode(::arrow::Datum(chunk->chunk(0))));
-    auto decoded_array = decoded_datum.make_array();
-    AssertArraysEqual(*dense_values_->Slice(i * batch_size, batch_size), *decoded_array);
-  }
-}
-
-TEST_P(TestArrowReadDictionaryAndRunEndEncoded, ReeReadWholeFileDense) {
-  properties_.set_read_ree(0, false);
-  WriteSimple();
-  CheckReadWholeFile(*expected_dense_);
-}
-
 INSTANTIATE_TEST_SUITE_P(
-    ReadDictionaryAndRunEndEncoded, TestArrowReadDictionaryAndRunEndEncoded,
-    ::testing::ValuesIn(TestArrowReadDictionaryAndRunEndEncoded::null_probabilities()));
+    ReadRunEndEncoded, TestArrowReadRunEndEncoded,
+    ::testing::ValuesIn(TestArrowReadRunEndEncoded::null_probabilities()));
 
 TEST(TestArrowWriteDictionaries, ChangingDictionaries) {
   constexpr int num_unique = 50;
