@@ -34,14 +34,14 @@ namespace arrow::internal {
 // TODO
 // - _mm_cvtepi8_epi32
 // - no _mm_srlv_epi32 (128bit) in xsimd with AVX2 required arch
-// -  no need for while loop (for up to 8 is sufficient)
+// - no need for while loop (for up to 8 is sufficient)
 // - upstream var lshift to xsimd
 // - array to batch constant to xsimd
 // - Shifts per swizzle can be improved when self.packed_max_byte_spread == 1 and the
 //   byte can be reused (when val_bit_width divides packed_max_byte_spread).
-// - Try for uint16_t and uint8_t
+// - Try for uint16_t and uint8_t and bool (currently copy)
 // - For Avx2:
-//   - Inspect how swizzle across lanes are handled
+//   - Inspect how swizzle across lanes are handled: _mm256_shuffle_epi8 not used?
 //   - Investigate AVX2 with 128 bit register
 
 constexpr bool PackedIsOversizedForSimd(int simd_bit_size, int unpacked_bit_size,
@@ -587,6 +587,40 @@ struct Kernel : DispatchKernelType<UnpackedUint, kPackedBitSize, kSimdBitSize> {
   using Base = DispatchKernelType<UnpackedUint, kPackedBitSize, kSimdBitSize>;
   using Base::kValuesUnpacked;
   using Base::unpack;
+};
+
+template <int kPackedBitSize, int kSimdBitSize>
+struct Kernel<uint8_t, kPackedBitSize, kSimdBitSize>
+    : Kernel<uint16_t, kPackedBitSize, kSimdBitSize> {
+  using Base = DispatchKernelType<uint16_t, kPackedBitSize, kSimdBitSize>;
+  using Base::kValuesUnpacked;
+  using unpacked_type = uint8_t;
+
+  static const uint8_t* unpack(const uint8_t* in, unpacked_type* out) {
+    uint16_t buffer[kValuesUnpacked] = {};
+    in = Base::unpack(in, buffer);
+    for (int k = 0; k < kValuesUnpacked; ++k) {
+      out[k] = static_cast<unpacked_type>(buffer[k]);
+    }
+    return in;
+  }
+};
+
+template <int kPackedBitSize, int kSimdBitSize>
+struct Kernel<bool, kPackedBitSize, kSimdBitSize>
+    : Kernel<uint16_t, kPackedBitSize, kSimdBitSize> {
+  using Base = DispatchKernelType<uint16_t, kPackedBitSize, kSimdBitSize>;
+  using Base::kValuesUnpacked;
+  using unpacked_type = bool;
+
+  static const uint8_t* unpack(const uint8_t* in, unpacked_type* out) {
+    uint16_t buffer[kValuesUnpacked] = {};
+    in = Base::unpack(in, buffer);
+    for (int k = 0; k < kValuesUnpacked; ++k) {
+      out[k] = static_cast<unpacked_type>(buffer[k]);
+    }
+    return in;
+  }
 };
 
 }  // namespace arrow::internal
