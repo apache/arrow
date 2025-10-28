@@ -58,7 +58,8 @@ _Wait for the release candidate to be created._
 - [ ] Run `urlchecker::url_check()` on the R directory.
 - [ ] Create a PR entitled `WIP: [R] Verify CRAN release-X.Y.Z-rcX`. Add a comment `@github-actions crossbow submit --group r` to run all R crossbow jobs against the CRAN-specific release branch.
 - [ ] Run `Rscript tools/update-checksums.R <libarrow version>` to download the checksums for the pre-compiled binaries from the ASF artifactory into the tools directory.
-- [ ] Regenerate arrow_X.Y.Z.tar.gz (i.e., `make build`).
+- [ ] Commit the checksums: `git add -f tools/checksums/ && git commit -m "[CRAN] Add checksums"`
+- [ ] Regenerate arrow_X.Y.Z.tar.gz (i.e., `make build`). This will clean old artifacts, regenerate documentation, sync C++ files, and build the package.
 
 ## Check Binary Arrow C++ Distributions Specific to the R Package
 
