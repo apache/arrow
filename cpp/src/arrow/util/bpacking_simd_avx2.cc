@@ -16,15 +16,17 @@
 // under the License.
 
 #include "arrow/util/bpacking_dispatch_internal.h"
-#include "arrow/util/bpacking_simd256_generated_internal.h"
-#include "arrow/util/bpacking_simd_internal.h"
+#include "arrow/util/bpacking_simd_impl_internal.h"
 
 namespace arrow::internal {
+
+template <typename UnpackedUint, int kPackedBitSize>
+using Simd256Kernel = Kernel<UnpackedUint, kPackedBitSize, 256>;
 
 template <typename Uint>
 void unpack_avx2(const uint8_t* in, Uint* out, int batch_size, int num_bits,
                  int bit_offset) {
-  return unpack_jump<Simd256UnpackerForWidth>(in, out, batch_size, num_bits, bit_offset);
+  return unpack_jump<Simd256Kernel>(in, out, batch_size, num_bits, bit_offset);
 }
 
 template void unpack_avx2<bool>(const uint8_t*, bool*, int, int, int);
