@@ -83,7 +83,10 @@ UNAME=`uname -s`
 # If in development mode, run the codegen script to render arrowExports.*
 if [ "$ARROW_R_DEV" = "true" ] && [ -f "data-raw/codegen.R" ]; then
   echo "*** Generating code with data-raw/codegen.R"
-  ${R_HOME}/bin/Rscript data-raw/codegen.R
+  if ! ${R_HOME}/bin/Rscript data-raw/codegen.R; then
+    echo "*** ERROR: codegen.R failed"
+    exit 1
+  fi
 fi
 
 # Arrow requires C++17, so check for it
