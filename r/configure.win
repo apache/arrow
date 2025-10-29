@@ -33,7 +33,9 @@ ARROW_USE_PKG_CONFIG=`echo $ARROW_USE_PKG_CONFIG | tr '[:upper:]' '[:lower:]'`
 # generate code
 if [ "$ARROW_R_DEV" == "true" ]; then
   echo "*** Generating code with data-raw/codegen.R"
-  if ! "${R_HOME}/bin${R_ARCH_BIN}/Rscript.exe" data-raw/codegen.R; then
+  "${R_HOME}/bin${R_ARCH_BIN}/Rscript.exe" data-raw/codegen.R
+  CODEGEN_STATUS=$?
+  if [ $CODEGEN_STATUS -ne 0 ]; then
     echo "*** ERROR: codegen.R failed"
     exit 1
   fi
