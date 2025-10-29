@@ -457,6 +457,22 @@ garrow_array_statistics_has_null_count(GArrowArrayStatistics *statistics)
 }
 
 /**
+ * garrow_array_statistics_is_null_count_exact:
+ * @statistics: A #GArrowArrayStatistics.
+ *
+ * Returns: %TRUE if the null count is available and exact, %FALSE otherwise.
+ *
+ * Since: 23.0.0
+ */
+gboolean
+garrow_array_statistics_is_null_count_exact(GArrowArrayStatistics *statistics)
+{
+  auto priv = GARROW_ARRAY_STATISTICS_GET_PRIVATE(statistics);
+  return priv->statistics.null_count.has_value() &&
+         std::holds_alternative<int64_t>(*priv->statistics.null_count);
+}
+
+/**
  * garrow_array_statistics_get_null_count:
  * @statistics: A #GArrowArrayStatistics.
  *
@@ -464,16 +480,56 @@ garrow_array_statistics_has_null_count(GArrowArrayStatistics *statistics)
  *   -1 otherwise.
  *
  * Since: 20.0.0
+ *
+ * Deprecated: 23.0.0. Use garrow_array_statistics_is_null_count_exact(),
+ *   garrow_array_statistics_get_null_count_exact() and
+ *   garrow_array_statistics_get_null_count_approximate() instead.
  */
 gint64
 garrow_array_statistics_get_null_count(GArrowArrayStatistics *statistics)
 {
+  return garrow_array_statistics_get_null_count_exact(statistics);
+}
+
+/**
+ * garrow_array_statistics_get_null_count_exact:
+ * @statistics: A #GArrowArrayStatistics.
+ *
+ * Returns: 0 or larger value if @statistics has a valid exact null
+ *   count value, -1 otherwise.
+ *
+ * Since: 23.0.0
+ */
+gint64
+garrow_array_statistics_get_null_count_exact(GArrowArrayStatistics *statistics)
+{
   auto priv = GARROW_ARRAY_STATISTICS_GET_PRIVATE(statistics);
   const auto &null_count = priv->statistics.null_count;
-  if (null_count) {
-    return null_count.value();
+  if (null_count && std::holds_alternative<int64_t>(*null_count)) {
+    return std::get<int64_t>(*null_count);
   } else {
     return -1;
+  }
+}
+
+/**
+ * garrow_array_statistics_get_null_count_approximate:
+ * @statistics: A #GArrowArrayStatistics.
+ *
+ * Returns: Non `NaN` value if @statistics has a valid approximate
+ *   null count value, `NaN` otherwise.
+ *
+ * Since: 23.0.0
+ */
+gdouble
+garrow_array_statistics_get_null_count_approximate(GArrowArrayStatistics *statistics)
+{
+  auto priv = GARROW_ARRAY_STATISTICS_GET_PRIVATE(statistics);
+  const auto &null_count = priv->statistics.null_count;
+  if (null_count && std::holds_alternative<double>(*null_count)) {
+    return std::get<double>(*null_count);
+  } else {
+    return std::nan("");
   }
 }
 
