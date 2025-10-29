@@ -993,7 +993,10 @@ TEST_F(TestValuesWriterInt32Type, PagesSplitWithListAlignedWrites) {
   ASSERT_EQ(values_out_, values_);
 }
 
-TEST(TestColumnWriter, ReproInvalidDictIndex) {
+// Test writing a dictionary encoded page where the number of
+// bits is greater than max int32.
+// For https://github.com/apache/arrow/issues/47973
+TEST(TestColumnWriter, LARGE_MEMORY_TEST(WriteLargeDictEncodedPage)) {
   auto sink = CreateOutputStream();
   auto schema = std::static_pointer_cast<GroupNode>(
       GroupNode::Make("schema", Repetition::REQUIRED,
@@ -1005,16 +1008,17 @@ TEST(TestColumnWriter, ReproInvalidDictIndex) {
   auto file_writer = ParquetFileWriter::Open(sink, schema, properties);
   auto rg_writer = file_writer->AppendRowGroup();
 
-  constexpr int32_t num_batches = 150;
-  constexpr int32_t batch_size = 1'000'000;
-  constexpr int32_t unique_count = 200'000;
+  constexpr int64_t num_batches = 150;
+  constexpr int64_t batch_size = 1'000'000;
+  constexpr int64_t unique_count = 200'000;
+  static_assert(batch_size % unique_count == 0);
 
   std::vector<int32_t> values(batch_size, 0);
 
-  auto col_writer = static_cast<parquet::Int32Writer*>(rg_writer->NextColumn());
-  for (int32_t i = 0; i < num_batches; i++) {
-    for (int32_t j = 0; j < batch_size; j++) {
-      values[j] = j % unique_count;
+  auto col_writer = dynamic_cast<parquet::Int32Writer*>(rg_writer->NextColumn());
+  for (int64_t i = 0; i < num_batches; i++) {
+    for (int64_t j = 0; j < batch_size; j++) {
+      values[j] = static_cast<int32_t>(j % unique_count);
     }
     col_writer->WriteBatch(batch_size, nullptr, nullptr, values.data());
   }
@@ -1027,19 +1031,40 @@ TEST(TestColumnWriter, ReproInvalidDictIndex) {
   auto metadata = file_reader->metadata();
   ASSERT_EQ(1, metadata->num_row_groups());
   auto row_group_reader = file_reader->RowGroup(0);
+
+  // Verify page size property was applied and only 1 data page was written
+  auto page_reader = row_group_reader->GetColumnPageReader(0);
+  int64_t page_count = 0;
+  while (true) {
+    auto page = page_reader->NextPage();
+    if (page == nullptr) {
+      break;
+    }
+    if (page_count == 0) {
+      ASSERT_EQ(page->type(), PageType::DICTIONARY_PAGE);
+    } else {
+      ASSERT_EQ(page->type(), PageType::DATA_PAGE);
+    }
+    page_count++;
+  }
+  ASSERT_EQ(page_count, 2);
+
   auto col_reader = std::static_pointer_cast<Int32Reader>(row_group_reader->Column(0));
 
-  constexpr size_t buffer_size = 1024 * 1024;
+  constexpr int64_t buffer_size = 1024 * 1024;
   values.resize(buffer_size);
 
-  size_t levels_read = 0;
+  // Verify values were round-tripped correctly
+  int64_t levels_read = 0;
   while (levels_read < num_batches * batch_size) {
     int64_t batch_values;
     int64_t batch_levels = col_reader->ReadBatch(buffer_size, nullptr, nullptr,
                                                  values.data(), &batch_values);
+    for (int64_t i = 0; i < batch_levels; i++) {
+      ASSERT_EQ(values[i], (levels_read + i) % unique_count);
+    }
     levels_read += batch_levels;
   }
-  std::cout << "Read " << levels_read << " levels" << std::endl;
 }
 
 TEST(TestPageWriter, ThrowsOnPagesTooLarge) {
