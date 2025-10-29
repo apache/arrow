@@ -33,7 +33,7 @@ TEST(TestArrayStatistics, NullCountExact) {
   ASSERT_EQ(29, std::get<int64_t>(statistics.null_count.value()));
 }
 
-TEST(TestArrayStatistics, NullCountAprroximate) {
+TEST(TestArrayStatistics, NullCountApproximate) {
   ArrayStatistics statistics;
   ASSERT_FALSE(statistics.null_count.has_value());
   statistics.null_count = 29.0;
