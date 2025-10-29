@@ -56,7 +56,7 @@ std::vector<Uint> GenerateRandomValuesForPacking(int num_values, int bit_width) 
   if constexpr (std::is_same_v<Uint, bool>) {
     random_is_valid(num_values, 0.5, &out, kSeed);
   } else {
-    const uint64_t max = (uint64_t{1} << (static_cast<uint64_t>(bit_width) - 1)) - 1;
+    const uint64_t max = bit_util::LeastSignificantBitMask<uint64_t, true>(bit_width);
     rand_uniform_int(out.size(), kSeed, /* min= */ decltype(max){0}, max, out.data());
   }
   return out;
@@ -93,14 +93,13 @@ std::vector<uint8_t> PackValues(const std::vector<Int>& values, int num_values,
   bit_util::BitWriter writer(out.data(), num_bytes);
 
   // Write a first 0 value to make an offset
-  bool written = writer.PutValue(0, bit_offset);
+  const bool written = writer.PutValue(0, bit_offset);
+  ARROW_DCHECK(written);
   for (const auto& v : values) {
-    written &= writer.PutValue(v, bit_width);
+    const bool written = writer.PutValue(v, bit_width);
+    ARROW_DCHECK(written);
   }
 
-  if (!written) {
-    throw std::runtime_error("Cannot write move values");
-  }
   writer.Flush();
 
   return out;
