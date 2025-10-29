@@ -937,8 +937,8 @@ TEST_P(GroupBy, SumMeanProductDecimal) {
 
     AssertDatumsEqual(ArrayFromJSON(struct_({
                                         field("key_0", int64()),
-                                        field("hash_sum", decimal128(3, 2)),
-                                        field("hash_sum", decimal256(3, 2)),
+                                        field("hash_sum", decimal128(38, 2)),
+                                        field("hash_sum", decimal256(76, 2)),
                                         field("hash_mean", decimal128(3, 2)),
                                         field("hash_mean", decimal256(3, 2)),
                                         field("hash_product", decimal128(3, 2)),
@@ -1504,11 +1504,15 @@ TEST_P(GroupBy, VarianceOptionsAndSkewOptions) {
       /*ddof=*/0, /*skip_nulls=*/false, /*min_count=*/3);
 
   auto skew_keep_nulls = std::make_shared<SkewOptions>(/*skip_nulls=*/false,
+                                                       /*biased=*/true,
                                                        /*min_count=*/0);
-  auto skew_min_count =
-      std::make_shared<SkewOptions>(/*skip_nulls=*/true, /*min_count=*/3);
+  auto skew_min_count = std::make_shared<SkewOptions>(/*skip_nulls=*/true,
+                                                      /*biased=*/true, /*min_count=*/3);
   auto skew_keep_nulls_min_count = std::make_shared<SkewOptions>(
-      /*skip_nulls=*/false, /*min_count=*/3);
+      /*skip_nulls=*/false, /*biased=*/true, /*min_count=*/3);
+
+  auto skew_unbiased = std::make_shared<SkewOptions>(
+      /*skip_nulls=*/false, /*biased=*/false, /*min_count=*/0);
 
   for (std::string value_column : {"argument", "argument1"}) {
     for (bool use_threads : {false}) {
@@ -1553,10 +1557,12 @@ TEST_P(GroupBy, VarianceOptionsAndSkewOptions) {
                   {"hash_skew", skew_keep_nulls, value_column, "hash_skew"},
                   {"hash_skew", skew_min_count, value_column, "hash_skew"},
                   {"hash_skew", skew_keep_nulls_min_count, value_column, "hash_skew"},
+                  {"hash_skew", skew_unbiased, value_column, "hash_skew"},
                   {"hash_kurtosis", skew_keep_nulls, value_column, "hash_kurtosis"},
                   {"hash_kurtosis", skew_min_count, value_column, "hash_kurtosis"},
                   {"hash_kurtosis", skew_keep_nulls_min_count, value_column,
                    "hash_kurtosis"},
+                  {"hash_kurtosis", skew_unbiased, value_column, "hash_kurtosis"},
               },
               use_threads));
       expected = ArrayFromJSON(struct_({
@@ -1564,15 +1570,17 @@ TEST_P(GroupBy, VarianceOptionsAndSkewOptions) {
                                    field("hash_skew", float64()),
                                    field("hash_skew", float64()),
                                    field("hash_skew", float64()),
+                                   field("hash_skew", float64()),
+                                   field("hash_kurtosis", float64()),
                                    field("hash_kurtosis", float64()),
                                    field("hash_kurtosis", float64()),
                                    field("hash_kurtosis", float64()),
                                }),
                                R"([
-         [1, null,      0.707106,  null,     null,      -1.5,      null     ],
-         [2, 0.213833,  0.213833,  0.213833, -1.720164, -1.720164, -1.720164],
-         [3, 0.0,       null,      null,     -2.0,       null,     null     ],
-         [4, null,      0.707106,  null,     null,      -1.5,      null     ]
+         [1, null,      0.707106,  null,     null,    null,      -1.5,      null,      null    ],
+         [2, 0.213833,  0.213833,  0.213833, 0.37037, -1.720164, -1.720164, -1.720164, -3.90123],
+         [3, 0.0,       null,      null,     null,    -2.0,       null,     null,      null    ],
+         [4, null,      0.707106,  null,     null,    null,      -1.5,      null,      null    ]
          ])");
       ValidateOutput(actual);
       AssertDatumsApproxEqual(expected, actual, /*verbose=*/true);
@@ -4432,7 +4440,7 @@ TEST_P(GroupBy, PivotBasics) {
   }
 }
 
-TEST_P(GroupBy, PivotAllKeyTypes) {
+TEST_P(GroupBy, PivotBinaryKeyTypes) {
   auto value_type = float32();
   std::vector<std::string> table_json = {R"([
       [1, "width", 10.5],
@@ -4451,6 +4459,49 @@ TEST_P(GroupBy, PivotAllKeyTypes) {
   PivotWiderOptions options(/*key_names=*/{"height", "width"});
 
   for (const auto& key_type : BaseBinaryTypes()) {
+    ARROW_SCOPED_TRACE("key_type = ", *key_type);
+    TestPivot(key_type, value_type, options, table_json, expected_json);
+  }
+
+  auto key_type = fixed_size_binary(3);
+  table_json = {R"([
+      [1, "wid", 10.5],
+      [2, "wid", 11.5]
+      ])",
+                R"([
+      [2, "hei", 12.5],
+      [3, "wid",  13.5],
+      [1, "hei", 14.5]
+      ])"};
+  expected_json = R"([
+      [1, {"hei": 14.5, "wid": 10.5} ],
+      [2, {"hei": 12.5, "wid": 11.5} ],
+      [3, {"hei": null, "wid": 13.5} ]
+      ])";
+  options.key_names = {"hei", "wid"};
+  ARROW_SCOPED_TRACE("key_type = ", *key_type);
+  TestPivot(key_type, value_type, options, table_json, expected_json);
+}
+
+TEST_P(GroupBy, PivotIntegerKeyTypes) {
+  auto value_type = float32();
+  std::vector<std::string> table_json = {R"([
+      [1, 78, 10.5],
+      [2, 78, 11.5]
+      ])",
+                                         R"([
+      [2, 56, 12.5],
+      [3, 78, 13.5],
+      [1, 56, 14.5]
+      ])"};
+  std::string expected_json = R"([
+      [1, {"56": 14.5, "78": 10.5} ],
+      [2, {"56": 12.5, "78": 11.5} ],
+      [3, {"56": null, "78": 13.5} ]
+      ])";
+  PivotWiderOptions options(/*key_names=*/{"56", "78"});
+
+  for (const auto& key_type : IntTypes()) {
     ARROW_SCOPED_TRACE("key_type = ", *key_type);
     TestPivot(key_type, value_type, options, table_json, expected_json);
   }
@@ -4738,6 +4789,21 @@ TEST_P(GroupBy, PivotDuplicateKeys) {
   PivotWiderOptions options(/*key_names=*/{"height", "width", "height"});
   EXPECT_RAISES_WITH_MESSAGE_THAT(
       KeyError, HasSubstr("Duplicate key name 'height' in PivotWiderOptions"),
+      RunPivot(key_type, value_type, options, table_json));
+}
+
+TEST_P(GroupBy, PivotInvalidKeys) {
+  // Integer key type, but key names cannot be converted to int
+  auto key_type = int32();
+  auto value_type = float32();
+  std::vector<std::string> table_json = {R"([])"};
+  PivotWiderOptions options(/*key_names=*/{"123", "width"});
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, HasSubstr("Failed to parse string: 'width' as a scalar of type int32"),
+      RunPivot(key_type, value_type, options, table_json));
+  options.key_names = {"12.3", "45"};
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, HasSubstr("Failed to parse string: '12.3' as a scalar of type int32"),
       RunPivot(key_type, value_type, options, table_json));
 }
 

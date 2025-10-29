@@ -25,7 +25,7 @@
 #endif
 
 #include "arrow/util/config.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 
 namespace arrow {
 namespace util {

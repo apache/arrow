@@ -18,6 +18,7 @@
 #include "arrow/compute/row/row_internal.h"
 
 #include "arrow/compute/util.h"
+#include "arrow/util/logging_internal.h"
 
 namespace arrow {
 namespace compute {

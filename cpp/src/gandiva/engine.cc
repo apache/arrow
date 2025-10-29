@@ -32,7 +32,7 @@
 #include <utility>
 
 #include <arrow/util/io_util.h>
-#include <arrow/util/logging.h>
+#include <arrow/util/logging_internal.h>
 
 #if defined(_MSC_VER)
 #  pragma warning(push)
@@ -115,10 +115,12 @@ namespace gandiva {
 extern const unsigned char kPrecompiledBitcode[];
 extern const size_t kPrecompiledBitcodeSize;
 
+namespace {
+
 std::once_flag llvm_init_once_flag;
-static bool llvm_init = false;
-static llvm::StringRef cpu_name;
-static std::vector<std::string> cpu_attrs;
+bool llvm_init = false;
+llvm::StringRef cpu_name;
+std::vector<std::string> cpu_attrs;
 std::once_flag register_exported_funcs_flag;
 
 template <typename T>
@@ -143,7 +145,7 @@ Result<llvm::orc::JITTargetMachineBuilder> MakeTargetMachineBuilder(
 #else
   using CodeGenOptLevel = llvm::CodeGenOpt::Level;
 #endif
-  auto const opt_level =
+  const auto opt_level =
       conf.optimize() ? CodeGenOptLevel::Aggressive : CodeGenOptLevel::None;
   jtmb.setCodeGenOptLevel(opt_level);
   return jtmb;
@@ -200,10 +202,16 @@ Status UseJITLinkIfEnabled(llvm::orc::LLJITBuilder& jit_builder) {
   static auto maybe_use_jit_link = ::arrow::internal::GetEnvVar("GANDIVA_USE_JIT_LINK");
   if (maybe_use_jit_link.ok()) {
     ARROW_ASSIGN_OR_RAISE(static auto memory_manager, CreateMemmoryManager());
+#  if LLVM_VERSION_MAJOR >= 21
+    jit_builder.setObjectLinkingLayerCreator([&](llvm::orc::ExecutionSession& ES) {
+      return std::make_unique<llvm::orc::ObjectLinkingLayer>(ES, *memory_manager);
+    });
+#  else
     jit_builder.setObjectLinkingLayerCreator(
         [&](llvm::orc::ExecutionSession& ES, const llvm::Triple& TT) {
           return std::make_unique<llvm::orc::ObjectLinkingLayer>(ES, *memory_manager);
         });
+#  endif
   }
   return Status::OK();
 }
@@ -240,6 +248,29 @@ Result<std::unique_ptr<llvm::orc::LLJIT>> BuildJIT(
   AddProcessSymbol(*jit);
   return jit;
 }
+
+arrow::Status VerifyAndLinkModule(
+    llvm::Module& dest_module,
+    llvm::Expected<std::unique_ptr<llvm::Module>> src_module_or_error) {
+  ARROW_ASSIGN_OR_RAISE(
+      auto src_ir_module,
+      AsArrowResult(src_module_or_error, "Failed to verify and link module: "));
+
+  src_ir_module->setDataLayout(dest_module.getDataLayout());
+
+  std::string error_info;
+  llvm::raw_string_ostream error_stream(error_info);
+  ARROW_RETURN_IF(
+      llvm::verifyModule(*src_ir_module, &error_stream),
+      Status::CodeGenError("verify of IR Module failed: " + error_stream.str()));
+
+  ARROW_RETURN_IF(llvm::Linker::linkModules(dest_module, std::move(src_ir_module)),
+                  Status::CodeGenError("failed to link IR Modules"));
+
+  return Status::OK();
+}
+
+}  // namespace
 
 Status Engine::SetLLVMObjectCache(GandivaObjectCache& object_cache) {
   auto cached_buffer = object_cache.getObject(nullptr);
@@ -348,27 +379,6 @@ Result<std::unique_ptr<Engine>> Engine::Make(
   return engine;
 }
 
-static arrow::Status VerifyAndLinkModule(
-    llvm::Module& dest_module,
-    llvm::Expected<std::unique_ptr<llvm::Module>> src_module_or_error) {
-  ARROW_ASSIGN_OR_RAISE(
-      auto src_ir_module,
-      AsArrowResult(src_module_or_error, "Failed to verify and link module: "));
-
-  src_ir_module->setDataLayout(dest_module.getDataLayout());
-
-  std::string error_info;
-  llvm::raw_string_ostream error_stream(error_info);
-  ARROW_RETURN_IF(
-      llvm::verifyModule(*src_ir_module, &error_stream),
-      Status::CodeGenError("verify of IR Module failed: " + error_stream.str()));
-
-  ARROW_RETURN_IF(llvm::Linker::linkModules(dest_module, std::move(src_ir_module)),
-                  Status::CodeGenError("failed to link IR Modules"));
-
-  return Status::OK();
-}
-
 llvm::Module* Engine::module() {
   DCHECK(!module_finalized_) << "module cannot be accessed after finalized";
   return module_.get();
@@ -376,7 +386,7 @@ llvm::Module* Engine::module() {
 
 // Handling for pre-compiled IR libraries.
 Status Engine::LoadPreCompiledIR() {
-  auto const bitcode = llvm::StringRef(reinterpret_cast<const char*>(kPrecompiledBitcode),
+  const auto bitcode = llvm::StringRef(reinterpret_cast<const char*>(kPrecompiledBitcode),
                                        kPrecompiledBitcodeSize);
 
   /// Read from file into memory buffer.
@@ -399,14 +409,14 @@ Status Engine::LoadPreCompiledIR() {
 }
 
 static llvm::MemoryBufferRef AsLLVMMemoryBuffer(const arrow::Buffer& arrow_buffer) {
-  auto const data = reinterpret_cast<const char*>(arrow_buffer.data());
-  auto const size = arrow_buffer.size();
+  const auto data = reinterpret_cast<const char*>(arrow_buffer.data());
+  const auto size = arrow_buffer.size();
   return {llvm::StringRef(data, size), "external_bitcode"};
 }
 
 Status Engine::LoadExternalPreCompiledIR() {
-  auto const& buffers = function_registry_->GetBitcodeBuffers();
-  for (auto const& buffer : buffers) {
+  const auto& buffers = function_registry_->GetBitcodeBuffers();
+  for (const auto& buffer : buffers) {
     auto llvm_memory_buffer_ref = AsLLVMMemoryBuffer(*buffer);
     auto module_or_error = llvm::parseBitcodeFile(llvm_memory_buffer_ref, *context());
     ARROW_RETURN_NOT_OK(VerifyAndLinkModule(*module_, std::move(module_or_error)));
@@ -570,7 +580,7 @@ Result<void*> Engine::CompiledFunction(const std::string& function) {
 
 void Engine::AddGlobalMappingForFunc(const std::string& name, llvm::Type* ret_type,
                                      const std::vector<llvm::Type*>& args, void* func) {
-  auto const prototype = llvm::FunctionType::get(ret_type, args, /*is_var_arg*/ false);
+  const auto prototype = llvm::FunctionType::get(ret_type, args, /*is_var_arg*/ false);
   llvm::Function::Create(prototype, llvm::GlobalValue::ExternalLinkage, name, module());
   AddAbsoluteSymbol(*lljit_, name, func);
 }

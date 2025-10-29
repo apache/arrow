@@ -28,7 +28,7 @@
 #include "arrow/json/converter.h"
 #include "arrow/table.h"
 #include "arrow/util/checked_cast.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/task_group.h"
 
 namespace arrow {

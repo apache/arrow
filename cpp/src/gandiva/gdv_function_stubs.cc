@@ -26,7 +26,7 @@
 
 #include "arrow/util/base64.h"
 #include "arrow/util/bit_util.h"
-#include "arrow/util/double_conversion.h"
+#include "arrow/util/double_conversion_internal.h"
 #include "arrow/util/value_parsing.h"
 
 #include "gandiva/encrypt_utils.h"
@@ -40,6 +40,8 @@
 /// Stub functions that can be accessed from LLVM or the pre-compiled library.
 
 extern "C" {
+
+ARROW_SUPPRESS_MISSING_DECLARATIONS_WARNING
 
 static char mask_array[256] = {
     (char)0,  (char)1,  (char)2,  (char)3,   (char)4,   (char)5,   (char)6,   (char)7,
@@ -843,6 +845,8 @@ const char* gdv_mask_show_last_n_utf8_int32(int64_t context, const char* data,
   int32_t n_to_mask = num_of_chars - n_to_show;
   return gdv_mask_first_n_utf8_int32(context, data, data_len, n_to_mask, out_len);
 }
+
+ARROW_UNSUPPRESS_MISSING_DECLARATIONS_WARNING
 }
 
 namespace gandiva {

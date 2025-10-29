@@ -28,6 +28,8 @@ class PrepareTest < Test::Unit::TestCase
     Dir.mktmpdir do |dir|
       @test_git_repository = Pathname(dir) + "arrow"
       git("clone", @original_git_repository.to_s, @test_git_repository.to_s)
+      FileUtils.cp((top_dir + "dev" + "release" + ".env").to_s,
+                   (@test_git_repository + "dev" + "release").to_s)
       Dir.chdir(@test_git_repository) do
         @release_branch = "testing-release-#{@release_version}-rc0"
         git("checkout", "-b", @release_branch, @current_commit)
@@ -176,13 +178,6 @@ class PrepareTest < Test::Unit::TestCase
         ],
       },
       {
-        path: "csharp/Directory.Build.props",
-        hunks: [
-          ["-    <Version>#{@snapshot_version}</Version>",
-           "+    <Version>#{@release_version}</Version>"],
-        ],
-      },
-      {
         path: "dev/tasks/homebrew-formulae/apache-arrow-glib.rb",
         hunks: [
           ["-  url \"https://www.apache.org/dyn/closer.lua?path=arrow/arrow-#{@snapshot_version}/apache-arrow-#{@snapshot_version}.tar.gz\"",
@@ -218,13 +213,6 @@ class PrepareTest < Test::Unit::TestCase
       ]
     end
     expected_changes += [
-      {
-        path: "js/package.json",
-        hunks: [
-          ["-  \"version\": \"#{@snapshot_version}\"",
-           "+  \"version\": \"#{@release_version}\""],
-        ],
-      },
       {
         path: "matlab/CMakeLists.txt",
         hunks: [

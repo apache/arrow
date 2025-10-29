@@ -36,7 +36,7 @@ except ImportError:
 import pytest
 import pyarrow as pa
 
-from pyarrow.lib import IpcReadOptions, tobytes
+from pyarrow.lib import IpcReadOptions, ReadStats, tobytes
 from pyarrow.util import find_free_port
 from pyarrow.tests import util
 
@@ -47,6 +47,7 @@ try:
         ServerAuthHandler, ClientAuthHandler,
         ServerMiddleware, ServerMiddlewareFactory,
         ClientMiddleware, ClientMiddlewareFactory,
+        FlightCallOptions,
     )
 except ImportError:
     flight = None
@@ -54,6 +55,7 @@ except ImportError:
     ServerAuthHandler, ClientAuthHandler = object, object
     ServerMiddleware, ServerMiddlewareFactory = object, object
     ClientMiddleware, ClientMiddlewareFactory = object, object
+    FlightCallOptions = object
 
 # Marks all of the tests in this module
 # Ignore these with pytest ... -m 'not flight'
@@ -83,9 +85,9 @@ def read_flight_resource(path):
             return f.read()
     except FileNotFoundError:
         raise RuntimeError(
-            "Test resource {} not found; did you initialize the "
-            "test resource submodule?\n{}".format(root / path,
-                                                  traceback.format_exc()))
+            f"Test resource {root / path} not found; did you initialize the "
+            f"test resource submodule?\n{traceback.format_exc()}"
+        )
 
 
 def example_tls_certs():
@@ -114,10 +116,12 @@ def simple_ints_table():
 
 def simple_dicts_table():
     dict_values = pa.array(["foo", "baz", "quux"], type=pa.utf8())
+    new_dict_values = pa.array(["foo", "baz", "quux", "new"], type=pa.utf8())
     data = [
         pa.chunked_array([
             pa.DictionaryArray.from_arrays([1, 0, None], dict_values),
-            pa.DictionaryArray.from_arrays([2, 1], dict_values)
+            pa.DictionaryArray.from_arrays([2, 1], dict_values),
+            pa.DictionaryArray.from_arrays([0, 3], new_dict_values)
         ])
     ]
     return pa.Table.from_arrays(data, names=['some_dicts'])
@@ -183,6 +187,7 @@ class MetadataFlightServer(FlightServerBase):
     def do_put(self, context, descriptor, reader, writer):
         counter = 0
         expected_data = [-10, -5, 0, 5, 10]
+        assert reader.stats.num_messages == 1
         for batch, buf in reader:
             assert batch.equals(pa.RecordBatch.from_arrays(
                 [pa.array([expected_data[counter]])],
@@ -193,6 +198,8 @@ class MetadataFlightServer(FlightServerBase):
             assert counter == client_counter
             writer.write(struct.pack('<i', counter))
             counter += 1
+        assert reader.stats.num_messages == 6
+        assert reader.stats.num_record_batches == 5
 
     @staticmethod
     def number_batches(table):
@@ -419,6 +426,7 @@ class ExchangeFlightServer(FlightServerBase):
         self.options = options
 
     def do_exchange(self, context, descriptor, reader, writer):
+        assert reader.stats.num_messages == 0
         if descriptor.descriptor_type != flight.DescriptorType.CMD:
             raise pa.ArrowInvalid("Must provide a command descriptor")
         elif descriptor.command == b"echo":
@@ -431,7 +439,7 @@ class ExchangeFlightServer(FlightServerBase):
             return self.exchange_transform(context, reader, writer)
         else:
             raise pa.ArrowInvalid(
-                "Unknown command: {}".format(descriptor.command))
+                f"Unknown command: {descriptor.command}")
 
     def exchange_do_get(self, context, reader, writer):
         """Emulate DoGet with DoExchange."""
@@ -447,11 +455,14 @@ class ExchangeFlightServer(FlightServerBase):
         for chunk in reader:
             if not chunk.data:
                 raise pa.ArrowInvalid("All chunks must have data.")
+            assert reader.stats.num_messages != 0
             num_batches += 1
+        assert reader.stats.num_record_batches == num_batches
         writer.write_metadata(str(num_batches).encode("utf-8"))
 
     def exchange_echo(self, context, reader, writer):
         """Run a simple echo server."""
+        assert reader.stats.num_messages == 0
         started = False
         for chunk in reader:
             if not started and chunk.data:
@@ -462,16 +473,19 @@ class ExchangeFlightServer(FlightServerBase):
             elif chunk.app_metadata:
                 writer.write_metadata(chunk.app_metadata)
             elif chunk.data:
+                assert reader.stats.num_messages != 0
                 writer.write_batch(chunk.data)
             else:
                 assert False, "Should not happen"
 
     def exchange_transform(self, context, reader, writer):
         """Sum rows in an uploaded table."""
+        assert reader.stats.num_messages == 0
         for field in reader.schema:
             if not pa.types.is_integer(field.type):
                 raise pa.ArrowInvalid("Invalid field: " + repr(field))
         table = reader.read_all()
+        assert reader.stats.num_messages != 0
         sums = [0] * table.num_rows
         for column in table:
             for row, value in enumerate(column):
@@ -620,9 +634,10 @@ class ClientHeaderAuthMiddleware(ClientMiddleware):
 
     def received_headers(self, headers):
         auth_header = case_insensitive_header_lookup(headers, 'Authorization')
-        self.factory.set_call_credential([
-            b'authorization',
-            auth_header[0].encode("utf-8")])
+        if auth_header:
+            self.factory.set_call_credential([
+                b'authorization',
+                auth_header[0].encode("utf-8")])
 
 
 class HeaderAuthServerMiddlewareFactory(ServerMiddlewareFactory):
@@ -916,6 +931,23 @@ def test_repr():
     assert repr(flight.SchemaResult(pa.schema([("int", "int64")]))) == \
         "<pyarrow.flight.SchemaResult schema=(int: int64)>"
     assert repr(flight.Ticket(b"foo")) == ticket_repr
+    assert info.schema == pa.schema([])
+
+    info = flight.FlightInfo(
+        None, flight.FlightDescriptor.for_path(), [],
+        1, 42, True, b"test app metadata"
+    )
+    info_repr = (
+        "<pyarrow.flight.FlightInfo "
+        "schema=None "
+        "descriptor=<pyarrow.flight.FlightDescriptor path=[]> "
+        "endpoints=[] "
+        "total_records=1 "
+        "total_bytes=42 "
+        "ordered=True "
+        "app_metadata=b'test app metadata'>")
+    assert repr(info) == info_repr
+    assert info.schema is None
 
     with pytest.raises(TypeError):
         flight.Action("foo", None)
@@ -1150,8 +1182,17 @@ def test_flight_do_get_dicts():
 
     with ConstantFlightServer() as server, \
             flight.connect(('localhost', server.port)) as client:
-        data = client.do_get(flight.Ticket(b'dicts')).read_all()
+        reader = client.do_get(flight.Ticket(b'dicts'))
+        assert reader.stats.num_messages == 1
+        data = reader.read_all()
         assert data.equals(table)
+        assert reader.stats == ReadStats(
+            num_messages=6,
+            num_record_batches=3,
+            num_dictionary_batches=2,
+            num_dictionary_deltas=0,
+            num_replaced_dictionaries=1
+        )
 
 
 def test_flight_do_get_ticket():
@@ -2070,6 +2111,8 @@ def test_doexchange_put():
             assert chunk.data is None
             expected_buf = str(len(batches)).encode("utf-8")
             assert chunk.app_metadata == expected_buf
+            # Metadata only message is not counted as an ipc data message
+            assert reader.stats.num_messages == 0
 
 
 def test_doexchange_echo():
@@ -2094,12 +2137,15 @@ def test_doexchange_echo():
 
             # Now write data without metadata.
             writer.begin(data.schema)
+            num_batches = 0
             for batch in batches:
                 writer.write_batch(batch)
                 assert reader.schema == data.schema
                 chunk = reader.read_chunk()
                 assert chunk.data == batch
                 assert chunk.app_metadata is None
+                num_batches += 1
+                assert reader.stats.num_record_batches == num_batches
 
             # And write data with metadata.
             for i, batch in enumerate(batches):
@@ -2108,6 +2154,8 @@ def test_doexchange_echo():
                 chunk = reader.read_chunk()
                 assert chunk.data == batch
                 assert chunk.app_metadata == buf
+                num_batches += 1
+                assert reader.stats.num_record_batches == num_batches
 
 
 def test_doexchange_echo_v4():
@@ -2516,3 +2564,97 @@ def test_headers_trailers():
         assert ("x-header-bin", b"header\x01value") in factory.headers
         assert ("x-trailer", "trailer-value") in factory.headers
         assert ("x-trailer-bin", b"trailer\x01value") in factory.headers
+
+
+def test_flight_dictionary_deltas_do_exchange():
+    expected_stats = {
+        'dict_deltas': ReadStats(
+            num_messages=6,
+            num_record_batches=3,
+            num_dictionary_batches=2,
+            num_dictionary_deltas=1,
+            num_replaced_dictionaries=0
+        ),
+        'dict_replacement': ReadStats(
+            num_messages=6,
+            num_record_batches=3,
+            num_dictionary_batches=2,
+            num_dictionary_deltas=0,
+            num_replaced_dictionaries=1
+        )
+    }
+
+    class DeltaFlightServer(ConstantFlightServer):
+        def do_exchange(self, context, descriptor, reader, writer):
+            expected_table = simple_dicts_table()
+            received_table = reader.read_all()
+            assert received_table.equals(expected_table)
+            assert reader.stats == expected_stats[descriptor.command.decode()]
+            if descriptor.command == b'dict_deltas':
+                options = pa.ipc.IpcWriteOptions(emit_dictionary_deltas=True)
+                writer.begin(expected_table.schema, options=options)
+                writer.write_table(expected_table)
+            if descriptor.command == b'dict_replacement':
+                writer.begin(expected_table.schema)
+                writer.write_table(expected_table)
+
+    with DeltaFlightServer() as server, \
+            FlightClient(('localhost', server.port)) as client:
+        expected_table = simple_dicts_table()
+        for command in ["dict_deltas", "dict_replacement"]:
+            descriptor = flight.FlightDescriptor.for_command(command)
+            writer, reader = client.do_exchange(
+                descriptor,
+                options=flight.FlightCallOptions(
+                    write_options=pa.ipc.IpcWriteOptions(
+                        emit_dictionary_deltas=True)
+                )
+            )
+            # Send client table with dictionary updates
+            with writer:
+                writer.begin(expected_table.schema, options=pa.ipc.IpcWriteOptions(
+                    emit_dictionary_deltas=(command == "dict_deltas")))
+                writer.write_table(expected_table)
+                writer.done_writing()
+                received_table = reader.read_all()
+
+            assert received_table.equals(expected_table)
+            assert reader.stats == expected_stats[command]
+
+
+@pytest.fixture
+def call_options_args(request):
+    if request.param == "default":
+        return {
+            "timeout": 3,
+            "headers": None,
+            "write_options": None,
+            "read_options": None,
+        }
+    elif request.param == "all":
+        return {
+            "timeout": 7,
+            "headers": [(b"abc", b"def")],
+            "write_options": pa.ipc.IpcWriteOptions(compression="zstd"),
+            "read_options": pa.ipc.IpcReadOptions(
+                use_threads=False,
+                ensure_alignment=pa.ipc.Alignment.DataTypeSpecific,
+            ),
+        }
+    else:
+        return {}
+
+
+@pytest.mark.parametrize(
+    "call_options_args", ["default", "all"], indirect=True)
+def test_call_options_repr(call_options_args):
+    # https://github.com/apache/arrow/issues/47358
+    call_options = FlightCallOptions(**call_options_args)
+    repr = call_options.__repr__()
+
+    for arg, val in call_options_args.items():
+        if val is None:
+            assert arg in repr
+            continue
+
+        assert f"{arg}={val}" in repr

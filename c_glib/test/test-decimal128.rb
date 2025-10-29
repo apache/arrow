@@ -123,7 +123,7 @@ class TestDecimal128 < Test::Unit::TestCase
     decimal1 = Arrow::Decimal128.new(23423445)
     decimal2 = Arrow::Decimal128.new(0)
     message =
-      "[decimal128][divide]: Invalid: Division by 0 in Decimal128"
+      "[decimal128][divide]: Invalid: Division by 0 in Decimal"
     assert_raise(Arrow::Error::Invalid.new(message)) do
       decimal1.divide(decimal2)
     end
@@ -236,7 +236,7 @@ class TestDecimal128 < Test::Unit::TestCase
     decimal = Arrow::Decimal128.new(10)
     message =
       "[decimal128][rescale]: Invalid: " +
-      "Rescaling Decimal128 value would cause data loss"
+      "Rescaling Decimal value would cause data loss"
     assert_raise(Arrow::Error::Invalid.new(message)) do
       decimal.rescale(1, -1)
     end

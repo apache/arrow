@@ -468,8 +468,8 @@ ExecNode_Scan <- function(plan, dataset, filter, projection) {
   .Call(`_arrow_ExecNode_Scan`, plan, dataset, filter, projection)
 }
 
-ExecPlan_Write <- function(plan, final_node, schema, file_write_options, filesystem, base_dir, partitioning, basename_template, existing_data_behavior, max_partitions, max_open_files, max_rows_per_file, min_rows_per_group, max_rows_per_group) {
-  invisible(.Call(`_arrow_ExecPlan_Write`, plan, final_node, schema, file_write_options, filesystem, base_dir, partitioning, basename_template, existing_data_behavior, max_partitions, max_open_files, max_rows_per_file, min_rows_per_group, max_rows_per_group))
+ExecPlan_Write <- function(plan, final_node, schema, file_write_options, filesystem, base_dir, partitioning, basename_template, existing_data_behavior, max_partitions, max_open_files, max_rows_per_file, min_rows_per_group, max_rows_per_group, create_directory) {
+  invisible(.Call(`_arrow_ExecPlan_Write`, plan, final_node, schema, file_write_options, filesystem, base_dir, partitioning, basename_template, existing_data_behavior, max_partitions, max_open_files, max_rows_per_file, min_rows_per_group, max_rows_per_group, create_directory))
 }
 
 ExecNode_Filter <- function(input, filter) {
@@ -534,6 +534,10 @@ compute__CallFunction <- function(func_name, args, options) {
 
 compute__GetFunctionNames <- function() {
   .Call(`_arrow_compute__GetFunctionNames`)
+}
+
+compute__Initialize <- function() {
+  invisible(.Call(`_arrow_compute__Initialize`))
 }
 
 RegisterScalarUDF <- function(name, func_sexp) {
@@ -920,12 +924,24 @@ Null__initialize <- function() {
   .Call(`_arrow_Null__initialize`)
 }
 
+Decimal32Type__initialize <- function(precision, scale) {
+  .Call(`_arrow_Decimal32Type__initialize`, precision, scale)
+}
+
+Decimal64Type__initialize <- function(precision, scale) {
+  .Call(`_arrow_Decimal64Type__initialize`, precision, scale)
+}
+
 Decimal128Type__initialize <- function(precision, scale) {
   .Call(`_arrow_Decimal128Type__initialize`, precision, scale)
 }
 
 Decimal256Type__initialize <- function(precision, scale) {
   .Call(`_arrow_Decimal256Type__initialize`, precision, scale)
+}
+
+SmallestDecimal__initialize <- function(precision, scale) {
+  .Call(`_arrow_SmallestDecimal__initialize`, precision, scale)
 }
 
 DayTimeInterval__initialize <- function() {
@@ -1372,8 +1388,8 @@ fs___CopyFiles <- function(source_fs, source_sel, destination_fs, destination_ba
   invisible(.Call(`_arrow_fs___CopyFiles`, source_fs, source_sel, destination_fs, destination_base_dir, chunk_size, use_threads))
 }
 
-fs___S3FileSystem__create <- function(anonymous, access_key, secret_key, session_token, role_arn, session_name, external_id, load_frequency, region, endpoint_override, scheme, proxy_options, background_writes, allow_bucket_creation, allow_bucket_deletion, connect_timeout, request_timeout) {
-  .Call(`_arrow_fs___S3FileSystem__create`, anonymous, access_key, secret_key, session_token, role_arn, session_name, external_id, load_frequency, region, endpoint_override, scheme, proxy_options, background_writes, allow_bucket_creation, allow_bucket_deletion, connect_timeout, request_timeout)
+fs___S3FileSystem__create <- function(anonymous, access_key, secret_key, session_token, role_arn, session_name, external_id, load_frequency, region, endpoint_override, scheme, proxy_options, background_writes, allow_bucket_creation, allow_bucket_deletion, check_directory_existence_before_creation, connect_timeout, request_timeout) {
+  .Call(`_arrow_fs___S3FileSystem__create`, anonymous, access_key, secret_key, session_token, role_arn, session_name, external_id, load_frequency, region, endpoint_override, scheme, proxy_options, background_writes, allow_bucket_creation, allow_bucket_deletion, check_directory_existence_before_creation, connect_timeout, request_timeout)
 }
 
 fs___S3FileSystem__region <- function(fs) {

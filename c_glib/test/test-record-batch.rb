@@ -216,9 +216,11 @@ valid:   [
         n_rows = @id_value.length + 1 # incorrect number of rows
 
         record_batch = Arrow::RecordBatch.new(@schema, n_rows, @values)
-        assert_raise(Arrow::Error::Invalid.new(message)) do
+        error = assert_raise(Arrow::Error::Invalid) do
           record_batch.validate
         end
+        assert_equal(message,
+                     error.message.lines.first.chomp)
       end
     end
 
@@ -257,9 +259,11 @@ valid:   [
         columns = [@uint8_value, @invalid_name_value]
         record_batch = Arrow::RecordBatch.new(@schema, @n_rows, columns)
 
-        assert_raise(Arrow::Error::Invalid.new(message)) do
+        error = assert_raise(Arrow::Error::Invalid) do
           record_batch.validate_full
         end
+        assert_equal(message,
+                     error.message.lines.first.chomp)
       end
     end
   end

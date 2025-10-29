@@ -18,6 +18,7 @@
 #include <string_view>
 
 #include "arrow/util/logging.h"
+#include "arrow/util/secure_string.h"
 #include "arrow/util/string.h"
 
 #include "parquet/encryption/crypto_factory.h"
@@ -25,6 +26,8 @@
 #include "parquet/encryption/file_key_unwrapper.h"
 #include "parquet/encryption/file_system_key_material_store.h"
 #include "parquet/encryption/key_toolkit_internal.h"
+
+using arrow::util::SecureString;
 
 namespace parquet::encryption {
 
@@ -71,21 +74,21 @@ std::shared_ptr<FileEncryptionProperties> CryptoFactory::GetFileEncryptionProper
 
   int dek_length = dek_length_bits / 8;
 
-  std::string footer_key(dek_length, '\0');
-  RandBytes(reinterpret_cast<uint8_t*>(footer_key.data()), footer_key.size());
+  SecureString footer_key(dek_length, '\0');
+  RandBytes(footer_key.as_span().data(), footer_key.size());
 
   std::string footer_key_metadata =
       key_wrapper.GetEncryptionKeyMetadata(footer_key, footer_key_id, true);
 
   FileEncryptionProperties::Builder properties_builder =
       FileEncryptionProperties::Builder(footer_key);
-  properties_builder.footer_key_metadata(footer_key_metadata);
+  properties_builder.footer_key_metadata(std::move(footer_key_metadata));
   properties_builder.algorithm(encryption_config.encryption_algorithm);
 
   if (!encryption_config.uniform_encryption) {
     ColumnPathToEncryptionPropertiesMap encrypted_columns =
         GetColumnEncryptionProperties(dek_length, column_key_str, &key_wrapper);
-    properties_builder.encrypted_columns(encrypted_columns);
+    properties_builder.encrypted_columns(std::move(encrypted_columns));
 
     if (encryption_config.plaintext_footer) {
       properties_builder.set_plaintext_footer();
@@ -146,8 +149,9 @@ ColumnPathToEncryptionPropertiesMap CryptoFactory::GetColumnEncryptionProperties
                                column_name);
       }
 
-      std::string column_key(dek_length, '\0');
-      RandBytes(reinterpret_cast<uint8_t*>(column_key.data()), column_key.size());
+      SecureString column_key(dek_length, '\0');
+      RandBytes(column_key.as_span().data(), column_key.size());
+
       std::string column_key_key_metadata =
           key_wrapper->GetEncryptionKeyMetadata(column_key, column_key_id, false);
 
@@ -175,7 +179,7 @@ std::shared_ptr<FileDecryptionProperties> CryptoFactory::GetFileDecryptionProper
       file_path, file_system);
 
   return FileDecryptionProperties::Builder()
-      .key_retriever(key_retriever)
+      .key_retriever(std::move(key_retriever))
       ->plaintext_files_allowed()
       ->build();
 }

@@ -83,4 +83,12 @@ GARROW_AVAILABLE_IN_4_0
 GArrowArray *
 garrow_chunked_array_combine(GArrowChunkedArray *chunked_array, GError **error);
 
+GARROW_AVAILABLE_IN_21_0
+GArrowChunkedArray *
+garrow_chunked_array_import(gpointer c_abi_array_stream, GError **error);
+
+GARROW_AVAILABLE_IN_21_0
+gpointer
+garrow_chunked_array_export(GArrowChunkedArray *chunked_array, GError **error);
+
 G_END_DECLS

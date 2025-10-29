@@ -39,6 +39,7 @@
 #include "arrow/util/compression.h"
 #include "arrow/util/config.h"
 #include "arrow/util/crc32.h"
+#include "arrow/util/logging_internal.h"
 
 namespace parquet {
 

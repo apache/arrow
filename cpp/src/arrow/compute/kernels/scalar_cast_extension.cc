@@ -19,6 +19,7 @@
 #include "arrow/compute/kernels/common_internal.h"
 #include "arrow/compute/kernels/scalar_cast_internal.h"
 #include "arrow/scalar.h"
+#include "arrow/util/logging_internal.h"
 
 namespace arrow {
 namespace compute {

@@ -495,51 +495,67 @@ TEST_F(TestSumKernelRoundOff, Basics) {
 }
 
 TEST(TestDecimalSumKernel, SimpleSum) {
-  for (const auto& ty : {decimal128(3, 2), decimal256(3, 2)}) {
+  std::vector<std::shared_ptr<DataType>> init_types = {decimal128(3, 2),
+                                                       decimal256(3, 2)};
+  std::vector<std::shared_ptr<DataType>> out_types = {decimal128(38, 2),
+                                                      decimal256(76, 2)};
+
+  for (size_t i = 0; i < init_types.size(); ++i) {
+    const auto& ty = init_types[i];
+    const auto& out_ty = out_types[i];
+
     EXPECT_THAT(Sum(ArrayFromJSON(ty, R"([])")),
-                ResultWith(ScalarFromJSON(ty, R"(null)")));
+                ResultWith(ScalarFromJSON(out_ty, R"(null)")));
     EXPECT_THAT(Sum(ArrayFromJSON(ty, R"([null])")),
-                ResultWith(ScalarFromJSON(ty, R"(null)")));
+                ResultWith(ScalarFromJSON(out_ty, R"(null)")));
     EXPECT_THAT(
         Sum(ArrayFromJSON(ty, R"(["0.00", "1.01", "2.02", "3.03", "4.04", "5.05"])")),
-        ResultWith(ScalarFromJSON(ty, R"("15.15")")));
+        ResultWith(ScalarFromJSON(out_ty, R"("15.15")")));
     Datum chunks =
         ChunkedArrayFromJSON(ty, {R"(["0.00", "1.01", "2.02", "3.03", "4.04", "5.05"])"});
-    EXPECT_THAT(Sum(chunks), ResultWith(ScalarFromJSON(ty, R"("15.15")")));
+    EXPECT_THAT(Sum(chunks), ResultWith(ScalarFromJSON(out_ty, R"("15.15")")));
     chunks = ChunkedArrayFromJSON(
         ty, {R"(["0.00", "1.01", "2.02"])", R"(["3.03", "4.04", "5.05"])"});
-    EXPECT_THAT(Sum(chunks), ResultWith(ScalarFromJSON(ty, R"("15.15")")));
+    EXPECT_THAT(Sum(chunks), ResultWith(ScalarFromJSON(out_ty, R"("15.15")")));
     chunks = ChunkedArrayFromJSON(
         ty, {R"(["0.00", "1.01", "2.02"])", "[]", R"(["3.03", "4.04", "5.05"])"});
-    EXPECT_THAT(Sum(chunks), ResultWith(ScalarFromJSON(ty, R"("15.15")")));
+    EXPECT_THAT(Sum(chunks), ResultWith(ScalarFromJSON(out_ty, R"("15.15")")));
 
     ScalarAggregateOptions options(/*skip_nulls=*/true, /*min_count=*/0);
     EXPECT_THAT(Sum(ArrayFromJSON(ty, R"([])"), options),
-                ResultWith(ScalarFromJSON(ty, R"("0.00")")));
+                ResultWith(ScalarFromJSON(out_ty, R"("0.00")")));
     EXPECT_THAT(Sum(ArrayFromJSON(ty, R"([null])"), options),
-                ResultWith(ScalarFromJSON(ty, R"("0.00")")));
+                ResultWith(ScalarFromJSON(out_ty, R"("0.00")")));
     chunks = ChunkedArrayFromJSON(ty, {});
-    EXPECT_THAT(Sum(chunks, options), ResultWith(ScalarFromJSON(ty, R"("0.00")")));
+    EXPECT_THAT(Sum(chunks, options), ResultWith(ScalarFromJSON(out_ty, R"("0.00")")));
 
     EXPECT_THAT(
         Sum(ArrayFromJSON(ty, R"(["1.01", null, "3.03", null, "5.05", null, "7.07"])"),
             options),
-        ResultWith(ScalarFromJSON(ty, R"("16.16")")));
+        ResultWith(ScalarFromJSON(out_ty, R"("16.16")")));
 
     EXPECT_THAT(Sum(ScalarFromJSON(ty, R"("5.05")")),
-                ResultWith(ScalarFromJSON(ty, R"("5.05")")));
+                ResultWith(ScalarFromJSON(out_ty, R"("5.05")")));
     EXPECT_THAT(Sum(ScalarFromJSON(ty, R"(null)")),
-                ResultWith(ScalarFromJSON(ty, R"(null)")));
+                ResultWith(ScalarFromJSON(out_ty, R"(null)")));
     EXPECT_THAT(Sum(ScalarFromJSON(ty, R"(null)"), options),
-                ResultWith(ScalarFromJSON(ty, R"("0.00")")));
+                ResultWith(ScalarFromJSON(out_ty, R"("0.00")")));
   }
 }
 
 TEST(TestDecimalSumKernel, ScalarAggregateOptions) {
-  for (const auto& ty : {decimal128(3, 2), decimal256(3, 2)}) {
-    Datum null = ScalarFromJSON(ty, R"(null)");
-    Datum zero = ScalarFromJSON(ty, R"("0.00")");
-    Datum result = ScalarFromJSON(ty, R"("14.14")");
+  std::vector<std::shared_ptr<DataType>> init_types = {decimal128(3, 2),
+                                                       decimal256(3, 2)};
+  std::vector<std::shared_ptr<DataType>> out_types = {decimal128(38, 2),
+                                                      decimal256(76, 2)};
+
+  for (size_t i = 0; i < init_types.size(); ++i) {
+    auto& ty = init_types[i];
+    auto& out_ty = out_types[i];
+
+    Datum null = ScalarFromJSON(out_ty, R"(null)");
+    Datum zero = ScalarFromJSON(out_ty, R"("0.00")");
+    Datum result = ScalarFromJSON(out_ty, R"("14.14")");
     Datum arr =
         ArrayFromJSON(ty, R"(["1.01", null, "3.03", null, "3.03", null, "7.07"])");
 
@@ -579,7 +595,7 @@ TEST(TestDecimalSumKernel, ScalarAggregateOptions) {
 
     EXPECT_THAT(Sum(ScalarFromJSON(ty, R"("5.05")"),
                     ScalarAggregateOptions(/*skip_nulls=*/false)),
-                ResultWith(ScalarFromJSON(ty, R"("5.05")")));
+                ResultWith(ScalarFromJSON(out_ty, R"("5.05")")));
     EXPECT_THAT(Sum(ScalarFromJSON(ty, R"("5.05")"),
                     ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/2)),
                 ResultWith(null));
@@ -712,49 +728,64 @@ TYPED_TEST(TestNumericProductKernel, ScalarAggregateOptions) {
 }
 
 TEST(TestDecimalProductKernel, SimpleProduct) {
-  for (const auto& ty : {decimal128(3, 2), decimal256(3, 2)}) {
-    Datum null = ScalarFromJSON(ty, R"(null)");
+  std::vector<std::shared_ptr<DataType>> init_types = {decimal128(3, 2),
+                                                       decimal256(3, 2)};
+  std::vector<std::shared_ptr<DataType>> out_types = {decimal128(3, 2), decimal256(3, 2)};
+
+  for (size_t i = 0; i < init_types.size(); ++i) {
+    auto& ty = init_types[i];
+    auto& out_ty = out_types[i];
+
+    Datum null = ScalarFromJSON(out_ty, R"(null)");
 
     EXPECT_THAT(Product(ArrayFromJSON(ty, R"([])")), ResultWith(null));
     EXPECT_THAT(Product(ArrayFromJSON(ty, R"([null])")), ResultWith(null));
     EXPECT_THAT(
         Product(ArrayFromJSON(ty, R"(["0.00", "1.00", "2.00", "3.00", "4.00", "5.00"])")),
-        ResultWith(ScalarFromJSON(ty, R"("0.00")")));
+        ResultWith(ScalarFromJSON(out_ty, R"("0.00")")));
     Datum chunks =
         ChunkedArrayFromJSON(ty, {R"(["1.00", "2.00", "3.00", "4.00", "5.00"])"});
-    EXPECT_THAT(Product(chunks), ResultWith(ScalarFromJSON(ty, R"("120.00")")));
+    EXPECT_THAT(Product(chunks), ResultWith(ScalarFromJSON(out_ty, R"("120.00")")));
     chunks =
         ChunkedArrayFromJSON(ty, {R"(["1.00", "2.00"])", R"(["-3.00", "4.00", "5.00"])"});
-    EXPECT_THAT(Product(chunks), ResultWith(ScalarFromJSON(ty, R"("-120.00")")));
+    EXPECT_THAT(Product(chunks), ResultWith(ScalarFromJSON(out_ty, R"("-120.00")")));
     chunks = ChunkedArrayFromJSON(
         ty, {R"(["1.00", "2.00"])", R"([])", R"(["-3.00", "4.00", "-5.00"])"});
-    EXPECT_THAT(Product(chunks), ResultWith(ScalarFromJSON(ty, R"("120.00")")));
+    EXPECT_THAT(Product(chunks), ResultWith(ScalarFromJSON(out_ty, R"("120.00")")));
 
     const ScalarAggregateOptions options(/*skip_nulls=*/true, /*min_count=*/0);
 
     EXPECT_THAT(Product(ArrayFromJSON(ty, R"([])"), options),
-                ResultWith(ScalarFromJSON(ty, R"("1.00")")));
+                ResultWith(ScalarFromJSON(out_ty, R"("1.00")")));
     EXPECT_THAT(Product(ArrayFromJSON(ty, R"([null])"), options),
-                ResultWith(ScalarFromJSON(ty, R"("1.00")")));
+                ResultWith(ScalarFromJSON(out_ty, R"("1.00")")));
     chunks = ChunkedArrayFromJSON(ty, {});
-    EXPECT_THAT(Product(chunks, options), ResultWith(ScalarFromJSON(ty, R"("1.00")")));
+    EXPECT_THAT(Product(chunks, options),
+                ResultWith(ScalarFromJSON(out_ty, R"("1.00")")));
 
     EXPECT_THAT(Product(ArrayFromJSON(
                             ty, R"(["1.00", null, "-3.00", null, "3.00", null, "7.00"])"),
                         options),
-                ResultWith(ScalarFromJSON(ty, R"("-63.00")")));
+                ResultWith(ScalarFromJSON(out_ty, R"("-63.00")")));
 
     EXPECT_THAT(Product(ScalarFromJSON(ty, R"("5.00")")),
-                ResultWith(ScalarFromJSON(ty, R"("5.00")")));
+                ResultWith(ScalarFromJSON(out_ty, R"("5.00")")));
     EXPECT_THAT(Product(null), ResultWith(null));
   }
 }
 
 TEST(TestDecimalProductKernel, ScalarAggregateOptions) {
-  for (const auto& ty : {decimal128(3, 2), decimal256(3, 2)}) {
-    Datum null = ScalarFromJSON(ty, R"(null)");
-    Datum one = ScalarFromJSON(ty, R"("1.00")");
-    Datum result = ScalarFromJSON(ty, R"("63.00")");
+  std::vector<std::shared_ptr<DataType>> init_types = {decimal128(3, 2),
+                                                       decimal256(3, 2)};
+  std::vector<std::shared_ptr<DataType>> out_types = {decimal128(3, 2), decimal256(3, 2)};
+
+  for (size_t i = 0; i < init_types.size(); ++i) {
+    auto& ty = init_types[i];
+    auto& out_ty = out_types[i];
+
+    Datum null = ScalarFromJSON(out_ty, R"(null)");
+    Datum one = ScalarFromJSON(out_ty, R"("1.00")");
+    Datum result = ScalarFromJSON(out_ty, R"("63.00")");
 
     Datum empty = ArrayFromJSON(ty, R"([])");
     Datum null_arr = ArrayFromJSON(ty, R"([null])");
@@ -806,7 +837,7 @@ TEST(TestDecimalProductKernel, ScalarAggregateOptions) {
 
     EXPECT_THAT(Product(ScalarFromJSON(ty, R"("5.00")"),
                         ScalarAggregateOptions(/*skip_nulls=*/false)),
-                ResultWith(ScalarFromJSON(ty, R"("5.00")")));
+                ResultWith(ScalarFromJSON(out_ty, R"("5.00")")));
     EXPECT_THAT(Product(ScalarFromJSON(ty, R"("5.00")"),
                         ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/2)),
                 ResultWith(null));
@@ -1336,94 +1367,116 @@ TYPED_TEST(TestRandomNumericMeanKernel, RandomArrayMeanOverflow) {
 
 TEST(TestDecimalMeanKernel, SimpleMean) {
   ScalarAggregateOptions options(/*skip_nulls=*/true, /*min_count=*/0);
+  std::vector<std::shared_ptr<DataType>> init_types = {decimal128(3, 2),
+                                                       decimal256(3, 2)};
+  std::vector<std::shared_ptr<DataType>> out_types = {decimal128(3, 2), decimal256(3, 2)};
 
-  for (const auto& ty : {decimal128(3, 2), decimal256(3, 2)}) {
+  for (size_t i = 0; i < init_types.size(); ++i) {
+    auto& ty = init_types[i];
+    auto& out_ty = out_types[i];
+
     // Decimal doesn't have NaN
     EXPECT_THAT(Mean(ArrayFromJSON(ty, R"([])"), options),
-                ResultWith(ScalarFromJSON(ty, R"(null)")));
+                ResultWith(ScalarFromJSON(out_ty, R"(null)")));
     EXPECT_THAT(Mean(ArrayFromJSON(ty, R"([null])"), options),
-                ResultWith(ScalarFromJSON(ty, R"(null)")));
+                ResultWith(ScalarFromJSON(out_ty, R"(null)")));
 
     EXPECT_THAT(Mean(ArrayFromJSON(ty, R"([])")),
-                ResultWith(ScalarFromJSON(ty, R"(null)")));
+                ResultWith(ScalarFromJSON(out_ty, R"(null)")));
     EXPECT_THAT(Mean(ArrayFromJSON(ty, R"([null])")),
-                ResultWith(ScalarFromJSON(ty, R"(null)")));
+                ResultWith(ScalarFromJSON(out_ty, R"(null)")));
 
     EXPECT_THAT(Mean(ArrayFromJSON(ty, R"(["1.01", null, "1.01"])")),
-                ResultWith(ScalarFromJSON(ty, R"("1.01")")));
+                ResultWith(ScalarFromJSON(out_ty, R"("1.01")")));
 
     // Check rounding
     EXPECT_THAT(
         Mean(ArrayFromJSON(
             ty, R"(["1.01", "2.02", "3.03", "4.04", "5.05", "6.06", "7.07", "8.08"])")),
         // 4.545 unrounded
-        ResultWith(ScalarFromJSON(ty, R"("4.55")")));
+        ResultWith(ScalarFromJSON(out_ty, R"("4.55")")));
     EXPECT_THAT(
         Mean(ArrayFromJSON(
             ty,
             R"(["-1.01", "-2.02", "-3.03", "-4.04", "-5.05", "-6.06", "-7.07", "-8.08"])")),
         // -4.545 unrounded
-        ResultWith(ScalarFromJSON(ty, R"("-4.55")")));
+        ResultWith(ScalarFromJSON(out_ty, R"("-4.55")")));
     EXPECT_THAT(
         Mean(ArrayFromJSON(
             ty, R"(["1.01", "2.02", "3.00", "4.04", "5.05", "6.06", "7.07", "8.08"])")),
         // 4.54125 unrounded
-        ResultWith(ScalarFromJSON(ty, R"("4.54")")));
+        ResultWith(ScalarFromJSON(out_ty, R"("4.54")")));
     EXPECT_THAT(
         Mean(ArrayFromJSON(
             ty,
             R"(["-1.01", "-2.02", "-3.00", "-4.04", "-5.05", "-6.06", "-7.07", "-8.08"])")),
         // -4.54125 unrounded
-        ResultWith(ScalarFromJSON(ty, R"("-4.54")")));
+        ResultWith(ScalarFromJSON(out_ty, R"("-4.54")")));
 
     EXPECT_THAT(
         Mean(ArrayFromJSON(
             ty, R"(["0.00", "0.00", "0.00", "0.00", "0.00", "0.00", "0.00", "0.00"])")),
-        ResultWith(ScalarFromJSON(ty, R"("0.00")")));
+        ResultWith(ScalarFromJSON(out_ty, R"("0.00")")));
     EXPECT_THAT(
         Mean(ArrayFromJSON(
             ty, R"(["1.01", "1.01", "1.01", "1.01", "1.01", "1.01", "1.01", "1.01"])")),
-        ResultWith(ScalarFromJSON(ty, R"("1.01")")));
+        ResultWith(ScalarFromJSON(out_ty, R"("1.01")")));
 
     EXPECT_THAT(Mean(ScalarFromJSON(ty, R"("5.05")")),
-                ResultWith(ScalarFromJSON(ty, R"("5.05")")));
+                ResultWith(ScalarFromJSON(out_ty, R"("5.05")")));
     EXPECT_THAT(Mean(ScalarFromJSON(ty, R"(null)")),
-                ResultWith(ScalarFromJSON(ty, R"(null)")));
+                ResultWith(ScalarFromJSON(out_ty, R"(null)")));
   }
 
-  for (const auto& ty : {decimal128(3, -2), decimal256(3, -2)}) {
+  init_types = {decimal128(3, -2), decimal256(3, -2)};
+  out_types = {decimal128(3, -2), decimal256(3, -2)};
+
+  for (size_t i = 0; i < init_types.size(); ++i) {
+    auto& ty = init_types[i];
+    auto& out_ty = out_types[i];
+
     // Check rounding
+    //
+    // N.B. In what follows, the additional Cast is due to the implementation of
+    // DecimalScalarFromJSON, which will try to construct a decimal with too big precision
     EXPECT_THAT(
         Mean(DecimalArrayFromJSON(
             ty,
             R"(["101E2", "202E2", "303E2", "404E2", "505E2", "606E2", "707E2", "808E2"])")),
         // 45450 unrounded
-        ResultWith(DecimalScalarFromJSON(ty, R"("455E2")")));
+        ResultWith(Cast(DecimalScalarFromJSON(ty, R"("455E2")"), out_ty)));
     EXPECT_THAT(
         Mean(DecimalArrayFromJSON(
             ty,
             R"(["-101E2", "-202E2", "-303E2", "-404E2", "-505E2", "-606E2", "-707E2", "-808E2"])")),
         // -45450 unrounded
-        ResultWith(DecimalScalarFromJSON(ty, R"("-455E2")")));
+        ResultWith(Cast(DecimalScalarFromJSON(ty, R"("-455E2")"), out_ty)));
     EXPECT_THAT(
         Mean(DecimalArrayFromJSON(
             ty,
             R"(["101E2", "202E2", "300E2", "404E2", "505E2", "606E2", "707E2", "808E2"])")),
         // 45412.5 unrounded
-        ResultWith(DecimalScalarFromJSON(ty, R"("454E2")")));
+        ResultWith(Cast(DecimalScalarFromJSON(ty, R"("454E2")"), out_ty)));
     EXPECT_THAT(
         Mean(DecimalArrayFromJSON(
             ty,
             R"(["-101E2", "-202E2", "-300E2", "-404E2", "-505E2", "-606E2", "-707E2", "-808E2"])")),
         // -45412.5 unrounded
-        ResultWith(DecimalScalarFromJSON(ty, R"("-454E2")")));
+        ResultWith(Cast(DecimalScalarFromJSON(ty, R"("-454E2")"), out_ty)));
   }
 }
 
 TEST(TestDecimalMeanKernel, ScalarAggregateOptions) {
-  for (const auto& ty : {decimal128(3, 2), decimal256(3, 2)}) {
-    Datum result = ScalarFromJSON(ty, R"("3.03")");
-    Datum null = ScalarFromJSON(ty, R"(null)");
+  std::vector<std::shared_ptr<DataType>> init_types = {decimal128(3, 2),
+                                                       decimal256(3, 2)};
+  std::vector<std::shared_ptr<DataType>> out_types = {decimal128(3, 2), decimal256(3, 2)};
+
+  for (size_t i = 0; i < init_types.size(); ++i) {
+    auto& ty = init_types[i];
+    auto& out_ty = out_types[i];
+
+    Datum result = ScalarFromJSON(out_ty, R"("3.03")");
+    Datum null = ScalarFromJSON(out_ty, R"(null)");
     Datum arr = ArrayFromJSON(ty, R"(["1.01", null, "2.02", "2.02", null, "7.07"])");
 
     EXPECT_THAT(Mean(ArrayFromJSON(ty, "[]"),
@@ -1481,8 +1534,8 @@ TEST(TestDecimalMeanKernel, ScalarAggregateOptions) {
 
     EXPECT_THAT(Mean(ScalarFromJSON(ty, R"("5.05")"),
                      ScalarAggregateOptions(/*skip_nulls=*/false)),
-                ResultWith(ScalarFromJSON(ty, R"("5.05")")));
-    EXPECT_THAT(Mean(ScalarFromJSON(ty, R"("5.05")"),
+                ResultWith(ScalarFromJSON(out_ty, R"("5.05")")));
+    EXPECT_THAT(Mean(ScalarFromJSON(out_ty, R"("5.05")"),
                      ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/2)),
                 ResultWith(null));
     EXPECT_THAT(Mean(null, ScalarAggregateOptions(/*skip_nulls=*/false)),
@@ -3693,6 +3746,11 @@ TEST_F(TestSkewKurtosis, Options) {
     AssertSkewKurtosisInvalid(type, {"[]", "[]", "[]"}, options);
     AssertSkewKurtosisAre(type, "[0, 1, null, 2]", options, 0.0, -1.5);
     AssertSkewKurtosisAre(type, {"[0, 1]", "[]", "[null, 2]"}, options, 0.0, -1.5);
+    options.biased = false;
+    AssertSkewKurtosisInvalid(type, "[0, 1]", options);
+    AssertSkewKurtosisAre(type, {"[1, 2, 3]", "[40]", "[null]"}, options,
+                          1.9889477403978211, 3.9631931024230695);
+    options.biased = true;
     options.min_count = 3;
     AssertSkewKurtosisAre(type, "[0, 1, null, 2]", options, 0.0, -1.5);
     AssertSkewKurtosisAre(type, {"[0, 1]", "[]", "[null, 2]"}, options, 0.0, -1.5);
@@ -4258,7 +4316,8 @@ TEST(TestQuantileKernel, Decimal) {
     ValidateOutput(*out_array);
     AssertArraysEqual(*expected, *out_array, /*verbose=*/true);
   };
-  for (const auto& ty : {decimal128(3, 2), decimal256(3, 2)}) {
+  for (const auto& ty :
+       {decimal32(3, 2), decimal64(3, 2), decimal128(3, 2), decimal256(3, 2)}) {
     check(ArrayFromJSON(ty, R"(["1.00", "5.00", null])"),
           QuantileOptions(0.5, QuantileOptions::LINEAR),
           ArrayFromJSON(float64(), R"([3.00])"));
@@ -4498,10 +4557,9 @@ TEST_F(TestPivotKernel, Basics) {
               PivotWiderOptions(/*key_names=*/{"height", "width"}));
 }
 
-TEST_F(TestPivotKernel, AllKeyTypes) {
+TEST_F(TestPivotKernel, BinaryKeyTypes) {
+  auto value_type = float32();
   for (auto key_type : BaseBinaryTypes()) {
-    auto value_type = float32();
-
     auto keys = ArrayFromJSON(key_type, R"(["width", "height"])");
     auto values = ArrayFromJSON(value_type, "[10.5, 11.5]");
     auto expected =
@@ -4509,6 +4567,25 @@ TEST_F(TestPivotKernel, AllKeyTypes) {
                        "[11.5, 10.5]");
     AssertPivot(keys, values, *expected,
                 PivotWiderOptions(/*key_names=*/{"height", "width"}));
+  }
+  auto key_type = fixed_size_binary(3);
+  auto keys = ArrayFromJSON(key_type, R"(["wid", "hei"])");
+  auto values = ArrayFromJSON(value_type, "[10.5, 11.5]");
+  auto expected = ScalarFromJSON(
+      struct_({field("hei", value_type), field("wid", value_type)}), "[11.5, 10.5]");
+  AssertPivot(keys, values, *expected, PivotWiderOptions(/*key_names=*/{"hei", "wid"}));
+}
+
+TEST_F(TestPivotKernel, IntegerKeyTypes) {
+  // It is possible to use an integer key column, while passing its string equivalent
+  // in PivotWiderOptions::key_names.
+  auto value_type = float32();
+  for (auto key_type : IntTypes()) {
+    auto keys = ArrayFromJSON(key_type, "[34, 12]");
+    auto values = ArrayFromJSON(value_type, "[10.5, 11.5]");
+    auto expected = ScalarFromJSON(
+        struct_({field("12", value_type), field("34", value_type)}), "[11.5, 10.5]");
+    AssertPivot(keys, values, *expected, PivotWiderOptions(/*key_names=*/{"12", "34"}));
   }
 }
 
@@ -4715,6 +4792,24 @@ TEST_F(TestPivotKernel, DuplicateKeyNames) {
   auto options = PivotWiderOptions(/*key_names=*/{"height", "height", "width"});
   EXPECT_RAISES_WITH_MESSAGE_THAT(
       KeyError, ::testing::HasSubstr("Duplicate key name 'height' in PivotWiderOptions"),
+      CallFunction("pivot_wider", {keys, values}, &options));
+}
+
+TEST_F(TestPivotKernel, InvalidKeyName) {
+  auto key_type = int32();
+  auto value_type = float32();
+
+  auto keys = ArrayFromJSON(key_type, "[]");
+  auto values = ArrayFromJSON(value_type, "[]");
+  auto options = PivotWiderOptions(/*key_names=*/{"123", "width"});
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid,
+      ::testing::HasSubstr("Failed to parse string: 'width' as a scalar of type int32"),
+      CallFunction("pivot_wider", {keys, values}, &options));
+  options.key_names = {"12.3", "45"};
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid,
+      ::testing::HasSubstr("Failed to parse string: '12.3' as a scalar of type int32"),
       CallFunction("pivot_wider", {keys, values}, &options));
 }
 

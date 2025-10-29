@@ -26,7 +26,7 @@
 #include "arrow/memory_pool.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/simd.h"
 
 namespace arrow {
@@ -144,7 +144,11 @@ class ValueDescWriter {
 
  protected:
   ValueDescWriter(MemoryPool* pool, int64_t values_capacity)
-      : values_size_(0), values_capacity_(values_capacity), status_(Status::OK()) {
+      : values_size_(0),
+        values_capacity_(values_capacity),
+        quoted_(false),
+        saved_values_size_(0),
+        status_(Status::OK()) {
     status_ &= AllocateResizableBuffer(values_capacity_ * sizeof(*values_), pool)
                    .Value(&values_buffer_);
     if (status_.ok()) {

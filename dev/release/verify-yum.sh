@@ -21,14 +21,10 @@ set -exu
 
 if [ $# -lt 2 ]; then
   echo "Usage: $0 VERSION rc"
-  echo "       $0 VERSION staging-rc"
   echo "       $0 VERSION release"
-  echo "       $0 VERSION staging-release"
   echo "       $0 VERSION local"
   echo " e.g.: $0 0.13.0 rc                # Verify 0.13.0 RC"
-  echo " e.g.: $0 0.13.0 staging-rc        # Verify 0.13.0 RC on staging"
   echo " e.g.: $0 0.13.0 release           # Verify 0.13.0"
-  echo " e.g.: $0 0.13.0 staging-release   # Verify 0.13.0 on staging"
   echo " e.g.: $0 0.13.0-dev20210203 local # Verify 0.13.0-dev20210203 on local"
   exit 1
 fi
@@ -40,7 +36,7 @@ SOURCE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TOP_SOURCE_DIR="${SOURCE_DIR}/../.."
 local_prefix="${TOP_SOURCE_DIR}/dev/tasks/linux-packages"
 
-artifactory_base_url="https://apache.jfrog.io/artifactory/arrow"
+artifactory_base_url="https://packages.apache.org/artifactory/arrow"
 
 distribution=$(. /etc/os-release && echo "${ID}")
 distribution_version=$(. /etc/os-release && echo "${VERSION_ID}" | grep -o "^[0-9]*")
@@ -91,7 +87,14 @@ case "${distribution}-${distribution_version}" in
   amzn-*)
     distribution_prefix="amazon-linux"
     enablerepo_epel=""
-    install_command="dnf install -y"
+    # gcc-c++ installs kernel6.12-headers as a dependency
+    # automatically. But it conflicts with kernel-headers that is
+    # grpc-devel dependency. If we use "--allowerasing" when we
+    # install grpc-devel (via arrow-flight-devel), kernel6.12-headers
+    # is replaced with kernel-headers automatically. gcc-c++ works
+    # with kernel-headers too. So using kernel-headers is not a
+    # problem.
+    install_command="dnf install -y --allowerasing"
     info_command="dnf info"
     ;;
   centos-7)
@@ -109,14 +112,6 @@ case "${distribution}-${distribution_version}" in
     uninstall_command="yum remove -y"
     clean_command="yum clean"
     info_command="yum info"
-    fix_eol_repositories
-    ;;
-  centos-8)
-    distribution_prefix="centos"
-    repository_version+="-stream"
-    ruby_devel_packages+=(redhat-rpm-config)
-    install_command="dnf install -y --enablerepo=powertools"
-    info_command="dnf info --enablerepo=powertools"
     fix_eol_repositories
     ;;
   centos-*)
@@ -161,12 +156,10 @@ if [ "${TYPE}" = "local" ]; then
   ${install_command} "${release_path}"
 else
   package_version="${VERSION}"
-  case "${TYPE}" in
-    rc|staging-rc|staging-release)
-      suffix=${TYPE%-release}
-      distribution_prefix+="-${suffix}"
-      ;;
-  esac
+  if [ "${TYPE}" = "rc" ]; then
+    suffix=${TYPE%-release}
+    distribution_prefix+="-${suffix}"
+  fi
   ${install_command} \
     ${artifactory_base_url}/${distribution_prefix}/${repository_version}/apache-arrow-release-latest.rpm
 fi
@@ -174,30 +167,29 @@ fi
 if [ "${TYPE}" = "local" ]; then
   sed \
     -i"" \
-    -e "s,baseurl=https://apache\.jfrog\.io/artifactory/arrow/,baseurl=file://${local_prefix}/yum/repositories/,g" \
+    -e "s,baseurl=https://packages\.apache\.org/artifactory/arrow/,baseurl=file://${local_prefix}/yum/repositories/,g" \
     /etc/yum.repos.d/Apache-Arrow.repo
   keys="${local_prefix}/KEYS"
   if [ -f "${keys}" ]; then
     cp "${keys}" /etc/pki/rpm-gpg/RPM-GPG-KEY-Apache-Arrow
   fi
 else
-  case "${TYPE}" in
-    rc|staging-rc|staging-release)
-      suffix=${TYPE%-release}
-      sed \
-        -i"" \
-        -e "s,/almalinux/,/almalinux-${suffix}/,g" \
-        -e "s,/centos/,/centos-${suffix}/,g" \
-        -e "s,/amazon-linux/,/amazon-linux-${suffix}/,g" \
-        /etc/yum.repos.d/Apache-Arrow.repo
-      ;;
-  esac
+  if [ "${TYPE}" = "rc" ]; then
+    suffix=${TYPE%-release}
+    sed \
+      -i"" \
+      -e "s,/almalinux/,/almalinux-${suffix}/,g" \
+      -e "s,/centos/,/centos-${suffix}/,g" \
+      -e "s,/amazon-linux/,/amazon-linux-${suffix}/,g" \
+      /etc/yum.repos.d/Apache-Arrow.repo
+  fi
 fi
 
 echo "::endgroup::"
 
 
 echo "::group::Test Apache Arrow C++"
+mkdir -p build
 ${install_command} ${enablerepo_epel} arrow-devel-${package_version}
 if [ -n "${devtoolset}" ]; then
   ${install_command} ${scl_package}
@@ -222,15 +214,25 @@ else
     gcc-c++ \
     make
 fi
-mkdir -p build
-cp -a "${TOP_SOURCE_DIR}/cpp/examples/minimal_build" build/
-pushd build/minimal_build
-${cmake_command} .
-make -j$(nproc)
-./arrow-example
-c++ -o arrow-example example.cc $(pkg-config --cflags --libs arrow) -std=c++17
-./arrow-example
-popd
+# cmake version 3.31.6 -> 3.31.6
+cmake_version=$(${cmake_command} --version | head -n1 | sed -e 's/^cmake version //')
+# 3.31.6 -> 3.31
+cmake_version_major_minor=${cmake_version%.*}
+# 3.31 -> 3
+cmake_version_major=${cmake_version_major_minor%.*}
+# 3.31 -> 31
+cmake_version_minor=${cmake_version_major_minor#*.}
+if [ "${cmake_version_major}" -gt "3" ] || \
+   [ "${cmake_version_major}" -eq "3" -a "${cmake_version_minor}" -ge "25" ]; then
+  cp -a "${TOP_SOURCE_DIR}/cpp/examples/minimal_build" build/
+  pushd build/minimal_build
+  ${cmake_command} .
+  make -j$(nproc)
+  ./arrow-example
+  c++ -o arrow-example example.cc $(pkg-config --cflags --libs arrow) -std=c++17
+  ./arrow-example
+  popd
+fi
 echo "::endgroup::"
 
 if [ "${have_glib}" = "yes" ]; then
@@ -306,15 +308,16 @@ fi
 echo "::group::Test coexistence with old library"
 ${uninstall_command} apache-arrow-release
 if ${install_command} \
-     https://apache.jfrog.io/artifactory/arrow/${distribution_prefix}/${repository_version}/apache-arrow-release-latest.rpm; then
+     ${artifactory_base_url}/${distribution_prefix}/${repository_version}/apache-arrow-release-latest.rpm; then
   ${clean_command} all
   if [ "${have_arrow_libs}" = "yes" ]; then
     ${install_command} ${enablerepo_epel} arrow-libs
   else
     major_version=$(echo ${VERSION} | grep -E -o '^[0-9]+')
     previous_major_version="$((${major_version} - 1))"
-    if ${info_command} ${enablerepo_epel} arrow${previous_major_version}-libs; then
-      ${install_command} ${enablerepo_epel} arrow${previous_major_version}-libs
+    previous_so_version="${previous_major_version}00"
+    if ${info_command} ${enablerepo_epel} arrow${previous_so_version}-libs; then
+      ${install_command} ${enablerepo_epel} arrow${previous_so_version}-libs
     fi
   fi
 fi

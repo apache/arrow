@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <algorithm>
 #include <numeric>
 
 #include <gtest/gtest.h>
@@ -30,11 +31,15 @@
 #include "arrow/testing/matchers.h"
 #include "arrow/testing/random.h"
 #include "arrow/type_fwd.h"
+#include "arrow/type_traits.h"
+#include "arrow/util/bitmap_ops.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/key_value_metadata.h"
 #include "arrow/util/string.h"
 
 namespace arrow::compute {
 
+using ::arrow::internal::checked_cast;
 using ::arrow::internal::checked_pointer_cast;
 using ::arrow::internal::ToChars;
 using ::testing::Eq;
@@ -605,15 +610,52 @@ struct TestGrouper {
     }
   }
 
+  void ExpectLookup(const std::string& key_json, const std::string& expected) {
+    auto expected_arr = ArrayFromJSON(uint32(), expected);
+    if (shapes_.size() > 0) {
+      ExpectLookup(ExecBatchFromJSON(types_, shapes_, key_json), expected_arr);
+    } else {
+      ExpectLookup(ExecBatchFromJSON(types_, key_json), expected_arr);
+    }
+  }
+
+  void ExpectPopulate(const std::string& key_json) {
+    if (shapes_.size() > 0) {
+      ExpectPopulate(ExecBatchFromJSON(types_, shapes_, key_json));
+    } else {
+      ExpectPopulate(ExecBatchFromJSON(types_, key_json));
+    }
+  }
+
   void ExpectConsume(const std::vector<Datum>& key_values, Datum expected) {
     ASSERT_OK_AND_ASSIGN(auto key_batch, ExecBatch::Make(key_values));
     ExpectConsume(key_batch, expected);
+  }
+
+  void ExpectLookup(const std::vector<Datum>& key_values, Datum expected) {
+    ASSERT_OK_AND_ASSIGN(auto key_batch, ExecBatch::Make(key_values));
+    ExpectLookup(key_batch, expected);
+  }
+
+  void ExpectPopulate(const std::vector<Datum>& key_values) {
+    ASSERT_OK_AND_ASSIGN(auto key_batch, ExecBatch::Make(key_values));
+    ExpectPopulate(key_batch);
   }
 
   void ExpectConsume(const ExecBatch& key_batch, Datum expected) {
     Datum ids;
     ConsumeAndValidate(key_batch, &ids);
     AssertEquivalentIds(expected, ids);
+  }
+
+  void ExpectLookup(const ExecBatch& key_batch, Datum expected) {
+    Datum ids;
+    LookupAndValidate(key_batch, &ids);
+    AssertEquivalentIds(expected, ids);
+  }
+
+  void ExpectPopulate(const ExecBatch& key_batch) {
+    ASSERT_OK(grouper_->Populate(ExecSpan(key_batch)));
   }
 
   void ExpectUniques(const ExecBatch& uniques) {
@@ -633,27 +675,28 @@ struct TestGrouper {
     auto right = actual.make_array();
     ASSERT_EQ(left->length(), right->length()) << "#ids unequal";
     int64_t num_ids = left->length();
-    auto left_data = left->data();
-    auto right_data = right->data();
-    auto left_ids = reinterpret_cast<const uint32_t*>(left_data->buffers[1]->data());
-    auto right_ids = reinterpret_cast<const uint32_t*>(right_data->buffers[1]->data());
+    const auto& left_ids = checked_cast<const UInt32Array&>(*left);
+    const auto& right_ids = checked_cast<const UInt32Array&>(*right);
     uint32_t max_left_id = 0;
     uint32_t max_right_id = 0;
     for (int64_t i = 0; i < num_ids; ++i) {
-      if (left_ids[i] > max_left_id) {
-        max_left_id = left_ids[i];
+      ASSERT_EQ(left_ids.IsNull(i), right_ids.IsNull(i)) << " at index " << i;
+      if (left_ids.IsNull(i)) {
+        continue;
       }
-      if (right_ids[i] > max_right_id) {
-        max_right_id = right_ids[i];
-      }
+      max_left_id = std::max(max_left_id, left_ids.Value(i));
+      max_right_id = std::max(max_right_id, right_ids.Value(i));
     }
     std::vector<bool> right_to_left_present(max_right_id + 1, false);
     std::vector<bool> left_to_right_present(max_left_id + 1, false);
     std::vector<uint32_t> right_to_left(max_right_id + 1);
     std::vector<uint32_t> left_to_right(max_left_id + 1);
     for (int64_t i = 0; i < num_ids; ++i) {
-      uint32_t left_id = left_ids[i];
-      uint32_t right_id = right_ids[i];
+      if (left_ids.IsNull(i)) {
+        continue;
+      }
+      uint32_t left_id = left_ids.Value(i);
+      uint32_t right_id = right_ids.Value(i);
       if (!left_to_right_present[left_id]) {
         left_to_right[left_id] = right_id;
         left_to_right_present[left_id] = true;
@@ -662,22 +705,33 @@ struct TestGrouper {
         right_to_left[right_id] = left_id;
         right_to_left_present[right_id] = true;
       }
-      ASSERT_EQ(left_id, right_to_left[right_id]);
-      ASSERT_EQ(right_id, left_to_right[left_id]);
+      ASSERT_EQ(left_id, right_to_left[right_id]) << " at index " << i;
+      ASSERT_EQ(right_id, left_to_right[left_id]) << " at index " << i;
     }
   }
 
   void ConsumeAndValidate(const ExecBatch& key_batch, Datum* ids = nullptr) {
     ASSERT_OK_AND_ASSIGN(Datum id_batch, grouper_->Consume(ExecSpan(key_batch)));
 
-    ValidateConsume(key_batch, id_batch);
+    ValidateConsume(key_batch, id_batch, /*can_be_null=*/false);
 
     if (ids) {
       *ids = std::move(id_batch);
     }
   }
 
-  void ValidateConsume(const ExecBatch& key_batch, const Datum& id_batch) {
+  void LookupAndValidate(const ExecBatch& key_batch, Datum* ids = nullptr) {
+    ASSERT_OK_AND_ASSIGN(Datum id_batch, grouper_->Lookup(ExecSpan(key_batch)));
+
+    ValidateConsume(key_batch, id_batch, /*can_be_null=*/true);
+
+    if (ids) {
+      *ids = std::move(id_batch);
+    }
+  }
+
+  void ValidateConsume(const ExecBatch& key_batch, const Datum& id_batch,
+                       bool can_be_null) {
     if (uniques_.length == -1) {
       ASSERT_OK_AND_ASSIGN(uniques_, grouper_->GetUniques());
     } else if (static_cast<int64_t>(grouper_->num_groups()) > uniques_.length) {
@@ -695,9 +749,10 @@ struct TestGrouper {
       uniques_ = std::move(new_uniques);
     }
 
-    // check that the ids encode an equivalent key sequence
-    auto ids = id_batch.make_array();
-    ValidateOutput(*ids);
+    // Check that the group ids encode an equivalent key sequence:
+    // calling Take(uniques, group_ids) should yield the original data.
+    auto group_ids = id_batch.make_array();
+    ValidateOutput(*group_ids);
 
     for (int i = 0; i < key_batch.num_values(); ++i) {
       SCOPED_TRACE(ToChars(i) + "th key array");
@@ -705,8 +760,38 @@ struct TestGrouper {
           key_batch[i].is_array()
               ? key_batch[i].make_array()
               : *MakeArrayFromScalar(*key_batch[i].scalar(), key_batch.length);
-      ASSERT_OK_AND_ASSIGN(auto encoded, Take(*uniques_[i].make_array(), *ids));
-      AssertArraysEqual(*original, *encoded, /*verbose=*/true,
+      ASSERT_OK_AND_ASSIGN(auto encoded, Take(*uniques_[i].make_array(), *group_ids));
+      std::shared_ptr<Array> expected = original;
+      if (can_be_null && original->type_id() != Type::NA) {
+        // To compute the expected output, mask out the original entries that
+        // have a null group id.
+        auto expected_data = original->data()->Copy();
+        auto original_null_bitmap = original->null_bitmap();
+        auto group_ids_null_bitmap = group_ids->null_bitmap();
+
+        // This could be simplified with `OptionalBitmapAnd` (GH-45819).
+        std::shared_ptr<Buffer> null_bitmap;
+        if (original_null_bitmap && group_ids_null_bitmap) {
+          ASSERT_OK_AND_ASSIGN(null_bitmap,
+                               ::arrow::internal::BitmapAnd(
+                                   default_memory_pool(), group_ids_null_bitmap->data(),
+                                   group_ids->offset(), original_null_bitmap->data(),
+                                   original->offset(), original->length(),
+                                   /*out_offset=*/original->offset()));
+        } else if (group_ids_null_bitmap) {
+          ASSERT_OK_AND_ASSIGN(null_bitmap,
+                               ::arrow::internal::CopyBitmap(
+                                   default_memory_pool(), group_ids_null_bitmap->data(),
+                                   group_ids->offset(), group_ids->length(),
+                                   /*out_offset=*/original->offset()));
+        } else {
+          null_bitmap = original_null_bitmap;
+        }
+        expected_data->buffers[0] = null_bitmap;
+        expected_data->null_count = kUnknownNullCount;
+        expected = MakeArray(expected_data);
+      }
+      AssertArraysEqual(*expected, *encoded, /*verbose=*/true,
                         EqualOptions().nans_equal(true));
     }
   }
@@ -719,16 +804,27 @@ struct TestGrouper {
 };
 
 TEST(Grouper, BooleanKey) {
-  TestGrouper g({boolean()});
-
-  g.ExpectConsume("[[true], [true]]", "[0, 0]");
-
-  g.ExpectConsume("[[true], [true]]", "[0, 0]");
-
-  g.ExpectConsume("[[false], [null]]", "[1, 2]");
-
-  g.ExpectConsume("[[true], [false], [true], [false], [null], [false], [null]]",
-                  "[0, 1, 0, 1, 2, 1, 2]");
+  {
+    TestGrouper g({boolean()});
+    g.ExpectConsume("[[true], [true]]", "[0, 0]");
+    g.ExpectConsume("[[true], [true]]", "[0, 0]");
+    g.ExpectConsume("[[false], [null]]", "[1, 2]");
+    g.ExpectConsume("[[true], [false], [true], [false], [null], [false], [null]]",
+                    "[0, 1, 0, 1, 2, 1, 2]");
+  }
+  {
+    TestGrouper g({boolean()});
+    g.ExpectPopulate("[[true], [true]]");
+    g.ExpectPopulate("[[true], [true]]");
+    g.ExpectConsume("[[false], [null]]", "[1, 2]");
+    g.ExpectConsume("[[true], [false], [true], [false], [null], [false], [null]]",
+                    "[0, 1, 0, 1, 2, 1, 2]");
+  }
+  {
+    TestGrouper g({boolean()});
+    g.ExpectPopulate("[[true], [null]]");
+    g.ExpectLookup("[[null], [false], [true], [null]]", "[1, null, 0, 1]");
+  }
 }
 
 TEST(Grouper, NumericKey) {
@@ -747,20 +843,41 @@ TEST(Grouper, NumericKey) {
        }) {
     SCOPED_TRACE("key type: " + ty->ToString());
 
-    TestGrouper g({ty});
+    {
+      TestGrouper g({ty});
+      g.ExpectConsume("[[3], [3]]", "[0, 0]");
+      g.ExpectUniques("[[3]]");
 
-    g.ExpectConsume("[[3], [3]]", "[0, 0]");
-    g.ExpectUniques("[[3]]");
+      g.ExpectConsume("[[3], [3]]", "[0, 0]");
+      g.ExpectUniques("[[3]]");
 
-    g.ExpectConsume("[[3], [3]]", "[0, 0]");
-    g.ExpectUniques("[[3]]");
+      g.ExpectConsume("[[27], [81], [81]]", "[1, 2, 2]");
+      g.ExpectUniques("[[3], [27], [81]]");
 
-    g.ExpectConsume("[[27], [81], [81]]", "[1, 2, 2]");
-    g.ExpectUniques("[[3], [27], [81]]");
+      g.ExpectConsume("[[3], [27], [3], [27], [null], [81], [27], [81]]",
+                      "[0, 1, 0, 1, 3, 2, 1, 2]");
+      g.ExpectUniques("[[3], [27], [81], [null]]");
+    }
+    {
+      TestGrouper g({ty});
+      g.ExpectPopulate("[[3], [3]]");
+      g.ExpectPopulate("[[3], [3]]");
+      g.ExpectUniques("[[3]]");
 
-    g.ExpectConsume("[[3], [27], [3], [27], [null], [81], [27], [81]]",
-                    "[0, 1, 0, 1, 3, 2, 1, 2]");
-    g.ExpectUniques("[[3], [27], [81], [null]]");
+      g.ExpectPopulate("[[27], [81], [81]]");
+      g.ExpectUniques("[[3], [27], [81]]");
+
+      g.ExpectConsume("[[3], [27], [3], [27], [null], [81], [27], [81]]",
+                      "[0, 1, 0, 1, 3, 2, 1, 2]");
+      g.ExpectUniques("[[3], [27], [81], [null]]");
+    }
+    {
+      TestGrouper g({ty});
+      g.ExpectPopulate("[[3], [3]]");
+      g.ExpectPopulate("[[27], [81], [81]]");
+      g.ExpectLookup("[[3], [27], [6], [27], [null], [81], [27], [6]]",
+                     "[0, 1, null, 1, null, 2, 1, null]");
+    }
   }
 }
 
@@ -780,21 +897,23 @@ TEST(Grouper, FloatingPointKey) {
 
 TEST(Grouper, StringKey) {
   for (auto ty : {utf8(), large_utf8(), fixed_size_binary(2)}) {
-    SCOPED_TRACE("key type: " + ty->ToString());
-
-    TestGrouper g({ty});
-
-    g.ExpectConsume(R"([["eh"], ["eh"]])", "[0, 0]");
-
-    g.ExpectConsume(R"([["eh"], ["eh"]])", "[0, 0]");
-
-    g.ExpectConsume(R"([["be"], [null]])", "[1, 2]");
+    ARROW_SCOPED_TRACE("key type = ", *ty);
+    {
+      TestGrouper g({ty});
+      g.ExpectConsume(R"([["eh"], ["eh"]])", "[0, 0]");
+      g.ExpectConsume(R"([["eh"], ["eh"]])", "[0, 0]");
+      g.ExpectConsume(R"([["be"], [null]])", "[1, 2]");
+    }
+    {
+      TestGrouper g({ty});
+      g.ExpectPopulate(R"([["eh"], ["eh"]])");
+      g.ExpectPopulate(R"([["be"], [null]])");
+      g.ExpectLookup(R"([["be"], [null], ["da"]])", "[1, 2, null]");
+    }
   }
 }
 
 TEST(Grouper, DictKey) {
-  TestGrouper g({dictionary(int32(), utf8())});
-
   // For dictionary keys, all batches must share a single dictionary.
   // Eventually, differing dictionaries will be unified and indices transposed
   // during encoding to relieve this restriction.
@@ -804,25 +923,47 @@ TEST(Grouper, DictKey) {
     return Datum(*DictionaryArray::FromArrays(ArrayFromJSON(int32(), indices), dict));
   };
 
-  // NB: null index is not considered equivalent to index=3 (which encodes null in dict)
-  g.ExpectConsume({WithIndices("           [3, 1, null, 0, 2]")},
-                  ArrayFromJSON(uint32(), "[0, 1, 2, 3, 4]"));
+  {
+    TestGrouper g({dictionary(int32(), utf8())});
+    // NB: null index is not considered equivalent to index=3 (which encodes null in dict)
+    g.ExpectConsume({WithIndices("           [3, 1, null, 0, 2]")},
+                    ArrayFromJSON(uint32(), "[0, 1, 2, 3, 4]"));
+  }
+  {
+    TestGrouper g({dictionary(int32(), utf8())});
+    g.ExpectPopulate({WithIndices("           [3, 1, null, 2]")});
+    g.ExpectConsume({WithIndices("           [1, null, 3, 0, 2]")},
+                    ArrayFromJSON(uint32(), "[1, 2,    0, 4, 3]"));
+  }
+  {
+    TestGrouper g({dictionary(int32(), utf8())});
+    g.ExpectPopulate({WithIndices("           [3, 1, null, 2]")});
+    g.ExpectLookup({WithIndices("           [1, null, 3, 0,    2]")},
+                   ArrayFromJSON(uint32(), "[1, 2,    0, null, 3]"));
+  }
+  {
+    TestGrouper g({dictionary(int32(), utf8())});
 
-  g = TestGrouper({dictionary(int32(), utf8())});
+    g.ExpectConsume({WithIndices("           [0, 1, 2, 3, null]")},
+                    ArrayFromJSON(uint32(), "[0, 1, 2, 3, 4]"));
 
-  g.ExpectConsume({WithIndices("           [0, 1, 2, 3, null]")},
-                  ArrayFromJSON(uint32(), "[0, 1, 2, 3, 4]"));
+    g.ExpectConsume({WithIndices("           [3, 1, null, 0, 2]")},
+                    ArrayFromJSON(uint32(), "[3, 1, 4,    0, 2]"));
 
-  g.ExpectConsume({WithIndices("           [3, 1, null, 0, 2]")},
-                  ArrayFromJSON(uint32(), "[3, 1, 4,    0, 2]"));
-
-  auto dict_arr = *DictionaryArray::FromArrays(
-      ArrayFromJSON(int32(), "[0, 1]"),
-      ArrayFromJSON(utf8(), R"(["different", "dictionary"])"));
-  ExecSpan dict_span({*dict_arr->data()}, 2);
-  EXPECT_RAISES_WITH_MESSAGE_THAT(NotImplemented,
-                                  HasSubstr("Unifying differing dictionaries"),
-                                  g.grouper_->Consume(dict_span));
+    auto dict_arr = *DictionaryArray::FromArrays(
+        ArrayFromJSON(int32(), "[0, 1]"),
+        ArrayFromJSON(utf8(), R"(["different", "dictionary"])"));
+    ExecSpan dict_span({*dict_arr->data()}, 2);
+    EXPECT_RAISES_WITH_MESSAGE_THAT(NotImplemented,
+                                    HasSubstr("Unifying differing dictionaries"),
+                                    g.grouper_->Consume(dict_span));
+    EXPECT_RAISES_WITH_MESSAGE_THAT(NotImplemented,
+                                    HasSubstr("Unifying differing dictionaries"),
+                                    g.grouper_->Populate(dict_span));
+    EXPECT_RAISES_WITH_MESSAGE_THAT(NotImplemented,
+                                    HasSubstr("Unifying differing dictionaries"),
+                                    g.grouper_->Lookup(dict_span));
+  }
 }
 
 // GH-45393: Test combinations of numeric type keys of different lengths.
@@ -834,55 +975,80 @@ TEST(Grouper, MultipleIntKeys) {
       ARROW_SCOPED_TRACE("t1=", t1->ToString());
       for (auto& t2 : types) {
         ARROW_SCOPED_TRACE("t2=", t2->ToString());
-        TestGrouper g({t0, t1, t2});
+        {
+          TestGrouper g({t0, t1, t2});
 
-        g.ExpectConsume(R"([[0, 1, 2], [0, 1, 2]])", "[0, 0]");
-        g.ExpectConsume(R"([[0, 1, 2], [null, 1, 2]])", "[0, 1]");
-        g.ExpectConsume(R"([[0, 1, 2], [0, null, 2]])", "[0, 2]");
-        g.ExpectConsume(R"([[0, 1, 2], [0, 1, null]])", "[0, 3]");
+          g.ExpectConsume(R"([[0, 1, 2], [0, 1, 2]])", "[0, 0]");
+          g.ExpectConsume(R"([[0, 1, 2], [null, 1, 2]])", "[0, 1]");
+          g.ExpectConsume(R"([[0, 1, 2], [0, null, 2]])", "[0, 2]");
+          g.ExpectConsume(R"([[0, 1, 2], [0, 1, null]])", "[0, 3]");
 
-        g.ExpectUniques("[[0, 1, 2], [null, 1, 2], [0, null, 2], [0, 1, null]]");
+          g.ExpectUniques("[[0, 1, 2], [null, 1, 2], [0, null, 2], [0, 1, null]]");
+        }
+        {
+          TestGrouper g({t0, t1, t2});
+
+          g.ExpectPopulate(R"([[0, 1, 2], [0, 1, 2]])");
+          g.ExpectPopulate(R"([[0, 1, 2], [0, null, 2]])");
+          g.ExpectLookup(R"([[0, null, 2], [0, 1, 2], [null, 1, 0], [0, null, 2]])",
+                         "[1, 0, null, 1]");
+          g.ExpectLookup(R"([[0, null, 2], [0, 1, 2], [null, 1, 0], [0, null, 2]])",
+                         "[1, 0, null, 1]");
+
+          g.ExpectUniques("[[0, 1, 2], [0, null, 2]]");
+        }
       }
     }
   }
 }
 
 TEST(Grouper, StringInt64Key) {
-  TestGrouper g({utf8(), int64()});
+  for (auto string_type : {utf8(), large_utf8()}) {
+    ARROW_SCOPED_TRACE("string_type = ", *string_type);
+    {
+      TestGrouper g({string_type, int64()});
 
-  g.ExpectConsume(R"([["eh", 0], ["eh", 0]])", "[0, 0]");
+      g.ExpectConsume(R"([["eh", 0], ["eh", 0]])", "[0, 0]");
+      g.ExpectConsume(R"([["eh", 0], ["eh", null]])", "[0, 1]");
+      g.ExpectConsume(R"([["eh", 1], ["bee", 1]])", "[2, 3]");
+      g.ExpectConsume(R"([["eh", null], ["bee", 1]])", "[1, 3]");
+    }
+    {
+      TestGrouper g({string_type, int64()});
 
-  g.ExpectConsume(R"([["eh", 0], ["eh", null]])", "[0, 1]");
-
-  g.ExpectConsume(R"([["eh", 1], ["bee", 1]])", "[2, 3]");
-
-  g.ExpectConsume(R"([["eh", null], ["bee", 1]])", "[1, 3]");
-
-  g = TestGrouper({utf8(), int64()});
-
-  g.ExpectConsume(R"([
-    ["ex",  0],
-    ["ex",  0],
-    ["why", 0],
-    ["ex",  1],
-    ["why", 0],
-    ["ex",  1],
-    ["ex",  0],
-    ["why", 1]
-  ])",
-                  "[0, 0, 1, 2, 1, 2, 0, 3]");
-
-  g.ExpectConsume(R"([
-    ["ex",  0],
-    [null,  0],
-    [null,  0],
-    ["ex",  1],
-    [null,  null],
-    ["ex",  1],
-    ["ex",  0],
-    ["why", null]
-  ])",
-                  "[0, 4, 4, 2, 5, 2, 0, 6]");
+      g.ExpectPopulate(R"([["eh", 0], ["eh", 0]])");
+      g.ExpectPopulate(R"([["eh", 0], ["eh", null]])");
+      g.ExpectConsume(R"([["eh", 1], ["bee", 1]])", "[2, 3]");
+      g.ExpectConsume(R"([["eh", null], ["bee", 1]])", "[1, 3]");
+      g.ExpectLookup(R"([["da", null], ["bee", 1]])", "[null, 3]");
+      g.ExpectLookup(R"([["da", null], ["bee", 1]])", "[null, 3]");
+    }
+    {
+      TestGrouper g({string_type, int64()});
+      g.ExpectConsume(R"([
+            ["ex",  0],
+            ["ex",  0],
+            ["why", 0],
+            ["ex",  1],
+            ["why", 0],
+            ["ex",  1],
+            ["ex",  0],
+            ["why", 1]
+          ])",
+                      "[0, 0, 1, 2, 1, 2, 0, 3]");
+      g.ExpectConsume(R"([
+            ["ex",  0],
+            [null,  0],
+            [null,  0],
+            ["ex",  1],
+            [null,  null],
+            ["ex",  1],
+            ["ex",  0],
+            ["why", null]
+          ])",
+                      "[0, 4, 4, 2, 5, 2, 0, 6]");
+    }
+  }
 }
 
 TEST(Grouper, DoubleStringInt64Key) {
@@ -898,42 +1064,88 @@ TEST(Grouper, DoubleStringInt64Key) {
   g.ExpectConsume(R"([[-0.0, "be", 7], [0.0, "be", 7]])", "[3, 4]");
 }
 
-TEST(Grouper, RandomInt64Keys) {
-  TestGrouper g({int64()});
+FieldVector AnnotateForRandomGeneration(FieldVector fields) {
+  for (auto& field : fields) {
+    // For each field, constrain random generation to ensure that group ids
+    // can appear more than once.
+    if (is_integer(*field->type())) {
+      field =
+          field->WithMergedMetadata(key_value_metadata({"min", "max"}, {"100", "10000"}));
+    } else if (is_binary_like(*field->type())) {
+      // (note this is unsupported for large binary types)
+      field = field->WithMergedMetadata(key_value_metadata({"unique"}, {"100"}));
+    }
+    field = field->WithMergedMetadata(key_value_metadata({"null_probability"}, {"0.1"}));
+  }
+  return fields;
+}
+
+void TestRandomConsume(TestGrouper g) {
+  // Exercise Consume
+  auto fields = AnnotateForRandomGeneration(g.key_schema_->fields());
   for (int i = 0; i < 4; ++i) {
     SCOPED_TRACE(ToChars(i) + "th key batch");
 
-    ExecBatch key_batch{
-        *random::GenerateBatch(g.key_schema_->fields(), 1 << 12, 0xDEADBEEF)};
+    ExecBatch key_batch{*random::GenerateBatch(fields, 1 << 12, /*seed=*/i + 1)};
     g.ConsumeAndValidate(key_batch);
+  }
+}
+
+void TestRandomLookup(TestGrouper g) {
+  // Exercise Populate then Lookup
+  auto fields = AnnotateForRandomGeneration(g.key_schema_->fields());
+  ExecBatch key_batch{*random::GenerateBatch(fields, 1 << 12, /*seed=*/1)};
+  ASSERT_OK(g.grouper_->Populate(ExecSpan{key_batch}));
+  for (int i = 0; i < 4; ++i) {
+    SCOPED_TRACE(ToChars(i) + "th key batch");
+
+    ExecBatch key_batch{*random::GenerateBatch(fields, 1 << 12, /*seed=*/i + 1)};
+    g.LookupAndValidate(key_batch);
+  }
+}
+
+TEST(Grouper, RandomInt64Keys) {
+  TestRandomConsume(TestGrouper({int64()}));
+  TestRandomLookup(TestGrouper({int64()}));
+}
+
+TEST(Grouper, RandomStringKeys) {
+  for (auto string_type : {utf8(), large_utf8()}) {
+    ARROW_SCOPED_TRACE("string_type = ", *string_type);
+    TestRandomConsume(TestGrouper({string_type}));
+    TestRandomLookup(TestGrouper({string_type}));
   }
 }
 
 TEST(Grouper, RandomStringInt64Keys) {
-  TestGrouper g({utf8(), int64()});
-  for (int i = 0; i < 4; ++i) {
-    SCOPED_TRACE(ToChars(i) + "th key batch");
-
-    ExecBatch key_batch{
-        *random::GenerateBatch(g.key_schema_->fields(), 1 << 12, 0xDEADBEEF)};
-    g.ConsumeAndValidate(key_batch);
+  for (auto string_type : {utf8(), large_utf8()}) {
+    ARROW_SCOPED_TRACE("string_type = ", *string_type);
+    TestRandomConsume(TestGrouper({string_type, int64()}));
+    TestRandomLookup(TestGrouper({string_type, int64()}));
   }
 }
 
 TEST(Grouper, RandomStringInt64DoubleInt32Keys) {
-  TestGrouper g({utf8(), int64(), float64(), int32()});
-  for (int i = 0; i < 4; ++i) {
-    SCOPED_TRACE(ToChars(i) + "th key batch");
-
-    ExecBatch key_batch{
-        *random::GenerateBatch(g.key_schema_->fields(), 1 << 12, 0xDEADBEEF)};
-    g.ConsumeAndValidate(key_batch);
-  }
+  TestRandomConsume(TestGrouper({utf8(), int64(), float64(), int32()}));
+  TestRandomLookup(TestGrouper({utf8(), int64(), float64(), int32()}));
 }
 
 TEST(Grouper, NullKeys) {
-  TestGrouper g({null()});
-  g.ExpectConsume("[[null], [null]]", "[0, 0]");
+  {
+    TestGrouper g({null()});
+    g.ExpectConsume("[[null], [null]]", "[0, 0]");
+  }
+  {
+    TestGrouper g({null()});
+    g.ExpectPopulate("[[null], [null]]");
+    g.ExpectConsume("[[null], [null]]", "[0, 0]");
+  }
+  {
+    TestGrouper g({null()});
+    g.ExpectLookup("[[null], [null]]", "[null, null]");
+    g.ExpectPopulate("[[null], [null]]");
+    g.ExpectLookup("[[null], [null], [null]]", "[0, 0, 0]");
+  }
 }
 
 TEST(Grouper, MultipleNullKeys) {
@@ -971,8 +1183,16 @@ TEST(Grouper, DoubleNullStringKey) {
 }
 
 TEST(Grouper, EmptyNullKeys) {
-  TestGrouper g({null()});
-  g.ExpectConsume("[]", "[]");
+  {
+    TestGrouper g({null()});
+    g.ExpectConsume("[]", "[]");
+  }
+  {
+    TestGrouper g({null()});
+    g.ExpectPopulate("[]");
+    g.ExpectConsume("[]", "[]");
+    g.ExpectLookup("[]", "[]");
+  }
 }
 
 TEST(Grouper, MakeGroupings) {
@@ -1021,22 +1241,49 @@ TEST(Grouper, ScalarValues) {
            ArgShape::SCALAR, ArgShape::SCALAR, ArgShape::ARRAY});
       g.ExpectConsume(
           R"([
-[true, 1, "1.00", "2.00", "ab", "foo", 2],
-[true, 1, "1.00", "2.00", "ab", "foo", 2],
-[true, 1, "1.00", "2.00", "ab", "foo", 3]
-])",
+              [true, 1, "1.00", "2.00", "ab", "foo", 2],
+              [true, 1, "1.00", "2.00", "ab", "foo", 2],
+              [true, 1, "1.00", "2.00", "ab", "foo", 3]
+              ])",
           "[0, 0, 1]");
+    }
+    {
+      TestGrouper g(
+          {boolean(), int32(), decimal128(3, 2), decimal256(3, 2), fixed_size_binary(2),
+           str_type, int32()},
+          {ArgShape::SCALAR, ArgShape::SCALAR, ArgShape::SCALAR, ArgShape::SCALAR,
+           ArgShape::SCALAR, ArgShape::SCALAR, ArgShape::ARRAY});
+      g.ExpectPopulate(
+          R"([
+              [true, 1, "1.00", "2.00", "ab", "foo", 2],
+              [true, 1, "1.00", "2.00", "ab", "foo", 2],
+              [true, 1, "1.00", "2.00", "ab", "foo", 3]
+            ])");
+      g.ExpectLookup(
+          R"([
+              [true, 1, "1.00", "2.00", "ab", "foo", 3],
+              [true, 1, "1.00", "2.00", "ab", "foo", 4],
+              [true, 1, "1.00", "2.00", "ab", "foo", 2],
+              [true, 1, "1.00", "2.00", "ab", "foo", 3]
+              ])",
+          "[1, null, 0, 1]");
     }
     {
       auto dict_type = dictionary(int32(), utf8());
       TestGrouper g({dict_type, str_type}, {ArgShape::SCALAR, ArgShape::SCALAR});
-      const auto dict = R"(["foo", null])";
+      const auto dict = R"(["foo", null, "bar"])";
       g.ExpectConsume(
           {DictScalarFromJSON(dict_type, "0", dict), ScalarFromJSON(str_type, R"("")")},
           ArrayFromJSON(uint32(), "[0]"));
       g.ExpectConsume(
           {DictScalarFromJSON(dict_type, "1", dict), ScalarFromJSON(str_type, R"("")")},
           ArrayFromJSON(uint32(), "[1]"));
+      g.ExpectLookup(
+          {DictScalarFromJSON(dict_type, "1", dict), ScalarFromJSON(str_type, R"("")")},
+          ArrayFromJSON(uint32(), "[1]"));
+      g.ExpectLookup(
+          {DictScalarFromJSON(dict_type, "2", dict), ScalarFromJSON(str_type, R"("")")},
+          ArrayFromJSON(uint32(), "[null]"));
     }
   }
 }

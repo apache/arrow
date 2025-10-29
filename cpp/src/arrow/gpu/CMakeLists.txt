@@ -45,6 +45,17 @@ else()
   set(ARROW_CUDA_SHARED_LINK_LIBS CUDA::cuda_driver)
 endif()
 
+# If only libarrow_cuda.a is built, "pkg-config --cflags --libs
+# arrow-cuda" will include build flags for static linking not shared
+# linking.
+# The variables ARROW_CUDA_PC_* (except ARROW_CUDA_PC_*_PRIVATE) are used
+# specifically for the static linking case to ensure the correct flags
+# are provided.
+if(NOT ARROW_BUILD_SHARED AND ARROW_BUILD_STATIC)
+  string(APPEND ARROW_CUDA_PC_CFLAGS "${ARROW_CUDA_PC_CFLAGS_PRIVATE}")
+  set(ARROW_CUDA_PC_CFLAGS_PRIVATE "")
+endif()
+
 set(ARROW_CUDA_SRCS cuda_arrow_ipc.cc cuda_context.cc cuda_internal.cc cuda_memory.cc)
 
 set(ARROW_CUDA_PKG_CONFIG_NAME_ARGS)
@@ -79,7 +90,7 @@ add_arrow_lib(arrow_cuda
 add_dependencies(arrow_cuda ${ARROW_CUDA_LIBRARIES})
 
 foreach(LIB_TARGET ${ARROW_CUDA_LIBRARIES})
-  target_compile_definitions(${LIB_TARGET} PRIVATE ARROW_EXPORTING)
+  target_compile_definitions(${LIB_TARGET} PRIVATE ARROW_CUDA_EXPORTING)
 endforeach()
 
 # CUDA build version

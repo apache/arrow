@@ -38,5 +38,4 @@ add_arrow_test(adapter_test
                orc::orc
                ${ARROW_ORC_STATIC_LINK_LIBS})
 
-set_source_files_properties(adapter_test.cc PROPERTIES SKIP_PRECOMPILE_HEADERS ON
-                                                       SKIP_UNITY_BUILD_INCLUSION ON)
+set_source_files_properties(adapter_test.cc PROPERTIES SKIP_UNITY_BUILD_INCLUSION ON)

@@ -21,7 +21,7 @@
 #include "arrow/flight/otel_logging_internal.h"
 #include "arrow/result.h"
 #include "arrow/util/logger.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 
 namespace arrow::flight {
 

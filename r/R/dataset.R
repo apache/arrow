@@ -131,7 +131,6 @@
 #' # Set up directory for examples
 #' tf <- tempfile()
 #' dir.create(tf)
-#' on.exit(unlink(tf))
 #'
 #' write_dataset(mtcars, tf, partitioning = "cyl")
 #'
@@ -145,7 +144,6 @@
 #' ## You must specify the file format if using a format other than parquet.
 #' tf2 <- tempfile()
 #' dir.create(tf2)
-#' on.exit(unlink(tf2))
 #' write_dataset(mtcars, tf2, format = "ipc")
 #' # This line will results in errors when you try to work with the data
 #' \dontrun{
@@ -158,7 +156,6 @@
 #' # Create a temporary directory and write example dataset
 #' tf3 <- tempfile()
 #' dir.create(tf3)
-#' on.exit(unlink(tf3))
 #' write_dataset(airquality, tf3, partitioning = c("Month", "Day"), hive_style = FALSE)
 #'
 #' # View files - you can see the partitioning means that files have been written
@@ -174,14 +171,16 @@
 #'
 #' # If you want to specify the data types for your fields, you can pass in a Schema
 #' open_dataset(tf3, partitioning = schema(Month = int8(), Day = int8()))
-open_dataset <- function(sources,
-                         schema = NULL,
-                         partitioning = hive_partition(),
-                         hive_style = NA,
-                         unify_schemas = NULL,
-                         format = c("parquet", "arrow", "ipc", "feather", "csv", "tsv", "text", "json"),
-                         factory_options = list(),
-                         ...) {
+open_dataset <- function(
+  sources,
+  schema = NULL,
+  partitioning = hive_partition(),
+  hive_style = NA,
+  unify_schemas = NULL,
+  format = c("parquet", "arrow", "ipc", "feather", "csv", "tsv", "text", "json"),
+  factory_options = list(),
+  ...
+) {
   stop_if_no_datasets()
 
   if (is_list_of(sources, "Dataset")) {
@@ -202,9 +201,11 @@ open_dataset <- function(sources,
     return(dataset___UnionDataset__create(sources, schema))
   }
 
-  if (is_false(hive_style) &&
-    inherits(partitioning, "PartitioningFactory") &&
-    identical(partitioning$type_name, "hive")) {
+  if (
+    is_false(hive_style) &&
+      inherits(partitioning, "PartitioningFactory") &&
+      identical(partitioning$type_name, "hive")
+  ) {
     # Allow default partitioning arg to be overridden by hive_style = FALSE
     partitioning <- NULL
   }
@@ -248,37 +249,47 @@ open_dataset <- function(sources,
 #' # Set up directory for examples
 #' tf <- tempfile()
 #' dir.create(tf)
-#' df <- data.frame(x = c("1", "2", "NULL"))
 #'
+#' df <- data.frame(x = c("1", "2", "NULL"))
 #' file_path <- file.path(tf, "file1.txt")
 #' write.table(df, file_path, sep = ",", row.names = FALSE)
 #'
+#' # Use readr-style params identically in both `read_csv_dataset()` and `open_csv_dataset()`
 #' read_csv_arrow(file_path, na = c("", "NA", "NULL"), col_names = "y", skip = 1)
 #' open_csv_dataset(file_path, na = c("", "NA", "NULL"), col_names = "y", skip = 1)
 #'
-#' unlink(tf)
+#' # Use `col_types` to specify a schema, partial schema, or compact representation
+#' tf2 <- tempfile()
+#' write_csv_dataset(cars, tf2)
+#'
+#' open_csv_dataset(tf2, col_types = schema(speed = int32(), dist = int32()))
+#' open_csv_dataset(tf2, col_types = schema(speed = int32()))
+#' open_csv_dataset(tf2, col_types = "ii", col_names = c("speed", "dist"), skip = 1)
+#'
 #' @seealso [open_dataset()]
 #' @export
-open_delim_dataset <- function(sources,
-                               schema = NULL,
-                               partitioning = hive_partition(),
-                               hive_style = NA,
-                               unify_schemas = NULL,
-                               factory_options = list(),
-                               delim = ",",
-                               quote = "\"",
-                               escape_double = TRUE,
-                               escape_backslash = FALSE,
-                               col_names = TRUE,
-                               col_types = NULL,
-                               na = c("", "NA"),
-                               skip_empty_rows = TRUE,
-                               skip = 0L,
-                               convert_options = NULL,
-                               read_options = NULL,
-                               timestamp_parsers = NULL,
-                               quoted_na = TRUE,
-                               parse_options = NULL) {
+open_delim_dataset <- function(
+  sources,
+  schema = NULL,
+  partitioning = hive_partition(),
+  hive_style = NA,
+  unify_schemas = NULL,
+  factory_options = list(),
+  delim = ",",
+  quote = "\"",
+  escape_double = TRUE,
+  escape_backslash = FALSE,
+  col_names = TRUE,
+  col_types = NULL,
+  na = c("", "NA"),
+  skip_empty_rows = TRUE,
+  skip = 0L,
+  convert_options = NULL,
+  read_options = NULL,
+  timestamp_parsers = NULL,
+  quoted_na = TRUE,
+  parse_options = NULL
+) {
   open_dataset(
     sources = sources,
     schema = schema,
@@ -306,25 +317,27 @@ open_delim_dataset <- function(sources,
 
 #' @rdname open_delim_dataset
 #' @export
-open_csv_dataset <- function(sources,
-                             schema = NULL,
-                             partitioning = hive_partition(),
-                             hive_style = NA,
-                             unify_schemas = NULL,
-                             factory_options = list(),
-                             quote = "\"",
-                             escape_double = TRUE,
-                             escape_backslash = FALSE,
-                             col_names = TRUE,
-                             col_types = NULL,
-                             na = c("", "NA"),
-                             skip_empty_rows = TRUE,
-                             skip = 0L,
-                             convert_options = NULL,
-                             read_options = NULL,
-                             timestamp_parsers = NULL,
-                             quoted_na = TRUE,
-                             parse_options = NULL) {
+open_csv_dataset <- function(
+  sources,
+  schema = NULL,
+  partitioning = hive_partition(),
+  hive_style = NA,
+  unify_schemas = NULL,
+  factory_options = list(),
+  quote = "\"",
+  escape_double = TRUE,
+  escape_backslash = FALSE,
+  col_names = TRUE,
+  col_types = NULL,
+  na = c("", "NA"),
+  skip_empty_rows = TRUE,
+  skip = 0L,
+  convert_options = NULL,
+  read_options = NULL,
+  timestamp_parsers = NULL,
+  quoted_na = TRUE,
+  parse_options = NULL
+) {
   mc <- match.call()
   mc$delim <- ","
   mc[[1]] <- get("open_delim_dataset", envir = asNamespace("arrow"))
@@ -333,31 +346,32 @@ open_csv_dataset <- function(sources,
 
 #' @rdname open_delim_dataset
 #' @export
-open_tsv_dataset <- function(sources,
-                             schema = NULL,
-                             partitioning = hive_partition(),
-                             hive_style = NA,
-                             unify_schemas = NULL,
-                             factory_options = list(),
-                             quote = "\"",
-                             escape_double = TRUE,
-                             escape_backslash = FALSE,
-                             col_names = TRUE,
-                             col_types = NULL,
-                             na = c("", "NA"),
-                             skip_empty_rows = TRUE,
-                             skip = 0L,
-                             convert_options = NULL,
-                             read_options = NULL,
-                             timestamp_parsers = NULL,
-                             quoted_na = TRUE,
-                             parse_options = NULL) {
+open_tsv_dataset <- function(
+  sources,
+  schema = NULL,
+  partitioning = hive_partition(),
+  hive_style = NA,
+  unify_schemas = NULL,
+  factory_options = list(),
+  quote = "\"",
+  escape_double = TRUE,
+  escape_backslash = FALSE,
+  col_names = TRUE,
+  col_types = NULL,
+  na = c("", "NA"),
+  skip_empty_rows = TRUE,
+  skip = 0L,
+  convert_options = NULL,
+  read_options = NULL,
+  timestamp_parsers = NULL,
+  quoted_na = TRUE,
+  parse_options = NULL
+) {
   mc <- match.call()
   mc$delim <- "\t"
   mc[[1]] <- get("open_delim_dataset", envir = asNamespace("arrow"))
   eval.parent(mc)
 }
-
 
 
 #' Multi-file datasets
@@ -419,7 +433,8 @@ open_tsv_dataset <- function(sources,
 #'
 #' @export
 #' @seealso [open_dataset()] for a simple interface to creating a `Dataset`
-Dataset <- R6Class("Dataset",
+Dataset <- R6Class(
+  "Dataset",
   inherit = ArrowObject,
   public = list(
     # @description
@@ -457,7 +472,8 @@ Dataset$create <- open_dataset
 #' @name FileSystemDataset
 #' @rdname Dataset
 #' @export
-FileSystemDataset <- R6Class("FileSystemDataset",
+FileSystemDataset <- R6Class(
+  "FileSystemDataset",
   inherit = Dataset,
   public = list(
     .class_title = function() {
@@ -497,7 +513,8 @@ FileSystemDataset <- R6Class("FileSystemDataset",
 #' @name UnionDataset
 #' @rdname Dataset
 #' @export
-UnionDataset <- R6Class("UnionDataset",
+UnionDataset <- R6Class(
+  "UnionDataset",
   inherit = Dataset,
   active = list(
     # @description

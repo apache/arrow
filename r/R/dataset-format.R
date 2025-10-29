@@ -66,7 +66,8 @@
 #'
 #' open_dataset(tf, format = format)
 #' @export
-FileFormat <- R6Class("FileFormat",
+FileFormat <- R6Class(
+  "FileFormat",
   inherit = ArrowObject,
   active = list(
     # @description
@@ -84,7 +85,8 @@ FileFormat$create <- function(format, schema = NULL, partitioning = NULL, ...) {
     CsvFileFormat$create(delimiter = "\t", schema = schema, partitioning = partitioning, ...)
   } else if (format == "parquet") {
     ParquetFileFormat$create(...)
-  } else if (format %in% c("ipc", "arrow", "feather")) { # These are aliases for the same thing
+  } else if (format %in% c("ipc", "arrow", "feather")) {
+    # These are aliases for the same thing
     dataset___IpcFileFormat__Make()
   } else if (format == "json") {
     JsonFileFormat$create(...)
@@ -105,8 +107,7 @@ as.character.FileFormat <- function(x, ...) {
 #' @rdname FileFormat
 #' @export
 ParquetFileFormat <- R6Class("ParquetFileFormat", inherit = FileFormat)
-ParquetFileFormat$create <- function(...,
-                                     dict_columns = character(0)) {
+ParquetFileFormat$create <- function(..., dict_columns = character(0)) {
   options <- ParquetFragmentScanOptions$create(...)
   dataset___ParquetFileFormat__Make(options, dict_columns)
 }
@@ -191,7 +192,6 @@ JsonFileFormat$create <- function(...) {
 #' @export
 CsvFileFormat <- R6Class("CsvFileFormat", inherit = FileFormat)
 CsvFileFormat$create <- function(..., partitioning = NULL) {
-
   dots <- list(...)
 
   options <- check_csv_file_format_args(dots, partitioning = partitioning)
@@ -202,7 +202,6 @@ CsvFileFormat$create <- function(..., partitioning = NULL) {
 
 # Check all arguments are valid
 check_csv_file_format_args <- function(args, partitioning = NULL) {
-
   options <- list(
     parse_options = args$parse_options,
     convert_options = args$convert_options,
@@ -220,16 +219,22 @@ check_csv_file_format_args <- function(args, partitioning = NULL) {
     options$parse_options <- do.call(csv_parse_options, args$parse_options)
   }
 
-  if (is.null(args$convert_options)) {
-    options$convert_options <- do.call(csv_file_format_convert_opts, args)
-  } else if (is.list(args$convert_options)) {
-    options$convert_options <- do.call(csv_convert_options, args$convert_options)
-  }
-
+  # Set up read_options before convert_options since convert_options needs column names
   if (is.null(args$read_options)) {
     options$read_options <- do.call(csv_file_format_read_opts, c(args, list(partitioning = partitioning)))
   } else if (is.list(args$read_options)) {
     options$read_options <- do.call(csv_read_options, args$read_options)
+  }
+
+  # If col_names is provided, add it to read_options
+  if ("col_names" %in% names(args)) {
+    args$read_options <- list(col_names = args$col_names)
+  }
+
+  if (is.null(args$convert_options)) {
+    options$convert_options <- do.call(csv_file_format_convert_opts, c(args, list(read_options = options$read_options)))
+  } else if (is.list(args$convert_options)) {
+    options$convert_options <- do.call(csv_convert_options, args$convert_options)
   }
 
   options
@@ -334,7 +339,8 @@ check_ambiguous_options <- function(passed_opts, opts1, opts2) {
   is_ambig_opt <- is.na(pmatch(passed_opts, c(opts1, opts2)))
   ambig_opts <- passed_opts[is_ambig_opt]
   if (length(ambig_opts)) {
-    stop("Ambiguous ",
+    stop(
+      "Ambiguous ",
       ngettext(length(ambig_opts), "option", "options"),
       ": ",
       oxford_paste(ambig_opts),
@@ -421,9 +427,7 @@ csv_file_format_parse_opts <- function(...) {
     # Catch cases when the user specifies a mix of Arrow C++ options and
     # readr-style options
     if (!all(is_readr_opt)) {
-      stop("Use either Arrow parse options or readr parse options, not both",
-        call. = FALSE
-      )
+      stop("Use either Arrow parse options or readr parse options, not both", call. = FALSE)
     }
     do.call(readr_to_csv_parse_options, opts) # all options have readr-style names
   } else {
@@ -458,11 +462,32 @@ csv_file_format_convert_opts <- function(...) {
     opts[["quoted_na"]] <- NULL
   }
 
+  # Handle readr-style col_types specification
+  if ("col_types" %in% names(opts) && is.character(opts[["col_types"]])) {
+    # Get column names from read_options if available
+    col_names <- if (!is.null(opts[["read_options"]])) {
+      if (!is.null(opts[["read_options"]]$column_names)) {
+        opts[["read_options"]]$column_names
+      } else if (!is.null(opts[["read_options"]]$col_names)) {
+        opts[["read_options"]]$col_names
+      } else {
+        abort("Compact specification for `col_types` requires column names in read_options")
+      }
+    } else if ("col_names" %in% names(opts)) {
+      opts[["col_names"]]
+    } else {
+      abort("Compact specification for `col_types` requires column names")
+    }
+
+    opts[["col_types"]] <- parse_compact_col_spec(opts[["col_types"]], col_names)
+  }
+
+  # Remove read_options from opts before calling csv_convert_options
+  opts[["read_options"]] <- NULL
   do.call(csv_convert_options, opts)
 }
 
 csv_file_format_read_opts <- function(schema = NULL, partitioning = NULL, ...) {
-
   opts <- list(...)
   # Filter out arguments meant for CsvParseOptions/CsvConvertOptions
   arrow_opts <- c(names(formals(csv_parse_options)), "parse_options")
@@ -546,7 +571,8 @@ csv_file_format_read_opts <- function(schema = NULL, partitioning = NULL, ...) {
 #' @rdname FragmentScanOptions
 #' @name FragmentScanOptions
 #' @export
-FragmentScanOptions <- R6Class("FragmentScanOptions",
+FragmentScanOptions <- R6Class(
+  "FragmentScanOptions",
   inherit = ArrowObject,
   active = list(
     # @description
@@ -576,9 +602,11 @@ as.character.FragmentScanOptions <- function(x, ...) {
 #' @rdname FragmentScanOptions
 #' @export
 CsvFragmentScanOptions <- R6Class("CsvFragmentScanOptions", inherit = FragmentScanOptions)
-CsvFragmentScanOptions$create <- function(...,
-                                          convert_opts = csv_file_format_convert_opts(...),
-                                          read_opts = csv_file_format_read_opts(...)) {
+CsvFragmentScanOptions$create <- function(
+  ...,
+  convert_opts = csv_file_format_convert_opts(...),
+  read_opts = csv_file_format_read_opts(...)
+) {
   dataset___CsvFragmentScanOptions__Make(convert_opts, read_opts)
 }
 
@@ -587,13 +615,18 @@ CsvFragmentScanOptions$create <- function(...,
 #' @rdname FragmentScanOptions
 #' @export
 ParquetFragmentScanOptions <- R6Class("ParquetFragmentScanOptions", inherit = FragmentScanOptions)
-ParquetFragmentScanOptions$create <- function(use_buffered_stream = FALSE,
-                                              buffer_size = 8196,
-                                              pre_buffer = TRUE,
-                                              thrift_string_size_limit = 100000000,
-                                              thrift_container_size_limit = 1000000) {
+ParquetFragmentScanOptions$create <- function(
+  use_buffered_stream = FALSE,
+  buffer_size = 8196,
+  pre_buffer = TRUE,
+  thrift_string_size_limit = 100000000,
+  thrift_container_size_limit = 1000000
+) {
   dataset___ParquetFragmentScanOptions__Make(
-    use_buffered_stream, buffer_size, pre_buffer, thrift_string_size_limit,
+    use_buffered_stream,
+    buffer_size,
+    pre_buffer,
+    thrift_string_size_limit,
     thrift_container_size_limit
   )
 }
@@ -631,7 +664,8 @@ JsonFragmentScanOptions$create <- function(...) {
 #'
 #' @description
 #' A `FileWriteOptions` holds write options specific to a `FileFormat`.
-FileWriteOptions <- R6Class("FileWriteOptions",
+FileWriteOptions <- R6Class(
+  "FileWriteOptions",
   inherit = ArrowObject,
   public = list(
     update = function(column_names, ...) {

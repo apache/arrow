@@ -1039,35 +1039,46 @@ TEST(TestGlobalThreadPool, Capacity) {
   // Exercise default capacity heuristic
   ASSERT_OK(DelEnvVar("OMP_NUM_THREADS"));
   ASSERT_OK(DelEnvVar("OMP_THREAD_LIMIT"));
+
   int hw_capacity = std::thread::hardware_concurrency();
-  ASSERT_EQ(ThreadPool::DefaultCapacity(), hw_capacity);
+  ASSERT_LE(ThreadPool::DefaultCapacity(), hw_capacity);
+  ASSERT_GE(ThreadPool::DefaultCapacity(), 1);
+
   ASSERT_OK(SetEnvVar("OMP_NUM_THREADS", "13"));
   ASSERT_EQ(ThreadPool::DefaultCapacity(), 13);
+
   ASSERT_OK(SetEnvVar("OMP_NUM_THREADS", "7,5,13"));
   ASSERT_EQ(ThreadPool::DefaultCapacity(), 7);
   ASSERT_OK(DelEnvVar("OMP_NUM_THREADS"));
 
   ASSERT_OK(SetEnvVar("OMP_THREAD_LIMIT", "1"));
   ASSERT_EQ(ThreadPool::DefaultCapacity(), 1);
+
   ASSERT_OK(SetEnvVar("OMP_THREAD_LIMIT", "999"));
-  if (hw_capacity <= 999) {
-    ASSERT_EQ(ThreadPool::DefaultCapacity(), hw_capacity);
-  }
+  ASSERT_LE(ThreadPool::DefaultCapacity(), std::min(999, hw_capacity));
+  ASSERT_GE(ThreadPool::DefaultCapacity(), 1);
+
   ASSERT_OK(SetEnvVar("OMP_NUM_THREADS", "6,5,13"));
   ASSERT_EQ(ThreadPool::DefaultCapacity(), 6);
+
   ASSERT_OK(SetEnvVar("OMP_THREAD_LIMIT", "2"));
   ASSERT_EQ(ThreadPool::DefaultCapacity(), 2);
 
   // Invalid env values
   ASSERT_OK(SetEnvVar("OMP_NUM_THREADS", "0"));
   ASSERT_OK(SetEnvVar("OMP_THREAD_LIMIT", "0"));
-  ASSERT_EQ(ThreadPool::DefaultCapacity(), hw_capacity);
+  ASSERT_LE(ThreadPool::DefaultCapacity(), hw_capacity);
+  ASSERT_GE(ThreadPool::DefaultCapacity(), 1);
+
   ASSERT_OK(SetEnvVar("OMP_NUM_THREADS", "zzz"));
   ASSERT_OK(SetEnvVar("OMP_THREAD_LIMIT", "x"));
-  ASSERT_EQ(ThreadPool::DefaultCapacity(), hw_capacity);
+  ASSERT_LE(ThreadPool::DefaultCapacity(), hw_capacity);
+  ASSERT_GE(ThreadPool::DefaultCapacity(), 1);
+
   ASSERT_OK(SetEnvVar("OMP_THREAD_LIMIT", "-1"));
   ASSERT_OK(SetEnvVar("OMP_NUM_THREADS", "99999999999999999999999999"));
-  ASSERT_EQ(ThreadPool::DefaultCapacity(), hw_capacity);
+  ASSERT_LE(ThreadPool::DefaultCapacity(), hw_capacity);
+  ASSERT_GE(ThreadPool::DefaultCapacity(), 1);
 
   ASSERT_OK(DelEnvVar("OMP_NUM_THREADS"));
   ASSERT_OK(DelEnvVar("OMP_THREAD_LIMIT"));

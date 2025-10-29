@@ -822,7 +822,7 @@ def test_cache_options_pickling(pickle_module):
 ])
 def test_compress_decompress(compression):
     if not Codec.is_available(compression):
-        pytest.skip("{} support is not built".format(compression))
+        pytest.skip(f"{compression} support is not built")
 
     INPUT_SIZE = 10000
     test_data = (np.random.randint(0, 255, size=INPUT_SIZE)
@@ -863,7 +863,7 @@ def test_compress_decompress(compression):
 ])
 def test_compression_level(compression):
     if not Codec.is_available(compression):
-        pytest.skip("{} support is not built".format(compression))
+        pytest.skip(f"{compression} support is not built")
 
     codec = Codec(compression)
     if codec.name == "snappy":
@@ -1755,7 +1755,7 @@ def test_unknown_compression_raises():
 ])
 def test_compressed_roundtrip(compression):
     if not Codec.is_available(compression):
-        pytest.skip("{} support is not built".format(compression))
+        pytest.skip(f"{compression} support is not built")
 
     data = b"some test data\n" * 10 + b"eof\n"
     raw = pa.BufferOutputStream()
@@ -1776,7 +1776,7 @@ def test_compressed_roundtrip(compression):
 )
 def test_compressed_recordbatch_stream(compression):
     if not Codec.is_available(compression):
-        pytest.skip("{} support is not built".format(compression))
+        pytest.skip(f"{compression} support is not built")
 
     # ARROW-4836: roundtrip a RecordBatch through a compressed stream
     table = pa.Table.from_arrays([pa.array([1, 2, 3, 4, 5])], ['a'])

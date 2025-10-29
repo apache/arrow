@@ -1065,6 +1065,10 @@ NamedTableProvider AlwaysProvideSameTable(std::shared_ptr<Table> table) {
 }
 
 TEST(Substrait, ExecReadRelWithLocalFiles) {
+#ifdef _WIN32
+  GTEST_SKIP()
+      << "GH-47490: Substrait does not properly parse PARQUET_TEST_DATA path on Windows";
+#endif
   ASSERT_OK_AND_ASSIGN(std::string dir_string,
                        arrow::internal::GetEnvVar("PARQUET_TEST_DATA"));
 

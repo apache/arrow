@@ -621,6 +621,12 @@ std::vector<std::string> compute__GetFunctionNames() {
   return arrow::compute::GetFunctionRegistry()->GetFunctionNames();
 }
 
+// [[arrow::export]]
+void compute__Initialize() {
+  auto status = arrow::compute::Initialize();
+  StopIfNotOk(status);
+}
+
 class RScalarUDFKernelState : public arrow::compute::KernelState {
  public:
   RScalarUDFKernelState(cpp11::sexp exec_func, cpp11::sexp resolver)

@@ -198,9 +198,11 @@ class TestArray < Test::Unit::TestCase
     def test_invalid
       message = "[array][validate]: Invalid: Array length is negative"
       array = Arrow::Int8Array.new(-1, Arrow::Buffer.new(""), Arrow::Buffer.new(""), -1)
-      assert_raise(Arrow::Error::Invalid.new(message)) do
+      error = assert_raise(Arrow::Error::Invalid) do
         array.validate
       end
+      assert_equal(message,
+                   error.message.lines.first.chomp)
     end
   end
 
@@ -224,9 +226,11 @@ class TestArray < Test::Unit::TestCase
                                      Arrow::Buffer.new([0b01].pack("C*")),
                                      -1)
 
-      assert_raise(Arrow::Error::Invalid.new(message)) do
+      error = assert_raise(Arrow::Error::Invalid) do
         array.validate_full
       end
+      assert_equal(message,
+                   error.message.lines.first.chomp)
     end
   end
 end

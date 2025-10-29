@@ -25,6 +25,7 @@
 #include "arrow/util/bit_block_counter.h"
 #include "arrow/util/float16.h"
 #include "arrow/util/int_util.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/value_parsing.h"
 
 namespace arrow {
@@ -39,6 +40,8 @@ using util::Float16;
 
 namespace compute {
 namespace internal {
+
+namespace {
 
 Status CastIntegerToInteger(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
   const auto& options = checked_cast<const CastState*>(ctx->state())->options;
@@ -274,6 +277,8 @@ Status CastIntegerToFloating(KernelContext* ctx, const ExecSpan& batch, ExecResu
                            out->array_span_mutable());
   return Status::OK();
 }
+
+}  // namespace
 
 // ----------------------------------------------------------------------
 // Boolean to number

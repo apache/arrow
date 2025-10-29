@@ -18,6 +18,19 @@
 github:
   description: "Apache Arrow is the universal columnar format and multi-language toolbox for fast data interchange and in-memory analytics"
   homepage: https://arrow.apache.org/
+  labels:
+    - arrow
+    - parquet
+
+  features:
+    issues: true
+    projects: true
+    discussions: true
+
+  protected_branches:
+    # protect main against force push
+    main: {}
+
   collaborators:
     - anjakefala
     - hiroyuki-sato
@@ -31,4 +44,5 @@ notifications:
   issues_status: issues@arrow.apache.org
   issues:       github@arrow.apache.org
   pullrequests: github@arrow.apache.org
+  discussions: user@arrow.apache.org
   jira_options: link label worklog

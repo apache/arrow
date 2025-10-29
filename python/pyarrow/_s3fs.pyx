@@ -234,6 +234,12 @@ cdef class S3FileSystem(FileSystem):
             S3FileSystem(proxy_options={'scheme': 'http', 'host': 'localhost',
                                         'port': 8020, 'username': 'username',
                                         'password': 'password'})
+    allow_delayed_open : bool, default False
+        Whether to allow file-open methods to return before the actual open. This option
+        may reduce latency as it decreases the number of round trips.
+        The downside is failures such as opening a file in a non-existing bucket will
+        only be reported when actual I/O is done (at worst, when attempting to close the
+        file).
     allow_bucket_creation : bool, default False
         Whether to allow directory creation at the bucket-level. This option may also be
         passed in a URI query parameter.
@@ -257,6 +263,9 @@ cdef class S3FileSystem(FileSystem):
         If true, then virtual addressing is always enabled.
         If false, then virtual addressing is only enabled if `endpoint_override` is empty.
         This can be used for non-AWS backends that only support virtual hosted-style access.
+    tls_ca_file_path : str, default None
+        If set, this should be the path of a file containing TLS certificates
+        in PEM format which will be used for TLS verification.
 
     Examples
     --------
@@ -264,7 +273,7 @@ cdef class S3FileSystem(FileSystem):
     >>> s3 = fs.S3FileSystem(region='us-west-2')
     >>> s3.get_file_info(fs.FileSelector(
     ...    'power-analysis-ready-datastore/power_901_constants.zarr/FROCEAN', recursive=True
-    ... ))
+    ... )) # doctest: +SKIP
     [<FileInfo for 'power-analysis-ready-datastore/power_901_constants.zarr/FROCEAN/.zarray...
 
     For usage of the methods see examples for :func:`~pyarrow.fs.LocalFileSystem`.
@@ -279,11 +288,12 @@ cdef class S3FileSystem(FileSystem):
                  bint background_writes=True, default_metadata=None,
                  role_arn=None, session_name=None, external_id=None,
                  load_frequency=900, proxy_options=None,
+                 allow_delayed_open=False,
                  allow_bucket_creation=False, allow_bucket_deletion=False,
                  check_directory_existence_before_creation=False,
                  retry_strategy: S3RetryStrategy = AwsStandardS3RetryStrategy(
                      max_attempts=3),
-                 force_virtual_addressing=False):
+                 force_virtual_addressing=False, tls_ca_file_path=None):
         cdef:
             optional[CS3Options] options
             shared_ptr[CS3FileSystem] wrapped
@@ -393,6 +403,7 @@ cdef class S3FileSystem(FileSystem):
                     "'proxy_options': expected 'dict' or 'str', "
                     f"got {type(proxy_options)} instead.")
 
+        options.value().allow_delayed_open = allow_delayed_open
         options.value().allow_bucket_creation = allow_bucket_creation
         options.value().allow_bucket_deletion = allow_bucket_deletion
         options.value().check_directory_existence_before_creation = check_directory_existence_before_creation
@@ -406,6 +417,8 @@ cdef class S3FileSystem(FileSystem):
                 retry_strategy.max_attempts)
         else:
             raise ValueError(f'Invalid retry_strategy {retry_strategy!r}')
+        if tls_ca_file_path is not None:
+            options.value().tls_ca_file_path = tobytes(tls_ca_file_path)
 
         with nogil:
             wrapped = GetResultValue(CS3FileSystem.Make(options.value()))
@@ -453,6 +466,7 @@ cdef class S3FileSystem(FileSystem):
                 external_id=frombytes(opts.external_id),
                 load_frequency=opts.load_frequency,
                 background_writes=opts.background_writes,
+                allow_delayed_open=opts.allow_delayed_open,
                 allow_bucket_creation=opts.allow_bucket_creation,
                 allow_bucket_deletion=opts.allow_bucket_deletion,
                 check_directory_existence_before_creation=opts.check_directory_existence_before_creation,
@@ -465,6 +479,7 @@ cdef class S3FileSystem(FileSystem):
                                'password': frombytes(
                                    opts.proxy_options.password)},
                 force_virtual_addressing=opts.force_virtual_addressing,
+                tls_ca_file_path=frombytes(opts.tls_ca_file_path),
             ),)
         )
 

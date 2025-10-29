@@ -419,6 +419,12 @@ int64_t GetCurrentRSS();
 ARROW_EXPORT
 int64_t GetTotalMemoryBytes();
 
+/// \brief Get the number of affinity core on the system.
+///
+/// This is only implemented on Linux.
+/// If a value is returned, it is guaranteed to be greater or equal to one.
+ARROW_EXPORT Result<int32_t> GetNumAffinityCores();
+
 /// \brief Load a dynamic library
 ///
 /// This wraps dlopen() except on Windows, where LoadLibrary() is called.

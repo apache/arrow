@@ -18,6 +18,7 @@
 #include <gtest/gtest.h>
 #include "arrow/memory_pool.h"
 #include "arrow/status.h"
+#include "arrow/util/logging_internal.h"
 
 #include "gandiva/projector.h"
 #include "gandiva/tests/test_util.h"

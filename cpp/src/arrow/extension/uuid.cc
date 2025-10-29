@@ -18,7 +18,7 @@
 #include <sstream>
 
 #include "arrow/extension_type.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 
 #include "arrow/extension/uuid.h"
 
@@ -40,7 +40,7 @@ Result<std::shared_ptr<DataType>> UuidType::Deserialize(
   if (!serialized.empty()) {
     return Status::Invalid("Unexpected serialized metadata: '", serialized, "'");
   }
-  if (!storage_type->Equals(*fixed_size_binary(16))) {
+  if (!IsSupportedStorageType(storage_type)) {
     return Status::Invalid("Invalid storage type for UuidType: ",
                            storage_type->ToString());
   }
@@ -54,5 +54,9 @@ std::string UuidType::ToString(bool show_metadata) const {
 }
 
 std::shared_ptr<DataType> uuid() { return std::make_shared<UuidType>(); }
+
+bool UuidType::IsSupportedStorageType(const std::shared_ptr<DataType>& storage_type) {
+  return storage_type->Equals(*fixed_size_binary(16));
+}
 
 }  // namespace arrow::extension

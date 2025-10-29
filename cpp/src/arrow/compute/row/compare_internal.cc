@@ -25,6 +25,7 @@
 #include "arrow/compute/util.h"
 #include "arrow/compute/util_internal.h"
 #include "arrow/util/bit_util.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/ubsan.h"
 
 namespace arrow {
@@ -275,7 +276,11 @@ void KeyCompare::CompareVarBinaryColumnToRowHelper(
       int32_t tail_length = length - j * 8;
       uint64_t tail_mask = ~0ULL >> (64 - 8 * tail_length);
       uint64_t key_left = 0;
-      std::memcpy(&key_left, key_left_ptr + j, tail_length);
+      // NOTE: UBSAN may falsely report "misaligned load" in `std::memcpy` on some
+      // platforms when using 64-bit pointers. Cast to an 8-bit pointer to work around
+      // this.
+      const uint8_t* src_bytes = reinterpret_cast<const uint8_t*>(key_left_ptr + j);
+      std::memcpy(&key_left, src_bytes, tail_length);
       uint64_t key_right = key_right_ptr[j];
       result_or |= tail_mask & (key_left ^ key_right);
     }

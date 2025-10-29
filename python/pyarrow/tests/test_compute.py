@@ -198,8 +198,10 @@ def test_option_class_equality(request):
         pc.TrimOptions(" "),
         pc.Utf8NormalizeOptions("NFKC"),
         pc.VarianceOptions(),
+        pc.WinsorizeOptions(0.05, 0.9),
         pc.WeekOptions(week_starts_monday=True, count_from_zero=False,
                        first_week_is_fully_in_year=False),
+        pc.ZeroFillOptions(4, "0"),
     ]
     # Timezone database might not be installed on Windows or Emscripten
     if request.config.pyarrow.is_enabled["timezone_data"]:
@@ -358,6 +360,49 @@ def test_sum_array(arrow_type):
     assert pc.sum(arr, min_count=0).as_py() == 0
 
 
+@pytest.mark.parametrize("arrow_type", [pa.decimal128(3, 2), pa.decimal256(3, 2)])
+def test_sum_decimal_array(arrow_type):
+    from decimal import Decimal
+    max_precision_type = (
+        pa.decimal128(38, arrow_type.scale)
+        if pa.types.is_decimal128(arrow_type)
+        else pa.decimal256(76, arrow_type.scale)
+    )
+    expected_sum = Decimal("5.79")
+    expected_sum_overflow = Decimal("10.00")
+    zero = Decimal("0.00")
+
+    # No overflow
+    arr = pa.array([Decimal("1.23"), Decimal("4.56")], type=arrow_type)
+    assert arr.sum().as_py() == expected_sum
+    assert arr.sum().type == max_precision_type
+
+    arr = pa.array([Decimal("1.23"), Decimal("4.56"), None], type=arrow_type)
+    assert arr.sum().as_py() == expected_sum
+    assert arr.sum().type == max_precision_type
+
+    # With overflow
+    arr = pa.array([Decimal("1.23"), Decimal("8.77")], type=arrow_type)
+    assert arr.sum().as_py() == expected_sum_overflow
+    assert arr.sum().type == max_precision_type
+
+    arr = pa.array([Decimal("1.23"), Decimal("8.77"), None], type=arrow_type)
+    assert arr.sum().as_py() == expected_sum_overflow
+    assert arr.sum().type == max_precision_type
+
+    arr = pa.array([None], type=arrow_type)
+    assert arr.sum().as_py() is None  # noqa: E711
+    assert arr.sum().type == max_precision_type  # noqa: E711
+    assert arr.sum(min_count=0).as_py() == zero
+    assert arr.sum(min_count=0).type == max_precision_type
+
+    arr = pa.array([], type=arrow_type)
+    assert arr.sum().as_py() is None  # noqa: E711
+    assert arr.sum().type == max_precision_type  # noqa: E711
+    assert arr.sum(min_count=0).as_py() == zero
+    assert arr.sum(min_count=0).type == max_precision_type
+
+
 @pytest.mark.parametrize('arrow_type', numerical_arrow_types)
 def test_sum_chunked_array(arrow_type):
     arr = pa.chunked_array([pa.array([1, 2, 3, 4], type=arrow_type)])
@@ -379,6 +424,48 @@ def test_sum_chunked_array(arrow_type):
     assert arr.num_chunks == 0
     assert pc.sum(arr).as_py() is None  # noqa: E711
     assert pc.sum(arr, min_count=0).as_py() == 0
+
+
+@pytest.mark.parametrize('arrow_type', [pa.decimal128(3, 2), pa.decimal256(3, 2)])
+def test_sum_chunked_array_decimal_type(arrow_type):
+    from decimal import Decimal
+    max_precision_type = (
+        pa.decimal128(38, arrow_type.scale)
+        if pa.types.is_decimal128(arrow_type)
+        else pa.decimal256(76, arrow_type.scale)
+    )
+    expected_sum = Decimal("5.79")
+    zero = Decimal("0.00")
+
+    arr = pa.chunked_array(
+        [
+            pa.array([Decimal("1.23"), Decimal("4.56")], type=arrow_type)
+        ]
+    )
+    assert pc.sum(arr).as_py() == expected_sum
+    assert pc.sum(arr).type == max_precision_type
+
+    arr = pa.chunked_array([
+        pa.array([Decimal("1.23")], type=arrow_type),
+        pa.array([Decimal("4.56")], type=arrow_type)
+    ])
+    assert pc.sum(arr).as_py() == expected_sum
+    assert pc.sum(arr).type == max_precision_type
+
+    arr = pa.chunked_array([
+        pa.array([Decimal("1.23")], type=arrow_type),
+        pa.array([], type=arrow_type),
+        pa.array([Decimal("4.56")], type=arrow_type)
+    ])
+    assert pc.sum(arr).as_py() == expected_sum
+    assert pc.sum(arr).type == max_precision_type
+
+    arr = pa.chunked_array((), type=arrow_type)
+    assert arr.num_chunks == 0
+    assert pc.sum(arr).as_py() is None  # noqa: E711
+    assert pc.sum(arr).type == max_precision_type
+    assert pc.sum(arr, min_count=0).as_py() == zero
+    assert pc.sum(arr, min_count=0).type == max_precision_type
 
 
 def test_mode_array():
@@ -455,6 +542,22 @@ def test_kurtosis():
     assert pc.kurtosis(data).as_py() == pytest.approx(-1.5, rel=1e-10)
     assert pc.kurtosis(data, skip_nulls=False).as_py() is None
     assert pc.kurtosis(data, min_count=4).as_py() is None
+
+
+@pytest.mark.parametrize("input, expected", (
+    (
+        [1.0, 2.0, 3.0, 40.0, None],
+        {'skew': pytest.approx(1.988947740397821),
+         'kurtosis': pytest.approx(3.9631931024230695)}
+    ),
+    ([1, 2, 40], {'skew': pytest.approx(1.7281098503730385), 'kurtosis': None}),
+    ([1, 40], {'skew': None, 'kurtosis': None}),
+))
+def test_unbiased_skew_and_kurtosis(input, expected):
+    arrow_skew = pc.skew(input, skip_nulls=True, biased=False)
+    arrow_kurtosis = pc.kurtosis(input, skip_nulls=True, biased=False)
+    assert arrow_skew.as_py() == expected['skew']
+    assert arrow_kurtosis.as_py() == expected['kurtosis']
 
 
 def test_count_substring():
@@ -1032,6 +1135,37 @@ def test_pad():
     assert pc.utf8_center(arr, 3).tolist() == [None, ' á ', 'abcd']
     assert pc.utf8_lpad(arr, 3).tolist() == [None, '  á', 'abcd']
     assert pc.utf8_rpad(arr, 3).tolist() == [None, 'á  ', 'abcd']
+
+
+def test_utf8_zfill():
+    assert pc.utf8_zfill is pc.utf8_zero_fill
+
+    # match str.zfill behavior
+    examples = ['A', 'AB', 'ABC', '', '-1', '+1', '1', None]
+    for width in range(0, 6):
+        arr = pa.array(examples)
+        result = pc.utf8_zero_fill(arr, width=width).to_pylist()
+        expected = [x.zfill(width) if x is not None else None for x in examples]
+        assert result == expected, f"Mismatch at width={width}: {result} vs {expected}"
+
+    # unicode padding character
+    arr = pa.array(["1", "-2", "+3"])
+    result = pc.utf8_zero_fill(arr, options=pc.ZeroFillOptions(
+        width=5, padding="💠")).to_pylist()
+    assert result == ["💠💠💠💠1", "-💠💠💠2", "+💠💠💠3"]
+
+    # custom ASCII padding character
+    arr = pa.array(["1", "-2", "+3"])
+    result = pc.utf8_zero_fill(arr, options=pc.ZeroFillOptions(
+        width=4, padding="x")).to_pylist()
+    assert result == ["xxx1", "-xx2", "+xx3"]
+
+    # multi-codepoint padding — should raise
+    arr = pa.array(["foo"])
+    with pytest.raises(pa.ArrowInvalid, match="Padding must be one codepoint"):
+        pc.utf8_zero_fill(arr, options=pc.ZeroFillOptions(width=4, padding="spam"))
+    with pytest.raises(pa.ArrowInvalid, match="Padding must be one codepoint"):
+        pc.utf8_zero_fill(arr, options=pc.ZeroFillOptions(width=4, padding=""))
 
 
 @pytest.mark.pandas
@@ -1818,6 +1952,28 @@ def test_fill_null_chunked_array(arrow_type):
     assert result.equals(expected)
 
 
+def test_fill_null_windows_regression():
+    # Regression test for GH-47234, which was failing due to a MSVC compiler bug
+    # (possibly https://developercommunity.visualstudio.com/t/10912292
+    # or https://developercommunity.visualstudio.com/t/10945478)
+    arr = pa.array([True, False, False, False, False, None])
+    s = pa.scalar(True, type=pa.bool_())
+
+    result = pa.compute.call_function("coalesce", [arr, s])
+    result.validate(full=True)
+    expected = pa.array([True, False, False, False, False, True])
+    assert result.equals(expected)
+
+    for ty in [pa.int8(), pa.int16(), pa.int32(), pa.int64()]:
+        arr = pa.array([1, 2, 3, 4, 5, None], type=ty)
+        s = pa.scalar(42, type=ty)
+
+        result = pa.compute.call_function("coalesce", [arr, s])
+        result.validate(full=True)
+        expected = pa.array([1, 2, 3, 4, 5, 42], type=ty)
+        assert result.equals(expected)
+
+
 def test_logical():
     a = pa.array([True, False, False, None])
     b = pa.array([True, True, False, True])
@@ -2319,7 +2475,7 @@ def test_extract_datetime_components(request):
                   "2008-12-28T00:00:00.0",
                   "2008-12-29T00:00:00.0",
                   "2012-01-01T01:02:03.0"]
-    timezones = ["UTC", "US/Central", "Asia/Kolkata",
+    timezones = ["UTC", "America/Chicago", "Asia/Kolkata",
                  "Etc/GMT-4", "Etc/GMT+4", "Australia/Broken_Hill"]
 
     # Test timezone naive timestamp array
@@ -2331,6 +2487,13 @@ def test_extract_datetime_components(request):
     else:
         for timezone in timezones:
             _check_datetime_components(timestamps, timezone)
+
+
+def test_offset_timezone():
+    arr = pc.strptime(["2012-12-12T12:12:12"], format="%Y-%m-%dT%H:%M:%S", unit="s")
+    zoned_arr = arr.cast(pa.timestamp("s", tz="+05:30"))
+    assert pc.hour(zoned_arr)[0].as_py() == 17
+    assert pc.minute(zoned_arr)[0].as_py() == 42
 
 
 @pytest.mark.parametrize("unit", ["s", "ms", "us", "ns"])
@@ -2373,7 +2536,7 @@ def test_assume_timezone():
     ambiguous_array = pa.array(ambiguous, type=ts_type)
     nonexistent_array = pa.array(nonexistent, type=ts_type)
 
-    for timezone in ["UTC", "US/Central", "Asia/Kolkata"]:
+    for timezone in ["UTC", "America/Chicago", "Asia/Kolkata"]:
         options = pc.AssumeTimezoneOptions(timezone)
         ta = pa.array(timestamps, type=ts_type)
         expected = timestamps.tz_localize(timezone)
@@ -2566,7 +2729,7 @@ def test_round_temporal(unit):
     _check_temporal_rounding(ts, values, unit)
 
     timezones = ["Asia/Kolkata", "America/New_York", "Etc/GMT-4", "Etc/GMT+4",
-                 "Europe/Brussels", "Pacific/Marquesas", "US/Central", "UTC"]
+                 "Europe/Brussels", "Pacific/Marquesas", "America/Chicago", "UTC"]
 
     for timezone in timezones:
         ts_zoned = ts.dt.tz_localize("UTC").dt.tz_convert(timezone)
@@ -3769,19 +3932,42 @@ def test_list_slice_bad_parameters():
         pc.list_slice(arr, 0, 1, step=-1)
 
 
-def check_run_end_encode_decode(run_end_encode_opts=None):
-    arr = pa.array([1, 1, 1, 2, 2, 1, 1, 1, 1, 1, 3, 3, 3, 3, 3, 3, 3, 3, 3])
+def check_run_end_encode_decode(value_type, run_end_encode_opts=None):
+    values = [1, 1, 1, 2, 2, 1, 1, 1, 1, 1, 3, 3, 3, 3, 3, 3, 3, 3, 3]
+    arr = pa.array(values, type=value_type)
     encoded = pc.run_end_encode(arr, options=run_end_encode_opts)
     decoded = pc.run_end_decode(encoded)
     assert decoded.type == arr.type
     assert decoded.equals(arr)
 
 
-def test_run_end_encode():
-    check_run_end_encode_decode()
-    check_run_end_encode_decode(pc.RunEndEncodeOptions(pa.int16()))
-    check_run_end_encode_decode(pc.RunEndEncodeOptions('int32'))
-    check_run_end_encode_decode(pc.RunEndEncodeOptions(pa.int64()))
+@pytest.mark.parametrize(
+    "value_type",
+    (
+        pa.int8(),
+        pa.int16(),
+        pa.int32(),
+        pa.int64(),
+        pa.float16(),
+        pa.float32(),
+        pa.float64(),
+        pa.decimal32(4, 0),
+        pa.decimal64(4, 0),
+        pa.decimal128(4, 0),
+        pa.decimal256(4, 0),
+    ),
+)
+@pytest.mark.parametrize(
+    "option",
+    (
+        None,
+        pc.RunEndEncodeOptions(pa.int16()),
+        pc.RunEndEncodeOptions("int32"),
+        pc.RunEndEncodeOptions(pa.int64()),
+    ),
+)
+def test_run_end_encode(value_type, option):
+    check_run_end_encode_decode(value_type, option)
 
 
 def test_pairwise_diff():
@@ -3838,3 +4024,14 @@ def test_pivot_wider():
     with pytest.raises(ValueError, match="Encountered more than one non-null value"):
         result = pc.pivot_wider(["height", "width", "height"], [10, None, 11],
                                 key_names=key_names)
+
+
+def test_winsorize():
+    arr = pa.array([10, 4, 9, 8, 5, 3, 7, 2, 1, 6])
+
+    result = pc.winsorize(arr, 0.1, 0.8)
+    assert result.to_pylist() == [8, 4, 8, 8, 5, 3, 7, 2, 2, 6]
+
+    result = pc.winsorize(
+        arr, options=pc.WinsorizeOptions(lower_limit=0.1, upper_limit=0.8))
+    assert result.to_pylist() == [8, 4, 8, 8, 5, 3, 7, 2, 2, 6]

@@ -21,6 +21,7 @@
 #include <utility>
 
 #include "arrow/acero/exec_plan.h"
+#include "arrow/acero/exec_plan_internal.h"
 #include "arrow/acero/hash_join.h"
 #include "arrow/acero/hash_join_dict.h"
 #include "arrow/acero/hash_join_node.h"
@@ -30,6 +31,7 @@
 #include "arrow/compute/key_hash_internal.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/future.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/thread_pool.h"
 #include "arrow/util/tracing_internal.h"
 
@@ -43,6 +45,24 @@ using compute::Hashing32;
 using compute::KeyColumnArray;
 
 namespace acero {
+
+namespace {
+
+Status ValidateHashJoinNodeOptions(const HashJoinNodeOptions& join_options) {
+  if (join_options.key_cmp.empty() || join_options.left_keys.empty() ||
+      join_options.right_keys.empty()) {
+    return Status::Invalid("key_cmp and keys cannot be empty");
+  }
+
+  if ((join_options.key_cmp.size() != join_options.left_keys.size()) ||
+      (join_options.key_cmp.size() != join_options.right_keys.size())) {
+    return Status::Invalid("key_cmp and keys must have the same size");
+  }
+
+  return Status::OK();
+}
+
+}  // namespace
 
 // Check if a type is supported in a join (as either a key or non-key column)
 bool HashJoinSchema::IsTypeSupported(const DataType& type) {
@@ -464,20 +484,6 @@ Status HashJoinSchema::CollectFilterColumns(std::vector<FieldRef>& left_filter,
       }
     }
   }
-  return Status::OK();
-}
-
-Status ValidateHashJoinNodeOptions(const HashJoinNodeOptions& join_options) {
-  if (join_options.key_cmp.empty() || join_options.left_keys.empty() ||
-      join_options.right_keys.empty()) {
-    return Status::Invalid("key_cmp and keys cannot be empty");
-  }
-
-  if ((join_options.key_cmp.size() != join_options.left_keys.size()) ||
-      (join_options.key_cmp.size() != join_options.right_keys.size())) {
-    return Status::Invalid("key_cmp and keys must have the same size");
-  }
-
   return Status::OK();
 }
 

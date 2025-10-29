@@ -37,6 +37,7 @@
 #include "arrow/type_traits.h"
 #include "arrow/util/compare.h"
 #include "arrow/util/decimal.h"
+#include "arrow/util/float16.h"
 #include "arrow/util/visibility.h"
 #include "arrow/visit_type_inline.h"
 
@@ -245,6 +246,12 @@ struct ARROW_EXPORT UInt64Scalar : public NumericScalar<UInt64Type> {
 
 struct ARROW_EXPORT HalfFloatScalar : public NumericScalar<HalfFloatType> {
   using NumericScalar<HalfFloatType>::NumericScalar;
+
+  explicit HalfFloatScalar(util::Float16 value)
+      : NumericScalar(value.bits(), float16()) {}
+
+  HalfFloatScalar(util::Float16 value, std::shared_ptr<DataType> type)
+      : NumericScalar(value.bits(), std::move(type)) {}
 };
 
 struct ARROW_EXPORT FloatScalar : public NumericScalar<FloatType> {
@@ -966,6 +973,18 @@ struct MakeScalarImpl {
     // `static_cast<ValueRef>` makes a rvalue if ValueRef is `ValueType&&`
     out_ = std::make_shared<ScalarType>(
         static_cast<ValueType>(static_cast<ValueRef>(value_)), std::move(type_));
+    return Status::OK();
+  }
+
+  // This isn't captured by the generic case above because `util::Float16` isn't implicity
+  // convertible to `uint16_t` (HalfFloat's ValueType)
+  template <typename T>
+  std::enable_if_t<std::is_same_v<std::decay_t<ValueRef>, util::Float16> &&
+                       is_half_float_type<T>::value,
+                   Status>
+  Visit(const T& t) {
+    out_ = std::make_shared<HalfFloatScalar>(static_cast<ValueRef>(value_),
+                                             std::move(type_));
     return Status::OK();
   }
 

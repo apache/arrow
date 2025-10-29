@@ -16,52 +16,136 @@
 # under the License.
 
 option(
+    'acero',
+    type: 'feature',
+    description: 'Build the Arrow Acero Engine Module',
+)
+option(
+    'azure',
+    type: 'feature',
+    description: 'Build Arrow with Azure support (requires the Azure SDK for C++)',
+)
+
+option(
     'benchmarks',
-    type: 'boolean',
+    type: 'feature',
     description: 'Build the Arrow micro benchmarks',
-    value: false,
+)
+option('brotli', type: 'feature', description: 'Build with Brotli compression')
+option('bz2', type: 'feature', description: 'Build with BZ2 compression')
+option(
+    'compute',
+    type: 'feature',
+    description: 'Build all Arrow Compute kernels',
+)
+option('csv', type: 'feature', description: 'Build the Arrow CSV Parser Module')
+option(
+    'dataset',
+    type: 'feature',
+    description: 'Build the Arrow Dataset Modules',
+)
+option(
+    'filesystem',
+    type: 'feature',
+    description: 'Build the Arrow Filesystem Layer',
+)
+option(
+    'fuzzing',
+    type: 'feature',
+    description: 'Build Arrow Fuzzing executables',
+)
+
+option(
+    'gcs',
+    type: 'feature',
+    description: 'Build Arrow with GCS support (requires the Google Cloud Platform C++ Client Libraries)',
+)
+
+option('hdfs', type: 'feature', description: 'Build the Arrow HDFS bridge')
+
+option(
+    'integration',
+    type: 'feature',
+    description: 'Build the Arrow integration test executables',
 )
 
 option(
     'ipc',
-    type: 'boolean',
+    type: 'feature',
     description: 'Build the Arrow IPC extensions',
-    value: false,
+    value: 'enabled',
 )
 
-option(
-    'json',
-    type: 'boolean',
-    description: 'Build Arrow with JSON support',
-    value: false,
-)
+option('json', type: 'feature', description: 'Build Arrow with JSON support')
 
 option(
-    'git_id',
-    type: 'string',
+    'flight',
+    type: 'feature',
+    description: 'Build the Arrow Flight RPC System (requires GRPC, Protocol Buffers)',
 )
 
-option(
-    'git_description',
-    type: 'string',
-)
+option('git_id', type: 'string')
+option('git_description', type: 'string')
+
+option('lz4', type: 'feature', description: 'Build with lz4 compression')
 
 option(
     'package_kind',
     type: 'string',
     description: 'Arbitrary string that identifies the kind of package (for informational purposes)',
 )
+option('parquet', type: 'feature', description: 'Build the Parquet libraries')
+option(
+    'parquet_build_executables',
+    type: 'feature',
+    description: 'Build the Parquet executable CLI tools.',
+)
+option(
+    'parquet_build_examples',
+    type: 'feature',
+    description: 'Build the Parquet examples.',
+)
+option(
+    'parquet_require_encryption',
+    type: 'feature',
+    description: 'Build support for encryption. Fail if OpenSSL is not found',
+)
+
+option('snappy', type: 'feature', description: 'Build with snappy compression')
+option(
+    's3',
+    type: 'feature',
+    description: 'Build Arrow with S3 support (requires the AWS SDK for C++)',
+)
+
+option(
+    'tensorflow',
+    type: 'feature',
+    description: 'Build Arrow with TensorFlow support enabled',
+)
 
 option(
     'testing',
-    type: 'boolean',
+    type: 'feature',
     description: 'Build the Arrow testing libraries',
-    value: false,
 )
-
 option(
     'tests',
-    type: 'boolean',
+    type: 'feature',
     description: 'Build the Arrow googletest unit tests',
-    value: false,
 )
+option(
+    'utf8proc',
+    type: 'feature',
+    description: '''
+Build with support for Unicode properties using the utf8proc library;
+(only used if compute or gandiva is enabled)''',
+    value: 'enabled',
+)
+option(
+    'utilities',
+    type: 'feature',
+    description: 'Build Arrow commandline utilities',
+)
+option('zlib', type: 'feature', description: 'Build with zlib compression')
+option('zstd', type: 'feature', description: 'Build with zstd compression')

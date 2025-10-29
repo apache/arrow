@@ -37,7 +37,7 @@
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/string.h"
 
@@ -90,6 +90,11 @@ std::shared_ptr<arrow::Array> ConstantArrayGenerator::UInt64(int64_t size,
 
 std::shared_ptr<arrow::Array> ConstantArrayGenerator::Int64(int64_t size, int64_t value) {
   return ConstantArray<Int64Type>(size, value);
+}
+
+std::shared_ptr<arrow::Array> ConstantArrayGenerator::Float16(int64_t size,
+                                                              uint16_t value) {
+  return ConstantArray<HalfFloatType>(size, value);
 }
 
 std::shared_ptr<arrow::Array> ConstantArrayGenerator::Float32(int64_t size, float value) {
@@ -148,6 +153,8 @@ std::shared_ptr<arrow::Array> ConstantArrayGenerator::Zeroes(
       EXPECT_OK_AND_ASSIGN(auto viewed, Int32(size)->View(type));
       return viewed;
     }
+    case Type::HALF_FLOAT:
+      return Float16(size);
     case Type::FLOAT:
       return Float32(size);
     case Type::DOUBLE:

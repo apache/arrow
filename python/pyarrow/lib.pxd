@@ -43,9 +43,18 @@ cdef class IpcWriteOptions(_Weakrefable):
         CIpcWriteOptions c_options
 
 
+cdef IpcWriteOptions wrap_ipc_write_options(CIpcWriteOptions c)
+
+
 cdef class IpcReadOptions(_Weakrefable):
     cdef:
         CIpcReadOptions c_options
+
+
+cdef IpcReadOptions wrap_ipc_read_options(CIpcReadOptions c)
+
+
+cdef _wrap_read_stats(CIpcReadStats c)
 
 
 cdef class Message(_Weakrefable):
@@ -205,10 +214,6 @@ cdef class UuidType(BaseExtensionType):
 cdef class JsonType(BaseExtensionType):
     cdef:
         const CJsonType* json_ext_type
-
-
-cdef class PyExtensionType(ExtensionType):
-    pass
 
 
 cdef class _Metadata(_Weakrefable):
@@ -670,6 +675,8 @@ cdef shared_ptr[function[StreamWrapFunc]] make_streamwrap_func(
 # Default is allow_none=False
 cpdef DataType ensure_type(object type, bint allow_none=*)
 
+cdef DataType primitive_type(Type type)
+
 cdef timeunit_to_string(TimeUnit unit)
 cdef TimeUnit string_to_timeunit(unit) except *
 
@@ -679,6 +686,8 @@ cdef shared_ptr[const CKeyValueMetadata] pyarrow_unwrap_metadata(
     object meta) except *
 cdef object pyarrow_wrap_metadata(
     const shared_ptr[const CKeyValueMetadata]& meta)
+
+cdef CField.CMergeOptions _parse_field_merge_options(str promote_options) except *
 
 #
 # Public Cython API for 3rd party code

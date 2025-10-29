@@ -23,7 +23,7 @@
 #include "arrow/filesystem/util_internal.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/string.h"
 #include "arrow/util/uri.h"
 

@@ -25,7 +25,7 @@
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/util/bit_util.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/slice_util_internal.h"
 #include "arrow/util/string.h"
 
@@ -201,10 +201,6 @@ Result<std::shared_ptr<Buffer>> AllocateEmptyBitmap(int64_t length, int64_t alig
   memset(buf->mutable_data(), 0, static_cast<size_t>(buf->size()));
   // R build with openSUSE155 requires an explicit shared_ptr construction
   return std::shared_ptr<Buffer>(std::move(buf));
-}
-
-Status AllocateEmptyBitmap(int64_t length, std::shared_ptr<Buffer>* out) {
-  return AllocateEmptyBitmap(length).Value(out);
 }
 
 Result<std::shared_ptr<Buffer>> ConcatenateBuffers(

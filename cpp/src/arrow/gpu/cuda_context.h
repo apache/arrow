@@ -24,8 +24,8 @@
 #include <cuda.h>
 
 #include "arrow/device.h"
+#include "arrow/gpu/visibility.h"
 #include "arrow/result.h"
-#include "arrow/util/visibility.h"
 
 namespace arrow {
 namespace cuda {
@@ -41,7 +41,7 @@ class CudaMemoryManager;
 
 // XXX Should CudaContext be merged into CudaMemoryManager?
 
-class ARROW_EXPORT CudaDeviceManager {
+class ARROW_CUDA_EXPORT CudaDeviceManager {
  public:
   static Result<CudaDeviceManager*> Instance();
 
@@ -88,7 +88,7 @@ class ARROW_EXPORT CudaDeviceManager {
 ///
 /// Each CudaDevice instance is tied to a particular CUDA device
 /// (identified by its logical device number).
-class ARROW_EXPORT CudaDevice : public Device {
+class ARROW_CUDA_EXPORT CudaDevice : public Device {
  public:
   const char* type_name() const override;
   std::string ToString() const override;
@@ -148,7 +148,7 @@ class ARROW_EXPORT CudaDevice : public Device {
   /// and freed using cuStreamCreate and cuStreamDestroy (or equivalent).
   /// Default construction will use the cuda default stream, and does not allow
   /// construction from literal 0 or nullptr.
-  class ARROW_EXPORT Stream : public Device::Stream {
+  class ARROW_CUDA_EXPORT Stream : public Device::Stream {
    public:
     ~Stream() = default;
 
@@ -195,7 +195,7 @@ class ARROW_EXPORT CudaDevice : public Device {
   Result<std::shared_ptr<Device::Stream>> WrapStream(
       void* device_stream, Stream::release_fn_t release_fn) override;
 
-  class ARROW_EXPORT SyncEvent : public Device::SyncEvent {
+  class ARROW_CUDA_EXPORT SyncEvent : public Device::SyncEvent {
    public:
     [[nodiscard]] CUevent value() const {
       if (sync_event_) {
@@ -240,17 +240,17 @@ class ARROW_EXPORT CudaDevice : public Device {
 };
 
 /// \brief Return whether a device instance is a CudaDevice
-ARROW_EXPORT
+ARROW_CUDA_EXPORT
 bool IsCudaDevice(const Device& device);
 
 /// \brief Cast a device instance to a CudaDevice
 ///
 /// An error is returned if the device is not a CudaDevice.
-ARROW_EXPORT
+ARROW_CUDA_EXPORT
 Result<std::shared_ptr<CudaDevice>> AsCudaDevice(const std::shared_ptr<Device>& device);
 
 /// \brief MemoryManager implementation for CUDA
-class ARROW_EXPORT CudaMemoryManager : public MemoryManager {
+class ARROW_CUDA_EXPORT CudaMemoryManager : public MemoryManager {
  public:
   Result<std::shared_ptr<io::RandomAccessFile>> GetBufferReader(
       std::shared_ptr<Buffer> buf) override;
@@ -304,19 +304,19 @@ class ARROW_EXPORT CudaMemoryManager : public MemoryManager {
 };
 
 /// \brief Return whether a MemoryManager instance is a CudaMemoryManager
-ARROW_EXPORT
+ARROW_CUDA_EXPORT
 bool IsCudaMemoryManager(const MemoryManager& mm);
 
 /// \brief Cast a MemoryManager instance to a CudaMemoryManager
 ///
 /// An error is returned if the MemoryManager is not a CudaMemoryManager.
-ARROW_EXPORT
+ARROW_CUDA_EXPORT
 Result<std::shared_ptr<CudaMemoryManager>> AsCudaMemoryManager(
     const std::shared_ptr<MemoryManager>& mm);
 
 /// \class CudaContext
 /// \brief Object-oriented interface to the low-level CUDA driver API
-class ARROW_EXPORT CudaContext : public std::enable_shared_from_this<CudaContext> {
+class ARROW_CUDA_EXPORT CudaContext : public std::enable_shared_from_this<CudaContext> {
  public:
   ~CudaContext();
 

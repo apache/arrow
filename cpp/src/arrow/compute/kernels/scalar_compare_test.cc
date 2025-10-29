@@ -35,6 +35,7 @@
 #include "arrow/type_traits.h"
 #include "arrow/util/bitmap_reader.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/logging_internal.h"
 
 namespace arrow {
 

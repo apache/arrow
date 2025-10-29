@@ -20,6 +20,7 @@
 #include <utility>
 
 #include "arrow/status.h"
+#include "arrow/util/logging_internal.h"
 #include "gandiva/decimal_ir.h"
 #include "gandiva/decimal_type_util.h"
 

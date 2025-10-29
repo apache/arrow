@@ -23,7 +23,7 @@ The ``arrow-substrait`` module implements support for the Substrait_ format,
 enabling conversion to and from Arrow objects.
 
 The ``arrow-dataset`` module can execute Substrait_ plans via the
-:doc:`Acero <../cpp/streaming_execution>` query engine.
+:doc:`Acero <../../cpp/acero>` query engine.
 
 .. contents::
 
@@ -245,5 +245,5 @@ the expressions can be passed to the dataset scanner in the form of
 
 .. _`Substrait`: https://substrait.io/
 .. _`Substrait Python`: https://github.com/substrait-io/substrait-python
-.. _`Acero`: https://arrow.apache.org/docs/cpp/streaming_execution.html
+.. _`Acero`: https://arrow.apache.org/docs/cpp/acero.html
 .. _`Extended Expression`: https://github.com/substrait-io/substrait/blob/main/site/docs/expressions/extended_expression.md

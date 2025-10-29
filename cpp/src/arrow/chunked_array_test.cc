@@ -153,33 +153,57 @@ TEST_F(TestChunkedArray, EqualsDifferingMetadata) {
   ASSERT_TRUE(left.Equals(right));
 }
 
-TEST_F(TestChunkedArray, EqualsSameAddressWithNaNs) {
-  auto chunk_with_nan1 = ArrayFromJSON(float64(), "[0, 1, 2, NaN]");
-  auto chunk_without_nan1 = ArrayFromJSON(float64(), "[3, 4, 5]");
-  ArrayVector chunks1 = {chunk_with_nan1, chunk_without_nan1};
-  ASSERT_OK_AND_ASSIGN(auto chunked_array_with_nan1, ChunkedArray::Make(chunks1));
-  ASSERT_FALSE(chunked_array_with_nan1->Equals(chunked_array_with_nan1));
+class TestChunkedArrayEqualsSameAddress : public TestChunkedArray {};
 
-  auto chunk_without_nan2 = ArrayFromJSON(float64(), "[6, 7, 8, 9]");
-  ArrayVector chunks2 = {chunk_without_nan1, chunk_without_nan2};
-  ASSERT_OK_AND_ASSIGN(auto chunked_array_without_nan1, ChunkedArray::Make(chunks2));
-  ASSERT_TRUE(chunked_array_without_nan1->Equals(chunked_array_without_nan1));
-
+TEST_F(TestChunkedArrayEqualsSameAddress, NonFloatType) {
   auto int32_array = ArrayFromJSON(int32(), "[0, 1, 2]");
-  auto float64_array_with_nan = ArrayFromJSON(float64(), "[0, 1, NaN]");
-  ArrayVector arrays1 = {int32_array, float64_array_with_nan};
-  std::vector<std::string> fieldnames = {"Int32Type", "Float64Type"};
-  ASSERT_OK_AND_ASSIGN(auto struct_with_nan, StructArray::Make(arrays1, fieldnames));
-  ArrayVector chunks3 = {struct_with_nan};
-  ASSERT_OK_AND_ASSIGN(auto chunked_array_with_nan2, ChunkedArray::Make(chunks3));
-  ASSERT_FALSE(chunked_array_with_nan2->Equals(chunked_array_with_nan2));
+  ASSERT_OK_AND_ASSIGN(auto chunked_array, ChunkedArray::Make({int32_array}));
+  ASSERT_TRUE(chunked_array->Equals(chunked_array));
+}
 
-  auto float64_array_without_nan = ArrayFromJSON(float64(), "[0, 1, 2]");
-  ArrayVector arrays2 = {int32_array, float64_array_without_nan};
-  ASSERT_OK_AND_ASSIGN(auto struct_without_nan, StructArray::Make(arrays2, fieldnames));
-  ArrayVector chunks4 = {struct_without_nan};
-  ASSERT_OK_AND_ASSIGN(auto chunked_array_without_nan2, ChunkedArray::Make(chunks4));
-  ASSERT_TRUE(chunked_array_without_nan2->Equals(chunked_array_without_nan2));
+TEST_F(TestChunkedArrayEqualsSameAddress, NestedTypeWithoutFloat) {
+  auto int32_array = ArrayFromJSON(int32(), "[0, 1]");
+  ASSERT_OK_AND_ASSIGN(auto struct_array,
+                       StructArray::Make({int32_array}, {"Int32Type"}));
+  ASSERT_OK_AND_ASSIGN(auto chunked_array, ChunkedArray::Make({struct_array}));
+
+  ASSERT_TRUE(chunked_array->Equals(chunked_array));
+}
+
+TEST_F(TestChunkedArrayEqualsSameAddress, FloatType) {
+  auto float64_array = ArrayFromJSON(float64(), "[0.0, 1.0, 2.0, NaN]");
+  ASSERT_OK_AND_ASSIGN(auto chunked_array, ChunkedArray::Make({float64_array}));
+
+  ASSERT_FALSE(chunked_array->Equals(chunked_array));
+
+  // Assert when EqualOptions::nans_equal_ is set
+  ASSERT_TRUE(
+      chunked_array->Equals(chunked_array, EqualOptions::Defaults().nans_equal(true)));
+}
+
+TEST_F(TestChunkedArrayEqualsSameAddress, NestedTypeWithFloat) {
+  auto float64_array = ArrayFromJSON(float64(), "[0.0, 1.0, NaN]");
+  ASSERT_OK_AND_ASSIGN(auto struct_array,
+                       StructArray::Make({float64_array}, {"Float64Type"}));
+  ASSERT_OK_AND_ASSIGN(auto chunked_array, ChunkedArray::Make({struct_array}));
+
+  ASSERT_FALSE(chunked_array->Equals(chunked_array));
+
+  // Assert when EqualOptions::nans_equal_ is set
+  ASSERT_TRUE(
+      chunked_array->Equals(chunked_array, EqualOptions::Defaults().nans_equal(true)));
+}
+
+TEST_F(TestChunkedArray, ApproxEquals) {
+  auto chunk_1 = ArrayFromJSON(float64(), R"([0.0, 0.1, 0.5])");
+  auto chunk_2 = ArrayFromJSON(float64(), R"([0.0, 0.1, 0.5001])");
+  ASSERT_OK_AND_ASSIGN(auto chunked_array_1, ChunkedArray::Make({chunk_1}));
+  ASSERT_OK_AND_ASSIGN(auto chunked_array_2, ChunkedArray::Make({chunk_2}));
+  auto options = EqualOptions::Defaults().atol(1e-3);
+
+  ASSERT_FALSE(chunked_array_1->Equals(chunked_array_2));
+  ASSERT_TRUE(chunked_array_1->Equals(chunked_array_2, options.use_atol(true)));
+  ASSERT_TRUE(chunked_array_1->ApproxEquals(*chunked_array_2, options));
 }
 
 TEST_F(TestChunkedArray, SliceEquals) {

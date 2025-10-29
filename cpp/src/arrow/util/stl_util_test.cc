@@ -22,7 +22,7 @@
 #include <gtest/gtest.h>
 
 #include "arrow/testing/gtest_util.h"
-#include "arrow/util/sort.h"
+#include "arrow/util/sort_internal.h"
 #include "arrow/util/string.h"
 #include "arrow/util/vector.h"
 

@@ -59,6 +59,9 @@ jobs:
           if [ -x "${pkgconf}" ]; then
             echo "PKG_CONFIG=${pkgconf}" >> $GITHUB_ENV
           fi
+
+          # For reproducible source archive verification
+          brew install gzip
       {% endif %}
 
       - uses: actions/setup-java@v2
@@ -89,6 +92,20 @@ jobs:
           PYTHON_VERSION: "3.12"
           {% endif %}
           USE_CONDA: 1
+        {% else %}
+          GTest_SOURCE: SYSTEM
+          {% if target == "cpp" %}
+          TEST_SOURCE_REPRODUCIBLE: 1
+          {% endif %}
         {% endif %}
         run: |
-          arrow/dev/release/verify-release-candidate.sh {{ release|default("") }} {{ rc|default("") }}
+          version={{ release|default("") }}
+          rc={{ rc|default("") }}
+          if [ -n "${version}" ] && [ -n "${rc}" ]; then
+            args=("${version}" "${rc}")
+            GITHUB_REPOSITORY=apache/arrow
+          else
+            args=()
+            GITHUB_REPOSITORY={{ arrow.github_repo }}
+          fi
+          arrow/dev/release/verify-release-candidate.sh "${args[@]}"

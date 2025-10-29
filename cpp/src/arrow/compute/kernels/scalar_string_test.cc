@@ -314,15 +314,27 @@ TYPED_TEST(TestBinaryKernels, NonUtf8Regex) {
                      this->MakeArray({"\xfc\x40", "this \xfc\x40 that \xfc\x40"}),
                      this->MakeArray({"bazz", "this bazz that \xfc\x40"}), &options);
   }
-  // TODO the following test is broken (GH-45735)
   {
-    ExtractRegexOptions options("(?P<letter>[\\xfc])(?P<digit>\\d)");
-    auto null_bitmap = std::make_shared<Buffer>("0");
-    auto output = StructArray::Make(
-        {this->MakeArray({"\xfc", "1"}), this->MakeArray({"\xfc", "2"})},
-        {field("letter", this->type()), field("digit", this->type())}, null_bitmap);
-    this->CheckUnary("extract_regex", this->MakeArray({"foo\xfc 1bar", "\x02\xfc\x40"}),
-                     std::static_pointer_cast<Array>(*output), &options);
+    ExtractRegexOptions options("(?P<letter>[\xfc])(?P<digit>\\d+)");
+    ASSERT_OK_AND_ASSIGN(
+        auto output,
+        StructArray::Make(
+            {this->MakeArray({"\xfc", "\xfc"}), this->MakeArray({"14", "2"})},
+            {field("letter", this->type()), field("digit", this->type())}));
+    this->CheckUnary("extract_regex",
+                     this->MakeArray({"foo\xfc\x31\x34 bar", "\x02\xfc\x32"}), output,
+                     &options);
+  }
+  {
+    ExtractRegexSpanOptions options("(?P<letter>[\xfc])(?P<digit>\\d+)");
+    auto offset_type = is_binary_like(this->type()->id()) ? int32() : int64();
+    auto out_type = struct_({field("letter", fixed_size_list(offset_type, 2)),
+                             field("digit", fixed_size_list(offset_type, 2))});
+    this->CheckUnary("extract_regex_span",
+                     this->MakeArray({"foo\xfc\x31\x34 bar", "\x02\xfc\x32"}), out_type,
+                     R"([{"letter": [3, 1], "digit": [4, 2]},
+                         {"letter": [1, 1], "digit": [2, 1]}])",
+                     &options);
   }
 }
 
@@ -371,18 +383,30 @@ TYPED_TEST(TestBinaryKernels, NonUtf8WithNullRegex) {
                      this->template MakeArray<std::string>({{"\x00\x40", 2}}),
                      this->type(), R"(["bazz"])", &options);
   }
-  // TODO the following test is broken (GH-45735)
   {
-    ExtractRegexOptions options("(?P<null>[\\x00])(?P<digit>\\d)");
-    auto null_bitmap = std::make_shared<Buffer>("0");
-    auto output = StructArray::Make(
-        {this->template MakeArray<std::string>({{"\x00", 1}, {"1", 1}}),
-         this->template MakeArray<std::string>({{"\x00", 1}, {"2", 1}})},
-        {field("null", this->type()), field("digit", this->type())}, null_bitmap);
-    this->CheckUnary(
-        "extract_regex",
-        this->template MakeArray<std::string>({{"foo\x00 1bar", 9}, {"\x02\x00\x40", 3}}),
-        std::static_pointer_cast<Array>(*output), &options);
+    ExtractRegexOptions options(std::string("(?P<null>[\x00])(?P<digit>\\d+)", 27));
+    ASSERT_OK_AND_ASSIGN(
+        auto output,
+        StructArray::Make(
+            {this->template MakeArray<std::string>({{"\x00", 1}, {"\x00", 1}}),
+             this->template MakeArray<std::string>({"14", "2"})},
+            {field("null", this->type()), field("digit", this->type())}));
+    this->CheckUnary("extract_regex",
+                     this->template MakeArray<std::string>(
+                         {{"foo\x00\x31\x34 bar", 10}, {"\x02\x00\x32", 3}}),
+                     output, &options);
+  }
+  {
+    ExtractRegexSpanOptions options(std::string("(?P<null>[\x00])(?P<digit>\\d+)", 27));
+    auto offset_type = is_binary_like(this->type()->id()) ? int32() : int64();
+    auto out_type = struct_({field("null", fixed_size_list(offset_type, 2)),
+                             field("digit", fixed_size_list(offset_type, 2))});
+    this->CheckUnary("extract_regex_span",
+                     this->template MakeArray<std::string>(
+                         {{"foo\x00\x31\x34 bar", 10}, {"\x02\x00\x32", 3}}),
+                     out_type, R"([{"null": [3, 1], "digit": [4, 2]},
+                                   {"null": [1, 1], "digit": [2, 1]}])",
+                     &options);
   }
   {
     ReplaceSliceOptions options(1, 2, std::string("\x00\x40", 2));
@@ -1360,10 +1384,15 @@ TYPED_TEST(TestStringKernels, IsDecimalUnicode) {
 }
 
 TYPED_TEST(TestStringKernels, IsDigitUnicode) {
-  // These are digits according to Python, but we don't have the information in
-  // utf8proc for this
-  // this->CheckUnary("utf8_is_digit", "[\"²\", \"①\"]", boolean(), "[true,
-  // true]");
+  // Tests for digits across various Unicode scripts.
+  // ٤: Arabic 4, ³: Superscript 3, ५: Devanagari 5, Ⅷ: Roman 8 (not digit),
+  // １２３: Fullwidth 123.
+  // '¾' (vulgar fraction) is treated as a digit by utf8proc
+  this->CheckUnary(
+      "utf8_is_digit",
+      R"(["0", "٤", "۵", "३", "१२३", "٣٣", "²", "１２３", "٣٢", "٩", "①", "Ⅷ", "abc" , "⻁", ""])",
+      boolean(),
+      R"([true, true, true, true, true, true, true, true, true, true, true, false, false, false, false])");
 }
 
 TYPED_TEST(TestStringKernels, IsNumericUnicode) {
@@ -2215,6 +2244,51 @@ TYPED_TEST(TestStringKernels, PadUTF8) {
   EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
                                   ::testing::HasSubstr("Padding must be one codepoint"),
                                   CallFunction("utf8_lpad", {input}, &options_bad));
+}
+
+TYPED_TEST(TestStringKernels, UTF8ZeroFill) {
+  ZeroFillOptions options{/*width=*/3, "0"};
+  this->CheckUnary("utf8_zero_fill", R"(["A", "AB", "ABC", null])", this->type(),
+                   R"(["00A", "0AB", "ABC", null])", &options);
+
+  options.width = 4;
+  this->CheckUnary("utf8_zero_fill", R"(["-1", "+1", "1"])", this->type(),
+                   R"(["-001", "+001", "0001"])", &options);
+
+  // width smaller than string → no padding
+  options.width = 2;
+  this->CheckUnary("utf8_zero_fill", R"(["AB", "-12", "+12", "XYZ"])", this->type(),
+                   R"(["AB", "-12", "+12", "XYZ"])", &options);
+
+  // Non-ASCII input strings
+  options.width = 4;
+  this->CheckUnary("utf8_zero_fill", R"(["ñ", "-ö", "+ß"])", this->type(),
+                   R"(["000ñ", "-00ö", "+00ß"])", &options);
+
+  // custom padding character
+  options = ZeroFillOptions{/*width=*/4, "x"};
+  this->CheckUnary("utf8_zero_fill", R"(["1", "-2", "+3"])", this->type(),
+                   R"(["xxx1", "-xx2", "+xx3"])", &options);
+
+  // Non-ASCII padding character
+  options = ZeroFillOptions{/*width=*/5, "💠"};
+  this->CheckUnary("utf8_zero_fill", R"(["1", "-2", "+3"])", this->type(),
+                   R"(["💠💠💠💠1", "-💠💠💠2", "+💠💠💠3"])", &options);
+
+  ZeroFillOptions default_options{/*width=*/4};
+  this->CheckUnary("utf8_zero_fill", R"(["1", "-2", "+3"])", this->type(),
+                   R"(["0001", "-002", "+003"])", &default_options);
+
+  // padding error check
+  ZeroFillOptions options_bad{/*width=*/3, "spam"};
+  auto input = ArrayFromJSON(this->type(), R"(["foo"])");
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
+                                  ::testing::HasSubstr("Padding must be one codepoint"),
+                                  CallFunction("utf8_zero_fill", {input}, &options_bad));
+  options_bad.padding = "";
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
+                                  ::testing::HasSubstr("Padding must be one codepoint"),
+                                  CallFunction("utf8_zero_fill", {input}, &options_bad));
 }
 
 #ifdef ARROW_WITH_UTF8PROC

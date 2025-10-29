@@ -34,8 +34,9 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/future.h"
 #include "arrow/util/iterator.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/range.h"
+#include "arrow/util/thread_pool.h"
 #include "arrow/util/tracing_internal.h"
 #include "parquet/arrow/reader.h"
 #include "parquet/arrow/schema.h"
@@ -76,17 +77,17 @@ parquet::ReaderProperties MakeReaderProperties(
   }
   properties.set_buffer_size(parquet_scan_options->reader_properties->buffer_size());
 
+  auto file_decryption_prop =
+      parquet_scan_options->reader_properties->file_decryption_properties();
+
 #ifdef PARQUET_REQUIRE_ENCRYPTION
   auto parquet_decrypt_config = parquet_scan_options->parquet_decryption_config;
 
   if (parquet_decrypt_config != nullptr) {
-    auto file_decryption_prop =
+    file_decryption_prop =
         parquet_decrypt_config->crypto_factory->GetFileDecryptionProperties(
             *parquet_decrypt_config->kms_connection_config,
             *parquet_decrypt_config->decryption_config, path, filesystem);
-
-    parquet_scan_options->reader_properties->file_decryption_properties(
-        std::move(file_decryption_prop));
   }
 #else
   if (parquet_scan_options->parquet_decryption_config != nullptr) {
@@ -94,8 +95,7 @@ parquet::ReaderProperties MakeReaderProperties(
   }
 #endif
 
-  properties.file_decryption_properties(
-      parquet_scan_options->reader_properties->file_decryption_properties());
+  properties.file_decryption_properties(file_decryption_prop);
 
   properties.set_thrift_string_size_limit(
       parquet_scan_options->reader_properties->thrift_string_size_limit());
@@ -117,6 +117,8 @@ parquet::ArrowReaderProperties MakeArrowReaderProperties(
   }
   properties.set_coerce_int96_timestamp_unit(
       format.reader_options.coerce_int96_timestamp_unit);
+  properties.set_binary_type(format.reader_options.binary_type);
+  properties.set_list_type(format.reader_options.list_type);
   return properties;
 }
 
@@ -133,6 +135,8 @@ parquet::ArrowReaderProperties MakeArrowReaderProperties(
   arrow_properties.set_io_context(
       parquet_scan_options.arrow_reader_properties->io_context());
   arrow_properties.set_use_threads(options.use_threads);
+  arrow_properties.set_arrow_extensions_enabled(
+      parquet_scan_options.arrow_reader_properties->get_arrow_extensions_enabled());
   return arrow_properties;
 }
 
@@ -442,7 +446,9 @@ bool ParquetFileFormat::Equals(const FileFormat& other) const {
   // FIXME implement comparison for decryption options
   return (reader_options.dict_columns == other_reader_options.dict_columns &&
           reader_options.coerce_int96_timestamp_unit ==
-              other_reader_options.coerce_int96_timestamp_unit);
+              other_reader_options.coerce_int96_timestamp_unit &&
+          reader_options.binary_type == other_reader_options.binary_type &&
+          reader_options.list_type == other_reader_options.list_type);
 }
 
 ParquetFileFormat::ParquetFileFormat(const parquet::ReaderProperties& reader_properties)
@@ -527,9 +533,11 @@ Future<std::shared_ptr<parquet::arrow::FileReader>> ParquetFileFormat::GetReader
   auto self = checked_pointer_cast<const ParquetFileFormat>(shared_from_this());
 
   return source.OpenAsync().Then(
-      [=](const std::shared_ptr<io::RandomAccessFile>& input) mutable {
-        return parquet::ParquetFileReader::OpenAsync(input, std::move(properties),
-                                                     metadata)
+      [self = self, properties = std::move(properties), source = source,
+       options = options, metadata = metadata,
+       parquet_scan_options = parquet_scan_options](
+          const std::shared_ptr<io::RandomAccessFile>& input) mutable {
+        return parquet::ParquetFileReader::OpenAsync(input, properties, metadata)
             .Then(
                 [=](const std::unique_ptr<parquet::ParquetFileReader>& reader) mutable
                 -> Result<std::shared_ptr<parquet::arrow::FileReader>> {
@@ -544,7 +552,7 @@ Future<std::shared_ptr<parquet::arrow::FileReader>> ParquetFileFormat::GetReader
                       // here we know there are no other waiters on the reader.
                       std::move(const_cast<std::unique_ptr<parquet::ParquetFileReader>&>(
                           reader)),
-                      std::move(arrow_properties), &arrow_reader));
+                      arrow_properties, &arrow_reader));
 
                   // R build with openSUSE155 requires an explicit shared_ptr construction
                   return std::shared_ptr<parquet::arrow::FileReader>(
@@ -635,10 +643,12 @@ Result<RecordBatchGenerator> ParquetFileFormat::ScanBatchesAsync(
             kParquetTypeName, options.get(), default_fragment_scan_options));
     int batch_readahead = options->batch_readahead;
     int64_t rows_to_readahead = batch_readahead * options->batch_size;
-    ARROW_ASSIGN_OR_RAISE(auto generator,
-                          reader->GetRecordBatchGenerator(
-                              reader, row_groups, column_projection,
-                              ::arrow::internal::GetCpuThreadPool(), rows_to_readahead));
+    // Use the executor from scan options if provided.
+    auto cpu_executor = options->cpu_executor ? options->cpu_executor
+                                              : ::arrow::internal::GetCpuThreadPool();
+    ARROW_ASSIGN_OR_RAISE(auto generator, reader->GetRecordBatchGenerator(
+                                              reader, row_groups, column_projection,
+                                              cpu_executor, rows_to_readahead));
     RecordBatchGenerator sliced =
         SlicingGenerator(std::move(generator), options->batch_size);
     if (batch_readahead == 0) {
@@ -1041,6 +1051,8 @@ static inline Result<std::string> FileFromRowGroup(
   return filesystem->NormalizePath(std::move(path));
 }
 
+namespace {
+
 Result<std::shared_ptr<Schema>> GetSchema(
     const parquet::FileMetaData& metadata,
     const parquet::ArrowReaderProperties& properties) {
@@ -1049,6 +1061,8 @@ Result<std::shared_ptr<Schema>> GetSchema(
       metadata.schema(), properties, metadata.key_value_metadata(), &schema));
   return schema;
 }
+
+}  // namespace
 
 Result<std::shared_ptr<DatasetFactory>> ParquetDatasetFactory::Make(
     const std::string& metadata_path, std::shared_ptr<fs::FileSystem> filesystem,

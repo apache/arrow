@@ -59,7 +59,9 @@ class PrettyPrinter {
       : options_(options), indent_(options.indent), sink_(sink) {}
 
   inline void Write(std::string_view data);
+  inline void Write(std::string_view data, int max_chars);
   inline void WriteIndented(std::string_view data);
+  inline void WriteIndented(std::string_view data, int max_chars);
   inline void Newline();
   inline void Indent();
   inline void IndentAfterNewline();
@@ -104,11 +106,26 @@ void PrettyPrinter::CloseArray(const Array& array) {
   (*sink_) << options_.array_delimiters.close;
 }
 
-void PrettyPrinter::Write(std::string_view data) { (*sink_) << data; }
+void PrettyPrinter::Write(std::string_view data) {
+  Write(data, options_.element_size_limit);
+}
+
+void PrettyPrinter::Write(std::string_view data, int max_chars) {
+  (*sink_) << data.substr(0, max_chars);
+  if (data.size() > static_cast<size_t>(max_chars)) {
+    (*sink_) << " (... " << data.size() - static_cast<size_t>(max_chars)
+             << " chars omitted)";
+  }
+}
 
 void PrettyPrinter::WriteIndented(std::string_view data) {
   Indent();
-  Write(data);
+  Write(data, options_.element_size_limit);
+}
+
+void PrettyPrinter::WriteIndented(std::string_view data, int max_chars) {
+  Indent();
+  Write(data, max_chars);
 }
 
 void PrettyPrinter::Newline() {
@@ -176,7 +193,7 @@ class ArrayPrinter : public PrettyPrinter {
 
   template <typename ArrayType, typename Formatter>
   Status WritePrimitiveValues(const ArrayType& array, Formatter* formatter) {
-    auto appender = [&](std::string_view v) { (*sink_) << v; };
+    auto appender = [&](std::string_view v) { Write(v); };
     auto format_func = [&](int64_t i) {
       (*formatter)(array.GetView(i), appender);
       return Status::OK();
@@ -222,19 +239,15 @@ class ArrayPrinter : public PrettyPrinter {
     return WritePrimitiveValues(array);
   }
 
-  Status WriteDataValues(const HalfFloatArray& array) {
-    // XXX do not know how to format half floats yet
-    StringFormatter<Int16Type> formatter{array.type().get()};
-    return WritePrimitiveValues(array, &formatter);
-  }
-
   template <typename ArrayType, typename T = typename ArrayType::TypeClass>
   enable_if_has_string_view<T, Status> WriteDataValues(const ArrayType& array) {
     return WriteValues(array, [&](int64_t i) {
       if constexpr (T::is_utf8) {
-        (*sink_) << "\"" << array.GetView(i) << "\"";
+        (*sink_) << "\"";
+        this->Write(array.GetView(i), options_.element_size_limit - 2);
+        (*sink_) << "\"";
       } else {
-        (*sink_) << HexEncode(array.GetView(i));
+        this->Write(HexEncode(array.GetView(i)));
       }
       return Status::OK();
     });
@@ -243,7 +256,7 @@ class ArrayPrinter : public PrettyPrinter {
   template <typename ArrayType, typename T = typename ArrayType::TypeClass>
   enable_if_decimal<T, Status> WriteDataValues(const ArrayType& array) {
     return WriteValues(array, [&](int64_t i) {
-      (*sink_) << array.FormatValue(i);
+      this->Write(array.FormatValue(i));
       return Status::OK();
     });
   }

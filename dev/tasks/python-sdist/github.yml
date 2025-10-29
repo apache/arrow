@@ -43,4 +43,3 @@ jobs:
           PYARROW_VERSION: {{ arrow.no_rc_version }}
 
       {{ macros.github_upload_releases("arrow/python/dist/*.tar.gz")|indent }}
-      {{ macros.github_upload_gemfury("arrow/python/dist/*.tar.gz")|indent }}

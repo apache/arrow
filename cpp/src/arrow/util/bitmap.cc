@@ -25,7 +25,7 @@
 #include "arrow/array/array_primitive.h"
 #include "arrow/buffer.h"
 #include "arrow/util/bitmap_ops.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 
 namespace arrow {
 namespace internal {

@@ -21,6 +21,7 @@
 #include <utility>
 #include <vector>
 
+#include "arrow/util/logging_internal.h"
 #include "gandiva/bitmap_accumulator.h"
 #include "gandiva/decimal_ir.h"
 #include "gandiva/dex.h"
@@ -277,6 +278,8 @@ Status LLVMGenerator::CodeGenExprValue(DexPtr value_expr, int buffer_count,
                                        std::string& fn_name,
                                        SelectionVector::Mode selection_vector_mode) {
   llvm::IRBuilder<>* builder = ir_builder();
+  const auto output_type_id = output->Type()->id();
+
   // Create fn prototype :
   //   int expr_1 (long **addrs, long *offsets, long **bitmaps,
   //               long *context_ptr, long nrec)
@@ -341,12 +344,18 @@ Status LLVMGenerator::CodeGenExprValue(DexPtr value_expr, int buffer_count,
 
   // Add reference to output vector (in entry block)
   builder->SetInsertPoint(loop_entry);
+
   llvm::Value* output_ref =
       GetDataReference(arg_addrs, output->data_idx(), output->field());
-  llvm::Value* output_buffer_ptr_ref = GetDataBufferPtrReference(
-      arg_addrs, output->data_buffer_ptr_idx(), output->field());
+  llvm::Value* output_buffer_ptr_ref =
+      arrow::is_binary_like(output_type_id)
+          ? GetDataBufferPtrReference(arg_addrs, output->data_buffer_ptr_idx(),
+                                      output->field())
+          : nullptr;
   llvm::Value* output_offset_ref =
-      GetOffsetsReference(arg_addrs, output->offsets_idx(), output->field());
+      arrow::is_binary_like(output_type_id)
+          ? GetOffsetsReference(arg_addrs, output->offsets_idx(), output->field())
+          : nullptr;
 
   std::vector<llvm::Value*> slice_offsets;
   for (int idx = 0; idx < buffer_count; idx++) {
@@ -388,7 +397,6 @@ Status LLVMGenerator::CodeGenExprValue(DexPtr value_expr, int buffer_count,
   // save the value in the output vector.
   builder->SetInsertPoint(loop_body_tail);
 
-  auto output_type_id = output->Type()->id();
   if (output_type_id == arrow::Type::BOOL) {
     SetPackedBitValue(output_ref, loop_var, output_value->data());
   } else if (arrow::is_primitive(output_type_id) ||

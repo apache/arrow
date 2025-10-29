@@ -51,8 +51,12 @@ Supported `arrow.array.Array` types are included in the table below.
 | `logical`         | `BooleanArray`   |
 | `string`          | `StringArray`    |
 | `datetime`        | `TimestampArray` |
+| `datetime`        | `Date32Array`    |
+| `datetime`        | `Date64Array`    |
 | `duration`        | `Time32Array`    |
 | `duration`        | `Time64Array`    |
+| `cell`            | `ListArray`      |
+| `table`           | `StructArray`    |
 
 ## Prerequisites
 
@@ -106,6 +110,8 @@ To run the MATLAB tests, start MATLAB in the `arrow/matlab` directory and call t
 >> runtests("test", IncludeSubFolders=true);
 ```
 
+Refer to [Testing Guidelines](doc/testing_guidelines_for_the_matlab_interface_to_apache_arrow.md) for more information.
+
 ## Usage
 
 Included below are some example code snippets that illustrate how to use the MATLAB interface.
@@ -125,11 +131,9 @@ matlabArray =
 
 arrowArray = 
 
-[
-  1,
-  2,
-  3
-]
+  Float64Array with 3 elements and 0 null values:
+
+    1 | 2 | 3
 ```
 
 #### Create a MATLAB `logical` array from an Arrow `BooleanArray`
@@ -139,11 +143,9 @@ arrowArray =
 
 arrowArray = 
 
-[
-  true,
-  false,
-  true
-]
+  BooleanArray with 3 elements and 0 null values:
+
+    true | false | true
 
 >> matlabArray = toMATLAB(arrowArray)
 
@@ -181,13 +183,9 @@ validElements =
 
 arrowArray = 
 
-[
-  122,
-  null,
-  127,
-  null,
-  127
-]
+  Int8Array with 5 elements and 2 null values:
+
+    122 | null | 127 | null | 127
 ```
 
 ### Arrow `RecordBatch` class
@@ -210,23 +208,17 @@ matlabTable =
 
 >> arrowRecordBatch = arrow.recordBatch(matlabTable)
 
-arrowRecordBatch =
+arrowRecordBatch = 
 
-Var1:   [
-    "A",
-    "B",
-    "C"
-  ]
-Var2:   [
-    1,
-    2,
-    3
-  ]
-Var3:   [
-    true,
-    false,
-    true
-  ]
+  Arrow RecordBatch with 3 rows and 3 columns:
+
+    Schema:
+
+        Var1: String | Var2: Float64 | Var3: Boolean
+
+    First Row:
+
+        "A" | 1 | true
 ```
 
 #### Create a MATLAB `table` from an Arrow `RecordBatch`
@@ -234,23 +226,17 @@ Var3:   [
 ```matlab
 >> arrowRecordBatch
 
-arrowRecordBatch =
+arrowRecordBatch = 
 
-Var1:   [
-    "A",
-    "B",
-    "C"
-  ]
-Var2:   [
-    1,
-    2,
-    3
-  ]
-Var3:   [
-    true,
-    false,
-    true
-  ]
+  Arrow RecordBatch with 3 rows and 3 columns:
+
+    Schema:
+
+        Var1: String | Var2: Float64 | Var3: Boolean
+
+    First Row:
+
+        "A" | 1 | true
 
 >> matlabTable = table(arrowRecordBatch)
 
@@ -272,53 +258,41 @@ matlabTable =
 ```matlab
 >> stringArray = arrow.array(["A", "B", "C"])
 
-stringArray =
+stringArray = 
 
-[
-  "A",
-  "B",
-  "C"
-]
+  StringArray with 3 elements and 0 null values:
+
+    "A" | "B" | "C"
 
 >> timestampArray = arrow.array([datetime(1997, 01, 01), datetime(1998, 01, 01), datetime(1999, 01, 01)])
 
-timestampArray =
+timestampArray = 
 
-[
-  1997-01-01 00:00:00.000000,
-  1998-01-01 00:00:00.000000,
-  1999-01-01 00:00:00.000000
-]
+  TimestampArray with 3 elements and 0 null values:
+
+    1997-01-01 00:00:00.000000 | 1998-01-01 00:00:00.000000 | 1999-01-01 00:00:00.000000
 
 >> booleanArray = arrow.array([true, false, true])
 
-booleanArray =
+booleanArray = 
 
-[
-  true,
-  false,
-  true
-]
+  BooleanArray with 3 elements and 0 null values:
+
+    true | false | true
 
 >> arrowRecordBatch = arrow.tabular.RecordBatch.fromArrays(stringArray, timestampArray, booleanArray)
 
-arrowRecordBatch =
+arrowRecordBatch = 
 
-Column1:   [
-    "A",
-    "B",
-    "C"
-  ]
-Column2:   [
-    1997-01-01 00:00:00.000000,
-    1998-01-01 00:00:00.000000,
-    1999-01-01 00:00:00.000000
-  ]
-Column3:   [
-    true,
-    false,
-    true
-  ]
+  Arrow RecordBatch with 3 rows and 3 columns:
+
+    Schema:
+
+        Column1: String | Column2: Timestamp | Column3: Boolean
+
+    First Row:
+
+        "A" | 1997-01-01 00:00:00.000000 | true
 ```
 
 #### Extract a column from a `RecordBatch` by index
@@ -326,33 +300,25 @@ Column3:   [
 ```matlab
 >> arrowRecordBatch = arrow.tabular.RecordBatch.fromArrays(stringArray, timestampArray, booleanArray)
 
-arrowRecordBatch =
+arrowRecordBatch = 
 
-Column1:   [
-    "A",
-    "B",
-    "C"
-  ]
-Column2:   [
-    1997-01-01 00:00:00.000000,
-    1998-01-01 00:00:00.000000,
-    1999-01-01 00:00:00.000000
-  ]
-Column3:   [
-    true,
-    false,
-    true
-  ]
+  Arrow RecordBatch with 3 rows and 3 columns:
+
+    Schema:
+
+        Column1: String | Column2: Timestamp | Column3: Boolean
+
+    First Row:
+
+        "A" | 1997-01-01 00:00:00.000000 | true
 
 >> timestampArray = arrowRecordBatch.column(2)
 
-timestampArray =
+timestampArray = 
 
-[
-  1997-01-01 00:00:00.000000,
-  1998-01-01 00:00:00.000000,
-  1999-01-01 00:00:00.000000
-]
+  TimestampArray with 3 elements and 0 null values:
+
+    1997-01-01 00:00:00.000000 | 1998-01-01 00:00:00.000000 | 1999-01-01 00:00:00.000000
 ```
 
 ### Arrow `Type` classes (i.e. `arrow.type.<Type>`)
@@ -419,9 +385,12 @@ ans =
 ```matlab
 >> field = arrow.field("Number", arrow.int8())
 
-field =
+field = 
 
-Number: int8
+  Field with properties:
+
+    Name: "Number"
+    Type: [1x1 arrow.type.Int8Type]
 
 >> field.Name
 
@@ -444,9 +413,12 @@ ans =
 ```matlab
 >> field = arrow.field("Letter", arrow.string())
 
-field =
+field = 
 
-Letter: string
+  Field with properties:
+
+    Name: "Letter"
+    Type: [1x1 arrow.type.StringType]
 
 >> field.Name
 
@@ -468,17 +440,21 @@ ans =
 ```matlab
 >> arrowSchema
 
-arrowSchema =
+arrowSchema = 
 
-Letter: string
-Number: double
+  Arrow Schema with 2 fields:
+
+    Letter: String | Number: Int8
 
 % Specify the field to extract by its index (i.e. 2)
 >> field = arrowSchema.field(2)
 
-field =
+field = 
 
-Number: double
+  Field with properties:
+
+    Name: "Number"
+    Type: [1x1 arrow.type.Int8Type]
 ```
 
 #### Extract an Arrow `Field` from an Arrow `Schema` by name
@@ -486,17 +462,21 @@ Number: double
 ```matlab
 >> arrowSchema
 
-arrowSchema =
+arrowSchema = 
 
-Letter: string
-Number: double
+  Arrow Schema with 2 fields:
+
+    Letter: String | Number: Int8
 
 % Specify the field to extract by its name (i.e. "Letter")
 >> field = arrowSchema.field("Letter")
 
-field =
+field = 
 
-Letter: string
+  Field with properties:
+
+    Name: "Letter"
+    Type: [1x1 arrow.type.StringType]
 ```
 
 ### Arrow `Schema` class
@@ -506,22 +486,29 @@ Letter: string
 ```matlab
 >> letter = arrow.field("Letter", arrow.string())
 
-letter =
+letter = 
 
-Letter: string
+  Field with properties:
+
+    Name: "Letter"
+    Type: [1x1 arrow.type.StringType]
 
 >> number = arrow.field("Number", arrow.int8())
 
-number =
+number = 
 
-Number: int8
+  Field with properties:
+
+    Name: "Number"
+    Type: [1x1 arrow.type.Int8Type]
 
 >> schema = arrow.schema([letter, number])
 
-schema =
+schema = 
 
-Letter: string
-Number: int8
+  Arrow Schema with 2 fields:
+
+    Letter: String | Number: Int8
 ```
 
 #### Get the `Schema` of an Arrow `RecordBatch`
@@ -542,25 +529,25 @@ matlabTable =
 
 >> arrowRecordBatch = arrow.recordBatch(matlabTable)
 
-arrowRecordBatch =
+arrowRecordBatch = 
 
-Letter:   [
-    "A",
-    "B",
-    "C"
-  ]
-Number:   [
-    1,
-    2,
-    3
-  ]
+  Arrow RecordBatch with 3 rows and 2 columns:
+
+    Schema:
+
+        Letter: String | Number: Float64
+
+    First Row:
+
+        "A" | 1
 
 >> arrowSchema = arrowRecordBatch.Schema
 
-arrowSchema =
+arrowSchema = 
 
-Letter: string
-Number: double
+  Arrow Schema with 2 fields:
+
+    Letter: String | Number: Float64
 ```
 
 ### Feather V1

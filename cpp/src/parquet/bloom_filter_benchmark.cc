@@ -24,7 +24,7 @@
 
 #include <random>
 
-namespace parquet::benchmark {
+namespace parquet::benchmarks {
 
 constexpr static uint32_t kNumBloomFilterInserts = 16 * 1024;
 // The sample string length for FLBA and ByteArray benchmarks
@@ -181,4 +181,4 @@ BENCHMARK(BM_BatchInsertHash);
 BENCHMARK(BM_FindExistingHash);
 BENCHMARK(BM_FindNonExistingHash);
 
-}  // namespace parquet::benchmark
+}  // namespace parquet::benchmarks

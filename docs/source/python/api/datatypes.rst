@@ -131,7 +131,6 @@ Specific classes and functions for extension types.
 
    BaseExtensionType
    ExtensionType
-   PyExtensionType
    UnknownExtensionType
    register_extension_type
    unregister_extension_type
@@ -212,3 +211,10 @@ represents a given data type (such as ``int32``) or general category
    is_map
    is_dictionary
    is_primitive
+
+Types enum that can be used for direct type checking.
+
+.. autosummary::
+   :toctree: ../generated/
+
+   TypesEnum

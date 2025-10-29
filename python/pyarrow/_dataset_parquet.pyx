@@ -49,7 +49,7 @@ from pyarrow._dataset cimport (
 
 from pyarrow._parquet cimport (
     _create_writer_properties, _create_arrow_writer_properties,
-    FileMetaData,
+    _unwrap_list_type, FileMetaData,
 )
 
 
@@ -144,6 +144,8 @@ cdef class ParquetFileFormat(FileFormat):
                 options.dict_columns.insert(tobytes(column))
         options.coerce_int96_timestamp_unit = \
             read_options._coerce_int96_timestamp_unit
+        options.binary_type = read_options._binary_type
+        options.list_type = read_options._list_type
 
         self.init(<shared_ptr[CFileFormat]> wrapped)
         self.default_fragment_scan_options = default_fragment_scan_options
@@ -184,6 +186,8 @@ cdef class ParquetFileFormat(FileFormat):
         # the private property which uses the C Type
         parquet_read_options._coerce_int96_timestamp_unit = \
             options.coerce_int96_timestamp_unit
+        parquet_read_options._binary_type = options.binary_type
+        parquet_read_options._list_type = options.list_type
         return parquet_read_options
 
     def make_write_options(self, **kwargs):
@@ -336,7 +340,7 @@ class RowGroupInfo:
         }
 
     def __repr__(self):
-        return "RowGroupInfo({})".format(self.id)
+        return f"RowGroupInfo({self.id})"
 
     def __eq__(self, other):
         if isinstance(other, int):
@@ -510,17 +514,54 @@ cdef class ParquetReadOptions(_Weakrefable):
         resolution (e.g. 'ms'). Setting to None is equivalent to 'ns'
         and therefore INT96 timestamps will be inferred as timestamps
         in nanoseconds
+    binary_type : pyarrow.DataType, default None
+        If given, Parquet binary columns will be read as this datatype.
+        This setting is ignored if a serialized Arrow schema is found in
+        the Parquet metadata.
+    list_type : subclass of pyarrow.DataType, default None
+        If given, non-MAP repeated columns will be read as an instance of
+        this datatype (either pyarrow.ListType or pyarrow.LargeListType).
+        This setting is ignored if a serialized Arrow schema is found in
+        the Parquet metadata.
     """
 
     cdef public:
         set dictionary_columns
         TimeUnit _coerce_int96_timestamp_unit
+        Type _binary_type
+        Type _list_type
 
     # Also see _PARQUET_READ_OPTIONS
     def __init__(self, dictionary_columns=None,
-                 coerce_int96_timestamp_unit=None):
+                 coerce_int96_timestamp_unit=None,
+                 binary_type=None, list_type=None):
         self.dictionary_columns = set(dictionary_columns or set())
         self.coerce_int96_timestamp_unit = coerce_int96_timestamp_unit
+        self.binary_type = binary_type
+        self.list_type = list_type
+
+    @property
+    def binary_type(self):
+        return primitive_type(self._binary_type)
+
+    @binary_type.setter
+    def binary_type(self, ty):
+        if ty is not None:
+            self._binary_type = pyarrow_unwrap_data_type(ty).get().id()
+        else:
+            self._binary_type = _Type_BINARY
+
+    @property
+    def list_type(self):
+        return (pa.LargeListType if self._list_type == _Type_LARGE_LIST
+                else pa.ListType)
+
+    @list_type.setter
+    def list_type(self, ty):
+        if ty is not None:
+            self._list_type = _unwrap_list_type(ty)
+        else:
+            self._list_type = _Type_LIST
 
     @property
     def coerce_int96_timestamp_unit(self):
@@ -544,8 +585,10 @@ cdef class ParquetReadOptions(_Weakrefable):
         bool
         """
         return (self.dictionary_columns == other.dictionary_columns and
-                self.coerce_int96_timestamp_unit ==
-                other.coerce_int96_timestamp_unit)
+                self._coerce_int96_timestamp_unit ==
+                other._coerce_int96_timestamp_unit and
+                self._binary_type == other._binary_type and
+                self._list_type == other._list_type)
 
     def __eq__(self, other):
         try:
@@ -557,7 +600,10 @@ cdef class ParquetReadOptions(_Weakrefable):
         return (
             f"<ParquetReadOptions"
             f" dictionary_columns={self.dictionary_columns}"
-            f" coerce_int96_timestamp_unit={self.coerce_int96_timestamp_unit}>"
+            f" coerce_int96_timestamp_unit={self.coerce_int96_timestamp_unit}"
+            f" binary_type={self.binary_type}"
+            f" list_type={self.list_type}"
+            f">"
         )
 
 
@@ -671,13 +717,11 @@ cdef class ParquetFileWriteOptions(FileWriteOptions):
         self._set_arrow_properties()
 
     def __repr__(self):
-        return "<pyarrow.dataset.ParquetFileWriteOptions {0}>".format(
-            " ".join([f"{key}={value}" for key, value in self._properties.items()])
-        )
+        return f"<pyarrow.dataset.ParquetFileWriteOptions {self._properties}>"
 
 
 cdef set _PARQUET_READ_OPTIONS = {
-    'dictionary_columns', 'coerce_int96_timestamp_unit'
+    'dictionary_columns', 'coerce_int96_timestamp_unit', 'binary_type', 'list_type',
 }
 
 
@@ -703,7 +747,7 @@ cdef class ParquetFragmentScanOptions(FragmentScanOptions):
     cache_options : pyarrow.CacheOptions, default None
         Cache options used when pre_buffer is enabled. The default values should
         be good for most use cases. You may want to adjust these for example if
-        you have exceptionally high latency to the file system. 
+        you have exceptionally high latency to the file system.
     thrift_string_size_limit : int, default None
         If not None, override the maximum total string size allocated
         when decoding Thrift structures. The default limit should be
@@ -720,6 +764,10 @@ cdef class ParquetFragmentScanOptions(FragmentScanOptions):
         Parquet file.
     page_checksum_verification : bool, default False
         If True, verify the page checksum for each page read from the file.
+    arrow_extensions_enabled : bool, default False
+        If True, read Parquet logical types as Arrow extension types where possible,
+        (e.g., read JSON as the canonical `arrow.json` extension type or UUID as
+        the canonical `arrow.uuid` extension type).
     """
 
     # Avoid mistakingly creating attributes
@@ -733,7 +781,8 @@ cdef class ParquetFragmentScanOptions(FragmentScanOptions):
                  thrift_container_size_limit=None,
                  decryption_config=None,
                  decryption_properties=None,
-                 bint page_checksum_verification=False):
+                 bint page_checksum_verification=False,
+                 bint arrow_extensions_enabled=False):
         self.init(shared_ptr[CFragmentScanOptions](
             new CParquetFragmentScanOptions()))
         self.use_buffered_stream = use_buffered_stream
@@ -752,6 +801,7 @@ cdef class ParquetFragmentScanOptions(FragmentScanOptions):
         if decryption_properties is not None:
             self.decryption_properties = decryption_properties
         self.page_checksum_verification = page_checksum_verification
+        self.arrow_extensions_enabled = arrow_extensions_enabled
 
     cdef void init(self, const shared_ptr[CFragmentScanOptions]& sp):
         FragmentScanOptions.init(self, sp)
@@ -868,6 +918,14 @@ cdef class ParquetFragmentScanOptions(FragmentScanOptions):
     def page_checksum_verification(self, bint page_checksum_verification):
         self.reader_properties().set_page_checksum_verification(page_checksum_verification)
 
+    @property
+    def arrow_extensions_enabled(self):
+        return self.arrow_reader_properties().get_arrow_extensions_enabled()
+
+    @arrow_extensions_enabled.setter
+    def arrow_extensions_enabled(self, bint arrow_extensions_enabled):
+        self.arrow_reader_properties().set_arrow_extensions_enabled(arrow_extensions_enabled)
+
     def equals(self, ParquetFragmentScanOptions other):
         """
         Parameters
@@ -881,11 +939,12 @@ cdef class ParquetFragmentScanOptions(FragmentScanOptions):
         attrs = (
             self.use_buffered_stream, self.buffer_size, self.pre_buffer, self.cache_options,
             self.thrift_string_size_limit, self.thrift_container_size_limit,
-            self.page_checksum_verification)
+            self.page_checksum_verification, self.arrow_extensions_enabled)
         other_attrs = (
             other.use_buffered_stream, other.buffer_size, other.pre_buffer, other.cache_options,
             other.thrift_string_size_limit,
-            other.thrift_container_size_limit, other.page_checksum_verification)
+            other.thrift_container_size_limit, other.page_checksum_verification,
+            other.arrow_extensions_enabled)
         return attrs == other_attrs
 
     @staticmethod
@@ -902,7 +961,8 @@ cdef class ParquetFragmentScanOptions(FragmentScanOptions):
             cache_options=self.cache_options,
             thrift_string_size_limit=self.thrift_string_size_limit,
             thrift_container_size_limit=self.thrift_container_size_limit,
-            page_checksum_verification=self.page_checksum_verification
+            page_checksum_verification=self.page_checksum_verification,
+            arrow_extensions_enabled=self.arrow_extensions_enabled
         )
         return ParquetFragmentScanOptions._reconstruct, (kwargs,)
 

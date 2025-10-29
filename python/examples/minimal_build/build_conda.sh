@@ -41,7 +41,7 @@ function setup_miniconda() {
   LOCAL_PATH=$PATH
   export PATH="$MINICONDA/bin:$PATH"
 
-  mamba info -a
+  mamba info
 
   conda config --set show_channel_urls True
   conda config --show channels

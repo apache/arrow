@@ -44,15 +44,13 @@
 }
 
 .deserialize_arrow_r_metadata <- function(x) {
-  tryCatch(unserialize_r_metadata(x),
-    error = function(e) {
-      if (getOption("arrow.debug", FALSE)) {
-        print(conditionMessage(e))
-      }
-      warning("Invalid metadata$r", call. = FALSE)
-      NULL
+  tryCatch(unserialize_r_metadata(x), error = function(e) {
+    if (getOption("arrow.debug", FALSE)) {
+      print(conditionMessage(e))
     }
-  )
+    warning("Invalid metadata$r", call. = FALSE)
+    NULL
+  })
 }
 
 unserialize_r_metadata <- function(x) {
@@ -291,7 +289,8 @@ arrow_attributes <- function(x, only_top_level = FALSE) {
 
   columns <- NULL
   attempt_to_save_row_level <- getOption("arrow.preserve_row_level_metadata", FALSE) &&
-    is.list(x) && !inherits(x, "POSIXlt")
+    is.list(x) &&
+    !inherits(x, "POSIXlt")
   if (attempt_to_save_row_level) {
     # However, if we are inside of a dplyr collection (including all datasets),
     # we cannot apply this row-level metadata, since the order of the rows is

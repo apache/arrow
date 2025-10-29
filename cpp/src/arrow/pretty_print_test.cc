@@ -19,12 +19,14 @@
 
 #include <gtest/gtest.h>
 
+#include <cmath>
 #include <cstdint>
 #include <cstring>
 #include <limits>
 #include <memory>
 #include <sstream>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "arrow/array.h"
@@ -32,9 +34,12 @@
 #include "arrow/testing/builder.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/type.h"
+#include "arrow/util/float16.h"
 #include "arrow/util/key_value_metadata.h"
 
 namespace arrow {
+
+using util::Float16;
 
 class TestPrettyPrint : public ::testing::Test {
  public:
@@ -47,37 +52,37 @@ class TestPrettyPrint : public ::testing::Test {
 };
 
 template <typename T>
-void CheckStream(const T& obj, const PrettyPrintOptions& options, const char* expected) {
+void CheckStream(const T& obj, const PrettyPrintOptions& options,
+                 std::string_view expected) {
   std::ostringstream sink;
   ASSERT_OK(PrettyPrint(obj, options, &sink));
   std::string result = sink.str();
-  ASSERT_EQ(std::string(expected, strlen(expected)), result);
+  ASSERT_EQ(expected, result);
 }
 
-void CheckArray(const Array& arr, const PrettyPrintOptions& options, const char* expected,
-                bool check_operator = true) {
+void CheckArray(const Array& arr, const PrettyPrintOptions& options,
+                std::string_view expected, bool check_operator = true) {
   ARROW_SCOPED_TRACE("For datatype: ", arr.type()->ToString());
   CheckStream(arr, options, expected);
 
-  if (options.indent == 0 && check_operator) {
+  if (options.indent == 0 && options.element_size_limit == 100 && check_operator) {
     std::stringstream ss;
     ss << arr;
-    std::string result = std::string(expected, strlen(expected));
-    ASSERT_EQ(result, ss.str());
+    ASSERT_EQ(expected, ss.str());
   }
 }
 
 template <typename T>
-void Check(const T& obj, const PrettyPrintOptions& options, const char* expected) {
+void Check(const T& obj, const PrettyPrintOptions& options, std::string_view expected) {
   std::string result;
   ASSERT_OK(PrettyPrint(obj, options, &result));
-  ASSERT_EQ(std::string(expected, strlen(expected)), result);
+  ASSERT_EQ(expected, result);
 }
 
 template <typename TYPE, typename C_TYPE>
 void CheckPrimitive(const std::shared_ptr<DataType>& type,
                     const PrettyPrintOptions& options, const std::vector<bool>& is_valid,
-                    const std::vector<C_TYPE>& values, const char* expected,
+                    const std::vector<C_TYPE>& values, std::string_view expected,
                     bool check_operator = true) {
   std::shared_ptr<Array> array;
   ArrayFromVector<TYPE, C_TYPE>(type, is_valid, values, &array);
@@ -86,7 +91,7 @@ void CheckPrimitive(const std::shared_ptr<DataType>& type,
 
 template <typename TYPE, typename C_TYPE>
 void CheckPrimitive(const PrettyPrintOptions& options, const std::vector<bool>& is_valid,
-                    const std::vector<C_TYPE>& values, const char* expected,
+                    const std::vector<C_TYPE>& values, std::string_view expected,
                     bool check_operator = true) {
   CheckPrimitive<TYPE, C_TYPE>(TypeTraits<TYPE>::type_singleton(), options, is_valid,
                                values, expected, check_operator);
@@ -158,12 +163,12 @@ TEST_F(TestPrettyPrint, PrimitiveType) {
   ])expected";
   CheckPrimitive<DoubleType, double>({2, 10}, is_valid, values2, ex2_in2);
 
-  std::vector<std::string> values3 = {"foo", "bar", "", "baz", ""};
+  std::vector<std::string> values3 = {"foo", "bar", "", "a longer string", ""};
   static const char* ex3 = R"expected([
   "foo",
   "bar",
   null,
-  "baz",
+  "a longer string",
   null
 ])expected";
   CheckPrimitive<StringType, std::string>({0, 10}, is_valid, values3, ex3);
@@ -172,11 +177,23 @@ TEST_F(TestPrettyPrint, PrimitiveType) {
     "foo",
     "bar",
     null,
-    "baz",
+    "a longer string",
     null
   ])expected";
   CheckPrimitive<StringType, std::string>({2, 10}, is_valid, values3, ex3_in2);
   CheckPrimitive<LargeStringType, std::string>({2, 10}, is_valid, values3, ex3_in2);
+
+  PrettyPrintOptions options{2, 10};
+  options.element_size_limit = 8;
+  static const char* ex3_in3 = R"expected(  [
+    "foo",
+    "bar",
+    null,
+    "a long (... 9 chars omitted)",
+    null
+  ])expected";
+  CheckPrimitive<StringType, std::string>(options, is_valid, values3, ex3_in3);
+  CheckPrimitive<LargeStringType, std::string>(options, is_valid, values3, ex3_in3);
 }
 
 TEST_F(TestPrettyPrint, PrimitiveTypeNoNewlines) {
@@ -315,6 +332,37 @@ TEST_F(TestPrettyPrint, UInt64) {
   CheckPrimitive<UInt64Type, uint64_t>(
       {0, 10}, {true, true, true}, {0, 9223372036854775803ULL, 18446744073709551615ULL},
       expected);
+}
+
+TEST_F(TestPrettyPrint, HalfFloat) {
+  static const char* expected = R"expected([
+  -inf,
+  -1234,
+  -0,
+  0,
+  1,
+  1.2001953125,
+  2.5,
+  3.9921875,
+  4.125,
+  10000,
+  12344,
+  inf,
+  nan,
+  null
+])expected";
+
+  std::vector<uint16_t> values = {
+      Float16(-1e10f).bits(), Float16(-1234.0f).bits(),   Float16(-0.0f).bits(),
+      Float16(0.0f).bits(),   Float16(1.0f).bits(),       Float16(1.2f).bits(),
+      Float16(2.5f).bits(),   Float16(3.9921875f).bits(), Float16(4.125f).bits(),
+      Float16(1e4f).bits(),   Float16(12345.0f).bits(),   Float16(1e5f).bits(),
+      Float16(NAN).bits(),    Float16(6.10f).bits()};
+
+  std::vector<bool> is_valid(values.size(), true);
+  is_valid.back() = false;
+
+  CheckPrimitive<HalfFloatType, uint16_t>({0, 10}, is_valid, values, expected);
 }
 
 TEST_F(TestPrettyPrint, DateTimeTypes) {
@@ -772,6 +820,12 @@ TEST_F(TestPrettyPrint, BinaryNoNewlines) {
   options.window = 2;
   expected = "[666F6F,626172,...,,FF]";
   CheckPrimitive<BinaryType, std::string>(options, is_valid, values, expected, false);
+
+  // With truncated element size
+  options.element_size_limit = 1;
+  expected =
+      "[6 (... 5 chars omitted),6 (... 5 chars omitted),...,,F (... 1 chars omitted)]";
+  CheckPrimitive<BinaryType, std::string>(options, is_valid, values, expected, false);
 }
 
 template <typename TypeClass>
@@ -1103,6 +1157,12 @@ TEST_F(TestPrettyPrint, FixedSizeBinaryType) {
   CheckArray(*array, {0, 10}, ex);
   static const char* ex_2 = "  [\n    666F6F,\n    ...\n    62617A\n  ]";
   CheckArray(*array, {2, 1}, ex_2);
+
+  auto options = PrettyPrintOptions{2, 1};
+  options.element_size_limit = 3;
+  static const char* ex_3 =
+      "  [\n    666 (... 3 chars omitted),\n    ...\n    626 (... 3 chars omitted)\n  ]";
+  CheckArray(*array, options, ex_3);
 }
 
 TEST_F(TestPrettyPrint, DecimalTypes) {
@@ -1115,6 +1175,12 @@ TEST_F(TestPrettyPrint, DecimalTypes) {
 
     static const char* ex = "[\n  123.4567,\n  456.7891,\n  null\n]";
     CheckArray(*array, {0}, ex);
+
+    auto options = PrettyPrintOptions();
+    options.element_size_limit = 3;
+    static const char* ex_2 =
+        "[\n  123 (... 5 chars omitted),\n  456 (... 5 chars omitted),\n  null\n]";
+    CheckArray(*array, options, ex_2);
   }
 }
 
@@ -1417,6 +1483,7 @@ lorem: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nulla accumsan 
           sapien commodo massa, vel volutpat orci nisi eu justo. Nulla non blandit
           sapien. Quisque pretium vestibulum urna eu vehicula.')";
   options.truncate_metadata = false;
+  options.element_size_limit = 10000;
   Check(*my_schema, options, expected_verbose);
 
   // Metadata that exactly fits

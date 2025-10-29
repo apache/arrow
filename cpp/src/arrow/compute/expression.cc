@@ -38,7 +38,7 @@
 #endif
 #include "arrow/util/hash_util.h"
 #include "arrow/util/key_value_metadata.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/string.h"
 #include "arrow/util/value_parsing.h"
 #include "arrow/util/vector.h"
@@ -219,7 +219,7 @@ void PrintTo(const Expression& expr, std::ostream* os) {
 }
 
 bool Expression::Equals(const Expression& other) const {
-  if (Identical(*this, other)) return true;
+  if (Expression::Identical(*this, other)) return true;
 
   if (impl_ == nullptr || other.impl_ == nullptr) return false;
 
@@ -260,7 +260,9 @@ bool Expression::Equals(const Expression& other) const {
   return false;
 }
 
-bool Identical(const Expression& l, const Expression& r) { return l.impl_ == r.impl_; }
+bool Expression::Identical(const Expression& l, const Expression& r) {
+  return l.impl_ == r.impl_;
+}
 
 size_t Expression::hash() const {
   if (auto lit = literal()) {
@@ -543,67 +545,61 @@ Result<Expression> BindNonRecursive(Expression::Call call, bool insert_implicit_
   std::vector<TypeHolder> types = GetTypes(call.arguments);
   ARROW_ASSIGN_OR_RAISE(call.function, GetFunction(call, exec_context));
 
-  auto FinishBind = [&] {
-    compute::KernelContext kernel_context(exec_context, call.kernel);
-    if (call.kernel->init) {
-      const FunctionOptions* options =
-          call.options ? call.options.get() : call.function->default_options();
-      ARROW_ASSIGN_OR_RAISE(
-          call.kernel_state,
-          call.kernel->init(&kernel_context, {call.kernel, types, options}));
-
-      kernel_context.SetState(call.kernel_state.get());
-    }
-
-    ARROW_ASSIGN_OR_RAISE(
-        call.type, call.kernel->signature->out_type().Resolve(&kernel_context, types));
-    return Status::OK();
-  };
-
   // First try and bind exactly
   Result<const Kernel*> maybe_exact_match = call.function->DispatchExact(types);
   if (maybe_exact_match.ok()) {
     call.kernel = *maybe_exact_match;
-    if (FinishBind().ok()) {
-      return Expression(std::move(call));
+  } else {
+    if (!insert_implicit_casts) {
+      return maybe_exact_match.status();
+    }
+
+    // If exact binding fails, and we are allowed to cast, then prefer casting literals
+    // first.  Since DispatchBest generally prefers up-casting the best way to do this is
+    // first down-cast the literals as much as possible
+    types = GetTypesWithSmallestLiteralRepresentation(call.arguments);
+    ARROW_ASSIGN_OR_RAISE(call.kernel, call.function->DispatchBest(&types));
+
+    for (size_t i = 0; i < types.size(); ++i) {
+      if (types[i] == call.arguments[i].type()) continue;
+
+      if (const Datum* lit = call.arguments[i].literal()) {
+        ARROW_ASSIGN_OR_RAISE(Datum new_lit,
+                              compute::Cast(*lit, types[i].GetSharedPtr()));
+        call.arguments[i] = literal(std::move(new_lit));
+        continue;
+      }
+
+      // construct an implicit cast Expression with which to replace this argument
+      Expression::Call implicit_cast;
+      implicit_cast.function_name = "cast";
+      implicit_cast.arguments = {std::move(call.arguments[i])};
+
+      // TODO(wesm): Use TypeHolder in options
+      implicit_cast.options = std::make_shared<compute::CastOptions>(
+          compute::CastOptions::Safe(types[i].GetSharedPtr()));
+
+      ARROW_ASSIGN_OR_RAISE(
+          call.arguments[i],
+          BindNonRecursive(std::move(implicit_cast),
+                           /*insert_implicit_casts=*/false, exec_context));
     }
   }
 
-  if (!insert_implicit_casts) {
-    return maybe_exact_match.status();
-  }
-
-  // If exact binding fails, and we are allowed to cast, then prefer casting literals
-  // first.  Since DispatchBest generally prefers up-casting the best way to do this is
-  // first down-cast the literals as much as possible
-  types = GetTypesWithSmallestLiteralRepresentation(call.arguments);
-  ARROW_ASSIGN_OR_RAISE(call.kernel, call.function->DispatchBest(&types));
-
-  for (size_t i = 0; i < types.size(); ++i) {
-    if (types[i] == call.arguments[i].type()) continue;
-
-    if (const Datum* lit = call.arguments[i].literal()) {
-      ARROW_ASSIGN_OR_RAISE(Datum new_lit, compute::Cast(*lit, types[i].GetSharedPtr()));
-      call.arguments[i] = literal(std::move(new_lit));
-      continue;
-    }
-
-    // construct an implicit cast Expression with which to replace this argument
-    Expression::Call implicit_cast;
-    implicit_cast.function_name = "cast";
-    implicit_cast.arguments = {std::move(call.arguments[i])};
-
-    // TODO(wesm): Use TypeHolder in options
-    implicit_cast.options = std::make_shared<compute::CastOptions>(
-        compute::CastOptions::Safe(types[i].GetSharedPtr()));
-
+  compute::KernelContext kernel_context(exec_context, call.kernel);
+  if (call.kernel->init) {
+    const FunctionOptions* options =
+        call.options ? call.options.get() : call.function->default_options();
     ARROW_ASSIGN_OR_RAISE(
-        call.arguments[i],
-        BindNonRecursive(std::move(implicit_cast),
-                         /*insert_implicit_casts=*/false, exec_context));
+        call.kernel_state,
+        call.kernel->init(&kernel_context, {call.kernel, types, options}));
+
+    kernel_context.SetState(call.kernel_state.get());
   }
 
-  RETURN_NOT_OK(FinishBind());
+  ARROW_ASSIGN_OR_RAISE(
+      call.type, call.kernel->signature->out_type().Resolve(&kernel_context, types));
+
   return Expression(std::move(call));
 }
 
@@ -793,8 +789,7 @@ Result<Datum> ExecuteScalarExpression(const Expression& expr, const ExecBatch& i
   RETURN_NOT_OK(executor->Init(&kernel_context, {kernel, types, options}));
 
   compute::detail::DatumAccumulator listener;
-  RETURN_NOT_OK(
-      executor->Execute(ExecBatch(std::move(arguments), input_length), &listener));
+  RETURN_NOT_OK(executor->Execute(ExecBatch(arguments, input_length), &listener));
   const auto out = executor->WrapResults(arguments, listener.values());
 #ifndef NDEBUG
   DCHECK_OK(executor->CheckResultType(out, call->function_name.c_str()));
@@ -1265,6 +1260,15 @@ struct Inequality {
 
     auto options = checked_pointer_cast<SetLookupOptions>(is_in_call->options);
 
+    // The maximum number of values in the is_in expression set of values
+    // in order to use the simplification.
+    // If the set is large there are performance implications, see:
+    // https://github.com/apache/arrow/issues/46777
+    constexpr int16_t kIsInSimplificationMaxValueSet = 50;
+    if (options->value_set.length() > kIsInSimplificationMaxValueSet) {
+      return std::nullopt;
+    }
+
     const auto& lhs = Comparison::StripOrderPreservingCasts(is_in_call->arguments[0]);
     if (!lhs.field_ref()) return std::nullopt;
     if (*lhs.field_ref() != guarantee.target) return std::nullopt;
@@ -1452,7 +1456,7 @@ Result<Expression> SimplifyWithGuarantee(Expression expr,
                                   return inequality->Simplify(std::move(expr));
                                 }));
 
-      if (Identical(simplified, expr)) continue;
+      if (Expression::Identical(simplified, expr)) continue;
 
       expr = std::move(simplified);
       RETURN_NOT_OK(CanonicalizeAndFoldConstants());
@@ -1463,7 +1467,7 @@ Result<Expression> SimplifyWithGuarantee(Expression expr,
           auto simplified,
           SimplifyIsValidGuarantee(std::move(expr), *CallNotNull(guarantee)));
 
-      if (Identical(simplified, expr)) continue;
+      if (Expression::Identical(simplified, expr)) continue;
 
       expr = std::move(simplified);
       RETURN_NOT_OK(CanonicalizeAndFoldConstants());

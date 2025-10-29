@@ -21,7 +21,6 @@
 # Requirements
 # - Ruby >= 2.3
 # - gcc >= 4.8
-# - Node.js >= 18
 # - Go >= 1.22
 # - Docker
 #
@@ -75,6 +74,8 @@ esac
 SOURCE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
 ARROW_DIR="$(cd "${SOURCE_DIR}/../.." && pwd)"
 
+: ${GITHUB_REPOSITORY:=apache/arrow}
+
 show_header() {
   echo ""
   printf '=%.0s' $(seq ${#1}); printf '\n'
@@ -99,26 +100,30 @@ detect_cuda() {
   return $((${n_gpus} < 1))
 }
 
-ARROW_DIST_URL='https://dist.apache.org/repos/dist/dev/arrow'
+ARROW_RC_URL="https://dist.apache.org/repos/dist/dev/arrow"
+ARROW_KEYS_URL="https://www.apache.org/dyn/closer.lua?action=download&filename=arrow/KEYS"
 
-download_dist_file() {
+download_file() {
   curl \
     --silent \
     --show-error \
     --fail \
     --location \
-    --remote-name $ARROW_DIST_URL/$1
+    --output "$2" \
+    "$1"
 }
 
 download_rc_file() {
-  download_dist_file apache-arrow-${VERSION}-rc${RC_NUMBER}/$1
+  download_file \
+    "${ARROW_RC_URL}/apache-arrow-${VERSION}-rc${RC_NUMBER}/$1" \
+    "$1"
 }
 
 import_gpg_keys() {
   if [ "${GPGKEYS_ALREADY_IMPORTED:-0}" -gt 0 ]; then
     return 0
   fi
-  download_dist_file KEYS
+  download_file "${ARROW_KEYS_URL}" KEYS
   gpg --import KEYS
 
   GPGKEYS_ALREADY_IMPORTED=1
@@ -168,6 +173,7 @@ verify_dir_artifact_signatures() {
 }
 
 test_binary() {
+  # this downloads all artifacts and verifies their checksums and signatures
   show_header "Testing binary artifacts"
   maybe_setup_conda
 
@@ -176,7 +182,8 @@ test_binary() {
 
   ${PYTHON:-python3} $SOURCE_DIR/download_rc_binaries.py $VERSION $RC_NUMBER \
          --dest=${download_dir} \
-         --repository=${GITHUB_REPOSITORY:-apache/arrow}
+         --repository=${GITHUB_REPOSITORY} \
+         --tag="apache-arrow-$VERSION-rc$RC_NUMBER"
 
   verify_dir_artifact_signatures ${download_dir}
 }
@@ -209,6 +216,7 @@ test_apt() {
     "x86_64")
       for target in "debian:bookworm" \
                     "debian:trixie" \
+                    "debian:forky" \
                     "ubuntu:jammy" \
                     "ubuntu:noble"; do \
         if ! docker run \
@@ -228,6 +236,7 @@ test_apt() {
     "aarch64")
       for target in "arm64v8/debian:bookworm" \
                     "arm64v8/debian:trixie" \
+                    "arm64v8/debian:forky" \
                     "arm64v8/ubuntu:jammy" \
                     "arm64v8/ubuntu:noble"; do \
         if ! docker run \
@@ -257,11 +266,11 @@ test_yum() {
 
   case "$(arch)" in
     "x86_64")
-      for target in "almalinux:9" \
+      for target in "almalinux:10" \
+                    "almalinux:9" \
                     "almalinux:8" \
                     "amazonlinux:2023" \
                     "quay.io/centos/centos:stream9" \
-                    "quay.io/centos/centos:stream8" \
                     "centos:7"; do
         if ! docker run \
                --platform linux/x86_64 \
@@ -278,11 +287,11 @@ test_yum() {
       done
       ;;
     "aarch64")
-      for target in "arm64v8/almalinux:9" \
+      for target in "arm64v8/almalinux:10" \
+                    "arm64v8/almalinux:9" \
                     "arm64v8/almalinux:8" \
                     "arm64v8/amazonlinux:2023" \
-                    "quay.io/centos/centos:stream9" \
-                    "quay.io/centos/centos:stream8"; do
+                    "quay.io/centos/centos:stream9"; do
         if ! docker run \
                --platform linux/arm64 \
                --rm \
@@ -321,78 +330,6 @@ setup_tempdir() {
   fi
 
   echo "Working in sandbox ${ARROW_TMPDIR}"
-}
-
-install_nodejs() {
-  # Install NodeJS locally for running the JavaScript tests rather than using the
-  # system Node installation, which may be too old.
-  if [ "${NODEJS_ALREADY_INSTALLED:-0}" -gt 0 ]; then
-    show_info "NodeJS $(node --version) already installed"
-    return 0
-  fi
-
-  node_major_version=$(node --version 2>&1 | grep -o '^v[0-9]*' | sed -e 's/^v//g' || :)
-  node_minor_version=$(node --version 2>&1 | grep -o '^v[0-9]*\.[0-9]*' | sed -e 's/^v[0-9]*\.//g' || :)
-  if [[ -n "${node_major_version}" && -n "${node_minor_version}" &&
-      ("${node_major_version}" -eq 16 ||
-        ("${node_major_version}" -eq 18 && "${node_minor_version}" -ge 14) ||
-        "${node_major_version}" -ge 20) ]]; then
-    show_info "Found NodeJS installation with version v${node_major_version}.${node_minor_version}.x"
-  else
-    export NVM_DIR="$(pwd)/.nvm"
-    mkdir -p $NVM_DIR
-    curl -sL https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.3/install.sh | \
-      PROFILE=/dev/null bash
-    [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
-
-    nvm install --lts
-    show_info "Installed NodeJS $(node --version)"
-  fi
-
-  NODEJS_ALREADY_INSTALLED=1
-}
-
-install_csharp() {
-  # Install C# if doesn't already exist
-  if [ "${CSHARP_ALREADY_INSTALLED:-0}" -gt 0 ]; then
-    show_info "C# already installed $(which csharp) (.NET $(dotnet --version))"
-    return 0
-  fi
-
-  show_info "Ensuring that C# is installed..."
-
-  if dotnet --version | grep 8\.0 > /dev/null 2>&1; then
-    local csharp_bin=$(dirname $(which dotnet))
-    show_info "Found C# at $(which csharp) (.NET $(dotnet --version))"
-  else
-    if which dotnet > /dev/null 2>&1; then
-      show_info "dotnet found but it is the wrong version and will be ignored."
-    fi
-    local csharp_bin=${ARROW_TMPDIR}/csharp/bin
-    local dotnet_version=8.0.204
-    local dotnet_platform=
-    case "$(uname)" in
-      Linux)
-        dotnet_platform=linux
-        ;;
-      Darwin)
-        dotnet_platform=macos
-        ;;
-    esac
-    local dotnet_download_thank_you_url=https://dotnet.microsoft.com/download/thank-you/dotnet-sdk-${dotnet_version}-${dotnet_platform}-x64-binaries
-    local dotnet_download_url=$( \
-      curl -sL ${dotnet_download_thank_you_url} | \
-        grep 'directLink' | \
-        grep -E -o 'https://download[^"]+' | \
-        sed -n 2p)
-    mkdir -p ${csharp_bin}
-    curl -sL ${dotnet_download_url} | \
-      tar xzf - -C ${csharp_bin}
-    PATH=${csharp_bin}:${PATH}
-    show_info "Installed C# at $(which csharp) (.NET $(dotnet --version))"
-  fi
-
-  CSHARP_ALREADY_INSTALLED=1
 }
 
 install_conda() {
@@ -503,13 +440,6 @@ maybe_setup_virtualenv() {
   fi
 }
 
-maybe_setup_nodejs() {
-  show_info "Ensuring that NodeJS is installed..."
-  if [ "${USE_CONDA}" -eq 0 ]; then
-    install_nodejs
-  fi
-}
-
 test_and_install_cpp() {
   show_header "Build, install and test C++ libraries"
 
@@ -583,7 +513,7 @@ test_and_install_cpp() {
     -DCMAKE_INSTALL_LIBDIR=lib \
     -DCMAKE_INSTALL_PREFIX=$ARROW_HOME \
     -DCMAKE_UNITY_BUILD=${CMAKE_UNITY_BUILD:-OFF} \
-    -DGTest_SOURCE=BUNDLED \
+    -DGTest_SOURCE=${GTest_SOURCE:-BUNDLED} \
     -DPARQUET_BUILD_EXAMPLES=ON \
     -DPARQUET_BUILD_EXECUTABLES=ON \
     -DPARQUET_REQUIRE_ENCRYPTION=ON \
@@ -750,49 +680,6 @@ test_ruby() {
   popd
 }
 
-test_csharp() {
-  show_header "Build and test C# libraries"
-
-  install_csharp
-
-  pushd csharp
-
-  dotnet test
-
-  if [ "${SOURCE_KIND}" = "local" -o "${SOURCE_KIND}" = "git" ]; then
-    dotnet pack -c Release
-  else
-    mv dummy.git ../.git
-    dotnet pack -c Release
-    mv ../.git dummy.git
-  fi
-
-  popd
-}
-
-test_js() {
-  show_header "Build and test JavaScript libraries"
-
-  maybe_setup_nodejs
-  maybe_setup_conda nodejs=18
-
-  if ! command -v yarn &> /dev/null; then
-    npm install yarn
-    PATH=$PWD/node_modules/yarn/bin:$PATH
-  fi
-
-  pushd js
-  yarn --frozen-lockfile
-  yarn clean:all
-  yarn lint
-  yarn build
-  if [ ${TEST_JS} -gt 0 ]; then
-    yarn test
-    yarn test:bundle
-  fi
-  popd
-}
-
 # Run integration tests
 test_integration() {
   show_header "Build and execute integration tests"
@@ -815,7 +702,6 @@ test_integration() {
   LD_LIBRARY_PATH=$ARROW_CPP_EXE_PATH:$LD_LIBRARY_PATH archery integration \
     --run-ipc --run-flight --run-c-data \
     --with-cpp=${TEST_INTEGRATION_CPP} \
-    --with-js=${TEST_INTEGRATION_JS} \
     $INTEGRATION_TEST_ARGS
 }
 
@@ -833,11 +719,19 @@ ensure_source_directory() {
   elif [ "${SOURCE_KIND}" = "git" ]; then
     # Remote arrow repository, testing repositories must be cloned
     : ${SOURCE_REPOSITORY:="https://github.com/apache/arrow"}
-    echo "Verifying Arrow repository ${SOURCE_REPOSITORY} with revision checkout ${VERSION}"
+    case "${VERSION}" in
+      *.*.*)
+        revision="apache-arrow-${VERSION}"
+        ;;
+      *)
+        revision="${VERSION}"
+        ;;
+    esac
+    echo "Verifying Arrow repository ${SOURCE_REPOSITORY} with revision checkout ${revision}"
     export ARROW_SOURCE_DIR="${ARROW_TMPDIR}/arrow"
     if [ ! -d "${ARROW_SOURCE_DIR}" ]; then
       git clone --recurse-submodules $SOURCE_REPOSITORY $ARROW_SOURCE_DIR
-      git -C $ARROW_SOURCE_DIR checkout $VERSION
+      git -C $ARROW_SOURCE_DIR checkout "${revision}"
     fi
   else
     # Release tarball, testing repositories must be cloned separately
@@ -894,12 +788,27 @@ test_source_distribution() {
 
   pushd $ARROW_SOURCE_DIR
 
-  if [ ${TEST_CSHARP} -gt 0 ]; then
-    test_csharp
+  if [ "${SOURCE_KIND}" = "tarball" ] && [ "${TEST_SOURCE_REPRODUCIBLE}" -gt 0 ]; then
+    pushd ..
+    git clone "https://github.com/${GITHUB_REPOSITORY}.git" arrow
+    pushd arrow
+    dev/release/utils-create-release-tarball.sh "${VERSION}" "${RC_NUMBER}"
+    tarball="apache-arrow-${VERSION}.tar.gz"
+    if ! cmp "${tarball}" "../${tarball}"; then
+      echo "Source archive isn't reproducible"
+      if ! tar --version | grep --quiet --fixed GNU && \
+          ! gtar --version | grep --quiet --fixed GNU; then
+        echo "We need GNU tar to verify reproducible build"
+      fi
+      if ! gzip --version | grep --quiet --fixed GNU; then
+        echo "We need GNU gzip to verify reproducible build"
+      fi
+      return 1
+    fi
+    popd
+    popd
   fi
-  if [ ${BUILD_JS} -gt 0 ]; then
-    test_js
-  fi
+
   if [ ${BUILD_CPP} -gt 0 ]; then
     test_and_install_cpp
   fi
@@ -943,8 +852,8 @@ test_linux_wheels() {
     local arch="x86_64"
   fi
 
-  local python_versions="${TEST_PYTHON_VERSIONS:-3.9 3.10 3.11 3.12 3.13}"
-  local platform_tags="${TEST_WHEEL_PLATFORM_TAGS:-manylinux_2_17_${arch}.manylinux2014_${arch} manylinux_2_28_${arch}}"
+  local python_versions="${TEST_PYTHON_VERSIONS:-3.10 3.11 3.12 3.13 3.14}"
+  local platform_tags="${TEST_WHEEL_PLATFORM_TAGS:-manylinux_2_28_${arch}}"
 
   if [ "${SOURCE_KIND}" != "local" ]; then
     local wheel_content="OFF"
@@ -982,11 +891,11 @@ test_macos_wheels() {
 
   # apple silicon processor
   if [ "$(uname -m)" = "arm64" ]; then
-    local python_versions="3.9 3.10 3.11 3.12 3.13"
+    local python_versions="3.10 3.11 3.12 3.13 3.14"
     local platform_tags="macosx_12_0_arm64"
     local check_flight=OFF
   else
-    local python_versions="3.9 3.10 3.11 3.12 3.13"
+    local python_versions="3.10 3.11 3.12 3.13 3.14"
     local platform_tags="macosx_12_0_x86_64"
   fi
 
@@ -1049,11 +958,13 @@ test_wheels() {
       $SOURCE_DIR/download_rc_binaries.py $VERSION $RC_NUMBER \
       --package_type python \
       --regex=${filter_regex} \
-      --dest=${download_dir}
+      --dest=${download_dir} \
+      --repository=${GITHUB_REPOSITORY} \
+      --tag="apache-arrow-$VERSION-rc$RC_NUMBER"
 
     verify_dir_artifact_signatures ${download_dir}
 
-    wheels_dir=${download_dir}/python-rc/${VERSION}-rc${RC_NUMBER}
+    wheels_dir=${download_dir}
   fi
 
   pushd ${wheels_dir}
@@ -1083,23 +994,20 @@ test_wheels() {
 : ${TEST_YUM:=${TEST_BINARIES}}
 
 # Source verification tasks
+: ${TEST_SOURCE_REPRODUCIBLE:=0}
 : ${TEST_CPP:=${TEST_SOURCE}}
-: ${TEST_CSHARP:=${TEST_SOURCE}}
 : ${TEST_GLIB:=${TEST_SOURCE}}
 : ${TEST_RUBY:=${TEST_SOURCE}}
 : ${TEST_PYTHON:=${TEST_SOURCE}}
-: ${TEST_JS:=${TEST_SOURCE}}
 : ${TEST_INTEGRATION:=${TEST_SOURCE}}
 
 # For selective Integration testing, set TEST_DEFAULT=0 TEST_INTEGRATION_X=1 TEST_INTEGRATION_Y=1
 : ${TEST_INTEGRATION_CPP:=${TEST_INTEGRATION}}
-: ${TEST_INTEGRATION_JS:=${TEST_INTEGRATION}}
 
 # Automatically build/test if its activated by a dependent
 TEST_GLIB=$((${TEST_GLIB} + ${TEST_RUBY}))
 BUILD_CPP=$((${TEST_CPP} + ${TEST_GLIB} + ${TEST_PYTHON} + ${TEST_INTEGRATION_CPP}))
-BUILD_JS=$((${TEST_JS} + ${TEST_INTEGRATION_JS}))
-TEST_INTEGRATION=$((${TEST_INTEGRATION} + ${TEST_INTEGRATION_CPP} + ${TEST_INTEGRATION_JS}))
+TEST_INTEGRATION=$((${TEST_INTEGRATION} + ${TEST_INTEGRATION_CPP}))
 
 # Execute tests in a conda environment
 : ${USE_CONDA:=0}
@@ -1119,7 +1027,9 @@ TEST_SUCCESS=no
 
 setup_tempdir
 ensure_source_directory
-test_source_distribution
+# Run source tests in a subshell so environment variables
+# set for source testing aren't exposed to the binary tests.
+(test_source_distribution)
 test_binary_distribution
 
 TEST_SUCCESS=yes

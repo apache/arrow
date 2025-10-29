@@ -21,10 +21,14 @@ set -e
 set -u
 set -o pipefail
 
+SOURCE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 if [ "$#" -ne 2 ]; then
   echo "Usage: $0 <version> <rc-num>"
   exit
 fi
+
+. "${SOURCE_DIR}/utils-env.sh"
 
 version=$1
 rc=$2

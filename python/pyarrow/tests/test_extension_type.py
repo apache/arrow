@@ -42,15 +42,6 @@ def registered_extension_type(ext_type):
         pa.unregister_extension_type(ext_type.extension_name)
 
 
-@contextlib.contextmanager
-def enabled_auto_load():
-    pa.PyExtensionType.set_auto_load(True)
-    try:
-        yield
-    finally:
-        pa.PyExtensionType.set_auto_load(False)
-
-
 class TinyIntType(pa.ExtensionType):
 
     def __init__(self):
@@ -231,15 +222,6 @@ class AnnotatedType(pa.ExtensionType):
     def __arrow_ext_deserialize__(cls, storage_type, serialized):
         assert serialized == b''
         return cls(storage_type)
-
-
-class LegacyIntType(pa.PyExtensionType):
-
-    def __init__(self):
-        pa.PyExtensionType.__init__(self, pa.int8())
-
-    def __reduce__(self):
-        return LegacyIntType, ()
 
 
 def ipc_write_batch(batch):
@@ -882,7 +864,7 @@ class PeriodType(pa.ExtensionType):
         return self._freq
 
     def __arrow_ext_serialize__(self):
-        return "freq={}".format(self.freq).encode()
+        return f"freq={self.freq}".encode()
 
     @classmethod
     def __arrow_ext_deserialize__(cls, storage_type, serialized):
@@ -1513,6 +1495,7 @@ def test_tensor_array_from_numpy(np_type_str):
     assert isinstance(tensor_array_from_numpy.type, pa.FixedShapeTensorType)
     assert tensor_array_from_numpy.type.value_type == arrow_type
     assert tensor_array_from_numpy.type.shape == [2, 3]
+    assert tensor_array_from_numpy.type.dim_names is None
 
     arr = np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9], [10, 11, 12]],
                    dtype=np.dtype(np_type_str), order="F")
@@ -1527,6 +1510,7 @@ def test_tensor_array_from_numpy(np_type_str):
     tensor_array_from_numpy = pa.FixedShapeTensorArray.from_numpy_ndarray(arr)
     assert tensor_array_from_numpy.type.shape == [3, 4]
     assert tensor_array_from_numpy.type.permutation == [0, 1]
+    assert tensor_array_from_numpy.type.dim_names is None
     assert tensor_array_from_numpy.to_tensor() == pa.Tensor.from_numpy(arr)
 
     arr = as_strided(flat_arr, shape=(1, 2, 3, 2),
@@ -1534,6 +1518,7 @@ def test_tensor_array_from_numpy(np_type_str):
     tensor_array_from_numpy = pa.FixedShapeTensorArray.from_numpy_ndarray(arr)
     assert tensor_array_from_numpy.type.shape == [2, 2, 3]
     assert tensor_array_from_numpy.type.permutation == [0, 2, 1]
+    assert tensor_array_from_numpy.type.dim_names is None
     assert tensor_array_from_numpy.to_tensor() == pa.Tensor.from_numpy(arr)
 
     arr = flat_arr.reshape(1, 2, 3, 2)
@@ -1568,6 +1553,28 @@ def test_tensor_array_from_numpy(np_type_str):
 
     with pytest.raises(ValueError, match="Expected a non-empty ndarray"):
         pa.FixedShapeTensorArray.from_numpy_ndarray(arr.reshape((3, 0, 2)))
+
+    arr = np.array([[[1, 2, 3], [4, 5, 6]], [[7, 8, 9], [10, 11, 12]]],
+                   dtype=np.dtype(np_type_str), order="C")
+    dim_names = ["a", "b"]
+    tensor_array_from_numpy = pa.FixedShapeTensorArray.from_numpy_ndarray(
+        arr, dim_names=dim_names)
+    assert tensor_array_from_numpy.type.value_type == arrow_type
+    assert tensor_array_from_numpy.type.shape == [2, 3]
+    assert tensor_array_from_numpy.type.dim_names == dim_names
+
+    with pytest.raises(ValueError, match="The length of dim_names"):
+        pa.FixedShapeTensorArray.from_numpy_ndarray(arr, dim_names=['only_one'])
+
+    with pytest.raises(TypeError, match="dim_names must be a tuple or list"):
+        pa.FixedShapeTensorArray.from_numpy_ndarray(arr, dim_names=123)
+
+    with pytest.raises(TypeError, match="dim_names must be a tuple or list"):
+        pa.FixedShapeTensorArray.from_numpy_ndarray(
+            arr, dim_names=(x for x in range(2)))
+
+    with pytest.raises(TypeError, match="Each element of dim_names must be a string"):
+        pa.FixedShapeTensorArray.from_numpy_ndarray(arr, dim_names=[0, 1])
 
 
 @pytest.mark.numpy
@@ -1708,25 +1715,6 @@ def test_tensor_type_is_picklable(pickle_module):
 def test_tensor_type_str(tensor_type, text):
     tensor_type_str = tensor_type.__str__()
     assert text in tensor_type_str
-
-
-def test_legacy_int_type():
-    with pytest.warns(FutureWarning, match="PyExtensionType is deprecated"):
-        ext_ty = LegacyIntType()
-    arr = pa.array([1, 2, 3], type=ext_ty.storage_type)
-    ext_arr = pa.ExtensionArray.from_storage(ext_ty, arr)
-    batch = pa.RecordBatch.from_arrays([ext_arr], names=['ext'])
-    buf = ipc_write_batch(batch)
-
-    with pytest.warns((RuntimeWarning, FutureWarning)):
-        batch = ipc_read_batch(buf)
-        assert isinstance(batch.column(0).type, pa.UnknownExtensionType)
-
-    with enabled_auto_load():
-        with pytest.warns(FutureWarning, match="PyExtensionType is deprecated"):
-            batch = ipc_read_batch(buf)
-            assert isinstance(batch.column(0).type, LegacyIntType)
-            assert batch.column(0) == ext_arr
 
 
 @pytest.mark.parametrize("storage_type,storage", [

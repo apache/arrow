@@ -201,10 +201,14 @@ void ConcurrentQueueBasicTest(Queue& queue) {
   queue.Push(2);
   queue.Push(3);
   queue.Push(4);
-  ASSERT_EQ(fut_pop.wait_for(std::chrono::milliseconds(10)), std::future_status::ready);
+  // Note we should use wait() which guarantees the future is ready, but this will make
+  // the test hang forever if the code is broken. Thus we in turn use wait_for() with a
+  // large enough timeout which should be enough in practice.
+  ASSERT_EQ(fut_pop.wait_for(std::chrono::seconds(5)), std::future_status::ready);
   ASSERT_EQ(fut_pop.get(), 2);
   fut_pop = std::async(std::launch::async, [&]() { return queue.WaitAndPop(); });
-  ASSERT_EQ(fut_pop.wait_for(std::chrono::milliseconds(10)), std::future_status::ready);
+  // Ditto.
+  ASSERT_EQ(fut_pop.wait_for(std::chrono::seconds(5)), std::future_status::ready);
   ASSERT_EQ(fut_pop.get(), 3);
   ASSERT_FALSE(queue.Empty());
   ASSERT_EQ(queue.TryPop(), std::make_optional(4));
@@ -259,8 +263,7 @@ class TestBackpressureControl : public BackpressureControl {
 TEST(BackpressureConcurrentQueue, BasicTest) {
   BackpressureTestExecNode dummy_node;
   auto ctrl = std::make_unique<TestBackpressureControl>(&dummy_node);
-  ASSERT_OK_AND_ASSIGN(auto handler,
-                       BackpressureHandler::Make(&dummy_node, 2, 4, std::move(ctrl)));
+  ASSERT_OK_AND_ASSIGN(auto handler, BackpressureHandler::Make(2, 4, std::move(ctrl)));
   BackpressureConcurrentQueue<int> queue(std::move(handler));
 
   ConcurrentQueueBasicTest(queue);
@@ -271,8 +274,7 @@ TEST(BackpressureConcurrentQueue, BasicTest) {
 TEST(BackpressureConcurrentQueue, BackpressureTest) {
   BackpressureTestExecNode dummy_node;
   auto ctrl = std::make_unique<TestBackpressureControl>(&dummy_node);
-  ASSERT_OK_AND_ASSIGN(auto handler,
-                       BackpressureHandler::Make(&dummy_node, 2, 4, std::move(ctrl)));
+  ASSERT_OK_AND_ASSIGN(auto handler, BackpressureHandler::Make(2, 4, std::move(ctrl)));
   BackpressureConcurrentQueue<int> queue(std::move(handler));
 
   queue.Push(6);
@@ -295,9 +297,28 @@ TEST(BackpressureConcurrentQueue, BackpressureTest) {
   queue.Push(11);
   ASSERT_TRUE(dummy_node.paused);
   ASSERT_FALSE(dummy_node.stopped);
-  ASSERT_OK(queue.ForceShutdown());
+  queue.ForceShutdown();
   ASSERT_FALSE(dummy_node.paused);
-  ASSERT_TRUE(dummy_node.stopped);
+}
+
+TEST(BackpressureConcurrentQueue, BackpressureTestStayUnpaused) {
+  BackpressureTestExecNode dummy_node;
+  auto ctrl = std::make_unique<TestBackpressureControl>(&dummy_node);
+  ASSERT_OK_AND_ASSIGN(
+      auto handler, BackpressureHandler::Make(/*low_threshold=*/2, /*high_threshold=*/4,
+                                              std::move(ctrl)));
+  BackpressureConcurrentQueue<int> queue(std::move(handler));
+
+  queue.Push(6);
+  queue.Push(7);
+  queue.Push(8);
+  ASSERT_FALSE(dummy_node.paused);
+  ASSERT_FALSE(dummy_node.stopped);
+  queue.ForceShutdown();
+  for (int i = 0; i < 10; ++i) {
+    queue.Push(i);
+  }
+  ASSERT_FALSE(dummy_node.paused);
 }
 
 }  // namespace acero

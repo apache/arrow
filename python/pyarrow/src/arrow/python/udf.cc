@@ -271,7 +271,7 @@ struct PythonUdfHashAggregatorImpl : public HashUdfAggregator {
     // This is similar to GroupedListImpl
     // last array is the group id
     const ArraySpan& groups_array_data = batch[batch.num_values() - 1].array;
-    DCHECK_EQ(groups_array_data.offset, 0);
+    ARROW_DCHECK_EQ(groups_array_data.offset, 0);
     int64_t batch_num_values = groups_array_data.length;
     const auto* batch_groups = groups_array_data.GetValues<uint32_t>(1);
     RETURN_NOT_OK(groups.Append(batch_groups, batch_num_values));

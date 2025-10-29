@@ -20,9 +20,8 @@ name: Release
 on:
   push:
     tags:
-      # Trigger workflow when a tag whose name matches the pattern
-      # pattern "apache-arrow-{MAJOR}.{MINOR}.{PATCH}" is pushed.
-      - "apache-arrow-[0-9]+.[0-9]+.[0-9]+"
+      - "apache-arrow-*"
+      - "!apache-arrow-*-rc*"
 
 permissions:
   contents: write

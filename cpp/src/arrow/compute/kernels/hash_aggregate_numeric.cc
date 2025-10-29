@@ -28,11 +28,12 @@
 #include "arrow/compute/kernels/aggregate_var_std_internal.h"
 #include "arrow/compute/kernels/common_internal.h"
 #include "arrow/compute/kernels/hash_aggregate_internal.h"
+#include "arrow/compute/registry_internal.h"
 #include "arrow/compute/row/grouper.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/int128_internal.h"
 #include "arrow/util/span.h"
-#include "arrow/util/tdigest.h"
+#include "arrow/util/tdigest_internal.h"
 #include "arrow/visit_type_inline.h"
 
 namespace arrow::compute::internal {
@@ -54,7 +55,7 @@ struct GroupedReducingAggregator : public GroupedAggregator {
     reduced_ = TypedBufferBuilder<CType>(pool_);
     counts_ = TypedBufferBuilder<int64_t>(pool_);
     no_nulls_ = TypedBufferBuilder<bool>(pool_);
-    out_type_ = GetOutType(args.inputs[0].GetSharedPtr());
+    ARROW_ASSIGN_OR_RAISE(out_type_, GetOutType(args.inputs[0].GetSharedPtr()));
     return Status::OK();
   }
 
@@ -154,16 +155,28 @@ struct GroupedReducingAggregator : public GroupedAggregator {
   std::shared_ptr<DataType> out_type() const override { return out_type_; }
 
   template <typename T = Type>
-  static enable_if_t<!is_decimal_type<T>::value, std::shared_ptr<DataType>> GetOutType(
+  enable_if_t<!is_decimal_type<T>::value, Result<std::shared_ptr<DataType>>> GetOutType(
       const std::shared_ptr<DataType>& in_type) {
     return TypeTraits<AccType>::type_singleton();
   }
 
   template <typename T = Type>
-  static enable_if_decimal<T, std::shared_ptr<DataType>> GetOutType(
+  enable_if_decimal<T, Result<std::shared_ptr<DataType>>> GetOutType(
       const std::shared_ptr<DataType>& in_type) {
-    return in_type;
+    if (PromoteDecimal()) {
+      return WidenDecimalToMaxPrecision(in_type);
+    } else {
+      return in_type;
+    }
   }
+
+  // If this returns true, then the aggregator will promote a decimal to the maximum
+  // precision for that type. For instance, a decimal128(3, 2) will be promoted to a
+  // decimal128(38, 2)
+  //
+  // TODO: Ideally this should be configurable via the function options with an enum
+  // PrecisionPolicy { PROMOTE_TO_MAX, DEMOTE_TO_DOUBLE, NO_PROMOTION }
+  virtual bool PromoteDecimal() const { return true; }
 
   int64_t num_groups_ = 0;
   ScalarAggregateOptions options_;
@@ -317,6 +330,8 @@ struct GroupedProductImpl final
     return MultiplyTraits<AccType>::Multiply(out_type, u, v);
   }
 
+  bool PromoteDecimal() const override { return false; }
+
   using Base::Finish;
 };
 
@@ -415,6 +430,8 @@ struct GroupedMeanImpl
     return values;
   }
 
+  bool PromoteDecimal() const override { return false; }
+
   std::shared_ptr<DataType> out_type() const override {
     if (is_decimal_type<Type>::value) return this->out_type_;
     return float64();
@@ -452,35 +469,37 @@ struct GroupedStatisticImpl : public GroupedAggregator {
   Status InitInternal(ExecContext* ctx, const KernelInitArgs& args,
                       StatisticType stat_type, const VarianceOptions& options) {
     return InitInternal(ctx, args, stat_type, options.ddof, options.skip_nulls,
-                        options.min_count);
+                        /*biased=*/false, options.min_count);
   }
 
   // Init helper for hash_skew and hash_kurtosis
   Status InitInternal(ExecContext* ctx, const KernelInitArgs& args,
                       StatisticType stat_type, const SkewOptions& options) {
     return InitInternal(ctx, args, stat_type, /*ddof=*/0, options.skip_nulls,
-                        options.min_count);
+                        options.biased, options.min_count);
   }
 
   Status InitInternal(ExecContext* ctx, const KernelInitArgs& args,
-                      StatisticType stat_type, int ddof, bool skip_nulls,
+                      StatisticType stat_type, int ddof, bool skip_nulls, bool biased,
                       uint32_t min_count) {
     if constexpr (is_decimal_type<Type>::value) {
       int32_t decimal_scale =
           checked_cast<const DecimalType&>(*args.inputs[0].type).scale();
-      return InitInternal(ctx, stat_type, decimal_scale, ddof, skip_nulls, min_count);
+      return InitInternal(ctx, stat_type, decimal_scale, ddof, skip_nulls, biased,
+                          min_count);
     } else {
-      return InitInternal(ctx, stat_type, /*decimal_scale=*/0, ddof, skip_nulls,
+      return InitInternal(ctx, stat_type, /*decimal_scale=*/0, ddof, skip_nulls, biased,
                           min_count);
     }
   }
 
   Status InitInternal(ExecContext* ctx, StatisticType stat_type, int32_t decimal_scale,
-                      int ddof, bool skip_nulls, uint32_t min_count) {
+                      int ddof, bool skip_nulls, bool biased, uint32_t min_count) {
     stat_type_ = stat_type;
     moments_level_ = moments_level_for_statistic(stat_type_);
     decimal_scale_ = decimal_scale;
     skip_nulls_ = skip_nulls;
+    biased_ = biased;
     min_count_ = min_count;
     ddof_ = ddof;
     ctx_ = ctx;
@@ -539,7 +558,7 @@ struct GroupedStatisticImpl : public GroupedAggregator {
   Status ConsumeGeneric(const ExecSpan& batch) {
     GroupedStatisticImpl<Type> state;
     RETURN_NOT_OK(state.InitInternal(ctx_, stat_type_, decimal_scale_, ddof_, skip_nulls_,
-                                     min_count_));
+                                     biased_, min_count_));
     RETURN_NOT_OK(state.Resize(num_groups_));
     int64_t* counts = state.counts_.mutable_data();
     double* means = state.means_.mutable_data();
@@ -612,7 +631,7 @@ struct GroupedStatisticImpl : public GroupedAggregator {
       var_std.resize(num_groups_);
       GroupedStatisticImpl<Type> state;
       RETURN_NOT_OK(state.InitInternal(ctx_, stat_type_, decimal_scale_, ddof_,
-                                       skip_nulls_, min_count_));
+                                       skip_nulls_, biased_, min_count_));
       RETURN_NOT_OK(state.Resize(num_groups_));
       int64_t* other_counts = state.counts_.mutable_data();
       double* other_means = state.means_.mutable_data();
@@ -739,7 +758,9 @@ struct GroupedStatisticImpl : public GroupedAggregator {
     const double* m3s = m3s_data();
     const double* m4s = m4s_data();
     for (int64_t i = 0; i < num_groups_; ++i) {
-      if (counts[i] > ddof_ && counts[i] >= min_count_) {
+      if (counts[i] > ddof_ && counts[i] >= min_count_ &&
+          (stat_type_ != StatisticType::Skew || biased_ || counts[i] > 2) &&
+          (stat_type_ != StatisticType::Kurtosis || biased_ || counts[i] > 3)) {
         const auto moments = Moments(counts[i], means[i], m2s[i], m3s[i], m4s[i]);
         switch (stat_type_) {
           case StatisticType::Var:
@@ -749,10 +770,10 @@ struct GroupedStatisticImpl : public GroupedAggregator {
             results[i] = moments.Stddev(ddof_);
             break;
           case StatisticType::Skew:
-            results[i] = moments.Skew();
+            results[i] = moments.Skew(biased_);
             break;
           case StatisticType::Kurtosis:
-            results[i] = moments.Kurtosis();
+            results[i] = moments.Kurtosis(biased_);
             break;
           default:
             return Status::NotImplemented("Statistic type ",
@@ -809,6 +830,7 @@ struct GroupedStatisticImpl : public GroupedAggregator {
   int moments_level_;
   int32_t decimal_scale_;
   bool skip_nulls_;
+  bool biased_;
   uint32_t min_count_;
   int ddof_;
   int64_t num_groups_ = 0;

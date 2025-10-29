@@ -40,7 +40,7 @@
 #include "arrow/type_fwd.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/macros.h"
-#include "arrow/util/string_builder.h"
+#include "arrow/util/string_util.h"
 #include "arrow/util/type_fwd.h"
 
 // NOTE: failing must be inline in the macros below, to get correct file / line number
@@ -49,8 +49,7 @@
 // NOTE: using a for loop for this macro allows extra failure messages to be
 // appended with operator<<
 #define ASSERT_RAISES(ENUM, expr)                                                 \
-  for (::arrow::Status _st = ::arrow::internal::GenericToStatus((expr));          \
-       !_st.Is##ENUM();)                                                          \
+  for (::arrow::Status _st = ::arrow::ToStatus((expr)); !_st.Is##ENUM();)         \
   FAIL() << "Expected '" ARROW_STRINGIFY(expr) "' to fail with " ARROW_STRINGIFY( \
                 ENUM) ", but got "                                                \
          << _st.ToString()
@@ -58,7 +57,7 @@
 #define ASSERT_RAISES_WITH_MESSAGE(ENUM, message, expr)                               \
   do {                                                                                \
     auto _res = (expr);                                                               \
-    ::arrow::Status _st = ::arrow::internal::GenericToStatus(_res);                   \
+    ::arrow::Status _st = ::arrow::ToStatus(_res);                                    \
     if (!_st.Is##ENUM()) {                                                            \
       FAIL() << "Expected '" ARROW_STRINGIFY(expr) "' to fail with " ARROW_STRINGIFY( \
                     ENUM) ", but got "                                                \
@@ -70,7 +69,7 @@
 #define EXPECT_RAISES_WITH_MESSAGE_THAT(ENUM, matcher, expr)                             \
   do {                                                                                   \
     auto _res = (expr);                                                                  \
-    ::arrow::Status _st = ::arrow::internal::GenericToStatus(_res);                      \
+    ::arrow::Status _st = ::arrow::ToStatus(_res);                                       \
     EXPECT_TRUE(_st.Is##ENUM()) << "Expected '" ARROW_STRINGIFY(expr) "' to fail with "  \
                                 << ARROW_STRINGIFY(ENUM) ", but got " << _st.ToString(); \
     EXPECT_THAT(_st.ToStringWithoutContextLines(), (matcher));                           \
@@ -79,13 +78,13 @@
 #define EXPECT_RAISES_WITH_CODE_AND_MESSAGE_THAT(code, matcher, expr) \
   do {                                                                \
     auto _res = (expr);                                               \
-    ::arrow::Status _st = ::arrow::internal::GenericToStatus(_res);   \
+    ::arrow::Status _st = ::arrow::ToStatus(_res);                    \
     EXPECT_EQ(_st.CodeAsString(), Status::CodeAsString(code));        \
     EXPECT_THAT(_st.ToStringWithoutContextLines(), (matcher));        \
   } while (false)
 
-#define ASSERT_OK(expr)                                                              \
-  for (::arrow::Status _st = ::arrow::internal::GenericToStatus((expr)); !_st.ok();) \
+#define ASSERT_OK(expr)                                             \
+  for (::arrow::Status _st = ::arrow::ToStatus((expr)); !_st.ok();) \
   FAIL() << "'" ARROW_STRINGIFY(expr) "' failed with " << _st.ToString()
 
 #define ASSERT_OK_NO_THROW(expr) ASSERT_NO_THROW(ASSERT_OK(expr))
@@ -93,22 +92,26 @@
 #define ARROW_EXPECT_OK(expr)                                           \
   do {                                                                  \
     auto _res = (expr);                                                 \
-    ::arrow::Status _st = ::arrow::internal::GenericToStatus(_res);     \
+    ::arrow::Status _st = ::arrow::ToStatus(_res);                      \
     EXPECT_TRUE(_st.ok()) << "'" ARROW_STRINGIFY(expr) "' failed with " \
                           << _st.ToString();                            \
   } while (false)
 
-#define ASSERT_NOT_OK(expr)                                                         \
-  for (::arrow::Status _st = ::arrow::internal::GenericToStatus((expr)); _st.ok();) \
+#define EXPECT_OK ARROW_EXPECT_OK
+
+#define EXPECT_OK_NO_THROW(expr) EXPECT_NO_THROW(EXPECT_OK(expr))
+
+#define ASSERT_NOT_OK(expr)                                        \
+  for (::arrow::Status _st = ::arrow::ToStatus((expr)); _st.ok();) \
   FAIL() << "'" ARROW_STRINGIFY(expr) "' did not failed" << _st.ToString()
 
-#define ABORT_NOT_OK(expr)                                          \
-  do {                                                              \
-    auto _res = (expr);                                             \
-    ::arrow::Status _st = ::arrow::internal::GenericToStatus(_res); \
-    if (ARROW_PREDICT_FALSE(!_st.ok())) {                           \
-      _st.Abort();                                                  \
-    }                                                               \
+#define ABORT_NOT_OK(expr)                         \
+  do {                                             \
+    auto _res = (expr);                            \
+    ::arrow::Status _st = ::arrow::ToStatus(_res); \
+    if (ARROW_PREDICT_FALSE(!_st.ok())) {          \
+      _st.Abort();                                 \
+    }                                              \
   } while (false);
 
 #define ASSIGN_OR_HANDLE_ERROR_IMPL(handle_error, status_name, lhs, rexpr) \
@@ -139,7 +142,7 @@
 // A generalized version of GTest's SCOPED_TRACE that takes arbitrary arguments.
 //   ARROW_SCOPED_TRACE("some variable = ", some_variable, ...)
 
-#define ARROW_SCOPED_TRACE(...) SCOPED_TRACE(::arrow::util::StringBuilder(__VA_ARGS__))
+#define ARROW_SCOPED_TRACE(...) SCOPED_TRACE(::arrow::internal::JoinToString(__VA_ARGS__))
 
 namespace arrow {
 
@@ -182,6 +185,9 @@ using BaseBinaryArrowTypes =
 using BaseBinaryOrBinaryViewLikeArrowTypes =
     ::testing::Types<BinaryType, LargeBinaryType, BinaryViewType, StringType,
                      LargeStringType, StringViewType>;
+using AllBinaryOrBinrayViewLikeArrowTypes =
+    ::testing::Types<BinaryType, LargeBinaryType, BinaryViewType, FixedSizeBinaryType,
+                     StringType, LargeStringType, StringViewType>;
 
 using BinaryArrowTypes = ::testing::Types<BinaryType, LargeBinaryType>;
 
@@ -369,10 +375,6 @@ std::shared_ptr<Tensor> TensorFromJSON(const std::shared_ptr<DataType>& type,
                                        const std::vector<int64_t>& shape,
                                        const std::vector<int64_t>& strides = {},
                                        const std::vector<std::string>& dim_names = {});
-
-ARROW_TESTING_EXPORT
-Result<std::shared_ptr<Table>> RunEndEncodeTableColumns(
-    const Table& table, const std::vector<int>& column_indices);
 
 // Given an array, return a new identical array except for one validity bit
 // set to a new value.

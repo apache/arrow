@@ -20,32 +20,29 @@
 #include <cstdint>
 #include <limits>
 #include <memory>
+#include <optional>
 
 #include "arrow/compute/api_aggregate.h"
 #include "arrow/compute/type_fwd.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/type_fwd.h"
-#include "arrow/util/span.h"
 
 namespace arrow::compute::internal {
 
-using PivotWiderKeyIndex = uint8_t;
+using PivotWiderKeyIndex = uint32_t;
 
-constexpr PivotWiderKeyIndex kNullPivotKey =
+constexpr PivotWiderKeyIndex kMaxPivotKey =
     std::numeric_limits<PivotWiderKeyIndex>::max();
-constexpr PivotWiderKeyIndex kMaxPivotKey = kNullPivotKey - 1;
 
 struct PivotWiderKeyMapper {
   virtual ~PivotWiderKeyMapper() = default;
 
-  virtual Status Init(const PivotWiderOptions* options) = 0;
-  virtual Result<::arrow::util::span<const PivotWiderKeyIndex>> MapKeys(
-      const ArraySpan&) = 0;
-  virtual Result<PivotWiderKeyIndex> MapKey(const Scalar&) = 0;
+  virtual Result<std::shared_ptr<ArrayData>> MapKeys(const ArraySpan&) = 0;
+  virtual Result<std::optional<PivotWiderKeyIndex>> MapKey(const Scalar&) = 0;
 
   static Result<std::unique_ptr<PivotWiderKeyMapper>> Make(
-      const DataType& key_type, const PivotWiderOptions* options);
+      const DataType& key_type, const PivotWiderOptions* options, ExecContext* ctx);
 };
 
 }  // namespace arrow::compute::internal

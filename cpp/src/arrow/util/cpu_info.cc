@@ -47,7 +47,7 @@
 
 #include "arrow/result.h"
 #include "arrow/util/io_util.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/string.h"
 
 #undef CPUINFO_ARCH_X86
@@ -82,7 +82,7 @@ void OsRetrieveCacheSize(std::array<int64_t, kCacheLevels>* cache_sizes) {
   typedef BOOL(WINAPI * GetLogicalProcessorInformationFuncPointer)(void*, void*);
   GetLogicalProcessorInformationFuncPointer func_pointer =
       (GetLogicalProcessorInformationFuncPointer)GetProcAddress(
-          GetModuleHandle("kernel32"), "GetLogicalProcessorInformation");
+          GetModuleHandleW(L"kernel32"), "GetLogicalProcessorInformation");
 
   if (!func_pointer) {
     ARROW_LOG(WARNING) << "Failed to find procedure GetLogicalProcessorInformation";

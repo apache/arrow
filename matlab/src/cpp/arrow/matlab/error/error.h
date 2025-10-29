@@ -253,5 +253,6 @@ static const char* IPC_RECORD_BATCH_READ_INVALID_INDEX = "arrow:io:ipc:InvalidIn
 static const char* IPC_RECORD_BATCH_READ_FAILED = "arrow:io:ipc:ReadFailed";
 static const char* IPC_TABLE_READ_FAILED = "arrow:io:ipc:TableReadFailed";
 static const char* IPC_END_OF_STREAM = "arrow:io:ipc:EndOfStream";
+static const char* TABLE_MAKE_UNKNOWN_METHOD = "arrow:table:UnknownMakeMethod";
 
 }  // namespace arrow::matlab::error

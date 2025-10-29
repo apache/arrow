@@ -31,11 +31,12 @@
 #include "arrow/record_batch.h"
 #include "arrow/table.h"
 #include "arrow/type.h"
+#include "arrow/type_traits.h"
 #include "arrow/util/async_generator.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/future.h"
 #include "arrow/util/iterator.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/parallel.h"
 #include "arrow/util/range.h"
 #include "arrow/util/tracing_internal.h"
@@ -451,8 +452,17 @@ class LeafReader : public ColumnReaderImpl {
         field_(std::move(field)),
         input_(std::move(input)),
         descr_(input_->descr()) {
+    const auto type_id = field_->type()->id();
+    // If binary-like, RecordReader is able to read directly as the concrete type
+    // so as to avoid offset limitations.
+    std::shared_ptr<DataType> type_for_reading =
+        (::arrow::is_base_binary_like(type_id) || ::arrow::is_binary_view_like(type_id))
+            ? field_->type()
+            : nullptr;
     record_reader_ = RecordReader::Make(
-        descr_, leaf_info, ctx_->pool, field_->type()->id() == ::arrow::Type::DICTIONARY);
+        descr_, leaf_info, ctx_->pool,
+        /*read_dictionary=*/field_->type()->id() == ::arrow::Type::DICTIONARY,
+        /*read_dense_for_nullable=*/false, /*arrow_type=*/type_for_reading);
     NextRowGroup();
   }
 
@@ -1300,24 +1310,6 @@ std::shared_ptr<RowGroupReader> FileReaderImpl::RowGroup(int row_group_index) {
 // ----------------------------------------------------------------------
 // Public factory functions
 
-Status FileReader::GetRecordBatchReader(std::unique_ptr<RecordBatchReader>* out) {
-  ARROW_ASSIGN_OR_RAISE(*out, GetRecordBatchReader());
-  return Status::OK();
-}
-
-Status FileReader::GetRecordBatchReader(const std::vector<int>& row_group_indices,
-                                        std::unique_ptr<RecordBatchReader>* out) {
-  ARROW_ASSIGN_OR_RAISE(*out, GetRecordBatchReader(row_group_indices));
-  return Status::OK();
-}
-
-Status FileReader::GetRecordBatchReader(const std::vector<int>& row_group_indices,
-                                        const std::vector<int>& column_indices,
-                                        std::unique_ptr<RecordBatchReader>* out) {
-  ARROW_ASSIGN_OR_RAISE(*out, GetRecordBatchReader(row_group_indices, column_indices));
-  return Status::OK();
-}
-
 Status FileReader::GetRecordBatchReader(std::shared_ptr<RecordBatchReader>* out) {
   ARROW_ASSIGN_OR_RAISE(auto tmp, GetRecordBatchReader());
   out->reset(tmp.release());
@@ -1395,11 +1387,6 @@ Result<std::unique_ptr<FileReader>> FileReaderBuilder::Build() {
   return out;
 }
 
-Status OpenFile(std::shared_ptr<::arrow::io::RandomAccessFile> file, MemoryPool* pool,
-                std::unique_ptr<FileReader>* reader) {
-  return OpenFile(std::move(file), pool).Value(reader);
-}
-
 Result<std::unique_ptr<FileReader>> OpenFile(
     std::shared_ptr<::arrow::io::RandomAccessFile> file, MemoryPool* pool) {
   FileReaderBuilder builder;
@@ -1408,6 +1395,8 @@ Result<std::unique_ptr<FileReader>> OpenFile(
 }
 
 namespace internal {
+
+namespace {
 
 Status FuzzReader(std::unique_ptr<FileReader> reader) {
   auto st = Status::OK();
@@ -1422,22 +1411,35 @@ Status FuzzReader(std::unique_ptr<FileReader> reader) {
   return st;
 }
 
+}  // namespace
+
 Status FuzzReader(const uint8_t* data, int64_t size) {
-  auto buffer = std::make_shared<::arrow::Buffer>(data, size);
   Status st;
-  for (auto batch_size : std::vector<std::optional<int>>{std::nullopt, 1, 13, 300}) {
-    auto file = std::make_shared<::arrow::io::BufferReader>(buffer);
-    FileReaderBuilder builder;
+
+  auto buffer = std::make_shared<::arrow::Buffer>(data, size);
+  auto file = std::make_shared<::arrow::io::BufferReader>(buffer);
+  auto pool = ::arrow::default_memory_pool();
+
+  // Read Parquet file metadata only once, which will reduce iteration time slightly
+  std::shared_ptr<FileMetaData> pq_md;
+  BEGIN_PARQUET_CATCH_EXCEPTIONS
+  pq_md = ParquetFileReader::Open(file)->metadata();
+  END_PARQUET_CATCH_EXCEPTIONS
+
+  // Note that very small batch sizes probably make fuzzing slower
+  for (auto batch_size : std::vector<std::optional<int>>{std::nullopt, 13, 300}) {
     ArrowReaderProperties properties;
     if (batch_size) {
       properties.set_batch_size(batch_size.value());
     }
-    builder.properties(properties);
 
-    RETURN_NOT_OK(builder.Open(std::move(file)));
+    std::unique_ptr<ParquetFileReader> pq_file_reader;
+    BEGIN_PARQUET_CATCH_EXCEPTIONS
+    pq_file_reader = ParquetFileReader::Open(file, default_reader_properties(), pq_md);
+    END_PARQUET_CATCH_EXCEPTIONS
 
     std::unique_ptr<FileReader> reader;
-    RETURN_NOT_OK(builder.Build(&reader));
+    RETURN_NOT_OK(FileReader::Make(pool, std::move(pq_file_reader), properties, &reader));
     st &= FuzzReader(std::move(reader));
   }
   return st;

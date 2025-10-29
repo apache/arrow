@@ -558,7 +558,7 @@ def test_time32_units():
         assert ty.unit == valid_unit
 
     for invalid_unit in ('m', 'us', 'ns'):
-        error_msg = 'Invalid time unit for time32: {!r}'.format(invalid_unit)
+        error_msg = f'Invalid time unit for time32: {invalid_unit!r}'
         with pytest.raises(ValueError, match=error_msg):
             pa.time32(invalid_unit)
 
@@ -569,7 +569,7 @@ def test_time64_units():
         assert ty.unit == valid_unit
 
     for invalid_unit in ('m', 's', 'ms'):
-        error_msg = 'Invalid time unit for time64: {!r}'.format(invalid_unit)
+        error_msg = f'Invalid time unit for time64: {invalid_unit!r}'
         with pytest.raises(ValueError, match=error_msg):
             pa.time64(invalid_unit)
 
@@ -1445,3 +1445,16 @@ def test_field_import_c_schema_interface():
     assert pa.field(wrapped_field, nullable=False).nullable is False
     result = pa.field(wrapped_field, metadata={"other": "meta"})
     assert result.metadata == {b"other": b"meta"}
+
+
+def test_types_enum():
+    # GH-47123: [Python] Add Enums to PyArrow Types
+    # Since not all the underlying types are implemented in PyArrow,
+    # test only the ones that were imported specifically for this Enum
+
+    import pyarrow.lib as lib
+
+    types_enum = types.TypesEnum
+
+    assert types_enum.INTERVAL_MONTHS.value == lib.Type_INTERVAL_MONTHS
+    assert types_enum.INTERVAL_DAY_TIME.value == lib.Type_INTERVAL_DAY_TIME

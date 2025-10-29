@@ -106,7 +106,7 @@ struct StringTransformExecBase {
       }
       output_string_offsets[i + 1] = output_ncodeunits;
     }
-    DCHECK_LE(output_ncodeunits, max_output_ncodeunits);
+    ARROW_DCHECK_LE(output_ncodeunits, max_output_ncodeunits);
 
     // Trim the codepoint buffer, since we may have allocated too much
     return values_buffer->Resize(output_ncodeunits, /*shrink_to_fit=*/true);
@@ -154,9 +154,9 @@ void MakeUnaryStringBatchKernel(
     auto exec = GenerateVarBinaryToVarBinary<ExecFunctor>(ty);
     ScalarKernel kernel{{ty}, ty, std::move(exec)};
     kernel.mem_allocation = mem_allocation;
-    DCHECK_OK(func->AddKernel(std::move(kernel)));
+    ARROW_DCHECK_OK(func->AddKernel(std::move(kernel)));
   }
-  DCHECK_OK(registry->AddFunction(std::move(func)));
+  ARROW_DCHECK_OK(registry->AddFunction(std::move(func)));
 }
 
 template <template <typename> class ExecFunctor>
@@ -168,15 +168,15 @@ void MakeUnaryStringBatchKernelWithState(
     using t32 = ExecFunctor<StringType>;
     ScalarKernel kernel{{utf8()}, utf8(), t32::Exec, t32::State::Init};
     kernel.mem_allocation = mem_allocation;
-    DCHECK_OK(func->AddKernel(std::move(kernel)));
+    ARROW_DCHECK_OK(func->AddKernel(std::move(kernel)));
   }
   {
     using t64 = ExecFunctor<LargeStringType>;
     ScalarKernel kernel{{large_utf8()}, large_utf8(), t64::Exec, t64::State::Init};
     kernel.mem_allocation = mem_allocation;
-    DCHECK_OK(func->AddKernel(std::move(kernel)));
+    ARROW_DCHECK_OK(func->AddKernel(std::move(kernel)));
   }
-  DCHECK_OK(registry->AddFunction(std::move(func)));
+  ARROW_DCHECK_OK(registry->AddFunction(std::move(func)));
 }
 
 // ----------------------------------------------------------------------
@@ -238,9 +238,9 @@ void AddUnaryStringPredicate(std::string name, FunctionRegistry* registry,
   auto func = std::make_shared<ScalarFunction>(name, Arity::Unary(), std::move(doc));
   for (const auto& ty : StringTypes()) {
     auto exec = GenerateVarBinaryToVarBinary<StringPredicateFunctor, Predicate>(ty);
-    DCHECK_OK(func->AddKernel({ty}, boolean(), std::move(exec)));
+    ARROW_DCHECK_OK(func->AddKernel({ty}, boolean(), std::move(exec)));
   }
-  DCHECK_OK(registry->AddFunction(std::move(func)));
+  ARROW_DCHECK_OK(registry->AddFunction(std::move(func)));
 }
 
 // ----------------------------------------------------------------------
@@ -333,7 +333,7 @@ struct StringSplitExec {
     ArrayData* output_list = out->array_data().get();
     // List offsets were preallocated
     auto* list_offsets = output_list->GetMutableValues<list_offset_type>(1);
-    DCHECK_NE(list_offsets, nullptr);
+    ARROW_DCHECK_NE(list_offsets, nullptr);
     // Initial value
     *list_offsets++ = 0;
     for (int64_t i = 0; i < input.length(); ++i) {

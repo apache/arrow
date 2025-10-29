@@ -18,6 +18,7 @@
 #include <sstream>
 
 #include "arrow/acero/exec_plan.h"
+#include "arrow/acero/exec_plan_internal.h"
 #include "arrow/acero/map_node.h"
 #include "arrow/acero/options.h"
 #include "arrow/acero/query_context.h"
@@ -29,7 +30,7 @@
 #include "arrow/result.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/future.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/tracing_internal.h"
 
 namespace arrow {

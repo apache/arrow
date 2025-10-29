@@ -24,13 +24,16 @@ permissions:
 
 jobs:
   build:
-    name: "Build wheel for manylinux {{ manylinux_version }}"
+    name: "Build wheel for {{ linux_wheel_kind }} {{ linux_wheel_version }}"
     {% if arch == "amd64" %}
     runs-on: ubuntu-latest
     {% else %}
     runs-on: ubuntu-24.04-arm
     {% endif %}
     env:
+      {% if linux_wheel_kind == "musllinux" %}
+      ALPINE_LINUX: "3.22"
+      {% endif %}
       # archery uses these environment variables
       {% if arch == "amd64" %}
       ARCH: amd64
@@ -39,16 +42,25 @@ jobs:
       {% endif %}
       PYTHON: "{{ python_version }}"
       PYTHON_ABI_TAG: "{{ python_abi_tag }}"
+      {% if python_version == "3.14" %}
+      PYTHON_IMAGE_TAG: "3.14"
+      PYTHON_PATCH_VERSION: "3.14.0"
+      {% elif python_version == "3.13" %}
       PYTHON_IMAGE_TAG: "{{ python_version }}"
+      PYTHON_PATCH_VERSION: "3.13.7"
+      {% else %}
+      PYTHON_IMAGE_TAG: "{{ python_version }}"
+      {% endif %}
 
     steps:
       {{ macros.github_checkout_arrow()|indent }}
       {{ macros.github_install_archery()|indent }}
       {{ macros.github_login_dockerhub()|indent }}
 
+      # Detect free-threaded Python builds
       - name: Prepare
         run: |
-          if [ "${PYTHON_ABI_TAG}" = "cp313t" ]; then
+          if [[ "${PYTHON_ABI_TAG}" == *t ]]; then
             test_image_prefix=python-free-threaded
           else
             test_image_prefix=python
@@ -60,15 +72,15 @@ jobs:
         env:
           GITHUB_TOKEN: {{ '${{ secrets.GITHUB_TOKEN }}' }}
         run: |
-          if [ "{{ manylinux_version }}" = "2014" ] && [ "{{ arch }}" = "arm64" ]; then
-            # We can't use NuGet on manylinux2014_aarch64 because Mono is old.
+          if [ "{{ linux_wheel_kind }}" = "musllinux" ] && [ "{{ arch }}" = "arm64" ]; then
+            # We can't use NuGet on musl arm systems because the official NuGet binary for arm doesn't exist.
             :
           else
             export VCPKG_BINARY_SOURCES="clear;nuget,GitHub,readwrite"
           fi
           archery docker run \
             -e SETUPTOOLS_SCM_PRETEND_VERSION={{ arrow.no_rc_version }} \
-            python-wheel-manylinux-{{ manylinux_version }}
+            python-wheel-{{ linux_wheel_kind }}-{{ linux_wheel_version }}
 
       - uses: actions/upload-artifact@v4
         with:
@@ -80,13 +92,13 @@ jobs:
         shell: bash
         run: |
           source arrow/ci/scripts/util_enable_core_dumps.sh
-          archery docker run ${TEST_IMAGE_PREFIX}-wheel-manylinux-test-imports
-          archery docker run ${TEST_IMAGE_PREFIX}-wheel-manylinux-test-unittests
+          archery docker run ${TEST_IMAGE_PREFIX}-wheel-{{ linux_wheel_kind }}-test-imports
+          archery docker run ${TEST_IMAGE_PREFIX}-wheel-{{ linux_wheel_kind }}-test-unittests
 
       - name: Test wheel on AlmaLinux 8
         shell: bash
         if: |
-          '{{ python_version }}' == '3.9'
+          '{{ python_version }}' == '3.12' && '{{ linux_wheel_kind }}' == 'manylinux'
         env:
           ALMALINUX: "8"
         run: |
@@ -102,7 +114,7 @@ jobs:
       - name: Test wheel on Ubuntu 22.04
         shell: bash
         if: |
-          '{{ python_version }}' == '3.10'
+          '{{ python_version }}' == '3.10' && '{{ linux_wheel_kind }}' == 'manylinux'
         env:
           UBUNTU: "22.04"
         run: |
@@ -117,7 +129,7 @@ jobs:
       - name: Test wheel on Ubuntu 24.04
         shell: bash
         if: |
-          '{{ python_version }}' == '3.12'
+          '{{ python_version }}' == '3.12' && '{{ linux_wheel_kind }}' == 'manylinux'
         env:
           UBUNTU: "24.04"
         run: |
@@ -130,13 +142,12 @@ jobs:
             ubuntu-verify-rc
 
       {{ macros.github_upload_releases("arrow/python/repaired_wheels/*.whl")|indent }}
-      {{ macros.github_upload_gemfury("arrow/python/repaired_wheels/*.whl")|indent }}
       {{ macros.github_upload_wheel_scientific_python("arrow/python/repaired_wheels/*.whl")|indent }}
 
       {% if arrow.is_default_branch() %}
       - name: Push Docker images
         shell: bash
         run: |
-          archery docker push python-wheel-manylinux-{{ manylinux_version }}
-          archery docker push ${TEST_IMAGE_PREFIX}-wheel-manylinux-test-unittests
+          archery docker push python-wheel-{{ linux_wheel_kind }}-{{ linux_wheel_version }}
+          archery docker push ${TEST_IMAGE_PREFIX}-wheel-{{ linux_wheel_kind }}-test-unittests
       {% endif %}
