@@ -1207,6 +1207,8 @@ endif()
 # https://cmake.org/cmake/help/latest/policy/CMP0167.html with CMake
 # 3.30.0 or later.
 set(Boost_ADDITIONAL_VERSIONS
+    "1.89.0"
+    "1.89"
     "1.88.0"
     "1.88"
     "1.87.0"
