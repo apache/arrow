@@ -44,6 +44,15 @@ namespace arrow::internal {
 //   - Inspect how swizzle across lanes are handled: _mm256_shuffle_epi8 not used?
 //   - Investigate AVX2 with 128 bit register
 
+template <typename Arr>
+constexpr Arr BuildConstantArray(typename Arr::value_type val) {
+  Arr out = {};
+  for (auto& v : out) {
+    v = val;
+  }
+  return out;
+}
+
 constexpr bool PackedIsOversizedForSimd(int simd_bit_size, int unpacked_bit_size,
                                         int packed_bit_size) {
   const int unpacked_per_simd = simd_bit_size / unpacked_bit_size;
@@ -219,6 +228,8 @@ constexpr MediumKernelPlan<UnpackedUint, kPackedBitSize, kSimdBitSize> BuildMedi
     plan.reads.at(r) = read_start_byte;
 
     for (int sw = 0; sw < kPlanSize.swizzles_per_read(); ++sw) {
+      constexpr int kUndefined = -1;
+      plan.swizzles.at(r).at(sw) = BuildConstantArray<typename Plan::Swizzle>(kUndefined);
       for (int sh = 0; sh < kPlanSize.shifts_per_swizzle(); ++sh) {
         const int sh_offset_bytes = sh * kShape.packed_max_spread_bytes();
         const int sh_offset_bits = 8 * sh_offset_bytes;
@@ -442,6 +453,10 @@ constexpr LargeKernelPlan<UnpackedUint, kPackedBitSize, kSimdBitSize> BuildLarge
   for (int r = 0; r < Plan::kReadsPerKernel; ++r) {
     const int read_start_byte = packed_start_bit / 8;
     plan.reads.at(r) = read_start_byte;
+
+    constexpr int kUndefined = -1;
+    plan.low_swizzles.at(r) = BuildConstantArray<typename Plan::Swizzle>(kUndefined);
+    plan.high_swizzles.at(r) = BuildConstantArray<typename Plan::Swizzle>(kUndefined);
 
     for (int u = 0; u < kShape.unpacked_per_simd(); ++u) {
       const int packed_start_byte = packed_start_bit / 8;
