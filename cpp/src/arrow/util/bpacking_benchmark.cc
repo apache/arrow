@@ -228,30 +228,30 @@ BENCHMARK_CAPTURE(BM_UnpackUint64, NeonUnaligned, false, &unpack_neon<uint64_t>)
     ->ArgsProduct(kBitWidthsNumValues64);
 #endif
 
-BENCHMARK_CAPTURE(BM_UnpackBool, DynamicAligned, true, &unpack<bool>)
-    ->ArgsProduct(kBitWidthsNumValuesBool);
-BENCHMARK_CAPTURE(BM_UnpackBool, DynamicUnaligned, false, &unpack<bool>)
-    ->ArgsProduct(kBitWidthsNumValuesBool);
-
-BENCHMARK_CAPTURE(BM_UnpackUint8, DynamicAligned, true, &unpack<uint8_t>)
-    ->ArgsProduct(kBitWidthsNumValues8);
-BENCHMARK_CAPTURE(BM_UnpackUint8, DynamicUnaligned, false, &unpack<uint8_t>)
-    ->ArgsProduct(kBitWidthsNumValues8);
-
-BENCHMARK_CAPTURE(BM_UnpackUint16, DynamicAligned, true, &unpack<uint16_t>)
-    ->ArgsProduct(kBitWidthsNumValues16);
-BENCHMARK_CAPTURE(BM_UnpackUint16, DynamicUnaligned, false, &unpack<uint16_t>)
-    ->ArgsProduct(kBitWidthsNumValues16);
-
-BENCHMARK_CAPTURE(BM_UnpackUint32, DynamicAligned, true, &unpack<uint32_t>)
-    ->ArgsProduct(kBitWidthsNumValues32);
-BENCHMARK_CAPTURE(BM_UnpackUint32, DynamicUnaligned, false, &unpack<uint32_t>)
-    ->ArgsProduct(kBitWidthsNumValues32);
-
-BENCHMARK_CAPTURE(BM_UnpackUint64, DynamicAligned, true, &unpack<uint64_t>)
-    ->ArgsProduct(kBitWidthsNumValues64);
-BENCHMARK_CAPTURE(BM_UnpackUint64, DynamicUnaligned, false, &unpack<uint64_t>)
-    ->ArgsProduct(kBitWidthsNumValues64);
+// BENCHMARK_CAPTURE(BM_UnpackBool, DynamicAligned, true, &unpack<bool>)
+//     ->ArgsProduct(kBitWidthsNumValuesBool);
+// BENCHMARK_CAPTURE(BM_UnpackBool, DynamicUnaligned, false, &unpack<bool>)
+//     ->ArgsProduct(kBitWidthsNumValuesBool);
+//
+// BENCHMARK_CAPTURE(BM_UnpackUint8, DynamicAligned, true, &unpack<uint8_t>)
+//     ->ArgsProduct(kBitWidthsNumValues8);
+// BENCHMARK_CAPTURE(BM_UnpackUint8, DynamicUnaligned, false, &unpack<uint8_t>)
+//     ->ArgsProduct(kBitWidthsNumValues8);
+//
+// BENCHMARK_CAPTURE(BM_UnpackUint16, DynamicAligned, true, &unpack<uint16_t>)
+//     ->ArgsProduct(kBitWidthsNumValues16);
+// BENCHMARK_CAPTURE(BM_UnpackUint16, DynamicUnaligned, false, &unpack<uint16_t>)
+//     ->ArgsProduct(kBitWidthsNumValues16);
+//
+// BENCHMARK_CAPTURE(BM_UnpackUint32, DynamicAligned, true, &unpack<uint32_t>)
+//     ->ArgsProduct(kBitWidthsNumValues32);
+// BENCHMARK_CAPTURE(BM_UnpackUint32, DynamicUnaligned, false, &unpack<uint32_t>)
+//     ->ArgsProduct(kBitWidthsNumValues32);
+//
+// BENCHMARK_CAPTURE(BM_UnpackUint64, DynamicAligned, true, &unpack<uint64_t>)
+//     ->ArgsProduct(kBitWidthsNumValues64);
+// BENCHMARK_CAPTURE(BM_UnpackUint64, DynamicUnaligned, false, &unpack<uint64_t>)
+//     ->ArgsProduct(kBitWidthsNumValues64);
 
 }  // namespace
 }  // namespace arrow::internal
