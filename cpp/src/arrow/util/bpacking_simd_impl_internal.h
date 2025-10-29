@@ -40,6 +40,8 @@ namespace arrow::internal {
 // - Shifts per swizzle can be improved when self.packed_max_byte_spread == 1 and the
 //   byte can be reused (when val_bit_width divides packed_max_byte_spread).
 // - Try for uint16_t and uint8_t and bool (currently copy)
+// - Add unpack_exact to benchmarks
+// - Reduce input size on small bit width using a broadcast.
 // - For Avx2:
 //   - Inspect how swizzle across lanes are handled: _mm256_shuffle_epi8 not used?
 //   - Investigate AVX2 with 128 bit register
@@ -287,13 +289,14 @@ constexpr auto make_batch_constant() {
 // Intel x86-64 does not have variable left shifts before AVX2.
 //
 // We replace the variable left shift by a variable multiply with a power of two.
+// The behaviour is the same sa long as there are no overflow.
 //
 // This trick is borrowed from Daniel Lemire and Leonid Boytsov, Decoding billions of
 // integers per second through vectorization, Software Practice & Experience 45 (1), 2015.
 // http://arxiv.org/abs/1209.2137
 template <typename Arch, typename Int, Int... kShifts>
-auto left_shift(const xsimd::batch<Int, Arch>& batch,
-                xsimd::batch_constant<Int, Arch, kShifts...> shifts) {
+auto left_shift_no_overflow(const xsimd::batch<Int, Arch>& batch,
+                            xsimd::batch_constant<Int, Arch, kShifts...> shifts) {
   constexpr bool kHasSse2 = xsimd::supported_architectures::contains<xsimd::sse2>();
   constexpr bool kHasAvx2 = xsimd::supported_architectures::contains<xsimd::avx2>();
 
@@ -324,8 +327,8 @@ auto left_shift(const xsimd::batch<Int, Arch>& batch,
 // integers per second through vectorization, Software Practice & Experience 45 (1), 2015.
 // http://arxiv.org/abs/1209.2137
 template <typename Arch, typename Int, Int... kShifts>
-auto overflow_right_shift(const xsimd::batch<Int, Arch>& batch,
-                          xsimd::batch_constant<Int, Arch, kShifts...> shifts) {
+auto right_shift_by_excess(const xsimd::batch<Int, Arch>& batch,
+                           xsimd::batch_constant<Int, Arch, kShifts...> shifts) {
   constexpr bool kHasSse2 = xsimd::supported_architectures::contains<xsimd::sse2>();
   constexpr bool kHasAvx2 = xsimd::supported_architectures::contains<xsimd::avx2>();
 
@@ -375,7 +378,7 @@ struct MediumKernel {
     // Intel x86-64 does not have variable right shifts before AVX2.
     // We know the packed value can safely be left shifted up to the largest offset so we
     // can use the fallback on these platforms.
-    const auto shifted = overflow_right_shift(words, kRightShifts);
+    const auto shifted = right_shift_by_excess(words, kRightShifts);
     const auto vals = shifted & kMask;
     xsimd::store_unaligned(out + kOutOffset, vals);
   }
@@ -515,7 +518,7 @@ struct LargeKernel {
     // Intel x86-64 does not have variable right shifts before AVX2.
     // We know the packed value can safely be left shifted up to the largest offset so we
     // can use the fallback on these platforms.
-    const auto shifted = overflow_right_shift(words, kRightShifts);
+    const auto shifted = right_shift_by_excess(words, kRightShifts);
     const auto vals = shifted & kMask;
     xsimd::store_unaligned(out + kOutOffset, vals);
   }
@@ -547,12 +550,12 @@ struct LargeKernel {
 
     const auto low_swizzled = xsimd::swizzle(bytes, kLowSwizzles);
     const auto low_words = xsimd::bitwise_cast<unpacked_type>(low_swizzled);
-    const auto low_shifted = overflow_right_shift(low_words, kLowRShifts);
+    const auto low_shifted = right_shift_by_excess(low_words, kLowRShifts);
     const auto low_half_vals = low_shifted & kPlan.low_mask;
 
     const auto high_swizzled = xsimd::swizzle(bytes, kHighSwizzles);
     const auto high_words = xsimd::bitwise_cast<unpacked_type>(high_swizzled);
-    const auto high_shifted = left_shift(high_words, kHighLShifts);
+    const auto high_shifted = left_shift_no_overflow(high_words, kHighLShifts);
     const auto high_half_vals = high_shifted & kPlan.high_mask;
 
     const auto vals = low_half_vals | high_half_vals;
