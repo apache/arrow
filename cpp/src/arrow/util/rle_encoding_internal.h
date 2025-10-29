@@ -29,6 +29,8 @@
 #include "arrow/util/bit_run_reader.h"
 #include "arrow/util/bit_stream_utils_internal.h"
 #include "arrow/util/bit_util.h"
+#include "arrow/util/bpacking_internal.h"
+#include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 
 namespace arrow::util {
@@ -278,10 +280,9 @@ class RleRunDecoder {
   /// Return the repeated value of this decoder.
   constexpr value_type value() const { return value_; }
 
-  /// Try to advance by as many values as provided.
+  /// Advance by as many values as provided or until exhaustion of the decoder.
   /// Return the number of values skipped.
-  /// May advance by less than asked for if there are not enough values left.
-  [[nodiscard]] rle_size_t Advance(rle_size_t batch_size, rle_size_t value_bit_width) {
+  [[nodiscard]] rle_size_t Advance(rle_size_t batch_size) {
     const auto steps = std::min(batch_size, remaining_count_);
     remaining_count_ -= steps;
     return steps;
@@ -331,52 +332,58 @@ class BitPackedRunDecoder {
   }
 
   void Reset(const RunType& run, rle_size_t value_bit_width) noexcept {
-    remaining_count_ = run.values_count();
     ARROW_DCHECK_GE(value_bit_width, 0);
     ARROW_DCHECK_LE(value_bit_width, 64);
-    bit_reader_.Reset(run.raw_data_ptr(), run.raw_data_size(value_bit_width));
+    data_ = run.raw_data_ptr();
+    values_count_ = run.values_count();
+    values_read_ = 0;
   }
 
   /// Return the number of values that can be advanced.
-  constexpr rle_size_t remaining() const { return remaining_count_; }
+  constexpr rle_size_t remaining() const { return values_count_ - values_read_; }
 
-  /// Try to advance by as many values as provided.
-  /// Return the number of values skipped or 0 if it fail to advance.
-  /// May advance by less than asked for if there are not enough values left.
-  [[nodiscard]] rle_size_t Advance(rle_size_t batch_size, rle_size_t value_bit_width) {
-    const auto steps = std::min(batch_size, remaining_count_);
-    if (bit_reader_.Advance(steps * value_bit_width)) {
-      remaining_count_ -= steps;
-      return steps;
-    }
-    return 0;
+  /// Advance by as many values as provided or until exhaustion of the decoder.
+  /// Return the number of values skipped.
+  [[nodiscard]] rle_size_t Advance(rle_size_t batch_size) {
+    const auto steps = std::min(batch_size, remaining());
+    values_read_ += steps;
+    return steps;
   }
 
-  /// Get the next value and return false if there are no more or an error occurred.
+  /// Get the next value and return false if there are no more.
   [[nodiscard]] constexpr bool Get(value_type* out_value, rle_size_t value_bit_width) {
     return GetBatch(out_value, 1, value_bit_width) == 1;
   }
 
   /// Get a batch of values return the number of decoded elements.
   /// May write fewer elements to the output than requested if there are not enough values
-  /// left or if an error occurred.
+  /// left.
   [[nodiscard]] rle_size_t GetBatch(value_type* out, rle_size_t batch_size,
                                     rle_size_t value_bit_width) {
-    if (ARROW_PREDICT_FALSE(remaining_count_ == 0)) {
-      return 0;
-    }
+    const auto steps = std::min(batch_size, remaining());
+    const auto bits_read = values_read_ * value_bit_width;
+    const auto* unread_data = data_ + bits_read / 8;
+    const auto bit_offset = bits_read % 8;
 
-    const auto to_read = std::min(remaining_count_, batch_size);
-    const auto actual_read = bit_reader_.GetBatch(value_bit_width, out, to_read);
-    // There should not be any reason why the actual read would be different
-    // but this is error resistant.
-    remaining_count_ -= actual_read;
-    return actual_read;
+    if constexpr (std::is_same_v<T, bool>) {
+      ::arrow::internal::unpack(unread_data, out, steps, value_bit_width, bit_offset);
+
+    } else {
+      ::arrow::internal::unpack(unread_data,
+                                reinterpret_cast<std::make_unsigned_t<value_type>*>(out),
+                                steps, value_bit_width, bit_offset);
+    }
+    values_read_ += steps;
+    return steps;
   }
 
  private:
-  ::arrow::bit_util::BitReader bit_reader_ = {};
-  rle_size_t remaining_count_ = 0;
+  /// The pointer to the beginning of the run
+  const uint8_t* data_ = nullptr;
+  /// The total number of values in the run
+  rle_size_t values_count_ = 0;
+  /// The number of values read by the decoder
+  rle_size_t values_read_ = 0;
 
   static_assert(std::is_integral_v<value_type>,
                 "This class is meant to decode positive integers");
@@ -895,7 +902,7 @@ auto RunGetSpaced(Converter* converter, typename Converter::out_type* out,
     return {0, 0};
   }
   converter->WriteRepeated(out, out + batch.total_read(), value);
-  const auto actual_values_read = decoder->Advance(batch.values_read(), value_bit_width);
+  const auto actual_values_read = decoder->Advance(batch.values_read());
   // We always cropped the number of values_read by the remaining values in the run.
   // What's more the RLE decoder should not encounter any errors.
   ARROW_DCHECK_EQ(actual_values_read, batch.values_read());

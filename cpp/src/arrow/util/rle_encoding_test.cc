@@ -290,7 +290,7 @@ void TestRleDecoder(std::vector<uint8_t> bytes, rle_size_t value_count,
   EXPECT_EQ(vals.at(0), expected_value);
   EXPECT_EQ(decoder.remaining(), value_count - read);
 
-  EXPECT_EQ(decoder.Advance(3, bit_width), 3);
+  EXPECT_EQ(decoder.Advance(3), 3);
   read += 3;
   EXPECT_EQ(decoder.remaining(), value_count - read);
 
@@ -302,9 +302,9 @@ void TestRleDecoder(std::vector<uint8_t> bytes, rle_size_t value_count,
   EXPECT_EQ(decoder.remaining(), value_count - read);
 
   // Exhaust iteration
-  EXPECT_EQ(decoder.Advance(value_count - read, bit_width), value_count - read);
+  EXPECT_EQ(decoder.Advance(value_count - read), value_count - read);
   EXPECT_EQ(decoder.remaining(), 0);
-  EXPECT_EQ(decoder.Advance(1, bit_width), 0);
+  EXPECT_EQ(decoder.Advance(1), 0);
   vals = {0, 0};
   EXPECT_EQ(decoder.Get(vals.data(), bit_width), 0);
   EXPECT_EQ(vals.at(0), 0);
@@ -350,7 +350,7 @@ void TestBitPackedDecoder(std::vector<uint8_t> bytes, rle_size_t value_count,
   read += 1;
   EXPECT_EQ(decoder.remaining(), value_count - read);
 
-  EXPECT_EQ(decoder.Advance(3, bit_width), 3);
+  EXPECT_EQ(decoder.Advance(3), 3);
   read += 3;
   EXPECT_EQ(decoder.remaining(), value_count - read);
 
@@ -362,9 +362,9 @@ void TestBitPackedDecoder(std::vector<uint8_t> bytes, rle_size_t value_count,
   EXPECT_EQ(decoder.remaining(), value_count - read);
 
   // Exhaust iteration
-  EXPECT_EQ(decoder.Advance(value_count - read, bit_width), value_count - read);
+  EXPECT_EQ(decoder.Advance(value_count - read), value_count - read);
   EXPECT_EQ(decoder.remaining(), 0);
-  EXPECT_EQ(decoder.Advance(1, bit_width), 0);
+  EXPECT_EQ(decoder.Advance(1), 0);
   vals = {0, 0};
   EXPECT_EQ(decoder.Get(vals.data(), bit_width), 0);
   EXPECT_EQ(vals.at(0), 0);

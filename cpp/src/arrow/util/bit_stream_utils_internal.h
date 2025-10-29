@@ -19,7 +19,6 @@
 
 #pragma once
 
-#include <algorithm>
 #include <cstdint>
 #include <cstring>
 #include <type_traits>
@@ -249,110 +248,36 @@ inline bool BitWriter::PutAligned(T val, int num_bytes) {
   return true;
 }
 
-namespace detail {
-
-template <typename T>
-inline void GetValue_(int num_bits, T* v, int max_bytes, const uint8_t* buffer,
-                      int* bit_offset, int* byte_offset, uint64_t* buffered_values) {
-#ifdef _MSC_VER
-#  pragma warning(push)
-#  pragma warning(disable : 4800)
-#endif
-  *v = static_cast<T>(bit_util::TrailingBits(*buffered_values, *bit_offset + num_bits) >>
-                      *bit_offset);
-#ifdef _MSC_VER
-#  pragma warning(pop)
-#endif
-  *bit_offset += num_bits;
-  if (*bit_offset >= 64) {
-    *byte_offset += 8;
-    *bit_offset -= 64;
-
-    *buffered_values =
-        detail::ReadLittleEndianWord(buffer + *byte_offset, max_bytes - *byte_offset);
-#ifdef _MSC_VER
-#  pragma warning(push)
-#  pragma warning(disable : 4800 4805)
-#endif
-    // Read bits of v that crossed into new buffered_values_
-    if (ARROW_PREDICT_TRUE(num_bits - *bit_offset < static_cast<int>(8 * sizeof(T)))) {
-      // if shift exponent(num_bits - *bit_offset) is not less than sizeof(T), *v will not
-      // change and the following code may cause a runtime error that the shift exponent
-      // is too large
-      *v = *v | static_cast<T>(bit_util::TrailingBits(*buffered_values, *bit_offset)
-                               << (num_bits - *bit_offset));
-    }
-#ifdef _MSC_VER
-#  pragma warning(pop)
-#endif
-    ARROW_DCHECK_LE(*bit_offset, 64);
-  }
-}
-
-}  // namespace detail
-
 template <typename T>
 inline bool BitReader::GetValue(int num_bits, T* v) {
   return GetBatch(num_bits, v, 1) == 1;
 }
 
-namespace internal_bit_reader {
-template <typename T>
-struct unpack_detect {
-  using type = std::make_unsigned_t<T>;
-};
-
-template <>
-struct unpack_detect<bool> {
-  using type = bool;
-};
-}  // namespace internal_bit_reader
-
 template <typename T>
 inline int BitReader::GetBatch(int num_bits, T* v, int batch_size) {
-  ARROW_DCHECK(buffer_ != NULL);
+  constexpr uint64_t kBitsPerByte = 8;
+
+  ARROW_DCHECK(buffer_ != NULLPTR);
   ARROW_DCHECK_LE(num_bits, static_cast<int>(sizeof(T) * 8)) << "num_bits: " << num_bits;
 
-  int bit_offset = bit_offset_;
-  int byte_offset = byte_offset_;
-  uint64_t buffered_values = buffered_values_;
-  int max_bytes = max_bytes_;
-  const uint8_t* buffer = buffer_;
-
   const int64_t needed_bits = num_bits * static_cast<int64_t>(batch_size);
-  constexpr uint64_t kBitsPerByte = 8;
   const int64_t remaining_bits =
-      static_cast<int64_t>(max_bytes - byte_offset) * kBitsPerByte - bit_offset;
+      static_cast<int64_t>(max_bytes_ - byte_offset_) * kBitsPerByte - bit_offset_;
   if (remaining_bits < needed_bits) {
     batch_size = static_cast<int>(remaining_bits / num_bits);
   }
 
-  int i = 0;
-  if (ARROW_PREDICT_FALSE(bit_offset != 0)) {
-    for (; i < batch_size && bit_offset != 0; ++i) {
-      detail::GetValue_(num_bits, &v[i], max_bytes, buffer, &bit_offset, &byte_offset,
-                        &buffered_values);
-    }
+  if constexpr (std::is_same_v<T, bool>) {
+    ::arrow::internal::unpack(buffer_ + byte_offset_, v, batch_size, num_bits,
+                              bit_offset_);
+
+  } else {
+    ::arrow::internal::unpack(buffer_ + byte_offset_,
+                              reinterpret_cast<std::make_unsigned_t<T>*>(v), batch_size,
+                              num_bits, bit_offset_);
   }
 
-  using unpack_t = typename internal_bit_reader::unpack_detect<T>::type;
-
-  int num_unpacked = ::arrow::internal::unpack(
-      buffer + byte_offset, reinterpret_cast<unpack_t*>(v + i), batch_size - i, num_bits);
-  i += num_unpacked;
-  byte_offset += num_unpacked * num_bits / 8;
-
-  buffered_values =
-      detail::ReadLittleEndianWord(buffer + byte_offset, max_bytes - byte_offset);
-
-  for (; i < batch_size; ++i) {
-    detail::GetValue_(num_bits, &v[i], max_bytes, buffer, &bit_offset, &byte_offset,
-                      &buffered_values);
-  }
-
-  bit_offset_ = bit_offset;
-  byte_offset_ = byte_offset;
-  buffered_values_ = buffered_values;
+  Advance(batch_size * num_bits);
 
   return batch_size;
 }

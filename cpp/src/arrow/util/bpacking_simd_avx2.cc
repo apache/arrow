@@ -22,14 +22,15 @@
 namespace arrow::internal {
 
 template <typename Uint>
-int unpack_avx2(const uint8_t* in, Uint* out, int batch_size, int num_bits) {
-  return unpack_jump<Simd256UnpackerForWidth>(in, out, batch_size, num_bits);
+void unpack_avx2(const uint8_t* in, Uint* out, int batch_size, int num_bits,
+                 int bit_offset) {
+  return unpack_jump<Simd256UnpackerForWidth>(in, out, batch_size, num_bits, bit_offset);
 }
 
-template int unpack_avx2<bool>(const uint8_t*, bool*, int, int);
-template int unpack_avx2<uint8_t>(const uint8_t*, uint8_t*, int, int);
-template int unpack_avx2<uint16_t>(const uint8_t*, uint16_t*, int, int);
-template int unpack_avx2<uint32_t>(const uint8_t*, uint32_t*, int, int);
-template int unpack_avx2<uint64_t>(const uint8_t*, uint64_t*, int, int);
+template void unpack_avx2<bool>(const uint8_t*, bool*, int, int, int);
+template void unpack_avx2<uint8_t>(const uint8_t*, uint8_t*, int, int, int);
+template void unpack_avx2<uint16_t>(const uint8_t*, uint16_t*, int, int, int);
+template void unpack_avx2<uint32_t>(const uint8_t*, uint32_t*, int, int, int);
+template void unpack_avx2<uint64_t>(const uint8_t*, uint64_t*, int, int, int);
 
 }  // namespace arrow::internal

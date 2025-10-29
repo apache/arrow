@@ -113,9 +113,16 @@ constexpr bool IsMultipleOf64(int64_t n) { return (n & 63) == 0; }
 constexpr bool IsMultipleOf8(int64_t n) { return (n & 7) == 0; }
 
 // Returns a mask for the bit_index lower order bits.
-// Only valid for bit_index in the range [0, 64).
-constexpr uint64_t LeastSignificantBitMask(int64_t bit_index) {
-  return (static_cast<uint64_t>(1) << bit_index) - 1;
+// Valid in the range `[0, 8*sizof(Uint)]` if `kAllowUpperBound`
+// otherwise `[0, 8*sizof(Uint)[`
+template <typename Uint, bool kAllowUpperBound = false>
+constexpr auto LeastSignificantBitMask(Uint bit_index) {
+  if constexpr (kAllowUpperBound) {
+    if (bit_index == 8 * sizeof(Uint)) {
+      return ~Uint{0};
+    }
+  }
+  return (Uint{1} << bit_index) - Uint{1};
 }
 
 // Returns 'value' rounded up to the nearest multiple of 'factor'

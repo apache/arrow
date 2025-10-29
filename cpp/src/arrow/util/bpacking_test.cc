@@ -19,14 +19,13 @@
 
 #include <gtest/gtest.h>
 
-#include "arrow/result.h"
-#include "arrow/testing/gtest_util.h"
+#include "arrow/testing/random.h"
 #include "arrow/testing/util.h"
 #include "arrow/util/bit_stream_utils_internal.h"
+#include "arrow/util/bit_util.h"
 #include "arrow/util/bpacking_internal.h"
 #include "arrow/util/bpacking_scalar_internal.h"
 #include "arrow/util/bpacking_simd_internal.h"
-#include "arrow/util/logging.h"
 
 #if defined(ARROW_HAVE_RUNTIME_AVX2)
 #  include "arrow/util/cpu_info.h"
@@ -35,124 +34,111 @@
 namespace arrow::internal {
 
 template <typename Int>
-using UnpackFunc = int (*)(const uint8_t*, Int*, int, int);
+using UnpackFunc = void (*)(const uint8_t*, Int*, int, int, int);
 
 /// Get the number of bytes associate with a packing.
-Result<int32_t> GetNumBytes(int32_t num_values, int32_t bit_width) {
-  const auto num_bits = num_values * bit_width;
-  if (num_bits % 8 != 0) {
-    return Status::NotImplemented(
-        "The unpack functions only work on a multiple of 8 bits.");
-  }
-  return num_bits / 8;
+int GetNumBytes(int num_values, int bit_width, int bit_offset) {
+  return static_cast<int>(bit_util::BytesForBits(num_values * bit_width + bit_offset));
 }
 
-/// Generate random bytes as packed integers.
-std::vector<uint8_t> GenerateRandomPackedValues(int32_t num_values, int32_t bit_width) {
+/// Generate random values that can be packed within the given bit width.
+template <typename Uint>
+std::vector<Uint> GenerateRandomValuesForPacking(int num_values, int bit_width) {
   constexpr uint32_t kSeed = 3214;
-  EXPECT_OK_AND_ASSIGN(const auto num_bytes, GetNumBytes(num_values, bit_width));
 
-  std::vector<uint8_t> out(std::max(1, num_bytes));  // We need a valid pointer for size 0
-  random_bytes(num_bytes, kSeed, out.data());
+  num_values = std::max(1, num_values);  // We need a valid pointer for size 0
+  std::vector<Uint> out(num_values);
 
+  if (bit_width == 0) {
+    return out;
+  }
+
+  if constexpr (std::is_same_v<Uint, bool>) {
+    random_is_valid(num_values, 0.5, &out, kSeed);
+  } else {
+    const uint64_t max = bit_util::LeastSignificantBitMask<uint64_t, true>(bit_width);
+    rand_uniform_int(out.size(), kSeed, /* min= */ decltype(max){0}, max, out.data());
+  }
   return out;
 }
 
 /// Convenience wrapper to unpack into a vector
 template <typename Int>
 std::vector<Int> UnpackValues(const uint8_t* packed, int32_t num_values,
-                              int32_t bit_width, UnpackFunc<Int> unpack) {
-  // Using dynamic array to avoid std::vector<bool>
-  auto buffer = std::make_unique<Int[]>(num_values);
-  int values_read = unpack(packed, buffer.get(), num_values, bit_width);
-  ARROW_DCHECK_GE(values_read, 0);
-  EXPECT_LE(values_read, num_values);
-
-  return std::vector<Int>(buffer.get(), buffer.get() + values_read);
+                              int32_t bit_width, int32_t bit_offset,
+                              UnpackFunc<Int> unpack) {
+  if constexpr (std::is_same_v<Int, bool>) {
+    // Using dynamic array to avoid std::vector<bool>
+    auto buffer = std::make_unique<Int[]>(num_values);
+    unpack(packed, buffer.get(), num_values, bit_width, bit_offset);
+    return std::vector<Int>(buffer.get(), buffer.get() + num_values);
+  } else {
+    std::vector<Int> out(num_values);
+    unpack(packed, out.data(), num_values, bit_width, bit_offset);
+    return out;
+  }
 }
 
 /// Use BitWriter to pack values into a vector.
 template <typename Int>
-std::vector<uint8_t> PackValues(const std::vector<Int>& values, int32_t num_values,
-                                int32_t bit_width) {
-  EXPECT_OK_AND_ASSIGN(const auto num_bytes, GetNumBytes(num_values, bit_width));
+std::vector<uint8_t> PackValues(const std::vector<Int>& values, int num_values,
+                                int bit_width, int bit_offset) {
+  if (bit_width == 0) {
+    return {};
+  }
+
+  const auto num_bytes = GetNumBytes(num_values, bit_width, bit_offset);
 
   std::vector<uint8_t> out(static_cast<std::size_t>(num_bytes));
   bit_util::BitWriter writer(out.data(), num_bytes);
+
+  // Write a first 0 value to make an offset
+  const bool written = writer.PutValue(0, bit_offset);
+  ARROW_DCHECK(written);
   for (const auto& v : values) {
-    bool written = writer.PutValue(v, bit_width);
-    if (!written) {
-      throw std::runtime_error("Cannot write move values");
-    }
+    const bool written = writer.PutValue(v, bit_width);
+    ARROW_DCHECK(written);
   }
+
+  writer.Flush();
 
   return out;
-}
-
-template <typename Int>
-void CheckUnpackPackRoundtrip(const uint8_t* packed, int32_t num_values,
-                              int32_t bit_width, UnpackFunc<Int> unpack) {
-  EXPECT_OK_AND_ASSIGN(const auto num_bytes, GetNumBytes(num_values, bit_width));
-
-  const auto unpacked = UnpackValues(packed, num_values, bit_width, unpack);
-  EXPECT_EQ(unpacked.size(), num_values);
-  const auto roundtrip = PackValues(unpacked, num_values, bit_width);
-  EXPECT_EQ(num_bytes, roundtrip.size());
-  for (int i = 0; i < num_bytes; ++i) {
-    EXPECT_EQ(packed[i], roundtrip[i]) << "differ in position " << i;
-  }
-}
-
-const uint8_t* GetNextAlignedByte(const uint8_t* ptr, std::size_t alignment) {
-  auto addr = reinterpret_cast<std::uintptr_t>(ptr);
-
-  if (addr % alignment == 0) {
-    return ptr;
-  }
-
-  auto remainder = addr % alignment;
-  auto bytes_to_add = alignment - remainder;
-
-  return ptr + bytes_to_add;
 }
 
 class TestUnpack : public ::testing::TestWithParam<int> {
  protected:
   template <typename Int>
-  void TestRoundtripAlignment(UnpackFunc<Int> unpack, int bit_width,
-                              std::size_t alignment_offset) {
-    int num_values = GetParam();
-
-    // Assume std::vector allocation is likely be aligned for greater than a byte.
-    // So we allocate more values than necessary and skip to the next byte with the
-    // desired (non) alignment to test the proper condition.
-    constexpr int32_t kExtraValues = sizeof(Int) * 8;
-    const auto packed = GenerateRandomPackedValues(num_values + kExtraValues, bit_width);
-    const uint8_t* packed_unaligned =
-        GetNextAlignedByte(packed.data(), sizeof(Int)) + alignment_offset;
-
-    CheckUnpackPackRoundtrip(packed_unaligned, num_values, bit_width, unpack);
+  void TestRoundtripAlignment(UnpackFunc<Int> unpack, int num_values, int bit_width,
+                              int bit_offset) {
+    const auto original = GenerateRandomValuesForPacking<Int>(num_values, bit_width);
+    const auto packed = PackValues(original, num_values, bit_width, bit_offset);
+    const auto unpacked =
+        UnpackValues(packed.data(), num_values, bit_width, bit_offset, unpack);
+    EXPECT_EQ(unpacked.size(), num_values);
+    EXPECT_EQ(original, unpacked);
   }
 
   template <typename Int>
-  void TestUnpackZeros(UnpackFunc<Int> unpack, int bit_width) {
-    int num_values = GetParam();
-    EXPECT_OK_AND_ASSIGN(const auto num_bytes, GetNumBytes(num_values, bit_width));
+  void TestUnpackZeros(UnpackFunc<Int> unpack, int num_values, int bit_width,
+                       int bit_offset) {
+    const auto num_bytes = GetNumBytes(num_values, bit_width, bit_offset);
 
     const std::vector<uint8_t> packed(static_cast<std::size_t>(num_bytes), uint8_t{0});
-    const auto unpacked = UnpackValues(packed.data(), num_values, bit_width, unpack);
+    const auto unpacked =
+        UnpackValues(packed.data(), num_values, bit_width, bit_offset, unpack);
 
     const std::vector<Int> expected(static_cast<std::size_t>(num_values), Int{0});
     EXPECT_EQ(unpacked, expected);
   }
 
   template <typename Int>
-  void TestUnpackOnes(UnpackFunc<Int> unpack, int bit_width) {
-    int num_values = GetParam();
-    EXPECT_OK_AND_ASSIGN(const auto num_bytes, GetNumBytes(num_values, bit_width));
+  void TestUnpackOnes(UnpackFunc<Int> unpack, int num_values, int bit_width,
+                      int bit_offset) {
+    const auto num_bytes = GetNumBytes(num_values, bit_width, bit_offset);
 
     const std::vector<uint8_t> packed(static_cast<std::size_t>(num_bytes), uint8_t{0xFF});
-    const auto unpacked = UnpackValues(packed.data(), num_values, bit_width, unpack);
+    const auto unpacked =
+        UnpackValues(packed.data(), num_values, bit_width, bit_offset, unpack);
 
     // Generate bit_width ones
     Int expected_value = 0;
@@ -168,14 +154,17 @@ class TestUnpack : public ::testing::TestWithParam<int> {
   }
 
   template <typename Int>
-  void TestUnpackAlternating(UnpackFunc<Int> unpack, int bit_width) {
-    int num_values = GetParam();
-    EXPECT_OK_AND_ASSIGN(const auto num_bytes, GetNumBytes(num_values, bit_width));
+  void TestUnpackAlternating(UnpackFunc<Int> unpack, int num_values, int bit_width,
+                             int bit_offset) {
+    const auto num_bytes = GetNumBytes(num_values, bit_width, bit_offset);
 
-    const std::vector<uint8_t> packed(static_cast<std::size_t>(num_bytes), uint8_t{0xAA});
-    const auto unpacked = UnpackValues(packed.data(), num_values, bit_width, unpack);
+    // Pick between two different bit patterns so that we always unpack starting with 1
+    const uint8_t byte = bit_offset % 2 == 0 ? 0b10101010 : 0b01010101;
+    const std::vector<uint8_t> packed(static_cast<std::size_t>(num_bytes), byte);
+    const auto unpacked =
+        UnpackValues(packed.data(), num_values, bit_width, bit_offset, unpack);
 
-    // Generate alternative bit sequence sratring with either 0 or 1
+    // Generate alternative bit sequence starting with either 0 or 1
     Int one_zero_value = 0;
     Int zero_one_value = 0;
     for (int i = 0; i < bit_width; ++i) {
@@ -198,20 +187,48 @@ class TestUnpack : public ::testing::TestWithParam<int> {
 
   template <typename Int>
   void TestAll(UnpackFunc<Int> unpack) {
+    const int num_values_base = GetParam();
+
     constexpr int kMaxBitWidth = std::is_same_v<Int, bool> ? 1 : 8 * sizeof(Int);
+
     // Given how many edge cases there are in unpacking integers, it is best to test all
     // sizes
     for (int bit_width = 0; bit_width <= kMaxBitWidth; ++bit_width) {
       SCOPED_TRACE(::testing::Message() << "Testing bit_width=" << bit_width);
 
-      // Known values
-      TestUnpackZeros(unpack, bit_width);
-      TestUnpackOnes(unpack, bit_width);
-      TestUnpackAlternating(unpack, bit_width);
+      // We test all bit offset within a byte / misalignments to change how the
+      // prolog.
+      for (int bit_offset = 0; bit_offset < 8; ++bit_offset) {
+        SCOPED_TRACE(::testing::Message() << "Testing bit_offset=" << bit_offset);
 
-      // Roundtrips
-      TestRoundtripAlignment(unpack, bit_width, /* alignment_offset= */ 0);
-      TestRoundtripAlignment(unpack, bit_width, /* alignment_offset= */ 1);
+        // Known values
+        TestUnpackZeros(unpack, num_values_base, bit_width, bit_offset);
+        TestUnpackOnes(unpack, num_values_base, bit_width, bit_offset);
+        TestUnpackAlternating(unpack, num_values_base, bit_width, bit_offset);
+
+        // Roundtrips
+        TestRoundtripAlignment(unpack, num_values_base, bit_width, bit_offset);
+
+        if (testing::Test::HasFailure()) return;
+      }
+
+      // Similarly, we test all epilogue sizes. That is extra values that could make it
+      // fall outside of an SIMD register
+      for (int epilogue_size = 0; epilogue_size <= kMaxBitWidth; ++epilogue_size) {
+        SCOPED_TRACE(::testing::Message() << "Testing epilogue_size=" << epilogue_size);
+
+        const int num_values = num_values_base + epilogue_size;
+
+        // Known values
+        TestUnpackZeros(unpack, num_values, bit_width, /* bit_offset= */ 0);
+        TestUnpackOnes(unpack, num_values, bit_width, /* bit_offset= */ 0);
+        TestUnpackAlternating(unpack, num_values, bit_width, /* bit_offset= */ 0);
+
+        // Roundtrips
+        TestRoundtripAlignment(unpack, num_values, bit_width, /* bit_offset= */ 0);
+
+        if (testing::Test::HasFailure()) return;
+      }
     }
   }
 };
