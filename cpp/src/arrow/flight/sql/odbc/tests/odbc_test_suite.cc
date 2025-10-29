@@ -61,13 +61,12 @@ void ODBCRemoteTestBase::ConnectWithString(std::string connect_str) {
                              kOdbcBufferSize, &out_str_len, SQL_DRIVER_NOPROMPT))
       << GetOdbcErrorMessage(SQL_HANDLE_DBC, conn);
 
-  // GH-47710: TODO Allocate a statement using alloc handle
-  // ASSERT_EQ(SQL_SUCCESS, SQLAllocHandle(SQL_HANDLE_STMT, conn, &stmt));
+  ASSERT_EQ(SQL_SUCCESS, SQLAllocHandle(SQL_HANDLE_STMT, conn, &stmt));
 }
 
 void ODBCRemoteTestBase::Disconnect() {
-  // GH-47710: TODO Close statement
-  // EXPECT_EQ(SQL_SUCCESS, SQLFreeHandle(SQL_HANDLE_STMT, stmt));
+  // Close statement
+  EXPECT_EQ(SQL_SUCCESS, SQLFreeHandle(SQL_HANDLE_STMT, stmt));
 
   // Disconnect from ODBC
   EXPECT_EQ(SQL_SUCCESS, SQLDisconnect(conn))

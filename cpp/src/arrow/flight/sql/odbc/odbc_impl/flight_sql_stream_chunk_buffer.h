@@ -23,11 +23,15 @@
 
 namespace arrow::flight::sql::odbc {
 
+using arrow::Result;
+
 class FlightStreamChunkBuffer {
-  BlockingQueue<arrow::Result<FlightStreamChunk>> queue_;
+  BlockingQueue<std::pair<Result<FlightStreamChunk>, std::shared_ptr<FlightSqlClient>>>
+      queue_;
 
  public:
   FlightStreamChunkBuffer(FlightSqlClient& flight_sql_client,
+                          const FlightClientOptions& client_options,
                           const FlightCallOptions& call_options,
                           const std::shared_ptr<FlightInfo>& flight_info,
                           size_t queue_capacity = 5);

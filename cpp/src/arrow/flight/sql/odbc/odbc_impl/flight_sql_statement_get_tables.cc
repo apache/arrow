@@ -66,9 +66,9 @@ void ParseTableTypes(const std::string& table_type,
 }
 
 std::shared_ptr<ResultSet> GetTablesForSQLAllCatalogs(
-    const ColumnNames& names, FlightCallOptions& call_options,
-    FlightSqlClient& sql_client, Diagnostics& diagnostics,
-    const MetadataSettings& metadata_settings) {
+    const ColumnNames& names, FlightClientOptions& client_options,
+    FlightCallOptions& call_options, FlightSqlClient& sql_client,
+    Diagnostics& diagnostics, const MetadataSettings& metadata_settings) {
   Result<std::shared_ptr<FlightInfo>> result = sql_client.GetCatalogs(call_options);
 
   std::shared_ptr<Schema> schema;
@@ -86,13 +86,15 @@ std::shared_ptr<ResultSet> GetTablesForSQLAllCatalogs(
                          .AddFieldOfNulls(names.remarks_column, arrow::utf8())
                          .Build();
 
-  return std::make_shared<FlightSqlResultSet>(
-      sql_client, call_options, flight_info, transformer, diagnostics, metadata_settings);
+  return std::make_shared<FlightSqlResultSet>(sql_client, client_options, call_options,
+                                              flight_info, transformer, diagnostics,
+                                              metadata_settings);
 }
 
 std::shared_ptr<ResultSet> GetTablesForSQLAllDbSchemas(
-    const ColumnNames& names, FlightCallOptions& call_options,
-    FlightSqlClient& sql_client, const std::string* schema_name, Diagnostics& diagnostics,
+    const ColumnNames& names, FlightClientOptions& client_options,
+    FlightCallOptions& call_options, FlightSqlClient& sql_client,
+    const std::string* schema_name, Diagnostics& diagnostics,
     const MetadataSettings& metadata_settings) {
   Result<std::shared_ptr<FlightInfo>> result =
       sql_client.GetDbSchemas(call_options, nullptr, schema_name);
@@ -112,14 +114,15 @@ std::shared_ptr<ResultSet> GetTablesForSQLAllDbSchemas(
                          .AddFieldOfNulls(names.remarks_column, arrow::utf8())
                          .Build();
 
-  return std::make_shared<FlightSqlResultSet>(
-      sql_client, call_options, flight_info, transformer, diagnostics, metadata_settings);
+  return std::make_shared<FlightSqlResultSet>(sql_client, client_options, call_options,
+                                              flight_info, transformer, diagnostics,
+                                              metadata_settings);
 }
 
 std::shared_ptr<ResultSet> GetTablesForSQLAllTableTypes(
-    const ColumnNames& names, FlightCallOptions& call_options,
-    FlightSqlClient& sql_client, Diagnostics& diagnostics,
-    const MetadataSettings& metadata_settings) {
+    const ColumnNames& names, FlightClientOptions& client_options,
+    FlightCallOptions& call_options, FlightSqlClient& sql_client,
+    Diagnostics& diagnostics, const MetadataSettings& metadata_settings) {
   Result<std::shared_ptr<FlightInfo>> result = sql_client.GetTableTypes(call_options);
 
   std::shared_ptr<Schema> schema;
@@ -137,16 +140,17 @@ std::shared_ptr<ResultSet> GetTablesForSQLAllTableTypes(
                          .AddFieldOfNulls(names.remarks_column, arrow::utf8())
                          .Build();
 
-  return std::make_shared<FlightSqlResultSet>(
-      sql_client, call_options, flight_info, transformer, diagnostics, metadata_settings);
+  return std::make_shared<FlightSqlResultSet>(sql_client, client_options, call_options,
+                                              flight_info, transformer, diagnostics,
+                                              metadata_settings);
 }
 
 std::shared_ptr<ResultSet> GetTablesForGenericUse(
-    const ColumnNames& names, FlightCallOptions& call_options,
-    FlightSqlClient& sql_client, const std::string* catalog_name,
-    const std::string* schema_name, const std::string* table_name,
-    const std::vector<std::string>& table_types, Diagnostics& diagnostics,
-    const MetadataSettings& metadata_settings) {
+    const ColumnNames& names, FlightClientOptions& client_options,
+    FlightCallOptions& call_options, FlightSqlClient& sql_client,
+    const std::string* catalog_name, const std::string* schema_name,
+    const std::string* table_name, const std::vector<std::string>& table_types,
+    Diagnostics& diagnostics, const MetadataSettings& metadata_settings) {
   Result<std::shared_ptr<FlightInfo>> result = sql_client.GetTables(
       call_options, catalog_name, schema_name, table_name, false, &table_types);
 
@@ -165,8 +169,9 @@ std::shared_ptr<ResultSet> GetTablesForGenericUse(
                          .AddFieldOfNulls(names.remarks_column, arrow::utf8())
                          .Build();
 
-  return std::make_shared<FlightSqlResultSet>(
-      sql_client, call_options, flight_info, transformer, diagnostics, metadata_settings);
+  return std::make_shared<FlightSqlResultSet>(sql_client, client_options, call_options,
+                                              flight_info, transformer, diagnostics,
+                                              metadata_settings);
 }
 
 }  // namespace arrow::flight::sql::odbc
