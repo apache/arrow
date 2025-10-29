@@ -97,24 +97,20 @@ void BM_Unpack(benchmark::State& state, bool aligned, UnpackFunc<Int> unpack, bo
 
 constexpr int32_t kMinRange = 64;
 constexpr int32_t kMaxRange = 32768;
-constexpr std::initializer_list<int64_t> kBitWidths8 = {1, 2, 8};
-constexpr std::initializer_list<int64_t> kBitWidths16 = {1, 2, 8, 13};
-constexpr std::initializer_list<int64_t> kBitWidths32 = {1, 2, 8, 20};
-constexpr std::initializer_list<int64_t> kBitWidths64 = {1, 2, 8, 20, 47};
 static const std::vector<std::vector<int64_t>> kBitWidthsNumValues8 = {
-    kBitWidths8,
+    benchmark::CreateDenseRange(0, 8, 1),
     benchmark::CreateRange(kMinRange, kMaxRange, /*multi=*/32),
 };
 static const std::vector<std::vector<int64_t>> kBitWidthsNumValues16 = {
-    kBitWidths16,
+    benchmark::CreateDenseRange(0, 16, 1),
     benchmark::CreateRange(kMinRange, kMaxRange, /*multi=*/32),
 };
 static const std::vector<std::vector<int64_t>> kBitWidthsNumValues32 = {
-    kBitWidths32,
+    benchmark::CreateDenseRange(0, 32, 1),
     benchmark::CreateRange(kMinRange, kMaxRange, /*multi=*/32),
 };
 static const std::vector<std::vector<int64_t>> kBitWidthsNumValues64 = {
-    kBitWidths64,
+    benchmark::CreateDenseRange(0, 64, 1),
     benchmark::CreateRange(kMinRange, kMaxRange, /*multi=*/32),
 };
 
