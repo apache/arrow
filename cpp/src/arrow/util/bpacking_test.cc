@@ -114,8 +114,20 @@ class TestUnpack : public ::testing::TestWithParam<int> {
     const auto packed = PackValues(original, num_values, bit_width, bit_offset);
     const auto unpacked =
         UnpackValues(packed.data(), num_values, bit_width, bit_offset, unpack);
-    EXPECT_EQ(unpacked.size(), num_values);
-    EXPECT_EQ(original, unpacked);
+
+    ASSERT_EQ(unpacked.size(), num_values);
+    const auto [iter_original, iter_unpacked] =
+        std::mismatch(original.cbegin(), original.cend(), unpacked.cbegin());
+    Int val_original = 0;
+    Int val_unpacked = 0;
+    const auto mismatch_idx = static_cast<std::size_t>(iter_original - original.cbegin());
+    if (mismatch_idx < unpacked.size()) {
+      val_original = *iter_original;
+      val_unpacked = *iter_unpacked;
+    }
+    EXPECT_EQ(original, unpacked) << "At position " << mismatch_idx << "/"
+                                  << unpacked.size() << ", expected original value "
+                                  << val_original << " but unpacked " << val_unpacked;
   }
 
   template <typename Int>
@@ -212,10 +224,10 @@ class TestUnpack : public ::testing::TestWithParam<int> {
         if (testing::Test::HasFailure()) return;
       }
 
-      // Similarly, we test all epilogue sizes. That is extra values that could make it
+      // Similarly, we test all epilog sizes. That is extra values that could make it
       // fall outside of an SIMD register
       for (int epilogue_size = 0; epilogue_size <= kMaxBitWidth; ++epilogue_size) {
-        SCOPED_TRACE(::testing::Message() << "Testing epilogue_size=" << epilogue_size);
+        SCOPED_TRACE(::testing::Message() << "Testing epilog_size=" << epilogue_size);
 
         const int num_values = num_values_base + epilogue_size;
 
