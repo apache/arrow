@@ -286,6 +286,74 @@ constexpr auto make_batch_constant() {
   return make_batch_constant_impl<kArr, Arch>(std::make_index_sequence<kArr.size()>());
 }
 
+template <typename T, std::size_t N>
+struct SwizzleBiLaneGenericPlan {
+  using ByteSwizzle = std::array<T, N>;
+
+  ByteSwizzle self_lane;
+  ByteSwizzle cross_lane;
+};
+
+template <typename T, std::size_t N>
+constexpr SwizzleBiLaneGenericPlan<T, N> BuildSwizzleBiLaneGenericPlan(
+    std::array<T, N> mask) {
+  constexpr T kAsZero = 0x80;  // Most significant bit of the byte must be 1
+  constexpr std::size_t kSize = N;
+  constexpr std::size_t kSizeHalf = kSize / 2;
+
+  SwizzleBiLaneGenericPlan<T, N> plan = {};
+
+  for (std::size_t k = 0; k < kSize; ++k) {
+    const bool is_defined = (0 <= mask[k]) && (mask[k] < kSize);
+    const bool is_first_lane_idx = k < kSizeHalf;
+    const bool is_first_lane_mask = mask[k] < kSizeHalf;
+
+    if (!is_defined) {
+      plan.self_lane[k] = kAsZero;
+      plan.cross_lane[k] = kAsZero;
+    } else {
+      if (is_first_lane_idx) {
+        if (is_first_lane_mask) {
+          plan.self_lane[k] = mask[k];
+          plan.cross_lane[k] = kAsZero;
+        } else {
+          plan.self_lane[k] = kAsZero;
+          plan.cross_lane[k] = mask[k] - kSizeHalf;
+        }
+      } else {
+        if (is_first_lane_mask) {
+          plan.self_lane[k] = kAsZero;
+          plan.cross_lane[k] = mask[k];  // Indices given within lane
+        } else {
+          plan.self_lane[k] = mask[k] - kSizeHalf;  // Indices given within lane
+          plan.cross_lane[k] = kAsZero;
+        }
+      }
+    }
+  }
+
+  return plan;
+}
+
+template <typename Arch, uint8_t... kIdx>
+auto swizzle_bytes(const xsimd::batch<uint8_t, Arch>& batch,
+                   xsimd::batch_constant<uint8_t, Arch, kIdx...> mask) {
+  if constexpr (xsimd::supported_architectures::contains<xsimd::avx2>()) {
+    static constexpr auto kPlan = BuildSwizzleBiLaneGenericPlan(std::array{kIdx...});
+    static constexpr auto kSelfSwizzleArr = kPlan.self_lane;
+    constexpr auto kSelfSwizzle = make_batch_constant<kSelfSwizzleArr, Arch>();
+    static constexpr auto kCrossSwizzleArr = kPlan.cross_lane;
+    constexpr auto kCrossSwizzle = make_batch_constant<kCrossSwizzleArr, Arch>();
+
+    auto self = _mm256_shuffle_epi8(batch, kSelfSwizzle.as_batch());
+    auto swapped = _mm256_permute2x128_si256(batch, batch, 0x01);
+    auto cross = _mm256_shuffle_epi8(swapped, kCrossSwizzle.as_batch());
+    return xsimd::batch<uint8_t, Arch>(_mm256_or_si256(self, cross));
+  } else {
+    return xsimd::swizzle(batch, mask);
+  }
+}
+
 // Intel x86-64 does not have variable left shifts before AVX2.
 //
 // We replace the variable left shift by a variable multiply with a power of two.
@@ -389,7 +457,7 @@ struct MediumKernel {
     static constexpr auto kSwizzlesArr = kPlan.swizzles.at(kReadIdx).at(kSwizzleIdx);
     constexpr auto kSwizzles = make_batch_constant<kSwizzlesArr, arch_type>();
 
-    const auto swizzled = xsimd::swizzle(bytes, kSwizzles);
+    const auto swizzled = swizzle_bytes(bytes, kSwizzles);
     const auto words = xsimd::bitwise_cast<unpacked_type>(swizzled);
     (unpack_one_shift_impl<kReadIdx, kSwizzleIdx, kShiftIds>(words, out), ...);
   }
@@ -529,7 +597,7 @@ struct LargeKernel {
     static constexpr auto kSwizzlesArr = kPlan.swizzles.at(kReadIdx).at(kSwizzleIdx);
     constexpr auto kSwizzles = make_batch_constant<kSwizzlesArr, arch_type>();
 
-    const auto swizzled = xsimd::swizzle(bytes, kSwizzles);
+    const auto swizzled = swizzle_bytes(bytes, kSwizzles);
     const auto words = xsimd::bitwise_cast<unpacked_type>(swizzled);
     (unpack_one_shift_impl<kReadIdx, kSwizzleIdx, kShiftIds>(words, out), ...);
   }
@@ -548,12 +616,12 @@ struct LargeKernel {
 
     const auto bytes = simd_bytes::load_unaligned(in + kPlan.reads.at(kReadIdx));
 
-    const auto low_swizzled = xsimd::swizzle(bytes, kLowSwizzles);
+    const auto low_swizzled = swizzle_bytes(bytes, kLowSwizzles);
     const auto low_words = xsimd::bitwise_cast<unpacked_type>(low_swizzled);
     const auto low_shifted = right_shift_by_excess(low_words, kLowRShifts);
     const auto low_half_vals = low_shifted & kPlan.low_mask;
 
-    const auto high_swizzled = xsimd::swizzle(bytes, kHighSwizzles);
+    const auto high_swizzled = swizzle_bytes(bytes, kHighSwizzles);
     const auto high_words = xsimd::bitwise_cast<unpacked_type>(high_swizzled);
     const auto high_shifted = left_shift_no_overflow(high_words, kHighLShifts);
     const auto high_half_vals = high_shifted & kPlan.high_mask;
