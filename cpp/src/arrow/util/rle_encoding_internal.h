@@ -514,32 +514,30 @@ class RleBitPackedEncoder {
   /// Returns the minimum buffer size needed to use the encoder for 'bit_width'
   /// This is the maximum length of a single run for 'bit_width'.
   /// It is not valid to pass a buffer less than this length.
-  static int MinBufferSize(int bit_width) {
+  static int64_t MinBufferSize(int bit_width) {
     // 1 indicator byte and MAX_VALUES_PER_LITERAL_RUN 'bit_width' values.
-    int max_literal_run_size = 1 + static_cast<int>(::arrow::bit_util::BytesForBits(
-                                       MAX_VALUES_PER_LITERAL_RUN * bit_width));
+    int64_t max_literal_run_size =
+        1 + ::arrow::bit_util::BytesForBits(MAX_VALUES_PER_LITERAL_RUN * bit_width);
     // Up to kMaxVlqByteLength indicator and a single 'bit_width' value.
-    int max_repeated_run_size =
-        bit_util::kMaxLEB128ByteLenFor<int32_t> +
-        static_cast<int>(::arrow::bit_util::BytesForBits(bit_width));
+    int64_t max_repeated_run_size = bit_util::kMaxLEB128ByteLenFor<int32_t> +
+                                    ::arrow::bit_util::BytesForBits(bit_width);
     return std::max(max_literal_run_size, max_repeated_run_size);
   }
 
   /// Returns the maximum byte size it could take to encode 'num_values'.
-  static int MaxBufferSize(int bit_width, int num_values) {
+  static int64_t MaxBufferSize(int bit_width, int64_t num_values) {
     // For a bit_width > 1, the worst case is the repetition of "literal run of length 8
     // and then a repeated run of length 8".
     // 8 values per smallest run, 8 bits per byte
-    int bytes_per_run = bit_width;
-    int num_runs = static_cast<int>(::arrow::bit_util::CeilDiv(num_values, 8));
-    int literal_max_size = num_runs + num_runs * bytes_per_run;
+    int64_t bytes_per_run = bit_width;
+    int64_t num_runs = ::arrow::bit_util::CeilDiv(num_values, 8);
+    int64_t literal_max_size = num_runs + num_runs * bytes_per_run;
 
     // In the very worst case scenario, the data is a concatenation of repeated
     // runs of 8 values. Repeated run has a 1 byte varint followed by the
     // bit-packed repeated value
-    int min_repeated_run_size =
-        1 + static_cast<int>(::arrow::bit_util::BytesForBits(bit_width));
-    int repeated_max_size = num_runs * min_repeated_run_size;
+    int64_t min_repeated_run_size = 1 + ::arrow::bit_util::BytesForBits(bit_width);
+    int64_t repeated_max_size = num_runs * min_repeated_run_size;
 
     return std::max(literal_max_size, repeated_max_size);
   }
