@@ -66,7 +66,9 @@ class FlightStreamChunkBufferTest : public ::testing::Test {
 
   void TearDown() override {
     ASSERT_OK(server1->Shutdown());
+    ASSERT_OK(server1->Wait());
     ASSERT_OK(server2->Shutdown());
+    ASSERT_OK(server1->Wait());
   }
 
  public:
