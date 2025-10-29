@@ -17,13 +17,17 @@
 
 #pragma once
 
-#if defined _WIN32 || defined _WIN64
+#if defined _WIN32
 
 #  include <windows.h>
 
 #  include <wincrypt.h>
 
 #  include <bcrypt.h>
+
+// prsht.h needs to be included before cryptuiapi.h to avoid build conflict
+#  include <prsht.h>
+
 #  include <cryptuiapi.h>
 
 #  include <tchar.h>
