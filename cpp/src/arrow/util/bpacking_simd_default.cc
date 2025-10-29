@@ -15,45 +15,35 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/util/bpacking_dispatch_internal.h"
-#if defined(ARROW_HAVE_NEON) || defined(ARROW_HAVE_SSE4_2)
-#  include "arrow/util/bpacking_simd_impl_internal.h"
+#if defined(ARROW_HAVE_NEON)
+#  define UNPACK_PLATFORM unpack_neon
+#elif defined(ARROW_HAVE_SSE4_2)
+#  define UNPACK_PLATFORM unpack_sse4_2
 #endif
-#include "arrow/util/bpacking_simd_internal.h"
+
+#if defined(UNPACK_PLATFORM)
+
+#  include "arrow/util/bpacking_dispatch_internal.h"
+#  include "arrow/util/bpacking_simd_impl_internal.h"
+#  include "arrow/util/bpacking_simd_internal.h"
 
 namespace arrow::internal {
 
 template <typename UnpackedUint, int kPackedBitSize>
 using Simd128Kernel = Kernel<UnpackedUint, kPackedBitSize, 128>;
 
-#if defined(ARROW_HAVE_NEON)
-
 template <typename Uint>
-void unpack_neon(const uint8_t* in, Uint* out, int batch_size, int num_bits,
-                 int bit_offset) {
+void UNPACK_PLATFORM(const uint8_t* in, Uint* out, int batch_size, int num_bits,
+                     int bit_offset) {
   return unpack_jump<Simd128Kernel>(in, out, batch_size, num_bits, bit_offset);
 }
 
-template void unpack_neon<bool>(const uint8_t*, bool*, int, int, int);
-template void unpack_neon<uint8_t>(const uint8_t*, uint8_t*, int, int, int);
-template void unpack_neon<uint16_t>(const uint8_t*, uint16_t*, int, int, int);
-template void unpack_neon<uint32_t>(const uint8_t*, uint32_t*, int, int, int);
-template void unpack_neon<uint64_t>(const uint8_t*, uint64_t*, int, int, int);
-
-#elif defined(ARROW_HAVE_SSE4_2)
-
-template <typename Uint>
-void unpack_sse4_2(const uint8_t* in, Uint* out, int batch_size, int num_bits,
-                   int bit_offset) {
-  return unpack_jump<Simd128Kernel>(in, out, batch_size, num_bits, bit_offset);
-}
-
-template void unpack_sse4_2<bool>(const uint8_t*, bool*, int, int, int);
-template void unpack_sse4_2<uint8_t>(const uint8_t*, uint8_t*, int, int, int);
-template void unpack_sse4_2<uint16_t>(const uint8_t*, uint16_t*, int, int, int);
-template void unpack_sse4_2<uint32_t>(const uint8_t*, uint32_t*, int, int, int);
-template void unpack_sse4_2<uint64_t>(const uint8_t*, uint64_t*, int, int, int);
-
-#endif
+template void UNPACK_PLATFORM<bool>(const uint8_t*, bool*, int, int, int);
+template void UNPACK_PLATFORM<uint8_t>(const uint8_t*, uint8_t*, int, int, int);
+template void UNPACK_PLATFORM<uint16_t>(const uint8_t*, uint16_t*, int, int, int);
+template void UNPACK_PLATFORM<uint32_t>(const uint8_t*, uint32_t*, int, int, int);
+template void UNPACK_PLATFORM<uint64_t>(const uint8_t*, uint64_t*, int, int, int);
 
 }  // namespace arrow::internal
+
+#endif
