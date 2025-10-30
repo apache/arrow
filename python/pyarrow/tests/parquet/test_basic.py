@@ -16,6 +16,7 @@
 # under the License.
 
 import os
+import sys
 from collections import OrderedDict
 import io
 import warnings
@@ -993,3 +994,14 @@ def test_checksum_write_to_dataset(tempdir):
     # checksum verification enabled raises an exception
     with pytest.raises(OSError, match="CRC checksum verification"):
         _ = pq.read_table(corrupted_file_path, page_checksum_verification=True)
+
+
+@pytest.mark.parametrize(
+    "source", ["/tmp/", ["/tmp/file1.parquet", "/tmp/file2.parquet"]])
+def test_read_table_raises_value_error_when_ds_is_unavailable(
+    monkeypatch, source):
+    # GH-47728
+    monkeypatch.setitem(sys.modules, "pyarrow.dataset", None)
+
+    with pytest.raises(ValueError):
+        pq.read_table(source=source)
