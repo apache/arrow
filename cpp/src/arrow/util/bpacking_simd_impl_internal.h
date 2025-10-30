@@ -35,7 +35,6 @@ namespace arrow::internal {
 // - _mm_cvtepi8_epi32
 // - no _mm_srlv_epi32 (128bit) in xsimd with AVX2 required arch
 // - no need for while loop (for up to 8 is sufficient)
-// - upstream var lshift to xsimd
 // - array to batch constant to xsimd
 // - Shifts per swizzle can be improved when self.packed_max_byte_spread == 1 and the
 //   byte can be reused (when val_bit_width divides packed_max_byte_spread).
@@ -45,6 +44,7 @@ namespace arrow::internal {
 // - For Avx2:
 //   - Inspect how swizzle across lanes are handled: _mm256_shuffle_epi8 not used?
 //   - Investigate AVX2 with 128 bit register
+// - Fix overreading problem
 
 template <typename Arr>
 constexpr Arr BuildConstantArray(typename Arr::value_type val) {
@@ -572,35 +572,6 @@ struct LargeKernel {
   using arch_type = typename Traits::arch_type;
 
   static constexpr int kValuesUnpacked = kPlan.kUnpackedPerkernel;
-
-  template <int kReadIdx, int kSwizzleIdx, int kShiftIdx>
-  static void unpack_one_shift_impl(const simd_batch& words, unpacked_type* out) {
-    static constexpr auto kRightShiftsArr =
-        kPlan.shifts.at(kReadIdx).at(kSwizzleIdx).at(kShiftIdx);
-    constexpr auto kRightShifts = make_batch_constant<kRightShiftsArr, arch_type>();
-    constexpr auto kMask = kPlan.mask;
-    constexpr auto kOutOffset = (kReadIdx * kPlan.unpacked_per_read() +
-                                 kSwizzleIdx * kPlan.unpacked_per_swizzle() +
-                                 kShiftIdx * kPlan.unpacked_per_shifts());
-
-    // Intel x86-64 does not have variable right shifts before AVX2.
-    // We know the packed value can safely be left shifted up to the largest offset so we
-    // can use the fallback on these platforms.
-    const auto shifted = right_shift_by_excess(words, kRightShifts);
-    const auto vals = shifted & kMask;
-    xsimd::store_unaligned(out + kOutOffset, vals);
-  }
-
-  template <int kReadIdx, int kSwizzleIdx, int... kShiftIds>
-  static void unpack_one_swizzle_impl(const simd_bytes& bytes, unpacked_type* out,
-                                      std::integer_sequence<int, kShiftIds...>) {
-    static constexpr auto kSwizzlesArr = kPlan.swizzles.at(kReadIdx).at(kSwizzleIdx);
-    constexpr auto kSwizzles = make_batch_constant<kSwizzlesArr, arch_type>();
-
-    const auto swizzled = swizzle_bytes(bytes, kSwizzles);
-    const auto words = xsimd::bitwise_cast<unpacked_type>(swizzled);
-    (unpack_one_shift_impl<kReadIdx, kSwizzleIdx, kShiftIds>(words, out), ...);
-  }
 
   template <int kReadIdx>
   static void unpack_one_read_impl(const uint8_t* in, unpacked_type* out) {
