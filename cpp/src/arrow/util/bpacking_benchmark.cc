@@ -145,27 +145,27 @@ void BM_UnpackUint64(benchmark::State& state, bool aligned, UnpackFunc<uint64_t>
   return BM_Unpack<uint64_t>(state, aligned, unpack, skip, std::move(skip_msg));
 }
 
-BENCHMARK_CAPTURE(BM_UnpackBool, NaiveUnaligned, false, &unpack_naive<bool>)
-    ->ArgsProduct(kBitWidthsNumValuesBool);
-BENCHMARK_CAPTURE(BM_UnpackUint8, NaiveUnaligned, false, &unpack_naive<uint8_t>)
-    ->ArgsProduct(kBitWidthsNumValues8);
-BENCHMARK_CAPTURE(BM_UnpackUint16, NaiveUnaligned, false, &unpack_naive<uint16_t>)
-    ->ArgsProduct(kBitWidthsNumValues16);
-BENCHMARK_CAPTURE(BM_UnpackUint32, NaiveUnaligned, false, &unpack_naive<uint32_t>)
-    ->ArgsProduct(kBitWidthsNumValues32);
-BENCHMARK_CAPTURE(BM_UnpackUint64, NaiveUnaligned, false, &unpack_naive<uint64_t>)
-    ->ArgsProduct(kBitWidthsNumValues64);
-
-BENCHMARK_CAPTURE(BM_UnpackBool, ScalarUnaligned, false, &unpack_scalar<bool>)
-    ->ArgsProduct(kBitWidthsNumValuesBool);
-BENCHMARK_CAPTURE(BM_UnpackUint8, ScalarUnaligned, false, &unpack_scalar<uint8_t>)
-    ->ArgsProduct(kBitWidthsNumValues8);
-BENCHMARK_CAPTURE(BM_UnpackUint16, ScalarUnaligned, false, &unpack_scalar<uint16_t>)
-    ->ArgsProduct(kBitWidthsNumValues16);
-BENCHMARK_CAPTURE(BM_UnpackUint32, ScalarUnaligned, false, &unpack_scalar<uint32_t>)
-    ->ArgsProduct(kBitWidthsNumValues32);
-BENCHMARK_CAPTURE(BM_UnpackUint64, ScalarUnaligned, false, &unpack_scalar<uint64_t>)
-    ->ArgsProduct(kBitWidthsNumValues64);
+// BENCHMARK_CAPTURE(BM_UnpackBool, NaiveUnaligned, false, &unpack_naive<bool>)
+//     ->ArgsProduct(kBitWidthsNumValuesBool);
+// BENCHMARK_CAPTURE(BM_UnpackUint8, NaiveUnaligned, false, &unpack_naive<uint8_t>)
+//     ->ArgsProduct(kBitWidthsNumValues8);
+// BENCHMARK_CAPTURE(BM_UnpackUint16, NaiveUnaligned, false, &unpack_naive<uint16_t>)
+//     ->ArgsProduct(kBitWidthsNumValues16);
+// BENCHMARK_CAPTURE(BM_UnpackUint32, NaiveUnaligned, false, &unpack_naive<uint32_t>)
+//     ->ArgsProduct(kBitWidthsNumValues32);
+// BENCHMARK_CAPTURE(BM_UnpackUint64, NaiveUnaligned, false, &unpack_naive<uint64_t>)
+//     ->ArgsProduct(kBitWidthsNumValues64);
+//
+// BENCHMARK_CAPTURE(BM_UnpackBool, ScalarUnaligned, false, &unpack_scalar<bool>)
+//     ->ArgsProduct(kBitWidthsNumValuesBool);
+// BENCHMARK_CAPTURE(BM_UnpackUint8, ScalarUnaligned, false, &unpack_scalar<uint8_t>)
+//     ->ArgsProduct(kBitWidthsNumValues8);
+// BENCHMARK_CAPTURE(BM_UnpackUint16, ScalarUnaligned, false, &unpack_scalar<uint16_t>)
+//     ->ArgsProduct(kBitWidthsNumValues16);
+// BENCHMARK_CAPTURE(BM_UnpackUint32, ScalarUnaligned, false, &unpack_scalar<uint32_t>)
+//     ->ArgsProduct(kBitWidthsNumValues32);
+// BENCHMARK_CAPTURE(BM_UnpackUint64, ScalarUnaligned, false, &unpack_scalar<uint64_t>)
+//     ->ArgsProduct(kBitWidthsNumValues64);
 
 #if defined(ARROW_HAVE_SSE4_2)
 BENCHMARK_CAPTURE(BM_UnpackBool, Sse42Unaligned, false, &unpack_sse4_2<bool>)
