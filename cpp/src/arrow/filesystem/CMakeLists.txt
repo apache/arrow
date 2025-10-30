@@ -82,7 +82,7 @@ if(ARROW_S3)
                  ${ARROW_S3_TEST_EXTRA_LINK_LIBS})
   if(TARGET arrow-s3fs-test)
     set(ARROW_S3FS_TEST_COMPILE_DEFINITIONS)
-    get_target_property(AWS_CPP_SDK_S3_TYPE aws-cpp-sdk-s3 TYPE)
+    get_target_property(AWS_CPP_SDK_S3_CRT_TYPE aws-cpp-sdk-s3-crt TYPE)
     # We need to initialize AWS SDK for C++ for direct use (not via
     # arrow::fs::S3FileSystem) in arrow-s3fs-test if we use static AWS
     # SDK for C++ and hide symbols of them. Because AWS SDK for C++
@@ -90,7 +90,7 @@ if(ARROW_S3)
     # arrow-s3fs-test. It means that arrow::fs::InitializeS3() doesn't
     # initialize AWS SDK for C++ that is directly used in
     # arrow-s3fs-test.
-    if(AWS_CPP_SDK_S3_TYPE STREQUAL "STATIC_LIBRARY"
+    if(AWS_CPP_SDK_S3_CRT_TYPE STREQUAL "STATIC_LIBRARY"
        AND CXX_LINKER_SUPPORTS_VERSION_SCRIPT)
       list(APPEND ARROW_S3FS_TEST_COMPILE_DEFINITIONS "AWS_CPP_SDK_S3_PRIVATE_STATIC")
     endif()
