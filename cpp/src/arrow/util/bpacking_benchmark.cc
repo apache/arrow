@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <memory>
 #include <stdexcept>
 #include <vector>
 
@@ -86,10 +87,10 @@ void BM_Unpack(benchmark::State& state, bool aligned, UnpackFunc<Int> unpack, bo
   const uint8_t* packed_ptr =
       GetNextAlignedByte(packed.data(), sizeof(Int)) + (aligned ? 0 : 1);
 
-  std::vector<Int> unpacked(num_values, 0);
+  auto unpacked = std::make_unique<Int[]>(num_values);
 
   for (auto _ : state) {
-    unpack(packed_ptr, unpacked.data(), num_values, bit_width, /* bit_offset = */ 0);
+    unpack(packed_ptr, unpacked.get(), num_values, bit_width, /* bit_offset = */ 0);
     benchmark::ClobberMemory();
   }
   state.SetItemsProcessed(num_values * state.iterations());
@@ -97,6 +98,10 @@ void BM_Unpack(benchmark::State& state, bool aligned, UnpackFunc<Int> unpack, bo
 
 constexpr int32_t kMinRange = 64;
 constexpr int32_t kMaxRange = 32768;
+static const std::vector<std::vector<int64_t>> kBitWidthsNumValuesBool = {
+    {0, 1},
+    benchmark::CreateRange(kMinRange, kMaxRange, /*multi=*/32),
+};
 static const std::vector<std::vector<int64_t>> kBitWidthsNumValues8 = {
     benchmark::CreateDenseRange(0, 8, 1),
     benchmark::CreateRange(kMinRange, kMaxRange, /*multi=*/32),
@@ -114,6 +119,11 @@ static const std::vector<std::vector<int64_t>> kBitWidthsNumValues64 = {
     benchmark::CreateRange(kMinRange, kMaxRange, /*multi=*/32),
 };
 
+/// Nudge for MSVC template inside BENCHMARK_CAPTURE macro.
+void BM_UnpackBool(benchmark::State& state, bool aligned, UnpackFunc<bool> unpack,
+                   bool skip = false, std::string skip_msg = "") {
+  return BM_Unpack<bool>(state, aligned, unpack, skip, std::move(skip_msg));
+}
 /// Nudge for MSVC template inside BENCHMARK_CAPTURE macro.
 void BM_UnpackUint8(benchmark::State& state, bool aligned, UnpackFunc<uint8_t> unpack,
                     bool skip = false, std::string skip_msg = "") {
@@ -135,6 +145,8 @@ void BM_UnpackUint64(benchmark::State& state, bool aligned, UnpackFunc<uint64_t>
   return BM_Unpack<uint64_t>(state, aligned, unpack, skip, std::move(skip_msg));
 }
 
+BENCHMARK_CAPTURE(BM_UnpackBool, ScalarUnaligned, false, &unpack_scalar<bool>)
+    ->ArgsProduct(kBitWidthsNumValuesBool);
 BENCHMARK_CAPTURE(BM_UnpackUint8, ScalarUnaligned, false, &unpack_scalar<uint8_t>)
     ->ArgsProduct(kBitWidthsNumValues8);
 BENCHMARK_CAPTURE(BM_UnpackUint16, ScalarUnaligned, false, &unpack_scalar<uint16_t>)
@@ -145,6 +157,8 @@ BENCHMARK_CAPTURE(BM_UnpackUint64, ScalarUnaligned, false, &unpack_scalar<uint64
     ->ArgsProduct(kBitWidthsNumValues64);
 
 #if defined(ARROW_HAVE_SSE4_2)
+BENCHMARK_CAPTURE(BM_UnpackBool, Sse42Unaligned, false, &unpack_sse4_2<bool>)
+    ->ArgsProduct(kBitWidthsNumValuesBool);
 BENCHMARK_CAPTURE(BM_UnpackUint8, Sse42Unaligned, false, &unpack_sse4_2<uint8_t>)
     ->ArgsProduct(kBitWidthsNumValues8);
 BENCHMARK_CAPTURE(BM_UnpackUint16, Sse42Unaligned, false, &unpack_sse4_2<uint16_t>)
@@ -156,6 +170,10 @@ BENCHMARK_CAPTURE(BM_UnpackUint64, Sse42Unaligned, false, &unpack_sse4_2<uint64_
 #endif
 
 #if defined(ARROW_HAVE_RUNTIME_AVX2)
+BENCHMARK_CAPTURE(BM_UnpackBool, Avx2Unaligned, false, &unpack_avx2<bool>,
+                  !CpuInfo::GetInstance()->IsSupported(CpuInfo::AVX2),
+                  "Avx2 not available")
+    ->ArgsProduct(kBitWidthsNumValuesBool);
 BENCHMARK_CAPTURE(BM_UnpackUint8, Avx2Unaligned, false, &unpack_avx2<uint8_t>,
                   !CpuInfo::GetInstance()->IsSupported(CpuInfo::AVX2),
                   "Avx2 not available")
@@ -175,6 +193,10 @@ BENCHMARK_CAPTURE(BM_UnpackUint64, Avx2Unaligned, false, &unpack_avx2<uint64_t>,
 #endif
 
 #if defined(ARROW_HAVE_RUNTIME_AVX512)
+BENCHMARK_CAPTURE(BM_UnpackBool, Avx512Unaligned, false, &unpack_avx512<bool>,
+                  !CpuInfo::GetInstance()->IsSupported(CpuInfo::AVX512),
+                  "Avx512 not available")
+    ->ArgsProduct(kBitWidthsNumValuesBool);
 BENCHMARK_CAPTURE(BM_UnpackUint8, Avx512Unaligned, false, &unpack_avx512<uint8_t>,
                   !CpuInfo::GetInstance()->IsSupported(CpuInfo::AVX512),
                   "Avx512 not available")
@@ -194,6 +216,8 @@ BENCHMARK_CAPTURE(BM_UnpackUint64, Avx512Unaligned, false, &unpack_avx512<uint64
 #endif
 
 #if defined(ARROW_HAVE_NEON)
+BENCHMARK_CAPTURE(BM_UnpackBool, NeonUnaligned, false, &unpack_neon<bool>)
+    ->ArgsProduct(kBitWidthsNumValuesBool);
 BENCHMARK_CAPTURE(BM_UnpackUint8, NeonUnaligned, false, &unpack_neon<uint8_t>)
     ->ArgsProduct(kBitWidthsNumValues8);
 BENCHMARK_CAPTURE(BM_UnpackUint16, NeonUnaligned, false, &unpack_neon<uint16_t>)
@@ -203,6 +227,11 @@ BENCHMARK_CAPTURE(BM_UnpackUint32, NeonUnaligned, false, &unpack_neon<uint32_t>)
 BENCHMARK_CAPTURE(BM_UnpackUint64, NeonUnaligned, false, &unpack_neon<uint64_t>)
     ->ArgsProduct(kBitWidthsNumValues64);
 #endif
+
+BENCHMARK_CAPTURE(BM_UnpackBool, DynamicAligned, true, &unpack<bool>)
+    ->ArgsProduct(kBitWidthsNumValuesBool);
+BENCHMARK_CAPTURE(BM_UnpackBool, DynamicUnaligned, false, &unpack<bool>)
+    ->ArgsProduct(kBitWidthsNumValuesBool);
 
 BENCHMARK_CAPTURE(BM_UnpackUint8, DynamicAligned, true, &unpack<uint8_t>)
     ->ArgsProduct(kBitWidthsNumValues8);
