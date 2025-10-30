@@ -259,6 +259,12 @@ TEST_P(TestUnpack, Unpack16Scalar) { this->TestAll(&unpack_scalar<uint16_t>); }
 TEST_P(TestUnpack, Unpack32Scalar) { this->TestAll(&unpack_scalar<uint32_t>); }
 TEST_P(TestUnpack, Unpack64Scalar) { this->TestAll(&unpack_scalar<uint64_t>); }
 
+TEST_P(TestUnpack, UnpackBoolNaive) { this->TestAll(&unpack_naive<bool>); }
+TEST_P(TestUnpack, Unpack8Naive) { this->TestAll(&unpack_naive<uint8_t>); }
+TEST_P(TestUnpack, Unpack16Naive) { this->TestAll(&unpack_naive<uint16_t>); }
+TEST_P(TestUnpack, Unpack32Naive) { this->TestAll(&unpack_naive<uint32_t>); }
+TEST_P(TestUnpack, Unpack64Naive) { this->TestAll(&unpack_naive<uint64_t>); }
+
 #if defined(ARROW_HAVE_SSE4_2)
 TEST_P(TestUnpack, UnpackBoolSse4_2) { this->TestAll(&unpack_sse4_2<bool>); }
 TEST_P(TestUnpack, Unpack8Sse4_2) { this->TestAll(&unpack_sse4_2<uint8_t>); }
