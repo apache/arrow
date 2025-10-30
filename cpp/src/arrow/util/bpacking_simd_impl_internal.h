@@ -506,8 +506,7 @@ struct LargeKernelPlan {
   SwizzlesPerKernel high_swizzles;
   ShitsPerKernel low_rshifts;
   ShitsPerKernel high_lshifts;
-  UnpackedUint low_mask;
-  UnpackedUint high_mask;
+  UnpackedUint mask;
 };
 
 template <typename UnpackedUint, int kPackedBitSize, int kSimdBitSize>
@@ -551,11 +550,7 @@ constexpr LargeKernelPlan<UnpackedUint, kPackedBitSize, kSimdBitSize> BuildLarge
     }
   }
 
-  constexpr auto mask = bit_util::LeastSignificantBitMask<UnpackedUint>(kPackedBitSize);
-  constexpr auto half_low_bit_mask =
-      bit_util::LeastSignificantBitMask<UnpackedUint>(kShape.unpacked_bit_size() / 2);
-  plan.low_mask = mask & half_low_bit_mask;
-  plan.high_mask = mask & (~half_low_bit_mask);
+  plan.mask = bit_util::LeastSignificantBitMask<UnpackedUint>(kPackedBitSize);
 
   return plan;
 }
@@ -590,14 +585,14 @@ struct LargeKernel {
     const auto low_swizzled = swizzle_bytes(bytes, kLowSwizzles);
     const auto low_words = xsimd::bitwise_cast<unpacked_type>(low_swizzled);
     const auto low_shifted = right_shift_by_excess(low_words, kLowRShifts);
-    const auto low_half_vals = low_shifted & kPlan.low_mask;
 
     const auto high_swizzled = swizzle_bytes(bytes, kHighSwizzles);
     const auto high_words = xsimd::bitwise_cast<unpacked_type>(high_swizzled);
     const auto high_shifted = left_shift_no_overflow(high_words, kHighLShifts);
-    const auto high_half_vals = high_shifted & kPlan.high_mask;
 
-    const auto vals = low_half_vals | high_half_vals;
+    // We can have a single mask and apply it after OR because the shifts will ensure that
+    // there are zeros where the high/low values are incomplete.
+    const auto vals = (low_shifted | high_shifted) & kPlan.mask;
     xsimd::store_unaligned(out + kReadIdx * kShape.unpacked_per_simd(), vals);
   }
 
