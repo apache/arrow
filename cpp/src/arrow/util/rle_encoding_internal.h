@@ -506,7 +506,7 @@ class RleBitPackedEncoder {
       : bit_width_(bit_width), bit_writer_(buffer, buffer_len) {
     ARROW_DCHECK_GE(bit_width_, 0);
     ARROW_DCHECK_LE(bit_width_, 64);
-    max_run_byte_size_ = MinBufferSize(bit_width);
+    max_run_byte_size_ = static_cast<int>(MinBufferSize(bit_width));
     ARROW_DCHECK_GE(buffer_len, max_run_byte_size_) << "Input buffer not big enough.";
     Clear();
   }
