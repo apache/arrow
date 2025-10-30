@@ -999,7 +999,7 @@ def test_checksum_write_to_dataset(tempdir):
 @pytest.mark.parametrize(
     "source", ["/tmp/", ["/tmp/file1.parquet", "/tmp/file2.parquet"]])
 def test_read_table_raises_value_error_when_ds_is_unavailable(
-    monkeypatch, source):
+        monkeypatch, source):
     # GH-47728
     monkeypatch.setitem(sys.modules, "pyarrow.dataset", None)
 
