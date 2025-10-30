@@ -17,10 +17,11 @@
 
 ARG base
 FROM ${base}
-ARG arch
-FROM ${arch}
-ARG build_date
-FROM ${build_date}
+
+ARG python_version=3.13
+ARG python_patch_version=3.13.9
+ARG build_date=20251014
+ARG arch=aarch64
 
 ARG python_version=3.13
 
