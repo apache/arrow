@@ -584,7 +584,14 @@ struct LargeKernel {
 
     const auto low_swizzled = swizzle_bytes(bytes, kLowSwizzles);
     const auto low_words = xsimd::bitwise_cast<unpacked_type>(low_swizzled);
-    const auto low_shifted = right_shift_by_excess(low_words, kLowRShifts);
+    simd_batch low_shifted;
+    if constexpr (kShape.unpacked_byte_size() == 1) {
+      // The logic of the fallback in right_shift_by_excess does not work for this single
+      // byte case case, so we use directly xsimd and its scalar fallback.
+      low_shifted = low_words >> kLowRShifts;
+    } else {
+      low_shifted = right_shift_by_excess(low_words, kLowRShifts);
+    }
 
     const auto high_swizzled = swizzle_bytes(bytes, kHighSwizzles);
     const auto high_words = xsimd::bitwise_cast<unpacked_type>(high_swizzled);
@@ -639,23 +646,6 @@ struct Kernel : DispatchKernelType<UnpackedUint, kPackedBitSize, kSimdBitSize> {
   using Base = DispatchKernelType<UnpackedUint, kPackedBitSize, kSimdBitSize>;
   using Base::kValuesUnpacked;
   using Base::unpack;
-};
-
-template <int kPackedBitSize, int kSimdBitSize>
-struct Kernel<uint8_t, kPackedBitSize, kSimdBitSize>
-    : Kernel<uint16_t, kPackedBitSize, kSimdBitSize> {
-  using Base = DispatchKernelType<uint16_t, kPackedBitSize, kSimdBitSize>;
-  using Base::kValuesUnpacked;
-  using unpacked_type = uint8_t;
-
-  static const uint8_t* unpack(const uint8_t* in, unpacked_type* out) {
-    uint16_t buffer[kValuesUnpacked] = {};
-    in = Base::unpack(in, buffer);
-    for (int k = 0; k < kValuesUnpacked; ++k) {
-      out[k] = static_cast<unpacked_type>(buffer[k]);
-    }
-    return in;
-  }
 };
 
 template <int kPackedBitSize, int kSimdBitSize>
