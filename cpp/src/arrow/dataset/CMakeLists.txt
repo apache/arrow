@@ -241,3 +241,7 @@ endfunction()
 
 add_arrow_dataset_benchmark(file_benchmark)
 add_arrow_dataset_benchmark(scanner_benchmark)
+
+if(ARROW_PARQUET)
+  add_arrow_dataset_benchmark(parquet_scan_benchmark)
+endif()
