@@ -59,7 +59,7 @@ class BitWriter {
   int buffer_len() const { return max_bytes_; }
 
   /// Writes a value to buffered_values_, flushing to buffer_ if necessary.  This is bit
-  /// packed.  Returns false if there was not enough space. num_bits must be <= 32.
+  /// packed.  Returns false if there was not enough space. num_bits must be <= 64.
   bool PutValue(uint64_t v, int num_bits);
 
   /// Writes v to the next aligned byte using num_bytes. If T is larger than
