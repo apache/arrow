@@ -27,6 +27,7 @@
 
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bpacking_dispatch_internal.h"
+#include "arrow/util/type_traits.h"
 
 namespace arrow::internal {
 
@@ -38,7 +39,6 @@ namespace arrow::internal {
 // - array to batch constant to xsimd
 // - Shifts per swizzle can be improved when self.packed_max_byte_spread == 1 and the
 //   byte can be reused (when val_bit_width divides packed_max_byte_spread).
-// - Try for uint16_t and uint8_t and bool (currently copy)
 // - Add unpack_exact to benchmarks
 // - Reduce input size on small bit width using a broadcast.
 // - For Avx2:
@@ -112,7 +112,10 @@ struct KernelTraits {
   };
 
   using unpacked_type = UnpackedUint;
-  using simd_batch = xsimd::make_sized_batch_t<unpacked_type, kShape.unpacked_per_simd()>;
+  // The integer type to work with, `unpacked_type` or an appropriate type for bool.
+  using uint_type = std::conditional_t<std::is_same_v<unpacked_type, bool>,
+                                       SizedUint<sizeof(bool)>, unpacked_type>;
+  using simd_batch = xsimd::make_sized_batch_t<uint_type, kShape.unpacked_per_simd()>;
   using simd_bytes = xsimd::make_sized_batch_t<uint8_t, kShape.simd_byte_size()>;
   using arch_type = typename simd_batch::arch_type;
 };
@@ -184,6 +187,7 @@ constexpr MediumKernelPlanSize BuildMediumPlanSize(const KernelShape& shape) {
 template <typename UnpackedUint, int kPackedBitSize, int kSimdBitSize>
 struct MediumKernelPlan {
   using Traits = KernelTraits<UnpackedUint, kPackedBitSize, kSimdBitSize>;
+  using uint_type = typename Traits::uint_type;
   static constexpr auto kShape = Traits::kShape;
   static constexpr auto kPlanSize = BuildMediumPlanSize(kShape);
 
@@ -193,7 +197,7 @@ struct MediumKernelPlan {
   using SwizzlesPerRead = std::array<Swizzle, kPlanSize.swizzles_per_read()>;
   using SwizzlesPerKernel = std::array<SwizzlesPerRead, kPlanSize.reads_per_kernel()>;
 
-  using Shift = std::array<UnpackedUint, kShape.unpacked_per_simd()>;
+  using Shift = std::array<uint_type, kShape.unpacked_per_simd()>;
   using ShiftsPerSwizzle = std::array<Shift, kPlanSize.shifts_per_swizzle()>;
   using ShiftsPerRead = std::array<ShiftsPerSwizzle, kPlanSize.swizzles_per_read()>;
   using ShitsPerKernel = std::array<ShiftsPerRead, kPlanSize.reads_per_kernel()>;
@@ -212,7 +216,7 @@ struct MediumKernelPlan {
   ReadsPerKernel reads;
   SwizzlesPerKernel swizzles;
   ShitsPerKernel shifts;
-  UnpackedUint mask = bit_util::LeastSignificantBitMask<UnpackedUint>(kPackedBitSize);
+  uint_type mask = bit_util::LeastSignificantBitMask<uint_type>(kPackedBitSize);
 };
 
 template <typename UnpackedUint, int kPackedBitSize, int kSimdBitSize>
@@ -427,6 +431,7 @@ struct MediumKernel {
   static constexpr auto kShape = kPlan.kShape;
   using Traits = typename decltype(kPlan)::Traits;
   using unpacked_type = typename Traits::unpacked_type;
+  using uint_type = typename Traits::uint_type;
   using simd_batch = typename Traits::simd_batch;
   using simd_bytes = typename Traits::simd_bytes;
   using arch_type = typename Traits::arch_type;
@@ -448,7 +453,12 @@ struct MediumKernel {
     // can use the fallback on these platforms.
     const auto shifted = right_shift_by_excess(words, kRightShifts);
     const auto vals = shifted & kMask;
-    xsimd::store_unaligned(out + kOutOffset, vals);
+    if constexpr (std::is_same_v<unpacked_type, bool>) {
+      const xsimd::batch_bool<uint_type, arch_type> bools(vals);
+      bools.store_unaligned(out + kOutOffset);
+    } else {
+      vals.store_unaligned(out + kOutOffset);
+    }
   }
 
   template <int kReadIdx, int kSwizzleIdx, int... kShiftIds>
@@ -458,7 +468,7 @@ struct MediumKernel {
     constexpr auto kSwizzles = make_batch_constant<kSwizzlesArr, arch_type>();
 
     const auto swizzled = swizzle_bytes(bytes, kSwizzles);
-    const auto words = xsimd::bitwise_cast<unpacked_type>(swizzled);
+    const auto words = xsimd::bitwise_cast<uint_type>(swizzled);
     (unpack_one_shift_impl<kReadIdx, kSwizzleIdx, kShiftIds>(words, out), ...);
   }
 
@@ -487,6 +497,7 @@ struct MediumKernel {
 template <typename UnpackedUint, int kPackedBitSize, int kSimdBitSize>
 struct LargeKernelPlan {
   using Traits = KernelTraits<UnpackedUint, kPackedBitSize, kSimdBitSize>;
+  using uint_type = typename Traits::uint_type;
   static constexpr auto kShape = Traits::kShape;
 
   static constexpr int kUnpackedPerkernel = std::lcm(kShape.unpacked_per_simd(), 8);
@@ -498,7 +509,7 @@ struct LargeKernelPlan {
   using Swizzle = std::array<uint8_t, kShape.simd_byte_size()>;
   using SwizzlesPerKernel = std::array<Swizzle, kReadsPerKernel>;
 
-  using Shift = std::array<UnpackedUint, kShape.unpacked_per_simd()>;
+  using Shift = std::array<uint_type, kShape.unpacked_per_simd()>;
   using ShitsPerKernel = std::array<Shift, kReadsPerKernel>;
 
   ReadsPerKernel reads;
@@ -506,12 +517,13 @@ struct LargeKernelPlan {
   SwizzlesPerKernel high_swizzles;
   ShitsPerKernel low_rshifts;
   ShitsPerKernel high_lshifts;
-  UnpackedUint mask;
+  uint_type mask;
 };
 
 template <typename UnpackedUint, int kPackedBitSize, int kSimdBitSize>
 constexpr LargeKernelPlan<UnpackedUint, kPackedBitSize, kSimdBitSize> BuildLargePlan() {
   using Plan = LargeKernelPlan<UnpackedUint, kPackedBitSize, kSimdBitSize>;
+  using uint_type = typename Plan::Traits::uint_type;
   constexpr auto kShape = Plan::kShape;
   static_assert(kShape.is_large());
   constexpr int kOverBytes =
@@ -550,7 +562,7 @@ constexpr LargeKernelPlan<UnpackedUint, kPackedBitSize, kSimdBitSize> BuildLarge
     }
   }
 
-  plan.mask = bit_util::LeastSignificantBitMask<UnpackedUint>(kPackedBitSize);
+  plan.mask = bit_util::LeastSignificantBitMask<uint_type>(kPackedBitSize);
 
   return plan;
 }
@@ -646,23 +658,6 @@ struct Kernel : DispatchKernelType<UnpackedUint, kPackedBitSize, kSimdBitSize> {
   using Base = DispatchKernelType<UnpackedUint, kPackedBitSize, kSimdBitSize>;
   using Base::kValuesUnpacked;
   using Base::unpack;
-};
-
-template <int kPackedBitSize, int kSimdBitSize>
-struct Kernel<bool, kPackedBitSize, kSimdBitSize>
-    : Kernel<uint16_t, kPackedBitSize, kSimdBitSize> {
-  using Base = DispatchKernelType<uint16_t, kPackedBitSize, kSimdBitSize>;
-  using Base::kValuesUnpacked;
-  using unpacked_type = bool;
-
-  static const uint8_t* unpack(const uint8_t* in, unpacked_type* out) {
-    uint16_t buffer[kValuesUnpacked] = {};
-    in = Base::unpack(in, buffer);
-    for (int k = 0; k < kValuesUnpacked; ++k) {
-      out[k] = static_cast<unpacked_type>(buffer[k]);
-    }
-    return in;
-  }
 };
 
 }  // namespace arrow::internal
