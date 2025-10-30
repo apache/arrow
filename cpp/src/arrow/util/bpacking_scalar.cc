@@ -33,4 +33,21 @@ template void unpack_scalar<uint16_t>(const uint8_t*, uint16_t*, int, int, int);
 template void unpack_scalar<uint32_t>(const uint8_t*, uint32_t*, int, int, int);
 template void unpack_scalar<uint64_t>(const uint8_t*, uint64_t*, int, int, int);
 
+template <typename Uint, int kBitWidth>
+struct NoOpUnpacker {
+  static constexpr int kValuesUnpacked = 0;
+};
+
+template <typename Uint>
+void unpack_naive(const uint8_t* in, Uint* out, int batch_size, int num_bits,
+                  int bit_offset) {
+  return unpack_jump<NoOpUnpacker>(in, out, batch_size, num_bits, bit_offset);
+}
+
+template void unpack_naive<bool>(const uint8_t*, bool*, int, int, int);
+template void unpack_naive<uint8_t>(const uint8_t*, uint8_t*, int, int, int);
+template void unpack_naive<uint16_t>(const uint8_t*, uint16_t*, int, int, int);
+template void unpack_naive<uint32_t>(const uint8_t*, uint32_t*, int, int, int);
+template void unpack_naive<uint64_t>(const uint8_t*, uint64_t*, int, int, int);
+
 }  // namespace arrow::internal
