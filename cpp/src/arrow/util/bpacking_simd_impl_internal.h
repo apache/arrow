@@ -342,7 +342,7 @@ constexpr SwizzleBiLaneGenericPlan<T, N> BuildSwizzleBiLaneGenericPlan(
 template <typename Arch, uint8_t... kIdx>
 auto swizzle_bytes(const xsimd::batch<uint8_t, Arch>& batch,
                    xsimd::batch_constant<uint8_t, Arch, kIdx...> mask) {
-  if constexpr (xsimd::supported_architectures::contains<xsimd::avx2>()) {
+  if constexpr (std::is_base_of_v<xsimd::avx2, Arch>) {
     static constexpr auto kPlan = BuildSwizzleBiLaneGenericPlan(std::array{kIdx...});
     static constexpr auto kSelfSwizzleArr = kPlan.self_lane;
     constexpr auto kSelfSwizzle = make_batch_constant<kSelfSwizzleArr, Arch>();
@@ -369,8 +369,8 @@ auto swizzle_bytes(const xsimd::batch<uint8_t, Arch>& batch,
 template <typename Arch, typename Int, Int... kShifts>
 auto left_shift_no_overflow(const xsimd::batch<Int, Arch>& batch,
                             xsimd::batch_constant<Int, Arch, kShifts...> shifts) {
-  constexpr bool kHasSse2 = xsimd::supported_architectures::contains<xsimd::sse2>();
-  constexpr bool kHasAvx2 = xsimd::supported_architectures::contains<xsimd::avx2>();
+  constexpr bool kHasSse2 = std::is_base_of_v<xsimd::sse2, Arch>;
+  constexpr bool kHasAvx2 = std::is_base_of_v<xsimd::avx2, Arch>;
 
   if constexpr (kHasSse2 && !kHasAvx2) {
     static constexpr auto kShiftsArr = std::array{kShifts...};
@@ -401,8 +401,8 @@ auto left_shift_no_overflow(const xsimd::batch<Int, Arch>& batch,
 template <typename Arch, typename Int, Int... kShifts>
 auto right_shift_by_excess(const xsimd::batch<Int, Arch>& batch,
                            xsimd::batch_constant<Int, Arch, kShifts...> shifts) {
-  constexpr bool kHasSse2 = xsimd::supported_architectures::contains<xsimd::sse2>();
-  constexpr bool kHasAvx2 = xsimd::supported_architectures::contains<xsimd::avx2>();
+  constexpr bool kHasSse2 = std::is_base_of_v<xsimd::sse2, Arch>;
+  constexpr bool kHasAvx2 = std::is_base_of_v<xsimd::avx2, Arch>;
 
   if constexpr (kHasSse2 && !kHasAvx2) {
     static constexpr auto kShiftsArr = std::array{kShifts...};
