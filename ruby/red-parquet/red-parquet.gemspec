@@ -29,7 +29,7 @@ Gem::Specification.new do |spec|
   ]
   spec.version = version_components.compact.join(".")
   spec.homepage = "https://arrow.apache.org/"
-  spec.authors = ["Apache Arrow Developers"]
+  spec.authors = ["The Apache Software Foundation"]
   spec.email = ["dev@arrow.apache.org"]
 
   spec.summary = "Red Parquet is the Ruby bindings of Apache Parquet"
