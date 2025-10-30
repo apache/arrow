@@ -44,4 +44,25 @@ extern template ARROW_TEMPLATE_EXPORT void unpack_scalar<uint32_t>(
 extern template ARROW_TEMPLATE_EXPORT void unpack_scalar<uint64_t>(
     const uint8_t* in, uint64_t* out, int batch_size, int num_bits, int bit_offset);
 
+template <typename Uint>
+ARROW_EXPORT void unpack_naive(const uint8_t* in, Uint* out, int batch_size, int num_bits,
+                               int bit_offset);
+
+extern template ARROW_TEMPLATE_EXPORT void unpack_naive<bool>(const uint8_t* in,
+                                                              bool* out, int batch_size,
+                                                              int num_bits,
+                                                              int bit_offset);
+
+extern template ARROW_TEMPLATE_EXPORT void unpack_naive<uint8_t>(
+    const uint8_t* in, uint8_t* out, int batch_size, int num_bits, int bit_offset);
+
+extern template ARROW_TEMPLATE_EXPORT void unpack_naive<uint16_t>(
+    const uint8_t* in, uint16_t* out, int batch_size, int num_bits, int bit_offset);
+
+extern template ARROW_TEMPLATE_EXPORT void unpack_naive<uint32_t>(
+    const uint8_t* in, uint32_t* out, int batch_size, int num_bits, int bit_offset);
+
+extern template ARROW_TEMPLATE_EXPORT void unpack_naive<uint64_t>(
+    const uint8_t* in, uint64_t* out, int batch_size, int num_bits, int bit_offset);
+
 }  // namespace arrow::internal
