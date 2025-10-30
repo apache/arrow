@@ -1014,12 +1014,12 @@ TEST(TestColumnWriter, LARGE_MEMORY_TEST(WriteLargeDictEncodedPage)) {
   static_assert(batch_size % unique_count == 0);
 
   std::vector<int32_t> values(batch_size, 0);
+  for (int64_t i = 0; i < batch_size; i++) {
+    values[i] = static_cast<int32_t>(i % unique_count);
+  }
 
   auto col_writer = dynamic_cast<parquet::Int32Writer*>(rg_writer->NextColumn());
   for (int64_t i = 0; i < num_batches; i++) {
-    for (int64_t j = 0; j < batch_size; j++) {
-      values[j] = static_cast<int32_t>(j % unique_count);
-    }
     col_writer->WriteBatch(batch_size, nullptr, nullptr, values.data());
   }
   file_writer->Close();
@@ -1065,6 +1065,39 @@ TEST(TestColumnWriter, LARGE_MEMORY_TEST(WriteLargeDictEncodedPage)) {
     }
     levels_read += batch_levels;
   }
+}
+
+TEST(TestColumnWriter, LARGE_MEMORY_TEST(ThrowsOnDictIndicesTooLarge)) {
+  auto sink = CreateOutputStream();
+  auto schema = std::static_pointer_cast<GroupNode>(
+      GroupNode::Make("schema", Repetition::REQUIRED,
+                      {
+                          PrimitiveNode::Make("item", Repetition::REQUIRED, Type::INT32),
+                      }));
+  auto properties =
+      WriterProperties::Builder().data_pagesize(4 * 1024LL * 1024 * 1024)->build();
+  auto file_writer = ParquetFileWriter::Open(sink, schema, properties);
+  auto rg_writer = file_writer->AppendRowGroup();
+
+  constexpr int64_t num_batches = 1'000;
+  constexpr int64_t batch_size = 1'000'000;
+  constexpr int64_t unique_count = 200'000;
+  static_assert(batch_size % unique_count == 0);
+
+  std::vector<int32_t> values(batch_size, 0);
+  for (int64_t i = 0; i < batch_size; i++) {
+    values[i] = static_cast<int32_t>(i % unique_count);
+  }
+
+  auto col_writer = dynamic_cast<parquet::Int32Writer*>(rg_writer->NextColumn());
+  for (int64_t i = 0; i < num_batches; i++) {
+    col_writer->WriteBatch(batch_size, nullptr, nullptr, values.data());
+  }
+
+  EXPECT_THROW_THAT(
+      [&]() { file_writer->Close(); }, ParquetException,
+      ::testing::Property(&ParquetException::what,
+                          ::testing::HasSubstr("exceeds maximum int value")));
 }
 
 TEST(TestPageWriter, ThrowsOnPagesTooLarge) {
