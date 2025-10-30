@@ -150,6 +150,7 @@ class PackageTask
     end
     pass_through_env_names = [
       "DEB_BUILD_OPTIONS",
+      "REPROTEST",
       "RPM_BUILD_NCPUS",
     ]
     pass_through_env_names.each do |name|
@@ -343,6 +344,15 @@ VERSION=#{@deb_upstream_version}
       ENV
     end
 
+    reprotest_sh = "#{apt_dir}/reprotest.sh"
+    rm_rf(reprotest_sh)
+    File.open(reprotest_sh, "wx") do |file|
+      file.puts(<<-BASH)
+cd #{@package}-#{@deb_upstream_version}
+debuild -us -uc
+      BASH
+    end
+
     apt_targets.each do |target|
       cd(apt_dir) do
         distribution, version, architecture = split_target(target)
@@ -362,6 +372,13 @@ VERSION=#{@deb_upstream_version}
         cp(source_build_sh, build_sh)
       end
 
+      source_reprotest_patch = "#{__dir__}/apt/reprotest.patch"
+      reprotest_patch = "#{apt_dir}/reprotest.patch"
+      file reprotest_patch => source_reprotest_patch do
+        cp(source_reprotest_patch, reprotest_patch)
+      end
+
+
       directory repositories_dir
 
       desc "Build deb packages"
@@ -369,6 +386,7 @@ VERSION=#{@deb_upstream_version}
         build_dependencies = [
           deb_archive_name,
           build_sh,
+          reprotest_patch,
           repositories_dir,
         ]
       else
