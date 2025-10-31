@@ -235,7 +235,7 @@ jobs:
         run: |
           echo "Current protobuf version:"
           brew list --versions protobuf
-          brew uninstall protobuf
+          brew uninstall --ignore-dependencies protobuf
           brew install protobuf@32
           brew link protobuf@32 --force
           echo "Pinned protobuf version:"
