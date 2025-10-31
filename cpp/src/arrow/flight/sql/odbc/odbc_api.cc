@@ -709,8 +709,16 @@ SQLRETURN SQLGetConnectAttr(SQLHDBC conn, SQLINTEGER attribute, SQLPOINTER value
                    << ", attribute: " << attribute << ", value_ptr: " << value_ptr
                    << ", buffer_length: " << buffer_length << ", string_length_ptr: "
                    << static_cast<const void*>(string_length_ptr);
-  // GH-47708 TODO: Implement SQLGetConnectAttr
-  return SQL_INVALID_HANDLE;
+
+  using arrow::flight::sql::odbc::Connection;
+  using ODBC::ODBCConnection;
+
+  return ODBCConnection::ExecuteWithDiagnostics(conn, SQL_ERROR, [=]() {
+    const bool is_unicode = true;
+    ODBCConnection* connection = reinterpret_cast<ODBCConnection*>(conn);
+    return connection->GetConnectAttr(attribute, value_ptr, buffer_length,
+                                      string_length_ptr, is_unicode);
+  });
 }
 
 SQLRETURN SQLSetConnectAttr(SQLHDBC conn, SQLINTEGER attr, SQLPOINTER value_ptr,
@@ -718,8 +726,16 @@ SQLRETURN SQLSetConnectAttr(SQLHDBC conn, SQLINTEGER attr, SQLPOINTER value_ptr,
   ARROW_LOG(DEBUG) << "SQLSetConnectAttrW called with conn: " << conn
                    << ", attr: " << attr << ", value_ptr: " << value_ptr
                    << ", value_len: " << value_len;
-  // GH-47708 TODO: Implement SQLSetConnectAttr
-  return SQL_INVALID_HANDLE;
+
+  using arrow::flight::sql::odbc::Connection;
+  using ODBC::ODBCConnection;
+
+  return ODBCConnection::ExecuteWithDiagnostics(conn, SQL_ERROR, [=]() {
+    const bool is_unicode = true;
+    ODBCConnection* connection = reinterpret_cast<ODBCConnection*>(conn);
+    connection->SetConnectAttr(attr, value_ptr, value_len, is_unicode);
+    return SQL_SUCCESS;
+  });
 }
 
 SQLRETURN SQLDriverConnect(SQLHDBC conn, SQLHWND window_handle,
