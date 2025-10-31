@@ -30,7 +30,6 @@ from pyarrow.lib cimport _Weakrefable
 from pyarrow.lib import tobytes, frombytes
 from pyarrow._fs cimport FileSystem 
 from pyarrow.fs import _resolve_filesystem_and_path
-import json
 
 cdef ParquetCipher cipher_from_name(name):
     name = name.upper()
@@ -659,6 +658,23 @@ cdef class FileSystemKeyMaterialStore(_Weakrefable):
     @classmethod
     def for_file(cls, parquet_file_path, 
                           FileSystem filesystem = None):
+        """Creates a FileSystemKeyMaterialStore for a parquet file that
+        was created with external key material.
+
+        Parameters
+        ----------
+        parquet_file_path : str or pathlib.Path
+            Path to a parquet file using external key material.
+
+        filesystem : FileSystem, default None
+            FileSystem where the parquet file is located. If nothinng passed,
+            will be inferred based on parquet_file_path. 
+
+        Returns
+        -------
+        FileSystemKeyMaterialStore
+            A FileSystemKeyMaterialStore wrapping the external key material.
+        """
         cdef:
             c_string c_parquet_file_path
             shared_ptr[CFileSystem] c_filesystem
