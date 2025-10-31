@@ -58,7 +58,7 @@ class BitWriter {
   int buffer_len() const { return max_bytes_; }
 
   /// Writes a value to buffered_values_, flushing to buffer_ if necessary.  This is bit
-  /// packed.  Returns false if there was not enough space. num_bits must be <= 32.
+  /// packed.  Returns false if there was not enough space. num_bits must be <= 64.
   bool PutValue(uint64_t v, int num_bits);
 
   /// Writes v to the next aligned byte using num_bytes. If T is larger than
@@ -197,7 +197,9 @@ inline bool BitWriter::PutValue(uint64_t v, int num_bits) {
     ARROW_DCHECK_EQ(v >> num_bits, 0) << "v = " << v << ", num_bits = " << num_bits;
   }
 
-  if (ARROW_PREDICT_FALSE(byte_offset_ * 8 + bit_offset_ + num_bits > max_bytes_ * 8))
+  if (ARROW_PREDICT_FALSE(static_cast<int64_t>(byte_offset_) * 8 + bit_offset_ +
+                              num_bits >
+                          static_cast<int64_t>(max_bytes_) * 8))
     return false;
 
   buffered_values_ |= v << bit_offset_;

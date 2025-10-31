@@ -813,7 +813,7 @@ TEST(BitRle, RepeatedPattern) {
 
 TEST(BitRle, Overflow) {
   for (int bit_width = 1; bit_width < 32; bit_width += 3) {
-    int len = RleBitPackedEncoder::MinBufferSize(bit_width);
+    int len = static_cast<int>(RleBitPackedEncoder::MinBufferSize(bit_width));
     std::vector<uint8_t> buffer(len);
     int num_added = 0;
     bool parity = true;
@@ -861,7 +861,8 @@ void CheckRoundTrip(const Array& data, int bit_width, bool spaced, int32_t parts
   const int data_size = static_cast<int>(data.length());
   const int data_values_count =
       static_cast<int>(data.length() - spaced * data.null_count());
-  const int buffer_size = RleBitPackedEncoder::MaxBufferSize(bit_width, data_size);
+  const int buffer_size =
+      static_cast<int>(RleBitPackedEncoder::MaxBufferSize(bit_width, data_size));
   ASSERT_GE(parts, 1);
   ASSERT_LE(parts, data_size);
 

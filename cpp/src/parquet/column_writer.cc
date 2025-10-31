@@ -185,7 +185,7 @@ void LevelEncoder::Init(Encoding::type encoding, int16_t max_level,
 int LevelEncoder::MaxBufferSize(Encoding::type encoding, int16_t max_level,
                                 int num_buffered_values) {
   int bit_width = bit_util::Log2(max_level + 1);
-  int num_bytes = 0;
+  int64_t num_bytes = 0;
   switch (encoding) {
     case Encoding::RLE: {
       // TODO: Due to the way we currently check if the buffer is full enough,
@@ -195,14 +195,19 @@ int LevelEncoder::MaxBufferSize(Encoding::type encoding, int16_t max_level,
       break;
     }
     case Encoding::BIT_PACKED: {
-      num_bytes =
-          static_cast<int>(bit_util::BytesForBits(num_buffered_values * bit_width));
+      num_bytes = bit_util::BytesForBits(num_buffered_values * bit_width);
       break;
     }
     default:
       throw ParquetException("Unknown encoding type for levels.");
   }
-  return num_bytes;
+  if (num_bytes > std::numeric_limits<int>::max()) {
+    std::stringstream ss;
+    ss << "Maximum buffer size for LevelEncoder (" << num_bytes
+       << ") is greater than the maximum int32 value";
+    throw ParquetException(ss.str());
+  }
+  return static_cast<int>(num_bytes);
 }
 
 int LevelEncoder::Encode(int batch_size, const int16_t* levels) {
