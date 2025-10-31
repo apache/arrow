@@ -38,10 +38,29 @@ add_subdirectory(tests)
 
 arrow_install_all_headers("arrow/flight/sql/odbc")
 
-set(ARROW_FLIGHT_SQL_ODBC_SRCS entry_points.cc odbc_api.cc)
+# ODBC Release information
+set(ODBC_PACKAGE_VERSION_MAJOR "1")
+set(ODBC_PACKAGE_VERSION_MINOR "0")
+set(ODBC_PACKAGE_VERSION_PATCH "0")
+set(ODBC_PACKAGE_NAME "Apache Arrow Flight SQL ODBC")
+set(ODBC_PACKAGE_VENDOR "Apache Arrow")
+
+# Compile entry_points.cc before odbc_api.cc due to conflict from sql.h and flight/types.h
+set(ARROW_FLIGHT_SQL_ODBC_SRCS odbc_api.cc entry_points.cc)
 
 if(WIN32)
-  list(APPEND ARROW_FLIGHT_SQL_ODBC_SRCS odbc.def)
+  set(VER_FILEVERSION
+      "${ODBC_PACKAGE_VERSION_MAJOR},${ODBC_PACKAGE_VERSION_MINOR},${ODBC_PACKAGE_VERSION_PATCH},0"
+  )
+  set(VER_FILEVERSION_STR
+      ${ODBC_PACKAGE_VERSION_MAJOR}.${ODBC_PACKAGE_VERSION_MINOR}.${ODBC_PACKAGE_VERSION_PATCH}
+  )
+  set(VER_COMPANYNAME_STR ${ODBC_PACKAGE_VENDOR})
+  set(VER_PRODUCTNAME_STR ${ODBC_PACKAGE_NAME})
+
+  configure_file("install/versioninfo.rc.in" "install/versioninfo.rc" @ONLY)
+
+  list(APPEND ARROW_FLIGHT_SQL_ODBC_SRCS odbc.def install/versioninfo.rc)
 endif()
 
 add_arrow_lib(arrow_flight_sql_odbc
@@ -75,3 +94,75 @@ add_arrow_lib(arrow_flight_sql_odbc
 foreach(LIB_TARGET ${ARROW_FLIGHT_SQL_ODBC_LIBRARIES})
   target_compile_definitions(${LIB_TARGET} PRIVATE ARROW_FLIGHT_SQL_ODBC_EXPORTING)
 endforeach()
+
+# Construct ODBC Windows installer. Only Release installer is supported
+if(ARROW_FLIGHT_SQL_ODBC_INSTALLER)
+
+  include(InstallRequiredSystemLibraries)
+
+  set(CPACK_RESOURCE_FILE_LICENSE
+      "${CMAKE_CURRENT_SOURCE_DIR}/../../../../../../LICENSE.txt")
+  # Tentative version 1.0.0
+  set(CPACK_PACKAGE_VERSION_MAJOR ${ODBC_PACKAGE_VERSION_MAJOR})
+  set(CPACK_PACKAGE_VERSION_MINOR ${ODBC_PACKAGE_VERSION_MINOR})
+  set(CPACK_PACKAGE_VERSION_PATCH ${ODBC_PACKAGE_VERSION_PATCH})
+
+  set(CPACK_PACKAGE_NAME ${ODBC_PACKAGE_NAME})
+  set(CPACK_PACKAGE_VENDOR ${ODBC_PACKAGE_VENDOR})
+  set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Apache Arrow Flight SQL ODBC Driver")
+  set(CPACK_PACKAGE_CONTACT "#GH-47787 TODO arrow maintainers")
+
+  # GH-47876 TODO: set up `flight_sql_odbc_lib` component for macOS Installer
+  # GH-47877 TODO: set up `flight_sql_odbc_lib` component for Linux Installer
+  if(WIN32)
+    install(DIRECTORY "${BUILD_OUTPUT_ROOT_DIRECTORY}${CMAKE_BUILD_TYPE}/"
+            DESTINATION bin
+            COMPONENT flight_sql_odbc_lib
+            FILES_MATCHING
+            # Use regex for dll name patterns with versions
+            PATTERN "abseil_dll.dll"
+            PATTERN "arrow.dll"
+            PATTERN "arrow_compute.dll"
+            PATTERN "arrow_flight.dll"
+            PATTERN "arrow_flight_sql.dll"
+            PATTERN "arrow_flight_sql_odbc.dll"
+            PATTERN "boost_locale*.dll"
+            PATTERN "cares.dll"
+            PATTERN "libcrypto*.dll"
+            PATTERN "libprotobuf.dll"
+            PATTERN "libssl*.dll"
+            PATTERN "re2.dll"
+            PATTERN "utf8proc.dll"
+            PATTERN "zlib1.dll")
+
+    set(CPACK_WIX_EXTRA_SOURCES
+        "${CMAKE_CURRENT_SOURCE_DIR}/install/arrow-flight-sql-odbc.wxs")
+    set(CPACK_WIX_PATCH_FILE
+        "${CMAKE_CURRENT_SOURCE_DIR}/install/arrow-flight-sql-odbc-patch.xml")
+
+    set(CPACK_WIX_UI_BANNER "${CMAKE_CURRENT_SOURCE_DIR}/install/arrow-wix-banner.bmp")
+  endif()
+
+  get_cmake_property(CPACK_COMPONENTS_ALL COMPONENTS)
+  set(CPACK_COMPONENTS_ALL Unspecified)
+  list(APPEND CPACK_COMPONENTS_ALL "flight_sql_odbc_lib")
+
+  if(WIN32)
+    # WiX msi installer on Windows
+    # CPack is compatible with WiX V.5 and V.6
+    set(CPACK_GENERATOR "WIX")
+    set(CPACK_WIX_VERSION 4)
+
+    # Upgrade GUID is required to be unchanged for ODBC installer to upgrade
+    set(CPACK_WIX_UPGRADE_GUID "DBF27A18-F8BF-423F-9E3A-957414D52C4B")
+  endif()
+  # GH-47876 TODO: create macOS Installer using cpack
+  # GH-47877 TODO: create Linux Installer using cpack
+
+  # Load CPack after all CPACK* variables are set
+  include(CPack)
+  cpack_add_component(flight_sql_odbc_lib
+                      DISPLAY_NAME "ODBC library"
+                      DESCRIPTION "ODBC library bin, required to install"
+                      REQUIRED)
+endif()

@@ -43,7 +43,7 @@ using arrow::flight::sql::odbc::Statement;
 
 void TestBindColumn(const std::shared_ptr<Connection>& connection) {
   const std::shared_ptr<Statement>& statement = connection->CreateStatement();
-  statement->Execute("SELECT IncidntNum, Category FROM \"@dremio\".Test LIMIT 10");
+  statement->Execute("SELECT IncidntNum, Category FROM \"@apache\".Test LIMIT 10");
 
   const std::shared_ptr<ResultSet>& result_set = statement->GetResultSet();
 
@@ -105,7 +105,7 @@ void TestBindColumnBigInt(const std::shared_ptr<Connection>& connection) {
       "  SELECT CONVERT_TO_INTEGER(IncidntNum, 1, 1, 0) AS IncidntNum, "
       "Category\n"
       "  FROM (\n"
-      "    SELECT IncidntNum, Category FROM \"@dremio\".Test LIMIT 10\n"
+      "    SELECT IncidntNum, Category FROM \"@apache\".Test LIMIT 10\n"
       "  ) nested_0\n"
       ") nested_0");
 
@@ -202,11 +202,11 @@ int main() {
       driver.CreateConnection(arrow::flight::sql::odbc::OdbcVersion::V_3);
 
   Connection::ConnPropertyMap properties = {
-      {FlightSqlConnection::HOST, std::string("automaster.drem.io")},
-      {FlightSqlConnection::PORT, std::string("32010")},
-      {FlightSqlConnection::USER, std::string("dremio")},
-      {FlightSqlConnection::PASSWORD, std::string("dremio123")},
-      {FlightSqlConnection::USE_ENCRYPTION, std::string("false")},
+      {std::string(FlightSqlConnection::HOST), std::string("automaster.apache")},
+      {std::string(FlightSqlConnection::PORT), std::string("32010")},
+      {std::string(FlightSqlConnection::USER), std::string("apache")},
+      {std::string(FlightSqlConnection::PASSWORD), std::string("apache123")},
+      {std::string(FlightSqlConnection::USE_ENCRYPTION), std::string("false")},
   };
   std::vector<std::string_view> missing_attr;
   connection->Connect(properties, missing_attr);

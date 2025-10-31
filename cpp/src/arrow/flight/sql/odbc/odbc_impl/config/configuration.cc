@@ -16,6 +16,7 @@
 // under the License.
 
 #include "arrow/flight/sql/odbc/odbc_impl/config/configuration.h"
+
 #include "arrow/flight/sql/odbc/odbc_impl/flight_sql_connection.h"
 #include "arrow/flight/sql/odbc/odbc_impl/util.h"
 #include "arrow/result.h"
@@ -151,11 +152,11 @@ void Configuration::LoadDsn(const std::string& dsn) {
 void Configuration::Clear() { this->properties_.clear(); }
 
 bool Configuration::IsSet(const std::string_view& key) const {
-  return 0 != this->properties_.count(key);
+  return 0 != this->properties_.count(std::string(key));
 }
 
 const std::string& Configuration::Get(const std::string_view& key) const {
-  const auto itr = this->properties_.find(key);
+  const auto itr = this->properties_.find(std::string(key));
   if (itr == this->properties_.cend()) {
     static const std::string empty("");
     return empty;
@@ -171,7 +172,15 @@ void Configuration::Set(const std::string_view& key, const std::wstring& wvalue)
 void Configuration::Set(const std::string_view& key, const std::string& value) {
   const std::string copy = boost::trim_copy(value);
   if (!copy.empty()) {
-    this->properties_[key] = value;
+    this->properties_[std::string(key)] = value;
+  }
+}
+
+void Configuration::Emplace(const std::string_view& key, std::string&& value) {
+  const std::string copy = boost::trim_copy(value);
+  if (!copy.empty()) {
+    this->properties_.emplace(
+        std::make_pair(std::move(std::string(key)), std::move(value)));
   }
 }
 
@@ -179,15 +188,14 @@ const Connection::ConnPropertyMap& Configuration::GetProperties() const {
   return this->properties_;
 }
 
-std::vector<std::string_view> Configuration::GetCustomKeys() const {
+std::vector<std::string> Configuration::GetCustomKeys() const {
   Connection::ConnPropertyMap copy_props(properties_);
   for (auto& key : FlightSqlConnection::ALL_KEYS) {
-    copy_props.erase(key);
+    copy_props.erase(std::string(key));
   }
-  std::vector<std::string_view> keys;
+  std::vector<std::string> keys;
   boost::copy(copy_props | boost::adaptors::map_keys, std::back_inserter(keys));
   return keys;
 }
-
 }  // namespace config
 }  // namespace arrow::flight::sql::odbc
