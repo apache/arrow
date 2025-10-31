@@ -1423,7 +1423,7 @@ inline int RleBitPackedEncoder::Flush() {
 }
 
 inline void RleBitPackedEncoder::CheckBufferFull() {
-  int bytes_written = bit_writer_.bytes_written();
+  int64_t bytes_written = bit_writer_.bytes_written();
   if (bytes_written + max_run_byte_size_ > bit_writer_.buffer_len()) {
     buffer_full_ = true;
   }
