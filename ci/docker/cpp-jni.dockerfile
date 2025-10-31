@@ -21,9 +21,6 @@ FROM ${base}
 ARG arch
 ARG arch_short
 
-SHELL ["/bin/bash", "-i", "-c"]
-ENTRYPOINT ["/bin/bash", "-i", "-c"]
-
 # Install basic dependencies
 RUN dnf install -y \
     autoconf \
