@@ -3548,9 +3548,8 @@ const std::vector<std::shared_ptr<DataType>>& PrimitiveTypes() {
 }
 
 const std::vector<TimeUnit::type>& TimeUnit::values() {
-  static std::vector<TimeUnit::type> units = {TimeUnit::SECOND, TimeUnit::MILLI,
-                                              TimeUnit::MICRO, TimeUnit::NANO,
-                                              TimeUnit::PICO};
+  static std::vector<TimeUnit::type> units = {
+      TimeUnit::SECOND, TimeUnit::MILLI, TimeUnit::MICRO, TimeUnit::NANO, TimeUnit::PICO};
   return units;
 }
 

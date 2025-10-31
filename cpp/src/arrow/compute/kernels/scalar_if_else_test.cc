@@ -422,9 +422,9 @@ TEST_F(TestIfElseKernel, IfElseMultiType) {
 
 TEST_F(TestIfElseKernel, TimestampTypes) {
   for (const auto unit : {
-    TimeUnit::SECOND,
-    TimeUnit::NANO,
-  }) {
+           TimeUnit::SECOND,
+           TimeUnit::NANO,
+       }) {
     auto ty = timestamp(unit);
     CheckWithDifferentShapes(ArrayFromJSON(boolean(), "[true, true, true, false]"),
                              ArrayFromJSON(ty, "[1, 2, 3, 4]"),

@@ -57,8 +57,8 @@ namespace arrow {
 
 using internal::checked_cast;
 using internal::checked_pointer_cast;
-using internal::MakeLazyRange;
 using internal::int128_t;
+using internal::MakeLazyRange;
 
 namespace {
 

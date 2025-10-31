@@ -16,8 +16,8 @@
 // under the License.
 #pragma once
 
-#include <iostream>
 #include <iomanip>
+#include <iostream>
 
 #include "arrow/util/config.h"
 #include "arrow/util/macros.h"
