@@ -2807,19 +2807,7 @@ macro(build_re2)
   set(RE2_STATIC_LIB
       "${RE2_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}re2${CMAKE_STATIC_LIBRARY_SUFFIX}")
 
-  # RE2 (as of 2023-06-01) requires Abseil
-  set(RE2_CMAKE_PREFIX "")
-  if(ABSL_VENDORED)
-    set(RE2_CMAKE_PREFIX "${ABSL_PREFIX}")
-  endif()
-
-  # Convert list to platform-appropriate format
-  string(REPLACE ";" ${EP_LIST_SEPARATOR} RE2_PREFIX_PATH_ALT_SEP "${RE2_CMAKE_PREFIX}")
-
   set(RE2_CMAKE_ARGS ${EP_COMMON_CMAKE_ARGS} "-DCMAKE_INSTALL_PREFIX=${RE2_PREFIX}")
-  if(RE2_CMAKE_PREFIX)
-    list(APPEND RE2_CMAKE_ARGS "-DCMAKE_PREFIX_PATH=${RE2_PREFIX_PATH_ALT_SEP}")
-  endif()
 
   externalproject_add(re2_ep
                       ${EP_COMMON_OPTIONS}
@@ -2835,9 +2823,6 @@ macro(build_re2)
   target_include_directories(re2::re2 BEFORE INTERFACE "${RE2_PREFIX}/include")
 
   add_dependencies(re2::re2 re2_ep)
-  if(ABSL_VENDORED)
-    add_dependencies(re2_ep absl_ep)
-  endif()
   set(RE2_VENDORED TRUE)
   # Set values so that FindRE2 finds this too
   set(RE2_LIB ${RE2_STATIC_LIB})
