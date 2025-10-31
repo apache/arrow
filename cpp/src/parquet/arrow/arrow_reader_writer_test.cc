@@ -400,16 +400,23 @@ using ParquetDataType = PhysicalType<test_traits<T>::parquet_enum>;
 template <typename T>
 using ParquetWriter = TypedColumnWriter<ParquetDataType<T>>;
 
+Result<std::shared_ptr<Buffer>> WriteTableToBuffer(
+    const std::shared_ptr<Table>& table, int64_t row_group_size,
+    const std::shared_ptr<WriterProperties>& properties = default_writer_properties(),
+    const std::shared_ptr<ArrowWriterProperties>& arrow_properties =
+        default_arrow_writer_properties()) {
+  auto sink = CreateOutputStream();
+  ARROW_RETURN_NOT_OK(WriteTable(*table, ::arrow::default_memory_pool(), sink,
+                                 row_group_size, properties, arrow_properties));
+  return sink->Finish();
+}
+
 void WriteTableToBuffer(const std::shared_ptr<Table>& table, int64_t row_group_size,
                         const std::shared_ptr<ArrowWriterProperties>& arrow_properties,
                         std::shared_ptr<Buffer>* out) {
-  auto sink = CreateOutputStream();
-
   auto write_props = WriterProperties::Builder().write_batch_size(100)->build();
-
-  ASSERT_OK_NO_THROW(WriteTable(*table, ::arrow::default_memory_pool(), sink,
-                                row_group_size, write_props, arrow_properties));
-  ASSERT_OK_AND_ASSIGN(*out, sink->Finish());
+  ASSERT_OK_AND_ASSIGN(
+      *out, WriteTableToBuffer(table, row_group_size, write_props, arrow_properties));
 }
 
 void DoRoundtrip(const std::shared_ptr<Table>& table, int64_t row_group_size,
@@ -3101,27 +3108,33 @@ TEST(ArrowReadWrite, DecimalStats) {
   using ::arrow::Decimal128;
   using ::arrow::field;
 
-  auto type = ::arrow::decimal128(/*precision=*/8, /*scale=*/0);
+  // Try various precisions to trigger encoding as different physical types:
+  // - precision 8 should use INT32
+  // - precision 18 should use INT64
+  // - precision 35 should use FIXED_LEN_BYTE_ARRAY
+  for (const int precision : {8, 18, 35}) {
+    auto type = ::arrow::decimal128(precision, /*scale=*/0);
 
-  const char* json = R"(["255", "128", null, "0", "1", "-127", "-128", "-129", "-255"])";
-  auto array = ::arrow::ArrayFromJSON(type, json);
-  auto table = ::arrow::Table::Make(::arrow::schema({field("root", type)}), {array});
+    const char* json =
+        R"(["255", "128", null, "0", "1", "-127", "-128", "-129", "-255"])";
+    auto array = ::arrow::ArrayFromJSON(type, json);
+    auto table = ::arrow::Table::Make(::arrow::schema({field("root", type)}), {array});
 
-  std::shared_ptr<Buffer> buffer;
-  ASSERT_NO_FATAL_FAILURE(WriteTableToBuffer(table, /*row_group_size=*/100,
-                                             default_arrow_writer_properties(), &buffer));
+    auto props = WriterProperties::Builder().enable_store_decimal_as_integer()->build();
+    ASSERT_OK_AND_ASSIGN(auto buffer,
+                         WriteTableToBuffer(table, /*row_group_size=*/100, props));
+    ASSERT_OK_AND_ASSIGN(auto reader, OpenFile(std::make_shared<BufferReader>(buffer),
+                                               ::arrow::default_memory_pool()));
 
-  ASSERT_OK_AND_ASSIGN(auto reader, OpenFile(std::make_shared<BufferReader>(buffer),
-                                             ::arrow::default_memory_pool()));
+    std::shared_ptr<Scalar> min, max;
+    ReadSingleColumnFileStatistics(std::move(reader), &min, &max);
 
-  std::shared_ptr<Scalar> min, max;
-  ReadSingleColumnFileStatistics(std::move(reader), &min, &max);
-
-  std::shared_ptr<Scalar> expected_min, expected_max;
-  ASSERT_OK_AND_ASSIGN(expected_min, array->GetScalar(array->length() - 1));
-  ASSERT_OK_AND_ASSIGN(expected_max, array->GetScalar(0));
-  ::arrow::AssertScalarsEqual(*expected_min, *min, /*verbose=*/true);
-  ::arrow::AssertScalarsEqual(*expected_max, *max, /*verbose=*/true);
+    std::shared_ptr<Scalar> expected_min, expected_max;
+    ASSERT_OK_AND_ASSIGN(expected_min, array->GetScalar(array->length() - 1));
+    ASSERT_OK_AND_ASSIGN(expected_max, array->GetScalar(0));
+    ::arrow::AssertScalarsEqual(*expected_min, *min, /*verbose=*/true);
+    ::arrow::AssertScalarsEqual(*expected_max, *max, /*verbose=*/true);
+  }
 }
 
 TEST(ArrowReadWrite, NestedNullableField) {
