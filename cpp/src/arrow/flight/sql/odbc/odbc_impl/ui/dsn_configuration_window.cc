@@ -18,9 +18,9 @@
 #include "arrow/result.h"
 #include "arrow/util/utf8.h"
 
-#include "arrow/flight/sql/odbc/odbc_impl/ui/dsn_configuration_window.h"
-
 #include "arrow/flight/sql/odbc/odbc_impl/flight_sql_connection.h"
+#include "arrow/flight/sql/odbc/odbc_impl/ui/add_property_window.h"
+#include "arrow/flight/sql/odbc/odbc_impl/ui/dsn_configuration_window.h"
 #include "arrow/flight/sql/odbc/odbc_impl/util.h"
 
 #include <Shlwapi.h>
@@ -30,16 +30,13 @@
 #include <sql.h>
 #include <sstream>
 
-#include "arrow/flight/sql/odbc/odbc_impl/ui/add_property_window.h"
-
 #define COMMON_TAB 0
 #define ADVANCED_TAB 1
 
 namespace arrow::flight::sql::odbc {
 namespace {
 std::string TestConnection(const config::Configuration& config) {
-  std::unique_ptr<FlightSqlConnection> flight_sql_conn(
-      new FlightSqlConnection(OdbcVersion::V_3));
+  std::unique_ptr<FlightSqlConnection> flight_sql_conn(new FlightSqlConnection(V_3));
 
   std::vector<std::string_view> missing_properties;
   flight_sql_conn->Connect(config.GetProperties(), missing_properties);
@@ -250,6 +247,7 @@ int DsnConfigurationWindow::CreateEncryptionSettingsGroup(int pos_x, int pos_y,
 
   std::string val = config_.Get(FlightSqlConnection::USE_ENCRYPTION);
 
+  // Enable encryption default value is true
   const bool enable_encryption = util::AsBool(val).value_or(true);
   labels_.push_back(CreateLabel(label_pos_x, row_pos, LABEL_WIDTH, ROW_HEIGHT,
                                 L"Use Encryption:", ChildId::ENABLE_ENCRYPTION_LABEL));
@@ -275,6 +273,7 @@ int DsnConfigurationWindow::CreateEncryptionSettingsGroup(int pos_x, int pos_y,
 
   val = config_.Get(FlightSqlConnection::USE_SYSTEM_TRUST_STORE).c_str();
 
+  // System trust store default value is true
   const bool use_system_cert_store = util::AsBool(val).value_or(true);
   labels_.push_back(CreateLabel(label_pos_x, row_pos, LABEL_WIDTH, 2 * ROW_HEIGHT,
                                 L"Use System Certificate Store:",

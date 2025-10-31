@@ -46,13 +46,6 @@ class Configuration {
    */
   ~Configuration();
 
-  /**
-   * Convert configure to connect string.
-   *
-   * @return Connect string.
-   */
-  std::string ToConnectString() const;
-
   void LoadDefaults();
   void LoadDsn(const std::string& dsn);
 
@@ -61,7 +54,7 @@ class Configuration {
   const std::string& Get(const std::string_view& key) const;
   void Set(const std::string_view& key, const std::wstring& wvalue);
   void Set(const std::string_view& key, const std::string& value);
-
+  void Emplace(const std::string_view& key, std::string&& value);
   /**
    * Get properties map.
    */
