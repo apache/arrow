@@ -47,7 +47,7 @@ documentation and source code for these libraries.
      - `Go Docs <https://arrow.apache.org/go/>`_ :fa:`external-link-alt`
      - `Go Source <https://github.com/apache/arrow-go>`_
    * - Java
-     - :doc:`Java Docs<java/index>`
+     - `Java Docs <https://arrow.apache.org/java/>`_ :fa:`external-link-alt`
      - `Java Source <https://github.com/apache/arrow-java>`_
    * - JavaScript
      - `JavaScript Docs <https://arrow.apache.org/js/>`_ :fa:`external-link-alt`
