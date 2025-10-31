@@ -236,10 +236,11 @@ jobs:
           echo "Current protobuf version:"
           brew list --versions protobuf
           brew uninstall --ignore-dependencies protobuf
-          brew install protobuf@32
-          brew link protobuf@32 --force
+          # Install protobuf 32.1 from Homebrew formula before the 33.0 update (Oct 15)
+          # Using commit fb3f8063367841cdc08d81362969ce2f530d1ae3 from Sep 14, 2025
+          brew install https://raw.githubusercontent.com/Homebrew/homebrew-core/fb3f8063367841cdc08d81362969ce2f530d1ae3/Formula/p/protobuf.rb
           echo "Pinned protobuf version:"
-          brew list --versions protobuf@32
+          brew list --versions protobuf
       - name: Install MinIO
         run: |
           $(brew --prefix bash)/bin/bash \
