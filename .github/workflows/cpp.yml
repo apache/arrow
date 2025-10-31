@@ -230,6 +230,16 @@ jobs:
           brew uninstall pkg-config || :
           brew uninstall pkg-config@0.29.2 || :
           brew bundle --file=cpp/Brewfile
+      - name: Pin Protobuf to 32.1 for testing (GH-47957)
+        if: matrix.architecture == 'ARM64'
+        run: |
+          echo "Current protobuf version:"
+          brew list --versions protobuf
+          brew uninstall protobuf
+          brew install protobuf@32
+          brew link protobuf@32 --force
+          echo "Pinned protobuf version:"
+          brew list --versions protobuf@32
       - name: Install MinIO
         run: |
           $(brew --prefix bash)/bin/bash \
