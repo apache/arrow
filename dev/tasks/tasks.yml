@@ -683,6 +683,12 @@ tasks:
     params:
       MATRIX: {{ "${{ matrix.r_version }}" }}
 
+  test-r-alpine-linux:
+    ci: github
+    template: docker-tests/github.linux.yml
+    params:
+      image: alpine-linux-r
+
   test-r-install-local:
     ci: github
     template: r/github.macos-linux.local.yml
