@@ -483,6 +483,28 @@ binary values look like.
 
 .. _variant_primitive_type_mapping:
 
+Timestamp With Offset
+=============
+This type represents a timestamp column that stores potentially different timezone offsets per value. The timestamp is stored in UTC alongside the original timezone offset in minutes.
+
+* Extension name: ``arrow.timestamp_with_offset``.
+
+* The storage type of the extension is a ``Struct`` with 2 fields, in order:
+
+  * ``timestamp``: a non-nullable ``Timestamp(time_unit, "UTC")``, where ``time_unit`` is any Arrow ``TimeUnit`` (s, ms, us or ns).
+
+  * ``offset_minutes``: a non-nullable signed 16-bit integer (``Int16``) representing the offset in minutes from the UTC timezone. Negative offsets represent time zones west of UTC, while positive offsets represent east. Offsets range from -779 (-12:59) to +780 (+13:00).
+
+* Extension type parameters:
+
+  * ``time_unit``: the time-unit of each of the stored UTC timestamps.
+
+* Description of the serialization:
+
+  Extension metadata is an empty string.
+
+  When de/serializing to/from JSON, this type must be represented as an RFC3339 string, respecting the ``TimeUnit`` precision and time zone offset without loss of information. For example ``2025-01-01T00:00:00Z`` represents January 1st 2025 in UTC with second precision, and ``2025-01-01T00:00:00.000000001-07:00`` represents one nanosecond after January 1st 2025 in UTC-07.
+
 Primitive Type Mappings
 -----------------------
 
