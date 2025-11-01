@@ -265,6 +265,8 @@ class ParquetFile:
         If True, read Parquet logical types as Arrow extension types where possible,
         (e.g., read JSON as the canonical `arrow.json` extension type or UUID as
         the canonical `arrow.uuid` extension type).
+    read_ree : list
+        List of column names to read directly as an REE Encoded Array.
 
     Examples
     --------
@@ -314,7 +316,7 @@ class ParquetFile:
                  coerce_int96_timestamp_unit=None,
                  decryption_properties=None, thrift_string_size_limit=None,
                  thrift_container_size_limit=None, filesystem=None,
-                 page_checksum_verification=False, arrow_extensions_enabled=True):
+                 page_checksum_verification=False, arrow_extensions_enabled=True, read_ree=None):
 
         self._close_source = getattr(source, 'closed', True)
 
@@ -336,6 +338,7 @@ class ParquetFile:
             thrift_container_size_limit=thrift_container_size_limit,
             page_checksum_verification=page_checksum_verification,
             arrow_extensions_enabled=arrow_extensions_enabled,
+            read_ree=read_ree,
         )
         self.common_metadata = common_metadata
         self._nested_paths_by_prefix = self._build_nested_paths()
@@ -1350,7 +1353,8 @@ Examples
                  decryption_properties=None, thrift_string_size_limit=None,
                  thrift_container_size_limit=None,
                  page_checksum_verification=False,
-                 arrow_extensions_enabled=True):
+                 arrow_extensions_enabled=True,
+                 read_ree=None):
         import pyarrow.dataset as ds
 
         # map format arguments
@@ -1369,6 +1373,9 @@ Examples
                                 buffer_size=buffer_size)
         if read_dictionary is not None:
             read_options.update(dictionary_columns=read_dictionary)
+
+        if read_ree is not None:
+            read_options.update(ree_columns=read_ree)
 
         if decryption_properties is not None:
             read_options.update(decryption_properties=decryption_properties)
@@ -1846,7 +1853,8 @@ def read_table(source, *, columns=None, use_threads=True,
                decryption_properties=None, thrift_string_size_limit=None,
                thrift_container_size_limit=None,
                page_checksum_verification=False,
-               arrow_extensions_enabled=True):
+               arrow_extensions_enabled=True,
+               read_ree=None):
 
     try:
         dataset = ParquetDataset(
@@ -1868,6 +1876,7 @@ def read_table(source, *, columns=None, use_threads=True,
             thrift_container_size_limit=thrift_container_size_limit,
             page_checksum_verification=page_checksum_verification,
             arrow_extensions_enabled=arrow_extensions_enabled,
+            read_ree=read_ree
         )
     except ImportError:
         # fall back on ParquetFile for simple cases when pyarrow.dataset
@@ -1902,6 +1911,7 @@ def read_table(source, *, columns=None, use_threads=True,
             thrift_string_size_limit=thrift_string_size_limit,
             thrift_container_size_limit=thrift_container_size_limit,
             page_checksum_verification=page_checksum_verification,
+            read_ree=read_ree
         )
 
     return dataset.read(columns=columns, use_threads=use_threads,
