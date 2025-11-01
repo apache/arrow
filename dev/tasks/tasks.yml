@@ -184,7 +184,9 @@ tasks:
                                                ("3.11", "cp311", "cp311"),
                                                ("3.12", "cp312", "cp312"),
                                                ("3.13", "cp313", "cp313"),
-                                               ("3.13", "cp313", "cp313t")] %}
+                                               ("3.13", "cp313", "cp313t"),
+                                               ("3.14", "cp314", "cp314"),
+                                               ("3.14", "cp314", "cp314t")] %}
 
 {############################## Wheel Linux ##################################}
 
@@ -555,7 +557,7 @@ tasks:
         UBUNTU: 22.04
       image: ubuntu-cpp-emscripten
 
-{% for python_version in ["3.10", "3.11", "3.12", "3.13"] %}
+{% for python_version in ["3.10", "3.11", "3.12", "3.13", "3.14"] %}
   test-conda-python-{{ python_version }}:
     ci: github
     template: docker-tests/github.linux.yml

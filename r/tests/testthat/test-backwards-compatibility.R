@@ -40,7 +40,9 @@ expect_identical_with_metadata <- function(object, expected, ..., top_level = TR
   if (!top_level) {
     # remove not-tbl and not-data.frame attributes
     for (attribute in names(attributes(expected))) {
-      if (attribute %in% attrs_to_keep) next
+      if (attribute %in% attrs_to_keep) {
+        next
+      }
       attributes(expected)[[attribute]] <- NULL
     }
   }

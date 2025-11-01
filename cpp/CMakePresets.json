@@ -584,6 +584,37 @@
       "cacheVariables": {}
     },
     {
+      "name": "ninja-release-jni-linux",
+      "inherits": [
+        "base-release"
+      ],
+      "displayName": "Build for JNI on Linux",
+      "cacheVariables": {
+        "ARROW_ACERO": "ON",
+        "ARROW_BUILD_SHARED": "OFF",
+        "ARROW_BUILD_STATIC": "ON",
+        "ARROW_CSV": "ON",
+        "ARROW_DATASET": "ON",
+        "ARROW_DEPENDENCY_SOURCE": "VCPKG",
+        "ARROW_DEPENDENCY_USE_SHARED": "OFF",
+        "ARROW_GANDIVA": "ON",
+        "ARROW_GANDIVA_STATIC_LIBSTDCPP": "ON",
+        "ARROW_GCS": "ON",
+        "ARROW_JSON": "ON",
+        "ARROW_ORC": "ON",
+        "ARROW_PARQUET": "ON",
+        "ARROW_RPATH_ORIGIN": "ON",
+        "ARROW_S3": "ON",
+        "ARROW_SUBSTRAIT": "ON",
+        "PARQUET_BUILD_EXAMPLES": "OFF",
+        "PARQUET_BUILD_EXECUTABLES": "OFF",
+        "PARQUET_REQUIRE_ENCRYPTION": "OFF",
+        "VCPKG_MANIFEST_MODE": "OFF",
+        "VCPKG_ROOT": "$env{VCPKG_ROOT}",
+        "VCPKG_TARGET_TRIPLET": "$env{VCPKG_TARGET_TRIPLET}"
+      }
+    },
+    {
       "name": "ninja-release-jni-macos",
       "inherits": [
         "base-release"

@@ -33,8 +33,8 @@ else()
   set(ODBCINST odbcinst)
 endif()
 
-add_subdirectory(flight_sql)
-add_subdirectory(odbcabstraction)
+add_subdirectory(odbc_impl)
+add_subdirectory(tests)
 
 arrow_install_all_headers("arrow/flight/sql/odbc")
 
@@ -56,7 +56,7 @@ add_arrow_lib(arrow_flight_sql_odbc
               DEPENDENCIES
               arrow_flight_sql
               DEFINITIONS
-              FMT_HEADER_ONLY
+              UNICODE
               SHARED_LINK_FLAGS
               ${ARROW_VERSION_SCRIPT_FLAGS} # Defined in cpp/arrow/CMakeLists.txt
               SHARED_LINK_LIBS
@@ -70,7 +70,6 @@ add_arrow_lib(arrow_flight_sql_odbc
               SHARED_PRIVATE_LINK_LIBS
               ODBC::ODBC
               ${ODBCINST}
-              odbcabstraction
               arrow_odbc_spi_impl)
 
 foreach(LIB_TARGET ${ARROW_FLIGHT_SQL_ODBC_LIBRARIES})

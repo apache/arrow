@@ -53,6 +53,7 @@ RUN dnf update -y && \
         make \
         ninja-build \
         openssl-devel \
+        patch \
         protobuf-devel \
         python \
         python-devel \

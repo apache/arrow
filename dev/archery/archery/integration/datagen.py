@@ -28,7 +28,7 @@ import shutil
 import numpy as np
 
 from .util import frombytes, tobytes, random_bytes, random_utf8
-from .util import SKIP_C_SCHEMA, SKIP_C_ARRAY, SKIP_FLIGHT
+from .util import SKIP_C_SCHEMA, SKIP_FLIGHT
 
 
 def metadata_key_values(pairs):
@@ -2017,9 +2017,6 @@ def get_generated_json_files(tempdir=None):
 
         generate_extension_case()
         .skip_tester('nanoarrow')
-        # TODO: ensure the extension is registered in the C++ entrypoint
-        .skip_format(SKIP_C_SCHEMA, 'C++')
-        .skip_format(SKIP_C_ARRAY, 'C++')
         # TODO(https://github.com/apache/arrow/issues/38045)
         .skip_format(SKIP_FLIGHT, '.NET'),
     ]

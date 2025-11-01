@@ -447,3 +447,43 @@ def test_parquet_content_defined_chunking_parameters(tempdir):
     # using min_chunk_size, max_chunk_size and norm_level
     cdc_options = {"min_chunk_size": 32_768, "max_chunk_size": 65_536, "norm_level": 1}
     pq.write_table(table, path, use_content_defined_chunking=cdc_options)
+
+
+@pytest.mark.parametrize("time_type, time_unit", [
+    (pa.time32, "s"),
+    (pa.time32, "ms"),
+    (pa.time64, "us"),
+    (pa.time64, "ns"),
+])
+@pytest.mark.parametrize("utc_flag_val", [False, True])
+def test_arrow_writer_props_time_adjusted_to_utc(
+    tempdir,
+    utc_flag_val,
+    time_type,
+    time_unit,
+):
+    # GH-47441
+    filename = tempdir / "time_adjusted_to_utc.parquet"
+
+    time_values = [0, 123, 10_000, 86_399]
+
+    table = pa.table({
+        "time_col": pa.array(time_values, type=time_type(time_unit)),
+    })
+
+    schema = pa.schema([
+        ("time_col", time_type(time_unit)),
+    ])
+
+    with pq.ParquetWriter(
+        where=filename,
+        schema=schema,
+        write_time_adjusted_to_utc=utc_flag_val,
+    ) as writer:
+        writer.write_table(table)
+
+    result = pq.read_table(filename, schema=schema)
+
+    result.validate(full=True)
+
+    assert result.equals(table)

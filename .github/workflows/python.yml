@@ -29,7 +29,7 @@ on:
       - '.github/workflows/python.yml'
       - 'ci/**'
       - 'cpp/**'
-      - 'docker-compose.yml'
+      - 'compose.yaml'
       - 'python/**'
   pull_request:
     paths:
@@ -37,7 +37,7 @@ on:
       - '.github/workflows/python.yml'
       - 'ci/**'
       - 'cpp/**'
-      - 'docker-compose.yml'
+      - 'compose.yaml'
       - 'python/**'
 
 concurrency:

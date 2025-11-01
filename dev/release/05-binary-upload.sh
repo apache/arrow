@@ -86,15 +86,18 @@ upload_to_github_release() {
     local base_name
     base_name="$(basename "${target}")"
     cp -a "${target}" "${dist_dir}/${base_name}"
-    gpg \
-      --armor \
-      --detach-sign \
-      --local-user "${GPG_KEY_ID}" \
-      --output "${dist_dir}/${base_name}.asc" \
-      "${target}"
-    pushd "${dist_dir}"
-    shasum -a 512 "${base_name}" >"${base_name}.sha512"
-    popd
+    # Skip signing/checksumming .sha512 files (e.g., R binaries already include checksums from CI)
+    if [[ "${base_name}" != *.sha512 ]]; then
+      gpg \
+        --armor \
+        --detach-sign \
+        --local-user "${GPG_KEY_ID}" \
+        --output "${dist_dir}/${base_name}.asc" \
+        "${target}"
+      pushd "${dist_dir}"
+      shasum -a 512 "${base_name}" >"${base_name}.sha512"
+      popd
+    fi
   done
   gh release upload \
     --repo apache/arrow \

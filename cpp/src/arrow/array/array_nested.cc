@@ -1134,7 +1134,8 @@ Result<std::shared_ptr<Array>> StructArray::GetFlattenedField(int index,
   std::shared_ptr<Buffer> flattened_null_bitmap;
   int64_t flattened_null_count = kUnknownNullCount;
 
-  // Need to adjust for parent offset
+  // Push any non-trivial slicing on the parent to the child
+  // (including cases with offset = 0)
   if (data_->offset != 0 || data_->length != child_data->length) {
     child_data = child_data->Slice(data_->offset, data_->length);
   }

@@ -22,12 +22,16 @@ on:
     branches:
       - '**'
       - '!dependabot/**'
+      - '!release-*'
     paths:
       - '.github/workflows/check_labels.yml'
       - '.github/workflows/package_linux.yml'
       - '.github/workflows/report_ci.yml'
       - 'cpp/**'
       - 'c_glib/**'
+      - 'dev/release/binary-task.rb'
+      - 'dev/release/verify-apt.rb'
+      - 'dev/release/verify-yum.rb'
       - 'dev/tasks/linux-packages/**'
       - 'format/Flight.proto'
     tags:
@@ -39,6 +43,9 @@ on:
       - '.github/workflows/report_ci.yml'
       - 'cpp/**'
       - 'c_glib/**'
+      - 'dev/release/binary-task.rb'
+      - 'dev/release/verify-apt.rb'
+      - 'dev/release/verify-yum.rb'
       - 'dev/tasks/linux-packages/**'
       - 'format/Flight.proto'
     types:
@@ -207,7 +214,7 @@ jobs:
           rake version:update
           popd
       - name: Login to GitHub Container registry
-        uses: docker/login-action@184bdaa0721073962dff0199f1fb9940f07167d1 # v3.5.0
+        uses: docker/login-action@5e57cd118135c172c3672efd75eb46360885c0ef # v3.6.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -266,7 +273,7 @@ jobs:
           tar cvzf ${{ matrix.id }}.tar.gz ${DISTRIBUTION}
           dev/release/utils-generate-checksum.sh ${{ matrix.id }}.tar.gz
       - name: Upload the artifacts to the job
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
         with:
           name: ${{ matrix.id }}
           path: ${{ matrix.id }}.tar.gz*
@@ -313,6 +320,7 @@ jobs:
           popd
 
   report-package-linux:
+    if: github.event_name == 'schedule' && always()
     needs:
       - package
     uses: ./.github/workflows/report_ci.yml

@@ -236,10 +236,7 @@ register_bindings_string_regex <- function() {
     )
   }
 
-  register_binding("base::grepl", function(pattern,
-                                           x,
-                                           ignore.case = FALSE,
-                                           fixed = FALSE) {
+  register_binding("base::grepl", function(pattern, x, ignore.case = FALSE, fixed = FALSE) {
     arrow_fun <- ifelse(fixed, "match_substring", "match_substring_regex")
     out <- create_string_match_expr(
       arrow_fun,
@@ -250,15 +247,10 @@ register_bindings_string_regex <- function() {
     call_binding("if_else", call_binding("is.na", out), FALSE, out)
   })
 
-
   register_binding("stringr::str_detect", function(string, pattern, negate = FALSE) {
     opts <- get_stringr_pattern_options(enquo(pattern))
     arrow_fun <- ifelse(opts$fixed, "match_substring", "match_substring_regex")
-    out <- create_string_match_expr(arrow_fun,
-      string = string,
-      pattern = opts$pattern,
-      ignore_case = opts$ignore_case
-    )
+    out <- create_string_match_expr(arrow_fun, string = string, pattern = opts$pattern, ignore_case = opts$ignore_case)
     if (negate) {
       out <- !out
     }
@@ -409,8 +401,7 @@ register_bindings_string_regex <- function() {
     Expression$create("coalesce", string, Expression$scalar(replacement))
   })
 
-  register_binding("base::strsplit", function(x, split, fixed = FALSE, perl = FALSE,
-                                              useBytes = FALSE) {
+  register_binding("base::strsplit", function(x, split, fixed = FALSE, perl = FALSE, useBytes = FALSE) {
     assert_that(is.string(split))
 
     arrow_fun <- ifelse(fixed, "split_pattern", "split_pattern_regex")
@@ -430,10 +421,7 @@ register_bindings_string_regex <- function() {
 
   register_binding(
     "stringr::str_split",
-    function(string,
-             pattern,
-             n = Inf,
-             simplify = FALSE) {
+    function(string, pattern, n = Inf, simplify = FALSE) {
       opts <- get_stringr_pattern_options(enquo(pattern))
       arrow_fun <- ifelse(opts$fixed, "split_pattern", "split_pattern_regex")
       if (opts$ignore_case) {
@@ -506,7 +494,8 @@ register_bindings_string_other <- function() {
 
   register_binding("stringr::str_trim", function(string, side = c("both", "left", "right")) {
     side <- match.arg(side)
-    trim_fun <- switch(side,
+    trim_fun <- switch(
+      side,
       left = "utf8_ltrim_whitespace",
       right = "utf8_rtrim_whitespace",
       both = "utf8_trim_whitespace"
@@ -563,49 +552,47 @@ register_bindings_string_other <- function() {
     call_binding("substr", x = text, start = first, stop = last)
   })
 
-  register_binding("stringr::str_sub", function(string, start = 1L, end = -1L) {
-    if (length(start) != 1) {
-      arrow_not_supported("`start` must be length 1 - other lengths")
-    }
-    if (length(end) != 1) {
-      arrow_not_supported("`end` must be length 1 - other lengths")
-    }
+  register_binding(
+    "stringr::str_sub",
+    function(string, start = 1L, end = -1L) {
+      if (length(start) != 1) {
+        arrow_not_supported("`start` must be length 1 - other lengths")
+      }
+      if (length(end) != 1) {
+        arrow_not_supported("`end` must be length 1 - other lengths")
+      }
 
-    # In stringr::str_sub, an `end` value of -1 means the end of the string, so
-    # set it to the maximum integer to match this behavior
-    if (end == -1) {
-      end <- .Machine$integer.max
-    }
+      # In stringr::str_sub, an `end` value of -1 means the end of the string, so
+      # set it to the maximum integer to match this behavior
+      if (end == -1) {
+        end <- .Machine$integer.max
+      }
 
-    # strings returned by utf8_slice_codeunits are exclusive of the `end` position.
-    # stringr::str_sub returns strings inclusive of the `end` position, so add 1 to `end`.
-    # NOTE:this isn't necessary for positive values of `end`, because utf8_slice_codeunits
-    # is 0-based while R is 1-based, which cancels out the effect of the exclusive `end`
-    if (end < -1) {
-      end <- end + 1L
-    }
+      # strings returned by utf8_slice_codeunits are exclusive of the `end` position.
+      # stringr::str_sub returns strings inclusive of the `end` position, so add 1 to `end`.
+      # NOTE:this isn't necessary for positive values of `end`, because utf8_slice_codeunits
+      # is 0-based while R is 1-based, which cancels out the effect of the exclusive `end`
+      if (end < -1) {
+        end <- end + 1L
+      }
 
-    # subtract 1 from `start` because C++ is 0-based and R is 1-based
-    # str_sub treats a `start` value of 0 or 1 as the same thing so don't subtract 1 when `start` == 0
-    # when `start` < 0, both str_sub and utf8_slice_codeunits count backwards from the end
-    if (start > 0) {
-      start <- start - 1L
-    }
+      # subtract 1 from `start` because C++ is 0-based and R is 1-based
+      # str_sub treats a `start` value of 0 or 1 as the same thing so don't subtract 1 when `start` == 0
+      # when `start` < 0, both str_sub and utf8_slice_codeunits count backwards from the end
+      if (start > 0) {
+        start <- start - 1L
+      }
 
-    Expression$create(
-      "utf8_slice_codeunits",
-      string,
-      options = list(start = start, stop = end)
-    )
-  },
-  notes = "`start` and `end` must be length 1"
+      Expression$create(
+        "utf8_slice_codeunits",
+        string,
+        options = list(start = start, stop = end)
+      )
+    },
+    notes = "`start` and `end` must be length 1"
   )
 
-
-  register_binding("stringr::str_pad", function(string,
-                                                width,
-                                                side = c("left", "right", "both"),
-                                                pad = " ") {
+  register_binding("stringr::str_pad", function(string, width, side = c("left", "right", "both"), pad = " ") {
     assert_that(is_integerish(width))
     side <- match.arg(side)
     assert_that(is.string(pad))

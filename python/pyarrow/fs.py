@@ -382,7 +382,7 @@ class FSSpecHandler(FileSystemHandler):
         self._delete_dir_contents(path, missing_dir_ok)
 
     def delete_root_dir_contents(self):
-        self._delete_dir_contents("/")
+        self._delete_dir_contents("/", False)
 
     def delete_file(self, path):
         # fs.rm correctly raises IsADirectoryError when `path` is a directory

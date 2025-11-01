@@ -15,6 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
+from datetime import datetime
 from functools import cached_property
 
 import requests
@@ -44,6 +45,12 @@ class Workflow:
                 f'Failed to fetch workflow data: {workflow_resp.status_code}')
 
     @property
+    def datetime(self):
+        return datetime.strptime(
+            self.workflow_data.get('created_at'), "%Y-%m-%dT%H:%M:%SZ"
+        )
+
+    @property
     def conclusion(self):
         return self.workflow_data.get('conclusion')
 
@@ -70,7 +77,7 @@ class Workflow:
                 # from the reusable workflow this will be report-ci.
                 # The real job_data['name'] is the display name, like
                 # "report-extra-cpp / report-ci".
-                if self.ignore_job in job_data.get('name'):
+                if self.ignore_job not in job_data.get('name'):
                     job = Job(job_data)
                     jobs.append(job)
         return jobs

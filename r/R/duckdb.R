@@ -50,10 +50,12 @@
 #'   group_by(cyl) |>
 #'   to_duckdb() |>
 #'   slice_min(disp)
-to_duckdb <- function(.data,
-                      con = arrow_duck_connection(),
-                      table_name = unique_arrow_tablename(),
-                      auto_disconnect = TRUE) {
+to_duckdb <- function(
+  .data,
+  con = arrow_duck_connection(),
+  table_name = unique_arrow_tablename(),
+  auto_disconnect = TRUE
+) {
   .data <- as_adq(.data)
   if (!requireNamespace("duckdb", quietly = TRUE)) {
     abort("Please install the `duckdb` package to pass data with `to_duckdb()`.")
@@ -91,15 +93,19 @@ arrow_duck_connection <- function() {
     # This bit of code will run when the package namespace is cleaned up (i.e.,
     # at exit). This is more reliable than .onUnload() or .onDetach(), which
     # don't necessarily run on exit.
-    reg.finalizer(arrow_duck_finalizer, function(...) {
-      con <- getOption("arrow_duck_con")
-      if (is.null(con)) {
-        return()
-      }
+    reg.finalizer(
+      arrow_duck_finalizer,
+      function(...) {
+        con <- getOption("arrow_duck_con")
+        if (is.null(con)) {
+          return()
+        }
 
-      options(arrow_duck_con = NULL)
-      DBI::dbDisconnect(con, shutdown = TRUE)
-    }, onexit = TRUE)
+        options(arrow_duck_con = NULL)
+        DBI::dbDisconnect(con, shutdown = TRUE)
+      },
+      onexit = TRUE
+    )
 
     options(arrow_duck_con = con)
   }

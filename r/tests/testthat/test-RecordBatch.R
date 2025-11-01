@@ -30,8 +30,10 @@ test_that("RecordBatch", {
   expect_equal(
     batch$schema,
     schema(
-      int = int32(), dbl = float64(),
-      lgl = boolean(), chr = utf8(),
+      int = int32(),
+      dbl = float64(),
+      lgl = boolean(),
+      chr = utf8(),
       fct = dictionary(int8(), utf8())
     )
   )
@@ -758,7 +760,6 @@ test_that("RecordBatch to C-interface", {
   delete_arrow_schema(schema_ptr)
   delete_arrow_array(array_ptr)
 })
-
 
 
 test_that("RecordBatchReader to C-interface to arrow_dplyr_query", {

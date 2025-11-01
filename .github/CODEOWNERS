@@ -60,7 +60,7 @@ appveyor.yml @assignUser @kou @raulcd
 /dev/ @assignUser @jonkeane @kou @raulcd
 .dockerignore @raulcd
 .env @assignUser @jonkeane @kou @raulcd
-docker-compose.yml @assignUser @jonkeane @kou @raulcd
+compose.yaml @assignUser @jonkeane @kou @raulcd
 
 # R specific packaging tooling
 /r/configure* @assignUser
