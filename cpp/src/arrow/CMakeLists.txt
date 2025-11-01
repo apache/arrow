@@ -509,6 +509,7 @@ set(ARROW_UTIL_SRCS
     util/future.cc
     util/hashing.cc
     util/int_util.cc
+    util/int128_internal.cc
     util/io_util.cc
     util/list_util.cc
     util/logger.cc

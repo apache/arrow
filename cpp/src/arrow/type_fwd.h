@@ -269,7 +269,7 @@ struct Date64Scalar;
 
 struct ARROW_EXPORT TimeUnit {
   /// The unit for a time or timestamp DataType
-  enum type { SECOND = 0, MILLI = 1, MICRO = 2, NANO = 3 };
+  enum type { SECOND = 0, MILLI = 1, MICRO = 2, NANO = 3, PICO = 4 };
 
   /// Iterate over all valid time units
   static const std::vector<TimeUnit::type>& values();

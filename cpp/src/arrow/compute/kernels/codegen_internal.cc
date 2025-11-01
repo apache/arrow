@@ -342,6 +342,9 @@ TypeHolder CommonTemporal(const TypeHolder* begin, size_t count) {
       case TimeUnit::MICRO:
       case TimeUnit::NANO:
         return time64(finest_unit);
+      case TimeUnit::PICO:
+        // Type not implemented.
+        return TypeHolder(nullptr);
     }
   }
   return TypeHolder(nullptr);
