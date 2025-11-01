@@ -76,7 +76,9 @@ struct ARROW_EXPORT ArrayStatistics {
   }
 
   /// \brief The number of null values, may not be set
-  std::optional<int64_t> null_count = std::nullopt;
+  /// Note: when set to `int64_t`, it represents `exact_null_count`,
+  /// and when set to `double`, it represents `approximate_null_count`.
+  std::optional<CountType> null_count = std::nullopt;
 
   /// \brief The number of distinct values, may not be set
   /// Note: when set to `int64_t`, it represents `exact_distinct_count`,

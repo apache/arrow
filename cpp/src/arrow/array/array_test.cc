@@ -3934,7 +3934,7 @@ class TestArrayDataStatistics : public ::testing::Test {
 
  protected:
   std::vector<uint8_t> valids_;
-  size_t null_count_;
+  int64_t null_count_;
   double distinct_count_;
   double max_byte_width_;
   double average_byte_width_;
@@ -3951,7 +3951,7 @@ TEST_F(TestArrayDataStatistics, MoveConstructor) {
   ArrayData moved_data(std::move(copied_data));
 
   ASSERT_TRUE(moved_data.statistics->null_count.has_value());
-  ASSERT_EQ(null_count_, moved_data.statistics->null_count.value());
+  ASSERT_EQ(null_count_, std::get<int64_t>(moved_data.statistics->null_count.value()));
 
   ASSERT_TRUE(moved_data.statistics->distinct_count.has_value());
   ASSERT_DOUBLE_EQ(distinct_count_,
@@ -3981,7 +3981,7 @@ TEST_F(TestArrayDataStatistics, CopyConstructor) {
   ArrayData copied_data(*data_);
 
   ASSERT_TRUE(copied_data.statistics->null_count.has_value());
-  ASSERT_EQ(null_count_, copied_data.statistics->null_count.value());
+  ASSERT_EQ(null_count_, std::get<int64_t>(copied_data.statistics->null_count.value()));
 
   ASSERT_TRUE(copied_data.statistics->distinct_count.has_value());
   ASSERT_DOUBLE_EQ(distinct_count_,
@@ -4013,7 +4013,7 @@ TEST_F(TestArrayDataStatistics, MoveAssignment) {
   moved_data = std::move(copied_data);
 
   ASSERT_TRUE(moved_data.statistics->null_count.has_value());
-  ASSERT_EQ(null_count_, moved_data.statistics->null_count.value());
+  ASSERT_EQ(null_count_, std::get<int64_t>(moved_data.statistics->null_count.value()));
 
   ASSERT_TRUE(moved_data.statistics->distinct_count.has_value());
   ASSERT_DOUBLE_EQ(distinct_count_,
@@ -4044,7 +4044,7 @@ TEST_F(TestArrayDataStatistics, CopyAssignment) {
   copied_data = *data_;
 
   ASSERT_TRUE(copied_data.statistics->null_count.has_value());
-  ASSERT_EQ(null_count_, copied_data.statistics->null_count.value());
+  ASSERT_EQ(null_count_, std::get<int64_t>(copied_data.statistics->null_count.value()));
 
   ASSERT_TRUE(copied_data.statistics->distinct_count.has_value());
   ASSERT_DOUBLE_EQ(distinct_count_,
@@ -4075,7 +4075,7 @@ TEST_F(TestArrayDataStatistics, CopyTo) {
                        data_->CopyTo(arrow::default_cpu_memory_manager()));
 
   ASSERT_TRUE(copied_data->statistics->null_count.has_value());
-  ASSERT_EQ(null_count_, copied_data->statistics->null_count.value());
+  ASSERT_EQ(null_count_, std::get<int64_t>(copied_data->statistics->null_count.value()));
 
   ASSERT_TRUE(copied_data->statistics->min.has_value());
   ASSERT_TRUE(std::holds_alternative<int64_t>(copied_data->statistics->min.value()));
