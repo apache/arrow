@@ -45,29 +45,11 @@ install_headers(
 )
 
 grpc_dep = dependency('grpc++')
-protobuf_dep = dependency('protobuf')
 abseil_sync_dep = dependency('absl_synchronization')
 
 fs = import('fs')
-protoc = find_program('protoc')
 
 flight_proto_path = fs.parent(meson.project_source_root()) / 'format'
-
-# To ensure messages from proto files are created correctly, we need to
-# pass in dllexport_decl=<...> . Unfortunately, it doesn't appear that we
-# can just pass in dllexport_decl=ARROW_FLIGHT_EXPORT, as the visibility
-# macro won't be easily available to the generated proto file. See also
-# https://github.com/protocolbuffers/protobuf/issues/19422
-if cpp_compiler.get_id() == 'msvc'
-    if get_option('default_library') != 'static'
-        proto_visibility = 'dllexport_decl=__declspec(dllexport):'
-    else
-        proto_visibility = ''
-    endif
-else
-    proto_visibility = 'dllexport_decl=__attribute__((visibility("default"))):'
-endif
-
 flight_proto_files = custom_target(
     'arrow-flight-proto-files',
     input: [flight_proto_path / 'Flight.proto'],
