@@ -22,7 +22,7 @@ import warnings
 try:
     import numpy as np
 except ImportError:
-    np = None
+    pass
 import pytest
 
 import pyarrow as pa
@@ -32,7 +32,7 @@ try:
     import pyarrow.parquet as pq
     from pyarrow.tests.parquet.common import _read_table, _write_table
 except ImportError:
-    pq = None
+    pass
 
 
 try:
@@ -41,7 +41,7 @@ try:
 
     from pyarrow.tests.parquet.common import _roundtrip_pandas_dataframe
 except ImportError:
-    pd = tm = None
+    pass
 
 
 # Marks all of the tests in this module
@@ -56,7 +56,7 @@ def test_pandas_parquet_datetime_tz():
     # coerce to [ns] due to lack of non-[ns] support.
     s = pd.Series([datetime.datetime(2017, 9, 6)], dtype='datetime64[us]')
     s = s.dt.tz_localize('utc')
-    s.index = s
+    s.index = s  # type: ignore[assignment]
 
     # Both a column and an index to hit both use cases
     df = pd.DataFrame({'tz_aware': s,
@@ -287,7 +287,8 @@ def test_coerce_int96_timestamp_unit(unit):
 
     # For either Parquet version, coercing to nanoseconds is allowed
     # if Int96 storage is used
-    expected = pa.Table.from_arrays([arrays.get(unit)]*4, names)
+    array_for_unit = arrays.get(unit, a_ns)
+    expected = pa.Table.from_arrays([array_for_unit] * 4, names)
     read_table_kwargs = {"coerce_int96_timestamp_unit": unit}
     _check_roundtrip(table, expected,
                      read_table_kwargs=read_table_kwargs,
@@ -323,6 +324,7 @@ def test_coerce_int96_timestamp_overflow(pq_reader_method, tempdir):
     # with the default resolution of ns, we get wrong values for INT96
     # that are out of bounds for nanosecond range
     tab_error = get_table(pq_reader_method, filename)
+    assert tab_error is not None
     with warnings.catch_warnings():
         warnings.filterwarnings("ignore",
                                 "Discarding nonzero nanoseconds in conversion",
@@ -333,6 +335,7 @@ def test_coerce_int96_timestamp_overflow(pq_reader_method, tempdir):
     tab_correct = get_table(
         pq_reader_method, filename, coerce_int96_timestamp_unit="s"
     )
+    assert tab_correct is not None
     df_correct = tab_correct.to_pandas(timestamp_as_object=True)
     df["a"] = df["a"].astype(object)
     tm.assert_frame_equal(df, df_correct)

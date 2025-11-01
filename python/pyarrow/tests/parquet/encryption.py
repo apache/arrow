@@ -29,7 +29,7 @@ class InMemoryKmsClient(pe.KmsClient):
         pe.KmsClient.__init__(self)
         self.master_keys_map = config.custom_kms_conf
 
-    def wrap_key(self, key_bytes, master_key_identifier):
+    def wrap_key(self, key_bytes, master_key_identifier):  # type: ignore[override]
         """Not a secure cipher - the wrapped key
         is just the master key concatenated with key bytes"""
         master_key_bytes = self.master_keys_map[master_key_identifier].encode(
@@ -38,7 +38,7 @@ class InMemoryKmsClient(pe.KmsClient):
         result = base64.b64encode(wrapped_key)
         return result
 
-    def unwrap_key(self, wrapped_key, master_key_identifier):
+    def unwrap_key(self, wrapped_key, master_key_identifier):  # type: ignore[override]
         """Not a secure cipher - just extract the key from
         the wrapped key"""
         expected_master_key = self.master_keys_map[master_key_identifier]
