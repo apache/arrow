@@ -1890,19 +1890,19 @@ def read_table(source, *, columns=None, use_threads=True,
         if isinstance(source, list):
             raise ValueError(
                 "the 'source' argument cannot be a list of files "
-                "when the pyarrow.dataset is not available"
+                "when the pyarrow.dataset module is not available"
             )
 
         filesystem, path = _resolve_filesystem_and_path(source, filesystem)
         if filesystem is not None:
-            try:
-                source = filesystem.open_input_file(path)
-            except (OSError, FileNotFoundError) as e:
+            if not filesystem.get_file_info(path).is_file:
                 raise ValueError(
                     "the 'source' argument should be "
                     "an existing .parquet file and not a directory, "
-                    "when the pyarrow.dataset is not available"
-                ) from e
+                    "when the pyarrow.dataset module is not available"
+                )
+
+            source = filesystem.open_input_file(path)
 
         dataset = ParquetFile(
             source, read_dictionary=read_dictionary,
