@@ -1003,5 +1003,5 @@ def test_read_table_raises_value_error_when_ds_is_unavailable(
     # GH-47728
     monkeypatch.setitem(sys.modules, "pyarrow.dataset", None)
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="the 'source' argument"):
         pq.read_table(source=source)
