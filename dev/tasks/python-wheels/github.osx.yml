@@ -51,7 +51,7 @@ jobs:
 
       - name: Install System Dependencies
         run: |
-          brew install bash bison coreutils ninja
+          brew install bash bison coreutils mono ninja
           echo "$(brew --prefix bison)/bin" >> $GITHUB_PATH
 
       - name: Homebrew packages
