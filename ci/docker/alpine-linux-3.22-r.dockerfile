@@ -23,11 +23,12 @@ ARG arch=amd64
 FROM ${arch}/alpine:3.22
 
 # Install R and essential build tools
-# Keep minimal to match CRAN's setup (no bash - CRAN uses BusyBox)
+# Note: bash is needed for Arrow CI scripts, even though CRAN's Alpine uses BusyBox
 RUN apk add \
         R \
         R-dev \
         R-doc \
+        bash \
         cmake \
         curl-dev \
         g++ \
