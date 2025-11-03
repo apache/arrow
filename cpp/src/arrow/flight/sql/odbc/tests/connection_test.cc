@@ -220,4 +220,46 @@ TEST(SQLSetEnvAttr, TestSQLSetEnvAttrNullValuePointer) {
   ASSERT_EQ(SQL_SUCCESS, SQLFreeEnv(env));
 }
 
+TYPED_TEST(ConnectionTest, TestSQLAllocFreeStmt) {
+  SQLHSTMT statement;
+
+  // Allocate a statement using alloc statement
+  ASSERT_EQ(SQL_SUCCESS, SQLAllocStmt(this->conn, &statement));
+
+  SQLWCHAR sql_buffer[kOdbcBufferSize] = L"SELECT 1";
+  ASSERT_EQ(SQL_SUCCESS, SQLExecDirect(statement, sql_buffer, SQL_NTS));
+
+  // Close statement handle
+  ASSERT_EQ(SQL_SUCCESS, SQLFreeStmt(statement, SQL_CLOSE));
+
+  // Free statement handle
+  ASSERT_EQ(SQL_SUCCESS, SQLFreeStmt(statement, SQL_DROP));
+}
+
+TYPED_TEST(ConnectionHandleTest, TestCloseConnectionWithOpenStatement) {
+  SQLHSTMT statement;
+
+  // Connect string
+  std::string connect_str = this->GetConnectionString();
+  ASSERT_OK_AND_ASSIGN(std::wstring wconnect_str,
+                       arrow::util::UTF8ToWideString(connect_str));
+  std::vector<SQLWCHAR> connect_str0(wconnect_str.begin(), wconnect_str.end());
+
+  SQLWCHAR out_str[kOdbcBufferSize] = L"";
+  SQLSMALLINT out_str_len;
+
+  // Connecting to ODBC server.
+  ASSERT_EQ(SQL_SUCCESS,
+            SQLDriverConnect(this->conn, NULL, &connect_str0[0],
+                             static_cast<SQLSMALLINT>(connect_str0.size()), out_str,
+                             kOdbcBufferSize, &out_str_len, SQL_DRIVER_NOPROMPT))
+      << GetOdbcErrorMessage(SQL_HANDLE_DBC, this->conn);
+
+  // Allocate a statement using alloc statement
+  ASSERT_EQ(SQL_SUCCESS, SQLAllocStmt(this->conn, &statement));
+
+  // Disconnect from ODBC without closing the statement first
+  ASSERT_EQ(SQL_SUCCESS, SQLDisconnect(this->conn));
+}
+
 }  // namespace arrow::flight::sql::odbc
