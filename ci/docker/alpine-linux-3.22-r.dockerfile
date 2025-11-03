@@ -60,5 +60,22 @@ ENV PKG_SYSREQS=true \
 # Set up parallel compilation
 RUN echo "MAKEFLAGS=-j$(R -s -e 'cat(parallel::detectCores())')" >> /usr/lib/R/etc/Renviron.site
 
+# Configure image and install Arrow-specific tooling
+COPY ci/scripts/r_docker_configure.sh /arrow/ci/scripts/
+COPY ci/etc/rprofile /arrow/ci/etc/
+COPY ci/scripts/r_install_system_dependencies.sh /arrow/ci/scripts/
+COPY ci/scripts/install_minio.sh /arrow/ci/scripts/
+COPY ci/scripts/install_gcs_testbench.sh /arrow/ci/scripts/
+RUN /arrow/ci/scripts/r_docker_configure.sh
+
+# Install sccache
+COPY ci/scripts/install_sccache.sh /arrow/ci/scripts/
+RUN /arrow/ci/scripts/install_sccache.sh unknown-linux-musl /usr/local/bin
+
+# Install R package dependencies
+COPY ci/scripts/r_deps.sh /arrow/ci/scripts/
+COPY r/DESCRIPTION /arrow/r/
+RUN /arrow/ci/scripts/r_deps.sh /arrow
+
 # Verify R works and this is musl
 RUN R --version && ldd --version 2>&1 | grep -q musl
