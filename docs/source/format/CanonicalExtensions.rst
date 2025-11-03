@@ -547,6 +547,7 @@ Primitive Type Mappings
 Timestamp With Offset
 =============
 This type represents a timestamp column that stores potentially different timezone offsets per value. The timestamp is stored in UTC alongside the original timezone offset in minutes.
+This extension type is intended to be compatible with ANSI SQL's ``TIMESTAMP WITH TIME ZONE``, which is supported by multiple database engines.
 
 * Extension name: ``arrow.timestamp_with_offset``.
 
