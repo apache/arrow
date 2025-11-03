@@ -114,6 +114,7 @@ x-hierarchy:
   # service entry, so any new image/service must be listed here.
   - almalinux-verify-rc
   - alpine-linux-cpp
+  - alpine-linux-r
   - centos-cpp-static
   - conda:
     - conda-cpp:
