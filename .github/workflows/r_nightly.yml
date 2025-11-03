@@ -166,7 +166,7 @@ jobs:
           # We want to retain $keep (14) versions of each pkg/lib so we call
           # prune on each leaf dir and not on repo/.
           for dir in "${repo_dirs[@]}"; do
-            prune $dir/arrow*
+            prune $dir/arrow* || :
           done
 
           # New packages: repo/libarrow/${TARGET}-arrow-${VERSION}.zip
