@@ -17,6 +17,7 @@
 
 // These variables are not exposed as they can make compilation caching
 // and increment builds less efficient.
+
 #define ARROW_CXX_COMPILER_FLAGS "@REDACTED_CXX_FLAGS@"
 
 #define ARROW_GIT_ID "@ARROW_GIT_ID@"
