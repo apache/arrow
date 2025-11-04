@@ -329,7 +329,8 @@ test_that("==.Table", {
 test_that("Table$Equals(check_metadata)", {
   tab1 <- Table$create(x = 1:2, y = c("a", "b"))
   tab2 <- Table$create(
-    x = 1:2, y = c("a", "b"),
+    x = 1:2,
+    y = c("a", "b"),
     schema = tab1$schema$WithMetadata(list(some = "metadata"))
   )
 
@@ -476,6 +477,20 @@ test_that("Tables can be combined with concat_tables()", {
   # concat_tables() with one argument returns identical table
   expected <- arrow_table(a = 1:10)
   expect_equal(expected, concat_tables(expected))
+})
+
+test_that("concat_tables() handles RecordBatch objects (GH-47000)", {
+  # concat_tables() should automatically convert RecordBatch to Table
+  tbl <- arrow_table(a = 1:5, b = letters[1:5])
+  rb <- record_batch(a = 6:10, b = letters[6:10])
+
+  # Concatenating a Table with a RecordBatch should work (not segfault)
+  result <- concat_tables(tbl, rb)
+  expect_s3_class(result, "Table")
+  expect_equal(
+    result,
+    arrow_table(a = 1:10, b = letters[1:10])
+  )
 })
 
 test_that("Table supports rbind", {

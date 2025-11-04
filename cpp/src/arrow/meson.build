@@ -280,7 +280,6 @@ if needs_integration or needs_tests
     arrow_components += {
         'arrow_integration': {
             'sources': [
-                'integration/c_data_integration_internal.cc',
                 'integration/json_integration.cc',
                 'integration/json_internal.cc',
             ],
@@ -624,15 +623,47 @@ if needs_testing
         modules: ['filesystem'],
         required: false,
     )
-    if not filesystem_dep.found()
+    base_process_dep = dependency('boost', modules: ['process'], required: false)
+
+    if not (filesystem_dep.found() and base_process_dep.found())
         cmake = import('cmake')
         boost_opt = cmake.subproject_options()
         boost_opt.add_cmake_defines(
-            {'BOOST_INCLUDE_LIBRARIES': 'filesystem;system'},
+            {'BOOST_INCLUDE_LIBRARIES': 'filesystem;process'},
         )
+        if get_option('default_library') != 'static'
+            boost_opt.add_cmake_defines({'BUILD_SHARED_LIBS': 'ON'})
+        endif
         boost_proj = cmake.subproject('boost', options: boost_opt)
         filesystem_dep = boost_proj.dependency('boost_filesystem')
+        base_process_dep = boost_proj.dependency('boost_process')
     endif
+
+    boost_process_have_v2 = false
+    process_compile_args = []
+    if base_process_dep.version() >= '1.86'
+        process_compile_args += [
+            '-DBOOST_PROCESS_HAVE_V1',
+            '-DBOOST_PROCESS_HAVE_V2',
+        ]
+        boost_process_have_v2 = true
+    elif base_process_dep.version() >= '1.80'
+        process_compile_args += ['-DBOOST_PROCESS_HAVE_V2']
+        boost_process_have_v2 = true
+    endif
+
+    if (boost_process_have_v2 and host_machine.system() != 'windows')
+        # We can't use v2 API on Windows because v2 API doesn't support
+        # process group[1] and GCS testbench uses multiple processes[2].
+        #
+        # [1] https://github.com/boostorg/process/issues/259
+        # [2] https://github.com/googleapis/storage-testbench/issues/669
+        process_compile_args += ['-DBOOST_PROCESS_USE_V2']
+    endif
+    process_dep = declare_dependency(
+        dependencies: [base_process_dep],
+        compile_args: process_compile_args,
+    )
 
     gtest_dep = dependency('gtest')
     gtest_main_dep = dependency('gtest_main')
@@ -640,6 +671,7 @@ if needs_testing
     gmock_dep = dependency('gmock')
 else
     filesystem_dep = disabler()
+    process_dep = disabler()
     gtest_dep = disabler()
     gtest_main_dep = disabler()
     gtest_dep = disabler()
@@ -650,7 +682,13 @@ if needs_testing
     arrow_testing_lib = static_library(
         'arrow_testing',
         sources: arrow_testing_srcs,
-        dependencies: [arrow_dep, filesystem_dep, gmock_dep, gtest_dep],
+        dependencies: [
+            arrow_dep,
+            process_dep,
+            filesystem_dep,
+            gmock_dep,
+            gtest_dep,
+        ],
     )
 
     arrow_testing_dep = declare_dependency(link_with: [arrow_testing_lib])

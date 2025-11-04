@@ -1191,10 +1191,9 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang" AND CMAKE_CXX_COMPILER_VERSION VERSION
   # GH-34094 Older versions of Boost use the deprecated std::unary_function in
   # boost/container_hash/hash.hpp and support for that was removed in clang 16
   set(ARROW_BOOST_REQUIRED_VERSION "1.81")
-elseif(ARROW_BUILD_TESTS)
-  set(ARROW_BOOST_REQUIRED_VERSION "1.64")
 else()
-  set(ARROW_BOOST_REQUIRED_VERSION "1.58")
+  # CentOS 7 uses Boost 1.69.
+  set(ARROW_BOOST_REQUIRED_VERSION "1.69")
 endif()
 
 set(Boost_USE_MULTITHREADED ON)
@@ -1202,7 +1201,14 @@ if(MSVC AND ARROW_USE_STATIC_CRT)
   set(Boost_USE_STATIC_RUNTIME ON)
 endif()
 # CMake 3.25.0 has 1.80 and older versions.
+#
+# We can remove this once we require CMake 3.30.0 or later because we
+# enable CMP0167 "The FindBoost module is removed."
+# https://cmake.org/cmake/help/latest/policy/CMP0167.html with CMake
+# 3.30.0 or later.
 set(Boost_ADDITIONAL_VERSIONS
+    "1.89.0"
+    "1.89"
     "1.88.0"
     "1.88"
     "1.87.0"
@@ -1273,8 +1279,8 @@ if(ARROW_USE_BOOST)
     set(Boost_USE_STATIC_LIBS ON)
   endif()
   if(ARROW_BOOST_REQUIRE_LIBRARY)
-    set(ARROW_BOOST_COMPONENTS filesystem system)
-    if(ARROW_FLIGHT_SQL_ODBC AND MSVC)
+    set(ARROW_BOOST_COMPONENTS filesystem)
+    if(ARROW_FLIGHT_SQL_ODBC)
       list(APPEND ARROW_BOOST_COMPONENTS locale)
     endif()
     if(ARROW_ENABLE_THREADING)
@@ -1326,9 +1332,6 @@ if(ARROW_USE_BOOST)
       add_library(arrow::Boost::process INTERFACE IMPORTED)
       if(TARGET Boost::filesystem)
         target_link_libraries(arrow::Boost::process INTERFACE Boost::filesystem)
-      endif()
-      if(TARGET Boost::system)
-        target_link_libraries(arrow::Boost::process INTERFACE Boost::system)
       endif()
       if(TARGET Boost::headers)
         target_link_libraries(arrow::Boost::process INTERFACE Boost::headers)

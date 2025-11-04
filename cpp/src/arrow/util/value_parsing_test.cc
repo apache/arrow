@@ -16,6 +16,7 @@
 // under the License.
 
 #include <cmath>
+#include <limits>
 #include <string>
 #include <type_traits>
 #include <vector>
@@ -814,8 +815,22 @@ TEST(StringConversion, ToTimestampDateTime_ISO8601) {
     AssertConversion(type, "1900-02-28 12:34:56.123456789-01:17",
                      -2203932304000000000LL + 123456789LL + 4620000000000LL);
 
+    // The theoretical lower bound is "1677-09-21 00:12:43.145224192",
+    // but supporting it would require a bit more care in the timestamp parsing
+    // code.
+    AssertConversion(type, "1677-09-22", -9223286400000000000);
+    AssertConversion(type, "1677-09-22 00:00:00.000000000", -9223286400000000000);
+    AssertConversion(type, "2262-04-11 23:47:16.854775806",
+                     std::numeric_limits<int64_t>::max() - 1);
+    AssertConversion(type, "2262-04-11 23:47:16.854775807",
+                     std::numeric_limits<int64_t>::max());
+
     // Invalid subseconds
     AssertConversionFails(type, "1900-02-28 12:34:56.1234567890");
+    // Out of bounds
+    AssertConversionFails(type, "3989-07-14T11:22:33.000777Z");
+    AssertConversionFails(type, "1677-09-21 00:12:43.145224191");
+    AssertConversionFails(type, "2262-04-11 23:47:16.854775808");
   }
 }
 

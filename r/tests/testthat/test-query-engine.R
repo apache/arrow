@@ -102,7 +102,8 @@ test_that("do_exec_plan_substrait can evaluate a simple plan", {
   on.exit(unlink(tf))
   write_parquet(table, tf)
 
-  substrait_json <- sprintf('{
+  substrait_json <- sprintf(
+    '{
     "relations": [
       {"rel": {
         "read": {
@@ -123,7 +124,9 @@ test_that("do_exec_plan_substrait can evaluate a simple plan", {
         }
       }}
     ]
-  }', tf)
+  }',
+    tf
+  )
 
   substrait_buffer <- substrait__internal__SubstraitFromJSON(substrait_json)
   expect_r6_class(substrait_buffer, "Buffer")

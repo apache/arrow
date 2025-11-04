@@ -108,7 +108,7 @@ endmacro()
 
 macro(resolve_option_dependencies)
   # Arrow Flight SQL ODBC is available only for Windows for now.
-  if(NOT MSVC_TOOLCHAIN)
+  if(NOT WIN32)
     set(ARROW_FLIGHT_SQL_ODBC OFF)
   endif()
   if(MSVC_TOOLCHAIN)

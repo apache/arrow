@@ -22,6 +22,7 @@
 #include "arrow/flight/sql/odbc/odbc_impl/platform.h"
 
 #include <sys/types.h>
+#include <cstdint>
 #if !_WIN32
 #  include <netdb.h>
 #endif

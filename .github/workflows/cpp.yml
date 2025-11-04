@@ -37,7 +37,7 @@ on:
       - 'ci/scripts/msys2_*'
       - 'ci/scripts/util_*'
       - 'cpp/**'
-      - 'docker-compose.yml'
+      - 'compose.yaml'
       - 'format/Flight.proto'
       - 'testing'
   pull_request:
@@ -54,7 +54,7 @@ on:
       - 'ci/scripts/msys2_*'
       - 'ci/scripts/util_*'
       - 'cpp/**'
-      - 'docker-compose.yml'
+      - 'compose.yaml'
       - 'format/Flight.proto'
       - 'testing'
 
@@ -186,7 +186,7 @@ jobs:
       matrix:
         include:
           - architecture: AMD64
-            macos-version: "13"
+            macos-version: "15-intel"
           - architecture: ARM64
             macos-version: "14"
     env:
@@ -257,7 +257,7 @@ jobs:
           restore-keys: cpp-ccache-macos-${{ matrix.macos-version }}-
       - name: Build
         run: |
-          if [ "${{ matrix.macos-version }}" = "13" ]; then
+          if [ "${{ matrix.macos-version }}" = "15-intel" ]; then
             # This is a workaround.
             #
             # Homebrew uses /usr/local as prefix. So packages
@@ -389,6 +389,10 @@ jobs:
           PIPX_BASE_PYTHON: ${{ steps.python-install.outputs.python-path }}
         run: |
           ci/scripts/install_gcs_testbench.sh default
+      - name: Register Flight SQL ODBC Driver
+        shell: cmd
+        run: |
+          call "cpp\src\arrow\flight\sql\odbc\tests\install_odbc.cmd" ${{ github.workspace }}\build\cpp\%ARROW_BUILD_TYPE%\libarrow_flight_sql_odbc.dll
       - name: Test
         shell: msys2 {0}
         run: |

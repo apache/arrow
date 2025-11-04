@@ -253,7 +253,10 @@ util_tests = {
         'sources': [
             'bit_block_counter_test.cc',
             'bit_util_test.cc',
+            'bitmap_test.cc',
+            'bpacking_test.cc',
             'rle_encoding_test.cc',
+            'test_common.cc',
         ],
     },
     'arrow-threading-utility-test': {
@@ -283,6 +286,7 @@ util_benchmarks = [
     'bit_block_counter',
     'bit_util',
     'bitmap_reader',
+    'bpacking',
     'cache',
     'compression',
     'decimal',

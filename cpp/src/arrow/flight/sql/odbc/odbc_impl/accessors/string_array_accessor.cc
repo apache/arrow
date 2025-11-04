@@ -24,7 +24,7 @@
 namespace arrow::flight::sql::odbc {
 namespace {
 
-#if defined _WIN32 || defined _WIN64
+#if defined _WIN32
 std::string Utf8ToCLocale(const char* utf8_str, int len) {
   thread_local boost::locale::generator g;
   g.locale_cache_enabled(true);
@@ -36,7 +36,7 @@ std::string Utf8ToCLocale(const char* utf8_str, int len) {
 template <typename CHAR_TYPE>
 inline RowStatus MoveSingleCellToCharBuffer(
     std::vector<uint8_t>& buffer, int64_t& last_retrieved_arrow_row,
-#if defined _WIN32 || defined _WIN64
+#if defined _WIN32
     std::string& clocale_str,
 #endif
     ColumnBinding* binding, StringArray* array, int64_t arrow_row, int64_t i,
@@ -57,7 +57,7 @@ inline RowStatus MoveSingleCellToCharBuffer(
     value = buffer.data();
     size_in_bytes = buffer.size();
   } else {
-#if defined _WIN32 || defined _WIN64
+#if defined _WIN32
     // Convert to C locale string
     if (last_retrieved_arrow_row != arrow_row) {
       clocale_str = Utf8ToCLocale(raw_value, raw_value_length);
@@ -124,7 +124,7 @@ RowStatus StringArrayFlightSqlAccessor<TARGET_TYPE, CHAR_TYPE>::MoveSingleCellIm
     ColumnBinding* binding, int64_t arrow_row, int64_t i, int64_t& value_offset,
     bool update_value_offset, Diagnostics& diagnostics) {
   return MoveSingleCellToCharBuffer<CHAR_TYPE>(buffer_, last_arrow_row_,
-#if defined _WIN32 || defined _WIN64
+#if defined _WIN32
                                                clocale_str_,
 #endif
                                                binding, this->GetArray(), arrow_row, i,

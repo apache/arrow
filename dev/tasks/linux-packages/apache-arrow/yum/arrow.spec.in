@@ -596,7 +596,7 @@ Libraries and header files for Apache Parquet C++.
 %{_libdir}/cmake/Parquet/
 %{_libdir}/libparquet.a
 %{_libdir}/libparquet.so
-%{_libdir}/pkgconfig/parquet*.pc
+%{_libdir}/pkgconfig/parquet.pc
 
 %package -n %{name}%{so_version}-glib-libs
 Summary:	Runtime libraries for Apache Arrow GLib

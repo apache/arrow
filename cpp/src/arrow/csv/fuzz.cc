@@ -17,6 +17,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <optional>
 
 #include "arrow/buffer.h"
 #include "arrow/csv/reader.h"
@@ -25,10 +26,18 @@
 #include "arrow/status.h"
 #include "arrow/table.h"
 #include "arrow/util/macros.h"
+#include "arrow/util/thread_pool.h"
 
 namespace arrow::csv {
 
 Status FuzzCsvReader(const uint8_t* data, int64_t size) {
+  // Since the Fuzz-allocated data is not owned, any task that outlives the TableReader
+  // may try to read memory that has been deallocated. Hence we wait for all pending
+  // tasks to end before leaving.
+  struct TaskGuard {
+    ~TaskGuard() { ::arrow::internal::GetCpuThreadPool()->WaitForIdle(); }
+  };
+
   auto io_context = arrow::io::default_io_context();
 
   auto read_options = ReadOptions::Defaults();
@@ -42,11 +51,14 @@ Status FuzzCsvReader(const uint8_t* data, int64_t size) {
       std::make_shared<::arrow::io::BufferReader>(std::make_shared<Buffer>(data, size));
 
   // TODO test other reader types
-  ARROW_ASSIGN_OR_RAISE(auto table_reader,
-                        TableReader::Make(io_context, input_stream, read_options,
-                                          parse_options, convert_options));
-  ARROW_ASSIGN_OR_RAISE(auto table, table_reader->Read());
-  RETURN_NOT_OK(table->ValidateFull());
+  {
+    ARROW_ASSIGN_OR_RAISE(auto table_reader,
+                          TableReader::Make(io_context, input_stream, read_options,
+                                            parse_options, convert_options));
+    TaskGuard task_guard;
+    ARROW_ASSIGN_OR_RAISE(auto table, table_reader->Read());
+    RETURN_NOT_OK(table->ValidateFull());
+  }
   return Status::OK();
 }
 
