@@ -186,8 +186,7 @@ def test_read_table_without_dataset(tempdir):
             pq.read_table(path, partitioning=['week', 'color'])
         with pytest.raises(ValueError, match="the 'schema' argument"):
             pq.read_table(path, schema=table.schema)
-        # Error message varies depending on OS
-        with pytest.raises(OSError):
+        with pytest.raises(ValueError, match="the 'source' argument"):
             pq.read_table(tempdir)
         result = pq.read_table(path)
         assert result == table
