@@ -41,14 +41,14 @@ Exporting Tracing Information
 
 By default, no tracing information is exported until a tracing backend has been
 specified. This is typically done by the executable using Arrow by installing a
-`TracerProvider` through the OpenTelemetry SDK API. Please refer to the
+``TracerProvider`` through the OpenTelemetry SDK API. Please refer to the
 `OpenTelemetry SDK API C++ documentation
 <https://opentelemetry-cpp.readthedocs.io/en/latest/sdk/sdk.html>`_.
 
 In the rare cases you want Arrow to control the global resources of the
 OpenTelemetry SDK, a tracing backend can be specified through the
 :envvar:`ARROW_TRACING_BACKEND` environment variable. This overrides any
-`TracerProvider` previously set.
+``TracerProvider`` previously set.
 
 Possible values for :envvar:`ARROW_TRACING_BACKEND` are:
    - ``ostream``: emit textual log messages to stdout
