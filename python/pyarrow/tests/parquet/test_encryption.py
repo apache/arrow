@@ -556,8 +556,8 @@ def test_encrypted_parquet_write_read_external(tempdir, data_table,
         assert len(key_ids := store.get_key_id_set()) == (
             len(external_encryption_config.column_keys[COL_KEY_NAME]) + 1 )
         assert all([store.get_key_material(k) is not None for k in key_ids ])
-    except:
-        pytest.fail("Unable to read external key material store.")
+    except Exception as e:
+        pytest.fail(f"Unable to read external key material store: {e}")
     
     assert data_table.equals(result_table)
 
