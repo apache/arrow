@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="windows-1252"?>
+
+<!--
+  Licensed to the Apache Software Foundation (ASF) under one or more
+  contributor license agreements.  See the NOTICE file distributed with
+  this work for additional information regarding copyright ownership.
+  The ASF licenses this file to You under the Apache License, Version 2.0
+  (the "License"); you may not use this file except in compliance with
+  the License.  You may obtain a copy of the License at
+
+       http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+-->
+
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <Fragment>
+  <DirectoryRef Id="TARGETDIR">
+      <Component Id="ODBCRegistryEntries" Guid="C348B9F7-5E8D-415D-A001-D92F2D4EA013">
+          <RegistryValue Root='HKLM' Key='Software\ODBC\ODBCINST.INI\ODBC Drivers' Name='Apache Arrow Flight SQL ODBC Driver' Type='string' Value='Installed'/>
+
+          <RegistryKey Root="HKLM"
+                      Key="Software\ODBC\ODBCINST.INI\Apache Arrow Flight SQL ODBC Driver">
+                <!-- CM_FP_flight_sql_odbc_lib.bin.arrow_flight_sql_odbc.dll is a generated variable value from build\_CPack_Packages\win64\WIX\files.wxs -->
+                <RegistryValue Type="string" Name="DriverODBCVer" Value="03.00"/>
+                <RegistryValue Type="string" Name="Driver" Value="[#CM_FP_flight_sql_odbc_lib.bin.arrow_flight_sql_odbc.dll]"/>
+                <RegistryValue Type="string" Name="Setup" Value="[#CM_FP_flight_sql_odbc_lib.bin.arrow_flight_sql_odbc.dll]"/>
+                <RegistryValue Type="integer" Name="UsageCount" Value="1"/>
+          </RegistryKey>
+      </Component>
+  </DirectoryRef>
+  </Fragment>
+</Wix>
