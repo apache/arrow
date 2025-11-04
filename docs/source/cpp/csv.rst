@@ -351,8 +351,9 @@ Nulls
 
 Null values are recognized from the spellings stored in
 :member:`ConvertOptions::null_values`.  The :func:`ConvertOptions::Defaults`
-factory method will initialize a number of conventional null spellings such
-as ``N/A``.
+factory method will initialize a number of conventional null spellings: `""`,
+`"#N/A"`, `"#N/A N/A"`, `"#NA"`,`"-1.#IND"`, `"-1.#QNAN"`, `"-NaN"`, `"-nan"`,
+`"1.#IND"`, `"1.#QNAN"`, `"N/A"`, `"NA"`, `"NULL"`, `"NaN"`, `"n/a"`, `"nan"`, `"null"`.
 
 Character encoding
 ------------------
