@@ -19,10 +19,7 @@
 #include "benchmark/benchmark.h"
 
 #include "arrow/api.h"
-#include "arrow/compute/initialize.h"
-#include "arrow/dataset/dataset.h"
 #include "arrow/dataset/file_parquet.h"
-#include "arrow/dataset/scanner.h"
 #include "arrow/io/memory.h"
 #include "parquet/arrow/writer.h"
 
