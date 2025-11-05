@@ -33,7 +33,7 @@ static void AddTableType(std::string& table_type, std::vector<std::string>& tabl
   std::string trimmed_type = arrow::internal::TrimString(table_type);
 
   // Only put the string if the trimmed result is non-empty
-  if (trimmed_type.length() > 0) {
+  if (!trimmed_type.empty()) {
     table_types.emplace_back(trimmed_type);
   }
 }
