@@ -176,6 +176,7 @@ x-hierarchy:
   - python-free-threaded-wheel-musllinux-test-unittests
   - python-wheel-windows-vs2022-base:
     - python-wheel-windows-vs2022
+    - python-free-threaded-wheel-windows-vs2022
   - python-wheel-windows-test-base:
     - python-wheel-windows-test
     - python-free-threaded-wheel-windows-test
@@ -1387,7 +1388,7 @@ services:
       args:
         base: ${REPO}:python-wheel-windows-vs2022-base-vcpkg-${VCPKG}-${PYTHON_WHEEL_WINDOWS_IMAGE_REVISION}
         python: ${PYTHON}
-        python_abi_tag: ${PYTHON_ABI_TAG}
+        freethreaded: 0
       context: .
       dockerfile: ci/docker/python-wheel-windows-vs2022.dockerfile
       # This should make the pushed images reusable, but the image gets rebuilt.
@@ -1395,6 +1396,23 @@ services:
       # cache_from:
       #   - mcr.microsoft.com/windows/servercore:ltsc2022
       #   - ${REPO}:python-${PYTHON}-wheel-windows-vs2022-vcpkg-${VCPKG}-${PYTHON_WHEEL_WINDOWS_IMAGE_REVISION}
+    volumes: *python-wheel-windows-vs2022-volumes
+    command: arrow\\ci\\scripts\\python_wheel_windows_build.bat
+
+  python-free-threaded-wheel-windows-vs2022:
+    image: ${REPO}:python-${PYTHON}-free-threaded-wheel-windows-vs2022-vcpkg-${VCPKG}-${PYTHON_WHEEL_WINDOWS_IMAGE_REVISION}
+    build:
+      args:
+        base: ${REPO}:python-wheel-windows-vs2022-base-vcpkg-${VCPKG}-${PYTHON_WHEEL_WINDOWS_IMAGE_REVISION}
+        python: ${PYTHON}
+        freethreaded: 1
+      context: .
+      dockerfile: ci/docker/python-wheel-windows-vs2022.dockerfile
+      # This should make the pushed images reusable, but the image gets rebuilt.
+      # Uncomment if no local cache is available.
+      # cache_from:
+      #   - mcr.microsoft.com/windows/servercore:ltsc2022
+      #   - ${REPO}:python-${PYTHON}-free-threaded-wheel-windows-vs2022-vcpkg-${VCPKG}-${PYTHON_WHEEL_WINDOWS_IMAGE_REVISION}
     volumes: *python-wheel-windows-vs2022-volumes
     command: arrow\\ci\\scripts\\python_wheel_windows_build.bat
 

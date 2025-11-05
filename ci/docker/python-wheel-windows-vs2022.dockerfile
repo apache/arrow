@@ -36,9 +36,9 @@ RUN $msix_url = 'https://www.python.org/ftp/python/installer/python.msix'; \
     Add-AppxPackage .\python.msix
 
 # Use python_abi_tag env var to select regular or free-threaded Python
-ARG python_abi_tag=cp310
-ENV PYTHON_ABI_TAG=${python_abi_tag}
-RUN if ($env:PYTHON_ABI_TAG -match 't$') { \
+ARG freethreaded=0
+ENV PYTHON_MODE=${freethreaded}
+RUN if ($env:PYTHON_MODE -eq '1') { \
         pymanager install --version $env:PYTHON_VERSION --variant freethreaded \
     } else { \
         pymanager install --version $env:PYTHON_VERSION \
