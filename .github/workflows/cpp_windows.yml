@@ -45,6 +45,7 @@ jobs:
       ARROW_BUILD_TESTS: ON
       ARROW_DATASET: ON
       ARROW_FLIGHT: OFF
+      ARROW_FLIGHT_SQL_ODBC: ON
       ARROW_HDFS: ON
       ARROW_HOME: /usr
       ARROW_JEMALLOC: OFF
@@ -115,6 +116,10 @@ jobs:
         run: |
           call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" ${{ inputs.arch }}
           bash -c "ci/scripts/cpp_build.sh $(pwd) $(pwd)/build"
+      - name: Register Flight SQL ODBC Driver
+        shell: cmd
+        run: |
+          call "cpp\src\arrow\flight\sql\odbc\tests\install_odbc.cmd" ${{ github.workspace }}\build\cpp\%ARROW_BUILD_TYPE%\libarrow_flight_sql_odbc.dll
       - name: Test
         shell: cmd
         run: |
