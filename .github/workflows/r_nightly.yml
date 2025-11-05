@@ -153,20 +153,22 @@ jobs:
         env:
           KEEP: ${{ github.event.inputs.keep || 14 }}
         run: |
+          set -x
+
           prune() {
             # list files  | retain $KEEP newest files | delete everything else
             ls -t "$@" | tail -n +$((KEEP + 1)) | xargs --no-run-if-empty rm
           }
 
-          # find leaf sub dirs
-          repo_dirs=$(find repo -type d -links 2)
+          # find leaf sub dirs and store in array
+          mapfile -t repo_dirs < <(find repo -type d -links 2)
 
           # Old packages: repo/libarrow/bin/${TARGET}/arrow-${VERSION}.zip
           #
           # We want to retain $keep (14) versions of each pkg/lib so we call
           # prune on each leaf dir and not on repo/.
           for dir in "${repo_dirs[@]}"; do
-            prune $dir/arrow*
+            prune "$dir"/arrow* || :
           done
 
           # New packages: repo/libarrow/${TARGET}-arrow-${VERSION}.zip
