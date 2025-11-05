@@ -1429,6 +1429,7 @@ services:
       args:
         base: ${REPO}:python-wheel-windows-test-vs2022-base-${PYTHON_WHEEL_WINDOWS_TEST_IMAGE_REVISION}
         python: ${PYTHON}
+        freethreaded: 0
       context: .
       dockerfile: ci/docker/python-wheel-windows-test-vs2022.dockerfile
     volumes: *python-wheel-windows-vs2022-volumes
@@ -1440,8 +1441,9 @@ services:
       args:
         base: ${REPO}:python-wheel-windows-test-vs2022-base-${PYTHON_WHEEL_WINDOWS_TEST_IMAGE_REVISION}
         python: ${PYTHON}
+        freethreaded: 1
       context: .
-      dockerfile: ci/docker/python-free-threaded-wheel-windows-test-vs2022.dockerfile
+      dockerfile: ci/docker/python-wheel-windows-test-vs2022.dockerfile
     volumes: *python-wheel-windows-vs2022-volumes
     command: arrow\\ci\\scripts\\python_wheel_windows_test.bat
 
