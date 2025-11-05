@@ -36,11 +36,6 @@ on:
     #Crossbow packaging runs at 0 8 * * *
     - cron: '0 14 * * *'
 
-  # TEMPORARY: For testing debug logging on PR #48030
-  pull_request:
-    paths:
-      - '.github/workflows/r_nightly.yml'
-
 permissions:
   contents: read
 
