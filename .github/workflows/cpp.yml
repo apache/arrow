@@ -230,6 +230,11 @@ jobs:
           brew uninstall pkg-config || :
           brew uninstall pkg-config@0.29.2 || :
           brew bundle --file=cpp/Brewfile
+      - name: Uninstall protobuf on macOS 14
+        if: ${{ matrix.macos-version == '14' }}
+        run: |
+          # this should use bundled protobuf
+          brew uninstall re2 abseil grpc protobuf || :
       - name: Install MinIO
         run: |
           $(brew --prefix bash)/bin/bash \
