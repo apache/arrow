@@ -68,6 +68,7 @@ jobs:
       CMAKE_GENERATOR: Ninja
       CMAKE_INSTALL_PREFIX: /usr
       CMAKE_UNITY_BUILD: ON
+      VCPKG_TARGET_TRIPLET: x64-windows
     steps:
       - name: Disable Crash Dialogs
         run: |
