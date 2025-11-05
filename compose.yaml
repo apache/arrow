@@ -176,7 +176,6 @@ x-hierarchy:
   - python-free-threaded-wheel-musllinux-test-unittests
   - python-wheel-windows-vs2022-base:
     - python-wheel-windows-vs2022
-    - python-free-threaded-wheel-windows-vs2022
   - python-wheel-windows-test-base:
     - python-wheel-windows-test
     - python-free-threaded-wheel-windows-test
