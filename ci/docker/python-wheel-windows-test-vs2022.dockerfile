@@ -34,12 +34,31 @@ RUN (if "%python%"=="3.10" setx PYTHON_VERSION "3.10.11" && setx PYTHON_CMD "py 
     (if "%python%"=="3.13" setx PYTHON_VERSION "3.13.9" && setx PYTHON_CMD "py -3.13") & \
     (if "%python%"=="3.14" setx PYTHON_VERSION "3.14.0" && setx PYTHON_CMD "py -3.14")
 
-# hadolint ignore=DL3059
-RUN choco install -r -y --pre --no-progress --force python --version=%PYTHON_VERSION%
-# hadolint ignore=DL3059
-RUN %PYTHON_CMD% -m pip install -U pip setuptools
+SHELL ["powershell", "-NoProfile", "-Command", "$ErrorActionPreference = 'Stop'; $ProgressPreference = 'SilentlyContinue';"]
+# Install Python install manager (MSIX)
+RUN $msix_url = 'https://www.python.org/ftp/python/installer/python.msix'; \
+    Invoke-WebRequest -Uri $msix_url -OutFile 'python.msix'; \
+    Add-AppxPackage .\python.msix
 
-COPY python/requirements-wheel-test.txt C:/arrow/python/
-RUN %PYTHON_CMD% -m pip install -r C:/arrow/python/requirements-wheel-test.txt
+# Use python_abi_tag env var to select regular or free-threaded Python
+ARG freethreaded=0
+ENV PYTHON_MODE=${freethreaded}
+RUN if ($env:PYTHON_MODE -eq '1') { \
+        pymanager install --version $env:PYTHON_VERSION --variant freethreaded \
+    } else { \
+        pymanager install --version $env:PYTHON_VERSION \
+    }
+
+SHELL ["cmd", "/S", "/C"]
+# hadolint ignore=DL3059
+RUN %PYTHON_CMD% -m pip install -U pip setuptools & \
+    if "%python%"=="3.13" ( \
+        setx REQUIREMENTS_FILE "requirements-wheel-test-3.13t.txt" \
+    ) else ( \
+        setx REQUIREMENTS_FILE "requirements-wheel-test.txt" \
+    )
+
+COPY python/requirements-wheel-test-3.13t.txt python/requirements-wheel-test.txt C:/arrow/python/
+RUN %PYTHON_CMD% -m pip install -r C:/arrow/python/%REQUIREMENTS_FILE%
 
 ENV PYTHON=$python
