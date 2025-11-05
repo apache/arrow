@@ -160,20 +160,15 @@ jobs:
             ls -t "$@" | tail -n +$((KEEP + 1)) | xargs --no-run-if-empty rm
           }
 
-          # find leaf sub dirs
-          repo_dirs=$(find repo -type d -links 2)
-
-          # Debug: print what we found
-          echo "DEBUG: repo_dirs variable contains:"
-          echo "$repo_dirs"
-          echo "DEBUG: end of repo_dirs"
+          # find leaf sub dirs and store in array
+          mapfile -t repo_dirs < <(find repo -type d -links 2)
 
           # Old packages: repo/libarrow/bin/${TARGET}/arrow-${VERSION}.zip
           #
           # We want to retain $keep (14) versions of each pkg/lib so we call
           # prune on each leaf dir and not on repo/.
           for dir in "${repo_dirs[@]}"; do
-            prune $dir/arrow* || :
+            prune "$dir"/arrow* || :
           done
 
           # New packages: repo/libarrow/${TARGET}-arrow-${VERSION}.zip
