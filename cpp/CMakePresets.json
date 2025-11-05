@@ -111,6 +111,7 @@
       "inherits": "features-basic",
       "hidden": true,
       "cacheVariables": {
+        "ARROW_BUILD_STATIC": "ON",
         "ARROW_FLIGHT": "ON"
       }
     },
