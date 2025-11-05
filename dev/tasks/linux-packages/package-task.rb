@@ -150,7 +150,9 @@ class PackageTask
     end
     pass_through_env_names = [
       "DEB_BUILD_OPTIONS",
+      "HOME",
       "RPM_BUILD_NCPUS",
+      "TZ",
     ]
     pass_through_env_names.each do |name|
       value = ENV[name]
@@ -188,7 +190,7 @@ class PackageTask
     run_command_line << image
     run_command_line << "/host/build.sh" unless console
 
-    sh(*build_command_line)
+    sh(*build_command_line) if Dir.exist?(ENV["HOME"])
     sh(*run_command_line)
   end
 

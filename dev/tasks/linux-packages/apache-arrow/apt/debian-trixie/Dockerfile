@@ -39,6 +39,7 @@ RUN \
   apt install -y -V ${quiet} \
     base-files \
     build-essential \
+    ccache \
     clang \
     cmake \
     debhelper \
