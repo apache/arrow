@@ -32,6 +32,11 @@ ARROW_USE_PKG_CONFIG=`echo $ARROW_USE_PKG_CONFIG | tr '[:upper:]' '[:lower:]'`
 
 # generate code
 if [ "$ARROW_R_DEV" == "true" ]; then
+  echo "*** Testing Rscript with simple command..."
+  "${R_HOME}/bin${R_ARCH_BIN}/Rscript.exe" -e "cat('Hello from Rscript\n')" > test.log 2>&1
+  echo "*** Test output:"
+  cat test.log
+
   echo "*** Generating code with data-raw/codegen.R"
   "${R_HOME}/bin${R_ARCH_BIN}/Rscript.exe" data-raw/codegen.R > codegen.log 2>&1
   CODEGEN_STATUS=$?
