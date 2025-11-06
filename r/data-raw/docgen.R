@@ -134,7 +134,8 @@ if (requireNamespace("devtools", quietly = TRUE)) {
 } else {
   warning(
     "devtools is not installed. Using installed arrow package instead of current working code.\n",
-    "To generate accurate docs, install the current branch version of arrow first."
+    "To generate accurate docs, install the current branch version of arrow first via `R CMD INSTALL .` ",
+    "or install devtools before running this script again."
   )
 }
 
