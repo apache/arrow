@@ -131,7 +131,7 @@ TYPED_TEST(StatementAttributeTest, TestSQLGetStmtAttrAsyncEnable) {
   SQLULEN value;
   GetStmtAttr(this->stmt, SQL_ATTR_ASYNC_ENABLE, &value);
 
-  EXPECT_EQ(value, static_cast<SQLULEN>(SQL_ASYNC_ENABLE_OFF));
+  EXPECT_EQ(static_cast<SQLULEN>(SQL_ASYNC_ENABLE_OFF), value);
 }
 
 #ifdef SQL_ATTR_ASYNC_STMT_EVENT
@@ -161,42 +161,42 @@ TYPED_TEST(StatementAttributeTest, TestSQLGetStmtAttrConcurrency) {
   SQLULEN value;
   GetStmtAttr(this->stmt, SQL_ATTR_CONCURRENCY, &value);
 
-  EXPECT_EQ(value, static_cast<SQLULEN>(SQL_CONCUR_READ_ONLY));
+  EXPECT_EQ(static_cast<SQLULEN>(SQL_CONCUR_READ_ONLY), value);
 }
 
 TYPED_TEST(StatementAttributeTest, TestSQLGetStmtAttrCursorScrollable) {
   SQLULEN value;
   GetStmtAttr(this->stmt, SQL_ATTR_CURSOR_SCROLLABLE, &value);
 
-  EXPECT_EQ(value, static_cast<SQLULEN>(SQL_NONSCROLLABLE));
+  EXPECT_EQ(static_cast<SQLULEN>(SQL_NONSCROLLABLE), value);
 }
 
 TYPED_TEST(StatementAttributeTest, TestSQLGetStmtAttrCursorSensitivity) {
   SQLULEN value;
   GetStmtAttr(this->stmt, SQL_ATTR_CURSOR_SENSITIVITY, &value);
 
-  EXPECT_EQ(value, static_cast<SQLULEN>(SQL_UNSPECIFIED));
+  EXPECT_EQ(static_cast<SQLULEN>(SQL_UNSPECIFIED), value);
 }
 
 TYPED_TEST(StatementAttributeTest, TestSQLGetStmtAttrCursorType) {
   SQLULEN value;
   GetStmtAttr(this->stmt, SQL_ATTR_CURSOR_TYPE, &value);
 
-  EXPECT_EQ(value, static_cast<SQLULEN>(SQL_CURSOR_FORWARD_ONLY));
+  EXPECT_EQ(static_cast<SQLULEN>(SQL_CURSOR_FORWARD_ONLY), value);
 }
 
 TYPED_TEST(StatementAttributeTest, TestSQLGetStmtAttrEnableAutoIPD) {
   SQLULEN value;
   GetStmtAttr(this->stmt, SQL_ATTR_ENABLE_AUTO_IPD, &value);
 
-  EXPECT_EQ(value, static_cast<SQLULEN>(SQL_FALSE));
+  EXPECT_EQ(static_cast<SQLULEN>(SQL_FALSE), value);
 }
 
 TYPED_TEST(StatementAttributeTest, TestSQLGetStmtAttrFetchBookmarkPointer) {
   SQLLEN value;
   GetStmtAttr(this->stmt, SQL_ATTR_FETCH_BOOKMARK_PTR, &value);
 
-  EXPECT_EQ(value, static_cast<SQLLEN>(NULL));
+  EXPECT_EQ(static_cast<SQLLEN>(NULL), value);
 }
 
 TYPED_TEST(StatementAttributeTest, TestSQLGetStmtAttrIMPParamDesc) {
@@ -217,112 +217,112 @@ TYPED_TEST(StatementAttributeTest, TestSQLGetStmtAttrKeysetSize) {
   SQLULEN value;
   GetStmtAttr(this->stmt, SQL_ATTR_KEYSET_SIZE, &value);
 
-  EXPECT_EQ(value, static_cast<SQLULEN>(0));
+  EXPECT_EQ(static_cast<SQLULEN>(0), value);
 }
 
 TYPED_TEST(StatementAttributeTest, TestSQLGetStmtAttrMaxLength) {
   SQLULEN value;
   GetStmtAttr(this->stmt, SQL_ATTR_MAX_LENGTH, &value);
 
-  EXPECT_EQ(value, static_cast<SQLULEN>(0));
+  EXPECT_EQ(static_cast<SQLULEN>(0), value);
 }
 
 TYPED_TEST(StatementAttributeTest, TestSQLGetStmtAttrMaxRows) {
   SQLULEN value;
   GetStmtAttr(this->stmt, SQL_ATTR_MAX_ROWS, &value);
 
-  EXPECT_EQ(value, static_cast<SQLULEN>(0));
+  EXPECT_EQ(static_cast<SQLULEN>(0), value);
 }
 
 TYPED_TEST(StatementAttributeTest, TestSQLGetStmtAttrMetadataID) {
   SQLULEN value;
   GetStmtAttr(this->stmt, SQL_ATTR_METADATA_ID, &value);
 
-  EXPECT_EQ(value, static_cast<SQLULEN>(SQL_FALSE));
+  EXPECT_EQ(static_cast<SQLULEN>(SQL_FALSE), value);
 }
 
 TYPED_TEST(StatementAttributeTest, TestSQLGetStmtAttrNoscan) {
   SQLULEN value;
   GetStmtAttr(this->stmt, SQL_ATTR_NOSCAN, &value);
 
-  EXPECT_EQ(value, static_cast<SQLULEN>(SQL_NOSCAN_OFF));
+  EXPECT_EQ(static_cast<SQLULEN>(SQL_NOSCAN_OFF), value);
 }
 
 TYPED_TEST(StatementAttributeTest, TestSQLGetStmtAttrParamBindOffsetPtr) {
   SQLPOINTER value = nullptr;
   GetStmtAttr(this->stmt, SQL_ATTR_PARAM_BIND_OFFSET_PTR, &value);
 
-  EXPECT_EQ(value, static_cast<SQLPOINTER>(nullptr));
+  EXPECT_EQ(static_cast<SQLPOINTER>(nullptr), value);
 }
 
 TYPED_TEST(StatementAttributeTest, TestSQLGetStmtAttrParamBindType) {
   SQLULEN value;
   GetStmtAttr(this->stmt, SQL_ATTR_PARAM_BIND_TYPE, &value);
 
-  EXPECT_EQ(value, static_cast<SQLULEN>(SQL_PARAM_BIND_BY_COLUMN));
+  EXPECT_EQ(static_cast<SQLULEN>(SQL_PARAM_BIND_BY_COLUMN), value);
 }
 
 TYPED_TEST(StatementAttributeTest, TestSQLGetStmtAttrParamOperationPtr) {
   SQLPOINTER value = nullptr;
   GetStmtAttr(this->stmt, SQL_ATTR_PARAM_OPERATION_PTR, &value);
 
-  EXPECT_EQ(value, static_cast<SQLPOINTER>(nullptr));
+  EXPECT_EQ(static_cast<SQLPOINTER>(nullptr), value);
 }
 
 TYPED_TEST(StatementAttributeTest, TestSQLGetStmtAttrParamStatusPtr) {
   SQLPOINTER value = nullptr;
   GetStmtAttr(this->stmt, SQL_ATTR_PARAM_STATUS_PTR, &value);
 
-  EXPECT_EQ(value, static_cast<SQLPOINTER>(nullptr));
+  EXPECT_EQ(static_cast<SQLPOINTER>(nullptr), value);
 }
 
 TYPED_TEST(StatementAttributeTest, TestSQLGetStmtAttrParamsProcessedPtr) {
   SQLPOINTER value = nullptr;
   GetStmtAttr(this->stmt, SQL_ATTR_PARAMS_PROCESSED_PTR, &value);
 
-  EXPECT_EQ(value, static_cast<SQLPOINTER>(nullptr));
+  EXPECT_EQ(static_cast<SQLPOINTER>(nullptr), value);
 }
 
 TYPED_TEST(StatementAttributeTest, TestSQLGetStmtAttrParamsetSize) {
   SQLULEN value;
   GetStmtAttr(this->stmt, SQL_ATTR_PARAMSET_SIZE, &value);
 
-  EXPECT_EQ(value, static_cast<SQLULEN>(1));
+  EXPECT_EQ(static_cast<SQLULEN>(1), value);
 }
 
 TYPED_TEST(StatementAttributeTest, TestSQLGetStmtAttrQueryTimeout) {
   SQLULEN value;
   GetStmtAttr(this->stmt, SQL_ATTR_QUERY_TIMEOUT, &value);
 
-  EXPECT_EQ(value, static_cast<SQLULEN>(0));
+  EXPECT_EQ(static_cast<SQLULEN>(0), value);
 }
 
 TYPED_TEST(StatementAttributeTest, TestSQLGetStmtAttrRetrieveData) {
   SQLULEN value;
   GetStmtAttr(this->stmt, SQL_ATTR_RETRIEVE_DATA, &value);
 
-  EXPECT_EQ(value, static_cast<SQLULEN>(SQL_RD_ON));
+  EXPECT_EQ(static_cast<SQLULEN>(SQL_RD_ON), value);
 }
 
 TYPED_TEST(StatementAttributeTest, TestSQLGetStmtAttrRowArraySize) {
   SQLULEN value;
   GetStmtAttr(this->stmt, SQL_ATTR_ROW_ARRAY_SIZE, &value);
 
-  EXPECT_EQ(value, static_cast<SQLULEN>(1));
+  EXPECT_EQ(static_cast<SQLULEN>(1), value);
 }
 
 TYPED_TEST(StatementAttributeTest, TestSQLGetStmtAttrRowBindOffsetPtr) {
   SQLPOINTER value = nullptr;
   GetStmtAttr(this->stmt, SQL_ATTR_ROW_BIND_OFFSET_PTR, &value);
 
-  EXPECT_EQ(value, static_cast<SQLPOINTER>(nullptr));
+  EXPECT_EQ(static_cast<SQLPOINTER>(nullptr), value);
 }
 
 TYPED_TEST(StatementAttributeTest, TestSQLGetStmtAttrRowBindType) {
   SQLULEN value;
   GetStmtAttr(this->stmt, SQL_ATTR_ROW_BIND_TYPE, &value);
 
-  EXPECT_EQ(value, static_cast<SQLULEN>(0));
+  EXPECT_EQ(static_cast<SQLULEN>(0), value);
 }
 
 TYPED_TEST(StatementAttributeTest, TestSQLGetStmtAttrRowNumber) {
@@ -337,42 +337,42 @@ TYPED_TEST(StatementAttributeTest, TestSQLGetStmtAttrRowNumber) {
   SQLULEN value;
   GetStmtAttr(this->stmt, SQL_ATTR_ROW_NUMBER, &value);
 
-  EXPECT_EQ(value, static_cast<SQLULEN>(1));
+  EXPECT_EQ(static_cast<SQLULEN>(1), value);
 }
 
 TYPED_TEST(StatementAttributeTest, TestSQLGetStmtAttrRowOperationPtr) {
   SQLPOINTER value = nullptr;
   GetStmtAttr(this->stmt, SQL_ATTR_ROW_OPERATION_PTR, &value);
 
-  EXPECT_EQ(value, static_cast<SQLPOINTER>(nullptr));
+  EXPECT_EQ(static_cast<SQLPOINTER>(nullptr), value);
 }
 
 TYPED_TEST(StatementAttributeTest, TestSQLGetStmtAttrRowStatusPtr) {
   SQLPOINTER value = nullptr;
   GetStmtAttr(this->stmt, SQL_ATTR_ROW_STATUS_PTR, &value);
 
-  EXPECT_EQ(value, static_cast<SQLPOINTER>(nullptr));
+  EXPECT_EQ(static_cast<SQLPOINTER>(nullptr), value);
 }
 
 TYPED_TEST(StatementAttributeTest, TestSQLGetStmtAttrRowsFetchedPtr) {
   SQLPOINTER value = nullptr;
   GetStmtAttr(this->stmt, SQL_ATTR_ROWS_FETCHED_PTR, &value);
 
-  EXPECT_EQ(value, static_cast<SQLPOINTER>(nullptr));
+  EXPECT_EQ(static_cast<SQLPOINTER>(nullptr), value);
 }
 
 TYPED_TEST(StatementAttributeTest, TestSQLGetStmtAttrSimulateCursor) {
   SQLULEN value;
   GetStmtAttr(this->stmt, SQL_ATTR_SIMULATE_CURSOR, &value);
 
-  EXPECT_EQ(value, static_cast<SQLULEN>(SQL_SC_UNIQUE));
+  EXPECT_EQ(static_cast<SQLULEN>(SQL_SC_UNIQUE), value);
 }
 
 TYPED_TEST(StatementAttributeTest, TestSQLGetStmtAttrUseBookmarks) {
   SQLULEN value;
   GetStmtAttr(this->stmt, SQL_ATTR_USE_BOOKMARKS, &value);
 
-  EXPECT_EQ(value, static_cast<SQLULEN>(SQL_UB_OFF));
+  EXPECT_EQ(static_cast<SQLULEN>(SQL_UB_OFF), value);
 }
 
 // This is a pre ODBC 3 attribute
@@ -380,7 +380,7 @@ TYPED_TEST(StatementAttributeTest, TestSQLGetStmtAttrRowsetSize) {
   SQLULEN value;
   GetStmtAttr(this->stmt, SQL_ROWSET_SIZE, &value);
 
-  EXPECT_EQ(value, static_cast<SQLULEN>(1));
+  EXPECT_EQ(static_cast<SQLULEN>(1), value);
 }
 
 TYPED_TEST(StatementAttributeTest, TestSQLSetStmtAttrAppParamDesc) {
@@ -512,7 +512,7 @@ TYPED_TEST(StatementAttributeTest, TestSQLSetStmtAttrParamBindOffsetPtr) {
   SQLPOINTER value = nullptr;
   GetStmtAttr(this->stmt, SQL_ATTR_PARAM_BIND_OFFSET_PTR, &value);
 
-  EXPECT_EQ(value, static_cast<SQLPOINTER>(&offset));
+  EXPECT_EQ(static_cast<SQLPOINTER>(&offset), value);
 }
 
 TYPED_TEST(StatementAttributeTest, TestSQLSetStmtAttrParamBindType) {
@@ -531,7 +531,7 @@ TYPED_TEST(StatementAttributeTest, TestSQLSetStmtAttrParamOperationPtr) {
   SQLPOINTER value = nullptr;
   GetStmtAttr(this->stmt, SQL_ATTR_PARAM_OPERATION_PTR, &value);
 
-  EXPECT_EQ(value, static_cast<SQLPOINTER>(param_operations));
+  EXPECT_EQ(static_cast<SQLPOINTER>(param_operations), value);
 }
 
 TYPED_TEST(StatementAttributeTest, TestSQLSetStmtAttrParamStatusPtr) {
@@ -546,7 +546,7 @@ TYPED_TEST(StatementAttributeTest, TestSQLSetStmtAttrParamStatusPtr) {
   SQLPOINTER value = nullptr;
   GetStmtAttr(this->stmt, SQL_ATTR_PARAM_STATUS_PTR, &value);
 
-  EXPECT_EQ(value, static_cast<SQLPOINTER>(param_status));
+  EXPECT_EQ(static_cast<SQLPOINTER>(param_status), value);
 }
 
 TYPED_TEST(StatementAttributeTest, TestSQLSetStmtAttrParamsProcessedPtr) {
@@ -558,7 +558,7 @@ TYPED_TEST(StatementAttributeTest, TestSQLSetStmtAttrParamsProcessedPtr) {
   SQLPOINTER value = nullptr;
   GetStmtAttr(this->stmt, SQL_ATTR_PARAMS_PROCESSED_PTR, &value);
 
-  EXPECT_EQ(value, static_cast<SQLPOINTER>(&processed_count));
+  EXPECT_EQ(static_cast<SQLPOINTER>(&processed_count), value);
 }
 
 TYPED_TEST(StatementAttributeTest, TestSQLSetStmtAttrParamsetSize) {
@@ -587,7 +587,7 @@ TYPED_TEST(StatementAttributeTest, TestSQLSetStmtAttrRowBindOffsetPtr) {
   SQLPOINTER value = nullptr;
   GetStmtAttr(this->stmt, SQL_ATTR_ROW_BIND_OFFSET_PTR, &value);
 
-  EXPECT_EQ(value, static_cast<SQLPOINTER>(&offset));
+  EXPECT_EQ(static_cast<SQLPOINTER>(&offset), value);
 }
 
 TYPED_TEST(StatementAttributeTest, TestSQLSetStmtAttrRowBindType) {
@@ -611,7 +611,7 @@ TYPED_TEST(StatementAttributeTest, TestSQLSetStmtAttrRowOperationPtr) {
   SQLPOINTER value = nullptr;
   GetStmtAttr(this->stmt, SQL_ATTR_ROW_OPERATION_PTR, &value);
 
-  EXPECT_EQ(value, static_cast<SQLPOINTER>(row_operations));
+  EXPECT_EQ(static_cast<SQLPOINTER>(row_operations), value);
 }
 
 TYPED_TEST(StatementAttributeTest, TestSQLSetStmtAttrRowStatusPtr) {
@@ -624,7 +624,7 @@ TYPED_TEST(StatementAttributeTest, TestSQLSetStmtAttrRowStatusPtr) {
   SQLPOINTER value = nullptr;
   GetStmtAttr(this->stmt, SQL_ATTR_ROW_STATUS_PTR, &value);
 
-  EXPECT_EQ(value, static_cast<SQLPOINTER>(values));
+  EXPECT_EQ(static_cast<SQLPOINTER>(values), value);
 }
 
 TYPED_TEST(StatementAttributeTest, TestSQLSetStmtAttrRowsFetchedPtr) {
@@ -636,7 +636,7 @@ TYPED_TEST(StatementAttributeTest, TestSQLSetStmtAttrRowsFetchedPtr) {
   SQLPOINTER value = nullptr;
   GetStmtAttr(this->stmt, SQL_ATTR_ROWS_FETCHED_PTR, &value);
 
-  EXPECT_EQ(value, static_cast<SQLPOINTER>(&rows_fetched));
+  EXPECT_EQ(static_cast<SQLPOINTER>(&rows_fetched), value);
 }
 
 TYPED_TEST(StatementAttributeTest, TestSQLSetStmtAttrSimulateCursor) {
