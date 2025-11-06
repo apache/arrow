@@ -3012,19 +3012,17 @@ macro(build_absl)
 
   # Configure Abseil options before FetchContent
   set(ABSL_PROPAGATE_CXX_STD ON)
-  # TODO: Investigate why with this abseil gets installed also on our install dir (along with Arrow)
-  # Must enable install to generate abslConfig.cmake so GRPC can find Abseil
+  # We have to enable abseil install to generate abslConfig.cmake
+  # so GRPC can find Abseil thorught ExternalProject_Add
   set(ABSL_ENABLE_INSTALL ON)
 
   if(CMAKE_COMPILER_IS_GNUCC AND CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL 13.0)
     string(APPEND CMAKE_CXX_FLAGS " -include stdint.h")
   endif()
 
-  fetchcontent_declare(
-    absl
-    URL ${ABSL_SOURCE_URL}
-    URL_HASH "SHA256=${ARROW_ABSL_BUILD_SHA256_CHECKSUM}"
-  )
+  fetchcontent_declare(absl
+                       URL ${ABSL_SOURCE_URL}
+                       URL_HASH "SHA256=${ARROW_ABSL_BUILD_SHA256_CHECKSUM}")
 
   prepare_fetchcontent()
 
@@ -3109,18 +3107,44 @@ macro(build_absl)
                             absl::time
                             absl::time_zone)
 
-  # Install Abseil to ABSL_PREFIX. This is necessary for gRPC to find Abseil
-  # when using ExternalProject_Add.
-  add_custom_command(
-    OUTPUT "${ABSL_PREFIX}/.absl_installed"
-    COMMAND ${CMAKE_COMMAND} --install ${absl_BINARY_DIR} --prefix ${ABSL_PREFIX} || ${CMAKE_COMMAND} -E true
-    COMMAND ${CMAKE_COMMAND} -E touch "${ABSL_PREFIX}/.absl_installed"
-    DEPENDS absl_built
-    COMMENT "Installing Abseil (errors about scoped_set_env are expected and ignored)"
-    VERBATIM
-  )
+  # GRPC requires Abseil to be installed to a known location.
+  # We have to do this in two steps to avoid double installation of Abseil
+  # when Arrow is installed.
+  # Disable Abseil's install script this target runs after Abseil is built
+  # and replaces its cmake_install.cmake with a no-op so Arrow does not install it
+  # outside of the build tree.
+  add_custom_command(OUTPUT "${absl_BINARY_DIR}/cmake_install.cmake.saved"
+                     COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                             "${absl_BINARY_DIR}/cmake_install.cmake"
+                             "${absl_BINARY_DIR}/cmake_install.cmake.saved"
+                     COMMAND ${CMAKE_COMMAND} -E echo
+                             "# Abseil install disabled to prevent double installation with Arrow"
+                             > "${absl_BINARY_DIR}/cmake_install.cmake"
+                     DEPENDS absl_built
+                     COMMENT "Disabling Abseil's install to prevent double installation"
+                     VERBATIM)
 
-  add_custom_target(absl_ep ALL DEPENDS "${ABSL_PREFIX}/.absl_installed")
+  add_custom_target(absl_install_disabled ALL
+                    DEPENDS "${absl_BINARY_DIR}/cmake_install.cmake.saved")
+
+  # Install Abseil to ABSL_PREFIX for gRPC to find
+  # Using the saved original cmake_install.cmake.saved install script
+  # for other dependencies to find Abseil
+  add_custom_command(OUTPUT "${ABSL_PREFIX}/.absl_installed"
+                     COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                             "${absl_BINARY_DIR}/cmake_install.cmake.saved"
+                             "${absl_BINARY_DIR}/cmake_install.cmake.tmp"
+                     COMMAND ${CMAKE_COMMAND} -DCMAKE_INSTALL_PREFIX=${ABSL_PREFIX}
+                             -DCMAKE_INSTALL_CONFIG_NAME=$<CONFIG> -P
+                             "${absl_BINARY_DIR}/cmake_install.cmake.tmp" ||
+                             ${CMAKE_COMMAND} -E true
+                     COMMAND ${CMAKE_COMMAND} -E touch "${ABSL_PREFIX}/.absl_installed"
+                     DEPENDS absl_install_disabled
+                     COMMENT "Installing Abseil to ${ABSL_PREFIX} for gRPC"
+                     VERBATIM)
+
+  # Make absl_ep depend on the install completion marker
+  add_custom_target(absl_ep DEPENDS "${ABSL_PREFIX}/.absl_installed")
 
   if(APPLE)
     # This is due to upstream absl::cctz issue
