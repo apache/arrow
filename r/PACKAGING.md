@@ -78,7 +78,7 @@ _This step must be done by the current package maintainer._
 ## Wait for CRAN to Accept the Submission
 
 - [ ] CRAN has accepted the submission.
-- [ ] Tag the tip of the CRAN-specific release branch with `r-universe-release`: `git tag -f r-universe-release maint-X.Y.Z-r && git push upstream r-universe-release --force` (ensure you push only this specific tag to avoid accidentally pushing other local tags).
+- [ ] Tag the tip of the CRAN-specific release branch with `r-universe-release`; e.g. `git tag -f r-universe-release maint-X.Y.Z-r && git push upstream r-universe-release --force`
 - [ ] Add a new line to the matrix in the [backwards compatability job](https://github.com/apache/arrow/blob/main/dev/tasks/r/github.linux.arrow.version.back.compat.yml).
 - [ ] (patch releases only) Update the package version in `ci/scripts/PKGBUILD`, `r/DESCRIPTION`, and `r/NEWS.md`.
 - [ ] (CRAN-only releases) Rebuild news page with `pkgdown::build_news()` and submit a PR to the asf-site branch of the docs site with the contents of `arrow/r/docs/news/index.html` replacing the current contents of `arrow-site/docs/r/news/index.html`.
