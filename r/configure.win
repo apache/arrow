@@ -33,10 +33,12 @@ ARROW_USE_PKG_CONFIG=`echo $ARROW_USE_PKG_CONFIG | tr '[:upper:]' '[:lower:]'`
 # generate code
 if [ "$ARROW_R_DEV" == "true" ]; then
   echo "*** Generating code with data-raw/codegen.R"
-  "${R_HOME}/bin${R_ARCH_BIN}/Rscript.exe" data-raw/codegen.R
+  "${R_HOME}/bin${R_ARCH_BIN}/Rscript.exe" data-raw/codegen.R > codegen.log 2>&1
   CODEGEN_STATUS=$?
+  echo "*** Output from codegen.R:"
+  cat codegen.log
   if [ $CODEGEN_STATUS -ne 0 ]; then
-    echo "*** ERROR: codegen.R failed"
+    echo "*** ERROR: codegen.R failed with status $CODEGEN_STATUS"
     exit 1
   fi
 fi
