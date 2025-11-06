@@ -433,7 +433,7 @@ cdef class CryptoFactory(_Weakrefable):
 
         filesystem : FileSystem, default None
             Used only when internal_key_material is set to False on 
-            EncryptionConfiguration. If nothinng passed, will be inferred
+            EncryptionConfiguration. If None, the file system will be inferred
             based on parquet_file_path. 
 
         Returns
@@ -489,7 +489,7 @@ cdef class CryptoFactory(_Weakrefable):
 
         filesystem : FileSystem, default None
             Used only when the parquet file uses external key material. If
-            nothinng passed, will be inferred based on parquet_file_path. 
+            None, the file system will be inferred based on parquet_file_path. 
 
         Returns
         -------
@@ -533,7 +533,7 @@ cdef class CryptoFactory(_Weakrefable):
             self,
             KmsConnectionConfig kms_connection_config,
             parquet_file_path, 
-            FileSystem filesystem,
+            FileSystem filesystem=None,
             double_wrapping = True,
             cache_lifetime_seconds = 600):
         """ Rotates master encryption keys for a Parquet file that uses
@@ -549,23 +549,17 @@ cdef class CryptoFactory(_Weakrefable):
 
         filesystem : FileSystem, default None
             Used only when the parquet file uses external key material. If
-            nothinng passed, will be inferred based on parquet_file_path. 
+            None, the file system will be inferred based on parquet_file_path. 
 
         double_wrapping : bool, default True
-            In the single wrapping mode, decrypts data keys with old master
-            keys, then encrypts them with new master keys. In the double
-            wrapping mode, decrypts KEKs (key encryption keys) with old 
-            master keys, generates new KEKs and encrypts them with new master
-            keys.
+            In the single wrapping mode, encrypts data encryption keys with
+            new master keys. In the double wrapping mode, generates new
+            KEKs (key encryption keys) and uses these to encrypt the data keys,
+            and encrypts the KEKs with the new master keys.
 
         cache_lifetime_seconds : int or float, default 600
             During key rotation, KMS Client and Key Encryption Keys will be
             cached for this duration.
-
-        Returns
-        -------
-        file_decryption_properties : FileDecryptionProperties
-            File decryption properties.
         """
         cdef:
             c_string c_parquet_file_path
@@ -585,7 +579,7 @@ cdef class CryptoFactory(_Weakrefable):
             double_wrapping,
             cache_lifetime_seconds);
 
-        return check_status(status)
+        check_status(status)
 
     cdef inline shared_ptr[CPyCryptoFactory] unwrap(self):
         return self.factory
@@ -667,7 +661,7 @@ cdef class FileSystemKeyMaterialStore(_Weakrefable):
             Path to a parquet file using external key material.
 
         filesystem : FileSystem, default None
-            FileSystem where the parquet file is located. If nothinng passed,
+            FileSystem where the parquet file is located. If None,
             will be inferred based on parquet_file_path. 
 
         Returns
