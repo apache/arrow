@@ -30,26 +30,37 @@
 # Ensure that all machines are sorting the same way
 invisible(Sys.setlocale("LC_COLLATE", "C"))
 
-message("DEBUG: Starting codegen.R")
-message("DEBUG: R version: ", R.version.string)
-message("DEBUG: Platform: ", .Platform$OS.type)
+cat("DEBUG: Starting codegen.R\n", file = stderr())
+flush(stderr())
+
+cat("DEBUG: R version: ", R.version.string, "\n", file = stderr())
+cat("DEBUG: Platform: ", .Platform$OS.type, "\n", file = stderr())
+flush(stderr())
 
 features <- c("acero", "dataset", "substrait", "parquet", "s3", "gcs", "json")
 
-message("DEBUG: About to load packages...")
-suppressPackageStartupMessages({
-  library(decor)
-  message("DEBUG: Loaded decor")
-  library(dplyr)
-  message("DEBUG: Loaded dplyr")
-  library(purrr)
-  message("DEBUG: Loaded purrr")
-  library(glue)
-  message("DEBUG: Loaded glue")
-  library(vctrs)
-  message("DEBUG: Loaded vctrs")
-})
-message("DEBUG: All packages loaded successfully")
+cat("DEBUG: About to load decor...\n", file = stderr())
+flush(stderr())
+suppressPackageStartupMessages(library(decor))
+
+cat("DEBUG: Loaded decor, about to load dplyr...\n", file = stderr())
+flush(stderr())
+suppressPackageStartupMessages(library(dplyr))
+
+cat("DEBUG: Loaded dplyr, about to load purrr...\n", file = stderr())
+flush(stderr())
+suppressPackageStartupMessages(library(purrr))
+
+cat("DEBUG: Loaded purrr, about to load glue...\n", file = stderr())
+flush(stderr())
+suppressPackageStartupMessages(library(glue))
+
+cat("DEBUG: Loaded glue, about to load vctrs...\n", file = stderr())
+flush(stderr())
+suppressPackageStartupMessages(library(vctrs))
+
+cat("DEBUG: All packages loaded successfully\n", file = stderr())
+flush(stderr())
 
 combine_functions <- function(data) {
   message("DEBUG: In combine_functions, nrow(data) = ", nrow(data))
