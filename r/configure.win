@@ -32,6 +32,13 @@ ARROW_USE_PKG_CONFIG=`echo $ARROW_USE_PKG_CONFIG | tr '[:upper:]' '[:lower:]'`
 
 # generate code
 if [ "$ARROW_R_DEV" == "true" ]; then
+  echo "*** Current working directory:"
+  pwd
+  echo "*** Listing current directory:"
+  ls -la
+  echo "*** Checking if data-raw exists:"
+  ls -la data-raw/ || echo "data-raw directory does not exist"
+
   echo "*** Testing Rscript with simple command..."
   "${R_HOME}/bin${R_ARCH_BIN}/Rscript.exe" -e "cat('Hello from Rscript\n')" > test.log 2>&1
   echo "*** Test output:"
