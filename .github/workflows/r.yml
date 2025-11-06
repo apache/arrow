@@ -324,6 +324,9 @@ jobs:
             "_R_CHECK_STOP_ON_INVALID_NUMERIC_VERSION_INPUTS_" = TRUE,
             "_R_CHECK_DONTTEST_EXAMPLES_" = TRUE
           )
+          # Note: when configure.win runs here, when it calls `data-raw/codegen.R`, this will ALWAYS
+          #  result in a non-fatal segfault in this process, as the file doesn't exist as it is
+          #  referenced in .Rbuildigore
           rcmdcheck::rcmdcheck(".",
             build_args = '--no-build-vignettes',
             args = c('--no-manual', '--as-cran', '--ignore-vignettes'),
