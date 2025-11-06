@@ -49,8 +49,7 @@ RUN `
     Set-ExecutionPolicy Bypass -Scope Process -Force; `
     [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; `
     iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1')); `
-    $msix_url = 'https://www.python.org/ftp/python/installer/python.msix'; `
-    Invoke-WebRequest -Uri $msix_url -OutFile 'python.msix'; `
+    curl -L -o python.msix https://www.python.org/ftp/python/installer/python.msix; `
     Add-AppxPackage .\python.msix
 SHELL ["cmd", "/S", "/C"]
 
