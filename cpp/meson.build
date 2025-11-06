@@ -53,13 +53,14 @@ endif
 
 needs_benchmarks = get_option('benchmarks').enabled()
 needs_csv = get_option('csv').enabled()
-needs_dataset = get_option('dataset').enabled()
+needs_substrait = get_option('substrait').enabled()
+needs_dataset = get_option('dataset').enabled() or needs_substrait
 needs_azure = get_option('azure').enabled()
 needs_gcs = get_option('gcs').enabled()
 needs_hdfs = get_option('hdfs').enabled()
 needs_opentelemetry = false
 needs_orc = false
-needs_parquet = get_option('parquet').enabled()
+needs_parquet = get_option('parquet').enabled() or needs_substrait
 needs_parquet_encryption = get_option('parquet_require_encryption').enabled()
 needs_s3 = get_option('s3').enabled()
 needs_filesystem = (get_option('filesystem').enabled()
@@ -82,6 +83,7 @@ needs_ipc = (get_option('ipc').enabled()
     or needs_benchmarks
     or needs_flight
     or needs_parquet
+    or needs_substrait
 )
 
 needs_fuzzing = get_option('fuzzing').enabled()
@@ -109,6 +111,29 @@ needs_zlib = get_option('zlib').enabled()
 needs_zstd = get_option('zstd').enabled()
 needs_utilities = get_option('utilities').enabled()
 
+if needs_flight or needs_substrait
+    protobuf_dep = dependency('protobuf')
+    protoc = find_program('protoc')
+
+    # To ensure messages from proto files are created correctly, we need to
+    # pass in dllexport_decl=<...> . Unfortunately, it doesn't appear that we
+    # can just pass in dllexport_decl=XXX_EXPORT, as the visibility
+    # macro won't be easily available to the generated proto file. See also
+    # https://github.com/protocolbuffers/protobuf/issues/19422
+    if meson.get_compiler('cpp').get_id() == 'msvc'
+        if get_option('default_library') != 'static'
+            proto_visibility = 'dllexport_decl=__declspec(dllexport):'
+        else
+            proto_visibility = ''
+        endif
+    else
+        proto_visibility = 'dllexport_decl=__attribute__((visibility("default"))):'
+    endif
+else
+    protobuf_dep = disabler()
+    protoc = disabler()
+endif
+
 subdir('src/arrow')
 
 if needs_parquet
@@ -125,4 +150,8 @@ if needs_dataset
     # When included in the subdir('src/arrow') call with parquet enabled, you end up
     # with a circular dependency
     subdir('src/arrow/dataset')
+endif
+
+if needs_substrait
+    subdir('src/arrow/engine')
 endif
