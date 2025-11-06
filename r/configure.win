@@ -32,37 +32,8 @@ ARROW_USE_PKG_CONFIG=`echo $ARROW_USE_PKG_CONFIG | tr '[:upper:]' '[:lower:]'`
 
 # generate code
 if [ "$ARROW_R_DEV" == "true" ]; then
-  echo "*** Current working directory:"
-  pwd
-  echo "*** Listing current directory:"
-  ls -la
-  echo "*** Checking if data-raw exists:"
-  ls -la data-raw/ || echo "data-raw directory does not exist"
-
-  echo "*** Testing Rscript with simple command..."
-  "${R_HOME}/bin${R_ARCH_BIN}/Rscript.exe" -e "cat('Hello from Rscript\n')" > test.log 2>&1
-  echo "*** Test output:"
-  cat test.log
-
-  echo "*** Checking if data-raw/codegen.R exists..."
-  ls -la data-raw/codegen.R
-  echo "*** First 10 lines of codegen.R:"
-  head -10 data-raw/codegen.R
-
-  echo "*** Testing R can parse codegen.R..."
-  "${R_HOME}/bin${R_ARCH_BIN}/Rscript.exe" -e "tryCatch(parse('data-raw/codegen.R'), error=function(e) cat('PARSE ERROR:', e\$message, '\n'))" > parse.log 2>&1
-  echo "*** Parse test output:"
-  cat parse.log
-
   echo "*** Generating code with data-raw/codegen.R"
-  "${R_HOME}/bin${R_ARCH_BIN}/Rscript.exe" data-raw/codegen.R > codegen.log 2>&1
-  CODEGEN_STATUS=$?
-  echo "*** Output from codegen.R:"
-  cat codegen.log
-  if [ $CODEGEN_STATUS -ne 0 ]; then
-    echo "*** ERROR: codegen.R failed with status $CODEGEN_STATUS"
-    exit 1
-  fi
+  "${R_HOME}/bin${R_ARCH_BIN}/Rscript.exe" data-raw/codegen.R
 fi
 
 # Test if pkg-config is available to use
