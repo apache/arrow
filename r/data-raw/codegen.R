@@ -27,10 +27,15 @@
 # Use [[feature::export]] to decorate the functions, and be sure to wrap them in
 # #if defined(ARROW_R_WITH_FEATURE)
 
+cat("DEBUG: Starting codegen.R - VERY FIRST LINE\n", file = stderr())
+flush(stderr())
+
 # Ensure that all machines are sorting the same way
+cat("DEBUG: About to call Sys.setlocale...\n", file = stderr())
+flush(stderr())
 invisible(Sys.setlocale("LC_COLLATE", "C"))
 
-cat("DEBUG: Starting codegen.R\n", file = stderr())
+cat("DEBUG: After setlocale\n", file = stderr())
 flush(stderr())
 
 cat("DEBUG: R version: ", R.version.string, "\n", file = stderr())
