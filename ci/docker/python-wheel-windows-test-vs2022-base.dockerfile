@@ -40,7 +40,10 @@ RUN `
     || IF "%ERRORLEVEL%"=="3010" EXIT 0) `
     && del /q vs_buildtools.exe
 
-# Install choco CLI
+# Download python.msix
+RUN curl -L -o python.msix https://www.python.org/ftp/python/installer/python.msix
+
+# Install choco CLI and MSIX package
 #
 # We switch into Powershell just for this command and switch back to cmd
 # See https://chocolatey.org/install#completely-offline-install
@@ -49,7 +52,6 @@ RUN `
     Set-ExecutionPolicy Bypass -Scope Process -Force; `
     [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; `
     iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1')); `
-    curl -L -o python.msix https://www.python.org/ftp/python/installer/python.msix; `
     Add-AppxPackage .\python.msix
 SHELL ["cmd", "/S", "/C"]
 
