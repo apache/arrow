@@ -62,7 +62,7 @@ class PARQUET_EXPORT FileSystemKeyMaterialStore : public FileKeyMaterialStore {
     auto found = key_material_map_.find(key_id_in_file);
     if (found == key_material_map_.end()) {
       throw ParquetException("Invalid key id");
-    } 
+    }
     return found->second;
   }
 

@@ -103,10 +103,10 @@ cdef extern from "parquet/encryption/crypto_factory.h" \
         void RemoveCacheEntriesForToken(const c_string& access_token) except +
         void RemoveCacheEntriesForAllTokens() except +
         void RotateMasterKeys(const CKmsConnectionConfig& kms_connection_config,
-            const c_string parquet_file_path,
-            const shared_ptr[CFileSystem] file_system,
-            c_bool double_wrapping,
-            double cache_lifetime_seconds)
+                              const c_string parquet_file_path,
+                              const shared_ptr[CFileSystem] file_system,
+                              c_bool double_wrapping,
+                              double cache_lifetime_seconds)
 
 cdef extern from "parquet/encryption/file_key_material_store.h" \
         namespace "parquet::encryption" nogil:
@@ -122,19 +122,19 @@ cdef extern from "parquet/encryption/file_system_key_material_store.h" \
             "parquet::encryption::FileSystemKeyMaterialStore":
 
         @staticmethod
-        shared_ptr[CFileSystemKeyMaterialStore] Make(c_string parquet_file_path, 
-                shared_ptr[CFileSystem] file_system,
-                c_bool use_tmp_prefix) except +
+        shared_ptr[CFileSystemKeyMaterialStore] Make(c_string parquet_file_path,
+                                                     shared_ptr[CFileSystem] file_system,
+                                                     c_bool use_tmp_prefix) except +
 
         c_string GetKeyMaterial(c_string key_id_in_file) except +
-        
+
         vector[c_string] GetKeyIDSet() except +
 
 cdef extern from "parquet/encryption/key_material.h" \
         namespace "parquet::encryption" nogil:
     cdef cppclass CKeyMaterial "parquet::encryption::KeyMaterial":
         @staticmethod
-        CKeyMaterial Parse(const c_string& key_material_string);
+        CKeyMaterial Parse(const c_string& key_material_string)
         c_bool is_footer_key()
         c_bool is_double_wrapped()
         const c_string& master_key_id()
@@ -181,7 +181,7 @@ cdef extern from "arrow/python/parquet_encryption.h" \
             const c_string parquet_file_path,
             const shared_ptr[CFileSystem] filesystem)
         CStatus SafeRotateMasterKeys(const CKmsConnectionConfig& kms_connection_config,
-            const c_string parquet_file_path,
-            const shared_ptr[CFileSystem] filesystem,
-            c_bool double_wrapping,
-            double cache_lifetime_seconds)
+                                     const c_string parquet_file_path,
+                                     const shared_ptr[CFileSystem] filesystem,
+                                     c_bool double_wrapping,
+                                     double cache_lifetime_seconds)

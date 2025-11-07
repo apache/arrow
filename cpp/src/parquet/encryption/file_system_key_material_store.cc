@@ -26,7 +26,6 @@
 #include "parquet/encryption/file_system_key_material_store.h"
 #include "parquet/encryption/key_material.h"
 
-
 namespace parquet::encryption {
 
 constexpr const char FileSystemKeyMaterialStore::kKeyMaterialFilePrefix[];

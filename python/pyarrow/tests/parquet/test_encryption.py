@@ -16,7 +16,7 @@
 # under the License.
 import pytest
 from datetime import timedelta
-
+from hypothesis import given, strategies as st
 import pyarrow as pa
 try:
     import pyarrow.parquet as pq
@@ -25,8 +25,11 @@ except ImportError:
     pq = None
     pe = None
 else:
-    from pyarrow.tests.parquet.encryption import (
-        InMemoryKmsClient, verify_file_encrypted)
+    from pyarrow.tests.parquet.encryption import (InMemoryKmsClient,
+                                                  MockVersioningKmsClient,
+                                                  verify_file_encrypted,
+                                                  read_external_keys_to_dict,
+                                                  parse_wrapped_key)
 
 
 PARQUET_NAME = 'encrypted_table.in_mem.parquet'
@@ -64,15 +67,17 @@ def basic_encryption_config():
         })
     return basic_encryption_config
 
+
 @pytest.fixture(scope='module')
 def external_encryption_config():
-    basic_encryption_config = pe.EncryptionConfiguration(
+    external_encryption_config = pe.EncryptionConfiguration(
         footer_key=FOOTER_KEY_NAME,
         column_keys={
             COL_KEY_NAME: ["a", "b"],
         },
-        internal_key_material = False)
-    return basic_encryption_config
+        internal_key_material=False)
+    return external_encryption_config
+
 
 def setup_encryption_environment(custom_kms_conf):
     """
@@ -115,7 +120,7 @@ def write_encrypted_file(path, data_table, footer_key_name, col_key_name,
 def test_encrypted_parquet_write_read(tempdir, data_table):
     """Write an encrypted parquet, verify it's encrypted, and then read it."""
     path = tempdir / PARQUET_NAME
-    
+
     # Encrypt the footer with the footer key,
     # encrypt column `a` and column `b` with another key,
     # keep `c` plaintext
@@ -533,9 +538,10 @@ def test_encrypted_parquet_write_read_plain_footer_single_wrapping(
     # assert table.num_rows == result_table.num_rows
 
 
-def test_encrypted_parquet_write_read_external(tempdir, data_table, 
+def test_encrypted_parquet_write_read_external(tempdir, data_table,
                                                external_encryption_config):
-    """Write an encrypted parquet with external key material.
+    """Write an encrypted parquet file with external key material, verify
+    it's encrypted, then read both the table and external store.
     """
     path = tempdir / PARQUET_NAME
 
@@ -544,22 +550,114 @@ def test_encrypted_parquet_write_read_external(tempdir, data_table,
         external_encryption_config)
 
     verify_file_encrypted(path)
-    
+
     decryption_config = pe.DecryptionConfiguration()
     result_table = read_encrypted_parquet(
-        path, decryption_config, kms_connection_config, crypto_factory, 
+        path, decryption_config, kms_connection_config, crypto_factory,
         internal_key_material=False)
-    
-    try:
-        store = pa._parquet_encryption.FileSystemKeyMaterialStore.for_file(
-            path)
-        assert len(key_ids := store.get_key_id_set()) == (
-            len(external_encryption_config.column_keys[COL_KEY_NAME]) + 1 )
-        assert all([store.get_key_material(k) is not None for k in key_ids ])
-    except Exception as e:
-        pytest.fail(f"Unable to read external key material store: {e}")
-    
+    store = pa._parquet_encryption.FileSystemKeyMaterialStore.for_file(path)
+
+    assert len(key_ids := store.get_key_id_set()) == (
+        len(external_encryption_config.column_keys[COL_KEY_NAME]) + 1)
+    assert all([store.get_key_material(k) is not None for k in key_ids])
     assert data_table.equals(result_table)
+
+
+def test_external_key_material_rotation(
+        tempdir,
+        data_table,
+        double_wrap_initial=True,
+        double_wrap_rotated=True):
+    """Tests CryptoFactory.rotate_master_keys
+
+    Note: The CryptoFactory.rotate_master_keys() double_wrapping keword arg
+    may be either True (the default) or False regardless of whether
+    EncryptionConfig.double_wrapping was set to true (also the default) when
+    the external key material store was written. This means double wrapping may
+    be set one way initially and then applied or removed during rotation.
+    When run as a regular pytest test, this function tests the default
+    scenario - double_wrapping before and after rotation.
+
+    A separate wrapper test function below is driven by hypothesis strategies
+    to run through the permutations."""
+    path = tempdir / PARQUET_NAME
+    encryption_config = pe.EncryptionConfiguration(
+        footer_key=FOOTER_KEY_NAME,
+        column_keys={COL_KEY_NAME: ["a", "b"]},
+        internal_key_material=False,
+        double_wrapping=double_wrap_initial)
+
+    # initial master key version - see MockVersioningKmsClient docstring
+    kms_connection_config = pe.KmsConnectionConfig(
+        key_access_token="1", custom_kms_conf={"master_key_version": "1"})
+
+    def kms_factory(kms_connection_configuration):
+        return MockVersioningKmsClient(kms_connection_configuration)
+    crypto_factory = pe.CryptoFactory(kms_factory)
+    write_encrypted_parquet(
+        path,
+        data_table,
+        encryption_config,
+        kms_connection_config,
+        crypto_factory)
+    before_keys = read_external_keys_to_dict(path)
+
+    # "rotate" kms master key
+    kms_connection_config.refresh_key_access_token("2")
+
+    crypto_factory.rotate_master_keys(
+        kms_connection_config,
+        path,
+        double_wrapping=double_wrap_rotated)
+
+    after_keys = read_external_keys_to_dict(path)
+    verify_file_encrypted(path)
+    table_read_after_rotation = read_encrypted_parquet(
+        path,
+        pe.DecryptionConfiguration(),
+        kms_connection_config,
+        crypto_factory,
+        internal_key_material=False)
+    assert FOOTER_KEY_NAME in before_keys
+    assert COL_KEY_NAME in before_keys
+    assert FOOTER_KEY_NAME in after_keys
+    assert COL_KEY_NAME in after_keys
+
+    def check_rotated_external_keys(master_key_id: str) -> None:
+        before_key_mat = before_keys[master_key_id]
+        if double_wrap_initial:
+            before_key_wrapped = before_key_mat.wrapped_kek
+        else:
+            before_key_wrapped = before_key_mat.wrapped_dek
+        _, before_ver, _ = parse_wrapped_key(before_key_wrapped)
+
+        after_key_mat = after_keys[master_key_id]
+        if double_wrap_rotated:
+            after_key_wrapped = after_key_mat.wrapped_kek
+        else:
+            after_key_wrapped = after_key_mat.wrapped_dek
+        _, after_ver, _ = parse_wrapped_key(after_key_wrapped)
+
+        # CryptoFactory rewrapped keys if after version is later than before
+        assert before_ver < after_ver
+    check_rotated_external_keys(FOOTER_KEY_NAME)
+    check_rotated_external_keys(COL_KEY_NAME)
+    assert data_table.equals(table_read_after_rotation)
+
+
+@given(double_wrap_initial=st.booleans(), double_wrap_rotated=st.booleans())
+def test_key_rotation_double_wrap_scenarios(
+        reusable_tempdir,
+        data_table,
+        double_wrap_initial,
+        double_wrap_rotated):
+    """Hypothesis driven wrapper test for runing through permutations of key
+    wrapping before/after key rotation."""
+    test_external_key_material_rotation(
+        reusable_tempdir,
+        data_table,
+        double_wrap_initial,
+        double_wrap_rotated)
 
 
 def test_encrypted_parquet_loop(tempdir, data_table, basic_encryption_config):

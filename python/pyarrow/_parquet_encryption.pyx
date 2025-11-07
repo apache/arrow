@@ -28,7 +28,7 @@ from pyarrow.includes.libarrow cimport *
 from pyarrow.lib cimport check_status
 from pyarrow.lib cimport _Weakrefable
 from pyarrow.lib import tobytes, frombytes
-from pyarrow._fs cimport FileSystem 
+from pyarrow._fs cimport FileSystem
 from pyarrow.fs import _resolve_filesystem_and_path
 
 cdef ParquetCipher cipher_from_name(name):
@@ -409,7 +409,6 @@ cdef class CryptoFactory(_Weakrefable):
             static_pointer_cast[CKmsClientFactory, CPyKmsClientFactory](
                 kms_client_factory))
 
-
     def file_encryption_properties(self,
                                    KmsConnectionConfig kms_connection_config,
                                    EncryptionConfiguration encryption_config,
@@ -470,7 +469,6 @@ cdef class CryptoFactory(_Weakrefable):
             DecryptionConfiguration decryption_config=None,
             parquet_file_path="",
             FileSystem filesystem=None):
-
         """Create file decryption properties.
 
         Parameters
@@ -532,10 +530,10 @@ cdef class CryptoFactory(_Weakrefable):
     def rotate_master_keys(
             self,
             KmsConnectionConfig kms_connection_config,
-            parquet_file_path, 
+            parquet_file_path,
             FileSystem filesystem=None,
-            double_wrapping = True,
-            cache_lifetime_seconds = 600):
+            double_wrapping=True,
+            cache_lifetime_seconds=600):
         """ Rotates master encryption keys for a Parquet file that uses
         external key material.
 
@@ -577,13 +575,13 @@ cdef class CryptoFactory(_Weakrefable):
             c_parquet_file_path,
             c_filesystem,
             double_wrapping,
-            cache_lifetime_seconds);
+            cache_lifetime_seconds)
 
         check_status(status)
 
     cdef inline shared_ptr[CPyCryptoFactory] unwrap(self):
         return self.factory
-    
+
 cdef class KeyMaterial(_Weakrefable):
 
     @property
@@ -626,7 +624,7 @@ cdef class KeyMaterial(_Weakrefable):
 
     @staticmethod
     def parse(
-        const c_string key_material_string):
+            const c_string key_material_string):
         cdef:
             shared_ptr[CKeyMaterial] c_key_material
         c_key_material = make_shared[CKeyMaterial](move(
@@ -650,8 +648,8 @@ cdef class FileSystemKeyMaterialStore(_Weakrefable):
         return self.store.get().GetKeyIDSet()
 
     @classmethod
-    def for_file(cls, parquet_file_path, 
-                          FileSystem filesystem = None):
+    def for_file(cls, parquet_file_path,
+                 FileSystem filesystem=None):
         """Creates a FileSystemKeyMaterialStore for a parquet file that
         was created with external key material.
 
@@ -681,9 +679,9 @@ cdef class FileSystemKeyMaterialStore(_Weakrefable):
         c_filesystem = _unwrap_fs(filesystem)
 
         c_store = CFileSystemKeyMaterialStore.Make(
-                c_parquet_file_path, c_filesystem, False)
+            c_parquet_file_path, c_filesystem, False)
         store.store = c_store
-        return store 
+        return store
 
 cdef shared_ptr[CCryptoFactory] pyarrow_unwrap_cryptofactory(object crypto_factory) except *:
     if isinstance(crypto_factory, CryptoFactory):
