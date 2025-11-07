@@ -544,6 +544,8 @@ Primitive Type Mappings
 | UUID extension type  | UUID                   |
 +----------------------+------------------------+
 
+.. _timestamp_with_offset_extension:
+
 Timestamp With Offset
 =============
 This type represents a timestamp column that stores potentially different timezone offsets per value. The timestamp is stored in UTC alongside the original timezone offset in minutes.
