@@ -20,6 +20,8 @@
 
 namespace arrow::flight::sql::odbc {
 
+using arrow::Result;
+
 FlightStreamChunkBuffer::FlightStreamChunkBuffer(
     FlightSqlClient& flight_sql_client, const FlightClientOptions& client_options,
     const FlightCallOptions& call_options, const std::shared_ptr<FlightInfo>& flight_info,

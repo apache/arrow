@@ -64,6 +64,7 @@ CDataType GetDefaultCCharType(bool use_wide_char) {
 
 using std::make_optional;
 using std::nullopt;
+using std::optional;
 
 /// \brief Returns the mapping from Arrow type to SqlDataType
 /// \param field the field to return the SqlDataType for
