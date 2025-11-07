@@ -34,7 +34,7 @@
 #if defined _WIN32
 // For displaying DSN Window
 #  include "arrow/flight/sql/odbc/odbc_impl/system_dsn.h"
-#endif
+#endif  // defined(_WIN32)
 
 namespace arrow::flight::sql::odbc {
 SQLRETURN SQLAllocHandle(SQLSMALLINT type, SQLHANDLE parent, SQLHANDLE* result) {
@@ -780,9 +780,11 @@ SQLRETURN SQLDriverConnect(SQLHDBC conn, SQLHWND window_handle,
     std::string connection_string =
         ODBC::SqlWcharToString(in_connection_string, in_connection_string_len);
     Connection::ConnPropertyMap properties;
-    std::string dsn = ODBCConnection::GetDsnIfExists(connection_string);
-    if (!dsn.empty()) {
-      LoadPropertiesFromDSN(dsn, properties);
+    std::string dsn_value = "";
+    std::optional<std::string> dsn = ODBCConnection::GetDsnIfExists(connection_string);
+    if (dsn.has_value()) {
+      dsn_value = dsn.value();
+      LoadPropertiesFromDSN(dsn_value, properties);
     }
     ODBCConnection::GetPropertiesFromConnString(connection_string, properties);
 
@@ -798,11 +800,11 @@ SQLRETURN SQLDriverConnect(SQLHDBC conn, SQLHWND window_handle,
       if (!DisplayConnectionWindow(window_handle, config, properties)) {
         return static_cast<SQLRETURN>(SQL_NO_DATA);
       }
-      connection->Connect(dsn, properties, missing_properties);
+      connection->Connect(dsn_value, properties, missing_properties);
     } else if (driver_completion == SQL_DRIVER_COMPLETE ||
                driver_completion == SQL_DRIVER_COMPLETE_REQUIRED) {
       try {
-        connection->Connect(dsn, properties, missing_properties);
+        connection->Connect(dsn_value, properties, missing_properties);
       } catch (const DriverException&) {
         // If first connection fails due to missing attributes, load
         // the DSN window and try to connect again
@@ -813,14 +815,14 @@ SQLRETURN SQLDriverConnect(SQLHDBC conn, SQLHWND window_handle,
           if (!DisplayConnectionWindow(window_handle, config, properties)) {
             return static_cast<SQLRETURN>(SQL_NO_DATA);
           }
-          connection->Connect(dsn, properties, missing_properties);
+          connection->Connect(dsn_value, properties, missing_properties);
         } else {
           throw;
         }
       }
     } else {
       // Default case: attempt connection without showing DSN window
-      connection->Connect(dsn, properties, missing_properties);
+      connection->Connect(dsn_value, properties, missing_properties);
     }
 #else
     // Attempt connection without loading DSN window on macOS/Linux

@@ -27,6 +27,7 @@
 #include "arrow/flight/sql/odbc/odbc_impl/exceptions.h"
 #include "arrow/flight/sql/odbc/odbc_impl/platform.h"
 
+// GH-48083 TODO: replace `namespace ODBC` with `namespace arrow::flight::sql::odbc`
 namespace ODBC {
 
 using arrow::flight::sql::odbc::Diagnostics;

@@ -19,7 +19,7 @@
 #include "arrow/flight/sql/odbc/odbc_impl/platform.h"
 
 #include "arrow/flight/sql/odbc/odbc_impl/config/configuration.h"
-#include "arrow/result.h"
+#include "arrow/status.h"
 
 namespace arrow::flight::sql::odbc {
 

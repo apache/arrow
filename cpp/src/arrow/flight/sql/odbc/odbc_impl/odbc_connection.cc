@@ -684,7 +684,7 @@ void ODBCConnection::DropDescriptor(ODBCDescriptor* desc) {
 
 // Public Static
 // ===================================================================================
-std::string ODBCConnection::GetDsnIfExists(const std::string& conn_str) {
+std::optional<std::string> ODBCConnection::GetDsnIfExists(const std::string& conn_str) {
   const int groups[] = {1, 2};  // CONNECTION_STR_REGEX has two groups. key: 1, value: 2
   boost::xpressive::sregex_token_iterator regex_iter(conn_str.begin(), conn_str.end(),
                                                      CONNECTION_STR_REGEX, groups),
@@ -703,7 +703,7 @@ std::string ODBCConnection::GetDsnIfExists(const std::string& conn_str) {
   if (boost::iequals(key, "DSN")) {
     return value;
   } else if (boost::iequals(key, "Driver")) {
-    return std::string("");
+    return std::nullopt;
   } else {
     throw DriverException(
         "Connection string is faulty. The first key should be DSN or Driver.", "HY000");
