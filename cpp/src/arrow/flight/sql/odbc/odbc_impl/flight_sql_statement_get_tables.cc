@@ -34,7 +34,7 @@ static void AddTableType(std::string& table_type, std::vector<std::string>& tabl
 
   // Only put the string if the trimmed result is non-empty
   if (!trimmed_type.empty()) {
-    table_types.emplace_back(trimmed_type);
+    table_types.emplace_back(std::move(trimmed_type));
   }
 }
 
