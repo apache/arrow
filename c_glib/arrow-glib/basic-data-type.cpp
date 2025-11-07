@@ -2444,7 +2444,7 @@ garrow_fixed_shape_tensor_data_type_get_permutation(
  * @data_type: A #GArrowFixedShapeTensorDataType.
  *
  * Returns: (array zero-terminated=1) (element-type utf8) (transfer full):
- *   Dimention names of the tensor.
+ *   Dimension names of the tensor.
  *
  *   It's a %NULL-terminated string array. It must be freed with
  *   g_strfreev() when no longer needed.

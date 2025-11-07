@@ -383,7 +383,7 @@ Result<std::shared_ptr<ArrayData>> ListViewFromListImpl(
   using offset_type = typename SrcListType::offset_type;
   const auto& list_type = checked_cast<const SrcListType&>(*list_data->type);
 
-  // To re-use the validity and offsets buffers, a sizes buffer with enough
+  // To reuse the validity and offsets buffers, a sizes buffer with enough
   // padding on the beginning is allocated and filled with the sizes after
   // list_data->offset.
   const int64_t buffer_length = list_data->offset + list_data->length;

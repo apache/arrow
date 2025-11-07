@@ -671,7 +671,7 @@ struct ARROW_EXPORT ArraySpan {
 
   /// \brief Return true if the validity bitmap may have 0's in it, or if the
   /// child arrays (in the case of types without a validity bitmap) may have
-  /// nulls, or if the dictionary of dictionay array may have nulls.
+  /// nulls, or if the dictionary of dictionary array may have nulls.
   ///
   /// \see ArrayData::MayHaveLogicalNulls
   bool MayHaveLogicalNulls() const {

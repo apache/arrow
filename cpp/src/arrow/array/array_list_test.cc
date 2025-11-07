@@ -1339,7 +1339,7 @@ TEST_F(TestMapArray, FromArrays) {
   // Zero-length offsets
   ASSERT_RAISES(Invalid, MapArray::FromArrays(offsets1->Slice(0, 0), keys, items, pool_));
 
-  // Offseted offsets
+  // Offsetted offsets
   ASSERT_OK_AND_ASSIGN(auto map5,
                        MapArray::FromArrays(offsets1->Slice(1), keys, items, pool_));
   ASSERT_OK(map5->Validate());
