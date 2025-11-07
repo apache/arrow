@@ -40,19 +40,25 @@ RUN `
     || IF "%ERRORLEVEL%"=="3010" EXIT 0) `
     && del /q vs_buildtools.exe
 
-# Download python.msix
-RUN curl -L -o python.msix https://www.python.org/ftp/python/installer/python.msix
-
-# Install choco CLI and MSIX package
+# Install choco CLI
 #
-# We switch into Powershell just for this command and switch back to cmd
+# We switch into Powershell just for this two commands and switch back to cmd
 # See https://chocolatey.org/install#completely-offline-install
 SHELL ["powershell", "-Command", "$ErrorActionPreference = 'Stop'; $ProgressPreference = 'SilentlyContinue';"]
 RUN `
-    Set-ExecutionPolicy Bypass -Scope Process -Force; `
-    [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; `
-    iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1')); `
-    Add-AppxPackage .\python.msix
+  Set-ExecutionPolicy Bypass -Scope Process -Force; `
+  [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; `
+  iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
+
+# Install the Python install manager
+#
+# See https://docs.python.org/dev/using/windows.html#python-install-manager and
+# https://www.python.org/ftp/python/pymanager/
+RUN `
+  $pymanager_url = 'https://www.python.org/ftp/python/pymanager/python-manager-25.0.msix'; `
+  Invoke-WebRequest -Uri $pymanager_url -OutFile 'C:\Windows\pymanager.msix'; `
+  Add-AppxPackage C:\Windows\pymanager.msix
+
 SHELL ["cmd", "/S", "/C"]
 
 # Install git, wget, minio
