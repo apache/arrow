@@ -36,9 +36,8 @@ on:
 jobs:
   windows:
     runs-on: ${{ inputs.os }}
-    timeout-minutes: 120
+    timeout-minutes: 240
     env:
-      ARROW_BOOST_USE_SHARED: OFF
       ARROW_BUILD_BENCHMARKS: ON
       ARROW_BUILD_SHARED: ON
       ARROW_BUILD_STATIC: ON
