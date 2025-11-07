@@ -934,9 +934,9 @@ ArrayConvertTask GetConverter(Type::type original_type_id, CDataType target_type
 
       auto seconds_from_epoch = GetTodayTimeFromEpoch();
 
-      auto third_converted_array = CheckConversion(arrow::compute::Add(
-          second_converted_array,
-          std::make_shared<arrow::Int64Scalar>(seconds_from_epoch * 1000)));
+      auto third_converted_array = CheckConversion(
+          arrow::compute::Add(second_converted_array,
+                              std::make_shared<Int64Scalar>(seconds_from_epoch * 1000)));
 
       arrow::compute::CastOptions cast_options_2;
       cast_options_2.to_type = arrow::timestamp(TimeUnit::MILLI);
@@ -955,7 +955,7 @@ ArrayConvertTask GetConverter(Type::type original_type_id, CDataType target_type
 
       auto second_converted_array = CheckConversion(arrow::compute::Add(
           first_converted_array,
-          std::make_shared<arrow::Int64Scalar>(seconds_from_epoch * 1000000000)));
+          std::make_shared<Int64Scalar>(seconds_from_epoch * 1000000000)));
 
       arrow::compute::CastOptions cast_options_2;
       cast_options_2.to_type = arrow::timestamp(TimeUnit::NANO);
@@ -979,7 +979,7 @@ ArrayConvertTask GetConverter(Type::type original_type_id, CDataType target_type
   } else if (original_type_id == Type::DECIMAL128 &&
              (target_type == CDataType_CHAR || target_type == CDataType_WCHAR)) {
     return [=](const std::shared_ptr<Array>& original_array) {
-      arrow::StringBuilder builder;
+      StringBuilder builder;
       int64_t length = original_array->length();
       ThrowIfNotOK(builder.ReserveData(length));
 
