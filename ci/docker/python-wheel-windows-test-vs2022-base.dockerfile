@@ -42,14 +42,11 @@ RUN `
 
 # Install choco CLI
 #
-# We switch into Powershell just for this two commands and switch back to cmd
+# We switch into Powershell just for this command and switch back to cmd
 # See https://chocolatey.org/install#completely-offline-install
 SHELL ["powershell", "-Command", "$ErrorActionPreference = 'Stop'; $ProgressPreference = 'SilentlyContinue';"]
 RUN `
-  Set-ExecutionPolicy Bypass -Scope Process -Force; `
-  [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; `
-  iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
-
+  Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
 SHELL ["cmd", "/S", "/C"]
 
 # Install git, wget, minio
