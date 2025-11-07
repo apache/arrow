@@ -96,7 +96,7 @@ bool RegisterDsn(const Configuration& config, LPCWSTR driver) {
 
   const auto& map = config.GetProperties();
   for (auto it = map.begin(); it != map.end(); ++it) {
-    const std::string_view& key = it->first;
+    std::string_view key = it->first;
     if (boost::iequals(FlightSqlConnection::DSN, key) ||
         boost::iequals(FlightSqlConnection::DRIVER, key)) {
       continue;

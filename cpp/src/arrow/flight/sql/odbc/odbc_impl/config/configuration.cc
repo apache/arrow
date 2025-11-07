@@ -35,7 +35,7 @@ static const char DEFAULT_USE_CERT_STORE[] = TRUE_STR;
 static const char DEFAULT_DISABLE_CERT_VERIFICATION[] = FALSE_STR;
 
 namespace {
-std::string ReadDsnString(const std::string& dsn, const std::string_view& key,
+std::string ReadDsnString(const std::string& dsn, std::string_view key,
                           const std::string& dflt = "") {
   CONVERT_WIDE_STR(const std::wstring wdsn, dsn);
   CONVERT_WIDE_STR(const std::wstring wkey, key);
@@ -150,12 +150,12 @@ void Configuration::LoadDsn(const std::string& dsn) {
 
 void Configuration::Clear() { this->properties_.clear(); }
 
-bool Configuration::IsSet(const std::string_view& key) const {
-  return 0 != this->properties_.count(std::string(key));
+bool Configuration::IsSet(std::string_view key) const {
+  return 0 != this->properties_.count(key);
 }
 
-const std::string& Configuration::Get(const std::string_view& key) const {
-  const auto itr = this->properties_.find(std::string(key));
+const std::string& Configuration::Get(std::string_view key) const {
+  const auto itr = this->properties_.find(key);
   if (itr == this->properties_.cend()) {
     static const std::string empty("");
     return empty;
@@ -163,23 +163,22 @@ const std::string& Configuration::Get(const std::string_view& key) const {
   return itr->second;
 }
 
-void Configuration::Set(const std::string_view& key, const std::wstring& wvalue) {
+void Configuration::Set(std::string_view key, const std::wstring& wvalue) {
   CONVERT_UTF8_STR(const std::string value, wvalue);
   Set(key, value);
 }
 
-void Configuration::Set(const std::string_view& key, const std::string& value) {
+void Configuration::Set(std::string_view key, const std::string& value) {
   const std::string copy = boost::trim_copy(value);
   if (!copy.empty()) {
-    this->properties_[std::string(key)] = value;
+    this->properties_[key] = value;
   }
 }
 
-void Configuration::Emplace(const std::string_view& key, std::string&& value) {
+void Configuration::Emplace(std::string_view key, std::string&& value) {
   const std::string copy = boost::trim_copy(value);
   if (!copy.empty()) {
-    this->properties_.emplace(
-        std::make_pair(std::move(std::string(key)), std::move(value)));
+    this->properties_.emplace(std::make_pair(key, std::move(value)));
   }
 }
 

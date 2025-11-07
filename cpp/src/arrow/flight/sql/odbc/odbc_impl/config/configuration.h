@@ -50,11 +50,11 @@ class Configuration {
   void LoadDsn(const std::string& dsn);
 
   void Clear();
-  bool IsSet(const std::string_view& key) const;
-  const std::string& Get(const std::string_view& key) const;
-  void Set(const std::string_view& key, const std::wstring& wvalue);
-  void Set(const std::string_view& key, const std::string& value);
-  void Emplace(const std::string_view& key, std::string&& value);
+  bool IsSet(std::string_view key) const;
+  const std::string& Get(std::string_view key) const;
+  void Set(std::string_view key, const std::wstring& wvalue);
+  void Set(std::string_view key, const std::string& value);
+  void Emplace(std::string_view key, std::string&& value);
   /**
    * Get properties map.
    */

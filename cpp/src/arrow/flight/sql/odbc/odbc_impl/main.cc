@@ -202,11 +202,11 @@ int main() {
       driver.CreateConnection(arrow::flight::sql::odbc::OdbcVersion::V_3);
 
   Connection::ConnPropertyMap properties = {
-      {std::string(FlightSqlConnection::HOST), std::string("automaster.apache")},
-      {std::string(FlightSqlConnection::PORT), std::string("32010")},
-      {std::string(FlightSqlConnection::USER), std::string("apache")},
-      {std::string(FlightSqlConnection::PASSWORD), std::string("apache123")},
-      {std::string(FlightSqlConnection::USE_ENCRYPTION), std::string("false")},
+      {FlightSqlConnection::HOST, "automaster.apache"},
+      {FlightSqlConnection::PORT, "32010"},
+      {FlightSqlConnection::USER, "apache"},
+      {FlightSqlConnection::PASSWORD, "apache123"},
+      {FlightSqlConnection::USE_ENCRYPTION, "false"},
   };
   std::vector<std::string_view> missing_attr;
   connection->Connect(properties, missing_attr);

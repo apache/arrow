@@ -99,6 +99,13 @@ inline std::string GetCerts() { return ""; }
 
 #endif
 
+// Case insensitive comparator that takes string_view
+struct CaseInsensitiveComparatorStrView {
+  bool operator()(std::string_view s1, std::string_view s2) const {
+    return boost::lexicographical_compare(s1, s2, boost::is_iless());
+  }
+};
+
 const std::set<std::string_view, CaseInsensitiveComparatorStrView> BUILT_IN_PROPERTIES = {
     FlightSqlConnection::HOST,
     FlightSqlConnection::PORT,
@@ -116,9 +123,9 @@ const std::set<std::string_view, CaseInsensitiveComparatorStrView> BUILT_IN_PROP
     FlightSqlConnection::USE_WIDE_CHAR};
 
 Connection::ConnPropertyMap::const_iterator TrackMissingRequiredProperty(
-    const std::string_view& property, const Connection::ConnPropertyMap& properties,
+    std::string_view property, const Connection::ConnPropertyMap& properties,
     std::vector<std::string_view>& missing_attr) {
-  auto prop_iter = properties.find(std::string(property));
+  auto prop_iter = properties.find(property);
   if (properties.end() == prop_iter) {
     missing_attr.push_back(property);
   }

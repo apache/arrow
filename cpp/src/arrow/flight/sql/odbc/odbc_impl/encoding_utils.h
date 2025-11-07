@@ -39,7 +39,7 @@ using arrow::flight::sql::odbc::WcsToUtf8;
 
 // Return the number of bytes required for the conversion.
 template <typename CHAR_TYPE>
-inline size_t ConvertToSqlWChar(const std::string_view& str, SQLWCHAR* buffer,
+inline size_t ConvertToSqlWChar(std::string_view str, SQLWCHAR* buffer,
                                 SQLLEN buffer_size_in_bytes) {
   thread_local std::vector<uint8_t> wstr;
   Utf8ToWcs<CHAR_TYPE>(str.data(), str.size(), &wstr);
@@ -66,7 +66,7 @@ inline size_t ConvertToSqlWChar(const std::string_view& str, SQLWCHAR* buffer,
   return value_length_in_bytes;
 }
 
-inline size_t ConvertToSqlWChar(const std::string_view& str, SQLWCHAR* buffer,
+inline size_t ConvertToSqlWChar(std::string_view str, SQLWCHAR* buffer,
                                 SQLLEN buffer_size_in_bytes) {
   switch (GetSqlWCharSize()) {
     case sizeof(char16_t):

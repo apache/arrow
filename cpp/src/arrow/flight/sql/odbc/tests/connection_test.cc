@@ -365,11 +365,11 @@ TEST_F(ConnectionRemoteTest, TestSQLConnectInvalidUid) {
   // Retrieve valid uid and pwd, assumes TEST_CONNECT_STR contains uid and pwd
   Connection::ConnPropertyMap properties;
   ODBC::ODBCConnection::GetPropertiesFromConnString(connect_str, properties);
-  std::string uid = properties[std::string("uid")];
-  std::string pwd = properties[std::string("pwd")];
+  std::string uid = properties["uid"];
+  std::string pwd = properties["pwd"];
 
   // Append invalid uid to connection string
-  connect_str += std::string("uid=non_existent_id;");
+  connect_str += "uid=non_existent_id;";
 
   // Write connection string content into a DSN,
   // must succeed before continuing
