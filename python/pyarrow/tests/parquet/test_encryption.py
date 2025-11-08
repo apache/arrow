@@ -588,8 +588,7 @@ def test_external_key_material_rotation(
         double_wrapping=double_wrap_initial)
 
     # initial master key version - see MockVersioningKmsClient docstring
-    kms_connection_config = pe.KmsConnectionConfig(
-        key_access_token="1", custom_kms_conf={"master_key_version": "1"})
+    kms_connection_config = pe.KmsConnectionConfig(key_access_token="1")
 
     def kms_factory(kms_connection_configuration):
         return MockVersioningKmsClient(kms_connection_configuration)

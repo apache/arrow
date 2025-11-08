@@ -412,7 +412,7 @@ cdef class CryptoFactory(_Weakrefable):
     def file_encryption_properties(self,
                                    KmsConnectionConfig kms_connection_config,
                                    EncryptionConfiguration encryption_config,
-                                   parquet_file_path="",
+                                   parquet_file_path=None,
                                    FileSystem filesystem=None):
         """Create file encryption properties.
 
@@ -424,7 +424,7 @@ cdef class CryptoFactory(_Weakrefable):
         encryption_config : EncryptionConfiguration
             Configuration of the encryption, such as which columns to encrypt
 
-        parquet_file_path : str or pathlib.Path, default ""
+        parquet_file_path : str, pathlib.Path or None, default None
             Path to the parquet file to be encrypted. Only required when the
             internal_key_material attribute of EncryptionConfiguration is set
             to False. Used to derive the path for storing key material 
@@ -446,11 +446,12 @@ cdef class CryptoFactory(_Weakrefable):
             c_string c_parquet_file_path
             shared_ptr[CFileSystem] c_filesystem
 
-        if parquet_file_path != "":
-            filesystem, parquet_file_path = _resolve_filesystem_and_path(
-                parquet_file_path, filesystem)
-
-        c_parquet_file_path = tobytes(parquet_file_path)
+        filesystem, parquet_file_path = _resolve_filesystem_and_path(
+            parquet_file_path, filesystem)
+        if parquet_file_path is not None:
+            c_parquet_file_path = tobytes(parquet_file_path)
+        else:
+            c_parquet_file_path = tobytes("")
         c_filesystem = _unwrap_fs(filesystem)
 
         with nogil:
@@ -467,7 +468,7 @@ cdef class CryptoFactory(_Weakrefable):
             self,
             KmsConnectionConfig kms_connection_config,
             DecryptionConfiguration decryption_config=None,
-            parquet_file_path="",
+            parquet_file_path=None,
             FileSystem filesystem=None):
         """Create file decryption properties.
 
@@ -480,7 +481,7 @@ cdef class CryptoFactory(_Weakrefable):
             Configuration of the decryption, such as cache timeout.
             Can be None.
 
-        parquet_file_path : str or pathlib.Path, default ""
+        parquet_file_path : str, pathlib.Path or None, default None
             Path to the parquet file to be decrypted. Only required when
             the parquet file uses external key material.  Used to derive
             the path to the external key material file.
@@ -501,11 +502,12 @@ cdef class CryptoFactory(_Weakrefable):
             c_string c_parquet_file_path
             shared_ptr[CFileSystem] c_filesystem
 
-        if parquet_file_path != "":
-            filesystem, parquet_file_path = _resolve_filesystem_and_path(
-                parquet_file_path, filesystem)
-
-        c_parquet_file_path = tobytes(parquet_file_path)
+        filesystem, parquet_file_path = _resolve_filesystem_and_path(
+            parquet_file_path, filesystem)
+        if parquet_file_path is not None:
+            c_parquet_file_path = tobytes(parquet_file_path)
+        else:
+            c_parquet_file_path = tobytes("")
         c_filesystem = _unwrap_fs(filesystem)
 
         if decryption_config is None:
