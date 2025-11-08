@@ -103,9 +103,6 @@ class MockVersioningKmsClient(pe.KmsClient):
                              key_id, master_key_identifier)
         return key
 
-    def key_version(self, wrapped_key: bytes) -> int:
-        return int.from_bytes(base64.b64decode(wrapped_key)[:16])
-
 
 def verify_file_encrypted(path):
     """Verify that the file is encrypted by looking at its first 4 bytes.
