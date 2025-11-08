@@ -2261,6 +2261,34 @@ cdef class Array(_PandasConvertible):
             stat.init(sp_stat)
             return stat
 
+    def __abs__(self):
+        self._assert_cpu()
+        return _pc().call_function('abs', [self])
+
+    def __add__(self, object other):
+        self._assert_cpu()
+        return _pc().call_function('add', [self, other])
+
+    def __truediv__(self, object other):
+        self._assert_cpu()
+        return _pc().call_function('divide', [self, other])
+
+    def __mul__(self, object other):
+        self._assert_cpu()
+        return _pc().call_function('multiply', [self, other])
+
+    def __neg__(self):
+        self._assert_cpu()
+        return _pc().call_function('negate', [self])
+
+    def __pow__(self, object other):
+        self._assert_cpu()
+        return _pc().call_function('power', [self, other])
+
+    def __sub__(self, object other):
+        self._assert_cpu()
+        return _pc().call_function('subtract', [self, other])
+
 
 cdef _array_like_to_pandas(obj, options, types_mapper):
     cdef:
