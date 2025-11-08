@@ -563,11 +563,12 @@ def test_encrypted_parquet_write_read_external(tempdir, data_table,
     assert data_table.equals(result_table)
 
 
+@given(double_wrap_initial=st.booleans(), double_wrap_rotated=st.booleans())
 def test_external_key_material_rotation(
-        tempdir,
+        reusable_tempdir,
         data_table,
-        double_wrap_initial=True,
-        double_wrap_rotated=True):
+        double_wrap_initial,
+        double_wrap_rotated):
     """Tests CryptoFactory.rotate_master_keys
 
     Note: The CryptoFactory.rotate_master_keys() double_wrapping keword arg
@@ -580,7 +581,7 @@ def test_external_key_material_rotation(
 
     A separate wrapper test function below is driven by hypothesis strategies
     to run through the permutations."""
-    path = tempdir / PARQUET_NAME
+    path = reusable_tempdir / PARQUET_NAME
     encryption_config = pe.EncryptionConfiguration(
         footer_key=FOOTER_KEY_NAME,
         column_keys={COL_KEY_NAME: ["a", "b"]},
@@ -642,21 +643,6 @@ def test_external_key_material_rotation(
     check_rotated_external_keys(FOOTER_KEY_NAME)
     check_rotated_external_keys(COL_KEY_NAME)
     assert data_table.equals(table_read_after_rotation)
-
-
-@given(double_wrap_initial=st.booleans(), double_wrap_rotated=st.booleans())
-def test_key_rotation_double_wrap_scenarios(
-        reusable_tempdir,
-        data_table,
-        double_wrap_initial,
-        double_wrap_rotated):
-    """Hypothesis driven wrapper test for runing through permutations of key
-    wrapping before/after key rotation."""
-    test_external_key_material_rotation(
-        reusable_tempdir,
-        data_table,
-        double_wrap_initial,
-        double_wrap_rotated)
 
 
 def test_encrypted_parquet_loop(tempdir, data_table, basic_encryption_config):
