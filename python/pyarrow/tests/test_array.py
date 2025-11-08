@@ -4322,3 +4322,19 @@ def test_non_cpu_array():
         arr.tolist()
     with pytest.raises(NotImplementedError):
         arr.validate(full=True)
+
+
+def test_array_arithmetic_dunders():
+    # GH-32007
+    import pyarrow.compute as pc
+
+    arr1 = pa.array([-1.0, 2.5, -3.7])
+    arr2 = pa.array([2.0, 4.2, 5.5])
+
+    assert abs(arr1).equals(pc.abs(arr1))
+    assert (arr1 + arr2).equals(pc.add(arr1, arr2))
+    assert (arr2 / arr1).equals(pc.divide(arr2, arr1))
+    assert (arr1 * arr2).equals(pc.multiply(arr1, arr2))
+    assert (-arr1).equals(pc.negate(arr1))
+    assert (arr1 ** 2).equals(pc.power(arr1, 2))
+    assert (arr1 - arr2).equals(pc.subtract(arr1, arr2))
