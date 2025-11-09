@@ -2263,31 +2263,31 @@ cdef class Array(_PandasConvertible):
 
     def __abs__(self):
         self._assert_cpu()
-        return _pc().call_function('abs', [self])
+        return _pc().call_function('abs_checked', [self])
 
     def __add__(self, object other):
         self._assert_cpu()
-        return _pc().call_function('add', [self, other])
+        return _pc().call_function('add_checked', [self, other])
 
     def __truediv__(self, object other):
         self._assert_cpu()
-        return _pc().call_function('divide', [self, other])
+        return _pc().call_function('divide_checked', [self, other])
 
     def __mul__(self, object other):
         self._assert_cpu()
-        return _pc().call_function('multiply', [self, other])
+        return _pc().call_function('multiply_checked', [self, other])
 
     def __neg__(self):
         self._assert_cpu()
-        return _pc().call_function('negate', [self])
+        return _pc().call_function('negate_checked', [self])
 
     def __pow__(self, object other):
         self._assert_cpu()
-        return _pc().call_function('power', [self, other])
+        return _pc().call_function('power_checked', [self, other])
 
     def __sub__(self, object other):
         self._assert_cpu()
-        return _pc().call_function('subtract', [self, other])
+        return _pc().call_function('subtract_checked', [self, other])
 
 
 cdef _array_like_to_pandas(obj, options, types_mapper):
