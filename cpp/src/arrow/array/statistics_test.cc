@@ -33,12 +33,12 @@ TEST(TestArrayStatistics, NullCountExact) {
   ASSERT_EQ(29, std::get<int64_t>(statistics.null_count.value()));
 }
 
-TEST(TestArrayStatistics, NullCountAprroximate) {
+TEST(TestArrayStatistics, NullCountApproximate) {
   ArrayStatistics statistics;
   ASSERT_FALSE(statistics.null_count.has_value());
   statistics.null_count = 29.0;
   ASSERT_TRUE(statistics.null_count.has_value());
-  ASSERT_EQ(29.0, std::get<double>(statistics.null_count.value()));
+  ASSERT_DOUBLE_EQ(29.0, std::get<double>(statistics.null_count.value()));
 }
 
 TEST(TestArrayStatistics, DistinctCountExact) {

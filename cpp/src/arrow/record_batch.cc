@@ -541,14 +541,13 @@ Status EnumerateStatistics(const RecordBatch& record_batch, OnStatistics on_stat
         statistics.type = int64();
         statistics.value = std::get<int64_t>(column_statistics->null_count.value());
         RETURN_NOT_OK(on_statistics(statistics));
-        statistics.start_new_column = false;
       } else {
         statistics.key = ARROW_STATISTICS_KEY_NULL_COUNT_APPROXIMATE;
         statistics.type = float64();
         statistics.value = std::get<double>(column_statistics->null_count.value());
         RETURN_NOT_OK(on_statistics(statistics));
-        statistics.start_new_column = false;
       }
+      statistics.start_new_column = false;
     }
 
     if (column_statistics->distinct_count.has_value()) {
