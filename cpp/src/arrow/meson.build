@@ -410,7 +410,53 @@ if needs_filesystem
     endif
 
     if needs_gcs
-        error('gcs filesystem support is not yet implemented in Meson')
+        arrow_filesystem_srcs += files(
+            'filesystem/gcsfs.cc',
+            'filesystem/gcsfs_internal.cc',
+        )
+
+        gcs_common_dep = dependency(
+            'google_cloud_cpp_common',
+            allow_fallback: false,
+            required: false,
+        )
+        gcs_rest_internal_dep = dependency(
+            'google_cloud_cpp_rest_internal',
+            allow_fallback: false,
+            required: false,
+        )
+        gcs_storage_dep = dependency(
+            'google_cloud_cpp_storage',
+            allow_fallback: false,
+            required: false,
+        )
+
+        if not (gcs_common_dep.found()
+    and gcs_rest_internal_dep.found()
+    and gcs_storage_dep.found()
+)
+            error(
+                '''
+The Arrow Meson configuration requires that google_cloud_cpp_common,
+google_cloud_cpp_rest_internal, and google_cloud_cpp_storage be provided
+by the host system, but these could not be found. Subproject fallback is
+not implemented.
+
+Ensure that you have all of these components installed on your system, or
+disable Arrow gcs support with -Dgcs=disabled.
+            ''',
+            )
+        endif
+
+        gcs_dep = declare_dependency(
+            dependencies: [
+                gcs_common_dep,
+                gcs_rest_internal_dep,
+                gcs_storage_dep,
+            ],
+        )
+
+        arrow_filesystem_deps += [gcs_dep]
     endif
 
     if needs_hdfs
