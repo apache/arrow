@@ -239,7 +239,9 @@ jobs:
           ci/scripts/python_build.sh $(pwd) $(pwd)/build
       - name: Test
         shell: bash
-        run: ci/scripts/python_test.sh $(pwd) $(pwd)/build
+        run: |
+          ci/scripts/python_test.sh $(pwd) $(pwd)/build
+          ci/scripts/python_test_type_annotations.sh $(pwd)
 
   windows:
     name: AMD64 Windows 2022 Python 3.13
