@@ -101,6 +101,76 @@ The test groups currently include:
 * ``s3``: Tests for Amazon S3
 * ``tensorflow``: Tests that involve TensorFlow
 
+Type Checking
+=============
+
+PyArrow provides type stubs (``*.pyi`` files) for static type checking. These
+stubs are located in the ``pyarrow-stubs/`` directory and are automatically
+included in the distributed wheel packages.
+
+Running Type Checkers
+---------------------
+
+We support multiple type checkers. The configuration for each is in
+``pyproject.toml``.
+
+**mypy**
+
+To run mypy on the PyArrow codebase:
+
+.. code-block::
+
+   $ cd arrow/python
+   $ mypy
+
+The mypy configuration is in the ``[tool.mypy]`` section of ``pyproject.toml``.
+
+**pyright**
+
+To run pyright:
+
+.. code-block::
+
+   $ cd arrow/python
+   $ pyright
+
+The pyright configuration is in the ``[tool.pyright]`` section of ``pyproject.toml``.
+
+**ty**
+
+To run ty (note: currently only partially configured):
+
+.. code-block::
+
+   $ cd arrow/python
+   $ ty check
+
+Maintaining Type Stubs
+-----------------------
+
+Type stubs for PyArrow are maintained in the ``pyarrow-stubs/``
+directory. These stubs mirror the structure of the main ``pyarrow/`` package.
+
+When adding or modifying public APIs:
+
+1. **Update the corresponding ``.pyi`` stub file** in ``pyarrow-stubs/``
+   to reflect the new or changed function/class signatures.
+
+2. **Include type annotations** where possible. For Cython modules or
+   dynamically, generated APIs such as compute kernels add the corresponding
+   stub in ``pyarrow-stubs/``.
+
+3. **Run type checkers** to ensure the stubs are correct and complete.
+
+The stub files are automatically copied to the built wheel during the build
+process and will be included when users install PyArrow, enabling type checking
+in downstream projects.
+
+.. note::
+
+   The ``py.typed`` marker file in the ``pyarrow/`` directory indicates to type
+   checkers that PyArrow supports type checking according to :pep:`561`.
+
 Doctest
 =======
 
