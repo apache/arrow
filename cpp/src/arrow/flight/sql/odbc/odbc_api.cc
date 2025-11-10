@@ -884,7 +884,8 @@ SQLRETURN SQLMoreResults(SQLHSTMT stmt) {
   ARROW_LOG(DEBUG) << "SQLMoreResults called with stmt: " << stmt;
 
   using ODBC::ODBCStatement;
-  // Multiple result sets not supported. Return SQL_NO_DATA by default.
+  // Multiple result sets are not supported by Arrow protocol. Return SQL_NO_DATA by
+  // default to indicate no data is available.
   return ODBCStatement::ExecuteWithDiagnostics(stmt, SQL_ERROR, [=]() {
     ODBCStatement* statement = reinterpret_cast<ODBCStatement*>(stmt);
     return statement->GetMoreResults();

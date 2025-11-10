@@ -736,7 +736,7 @@ bool ODBCStatement::GetData(SQLSMALLINT record_number, SQLSMALLINT c_type,
 }
 
 SQLRETURN ODBCStatement::GetMoreResults() {
-  // Multiple result sets are not supported.
+  // Multiple result sets are not supported by Arrow protocol.
   if (current_result_) {
     return SQL_NO_DATA;
   } else {

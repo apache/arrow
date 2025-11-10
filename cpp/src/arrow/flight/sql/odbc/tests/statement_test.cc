@@ -38,8 +38,7 @@ using TestTypes = ::testing::Types<StatementMockTest, StatementRemoteTest>;
 TYPED_TEST_SUITE(StatementTest, TestTypes);
 
 TYPED_TEST(StatementTest, TestSQLMoreResultsNoData) {
-  // Verify SQLMoreResults is stubbed to return SQL_NO_DATA
-
+  // Verify SQLMoreResults returns SQL_NO_DATA by default.
   std::wstring wsql = L"SELECT 1;";
   std::vector<SQLWCHAR> sql0(wsql.begin(), wsql.end());
 
