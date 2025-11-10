@@ -971,7 +971,7 @@ def _test_write_to_dataset_with_partitions(base_path,
     input_df_cols = input_df.columns.tolist()
     assert partition_by == input_df_cols[-1 * len(partition_by):]
 
-    input_df = input_df[cols]
+    input_df = input_df[cols]  # type: ignore[assignment]
     # Partitioned columns become 'categorical' dtypes
     for col in partition_by:
         output_df[col] = output_df[col].astype('category')
@@ -1027,7 +1027,7 @@ def _test_write_to_dataset_no_partitions(base_path,
     ).read()
     input_df = input_table.to_pandas()
     input_df = input_df.drop_duplicates()
-    input_df = input_df[cols]
+    input_df = input_df[cols]  # type: ignore[assignment]
     tm.assert_frame_equal(output_df, input_df)
 
 

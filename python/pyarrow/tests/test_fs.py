@@ -1440,19 +1440,19 @@ def test_s3_proxy_options(monkeypatch, pickle_module):
         S3FileSystem(proxy_options=('http', 'localhost', 9090))
     # Missing scheme
     with pytest.raises(KeyError):
-        S3FileSystem(proxy_options={'host': 'localhost', 'port': 9090})
+        S3FileSystem(proxy_options={'host': 'localhost', 'port': 9090})  # type: ignore[missing-typed-dict-key]
     # Missing host
     with pytest.raises(KeyError):
-        S3FileSystem(proxy_options={'scheme': 'https', 'port': 9090})
+        S3FileSystem(proxy_options={'scheme': 'https', 'port': 9090})  # type: ignore[missing-typed-dict-key]
     # Missing port
     with pytest.raises(KeyError):
-        S3FileSystem(proxy_options={'scheme': 'http', 'host': 'localhost'})
+        S3FileSystem(proxy_options={'scheme': 'http', 'host': 'localhost'})  # type: ignore[missing-typed-dict-key]
     # Invalid proxy URI (invalid scheme httpsB)
     with pytest.raises(pa.ArrowInvalid):
         S3FileSystem(proxy_options='httpsB://localhost:9000')
     # Invalid proxy_options dict (invalid scheme httpA)
     with pytest.raises(pa.ArrowInvalid):
-        S3FileSystem(proxy_options={'scheme': 'httpA', 'host': 'localhost',
+        S3FileSystem(proxy_options={'scheme': 'httpA', 'host': 'localhost',  # type: ignore[typeddict-item]
                                     'port': 8999})
 
 

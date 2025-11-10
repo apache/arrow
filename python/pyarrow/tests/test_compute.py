@@ -1797,7 +1797,7 @@ def test_round_to_multiple():
     for multiple in [0, -2, pa.scalar(-10.4)]:
         with pytest.raises(pa.ArrowInvalid,
                            match="Rounding multiple must be positive"):
-            pc.round_to_multiple(values, multiple=multiple)
+            pc.round_to_multiple(values, multiple=multiple)  # type: ignore[arg-type]
 
     for multiple in [object, 99999999999999999999999]:
         with pytest.raises(TypeError, match="is not a valid multiple type"):
