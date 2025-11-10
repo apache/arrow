@@ -23,8 +23,6 @@ ARG python_patch_version=3.13.9
 ARG build_date=20251014
 ARG arch=aarch64
 
-ARG python_version=3.13
-
 RUN apk update && \
     apk add --no-cache \
     bash \
