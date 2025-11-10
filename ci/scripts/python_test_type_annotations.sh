@@ -27,6 +27,9 @@ if [ "${PYARROW_TEST_ANNOTATIONS}" == "ON" ]; then
   # Install type checkers
   pip install mypy pyright ty
 
+  # Install other dependencies for type checking
+  pip install fsspec
+
   # Run type checkers
   pushd ${pyarrow_dir}
   mypy
