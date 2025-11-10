@@ -2313,8 +2313,9 @@ def test_strftime():
             for fmt in formats:
                 options = pc.StrftimeOptions(fmt)
                 result = pc.strftime(tsa, options=options)
+                st = ts.strftime(fmt)  # type: ignore[call-non-callable]
                 # cast to the same type as result to ignore string vs large_string
-                expected = pa.array(ts.strftime(fmt)).cast(result.type)
+                expected = pa.array(st).cast(result.type)
                 assert result.equals(expected)
 
         fmt = "%Y-%m-%dT%H:%M:%S"
@@ -2322,34 +2323,39 @@ def test_strftime():
         # Default format
         tsa = pa.array(ts, type=pa.timestamp("s", timezone))
         result = pc.strftime(tsa, options=pc.StrftimeOptions())
-        expected = pa.array(ts.strftime(fmt)).cast(result.type)
+        st = ts.strftime(fmt)  # type: ignore[call-non-callable]
+        expected = pa.array(st).cast(result.type)
         assert result.equals(expected)
 
         # Default format plus timezone
         tsa = pa.array(ts, type=pa.timestamp("s", timezone))
         result = pc.strftime(tsa, options=pc.StrftimeOptions(fmt + "%Z"))
-        expected = pa.array(ts.strftime(fmt + "%Z")).cast(result.type)
+        st = ts.strftime(fmt + "%Z")  # type: ignore[call-non-callable]
+        expected = pa.array(st).cast(result.type)
         assert result.equals(expected)
 
         # Pandas %S is equivalent to %S in arrow for unit="s"
         tsa = pa.array(ts, type=pa.timestamp("s", timezone))
         options = pc.StrftimeOptions("%S")
         result = pc.strftime(tsa, options=options)
-        expected = pa.array(ts.strftime("%S")).cast(result.type)
+        st = ts.strftime("%S")  # type: ignore[call-non-callable]
+        expected = pa.array(st).cast(result.type)
         assert result.equals(expected)
 
         # Pandas %S.%f is equivalent to %S in arrow for unit="us"
         tsa = pa.array(ts, type=pa.timestamp("us", timezone))
         options = pc.StrftimeOptions("%S")
         result = pc.strftime(tsa, options=options)
-        expected = pa.array(ts.strftime("%S.%f")).cast(result.type)
+        st = ts.strftime("%S.%f")  # type: ignore[call-non-callable]
+        expected = pa.array(st).cast(result.type)
         assert result.equals(expected)
 
         # Test setting locale
         tsa = pa.array(ts, type=pa.timestamp("s", timezone))
         options = pc.StrftimeOptions(fmt, locale="C")
         result = pc.strftime(tsa, options=options)
-        expected = pa.array(ts.strftime(fmt)).cast(result.type)
+        st = ts.strftime(fmt)  # type: ignore[call-non-callable]
+        expected = pa.array(st).cast(result.type)
         assert result.equals(expected)
 
     # Test timestamps without timezone
@@ -2357,7 +2363,8 @@ def test_strftime():
     ts = pd.to_datetime(times)
     tsa = pa.array(ts, type=pa.timestamp("s"))
     result = pc.strftime(tsa, options=pc.StrftimeOptions(fmt))
-    expected = pa.array(ts.strftime(fmt)).cast(result.type)
+    st = ts.strftime(fmt)  # type: ignore[call-non-callable]
+    expected = pa.array(st).cast(result.type)
 
     # Positional format
     assert pc.strftime(tsa, fmt) == result
