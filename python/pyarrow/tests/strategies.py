@@ -36,9 +36,9 @@ except ImportError:
     zoneinfo = None  # type: ignore[assignment]
 if sys.platform == 'win32':
     try:
-        import tzdata  # type: ignore[import-not-found]  # noqa:F401
+        import tzdata  # type: ignore[import-not-found, import-untyped]  # noqa:F401
     except ImportError:
-        zoneinfo = None
+        zoneinfo = None  # type: ignore[assignment]
 try:
     import numpy as np
 except ImportError:

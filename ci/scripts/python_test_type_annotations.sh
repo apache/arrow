@@ -18,27 +18,20 @@
 # under the License.
 
 set -ex
+pyarrow_dir=${1}
 
 if [ "${PYARROW_TEST_ANNOTATIONS}" == "ON" ]; then
-
-  pyarrow_dir=${1}
-
   # Install library stubs
   pip install pandas-stubs scipy-stubs sphinx types-cffi types-psutil types-requests types-python-dateutil
 
   # Install type checkers
   pip install mypy pyright ty
 
-  # TODO: pandas shouldn't be necessary, fix the stubs
-  # Install other dependencies
-  pip install pandas
-
   # Run type checkers
-  pushd "${pyarrow_dir}"
+  pushd ${pyarrow_dir}
   mypy
   pyright
   ty check;
-
 else
   echo "Skipping type annotation tests";
 fi
