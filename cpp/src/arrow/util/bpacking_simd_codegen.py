@@ -46,6 +46,20 @@ LICENSE = """// Licensed to the Apache Software Foundation (ASF) under one
 """
 
 
+def packed_max_spread_bytes(width: int, bit_offset: int = 0) -> int:
+    max_spread = (width + 7) // 8
+    start = bit_offset
+    while True:
+        byte_start = start // 8
+        byte_end = (start + width - 1) // 8
+        spread = byte_end - byte_start + 1
+        max_spread = max(spread, max_spread)
+        start += width
+        if start % 8 == bit_offset:
+            break
+    return max_spread
+
+
 @dataclasses.dataclass
 class UnpackStructGenerator:
     out_type: str
@@ -160,13 +174,28 @@ class UnpackStructGenerator:
         print("template<>")
         print(f"struct {self.struct_specialization(bit)} {{")
         print()
-        print(
-            "  using simd_batch = xsimd::make_sized_batch_t<"
-            f"{self.out_type}, {self.simd_value_count}>;"
-        )
-        print(f"  static constexpr int kValuesUnpacked = {self.out_bit_width};")
-        print()
-        self.print_unpack_bit_func(bit)
+
+        if packed_max_spread_bytes(bit) <= self.out_byte_width:
+            print(
+                "  using Dispatch = Kernel<"
+                f"{self.out_type}, {bit}, {self.simd_bit_width}>;"
+            )
+            print()
+            print("  static constexpr int kValuesUnpacked = Dispatch::kValuesUnpacked;")
+            print()
+            print(
+                f"  static const uint8_t* unpack(const uint8_t* in, {self.out_type}* out) {{"
+            )
+            print("    return Dispatch::unpack(in, out);")
+            print("  }")
+        else:
+            print(
+                "  using simd_batch = xsimd::make_sized_batch_t<"
+                f"{self.out_type}, {self.simd_value_count}>;"
+            )
+            print(f"  static constexpr int kValuesUnpacked = {self.out_bit_width};")
+            print()
+            self.print_unpack_bit_func(bit)
         print("};")
 
     def print_uint32_fallback_struct(self):
@@ -224,6 +253,7 @@ class UnpackFileGenerator:
         print("#include <xsimd/xsimd.hpp>")
         print()
         print('#include "arrow/util/ubsan.h"')
+        print('#include "arrow/util/bpacking_simd_impl_internal.h"')
 
     def print_file_top(self):
         print("#pragma once")
