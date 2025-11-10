@@ -21,7 +21,7 @@
 # Usage
 # =====
 #
-# python ./dev/update_stub_docstrings.py -f ./python/pyarrow-stubs
+# python ../dev/update_stub_docstrings.py pyarrow-stubs
 
 
 from pathlib import Path
@@ -178,7 +178,7 @@ class ReplaceEllipsis(libcst.CSTTransformer):
 
 
 @click.command()
-@click.option('--pyarrow_folder', '-f', type=click.Path(resolve_path=True))
+@click.argument('pyarrow_folder', type=click.Path(resolve_path=True))
 def add_docs_to_stub_files(pyarrow_folder):
     print("Updating docstrings of stub files in:", pyarrow_folder)
     package = griffe.load("pyarrow", try_relative_path=True,

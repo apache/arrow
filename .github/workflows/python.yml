@@ -126,7 +126,6 @@ jobs:
         run: |
           source ci/scripts/util_enable_core_dumps.sh
           archery docker run ${{ matrix.image }}
-
       - name: Docker Push
         if: >-
           success() &&
