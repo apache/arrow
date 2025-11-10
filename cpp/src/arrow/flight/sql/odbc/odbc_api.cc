@@ -861,7 +861,7 @@ SQLRETURN SQLBindCol(SQLHSTMT stmt, SQLUSMALLINT record_number, SQLSMALLINT c_ty
   using ODBC::ODBCDescriptor;
   using ODBC::ODBCStatement;
   return ODBCStatement::ExecuteWithDiagnostics(stmt, SQL_ERROR, [=]() {
-    // GH-47021: implement driver to return indicator value when data pointer is null
+    // GH-47021 TODO: implement driver to return indicator value when data pointer is null
     ODBCStatement* statement = reinterpret_cast<ODBCStatement*>(stmt);
     ODBCDescriptor* ard = statement->GetARD();
     ard->BindCol(record_number, c_type, data_ptr, buffer_length, indicator_ptr);

@@ -46,80 +46,80 @@ TYPED_TEST(StatementTest, TestSQLBindColDataQuery) {
   SQLLEN buf_len = 0;
   SQLLEN ind;
 
-  EXPECT_EQ(SQL_SUCCESS,
+  ASSERT_EQ(SQL_SUCCESS,
             SQLBindCol(this->stmt, 1, SQL_C_STINYINT, &stiny_int_val_min, buf_len, &ind));
 
-  EXPECT_EQ(SQL_SUCCESS,
+  ASSERT_EQ(SQL_SUCCESS,
             SQLBindCol(this->stmt, 2, SQL_C_STINYINT, &stiny_int_val_max, buf_len, &ind));
 
   // Unsigned Tiny Int
   uint8_t utiny_int_val_min;
   uint8_t utiny_int_val_max;
 
-  EXPECT_EQ(SQL_SUCCESS,
+  ASSERT_EQ(SQL_SUCCESS,
             SQLBindCol(this->stmt, 3, SQL_C_UTINYINT, &utiny_int_val_min, buf_len, &ind));
 
-  EXPECT_EQ(SQL_SUCCESS,
+  ASSERT_EQ(SQL_SUCCESS,
             SQLBindCol(this->stmt, 4, SQL_C_UTINYINT, &utiny_int_val_max, buf_len, &ind));
 
   // Signed Small Int
   int16_t ssmall_int_val_min;
   int16_t ssmall_int_val_max;
 
-  EXPECT_EQ(SQL_SUCCESS,
+  ASSERT_EQ(SQL_SUCCESS,
             SQLBindCol(this->stmt, 5, SQL_C_SSHORT, &ssmall_int_val_min, buf_len, &ind));
 
-  EXPECT_EQ(SQL_SUCCESS,
+  ASSERT_EQ(SQL_SUCCESS,
             SQLBindCol(this->stmt, 6, SQL_C_SSHORT, &ssmall_int_val_max, buf_len, &ind));
 
   // Unsigned Small Int
   uint16_t usmall_int_val_min;
   uint16_t usmall_int_val_max;
 
-  EXPECT_EQ(SQL_SUCCESS,
+  ASSERT_EQ(SQL_SUCCESS,
             SQLBindCol(this->stmt, 7, SQL_C_USHORT, &usmall_int_val_min, buf_len, &ind));
 
-  EXPECT_EQ(SQL_SUCCESS,
+  ASSERT_EQ(SQL_SUCCESS,
             SQLBindCol(this->stmt, 8, SQL_C_USHORT, &usmall_int_val_max, buf_len, &ind));
 
   // Signed Integer
   SQLINTEGER slong_val_min;
   SQLINTEGER slong_val_max;
 
-  EXPECT_EQ(SQL_SUCCESS,
+  ASSERT_EQ(SQL_SUCCESS,
             SQLBindCol(this->stmt, 9, SQL_C_SLONG, &slong_val_min, buf_len, &ind));
 
-  EXPECT_EQ(SQL_SUCCESS,
+  ASSERT_EQ(SQL_SUCCESS,
             SQLBindCol(this->stmt, 10, SQL_C_SLONG, &slong_val_max, buf_len, &ind));
 
   // Unsigned Integer
   SQLUINTEGER ulong_val_min;
   SQLUINTEGER ulong_val_max;
 
-  EXPECT_EQ(SQL_SUCCESS,
+  ASSERT_EQ(SQL_SUCCESS,
             SQLBindCol(this->stmt, 11, SQL_C_ULONG, &ulong_val_min, buf_len, &ind));
 
-  EXPECT_EQ(SQL_SUCCESS,
+  ASSERT_EQ(SQL_SUCCESS,
             SQLBindCol(this->stmt, 12, SQL_C_ULONG, &ulong_val_max, buf_len, &ind));
 
   // Signed Big Int
   SQLBIGINT sbig_int_val_min;
   SQLBIGINT sbig_int_val_max;
 
-  EXPECT_EQ(SQL_SUCCESS,
+  ASSERT_EQ(SQL_SUCCESS,
             SQLBindCol(this->stmt, 13, SQL_C_SBIGINT, &sbig_int_val_min, buf_len, &ind));
 
-  EXPECT_EQ(SQL_SUCCESS,
+  ASSERT_EQ(SQL_SUCCESS,
             SQLBindCol(this->stmt, 14, SQL_C_SBIGINT, &sbig_int_val_max, buf_len, &ind));
 
   // Unsigned Big Int
   SQLUBIGINT ubig_int_val_min;
   SQLUBIGINT ubig_int_val_max;
 
-  EXPECT_EQ(SQL_SUCCESS,
+  ASSERT_EQ(SQL_SUCCESS,
             SQLBindCol(this->stmt, 15, SQL_C_UBIGINT, &ubig_int_val_min, buf_len, &ind));
 
-  EXPECT_EQ(SQL_SUCCESS,
+  ASSERT_EQ(SQL_SUCCESS,
             SQLBindCol(this->stmt, 16, SQL_C_UBIGINT, &ubig_int_val_max, buf_len, &ind));
 
   // Decimal
@@ -128,76 +128,76 @@ TYPED_TEST(StatementTest, TestSQLBindColDataQuery) {
   memset(&decimal_val_neg, 0, sizeof(decimal_val_neg));
   memset(&decimal_val_pos, 0, sizeof(decimal_val_pos));
 
-  EXPECT_EQ(SQL_SUCCESS,
+  ASSERT_EQ(SQL_SUCCESS,
             SQLBindCol(this->stmt, 17, SQL_C_NUMERIC, &decimal_val_neg, buf_len, &ind));
 
-  EXPECT_EQ(SQL_SUCCESS,
+  ASSERT_EQ(SQL_SUCCESS,
             SQLBindCol(this->stmt, 18, SQL_C_NUMERIC, &decimal_val_pos, buf_len, &ind));
 
   // Float
   float float_val_min;
   float float_val_max;
 
-  EXPECT_EQ(SQL_SUCCESS,
+  ASSERT_EQ(SQL_SUCCESS,
             SQLBindCol(this->stmt, 19, SQL_C_FLOAT, &float_val_min, buf_len, &ind));
 
-  EXPECT_EQ(SQL_SUCCESS,
+  ASSERT_EQ(SQL_SUCCESS,
             SQLBindCol(this->stmt, 20, SQL_C_FLOAT, &float_val_max, buf_len, &ind));
 
   // Double
   SQLDOUBLE double_val_min;
   SQLDOUBLE double_val_max;
 
-  EXPECT_EQ(SQL_SUCCESS,
+  ASSERT_EQ(SQL_SUCCESS,
             SQLBindCol(this->stmt, 21, SQL_C_DOUBLE, &double_val_min, buf_len, &ind));
 
-  EXPECT_EQ(SQL_SUCCESS,
+  ASSERT_EQ(SQL_SUCCESS,
             SQLBindCol(this->stmt, 22, SQL_C_DOUBLE, &double_val_max, buf_len, &ind));
 
   // Bit
   bool bit_val_false;
   bool bit_val_true;
 
-  EXPECT_EQ(SQL_SUCCESS,
+  ASSERT_EQ(SQL_SUCCESS,
             SQLBindCol(this->stmt, 23, SQL_C_BIT, &bit_val_false, buf_len, &ind));
 
-  EXPECT_EQ(SQL_SUCCESS,
+  ASSERT_EQ(SQL_SUCCESS,
             SQLBindCol(this->stmt, 24, SQL_C_BIT, &bit_val_true, buf_len, &ind));
 
   // Characters
   SQLCHAR char_val[2];
   buf_len = sizeof(SQLCHAR) * 2;
 
-  EXPECT_EQ(SQL_SUCCESS,
+  ASSERT_EQ(SQL_SUCCESS,
             SQLBindCol(this->stmt, 25, SQL_C_CHAR, &char_val, buf_len, &ind));
 
   SQLWCHAR wchar_val[2];
   size_t wchar_size = arrow::flight::sql::odbc::GetSqlWCharSize();
   buf_len = wchar_size * 2;
 
-  EXPECT_EQ(SQL_SUCCESS,
+  ASSERT_EQ(SQL_SUCCESS,
             SQLBindCol(this->stmt, 26, SQL_C_WCHAR, &wchar_val, buf_len, &ind));
 
   SQLWCHAR wvarchar_val[3];
   buf_len = wchar_size * 3;
 
-  EXPECT_EQ(SQL_SUCCESS,
+  ASSERT_EQ(SQL_SUCCESS,
             SQLBindCol(this->stmt, 27, SQL_C_WCHAR, &wvarchar_val, buf_len, &ind));
 
   SQLCHAR varchar_val[4];
   buf_len = sizeof(SQLCHAR) * 4;
 
-  EXPECT_EQ(SQL_SUCCESS,
+  ASSERT_EQ(SQL_SUCCESS,
             SQLBindCol(this->stmt, 28, SQL_C_CHAR, &varchar_val, buf_len, &ind));
 
   // Date and Timestamp
   SQL_DATE_STRUCT date_val_min{}, date_val_max{};
   buf_len = 0;
 
-  EXPECT_EQ(SQL_SUCCESS,
+  ASSERT_EQ(SQL_SUCCESS,
             SQLBindCol(this->stmt, 29, SQL_C_TYPE_DATE, &date_val_min, buf_len, &ind));
 
-  EXPECT_EQ(SQL_SUCCESS,
+  ASSERT_EQ(SQL_SUCCESS,
             SQLBindCol(this->stmt, 30, SQL_C_TYPE_DATE, &date_val_max, buf_len, &ind));
 
   SQL_TIMESTAMP_STRUCT timestamp_val_min{}, timestamp_val_max{};
@@ -322,10 +322,10 @@ TEST_F(StatementRemoteTest, TestSQLBindColTimeQuery) {
   SQLLEN buf_len = sizeof(time_var_min);
   SQLLEN ind;
 
-  EXPECT_EQ(SQL_SUCCESS,
+  ASSERT_EQ(SQL_SUCCESS,
             SQLBindCol(this->stmt, 1, SQL_C_TYPE_TIME, &time_var_min, buf_len, &ind));
 
-  EXPECT_EQ(SQL_SUCCESS,
+  ASSERT_EQ(SQL_SUCCESS,
             SQLBindCol(this->stmt, 2, SQL_C_TYPE_TIME, &time_var_max, buf_len, &ind));
 
   std::wstring wsql =
@@ -510,7 +510,7 @@ TYPED_TEST(StatementTest, TestSQLBindColRowArraySize) {
 }
 
 TYPED_TEST(StatementTest, DISABLED_TestSQLBindColIndicatorOnly) {
-  // GH-47021: implement driver to return indicator value when data pointer is null
+  // GH-47021 TODO: implement driver to return indicator value when data pointer is null
 
   // Verify driver supports null data pointer with valid indicator pointer
 
@@ -523,7 +523,7 @@ TYPED_TEST(StatementTest, DISABLED_TestSQLBindColIndicatorOnly) {
   // Characters
   SQLLEN buf_len = sizeof(SQLCHAR) * 2;
   SQLLEN char_val_ind;
-  EXPECT_EQ(SQL_SUCCESS,
+  ASSERT_EQ(SQL_SUCCESS,
             SQLBindCol(this->stmt, 25, SQL_C_CHAR, 0, buf_len, &char_val_ind));
 
   // Execute query and fetch data once since there is only 1 row.
@@ -551,14 +551,14 @@ TYPED_TEST(StatementTest, TestSQLBindColIndicatorOnlySQLUnbind) {
   // Signed Tiny Int
   int8_t stiny_int_val;
   SQLLEN stiny_int_ind;
-  EXPECT_EQ(SQL_SUCCESS,
+  ASSERT_EQ(SQL_SUCCESS,
             SQLBindCol(this->stmt, 1, SQL_C_STINYINT, &stiny_int_val, 0, &stiny_int_ind));
 
   // Characters
   SQLCHAR char_val[2];
   SQLLEN buf_len = sizeof(SQLCHAR) * 2;
   SQLLEN char_val_ind;
-  EXPECT_EQ(SQL_SUCCESS,
+  ASSERT_EQ(SQL_SUCCESS,
             SQLBindCol(this->stmt, 25, SQL_C_CHAR, &char_val, buf_len, &char_val_ind));
 
   // Driver should still be able to execute queries after unbinding columns
@@ -573,8 +573,8 @@ TYPED_TEST(StatementTest, TestSQLBindColIndicatorOnlySQLUnbind) {
 
   ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
 
-  // GH-47021: implement driver to return indicator value when data pointer is null and
-  // uncomment the checks Verify values for indicator pointer Signed Tiny Int
+  // GH-47021 TODO: implement driver to return indicator value when data pointer is null
+  // and uncomment the checks Verify values for indicator pointer Signed Tiny Int
   // EXPECT_EQ(1, stiny_int_ind);
 
   // Char array
