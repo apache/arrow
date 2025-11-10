@@ -148,8 +148,6 @@ class build_ext(_build_ext):
                         src_file = pjoin(root, file)
                         dest_file = pjoin(dest_dir, file)
                         shutil.copy2(src_file, dest_file)
-                        print(
-                            f"   Copied {file} to {os.path.relpath(dest_file, build_lib)}")
 
     # adapted from cmake_build_ext in dynd-python
     # github.com/libdynd/dynd-python
