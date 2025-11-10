@@ -40,7 +40,7 @@ struct CaseInsensitiveComparator {
 };
 
 // PropertyMap is case-insensitive for keys.
-typedef std::map<std::string_view, std::string, CaseInsensitiveComparator> PropertyMap;
+typedef std::map<std::string, std::string, CaseInsensitiveComparator> PropertyMap;
 
 class Statement;
 

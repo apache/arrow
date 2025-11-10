@@ -171,7 +171,7 @@ void Configuration::Set(std::string_view key, const std::wstring& wvalue) {
 void Configuration::Set(std::string_view key, const std::string& value) {
   const std::string copy = boost::trim_copy(value);
   if (!copy.empty()) {
-    this->properties_[key] = value;
+    this->properties_[std::string(key)] = value;
   }
 }
 
