@@ -106,12 +106,15 @@ inline std::string SqlStringToString(const unsigned char* sql_str,
 
   const char* sql_str_c = reinterpret_cast<const char*>(sql_str);
 
-  if (!sql_str) return res;
+  if (!sql_str) {
+    return res;
+  }
 
-  if (sql_str_len == SQL_NTS)
+  if (sql_str_len == SQL_NTS) {
     res.assign(sql_str_c);
-  else if (sql_str_len > 0)
+  } else if (sql_str_len > 0) {
     res.assign(sql_str_c, sql_str_len);
+  }
 
   return res;
 }
