@@ -35,7 +35,7 @@ import platform as _platform
 import sys as _sys
 
 try:
-    from ._generated_version import version as __version__  # type: ignore[import-untyped] # noqa: E501
+    from ._generated_version import version as __version__  # type: ignore[import-untyped, import-not-found] # noqa: E501
 except ImportError:
     # Package is not installed, parse git tag at runtime
     try:

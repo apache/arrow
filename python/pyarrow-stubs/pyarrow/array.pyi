@@ -166,6 +166,9 @@ class ArrayStatistics(_Weakrefable):
     def distinct_count(self) -> int | None: ...
 
     @property
+    def is_null_count_exact(self) -> bool | None: ...
+
+    @property
     def is_distinct_count_exact(self) -> bool | None: ...
 
     @property
