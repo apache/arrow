@@ -80,9 +80,7 @@ class ODBCStatement : public ODBCHandle<ODBCStatement> {
   bool GetData(SQLSMALLINT record_number, SQLSMALLINT c_type, SQLPOINTER data_ptr,
                SQLLEN buffer_length, SQLLEN* indicator_ptr);
 
-  /**
-   * @brief Get number of columns from data set
-   */
+  /// \brief Return number of columns from data set
   void GetColumnCount(SQLSMALLINT* column_count_ptr);
 
   /**
