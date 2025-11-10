@@ -35,6 +35,7 @@
 #include "arrow/util/bit_util.h"
 #include "arrow/util/io_util.h"
 #include "arrow/util/rle_encoding_internal.h"
+#include "arrow/util/span.h"
 
 namespace arrow::util {
 
@@ -458,6 +459,29 @@ void TestRleBitPackedParser(std::vector<uint8_t> bytes, rle_size_t bit_width,
   EXPECT_EQ(decoded, expected);
 }
 
+void TestRleBitPackedParserError(span<const uint8_t> bytes, rle_size_t bit_width) {
+  auto parser =
+      RleBitPackedParser(bytes.data(), static_cast<rle_size_t>(bytes.size()), bit_width);
+  EXPECT_FALSE(parser.exhausted());
+
+  struct {
+    auto OnRleRun(RleRun run) { return RleBitPackedParser::ControlFlow::Continue; }
+    auto OnBitPackedRun(BitPackedRun run) {
+      return RleBitPackedParser::ControlFlow::Continue;
+    }
+  } handler;
+
+  // Iterate over all runs
+  parser.Parse(handler);
+  // Non-exhaustion despite ControlFlow::Continue signals an error occurred.
+  EXPECT_FALSE(parser.exhausted());
+}
+
+void TestRleBitPackedParserError(const std::vector<uint8_t>& bytes,
+                                 rle_size_t bit_width) {
+  TestRleBitPackedParserError(span(bytes), bit_width);
+}
+
 TEST(RleBitPacked, RleBitPackedParser) {
   TestRleBitPackedParser<uint16_t>(
       /* bytes= */
@@ -498,6 +522,108 @@ TEST(RleBitPacked, RleBitPackedParser) {
         /* bit_width= */ 2,
         /* expected= */ expected);
   }
+}
+
+TEST(RleBitPacked, RleBitPackedParserInvalidNonPadded) {
+  // GH-47981: a non-padded trailing bit-packed, produced by some non-compliant
+  // encoders, should still be decoded successfully.
+
+  TestRleBitPackedParser<uint16_t>(
+      /* bytes= */
+      {/* LEB128 for 8 values bit packed marker */ 0x3,
+       /* Bitpacked run */ 0x88, 0xc6},
+      /* bit_width= */ 3,
+      /* expected= */ {0, 1, 2, 3, 4});
+  TestRleBitPackedParser<uint16_t>(
+      /* bytes= */
+      {/* LEB128 for 8 values bit packed marker */ 0x3,
+       /* Bitpacked run */ 0x88},
+      /* bit_width= */ 3,
+      /* expected= */ {0, 1});
+  TestRleBitPackedParser<uint16_t>(
+      /* bytes= */
+      {/* LEB128 for 8 values bit packed marker */ 0x3,
+       /* Bitpacked run */ 0x1, 0x2, 0x3},
+      /* bit_width= */ 8,
+      /* expected= */ {1, 2, 3});
+  TestRleBitPackedParser<uint16_t>(
+      /* bytes= */
+      {/* LEB128 for 8 values bit packed marker */ 0x3,
+       /* Bitpacked run */ 0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7},
+      /* bit_width= */ 8,
+      /* expected= */ {1, 2, 3, 4, 5, 6, 7});
+  TestRleBitPackedParser<uint16_t>(
+      /* bytes= */
+      {/* LEB128 for 16 values bit packed marker */ 0x5,
+       /* Bitpacked run */ 0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x8, 0x9},
+      /* bit_width= */ 8,
+      /* expected= */ {1, 2, 3, 4, 5, 6, 7, 8, 9});
+
+  // If the trailing bit-packed declares more values than padding allows,
+  // it's an error.
+
+  // 2 values encoded, 16 values declared (8 would be ok)
+  TestRleBitPackedParserError(
+      /* bytes= */
+      {/* LEB128 for 16 values bit packed marker */ 0x5,
+       /* Bitpacked run */ 0x88},
+      /* bit_width= */ 3);
+  // 8 values encoded, 16 values declared (8 would be ok)
+  TestRleBitPackedParserError(
+      /* bytes= */
+      {/* LEB128 for 16 values bit packed marker */ 0x5,
+       /* Bitpacked run */ 0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x8},
+      /* bit_width= */ 8);
+
+  // If the trailing bit-packed run does not have room for at least 1 value,
+  // it's an error.
+
+  TestRleBitPackedParserError(
+      /* bytes= */
+      {/* LEB128 for 8 values bit packed marker */ 0x3},
+      /* bit_width= */ 3);
+  TestRleBitPackedParserError(
+      /* bytes= */
+      {/* LEB128 for 8 values bit packed marker */ 0x3,
+       /* Bitpacked run */ 0x1},
+      /* bit_width= */ 9);
+}
+
+TEST(RleBitPacked, RleBitPackedParserErrors) {
+  // Truncated LEB128 header
+  TestRleBitPackedParserError(
+      /* bytes= */
+      {0x81},
+      /* bit_width= */ 3);
+
+  // Invalid LEB128 header for a 32-bit value
+  TestRleBitPackedParserError(
+      /* bytes= */
+      {0xFF, 0xFF, 0xFF, 0xFF, 0x7f},
+      /* bit_width= */ 3);
+
+  // Zero-length repeated run
+  TestRleBitPackedParserError(
+      /* bytes= */
+      {0x00},
+      /* bit_width= */ 3);
+  TestRleBitPackedParserError(
+      /* bytes= */
+      {0x80, 0x00},
+      /* bit_width= */ 3);
+
+  // Zero-length bit-packed run
+  TestRleBitPackedParserError(
+      /* bytes= */
+      {0x01},
+      /* bit_width= */ 3);
+
+  // Bit-packed run too large
+  // (we pass a span<> on invalid memory, but only the reachable part should be read)
+  std::vector<uint8_t> bytes = {0x81, 0x80, 0x80, 0x80, 0x02};
+  TestRleBitPackedParserError(
+      /* bytes= */ span(bytes.data(), 1ULL << 30),
+      /* bit_width= */ 1);
 }
 
 // Validates encoding of values by encoding and decoding them.  If

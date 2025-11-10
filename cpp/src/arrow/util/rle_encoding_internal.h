@@ -659,19 +659,15 @@ auto RleBitPackedParser::PeekImpl(Handler&& handler) const
 
   constexpr auto kMaxSize = bit_util::kMaxLEB128ByteLenFor<uint32_t>;
   uint32_t run_len_type = 0;
-  const auto header_bytes = bit_util::ParseLeadingLEB128(data_, kMaxSize, &run_len_type);
-
-  if (ARROW_PREDICT_FALSE(header_bytes == 0)) {
-    // Malformed LEB128 data
-    return {0, ControlFlow::Break};
-  }
+  const auto header_bytes =
+      bit_util::ParseLeadingLEB128(data_, std::min(kMaxSize, data_size_), &run_len_type);
 
   const bool is_bit_packed = run_len_type & 1;
   const uint32_t count = run_len_type >> 1;
   if (is_bit_packed) {
     // Bit-packed run
     constexpr auto kMaxCount = bit_util::CeilDiv(internal::max_size_for_v<rle_size_t>, 8);
-    if (ARROW_PREDICT_FALSE(count == 0 || count > kMaxCount)) {
+    if (ARROW_PREDICT_FALSE(count == 0 || count >= kMaxCount)) {
       // Illegal number of encoded values
       return {0, ControlFlow::Break};
     }
@@ -691,7 +687,9 @@ auto RleBitPackedParser::PeekImpl(Handler&& handler) const
       bytes_read = data_size_;
       values_count =
           static_cast<rle_size_t>((bytes_read - header_bytes) * 8 / value_bit_width_);
-      if (values_count < 1) {
+      // Only allow errors where the bit-packed run is not padded to a multiple
+      // of 8 values. Larger truncation should not occur.
+      if (values_count <= static_cast<rle_size_t>((count - 1) * 8)) {
         return {0, ControlFlow::Break};
       }
     }
