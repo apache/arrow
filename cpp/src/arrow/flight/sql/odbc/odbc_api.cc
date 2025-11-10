@@ -851,10 +851,13 @@ SQLRETURN SQLFetchScroll(SQLHSTMT stmt, SQLSMALLINT fetch_orientation,
   using ODBC::ODBCDescriptor;
   using ODBC::ODBCStatement;
   return ODBCStatement::ExecuteWithDiagnostics(stmt, SQL_ERROR, [=]() {
+    // Only SQL_FETCH_NEXT forward-only fetching orientation is supported,
+    // meaning the behavior of SQLExtendedFetch is same as SQLFetch.
     if (fetch_orientation != SQL_FETCH_NEXT) {
       throw DriverException("Optional feature not supported.", "HYC00");
     }
-    // fetch_offset is ignored as only SQL_FETCH_NEXT is supported
+    // Ignore fetch_offset as it's not applicable to SQL_FETCH_NEXT
+    ARROW_UNUSED(fetch_offset);
 
     ODBCStatement* statement = reinterpret_cast<ODBCStatement*>(stmt);
 
