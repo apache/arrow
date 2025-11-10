@@ -74,7 +74,7 @@ RUN `
 
 # Install choco CLI
 #
-# Switch into Powershell just for this command because choco and Python install manager (MSIX)
+# Switch into Powershell just for the following commands because choco and Python install manager (MSIX)
 # only provide a Powershell installation scripts. After, we switch back to cmd.
 #
 # See https://chocolatey.org/install#completely-offline-install
