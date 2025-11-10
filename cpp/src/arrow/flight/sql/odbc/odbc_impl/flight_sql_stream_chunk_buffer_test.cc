@@ -24,6 +24,7 @@
 #include "arrow/flight/test_flight_server.h"
 #include "arrow/flight/test_util.h"
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 namespace arrow::flight::sql::odbc {
@@ -92,17 +93,6 @@ FlightInfo MultipleEndpointsFlightInfo(Location location1, Location location2) {
                                        100000, false, "");
 }
 
-void VerifyArraysContainIntsOnly(std::shared_ptr<Array> intArray) {
-  for (int64_t i = 0; i < intArray->length(); ++i) {
-    // null values are accepted
-    if (!intArray->IsNull(i)) {
-      auto scalar_data = intArray->GetScalar(i).ValueOrDie();
-      std::string scalar_str = ConvertToJson(*scalar_data);
-      ASSERT_TRUE(std::all_of(scalar_str.begin(), scalar_str.end(), ::isdigit));
-    }
-  }
-}
-
 TEST_F(FlightStreamChunkBufferTest, TestMultipleEndpointsInt) {
   FlightClientOptions client_options = FlightClientOptions::Defaults();
   FlightCallOptions options;
@@ -127,7 +117,10 @@ TEST_F(FlightStreamChunkBufferTest, TestMultipleEndpointsInt) {
       // Each array has random length
       ASSERT_GT(array->length(), 0);
 
-      VerifyArraysContainIntsOnly(array);
+      std::vector<int> int_types = {
+          Type::type::INT8,  Type::type::UINT8,  Type::type::INT16, Type::type::UINT16,
+          Type::type::INT32, Type::type::UINT32, Type::type::INT64, Type::type::UINT64};
+      ASSERT_THAT(int_types, testing::Contains(array->type_id()));
     }
   }
 

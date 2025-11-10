@@ -49,7 +49,8 @@ FlightStreamChunkBuffer::FlightStreamChunkBuffer(
       std::unique_ptr<FlightClient> temp_flight_client;
       util::ThrowIfNotOK(FlightClient::Connect(endpoint_locations[0], client_options)
                              .Value(&temp_flight_client));
-      temp_flight_sql_client.reset(new FlightSqlClient(std::move(temp_flight_client)));
+      temp_flight_sql_client =
+          std::make_shared<FlightSqlClient>(std::move(temp_flight_client));
 
       result = temp_flight_sql_client->DoGet(call_options, ticket);
     }
@@ -67,6 +68,8 @@ FlightStreamChunkBuffer::FlightStreamChunkBuffer(
       // call. temp_flight_sql_client is intentionally null if the list of endpoint
       // Locations is empty.
       // After all data is fetched from reader, the temp client is closed.
+
+      // gh-48084 Replace boost::optional with std::optional
       return boost::make_optional(
           is_not_ok || is_not_empty,
           std::make_pair(std::move(result), temp_flight_sql_client));
