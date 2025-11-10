@@ -830,7 +830,7 @@ SQLRETURN SQLFetch(SQLHSTMT stmt) {
     ODBCStatement* statement = reinterpret_cast<ODBCStatement*>(stmt);
 
     // The SQL_ATTR_ROW_ARRAY_SIZE statement attribute specifies the number of rows in the
-    // rowset.
+    // rowset. Retrieve it with GetArraySize.
     ODBCDescriptor* ard = statement->GetARD();
     size_t rows = static_cast<size_t>(ard->GetArraySize());
 
