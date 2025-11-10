@@ -130,6 +130,9 @@ jobs:
       - name: Run Archery typechecking
         run: archery docker run ${{ matrix.image }} /arrow/dev/run_typechecking.sh
 
+      - name: Test that PyArrow is present
+        run: archery docker run ${{ matrix.image }} /arrow/ci/scripts/python_test.sh /arrow
+
       - name: Docker Push
         if: >-
           success() &&
