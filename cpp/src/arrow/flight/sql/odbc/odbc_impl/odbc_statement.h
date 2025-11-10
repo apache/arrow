@@ -80,9 +80,9 @@ class ODBCStatement : public ODBCHandle<ODBCStatement> {
   bool GetData(SQLSMALLINT record_number, SQLSMALLINT c_type, SQLPOINTER data_ptr,
                SQLLEN buffer_length, SQLLEN* indicator_ptr);
 
-  /**
-   * @brief Get number of rows affected by an UPDATE, INSERT, or DELETE statement
-   */
+  /// \brief Return number of rows affected by an UPDATE, INSERT, or DELETE statement\
+  ///
+  ///  -1 is returned as driver only supports SELECT statement
   void GetRowCount(SQLLEN* row_count_ptr);
 
   /**

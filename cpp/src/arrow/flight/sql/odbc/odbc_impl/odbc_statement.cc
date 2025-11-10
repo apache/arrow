@@ -737,11 +737,12 @@ bool ODBCStatement::GetData(SQLSMALLINT record_number, SQLSMALLINT c_type,
 
 void ODBCStatement::GetRowCount(SQLLEN* row_count_ptr) {
   if (!row_count_ptr) {
-    // row_count_ptr is not valid, do nothing as ODBC spec does not mention this as an
+    // row count pointer is not valid, do nothing as ODBC spec does not mention this as an
     // error
     return;
   }
-  // Will always be -1 (number of rows unknown) if only SELECT is supported
+  // Will always be -1 (meaning number of rows unknown) since only SELECT is supported by
+  // driver
   *row_count_ptr = -1;
 }
 
