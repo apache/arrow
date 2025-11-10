@@ -19,18 +19,26 @@
 
 set -ex
 
-# Install library stubs
-pip install pandas-stubs scipy-stubs sphinx types-cffi types-psutil types-requests types-python-dateutil
+if [ "${PYARROW_TEST_ANNOTATIONS}" == "ON" ]; then
 
-# Install type checkers
-pip install mypy pyright ty
+  pyarrow_dir=${1}
 
-# TODO: pandas shouldn't be necessary, fix the stubs
-# Install other dependencies
-pip install pandas psutil
+  # Install library stubs
+  pip install pandas-stubs scipy-stubs sphinx types-cffi types-psutil types-requests types-python-dateutil
 
-# Run type checkers
-cd /arrow/python
-mypy
-pyright
-ty check
+  # Install type checkers
+  pip install mypy pyright ty
+
+  # TODO: pandas shouldn't be necessary, fix the stubs
+  # Install other dependencies
+  pip install pandas
+
+  # Run type checkers
+  pushd "${pyarrow_dir}"
+  mypy
+  pyright
+  ty check;
+
+else
+  echo "Skipping type annotation tests";
+fi
