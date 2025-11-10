@@ -639,7 +639,7 @@ def select_testers(with_cpp=True, with_java=True, with_js=True,
 
         append_tester("external_library", ExternalLibraryTester(
             path=Path(with_external_library),
-            is_producer_compatible=kwargs.get("external_library_ipc_produder", False),
+            is_producer_compatible=kwargs.get("external_library_ipc_producer", False),
             is_consumer_compatible=kwargs.get("external_library_ipc_consumer", False),
             is_c_data_schema_exporter_compatible=kwargs.get("external_library_c_data_schema_exporter", False),
             is_c_data_array_exporter_compatible=kwargs.get("external_library_c_data_array_exporter", False),
