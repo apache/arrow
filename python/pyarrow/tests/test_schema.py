@@ -548,7 +548,7 @@ def test_schema_equals_invalid_type():
 
     for val in [None, 'string', pa.array([1, 2])]:
         with pytest.raises(TypeError):
-            schema.equals(val)
+            schema.equals(val)  # type: ignore[invalid-argument-type]
 
 
 def test_schema_equality_operators():

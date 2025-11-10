@@ -1186,13 +1186,13 @@ def test_map_from_arrays():
     keys = pa.array(pykeys, type='binary')
     items = pa.array(pyitems, type='i4')
 
-    result = pa.MapArray.from_arrays(offsets, keys, items)
+    result = pa.MapArray.from_arrays(offsets, keys, items)  # type: ignore[arg-type]
     expected = pa.array(pyentries, type=pa.map_(pa.binary(), pa.int32()))
 
     assert result.equals(expected)
 
     # pass in the type explicitly
-    result = pa.MapArray.from_arrays(offsets, keys, items, pa.map_(
+    result = pa.MapArray.from_arrays(offsets, keys, items, pa.map_(  # type: ignore[arg-type]
         keys.type,
         items.type
     ))
@@ -1200,10 +1200,10 @@ def test_map_from_arrays():
 
     # pass in invalid types
     with pytest.raises(pa.ArrowTypeError, match='Expected map type, got string'):
-        pa.MapArray.from_arrays(offsets, keys, items, pa.string())
+        pa.MapArray.from_arrays(offsets, keys, items, pa.string())  # type: ignore[arg-type]
 
     with pytest.raises(pa.ArrowTypeError, match='Mismatching map items type'):
-        pa.MapArray.from_arrays(offsets, keys, items, pa.map_(
+        pa.MapArray.from_arrays(offsets, keys, items, pa.map_(  # type: ignore[arg-type]
             keys.type,
             # Larger than the original i4
             pa.int64()
@@ -1241,7 +1241,7 @@ def test_map_from_arrays():
     # error if null bitmap and offsets with nulls passed
     msg1 = 'Ambiguous to specify both validity map and offsets with nulls'
     with pytest.raises(pa.ArrowInvalid, match=msg1):
-        pa.MapArray.from_arrays(offsets, keys, items, pa.map_(
+        pa.MapArray.from_arrays(offsets, keys, items, pa.map_(  # type: ignore[arg-type]
             keys.type,
             items.type),
             mask=pa.array([False, True, False], type=pa.bool_())
@@ -2649,7 +2649,7 @@ def test_interval_array_from_relativedelta():
     assert arr.type == pa.month_day_nano_interval()
     expected_list = [
         None,
-        pa.MonthDayNano([13, 8,
+        pa.MonthDayNano([13, 8,  # type: ignore[arg-type]
                          (datetime.timedelta(seconds=1, microseconds=1,
                                              minutes=1, hours=1) //
                           datetime.timedelta(microseconds=1)) * 1000])]
@@ -2682,7 +2682,7 @@ def test_interval_array_from_tuple():
     assert arr.type == pa.month_day_nano_interval()
     expected_list = [
         None,
-        pa.MonthDayNano([1, 2, -3])]
+        pa.MonthDayNano([1, 2, -3])]  # type: ignore[arg-type]
     expected = pa.array(expected_list)
     assert arr.equals(expected)
     assert arr.to_pylist() == expected_list
@@ -2703,8 +2703,8 @@ def test_interval_array_from_dateoffset():
     assert arr.type == pa.month_day_nano_interval()
     expected_list = [
         None,
-        pa.MonthDayNano([13, 8, 3661000001001]),
-        pa.MonthDayNano([0, 0, 0])]
+        pa.MonthDayNano([13, 8, 3661000001001]),  # type: ignore[arg-type]
+        pa.MonthDayNano([0, 0, 0])]  # type: ignore[arg-type]
     expected = pa.array(expected_list)
     assert arr.equals(expected)
     expected_from_pandas = [

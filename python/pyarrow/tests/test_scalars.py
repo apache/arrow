@@ -424,7 +424,9 @@ def test_timestamp():
         expected = pd.Timestamp('2000-01-01 12:34:56')
 
         assert arrow_arr[0].as_py() == expected
-        assert cast(pa.TimestampScalar, arrow_arr[0]).value * 1000**i == expected.value
+        value = cast(pa.TimestampScalar, arrow_arr[0]).value
+        assert value is not None
+        assert value * 1000**i == expected.value
 
         tz = 'America/New_York'
         arrow_type = pa.timestamp(unit, tz=tz)
@@ -436,7 +438,9 @@ def test_timestamp():
                     .tz_convert(tz))
 
         assert arrow_arr[0].as_py() == expected
-        assert cast(pa.TimestampScalar, arrow_arr[0]).value * 1000**i == expected.value
+        value = cast(pa.TimestampScalar, arrow_arr[0]).value
+        assert value is not None
+        assert value * 1000**i == expected.value
 
 
 @pytest.mark.nopandas
@@ -531,7 +535,7 @@ def test_duration_nanos_nopandas():
 
 
 def test_month_day_nano_interval():
-    triple = pa.MonthDayNano([-3600, 1800, -50])
+    triple = pa.MonthDayNano([-3600, 1800, -50])  # type: ignore[invalid-argument-type]
     arr = pa.array([triple])
     assert isinstance(arr[0].as_py(), pa.MonthDayNano)
     assert arr[0].as_py() == triple

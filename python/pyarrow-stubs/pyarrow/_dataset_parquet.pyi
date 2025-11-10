@@ -46,7 +46,19 @@ class ParquetFileFormat(FileFormat):
         self,
         read_options: ParquetReadOptions | None = None,
         default_fragment_scan_options: ParquetFragmentScanOptions | None = None,
-        **kwargs,
+        *,
+        pre_buffer: bool = True,
+        coerce_int96_timestamp_unit: str | None = None,
+        thrift_string_size_limit: int | None = None,
+        thrift_container_size_limit: int | None = None,
+        page_checksum_verification: bool = False,
+        arrow_extensions_enabled: bool = True,
+        binary_type: DataType | None = None,
+        list_type: type[ListType | LargeListType] | None = None,
+        use_buffered_stream: bool = False,
+        buffer_size: int = 8192,
+        dictionary_columns: list[str] | set[str] | None = None,
+        decryption_properties: FileDecryptionProperties | None = None,
     ) -> None: ...
     @property
     def read_options(self) -> ParquetReadOptions: ...
@@ -60,7 +72,6 @@ class ParquetFileFormat(FileFormat):
     def make_fragment(
         self,
         file: StrPath | IO | Buffer | BufferReader,
-
         filesystem: SupportedFileSystem | None = None,
         partition_expression: Expression | None = None,
         row_groups: Iterable[int] | None = None,
