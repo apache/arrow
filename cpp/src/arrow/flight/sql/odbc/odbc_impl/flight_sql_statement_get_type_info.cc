@@ -109,6 +109,7 @@ Result<std::shared_ptr<RecordBatch>> TransformInner(
 
     const auto& create_params = reader.GetCreateParams();
     if (create_params && !create_params->empty()) {
+      // GH-48093 TODO: replace boost-algorithm with alternatives
       data.create_params = boost::algorithm::join(*create_params, ",");
     } else {
       data.create_params = nullopt;
