@@ -87,7 +87,7 @@ class FlightSqlResultSetMetadata : public ResultSetMetadata {
 
   Searchability IsSearchable(int column_position) override;
 
-  /// \brief Returns true if the column is unsigned (not numeric)
+  /// \brief Return true if the column is unsigned or not numeric
   bool IsUnsigned(int column_position) override;
 
   bool IsFixedPrecScale(int column_position) override;
