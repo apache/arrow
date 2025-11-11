@@ -1412,6 +1412,27 @@ def test_flight_generator_stream_of_batches():
         assert result.equals(data)
 
 
+def test_flight_generator_stream_of_batches_with_dict():
+    """
+    Try downloading a flight of RecordBatches with dictionaries
+    in a GeneratorStream.
+    """
+    data = pa.Table.from_arrays([
+        pa.array(["foo", "bar", "baz", "foo", "foo"],
+                 pa.dictionary(pa.int64(), pa.utf8())),
+        pa.array([123, 234, 345, 456, 567])
+    ], names=['a', 'b'])
+
+    with EchoRecordBatchReaderStreamFlightServer() as server, \
+            FlightClient(('localhost', server.port)) as client:
+        writer, _ = client.do_put(flight.FlightDescriptor.for_path('test'),
+                                  data.schema)
+        writer.write_table(data)
+        writer.close()
+        result = client.do_get(flight.Ticket(b'')).read_all()
+        assert result.equals(data)
+
+
 def test_flight_generator_stream_of_table():
     """Try downloading a flight of Table in a GeneratorStream."""
     data = pa.Table.from_arrays([
@@ -1428,11 +1449,53 @@ def test_flight_generator_stream_of_table():
         assert result.equals(data)
 
 
+def test_flight_generator_stream_of_table_with_dict():
+    """
+    Try downloading a flight of Table with dictionaries
+    in a GeneratorStream.
+    """
+    data = pa.Table.from_arrays([
+        pa.array(["foo", "bar", "baz", "foo", "foo"],
+                 pa.dictionary(pa.int64(), pa.utf8())),
+        pa.array([123, 234, 345, 456, 567])
+    ], names=['a', 'b'])
+
+    with EchoRecordBatchReaderStreamFlightServer() as server, \
+            FlightClient(('localhost', server.port)) as client:
+        writer, _ = client.do_put(flight.FlightDescriptor.for_path('test'),
+                                  data.schema)
+        writer.write_table(data)
+        writer.close()
+        result = client.do_get(flight.Ticket(b'')).read_all()
+        assert result.equals(data)
+
+
 def test_flight_generator_stream_of_record_batch_reader():
     """Try downloading a flight of RecordBatchReader in a GeneratorStream."""
     data = pa.Table.from_arrays([
         pa.array(range(0, 10 * 1024))
     ], names=['a'])
+
+    with EchoRecordBatchReaderStreamFlightServer() as server, \
+            FlightClient(('localhost', server.port)) as client:
+        writer, _ = client.do_put(flight.FlightDescriptor.for_path('test'),
+                                  data.schema)
+        writer.write_table(data)
+        writer.close()
+        result = client.do_get(flight.Ticket(b'')).read_all()
+        assert result.equals(data)
+
+
+def test_flight_generator_stream_of_record_batch_reader_with_dict():
+    """
+    Try downloading a flight of RecordBatchReader with dictionaries
+    in a GeneratorStream.
+    """
+    data = pa.Table.from_arrays([
+        pa.array(["foo", "bar", "baz", "foo", "foo"],
+                 pa.dictionary(pa.int64(), pa.utf8())),
+        pa.array([123, 234, 345, 456, 567])
+    ], names=['a', 'b'])
 
     with EchoRecordBatchReaderStreamFlightServer() as server, \
             FlightClient(('localhost', server.port)) as client:
