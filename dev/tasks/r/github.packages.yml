@@ -112,7 +112,7 @@ jobs:
             {{ '${{ env.PKG_FILE }}' }}.sha512
 
   linux-cpp:
-    name: C++ Binary Linux OpenSSL {{ '${{ matrix.openssl }}' }} {{ '${{ matrix.arch }}' }}
+    name: C++ Binary Linux OpenSSL {{ '${{ matrix.openssl }}' }} {{ '${{ matrix.pkg_arch }}' }}
     runs-on: {{ '${{ matrix.runs-on }}' }}
     needs: source
     strategy:
@@ -122,11 +122,13 @@ jobs:
           - arch: amd64
             openssl: "3.0"
             os: ubuntu
+            pkg_arch: amd64
             runs-on: ubuntu-latest
             ubuntu: "22.04"
-          - arch: arm64
+          - arch: arm64v8
             openssl: "3.0"
             os: ubuntu
+            pkg_arch: arm64
             runs-on: ubuntu-24.04-arm
             ubuntu: "24.04"
           - arch: amd64
@@ -135,14 +137,17 @@ jobs:
               -DCMAKE_LIBRARY_PATH=/usr/lib64/openssl11
             openssl: "1.1"
             os: centos
+            pkg_arch: amd64
             runs-on: ubuntu-latest
           - arch: amd64
             openssl: "1.0"
             os: centos
+            pkg_arch: amd64
             runs-on: ubuntu-latest
     env:
-      PKG_ID: r-libarrow-linux-{{ '${{ matrix.arch }}' }}-openssl-{{ '${{ matrix.openssl }}' }}
-      PKG_FILE: r-libarrow-linux-{{ '${{ matrix.arch }}' }}-openssl-{{ '${{ matrix.openssl }}' }}-{{ '${{ needs.source.outputs.pkg_version }}' }}.zip
+      ARCH: {{ '${{ matrix.arch }}' }}
+      PKG_ID: r-libarrow-linux-{{ '${{ matrix.pkg_arch }}' }}-openssl-{{ '${{ matrix.openssl }}' }}
+      PKG_FILE: r-libarrow-linux-{{ '${{ matrix.pkg_arch }}' }}-openssl-{{ '${{ matrix.openssl }}' }}-{{ '${{ needs.source.outputs.pkg_version }}' }}.zip
     steps:
       {{ macros.github_checkout_arrow()|indent }}
       {{ macros.github_change_r_pkg_version(is_fork, '${{ needs.source.outputs.pkg_version }}')|indent }}
