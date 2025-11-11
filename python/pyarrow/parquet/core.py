@@ -1042,6 +1042,7 @@ Examples
                  sorting_columns=None,
                  store_decimal_as_integer=False,
                  write_time_adjusted_to_utc=False,
+                 max_rows_per_page=None,
                  **options):
         if use_deprecated_int96_timestamps is None:
             # Use int96 timestamps for Spark
@@ -1096,6 +1097,7 @@ Examples
             sorting_columns=sorting_columns,
             store_decimal_as_integer=store_decimal_as_integer,
             write_time_adjusted_to_utc=write_time_adjusted_to_utc,
+            max_rows_per_page=max_rows_per_page,
             **options)
         self.is_open = True
 
@@ -1958,6 +1960,7 @@ def write_table(table, where, row_group_size=None, version='2.6',
                 sorting_columns=None,
                 store_decimal_as_integer=False,
                 write_time_adjusted_to_utc=False,
+                max_rows_per_page=None,
                 **kwargs):
     # Implementor's note: when adding keywords here / updating defaults, also
     # update it in write_to_dataset and _dataset_parquet.pyx ParquetFileWriteOptions
@@ -1990,6 +1993,7 @@ def write_table(table, where, row_group_size=None, version='2.6',
                 sorting_columns=sorting_columns,
                 store_decimal_as_integer=store_decimal_as_integer,
                 write_time_adjusted_to_utc=write_time_adjusted_to_utc,
+                max_rows_per_page=max_rows_per_page,
                 **kwargs) as writer:
             writer.write_table(table, row_group_size=row_group_size)
     except Exception:
