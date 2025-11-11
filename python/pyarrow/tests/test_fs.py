@@ -1455,8 +1455,9 @@ def test_s3_proxy_options(monkeypatch, pickle_module):
         S3FileSystem(proxy_options='httpsB://localhost:9000')
     # Invalid proxy_options dict (invalid scheme httpA)
     with pytest.raises(pa.ArrowInvalid):
-        S3FileSystem(proxy_options={  # type: ignore[typeddict-item]
-            'scheme': 'httpA', 'host': 'localhost', 'port': 8999})
+        S3FileSystem(proxy_options={
+            'scheme': 'httpA',  # type: ignore[typeddict-item]
+            'host': 'localhost', 'port': 8999})
 
 
 @pytest.mark.s3
