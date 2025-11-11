@@ -70,7 +70,7 @@ using arrow::bit_util::BitWriter;
 using arrow::internal::checked_cast;
 using arrow::internal::checked_pointer_cast;
 using arrow::util::Float16;
-using arrow::util::RleEncoder;
+using arrow::util::RleBitPackedEncoder;
 
 namespace bit_util = arrow::bit_util;
 
@@ -168,7 +168,7 @@ void LevelEncoder::Init(Encoding::type encoding, int16_t max_level,
   encoding_ = encoding;
   switch (encoding) {
     case Encoding::RLE: {
-      rle_encoder_ = std::make_unique<RleEncoder>(data, data_size, bit_width_);
+      rle_encoder_ = std::make_unique<RleBitPackedEncoder>(data, data_size, bit_width_);
       break;
     }
     case Encoding::BIT_PACKED: {
@@ -185,24 +185,29 @@ void LevelEncoder::Init(Encoding::type encoding, int16_t max_level,
 int LevelEncoder::MaxBufferSize(Encoding::type encoding, int16_t max_level,
                                 int num_buffered_values) {
   int bit_width = bit_util::Log2(max_level + 1);
-  int num_bytes = 0;
+  int64_t num_bytes = 0;
   switch (encoding) {
     case Encoding::RLE: {
       // TODO: Due to the way we currently check if the buffer is full enough,
       // we need to have MinBufferSize as head room.
-      num_bytes = RleEncoder::MaxBufferSize(bit_width, num_buffered_values) +
-                  RleEncoder::MinBufferSize(bit_width);
+      num_bytes = RleBitPackedEncoder::MaxBufferSize(bit_width, num_buffered_values) +
+                  RleBitPackedEncoder::MinBufferSize(bit_width);
       break;
     }
     case Encoding::BIT_PACKED: {
-      num_bytes =
-          static_cast<int>(bit_util::BytesForBits(num_buffered_values * bit_width));
+      num_bytes = bit_util::BytesForBits(num_buffered_values * bit_width);
       break;
     }
     default:
       throw ParquetException("Unknown encoding type for levels.");
   }
-  return num_bytes;
+  if (num_bytes > std::numeric_limits<int>::max()) {
+    std::stringstream ss;
+    ss << "Maximum buffer size for LevelEncoder (" << num_bytes
+       << ") is greater than the maximum int32 value";
+    throw ParquetException(ss.str());
+  }
+  return static_cast<int>(num_bytes);
 }
 
 int LevelEncoder::Encode(int batch_size, const int16_t* levels) {
@@ -1150,64 +1155,96 @@ void ColumnWriterImpl::FlushBufferedDataPages() {
 // ----------------------------------------------------------------------
 // TypedColumnWriter
 
-template <typename Action>
-inline void DoInBatches(int64_t total, int64_t batch_size, Action&& action) {
-  int64_t num_batches = static_cast<int>(total / batch_size);
-  for (int round = 0; round < num_batches; round++) {
-    action(round * batch_size, batch_size, /*check_page_size=*/true);
-  }
-  // Write the remaining values
-  if (total % batch_size > 0) {
-    action(num_batches * batch_size, total % batch_size, /*check_page_size=*/true);
+// DoInBatches for non-repeated columns
+template <typename Action, typename GetBufferedRows>
+inline void DoInBatchesNonRepeated(int64_t num_levels, int64_t batch_size,
+                                   int64_t max_rows_per_page, Action&& action,
+                                   GetBufferedRows&& curr_page_buffered_rows) {
+  int64_t offset = 0;
+  while (offset < num_levels) {
+    int64_t page_buffered_rows = curr_page_buffered_rows();
+    ARROW_DCHECK_LE(page_buffered_rows, max_rows_per_page);
+
+    // Every record contains only one level.
+    int64_t max_batch_size = std::min(batch_size, num_levels - offset);
+    max_batch_size = std::min(max_batch_size, max_rows_per_page - page_buffered_rows);
+    int64_t end_offset = offset + max_batch_size;
+
+    ARROW_DCHECK_LE(offset, end_offset);
+    ARROW_DCHECK_LE(end_offset, num_levels);
+
+    // Always check page limit for non-repeated columns.
+    action(offset, end_offset - offset, /*check_page_limit=*/true);
+
+    offset = end_offset;
   }
 }
 
-template <typename Action>
-inline void DoInBatches(const int16_t* def_levels, const int16_t* rep_levels,
-                        int64_t num_levels, int64_t batch_size, Action&& action,
-                        bool pages_change_on_record_boundaries) {
-  if (!pages_change_on_record_boundaries || !rep_levels) {
-    // If rep_levels is null, then we are writing a non-repeated column.
-    // In this case, every record contains only one level.
-    return DoInBatches(num_levels, batch_size, std::forward<Action>(action));
-  }
-
+// DoInBatches for repeated columns
+template <typename Action, typename GetBufferedRows>
+inline void DoInBatchesRepeated(const int16_t* def_levels, const int16_t* rep_levels,
+                                int64_t num_levels, int64_t batch_size,
+                                int64_t max_rows_per_page,
+                                bool pages_change_on_record_boundaries, Action&& action,
+                                GetBufferedRows&& curr_page_buffered_rows) {
   int64_t offset = 0;
   while (offset < num_levels) {
-    int64_t end_offset = std::min(offset + batch_size, num_levels);
+    int64_t max_batch_size = std::min(batch_size, num_levels - offset);
+    int64_t end_offset = num_levels;           // end offset of the current batch
+    int64_t check_page_limit_end_offset = -1;  // offset to check page limit (if not -1)
 
-    // Find next record boundary (i.e. rep_level = 0)
-    while (end_offset < num_levels && rep_levels[end_offset] != 0) {
-      end_offset++;
+    int64_t page_buffered_rows = curr_page_buffered_rows();
+    ARROW_DCHECK_LE(page_buffered_rows, max_rows_per_page);
+
+    // Iterate rep_levels to find the shortest sequence that ends before a record
+    // boundary (i.e. rep_levels == 0) with a size no less than max_batch_size
+    for (int64_t i = offset; i < num_levels; ++i) {
+      if (rep_levels[i] == 0) {
+        // Use the beginning of last record to check page limit.
+        check_page_limit_end_offset = i;
+        if (i - offset >= max_batch_size || page_buffered_rows >= max_rows_per_page) {
+          end_offset = i;
+          break;
+        }
+        page_buffered_rows += 1;
+      }
     }
 
-    if (end_offset < num_levels) {
-      // This is not the last chunk of batch and end_offset is a record boundary.
-      // It is a good chance to check the page size.
-      action(offset, end_offset - offset, /*check_page_size=*/true);
-    } else {
-      DCHECK_EQ(end_offset, num_levels);
-      // This is the last chunk of batch, and we do not know whether end_offset is a
-      // record boundary. Find the offset to beginning of last record in this chunk,
-      // so we can check page size.
-      int64_t last_record_begin_offset = num_levels - 1;
-      while (last_record_begin_offset >= offset &&
-             rep_levels[last_record_begin_offset] != 0) {
-        last_record_begin_offset--;
-      }
+    ARROW_DCHECK_LE(offset, end_offset);
+    ARROW_DCHECK_LE(check_page_limit_end_offset, end_offset);
 
-      if (offset <= last_record_begin_offset) {
-        // We have found the beginning of last record and can check page size.
-        action(offset, last_record_begin_offset - offset, /*check_page_size=*/true);
-        offset = last_record_begin_offset;
-      }
-
-      // Write remaining data after the record boundary,
-      // or all data if no boundary was found.
-      action(offset, end_offset - offset, /*check_page_size=*/false);
+    if (check_page_limit_end_offset >= 0) {
+      // At least one record boundary is included in this batch.
+      // It is a good chance to check the page limit.
+      action(offset, check_page_limit_end_offset - offset, /*check_page_limit=*/true);
+      offset = check_page_limit_end_offset;
+    }
+    if (end_offset > offset) {
+      // The is the last chunk of batch, and we do not know whether end_offset is a
+      // record boundary so we cannot check page limit if pages cannot change on
+      // record boundaries.
+      ARROW_DCHECK_EQ(end_offset, num_levels);
+      action(offset, end_offset - offset,
+             /*check_page_limit=*/!pages_change_on_record_boundaries);
     }
 
     offset = end_offset;
+  }
+}
+
+template <typename Action, typename GetBufferedRows>
+inline void DoInBatches(const int16_t* def_levels, const int16_t* rep_levels,
+                        int64_t num_levels, int64_t batch_size, int64_t max_rows_per_page,
+                        bool pages_change_on_record_boundaries, Action&& action,
+                        GetBufferedRows&& curr_page_buffered_rows) {
+  if (!rep_levels) {
+    DoInBatchesNonRepeated(num_levels, batch_size, max_rows_per_page,
+                           std::forward<Action>(action),
+                           std::forward<GetBufferedRows>(curr_page_buffered_rows));
+  } else {
+    DoInBatchesRepeated(def_levels, rep_levels, num_levels, batch_size, max_rows_per_page,
+                        pages_change_on_record_boundaries, std::forward<Action>(action),
+                        std::forward<GetBufferedRows>(curr_page_buffered_rows));
   }
 }
 
@@ -1318,7 +1355,8 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
       CheckDictionarySizeLimit();
     };
     DoInBatches(def_levels, rep_levels, num_values, properties_->write_batch_size(),
-                WriteChunk, pages_change_on_record_boundaries());
+                properties_->max_rows_per_page(), pages_change_on_record_boundaries(),
+                WriteChunk, [this]() { return num_buffered_rows_; });
     return value_offset;
   }
 
@@ -1368,7 +1406,8 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
       CheckDictionarySizeLimit();
     };
     DoInBatches(def_levels, rep_levels, num_values, properties_->write_batch_size(),
-                WriteChunk, pages_change_on_record_boundaries());
+                properties_->max_rows_per_page(), pages_change_on_record_boundaries(),
+                WriteChunk, [this]() { return num_buffered_rows_; });
   }
 
   Status WriteArrow(const int16_t* def_levels, const int16_t* rep_levels,
@@ -1769,13 +1808,14 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
   }
 
   void CommitWriteAndCheckPageLimit(int64_t num_levels, int64_t num_values,
-                                    int64_t num_nulls, bool check_page_size) {
+                                    int64_t num_nulls, bool check_page_limit) {
     num_buffered_values_ += num_levels;
     num_buffered_encoded_values_ += num_values;
     num_buffered_nulls_ += num_nulls;
 
-    if (check_page_size &&
-        current_encoder_->EstimatedDataEncodedSize() >= properties_->data_pagesize()) {
+    if (check_page_limit &&
+        (current_encoder_->EstimatedDataEncodedSize() >= properties_->data_pagesize() ||
+         num_buffered_rows_ >= properties_->max_rows_per_page())) {
       AddDataPage();
     }
   }
@@ -1996,9 +2036,10 @@ Status TypedColumnWriterImpl<ParquetType>::WriteArrowDictionary(
     return WriteDense();
   }
 
-  PARQUET_CATCH_NOT_OK(DoInBatches(def_levels, rep_levels, num_levels,
-                                   properties_->write_batch_size(), WriteIndicesChunk,
-                                   pages_change_on_record_boundaries()));
+  PARQUET_CATCH_NOT_OK(
+      DoInBatches(def_levels, rep_levels, num_levels, properties_->write_batch_size(),
+                  properties_->max_rows_per_page(), pages_change_on_record_boundaries(),
+                  WriteIndicesChunk, [this]() { return num_buffered_rows_; }));
   return Status::OK();
 }
 
@@ -2115,33 +2156,30 @@ struct SerializeFunctor<
                    ArrowWriteContext* ctx, value_type* out) {
     if (array.null_count() == 0) {
       for (int64_t i = 0; i < array.length(); i++) {
-        out[i] = TransferValue<ArrowType::kByteWidth>(array.Value(i));
+        out[i] = TransferValue(array.Value(i));
       }
     } else {
       for (int64_t i = 0; i < array.length(); i++) {
-        out[i] =
-            array.IsValid(i) ? TransferValue<ArrowType::kByteWidth>(array.Value(i)) : 0;
+        out[i] = array.IsValid(i) ? TransferValue(array.Value(i)) : 0;
       }
     }
 
     return Status::OK();
   }
 
-  template <int byte_width>
+ private:
   value_type TransferValue(const uint8_t* in) const {
-    static_assert(byte_width == 16 || byte_width == 32,
-                  "only 16 and 32 byte Decimals supported");
-    value_type value = 0;
-    if constexpr (byte_width == 16) {
-      ::arrow::Decimal128 decimal_value(in);
-      PARQUET_THROW_NOT_OK(decimal_value.ToInteger(&value));
-    } else {
-      ::arrow::Decimal256 decimal_value(in);
+    using DecimalValue = typename ::arrow::TypeTraits<ArrowType>::CType;
+    DecimalValue decimal_value(in);
+    if constexpr (std::is_same_v<ArrowType, ::arrow::Decimal256Type>) {
       // Decimal256 does not provide ToInteger, but we are sure it fits in the target
       // integer type.
-      value = static_cast<value_type>(decimal_value.low_bits());
+      return static_cast<value_type>(decimal_value.low_bits());
+    } else {
+      value_type value = 0;
+      PARQUET_THROW_NOT_OK(decimal_value.ToInteger(&value));
+      return value;
     }
-    return value;
   }
 };
 
@@ -2179,6 +2217,8 @@ Status TypedColumnWriterImpl<Int32Type>::WriteArrowDense(
       WRITE_ZERO_COPY_CASE(DATE32)
       WRITE_SERIALIZE_CASE(DATE64)
       WRITE_SERIALIZE_CASE(TIME32)
+      WRITE_SERIALIZE_CASE(DECIMAL32)
+      WRITE_SERIALIZE_CASE(DECIMAL64)
       WRITE_SERIALIZE_CASE(DECIMAL128)
       WRITE_SERIALIZE_CASE(DECIMAL256)
     default:
@@ -2350,6 +2390,8 @@ Status TypedColumnWriterImpl<Int64Type>::WriteArrowDense(
       WRITE_SERIALIZE_CASE(UINT64)
       WRITE_ZERO_COPY_CASE(TIME64)
       WRITE_ZERO_COPY_CASE(DURATION)
+      WRITE_SERIALIZE_CASE(DECIMAL32)
+      WRITE_SERIALIZE_CASE(DECIMAL64)
       WRITE_SERIALIZE_CASE(DECIMAL128)
       WRITE_SERIALIZE_CASE(DECIMAL256)
     default:
@@ -2440,9 +2482,10 @@ Status TypedColumnWriterImpl<ByteArrayType>::WriteArrowDense(
     value_offset += batch_num_spaced_values;
   };
 
-  PARQUET_CATCH_NOT_OK(DoInBatches(def_levels, rep_levels, num_levels,
-                                   properties_->write_batch_size(), WriteChunk,
-                                   pages_change_on_record_boundaries()));
+  PARQUET_CATCH_NOT_OK(
+      DoInBatches(def_levels, rep_levels, num_levels, properties_->write_batch_size(),
+                  properties_->max_rows_per_page(), pages_change_on_record_boundaries(),
+                  WriteChunk, [this]() { return num_buffered_rows_; }));
   return Status::OK();
 }
 
@@ -2491,12 +2534,11 @@ struct SerializeFunctor<
 
     if (array.null_count() == 0) {
       for (int64_t i = 0; i < array.length(); i++) {
-        out[i] = FixDecimalEndianness<ArrowType::kByteWidth>(array.GetValue(i), offset);
+        out[i] = FixDecimalEndianness(array.GetValue(i), offset);
       }
     } else {
       for (int64_t i = 0; i < array.length(); i++) {
-        out[i] = array.IsValid(i) ? FixDecimalEndianness<ArrowType::kByteWidth>(
-                                        array.GetValue(i), offset)
+        out[i] = array.IsValid(i) ? FixDecimalEndianness(array.GetValue(i), offset)
                                   : FixedLenByteArray();
       }
     }
@@ -2504,8 +2546,9 @@ struct SerializeFunctor<
     return Status::OK();
   }
 
+ private:
   // Parquet's Decimal are stored with FixedLength values where the length is
-  // proportional to the precision. Arrow's Decimal are always stored with 16/32
+  // proportional to the precision. Arrow's Decimal are always stored with 4/8/16/32
   // bytes. Thus the internal FLBA pointer must be adjusted by the offset calculated
   // here.
   int32_t Offset(const Array& array) {
@@ -2519,29 +2562,37 @@ struct SerializeFunctor<
     int64_t non_null_count = array.length() - array.null_count();
     int64_t size = non_null_count * ArrowType::kByteWidth;
     scratch_buffer = AllocateBuffer(ctx->memory_pool, size);
-    scratch = reinterpret_cast<int64_t*>(scratch_buffer->mutable_data());
+    scratch = scratch_buffer->mutable_data();
   }
 
-  template <int byte_width>
   FixedLenByteArray FixDecimalEndianness(const uint8_t* in, int64_t offset) {
-    const auto* u64_in = reinterpret_cast<const int64_t*>(in);
     auto out = reinterpret_cast<const uint8_t*>(scratch) + offset;
-    static_assert(byte_width == 16 || byte_width == 32,
-                  "only 16 and 32 byte Decimals supported");
-    if (byte_width == 32) {
-      *scratch++ = ::arrow::bit_util::ToBigEndian(u64_in[3]);
-      *scratch++ = ::arrow::bit_util::ToBigEndian(u64_in[2]);
-      *scratch++ = ::arrow::bit_util::ToBigEndian(u64_in[1]);
-      *scratch++ = ::arrow::bit_util::ToBigEndian(u64_in[0]);
+    if constexpr (std::is_same_v<ArrowType, ::arrow::Decimal32Type>) {
+      const auto* u32_in = reinterpret_cast<const uint32_t*>(in);
+      auto p = reinterpret_cast<uint32_t*>(scratch);
+      *p++ = ::arrow::bit_util::ToBigEndian(u32_in[0]);
+      scratch = reinterpret_cast<uint8_t*>(p);
     } else {
-      *scratch++ = ::arrow::bit_util::ToBigEndian(u64_in[1]);
-      *scratch++ = ::arrow::bit_util::ToBigEndian(u64_in[0]);
+      const auto* u64_in = reinterpret_cast<const uint64_t*>(in);
+      auto p = reinterpret_cast<uint64_t*>(scratch);
+      if constexpr (std::is_same_v<ArrowType, ::arrow::Decimal64Type>) {
+        *p++ = ::arrow::bit_util::ToBigEndian(u64_in[0]);
+      } else if constexpr (std::is_same_v<ArrowType, ::arrow::Decimal128Type>) {
+        *p++ = ::arrow::bit_util::ToBigEndian(u64_in[1]);
+        *p++ = ::arrow::bit_util::ToBigEndian(u64_in[0]);
+      } else if constexpr (std::is_same_v<ArrowType, ::arrow::Decimal256Type>) {
+        *p++ = ::arrow::bit_util::ToBigEndian(u64_in[3]);
+        *p++ = ::arrow::bit_util::ToBigEndian(u64_in[2]);
+        *p++ = ::arrow::bit_util::ToBigEndian(u64_in[1]);
+        *p++ = ::arrow::bit_util::ToBigEndian(u64_in[0]);
+      }
+      scratch = reinterpret_cast<uint8_t*>(p);
     }
     return FixedLenByteArray(out);
   }
 
   std::shared_ptr<ResizableBuffer> scratch_buffer;
-  int64_t* scratch;
+  uint8_t* scratch;
 };
 
 // ----------------------------------------------------------------------
@@ -2577,6 +2628,8 @@ Status TypedColumnWriterImpl<FLBAType>::WriteArrowDense(
     const ::arrow::Array& array, ArrowWriteContext* ctx, bool maybe_parent_nulls) {
   switch (array.type()->id()) {
     WRITE_SERIALIZE_CASE(FIXED_SIZE_BINARY)
+    WRITE_SERIALIZE_CASE(DECIMAL32)
+    WRITE_SERIALIZE_CASE(DECIMAL64)
     WRITE_SERIALIZE_CASE(DECIMAL128)
     WRITE_SERIALIZE_CASE(DECIMAL256)
     WRITE_SERIALIZE_CASE(HALF_FLOAT)

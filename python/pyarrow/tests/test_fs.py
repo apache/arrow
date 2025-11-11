@@ -293,6 +293,16 @@ _minio_limited_policy = """{
             "Resource": [
                 "arn:aws:s3:::*"
             ]
+
+        },
+        {
+            "Effect": "Deny",
+            "Action": [
+                "s3:DeleteObject"
+            ],
+            "Resource": [
+                "arn:aws:s3:::no-delete-bucket*"
+            ]
         }
     ]
 }"""
@@ -533,6 +543,20 @@ def test_s3fs_limited_permissions_create_bucket(s3_server):
 
     with pytest.raises(pa.ArrowIOError, match="Would delete bucket"):
         fs.delete_dir('existing-bucket')
+
+    with pytest.raises(OSError, match="Request ID:"):
+        fs.copy_file("existing-bucket/test-file", "existing-bucket/test-file-copy")
+
+    with pytest.raises(pa.ArrowIOError, match="Request ID:"):
+        with fs.open_output_stream("non-existing-bucket/test-file") as f:
+            f.write(b"test")
+
+    # Create a file in the protected bucket then try to delete it
+    with fs.open_output_stream("no-delete-bucket/test-file") as f:
+        f.write(b"test")
+
+    with pytest.raises(OSError, match="Request ID:"):
+        fs.delete_file("no-delete-bucket/test-file")
 
 
 def test_file_info_constructor():
@@ -882,6 +906,7 @@ def _check_root_dir_contents(config):
     fs.delete_dir_contents("", accept_root_dir=True)
     fs.delete_dir_contents("/", accept_root_dir=True)
     fs.delete_dir_contents("//", accept_root_dir=True)
+
     with pytest.raises(pa.ArrowIOError):
         fs.delete_dir(d)
 
@@ -1642,6 +1667,23 @@ def test_filesystem_from_uri(uri, expected_klass, expected_path):
     assert path == expected_path
 
 
+def test_filesystem_from_uri_calling():
+    # Call using class staticmethod
+    fs, path = FileSystem.from_uri("file:/")
+    assert isinstance(fs, LocalFileSystem)
+    assert path == "/"
+
+    # Call using class staticmethod with explicit arguments
+    fs, path = FileSystem.from_uri(uri="file:/")
+    assert isinstance(fs, LocalFileSystem)
+    assert path == "/"
+
+    # Call using instance method passthrough
+    fs, path = LocalFileSystem().from_uri(uri="file:/")
+    assert isinstance(fs, LocalFileSystem)
+    assert path == "/"
+
+
 @pytest.mark.parametrize(
     'path',
     ['', '/', 'foo/bar', '/foo/bar', __file__]
@@ -2163,6 +2205,41 @@ def test_fsspec_filesystem_from_uri():
     fs, _ = FileSystem.from_uri(f"fsspec+{uri}")
     expected_fs = PyFileSystem(FSSpecHandler(LocalFileSystem()))
     assert fs == expected_fs
+
+
+def test_fsspec_delete_root_dir_contents():
+    try:
+        from fsspec.implementations.memory import MemoryFileSystem
+    except ImportError:
+        pytest.skip("fsspec not installed")
+
+    fs = FSSpecHandler(MemoryFileSystem())
+
+    # Create some files and directories
+    fs.create_dir("test_dir", recursive=True)
+    fs.create_dir("test_dir/subdir", recursive=True)
+
+    with fs.open_output_stream("test_file.txt", metadata={}) as stream:
+        stream.write(b"test content")
+
+    with fs.open_output_stream("test_dir/nested_file.txt", metadata={}) as stream:
+        stream.write(b"nested content")
+
+    # Verify files exist before deletion
+    def get_type(path):
+        return fs.get_file_info([path])[0].type
+
+    assert get_type("test_file.txt") == FileType.File
+    assert get_type("test_dir") == FileType.Directory
+    assert get_type("test_dir/nested_file.txt") == FileType.File
+
+    # Delete root directory contents
+    fs.delete_root_dir_contents()
+
+    # Assert all files and directories are deleted
+    assert get_type("test_file.txt") == FileType.NotFound
+    assert get_type("test_dir") == FileType.NotFound
+    assert get_type("test_dir/nested_file.txt") == FileType.NotFound
 
 
 def test_huggingface_filesystem_from_uri():

@@ -311,6 +311,18 @@ void CheckDispatchBest(std::string func_name, std::vector<TypeHolder> original_v
   }
 }
 
+void CheckDispatchBestWithCastedTypes(std::string func_name,
+                                      std::vector<TypeHolder> values,
+                                      const std::vector<TypeHolder>& expected_values) {
+  ASSERT_OK_AND_ASSIGN(auto function, GetFunctionRegistry()->GetFunction(func_name));
+  ASSERT_OK_AND_ASSIGN(auto kernel, function->DispatchBest(&values));
+  ASSERT_NE(kernel, nullptr);
+  EXPECT_EQ(values.size(), expected_values.size());
+  for (size_t i = 0; i < values.size(); i++) {
+    AssertTypeEqual(*values[i], *expected_values[i]);
+  }
+}
+
 void CheckDispatchExactFails(std::string func_name, std::vector<TypeHolder> types) {
   ASSERT_OK_AND_ASSIGN(auto function, GetFunctionRegistry()->GetFunction(func_name));
   ASSERT_NOT_OK(function->DispatchExact(types));

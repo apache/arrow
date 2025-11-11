@@ -60,7 +60,7 @@ ARROW_EXPORT Result<google::cloud::storage::WithObjectMetadata> ToObjectMetadata
     const std::shared_ptr<const KeyValueMetadata>& metadata);
 
 ARROW_EXPORT Result<std::shared_ptr<const KeyValueMetadata>> FromObjectMetadata(
-    google::cloud::storage::ObjectMetadata const& m);
+    const google::cloud::storage::ObjectMetadata& m);
 
 ARROW_EXPORT std::int64_t Depth(std::string_view path);
 

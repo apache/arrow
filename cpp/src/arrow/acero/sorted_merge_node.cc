@@ -119,7 +119,7 @@ class InputState {
     std::unique_ptr<arrow::acero::BackpressureControl> backpressure_control =
         std::make_unique<BackpressureController>(input, output, backpressure_counter);
     ARROW_ASSIGN_OR_RAISE(auto handler,
-                          BackpressureHandler::Make(input, low_threshold, high_threshold,
+                          BackpressureHandler::Make(low_threshold, high_threshold,
                                                     std::move(backpressure_control)));
     return PtrType(new InputState(index, std::move(handler), schema, time_col_index));
   }

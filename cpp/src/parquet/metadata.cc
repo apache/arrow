@@ -91,7 +91,8 @@ std::string ParquetVersionToString(ParquetVersion::type ver) {
 
 template <typename DType>
 static std::shared_ptr<Statistics> MakeTypedColumnStats(
-    const format::ColumnMetaData& metadata, const ColumnDescriptor* descr) {
+    const format::ColumnMetaData& metadata, const ColumnDescriptor* descr,
+    ::arrow::MemoryPool* pool) {
   std::optional<bool> min_exact =
       metadata.statistics.__isset.is_min_value_exact
           ? std::optional<bool>(metadata.statistics.is_min_value_exact)
@@ -108,7 +109,7 @@ static std::shared_ptr<Statistics> MakeTypedColumnStats(
         metadata.statistics.null_count, metadata.statistics.distinct_count,
         metadata.statistics.__isset.max_value && metadata.statistics.__isset.min_value,
         metadata.statistics.__isset.null_count,
-        metadata.statistics.__isset.distinct_count, min_exact, max_exact);
+        metadata.statistics.__isset.distinct_count, min_exact, max_exact, pool);
   }
   // Default behavior
   return MakeStatistics<DType>(
@@ -117,7 +118,7 @@ static std::shared_ptr<Statistics> MakeTypedColumnStats(
       metadata.statistics.null_count, metadata.statistics.distinct_count,
       metadata.statistics.__isset.max && metadata.statistics.__isset.min,
       metadata.statistics.__isset.null_count, metadata.statistics.__isset.distinct_count,
-      min_exact, max_exact);
+      min_exact, max_exact, pool);
 }
 
 namespace {
@@ -134,7 +135,8 @@ std::shared_ptr<geospatial::GeoStatistics> MakeColumnGeometryStats(
 }
 
 std::shared_ptr<Statistics> MakeColumnStats(const format::ColumnMetaData& meta_data,
-                                            const ColumnDescriptor* descr) {
+                                            const ColumnDescriptor* descr,
+                                            ::arrow::MemoryPool* pool) {
   auto metadata_type = LoadEnumSafe(&meta_data.type);
   if (descr->physical_type() != metadata_type) {
     throw ParquetException(
@@ -143,21 +145,21 @@ std::shared_ptr<Statistics> MakeColumnStats(const format::ColumnMetaData& meta_d
   }
   switch (metadata_type) {
     case Type::BOOLEAN:
-      return MakeTypedColumnStats<BooleanType>(meta_data, descr);
+      return MakeTypedColumnStats<BooleanType>(meta_data, descr, pool);
     case Type::INT32:
-      return MakeTypedColumnStats<Int32Type>(meta_data, descr);
+      return MakeTypedColumnStats<Int32Type>(meta_data, descr, pool);
     case Type::INT64:
-      return MakeTypedColumnStats<Int64Type>(meta_data, descr);
+      return MakeTypedColumnStats<Int64Type>(meta_data, descr, pool);
     case Type::INT96:
-      return MakeTypedColumnStats<Int96Type>(meta_data, descr);
+      return MakeTypedColumnStats<Int96Type>(meta_data, descr, pool);
     case Type::DOUBLE:
-      return MakeTypedColumnStats<DoubleType>(meta_data, descr);
+      return MakeTypedColumnStats<DoubleType>(meta_data, descr, pool);
     case Type::FLOAT:
-      return MakeTypedColumnStats<FloatType>(meta_data, descr);
+      return MakeTypedColumnStats<FloatType>(meta_data, descr, pool);
     case Type::BYTE_ARRAY:
-      return MakeTypedColumnStats<ByteArrayType>(meta_data, descr);
+      return MakeTypedColumnStats<ByteArrayType>(meta_data, descr, pool);
     case Type::FIXED_LEN_BYTE_ARRAY:
-      return MakeTypedColumnStats<FLBAType>(meta_data, descr);
+      return MakeTypedColumnStats<FLBAType>(meta_data, descr, pool);
     case Type::UNDEFINED:
       break;
   }
@@ -327,10 +329,7 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
   // 2) Statistics must not be corrupted
   inline bool is_stats_set() const {
     DCHECK(writer_version_ != nullptr);
-    // If the column statistics don't exist or column sort order is unknown
-    // we cannot use the column stats
-    if (!column_metadata_->__isset.statistics ||
-        descr_->sort_order() == SortOrder::UNKNOWN) {
+    if (!column_metadata_->__isset.statistics) {
       return false;
     }
     {
@@ -338,6 +337,10 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
       if (possible_encoded_stats_ == nullptr) {
         possible_encoded_stats_ =
             std::make_shared<EncodedStatistics>(FromThrift(column_metadata_->statistics));
+        if (descr_->sort_order() == SortOrder::UNKNOWN) {
+          // If the column SortOrder is Unknown we can't trust max/min.
+          possible_encoded_stats_->ClearMinMax();
+        }
       }
     }
     return writer_version_->HasCorrectStatistics(type(), *possible_encoded_stats_,
@@ -362,7 +365,8 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
     if (is_stats_set()) {
       const std::lock_guard<std::mutex> guard(stats_mutex_);
       if (possible_stats_ == nullptr) {
-        possible_stats_ = MakeColumnStats(*column_metadata_, descr_);
+        possible_stats_ =
+            MakeColumnStats(*column_metadata_, descr_, properties_.memory_pool());
       }
       return possible_stats_;
     }
@@ -1586,11 +1590,6 @@ bool ApplicationVersion::HasCorrectStatistics(Type::type col_type,
   // parquet-mr during the same time as PARQUET-251, see PARQUET-297
   if (application_ == "unknown") {
     return true;
-  }
-
-  // Unknown sort order has incorrect stats
-  if (SortOrder::UNKNOWN == sort_order) {
-    return false;
   }
 
   // PARQUET-251

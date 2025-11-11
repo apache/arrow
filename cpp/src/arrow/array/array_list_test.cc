@@ -982,11 +982,7 @@ TYPED_TEST(TestListArray, ValidateDimensions) { this->TestValidateDimensions(); 
 
 TYPED_TEST(TestListArray, CornerCases) { this->TestCornerCases(); }
 
-#ifndef ARROW_LARGE_MEMORY_TESTS
-TYPED_TEST(TestListArray, DISABLED_TestOverflowCheck) { this->TestOverflowCheck(); }
-#else
 TYPED_TEST(TestListArray, TestOverflowCheck) { this->TestOverflowCheck(); }
-#endif
 
 class TestListConversions : public ::testing::Test {
  private:

@@ -49,7 +49,7 @@ fi
 
 function configure_binaries() {
   # Try to find/download a C++ Arrow binary,
-  "${R_HOME}/bin${R_ARCH_BIN}/Rscript.exe" "tools/nixlibs.R" $VERSION 
+  "${R_HOME}/bin${R_ARCH_BIN}/Rscript.exe" "tools/nixlibs.R" $VERSION
   # If binary not found, script exits nonzero
   if [ $? -ne 0 ]; then
     _LIBARROW_FOUND="false"
@@ -69,14 +69,14 @@ function configure_binaries() {
             -lz -lws2_32 -lnghttp2 -ldbghelp"
 
   # Set the right flags to point to and enable arrow/parquet
-  if [ -d "windows/arrow-$VERSION" ]; then
-    RWINLIB="../windows/arrow-$VERSION"
+  if [ -d "windows/r-libarrow-windows-x86_64-$VERSION" ]; then
+    RWINLIB="../windows/r-libarrow-windows-x86_64-$VERSION"
   else
     # It's possible that the version of the libarrow binary is not identical to the
     # R version, e.g. if the R build is a patch release, so find what the dir is
     # actually called. If there is more than one version present, use the one
     # with the highest version:
-    RWINLIB="../windows/$(ls windows/ | grep ^arrow- | tail -n 1)"
+    RWINLIB="../windows/$(ls windows/ | grep ^r-libarrow- | tail -n 1)"
   fi
 
   # NOTE: If you make changes to the libraries below, you should also change
@@ -225,7 +225,7 @@ function configure_rtools() {
   if ! ${R_HOME}/bin/Rscript tools/check-versions.R $VERSION $PC_LIB_VERSION 2> /dev/null; then
     _LIBARROW_FOUND="false"
   fi
-  
+
   # We should have a valid libarrow build in $_LIBARROW_FOUND
 # Now set `PKG_LIBS`, `PKG_DIRS`, and `PKG_CFLAGS` based on that.
 if [ "$_LIBARROW_FOUND" == "true" ]; then
@@ -235,7 +235,7 @@ if [ "$_LIBARROW_FOUND" == "true" ]; then
   # override -fno-exceptions from aws-cpp-sdk pc file
   PKG_CFLAGS="$PKG_CFLAGS -fexceptions"
 else
-  # To make it easier to debug which code path was taken add a specific 
+  # To make it easier to debug which code path was taken add a specific
   # message to the log in addition to the 'NOTE'
   echo "*** Failed to find Arrow C++ libraries in rtools"
 fi
@@ -246,7 +246,7 @@ function configure_release() {
     configure_rtools
   else
     configure_binaries
-  fi 
+  fi
 
   if [ "$_LIBARROW_FOUND" == "false" ]; then
     echo "------------------------- NOTE ---------------------------"

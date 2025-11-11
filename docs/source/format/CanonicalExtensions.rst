@@ -417,7 +417,133 @@ better zero-copy compatibility with various systems that also store booleans usi
 
   Metadata is an empty string.
 
-=========================
+.. _parquet_variant_extension:
+
+Parquet Variant
+===============
+
+Variant represents a value that may be one of:
+
+* Primitive: a type and corresponding value (e.g. ``INT``, ``STRING``)
+
+* Array: An ordered list of Variant values
+
+* Object: An unordered collection of string/Variant pairs (i.e. key/value pairs). An object may not contain duplicate keys
+
+Particularly, this provides a way to represent semi-structured data which is stored as a
+`Parquet Variant <https://github.com/apache/parquet-format/blob/master/VariantEncoding.md>`__ value within Arrow columns in
+a lossless fashion. This also provides the ability to represent `shredded <https://github.com/apache/parquet-format/blob/master/VariantShredding.md>`__
+variant values. The canonical extension type allows systems to pass Variant encoded data around without special handling unless
+they want to directly interact with the encoded variant data. See the Parquet format specification for details on what the actual
+binary values look like.
+
+* Extension name: ``arrow.parquet.variant``.
+
+* The storage type of this extension is a ``Struct`` that obeys the following rules:
+
+  * A *non-nullable* field named ``metadata`` which is of type ``Binary``, ``LargeBinary``, or ``BinaryView``.
+
+  * At least one (or both) of the following:
+
+    * A field named ``value`` which is of type ``Binary``, ``LargeBinary``, or ``BinaryView``.
+      (unshredded variants consist of just the ``metadata`` and ``value`` fields only)
+
+    * A field named ``typed_value`` which can be a :ref:`variant_primitive_type_mapping` or a ``List``, ``LargeList``, ``ListView`` or ``Struct``
+
+      * If the ``typed_value`` field is a ``List``, ``LargeList`` or ``ListView`` its elements **must** be *non-nullable* and **must**
+        be a ``Struct`` consisting of at least one (or both) of the following:
+
+        * A field named ``value`` which is of type ``Binary``, ``LargeBinary``, or ``BinaryView``.
+
+        * A field named ``typed_value`` which follows the rules outlined above (this allows for arbitrarily nested data).
+
+      * If the ``typed_value`` field is a ``Struct``, then its fields **must** be *non-nullable*, representing the fields being shredded
+        from the objects, and **must** be a ``Struct`` consisting of at least one (or both) of the following:
+
+        * A field named ``value`` which is of type ``Binary``, ``LargeBinary``, or ``BinaryView``.
+
+        * A field named ``typed_value`` which follows the rules outlined above (this allows for arbitrarily nested data).
+
+* Extension type parameters:
+
+  This type does not have any parameters.
+
+* Description of the serialization:
+
+  Extension metadata is an empty string.
+
+.. note::
+
+   It is also *permissible* for the ``metadata`` field to be dictionary-encoded with a preferred (*but not required*) index type of ``int8``,
+   or run-end-encoded with a preferred (*but not required*) runs type of ``int8``.
+
+.. note::
+
+   The fields may be in any order, and thus must be accessed by **name** not by *position*. The field names are case sensitive.
+
+.. _variant_primitive_type_mapping:
+
+Primitive Type Mappings
+-----------------------
+
++----------------------+------------------------+
+| Arrow Primitive Type | Variant Primitive Type |
++======================+========================+
+| Null                 | Null                   |
++----------------------+------------------------+
+| Boolean              | Boolean (true/false)   |
++----------------------+------------------------+
+| Int8                 | Int8                   |
++----------------------+------------------------+
+| Uint8                | Int16                  |
++----------------------+------------------------+
+| Int16                | Int16                  |
++----------------------+------------------------+
+| Uint16               | Int32                  |
++----------------------+------------------------+
+| Int32                | Int32                  |
++----------------------+------------------------+
+| Uint32               | Int64                  |
++----------------------+------------------------+
+| Int64                | Int64                  |
++----------------------+------------------------+
+| Float                | Float                  |
++----------------------+------------------------+
+| Double               | Double                 |
++----------------------+------------------------+
+| Decimal32            | decimal4               |
++----------------------+------------------------+
+| Decimal64            | decimal8               |
++----------------------+------------------------+
+| Decimal128           | decimal16              |
++----------------------+------------------------+
+| Date32               | Date                   |
++----------------------+------------------------+
+| Time64               | TimeNTZ                |
++----------------------+------------------------+
+| Timestamp(us, UTC)   | Timestamp (micro)      |
++----------------------+------------------------+
+| Timestamp(us)        | TimestampNTZ (micro)   |
++----------------------+------------------------+
+| Timestamp(ns, UTC)   | Timestamp (nano)       |
++----------------------+------------------------+
+| Timestamp(ns)        | TimestampNTZ (nano)    |
++----------------------+------------------------+
+| Binary               | Binary                 |
++----------------------+------------------------+
+| LargeBinary          | Binary                 |
++----------------------+------------------------+
+| BinaryView           | Binary                 |
++----------------------+------------------------+
+| String               | String                 |
++----------------------+------------------------+
+| LargeString          | String                 |
++----------------------+------------------------+
+| StringView           | String                 |
++----------------------+------------------------+
+| UUID extension type  | UUID                   |
++----------------------+------------------------+
+
 Community Extension Types
 =========================
 

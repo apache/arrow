@@ -17,6 +17,12 @@
 
 install_headers(['convert.h'], subdir: 'arrow/adapters/tensorflow')
 
+arrow_tensorflow_dep = declare_dependency(
+    include_directories: include_directories('.'),
+    dependencies: arrow_dep,
+)
+meson.override_dependency('arrow-tensorflow', arrow_tensorflow_dep)
+
 pkg.generate(
     filebase: 'arrow-tensorflow',
     name: 'Apache Arrow Tensorflow',

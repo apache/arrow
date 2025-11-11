@@ -23,12 +23,22 @@ add_arrow_test(compressed_test PREFIX "arrow-io")
 add_arrow_test(file_test PREFIX "arrow-io")
 
 if(ARROW_HDFS)
+  set(HDFS_TEST_EXTRA_LINK_LIBS arrow::hadoop)
+  if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+    if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS "9")
+      list(APPEND HDFS_TEST_EXTRA_LINK_LIBS stdc++fs)
+    endif()
+  elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+    if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS "8")
+      list(APPEND HDFS_TEST_EXTRA_LINK_LIBS c++fs)
+    endif()
+  endif()
   add_arrow_test(hdfs_test
                  NO_VALGRIND
                  PREFIX
                  "arrow-io"
                  EXTRA_LINK_LIBS
-                 arrow::hadoop)
+                 ${HDFS_TEST_EXTRA_LINK_LIBS})
 endif()
 
 add_arrow_test(memory_test PREFIX "arrow-io")

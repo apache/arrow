@@ -1,0 +1,75 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+name: Report CI results
+
+on:
+  workflow_call:
+
+jobs:
+  report-ci:
+    runs-on: ubuntu-latest
+    # We don't have the job id as part of the context neither the job name.
+    # The GitHub API exposes numeric id or job name but not the github.job (report-ci).
+    # We match github.job to the name so we can pass it via context in order to be ignored on the report.
+    # The job is still running.
+    name: ${{ github.job }}
+    steps:
+      - name: Checkout Arrow
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          fetch-depth: 0
+      - name: Setup Python
+        uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6.0.0
+        with:
+          python-version: 3
+      - name: Setup Archery
+        run: python3 -m pip install -e dev/archery[crossbow]
+      - name: Prepare common options
+        run: |
+          if [ "${GITHUB_REPOSITORY}" = "apache/arrow" ]; then
+            echo "COMMON_OPTIONS=--send" >> "${GITHUB_ENV}"
+          else
+            echo "COMMON_OPTIONS=--dry-run" >> "${GITHUB_ENV}"
+          fi
+      - name: Send email
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SMTP_PASSWORD: ${{ secrets.ARROW_SMTP_PASSWORD }}
+        run: |
+          archery ci report-email \
+            --ignore ${{ github.job }} \
+            --recipient-email 'builds@arrow.apache.org' \
+            --repository ${{ github.repository }} \
+            --sender-email 'arrow@commit-email.info' \
+            --sender-name Arrow \
+            --smtp-port 587 \
+            --smtp-server 'commit-email.info' \
+            --smtp-user arrow \
+            ${COMMON_OPTIONS} \
+            ${{ github.run_id }}
+      - name: Send chat message
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CHAT_WEBHOOK: ${{ secrets.ARROW_ZULIP_WEBHOOK }}
+        run: |
+          archery ci report-chat \
+            --ignore ${{ github.job }} \
+            --repository ${{ github.repository }} \
+            ${COMMON_OPTIONS} \
+            ${{ github.run_id }}

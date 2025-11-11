@@ -51,6 +51,7 @@ case "${target}" in
     packages+=("${MINGW_PACKAGE_PREFIX}-xsimd")
     packages+=("${MINGW_PACKAGE_PREFIX}-uriparser")
     packages+=("${MINGW_PACKAGE_PREFIX}-zstd")
+    packages+=("patch")
 
     if [ "${target}" != "ruby" ]; then
       # We don't update the exiting packages for Ruby because

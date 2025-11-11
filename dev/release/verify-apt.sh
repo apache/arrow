@@ -84,6 +84,9 @@ esac
 
 if [ "${TYPE}" = "local" ]; then
   case "${VERSION}" in
+    *-dev*)
+      package_version="$(echo "${VERSION}" | sed -E -e 's/-(dev.*)$/~\1/g')"
+      ;;
     *-rc*)
       package_version="$(echo "${VERSION}" | sed -e 's/-rc.*$//g')"
       ;;
@@ -96,6 +99,7 @@ if [ "${TYPE}" = "local" ]; then
   apt_source_path+="/${distribution}/pool/${code_name}/main"
   apt_source_path+="/a/apache-arrow-apt-source"
   apt_source_path+="/apache-arrow-apt-source_${package_version}_all.deb"
+  find "${local_prefix}/apt/repositories/"
   ${APT_INSTALL} "${apt_source_path}"
 else
   package_version="${VERSION}-1"

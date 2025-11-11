@@ -704,7 +704,7 @@ static std::string ShortToBytesLe(int16_t input) {
   output[1] = static_cast<int8_t>(0xff & (input >> 8));
   output[0] = static_cast<int8_t>(0xff & (input));
 
-  return std::string(reinterpret_cast<char const*>(output), 2);
+  return std::string(reinterpret_cast<const char*>(output), 2);
 }
 
 static void CheckPageOrdinal(int32_t page_ordinal) {
@@ -722,7 +722,7 @@ std::string CreateModuleAad(const std::string& file_aad, int8_t module_type,
   const int16_t page_ordinal_short = static_cast<int16_t>(page_ordinal);
   int8_t type_ordinal_bytes[1];
   type_ordinal_bytes[0] = module_type;
-  std::string type_ordinal_bytes_str(reinterpret_cast<char const*>(type_ordinal_bytes),
+  std::string type_ordinal_bytes_str(reinterpret_cast<const char*>(type_ordinal_bytes),
                                      1);
   if (kFooter == module_type) {
     std::string result = file_aad + type_ordinal_bytes_str;

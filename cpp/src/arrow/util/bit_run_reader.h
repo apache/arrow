@@ -52,6 +52,8 @@ inline bool operator!=(const BitRun& lhs, const BitRun& rhs) {
 
 class BitRunReaderLinear {
  public:
+  BitRunReaderLinear() = default;
+
   BitRunReaderLinear(const uint8_t* bitmap, int64_t start_offset, int64_t length)
       : reader_(bitmap, start_offset, length) {}
 
@@ -74,6 +76,8 @@ class BitRunReaderLinear {
 /// in a bitmap.
 class ARROW_EXPORT BitRunReader {
  public:
+  BitRunReader() = default;
+
   /// \brief Constructs new BitRunReader.
   ///
   /// \param[in] bitmap source data
@@ -102,7 +106,7 @@ class ARROW_EXPORT BitRunReader {
     int64_t start_bit_offset = start_position & 63;
     // Invert the word for proper use of CountTrailingZeros and
     // clear bits so CountTrailingZeros can do it magic.
-    word_ = ~word_ & ~bit_util::LeastSignificantBitMask(start_bit_offset);
+    word_ = ~word_ & ~bit_util::LeastSignificantBitMask<uint64_t>(start_bit_offset);
 
     // Go  forward until the next change from unset to set.
     int64_t new_bits = bit_util::CountTrailingZeros(word_) - start_bit_offset;
@@ -307,12 +311,12 @@ class BaseSetBitRunReader {
       memcpy(reinterpret_cast<char*>(&word) + 8 - num_bytes, bitmap_, num_bytes);
       // XXX MostSignificantBitmask
       return (bit_util::ToLittleEndian(word) << bit_offset) &
-             ~bit_util::LeastSignificantBitMask(64 - num_bits);
+             ~bit_util::LeastSignificantBitMask<uint64_t>(64 - num_bits);
     } else {
       memcpy(&word, bitmap_, num_bytes);
       bitmap_ += num_bytes;
       return (bit_util::ToLittleEndian(word) >> bit_offset) &
-             bit_util::LeastSignificantBitMask(num_bits);
+             bit_util::LeastSignificantBitMask<uint64_t>(num_bits);
     }
   }
 

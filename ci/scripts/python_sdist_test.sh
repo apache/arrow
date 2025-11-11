@@ -66,4 +66,5 @@ fi
 
 ${PYTHON:-python} -m pip install "${sdist}"
 
-pytest -r s "${PYTEST_ARGS:-}" --pyargs pyarrow
+# shellcheck disable=SC2086
+pytest -r s ${PYTEST_ARGS:-} --pyargs pyarrow

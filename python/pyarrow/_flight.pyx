@@ -142,6 +142,37 @@ cdef class FlightCallOptions(_Weakrefable):
             return &((<FlightCallOptions> obj).options)
         raise TypeError(f"Expected a FlightCallOptions object, not '{type(obj)}'")
 
+    @property
+    def timeout(self):
+        """Get timeout for the call (in seconds)
+        """
+        return self.options.timeout.count()
+
+    @property
+    def headers(self):
+        """Get list of headers (key, value tuples) for client's context
+        """
+        return self.options.headers
+
+    @property
+    def read_options(self):
+        """Get serialization options for reading IPC format
+        """
+        return wrap_ipc_read_options(self.options.read_options)
+
+    @property
+    def write_options(self):
+        """Get IPC write options
+        """
+        return wrap_ipc_write_options(self.options.write_options)
+
+    def __repr__(self):
+        return (f"<pyarrow.flight.FlightCallOptions "
+                f"timeout={self.timeout} "
+                f"headers={self.headers}\n"
+                f" read_options={self.read_options}\n"
+                f" write_options={self.write_options}\n>")
+
 
 _CertKeyPair = collections.namedtuple('_CertKeyPair', ['cert', 'key'])
 
@@ -1117,6 +1148,19 @@ cdef class _MetadataRecordBatchReader(_Weakrefable, _ReadPandasMixin):
             reader.reader = GetResultValue(MakeRecordBatchReader(self.reader))
 
         return reader
+
+    @property
+    def stats(self):
+        """
+        Current Flight read statistics.
+
+        Returns
+        -------
+        ReadStats
+        """
+        if not self.reader:
+            raise ValueError("Operation on closed reader")
+        return _wrap_read_stats((<CMetadataRecordBatchReader*> self.reader.get()).stats())
 
 
 cdef class MetadataRecordBatchReader(_MetadataRecordBatchReader):

@@ -120,6 +120,7 @@ class PackageTask
     build_command_line = [
       "docker",
       "build",
+      "--build-arg", "BUILDKIT_INLINE_CACHE=1",
       "--cache-from", image,
       "--tag", image,
     ]

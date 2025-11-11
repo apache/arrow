@@ -356,18 +356,14 @@ class ARROW_EXPORT MatchConstraint {
 
   /// \brief Return true if the input types satisfy the constraint.
   virtual bool Matches(const std::vector<TypeHolder>& types) const = 0;
-};
 
-/// \brief Convenience function to create a MatchConstraint from a match function.
-ARROW_EXPORT std::shared_ptr<MatchConstraint> MakeConstraint(
-    std::function<bool(const std::vector<TypeHolder>&)> matches);
+  /// \brief Convenience function to create a MatchConstraint from a match function.
+  static std::shared_ptr<MatchConstraint> Make(
+      std::function<bool(const std::vector<TypeHolder>&)> matches);
+};
 
 /// \brief Constraint that all input types are decimal types and have the same scale.
 ARROW_EXPORT std::shared_ptr<MatchConstraint> DecimalsHaveSameScale();
-
-/// \brief Constraint that all binary input types are decimal types and the first type's
-/// scale >= the second type's.
-ARROW_EXPORT std::shared_ptr<MatchConstraint> BinaryDecimalScale1GeScale2();
 
 /// \brief Holds the input types, optional match constraint and output type of the kernel.
 ///

@@ -196,8 +196,8 @@ struct TemporalToStringCastFunctor<O, TimestampType> {
     static const std::string kFormatString = "%Y-%m-%d %H:%M:%S%z";
     static const std::string kUtcFormatString = "%Y-%m-%d %H:%M:%SZ";
     DCHECK(!timezone.empty());
-    ARROW_ASSIGN_OR_RAISE(const time_zone* tz, LocateZone(timezone));
-    ARROW_ASSIGN_OR_RAISE(std::locale locale, GetLocale("C"));
+    ARROW_ASSIGN_OR_RAISE(auto tz, LocateZone(timezone));
+    ARROW_ASSIGN_OR_RAISE(auto locale, GetLocale("C"));
     TimestampFormatter<Duration> formatter{
         timezone == "UTC" ? kUtcFormatString : kFormatString, tz, locale};
     return VisitArraySpanInline<TimestampType>(

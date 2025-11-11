@@ -916,7 +916,7 @@ TEST(CorrectStatistics, Basics) {
   AssertStatsSet(version, props, schema.Column(1), true);
   AssertStatsSet(version, props, schema.Column(2), true);
   AssertStatsSet(version, props, schema.Column(3), true);
-  AssertStatsSet(version, props, schema.Column(4), false);
+  AssertStatsSet(version, props, schema.Column(4), true);
   AssertStatsSet(version, props, schema.Column(5), true);
 }
 
@@ -1630,6 +1630,36 @@ TEST(TestStatisticsSortOrderFloatNaN, NaNAndNullsInfiniteLoop) {
   uint8_t all_but_last_valid = 0x7F;  // 0b01111111
   auto stats = MakeStatistics<FloatType>(&descr);
   AssertUnsetMinMax(stats, nans_but_last, &all_but_last_valid);
+}
+
+// Test read statistics for column with UNKNOWN sort order
+TEST(TestStatisticsSortOrder, UNKNOWN) {
+  std::string dir_string(test::get_data_dir());
+  std::stringstream ss;
+  ss << dir_string << "/int96_from_spark.parquet";
+  auto path = ss.str();
+
+  // The file contains a single column of INT96 type (deprecated)
+  // with SortOrder UNKNOWN.
+  // It contains 6 values with a single null value.
+  // The null_count statistics value is preserved.
+  auto file_reader = ParquetFileReader::OpenFile(path);
+  auto rg_reader = file_reader->RowGroup(0);
+  auto metadata = rg_reader->metadata();
+  auto column_schema = metadata->schema()->Column(0);
+  ASSERT_EQ(SortOrder::UNKNOWN, column_schema->sort_order());
+
+  auto column_chunk = metadata->ColumnChunk(0);
+  ASSERT_TRUE(column_chunk->is_stats_set());
+
+  std::shared_ptr<EncodedStatistics> enc_stats = column_chunk->encoded_statistics();
+  ASSERT_TRUE(enc_stats->has_null_count);
+  ASSERT_FALSE(enc_stats->has_distinct_count);
+  ASSERT_FALSE(enc_stats->has_min);
+  ASSERT_FALSE(enc_stats->has_max);
+  ASSERT_EQ(1, enc_stats->null_count);
+  ASSERT_FALSE(enc_stats->is_max_value_exact.has_value());
+  ASSERT_FALSE(enc_stats->is_min_value_exact.has_value());
 }
 
 // Test statistics for binary column with UNSIGNED sort order

@@ -50,11 +50,11 @@ conf_data.set('ARROW_JEMALLOC_VENDORED', false)
 conf_data.set('ARROW_JSON', needs_json)
 conf_data.set('ARROW_MIMALLOC', false)
 conf_data.set('ARROW_ORC', false)
-conf_data.set('ARROW_PARQUET', false)
-conf_data.set('ARROW_SUBSTRAIT', false)
+conf_data.set('ARROW_PARQUET', needs_parquet)
+conf_data.set('ARROW_SUBSTRAIT', needs_substrait)
 conf_data.set('ARROW_AZURE', false)
 conf_data.set('ARROW_ENABLE_THREADING', true)
-conf_data.set('ARROW_GCS', false)
+conf_data.set('ARROW_GCS', needs_gcs)
 conf_data.set('ARROW_HDFS', false)
 conf_data.set('ARROW_S3', false)
 conf_data.set('ARROW_USE_GLOG', false)
@@ -70,10 +70,10 @@ conf_data.set('ARROW_WITH_OPENTELEMETRY', false)
 conf_data.set('ARROW_WITH_RE2', false)
 conf_data.set('ARROW_WITH_SNAPPY', needs_snappy)
 conf_data.set('ARROW_WITH_UCX', false)
-conf_data.set('ARROW_WITH_UTF8PROC', false)
+conf_data.set('ARROW_WITH_UTF8PROC', needs_utf8proc)
 conf_data.set('ARROW_WITH_ZLIB', needs_zlib)
 conf_data.set('ARROW_WITH_ZSTD', needs_zstd)
-conf_data.set('PARQUET_REQUIRE_ENCRYPTION', false)
+conf_data.set('PARQUET_REQUIRE_ENCRYPTION', needs_parquet_encryption)
 
 configure_file(
     input: 'config.h.cmake',
@@ -253,7 +253,10 @@ util_tests = {
         'sources': [
             'bit_block_counter_test.cc',
             'bit_util_test.cc',
+            'bitmap_test.cc',
+            'bpacking_test.cc',
             'rle_encoding_test.cc',
+            'test_common.cc',
         ],
     },
     'arrow-threading-utility-test': {
@@ -283,6 +286,7 @@ util_benchmarks = [
     'bit_block_counter',
     'bit_util',
     'bitmap_reader',
+    'bpacking',
     'cache',
     'compression',
     'decimal',

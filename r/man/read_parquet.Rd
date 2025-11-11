@@ -43,7 +43,7 @@ Arrow \link{Table} otherwise.
 This function enables you to read Parquet files into R.
 }
 \examples{
-\dontshow{if (arrow_with_parquet() && !getFromNamespace("on_linux_dev", "arrow")()) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
+\dontshow{if (arrow_with_parquet() && !getFromNamespace("on_linux_dev", "arrow")()) withAutoprint(\{ # examplesIf}
 tf <- tempfile()
 on.exit(unlink(tf))
 write_parquet(mtcars, tf)

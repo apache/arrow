@@ -15,7 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-
 test_that("infer_type() gets the right type for arrow::Array", {
   a <- Array$create(1:10)
   expect_equal(infer_type(a), a$type)
@@ -94,7 +93,7 @@ test_that("infer_type() can infer blob type", {
 
   expect_equal(infer_type(blob::blob()), binary())
 
-  big_ish_raw <- raw(2 ^ 20)
+  big_ish_raw <- raw(2^20)
   big_ish_blob <- blob::new_blob(rep(list(big_ish_raw), 2049))
   expect_equal(infer_type(big_ish_blob), large_binary())
 })

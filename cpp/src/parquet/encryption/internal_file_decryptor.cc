@@ -78,7 +78,7 @@ const SecureString& InternalFileDecryptor::GetFooterKey() {
     if (properties_->key_retriever() == nullptr)
       throw ParquetException("No footer key or key retriever");
     try {
-      footer_key_ = properties_->key_retriever()->GetKeyById(footer_key_metadata_);
+      footer_key_ = properties_->key_retriever()->GetKey(footer_key_metadata_);
     } catch (KeyAccessDeniedException& e) {
       std::stringstream ss;
       ss << "Footer key: access denied " << e.what() << "\n";
@@ -117,7 +117,7 @@ SecureString InternalFileDecryptor::GetColumnKey(const std::string& column_path,
   if (column_key.empty() && !column_key_metadata.empty() &&
       properties_->key_retriever() != nullptr) {
     try {
-      column_key = properties_->key_retriever()->GetKeyById(column_key_metadata);
+      column_key = properties_->key_retriever()->GetKey(column_key_metadata);
     } catch (KeyAccessDeniedException& e) {
       std::stringstream ss;
       ss << "HiddenColumnException, path=" + column_path + " " << e.what() << "\n";

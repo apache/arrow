@@ -1118,6 +1118,11 @@ function(build_boost)
     # This is for https://github.com/boostorg/container/issues/305
     string(APPEND CMAKE_C_FLAGS " -Wno-strict-prototypes")
   endif()
+  if(MSVC AND "${CMAKE_SYSTEM_PROCESSOR}" STREQUAL "ARM64")
+    set(BOOST_CONTEXT_IMPLEMENTATION
+        winfib
+        CACHE STRING "" FORCE)
+  endif()
   set(CMAKE_UNITY_BUILD OFF)
 
   fetchcontent_makeavailable(boost)
@@ -1186,10 +1191,9 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang" AND CMAKE_CXX_COMPILER_VERSION VERSION
   # GH-34094 Older versions of Boost use the deprecated std::unary_function in
   # boost/container_hash/hash.hpp and support for that was removed in clang 16
   set(ARROW_BOOST_REQUIRED_VERSION "1.81")
-elseif(ARROW_BUILD_TESTS)
-  set(ARROW_BOOST_REQUIRED_VERSION "1.64")
 else()
-  set(ARROW_BOOST_REQUIRED_VERSION "1.58")
+  # CentOS 7 uses Boost 1.69.
+  set(ARROW_BOOST_REQUIRED_VERSION "1.69")
 endif()
 
 set(Boost_USE_MULTITHREADED ON)
@@ -1197,7 +1201,14 @@ if(MSVC AND ARROW_USE_STATIC_CRT)
   set(Boost_USE_STATIC_RUNTIME ON)
 endif()
 # CMake 3.25.0 has 1.80 and older versions.
+#
+# We can remove this once we require CMake 3.30.0 or later because we
+# enable CMP0167 "The FindBoost module is removed."
+# https://cmake.org/cmake/help/latest/policy/CMP0167.html with CMake
+# 3.30.0 or later.
 set(Boost_ADDITIONAL_VERSIONS
+    "1.89.0"
+    "1.89"
     "1.88.0"
     "1.88"
     "1.87.0"
@@ -1268,8 +1279,8 @@ if(ARROW_USE_BOOST)
     set(Boost_USE_STATIC_LIBS ON)
   endif()
   if(ARROW_BOOST_REQUIRE_LIBRARY)
-    set(ARROW_BOOST_COMPONENTS filesystem system)
-    if(ARROW_FLIGHT_SQL_ODBC AND MSVC)
+    set(ARROW_BOOST_COMPONENTS filesystem)
+    if(ARROW_FLIGHT_SQL_ODBC)
       list(APPEND ARROW_BOOST_COMPONENTS locale)
     endif()
     if(ARROW_ENABLE_THREADING)
@@ -1321,9 +1332,6 @@ if(ARROW_USE_BOOST)
       add_library(arrow::Boost::process INTERFACE IMPORTED)
       if(TARGET Boost::filesystem)
         target_link_libraries(arrow::Boost::process INTERFACE Boost::filesystem)
-      endif()
-      if(TARGET Boost::system)
-        target_link_libraries(arrow::Boost::process INTERFACE Boost::system)
       endif()
       if(TARGET Boost::headers)
         target_link_libraries(arrow::Boost::process INTERFACE Boost::headers)
@@ -1723,6 +1731,8 @@ if(ARROW_NEED_GFLAGS)
       set(GFLAGS_LIBRARIES gflags-shared)
     elseif(TARGET gflags_shared)
       set(GFLAGS_LIBRARIES gflags_shared)
+    elseif(TARGET gflags::gflags)
+      set(GFLAGS_LIBRARIES gflags::gflags)
     endif()
   endif()
 endif()
@@ -1782,6 +1792,7 @@ function(build_thrift)
     endif()
   endif()
   set(WITH_NODEJS OFF)
+  set(WITH_OPENSSL OFF)
   set(WITH_PYTHON OFF)
   set(WITH_QT5 OFF)
   set(WITH_ZLIB OFF)
@@ -2273,9 +2284,9 @@ if(ARROW_MIMALLOC)
   endif()
 
   set(MIMALLOC_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/mimalloc_ep/src/mimalloc_ep")
-  set(MIMALLOC_INCLUDE_DIR "${MIMALLOC_PREFIX}/include/mimalloc-2.2")
+  set(MIMALLOC_INCLUDE_DIR "${MIMALLOC_PREFIX}/include")
   set(MIMALLOC_STATIC_LIB
-      "${MIMALLOC_PREFIX}/lib/mimalloc-2.2/${CMAKE_STATIC_LIBRARY_PREFIX}${MIMALLOC_LIB_BASE_NAME}${CMAKE_STATIC_LIBRARY_SUFFIX}"
+      "${MIMALLOC_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}${MIMALLOC_LIB_BASE_NAME}${CMAKE_STATIC_LIBRARY_SUFFIX}"
   )
 
   set(MIMALLOC_C_FLAGS ${EP_C_FLAGS})
@@ -2284,20 +2295,31 @@ if(ARROW_MIMALLOC)
     set(MIMALLOC_C_FLAGS "${MIMALLOC_C_FLAGS} -DERROR_COMMITMENT_MINIMUM=635")
   endif()
 
+  set(MIMALLOC_PATCH_COMMAND "")
+  if(${UPPERCASE_BUILD_TYPE} STREQUAL "DEBUG")
+    find_program(PATCH patch REQUIRED)
+    set(MIMALLOC_PATCH_COMMAND ${PATCH} -p1 -i
+                               ${CMAKE_CURRENT_LIST_DIR}/mimalloc-1138.patch)
+  endif()
+
   set(MIMALLOC_CMAKE_ARGS
       ${EP_COMMON_CMAKE_ARGS}
       "-DCMAKE_C_FLAGS=${MIMALLOC_C_FLAGS}"
       "-DCMAKE_INSTALL_PREFIX=${MIMALLOC_PREFIX}"
+      -DMI_INSTALL_TOPLEVEL=ON
       -DMI_OVERRIDE=OFF
       -DMI_LOCAL_DYNAMIC_TLS=ON
       -DMI_BUILD_OBJECT=OFF
       -DMI_BUILD_SHARED=OFF
-      -DMI_BUILD_TESTS=OFF)
+      -DMI_BUILD_TESTS=OFF
+      # GH-47229: Force mimalloc to generate armv8.0 binary
+      -DMI_NO_OPT_ARCH=ON)
 
   externalproject_add(mimalloc_ep
                       ${EP_COMMON_OPTIONS}
                       URL ${MIMALLOC_SOURCE_URL}
                       URL_HASH "SHA256=${ARROW_MIMALLOC_BUILD_SHA256_CHECKSUM}"
+                      PATCH_COMMAND ${MIMALLOC_PATCH_COMMAND}
                       CMAKE_ARGS ${MIMALLOC_CMAKE_ARGS}
                       BUILD_BYPRODUCTS "${MIMALLOC_STATIC_LIB}")
 
@@ -2428,6 +2450,7 @@ if(ARROW_TESTING)
     set(ARROW_GTEST_GMOCK GTest::gmock)
     set(ARROW_GTEST_GTEST GTest::gtest)
     set(ARROW_GTEST_GTEST_MAIN GTest::gtest_main)
+    set(ARROW_GTEST_GMOCK_MAIN GTest::gmock_main)
   else()
     string(APPEND ARROW_TESTING_PC_CFLAGS " -I\${includedir}/arrow-gtest")
     string(APPEND ARROW_TESTING_PC_LIBS " -larrow_gtest")
@@ -2435,6 +2458,7 @@ if(ARROW_TESTING)
     set(ARROW_GTEST_GMOCK arrow::GTest::gmock)
     set(ARROW_GTEST_GTEST arrow::GTest::gtest)
     set(ARROW_GTEST_GTEST_MAIN arrow::GTest::gtest_main)
+    set(ARROW_GTEST_GMOCK_MAIN arrow::GTest::gmock_main)
   endif()
 endif()
 
@@ -4601,22 +4625,6 @@ function(build_orc)
 
   message(STATUS "Building Apache ORC from source")
 
-  set(ORC_PATCHES)
-  if(MSVC)
-    # We can remove this once bundled Apache ORC is 2.2.1 or later.
-    list(APPEND ORC_PATCHES ${CMAKE_CURRENT_LIST_DIR}/orc-2345.patch)
-  endif()
-  if(Protobuf_VERSION VERSION_GREATER_EQUAL 32.0)
-    # We can remove this once bundled Apache ORC is 2.2.1 or later.
-    list(APPEND ORC_PATCHES ${CMAKE_CURRENT_LIST_DIR}/orc-2357.patch)
-  endif()
-  if(ORC_PATCHES)
-    find_program(PATCH patch REQUIRED)
-    set(ORC_PATCH_COMMAND ${PATCH} -p1 -i ${ORC_PATCHES})
-  else()
-    set(ORC_PATCH_COMMAND)
-  endif()
-
   if(LZ4_VENDORED)
     set(ORC_LZ4_TARGET lz4_static)
     set(ORC_LZ4_ROOT "${lz4_SOURCE_DIR}")
@@ -4631,7 +4639,6 @@ function(build_orc)
   if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.29)
     fetchcontent_declare(orc
                          ${FC_DECLARE_COMMON_OPTIONS}
-                         PATCH_COMMAND ${ORC_PATCH_COMMAND}
                          URL ${ORC_SOURCE_URL}
                          URL_HASH "SHA256=${ARROW_ORC_BUILD_SHA256_CHECKSUM}")
     prepare_fetchcontent()
@@ -4649,8 +4656,10 @@ function(build_orc)
     get_filename_component(Protobuf_ROOT "${PROTOBUF_INCLUDE_DIR}" DIRECTORY)
     set(PROTOBUF_HOME ${Protobuf_ROOT})
     # ORC uses this.
-    target_include_directories(${ARROW_PROTOBUF_LIBPROTOC}
-                               INTERFACE "${PROTOBUF_INCLUDE_DIR}")
+    if(PROTOBUF_VENDORED)
+      target_include_directories(${ARROW_PROTOBUF_LIBPROTOC}
+                                 INTERFACE "${PROTOBUF_INCLUDE_DIR}")
+    endif()
     set(PROTOBUF_EXECUTABLE ${ARROW_PROTOBUF_PROTOC})
     set(PROTOBUF_LIBRARY ${ARROW_PROTOBUF_LIBPROTOBUF})
     set(PROTOC_LIBRARY ${ARROW_PROTOBUF_LIBPROTOC})
@@ -4757,7 +4766,6 @@ function(build_orc)
                                 ${Snappy_TARGET}
                                 ${ORC_LZ4_TARGET}
                                 ZLIB::ZLIB
-                        PATCH_COMMAND ${ORC_PATCH_COMMAND}
                         URL ${ORC_SOURCE_URL}
                         URL_HASH "SHA256=${ARROW_ORC_BUILD_SHA256_CHECKSUM}")
     add_library(orc::orc STATIC IMPORTED)

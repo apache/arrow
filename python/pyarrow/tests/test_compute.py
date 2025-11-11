@@ -1952,6 +1952,28 @@ def test_fill_null_chunked_array(arrow_type):
     assert result.equals(expected)
 
 
+def test_fill_null_windows_regression():
+    # Regression test for GH-47234, which was failing due to a MSVC compiler bug
+    # (possibly https://developercommunity.visualstudio.com/t/10912292
+    # or https://developercommunity.visualstudio.com/t/10945478)
+    arr = pa.array([True, False, False, False, False, None])
+    s = pa.scalar(True, type=pa.bool_())
+
+    result = pa.compute.call_function("coalesce", [arr, s])
+    result.validate(full=True)
+    expected = pa.array([True, False, False, False, False, True])
+    assert result.equals(expected)
+
+    for ty in [pa.int8(), pa.int16(), pa.int32(), pa.int64()]:
+        arr = pa.array([1, 2, 3, 4, 5, None], type=ty)
+        s = pa.scalar(42, type=ty)
+
+        result = pa.compute.call_function("coalesce", [arr, s])
+        result.validate(full=True)
+        expected = pa.array([1, 2, 3, 4, 5, 42], type=ty)
+        assert result.equals(expected)
+
+
 def test_logical():
     a = pa.array([True, False, False, None])
     b = pa.array([True, True, False, True])
@@ -2465,6 +2487,13 @@ def test_extract_datetime_components(request):
     else:
         for timezone in timezones:
             _check_datetime_components(timestamps, timezone)
+
+
+def test_offset_timezone():
+    arr = pc.strptime(["2012-12-12T12:12:12"], format="%Y-%m-%dT%H:%M:%S", unit="s")
+    zoned_arr = arr.cast(pa.timestamp("s", tz="+05:30"))
+    assert pc.hour(zoned_arr)[0].as_py() == 17
+    assert pc.minute(zoned_arr)[0].as_py() == 42
 
 
 @pytest.mark.parametrize("unit", ["s", "ms", "us", "ns"])

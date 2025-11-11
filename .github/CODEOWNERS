@@ -33,9 +33,8 @@
 /cpp/src/arrow/engine @westonpace
 /cpp/src/arrow/flight/ @lidavidm
 /cpp/src/parquet @wgtmac
-/csharp/ @curthagenlocher
 /matlab/ @kevingurney @kou @sgilmore10
-/python/ @AlenkaF @raulcd @rok 
+/python/ @AlenkaF @raulcd @rok
 /python/pyarrow/_flight.pyx @lidavidm
 /python/pyarrow/**/*gandiva* @wjones127
 /r/ @jonkeane @thisisnic
@@ -61,7 +60,7 @@ appveyor.yml @assignUser @kou @raulcd
 /dev/ @assignUser @jonkeane @kou @raulcd
 .dockerignore @raulcd
 .env @assignUser @jonkeane @kou @raulcd
-docker-compose.yml @assignUser @jonkeane @kou @raulcd
+compose.yaml @assignUser @jonkeane @kou @raulcd
 
 # R specific packaging tooling
 /r/configure* @assignUser

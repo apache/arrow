@@ -485,12 +485,12 @@ namespace {
 template <typename TYPE>
 int64_t StridedTensorCountNonZero(int dim_index, int64_t offset, const Tensor& tensor) {
   using c_type = typename TYPE::c_type;
-  c_type const zero = c_type(0);
+  const c_type zero = c_type(0);
   int64_t nnz = 0;
   if (dim_index == tensor.ndim() - 1) {
     for (int64_t i = 0; i < tensor.shape()[dim_index]; ++i) {
-      auto const* ptr = tensor.raw_data() + offset + i * tensor.strides()[dim_index];
-      auto& elem = *reinterpret_cast<c_type const*>(ptr);
+      const auto* ptr = tensor.raw_data() + offset + i * tensor.strides()[dim_index];
+      auto& elem = *reinterpret_cast<const c_type*>(ptr);
       if (elem != zero) ++nnz;
     }
     return nnz;
@@ -505,9 +505,9 @@ int64_t StridedTensorCountNonZero(int dim_index, int64_t offset, const Tensor& t
 template <typename TYPE>
 int64_t ContiguousTensorCountNonZero(const Tensor& tensor) {
   using c_type = typename TYPE::c_type;
-  auto* data = reinterpret_cast<c_type const*>(tensor.raw_data());
+  auto* data = reinterpret_cast<const c_type*>(tensor.raw_data());
   return std::count_if(data, data + tensor.size(),
-                       [](c_type const& x) { return x != 0; });
+                       [](const c_type& x) { return x != 0; });
 }
 
 template <typename TYPE>

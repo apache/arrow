@@ -108,7 +108,6 @@ test_that("sort(vector), sort(Array), sort(ChunkedArray) give equivalent results
 })
 
 test_that("sort(vector), sort(Array), sort(ChunkedArray) give equivalent results on floats", {
-
   test_vec <- tbl$dbl
   # Arrow sorts NA and NaN differently, but it's not important, so eliminate here
   test_vec[is.nan(test_vec)] <- NA_real_
@@ -147,7 +146,7 @@ test_that("Table$SortIndices()", {
   )
   expect_equal_data_frame(
     x$Take(x$SortIndices(c("int", "dbl"), c(FALSE, FALSE))),
-    tbl %>% arrange(int, dbl)
+    tbl |> arrange(int, dbl)
   )
 })
 
@@ -155,6 +154,6 @@ test_that("RecordBatch$SortIndices()", {
   x <- record_batch(tbl)
   expect_equal_data_frame(
     x$Take(x$SortIndices(c("chr", "int", "dbl"), TRUE)),
-    tbl %>% arrange(desc(chr), desc(int), desc(dbl))
+    tbl |> arrange(desc(chr), desc(int), desc(dbl))
   )
 })

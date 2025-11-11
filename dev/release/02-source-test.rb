@@ -57,31 +57,6 @@ class SourceTest < Test::Unit::TestCase
     end
   end
 
-  def test_csharp_git_commit_information
-    source
-    Dir.chdir("#{@tag_name_no_rc}/csharp") do
-      FileUtils.mv("dummy.git", "../.git")
-      sh("dotnet", "pack", "-c", "Release")
-      FileUtils.mv("../.git", "dummy.git")
-      Dir.chdir("artifacts/Apache.Arrow/Release") do
-        sh("unzip", "Apache.Arrow.#{@snapshot_version}.nupkg")
-        FileUtils.chmod(0400, "Apache.Arrow.nuspec")
-        nuspec = REXML::Document.new(File.read("Apache.Arrow.nuspec"))
-        nuspec_repository = nuspec.elements["package/metadata/repository"]
-        attributes = {}
-        nuspec_repository.attributes.each do |key, value|
-          attributes[key] = value
-        end
-        assert_equal({
-                       "type" => "git",
-                       "url" => "https://github.com/apache/arrow",
-                       "commit" => @current_commit,
-                     },
-                     attributes)
-      end
-    end
-  end
-
   def test_python_version
     source
     Dir.chdir("#{@tag_name_no_rc}/python") do
