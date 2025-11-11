@@ -168,6 +168,27 @@ cdef class Scalar(_Weakrefable):
         """
         raise NotImplementedError()
 
+    def __abs__(self):
+        return _pc().call_function('abs_checked', [self])
+
+    def __add__(self, object other):
+        return _pc().call_function('add_checked', [self, other])
+
+    def __truediv__(self, object other):
+        return _pc().call_function('divide_checked', [self, other])
+
+    def __mul__(self, object other):
+        return _pc().call_function('multiply_checked', [self, other])
+
+    def __neg__(self):
+        return _pc().call_function('negate_checked', [self])
+
+    def __pow__(self, object other):
+        return _pc().call_function('power_checked', [self, other])
+
+    def __sub__(self, object other):
+        return _pc().call_function('subtract_checked', [self, other])
+
 
 _NULL = NA = None
 
