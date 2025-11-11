@@ -375,6 +375,35 @@ jobs:
           name: r-pkg_centos7
           path: arrow_*
 
+  test-arm64-binary:
+    needs: [source, linux-cpp]
+    name: Test ARM64 binary Ubuntu 24.04
+    runs-on: ubuntu-24.04-arm
+    steps:
+      {{ macros.github_checkout_arrow(action_v='3')|indent }}
+      - name: Install R
+        uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: release
+      - name: Install system requirements
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libcurl4-openssl-dev libssl-dev
+      {{ macros.github_setup_local_r_repo(true, false)|indent }}
+      - name: Install arrow from our repo
+        env:
+          ARROW_R_DEV: "TRUE"
+          LIBARROW_BUILD: "FALSE"
+          LIBARROW_BINARY: "TRUE"
+          ARROW_R_ENFORCE_CHECKSUM: "true"
+          ARROW_R_CHECKSUM_PATH: "{{ '${{ github.workspace }}' }}/repo/libarrow"
+        shell: bash
+        run: |
+          Rscript -e '
+          {{  macros.github_test_r_src_pkg()|indent(8) }}
+          '
+
   test-centos-binary:
     # arrow binary package not on ppm currently see #37922
     if: false
@@ -458,7 +487,7 @@ jobs:
 
   upload-binaries:
     # Only upload binaries if all tests pass.
-    needs: [r-packages, test-source, test-linux-binary]
+    needs: [r-packages, test-source, test-linux-binary, test-arm64-binary]
     name: Upload artifacts
     runs-on: ubuntu-latest
     steps:
