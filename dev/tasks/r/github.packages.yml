@@ -122,7 +122,7 @@ jobs:
           - arch: amd64
             openssl: "3.0"
             os: ubuntu
-            pkg_arch: amd64
+            pkg_arch: x86_64
             runs-on: ubuntu-latest
             ubuntu: "22.04"
           - arch: arm64v8
@@ -137,12 +137,12 @@ jobs:
               -DCMAKE_LIBRARY_PATH=/usr/lib64/openssl11
             openssl: "1.1"
             os: centos
-            pkg_arch: amd64
+            pkg_arch: x86_64
             runs-on: ubuntu-latest
           - arch: amd64
             openssl: "1.0"
             os: centos
-            pkg_arch: amd64
+            pkg_arch: x86_64
             runs-on: ubuntu-latest
     env:
       ARCH: {{ '${{ matrix.arch }}' }}
