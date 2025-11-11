@@ -393,7 +393,8 @@ def test_stream_write_table_batches(stream_fixture):
         'one': np.random.randn(20),
     })
 
-    b1 = pa.RecordBatch.from_pandas(df[:10], preserve_index=False)  # type: ignore[arg-type]
+    b1 = pa.RecordBatch.from_pandas(
+        df[:10], preserve_index=False)  # type: ignore[arg-type]
     b2 = pa.RecordBatch.from_pandas(df, preserve_index=False)
 
     table = pa.Table.from_batches([b1, b2, b1])
@@ -976,7 +977,8 @@ def test_batches_with_custom_metadata_roundtrip(ipc_type):
 
     with file_factory(sink, batch.schema) as writer:
         for i in range(batch_count):
-            writer.write_batch(batch, custom_metadata={"batch_id": str(i)})  # type: ignore[arg-type]
+            writer.write_batch(batch, custom_metadata={  # type: ignore[arg-type]
+                "batch_id": str(i)})
         # write a batch without custom metadata
         writer.write_batch(batch)
 

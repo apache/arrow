@@ -269,20 +269,23 @@ def test_order_by():
     table = pa.table({'a': [1, 2, 3, 4], 'b': [1, 3, None, 2]})
     table_source = Declaration("table_source", TableSourceNodeOptions(table))
 
-    sort_keys: list[tuple[str, Literal["ascending", "descending"]]] = [("b", "ascending")]
+    sort_keys = [("b", "ascending")]
+    sort_keys = cast(list[tuple[str, Literal["ascending", "descending"]]], sort_keys)
     ord_opts = OrderByNodeOptions(sort_keys)
     decl = Declaration.from_sequence([table_source, Declaration("order_by", ord_opts)])
     result = decl.to_table()
     expected = pa.table({"a": [1, 4, 2, 3], "b": [1, 2, 3, None]})
     assert result.equals(expected)
 
-    ord_opts = OrderByNodeOptions([(field("b"), "descending")])  # type: ignore[arg-type]
+    ord_opts = OrderByNodeOptions(
+        [(field("b"), "descending")])  # type: ignore[arg-type]
     decl = Declaration.from_sequence([table_source, Declaration("order_by", ord_opts)])
     result = decl.to_table()
     expected = pa.table({"a": [2, 4, 1, 3], "b": [3, 2, 1, None]})
     assert result.equals(expected)
 
-    ord_opts = OrderByNodeOptions([(1, "descending")], null_placement="at_start")  # type: ignore[arg-type]
+    ord_opts = OrderByNodeOptions(
+        [(1, "descending")], null_placement="at_start")  # type: ignore[arg-type]
     decl = Declaration.from_sequence([table_source, Declaration("order_by", ord_opts)])
     result = decl.to_table()
     expected = pa.table({"a": [3, 2, 4, 1], "b": [None, 3, 2, 1]})
