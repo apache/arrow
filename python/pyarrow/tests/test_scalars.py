@@ -995,3 +995,17 @@ def test_map_scalar_with_empty_values():
     s = pa.scalar(v, type=map_type)
 
     assert s.as_py(maps_as_pydicts="strict") == v
+
+
+def test_scalar_arithmetic_dunders():
+    # GH-32007
+    scl1 = pa.scalar(42)
+    scl2 = pa.scalar(17)
+
+    assert abs(scl1).equals(pc.abs(scl1))
+    assert (scl1 + scl2).equals(pc.add(scl1, scl2))
+    assert (scl2 / scl1).equals(pc.divide(scl2, scl1))
+    assert (scl1 * scl2).equals(pc.multiply(scl1, scl2))
+    assert (-scl1).equals(pc.negate(scl1))
+    assert (scl1 ** 2).equals(pc.power(scl1, 2))
+    assert (scl1 - scl2).equals(pc.subtract(scl1, scl2))
