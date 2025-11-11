@@ -175,7 +175,7 @@ class _ReadPandasMixin:
     def read_pandas(self, **options) -> pd.DataFrame: ...
 
 
-class RecordBatchReader(_Weakrefable):
+class RecordBatchReader(_ReadPandasMixin, _Weakrefable):
     def __iter__(self) -> Self: ...
     def read_next_batch(self) -> RecordBatch: ...
 
@@ -191,7 +191,6 @@ class RecordBatchReader(_Weakrefable):
 
     def read_all(self) -> Table: ...
 
-    read_pandas = _ReadPandasMixin.read_pandas
     def close(self) -> None: ...
 
     def __enter__(self) -> Self: ...
@@ -237,7 +236,7 @@ class RecordBatchWithMetadata(NamedTuple):
     custom_metadata: KeyValueMetadata
 
 
-class _RecordBatchFileReader(_Weakrefable):
+class _RecordBatchFileReader(_ReadPandasMixin, _Weakrefable):
     @property
     def num_record_batches(self) -> int: ...
 
@@ -248,7 +247,6 @@ class _RecordBatchFileReader(_Weakrefable):
 
     def read_all(self) -> Table: ...
 
-    read_pandas = _ReadPandasMixin.read_pandas
     def __enter__(self) -> Self: ...
     def __exit__(self, exc_type, exc_val, exc_tb): ...
     @property

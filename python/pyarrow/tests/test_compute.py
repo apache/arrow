@@ -1801,7 +1801,7 @@ def test_round_to_multiple():
 
     for multiple in [object, 99999999999999999999999]:
         with pytest.raises(TypeError, match="is not a valid multiple type"):
-            pc.round_to_multiple(values, multiple=multiple)
+            pc.round_to_multiple(values, multiple=multiple)  # type: ignore[arg-type]
 
 
 def test_round_binary():
@@ -3190,7 +3190,7 @@ def test_cumulative_sum(start, skip_nulls):
 
     for strt in ['a', pa.scalar('arrow'), 1.1]:
         with pytest.raises(pa.ArrowInvalid):
-            pc.cumulative_sum([1, 2, 3], start=strt)
+            pc.cumulative_sum([1, 2, 3], start=strt)  # type: ignore[arg-type]
 
 
 @pytest.mark.numpy

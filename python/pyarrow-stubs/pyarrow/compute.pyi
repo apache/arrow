@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-from collections.abc import Callable, Iterable, Sequence, Mapping
+from collections.abc import Callable, Hashable, Iterable, Sequence, Mapping
 from typing import Literal, TypeAlias, TypeVar, Any, ParamSpec
 
 import numpy as np
@@ -654,7 +654,7 @@ def round(
 def round_to_multiple(
     x: _NumericScalarT | _NumericArrayT | list | Expression,
     /,
-    multiple: int = 0,
+    multiple: int | float | NumericScalar = 1.0,
     round_mode: Literal[
         "down",
         "up",
@@ -1521,7 +1521,7 @@ def local_timestamp(
 def random(
     n: int,
     *,
-    initializer: Literal["system"] | int = "system",
+    initializer: Hashable = "system",
     options: RandomOptions | None = None,
     memory_pool: lib.MemoryPool | None = None,
 ) -> lib.DoubleArray: ...
@@ -1533,7 +1533,7 @@ def random(
 def cumulative_sum(
     values: _NumericArrayT | ArrayLike | Expression,
     /,
-    start: lib.Scalar | None = None,
+    start: int | float | lib.Scalar | None = None,
     *,
     skip_nulls: bool = False,
     options: CumulativeSumOptions | None = None,

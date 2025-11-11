@@ -234,7 +234,7 @@ def gcsfs(request, gcs_server):
 
     yield dict(
         fs=fs,
-        pathfn=bucket.__add__,
+        pathfn=lambda p: bucket + p,
         allow_move_dir=False,
         allow_append_to_file=False,
     )
@@ -261,7 +261,7 @@ def s3fs(request, s3_server):
 
     yield dict(
         fs=fs,
-        pathfn=bucket.__add__,
+        pathfn=lambda p: bucket + p,
         allow_move_dir=False,
         allow_append_to_file=False,
     )
@@ -273,7 +273,7 @@ def subtree_s3fs(request, s3fs):
     prefix = 'pyarrow-filesystem/prefix/'
     return dict(
         fs=SubTreeFileSystem(prefix, s3fs['fs']),
-        pathfn=prefix.__add__,
+        pathfn=lambda p: prefix + p,
         allow_move_dir=False,
         allow_append_to_file=False,
     )
@@ -333,7 +333,7 @@ def azurefs(request, azure_server):
 
     yield dict(
         fs=fs,
-        pathfn=container.__add__,
+        pathfn=lambda p: container + p,
         allow_move_dir=True,
         allow_append_to_file=True,
     )
@@ -402,7 +402,7 @@ def py_fsspec_s3fs(request, s3_server):
 
     yield dict(
         fs=fs,
-        pathfn=bucket.__add__,
+        pathfn=lambda p: bucket + p,
         allow_move_dir=False,
         allow_append_to_file=True,
     )

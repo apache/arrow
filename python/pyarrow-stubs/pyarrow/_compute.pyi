@@ -391,7 +391,7 @@ class RoundTemporalOptions(FunctionOptions):
 
 
 class RoundToMultipleOptions(FunctionOptions):
-    def __init__(self, multiple: float = 1.0,
+    def __init__(self, multiple: int | float | lib.Scalar = 1.0,
                  round_mode: _RoundMode = "half_to_even") -> None: ...
 
 
