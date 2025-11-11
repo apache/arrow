@@ -424,13 +424,13 @@ cdef class CryptoFactory(_Weakrefable):
         encryption_config : EncryptionConfiguration
             Configuration of the encryption, such as which columns to encrypt
 
-        parquet_file_path : str, pathlib.Path or None, default None
+        parquet_file_path : str, pathlib.Path, or None, default None
             Path to the parquet file to be encrypted. Only required when the
             internal_key_material attribute of EncryptionConfiguration is set
             to False. Used to derive the path for storing key material 
             specific to this parquet file.
 
-        filesystem : FileSystem, default None
+        filesystem : FileSystem or None, default None
             Used only when internal_key_material is set to False on 
             EncryptionConfiguration. If None, the file system will be inferred
             based on parquet_file_path. 
@@ -481,12 +481,12 @@ cdef class CryptoFactory(_Weakrefable):
             Configuration of the decryption, such as cache timeout.
             Can be None.
 
-        parquet_file_path : str, pathlib.Path or None, default None
+        parquet_file_path : str, pathlib.Path, or None, default None
             Path to the parquet file to be decrypted. Only required when
             the parquet file uses external key material.  Used to derive
             the path to the external key material file.
 
-        filesystem : FileSystem, default None
+        filesystem : FileSystem or None, default None
             Used only when the parquet file uses external key material. If
             None, the file system will be inferred based on parquet_file_path. 
 
@@ -547,7 +547,7 @@ cdef class CryptoFactory(_Weakrefable):
         parquet_file_path : str or pathlib.Path
             Path to a parquet file using external key material.
 
-        filesystem : FileSystem, default None
+        filesystem : FileSystem or None, default None
             Used only when the parquet file uses external key material. If
             None, the file system will be inferred based on parquet_file_path. 
 

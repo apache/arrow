@@ -16,7 +16,6 @@
 # under the License.
 import pytest
 from datetime import timedelta
-from hypothesis import given, strategies as st
 import pyarrow as pa
 try:
     import pyarrow.parquet as pq
@@ -563,7 +562,12 @@ def test_encrypted_parquet_write_read_external(tempdir, data_table,
     assert data_table.equals(result_table)
 
 
-@given(double_wrap_initial=st.booleans(), double_wrap_rotated=st.booleans())
+@pytest.mark.parametrize(
+    ("double_wrap_initial", "double_wrap_rotated"), [
+        pytest.param(True, True, id="double wrapping"),
+        pytest.param(False, True, id="single to double wrapped"),
+        pytest.param(True, False, id="double to singe wrapped"),
+        pytest.param(False, False, id="single wrapping")])
 def test_external_key_material_rotation(
         reusable_tempdir,
         data_table,
@@ -576,11 +580,7 @@ def test_external_key_material_rotation(
     EncryptionConfig.double_wrapping was set to true (also the default) when
     the external key material store was written. This means double wrapping may
     be set one way initially and then applied or removed during rotation.
-    When run as a regular pytest test, this function tests the default
-    scenario - double_wrapping before and after rotation.
-
-    A separate wrapper test function below is driven by hypothesis strategies
-    to run through the permutations."""
+    """
     path = reusable_tempdir / PARQUET_NAME
     encryption_config = pe.EncryptionConfiguration(
         footer_key=FOOTER_KEY_NAME,
