@@ -1419,7 +1419,7 @@ Examples
             else:
                 single_file = path_or_paths
 
-        parquet_format = ds.ParquetFileFormat(**read_options)
+        parquet_format = ds.ParquetFileFormat(**read_options)  # type: ignore[invalid-argument-type]
 
         if single_file is not None:
             fragment = parquet_format.make_fragment(single_file, filesystem)

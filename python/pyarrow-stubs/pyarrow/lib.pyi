@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-from typing import NamedTuple
+from typing import Iterator, NamedTuple
 
 from .array import *  # noqa: F401, F403
 from .builder import *  # noqa: F401, F403
@@ -36,12 +36,15 @@ from .array import Array
 from ._types import DataType
 
 
-class MonthDayNano(NamedTuple):
-    days: int
+class MonthDayNano(tuple):
     months: int
+    days: int
     nanoseconds: int
 
-    def __init__(self, *args, **kwargs) -> None: ...  # type: ignore[misc]
+    def __new__(
+        cls,
+        sequence: tuple[int, int, int] | list[int] = ...,
+    ) -> MonthDayNano: ...
 
 
 def cpu_count() -> int: ...

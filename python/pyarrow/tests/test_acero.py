@@ -16,6 +16,7 @@
 # under the License.
 
 import pytest
+from typing import Literal, cast
 
 import pyarrow as pa
 import pyarrow.compute as pc
@@ -268,7 +269,8 @@ def test_order_by():
     table = pa.table({'a': [1, 2, 3, 4], 'b': [1, 3, None, 2]})
     table_source = Declaration("table_source", TableSourceNodeOptions(table))
 
-    ord_opts = OrderByNodeOptions([("b", "ascending")])
+    sort_keys: list[tuple[str, Literal["ascending", "descending"]]] = [("b", "ascending")]
+    ord_opts = OrderByNodeOptions(sort_keys)
     decl = Declaration.from_sequence([table_source, Declaration("order_by", ord_opts)])
     result = decl.to_table()
     expected = pa.table({"a": [1, 4, 2, 3], "b": [1, 2, 3, None]})
