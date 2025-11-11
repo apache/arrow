@@ -262,9 +262,10 @@ def test_iter_batches_reader(tempdir, chunk_size):
 
         tm.assert_frame_equal(
             batches[batch_no].to_pandas().reset_index(drop=True),
-            file_.read_row_groups([i]).to_pandas().iloc[900:].reset_index(  # type: ignore[arg-type]
-                drop=True
-            )
+            file_
+            .read_row_groups([i])
+            .to_pandas().iloc[900:]
+            .reset_index(drop=True)  # type: ignore[arg-type]
         )
 
         batch_no += 1

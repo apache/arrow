@@ -1192,15 +1192,15 @@ def test_map_from_arrays():
     assert result.equals(expected)
 
     # pass in the type explicitly
-    result = pa.MapArray.from_arrays(offsets, keys, items, pa.map_(  # type: ignore[arg-type]
-        keys.type,
-        items.type
-    ))
+    result = pa.MapArray.from_arrays(offsets, keys, items,  # type: ignore[arg-type]
+                                     pa.map_(keys.type, items.type))
     assert result.equals(expected)
 
     # pass in invalid types
     with pytest.raises(pa.ArrowTypeError, match='Expected map type, got string'):
-        pa.MapArray.from_arrays(offsets, keys, items, pa.string())  # type: ignore[arg-type]
+        pa.MapArray.from_arrays(
+            offsets, keys, items, pa.string()  # type: ignore[arg-type]
+        )
 
     with pytest.raises(pa.ArrowTypeError, match='Mismatching map items type'):
         pa.MapArray.from_arrays(offsets, keys, items, pa.map_(  # type: ignore[arg-type]

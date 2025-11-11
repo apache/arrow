@@ -571,15 +571,18 @@ def test_write_to_dataset_pandas_preserve_extensiondtypes(tempdir):
         table, str(tempdir / "case1"), partition_cols=['part'],
     )
     result = pq.read_table(str(tempdir / "case1")).to_pandas()
-    tm.assert_frame_equal(cast(pd.DataFrame, result[["col"]]), cast(pd.DataFrame, df[["col"]]))
+    tm.assert_frame_equal(
+        cast(pd.DataFrame, result[["col"]]), cast(pd.DataFrame, df[["col"]]))
 
     pq.write_to_dataset(table, str(tempdir / "case2"))
     result = pq.read_table(str(tempdir / "case2")).to_pandas()
-    tm.assert_frame_equal(cast(pd.DataFrame, result[["col"]]), cast(pd.DataFrame, df[["col"]]))
+    tm.assert_frame_equal(
+        cast(pd.DataFrame, result[["col"]]), cast(pd.DataFrame, df[["col"]]))
 
     pq.write_table(table, str(tempdir / "data.parquet"))
     result = pq.read_table(str(tempdir / "data.parquet")).to_pandas()
-    tm.assert_frame_equal(cast(pd.DataFrame, result[["col"]]), cast(pd.DataFrame, df[["col"]]))
+    tm.assert_frame_equal(
+        cast(pd.DataFrame, result[["col"]]), cast(pd.DataFrame, df[["col"]]))
 
 
 @pytest.mark.pandas

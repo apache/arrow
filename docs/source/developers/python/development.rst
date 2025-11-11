@@ -42,7 +42,7 @@ Unit Testing
 ============
 
 We are using `pytest <https://docs.pytest.org/en/latest/>`_ to develop our unit
-test suite. After `building the project <build_pyarrow>`_ you can run its unit tests
+test suite. After `building the project <building.html>`_ you can run its unit tests
 like so:
 
 .. code-block::
@@ -111,7 +111,7 @@ included in the distributed wheel packages.
 Running Type Checkers
 ---------------------
 
-We support multiple type checkers. The configuration for each is in
+We support multiple type checkers. Their configurations are in
 ``pyproject.toml``.
 
 **mypy**
@@ -157,19 +157,17 @@ When adding or modifying public APIs:
    to reflect the new or changed function/class signatures.
 
 2. **Include type annotations** where possible. For Cython modules or
-   dynamically, generated APIs such as compute kernels add the corresponding
+   dynamically generated APIs such as compute kernels add the corresponding
    stub in ``pyarrow-stubs/``.
 
 3. **Run type checkers** to ensure the stubs are correct and complete.
 
-The stub files are automatically copied to the built wheel during the build
+The stub files are automatically copied into the built wheel during the build
 process and will be included when users install PyArrow, enabling type checking
-in downstream projects.
+in downstream projects and for users' IDEs.
 
-.. note::
-
-   The ``py.typed`` marker file in the ``pyarrow/`` directory indicates to type
-   checkers that PyArrow supports type checking according to :pep:`561`.
+Note: ``py.typed`` marker file in the ``pyarrow/`` directory indicates to type
+checkers that PyArrow supports type checking according to :pep:`561`.
 
 Doctest
 =======
