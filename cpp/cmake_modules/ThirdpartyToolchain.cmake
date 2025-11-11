@@ -1269,19 +1269,14 @@ else()
 endif()
 
 if(ARROW_USE_BOOST)
-  message(status "-AL- ARROW_BOOST_USE_SHARED: ${ARROW_BOOST_USE_SHARED}")
   if(ARROW_BOOST_USE_SHARED)
     # Find shared Boost libraries.
     set(Boost_USE_STATIC_LIBS OFF)
     set(BUILD_SHARED_LIBS_KEEP ${BUILD_SHARED_LIBS})
     set(BUILD_SHARED_LIBS ON)
-    message(status "-AL- ARROW_BOOST_USE_SHARED TEMP - Boost_USE_STATIC_LIBS: ${Boost_USE_STATIC_LIBS}"
-    )
   else()
     # Find static boost headers and libs
     set(Boost_USE_STATIC_LIBS ON)
-    message(status "-AL- NOT ARROW_BOOST_USE_SHARED TEMP - Boost_USE_STATIC_LIBS: ${Boost_USE_STATIC_LIBS}"
-    )
   endif()
   if(ARROW_BOOST_REQUIRE_LIBRARY)
     set(ARROW_BOOST_COMPONENTS filesystem)
