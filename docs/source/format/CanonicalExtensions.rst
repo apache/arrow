@@ -573,9 +573,9 @@ This extension type is intended to be compatible with ANSI SQL's ``TIMESTAMP WIT
 
 .. note::
 
-  Although not required, it is *recommended* that implementations represent this type as an RFC3339 string when de/serializing to/from JSON, respecting the ``TimeUnit`` precision and time zone offset without loss of information. For example ``2025-01-01T00:00:00Z`` represents January 1st 2025 in UTC with second precision, and ``2025-01-01T00:00:00.000000001-07:00`` represents one nanosecond after January 1st 2025 in UTC-07.
+   Although not required, it is *recommended* that implementations represent this type as an RFC3339 string when de/serializing to/from JSON, respecting the ``TimeUnit`` precision and time zone offset without loss of information. For example ``2025-01-01T00:00:00Z`` represents January 1st 2025 in UTC with second precision, and ``2025-01-01T00:00:00.000000001-07:00`` represents one nanosecond after January 1st 2025 in UTC-07.
 
-  The rationale behind this recommendation is that many programming languages provide support for parsing RFC3339 out of the box, facilitating consumption of timezone-aware JSON-encoded Arrow arrays without extra boilerplate just for integrating with Arrow.
+   The rationale behind this recommendation is that many programming languages provide support for parsing RFC3339 out of the box, facilitating consumption of timezone-aware JSON-encoded Arrow arrays without extra boilerplate just for integrating with Arrow.
 
 Community Extension Types
 =========================
