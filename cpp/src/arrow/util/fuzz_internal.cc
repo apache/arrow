@@ -15,15 +15,25 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <memory>
-
-#include "arrow/ipc/reader.h"
-#include "arrow/status.h"
 #include "arrow/util/fuzz_internal.h"
-#include "arrow/util/macros.h"
 
-extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
-  auto status = arrow::ipc::internal::FuzzIpcStream(data, static_cast<int64_t>(size));
-  arrow::internal::NoteFuzzStatus(status, data, static_cast<int64_t>(size));
-  return 0;
+#include "arrow/memory_pool.h"
+#include "arrow/status.h"
+#include "arrow/util/logging_internal.h"
+
+namespace arrow::internal {
+
+MemoryPool* fuzzing_memory_pool() {
+  static auto pool = std::make_shared<::arrow::CappedMemoryPool>(
+      ::arrow::default_memory_pool(), /*bytes_allocated_limit=*/kFuzzingMemoryLimit);
+  return pool.get();
 }
+
+void NoteFuzzStatus(const Status& st, const uint8_t* data, int64_t size) {
+  if (st.IsOutOfMemory()) {
+    ARROW_LOG(WARNING) << "Fuzzing input with size=" << size
+                       << " hit allocation failure: " << st.ToString();
+  }
+}
+
+}  // namespace arrow::internal

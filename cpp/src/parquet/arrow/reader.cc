@@ -29,6 +29,7 @@
 #include "arrow/buffer.h"
 #include "arrow/extension_type.h"
 #include "arrow/io/memory.h"
+#include "arrow/memory_pool.h"
 #include "arrow/record_batch.h"
 #include "arrow/table.h"
 #include "arrow/type.h"
@@ -36,6 +37,7 @@
 #include "arrow/util/async_generator.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/future.h"
+#include "arrow/util/fuzz_internal.h"
 #include "arrow/util/iterator.h"
 #include "arrow/util/logging_internal.h"
 #include "arrow/util/parallel.h"
@@ -1403,7 +1405,7 @@ namespace internal {
 
 namespace {
 
-Status FuzzReader(std::unique_ptr<FileReader> reader) {
+Status FuzzReadData(std::unique_ptr<FileReader> reader) {
   auto st = Status::OK();
   for (int i = 0; i < reader->num_row_groups(); ++i) {
     std::shared_ptr<Table> table;
@@ -1490,7 +1492,7 @@ Status FuzzReader(const uint8_t* data, int64_t size) {
 
   auto buffer = std::make_shared<::arrow::Buffer>(data, size);
   auto file = std::make_shared<::arrow::io::BufferReader>(buffer);
-  auto pool = ::arrow::default_memory_pool();
+  auto pool = ::arrow::internal::fuzzing_memory_pool();
   auto reader_properties = default_reader_properties();
   std::default_random_engine rng(/*seed*/ 42);
 
@@ -1562,7 +1564,7 @@ Status FuzzReader(const uint8_t* data, int64_t size) {
 
     std::unique_ptr<FileReader> reader;
     RETURN_NOT_OK(FileReader::Make(pool, std::move(pq_file_reader), properties, &reader));
-    st &= FuzzReader(std::move(reader));
+    st &= FuzzReadData(std::move(reader));
   }
   return st;
 }

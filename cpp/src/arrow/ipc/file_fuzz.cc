@@ -19,10 +19,11 @@
 
 #include "arrow/ipc/reader.h"
 #include "arrow/status.h"
+#include "arrow/util/fuzz_internal.h"
 #include "arrow/util/macros.h"
 
 extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
   auto status = arrow::ipc::internal::FuzzIpcFile(data, static_cast<int64_t>(size));
-  ARROW_UNUSED(status);
+  arrow::internal::NoteFuzzStatus(status, data, static_cast<int64_t>(size));
   return 0;
 }
