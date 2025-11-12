@@ -22,9 +22,8 @@ arrow_install_all_headers("arrow/compute/kernels")
 
 # Define arrow_compute_kernels_testing object library for common test files
 if(ARROW_TESTING)
-  add_library(arrow_compute_kernels_testing OBJECT test_util_internal.cc)
-  add_library(arrow_compute_kernels_testing OBJECT test_util.cc
-          ../../extension/tensor_extension_array_test.cc)
+  add_library(arrow_compute_kernels_testing OBJECT
+              test_util_internal.cc ../../extension/tensor_extension_array_test.cc)
   # Even though this is still just an object library we still need to "link" our
   # dependencies so that include paths are configured correctly
   target_link_libraries(arrow_compute_kernels_testing PUBLIC ${ARROW_GTEST_GMOCK})

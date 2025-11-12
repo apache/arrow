@@ -20,11 +20,10 @@
 #include "arrow/tensor.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/int_util_overflow.h"
-#include "arrow/util/sort.h"
+#include "arrow/util/sort_internal.h"
 
 #include "arrow/status.h"
-#include "arrow/util/logging.h"
-#include "arrow/util/print.h"
+#include "arrow/util/print_internal.h"
 
 namespace arrow::internal {
 
