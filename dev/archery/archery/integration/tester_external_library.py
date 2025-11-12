@@ -107,9 +107,10 @@ class ExternalLibraryTester(Tester):
         self.C_DATA_ARRAY_IMPORTER = is_c_data_array_importer_compatible
         self._supports_releasing_memory = supports_releasing_memory
         self._EXE_PATH = path
-        self._INTEGRATION_EXE = path / "arrow-json-integration-test"
         self._STREAM_TO_FILE = path / "arrow-stream-to-file"
         self._FILE_TO_STREAM = path / "arrow-file-to-stream"
+        self._VALIDATE_EXE = path / "arrow-validate-integration"
+        self._JSON_TO_FILE_EXE = path / "arrow-json-to-file"
         self._INTEGRATION_DLL = self._EXE_PATH / (
             "c_data_integration" + cdata.dll_suffix
         )
@@ -134,17 +135,19 @@ class ExternalLibraryTester(Tester):
         run_cmd([self._INTEGRATION_EXE], env=env)
 
     def validate(self, json_path: str, arrow_path: str, quirks=None):
-        return self._run(arrow_path, json_path, "VALIDATE", quirks)
+        cmd = [self._VALIDATE_EXE, json_path, arrow_path]
+        self.run_shell_command(cmd)
 
     def json_to_file(self, json_path: str, arrow_path: str):
-        return self._run(arrow_path, json_path, "JSON_TO_ARROW", quirks=None)
+        cmd = [self._JSON_TO_FILE_EXE, json_path ,arrow_path]
+        self.run_shell_command(cmd)
 
     def stream_to_file(self, stream_path, file_path):
-        cmd = [self._STREAM_TO_FILE, "<", stream_path, ">", file_path]
+        cmd = [self._STREAM_TO_FILE, stream_path, file_path]
         self.run_shell_command(cmd)
 
     def file_to_stream(self, file_path, stream_path):
-        cmd = [self._FILE_TO_STREAM, file_path, ">", stream_path]
+        cmd = [self._FILE_TO_STREAM, file_path, stream_path]
         self.run_shell_command(cmd)
 
     def make_c_data_exporter(self):
