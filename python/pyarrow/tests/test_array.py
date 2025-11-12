@@ -35,6 +35,7 @@ except ImportError:
 import pyarrow as pa
 import pyarrow.tests.strategies as past
 from pyarrow.vendored.version import Version
+import pyarrow.compute as pc
 
 
 @pytest.mark.processes
@@ -4324,17 +4325,53 @@ def test_non_cpu_array():
         arr.validate(full=True)
 
 
-def test_array_arithmetic_dunders():
+@pytest.fixture
+def int_arrays():
+    arr1 = pa.array([-1, 2, -3])
+    arr2 = pa.array([2, 4, 5])
+
+    return arr1, arr2
+
+
+@pytest.fixture
+def float_arrays():
+    arr1 = pa.array([-1.1, 2.2, -3.3])
+    arr2 = pa.array([2.2, 4.4, 5.5])
+
+    return arr1, arr2
+
+
+def test_arithmetic_dunders(float_arrays):
     # GH-32007
-    import pyarrow.compute as pc
+    arr1, arr2 = float_arrays
 
-    arr1 = pa.array([-1.0, 2.5, -3.7])
-    arr2 = pa.array([2.0, 4.2, 5.5])
+    assert (arr1 + arr2).equals(pc.add_checked(arr1, arr2))
+    assert (arr2 / arr1).equals(pc.divide_checked(arr2, arr1))
+    assert (arr1 * arr2).equals(pc.multiply_checked(arr1, arr2))
+    assert (-arr1).equals(pc.negate_checked(arr1))
+    assert (arr1 ** 2).equals(pc.power_checked(arr1, 2))
+    assert (arr1 - arr2).equals(pc.subtract_checked(arr1, arr2))
 
-    assert abs(arr1).equals(pc.abs(arr1))
-    assert (arr1 + arr2).equals(pc.add(arr1, arr2))
-    assert (arr2 / arr1).equals(pc.divide(arr2, arr1))
-    assert (arr1 * arr2).equals(pc.multiply(arr1, arr2))
-    assert (-arr1).equals(pc.negate(arr1))
-    assert (arr1 ** 2).equals(pc.power(arr1, 2))
-    assert (arr1 - arr2).equals(pc.subtract(arr1, arr2))
+
+def test_bitwise_dunders(int_arrays):
+    # GH-32007
+    arr1, arr2 = int_arrays
+
+    assert (arr1 & arr2).equals(pc.bit_wise_and(arr1, arr2))
+    assert (arr1 | arr2).equals(pc.bit_wise_or(arr1, arr2))
+    assert (arr1 ^ arr2).equals(pc.bit_wise_xor(arr1, arr2))
+    assert (arr1 << arr2).equals(pc.shift_left_checked(arr1, arr2))
+    assert (arr1 >> arr2).equals(pc.shift_right_checked(arr1, arr2))
+
+
+def test_math_dunders(float_arrays):
+    # GH-32007
+    import math
+
+    arr1, _ = float_arrays
+
+    assert abs(arr1).equals(pc.abs_checked(arr1))
+    assert round(arr1).equals(pc.round(arr1))
+    assert math.trunc(arr1).equals(pc.trunc(arr1))
+    assert math.floor(arr1).equals(pc.floor(arr1))
+    assert math.ceil(arr1).equals(pc.ceil(arr1))
