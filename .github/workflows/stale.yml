@@ -1,0 +1,74 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+name: "Close stale PRs"
+on:
+  schedule:
+    - cron: "0 11 * * 3" # Run once per week on Wednesday at 11:00 AM UTC
+
+jobs:
+  close-stale-prs:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      pull-requests: write
+    steps:
+      - uses: actions/stale@5bef64f19d7facfb25b37b414482c7164d639639  #v9.1.0
+        with:
+          stale-pr-message: "Thank you for your contribution. Unfortunately, this pull request has been marked as stale because it has had no activity in the past 365 days. Please remove the stale label or comment below, or this PR will be closed in 14 days.  Feel free to re-open this if it has been closed in error. If you do not have repository permissions to reopen the PR, please tag a maintainer."
+          stale-pr-label: "Status: stale-warning"
+          days-before-pr-stale: 365
+          days-before-pr-close: 14
+          # exclude issues
+          days-before-issue-stale: -1
+          days-before-issue-close: -1
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+  close-stale-issues-usage:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      pull-requests: write
+    steps:
+      - uses: actions/stale@5bef64f19d7facfb25b37b414482c7164d639639  #v9.1.0
+        with:
+          # exclude PRs
+          days-before-pr-stale: -1
+          days-before-pr-close: -1
+          only-issue-labels: "Type: usage"
+          stale-issue-message: "This issue has been marked as stale because it has had no activity in the past 365 days. Please remove the stale label or comment below, or this issue will be closed in 14 days. If this usage question has evolved into a feature request or docs update, please remove the 'Type: usage' label and add the 'Type: enhancement' label instead."
+          stale-issue-label: "Status: stale-warning"
+          days-before-issue-stale: 365
+          days-before-issue-close: 14
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+  close-stale-issues-enhancement:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      pull-requests: write
+    steps:
+      - uses: actions/stale@5bef64f19d7facfb25b37b414482c7164d639639  #v9.1.0
+        with:
+          # exclude PRs
+          days-before-pr-stale: -1
+          days-before-pr-close: -1
+          only-issue-labels: "Type: enhancement"
+          exempt-issue-labels: "Status: needs champion"
+          stale-issue-message: "This issue has been marked as stale because it has had no activity in the past 365 days. Please remove the stale label or comment below, or this issue will be closed in 14 days. If this improvement is still desired but has no current owner, please add the 'Status: needs champion' label."
+          stale-issue-label: "Status: stale-warning"
+          days-before-issue-stale: 365
+          days-before-issue-close: 14
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
