@@ -661,6 +661,10 @@ auto RleBitPackedParser::PeekImpl(Handler&& handler) const
   uint32_t run_len_type = 0;
   const auto header_bytes =
       bit_util::ParseLeadingLEB128(data_, std::min(kMaxSize, data_size_), &run_len_type);
+  if (ARROW_PREDICT_FALSE(header_bytes == 0)) {
+    // Malformed LEB128 data
+    return {0, ControlFlow::Break};
+  }
 
   const bool is_bit_packed = run_len_type & 1;
   const uint32_t count = run_len_type >> 1;

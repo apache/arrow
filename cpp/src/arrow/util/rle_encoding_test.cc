@@ -590,32 +590,38 @@ TEST(RleBitPacked, RleBitPackedParserInvalidNonPadded) {
 }
 
 TEST(RleBitPacked, RleBitPackedParserErrors) {
+  using V = std::vector<uint8_t>;
+
   // Truncated LEB128 header
   TestRleBitPackedParserError(
       /* bytes= */
-      {0x81},
+      V{0x81},
       /* bit_width= */ 3);
 
   // Invalid LEB128 header for a 32-bit value
   TestRleBitPackedParserError(
       /* bytes= */
-      {0xFF, 0xFF, 0xFF, 0xFF, 0x7f},
+      V{0xFF, 0xFF, 0xFF, 0xFF, 0x7f},
       /* bit_width= */ 3);
 
   // Zero-length repeated run
   TestRleBitPackedParserError(
       /* bytes= */
-      {0x00},
+      V{0x00, 0x00},
       /* bit_width= */ 3);
   TestRleBitPackedParserError(
       /* bytes= */
-      {0x80, 0x00},
+      V{0x80, 0x00, 0x00},
       /* bit_width= */ 3);
 
   // Zero-length bit-packed run
   TestRleBitPackedParserError(
       /* bytes= */
-      {0x01},
+      V{0x01},
+      /* bit_width= */ 3);
+  TestRleBitPackedParserError(
+      /* bytes= */
+      V{0x80, 0x01},
       /* bit_width= */ 3);
 
   // Bit-packed run too large
