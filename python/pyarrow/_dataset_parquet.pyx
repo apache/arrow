@@ -696,6 +696,7 @@ cdef class ParquetFileWriteOptions(FileWriteOptions):
             version="2.6",
             write_statistics=None,
             data_page_size=None,
+            max_rows_per_page=None,
             compression_level=None,
             use_byte_stream_split=False,
             column_encoding=None,

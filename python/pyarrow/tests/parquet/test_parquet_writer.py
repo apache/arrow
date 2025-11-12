@@ -487,3 +487,35 @@ def test_arrow_writer_props_time_adjusted_to_utc(
     result.validate(full=True)
 
     assert result.equals(table)
+
+
+@pytest.mark.parametrize(
+    "max_rows_per_page",
+    [1, 10, 100, 1_000, None],
+)
+def test_writer_props_max_rows_per_page(tempdir, max_rows_per_page):
+    # GH-48096
+    filename = tempdir / "max_rows_per_page.parquet"
+
+    table = pa.table({
+        "x": pa.array([1, 2, 3, 4, 5, 6, 7], type=pa.int8()),
+        "y": pa.array([11.0, 12.0, 13.0, 14.0, 15.0, 16.0, 17.0], type=pa.float16()),
+    })
+
+    schema = pa.schema([
+        ("x", pa.int8()),
+        ("y", pa.float16()),
+    ])
+
+    with pq.ParquetWriter(
+        where=filename,
+        schema=schema,
+        max_rows_per_page=max_rows_per_page,
+    ) as writer:
+        writer.write_table(table)
+
+    result = pq.read_table(filename, schema=schema)
+
+    result.validate(full=True)
+
+    assert result.equals(table)
