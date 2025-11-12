@@ -32,7 +32,11 @@ Aggregations
    approximate_median
    count
    count_distinct
+   first
+   first_last
    index
+   kurtosis
+   last
    max
    mean
    min
@@ -41,6 +45,7 @@ Aggregations
    pivot_wider
    product
    quantile
+   skew
    stddev
    sum
    tdigest
@@ -69,6 +74,7 @@ throws an ``ArrowInvalid`` exception when overflow is detected.
    cumulative_prod
    cumulative_prod_checked
    cumulative_max
+   cumulative_mean
    cumulative_min
 
 Arithmetic Functions
@@ -126,6 +132,7 @@ representation based on the rounding criterion.
    ceil
    floor
    round
+   round_binary
    round_to_multiple
    trunc
 
@@ -170,6 +177,24 @@ variants which detect domain errors where appropriate.
    sin_checked
    tan
    tan_checked
+
+Hyperbolic Trigonometric Functions
+-----------------------
+
+Hyperbolic trigonometric functions are also supported, and, where applicable, also offer ``_checked``
+variants which detect domain errors if needed.
+
+.. autosummary::
+   :toctree: ../generated/
+
+   acosh
+   acosh_checked
+   asinh
+   atanh
+   atanh_checked
+   cosh
+   sinh
+   tanh
 
 Comparisons
 -----------
@@ -281,6 +306,7 @@ String Transforms
    utf8_capitalize
    utf8_length
    utf8_lower
+   utf8_normalize
    utf8_replace_slice
    utf8_reverse
    utf8_swapcase
@@ -338,6 +364,7 @@ String Component Extraction
    :toctree: ../generated/
 
    extract_regex
+   extract_regex_span
 
 String Joining
 --------------
@@ -369,7 +396,9 @@ Containment Tests
    find_substring
    find_substring_regex
    index_in
+   index_in_meta_binary
    is_in
+   is_in_meta_binary
    match_like
    match_substring
    match_substring_regex
@@ -425,10 +454,11 @@ Temporal Component Extraction
    day_of_week
    day_of_year
    hour
+   is_dst
+   is_leap_year
    iso_week
    iso_year
    iso_calendar
-   is_leap_year
    microsecond
    millisecond
    minute
@@ -472,12 +502,21 @@ Timezone Handling
    assume_timezone
    local_timestamp
 
+Random Number Generation
+-----------------
+
+.. autosummary::
+   :toctree: ../generated/
+
+   random
+
 Associative Transforms
 ----------------------
 
 .. autosummary::
    :toctree: ../generated/
 
+   dictionary_decode
    dictionary_encode
    unique
    value_counts
@@ -492,7 +531,9 @@ Selections
    array_take
    drop_null
    filter
+   inverse_permutation
    take
+   scatter
 
 Sorts and Partitions
 --------------------
@@ -501,9 +542,14 @@ Sorts and Partitions
    :toctree: ../generated/
 
    array_sort_indices
+   bottom_k_unstable
    partition_nth_indices
+   rank
+   rank_normal
+   rank_quantile
    select_k_unstable
    sort_indices
+   top_k_unstable
 
 Structural Transforms
 ---------------------
@@ -531,6 +577,7 @@ Pairwise Functions
    :toctree: ../generated/
 
    pairwise_diff
+   pairwise_diff_checked
 
 Compute Options
 ---------------
@@ -542,6 +589,7 @@ Compute Options
    AssumeTimezoneOptions
    CastOptions
    CountOptions
+   CumulativeOptions
    CumulativeSumOptions
    DayOfWeekOptions
    DictionaryEncodeOptions
@@ -550,6 +598,7 @@ Compute Options
    FilterOptions
    IndexOptions
    JoinOptions
+   ListFlattenOptions
    ListSliceOptions
    MakeStructOptions
    MapLookupOptions
@@ -562,8 +611,11 @@ Compute Options
    PartitionNthOptions
    PivotWiderOptions
    QuantileOptions
+   RandomOptions
+   RankQuantileOptions
    ReplaceSliceOptions
    ReplaceSubstringOptions
+   RoundBinaryOptions
    RoundOptions
    RoundTemporalOptions
    RoundToMultipleOptions
@@ -571,6 +623,7 @@ Compute Options
    ScalarAggregateOptions
    SelectKOptions
    SetLookupOptions
+   SkewOptions
    SliceOptions
    SortOptions
    SplitOptions
@@ -581,8 +634,10 @@ Compute Options
    TakeOptions
    TDigestOptions
    TrimOptions
+   Utf8NormalizeOptions
    VarianceOptions
    WeekOptions
+   WinsorizeOptions
 
 User-Defined Functions
 ----------------------
@@ -592,6 +647,15 @@ User-Defined Functions
 
    register_scalar_function
    UdfContext
+
+Statistical Functions
+----------------------
+
+.. autosummary::
+   :toctree: ../generated/
+
+   winsorize
+
 
 Expression Functions
 --------------------
