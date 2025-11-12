@@ -29,9 +29,7 @@
 #include "arrow/tensor.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/key_value_metadata.h"
-#include "arrow/util/sort.h"
-#include "arrow/util/logging.h"
-
+#include "arrow/util/sort_internal.h"
 
 namespace arrow {
 
@@ -159,8 +157,7 @@ TEST_F(TestFixedShapeTensorType, CreateFromArray) {
   ASSERT_EQ(ext_arr->null_count(), 0);
 }
 
-<<<<<<< HEAD
-TEST_F(TestExtensionType, MakeArrayCanGetCorrectScalarType) {
+TEST_F(TestFixedShapeTensorType, MakeArrayCanGetCorrectScalarType) {
   ASSERT_OK_AND_ASSIGN(auto tensor,
                        Tensor::Make(value_type_, Buffer::Wrap(values_), shape_));
 
@@ -182,7 +179,6 @@ TEST_F(TestExtensionType, MakeArrayCanGetCorrectScalarType) {
   ASSERT_TRUE(tensor->Equals(*tensor_from_array));
 }
 
-template <typename T>
 void CheckSerializationRoundtrip(const std::shared_ptr<DataType>& ext_type) {
   auto type = internal::checked_pointer_cast<ExtensionType>(ext_type);
   auto serialized = type->Serialize();
