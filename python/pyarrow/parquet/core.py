@@ -1898,7 +1898,7 @@ def read_table(source, *, columns=None, use_threads=True,
             if not filesystem.get_file_info(path).is_file:
                 raise ValueError(
                     "the 'source' argument should be "
-                    "an existing .parquet file and not a directory, "
+                    "an existing parquet file and not a directory "
                     "when the pyarrow.dataset module is not available"
                 )
 
