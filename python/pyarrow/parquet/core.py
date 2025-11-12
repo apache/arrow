@@ -795,6 +795,10 @@ data_page_size : int, default None
     Set a target threshold for the approximate encoded size of data
     pages within a column chunk (in bytes). If None, use the default data page
     size of 1MByte.
+max_rows_per_page : int, default None
+    Maximum number of rows per page within a column chunk.
+    If no value is passed, then the default value of 20000 is set.
+    Smaller values reduce memory usage during reads but increase metadata overhead.
 flavor : {'spark'}, default None
     Sanitize schema or set other compatibility options to work with
     various target systems.
