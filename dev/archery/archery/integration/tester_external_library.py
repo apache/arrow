@@ -109,7 +109,7 @@ class ExternalLibraryTester(Tester):
         self._EXE_PATH = path
         self._STREAM_TO_FILE = path / "arrow-stream-to-file"
         self._FILE_TO_STREAM = path / "arrow-file-to-stream"
-        self._VALIDATE_EXE = path / "arrow-validate-integration"
+        self._VALIDATE_EXE = path / "arrow-validate"
         self._JSON_TO_FILE_EXE = path / "arrow-json-to-file"
         self._INTEGRATION_DLL = self._EXE_PATH / (
             "c_data_integration" + cdata.dll_suffix
