@@ -189,6 +189,33 @@ cdef class Scalar(_Weakrefable):
     def __sub__(self, object other):
         return _pc().call_function('subtract_checked', [self, other])
 
+    def __and__(self, object other):
+        return _pc().call_function('bit_wise_and', [self, other])
+
+    def __or__(self, object other):
+        return _pc().call_function('bit_wise_or', [self, other])
+
+    def __xor__(self, object other):
+        return _pc().call_function('bit_wise_xor', [self, other])
+
+    def __lshift__(self, object other):
+        return _pc().call_function('shift_left_checked', [self, other])
+
+    def __rshift__(self, object other):
+        return _pc().call_function('shift_right_checked', [self, other])
+
+    def __round__(self):
+        return _pc().call_function('round', [self])
+
+    def __trunc__(self):
+        return _pc().call_function('trunc', [self])
+
+    def __floor__(self):
+        return _pc().call_function('floor', [self])
+
+    def __ceil__(self):
+        return _pc().call_function('ceil', [self])
+
 
 _NULL = NA = None
 
