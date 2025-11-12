@@ -125,13 +125,13 @@ jobs:
           )
           current_lib_path <- list.files(art_path,
             full.names = TRUE,
-            pattern = "r-lib",
+            pattern = "r-libarrow",
             recursive = TRUE
           )
           current_path <- c(current_pkg_path, current_lib_path)
           files <- c(
             sub("r-pkg", repo_root, current_pkg_path),
-            sub("r-lib", paste0(repo_root, "__r-lib"), current_lib_path)
+            sub("r-libarrow", paste0(repo_root, "__libarrow__r-libarrow"), current_lib_path)
           )
 
           # decode contrib.url from artifact name:
