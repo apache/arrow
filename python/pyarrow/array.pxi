@@ -2289,6 +2289,42 @@ cdef class Array(_PandasConvertible):
         self._assert_cpu()
         return _pc().call_function('subtract_checked', [self, other])
 
+    def __and__(self, object other):
+        self._assert_cpu()
+        return _pc().call_function('bit_wise_and', [self, other])
+
+    def __or__(self, object other):
+        self._assert_cpu()
+        return _pc().call_function('bit_wise_or', [self, other])
+
+    def __xor__(self, object other):
+        self._assert_cpu()
+        return _pc().call_function('bit_wise_xor', [self, other])
+
+    def __lshift__(self, object other):
+        self._assert_cpu()
+        return _pc().call_function('shift_left_checked', [self, other])
+
+    def __rshift__(self, object other):
+        self._assert_cpu()
+        return _pc().call_function('shift_right_checked', [self, other])
+
+    def __round__(self):
+        self._assert_cpu()
+        return _pc().call_function('round', [self])
+
+    def __trunc__(self):
+        self._assert_cpu()
+        return _pc().call_function('trunc', [self])
+
+    def __floor__(self):
+        self._assert_cpu()
+        return _pc().call_function('floor', [self])
+
+    def __ceil__(self):
+        self._assert_cpu()
+        return _pc().call_function('ceil', [self])
+
 
 cdef _array_like_to_pandas(obj, options, types_mapper):
     cdef:
