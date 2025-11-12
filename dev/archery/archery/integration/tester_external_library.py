@@ -107,10 +107,10 @@ class ExternalLibraryTester(Tester):
         self.C_DATA_ARRAY_IMPORTER = is_c_data_array_importer_compatible
         self._supports_releasing_memory = supports_releasing_memory
         self._EXE_PATH = path
-        self._STREAM_TO_FILE = path / "arrow-stream-to-file"
-        self._FILE_TO_STREAM = path / "arrow-file-to-stream"
-        self._VALIDATE_EXE = path / "arrow-validate"
-        self._JSON_TO_FILE_EXE = path / "arrow-json-to-file"
+        self._STREAM_TO_FILE = path / "arrow_stream_to_file"
+        self._FILE_TO_STREAM = path / "arrow_file_to_stream"
+        self._VALIDATE_EXE = path / "arrow_validate"
+        self._JSON_TO_FILE_EXE = path / "arrow_json_to_file"
         self._INTEGRATION_DLL = self._EXE_PATH / (
             "c_data_integration" + cdata.dll_suffix
         )
