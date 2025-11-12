@@ -18,12 +18,14 @@
 #pragma once
 
 #include <string>
-
 #include "arrow/python/common.h"
 #include "arrow/python/visibility.h"
+#include "arrow/result.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/secure_string.h"
 #include "parquet/encryption/crypto_factory.h"
+#include "parquet/encryption/file_system_key_material_store.h"
+#include "parquet/encryption/key_material.h"
 #include "parquet/encryption/kms_client.h"
 #include "parquet/encryption/kms_client_factory.h"
 
@@ -116,7 +118,9 @@ class ARROW_PYTHON_PARQUET_ENCRYPTION_EXPORT PyCryptoFactory
   arrow::Result<std::shared_ptr<::parquet::FileEncryptionProperties>>
   SafeGetFileEncryptionProperties(
       const ::parquet::encryption::KmsConnectionConfig& kms_connection_config,
-      const ::parquet::encryption::EncryptionConfiguration& encryption_config);
+      const ::parquet::encryption::EncryptionConfiguration& encryption_config,
+      const std::string& parquet_file_path,
+      const std::shared_ptr<::arrow::fs::FileSystem>& filesystem);
 
   /// The returned FileDecryptionProperties object will use the cache inside this
   /// CryptoFactory object, so please keep this
@@ -125,7 +129,15 @@ class ARROW_PYTHON_PARQUET_ENCRYPTION_EXPORT PyCryptoFactory
   arrow::Result<std::shared_ptr<::parquet::FileDecryptionProperties>>
   SafeGetFileDecryptionProperties(
       const ::parquet::encryption::KmsConnectionConfig& kms_connection_config,
-      const ::parquet::encryption::DecryptionConfiguration& decryption_config);
+      const ::parquet::encryption::DecryptionConfiguration& decryption_config,
+      const std::string& parquet_file_path,
+      const std::shared_ptr<::arrow::fs::FileSystem>& filesystem);
+
+  arrow::Status SafeRotateMasterKeys(
+      const ::parquet::encryption::KmsConnectionConfig& kms_connection_config,
+      const std::string& parquet_file_path,
+      const std::shared_ptr<::arrow::fs::FileSystem>& filesystem, bool double_wrapping,
+      double cache_lifetime_seconds);
 };
 
 }  // namespace encryption
