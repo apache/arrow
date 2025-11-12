@@ -135,19 +135,19 @@ class ExternalLibraryTester(Tester):
         run_cmd([self._INTEGRATION_EXE], env=env)
 
     def validate(self, json_path: str, arrow_path: str, quirks=None):
-        cmd = [self._VALIDATE_EXE, json_path, arrow_path]
+        cmd = [str(self._VALIDATE_EXE), json_path, arrow_path]
         self.run_shell_command(cmd)
 
     def json_to_file(self, json_path: str, arrow_path: str):
-        cmd = [self._JSON_TO_FILE_EXE, json_path ,arrow_path]
+        cmd = [str(self._JSON_TO_FILE_EXE), json_path ,arrow_path]
         self.run_shell_command(cmd)
 
     def stream_to_file(self, stream_path, file_path):
-        cmd = [self._STREAM_TO_FILE, stream_path, file_path]
+        cmd = [str(self._STREAM_TO_FILE), stream_path, file_path]
         self.run_shell_command(cmd)
 
     def file_to_stream(self, file_path, stream_path):
-        cmd = [self._FILE_TO_STREAM, file_path, stream_path]
+        cmd = [str(self._FILE_TO_STREAM), file_path, stream_path]
         self.run_shell_command(cmd)
 
     def make_c_data_exporter(self):
