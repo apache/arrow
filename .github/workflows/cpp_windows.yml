@@ -155,7 +155,9 @@ jobs:
       - name: Test
         shell: cmd
         run: |
+          set VCPKG_ROOT_KEEP=%VCPKG_ROOT%
           call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" ${{ inputs.arch }}
           # For ORC
           set TZDIR=${{ steps.setup-msys2.outputs.msys2-location }}\usr\share\zoneinfo
+          set VCPKG_ROOT=%VCPKG_ROOT_KEEP%
           bash -c "ci/scripts/cpp_test.sh $(pwd) $(pwd)/build"
