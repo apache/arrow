@@ -192,6 +192,12 @@ def array(object obj, type=None, mask=None, size=None, from_pandas=None,
     pa.int16() even if pa.int8() was passed to the function. Note that an
     explicit index type will not be demoted even if it is wider than required.
 
+    This class supports Python's standard operators
+    for element-wise operations, i.e. arithmetic (`+`, `-`, `/`, `%`, `**`),
+    bitwise (`&`, `|`, `^`, `>>`, `<<`) and others.
+    They can be used directly instead of calling underlying
+    `pyarrow.compute` functions explicitly.
+
     Examples
     --------
     >>> import pandas as pd
@@ -229,6 +235,26 @@ def array(object obj, type=None, mask=None, size=None, from_pandas=None,
     >>> arr = pa.array(range(1024), type=pa.dictionary(pa.int8(), pa.int64()))
     >>> arr.type.index_type
     DataType(int16)
+
+    >>> arr1 = pa.array([1, 2, 3], type=pa.int8())
+    >>> arr2 = pa.array([4, 5, 6], type=pa.int8())
+    >>> arr1 + arr2
+    <pyarrow.lib.Int8Array object at 0x7690c0d47820>
+    [
+      5,
+      7,
+      9
+    ]
+
+    >>> arr = pa.array([1, 2, 3], type=pa.int8())
+    >>> val = pa.scalar(42)
+    >>> val - arr
+    <pyarrow.lib.Int64Array object at 0x7690c0d47b80>
+    [
+      41,
+      40,
+      39
+    ]
     """
     cdef:
         CMemoryPool* pool = maybe_unbox_memory_pool(memory_pool)

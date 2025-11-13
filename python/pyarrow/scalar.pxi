@@ -24,6 +24,33 @@ from collections.abc import Sequence, Mapping
 cdef class Scalar(_Weakrefable):
     """
     The base class for scalars.
+
+    Notes
+    -----
+    This class supports Python's standard operators
+    for element-wise operations, i.e. arithmetic (`+`, `-`, `/`, `%`, `**`),
+    bitwise (`&`, `|`, `^`, `>>`, `<<`) and others.
+    They can be used directly instead of calling underlying
+    `pyarrow.compute` functions explicitly.
+
+    Examples
+    --------
+    >>> import pyarrow as pa
+    >>> pa.scalar(42) + pa.scalar(17)
+    <pyarrow.Int64Scalar: 59>
+
+    >>> pa.scalar(6) ** 3
+    <pyarrow.Int64Scalar: 216>
+
+    >>> arr = pa.array([1, 2, 3], type=pa.int8())
+    >>> val = pa.scalar(42)
+    >>> val - arr
+    <pyarrow.lib.Int64Array object at 0x7690c0d47b80>
+    [
+      41,
+      40,
+      39
+    ]
     """
 
     def __init__(self):
