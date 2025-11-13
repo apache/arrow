@@ -670,8 +670,8 @@ auto RleBitPackedParser::PeekImpl(Handler&& handler) const
   const uint32_t count = run_len_type >> 1;
   if (is_bit_packed) {
     // Bit-packed run
-    constexpr auto kMaxCount = bit_util::CeilDiv(internal::max_size_for_v<rle_size_t>, 8);
-    if (ARROW_PREDICT_FALSE(count == 0 || count >= kMaxCount)) {
+    constexpr auto kMaxCount = internal::max_size_for_v<rle_size_t> / 8;
+    if (ARROW_PREDICT_FALSE(count == 0 || count > kMaxCount)) {
       // Illegal number of encoded values
       return {0, ControlFlow::Break};
     }
