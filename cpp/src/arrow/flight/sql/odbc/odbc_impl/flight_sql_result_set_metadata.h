@@ -77,7 +77,7 @@ class FlightSqlResultSetMetadata : public ResultSetMetadata {
 
   size_t GetOctetLength(int column_position) override;
 
-  std::string GetTypeName(int column_position, int data_type) override;
+  std::string GetTypeName(int column_position, int16_t data_type) override;
 
   Updatability GetUpdatable(int column_position) override;
 

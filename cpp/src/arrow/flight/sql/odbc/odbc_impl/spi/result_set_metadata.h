@@ -144,7 +144,7 @@ class ResultSetMetadata {
   /// \param column_position [in] the position of the column, starting from 1.
   /// \param data_type [in] the data type of the column.
   /// \return the data type string.
-  virtual std::string GetTypeName(int column_position, int data_type) = 0;
+  virtual std::string GetTypeName(int column_position, int16_t data_type) = 0;
 
   /// \brief It returns a numeric values indicate the updatability of the
   /// column.

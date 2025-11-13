@@ -20,6 +20,7 @@
 #include "arrow/flight/sql/column_metadata.h"
 #include "arrow/flight/sql/odbc/odbc_impl/platform.h"
 #include "arrow/flight/sql/odbc/odbc_impl/util.h"
+#include "arrow/type_traits.h"
 #include "arrow/util/key_value_metadata.h"
 
 #include <utility>
@@ -204,7 +205,8 @@ size_t FlightSqlResultSetMetadata::GetOctetLength(int column_position) {
       .value_or(DefaultLengthForVariableLengthColumns);
 }
 
-std::string FlightSqlResultSetMetadata::GetTypeName(int column_position, int data_type) {
+std::string FlightSqlResultSetMetadata::GetTypeName(int column_position,
+                                                    int16_t data_type) {
   ColumnMetadata metadata = GetMetadata(schema_->field(column_position - 1));
 
   return metadata.GetTypeName().ValueOrElse([data_type] {
@@ -240,26 +242,7 @@ Searchability FlightSqlResultSetMetadata::IsSearchable(int column_position) {
 bool FlightSqlResultSetMetadata::IsUnsigned(int column_position) {
   const std::shared_ptr<Field>& field = schema_->field(column_position - 1);
 
-  switch (field->type()->id()) {
-    case Type::INT8:
-    case Type::INT16:
-    case Type::INT32:
-    case Type::INT64:
-    case Type::DOUBLE:
-    case Type::FLOAT:
-    case Type::HALF_FLOAT:
-    case Type::DECIMAL32:
-    case Type::DECIMAL64:
-    case Type::DECIMAL128:
-    case Type::DECIMAL256:
-      return false;
-    case Type::UINT8:
-    case Type::UINT16:
-    case Type::UINT32:
-    case Type::UINT64:
-    default:
-      return true;
-  }
+  return arrow::is_unsigned_integer(field->type()->id());
 }
 
 bool FlightSqlResultSetMetadata::IsFixedPrecScale(int column_position) {
