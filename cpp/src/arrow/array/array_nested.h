@@ -692,7 +692,7 @@ class ARROW_EXPORT StructArray : public Array {
   // Return a shared pointer in case the requestor desires to share ownership
   // with this array.  The returned array has its offset, length and null
   // count adjusted.
-  const std::shared_ptr<Array>& field(int pos) const;
+  std::shared_ptr<Array> field(int pos) const;
 
   const ArrayVector& fields() const;
 
