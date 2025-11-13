@@ -491,7 +491,7 @@ test_that("data.frame class attribute is not saved", {
   expect_identical(df_arrow$r_metadata, list(attributes = list(foo = "bar"), columns = list(x = NULL)))
 })
 
-test_that("apply_arrow_r_metadata doesn't add in metadata from plain data.frame objects", {
+test_that("apply_arrow_r_metadata doesn't add in metadata from plain data.frame objects - GH48057", {
   # with just a plain df the (empty) column metadata is not preserved
   plain_df <- data.frame(x = 1:5)
   plain_df_arrow <- arrow_table(plain_df)
@@ -501,7 +501,7 @@ test_that("apply_arrow_r_metadata doesn't add in metadata from plain data.frame 
   plain_df_no_metadata <- plain_df_arrow$to_data_frame()
   plain_df_with_metadata <- apply_arrow_r_metadata(plain_df_no_metadata, plain_df_arrow$metadata$r)
 
-  expect_identical(df_no_metadata, df_with_metadata)
+  expect_identical(plain_df_no_metadata, plain_df_with_metadata)
 
   # with more complex column metadata - it preserves it
   spicy_df_arrow <- arrow_table(haven_data)
