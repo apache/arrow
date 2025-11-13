@@ -19,9 +19,6 @@ name: "Close stale PRs"
 on:
   schedule:
     - cron: "0 11 * * *" # Run daily at 11:00 AM UTC
-  pull_request:
-    paths:
-      - '.github/workflows/stale.yml'
   workflow_dispatch:
 
 jobs:
