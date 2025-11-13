@@ -490,3 +490,30 @@ test_that("data.frame class attribute is not saved", {
   df_arrow <- arrow_table(df)
   expect_identical(df_arrow$r_metadata, list(attributes = list(foo = "bar"), columns = list(x = NULL)))
 })
+
+test_that("apply_arrow_r_metadata doesn't add in metadata from plain data.frame objects - GH48057", {
+  # with just a plain df the (empty) column metadata is not preserved
+  plain_df <- data.frame(x = 1:5)
+  plain_df_arrow <- arrow_table(plain_df)
+
+  expect_equal(plain_df_arrow$metadata$r$columns, list(x = NULL))
+
+  plain_df_no_metadata <- plain_df_arrow$to_data_frame()
+  plain_df_with_metadata <- apply_arrow_r_metadata(plain_df_no_metadata, plain_df_arrow$metadata$r)
+
+  expect_identical(plain_df_no_metadata, plain_df_with_metadata)
+
+  # with more complex column metadata - it preserves it
+  spicy_df_arrow <- arrow_table(haven_data)
+
+  expect_equal(
+    spicy_df_arrow$metadata$r$columns,
+    list(num = list(attributes = list(format.spss = "F8.2"), columns = NULL), cat_int = NULL, cat_chr = NULL)
+  )
+
+  spicy_df_no_metadata <- spicy_df_arrow$to_data_frame()
+  spicy_df_with_metadata <- apply_arrow_r_metadata(spicy_df_no_metadata, spicy_df_arrow$metadata$r)
+
+  expect_null(attr(spicy_df_no_metadata$num, "format.spss"))
+  expect_equal(attr(spicy_df_with_metadata$num, "format.spss"), "F8.2")
+})
