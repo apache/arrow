@@ -29,11 +29,21 @@ These functions create new Arrow arrays:
 .. autosummary::
    :toctree: ../generated/
 
+   arange
    array
+   asarray
    nulls
+   repeat
 
 Array Types
 -----------
+
+This function infers Arrow data type:
+
+.. autosummary::
+   :toctree: ../generated/
+
+   infer_type
 
 An array's Python class depends on its data type.  Concrete array classes
 may expose data type-specific methods or properties.
@@ -140,6 +150,8 @@ classes may expose data type-specific methods or properties.
    TimestampScalar
    DurationScalar
    MonthDayNanoIntervalScalar
+   Decimal32Scalar
+   Decimal64Scalar
    Decimal128Scalar
    Decimal256Scalar
    DictionaryScalar
