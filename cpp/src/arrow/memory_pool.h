@@ -247,6 +247,10 @@ class ARROW_EXPORT ProxyMemoryPool : public MemoryPool {
 };
 
 /// EXPERIMENTAL MemoryPool wrapper with an upper limit
+///
+/// Checking for limits is not done in a fully thread-safe way, therefore
+/// multi-threaded allocations might be able to go successfully above the
+/// configured limit.
 class ARROW_EXPORT CappedMemoryPool : public MemoryPool {
  public:
   CappedMemoryPool(MemoryPool* wrapped_pool, int64_t bytes_allocated_limit)
@@ -256,6 +260,11 @@ class ARROW_EXPORT CappedMemoryPool : public MemoryPool {
   using MemoryPool::Reallocate;
 
   Status Allocate(int64_t size, int64_t alignment, uint8_t** out) override {
+    // XXX Another thread may allocate memory between the limit check and
+    // the `Allocate` call. It is possible for the two allocations to be successful
+    // while going above the limit.
+    // Solving this issue would require refactoring the `MemoryPool` implementation
+    // to delegate the limit check to `MemoryPoolStats`.
     const auto attempted = size + wrapped_->bytes_allocated();
     if (ARROW_PREDICT_FALSE(attempted > bytes_allocated_limit_)) {
       return OutOfMemory(attempted);
