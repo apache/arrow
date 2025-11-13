@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-cuda_dep = dependency('cuda', modules: ['cuda'])
+cuda_dep = dependency('cuda', modules: ['cuda'], version: '>=11.7.1')
 
 arrow_cuda_srcs = [
     'cuda_arrow_ipc.cc',
