@@ -91,8 +91,6 @@
 #  undef SQL_MAX_TABLES_IN_SELECT
 #endif  // SQL_MAX_TABLES_IN_SELECT
 
-// ---- Conversion Info ----
-
 #ifdef SQL_CONVERT_BIGINT
 #  undef SQL_CONVERT_BIGINT
 #endif  // SQL_CONVERT_BIGINT
