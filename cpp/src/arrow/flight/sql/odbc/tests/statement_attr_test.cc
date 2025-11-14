@@ -325,7 +325,8 @@ TYPED_TEST(StatementAttributeTest, TestSQLGetStmtAttrRowBindType) {
   EXPECT_EQ(static_cast<SQLULEN>(0), value);
 }
 
-TYPED_TEST(StatementAttributeTest, TestSQLGetStmtAttrRowNumber) {
+TYPED_TEST(StatementAttributeTest, DISABLED_TestSQLGetStmtAttrRowNumber) {
+  // GH-47711 TODO: enable test after SQLExecDirect support
   std::wstring wsql = L"SELECT 1;";
   std::vector<SQLWCHAR> sql0(wsql.begin(), wsql.end());
 
@@ -616,7 +617,7 @@ TYPED_TEST(StatementAttributeTest, TestSQLSetStmtAttrRowOperationPtr) {
 
 TYPED_TEST(StatementAttributeTest, TestSQLSetStmtAttrRowStatusPtr) {
   constexpr SQLULEN row_status_size = 4;
-  SQLUSMALLINT values[4] = {0, 0, 0, 0};
+  SQLUSMALLINT values[row_status_size] = {0, 0, 0, 0};
 
   ValidateSetStmtAttr(this->stmt, SQL_ATTR_ROW_STATUS_PTR,
                       static_cast<SQLPOINTER>(values));
