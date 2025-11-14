@@ -519,3 +519,25 @@ def test_writer_props_max_rows_per_page(tempdir, max_rows_per_page):
     result.validate(full=True)
 
     assert result.equals(table)
+
+
+def test_writer_props_max_rows_per_page_file_size(tempdir):
+    # GH-48096
+    table = _test_table(100_000)
+    local = fs.LocalFileSystem()
+    file_infos = []
+
+    for max_rows in (1_000, 10_000):
+        path = f"{tempdir}/max_rows_per_page_{max_rows}.parquet"
+
+        with pq.ParquetWriter(
+            where=path,
+            schema=table.schema,
+            max_rows_per_page=max_rows,
+        ) as writer:
+            writer.write_table(table)
+
+        file_infos.append(local.get_file_info(path))
+
+    # A smaller maximum rows parameter should produce a larger file
+    assert file_infos[0].size > file_infos[1].size
