@@ -325,7 +325,8 @@ TYPED_TEST(StatementAttributeTest, TestSQLGetStmtAttrRowBindType) {
   EXPECT_EQ(static_cast<SQLULEN>(0), value);
 }
 
-TYPED_TEST(StatementAttributeTest, TestSQLGetStmtAttrRowNumber) {
+TYPED_TEST(StatementAttributeTest, DISABLED_TestSQLGetStmtAttrRowNumber) {
+  // GH-47711 TODO: enable test after SQLExecDirect support
   std::wstring wsql = L"SELECT 1;";
   std::vector<SQLWCHAR> sql0(wsql.begin(), wsql.end());
 
