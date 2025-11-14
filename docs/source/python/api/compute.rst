@@ -179,7 +179,7 @@ variants which detect domain errors where appropriate.
    tan_checked
 
 Hyperbolic Trigonometric Functions
------------------------
+----------------------------------
 
 Hyperbolic trigonometric functions are also supported, and, where applicable, also offer ``_checked``
 variants which detect domain errors if needed.
@@ -503,7 +503,7 @@ Timezone Handling
    local_timestamp
 
 Random Number Generation
------------------
+------------------------
 
 .. autosummary::
    :toctree: ../generated/
@@ -649,13 +649,12 @@ User-Defined Functions
    UdfContext
 
 Statistical Functions
-----------------------
+---------------------
 
 .. autosummary::
    :toctree: ../generated/
 
    winsorize
-
 
 Expression Functions
 --------------------
