@@ -125,7 +125,6 @@ if get_option('hdfs').enabled()
 endif
 
 if get_option('cuda').enabled()
-    error('arrow-cuda dep not yet implemented')
     cuda_dep = dependency('arrow-cuda')
     cython_modules += {'_cuda': {'dependencies': cuda_dep}}
 endif
@@ -141,7 +140,6 @@ if needs_dataset
 endif
 
 if get_option('parquet').enabled()
-    error('parquet dep not yet implemented')
     parquet_dep = dependency('parquet')
     cython_modules += {'_parquet': {'dependencies': parquet_dep}}
 
@@ -235,7 +233,6 @@ if needs_substrait
 endif
 
 if get_option('gandiva').enabled()
-    error('gandiva dep not yet implemented')
     gandiva_dep = dependency('gandiva')
     cython_modules += {'gandiva': {'dependencies': gandiva_dep}}
 endif

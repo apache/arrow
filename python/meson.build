@@ -20,7 +20,7 @@ project(
     'cython',
     'cpp',
     version: run_command(
-        'python',
+        'python3',
         '-m',
         'setuptools_scm',
         '--force-write-version-files',

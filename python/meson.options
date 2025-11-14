@@ -19,7 +19,7 @@ option(
     'acero',
     type: 'feature',
     description: 'build the Acero Engine extension',
-    value: 'enabled',
+    value: 'auto',
 )
 
 option(
@@ -61,14 +61,14 @@ option(
     'gcs',
     type: 'feature',
     description: 'build the Google Cloud Storage (GCS) extension',
-    value: 'enabled',
+    value: 'auto',
 )
 
 option(
     'hdfs',
     type: 'feature',
     description: 'build the HDFS extension',
-    value: 'enabled',
+    value: 'auto',
 )
 
 # TODO: check how CMake handled the JSON feature - was not there when
@@ -78,7 +78,7 @@ option(
     'json',
     type: 'feature',
     description: 'Build Arrow with JSON support',
-    value: 'enabled',
+    value: 'auto',
 )
 
 option(
