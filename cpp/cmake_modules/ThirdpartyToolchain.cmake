@@ -3012,8 +3012,8 @@ macro(build_absl)
 
   # Configure Abseil options before FetchContent
   set(ABSL_PROPAGATE_CXX_STD ON)
-  # We have to enable abseil install to generate abslConfig.cmake
-  # so GRPC can find Abseil thorught ExternalProject_Add
+  # We have to enable Abseil install to generate abslConfig.cmake
+  # so gRPC can find Abseil thorught ExternalProject_Add
   set(ABSL_ENABLE_INSTALL ON)
 
   if(CMAKE_COMPILER_IS_GNUCC AND CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL 13.0)
@@ -3037,7 +3037,7 @@ macro(build_absl)
   # This custom target is required due to a timing issue between FetchContent
   # and the install command below, which is necessary for GRPC to find Abseil
   # due to mixing FetchContent and ExternalProject_Add.
-  # Create a target that depends on ALL Abseil libraries that will be installed
+  # Create a target that depends on ALL Abseil libraries that will be installed.
   # This ensures they're all built before we try to install.
   add_custom_target(absl_built
                     DEPENDS absl::bad_any_cast_impl
@@ -3107,7 +3107,7 @@ macro(build_absl)
                             absl::time
                             absl::time_zone)
 
-  # GRPC requires Abseil to be installed to a known location.
+  # gRPC requires Abseil to be installed to a known location.
   # We have to do this in two steps to avoid double installation of Abseil
   # when Arrow is installed.
   # Disable Abseil's install script this target runs after Abseil is built
@@ -3127,9 +3127,9 @@ macro(build_absl)
   add_custom_target(absl_install_disabled ALL
                     DEPENDS "${absl_BINARY_DIR}/cmake_install.cmake.saved")
 
-  # Install Abseil to ABSL_PREFIX for gRPC to find
+  # Install Abseil to ABSL_PREFIX for gRPC to find.
   # Using the saved original cmake_install.cmake.saved install script
-  # for other dependencies to find Abseil
+  # for other dependencies to find Abseil.
   add_custom_command(OUTPUT "${ABSL_PREFIX}/.absl_installed"
                      COMMAND ${CMAKE_COMMAND} -E copy_if_different
                              "${absl_BINARY_DIR}/cmake_install.cmake.saved"
