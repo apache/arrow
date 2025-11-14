@@ -93,6 +93,8 @@ throws an ``ArrowInvalid`` exception when overflow is detected.
    add_checked
    divide
    divide_checked
+   exp
+   expm1
    multiply
    multiply_checked
    negate
@@ -551,6 +553,14 @@ Sorts and Partitions
    sort_indices
    top_k_unstable
 
+Statistical Functions
+---------------------
+
+.. autosummary::
+   :toctree: ../generated/
+
+   winsorize
+
 Structural Transforms
 ---------------------
 
@@ -595,6 +605,7 @@ Compute Options
    DictionaryEncodeOptions
    ElementWiseAggregateOptions
    ExtractRegexOptions
+   ExtractRegexSpanOptions
    FilterOptions
    IndexOptions
    JoinOptions
@@ -606,12 +617,12 @@ Compute Options
    ModeOptions
    NullOptions
    PadOptions
-   ZeroFillOptions
    PairwiseOptions
    PartitionNthOptions
    PivotWiderOptions
    QuantileOptions
    RandomOptions
+   RankOptions
    RankQuantileOptions
    ReplaceSliceOptions
    ReplaceSubstringOptions
@@ -638,6 +649,18 @@ Compute Options
    VarianceOptions
    WeekOptions
    WinsorizeOptions
+   ZeroFillOptions
+
+Functions Registry
+------------------
+
+.. autosummary::
+   :toctree: ../generated/
+
+   call_function
+   call_tabular_function
+   get_function
+   list_functions
 
 User-Defined Functions
 ----------------------
@@ -645,16 +668,11 @@ User-Defined Functions
 .. autosummary::
    :toctree: ../generated/
 
+   register_aggregate_function
    register_scalar_function
+   register_tabular_function
+   register_vector_function
    UdfContext
-
-Statistical Functions
----------------------
-
-.. autosummary::
-   :toctree: ../generated/
-
-   winsorize
 
 Expression Functions
 --------------------
