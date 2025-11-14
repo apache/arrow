@@ -797,7 +797,7 @@ data_page_size : int, default None
     size of 1MByte.
 max_rows_per_page : int, default None
     Maximum number of rows per page within a column chunk.
-    If no value is passed, then the default value of 20000 is set.
+    If None, use the default of 20000.
     Smaller values reduce memory usage during reads but increase metadata overhead.
 flavor : {'spark'}, default None
     Sanitize schema or set other compatibility options to work with
