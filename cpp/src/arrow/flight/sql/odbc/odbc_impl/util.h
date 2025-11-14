@@ -144,7 +144,7 @@ boost::optional<bool> AsBool(const std::string& value);
 /// \param property_name      the name of the property that will be looked up.
 /// \return                   the parsed valued.
 boost::optional<bool> AsBool(const Connection::ConnPropertyMap& conn_property_map,
-                             const std::string_view& property_name);
+                             std::string_view property_name);
 
 /// Looks up for a value inside the ConnPropertyMap and then try to parse it.
 /// In case it does not find or it cannot parse, the default value will be returned.
@@ -156,7 +156,7 @@ boost::optional<bool> AsBool(const Connection::ConnPropertyMap& conn_property_ma
 /// std::out_of_range        exception from std::stoi
 boost::optional<int32_t> AsInt32(int32_t min_value,
                                  const Connection::ConnPropertyMap& conn_property_map,
-                                 const std::string_view& property_name);
+                                 std::string_view property_name);
 
 }  // namespace util
 }  // namespace arrow::flight::sql::odbc

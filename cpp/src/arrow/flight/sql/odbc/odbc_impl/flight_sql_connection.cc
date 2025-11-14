@@ -99,7 +99,14 @@ inline std::string GetCerts() { return ""; }
 
 #endif
 
-const std::set<std::string_view, CaseInsensitiveComparator> BUILT_IN_PROPERTIES = {
+// Case insensitive comparator that takes string_view
+struct CaseInsensitiveComparatorStrView {
+  bool operator()(std::string_view s1, std::string_view s2) const {
+    return boost::lexicographical_compare(s1, s2, boost::is_iless());
+  }
+};
+
+const std::set<std::string_view, CaseInsensitiveComparatorStrView> BUILT_IN_PROPERTIES = {
     FlightSqlConnection::HOST,
     FlightSqlConnection::PORT,
     FlightSqlConnection::USER,
@@ -116,7 +123,7 @@ const std::set<std::string_view, CaseInsensitiveComparator> BUILT_IN_PROPERTIES 
     FlightSqlConnection::USE_WIDE_CHAR};
 
 Connection::ConnPropertyMap::const_iterator TrackMissingRequiredProperty(
-    const std::string_view& property, const Connection::ConnPropertyMap& properties,
+    std::string_view property, const Connection::ConnPropertyMap& properties,
     std::vector<std::string_view>& missing_attr) {
   auto prop_iter = properties.find(property);
   if (properties.end() == prop_iter) {
@@ -138,7 +145,7 @@ std::shared_ptr<FlightSqlSslConfig> LoadFlightSslConfigs(
           .value_or(SYSTEM_TRUST_STORE_DEFAULT);
 
   auto trusted_certs_iterator =
-      conn_property_map.find(FlightSqlConnection::TRUSTED_CERTS);
+      conn_property_map.find(std::string(FlightSqlConnection::TRUSTED_CERTS));
   auto trusted_certs = trusted_certs_iterator != conn_property_map.end()
                            ? trusted_certs_iterator->second
                            : "";
@@ -161,6 +168,8 @@ void FlightSqlConnection::Connect(const ConnPropertyMap& properties,
 
     std::unique_ptr<FlightClient> flight_client;
     ThrowIfNotOK(FlightClient::Connect(location, client_options).Value(&flight_client));
+    PopulateMetadataSettings(properties);
+    PopulateCallOptions(properties);
 
     std::unique_ptr<FlightSqlAuthMethod> auth_method =
         FlightSqlAuthMethod::FromProperties(flight_client, properties);
@@ -175,9 +184,6 @@ void FlightSqlConnection::Connect(const ConnPropertyMap& properties,
 
     info_.SetProperty(SQL_USER_NAME, auth_method->GetUser());
     attribute_[CONNECTION_DEAD] = static_cast<uint32_t>(SQL_FALSE);
-
-    PopulateMetadataSettings(properties);
-    PopulateCallOptions(properties);
   } catch (...) {
     attribute_[CONNECTION_DEAD] = static_cast<uint32_t>(SQL_TRUE);
     sql_client_.reset();

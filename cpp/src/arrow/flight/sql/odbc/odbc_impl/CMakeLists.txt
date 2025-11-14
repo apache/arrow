@@ -124,7 +124,9 @@ if(WIN32)
                          ui/dsn_configuration_window.h
                          ui/window.cc
                          ui/window.h
-                         system_dsn.cc)
+                         win_system_dsn.cc
+                         system_dsn.cc
+                         system_dsn.h)
 endif()
 
 target_link_libraries(arrow_odbc_spi_impl PUBLIC arrow_flight_sql_shared
