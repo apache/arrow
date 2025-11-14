@@ -523,7 +523,10 @@ def test_writer_props_max_rows_per_page(tempdir, max_rows_per_page):
 
 def test_writer_props_max_rows_per_page_file_size(tempdir):
     # GH-48096
-    table = _test_table(100_000)
+    table = pa.table({
+        "x": pa.array(range(1_000_000))
+    })
+
     local = fs.LocalFileSystem()
     file_infos = []
 
