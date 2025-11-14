@@ -144,8 +144,9 @@ if [ "${ARROW_USE_MESON:-OFF}" = "OFF" ] && \
       CMAKE_PREFIX_PATH+="/lib/cmake/"
       ;;
   esac
+  # Search vcpkg before <prefix>/lib/cmake.
   if [ -n "${VCPKG_ROOT}" ] && [ -n "${VCPKG_DEFAULT_TRIPLET}" ]; then
-    CMAKE_PREFIX_PATH+=";${VCPKG_ROOT}/installed/${VCPKG_DEFAULT_TRIPLET}"
+    CMAKE_PREFIX_PATH="${VCPKG_ROOT}/installed/${VCPKG_DEFAULT_TRIPLET};${CMAKE_PREFIX_PATH}"
   fi
   cmake \
     -S "${source_dir}/examples/minimal_build" \
