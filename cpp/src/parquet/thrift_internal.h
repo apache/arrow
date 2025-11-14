@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include "parquet/page_index.h"
 #include "parquet/windows_compatibility.h"
 
 #include <cstdint>
@@ -552,6 +553,30 @@ static inline format::SizeStatistics ToThrift(const SizeStatistics& size_stats) 
         size_stats.unencoded_byte_array_data_bytes.value());
   }
   return size_statistics;
+}
+
+static inline format::PageLocation ToThrift(const PageLocation& page_location) {
+  format::PageLocation thrift_page_location;
+  thrift_page_location.__set_offset(page_location.offset);
+  thrift_page_location.__set_compressed_page_size(page_location.compressed_page_size);
+  thrift_page_location.__set_first_row_index(page_location.first_row_index);
+  return thrift_page_location;
+}
+
+static inline format::OffsetIndex ToThrift(const OffsetIndex& offset_index) {
+  format::OffsetIndex thrift_offset_index;
+  std::vector<format::PageLocation> thrift_page_locations;
+  thrift_page_locations.reserve(offset_index.page_locations().size());
+  for (const auto& page_location : offset_index.page_locations()) {
+    thrift_page_locations.push_back(ToThrift(page_location));
+  }
+  thrift_offset_index.page_locations = std::move(thrift_page_locations);
+  if (!offset_index.unencoded_byte_array_data_bytes().empty()) {
+    thrift_offset_index.__set_unencoded_byte_array_data_bytes(
+        offset_index.unencoded_byte_array_data_bytes());
+    thrift_offset_index.__isset.unencoded_byte_array_data_bytes = true;
+  }
+  return thrift_offset_index;
 }
 
 // ----------------------------------------------------------------------
