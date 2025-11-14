@@ -1887,10 +1887,23 @@ def read_table(source, *, columns=None, use_threads=True,
                 "the 'schema' argument is not supported when the "
                 "pyarrow.dataset module is not available"
             )
+        if isinstance(source, list):
+            raise ValueError(
+                "the 'source' argument cannot be a list of files "
+                "when the pyarrow.dataset module is not available"
+            )
+
         filesystem, path = _resolve_filesystem_and_path(source, filesystem)
         if filesystem is not None:
+            if not filesystem.get_file_info(path).is_file:
+                raise ValueError(
+                    "the 'source' argument should be "
+                    "an existing parquet file and not a directory "
+                    "when the pyarrow.dataset module is not available"
+                )
+
             source = filesystem.open_input_file(path)
-        # TODO test that source is not a directory or a list
+
         dataset = ParquetFile(
             source, read_dictionary=read_dictionary,
             binary_type=binary_type,
