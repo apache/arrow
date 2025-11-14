@@ -45,7 +45,7 @@ cdef class Scalar(_Weakrefable):
     >>> arr = pa.array([1, 2, 3], type=pa.int8())
     >>> val = pa.scalar(42)
     >>> val - arr
-    <pyarrow.lib.Int64Array object at 0x7690c0d47b80>
+    <pyarrow.lib.Int64Array object at ...>
     [
       41,
       40,

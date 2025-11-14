@@ -239,7 +239,7 @@ def array(object obj, type=None, mask=None, size=None, from_pandas=None,
     >>> arr1 = pa.array([1, 2, 3], type=pa.int8())
     >>> arr2 = pa.array([4, 5, 6], type=pa.int8())
     >>> arr1 + arr2
-    <pyarrow.lib.Int8Array object at 0x7690c0d47820>
+    <pyarrow.lib.Int8Array object at ...>
     [
       5,
       7,
@@ -249,7 +249,7 @@ def array(object obj, type=None, mask=None, size=None, from_pandas=None,
     >>> arr = pa.array([1, 2, 3], type=pa.int8())
     >>> val = pa.scalar(42)
     >>> val - arr
-    <pyarrow.lib.Int64Array object at 0x7690c0d47b80>
+    <pyarrow.lib.Int64Array object at ...>
     [
       41,
       40,
