@@ -93,13 +93,18 @@ arrow_python_lib = library(
     install_dir: py.get_install_dir() / 'pyarrow',
 )
 
+arrow_compute_dep = dependency('arrow-compute')
+arrow_csv_dep = dependency('arrow-csv')
+arrow_fs_dep = dependency('arrow-filesystem')
+arrow_json_dep = dependency('arrow-json')
+
 cython_modules = {
     'lib': {},
-    '_compute': {},
-    '_csv': {},
+    '_compute': {'dependencies': [arrow_compute_dep]},
+    '_csv': {'dependencies': [arrow_csv_dep]},
     '_feather': {},
-    '_fs': {},
-    '_json': {},
+    '_fs': {'dependencies': [arrow_fs_dep]},
+    '_json': {'dependencies': [arrow_json_dep]},
     '_pyarrow_cpp_tests': {},
 }
 
