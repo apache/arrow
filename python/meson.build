@@ -36,7 +36,7 @@ py = import('python').find_installation(pure: false)
 
 #install_data('../NOTICE.txt', install_dir: py.get_install_dir() / 'pyarrow')
 
-arrow_dep = dependency('arrow')
+arrow_dep = dependency('arrow', 'Arrow::arrow_shared', 'Arrow::arrow_static')
 
 cc = meson.get_compiler('cpp')
 
