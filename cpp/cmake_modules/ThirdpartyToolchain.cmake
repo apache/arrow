@@ -1011,9 +1011,6 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.28)
 endif()
 
 macro(prepare_fetchcontent)
-  set(_SAVED_CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_ARCHIVE_OUTPUT_DIRECTORY}")
-  set(_SAVED_CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}")
-  set(_SAVED_CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}")
   set(BUILD_SHARED_LIBS OFF)
   set(BUILD_STATIC_LIBS ON)
   set(BUILD_TESTING OFF)
@@ -1044,14 +1041,6 @@ macro(prepare_fetchcontent)
     string(APPEND CMAKE_C_FLAGS_DEBUG " -Wno-error")
     string(APPEND CMAKE_CXX_FLAGS_DEBUG " -Wno-error")
   endif()
-endmacro()
-
-macro(cleanup_fetchcontent)
-  # Restore output directories
-  # TODO: Investigate why without this tests fail to get correctly installed
-  set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${_SAVED_CMAKE_ARCHIVE_OUTPUT_DIRECTORY}")
-  set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${_SAVED_CMAKE_LIBRARY_OUTPUT_DIRECTORY}")
-  set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${_SAVED_CMAKE_RUNTIME_OUTPUT_DIRECTORY}")
 endmacro()
 
 # ----------------------------------------------------------------------
@@ -3004,17 +2993,16 @@ endmacro()
 # ----------------------------------------------------------------------
 # Dependencies for Arrow Flight RPC
 
-macro(build_absl)
+function(build_absl)
+  list(APPEND CMAKE_MESSAGE_INDENT "ABSL: ")
   message(STATUS "Building Abseil from source using FetchContent")
-  set(ABSL_VENDORED TRUE)
-  set(ABSL_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/absl_ep-install")
-  set(ABSL_INCLUDE_DIR "${ABSL_PREFIX}/include")
-
-  # Configure Abseil options before FetchContent
-  set(ABSL_PROPAGATE_CXX_STD ON)
-  # We have to enable Abseil install to generate abslConfig.cmake
-  # so gRPC can find Abseil thorught ExternalProject_Add
-  set(ABSL_ENABLE_INSTALL ON)
+  set(ABSL_VENDORED
+      TRUE
+      PARENT_SCOPE)
+  set(ABSL_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/absl_fc-install")
+  set(ABSL_PREFIX
+      "${ABSL_PREFIX}"
+      PARENT_SCOPE)
 
   if(CMAKE_COMPILER_IS_GNUCC AND CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL 13.0)
     string(APPEND CMAKE_CXX_FLAGS " -include stdint.h")
@@ -3026,13 +3014,11 @@ macro(build_absl)
 
   prepare_fetchcontent()
 
-  set(CMAKE_INSTALL_PREFIX_SAVED "${CMAKE_INSTALL_PREFIX}")
-  set(CMAKE_INSTALL_PREFIX "${ABSL_PREFIX}")
+  # We have to enable Abseil install to generate abslConfig.cmake
+  # so gRPC can find Abseil through ExternalProject_Add. Our expectation
+  # is that this will not be necessary once gRPC supports FetchContent.
+  set(ABSL_ENABLE_INSTALL ON)
   fetchcontent_makeavailable(absl)
-
-  # Restore original install prefix
-  set(CMAKE_INSTALL_PREFIX "${CMAKE_INSTALL_PREFIX_SAVED}")
-  cleanup_fetchcontent()
 
   # This custom target is required due to a timing issue between FetchContent
   # and the install command below, which is necessary for GRPC to find Abseil
@@ -3143,8 +3129,8 @@ macro(build_absl)
                      COMMENT "Installing Abseil to ${ABSL_PREFIX} for gRPC"
                      VERBATIM)
 
-  # Make absl_ep depend on the install completion marker
-  add_custom_target(absl_ep DEPENDS "${ABSL_PREFIX}/.absl_installed")
+  # Make absl_fc depend on the install completion marker
+  add_custom_target(absl_fc DEPENDS "${ABSL_PREFIX}/.absl_installed")
 
   if(APPLE)
     # This is due to upstream absl::cctz issue
@@ -3154,7 +3140,8 @@ macro(build_absl)
                  APPEND
                  PROPERTY INTERFACE_LINK_LIBRARIES ${CoreFoundation})
   endif()
-endmacro()
+  list(POP_BACK CMAKE_MESSAGE_INDENT)
+endfunction()
 
 macro(build_grpc)
   resolve_dependency(c-ares
@@ -3199,7 +3186,7 @@ macro(build_grpc)
   add_custom_target(grpc_dependencies)
 
   if(ABSL_VENDORED)
-    add_dependencies(grpc_dependencies absl_ep)
+    add_dependencies(grpc_dependencies absl_fc)
   endif()
   if(CARES_VENDORED)
     add_dependencies(grpc_dependencies cares_ep)
@@ -3658,7 +3645,7 @@ macro(build_google_cloud_cpp_storage)
   add_custom_target(google_cloud_cpp_dependencies)
 
   if(ABSL_VENDORED)
-    add_dependencies(google_cloud_cpp_dependencies absl_ep)
+    add_dependencies(google_cloud_cpp_dependencies absl_fc)
   endif()
   if(ZLIB_VENDORED)
     add_dependencies(google_cloud_cpp_dependencies zlib_ep)
