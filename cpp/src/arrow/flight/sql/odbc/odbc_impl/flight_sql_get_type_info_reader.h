@@ -20,8 +20,6 @@
 
 namespace arrow::flight::sql::odbc {
 
-using std::optional;
-
 class GetTypeInfoReader {
  private:
   std::shared_ptr<RecordBatch> record_batch_;
@@ -36,13 +34,13 @@ class GetTypeInfoReader {
 
   int32_t GetDataType();
 
-  optional<int32_t> GetColumnSize();
+  std::optional<int32_t> GetColumnSize();
 
-  optional<std::string> GetLiteralPrefix();
+  std::optional<std::string> GetLiteralPrefix();
 
-  optional<std::string> GetLiteralSuffix();
+  std::optional<std::string> GetLiteralSuffix();
 
-  optional<std::vector<std::string>> GetCreateParams();
+  std::optional<std::vector<std::string>> GetCreateParams();
 
   int32_t GetNullable();
 
@@ -50,25 +48,25 @@ class GetTypeInfoReader {
 
   int32_t GetSearchable();
 
-  optional<bool> GetUnsignedAttribute();
+  std::optional<bool> GetUnsignedAttribute();
 
   bool GetFixedPrecScale();
 
-  optional<bool> GetAutoIncrement();
+  std::optional<bool> GetAutoIncrement();
 
-  optional<std::string> GetLocalTypeName();
+  std::optional<std::string> GetLocalTypeName();
 
-  optional<int32_t> GetMinimumScale();
+  std::optional<int32_t> GetMinimumScale();
 
-  optional<int32_t> GetMaximumScale();
+  std::optional<int32_t> GetMaximumScale();
 
   int32_t GetSqlDataType();
 
-  optional<int32_t> GetDatetimeSubcode();
+  std::optional<int32_t> GetDatetimeSubcode();
 
-  optional<int32_t> GetNumPrecRadix();
+  std::optional<int32_t> GetNumPrecRadix();
 
-  optional<int32_t> GetIntervalPrecision();
+  std::optional<int32_t> GetIntervalPrecision();
 };
 
 }  // namespace arrow::flight::sql::odbc

@@ -22,8 +22,6 @@
 
 namespace arrow::flight::sql::odbc {
 
-using config::Configuration;
-
 #if defined _WIN32
 /**
  * Display connection window for user to configure connection parameters.
@@ -32,7 +30,7 @@ using config::Configuration;
  * @param config Output configuration.
  * @return True on success and false on fail.
  */
-bool DisplayConnectionWindow(void* window_parent, Configuration& config);
+bool DisplayConnectionWindow(void* window_parent, config::Configuration& config);
 
 /**
  * For SQLDriverConnect.
@@ -44,7 +42,7 @@ bool DisplayConnectionWindow(void* window_parent, Configuration& config);
  * @param properties Output properties.
  * @return True on success and false on fail.
  */
-bool DisplayConnectionWindow(void* window_parent, Configuration& config,
+bool DisplayConnectionWindow(void* window_parent, config::Configuration& config,
                              Connection::ConnPropertyMap& properties);
 #endif
 
@@ -55,7 +53,7 @@ bool DisplayConnectionWindow(void* window_parent, Configuration& config,
  * @param driver Driver.
  * @return True on success and false on fail.
  */
-bool RegisterDsn(const Configuration& config, LPCWSTR driver);
+bool RegisterDsn(const config::Configuration& config, LPCWSTR driver);
 
 /**
  * Unregister specified DSN.
