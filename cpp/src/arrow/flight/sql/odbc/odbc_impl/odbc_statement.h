@@ -17,9 +17,11 @@
 
 #pragma once
 
+// platform.h platform.h includes windows.h so it needs to be included first
+#include "arrow/flight/sql/odbc/odbc_impl/platform.h"
+
 #include "arrow/flight/sql/odbc/odbc_impl/odbc_handle.h"
 
-#include <arrow/flight/sql/odbc/odbc_impl/platform.h>
 #include <sql.h>
 #include <memory>
 #include <string>
@@ -60,8 +62,10 @@ class ODBCStatement : public ODBCHandle<ODBCStatement> {
 
   /**
    * @brief Returns true if the number of rows fetch was greater than zero.
+   * row_count_ptr and row_status_array are optional arguments, they are only needed for
+   * SQLExtendedFetch
    */
-  bool Fetch(size_t rows);
+  bool Fetch(size_t rows, SQLULEN* row_count_ptr = 0, SQLUSMALLINT* row_status_array = 0);
   bool IsPrepared() const;
 
   void GetStmtAttr(SQLINTEGER statement_attribute, SQLPOINTER output,
@@ -69,6 +73,11 @@ class ODBCStatement : public ODBCHandle<ODBCStatement> {
   void SetStmtAttr(SQLINTEGER statement_attribute, SQLPOINTER value,
                    SQLINTEGER buffer_size, bool is_unicode);
 
+  /**
+   * @brief Revert back to implicitly allocated internal descriptors.
+   * isApd as True indicates APD descritor is to be reverted.
+   * isApd as False indicates ARD descritor is to be reverted.
+   */
   void RevertAppDescriptor(bool is_apd);
 
   inline ODBCDescriptor* GetIRD() { return ird_.get(); }
@@ -77,8 +86,20 @@ class ODBCStatement : public ODBCHandle<ODBCStatement> {
 
   inline SQLULEN GetRowsetSize() { return rowset_size_; }
 
-  bool GetData(SQLSMALLINT record_number, SQLSMALLINT c_type, SQLPOINTER data_ptr,
-               SQLLEN buffer_length, SQLLEN* indicator_ptr);
+  SQLRETURN GetData(SQLSMALLINT record_number, SQLSMALLINT c_type, SQLPOINTER data_ptr,
+                    SQLLEN buffer_length, SQLLEN* indicator_ptr);
+
+  SQLRETURN GetMoreResults();
+
+  /**
+   * @brief Get number of columns from data set
+   */
+  void GetColumnCount(SQLSMALLINT* column_count_ptr);
+
+  /**
+   * @brief Get number of rows affected by an UPDATE, INSERT, or DELETE statement
+   */
+  void GetRowCount(SQLLEN* row_count_ptr);
 
   /**
    * @brief Closes the cursor. This does _not_ un-prepare the statement or change

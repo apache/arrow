@@ -29,9 +29,7 @@
 
 // GH-48083 TODO: replace `namespace ODBC` with `namespace arrow::flight::sql::odbc`
 namespace ODBC {
-
 using arrow::flight::sql::odbc::Diagnostics;
-using arrow::flight::sql::odbc::DriverException;
 using arrow::flight::sql::odbc::WcsToUtf8;
 
 template <typename T, typename O>

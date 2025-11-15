@@ -19,7 +19,10 @@
 
 #include "arrow/flight/sql/odbc/odbc_impl/platform.h"
 #include "arrow/flight/types.h"
-#include "gtest/gtest.h"
+
+#include <gtest/gtest.h>
+
+#include <optional>
 
 namespace arrow::flight::sql::odbc {
 
@@ -28,20 +31,19 @@ TEST(AttributeTests, SetAndGetAttribute) {
   connection.SetClosed(false);
 
   connection.SetAttribute(Connection::CONNECTION_TIMEOUT, static_cast<uint32_t>(200));
-  const boost::optional<Connection::Attribute> first_value =
+  const std::optional<Connection::Attribute> first_value =
       connection.GetAttribute(Connection::CONNECTION_TIMEOUT);
 
-  EXPECT_TRUE(first_value);
-
-  EXPECT_EQ(static_cast<uint32_t>(200), boost::get<uint32_t>(*first_value));
+  ASSERT_TRUE(first_value);
+  ASSERT_EQ(static_cast<uint32_t>(200), std::get<uint32_t>(*first_value));
 
   connection.SetAttribute(Connection::CONNECTION_TIMEOUT, static_cast<uint32_t>(300));
 
-  const boost::optional<Connection::Attribute> change_value =
+  const std::optional<Connection::Attribute> change_value =
       connection.GetAttribute(Connection::CONNECTION_TIMEOUT);
 
-  EXPECT_TRUE(change_value);
-  EXPECT_EQ(static_cast<uint32_t>(300), boost::get<uint32_t>(*change_value));
+  ASSERT_TRUE(change_value);
+  ASSERT_EQ(static_cast<uint32_t>(300), std::get<uint32_t>(*change_value));
 
   connection.Close();
 }
@@ -49,11 +51,11 @@ TEST(AttributeTests, SetAndGetAttribute) {
 TEST(AttributeTests, GetAttributeWithoutSetting) {
   FlightSqlConnection connection(OdbcVersion::V_3);
 
-  const boost::optional<Connection::Attribute> optional =
+  const std::optional<Connection::Attribute> optional =
       connection.GetAttribute(Connection::CONNECTION_TIMEOUT);
   connection.SetClosed(false);
 
-  EXPECT_EQ(0, boost::get<uint32_t>(*optional));
+  EXPECT_EQ(0, std::get<uint32_t>(*optional));
 
   connection.Close();
 }
@@ -72,11 +74,11 @@ TEST(MetadataSettingsTest, StringColumnLengthTest) {
        std::to_string(expected_string_column_length)},
   };
 
-  const boost::optional<int32_t> actual_string_column_length =
+  const std::optional<int32_t> actual_string_column_length =
       connection.GetStringColumnLength(properties);
 
-  EXPECT_TRUE(actual_string_column_length);
-  EXPECT_EQ(expected_string_column_length, *actual_string_column_length);
+  ASSERT_TRUE(actual_string_column_length);
+  ASSERT_EQ(expected_string_column_length, *actual_string_column_length);
 
   connection.Close();
 }
