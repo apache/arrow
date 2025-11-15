@@ -15,25 +15,29 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# Requirements for building the documentation
-breathe
-cython>3.1.1
-doxygen
-ipython
-linkify-it-py
-meson-python
-# We can't install linuxdoc by conda. We install linuxdoc by pip in
-# ci/dockerfiles/conda-python-pandas.dockerfile.
-# linuxdoc
-myst-parser
-numpydoc
-pydata-sphinx-theme=0.16
-sphinx-autobuild
-sphinx-design
-sphinx-copybutton
-sphinx-lint
-sphinxcontrib-jquery
-sphinxcontrib-mermaid
-sphinx
-pytest-cython
-pandas
+project(
+    'pyarrow',
+    'cython',
+    'cpp',
+    version: run_command(
+        'python3',
+        '-m',
+        'setuptools_scm',
+        '--force-write-version-files',
+        check: true,
+    ).stdout().strip(),
+    license: 'Apache-2.0',
+    #license_files: ['../LICENSE.txt'],
+    meson_version: '>=1.4.0',
+    default_options: ['buildtype=release', 'cpp_std=c++17'],
+)
+
+py = import('python').find_installation(pure: false)
+
+#install_data('../NOTICE.txt', install_dir: py.get_install_dir() / 'pyarrow')
+
+arrow_dep = dependency('arrow', 'Arrow::arrow_shared', 'Arrow::arrow_static')
+
+cc = meson.get_compiler('cpp')
+
+subdir('pyarrow')

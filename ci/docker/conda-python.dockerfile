@@ -46,3 +46,5 @@ ENV ARROW_ACERO=ON \
     ARROW_SUBSTRAIT=OFF \
     ARROW_TENSORFLOW=ON \
     ARROW_USE_GLOG=OFF
+
+RUN apt-get update && apt-get install -y patchelf

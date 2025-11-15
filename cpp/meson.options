@@ -19,11 +19,13 @@ option(
     'acero',
     type: 'feature',
     description: 'Build the Arrow Acero Engine Module',
+    yield: true,
 )
 option(
     'azure',
     type: 'feature',
     description: 'Build Arrow with Azure support (requires the Azure SDK for C++)',
+    yield: true,
 )
 
 option(
@@ -43,6 +45,7 @@ option(
     'dataset',
     type: 'feature',
     description: 'Build the Arrow Dataset Modules',
+    yield: true,
 )
 option(
     'filesystem',
@@ -59,9 +62,15 @@ option(
     'gcs',
     type: 'feature',
     description: 'Build Arrow with GCS support (requires the Google Cloud Platform C++ Client Libraries)',
+    yield: true,
 )
 
-option('hdfs', type: 'feature', description: 'Build the Arrow HDFS bridge')
+option(
+    'hdfs',
+    type: 'feature',
+    description: 'Build the Arrow HDFS bridge',
+    yield: true,
+)
 
 option(
     'integration',
@@ -76,12 +85,18 @@ option(
     value: 'enabled',
 )
 
-option('json', type: 'feature', description: 'Build Arrow with JSON support')
+option(
+    'json',
+    type: 'feature',
+    description: 'Build Arrow with JSON support',
+    yield: true,
+)
 
 option(
     'flight',
     type: 'feature',
     description: 'Build the Arrow Flight RPC System (requires GRPC, Protocol Buffers)',
+    yield: true,
 )
 
 option('git_id', type: 'string')
@@ -94,7 +109,12 @@ option(
     type: 'string',
     description: 'Arbitrary string that identifies the kind of package (for informational purposes)',
 )
-option('parquet', type: 'feature', description: 'Build the Parquet libraries')
+option(
+    'parquet',
+    type: 'feature',
+    description: 'Build the Parquet libraries',
+    yield: true,
+)
 option(
     'parquet_build_executables',
     type: 'feature',
@@ -109,6 +129,7 @@ option(
     'parquet_require_encryption',
     type: 'feature',
     description: 'Build support for encryption. Fail if OpenSSL is not found',
+    yield: true,
 )
 
 option('snappy', type: 'feature', description: 'Build with snappy compression')
@@ -116,11 +137,13 @@ option(
     'substrait',
     type: 'feature',
     description: 'Build the Arrow Substrait Consumer Module',
+    yield: true,
 )
 option(
     's3',
     type: 'feature',
     description: 'Build Arrow with S3 support (requires the AWS SDK for C++)',
+    yield: true,
 )
 
 option(
