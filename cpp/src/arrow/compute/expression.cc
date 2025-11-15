@@ -687,7 +687,8 @@ Result<ExecBatch> MakeExecBatch(const Schema& full_schema, const Datum& partial,
   }
 
   // wasteful but useful for testing:
-  if (partial.type()->id() == Type::STRUCT) {
+  const auto& partial_type = partial.type();
+  if (partial_type && partial_type->id() == Type::STRUCT) {
     if (partial.is_array()) {
       ARROW_ASSIGN_OR_RAISE(auto partial_batch,
                             RecordBatch::FromStructArray(partial.make_array()));
