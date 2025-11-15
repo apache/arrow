@@ -129,6 +129,10 @@ struct ARROW_EXPORT ConvertOptions {
 
   /// Create conversion options with default values, including conventional
   /// values for `null_values`, `true_values` and `false_values`
+  ///
+  /// Default null values: see http://crossbow.voltrondata.com/pr_docs/48048/cpp/csv.html#nulls
+  /// Default true values: `"1"`, `"True"`, `"TRUE"`, `"true"`,
+  /// Default false values: `"0"`, `"False"`, `"FALSE"`, `"false"`,
   static ConvertOptions Defaults();
 
   /// \brief Test that all set options are valid
