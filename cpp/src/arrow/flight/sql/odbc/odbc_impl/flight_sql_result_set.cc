@@ -17,6 +17,8 @@
 
 #include "arrow/flight/sql/odbc/odbc_impl/flight_sql_result_set.h"
 
+#include <sql.h>
+
 #include <utility>
 #include "arrow/flight/types.h"
 #include "arrow/scalar.h"
@@ -212,14 +214,14 @@ void FlightSqlResultSet::Cancel() {
   current_chunk_.data = nullptr;
 }
 
-bool FlightSqlResultSet::GetData(int column_n, int16_t target_type, int precision,
-                                 int scale, void* buffer, size_t buffer_length,
-                                 ssize_t* str_len_buffer) {
+SQLRETURN FlightSqlResultSet::GetData(int column_n, int16_t target_type, int precision,
+                                      int scale, void* buffer, size_t buffer_length,
+                                      ssize_t* str_len_buffer) {
   reset_get_data_ = true;
   // Check if the offset is already at the end.
   int64_t& value_offset = get_data_offsets_[column_n - 1];
   if (value_offset == -1) {
-    return false;
+    return SQL_NO_DATA;
   }
 
   ColumnBinding binding(util::ConvertCDataTypeFromV2ToV3(target_type), precision, scale,
@@ -235,7 +237,11 @@ bool FlightSqlResultSet::GetData(int column_n, int16_t target_type, int precisio
                             diagnostics_, nullptr);
 
   // If there was truncation, the converter would have reported it to the diagnostics.
-  return diagnostics_.HasWarning();
+  if (diagnostics_.HasWarning()) {
+    return SQL_SUCCESS_WITH_INFO;
+  } else {
+    return SQL_SUCCESS;
+  }
 }
 
 std::shared_ptr<ResultSetMetadata> FlightSqlResultSet::GetMetadata() { return metadata_; }

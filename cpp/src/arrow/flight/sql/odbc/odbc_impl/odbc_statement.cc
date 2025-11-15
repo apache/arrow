@@ -129,6 +129,9 @@ SQLSMALLINT getc_typeForSQLType(const DescriptorRecord& record) {
     case SQL_WLONGVARCHAR:
       return SQL_C_WCHAR;
 
+    case SQL_BIT:
+      return SQL_C_BIT;
+
     case SQL_BINARY:
     case SQL_VARBINARY:
     case SQL_LONGVARBINARY:
@@ -146,12 +149,19 @@ SQLSMALLINT getc_typeForSQLType(const DescriptorRecord& record) {
     case SQL_BIGINT:
       return record.is_unsigned ? SQL_C_UBIGINT : SQL_C_SBIGINT;
 
+    case SQL_NUMERIC:
+    case SQL_DECIMAL:
+      return SQL_C_NUMERIC;
+
+    case SQL_FLOAT:
     case SQL_REAL:
       return SQL_C_FLOAT;
 
-    case SQL_FLOAT:
     case SQL_DOUBLE:
       return SQL_C_DOUBLE;
+
+    case SQL_GUID:
+      return SQL_C_GUID;
 
     case SQL_DATE:
     case SQL_TYPE_DATE:
@@ -165,32 +175,32 @@ SQLSMALLINT getc_typeForSQLType(const DescriptorRecord& record) {
     case SQL_TYPE_TIMESTAMP:
       return SQL_C_TYPE_TIMESTAMP;
 
-    case SQL_C_INTERVAL_DAY:
-      return SQL_INTERVAL_DAY;
-    case SQL_C_INTERVAL_DAY_TO_HOUR:
-      return SQL_INTERVAL_DAY_TO_HOUR;
-    case SQL_C_INTERVAL_DAY_TO_MINUTE:
-      return SQL_INTERVAL_DAY_TO_MINUTE;
-    case SQL_C_INTERVAL_DAY_TO_SECOND:
-      return SQL_INTERVAL_DAY_TO_SECOND;
-    case SQL_C_INTERVAL_HOUR:
-      return SQL_INTERVAL_HOUR;
-    case SQL_C_INTERVAL_HOUR_TO_MINUTE:
-      return SQL_INTERVAL_HOUR_TO_MINUTE;
-    case SQL_C_INTERVAL_HOUR_TO_SECOND:
-      return SQL_INTERVAL_HOUR_TO_SECOND;
-    case SQL_C_INTERVAL_MINUTE:
-      return SQL_INTERVAL_MINUTE;
-    case SQL_C_INTERVAL_MINUTE_TO_SECOND:
-      return SQL_INTERVAL_MINUTE_TO_SECOND;
-    case SQL_C_INTERVAL_SECOND:
-      return SQL_INTERVAL_SECOND;
-    case SQL_C_INTERVAL_YEAR:
-      return SQL_INTERVAL_YEAR;
-    case SQL_C_INTERVAL_YEAR_TO_MONTH:
-      return SQL_INTERVAL_YEAR_TO_MONTH;
-    case SQL_C_INTERVAL_MONTH:
-      return SQL_INTERVAL_MONTH;
+    case SQL_INTERVAL_DAY:
+      return SQL_C_INTERVAL_DAY;
+    case SQL_INTERVAL_DAY_TO_HOUR:
+      return SQL_C_INTERVAL_DAY_TO_HOUR;
+    case SQL_INTERVAL_DAY_TO_MINUTE:
+      return SQL_C_INTERVAL_DAY_TO_MINUTE;
+    case SQL_INTERVAL_DAY_TO_SECOND:
+      return SQL_C_INTERVAL_DAY_TO_SECOND;
+    case SQL_INTERVAL_HOUR:
+      return SQL_C_INTERVAL_HOUR;
+    case SQL_INTERVAL_HOUR_TO_MINUTE:
+      return SQL_C_INTERVAL_HOUR_TO_MINUTE;
+    case SQL_INTERVAL_HOUR_TO_SECOND:
+      return SQL_C_INTERVAL_HOUR_TO_SECOND;
+    case SQL_INTERVAL_MINUTE:
+      return SQL_C_INTERVAL_MINUTE;
+    case SQL_INTERVAL_MINUTE_TO_SECOND:
+      return SQL_C_INTERVAL_MINUTE_TO_SECOND;
+    case SQL_INTERVAL_SECOND:
+      return SQL_C_INTERVAL_SECOND;
+    case SQL_INTERVAL_YEAR:
+      return SQL_C_INTERVAL_YEAR;
+    case SQL_INTERVAL_YEAR_TO_MONTH:
+      return SQL_C_INTERVAL_YEAR_TO_MONTH;
+    case SQL_INTERVAL_MONTH:
+      return SQL_C_INTERVAL_MONTH;
 
     default:
       throw DriverException("Unknown SQL type: " + std::to_string(record.concise_type),
@@ -691,9 +701,9 @@ void ODBCStatement::CloseCursor(bool suppress_errors) {
   has_reached_end_of_result_ = false;
 }
 
-bool ODBCStatement::GetData(SQLSMALLINT record_number, SQLSMALLINT c_type,
-                            SQLPOINTER data_ptr, SQLLEN buffer_length,
-                            SQLLEN* indicator_ptr) {
+SQLRETURN ODBCStatement::GetData(SQLSMALLINT record_number, SQLSMALLINT c_type,
+                                 SQLPOINTER data_ptr, SQLLEN buffer_length,
+                                 SQLLEN* indicator_ptr) {
   if (record_number == 0) {
     throw DriverException("Bookmarks are not supported", "07009");
   } else if (record_number > ird_->GetRecords().size()) {
