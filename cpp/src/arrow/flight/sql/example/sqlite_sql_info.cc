@@ -20,6 +20,8 @@
 #include "arrow/flight/sql/types.h"
 #include "arrow/util/config.h"
 
+#include "arrow/flight/sql/sql_info_undef.h"
+
 namespace arrow {
 namespace flight {
 namespace sql {
