@@ -1,0 +1,117 @@
+// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+#include "arrow/flight/sql/odbc/tests/odbc_test_suite.h"
+
+#include "arrow/flight/sql/odbc/odbc_impl/platform.h"
+
+#include <sql.h>
+#include <sqltypes.h>
+#include <sqlucode.h>
+
+#include <limits>
+
+#include <gmock/gmock.h>
+#include <gtest/gtest.h>
+
+namespace arrow::flight::sql::odbc {
+
+template <typename T>
+class StatementTest : public T {};
+
+class StatementMockTest : public FlightSQLODBCMockTestBase {};
+class StatementRemoteTest : public FlightSQLODBCRemoteTestBase {};
+using TestTypes = ::testing::Types<StatementMockTest, StatementRemoteTest>;
+TYPED_TEST_SUITE(StatementTest, TestTypes);
+
+TYPED_TEST(StatementTest, TestSQLExecDirectSimpleQuery) {
+  std::wstring wsql = L"SELECT 1;";
+  std::vector<SQLWCHAR> sql0(wsql.begin(), wsql.end());
+
+  ASSERT_EQ(SQL_SUCCESS,
+            SQLExecDirect(this->stmt, &sql0[0], static_cast<SQLINTEGER>(sql0.size())));
+
+  // GH-47713 TODO: Uncomment call to SQLFetch SQLGetData after implementation
+  /*
+  ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
+
+  SQLINTEGER val;
+
+  ASSERT_EQ(SQL_SUCCESS, SQLGetData(this->stmt, 1, SQL_C_LONG, &val, 0, 0));
+  // Verify 1 is returned
+  EXPECT_EQ(1, val);
+
+  ASSERT_EQ(SQL_NO_DATA, SQLFetch(this->stmt));
+
+  ASSERT_EQ(SQL_ERROR, SQLGetData(this->stmt, 1, SQL_C_LONG, &val, 0, 0));
+  // Invalid cursor state
+  VerifyOdbcErrorState(SQL_HANDLE_STMT, this->stmt, kErrorState24000);
+  */
+}
+
+TYPED_TEST(StatementTest, TestSQLExecDirectInvalidQuery) {
+  std::wstring wsql = L"SELECT;";
+  std::vector<SQLWCHAR> sql0(wsql.begin(), wsql.end());
+
+  ASSERT_EQ(SQL_ERROR,
+            SQLExecDirect(this->stmt, &sql0[0], static_cast<SQLINTEGER>(sql0.size())));
+  // ODBC provides generic error code HY000 to all statement errors
+  VerifyOdbcErrorState(SQL_HANDLE_STMT, this->stmt, kErrorStateHY000);
+}
+
+TYPED_TEST(StatementTest, TestSQLExecuteSimpleQuery) {
+  std::wstring wsql = L"SELECT 1;";
+  std::vector<SQLWCHAR> sql0(wsql.begin(), wsql.end());
+
+  ASSERT_EQ(SQL_SUCCESS,
+            SQLPrepare(this->stmt, &sql0[0], static_cast<SQLINTEGER>(sql0.size())));
+
+  ASSERT_EQ(SQL_SUCCESS, SQLExecute(this->stmt));
+
+  // GH-47713 TODO: Uncomment call to SQLFetch SQLGetData after implementation
+  /*
+  // Fetch data
+  ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
+
+  SQLINTEGER val;
+  ASSERT_EQ(SQL_SUCCESS, SQLGetData(this->stmt, 1, SQL_C_LONG, &val, 0, 0));
+
+  // Verify 1 is returned
+  EXPECT_EQ(1, val);
+
+  ASSERT_EQ(SQL_NO_DATA, SQLFetch(this->stmt));
+
+  ASSERT_EQ(SQL_ERROR, SQLGetData(this->stmt, 1, SQL_C_LONG, &val, 0, 0));
+  // Invalid cursor state
+  VerifyOdbcErrorState(SQL_HANDLE_STMT, this->stmt, kErrorState24000);
+  */
+}
+
+TYPED_TEST(StatementTest, TestSQLPrepareInvalidQuery) {
+  std::wstring wsql = L"SELECT;";
+  std::vector<SQLWCHAR> sql0(wsql.begin(), wsql.end());
+
+  ASSERT_EQ(SQL_ERROR,
+            SQLPrepare(this->stmt, &sql0[0], static_cast<SQLINTEGER>(sql0.size())));
+  // ODBC provides generic error code HY000 to all statement errors
+  VerifyOdbcErrorState(SQL_HANDLE_STMT, this->stmt, kErrorStateHY000);
+
+  ASSERT_EQ(SQL_ERROR, SQLExecute(this->stmt));
+  // Verify function sequence error state is returned
+  VerifyOdbcErrorState(SQL_HANDLE_STMT, this->stmt, kErrorStateHY010);
+}
+
+}  // namespace arrow::flight::sql::odbc
