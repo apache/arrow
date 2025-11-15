@@ -310,7 +310,7 @@ class ARROW_EXPORT CappedMemoryPool : public MemoryPool {
   }
 
   MemoryPool* wrapped_;
-  int64_t bytes_allocated_limit_;
+  const int64_t bytes_allocated_limit_;
 };
 
 /// \brief Return a process-wide memory pool based on the system allocator.

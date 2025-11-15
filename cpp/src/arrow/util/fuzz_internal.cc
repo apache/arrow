@@ -29,7 +29,8 @@ MemoryPool* fuzzing_memory_pool() {
   return pool.get();
 }
 
-void NoteFuzzStatus(const Status& st, const uint8_t* data, int64_t size) {
+void LogFuzzStatus(const Status& st, const uint8_t* data, int64_t size) {
+  // Most fuzz inputs will be invalid and generate errors, only log potential OOMs
   if (st.IsOutOfMemory()) {
     ARROW_LOG(WARNING) << "Fuzzing input with size=" << size
                        << " hit allocation failure: " << st.ToString();
