@@ -754,6 +754,12 @@ class PlainByteArrayDecoder : public PlainDecoder<ByteArrayType> {
                           int64_t valid_bits_offset,
                           typename EncodingTraits<ByteArrayType>::Accumulator* out,
                           int* out_values_decoded) {
+    // We're going to decode up to `num_values - null_count` PLAIN values,
+    // and each value has a 4-byte length header that doesn't count for the
+    // Arrow binary data length.
+    int64_t estimated_data_length =
+        std::max<int64_t>(0, len_ - 4 * (num_values - null_count));
+
     auto visit_binary_helper = [&](auto* helper) {
       int values_decoded = 0;
 
@@ -772,11 +778,12 @@ class PlainByteArrayDecoder : public PlainDecoder<ByteArrayType> {
                       "Invalid or truncated PLAIN-encoded BYTE_ARRAY data");
                 }
                 RETURN_NOT_OK(
-                    helper->AppendValue(data_ + 4, value_len,
-                                        /*estimated_remaining_data_length=*/len_));
+                    helper->AppendValue(data_ + 4, value_len, estimated_data_length));
                 auto increment = value_len + 4;
                 data_ += increment;
                 len_ -= increment;
+                estimated_data_length -= value_len;
+                DCHECK_GE(estimated_data_length, 0);
               }
               values_decoded += static_cast<int>(run_length);
               return Status::OK();
@@ -790,8 +797,8 @@ class PlainByteArrayDecoder : public PlainDecoder<ByteArrayType> {
       return Status::OK();
     };
 
-    return DispatchArrowBinaryHelper<ByteArrayType>(out, num_values, len_,
-                                                    visit_binary_helper);
+    return DispatchArrowBinaryHelper<ByteArrayType>(
+        out, num_values, estimated_data_length, visit_binary_helper);
   }
 
   template <typename BuilderType>
