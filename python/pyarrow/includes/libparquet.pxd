@@ -492,6 +492,7 @@ cdef extern from "parquet/api/writer.h" namespace "parquet" nogil:
             Builder* enable_store_decimal_as_integer()
             Builder* disable_store_decimal_as_integer()
             Builder* data_pagesize(int64_t size)
+            Builder* max_rows_per_page(int64_t max_rows)
             Builder* encoding(ParquetEncoding encoding)
             Builder* encoding(const c_string& path,
                               ParquetEncoding encoding)

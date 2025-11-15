@@ -44,6 +44,7 @@ cdef shared_ptr[WriterProperties] _create_writer_properties(
     version=*,
     write_statistics=*,
     data_page_size=*,
+    max_rows_per_page=*,
     compression_level=*,
     use_byte_stream_split=*,
     column_encoding=*,
