@@ -15,15 +15,23 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <memory>
+#pragma once
 
-#include "arrow/ipc/reader.h"
-#include "arrow/status.h"
-#include "arrow/util/fuzz_internal.h"
+#include <cstdint>
+
+#include "arrow/type_fwd.h"
 #include "arrow/util/macros.h"
 
-extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
-  auto status = arrow::ipc::internal::FuzzIpcStream(data, static_cast<int64_t>(size));
-  arrow::internal::LogFuzzStatus(status, data, static_cast<int64_t>(size));
-  return 0;
-}
+namespace arrow::internal {
+
+// The default rss_limit_mb on OSS-Fuzz is 2560 MB and we want to fail allocations
+// before that limit is reached, otherwise the fuzz target gets killed (GH-48105).
+constexpr int64_t kFuzzingMemoryLimit = 2200LL * 1000 * 1000;
+
+/// Return a memory pool that will not allocate more than kFuzzingMemoryLimit bytes.
+ARROW_EXPORT MemoryPool* fuzzing_memory_pool();
+
+// Optionally log the outcome of fuzzing an input
+ARROW_EXPORT void LogFuzzStatus(const Status&, const uint8_t* data, int64_t size);
+
+}  // namespace arrow::internal
