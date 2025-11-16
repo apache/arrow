@@ -79,6 +79,7 @@ permissions:
 
 jobs:
   check-labels:
+    if: github.event_name != 'schedule' || github.repository == 'apache/arrow'
     uses: ./.github/workflows/check_labels.yml
     secrets: inherit
     with:
