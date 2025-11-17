@@ -31,7 +31,7 @@ jobs:
       - name: Install MATLAB
         uses: matlab-actions/setup-matlab@v2
         with:
-          release: R2025a
+          release: R2025b
       - name: Build MATLAB Interface
         env:
         {{ macros.github_set_sccache_envvars()|indent(8) }}
@@ -73,7 +73,7 @@ jobs:
       - name: Install MATLAB
         uses: matlab-actions/setup-matlab@v2
         with:
-          release: R2025a
+          release: R2025b
       - name: Build MATLAB Interface
         env:
         {{ macros.github_set_sccache_envvars()|indent(8) }}
@@ -99,7 +99,7 @@ jobs:
       - name: Install MATLAB
         uses: matlab-actions/setup-matlab@v2
         with:
-          release: R2025a
+          release: R2025b
       - name: Install sccache
         shell: bash
         run: arrow/ci/scripts/install_sccache.sh pc-windows-msvc $(pwd)/sccache
@@ -146,7 +146,7 @@ jobs:
       - name: Install MATLAB
         uses: matlab-actions/setup-matlab@v2
         with:
-          release: R2025a
+          release: R2025b
       - name: Run commands
         env:
           MATLABPATH: arrow/matlab/tools
