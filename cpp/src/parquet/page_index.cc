@@ -244,9 +244,9 @@ class RowGroupPageIndexReaderImpl : public RowGroupPageIndexReader {
                           row_group_ordinal_);
 
     if (column_index_buffer_ == nullptr) {
-      PARQUET_ASSIGN_OR_THROW(column_index_buffer_,
-                              input_->ReadAt(index_read_range_.column_index->offset,
-                                             index_read_range_.column_index->length));
+      column_index_buffer_ =
+          ReadIndexBuffer(index_read_range_.column_index->offset,
+                          index_read_range_.column_index->length, "ColumnIndex");
     }
 
     int64_t buffer_offset =
@@ -285,9 +285,9 @@ class RowGroupPageIndexReaderImpl : public RowGroupPageIndexReader {
                           row_group_ordinal_);
 
     if (offset_index_buffer_ == nullptr) {
-      PARQUET_ASSIGN_OR_THROW(offset_index_buffer_,
-                              input_->ReadAt(index_read_range_.offset_index->offset,
-                                             index_read_range_.offset_index->length));
+      offset_index_buffer_ =
+          ReadIndexBuffer(index_read_range_.offset_index->offset,
+                          index_read_range_.offset_index->length, "OffsetIndex");
     }
 
     int64_t buffer_offset =
@@ -346,7 +346,15 @@ class RowGroupPageIndexReaderImpl : public RowGroupPageIndexReader {
     }
   }
 
- private:
+  std::shared_ptr<Buffer> ReadIndexBuffer(int64_t offset, int64_t length,
+                                          const char* offset_kind) {
+    PARQUET_ASSIGN_OR_THROW(auto buffer, input_->ReadAt(offset, length));
+    if (buffer->size() < length) {
+      throw ParquetException("Invalid or truncated ", offset_kind);
+    }
+    return buffer;
+  }
+
   /// The input stream that can perform random access read.
   ::arrow::io::RandomAccessFile* input_;
 
@@ -962,6 +970,11 @@ std::unique_ptr<ColumnIndex> ColumnIndex::Make(const ColumnDescriptor& descr,
   ThriftDeserializer deserializer(properties);
   deserializer.DeserializeMessage(reinterpret_cast<const uint8_t*>(serialized_index),
                                   &index_len, &column_index, decryptor);
+  if (ARROW_PREDICT_FALSE(LoadEnumSafe(&column_index.boundary_order) ==
+                          BoundaryOrder::UNDEFINED)) {
+    // Guard against UB when moving column_index
+    throw ParquetException("Invalid ColumnIndex boundary_order");
+  }
   switch (descr.physical_type()) {
     case Type::BOOLEAN:
       return std::make_unique<TypedColumnIndexImpl<BooleanType>>(descr,
