@@ -39,12 +39,12 @@ namespace arrow::internal {
 // - array to batch constant to xsimd
 // - Shifts per swizzle can be improved when self.packed_max_byte_spread == 1 and the
 //   byte can be reused (when val_bit_width divides packed_max_byte_spread).
-// - Add unpack_exact to benchmarks
 // - Reduce input size on small bit width using a broadcast.
 // - For Avx2:
 //   - Inspect how swizzle across lanes are handled: _mm256_shuffle_epi8 not used?
 //   - Investigate AVX2 with 128 bit register
 // - Fix overreading problem
+// - Improve Swizzle by computing which bigger swapable slots are free
 
 template <typename Arr>
 constexpr Arr BuildConstantArray(typename Arr::value_type val) {
@@ -316,22 +316,12 @@ constexpr SwizzleBiLaneGenericPlan<T, N> BuildSwizzleBiLaneGenericPlan(
       plan.self_lane[k] = kAsZero;
       plan.cross_lane[k] = kAsZero;
     } else {
-      if (is_first_lane_idx) {
-        if (is_first_lane_mask) {
-          plan.self_lane[k] = mask[k];
-          plan.cross_lane[k] = kAsZero;
-        } else {
-          plan.self_lane[k] = kAsZero;
-          plan.cross_lane[k] = mask[k] - kSizeHalf;
-        }
+      if (is_first_lane_idx == is_first_lane_mask) {
+        plan.self_lane[k] = mask[k] % kSizeHalf;
+        plan.cross_lane[k] = kAsZero;
       } else {
-        if (is_first_lane_mask) {
-          plan.self_lane[k] = kAsZero;
-          plan.cross_lane[k] = mask[k];  // Indices given within lane
-        } else {
-          plan.self_lane[k] = mask[k] - kSizeHalf;  // Indices given within lane
-          plan.cross_lane[k] = kAsZero;
-        }
+        plan.self_lane[k] = kAsZero;
+        plan.cross_lane[k] = mask[k] % kSizeHalf;
       }
     }
   }
@@ -339,6 +329,17 @@ constexpr SwizzleBiLaneGenericPlan<T, N> BuildSwizzleBiLaneGenericPlan(
   return plan;
 }
 
+template <typename T, typename A, T... Vals>
+constexpr bool isOnlyFromHigh(xsimd::batch_constant<T, A, Vals...>) {
+  return ((Vals >= (sizeof...(Vals) / 2)) && ...);
+}
+
+template <typename T, typename A, T... Vals>
+constexpr bool isOnlyFromLow(xsimd::batch_constant<T, A, Vals...>) {
+  return ((Vals < (sizeof...(Vals) / 2)) && ...);
+}
+
+/// Merged in xsimd 14.0, simply use swizzle
 template <typename Arch, uint8_t... kIdx>
 auto swizzle_bytes(const xsimd::batch<uint8_t, Arch>& batch,
                    xsimd::batch_constant<uint8_t, Arch, kIdx...> mask) {
@@ -348,6 +349,23 @@ auto swizzle_bytes(const xsimd::batch<uint8_t, Arch>& batch,
     constexpr auto kSelfSwizzle = make_batch_constant<kSelfSwizzleArr, Arch>();
     static constexpr auto kCrossSwizzleArr = kPlan.cross_lane;
     constexpr auto kCrossSwizzle = make_batch_constant<kCrossSwizzleArr, Arch>();
+
+    struct LaneMask {
+      static constexpr uint8_t get(uint8_t i, uint8_t n) {
+        constexpr auto kMask = std::array{kIdx...};
+        return kMask[i] % (kMask.size() / 2);
+      }
+    };
+
+    constexpr auto kLaneMask = xsimd::make_batch_constant<uint8_t, Arch, LaneMask>();
+    if constexpr (isOnlyFromLow(mask)) {
+      auto broadcast = _mm256_permute2x128_si256(batch, batch, 0x00);  // [low | low]
+      return _mm256_shuffle_epi8(broadcast, kLaneMask.as_batch());
+    }
+    if constexpr (isOnlyFromHigh(mask)) {
+      auto broadcast = _mm256_permute2x128_si256(batch, batch, 0x11);  // [high | high]
+      return _mm256_shuffle_epi8(broadcast, kLaneMask.as_batch());
+    }
 
     auto self = _mm256_shuffle_epi8(batch, kSelfSwizzle.as_batch());
     auto swapped = _mm256_permute2x128_si256(batch, batch, 0x01);
