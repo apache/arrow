@@ -398,8 +398,15 @@ auto left_shift_no_overflow(const xsimd::batch<Int, Arch>& batch,
     };
 
     constexpr auto kMults = xsimd::make_batch_constant<Int, Arch, MakeMults>();
-    return batch * kMults;
-
+    // TODO in xsimd 14.0 this can be simplified to
+    // constexpr auto kMults = xsimd::make_batch_constant<Int, 1, Arch>() << shits;
+    if constexpr (sizeof(Int) == sizeof(uint16_t)) {
+      return _mm_mullo_epi16(batch, kMults.as_batch());
+    }
+    if constexpr (sizeof(Int) == sizeof(uint16_t)) {
+      // TODO that is latency 10 so maybe it is not worth it
+      return _mm_mullo_epi32(batch, kMults.as_batch());
+    }
   } else {
     return batch << shifts;
   }
@@ -434,6 +441,15 @@ auto right_shift_by_excess(const xsimd::batch<Int, Arch>& batch,
     };
 
     constexpr auto kMults = xsimd::make_batch_constant<Int, Arch, MakeMults>();
+    if constexpr (sizeof(Int) == sizeof(uint16_t)) {
+      return xsimd::batch<Int, Arch>(_mm_mullo_epi16(batch, kMults.as_batch())) >>
+             kMaxRightShift;
+    }
+    if constexpr (sizeof(Int) == sizeof(uint16_t)) {
+      // TODO that is latency 10 so maybe it is not worth it
+      return xsimd::batch<Int, Arch>(_mm_mullo_epi32(batch, kMults.as_batch())) >>
+             kMaxRightShift;
+    }
     return (batch * kMults) >> kMaxRightShift;
 
   } else {
