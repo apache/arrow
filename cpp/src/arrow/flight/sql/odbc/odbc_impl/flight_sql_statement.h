@@ -48,6 +48,7 @@ class FlightSqlStatement : public Statement {
   FlightSqlStatement(const Diagnostics& diagnostics, FlightSqlClient& sql_client,
                      FlightCallOptions call_options,
                      const MetadataSettings& metadata_settings);
+  ~FlightSqlStatement();
 
   bool SetAttribute(StatementAttributeId attribute, const Attribute& value) override;
 
