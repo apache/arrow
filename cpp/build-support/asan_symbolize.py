@@ -26,7 +26,7 @@ def fix_filename(file_name):
     file_name = re.sub('.*' + path_to_cut, '', file_name)
   file_name = re.sub('.*asan_[a-z_]*.cc:[0-9]*', '_asan_rtl_', file_name)
   file_name = re.sub('.*crtstuff.c:0', '???:0', file_name)
-  return file_name
+  return f"the file name is {file_name}"
 
 
 class Symbolizer(object):
