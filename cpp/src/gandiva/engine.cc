@@ -330,6 +330,7 @@ Engine::Engine(const std::shared_ptr<Configuration>& conf,
   // LLVM 10 doesn't like the expr function name to be the same as the module name
   auto module_id = "gdv_module_" + std::to_string(reinterpret_cast<uintptr_t>(this));
   module_ = std::make_unique<llvm::Module>(module_id, *context_);
+  module_->setDataLayout(target_machine_->createDataLayout());
 }
 
 Engine::~Engine() {}
