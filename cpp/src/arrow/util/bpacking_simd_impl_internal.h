@@ -342,7 +342,8 @@ constexpr bool isOnlyFromLow(xsimd::batch_constant<T, A, Vals...>) {
 /// Merged in xsimd 14.0, simply use swizzle
 template <typename Arch, uint8_t... kIdx>
 auto swizzle_bytes(const xsimd::batch<uint8_t, Arch>& batch,
-                   xsimd::batch_constant<uint8_t, Arch, kIdx...> mask) {
+                   xsimd::batch_constant<uint8_t, Arch, kIdx...> mask)
+    -> xsimd::batch<uint8_t, Arch> {
   if constexpr (std::is_base_of_v<xsimd::avx2, Arch>) {
     static constexpr auto kPlan = BuildSwizzleBiLaneGenericPlan(std::array{kIdx...});
     static constexpr auto kSelfSwizzleArr = kPlan.self_lane;
@@ -370,7 +371,7 @@ auto swizzle_bytes(const xsimd::batch<uint8_t, Arch>& batch,
     auto self = _mm256_shuffle_epi8(batch, kSelfSwizzle.as_batch());
     auto swapped = _mm256_permute2x128_si256(batch, batch, 0x01);
     auto cross = _mm256_shuffle_epi8(swapped, kCrossSwizzle.as_batch());
-    return xsimd::batch<uint8_t, Arch>(_mm256_or_si256(self, cross));
+    return _mm256_or_si256(self, cross);
   } else {
     return xsimd::swizzle(batch, mask);
   }
@@ -386,7 +387,8 @@ auto swizzle_bytes(const xsimd::batch<uint8_t, Arch>& batch,
 // http://arxiv.org/abs/1209.2137
 template <typename Arch, typename Int, Int... kShifts>
 auto left_shift_no_overflow(const xsimd::batch<Int, Arch>& batch,
-                            xsimd::batch_constant<Int, Arch, kShifts...> shifts) {
+                            xsimd::batch_constant<Int, Arch, kShifts...> shifts)
+    -> xsimd::batch<Int, Arch> {
   constexpr bool kHasSse2 = std::is_base_of_v<xsimd::sse2, Arch>;
   constexpr bool kHasAvx2 = std::is_base_of_v<xsimd::avx2, Arch>;
 
@@ -407,9 +409,8 @@ auto left_shift_no_overflow(const xsimd::batch<Int, Arch>& batch,
       // TODO that is latency 10 so maybe it is not worth it
       return _mm_mullo_epi32(batch, kMults.as_batch());
     }
-  } else {
-    return batch << shifts;
   }
+  return batch << shifts;
 }
 
 // Intel x86-64 does not have variable right shifts before AVX2.
