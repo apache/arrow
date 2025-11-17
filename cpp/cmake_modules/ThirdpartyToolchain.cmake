@@ -2950,17 +2950,16 @@ if(ARROW_WITH_UTF8PROC)
   resolve_dependency(${utf8proc_resolve_dependency_args})
 endif()
 
-macro(build_cares)
+function(build_cares)
+  list(APPEND CMAKE_MESSAGE_INDENT "c-ares: ")
   message(STATUS "Building c-ares from source using FetchContent")
-  set(CARES_VENDORED TRUE)
-  set(CARES_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/cares_ep-install")
-
-  # Configure c-ares options before FetchContent
-  set(CARES_SHARED OFF)
-  set(CARES_STATIC ON)
-  set(CARES_INSTALL ON)
-  set(CARES_BUILD_TOOLS OFF)
-  set(CARES_BUILD_TESTS OFF)
+  set(CARES_VENDORED
+      TRUE
+      PARENT_SCOPE)
+  set(CARES_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/cares_fc-install")
+  set(CARES_PREFIX
+      "${CARES_PREFIX}"
+      PARENT_SCOPE)
 
   fetchcontent_declare(cares
                        URL ${CARES_SOURCE_URL}
@@ -2968,13 +2967,12 @@ macro(build_cares)
 
   prepare_fetchcontent()
 
-  set(CMAKE_INSTALL_PREFIX_SAVED "${CMAKE_INSTALL_PREFIX}")
-  set(CMAKE_INSTALL_PREFIX "${CARES_PREFIX}")
+  set(CARES_SHARED OFF)
+  set(CARES_STATIC ON)
+  set(CARES_INSTALL ON)
+  set(CARES_BUILD_TOOLS OFF)
+  set(CARES_BUILD_TESTS OFF)
   fetchcontent_makeavailable(cares)
-
-  # Restore original install prefix
-  set(CMAKE_INSTALL_PREFIX "${CMAKE_INSTALL_PREFIX_SAVED}")
-  cleanup_fetchcontent()
 
   # gRPC requires c-ares to be installed to a known location.
   # We have to do this in two steps to avoid double installation of c-ares
@@ -3011,8 +3009,8 @@ macro(build_cares)
                      COMMENT "Installing c-ares to ${CARES_PREFIX} for gRPC"
                      VERBATIM)
 
-  # Make cares_ep depend on the install completion marker
-  add_custom_target(cares_ep DEPENDS "${CARES_PREFIX}/.cares_installed")
+  # Make cares_fc depend on the install completion marker
+  add_custom_target(cares_fc DEPENDS "${CARES_PREFIX}/.cares_installed")
 
   if(APPLE)
     # libresolv must be linked from c-ares version 1.16.1
@@ -3021,8 +3019,8 @@ macro(build_cares)
                                                    "${LIBRESOLV_LIBRARY}")
   endif()
 
-  list(APPEND ARROW_BUNDLED_STATIC_LIBS c-ares::cares)
-endmacro()
+  list(POP_BACK CMAKE_MESSAGE_INDENT)
+endfunction()
 
 # ----------------------------------------------------------------------
 # Dependencies for Arrow Flight RPC
@@ -3223,7 +3221,7 @@ macro(build_grpc)
     add_dependencies(grpc_dependencies absl_fc)
   endif()
   if(CARES_VENDORED)
-    add_dependencies(grpc_dependencies cares_ep)
+    add_dependencies(grpc_dependencies cares_fc)
   endif()
 
   if(GFLAGS_VENDORED)
