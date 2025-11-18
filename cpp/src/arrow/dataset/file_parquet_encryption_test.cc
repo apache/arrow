@@ -432,5 +432,97 @@ TEST_P(LargeRowCountEncryptionTest, ReadEncryptLargeRowCount) {
 INSTANTIATE_TEST_SUITE_P(LargeRowCountEncryptionTest, LargeRowCountEncryptionTest,
                          kAllParamValues);
 
+TEST(DatasetEncryption, WriteWithSelectedColumnStatistics) {
+  ASSERT_OK_AND_ASSIGN(auto file_system, fs::internal::MockFileSystem::Make(
+                                             std::chrono::system_clock::now(), {}));
+  ASSERT_OK(file_system->CreateDir(std::string(kBaseDir)));
+
+  // Configure encryption
+  std::unordered_map<std::string, SecureString> key_map;
+  key_map.emplace(kColumnMasterKeyId, kColumnMasterKey);
+  key_map.emplace(kFooterKeyMasterKeyId, kFooterKeyMasterKey);
+
+  auto crypto_factory = std::make_shared<parquet::encryption::CryptoFactory>();
+  auto kms_client_factory =
+      std::make_shared<parquet::encryption::TestOnlyInMemoryKmsClientFactory>(
+          /*wrap_locally=*/true, key_map);
+  crypto_factory->RegisterKmsClientFactory(std::move(kms_client_factory));
+  auto kms_connection_config =
+      std::make_shared<parquet::encryption::KmsConnectionConfig>();
+
+  auto encryption_config = std::make_shared<parquet::encryption::EncryptionConfiguration>(
+      std::string(kFooterKeyName));
+  encryption_config->uniform_encryption = true;
+
+  auto parquet_encryption_config = std::make_shared<ParquetEncryptionConfig>();
+
+  parquet_encryption_config->crypto_factory = crypto_factory;
+  parquet_encryption_config->kms_connection_config = kms_connection_config;
+  parquet_encryption_config->encryption_config = std::move(encryption_config);
+
+  // Configure Parquet file format, setting encryption and
+  // making statistics only enabled for specific column.
+  auto file_format = std::make_shared<ParquetFileFormat>();
+
+  auto parquet_file_write_options =
+      checked_pointer_cast<ParquetFileWriteOptions>(file_format->DefaultWriteOptions());
+  auto writer_properties = std::make_unique<parquet::WriterProperties::Builder>()
+                               ->disable_statistics()
+                               ->enable_statistics("a")
+                               ->enable_statistics("b")
+                               ->build();
+
+  parquet_file_write_options->parquet_encryption_config =
+      std::move(parquet_encryption_config);
+  parquet_file_write_options->writer_properties = std::move(writer_properties);
+
+  // Create test data
+  auto table_schema =
+      schema({field("a", int64()), field("b", int64()), field("c", int64())});
+  auto table = TableFromJSON(table_schema, {R"([
+                          [ 0, 9, 1 ],
+                          [ 1, 8, 2 ],
+                          [ 2, 7, 1 ],
+                          [ 3, 6, 2 ],
+                          [ 4, 5, 1 ],
+                          [ 5, 4, 2 ],
+                          [ 6, 3, 1 ],
+                          [ 7, 2, 2 ],
+                          [ 8, 1, 1 ],
+                          [ 9, 0, 2 ]
+                        ])"});
+
+  // Write dataset
+  auto dataset = std::make_shared<InMemoryDataset>(table);
+  ASSERT_OK_AND_ASSIGN(auto scanner_builder, dataset->NewScan());
+  ARROW_EXPECT_OK(scanner_builder->UseThreads(false));
+
+  ASSERT_OK_AND_ASSIGN(auto scanner, scanner_builder->Finish());
+  FileSystemDatasetWriteOptions write_options;
+  write_options.file_write_options = parquet_file_write_options;
+  write_options.filesystem = file_system;
+  write_options.base_dir = kBaseDir;
+  write_options.basename_template = "part{i}.parquet";
+  write_options.partitioning = std::make_shared<DirectoryPartitioning>(schema({}));
+  ASSERT_OK(FileSystemDataset::Write(write_options, std::move(scanner)));
+
+  // Get written file
+  ASSERT_OK_AND_ASSIGN(auto input_file, file_system->OpenInputFile("part0.parquet"));
+  auto reader_properties = ::parquet::default_reader_properties();
+  auto decryption_config =
+      std::make_shared<parquet::encryption::DecryptionConfiguration>();
+
+  auto decryption_properties = crypto_factory->GetFileDecryptionProperties(
+      *kms_connection_config, *decryption_config);
+  reader_properties.file_decryption_properties(decryption_properties);
+  auto parquet_file = ::parquet::ParquetFileReader::Open(input_file, reader_properties);
+
+  // Verify only expected columns have statistics set
+  auto row_group = parquet_file->metadata()->RowGroup(0);
+  ASSERT_NE(row_group->ColumnChunk(0)->statistics(), nullptr);
+  ASSERT_NE(row_group->ColumnChunk(1)->statistics(), nullptr);
+  ASSERT_EQ(row_group->ColumnChunk(2)->statistics(), nullptr);
+}
+
 }  // namespace dataset
 }  // namespace arrow
