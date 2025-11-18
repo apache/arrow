@@ -54,7 +54,6 @@ jobs:
           stale-issue-label: "Status: stale-warning"
           days-before-issue-stale: 365
           days-before-issue-close: 14
-          operations-per-run: 30
           repo-token: ${{ secrets.GITHUB_TOKEN }}
   close-stale-issues-enhancement:
     runs-on: ubuntu-latest
@@ -73,5 +72,4 @@ jobs:
           stale-issue-label: "Status: stale-warning"
           days-before-issue-stale: 365
           days-before-issue-close: 14
-          operations-per-run: 30
           repo-token: ${{ secrets.GITHUB_TOKEN }}
