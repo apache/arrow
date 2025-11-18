@@ -198,6 +198,7 @@ class ParquetWriter:
         write_page_checksum: bool = False,
         sorting_columns: Sequence[SortingColumn] | None = None,
         store_decimal_as_integer: bool = False,
+        max_rows_per_page: int | None = None,
         **options,
     ) -> None: ...
     def __enter__(self) -> Self: ...

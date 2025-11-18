@@ -318,6 +318,7 @@ def first(
     memory_pool: lib.MemoryPool | None = None,
 ) -> _ScalarT: ...
 
+last = _clone_signature(first)
 
 def first_last(
     array: lib.Array[Any] | lib.ChunkedArray[Any] | list[Any],
@@ -546,6 +547,7 @@ def exp(
     _FloatArrayT | lib.DoubleArray | _FloatScalarT | lib.DoubleScalar | Expression): ...
 
 
+expm1 = _clone_signature(exp)
 multiply = _clone_signature(add)
 multiply_checked = _clone_signature(add)
 
@@ -741,10 +743,12 @@ logb_checked = _clone_signature(logb)
 acos = _clone_signature(ln)
 acos_checked = _clone_signature(ln)
 acosh = _clone_signature(ln)
+acosh_checked = _clone_signature(ln)
 asin = _clone_signature(ln)
 asin_checked = _clone_signature(ln)
 asinh = _clone_signature(ln)
 atan = _clone_signature(ln)
+atanh_checked = _clone_signature(ln)
 atanh = _clone_signature(ln)
 cos = _clone_signature(ln)
 cos_checked = _clone_signature(ln)
@@ -1171,6 +1175,13 @@ def index_in(
     memory_pool: lib.MemoryPool | None = None,
 ) -> lib.Int32Scalar | lib.Int32Array | Expression: ...
 
+def index_in_meta_binary(
+    values: lib.Scalar | lib.Array | lib.ChunkedArray | Expression,
+    value_set: lib.Array | lib.ChunkedArray | Expression,
+    /,
+    *,
+    memory_pool: lib.MemoryPool | None = None,
+) -> lib.Int32Scalar | lib.Int32Array | Expression: ...
 
 def is_in(
     values: lib.Scalar | lib.Array | lib.ChunkedArray | Expression,
@@ -1183,6 +1194,7 @@ def is_in(
 ) -> lib.BooleanScalar | lib.BooleanArray | Expression: ...
 
 
+is_in_meta_binary = _clone_signature(index_in_meta_binary)
 match_like = _clone_signature(ends_with)
 match_substring = _clone_signature(ends_with)
 match_substring_regex = _clone_signature(ends_with)

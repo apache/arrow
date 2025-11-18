@@ -1908,7 +1908,9 @@ def read_table(source, *, columns=None, use_threads=True,
 
         filesystem, path = _resolve_filesystem_and_path(source, filesystem)
         if filesystem is not None:
-            if not filesystem.get_file_info(path).is_file:
+            file_info = filesystem.get_file_info(path)
+            assert isinstance(file_info, FileInfo)
+            if not file_info.is_file:
                 raise ValueError(
                     "the 'source' argument should be "
                     "an existing parquet file and not a directory "

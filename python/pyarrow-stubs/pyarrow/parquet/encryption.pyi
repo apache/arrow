@@ -19,6 +19,7 @@ from pyarrow._parquet_encryption import (
     CryptoFactory,
     DecryptionConfiguration,
     EncryptionConfiguration,
+    FileSystemKeyMaterialStore,
     KmsClient,
     KmsConnectionConfig,
 )
@@ -27,6 +28,7 @@ __all__ = [
     "CryptoFactory",
     "DecryptionConfiguration",
     "EncryptionConfiguration",
+    "FileSystemKeyMaterialStore",
     "KmsClient",
     "KmsConnectionConfig",
 ]

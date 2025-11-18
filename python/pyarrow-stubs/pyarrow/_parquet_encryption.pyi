@@ -16,9 +16,11 @@
 # under the License.
 
 import datetime as dt
+import pathlib
 
 from collections.abc import Callable
 
+from pyarrow._fs import FileSystem
 from ._parquet import FileDecryptionProperties, FileEncryptionProperties
 from .lib import _Weakrefable
 
@@ -73,7 +75,7 @@ class KmsConnectionConfig(_Weakrefable):
 
 class KmsClient(_Weakrefable):
     def wrap_key(self, key_bytes: bytes, master_key_identifier: str) -> str: ...
-    def unwrap_key(self, wrapped_key: str, master_key_identifier: str) -> str: ...
+    def unwrap_key(self, wrapped_key: str, master_key_identifier: str) -> bytes: ...
 
 
 class CryptoFactory(_Weakrefable):
@@ -93,3 +95,47 @@ class CryptoFactory(_Weakrefable):
     ) -> FileDecryptionProperties: ...
     def remove_cache_entries_for_token(self, access_token: str) -> None: ...
     def remove_cache_entries_for_all_tokens(self) -> None: ...
+    def rotate_master_keys(
+        self,
+        kms_connection_config: KmsConnectionConfig,
+        parquet_file_path: str | pathlib.Path,
+        filesystem: FileSystem | None = None,
+        double_wrapping: bool = True,
+        cache_lifetime_seconds: int | float = 600,
+    ) -> None: ...
+
+
+class KeyMaterial(_Weakrefable):
+    @property
+    def is_footer_key(self) -> bool: ...
+    @property
+    def is_double_wrapped(self) -> bool: ...
+    @property
+    def master_key_id(self) -> str: ...
+    @property
+    def wrapped_dek(self) -> str: ...
+    @property
+    def kek_id(self) -> str: ...
+    @property
+    def wrapped_kek(self) -> str: ...
+    @property
+    def kms_instance_id(self) -> str: ...
+    @property
+    def kms_instance_url(self) -> str: ...
+    @staticmethod
+    def wrap(key_material: KeyMaterial) -> KeyMaterial: ...
+    @staticmethod
+    def parse(key_material_string: str) -> KeyMaterial: ...
+
+
+
+class FileSystemKeyMaterialStore(_Weakrefable):
+    def get_key_material(self, key_id: str) -> KeyMaterial: ...
+    def get_key_id_set(self) -> list[str]: ...
+    @classmethod
+    def for_file(
+            cls,
+            parquet_file_path: str | pathlib.Path, /,
+            filesystem: FileSystem | None = None
+    ) -> FileSystemKeyMaterialStore:
+        ...

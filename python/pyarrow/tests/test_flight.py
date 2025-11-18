@@ -266,6 +266,7 @@ class EchoTableStreamFlightServer(EchoFlightServer):
     """An echo server that streams the whole table."""
 
     def do_get(self, context, ticket):
+        assert self.last_message is not None
         return flight.GeneratorStream(
             self.last_message.schema,
             [self.last_message])
@@ -283,6 +284,7 @@ class EchoRecordBatchReaderStreamFlightServer(EchoFlightServer):
     """An echo server that streams the whole table as a RecordBatchReader."""
 
     def do_get(self, context, ticket):
+        assert self.last_message is not None
         return flight.GeneratorStream(
             self.last_message.schema,
             [self.last_message.to_reader()])

@@ -553,7 +553,7 @@ def test_encrypted_parquet_write_read_external(tempdir, data_table,
     result_table = read_encrypted_parquet(
         path, decryption_config, kms_connection_config, crypto_factory,
         internal_key_material=False)
-    store = pa._parquet_encryption.FileSystemKeyMaterialStore.for_file(path)
+    store = pe.FileSystemKeyMaterialStore.for_file(path)
 
     assert len(key_ids := store.get_key_id_set()) == (
         len(external_encryption_config.column_keys[COL_KEY_NAME]) + 1)
