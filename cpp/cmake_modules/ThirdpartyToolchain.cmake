@@ -3019,6 +3019,9 @@ function(build_cares)
                                                    "${LIBRESOLV_LIBRARY}")
   endif()
 
+  set(ARROW_BUNDLED_STATIC_LIBS
+      ${ARROW_BUNDLED_STATIC_LIBS} c-ares::cares
+      PARENT_SCOPE)
   list(POP_BACK CMAKE_MESSAGE_INDENT)
 endfunction()
 
