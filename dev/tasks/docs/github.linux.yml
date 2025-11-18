@@ -64,7 +64,8 @@ jobs:
           {% endraw %}
         run: |
           aws s3 cp build/docs/ $BUCKET/pr_docs/{{ pr_number }}/ --recursive
-          echo ":open_book: You can find the preview here: https://s3.amazonaws.com/arrow-data/pr_docs/{{ pr_number }}" >> $GITHUB_STEP_SUMMARY
+          echo ":open_book: You can find the preview here: https://s3.amazonaws.com/arrow-data/pr_docs/{{ pr_number }}/index.html" >> $GITHUB_STEP_SUMMARY
+
       {% endif %}
       - name: Prepare Docs artifacts
         run: |
