@@ -3171,7 +3171,9 @@ function(build_absl)
     # This is due to upstream absl::cctz issue
     # https://github.com/abseil/abseil-cpp/issues/283
     find_library(CoreFoundation CoreFoundation)
-    set_property(TARGET absl::time
+    # When ABSL_ENABLE_INSTALL is ON, the real target is "time" not "absl_time"
+    # Cannot use set_property on alias targets (absl::time is an alias)
+    set_property(TARGET time
                  APPEND
                  PROPERTY INTERFACE_LINK_LIBRARIES ${CoreFoundation})
   endif()
