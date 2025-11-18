@@ -42,4 +42,3 @@ TEST_F(TestTargetDataLayout, VerifyDataLayoutForArchitecture) {
   EXPECT_FALSE(data_layout_str.empty());
 }
 }  // namespace gandiva
-
