@@ -1917,7 +1917,6 @@ def read_table(source, *, columns=None, use_threads=True,
 
             source = filesystem.open_input_file(path)  # type: ignore
 
-        # TODO test that source is not a directory or a list
         dataset = ParquetFile(
             source, read_dictionary=read_dictionary,
             binary_type=binary_type,
