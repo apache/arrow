@@ -18,7 +18,9 @@
 name: "Close stale PRs"
 on:
   schedule:
-    - cron: "10 11 * * *" # Run daily at 11:10 AM UTC
+    # TODO: Change back to daily (e.g., "10 11 * * *") once the backlog is processed
+    # Running hourly temporarily to process the backlog faster
+    - cron: "10 * * * *" # Run hourly at 10 minutes past the hour
   workflow_dispatch:
 
 jobs:
@@ -37,7 +39,6 @@ jobs:
           # exclude issues
           days-before-issue-stale: -1
           days-before-issue-close: -1
-          operations-per-run: 1000
           repo-token: ${{ secrets.GITHUB_TOKEN }}
   close-stale-issues-usage:
     runs-on: ubuntu-latest
@@ -55,7 +56,7 @@ jobs:
           stale-issue-label: "Status: stale-warning"
           days-before-issue-stale: 365
           days-before-issue-close: 14
-          operations-per-run: 1000
+          operations-per-run: 30
           repo-token: ${{ secrets.GITHUB_TOKEN }}
   close-stale-issues-enhancement:
     runs-on: ubuntu-latest
@@ -74,5 +75,5 @@ jobs:
           stale-issue-label: "Status: stale-warning"
           days-before-issue-stale: 365
           days-before-issue-close: 14
-          operations-per-run: 1000
+          operations-per-run: 30
           repo-token: ${{ secrets.GITHUB_TOKEN }}
