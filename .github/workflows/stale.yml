@@ -18,9 +18,7 @@
 name: "Close stale PRs"
 on:
   schedule:
-    # TODO: Change back to daily (e.g., "10 11 * * *") once the backlog is processed
-    # Running hourly temporarily to process the backlog faster
-    - cron: "10 * * * *" # Run hourly at 10 minutes past the hour
+    - cron: "10 11 * * *" # Run daily at 11:10 UTC
   workflow_dispatch:
 
 jobs:
