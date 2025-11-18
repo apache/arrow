@@ -323,17 +323,47 @@ class PARQUET_EXPORT WriterProperties {
               properties.content_defined_chunking_enabled()),
           content_defined_chunking_options_(
               properties.content_defined_chunking_options()) {
-      for (const auto& kvp : properties.column_properties_) {
-        if (kvp.second.statistics_enabled() !=
+      for (const auto& [col_path, col_props] : properties.column_properties_) {
+        if (col_props.statistics_enabled() !=
             default_column_properties_.statistics_enabled()) {
-          if (kvp.second.statistics_enabled()) {
-            this->enable_statistics(kvp.first);
+          if (col_props.statistics_enabled()) {
+            this->enable_statistics(col_path);
           } else {
-            this->disable_statistics(kvp.first);
+            this->disable_statistics(col_path);
           }
         }
+
+        if (col_props.dictionary_enabled() !=
+            default_column_properties_.dictionary_enabled()) {
+          if (col_props.dictionary_enabled()) {
+            this->enable_dictionary(col_path);
+          } else {
+            this->disable_dictionary(col_path);
+          }
+        }
+
+        if (col_props.page_index_enabled() !=
+            default_column_properties_.page_index_enabled()) {
+          if (col_props.page_index_enabled()) {
+            this->enable_write_page_index(col_path);
+          } else {
+            this->disable_write_page_index(col_path);
+          }
+        }
+
+        if (col_props.compression() != default_column_properties_.compression()) {
+          this->compression(col_path, col_props.compression());
+        }
+
+        if (col_props.compression_level() !=
+            default_column_properties_.compression_level()) {
+          this->compression_level(col_path, col_props.compression_level());
+        }
+
+        if (col_props.encoding() != default_column_properties_.encoding()) {
+          this->encoding(col_path, col_props.encoding());
+        }
       }
-      // TODO: Other column specific properties
     }
 
     /// \brief EXPERIMENTAL: Use content-defined page chunking for all columns.
