@@ -244,8 +244,8 @@ std::vector<WriterPropertiesTestCase> writer_properties_test_cases() {
     builder.enable_store_decimal_as_integer();
     builder.disable_write_page_index();
     builder.set_size_statistics_level(SizeStatisticsLevel::ColumnChunk);
-    builder.set_sorting_columns(std::vector<SortingColumn>{
-        SortingColumn{.column_idx = 1, .descending = true, .nulls_first = false}});
+    builder.set_sorting_columns(
+        std::vector<SortingColumn>{SortingColumn{1, true, false}});
 
     test_cases.emplace_back(builder.build(), "override_defaults");
   }
