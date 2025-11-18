@@ -111,6 +111,9 @@ class ARROW_EXPORT FunctionRegistry {
   ///
   /// Helpful for get cast function as needed.
   const Function* cast_function() const;
+  
+  // -AL- todo docs?
+  void ClearFunctioRegistry();
 
  private:
   FunctionRegistry();
