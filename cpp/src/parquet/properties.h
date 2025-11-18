@@ -322,7 +322,19 @@ class PARQUET_EXPORT WriterProperties {
           content_defined_chunking_enabled_(
               properties.content_defined_chunking_enabled()),
           content_defined_chunking_options_(
-              properties.content_defined_chunking_options()) {}
+              properties.content_defined_chunking_options()) {
+      for (const auto& kvp : properties.column_properties_) {
+        if (kvp.second.statistics_enabled() !=
+            default_column_properties_.statistics_enabled()) {
+          if (kvp.second.statistics_enabled()) {
+            this->enable_statistics(kvp.first);
+          } else {
+            this->disable_statistics(kvp.first);
+          }
+        }
+      }
+      // TODO: Other column specific properties
+    }
 
     /// \brief EXPERIMENTAL: Use content-defined page chunking for all columns.
     ///
