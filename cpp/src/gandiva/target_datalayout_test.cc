@@ -40,6 +40,6 @@ TEST_F(TestTargetDataLayout, VerifyDataLayoutForArchitecture) {
   std::string data_layout_str = data_layout.getStringRepresentation();
 
   EXPECT_FALSE(data_layout_str.empty());
-  }
+ }
 }  // namespace gandiva
 
