@@ -18,7 +18,8 @@
 name: "Close stale PRs"
 on:
   schedule:
-    - cron: "0 11 * * 3" # Run once per week on Wednesday at 11:00 AM UTC
+    - cron: "10 11 * * *" # Run daily at 11:10 AM UTC
+  workflow_dispatch:
 
 jobs:
   close-stale-prs:
@@ -36,6 +37,7 @@ jobs:
           # exclude issues
           days-before-issue-stale: -1
           days-before-issue-close: -1
+          operations-per-run: 1000
           repo-token: ${{ secrets.GITHUB_TOKEN }}
   close-stale-issues-usage:
     runs-on: ubuntu-latest
@@ -53,6 +55,7 @@ jobs:
           stale-issue-label: "Status: stale-warning"
           days-before-issue-stale: 365
           days-before-issue-close: 14
+          operations-per-run: 1000
           repo-token: ${{ secrets.GITHUB_TOKEN }}
   close-stale-issues-enhancement:
     runs-on: ubuntu-latest
@@ -71,4 +74,5 @@ jobs:
           stale-issue-label: "Status: stale-warning"
           days-before-issue-stale: 365
           days-before-issue-close: 14
+          operations-per-run: 1000
           repo-token: ${{ secrets.GITHUB_TOKEN }}
