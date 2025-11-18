@@ -17,7 +17,6 @@
 
 #include <gtest/gtest.h>
 #include <llvm/IR/DataLayout.h>
-#include <llvm/TargetParser/Host.h>
 
 #include "gandiva/llvm_generator.h"
 #include "gandiva/tests/test_util.h"
@@ -41,13 +40,6 @@ TEST_F(TestTargetDataLayout, VerifyDataLayoutForArchitecture) {
   std::string data_layout_str = data_layout.getStringRepresentation();
 
   EXPECT_FALSE(data_layout_str.empty());
-
-  std::string host_cpu = llvm::sys::getHostCPUName().str();
-  std::string triple = llvm::sys::getDefaultTargetTriple();
-  // Log the information for debugging
-  std::cout << "Host CPU: " << host_cpu << std::endl;
-  std::cout << "Target Triple: " << triple << std::endl;
-  std::cout << "Data Layout: " << data_layout_str << std::endl;
   }
 }  // namespace gandiva
 
