@@ -29,6 +29,7 @@
 #include "arrow/acero/task_util.h"
 #include "arrow/compute/row/encode_internal.h"
 #include "arrow/compute/row/row_encoder_internal.h"
+#include "arrow/util/endian.h"
 #include "arrow/util/logging_internal.h"
 #include "arrow/util/tracing_internal.h"
 
@@ -306,19 +307,40 @@ class HashJoinBasicImpl : public HashJoinImpl {
 
     size_t num_probed_rows = match.size() + no_match.size();
     if (mask.is_scalar()) {
+#if ARROW_LITTLE_ENDIAN
       const auto& mask_scalar = mask.scalar_as<BooleanScalar>();
       if (mask_scalar.is_valid && mask_scalar.value) {
         // All rows passed, nothing left to do
         return Status::OK();
-      } else {
-        // Nothing passed, no_match becomes everything
-        no_match.resize(num_probed_rows);
-        std::iota(no_match.begin(), no_match.end(), 0);
-        match_left.clear();
-        match_right.clear();
-        match.clear();
-        return Status::OK();
       }
+#else
+      // Check if the scalar is a BooleanScalar before casting
+      if (mask.scalar()->type->id() == Type::BOOL) {
+        const auto& mask_scalar = mask.scalar_as<BooleanScalar>();
+        if (mask_scalar.is_valid && mask_scalar.value) {
+          // All rows passed, nothing left to do
+          return Status::OK();
+        } else {
+          // Nothing passed, no_match becomes everything
+          no_match.resize(num_probed_rows);
+          std::iota(no_match.begin(), no_match.end(), 0);
+          match_left.clear();
+          match_right.clear();
+          match.clear();
+          return Status::OK();
+        }
+      }
+#endif
+      // On Little-endian systems: Nothing passed, no_match becomes everything
+      // On Big-endian systems:
+      // If it's not a BooleanScalar (e.g., NullScalar), treat as false
+      // This handles cases like literal(NullScalar()) in filter expressions
+      no_match.resize(num_probed_rows);
+      std::iota(no_match.begin(), no_match.end(), 0);
+      match_left.clear();
+      match_right.clear();
+      match.clear();
+      return Status::OK();
     }
     ARROW_DCHECK_EQ(mask.array()->offset, 0);
     ARROW_DCHECK_EQ(mask.array()->length, static_cast<int64_t>(match_left.size()));
