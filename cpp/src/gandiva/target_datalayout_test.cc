@@ -30,35 +30,24 @@ class TestTargetDataLayout : public ::testing::Test {
 };
 
 // Test that verifies the target data layout string representation
-// is consistent with the CPU architecture. This test is portable
-// across different architectures.
+// is populated.
 TEST_F(TestTargetDataLayout, VerifyDataLayoutForArchitecture) {
-  // Create an LLVM generator with default configuration
   ASSERT_OK_AND_ASSIGN(auto generator, LLVMGenerator::Make(TestConfiguration(), false));
 
-  // Get the module from the generator
   llvm::Module* module = generator->module();
   ASSERT_NE(module, nullptr);
 
-  // Get the data layout from the module
   const llvm::DataLayout& data_layout = module->getDataLayout();
   std::string data_layout_str = data_layout.getStringRepresentation();
 
-  // Verify that the data layout string is not empty
   EXPECT_FALSE(data_layout_str.empty());
 
-  // Get the host CPU architecture information
   std::string host_cpu = llvm::sys::getHostCPUName().str();
   std::string triple = llvm::sys::getDefaultTargetTriple();
-
   // Log the information for debugging
   std::cout << "Host CPU: " << host_cpu << std::endl;
   std::cout << "Target Triple: " << triple << std::endl;
   std::cout << "Data Layout: " << data_layout_str << std::endl;
-
-  // Verify that the data layout string is not empty
-  EXPECT_FALSE(data_layout_str.empty());
-
   }
 }  // namespace gandiva
 
