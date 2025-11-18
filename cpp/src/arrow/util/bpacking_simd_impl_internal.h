@@ -405,7 +405,7 @@ auto left_shift_no_overflow(const xsimd::batch<Int, Arch>& batch,
     if constexpr (sizeof(Int) == sizeof(uint16_t)) {
       return _mm_mullo_epi16(batch, kMults.as_batch());
     }
-    if constexpr (sizeof(Int) == sizeof(uint16_t)) {
+    if constexpr (sizeof(Int) == sizeof(uint32_t)) {
       // TODO that is latency 10 so maybe it is not worth it
       return _mm_mullo_epi32(batch, kMults.as_batch());
     }
@@ -446,7 +446,7 @@ auto right_shift_by_excess(const xsimd::batch<Int, Arch>& batch,
       return xsimd::batch<Int, Arch>(_mm_mullo_epi16(batch, kMults.as_batch())) >>
              kMaxRightShift;
     }
-    if constexpr (sizeof(Int) == sizeof(uint16_t)) {
+    if constexpr (sizeof(Int) == sizeof(uint32_t)) {
       // TODO that is latency 10 so maybe it is not worth it
       return xsimd::batch<Int, Arch>(_mm_mullo_epi32(batch, kMults.as_batch())) >>
              kMaxRightShift;
