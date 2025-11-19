@@ -2799,7 +2799,7 @@ if(ARROW_WITH_ZSTD)
 endif()
 
 # ----------------------------------------------------------------------
-# RE2 (required for Gandiva)
+# RE2 (required for Gandiva and gRPC)
 
 function(build_re2)
   list(APPEND CMAKE_MESSAGE_INDENT "RE2: ")
@@ -2818,13 +2818,6 @@ function(build_re2)
 
   prepare_fetchcontent()
   fetchcontent_makeavailable(re2)
-
-  # RE2 creates re2::re2 target automatically
-  # Just need to add to bundled libs list
-  list(APPEND ARROW_BUNDLED_STATIC_LIBS re2::re2)
-  set(ARROW_BUNDLED_STATIC_LIBS
-      "${ARROW_BUNDLED_STATIC_LIBS}"
-      PARENT_SCOPE)
 
   # Install RE2 for gRPC to find via find_package()
   # Save and disable RE2's install script
@@ -2857,6 +2850,9 @@ function(build_re2)
 
   add_custom_target(re2_fc DEPENDS "${RE2_PREFIX}/.re2_installed")
 
+  set(ARROW_BUNDLED_STATIC_LIBS
+      ${ARROW_BUNDLED_STATIC_LIBS} re2::re2
+      PARENT_SCOPE)
   list(POP_BACK CMAKE_MESSAGE_INDENT)
 endfunction()
 
@@ -3263,7 +3259,6 @@ macro(build_grpc)
   endif()
 
   if(RE2_VENDORED)
-    # RE2 is built via FetchContent and installed for gRPC to find
     add_dependencies(grpc_dependencies re2_fc)
   endif()
 
