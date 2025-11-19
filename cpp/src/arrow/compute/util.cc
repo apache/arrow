@@ -30,34 +30,40 @@ namespace util {
 namespace bit_util {
 
 inline uint64_t SafeLoadUpTo8Bytes(const uint8_t* bytes, int num_bytes) {
-  // This will not be correct on big-endian architectures.
-#if !ARROW_LITTLE_ENDIAN
-  ARROW_DCHECK(false);
-#endif
   ARROW_DCHECK(num_bytes >= 0 && num_bytes <= 8);
   if (num_bytes == 8) {
     return util::SafeLoad(reinterpret_cast<const uint64_t*>(bytes));
   } else {
     uint64_t word = 0;
+#if ARROW_LITTLE_ENDIAN
     for (int i = 0; i < num_bytes; ++i) {
       word |= static_cast<uint64_t>(bytes[i]) << (8 * i);
     }
+#else
+    // Big-endian: most significant byte first
+    for (int i = 0; i < num_bytes; ++i) {
+      word |= static_cast<uint64_t>(bytes[i]) << (8 * (num_bytes - 1 - i));
+    }
+#endif
     return word;
   }
 }
 
 inline void SafeStoreUpTo8Bytes(uint8_t* bytes, int num_bytes, uint64_t value) {
-  // This will not be correct on big-endian architectures.
-#if !ARROW_LITTLE_ENDIAN
-  ARROW_DCHECK(false);
-#endif
   ARROW_DCHECK(num_bytes >= 0 && num_bytes <= 8);
   if (num_bytes == 8) {
     util::SafeStore(reinterpret_cast<uint64_t*>(bytes), value);
   } else {
+#if ARROW_LITTLE_ENDIAN
     for (int i = 0; i < num_bytes; ++i) {
       bytes[i] = static_cast<uint8_t>(value >> (8 * i));
     }
+#else
+    // Big-endian: most significant byte first
+    for (int i = 0; i < num_bytes; ++i) {
+      bytes[i] = static_cast<uint8_t>(value >> (8 * (num_bytes - 1 - i)));
+    }
+#endif
   }
 }
 
@@ -118,7 +124,22 @@ void bits_to_indexes_internal(int64_t hardware_flags, const int num_bits,
   // Optionally process the last partial word with masking out bits outside range
   if (tail) {
     const uint8_t* bits_tail = bits + (num_bits - tail) / 8;
+#if ARROW_LITTLE_ENDIAN
     uint64_t word = SafeLoadUpTo8Bytes(bits_tail, (tail + 7) / 8);
+#else
+    int tail_bytes = (tail + 7) / 8;
+    uint64_t word;
+    if (tail_bytes == 8) {
+      word = util::SafeLoad(reinterpret_cast<const uint64_t*>(bits_tail));
+    } else {
+      // For bit manipulation, always load into least significant bits
+      // to ensure compatibility with CountTrailingZeros on Big-endian systems
+      word = 0;
+      for (int i = 0; i < tail_bytes; ++i) {
+        word |= static_cast<uint64_t>(bits_tail[i]) << (8 * i);
+      }
+    }
+#endif
     if (bit_to_search == 0) {
       word = ~word;
     }
@@ -299,7 +320,21 @@ void bytes_to_bits(int64_t hardware_flags, const int num_bits, const uint8_t* by
   }
   int tail = num_bits % unroll;
   if (tail) {
-    uint64_t bytes_next = SafeLoadUpTo8Bytes(bytes + num_bits - tail, tail);
+    uint64_t bytes_next;
+#if ARROW_LITTLE_ENDIAN
+    bytes_next = SafeLoadUpTo8Bytes(bytes + num_bits - tail, tail);
+#else
+    if (tail == 8) {
+      bytes_next = util::SafeLoad(reinterpret_cast<const uint64_t*>(bytes + num_bits - tail));
+    } else {
+      // On Big-endian systems, for bytes_to_bits, load all tail bytes in little-endian order
+      // to ensure compatibility with subsequent bit operations
+      bytes_next = 0;
+      for (int i = 0; i < tail; ++i) {
+        bytes_next |= static_cast<uint64_t>((bytes + num_bits - tail)[i]) << (8 * i);
+      }
+    }
+#endif
     bytes_next &= 0x0101010101010101ULL;
     bytes_next |= (bytes_next >> 7);  // Pairs of adjacent output bits in individual bytes
     bytes_next |= (bytes_next >> 14);  // 4 adjacent output bits in individual bytes
