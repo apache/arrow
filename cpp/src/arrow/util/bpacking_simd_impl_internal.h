@@ -383,23 +383,29 @@ constexpr auto make_mult(xsimd::batch_constant<Int, Arch, kShifts...>) {
   return xsimd::make_batch_constant<Int, Arch, MakeMults<Int, kShifts...>>();
 }
 
-// Intel x86-64 does not have variable left shifts before AVX2.
+template <typename Int, Int kOffset, Int kLength, Int... kVals>
+struct SelectStride {
+  static constexpr auto kShiftsArr = std::array{kVals...};
+
+  static constexpr Int get(Int i, Int n) { return kShiftsArr[kLength * i + kOffset]; }
+};
+
+// Fallback for variable shift left.
 //
 // We replace the variable left shift by a variable multiply with a power of two.
-// The behaviour is the same sa long as there are no overflow.
 //
 // This trick is borrowed from Daniel Lemire and Leonid Boytsov, Decoding billions of
 // integers per second through vectorization, Software Practice & Experience 45 (1), 2015.
 // http://arxiv.org/abs/1209.2137
 template <typename Arch, typename Int, Int... kShifts>
-auto left_shift_no_overflow(const xsimd::batch<Int, Arch>& batch,
-                            xsimd::batch_constant<Int, Arch, kShifts...> shifts)
+auto left_shift(const xsimd::batch<Int, Arch>& batch,
+                xsimd::batch_constant<Int, Arch, kShifts...> shifts)
     -> xsimd::batch<Int, Arch> {
   constexpr bool kHasSse2 = std::is_base_of_v<xsimd::sse2, Arch>;
   constexpr bool kHasAvx2 = std::is_base_of_v<xsimd::avx2, Arch>;
   static_assert(!(kHasSse2 && kHasAvx2), "The hierarchy are different in xsimd");
 
-  // TODO in xsimd 14.0 this can be simplified to
+  // TODO(xsimd-14) this can be simplified to
   // constexpr auto kMults = xsimd::make_batch_constant<Int, 1, Arch>() << shits;
   constexpr auto kMults = make_mult(shifts);
 
@@ -408,13 +414,30 @@ auto left_shift_no_overflow(const xsimd::batch<Int, Arch>& batch,
       return _mm_mullo_epi16(batch, kMults.as_batch());
     }
     if constexpr (sizeof(Int) == sizeof(uint32_t)) {
-      // TODO that is latency 10 so maybe it is not worth it
       return _mm_mullo_epi32(batch, kMults.as_batch());
     }
   }
   if constexpr (kHasAvx2) {
     if constexpr (sizeof(Int) == sizeof(uint8_t)) {
-      // TODO fallback
+      auto batch16 = xsimd::bitwise_cast<uint16_t>(batch);
+
+      constexpr auto kShifts0 =
+          xsimd::make_batch_constant<uint16_t, Arch,
+                                     SelectStride<Int, 0, 2, kShifts...>>();
+      constexpr auto kMults0 = make_mult(kShifts0);
+      const auto shifted0 = _mm256_mullo_epi16(batch16, kMults0.as_batch());
+      const auto mask0 = decltype(batch16)(0x00FF);
+      const auto masked0 = _mm256_and_si256(shifted0, mask0);
+
+      constexpr auto kShifts1 =
+          xsimd::make_batch_constant<uint16_t, Arch,
+                                     SelectStride<Int, 1, 2, kShifts...>>();
+      constexpr auto kMults1 = make_mult(kShifts1);
+      const auto mask1 = decltype(batch16)(0xFF00);
+      const auto masked1 = _mm256_and_si256(batch16, mask1);
+      const auto shifted1 = _mm256_mullo_epi16(masked1, kMults1.as_batch());
+
+      return _mm256_or_si256(masked0, shifted1);
     }
     if constexpr (sizeof(Int) == sizeof(uint16_t)) {
       return _mm256_mullo_epi16(batch, kMults.as_batch());
@@ -670,7 +693,7 @@ struct LargeKernel {
 
     const auto high_swizzled = swizzle_bytes(bytes, kHighSwizzles);
     const auto high_words = xsimd::bitwise_cast<unpacked_type>(high_swizzled);
-    const auto high_shifted = left_shift_no_overflow(high_words, kHighLShifts);
+    const auto high_shifted = left_shift(high_words, kHighLShifts);
 
     // We can have a single mask and apply it after OR because the shifts will ensure that
     // there are zeros where the high/low values are incomplete.
