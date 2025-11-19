@@ -2950,33 +2950,67 @@ if(ARROW_WITH_UTF8PROC)
   resolve_dependency(${utf8proc_resolve_dependency_args})
 endif()
 
-macro(build_cares)
-  message(STATUS "Building c-ares from source")
-  set(CARES_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/cares_ep-install")
-  set(CARES_INCLUDE_DIR "${CARES_PREFIX}/include")
+function(build_cares)
+  list(APPEND CMAKE_MESSAGE_INDENT "c-ares: ")
+  message(STATUS "Building c-ares from source using FetchContent")
+  set(CARES_VENDORED
+      TRUE
+      PARENT_SCOPE)
+  set(CARES_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/cares_fc-install")
+  set(CARES_PREFIX
+      "${CARES_PREFIX}"
+      PARENT_SCOPE)
 
-  # If you set -DCARES_SHARED=ON then the build system names the library
-  # libcares_static.a
-  set(CARES_STATIC_LIB
-      "${CARES_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}cares${CMAKE_STATIC_LIBRARY_SUFFIX}"
-  )
+  fetchcontent_declare(cares
+                       URL ${CARES_SOURCE_URL}
+                       URL_HASH "SHA256=${ARROW_CARES_BUILD_SHA256_CHECKSUM}")
 
-  set(CARES_CMAKE_ARGS "${EP_COMMON_CMAKE_ARGS}" "-DCMAKE_INSTALL_PREFIX=${CARES_PREFIX}"
-                       -DCARES_SHARED=OFF -DCARES_STATIC=ON)
+  prepare_fetchcontent()
 
-  externalproject_add(cares_ep
-                      ${EP_COMMON_OPTIONS}
-                      URL ${CARES_SOURCE_URL}
-                      URL_HASH "SHA256=${ARROW_CARES_BUILD_SHA256_CHECKSUM}"
-                      CMAKE_ARGS ${CARES_CMAKE_ARGS}
-                      BUILD_BYPRODUCTS "${CARES_STATIC_LIB}")
+  set(CARES_SHARED OFF)
+  set(CARES_STATIC ON)
+  set(CARES_INSTALL ON)
+  set(CARES_BUILD_TOOLS OFF)
+  set(CARES_BUILD_TESTS OFF)
+  fetchcontent_makeavailable(cares)
 
-  file(MAKE_DIRECTORY ${CARES_INCLUDE_DIR})
+  # gRPC requires c-ares to be installed to a known location.
+  # We have to do this in two steps to avoid double installation of c-ares
+  # when Arrow is installed.
+  # This custom target ensures c-ares is built before we install
+  add_custom_target(cares_built DEPENDS c-ares::cares)
 
-  add_library(c-ares::cares STATIC IMPORTED)
-  set_target_properties(c-ares::cares PROPERTIES IMPORTED_LOCATION "${CARES_STATIC_LIB}")
-  target_include_directories(c-ares::cares BEFORE INTERFACE "${CARES_INCLUDE_DIR}")
-  add_dependencies(c-ares::cares cares_ep)
+  # Disable c-ares's install script after it's built to prevent double installation
+  add_custom_command(OUTPUT "${cares_BINARY_DIR}/cmake_install.cmake.saved"
+                     COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                             "${cares_BINARY_DIR}/cmake_install.cmake"
+                             "${cares_BINARY_DIR}/cmake_install.cmake.saved"
+                     COMMAND ${CMAKE_COMMAND} -E echo
+                             "# c-ares install disabled to prevent double installation with Arrow"
+                             > "${cares_BINARY_DIR}/cmake_install.cmake"
+                     DEPENDS cares_built
+                     COMMENT "Disabling c-ares install to prevent double installation"
+                     VERBATIM)
+
+  add_custom_target(cares_install_disabled ALL
+                    DEPENDS "${cares_BINARY_DIR}/cmake_install.cmake.saved")
+
+  # Install c-ares to CARES_PREFIX for gRPC to find
+  add_custom_command(OUTPUT "${CARES_PREFIX}/.cares_installed"
+                     COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                             "${cares_BINARY_DIR}/cmake_install.cmake.saved"
+                             "${cares_BINARY_DIR}/cmake_install.cmake.tmp"
+                     COMMAND ${CMAKE_COMMAND} -DCMAKE_INSTALL_PREFIX=${CARES_PREFIX}
+                             -DCMAKE_INSTALL_CONFIG_NAME=$<CONFIG> -P
+                             "${cares_BINARY_DIR}/cmake_install.cmake.tmp" ||
+                             ${CMAKE_COMMAND} -E true
+                     COMMAND ${CMAKE_COMMAND} -E touch "${CARES_PREFIX}/.cares_installed"
+                     DEPENDS cares_install_disabled
+                     COMMENT "Installing c-ares to ${CARES_PREFIX} for gRPC"
+                     VERBATIM)
+
+  # Make cares_fc depend on the install completion marker
+  add_custom_target(cares_fc DEPENDS "${CARES_PREFIX}/.cares_installed")
 
   if(APPLE)
     # libresolv must be linked from c-ares version 1.16.1
@@ -2985,10 +3019,11 @@ macro(build_cares)
                                                    "${LIBRESOLV_LIBRARY}")
   endif()
 
-  set(CARES_VENDORED TRUE)
-
-  list(APPEND ARROW_BUNDLED_STATIC_LIBS c-ares::cares)
-endmacro()
+  set(ARROW_BUNDLED_STATIC_LIBS
+      ${ARROW_BUNDLED_STATIC_LIBS} c-ares::cares
+      PARENT_SCOPE)
+  list(POP_BACK CMAKE_MESSAGE_INDENT)
+endfunction()
 
 # ----------------------------------------------------------------------
 # Dependencies for Arrow Flight RPC
@@ -3136,7 +3171,9 @@ function(build_absl)
     # This is due to upstream absl::cctz issue
     # https://github.com/abseil/abseil-cpp/issues/283
     find_library(CoreFoundation CoreFoundation)
-    set_property(TARGET absl::time
+    # When ABSL_ENABLE_INSTALL is ON, the real target is "time" not "absl_time"
+    # Cannot use set_property on alias targets (absl::time is an alias)
+    set_property(TARGET time
                  APPEND
                  PROPERTY INTERFACE_LINK_LIBRARIES ${CoreFoundation})
   endif()
@@ -3189,7 +3226,7 @@ macro(build_grpc)
     add_dependencies(grpc_dependencies absl_fc)
   endif()
   if(CARES_VENDORED)
-    add_dependencies(grpc_dependencies cares_ep)
+    add_dependencies(grpc_dependencies cares_fc)
   endif()
 
   if(GFLAGS_VENDORED)
@@ -3208,8 +3245,16 @@ macro(build_grpc)
   get_filename_component(GRPC_PB_ROOT "${GRPC_PROTOBUF_INCLUDE_DIR}" DIRECTORY)
   get_target_property(GRPC_Protobuf_PROTOC_LIBRARY ${ARROW_PROTOBUF_LIBPROTOC}
                       IMPORTED_LOCATION)
-  get_target_property(GRPC_CARES_INCLUDE_DIR c-ares::cares INTERFACE_INCLUDE_DIRECTORIES)
-  get_filename_component(GRPC_CARES_ROOT "${GRPC_CARES_INCLUDE_DIR}" DIRECTORY)
+
+  # For FetchContent c-ares, use the install prefix directly
+  if(CARES_VENDORED)
+    set(GRPC_CARES_ROOT "${CARES_PREFIX}")
+  else()
+    get_target_property(GRPC_CARES_INCLUDE_DIR c-ares::cares
+                        INTERFACE_INCLUDE_DIRECTORIES)
+    get_filename_component(GRPC_CARES_ROOT "${GRPC_CARES_INCLUDE_DIR}" DIRECTORY)
+  endif()
+
   get_target_property(GRPC_RE2_INCLUDE_DIR re2::re2 INTERFACE_INCLUDE_DIRECTORIES)
   get_filename_component(GRPC_RE2_ROOT "${GRPC_RE2_INCLUDE_DIR}" DIRECTORY)
 
