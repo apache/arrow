@@ -27,7 +27,6 @@
 #include "arrow/compute/kernels/scalar_cast_internal.h"
 #include "arrow/compute/kernels/temporal_internal.h"
 #include "arrow/result.h"
-#include "arrow/testing/gtest_util.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/formatting.h"
