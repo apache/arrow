@@ -372,6 +372,17 @@ auto swizzle_bytes(const xsimd::batch<uint8_t, Arch>& batch,
   }
 }
 
+template <typename Int, Int... kShifts>
+struct MakeMults {
+  static constexpr auto kShiftsArr = std::array{kShifts...};
+  static constexpr Int get(int i, int n) { return Int{1} << kShiftsArr.at(i); }
+};
+
+template <typename Int, typename Arch, Int... kShifts>
+constexpr auto make_mult(xsimd::batch_constant<Int, Arch, kShifts...>) {
+  return xsimd::make_batch_constant<Int, Arch, MakeMults<Int, kShifts...>>();
+}
+
 // Intel x86-64 does not have variable left shifts before AVX2.
 //
 // We replace the variable left shift by a variable multiply with a power of two.
@@ -388,15 +399,9 @@ auto left_shift_no_overflow(const xsimd::batch<Int, Arch>& batch,
   constexpr bool kHasAvx2 = std::is_base_of_v<xsimd::avx2, Arch>;
   static_assert(!(kHasSse2 && kHasAvx2), "The hierarchy are different in xsimd");
 
-  static constexpr auto kShiftsArr = std::array{kShifts...};
-
-  struct MakeMults {
-    static constexpr Int get(int i, int n) { return Int{1} << kShiftsArr.at(i); }
-  };
-
   // TODO in xsimd 14.0 this can be simplified to
   // constexpr auto kMults = xsimd::make_batch_constant<Int, 1, Arch>() << shits;
-  constexpr auto kMults = xsimd::make_batch_constant<Int, Arch, MakeMults>();
+  constexpr auto kMults = make_mult(shifts);
 
   if constexpr (kHasSse2) {
     if constexpr (sizeof(Int) == sizeof(uint16_t)) {
