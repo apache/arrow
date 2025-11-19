@@ -447,7 +447,7 @@ auto left_shift(const xsimd::batch<Int, Arch>& batch,
   return batch << shifts;
 }
 
-// Intel x86-64 does not have variable right shifts before AVX2.
+// Fallback for variable shift right.
 //
 // When we know that the relevant bits will not overflow, we can instead shift left all
 // values to align them with the one with the largest right shifts followed by a constant
@@ -465,47 +465,30 @@ auto right_shift_by_excess(const xsimd::batch<Int, Arch>& batch,
   constexpr bool kHasAvx2 = std::is_base_of_v<xsimd::avx2, Arch>;
   static_assert(!(kHasSse2 && kHasAvx2), "The hierarchy are different in xsimd");
 
-  static constexpr auto kShiftsArr = std::array{kShifts...};
-  static constexpr Int kMaxRightShift = max_value(kShiftsArr);
+  // These conditions are the ones matched in `left_shift`, i.e. the ones where variable
+  // shift right will not be available.
+  if constexpr ((kHasSse2 &
+                 (sizeof(Int) == sizeof(uint16_t) || sizeof(Int) == sizeof(uint32_t))) ||
+                (kHasAvx2 &
+                 (sizeof(Int) == sizeof(uint8_t) || sizeof(Int) == sizeof(uint16_t)))) {
+    static constexpr auto kShiftsArr = std::array{kShifts...};
+    static constexpr Int kMaxRightShift = max_value(kShiftsArr);
 
-  struct MakeMults {
-    static constexpr Int get(int i, int n) {
-      // Equivalent to left shift of kMaxRightShift - kRightShifts.at(i).
-      return Int{1} << (kMaxRightShift - kShiftsArr.at(i));
-    }
-  };
+    struct MakeShifts {
+      static constexpr Int get(int i, int n) { return kMaxRightShift - kShiftsArr.at(i); }
+    };
 
-  // TODO in xsimd 14.0 this can be simplified to
-  // constexpr auto kMults = xsimd::make_batch_constant<Int, kMaxRightShift, Arch>() -
-  // shifts; and then forwarded to left_shift
-  constexpr auto kMults = xsimd::make_batch_constant<Int, Arch, MakeMults>();
+    // TODO(xsimd-14) this can be simplified to
+    // constexpr auto kRShifts = xsimd::make_batch_constant<Int, kMaxRightShift, Arch>() -
+    // shifts;
+    constexpr auto kLShifts = xsimd::make_batch_constant<Int, Arch, MakeShifts>();
 
-  if constexpr (kHasSse2) {
-    if constexpr (sizeof(Int) == sizeof(uint16_t)) {
-      auto lshifted = _mm_mullo_epi16(batch, kMults.as_batch());
-      // TODO(xsimd 14.0)
-      // return xsimd::bitwise_rshift<kMaxRightShift>(lshifted);
-      return xsimd::batch<Int, Arch>(lshifted) >> kMaxRightShift;
-    }
-    if constexpr (sizeof(Int) == sizeof(uint32_t)) {
-      // TODO that is latency 10 so maybe it is not worth it
-      auto lshifted = _mm_mullo_epi32(batch, kMults.as_batch());
-      // TODO(xsimd 14.0)
-      // return xsimd::bitwise_rshift<kMaxRightShift>(lshifted);
-      return xsimd::batch<Int, Arch>(lshifted) >> kMaxRightShift;
-    }
+    const auto lshifted = left_shift(batch, kLShifts);
+    // TODO(xsimd-14)
+    // return xsimd::bitwise_rshift<kMaxRightShift>(lshifted);
+    return xsimd::batch<Int, Arch>(lshifted) >> kMaxRightShift;
   }
-  if constexpr (kHasAvx2) {
-    if constexpr (sizeof(Int) == sizeof(uint8_t)) {
-      // TODO fallback
-    }
-    if constexpr (sizeof(Int) == sizeof(uint16_t)) {
-      auto lshifted = _mm256_mullo_epi16(batch, kMults.as_batch());
-      // TODO(xsimd 14.0)
-      // return xsimd::bitwise_rshift<kMaxRightShift>(lshifted);
-      return xsimd::batch<Int, Arch>(lshifted) >> kMaxRightShift;
-    }
-  }
+
   return batch >> shifts;
 }
 
