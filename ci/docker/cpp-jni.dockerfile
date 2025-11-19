@@ -105,4 +105,5 @@ RUN --mount=type=secret,id=github_repository_owner \
 
 ENV ARROW_BUILD_TESTS=ON \
     ARROW_CMAKE_ARGS="-DARROW_BUILD_TESTS=ON" \
-    CMAKE_PRESET=ninja-${CMAKE_BUILD_TYPE}-jni-linux
+    CMAKE_PRESET=ninja-${CMAKE_BUILD_TYPE}-jni-linux \
+    VCPKG_TARGET_TRIPLET=${VCPKG_DEFAULT_TRIPLET}
