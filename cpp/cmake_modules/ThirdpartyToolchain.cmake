@@ -2815,8 +2815,10 @@ function(build_re2)
   fetchcontent_declare(re2
                        URL ${RE2_SOURCE_URL}
                        URL_HASH "SHA256=${ARROW_RE2_BUILD_SHA256_CHECKSUM}")
-
   prepare_fetchcontent()
+
+  # Unity build causes some build errors
+  set(CMAKE_UNITY_BUILD OFF)
   fetchcontent_makeavailable(re2)
 
   # Install RE2 for gRPC to find via find_package()
