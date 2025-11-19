@@ -398,9 +398,7 @@ Containment Tests
    find_substring
    find_substring_regex
    index_in
-   index_in_meta_binary
    is_in
-   is_in_meta_binary
    match_like
    match_substring
    match_substring_regex

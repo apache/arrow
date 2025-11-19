@@ -31,7 +31,6 @@ These functions create new Arrow arrays:
 
    arange
    array
-   asarray
    nulls
    repeat
 
