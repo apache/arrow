@@ -15,17 +15,20 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <iostream>
 #include <limits>
 #include <optional>
 
 #include "arrow/array/array_base.h"
 #include "arrow/array/builder_binary.h"
+#include "arrow/buffer.h"
 #include "arrow/compute/kernels/base_arithmetic_internal.h"
 #include "arrow/compute/kernels/codegen_internal.h"
 #include "arrow/compute/kernels/common_internal.h"
 #include "arrow/compute/kernels/scalar_cast_internal.h"
 #include "arrow/compute/kernels/temporal_internal.h"
 #include "arrow/result.h"
+#include "arrow/testing/gtest_util.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/formatting.h"
@@ -304,8 +307,18 @@ BinaryToBinaryCastExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* ou
     }
   }
 
-  // Start with a zero-copy cast, but change indices to expected size
-  RETURN_NOT_OK(ZeroCopyCastExec(ctx, batch, out));
+  std::shared_ptr<ArrayData> input_arr = input.ToArrayData();
+  ArrayData* output = out->array_data().get();
+  output->length = input_arr->length;
+  output->offset = input_arr->offset % 8;
+  output->buffers = input_arr->buffers;
+  output->child_data = input_arr->child_data;
+  output->SetNullCount(input_arr->null_count);
+
+  if (output->buffers[0]) {
+    output->buffers[0] = SliceBuffer(input_arr->buffers[0], input_arr->offset / 8);
+  }
+
   return CastBinaryToBinaryOffsets<typename I::offset_type, typename O::offset_type>(
       ctx, input, out->array_data().get());
 }
