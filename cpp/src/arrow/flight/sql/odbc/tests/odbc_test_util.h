@@ -19,7 +19,7 @@
 
 #include "arrow/flight/sql/odbc/odbc_impl/platform.h"
 
-#include "arrow/compute/api.h" // -AL- attempt to keep registry alive
+#include "arrow/compute/api.h"
 
 #include <sql.h>
 #include <sqlucode.h>
@@ -29,10 +29,9 @@
 namespace arrow::flight::sql::odbc {
 
 // -AL- todo update to actual ODBC allocation
-class AlinaTestEnvironment : public ::testing::Environment {
+class OdbcUtilEnvironment : public ::testing::Environment {
  public:
   void SetUp() override {
-    int x = 1;
     // -AL- todo add env_v2 for v2 after global setup/teardown works.
 
     // Allocate an environment handle
@@ -45,27 +44,20 @@ class AlinaTestEnvironment : public ::testing::Environment {
 
     // Allocate a connection using alloc handle
     ASSERT_EQ(SQL_SUCCESS, SQLAllocHandle(SQL_HANDLE_DBC, env, &conn));
-    std::cout << "-AL- AlinaTestEnvironment::SetUp\n";
+    std::cout << "-AL- OdbcUtilEnvironment::SetUp\n";
   }
 
   void TearDown() override {
-
-
-    // -AL- this doesn't work
-    //// Remove function registry before test exits
+    // Clear function registry before test exits
     auto reg = arrow::compute::GetFunctionRegistry();
     reg->ClearFunctioRegistry();
-    // delete reg;
 
-
-    int y = 1;
     // Free connection handle
     EXPECT_EQ(SQL_SUCCESS, SQLFreeHandle(SQL_HANDLE_DBC, conn));
 
     // Free environment handle
     EXPECT_EQ(SQL_SUCCESS, SQLFreeHandle(SQL_HANDLE_ENV, env));
-    std::cout << "-AL- AlinaTestEnvironment::TearDown\n";
-
+    std::cout << "-AL- OdbcUtilEnvironment::TearDown\n";
   }
 
   SQLHENV getEnvHandle() { return env; }

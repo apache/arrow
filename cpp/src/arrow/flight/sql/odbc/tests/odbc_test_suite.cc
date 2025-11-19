@@ -29,11 +29,10 @@
 
 namespace arrow::flight::sql::odbc {
 
-// -AL- todo rename later
-auto alinatest_env = ::testing::AddGlobalTestEnvironment(new AlinaTestEnvironment);
+auto odbc_util_env = ::testing::AddGlobalTestEnvironment(new OdbcUtilEnvironment);
 
-AlinaTestEnvironment* GetAlinaTestEnv() {
-  return ::arrow::internal::checked_cast<AlinaTestEnvironment*>(alinatest_env);
+OdbcUtilEnvironment* GetOdbcUtilEnv() {
+  return ::arrow::internal::checked_cast<OdbcUtilEnvironment*>(odbc_util_env);
 }
 
 void ODBCRemoteTestBase::AllocEnvConnHandles(SQLINTEGER odbc_ver) {
@@ -63,15 +62,15 @@ void ODBCRemoteTestBase::ConnectWithString(std::string connect_str) {
   SQLSMALLINT out_str_len;
 
   // -AL- once local conn handles are removed,can rename back to conn
-   SQLHDBC global_conn = GetAlinaTestEnv()->getConnHandle();
-  //SQLHDBC global_conn = conn;  //-AL- TEMP
+  SQLHDBC global_conn = GetOdbcUtilEnv()->getConnHandle();
+  // SQLHDBC global_conn = conn;  //-AL- TEMP
 
   // Connecting to ODBC server.
   ASSERT_EQ(SQL_SUCCESS,
             SQLDriverConnect(global_conn, NULL, &connect_str0[0],
                              static_cast<SQLSMALLINT>(connect_str0.size()), out_str,
                              kOdbcBufferSize, &out_str_len, SQL_DRIVER_NOPROMPT))
-       << GetOdbcErrorMessage(SQL_HANDLE_DBC, global_conn);
+      << GetOdbcErrorMessage(SQL_HANDLE_DBC, global_conn);
 
   // GH-47710: TODO Allocate a statement using alloc handle
   // ASSERT_EQ(SQL_SUCCESS, SQLAllocHandle(SQL_HANDLE_STMT, conn, &stmt));
@@ -81,8 +80,8 @@ void ODBCRemoteTestBase::Disconnect() {
   // GH-47710: TODO Close statement
   // EXPECT_EQ(SQL_SUCCESS, SQLFreeHandle(SQL_HANDLE_STMT, stmt));
 
-    // -AL- once local conn handles are removed,can rename back to conn
-  SQLHDBC global_conn = GetAlinaTestEnv()->getConnHandle();
+  // -AL- once local conn handles are removed,can rename back to conn
+  SQLHDBC global_conn = GetOdbcUtilEnv()->getConnHandle();
 
   // Disconnect from ODBC
   EXPECT_EQ(SQL_SUCCESS, SQLDisconnect(global_conn))

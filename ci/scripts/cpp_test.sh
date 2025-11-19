@@ -82,7 +82,6 @@ case "$(uname)" in
     exclude_tests+=("gandiva-precompiled-test")
     exclude_tests+=("gandiva-projector-test")
     exclude_tests+=("gandiva-utf8-test")
-    exclude_tests+=("arrow-flight-sql-odbc-test")
     ;;
   *)
     n_jobs=${NPROC:-1}

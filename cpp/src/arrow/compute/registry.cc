@@ -30,31 +30,14 @@
 #include "arrow/util/config.h"  // For ARROW_COMPUTE
 #include "arrow/util/logging.h"
 
-#include <iostream> // -AL- TEMP remove later
-
 namespace arrow {
 namespace compute {
 
 class FunctionRegistry::FunctionRegistryImpl {
  public:
   explicit FunctionRegistryImpl(FunctionRegistryImpl* parent = NULLPTR)
-      : parent_(parent) {// -AL- TEMP remove later
-    std::cout << "-AL- FunctionRegistryImpl constructor called\n";
-  }
-  ~FunctionRegistryImpl() { // -AL- TEMP remove later
-    size_t name_size = name_to_function_.size();
-    std::cout << "-AL- ~FunctionRegistryImpl name_to_function_ size:" << name_size <<
-      "\n";
-
-    //auto it = name_to_function_.find(std::string("split_pattern"));
-    //auto func = it->second;
-    //for (auto& kv : name_to_function_) {
-    //  kv.second.reset();
-    //}
-    //name_to_function_.clear();
-
-    std::cout << "-AL- ~FunctionRegistryImpl destructor called\n";
-  }
+      : parent_(parent) {}
+  ~FunctionRegistryImpl() {}
 
   Status CanAddFunction(std::shared_ptr<Function> function, bool allow_overwrite) {
     if (parent_ != NULLPTR) {
@@ -144,8 +127,7 @@ class FunctionRegistry::FunctionRegistryImpl {
 
   const Function* cast_function() { return cast_function_; }
 
-  void ClearFunctioRegistry() { name_to_function_.clear();
-  }
+  void ClearFunctioRegistry() { name_to_function_.clear(); }
 
  private:
   // must not acquire mutex
@@ -235,7 +217,6 @@ class FunctionRegistry::FunctionRegistryImpl {
 };
 
 std::unique_ptr<FunctionRegistry> FunctionRegistry::Make() {
-  std::cout << "-AL- Make is called once TEMP \n";
   return std::unique_ptr<FunctionRegistry>(new FunctionRegistry());
 }
 
@@ -298,14 +279,11 @@ int FunctionRegistry::num_functions() const { return impl_->num_functions(); }
 
 const Function* FunctionRegistry::cast_function() const { return impl_->cast_function(); }
 
-void FunctionRegistry::ClearFunctioRegistry() {
-  impl_->ClearFunctioRegistry();
-}
+void FunctionRegistry::ClearFunctioRegistry() { impl_->ClearFunctioRegistry(); }
 
 namespace internal {
 
 static std::unique_ptr<FunctionRegistry> CreateBuiltInRegistry() {
-  std::cout << "-AL- CreateBuiltInRegistry is called once TEMP \n";
   auto registry = FunctionRegistry::Make();
 
   // Register core kernels

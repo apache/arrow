@@ -164,7 +164,3 @@ jobs:
           for /f "usebackq delims=" %%I in (`bash -c "cygpath -u \"$VCPKG_ROOT_KEEP\""` ) do set VCPKG_ROOT=%%I
 
           bash -c "ci/scripts/cpp_test.sh $(pwd) $(pwd)/build"
-
-          # Run ODBC test
-          ${{ github.workspace }}\build\cpp\%ARROW_BUILD_TYPE%\arrow-flight-sql-odbc-test.exe
-
