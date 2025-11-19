@@ -34,15 +34,10 @@ namespace arrow::internal {
 // https://github.com/fast-pack/LittleIntPacker/blob/master/src/horizontalpacking32.c
 // TODO
 // - _mm_cvtepi8_epi32
-// - no _mm_srlv_epi32 (128bit) in xsimd with AVX2 required arch
 // - no need for while loop (for up to 8 is sufficient)
-// - array to batch constant to xsimd
 // - Shifts per swizzle can be improved when self.packed_max_byte_spread == 1 and the
 //   byte can be reused (when val_bit_width divides packed_max_byte_spread).
 // - Reduce input size on small bit width using a broadcast.
-// - For Avx2:
-//   - Inspect how swizzle across lanes are handled: _mm256_shuffle_epi8 not used?
-//   - Investigate AVX2 with 128 bit register
 // - Fix overreading problem
 // - Improve Swizzle by computing which bigger swapable slots are free
 
@@ -391,17 +386,19 @@ auto left_shift_no_overflow(const xsimd::batch<Int, Arch>& batch,
     -> xsimd::batch<Int, Arch> {
   constexpr bool kHasSse2 = std::is_base_of_v<xsimd::sse2, Arch>;
   constexpr bool kHasAvx2 = std::is_base_of_v<xsimd::avx2, Arch>;
+  static_assert(!(kHasSse2 && kHasAvx2), "The hierarchy are different in xsimd");
 
-  if constexpr (kHasSse2 && !kHasAvx2) {
-    static constexpr auto kShiftsArr = std::array{kShifts...};
+  static constexpr auto kShiftsArr = std::array{kShifts...};
 
-    struct MakeMults {
-      static constexpr Int get(int i, int n) { return Int{1} << kShiftsArr.at(i); }
-    };
+  struct MakeMults {
+    static constexpr Int get(int i, int n) { return Int{1} << kShiftsArr.at(i); }
+  };
 
-    constexpr auto kMults = xsimd::make_batch_constant<Int, Arch, MakeMults>();
-    // TODO in xsimd 14.0 this can be simplified to
-    // constexpr auto kMults = xsimd::make_batch_constant<Int, 1, Arch>() << shits;
+  // TODO in xsimd 14.0 this can be simplified to
+  // constexpr auto kMults = xsimd::make_batch_constant<Int, 1, Arch>() << shits;
+  constexpr auto kMults = xsimd::make_batch_constant<Int, Arch, MakeMults>();
+
+  if constexpr (kHasSse2) {
     if constexpr (sizeof(Int) == sizeof(uint16_t)) {
       return _mm_mullo_epi16(batch, kMults.as_batch());
     }
@@ -410,6 +407,15 @@ auto left_shift_no_overflow(const xsimd::batch<Int, Arch>& batch,
       return _mm_mullo_epi32(batch, kMults.as_batch());
     }
   }
+  if constexpr (kHasAvx2) {
+    if constexpr (sizeof(Int) == sizeof(uint8_t)) {
+      // TODO fallback
+    }
+    if constexpr (sizeof(Int) == sizeof(uint16_t)) {
+      return _mm256_mullo_epi16(batch, kMults.as_batch());
+    }
+  }
+
   return batch << shifts;
 }
 
@@ -429,33 +435,50 @@ auto right_shift_by_excess(const xsimd::batch<Int, Arch>& batch,
                            xsimd::batch_constant<Int, Arch, kShifts...> shifts) {
   constexpr bool kHasSse2 = std::is_base_of_v<xsimd::sse2, Arch>;
   constexpr bool kHasAvx2 = std::is_base_of_v<xsimd::avx2, Arch>;
+  static_assert(!(kHasSse2 && kHasAvx2), "The hierarchy are different in xsimd");
 
-  if constexpr (kHasSse2 && !kHasAvx2) {
-    static constexpr auto kShiftsArr = std::array{kShifts...};
-    static constexpr Int kMaxRightShift = max_value(kShiftsArr);
+  static constexpr auto kShiftsArr = std::array{kShifts...};
+  static constexpr Int kMaxRightShift = max_value(kShiftsArr);
 
-    struct MakeMults {
-      static constexpr Int get(int i, int n) {
-        // Equivalent to left shift of kMaxRightShift - kRightShifts.at(i).
-        return Int{1} << (kMaxRightShift - kShiftsArr.at(i));
-      }
-    };
+  struct MakeMults {
+    static constexpr Int get(int i, int n) {
+      // Equivalent to left shift of kMaxRightShift - kRightShifts.at(i).
+      return Int{1} << (kMaxRightShift - kShiftsArr.at(i));
+    }
+  };
 
-    constexpr auto kMults = xsimd::make_batch_constant<Int, Arch, MakeMults>();
+  // TODO in xsimd 14.0 this can be simplified to
+  // constexpr auto kMults = xsimd::make_batch_constant<Int, kMaxRightShift, Arch>() -
+  // shifts; and then forwarded to left_shift
+  constexpr auto kMults = xsimd::make_batch_constant<Int, Arch, MakeMults>();
+
+  if constexpr (kHasSse2) {
     if constexpr (sizeof(Int) == sizeof(uint16_t)) {
-      return xsimd::batch<Int, Arch>(_mm_mullo_epi16(batch, kMults.as_batch())) >>
-             kMaxRightShift;
+      auto lshifted = _mm_mullo_epi16(batch, kMults.as_batch());
+      // TODO(xsimd 14.0)
+      // return xsimd::bitwise_rshift<kMaxRightShift>(lshifted);
+      return xsimd::batch<Int, Arch>(lshifted) >> kMaxRightShift;
     }
     if constexpr (sizeof(Int) == sizeof(uint32_t)) {
       // TODO that is latency 10 so maybe it is not worth it
-      return xsimd::batch<Int, Arch>(_mm_mullo_epi32(batch, kMults.as_batch())) >>
-             kMaxRightShift;
+      auto lshifted = _mm_mullo_epi32(batch, kMults.as_batch());
+      // TODO(xsimd 14.0)
+      // return xsimd::bitwise_rshift<kMaxRightShift>(lshifted);
+      return xsimd::batch<Int, Arch>(lshifted) >> kMaxRightShift;
     }
-    return (batch * kMults) >> kMaxRightShift;
-
-  } else {
-    return batch >> shifts;
   }
+  if constexpr (kHasAvx2) {
+    if constexpr (sizeof(Int) == sizeof(uint8_t)) {
+      // TODO fallback
+    }
+    if constexpr (sizeof(Int) == sizeof(uint16_t)) {
+      auto lshifted = _mm256_mullo_epi16(batch, kMults.as_batch());
+      // TODO(xsimd 14.0)
+      // return xsimd::bitwise_rshift<kMaxRightShift>(lshifted);
+      return xsimd::batch<Int, Arch>(lshifted) >> kMaxRightShift;
+    }
+  }
+  return batch >> shifts;
 }
 
 template <typename UnpackedUint, int kPackedBitSize, int kSimdBitSize>
