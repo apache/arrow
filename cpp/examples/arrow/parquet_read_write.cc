@@ -118,9 +118,9 @@ arrow::Status WriteFullFile(std::string path_to_file) {
   std::shared_ptr<arrow::io::FileOutputStream> outfile;
   ARROW_ASSIGN_OR_RAISE(outfile, arrow::io::FileOutputStream::Open(path_to_file));
 
-  ARROW_RETURN_NOT_OK(parquet::arrow::WriteTable(*table.get(),
-                                                 arrow::default_memory_pool(), outfile,
-                                                 /*chunk_size=*/64*1024, props, arrow_props));
+  ARROW_RETURN_NOT_OK(
+      parquet::arrow::WriteTable(*table.get(), arrow::default_memory_pool(), outfile,
+                                 /*chunk_size=*/64 * 1024, props, arrow_props));
   return arrow::Status::OK();
 }
 
