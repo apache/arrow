@@ -308,13 +308,16 @@ BinaryToBinaryCastExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* ou
   std::shared_ptr<ArrayData> input_arr = input.ToArrayData();
   ArrayData* output = out->array_data().get();
   output->length = input_arr->length;
-  output->offset = input_arr->offset % 8;
-  output->buffers = input_arr->buffers;
-  output->child_data = input_arr->child_data;
   output->SetNullCount(input_arr->null_count);
+  output->buffers = std::move(input_arr->buffers);
+  output->child_data = std::move(input_arr->child_data);
 
   if (output->buffers[0]) {
-    output->buffers[0] = SliceBuffer(input_arr->buffers[0], input_arr->offset / 8);
+    // If reusing the null bitmap, ensure offset into the first byte is the same as input.
+    output->offset = input_arr->offset % 8;
+    output->buffers[0] = SliceBuffer(output->buffers[0], input_arr->offset / 8);
+  } else {
+    output->offset = 0;
   }
 
   return CastBinaryToBinaryOffsets<typename I::offset_type, typename O::offset_type>(
