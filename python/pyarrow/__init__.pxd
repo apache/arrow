@@ -16,7 +16,7 @@
 # under the License.
 
 from libcpp.memory cimport shared_ptr
-from pyarrow.includes.libarrow cimport (CArray, CBuffer, CDataType,
+from pyarrow.includes.libarrow cimport (CArray, CBuffer, CDataType, CExpression
                                         CField, CRecordBatch, CSchema,
                                         CTable, CTensor, CSparseCOOTensor,
                                         CSparseCSRMatrix, CSparseCSCMatrix,
@@ -40,3 +40,4 @@ cdef extern from "arrow/python/pyarrow.h" namespace "arrow::py":
         const shared_ptr[CSparseCSFTensor]& sp_sparse_tensor)
     cdef object wrap_table(const shared_ptr[CTable]& ctable)
     cdef object wrap_batch(const shared_ptr[CRecordBatch]& cbatch)
+    cdef object wrap_expression(const shared_ptr[CExpression]& cexpr)
