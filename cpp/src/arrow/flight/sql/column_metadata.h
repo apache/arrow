@@ -66,6 +66,9 @@ class ARROW_FLIGHT_SQL_EXPORT ColumnMetadata {
   /// \brief Constant variable to hold the value of the key that
   ///        will be used in the KeyValueMetadata class.
   static const char* kIsSearchable;
+  /// \brief Constant variable to hold the value of the key that
+  ///        will be used in the KeyValueMetadata class.
+  static const char* kRemarks;
 
   /// \brief Static initializer.
   static ColumnMetadataBuilder Builder();
@@ -109,6 +112,10 @@ class ARROW_FLIGHT_SQL_EXPORT ColumnMetadata {
   /// \brief  Return the IsSearchable set in the KeyValueMetadata.
   /// \return The IsSearchable.
   arrow::Result<bool> GetIsSearchable() const;
+
+  /// \brief  Return the Remarks set in the KeyValueMetadata.
+  /// \return The Remarks.
+  arrow::Result<std::string> GetRemarks() const;
 
   /// \brief  Return the KeyValueMetadata.
   /// \return The KeyValueMetadata.
@@ -168,6 +175,11 @@ class ARROW_FLIGHT_SQL_EXPORT ColumnMetadata {
     /// \param[in] is_searchable The IsSearchable.
     /// \return                  A ColumnMetadataBuilder.
     ColumnMetadataBuilder& IsSearchable(bool is_searchable);
+
+    /// \brief Set the column description in the KeyValueMetadata object.
+    /// \param[in] remarks  The comment describing column.
+    /// \return             A ColumnMetadataBuilder.
+    ColumnMetadataBuilder& Remarks(const std::string& remarks);
 
     ColumnMetadata Build() const;
 

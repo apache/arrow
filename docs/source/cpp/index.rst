@@ -96,10 +96,25 @@ Welcome to the Apache Arrow C++ implementation documentation!
 
          To the API Reference
 
-.. grid:: 1
+.. grid:: 1 2 2 2
    :gutter: 4
    :padding: 2 2 0 0
    :class-container: sd-text-center
+
+   .. grid-item-card:: C++ Development
+      :class-card: contrib-card
+      :shadow: none
+
+      Find guidelines and documentation for Arrow C++ developers
+
+      +++
+
+      .. button-link:: ../developers/cpp/index.html
+         :click-parent:
+         :color: primary
+         :expand:
+
+         To C++ Development
 
    .. grid-item-card:: Cookbook
       :class-card: contrib-card
@@ -126,4 +141,5 @@ Welcome to the Apache Arrow C++ implementation documentation!
    user_guide
    Examples <examples/index>
    api
-   C++ cookbook <https://arrow.apache.org/cookbook/cpp/>
+   C++ Development <../developers/cpp/index>
+   C++ Cookbook <https://arrow.apache.org/cookbook/cpp/>

@@ -32,6 +32,7 @@
 #include <unordered_set>
 
 #include "arrow/acero/exec_plan.h"
+#include "arrow/acero/exec_plan_internal.h"
 #include "arrow/acero/options.h"
 #include "arrow/acero/unmaterialized_table_internal.h"
 #ifndef NDEBUG
@@ -513,9 +514,9 @@ class InputState : public util::SerialSequencingQueue::Processor {
     std::unique_ptr<BackpressureControl> backpressure_control =
         std::make_unique<BackpressureController>(
             /*node=*/asof_input, /*output=*/asof_node, backpressure_counter);
-    ARROW_ASSIGN_OR_RAISE(
-        auto handler, BackpressureHandler::Make(asof_input, low_threshold, high_threshold,
-                                                std::move(backpressure_control)));
+    ARROW_ASSIGN_OR_RAISE(auto handler,
+                          BackpressureHandler::Make(low_threshold, high_threshold,
+                                                    std::move(backpressure_control)));
     return std::make_unique<InputState>(index, tolerance, must_hash, may_rehash,
                                         key_hasher, asof_node, std::move(handler), schema,
                                         time_col_index, key_col_index);
@@ -639,12 +640,10 @@ class InputState : public util::SerialSequencingQueue::Processor {
         // hit the end of the batch, need to get the next batch if possible.
         ++batches_processed_;
         latest_ref_row_ = 0;
-        have_active_batch &= !queue_.TryPop();
-        if (have_active_batch) {
-          DCHECK_GT(queue_.Front()->num_rows(), 0);  // empty batches disallowed
-          memo_.UpdateTime(GetTime(queue_.Front().get(), time_type_id_, time_col_index_,
-                                   0));  // time changed
-        }
+        bool did_pop = queue_.TryPop().has_value();
+        DCHECK(did_pop);
+        ARROW_UNUSED(did_pop);
+        have_active_batch = !queue_.Empty();
       }
     }
     return have_active_batch;
@@ -764,10 +763,10 @@ class InputState : public util::SerialSequencingQueue::Processor {
     total_batches_ = n;
   }
 
-  Status ForceShutdown() {
+  void ForceShutdown() {
     // Force the upstream input node to unpause. Necessary to avoid deadlock when we
     // terminate the process thread
-    return queue_.ForceShutdown();
+    queue_.ForceShutdown();
   }
 
  private:
@@ -1047,8 +1046,10 @@ class AsofJoinNode : public ExecNode {
           if (st.ok()) {
             st = output_->InputFinished(this, batches_produced_);
           }
-          for (const auto& s : state_) {
-            st &= s->ForceShutdown();
+          for (size_t i = 0; i < state_.size(); ++i) {
+            const auto& s = state_[i];
+            s->ForceShutdown();
+            st &= inputs_[i]->StopProducing();
           }
         }));
   }
@@ -1500,8 +1501,11 @@ class AsofJoinNode : public ExecNode {
     if (st.ok()) {
       st = output_->InputFinished(this, batches_produced_);
     }
-    for (const auto& s : state_) {
-      st &= s->ForceShutdown();
+
+    for (size_t i = 0; i < state_.size(); ++i) {
+      const auto& s = state_[i];
+      s->ForceShutdown();
+      st &= inputs_[i]->StopProducing();
     }
   }
 

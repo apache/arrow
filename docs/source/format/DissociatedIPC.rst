@@ -83,32 +83,34 @@ Goals
 Definitions
 -----------
 
-IPC Metadata
-    The Flatbuffers message bytes that encompass the header of an Arrow IPC message
+.. glossary::
 
-Tag
-    A little-endian ``uint64`` value used for flow control and used in determining
-    how to interpret the body of a message. Specific bits can be masked to allow
-    identifying messages by only a portion of the tag, leaving the rest of the bits
-    to be used for control flow or other message metadata. Some transports, such as
-    UCX, have built-in support for such tag values and will provide them in CPU
-    memory regardless of whether or not the body of the message may reside on a
-    non-CPU device.
+   IPC Metadata
+       The Flatbuffers message bytes that encompass the header of an Arrow IPC message
 
-Sequence Number
-    A little-endian, 4-byte unsigned integer starting at 0 for a stream, indicating
-    the sequence order of messages. It is also used to identify specific messages to
-    tie the IPC metadata header to its corresponding body since the metadata and body
-    can be sent across separate pipes/streams/transports.
+   Tag
+       A little-endian ``uint64`` value used for flow control and used in determining
+       how to interpret the body of a message. Specific bits can be masked to allow
+       identifying messages by only a portion of the tag, leaving the rest of the bits
+       to be used for control flow or other message metadata. Some transports, such as
+       UCX, have built-in support for such tag values and will provide them in CPU
+       memory regardless of whether or not the body of the message may reside on a
+       non-CPU device.
 
-    If a sequence number reaches ``UINT32_MAX``, it should be allowed to roll over as
-    it is unlikely there would be enough unprocessed messages waiting to be processed
-    that would cause an overlap of sequence numbers.
+   Sequence Number
+       A little-endian, 4-byte unsigned integer starting at 0 for a stream, indicating
+       the sequence order of messages. It is also used to identify specific messages to
+       tie the IPC metadata header to its corresponding body since the metadata and body
+       can be sent across separate pipes/streams/transports.
 
-    The sequence number serves two purposes: To identify corresponding metadata and
-    tagged body data messages and to ensure we do not rely on messages having to arrive
-    in order. A client should use the sequence number to correctly order messages as
-    they arrive for processing.
+       If a sequence number reaches ``UINT32_MAX``, it should be allowed to roll over as
+       it is unlikely there would be enough unprocessed messages waiting to be processed
+       that would cause an overlap of sequence numbers.
+
+       The sequence number serves two purposes: To identify corresponding metadata and
+       tagged body data messages and to ensure we do not rely on messages having to arrive
+       in order. A client should use the sequence number to correctly order messages as
+       they arrive for processing.
 
 The Protocol
 ============
@@ -359,7 +361,7 @@ showing how a client might handle the metadata and data streams:
    be used alongside the sequence number to match the message regardless of the higher bytes (e.g. we only
    care about matching the lower 4 bytes to the sequence number)
 
-   * Once recieved, the Most Significant Byte's value determines how the client processes the body data:
+   * Once received, the Most Significant Byte's value determines how the client processes the body data:
 
      * If the most significant byte is 0: Then the body of the message is the raw IPC packed body buffers
        allowing it to easily be processed with the corresponding metadata header bytes.

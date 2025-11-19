@@ -120,9 +120,7 @@ class CppTester(Tester):
                 out, err = server.communicate()
                 raise RuntimeError(
                     "Flight-C++ server did not start properly, "
-                    "stdout:\n{}\n\nstderr:\n{}\n".format(
-                        output + out.decode(), err.decode()
-                    )
+                    f"stdout:\n{output + out.decode()}\n\nstderr:\n{err.decode()}\n"
                 )
             port = int(output.split(":")[1])
             yield port

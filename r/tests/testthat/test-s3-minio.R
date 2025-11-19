@@ -46,7 +46,8 @@ fs <- S3FileSystem$create(
   scheme = "http",
   endpoint_override = paste0("localhost:", minio_port),
   allow_bucket_creation = TRUE,
-  allow_bucket_deletion = TRUE
+  allow_bucket_deletion = TRUE,
+  check_directory_existence_before_creation = TRUE
 )
 limited_fs <- S3FileSystem$create(
   access_key = minio_key,
@@ -54,7 +55,8 @@ limited_fs <- S3FileSystem$create(
   scheme = "http",
   endpoint_override = paste0("localhost:", minio_port),
   allow_bucket_creation = FALSE,
-  allow_bucket_deletion = FALSE
+  allow_bucket_deletion = FALSE,
+  check_directory_existence_before_creation = FALSE
 )
 now <- as.character(as.numeric(Sys.time()))
 fs$CreateDir(now)

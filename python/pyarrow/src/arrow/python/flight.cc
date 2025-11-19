@@ -373,7 +373,7 @@ Status CreateFlightInfo(const std::shared_ptr<arrow::Schema>& schema,
                         const std::string& app_metadata,
                         std::unique_ptr<arrow::flight::FlightInfo>* out) {
   ARROW_ASSIGN_OR_RAISE(auto result, arrow::flight::FlightInfo::Make(
-                                         *schema, descriptor, endpoints, total_records,
+                                         schema, descriptor, endpoints, total_records,
                                          total_bytes, ordered, app_metadata));
   *out = std::unique_ptr<arrow::flight::FlightInfo>(
       new arrow::flight::FlightInfo(std::move(result)));

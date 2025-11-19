@@ -223,7 +223,7 @@ gio = cxx.find_library('gio-2.0', dirs: [gobject_libdir], required: false)
 if not gio.found()
     gio = dependency('gio-2.0')
 endif
-dependencies = [arrow, arrow_acero, gobject, gio]
+dependencies = [arrow_acero, arrow_compute, arrow, gobject, gio]
 libarrow_glib = library(
     'arrow-glib',
     sources: sources + enums,
@@ -266,7 +266,7 @@ if have_gi
     arrow_glib_gir = gnome.generate_gir(
         libarrow_glib,
         export_packages: 'arrow-glib',
-        extra_args: ['--warn-all'],
+        extra_args: gir_scanner_extra_args,
         header: 'arrow-glib/arrow-glib.h',
         identifier_prefix: 'GArrow',
         includes: ['GObject-2.0', 'Gio-2.0'],

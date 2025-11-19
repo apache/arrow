@@ -21,6 +21,7 @@
 
 #include "arrow/compute/light_array_internal.h"
 #include "arrow/compute/util.h"
+#include "arrow/compute/visibility.h"
 #include "arrow/util/simd.h"
 
 namespace arrow {
@@ -34,7 +35,7 @@ enum class BloomFilterBuildStrategy;
 // Implementations are based on xxh3 32-bit algorithm description from:
 // https://github.com/Cyan4973/xxHash/blob/dev/doc/xxhash_spec.md
 //
-class ARROW_EXPORT Hashing32 {
+class ARROW_COMPUTE_EXPORT Hashing32 {
   friend class TestVectorHash;
   template <typename T>
   friend void TestBloomLargeHashHelper(int64_t, int64_t, const std::vector<uint64_t>&,
@@ -157,7 +158,7 @@ class ARROW_EXPORT Hashing32 {
 #endif
 };
 
-class ARROW_EXPORT Hashing64 {
+class ARROW_COMPUTE_EXPORT Hashing64 {
   friend class TestVectorHash;
   template <typename T>
   friend void TestBloomLargeHashHelper(int64_t, int64_t, const std::vector<uint64_t>&,

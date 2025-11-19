@@ -30,7 +30,7 @@ The features currently offered are the following:
 * fetching column names from the first row in the CSV file
 * column-wise type inference and conversion to one of ``null``, ``int64``,
   ``float64``, ``date32``, ``time32[s]``, ``timestamp[s]``, ``timestamp[ns]``,
-  ``string`` or ``binary`` data
+  ``duration`` (from numeric strings), ``string`` or ``binary`` data
 * opportunistic dictionary encoding of ``string`` and ``binary`` columns
   (disabled by default)
 * detecting various spellings of null values such as ``NaN`` or ``#N/A``
@@ -124,6 +124,11 @@ a :class:`ConvertOptions` instance and pass it to :func:`read_csv`::
            'tip': pa.decimal128(precision=10, scale=2),
        }
    ))
+
+.. note::
+   To assign a column as ``duration``, the CSV values must be numeric strings
+   that match the expected unit (e.g. ``60000`` for 60 seconds when
+   using ``duration[ms]``).
 
 Available convert options are:
 

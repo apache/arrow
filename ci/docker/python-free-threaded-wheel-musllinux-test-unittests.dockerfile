@@ -18,6 +18,9 @@
 ARG base
 FROM ${base}
 
+ARG python_version=3.13
+ARG python_patch_version=3.13.7
+
 RUN apk add --no-cache \
     bash \
     build-base \
@@ -34,19 +37,19 @@ RUN apk add --no-cache \
     tzdata \
     zlib-dev
 
-# Install Python3.13.2 without GIL
-RUN wget https://github.com/python/cpython/archive/refs/tags/v3.13.2.tar.gz && \
-    tar -xzf v3.13.2.tar.gz && \
-    rm v3.13.2.tar.gz && \
-    cd cpython-3.13.2/ && \
+# Install Python without GIL
+RUN wget https://github.com/python/cpython/archive/refs/tags/v${python_patch_version}.tar.gz && \
+    tar -xzf v${python_patch_version}.tar.gz && \
+    rm v${python_patch_version}.tar.gz && \
+    cd cpython-${python_patch_version}/ && \
     ./configure --disable-gil --with-ensurepip && \
     make -j && \
     make install && \
     cd ../ && \
-    rm -rf cpython-3.13.2/
+    rm -rf cpython-${python_patch_version}/
 
 ENV ARROW_PYTHON_VENV /arrow-dev
-RUN python3.13t -m venv ${ARROW_PYTHON_VENV}
+RUN python${python_version}t -m venv ${ARROW_PYTHON_VENV}
 
 ENV PYTHON_GIL 0
 ENV PATH "${ARROW_PYTHON_VENV}/bin:${PATH}"
@@ -56,11 +59,9 @@ RUN cp /usr/share/zoneinfo/Etc/UTC /etc/localtime
 
 # pandas doesn't provide wheels for aarch64 yet, so we have to install nightly Cython
 # along with the rest of pandas' build dependencies and disable build isolation
-COPY python/requirements-wheel-test.txt /arrow/python/
 RUN python -m pip install \
     --pre \
     --prefer-binary \
     --extra-index-url "https://pypi.anaconda.org/scientific-python-nightly-wheels/simple" \
     Cython numpy
 RUN python -m pip install "meson-python==0.13.1" "meson==1.2.1" wheel "versioneer[toml]" ninja
-RUN python -m pip install --no-build-isolation -r /arrow/python/requirements-wheel-test.txt

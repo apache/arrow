@@ -239,7 +239,7 @@ def field(jvm_field):
             typ = pa.decimal128(jvm_type.getPrecision(), jvm_type.getScale())
         else:
             raise NotImplementedError(
-                "Unsupported JVM type: {}".format(type_str))
+                f"Unsupported JVM type: {type_str}")
     else:
         # TODO: The following JVM types are not implemented:
         #       Struct, List, FixedSizeList, Union, Dictionary
@@ -295,8 +295,8 @@ def array(jvm_array):
     if jvm_array.getField().getType().isComplex():
         minor_type_str = jvm_array.getMinorType().toString()
         raise NotImplementedError(
-            "Cannot convert JVM Arrow array of type {},"
-            " complex types not yet implemented.".format(minor_type_str))
+            f"Cannot convert JVM Arrow array of type {minor_type_str}, "
+            "complex types not yet implemented.")
     dtype = field(jvm_array.getField()).type
     buffers = [jvm_buffer(buf)
                for buf in list(jvm_array.getBuffers(False))]

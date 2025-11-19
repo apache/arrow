@@ -24,11 +24,11 @@ Continuous Integration for Arrow is fairly complex as it needs to run across dif
 
 Some files central to Arrow CI are:
 
-- ``docker-compose.yml`` - here we define docker services which can be configured using either enviroment variables, or the default values for these variables.
+- ``docker-compose.yml`` - here we define docker services which can be configured using either environment variables, or the default values for these variables.
 - ``.env`` - here we define default values to configure the services in ``docker-compose.yml``
 - ``appveyor.yml`` - here we define workflows that run on Appveyor
 
-We use :ref:`Docker<docker-builds>` in order to have portable and reproducible Linux builds, as well as running Windows builds in Windows containers.  We use :ref:`Archery<Archery>` and :ref:`Crossbow<Crossbow>` to help co-ordinate the various CI tasks.
+We use :ref:`Docker<docker-builds>` in order to have portable and reproducible Linux builds, as well as running Windows builds in Windows containers.  We use :ref:`Archery<Archery>` and :ref:`Crossbow<Crossbow>` to help coordinate the various CI tasks.
 
 One thing to note is that some of the services defined in ``docker-compose.yml`` are interdependent.  When running services locally, you must either manually build its dependencies first, or build it via the use of ``archery docker run ...`` which automatically finds and builds dependencies.
 
@@ -52,7 +52,6 @@ The ``.yml`` files in ``.github/workflows`` are workflows which are run on GitHu
 - ``comment_bot.yml`` - triggers certain actions by listening on github pull request comments for the following strings:
 
   - ``@github-actions crossbow submit ...`` - runs the specified Crossbow command
-  - ``@github-actions autotune`` - runs a number of stylers/formatters, builds some of the docs, and commits the results
   - ``@github-actions rebase`` - rebases the PR onto the main branch
 - ``dev.yml`` - runs any time there is activity on a PR, or a PR is merged; it runs the linter and tests that the PR can be merged
 - ``dev_pr.yml`` - runs any time a PR is opened or updated; checks the formatting of the PR title, adds assignee to the appropriate GitHub issue if needed (or adds a comment requesting the user to include the issue id in the title), and adds any relevant GitHub labels
@@ -69,6 +68,6 @@ Crossbow is a subcomponent of Archery and can be used to manually trigger builds
 - the file ``dev/tasks/tasks.yml`` containing the configuration for various tasks which can be run via Crossbow
 - subdirectories containing different task templates (specified using `jinja2 syntax <https://jinja.palletsprojects.com/>`_), divided roughly by language or package management system.
 
-Most of these tasks are run as part of the nightly builds, though they can also be triggered manually by add a comment to a PR which begins with ``@github-actions crossbow submit`` followed by the name of the task to be run.
+Most of these tasks are run as part of the nightly builds, though they can also be triggered manually by adding a comment to a PR which begins with ``@github-actions crossbow submit`` followed by the name of the task to be run.
 
 For convenience purpose, the tasks in ``dev/tasks/tasks.yml`` are defined in groups, which makes it simpler for multiple tasks to be submitted to Crossbow at once.  The task definitions here contain information about which service defined in ``docker-compose.yml`` to run, the CI service to run the task on, and which template file to use as the basis for that task.

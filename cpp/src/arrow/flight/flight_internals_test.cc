@@ -238,6 +238,7 @@ TEST(FlightTypes, FlightInfo) {
       MakeFlightInfo(schema1, desc1, {endpoint1}, -1, 42, true, ""),
       MakeFlightInfo(schema1, desc2, {endpoint1, endpoint2}, 64, -1, false,
                      "\xDE\xAD\xC0\xDE"),
+      MakeFlightInfo(desc1, {}, -1, -1, false, ""),
   };
   std::vector<std::string> reprs = {
       "<FlightInfo schema=(serialized) descriptor=<FlightDescriptor cmd='foo'> "
@@ -257,6 +258,8 @@ TEST(FlightTypes, FlightInfo) {
       "locations=[grpc+tcp://localhost:1234] expiration_time=null "
       "app_metadata='CAFED00D'>] "
       "total_records=64 total_bytes=-1 ordered=false app_metadata='DEADC0DE'>",
+      "<FlightInfo schema=(empty) descriptor=<FlightDescriptor cmd='foo'> "
+      "endpoints=[] total_records=-1 total_bytes=-1 ordered=false app_metadata=''>",
   };
 
   ASSERT_NO_FATAL_FAILURE(TestRoundtrip<pb::FlightInfo>(values, reprs));

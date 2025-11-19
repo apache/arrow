@@ -61,10 +61,12 @@ WriteOptions DefaultTestOptions(bool include_header = false,
                                 const std::string& null_string = "",
                                 QuotingStyle quoting_style = QuotingStyle::Needed,
                                 const std::string& eol = "\n", char delimiter = ',',
-                                int batch_size = 5) {
+                                int batch_size = 5,
+                                QuotingStyle quoting_header = QuotingStyle::Needed) {
   WriteOptions options;
   options.batch_size = batch_size;
   options.include_header = include_header;
+  options.quoting_header = quoting_header;
   options.null_string = null_string;
   options.eol = eol;
   options.quoting_style = quoting_style;
@@ -90,6 +92,17 @@ std::vector<WriterTestParams> GenerateTestCases() {
   // Dummy schema and data for testing invalid options.
   auto dummy_schema = schema({field("a", uint8())});
   std::string dummy_batch_data = R"([{"a": null}])";
+
+  auto header_without_structural_charaters =
+      schema({field("a ", uint64()), field("b", int32())});
+  std::string expected_header_without_structural_charaters =
+      std::string(R"(a ,b)") + "\n";
+  auto expected_status_no_quotes_with_structural_in_header = [](const char* header) {
+    return Status::Invalid(
+        "CSV header may not contain structural characters if quoting "
+        "style is \"None\". See RFC4180. Invalid value: ",
+        header);
+  };
 
   // Schema to test various types.
   auto abc_schema = schema({
@@ -279,7 +292,20 @@ std::vector<WriterTestParams> GenerateTestCases() {
       {schema_custom_delimiter, batch_custom_delimiter,
        DefaultTestOptions(/*include_header=*/false, /*null_string=*/"",
                           QuotingStyle::Needed, /*eol=*/";", /*delimiter=*/';'),
-       /*expected_output*/ "", expected_status_illegal_delimiter(';')}};
+       /*expected_output*/ "", expected_status_illegal_delimiter(';')},
+      {header_without_structural_charaters, "[]",
+       DefaultTestOptions(/*include_header=*/true, /*null_string=*/"",
+                          QuotingStyle::Needed, /*eol=*/"\n",
+                          /*delimiter=*/',', /*batch_size=*/5,
+                          /*quoting_header=*/QuotingStyle::None),
+       expected_header_without_structural_charaters},
+      {abc_schema, "[]",
+       DefaultTestOptions(/*include_header=*/true, /*null_string=*/"",
+                          QuotingStyle::Needed, /*eol=*/"\n",
+                          /*delimiter=*/',', /*batch_size=*/5,
+                          /*quoting_header=*/QuotingStyle::None),
+       "", expected_status_no_quotes_with_structural_in_header("b\"")},
+  };
 }
 
 class TestWriteCSV : public ::testing::TestWithParam<WriterTestParams> {

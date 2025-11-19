@@ -559,7 +559,7 @@ class BaseTestCSV(abc.ABC):
             if self.use_threads:
                 row_info = ""
             else:
-                row_info = "Row #{}: ".format(row)
+                row_info = f"Row #{row}: "
             return msg_format.format(row_info, *args)
 
         csv, _ = make_random_csv(4, 100, write_names=True)
@@ -1423,7 +1423,7 @@ class BaseCSVTableRead(BaseTestCSV):
         except AttributeError:
             clock = time.time
         num_columns = 10000
-        col_names = ["K{}".format(i) for i in range(num_columns)]
+        col_names = [f"K{i}" for i in range(num_columns)]
         csv = make_empty_csv(col_names)
         t1 = clock()
         convert_options = ConvertOptions(
@@ -1999,6 +1999,21 @@ def test_write_quoting_style():
                 # without quotes, which is invalid
                 assert isinstance(e, res)
                 break
+        assert buf.getvalue() == res
+        buf.seek(0)
+
+
+def test_write_quoting_header():
+    t = pa.Table.from_arrays([[1, 2, None], ["a", None, "c"]], ["c1", "c2"])
+    buf = io.BytesIO()
+    for write_options, res in [
+        (WriteOptions(quoting_header='none'), b'c1,c2\n1,"a"\n2,\n,"c"\n'),
+        (WriteOptions(), b'"c1","c2"\n1,"a"\n2,\n,"c"\n'),
+        (WriteOptions(quoting_header='all_valid'),
+         b'"c1","c2"\n1,"a"\n2,\n,"c"\n'),
+    ]:
+        with CSVWriter(buf, t.schema, write_options=write_options) as writer:
+            writer.write_table(t)
         assert buf.getvalue() == res
         buf.seek(0)
 

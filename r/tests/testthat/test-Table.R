@@ -597,15 +597,15 @@ test_that("ARROW-11769/ARROW-17085 - grouping preserved in table creation", {
   )
 
   expect_identical(
-    tbl %>%
-      Table$create() %>%
+    tbl |>
+      Table$create() |>
       dplyr::group_vars(),
     dplyr::group_vars(tbl)
   )
   expect_identical(
-    tbl %>%
-      dplyr::group_by(fct, fct2) %>%
-      Table$create() %>%
+    tbl |>
+      dplyr::group_by(fct, fct2) |>
+      Table$create() |>
       dplyr::group_vars(),
     c("fct", "fct2")
   )
@@ -708,7 +708,6 @@ test_that("as_arrow_table() errors on data.frame with NULL names", {
 })
 
 test_that("# GH-35038 - passing in multiple arguments doesn't affect return type", {
-
   df <- data.frame(x = 1)
   out1 <- as.data.frame(arrow_table(df, name = "1"))
   out2 <- as.data.frame(arrow_table(name = "1", df))

@@ -145,7 +145,7 @@ that changing their value later will have an effect.
 
    By default, Arrow C++ detects the capabilities of the current CPU at runtime
    and chooses the best execution paths based on that information.  This
-   behavior can be overriden by setting this environment variable to a
+   behavior can be overridden by setting this environment variable to a
    well-defined value.  Supported values are:
 
    - ``NONE`` disables any runtime-selected SIMD optimization;

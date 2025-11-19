@@ -52,10 +52,10 @@ set -x
 # show activated toolchain
 rustup show
 
-pushd ${source_dir}
+pushd "${source_dir}"
 
 # build only the integration testing binaries
-cargo build -p arrow-integration-testing --target-dir ${build_dir}
+cargo build -p arrow-integration-testing --target-dir "${build_dir}"
 
 # Save disk space by removing large temporary build products
 rm -rf target/debug/deps

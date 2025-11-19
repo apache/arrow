@@ -22,6 +22,7 @@
 
 #include "arrow/compute/util.h"
 #include "arrow/compute/util_internal.h"
+#include "arrow/compute/visibility.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/type_fwd.h"
@@ -37,7 +38,7 @@ namespace compute {
 // slots, stamps) and operations provided by this class is given in the document:
 // arrow/acero/doc/key_map.md.
 //
-class ARROW_EXPORT SwissTable {
+class ARROW_COMPUTE_EXPORT SwissTable {
   friend class SwissTableMerge;
 
  public:

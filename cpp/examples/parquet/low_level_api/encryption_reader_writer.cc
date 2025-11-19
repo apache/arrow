@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <arrow/util/secure_string.h>
 #include <reader_writer.h>
 
 #include <cassert>
@@ -39,9 +40,9 @@
 
 constexpr int NUM_ROWS_PER_ROW_GROUP = 500;
 const char* PARQUET_FILENAME = "parquet_cpp_example.parquet.encrypted";
-const char* kFooterEncryptionKey = "0123456789012345";  // 128bit/16
-const char* kColumnEncryptionKey1 = "1234567890123450";
-const char* kColumnEncryptionKey2 = "1234567890123451";
+const arrow::util::SecureString kFooterEncryptionKey("0123456789012345");
+const arrow::util::SecureString kColumnEncryptionKey1("1234567890123450");
+const arrow::util::SecureString kColumnEncryptionKey2("1234567890123451");
 
 int main(int argc, char** argv) {
   /**********************************************************************************
@@ -81,7 +82,7 @@ int main(int argc, char** argv) {
     parquet::WriterProperties::Builder builder;
     // Add the current encryption configuration to WriterProperties.
     builder.encryption(file_encryption_builder.footer_key_metadata("kf")
-                           ->encrypted_columns(encryption_cols)
+                           ->encrypted_columns(std::move(encryption_cols))
                            ->build());
 
     // Add other writer properties
@@ -216,7 +217,7 @@ int main(int argc, char** argv) {
 
     // Add the current decryption configuration to ReaderProperties.
     reader_properties.file_decryption_properties(
-        file_decryption_builder.key_retriever(kr1)->build());
+        file_decryption_builder.key_retriever(std::move(kr1))->build());
 
     // Create a ParquetReader instance
     std::unique_ptr<parquet::ParquetFileReader> parquet_reader =

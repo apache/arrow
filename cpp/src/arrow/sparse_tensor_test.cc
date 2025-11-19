@@ -33,7 +33,7 @@
 #include "arrow/testing/util.h"
 #include "arrow/type.h"
 #include "arrow/util/logging_internal.h"
-#include "arrow/util/sort.h"
+#include "arrow/util/sort_internal.h"
 
 namespace arrow {
 

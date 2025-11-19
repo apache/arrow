@@ -72,6 +72,7 @@ add_arrow_test(utility-test
                ree_util_test.cc
                reflection_test.cc
                rows_to_batches_test.cc
+               secure_string_test.cc
                small_vector_test.cc
                span_test.cc
                stl_util_test.cc
@@ -97,6 +98,7 @@ add_arrow_test(bit-utility-test
                SOURCES
                bit_block_counter_test.cc
                bit_util_test.cc
+               bpacking_test.cc
                rle_encoding_test.cc)
 
 add_arrow_test(threading-utility-test
@@ -116,6 +118,7 @@ add_arrow_test(crc32-test
 
 add_arrow_benchmark(bit_block_counter_benchmark)
 add_arrow_benchmark(bit_util_benchmark)
+add_arrow_benchmark(bpacking_benchmark)
 add_arrow_benchmark(bitmap_reader_benchmark)
 add_arrow_benchmark(cache_benchmark)
 add_arrow_benchmark(compression_benchmark)

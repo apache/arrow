@@ -76,6 +76,41 @@ target environment.**
 
          To Development
 
+   .. grid-item-card:: Implementations
+      :class-card: contrib-card
+      :shadow: none
+
+      Browse the documentation and source code for Apache Arrow libraries
+      in C++, C GLib, C#, Go, Java, JavaScript, Julia, MATLAB, Python, R,
+      Ruby, Rust, and Swift.
+
+      +++
+
+      .. button-ref:: implementations
+         :ref-type: ref
+         :click-parent:
+         :color: primary
+         :expand:
+
+         To Implementations
+
+
+   .. grid-item-card:: Cookbook
+      :class-card: contrib-card
+      :shadow: none
+
+      Explore a collection of Apache Arrow recipes in C++, Java, Python,
+      R, and Rust.
+
+      +++
+
+      .. button-link:: https://arrow.apache.org/cookbook/
+         :click-parent:
+         :color: primary
+         :expand:
+
+         To Cookbook
+
 .. _toc.columnar:
 
 .. toctree::
@@ -92,38 +127,10 @@ target environment.**
 
    developers/index
 
-Implementations
----------------
-
-.. _toc.usage:
+.. _toc.implementations:
 
 .. toctree::
-   :maxdepth: 1
+   :maxdepth: 2
+   :hidden:
 
-   C/GLib <c_glib/index>
-   C++ <cpp/index>
-   C# <https://github.com/apache/arrow/blob/main/csharp/README.md>
-   Go <https://arrow.apache.org/go/>
-   Java <java/index>
-   JavaScript <js/index>
-   Julia <https://arrow.apache.org/julia/>
-   MATLAB <https://github.com/apache/arrow/blob/main/matlab/README.md>
-   nanoarrow <https://arrow.apache.org/nanoarrow/>
-   Python <python/index>
-   R <r/index>
-   Ruby <https://github.com/apache/arrow/blob/main/ruby/README.md>
-   Rust <https://docs.rs/crate/arrow/>
-   status
-
-Examples
---------
-
-.. _toc.cookbook:
-
-.. toctree::
-   :maxdepth: 1
-
-   C++ cookbook <https://arrow.apache.org/cookbook/cpp/>
-   Java cookbook <https://arrow.apache.org/cookbook/java/>
-   Python cookbook <https://arrow.apache.org/cookbook/py/>
-   R cookbook <https://arrow.apache.org/cookbook/r/>
+   implementations

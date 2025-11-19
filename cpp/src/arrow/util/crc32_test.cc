@@ -34,7 +34,7 @@ TEST(Crc32Test, Basic) {
   constexpr size_t TEST_CRC32_LENGTH = 9;
   std::array<unsigned char, TEST_CRC32_LENGTH> std_data = {0x31, 0x32, 0x33, 0x34, 0x35,
                                                            0x36, 0x37, 0x38, 0x39};
-  size_t const std_data_len = sizeof(std_data) / sizeof(std_data[0]);
+  const size_t std_data_len = sizeof(std_data) / sizeof(std_data[0]);
   EXPECT_EQ(TEST_CRC32_RESULT, internal::crc32(0, &std_data[0], std_data_len));
 
   for (size_t i = 1; i < std_data_len - 1; ++i) {

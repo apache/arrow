@@ -36,6 +36,7 @@
 #include "arrow/util/iterator.h"
 #include "arrow/util/logging_internal.h"
 #include "arrow/util/range.h"
+#include "arrow/util/thread_pool.h"
 #include "arrow/util/tracing_internal.h"
 #include "parquet/arrow/reader.h"
 #include "parquet/arrow/schema.h"
@@ -116,6 +117,8 @@ parquet::ArrowReaderProperties MakeArrowReaderProperties(
   }
   properties.set_coerce_int96_timestamp_unit(
       format.reader_options.coerce_int96_timestamp_unit);
+  properties.set_binary_type(format.reader_options.binary_type);
+  properties.set_list_type(format.reader_options.list_type);
   return properties;
 }
 
@@ -132,6 +135,8 @@ parquet::ArrowReaderProperties MakeArrowReaderProperties(
   arrow_properties.set_io_context(
       parquet_scan_options.arrow_reader_properties->io_context());
   arrow_properties.set_use_threads(options.use_threads);
+  arrow_properties.set_arrow_extensions_enabled(
+      parquet_scan_options.arrow_reader_properties->get_arrow_extensions_enabled());
   return arrow_properties;
 }
 
@@ -441,7 +446,9 @@ bool ParquetFileFormat::Equals(const FileFormat& other) const {
   // FIXME implement comparison for decryption options
   return (reader_options.dict_columns == other_reader_options.dict_columns &&
           reader_options.coerce_int96_timestamp_unit ==
-              other_reader_options.coerce_int96_timestamp_unit);
+              other_reader_options.coerce_int96_timestamp_unit &&
+          reader_options.binary_type == other_reader_options.binary_type &&
+          reader_options.list_type == other_reader_options.list_type);
 }
 
 ParquetFileFormat::ParquetFileFormat(const parquet::ReaderProperties& reader_properties)
@@ -636,10 +643,12 @@ Result<RecordBatchGenerator> ParquetFileFormat::ScanBatchesAsync(
             kParquetTypeName, options.get(), default_fragment_scan_options));
     int batch_readahead = options->batch_readahead;
     int64_t rows_to_readahead = batch_readahead * options->batch_size;
-    ARROW_ASSIGN_OR_RAISE(auto generator,
-                          reader->GetRecordBatchGenerator(
-                              reader, row_groups, column_projection,
-                              ::arrow::internal::GetCpuThreadPool(), rows_to_readahead));
+    // Use the executor from scan options if provided.
+    auto cpu_executor = options->cpu_executor ? options->cpu_executor
+                                              : ::arrow::internal::GetCpuThreadPool();
+    ARROW_ASSIGN_OR_RAISE(auto generator, reader->GetRecordBatchGenerator(
+                                              reader, row_groups, column_projection,
+                                              cpu_executor, rows_to_readahead));
     RecordBatchGenerator sliced =
         SlicingGenerator(std::move(generator), options->batch_size);
     if (batch_readahead == 0) {
@@ -1042,6 +1051,8 @@ static inline Result<std::string> FileFromRowGroup(
   return filesystem->NormalizePath(std::move(path));
 }
 
+namespace {
+
 Result<std::shared_ptr<Schema>> GetSchema(
     const parquet::FileMetaData& metadata,
     const parquet::ArrowReaderProperties& properties) {
@@ -1050,6 +1061,8 @@ Result<std::shared_ptr<Schema>> GetSchema(
       metadata.schema(), properties, metadata.key_value_metadata(), &schema));
   return schema;
 }
+
+}  // namespace
 
 Result<std::shared_ptr<DatasetFactory>> ParquetDatasetFactory::Make(
     const std::string& metadata_path, std::shared_ptr<fs::FileSystem> filesystem,

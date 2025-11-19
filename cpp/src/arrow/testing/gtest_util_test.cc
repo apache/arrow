@@ -287,22 +287,12 @@ TEST(TestWithinUlp, Float) {
 TEST(AssertTestWithinUlp, Basics) {
   AssertWithinUlp(123.4567, 123.45670000000015, 11);
   AssertWithinUlp(123.456f, 123.456085f, 11);
+#ifndef _WIN32
+  // GH-47442
   EXPECT_FATAL_FAILURE(AssertWithinUlp(123.4567, 123.45670000000015, 10),
                        "not within 10 ulps");
   EXPECT_FATAL_FAILURE(AssertWithinUlp(123.456f, 123.456085f, 10), "not within 10 ulps");
+#endif
 }
 
-TEST(RunEndEncodeGtestUtilTest, SchemaTypeIsModified) {
-  std::shared_ptr<Table> table =
-      arrow::TableFromJSON(arrow::schema({arrow::field("col", arrow::utf8())}), {R"([
-      {"col": "a"},
-      {"col": "b"},
-      {"col": "c"},
-      {"col": "d"}
-    ])"});
-  ASSERT_OK_AND_ASSIGN(std::shared_ptr<Table> ree_table,
-                       RunEndEncodeTableColumns(*table, {0}));
-  ASSERT_TRUE(ree_table->schema()->field(0)->type()->Equals(
-      arrow::run_end_encoded(arrow::int32(), arrow::utf8())));
-}
 }  // namespace arrow

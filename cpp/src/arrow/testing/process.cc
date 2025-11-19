@@ -17,10 +17,10 @@
 
 #include "arrow/testing/process.h"
 #include "arrow/result.h"
+#include "arrow/util/config.h"
 
-#define BOOST_PROCESS_AVAILABLE
-#ifdef __EMSCRIPTEN__
-#  undef BOOST_PROCESS_AVAILABLE
+#ifdef ARROW_ENABLE_THREADING
+#  define BOOST_PROCESS_AVAILABLE
 #endif
 
 #ifdef BOOST_PROCESS_AVAILABLE
@@ -39,11 +39,18 @@
 #      ifdef __APPLE__
 #        include <sys/sysctl.h>
 #      endif
-#      include <boost/process/v2.hpp>
 #      include <boost/process/v2/src.hpp>
-#    else
-#      include <boost/process/v2.hpp>
 #    endif
+#    include <boost/process/v2/environment.hpp>
+#    include <boost/process/v2/error.hpp>
+#    include <boost/process/v2/execute.hpp>
+#    include <boost/process/v2/exit_code.hpp>
+#    include <boost/process/v2/pid.hpp>
+#    include <boost/process/v2/popen.hpp>
+#    include <boost/process/v2/process.hpp>
+#    include <boost/process/v2/process_handle.hpp>
+#    include <boost/process/v2/start_dir.hpp>
+#    include <boost/process/v2/stdio.hpp>
 #    include <unordered_map>
 #  else
 // We need BOOST_USE_WINDOWS_H definition with MinGW when we use
@@ -169,7 +176,7 @@ class Process::Impl {
       for (const auto& kv : process::environment::current()) {
         env[kv.key()] = process::environment::value(kv.value());
       }
-      env["PATH"] = process::environment::value(current_exe.parent_path());
+      env["PATH"] = process::environment::value(current_exe.parent_path().string());
       executable_ = process::environment::find_executable(name, env);
 #  else
       executable_ = process::search_path(name, {current_exe.parent_path()});
@@ -274,6 +281,8 @@ class Process::Impl {
 
 #  if defined(__linux__)
     path = filesystem::canonical("/proc/self/exe", error_code);
+#  elif defined(__FreeBSD__)
+    path = filesystem::canonical("/proc/curproc/file", error_code);
 #  elif defined(__APPLE__)
     char buf[PATH_MAX + 1];
     uint32_t bufsize = sizeof(buf);

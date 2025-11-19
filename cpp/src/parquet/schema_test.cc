@@ -1251,7 +1251,7 @@ TEST(TestLogicalTypeOperation, LogicalTypeProperties) {
       {BSONLogicalType::Make(), false, true, true},
       {UUIDLogicalType::Make(), false, true, true},
       {Float16LogicalType::Make(), false, true, true},
-      {VariantLogicalType::Make(), false, true, true},
+      {VariantLogicalType::Make(), true, true, true},
       {NoLogicalType::Make(), false, false, true},
   };
 
@@ -1549,7 +1549,39 @@ TEST(TestLogicalTypeOperation, LogicalTypeRepresentation) {
       {LogicalType::BSON(), "BSON", R"({"Type": "BSON"})"},
       {LogicalType::UUID(), "UUID", R"({"Type": "UUID"})"},
       {LogicalType::Float16(), "Float16", R"({"Type": "Float16"})"},
-      {LogicalType::Variant(), "Variant", R"({"Type": "Variant"})"},
+      {LogicalType::Geometry(), "Geometry(crs=)", R"({"Type": "Geometry"})"},
+      {LogicalType::Geometry("srid:1234"), "Geometry(crs=srid:1234)",
+       R"({"Type": "Geometry", "crs": "srid:1234"})"},
+      {LogicalType::Geometry(R"(crs with "quotes" and \backslashes\)"),
+       R"(Geometry(crs=crs with "quotes" and \backslashes\))",
+       R"({"Type": "Geometry", "crs": "crs with \"quotes\" and \\backslashes\\"})"},
+      {LogicalType::Geometry("crs with control characters \u0001 and \u001F"),
+       "Geometry(crs=crs with control characters \u0001 and \u001F)",
+       R"({"Type": "Geometry", "crs": "crs with control characters \u0001 and \u001F"})"},
+      {LogicalType::Geography(), "Geography(crs=, algorithm=spherical)",
+       R"({"Type": "Geography"})"},
+      {LogicalType::Geography("srid:1234",
+                              LogicalType::EdgeInterpolationAlgorithm::SPHERICAL),
+       "Geography(crs=srid:1234, algorithm=spherical)",
+       R"({"Type": "Geography", "crs": "srid:1234"})"},
+      {LogicalType::Geography("srid:1234",
+                              LogicalType::EdgeInterpolationAlgorithm::VINCENTY),
+       "Geography(crs=srid:1234, algorithm=vincenty)",
+       R"({"Type": "Geography", "crs": "srid:1234", "algorithm": "vincenty"})"},
+      {LogicalType::Geography("srid:1234",
+                              LogicalType::EdgeInterpolationAlgorithm::THOMAS),
+       "Geography(crs=srid:1234, algorithm=thomas)",
+       R"({"Type": "Geography", "crs": "srid:1234", "algorithm": "thomas"})"},
+      {LogicalType::Geography("srid:1234",
+                              LogicalType::EdgeInterpolationAlgorithm::ANDOYER),
+       "Geography(crs=srid:1234, algorithm=andoyer)",
+       R"({"Type": "Geography", "crs": "srid:1234", "algorithm": "andoyer"})"},
+      {LogicalType::Geography("srid:1234",
+                              LogicalType::EdgeInterpolationAlgorithm::KARNEY),
+       "Geography(crs=srid:1234, algorithm=karney)",
+       R"({"Type": "Geography", "crs": "srid:1234", "algorithm": "karney"})"},
+      {LogicalType::Variant(), "Variant(1)", R"({"Type": "Variant", "SpecVersion": 1})"},
+      {LogicalType::Variant(2), "Variant(2)", R"({"Type": "Variant", "SpecVersion": 2})"},
       {LogicalType::None(), "None", R"({"Type": "None"})"},
   };
 
@@ -1600,6 +1632,8 @@ TEST(TestLogicalTypeOperation, LogicalTypeSortOrder) {
       {LogicalType::BSON(), SortOrder::UNSIGNED},
       {LogicalType::UUID(), SortOrder::UNSIGNED},
       {LogicalType::Float16(), SortOrder::SIGNED},
+      {LogicalType::Geometry(), SortOrder::UNKNOWN},
+      {LogicalType::Geography(), SortOrder::UNKNOWN},
       {LogicalType::Variant(), SortOrder::UNKNOWN},
       {LogicalType::None(), SortOrder::UNKNOWN}};
 
@@ -2293,6 +2327,24 @@ TEST(TestLogicalTypeSerialization, Roundtrips) {
       {LogicalType::BSON(), Type::BYTE_ARRAY, -1},
       {LogicalType::UUID(), Type::FIXED_LEN_BYTE_ARRAY, 16},
       {LogicalType::Float16(), Type::FIXED_LEN_BYTE_ARRAY, 2},
+      {LogicalType::Geometry(), Type::BYTE_ARRAY, -1},
+      {LogicalType::Geometry("srid:1234"), Type::BYTE_ARRAY, -1},
+      {LogicalType::Geography(), Type::BYTE_ARRAY, -1},
+      {LogicalType::Geography("srid:1234",
+                              LogicalType::EdgeInterpolationAlgorithm::SPHERICAL),
+       Type::BYTE_ARRAY, -1},
+      {LogicalType::Geography("srid:1234",
+                              LogicalType::EdgeInterpolationAlgorithm::VINCENTY),
+       Type::BYTE_ARRAY, -1},
+      {LogicalType::Geography("srid:1234",
+                              LogicalType::EdgeInterpolationAlgorithm::THOMAS),
+       Type::BYTE_ARRAY, -1},
+      {LogicalType::Geography("srid:1234",
+                              LogicalType::EdgeInterpolationAlgorithm::ANDOYER),
+       Type::BYTE_ARRAY, -1},
+      {LogicalType::Geography("srid:1234",
+                              LogicalType::EdgeInterpolationAlgorithm::KARNEY),
+       Type::BYTE_ARRAY, -1},
       {LogicalType::None(), Type::BOOLEAN, -1}};
 
   for (const AnnotatedPrimitiveNodeFactoryArguments& c : cases) {
@@ -2302,6 +2354,37 @@ TEST(TestLogicalTypeSerialization, Roundtrips) {
   // Group nodes ...
   ConfirmGroupNodeRoundtrip("map", LogicalType::Map());
   ConfirmGroupNodeRoundtrip("list", LogicalType::List());
+  ConfirmGroupNodeRoundtrip("variant", LogicalType::Variant());
+}
+
+TEST(TestLogicalTypeSerialization, VariantSpecificationVersion) {
+  // Confirm that Variant logical type sets specification_version to expected value in
+  // thrift serialization
+  constexpr int8_t spec_version = 2;
+  auto metadata = PrimitiveNode::Make("metadata", Repetition::REQUIRED, Type::BYTE_ARRAY);
+  auto value = PrimitiveNode::Make("value", Repetition::REQUIRED, Type::BYTE_ARRAY);
+  NodePtr variant_node =
+      GroupNode::Make("variant", Repetition::REQUIRED, {metadata, value},
+                      LogicalType::Variant(spec_version));
+
+  // Verify variant logical type
+  auto logical_type = variant_node->logical_type();
+  ASSERT_TRUE(logical_type->is_variant());
+  const auto& variant_type = checked_cast<const VariantLogicalType&>(*logical_type);
+  ASSERT_EQ(variant_type.spec_version(), spec_version);
+
+  // Verify thrift serialization
+  std::vector<format::SchemaElement> elements;
+  ToParquet(reinterpret_cast<GroupNode*>(variant_node.get()), &elements);
+
+  // Verify that logicalType is set and is VARIANT
+  ASSERT_EQ(elements[0].name, "variant");
+  ASSERT_TRUE(elements[0].__isset.logicalType);
+  ASSERT_TRUE(elements[0].logicalType.__isset.VARIANT);
+
+  // Verify that specification_version is set properly
+  ASSERT_TRUE(elements[0].logicalType.VARIANT.__isset.specification_version);
+  ASSERT_EQ(elements[0].logicalType.VARIANT.specification_version, spec_version);
 }
 
 }  // namespace schema

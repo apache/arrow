@@ -443,7 +443,7 @@ def test_all_null_category(version):
 
 @pytest.mark.pandas
 def test_multithreaded_read(version):
-    data = {'c{}'.format(i): [''] * 10
+    data = {f'c{i}': [''] * 10
             for i in range(100)}
     df = pd.DataFrame(data)
     _check_pandas_roundtrip(df, use_threads=True, version=version)

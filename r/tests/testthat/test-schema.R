@@ -330,5 +330,4 @@ test_that("schema print truncation", {
     print_schema_fields(schema(tbl), truncate = TRUE, max_fields = 0),
     regexp = "max_fields not greater than 0"
   )
-
 })

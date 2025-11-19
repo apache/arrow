@@ -27,19 +27,20 @@ import zipfile
 
 
 def process_dir(corpus_dir, zip_output):
-    seen = set()
+    seen_hashes = {}
 
     for child in corpus_dir.iterdir():
         if not child.is_file():
-            raise IOError("Not a file: {0}".format(child))
+            raise IOError(f"Not a file: {child}")
         with child.open('rb') as f:
             data = f.read()
         arcname = hashlib.sha1(data).hexdigest()
-        if arcname in seen:
-            raise ValueError("Duplicate hash: {0} (in file {1})"
-                             .format(arcname, child))
+        if arcname in seen_hashes:
+            raise ValueError(
+                f"Duplicate hash: {arcname} (in file {child}), "
+                f"already seen in file {seen_hashes[arcname]}")
         zip_output.writestr(str(arcname), data)
-        seen.add(arcname)
+        seen_hashes[arcname] = child
 
 
 def main(corpus_dir, zip_output_name):
@@ -49,6 +50,6 @@ def main(corpus_dir, zip_output_name):
 
 if __name__ == "__main__":
     if len(sys.argv) != 3:
-        print("Usage: {0} <corpus dir> <output zip file>".format(sys.argv[0]))
+        print(f"Usage: {sys.argv[0]} <corpus dir> <output zip file>")
         sys.exit(1)
     main(sys.argv[1], sys.argv[2])

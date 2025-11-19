@@ -42,5 +42,32 @@ template <typename T>
 struct is_null_pointer : std::is_same<std::nullptr_t, typename std::remove_cv<T>::type> {
 };
 
+template <int kNumBytes>
+struct SizedIntImpl;
+
+template <>
+struct SizedIntImpl<1> {
+  using type = int8_t;
+};
+
+template <>
+struct SizedIntImpl<2> {
+  using type = int16_t;
+};
+
+template <>
+struct SizedIntImpl<4> {
+  using type = int32_t;
+};
+
+template <>
+struct SizedIntImpl<8> {
+  using type = int64_t;
+};
+
+// Map a number of bytes to a type
+template <int kNumBytes>
+using SizedInt = typename SizedIntImpl<kNumBytes>::type;
+
 }  // namespace internal
 }  // namespace arrow

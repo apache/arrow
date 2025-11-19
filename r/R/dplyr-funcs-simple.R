@@ -32,14 +32,22 @@
   "base::log1p" = "log1p_checked",
   "base::log2" = "log2_checked",
   "base::sign" = "sign",
+  "base::expm1" = "expm1",
   # trunc is defined in dplyr-functions.R
 
   # trigonometric functions
   "base::acos" = "acos_checked",
   "base::asin" = "asin_checked",
   "base::cos" = "cos_checked",
+  "base::atan" = "atan",
   "base::sin" = "sin_checked",
   "base::tan" = "tan_checked",
+  "base::cosh" = "cosh",
+  "base::sinh" = "sinh",
+  "base::tanh" = "tanh",
+  "base::acosh" = "acosh_checked",
+  "base::asinh" = "asinh",
+  "base::atanh" = "atanh_checked",
 
   # logical functions
   "!" = "invert",
@@ -182,7 +190,7 @@ common_type <- function(exprs) {
 
 cast_or_parse <- function(x, type) {
   to_type_id <- type$id
-  if (to_type_id %in% c(Type[["DECIMAL128"]], Type[["DECIMAL256"]])) {
+  if (to_type_id %in% c(Type[["DECIMAL32"]], Type[["DECIMAL64"]], Type[["DECIMAL128"]], Type[["DECIMAL256"]])) {
     # TODO: determine the minimum size of decimal (or integer) required to
     # accommodate x
     # We would like to keep calculations on decimal if that's what the data has

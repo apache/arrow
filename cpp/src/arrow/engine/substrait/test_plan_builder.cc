@@ -42,7 +42,9 @@ namespace arrow {
 namespace engine {
 namespace internal {
 
-static const ConversionOptions kPlanBuilderConversionOptions;
+namespace {
+
+const ConversionOptions kPlanBuilderConversionOptions;
 
 Result<std::unique_ptr<substrait::ReadRel>> CreateRead(const Table& table,
                                                        ExtensionSet* ext_set) {
@@ -184,6 +186,8 @@ Result<std::unique_ptr<substrait::Plan>> CreatePlan(std::unique_ptr<substrait::R
   ARROW_RETURN_NOT_OK(AddExtensionSetToPlan(*ext_set, plan.get()));
   return plan;
 }
+
+}  // namespace
 
 Result<std::shared_ptr<Buffer>> CreateScanProjectSubstrait(
     Id function_id, const std::shared_ptr<Table>& input_table,

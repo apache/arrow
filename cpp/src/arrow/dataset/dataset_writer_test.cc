@@ -20,6 +20,7 @@
 #include <chrono>
 #include <mutex>
 #include <optional>
+#include <thread>
 #include <vector>
 
 #include "arrow/array/builder_primitive.h"
@@ -105,7 +106,8 @@ class DatasetWriterTestFixture : public testing::Test {
       uint64_t max_rows = kDefaultDatasetWriterMaxRowsQueued) {
     EXPECT_OK_AND_ASSIGN(auto dataset_writer,
                          DatasetWriter::Make(
-                             write_options_, scheduler_, [] {}, [] {}, [] {}, max_rows));
+                             write_options_, scheduler_, [this] { paused_ = true; },
+                             [this] { paused_ = false; }, [] {}, max_rows));
     return dataset_writer;
   }
 
@@ -231,6 +233,7 @@ class DatasetWriterTestFixture : public testing::Test {
   util::AsyncTaskScheduler* scheduler_;
   Future<> scheduler_finished_;
   FileSystemDatasetWriteOptions write_options_;
+  std::atomic_bool paused_{false};
   uint64_t counter_ = 0;
 };
 
@@ -265,6 +268,49 @@ TEST_F(DatasetWriterTestFixture, DirectoryCreateFails) {
   ASSERT_FINISHES_AND_RAISES(Invalid, scheduler_finished_);
 }
 
+TEST_F(DatasetWriterTestFixture, BatchGreaterThanMaxRowsQueued) {
+  auto dataset_writer = MakeDatasetWriter(/*max_rows=*/10);
+  dataset_writer->WriteRecordBatch(MakeBatch(35), "");
+  EndWriterChecked(dataset_writer.get());
+  AssertCreatedData({{"testdir/chunk-0.arrow", 0, 35}});
+  ASSERT_EQ(paused_, false);
+}
+
+TEST_F(DatasetWriterTestFixture, BatchWriteConcurrent) {
+#ifndef ARROW_ENABLE_THREADING
+  GTEST_SKIP() << "Test requires threading support";
+#endif
+  auto dataset_writer = MakeDatasetWriter(/*max_rows=*/5);
+
+  for (int threads = 1; threads < 5; threads++) {
+    for (int iter = 2; iter <= 256; iter *= 2) {
+      for (int batch = 2; batch <= 64; batch *= 2) {
+        std::vector<std::thread> workers;
+        for (int i = 0; i < threads; ++i) {
+          workers.push_back(std::thread([&, i = i]() {
+            for (int j = 0; j < iter; ++j) {
+              while (paused_) {
+                SleepABit();
+              }
+              dataset_writer->WriteRecordBatch(MakeBatch(0, batch + i + 10 * j), "");
+            }
+          }));
+        }
+        for (std::thread& t : workers) {
+          if (t.joinable()) {
+            t.join();
+          }
+          while (paused_) {
+            SleepABit();
+          }
+        }
+      }
+    }
+  }
+  EndWriterChecked(dataset_writer.get());
+  ASSERT_EQ(paused_, false);
+}
+
 TEST_F(DatasetWriterTestFixture, MaxRowsOneWrite) {
   write_options_.max_rows_per_file = 10;
   write_options_.max_rows_per_group = 10;
@@ -275,6 +321,7 @@ TEST_F(DatasetWriterTestFixture, MaxRowsOneWrite) {
                      {"testdir/chunk-1.arrow", 10, 10},
                      {"testdir/chunk-2.arrow", 20, 10},
                      {"testdir/chunk-3.arrow", 30, 5}});
+  ASSERT_EQ(paused_, false);
 }
 
 TEST_F(DatasetWriterTestFixture, MaxRowsOneWriteBackpresure) {

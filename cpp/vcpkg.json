@@ -1,6 +1,6 @@
 {
   "name": "arrow",
-  "version-string": "20.0.0-SNAPSHOT",
+  "version-string": "22.0.0",
   "dependencies": [
     "abseil",
     {
@@ -15,12 +15,17 @@
       ]
     },
     "benchmark",
+    "boost-beast",
     "boost-cmake",
     "boost-crc",
     "boost-filesystem",
+    "boost-locale",
     "boost-multiprecision",
+    "boost-optional",
     "boost-process",
     "boost-system",
+    "boost-variant",
+    "boost-xpressive",
     "brotli",
     "bzip2",
     "c-ares",

@@ -1314,7 +1314,7 @@ const std::shared_ptr<Schema>& SqlSchema::GetPrimaryKeysSchema() {
   return kSchema;
 }
 
-const std::shared_ptr<Schema>& GetImportedExportedKeysAndCrossReferenceSchema() {
+static const std::shared_ptr<Schema>& GetImportedExportedKeysAndCrossReferenceSchema() {
   static std::shared_ptr<Schema> kSchema = arrow::schema(
       {field("pk_catalog_name", utf8(), true), field("pk_db_schema_name", utf8(), true),
        field("pk_table_name", utf8(), false), field("pk_column_name", utf8(), false),

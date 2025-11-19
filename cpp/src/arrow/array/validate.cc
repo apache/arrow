@@ -30,7 +30,7 @@
 #include "arrow/util/int_util_overflow.h"
 #include "arrow/util/logging_internal.h"
 #include "arrow/util/ree_util.h"
-#include "arrow/util/sort.h"
+#include "arrow/util/sort_internal.h"
 #include "arrow/util/string.h"
 #include "arrow/util/unreachable.h"
 #include "arrow/util/utf8.h"

@@ -1,0 +1,321 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+name: C++ Extra
+
+on:
+  push:
+    branches:
+      - '**'
+      - '!dependabot/**'
+    paths:
+      - '.dockerignore'
+      - '.github/workflows/check_labels.yml'
+      - '.github/workflows/cpp_extra.yml'
+      - '.github/workflows/report_ci.yml'
+      - 'ci/conda_env_*'
+      - 'ci/docker/**'
+      - 'ci/scripts/ccache_setup.sh'
+      - 'ci/scripts/cpp_*'
+      - 'ci/scripts/install_azurite.sh'
+      - 'ci/scripts/install_gcs_testbench.sh'
+      - 'ci/scripts/install_minio.sh'
+      - 'ci/scripts/msys2_*'
+      - 'ci/scripts/util_*'
+      - 'cpp/**'
+      - 'docker-compose.yml'
+      - 'format/Flight.proto'
+      - 'testing'
+    tags:
+      - '**'
+  pull_request:
+    paths:
+      - '.dockerignore'
+      - '.github/workflows/check_labels.yml'
+      - '.github/workflows/cpp_extra.yml'
+      - '.github/workflows/report_ci.yml'
+      - 'ci/conda_env_*'
+      - 'ci/docker/**'
+      - 'ci/scripts/ccache_setup.sh'
+      - 'ci/scripts/cpp_*'
+      - 'ci/scripts/install_azurite.sh'
+      - 'ci/scripts/install_gcs_testbench.sh'
+      - 'ci/scripts/install_minio.sh'
+      - 'ci/scripts/msys2_*'
+      - 'ci/scripts/util_*'
+      - 'cpp/**'
+      - 'docker-compose.yml'
+      - 'format/Flight.proto'
+      - 'testing'
+    types:
+      - labeled
+      - opened
+      - reopened
+      - synchronize
+  schedule:
+    - cron: |
+        0 0 * * *
+
+concurrency:
+  group: ${{ github.repository }}-${{ github.head_ref || github.sha }}-${{ github.workflow }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  check-labels:
+    uses: ./.github/workflows/check_labels.yml
+    secrets: inherit
+    with:
+      parent-workflow: cpp_extra
+
+  docker:
+    needs: check-labels
+    name: ${{ matrix.title }}
+    runs-on: ${{ matrix.runs-on }}
+    if: >-
+      needs.check-labels.outputs.force == 'true' ||
+      contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra') ||
+      contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra: C++')
+    timeout-minutes: 75
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - image: alpine-linux-cpp
+            runs-on: ubuntu-latest
+            title: AMD64 Alpine Linux
+          - image: conda-cpp
+            run-options: >-
+              -e ARROW_USE_MESON=ON
+            runs-on: ubuntu-latest
+            title: AMD64 Ubuntu Meson
+          # TODO: We should remove this "continue-on-error: true" once GH-47207 is resolved
+          - continue-on-error: true
+            envs:
+              - DEBIAN=13
+            image: debian-cpp
+            run-options: >-
+              -e CMAKE_CXX_STANDARD=23
+            runs-on: ubuntu-latest
+            title: AMD64 Debian C++23
+    env:
+      ARCHERY_DEBUG: 1
+      ARROW_ENABLE_TIMING_TESTS: OFF
+      DOCKER_VOLUME_PREFIX: ".docker/"
+    steps:
+      - name: Checkout Arrow
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          fetch-depth: 0
+          submodules: recursive
+      - name: Cache Docker Volumes
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        with:
+          path: .docker
+          key: extra-${{ matrix.image }}-${{ hashFiles('cpp/**') }}
+          restore-keys: extra-${{ matrix.image }}-
+      - name: Setup Python
+        uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6.0.0
+        with:
+          python-version: 3
+      - name: Setup Archery
+        run: python3 -m pip install -e dev/archery[docker]
+      - name: Execute Docker Build
+        continue-on-error: ${{ matrix.continue-on-error || false }}
+        env:
+          ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
+          ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
+          ENVS: ${{ toJSON(matrix.envs) }}
+        run: |
+          # GH-40558: reduce ASLR to avoid ASAN/LSAN crashes
+          sudo sysctl -w vm.mmap_rnd_bits=28
+          source ci/scripts/util_enable_core_dumps.sh
+          if [ "${ENVS}" != "null" ]; then
+            echo "${ENVS}" | jq -r '.[]' | while read env; do
+              echo "${env}" >> .env
+            done
+          fi
+          archery docker run ${{ matrix.run-options || '' }} ${{ matrix.image }}
+      - name: Docker Push
+        if: >-
+          success() &&
+          github.event_name == 'push' &&
+          github.repository == 'apache/arrow' &&
+          github.ref_name == 'main'
+        env:
+          ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
+          ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
+        continue-on-error: true
+        run: archery docker push ${{ matrix.image }}
+
+  jni-linux:
+    needs: check-labels
+    name: JNI ${{ matrix.platform.runs-on }} ${{ matrix.platform.arch }}
+    runs-on: ${{ matrix.platform.runs-on }}
+    if: >-
+      needs.check-labels.outputs.force == 'true' ||
+      contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra') ||
+      contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra: C++')
+    timeout-minutes: 240
+    permissions:
+      # This is for using GitHub Packages for vcpkg cache
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        platform:
+          - arch: "amd64"
+            runs-on: ubuntu-latest
+          - arch: "arm64v8"
+            runs-on: ubuntu-24.04-arm
+    env:
+      ARCH: ${{ matrix.platform.arch }}
+      REPO: ghcr.io/${{ github.repository }}-dev
+    steps:
+      - name: Checkout Arrow
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          fetch-depth: 0
+          submodules: recursive
+      - name: Cache Docker Volumes
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        with:
+          path: .docker
+          key: jni-${{ matrix.platform.runs-on }}-${{ hashFiles('cpp/**') }}
+          restore-keys: jni-${{ matrix.platform.runs-on }}-
+      - name: Setup Python
+        uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6.0.0
+        with:
+          python-version: 3
+      - name: Setup Archery
+        run: python3 -m pip install -e dev/archery[docker]
+      - name: Execute Docker Build
+        env:
+          ARCHERY_DOCKER_USER: ${{ github.actor }}
+          ARCHERY_DOCKER_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VCPKG_BINARY_SOURCES: "clear;nuget,GitHub,readwrite"
+        run: |
+          source ci/scripts/util_enable_core_dumps.sh
+          archery docker run cpp-jni
+      - name: Docker Push
+        if: >-
+          success() &&
+          github.event_name == 'push' &&
+          github.ref_name == 'main'
+        env:
+          ARCHERY_DOCKER_USER: ${{ github.actor }}
+          ARCHERY_DOCKER_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
+        continue-on-error: true
+        run: archery docker push cpp-jni
+
+  jni-macos:
+    needs: check-labels
+    name: JNI macOS
+    runs-on: macos-14
+    if: >-
+      needs.check-labels.outputs.force == 'true' ||
+      contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra') ||
+      contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra: C++')
+    timeout-minutes: 45
+    env:
+      MACOSX_DEPLOYMENT_TARGET: "14.0"
+    steps:
+      - name: Checkout Arrow
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          fetch-depth: 0
+          submodules: recursive
+      - name: Install dependencies
+        run: |
+          brew bundle --file=cpp/Brewfile
+          # We want to link aws-sdk-cpp statically but Homebrew's
+          # aws-sdk-cpp provides only shared library. If we have
+          # Homebrew's aws-sdk-cpp, our build mix Homebrew's
+          # aws-sdk-cpp and bundled aws-sdk-cpp. We uninstall Homebrew's
+          # aws-sdk-cpp to ensure using only bundled aws-sdk-cpp.
+          brew uninstall aws-sdk-cpp
+          # We want to use bundled RE2 for static linking. If
+          # Homebrew's RE2 is installed, its header file may be used.
+          # We uninstall Homebrew's RE2 to ensure using bundled RE2.
+          brew uninstall grpc || : # gRPC depends on RE2
+          brew uninstall grpc@1.54 || : # gRPC 1.54 may be installed too
+          brew uninstall re2
+          # We want to use bundled Protobuf for static linking. If
+          # Homebrew's Protobuf is installed, its library file may be
+          # used on test  We uninstall Homebrew's Protobuf to ensure using
+          # bundled Protobuf.
+          brew uninstall protobuf
+      - name: Prepare ccache
+        run: |
+          echo "CCACHE_DIR=${PWD}/ccache" >> ${GITHUB_ENV}
+      - name: Cache ccache
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        with:
+          path: ccache
+          key: jni-macos-${{ hashFiles('cpp/**') }}
+          restore-keys: jni-macos-
+      - name: CMake
+        run: |
+          cmake \
+            -S cpp \
+            -B cpp.build \
+            --preset=ninja-release-jni-macos \
+            -DARROW_BUILD_TESTS=ON \
+            -DCMAKE_INSTALL_PREFIX=$PWD/cpp.install
+      - name: Build
+        run: |
+          cmake --build cpp.build
+      - name: Install
+        run: |
+          cmake --install cpp.build
+      - name: Test
+        env:
+          ARROW_TEST_DATA: ${{ github.workspace }}/testing/data
+          PARQUET_TEST_DATA: ${{ github.workspace }}/cpp/submodules/parquet-testing/data
+        run: |
+          # MinIO is required
+          exclude_tests="arrow-s3fs-test"
+          # unstable
+          exclude_tests="${exclude_tests}|arrow-acero-asof-join-node-test"
+          exclude_tests="${exclude_tests}|arrow-acero-hash-join-node-test"
+          ctest \
+            --exclude-regex "${exclude_tests}" \
+            --label-regex unittest \
+            --output-on-failure \
+            --parallel "$(sysctl -n hw.ncpu)" \
+            --test-dir "cpp.build" \
+            --timeout 300
+      - name: Build example
+        run: |
+          cmake \
+            -S cpp/examples/minimal_build/ \
+            -B cpp/examples/minimal_build.build \
+            -GNinja \
+            -DCMAKE_INSTALL_PREFIX=$PWD/cpp.install
+          cmake --build cpp/examples/minimal_build.build
+          cd cpp/examples/minimal_build
+          ../minimal_build.build/arrow-example
+
+  report-extra-cpp:
+    needs:
+      - docker
+      - jni-macos
+    uses: ./.github/workflows/report_ci.yml
+    secrets: inherit

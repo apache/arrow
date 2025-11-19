@@ -8,7 +8,7 @@ export DH_OPTIONS
 
 export DEB_BUILD_MAINT_OPTIONS=reproducible=-timeless
 
-BUILD_TYPE=release
+BUILD_TYPE=relwithdebinfo
 
 %:
 	dh $@ --with gir
@@ -72,8 +72,9 @@ override_dh_auto_build:
 	  --builddirectory=c_glib_build			\
 	  --buildsystem=meson+ninja			\
 	  --						\
-	  -Darrow_cpp_build_type=$(BUILD_TYPE)		\
+	  --buildtype=debugoptimized			\
 	  -Darrow_cpp_build_dir=../cpp_build		\
+	  -Darrow_cpp_build_type=$(BUILD_TYPE)		\
 	  -Ddoc=true					\
 	  -Dvapi=true
 	env							\
@@ -88,17 +89,7 @@ override_dh_auto_install:
 	  --sourcedirectory=c_glib		\
 	  --builddirectory=c_glib_build		\
 	  --buildsystem=meson+ninja
-	# Remove built files to reduce disk usage
-	dh_auto_clean				\
-	  --sourcedirectory=c_glib		\
-	  --builddirectory=c_glib_build		\
-	  --buildsystem=meson+ninja
-
 	dh_auto_install				\
-	  --sourcedirectory=cpp			\
-	  --builddirectory=cpp_build
-	# Remove built files to reduce disk usage
-	dh_auto_clean				\
 	  --sourcedirectory=cpp			\
 	  --builddirectory=cpp_build
 

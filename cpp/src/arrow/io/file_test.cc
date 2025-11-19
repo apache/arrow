@@ -434,7 +434,7 @@ TEST_F(TestReadableFile, NonexistentFile) {
   auto maybe_file = ReadableFile::Open(path);
   ASSERT_RAISES(IOError, maybe_file);
   std::string message = maybe_file.status().message();
-  ASSERT_NE(std::string::npos, message.find(path));
+  ASSERT_NE(std::string::npos, message.find(path)) << message;
 }
 
 class MyMemoryPool : public MemoryPool {

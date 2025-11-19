@@ -111,6 +111,26 @@ TEST(TestWriterProperties, SetCodecOptions) {
                     ->window_bits);
 }
 
+TEST(TestWriterProperties, ContentDefinedChunkingSettings) {
+  WriterProperties::Builder builder;
+  std::shared_ptr<WriterProperties> props = builder.build();
+
+  ASSERT_FALSE(props->content_defined_chunking_enabled());
+  auto cdc_options = props->content_defined_chunking_options();
+  ASSERT_EQ(cdc_options.min_chunk_size, 256 * 1024);
+  ASSERT_EQ(cdc_options.max_chunk_size, 1024 * 1024);
+  ASSERT_EQ(cdc_options.norm_level, 0);
+
+  builder.enable_content_defined_chunking();
+  builder.content_defined_chunking_options(CdcOptions{512 * 1024, 2048 * 1024, 1});
+  props = builder.build();
+  ASSERT_TRUE(props->content_defined_chunking_enabled());
+  cdc_options = props->content_defined_chunking_options();
+  ASSERT_EQ(cdc_options.min_chunk_size, 512 * 1024);
+  ASSERT_EQ(cdc_options.max_chunk_size, 2048 * 1024);
+  ASSERT_EQ(cdc_options.norm_level, 1);
+}
+
 TEST(TestReaderProperties, GetStreamInsufficientData) {
   // ARROW-6058
   std::string data = "shorter than expected";

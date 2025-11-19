@@ -83,17 +83,16 @@ def pytest_addoption(parser):
         elif value in {'0', 'false', 'off', 'no', 'n'}:
             return False
         else:
-            raise ValueError('{}={} is not parsable as boolean'
-                             .format(name.upper(), value))
+            raise ValueError(f'{name.upper()}={value} is not parsable as boolean')
 
     for group in groups:
-        default = bool_env('PYARROW_TEST_{}'.format(group), defaults[group])
-        parser.addoption('--enable-{}'.format(group),
+        default = bool_env(f'PYARROW_TEST_{group}', defaults[group])
+        parser.addoption(f'--enable-{group}',
                          action='store_true', default=default,
-                         help=('Enable the {} test group'.format(group)))
-        parser.addoption('--disable-{}'.format(group),
+                         help=(f'Enable the {group} test group'))
+        parser.addoption(f'--disable-{group}',
                          action='store_true', default=False,
-                         help=('Disable the {} test group'.format(group)))
+                         help=(f'Disable the {group} test group'))
 
 
 class PyArrowConfig:
@@ -107,7 +106,7 @@ class PyArrowConfig:
 
     def requires(self, group):
         if not self.is_enabled[group]:
-            pytest.skip('{} NOT enabled'.format(group))
+            pytest.skip(f'{group} NOT enabled')
 
 
 def pytest_configure(config):
@@ -119,8 +118,8 @@ def pytest_configure(config):
             "markers", mark,
         )
 
-        enable_flag = '--enable-{}'.format(mark)
-        disable_flag = '--disable-{}'.format(mark)
+        enable_flag = f'--enable-{mark}'
+        disable_flag = f'--disable-{mark}'
 
         is_enabled = (config.getoption(enable_flag) and not
                       config.getoption(disable_flag))
@@ -217,7 +216,7 @@ def s3_server(s3_connection, tmpdir_factory):
     tmpdir = tmpdir_factory.getbasetemp()
     host, port, access_key, secret_key = s3_connection
 
-    address = '{}:{}'.format(host, port)
+    address = f'{host}:{port}'
     env = os.environ.copy()
     env.update({
         'MINIO_ACCESS_KEY': access_key,

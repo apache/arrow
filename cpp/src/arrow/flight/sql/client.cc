@@ -40,6 +40,7 @@ namespace flight {
 namespace sql {
 
 namespace {
+
 arrow::Result<FlightDescriptor> GetFlightDescriptorForCommand(
     const google::protobuf::Message& command) {
   FlightDescriptor descriptor;
@@ -96,6 +97,25 @@ Status ReadResult(ResultStream* results, google::protobuf::Message* message) {
   }
   return Status::OK();
 }
+
+arrow::Result<std::shared_ptr<Buffer>> BindParameters(FlightClient* client,
+                                                      const FlightCallOptions& options,
+                                                      const FlightDescriptor& descriptor,
+                                                      RecordBatchReader* params) {
+  ARROW_ASSIGN_OR_RAISE(auto stream,
+                        client->DoPut(options, descriptor, params->schema()));
+  while (true) {
+    ARROW_ASSIGN_OR_RAISE(auto batch, params->Next());
+    if (!batch) break;
+    ARROW_RETURN_NOT_OK(stream.writer->WriteRecordBatch(*batch));
+  }
+  ARROW_RETURN_NOT_OK(stream.writer->DoneWriting());
+  std::shared_ptr<Buffer> metadata;
+  ARROW_RETURN_NOT_OK(stream.reader->ReadMetadata(&metadata));
+  ARROW_RETURN_NOT_OK(stream.writer->Close());
+  return metadata;
+}
+
 }  // namespace
 
 const Transaction& no_transaction() {
@@ -613,24 +633,6 @@ arrow::Result<std::shared_ptr<PreparedStatement>> PreparedStatement::ParseRespon
 
   return std::make_shared<PreparedStatement>(client, handle, dataset_schema,
                                              parameter_schema);
-}
-
-arrow::Result<std::shared_ptr<Buffer>> BindParameters(FlightClient* client,
-                                                      const FlightCallOptions& options,
-                                                      const FlightDescriptor& descriptor,
-                                                      RecordBatchReader* params) {
-  ARROW_ASSIGN_OR_RAISE(auto stream,
-                        client->DoPut(options, descriptor, params->schema()));
-  while (true) {
-    ARROW_ASSIGN_OR_RAISE(auto batch, params->Next());
-    if (!batch) break;
-    ARROW_RETURN_NOT_OK(stream.writer->WriteRecordBatch(*batch));
-  }
-  ARROW_RETURN_NOT_OK(stream.writer->DoneWriting());
-  std::shared_ptr<Buffer> metadata;
-  ARROW_RETURN_NOT_OK(stream.reader->ReadMetadata(&metadata));
-  ARROW_RETURN_NOT_OK(stream.writer->Close());
-  return metadata;
 }
 
 arrow::Result<std::unique_ptr<FlightInfo>> PreparedStatement::Execute(

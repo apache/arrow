@@ -70,7 +70,7 @@ enum class ArrowLogLevel : int {
 // of 'msg' followed by the status.
 #  define ARROW_CHECK_OK_PREPEND(to_call, msg, level)                 \
     do {                                                              \
-      ::arrow::Status _s = (to_call);                                 \
+      ::arrow::Status _s = ::arrow::ToStatus(to_call);                \
       ARROW_CHECK_OR_LOG(_s.ok(), level)                              \
           << "Operation failed: " << ARROW_STRINGIFY(to_call) << "\n" \
           << (msg) << ": " << _s.ToString();                          \

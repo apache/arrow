@@ -30,7 +30,7 @@ arrow_eval <- function(expr, mask) {
   #   regular dplyr may work
   # * validation_error: the expression is known to be not valid, so don't
   #   recommend retrying with regular dplyr
-  tryCatch(eval_tidy(expr, mask), error = function(e) {
+  tryCatch(eval_tidy(expr, mask, env = mask), error = function(e) {
     # Inspect why the expression failed, and add the expr as the `call`
     # for better error messages
     msg <- conditionMessage(e)

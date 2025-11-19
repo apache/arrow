@@ -30,7 +30,7 @@ archs=([x86_64]=x86_64
        [aarch64]=aarch64)
 
 arch=$(uname -m)
-if [ -z ${archs[$arch]} ]; then
+if [ -z "${archs[$arch]}" ]; then
   echo "Unsupported architecture: ${arch}"
   exit 0
 fi
@@ -56,25 +56,25 @@ case ${platform} in
     ;;
 esac
 
-mkdir -p ${prefix}
+mkdir -p "${prefix}"
 url="https://github.com/Kitware/CMake/releases/download/v${version}/cmake-${version}-${platform}-"
 case ${platform} in
   macos)
     url+="universal.tar.gz"
-    curl -L ${url} | tar -xzf - --directory ${prefix} --strip-components=1
-    ln -s CMake.app/Contents/bin ${prefix}/bin
+    curl -L "${url}" | tar -xzf - --directory "${prefix}" --strip-components=1
+    ln -s CMake.app/Contents/bin "${prefix}/bin"
     ;;
   windows)
     url+="${arch}.zip"
-    archive_name=$(basename ${url})
-    curl -L -o ${archive_name} ${url}
-    unzip ${archive_name}
-    base_name=$(basename ${archive_name} .zip)
-    mv ${base_name}/* ${prefix}
-    rm -rf ${base_name} ${archive_name}
+    archive_name=$(basename "${url}")
+    curl -L -o "${archive_name}" "${url}"
+    unzip "${archive_name}"
+    base_name=$(basename "${archive_name}" .zip)
+    mv "${base_name}"/* "${prefix}"
+    rm -rf "${base_name}" "${archive_name}"
     ;;
   *)
     url+="${arch}.tar.gz"
-    curl -L ${url} | tar -xzf - --directory ${prefix} --strip-components=1
+    curl -L "${url}" | tar -xzf - --directory "${prefix}" --strip-components=1
     ;;
 esac

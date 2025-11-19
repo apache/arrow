@@ -30,11 +30,11 @@ prefix=$2
 url="https://github.com/ninja-build/ninja/archive/v${version}.tar.gz"
 
 mkdir /tmp/ninja
-wget -q ${url} -O - | tar -xzf - --directory /tmp/ninja --strip-components=1
+wget -q "${url}" -O - | tar -xzf - --directory /tmp/ninja --strip-components=1
 
 pushd /tmp/ninja
 ./configure.py --bootstrap
-mv ninja ${prefix}/bin
+mv ninja "${prefix}/bin"
 popd
 
 rm -rf /tmp/ninja

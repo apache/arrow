@@ -32,7 +32,7 @@
 set(PARQUET_SYSTEM_DEPENDENCIES "@PARQUET_SYSTEM_DEPENDENCIES@")
 
 include(CMakeFindDependencyMacro)
-find_dependency(Arrow)
+find_dependency(Arrow CONFIG)
 
 if(ARROW_BUILD_STATIC)
   arrow_find_dependencies("${PARQUET_SYSTEM_DEPENDENCIES}")

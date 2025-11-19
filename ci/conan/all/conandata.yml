@@ -21,6 +21,12 @@
 # SOFTWARE.
 
 sources:
+  "20.0.0":
+    url: "https://www.apache.org/dyn/closer.lua/arrow/arrow-20.0.0/apache-arrow-20.0.0.tar.gz?action=download"
+    sha256: "89efbbf852f5a1f79e9c99ab4c217e2eb7f991837c005cba2d4a2fbd35fad212"
+  "19.0.1":
+    url: "https://www.apache.org/dyn/closer.lua/arrow/arrow-19.0.1/apache-arrow-19.0.1.tar.gz?action=download"
+    sha256: "acb76266e8b0c2fbb7eb15d542fbb462a73b3fd1e32b80fad6c2fafd95a51160"
   "18.1.0":
     url: "https://www.apache.org/dyn/closer.lua/arrow/arrow-18.1.0/apache-arrow-18.1.0.tar.gz?action=download"
     sha256: "2dc8da5f8796afe213ecc5e5aba85bb82d91520eff3cf315784a52d0fa61d7fc"
@@ -40,6 +46,17 @@ sources:
     url: "https://www.apache.org/dyn/closer.lua/arrow/arrow-14.0.2/apache-arrow-14.0.2.tar.gz?action=download"
     sha256: "1304dedb41896008b89fe0738c71a95d9b81752efc77fa70f264cb1da15d9bc2"
 patches:
+  "20.0.0":
+    - patch_file: "patches/20.0.0-0001-fix-downloaded-mimalloc.patch"
+      patch_description: "use cci package"
+      patch_type: "conan"
+  "19.0.1":
+    - patch_file: "patches/19.0.1-0001-fix-cmake.patch"
+      patch_description: "use cci package"
+      patch_type: "conan"
+    - patch_file: "patches/19.0.1-0002-fix-downloaded-mimalloc.patch"
+      patch_description: "use cci package"
+      patch_type: "conan"
   "18.1.0":
     - patch_file: "patches/18.0.0-0001-fix-cmake.patch"
       patch_description: "use cci package"
@@ -64,4 +81,4 @@ patches:
     - patch_file: "patches/11.0.0-0001-fix-cmake.patch"
       patch_description: "use cci package"
       patch_type: "conan"
-  
+

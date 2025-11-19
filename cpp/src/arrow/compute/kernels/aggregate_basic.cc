@@ -18,8 +18,10 @@
 #include "arrow/compute/api_aggregate.h"
 #include "arrow/compute/kernels/aggregate_basic_internal.h"
 #include "arrow/compute/kernels/aggregate_internal.h"
+#include "arrow/compute/kernels/codegen_internal.h"
 #include "arrow/compute/kernels/common_internal.h"
 #include "arrow/compute/kernels/util_internal.h"
+#include "arrow/compute/registry_internal.h"
 #include "arrow/util/cpu_info.h"
 #include "arrow/util/hashing.h"
 
@@ -367,9 +369,9 @@ struct ProductImpl : public ScalarAggregator {
   Status Finalize(KernelContext*, Datum* out) override {
     if ((!options.skip_nulls && this->nulls_observed) ||
         (this->count < options.min_count)) {
-      out->value = std::make_shared<OutputType>(out_type);
+      out->value = std::make_shared<OutputType>(this->out_type);
     } else {
-      out->value = std::make_shared<OutputType>(this->product, out_type);
+      out->value = std::make_shared<OutputType>(this->product, this->out_type);
     }
     return Status::OK();
   }
@@ -851,6 +853,8 @@ void AddBasicAggKernels(KernelInit init,
   }
 }
 
+namespace {
+
 void AddScalarAggKernels(KernelInit init,
                          const std::vector<std::shared_ptr<DataType>>& types,
                          std::shared_ptr<DataType> out_ty,
@@ -870,15 +874,11 @@ void AddArrayScalarAggKernels(KernelInit init,
   AddScalarAggKernels(init, types, out_ty, func);
 }
 
-namespace {
-
 Result<TypeHolder> MinMaxType(KernelContext*, const std::vector<TypeHolder>& types) {
   // T -> struct<min: T, max: T>
   auto ty = types.front().GetSharedPtr();
   return struct_({field("min", ty), field("max", ty)});
 }
-
-}  // namespace
 
 Result<TypeHolder> FirstLastType(KernelContext*, const std::vector<TypeHolder>& types) {
   auto ty = types.front().GetSharedPtr();
@@ -898,6 +898,8 @@ void AddFirstLastKernels(KernelInit init,
     AddFirstLastKernel(init, ty, func, SimdLevel::NONE);
   }
 }
+
+}  // namespace
 
 void AddMinMaxKernel(KernelInit init, internal::detail::GetTypeId get_id,
                      ScalarAggregateFunction* func, SimdLevel::type simd_level) {
@@ -1048,10 +1050,10 @@ void RegisterScalarAggregateBasic(FunctionRegistry* registry) {
   func = std::make_shared<ScalarAggregateFunction>("sum", Arity::Unary(), sum_doc,
                                                    &default_scalar_aggregate_options);
   AddArrayScalarAggKernels(SumInit, {boolean()}, uint64(), func.get());
-  AddAggKernel(KernelSignature::Make({Type::DECIMAL128}, FirstType), SumInit, func.get(),
-               SimdLevel::NONE);
-  AddAggKernel(KernelSignature::Make({Type::DECIMAL256}, FirstType), SumInit, func.get(),
-               SimdLevel::NONE);
+  AddAggKernel(KernelSignature::Make({Type::DECIMAL128}, MaxPrecisionDecimalType),
+               SumInit, func.get(), SimdLevel::NONE);
+  AddAggKernel(KernelSignature::Make({Type::DECIMAL256}, MaxPrecisionDecimalType),
+               SumInit, func.get(), SimdLevel::NONE);
   AddArrayScalarAggKernels(SumInit, SignedIntTypes(), int64(), func.get());
   AddArrayScalarAggKernels(SumInit, UnsignedIntTypes(), uint64(), func.get());
   AddArrayScalarAggKernels(SumInit, FloatingPointTypes(), float64(), func.get());

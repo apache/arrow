@@ -126,11 +126,16 @@ struct EncodingTraits<ByteArrayType> {
   using Encoder = ByteArrayEncoder;
   using Decoder = ByteArrayDecoder;
 
-  using ArrowType = ::arrow::BinaryType;
-  /// \brief Internal helper class for decoding BYTE_ARRAY data where we can
-  /// overflow the capacity of a single arrow::BinaryArray
+  /// \brief Internal helper class for decoding BYTE_ARRAY data
+  ///
+  /// This class allows the caller to choose the concrete Arrow data type
+  /// by passing a corresponding `ArrayBuilder`.
+  /// Supported `ArrayBuilder` classes are `BinaryBuilder`, `LargeBinaryBuilder`
+  /// and `BinaryViewBuilder`.
+  /// If the builder is a `BinaryBuilder`, `chunks` can accumulate several
+  /// arrays as needed to work around the 32-bit offset limit.
   struct Accumulator {
-    std::unique_ptr<::arrow::BinaryBuilder> builder;
+    std::unique_ptr<::arrow::ArrayBuilder> builder;
     std::vector<std::shared_ptr<::arrow::Array>> chunks;
   };
   using DictAccumulator = ::arrow::Dictionary32Builder<::arrow::BinaryType>;

@@ -20,10 +20,10 @@ ARROW_R_DEV="TRUE"
 ARROW_LARGE_MEMORY_TESTS=$(ARROW_R_DEV)
 
 style:
-	R -s -e 'setwd(".."); if (requireNamespace("styler")) styler::style_file(setdiff(system("git diff --name-only | grep r/.*R$$", intern = TRUE), file.path("r", source("r/.styler_excludes.R")$$value)))'
+	pre-commit run --show-diff-on-failure --color=always styler
 
 style-all:
-	R -s -e 'styler::style_file(setdiff(dir(pattern = "R$$", recursive = TRUE), source(".styler_excludes.R")$$value))'
+	pre-commit run --show-diff-on-failure --color=always --all-files styler
 
 doc: style
 	R -s -f data-raw/docgen.R
@@ -42,7 +42,7 @@ deps:
 # we must rename .env to dotenv and then replace references to it in cpp/CMakeLists.txt
 sync-cpp:
 	cp ../NOTICE.txt inst/NOTICE.txt
-	rsync --archive --delete --exclude 'apidoc' --exclude 'build' --exclude 'build-support/boost_*' --exclude 'examples' --exclude 'src/gandiva' --exclude 'src/jni' --exclude 'src/skyhook' --exclude 'submodules' --exclude '**/*_test.cc' ../cpp tools/
+	rsync --archive --delete --exclude 'apidoc' --exclude 'build' --exclude 'build-support/boost_*' --exclude 'examples' --exclude 'src/gandiva' --exclude 'src/arrow/flight/sql/odbc*' --exclude 'src/jni' --exclude 'submodules' --exclude '**/*_test.cc' ../cpp tools/
 	cp -p ../.env tools/dotenv
 	cp -p ../NOTICE.txt tools/
 	cp -p ../LICENSE.txt tools/

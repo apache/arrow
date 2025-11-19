@@ -32,13 +32,16 @@
 #include "arrow/array/builder_nested.h"
 #include "arrow/array/builder_union.h"
 #include "arrow/array/concatenate.h"
+#include "arrow/array/statistics.h"
 #include "arrow/array/validate.h"
 #include "arrow/c/abi.h"
+#include "arrow/compare.h"
 #include "arrow/pretty_print.h"
 #include "arrow/status.h"
 #include "arrow/table.h"
 #include "arrow/tensor.h"
 #include "arrow/type.h"
+#include "arrow/type_traits.h"
 #include "arrow/util/iterator.h"
 #include "arrow/util/logging_internal.h"
 #include "arrow/util/vector.h"
@@ -308,40 +311,66 @@ const std::string& RecordBatch::column_name(int i) const {
   return schema_->field(i)->name();
 }
 
+namespace {
+
+bool ContainFloatType(const std::shared_ptr<DataType>& type) {
+  if (is_floating(type->id())) {
+    return true;
+  }
+
+  for (const auto& field : type->fields()) {
+    if (ContainFloatType(field->type())) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+bool ContainFloatType(const Schema& schema) {
+  for (auto& field : schema.fields()) {
+    if (ContainFloatType(field->type())) {
+      return true;
+    }
+  }
+  return false;
+}
+
+bool CanIgnoreNaNInEquality(const RecordBatch& batch, const EqualOptions& opts) {
+  if (opts.nans_equal()) {
+    return true;
+  } else if (!ContainFloatType(*batch.schema())) {
+    return true;
+  } else {
+    return false;
+  }
+}
+
+}  // namespace
+
 bool RecordBatch::Equals(const RecordBatch& other, bool check_metadata,
                          const EqualOptions& opts) const {
-  if (num_columns() != other.num_columns() || num_rows_ != other.num_rows()) {
-    return false;
-  }
+  return Equals(other, opts.use_metadata(check_metadata));
+}
 
-  if (!schema_->Equals(*other.schema(), check_metadata)) {
-    return false;
-  }
-
-  if (device_type() != other.device_type()) {
-    return false;
-  }
-
-  for (int i = 0; i < num_columns(); ++i) {
-    if (!column(i)->Equals(other.column(i), opts)) {
+bool RecordBatch::Equals(const RecordBatch& other, const EqualOptions& opts) const {
+  if (this == &other) {
+    if (CanIgnoreNaNInEquality(*this, opts)) {
+      return true;
+    }
+  } else {
+    if (num_columns() != other.num_columns() || num_rows_ != other.num_rows()) {
+      return false;
+    } else if (opts.use_schema() &&
+               !schema_->Equals(*other.schema(), opts.use_metadata())) {
+      return false;
+    } else if (device_type() != other.device_type()) {
       return false;
     }
   }
 
-  return true;
-}
-
-bool RecordBatch::ApproxEquals(const RecordBatch& other, const EqualOptions& opts) const {
-  if (num_columns() != other.num_columns() || num_rows_ != other.num_rows()) {
-    return false;
-  }
-
-  if (device_type() != other.device_type()) {
-    return false;
-  }
-
   for (int i = 0; i < num_columns(); ++i) {
-    if (!column(i)->ApproxEquals(other.column(i), opts)) {
+    if (!column(i)->Equals(other.column(i), opts)) {
       return false;
     }
   }
@@ -521,9 +550,45 @@ Status EnumerateStatistics(const RecordBatch& record_batch, OnStatistics on_stat
 
     if (column_statistics->distinct_count.has_value()) {
       statistics.nth_statistics++;
-      statistics.key = ARROW_STATISTICS_KEY_DISTINCT_COUNT_EXACT;
-      statistics.type = int64();
-      statistics.value = column_statistics->distinct_count.value();
+      if (std::holds_alternative<int64_t>(column_statistics->distinct_count.value())) {
+        statistics.key = ARROW_STATISTICS_KEY_DISTINCT_COUNT_EXACT;
+        statistics.type = int64();
+        statistics.value = std::get<int64_t>(column_statistics->distinct_count.value());
+      } else {
+        statistics.key = ARROW_STATISTICS_KEY_DISTINCT_COUNT_APPROXIMATE;
+        statistics.type = float64();
+        statistics.value = std::get<double>(column_statistics->distinct_count.value());
+      }
+
+      RETURN_NOT_OK(on_statistics(statistics));
+      statistics.start_new_column = false;
+    }
+
+    if (column_statistics->max_byte_width.has_value()) {
+      statistics.nth_statistics++;
+      if (std::holds_alternative<int64_t>(column_statistics->max_byte_width.value())) {
+        statistics.key = ARROW_STATISTICS_KEY_MAX_BYTE_WIDTH_EXACT;
+        statistics.type = int64();
+        statistics.value = std::get<int64_t>(column_statistics->max_byte_width.value());
+      } else {
+        statistics.key = ARROW_STATISTICS_KEY_MAX_BYTE_WIDTH_APPROXIMATE;
+        statistics.type = float64();
+        statistics.value = std::get<double>(column_statistics->max_byte_width.value());
+      }
+
+      RETURN_NOT_OK(on_statistics(statistics));
+      statistics.start_new_column = false;
+    }
+
+    if (column_statistics->average_byte_width.has_value()) {
+      statistics.nth_statistics++;
+      if (column_statistics->is_average_byte_width_exact) {
+        statistics.key = ARROW_STATISTICS_KEY_AVERAGE_BYTE_WIDTH_EXACT;
+      } else {
+        statistics.key = ARROW_STATISTICS_KEY_AVERAGE_BYTE_WIDTH_APPROXIMATE;
+      }
+      statistics.type = float64();
+      statistics.value = column_statistics->average_byte_width.value();
       RETURN_NOT_OK(on_statistics(statistics));
       statistics.start_new_column = false;
     }
@@ -556,6 +621,21 @@ Status EnumerateStatistics(const RecordBatch& record_batch, OnStatistics on_stat
   }
   return Status::OK();
 }
+struct StringBuilderVisitor {
+  template <typename DataType>
+  enable_if_has_string_view<DataType, Status> Visit(const DataType&,
+                                                    ArrayBuilder* raw_builder,
+                                                    const std::string& value) {
+    using Builder = typename TypeTraits<DataType>::BuilderType;
+    auto builder = static_cast<Builder*>(raw_builder);
+    return builder->Append(value);
+  }
+
+  Status Visit(const DataType& type, ArrayBuilder*, const std::string&) {
+    return Status::Invalid("Only string types are supported and the current type is ",
+                           type.ToString());
+  }
+};
 }  // namespace
 
 Result<std::shared_ptr<Array>> RecordBatch::MakeStatisticsArray(
@@ -580,7 +660,7 @@ Result<std::shared_ptr<Array>> RecordBatch::MakeStatisticsArray(
   RETURN_NOT_OK(EnumerateStatistics(*this, [&](const EnumeratedStatistics& statistics) {
     int8_t i = 0;
     for (const auto& field : values_types) {
-      if (field->type()->id() == statistics.type->id()) {
+      if (field->type()->Equals(statistics.type)) {
         break;
       }
       i++;
@@ -654,8 +734,10 @@ Result<std::shared_ptr<Array>> RecordBatch::MakeStatisticsArray(
     if (statistics.start_new_column) {
       RETURN_NOT_OK(builder.Append());
       if (statistics.nth_column.has_value()) {
+        // Add Columns
         RETURN_NOT_OK(columns_builder->Append(statistics.nth_column.value()));
       } else {
+        // Add RecordBatch
         RETURN_NOT_OK(columns_builder->AppendNull());
       }
       RETURN_NOT_OK(values_builder->Append());
@@ -680,8 +762,8 @@ Result<std::shared_ptr<Array>> RecordBatch::MakeStatisticsArray(
         return static_cast<DoubleBuilder*>(builder)->Append(value);
       }
       Status operator()(const std::string& value) {
-        return static_cast<StringBuilder*>(builder)->Append(
-            value.data(), static_cast<int32_t>(value.size()));
+        StringBuilderVisitor visitor;
+        return VisitTypeInline(*builder->type(), &visitor, builder, value);
       }
     } visitor;
     visitor.builder = values_builders[values_type_index].get();

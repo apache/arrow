@@ -27,9 +27,9 @@
 
 #include "arrow/io/file.h"
 #include "arrow/io/memory.h"
-#include "arrow/ipc/json_simple.h"
 #include "arrow/ipc/test_common.h"
 #include "arrow/ipc/writer.h"
+#include "arrow/json/from_string.h"
 #include "arrow/record_batch.h"
 #include "arrow/result.h"
 #include "arrow/testing/extension_type.h"
@@ -41,7 +41,7 @@ namespace arrow::ipc {
 
 using ::arrow::internal::CreateDir;
 using ::arrow::internal::PlatformFilename;
-using internal::json::ArrayFromJSON;
+using ::arrow::json::ArrayFromJSONString;
 
 Result<std::shared_ptr<RecordBatch>> MakeExtensionBatch() {
   auto array = ExampleUuid();
@@ -60,7 +60,7 @@ Result<std::shared_ptr<RecordBatch>> MakeMapBatch() {
     []
   ]
 )";
-  ARROW_ASSIGN_OR_RAISE(array, ArrayFromJSON(map(int16(), int32()), json_input));
+  ARROW_ASSIGN_OR_RAISE(array, ArrayFromJSONString(map(int16(), int32()), json_input));
   auto schema = ::arrow::schema({field("f0", array->type())});
   return RecordBatch::Make(schema, array->length(), {array});
 }

@@ -20,6 +20,7 @@
 #include "arrow/array/array_base.h"
 #include "arrow/c/dlpack_abi.h"
 #include "arrow/device.h"
+#include "arrow/tensor.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 
@@ -66,7 +67,7 @@ struct ManagerCtx {
 }  // namespace
 
 Result<DLManagedTensor*> ExportArray(const std::shared_ptr<Array>& arr) {
-  // Define DLDevice struct nad check if array type is supported
+  // Define DLDevice struct and check if array type is supported
   // by the DLPack protocol at the same time. Raise TypeError if not.
   // Supported data types: int, uint, float with no validity buffer.
   ARROW_ASSIGN_OR_RAISE(auto device, ExportDevice(arr))
@@ -77,7 +78,7 @@ Result<DLManagedTensor*> ExportArray(const std::shared_ptr<Array>& arr) {
   ARROW_ASSIGN_OR_RAISE(auto dlpack_type, GetDLDataType(type));
 
   // Create ManagerCtx that will serve as the owner of the DLManagedTensor
-  std::unique_ptr<ManagerCtx> ctx(new ManagerCtx);
+  auto ctx = std::make_unique<ManagerCtx>();
 
   // Define the data pointer to the DLTensor
   // If array is of length 0, data pointer should be NULL
@@ -121,6 +122,73 @@ Result<DLDevice> ExportDevice(const std::shared_ptr<Array>& arr) {
   // Define DLDevice struct
   DLDevice device;
   if (arr->data()->buffers[1]->device_type() == DeviceAllocationType::kCPU) {
+    device.device_id = 0;
+    device.device_type = DLDeviceType::kDLCPU;
+    return device;
+  } else {
+    return Status::NotImplemented(
+        "DLPack support is implemented only for buffers on CPU device.");
+  }
+}
+
+struct TensorManagerCtx {
+  std::shared_ptr<Tensor> t;
+  std::vector<int64_t> strides;
+  std::vector<int64_t> shape;
+  DLManagedTensor tensor;
+};
+
+Result<DLManagedTensor*> ExportTensor(const std::shared_ptr<Tensor>& t) {
+  // Define the DLDataType struct
+  const DataType& type = *t->type();
+  ARROW_ASSIGN_OR_RAISE(auto dlpack_type, GetDLDataType(type));
+
+  // Define DLDevice struct
+  ARROW_ASSIGN_OR_RAISE(auto device, ExportDevice(t))
+
+  // Create TensorManagerCtx that will serve as the owner of the DLManagedTensor
+  auto ctx = std::make_unique<TensorManagerCtx>();
+
+  // Define the data pointer to the DLTensor
+  // If tensor is of length 0, data pointer should be NULL
+  if (t->size() == 0) {
+    ctx->tensor.dl_tensor.data = NULL;
+  } else {
+    ctx->tensor.dl_tensor.data = t->raw_mutable_data();
+  }
+
+  ctx->tensor.dl_tensor.device = device;
+  ctx->tensor.dl_tensor.ndim = t->ndim();
+  ctx->tensor.dl_tensor.dtype = dlpack_type;
+  ctx->tensor.dl_tensor.byte_offset = 0;
+
+  std::vector<int64_t>& shape_arr = ctx->shape;
+  shape_arr.reserve(t->ndim());
+  for (auto i : t->shape()) {
+    shape_arr.emplace_back(i);
+  }
+  ctx->tensor.dl_tensor.shape = shape_arr.data();
+
+  std::vector<int64_t>& strides_arr = ctx->strides;
+  strides_arr.reserve(t->ndim());
+  auto byte_width = t->type()->byte_width();
+  for (auto i : t->strides()) {
+    strides_arr.emplace_back(i / byte_width);
+  }
+  ctx->tensor.dl_tensor.strides = strides_arr.data();
+
+  ctx->t = std::move(t);
+  ctx->tensor.manager_ctx = ctx.get();
+  ctx->tensor.deleter = [](struct DLManagedTensor* self) {
+    delete reinterpret_cast<TensorManagerCtx*>(self->manager_ctx);
+  };
+  return &ctx.release()->tensor;
+}
+
+Result<DLDevice> ExportDevice(const std::shared_ptr<Tensor>& t) {
+  // Define DLDevice struct
+  DLDevice device;
+  if (t->data()->device_type() == DeviceAllocationType::kCPU) {
     device.device_id = 0;
     device.device_type = DLDeviceType::kDLCPU;
     return device;

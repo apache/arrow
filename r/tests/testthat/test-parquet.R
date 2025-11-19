@@ -106,7 +106,7 @@ test_that("write_parquet() accepts RecordBatch too", {
 
 test_that("write_parquet() handles grouped_df", {
   library(dplyr, warn.conflicts = FALSE)
-  df <- tibble::tibble(a = 1:4, b = 5) %>% group_by(b)
+  df <- tibble::tibble(a = 1:4, b = 5) |> group_by(b)
   # Since `df` is a "grouped_df", this test asserts that we get a grouped_df back
   expect_parquet_roundtrip(df, as_data_frame = TRUE)
 })
@@ -483,7 +483,6 @@ test_that("Can read Parquet files from a URL", {
 })
 
 test_that("thrift string and container size can be specified when reading Parquet files", {
-
   tf <- tempfile()
   on.exit(unlink(tf))
   table <- arrow_table(example_data)

@@ -103,7 +103,7 @@ class Downloader:
 
         dest_path = os.path.join(dest_dir, filename)
 
-        print("Downloading {} to {}".format(path, dest_path))
+        print(f"Downloading {path} to {dest_path}")
 
         url = f"{self.URL_ROOT}/{path}"
         self._download_url(url, dest_path)
@@ -272,7 +272,7 @@ def download_rc_binaries(
     repository=None,
     tag=None,
 ):
-    version_string = "{}-rc{}".format(version, rc_number)
+    version_string = f'{version}-rc{rc_number}'
     version_pattern = re.compile(r"\d+\.\d+\.\d+")
     if target_package_type:
         package_types = [target_package_type]

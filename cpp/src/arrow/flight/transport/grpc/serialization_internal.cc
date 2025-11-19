@@ -69,6 +69,8 @@ using google::protobuf::io::CodedOutputStream;
 
 using ::grpc::ByteBuffer;
 
+namespace {
+
 bool ReadBytesZeroCopy(const std::shared_ptr<Buffer>& source_data,
                        CodedInputStream* input, std::shared_ptr<Buffer>* out) {
   uint32_t length;
@@ -151,7 +153,7 @@ class GrpcBuffer : public MutableBuffer {
 };
 
 // Destructor callback for grpc::Slice
-static void ReleaseBuffer(void* buf_ptr) {
+void ReleaseBuffer(void* buf_ptr) {
   delete reinterpret_cast<std::shared_ptr<Buffer>*>(buf_ptr);
 }
 
@@ -174,7 +176,7 @@ arrow::Result<::grpc::Slice> SliceFromBuffer(const std::shared_ptr<Buffer>& buf)
   return slice;
 }
 
-static const uint8_t kPaddingBytes[8] = {0, 0, 0, 0, 0, 0, 0, 0};
+const uint8_t kPaddingBytes[8] = {0, 0, 0, 0, 0, 0, 0, 0};
 
 // Update the sizes of our Protobuf fields based on the given IPC payload.
 ::grpc::Status IpcMessageHeaderSize(const arrow::ipc::IpcPayload& ipc_msg, bool has_body,
@@ -194,6 +196,8 @@ static const uint8_t kPaddingBytes[8] = {0, 0, 0, 0, 0, 0, 0, 0};
 
   return ::grpc::Status::OK;
 }
+
+}  // namespace
 
 ::grpc::Status FlightDataSerialize(const FlightPayload& msg, ByteBuffer* out,
                                    bool* own_buffer) {

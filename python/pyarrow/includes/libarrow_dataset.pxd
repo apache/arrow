@@ -156,6 +156,7 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
 
     cdef cppclass CInspectOptions "arrow::dataset::InspectOptions":
         int fragments
+        CField.CMergeOptions field_merge_options
 
     cdef cppclass CFinishOptions "arrow::dataset::FinishOptions":
         shared_ptr[CSchema] schema
@@ -181,6 +182,7 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         const shared_ptr[CFileSystem]& filesystem() const
         const shared_ptr[CBuffer]& buffer() const
         const int64_t size() const
+        CResult[shared_ptr[CRandomAccessFile]] Open() const
         # HACK: Cython can't handle all the overloads so don't declare them.
         # This means invalid construction of CFileSource won't be caught in
         # the C++ generation phase (though it will still be caught when
@@ -221,6 +223,7 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         shared_ptr[CFileSystem] filesystem
         c_string base_dir
         shared_ptr[CPartitioning] partitioning
+        c_bool preserve_order
         int max_partitions
         c_string basename_template
         function[cb_writer_finish_internal] writer_pre_finish

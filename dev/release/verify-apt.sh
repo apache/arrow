@@ -85,7 +85,7 @@ esac
 if [ "${TYPE}" = "local" ]; then
   case "${VERSION}" in
     *-dev*)
-      package_version="$(echo "${VERSION}" | sed -e 's/-dev\(.*\)$/~dev\1/g')"
+      package_version="$(echo "${VERSION}" | sed -E -e 's/-(dev.*)$/~\1/g')"
       ;;
     *-rc*)
       package_version="$(echo "${VERSION}" | sed -e 's/-rc.*$//g')"
@@ -99,6 +99,7 @@ if [ "${TYPE}" = "local" ]; then
   apt_source_path+="/${distribution}/pool/${code_name}/main"
   apt_source_path+="/a/apache-arrow-apt-source"
   apt_source_path+="/apache-arrow-apt-source_${package_version}_all.deb"
+  find "${local_prefix}/apt/repositories/"
   ${APT_INSTALL} "${apt_source_path}"
 else
   package_version="${VERSION}-1"
@@ -111,7 +112,7 @@ fi
 
 if [ "${TYPE}" = "local" ]; then
   sed \
-    -i"" \
+    -i.bak \
     -e "s,^URIs: .*$,URIs: file://${local_prefix}/apt/repositories/${distribution},g" \
     /etc/apt/sources.list.d/apache-arrow.sources
   keys="${local_prefix}/KEYS"
@@ -126,15 +127,11 @@ if [ "${TYPE}" = "local" ]; then
       --armor \
       --export > /usr/share/keyrings/apache-arrow-apt-source.asc
   fi
-else
-  case "${TYPE}" in
-    rc)
-      sed \
-        -i"" \
-        -e "s,^URIs: \\(.*\\)/,URIs: \\1-${suffix}/,g" \
-        /etc/apt/sources.list.d/apache-arrow.sources
-      ;;
-  esac
+elif [ "${TYPE}" = "rc" ]; then
+  sed \
+    -i.bak \
+    -e "s,^URIs: \\(.*\\)/,URIs: \\1-${suffix}/,g" \
+    /etc/apt/sources.list.d/apache-arrow.sources
 fi
 
 apt update
@@ -143,6 +140,7 @@ echo "::endgroup::"
 
 
 echo "::group::Test Apache Arrow C++"
+mkdir -p build
 ${APT_INSTALL} libarrow-dev=${package_version}
 required_packages=()
 required_packages+=(cmake)
@@ -152,15 +150,25 @@ required_packages+=(make)
 required_packages+=(pkg-config)
 required_packages+=(${workaround_missing_packages[@]})
 ${APT_INSTALL} ${required_packages[@]}
-mkdir -p build
-cp -a "${TOP_SOURCE_DIR}/cpp/examples/minimal_build" build/
-pushd build/minimal_build
-cmake .
-make -j$(nproc)
-./arrow-example
-c++ -o arrow-example example.cc $(pkg-config --cflags --libs arrow) -std=c++17
-./arrow-example
-popd
+# cmake version 3.31.6 -> 3.31.6
+cmake_version=$(cmake --version | head -n1 | sed -e 's/^cmake version //')
+# 3.31.6 -> 3.31
+cmake_version_major_minor=${cmake_version%.*}
+# 3.31 -> 3
+cmake_version_major=${cmake_version_major_minor%.*}
+# 3.31 -> 31
+cmake_version_minor=${cmake_version_major_minor#*.}
+if [ "${cmake_version_major}" -gt "3" ] || \
+   [ "${cmake_version_major}" -eq "3" -a "${cmake_version_minor}" -ge "25" ]; then
+  cp -a "${TOP_SOURCE_DIR}/cpp/examples/minimal_build" build/
+  pushd build/minimal_build
+  cmake .
+  make -j$(nproc)
+  ./arrow-example
+  c++ -o arrow-example example.cc $(pkg-config --cflags --libs arrow) -std=c++17
+  ./arrow-example
+  popd
+fi
 echo "::endgroup::"
 
 
@@ -215,4 +223,121 @@ echo "::group::Test Apache Parquet"
 ${APT_INSTALL} libparquet-glib-dev=${package_version}
 ${APT_INSTALL} libparquet-glib-doc=${package_version}
 ruby -r gi -e "p GI.load('Parquet')"
+echo "::endgroup::"
+
+echo "::group::Prepare downgrade test"
+can_downgrade=false
+if [ -f /etc/apt/sources.list.d/apache-arrow.sources.bak ]; then
+  mv /etc/apt/sources.list.d/apache-arrow.sources \
+     /etc/apt/sources.list.d/apache-arrow-current.sources
+  mv /etc/apt/sources.list.d/apache-arrow.sources{.bak,}
+  cp -a /usr/share/keyrings/apache-arrow-apt-source{,-current}.asc
+  sed \
+    -i.bak \
+    -e 's/\.asc$/-current.asc/g' \
+    /etc/apt/sources.list.d/apache-arrow-current.sources
+  if curl \
+       --fail \
+       --output "apache-arrow-apt-source-latest.deb" \
+       https://packages.apache.org/artifactory/arrow/${distribution}/apache-arrow-apt-source-latest-${code_name}.deb; then
+    ${APT_INSTALL} --allow-downgrades ./apache-arrow-apt-source-latest.deb
+    apt update
+    can_downgrade=true
+  fi
+fi
+
+# 22.0.0.dev54 -> 22
+# 22.0.0 -> 22
+current_major_version=${package_version%%.*}
+# 22 -> 21
+previous_major_version=$[current_major_version -1]
+# 22 -> 21
+previous_package_version="${previous_major_version}.0.0-1"
+echo "::endgroup::"
+
+if [ "${can_downgrade}" != "true" ]; then
+  exit 0
+fi
+
+echo "::group::Downgrade Gandiva"
+${APT_INSTALL} --allow-downgrades \
+  gir1.2-arrow-1.0=${previous_package_version} \
+  gir1.2-gandiva-1.0=${previous_package_version} \
+  libarrow${previous_major_version}00=${previous_package_version} \
+  libarrow-acero${previous_major_version}00=${previous_package_version} \
+  libarrow-acero-dev=${previous_package_version} \
+  libarrow-compute${previous_major_version}00=${previous_package_version} \
+  libarrow-compute-dev=${previous_package_version} \
+  libarrow-dev=${previous_package_version} \
+  libarrow-glib${previous_major_version}00=${previous_package_version} \
+  libarrow-glib-dev=${previous_package_version} \
+  libgandiva${previous_major_version}00=${previous_package_version} \
+  libgandiva-dev=${previous_package_version} \
+  libgandiva-glib${previous_major_version}00=${previous_package_version} \
+  libgandiva-glib-dev=${previous_package_version} \
+  libparquet${previous_major_version}00=${previous_package_version} \
+  libparquet-dev=${previous_package_version}
+echo "::endgroup::"
+
+echo "::group::Downgrade Apache Arrow Flight SQL"
+${APT_INSTALL} --allow-downgrades \
+  gir1.2-arrow-1.0=${previous_package_version} \
+  gir1.2-arrow-flight-1.0=${previous_package_version} \
+  gir1.2-arrow-flight-sql-1.0=${previous_package_version} \
+  libarrow${previous_major_version}00=${previous_package_version} \
+  libarrow-acero${previous_major_version}00=${previous_package_version} \
+  libarrow-acero-dev=${previous_package_version} \
+  libarrow-compute${previous_major_version}00=${previous_package_version} \
+  libarrow-compute-dev=${previous_package_version} \
+  libarrow-dev=${previous_package_version} \
+  libarrow-flight${previous_major_version}00=${previous_package_version} \
+  libarrow-flight-dev=${previous_package_version} \
+  libarrow-flight-glib${previous_major_version}00=${previous_package_version} \
+  libarrow-flight-glib-dev=${previous_package_version} \
+  libarrow-flight-sql-dev=${previous_package_version} \
+  libarrow-flight-sql-glib-dev=${previous_package_version} \
+  libarrow-glib${previous_major_version}00=${previous_package_version} \
+  libarrow-glib-dev=${previous_package_version}
+echo "::endgroup::"
+
+echo "::group::Downgrade Apache Arrow Dataset"
+${APT_INSTALL} --allow-downgrades \
+  gir1.2-arrow-1.0=${previous_package_version} \
+  gir1.2-arrow-dataset-1.0=${previous_package_version} \
+  gir1.2-parquet-1.0=${previous_package_version} \
+  libarrow${previous_major_version}00=${previous_package_version} \
+  libarrow-acero${previous_major_version}00=${previous_package_version} \
+  libarrow-acero-dev=${previous_package_version} \
+  libarrow-compute${previous_major_version}00=${previous_package_version} \
+  libarrow-compute-dev=${previous_package_version} \
+  libarrow-dataset${previous_major_version}00=${previous_package_version} \
+  libarrow-dataset-dev=${previous_package_version} \
+  libarrow-dataset-glib${previous_major_version}00=${previous_package_version} \
+  libarrow-dataset-glib-dev=${previous_package_version} \
+  libarrow-dev=${previous_package_version} \
+  libarrow-glib${previous_major_version}00=${previous_package_version} \
+  libarrow-glib-dev=${previous_package_version} \
+  libparquet${previous_major_version}00=${previous_package_version} \
+  libparquet-dev=${previous_package_version} \
+  libparquet-glib${previous_major_version}00=${previous_package_version} \
+  libparquet-glib-dev=${previous_package_version}
+echo "::endgroup::"
+
+
+echo "::group::Prepare upgrade test"
+mv /etc/apt/sources.list.d/apache-arrow-current.sources \
+   /etc/apt/sources.list.d/apache-arrow.sources
+apt update
+echo "::endgroup::"
+
+echo "::group::Upgrade Gandiva"
+${APT_INSTALL} libgandiva-glib-dev=${package_version}
+echo "::endgroup::"
+
+echo "::group::Upgrade Apache Arrow Flight SQL"
+${APT_INSTALL} libarrow-flight-sql-glib-dev=${package_version}
+echo "::endgroup::"
+
+echo "::group::Upgrade Apache Arrow Dataset"
+${APT_INSTALL} libarrow-dataset-dev=${package_version}
 echo "::endgroup::"

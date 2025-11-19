@@ -248,6 +248,7 @@ test_that("ChunkedArray supports empty arrays (ARROW-13761)", {
     int8(), int16(), int32(), int64(), uint8(), uint16(), uint32(),
     uint64(), float32(), float64(), timestamp("ns"), binary(),
     large_binary(), fixed_size_binary(32), date32(), date64(),
+    decimal32(4, 2), decimal64(4, 2),
     decimal128(4, 2), decimal256(4, 2),
     dictionary(), struct(x = int32())
   )

@@ -21,6 +21,7 @@
 #include <vector>
 
 #include "arrow/compute/kernel.h"
+#include "arrow/compute/visibility.h"
 #include "arrow/datum.h"
 #include "arrow/result.h"
 #include "arrow/util/visibility.h"
@@ -36,7 +37,7 @@ namespace compute {
 /// same segment key within a given batch. When a segment group span cross batches, it
 /// will have multiple segments. A segment never spans cross batches. The segment data
 /// structure only makes sense when used along with a exec batch.
-struct ARROW_EXPORT Segment {
+struct ARROW_COMPUTE_EXPORT Segment {
   /// \brief the offset into the batch where the segment starts
   int64_t offset;
   /// \brief the length of the segment
@@ -74,7 +75,7 @@ inline bool operator!=(const Segment& segment1, const Segment& segment2) {
 ///
 /// If the next call to the segmenter starts with `A A` then that segment would set the
 /// "extends" flag, which indicates whether the segment continues the last open batch.
-class ARROW_EXPORT RowSegmenter {
+class ARROW_COMPUTE_EXPORT RowSegmenter {
  public:
   virtual ~RowSegmenter() = default;
 
@@ -101,7 +102,7 @@ class ARROW_EXPORT RowSegmenter {
 };
 
 /// Consumes batches of keys and yields batches of the group ids.
-class ARROW_EXPORT Grouper {
+class ARROW_COMPUTE_EXPORT Grouper {
  public:
   virtual ~Grouper() = default;
 

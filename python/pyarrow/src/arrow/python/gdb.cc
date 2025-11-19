@@ -23,7 +23,7 @@
 #include "arrow/chunked_array.h"
 #include "arrow/datum.h"
 #include "arrow/extension/uuid.h"
-#include "arrow/ipc/json_simple.h"
+#include "arrow/json/from_string.h"
 #include "arrow/python/gdb.h"
 #include "arrow/record_batch.h"
 #include "arrow/scalar.h"
@@ -39,9 +39,9 @@ namespace arrow {
 
 using extension::uuid;
 using extension::UuidType;
-using ipc::internal::json::ArrayFromJSON;
-using ipc::internal::json::ChunkedArrayFromJSON;
-using ipc::internal::json::ScalarFromJSON;
+using json::ArrayFromJSONString;
+using json::ChunkedArrayFromJSONString;
+using json::ScalarFromJSONString;
 
 namespace gdb {
 
@@ -61,7 +61,7 @@ class CustomStatusDetail : public StatusDetail {
 std::shared_ptr<Array> SliceArrayFromJSON(const std::shared_ptr<DataType>& ty,
                                           std::string_view json, int64_t offset = 0,
                                           int64_t length = -1) {
-  auto array = *ArrayFromJSON(ty, json);
+  auto array = *ArrayFromJSONString(ty, json);
   if (length != -1) {
     return array->Slice(offset, length);
   } else {
@@ -320,13 +320,13 @@ void TestSession() {
       Buffer::FromString("   "), fixed_size_binary(3), /*is_valid=*/false};
 
   std::shared_ptr<Array> dict_array;
-  dict_array = *ArrayFromJSON(utf8(), R"(["foo", "bar", "quux"])");
+  dict_array = *ArrayFromJSONString(utf8(), R"(["foo", "bar", "quux"])");
   DictionaryScalar dict_scalar{{std::make_shared<Int8Scalar>(42), dict_array},
                                dictionary(int8(), utf8())};
   DictionaryScalar dict_scalar_null{dictionary(int8(), utf8())};
 
-  std::shared_ptr<Array> list_value_array = *ArrayFromJSON(int32(), R"([4, 5, 6])");
-  std::shared_ptr<Array> list_zero_length = *ArrayFromJSON(int32(), R"([])");
+  std::shared_ptr<Array> list_value_array = *ArrayFromJSONString(int32(), R"([4, 5, 6])");
+  std::shared_ptr<Array> list_zero_length = *ArrayFromJSONString(int32(), R"([])");
   ListScalar list_scalar{list_value_array};
   ListScalar list_scalar_null{list_zero_length, list(int32()), /*is_valid=*/false};
   LargeListScalar large_list_scalar{list_value_array};
@@ -363,9 +363,8 @@ void TestSession() {
   ExtensionScalar extension_scalar_null{extension_scalar.value, extension_scalar_type,
                                         /*is_valid=*/false};
 
-  std::shared_ptr<Scalar> heap_map_scalar;
-  ARROW_CHECK_OK(
-      ScalarFromJSON(map(utf8(), int32()), R"([["a", 5], ["b", 6]])", &heap_map_scalar));
+  auto heap_map_scalar =
+      *ScalarFromJSONString(map(utf8(), int32()), R"([["a", 5], ["b", 6]])");
   auto heap_map_scalar_null = MakeNullScalar(heap_map_scalar->type);
 
   // Array and ArrayData
@@ -465,27 +464,24 @@ void TestSession() {
 
   // ChunkedArray
   ArrayVector array_chunks(2);
-  array_chunks[0] = *ArrayFromJSON(int32(), "[1, 2]");
-  array_chunks[1] = *ArrayFromJSON(int32(), "[3, null, 4]");
+  array_chunks[0] = *ArrayFromJSONString(int32(), "[1, 2]");
+  array_chunks[1] = *ArrayFromJSONString(int32(), "[3, null, 4]");
   ChunkedArray chunked_array{array_chunks};
 
   // RecordBatch
   auto batch_schema = schema({field("ints", int32()), field("strs", utf8())});
   ArrayVector batch_columns{2};
-  batch_columns[0] = *ArrayFromJSON(int32(), "[1, 2, 3]");
-  batch_columns[1] = *ArrayFromJSON(utf8(), R"(["abc", null, "def"])");
+  batch_columns[0] = *ArrayFromJSONString(int32(), "[1, 2, 3]");
+  batch_columns[1] = *ArrayFromJSONString(utf8(), R"(["abc", null, "def"])");
   auto batch = RecordBatch::Make(batch_schema, /*num_rows=*/3, batch_columns);
   auto batch_with_metadata = batch->ReplaceSchemaMetadata(
       key_value_metadata({"key1", "key2", "key3"}, {"value1", "value2", "value3"}));
 
   // Table
-  ChunkedArrayVector table_columns{2};
-  ARROW_CHECK_OK(
-      ChunkedArrayFromJSON(int32(), {"[1, 2, 3]", "[4, 5]"}, &table_columns[0]));
-  ARROW_CHECK_OK(ChunkedArrayFromJSON(
-      utf8(), {R"(["abc", null])", R"(["def"])", R"(["ghi", "jkl"])"},
-      &table_columns[1]));
-  auto table = Table::Make(batch_schema, table_columns);
+  auto col1 = ChunkedArrayFromJSONString(int32(), {"[1, 2, 3]", "[4, 5]"});
+  auto col2 = ChunkedArrayFromJSONString(
+      utf8(), {R"(["abc", null])", R"(["def"])", R"(["ghi", "jkl"])"});
+  auto table = Table::Make(batch_schema, {*col1, *col2});
 
   // Datum
   Datum empty_datum{};

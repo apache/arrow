@@ -18,7 +18,7 @@
 // Implementation of casting to (or between) list types
 
 #include <limits>
-#include <set>
+#include <map>
 #include <utility>
 #include <vector>
 
@@ -338,41 +338,25 @@ struct CastStruct {
 
     std::vector<int> fields_to_select(out_field_count, -1);
 
-    std::set<std::string> all_in_field_names;
+    std::multimap<std::string, int> in_fields;
     for (int in_field_index = 0; in_field_index < in_field_count; ++in_field_index) {
-      all_in_field_names.insert(in_type.field(in_field_index)->name());
+      in_fields.insert({in_type.field(in_field_index)->name(), in_field_index});
     }
 
-    for (int in_field_index = 0, out_field_index = 0;
-         out_field_index < out_field_count;) {
+    for (int out_field_index = 0; out_field_index < out_field_count; ++out_field_index) {
       const auto& out_field = out_type.field(out_field_index);
-      if (in_field_index < in_field_count) {
-        const auto& in_field = in_type.field(in_field_index);
-        // If there are more in_fields check if they match the out_field.
-        if (in_field->name() == out_field->name()) {
-          // Found matching in_field and out_field.
-          fields_to_select[out_field_index++] = in_field_index;
-          // Using the same in_field for multiple out_fields is not allowed.
-          in_field_index++;
-          continue;
-        }
-      }
-      if (all_in_field_names.count(out_field->name()) == 0 && out_field->nullable()) {
-        // Didn't match current in_field, but we can fill with null.
-        // Filling with null is only acceptable on nullable fields when there
-        // is definitely no in_field with matching name.
 
-        fields_to_select[out_field_index++] = kFillNullSentinel;
-      } else if (in_field_index < in_field_count) {
-        // Didn't match current in_field, and the we cannot fill with null, so
-        // try next in_field.
-        in_field_index++;
+      // Take the first field with matching name, if any. Extract it from the map so it
+      // can't be reused.
+      auto maybe_in_field_index = in_fields.extract(out_field->name());
+      if (!maybe_in_field_index.empty()) {
+        fields_to_select[out_field_index] = maybe_in_field_index.mapped();
+      } else if (out_field->nullable()) {
+        fields_to_select[out_field_index] = kFillNullSentinel;
       } else {
-        // Didn't match current in_field, we cannot fill with null, and there
-        // are no more in_fields to try, so fail.
-        return Status::TypeError(
-            "struct fields don't match or are in the wrong order: Input fields: ",
-            in_type.ToString(), " output fields: ", out_type.ToString());
+        return Status::TypeError("struct fields don't match: non-nullable out field `",
+                                 out_field->name(), "` not found in in fields ",
+                                 in_type.ToString());
       }
     }
 

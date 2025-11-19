@@ -1384,10 +1384,15 @@ TYPED_TEST(TestStringKernels, IsDecimalUnicode) {
 }
 
 TYPED_TEST(TestStringKernels, IsDigitUnicode) {
-  // These are digits according to Python, but we don't have the information in
-  // utf8proc for this
-  // this->CheckUnary("utf8_is_digit", "[\"²\", \"①\"]", boolean(), "[true,
-  // true]");
+  // Tests for digits across various Unicode scripts.
+  // ٤: Arabic 4, ³: Superscript 3, ५: Devanagari 5, Ⅷ: Roman 8 (not digit),
+  // １２３: Fullwidth 123.
+  // '¾' (vulgar fraction) is treated as a digit by utf8proc
+  this->CheckUnary(
+      "utf8_is_digit",
+      R"(["0", "٤", "۵", "३", "१२३", "٣٣", "²", "１２３", "٣٢", "٩", "①", "Ⅷ", "abc" , "⻁", ""])",
+      boolean(),
+      R"([true, true, true, true, true, true, true, true, true, true, true, false, false, false, false])");
 }
 
 TYPED_TEST(TestStringKernels, IsNumericUnicode) {
@@ -2239,6 +2244,51 @@ TYPED_TEST(TestStringKernels, PadUTF8) {
   EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
                                   ::testing::HasSubstr("Padding must be one codepoint"),
                                   CallFunction("utf8_lpad", {input}, &options_bad));
+}
+
+TYPED_TEST(TestStringKernels, UTF8ZeroFill) {
+  ZeroFillOptions options{/*width=*/3, "0"};
+  this->CheckUnary("utf8_zero_fill", R"(["A", "AB", "ABC", null])", this->type(),
+                   R"(["00A", "0AB", "ABC", null])", &options);
+
+  options.width = 4;
+  this->CheckUnary("utf8_zero_fill", R"(["-1", "+1", "1"])", this->type(),
+                   R"(["-001", "+001", "0001"])", &options);
+
+  // width smaller than string → no padding
+  options.width = 2;
+  this->CheckUnary("utf8_zero_fill", R"(["AB", "-12", "+12", "XYZ"])", this->type(),
+                   R"(["AB", "-12", "+12", "XYZ"])", &options);
+
+  // Non-ASCII input strings
+  options.width = 4;
+  this->CheckUnary("utf8_zero_fill", R"(["ñ", "-ö", "+ß"])", this->type(),
+                   R"(["000ñ", "-00ö", "+00ß"])", &options);
+
+  // custom padding character
+  options = ZeroFillOptions{/*width=*/4, "x"};
+  this->CheckUnary("utf8_zero_fill", R"(["1", "-2", "+3"])", this->type(),
+                   R"(["xxx1", "-xx2", "+xx3"])", &options);
+
+  // Non-ASCII padding character
+  options = ZeroFillOptions{/*width=*/5, "💠"};
+  this->CheckUnary("utf8_zero_fill", R"(["1", "-2", "+3"])", this->type(),
+                   R"(["💠💠💠💠1", "-💠💠💠2", "+💠💠💠3"])", &options);
+
+  ZeroFillOptions default_options{/*width=*/4};
+  this->CheckUnary("utf8_zero_fill", R"(["1", "-2", "+3"])", this->type(),
+                   R"(["0001", "-002", "+003"])", &default_options);
+
+  // padding error check
+  ZeroFillOptions options_bad{/*width=*/3, "spam"};
+  auto input = ArrayFromJSON(this->type(), R"(["foo"])");
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
+                                  ::testing::HasSubstr("Padding must be one codepoint"),
+                                  CallFunction("utf8_zero_fill", {input}, &options_bad));
+  options_bad.padding = "";
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
+                                  ::testing::HasSubstr("Padding must be one codepoint"),
+                                  CallFunction("utf8_zero_fill", {input}, &options_bad));
 }
 
 #ifdef ARROW_WITH_UTF8PROC

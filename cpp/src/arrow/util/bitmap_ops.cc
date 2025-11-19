@@ -101,6 +101,8 @@ int64_t CountAndSetBits(const uint8_t* left_bitmap, int64_t left_offset,
   return count;
 }
 
+namespace {
+
 enum class TransferMode : bool { Copy, Invert };
 
 // Reverse all bits from entire byte(uint8)
@@ -212,6 +214,8 @@ void ReverseBlockOffsets(const uint8_t* data, int64_t offset, int64_t length,
     i_dest++;
   }
 }
+
+}  // namespace
 
 template <TransferMode mode>
 Result<std::shared_ptr<Buffer>> TransferBitmap(MemoryPool* pool, const uint8_t* data,

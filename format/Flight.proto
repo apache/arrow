@@ -426,8 +426,41 @@ message Ticket {
 }
 
 /*
- * A location where a Flight service will accept retrieval of a particular
- * stream given a ticket.
+ * A location to retrieve a particular stream from. This URI should be one of
+ * the following:
+ *  - An empty string or the string 'arrow-flight-reuse-connection://?':
+ *    indicating that the ticket can be redeemed on the service where the
+ *    ticket was generated via a DoGet request.
+ *  - A valid grpc URI (grpc://, grpc+tls://, grpc+unix://, etc.):
+ *    indicating that the ticket can be redeemed on the service at the given
+ *    URI via a DoGet request.
+ *  - A valid HTTP URI (http://, https://, etc.):
+ *    indicating that the client should perform a GET request against the
+ *    given URI to retrieve the stream. The ticket should be empty
+ *    in this case and should be ignored by the client. Cloud object storage
+ *    can be utilized by presigned URLs or mediating the auth separately and
+ *    returning the full URL (e.g. https://amzn-s3-demo-bucket.s3.us-west-2.amazonaws.com/...).
+ *
+ * We allow non-Flight URIs for the purpose of allowing Flight services to indicate that
+ * results can be downloaded in formats other than Arrow (such as Parquet) or to allow
+ * direct fetching of results from a URI to reduce excess copying and data movement.
+ * In these cases, the following conventions should be followed by servers and clients:
+ *
+ *  - Unless otherwise specified by the 'Content-Type' header of the response,
+ *    a client should assume the response is using the Arrow IPC Streaming format.
+ *    Usage of an IANA media type like 'application/octet-stream' should be assumed to
+ *    be using the Arrow IPC Streaming format.
+ *  - The server may allow the client to choose a specific response format by
+ *    specifying an 'Accept' header in the request, such as 'application/vnd.apache.parquet'
+ *    or 'application/vnd.apache.arrow.stream'. If multiple types are requested and
+ *    supported by the server, the choice of which to use is server-specific. If
+ *    none of the requested content-types are supported, the server may respond with
+ *    either 406 (Not Acceptable) or 415 (Unsupported Media Type), or successfully
+ *    respond with a different format that it does support along with the correct
+ *    'Content-Type' header.
+ *
+ * Note: new schemes may be proposed in the future to allow for more flexibility based
+ * on community requests.
  */
 message Location {
   string uri = 1;

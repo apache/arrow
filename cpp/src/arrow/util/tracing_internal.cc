@@ -97,6 +97,11 @@ class OtlpOStreamExporter final : public sdktrace::SpanExporter {
                     std::chrono::microseconds(0)) noexcept override {
     return exporter_.Shutdown(timeout);
   }
+  // XXX: OTel 1.19 silent breaking change: this must be overridden
+  bool ForceFlush(std::chrono::microseconds /*timeout*/) noexcept override {
+    (*out_).flush();
+    return true;
+  }
 
  private:
   std::basic_ostream<char>* out_;

@@ -32,6 +32,8 @@ G_BEGIN_DECLS
  * @title: Composite data type classes
  * @include: arrow-glib/arrow-glib.h
  *
+ * #GArrowBaseListDataType is an abstract class for list data type.
+ *
  * #GArrowListDataType is a class for list data type.
  *
  * #GArrowLargeListDataType is a class for 64-bit offsets list data type.
@@ -49,9 +51,43 @@ G_BEGIN_DECLS
  * #GArrowDictionaryDataType is a class for dictionary data type.
  *
  * #GArrowRunEndEncodedDataType is a class for run end encoded data type.
+ *
+ * #GArrowFixedSizeListDataType is a class for fixed size list data type.
  */
 
-G_DEFINE_TYPE(GArrowListDataType, garrow_list_data_type, GARROW_TYPE_DATA_TYPE)
+G_DEFINE_TYPE(GArrowBaseListDataType, garrow_base_list_data_type, GARROW_TYPE_DATA_TYPE)
+
+static void
+garrow_base_list_data_type_init(GArrowBaseListDataType *object)
+{
+}
+
+static void
+garrow_base_list_data_type_class_init(GArrowBaseListDataTypeClass *klass)
+{
+}
+
+/**
+ * garrow_base_list_data_type_get_field:
+ * @base_list_data_type: A #GArrowBaseListDataType.
+ *
+ * Returns: (transfer full): The field of value.
+ *
+ * Since: 21.0.0
+ */
+GArrowField *
+garrow_base_list_data_type_get_field(GArrowBaseListDataType *base_list_data_type)
+{
+  auto data_type = GARROW_DATA_TYPE(base_list_data_type);
+  auto arrow_data_type = garrow_data_type_get_raw(data_type);
+  auto arrow_base_list_data_type =
+    std::static_pointer_cast<arrow::BaseListType>(arrow_data_type);
+
+  auto arrow_field = arrow_base_list_data_type->value_field();
+  return garrow_field_new_raw(&arrow_field, nullptr);
+}
+
+G_DEFINE_TYPE(GArrowListDataType, garrow_list_data_type, GARROW_TYPE_BASE_LIST_DATA_TYPE)
 
 static void
 garrow_list_data_type_init(GArrowListDataType *object)
@@ -102,16 +138,14 @@ garrow_list_data_type_get_value_field(GArrowListDataType *list_data_type)
  * Returns: (transfer full): The field of value.
  *
  * Since: 0.13.0
+ *
+ * Deprecated: 21.0.0:
+ *   Use garrow_base_list_data_type_get_field() instead.
  */
 GArrowField *
 garrow_list_data_type_get_field(GArrowListDataType *list_data_type)
 {
-  auto data_type = GARROW_DATA_TYPE(list_data_type);
-  auto arrow_data_type = garrow_data_type_get_raw(data_type);
-  auto arrow_list_data_type = static_cast<arrow::ListType *>(arrow_data_type.get());
-
-  auto arrow_field = arrow_list_data_type->value_field();
-  return garrow_field_new_raw(&arrow_field, nullptr);
+  return garrow_base_list_data_type_get_field(GARROW_BASE_LIST_DATA_TYPE(list_data_type));
 }
 
 G_DEFINE_TYPE(GArrowLargeListDataType, garrow_large_list_data_type, GARROW_TYPE_DATA_TYPE)
@@ -753,4 +787,93 @@ garrow_run_end_encoded_data_type_get_value_data_type(
   return garrow_data_type_new_raw(&arrow_value_data_type);
 }
 
+enum {
+  PROP_LIST_SIZE = 1
+};
+
+G_DEFINE_TYPE(GArrowFixedSizeListDataType,
+              garrow_fixed_size_list_data_type,
+              GARROW_TYPE_BASE_LIST_DATA_TYPE)
+
+static void
+garrow_fixed_size_list_data_type_get_property(GObject *object,
+                                              guint prop_id,
+                                              GValue *value,
+                                              GParamSpec *pspec)
+{
+  auto arrow_data_type = garrow_data_type_get_raw(GARROW_DATA_TYPE(object));
+  const auto arrow_fixed_size_list_type =
+    std::static_pointer_cast<arrow::FixedSizeListType>(arrow_data_type);
+
+  switch (prop_id) {
+  case PROP_LIST_SIZE:
+    g_value_set_int(value, arrow_fixed_size_list_type->list_size());
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_fixed_size_list_data_type_class_init(GArrowFixedSizeListDataTypeClass *klass)
+{
+  GObjectClass *gobject_class;
+  GParamSpec *spec;
+
+  gobject_class = G_OBJECT_CLASS(klass);
+  gobject_class->get_property = garrow_fixed_size_list_data_type_get_property;
+
+  spec = g_param_spec_int("list-size",
+                          "List size",
+                          "The list size of the elements",
+                          0,
+                          G_MAXINT,
+                          0,
+                          G_PARAM_READABLE);
+  g_object_class_install_property(gobject_class, PROP_LIST_SIZE, spec);
+}
+
+static void
+garrow_fixed_size_list_data_type_init(GArrowFixedSizeListDataType *object)
+{
+}
+
+/**
+ * garrow_fixed_size_list_data_type_new_data_type:
+ * @value_type: The data type of an element of each list.
+ * @list_size: The size of each list.
+ *
+ * Returns: A newly created fixed size list data type.
+ *
+ * Since: 21.0.0
+ */
+GArrowFixedSizeListDataType *
+garrow_fixed_size_list_data_type_new_data_type(GArrowDataType *value_type,
+                                               gint32 list_size)
+{
+  auto arrow_value_type = garrow_data_type_get_raw(value_type);
+  auto arrow_fixed_size_list_data_type =
+    arrow::fixed_size_list(arrow_value_type, list_size);
+  return GARROW_FIXED_SIZE_LIST_DATA_TYPE(
+    garrow_data_type_new_raw(&arrow_fixed_size_list_data_type));
+}
+
+/**
+ * garrow_fixed_size_list_data_type_new_field:
+ * @field: The field of lists.
+ * @list_size: The size of value.
+ *
+ * Returns: A newly created fixed size list data type.
+ *
+ * Since: 21.0.0
+ */
+GArrowFixedSizeListDataType *
+garrow_fixed_size_list_data_type_new_field(GArrowField *field, gint32 list_size)
+{
+  auto arrow_field = garrow_field_get_raw(field);
+  auto arrow_fixed_size_list_data_type = arrow::fixed_size_list(arrow_field, list_size);
+  return GARROW_FIXED_SIZE_LIST_DATA_TYPE(
+    garrow_data_type_new_raw(&arrow_fixed_size_list_data_type));
+}
 G_END_DECLS

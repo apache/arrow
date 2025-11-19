@@ -279,10 +279,10 @@ tail.arrow_dplyr_query <- function(x, n = 6L, ...) {
 #'
 #' @examplesIf arrow_with_dataset() && requireNamespace("dplyr", quietly = TRUE)
 #' library(dplyr)
-#' mtcars %>%
-#'   arrow_table() %>%
-#'   filter(mpg > 20) %>%
-#'   mutate(x = gear / carb) %>%
+#' mtcars |>
+#'   arrow_table() |>
+#'   filter(mpg > 20) |>
+#'   mutate(x = gear / carb) |>
 #'   show_exec_plan()
 show_exec_plan <- function(x) {
   result <- as_record_batch_reader(as_adq(x))

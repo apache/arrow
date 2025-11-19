@@ -28,11 +28,12 @@
 #include "arrow/compute/kernels/aggregate_var_std_internal.h"
 #include "arrow/compute/kernels/common_internal.h"
 #include "arrow/compute/kernels/hash_aggregate_internal.h"
+#include "arrow/compute/registry_internal.h"
 #include "arrow/compute/row/grouper.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/int128_internal.h"
 #include "arrow/util/span.h"
-#include "arrow/util/tdigest.h"
+#include "arrow/util/tdigest_internal.h"
 #include "arrow/visit_type_inline.h"
 
 namespace arrow::compute::internal {
@@ -54,7 +55,7 @@ struct GroupedReducingAggregator : public GroupedAggregator {
     reduced_ = TypedBufferBuilder<CType>(pool_);
     counts_ = TypedBufferBuilder<int64_t>(pool_);
     no_nulls_ = TypedBufferBuilder<bool>(pool_);
-    out_type_ = GetOutType(args.inputs[0].GetSharedPtr());
+    ARROW_ASSIGN_OR_RAISE(out_type_, GetOutType(args.inputs[0].GetSharedPtr()));
     return Status::OK();
   }
 
@@ -154,16 +155,28 @@ struct GroupedReducingAggregator : public GroupedAggregator {
   std::shared_ptr<DataType> out_type() const override { return out_type_; }
 
   template <typename T = Type>
-  static enable_if_t<!is_decimal_type<T>::value, std::shared_ptr<DataType>> GetOutType(
+  enable_if_t<!is_decimal_type<T>::value, Result<std::shared_ptr<DataType>>> GetOutType(
       const std::shared_ptr<DataType>& in_type) {
     return TypeTraits<AccType>::type_singleton();
   }
 
   template <typename T = Type>
-  static enable_if_decimal<T, std::shared_ptr<DataType>> GetOutType(
+  enable_if_decimal<T, Result<std::shared_ptr<DataType>>> GetOutType(
       const std::shared_ptr<DataType>& in_type) {
-    return in_type;
+    if (PromoteDecimal()) {
+      return WidenDecimalToMaxPrecision(in_type);
+    } else {
+      return in_type;
+    }
   }
+
+  // If this returns true, then the aggregator will promote a decimal to the maximum
+  // precision for that type. For instance, a decimal128(3, 2) will be promoted to a
+  // decimal128(38, 2)
+  //
+  // TODO: Ideally this should be configurable via the function options with an enum
+  // PrecisionPolicy { PROMOTE_TO_MAX, DEMOTE_TO_DOUBLE, NO_PROMOTION }
+  virtual bool PromoteDecimal() const { return true; }
 
   int64_t num_groups_ = 0;
   ScalarAggregateOptions options_;
@@ -317,6 +330,8 @@ struct GroupedProductImpl final
     return MultiplyTraits<AccType>::Multiply(out_type, u, v);
   }
 
+  bool PromoteDecimal() const override { return false; }
+
   using Base::Finish;
 };
 
@@ -414,6 +429,8 @@ struct GroupedMeanImpl
     }
     return values;
   }
+
+  bool PromoteDecimal() const override { return false; }
 
   std::shared_ptr<DataType> out_type() const override {
     if (is_decimal_type<Type>::value) return this->out_type_;

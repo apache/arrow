@@ -80,13 +80,8 @@ void DeletePointer(std::shared_ptr<T>* ptr) {
 template <typename T>
 using Pointer = cpp11::external_pointer<std::shared_ptr<T>, DeletePointer<T>>;
 
-#if ARROW_VERSION_MAJOR >= 18
 using ChunkResolver = arrow::ChunkResolver;
 using ChunkLocation = arrow::ChunkLocation;
-#else
-using ChunkResolver = arrow::internal::ChunkResolver;
-using ChunkLocation = arrow::internal::ChunkLocation;
-#endif
 
 class ArrowAltrepData {
  public:

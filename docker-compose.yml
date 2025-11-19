@@ -130,12 +130,12 @@ x-hierarchy:
         - conda-python-spark
   - conda-verify-rc
   - conan
+  - cpp-jni
   - debian-cpp:
     - debian-c-glib:
       - debian-ruby
     - debian-python:
       - debian-docs
-  - debian-js
   - fedora-cpp:
     - fedora-python
   - python-sdist
@@ -143,7 +143,6 @@ x-hierarchy:
     - ubuntu-cpp-static
     - ubuntu-c-glib:
       - ubuntu-ruby
-    - ubuntu-lint
     - ubuntu-python
     - ubuntu-python-sdist-test
     - ubuntu-python-313-freethreading
@@ -154,21 +153,17 @@ x-hierarchy:
   - ubuntu-cpp-minimal
   - ubuntu-cuda-cpp:
     - ubuntu-cuda-python
-  - ubuntu-csharp
   - ubuntu-cpp-sanitizer
   - ubuntu-cpp-thread-sanitizer
   - ubuntu-cpp-emscripten
-  - ubuntu-r-sanitizer
   - ubuntu-r-valgrind
-  - ubuntu-swift
   - ubuntu-verify-rc
-  - r-clang-sanitizer
   - r
   - r-revdepcheck
+  - r-san
   # helper services
   - impala
   - postgres
-  - python-wheel-manylinux-2014
   - python-wheel-manylinux-2-28
   - python-wheel-musllinux-1-2
   - python-wheel-manylinux-test-imports
@@ -193,14 +188,14 @@ volumes:
     name: ${ARCH}-alpine-linux-ccache
   conda-ccache:
     name: ${ARCH}-conda-ccache
+  cpp-jni-ccache:
+    name: ${ARCH}-cpp-jni-ccache
   debian-ccache:
     name: ${ARCH}-debian-${DEBIAN}-ccache
   fedora-ccache:
     name: ${ARCH}-fedora-${FEDORA}-ccache
   maven-cache:
     name: maven-cache
-  python-wheel-manylinux2014-ccache:
-    name: python-wheel-manylinux2014-ccache
   python-wheel-manylinux-2-28-ccache:
     name: python-wheel-manylinux-2-28-ccache
   python-wheel-musllinux-1-2-ccache:
@@ -226,7 +221,7 @@ services:
     #   docker compose build alpine-linux-cpp
     #   docker compose run --rm alpine-linux-cpp
     # Parameters:
-    #   ALPINE_LINUX: 3.18
+    #   ALPINE_LINUX: 3.22
     #   ARCH: amd64, arm64v8, ...
     image: ${REPO}:${ARCH}-alpine-linux-${ALPINE_LINUX}-cpp
     build:
@@ -372,11 +367,9 @@ services:
     volumes: &debian-volumes
       - .:/arrow:delegated
       - ${DOCKER_VOLUME_PREFIX}debian-ccache:/ccache:delegated
-    # integration_skyhook.sh is a no-op unless skyhook is on.
     command: &cpp-command >
       /bin/bash -c "
         /arrow/ci/scripts/cpp_build.sh /arrow /build &&
-        /arrow/ci/scripts/integration_skyhook.sh /build &&
         /arrow/ci/scripts/cpp_test.sh /arrow /build"
 
   ubuntu-cpp:
@@ -567,10 +560,11 @@ services:
 
   ubuntu-cuda-cpp:
     # Usage:
-    #   docker compose build cuda-cpp
-    #   docker compose run --rm cuda-cpp
+    #   docker compose build ubuntu-cuda-cpp
+    #   docker compose run --rm ubuntu-cuda-cpp
     # Parameters:
     #   ARCH: amd64
+    #   UBUNTU: 22.04, 24.04
     #   CUDA: <depends on your nvidia driver, should match system CUDA>
     image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cuda-${CUDA}-cpp
     build:
@@ -729,7 +723,7 @@ services:
     #   docker compose run --rm fedora-cpp
     # Parameters:
     #   ARCH: amd64, arm64v8, ...
-    #   FEDORA: 39
+    #   FEDORA: 42
     image: ${REPO}:${ARCH}-fedora-${FEDORA}-cpp
     build:
       context: .
@@ -773,6 +767,37 @@ services:
         sudo /arrow/ci/scripts/install_sccache.sh unknown-linux-musl /usr/local/bin &&
         /arrow/ci/scripts/conan_setup.sh &&
         /arrow/ci/scripts/conan_build.sh /arrow /build"
+
+  cpp-jni:
+    # Test for the build configuration for JNI.
+    #
+    # Usage:
+    #   docker compose run --rm cpp-jni
+    # Parameters:
+    #   ARCH: amd64, arm64v8
+    #   ARCH_ALIAS: x86_64, aarch64
+    #   ARCH_SHORT: amd64, arm64
+    image: ${REPO}:${ARCH}-cpp-jni-${VCPKG}
+    build:
+      args:
+        arch: ${ARCH}
+        arch_short: ${ARCH_SHORT}
+        # See available versions at:
+        #   https://quay.io/repository/pypa/manylinux_2_28_x86_64?tab=tags
+        #   https://quay.io/repository/pypa/manylinux_2_28_aarch64?tab=tags
+        base: quay.io/pypa/manylinux_2_28_${ARCH_ALIAS}:2025.10.09-1
+        vcpkg: ${VCPKG}
+      context: .
+      dockerfile: ci/docker/cpp-jni.dockerfile
+      cache_from:
+        - ${REPO}:${ARCH}-cpp-jni-${VCPKG}
+      secrets: *vcpkg-build-secrets
+    environment:
+      <<: [*common, *ccache]
+    volumes:
+      - .:/arrow:delegated
+      - ${DOCKER_VOLUME_PREFIX}cpp-jni-ccache:/ccache:delegated
+    command: *cpp-command
 
   ############################### C GLib ######################################
 
@@ -897,7 +922,7 @@ services:
     #   docker compose run --rm conda-python
     # Parameters:
     #   ARCH: amd64, arm32v7
-    #   PYTHON: 3.9, 3.10, 3.11, 3.12
+    #   PYTHON: 3.10, 3.11, 3.12, 3.13
     image: ${REPO}:${ARCH}-conda-python-${PYTHON}
     build:
       context: .
@@ -953,13 +978,15 @@ services:
 
   ubuntu-cuda-python:
     # Usage:
-    #   docker compose build cuda-cpp
-    #   docker compose build cuda-python
-    #   docker compose run --rm cuda-python
+    #   docker compose build ubuntu-cuda-cpp
+    #   docker compose build ubuntu-cuda-python
+    #   docker compose run --rm ubuntu-cuda-python
     # Parameters:
     #   ARCH: amd64
     #   CUDA: <depends on your nvidia driver, should match system CUDA>
     #   UBUNTU: 22.04, 24.04
+    #   NUMBA: master, latest, <version>
+    #   NUMBA_CUDA: master, latest, <version>
     image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cuda-${CUDA}-python-3
     build:
       context: .
@@ -969,6 +996,7 @@ services:
       args:
         base: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cuda-${CUDA}-cpp
         numba: ${NUMBA}
+        numba_cuda: ${NUMBA_CUDA}
     shm_size: *shm-size
     environment:
       <<: [*common, *ccache, *sccache]
@@ -1042,21 +1070,6 @@ services:
     volumes: *ubuntu-volumes
     command: *python-command
 
-  ubuntu-swift:
-    # Usage:
-    #   docker compose build ubuntu-swift
-    #   docker compose run --rm ubuntu-swift
-    # Parameters:
-    image: ubuntu-swift
-    build:
-      context: .
-      dockerfile: ci/docker/ubuntu-swift.dockerfile
-    shm_size: *shm-size
-    volumes: *ubuntu-volumes
-    command: >
-      /bin/bash -c "/arrow/ci/scripts/swift_test.sh /arrow"
-
-
   fedora-python:
     # Usage:
     #   docker compose build fedora-cpp
@@ -1064,7 +1077,7 @@ services:
     #   docker compose run --rm fedora-python
     # Parameters:
     #   ARCH: amd64, arm64v8, ...
-    #   FEDORA: 39
+    #   FEDORA: 42
     image: ${REPO}:${ARCH}-fedora-${FEDORA}-python-3
     build:
       context: .
@@ -1158,31 +1171,6 @@ services:
   ############################ Python wheels ##################################
 
   # See available versions at:
-  #    https://quay.io/repository/pypa/manylinux2014_x86_64?tab=tags
-  python-wheel-manylinux-2014:
-    image: ${REPO}:${ARCH}-python-${PYTHON}-wheel-manylinux-2014-vcpkg-${VCPKG}
-    build:
-      args:
-        arch: ${ARCH}
-        arch_short: ${ARCH_SHORT}
-        base: quay.io/pypa/manylinux2014_${ARCH_ALIAS}:2024-08-03-32dfa47
-        manylinux: 2014
-        python: ${PYTHON}
-        python_abi_tag: ${PYTHON_ABI_TAG}
-        vcpkg: ${VCPKG}
-      context: .
-      dockerfile: ci/docker/python-wheel-manylinux.dockerfile
-      cache_from:
-        - ${REPO}:${ARCH}-python-${PYTHON}-wheel-manylinux-2014-vcpkg-${VCPKG}
-      secrets: *vcpkg-build-secrets
-    environment:
-      <<: [*common, *ccache]
-    volumes:
-      - .:/arrow:delegated
-      - ${DOCKER_VOLUME_PREFIX}python-wheel-manylinux2014-ccache:/ccache:delegated
-    command: /arrow/ci/scripts/python_wheel_xlinux_build.sh
-
-  # See available versions at:
   #    https://quay.io/repository/pypa/manylinux_2_28_x86_64?tab=tags
   python-wheel-manylinux-2-28:
     image: ${REPO}:${ARCH}-python-${PYTHON}-wheel-manylinux-2-28-vcpkg-${VCPKG}
@@ -1190,7 +1178,7 @@ services:
       args:
         arch: ${ARCH}
         arch_short: ${ARCH_SHORT}
-        base: quay.io/pypa/manylinux_2_28_${ARCH_ALIAS}:2024-08-03-32dfa47
+        base: quay.io/pypa/manylinux_2_28_${ARCH_ALIAS}:2025-06-04-496f7e1
         manylinux: 2_28
         python: ${PYTHON}
         python_abi_tag: ${PYTHON_ABI_TAG}
@@ -1215,7 +1203,7 @@ services:
       args:
         arch: ${ARCH}
         arch_short: ${ARCH_SHORT}
-        base: quay.io/pypa/musllinux_1_2_${ARCH_ALIAS}:2025-01-18-a325f1d
+        base: quay.io/pypa/musllinux_1_2_${ARCH_ALIAS}:2025-06-04-496f7e1
         musllinux: 1_2
         python: ${PYTHON}
         python_abi_tag: ${PYTHON_ABI_TAG}
@@ -1251,14 +1239,16 @@ services:
   # TODO: Remove this when the official Docker Python image supports the free-threaded build.
   # See https://github.com/docker-library/python/issues/947 for more info.
   python-free-threaded-wheel-musllinux-test-imports:
-    image: ${REPO}:${ARCH}-python-3.13-free-threaded-wheel-musllinux-test-imports
+    image: ${REPO}:${ARCH}-python-${PYTHON_IMAGE_TAG}-free-threaded-wheel-musllinux-test-imports
     build:
       args:
         base: "${ARCH}/alpine:${ALPINE_LINUX}"
+        python_version: ${PYTHON}
+        python_patch_version: ${PYTHON_PATCH_VERSION}
       context: .
       dockerfile: ci/docker/python-free-threaded-wheel-musllinux-test-imports.dockerfile
       cache_from:
-        - ${REPO}:${ARCH}-python-3.13-free-threaded-wheel-musllinux-test-imports
+        - ${REPO}:${ARCH}-python-${PYTHON_IMAGE_TAG}-free-threaded-wheel-musllinux-test-imports
     shm_size: 2G
     volumes:
       - .:/arrow:delegated
@@ -1266,6 +1256,7 @@ services:
       <<: *common
       CHECK_IMPORTS: "ON"
       CHECK_UNITTESTS: "OFF"
+      PYTHON: ${PYTHON}
     command: /arrow/ci/scripts/python_wheel_unix_test.sh /arrow
 
   python-wheel-musllinux-test-unittests:
@@ -1291,14 +1282,16 @@ services:
   # TODO: Remove this when the official Docker Python image supports the free-threaded build.
   # See https://github.com/docker-library/python/issues/947 for more info.
   python-free-threaded-wheel-musllinux-test-unittests:
-    image: ${REPO}:${ARCH}-python-3.13-free-threaded-wheel-musllinux-test-unittests
+    image: ${REPO}:${ARCH}-python-${PYTHON_IMAGE_TAG}-free-threaded-wheel-musllinux-test-unittests
     build:
       args:
         base: "${ARCH}/alpine:${ALPINE_LINUX}"
+        python_version: ${PYTHON}
+        python_patch_version: ${PYTHON_PATCH_VERSION}
       context: .
       dockerfile: ci/docker/python-free-threaded-wheel-musllinux-test-unittests.dockerfile
       cache_from:
-        - ${REPO}:${ARCH}-python-3.13-free-threaded-wheel-musllinux-test-unittests
+        - ${REPO}:${ARCH}-python-${PYTHON_IMAGE_TAG}-free-threaded-wheel-musllinux-test-unittests
     shm_size: 2G
     volumes:
       - .:/arrow:delegated
@@ -1306,6 +1299,7 @@ services:
       <<: *common
       CHECK_IMPORTS: "OFF"
       CHECK_UNITTESTS: "ON"
+      PYTHON: ${PYTHON}
     command: /arrow/ci/scripts/python_wheel_unix_test.sh /arrow
 
   python-wheel-manylinux-test-imports:
@@ -1323,14 +1317,15 @@ services:
   # TODO: Remove this when the official Docker Python image supports the free-threaded build.
   # See https://github.com/docker-library/python/issues/947 for more info.
   python-free-threaded-wheel-manylinux-test-imports:
-    image: ${REPO}:${ARCH}-python-3.13-free-threaded-wheel-manylinux-test-imports
+    image: ${REPO}:${ARCH}-python-${PYTHON_IMAGE_TAG}-free-threaded-wheel-manylinux-test-imports
     build:
       args:
         base: "${ARCH}/ubuntu:${UBUNTU}"
+        python_version: ${PYTHON}
       context: .
       dockerfile: ci/docker/python-free-threaded-wheel-manylinux-test-imports.dockerfile
       cache_from:
-        - ${REPO}:${ARCH}-python-3.13-free-threaded-wheel-manylinux-test-imports
+        - ${REPO}:${ARCH}-python-${PYTHON_IMAGE_TAG}-free-threaded-wheel-manylinux-test-imports
     shm_size: 2G
     volumes:
       - .:/arrow:delegated
@@ -1338,6 +1333,7 @@ services:
       <<: *common
       CHECK_IMPORTS: "ON"
       CHECK_UNITTESTS: "OFF"
+      PYTHON: ${PYTHON}
     command: /arrow/ci/scripts/python_wheel_unix_test.sh /arrow
 
   python-wheel-manylinux-test-unittests:
@@ -1364,14 +1360,15 @@ services:
   # TODO: Remove this when the official Docker Python image supports the free-threaded build.
   # See https://github.com/docker-library/python/issues/947 for more info.
   python-free-threaded-wheel-manylinux-test-unittests:
-    image: ${REPO}:${ARCH}-python-3.13-free-threaded-wheel-manylinux-test-unittests
+    image: ${REPO}:${ARCH}-python-${PYTHON_IMAGE_TAG}-free-threaded-wheel-manylinux-test-unittests
     build:
       args:
         base: "${ARCH}/ubuntu:${UBUNTU}"
+        python_version: ${PYTHON}
       context: .
       dockerfile: ci/docker/python-free-threaded-wheel-manylinux-test-unittests.dockerfile
       cache_from:
-        - ${REPO}:${ARCH}-python-3.13-free-threaded-wheel-manylinux-test-unittests
+        - ${REPO}:${ARCH}-python-${PYTHON_IMAGE_TAG}-free-threaded-wheel-manylinux-test-unittests
     shm_size: 2G
     volumes:
       - .:/arrow:delegated
@@ -1379,6 +1376,7 @@ services:
       <<: *common
       CHECK_IMPORTS: "OFF"
       CHECK_UNITTESTS: "ON"
+      PYTHON: ${PYTHON}
     command: /arrow/ci/scripts/python_wheel_unix_test.sh /arrow
 
   python-wheel-windows-vs2022-base:
@@ -1453,6 +1451,7 @@ services:
     build:
       args:
         base: ${REPO}:python-wheel-windows-test-vs2022-base-${PYTHON_WHEEL_WINDOWS_TEST_IMAGE_REVISION}
+        python: ${PYTHON}
       context: .
       dockerfile: ci/docker/python-free-threaded-wheel-windows-test-vs2022.dockerfile
     volumes: *python-wheel-windows-vs2022-volumes
@@ -1676,6 +1675,7 @@ services:
         tz: ${TZ}
         r_prune_deps: ${R_PRUNE_DEPS}
         r_custom_ccache: ${R_CUSTOM_CCACHE}
+        r_update_clang: ${R_UPDATE_CLANG}
     shm_size: *shm-size
     environment:
       <<: [*common, *sccache]
@@ -1689,55 +1689,28 @@ services:
     command: >
       /bin/bash -c "/arrow/ci/scripts/r_test.sh /arrow"
 
-  ubuntu-r-sanitizer:
-    # Only amd64 supported
-    # Usage:
-    #   docker compose build ubuntu-r-sanitizer
-    #   docker compose run ubuntu-r-sanitizer
-    image: ${REPO}:amd64-ubuntu-r-sanitizer
-    cap_add:
-      # LeakSanitizer and gdb requires ptrace(2)
-      - SYS_PTRACE
+  r-san:
+    image: ${REPO}:r-${R_ORG}-${R_IMAGE}
     build:
       context: .
       dockerfile: ci/docker/linux-r.dockerfile
       cache_from:
-        - ${REPO}:amd64-ubuntu-r-sanitizer
+        - ${REPO}:r-${R_ORG}-${R_IMAGE}
       args:
-        base: wch1/r-debug:latest
-        cmake: ${CMAKE}
-        r_bin: RDsan
-        tz: ${TZ}
-        r_prune_deps: ${R_PRUNE_DEPS}
-    environment:
-      <<: [*common, *ccache]
-      ARROW_SOURCE_HOME: "/arrow"
-    volumes: *ubuntu-volumes
-    command: >
-      /bin/bash -c "
-        /arrow/ci/scripts/r_sanitize.sh /arrow"
-
-  r-clang-sanitizer:
-    image: ${REPO}:r-rhub-clang-devel-latest
-    build:
-      context: .
-      dockerfile: ci/docker/linux-r.dockerfile
-      cache_from:
-        - ${REPO}:r-rhub-clang-devel-latest
-      args:
-        base: rhub/clang-asan
+        base: ${R_ORG}/${R_IMAGE}:${R_TAG}
         cmake: ${CMAKE}
         r_dev: ${ARROW_R_DEV}
         r_bin: R
         tz: ${TZ}
         r_prune_deps: ${R_PRUNE_DEPS}
     shm_size: *shm-size
+    # These environment variables are *not* set by CRAN, so we should be careful about adding
+    # to them. I.E. if we have to add something here to have CI pass, it will likely fail on CRAN.
     environment:
       <<: *common
       LIBARROW_DOWNLOAD: "false"
-      ARROW_SOURCE_HOME: "/arrow"
       ARROW_R_DEV: ${ARROW_R_DEV}
-      # To test for CRAN release, delete ^^ these two env vars so we download the Apache release
+      ARROW_SOURCE_HOME: "/arrow"
       ARROW_USE_PKG_CONFIG: "false"
     volumes:
       - .:/arrow:delegated
@@ -1798,55 +1771,6 @@ services:
     command: >
       /bin/bash -c "/arrow/ci/scripts/r_revdepcheck.sh /arrow"
 
-  ############################# JavaScript ####################################
-
-  debian-js:
-    # Usage:
-    #   docker compose build debian-js
-    #   docker compose run debian-js
-    image: ${REPO}:${ARCH}-debian-${DEBIAN}-js-${NODE}
-    build:
-      context: .
-      dockerfile: ci/docker/debian-${DEBIAN}-js.dockerfile
-      cache_from:
-        - ${REPO}:${ARCH}-debian-${DEBIAN}-js-${NODE}
-      args:
-        arch: ${ARCH}
-        node: ${NODE}
-    shm_size: *shm-size
-    volumes: *debian-volumes
-    environment:
-      <<: *common
-      BUILD_DOCS_JS: "ON"
-    command: &js-command >
-      /bin/bash -c "
-        /arrow/ci/scripts/js_build.sh /arrow /build &&
-        /arrow/ci/scripts/js_test.sh /arrow /build"
-
-  #################################### C# #####################################
-
-  ubuntu-csharp:
-    # Usage:
-    #   docker compose build ubuntu-csharp
-    #   docker compose run ubuntu-csharp
-    image: ${REPO}:${ARCH}-ubuntu-22.04-csharp-${DOTNET}
-    build:
-      context: .
-      dockerfile: ci/docker/ubuntu-22.04-csharp.dockerfile
-      cache_from:
-        - ${REPO}:${ARCH}-ubuntu-22.04-csharp-${DOTNET}
-      args:
-        arch: ${ARCH}
-        dotnet: ${DOTNET}
-        platform: jammy
-    shm_size: *shm-size
-    volumes: *ubuntu-volumes
-    command: &csharp-command >
-      /bin/bash -c "
-        /arrow/ci/scripts/csharp_build.sh /arrow &&
-        /arrow/ci/scripts/csharp_test.sh /arrow &&
-        /arrow/ci/scripts/csharp_pack.sh /arrow"
-
   ############################## Integration ##################################
 
   conda-integration:
@@ -1906,15 +1830,14 @@ services:
       - SYS_ADMIN
     environment:
       <<: [*common, *ccache]
+      ARROW_AZURE: "ON"
       ARROW_CUDA: "ON"
       ARROW_CXX_FLAGS_DEBUG: "-g1"
       ARROW_C_FLAGS_DEBUG: "-g1"
       ARROW_HOME: "/tmp/local"
-      ARROW_JAVA_SKIP_GIT_PLUGIN:
       ARROW_SUBSTRAIT: "ON"
       BUILD_DOCS_C_GLIB: "ON"
       BUILD_DOCS_CPP: "ON"
-      BUILD_DOCS_JS: "ON"
       BUILD_DOCS_PYTHON: "ON"
       BUILD_DOCS_R: "ON"
     volumes: *debian-volumes
@@ -1925,36 +1848,7 @@ services:
         /arrow/ci/scripts/cpp_build.sh /arrow /build &&
         /arrow/ci/scripts/python_build.sh /arrow /build &&
         /arrow/ci/scripts/c_glib_build.sh /arrow /build &&
-        /arrow/ci/scripts/r_build.sh /arrow /build &&
-        /arrow/ci/scripts/js_build.sh /arrow /build"
-
-  ################################# Tools #####################################
-
-  ubuntu-lint:
-    # Usage:
-    #   docker compose build ubuntu-cpp
-    #   docker compose build ubuntu-lint
-    #   docker compose run ubuntu-lint
-    image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-lint
-    build:
-      context: .
-      dockerfile: ci/docker/linux-apt-lint.dockerfile
-      cache_from:
-        - ${REPO}:${ARCH}-ubuntu-${UBUNTU}-lint
-      args:
-        base: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp
-        clang_tools: ${CLANG_TOOLS}
-    environment:
-      <<: [*common, *ccache]
-    volumes: *ubuntu-volumes
-    command: >
-      /bin/bash -c "
-        git config --global --add safe.directory /arrow &&
-        python3 -m venv /build/pyvenv &&
-        source /build/pyvenv/bin/activate &&
-        pip install -U pip setuptools &&
-        pip install arrow/dev/archery[lint] &&
-        archery lint --all --no-clang-tidy --no-iwyu --no-numpydoc --src /arrow"
+        /arrow/ci/scripts/r_build.sh /arrow /build"
 
   ######################### Integration Tests #################################
 

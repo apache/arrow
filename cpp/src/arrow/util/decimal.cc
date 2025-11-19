@@ -45,6 +45,29 @@ using internal::SafeLeftShift;
 using internal::SafeSignedAdd;
 using internal::uint128_t;
 
+namespace internal {
+
+Status ToArrowStatus(DecimalStatus dstatus) {
+  switch (dstatus) {
+    case DecimalStatus::kSuccess:
+      return Status::OK();
+
+    case DecimalStatus::kDivideByZero:
+      return Status::Invalid("Division by 0 in Decimal");
+
+    case DecimalStatus::kOverflow:
+      return Status::Invalid("Overflow occurred during Decimal operation");
+
+    case DecimalStatus::kRescaleDataLoss:
+      return Status::Invalid("Rescaling Decimal value would cause data loss");
+
+    default:
+      return Status::UnknownError("Unknown Decimal error");
+  }
+}
+
+}  // namespace internal
+
 namespace {
 
 struct BaseDecimalRealConversion {
@@ -835,24 +858,6 @@ bool ParseDecimalComponents(const char* s, size_t size, DecimalComponents* out) 
   return pos == size;
 }
 
-inline Status ToArrowStatus(DecimalStatus dstatus, int num_bits) {
-  switch (dstatus) {
-    case DecimalStatus::kSuccess:
-      return Status::OK();
-
-    case DecimalStatus::kDivideByZero:
-      return Status::Invalid("Division by 0 in Decimal", num_bits);
-
-    case DecimalStatus::kOverflow:
-      return Status::Invalid("Overflow occurred during Decimal", num_bits, " operation.");
-
-    case DecimalStatus::kRescaleDataLoss:
-      return Status::Invalid("Rescaling Decimal", num_bits,
-                             " value would cause data loss");
-  }
-  return Status::OK();
-}
-
 template <typename Decimal>
 Status DecimalFromString(const char* type_name, std::string_view s, Decimal* out,
                          int32_t* precision, int32_t* scale) {
@@ -1105,11 +1110,7 @@ Result<Decimal32> Decimal32::FromBigEndian(const uint8_t* bytes, int32_t length)
   return Decimal32(value);
 }
 
-Status Decimal32::ToArrowStatus(DecimalStatus dstatus) const {
-  return arrow::ToArrowStatus(dstatus, 32);
-}
-
-std::ostream& operator<<(std::ostream& os, const Decimal32& decimal) {
+ARROW_EXPORT std::ostream& operator<<(std::ostream& os, const Decimal32& decimal) {
   os << decimal.ToIntegerString();
   return os;
 }
@@ -1132,11 +1133,7 @@ Result<Decimal64> Decimal64::FromBigEndian(const uint8_t* bytes, int32_t length)
   return Decimal64(value);
 }
 
-Status Decimal64::ToArrowStatus(DecimalStatus dstatus) const {
-  return arrow::ToArrowStatus(dstatus, 64);
-}
-
-std::ostream& operator<<(std::ostream& os, const Decimal64& decimal) {
+ARROW_EXPORT std::ostream& operator<<(std::ostream& os, const Decimal64& decimal) {
   os << decimal.ToIntegerString();
   return os;
 }
@@ -1194,11 +1191,7 @@ Result<Decimal128> Decimal128::FromBigEndian(const uint8_t* bytes, int32_t lengt
   return Decimal128(high, static_cast<uint64_t>(low));
 }
 
-Status Decimal128::ToArrowStatus(DecimalStatus dstatus) const {
-  return arrow::ToArrowStatus(dstatus, 128);
-}
-
-std::ostream& operator<<(std::ostream& os, const Decimal128& decimal) {
+ARROW_EXPORT std::ostream& operator<<(std::ostream& os, const Decimal128& decimal) {
   os << decimal.ToIntegerString();
   return os;
 }
@@ -1300,10 +1293,6 @@ Result<Decimal256> Decimal256::FromBigEndian(const uint8_t* bytes, int32_t lengt
   }
 
   return Decimal256(bit_util::little_endian::ToNative(little_endian_array));
-}
-
-Status Decimal256::ToArrowStatus(DecimalStatus dstatus) const {
-  return arrow::ToArrowStatus(dstatus, 256);
 }
 
 namespace {
@@ -1451,7 +1440,7 @@ double Decimal256::ToDouble(int32_t scale) const {
   return Decimal256RealConversion::ToReal<double>(*this, scale);
 }
 
-std::ostream& operator<<(std::ostream& os, const Decimal256& decimal) {
+ARROW_EXPORT std::ostream& operator<<(std::ostream& os, const Decimal256& decimal) {
   os << decimal.ToIntegerString();
   return os;
 }
