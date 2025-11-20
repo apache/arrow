@@ -31,6 +31,8 @@ namespace internal {
 
 class BitmapReader {
  public:
+  BitmapReader() = default;
+
   BitmapReader(const uint8_t* bitmap, int64_t start_offset, int64_t length)
       : bitmap_(bitmap), position_(0), length_(length) {
     current_byte_ = 0;
@@ -134,7 +136,7 @@ class BitmapUInt64Reader {
     memcpy(&word, bitmap_, num_bytes);
     bitmap_ += num_bytes;
     return (bit_util::ToLittleEndian(word) >> bit_offset) &
-           bit_util::LeastSignificantBitMask(num_bits);
+           bit_util::LeastSignificantBitMask<uint64_t>(num_bits);
   }
 
   const uint8_t* bitmap_;

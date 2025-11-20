@@ -80,12 +80,26 @@ arrow_acero_srcs = [
 arrow_acero_lib = library(
     'arrow-acero',
     sources: arrow_acero_srcs,
-    dependencies: [arrow_dep],
+    dependencies: [arrow_compute_dep, arrow_dep, threads_dep],
+    gnu_symbol_visibility: 'inlineshidden',
 )
 
-arrow_acero_dep = declare_dependency(link_with: [arrow_acero_lib])
+arrow_acero_dep = declare_dependency(
+    dependencies: [arrow_compute_dep],
+    link_with: [arrow_acero_lib],
+)
+meson.override_dependency('arrow-acero', arrow_acero_dep)
 
-arrow_acero_testing_sources = ['test_nodes.cc', 'test_util_internal.cc'] + arrow_compute_testing_srcs
+arrow_acero_test_sources = ['test_nodes.cc', 'test_util_internal.cc']
+arrow_acero_test_lib = static_library(
+    'arrow-acero-testing',
+    sources: arrow_acero_test_sources,
+    dependencies: [arrow_acero_dep, arrow_compute_test_dep],
+)
+arrow_acero_test_dep = declare_dependency(
+    link_with: [arrow_acero_test_lib],
+    dependencies: [arrow_acero_dep, arrow_compute_test_dep],
+)
 
 arrow_acero_tests = {
     'plan-test': {'sources': ['plan_test.cc', 'test_nodes_test.cc']},
@@ -109,8 +123,8 @@ arrow_acero_tests = {
 foreach key, val : arrow_acero_tests
     exc = executable(
         'arrow-acero-@0@'.format(key),
-        sources: val['sources'] + arrow_acero_testing_sources,
-        dependencies: [arrow_acero_dep, arrow_test_dep],
+        sources: val['sources'],
+        dependencies: [arrow_acero_test_dep],
     )
     test(key, exc)
 endforeach
@@ -132,8 +146,16 @@ arrow_acero_benchmarks = {
 foreach key, val : arrow_acero_benchmarks
     exc = executable(
         key,
-        sources: val['sources'] + arrow_acero_testing_sources,
-        dependencies: [arrow_acero_dep, arrow_benchmark_dep, gmock_dep],
+        sources: val['sources'],
+        dependencies: [arrow_acero_test_dep, arrow_benchmark_dep, gmock_dep],
     )
     benchmark(key, exc)
 endforeach
+
+pkg.generate(
+    arrow_acero_lib,
+    filebase: 'arrow-acero',
+    name: 'Apache Arrow Acero Engine',
+    description: 'Apache Arrow\'s Acero Engine',
+    requires: ['arrow-compute'],
+)

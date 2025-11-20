@@ -28,7 +28,7 @@ from .core import IssueTracker, Release
               callback=validate_arrow_sources,
               help="Specify Arrow source directory.")
 @click.option('--github-token', '-t', default=None,
-              envvar="CROSSBOW_GITHUB_TOKEN",
+              envvar=['GH_TOKEN', 'CROSSBOW_GITHUB_TOKEN'],
               help='OAuth token for GitHub authentication')
 @click.pass_obj
 def release(obj, src, github_token):

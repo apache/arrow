@@ -178,6 +178,9 @@ class PARQUET_EXPORT LogicalType {
     KARNEY = 5
   };
 
+  /// \brief The latest supported Variant specification version by this library
+  static constexpr int8_t kVariantSpecVersion = 1;
+
   /// \brief If possible, return a logical type equivalent to the given legacy
   /// converted type (and decimal metadata if applicable).
   static std::shared_ptr<const LogicalType> FromConvertedType(
@@ -224,7 +227,8 @@ class PARQUET_EXPORT LogicalType {
   static std::shared_ptr<const LogicalType> BSON();
   static std::shared_ptr<const LogicalType> UUID();
   static std::shared_ptr<const LogicalType> Float16();
-  static std::shared_ptr<const LogicalType> Variant();
+  static std::shared_ptr<const LogicalType> Variant(
+      int8_t specVersion = kVariantSpecVersion);
 
   static std::shared_ptr<const LogicalType> Geometry(std::string crs = "");
 
@@ -495,7 +499,10 @@ class PARQUET_EXPORT GeographyLogicalType : public LogicalType {
 /// \brief Allowed for group nodes only.
 class PARQUET_EXPORT VariantLogicalType : public LogicalType {
  public:
-  static std::shared_ptr<const LogicalType> Make();
+  static std::shared_ptr<const LogicalType> Make(
+      int8_t specVersion = kVariantSpecVersion);
+
+  int8_t spec_version() const;
 
  private:
   VariantLogicalType() = default;
@@ -853,8 +860,9 @@ PARQUET_EXPORT std::string TypeToString(Type::type t);
 
 PARQUET_EXPORT std::string TypeToString(Type::type t, int type_length);
 
-PARQUET_EXPORT std::string FormatStatValue(Type::type parquet_type,
-                                           ::std::string_view val);
+PARQUET_EXPORT std::string FormatStatValue(
+    Type::type parquet_type, ::std::string_view val,
+    const std::shared_ptr<const LogicalType>& logical_type = NULLPTR);
 
 PARQUET_EXPORT int GetTypeByteSize(Type::type t);
 

@@ -41,6 +41,8 @@
 #include "parquet/statistics.h"
 #include "parquet/thrift_internal.h"
 
+using ::arrow::util::SecureString;
+
 namespace parquet {
 
 const ApplicationVersion& ApplicationVersion::PARQUET_251_FIXED_VERSION() {
@@ -89,7 +91,16 @@ std::string ParquetVersionToString(ParquetVersion::type ver) {
 
 template <typename DType>
 static std::shared_ptr<Statistics> MakeTypedColumnStats(
-    const format::ColumnMetaData& metadata, const ColumnDescriptor* descr) {
+    const format::ColumnMetaData& metadata, const ColumnDescriptor* descr,
+    ::arrow::MemoryPool* pool) {
+  std::optional<bool> min_exact =
+      metadata.statistics.__isset.is_min_value_exact
+          ? std::optional<bool>(metadata.statistics.is_min_value_exact)
+          : std::nullopt;
+  std::optional<bool> max_exact =
+      metadata.statistics.__isset.is_max_value_exact
+          ? std::optional<bool>(metadata.statistics.is_max_value_exact)
+          : std::nullopt;
   // If ColumnOrder is defined, return max_value and min_value
   if (descr->column_order().get_order() == ColumnOrder::TYPE_DEFINED_ORDER) {
     return MakeStatistics<DType>(
@@ -98,7 +109,7 @@ static std::shared_ptr<Statistics> MakeTypedColumnStats(
         metadata.statistics.null_count, metadata.statistics.distinct_count,
         metadata.statistics.__isset.max_value && metadata.statistics.__isset.min_value,
         metadata.statistics.__isset.null_count,
-        metadata.statistics.__isset.distinct_count);
+        metadata.statistics.__isset.distinct_count, min_exact, max_exact, pool);
   }
   // Default behavior
   return MakeStatistics<DType>(
@@ -106,10 +117,13 @@ static std::shared_ptr<Statistics> MakeTypedColumnStats(
       metadata.num_values - metadata.statistics.null_count,
       metadata.statistics.null_count, metadata.statistics.distinct_count,
       metadata.statistics.__isset.max && metadata.statistics.__isset.min,
-      metadata.statistics.__isset.null_count, metadata.statistics.__isset.distinct_count);
+      metadata.statistics.__isset.null_count, metadata.statistics.__isset.distinct_count,
+      min_exact, max_exact, pool);
 }
 
-static std::shared_ptr<geospatial::GeoStatistics> MakeColumnGeometryStats(
+namespace {
+
+std::shared_ptr<geospatial::GeoStatistics> MakeColumnGeometryStats(
     const format::ColumnMetaData& metadata, const ColumnDescriptor* descr) {
   if (metadata.__isset.geospatial_statistics) {
     geospatial::EncodedGeoStatistics encoded_geo_stats =
@@ -121,24 +135,31 @@ static std::shared_ptr<geospatial::GeoStatistics> MakeColumnGeometryStats(
 }
 
 std::shared_ptr<Statistics> MakeColumnStats(const format::ColumnMetaData& meta_data,
-                                            const ColumnDescriptor* descr) {
-  switch (static_cast<Type::type>(meta_data.type)) {
+                                            const ColumnDescriptor* descr,
+                                            ::arrow::MemoryPool* pool) {
+  auto metadata_type = LoadEnumSafe(&meta_data.type);
+  if (descr->physical_type() != metadata_type) {
+    throw ParquetException(
+        "ColumnMetaData type does not match ColumnDescriptor physical type: " +
+        TypeToString(metadata_type) + " vs. " + TypeToString(descr->physical_type()));
+  }
+  switch (metadata_type) {
     case Type::BOOLEAN:
-      return MakeTypedColumnStats<BooleanType>(meta_data, descr);
+      return MakeTypedColumnStats<BooleanType>(meta_data, descr, pool);
     case Type::INT32:
-      return MakeTypedColumnStats<Int32Type>(meta_data, descr);
+      return MakeTypedColumnStats<Int32Type>(meta_data, descr, pool);
     case Type::INT64:
-      return MakeTypedColumnStats<Int64Type>(meta_data, descr);
+      return MakeTypedColumnStats<Int64Type>(meta_data, descr, pool);
     case Type::INT96:
-      return MakeTypedColumnStats<Int96Type>(meta_data, descr);
+      return MakeTypedColumnStats<Int96Type>(meta_data, descr, pool);
     case Type::DOUBLE:
-      return MakeTypedColumnStats<DoubleType>(meta_data, descr);
+      return MakeTypedColumnStats<DoubleType>(meta_data, descr, pool);
     case Type::FLOAT:
-      return MakeTypedColumnStats<FloatType>(meta_data, descr);
+      return MakeTypedColumnStats<FloatType>(meta_data, descr, pool);
     case Type::BYTE_ARRAY:
-      return MakeTypedColumnStats<ByteArrayType>(meta_data, descr);
+      return MakeTypedColumnStats<ByteArrayType>(meta_data, descr, pool);
     case Type::FIXED_LEN_BYTE_ARRAY:
-      return MakeTypedColumnStats<FLBAType>(meta_data, descr);
+      return MakeTypedColumnStats<FLBAType>(meta_data, descr, pool);
     case Type::UNDEFINED:
       break;
   }
@@ -177,6 +198,8 @@ void ToThriftKeyValueMetadata(const KeyValueMetadata& source, Metadata* metadata
   }
   metadata->__set_key_value_metadata(std::move(key_value_metadata));
 }
+
+}  // namespace
 
 // MetaData Accessor
 
@@ -306,10 +329,7 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
   // 2) Statistics must not be corrupted
   inline bool is_stats_set() const {
     DCHECK(writer_version_ != nullptr);
-    // If the column statistics don't exist or column sort order is unknown
-    // we cannot use the column stats
-    if (!column_metadata_->__isset.statistics ||
-        descr_->sort_order() == SortOrder::UNKNOWN) {
+    if (!column_metadata_->__isset.statistics) {
       return false;
     }
     {
@@ -317,6 +337,10 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
       if (possible_encoded_stats_ == nullptr) {
         possible_encoded_stats_ =
             std::make_shared<EncodedStatistics>(FromThrift(column_metadata_->statistics));
+        if (descr_->sort_order() == SortOrder::UNKNOWN) {
+          // If the column SortOrder is Unknown we can't trust max/min.
+          possible_encoded_stats_->ClearMinMax();
+        }
       }
     }
     return writer_version_->HasCorrectStatistics(type(), *possible_encoded_stats_,
@@ -341,7 +365,8 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
     if (is_stats_set()) {
       const std::lock_guard<std::mutex> guard(stats_mutex_);
       if (possible_stats_ == nullptr) {
-        possible_stats_ = MakeColumnStats(*column_metadata_, descr_);
+        possible_stats_ =
+            MakeColumnStats(*column_metadata_, descr_, properties_.memory_pool());
       }
       return possible_stats_;
     }
@@ -792,8 +817,8 @@ class FileMetaData::FileMetaDataImpl {
                                              encryption::kNonceLength);
     auto tag = reinterpret_cast<const uint8_t*>(signature) + encryption::kNonceLength;
 
-    std::string key = file_decryptor_->GetFooterKey();
-    std::string aad = encryption::CreateFooterAad(file_decryptor_->file_aad());
+    const SecureString& key = file_decryptor_->GetFooterKey();
+    const std::string& aad = encryption::CreateFooterAad(file_decryptor_->file_aad());
 
     auto aes_encryptor = encryption::AesEncryptor::Make(file_decryptor_->algorithm(),
                                                         static_cast<int>(key.size()),
@@ -802,7 +827,7 @@ class FileMetaData::FileMetaDataImpl {
     std::shared_ptr<Buffer> encrypted_buffer = AllocateBuffer(
         file_decryptor_->pool(), aes_encryptor->CiphertextLength(serialized_len));
     int32_t encrypted_len = aes_encryptor->SignedFooterEncrypt(
-        serialized_data_span, str2span(key), str2span(aad), nonce,
+        serialized_data_span, key.as_span(), str2span(aad), nonce,
         encrypted_buffer->mutable_span_as<uint8_t>());
     return 0 ==
            memcmp(encrypted_buffer->data() + encrypted_len - encryption::kGcmTagLength,
@@ -1541,7 +1566,7 @@ bool ApplicationVersion::VersionEq(const ApplicationVersion& other_version) cons
 // parquet-mr/parquet-column/src/main/java/org/apache/parquet/CorruptStatistics.java
 // PARQUET-686 has more discussion on statistics
 bool ApplicationVersion::HasCorrectStatistics(Type::type col_type,
-                                              EncodedStatistics& statistics,
+                                              const EncodedStatistics& statistics,
                                               SortOrder::type sort_order) const {
   // parquet-cpp version 1.3.0 and parquet-mr 1.10.0 onwards stats are computed
   // correctly for all types
@@ -1565,11 +1590,6 @@ bool ApplicationVersion::HasCorrectStatistics(Type::type col_type,
   // parquet-mr during the same time as PARQUET-251, see PARQUET-297
   if (application_ == "unknown") {
     return true;
-  }
-
-  // Unknown sort order has incorrect stats
-  if (SortOrder::UNKNOWN == sort_order) {
-    return false;
   }
 
   // PARQUET-251

@@ -9,7 +9,7 @@
 \description{
 The \code{arrow} package contains methods for 37 \code{dplyr} table functions, many of
 which are "verbs" that do transformations to one or more tables.
-The package also has mappings of 222 R functions to the corresponding
+The package also has mappings of 223 R functions to the corresponding
 functions in the Arrow compute library. These allow you to write code inside
 of \code{dplyr} methods that call R functions, including many in packages like
 \code{stringr} and \code{lubridate}, and they will get translated to Arrow and run
@@ -71,7 +71,7 @@ can assume that the function works in Acero just as it does in R.
 Functions can be called either as \code{pkg::fun()} or just \code{fun()}, i.e. both
 \code{str_sub()} and \code{stringr::str_sub()} work.
 
-In addition to these functions, you can call any of Arrow's 280 compute
+In addition to these functions, you can call any of Arrow's 281 compute
 functions directly. Arrow has many functions that don't map to an existing R
 function. In other cases where there is an R function mapping, you can still
 call the Arrow function directly if you don't want the adaptations that the R
@@ -211,8 +211,8 @@ Valid values are "s", "ms" (default), "us", "ns".
 
 \subsection{hms}{
 \itemize{
-\item \code{\link[hms:hms]{as_hms()}}
-\item \code{\link[hms:hms]{hms()}}
+\item \code{\link[hms:hms]{as_hms()}}: subsecond precision not supported for character input
+\item \code{\link[hms:hms]{hms()}}: nanosecond times not supported
 }
 }
 
@@ -348,6 +348,7 @@ Pattern modifiers \code{coll()} and \code{boundary()} are not supported in any f
 \item \code{\link[stringr:str_remove]{str_remove_all()}}
 \item \code{\link[stringr:str_replace]{str_replace()}}
 \item \code{\link[stringr:str_replace]{str_replace_all()}}
+\item \code{\link[stringr:str_replace_na]{str_replace_na()}}
 \item \code{\link[stringr:str_split]{str_split()}}: Case-insensitive string splitting and splitting into 0 parts not supported
 \item \code{\link[stringr:str_starts]{str_starts()}}
 \item \code{\link[stringr:str_sub]{str_sub()}}: \code{start} and \code{end} must be length 1

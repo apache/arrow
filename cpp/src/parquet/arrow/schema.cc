@@ -392,13 +392,15 @@ Status FieldToNode(const std::string& name, const std::shared_ptr<Field>& field,
           static_cast<const ::arrow::FixedSizeBinaryType&>(*field->type());
       length = fixed_size_binary_type.byte_width();
     } break;
+    case ArrowTypeId::DECIMAL32:
+    case ArrowTypeId::DECIMAL64:
     case ArrowTypeId::DECIMAL128:
     case ArrowTypeId::DECIMAL256: {
       const auto& decimal_type = static_cast<const ::arrow::DecimalType&>(*field->type());
       precision = decimal_type.precision();
       scale = decimal_type.scale();
       if (properties.store_decimal_as_integer() && 1 <= precision && precision <= 18) {
-        type = precision <= 9 ? ParquetType ::INT32 : ParquetType ::INT64;
+        type = precision <= 9 ? ParquetType::INT32 : ParquetType::INT64;
       } else {
         type = ParquetType::FIXED_LEN_BYTE_ARRAY;
         length = DecimalType::DecimalSize(precision);
@@ -420,18 +422,21 @@ Status FieldToNode(const std::string& name, const std::shared_ptr<Field>& field,
       break;
     case ArrowTypeId::TIME32:
       type = ParquetType::INT32;
-      logical_type =
-          LogicalType::Time(/*is_adjusted_to_utc=*/true, LogicalType::TimeUnit::MILLIS);
+      logical_type = LogicalType::Time(
+          /*is_adjusted_to_utc=*/arrow_properties.write_time_adjusted_to_utc(),
+          LogicalType::TimeUnit::MILLIS);
       break;
     case ArrowTypeId::TIME64: {
       type = ParquetType::INT64;
       auto time_type = static_cast<::arrow::Time64Type*>(field->type().get());
       if (time_type->unit() == ::arrow::TimeUnit::NANO) {
-        logical_type =
-            LogicalType::Time(/*is_adjusted_to_utc=*/true, LogicalType::TimeUnit::NANOS);
+        logical_type = LogicalType::Time(
+            /*is_adjusted_to_utc=*/arrow_properties.write_time_adjusted_to_utc(),
+            LogicalType::TimeUnit::NANOS);
       } else {
-        logical_type =
-            LogicalType::Time(/*is_adjusted_to_utc=*/true, LogicalType::TimeUnit::MICROS);
+        logical_type = LogicalType::Time(
+            /*is_adjusted_to_utc=*/arrow_properties.write_time_adjusted_to_utc(),
+            LogicalType::TimeUnit::MICROS);
       }
     } break;
     case ArrowTypeId::DURATION:
@@ -591,6 +596,15 @@ Status GroupToStruct(const GroupNode& node, LevelInfo current_levels,
     arrow_fields.push_back(out->children[i].field);
   }
   auto struct_type = ::arrow::struct_(arrow_fields);
+  if (ctx->properties.get_arrow_extensions_enabled() &&
+      node.logical_type()->is_variant()) {
+    auto extension_type = ::arrow::GetExtensionType("parquet.variant");
+    if (extension_type) {
+      ARROW_ASSIGN_OR_RAISE(
+          struct_type,
+          extension_type->Deserialize(std::move(struct_type), /*serialized_data=*/""));
+    }
+  }
   out->field = ::arrow::field(node.name(), struct_type, node.is_optional(),
                               FieldIdMetadata(node.field_id()));
   out->level_info = current_levels;
@@ -1064,10 +1078,16 @@ Result<bool> ApplyOriginalStorageMetadata(const Field& origin_field,
     modified = true;
   }
 
-  if (origin_type->id() == ::arrow::Type::DECIMAL256 &&
-      inferred_type->id() == ::arrow::Type::DECIMAL128) {
-    inferred->field = inferred->field->WithType(origin_type);
-    modified = true;
+  if (::arrow::is_decimal(origin_type->id()) &&
+      ::arrow::is_decimal(inferred_type->id())) {
+    auto& origin_decimal = checked_cast<const ::arrow::DecimalType&>(*origin_type);
+    auto& inferred_decimal = checked_cast<const ::arrow::DecimalType&>(*inferred_type);
+    if (origin_decimal.precision() == inferred_decimal.precision() &&
+        origin_decimal.scale() == inferred_decimal.scale() &&
+        origin_decimal.id() != inferred_decimal.id()) {
+      inferred->field = inferred->field->WithType(origin_type);
+      modified = true;
+    }
   }
 
   // Restore field metadata

@@ -4083,10 +4083,11 @@ def table_to_blocks(options, Table table, categories, extension_columns):
         PandasOptions c_options = _convert_pandas_options(options)
 
     if categories is not None:
-        c_options.categorical_columns = {tobytes(cat) for cat in categories}
+        c_options.categorical_columns = make_shared[unordered_set[c_string]](
+            unordered_set[c_string]({tobytes(cat) for cat in categories}))
     if extension_columns is not None:
-        c_options.extension_columns = {tobytes(col)
-                                       for col in extension_columns}
+        c_options.extension_columns = make_shared[unordered_set[c_string]](
+            unordered_set[c_string]({tobytes(col) for col in extension_columns}))
 
     if pandas_api.is_v1():
         # ARROW-3789: Coerce date/timestamp types to datetime64[ns]
@@ -5794,7 +5795,8 @@ cdef class Table(_Tabular):
             of the join operation left side.
 
             An inexact match is used on the "on" key, i.e. a row is considered a
-            match if and only if left_on - tolerance <= right_on <= left_on.
+            match if and only if ``right.on - left.on`` is in the range
+            ``[min(0, tolerance), max(0, tolerance)]``.
 
             The input dataset must be sorted by the "on" key. Must be a single
             field of a common type.
@@ -5806,12 +5808,15 @@ cdef class Table(_Tabular):
             only for the matches in these columns.
         tolerance : int
             The tolerance for inexact "on" key matching. A right row is considered
-            a match with the left row ``right.on - left.on <= tolerance``. The
-            ``tolerance`` may be:
+            a match with a left row if ``right.on - left.on`` is in the range
+            ``[min(0, tolerance), max(0, tolerance)]``. ``tolerance`` may be:
 
-            - negative, in which case a past-as-of-join occurs;
-            - or positive, in which case a future-as-of-join occurs;
-            - or zero, in which case an exact-as-of-join occurs.
+            - negative, in which case a past-as-of-join occurs
+              (match iff ``tolerance <= right.on - left.on <= 0``);
+            - or positive, in which case a future-as-of-join occurs
+              (match iff ``0 <= right.on - left.on <= tolerance``);
+            - or zero, in which case an exact-as-of-join occurs
+              (match iff ``right.on == left.on``).
 
             The tolerance is interpreted in the same units as the "on" key.
         right_on : str or list[str], default None
@@ -6307,12 +6312,9 @@ def concat_tables(tables, MemoryPool memory_pool=None, str promote_options="none
     for table in tables:
         c_tables.push_back(table.sp_table)
 
-    if promote_options == "permissive":
-        options.field_merge_options = CField.CMergeOptions.Permissive()
-    elif promote_options in {"default", "none"}:
-        options.field_merge_options = CField.CMergeOptions.Defaults()
-    else:
-        raise ValueError(f"Invalid promote options: {promote_options}")
+    options.field_merge_options = _parse_field_merge_options(
+        "default" if promote_options == "none" else promote_options
+    )
 
     with nogil:
         options.unify_schemas = promote_options != "none"

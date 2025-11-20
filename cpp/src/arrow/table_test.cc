@@ -29,6 +29,7 @@
 #include "arrow/array/data.h"
 #include "arrow/array/util.h"
 #include "arrow/chunked_array.h"
+#include "arrow/compare.h"
 #include "arrow/compute/cast.h"
 #include "arrow/record_batch.h"
 #include "arrow/status.h"
@@ -152,38 +153,210 @@ TEST_F(TestTable, AllColumnsAndFields) {
   ASSERT_EQ(0, fields.size());
 }
 
-TEST_F(TestTable, Equals) {
-  const int length = 100;
-  MakeExample1(length);
+TEST(TestTableEquality, Equals) {
+  const int32_t length = 10;
 
-  table_ = Table::Make(schema_, columns_);
+  auto f0 = field("f0", int32());
+  auto f1 = field("f1", uint8());
+  auto f2 = field("f2", int16());
 
-  ASSERT_TRUE(table_->Equals(*table_));
-  // Differing schema
-  auto f0 = field("f3", int32());
-  auto f1 = field("f4", uint8());
-  auto f2 = field("f5", int16());
-  std::vector<std::shared_ptr<Field>> fields = {f0, f1, f2};
-  auto other_schema = std::make_shared<Schema>(fields);
-  auto other = Table::Make(other_schema, columns_);
-  ASSERT_FALSE(table_->Equals(*other));
-  // Differing columns
-  std::vector<std::shared_ptr<ChunkedArray>> other_columns = {
-      std::make_shared<ChunkedArray>(
-          gen_.ArrayOf(int32(), length, /*null_probability=*/0.3)),
-      std::make_shared<ChunkedArray>(
-          gen_.ArrayOf(uint8(), length, /*null_probability=*/0.3)),
-      std::make_shared<ChunkedArray>(
-          gen_.ArrayOf(int16(), length, /*null_probability=*/0.3))};
+  auto schema = ::arrow::schema({f0, f1, f2});
+  auto schema_same = ::arrow::schema({f0, f1, f2});
+  auto schema_fewer_fields = ::arrow::schema({f0, f1});
 
-  other = Table::Make(schema_, other_columns);
-  ASSERT_FALSE(table_->Equals(*other));
+  random::RandomArrayGenerator gen(42);
 
-  // Differing schema metadata
-  other_schema = schema_->WithMetadata(::arrow::key_value_metadata({"key"}, {"value"}));
-  other = Table::Make(other_schema, columns_);
-  ASSERT_TRUE(table_->Equals(*other));
-  ASSERT_FALSE(table_->Equals(*other, /*check_metadata=*/true));
+  auto a_f0 = gen.ArrayOf(int32(), length);
+  auto a_f1 = gen.ArrayOf(uint8(), length);
+  auto a_f2 = gen.ArrayOf(int16(), length);
+  auto a_f0_half = a_f0->Slice(0, length / 2);
+  auto a_f1_half = a_f1->Slice(0, length / 2);
+  auto a_f2_half = a_f2->Slice(0, length / 2);
+  auto a_f0_different = gen.ArrayOf(int32(), length);
+  auto a_f1_different = gen.ArrayOf(uint8(), length);
+  auto a_f2_different = gen.ArrayOf(uint16(), length);
+
+  auto table = Table::Make(schema, {a_f0, a_f1, a_f2}, length);
+  auto table_same = Table::Make(schema_same, {a_f0, a_f1, a_f2}, length);
+  auto table_fewer_fields = Table::Make(schema_fewer_fields, {a_f0, a_f1}, length);
+  auto table_half =
+      Table::Make(schema_fewer_fields, {a_f0_half, a_f1_half, a_f2_half}, length / 2);
+  auto table_different = Table::Make(
+      schema_fewer_fields, {a_f0_different, a_f1_different, a_f2_different}, length);
+
+  // Same Values
+  ASSERT_TRUE(table->Equals(*table_same));
+
+  // Different number of columns
+  ASSERT_FALSE(table->Equals(*table_fewer_fields));
+
+  // Different number of rows
+  ASSERT_FALSE(table->Equals(*table_half));
+
+  // Different values
+  ASSERT_FALSE(table->Equals(*table_different));
+}
+
+TEST(TestTableEquality, MetadataAndSchema) {
+  const int32_t length = 10;
+
+  auto f0 = field("f0", int32());
+  auto f1 = field("f1", uint8());
+  auto f2 = field("f2", int16());
+  auto f2_renamed = field("f2b", int16());
+
+  auto metadata = key_value_metadata({"foo"}, {"bar"});
+
+  auto schema = ::arrow::schema({f0, f1, f2});
+  auto schema_with_metadata = schema->WithMetadata(metadata);
+  auto schema_renamed_field = ::arrow::schema({f0, f1, f2_renamed});
+
+  random::RandomArrayGenerator gen(42);
+
+  auto a_f0 = gen.ArrayOf(int32(), length);
+  auto a_f1 = gen.ArrayOf(uint8(), length);
+  auto a_f2 = gen.ArrayOf(int16(), length);
+  auto a_f2_renamed = a_f2;
+
+  // All Tables have the same values but different schemas.
+  auto table = Table::Make(schema, {a_f0, a_f1, a_f2}, length);
+  auto table_with_metadata =
+      Table::Make(schema_with_metadata, {a_f0, a_f1, a_f2}, length);
+  auto table_renamed_field =
+      Table::Make(schema_renamed_field, {a_f0, a_f1, a_f2_renamed}, length);
+
+  auto options = EqualOptions::Defaults();
+
+  // Same values and types, but different field names
+  ASSERT_FALSE(table->Equals(*table_renamed_field));
+  ASSERT_TRUE(table->Equals(*table_renamed_field, options.use_schema(false)));
+
+  // Different metadata
+  ASSERT_TRUE(table->Equals(*table_with_metadata));
+  ASSERT_TRUE(table->Equals(*table_with_metadata, options));
+  ASSERT_FALSE(table->Equals(*table_with_metadata,
+                             /*check_metadata=*/true));
+  ASSERT_FALSE(table->Equals(*table_with_metadata,
+                             /*check_metadata=*/true, options.use_schema(true)));
+  ASSERT_TRUE(table->Equals(*table_with_metadata,
+                            /*check_metadata=*/true, options.use_schema(false)));
+  ASSERT_TRUE(
+      table->Equals(*table_with_metadata, options.use_schema(true).use_metadata(false)));
+  ASSERT_FALSE(
+      table->Equals(*table_with_metadata, options.use_schema(true).use_metadata(true)));
+  ASSERT_TRUE(
+      table->Equals(*table_with_metadata, options.use_schema(false).use_metadata(true)));
+}
+
+TEST(TestTableEqualityFloatType, SameValue) {
+  auto schema = ::arrow::schema({field("f0", int32()), field("f1", float64())});
+  auto table = TableFromJSON(
+      schema, {R"([{"f0": 1, "f1": 4.0}, {"f0": 2, "f1": 5.0}, {"f0": 3, "f1": 6.0}])"});
+  auto other_table = TableFromJSON(
+      schema, {R"([{"f0": 1, "f1": 4.0}, {"f0": 2, "f1": 5.0}, {"f0": 3, "f1": 6.0}])"});
+
+  ASSERT_TRUE(table->Equals(*other_table));
+}
+
+TEST(TestTableEqualityFloatType, SingedZero) {
+  auto schema = ::arrow::schema({field("f0", int32()), field("f1", float64())});
+  auto table = TableFromJSON(
+      schema, {R"([{"f0": 1, "f1": 4.0}, {"f0": 2, "f1": -0.0}, {"f0": 3, "f1": 0.0}])"});
+  auto other_table = TableFromJSON(
+      schema, {R"([{"f0": 1, "f1": 4.0}, {"f0": 2, "f1": 0.0}, {"f0": 3, "f1": -0.0}])"});
+  auto options = EqualOptions::Defaults();
+
+  ASSERT_TRUE(table->Equals(*other_table, options));
+  ASSERT_FALSE(table->Equals(*other_table, options.signed_zeros_equal(false)));
+}
+
+TEST(TestTableEqualityFloatType, Infinity) {
+  auto schema = ::arrow::schema({field("f0", int32()), field("f1", float64())});
+  auto table = TableFromJSON(
+      schema, {R"([{"f0": 1, "f1": 4.0}, {"f0": 2, "f1": 5.0}, {"f0": 3, "f1": Inf}])"});
+  auto table_different_inf = TableFromJSON(
+      schema, {R"([{"f0": 1, "f1": 4.0}, {"f0": 2, "f1": 5.0}, {"f0": 3, "f1": -Inf}])"});
+  auto table_same_inf = TableFromJSON(
+      schema, {R"([{"f0": 1, "f1": 4.0}, {"f0": 2, "f1": 5.0}, {"f0": 3, "f1": Inf}])"});
+
+  ASSERT_FALSE(table->Equals(*table_different_inf));
+  ASSERT_TRUE(table->Equals(*table_same_inf));
+}
+
+TEST(TestTableEqualityFloatType, NaN) {
+  auto schema = ::arrow::schema({field("f0", int32()), field("f1", float64())});
+  auto table = TableFromJSON(
+      schema, {R"([{"f0": 1, "f1": 4.0}, {"f0": 2, "f1": NaN}, {"f0": 3, "f1": 6.0}])"});
+  auto other_table = TableFromJSON(
+      schema, {R"([{"f0": 1, "f1": 4.0}, {"f0": 2, "f1": NaN}, {"f0": 3, "f1": 6.0}])"});
+  auto options = EqualOptions::Defaults();
+
+  ASSERT_FALSE(table->Equals(*other_table, options));
+  ASSERT_TRUE(table->Equals(*other_table, options.nans_equal(true)));
+}
+
+TEST(TestTableEqualityFloatType, Approximate) {
+  auto schema = ::arrow::schema({field("f0", int32()), field("f1", float64())});
+  auto table = TableFromJSON(
+      schema,
+      {R"([{"f0": 1, "f1": 4.0001}, {"f0": 2, "f1": 5.0001}, {"f0": 3, "f1": 6.0001}])"});
+  auto other_table = TableFromJSON(
+      schema, {R"([{"f0": 1, "f1": 4.0}, {"f0": 2, "f1": 5.0}, {"f0": 3, "f1": 6.0}])"});
+  auto options = EqualOptions::Defaults();
+
+  ASSERT_FALSE(table->Equals(*other_table, options));
+
+  ASSERT_TRUE(table->Equals(*other_table, options.use_atol(true).atol(1e-3)));
+
+  ASSERT_FALSE(table->Equals(*other_table, options.use_atol(true).atol(1e-5)));
+}
+
+TEST(TestTableEqualitySameAddress, NonFloatType) {
+  auto schema = ::arrow::schema({field("f0", int32()), field("f1", uint8())});
+  auto table = TableFromJSON(
+      schema, {R"([{"f0": 1, "f1": 4}, {"f0": 2, "f1": 5}, {"f0": 3, "f1": 6}])"});
+  auto other_table = table;
+  auto options = EqualOptions::Defaults();
+
+  ASSERT_TRUE(table->Equals(*other_table, options));
+  ASSERT_TRUE(table->Equals(*other_table, options.nans_equal(true)));
+}
+
+TEST(TestTableEqualitySameAddress, NestedTypesWithoutFloatType) {
+  auto schema = ::arrow::schema(
+      {field("f0", int32()), field("f1", struct_({{"f2", utf8()}, {"f3", int64()}}))});
+  auto table = TableFromJSON(
+      schema,
+      {R"([{"f0": 1, "f1": {"f2": "4", "f3": 7}}, {"f0": 2, "f1": {"f2": "5", "f3": 8}}, {"f0": 3, "f1": {"f2" : "6", "f3": 9}}])"});
+  auto other_table = table;
+  auto options = EqualOptions::Defaults();
+
+  ASSERT_TRUE(table->Equals(*other_table, options));
+  ASSERT_TRUE(table->Equals(*other_table, options.nans_equal(true)));
+}
+
+TEST(TestTableEqualitySameAddress, FloatType) {
+  auto schema = ::arrow::schema({field("f0", int32()), field("f1", float64())});
+  auto table = TableFromJSON(
+      schema, {R"([{"f0": 1, "f1": 4.0}, {"f0": 2, "f1": NaN}, {"f0": 3, "f1": 6.0}])"});
+  auto other_table = table;
+  auto options = EqualOptions::Defaults();
+
+  ASSERT_FALSE(table->Equals(*other_table, options));
+  ASSERT_TRUE(table->Equals(*other_table, options.nans_equal(true)));
+}
+
+TEST(TestTableEqualitySameAddress, NestedTypesWithFloatType) {
+  auto schema = ::arrow::schema(
+      {field("f0", int32()), field("f1", struct_({{"f2", utf8()}, {"f3", float64()}}))});
+  auto table = TableFromJSON(
+      schema,
+      {R"([{"f0": 1, "f1": {"f2": "4", "f3":  7.0}}, {"f0": 2, "f1": {"f2": "5", "f3": NaN}}, {"f0": 3,"f1": {"f2" : "6", "f3": 9.0}}])"});
+  auto other_table = table;
+  auto options = EqualOptions::Defaults();
+
+  ASSERT_FALSE(table->Equals(*other_table, options));
+  ASSERT_TRUE(table->Equals(*other_table, options.nans_equal(true)));
 }
 
 TEST_F(TestTable, MakeEmpty) {

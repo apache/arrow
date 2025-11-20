@@ -16,7 +16,6 @@
 # under the License.
 import pytest
 from datetime import timedelta
-
 import pyarrow as pa
 try:
     import pyarrow.parquet as pq
@@ -25,8 +24,11 @@ except ImportError:
     pq = None
     pe = None
 else:
-    from pyarrow.tests.parquet.encryption import (
-        InMemoryKmsClient, verify_file_encrypted)
+    from pyarrow.tests.parquet.encryption import (InMemoryKmsClient,
+                                                  MockVersioningKmsClient,
+                                                  verify_file_encrypted,
+                                                  read_external_keys_to_dict,
+                                                  parse_wrapped_key)
 
 
 PARQUET_NAME = 'encrypted_table.in_mem.parquet'
@@ -63,6 +65,17 @@ def basic_encryption_config():
             COL_KEY_NAME: ["a", "b"],
         })
     return basic_encryption_config
+
+
+@pytest.fixture(scope='module')
+def external_encryption_config():
+    external_encryption_config = pe.EncryptionConfiguration(
+        footer_key=FOOTER_KEY_NAME,
+        column_keys={
+            COL_KEY_NAME: ["a", "b"],
+        },
+        internal_key_material=False)
+    return external_encryption_config
 
 
 def setup_encryption_environment(custom_kms_conf):
@@ -163,8 +176,12 @@ def test_uniform_encrypted_parquet_write_read(tempdir, data_table):
 
 def write_encrypted_parquet(path, table, encryption_config,
                             kms_connection_config, crypto_factory):
-    file_encryption_properties = crypto_factory.file_encryption_properties(
-        kms_connection_config, encryption_config)
+    if encryption_config.internal_key_material:
+        file_encryption_properties = crypto_factory.file_encryption_properties(
+            kms_connection_config, encryption_config)
+    else:
+        file_encryption_properties = crypto_factory.file_encryption_properties(
+            kms_connection_config, encryption_config, path)
     assert file_encryption_properties is not None
     with pq.ParquetWriter(
             path, table.schema,
@@ -173,9 +190,15 @@ def write_encrypted_parquet(path, table, encryption_config,
 
 
 def read_encrypted_parquet(path, decryption_config,
-                           kms_connection_config, crypto_factory):
-    file_decryption_properties = crypto_factory.file_decryption_properties(
-        kms_connection_config, decryption_config)
+                           kms_connection_config, crypto_factory,
+                           internal_key_material=True):
+    if internal_key_material:
+        file_decryption_properties = crypto_factory.file_decryption_properties(
+            kms_connection_config, decryption_config)
+    else:
+        file_decryption_properties = crypto_factory.file_decryption_properties(
+            kms_connection_config, decryption_config, path)
+
     assert file_decryption_properties is not None
     meta = pq.read_metadata(
         path, decryption_properties=file_decryption_properties)
@@ -514,31 +537,112 @@ def test_encrypted_parquet_write_read_plain_footer_single_wrapping(
     # assert table.num_rows == result_table.num_rows
 
 
-@pytest.mark.xfail(reason="External key material not supported yet")
-def test_encrypted_parquet_write_external(tempdir, data_table):
-    """Write an encrypted parquet, with external key
-    material.
-    Currently it's not implemented, so should throw
-    an exception"""
+def test_encrypted_parquet_write_read_external(tempdir, data_table,
+                                               external_encryption_config):
+    """Write an encrypted parquet file with external key material, verify
+    it's encrypted, then read both the table and external store.
+    """
     path = tempdir / PARQUET_NAME
 
-    # Encrypt the file with the footer key
+    kms_connection_config, crypto_factory = write_encrypted_file(
+        path, data_table, FOOTER_KEY_NAME, COL_KEY_NAME, FOOTER_KEY, COL_KEY,
+        external_encryption_config)
+
+    verify_file_encrypted(path)
+
+    decryption_config = pe.DecryptionConfiguration()
+    result_table = read_encrypted_parquet(
+        path, decryption_config, kms_connection_config, crypto_factory,
+        internal_key_material=False)
+    store = pa._parquet_encryption.FileSystemKeyMaterialStore.for_file(path)
+
+    assert len(key_ids := store.get_key_id_set()) == (
+        len(external_encryption_config.column_keys[COL_KEY_NAME]) + 1)
+    assert all([store.get_key_material(k) is not None for k in key_ids])
+    assert data_table.equals(result_table)
+
+
+@pytest.mark.parametrize(
+    ("double_wrap_initial", "double_wrap_rotated"), [
+        pytest.param(True, True, id="double wrapping"),
+        pytest.param(False, True, id="single to double wrapped"),
+        pytest.param(True, False, id="double to singe wrapped"),
+        pytest.param(False, False, id="single wrapping")])
+def test_external_key_material_rotation(
+        reusable_tempdir,
+        data_table,
+        double_wrap_initial,
+        double_wrap_rotated):
+    """Tests CryptoFactory.rotate_master_keys
+
+    Note: The CryptoFactory.rotate_master_keys() double_wrapping keword arg
+    may be either True (the default) or False regardless of whether
+    EncryptionConfig.double_wrapping was set to true (also the default) when
+    the external key material store was written. This means double wrapping may
+    be set one way initially and then applied or removed during rotation.
+    """
+    path = reusable_tempdir / PARQUET_NAME
     encryption_config = pe.EncryptionConfiguration(
         footer_key=FOOTER_KEY_NAME,
-        column_keys={},
-        internal_key_material=False)
+        column_keys={COL_KEY_NAME: ["a", "b"]},
+        internal_key_material=False,
+        double_wrapping=double_wrap_initial)
 
-    kms_connection_config = pe.KmsConnectionConfig(
-        custom_kms_conf={FOOTER_KEY_NAME: FOOTER_KEY.decode("UTF-8")}
-    )
+    # initial master key version - see MockVersioningKmsClient docstring
+    kms_connection_config = pe.KmsConnectionConfig(key_access_token="1")
 
     def kms_factory(kms_connection_configuration):
-        return InMemoryKmsClient(kms_connection_configuration)
-
+        return MockVersioningKmsClient(kms_connection_configuration)
     crypto_factory = pe.CryptoFactory(kms_factory)
-    # Write with encryption properties
-    write_encrypted_parquet(path, data_table, encryption_config,
-                            kms_connection_config, crypto_factory)
+    write_encrypted_parquet(
+        path,
+        data_table,
+        encryption_config,
+        kms_connection_config,
+        crypto_factory)
+    before_keys = read_external_keys_to_dict(path)
+
+    # "rotate" kms master key
+    kms_connection_config.refresh_key_access_token("2")
+
+    crypto_factory.rotate_master_keys(
+        kms_connection_config,
+        path,
+        double_wrapping=double_wrap_rotated)
+
+    after_keys = read_external_keys_to_dict(path)
+    verify_file_encrypted(path)
+    table_read_after_rotation = read_encrypted_parquet(
+        path,
+        pe.DecryptionConfiguration(),
+        kms_connection_config,
+        crypto_factory,
+        internal_key_material=False)
+    assert FOOTER_KEY_NAME in before_keys
+    assert COL_KEY_NAME in before_keys
+    assert FOOTER_KEY_NAME in after_keys
+    assert COL_KEY_NAME in after_keys
+
+    def check_rotated_external_keys(master_key_id: str) -> None:
+        before_key_mat = before_keys[master_key_id]
+        if double_wrap_initial:
+            before_key_wrapped = before_key_mat.wrapped_kek
+        else:
+            before_key_wrapped = before_key_mat.wrapped_dek
+        _, before_ver, _ = parse_wrapped_key(before_key_wrapped)
+
+        after_key_mat = after_keys[master_key_id]
+        if double_wrap_rotated:
+            after_key_wrapped = after_key_mat.wrapped_kek
+        else:
+            after_key_wrapped = after_key_mat.wrapped_dek
+        _, after_ver, _ = parse_wrapped_key(after_key_wrapped)
+
+        # CryptoFactory rewrapped keys if after version is later than before
+        assert before_ver < after_ver
+    check_rotated_external_keys(FOOTER_KEY_NAME)
+    check_rotated_external_keys(COL_KEY_NAME)
+    assert data_table.equals(table_read_after_rotation)
 
 
 def test_encrypted_parquet_loop(tempdir, data_table, basic_encryption_config):

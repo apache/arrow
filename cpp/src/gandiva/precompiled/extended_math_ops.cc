@@ -80,7 +80,7 @@ ENUMERIC_TYPES_UNARY(LOG10, float64)
 
 FORCE_INLINE
 void set_error_for_logbase(int64_t execution_context, double base) {
-  char const* prefix = "divide by zero error with log of base";
+  const char* prefix = "divide by zero error with log of base";
   int size = static_cast<int>(strlen(prefix)) + 64;
   char* error = reinterpret_cast<char*>(malloc(size));
   snprintf(error, size, "%s %f", prefix, base);

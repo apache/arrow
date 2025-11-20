@@ -136,24 +136,30 @@ class TestByteStreamSplitSpecialized : public ::testing::Test {
     return input;
   }
 
-  template <bool kSimdImplemented = (kWidth == 4 || kWidth == 8)>
+  template <bool kSimdImplemented = (kWidth == 2 || kWidth == 4 || kWidth == 8)>
   static std::vector<DecodeFunc> MakeDecodeFuncs() {
     std::vector<DecodeFunc> funcs;
     funcs.push_back({"scalar_dynamic", &ByteStreamSplitDecodeScalarDynamic});
     funcs.push_back({"scalar", &ByteStreamSplitDecodeScalar<kWidth>});
 #if defined(ARROW_HAVE_SIMD_SPLIT)
     if constexpr (kSimdImplemented) {
-      funcs.push_back({"simd", &ByteStreamSplitDecodeSimd<kWidth>});
-      funcs.push_back({"simd128", &ByteStreamSplitDecodeSimd128<kWidth>});
+      funcs.push_back({"simd_dispatch", &ByteStreamSplitDecodeSimdDispatch<kWidth>});
+#  if defined(ARROW_HAVE_NEON)
+      funcs.push_back({"xsimd_neon", &ByteStreamSplitDecodeSimd<xsimd::neon64, kWidth>});
+#  endif
+#  if defined(ARROW_HAVE_SSE4_2)
+      funcs.push_back(
+          {"xsimd_sse4_2", &ByteStreamSplitDecodeSimd<xsimd::sse4_2, kWidth>});
+#  endif
 #  if defined(ARROW_HAVE_AVX2)
-      funcs.push_back({"avx2", &ByteStreamSplitDecodeAvx2<kWidth>});
+      funcs.push_back({"xsimd_avx2", &ByteStreamSplitDecodeSimd<xsimd::avx2, kWidth>});
 #  endif
     }
 #endif  // defined(ARROW_HAVE_SIMD_SPLIT)
     return funcs;
   }
 
-  template <bool kSimdImplemented = (kWidth == 4 || kWidth == 8)>
+  template <bool kSimdImplemented = (kWidth == 2 || kWidth == 4 || kWidth == 8)>
   static std::vector<EncodeFunc> MakeEncodeFuncs() {
     std::vector<EncodeFunc> funcs;
     funcs.push_back({"reference", &ReferenceByteStreamSplitEncode});
@@ -161,10 +167,19 @@ class TestByteStreamSplitSpecialized : public ::testing::Test {
     funcs.push_back({"scalar", &ByteStreamSplitEncodeScalar<kWidth>});
 #if defined(ARROW_HAVE_SIMD_SPLIT)
     if constexpr (kSimdImplemented) {
-      funcs.push_back({"simd", &ByteStreamSplitEncodeSimd<kWidth>});
-      funcs.push_back({"simd128", &ByteStreamSplitEncodeSimd128<kWidth>});
+      funcs.push_back({"simd_dispatch", &ByteStreamSplitEncodeSimdDispatch<kWidth>});
+#  if defined(ARROW_HAVE_NEON)
+      funcs.push_back({"xsimd_neon", &ByteStreamSplitEncodeSimd<xsimd::neon64, kWidth>});
+#  endif
+#  if defined(ARROW_HAVE_SSE4_2)
+      funcs.push_back(
+          {"xsimd_sse4_2", &ByteStreamSplitEncodeSimd<xsimd::sse4_2, kWidth>});
+#  endif
 #  if defined(ARROW_HAVE_AVX2)
-      funcs.push_back({"avx2", &ByteStreamSplitEncodeAvx2<kWidth>});
+      funcs.push_back({"xsimd_avx2", &ByteStreamSplitEncodeSimd<xsimd::avx2, kWidth>});
+      if constexpr (kWidth == 4) {
+        funcs.push_back({"intrinsics_avx2", &ByteStreamSplitEncodeAvx2<kWidth>});
+      }
 #  endif
     }
 #endif  // defined(ARROW_HAVE_SIMD_SPLIT)

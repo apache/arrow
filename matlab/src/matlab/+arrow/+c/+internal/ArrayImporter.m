@@ -38,9 +38,9 @@ classdef ArrayImporter < matlab.mixin.Scalar
                 ArrowArrayAddress=cArray.Address,...
                 ArrowSchemaAddress=cSchema.Address...
             );
-            [proxyID, typeID] = obj.Proxy.import(args);
-            traits = arrow.type.traits.traits(arrow.type.ID(typeID));
-            proxy = libmexclass.proxy.Proxy(Name=traits.ArrayProxyClassName, ID=proxyID);
+            proxyInfo = obj.Proxy.import(args);
+            traits = arrow.type.traits.traits(arrow.type.ID(proxyInfo.TypeID));
+            proxy = libmexclass.proxy.Proxy(Name=traits.ArrayProxyClassName, ID=proxyInfo.ProxyID);
             array = traits.ArrayConstructor(proxy);
         end
 

@@ -47,7 +47,7 @@ bool StringToFloat(const char* s, size_t length, char decimal_point, double* out
 }
 
 // Half float
-bool StringToFloat(const char* s, size_t length, char decimal_point, uint16_t* out) {
+bool StringToFloat(const char* s, size_t length, char decimal_point, Float16* out) {
   ::arrow_vendored::fast_float::parse_options options{
       ::arrow_vendored::fast_float::chars_format::general, decimal_point};
   float temp_out;
@@ -55,7 +55,7 @@ bool StringToFloat(const char* s, size_t length, char decimal_point, uint16_t* o
       ::arrow_vendored::fast_float::from_chars_advanced(s, s + length, temp_out, options);
   const bool ok = res.ec == std::errc() && res.ptr == s + length;
   if (ok) {
-    *out = Float16::FromFloat(temp_out).bits();
+    *out = Float16::FromFloat(temp_out);
   }
   return ok;
 }

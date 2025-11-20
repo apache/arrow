@@ -2918,7 +2918,8 @@ cdef class Schema(_Weakrefable):
         return schema, (list(self), self.metadata)
 
     def __hash__(self):
-        return hash((tuple(self), self.metadata))
+        metadata = frozenset(self.metadata.items() if self.metadata else {})
+        return hash((tuple(self), metadata))
 
     def __sizeof__(self):
         size = 0
@@ -3676,6 +3677,19 @@ cdef class Schema(_Weakrefable):
         return pyarrow_wrap_schema(result)
 
 
+cdef CField.CMergeOptions _parse_field_merge_options(str promote_options) except *:
+    """
+    Returns MergeOptions::Permissive() or MergeOptions::Defaults() based on the value
+    of `promote_options`.
+    """
+    if promote_options == "permissive":
+        return CField.CMergeOptions.Permissive()
+    elif promote_options == "default":
+        return CField.CMergeOptions.Defaults()
+    else:
+        raise ValueError(f"Invalid promote_options: {promote_options}")
+
+
 def unify_schemas(schemas, *, promote_options="default"):
     """
     Unify schemas by merging fields by name.
@@ -3720,12 +3734,7 @@ def unify_schemas(schemas, *, promote_options="default"):
             raise TypeError(f"Expected Schema, got {type(schema)}")
         c_schemas.push_back(pyarrow_unwrap_schema(schema))
 
-    if promote_options == "default":
-        c_options = CField.CMergeOptions.Defaults()
-    elif promote_options == "permissive":
-        c_options = CField.CMergeOptions.Permissive()
-    else:
-        raise ValueError(f"Invalid merge mode: {promote_options}")
+    c_options = _parse_field_merge_options(promote_options)
 
     return pyarrow_wrap_schema(
         GetResultValue(UnifySchemas(c_schemas, c_options)))
@@ -4459,8 +4468,8 @@ def float16():
     >>> a
     <pyarrow.lib.HalfFloatArray object at ...>
     [
-      15872,
-      32256
+      1.5,
+      nan
     ]
 
     Note that unlike other float types, if you convert this array

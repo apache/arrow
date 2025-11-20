@@ -102,6 +102,31 @@ def test_merging_parquet_tables_with_different_pandas_metadata(tempdir):
 
 
 @pytest.mark.pandas
+def test_attributes_metadata_persistence(tempdir):
+    # GH-45382: Add support for pandas DataFrame.attrs
+    # During the .parquet file writing, the attrs are serialised into json
+    # along with the rest of the pandas.DataFrame metadata.
+
+    filename = tempdir / "metadata_persistence.parquet"
+    df = alltypes_sample(size=10000)
+    df.attrs = {
+        'float16': 'half-precision',
+        'float32': 'single precision',
+        'float64': 'double precision',
+        'desciption': 'Attributes Persistence Test DataFrame',
+    }
+
+    table = pa.Table.from_pandas(df)
+    assert b'attributes' in table.schema.metadata[b'pandas']
+
+    _write_table(table, filename)
+    metadata = pq.read_metadata(filename).metadata
+    js = json.loads(metadata[b'pandas'].decode('utf8'))
+    assert 'attributes' in js
+    assert js['attributes'] == df.attrs
+
+
+@pytest.mark.pandas
 def test_pandas_parquet_column_multiindex(tempdir):
     df = alltypes_sample(size=10)
     df.columns = pd.MultiIndex.from_tuples(

@@ -49,7 +49,11 @@ endif()
 if(ARROW_CPU_FLAG STREQUAL "x86")
   # x86/amd64 compiler flags, msvc/gcc/clang
   if(MSVC)
-    set(ARROW_SSE4_2_FLAG "")
+    set(ARROW_SSE4_2_FLAG "/arch:SSE4.2")
+    # These definitions are needed for xsimd to consider the corresponding instruction
+    # sets available, but they are not set by MSVC (unlike other compilers).
+    # See https://github.com/AcademySoftwareFoundation/OpenImageIO/issues/4265
+    add_definitions(-D__SSE2__ -D__SSE4_1__ -D__SSE4_2__)
     set(ARROW_AVX2_FLAG "/arch:AVX2")
     # MSVC has no specific flag for BMI2, it seems to be enabled with AVX2
     set(ARROW_BMI2_FLAG "/arch:AVX2")
@@ -154,6 +158,9 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ${ARROW_POSITION_INDEPENDENT_CODE})
 
 set(UNKNOWN_COMPILER_MESSAGE
     "Unknown compiler: ${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION}")
+
+# Compiler flags used when building Arrow libraries (but not tests, utilities, etc.)
+set(ARROW_LIBRARIES_ONLY_CXX_FLAGS)
 
 # compiler flags that are common across debug/release builds
 if(WIN32)
@@ -318,6 +325,9 @@ if("${BUILD_WARNING_LEVEL}" STREQUAL "CHECKIN")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wimplicit-fallthrough")
     string(APPEND CXX_ONLY_FLAGS " -Wredundant-move")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wunused-result")
+    # Flag non-static functions that don't have corresponding declaration in a .h file.
+    # Only for Arrow libraries, since this is not a problem in tests or utilities.
+    list(APPEND ARROW_LIBRARIES_ONLY_CXX_FLAGS "-Wmissing-declarations")
   elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Intel" OR CMAKE_CXX_COMPILER_ID STREQUAL
                                                    "IntelLLVM")
     if(WIN32)
@@ -527,95 +537,6 @@ if(ARROW_CPU_FLAG STREQUAL "aarch64")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -march=${ARROW_ARMV8_MARCH}")
   elseif(NOT ARROW_SIMD_LEVEL STREQUAL "NONE")
     message(WARNING "ARROW_SIMD_LEVEL=${ARROW_SIMD_LEVEL} not supported by Arm.")
-  endif()
-endif()
-
-# ----------------------------------------------------------------------
-# Setup Gold linker, if available. Code originally from Apache Kudu
-
-# Interrogates the linker version via the C++ compiler to determine whether
-# we're using the gold linker, and if so, extracts its version.
-#
-# If the gold linker is being used, sets GOLD_VERSION in the parent scope with
-# the extracted version.
-#
-# Any additional arguments are passed verbatim into the C++ compiler invocation.
-function(GET_GOLD_VERSION)
-  # The gold linker is only for ELF binaries, which macOS doesn't use.
-  execute_process(COMMAND ${CMAKE_CXX_COMPILER} "-Wl,--version" ${ARGN}
-                  ERROR_QUIET
-                  OUTPUT_VARIABLE LINKER_OUTPUT)
-  # We're expecting LINKER_OUTPUT to look like one of these:
-  #   GNU gold (version 2.24) 1.11
-  #   GNU gold (GNU Binutils for Ubuntu 2.30) 1.15
-  if(LINKER_OUTPUT MATCHES "GNU gold")
-    string(REGEX MATCH "GNU gold \\([^\\)]*\\) (([0-9]+\\.?)+)" _ "${LINKER_OUTPUT}")
-    if(NOT CMAKE_MATCH_1)
-      message(SEND_ERROR "Could not extract GNU gold version. "
-                         "Linker version output: ${LINKER_OUTPUT}")
-    endif()
-    set(GOLD_VERSION
-        "${CMAKE_MATCH_1}"
-        PARENT_SCOPE)
-  endif()
-endfunction()
-
-# Is the compiler hard-wired to use the gold linker?
-if(NOT WIN32 AND NOT APPLE)
-  get_gold_version()
-  if(GOLD_VERSION)
-    set(MUST_USE_GOLD 1)
-  elseif(ARROW_USE_LD_GOLD)
-    # Can the compiler optionally enable the gold linker?
-    get_gold_version("-fuse-ld=gold")
-
-    # We can't use the gold linker if it's inside devtoolset because the compiler
-    # won't find it when invoked directly from make/ninja (which is typically
-    # done outside devtoolset).
-    execute_process(COMMAND which ld.gold
-                    OUTPUT_VARIABLE GOLD_LOCATION
-                    OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_QUIET)
-    if("${GOLD_LOCATION}" MATCHES "^/opt/rh/devtoolset")
-      message(STATUS "Skipping optional gold linker (version ${GOLD_VERSION}) because "
-                     "it's in devtoolset")
-      set(GOLD_VERSION)
-    endif()
-  endif()
-
-  if(GOLD_VERSION)
-    # Older versions of the gold linker are vulnerable to a bug [1] which
-    # prevents weak symbols from being overridden properly. This leads to
-    # omitting of dependencies like tcmalloc (used in Kudu, where this
-    # workaround was written originally)
-    #
-    # How we handle this situation depends on other factors:
-    # - If gold is optional, we won't use it.
-    # - If gold is required, we'll either:
-    #   - Raise an error in RELEASE builds (we shouldn't release such a product), or
-    #   - Drop tcmalloc in all other builds.
-    #
-    # 1. https://sourceware.org/bugzilla/show_bug.cgi?id=16979.
-    if("${GOLD_VERSION}" VERSION_LESS "1.12")
-      set(ARROW_BUGGY_GOLD 1)
-    endif()
-    if(MUST_USE_GOLD)
-      message(STATUS "Using hard-wired gold linker (version ${GOLD_VERSION})")
-      if(ARROW_BUGGY_GOLD)
-        if("${ARROW_LINK}" STREQUAL "d" AND "${UPPERCASE_BUILD_TYPE}" STREQUAL "RELEASE")
-          message(SEND_ERROR "Configured to use buggy gold with dynamic linking "
-                             "in a RELEASE build")
-        endif()
-      endif()
-    elseif(NOT ARROW_BUGGY_GOLD)
-      # The Gold linker must be manually enabled.
-      set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fuse-ld=gold")
-      set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fuse-ld=gold")
-      message(STATUS "Using optional gold linker (version ${GOLD_VERSION})")
-    else()
-      message(STATUS "Optional gold linker is buggy, using ld linker instead")
-    endif()
-  else()
-    message(STATUS "Using ld linker")
   endif()
 endif()
 

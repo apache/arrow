@@ -171,6 +171,19 @@
 
 // ----------------------------------------------------------------------
 
+// Macros to disable warnings about undeclared global functions
+#if defined(__GNUC__)
+#  define ARROW_SUPPRESS_MISSING_DECLARATIONS_WARNING \
+    _Pragma("GCC diagnostic push");                   \
+    _Pragma("GCC diagnostic ignored \"-Wmissing-declarations\"")
+#  define ARROW_UNSUPPRESS_MISSING_DECLARATIONS_WARNING _Pragma("GCC diagnostic pop")
+#else
+#  define ARROW_SUPPRESS_MISSING_DECLARATIONS_WARNING
+#  define ARROW_UNSUPPRESS_MISSING_DECLARATIONS_WARNING
+#endif
+
+// ----------------------------------------------------------------------
+
 // macros to disable padding
 // these macros are portable across different compilers and platforms
 //[https://github.com/google/flatbuffers/blob/master/include/flatbuffers/flatbuffers.h#L1355]

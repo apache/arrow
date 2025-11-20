@@ -20,10 +20,12 @@ class BufferTest < Test::Unit::TestCase
     test("GC") do
       data = "Hello"
       data_id = data.object_id
+      weak_map = ObjectSpace::WeakMap.new
+      weak_map[data_id] = data
       _buffer = Arrow::Buffer.new(data)
       data = nil
       GC.start
-      assert_equal("Hello", ObjectSpace._id2ref(data_id))
+      assert_equal("Hello", weak_map[data_id])
     end
   end
 

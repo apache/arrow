@@ -263,8 +263,7 @@ class TestBackpressureControl : public BackpressureControl {
 TEST(BackpressureConcurrentQueue, BasicTest) {
   BackpressureTestExecNode dummy_node;
   auto ctrl = std::make_unique<TestBackpressureControl>(&dummy_node);
-  ASSERT_OK_AND_ASSIGN(auto handler,
-                       BackpressureHandler::Make(&dummy_node, 2, 4, std::move(ctrl)));
+  ASSERT_OK_AND_ASSIGN(auto handler, BackpressureHandler::Make(2, 4, std::move(ctrl)));
   BackpressureConcurrentQueue<int> queue(std::move(handler));
 
   ConcurrentQueueBasicTest(queue);
@@ -275,8 +274,7 @@ TEST(BackpressureConcurrentQueue, BasicTest) {
 TEST(BackpressureConcurrentQueue, BackpressureTest) {
   BackpressureTestExecNode dummy_node;
   auto ctrl = std::make_unique<TestBackpressureControl>(&dummy_node);
-  ASSERT_OK_AND_ASSIGN(auto handler,
-                       BackpressureHandler::Make(&dummy_node, 2, 4, std::move(ctrl)));
+  ASSERT_OK_AND_ASSIGN(auto handler, BackpressureHandler::Make(2, 4, std::move(ctrl)));
   BackpressureConcurrentQueue<int> queue(std::move(handler));
 
   queue.Push(6);
@@ -299,9 +297,28 @@ TEST(BackpressureConcurrentQueue, BackpressureTest) {
   queue.Push(11);
   ASSERT_TRUE(dummy_node.paused);
   ASSERT_FALSE(dummy_node.stopped);
-  ASSERT_OK(queue.ForceShutdown());
+  queue.ForceShutdown();
   ASSERT_FALSE(dummy_node.paused);
-  ASSERT_TRUE(dummy_node.stopped);
+}
+
+TEST(BackpressureConcurrentQueue, BackpressureTestStayUnpaused) {
+  BackpressureTestExecNode dummy_node;
+  auto ctrl = std::make_unique<TestBackpressureControl>(&dummy_node);
+  ASSERT_OK_AND_ASSIGN(
+      auto handler, BackpressureHandler::Make(/*low_threshold=*/2, /*high_threshold=*/4,
+                                              std::move(ctrl)));
+  BackpressureConcurrentQueue<int> queue(std::move(handler));
+
+  queue.Push(6);
+  queue.Push(7);
+  queue.Push(8);
+  ASSERT_FALSE(dummy_node.paused);
+  ASSERT_FALSE(dummy_node.stopped);
+  queue.ForceShutdown();
+  for (int i = 0; i < 10; ++i) {
+    queue.Push(i);
+  }
+  ASSERT_FALSE(dummy_node.paused);
 }
 
 }  // namespace acero

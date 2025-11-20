@@ -39,9 +39,9 @@ out-of-source. If you are not familiar with this terminology:
 
 Building requires:
 
-* A C++17-enabled compiler. On Linux, gcc 7.1 and higher should be
+* A C++17-enabled compiler. On Linux, gcc 9 and higher should be
   sufficient. For Windows, at least Visual Studio VS2017 is required.
-* CMake 3.16 or higher
+* CMake 3.25 or higher
 * On Linux and macOS, either ``make`` or ``ninja`` build utilities
 * At least 1GB of RAM for a minimal build, 4GB for a minimal
   debug build with tests and 8GB for a full build using
@@ -451,7 +451,7 @@ several times with different options if you want to exercise all of them.
 CMake version requirements
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-We support CMake 3.16 and higher.
+We support CMake 3.25 and higher.
 
 LLVM and Clang Tools
 ~~~~~~~~~~~~~~~~~~~~

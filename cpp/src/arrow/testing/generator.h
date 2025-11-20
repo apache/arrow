@@ -106,6 +106,14 @@ class ARROW_TESTING_EXPORT ConstantArrayGenerator {
   /// \return a generated Array
   static std::shared_ptr<Array> Int64(int64_t size, int64_t value = 0);
 
+  /// \brief Generates a constant Float16Array
+  ///
+  /// \param[in] size the size of the array to generate
+  /// \param[in] value to repeat
+  ///
+  /// \return a generated Array
+  static std::shared_ptr<Array> Float16(int64_t size, uint16_t value = 0);
+
   /// \brief Generates a constant Float32Array
   ///
   /// \param[in] size the size of the array to generate
@@ -151,6 +159,8 @@ class ARROW_TESTING_EXPORT ConstantArrayGenerator {
         return UInt64(size, static_cast<uint64_t>(value));
       case Type::INT64:
         return Int64(size, static_cast<int64_t>(value));
+      case Type::HALF_FLOAT:
+        return Float16(size, static_cast<uint16_t>(value));
       case Type::FLOAT:
         return Float32(size, static_cast<float>(value));
       case Type::DOUBLE:

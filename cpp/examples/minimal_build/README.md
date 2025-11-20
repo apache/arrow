@@ -31,7 +31,7 @@ a file named `test.arrow`.
 ## Running the example
 
 You can run this simple example using [Docker Compose][docker-compose]
-and the given `docker-compose.yml` and dockerfiles, which installs a
+and the given `compose.yaml` and dockerfiles, which installs a
 minimal Ubuntu image with a basic C++ toolchain.
 
 Just open a terminal in this directory and run the following commands:

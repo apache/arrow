@@ -80,13 +80,13 @@ if(ARROW_WITH_ZSTD)
 endif()
 
 if(ARROW_ORC)
-  if(ORC_SOURCE STREQUAL "SYSTEM")
+  if(orc_SOURCE STREQUAL "SYSTEM")
     list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS orc::orc)
   endif()
 endif()
 
 if(ARROW_USE_GLOG)
-  if(GLOG_SOURCE STREQUAL "SYSTEM")
+  if(glog_SOURCE STREQUAL "SYSTEM")
     list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS glog::glog)
   endif()
 endif()
@@ -137,7 +137,7 @@ if(ARROW_ENABLE_THREADING)
   list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS Threads::Threads)
 endif()
 
-set(ARROW_TEST_LINK_TOOLCHAIN ${ARROW_GTEST_GMOCK} ${ARROW_GTEST_GTEST_MAIN})
+set(ARROW_TEST_LINK_TOOLCHAIN ${ARROW_GTEST_GMOCK_MAIN})
 set(ARROW_TEST_STATIC_LINK_LIBS arrow::flatbuffers arrow_testing_static arrow_static
                                 ${ARROW_TEST_LINK_TOOLCHAIN})
 set(ARROW_TEST_SHARED_LINK_LIBS arrow::flatbuffers arrow_testing_shared arrow_shared
@@ -342,6 +342,10 @@ macro(append_runtime_avx512_src SRCS SRC)
 endmacro()
 
 # Write out compile-time configuration constants
+string(REPLACE "${CMAKE_SOURCE_DIR}" "<CMAKE_SOURCE_DIR>" REDACTED_CXX_FLAGS
+               ${CMAKE_CXX_FLAGS})
+string(REPLACE "${CMAKE_BINARY_DIR}" "<CMAKE_BINARY_DIR>" REDACTED_CXX_FLAGS
+               ${REDACTED_CXX_FLAGS})
 configure_file("util/config.h.cmake" "util/config.h" ESCAPE_QUOTES)
 configure_file("util/config_internal.h.cmake" "util/config_internal.h" ESCAPE_QUOTES)
 install(FILES "${CMAKE_CURRENT_BINARY_DIR}/util/config.h"
@@ -490,7 +494,10 @@ set(ARROW_UTIL_SRCS
     util/bitmap_builders.cc
     util/bitmap_ops.cc
     util/bpacking.cc
+    util/bpacking_scalar.cc
+    util/bpacking_simd_default.cc
     util/byte_size.cc
+    util/byte_stream_split_internal.cc
     util/cancel.cc
     util/compression.cc
     util/counting_semaphore.cc
@@ -504,6 +511,7 @@ set(ARROW_UTIL_SRCS
     util/float16.cc
     util/formatting.cc
     util/future.cc
+    util/fuzz_internal.cc
     util/hashing.cc
     util/int_util.cc
     util/io_util.cc
@@ -517,7 +525,7 @@ set(ARROW_UTIL_SRCS
     util/ree_util.cc
     util/secure_string.cc
     util/string.cc
-    util/string_builder.cc
+    util/string_util.cc
     util/task_group.cc
     util/tdigest.cc
     util/thread_pool.cc
@@ -530,11 +538,10 @@ set(ARROW_UTIL_SRCS
     util/utf8.cc
     util/value_parsing.cc)
 
-append_runtime_avx2_src(ARROW_UTIL_SRCS util/bpacking_avx2.cc)
-append_runtime_avx512_src(ARROW_UTIL_SRCS util/bpacking_avx512.cc)
-if(ARROW_HAVE_NEON)
-  list(APPEND ARROW_UTIL_SRCS util/bpacking_neon.cc)
-endif()
+append_runtime_avx2_src(ARROW_UTIL_SRCS util/byte_stream_split_internal_avx2.cc)
+
+append_runtime_avx2_src(ARROW_UTIL_SRCS util/bpacking_simd_avx2.cc)
+append_runtime_avx512_src(ARROW_UTIL_SRCS util/bpacking_simd_avx512.cc)
 
 if(ARROW_WITH_BROTLI)
   list(APPEND ARROW_UTIL_SRCS util/compression_brotli.cc)
@@ -638,13 +645,13 @@ else()
 endif()
 
 set(ARROW_TESTING_SHARED_LINK_LIBS arrow_shared ${ARROW_GTEST_GTEST})
-set(ARROW_TESTING_SHARED_PRIVATE_LINK_LIBS arrow::flatbuffers RapidJSON Boost::process)
-set(ARROW_TESTING_STATIC_LINK_LIBS
-    arrow::flatbuffers
-    RapidJSON
-    Boost::process
-    arrow_static
-    ${ARROW_GTEST_GTEST})
+set(ARROW_TESTING_SHARED_PRIVATE_LINK_LIBS arrow::flatbuffers RapidJSON)
+set(ARROW_TESTING_STATIC_LINK_LIBS arrow::flatbuffers RapidJSON arrow_static
+                                   ${ARROW_GTEST_GTEST})
+if(ARROW_ENABLE_THREADING)
+  list(APPEND ARROW_TESTING_SHARED_PRIVATE_LINK_LIBS arrow::Boost::process)
+  list(APPEND ARROW_TESTING_STATIC_LINK_LIBS arrow::Boost::process)
+endif()
 set(ARROW_TESTING_SHARED_INSTALL_INTERFACE_LIBS Arrow::arrow_shared)
 set(ARROW_TESTING_STATIC_INSTALL_INTERFACE_LIBS Arrow::arrow_static)
 # that depend on gtest
@@ -677,8 +684,8 @@ set(ARROW_TESTING_SRCS
 #
 
 if(ARROW_BUILD_INTEGRATION OR ARROW_BUILD_TESTS)
-  arrow_add_object_library(ARROW_INTEGRATION integration/c_data_integration_internal.cc
-                           integration/json_integration.cc integration/json_internal.cc)
+  arrow_add_object_library(ARROW_INTEGRATION integration/json_integration.cc
+                           integration/json_internal.cc)
   foreach(ARROW_INTEGRATION_TARGET ${ARROW_INTEGRATION_TARGETS})
     target_link_libraries(${ARROW_INTEGRATION_TARGET} PRIVATE RapidJSON)
   endforeach()
@@ -732,11 +739,13 @@ set(ARROW_COMPUTE_SRCS
     compute/kernels/scalar_cast_numeric.cc
     compute/kernels/scalar_cast_string.cc
     compute/kernels/scalar_cast_temporal.cc
+    compute/kernels/temporal_internal.cc
     compute/kernels/vector_hash.cc
     compute/kernels/vector_selection.cc
     compute/kernels/vector_selection_filter_internal.cc
     compute/kernels/vector_selection_internal.cc
-    compute/kernels/vector_selection_take_internal.cc)
+    compute/kernels/vector_selection_take_internal.cc
+    compute/kernels/vector_swizzle.cc)
 
 if(ARROW_COMPUTE)
   # If libarrow_compute.a is only built, "pkg-config --cflags --libs
@@ -786,7 +795,6 @@ if(ARROW_COMPUTE)
        compute/kernels/vector_select_k.cc
        compute/kernels/vector_sort.cc
        compute/kernels/vector_statistics.cc
-       compute/kernels/vector_swizzle.cc
        compute/key_hash_internal.cc
        compute/key_map_internal.cc
        compute/light_array_internal.cc

@@ -265,6 +265,7 @@ function(ADD_ARROW_LIB LIB_NAME)
     if(ARG_DEFINITIONS)
       target_compile_definitions(${LIB_NAME}_objlib PRIVATE ${ARG_DEFINITIONS})
     endif()
+    target_compile_options(${LIB_NAME}_objlib PRIVATE ${ARROW_LIBRARIES_ONLY_CXX_FLAGS})
     set(LIB_DEPS $<TARGET_OBJECTS:${LIB_NAME}_objlib>)
     set(EXTRA_DEPS)
 
@@ -326,6 +327,7 @@ function(ADD_ARROW_LIB LIB_NAME)
     if(ARG_DEFINITIONS)
       target_compile_definitions(${LIB_NAME}_shared PRIVATE ${ARG_DEFINITIONS})
     endif()
+    target_compile_options(${LIB_NAME}_shared PRIVATE ${ARROW_LIBRARIES_ONLY_CXX_FLAGS})
 
     if(ARG_OUTPUTS)
       list(APPEND ${ARG_OUTPUTS} ${LIB_NAME}_shared)
@@ -416,6 +418,7 @@ function(ADD_ARROW_LIB LIB_NAME)
     if(ARG_DEFINITIONS)
       target_compile_definitions(${LIB_NAME}_static PRIVATE ${ARG_DEFINITIONS})
     endif()
+    target_compile_options(${LIB_NAME}_static PRIVATE ${ARROW_LIBRARIES_ONLY_CXX_FLAGS})
 
     if(ARG_OUTPUTS)
       list(APPEND ${ARG_OUTPUTS} ${LIB_NAME}_static)
@@ -522,6 +525,7 @@ function(ADD_BENCHMARK REL_BENCHMARK_NAME)
       STATIC_LINK_LIBS
       DEPENDENCIES
       SOURCES
+      EXTRA_SOURCES
       LABELS)
   cmake_parse_arguments(ARG
                         "${options}"
@@ -541,10 +545,16 @@ function(ADD_BENCHMARK REL_BENCHMARK_NAME)
     set(BENCHMARK_NAME "${ARG_PREFIX}-${BENCHMARK_NAME}")
   endif()
 
+  set(SOURCES "")
+
+  if(ARG_EXTRA_SOURCES)
+    list(APPEND SOURCES ${ARG_EXTRA_SOURCES})
+  endif()
+
   if(ARG_SOURCES)
-    set(SOURCES ${ARG_SOURCES})
+    list(APPEND SOURCES ${ARG_SOURCES})
   else()
-    set(SOURCES "${REL_BENCHMARK_NAME}.cc")
+    list(APPEND SOURCES "${REL_BENCHMARK_NAME}.cc")
   endif()
 
   # Make sure the executable name contains only hyphens, not underscores

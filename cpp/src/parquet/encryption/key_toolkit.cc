@@ -34,9 +34,8 @@ std::shared_ptr<KmsClient> KeyToolkit::GetKmsClient(
   if (kms_client_factory_ == nullptr) {
     throw ParquetException("No KmsClientFactory is registered.");
   }
-  auto kms_client_per_kms_instance_cache =
-      kms_client_cache_per_token().GetOrCreateInternalCache(
-          kms_connection_config.key_access_token(), cache_entry_lifetime_ms);
+  auto kms_client_per_kms_instance_cache = kms_client_cache_.GetOrCreateInternalCache(
+      kms_connection_config.key_access_token(), cache_entry_lifetime_ms);
 
   return kms_client_per_kms_instance_cache->GetOrInsert(
       kms_connection_config.kms_instance_id, [this, kms_connection_config]() {
@@ -88,7 +87,7 @@ void KeyToolkit::RotateMasterKeys(
                                             std::string(KeyMaterial::kFooterKeyIdInFile));
 
   // Rotate column keys
-  for (auto const& key_id_in_file : file_key_id_set) {
+  for (const auto& key_id_in_file : file_key_id_set) {
     if (key_id_in_file == std::string(KeyMaterial::kFooterKeyIdInFile)) {
       continue;
     }

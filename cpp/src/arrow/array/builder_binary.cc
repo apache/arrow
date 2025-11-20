@@ -34,12 +34,14 @@
 #include "arrow/util/bit_util.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/decimal.h"
+#include "arrow/util/int_util_overflow.h"
 #include "arrow/util/logging_internal.h"
 #include "arrow/visit_data_inline.h"
 
 namespace arrow {
 
 using internal::checked_cast;
+using internal::MultiplyWithOverflow;
 
 // ----------------------------------------------------------------------
 // Binary/StringView
@@ -162,7 +164,13 @@ void FixedSizeBinaryBuilder::Reset() {
 
 Status FixedSizeBinaryBuilder::Resize(int64_t capacity) {
   RETURN_NOT_OK(CheckCapacity(capacity));
-  RETURN_NOT_OK(byte_builder_.Resize(capacity * byte_width_));
+  int64_t dest_capacity_bytes;
+  if (ARROW_PREDICT_FALSE(
+          MultiplyWithOverflow(capacity, byte_width_, &dest_capacity_bytes))) {
+    return Status::CapacityError("Resize: capacity overflows (requested: ", capacity,
+                                 ", byte_width: ", byte_width_, ")");
+  }
+  RETURN_NOT_OK(byte_builder_.Resize(dest_capacity_bytes));
   return ArrayBuilder::Resize(capacity);
 }
 

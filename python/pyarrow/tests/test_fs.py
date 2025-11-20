@@ -293,6 +293,16 @@ _minio_limited_policy = """{
             "Resource": [
                 "arn:aws:s3:::*"
             ]
+
+        },
+        {
+            "Effect": "Deny",
+            "Action": [
+                "s3:DeleteObject"
+            ],
+            "Resource": [
+                "arn:aws:s3:::no-delete-bucket*"
+            ]
         }
     ]
 }"""
@@ -533,6 +543,20 @@ def test_s3fs_limited_permissions_create_bucket(s3_server):
 
     with pytest.raises(pa.ArrowIOError, match="Would delete bucket"):
         fs.delete_dir('existing-bucket')
+
+    with pytest.raises(OSError, match="Request ID:"):
+        fs.copy_file("existing-bucket/test-file", "existing-bucket/test-file-copy")
+
+    with pytest.raises(pa.ArrowIOError, match="Request ID:"):
+        with fs.open_output_stream("non-existing-bucket/test-file") as f:
+            f.write(b"test")
+
+    # Create a file in the protected bucket then try to delete it
+    with fs.open_output_stream("no-delete-bucket/test-file") as f:
+        f.write(b"test")
+
+    with pytest.raises(OSError, match="Request ID:"):
+        fs.delete_file("no-delete-bucket/test-file")
 
 
 def test_file_info_constructor():
@@ -882,6 +906,7 @@ def _check_root_dir_contents(config):
     fs.delete_dir_contents("", accept_root_dir=True)
     fs.delete_dir_contents("/", accept_root_dir=True)
     fs.delete_dir_contents("//", accept_root_dir=True)
+
     with pytest.raises(pa.ArrowIOError):
         fs.delete_dir(d)
 
@@ -1257,6 +1282,12 @@ def test_s3_options(pickle_module):
     assert isinstance(fs, S3FileSystem)
     assert pickle_module.loads(pickle_module.dumps(fs)) == fs
 
+    fs = S3FileSystem(tls_ca_file_path="ca.pem")
+    assert isinstance(fs, S3FileSystem)
+    assert pickle_module.loads(pickle_module.dumps(fs)) == fs
+    assert fs != S3FileSystem(tls_ca_file_path="other_ca.pem")
+    assert fs != S3FileSystem()
+
     with pytest.raises(ValueError):
         S3FileSystem(access_key='access')
     with pytest.raises(ValueError):
@@ -1475,6 +1506,63 @@ def test_azurefs_options(pickle_module):
     assert pickle_module.loads(pickle_module.dumps(fs4)) == fs4
     assert fs4 != fs3
 
+    fs5 = AzureFileSystem(
+        account_name='fake-account-name',
+        tenant_id='fake-tenant-id',
+        client_id='fake-client-id',
+        client_secret='fake-client-secret'
+    )
+    assert isinstance(fs5, AzureFileSystem)
+    assert pickle_module.loads(pickle_module.dumps(fs5)) == fs5
+    assert fs5 != fs4
+
+    fs6 = AzureFileSystem(
+        account_name='fake-account-name',
+        client_id='fake-client-id'
+    )
+    assert isinstance(fs6, AzureFileSystem)
+    assert pickle_module.loads(pickle_module.dumps(fs6)) == fs6
+    assert fs6 != fs5
+
+    with pytest.raises(ValueError, match="client_id must be specified"):
+        AzureFileSystem(
+            account_name='fake-account-name',
+            tenant_id='fake-tenant-id'
+        )
+
+    with pytest.raises(ValueError, match="client_id must be specified"):
+        AzureFileSystem(
+            account_name='fake-account-name',
+            client_secret='fake-client-secret'
+        )
+
+    invalid_msg = (
+        "Invalid Azure credential configuration: "
+        "For ManagedIdentityCredential, provide only client_id. "
+        "For ClientSecretCredential, provide tenant_id, client_id, and client_secret."
+    )
+
+    with pytest.raises(ValueError, match=invalid_msg):
+        AzureFileSystem(
+            account_name='fake-account-name',
+            client_id='fake-client-id',
+            client_secret='fake-client-secret'
+        )
+
+    with pytest.raises(ValueError, match="client_id must be specified"):
+        AzureFileSystem(
+            account_name='fake-account-name',
+            tenant_id='fake-tenant-id',
+            client_secret='fake-client-secret'
+        )
+
+    with pytest.raises(ValueError, match=invalid_msg):
+        AzureFileSystem(
+            account_name='fake-account-name',
+            tenant_id='fake-tenant-id',
+            client_id='fake-client-id'
+        )
+
     with pytest.raises(ValueError):
         AzureFileSystem(account_name='fake-account-name', account_key='fakeaccount',
                         sas_token='fakesastoken')
@@ -1577,6 +1665,23 @@ def test_filesystem_from_uri(uri, expected_klass, expected_path):
     fs, path = FileSystem.from_uri(uri)
     assert isinstance(fs, expected_klass)
     assert path == expected_path
+
+
+def test_filesystem_from_uri_calling():
+    # Call using class staticmethod
+    fs, path = FileSystem.from_uri("file:/")
+    assert isinstance(fs, LocalFileSystem)
+    assert path == "/"
+
+    # Call using class staticmethod with explicit arguments
+    fs, path = FileSystem.from_uri(uri="file:/")
+    assert isinstance(fs, LocalFileSystem)
+    assert path == "/"
+
+    # Call using instance method passthrough
+    fs, path = LocalFileSystem().from_uri(uri="file:/")
+    assert isinstance(fs, LocalFileSystem)
+    assert path == "/"
 
 
 @pytest.mark.parametrize(
@@ -1836,9 +1941,12 @@ def test_s3_real_aws_region_selection():
     assert fs.region == 'us-east-2'
     # Reading from the wrong region may still work for public buckets...
 
-    # Nonexistent bucket (hopefully, otherwise need to fix this test)
+    # Nonexistent bucket. This bucket can't exist as AWS imposes that
+    # Bucket names must not contain two adjacent periods.
+    # Hopefully this won't fail in the future if a new validation rule applies.
+    # See: https://github.com/apache/arrow/pull/47166
     with pytest.raises(IOError, match="Bucket '.*' not found"):
-        FileSystem.from_uri('s3://x-arrow-nonexistent-bucket')
+        FileSystem.from_uri('s3://x-arrow..nonexistent-bucket')
     fs, path = FileSystem.from_uri('s3://x-arrow-nonexistent-bucket?region=us-east-3')
     assert fs.region == 'us-east-3'
 
@@ -2077,3 +2185,73 @@ def test_uwsgi_integration():
         proc.terminate()
     # ... and uwsgi should gracefully shutdown after it's been asked above
     assert proc.wait() == 30  # UWSGI_END_CODE = 30
+
+
+def test_fsspec_filesystem_from_uri():
+    try:
+        from fsspec.implementations.local import LocalFileSystem
+        from fsspec.implementations.memory import MemoryFileSystem
+    except ImportError:
+        pytest.skip("fsspec not installed")
+
+    fs, path = FileSystem.from_uri("fsspec+memory://path/to/data.parquet")
+    expected_fs = PyFileSystem(FSSpecHandler(MemoryFileSystem()))
+    assert fs == expected_fs
+    assert path == "/path/to/data.parquet"
+
+    # check that if fsspec+ is specified than we don't coerce to the native
+    # arrow local filesystem
+    uri = "file:///tmp/my.file"
+    fs, _ = FileSystem.from_uri(f"fsspec+{uri}")
+    expected_fs = PyFileSystem(FSSpecHandler(LocalFileSystem()))
+    assert fs == expected_fs
+
+
+def test_fsspec_delete_root_dir_contents():
+    try:
+        from fsspec.implementations.memory import MemoryFileSystem
+    except ImportError:
+        pytest.skip("fsspec not installed")
+
+    fs = FSSpecHandler(MemoryFileSystem())
+
+    # Create some files and directories
+    fs.create_dir("test_dir", recursive=True)
+    fs.create_dir("test_dir/subdir", recursive=True)
+
+    with fs.open_output_stream("test_file.txt", metadata={}) as stream:
+        stream.write(b"test content")
+
+    with fs.open_output_stream("test_dir/nested_file.txt", metadata={}) as stream:
+        stream.write(b"nested content")
+
+    # Verify files exist before deletion
+    def get_type(path):
+        return fs.get_file_info([path])[0].type
+
+    assert get_type("test_file.txt") == FileType.File
+    assert get_type("test_dir") == FileType.Directory
+    assert get_type("test_dir/nested_file.txt") == FileType.File
+
+    # Delete root directory contents
+    fs.delete_root_dir_contents()
+
+    # Assert all files and directories are deleted
+    assert get_type("test_file.txt") == FileType.NotFound
+    assert get_type("test_dir") == FileType.NotFound
+    assert get_type("test_dir/nested_file.txt") == FileType.NotFound
+
+
+def test_huggingface_filesystem_from_uri():
+    pytest.importorskip("fsspec")
+    try:
+        from huggingface_hub import HfFileSystem
+    except ImportError:
+        pytest.skip("huggingface_hub not installed")
+
+    fs, path = FileSystem.from_uri(
+        "hf://datasets/stanfordnlp/imdb/plain_text/train-00000-of-00001.parquet"
+    )
+    expected_fs = PyFileSystem(FSSpecHandler(HfFileSystem()))
+    assert fs == expected_fs
+    assert path == "datasets/stanfordnlp/imdb/plain_text/train-00000-of-00001.parquet"

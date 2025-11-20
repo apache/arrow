@@ -16,6 +16,7 @@
 # under the License.
 
 import os
+import sys
 from collections import OrderedDict
 import io
 import warnings
@@ -28,7 +29,7 @@ import pyarrow as pa
 from pyarrow import fs
 from pyarrow.tests import util
 from pyarrow.tests.parquet.common import (_check_roundtrip, _roundtrip_table,
-                                          _test_dataframe)
+                                          _test_table)
 
 try:
     import pyarrow.parquet as pq
@@ -76,20 +77,18 @@ def test_set_data_page_size():
         _check_roundtrip(t, data_page_size=target_page_size)
 
 
-@pytest.mark.pandas
+@pytest.mark.numpy
 def test_set_write_batch_size():
-    df = _test_dataframe(100)
-    table = pa.Table.from_pandas(df, preserve_index=False)
+    table = _test_table(100)
 
     _check_roundtrip(
         table, data_page_size=10, write_batch_size=1, version='2.4'
     )
 
 
-@pytest.mark.pandas
+@pytest.mark.numpy
 def test_set_dictionary_pagesize_limit():
-    df = _test_dataframe(100)
-    table = pa.Table.from_pandas(df, preserve_index=False)
+    table = _test_table(100)
 
     _check_roundtrip(table, dictionary_pagesize_limit=1,
                      data_page_size=10, version='2.4')
@@ -187,8 +186,7 @@ def test_read_table_without_dataset(tempdir):
             pq.read_table(path, partitioning=['week', 'color'])
         with pytest.raises(ValueError, match="the 'schema' argument"):
             pq.read_table(path, schema=table.schema)
-        # Error message varies depending on OS
-        with pytest.raises(OSError):
+        with pytest.raises(ValueError, match="the 'source' argument"):
             pq.read_table(tempdir)
         result = pq.read_table(path)
         assert result == table
@@ -995,3 +993,13 @@ def test_checksum_write_to_dataset(tempdir):
     # checksum verification enabled raises an exception
     with pytest.raises(OSError, match="CRC checksum verification"):
         _ = pq.read_table(corrupted_file_path, page_checksum_verification=True)
+
+
+@pytest.mark.parametrize(
+    "source", ["/tmp/", ["/tmp/file1.parquet", "/tmp/file2.parquet"]])
+def test_read_table_raises_value_error_when_ds_is_unavailable(monkeypatch, source):
+    # GH-47728
+    monkeypatch.setitem(sys.modules, "pyarrow.dataset", None)
+
+    with pytest.raises(ValueError, match="the 'source' argument"):
+        pq.read_table(source=source)

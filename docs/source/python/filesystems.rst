@@ -388,6 +388,32 @@ Then all the functionalities of :class:`FileSystem` are accessible::
    ds.dataset("data/", filesystem=pa_fs)
 
 
+Using fsspec-compatible filesystem URIs
+---------------------------------------
+
+PyArrow can automatically instantiate fsspec filesystems by prefixing the URI
+scheme with ``fsspec+``. This allows you to use the fsspec-compatible
+filesystems directly with PyArrow's IO functions without needing to manually
+create a filesystem object. Example writing and reading a Parquet file
+using an in-memory filesystem provided by `fsspec`_::
+
+   import pyarrow as pa
+   import pyarrow.parquet as pq
+
+   table = pa.table({'a': [1, 2, 3]})
+   pq.write_table(table, "fsspec+memory://path/to/my_table.parquet")
+   pq.read_table("fsspec+memory://path/to/my_table.parquet")
+
+Example reading parquet file from GitHub directly::
+
+   pq.read_table("fsspec+github://apache:arrow-testing@/data/parquet/alltypes-java.parquet")
+
+Hugging Face URIs are explicitly allowed as a shortcut without needing to prefix
+with ``fsspec+``. This is useful for reading datasets hosted on Hugging Face::
+
+   pq.read_table("hf://datasets/stanfordnlp/imdb/plain_text/train-00000-of-00001.parquet")
+
+
 Using Arrow filesystems with fsspec
 -----------------------------------
 

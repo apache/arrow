@@ -34,9 +34,10 @@ class ComputeKernelEnvironment : public ::testing::Environment {
 };
 
 }  // namespace
-
-// Initialize the compute module
-::testing::Environment* compute_kernels_env =
-    ::testing::AddGlobalTestEnvironment(new ComputeKernelEnvironment);
-
 }  // namespace arrow::compute
+
+int main(int argc, char** argv) {
+  ::testing::InitGoogleTest(&argc, argv);
+  ::testing::AddGlobalTestEnvironment(new arrow::compute::ComputeKernelEnvironment);
+  return RUN_ALL_TESTS();
+}

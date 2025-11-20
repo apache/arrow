@@ -73,6 +73,9 @@ cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:
         object obj, object mask, const PyConversionOptions& options,
         CMemoryPool* pool)
 
+    CResult[shared_ptr[CArray]] Arange(int64_t start, int64_t stop,
+                                       int64_t step, CMemoryPool* pool)
+
     CResult[shared_ptr[CDataType]] NumPyDtypeToArrow(object dtype)
 
     CStatus NdarrayToArrow(CMemoryPool* pool, object ao, object mo,
@@ -195,8 +198,8 @@ cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:
         c_bool self_destruct
         MapConversionType maps_as_pydicts
         c_bool decode_dictionaries
-        unordered_set[c_string] categorical_columns
-        unordered_set[c_string] extension_columns
+        shared_ptr[const unordered_set[c_string]] categorical_columns
+        shared_ptr[const unordered_set[c_string]] extension_columns
         c_bool to_numpy
 
 
@@ -285,3 +288,9 @@ cdef extern from "arrow/python/gdb.h" namespace "arrow::gdb" nogil:
 
 cdef extern from "arrow/python/helpers.h" namespace "arrow::py::internal":
     c_bool IsThreadingEnabled()
+
+cdef extern from "arrow/python/config.h" namespace "arrow::py":
+    cdef cppclass CBuildInfo "arrow::py::BuildInfo":
+        c_string build_type
+
+    const CBuildInfo& GetBuildInfo "arrow::py::GetBuildInfo"()

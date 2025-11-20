@@ -160,6 +160,7 @@ cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
         c_bool allow_bucket_deletion
         c_bool check_directory_existence_before_creation
         c_bool force_virtual_addressing
+        c_string tls_ca_file_path
         shared_ptr[const CKeyValueMetadata] default_metadata
         c_string role_arn
         c_string session_name
@@ -254,6 +255,10 @@ cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
         CStatus ConfigureDefaultCredential()
         CStatus ConfigureAccountKeyCredential(c_string account_key)
         CStatus ConfigureSASCredential(c_string sas_token)
+        CStatus ConfigureManagedIdentityCredential(c_string client_id)
+        CStatus ConfigureClientSecretCredential(c_string tenant_id,
+                                                c_string client_id,
+                                                c_string client_secret)
 
     cdef cppclass CAzureFileSystem "arrow::fs::AzureFileSystem":
         @staticmethod

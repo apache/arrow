@@ -572,22 +572,53 @@ def infer_type(values, mask=None, from_pandas=False):
     return pyarrow_wrap_data_type(out)
 
 
+def arange(int64_t start, int64_t stop, int64_t step=1, *, memory_pool=None):
+    """
+    Create an array of evenly spaced values within a given interval.
+
+    This function is similar to Python's `range` function.
+    The resulting array will contain values starting from `start` up to but not
+    including `stop`, with a step size of `step`.
+
+    Parameters
+    ----------
+    start : int
+        The starting value for the sequence. The returned array will include this value.
+    stop : int
+        The stopping value for the sequence. The returned array will not include this value.
+    step : int, default 1
+        The spacing between values.
+    memory_pool : MemoryPool, optional
+        A memory pool to use for memory allocations.
+
+    Raises
+    ------
+    ArrowInvalid
+        If `step` is zero.
+
+    Returns
+    -------
+    arange : Array
+    """
+    cdef CMemoryPool* pool = maybe_unbox_memory_pool(memory_pool)
+    with nogil:
+        c_array = GetResultValue(Arange(start, stop, step, pool))
+    return pyarrow_wrap_array(c_array)
+
+
 def _normalize_slice(object arrow_obj, slice key):
     """
     Slices with step not equal to 1 (or None) will produce a copy
     rather than a zero-copy view
     """
     cdef:
-        Py_ssize_t start, stop, step
+        int64_t start, stop, step
         Py_ssize_t n = len(arrow_obj)
 
     start, stop, step = key.indices(n)
 
     if step != 1:
-        indices = list(range(start, stop, step))
-        if len(indices) == 0:
-            return arrow_obj.slice(0, 0)
-        return arrow_obj.take(indices)
+        return arrow_obj.take(arange(start, stop, step))
     else:
         length = max(stop - start, 0)
         return arrow_obj.slice(start, length)
@@ -735,10 +766,24 @@ cdef class ArrayStatistics(_Weakrefable):
         null_count = self.sp_statistics.get().null_count
         # We'll be able to simplify this after
         # https://github.com/cython/cython/issues/6692 is solved.
-        if null_count.has_value():
-            return null_count.value()
-        else:
+        if not null_count.has_value():
             return None
+        value = null_count.value()
+        if holds_alternative[int64_t](value):
+            return get[int64_t](value)
+        else:
+            return get[double](value)
+
+    @property
+    def is_null_count_exact(self):
+        """
+        Whether the number of null values is a valid exact value or not.
+        """
+        null_count = self.sp_statistics.get().null_count
+        if not null_count.has_value():
+            return False
+        value = null_count.value()
+        return holds_alternative[int64_t](value)
 
     @property
     def distinct_count(self):
@@ -746,12 +791,24 @@ cdef class ArrayStatistics(_Weakrefable):
         The number of distinct values.
         """
         distinct_count = self.sp_statistics.get().distinct_count
-        # We'll be able to simplify this after
-        # https://github.com/cython/cython/issues/6692 is solved.
-        if distinct_count.has_value():
-            return distinct_count.value()
-        else:
+        if not distinct_count.has_value():
             return None
+        value = distinct_count.value()
+        if holds_alternative[int64_t](value):
+            return get[int64_t](value)
+        else:
+            return get[double](value)
+
+    @property
+    def is_distinct_count_exact(self):
+        """
+        Whether the number of distinct values is a valid exact value or not.
+        """
+        distinct_count = self.sp_statistics.get().distinct_count
+        if not distinct_count.has_value():
+            return False
+        value = distinct_count.value()
+        return holds_alternative[int64_t](value)
 
     @property
     def min(self):

@@ -15,7 +15,4 @@
 # specific language governing permissions and limitations
 # under the License.
 
-install_headers(
-    ['debug-trap.h', 'safe-math.h'],
-    subdir: 'arrow/vendored/portable-snippets',
-)
+install_headers(['debug-trap.h'], subdir: 'arrow/vendored/portable-snippets')

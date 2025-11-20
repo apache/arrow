@@ -627,7 +627,14 @@ class EachRawRecordTableListArrayTest < Test::Unit::TestCase
   include RawRecordsListArrayTests
 
   def build(type, records)
-    Arrow::Table.new(build_schema(type), records)
+    record_batch = Arrow::RecordBatch.new(build_schema(type), records)
+    # Multiple chunks
+    record_batches = [
+      record_batch.slice(0, 2),
+      record_batch.slice(2, 0), # Empty chunk
+      record_batch.slice(2, record_batch.length - 2),
+    ]
+    Arrow::Table.new(record_batch.schema, record_batches)
   end
 
   def actual_records(target)

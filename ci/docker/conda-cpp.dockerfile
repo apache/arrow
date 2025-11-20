@@ -27,6 +27,7 @@ RUN /arrow/ci/scripts/install_minio.sh latest /opt/conda
 ARG python=3.10
 
 # install the required conda packages into the test environment
+# use `mold` to work around issues with GNU `ld` (GH-47015).
 COPY ci/conda_env_cpp.txt \
      ci/conda_env_gandiva.txt \
      /arrow/ci/
@@ -36,6 +37,7 @@ RUN mamba install -q -y \
         compilers \
         doxygen \
         libnuma \
+        mold \
         python=${python} \
         valgrind && \
     mamba clean --all --yes
@@ -73,6 +75,7 @@ ENV ARROW_ACERO=ON \
     ARROW_S3_MODULE=ON \
     ARROW_SUBSTRAIT=ON \
     ARROW_USE_CCACHE=ON \
+    ARROW_USE_MOLD=ON \
     ARROW_WITH_BROTLI=ON \
     ARROW_WITH_BZ2=ON \
     ARROW_WITH_LZ4=ON \

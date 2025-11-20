@@ -272,7 +272,7 @@ struct test_traits {};
 template <>
 struct test_traits<::arrow::BooleanType> {
   static constexpr ParquetType::type parquet_enum = ParquetType::BOOLEAN;
-  static uint8_t const value;
+  static const uint8_t value;
 };
 
 const uint8_t test_traits<::arrow::BooleanType>::value(1);
@@ -280,7 +280,7 @@ const uint8_t test_traits<::arrow::BooleanType>::value(1);
 template <>
 struct test_traits<::arrow::UInt8Type> {
   static constexpr ParquetType::type parquet_enum = ParquetType::INT32;
-  static uint8_t const value;
+  static const uint8_t value;
 };
 
 const uint8_t test_traits<::arrow::UInt8Type>::value(64);
@@ -288,7 +288,7 @@ const uint8_t test_traits<::arrow::UInt8Type>::value(64);
 template <>
 struct test_traits<::arrow::Int8Type> {
   static constexpr ParquetType::type parquet_enum = ParquetType::INT32;
-  static int8_t const value;
+  static const int8_t value;
 };
 
 const int8_t test_traits<::arrow::Int8Type>::value(-64);
@@ -296,7 +296,7 @@ const int8_t test_traits<::arrow::Int8Type>::value(-64);
 template <>
 struct test_traits<::arrow::UInt16Type> {
   static constexpr ParquetType::type parquet_enum = ParquetType::INT32;
-  static uint16_t const value;
+  static const uint16_t value;
 };
 
 const uint16_t test_traits<::arrow::UInt16Type>::value(1024);
@@ -304,7 +304,7 @@ const uint16_t test_traits<::arrow::UInt16Type>::value(1024);
 template <>
 struct test_traits<::arrow::Int16Type> {
   static constexpr ParquetType::type parquet_enum = ParquetType::INT32;
-  static int16_t const value;
+  static const int16_t value;
 };
 
 const int16_t test_traits<::arrow::Int16Type>::value(-1024);
@@ -312,7 +312,7 @@ const int16_t test_traits<::arrow::Int16Type>::value(-1024);
 template <>
 struct test_traits<::arrow::UInt32Type> {
   static constexpr ParquetType::type parquet_enum = ParquetType::INT32;
-  static uint32_t const value;
+  static const uint32_t value;
 };
 
 const uint32_t test_traits<::arrow::UInt32Type>::value(1024);
@@ -320,7 +320,7 @@ const uint32_t test_traits<::arrow::UInt32Type>::value(1024);
 template <>
 struct test_traits<::arrow::Int32Type> {
   static constexpr ParquetType::type parquet_enum = ParquetType::INT32;
-  static int32_t const value;
+  static const int32_t value;
 };
 
 const int32_t test_traits<::arrow::Int32Type>::value(-1024);
@@ -328,7 +328,7 @@ const int32_t test_traits<::arrow::Int32Type>::value(-1024);
 template <>
 struct test_traits<::arrow::UInt64Type> {
   static constexpr ParquetType::type parquet_enum = ParquetType::INT64;
-  static uint64_t const value;
+  static const uint64_t value;
 };
 
 const uint64_t test_traits<::arrow::UInt64Type>::value(1024);
@@ -336,7 +336,7 @@ const uint64_t test_traits<::arrow::UInt64Type>::value(1024);
 template <>
 struct test_traits<::arrow::Int64Type> {
   static constexpr ParquetType::type parquet_enum = ParquetType::INT64;
-  static int64_t const value;
+  static const int64_t value;
 };
 
 const int64_t test_traits<::arrow::Int64Type>::value(-1024);
@@ -344,7 +344,7 @@ const int64_t test_traits<::arrow::Int64Type>::value(-1024);
 template <>
 struct test_traits<::arrow::TimestampType> {
   static constexpr ParquetType::type parquet_enum = ParquetType::INT64;
-  static int64_t const value;
+  static const int64_t value;
 };
 
 const int64_t test_traits<::arrow::TimestampType>::value(14695634030000);
@@ -352,7 +352,7 @@ const int64_t test_traits<::arrow::TimestampType>::value(14695634030000);
 template <>
 struct test_traits<::arrow::Date32Type> {
   static constexpr ParquetType::type parquet_enum = ParquetType::INT32;
-  static int32_t const value;
+  static const int32_t value;
 };
 
 const int32_t test_traits<::arrow::Date32Type>::value(170000);
@@ -360,7 +360,7 @@ const int32_t test_traits<::arrow::Date32Type>::value(170000);
 template <>
 struct test_traits<::arrow::FloatType> {
   static constexpr ParquetType::type parquet_enum = ParquetType::FLOAT;
-  static float const value;
+  static const float value;
 };
 
 const float test_traits<::arrow::FloatType>::value(2.1f);
@@ -368,7 +368,7 @@ const float test_traits<::arrow::FloatType>::value(2.1f);
 template <>
 struct test_traits<::arrow::DoubleType> {
   static constexpr ParquetType::type parquet_enum = ParquetType::DOUBLE;
-  static double const value;
+  static const double value;
 };
 
 const double test_traits<::arrow::DoubleType>::value(4.2);
@@ -401,16 +401,23 @@ using ParquetDataType = PhysicalType<test_traits<T>::parquet_enum>;
 template <typename T>
 using ParquetWriter = TypedColumnWriter<ParquetDataType<T>>;
 
+Result<std::shared_ptr<Buffer>> WriteTableToBuffer(
+    const std::shared_ptr<Table>& table, int64_t row_group_size,
+    const std::shared_ptr<WriterProperties>& properties = default_writer_properties(),
+    const std::shared_ptr<ArrowWriterProperties>& arrow_properties =
+        default_arrow_writer_properties()) {
+  auto sink = CreateOutputStream();
+  ARROW_RETURN_NOT_OK(WriteTable(*table, ::arrow::default_memory_pool(), sink,
+                                 row_group_size, properties, arrow_properties));
+  return sink->Finish();
+}
+
 void WriteTableToBuffer(const std::shared_ptr<Table>& table, int64_t row_group_size,
                         const std::shared_ptr<ArrowWriterProperties>& arrow_properties,
                         std::shared_ptr<Buffer>* out) {
-  auto sink = CreateOutputStream();
-
   auto write_props = WriterProperties::Builder().write_batch_size(100)->build();
-
-  ASSERT_OK_NO_THROW(WriteTable(*table, ::arrow::default_memory_pool(), sink,
-                                row_group_size, write_props, arrow_properties));
-  ASSERT_OK_AND_ASSIGN(*out, sink->Finish());
+  ASSERT_OK_AND_ASSIGN(
+      *out, WriteTableToBuffer(table, row_group_size, write_props, arrow_properties));
 }
 
 void DoRoundtrip(const std::shared_ptr<Table>& table, int64_t row_group_size,
@@ -796,9 +803,10 @@ class ParquetIOTestBase : public ::testing::Test {
 
 class TestReadDecimals : public ParquetIOTestBase {
  public:
-  void CheckReadFromByteArrays(const std::shared_ptr<const LogicalType>& logical_type,
-                               const std::vector<std::vector<uint8_t>>& values,
-                               const Array& expected) {
+  void CheckReadFromByteArrays(
+      const std::shared_ptr<const LogicalType>& logical_type,
+      const std::vector<std::vector<uint8_t>>& values, const Array& expected,
+      ArrowReaderProperties properties = default_arrow_reader_properties()) {
     std::vector<ByteArray> byte_arrays(values.size());
     std::transform(values.begin(), values.end(), byte_arrays.begin(),
                    [](const std::vector<uint8_t>& bytes) {
@@ -823,7 +831,6 @@ class TestReadDecimals : public ParquetIOTestBase {
     // The binary_type setting shouldn't affect the results
     for (auto binary_type : {::arrow::Type::BINARY, ::arrow::Type::LARGE_BINARY,
                              ::arrow::Type::BINARY_VIEW}) {
-      ArrowReaderProperties properties;
       properties.set_binary_type(binary_type);
       ASSERT_OK_AND_ASSIGN(auto reader, ReaderFromBuffer(buffer, properties));
       ReadAndCheckSingleColumnFile(std::move(reader), expected);
@@ -833,6 +840,44 @@ class TestReadDecimals : public ParquetIOTestBase {
 
 // The Decimal roundtrip tests always go through the FixedLenByteArray path,
 // check the ByteArray case manually.
+
+TEST_F(TestReadDecimals, Decimal32ByteArray) {
+  const std::vector<std::vector<uint8_t>> big_endian_decimals = {
+      // 123456
+      {1, 226, 64},
+      // 987654
+      {15, 18, 6},
+      // -123456
+      {255, 254, 29, 192},
+  };
+
+  ArrowReaderProperties properties = default_arrow_reader_properties();
+  properties.set_smallest_decimal_enabled(true);
+
+  auto expected =
+      ArrayFromJSON(::arrow::decimal32(6, 3), R"(["123.456", "987.654", "-123.456"])");
+  CheckReadFromByteArrays(LogicalType::Decimal(6, 3), big_endian_decimals, *expected,
+                          properties);
+}
+
+TEST_F(TestReadDecimals, Decimal64ByteArray) {
+  const std::vector<std::vector<uint8_t>> big_endian_decimals = {
+      // 123456
+      {1, 226, 64},
+      // 987654
+      {15, 18, 6},
+      // -123456
+      {255, 255, 255, 255, 255, 254, 29, 192},
+  };
+
+  ArrowReaderProperties properties = default_arrow_reader_properties();
+  properties.set_smallest_decimal_enabled(true);
+
+  auto expected =
+      ArrayFromJSON(::arrow::decimal64(16, 3), R"(["123.456", "987.654", "-123.456"])");
+  CheckReadFromByteArrays(LogicalType::Decimal(16, 3), big_endian_decimals, *expected,
+                          properties);
+}
 
 TEST_F(TestReadDecimals, Decimal128ByteArray) {
   const std::vector<std::vector<uint8_t>> big_endian_decimals = {
@@ -3045,45 +3090,52 @@ TEST(ArrowReadWrite, NestedRequiredField) {
                        /*row_group_size=*/8);
 }
 
-TEST(ArrowReadWrite, Decimal256) {
-  using ::arrow::Decimal256;
+TEST(ArrowReadWrite, Decimal) {
   using ::arrow::field;
-
-  auto type = ::arrow::decimal256(8, 4);
 
   const char* json = R"(["1.0000", null, "-1.2345", "-1000.5678",
                          "-9999.9999", "9999.9999"])";
-  auto array = ::arrow::ArrayFromJSON(type, json);
-  auto table = ::arrow::Table::Make(::arrow::schema({field("root", type)}), {array});
-  auto props_store_schema = ArrowWriterProperties::Builder().store_schema()->build();
-  CheckSimpleRoundtrip(table, 2, props_store_schema);
+
+  for (auto type : {::arrow::decimal32(8, 4), ::arrow::decimal64(8, 4),
+                    ::arrow::decimal128(8, 4), ::arrow::decimal256(8, 4)}) {
+    auto array = ::arrow::ArrayFromJSON(type, json);
+    auto table = ::arrow::Table::Make(::arrow::schema({field("root", type)}), {array});
+    auto props_store_schema = ArrowWriterProperties::Builder().store_schema()->build();
+    CheckSimpleRoundtrip(table, 2, props_store_schema);
+  }
 }
 
 TEST(ArrowReadWrite, DecimalStats) {
   using ::arrow::Decimal128;
   using ::arrow::field;
 
-  auto type = ::arrow::decimal128(/*precision=*/8, /*scale=*/0);
+  // Try various precisions to trigger encoding as different physical types:
+  // - precision 8 should use INT32
+  // - precision 18 should use INT64
+  // - precision 35 should use FIXED_LEN_BYTE_ARRAY
+  for (const int precision : {8, 18, 35}) {
+    auto type = ::arrow::decimal128(precision, /*scale=*/0);
 
-  const char* json = R"(["255", "128", null, "0", "1", "-127", "-128", "-129", "-255"])";
-  auto array = ::arrow::ArrayFromJSON(type, json);
-  auto table = ::arrow::Table::Make(::arrow::schema({field("root", type)}), {array});
+    const char* json =
+        R"(["255", "128", null, "0", "1", "-127", "-128", "-129", "-255"])";
+    auto array = ::arrow::ArrayFromJSON(type, json);
+    auto table = ::arrow::Table::Make(::arrow::schema({field("root", type)}), {array});
 
-  std::shared_ptr<Buffer> buffer;
-  ASSERT_NO_FATAL_FAILURE(WriteTableToBuffer(table, /*row_group_size=*/100,
-                                             default_arrow_writer_properties(), &buffer));
+    auto props = WriterProperties::Builder().enable_store_decimal_as_integer()->build();
+    ASSERT_OK_AND_ASSIGN(auto buffer,
+                         WriteTableToBuffer(table, /*row_group_size=*/100, props));
+    ASSERT_OK_AND_ASSIGN(auto reader, OpenFile(std::make_shared<BufferReader>(buffer),
+                                               ::arrow::default_memory_pool()));
 
-  ASSERT_OK_AND_ASSIGN(auto reader, OpenFile(std::make_shared<BufferReader>(buffer),
-                                             ::arrow::default_memory_pool()));
+    std::shared_ptr<Scalar> min, max;
+    ReadSingleColumnFileStatistics(std::move(reader), &min, &max);
 
-  std::shared_ptr<Scalar> min, max;
-  ReadSingleColumnFileStatistics(std::move(reader), &min, &max);
-
-  std::shared_ptr<Scalar> expected_min, expected_max;
-  ASSERT_OK_AND_ASSIGN(expected_min, array->GetScalar(array->length() - 1));
-  ASSERT_OK_AND_ASSIGN(expected_max, array->GetScalar(0));
-  ::arrow::AssertScalarsEqual(*expected_min, *min, /*verbose=*/true);
-  ::arrow::AssertScalarsEqual(*expected_max, *max, /*verbose=*/true);
+    std::shared_ptr<Scalar> expected_min, expected_max;
+    ASSERT_OK_AND_ASSIGN(expected_min, array->GetScalar(array->length() - 1));
+    ASSERT_OK_AND_ASSIGN(expected_max, array->GetScalar(0));
+    ::arrow::AssertScalarsEqual(*expected_min, *min, /*verbose=*/true);
+    ::arrow::AssertScalarsEqual(*expected_max, *max, /*verbose=*/true);
+  }
 }
 
 TEST(ArrowReadWrite, NestedNullableField) {
@@ -5463,6 +5515,64 @@ TYPED_TEST(TestIntegerAnnotateDecimalTypeParquetIO, SingleNonNullableDecimalColu
 }
 
 TYPED_TEST(TestIntegerAnnotateDecimalTypeParquetIO, SingleNullableDecimalColumn) {
+  std::shared_ptr<Array> values;
+  ASSERT_OK(NullableArray<TypeParam>(SMALL_SIZE, SMALL_SIZE / 2, kDefaultSeed, &values));
+  ASSERT_NO_FATAL_FAILURE(this->WriteColumn(values));
+  ASSERT_NO_FATAL_FAILURE(this->ReadAndCheckSingleDecimalColumnFile(*values));
+}
+
+template <typename TestType>
+class TestIntegerAnnotateSmallestDecimalTypeParquetIO
+    : public TestIntegerAnnotateDecimalTypeParquetIO<TestType> {
+ public:
+  void ReadAndCheckSingleDecimalColumnFile(const Array& values) {
+    ArrowReaderProperties properties = default_arrow_reader_properties();
+    properties.set_smallest_decimal_enabled(true);
+
+    std::shared_ptr<Array> out;
+    std::unique_ptr<FileReader> reader;
+    this->ReaderFromSink(&reader, properties);
+    this->ReadSingleColumnFile(std::move(reader), &out);
+
+    if (values.type()->id() == out->type()->id()) {
+      AssertArraysEqual(values, *out);
+    } else {
+      auto decimal_type = checked_pointer_cast<::arrow::DecimalType>(values.type());
+
+      ASSERT_OK_AND_ASSIGN(
+          const auto expected_values,
+          ::arrow::compute::Cast(values, ::arrow::decimal256(decimal_type->precision(),
+                                                             decimal_type->scale())));
+      ASSERT_OK_AND_ASSIGN(
+          const auto out_values,
+          ::arrow::compute::Cast(*out, ::arrow::decimal256(decimal_type->precision(),
+                                                           decimal_type->scale())));
+
+      ASSERT_EQ(expected_values->length(), out_values->length());
+      ASSERT_EQ(expected_values->null_count(), out_values->null_count());
+      ASSERT_TRUE(expected_values->Equals(*out_values));
+    }
+  }
+};
+
+using SmallestDecimalTestTypes = ::testing::Types<
+    Decimal32WithPrecisionAndScale<9>, Decimal64WithPrecisionAndScale<9>,
+    Decimal64WithPrecisionAndScale<18>, Decimal128WithPrecisionAndScale<9>,
+    Decimal128WithPrecisionAndScale<18>, Decimal256WithPrecisionAndScale<9>,
+    Decimal256WithPrecisionAndScale<18>>;
+
+TYPED_TEST_SUITE(TestIntegerAnnotateSmallestDecimalTypeParquetIO,
+                 SmallestDecimalTestTypes);
+
+TYPED_TEST(TestIntegerAnnotateSmallestDecimalTypeParquetIO,
+           SingleNonNullableDecimalColumn) {
+  std::shared_ptr<Array> values;
+  ASSERT_OK(NonNullArray<TypeParam>(SMALL_SIZE, &values));
+  ASSERT_NO_FATAL_FAILURE(this->WriteColumn(values));
+  ASSERT_NO_FATAL_FAILURE(this->ReadAndCheckSingleDecimalColumnFile(*values));
+}
+
+TYPED_TEST(TestIntegerAnnotateSmallestDecimalTypeParquetIO, SingleNullableDecimalColumn) {
   std::shared_ptr<Array> values;
   ASSERT_OK(NullableArray<TypeParam>(SMALL_SIZE, SMALL_SIZE / 2, kDefaultSeed, &values));
   ASSERT_NO_FATAL_FAILURE(this->WriteColumn(values));

@@ -310,7 +310,8 @@ test_that("array uses local timezone for POSIXct without timezone", {
       "2019-02-03 12:34:56",
       format = "%Y-%m-%d %H:%M:%S",
       tz = "Asia/Katmandu"
-    ) + 1:10
+    ) +
+      1:10
     expect_equal(attr(times, "tzone"), "Asia/Katmandu")
     expect_array_roundtrip(times, timestamp("us", "Asia/Katmandu"))
   })
@@ -350,6 +351,21 @@ test_that("array supports integer64", {
   all_na <- arrow_array(bit64::as.integer64(NA))
   expect_type_equal(all_na, int64())
   expect_true(as.vector(is.na(all_na)))
+})
+
+test_that("array supports integer64 with new semantics", {
+  withr::with_options(list(integer64_semantics = "new"), {
+    x <- bit64::as.integer64(1:10) + MAX_INT
+    expect_array_roundtrip(x, int64())
+
+    x[4] <- NA
+    expect_array_roundtrip(x, int64())
+
+    # all NA int64 (ARROW-3795)
+    all_na <- arrow_array(bit64::as.integer64(NA))
+    expect_type_equal(all_na, int64())
+    expect_true(as.vector(is.na(all_na)))
+  })
 })
 
 test_that("array supports hms difftime", {
@@ -526,7 +542,8 @@ test_that("arrow_array() handles data frame -> struct arrays (ARROW-3811)", {
 
   df <- structure(
     list(col = list(list(list(1)))),
-    class = "data.frame", row.names = c(NA, -1L)
+    class = "data.frame",
+    row.names = c(NA, -1L)
   )
   a <- arrow_array(df)
   expect_type_equal(a$type, struct(col = list_of(list_of(list_of(float64())))))
@@ -822,7 +839,8 @@ test_that("Handling string data with embedded nuls", {
 
   # attempting materialization -> error
 
-  expect_error(v[],
+  expect_error(
+    v[],
     paste0(
       "embedded nul in string: 'ma\\0n'; to strip nuls when converting from Arrow ",
       "to R, set options(arrow.skip_nul = TRUE)"
@@ -831,7 +849,8 @@ test_that("Handling string data with embedded nuls", {
   )
 
   # also error on materializing v[3]
-  expect_error(v[3],
+  expect_error(
+    v[3],
     paste0(
       "embedded nul in string: 'ma\\0n'; to strip nuls when converting from Arrow ",
       "to R, set options(arrow.skip_nul = TRUE)"
@@ -1260,7 +1279,7 @@ test_that("concat_arrays works", {
 
   concat_int <- concat_arrays(arrow_array(1:3), arrow_array(4:5))
   expect_true(concat_int$type == int32())
-  expect_equal(concat_int,  arrow_array(1:5))
+  expect_equal(concat_int, arrow_array(1:5))
 
   concat_int64 <- concat_arrays(
     arrow_array(1:3),
@@ -1323,7 +1342,6 @@ test_that("Array to C-interface", {
 test_that("Can convert R integer/double to decimal (ARROW-11631)", {
   # Check all of decimal32, decimal64, decimal128 and decimal256
 
-
   decimal32_from_dbl <- arrow_array(c(1, NA_real_), type = decimal32(9, 2))
   decimal64_from_dbl <- arrow_array(c(1, NA_real_), type = decimal64(12, 2))
   decimal32_from_int <- arrow_array(c(1L, NA_integer_), type = decimal32(9, 2))
@@ -1370,7 +1388,6 @@ test_that("Can convert R integer/double to decimal (ARROW-11631)", {
     arrow_array(c(1, NA))$cast(decimal64(12, 2))
   )
 
-
   expect_equal(
     decimal128_from_int,
     arrow_array(c(1, NA))$cast(decimal128(12, 2))
@@ -1396,4 +1413,11 @@ test_that("Can convert R integer/double to decimal (ARROW-11631)", {
     arrow_array(complex(), decimal128(12, 2)),
     "Conversion to decimal from non-integer/double"
   )
+})
+
+test_that("Array handles negative fractional dates correctly (GH-46873)", {
+  # `origin` must be specified for compatibility with R versions < 4.2.0
+  d <- as.Date(-0.1, origin = "1970-01-01")
+  arr <- arrow_array(d)
+  expect_equal(as.vector(arr), as.Date("1969-12-31", origin = "1970-01-01"))
 })

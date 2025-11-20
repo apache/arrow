@@ -33,7 +33,7 @@ constexpr auto kSeed = 0x0ff1ce;
 static void SelectKBenchmark(benchmark::State& state,
                              const std::shared_ptr<Array>& values, int64_t k) {
   for (auto _ : state) {
-    ABORT_NOT_OK(SelectKUnstable(*values, SelectKOptions::TopKDefault(k)).status());
+    ABORT_NOT_OK(SelectKUnstable(*values, SelectKOptions::TopKDefault(k)));
   }
   state.SetItemsProcessed(state.iterations() * values->length());
 }

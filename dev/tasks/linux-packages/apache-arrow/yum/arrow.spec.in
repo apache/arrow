@@ -79,8 +79,9 @@
 %define use_s3 0
 %define use_vala (%{_rhel} >= 8 || %{is_amazon_linux})
 
-%define have_grpc (%{_amzn} >= 2023)
+%define have_grpc (%{_rhel} >= 10 || %{_amzn} >= 2023)
 %define have_lz4_libs (%{_rhel} >= 8 || %{_amzn} >= 2023)
+%define have_orc (%{_rhel} >= 10)
 %define have_rapidjson (%{_rhel} != 8)
 %define have_re2 (%{_rhel} >= 8 || %{_amzn} >= 2023)
 %define have_thrift (%{_rhel} >= 8)
@@ -297,6 +298,9 @@ Requires:	json-devel
 Requires:	libzstd-devel
 Requires:	lz4-devel %{lz4_requirement}
 Requires:	openssl-devel
+%if %{have_orc}
+Requires:	liborc-devel
+%endif
 %if %{have_rapidjson}
 Requires:	rapidjson-devel
 %endif
@@ -592,7 +596,7 @@ Libraries and header files for Apache Parquet C++.
 %{_libdir}/cmake/Parquet/
 %{_libdir}/libparquet.a
 %{_libdir}/libparquet.so
-%{_libdir}/pkgconfig/parquet*.pc
+%{_libdir}/pkgconfig/parquet.pc
 
 %package -n %{name}%{so_version}-glib-libs
 Summary:	Runtime libraries for Apache Arrow GLib
@@ -927,6 +931,12 @@ Documentation for Apache Parquet GLib.
 %endif
 
 %changelog
+* Mon Oct 20 2025 Raúl Cumplido <raulcumplido@gmail.com> - 22.0.0-1
+- New upstream release.
+
+* Fri Jul 11 2025 Bryce Mecum <petridish@gmail.com> - 21.0.0-1
+- New upstream release.
+
 * Tue Apr 22 2025 Jacob Wujciak-Jens <jacob@wujciak.de> - 20.0.0-1
 - New upstream release.
 

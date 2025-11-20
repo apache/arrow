@@ -99,20 +99,20 @@ arrow::Result<bool> ColumnMetadata::GetIsAutoIncrement() const {
 
 arrow::Result<bool> ColumnMetadata::GetIsCaseSensitive() const {
   std::string is_case_sensitive;
-  ARROW_ASSIGN_OR_RAISE(is_case_sensitive, metadata_map_->Get(kIsAutoIncrement));
+  ARROW_ASSIGN_OR_RAISE(is_case_sensitive, metadata_map_->Get(kIsCaseSensitive));
   return StringToBoolean(is_case_sensitive);
 }
 
 arrow::Result<bool> ColumnMetadata::GetIsReadOnly() const {
   std::string is_read_only;
-  ARROW_ASSIGN_OR_RAISE(is_read_only, metadata_map_->Get(kIsAutoIncrement));
+  ARROW_ASSIGN_OR_RAISE(is_read_only, metadata_map_->Get(kIsReadOnly));
   return StringToBoolean(is_read_only);
 }
 
 arrow::Result<bool> ColumnMetadata::GetIsSearchable() const {
-  std::string is_case_sensitive;
-  ARROW_ASSIGN_OR_RAISE(is_case_sensitive, metadata_map_->Get(kIsAutoIncrement));
-  return StringToBoolean(is_case_sensitive);
+  std::string is_searchable;
+  ARROW_ASSIGN_OR_RAISE(is_searchable, metadata_map_->Get(kIsSearchable));
+  return StringToBoolean(is_searchable);
 }
 
 arrow::Result<std::string> ColumnMetadata::GetRemarks() const {

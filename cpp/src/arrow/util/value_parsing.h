@@ -32,6 +32,8 @@
 #include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/config.h"
+#include "arrow/util/float16.h"
+#include "arrow/util/int_util_overflow.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/time.h"
 #include "arrow/util/visibility.h"
@@ -136,7 +138,8 @@ ARROW_EXPORT
 bool StringToFloat(const char* s, size_t length, char decimal_point, double* out);
 
 ARROW_EXPORT
-bool StringToFloat(const char* s, size_t length, char decimal_point, uint16_t* out);
+bool StringToFloat(const char* s, size_t length, char decimal_point,
+                   ::arrow::util::Float16* out);
 
 template <>
 struct StringConverter<FloatType> {
@@ -168,7 +171,7 @@ struct StringConverter<DoubleType> {
 
 template <>
 struct StringConverter<HalfFloatType> {
-  using value_type = uint16_t;
+  using value_type = ::arrow::util::Float16;
 
   explicit StringConverter(char decimal_point = '.') : decimal_point(decimal_point) {}
 
@@ -694,8 +697,7 @@ static inline bool ParseTimestampISO8601(const char* s, size_t length,
   }
 
   if (length == 10) {
-    *out = util::CastSecondsToUnit(unit, seconds_since_epoch.count());
-    return true;
+    return util::CastSecondsToUnit(unit, seconds_since_epoch.count(), out);
   }
 
   if (ARROW_PREDICT_FALSE(s[10] != ' ') && ARROW_PREDICT_FALSE(s[10] != 'T')) {
@@ -766,12 +768,16 @@ static inline bool ParseTimestampISO8601(const char* s, size_t length,
       return false;
   }
 
-  seconds_since_epoch += seconds_since_midnight;
-  seconds_since_epoch += zone_offset;
+  // Switch to plain integers to take advantage of the overflow arithmetic ops
+  auto count = (seconds_since_midnight + zone_offset).count();
+
+  if (ARROW_PREDICT_FALSE(::arrow::internal::AddWithOverflow(
+          count, seconds_since_epoch.count(), &count))) {
+    return false;
+  }
 
   if (length <= 19) {
-    *out = util::CastSecondsToUnit(unit, seconds_since_epoch.count());
-    return true;
+    return util::CastSecondsToUnit(unit, count, out);
   }
 
   if (ARROW_PREDICT_FALSE(s[19] != '.')) {
@@ -784,7 +790,12 @@ static inline bool ParseTimestampISO8601(const char* s, size_t length,
     return false;
   }
 
-  *out = util::CastSecondsToUnit(unit, seconds_since_epoch.count()) + subseconds;
+  if (ARROW_PREDICT_FALSE(!util::CastSecondsToUnit(unit, count, out))) {
+    return false;
+  }
+  if (ARROW_PREDICT_FALSE(::arrow::internal::AddWithOverflow(*out, subseconds, out))) {
+    return false;
+  }
   return true;
 }
 
@@ -826,8 +837,7 @@ static inline bool ParseTimestampStrptime(const char* buf, size_t length,
     secs -= std::chrono::seconds(result.tm_gmtoff);
 #endif
   }
-  *out = util::CastSecondsToUnit(unit, secs.time_since_epoch().count());
-  return true;
+  return util::CastSecondsToUnit(unit, secs.time_since_epoch().count(), out);
 }
 
 template <>
@@ -890,13 +900,21 @@ struct StringConverter<TIME_TYPE, enable_if_time<TIME_TYPE>> {
     const auto unit = type.unit();
     std::chrono::seconds since_midnight;
 
+    auto get_seconds_since_midnight = [&](value_type* out) -> bool {
+      int64_t long_out;
+      if (ARROW_PREDICT_FALSE(
+              !util::CastSecondsToUnit(unit, since_midnight.count(), &long_out))) {
+        return false;
+      }
+      *out = static_cast<value_type>(long_out);
+      return *out == long_out;
+    };
+
     if (length == 5) {
       if (ARROW_PREDICT_FALSE(!detail::ParseHH_MM(s, &since_midnight))) {
         return false;
       }
-      *out =
-          static_cast<value_type>(util::CastSecondsToUnit(unit, since_midnight.count()));
-      return true;
+      return get_seconds_since_midnight(out);
     }
 
     if (ARROW_PREDICT_FALSE(length < 8)) {
@@ -906,7 +924,9 @@ struct StringConverter<TIME_TYPE, enable_if_time<TIME_TYPE>> {
       return false;
     }
 
-    *out = static_cast<value_type>(util::CastSecondsToUnit(unit, since_midnight.count()));
+    if (ARROW_PREDICT_FALSE(!get_seconds_since_midnight(out))) {
+      return false;
+    }
 
     if (length == 8) {
       return true;

@@ -24,6 +24,7 @@
 #include "arrow/array/builder_nested.h"
 #include "arrow/array/builder_primitive.h"
 #include "arrow/compute/kernels/scalar_string_internal.h"
+#include "arrow/compute/registry_internal.h"
 #include "arrow/result.h"
 #include "arrow/util/config.h"
 #include "arrow/util/logging_internal.h"

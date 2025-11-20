@@ -62,7 +62,6 @@ class CppConfiguration:
                  with_brotli=None, with_bz2=None, with_lz4=None,
                  with_snappy=None, with_zlib=None, with_zstd=None,
                  # extras
-                 use_gold_linker=True,
                  simd_level="DEFAULT",
                  cmake_extras=None):
         self._cc = cc
@@ -114,7 +113,6 @@ class CppConfiguration:
         self.with_zlib = with_zlib
         self.with_zstd = with_zstd
 
-        self.use_gold_linker = use_gold_linker
         self.simd_level = simd_level
 
         self.cmake_extras = cmake_extras
@@ -237,10 +235,6 @@ class CppConfiguration:
         yield ("ARROW_WITH_ZLIB", truthifier(self.with_zlib))
         yield ("ARROW_WITH_ZSTD", truthifier(self.with_zstd))
 
-        # Some configurations don't like gnu gold linker.
-        broken_with_gold_ld = [self.with_fuzzing, self.with_gandiva]
-        if self.use_gold_linker and not any(broken_with_gold_ld):
-            yield ("ARROW_USE_LD_GOLD", truthifier(self.use_gold_linker))
         yield ("ARROW_SIMD_LEVEL", or_else(self.simd_level, "DEFAULT"))
 
         # Detect custom conda toolchain

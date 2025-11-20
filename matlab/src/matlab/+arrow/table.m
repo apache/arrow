@@ -20,14 +20,7 @@ function arrowTable = table(matlabTable)
         % ambiguous name parsing issue with MATLAB table type and arrow.table.
         matlabTable {istable} = table.empty(0, 0)
     end
-
     arrowArrays = arrow.tabular.internal.decompose(matlabTable);
-    arrayProxyIDs = arrow.array.internal.getArrayProxyIDs(arrowArrays);
-
     columnNames = string(matlabTable.Properties.VariableNames);
-    args = struct(ArrayProxyIDs=arrayProxyIDs, ColumnNames=columnNames);
-    proxyName = "arrow.tabular.proxy.Table";
-    proxy = arrow.internal.proxy.create(proxyName, args);
-
-    arrowTable = arrow.tabular.Table(proxy);
+    arrowTable = arrow.tabular.Table.fromArrays(arrowArrays{:}, ColumnNames=columnNames);
 end

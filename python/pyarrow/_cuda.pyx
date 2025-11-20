@@ -451,9 +451,9 @@ cdef class CudaBuffer(Buffer):
           Device buffer as a view of numba MemoryPointer.
         """
         ctx = Context.from_numba(mem.context)
-        if mem.device_pointer.value is None and mem.size==0:
+        if mem.device_pointer_value is None and mem.size==0:
             return ctx.new_buffer(0)
-        return ctx.foreign_buffer(mem.device_pointer.value, mem.size, base=mem)
+        return ctx.foreign_buffer(mem.device_pointer_value, mem.size, base=mem)
 
     def to_numba(self):
         """Return numba memory pointer of CudaBuffer instance.

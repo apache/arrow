@@ -26,6 +26,7 @@
 #include <new>
 #include <type_traits>
 #include <utility>
+#include <vector>
 
 #include "arrow/util/aligned_storage.h"
 #include "arrow/util/macros.h"

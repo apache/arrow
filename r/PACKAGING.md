@@ -26,7 +26,7 @@ For a high-level overview of the Arrow release process see the [Apache Arrow Rel
 
 - [ ] [Create a GitHub issue](https://github.com/apache/arrow/issues/new/) entitled `[R] CRAN packaging checklist for version X.Y.Z` and copy this checklist to the issue.
 - [ ] Review deprecated functions to advance their deprecation status.
-- [ ] Evaluate the status of any failing [nightly tests and nightly packaging builds](http://crossbow.voltrondata.com). These checks replicate most of the checks that CRAN runs, so we need them all to be passing or to understand that the failures may (though won't necessarily) result in a rejection from CRAN.
+- [ ] Evaluate the status of any failing [nightly tests and nightly packaging builds](https://s3.amazonaws.com/arrow-data/index.html). These checks replicate most of the checks that CRAN runs, so we need them all to be passing or to understand that the failures may (though won't necessarily) result in a rejection from CRAN.
 - [ ] Check [current CRAN check results](https://cran.rstudio.org/web/checks/check_results_arrow.html).
 - [ ] Ensure the contents of the README are accurate and up to date.
 - [ ] Run `urlchecker::url_check()` on the R directory at the release candidate.
@@ -58,7 +58,8 @@ _Wait for the release candidate to be created._
 - [ ] Run `urlchecker::url_check()` on the R directory.
 - [ ] Create a PR entitled `WIP: [R] Verify CRAN release-X.Y.Z-rcX`. Add a comment `@github-actions crossbow submit --group r` to run all R crossbow jobs against the CRAN-specific release branch.
 - [ ] Run `Rscript tools/update-checksums.R <libarrow version>` to download the checksums for the pre-compiled binaries from the ASF artifactory into the tools directory.
-- [ ] Regenerate arrow_X.Y.Z.tar.gz (i.e., `make build`).
+- [ ] Commit the checksums: `git add -f tools/checksums/ && git commit -m "[CRAN] Add checksums"`
+- [ ] Regenerate arrow_X.Y.Z.tar.gz (i.e., `make build`). This will clean old artifacts, regenerate documentation, sync C++ files, and build the package.
 
 ## Check Binary Arrow C++ Distributions Specific to the R Package
 

@@ -24,6 +24,6 @@ if needs_compute
     exc = executable(
         'arrow-compute-grouper-benchmark',
         sources: ['grouper_benchmark.cc'],
-        dependencies: [arrow_benchmark_dep],
+        dependencies: [arrow_compute_dep, arrow_benchmark_dep],
     )
 endif

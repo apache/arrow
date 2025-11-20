@@ -146,9 +146,7 @@ process_is_running <- function(x) {
       "| Select-String powershell.exe -NotMatch"
     )
     cmd <- sprintf("powershell -command \"%s\"", inner_cmd)
-    tryCatch(length(system(cmd, intern = TRUE, show.output.on.console = FALSE)) > 0,
-      error = function(e) FALSE
-    )
+    tryCatch(length(system(cmd, intern = TRUE, show.output.on.console = FALSE)) > 0, error = function(e) FALSE)
   } else {
     cmd <- sprintf("ps aux | grep '%s' | grep -v grep", x)
     tryCatch(system(cmd, ignore.stdout = TRUE) == 0, error = function(e) FALSE)

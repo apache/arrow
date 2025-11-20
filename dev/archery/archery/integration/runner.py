@@ -193,7 +193,7 @@ class IntegrationRunner(object):
                 skip_testers.add("Java")
                 skip_testers.add("JS")
             if prefix == '1.0.0-bigendian' or prefix == '1.0.0-littleendian':
-                skip_testers.add("C#")
+                skip_testers.add(".NET")
                 skip_testers.add("Java")
                 skip_testers.add("JS")
                 skip_testers.add("Rust")
@@ -207,7 +207,7 @@ class IntegrationRunner(object):
             # disable specific compression type tests.
 
             if prefix == '4.0.0-shareddict':
-                skip_testers.add("C#")
+                skip_testers.add(".NET")
                 # https://github.com/apache/arrow-nanoarrow/issues/622
                 skip_testers.add("nanoarrow")
 
@@ -589,14 +589,12 @@ def get_static_json_files():
     ]
 
 
-def run_all_tests(with_cpp=True, with_java=True, with_js=True,
-                  with_csharp=True, with_go=True, with_rust=False,
-                  with_nanoarrow=False, run_ipc=False, run_flight=False,
-                  run_c_data=False, tempdir=None, target_implementations="",
-                  **kwargs):
-    tempdir = tempdir or tempfile.mkdtemp(prefix='arrow-integration-')
-    target_implementations = \
-        target_implementations.split(",") if target_implementations else []
+def select_testers(with_cpp=True, with_java=True, with_js=True,
+                   with_dotnet=True, with_go=True, with_rust=False,
+                   with_nanoarrow=False, target_implementations="",
+                   **kwargs):
+    target_implementations = (target_implementations.split(",")
+                              if target_implementations else [])
 
     testers: List[Tester] = []
     other_testers: List[Tester] = []
@@ -619,9 +617,9 @@ def run_all_tests(with_cpp=True, with_java=True, with_js=True,
         from .tester_js import JSTester
         append_tester("js", JSTester(**kwargs))
 
-    if with_csharp:
-        from .tester_csharp import CSharpTester
-        append_tester("csharp", CSharpTester(**kwargs))
+    if with_dotnet:
+        from .tester_dotnet import DotNetTester
+        append_tester("dotnet", DotNetTester(**kwargs))
 
     if with_go:
         from .tester_go import GoTester
@@ -635,6 +633,14 @@ def run_all_tests(with_cpp=True, with_java=True, with_js=True,
         from .tester_rust import RustTester
         append_tester("rust", RustTester(**kwargs))
 
+    return testers, other_testers
+
+
+def run_all_tests(testers: List[Tester], other_testers: List[Tester],
+                  run_ipc=False, run_flight=False, run_c_data=False,
+                  tempdir=None, **kwargs):
+    tempdir = tempdir or tempfile.mkdtemp(prefix='arrow-integration-')
+
     static_json_files = get_static_json_files()
     generated_json_files = datagen.get_generated_json_files(tempdir=tempdir)
     json_files = static_json_files + generated_json_files
@@ -644,42 +650,42 @@ def run_all_tests(with_cpp=True, with_java=True, with_js=True,
         Scenario(
             "auth:basic_proto",
             description="Authenticate using the BasicAuth protobuf.",
-            skip_testers={"C#"},
+            skip_testers={".NET"},
         ),
         Scenario(
             "middleware",
             description="Ensure headers are propagated via middleware.",
-            skip_testers={"C#"},
+            skip_testers={".NET"},
         ),
         Scenario(
             "ordered",
             description="Ensure FlightInfo.ordered is supported.",
-            skip_testers={"JS", "C#", "Rust"},
+            skip_testers={"JS", ".NET", "Rust"},
         ),
         Scenario(
             "expiration_time:do_get",
             description=("Ensure FlightEndpoint.expiration_time with "
                          "DoGet is working as expected."),
-            skip_testers={"JS", "C#", "Rust"},
+            skip_testers={"JS", ".NET", "Rust"},
         ),
         Scenario(
             "expiration_time:list_actions",
             description=("Ensure FlightEndpoint.expiration_time related "
                          "pre-defined actions is working with ListActions "
                          "as expected."),
-            skip_testers={"JS", "C#", "Rust"},
+            skip_testers={"JS", ".NET", "Rust"},
         ),
         Scenario(
             "expiration_time:cancel_flight_info",
             description=("Ensure FlightEndpoint.expiration_time and "
                          "CancelFlightInfo are working as expected."),
-            skip_testers={"JS", "C#", "Rust"},
+            skip_testers={"JS", ".NET", "Rust"},
         ),
         Scenario(
             "expiration_time:renew_flight_endpoint",
             description=("Ensure FlightEndpoint.expiration_time and "
                          "RenewFlightEndpoint are working as expected."),
-            skip_testers={"JS", "C#", "Rust"},
+            skip_testers={"JS", ".NET", "Rust"},
         ),
         Scenario(
             "do_exchange:echo",
@@ -690,37 +696,37 @@ def run_all_tests(with_cpp=True, with_java=True, with_js=True,
         Scenario(
             "location:reuse_connection",
             description="Ensure arrow-flight-reuse-connection is accepted.",
-            skip_testers={"JS", "C#", "Rust"},
+            skip_testers={"JS", ".NET", "Rust"},
         ),
         Scenario(
             "session_options",
             description="Ensure Flight SQL Sessions work as expected.",
-            skip_testers={"JS", "C#", "Rust"}
+            skip_testers={"JS", ".NET", "Rust"}
         ),
         Scenario(
             "poll_flight_info",
             description="Ensure PollFlightInfo is supported.",
-            skip_testers={"JS", "C#", "Rust"}
+            skip_testers={"JS", ".NET", "Rust"}
         ),
         Scenario(
             "app_metadata_flight_info_endpoint",
             description="Ensure support FlightInfo and Endpoint app_metadata",
-            skip_testers={"JS", "C#", "Rust"}
+            skip_testers={"JS", ".NET", "Rust"}
         ),
         Scenario(
             "flight_sql",
             description="Ensure Flight SQL protocol is working as expected.",
-            skip_testers={"Rust", "C#"}
+            skip_testers={"Rust", ".NET"}
         ),
         Scenario(
             "flight_sql:extension",
             description="Ensure Flight SQL extensions work as expected.",
-            skip_testers={"Rust", "C#"}
+            skip_testers={"Rust", ".NET"}
         ),
         Scenario(
             "flight_sql:ingestion",
             description="Ensure Flight SQL ingestion works as expected.",
-            skip_testers={"JS", "C#", "Rust"}
+            skip_testers={"JS", ".NET", "Rust"}
         ),
     ]
 
@@ -750,81 +756,3 @@ def run_all_tests(with_cpp=True, with_java=True, with_js=True,
         log(f"{fail_count} failures, {len(runner.skips)} skips")
         if fail_count > 0:
             sys.exit(1)
-
-
-def write_js_test_json(directory):
-    datagen.generate_primitive_case([], name='primitive_no_batches').write(
-        os.path.join(directory, 'primitive-no-batches.json')
-    )
-    datagen.generate_primitive_case([17, 20], name='primitive').write(
-        os.path.join(directory, 'primitive.json')
-    )
-    datagen.generate_primitive_case([0, 0, 0], name='primitive_zerolength').write(
-        os.path.join(directory, 'primitive-empty.json')
-    )
-    # datagen.generate_primitive_large_offsets_case([17, 20]).write(
-    #     os.path.join(directory, 'primitive-large-offsets.json')
-    # )
-    datagen.generate_null_case([10, 0]).write(
-        os.path.join(directory, 'null.json')
-    )
-    datagen.generate_null_trivial_case([0, 0]).write(
-        os.path.join(directory, 'null-trivial.json')
-    )
-    datagen.generate_decimal128_case().write(
-        os.path.join(directory, 'decimal128.json')
-    )
-    # datagen.generate_decimal256_case().write(
-    #     os.path.join(directory, 'decimal256.json')
-    # )
-    datagen.generate_datetime_case().write(
-        os.path.join(directory, 'datetime.json')
-    )
-    # datagen.generate_duration_case().write(
-    #     os.path.join(directory, 'duration.json')
-    # )
-    # datagen.generate_interval_case().write(
-    #     os.path.join(directory, 'interval.json')
-    # )
-    # datagen.generate_month_day_nano_interval_case().write(
-    #     os.path.join(directory, 'month_day_nano_interval.json')
-    # )
-    datagen.generate_map_case().write(
-        os.path.join(directory, 'map.json')
-    )
-    datagen.generate_non_canonical_map_case().write(
-        os.path.join(directory, 'non_canonical_map.json')
-    )
-    datagen.generate_nested_case().write(
-        os.path.join(directory, 'nested.json')
-    )
-    datagen.generate_recursive_nested_case().write(
-        os.path.join(directory, 'recursive-nested.json')
-    )
-    # datagen.generate_nested_large_offsets_case().write(
-    #     os.path.join(directory, 'nested-large-offsets.json')
-    # )
-    datagen.generate_unions_case().write(
-        os.path.join(directory, 'unions.json')
-    )
-    datagen.generate_custom_metadata_case().write(
-        os.path.join(directory, 'custom-metadata.json')
-    )
-    # datagen.generate_duplicate_fieldnames_case().write(
-    #     os.path.join(directory, 'duplicate-fieldnames.json')
-    # )
-    datagen.generate_dictionary_case().write(
-        os.path.join(directory, 'dictionary.json')
-    )
-    datagen.generate_dictionary_unsigned_case().write(
-        os.path.join(directory, 'dictionary-unsigned.json')
-    )
-    datagen.generate_nested_dictionary_case().write(
-        os.path.join(directory, 'dictionary-nested.json')
-    )
-    # datagen.generate_run_end_encoded_case().write(
-    #     os.path.join(directory, 'run_end_encoded.json')
-    # )
-    datagen.generate_extension_case().write(
-        os.path.join(directory, 'extension.json')
-    )

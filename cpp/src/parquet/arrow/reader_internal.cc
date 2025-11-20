@@ -69,6 +69,12 @@ using arrow::Decimal128Type;
 using arrow::Decimal256;
 using arrow::Decimal256Array;
 using arrow::Decimal256Type;
+using arrow::Decimal32;
+using arrow::Decimal32Array;
+using arrow::Decimal32Type;
+using arrow::Decimal64;
+using arrow::Decimal64Array;
+using arrow::Decimal64Type;
 using arrow::Field;
 using arrow::Int32Array;
 using arrow::ListArray;
@@ -80,6 +86,7 @@ using arrow::Table;
 using arrow::TimestampArray;
 
 using ::arrow::bit_util::FromBigEndian;
+using ::arrow::bit_util::ToBigEndian;
 using ::arrow::internal::checked_cast;
 using ::arrow::internal::checked_pointer_cast;
 using ::arrow::internal::SafeLeftShift;
@@ -101,6 +108,62 @@ namespace {
 
 template <typename ArrowType>
 using ArrayType = typename ::arrow::TypeTraits<ArrowType>::ArrayType;
+
+template <typename DecimalType>
+Result<std::shared_ptr<::arrow::Scalar>> DecimalScalarFromBigEndianBytes(
+    std::string_view data, std::shared_ptr<DataType> arrow_type) {
+  ARROW_ASSIGN_OR_RAISE(
+      DecimalType decimal,
+      DecimalType::FromBigEndian(reinterpret_cast<const uint8_t*>(data.data()),
+                                 static_cast<int32_t>(data.size())));
+  return ::arrow::MakeScalar(std::move(arrow_type), decimal);
+}
+
+// Extract Min and Max scalars from big-endian representation of Decimals.
+Status ExtractDecimalMinMaxFromBytes(std::string_view min_bytes,
+                                     std::string_view max_bytes,
+                                     const LogicalType& logical_type,
+                                     std::shared_ptr<::arrow::Scalar>* min,
+                                     std::shared_ptr<::arrow::Scalar>* max) {
+  const DecimalLogicalType& decimal_type =
+      checked_cast<const DecimalLogicalType&>(logical_type);
+
+  Result<std::shared_ptr<DataType>> maybe_type =
+      Decimal128Type::Make(decimal_type.precision(), decimal_type.scale());
+  std::shared_ptr<DataType> arrow_type;
+  if (maybe_type.ok()) {
+    arrow_type = maybe_type.ValueOrDie();
+    ARROW_ASSIGN_OR_RAISE(
+        *min, DecimalScalarFromBigEndianBytes<Decimal128>(min_bytes, arrow_type));
+    ARROW_ASSIGN_OR_RAISE(*max, DecimalScalarFromBigEndianBytes<Decimal128>(
+                                    max_bytes, std::move(arrow_type)));
+    return Status::OK();
+  }
+  // Fallback to see if Decimal256 can represent the type.
+  ARROW_ASSIGN_OR_RAISE(
+      arrow_type, Decimal256Type::Make(decimal_type.precision(), decimal_type.scale()));
+  ARROW_ASSIGN_OR_RAISE(
+      *min, DecimalScalarFromBigEndianBytes<Decimal256>(min_bytes, arrow_type));
+  ARROW_ASSIGN_OR_RAISE(*max, DecimalScalarFromBigEndianBytes<Decimal256>(
+                                  max_bytes, std::move(arrow_type)));
+
+  return Status::OK();
+}
+
+template <typename Int>
+Status ExtractDecimalMinMaxFromInteger(Int min_value, Int max_value,
+                                       const LogicalType& logical_type,
+                                       std::shared_ptr<::arrow::Scalar>* min,
+                                       std::shared_ptr<::arrow::Scalar>* max) {
+  static_assert(std::is_integral_v<Int>);
+  const Int min_be = ToBigEndian(min_value);
+  const Int max_be = ToBigEndian(max_value);
+  const auto min_bytes =
+      std::string_view(reinterpret_cast<const char*>(&min_be), sizeof(min_be));
+  const auto max_bytes =
+      std::string_view(reinterpret_cast<const char*>(&max_be), sizeof(max_be));
+  return ExtractDecimalMinMaxFromBytes(min_bytes, max_bytes, logical_type, min, max);
+}
 
 template <typename CType, typename StatisticsType>
 Status MakeMinMaxScalar(const StatisticsType& statistics,
@@ -153,85 +216,50 @@ static Status FromInt32Statistics(const Int32Statistics& statistics,
                                   const LogicalType& logical_type,
                                   std::shared_ptr<::arrow::Scalar>* min,
                                   std::shared_ptr<::arrow::Scalar>* max) {
-  ARROW_ASSIGN_OR_RAISE(auto type, FromInt32(logical_type));
+  ARROW_ASSIGN_OR_RAISE(auto type,
+                        FromInt32(logical_type, default_arrow_reader_properties()));
 
   switch (logical_type.type()) {
     case LogicalType::Type::INT:
       return MakeMinMaxIntegralScalar(statistics, *type, min, max);
-      break;
     case LogicalType::Type::DATE:
     case LogicalType::Type::TIME:
     case LogicalType::Type::NONE:
       return MakeMinMaxTypedScalar<int32_t>(statistics, type, min, max);
-      break;
+    case LogicalType::Type::DECIMAL:
+      return ExtractDecimalMinMaxFromInteger(statistics.min(), statistics.max(),
+                                             logical_type, min, max);
     default:
       break;
   }
 
-  return Status::NotImplemented("Cannot extract statistics for type ");
+  return Status::NotImplemented("Cannot extract statistics for INT32 with logical type ",
+                                logical_type.ToString());
 }
 
 static Status FromInt64Statistics(const Int64Statistics& statistics,
                                   const LogicalType& logical_type,
                                   std::shared_ptr<::arrow::Scalar>* min,
                                   std::shared_ptr<::arrow::Scalar>* max) {
-  ARROW_ASSIGN_OR_RAISE(auto type, FromInt64(logical_type));
+  ARROW_ASSIGN_OR_RAISE(auto type,
+                        FromInt64(logical_type, default_arrow_reader_properties()));
 
   switch (logical_type.type()) {
     case LogicalType::Type::INT:
       return MakeMinMaxIntegralScalar(statistics, *type, min, max);
-      break;
     case LogicalType::Type::TIME:
     case LogicalType::Type::TIMESTAMP:
     case LogicalType::Type::NONE:
       return MakeMinMaxTypedScalar<int64_t>(statistics, type, min, max);
-      break;
+    case LogicalType::Type::DECIMAL:
+      return ExtractDecimalMinMaxFromInteger(statistics.min(), statistics.max(),
+                                             logical_type, min, max);
     default:
       break;
   }
 
-  return Status::NotImplemented("Cannot extract statistics for type ");
-}
-
-template <typename DecimalType>
-Result<std::shared_ptr<::arrow::Scalar>> FromBigEndianString(
-    const std::string& data, std::shared_ptr<DataType> arrow_type) {
-  ARROW_ASSIGN_OR_RAISE(
-      DecimalType decimal,
-      DecimalType::FromBigEndian(reinterpret_cast<const uint8_t*>(data.data()),
-                                 static_cast<int32_t>(data.size())));
-  return ::arrow::MakeScalar(std::move(arrow_type), decimal);
-}
-
-// Extracts Min and Max scalar from bytes like types (i.e. types where
-// decimal is encoded as little endian.
-Status ExtractDecimalMinMaxFromBytesType(const Statistics& statistics,
-                                         const LogicalType& logical_type,
-                                         std::shared_ptr<::arrow::Scalar>* min,
-                                         std::shared_ptr<::arrow::Scalar>* max) {
-  const DecimalLogicalType& decimal_type =
-      checked_cast<const DecimalLogicalType&>(logical_type);
-
-  Result<std::shared_ptr<DataType>> maybe_type =
-      Decimal128Type::Make(decimal_type.precision(), decimal_type.scale());
-  std::shared_ptr<DataType> arrow_type;
-  if (maybe_type.ok()) {
-    arrow_type = maybe_type.ValueOrDie();
-    ARROW_ASSIGN_OR_RAISE(
-        *min, FromBigEndianString<Decimal128>(statistics.EncodeMin(), arrow_type));
-    ARROW_ASSIGN_OR_RAISE(*max, FromBigEndianString<Decimal128>(statistics.EncodeMax(),
-                                                                std::move(arrow_type)));
-    return Status::OK();
-  }
-  // Fallback to see if Decimal256 can represent the type.
-  ARROW_ASSIGN_OR_RAISE(
-      arrow_type, Decimal256Type::Make(decimal_type.precision(), decimal_type.scale()));
-  ARROW_ASSIGN_OR_RAISE(
-      *min, FromBigEndianString<Decimal256>(statistics.EncodeMin(), arrow_type));
-  ARROW_ASSIGN_OR_RAISE(*max, FromBigEndianString<Decimal256>(statistics.EncodeMax(),
-                                                              std::move(arrow_type)));
-
-  return Status::OK();
+  return Status::NotImplemented("Cannot extract statistics for INT64 with logical type ",
+                                logical_type.ToString());
 }
 
 Status ByteArrayStatisticsAsScalars(const Statistics& statistics,
@@ -239,7 +267,8 @@ Status ByteArrayStatisticsAsScalars(const Statistics& statistics,
                                     std::shared_ptr<::arrow::Scalar>* max) {
   auto logical_type = statistics.descr()->logical_type();
   if (logical_type->type() == LogicalType::Type::DECIMAL) {
-    return ExtractDecimalMinMaxFromBytesType(statistics, *logical_type, min, max);
+    return ExtractDecimalMinMaxFromBytes(statistics.EncodeMin(), statistics.EncodeMax(),
+                                         *logical_type, min, max);
   }
   std::shared_ptr<::arrow::DataType> type;
   if (statistics.descr()->physical_type() == Type::FIXED_LEN_BYTE_ARRAY) {
@@ -344,7 +373,7 @@ void AttachStatistics(::arrow::ArrayData* data,
 
   using ArrowCType = typename ArrowType::c_type;
 
-  auto statistics = metadata->statistics().get();
+  auto statistics = metadata->statistics();
   if (data->null_count == ::arrow::kUnknownNullCount && !statistics) {
     return;
   }
@@ -358,17 +387,17 @@ void AttachStatistics(::arrow::ArrayData* data,
       array_statistics->distinct_count = statistics->distinct_count();
     }
     if (statistics->HasMinMax()) {
-      auto typed_statistics =
-          static_cast<::parquet::TypedStatistics<ParquetType>*>(statistics);
+      const auto* typed_statistics =
+          checked_cast<const ::parquet::TypedStatistics<ParquetType>*>(statistics.get());
       const ArrowCType min = typed_statistics->min();
       const ArrowCType max = typed_statistics->max();
-      if constexpr (std::is_same<ArrowCType, bool>::value) {
+      if constexpr (std::is_same_v<ArrowCType, bool>) {
         array_statistics->min = static_cast<bool>(min);
         array_statistics->max = static_cast<bool>(max);
-      } else if constexpr (std::is_floating_point<ArrowCType>::value) {
+      } else if constexpr (std::is_floating_point_v<ArrowCType>) {
         array_statistics->min = static_cast<double>(min);
         array_statistics->max = static_cast<double>(max);
-      } else if constexpr (std::is_signed<ArrowCType>::value) {
+      } else if constexpr (std::is_signed_v<ArrowCType>) {
         array_statistics->min = static_cast<int64_t>(min);
         array_statistics->max = static_cast<int64_t>(max);
       } else {
@@ -600,17 +629,10 @@ Status RawBytesToDecimalBytes(const uint8_t* value, int32_t byte_width,
   return ::arrow::Status::OK();
 }
 
-template <typename DecimalArrayType>
-struct DecimalTypeTrait;
-
-template <>
-struct DecimalTypeTrait<::arrow::Decimal128Array> {
-  using value = ::arrow::Decimal128;
-};
-
-template <>
-struct DecimalTypeTrait<::arrow::Decimal256Array> {
-  using value = ::arrow::Decimal256;
+template <typename DecimalArrayType,
+          typename = ::arrow::enable_if_decimal<typename DecimalArrayType::TypeClass>>
+struct DecimalTypeTrait {
+  using value = typename ::arrow::TypeTraits<typename DecimalArrayType::TypeClass>::CType;
 };
 
 template <typename DecimalArrayType, typename ParquetType>
@@ -725,16 +747,17 @@ struct DecimalConverter<DecimalArrayType, ByteArrayType> {
 /// The parquet spec allows systems to write decimals in int32, int64 if the values are
 /// small enough to fit in less 4 bytes or less than 8 bytes, respectively.
 /// This function implements the conversion from int32 and int64 arrays to decimal arrays.
-template <
-    typename DecimalArrayType, typename ParquetIntegerType,
-    typename = ::arrow::enable_if_t<std::is_same<ParquetIntegerType, Int32Type>::value ||
-                                    std::is_same<ParquetIntegerType, Int64Type>::value>>
+template <typename DecimalArrayType, typename ParquetIntegerType,
+          typename = ::arrow::enable_if_t<::arrow::internal::IsOneOf<
+              ParquetIntegerType, Int32Type, Int64Type>::value>>
 static Status DecimalIntegerTransfer(RecordReader* reader, MemoryPool* pool,
                                      const std::shared_ptr<Field>& field, Datum* out) {
-  // Decimal128 and Decimal256 are only Arrow constructs.  Parquet does not
-  // specifically distinguish between decimal byte widths.
-  DCHECK(field->type()->id() == ::arrow::Type::DECIMAL128 ||
-         field->type()->id() == ::arrow::Type::DECIMAL256);
+  using ArrayTypeClass = typename DecimalArrayType::TypeClass;
+  using DecimalValue = typename DecimalTypeTrait<DecimalArrayType>::value;
+
+  // Decimal32, Decimal64, Decimal128 and Decimal256 are only Arrow constructs.  Parquet
+  // does not specifically distinguish between decimal byte widths.
+  DCHECK(field->type()->id() == ArrayTypeClass::type_id);
 
   const int64_t length = reader->values_written();
 
@@ -745,25 +768,17 @@ static Status DecimalIntegerTransfer(RecordReader* reader, MemoryPool* pool,
 
   const auto values = reinterpret_cast<const ElementType*>(reader->values());
 
-  const auto& decimal_type = checked_cast<const ::arrow::DecimalType&>(*field->type());
+  const auto& decimal_type = checked_cast<const ArrayTypeClass&>(*field->type());
   const int64_t type_length = decimal_type.byte_width();
 
   ARROW_ASSIGN_OR_RAISE(auto data, ::arrow::AllocateBuffer(length * type_length, pool));
   uint8_t* out_ptr = data->mutable_data();
 
-  using ::arrow::bit_util::FromLittleEndian;
-
   for (int64_t i = 0; i < length; ++i, out_ptr += type_length) {
     // sign/zero extend int32_t values, otherwise a no-op
     const auto value = static_cast<int64_t>(values[i]);
-
-    if constexpr (std::is_same_v<DecimalArrayType, Decimal128Array>) {
-      ::arrow::Decimal128 decimal(value);
-      decimal.ToBytes(out_ptr);
-    } else {
-      ::arrow::Decimal256 decimal(value);
-      decimal.ToBytes(out_ptr);
-    }
+    DecimalValue decimal(value);
+    decimal.ToBytes(out_ptr);
   }
 
   if (reader->nullable_values() && field->nullable()) {
@@ -799,6 +814,33 @@ Status TransferDecimal(RecordReader* reader, MemoryPool* pool,
     ReconstructChunksWithoutNulls(&chunks);
   }
   *out = std::make_shared<ChunkedArray>(chunks, field->type());
+  return Status::OK();
+}
+
+template <typename DecimalArrayType, typename... Args>
+Status TransferDecimalTo(Type::type physical_type, Args&&... args) {
+  switch (physical_type) {
+    case ::parquet::Type::INT32: {
+      auto fn = DecimalIntegerTransfer<DecimalArrayType, Int32Type>;
+      RETURN_NOT_OK(fn(std::forward<Args>(args)...));
+    } break;
+    case ::parquet::Type::INT64: {
+      auto fn = DecimalIntegerTransfer<DecimalArrayType, Int64Type>;
+      RETURN_NOT_OK(fn(std::forward<Args>(args)...));
+    } break;
+    case ::parquet::Type::BYTE_ARRAY: {
+      auto fn = TransferDecimal<DecimalArrayType, ByteArrayType>;
+      RETURN_NOT_OK(fn(std::forward<Args>(args)...));
+    } break;
+    case ::parquet::Type::FIXED_LEN_BYTE_ARRAY: {
+      auto fn = TransferDecimal<DecimalArrayType, FLBAType>;
+      RETURN_NOT_OK(fn(std::forward<Args>(args)...));
+    } break;
+    default:
+      return Status::Invalid(
+          "Physical type for decimal must be int32, int64, byte array, or fixed length "
+          "binary");
+  }
   return Status::OK();
 }
 
@@ -902,55 +944,22 @@ Status TransferColumnData(RecordReader* reader,
       }
       RETURN_NOT_OK(TransferHalfFloat(reader, pool, value_field, &result));
     } break;
-    case ::arrow::Type::DECIMAL128: {
-      switch (descr->physical_type()) {
-        case ::parquet::Type::INT32: {
-          auto fn = DecimalIntegerTransfer<Decimal128Array, Int32Type>;
-          RETURN_NOT_OK(fn(reader, pool, value_field, &result));
-        } break;
-        case ::parquet::Type::INT64: {
-          auto fn = &DecimalIntegerTransfer<Decimal128Array, Int64Type>;
-          RETURN_NOT_OK(fn(reader, pool, value_field, &result));
-        } break;
-        case ::parquet::Type::BYTE_ARRAY: {
-          auto fn = &TransferDecimal<Decimal128Array, ByteArrayType>;
-          RETURN_NOT_OK(fn(reader, pool, value_field, &result));
-        } break;
-        case ::parquet::Type::FIXED_LEN_BYTE_ARRAY: {
-          auto fn = &TransferDecimal<Decimal128Array, FLBAType>;
-          RETURN_NOT_OK(fn(reader, pool, value_field, &result));
-        } break;
-        default:
-          return Status::Invalid(
-              "Physical type for decimal128 must be int32, int64, byte array, or fixed "
-              "length binary");
-      }
+    case ::arrow::Type::DECIMAL32: {
+      RETURN_NOT_OK(TransferDecimalTo<Decimal32Array>(descr->physical_type(), reader,
+                                                      pool, value_field, &result));
     } break;
-    case ::arrow::Type::DECIMAL256:
-      switch (descr->physical_type()) {
-        case ::parquet::Type::INT32: {
-          auto fn = DecimalIntegerTransfer<Decimal256Array, Int32Type>;
-          RETURN_NOT_OK(fn(reader, pool, value_field, &result));
-        } break;
-        case ::parquet::Type::INT64: {
-          auto fn = &DecimalIntegerTransfer<Decimal256Array, Int64Type>;
-          RETURN_NOT_OK(fn(reader, pool, value_field, &result));
-        } break;
-        case ::parquet::Type::BYTE_ARRAY: {
-          auto fn = &TransferDecimal<Decimal256Array, ByteArrayType>;
-          RETURN_NOT_OK(fn(reader, pool, value_field, &result));
-        } break;
-        case ::parquet::Type::FIXED_LEN_BYTE_ARRAY: {
-          auto fn = &TransferDecimal<Decimal256Array, FLBAType>;
-          RETURN_NOT_OK(fn(reader, pool, value_field, &result));
-        } break;
-        default:
-          return Status::Invalid(
-              "Physical type for decimal256 must be int32, int64, byte array, or fixed "
-              "length binary");
-      }
-      break;
-
+    case ::arrow::Type::DECIMAL64: {
+      RETURN_NOT_OK(TransferDecimalTo<Decimal64Array>(descr->physical_type(), reader,
+                                                      pool, value_field, &result));
+    } break;
+    case ::arrow::Type::DECIMAL128: {
+      RETURN_NOT_OK(TransferDecimalTo<Decimal128Array>(descr->physical_type(), reader,
+                                                       pool, value_field, &result));
+    } break;
+    case ::arrow::Type::DECIMAL256: {
+      RETURN_NOT_OK(TransferDecimalTo<Decimal256Array>(descr->physical_type(), reader,
+                                                       pool, value_field, &result));
+    } break;
     case ::arrow::Type::TIMESTAMP: {
       const ::arrow::TimestampType& timestamp_type =
           checked_cast<::arrow::TimestampType&>(*value_field->type());

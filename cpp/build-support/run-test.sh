@@ -77,6 +77,7 @@ function setup_sanitizers() {
 
   # Set up suppressions for AddressSanitizer
   ASAN_OPTIONS="$ASAN_OPTIONS suppressions=$ROOT/build-support/asan-suppressions.txt"
+  ASAN_OPTIONS="$ASAN_OPTIONS allocator_may_return_null=1"
   export ASAN_OPTIONS
 
   # Set up suppressions for LeakSanitizer
@@ -128,7 +129,7 @@ function print_coredumps() {
   #   ulimit -c unlimited
   #
   # If the tests are run in a Docker container, the instructions are slightly
-  # different: see the 'Coredumps' comment section in `docker-compose.yml`.
+  # different: see the 'Coredumps' comment section in `compose.yaml`.
 
   # filename is truncated to the first 15 characters in case of linux, so limit
   # the pattern for the first 15 characters
