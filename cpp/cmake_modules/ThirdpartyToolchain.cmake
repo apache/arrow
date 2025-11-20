@@ -4003,6 +4003,9 @@ function(build_orc)
     set(LZ4_LIBRARY ${ORC_LZ4_TARGET})
 
     set(ORC_PREFER_STATIC_PROTOBUF OFF)
+    if(MSVC AND PROTOBUF_VENDORED)
+      add_compile_definitions(PROTOBUF_STATIC_LIB)
+    endif()
     get_target_property(PROTOBUF_INCLUDE_DIR ${ARROW_PROTOBUF_LIBPROTOBUF}
                         INTERFACE_INCLUDE_DIRECTORIES)
     get_filename_component(Protobuf_ROOT "${PROTOBUF_INCLUDE_DIR}" DIRECTORY)
