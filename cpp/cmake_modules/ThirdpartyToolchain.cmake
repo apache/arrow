@@ -1887,6 +1887,12 @@ function(build_protobuf)
       "${PROTOBUF_INCLUDE_DIR}"
       PARENT_SCOPE)
 
+  # Always build protobuf as static library to avoid DLL import/export issues on Windows
+  # Must be set BEFORE fetchcontent_declare and as CACHE FORCE to override the option()
+  set(protobuf_BUILD_SHARED_LIBS
+      OFF
+      CACHE BOOL "Build protobuf shared libs" FORCE)
+
   fetchcontent_declare(protobuf
                        URL ${PROTOBUF_SOURCE_URL}
                        URL_HASH "SHA256=${ARROW_PROTOBUF_BUILD_SHA256_CHECKSUM}"
@@ -1909,11 +1915,6 @@ function(build_protobuf)
   string(REPLACE "-ffat-lto-objects" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
 
   set(protobuf_BUILD_TESTS OFF)
-  # Always build protobuf as static library to avoid DLL import/export issues
-  # Must be CACHE FORCE to override the option() in protobuf's CMakeLists.txt
-  set(protobuf_BUILD_SHARED_LIBS
-      OFF
-      CACHE BOOL "Build protobuf shared libs" FORCE)
   if(MSVC AND NOT ARROW_USE_STATIC_CRT)
     set(protobuf_MSVC_STATIC_RUNTIME OFF)
   endif()
@@ -4010,11 +4011,6 @@ function(build_orc)
     set(PROTOBUF_EXECUTABLE ${ARROW_PROTOBUF_PROTOC})
     set(PROTOBUF_LIBRARY ${ARROW_PROTOBUF_LIBPROTOBUF})
     set(PROTOC_LIBRARY ${ARROW_PROTOBUF_LIBPROTOC})
-    # ORC uses libprotoc - ensure it has the include directories
-    if(PROTOBUF_VENDORED)
-      target_include_directories(${ARROW_PROTOBUF_LIBPROTOC}
-                                 INTERFACE "${PROTOBUF_INCLUDE_DIR}")
-    endif()
 
     set(ORC_PREFER_STATIC_SNAPPY OFF)
     get_target_property(SNAPPY_INCLUDE_DIR ${Snappy_TARGET} INTERFACE_INCLUDE_DIRECTORIES)
