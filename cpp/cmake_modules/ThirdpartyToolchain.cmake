@@ -1908,6 +1908,9 @@ function(build_protobuf)
     set(protobuf_MSVC_STATIC_RUNTIME OFF)
   endif()
 
+  # Unity build causes some build errors
+  set(CMAKE_UNITY_BUILD OFF)
+
   fetchcontent_makeavailable(protobuf)
 
   # Get the actual include directory from the protobuf target
@@ -4289,6 +4292,11 @@ macro(build_opentelemetry)
 
   add_dependencies(opentelemetry_dependencies nlohmann_json::nlohmann_json
                    opentelemetry_proto_ep ${ARROW_PROTOBUF_LIBPROTOBUF})
+
+  # Ensure vendored protobuf is installed before OpenTelemetry builds
+  if(PROTOBUF_VENDORED)
+    add_dependencies(opentelemetry_dependencies protobuf_fc)
+  endif()
 
   string(JOIN "${EP_LIST_SEPARATOR}" OPENTELEMETRY_PREFIX_PATH
          ${OPENTELEMETRY_PREFIX_PATH_LIST})
