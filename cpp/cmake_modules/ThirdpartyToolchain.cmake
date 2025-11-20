@@ -1910,7 +1910,10 @@ function(build_protobuf)
 
   set(protobuf_BUILD_TESTS OFF)
   # Always build protobuf as static library to avoid DLL import/export issues
-  set(protobuf_BUILD_SHARED_LIBS OFF)
+  # Must be CACHE FORCE to override the option() in protobuf's CMakeLists.txt
+  set(protobuf_BUILD_SHARED_LIBS
+      OFF
+      CACHE BOOL "Build protobuf shared libs" FORCE)
   if(MSVC AND NOT ARROW_USE_STATIC_CRT)
     set(protobuf_MSVC_STATIC_RUNTIME OFF)
   endif()
