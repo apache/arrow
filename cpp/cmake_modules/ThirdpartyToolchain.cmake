@@ -1904,6 +1904,8 @@ function(build_protobuf)
   string(REPLACE "-ffat-lto-objects" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
 
   set(protobuf_BUILD_TESTS OFF)
+  # Always build protobuf as static library to avoid DLL import/export issues
+  set(protobuf_BUILD_SHARED_LIBS OFF)
   if(MSVC AND NOT ARROW_USE_STATIC_CRT)
     set(protobuf_MSVC_STATIC_RUNTIME OFF)
   endif()
