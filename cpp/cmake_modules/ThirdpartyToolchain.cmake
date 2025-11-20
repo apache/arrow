@@ -4004,6 +4004,12 @@ function(build_orc)
 
     set(ORC_PREFER_STATIC_PROTOBUF OFF)
     if(MSVC AND PROTOBUF_VENDORED)
+      set(CMAKE_CXX_FLAGS
+          "${CMAKE_CXX_FLAGS} /DPROTOBUF_STATIC_LIB"
+          CACHE STRING "" FORCE)
+      set(CMAKE_C_FLAGS
+          "${CMAKE_C_FLAGS} /DPROTOBUF_STATIC_LIB"
+          CACHE STRING "" FORCE)
       add_compile_definitions(PROTOBUF_STATIC_LIB)
     endif()
     get_target_property(PROTOBUF_INCLUDE_DIR ${ARROW_PROTOBUF_LIBPROTOBUF}
