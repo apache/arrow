@@ -34,6 +34,7 @@ add_arrow_test(flight_sql_odbc_test
                SOURCES
                odbc_test_suite.cc
                odbc_test_suite.h
+               odbc_test_util.h
                connection_test.cc
                # Enable Protobuf cleanup after test execution
                # GH-46889: move protobuf_test_util to a more common location
@@ -44,3 +45,6 @@ add_arrow_test(flight_sql_odbc_test
                ${ODBCINST}
                ${SQLite3_LIBRARIES}
                arrow_odbc_spi_impl)
+
+# Disable unity build due to sqlite_sql_info.cc conflict with sql.h and sqlext.h headers.
+set_target_properties(arrow-flight-sql-odbc-test PROPERTIES UNITY_BUILD OFF)

@@ -29,8 +29,8 @@
 #include <sql.h>
 #include <sqlext.h>
 #include <sqltypes.h>
-#include <boost/optional.hpp>
 #include <boost/variant.hpp>
+#include <optional>
 #include <utility>
 
 using ODBC::DescriptorRecord;
@@ -273,7 +273,7 @@ void ODBCStatement::CopyAttributesFromConnection(ODBCConnection& connection) {
 bool ODBCStatement::IsPrepared() const { return is_prepared_; }
 
 void ODBCStatement::Prepare(const std::string& query) {
-  boost::optional<std::shared_ptr<ResultSetMetadata> > metadata =
+  std::optional<std::shared_ptr<ResultSetMetadata> > metadata =
       spi_statement_->Prepare(query);
 
   if (metadata) {
@@ -352,7 +352,7 @@ bool ODBCStatement::Fetch(size_t rows) {
 void ODBCStatement::GetStmtAttr(SQLINTEGER statement_attribute, SQLPOINTER output,
                                 SQLINTEGER buffer_size, SQLINTEGER* str_len_ptr,
                                 bool is_unicode) {
-  boost::optional<Statement::Attribute> spi_attribute;
+  std::optional<Statement::Attribute> spi_attribute;
   switch (statement_attribute) {
     // Descriptor accessor attributes
     case SQL_ATTR_APP_PARAM_DESC:

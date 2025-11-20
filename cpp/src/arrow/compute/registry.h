@@ -112,6 +112,11 @@ class ARROW_EXPORT FunctionRegistry {
   /// Helpful for get cast function as needed.
   const Function* cast_function() const;
 
+  /// \brief Clear function registry
+  ///
+  /// Helpful to avoid segfault from race condition. Call this function before DLL unload.
+  void ClearFunctioRegistry();
+
  private:
   FunctionRegistry();
 

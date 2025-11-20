@@ -29,6 +29,7 @@
 #include "arrow/flight/sql/odbc/odbc_impl/spi/statement.h"
 #include "arrow/flight/sql/odbc/odbc_impl/util.h"
 
+// Include ODBC headers after arrow headers to avoid conflicts with sql_info_undef.h
 #include <odbcinst.h>
 #include <sql.h>
 #include <sqlext.h>
@@ -36,6 +37,7 @@
 #include <boost/xpressive/xpressive.hpp>
 #include <iterator>
 #include <memory>
+#include <optional>
 #include <utility>
 
 using ODBC::ODBCConnection;
@@ -531,7 +533,7 @@ void ODBCConnection::SetConnectAttr(SQLINTEGER attribute, SQLPOINTER value,
 void ODBCConnection::GetConnectAttr(SQLINTEGER attribute, SQLPOINTER value,
                                     SQLINTEGER buffer_length, SQLINTEGER* output_length,
                                     bool is_unicode) {
-  boost::optional<Connection::Attribute> spi_attribute;
+  std::optional<Connection::Attribute> spi_attribute;
 
   switch (attribute) {
     // Internal connection attributes

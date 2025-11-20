@@ -20,6 +20,7 @@
 #include "arrow/flight/sql/odbc/odbc_impl/flight_sql_connection.h"
 
 #include "arrow/flight/sql/odbc/tests/odbc_test_suite.h"
+#include "arrow/flight/sql/odbc/tests/odbc_test_util.h"
 
 // For DSN registration
 #include "arrow/flight/sql/odbc/odbc_impl/config/configuration.h"
@@ -27,6 +28,12 @@
 #include "arrow/flight/sql/odbc/odbc_impl/odbc_connection.h"
 
 namespace arrow::flight::sql::odbc {
+
+auto odbc_util_env = ::testing::AddGlobalTestEnvironment(new OdbcUtilEnvironment);
+
+OdbcUtilEnvironment* GetOdbcUtilEnv() {
+  return ::arrow::internal::checked_cast<OdbcUtilEnvironment*>(odbc_util_env);
+}
 
 void ODBCRemoteTestBase::AllocEnvConnHandles(SQLINTEGER odbc_ver) {
   // Allocate an environment handle
@@ -54,12 +61,16 @@ void ODBCRemoteTestBase::ConnectWithString(std::string connect_str) {
   SQLWCHAR out_str[kOdbcBufferSize];
   SQLSMALLINT out_str_len;
 
+  // -AL- once local conn handles are removed,can rename back to conn
+  SQLHDBC global_conn = GetOdbcUtilEnv()->getConnHandle();
+  // SQLHDBC global_conn = conn;  //-AL- TEMP
+
   // Connecting to ODBC server.
   ASSERT_EQ(SQL_SUCCESS,
-            SQLDriverConnect(conn, NULL, &connect_str0[0],
+            SQLDriverConnect(global_conn, NULL, &connect_str0[0],
                              static_cast<SQLSMALLINT>(connect_str0.size()), out_str,
                              kOdbcBufferSize, &out_str_len, SQL_DRIVER_NOPROMPT))
-      << GetOdbcErrorMessage(SQL_HANDLE_DBC, conn);
+      << GetOdbcErrorMessage(SQL_HANDLE_DBC, global_conn);
 
   // GH-47710: TODO Allocate a statement using alloc handle
   // ASSERT_EQ(SQL_SUCCESS, SQLAllocHandle(SQL_HANDLE_STMT, conn, &stmt));
@@ -69,9 +80,12 @@ void ODBCRemoteTestBase::Disconnect() {
   // GH-47710: TODO Close statement
   // EXPECT_EQ(SQL_SUCCESS, SQLFreeHandle(SQL_HANDLE_STMT, stmt));
 
+  // -AL- once local conn handles are removed,can rename back to conn
+  SQLHDBC global_conn = GetOdbcUtilEnv()->getConnHandle();
+
   // Disconnect from ODBC
-  EXPECT_EQ(SQL_SUCCESS, SQLDisconnect(conn))
-      << GetOdbcErrorMessage(SQL_HANDLE_DBC, conn);
+  EXPECT_EQ(SQL_SUCCESS, SQLDisconnect(global_conn))
+      << GetOdbcErrorMessage(SQL_HANDLE_DBC, global_conn);
 
   FreeEnvConnHandles();
 }

@@ -39,7 +39,15 @@ FlightStreamChunkBuffer::FlightStreamChunkBuffer(
       bool is_not_ok = !result.ok();
       bool is_not_empty = result.ok() && (result.ValueOrDie().data != nullptr);
 
-      return boost::make_optional(is_not_ok || is_not_empty, std::move(result));
+      // If result is valid, save the temp Flight SQL Client for future stream reader
+      // call. temp_flight_sql_client is intentionally null if the list of endpoint
+      // Locations is empty.
+      // After all data is fetched from reader, the temp client is closed.
+      if (is_not_ok || is_not_empty) {
+        return std::make_optional(std::move(result));
+      } else {
+        return std::optional<Result<FlightStreamChunk>>{};
+      }
     };
     queue_.AddProducer(std::move(supplier));
   }

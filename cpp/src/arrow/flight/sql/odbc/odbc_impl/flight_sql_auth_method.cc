@@ -24,6 +24,7 @@
 #include "arrow/result.h"
 #include "arrow/status.h"
 
+#include <optional>
 #include <utility>
 
 namespace arrow::flight::sql::odbc {
@@ -63,7 +64,7 @@ class UserPasswordAuthMethod : public FlightSqlAuthMethod {
   void Authenticate(FlightSqlConnection& connection,
                     FlightCallOptions& call_options) override {
     FlightCallOptions auth_call_options;
-    const boost::optional<Connection::Attribute>& login_timeout =
+    const std::optional<Connection::Attribute>& login_timeout =
         connection.GetAttribute(Connection::LOGIN_TIMEOUT);
     if (login_timeout && boost::get<uint32_t>(*login_timeout) > 0) {
       // ODBC's LOGIN_TIMEOUT attribute and FlightCallOptions.timeout use

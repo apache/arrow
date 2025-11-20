@@ -36,15 +36,18 @@ on:
 jobs:
   windows:
     runs-on: ${{ inputs.os }}
-    timeout-minutes: 60
+    timeout-minutes: 240
     env:
-      ARROW_BOOST_USE_SHARED: OFF
       ARROW_BUILD_BENCHMARKS: ON
       ARROW_BUILD_SHARED: ON
-      ARROW_BUILD_STATIC: OFF
+      ARROW_BUILD_STATIC: ON
       ARROW_BUILD_TESTS: ON
+      ARROW_BUILD_TYPE: release
       ARROW_DATASET: ON
-      ARROW_FLIGHT: OFF
+      ARROW_DEPENDENCY_SOURCE: VCPKG
+      ARROW_FLIGHT: ON
+      ARROW_FLIGHT_SQL: ON
+      ARROW_FLIGHT_SQL_ODBC: ON
       ARROW_HDFS: ON
       ARROW_HOME: /usr
       ARROW_JEMALLOC: OFF
@@ -62,11 +65,12 @@ jobs:
       ARROW_WITH_SNAPPY: ON
       ARROW_WITH_ZLIB: ON
       ARROW_WITH_ZSTD: ON
-      BOOST_SOURCE: BUNDLED
       CMAKE_CXX_STANDARD: "17"
       CMAKE_GENERATOR: Ninja
       CMAKE_INSTALL_PREFIX: /usr
       CMAKE_UNITY_BUILD: ON
+      VCPKG_BINARY_SOURCES: 'clear;nuget,GitHub,readwrite'
+      VCPKG_DEFAULT_TRIPLET: x64-windows
     steps:
       - name: Disable Crash Dialogs
         run: |
@@ -110,15 +114,53 @@ jobs:
           path: ${{ steps.ccache-info.outputs.cache-dir }}
           key: cpp-ccache-windows-${{ inputs.arch }}-${{ hashFiles('cpp/**') }}
           restore-keys: cpp-ccache-windows-${{ inputs.arch }}-
+      - name: Checkout vcpkg
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          fetch-depth: 0
+          path: vcpkg
+          repository: microsoft/vcpkg
+      - name: Bootstrap vcpkg
+        run: |
+          vcpkg\bootstrap-vcpkg.bat
+          $VCPKG_ROOT = $(Resolve-Path -LiteralPath "vcpkg").ToString()
+          Write-Output ${VCPKG_ROOT} | `
+            Out-File -FilePath ${Env:GITHUB_PATH} -Encoding utf8 -Append
+          Write-Output "VCPKG_ROOT=${VCPKG_ROOT}" | `
+            Out-File -FilePath ${Env:GITHUB_ENV} -Encoding utf8 -Append
+      - name: Setup NuGet credentials for vcpkg caching
+        shell: bash
+        run: |
+          $(vcpkg fetch nuget | tail -n 1) \
+            sources add \
+            -source "https://nuget.pkg.github.com/$GITHUB_REPOSITORY_OWNER/index.json" \
+            -storepasswordincleartext \
+            -name "GitHub" \
+            -username "$GITHUB_REPOSITORY_OWNER" \
+            -password "${{ secrets.GITHUB_TOKEN }}"
+          $(vcpkg fetch nuget | tail -n 1) \
+            setapikey "${{ secrets.GITHUB_TOKEN }}" \
+            -source "https://nuget.pkg.github.com/$GITHUB_REPOSITORY_OWNER/index.json"
       - name: Build
         shell: cmd
         run: |
+          set VCPKG_ROOT_KEEP=%VCPKG_ROOT%
           call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" ${{ inputs.arch }}
+          set VCPKG_ROOT=%VCPKG_ROOT_KEEP%
           bash -c "ci/scripts/cpp_build.sh $(pwd) $(pwd)/build"
+      - name: Register Flight SQL ODBC Driver
+        shell: cmd
+        run: |
+          call "cpp\src\arrow\flight\sql\odbc\tests\install_odbc.cmd" ${{ github.workspace }}\build\cpp\%ARROW_BUILD_TYPE%\arrow_flight_sql_odbc.dll
       - name: Test
         shell: cmd
         run: |
+          set VCPKG_ROOT_KEEP=%VCPKG_ROOT%
           call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" ${{ inputs.arch }}
           # For ORC
           set TZDIR=${{ steps.setup-msys2.outputs.msys2-location }}\usr\share\zoneinfo
+
+          # Convert VCPKG Windows path to MSYS path
+          for /f "usebackq delims=" %%I in (`bash -c "cygpath -u \"$VCPKG_ROOT_KEEP\""` ) do set VCPKG_ROOT=%%I
+
           bash -c "ci/scripts/cpp_test.sh $(pwd) $(pwd)/build"

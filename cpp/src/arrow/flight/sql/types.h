@@ -25,6 +25,7 @@
 #include <variant>
 #include <vector>
 
+#include "arrow/flight/sql/sql_info_undef.h"
 #include "arrow/flight/sql/visibility.h"
 #include "arrow/type_fwd.h"
 

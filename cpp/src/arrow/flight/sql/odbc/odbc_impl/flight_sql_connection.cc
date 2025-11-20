@@ -31,7 +31,6 @@
 #include <boost/algorithm/string/join.hpp>
 #include <boost/asio/ip/address.hpp>
 #include <boost/lexical_cast.hpp>
-#include <boost/optional.hpp>
 #include "arrow/flight/sql/odbc/odbc_impl/exceptions.h"
 
 #include <sql.h>
@@ -199,7 +198,7 @@ void FlightSqlConnection::PopulateMetadataSettings(
   metadata_settings_.chunk_buffer_capacity = GetChunkBufferCapacity(conn_property_map);
 }
 
-boost::optional<int32_t> FlightSqlConnection::GetStringColumnLength(
+std::optional<int32_t> FlightSqlConnection::GetStringColumnLength(
     const Connection::ConnPropertyMap& conn_property_map) {
   const int32_t min_string_column_length = 1;
 
@@ -214,7 +213,7 @@ boost::optional<int32_t> FlightSqlConnection::GetStringColumnLength(
         "01000", ODBCErrorCodes_GENERAL_WARNING);
   }
 
-  return boost::none;
+  return std::nullopt;
 }
 
 bool FlightSqlConnection::GetUseWideChar(const ConnPropertyMap& conn_property_map) {
@@ -250,7 +249,7 @@ const FlightCallOptions& FlightSqlConnection::PopulateCallOptions(
     const ConnPropertyMap& props) {
   // Set CONNECTION_TIMEOUT attribute or LOGIN_TIMEOUT depending on if this
   // is the first request.
-  const boost::optional<Connection::Attribute>& connection_timeout =
+  const std::optional<Connection::Attribute>& connection_timeout =
       closed_ ? GetAttribute(LOGIN_TIMEOUT) : GetAttribute(CONNECTION_TIMEOUT);
   if (connection_timeout && boost::get<uint32_t>(*connection_timeout) > 0) {
     call_options_.timeout =
@@ -388,17 +387,21 @@ bool FlightSqlConnection::SetAttribute(Connection::AttributeId attribute,
   }
 }
 
-boost::optional<Connection::Attribute> FlightSqlConnection::GetAttribute(
+std::optional<Connection::Attribute> FlightSqlConnection::GetAttribute(
     Connection::AttributeId attribute) {
   switch (attribute) {
     case ACCESS_MODE:
       // FlightSQL does not provide this metadata.
-      return boost::make_optional(Attribute(static_cast<uint32_t>(SQL_MODE_READ_WRITE)));
+      return std::make_optional(Attribute(static_cast<uint32_t>(SQL_MODE_READ_WRITE)));
     case PACKET_SIZE:
-      return boost::make_optional(Attribute(static_cast<uint32_t>(0)));
+      return std::make_optional(Attribute(static_cast<uint32_t>(0)));
     default:
       const auto& it = attribute_.find(attribute);
-      return boost::make_optional(it != attribute_.end(), it->second);
+      if (it != attribute_.end()) {
+        return std::make_optional(it->second);
+      } else {
+        return std::nullopt;
+      }
   }
 }
 

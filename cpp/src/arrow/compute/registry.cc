@@ -127,6 +127,8 @@ class FunctionRegistry::FunctionRegistryImpl {
 
   const Function* cast_function() { return cast_function_; }
 
+  void ClearFunctioRegistry() { name_to_function_.clear(); }
+
  private:
   // must not acquire mutex
   Status CanAddFunctionName(const std::string& name, bool allow_overwrite) {
@@ -276,6 +278,8 @@ Result<const FunctionOptionsType*> FunctionRegistry::GetFunctionOptionsType(
 int FunctionRegistry::num_functions() const { return impl_->num_functions(); }
 
 const Function* FunctionRegistry::cast_function() const { return impl_->cast_function(); }
+
+void FunctionRegistry::ClearFunctioRegistry() { impl_->ClearFunctioRegistry(); }
 
 namespace internal {
 
