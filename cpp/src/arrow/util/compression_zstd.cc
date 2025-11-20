@@ -229,10 +229,15 @@ class ZSTDCodec : public Codec {
     if (!compression_context_) {
       compression_context_ =
           decltype(compression_context_)(ZSTD_createCCtx(), ZSTDContextDeleter{});
+      size_t ret = ZSTD_CCtx_setParameter(compression_context_.get(),
+                                          ZSTD_c_compressionLevel, compression_level_);
+      if (ZSTD_isError(ret)) {
+        return ZSTDError(ret, "Setting ZSTD compression level failed: ");
+      }
     }
-    size_t ret = ZSTD_compressCCtx(compression_context_.get(), output_buffer,
-                                   static_cast<size_t>(output_buffer_len), input,
-                                   static_cast<size_t>(input_len), compression_level_);
+    size_t ret = ZSTD_compress2(compression_context_.get(), output_buffer,
+                                static_cast<size_t>(output_buffer_len), input,
+                                static_cast<size_t>(input_len));
     if (ZSTD_isError(ret)) {
       return ZSTDError(ret, "ZSTD compression failed: ");
     }
