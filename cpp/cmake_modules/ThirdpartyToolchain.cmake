@@ -1873,6 +1873,11 @@ function(build_protobuf)
   set(PROTOBUF_VENDORED
       TRUE
       PARENT_SCOPE)
+  # When building protobuf from source via FetchContent, we always build it as static
+  # Update ARROW_PROTOBUF_USE_SHARED to reflect this (must be CACHE to be visible to ORC)
+  set(ARROW_PROTOBUF_USE_SHARED
+      OFF
+      CACHE BOOL "" FORCE)
   set(PROTOBUF_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/protobuf_fc-install")
   set(PROTOBUF_PREFIX
       "${PROTOBUF_PREFIX}"
