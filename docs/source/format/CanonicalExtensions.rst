@@ -573,7 +573,7 @@ This extension type is intended to be compatible with ANSI SQL's ``TIMESTAMP WIT
 
 .. note::
 
-   It is also *permissible* for ``timestamp`` and ``offset_minutes`` to be nullable, even though it is not preferred.
+   It is also *permissible* for ``timestamp`` and ``offset_minutes`` to be nullable, but not recommended.
 
    If ``timestamp`` is nullable and a value is found to be null, then the whole ``TimestampWithOffset`` value should be interpreted as null. One way of achieving this is to drop ``timestamp``'s validity buffer (V1) and replace the top-level struct's validity buffer (V2) with the result of ``V1 AND V2``.
 
