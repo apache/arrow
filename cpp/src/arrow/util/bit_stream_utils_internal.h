@@ -365,6 +365,9 @@ inline bool BitReader::GetVlqInt(Int* v) {
   // In all case, we read a byte-aligned value, skipping remaining bits
   const uint8_t* data = NULLPTR;
   int max_size = 0;
+#if ARROW_LITTLE_ENDIAN
+  // The data that we will pass to the LEB128 parser.
+  // In all case, we read a byte-aligned value, skipping remaining bits.
 
   // Number of bytes left in the buffered values, not including the current
   // byte (i.e., there may be an additional fraction of a byte).
@@ -381,6 +384,17 @@ inline bool BitReader::GetVlqInt(Int* v) {
     max_size = bytes_left();
     data = buffer_ + (max_bytes_ - max_size);
   }
+#else
+  // For VLQ reading, always read directly from buffer to avoid endianness issues
+  // with buffered_values_ on big-endian systems like s390x.
+  // Calculate current position in buffer accounting for bit offset.
+  const int current_byte_offset = byte_offset_ + bit_util::BytesForBits(bit_offset_);
+  const int bytes_left_in_buffer = max_bytes_ - current_byte_offset;
+
+  // Always read from buffer directly to avoid endianness issues
+  data = buffer_ + current_byte_offset;
+  max_size = bytes_left_in_buffer;
+#endif
 
   const auto bytes_read = bit_util::ParseLeadingLEB128(data, max_size, v);
   if (ARROW_PREDICT_FALSE(bytes_read == 0)) {
