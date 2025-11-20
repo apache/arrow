@@ -377,12 +377,18 @@ constexpr auto make_mult(xsimd::batch_constant<Int, Arch, kShifts...>) {
   return xsimd::batch_constant<Int, Arch, static_cast<Int>(1u << kShifts)...>();
 }
 
-template <typename Int, Int kOffset, Int kLength, Int... kVals>
+template <typename Int, int kOffset, int kLength, Int... kVals>
 struct SelectStride {
   static constexpr auto kShiftsArr = std::array{kVals...};
 
-  static constexpr Int get(Int i, Int n) { return kShiftsArr[kLength * i + kOffset]; }
+  static constexpr Int get(int i, int n) { return kShiftsArr[kLength * i + kOffset]; }
 };
+
+template <typename ToInt, int kOffset, typename Int, typename Arch, Int... kShifts>
+constexpr auto select_stride(xsimd::batch_constant<Int, Arch, kShifts...>) {
+  return xsimd::make_batch_constant<
+      ToInt, Arch, SelectStride<Int, kOffset, sizeof(ToInt) / sizeof(Int), kShifts...>>();
+}
 
 // Fallback for variable shift left.
 //
@@ -403,39 +409,29 @@ auto left_shift(const xsimd::batch<Int, Arch>& batch,
   // constexpr auto kMults = xsimd::make_batch_constant<Int, 1, Arch>() << shits;
   constexpr auto kMults = make_mult(shifts);
 
-  if constexpr (kHasSse2) {
-    if constexpr (sizeof(Int) == sizeof(uint16_t)) {
-      return _mm_mullo_epi16(batch, kMults.as_batch());
-    }
-    if constexpr (sizeof(Int) == sizeof(uint32_t)) {
-      return _mm_mullo_epi32(batch, kMults.as_batch());
-    }
+  constexpr auto IntSize = sizeof(Int);
+
+  // Sizes and architecture for which there is no variable left shift and there is a
+  // multiplication
+  if constexpr (                                                                  //
+      (kHasSse2 && (IntSize == sizeof(uint16_t) || IntSize == sizeof(uint32_t)))  //
+      || (kHasAvx2 && (IntSize == sizeof(uint16_t)))                              //
+  ) {
+    return batch * kMults;
   }
-  if constexpr (kHasAvx2) {
-    if constexpr (sizeof(Int) == sizeof(uint8_t)) {
-      auto batch16 = xsimd::bitwise_cast<uint16_t>(batch);
 
-      constexpr auto kShifts0 =
-          xsimd::make_batch_constant<uint16_t, Arch,
-                                     SelectStride<Int, 0, 2, kShifts...>>();
-      constexpr auto kMults0 = make_mult(kShifts0);
-      const auto shifted0 = _mm256_mullo_epi16(batch16, kMults0.as_batch());
-      const auto mask0 = decltype(batch16)(0x00FF);
-      const auto masked0 = _mm256_and_si256(shifted0, mask0);
+  // Architecture for which there is no variable left shift on uint8_t but a fallback
+  // exists for uint16_t.
+  if constexpr ((kHasSse2 || kHasAvx2) && (IntSize == sizeof(uint8_t))) {
+    const auto batch16 = xsimd::bitwise_cast<uint16_t>(batch);
 
-      constexpr auto kShifts1 =
-          xsimd::make_batch_constant<uint16_t, Arch,
-                                     SelectStride<Int, 1, 2, kShifts...>>();
-      constexpr auto kMults1 = make_mult(kShifts1);
-      const auto mask1 = decltype(batch16)(0xFF00);
-      const auto masked1 = _mm256_and_si256(batch16, mask1);
-      const auto shifted1 = _mm256_mullo_epi16(masked1, kMults1.as_batch());
+    constexpr auto kShifts0 = select_stride<uint16_t, 0>(shifts);
+    const auto shifted0 = left_shift(batch16, kShifts0) & 0x00FF;
 
-      return _mm256_or_si256(masked0, shifted1);
-    }
-    if constexpr (sizeof(Int) == sizeof(uint16_t)) {
-      return _mm256_mullo_epi16(batch, kMults.as_batch());
-    }
+    constexpr auto kShifts1 = select_stride<uint16_t, 1>(shifts);
+    const auto shifted1 = left_shift(batch16 & 0xFF00, kShifts1);
+
+    return xsimd::bitwise_cast<Int>(shifted0 | shifted1);
   }
 
   return batch << shifts;
@@ -461,10 +457,10 @@ auto right_shift_by_excess(const xsimd::batch<Int, Arch>& batch,
 
   // These conditions are the ones matched in `left_shift`, i.e. the ones where variable
   // shift right will not be available.
-  if constexpr ((kHasSse2 &
-                 (sizeof(Int) == sizeof(uint16_t) || sizeof(Int) == sizeof(uint32_t))) ||
-                (kHasAvx2 &
-                 (sizeof(Int) == sizeof(uint8_t) || sizeof(Int) == sizeof(uint16_t)))) {
+  if constexpr (  //
+      (kHasSse2 && (sizeof(Int) == sizeof(uint8_t) || sizeof(Int) == sizeof(uint16_t) ||
+                    sizeof(Int) == sizeof(uint32_t))) ||
+      (kHasAvx2 && (sizeof(Int) == sizeof(uint8_t) || sizeof(Int) == sizeof(uint16_t)))) {
     static constexpr auto kShiftsArr = std::array{kShifts...};
     static constexpr Int kMaxRightShift = max_value(kShiftsArr);
 
