@@ -22,7 +22,7 @@ project(
     version: '23.0.0-SNAPSHOT',
     license: 'Apache-2.0',
     meson_version: '>=1.3.0',
-    default_options: ['c_std=gnu11,c11', 'warning_level=2', 'cpp_std=c++17'],
+    default_options: ['c_std=c11', 'warning_level=2', 'cpp_std=c++17'],
 )
 
 project_args = [
