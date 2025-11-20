@@ -4003,15 +4003,6 @@ function(build_orc)
     set(LZ4_LIBRARY ${ORC_LZ4_TARGET})
 
     set(ORC_PREFER_STATIC_PROTOBUF OFF)
-    if(MSVC AND PROTOBUF_VENDORED)
-      set(CMAKE_CXX_FLAGS
-          "${CMAKE_CXX_FLAGS} /DPROTOBUF_STATIC_LIB"
-          CACHE STRING "" FORCE)
-      set(CMAKE_C_FLAGS
-          "${CMAKE_C_FLAGS} /DPROTOBUF_STATIC_LIB"
-          CACHE STRING "" FORCE)
-      add_compile_definitions(PROTOBUF_STATIC_LIB)
-    endif()
     get_target_property(PROTOBUF_INCLUDE_DIR ${ARROW_PROTOBUF_LIBPROTOBUF}
                         INTERFACE_INCLUDE_DIRECTORIES)
     get_filename_component(Protobuf_ROOT "${PROTOBUF_INCLUDE_DIR}" DIRECTORY)
@@ -4019,6 +4010,11 @@ function(build_orc)
     set(PROTOBUF_EXECUTABLE ${ARROW_PROTOBUF_PROTOC})
     set(PROTOBUF_LIBRARY ${ARROW_PROTOBUF_LIBPROTOBUF})
     set(PROTOC_LIBRARY ${ARROW_PROTOBUF_LIBPROTOC})
+    # ORC uses libprotoc - ensure it has the include directories
+    if(PROTOBUF_VENDORED)
+      target_include_directories(${ARROW_PROTOBUF_LIBPROTOC}
+                                 INTERFACE "${PROTOBUF_INCLUDE_DIR}")
+    endif()
 
     set(ORC_PREFER_STATIC_SNAPPY OFF)
     get_target_property(SNAPPY_INCLUDE_DIR ${Snappy_TARGET} INTERFACE_INCLUDE_DIRECTORIES)
