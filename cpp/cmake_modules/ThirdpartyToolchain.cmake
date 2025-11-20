@@ -1873,6 +1873,11 @@ function(build_protobuf)
   set(PROTOBUF_VENDORED
       TRUE
       PARENT_SCOPE)
+  # When building protobuf from source via FetchContent, we always build it as static
+  # Update ARROW_PROTOBUF_USE_SHARED to reflect this (must be CACHE to be visible to ORC)
+  set(ARROW_PROTOBUF_USE_SHARED
+      OFF
+      CACHE BOOL "" FORCE)
   set(PROTOBUF_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/protobuf_fc-install")
   set(PROTOBUF_PREFIX
       "${PROTOBUF_PREFIX}"
@@ -1881,6 +1886,12 @@ function(build_protobuf)
   set(PROTOBUF_INCLUDE_DIR
       "${PROTOBUF_INCLUDE_DIR}"
       PARENT_SCOPE)
+
+  # Always build protobuf as static library to avoid DLL import/export issues on Windows
+  # Must be set BEFORE fetchcontent_declare and as CACHE FORCE to override the option()
+  set(protobuf_BUILD_SHARED_LIBS
+      OFF
+      CACHE BOOL "Build protobuf shared libs" FORCE)
 
   fetchcontent_declare(protobuf
                        URL ${PROTOBUF_SOURCE_URL}
@@ -1912,6 +1923,27 @@ function(build_protobuf)
   set(CMAKE_UNITY_BUILD OFF)
 
   fetchcontent_makeavailable(protobuf)
+
+  # Ensure protobuf targets don't have PROTOBUF_USE_DLLS defined
+  # This is critical on Windows to avoid DLL import/export issues when linking static protobuf
+  if(TARGET protobuf::libprotobuf)
+    get_target_property(_protobuf_compile_defs protobuf::libprotobuf
+                        INTERFACE_COMPILE_DEFINITIONS)
+    if(_protobuf_compile_defs)
+      list(REMOVE_ITEM _protobuf_compile_defs PROTOBUF_USE_DLLS)
+      set_target_properties(protobuf::libprotobuf PROPERTIES INTERFACE_COMPILE_DEFINITIONS
+                                                             "${_protobuf_compile_defs}")
+    endif()
+  endif()
+  if(TARGET protobuf::libprotoc)
+    get_target_property(_protoc_compile_defs protobuf::libprotoc
+                        INTERFACE_COMPILE_DEFINITIONS)
+    if(_protoc_compile_defs)
+      list(REMOVE_ITEM _protoc_compile_defs PROTOBUF_USE_DLLS)
+      set_target_properties(protobuf::libprotoc PROPERTIES INTERFACE_COMPILE_DEFINITIONS
+                                                           "${_protoc_compile_defs}")
+    endif()
+  endif()
 
   # Get the actual include directory from the protobuf target
   # For FetchContent, this points to the source directory which contains the .proto files
