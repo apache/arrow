@@ -20,12 +20,13 @@
 #include <utf8proc.h>
 
 #include <boost/crc.hpp>
+#include <sstream>
 #include <string>
 #include <vector>
 
 #include "arrow/util/base64.h"
 #include "arrow/util/bit_util.h"
-#include "arrow/util/double_conversion.h"
+#include "arrow/util/double_conversion_internal.h"
 #include "arrow/util/value_parsing.h"
 
 #include "gandiva/encrypt_utils.h"
@@ -39,6 +40,8 @@
 /// Stub functions that can be accessed from LLVM or the pre-compiled library.
 
 extern "C" {
+
+ARROW_SUPPRESS_MISSING_DECLARATIONS_WARNING
 
 static char mask_array[256] = {
     (char)0,  (char)1,  (char)2,  (char)3,   (char)4,   (char)5,   (char)6,   (char)7,
@@ -306,8 +309,6 @@ CAST_NUMERIC_FROM_VARBINARY(double, arrow::DoubleType, FLOAT8)
 #undef GDV_FN_CAST_VARCHAR_INTEGER
 #undef GDV_FN_CAST_VARCHAR_REAL
 
-static constexpr int64_t kAesBlockSize = 16;  // bytes
-
 GANDIVA_EXPORT
 const char* gdv_fn_aes_encrypt(int64_t context, const char* data, int32_t data_len,
                                const char* key_data, int32_t key_data_len,
@@ -318,6 +319,17 @@ const char* gdv_fn_aes_encrypt(int64_t context, const char* data, int32_t data_l
     return "";
   }
 
+  int64_t kAesBlockSize = 0;
+  if (key_data_len == 16 || key_data_len == 24 || key_data_len == 32) {
+    kAesBlockSize = static_cast<int64_t>(key_data_len);
+  } else {
+    std::ostringstream oss;
+    oss << "invalid key length: " << key_data_len;
+    gdv_fn_context_set_error_msg(context, oss.str().c_str());
+    *out_len = 0;
+    return nullptr;
+  }
+
   *out_len =
       static_cast<int32_t>(arrow::bit_util::RoundUpToPowerOf2(data_len, kAesBlockSize));
   char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
@@ -325,14 +337,16 @@ const char* gdv_fn_aes_encrypt(int64_t context, const char* data, int32_t data_l
     std::string err_msg =
         "Could not allocate memory for returning aes encrypt cypher text";
     gdv_fn_context_set_error_msg(context, err_msg.data());
+    *out_len = 0;
     return nullptr;
   }
 
   try {
-    *out_len = gandiva::aes_encrypt(data, data_len, key_data,
+    *out_len = gandiva::aes_encrypt(data, data_len, key_data, key_data_len,
                                     reinterpret_cast<unsigned char*>(ret));
   } catch (const std::runtime_error& e) {
     gdv_fn_context_set_error_msg(context, e.what());
+    *out_len = 0;
     return nullptr;
   }
 
@@ -349,6 +363,17 @@ const char* gdv_fn_aes_decrypt(int64_t context, const char* data, int32_t data_l
     return "";
   }
 
+  int64_t kAesBlockSize = 0;
+  if (key_data_len == 16 || key_data_len == 24 || key_data_len == 32) {
+    kAesBlockSize = static_cast<int64_t>(key_data_len);
+  } else {
+    std::ostringstream oss;
+    oss << "invalid key length: " << key_data_len;
+    gdv_fn_context_set_error_msg(context, oss.str().c_str());
+    *out_len = 0;
+    return nullptr;
+  }
+
   *out_len =
       static_cast<int32_t>(arrow::bit_util::RoundUpToPowerOf2(data_len, kAesBlockSize));
   char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
@@ -356,17 +381,19 @@ const char* gdv_fn_aes_decrypt(int64_t context, const char* data, int32_t data_l
     std::string err_msg =
         "Could not allocate memory for returning aes encrypt cypher text";
     gdv_fn_context_set_error_msg(context, err_msg.data());
+    *out_len = 0;
     return nullptr;
   }
 
   try {
-    *out_len = gandiva::aes_decrypt(data, data_len, key_data,
+    *out_len = gandiva::aes_decrypt(data, data_len, key_data, key_data_len,
                                     reinterpret_cast<unsigned char*>(ret));
   } catch (const std::runtime_error& e) {
     gdv_fn_context_set_error_msg(context, e.what());
+    *out_len = 0;
     return nullptr;
   }
-
+  ret[*out_len] = '\0';
   return ret;
 }
 
@@ -818,6 +845,8 @@ const char* gdv_mask_show_last_n_utf8_int32(int64_t context, const char* data,
   int32_t n_to_mask = num_of_chars - n_to_show;
   return gdv_mask_first_n_utf8_int32(context, data, data_len, n_to_mask, out_len);
 }
+
+ARROW_UNSUPPRESS_MISSING_DECLARATIONS_WARNING
 }
 
 namespace gandiva {

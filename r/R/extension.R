@@ -17,7 +17,6 @@
 
 #' @include arrow-object.R
 
-
 #' @title ExtensionArray class
 #'
 #' @usage NULL
@@ -38,7 +37,8 @@
 #' @rdname ExtensionArray
 #' @name ExtensionArray
 #' @export
-ExtensionArray <- R6Class("ExtensionArray",
+ExtensionArray <- R6Class(
+  "ExtensionArray",
   inherit = Array,
   public = list(
     storage = function() {
@@ -104,10 +104,10 @@ ExtensionArray$create <- function(x, type) {
 #' @rdname ExtensionType
 #' @name ExtensionType
 #' @export
-ExtensionType <- R6Class("ExtensionType",
+ExtensionType <- R6Class(
+  "ExtensionType",
   inherit = DataType,
   public = list(
-
     # In addition to the initialization that occurs for all
     # ArrowObject instances, we call deserialize_instance(), which can
     # be overridden to populate custom fields
@@ -226,10 +226,7 @@ ExtensionType$new <- function(xp) {
   }
 }
 
-ExtensionType$create <- function(storage_type,
-                                 extension_name,
-                                 extension_metadata = raw(),
-                                 type_class = ExtensionType) {
+ExtensionType$create <- function(storage_type, extension_name, extension_metadata = raw(), type_class = ExtensionType) {
   if (is.string(extension_metadata)) {
     extension_metadata <- charToRaw(enc2utf8(extension_metadata))
   }
@@ -377,10 +374,7 @@ ExtensionType$create <- function(storage_type,
 #' array$type$scale()
 #'
 #' as.vector(array)
-new_extension_type <- function(storage_type,
-                               extension_name,
-                               extension_metadata = raw(),
-                               type_class = ExtensionType) {
+new_extension_type <- function(storage_type, extension_name, extension_metadata = raw(), type_class = ExtensionType) {
   ExtensionType$create(
     storage_type,
     extension_name,
@@ -421,7 +415,8 @@ unregister_extension_type <- function(extension_name) {
 }
 
 #' @importFrom utils capture.output
-VctrsExtensionType <- R6Class("VctrsExtensionType",
+VctrsExtensionType <- R6Class(
+  "VctrsExtensionType",
   inherit = ExtensionType,
   public = list(
     ptype = function() private$.ptype,
@@ -429,7 +424,8 @@ VctrsExtensionType <- R6Class("VctrsExtensionType",
       paste0(capture.output(print(self$ptype())), collapse = "\n")
     },
     deserialize_instance = function() {
-      private$.ptype <- unserialize(self$extension_metadata())
+      private$.ptype <- safe_unserialize(self$extension_metadata())
+      attributes(private$.ptype) <- safe_r_metadata(attributes(private$.ptype))
     },
     ExtensionEquals = function(other) {
       inherits(other, "VctrsExtensionType") && identical(self$ptype(), other$ptype())
@@ -493,8 +489,7 @@ VctrsExtensionType <- R6Class("VctrsExtensionType",
 #' write_feather(arrow_table(col = array), temp_feather)
 #' read_feather(temp_feather)
 #' unlink(temp_feather)
-vctrs_extension_array <- function(x, ptype = vctrs::vec_ptype(x),
-                                  storage_type = NULL) {
+vctrs_extension_array <- function(x, ptype = vctrs::vec_ptype(x), storage_type = NULL) {
   if (inherits(x, "ExtensionArray") && inherits(x$type, "VctrsExtensionType")) {
     return(x)
   }
@@ -507,14 +502,15 @@ vctrs_extension_array <- function(x, ptype = vctrs::vec_ptype(x),
 
 #' @rdname vctrs_extension_array
 #' @export
-vctrs_extension_type <- function(x,
-                                 storage_type = infer_type(vctrs::vec_data(x))) {
+vctrs_extension_type <- function(x, storage_type = infer_type(vctrs::vec_data(x))) {
   ptype <- vctrs::vec_ptype(x)
+  # Make sure there are no unsupported objects buried in there
+  attributes(ptype) <- safe_r_metadata(attributes(ptype))
 
   new_extension_type(
     storage_type = storage_type,
     extension_name = "arrow.r.vctrs",
-    extension_metadata = serialize(ptype, NULL),
+    extension_metadata = serialize(ptype, NULL, ascii = TRUE),
     type_class = VctrsExtensionType
   )
 }

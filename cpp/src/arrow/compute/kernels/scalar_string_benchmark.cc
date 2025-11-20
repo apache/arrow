@@ -19,10 +19,14 @@
 
 #include "benchmark/benchmark.h"
 
+#include "arrow/array.h"
+#include "arrow/chunked_array.h"
 #include "arrow/compute/api_scalar.h"
-#include "arrow/compute/kernels/test_util.h"
+#include "arrow/compute/exec.h"
+#include "arrow/datum.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
+#include "arrow/type_fwd.h"
 #include "arrow/util/benchmark_util.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/config.h"
@@ -180,7 +184,7 @@ static void BinaryJoinElementWise(benchmark::State& state,
 
   random::RandomArrayGenerator rng(kSeed);
 
-  DatumVector args;
+  std::vector<Datum> args;
   ArrayVector strings;
   int64_t total_values_length = 0;
   for (int i = 0; i < n_cols; i++) {

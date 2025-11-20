@@ -16,7 +16,7 @@
 # under the License.
 
 # Require cmake that supports BYPRODUCTS in add_custom_command, ExternalProject_Add [1].
-cmake_minimum_required(VERSION 3.16)
+cmake_minimum_required(VERSION 3.25)
 
 project(parquet_arrow_example)
 

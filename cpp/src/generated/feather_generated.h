@@ -8,9 +8,9 @@
 
 // Ensure the included flatbuffers.h is the same version as when this file was
 // generated, otherwise it may not be compatible.
-static_assert(FLATBUFFERS_VERSION_MAJOR == 23 &&
-              FLATBUFFERS_VERSION_MINOR == 5 &&
-              FLATBUFFERS_VERSION_REVISION == 26,
+static_assert(FLATBUFFERS_VERSION_MAJOR == 24 &&
+              FLATBUFFERS_VERSION_MINOR == 3 &&
+              FLATBUFFERS_VERSION_REVISION == 6,
              "Non-compatible flatbuffers version included");
 
 namespace arrow {
@@ -45,51 +45,51 @@ struct CTableBuilder;
 /// R. It enabled the developers to sidestep some of the open design questions
 /// in Arrow from early 2016 and instead create something simple and useful for
 /// the intended use cases.
-enum class Type : int8_t {
-  BOOL = 0,
-  INT8 = 1,
-  INT16 = 2,
-  INT32 = 3,
-  INT64 = 4,
-  UINT8 = 5,
-  UINT16 = 6,
-  UINT32 = 7,
-  UINT64 = 8,
-  FLOAT = 9,
-  DOUBLE = 10,
-  UTF8 = 11,
-  BINARY = 12,
-  CATEGORY = 13,
-  TIMESTAMP = 14,
-  DATE = 15,
-  TIME = 16,
-  LARGE_UTF8 = 17,
-  LARGE_BINARY = 18,
-  MIN = BOOL,
-  MAX = LARGE_BINARY
+enum Type : int8_t {
+  Type_BOOL = 0,
+  Type_INT8 = 1,
+  Type_INT16 = 2,
+  Type_INT32 = 3,
+  Type_INT64 = 4,
+  Type_UINT8 = 5,
+  Type_UINT16 = 6,
+  Type_UINT32 = 7,
+  Type_UINT64 = 8,
+  Type_FLOAT = 9,
+  Type_DOUBLE = 10,
+  Type_UTF8 = 11,
+  Type_BINARY = 12,
+  Type_CATEGORY = 13,
+  Type_TIMESTAMP = 14,
+  Type_DATE = 15,
+  Type_TIME = 16,
+  Type_LARGE_UTF8 = 17,
+  Type_LARGE_BINARY = 18,
+  Type_MIN = Type_BOOL,
+  Type_MAX = Type_LARGE_BINARY
 };
 
 inline const Type (&EnumValuesType())[19] {
   static const Type values[] = {
-    Type::BOOL,
-    Type::INT8,
-    Type::INT16,
-    Type::INT32,
-    Type::INT64,
-    Type::UINT8,
-    Type::UINT16,
-    Type::UINT32,
-    Type::UINT64,
-    Type::FLOAT,
-    Type::DOUBLE,
-    Type::UTF8,
-    Type::BINARY,
-    Type::CATEGORY,
-    Type::TIMESTAMP,
-    Type::DATE,
-    Type::TIME,
-    Type::LARGE_UTF8,
-    Type::LARGE_BINARY
+    Type_BOOL,
+    Type_INT8,
+    Type_INT16,
+    Type_INT32,
+    Type_INT64,
+    Type_UINT8,
+    Type_UINT16,
+    Type_UINT32,
+    Type_UINT64,
+    Type_FLOAT,
+    Type_DOUBLE,
+    Type_UTF8,
+    Type_BINARY,
+    Type_CATEGORY,
+    Type_TIMESTAMP,
+    Type_DATE,
+    Type_TIME,
+    Type_LARGE_UTF8,
+    Type_LARGE_BINARY
   };
   return values;
 }
@@ -121,28 +121,28 @@ inline const char * const *EnumNamesType() {
 }
 
 inline const char *EnumNameType(Type e) {
-  if (::flatbuffers::IsOutRange(e, Type::BOOL, Type::LARGE_BINARY)) return "";
+  if (::flatbuffers::IsOutRange(e, Type_BOOL, Type_LARGE_BINARY)) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesType()[index];
 }
 
-enum class Encoding : int8_t {
-  PLAIN = 0,
+enum Encoding : int8_t {
+  Encoding_PLAIN = 0,
   /// Data is stored dictionary-encoded
   /// dictionary size: <INT32 Dictionary size>
   /// dictionary data: <TYPE primitive array>
   /// dictionary index: <INT32 primitive array>
   ///
   /// TODO: do we care about storing the index values in a smaller typeclass
-  DICTIONARY = 1,
-  MIN = PLAIN,
-  MAX = DICTIONARY
+  Encoding_DICTIONARY = 1,
+  Encoding_MIN = Encoding_PLAIN,
+  Encoding_MAX = Encoding_DICTIONARY
 };
 
 inline const Encoding (&EnumValuesEncoding())[2] {
   static const Encoding values[] = {
-    Encoding::PLAIN,
-    Encoding::DICTIONARY
+    Encoding_PLAIN,
+    Encoding_DICTIONARY
   };
   return values;
 }
@@ -157,26 +157,26 @@ inline const char * const *EnumNamesEncoding() {
 }
 
 inline const char *EnumNameEncoding(Encoding e) {
-  if (::flatbuffers::IsOutRange(e, Encoding::PLAIN, Encoding::DICTIONARY)) return "";
+  if (::flatbuffers::IsOutRange(e, Encoding_PLAIN, Encoding_DICTIONARY)) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesEncoding()[index];
 }
 
-enum class TimeUnit : int8_t {
-  SECOND = 0,
-  MILLISECOND = 1,
-  MICROSECOND = 2,
-  NANOSECOND = 3,
-  MIN = SECOND,
-  MAX = NANOSECOND
+enum TimeUnit : int8_t {
+  TimeUnit_SECOND = 0,
+  TimeUnit_MILLISECOND = 1,
+  TimeUnit_MICROSECOND = 2,
+  TimeUnit_NANOSECOND = 3,
+  TimeUnit_MIN = TimeUnit_SECOND,
+  TimeUnit_MAX = TimeUnit_NANOSECOND
 };
 
 inline const TimeUnit (&EnumValuesTimeUnit())[4] {
   static const TimeUnit values[] = {
-    TimeUnit::SECOND,
-    TimeUnit::MILLISECOND,
-    TimeUnit::MICROSECOND,
-    TimeUnit::NANOSECOND
+    TimeUnit_SECOND,
+    TimeUnit_MILLISECOND,
+    TimeUnit_MICROSECOND,
+    TimeUnit_NANOSECOND
   };
   return values;
 }
@@ -193,28 +193,28 @@ inline const char * const *EnumNamesTimeUnit() {
 }
 
 inline const char *EnumNameTimeUnit(TimeUnit e) {
-  if (::flatbuffers::IsOutRange(e, TimeUnit::SECOND, TimeUnit::NANOSECOND)) return "";
+  if (::flatbuffers::IsOutRange(e, TimeUnit_SECOND, TimeUnit_NANOSECOND)) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesTimeUnit()[index];
 }
 
-enum class TypeMetadata : uint8_t {
-  NONE = 0,
-  CategoryMetadata = 1,
-  TimestampMetadata = 2,
-  DateMetadata = 3,
-  TimeMetadata = 4,
-  MIN = NONE,
-  MAX = TimeMetadata
+enum TypeMetadata : uint8_t {
+  TypeMetadata_NONE = 0,
+  TypeMetadata_CategoryMetadata = 1,
+  TypeMetadata_TimestampMetadata = 2,
+  TypeMetadata_DateMetadata = 3,
+  TypeMetadata_TimeMetadata = 4,
+  TypeMetadata_MIN = TypeMetadata_NONE,
+  TypeMetadata_MAX = TypeMetadata_TimeMetadata
 };
 
 inline const TypeMetadata (&EnumValuesTypeMetadata())[5] {
   static const TypeMetadata values[] = {
-    TypeMetadata::NONE,
-    TypeMetadata::CategoryMetadata,
-    TypeMetadata::TimestampMetadata,
-    TypeMetadata::DateMetadata,
-    TypeMetadata::TimeMetadata
+    TypeMetadata_NONE,
+    TypeMetadata_CategoryMetadata,
+    TypeMetadata_TimestampMetadata,
+    TypeMetadata_DateMetadata,
+    TypeMetadata_TimeMetadata
   };
   return values;
 }
@@ -232,33 +232,33 @@ inline const char * const *EnumNamesTypeMetadata() {
 }
 
 inline const char *EnumNameTypeMetadata(TypeMetadata e) {
-  if (::flatbuffers::IsOutRange(e, TypeMetadata::NONE, TypeMetadata::TimeMetadata)) return "";
+  if (::flatbuffers::IsOutRange(e, TypeMetadata_NONE, TypeMetadata_TimeMetadata)) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesTypeMetadata()[index];
 }
 
 template<typename T> struct TypeMetadataTraits {
-  static const TypeMetadata enum_value = TypeMetadata::NONE;
+  static const TypeMetadata enum_value = TypeMetadata_NONE;
 };
 
 template<> struct TypeMetadataTraits<arrow::ipc::feather::fbs::CategoryMetadata> {
-  static const TypeMetadata enum_value = TypeMetadata::CategoryMetadata;
+  static const TypeMetadata enum_value = TypeMetadata_CategoryMetadata;
 };
 
 template<> struct TypeMetadataTraits<arrow::ipc::feather::fbs::TimestampMetadata> {
-  static const TypeMetadata enum_value = TypeMetadata::TimestampMetadata;
+  static const TypeMetadata enum_value = TypeMetadata_TimestampMetadata;
 };
 
 template<> struct TypeMetadataTraits<arrow::ipc::feather::fbs::DateMetadata> {
-  static const TypeMetadata enum_value = TypeMetadata::DateMetadata;
+  static const TypeMetadata enum_value = TypeMetadata_DateMetadata;
 };
 
 template<> struct TypeMetadataTraits<arrow::ipc::feather::fbs::TimeMetadata> {
-  static const TypeMetadata enum_value = TypeMetadata::TimeMetadata;
+  static const TypeMetadata enum_value = TypeMetadata_TimeMetadata;
 };
 
 bool VerifyTypeMetadata(::flatbuffers::Verifier &verifier, const void *obj, TypeMetadata type);
-bool VerifyTypeMetadataVector(::flatbuffers::Verifier &verifier, const ::flatbuffers::Vector<::flatbuffers::Offset<void>> *values, const ::flatbuffers::Vector<TypeMetadata> *types);
+bool VerifyTypeMetadataVector(::flatbuffers::Verifier &verifier, const ::flatbuffers::Vector<::flatbuffers::Offset<void>> *values, const ::flatbuffers::Vector<uint8_t> *types);
 
 struct PrimitiveArray FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   typedef PrimitiveArrayBuilder Builder;
@@ -340,8 +340,8 @@ struct PrimitiveArrayBuilder {
 
 inline ::flatbuffers::Offset<PrimitiveArray> CreatePrimitiveArray(
     ::flatbuffers::FlatBufferBuilder &_fbb,
-    arrow::ipc::feather::fbs::Type type = arrow::ipc::feather::fbs::Type::BOOL,
-    arrow::ipc::feather::fbs::Encoding encoding = arrow::ipc::feather::fbs::Encoding::PLAIN,
+    arrow::ipc::feather::fbs::Type type = arrow::ipc::feather::fbs::Type_BOOL,
+    arrow::ipc::feather::fbs::Encoding encoding = arrow::ipc::feather::fbs::Encoding_PLAIN,
     int64_t offset = 0,
     int64_t length = 0,
     int64_t null_count = 0,
@@ -456,7 +456,7 @@ struct TimestampMetadataBuilder {
 
 inline ::flatbuffers::Offset<TimestampMetadata> CreateTimestampMetadata(
     ::flatbuffers::FlatBufferBuilder &_fbb,
-    arrow::ipc::feather::fbs::TimeUnit unit = arrow::ipc::feather::fbs::TimeUnit::SECOND,
+    arrow::ipc::feather::fbs::TimeUnit unit = arrow::ipc::feather::fbs::TimeUnit_SECOND,
     ::flatbuffers::Offset<::flatbuffers::String> timezone = 0) {
   TimestampMetadataBuilder builder_(_fbb);
   builder_.add_timezone(timezone);
@@ -466,7 +466,7 @@ inline ::flatbuffers::Offset<TimestampMetadata> CreateTimestampMetadata(
 
 inline ::flatbuffers::Offset<TimestampMetadata> CreateTimestampMetadataDirect(
     ::flatbuffers::FlatBufferBuilder &_fbb,
-    arrow::ipc::feather::fbs::TimeUnit unit = arrow::ipc::feather::fbs::TimeUnit::SECOND,
+    arrow::ipc::feather::fbs::TimeUnit unit = arrow::ipc::feather::fbs::TimeUnit_SECOND,
     const char *timezone = nullptr) {
   auto timezone__ = timezone ? _fbb.CreateString(timezone) : 0;
   return arrow::ipc::feather::fbs::CreateTimestampMetadata(
@@ -539,7 +539,7 @@ struct TimeMetadataBuilder {
 
 inline ::flatbuffers::Offset<TimeMetadata> CreateTimeMetadata(
     ::flatbuffers::FlatBufferBuilder &_fbb,
-    arrow::ipc::feather::fbs::TimeUnit unit = arrow::ipc::feather::fbs::TimeUnit::SECOND) {
+    arrow::ipc::feather::fbs::TimeUnit unit = arrow::ipc::feather::fbs::TimeUnit_SECOND) {
   TimeMetadataBuilder builder_(_fbb);
   builder_.add_unit(unit);
   return builder_.Finish();
@@ -568,16 +568,16 @@ struct Column FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   }
   template<typename T> const T *metadata_as() const;
   const arrow::ipc::feather::fbs::CategoryMetadata *metadata_as_CategoryMetadata() const {
-    return metadata_type() == arrow::ipc::feather::fbs::TypeMetadata::CategoryMetadata ? static_cast<const arrow::ipc::feather::fbs::CategoryMetadata *>(metadata()) : nullptr;
+    return metadata_type() == arrow::ipc::feather::fbs::TypeMetadata_CategoryMetadata ? static_cast<const arrow::ipc::feather::fbs::CategoryMetadata *>(metadata()) : nullptr;
   }
   const arrow::ipc::feather::fbs::TimestampMetadata *metadata_as_TimestampMetadata() const {
-    return metadata_type() == arrow::ipc::feather::fbs::TypeMetadata::TimestampMetadata ? static_cast<const arrow::ipc::feather::fbs::TimestampMetadata *>(metadata()) : nullptr;
+    return metadata_type() == arrow::ipc::feather::fbs::TypeMetadata_TimestampMetadata ? static_cast<const arrow::ipc::feather::fbs::TimestampMetadata *>(metadata()) : nullptr;
   }
   const arrow::ipc::feather::fbs::DateMetadata *metadata_as_DateMetadata() const {
-    return metadata_type() == arrow::ipc::feather::fbs::TypeMetadata::DateMetadata ? static_cast<const arrow::ipc::feather::fbs::DateMetadata *>(metadata()) : nullptr;
+    return metadata_type() == arrow::ipc::feather::fbs::TypeMetadata_DateMetadata ? static_cast<const arrow::ipc::feather::fbs::DateMetadata *>(metadata()) : nullptr;
   }
   const arrow::ipc::feather::fbs::TimeMetadata *metadata_as_TimeMetadata() const {
-    return metadata_type() == arrow::ipc::feather::fbs::TypeMetadata::TimeMetadata ? static_cast<const arrow::ipc::feather::fbs::TimeMetadata *>(metadata()) : nullptr;
+    return metadata_type() == arrow::ipc::feather::fbs::TypeMetadata_TimeMetadata ? static_cast<const arrow::ipc::feather::fbs::TimeMetadata *>(metadata()) : nullptr;
   }
   /// This should (probably) be JSON
   const ::flatbuffers::String *user_metadata() const {
@@ -648,7 +648,7 @@ inline ::flatbuffers::Offset<Column> CreateColumn(
     ::flatbuffers::FlatBufferBuilder &_fbb,
     ::flatbuffers::Offset<::flatbuffers::String> name = 0,
     ::flatbuffers::Offset<arrow::ipc::feather::fbs::PrimitiveArray> values = 0,
-    arrow::ipc::feather::fbs::TypeMetadata metadata_type = arrow::ipc::feather::fbs::TypeMetadata::NONE,
+    arrow::ipc::feather::fbs::TypeMetadata metadata_type = arrow::ipc::feather::fbs::TypeMetadata_NONE,
     ::flatbuffers::Offset<void> metadata = 0,
     ::flatbuffers::Offset<::flatbuffers::String> user_metadata = 0) {
   ColumnBuilder builder_(_fbb);
@@ -664,7 +664,7 @@ inline ::flatbuffers::Offset<Column> CreateColumnDirect(
     ::flatbuffers::FlatBufferBuilder &_fbb,
     const char *name = nullptr,
     ::flatbuffers::Offset<arrow::ipc::feather::fbs::PrimitiveArray> values = 0,
-    arrow::ipc::feather::fbs::TypeMetadata metadata_type = arrow::ipc::feather::fbs::TypeMetadata::NONE,
+    arrow::ipc::feather::fbs::TypeMetadata metadata_type = arrow::ipc::feather::fbs::TypeMetadata_NONE,
     ::flatbuffers::Offset<void> metadata = 0,
     const char *user_metadata = nullptr) {
   auto name__ = name ? _fbb.CreateString(name) : 0;
@@ -790,22 +790,22 @@ inline ::flatbuffers::Offset<CTable> CreateCTableDirect(
 
 inline bool VerifyTypeMetadata(::flatbuffers::Verifier &verifier, const void *obj, TypeMetadata type) {
   switch (type) {
-    case TypeMetadata::NONE: {
+    case TypeMetadata_NONE: {
       return true;
     }
-    case TypeMetadata::CategoryMetadata: {
+    case TypeMetadata_CategoryMetadata: {
       auto ptr = reinterpret_cast<const arrow::ipc::feather::fbs::CategoryMetadata *>(obj);
       return verifier.VerifyTable(ptr);
     }
-    case TypeMetadata::TimestampMetadata: {
+    case TypeMetadata_TimestampMetadata: {
       auto ptr = reinterpret_cast<const arrow::ipc::feather::fbs::TimestampMetadata *>(obj);
       return verifier.VerifyTable(ptr);
     }
-    case TypeMetadata::DateMetadata: {
+    case TypeMetadata_DateMetadata: {
       auto ptr = reinterpret_cast<const arrow::ipc::feather::fbs::DateMetadata *>(obj);
       return verifier.VerifyTable(ptr);
     }
-    case TypeMetadata::TimeMetadata: {
+    case TypeMetadata_TimeMetadata: {
       auto ptr = reinterpret_cast<const arrow::ipc::feather::fbs::TimeMetadata *>(obj);
       return verifier.VerifyTable(ptr);
     }
@@ -813,7 +813,7 @@ inline bool VerifyTypeMetadata(::flatbuffers::Verifier &verifier, const void *ob
   }
 }
 
-inline bool VerifyTypeMetadataVector(::flatbuffers::Verifier &verifier, const ::flatbuffers::Vector<::flatbuffers::Offset<void>> *values, const ::flatbuffers::Vector<TypeMetadata> *types) {
+inline bool VerifyTypeMetadataVector(::flatbuffers::Verifier &verifier, const ::flatbuffers::Vector<::flatbuffers::Offset<void>> *values, const ::flatbuffers::Vector<uint8_t> *types) {
   if (!values || !types) return !values && !types;
   if (values->size() != types->size()) return false;
   for (::flatbuffers::uoffset_t i = 0; i < values->size(); ++i) {

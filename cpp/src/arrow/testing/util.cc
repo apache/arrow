@@ -30,13 +30,13 @@
 #include <winsock2.h>
 // clang-format on
 #else
-#include <arpa/inet.h>   // IWYU pragma: keep
-#include <netinet/in.h>  // IWYU pragma: keep
-#include <sys/socket.h>  // IWYU pragma: keep
-#include <sys/stat.h>    // IWYU pragma: keep
-#include <sys/types.h>   // IWYU pragma: keep
-#include <sys/wait.h>    // IWYU pragma: keep
-#include <unistd.h>      // IWYU pragma: keep
+#  include <arpa/inet.h>   // IWYU pragma: keep
+#  include <netinet/in.h>  // IWYU pragma: keep
+#  include <sys/socket.h>  // IWYU pragma: keep
+#  include <sys/stat.h>    // IWYU pragma: keep
+#  include <sys/types.h>   // IWYU pragma: keep
+#  include <sys/wait.h>    // IWYU pragma: keep
+#  include <unistd.h>      // IWYU pragma: keep
 #endif
 
 #include "arrow/config.h"
@@ -88,6 +88,16 @@ std::string random_string(int64_t n, uint32_t seed) {
 
 void random_ascii(int64_t n, uint32_t seed, uint8_t* out) {
   rand_uniform_int(n, seed, static_cast<int32_t>('A'), static_cast<int32_t>('z'), out);
+}
+
+void random_alnum(int64_t n, uint32_t seed, uint8_t* out) {
+  static const char charset[] =
+      "0123456789"
+      "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+      "abcdefghijklmnopqrstuvwxyz";
+  pcg32_fast gen(seed);
+  std::uniform_int_distribution<uint32_t> d(0, sizeof(charset) - 2);
+  std::generate(out, out + n, [&d, &gen] { return charset[d(gen)]; });
 }
 
 int64_t CountNulls(const std::vector<uint8_t>& valid_bytes) {
@@ -144,8 +154,8 @@ int GetListenPort() {
     return internal::WinErrorMessage(WSAGetLastError());
   };
 #else
-#define INVALID_SOCKET -1
-#define SOCKET_ERROR -1
+#  define INVALID_SOCKET -1
+#  define SOCKET_ERROR -1
   int sock_fd;
   auto sin_len = static_cast<socklen_t>(sizeof(sin));
   auto errno_message = []() -> std::string { return internal::ErrnoMessage(errno); };
@@ -203,6 +213,12 @@ std::string GetListenAddress() {
 #endif
   // Append port number
   ss << ":" << GetListenPort();
+  return ss.str();
+}
+
+std::string GetListenAddress(const std::string& host) {
+  std::stringstream ss;
+  ss << host << ":" << GetListenPort();
   return ss.str();
 }
 

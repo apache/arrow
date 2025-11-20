@@ -15,19 +15,21 @@
 # specific language governing permissions and limitations
 # under the License.
 
+import os
+import sys
 from collections import OrderedDict
 import io
 import warnings
 from shutil import copytree
+from decimal import Decimal
 
-import numpy as np
 import pytest
 
 import pyarrow as pa
 from pyarrow import fs
 from pyarrow.tests import util
 from pyarrow.tests.parquet.common import (_check_roundtrip, _roundtrip_table,
-                                          _test_dataframe)
+                                          _test_table)
 
 try:
     import pyarrow.parquet as pq
@@ -45,6 +47,10 @@ try:
 except ImportError:
     pd = tm = None
 
+try:
+    import numpy as np
+except ImportError:
+    np = None
 
 # Marks all of the tests in this module
 # Ignore these with pytest ... -m 'not parquet'
@@ -71,20 +77,18 @@ def test_set_data_page_size():
         _check_roundtrip(t, data_page_size=target_page_size)
 
 
-@pytest.mark.pandas
+@pytest.mark.numpy
 def test_set_write_batch_size():
-    df = _test_dataframe(100)
-    table = pa.Table.from_pandas(df, preserve_index=False)
+    table = _test_table(100)
 
     _check_roundtrip(
         table, data_page_size=10, write_batch_size=1, version='2.4'
     )
 
 
-@pytest.mark.pandas
+@pytest.mark.numpy
 def test_set_dictionary_pagesize_limit():
-    df = _test_dataframe(100)
-    table = pa.Table.from_pandas(df, preserve_index=False)
+    table = _test_table(100)
 
     _check_roundtrip(table, dictionary_pagesize_limit=1,
                      data_page_size=10, version='2.4')
@@ -162,6 +166,30 @@ def test_invalid_source():
 
     with pytest.raises(TypeError, match="None"):
         pq.ParquetFile(None)
+
+
+def test_read_table_without_dataset(tempdir):
+    from unittest import mock
+
+    class MockParquetDataset:
+        def __init__(self, *args, **kwargs):
+            raise ImportError("MockParquetDataset")
+
+    path = tempdir / "test.parquet"
+    table = pa.table({"a": [1, 2, 3]})
+    _write_table(table, path)
+
+    with mock.patch('pyarrow.parquet.core.ParquetDataset', new=MockParquetDataset):
+        with pytest.raises(ValueError, match="the 'filters' keyword"):
+            pq.read_table(path, filters=[('integer', '=', 1)])
+        with pytest.raises(ValueError, match="the 'partitioning' keyword"):
+            pq.read_table(path, partitioning=['week', 'color'])
+        with pytest.raises(ValueError, match="the 'schema' argument"):
+            pq.read_table(path, schema=table.schema)
+        with pytest.raises(ValueError, match="the 'source' argument"):
+            pq.read_table(tempdir)
+        result = pq.read_table(path)
+        assert result == table
 
 
 @pytest.mark.slow
@@ -355,6 +383,60 @@ def test_byte_stream_split():
     with pytest.raises(IOError, match='BYTE_STREAM_SPLIT only supports'):
         _check_roundtrip(table, expected=table, use_byte_stream_split=True,
                          use_dictionary=False)
+
+
+def test_store_decimal_as_integer(tempdir):
+    arr_decimal_1_9 = pa.array(list(map(Decimal, range(100))),
+                               type=pa.decimal128(5, 2))
+    arr_decimal_10_18 = pa.array(list(map(Decimal, range(100))),
+                                 type=pa.decimal128(16, 9))
+    arr_decimal_gt18 = pa.array(list(map(Decimal, range(100))),
+                                type=pa.decimal128(22, 2))
+    arr_bool = pa.array([True, False] * 50)
+    data_decimal = [arr_decimal_1_9, arr_decimal_10_18, arr_decimal_gt18]
+    table = pa.Table.from_arrays(data_decimal, names=['a', 'b', 'c'])
+
+    # Check with store_decimal_as_integer.
+    _check_roundtrip(table,
+                     expected=table,
+                     compression="gzip",
+                     use_dictionary=False,
+                     store_decimal_as_integer=True)
+
+    # Check physical type in parquet schema
+    pqtestfile_path = os.path.join(tempdir, 'test.parquet')
+    pq.write_table(table, pqtestfile_path,
+                   compression="gzip",
+                   use_dictionary=False,
+                   store_decimal_as_integer=True)
+
+    pqtestfile = pq.ParquetFile(pqtestfile_path)
+    pqcol_decimal_1_9 = pqtestfile.schema.column(0)
+    pqcol_decimal_10_18 = pqtestfile.schema.column(1)
+
+    assert pqcol_decimal_1_9.physical_type == 'INT32'
+    assert pqcol_decimal_10_18.physical_type == 'INT64'
+
+    # Check with store_decimal_as_integer and delta-int encoding.
+    # DELTA_BINARY_PACKED requires parquet physical type to be INT64 or INT32
+    _check_roundtrip(table,
+                     expected=table,
+                     compression="gzip",
+                     use_dictionary=False,
+                     store_decimal_as_integer=True,
+                     column_encoding={
+                         'a': 'DELTA_BINARY_PACKED',
+                         'b': 'DELTA_BINARY_PACKED'
+                     })
+
+    # Check with mixed column types.
+    mixed_table = pa.Table.from_arrays(
+        [arr_decimal_1_9, arr_decimal_10_18, arr_decimal_gt18, arr_bool],
+        names=['a', 'b', 'c', 'd'])
+    _check_roundtrip(mixed_table,
+                     expected=mixed_table,
+                     use_dictionary=False,
+                     store_decimal_as_integer=True)
 
 
 def test_column_encoding():
@@ -913,21 +995,11 @@ def test_checksum_write_to_dataset(tempdir):
         _ = pq.read_table(corrupted_file_path, page_checksum_verification=True)
 
 
-@pytest.mark.dataset
-def test_deprecated_use_legacy_dataset(tempdir):
-    # Test that specifying use_legacy_dataset in ParquetDataset, write_to_dataset
-    # and read_table doesn't raise an error but gives a warning.
-    table = pa.table({"a": [1, 2, 3]})
-    path = tempdir / "deprecate_legacy"
+@pytest.mark.parametrize(
+    "source", ["/tmp/", ["/tmp/file1.parquet", "/tmp/file2.parquet"]])
+def test_read_table_raises_value_error_when_ds_is_unavailable(monkeypatch, source):
+    # GH-47728
+    monkeypatch.setitem(sys.modules, "pyarrow.dataset", None)
 
-    msg = "Passing 'use_legacy_dataset'"
-    with pytest.warns(FutureWarning, match=msg):
-        pq.write_to_dataset(table, path, use_legacy_dataset=False)
-
-    pq.write_to_dataset(table, path)
-
-    with pytest.warns(FutureWarning, match=msg):
-        pq.read_table(path, use_legacy_dataset=False)
-
-    with pytest.warns(FutureWarning, match=msg):
-        pq.ParquetDataset(path, use_legacy_dataset=False)
+    with pytest.raises(ValueError, match="the 'source' argument"):
+        pq.read_table(source=source)

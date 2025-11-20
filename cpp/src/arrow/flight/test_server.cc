@@ -26,6 +26,7 @@
 #include <gflags/gflags.h>
 
 #include "arrow/flight/server.h"
+#include "arrow/flight/test_flight_server.h"
 #include "arrow/flight/test_util.h"
 #include "arrow/flight/types.h"
 #include "arrow/util/logging.h"
@@ -38,7 +39,7 @@ std::unique_ptr<arrow::flight::FlightServerBase> g_server;
 int main(int argc, char** argv) {
   gflags::ParseCommandLineFlags(&argc, &argv, true);
 
-  g_server = arrow::flight::ExampleTestServer();
+  g_server = arrow::flight::TestFlightServer::Make();
 
   arrow::flight::Location location;
   if (FLAGS_unix.empty()) {

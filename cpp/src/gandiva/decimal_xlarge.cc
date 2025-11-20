@@ -29,12 +29,12 @@
 #include <vector>
 
 #include "arrow/util/basic_decimal.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 #include "gandiva/decimal_type_util.h"
 
 #ifndef GANDIVA_UNIT_TEST
-#include "gandiva/engine.h"
-#include "gandiva/exported_funcs.h"
+#  include "gandiva/engine.h"
+#  include "gandiva/exported_funcs.h"
 
 namespace gandiva {
 

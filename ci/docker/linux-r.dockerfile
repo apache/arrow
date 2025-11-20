@@ -33,6 +33,9 @@ ENV R_PRUNE_DEPS=${r_prune_deps}
 ARG r_custom_ccache=false
 ENV R_CUSTOM_CCACHE=${r_custom_ccache}
 
+ARG r_update_clang=false
+ENV R_UPDATE_CLANG=${r_update_clang}
+
 ARG tz="UTC"
 ENV TZ=${tz}
 
@@ -50,6 +53,10 @@ RUN /arrow/ci/scripts/r_docker_configure.sh
 # this has to come after r_docker_configure to ensure curl is installed
 COPY ci/scripts/install_sccache.sh /arrow/ci/scripts/
 RUN /arrow/ci/scripts/install_sccache.sh unknown-linux-musl /usr/local/bin
+
+ARG cmake
+COPY ci/scripts/install_cmake.sh /arrow/ci/scripts/
+RUN /arrow/ci/scripts/install_cmake.sh ${cmake} /usr/local/
 
 COPY ci/scripts/r_deps.sh /arrow/ci/scripts/
 COPY r/DESCRIPTION /arrow/r/

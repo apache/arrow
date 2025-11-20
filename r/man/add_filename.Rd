@@ -21,16 +21,16 @@ must either call \code{\link[dplyr:compute]{compute()}} or
 }
 \examples{
 \dontrun{
-open_dataset("nyc-taxi") \%>\% mutate(
+open_dataset("nyc-taxi") |> mutate(
   file =
     add_filename()
 )
 
 # To use a verb like mutate() with add_filename() we need to first call
 # compute()
-open_dataset("nyc-taxi") \%>\%
-  mutate(file = add_filename()) \%>\%
-  compute() \%>\%
+open_dataset("nyc-taxi") |>
+  mutate(file = add_filename()) |>
+  compute() |>
   mutate(filename_length = nchar(file))
 }
 

@@ -74,6 +74,10 @@ struct ScalarFromArraySlotImpl {
     return Finish(a.Value(index_));
   }
 
+  Status Visit(const Decimal32Array& a) { return Finish(Decimal32(a.GetValue(index_))); }
+
+  Status Visit(const Decimal64Array& a) { return Finish(Decimal64(a.GetValue(index_))); }
+
   Status Visit(const Decimal128Array& a) {
     return Finish(Decimal128(a.GetValue(index_)));
   }

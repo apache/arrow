@@ -23,18 +23,22 @@ jobs:
   test:
     name: |
       Docker Test {{ flags|default("") }} {{ image }} {{ command|default("") }}
-    runs-on: ['self-hosted', 'cuda'] 
+    runs-on: ['self-hosted', 'cuda']
 {{ macros.github_set_env(env) }}
+    timeout-minutes: {{ timeout|default(60) }}
     steps:
       {{ macros.github_checkout_arrow(fetch_depth=fetch_depth|default(1))|indent }}
-      # python 3.8 is installed on the runner, no need to install
+      # python 3.10 is installed on the runner, no need to install
+      - name: Install pip
+        run: sudo apt update && sudo apt install python3-pip -y
       - name: Install archery
-        run: python -m pip install -e arrow/dev/archery[docker]
+        run: python3 -m pip install -e arrow/dev/archery[docker]
       - name: Execute Docker Build
         shell: bash
         env:
         {{ macros.github_set_sccache_envvars()|indent(8) }}
         run: |
+          source arrow/ci/scripts/util_enable_core_dumps.sh
           archery docker run \
             -e SETUPTOOLS_SCM_PRETEND_VERSION="{{ arrow.no_rc_version }}" \
             {{ flags|default("") }} \

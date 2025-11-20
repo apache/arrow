@@ -140,7 +140,7 @@ TEST(BlockParserWithSchema, SkipFieldsOutsideSchema) {
 TEST(BlockParserWithSchema, UnquotedDecimal) {
   auto options = ParseOptions::Defaults();
   options.explicit_schema =
-      schema({field("price", decimal(9, 2)), field("cost", decimal(9, 3))});
+      schema({field("price", decimal128(9, 2)), field("cost", decimal128(9, 3))});
   AssertParseColumns(options, unquoted_decimal_src(),
                      {field("price", utf8()), field("cost", utf8())},
                      {R"(["30.04", "1.23"])", R"(["30.001", "1.229"])"});
@@ -149,7 +149,7 @@ TEST(BlockParserWithSchema, UnquotedDecimal) {
 TEST(BlockParserWithSchema, MixedDecimal) {
   auto options = ParseOptions::Defaults();
   options.explicit_schema =
-      schema({field("price", decimal(9, 2)), field("cost", decimal(9, 3))});
+      schema({field("price", decimal128(9, 2)), field("cost", decimal128(9, 3))});
   AssertParseColumns(options, mixed_decimal_src(),
                      {field("price", utf8()), field("cost", utf8())},
                      {R"(["30.04", "1.23"])", R"(["30.001", "1.229"])"});

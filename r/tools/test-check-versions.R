@@ -15,7 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-
 # Usage: run testthat::test_dir(".") inside of this directory
 
 # Flag so that we just load the functions and don't evaluate them like we do
@@ -61,14 +60,22 @@ test_that("check_versions without mismatch", {
 test_that("check_versions with mismatch", {
   withr::local_envvar(.new = c(ARROW_R_ALLOW_CPP_VERSION_MISMATCH = "false"))
 
+  expect_true(
+    release_version_supported("15.0.0", "15.0.0")
+  )
+
   expect_false(
     release_version_supported("15.0.0", "13.0.0")
   )
 
   withr::local_envvar(.new = c(ARROW_R_ALLOW_CPP_VERSION_MISMATCH = "true"))
 
-  expect_true(
+  expect_false(
     release_version_supported("15.0.0", "13.0.0")
+  )
+
+  expect_true(
+    release_version_supported("16.0.0", "15.0.0")
   )
 
   expect_false(

@@ -15,30 +15,13 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <algorithm>  // Missing include in boost/process
-
-// This boost/asio/io_context.hpp include is needless for no MinGW
-// build.
-//
-// This is for including boost/asio/detail/socket_types.hpp before any
-// "#include <windows.h>". boost/asio/detail/socket_types.hpp doesn't
-// work if windows.h is already included. boost/process.h ->
-// boost/process/args.hpp -> boost/process/detail/basic_cmd.hpp
-// includes windows.h. boost/process/args.hpp is included before
-// boost/process/async.h that includes
-// boost/asio/detail/socket_types.hpp implicitly is included.
-#include <boost/asio/io_context.hpp>
-// We need BOOST_USE_WINDOWS_H definition with MinGW when we use
-// boost/process.hpp. See BOOST_USE_WINDOWS_H=1 in
-// cpp/cmake_modules/ThirdpartyToolchain.cmake for details.
-#include <boost/process.hpp>
-
 #include "arrow/filesystem/azurefs.h"
 #include "arrow/filesystem/azurefs_internal.h"
 
 #include <memory>
 #include <random>
 #include <string>
+#include <vector>
 
 #include <gmock/gmock-matchers.h>
 #include <gmock/gmock-more-matchers.h>
@@ -52,10 +35,12 @@
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/testing/process.h"
 #include "arrow/testing/util.h"
+#include "arrow/util/future.h"
 #include "arrow/util/io_util.h"
 #include "arrow/util/key_value_metadata.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/pcg_random.h"
 #include "arrow/util/string.h"
 #include "arrow/util/unreachable.h"
@@ -65,7 +50,6 @@ namespace arrow {
 using internal::TemporaryDir;
 namespace fs {
 using internal::ConcatAbstractPath;
-namespace bp = boost::process;
 
 using ::testing::IsEmpty;
 using ::testing::Not;
@@ -172,39 +156,32 @@ class AzuriteEnv : public AzureEnvImpl<AzuriteEnv> {
  private:
   std::unique_ptr<TemporaryDir> temp_dir_;
   arrow::internal::PlatformFilename debug_log_path_;
-  bp::child server_process_;
+  std::unique_ptr<util::Process> server_process_;
 
   using AzureEnvImpl::AzureEnvImpl;
 
  public:
   static const AzureBackend kBackend = AzureBackend::kAzurite;
 
-  ~AzuriteEnv() override {
-    server_process_.terminate();
-    server_process_.wait();
-  }
+  ~AzuriteEnv() = default;
 
   static Result<std::unique_ptr<AzureEnvImpl>> Make() {
     auto self = std::unique_ptr<AzuriteEnv>(
         new AzuriteEnv("devstoreaccount1",
                        "Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/"
                        "K1SZFPTOtr/KBHBeksoGMGw=="));
-    auto exe_path = bp::search_path("azurite");
-    if (exe_path.empty()) {
-      return Status::Invalid("Could not find Azurite emulator.");
-    }
+    self->server_process_ = std::make_unique<util::Process>();
+    ARROW_RETURN_NOT_OK(self->server_process_->SetExecutable("azurite"));
     ARROW_ASSIGN_OR_RAISE(self->temp_dir_, TemporaryDir::Make("azurefs-test-"));
     ARROW_ASSIGN_OR_RAISE(self->debug_log_path_,
                           self->temp_dir_->path().Join("debug.log"));
-    auto server_process = bp::child(
-        boost::this_process::environment(), exe_path, "--silent", "--location",
-        self->temp_dir_->path().ToString(), "--debug", self->debug_log_path_.ToString());
-    if (!server_process.valid() || !server_process.running()) {
-      server_process.terminate();
-      server_process.wait();
-      return Status::Invalid("Could not start Azurite emulator.");
-    }
-    self->server_process_ = std::move(server_process);
+    self->server_process_->SetArgs({"--silent", "--location",
+                                    self->temp_dir_->path().ToString(), "--debug",
+                                    self->debug_log_path_.ToString(),
+                                    // For old Azurite. We can't install the latest
+                                    // Azurite with old Node.js on old Ubuntu.
+                                    "--skipApiVersionCheck"});
+    ARROW_RETURN_NOT_OK(self->server_process_->Execute());
     return self;
   }
 
@@ -313,9 +290,9 @@ struct PreexistingData {
 
  public:
   const std::string container_name;
-  static constexpr char const* kObjectName = "test-object-name";
+  static constexpr const char* kObjectName = "test-object-name";
 
-  static constexpr char const* kLoremIpsum = R"""(
+  static constexpr const char* kLoremIpsum = R"""(
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor
 incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis
 nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
@@ -346,7 +323,7 @@ culpa qui officia deserunt mollit anim id est laborum.
   static std::string RandomContainerName(RNG& rng) { return RandomChars(32, rng); }
 
   static std::string RandomChars(int count, RNG& rng) {
-    auto const fillers = std::string("abcdefghijlkmnopqrstuvwxyz0123456789");
+    const auto fillers = std::string("abcdefghijlkmnopqrstuvwxyz0123456789");
     std::uniform_int_distribution<int> d(0, static_cast<int>(fillers.size()) - 1);
     std::string s;
     std::generate_n(std::back_inserter(s), count, [&] { return fillers[d(rng)]; });
@@ -387,9 +364,9 @@ class TestGeneric : public ::testing::Test, public GenericFileSystemTest {
   std::shared_ptr<FileSystem> GetEmptyFileSystem() override { return fs_; }
 
   bool have_implicit_directories() const override { return true; }
-  bool allow_write_file_over_dir() const override { return true; }
-  bool allow_read_dir_as_file() const override { return true; }
-  bool allow_move_dir() const override { return false; }
+  bool allow_write_file_over_dir() const override { return false; }
+  bool allow_read_dir_as_file() const override { return false; }
+  bool allow_move_dir() const override { return true; }
   bool allow_move_file() const override { return true; }
   bool allow_append_to_file() const override { return true; }
   bool have_directory_mtimes() const override { return true; }
@@ -410,6 +387,30 @@ class TestGeneric : public ::testing::Test, public GenericFileSystemTest {
   //     builddir/main/../../threads.c:580:10 #2 0x7fa914b1cd1e in xmlGetGlobalState
   //     builddir/main/../../threads.c:666:31
   bool have_false_positive_memory_leak_with_generator() const override { return true; }
+  // This false positive leak is similar to the one pinpointed in the
+  // have_false_positive_memory_leak_with_generator() comments above,
+  // though the stack trace is different. It happens when a block list
+  // is committed from a background thread.
+  //
+  // clang-format off
+  // Direct leak of 968 byte(s) in 1 object(s) allocated from:
+  //   #0 calloc
+  //   #1 (/lib/x86_64-linux-gnu/libxml2.so.2+0xe25a4)
+  //   #2 __xmlDefaultBufferSize
+  //   #3 xmlBufferCreate
+  //   #4 Azure::Storage::_internal::XmlWriter::XmlWriter()
+  //   #5 Azure::Storage::Blobs::_detail::BlockBlobClient::CommitBlockList
+  //   #6 Azure::Storage::Blobs::BlockBlobClient::CommitBlockList
+  //   #7 arrow::fs::(anonymous namespace)::CommitBlockList
+  //   #8 arrow::fs::(anonymous namespace)::ObjectAppendStream::FlushAsync()::'lambda'
+  // clang-format on
+  //
+  // TODO perhaps remove this skip once we can rely on
+  // https://github.com/Azure/azure-sdk-for-cpp/pull/5767
+  //
+  // Also note that ClickHouse has a workaround for a similar issue:
+  // https://github.com/ClickHouse/ClickHouse/pull/45796
+  bool have_false_positive_memory_leak_with_async_close() const override { return true; }
 
   BaseAzureEnv* env_;
   std::shared_ptr<AzureFileSystem> azure_fs_;
@@ -427,7 +428,11 @@ class TestAzuriteGeneric : public TestGeneric {
   }
 
  protected:
-  // Azurite doesn't support moving files over containers.
+  // Azurite doesn't block writing files over directories.
+  bool allow_write_file_over_dir() const override { return true; }
+  // Azurite doesn't support moving directories.
+  bool allow_move_dir() const override { return false; }
+  // Azurite doesn't support moving files.
   bool allow_move_file() const override { return false; }
   // Azurite doesn't support directory mtime.
   bool have_directory_mtimes() const override { return false; }
@@ -449,7 +454,11 @@ class TestAzureFlatNSGeneric : public TestGeneric {
   }
 
  protected:
-  // Flat namespace account doesn't support moving files over containers.
+  // Flat namespace account doesn't block writing files over directories.
+  bool allow_write_file_over_dir() const override { return true; }
+  // Flat namespace account doesn't support moving directories.
+  bool allow_move_dir() const override { return false; }
+  // Flat namespace account doesn't support moving files.
   bool allow_move_file() const override { return false; }
   // Flat namespace account doesn't support directory mtime.
   bool have_directory_mtimes() const override { return false; }
@@ -490,10 +499,10 @@ TEST(AzureFileSystem, InitializeWithDefaultCredential) {
 TEST(AzureFileSystem, InitializeWithDefaultCredentialImplicitly) {
   AzureOptions options;
   options.account_name = "dummy-account-name";
-  AzureOptions explictly_default_options;
-  explictly_default_options.account_name = "dummy-account-name";
-  ARROW_EXPECT_OK(explictly_default_options.ConfigureDefaultCredential());
-  ASSERT_TRUE(options.Equals(explictly_default_options));
+  AzureOptions explicitly_default_options;
+  explicitly_default_options.account_name = "dummy-account-name";
+  ARROW_EXPECT_OK(explicitly_default_options.ConfigureDefaultCredential());
+  ASSERT_TRUE(options.Equals(explicitly_default_options));
 }
 
 TEST(AzureFileSystem, InitializeWithAnonymousCredential) {
@@ -519,6 +528,13 @@ TEST(AzureFileSystem, InitializeWithManagedIdentityCredential) {
 
   ARROW_EXPECT_OK(options.ConfigureManagedIdentityCredential("specific-client-id"));
   EXPECT_OK_AND_ASSIGN(fs, AzureFileSystem::Make(options));
+}
+
+TEST(AzureFileSystem, InitializeWithCLICredential) {
+  AzureOptions options;
+  options.account_name = "dummy-account-name";
+  ARROW_EXPECT_OK(options.ConfigureCLICredential());
+  EXPECT_OK_AND_ASSIGN(auto fs, AzureFileSystem::Make(options));
 }
 
 TEST(AzureFileSystem, InitializeWithWorkloadIdentityCredential) {
@@ -556,6 +572,7 @@ class TestAzureOptions : public ::testing::Test {
     ASSERT_EQ(options.dfs_storage_scheme, default_options.dfs_storage_scheme);
     ASSERT_EQ(options.credential_kind_, AzureOptions::CredentialKind::kDefault);
     ASSERT_EQ(path, "container/dir/blob");
+    ASSERT_EQ(options.background_writes, true);
   }
 
   void TestFromUriDfsStorage() {
@@ -572,52 +589,64 @@ class TestAzureOptions : public ::testing::Test {
     ASSERT_EQ(options.dfs_storage_scheme, default_options.dfs_storage_scheme);
     ASSERT_EQ(options.credential_kind_, AzureOptions::CredentialKind::kDefault);
     ASSERT_EQ(path, "file_system/dir/file");
+    ASSERT_EQ(options.background_writes, true);
   }
 
   void TestFromUriAbfs() {
     std::string path;
-    ASSERT_OK_AND_ASSIGN(
-        auto options,
-        AzureOptions::FromUri(
-            "abfs://account:password@127.0.0.1:10000/container/dir/blob", &path));
+    ASSERT_OK_AND_ASSIGN(auto options,
+                         AzureOptions::FromUri(
+                             "abfs://account@127.0.0.1:10000/container/dir/blob", &path));
     ASSERT_EQ(options.account_name, "account");
     ASSERT_EQ(options.blob_storage_authority, "127.0.0.1:10000");
     ASSERT_EQ(options.dfs_storage_authority, "127.0.0.1:10000");
     ASSERT_EQ(options.blob_storage_scheme, "https");
     ASSERT_EQ(options.dfs_storage_scheme, "https");
-    ASSERT_EQ(options.credential_kind_, AzureOptions::CredentialKind::kStorageSharedKey);
+    ASSERT_EQ(options.credential_kind_, AzureOptions::CredentialKind::kDefault);
     ASSERT_EQ(path, "container/dir/blob");
+    ASSERT_EQ(options.background_writes, true);
   }
 
   void TestFromUriAbfss() {
     std::string path;
     ASSERT_OK_AND_ASSIGN(
-        auto options,
-        AzureOptions::FromUri(
-            "abfss://account:password@127.0.0.1:10000/container/dir/blob", &path));
+        auto options, AzureOptions::FromUri(
+                          "abfss://account@127.0.0.1:10000/container/dir/blob", &path));
     ASSERT_EQ(options.account_name, "account");
     ASSERT_EQ(options.blob_storage_authority, "127.0.0.1:10000");
     ASSERT_EQ(options.dfs_storage_authority, "127.0.0.1:10000");
     ASSERT_EQ(options.blob_storage_scheme, "https");
     ASSERT_EQ(options.dfs_storage_scheme, "https");
-    ASSERT_EQ(options.credential_kind_, AzureOptions::CredentialKind::kStorageSharedKey);
+    ASSERT_EQ(options.credential_kind_, AzureOptions::CredentialKind::kDefault);
     ASSERT_EQ(path, "container/dir/blob");
+    ASSERT_EQ(options.background_writes, true);
   }
 
   void TestFromUriEnableTls() {
     std::string path;
-    ASSERT_OK_AND_ASSIGN(auto options,
-                         AzureOptions::FromUri(
-                             "abfs://account:password@127.0.0.1:10000/container/dir/blob?"
-                             "enable_tls=false",
-                             &path));
+    ASSERT_OK_AND_ASSIGN(
+        auto options,
+        AzureOptions::FromUri("abfs://account@127.0.0.1:10000/container/dir/blob?"
+                              "enable_tls=false",
+                              &path));
     ASSERT_EQ(options.account_name, "account");
     ASSERT_EQ(options.blob_storage_authority, "127.0.0.1:10000");
     ASSERT_EQ(options.dfs_storage_authority, "127.0.0.1:10000");
     ASSERT_EQ(options.blob_storage_scheme, "http");
     ASSERT_EQ(options.dfs_storage_scheme, "http");
-    ASSERT_EQ(options.credential_kind_, AzureOptions::CredentialKind::kStorageSharedKey);
+    ASSERT_EQ(options.credential_kind_, AzureOptions::CredentialKind::kDefault);
     ASSERT_EQ(path, "container/dir/blob");
+    ASSERT_EQ(options.background_writes, true);
+  }
+
+  void TestFromUriDisableBackgroundWrites() {
+    std::string path;
+    ASSERT_OK_AND_ASSIGN(
+        auto options,
+        AzureOptions::FromUri("abfs://account@127.0.0.1:10000/container/dir/blob?"
+                              "background_writes=false",
+                              &path));
+    ASSERT_EQ(options.background_writes, false);
   }
 
   void TestFromUriCredentialDefault() {
@@ -636,15 +665,6 @@ class TestAzureOptions : public ::testing::Test {
                               "credential_kind=anonymous",
                               nullptr));
     ASSERT_EQ(options.credential_kind_, AzureOptions::CredentialKind::kAnonymous);
-  }
-
-  void TestFromUriCredentialStorageSharedKey() {
-    ASSERT_OK_AND_ASSIGN(
-        auto options,
-        AzureOptions::FromUri(
-            "abfs://:password@account.blob.core.windows.net/container/dir/blob",
-            nullptr));
-    ASSERT_EQ(options.credential_kind_, AzureOptions::CredentialKind::kStorageSharedKey);
   }
 
   void TestFromUriCredentialClientSecret() {
@@ -667,6 +687,15 @@ class TestAzureOptions : public ::testing::Test {
     ASSERT_EQ(options.credential_kind_, AzureOptions::CredentialKind::kManagedIdentity);
   }
 
+  void TestFromUriCredentialCLI() {
+    ASSERT_OK_AND_ASSIGN(
+        auto options,
+        AzureOptions::FromUri("abfs://account.blob.core.windows.net/container/dir/blob?"
+                              "credential_kind=cli",
+                              nullptr));
+    ASSERT_EQ(options.credential_kind_, AzureOptions::CredentialKind::kCLI);
+  }
+
   void TestFromUriCredentialWorkloadIdentity() {
     ASSERT_OK_AND_ASSIGN(
         auto options,
@@ -683,6 +712,36 @@ class TestAzureOptions : public ::testing::Test {
                               "credential_kind=environment",
                               nullptr));
     ASSERT_EQ(options.credential_kind_, AzureOptions::CredentialKind::kEnvironment);
+  }
+
+  void TestFromUriCredentialSASToken() {
+    const std::string sas_token =
+        "?se=2024-12-12T18:57:47Z&sig=pAs7qEBdI6sjUhqX1nrhNAKsTY%2B1SqLxPK%"
+        "2BbAxLiopw%3D&sp=racwdxylti&spr=https,http&sr=c&sv=2024-08-04";
+    ASSERT_OK_AND_ASSIGN(
+        auto options,
+        AzureOptions::FromUri(
+            "abfs://file_system@account.dfs.core.windows.net/" + sas_token, nullptr));
+    ASSERT_EQ(options.credential_kind_, AzureOptions::CredentialKind::kSASToken);
+    ASSERT_EQ(options.sas_token_, sas_token);
+  }
+
+  void TestFromUriCredentialSASTokenWithOtherParameters() {
+    const std::string uri_query_string =
+        "?enable_tls=false&se=2024-12-12T18:57:47Z&sig=pAs7qEBdI6sjUhqX1nrhNAKsTY%"
+        "2B1SqLxPK%"
+        "2BbAxLiopw%3D&sp=racwdxylti&spr=https,http&sr=c&sv=2024-08-04";
+    ASSERT_OK_AND_ASSIGN(
+        auto options,
+        AzureOptions::FromUri(
+            "abfs://account@127.0.0.1:10000/container/dir/blob" + uri_query_string,
+            nullptr));
+    ASSERT_EQ(options.credential_kind_, AzureOptions::CredentialKind::kSASToken);
+    ASSERT_EQ(options.sas_token_, uri_query_string);
+    ASSERT_EQ(options.blob_storage_authority, "127.0.0.1:10000");
+    ASSERT_EQ(options.dfs_storage_authority, "127.0.0.1:10000");
+    ASSERT_EQ(options.blob_storage_scheme, "http");
+    ASSERT_EQ(options.dfs_storage_scheme, "http");
   }
 
   void TestFromUriCredentialInvalid() {
@@ -715,6 +774,38 @@ class TestAzureOptions : public ::testing::Test {
                                "unknown=invalid",
                                nullptr));
   }
+
+  void TestMakeBlobServiceClientInvalidAccountName() {
+    AzureOptions options;
+    ASSERT_RAISES_WITH_MESSAGE(
+        Invalid, "Invalid: AzureOptions doesn't contain a valid account name",
+        options.MakeBlobServiceClient());
+  }
+
+  void TestMakeBlobServiceClientInvalidBlobStorageScheme() {
+    AzureOptions options;
+    options.account_name = "user";
+    options.blob_storage_scheme = "abfs";
+    ASSERT_RAISES_WITH_MESSAGE(
+        Invalid, "Invalid: AzureOptions::blob_storage_scheme must be http or https: abfs",
+        options.MakeBlobServiceClient());
+  }
+
+  void TestMakeDataLakeServiceClientInvalidAccountName() {
+    AzureOptions options;
+    ASSERT_RAISES_WITH_MESSAGE(
+        Invalid, "Invalid: AzureOptions doesn't contain a valid account name",
+        options.MakeDataLakeServiceClient());
+  }
+
+  void TestMakeDataLakeServiceClientInvalidDfsStorageScheme() {
+    AzureOptions options;
+    options.account_name = "user";
+    options.dfs_storage_scheme = "abfs";
+    ASSERT_RAISES_WITH_MESSAGE(
+        Invalid, "Invalid: AzureOptions::dfs_storage_scheme must be http or https: abfs",
+        options.MakeDataLakeServiceClient());
+  }
 };
 
 TEST_F(TestAzureOptions, FromUriBlobStorage) { TestFromUriBlobStorage(); }
@@ -722,22 +813,27 @@ TEST_F(TestAzureOptions, FromUriDfsStorage) { TestFromUriDfsStorage(); }
 TEST_F(TestAzureOptions, FromUriAbfs) { TestFromUriAbfs(); }
 TEST_F(TestAzureOptions, FromUriAbfss) { TestFromUriAbfss(); }
 TEST_F(TestAzureOptions, FromUriEnableTls) { TestFromUriEnableTls(); }
+TEST_F(TestAzureOptions, FromUriDisableBackgroundWrites) {
+  TestFromUriDisableBackgroundWrites();
+}
 TEST_F(TestAzureOptions, FromUriCredentialDefault) { TestFromUriCredentialDefault(); }
 TEST_F(TestAzureOptions, FromUriCredentialAnonymous) { TestFromUriCredentialAnonymous(); }
-TEST_F(TestAzureOptions, FromUriCredentialStorageSharedKey) {
-  TestFromUriCredentialStorageSharedKey();
-}
 TEST_F(TestAzureOptions, FromUriCredentialClientSecret) {
   TestFromUriCredentialClientSecret();
 }
 TEST_F(TestAzureOptions, FromUriCredentialManagedIdentity) {
   TestFromUriCredentialManagedIdentity();
 }
+TEST_F(TestAzureOptions, FromUriCredentialCLI) { TestFromUriCredentialCLI(); }
 TEST_F(TestAzureOptions, FromUriCredentialWorkloadIdentity) {
   TestFromUriCredentialWorkloadIdentity();
 }
 TEST_F(TestAzureOptions, FromUriCredentialEnvironment) {
   TestFromUriCredentialEnvironment();
+}
+TEST_F(TestAzureOptions, FromUriCredentialSASToken) { TestFromUriCredentialSASToken(); }
+TEST_F(TestAzureOptions, FromUriCredentialSASTokenWithOtherParameters) {
+  TestFromUriCredentialSASTokenWithOtherParameters();
 }
 TEST_F(TestAzureOptions, FromUriCredentialInvalid) { TestFromUriCredentialInvalid(); }
 TEST_F(TestAzureOptions, FromUriBlobStorageAuthority) {
@@ -746,6 +842,18 @@ TEST_F(TestAzureOptions, FromUriBlobStorageAuthority) {
 TEST_F(TestAzureOptions, FromUriDfsStorageAuthority) { TestFromUriDfsStorageAuthority(); }
 TEST_F(TestAzureOptions, FromUriInvalidQueryParameter) {
   TestFromUriInvalidQueryParameter();
+}
+TEST_F(TestAzureOptions, MakeBlobServiceClientInvalidAccountName) {
+  TestMakeBlobServiceClientInvalidAccountName();
+}
+TEST_F(TestAzureOptions, MakeBlobServiceClientInvalidBlobStorageScheme) {
+  TestMakeBlobServiceClientInvalidBlobStorageScheme();
+}
+TEST_F(TestAzureOptions, MakeDataLakeServiceClientInvalidAccountName) {
+  TestMakeDataLakeServiceClientInvalidAccountName();
+}
+TEST_F(TestAzureOptions, MakeDataLakeServiceClientInvalidDfsStorageScheme) {
+  TestMakeDataLakeServiceClientInvalidDfsStorageScheme();
 }
 
 class TestAzureFileSystem : public ::testing::Test {
@@ -862,11 +970,26 @@ class TestAzureFileSystem : public ::testing::Test {
         .Value;
   }
 
+  Result<std::string> GetContainerSASToken(
+      const std::string& container_name,
+      Azure::Storage::StorageSharedKeyCredential storage_shared_key_credential) {
+    std::string sas_token;
+    Azure::Storage::Sas::BlobSasBuilder builder;
+    std::chrono::seconds available_period(60);
+    builder.ExpiresOn = std::chrono::system_clock::now() + available_period;
+    builder.BlobContainerName = container_name;
+    builder.Resource = Azure::Storage::Sas::BlobSasResource::BlobContainer;
+    builder.SetPermissions(Azure::Storage::Sas::BlobContainerSasPermissions::All);
+    builder.Protocol = Azure::Storage::Sas::SasProtocol::HttpsAndHttp;
+    return builder.GenerateSasToken(storage_shared_key_credential);
+  }
+
   void UploadLines(const std::vector<std::string>& lines, const std::string& path,
                    int total_size) {
     ASSERT_OK_AND_ASSIGN(auto output, fs()->OpenOutputStream(path, {}));
-    const auto all_lines = std::accumulate(lines.begin(), lines.end(), std::string(""));
-    ASSERT_OK(output->Write(all_lines));
+    for (const auto& line : lines) {
+      ASSERT_OK(output->Write(line.data(), line.size()));
+    }
     ASSERT_OK(output->Close());
   }
 
@@ -918,9 +1041,9 @@ class TestAzureFileSystem : public ::testing::Test {
     };
   }
 
-  char const* kSubData = "sub data";
-  char const* kSomeData = "some data";
-  char const* kOtherData = "other data";
+  const char* kSubData = "sub data";
+  const char* kSomeData = "some data";
+  const char* kOtherData = "other data";
 
   void SetUpSmallFileSystemTree() {
     // Set up test containers
@@ -971,7 +1094,7 @@ class TestAzureFileSystem : public ::testing::Test {
   }
 
 #define ASSERT_RAISES_ERRNO(expr, expected_errno)                                     \
-  for (::arrow::Status _st = ::arrow::internal::GenericToStatus((expr));              \
+  for (::arrow::Status _st = ::arrow::ToStatus((expr));                               \
        !WithErrno(_st, (expected_errno));)                                            \
   FAIL() << "'" ARROW_STRINGIFY(expr) "' did not fail with errno=" << #expected_errno \
          << ": " << _st.ToString()
@@ -1410,6 +1533,165 @@ class TestAzureFileSystem : public ::testing::Test {
     arrow::fs::AssertFileInfo(fs(), data.Path("dir/file0"), FileType::File);
   }
 
+  void AssertObjectContents(AzureFileSystem* fs, std::string_view path,
+                            std::string_view expected) {
+    ASSERT_OK_AND_ASSIGN(auto input, fs->OpenInputStream(std::string{path}));
+    std::string contents;
+    std::shared_ptr<Buffer> buffer;
+    do {
+      ASSERT_OK_AND_ASSIGN(buffer, input->Read(128 * 1024));
+      contents.append(buffer->ToString());
+    } while (buffer->size() != 0);
+
+    EXPECT_EQ(expected, contents);
+  }
+
+  void TestOpenOutputStreamSmall() {
+    ASSERT_OK_AND_ASSIGN(auto fs, AzureFileSystem::Make(options_));
+
+    auto data = SetUpPreexistingData();
+    const auto path = data.ContainerPath("test-write-object");
+    ASSERT_OK_AND_ASSIGN(auto output, fs->OpenOutputStream(path, {}));
+    const std::string_view expected(PreexistingData::kLoremIpsum);
+    ASSERT_OK(output->Write(expected));
+    ASSERT_OK(output->Close());
+
+    // Verify we can read the object back.
+    AssertObjectContents(fs.get(), path, expected);
+  }
+
+  void TestOpenOutputStreamLarge() {
+    ASSERT_OK_AND_ASSIGN(auto fs, AzureFileSystem::Make(options_));
+
+    auto data = SetUpPreexistingData();
+    const auto path = data.ContainerPath("test-write-object");
+    ASSERT_OK_AND_ASSIGN(auto output, fs->OpenOutputStream(path, {}));
+
+    // Upload 5 MB, 4 MB und 2 MB and a very small write to test varying sizes
+    std::vector<std::int64_t> sizes{5 * 1024 * 1024, 4 * 1024 * 1024, 2 * 1024 * 1024,
+                                    2000};
+
+    std::vector<std::string> buffers{};
+    char current_char = 'A';
+    for (const auto size : sizes) {
+      buffers.emplace_back(size, current_char++);
+    }
+
+    auto expected_size = std::int64_t{0};
+    for (size_t i = 0; i < buffers.size(); ++i) {
+      ASSERT_OK(output->Write(buffers[i]));
+      expected_size += sizes[i];
+      ASSERT_EQ(expected_size, output->Tell());
+    }
+    ASSERT_OK(output->Close());
+
+    AssertObjectContents(fs.get(), path,
+                         buffers[0] + buffers[1] + buffers[2] + buffers[3]);
+  }
+
+  void TestOpenOutputStreamLargeSingleWrite() {
+    ASSERT_OK_AND_ASSIGN(auto fs, AzureFileSystem::Make(options_));
+
+    auto data = SetUpPreexistingData();
+    const auto path = data.ContainerPath("test-write-object");
+    ASSERT_OK_AND_ASSIGN(auto output, fs->OpenOutputStream(path, {}));
+
+    constexpr std::int64_t size{12 * 1024 * 1024};
+    const std::string large_string(size, 'X');
+
+    ASSERT_OK(output->Write(large_string));
+    ASSERT_EQ(size, output->Tell());
+    ASSERT_OK(output->Close());
+
+    AssertObjectContents(fs.get(), path, large_string);
+  }
+
+  void TestOpenOutputStreamCloseAsync() {
+#if defined(ADDRESS_SANITIZER) || defined(ARROW_VALGRIND)
+    // See comment about have_false_positive_memory_leak_with_generator above.
+    if (options_.background_writes) {
+      GTEST_SKIP() << "False positive memory leak in libxml2 with CloseAsync";
+    }
+#endif
+    ASSERT_OK_AND_ASSIGN(auto fs, AzureFileSystem::Make(options_));
+    auto data = SetUpPreexistingData();
+    const std::string path = data.ContainerPath("test-write-object");
+    constexpr auto payload = PreexistingData::kLoremIpsum;
+
+    ASSERT_OK_AND_ASSIGN(auto stream, fs->OpenOutputStream(path));
+    ASSERT_OK(stream->Write(payload));
+    auto close_fut = stream->CloseAsync();
+
+    ASSERT_OK(close_fut.MoveResult());
+
+    AssertObjectContents(fs.get(), path, payload);
+  }
+
+  void TestOpenOutputStreamCloseAsyncDestructor() {
+#if defined(ADDRESS_SANITIZER) || defined(ARROW_VALGRIND)
+    // See above.
+    if (options_.background_writes) {
+      GTEST_SKIP() << "False positive memory leak in libxml2 with CloseAsync";
+    }
+#endif
+    ASSERT_OK_AND_ASSIGN(auto fs, AzureFileSystem::Make(options_));
+    auto data = SetUpPreexistingData();
+    const std::string path = data.ContainerPath("test-write-object");
+    constexpr auto payload = PreexistingData::kLoremIpsum;
+
+    ASSERT_OK_AND_ASSIGN(auto stream, fs->OpenOutputStream(path));
+    ASSERT_OK(stream->Write(payload));
+    // Destructor implicitly closes stream and completes the upload.
+    // Testing it doesn't matter whether flush is triggered asynchronously
+    // after CloseAsync or synchronously after stream.reset() since we're just
+    // checking that the future keeps the stream alive until completion
+    // rather than segfaulting on a dangling stream.
+    auto close_fut = stream->CloseAsync();
+    stream.reset();
+    ASSERT_OK(close_fut.MoveResult());
+
+    AssertObjectContents(fs.get(), path, payload);
+  }
+
+  void TestOpenOutputStreamDestructor() {
+    ASSERT_OK_AND_ASSIGN(auto fs, AzureFileSystem::Make(options_));
+    constexpr auto* payload = "new data";
+    auto data = SetUpPreexistingData();
+    const std::string path = data.ContainerPath("test-write-object");
+
+    ASSERT_OK_AND_ASSIGN(auto stream, fs->OpenOutputStream(path));
+    ASSERT_OK(stream->Write(payload));
+    // Destructor implicitly closes stream and completes the multipart upload.
+    stream.reset();
+
+    AssertObjectContents(fs.get(), path, payload);
+  }
+
+  void TestSASCredential() {
+    auto data = SetUpPreexistingData();
+
+    ASSERT_OK_AND_ASSIGN(auto env, GetAzureEnv());
+    ASSERT_OK_AND_ASSIGN(auto options, MakeOptions(env));
+    ASSERT_OK_AND_ASSIGN(
+        auto sas_token,
+        GetContainerSASToken(data.container_name,
+                             Azure::Storage::StorageSharedKeyCredential(
+                                 env->account_name(), env->account_key())));
+    // AzureOptions::FromUri will not cut off extra query parameters that it consumes, so
+    // make sure these don't cause problems.
+    ARROW_EXPECT_OK(options.ConfigureSASCredential(
+        "?blob_storage_authority=dummy_value0&" + sas_token.substr(1) +
+        "&credential_kind=dummy-value1"));
+    EXPECT_OK_AND_ASSIGN(auto fs, AzureFileSystem::Make(options));
+
+    AssertFileInfo(fs.get(), data.ObjectPath(), FileType::File);
+
+    // Test CopyFile because the most obvious implementation requires generating a SAS
+    // token at runtime which doesn't work when the original auth is SAS token.
+    ASSERT_OK(fs->CopyFile(data.ObjectPath(), data.ObjectPath() + "_copy"));
+    AssertFileInfo(fs.get(), data.ObjectPath() + "_copy", FileType::File);
+  }
+
  private:
   using StringMatcher =
       ::testing::PolymorphicMatcher<::testing::internal::HasSubstrMatcher<std::string>>;
@@ -1590,7 +1872,7 @@ class TestAzureFileSystem : public ::testing::Test {
     FileInfo _src_info;                                                                 \
     ASSERT_OK(                                                                          \
         CheckExpectedErrno(_src, _dest, _expected_errno, #expected_errno, &_src_info)); \
-    auto _move_st = ::arrow::internal::GenericToStatus(fs()->Move(_src, _dest));        \
+    auto _move_st = ::arrow::ToStatus(fs()->Move(_src, _dest));                         \
     if (_expected_errno.has_value()) {                                                  \
       if (WithErrno(_move_st, *_expected_errno)) {                                      \
         /* If the Move failed, the source should remain unchanged. */                   \
@@ -1866,6 +2148,20 @@ void TestAzureFileSystem::TestGetFileInfoObjectWithNestedStructure() {
   ASSERT_OK(output->Write(lorem_ipsum));
   ASSERT_OK(output->Close());
 
+  // . is immediately before "/" lexicographically, ensure that this doesn't
+  // cause unexpected issues. NOTE: Its seems real Azure blob storage doesn't
+  // allow blob names to end in `.`
+  ASSERT_OK_AND_ASSIGN(output, fs()->OpenOutputStream(
+                                   data.ContainerPath("test-object-dir/some_other_dir.a"),
+                                   /*metadata=*/{}));
+  ASSERT_OK(output->Write(lorem_ipsum));
+  ASSERT_OK(output->Close());
+  ASSERT_OK_AND_ASSIGN(output,
+                       fs()->OpenOutputStream(data.ContainerPath(kObjectName + ".a"),
+                                              /*metadata=*/{}));
+  ASSERT_OK(output->Write(lorem_ipsum));
+  ASSERT_OK(output->Close());
+
   AssertFileInfo(fs(), data.ContainerPath(kObjectName), FileType::File);
   AssertFileInfo(fs(), data.ContainerPath(kObjectName) + "/", FileType::NotFound);
   AssertFileInfo(fs(), data.ContainerPath("test-object-dir"), FileType::Directory);
@@ -2107,7 +2403,29 @@ TYPED_TEST(TestAzureFileSystemOnAllScenarios, CreateContainerFromPath) {
 
 TYPED_TEST(TestAzureFileSystemOnAllScenarios, MovePath) { this->TestMovePath(); }
 
+TYPED_TEST(TestAzureFileSystemOnAllScenarios, SASCredential) {
+  this->TestSASCredential();
+}
+
 // Tests using Azurite (the local Azure emulator)
+
+TEST_F(TestAzuriteFileSystem, CheckIfHierarchicalNamespaceIsEnabledRuntimeError) {
+  ASSERT_OK(options_.ConfigureAccountKeyCredential("not-base64"));
+  ASSERT_OK_AND_ASSIGN(auto datalake_service_client,
+                       options_.MakeDataLakeServiceClient());
+  auto adlfs_client = datalake_service_client->GetFileSystemClient("nonexistent");
+  ASSERT_RAISES(UnknownError,
+                internal::CheckIfHierarchicalNamespaceIsEnabled(adlfs_client, options_));
+}
+
+TEST_F(TestAzuriteFileSystem, CheckIfHierarchicalNamespaceIsEnabledTransportError) {
+  options_.dfs_storage_authority = "127.0.0.1:20000";  // Wrong port
+  ASSERT_OK_AND_ASSIGN(auto datalake_service_client,
+                       options_.MakeDataLakeServiceClient());
+  auto adlfs_client = datalake_service_client->GetFileSystemClient("nonexistent");
+  ASSERT_RAISES(IOError,
+                internal::CheckIfHierarchicalNamespaceIsEnabled(adlfs_client, options_));
+}
 
 TEST_F(TestAzuriteFileSystem, GetFileInfoSelector) {
   SetUpSmallFileSystemTree();
@@ -2395,6 +2713,17 @@ TEST_F(TestAzuriteFileSystem, CopyFileSuccessDestinationNonexistent) {
   EXPECT_EQ(PreexistingData::kLoremIpsum, buffer->ToString());
 }
 
+TEST_F(TestAzuriteFileSystem, CopyFileSuccessDestinationDifferentContainer) {
+  auto data = SetUpPreexistingData();
+  auto data2 = SetUpPreexistingData();
+  const auto destination_path = data2.ContainerPath("copy-destionation");
+  ASSERT_OK(fs()->CopyFile(data.ObjectPath(), destination_path));
+  ASSERT_OK_AND_ASSIGN(auto info, fs()->GetFileInfo(destination_path));
+  ASSERT_OK_AND_ASSIGN(auto stream, fs()->OpenInputStream(info));
+  ASSERT_OK_AND_ASSIGN(auto buffer, stream->Read(1024));
+  EXPECT_EQ(PreexistingData::kLoremIpsum, buffer->ToString());
+}
+
 TEST_F(TestAzuriteFileSystem, CopyFileSuccessDestinationSame) {
   auto data = SetUpPreexistingData();
   ASSERT_OK(fs()->CopyFile(data.ObjectPath(), data.ObjectPath()));
@@ -2640,53 +2969,27 @@ TEST_F(TestAzuriteFileSystem, WriteMetadataHttpHeaders) {
   ASSERT_EQ("text/plain", content_type);
 }
 
-TEST_F(TestAzuriteFileSystem, OpenOutputStreamSmall) {
-  auto data = SetUpPreexistingData();
-  const auto path = data.ContainerPath("test-write-object");
-  ASSERT_OK_AND_ASSIGN(auto output, fs()->OpenOutputStream(path, {}));
-  const std::string_view expected(PreexistingData::kLoremIpsum);
-  ASSERT_OK(output->Write(expected));
-  ASSERT_OK(output->Close());
-
-  // Verify we can read the object back.
-  ASSERT_OK_AND_ASSIGN(auto input, fs()->OpenInputStream(path));
-
-  std::array<char, 1024> inbuf{};
-  ASSERT_OK_AND_ASSIGN(auto size, input->Read(inbuf.size(), inbuf.data()));
-
-  EXPECT_EQ(expected, std::string_view(inbuf.data(), size));
+TEST_F(TestAzuriteFileSystem, OpenOutputStreamSmallNoBackgroundWrites) {
+  options_.background_writes = false;
+  TestOpenOutputStreamSmall();
 }
 
-TEST_F(TestAzuriteFileSystem, OpenOutputStreamLarge) {
-  auto data = SetUpPreexistingData();
-  const auto path = data.ContainerPath("test-write-object");
-  ASSERT_OK_AND_ASSIGN(auto output, fs()->OpenOutputStream(path, {}));
-  std::array<std::int64_t, 3> sizes{257 * 1024, 258 * 1024, 259 * 1024};
-  std::array<std::string, 3> buffers{
-      std::string(sizes[0], 'A'),
-      std::string(sizes[1], 'B'),
-      std::string(sizes[2], 'C'),
-  };
-  auto expected = std::int64_t{0};
-  for (auto i = 0; i != 3; ++i) {
-    ASSERT_OK(output->Write(buffers[i]));
-    expected += sizes[i];
-    ASSERT_EQ(expected, output->Tell());
-  }
-  ASSERT_OK(output->Close());
+TEST_F(TestAzuriteFileSystem, OpenOutputStreamSmall) { TestOpenOutputStreamSmall(); }
 
-  // Verify we can read the object back.
-  ASSERT_OK_AND_ASSIGN(auto input, fs()->OpenInputStream(path));
+TEST_F(TestAzuriteFileSystem, OpenOutputStreamLargeNoBackgroundWrites) {
+  options_.background_writes = false;
+  TestOpenOutputStreamLarge();
+}
 
-  std::string contents;
-  std::shared_ptr<Buffer> buffer;
-  do {
-    ASSERT_OK_AND_ASSIGN(buffer, input->Read(128 * 1024));
-    ASSERT_TRUE(buffer);
-    contents.append(buffer->ToString());
-  } while (buffer->size() != 0);
+TEST_F(TestAzuriteFileSystem, OpenOutputStreamLarge) { TestOpenOutputStreamLarge(); }
 
-  EXPECT_EQ(contents, buffers[0] + buffers[1] + buffers[2]);
+TEST_F(TestAzuriteFileSystem, OpenOutputStreamLargeSingleWriteNoBackgroundWrites) {
+  options_.background_writes = false;
+  TestOpenOutputStreamLargeSingleWrite();
+}
+
+TEST_F(TestAzuriteFileSystem, OpenOutputStreamLargeSingleWrite) {
+  TestOpenOutputStreamLargeSingleWrite();
 }
 
 TEST_F(TestAzuriteFileSystem, OpenOutputStreamTruncatesExistingFile) {
@@ -2756,6 +3059,33 @@ TEST_F(TestAzuriteFileSystem, OpenOutputStreamClosed) {
   ASSERT_RAISES(Invalid, output->Tell());
 }
 
+TEST_F(TestAzuriteFileSystem, OpenOutputStreamCloseAsync) {
+  TestOpenOutputStreamCloseAsync();
+}
+
+TEST_F(TestAzuriteFileSystem, OpenOutputStreamCloseAsyncNoBackgroundWrites) {
+  options_.background_writes = false;
+  TestOpenOutputStreamCloseAsync();
+}
+
+TEST_F(TestAzuriteFileSystem, OpenOutputStreamAsyncDestructor) {
+  TestOpenOutputStreamCloseAsyncDestructor();
+}
+
+TEST_F(TestAzuriteFileSystem, OpenOutputStreamAsyncDestructorNoBackgroundWrites) {
+  options_.background_writes = false;
+  TestOpenOutputStreamCloseAsyncDestructor();
+}
+
+TEST_F(TestAzuriteFileSystem, OpenOutputStreamDestructor) {
+  TestOpenOutputStreamDestructor();
+}
+
+TEST_F(TestAzuriteFileSystem, OpenOutputStreamDestructorNoBackgroundWrites) {
+  options_.background_writes = false;
+  TestOpenOutputStreamDestructor();
+}
+
 TEST_F(TestAzuriteFileSystem, OpenOutputStreamUri) {
   auto data = SetUpPreexistingData();
   const auto path = data.ContainerPath("open-output-stream-uri.txt");
@@ -2796,8 +3126,8 @@ TEST_F(TestAzuriteFileSystem, OpenInputFileMixedReadVsReadAt) {
     }
 
     // Verify random reads interleave too.
-    auto const index = PreexistingData::RandomIndex(kLineCount, rng_);
-    auto const position = index * kLineWidth;
+    const auto index = PreexistingData::RandomIndex(kLineCount, rng_);
+    const auto position = index * kLineWidth;
     ASSERT_OK_AND_ASSIGN(size, file->ReadAt(position, buffer.size(), buffer.data()));
     EXPECT_EQ(size, kLineWidth);
     auto actual = std::string{buffer.begin(), buffer.end()};
@@ -2830,8 +3160,8 @@ TEST_F(TestAzuriteFileSystem, OpenInputFileRandomSeek) {
   for (int i = 0; i != 32; ++i) {
     SCOPED_TRACE("Iteration " + std::to_string(i));
     // Verify sequential reads work as expected.
-    auto const index = PreexistingData::RandomIndex(kLineCount, rng_);
-    auto const position = index * kLineWidth;
+    const auto index = PreexistingData::RandomIndex(kLineCount, rng_);
+    const auto position = index * kLineWidth;
     ASSERT_OK(file->Seek(position));
     ASSERT_OK_AND_ASSIGN(auto actual, file->Read(kLineWidth));
     EXPECT_EQ(lines[index], actual->ToString());
@@ -2867,7 +3197,7 @@ TEST_F(TestAzuriteFileSystem, OpenInputFileInfo) {
   auto constexpr kStart = 16;
   ASSERT_OK_AND_ASSIGN(size, file->ReadAt(kStart, buffer.size(), buffer.data()));
 
-  auto const expected = std::string(PreexistingData::kLoremIpsum).substr(kStart);
+  const auto expected = std::string(PreexistingData::kLoremIpsum).substr(kStart);
   EXPECT_EQ(std::string(buffer.data(), size), expected);
 }
 
@@ -2896,6 +3226,15 @@ TEST_F(TestAzuriteFileSystem, OpenInputFileClosed) {
   ASSERT_RAISES(Invalid, stream->ReadAt(1, buffer.size(), buffer.data()));
   ASSERT_RAISES(Invalid, stream->ReadAt(1, 1));
   ASSERT_RAISES(Invalid, stream->Seek(2));
+}
+
+TEST_F(TestAzuriteFileSystem, PathFromUri) {
+  ASSERT_EQ(
+      "container/some/path",
+      fs()->PathFromUri("abfss://storageacc.blob.core.windows.net/container/some/path"));
+  ASSERT_EQ("container/some/path",
+            fs()->PathFromUri("abfss://acc:pw@container/some/path"));
+  ASSERT_RAISES(Invalid, fs()->PathFromUri("http://acc:pw@container/some/path"));
 }
 }  // namespace fs
 }  // namespace arrow

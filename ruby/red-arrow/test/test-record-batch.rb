@@ -178,5 +178,11 @@ class RecordBatchTest < Test::Unit::TestCase
                      @record_batch[[:c, "a", -1, 3..4]])
       end
     end
+
+    sub_test_case("#column") do
+      test("#size") do
+        assert_equal(@counts.size, @record_batch[:count].size)
+      end
+    end
   end
 end

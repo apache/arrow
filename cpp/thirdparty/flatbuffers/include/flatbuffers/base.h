@@ -145,9 +145,9 @@ namespace flatbuffers = arrow_vendored_private::flatbuffers;
   #endif
 #endif // !defined(FLATBUFFERS_LITTLEENDIAN)
 
-#define FLATBUFFERS_VERSION_MAJOR 23
-#define FLATBUFFERS_VERSION_MINOR 5
-#define FLATBUFFERS_VERSION_REVISION 26
+#define FLATBUFFERS_VERSION_MAJOR 24
+#define FLATBUFFERS_VERSION_MINOR 3
+#define FLATBUFFERS_VERSION_REVISION 6
 #define FLATBUFFERS_STRING_EXPAND(X) #X
 #define FLATBUFFERS_STRING(X) FLATBUFFERS_STRING_EXPAND(X)
 
@@ -164,7 +164,7 @@ namespace flatbuffers {
   #define FLATBUFFERS_FINAL_CLASS final
   #define FLATBUFFERS_OVERRIDE override
   #define FLATBUFFERS_EXPLICIT_CPP11 explicit
-  #define FLATBUFFERS_VTABLE_UNDERLYING_TYPE : flatbuffers::voffset_t
+  #define FLATBUFFERS_VTABLE_UNDERLYING_TYPE : ::flatbuffers::voffset_t
 #else
   #define FLATBUFFERS_FINAL_CLASS
   #define FLATBUFFERS_OVERRIDE
@@ -298,10 +298,14 @@ namespace flatbuffers {
   #define FLATBUFFERS_SUPPRESS_UBSAN(type)
 #endif
 
-// This is constexpr function used for checking compile-time constants.
-// Avoid `#pragma warning(disable: 4127) // C4127: expression is constant`.
-template<typename T> FLATBUFFERS_CONSTEXPR inline bool IsConstTrue(T t) {
-  return !!t;
+namespace arrow_vendored_private {
+namespace flatbuffers {
+  // This is constexpr function used for checking compile-time constants.
+  // Avoid `#pragma warning(disable: 4127) // C4127: expression is constant`.
+  template<typename T> FLATBUFFERS_CONSTEXPR inline bool IsConstTrue(T t) {
+    return !!t;
+  }
+}
 }
 
 // Enable C++ attribute [[]] if std:c++17 or higher.
@@ -371,7 +375,6 @@ inline bool VerifyAlignmentRequirements(size_t align, size_t min_align = 1) {
 }
 
 #if defined(_MSC_VER)
-  #pragma warning(disable: 4351) // C4351: new behavior: elements of array ... will be default initialized
   #pragma warning(push)
   #pragma warning(disable: 4127) // C4127: conditional expression is constant
 #endif

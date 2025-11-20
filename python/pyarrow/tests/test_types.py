@@ -16,7 +16,7 @@
 # under the License.
 
 from collections import OrderedDict
-from collections.abc import Iterator
+from collections.abc import Iterator, Mapping
 from functools import partial
 import datetime
 import sys
@@ -30,7 +30,10 @@ except ImportError:
     tzst = None
 import weakref
 
-import numpy as np
+try:
+    import numpy as np
+except ImportError:
+    np = None
 import pyarrow as pa
 import pyarrow.types as types
 import pyarrow.tests.strategies as past
@@ -54,6 +57,8 @@ def get_many_types():
         pa.float16(),
         pa.float32(),
         pa.float64(),
+        pa.decimal32(9, 4),
+        pa.decimal64(18, 4),
         pa.decimal128(19, 4),
         pa.decimal256(76, 38),
         pa.string(),
@@ -136,18 +141,38 @@ def test_null_field_may_not_be_non_nullable():
 
 
 def test_is_decimal():
+    decimal32 = pa.decimal32(9, 4)
+    decimal64 = pa.decimal64(18, 4)
     decimal128 = pa.decimal128(19, 4)
     decimal256 = pa.decimal256(76, 38)
     int32 = pa.int32()
 
+    assert types.is_decimal(decimal32)
+    assert types.is_decimal(decimal64)
     assert types.is_decimal(decimal128)
     assert types.is_decimal(decimal256)
     assert not types.is_decimal(int32)
 
+    assert types.is_decimal32(decimal32)
+    assert not types.is_decimal32(decimal64)
+    assert not types.is_decimal32(decimal128)
+    assert not types.is_decimal32(decimal256)
+    assert not types.is_decimal32(int32)
+
+    assert not types.is_decimal64(decimal32)
+    assert types.is_decimal64(decimal64)
+    assert not types.is_decimal64(decimal128)
+    assert not types.is_decimal64(decimal256)
+    assert not types.is_decimal64(int32)
+
+    assert not types.is_decimal128(decimal32)
+    assert not types.is_decimal128(decimal64)
     assert types.is_decimal128(decimal128)
     assert not types.is_decimal128(decimal256)
     assert not types.is_decimal128(int32)
 
+    assert not types.is_decimal256(decimal32)
+    assert not types.is_decimal256(decimal64)
     assert not types.is_decimal256(decimal128)
     assert types.is_decimal256(decimal256)
     assert not types.is_decimal256(int32)
@@ -345,6 +370,7 @@ def test_pytz_tzinfo_to_string():
     assert [pa.lib.tzinfo_to_string(i) for i in tz] == expected
 
 
+@pytest.mark.timezone_data
 def test_dateutil_tzinfo_to_string():
     if sys.platform == 'win32':
         # Skip due to new release of python-dateutil
@@ -360,6 +386,7 @@ def test_dateutil_tzinfo_to_string():
     assert pa.lib.tzinfo_to_string(tz) == 'Europe/Paris'
 
 
+@pytest.mark.timezone_data
 def test_zoneinfo_tzinfo_to_string():
     zoneinfo = pytest.importorskip('zoneinfo')
     if sys.platform == 'win32':
@@ -378,13 +405,10 @@ def test_tzinfo_to_string_errors():
     with pytest.raises(TypeError):
         pa.lib.tzinfo_to_string("Europe/Budapest")
 
-    if sys.version_info >= (3, 8):
-        # before 3.8 it was only possible to create timezone objects with whole
-        # number of minutes
-        tz = datetime.timezone(datetime.timedelta(hours=1, seconds=30))
-        msg = "Offset must represent whole number of minutes"
-        with pytest.raises(ValueError, match=msg):
-            pa.lib.tzinfo_to_string(tz)
+    tz = datetime.timezone(datetime.timedelta(hours=1, seconds=30))
+    msg = "Offset must represent whole number of minutes"
+    with pytest.raises(ValueError, match=msg):
+        pa.lib.tzinfo_to_string(tz)
 
 
 if tzst:
@@ -534,7 +558,7 @@ def test_time32_units():
         assert ty.unit == valid_unit
 
     for invalid_unit in ('m', 'us', 'ns'):
-        error_msg = 'Invalid time unit for time32: {!r}'.format(invalid_unit)
+        error_msg = f'Invalid time unit for time32: {invalid_unit!r}'
         with pytest.raises(ValueError, match=error_msg):
             pa.time32(invalid_unit)
 
@@ -545,7 +569,7 @@ def test_time64_units():
         assert ty.unit == valid_unit
 
     for invalid_unit in ('m', 's', 'ms'):
-        error_msg = 'Invalid time unit for time64: {!r}'.format(invalid_unit)
+        error_msg = f'Invalid time unit for time64: {invalid_unit!r}'
         with pytest.raises(ValueError, match=error_msg):
             pa.time64(invalid_unit)
 
@@ -691,6 +715,8 @@ def test_struct_type():
     assert list(ty) == fields
     assert ty[0].name == 'a'
     assert ty[2].type == pa.int32()
+    assert ty.names == [f.name for f in ty]
+    assert ty.fields == list(ty)
     with pytest.raises(IndexError):
         assert ty[3]
 
@@ -883,6 +909,14 @@ def test_types_weakref():
     assert wr() is None  # not a singleton
 
 
+def test_types_has_variadic_buffers():
+    for ty in get_many_types():
+        if ty in (pa.string_view(), pa.binary_view()):
+            assert ty.has_variadic_buffers
+        else:
+            assert not ty.has_variadic_buffers
+
+
 def test_fields_hashable():
     in_dict = {}
     fields = [pa.field('a', pa.int32()),
@@ -958,6 +992,8 @@ def test_bit_and_byte_width():
         (pa.float16(), 16, 2),
         (pa.timestamp('s'), 64, 8),
         (pa.date32(), 32, 4),
+        (pa.decimal32(9, 4), 32, 4),
+        (pa.decimal64(18, 4), 64, 8),
         (pa.decimal128(19, 4), 128, 16),
         (pa.decimal256(76, 38), 256, 32),
         (pa.binary(42), 42 * 8, 42),
@@ -990,6 +1026,14 @@ def test_fixed_size_binary_byte_width():
 
 
 def test_decimal_properties():
+    ty = pa.decimal32(9, 4)
+    assert ty.byte_width == 4
+    assert ty.precision == 9
+    assert ty.scale == 4
+    ty = pa.decimal64(18, 4)
+    assert ty.byte_width == 8
+    assert ty.precision == 18
+    assert ty.scale == 4
     ty = pa.decimal128(19, 4)
     assert ty.byte_width == 16
     assert ty.precision == 19
@@ -1001,6 +1045,18 @@ def test_decimal_properties():
 
 
 def test_decimal_overflow():
+    pa.decimal32(1, 0)
+    pa.decimal32(9, 0)
+    for i in (0, -1, 10):
+        with pytest.raises(ValueError):
+            pa.decimal32(i, 0)
+
+    pa.decimal64(1, 0)
+    pa.decimal64(18, 0)
+    for i in (0, -1, 19):
+        with pytest.raises(ValueError):
+            pa.decimal64(i, 0)
+
     pa.decimal128(1, 0)
     pa.decimal128(38, 0)
     for i in (0, -1, 39):
@@ -1149,6 +1205,13 @@ def test_field_basic():
         pa.field('foo', None)
 
 
+def test_field_datatype_alias():
+    f = pa.field('foo', 'string')
+
+    assert f.name == 'foo'
+    assert f.type is pa.string()
+
+
 def test_field_equals():
     meta1 = {b'foo': b'bar'}
     meta2 = {b'bizz': b'bazz'}
@@ -1261,14 +1324,16 @@ def test_field_modified_copies():
 
 def test_is_integer_value():
     assert pa.types.is_integer_value(1)
-    assert pa.types.is_integer_value(np.int64(1))
+    if np is not None:
+        assert pa.types.is_integer_value(np.int64(1))
     assert not pa.types.is_integer_value('1')
 
 
 def test_is_float_value():
     assert not pa.types.is_float_value(1)
     assert pa.types.is_float_value(1.)
-    assert pa.types.is_float_value(np.float64(1))
+    if np is not None:
+        assert pa.types.is_float_value(np.float64(1))
     assert not pa.types.is_float_value('1.0')
 
 
@@ -1276,8 +1341,9 @@ def test_is_boolean_value():
     assert not pa.types.is_boolean_value(1)
     assert pa.types.is_boolean_value(True)
     assert pa.types.is_boolean_value(False)
-    assert pa.types.is_boolean_value(np.bool_(True))
-    assert pa.types.is_boolean_value(np.bool_(False))
+    if np is not None:
+        assert pa.types.is_boolean_value(np.bool_(True))
+        assert pa.types.is_boolean_value(np.bool_(False))
 
 
 @h.settings(suppress_health_check=(h.HealthCheck.too_slow,))
@@ -1323,17 +1389,36 @@ def test_types_come_back_with_specific_type():
         assert type(type_back) is type(arrow_type)
 
 
-def test_schema_import_c_schema_interface():
-    class Wrapper:
-        def __init__(self, schema):
-            self.schema = schema
+class SchemaWrapper:
+    def __init__(self, schema):
+        self.schema = schema
 
-        def __arrow_c_schema__(self):
-            return self.schema.__arrow_c_schema__()
+    def __arrow_c_schema__(self):
+        return self.schema.__arrow_c_schema__()
 
+
+class SchemaMapping(Mapping):
+    def __init__(self, schema):
+        self.schema = schema
+
+    def __arrow_c_schema__(self):
+        return self.schema.__arrow_c_schema__()
+
+    def __getitem__(self, key):
+        return self.schema[key]
+
+    def __iter__(self):
+        return iter(self.schema)
+
+    def __len__(self):
+        return len(self.schema)
+
+
+@pytest.mark.parametrize("wrapper_class", [SchemaWrapper, SchemaMapping])
+def test_schema_import_c_schema_interface(wrapper_class):
     schema = pa.schema([pa.field("field_name", pa.int32())], metadata={"a": "b"})
     assert schema.metadata == {b"a": b"b"}
-    wrapped_schema = Wrapper(schema)
+    wrapped_schema = wrapper_class(schema)
 
     assert pa.schema(wrapped_schema) == schema
     assert pa.schema(wrapped_schema).metadata == {b"a": b"b"}
@@ -1360,3 +1445,16 @@ def test_field_import_c_schema_interface():
     assert pa.field(wrapped_field, nullable=False).nullable is False
     result = pa.field(wrapped_field, metadata={"other": "meta"})
     assert result.metadata == {b"other": b"meta"}
+
+
+def test_types_enum():
+    # GH-47123: [Python] Add Enums to PyArrow Types
+    # Since not all the underlying types are implemented in PyArrow,
+    # test only the ones that were imported specifically for this Enum
+
+    import pyarrow.lib as lib
+
+    types_enum = types.TypesEnum
+
+    assert types_enum.INTERVAL_MONTHS.value == lib.Type_INTERVAL_MONTHS
+    assert types_enum.INTERVAL_DAY_TIME.value == lib.Type_INTERVAL_DAY_TIME

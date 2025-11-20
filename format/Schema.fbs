@@ -24,6 +24,7 @@
 /// Version 1.3 - Add Run-End Encoded.
 /// Version 1.4 - Add BinaryView, Utf8View, variadicBufferCounts, ListView, and
 /// LargeListView.
+/// Version 1.5 - Add 32-bit and 64-bit as allowed bit widths for Decimal
 
 namespace org.apache.arrow.flatbuf;
 
@@ -60,8 +61,8 @@ enum MetadataVersion:short {
 ///      forward compatibility guarantees).
 ///  2.  A means of negotiating between a client and server
 ///      what features a stream is allowed to use. The enums
-///      values here are intented to represent higher level
-///      features, additional details maybe negotiated
+///      values here are intended to represent higher level
+///      features, additional details may be negotiated
 ///      with key-value pairs specific to the protocol.
 ///
 /// Enums added to this list should be assigned power-of-two values
@@ -222,9 +223,9 @@ table RunEndEncoded {
 }
 
 /// Exact decimal value represented as an integer value in two's
-/// complement. Currently only 128-bit (16-byte) and 256-bit (32-byte) integers
-/// are used. The representation uses the endianness indicated
-/// in the Schema.
+/// complement. Currently 32-bit (4-byte), 64-bit (8-byte), 
+/// 128-bit (16-byte) and 256-bit (32-byte) integers are used.
+/// The representation uses the endianness indicated in the Schema.
 table Decimal {
   /// Total number of decimal digits
   precision: int;
@@ -232,7 +233,7 @@ table Decimal {
   /// Number of digits after the decimal point "."
   scale: int;
 
-  /// Number of bits per value. The only accepted widths are 128 and 256.
+  /// Number of bits per value. The accepted widths are 32, 64, 128 and 256.
   /// We use bitWidth for consistency with Int::bitWidth.
   bitWidth: int = 128;
 }
@@ -420,7 +421,7 @@ table Interval {
 // An absolute length of time unrelated to any calendar artifacts.
 //
 // For the purposes of Arrow Implementations, adding this value to a Timestamp
-// ("t1") naively (i.e. simply summing the two number) is acceptable even
+// ("t1") naively (i.e. simply summing the two numbers) is acceptable even
 // though in some cases the resulting Timestamp (t2) would not account for
 // leap-seconds during the elapsed time between "t1" and "t2".  Similarly,
 // representing the difference between two Unix timestamp is acceptable, but
@@ -509,7 +510,7 @@ table DictionaryEncoding {
 /// nested type.
 
 table Field {
-  /// Name is not required, in i.e. a List
+  /// Name is not required (e.g., in a List)
   name: string;
 
   /// Whether or not this field can contain nulls. Should be true in general.

@@ -26,7 +26,7 @@
 #include "arrow/chunked_array.h"
 #include "arrow/record_batch.h"
 #include "arrow/table.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/ree_util.h"
 #include "arrow/visit_type_inline.h"
 

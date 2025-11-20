@@ -42,7 +42,7 @@ _FLIGHT_CLIENT_CMD = [
 ]
 
 _DLL_PATH = _EXE_PATH
-_ARROW_DLL = os.path.join(_DLL_PATH, "libarrow" + cdata.dll_suffix)
+_ARROW_DLL = os.path.join(_DLL_PATH, "libarrow_c_data_integration" + cdata.dll_suffix)
 
 
 class CppTester(Tester):
@@ -120,9 +120,7 @@ class CppTester(Tester):
                 out, err = server.communicate()
                 raise RuntimeError(
                     "Flight-C++ server did not start properly, "
-                    "stdout:\n{}\n\nstderr:\n{}\n".format(
-                        output + out.decode(), err.decode()
-                    )
+                    f"stdout:\n{output + out.decode()}\n\nstderr:\n{err.decode()}\n"
                 )
             port = int(output.split(":")[1])
             yield port

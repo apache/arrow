@@ -53,8 +53,12 @@ call_function <- function(function_name, ..., args = list(...), options = empty_
     # Lame, just pick one to report
     first_bad <- min(which(!valid_args))
     stop(
-      "Argument ", first_bad, " is of class ", head(class(args[[first_bad]]), 1),
-      " but it must be one of ", oxford_paste(datum_classes, "or"),
+      "Argument ",
+      first_bad,
+      " is of class ",
+      head(class(args[[first_bad]]), 1),
+      " but it must be one of ",
+      oxford_paste(datum_classes, "or"),
       call. = FALSE
     )
   }
@@ -88,6 +92,7 @@ call_function <- function(function_name, ..., args = list(...), options = empty_
 #' @param pattern Optional regular expression to filter the function list
 #' @param ... Additional parameters passed to `grep()`
 #' @return A character vector of available Arrow C++ function names
+#' @seealso [acero] for R bindings for Arrow functions
 #' @examples
 #' available_funcs <- list_compute_functions()
 #' utf8_funcs <- list_compute_functions(pattern = "^UTF8", ignore.case = TRUE)
@@ -159,13 +164,17 @@ collect_arrays_from_dots <- function(dots) {
 }
 
 #' @export
-quantile.ArrowDatum <- function(x,
-                                probs = seq(0, 1, 0.25),
-                                na.rm = FALSE,
-                                type = 7,
-                                interpolation = c("linear", "lower", "higher", "nearest", "midpoint"),
-                                ...) {
-  if (inherits(x, "Scalar")) x <- Array$create(x)
+quantile.ArrowDatum <- function(
+  x,
+  probs = seq(0, 1, 0.25),
+  na.rm = FALSE,
+  type = 7,
+  interpolation = c("linear", "lower", "higher", "nearest", "midpoint"),
+  ...
+) {
+  if (inherits(x, "Scalar")) {
+    x <- Array$create(x)
+  }
   assert_is(probs, c("numeric", "integer"))
   assert_that(length(probs) > 0)
   assert_that(all(probs >= 0 & probs <= 1))

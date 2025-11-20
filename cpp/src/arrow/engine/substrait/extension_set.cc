@@ -31,7 +31,7 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/hash_util.h"
 #include "arrow/util/hashing.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/string.h"
 
 namespace arrow {
@@ -175,7 +175,7 @@ void SubstraitCall::SetValueArg(int index, compute::Expression value_arg) {
   value_args_[index] = std::move(value_arg);
 }
 
-std::optional<std::vector<std::string> const*> SubstraitCall::GetOption(
+std::optional<const std::vector<std::string>*> SubstraitCall::GetOption(
     std::string_view option_name) const {
   auto opt = options_.find(std::string(option_name));
   if (opt == options_.end()) {
@@ -762,11 +762,11 @@ Result<Enum> ParseOptionOrElse(const SubstraitCall& call, std::string_view optio
                                const EnumParser<Enum>& parser,
                                const std::vector<Enum>& implemented_options,
                                Enum fallback) {
-  std::optional<std::vector<std::string> const*> enum_arg = call.GetOption(option_name);
+  std::optional<const std::vector<std::string>*> enum_arg = call.GetOption(option_name);
   if (!enum_arg.has_value()) {
     return fallback;
   }
-  std::vector<std::string> const* prefs = *enum_arg;
+  const std::vector<std::string>* prefs = *enum_arg;
   for (const std::string& pref : *prefs) {
     ARROW_ASSIGN_OR_RAISE(Enum parsed, parser.Parse(pref));
     for (Enum implemented_opt : implemented_options) {
@@ -1071,7 +1071,8 @@ struct DefaultExtensionIdRegistry : ExtensionIdRegistryImpl {
 
     // Mappings either without a _checked variant or substrait has no overflow option
     for (const auto& function_name :
-         {"exp", "sign", "cos", "sin", "tan", "acos", "asin", "atan", "atan2"}) {
+         {"exp", "sign", "cos", "cosh", "sin", "sinh", "tan", "tanh", "acos", "acosh",
+          "asin", "asinh", "atan", "atanh", "atan2"}) {
       DCHECK_OK(
           AddSubstraitCallToArrow({kSubstraitArithmeticFunctionsUri, function_name},
                                   DecodeOptionlessUncheckedArithmetic(function_name)));
@@ -1207,7 +1208,13 @@ struct DefaultExtensionIdRegistry : ExtensionIdRegistryImpl {
              {kSubstraitArithmeticFunctionsUri, "acos"},
              {kSubstraitArithmeticFunctionsUri, "asin"},
              {kSubstraitArithmeticFunctionsUri, "atan"},
-             {kSubstraitArithmeticFunctionsUri, "atan2"}}) {
+             {kSubstraitArithmeticFunctionsUri, "atan2"},
+             {kSubstraitArithmeticFunctionsUri, "cosh"},
+             {kSubstraitArithmeticFunctionsUri, "sinh"},
+             {kSubstraitArithmeticFunctionsUri, "tanh"},
+             {kSubstraitArithmeticFunctionsUri, "acosh"},
+             {kSubstraitArithmeticFunctionsUri, "asinh"},
+             {kSubstraitArithmeticFunctionsUri, "atanh"}}) {
       Id fn_id{fn_pair.first, fn_pair.second};
       DCHECK_OK(AddArrowToSubstraitCall(std::string(fn_pair.second), EncodeBasic(fn_id)));
     }

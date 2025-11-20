@@ -25,7 +25,7 @@
 #include <string_view>
 
 #if defined(ARROW_HAVE_NEON) || defined(ARROW_HAVE_SSE4_2)
-#include <xsimd/xsimd.hpp>
+#  include <xsimd/xsimd.hpp>
 #endif
 
 #include "arrow/type_fwd.h"
@@ -183,18 +183,25 @@ static inline bool ValidateUTF8Inline(const uint8_t* data, int64_t size) {
   switch (size) {
     case 7:
       state = internal::ValidateOneUTF8Byte(data[size - 7], state);
+      [[fallthrough]];
     case 6:
       state = internal::ValidateOneUTF8Byte(data[size - 6], state);
+      [[fallthrough]];
     case 5:
       state = internal::ValidateOneUTF8Byte(data[size - 5], state);
+      [[fallthrough]];
     case 4:
       state = internal::ValidateOneUTF8Byte(data[size - 4], state);
+      [[fallthrough]];
     case 3:
       state = internal::ValidateOneUTF8Byte(data[size - 3], state);
+      [[fallthrough]];
     case 2:
       state = internal::ValidateOneUTF8Byte(data[size - 2], state);
+      [[fallthrough]];
     case 1:
       state = internal::ValidateOneUTF8Byte(data[size - 1], state);
+      [[fallthrough]];
     default:
       break;
   }

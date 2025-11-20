@@ -32,7 +32,7 @@ class PARQUET_EXPORT ParquetFilePrinter {
 
  public:
   explicit ParquetFilePrinter(ParquetFileReader* reader) : fileReader(reader) {}
-  ~ParquetFilePrinter() {}
+  ~ParquetFilePrinter() = default;
 
   void DebugPrint(std::ostream& stream, std::list<int> selected_columns,
                   bool print_values = false, bool format_dump = false,

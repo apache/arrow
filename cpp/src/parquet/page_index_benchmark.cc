@@ -27,7 +27,7 @@
 #include "parquet/test_util.h"
 #include "parquet/thrift_internal.h"
 
-namespace parquet::benchmark {
+namespace parquet::benchmarks {
 
 void PageIndexSetArgs(::benchmark::internal::Benchmark* bench) {
   bench->ArgNames({"num_pages"});
@@ -82,7 +82,7 @@ void BM_ReadColumnIndex(::benchmark::State& state) {
     GenerateBenchmarkData(values_per_page, /*seed=*/0, values.data(), &heap,
                           kDataStringLength);
     stats->Update(values.data(), values_per_page, /*null_count=*/0);
-    builder->AddPage(stats->Encode());
+    builder->AddPage(stats->Encode(), /*size_stats=*/{});
   }
 
   builder->Finish();
@@ -104,4 +104,4 @@ BENCHMARK_TEMPLATE(BM_ReadColumnIndex, DoubleType)->Apply(PageIndexSetArgs);
 BENCHMARK_TEMPLATE(BM_ReadColumnIndex, FLBAType)->Apply(PageIndexSetArgs);
 BENCHMARK_TEMPLATE(BM_ReadColumnIndex, ByteArrayType)->Apply(PageIndexSetArgs);
 
-}  // namespace parquet::benchmark
+}  // namespace parquet::benchmarks

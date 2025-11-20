@@ -36,7 +36,7 @@ namespace compute {
 
 TEST(TypeMatcher, SameTypeId) {
   std::shared_ptr<TypeMatcher> matcher = match::SameTypeId(Type::DECIMAL);
-  ASSERT_TRUE(matcher->Matches(*decimal(12, 2)));
+  ASSERT_TRUE(matcher->Matches(*decimal128(20, 2)));
   ASSERT_FALSE(matcher->Matches(*int8()));
 
   ASSERT_EQ("Type::DECIMAL128", matcher->ToString());
@@ -120,7 +120,7 @@ TEST(InputType, Constructors) {
   InputType ty2(Type::DECIMAL);
   ASSERT_EQ(InputType::USE_TYPE_MATCHER, ty2.kind());
   ASSERT_EQ("Type::DECIMAL128", ty2.ToString());
-  ASSERT_TRUE(ty2.type_matcher().Matches(*decimal(12, 2)));
+  ASSERT_TRUE(ty2.type_matcher().Matches(*decimal128(12, 2)));
   ASSERT_FALSE(ty2.type_matcher().Matches(*int16()));
 
   // Implicit construction in a vector
@@ -204,9 +204,9 @@ TEST(InputType, Matches) {
   ASSERT_FALSE(input1.Matches(*int16()));
 
   InputType input2(Type::DECIMAL);
-  ASSERT_TRUE(input2.Matches(*decimal(12, 2)));
+  ASSERT_TRUE(input2.Matches(*decimal128(12, 2)));
 
-  auto ty2 = decimal(12, 2);
+  auto ty2 = decimal128(12, 2);
   auto ty3 = float64();
   ASSERT_OK_AND_ASSIGN(std::shared_ptr<Array> arr2, MakeArrayOfNull(ty2, 1));
   ASSERT_OK_AND_ASSIGN(std::shared_ptr<Array> arr3, MakeArrayOfNull(ty3, 1));
@@ -308,6 +308,40 @@ TEST(OutputType, Resolve) {
 }
 
 // ----------------------------------------------------------------------
+// MatchConstraint
+
+TEST(MatchConstraint, ConvenienceMaker) {
+  {
+    auto always_match =
+        MatchConstraint::Make([](const std::vector<TypeHolder>& types) { return true; });
+
+    ASSERT_TRUE(always_match->Matches({}));
+    ASSERT_TRUE(always_match->Matches({int8(), int16(), int32()}));
+  }
+
+  {
+    auto always_false =
+        MatchConstraint::Make([](const std::vector<TypeHolder>& types) { return false; });
+
+    ASSERT_FALSE(always_false->Matches({}));
+    ASSERT_FALSE(always_false->Matches({int8(), int16(), int32()}));
+  }
+}
+
+TEST(MatchConstraint, DecimalsHaveSameScale) {
+  auto c = DecimalsHaveSameScale();
+  constexpr int32_t precision = 12, scale = 2;
+  ASSERT_TRUE(c->Matches({decimal128(precision, scale), decimal128(precision, scale)}));
+  ASSERT_TRUE(c->Matches({decimal128(precision, scale), decimal256(precision, scale)}));
+  ASSERT_TRUE(c->Matches({decimal256(precision, scale), decimal128(precision, scale)}));
+  ASSERT_TRUE(c->Matches({decimal256(precision, scale), decimal256(precision, scale)}));
+  ASSERT_FALSE(
+      c->Matches({decimal128(precision, scale), decimal128(precision, scale + 1)}));
+  ASSERT_FALSE(c->Matches({decimal128(precision, scale), decimal128(precision, scale),
+                           decimal128(precision, scale + 1)}));
+}
+
+// ----------------------------------------------------------------------
 // KernelSignature
 
 TEST(KernelSignature, Basics) {
@@ -319,7 +353,7 @@ TEST(KernelSignature, Basics) {
   ASSERT_EQ(2, sig.in_types().size());
   ASSERT_TRUE(sig.in_types()[0].type()->Equals(*int8()));
   ASSERT_TRUE(sig.in_types()[0].Matches(*int8()));
-  ASSERT_TRUE(sig.in_types()[1].Matches(*decimal(12, 2)));
+  ASSERT_TRUE(sig.in_types()[1].Matches(*decimal128(12, 2)));
 }
 
 TEST(KernelSignature, Equals) {
@@ -381,7 +415,7 @@ TEST(KernelSignature, MatchesInputs) {
 
   ASSERT_FALSE(sig2.MatchesInputs({}));
   ASSERT_FALSE(sig2.MatchesInputs({int8()}));
-  ASSERT_TRUE(sig2.MatchesInputs({int8(), decimal(12, 2)}));
+  ASSERT_TRUE(sig2.MatchesInputs({int8(), decimal128(12, 2)}));
 
   // (int8, int32) -> boolean
   KernelSignature sig3({int8(), int32()}, boolean());
@@ -416,6 +450,34 @@ TEST(KernelSignature, VarArgsMatchesInputs) {
     ASSERT_TRUE(sig.MatchesInputs(args));
     args.push_back(int32());
     ASSERT_FALSE(sig.MatchesInputs(args));
+  }
+}
+
+TEST(KernelSignature, MatchesInputsWithConstraint) {
+  auto precisions = {12, 22}, scales = {2, 3};
+  for (auto p1 : precisions) {
+    for (auto s1 : scales) {
+      auto d1 = decimal128(p1, s1);
+      for (auto p2 : precisions) {
+        for (auto s2 : scales) {
+          auto d2 = decimal128(p2, s2);
+
+          {
+            // No constraint.
+            KernelSignature sig_no_constraint({Type::DECIMAL128, Type::DECIMAL128},
+                                              boolean());
+            ASSERT_TRUE(sig_no_constraint.MatchesInputs({d1, d2}));
+          }
+
+          {
+            // All decimal types must have the same scale.
+            KernelSignature sig({Type::DECIMAL128, Type::DECIMAL128}, boolean(),
+                                /*is_varargs=*/false, DecimalsHaveSameScale());
+            ASSERT_EQ(sig.MatchesInputs({d1, d2}), s1 == s2);
+          }
+        }
+      }
+    }
   }
 }
 

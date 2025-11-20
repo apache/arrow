@@ -188,7 +188,7 @@ Status ExprValidator::Visit(const InExpressionNode<double>& node) {
 
 Status ExprValidator::Visit(const InExpressionNode<gandiva::DecimalScalar128>& node) {
   return ValidateInExpression(node.values().size(), node.eval_expr()->return_type(),
-                              arrow::decimal(node.get_precision(), node.get_scale()));
+                              arrow::decimal128(node.get_precision(), node.get_scale()));
 }
 
 Status ExprValidator::Visit(const InExpressionNode<std::string>& node) {

@@ -33,7 +33,7 @@
 #include "arrow/status.h"
 #include "arrow/table.h"
 #include "arrow/util/future.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 
 #include "arrow/flight/client_auth.h"
 #include "arrow/flight/serialization_internal.h"
@@ -259,6 +259,14 @@ class ClientStreamReader : public FlightStreamReader {
     }
     return batches;
   }
+
+  arrow::ipc::ReadStats stats() const override {
+    if (batch_reader_ == nullptr) {
+      return ipc::ReadStats{};
+    }
+    return batch_reader_->stats();
+  }
+
   arrow::Result<std::shared_ptr<Table>> ToTable() override {
     return ToTable(stop_token_);
   }
@@ -278,7 +286,7 @@ class ClientStreamReader : public FlightStreamReader {
   StopToken stop_token_;
   std::shared_ptr<MemoryManager> memory_manager_;
   std::shared_ptr<internal::PeekableFlightDataReader> peekable_reader_;
-  std::shared_ptr<ipc::RecordBatchReader> batch_reader_;
+  std::shared_ptr<ipc::RecordBatchStreamReader> batch_reader_;
   std::shared_ptr<Buffer> app_metadata_;
 };
 
@@ -584,8 +592,8 @@ arrow::Result<std::unique_ptr<ResultStream>> FlightClient::DoAction(
 
 arrow::Result<CancelFlightInfoResult> FlightClient::CancelFlightInfo(
     const FlightCallOptions& options, const CancelFlightInfoRequest& request) {
-  ARROW_ASSIGN_OR_RAISE(auto body, request.SerializeToString());
-  Action action{ActionType::kCancelFlightInfo.type, Buffer::FromString(body)};
+  ARROW_ASSIGN_OR_RAISE(auto body, request.SerializeToBuffer());
+  Action action{ActionType::kCancelFlightInfo.type, std::move(body)};
   ARROW_ASSIGN_OR_RAISE(auto stream, DoAction(options, action));
   ARROW_ASSIGN_OR_RAISE(auto result, stream->Next());
   ARROW_ASSIGN_OR_RAISE(auto cancel_result, CancelFlightInfoResult::Deserialize(
@@ -596,8 +604,8 @@ arrow::Result<CancelFlightInfoResult> FlightClient::CancelFlightInfo(
 
 arrow::Result<FlightEndpoint> FlightClient::RenewFlightEndpoint(
     const FlightCallOptions& options, const RenewFlightEndpointRequest& request) {
-  ARROW_ASSIGN_OR_RAISE(auto body, request.SerializeToString());
-  Action action{ActionType::kRenewFlightEndpoint.type, Buffer::FromString(body)};
+  ARROW_ASSIGN_OR_RAISE(auto body, request.SerializeToBuffer());
+  Action action{ActionType::kRenewFlightEndpoint.type, std::move(body)};
   ARROW_ASSIGN_OR_RAISE(auto stream, DoAction(options, action));
   ARROW_ASSIGN_OR_RAISE(auto result, stream->Next());
   ARROW_ASSIGN_OR_RAISE(auto renewed_endpoint,
@@ -716,8 +724,8 @@ arrow::Result<FlightClient::DoExchangeResult> FlightClient::DoExchange(
 ::arrow::Result<SetSessionOptionsResult> FlightClient::SetSessionOptions(
     const FlightCallOptions& options, const SetSessionOptionsRequest& request) {
   RETURN_NOT_OK(CheckOpen());
-  ARROW_ASSIGN_OR_RAISE(auto body, request.SerializeToString());
-  Action action{ActionType::kSetSessionOptions.type, Buffer::FromString(body)};
+  ARROW_ASSIGN_OR_RAISE(auto body, request.SerializeToBuffer());
+  Action action{ActionType::kSetSessionOptions.type, std::move(body)};
   ARROW_ASSIGN_OR_RAISE(auto stream, DoAction(options, action));
   ARROW_ASSIGN_OR_RAISE(auto result, stream->Next());
   ARROW_ASSIGN_OR_RAISE(
@@ -730,8 +738,8 @@ arrow::Result<FlightClient::DoExchangeResult> FlightClient::DoExchange(
 ::arrow::Result<GetSessionOptionsResult> FlightClient::GetSessionOptions(
     const FlightCallOptions& options, const GetSessionOptionsRequest& request) {
   RETURN_NOT_OK(CheckOpen());
-  ARROW_ASSIGN_OR_RAISE(auto body, request.SerializeToString());
-  Action action{ActionType::kGetSessionOptions.type, Buffer::FromString(body)};
+  ARROW_ASSIGN_OR_RAISE(auto body, request.SerializeToBuffer());
+  Action action{ActionType::kGetSessionOptions.type, std::move(body)};
   ARROW_ASSIGN_OR_RAISE(auto stream, DoAction(options, action));
   ARROW_ASSIGN_OR_RAISE(auto result, stream->Next());
   ARROW_ASSIGN_OR_RAISE(
@@ -744,8 +752,8 @@ arrow::Result<FlightClient::DoExchangeResult> FlightClient::DoExchange(
 ::arrow::Result<CloseSessionResult> FlightClient::CloseSession(
     const FlightCallOptions& options, const CloseSessionRequest& request) {
   RETURN_NOT_OK(CheckOpen());
-  ARROW_ASSIGN_OR_RAISE(auto body, request.SerializeToString());
-  Action action{ActionType::kCloseSession.type, Buffer::FromString(body)};
+  ARROW_ASSIGN_OR_RAISE(auto body, request.SerializeToBuffer());
+  Action action{ActionType::kCloseSession.type, std::move(body)};
   ARROW_ASSIGN_OR_RAISE(auto stream, DoAction(options, action));
   ARROW_ASSIGN_OR_RAISE(auto result, stream->Next());
   ARROW_ASSIGN_OR_RAISE(auto close_session_result,

@@ -25,99 +25,77 @@ import merge_arrow_pr
 
 
 FakeIssue = namedtuple('issue', ['fields'])
-FakeFields = namedtuple('fields', ['status', 'summary', 'assignee',
-                                   'components', 'fixVersions', 'milestone'])
-FakeAssignee = namedtuple('assignee', ['displayName'])
-FakeStatus = namedtuple('status', ['name'])
-FakeComponent = namedtuple('component', ['name'])
-FakeVersion = namedtuple('version', ['name', 'raw'])
-FakeMilestone = namedtuple('milestone', ['state'])
+FakeFields = namedtuple(
+    'fields', ['assignees', 'labels', 'milestone', 'state', 'title'])
+FakeAssignee = namedtuple('assignees', ['login'])
+FakeLabel = namedtuple('label', ['name'])
+FakeMilestone = namedtuple('milestone', ['title', 'state'])
 
 RAW_VERSION_JSON = [
-    {'name': 'JS-0.4.0', 'released': False},
-    {'name': '1.0.0', 'released': False},
-    {'name': '2.0.0', 'released': False},
-    {'name': '0.9.0', 'released': False},
-    {'name': '0.10.0', 'released': False},
-    {'name': '0.8.0', 'released': True},
-    {'name': '0.7.0', 'released': True}
+    {'title': 'JS-0.4.0', 'state': 'open'},
+    {'title': '1.0.0', 'state': 'open'},
+    {'title': '2.0.0', 'state': 'open'},
+    {'title': '0.9.0', 'state': 'open'},
+    {'title': '0.10.0', 'state': 'open'},
+    {'title': '0.8.0', 'state': 'closed'},
+    {'title': '0.7.0', 'state': 'closed'}
 ]
 
-
-SOURCE_VERSIONS = [FakeVersion(raw['name'], raw)
+SOURCE_VERSIONS = [FakeMilestone(raw['title'], raw['state'])
                    for raw in RAW_VERSION_JSON]
-
-TRANSITIONS = [{'name': 'Resolve Issue', 'id': 1}]
-
-jira_id = 'ARROW-1234'
-status = FakeStatus('In Progress')
-fields = FakeFields(status, 'issue summary', FakeAssignee('groundhog'),
-                    [FakeComponent('C++'), FakeComponent('Format')],
-                    [], FakeMilestone('closed')._asdict())
+fake_issue_id = 'GH-1234'
+fields = FakeFields([FakeAssignee('groundhog')._asdict()],
+                    [FakeLabel('Component: C++')._asdict(),
+                     FakeLabel('Component: Format')._asdict()],
+                    FakeMilestone('', 'open')._asdict(),
+                    'open', '[C++][Format] The issue Title')
 FAKE_ISSUE_1 = FakeIssue(fields)
-
-
-class FakeJIRA:
-
-    def __init__(self, issue=None, project_versions=None, transitions=None,
-                 current_fix_versions=None):
-        self._issue = issue
-        self._project_versions = project_versions
-        self._transitions = transitions
-
-    def issue(self, jira_id):
-        return self._issue
-
-    def transitions(self, jira_id):
-        return self._transitions
-
-    def transition_issue(self, jira_id, transition_id, comment=None,
-                         fixVersions=None):
-        self.captured_transition = {
-            'jira_id': jira_id,
-            'transition_id': transition_id,
-            'comment': comment,
-            'fixVersions': fixVersions
-        }
-
-    @property
-    def current_versions(self):
-        all_versions = self._project_versions or SOURCE_VERSIONS
-        return [
-            v for v in all_versions if not v.raw.get("released")
-        ] + ['0.11.0']
-
-    @property
-    def current_fix_versions(self):
-        return 'JS-0.4.0'
-
-    def project_versions(self, project):
-        return self._project_versions
 
 
 class FakeGitHub:
 
-    def __init__(self, issue=None, project_versions=None):
-        self._issue = issue
+    def __init__(self, issues=None, project_versions=None, state='open'):
+        self._issues = issues
         self._project_versions = project_versions
+        self._state = state
+        self._transitions = []
 
     @property
     def issue(self):
-        return self._issue.fields._asdict()
+        return self._issues[fake_issue_id].fields._asdict()
 
     @property
     def current_versions(self):
-        all_versions = self._project_versions or SOURCE_VERSIONS
         return [
-            v for v in all_versions if not v.raw.get("released")
-        ] + ['0.11.0']
+            v.title for v in self._project_versions if not v.state == 'closed'
+        ]
 
     @property
     def current_fix_versions(self):
         return 'JS-0.4.0'
 
-    def project_versions(self, project):
-        return self._project_versions
+    @property
+    def state(self):
+        return self._state
+
+    def get_issue_data(self, issue_id):
+        return self._issues.get(issue_id).fields._asdict()
+
+    def get_milestones(self):
+        return [v._asdict() for v in self._project_versions]
+
+    def assign_milestone(self, issue_id, milestone):
+        self._transitions.append(
+            {'action': 'assign_milestone', 'issue_id': issue_id,
+             'milestone': milestone})
+
+    def close_issue(self, issue_id, comment):
+        self._transitions.append(
+            {'action': 'close_issue', 'issue_id': issue_id, 'comment': comment})
+
+    @property
+    def captured_transitions(self):
+        return self._transitions
 
 
 class FakeCLI:
@@ -135,23 +113,23 @@ class FakeCLI:
         raise Exception(msg)
 
 
-def test_jira_fix_versions():
-    jira = FakeJIRA(project_versions=SOURCE_VERSIONS,
-                    transitions=TRANSITIONS)
+def test_gh_fix_versions():
+    gh = FakeGitHub(issues={fake_issue_id: FAKE_ISSUE_1},
+                    project_versions=SOURCE_VERSIONS)
 
-    issue = merge_arrow_pr.JiraIssue(jira, 'ARROW-1234', 'ARROW', FakeCLI())
+    issue = merge_arrow_pr.GitHubIssue(gh, fake_issue_id, FakeCLI())
     fix_version = merge_arrow_pr.get_candidate_fix_version(
         issue.current_versions
     )
     assert fix_version == '1.0.0'
 
 
-def test_jira_fix_versions_filters_maintenance():
+def test_gh_fix_versions_filters_maintenance():
     maintenance_branches = ["maint-1.0.0"]
-    jira = FakeJIRA(project_versions=SOURCE_VERSIONS,
-                    transitions=TRANSITIONS)
+    gh = FakeGitHub(issues={fake_issue_id: FAKE_ISSUE_1},
+                    project_versions=SOURCE_VERSIONS)
 
-    issue = merge_arrow_pr.JiraIssue(jira, 'ARROW-1234', 'ARROW', FakeCLI())
+    issue = merge_arrow_pr.GitHubIssue(gh, fake_issue_id, FakeCLI())
     fix_version = merge_arrow_pr.get_candidate_fix_version(
         issue.current_versions,
         maintenance_branches=maintenance_branches
@@ -159,102 +137,72 @@ def test_jira_fix_versions_filters_maintenance():
     assert fix_version == '2.0.0'
 
 
-def test_jira_only_suggest_major_release():
+def test_gh_only_suggest_major_release():
     versions_json = [
-        {'name': '0.9.1', 'released': False},
-        {'name': '0.10.0', 'released': False},
-        {'name': '1.0.0', 'released': False},
+        {'name': '0.9.1', 'state': "open"},
+        {'name': '0.10.0', 'state': "open"},
+        {'name': '1.0.0', 'state': "open"},
     ]
 
-    versions = [FakeVersion(raw['name'], raw) for raw in versions_json]
+    versions = [FakeMilestone(raw['name'], raw['state']) for raw in versions_json]
 
-    jira = FakeJIRA(project_versions=versions, transitions=TRANSITIONS)
-    issue = merge_arrow_pr.JiraIssue(jira, 'ARROW-1234', 'ARROW', FakeCLI())
+    gh = FakeGitHub(issues={fake_issue_id: FAKE_ISSUE_1}, project_versions=versions)
+    issue = merge_arrow_pr.GitHubIssue(gh, fake_issue_id, FakeCLI())
     fix_version = merge_arrow_pr.get_candidate_fix_version(
         issue.current_versions
     )
     assert fix_version == '1.0.0'
 
 
-def test_jira_parquet_no_suggest_non_cpp():
-    # ARROW-7351
-    versions_json = [
-        {'name': 'cpp-1.5.0', 'released': True},
-        {'name': 'cpp-1.6.0', 'released': False},
-        {'name': 'cpp-1.7.0', 'released': False},
-        {'name': 'cpp-2.0.0', 'released': False},
-        {'name': '1.11.0', 'released': False},
-        {'name': '1.12.0', 'released': False},
-        {'name': '2.0.0', 'released': False}
-    ]
-
-    versions = [FakeVersion(raw['name'], raw)
-                for raw in versions_json]
-
-    jira = FakeJIRA(project_versions=versions, transitions=TRANSITIONS)
-    issue = merge_arrow_pr.JiraIssue(jira, 'PARQUET-1713', 'PARQUET',
-                                     FakeCLI())
-    fix_version = merge_arrow_pr.get_candidate_fix_version(
-        issue.current_versions
-    )
-    assert fix_version == 'cpp-2.0.0'
-
-
-def test_jira_invalid_issue():
+def test_gh_invalid_issue():
     class Mock:
 
-        def issue(self, jira_id):
+        def issue(self, gh_id):
             raise Exception("not found")
 
     with pytest.raises(Exception):
-        merge_arrow_pr.JiraIssue(Mock(), 'ARROW-1234', 'ARROW', FakeCLI())
+        merge_arrow_pr.GitHubIssue(Mock(), fake_issue_id, FakeCLI())
 
 
-def test_jira_resolve():
-    jira = FakeJIRA(issue=FAKE_ISSUE_1,
-                    project_versions=SOURCE_VERSIONS,
-                    transitions=TRANSITIONS)
+def test_gh_resolve():
+    gh = FakeGitHub(issues={fake_issue_id: FAKE_ISSUE_1},
+                    project_versions=SOURCE_VERSIONS)
 
     my_comment = 'my comment'
     fix_version = "0.10.0"
 
-    issue = merge_arrow_pr.JiraIssue(jira, 'ARROW-1234', 'ARROW', FakeCLI())
-    issue.resolve(fix_version, my_comment)
+    issue = merge_arrow_pr.GitHubIssue(gh, fake_issue_id, FakeCLI())
+    issue.resolve(fix_version, my_comment, pr_body="")
 
-    assert jira.captured_transition == {
-        'jira_id': 'ARROW-1234',
-        'transition_id': 1,
-        'comment': my_comment,
-        'fixVersions': [{'name': '0.10.0', 'released': False}]
-    }
+    assert len(gh.captured_transitions) == 2
+    assert gh.captured_transitions[0]['action'] == 'assign_milestone'
+    assert gh.captured_transitions[1]['action'] == 'close_issue'
+    assert gh.captured_transitions[1]['comment'] == my_comment
+    assert gh.captured_transitions[0]['milestone'] == fix_version
 
 
-def test_jira_resolve_non_mainline():
-    jira = FakeJIRA(issue=FAKE_ISSUE_1,
-                    project_versions=SOURCE_VERSIONS,
-                    transitions=TRANSITIONS)
+def test_gh_resolve_non_mainline():
+    gh = FakeGitHub(issues={fake_issue_id: FAKE_ISSUE_1},
+                    project_versions=SOURCE_VERSIONS)
 
     my_comment = 'my comment'
     fix_version = "JS-0.4.0"
 
-    issue = merge_arrow_pr.JiraIssue(jira, 'ARROW-1234', 'ARROW', FakeCLI())
-    issue.resolve(fix_version, my_comment)
+    issue = merge_arrow_pr.GitHubIssue(gh, fake_issue_id, FakeCLI())
+    issue.resolve(fix_version, my_comment, "")
 
-    assert jira.captured_transition == {
-        'jira_id': 'ARROW-1234',
-        'transition_id': 1,
-        'comment': my_comment,
-        'fixVersions': [{'name': 'JS-0.4.0', 'released': False}]
-    }
+    assert len(gh.captured_transitions) == 2
+    assert gh.captured_transitions[1]['comment'] == my_comment
+    assert gh.captured_transitions[0]['milestone'] == fix_version
 
 
-def test_jira_resolve_released_fix_version():
+def test_gh_resolve_released_fix_version():
     # ARROW-5083
-    jira = FakeGitHub(issue=FAKE_ISSUE_1,
-                      project_versions=SOURCE_VERSIONS)
+    gh = FakeGitHub(issues={fake_issue_id: FAKE_ISSUE_1},
+                    project_versions=SOURCE_VERSIONS)
 
     cmd = FakeCLI(responses=['1.0.0'])
-    fix_versions_json = merge_arrow_pr.prompt_for_fix_version(cmd, jira)
+    fix_versions_json = merge_arrow_pr.prompt_for_fix_version(cmd, gh)
     assert fix_versions_json == "1.0.0"
 
 
@@ -283,107 +231,58 @@ def test_multiple_authors_bad_input():
     assert distinct_other_authors == [a0, a1]
 
 
-def test_jira_already_resolved():
-    status = FakeStatus('Resolved')
-    fields = FakeFields(status, 'issue summary', FakeAssignee('groundhog'),
-                        [FakeComponent('Java')], [], None)
+def test_gh_already_resolved():
+    fields = FakeFields([FakeAssignee('groundhog')._asdict()],
+                        [FakeLabel('Component: Java')._asdict()],
+                        FakeMilestone('', 'open')._asdict(),
+                        'closed', '[Java] The issue Title')
     issue = FakeIssue(fields)
 
-    jira = FakeJIRA(issue=issue,
-                    project_versions=SOURCE_VERSIONS,
-                    transitions=TRANSITIONS)
+    gh = FakeGitHub(issues={fake_issue_id: issue},
+                    project_versions=SOURCE_VERSIONS)
 
-    fix_versions = [SOURCE_VERSIONS[0].raw]
-    issue = merge_arrow_pr.JiraIssue(jira, 'ARROW-1234', 'ARROW', FakeCLI())
+    fix_versions = [SOURCE_VERSIONS[0]._asdict()]
+    issue = merge_arrow_pr.GitHubIssue(gh, fake_issue_id, FakeCLI())
 
     with pytest.raises(Exception,
-                       match="ARROW-1234 already has status 'Resolved'"):
-        issue.resolve(fix_versions, "")
+                       match="GitHub issue GH-1234 already has status 'closed'"):
+        issue.resolve(fix_versions, "", "")
 
 
-def test_no_unset_point_release_fix_version():
-    # ARROW-6915: We have had the problem of issues marked with a point release
-    # having their fix versions overwritten by the merge tool. This verifies
-    # that existing patch release versions are carried over
-    status = FakeStatus('In Progress')
-
-    versions_json = {
-        '0.14.2': {'name': '0.14.2', 'id': 1},
-        '0.15.1': {'name': '0.15.1', 'id': 2},
-        '0.16.0': {'name': '0.16.0', 'id': 3},
-        '0.17.0': {'name': '0.17.0', 'id': 4}
-    }
-
-    fields = FakeFields(status, 'summary', FakeAssignee('someone'),
-                        [FakeComponent('Java')],
-                        [FakeVersion(v, versions_json[v])
-                         for v in ['0.17.0', '0.15.1', '0.14.2']], None)
-    issue = FakeIssue(fields)
-
-    jira = FakeJIRA(
-        issue=issue,
-        project_versions=[
-            FakeVersion(v, vdata) for v, vdata in versions_json.items()
-        ],
-        transitions=TRANSITIONS
-    )
-
-    issue = merge_arrow_pr.JiraIssue(jira, 'ARROW-1234', 'ARROW', FakeCLI())
-    issue.resolve('0.16.0', "a comment")
-
-    assert jira.captured_transition == {
-        'jira_id': 'ARROW-1234',
-        'transition_id': 1,
-        'comment': 'a comment',
-        'fixVersions': [versions_json[v]
-                        for v in ['0.16.0', '0.15.1', '0.14.2']]
-    }
-
-    issue.resolve([versions_json['0.15.1']], "a comment")
-
-    assert jira.captured_transition == {
-        'jira_id': 'ARROW-1234',
-        'transition_id': 1,
-        'comment': 'a comment',
-        'fixVersions': [versions_json[v] for v in ['0.15.1', '0.14.2']]
-    }
-
-
-def test_jira_output_no_components():
+def test_gh_output_no_components():
     # ARROW-5472
     status = 'Interesting work'
-    components = []
     output = merge_arrow_pr.format_issue_output(
-        "jira", 'ARROW-1234', 'Resolved', status,
-        FakeAssignee('Foo Bar'), components
+        'github', 'GH-1234', 'Resolved', status,
+        'username', []
     )
 
-    assert output == """=== JIRA ARROW-1234 ===
+    assert output == """=== GITHUB GH-1234 ===
 Summary\t\tInteresting work
-Assignee\tFoo Bar
+Assignee\tusername
 Components\tNO COMPONENTS!!!
 Status\t\tResolved
-URL\t\thttps://issues.apache.org/jira/browse/ARROW-1234"""
+URL\t\thttps://github.com/apache/arrow/issues/1234"""
 
     output = merge_arrow_pr.format_issue_output(
-        "jira", 'ARROW-1234', 'Resolved', status, FakeAssignee('Foo Bar'),
-        [FakeComponent('C++'), FakeComponent('Python')]
+        'github', 'GH-1234', 'Resolved', status, 'username',
+        [FakeLabel('C++'), FakeLabel('Python')]
     )
 
-    assert output == """=== JIRA ARROW-1234 ===
+    assert output == """=== GITHUB GH-1234 ===
 Summary\t\tInteresting work
-Assignee\tFoo Bar
+Assignee\tusername
 Components\tC++, Python
 Status\t\tResolved
-URL\t\thttps://issues.apache.org/jira/browse/ARROW-1234"""
+URL\t\thttps://github.com/apache/arrow/issues/1234"""
 
 
 def test_sorting_versions():
     versions_json = [
-        {'name': '11.0.0', 'released': False},
-        {'name': '9.0.0', 'released': False},
-        {'name': '10.0.0', 'released': False},
+        {'title': '11.0.0', 'state': 'open'},
+        {'title': '9.0.0', 'state': 'open'},
+        {'title': '10.0.0', 'state': 'open'},
     ]
-    versions = [FakeVersion(raw['name'], raw) for raw in versions_json]
-    fix_version = merge_arrow_pr.get_candidate_fix_version(versions)
+    versions = [FakeMilestone(raw['title'], raw['state']) for raw in versions_json]
+    fix_version = merge_arrow_pr.get_candidate_fix_version([x.title for x in versions])
     assert fix_version == "9.0.0"

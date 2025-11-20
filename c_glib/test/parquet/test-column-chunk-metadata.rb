@@ -77,7 +77,7 @@ class TestParquetColumnChunkMetadata < Test::Unit::TestCase
 
   test("#file_offset") do
     assert do
-      @metadata.file_offset > 0
+      @metadata.file_offset == 0
     end
   end
 

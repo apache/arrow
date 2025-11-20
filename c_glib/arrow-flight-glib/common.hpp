@@ -79,3 +79,7 @@ gaflight_stream_chunk_get_raw(GAFlightStreamChunk *chunk);
 GAFLIGHT_EXTERN
 arrow::flight::MetadataRecordBatchReader *
 gaflight_record_batch_reader_get_raw(GAFlightRecordBatchReader *reader);
+
+GAFLIGHT_EXTERN
+arrow::flight::MetadataRecordBatchWriter *
+gaflight_record_batch_writer_get_raw(GAFlightRecordBatchWriter *writer);

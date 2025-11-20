@@ -15,33 +15,14 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <algorithm>  // Missing include in boost/process
-
 #ifndef _WIN32
-#include <sys/wait.h>
+#  include <sys/wait.h>
 #endif
 
-// This boost/asio/io_context.hpp include is needless for no MinGW
-// build.
-//
-// This is for including boost/asio/detail/socket_types.hpp before any
-// "#include <windows.h>". boost/asio/detail/socket_types.hpp doesn't
-// work if windows.h is already included. boost/process.h ->
-// boost/process/args.hpp -> boost/process/detail/basic_cmd.hpp
-// includes windows.h. boost/process/args.hpp is included before
-// boost/process/async.h that includes
-// boost/asio/detail/socket_types.hpp implicitly is included.
-#ifdef __MINGW32__
-#include <boost/asio/io_context.hpp>
-#endif
-#define BOOST_NO_CXX98_FUNCTION_BASE  // ARROW-17805
-// We need BOOST_USE_WINDOWS_H definition with MinGW when we use
-// boost/process.hpp. See BOOST_USE_WINDOWS_H=1 in
-// cpp/cmake_modules/ThirdpartyToolchain.cmake for details.
-#include <boost/process.hpp>
-
+#include "arrow/filesystem/s3_test_cert_internal.h"
 #include "arrow/filesystem/s3_test_util.h"
 #include "arrow/filesystem/s3fs.h"
+#include "arrow/testing/process.h"
 #include "arrow/testing/util.h"
 #include "arrow/util/async_generator.h"
 #include "arrow/util/future.h"
@@ -51,9 +32,12 @@
 namespace arrow {
 namespace fs {
 
+using ::arrow::internal::FileClose;
+using ::arrow::internal::FileDescriptor;
+using ::arrow::internal::FileOpenWritable;
+using ::arrow::internal::FileWrite;
+using ::arrow::internal::PlatformFilename;
 using ::arrow::internal::TemporaryDir;
-
-namespace bp = boost::process;
 
 namespace {
 
@@ -66,16 +50,16 @@ const char* kEnvConnectString = "ARROW_TEST_S3_CONNECT_STRING";
 const char* kEnvAccessKey = "ARROW_TEST_S3_ACCESS_KEY";
 const char* kEnvSecretKey = "ARROW_TEST_S3_SECRET_KEY";
 
-std::string GenerateConnectString() { return GetListenAddress(); }
-
 }  // namespace
 
 struct MinioTestServer::Impl {
   std::unique_ptr<TemporaryDir> temp_dir_;
+  std::unique_ptr<TemporaryDir> temp_dir_ca_;
   std::string connect_string_;
   std::string access_key_ = kMinioAccessKey;
   std::string secret_key_ = kMinioSecretKey;
-  std::shared_ptr<::boost::process::child> server_process_;
+  std::unique_ptr<util::Process> server_process_;
+  std::string scheme_ = "http";
 };
 
 MinioTestServer::MinioTestServer() : impl_(new Impl) {}
@@ -91,7 +75,41 @@ std::string MinioTestServer::access_key() const { return impl_->access_key_; }
 
 std::string MinioTestServer::secret_key() const { return impl_->secret_key_; }
 
-Status MinioTestServer::Start() {
+std::string MinioTestServer::ca_dir_path() const {
+  return impl_->temp_dir_ca_->path().ToString();
+}
+
+std::string MinioTestServer::ca_file_path() const {
+  return impl_->temp_dir_ca_->path().ToString() + "/public.crt";
+}
+
+std::string MinioTestServer::scheme() const { return impl_->scheme_; }
+
+Status MinioTestServer::GenerateCertificateFile() {
+  // create the dedicated folder for certificate file, rather than reuse the data
+  // folder, since there is test case to check whether the folder is empty.
+  ARROW_ASSIGN_OR_RAISE(impl_->temp_dir_ca_, TemporaryDir::Make("s3fs-test-ca-"));
+
+  ARROW_ASSIGN_OR_RAISE(auto public_crt_file,
+                        PlatformFilename::FromString(ca_dir_path() + "/public.crt"));
+  ARROW_ASSIGN_OR_RAISE(auto public_cert_fd, FileOpenWritable(public_crt_file));
+  ARROW_RETURN_NOT_OK(FileWrite(public_cert_fd.fd(),
+                                reinterpret_cast<const uint8_t*>(kMinioCert),
+                                strlen(kMinioCert)));
+  ARROW_RETURN_NOT_OK(public_cert_fd.Close());
+
+  ARROW_ASSIGN_OR_RAISE(auto private_key_file,
+                        PlatformFilename::FromString(ca_dir_path() + "/private.key"));
+  ARROW_ASSIGN_OR_RAISE(auto private_key_fd, FileOpenWritable(private_key_file));
+  ARROW_RETURN_NOT_OK(FileWrite(private_key_fd.fd(),
+                                reinterpret_cast<const uint8_t*>(kMinioPrivateKey),
+                                strlen(kMinioPrivateKey)));
+  ARROW_RETURN_NOT_OK(private_key_fd.Close());
+
+  return Status::OK();
+}
+
+Status MinioTestServer::Start(bool enable_tls) {
   const char* connect_str = std::getenv(kEnvConnectString);
   const char* access_key = std::getenv(kEnvAccessKey);
   const char* secret_key = std::getenv(kEnvSecretKey);
@@ -105,67 +123,66 @@ Status MinioTestServer::Start() {
 
   ARROW_ASSIGN_OR_RAISE(impl_->temp_dir_, TemporaryDir::Make("s3fs-test-"));
 
-  // Get a copy of the current environment.
-  // (NOTE: using "auto" would return a native_environment that mutates
-  //  the current environment)
-  bp::environment env = boost::this_process::environment();
-  env["MINIO_ACCESS_KEY"] = kMinioAccessKey;
-  env["MINIO_SECRET_KEY"] = kMinioSecretKey;
+  impl_->server_process_ = std::make_unique<util::Process>();
+  impl_->server_process_->SetEnv("MINIO_ACCESS_KEY", kMinioAccessKey);
+  impl_->server_process_->SetEnv("MINIO_SECRET_KEY", kMinioSecretKey);
   // Disable the embedded console (one less listening address to care about)
-  env["MINIO_BROWSER"] = "off";
-
-  impl_->connect_string_ = GenerateConnectString();
-  auto exe_path = bp::search_path(kMinioExecutableName);
-  if (exe_path.empty()) {
-    return Status::IOError("Failed to find minio executable ('", kMinioExecutableName,
-                           "') in PATH");
+  impl_->server_process_->SetEnv("MINIO_BROWSER", "off");
+  // NOTE: --quiet makes startup faster by suppressing remote version check
+  std::vector<std::string> minio_args({"server", "--quiet", "--compat"});
+  if (enable_tls) {
+    ARROW_RETURN_NOT_OK(GenerateCertificateFile());
+    minio_args.emplace_back("--certs-dir");
+    minio_args.emplace_back(ca_dir_path());
+    impl_->scheme_ = "https";
+    // With TLS enabled, we need the connection hostname to match the certificate's
+    // subject name. This also constrains the actual listening IP address.
+    impl_->connect_string_ = GetListenAddress("localhost");
+  } else {
+    // Without TLS enabled, we want to minimize the likelihood of address collisions
+    // by varying the listening IP address (note that most tests don't enable TLS).
+    impl_->connect_string_ = GetListenAddress();
   }
+  minio_args.emplace_back("--address");
+  minio_args.emplace_back(impl_->connect_string_);
+  minio_args.emplace_back(impl_->temp_dir_->path().ToString());
 
-  try {
-    // NOTE: --quiet makes startup faster by suppressing remote version check
-    impl_->server_process_ = std::make_shared<bp::child>(
-        env, exe_path, "server", "--quiet", "--compat", "--address",
-        impl_->connect_string_, impl_->temp_dir_->path().ToString());
-  } catch (const std::exception& e) {
-    return Status::IOError("Failed to launch Minio server: ", e.what());
-  }
+  ARROW_RETURN_NOT_OK(impl_->server_process_->SetExecutable(kMinioExecutableName));
+  impl_->server_process_->SetArgs(minio_args);
+  ARROW_RETURN_NOT_OK(impl_->server_process_->Execute());
   return Status::OK();
 }
 
 Status MinioTestServer::Stop() {
-  if (impl_->server_process_ && impl_->server_process_->valid()) {
-    // Brutal shutdown
-    impl_->server_process_->terminate();
-    impl_->server_process_->wait();
-#ifndef _WIN32
-    // Despite calling wait() above, boost::process fails to clear zombies
-    // so do it ourselves.
-    waitpid(impl_->server_process_->id(), nullptr, 0);
-#endif
-  }
+  impl_->server_process_ = nullptr;
   return Status::OK();
 }
 
 struct MinioTestEnvironment::Impl {
   std::function<Future<std::shared_ptr<MinioTestServer>>()> server_generator_;
+  bool enable_tls_;
+
+  explicit Impl(bool enable_tls) : enable_tls_(enable_tls) {}
 
   Result<std::shared_ptr<MinioTestServer>> LaunchOneServer() {
     auto server = std::make_shared<MinioTestServer>();
-    RETURN_NOT_OK(server->Start());
+    RETURN_NOT_OK(server->Start(enable_tls_));
     return server;
   }
 };
 
-MinioTestEnvironment::MinioTestEnvironment() : impl_(new Impl) {}
+MinioTestEnvironment::MinioTestEnvironment(bool enable_tls)
+    : impl_(new Impl(enable_tls)) {}
 
 MinioTestEnvironment::~MinioTestEnvironment() = default;
 
 void MinioTestEnvironment::SetUp() {
   auto pool = ::arrow::internal::GetCpuThreadPool();
 
-  auto launch_one_server = []() -> Result<std::shared_ptr<MinioTestServer>> {
+  auto launch_one_server =
+      [enable_tls = impl_->enable_tls_]() -> Result<std::shared_ptr<MinioTestServer>> {
     auto server = std::make_shared<MinioTestServer>();
-    RETURN_NOT_OK(server->Start());
+    RETURN_NOT_OK(server->Start(enable_tls));
     return server;
   };
   impl_->server_generator_ = [pool, launch_one_server]() {

@@ -161,7 +161,7 @@ struct DictionaryTraits<T, enable_if_binary_view_like<T>> {
   static Result<std::shared_ptr<ArrayData>> GetDictionaryArrayData(
       MemoryPool* pool, const std::shared_ptr<DataType>& type,
       const MemoTableType& memo_table, int64_t start_offset) {
-    DCHECK(type->id() == Type::STRING_VIEW || type->id() == Type::BINARY_VIEW);
+    ARROW_DCHECK(type->id() == Type::STRING_VIEW || type->id() == Type::BINARY_VIEW);
 
     BinaryViewBuilder builder(pool);
     RETURN_NOT_OK(builder.Resize(memo_table.size() - start_offset));

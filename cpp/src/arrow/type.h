@@ -178,7 +178,7 @@ class ARROW_EXPORT DataType : public std::enable_shared_from_this<DataType>,
   virtual DataTypeLayout layout() const = 0;
 
   /// \brief Return the type category
-  Type::type id() const { return id_; }
+  constexpr Type::type id() const { return id_; }
 
   /// \brief Return the type category of the storage type
   virtual Type::type storage_id() const { return id_; }
@@ -292,6 +292,7 @@ std::ostream& operator<<(std::ostream& os, const TypeHolder& type);
 /// - if a `PhysicalType` alias exists in the concrete type class, return
 ///   an instance of `PhysicalType`.
 /// - otherwise, return the input type itself.
+ARROW_EXPORT
 std::shared_ptr<DataType> GetPhysicalType(const std::shared_ptr<DataType>& type);
 
 /// \brief Base class for all fixed-width data types
@@ -548,7 +549,7 @@ ARROW_EXPORT void PrintTo(const Field& field, std::ostream* os);
 namespace detail {
 
 template <typename DERIVED, typename BASE, Type::type TYPE_ID, typename C_TYPE>
-class ARROW_EXPORT CTypeImpl : public BASE {
+class CTypeImpl : public BASE {
  public:
   static constexpr Type::type type_id = TYPE_ID;
   using c_type = C_TYPE;
@@ -800,12 +801,15 @@ class ARROW_EXPORT BinaryViewType : public DataType {
   /// This union supports two states:
   ///
   /// - Entirely inlined string data
+  /// \code{.unparsed}
   ///                |----|--------------|
   ///                 ^    ^
   ///                 |    |
   ///              size    in-line string data, zero padded
+  /// \endcode
   ///
   /// - Reference into a buffer
+  /// \code{.unparsed}
   ///                |----|----|----|----|
   ///                 ^    ^    ^    ^
   ///                 |    |    |    |
@@ -813,6 +817,7 @@ class ARROW_EXPORT BinaryViewType : public DataType {
   ///                  prefix   |           |
   ///                        buffer index   |
   ///                                  offset in buffer
+  /// \endcode
   ///
   /// Adapted from TU Munich's UmbraDB [1], Velox, DuckDB.
   ///
@@ -1024,6 +1029,76 @@ class ARROW_EXPORT DecimalType : public FixedSizeBinaryType {
   int32_t scale_;
 };
 
+/// \brief Concrete type class for 32-bit decimal data
+///
+/// Arrow decimals are fixed-point decimal numbers encoded as a scaled
+/// integer.  The precision is the number of significant digits that the
+/// decimal type can represent; the scale is the number of digits after
+/// the decimal point (note the scale can be negative).
+///
+/// As an example, `Decimal32Type(7, 3)` can exactly represent the numbers
+/// 1234.567 and -1234.567 (encoded internally as the 32-bit integers
+/// 1234567 and -1234567, respectively), but neither 12345.67 nor 123.4567.
+///
+/// Decimal32Type has a maximum precision of 9 significant digits
+/// (also available as Decimal32Type::kMaxPrecision).
+/// If higher precision is needed, consider using Decimal64Type,
+/// Decimal128Type or Decimal256Type.
+class ARROW_EXPORT Decimal32Type : public DecimalType {
+ public:
+  static constexpr Type::type type_id = Type::DECIMAL32;
+
+  static constexpr const char* type_name() { return "decimal32"; }
+
+  /// Decimal32Type constructor that aborts on invalid input.
+  explicit Decimal32Type(int32_t precision, int32_t scale);
+
+  /// Decimal32Type constructor that returns an error on invalid input
+  static Result<std::shared_ptr<DataType>> Make(int32_t precision, int32_t scale);
+
+  std::string ToString(bool show_metadata = false) const override;
+  std::string name() const override { return "decimal32"; }
+
+  static constexpr int32_t kMinPrecision = 1;
+  static constexpr int32_t kMaxPrecision = 9;
+  static constexpr int32_t kByteWidth = 4;
+};
+
+/// \brief Concrete type class for 64-bit decimal data
+///
+/// Arrow decimals are fixed-point decimal numbers encoded as a scaled
+/// integer.  The precision is the number of significant digits that the
+/// decimal type can represent; the scale is the number of digits after
+/// the decimal point (note the scale can be negative).
+///
+/// As an example, `Decimal64Type(7, 3)` can exactly represent the numbers
+/// 1234.567 and -1234.567 (encoded internally as the 64-bit integers
+/// 1234567 and -1234567, respectively), but neither 12345.67 nor 123.4567.
+///
+/// Decimal64Type has a maximum precision of 18 significant digits
+/// (also available as Decimal64Type::kMaxPrecision).
+/// If higher precision is needed, consider using Decimal128Type or
+/// Decimal256Type.
+class ARROW_EXPORT Decimal64Type : public DecimalType {
+ public:
+  static constexpr Type::type type_id = Type::DECIMAL64;
+
+  static constexpr const char* type_name() { return "decimal64"; }
+
+  /// Decimal32Type constructor that aborts on invalid input.
+  explicit Decimal64Type(int32_t precision, int32_t scale);
+
+  /// Decimal32Type constructor that returns an error on invalid input
+  static Result<std::shared_ptr<DataType>> Make(int32_t precision, int32_t scale);
+
+  std::string ToString(bool show_metadata = false) const override;
+  std::string name() const override { return "decimal64"; }
+
+  static constexpr int32_t kMinPrecision = 1;
+  static constexpr int32_t kMaxPrecision = 18;
+  static constexpr int32_t kByteWidth = 8;
+};
+
 /// \brief Concrete type class for 128-bit decimal data
 ///
 /// Arrow decimals are fixed-point decimal numbers encoded as a scaled
@@ -1122,11 +1197,11 @@ class ARROW_EXPORT ListType : public BaseListType {
   static constexpr const char* type_name() { return "list"; }
 
   // List can contain any other logical value type
-  explicit ListType(const std::shared_ptr<DataType>& value_type)
-      : ListType(std::make_shared<Field>("item", value_type)) {}
+  explicit ListType(std::shared_ptr<DataType> value_type)
+      : ListType(std::make_shared<Field>("item", std::move(value_type))) {}
 
-  explicit ListType(const std::shared_ptr<Field>& value_field) : BaseListType(type_id) {
-    children_ = {value_field};
+  explicit ListType(std::shared_ptr<Field> value_field) : BaseListType(type_id) {
+    children_ = {std::move(value_field)};
   }
 
   DataTypeLayout layout() const override {
@@ -1153,12 +1228,11 @@ class ARROW_EXPORT LargeListType : public BaseListType {
   static constexpr const char* type_name() { return "large_list"; }
 
   // List can contain any other logical value type
-  explicit LargeListType(const std::shared_ptr<DataType>& value_type)
-      : LargeListType(std::make_shared<Field>("item", value_type)) {}
+  explicit LargeListType(std::shared_ptr<DataType> value_type)
+      : LargeListType(std::make_shared<Field>("item", std::move(value_type))) {}
 
-  explicit LargeListType(const std::shared_ptr<Field>& value_field)
-      : BaseListType(type_id) {
-    children_ = {value_field};
+  explicit LargeListType(std::shared_ptr<Field> value_field) : BaseListType(type_id) {
+    children_ = {std::move(value_field)};
   }
 
   DataTypeLayout layout() const override {
@@ -1296,12 +1370,13 @@ class ARROW_EXPORT FixedSizeListType : public BaseListType {
   static constexpr const char* type_name() { return "fixed_size_list"; }
 
   // List can contain any other logical value type
-  FixedSizeListType(const std::shared_ptr<DataType>& value_type, int32_t list_size)
-      : FixedSizeListType(std::make_shared<Field>("item", value_type), list_size) {}
+  FixedSizeListType(std::shared_ptr<DataType> value_type, int32_t list_size)
+      : FixedSizeListType(std::make_shared<Field>("item", std::move(value_type)),
+                          list_size) {}
 
-  FixedSizeListType(const std::shared_ptr<Field>& value_field, int32_t list_size)
+  FixedSizeListType(std::shared_ptr<Field> value_field, int32_t list_size)
       : BaseListType(type_id), list_size_(list_size) {
-    children_ = {value_field};
+    children_ = {std::move(value_field)};
   }
 
   DataTypeLayout layout() const override {
@@ -2292,19 +2367,19 @@ class ARROW_EXPORT Schema : public detail::Fingerprintable,
   std::vector<std::string> field_names() const;
 
   /// Returns null if name not found
-  std::shared_ptr<Field> GetFieldByName(const std::string& name) const;
+  std::shared_ptr<Field> GetFieldByName(std::string_view name) const;
 
   /// \brief Return the indices of all fields having this name in sorted order
-  FieldVector GetAllFieldsByName(const std::string& name) const;
+  FieldVector GetAllFieldsByName(std::string_view name) const;
 
   /// Returns -1 if name not found
-  int GetFieldIndex(const std::string& name) const;
+  int GetFieldIndex(std::string_view name) const;
 
   /// Return the indices of all fields having this name
-  std::vector<int> GetAllFieldIndices(const std::string& name) const;
+  std::vector<int> GetAllFieldIndices(std::string_view name) const;
 
   /// Indicate if field named `name` can be found unambiguously in the schema.
-  Status CanReferenceFieldByName(const std::string& name) const;
+  Status CanReferenceFieldByName(std::string_view name) const;
 
   /// Indicate if fields named `names` can be found unambiguously in the schema.
   Status CanReferenceFieldsByNames(const std::vector<std::string>& names) const;
@@ -2540,6 +2615,9 @@ const std::vector<std::shared_ptr<DataType>>& BinaryTypes();
 /// \brief String and large-string types
 ARROW_EXPORT
 const std::vector<std::shared_ptr<DataType>>& StringTypes();
+/// \brief String-view and Binary-view
+ARROW_EXPORT
+const std::vector<std::shared_ptr<DataType>>& BinaryViewTypes();
 /// \brief Temporal types including date, time and timestamps for each unit
 ARROW_EXPORT
 const std::vector<std::shared_ptr<DataType>>& TemporalTypes();
@@ -2552,5 +2630,9 @@ const std::vector<std::shared_ptr<DataType>>& DurationTypes();
 /// \brief Numeric, base binary, date, boolean and null types
 ARROW_EXPORT
 const std::vector<std::shared_ptr<DataType>>& PrimitiveTypes();
+
+/// \brief Decimal type ids
+ARROW_EXPORT
+const std::vector<Type::type>& DecimalTypeIds();
 
 }  // namespace arrow

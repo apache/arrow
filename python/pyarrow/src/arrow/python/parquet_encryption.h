@@ -18,33 +18,36 @@
 #pragma once
 
 #include <string>
-
 #include "arrow/python/common.h"
 #include "arrow/python/visibility.h"
+#include "arrow/result.h"
 #include "arrow/util/macros.h"
+#include "arrow/util/secure_string.h"
 #include "parquet/encryption/crypto_factory.h"
+#include "parquet/encryption/file_system_key_material_store.h"
+#include "parquet/encryption/key_material.h"
 #include "parquet/encryption/kms_client.h"
 #include "parquet/encryption/kms_client_factory.h"
 
 #if defined(_WIN32) || defined(__CYGWIN__)  // Windows
-#if defined(_MSC_VER)
-#pragma warning(disable : 4251)
-#else
-#pragma GCC diagnostic ignored "-Wattributes"
-#endif
+#  if defined(_MSC_VER)
+#    pragma warning(disable : 4251)
+#  else
+#    pragma GCC diagnostic ignored "-Wattributes"
+#  endif
 
-#ifdef ARROW_PYTHON_STATIC
-#define ARROW_PYTHON_PARQUET_ENCRYPTION_EXPORT
-#elif defined(ARROW_PYTHON_PARQUET_ENCRYPTION_EXPORTING)
-#define ARROW_PYTHON_PARQUET_ENCRYPTION_EXPORT __declspec(dllexport)
-#else
-#define ARROW_PYTHON_PARQUET_ENCRYPTION_EXPORT __declspec(dllimport)
-#endif
+#  ifdef ARROW_PYTHON_STATIC
+#    define ARROW_PYTHON_PARQUET_ENCRYPTION_EXPORT
+#  elif defined(ARROW_PYTHON_PARQUET_ENCRYPTION_EXPORTING)
+#    define ARROW_PYTHON_PARQUET_ENCRYPTION_EXPORT __declspec(dllexport)
+#  else
+#    define ARROW_PYTHON_PARQUET_ENCRYPTION_EXPORT __declspec(dllimport)
+#  endif
 
 #else  // Not Windows
-#ifndef ARROW_PYTHON_PARQUET_ENCRYPTION_EXPORT
-#define ARROW_PYTHON_PARQUET_ENCRYPTION_EXPORT __attribute__((visibility("default")))
-#endif
+#  ifndef ARROW_PYTHON_PARQUET_ENCRYPTION_EXPORT
+#    define ARROW_PYTHON_PARQUET_ENCRYPTION_EXPORT __attribute__((visibility("default")))
+#  endif
 #endif  // Non-Windows
 
 namespace arrow {
@@ -56,11 +59,12 @@ namespace encryption {
 /// Python.
 class ARROW_PYTHON_PARQUET_ENCRYPTION_EXPORT PyKmsClientVtable {
  public:
-  std::function<void(PyObject*, const std::string& key_bytes,
+  std::function<void(PyObject*, const ::arrow::util::SecureString& key,
                      const std::string& master_key_identifier, std::string* out)>
       wrap_key;
   std::function<void(PyObject*, const std::string& wrapped_key,
-                     const std::string& master_key_identifier, std::string* out)>
+                     const std::string& master_key_identifier,
+                     ::arrow::util::SecureString* out)>
       unwrap_key;
 };
 
@@ -71,11 +75,11 @@ class ARROW_PYTHON_PARQUET_ENCRYPTION_EXPORT PyKmsClient
   PyKmsClient(PyObject* handler, PyKmsClientVtable vtable);
   ~PyKmsClient() override;
 
-  std::string WrapKey(const std::string& key_bytes,
+  std::string WrapKey(const ::arrow::util::SecureString& key,
                       const std::string& master_key_identifier) override;
 
-  std::string UnwrapKey(const std::string& wrapped_key,
-                        const std::string& master_key_identifier) override;
+  ::arrow::util::SecureString UnwrapKey(
+      const std::string& wrapped_key, const std::string& master_key_identifier) override;
 
  private:
   OwnedRefNoGIL handler_;
@@ -114,7 +118,9 @@ class ARROW_PYTHON_PARQUET_ENCRYPTION_EXPORT PyCryptoFactory
   arrow::Result<std::shared_ptr<::parquet::FileEncryptionProperties>>
   SafeGetFileEncryptionProperties(
       const ::parquet::encryption::KmsConnectionConfig& kms_connection_config,
-      const ::parquet::encryption::EncryptionConfiguration& encryption_config);
+      const ::parquet::encryption::EncryptionConfiguration& encryption_config,
+      const std::string& parquet_file_path,
+      const std::shared_ptr<::arrow::fs::FileSystem>& filesystem);
 
   /// The returned FileDecryptionProperties object will use the cache inside this
   /// CryptoFactory object, so please keep this
@@ -123,7 +129,15 @@ class ARROW_PYTHON_PARQUET_ENCRYPTION_EXPORT PyCryptoFactory
   arrow::Result<std::shared_ptr<::parquet::FileDecryptionProperties>>
   SafeGetFileDecryptionProperties(
       const ::parquet::encryption::KmsConnectionConfig& kms_connection_config,
-      const ::parquet::encryption::DecryptionConfiguration& decryption_config);
+      const ::parquet::encryption::DecryptionConfiguration& decryption_config,
+      const std::string& parquet_file_path,
+      const std::shared_ptr<::arrow::fs::FileSystem>& filesystem);
+
+  arrow::Status SafeRotateMasterKeys(
+      const ::parquet::encryption::KmsConnectionConfig& kms_connection_config,
+      const std::string& parquet_file_path,
+      const std::shared_ptr<::arrow::fs::FileSystem>& filesystem, bool double_wrapping,
+      double cache_lifetime_seconds);
 };
 
 }  // namespace encryption

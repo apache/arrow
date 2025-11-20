@@ -37,11 +37,12 @@
 #include "arrow/dataset/dataset.h"
 #include "arrow/dataset/dataset_internal.h"
 #include "arrow/dataset/plan.h"
+#include "arrow/record_batch.h"
 #include "arrow/table.h"
 #include "arrow/util/async_generator.h"
 #include "arrow/util/config.h"
 #include "arrow/util/iterator.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/task_group.h"
 #include "arrow/util/thread_pool.h"
 #include "arrow/util/tracing_internal.h"
@@ -318,10 +319,14 @@ Result<EnumeratedRecordBatchGenerator> FragmentToBatches(
       RecordBatch::Make(options->dataset_schema, /*num_rows=*/0, std::move(columns)));
   auto enumerated_batch_gen = MakeEnumeratedGenerator(std::move(batch_gen));
 
-  auto combine_fn =
-      [fragment](const Enumerated<std::shared_ptr<RecordBatch>>& record_batch) {
-        return EnumeratedRecordBatch{record_batch, fragment};
-      };
+  auto combine_fn = [fragment, cache_metadata = options->cache_metadata](
+                        const Enumerated<std::shared_ptr<RecordBatch>>& record_batch) {
+    if (!cache_metadata && record_batch.last) {
+      ARROW_WARN_NOT_OK(fragment.value->ClearCachedMetadata(),
+                        "Could not clear cached metadata on fragment");
+    }
+    return EnumeratedRecordBatch{record_batch, fragment};
+  };
 
   return MakeMappedGenerator(enumerated_batch_gen, std::move(combine_fn));
 }
@@ -343,7 +348,7 @@ class OneShotFragment : public Fragment {
   OneShotFragment(std::shared_ptr<Schema> schema, RecordBatchIterator batch_it)
       : Fragment(compute::literal(true), std::move(schema)),
         batch_it_(std::move(batch_it)) {
-    DCHECK_NE(physical_schema_, nullptr);
+    DCHECK_NE(given_physical_schema_, nullptr);
   }
   Status CheckConsumed() {
     if (!batch_it_) return Status::Invalid("OneShotFragment was already scanned");
@@ -355,14 +360,15 @@ class OneShotFragment : public Fragment {
     ARROW_ASSIGN_OR_RAISE(
         auto background_gen,
         MakeBackgroundGenerator(std::move(batch_it_), options->io_context.executor()));
-    return MakeTransferredGenerator(std::move(background_gen),
-                                    ::arrow::internal::GetCpuThreadPool());
+    auto cpu_executor = options->cpu_executor ? options->cpu_executor
+                                              : ::arrow::internal::GetCpuThreadPool();
+    return MakeTransferredGenerator(std::move(background_gen), cpu_executor);
   }
   std::string type_name() const override { return "one-shot"; }
 
  protected:
   Result<std::shared_ptr<Schema>> ReadPhysicalSchemaImpl() override {
-    return physical_schema_;
+    return given_physical_schema_;
   }
 
   RecordBatchIterator batch_it_;
@@ -382,7 +388,7 @@ Result<TaggedRecordBatchIterator> AsyncScanner::ScanBatches() {
       [this](::arrow::internal::Executor* executor) {
         return ScanBatchesAsync(executor);
       },
-      scan_options_->use_threads);
+      scan_options_->use_threads, scan_options_->cpu_executor);
 }
 
 Result<EnumeratedRecordBatchIterator> AsyncScanner::ScanBatchesUnordered() {
@@ -390,7 +396,7 @@ Result<EnumeratedRecordBatchIterator> AsyncScanner::ScanBatchesUnordered() {
       [this](::arrow::internal::Executor* executor) {
         return ScanBatchesUnorderedAsync(executor);
       },
-      scan_options_->use_threads);
+      scan_options_->use_threads, scan_options_->cpu_executor);
 }
 
 Result<std::shared_ptr<Table>> AsyncScanner::ToTable() {
@@ -400,7 +406,9 @@ Result<std::shared_ptr<Table>> AsyncScanner::ToTable() {
 }
 
 Result<EnumeratedRecordBatchGenerator> AsyncScanner::ScanBatchesUnorderedAsync() {
-  return ScanBatchesUnorderedAsync(::arrow::internal::GetCpuThreadPool(),
+  return ScanBatchesUnorderedAsync(scan_options_->cpu_executor
+                                       ? scan_options_->cpu_executor
+                                       : ::arrow::internal::GetCpuThreadPool(),
                                    /*sequence_fragments=*/false);
 }
 
@@ -601,7 +609,9 @@ Result<std::shared_ptr<Table>> AsyncScanner::Head(int64_t num_rows) {
 }
 
 Result<TaggedRecordBatchGenerator> AsyncScanner::ScanBatchesAsync() {
-  return ScanBatchesAsync(::arrow::internal::GetCpuThreadPool());
+  return ScanBatchesAsync(scan_options_->cpu_executor
+                              ? scan_options_->cpu_executor
+                              : ::arrow::internal::GetCpuThreadPool());
 }
 
 Result<TaggedRecordBatchGenerator> AsyncScanner::ScanBatchesAsync(
@@ -778,7 +788,9 @@ Future<int64_t> AsyncScanner::CountRowsAsync(Executor* executor) {
 }
 
 Future<int64_t> AsyncScanner::CountRowsAsync() {
-  return CountRowsAsync(::arrow::internal::GetCpuThreadPool());
+  return CountRowsAsync(scan_options_->cpu_executor
+                            ? scan_options_->cpu_executor
+                            : ::arrow::internal::GetCpuThreadPool());
 }
 
 Result<int64_t> AsyncScanner::CountRows() {
@@ -936,6 +948,11 @@ Status ScannerBuilder::UseThreads(bool use_threads) {
   return Status::OK();
 }
 
+Status ScannerBuilder::CacheMetadata(bool cache_metadata) {
+  scan_options_->cache_metadata = cache_metadata;
+  return Status::OK();
+}
+
 Status ScannerBuilder::BatchSize(int64_t batch_size) {
   if (batch_size <= 0) {
     return Status::Invalid("BatchSize must be greater than 0, got ", batch_size);
@@ -1000,6 +1017,7 @@ Result<acero::ExecNode*> MakeScanNode(acero::ExecPlan* plan,
   auto scan_options = scan_node_options.scan_options;
   auto dataset = scan_node_options.dataset;
   bool require_sequenced_output = scan_node_options.require_sequenced_output;
+  bool implicit_ordering = scan_node_options.implicit_ordering;
 
   RETURN_NOT_OK(NormalizeScanOptions(scan_options, dataset->schema()));
 
@@ -1060,6 +1078,8 @@ Result<acero::ExecNode*> MakeScanNode(acero::ExecPlan* plan,
         return batch;
       });
 
+  auto ordering = implicit_ordering ? Ordering::Implicit() : Ordering::Unordered();
+
   auto fields = scan_options->dataset_schema->fields();
   if (scan_options->add_augmented_fields) {
     for (const auto& aug_field : kAugmentedFields) {
@@ -1069,7 +1089,7 @@ Result<acero::ExecNode*> MakeScanNode(acero::ExecPlan* plan,
 
   return acero::MakeExecNode(
       "source", plan, {},
-      acero::SourceNodeOptions{schema(std::move(fields)), std::move(gen)});
+      acero::SourceNodeOptions{schema(std::move(fields)), std::move(gen), ordering});
 }
 
 Result<acero::ExecNode*> MakeAugmentedProjectNode(acero::ExecPlan* plan,

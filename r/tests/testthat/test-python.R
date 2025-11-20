@@ -22,8 +22,8 @@ test_that("install_pyarrow", {
   # Windows CI machine doesn't pick up the right python or something
   skip_on_os("windows")
   skip_if_not_installed("reticulate")
-  # PyArrow doesn't support Python 3.7 or earlier
-  skip_on_python_older_than("3.8")
+  # PyArrow doesn't support Python 3.9 or earlier
+  skip_on_python_older_than("3.10")
   # no pyarrow wheels for macos 10.13
   skip_if(on_macos_10_13_or_lower())
 
@@ -149,9 +149,9 @@ test_that("RecordBatchReader to python", {
   library(dplyr, warn.conflicts = FALSE)
 
   tab <- Table$create(example_data)
-  scan <- tab %>%
-    select(int, lgl) %>%
-    filter(int > 6) %>%
+  scan <- tab |>
+    select(int, lgl) |>
+    filter(int > 6) |>
     Scanner$create()
   reader <- scan$ToRecordBatchReader()
   pyreader <- reticulate::r_to_py(reader)
@@ -162,8 +162,8 @@ test_that("RecordBatchReader to python", {
   expect_r6_class(back_to_r, "Table")
   expect_equal_data_frame(
     back_to_r,
-    example_data %>%
-      select(int, lgl) %>%
+    example_data |>
+      select(int, lgl) |>
       filter(int > 6)
   )
 })

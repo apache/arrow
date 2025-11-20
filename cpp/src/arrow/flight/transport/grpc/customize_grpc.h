@@ -22,20 +22,21 @@
 
 #include "arrow/flight/platform.h"
 #include "arrow/flight/type_fwd.h"
+#include "arrow/flight/visibility.h"
 #include "arrow/util/config.h"
 
 // Silence protobuf warnings
 #ifdef _MSC_VER
-#pragma warning(push)
-#pragma warning(disable : 4244)
-#pragma warning(disable : 4267)
+#  pragma warning(push)
+#  pragma warning(disable : 4244)
+#  pragma warning(disable : 4267)
 #endif
 
 #include <grpcpp/impl/codegen/config_protobuf.h>
 #include <grpcpp/impl/codegen/proto_utils.h>
 
 #ifdef _MSC_VER
-#pragma warning(pop)
+#  pragma warning(pop)
 #endif
 
 namespace grpc {
@@ -63,8 +64,8 @@ namespace grpc {
 
 // Read internal::FlightData from grpc::ByteBuffer containing FlightData
 // protobuf without copying
-::grpc::Status FlightDataDeserialize(::grpc::ByteBuffer* buffer,
-                                     arrow::flight::internal::FlightData* out);
+ARROW_FLIGHT_EXPORT ::grpc::Status FlightDataDeserialize(
+    ::grpc::ByteBuffer* buffer, arrow::flight::internal::FlightData* out);
 }  // namespace grpc
 }  // namespace transport
 }  // namespace flight

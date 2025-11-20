@@ -20,31 +20,31 @@
 #pragma once
 
 #if defined(_WIN32) || defined(__CYGWIN__)
-#if defined(_MSC_VER)
-#pragma warning(push)
-#pragma warning(disable : 4251)
-#else
-#pragma GCC diagnostic ignored "-Wattributes"
-#endif
+#  if defined(_MSC_VER)
+#    pragma warning(push)
+#    pragma warning(disable : 4251)
+#  else
+#    pragma GCC diagnostic ignored "-Wattributes"
+#  endif
 
-#ifdef ARROW_ACERO_STATIC
-#define ARROW_ACERO_EXPORT
-#elif defined(ARROW_ACERO_EXPORTING)
-#define ARROW_ACERO_EXPORT __declspec(dllexport)
-#else
-#define ARROW_ACERO_EXPORT __declspec(dllimport)
-#endif
+#  ifdef ARROW_ACERO_STATIC
+#    define ARROW_ACERO_EXPORT
+#  elif defined(ARROW_ACERO_EXPORTING)
+#    define ARROW_ACERO_EXPORT __declspec(dllexport)
+#  else
+#    define ARROW_ACERO_EXPORT __declspec(dllimport)
+#  endif
 
-#define ARROW_ACERO_NO_EXPORT
+#  define ARROW_ACERO_NO_EXPORT
 #else  // Not Windows
-#ifndef ARROW_ACERO_EXPORT
-#define ARROW_ACERO_EXPORT __attribute__((visibility("default")))
-#endif
-#ifndef ARROW_ACERO_NO_EXPORT
-#define ARROW_ACERO_NO_EXPORT __attribute__((visibility("hidden")))
-#endif
+#  ifndef ARROW_ACERO_EXPORT
+#    define ARROW_ACERO_EXPORT __attribute__((visibility("default")))
+#  endif
+#  ifndef ARROW_ACERO_NO_EXPORT
+#    define ARROW_ACERO_NO_EXPORT __attribute__((visibility("hidden")))
+#  endif
 #endif  // Not-Windows
 
 #if defined(_MSC_VER)
-#pragma warning(pop)
+#  pragma warning(pop)
 #endif

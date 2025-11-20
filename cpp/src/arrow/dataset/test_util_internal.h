@@ -18,7 +18,6 @@
 #pragma once
 
 #include <algorithm>
-#include <ciso646>
 #include <functional>
 #include <memory>
 #include <ostream>
@@ -72,16 +71,6 @@ namespace dataset {
 
 using StartProducingFunc = std::function<Status(ExecNode*)>;
 using StopProducingFunc = std::function<void(ExecNode*)>;
-
-ExecBatch ExecBatchFromJSON(const std::vector<TypeHolder>& types, std::string_view json);
-
-/// \brief Shape qualifier for value types. In certain instances
-/// (e.g. "map_lookup" kernel), an argument may only be a scalar, where in
-/// other kernels arguments can be arrays or scalars
-enum class ArgShape { ANY, ARRAY, SCALAR };
-
-ExecBatch ExecBatchFromJSON(const std::vector<TypeHolder>& types,
-                            const std::vector<ArgShape>& shapes, std::string_view json);
 
 struct BatchesWithSchema {
   std::vector<ExecBatch> batches;
@@ -1075,7 +1064,7 @@ class FileFormatFixtureMixinV2 : public ::testing::Test {
   }
 
   void CheckDatasetSchemaSet() {
-    DCHECK_NE(dataset_schema_, nullptr)
+    ARROW_DCHECK_NE(dataset_schema_, nullptr)
         << "call SetDatasetSchema before calling this method";
   }
 
@@ -1832,7 +1821,7 @@ struct ArithmeticDatasetFixture {
 
   /// \brief Creates a JSON RecordBatch
   static std::string JSONRecordBatch(int64_t n) {
-    DCHECK_GT(n, 0);
+    ARROW_DCHECK_GT(n, 0);
 
     auto record = JSONRecordFor(n);
 
@@ -1853,7 +1842,7 @@ struct ArithmeticDatasetFixture {
   }
 
   static std::unique_ptr<RecordBatchReader> GetRecordBatchReader(int64_t n) {
-    DCHECK_GT(n, 0);
+    ARROW_DCHECK_GT(n, 0);
 
     // Functor which generates `n` RecordBatch
     struct {

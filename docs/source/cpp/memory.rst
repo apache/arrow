@@ -139,9 +139,9 @@ Default Memory Pool
 
 The default memory pool depends on how Arrow C++ was compiled:
 
-- if enabled at compile time, a `jemalloc <http://jemalloc.net/>`_ heap;
-- otherwise, if enabled at compile time, a
-  `mimalloc <https://github.com/microsoft/mimalloc>`_ heap;
+- if enabled at compile time, a `mimalloc <https://github.com/microsoft/mimalloc>`_
+  heap;
+- otherwise, if enabled at compile time, a `jemalloc <http://jemalloc.net/>`_ heap;
 - otherwise, the C library ``malloc`` heap.
 
 Overriding the Default Memory Pool

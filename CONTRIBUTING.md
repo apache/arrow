@@ -29,8 +29,7 @@ To be assigned to an issue, add a comment "take" to that issue.
 
 Before you create a new bug entry, we recommend you first search among existing
 Arrow issues in
-[Jira](https://issues.apache.org/jira/issues/?jql=project%20%3D%20ARROW%20AND%20status%20%3D%20Open)
-or [GitHub](https://github.com/apache/arrow/issues).
+[GitHub](https://github.com/apache/arrow/issues).
 
 We conventionally prefix the issue title with the component
 name in brackets, such as "[C++][Python] Ensure no validity bitmap in

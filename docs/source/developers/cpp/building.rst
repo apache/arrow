@@ -39,9 +39,9 @@ out-of-source. If you are not familiar with this terminology:
 
 Building requires:
 
-* A C++17-enabled compiler. On Linux, gcc 7.1 and higher should be
+* A C++17-enabled compiler. On Linux, gcc 9 and higher should be
   sufficient. For Windows, at least Visual Studio VS2017 is required.
-* CMake 3.16 or higher
+* CMake 3.25 or higher
 * On Linux and macOS, either ``make`` or ``ninja`` build utilities
 * At least 1GB of RAM for a minimal build, 4GB for a minimal
   debug build with tests and 8GB for a full build using
@@ -213,6 +213,8 @@ and then ask to compile the build targets:
 
    0 directories, 3 files
 
+   $ cmake --install .
+
 When creating a build, it is possible to pass custom options besides
 the preset-defined ones, for example:
 
@@ -293,6 +295,7 @@ Minimal release build (1GB of RAM for building or more recommended):
    $ cd build-release
    $ cmake ..
    $ make -j8       # if you have 8 CPU cores, otherwise adjust
+   $ make install
 
 Minimal debug build with unit tests (4GB of RAM for building or more recommended):
 
@@ -305,6 +308,7 @@ Minimal debug build with unit tests (4GB of RAM for building or more recommended
    $ cmake -DCMAKE_BUILD_TYPE=Debug -DARROW_BUILD_TESTS=ON ..
    $ make -j8       # if you have 8 CPU cores, otherwise adjust
    $ make unittest  # to run the tests
+   $ make install
 
 The unit tests are not built by default. After building, one can also invoke
 the unit tests using the ``ctest`` tool provided by CMake (note that ``test``
@@ -447,7 +451,7 @@ several times with different options if you want to exercise all of them.
 CMake version requirements
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-We support CMake 3.16 and higher.
+We support CMake 3.25 and higher.
 
 LLVM and Clang Tools
 ~~~~~~~~~~~~~~~~~~~~

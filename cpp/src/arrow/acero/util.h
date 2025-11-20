@@ -65,7 +65,7 @@ class ARROW_ACERO_EXPORT AtomicCounter {
 
   // return true if the counter is complete
   bool Increment() {
-    DCHECK_NE(count_.load(), total_.load());
+    ARROW_DCHECK_NE(count_.load(), total_.load());
     int count = count_.fetch_add(1) + 1;
     if (count != total_.load()) return false;
     return DoneOnce();

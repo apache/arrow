@@ -26,6 +26,7 @@
 namespace arrow::util {
 
 inline BinaryViewType::c_type ToInlineBinaryView(const void* data, int32_t size) {
+  assert(size <= BinaryViewType::kInlineSize);
   // Small string: inlined. Bytes beyond size are zeroed
   BinaryViewType::c_type out;
   out.inlined = {size, {}};
@@ -34,7 +35,18 @@ inline BinaryViewType::c_type ToInlineBinaryView(const void* data, int32_t size)
 }
 
 inline BinaryViewType::c_type ToInlineBinaryView(std::string_view v) {
+  assert(v.size() <= BinaryViewType::kInlineSize);
   return ToInlineBinaryView(v.data(), static_cast<int32_t>(v.size()));
+}
+
+inline BinaryViewType::c_type ToNonInlineBinaryView(const void* data, int32_t size,
+                                                    int32_t buffer_index,
+                                                    int32_t offset) {
+  // Large string: store index/offset.
+  BinaryViewType::c_type out;
+  out.ref = {size, {}, buffer_index, offset};
+  memcpy(&out.ref.prefix, data, sizeof(out.ref.prefix));
+  return out;
 }
 
 inline BinaryViewType::c_type ToBinaryView(const void* data, int32_t size,
@@ -42,12 +54,7 @@ inline BinaryViewType::c_type ToBinaryView(const void* data, int32_t size,
   if (size <= BinaryViewType::kInlineSize) {
     return ToInlineBinaryView(data, size);
   }
-
-  // Large string: store index/offset.
-  BinaryViewType::c_type out;
-  out.ref = {size, {}, buffer_index, offset};
-  memcpy(&out.ref.prefix, data, sizeof(out.ref.prefix));
-  return out;
+  return ToNonInlineBinaryView(data, size, buffer_index, offset);
 }
 
 inline BinaryViewType::c_type ToBinaryView(std::string_view v, int32_t buffer_index,
@@ -90,6 +97,19 @@ bool EqualBinaryView(BinaryViewType::c_type l, BinaryViewType::c_type r,
   return memcmp(l_data + BinaryViewType::kPrefixSize,
                 r_data + BinaryViewType::kPrefixSize,
                 l.size() - BinaryViewType::kPrefixSize) == 0;
+}
+
+/// \brief Compute the total size of a list of binary views including null
+/// views.
+///
+/// This is useful when calculating the necessary memory to store all the string
+/// data from the views.
+inline int64_t SumOfBinaryViewSizes(const BinaryViewType::c_type* views, int64_t length) {
+  int64_t total = 0;
+  for (int64_t i = 0; i < length; ++i) {
+    total += views[i].size();
+  }
+  return total;
 }
 
 }  // namespace arrow::util

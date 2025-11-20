@@ -14,7 +14,8 @@
 // KIND, either express or implied.  See the License for the
 // specific language governing permissions and limitations
 // under the License.
-#include "parquet/level_conversion.h"
+
+#include "parquet/level_conversion_bmi2_internal.h"
 
 #define PARQUET_IMPL_NAMESPACE bmi2
 #include "parquet/level_conversion_inc.h"

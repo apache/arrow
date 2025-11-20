@@ -37,10 +37,6 @@ namespace Azure::Storage::Blobs {
 class BlobServiceClient;
 }
 
-namespace Azure::Storage::Sas {
-struct BlobSasBuilder;
-}
-
 namespace Azure::Storage::Files::DataLake {
 class DataLakeFileSystemClient;
 class DataLakeServiceClient;
@@ -112,19 +108,25 @@ struct ARROW_EXPORT AzureOptions {
   /// This will be ignored if non-empty metadata is passed to OpenOutputStream.
   std::shared_ptr<const KeyValueMetadata> default_metadata;
 
+  /// Whether OutputStream writes will be issued in the background, without blocking.
+  bool background_writes = true;
+
  private:
   enum class CredentialKind {
     kDefault,
     kAnonymous,
     kStorageSharedKey,
+    kSASToken,
     kClientSecret,
     kManagedIdentity,
+    kCLI,
     kWorkloadIdentity,
     kEnvironment,
   } credential_kind_ = CredentialKind::kDefault;
 
   std::shared_ptr<Azure::Storage::StorageSharedKeyCredential>
       storage_shared_key_credential_;
+  std::string sas_token_;
   mutable std::shared_ptr<Azure::Core::Credentials::TokenCredential> token_credential_;
 
  public:
@@ -140,12 +142,10 @@ struct ARROW_EXPORT AzureOptions {
   ///
   /// Supported formats:
   ///
-  /// 1. abfs[s]://[:\<password\>@]\<account\>.blob.core.windows.net
-  ///    [/\<container\>[/\<path\>]]
-  /// 2. abfs[s]://\<container\>[:\<password\>]\@\<account\>.dfs.core.windows.net[/path]
-  /// 3. abfs[s]://[\<account[:\<password\>]@]\<host[.domain]\>[\<:port\>]
-  ///    [/\<container\>[/path]]
-  /// 4. abfs[s]://[\<account[:\<password\>]@]\<container\>[/path]
+  /// 1. abfs[s]://\<account\>.blob.core.windows.net[/\<container\>[/\<path\>]]
+  /// 2. abfs[s]://\<container\>\@\<account\>.dfs.core.windows.net[/path]
+  /// 3. abfs[s]://[\<account@]\<host[.domain]\>[\<:port\>][/\<container\>[/path]]
+  /// 4. abfs[s]://[\<account@]\<container\>[/path]
   ///
   /// (1) and (2) are compatible with the Azure Data Lake Storage Gen2 URIs
   /// [1], (3) is for Azure Blob Storage compatible service including Azurite,
@@ -160,14 +160,15 @@ struct ARROW_EXPORT AzureOptions {
   /// * blob_storage_authority: Set AzureOptions::blob_storage_authority
   /// * dfs_storage_authority: Set AzureOptions::dfs_storage_authority
   /// * enable_tls: If it's "false" or "0", HTTP not HTTPS is used.
-  /// * credential_kind: One of "default", "anonymous",
-  ///   "workload_identity" or "environment". If "default" is specified, it's
+  /// * credential_kind: One of "default", "anonymous", "workload_identity",
+  ///   "environment" or "cli". If "default" is specified, it's
   ///   just ignored.  If "anonymous" is specified,
   ///   AzureOptions::ConfigureAnonymousCredential() is called. If
   ///   "workload_identity" is specified,
-  ///   AzureOptions::ConfigureWorkloadIdentityCredential() is called, If
+  ///   AzureOptions::ConfigureWorkloadIdentityCredential() is called. If
   ///   "environment" is specified,
-  ///   AzureOptions::ConfigureEnvironmentCredential() is called.
+  ///   AzureOptions::ConfigureEnvironmentCredential() is called. If "cli" is
+  ///   specified, AzureOptions::ConfigureCLICredential() is called.
   /// * tenant_id: You must specify "client_id" and "client_secret"
   ///   too. AzureOptions::ConfigureClientSecretCredential() is called.
   /// * client_id: If you don't specify "tenant_id" and
@@ -177,6 +178,9 @@ struct ARROW_EXPORT AzureOptions {
   ///   AzureOptions::ConfigureClientSecretCredential() is called.
   /// * client_secret: You must specify "tenant_id" and "client_id"
   ///   too. AzureOptions::ConfigureClientSecretCredential() is called.
+  /// * A SAS token is made up of several query parameters. Appending a SAS
+  ///   token to the URI configures SAS token auth by calling
+  ///   AzureOptions::ConfigureSASCredential().
   ///
   /// [1]:
   /// https://learn.microsoft.com/en-us/azure/storage/blobs/data-lake-storage-introduction-abfs-uri
@@ -186,10 +190,12 @@ struct ARROW_EXPORT AzureOptions {
   Status ConfigureDefaultCredential();
   Status ConfigureAnonymousCredential();
   Status ConfigureAccountKeyCredential(const std::string& account_key);
+  Status ConfigureSASCredential(const std::string& sas_token);
   Status ConfigureClientSecretCredential(const std::string& tenant_id,
                                          const std::string& client_id,
                                          const std::string& client_secret);
   Status ConfigureManagedIdentityCredential(const std::string& client_id = std::string());
+  Status ConfigureCLICredential();
   Status ConfigureWorkloadIdentityCredential();
   Status ConfigureEnvironmentCredential();
 
@@ -203,10 +209,6 @@ struct ARROW_EXPORT AzureOptions {
 
   Result<std::unique_ptr<Azure::Storage::Files::DataLake::DataLakeServiceClient>>
   MakeDataLakeServiceClient() const;
-
-  Result<std::string> GenerateSASToken(
-      Azure::Storage::Sas::BlobSasBuilder* builder,
-      Azure::Storage::Blobs::BlobServiceClient* client) const;
 };
 
 /// \brief FileSystem implementation backed by Azure Blob Storage (ABS) [1] and
@@ -364,6 +366,8 @@ class ARROW_EXPORT AzureFileSystem : public FileSystem {
   Result<std::shared_ptr<io::OutputStream>> OpenAppendStream(
       const std::string& path,
       const std::shared_ptr<const KeyValueMetadata>& metadata) override;
+
+  Result<std::string> PathFromUri(const std::string& uri_string) const override;
 };
 
 }  // namespace arrow::fs

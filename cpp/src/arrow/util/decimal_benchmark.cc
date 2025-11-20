@@ -77,7 +77,7 @@ static void ToString(benchmark::State& state) {  // NOLINT non-const reference
   state.SetItemsProcessed(state.iterations() * values.size());
 }
 
-constexpr int32_t kValueSize = 10;
+constexpr int32_t kValueSize = 12;
 
 static void BinaryCompareOp(benchmark::State& state) {  // NOLINT non-const reference
   std::vector<BasicDecimal128> v1, v2;
@@ -85,6 +85,8 @@ static void BinaryCompareOp(benchmark::State& state) {  // NOLINT non-const refe
     v1.emplace_back(100 + x, 100 + x);
     v2.emplace_back(200 + x, 200 + x);
   }
+  static_assert(kValueSize % 4 == 0,
+                "kValueSize needs to be a multiple of 4 to avoid out-of-bounds accesses");
   for (auto _ : state) {
     for (int x = 0; x < kValueSize; x += 4) {
       auto equal = v1[x] == v2[x];
@@ -93,7 +95,7 @@ static void BinaryCompareOp(benchmark::State& state) {  // NOLINT non-const refe
       benchmark::DoNotOptimize(less_than_or_equal);
       auto greater_than_or_equal1 = v1[x + 2] >= v2[x + 2];
       benchmark::DoNotOptimize(greater_than_or_equal1);
-      auto greater_than_or_equal2 = v1[x + 3] >= v1[x + 3];
+      auto greater_than_or_equal2 = v1[x + 3] >= v2[x + 3];
       benchmark::DoNotOptimize(greater_than_or_equal2);
     }
   }
@@ -106,6 +108,8 @@ static void BinaryCompareOpConstant(
   for (int x = 0; x < kValueSize; x++) {
     v1.emplace_back(100 + x, 100 + x);
   }
+  static_assert(kValueSize % 4 == 0,
+                "kValueSize needs to be a multiple of 4 to avoid out-of-bounds accesses");
   BasicDecimal128 constant(313, 212);
   for (auto _ : state) {
     for (int x = 0; x < kValueSize; x += 4) {
@@ -245,6 +249,8 @@ static void UnaryOp(benchmark::State& state) {  // NOLINT non-const reference
     v.emplace_back(100 + x, 100 + x);
   }
 
+  static_assert(kValueSize % 2 == 0,
+                "kValueSize needs to be a multiple of 2 to avoid out-of-bounds accesses");
   for (auto _ : state) {
     for (int x = 0; x < kValueSize; x += 2) {
       auto abs = v[x].Abs();
@@ -274,6 +280,8 @@ static void BinaryBitOp(benchmark::State& state) {  // NOLINT non-const referenc
     v2.emplace_back(200 + x, 200 + x);
   }
 
+  static_assert(kValueSize % 2 == 0,
+                "kValueSize needs to be a multiple of 2 to avoid out-of-bounds accesses");
   for (auto _ : state) {
     for (int x = 0; x < kValueSize; x += 2) {
       benchmark::DoNotOptimize(v1[x] |= v2[x]);

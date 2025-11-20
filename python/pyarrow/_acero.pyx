@@ -30,7 +30,7 @@ from pyarrow.lib cimport (Table, pyarrow_unwrap_table, pyarrow_wrap_table,
 from pyarrow.lib import frombytes, tobytes
 from pyarrow._compute cimport (
     Expression, FunctionOptions, _ensure_field_ref, _true,
-    unwrap_null_placement, unwrap_sort_order
+    unwrap_null_placement, unwrap_sort_keys
 )
 
 
@@ -234,17 +234,10 @@ class AggregateNodeOptions(_AggregateNodeOptions):
 cdef class _OrderByNodeOptions(ExecNodeOptions):
 
     def _set_options(self, sort_keys, null_placement):
-        cdef:
-            vector[CSortKey] c_sort_keys
-
-        for name, order in sort_keys:
-            c_sort_keys.push_back(
-                CSortKey(_ensure_field_ref(name), unwrap_sort_order(order))
-            )
-
         self.wrapped.reset(
             new COrderByNodeOptions(
-                COrdering(c_sort_keys, unwrap_null_placement(null_placement))
+                COrdering(unwrap_sort_keys(sort_keys, allow_str=False),
+                          unwrap_null_placement(null_placement))
             )
         )
 
@@ -280,7 +273,7 @@ cdef class _HashJoinNodeOptions(ExecNodeOptions):
 
     def _set_options(
         self, join_type, left_keys, right_keys, left_output=None, right_output=None,
-        output_suffix_for_left="", output_suffix_for_right="",
+        output_suffix_for_left="", output_suffix_for_right="", Expression filter_expression=None,
     ):
         cdef:
             CJoinType c_join_type
@@ -288,6 +281,7 @@ cdef class _HashJoinNodeOptions(ExecNodeOptions):
             vector[CFieldRef] c_right_keys
             vector[CFieldRef] c_left_output
             vector[CFieldRef] c_right_output
+            CExpression c_filter_expression
 
         # join type
         if join_type == "left semi":
@@ -319,6 +313,11 @@ cdef class _HashJoinNodeOptions(ExecNodeOptions):
         for key in right_keys:
             c_right_keys.push_back(_ensure_field_ref(key))
 
+        if filter_expression is None:
+            c_filter_expression = _true
+        else:
+            c_filter_expression = filter_expression.unwrap()
+
         # left/right output fields
         if left_output is not None and right_output is not None:
             for colname in left_output:
@@ -330,7 +329,7 @@ cdef class _HashJoinNodeOptions(ExecNodeOptions):
                 new CHashJoinNodeOptions(
                     c_join_type, c_left_keys, c_right_keys,
                     c_left_output, c_right_output,
-                    _true,
+                    c_filter_expression,
                     <c_string>tobytes(output_suffix_for_left),
                     <c_string>tobytes(output_suffix_for_right)
                 )
@@ -339,7 +338,7 @@ cdef class _HashJoinNodeOptions(ExecNodeOptions):
             self.wrapped.reset(
                 new CHashJoinNodeOptions(
                     c_join_type, c_left_keys, c_right_keys,
-                    _true,
+                    c_filter_expression,
                     <c_string>tobytes(output_suffix_for_left),
                     <c_string>tobytes(output_suffix_for_right)
                 )
@@ -380,15 +379,17 @@ class HashJoinNodeOptions(_HashJoinNodeOptions):
     output_suffix_for_right : str
         Suffix added to names of output fields coming from right input,
         see `output_suffix_for_left` for details.
+    filter_expression : pyarrow.compute.Expression
+        Residual filter which is applied to matching row.
     """
 
     def __init__(
         self, join_type, left_keys, right_keys, left_output=None, right_output=None,
-        output_suffix_for_left="", output_suffix_for_right=""
+        output_suffix_for_left="", output_suffix_for_right="", filter_expression=None,
     ):
         self._set_options(
             join_type, left_keys, right_keys, left_output, right_output,
-            output_suffix_for_left, output_suffix_for_right
+            output_suffix_for_left, output_suffix_for_right, filter_expression
         )
 
 
@@ -445,7 +446,8 @@ class AsofJoinNodeOptions(_AsofJoinNodeOptions):
         Can be a string column name or a field expression.
 
         An inexact match is used on the "on" key, i.e. a row is considered a
-        match if and only if left_on - tolerance <= right_on <= left_on.
+        match if and only if ``right.on - left.on`` is in the range
+        ``[min(0, tolerance), max(0, tolerance)]``.
 
         The input dataset must be sorted by the "on" key. Must be a single
         field of a common type.
@@ -560,7 +562,7 @@ cdef class Declaration(_Weakrefable):
         return frombytes(GetResultValue(DeclarationToString(self.decl)))
 
     def __repr__(self):
-        return "<pyarrow.acero.Declaration>\n{0}".format(str(self))
+        return f"<pyarrow.acero.Declaration>\n{self}"
 
     def to_table(self, bint use_threads=True):
         """

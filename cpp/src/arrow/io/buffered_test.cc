@@ -16,8 +16,8 @@
 // under the License.
 
 #ifndef _WIN32
-#include <fcntl.h>  // IWYU pragma: keep
-#include <unistd.h>
+#  include <fcntl.h>  // IWYU pragma: keep
+#  include <unistd.h>
 #endif
 
 #include <algorithm>
@@ -329,7 +329,8 @@ class TestBufferedInputStream : public FileTestFixture<BufferedInputStream> {
     local_pool_ = MemoryPool::CreateDefault();
   }
 
-  void MakeExample1(int64_t buffer_size, MemoryPool* pool = default_memory_pool()) {
+  void MakeExample1(int64_t buffer_size, MemoryPool* pool = default_memory_pool(),
+                    int64_t raw_read_bound = -1) {
     test_data_ = kExample1;
 
     ASSERT_OK_AND_ASSIGN(auto file_out, FileOutputStream::Open(path_));
@@ -338,7 +339,8 @@ class TestBufferedInputStream : public FileTestFixture<BufferedInputStream> {
 
     ASSERT_OK_AND_ASSIGN(auto file_in, ReadableFile::Open(path_));
     raw_ = file_in;
-    ASSERT_OK_AND_ASSIGN(buffered_, BufferedInputStream::Create(buffer_size, pool, raw_));
+    ASSERT_OK_AND_ASSIGN(
+        buffered_, BufferedInputStream::Create(buffer_size, pool, raw_, raw_read_bound));
   }
 
  protected:
@@ -470,6 +472,46 @@ TEST_F(TestBufferedInputStream, SetBufferSize) {
 
   // Shrinking to exactly number of buffered bytes is ok
   ASSERT_OK(buffered_->SetBufferSize(5));
+}
+
+// GH-43060: Internal buffer should not greater than the
+// bytes could buffer.
+TEST_F(TestBufferedInputStream, BufferSizeLimit) {
+  {
+    // Buffer size should not exceeds raw_read_bound
+    MakeExample1(/*buffer_size=*/100000, default_memory_pool(), /*raw_read_bound=*/15);
+    EXPECT_EQ(15, buffered_->buffer_size());
+  }
+  {
+    // Set a buffer size after read.
+    MakeExample1(/*buffer_size=*/10, default_memory_pool(), /*raw_read_bound=*/15);
+    ASSERT_OK(buffered_->Read(10));
+    ASSERT_OK(buffered_->SetBufferSize(/*new_buffer_size=*/100000));
+    EXPECT_EQ(5, buffered_->buffer_size());
+  }
+}
+
+TEST_F(TestBufferedInputStream, PeekPastBufferedBytes) {
+  // GH-43949: Peek and SetBufferSize should not affect the
+  // buffered bytes.
+  MakeExample1(/*buffer_size=*/10, default_memory_pool(), /*raw_read_bound=*/15);
+  ASSERT_OK_AND_ASSIGN(auto bytes, buffered_->Read(9));
+  EXPECT_EQ(std::string_view(*bytes), kExample1.substr(0, 9));
+  ASSERT_EQ(1, buffered_->bytes_buffered());
+  ASSERT_EQ(10, buffered_->buffer_size());
+  ASSERT_OK_AND_ASSIGN(auto view, buffered_->Peek(3));
+  EXPECT_EQ(view, kExample1.substr(9, 3));
+  ASSERT_EQ(3, buffered_->bytes_buffered());
+  ASSERT_EQ(12, buffered_->buffer_size());
+  ASSERT_OK_AND_ASSIGN(view, buffered_->Peek(10));
+  // Peek() cannot go past the `raw_read_bound`
+  EXPECT_EQ(view, kExample1.substr(9, 6));
+  ASSERT_EQ(6, buffered_->bytes_buffered());
+  ASSERT_EQ(15, buffered_->buffer_size());
+  // Do read
+  ASSERT_OK_AND_ASSIGN(bytes, buffered_->Read(6));
+  EXPECT_EQ(std::string_view(*bytes), kExample1.substr(9, 6));
+  ASSERT_EQ(0, buffered_->bytes_buffered());
 }
 
 class TestBufferedInputStreamBound : public ::testing::Test {

@@ -34,6 +34,9 @@ class TestFileWriter < Test::Unit::TestCase
         file_writer.write_record_batch(record_batch)
       ensure
         file_writer.close
+        assert do
+          file_writer.closed?
+        end
       end
     ensure
       output.close
@@ -68,6 +71,9 @@ class TestFileWriter < Test::Unit::TestCase
         file_writer.write_table(table)
       ensure
         file_writer.close
+        assert do
+          file_writer.closed?
+        end
       end
     ensure
       output.close

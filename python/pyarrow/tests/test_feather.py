@@ -23,7 +23,10 @@ import pytest
 import hypothesis as h
 import hypothesis.strategies as st
 
-import numpy as np
+try:
+    import numpy as np
+except ImportError:
+    np = None
 
 import pyarrow as pa
 import pyarrow.tests.strategies as past
@@ -135,6 +138,7 @@ def _assert_error_on_write(df, exc, path=None, version=2):
     pytest.raises(exc, f)
 
 
+@pytest.mark.numpy
 def test_dataset(version):
     num_values = (100, 100)
     num_files = 5
@@ -354,6 +358,7 @@ def test_buffer_bounds_error(version):
         _check_arrow_roundtrip(table)
 
 
+@pytest.mark.numpy
 def test_boolean_object_nulls(version):
     repeats = 100
     table = pa.Table.from_arrays(
@@ -421,7 +426,11 @@ def test_empty_strings(version):
 @pytest.mark.pandas
 def test_all_none(version):
     df = pd.DataFrame({'all_none': [None] * 10})
-    _check_pandas_roundtrip(df, version=version)
+    if version == 1 and pa.pandas_compat._pandas_api.uses_string_dtype():
+        expected = df.astype("str")
+    else:
+        expected = df
+    _check_pandas_roundtrip(df, version=version, expected=expected)
 
 
 @pytest.mark.pandas
@@ -434,7 +443,7 @@ def test_all_null_category(version):
 
 @pytest.mark.pandas
 def test_multithreaded_read(version):
-    data = {'c{}'.format(i): [''] * 10
+    data = {f'c{i}': [''] * 10
             for i in range(100)}
     df = pd.DataFrame(data)
     _check_pandas_roundtrip(df, use_threads=True, version=version)
@@ -540,6 +549,7 @@ def test_read_columns(version):
                             columns=['boo', 'woo'])
 
 
+@pytest.mark.numpy
 def test_overwritten_file(version):
     path = random_path()
     TEST_FILES.append(path)
@@ -675,6 +685,7 @@ def test_v2_compression_options():
         write_feather(df, buf, compression='snappy')
 
 
+@pytest.mark.numpy
 def test_v2_lz4_default_compression():
     # ARROW-8750: Make sure that the compression=None option selects lz4 if
     # it's available
@@ -794,6 +805,15 @@ def test_read_column_duplicated_in_file(tempdir):
         read_table(path, columns=['a', 'b'])
 
 
+def test_read_column_with_generator(tempdir, version):
+    table = pa.table([[1, 2, 3], [4, 5, 6], [7, 8, 9]], names=['a', 'b', 'c'])
+    path = str(tempdir / "data.feather")
+    write_feather(table, path, version=version)
+    columns_gen = (x for x in ['a', 'b', 'c'])
+    with pytest.raises(TypeError, match="Columns must be a sequence"):
+        read_table(path, columns=columns_gen)
+
+
 def test_nested_types(compression):
     # https://issues.apache.org/jira/browse/ARROW-8860
     table = pa.table({'col': pa.StructArray.from_arrays(
@@ -807,6 +827,7 @@ def test_nested_types(compression):
     _check_arrow_roundtrip(table, compression=compression)
 
 
+@pytest.mark.numpy
 @h.given(past.all_tables, st.sampled_from(["uncompressed", "lz4", "zstd"]))
 def test_roundtrip(table, compression):
     _check_arrow_roundtrip(table, compression=compression)

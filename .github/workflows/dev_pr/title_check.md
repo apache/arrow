@@ -31,10 +31,6 @@ or
 
     MINOR: [${COMPONENT}] ${SUMMARY}
 
-In the case of PARQUET issues on JIRA the title also supports:
-
-    PARQUET-${JIRA_ISSUE_ID}: [${COMPONENT}] ${SUMMARY}
-
 See also:
 
   * [Other pull requests](https://github.com/apache/arrow/pulls/)

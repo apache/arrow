@@ -24,10 +24,14 @@
 #include "arrow/engine/substrait/visibility.h"
 #include "arrow/result.h"
 #include "arrow/util/hashing.h"
+#include "arrow/util/macros.h"
 #include "arrow/util/unreachable.h"
 
+// GH-44954: silence [[deprecated]] declarations in protobuf-generated code
+ARROW_SUPPRESS_DEPRECATION_WARNING
 #include "substrait/algebra.pb.h"  // IWYU pragma: export
 #include "substrait/plan.pb.h"     // IWYU pragma: export
+ARROW_UNSUPPRESS_DEPRECATION_WARNING
 
 namespace arrow {
 namespace engine {

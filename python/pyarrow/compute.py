@@ -40,6 +40,7 @@ from pyarrow._compute import (  # noqa
     RunEndEncodeOptions,
     ElementWiseAggregateOptions,
     ExtractRegexOptions,
+    ExtractRegexSpanOptions,
     FilterOptions,
     IndexOptions,
     JoinOptions,
@@ -53,9 +54,11 @@ from pyarrow._compute import (  # noqa
     PadOptions,
     PairwiseOptions,
     PartitionNthOptions,
+    PivotWiderOptions,
     QuantileOptions,
     RandomOptions,
     RankOptions,
+    RankQuantileOptions,
     ReplaceSliceOptions,
     ReplaceSubstringOptions,
     RoundBinaryOptions,
@@ -65,6 +68,7 @@ from pyarrow._compute import (  # noqa
     ScalarAggregateOptions,
     SelectKOptions,
     SetLookupOptions,
+    SkewOptions,
     SliceOptions,
     SortOptions,
     SplitOptions,
@@ -78,6 +82,8 @@ from pyarrow._compute import (  # noqa
     Utf8NormalizeOptions,
     VarianceOptions,
     WeekOptions,
+    WinsorizeOptions,
+    ZeroFillOptions,
     # Functions
     call_function,
     function_registry,
@@ -137,8 +143,7 @@ def _decorate_compute_function(wrapper, exposed_name, func, options_class):
     summary = cpp_doc.summary
     if not summary:
         arg_str = "arguments" if func.arity > 1 else "argument"
-        summary = ("Call compute function {!r} with the given {}"
-                   .format(func.name, arg_str))
+        summary = f"Call compute function {func.name!r} with the given {arg_str}"
 
     doc_pieces.append(f"{summary}.\n\n")
 
@@ -178,11 +183,11 @@ def _decorate_compute_function(wrapper, exposed_name, func, options_class):
                           f"does not have a docstring", RuntimeWarning)
             options_sig = inspect.signature(options_class)
             for p in options_sig.parameters.values():
-                doc_pieces.append(dedent("""\
-                {0} : optional
-                    Parameter for {1} constructor. Either `options`
-                    or `{0}` can be passed, but not both at the same time.
-                """.format(p.name, options_class.__name__)))
+                doc_pieces.append(dedent(f"""\
+                {p.name} : optional
+                    Parameter for {options_class.__name__} constructor. Either `options`
+                    or `{p.name}` can be passed, but not both at the same time.
+                """))
         doc_pieces.append(dedent(f"""\
             options : pyarrow.compute.{options_class.__name__}, optional
                 Alternative way of passing options.
@@ -195,7 +200,8 @@ def _decorate_compute_function(wrapper, exposed_name, func, options_class):
 
     # 4. Custom addition (e.g. examples)
     if doc_addition is not None:
-        doc_pieces.append("\n{}\n".format(dedent(doc_addition).strip("\n")))
+        stripped = dedent(doc_addition).strip('\n')
+        doc_pieces.append(f"\n{stripped}\n")
 
     wrapper.__doc__ = "".join(doc_pieces)
     return wrapper
@@ -208,8 +214,8 @@ def _get_options_class(func):
     try:
         return globals()[class_name]
     except KeyError:
-        warnings.warn("Python binding for {} not exposed"
-                      .format(class_name), RuntimeWarning)
+        warnings.warn(f"Python binding for {class_name} not exposed",
+                      RuntimeWarning)
         return None
 
 
@@ -217,9 +223,8 @@ def _handle_options(name, options_class, options, args, kwargs):
     if args or kwargs:
         if options is not None:
             raise TypeError(
-                "Function {!r} called with both an 'options' argument "
-                "and additional arguments"
-                .format(name))
+                f"Function {name!r} called with both an 'options' argument "
+                f"and additional arguments")
         return options_class(*args, **kwargs)
 
     if options is not None:
@@ -228,8 +233,8 @@ def _handle_options(name, options_class, options, args, kwargs):
         elif isinstance(options, options_class):
             return options
         raise TypeError(
-            "Function {!r} expected a {} parameter, got {}"
-            .format(name, options_class, type(options)))
+            f"Function {name!r} expected a {options_class} parameter, "
+            f"got {type(options)}")
 
     return None
 
@@ -334,6 +339,8 @@ def _make_global_functions():
 
 
 _make_global_functions()
+# Alias for consistency; globals() is needed to avoid Python lint errors
+utf8_zfill = utf8_zero_fill = globals()["utf8_zero_fill"]
 
 
 def cast(arr, target_type=None, safe=None, options=None, memory_pool=None):
@@ -423,6 +430,18 @@ def index(data, value, start=None, end=None, *, memory_pool=None):
     -------
     index : int
         the index, or -1 if not found
+
+    Examples
+    --------
+    >>> import pyarrow as pa
+    >>> import pyarrow.compute as pc
+    >>> arr = pa.array(["Lorem", "ipsum", "dolor", "sit", "Lorem", "ipsum"])
+    >>> pc.index(arr, "ipsum")
+    <pyarrow.Int64Scalar: 1>
+    >>> pc.index(arr, "ipsum", start=2)
+    <pyarrow.Int64Scalar: 5>
+    >>> pc.index(arr, "amet")
+    <pyarrow.Int64Scalar: -1>
     """
     if start is not None:
         if end is not None:
@@ -718,11 +737,24 @@ def field(*name_or_index):
 def scalar(value):
     """Expression representing a scalar value.
 
+    Creates an Expression object representing a scalar value that can be used
+    in compute expressions and predicates.
+
     Parameters
     ----------
     value : bool, int, float or string
-        Python value of the scalar. Note that only a subset of types are
-        currently supported.
+        Python value of the scalar. This function accepts any value that can be
+        converted to a ``pyarrow.Scalar`` using ``pa.scalar()``.
+
+    Notes
+    -----
+    This function differs from ``pyarrow.scalar()`` in the following way:
+
+    * ``pyarrow.scalar()`` creates a ``pyarrow.Scalar`` object that represents
+      a single value in Arrow's memory model.
+    * ``pyarrow.compute.scalar()`` creates an ``Expression`` object representing
+      a scalar value that can be used in compute expressions, predicates, and
+      dataset filtering operations.
 
     Returns
     -------

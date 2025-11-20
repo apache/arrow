@@ -511,13 +511,8 @@ TEST(TestBuffer, CopySliceEmpty) {
 }
 
 TEST(TestBuffer, ToHexString) {
-  const uint8_t data_array[] = "\a0hex string\xa9";
-  std::basic_string<uint8_t> data_str = data_array;
-
-  auto data = reinterpret_cast<const uint8_t*>(data_str.c_str());
-
-  Buffer buf(data, data_str.size());
-
+  const std::string data_str = "\a0hex string\xa9";
+  Buffer buf(data_str);
   ASSERT_EQ(buf.ToHexString(), std::string("073068657820737472696E67A9"));
 }
 

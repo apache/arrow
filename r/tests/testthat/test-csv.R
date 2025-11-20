@@ -90,7 +90,7 @@ test_that("read_csv_arrow parsing options: col_names", {
 
   tab1 <- read_csv_arrow(tf, col_names = names(tbl))
 
-  expect_identical(names(tab1), names(tbl))
+  expect_named(tab1, names(tbl))
   expect_equal(tbl, tab1)
 
   # This errors (correctly) because I haven't given enough names
@@ -114,7 +114,7 @@ test_that("read_csv_arrow parsing options: skip", {
 
   tab1 <- read_csv_arrow(tf, skip = 2)
 
-  expect_identical(names(tab1), names(tbl))
+  expect_named(tab1, names(tbl))
   expect_equal(tbl, tab1)
 })
 
@@ -209,10 +209,22 @@ test_that("read_csv_arrow(col_types=string, col_names)", {
   df <- read_csv_arrow(tf, col_names = "int", col_types = "d", skip = 1)
   expect_identical(df, tibble::tibble(int = as.numeric(tbl$int)))
 
-  expect_error(read_csv_arrow(tf, col_types = c("i", "d")))
-  expect_error(read_csv_arrow(tf, col_types = "d"))
-  expect_error(read_csv_arrow(tf, col_types = "i", col_names = c("a", "b")))
-  expect_error(read_csv_arrow(tf, col_types = "y", col_names = "a"))
+  expect_error(
+    read_csv_arrow(tf, col_types = c("i", "d")),
+    "`col_types` must be a character vector of size 1"
+  )
+  expect_error(
+    read_csv_arrow(tf, col_types = "d"),
+    "Compact specification for `col_types` requires `col_names` of matching length"
+  )
+  expect_error(
+    read_csv_arrow(tf, col_types = "i", col_names = c("a", "b")),
+    "Compact specification for `col_types` requires `col_names` of matching length"
+  )
+  expect_error(
+    read_csv_arrow(tf, col_types = "y", col_names = "a"),
+    "Unsupported compact specification: 'y' for column 'a'"
+  )
 })
 
 test_that("read_csv_arrow() can read timestamps", {
@@ -434,9 +446,7 @@ test_that("Write a CSV with custom NA value", {
   expect_identical(tbl_in1, tbl_no_dates)
 
   # Also can use null_value in CsvWriteOptions
-  tbl_out1 <- write_csv_arrow(tbl_no_dates, csv_file,
-    write_options = csv_write_options(null_string = "another_null")
-  )
+  tbl_out1 <- write_csv_arrow(tbl_no_dates, csv_file, write_options = csv_write_options(null_string = "another_null"))
   csv_contents <- readLines(csv_file)
   expect_true(any(grepl("another_null", csv_contents)))
 
@@ -470,17 +480,10 @@ test_that("time mapping work as expected (ARROW-13624)", {
   on.exit(unlink(tf))
   write.csv(tbl, tf, row.names = FALSE)
 
-  df <- read_csv_arrow(tf,
-    col_names = c("dt", "time"),
-    col_types = "Tt",
-    skip = 1
-  )
+  df <- read_csv_arrow(tf, col_names = c("dt", "time"), col_types = "Tt", skip = 1)
 
   expect_error(
-    read_csv_arrow(tf,
-      col_names = c("dt", "time"),
-      col_types = "tT", skip = 1
-    )
+    read_csv_arrow(tf, col_names = c("dt", "time"), col_types = "tT", skip = 1)
   )
 
   expect_equal(df, tbl, ignore_attr = "tzone")
@@ -591,7 +594,7 @@ test_that("write_csv_arrow can write from RecordBatchReader objects", {
   skip_if_not_available("dataset")
   library(dplyr, warn.conflicts = FALSE)
 
-  query_obj <- arrow_table(tbl_no_dates) %>%
+  query_obj <- arrow_table(tbl_no_dates) |>
     filter(lgl == TRUE)
 
   csv_file <- tempfile()
@@ -738,5 +741,22 @@ test_that("read_csv2_arrow correctly parses comma decimals", {
   tf <- tempfile()
   writeLines("x;y\n1,2;c", con = tf)
   expect_equal(read_csv2_arrow(tf), tibble(x = 1.2, y = "c"))
+})
 
+test_that("altrep columns can roundtrip to table", {
+  tf <- tempfile()
+  on.exit(unlink(tf))
+  write.csv(tbl, tf, row.names = FALSE)
+
+  # read in, some columns will be altrep by default
+  new_df <- read_csv_arrow(tf)
+  expect_equal(tbl, as_tibble(arrow_table(new_df)))
+
+  # but also if we materialize the vector
+  # this could also be accomplished with printing
+  new_df <- read_csv_arrow(tf)
+  test_arrow_altrep_force_materialize(new_df$chr)
+
+  # we should still be able to turn this into a table
+  expect_equal(tbl, as_tibble(arrow_table(new_df)))
 })

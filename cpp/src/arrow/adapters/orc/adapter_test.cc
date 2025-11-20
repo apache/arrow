@@ -235,7 +235,7 @@ void AssertTableWriteReadEqual(const std::vector<std::shared_ptr<Table>>& input_
   write_options.compression = Compression::UNCOMPRESSED;
 #endif
   write_options.file_version = adapters::orc::FileVersion(0, 11);
-  write_options.compression_block_size = 32768;
+  write_options.compression_block_size = 64 * 1024;
   write_options.row_index_stride = 5000;
   EXPECT_OK_AND_ASSIGN(auto writer, adapters::orc::ORCFileWriter::Open(
                                         buffer_output_stream.get(), write_options));
@@ -272,7 +272,7 @@ void AssertBatchWriteReadEqual(
   write_options.compression = Compression::UNCOMPRESSED;
 #endif
   write_options.file_version = adapters::orc::FileVersion(0, 11);
-  write_options.compression_block_size = 32768;
+  write_options.compression_block_size = 64 * 1024;
   write_options.row_index_stride = 5000;
   EXPECT_OK_AND_ASSIGN(auto writer, adapters::orc::ORCFileWriter::Open(
                                         buffer_output_stream.get(), write_options));
@@ -330,7 +330,7 @@ std::unique_ptr<liborc::Writer> CreateWriter(uint64_t stripe_size,
                                              liborc::OutputStream* stream) {
   liborc::WriterOptions options;
   options.setStripeSize(stripe_size);
-  options.setCompressionBlockSize(1024);
+  options.setCompressionBlockSize(64 * 1024);
   options.setMemoryPool(liborc::getDefaultPool());
   options.setRowIndexStride(0);
   return liborc::createWriter(type, stream, options);
@@ -642,6 +642,9 @@ TEST(TestAdapterReadWrite, ThrowWhenTZDBUnavaiable) {
   if (adapters::orc::GetOrcMajorVersion() >= 2) {
     GTEST_SKIP() << "Only ORC pre-2.0.0 versions have the time zone database check";
   }
+#ifdef _WIN32
+  GTEST_SKIP() << "GH-47489: Expected error is not thrown on Windows";
+#endif
 
   EnvVarGuard tzdir_guard("TZDIR", "/wrong/path");
   const char* expect_str = "IANA time zone database is unavailable but required by ORC";
@@ -668,7 +671,7 @@ TEST_F(TestORCWriterTrivialNoWrite, noWrite) {
   write_options.compression = Compression::UNCOMPRESSED;
 #endif
   write_options.file_version = adapters::orc::FileVersion(0, 11);
-  write_options.compression_block_size = 32768;
+  write_options.compression_block_size = 64 * 1024;
   write_options.row_index_stride = 5000;
   EXPECT_OK_AND_ASSIGN(auto writer, adapters::orc::ORCFileWriter::Open(
                                         buffer_output_stream.get(), write_options));

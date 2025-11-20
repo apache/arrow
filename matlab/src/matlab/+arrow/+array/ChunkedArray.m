@@ -26,6 +26,7 @@ classdef ChunkedArray < matlab.mixin.CustomDisplay & ...
         Type
         NumChunks
         NumElements
+        NumNulls
     end
 
     methods
@@ -43,6 +44,10 @@ classdef ChunkedArray < matlab.mixin.CustomDisplay & ...
 
         function numElements = get.NumElements(obj)
             numElements = obj.Proxy.getNumElements();
+        end
+
+        function numNulls = get.NumNulls(obj)
+            numNulls = obj.Proxy.getNumNulls();
         end
 
         function type = get.Type(obj)
@@ -123,5 +128,5 @@ classdef ChunkedArray < matlab.mixin.CustomDisplay & ...
 
             chunkedArray = arrow.array.ChunkedArray(proxy);
         end
-    end 
+    end
 end

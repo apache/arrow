@@ -21,6 +21,7 @@
 #include <cstring>
 #include <memory>
 
+#include "arrow/type_fwd.h"
 #include "arrow/util/compression.h"
 #include "parquet/exception.h"
 #include "parquet/platform.h"
@@ -35,7 +36,7 @@ class BitWriter;
 }  // namespace bit_util
 
 namespace util {
-class RleEncoder;
+class RleBitPackedEncoder;
 class CodecOptions;
 }  // namespace util
 
@@ -79,7 +80,7 @@ class PARQUET_EXPORT LevelEncoder {
   int bit_width_;
   int rle_length_;
   Encoding::type encoding_;
-  std::unique_ptr<::arrow::util::RleEncoder> rle_encoder_;
+  std::unique_ptr<::arrow::util::RleBitPackedEncoder> rle_encoder_;
   std::unique_ptr<::arrow::bit_util::BitWriter> bit_packed_encoder_;
 };
 
@@ -101,21 +102,6 @@ class PARQUET_EXPORT PageWriter {
       // offset_index_builder MUST outlive the PageWriter
       OffsetIndexBuilder* offset_index_builder = NULLPTR,
       const CodecOptions& codec_options = CodecOptions{});
-
-  ARROW_DEPRECATED("Deprecated in 13.0.0. Use CodecOptions-taking overload instead.")
-  static std::unique_ptr<PageWriter> Open(
-      std::shared_ptr<ArrowOutputStream> sink, Compression::type codec,
-      int compression_level, ColumnChunkMetaDataBuilder* metadata,
-      int16_t row_group_ordinal = -1, int16_t column_chunk_ordinal = -1,
-      ::arrow::MemoryPool* pool = ::arrow::default_memory_pool(),
-      bool buffered_row_group = false,
-      std::shared_ptr<Encryptor> header_encryptor = NULLPTR,
-      std::shared_ptr<Encryptor> data_encryptor = NULLPTR,
-      bool page_write_checksum_enabled = false,
-      // column_index_builder MUST outlive the PageWriter
-      ColumnIndexBuilder* column_index_builder = NULLPTR,
-      // offset_index_builder MUST outlive the PageWriter
-      OffsetIndexBuilder* offset_index_builder = NULLPTR);
 
   // The Column Writer decides if dictionary encoding is used if set and
   // if the dictionary encoding has fallen back to default encoding on reaching dictionary
@@ -180,6 +166,17 @@ class PARQUET_EXPORT ColumnWriter {
 
   /// \brief The file-level writer properties
   virtual const WriterProperties* properties() = 0;
+
+  /// \brief Add key-value metadata to the ColumnChunk.
+  /// \param[in] key_value_metadata the metadata to add.
+  /// \note This will overwrite any existing metadata with the same key.
+  /// \throw ParquetException if Close() has been called.
+  virtual void AddKeyValueMetadata(
+      const std::shared_ptr<const ::arrow::KeyValueMetadata>& key_value_metadata) = 0;
+
+  /// \brief Reset the ColumnChunk key-value metadata.
+  /// \throw ParquetException if Close() has been called.
+  virtual void ResetKeyValueMetadata() = 0;
 
   /// \brief Write Apache Arrow columnar data directly to ColumnWriter. Returns
   /// error status if the array data type is not compatible with the concrete

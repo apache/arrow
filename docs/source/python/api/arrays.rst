@@ -29,11 +29,20 @@ These functions create new Arrow arrays:
 .. autosummary::
    :toctree: ../generated/
 
+   arange
    array
    nulls
+   repeat
 
 Array Types
 -----------
+
+This function infers Arrow data type:
+
+.. autosummary::
+   :toctree: ../generated/
+
+   infer_type
 
 An array's Python class depends on its data type.  Concrete array classes
 may expose data type-specific methods or properties.
@@ -72,7 +81,10 @@ may expose data type-specific methods or properties.
    TimestampArray
    DurationArray
    MonthDayNanoIntervalArray
+   Decimal32Array
+   Decimal64Array
    Decimal128Array
+   Decimal256Array
    DictionaryArray
    ListArray
    FixedSizeListArray
@@ -85,6 +97,10 @@ may expose data type-specific methods or properties.
    UnionArray
    ExtensionArray
    FixedShapeTensorArray
+   OpaqueArray
+   JsonArray
+   UuidArray
+   Bool8Array
 
 .. _api.scalar:
 
@@ -111,6 +127,7 @@ classes may expose data type-specific methods or properties.
    Int16Scalar
    Int32Scalar
    Int64Scalar
+   NullScalar
    UInt8Scalar
    UInt16Scalar
    UInt32Scalar
@@ -132,10 +149,14 @@ classes may expose data type-specific methods or properties.
    TimestampScalar
    DurationScalar
    MonthDayNanoIntervalScalar
+   Decimal32Scalar
+   Decimal64Scalar
    Decimal128Scalar
+   Decimal256Scalar
    DictionaryScalar
    RunEndEncodedScalar
    ListScalar
+   FixedSizeListScalar
    LargeListScalar
    ListViewScalar
    LargeListViewScalar
@@ -143,3 +164,8 @@ classes may expose data type-specific methods or properties.
    StructScalar
    UnionScalar
    ExtensionScalar
+   FixedShapeTensorScalar
+   OpaqueScalar
+   JsonScalar
+   UuidScalar
+   Bool8Scalar

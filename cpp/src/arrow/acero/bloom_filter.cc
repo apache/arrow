@@ -16,11 +16,13 @@
 // under the License.
 
 #include "arrow/acero/bloom_filter.h"
+
 #include <random>
-#include "arrow/acero/util.h"       // PREFETCH
+
 #include "arrow/util/bit_util.h"    // Log2
 #include "arrow/util/bitmap_ops.h"  // CountSetBits
 #include "arrow/util/config.h"
+#include "arrow/util/prefetch.h"  // PREFETCH
 
 namespace arrow {
 namespace acero {
@@ -152,7 +154,7 @@ void BlockedBloomFilter::FindImp(int64_t num_rows, const T* hashes,
   if (enable_prefetch && UsePrefetch()) {
     constexpr int kPrefetchIterations = 16;
     for (int64_t i = 0; i < num_rows - kPrefetchIterations; ++i) {
-      PREFETCH(blocks_ + block_id(hashes[i + kPrefetchIterations]));
+      ARROW_PREFETCH(blocks_ + block_id(hashes[i + kPrefetchIterations]));
       uint64_t result = Find(hashes[i]) ? 1ULL : 0ULL;
       bits |= result << (i & 63);
       if ((i & 63) == 63) {

@@ -35,7 +35,7 @@ test_that("extension types can be created", {
   expect_r6_class(array$type, "ExtensionType")
 
   expect_true(array$type == type)
-  expect_true(all(array$storage() == storage))
+  expect_equal(array$storage(), storage)
 
   expect_identical(array$as_vector(), 1:10)
   expect_identical(chunked_array(array)$as_vector(), 1:10)
@@ -322,7 +322,7 @@ test_that("Dataset/arrow_dplyr_query can roundtrip extension types", {
     letter = letters,
     stringsAsFactors = FALSE,
     KEEP.OUT.ATTRS = FALSE
-  ) %>%
+  ) |>
     tibble::as_tibble()
 
   df$extension <- vctrs::new_vctr(df$letter, class = "arrow_custom_vctr")
@@ -333,13 +333,21 @@ test_that("Dataset/arrow_dplyr_query can roundtrip extension types", {
     extension = vctrs_extension_array(df$extension)
   )
 
-  table %>%
-    dplyr::group_by(number) %>%
+  table |>
+    dplyr::group_by(number) |>
     write_dataset(tf)
 
-  roundtripped <- open_dataset(tf) %>%
-    dplyr::select(number, letter, extension) %>%
+  roundtripped <- open_dataset(tf) |>
+    dplyr::select(number, letter, extension) |>
     dplyr::collect()
 
   expect_identical(unclass(roundtripped$extension), roundtripped$letter)
+})
+
+test_that("Handling vctrs_rcrd type", {
+  df <- data.frame(
+    x = vctrs::new_rcrd(fields = list(special = 1:3), class = "special")
+  )
+  tab <- arrow_table(df)
+  expect_identical(as.data.frame(tab), df)
 })

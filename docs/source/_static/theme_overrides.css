@@ -25,11 +25,36 @@
   --pst-font-weight-heading: 600;
 }
 
-/* Change header hight to make the logo a bit larger */
+/* Change header height to make the logo a bit larger */
 /* only on wider screens */
-@media only screen and (min-width: 1170px){
+
+@media only screen and (min-width: 1200px) {
   :root {
     --pst-header-height: 6rem;
+  }
+}
+
+/* Adjust layout of nav to fit narrower screens */
+
+@media only screen and (max-width: 1199px) {
+
+  /* Condense link text in nav to preserve layout */
+  .navbar-header-items__center a.nav-link:not(.dropdown-item),
+  .navbar-header-items__center button.nav-item {
+    letter-spacing: -0.02em;
+  }
+
+  /* Shrink search button */
+  .search-button__default-text,
+  .search-button__kbd-shortcut {
+    display:none !important;
+  }
+
+  /* Reduce horizontal space between icons in nav and sidebar */
+  div.sidebar-header-items__end,
+  div.navbar-header-items__end,
+  ul.navbar-icon-links {
+    column-gap: 0.75rem !important;
   }
 }
 
@@ -83,4 +108,10 @@ dl.cpp.enumerator {
 
 p.breathe-sectiondef-title {
   margin-top: 1rem;
+}
+
+/* Keep social icons arranged horizontally in sidebar */
+
+.sidebar-header-items__end {
+  flex-wrap: wrap;
 }

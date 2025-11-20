@@ -66,7 +66,7 @@ tbl <- tibble::tibble(
 tab <- Table$create(tbl)
 
 test_that("[, [[, $ for Table", {
-  expect_identical(names(tab), names(tbl))
+  expect_named(tab, names(tbl))
 
   expect_equal_data_frame(tab[6:7, ], tbl[6:7, ])
   expect_equal_data_frame(tab[6:7, 2:4], tbl[6:7, 2:4])
@@ -329,7 +329,8 @@ test_that("==.Table", {
 test_that("Table$Equals(check_metadata)", {
   tab1 <- Table$create(x = 1:2, y = c("a", "b"))
   tab2 <- Table$create(
-    x = 1:2, y = c("a", "b"),
+    x = 1:2,
+    y = c("a", "b"),
     schema = tab1$schema$WithMetadata(list(some = "metadata"))
   )
 
@@ -393,9 +394,9 @@ test_that("Table$SelectColumns()", {
 
 test_that("Table name assignment", {
   tab <- Table$create(x = 1:10, y = 1:10)
-  expect_identical(names(tab), c("x", "y"))
+  expect_named(tab, c("x", "y"))
   names(tab) <- c("a", "b")
-  expect_identical(names(tab), c("a", "b"))
+  expect_named(tab, c("a", "b"))
   expect_error(names(tab) <- "f")
   expect_error(names(tab) <- letters)
   expect_error(names(tab) <- character(0))
@@ -476,6 +477,20 @@ test_that("Tables can be combined with concat_tables()", {
   # concat_tables() with one argument returns identical table
   expected <- arrow_table(a = 1:10)
   expect_equal(expected, concat_tables(expected))
+})
+
+test_that("concat_tables() handles RecordBatch objects (GH-47000)", {
+  # concat_tables() should automatically convert RecordBatch to Table
+  tbl <- arrow_table(a = 1:5, b = letters[1:5])
+  rb <- record_batch(a = 6:10, b = letters[6:10])
+
+  # Concatenating a Table with a RecordBatch should work (not segfault)
+  result <- concat_tables(tbl, rb)
+  expect_s3_class(result, "Table")
+  expect_equal(
+    result,
+    arrow_table(a = 1:10, b = letters[1:10])
+  )
 })
 
 test_that("Table supports rbind", {
@@ -597,15 +612,15 @@ test_that("ARROW-11769/ARROW-17085 - grouping preserved in table creation", {
   )
 
   expect_identical(
-    tbl %>%
-      Table$create() %>%
+    tbl |>
+      Table$create() |>
       dplyr::group_vars(),
     dplyr::group_vars(tbl)
   )
   expect_identical(
-    tbl %>%
-      dplyr::group_by(fct, fct2) %>%
-      Table$create() %>%
+    tbl |>
+      dplyr::group_by(fct, fct2) |>
+      Table$create() |>
       dplyr::group_vars(),
     c("fct", "fct2")
   )
@@ -708,7 +723,6 @@ test_that("as_arrow_table() errors on data.frame with NULL names", {
 })
 
 test_that("# GH-35038 - passing in multiple arguments doesn't affect return type", {
-
   df <- data.frame(x = 1)
   out1 <- as.data.frame(arrow_table(df, name = "1"))
   out2 <- as.data.frame(arrow_table(name = "1", df))

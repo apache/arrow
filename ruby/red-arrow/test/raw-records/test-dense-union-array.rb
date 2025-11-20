@@ -35,45 +35,9 @@ module RawRecordsDenseUnionArrayTests
     }
   end
 
-  # TODO: Use Arrow::RecordBatch.new(build_schema(type, type_codes), records)
   def build_record_batch(type, records)
     type_codes = [0, 1]
-    schema = Arrow::Schema.new(build_schema(type, type_codes))
-    type_ids = []
-    offsets = []
-    arrays = schema.fields[0].data_type.fields.collect do |field|
-      sub_schema = Arrow::Schema.new([field])
-      sub_records = []
-      records.each do |record|
-        column = record[0]
-        next if column.nil?
-        next unless column.key?(field.name)
-        sub_records << [column[field.name]]
-      end
-      sub_record_batch = Arrow::RecordBatch.new(sub_schema,
-                                                sub_records)
-      sub_record_batch.columns[0].data
-    end
-    records.each do |record|
-      column = record[0]
-      if column.key?("0")
-        type_id = type_codes[0]
-        type_ids << type_id
-        offsets << (type_ids.count(type_id) - 1)
-      elsif column.key?("1")
-        type_id = type_codes[1]
-        type_ids << type_id
-        offsets << (type_ids.count(type_id) - 1)
-      end
-    end
-    union_array = Arrow::DenseUnionArray.new(schema.fields[0].data_type,
-                                             Arrow::Int8Array.new(type_ids),
-                                             Arrow::Int32Array.new(offsets),
-                                             arrays)
-    schema = Arrow::Schema.new(column: union_array.value_data_type)
-    Arrow::RecordBatch.new(schema,
-                           records.size,
-                           [union_array])
+    Arrow::RecordBatch.new(build_schema(type, type_codes), records)
   end
 
   def remove_field_names(records)
@@ -94,7 +58,7 @@ module RawRecordsDenseUnionArrayTests
     ]
     target = build(:null, records)
     assert_equal(remove_field_names(records),
-                 target.raw_records)
+                 actual_records(target))
   end
 
   def test_boolean
@@ -104,7 +68,7 @@ module RawRecordsDenseUnionArrayTests
     ]
     target = build(:boolean, records)
     assert_equal(remove_field_names(records),
-                 target.raw_records)
+                 actual_records(target))
   end
 
   def test_int8
@@ -114,7 +78,7 @@ module RawRecordsDenseUnionArrayTests
     ]
     target = build(:int8, records)
     assert_equal(remove_field_names(records),
-                 target.raw_records)
+                 actual_records(target))
   end
 
   def test_uint8
@@ -124,7 +88,7 @@ module RawRecordsDenseUnionArrayTests
     ]
     target = build(:uint8, records)
     assert_equal(remove_field_names(records),
-                 target.raw_records)
+                 actual_records(target))
   end
 
   def test_int16
@@ -134,7 +98,7 @@ module RawRecordsDenseUnionArrayTests
     ]
     target = build(:int16, records)
     assert_equal(remove_field_names(records),
-                 target.raw_records)
+                 actual_records(target))
   end
 
   def test_uint16
@@ -144,7 +108,7 @@ module RawRecordsDenseUnionArrayTests
     ]
     target = build(:uint16, records)
     assert_equal(remove_field_names(records),
-                 target.raw_records)
+                 actual_records(target))
   end
 
   def test_int32
@@ -154,7 +118,7 @@ module RawRecordsDenseUnionArrayTests
     ]
     target = build(:int32, records)
     assert_equal(remove_field_names(records),
-                 target.raw_records)
+                 actual_records(target))
   end
 
   def test_uint32
@@ -164,7 +128,7 @@ module RawRecordsDenseUnionArrayTests
     ]
     target = build(:uint32, records)
     assert_equal(remove_field_names(records),
-                 target.raw_records)
+                 actual_records(target))
   end
 
   def test_int64
@@ -174,7 +138,7 @@ module RawRecordsDenseUnionArrayTests
     ]
     target = build(:int64, records)
     assert_equal(remove_field_names(records),
-                 target.raw_records)
+                 actual_records(target))
   end
 
   def test_uint64
@@ -184,7 +148,7 @@ module RawRecordsDenseUnionArrayTests
     ]
     target = build(:uint64, records)
     assert_equal(remove_field_names(records),
-                 target.raw_records)
+                 actual_records(target))
   end
 
   def test_float
@@ -194,7 +158,7 @@ module RawRecordsDenseUnionArrayTests
     ]
     target = build(:float, records)
     assert_equal(remove_field_names(records),
-                 target.raw_records)
+                 actual_records(target))
   end
 
   def test_double
@@ -204,7 +168,7 @@ module RawRecordsDenseUnionArrayTests
     ]
     target = build(:double, records)
     assert_equal(remove_field_names(records),
-                 target.raw_records)
+                 actual_records(target))
   end
 
   def test_binary
@@ -214,7 +178,7 @@ module RawRecordsDenseUnionArrayTests
     ]
     target = build(:binary, records)
     assert_equal(remove_field_names(records),
-                 target.raw_records)
+                 actual_records(target))
   end
 
   def test_string
@@ -224,7 +188,7 @@ module RawRecordsDenseUnionArrayTests
     ]
     target = build(:string, records)
     assert_equal(remove_field_names(records),
-                 target.raw_records)
+                 actual_records(target))
   end
 
   def test_date32
@@ -234,7 +198,7 @@ module RawRecordsDenseUnionArrayTests
     ]
     target = build(:date32, records)
     assert_equal(remove_field_names(records),
-                 target.raw_records)
+                 actual_records(target))
   end
 
   def test_date64
@@ -244,7 +208,7 @@ module RawRecordsDenseUnionArrayTests
     ]
     target = build(:date64, records)
     assert_equal(remove_field_names(records),
-                 target.raw_records)
+                 actual_records(target))
   end
 
   def test_timestamp_second
@@ -258,7 +222,7 @@ module RawRecordsDenseUnionArrayTests
                    },
                    records)
     assert_equal(remove_field_names(records),
-                 target.raw_records)
+                 actual_records(target))
   end
 
   def test_timestamp_milli
@@ -272,7 +236,7 @@ module RawRecordsDenseUnionArrayTests
                    },
                    records)
     assert_equal(remove_field_names(records),
-                 target.raw_records)
+                 actual_records(target))
   end
 
   def test_timestamp_micro
@@ -286,7 +250,7 @@ module RawRecordsDenseUnionArrayTests
                    },
                    records)
     assert_equal(remove_field_names(records),
-                 target.raw_records)
+                 actual_records(target))
   end
 
   def test_timestamp_nano
@@ -300,7 +264,7 @@ module RawRecordsDenseUnionArrayTests
                    },
                    records)
     assert_equal(remove_field_names(records),
-                 target.raw_records)
+                 actual_records(target))
   end
 
   def test_time32_second
@@ -316,7 +280,7 @@ module RawRecordsDenseUnionArrayTests
                    },
                    records)
     assert_equal(remove_field_names(records),
-                 target.raw_records)
+                 actual_records(target))
   end
 
   def test_time32_milli
@@ -332,7 +296,7 @@ module RawRecordsDenseUnionArrayTests
                    },
                    records)
     assert_equal(remove_field_names(records),
-                 target.raw_records)
+                 actual_records(target))
   end
 
   def test_time64_micro
@@ -348,7 +312,7 @@ module RawRecordsDenseUnionArrayTests
                    },
                    records)
     assert_equal(remove_field_names(records),
-                 target.raw_records)
+                 actual_records(target))
   end
 
   def test_time64_nano
@@ -364,7 +328,7 @@ module RawRecordsDenseUnionArrayTests
                    },
                    records)
     assert_equal(remove_field_names(records),
-                 target.raw_records)
+                 actual_records(target))
   end
 
   def test_decimal128
@@ -379,7 +343,7 @@ module RawRecordsDenseUnionArrayTests
                    },
                    records)
     assert_equal(remove_field_names(records),
-                 target.raw_records)
+                 actual_records(target))
   end
 
   def test_decimal256
@@ -394,7 +358,7 @@ module RawRecordsDenseUnionArrayTests
                    },
                    records)
     assert_equal(remove_field_names(records),
-                 target.raw_records)
+                 actual_records(target))
   end
 
   def test_month_interval
@@ -404,7 +368,7 @@ module RawRecordsDenseUnionArrayTests
     ]
     target = build(:month_interval, records)
     assert_equal(remove_field_names(records),
-                 target.raw_records)
+                 actual_records(target))
   end
 
   def test_day_time_interval
@@ -414,7 +378,7 @@ module RawRecordsDenseUnionArrayTests
     ]
     target = build(:day_time_interval, records)
     assert_equal(remove_field_names(records),
-                 target.raw_records)
+                 actual_records(target))
   end
 
   def test_month_day_nano_interval
@@ -424,7 +388,7 @@ module RawRecordsDenseUnionArrayTests
     ]
     target = build(:month_day_nano_interval, records)
     assert_equal(remove_field_names(records),
-                 target.raw_records)
+                 actual_records(target))
   end
 
   def test_list
@@ -441,7 +405,7 @@ module RawRecordsDenseUnionArrayTests
                    },
                    records)
     assert_equal(remove_field_names(records),
-                 target.raw_records)
+                 actual_records(target))
   end
 
   def test_struct
@@ -461,7 +425,7 @@ module RawRecordsDenseUnionArrayTests
                    },
                    records)
     assert_equal(remove_field_names(records),
-                 target.raw_records)
+                 actual_records(target))
   end
 
   def test_map
@@ -476,7 +440,7 @@ module RawRecordsDenseUnionArrayTests
                    },
                    records)
     assert_equal(remove_field_names(records),
-                 target.raw_records)
+                 actual_records(target))
   end
 
   def test_sparse_union
@@ -502,7 +466,7 @@ module RawRecordsDenseUnionArrayTests
                    },
                    records)
     assert_equal(remove_field_names(remove_field_names(records)),
-                 target.raw_records)
+                 actual_records(target))
   end
 
   def test_dense_union
@@ -528,7 +492,7 @@ module RawRecordsDenseUnionArrayTests
                    },
                    records)
     assert_equal(remove_field_names(remove_field_names(records)),
-                 target.raw_records)
+                 actual_records(target))
   end
 
   def test_dictionary
@@ -545,7 +509,37 @@ module RawRecordsDenseUnionArrayTests
                    },
                    records)
     assert_equal(remove_field_names(records),
-                 target.raw_records)
+                 actual_records(target))
+  end
+end
+
+class EachRawRecordRecordBatchDenseUnionArrayTest < Test::Unit::TestCase
+  include RawRecordsDenseUnionArrayTests
+
+  def build(type, records)
+    build_record_batch(type, records)
+  end
+
+  def actual_records(target)
+    target.each_raw_record.to_a
+  end
+end
+
+class EachRawRecordTableDenseUnionArrayTest < Test::Unit::TestCase
+  include RawRecordsDenseUnionArrayTests
+
+  def build(type, records)
+    record_batch = build_record_batch(type, records)
+    # Multiple chunks
+    record_batches = [
+      record_batch,
+      record_batch.slice(record_batch.length, 0), # Empty chunk
+    ]
+    Arrow::Table.new(record_batch.schema, record_batches)
+  end
+
+  def actual_records(target)
+    target.each_raw_record.to_a
   end
 end
 
@@ -555,6 +549,10 @@ class RawRecordsRecordBatchDenseUnionArrayTest < Test::Unit::TestCase
   def build(type, records)
     build_record_batch(type, records)
   end
+
+  def actual_records(target)
+    target.raw_records
+  end
 end
 
 class RawRecordsTableDenseUnionArrayTest < Test::Unit::TestCase
@@ -562,5 +560,9 @@ class RawRecordsTableDenseUnionArrayTest < Test::Unit::TestCase
 
   def build(type, records)
     build_record_batch(type, records).to_table
+  end
+
+  def actual_records(target)
+    target.raw_records
   end
 end

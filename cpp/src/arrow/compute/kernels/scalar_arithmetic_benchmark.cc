@@ -19,8 +19,10 @@
 
 #include <vector>
 
+#include "arrow/array.h"
+#include "arrow/chunked_array.h"
 #include "arrow/compute/api_scalar.h"
-#include "arrow/compute/kernels/test_util.h"
+#include "arrow/datum.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
 #include "arrow/util/benchmark_util.h"
@@ -78,7 +80,7 @@ static void ArrayScalarKernel(benchmark::State& state) {
       rand.Numeric<ArrowType>(array_size, min, max, args.null_proportion));
 
   for (auto _ : state) {
-    ABORT_NOT_OK(Op(lhs, rhs, ArithmeticOptions(), nullptr).status());
+    ABORT_NOT_OK(Op(lhs, rhs, ArithmeticOptions(), nullptr));
   }
   state.SetItemsProcessed(state.iterations() * array_size);
 }
@@ -101,7 +103,7 @@ static void ArrayArrayKernel(benchmark::State& state) {
       rand.Numeric<ArrowType>(array_size, rmin, rmax, args.null_proportion));
 
   for (auto _ : state) {
-    ABORT_NOT_OK(Op(lhs, rhs, ArithmeticOptions(), nullptr).status());
+    ABORT_NOT_OK(Op(lhs, rhs, ArithmeticOptions(), nullptr));
   }
   state.SetItemsProcessed(state.iterations() * array_size);
 }

@@ -41,7 +41,7 @@ supported_dplyr_methods <- list(
   collect = NULL,
   summarise = c(
     "window functions not currently supported;",
-    'arguments `.drop = FALSE` and `.groups = "rowwise" not supported'
+    'arguments `.drop = FALSE` and `.groups = "rowwise"` not supported'
   ),
   group_by = NULL,
   groups = NULL,
@@ -62,7 +62,10 @@ supported_dplyr_methods <- list(
   relocate = NULL,
   compute = NULL,
   collapse = NULL,
-  distinct = "`.keep_all = TRUE` not supported",
+  distinct = c(
+    "`.keep_all = TRUE` returns a non-missing value if present,",
+    "only returning missing values if all are missing."
+  ),
   left_join = "the `copy` argument is ignored",
   right_join = "the `copy` argument is ignored",
   inner_join = "the `copy` argument is ignored",
@@ -127,8 +130,14 @@ s3_finalizer <- new.env(parent = emptyenv())
   s3_register("pillar::type_sum", "DataType")
 
   for (cl in c(
-    "Array", "RecordBatch", "ChunkedArray", "Table", "Schema",
-    "Field", "DataType", "RecordBatchReader"
+    "Array",
+    "RecordBatch",
+    "ChunkedArray",
+    "Table",
+    "Schema",
+    "Field",
+    "DataType",
+    "RecordBatchReader"
   )) {
     s3_register("reticulate::py_to_r", paste0("pyarrow.lib.", cl))
     s3_register("reticulate::r_to_py", cl)
@@ -195,7 +204,6 @@ configure_tzdb <- function() {
           )
         )
       }
-
 
       features <- arrow_info()$capabilities
       # That has all of the #ifdef features, plus the compression libs and the

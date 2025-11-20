@@ -30,8 +30,25 @@
 
 namespace arrow {
 
+constexpr auto kInt32DecimalDigits =
+    static_cast<size_t>(std::numeric_limits<int32_t>::digits10);
+
 constexpr auto kInt64DecimalDigits =
     static_cast<size_t>(std::numeric_limits<int64_t>::digits10);
+
+constexpr uint32_t kUInt32PowersOfTen[kInt32DecimalDigits + 1] = {
+    // clang-format off
+  1ULL,
+  10ULL,
+  100ULL,
+  1000ULL,
+  10000ULL,
+  100000ULL,
+  1000000ULL,
+  10000000ULL,
+  100000000ULL,
+    // clang-format on
+};
 
 constexpr uint64_t kUInt64PowersOfTen[kInt64DecimalDigits + 1] = {
     // clang-format off
@@ -105,6 +122,60 @@ constexpr double kDoublePowersOfTen[2 * kPrecomputedPowersOfTen + 1] = {
     1e44,  1e45,  1e46,  1e47,  1e48,  1e49,  1e50,  1e51,  1e52,  1e53,  1e54,  1e55,
     1e56,  1e57,  1e58,  1e59,  1e60,  1e61,  1e62,  1e63,  1e64,  1e65,  1e66,  1e67,
     1e68,  1e69,  1e70,  1e71,  1e72,  1e73,  1e74,  1e75,  1e76};
+
+constexpr BasicDecimal32 kDecimal32PowersOfTen[9 + 1] = {
+    BasicDecimal32(1),         BasicDecimal32(10),       BasicDecimal32(100),
+    BasicDecimal32(1000),      BasicDecimal32(10000),    BasicDecimal32(100000),
+    BasicDecimal32(1000000),   BasicDecimal32(10000000), BasicDecimal32(100000000),
+    BasicDecimal32(1000000000)};
+
+constexpr BasicDecimal32 kDecimal32HalfPowersOfTen[] = {
+    BasicDecimal32(0),        BasicDecimal32(5),       BasicDecimal32(50),
+    BasicDecimal32(500),      BasicDecimal32(5000),    BasicDecimal32(50000),
+    BasicDecimal32(500000),   BasicDecimal32(5000000), BasicDecimal32(50000000),
+    BasicDecimal32(500000000)};
+
+constexpr BasicDecimal64 kDecimal64PowersOfTen[18 + 1] = {
+    BasicDecimal64(1),
+    BasicDecimal64(10),
+    BasicDecimal64(100),
+    BasicDecimal64(1000),
+    BasicDecimal64(10000),
+    BasicDecimal64(100000),
+    BasicDecimal64(1000000),
+    BasicDecimal64(10000000),
+    BasicDecimal64(100000000),
+    BasicDecimal64(1000000000),
+    BasicDecimal64(10000000000),
+    BasicDecimal64(100000000000),
+    BasicDecimal64(1000000000000),
+    BasicDecimal64(10000000000000),
+    BasicDecimal64(100000000000000),
+    BasicDecimal64(1000000000000000),
+    BasicDecimal64(10000000000000000),
+    BasicDecimal64(100000000000000000),
+    BasicDecimal64(1000000000000000000)};
+
+constexpr BasicDecimal64 kDecimal64HalfPowersOfTen[18 + 1] = {
+    BasicDecimal64(0),
+    BasicDecimal64(5),
+    BasicDecimal64(50),
+    BasicDecimal64(500),
+    BasicDecimal64(5000),
+    BasicDecimal64(50000),
+    BasicDecimal64(500000),
+    BasicDecimal64(5000000),
+    BasicDecimal64(50000000),
+    BasicDecimal64(500000000),
+    BasicDecimal64(5000000000),
+    BasicDecimal64(50000000000),
+    BasicDecimal64(500000000000),
+    BasicDecimal64(5000000000000),
+    BasicDecimal64(50000000000000),
+    BasicDecimal64(500000000000000),
+    BasicDecimal64(5000000000000000),
+    BasicDecimal64(50000000000000000),
+    BasicDecimal64(500000000000000000)};
 
 constexpr BasicDecimal128 kDecimal128PowersOfTen[38 + 1] = {
     BasicDecimal128(1LL),
@@ -189,11 +260,11 @@ constexpr BasicDecimal128 kDecimal128HalfPowersOfTen[] = {
     BasicDecimal128(2710505431213761085LL, 343699775700336640ULL)};
 
 #if ARROW_LITTLE_ENDIAN
-#define BasicDecimal256FromLE(v1, v2, v3, v4) \
-  BasicDecimal256(std::array<uint64_t, 4>{v1, v2, v3, v4})
+#  define BasicDecimal256FromLE(v1, v2, v3, v4) \
+    BasicDecimal256(std::array<uint64_t, 4>{v1, v2, v3, v4})
 #else
-#define BasicDecimal256FromLE(v1, v2, v3, v4) \
-  BasicDecimal256(std::array<uint64_t, 4>{v4, v3, v2, v1})
+#  define BasicDecimal256FromLE(v1, v2, v3, v4) \
+    BasicDecimal256(std::array<uint64_t, 4>{v4, v3, v2, v1})
 #endif
 
 constexpr BasicDecimal256 kDecimal256PowersOfTen[76 + 1] = {
@@ -420,6 +491,9 @@ constexpr BasicDecimal256 kDecimal256HalfPowersOfTen[] = {
     BasicDecimal256FromLE(0ULL, 13527356396454709248ULL, 9489746690038731964ULL,
                           796545955566226138ULL)};
 
+static constexpr BasicDecimal256 kMaxDecimal256Value = BasicDecimal256FromLE(
+    0ULL, 10084168908774762496ULL, 12965995782233477362ULL, 159309191113245227ULL);
+
 #undef BasicDecimal256FromLE
 
 // ceil(log2(10 ^ k)) for k in [0...76]
@@ -467,6 +541,32 @@ template <typename DecimalType>
 struct DecimalTraits {};
 
 template <>
+struct DecimalTraits<BasicDecimal32> {
+  static constexpr const BasicDecimal32* powers_of_ten() { return kDecimal32PowersOfTen; }
+
+  static constexpr const BasicDecimal32* half_powers_of_ten() {
+    return kDecimal32HalfPowersOfTen;
+  }
+
+  static constexpr int kMaxPrecision = BasicDecimal32::kMaxPrecision;
+  static constexpr BasicDecimal32 kMaxValue = BasicDecimal32(999999999);
+  static constexpr const char* kTypeName = "Decimal32";
+};
+
+template <>
+struct DecimalTraits<BasicDecimal64> {
+  static constexpr const BasicDecimal64* powers_of_ten() { return kDecimal64PowersOfTen; }
+
+  static constexpr const BasicDecimal64* half_powers_of_ten() {
+    return kDecimal64HalfPowersOfTen;
+  }
+
+  static constexpr int kMaxPrecision = BasicDecimal64::kMaxPrecision;
+  static constexpr BasicDecimal64 kMaxValue = BasicDecimal64(999999999999999999);
+  static constexpr const char* kTypeName = "Decimal64";
+};
+
+template <>
 struct DecimalTraits<BasicDecimal128> {
   static constexpr const BasicDecimal128* powers_of_ten() {
     return kDecimal128PowersOfTen;
@@ -486,6 +586,10 @@ struct DecimalTraits<BasicDecimal256> {
   static constexpr const char* kTypeName = "Decimal256";
 };
 
+template <>
+struct DecimalTraits<Decimal32> : public DecimalTraits<BasicDecimal32> {};
+template <>
+struct DecimalTraits<Decimal64> : public DecimalTraits<BasicDecimal64> {};
 template <>
 struct DecimalTraits<Decimal128> : public DecimalTraits<BasicDecimal128> {};
 template <>

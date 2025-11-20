@@ -69,7 +69,7 @@ class StaticBenchmarkRunner(BenchmarkRunner):
     def list_benchmarks(self):
         for suite in self._suites:
             for benchmark in suite.benchmarks:
-                yield "{}.{}".format(suite.name, benchmark.name)
+                yield f"{suite.name}.{benchmark.name}"
 
     @property
     def suites(self):
@@ -102,7 +102,7 @@ class StaticBenchmarkRunner(BenchmarkRunner):
         return BenchmarkRunnerCodec.decode(loaded, **kwargs)
 
     def __repr__(self):
-        return "BenchmarkRunner[suites={}]".format(list(self.suites))
+        return f"BenchmarkRunner[suites={list(self.suites)}]"
 
 
 class CppBenchmarkRunner(BenchmarkRunner):
@@ -123,6 +123,8 @@ class CppBenchmarkRunner(BenchmarkRunner):
             with_csv=True,
             with_dataset=True,
             with_json=True,
+            with_jemalloc=True,
+            with_mimalloc=True,
             with_parquet=True,
             with_python=False,
             with_brotli=True,
@@ -163,7 +165,7 @@ class CppBenchmarkRunner(BenchmarkRunner):
         for suite_name, suite_bin in self.suites_binaries.items():
             suite_cmd = GoogleBenchmarkCommand(suite_bin)
             for benchmark_name in suite_cmd.list_benchmarks():
-                yield "{}.{}".format(suite_name, benchmark_name)
+                yield f"{suite_name}.{benchmark_name}"
 
     @property
     def suites(self):
@@ -174,7 +176,7 @@ class CppBenchmarkRunner(BenchmarkRunner):
         suite_and_binaries = self.suites_binaries
         for suite_name in suite_and_binaries:
             if not suite_matcher(suite_name):
-                logger.debug("Ignoring suite {}".format(suite_name))
+                logger.debug(f"Ignoring suite {suite_name}")
                 continue
 
             suite_bin = suite_and_binaries[suite_name]
@@ -182,8 +184,7 @@ class CppBenchmarkRunner(BenchmarkRunner):
 
             # Filter may exclude all benchmarks
             if not suite:
-                logger.debug("Suite {} executed but no results"
-                             .format(suite_name))
+                logger.debug(f"Suite {suite_name} executed but no results")
                 continue
 
             suite_found = True
@@ -272,7 +273,7 @@ class JavaBenchmarkRunner(BenchmarkRunner):
         suite_cmd = JavaMicrobenchmarkHarnessCommand(self.build)
         benchmark_names = suite_cmd.list_benchmarks()
         for benchmark_name in benchmark_names:
-            yield "{}".format(benchmark_name)
+            yield f"{benchmark_name}"
 
     @property
     def suites(self):
@@ -282,8 +283,7 @@ class JavaBenchmarkRunner(BenchmarkRunner):
 
         # Filter may exclude all benchmarks
         if not suite:
-            logger.debug("Suite {} executed but no results"
-                         .format(suite_name))
+            logger.debug(f"Suite {suite_name} executed but no results")
             return
 
         yield suite

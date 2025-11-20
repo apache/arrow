@@ -200,7 +200,7 @@ reached a terminal status, it is closed with one of two outcomes:
 
   If you are merging a PR it is good practice to add a comment
   to the linked issue about which PR is resolving it. This way
-  GitHub crates a notification for anybody that collaborated on
+  GitHub creates a notification for anybody that collaborated on
   the issue.
 
 * **closed as not planned** - indicates the issue is closed and should

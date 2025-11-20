@@ -20,6 +20,8 @@
 
 set -e
 
+SOURCE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 if [ "$#" -lt 2 ]; then
   echo "Usage: $0 <version> <rc-num> [options]"
   exit
@@ -29,8 +31,12 @@ version=$1
 shift
 rc_number=$1
 shift
+
+. "${SOURCE_DIR}/utils-env.sh"
+
 version_with_rc="${version}-rc${rc_number}"
 crossbow_job_prefix="release-${version_with_rc}"
+tag="apache-arrow-${version_with_rc}"
 
 # archery will submit a job with id: "${crossbow_job_prefix}-0" unless there
 # are jobs submitted with the same prefix (the integer at the end is auto
@@ -39,3 +45,14 @@ crossbow_job_prefix="release-${version_with_rc}"
 : ${CROSSBOW_JOB_ID:="${crossbow_job_prefix}-${CROSSBOW_JOB_NUMBER}"}
 
 archery crossbow download-artifacts --no-fetch ${CROSSBOW_JOB_ID} "$@"
+
+# Download Linux packages.
+gh release download "${tag}" \
+  --dir "packages/${CROSSBOW_JOB_ID}" \
+  --pattern "almalinux-*.tar.gz" \
+  --pattern "amazon-linux-*.tar.gz" \
+  --pattern "centos-*.tar.gz" \
+  --pattern "debian-*.tar.gz" \
+  --pattern "ubuntu-*.tar.gz" \
+  --repo "${REPOSITORY:-apache/arrow}" \
+  --skip-existing

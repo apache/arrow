@@ -35,6 +35,9 @@ class TestStreamWriter < Test::Unit::TestCase
         stream_writer.write_record_batch(record_batch)
       ensure
         stream_writer.close
+        assert do
+          stream_writer.closed?
+        end
       end
     ensure
       output.close

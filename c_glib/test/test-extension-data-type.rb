@@ -102,4 +102,10 @@ class TestExtensionDataType < Test::Unit::TestCase
                    extension_chunked_array.chunks.collect(&:class),
                  ])
   end
+
+  def test_abstract_class
+    assert_raise(TypeError) do
+      Arrow::ExtensionDataType.new
+    end
+  end
 end

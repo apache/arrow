@@ -1521,10 +1521,10 @@ visible: false
                                       ["key2_right", [100, 20]],
                                       ["string", ["1-100", "2-20"]],
                                     ]),
-                    table1.join(table2,
-                                ["key1", "key2"],
-                                left_suffix: "_left",
-                                right_suffix: "_right"))
+                   table1.join(table2,
+                               ["key1", "key2"],
+                               left_suffix: "_left",
+                               right_suffix: "_right"))
     end
   end
 end

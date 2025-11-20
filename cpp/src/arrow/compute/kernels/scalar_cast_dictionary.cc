@@ -25,12 +25,15 @@
 #include "arrow/compute/kernels/scalar_cast_internal.h"
 #include "arrow/compute/kernels/util_internal.h"
 #include "arrow/util/int_util.h"
+#include "arrow/util/logging_internal.h"
 
 namespace arrow {
 using internal::CopyBitmap;
 
 namespace compute {
 namespace internal {
+
+namespace {
 
 Status CastToDictionary(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
   const CastOptions& options = CastState::Get(ctx);
@@ -93,6 +96,8 @@ void AddDictionaryCast(CastFunction* func) {
   kernel.mem_allocation = MemAllocation::NO_PREALLOCATE;
   DCHECK_OK(func->AddKernel(SrcType::type_id, std::move(kernel)));
 }
+
+}  // namespace
 
 std::vector<std::shared_ptr<CastFunction>> GetDictionaryCasts() {
   auto cast_dict = std::make_shared<CastFunction>("cast_dictionary", Type::DICTIONARY);

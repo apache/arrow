@@ -408,13 +408,22 @@ class ARROW_FLIGHT_SQL_EXPORT FlightSqlClient {
   /// \brief Explicitly shut down and clean up the client.
   Status Close();
 
- protected:
+  /// \brief Wrapper around FlightClient::DoGet.
+  ///
+  /// \internal
+  /// Don't call this directly.
+  /// \endinternal
   virtual ::arrow::Result<FlightClient::DoPutResult> DoPut(
       const FlightCallOptions& options, const FlightDescriptor& descriptor,
       const std::shared_ptr<Schema>& schema) {
     return impl_->DoPut(options, descriptor, schema);
   }
 
+  /// \brief Wrapper around FlightClient::DoPut. Don't call this directly.
+  ///
+  /// \internal
+  /// Don't call this directly.
+  /// \endinternal
   virtual ::arrow::Result<std::unique_ptr<ResultStream>> DoAction(
       const FlightCallOptions& options, const Action& action) {
     return impl_->DoAction(options, action);

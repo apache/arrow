@@ -17,7 +17,10 @@
 
 import io
 
-import numpy as np
+try:
+    import numpy as np
+except ImportError:
+    np = None
 
 import pyarrow as pa
 from pyarrow.tests import util
@@ -64,9 +67,11 @@ def _check_roundtrip(table, expected=None, read_table_kwargs=None,
     # intentionally check twice
     result = _roundtrip_table(table, read_table_kwargs=read_table_kwargs,
                               write_table_kwargs=write_table_kwargs)
+    assert result.schema == expected.schema
     assert result.equals(expected)
     result = _roundtrip_table(result, read_table_kwargs=read_table_kwargs,
                               write_table_kwargs=write_table_kwargs)
+    assert result.schema == expected.schema
     assert result.equals(expected)
 
 
@@ -83,18 +88,16 @@ def _random_integers(size, dtype):
     iinfo = np.iinfo(dtype)
     return np.random.randint(max(iinfo.min, platform_int_info.min),
                              min(iinfo.max, platform_int_info.max),
-                             size=size).astype(dtype)
+                             size=size, dtype=dtype)
 
 
 def _range_integers(size, dtype):
     return pa.array(np.arange(size, dtype=dtype))
 
 
-def _test_dataframe(size=10000, seed=0):
-    import pandas as pd
-
+def _test_dict(size=10000, seed=0):
     np.random.seed(seed)
-    df = pd.DataFrame({
+    return {
         'uint8': _random_integers(size, np.uint8),
         'uint16': _random_integers(size, np.uint16),
         'uint32': _random_integers(size, np.uint32),
@@ -109,11 +112,21 @@ def _test_dataframe(size=10000, seed=0):
         'strings': [util.rands(10) for i in range(size)],
         'all_none': [None] * size,
         'all_none_category': [None] * size
-    })
+    }
+
+
+def _test_dataframe(size=10000, seed=0):
+    import pandas as pd
+
+    df = pd.DataFrame(_test_dict(size, seed))
 
     # TODO(PARQUET-1015)
     # df['all_none_category'] = df['all_none_category'].astype('category')
     return df
+
+
+def _test_table(size=10000, seed=0):
+    return pa.Table.from_pydict(_test_dict(size, seed))
 
 
 def make_sample_file(table_or_df):
@@ -144,6 +157,7 @@ def alltypes_sample(size=10000, seed=0, categorical=False):
         'int16': np.arange(size, dtype=np.int16),
         'int32': np.arange(size, dtype=np.int32),
         'int64': np.arange(size, dtype=np.int64),
+        'float16': np.arange(size, dtype=np.float16),
         'float32': np.arange(size, dtype=np.float32),
         'float64': np.arange(size, dtype=np.float64),
         'bool': np.random.randn(size) > 0,

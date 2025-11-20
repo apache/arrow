@@ -170,12 +170,12 @@ an out of source build by generating a MSVC solution:
    cd cpp
    mkdir build
    cd build
-   cmake .. -G "Visual Studio 15 2017" -A x64 ^
+   cmake .. -G "Visual Studio 16 2019" -A x64 ^
          -DARROW_BUILD_TESTS=ON
    cmake --build . --config Release
 
 For newer versions of Visual Studio, specify the generator
-``Visual Studio 16 2019`` or see ``cmake --help`` for available
+``Visual Studio 17 2022`` or see ``cmake --help`` for available
 generators.
 
 Building with Ninja and sccache
@@ -326,6 +326,12 @@ The command line to build Arrow in Debug mode will look something like this:
          -DBOOST_ROOT=C:/local/boost_1_63_0  ^
          -DBOOST_LIBRARYDIR=C:/local/boost_1_63_0/lib64-msvc-14.0
    cmake --build . --config Debug
+
+Depending on the CMake variables or preset you use, you may need to have the
+``patch`` utility in your ``PATH``. There are a number of ways to do this. For
+example, if you're already using  `Git for Windows
+<https://git-scm.com/downloads/win>`_, you could add ``C:\Program
+Files\Git\usr\bin`` to your ``PATH``.
 
 Windows dependency resolution issues
 ====================================

@@ -31,13 +31,13 @@ a file named `test.arrow`.
 ## Running the example
 
 You can run this simple example using [Docker Compose][docker-compose]
-and the given `docker-compose.yml` and dockerfiles, which installs a
+and the given `compose.yaml` and dockerfiles, which installs a
 minimal Ubuntu image with a basic C++ toolchain.
 
 Just open a terminal in this directory and run the following commands:
 
 ```bash
-docker-compose run --rm minimal
+docker compose run --rm minimal
 ```
 
 Note that this example mounts two volumes inside the Docker image:
@@ -52,7 +52,7 @@ create a statically-linked executable with bundled dependencies.
 To run it on Linux, you can use the above Docker image:
 
 ```bash
-docker-compose run --rm static
+docker compose run --rm static
 ```
 
 On macOS, you can use the `run_static.sh` but you must set some environment
@@ -79,10 +79,10 @@ call run_static.bat
 You can also use static libraries of Arrow's dependencies from the
 system. To run this configuration, set
 `ARROW_DEPENDENCY_SOURCE=SYSTEM` for `run_static.sh`. You can use
-`docker-compose` for this too:
+`docker compose` for this too:
 
 ```bash
-docker-compose run --rm static-system-dependency
+docker compose run --rm static-system-dependency
 ```
 
 [docker-compose]: https://docs.docker.com/compose/

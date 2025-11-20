@@ -18,7 +18,7 @@
 #pragma once
 
 #ifndef _WIN32
-#define ARROW_HAVE_SIGACTION 1
+#  define ARROW_HAVE_SIGACTION 1
 #endif
 
 #include <atomic>
@@ -29,7 +29,7 @@
 #include <vector>
 
 #if ARROW_HAVE_SIGACTION
-#include <csignal>  // Needed for struct sigaction
+#  include <csignal>  // Needed for struct sigaction
 #endif
 
 #include "arrow/result.h"
@@ -418,6 +418,12 @@ int64_t GetCurrentRSS();
 /// This function supports Windows, Linux, and Mac and will return 0 otherwise
 ARROW_EXPORT
 int64_t GetTotalMemoryBytes();
+
+/// \brief Get the number of affinity core on the system.
+///
+/// This is only implemented on Linux.
+/// If a value is returned, it is guaranteed to be greater or equal to one.
+ARROW_EXPORT Result<int32_t> GetNumAffinityCores();
 
 /// \brief Load a dynamic library
 ///

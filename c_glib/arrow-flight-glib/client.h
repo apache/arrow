@@ -35,6 +35,35 @@ struct _GAFlightStreamReaderClass
   GAFlightRecordBatchReaderClass parent_class;
 };
 
+#define GAFLIGHT_TYPE_STREAM_WRITER (gaflight_stream_writer_get_type())
+GAFLIGHT_AVAILABLE_IN_18_0
+G_DECLARE_DERIVABLE_TYPE(GAFlightStreamWriter,
+                         gaflight_stream_writer,
+                         GAFLIGHT,
+                         STREAM_WRITER,
+                         GAFlightRecordBatchWriter)
+struct _GAFlightStreamWriterClass
+{
+  GAFlightRecordBatchWriterClass parent_class;
+};
+
+GAFLIGHT_AVAILABLE_IN_18_0
+gboolean
+gaflight_stream_writer_done_writing(GAFlightStreamWriter *writer, GError **error);
+
+#define GAFLIGHT_TYPE_METADATA_READER (gaflight_metadata_reader_get_type())
+GAFLIGHT_AVAILABLE_IN_18_0
+G_DECLARE_DERIVABLE_TYPE(
+  GAFlightMetadataReader, gaflight_metadata_reader, GAFLIGHT, METADATA_READER, GObject)
+struct _GAFlightMetadataReaderClass
+{
+  GObjectClass parent_class;
+};
+
+GAFLIGHT_AVAILABLE_IN_18_0
+GArrowBuffer *
+gaflight_metadata_reader_read(GAFlightMetadataReader *reader, GError **error);
+
 #define GAFLIGHT_TYPE_CALL_OPTIONS (gaflight_call_options_get_type())
 GAFLIGHT_AVAILABLE_IN_5_0
 G_DECLARE_DERIVABLE_TYPE(
@@ -74,6 +103,15 @@ struct _GAFlightClientOptionsClass
 GAFLIGHT_AVAILABLE_IN_5_0
 GAFlightClientOptions *
 gaflight_client_options_new(void);
+
+#define GAFLIGHT_TYPE_DO_PUT_RESULT (gaflight_do_put_result_get_type())
+GAFLIGHT_AVAILABLE_IN_18_0
+G_DECLARE_DERIVABLE_TYPE(
+  GAFlightDoPutResult, gaflight_do_put_result, GAFLIGHT, DO_PUT_RESULT, GObject)
+struct _GAFlightDoPutResultClass
+{
+  GObjectClass parent_class;
+};
 
 #define GAFLIGHT_TYPE_CLIENT (gaflight_client_get_type())
 GAFLIGHT_AVAILABLE_IN_5_0
@@ -121,6 +159,14 @@ GAFLIGHT_AVAILABLE_IN_6_0
 GAFlightStreamReader *
 gaflight_client_do_get(GAFlightClient *client,
                        GAFlightTicket *ticket,
+                       GAFlightCallOptions *options,
+                       GError **error);
+
+GAFLIGHT_AVAILABLE_IN_18_0
+GAFlightDoPutResult *
+gaflight_client_do_put(GAFlightClient *client,
+                       GAFlightDescriptor *descriptor,
+                       GArrowSchema *schema,
                        GAFlightCallOptions *options,
                        GError **error);
 

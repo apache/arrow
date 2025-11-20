@@ -22,6 +22,7 @@ set -ex
 source_dir=${1}/cpp
 build_dir=${2}/cpp
 
+: ${ARROW_OFFLINE:=OFF}
 : ${ARROW_USE_CCACHE:=OFF}
 : ${BUILD_DOCS_CPP:=OFF}
 
@@ -30,11 +31,17 @@ if [ -x "$(command -v git)" ]; then
 fi
 
 # TODO(kszucs): consider to move these to CMake
-if [ ! -z "${CONDA_PREFIX}" ]; then
+if [ ! -z "${CONDA_PREFIX}" ] && [ "${ARROW_EMSCRIPTEN:-OFF}" = "OFF" ]; then
   echo -e "===\n=== Conda environment for build\n==="
   conda list
 
-  export ARROW_CMAKE_ARGS="${ARROW_CMAKE_ARGS} -DCMAKE_AR=${AR} -DCMAKE_RANLIB=${RANLIB}"
+  if [ -n "${AR}" ]; then
+    ARROW_CMAKE_ARGS+=" -DCMAKE_AR=${AR}"
+  fi
+  if [ -n "${RANLIB}" ]; then
+    ARROW_CMAKE_ARGS+=" -DCMAKE_RANLIB=${RANLIB}"
+  fi
+  export ARROW_CMAKE_ARGS
   export ARROW_GANDIVA_PC_CXX_FLAGS=$(echo | ${CXX} -E -Wp,-v -xc++ - 2>&1 | grep '^ ' | awk '{print "-isystem;" substr($1, 1)}' | tr '\n' ';')
 elif [ -x "$(command -v xcrun)" ]; then
   export ARROW_GANDIVA_PC_CXX_FLAGS="-isysroot;$(xcrun --show-sdk-path)"
@@ -57,6 +64,7 @@ if [ "${ARROW_ENABLE_THREADING:-ON}" = "OFF" ]; then
   ARROW_AZURE=OFF
   ARROW_FLIGHT=OFF
   ARROW_FLIGHT_SQL=OFF
+  ARROW_FLIGHT_SQL_ODBC=OFF
   ARROW_GCS=OFF
   ARROW_JEMALLOC=OFF
   ARROW_MIMALLOC=OFF
@@ -92,13 +100,69 @@ esac
 mkdir -p ${build_dir}
 pushd ${build_dir}
 
-if [ "${ARROW_EMSCRIPTEN:-OFF}" = "ON" ]; then
+if [ "${ARROW_OFFLINE}" = "ON" ]; then
+  ${source_dir}/thirdparty/download_dependencies.sh ${PWD}/thirdparty > \
+    enable_offline_build.sh
+  . enable_offline_build.sh
+  # We can't use mv because we can't remove /etc/resolv.conf in Docker
+  # container.
+  cp /etc/resolv.conf{,.bak}
+  echo > /etc/resolv.conf
+fi
+
+if [ "${ARROW_USE_MESON:-OFF}" = "ON" ]; then
+  function meson_boolean() {
+    if [ "${1}" = "ON" ]; then
+      echo "true"
+    else
+      echo "false"
+    fi
+  }
+
+  ORIGINAL_CC="${CC}"
+  if [ -n "${CC}" ]; then
+    if [ "${ARROW_USE_CCACHE}" = "ON" ]; then
+      CC="ccache ${CC}"
+    else
+      if command -v sccache; then
+        CC="sccache ${CC}"
+      fi
+    fi
+  fi
+
+  ORIGINAL_CXX="${CXX}"
+  if [ -n "${CXX}" ]; then
+    if [ "${ARROW_USE_CCACHE}" = "ON" ]; then
+      CXX="ccache ${CXX}"
+    else
+      if command -v sccache; then
+        CXX="sccache ${CXX}"
+      fi
+    fi
+  fi
+  meson setup \
+    --prefix=${MESON_PREFIX:-${ARROW_HOME}} \
+    --buildtype=${ARROW_BUILD_TYPE:-debug} \
+    --pkg-config-path="${CONDA_PREFIX}/lib/pkgconfig/" \
+    -Dauto_features=enabled \
+    -Dfuzzing=disabled \
+    -Ds3=disabled \
+    . \
+    ${source_dir}
+
+  CC="${ORIGINAL_CC}"
+  CXX="${ORIGINAL_CXX}"
+elif [ "${ARROW_EMSCRIPTEN:-OFF}" = "ON" ]; then
   if [ "${UBUNTU}" = "20.04" ]; then
     echo "arrow emscripten build is not supported on Ubuntu 20.04, run with UBUNTU=22.04"
     exit -1
   fi
   n_jobs=2 # Emscripten build fails on docker unless this is set really low
   source ~/emsdk/emsdk_env.sh
+  export CMAKE_INSTALL_PREFIX=$(em-config CACHE)/sysroot
+  # conda sets LDFLAGS / CFLAGS etc. which break
+  # emcmake so we unset them
+  unset LDFLAGS CFLAGS CXXFLAGS CPPFLAGS
   emcmake cmake \
     --preset=ninja-${ARROW_BUILD_TYPE:-debug}-emscripten \
     -DCMAKE_VERBOSE_MAKEFILE=${CMAKE_VERBOSE_MAKEFILE:-OFF} \
@@ -108,6 +172,11 @@ if [ "${ARROW_EMSCRIPTEN:-OFF}" = "ON" ]; then
     -DCMAKE_INSTALL_LIBDIR=${CMAKE_INSTALL_LIBDIR:-lib} \
     -DCMAKE_INSTALL_PREFIX=${CMAKE_INSTALL_PREFIX:-${ARROW_HOME}} \
     -DCMAKE_UNITY_BUILD=${CMAKE_UNITY_BUILD:-OFF} \
+    ${ARROW_CMAKE_ARGS} \
+    ${source_dir}
+elif [ -n "${CMAKE_PRESET}" ]; then
+  cmake \
+    --preset="${CMAKE_PRESET}" \
     ${ARROW_CMAKE_ARGS} \
     ${source_dir}
 else
@@ -120,7 +189,6 @@ else
     -DARROW_BUILD_BENCHMARKS=${ARROW_BUILD_BENCHMARKS:-OFF} \
     -DARROW_BUILD_EXAMPLES=${ARROW_BUILD_EXAMPLES:-OFF} \
     -DARROW_BUILD_INTEGRATION=${ARROW_BUILD_INTEGRATION:-OFF} \
-    -DARROW_BUILD_OPENMP_BENCHMARKS=${ARROW_BUILD_OPENMP_BENCHMARKS:-OFF} \
     -DARROW_BUILD_SHARED=${ARROW_BUILD_SHARED:-ON} \
     -DARROW_BUILD_STATIC=${ARROW_BUILD_STATIC:-ON} \
     -DARROW_BUILD_TESTS=${ARROW_BUILD_TESTS:-OFF} \
@@ -144,32 +212,30 @@ else
     -DARROW_FILESYSTEM=${ARROW_FILESYSTEM:-ON} \
     -DARROW_FLIGHT=${ARROW_FLIGHT:-OFF} \
     -DARROW_FLIGHT_SQL=${ARROW_FLIGHT_SQL:-OFF} \
+    -DARROW_FLIGHT_SQL_ODBC=${ARROW_FLIGHT_SQL_ODBC:-OFF} \
     -DARROW_FUZZING=${ARROW_FUZZING:-OFF} \
     -DARROW_GANDIVA_PC_CXX_FLAGS=${ARROW_GANDIVA_PC_CXX_FLAGS:-} \
     -DARROW_GANDIVA=${ARROW_GANDIVA:-OFF} \
     -DARROW_GCS=${ARROW_GCS:-OFF} \
     -DARROW_HDFS=${ARROW_HDFS:-ON} \
     -DARROW_INSTALL_NAME_RPATH=${ARROW_INSTALL_NAME_RPATH:-ON} \
-    -DARROW_JEMALLOC=${ARROW_JEMALLOC:-ON} \
+    -DARROW_JEMALLOC=${ARROW_JEMALLOC:-OFF} \
     -DARROW_JSON=${ARROW_JSON:-ON} \
     -DARROW_LARGE_MEMORY_TESTS=${ARROW_LARGE_MEMORY_TESTS:-OFF} \
-    -DARROW_MIMALLOC=${ARROW_MIMALLOC:-OFF} \
+    -DARROW_MIMALLOC=${ARROW_MIMALLOC:-ON} \
     -DARROW_ORC=${ARROW_ORC:-OFF} \
     -DARROW_PARQUET=${ARROW_PARQUET:-OFF} \
     -DARROW_RUNTIME_SIMD_LEVEL=${ARROW_RUNTIME_SIMD_LEVEL:-MAX} \
     -DARROW_S3=${ARROW_S3:-OFF} \
     -DARROW_SIMD_LEVEL=${ARROW_SIMD_LEVEL:-DEFAULT} \
-    -DARROW_SKYHOOK=${ARROW_SKYHOOK:-OFF} \
     -DARROW_SUBSTRAIT=${ARROW_SUBSTRAIT:-OFF} \
     -DARROW_TEST_LINKAGE=${ARROW_TEST_LINKAGE:-shared} \
     -DARROW_TEST_MEMCHECK=${ARROW_TEST_MEMCHECK:-OFF} \
     -DARROW_USE_ASAN=${ARROW_USE_ASAN:-OFF} \
     -DARROW_USE_CCACHE=${ARROW_USE_CCACHE:-ON} \
     -DARROW_USE_GLOG=${ARROW_USE_GLOG:-OFF} \
-    -DARROW_USE_LD_GOLD=${ARROW_USE_LD_GOLD:-OFF} \
     -DARROW_USE_LLD=${ARROW_USE_LLD:-OFF} \
     -DARROW_USE_MOLD=${ARROW_USE_MOLD:-OFF} \
-    -DARROW_USE_PRECOMPILED_HEADERS=${ARROW_USE_PRECOMPILED_HEADERS:-OFF} \
     -DARROW_USE_STATIC_CRT=${ARROW_USE_STATIC_CRT:-OFF} \
     -DARROW_USE_TSAN=${ARROW_USE_TSAN:-OFF} \
     -DARROW_USE_UBSAN=${ARROW_USE_UBSAN:-OFF} \
@@ -180,7 +246,6 @@ else
     -DARROW_WITH_OPENTELEMETRY=${ARROW_WITH_OPENTELEMETRY:-OFF} \
     -DARROW_WITH_MUSL=${ARROW_WITH_MUSL:-OFF} \
     -DARROW_WITH_SNAPPY=${ARROW_WITH_SNAPPY:-OFF} \
-    -DARROW_WITH_UCX=${ARROW_WITH_UCX:-OFF} \
     -DARROW_WITH_UTF8PROC=${ARROW_WITH_UTF8PROC:-ON} \
     -DARROW_WITH_ZLIB=${ARROW_WITH_ZLIB:-OFF} \
     -DARROW_WITH_ZSTD=${ARROW_WITH_ZSTD:-OFF} \
@@ -199,11 +264,13 @@ else
     -DCMAKE_INSTALL_LIBDIR=${CMAKE_INSTALL_LIBDIR:-lib} \
     -DCMAKE_INSTALL_PREFIX=${CMAKE_INSTALL_PREFIX:-${ARROW_HOME}} \
     -DCMAKE_UNITY_BUILD=${CMAKE_UNITY_BUILD:-OFF} \
+    -DCUDAToolkit_ROOT=${CUDAToolkit_ROOT:-} \
     -Dgflags_SOURCE=${gflags_SOURCE:-} \
     -Dgoogle_cloud_cpp_storage_SOURCE=${google_cloud_cpp_storage_SOURCE:-} \
     -DgRPC_SOURCE=${gRPC_SOURCE:-} \
     -DGTest_SOURCE=${GTest_SOURCE:-} \
     -Dlz4_SOURCE=${lz4_SOURCE:-} \
+    -Dopentelemetry-cpp_SOURCE=${opentelemetry_cpp_SOURCE:-} \
     -DORC_SOURCE=${ORC_SOURCE:-} \
     -DPARQUET_BUILD_EXAMPLES=${PARQUET_BUILD_EXAMPLES:-OFF} \
     -DPARQUET_BUILD_EXECUTABLES=${PARQUET_BUILD_EXECUTABLES:-OFF} \
@@ -221,19 +288,39 @@ else
     ${source_dir}
 fi
 
-export CMAKE_BUILD_PARALLEL_LEVEL=${CMAKE_BUILD_PARALLEL_LEVEL:-$[${n_jobs} + 1]}
-time cmake --build . --target install
+: ${ARROW_BUILD_PARALLEL:=$[${n_jobs} + 1]}
+if [ "${ARROW_USE_MESON:-OFF}" = "ON" ]; then
+  time meson compile -j ${ARROW_BUILD_PARALLEL}
+  meson install
+  # Remove all added files in cpp/subprojects/ because they may have
+  # unreadable permissions on Docker host.
+  pushd "${source_dir}"
+  meson subprojects purge --confirm --include-cache
+  popd
+else
+  : ${CMAKE_BUILD_PARALLEL_LEVEL:=${ARROW_BUILD_PARALLEL}}
+  export CMAKE_BUILD_PARALLEL_LEVEL
+  time cmake --build . --target install
+fi
 
 # Save disk space by removing large temporary build products
 find . -name "*.o" -delete
 
+if [ "${ARROW_OFFLINE}" = "ON" ]; then
+  cp /etc/resolv.conf{.bak,}
+fi
+
 popd
 
 if [ -x "$(command -v ldconfig)" ]; then
-  if [ -x "$(command -v sudo)" ]; then
-    SUDO=sudo
-  else
+  if [ "$(id --user)" -eq 0 ]; then
     SUDO=
+  else
+    if [ -x "$(command -v sudo)" ]; then
+      SUDO=sudo
+    else
+      SUDO=
+    fi
   fi
   ${SUDO} ldconfig ${ARROW_HOME}/${CMAKE_INSTALL_LIBDIR:-lib}
 fi

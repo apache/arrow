@@ -488,7 +488,13 @@ Status NdarraysToSparseCSFTensor(MemoryPool* pool, PyObject* data_ao, PyObject* 
   std::vector<std::shared_ptr<Tensor>> indices(ndim);
 
   for (int i = 0; i < ndim - 1; ++i) {
+#ifdef Py_GIL_DISABLED
+    PyObject* item = PySequence_ITEM(indptr_ao, i);
+    RETURN_IF_PYERROR();
+    OwnedRef item_ref(item);
+#else
     PyObject* item = PySequence_Fast_GET_ITEM(indptr_ao, i);
+#endif
     if (!PyArray_Check(item)) {
       return Status::TypeError("Did not pass ndarray object for indptr");
     }
@@ -497,7 +503,13 @@ Status NdarraysToSparseCSFTensor(MemoryPool* pool, PyObject* data_ao, PyObject* 
   }
 
   for (int i = 0; i < ndim; ++i) {
+#ifdef Py_GIL_DISABLED
+    PyObject* item = PySequence_ITEM(indices_ao, i);
+    RETURN_IF_PYERROR();
+    OwnedRef item_ref(item);
+#else
     PyObject* item = PySequence_Fast_GET_ITEM(indices_ao, i);
+#endif
     if (!PyArray_Check(item)) {
       return Status::TypeError("Did not pass ndarray object for indices");
     }

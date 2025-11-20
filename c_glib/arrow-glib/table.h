@@ -142,6 +142,14 @@ GARROW_AVAILABLE_IN_0_16
 GArrowTable *
 garrow_table_combine_chunks(GArrowTable *table, GError **error);
 
+GARROW_AVAILABLE_IN_20_0
+gboolean
+garrow_table_validate(GArrowTable *table, GError **error);
+
+GARROW_AVAILABLE_IN_20_0
+gboolean
+garrow_table_validate_full(GArrowTable *table, GError **error);
+
 #define GARROW_TYPE_FEATHER_WRITE_PROPERTIES (garrow_feather_write_properties_get_type())
 GARROW_AVAILABLE_IN_0_17
 G_DECLARE_DERIVABLE_TYPE(GArrowFeatherWriteProperties,

@@ -32,7 +32,9 @@
 
 namespace gandiva {
 
-static constexpr uint32_t kMaxFunctionSignatures = 2048;
+namespace {
+
+constexpr uint32_t kMaxFunctionSignatures = 2048;
 
 // encapsulates an llvm memory buffer in an arrow buffer
 // this is needed because we don't expose the llvm memory buffer to the outside world in
@@ -47,6 +49,20 @@ class LLVMMemoryArrowBuffer : public arrow::Buffer {
  private:
   std::unique_ptr<llvm::MemoryBuffer> llvm_buffer_;
 };
+
+arrow::Result<std::unique_ptr<llvm::MemoryBuffer>> GetBufferFromFile(
+    const std::string& bitcode_file_path) {
+  auto buffer_or_error = llvm::MemoryBuffer::getFile(bitcode_file_path);
+
+  ARROW_RETURN_IF(!buffer_or_error,
+                  Status::IOError("Could not load module from bitcode file: ",
+                                  bitcode_file_path +
+                                      " Error: " + buffer_or_error.getError().message()));
+
+  return std::move(buffer_or_error.get());
+}
+
+}  // namespace
 
 FunctionRegistry::FunctionRegistry() { pc_registry_.reserve(kMaxFunctionSignatures); }
 
@@ -64,7 +80,7 @@ FunctionRegistry::iterator FunctionRegistry::back() const {
 
 const NativeFunction* FunctionRegistry::LookupSignature(
     const FunctionSignature& signature) const {
-  auto const got = pc_registry_map_.find(&signature);
+  const auto got = pc_registry_map_.find(&signature);
   return got == pc_registry_map_.end() ? nullptr : got->second;
 }
 
@@ -74,23 +90,11 @@ Status FunctionRegistry::Add(NativeFunction func) {
                                  kMaxFunctionSignatures);
   }
   pc_registry_.emplace_back(std::move(func));
-  auto const& last_func = pc_registry_.back();
-  for (auto const& func_signature : last_func.signatures()) {
+  const auto& last_func = pc_registry_.back();
+  for (const auto& func_signature : last_func.signatures()) {
     pc_registry_map_.emplace(&func_signature, &last_func);
   }
   return arrow::Status::OK();
-}
-
-arrow::Result<std::unique_ptr<llvm::MemoryBuffer>> GetBufferFromFile(
-    const std::string& bitcode_file_path) {
-  auto buffer_or_error = llvm::MemoryBuffer::getFile(bitcode_file_path);
-
-  ARROW_RETURN_IF(!buffer_or_error,
-                  Status::IOError("Could not load module from bitcode file: ",
-                                  bitcode_file_path +
-                                      " Error: " + buffer_or_error.getError().message()));
-
-  return std::move(buffer_or_error.get());
 }
 
 Status FunctionRegistry::Register(const std::vector<NativeFunction>& funcs,
@@ -114,7 +118,7 @@ arrow::Status FunctionRegistry::Register(
     std::optional<FunctionHolderMaker> function_holder_maker) {
   if (function_holder_maker.has_value()) {
     // all signatures should have the same base name, use the first signature's base name
-    auto const& func_base_name = func.signatures().begin()->base_name();
+    const auto& func_base_name = func.signatures().begin()->base_name();
     ARROW_RETURN_NOT_OK(holder_maker_registry_.Register(
         func_base_name, std::move(function_holder_maker).value()));
   }
@@ -139,11 +143,11 @@ const FunctionHolderMakerRegistry& FunctionRegistry::GetFunctionHolderMakerRegis
 
 arrow::Result<std::shared_ptr<FunctionRegistry>> MakeDefaultFunctionRegistry() {
   auto registry = std::make_shared<FunctionRegistry>();
-  for (auto const& funcs :
+  for (const auto& funcs :
        {GetArithmeticFunctionRegistry(), GetDateTimeFunctionRegistry(),
         GetHashFunctionRegistry(), GetMathOpsFunctionRegistry(),
         GetStringFunctionRegistry(), GetDateTimeArithmeticFunctionRegistry()}) {
-    for (auto const& func_signature : funcs) {
+    for (const auto& func_signature : funcs) {
       ARROW_RETURN_NOT_OK(registry->Add(func_signature));
     }
   }

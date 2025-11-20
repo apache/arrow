@@ -71,7 +71,6 @@ Contributing
 
 - :ref:`contributing`
 - `Arrow R Developer Guide <https://arrow.apache.org/docs/r/articles/developing.html>`_
-- `Writing Bindings article for R package <https://arrow.apache.org/docs/r/articles/developers/bindings.html>`_.
 
 Reproducible examples:
 

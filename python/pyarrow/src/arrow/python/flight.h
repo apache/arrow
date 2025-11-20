@@ -26,24 +26,24 @@
 #include "arrow/python/common.h"
 
 #if defined(_WIN32) || defined(__CYGWIN__)  // Windows
-#if defined(_MSC_VER)
-#pragma warning(disable : 4251)
-#else
-#pragma GCC diagnostic ignored "-Wattributes"
-#endif
+#  if defined(_MSC_VER)
+#    pragma warning(disable : 4251)
+#  else
+#    pragma GCC diagnostic ignored "-Wattributes"
+#  endif
 
-#ifdef ARROW_PYTHON_STATIC
-#define ARROW_PYFLIGHT_EXPORT
-#elif defined(ARROW_PYFLIGHT_EXPORTING)
-#define ARROW_PYFLIGHT_EXPORT __declspec(dllexport)
-#else
-#define ARROW_PYFLIGHT_EXPORT __declspec(dllimport)
-#endif
+#  ifdef ARROW_PYTHON_STATIC
+#    define ARROW_PYFLIGHT_EXPORT
+#  elif defined(ARROW_PYFLIGHT_EXPORTING)
+#    define ARROW_PYFLIGHT_EXPORT __declspec(dllexport)
+#  else
+#    define ARROW_PYFLIGHT_EXPORT __declspec(dllimport)
+#  endif
 
 #else  // Not Windows
-#ifndef ARROW_PYFLIGHT_EXPORT
-#define ARROW_PYFLIGHT_EXPORT __attribute__((visibility("default")))
-#endif
+#  ifndef ARROW_PYFLIGHT_EXPORT
+#    define ARROW_PYFLIGHT_EXPORT __attribute__((visibility("default")))
+#  endif
 #endif  // Non-Windows
 
 namespace arrow {
@@ -114,7 +114,8 @@ class ARROW_PYFLIGHT_EXPORT PyServerAuthHandler
  public:
   explicit PyServerAuthHandler(PyObject* handler,
                                const PyServerAuthHandlerVtable& vtable);
-  Status Authenticate(arrow::flight::ServerAuthSender* outgoing,
+  Status Authenticate(const arrow::flight::ServerCallContext& context,
+                      arrow::flight::ServerAuthSender* outgoing,
                       arrow::flight::ServerAuthReader* incoming) override;
   Status IsValid(const std::string& token, std::string* peer_identity) override;
 
@@ -225,7 +226,7 @@ class ARROW_PYFLIGHT_EXPORT PyServerMiddlewareFactory
   explicit PyServerMiddlewareFactory(PyObject* factory, StartCallCallback start_call);
 
   Status StartCall(const arrow::flight::CallInfo& info,
-                   const arrow::flight::CallHeaders& incoming_headers,
+                   const arrow::flight::ServerCallContext& context,
                    std::shared_ptr<arrow::flight::ServerMiddleware>* middleware) override;
 
  private:
@@ -337,7 +338,8 @@ ARROW_PYFLIGHT_EXPORT
 Status CreateFlightInfo(const std::shared_ptr<arrow::Schema>& schema,
                         const arrow::flight::FlightDescriptor& descriptor,
                         const std::vector<arrow::flight::FlightEndpoint>& endpoints,
-                        int64_t total_records, int64_t total_bytes,
+                        int64_t total_records, int64_t total_bytes, bool ordered,
+                        const std::string& app_metadata,
                         std::unique_ptr<arrow::flight::FlightInfo>* out);
 
 /// \brief Create a SchemaResult from schema.

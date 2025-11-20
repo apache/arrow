@@ -24,6 +24,7 @@
 #include "arrow/json/rapidjson_defs.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/util.h"
+#include "arrow/util/logging_internal.h"
 
 #include "rapidjson/ostreamwrapper.h"
 #include "rapidjson/writer.h"

@@ -23,17 +23,19 @@
 #include <tuple>
 #include <unordered_map>
 #include <vector>
+
 #include "arrow/acero/concurrent_queue_internal.h"
 #include "arrow/acero/exec_plan.h"
+#include "arrow/acero/exec_plan_internal.h"
 #include "arrow/acero/options.h"
 #include "arrow/acero/query_context.h"
 #include "arrow/acero/time_series_util.h"
-#include "arrow/acero/unmaterialized_table.h"
+#include "arrow/acero/unmaterialized_table_internal.h"
 #include "arrow/acero/util.h"
 #include "arrow/array/builder_base.h"
 #include "arrow/result.h"
 #include "arrow/type_fwd.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 
 namespace {
 template <typename Callable>
@@ -117,7 +119,7 @@ class InputState {
     std::unique_ptr<arrow::acero::BackpressureControl> backpressure_control =
         std::make_unique<BackpressureController>(input, output, backpressure_counter);
     ARROW_ASSIGN_OR_RAISE(auto handler,
-                          BackpressureHandler::Make(input, low_threshold, high_threshold,
+                          BackpressureHandler::Make(low_threshold, high_threshold,
                                                     std::move(backpressure_control)));
     return PtrType(new InputState(index, std::move(handler), schema, time_col_index));
   }
@@ -145,7 +147,7 @@ class InputState {
 
   // Gets latest batch (precondition: must not be empty)
   const std::shared_ptr<arrow::RecordBatch>& GetLatestBatch() const {
-    return queue_.UnsyncFront();
+    return queue_.Front();
   }
 
 #define LATEST_VAL_CASE(id, val)                                   \
@@ -178,7 +180,7 @@ class InputState {
     row_index_t start = latest_ref_row_;
     row_index_t end = latest_ref_row_;
     time_unit_t startTime = GetLatestTime();
-    std::shared_ptr<arrow::RecordBatch> batch = queue_.UnsyncFront();
+    std::shared_ptr<arrow::RecordBatch> batch = queue_.Front();
     auto rows_in_batch = (row_index_t)batch->num_rows();
 
     while (GetLatestTime() == startTime) {
@@ -190,7 +192,7 @@ class InputState {
         latest_ref_row_ = 0;
         active &= !queue_.TryPop();
         if (active) {
-          DCHECK_GT(queue_.UnsyncFront()->num_rows(),
+          DCHECK_GT(queue_.Front()->num_rows(),
                     0);  // empty batches disallowed, sanity check
         }
         break;
@@ -586,7 +588,7 @@ class SortedMergeNode : public ExecNode {
   void EmitBatches() {
     while (true) {
       // Implementation note: If the queue is empty, we will block here
-      if (process_queue.Pop() == kPoisonPill) {
+      if (process_queue.WaitAndPop() == kPoisonPill) {
         EndFromProcessThread();
       }
       // Either we're out of data or something went wrong

@@ -18,50 +18,16 @@
 # cython: language_level = 3
 
 from cpython cimport PyObject
+from cpython.slice cimport PySlice_Check
+
 from libcpp cimport nullptr, bool as c_bool
 from libcpp.cast cimport dynamic_cast
-from libcpp.memory cimport dynamic_pointer_cast
+from libcpp.memory cimport static_pointer_cast, dynamic_pointer_cast
+from libcpp.utility cimport move
+
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
 from pyarrow.includes.libarrow_python cimport *
-
-# Will be available in Cython 3, not backported
-# ref: https://github.com/cython/cython/issues/3293#issuecomment-1223058101
-cdef extern from "<optional>" namespace "std" nogil:
-    cdef cppclass nullopt_t:
-        nullopt_t()
-
-    cdef nullopt_t nullopt
-
-    cdef cppclass optional[T]:
-        ctypedef T value_type
-        optional()
-        optional(nullopt_t)
-        optional(optional&) except +
-        optional(T&) except +
-        c_bool has_value()
-        T& value()
-        T& value_or[U](U& default_value)
-        void swap(optional&)
-        void reset()
-        T& emplace(...)
-        T& operator*()
-        # T* operator->() # Not Supported
-        optional& operator=(optional&)
-        optional& operator=[U](U&)
-        c_bool operator bool()
-        c_bool operator!()
-        c_bool operator==[U](optional&, U&)
-        c_bool operator!=[U](optional&, U&)
-        c_bool operator<[U](optional&, U&)
-        c_bool operator>[U](optional&, U&)
-        c_bool operator<=[U](optional&, U&)
-        c_bool operator>=[U](optional&, U&)
-
-    optional[T] make_optional[T](...) except +
-
-cdef extern from "Python.h":
-    int PySlice_Check(object)
 
 
 cdef int check_status(const CStatus& status) except -1 nogil
@@ -77,9 +43,18 @@ cdef class IpcWriteOptions(_Weakrefable):
         CIpcWriteOptions c_options
 
 
+cdef IpcWriteOptions wrap_ipc_write_options(CIpcWriteOptions c)
+
+
 cdef class IpcReadOptions(_Weakrefable):
     cdef:
         CIpcReadOptions c_options
+
+
+cdef IpcReadOptions wrap_ipc_read_options(CIpcReadOptions c)
+
+
+cdef _wrap_read_stats(CIpcReadStats c)
 
 
 cdef class Message(_Weakrefable):
@@ -185,6 +160,16 @@ cdef class FixedSizeBinaryType(DataType):
         const CFixedSizeBinaryType* fixed_size_binary_type
 
 
+cdef class Decimal32Type(FixedSizeBinaryType):
+    cdef:
+        const CDecimal32Type* decimal32_type
+
+
+cdef class Decimal64Type(FixedSizeBinaryType):
+    cdef:
+        const CDecimal64Type* decimal64_type
+
+
 cdef class Decimal128Type(FixedSizeBinaryType):
     cdef:
         const CDecimal128Type* decimal128_type
@@ -214,9 +199,21 @@ cdef class FixedShapeTensorType(BaseExtensionType):
     cdef:
         const CFixedShapeTensorType* tensor_ext_type
 
+cdef class Bool8Type(BaseExtensionType):
+    cdef:
+        const CBool8Type* bool8_ext_type
 
-cdef class PyExtensionType(ExtensionType):
-    pass
+cdef class OpaqueType(BaseExtensionType):
+    cdef:
+        const COpaqueType* opaque_ext_type
+
+cdef class UuidType(BaseExtensionType):
+    cdef:
+        const CUuidType* uuid_ext_type
+
+cdef class JsonType(BaseExtensionType):
+    cdef:
+        const CJsonType* json_ext_type
 
 
 cdef class _Metadata(_Weakrefable):
@@ -269,6 +266,14 @@ cdef class Scalar(_Weakrefable):
     cdef inline shared_ptr[CScalar] unwrap(self) nogil
 
 
+cdef class ArrayStatistics(_Weakrefable):
+    cdef:
+        shared_ptr[CArrayStatistics] sp_statistics
+
+    cdef void init(self, const shared_ptr[CArrayStatistics]& sp_statistics) except *
+    cdef _get_value(self, const optional[CArrayStatisticsValueType]& optional_value)
+
+
 cdef class _PandasConvertible(_Weakrefable):
     pass
 
@@ -286,6 +291,7 @@ cdef class Array(_PandasConvertible):
     cdef void init(self, const shared_ptr[CArray]& sp_array) except *
     cdef getitem(self, int64_t i)
     cdef int64_t length(self)
+    cdef void _assert_cpu(self) except *
 
 
 cdef class Tensor(_Weakrefable):
@@ -413,6 +419,14 @@ cdef class FixedSizeBinaryArray(Array):
     pass
 
 
+cdef class Decimal32Array(FixedSizeBinaryArray):
+    pass
+
+
+cdef class Decimal64Array(FixedSizeBinaryArray):
+    pass
+
+
 cdef class Decimal128Array(FixedSizeBinaryArray):
     pass
 
@@ -494,6 +508,8 @@ cdef class ChunkedArray(_PandasConvertible):
     cdef:
         shared_ptr[CChunkedArray] sp_chunked_array
         CChunkedArray* chunked_array
+        c_bool _is_cpu
+        c_bool _init_is_cpu
 
     cdef readonly:
         # To allow Table to propagate metadata to pandas.Series
@@ -504,13 +520,15 @@ cdef class ChunkedArray(_PandasConvertible):
 
 
 cdef class _Tabular(_PandasConvertible):
-    pass
+    cdef void _assert_cpu(self) except *
 
 
 cdef class Table(_Tabular):
     cdef:
         shared_ptr[CTable] sp_table
         CTable* table
+        c_bool _is_cpu
+        c_bool _init_is_cpu
 
     cdef void init(self, const shared_ptr[CTable]& table)
 
@@ -533,6 +551,8 @@ cdef class Device(_Weakrefable):
     @staticmethod
     cdef wrap(const shared_ptr[CDevice]& device)
 
+    cdef inline shared_ptr[CDevice] unwrap(self) nogil
+
 
 cdef class MemoryManager(_Weakrefable):
     cdef:
@@ -542,6 +562,8 @@ cdef class MemoryManager(_Weakrefable):
 
     @staticmethod
     cdef wrap(const shared_ptr[CMemoryManager]& mm)
+
+    cdef inline shared_ptr[CMemoryManager] unwrap(self) nogil
 
 
 cdef class Buffer(_Weakrefable):
@@ -653,6 +675,8 @@ cdef shared_ptr[function[StreamWrapFunc]] make_streamwrap_func(
 # Default is allow_none=False
 cpdef DataType ensure_type(object type, bint allow_none=*)
 
+cdef DataType primitive_type(Type type)
+
 cdef timeunit_to_string(TimeUnit unit)
 cdef TimeUnit string_to_timeunit(unit) except *
 
@@ -662,6 +686,8 @@ cdef shared_ptr[const CKeyValueMetadata] pyarrow_unwrap_metadata(
     object meta) except *
 cdef object pyarrow_wrap_metadata(
     const shared_ptr[const CKeyValueMetadata]& meta)
+
+cdef CField.CMergeOptions _parse_field_merge_options(str promote_options) except *
 
 #
 # Public Cython API for 3rd party code

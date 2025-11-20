@@ -28,6 +28,7 @@
 #include "arrow/testing/uniform_real.h"
 #include "arrow/testing/visibility.h"
 #include "arrow/type.h"
+#include "arrow/util/float16.h"
 
 namespace arrow {
 
@@ -198,8 +199,30 @@ class ARROW_TESTING_EXPORT RandomArrayGenerator {
   /// \param[in] memory_pool memory pool to allocate memory from
   ///
   /// \return a generated Array
-  std::shared_ptr<Array> Float16(int64_t size, int16_t min, int16_t max,
+  ///
+  /// \deprecated Deprecated in 22.0.0. Use the other Float16() method that accepts
+  /// nan_probability as a parameter
+  ARROW_DEPRECATED(
+      "Deprecated in 22.0.0. Use the other Float16() method that accepts nan_probability "
+      "as a parameter")
+  std::shared_ptr<Array> Float16(int64_t size, uint16_t min, uint16_t max,
                                  double null_probability = 0,
+                                 int64_t alignment = kDefaultBufferAlignment,
+                                 MemoryPool* memory_pool = default_memory_pool());
+
+  /// \brief Generate a random HalfFloatArray
+  ///
+  /// \param[in] size the size of the array to generate
+  /// \param[in] min the lower bound of the uniform distribution
+  /// \param[in] max the upper bound of the uniform distribution
+  /// \param[in] null_probability the probability of a value being null
+  /// \param[in] nan_probability the probability of a value being NaN
+  /// \param[in] alignment alignment for memory allocations (in bytes)
+  /// \param[in] memory_pool memory pool to allocate memory from
+  ///
+  /// \return a generated Array
+  std::shared_ptr<Array> Float16(int64_t size, util::Float16 min, util::Float16 max,
+                                 double null_probability = 0, double nan_probability = 0,
                                  int64_t alignment = kDefaultBufferAlignment,
                                  MemoryPool* memory_pool = default_memory_pool());
 
@@ -281,8 +304,9 @@ class ARROW_TESTING_EXPORT RandomArrayGenerator {
         return Int64(size, static_cast<int64_t>(min), static_cast<int64_t>(max),
                      null_probability, alignment, memory_pool);
       case Type::HALF_FLOAT:
-        return Float16(size, static_cast<int16_t>(min), static_cast<int16_t>(max),
-                       null_probability, alignment, memory_pool);
+        return Float16(size, util::Float16::FromBits(static_cast<uint16_t>(min)),
+                       util::Float16::FromBits(static_cast<uint16_t>(max)),
+                       null_probability, /*nan_probability=*/0, alignment, memory_pool);
       case Type::FLOAT:
         return Float32(size, static_cast<float>(min), static_cast<float>(max),
                        null_probability, /*nan_probability=*/0, alignment, memory_pool);
@@ -296,6 +320,36 @@ class ARROW_TESTING_EXPORT RandomArrayGenerator {
         return nullptr;
     }
   }
+
+  /// \brief Generate a random Decimal32Array
+  ///
+  /// \param[in] type the type of the array to generate
+  ///            (must be an instance of Decimal32Type)
+  /// \param[in] size the size of the array to generate
+  /// \param[in] null_probability the probability of a value being null
+  /// \param[in] alignment alignment for memory allocations (in bytes)
+  /// \param[in] memory_pool memory pool to allocate memory from
+  ///
+  /// \return a generated Array
+  std::shared_ptr<Array> Decimal32(std::shared_ptr<DataType> type, int64_t size,
+                                   double null_probability = 0,
+                                   int64_t alignment = kDefaultBufferAlignment,
+                                   MemoryPool* memory_pool = default_memory_pool());
+
+  /// \brief Generate a random Decimal64Array
+  ///
+  /// \param[in] type the type of the array to generate
+  ///            (must be an instance of Decimal64Type)
+  /// \param[in] size the size of the array to generate
+  /// \param[in] null_probability the probability of a value being null
+  /// \param[in] alignment alignment for memory allocations (in bytes)
+  /// \param[in] memory_pool memory pool to allocate memory from
+  ///
+  /// \return a generated Array
+  std::shared_ptr<Array> Decimal64(std::shared_ptr<DataType> type, int64_t size,
+                                   double null_probability = 0,
+                                   int64_t alignment = kDefaultBufferAlignment,
+                                   MemoryPool* memory_pool = default_memory_pool());
 
   /// \brief Generate a random Decimal128Array
   ///
@@ -434,12 +488,18 @@ class ARROW_TESTING_EXPORT RandomArrayGenerator {
   /// \param[in] size the size of the array to generate
   /// \param[in] byte_width the byte width of fixed-size binary items
   /// \param[in] null_probability the probability of a value being null
+  /// \param[in] min_byte the lower bound of each byte in the binary determined by the
+  ///            uniform distribution
+  /// \param[in] max_byte the upper bound of each byte in the binary determined by the
+  ///            uniform distribution
   /// \param[in] alignment alignment for memory allocations (in bytes)
   /// \param[in] memory_pool memory pool to allocate memory from
   ///
   /// \return a generated Array
   std::shared_ptr<Array> FixedSizeBinary(int64_t size, int32_t byte_width,
                                          double null_probability = 0,
+                                         uint8_t min_byte = static_cast<uint8_t>('A'),
+                                         uint8_t max_byte = static_cast<uint8_t>('z'),
                                          int64_t alignment = kDefaultBufferAlignment,
                                          MemoryPool* memory_pool = default_memory_pool());
 

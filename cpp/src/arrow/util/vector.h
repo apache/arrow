@@ -31,8 +31,8 @@ namespace internal {
 
 template <typename T>
 std::vector<T> DeleteVectorElement(const std::vector<T>& values, size_t index) {
-  DCHECK(!values.empty());
-  DCHECK_LT(index, values.size());
+  ARROW_DCHECK(!values.empty());
+  ARROW_DCHECK_LT(index, values.size());
   std::vector<T> out;
   out.reserve(values.size() - 1);
   for (size_t i = 0; i < index; ++i) {
@@ -47,7 +47,7 @@ std::vector<T> DeleteVectorElement(const std::vector<T>& values, size_t index) {
 template <typename T>
 std::vector<T> AddVectorElement(const std::vector<T>& values, size_t index,
                                 T new_element) {
-  DCHECK_LE(index, values.size());
+  ARROW_DCHECK_LE(index, values.size());
   std::vector<T> out;
   out.reserve(values.size() + 1);
   for (size_t i = 0; i < index; ++i) {
@@ -63,7 +63,7 @@ std::vector<T> AddVectorElement(const std::vector<T>& values, size_t index,
 template <typename T>
 std::vector<T> ReplaceVectorElement(const std::vector<T>& values, size_t index,
                                     T new_element) {
-  DCHECK_LE(index, values.size());
+  ARROW_DCHECK_LE(index, values.size());
   std::vector<T> out;
   out.reserve(values.size());
   for (size_t i = 0; i < index; ++i) {

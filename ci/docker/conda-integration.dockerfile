@@ -20,11 +20,12 @@ ARG arch=amd64
 FROM ${repo}:${arch}-conda-cpp
 
 ARG arch=amd64
+# We need to synchronize the following values with the values in .env
+# and services.conda-integration in compose.yaml.
 ARG maven=3.8.7
-ARG node=16
+ARG node=20
 ARG yarn=1.22
-ARG jdk=8
-ARG go=1.21.8
+ARG jdk=17
 
 # Install Archery and integration dependencies
 COPY ci/conda_env_archery.txt /arrow/ci/
@@ -36,23 +37,18 @@ RUN mamba install -q -y \
         "python < 3.12" \
         numpy \
         compilers \
+        go \
         maven=${maven} \
         nodejs=${node} \
         yarn=${yarn} \
-        openjdk=${jdk} && \
-    mamba clean --all --force-pkgs-dirs
+        openjdk=${jdk} \
+        zstd && \
+    mamba clean --yes --all --force-pkgs-dirs
 
 # Install Rust with only the needed components
 # (rustfmt is needed for tonic-build to compile the protobuf definitions)
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- --profile=minimal -y && \
-    $HOME/.cargo/bin/rustup toolchain install stable && \
     $HOME/.cargo/bin/rustup component add rustfmt
-
-ENV GOROOT=/opt/go \
-    GOBIN=/opt/go/bin \
-    GOPATH=/go \
-    PATH=/opt/go/bin:$PATH
-RUN wget -nv -O - https://dl.google.com/go/go${go}.linux-${arch}.tar.gz | tar -xzf - -C /opt
 
 ENV DOTNET_ROOT=/opt/dotnet \
     PATH=/opt/dotnet:$PATH

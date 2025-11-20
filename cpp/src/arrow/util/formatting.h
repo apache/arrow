@@ -30,9 +30,8 @@
 #include <utility>
 
 #include "arrow/status.h"
-#include "arrow/type.h"
+#include "arrow/type_fwd.h"
 #include "arrow/type_traits.h"
-#include "arrow/util/double_conversion.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/string.h"
 #include "arrow/util/time.h"
@@ -103,6 +102,18 @@ class DecimalToStringFormatterMixin {
 
  private:
   int32_t scale_;
+};
+
+template <>
+class StringFormatter<Decimal32Type>
+    : public DecimalToStringFormatterMixin<Decimal32Type> {
+  using DecimalToStringFormatterMixin::DecimalToStringFormatterMixin;
+};
+
+template <>
+class StringFormatter<Decimal64Type>
+    : public DecimalToStringFormatterMixin<Decimal64Type> {
+  using DecimalToStringFormatterMixin::DecimalToStringFormatterMixin;
 };
 
 template <>

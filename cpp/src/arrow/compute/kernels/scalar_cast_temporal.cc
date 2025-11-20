@@ -24,6 +24,7 @@
 #include "arrow/compute/kernels/scalar_cast_internal.h"
 #include "arrow/compute/kernels/temporal_internal.h"
 #include "arrow/util/bitmap_reader.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/time.h"
 #include "arrow/util/value_parsing.h"
 
@@ -34,6 +35,8 @@ using internal::ParseYYYY_MM_DD;
 
 namespace compute {
 namespace internal {
+
+namespace {
 
 constexpr int64_t kMillisecondsInDay = 86400000;
 
@@ -140,6 +143,8 @@ Status ExtractTemporal(KernelContext* ctx, const ExecSpan& batch, ExecResult* ou
   }
   return Status::Invalid("Unknown timestamp unit: ", ty);
 }
+
+}  // namespace
 
 // <TimestampType, TimestampType> and <DurationType, DurationType>
 template <typename O, typename I>
@@ -490,6 +495,8 @@ struct CastFunctor<O, I,
   }
 };
 
+namespace {
+
 template <typename Type>
 void AddCrossUnitCast(CastFunction* func) {
   ScalarKernel kernel;
@@ -510,8 +517,11 @@ void AddCrossUnitCastNoPreallocate(CastFunction* func) {
 
 std::shared_ptr<CastFunction> GetDate32Cast() {
   auto func = std::make_shared<CastFunction>("cast_date32", Type::DATE32);
-  auto out_ty = date32();
+  const auto& out_ty = date32();
   AddCommonCasts(Type::DATE32, out_ty, func.get());
+
+  // date32 -> date32
+  AddZeroCopyCast(Type::DATE32, date32(), date32(), func.get());
 
   // int32 -> date32
   AddZeroCopyCast(Type::INT32, int32(), date32(), func.get());
@@ -532,8 +542,11 @@ std::shared_ptr<CastFunction> GetDate32Cast() {
 
 std::shared_ptr<CastFunction> GetDate64Cast() {
   auto func = std::make_shared<CastFunction>("cast_date64", Type::DATE64);
-  auto out_ty = date64();
+  const auto& out_ty = date64();
   AddCommonCasts(Type::DATE64, out_ty, func.get());
+
+  // date64 -> date64
+  AddZeroCopyCast(Type::DATE64, date64(), date64(), func.get());
 
   // int64 -> date64
   AddZeroCopyCast(Type::INT64, int64(), date64(), func.get());
@@ -644,6 +657,8 @@ std::shared_ptr<CastFunction> GetTimestampCast() {
 
   return func;
 }
+
+}  // namespace
 
 std::vector<std::shared_ptr<CastFunction>> GetTemporalCasts() {
   std::vector<std::shared_ptr<CastFunction>> functions;

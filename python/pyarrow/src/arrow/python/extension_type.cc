@@ -22,6 +22,7 @@
 #include "arrow/python/extension_type.h"
 #include "arrow/python/helpers.h"
 #include "arrow/python/pyarrow.h"
+#include "arrow/python/vendored/pythoncapi_compat.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
 
@@ -135,12 +136,12 @@ error:
 }
 
 std::shared_ptr<Array> PyExtensionType::MakeArray(std::shared_ptr<ArrayData> data) const {
-  DCHECK_EQ(data->type->id(), Type::EXTENSION);
+  ARROW_DCHECK_EQ(data->type->id(), Type::EXTENSION);
   return std::make_shared<ExtensionArray>(data);
 }
 
 std::string PyExtensionType::Serialize() const {
-  DCHECK(type_instance_);
+  ARROW_DCHECK(type_instance_);
   return serialized_;
 }
 
@@ -163,16 +164,19 @@ PyObject* PyExtensionType::GetInstance() const {
     PyErr_SetString(PyExc_TypeError, "Not an instance");
     return nullptr;
   }
-  DCHECK(PyWeakref_CheckRef(type_instance_.obj()));
-  PyObject* inst = PyWeakref_GET_OBJECT(type_instance_.obj());
-  if (inst != Py_None) {
-    // Cached instance still alive
-    Py_INCREF(inst);
+  ARROW_DCHECK(PyWeakref_CheckRef(type_instance_.obj()));
+  PyObject* inst = NULL;
+  int result = PyWeakref_GetRef(type_instance_.obj(), &inst);
+  if (result == 1) {
+    // Alive: inst is a new strong reference
     return inst;
-  } else {
-    // Must reconstruct from serialized form
+  } else if (result == 0) {
+    // Weakref is dead, must reconstruct from serialized form
     // XXX cache again?
     return DeserializeExtInstance(type_class_.obj(), storage_type_, serialized_);
+  } else {
+    // -1 = exception
+    return nullptr;
   }
 }
 
@@ -202,7 +206,7 @@ Status PyExtensionType::FromClass(const std::shared_ptr<DataType> storage_type,
 }
 
 Status RegisterPyExtensionType(const std::shared_ptr<DataType>& type) {
-  DCHECK_EQ(type->id(), Type::EXTENSION);
+  ARROW_DCHECK_EQ(type->id(), Type::EXTENSION);
   auto ext_type = std::dynamic_pointer_cast<ExtensionType>(type);
   return RegisterExtensionType(ext_type);
 }

@@ -33,6 +33,34 @@ namespace arrow {
 using internal::checked_cast;
 
 // ----------------------------------------------------------------------
+// Decimal32
+
+Decimal32Array::Decimal32Array(const std::shared_ptr<ArrayData>& data)
+    : FixedSizeBinaryArray(data) {
+  ARROW_CHECK_EQ(data->type->id(), Type::DECIMAL32);
+}
+
+std::string Decimal32Array::FormatValue(int64_t i) const {
+  const auto& type_ = checked_cast<const Decimal32Type&>(*type());
+  const Decimal32 value(GetValue(i));
+  return value.ToString(type_.scale());
+}
+
+// ----------------------------------------------------------------------
+// Decimal64
+
+Decimal64Array::Decimal64Array(const std::shared_ptr<ArrayData>& data)
+    : FixedSizeBinaryArray(data) {
+  ARROW_CHECK_EQ(data->type->id(), Type::DECIMAL64);
+}
+
+std::string Decimal64Array::FormatValue(int64_t i) const {
+  const auto& type_ = checked_cast<const Decimal64Type&>(*type());
+  const Decimal64 value(GetValue(i));
+  return value.ToString(type_.scale());
+}
+
+// ----------------------------------------------------------------------
 // Decimal128
 
 Decimal128Array::Decimal128Array(const std::shared_ptr<ArrayData>& data)

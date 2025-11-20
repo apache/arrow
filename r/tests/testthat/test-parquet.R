@@ -42,10 +42,10 @@ test_that("simple int column roundtrip", {
 test_that("read_parquet() supports col_select", {
   skip_if_not_available("snappy")
   df <- read_parquet(pq_file, col_select = c(x, y, z))
-  expect_equal(names(df), c("x", "y", "z"))
+  expect_named(df, c("x", "y", "z"))
 
   df <- read_parquet(pq_file, col_select = starts_with("c"))
-  expect_equal(names(df), c("carat", "cut", "color", "clarity"))
+  expect_named(df, c("carat", "cut", "color", "clarity"))
 })
 
 test_that("read_parquet() with raw data", {
@@ -106,7 +106,7 @@ test_that("write_parquet() accepts RecordBatch too", {
 
 test_that("write_parquet() handles grouped_df", {
   library(dplyr, warn.conflicts = FALSE)
-  df <- tibble::tibble(a = 1:4, b = 5) %>% group_by(b)
+  df <- tibble::tibble(a = 1:4, b = 5) |> group_by(b)
   # Since `df` is a "grouped_df", this test asserts that we get a grouped_df back
   expect_parquet_roundtrip(df, as_data_frame = TRUE)
 })
@@ -134,12 +134,6 @@ test_that("make_valid_parquet_version()", {
     make_valid_parquet_version("1.0"),
     ParquetVersionType$PARQUET_1_0
   )
-  expect_deprecated(
-    expect_equal(
-      make_valid_parquet_version("2.0"),
-      ParquetVersionType$PARQUET_2_0
-    )
-  )
   expect_equal(
     make_valid_parquet_version("2.4"),
     ParquetVersionType$PARQUET_2_4
@@ -154,9 +148,6 @@ test_that("make_valid_parquet_version()", {
   )
 
   expect_equal(make_valid_parquet_version(1), ParquetVersionType$PARQUET_1_0)
-  expect_deprecated(
-    expect_equal(make_valid_parquet_version(2), ParquetVersionType$PARQUET_2_0)
-  )
   expect_equal(make_valid_parquet_version(1.0), ParquetVersionType$PARQUET_1_0)
   expect_equal(make_valid_parquet_version(2.4), ParquetVersionType$PARQUET_2_4)
 })
@@ -231,7 +222,8 @@ test_that("Lists are preserved when writing/reading from Parquet", {
 })
 
 test_that("Maps are preserved when writing/reading from Parquet", {
-  string_bool <- Array$create(list(data.frame(key = c("a", "b"), value = c(TRUE, FALSE), stringsAsFactors = FALSE)),
+  string_bool <- Array$create(
+    list(data.frame(key = c("a", "b"), value = c(TRUE, FALSE), stringsAsFactors = FALSE)),
     type = map_of(utf8(), boolean())
   )
   int_struct <- Array$create(
@@ -455,7 +447,7 @@ test_that("deprecated int96 timestamp unit can be specified when reading Parquet
   )
 
   expect_identical(result$some_datetime$type$unit(), TimeUnit$MILLI)
-  expect_true(result$some_datetime == table$some_datetime)
+  expect_equal(result$some_datetime, table$some_datetime$cast(result$some_datetime$type))
 })
 
 test_that("Can read parquet with nested lists and maps", {
@@ -492,7 +484,6 @@ test_that("Can read Parquet files from a URL", {
 })
 
 test_that("thrift string and container size can be specified when reading Parquet files", {
-
   tf <- tempfile()
   on.exit(unlink(tf))
   table <- arrow_table(example_data)
@@ -529,4 +520,32 @@ test_that("thrift string and container size can be specified when reading Parque
   reader_container <- ParquetFileReader$create(file, reader_props = reader_props_container)
   data <- reader_container$ReadTable()
   expect_identical(collect.ArrowTabular(data), example_data)
+})
+
+test_that("We can use WriteBatch on ParquetFileWriter", {
+  tf <- tempfile()
+  on.exit(unlink(tf))
+  sink <- FileOutputStream$create(tf)
+  sch <- schema(a = int32())
+  props <- ParquetWriterProperties$create(column_names = names(sch))
+  writer <- ParquetFileWriter$create(schema = sch, sink = sink, properties = props)
+
+  batch <- RecordBatch$create(data.frame(a = 1:10))
+  writer$WriteBatch(batch, chunk_size = 10)
+  writer$WriteBatch(batch, chunk_size = 10)
+  writer$WriteBatch(batch, chunk_size = 10)
+  writer$Close()
+
+  tbl <- read_parquet(tf)
+  expect_equal(nrow(tbl), 30)
+})
+
+test_that("WriteBatch on ParquetFileWriter errors when called on closed sink", {
+  sink <- FileOutputStream$create(tempfile())
+  sch <- schema(a = int32())
+  props <- ParquetWriterProperties$create(column_names = names(sch))
+  writer <- ParquetFileWriter$create(schema = sch, sink = sink, properties = props)
+  writer$Close()
+  batch <- RecordBatch$create(data.frame(a = 1:10))
+  expect_error(writer$WriteBatch(batch, chunk_size = 10), "Operation on closed file")
 })

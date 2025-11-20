@@ -29,7 +29,7 @@
 #include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/util/checked_cast.h"
-#include "arrow/util/sort.h"
+#include "arrow/util/sort_internal.h"
 #include "arrow/visit_type_inline.h"
 
 namespace arrow {

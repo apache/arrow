@@ -110,12 +110,12 @@ the buffer is garbage-collected, all of the memory is freed:
    pa.total_allocated_bytes()
 
 Besides the default built-in memory pool, there may be additional memory pools
-to choose (such as `mimalloc <https://github.com/microsoft/mimalloc>`_)
-from depending on how Arrow was built.  One can get the backend
-name for a memory pool::
+to choose from (such as `jemalloc <http://jemalloc.net/>`_)
+depending on how Arrow was built.  One can get the backend name for a memory
+pool::
 
    >>> pa.default_memory_pool().backend_name
-   'jemalloc'
+   'mimalloc'
 
 .. seealso::
    :ref:`API documentation for memory pools <api.memory_pool>`.

@@ -15,8 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
-class RawRecordsTableTest < Test::Unit::TestCase
-  test("2 arrays") do
+module RawRecordsTableTests
+  def test_2_arrays
     raw_record_batches = [
       [
         [true, nil, "Ruby"],
@@ -42,6 +42,22 @@ class RawRecordsTableTest < Test::Unit::TestCase
       Arrow::RecordBatch.new(schema, record_batch)
     end
     table = Arrow::Table.new(schema, record_batches)
-    assert_equal(raw_records, table.raw_records)
+    assert_equal(raw_records, actual_records(table))
+  end
+end
+
+class EachRawRecordTableTest < Test::Unit::TestCase
+  include RawRecordsTableTests
+
+  def actual_records(target)
+    target.each_raw_record.to_a
+  end
+end
+
+class RawRecordsTableTest < Test::Unit::TestCase
+  include RawRecordsTableTests
+
+  def actual_records(target)
+    target.raw_records
   end
 end

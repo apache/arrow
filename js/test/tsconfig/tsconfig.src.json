@@ -1,8 +1,0 @@
-// TypeScript configuration for the source target's tests
-{
-  "extends": "./tsconfig.base.json",
-  "compilerOptions": {
-    "target": "ESNext",
-    "module": "NodeNext"
-  }
-}

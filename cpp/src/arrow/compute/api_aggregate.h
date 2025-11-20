@@ -48,7 +48,7 @@ class ExecContext;
 class ARROW_EXPORT ScalarAggregateOptions : public FunctionOptions {
  public:
   explicit ScalarAggregateOptions(bool skip_nulls = true, uint32_t min_count = 1);
-  static constexpr char const kTypeName[] = "ScalarAggregateOptions";
+  static constexpr const char kTypeName[] = "ScalarAggregateOptions";
   static ScalarAggregateOptions Defaults() { return ScalarAggregateOptions{}; }
 
   /// If true (the default), null values are ignored. Otherwise, if any value is null,
@@ -72,7 +72,7 @@ class ARROW_EXPORT CountOptions : public FunctionOptions {
     ALL,
   };
   explicit CountOptions(CountMode mode = CountMode::ONLY_VALID);
-  static constexpr char const kTypeName[] = "CountOptions";
+  static constexpr const char kTypeName[] = "CountOptions";
   static CountOptions Defaults() { return CountOptions{}; }
 
   CountMode mode;
@@ -85,7 +85,7 @@ class ARROW_EXPORT CountOptions : public FunctionOptions {
 class ARROW_EXPORT ModeOptions : public FunctionOptions {
  public:
   explicit ModeOptions(int64_t n = 1, bool skip_nulls = true, uint32_t min_count = 0);
-  static constexpr char const kTypeName[] = "ModeOptions";
+  static constexpr const char kTypeName[] = "ModeOptions";
   static ModeOptions Defaults() { return ModeOptions{}; }
 
   int64_t n = 1;
@@ -103,13 +103,32 @@ class ARROW_EXPORT ModeOptions : public FunctionOptions {
 class ARROW_EXPORT VarianceOptions : public FunctionOptions {
  public:
   explicit VarianceOptions(int ddof = 0, bool skip_nulls = true, uint32_t min_count = 0);
-  static constexpr char const kTypeName[] = "VarianceOptions";
+  static constexpr const char kTypeName[] = "VarianceOptions";
   static VarianceOptions Defaults() { return VarianceOptions{}; }
 
   int ddof = 0;
   /// If true (the default), null values are ignored. Otherwise, if any value is null,
   /// emit null.
   bool skip_nulls;
+  /// If less than this many non-null values are observed, emit null.
+  uint32_t min_count;
+};
+
+/// \brief Control Skew and Kurtosis kernel behavior
+class ARROW_EXPORT SkewOptions : public FunctionOptions {
+ public:
+  explicit SkewOptions(bool skip_nulls = true, bool biased = true,
+                       uint32_t min_count = 0);
+  static constexpr const char kTypeName[] = "SkewOptions";
+  static SkewOptions Defaults() { return SkewOptions{}; }
+
+  /// If true (the default), null values are ignored. Otherwise, if any value is null,
+  /// emit null.
+  bool skip_nulls;
+  /// If true (the default), the calculated value is biased. If false, the calculated
+  /// value includes a correction factor to reduce bias, making it more accurate for
+  /// small sample sizes.
+  bool biased;
   /// If less than this many non-null values are observed, emit null.
   uint32_t min_count;
 };
@@ -135,7 +154,7 @@ class ARROW_EXPORT QuantileOptions : public FunctionOptions {
                            enum Interpolation interpolation = LINEAR,
                            bool skip_nulls = true, uint32_t min_count = 0);
 
-  static constexpr char const kTypeName[] = "QuantileOptions";
+  static constexpr const char kTypeName[] = "QuantileOptions";
   static QuantileOptions Defaults() { return QuantileOptions{}; }
 
   /// probability level of quantile must be between 0 and 1 inclusive
@@ -159,7 +178,7 @@ class ARROW_EXPORT TDigestOptions : public FunctionOptions {
   explicit TDigestOptions(std::vector<double> q, uint32_t delta = 100,
                           uint32_t buffer_size = 500, bool skip_nulls = true,
                           uint32_t min_count = 0);
-  static constexpr char const kTypeName[] = "TDigestOptions";
+  static constexpr const char kTypeName[] = "TDigestOptions";
   static TDigestOptions Defaults() { return TDigestOptions{}; }
 
   /// probability level of quantile must be between 0 and 1 inclusive
@@ -175,13 +194,96 @@ class ARROW_EXPORT TDigestOptions : public FunctionOptions {
   uint32_t min_count;
 };
 
+/// \brief Control Pivot kernel behavior
+///
+/// These options apply to the "pivot_wider" and "hash_pivot_wider" functions.
+///
+/// Constraints:
+/// - The corresponding `Aggregate::target` must have two FieldRef elements;
+///   the first one points to the pivot key column, the second points to the
+///   pivoted data column.
+/// - The pivot key column can be string, binary or integer; its values will be
+///   matched against `key_names` in order to dispatch the pivoted data into
+///   the output. If the pivot key column is not string-like, the `key_names`
+///   will be cast to the pivot key type.
+///
+/// "pivot_wider" example
+/// ---------------------
+///
+/// Assuming the following two input columns with types utf8 and int16 (respectively):
+/// ```
+/// width   |  11
+/// height  |  13
+/// ```
+/// and the options `PivotWiderOptions(.key_names = {"height", "width"})`
+///
+/// then the output will be a scalar with the type
+/// `struct{"height": int16, "width": int16}`
+/// and the value `{"height": 13, "width": 11}`.
+///
+/// "hash_pivot_wider" example
+/// --------------------------
+///
+/// Assuming the following input with schema
+/// `{"group": int32, "key": utf8, "value": int16}`:
+/// ```
+///  group |  key     |  value
+/// -----------------------------
+///   1    |  height  |    11
+///   1    |  width   |    12
+///   2    |  width   |    13
+///   3    |  height  |    14
+///   3    |  depth   |    15
+/// ```
+/// and the following settings:
+/// - a hash grouping key "group"
+/// - Aggregate(
+///     .function = "hash_pivot_wider",
+///     .options = PivotWiderOptions(.key_names = {"height", "width"}),
+///     .target = {"key", "value"},
+///     .name = {"properties"})
+///
+/// then the output will have the schema
+/// `{"group": int32, "properties": struct{"height": int16, "width": int16}}`
+/// and the following value:
+/// ```
+///  group |     properties
+///        |  height  |   width
+/// -----------------------------
+///   1    |   11     |    12
+///   2    |   null   |    13
+///   3    |   14     |    null
+/// ```
+class ARROW_EXPORT PivotWiderOptions : public FunctionOptions {
+ public:
+  /// Configure the behavior of pivot keys not in `key_names`
+  enum UnexpectedKeyBehavior {
+    /// Unexpected pivot keys are ignored silently
+    kIgnore,
+    /// Unexpected pivot keys return a KeyError
+    kRaise
+  };
+
+  explicit PivotWiderOptions(std::vector<std::string> key_names,
+                             UnexpectedKeyBehavior unexpected_key_behavior = kIgnore);
+  // Default constructor for serialization
+  PivotWiderOptions();
+  static constexpr const char kTypeName[] = "PivotWiderOptions";
+  static PivotWiderOptions Defaults() { return PivotWiderOptions{}; }
+
+  /// The values expected in the pivot key column
+  std::vector<std::string> key_names;
+  /// The behavior when pivot keys not in `key_names` are encountered
+  UnexpectedKeyBehavior unexpected_key_behavior = kIgnore;
+};
+
 /// \brief Control Index kernel behavior
 class ARROW_EXPORT IndexOptions : public FunctionOptions {
  public:
   explicit IndexOptions(std::shared_ptr<Scalar> value);
   // Default constructor for serialization
   IndexOptions();
-  static constexpr char const kTypeName[] = "IndexOptions";
+  static constexpr const char kTypeName[] = "IndexOptions";
 
   std::shared_ptr<Scalar> value;
 };
@@ -419,6 +521,34 @@ Result<Datum> Stddev(const Datum& value,
 ARROW_EXPORT
 Result<Datum> Variance(const Datum& value,
                        const VarianceOptions& options = VarianceOptions::Defaults(),
+                       ExecContext* ctx = NULLPTR);
+
+/// \brief Calculate the skewness of a numeric array
+///
+/// \param[in] value input datum, expecting Array or ChunkedArray
+/// \param[in] options see SkewOptions for more information
+/// \param[in] ctx the function execution context, optional
+/// \return datum of the computed skewness as a DoubleScalar
+///
+/// \since 20.0.0
+/// \note API not yet finalized
+ARROW_EXPORT
+Result<Datum> Skew(const Datum& value,
+                   const SkewOptions& options = SkewOptions::Defaults(),
+                   ExecContext* ctx = NULLPTR);
+
+/// \brief Calculate the kurtosis of a numeric array
+///
+/// \param[in] value input datum, expecting Array or ChunkedArray
+/// \param[in] options see SkewOptions for more information
+/// \param[in] ctx the function execution context, optional
+/// \return datum of the computed kurtosis as a DoubleScalar
+///
+/// \since 20.0.0
+/// \note API not yet finalized
+ARROW_EXPORT
+Result<Datum> Kurtosis(const Datum& value,
+                       const SkewOptions& options = SkewOptions::Defaults(),
                        ExecContext* ctx = NULLPTR);
 
 /// \brief Calculate the quantiles of a numeric array

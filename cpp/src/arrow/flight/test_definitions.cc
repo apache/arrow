@@ -27,6 +27,7 @@
 #include "arrow/array/util.h"
 #include "arrow/flight/api.h"
 #include "arrow/flight/client_middleware.h"
+#include "arrow/flight/test_flight_server.h"
 #include "arrow/flight/test_util.h"
 #include "arrow/flight/types.h"
 #include "arrow/flight/types_async.h"
@@ -41,7 +42,7 @@
 #include "gmock/gmock.h"
 
 #if defined(ARROW_CUDA)
-#include "arrow/gpu/cuda_api.h"
+#  include "arrow/gpu/cuda_api.h"
 #endif
 
 namespace arrow {
@@ -53,7 +54,7 @@ using arrow::internal::checked_cast;
 // Tests of initialization/shutdown
 
 void ConnectivityTest::TestGetPort() {
-  std::unique_ptr<FlightServerBase> server = ExampleTestServer();
+  std::unique_ptr<FlightServerBase> server = TestFlightServer::Make();
 
   ASSERT_OK_AND_ASSIGN(auto location, Location::ForScheme(transport(), "127.0.0.1", 0));
   FlightServerOptions options(location);
@@ -61,7 +62,7 @@ void ConnectivityTest::TestGetPort() {
   ASSERT_GT(server->port(), 0);
 }
 void ConnectivityTest::TestBuilderHook() {
-  std::unique_ptr<FlightServerBase> server = ExampleTestServer();
+  std::unique_ptr<FlightServerBase> server = TestFlightServer::Make();
 
   ASSERT_OK_AND_ASSIGN(auto location, Location::ForScheme(transport(), "127.0.0.1", 0));
   FlightServerOptions options(location);
@@ -80,7 +81,7 @@ void ConnectivityTest::TestShutdown() {
   constexpr int kIterations = 10;
   ASSERT_OK_AND_ASSIGN(auto location, Location::ForScheme(transport(), "127.0.0.1", 0));
   for (int i = 0; i < kIterations; i++) {
-    std::unique_ptr<FlightServerBase> server = ExampleTestServer();
+    std::unique_ptr<FlightServerBase> server = TestFlightServer::Make();
 
     FlightServerOptions options(location);
     ASSERT_OK(server->Init(options));
@@ -92,7 +93,7 @@ void ConnectivityTest::TestShutdown() {
   }
 }
 void ConnectivityTest::TestShutdownWithDeadline() {
-  std::unique_ptr<FlightServerBase> server = ExampleTestServer();
+  std::unique_ptr<FlightServerBase> server = TestFlightServer::Make();
 
   ASSERT_OK_AND_ASSIGN(auto location, Location::ForScheme(transport(), "127.0.0.1", 0));
   FlightServerOptions options(location);
@@ -105,7 +106,7 @@ void ConnectivityTest::TestShutdownWithDeadline() {
   ASSERT_OK(server->Wait());
 }
 void ConnectivityTest::TestBrokenConnection() {
-  std::unique_ptr<FlightServerBase> server = ExampleTestServer();
+  std::unique_ptr<FlightServerBase> server = TestFlightServer::Make();
   ASSERT_OK_AND_ASSIGN(auto location, Location::ForScheme(transport(), "127.0.0.1", 0));
   FlightServerOptions options(location);
   ASSERT_OK(server->Init(options));
@@ -151,7 +152,7 @@ class GetFlightInfoListener : public AsyncListener<FlightInfo> {
 }  // namespace
 
 void DataTest::SetUpTest() {
-  server_ = ExampleTestServer();
+  server_ = TestFlightServer::Make();
 
   ASSERT_OK_AND_ASSIGN(auto location, Location::ForScheme(transport(), "127.0.0.1", 0));
   FlightServerOptions options(location);
@@ -1193,6 +1194,8 @@ void IpcOptionsTest::TestDoExchangeServerWriteOptions() {
 
 #if defined(ARROW_CUDA)
 
+namespace {
+
 Status CheckBuffersOnDevice(const Array& array, const Device& device) {
   if (array.num_fields() != 0) {
     return Status::NotImplemented("Nested arrays");
@@ -1282,6 +1285,8 @@ class CudaTestServer : public FlightServerBase {
   std::shared_ptr<Device> device_;
   std::shared_ptr<cuda::CudaContext> context_;
 };
+
+}  // namespace
 
 // Store CUDA objects without exposing them in the public header
 class CudaDataTest::Impl {
@@ -1749,7 +1754,7 @@ void ErrorHandlingTest::TestGetFlightInfoMetadata() {
                             }));
 }
 
-void CheckErrorDetail(const Status& status) {
+static void CheckErrorDetail(const Status& status) {
   auto detail = FlightStatusDetail::UnwrapStatus(status);
   ASSERT_NE(detail, nullptr) << status.ToString();
   ASSERT_EQ(detail->code(), FlightStatusCode::Unauthorized);
@@ -1822,7 +1827,7 @@ void AsyncClientTest::SetUpTest() {
 
   ASSERT_OK_AND_ASSIGN(auto location, Location::ForScheme(transport(), "127.0.0.1", 0));
 
-  server_ = ExampleTestServer();
+  server_ = TestFlightServer::Make();
   FlightServerOptions server_options(location);
   ASSERT_OK(server_->Init(server_options));
 

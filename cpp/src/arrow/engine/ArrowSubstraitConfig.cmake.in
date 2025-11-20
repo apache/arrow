@@ -27,10 +27,10 @@
 @PACKAGE_INIT@
 
 include(CMakeFindDependencyMacro)
-find_dependency(Arrow)
-find_dependency(ArrowAcero)
-find_dependency(ArrowDataset)
-find_dependency(Parquet)
+find_dependency(Arrow CONFIG)
+find_dependency(ArrowAcero CONFIG)
+find_dependency(ArrowDataset CONFIG)
+find_dependency(Parquet CONFIG)
 
 include("${CMAKE_CURRENT_LIST_DIR}/ArrowSubstraitTargets.cmake")
 

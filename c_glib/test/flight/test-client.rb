@@ -22,6 +22,7 @@ class TestFlightClient < Test::Unit::TestCase
     @server = nil
     omit("Arrow Flight is required") unless defined?(ArrowFlight)
     omit("Unstable on Windows") if Gem.win_platform?
+    omit("Unstable on x86_64 macOS") if /x86_64-darwin/.match?(RUBY_PLATFORM)
     require_gi_bindings(3, 4, 7)
     @server = Helper::FlightServer.new
     host = "127.0.0.1"
@@ -81,6 +82,39 @@ class TestFlightClient < Test::Unit::TestCase
       client = ArrowFlight::Client.new(@location)
       assert_raise(Arrow::Error::Invalid) do
         client.do_get(ArrowFlight::Ticket.new("invalid"))
+      end
+    end
+  end
+
+  sub_test_case("#do_put") do
+    def test_success
+      client = ArrowFlight::Client.new(@location)
+      generator = Helper::FlightInfoGenerator.new
+      descriptor = generator.page_view_descriptor
+      table = generator.page_view_table
+      result = client.do_put(descriptor, table.schema)
+      writer = result.writer
+      writer.write_table(table)
+      writer.done_writing
+      reader = result.reader
+      metadata = reader.read
+      writer.close
+      assert_equal(["done", table],
+                   [metadata.data.to_s, @server.uploaded_table])
+    end
+
+    def test_error
+      client = ArrowFlight::Client.new(@location)
+      generator = Helper::FlightInfoGenerator.new
+      descriptor = generator.page_view_descriptor
+      table = generator.page_view_table
+      result = client.do_put(descriptor, table.schema)
+      assert_raise(Arrow::Error::Invalid) do
+        writer = result.writer
+        writer.done_writing
+        reader = result.reader
+        reader.read
+        writer.close
       end
     end
   end

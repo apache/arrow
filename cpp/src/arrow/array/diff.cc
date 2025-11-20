@@ -43,7 +43,8 @@
 #include "arrow/type_traits.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/checked_cast.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/float16.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/range.h"
 #include "arrow/util/ree_util.h"
 #include "arrow/util/string.h"
@@ -56,6 +57,8 @@ namespace arrow {
 using internal::checked_cast;
 using internal::checked_pointer_cast;
 using internal::MakeLazyRange;
+
+namespace {
 
 template <typename ArrayType>
 auto GetView(const ArrayType& array, int64_t index) -> decltype(array.GetView(index)) {
@@ -92,11 +95,11 @@ struct UnitSlice {
 
 // FIXME(bkietz) this is inefficient;
 // StructArray's fields can be diffed independently then merged
-static UnitSlice GetView(const StructArray& array, int64_t index) {
+UnitSlice GetView(const StructArray& array, int64_t index) {
   return UnitSlice{&array, index};
 }
 
-static UnitSlice GetView(const UnionArray& array, int64_t index) {
+UnitSlice GetView(const UnionArray& array, int64_t index) {
   return UnitSlice{&array, index};
 }
 
@@ -582,28 +585,6 @@ Result<std::shared_ptr<StructArray>> NullDiff(const Array& base, const Array& ta
                            {field("insert", boolean()), field("run_length", int64())});
 }
 
-Result<std::shared_ptr<StructArray>> Diff(const Array& base, const Array& target,
-                                          MemoryPool* pool) {
-  if (!base.type()->Equals(target.type())) {
-    return Status::TypeError("only taking the diff of like-typed arrays is supported.");
-  }
-
-  if (base.type()->id() == Type::NA) {
-    return NullDiff(base, target, pool);
-  } else if (base.type()->id() == Type::EXTENSION) {
-    auto base_storage = checked_cast<const ExtensionArray&>(base).storage();
-    auto target_storage = checked_cast<const ExtensionArray&>(target).storage();
-    return Diff(*base_storage, *target_storage, pool);
-  } else if (base.type()->id() == Type::DICTIONARY) {
-    return Status::NotImplemented("diffing arrays of type ", *base.type());
-  } else if (base.type()->id() == Type::LIST_VIEW ||
-             base.type()->id() == Type::LARGE_LIST_VIEW) {
-    return Status::NotImplemented("diffing arrays of type ", *base.type());
-  } else {
-    return QuadraticSpaceMyersDiff(base, target, pool).Diff();
-  }
-}
-
 using Formatter = std::function<void(const Array&, int64_t index, std::ostream*)>;
 
 static Result<Formatter> MakeFormatter(const DataType& type);
@@ -615,14 +596,18 @@ class MakeFormatterImpl {
     return std::move(impl_);
   }
 
- private:
-  template <typename VISITOR, typename... ARGS>
-  friend Status VisitTypeInline(const DataType&, VISITOR*, ARGS&&... args);
-
   // factory implementation
   Status Visit(const BooleanType&) {
     impl_ = [](const Array& array, int64_t index, std::ostream* os) {
       *os << (checked_cast<const BooleanArray&>(array).Value(index) ? "true" : "false");
+    };
+    return Status::OK();
+  }
+
+  Status Visit(const HalfFloatType&) {
+    impl_ = [](const Array& array, int64_t index, std::ostream* os) {
+      const auto& float16_arr = checked_cast<const HalfFloatArray&>(array);
+      *os << arrow::util::Float16::FromBits(float16_arr.Value(index));
     };
     return Status::OK();
   }
@@ -707,11 +692,9 @@ class MakeFormatterImpl {
   template <typename T>
   enable_if_decimal<T, Status> Visit(const T&) {
     impl_ = [](const Array& array, int64_t index, std::ostream* os) {
-      if constexpr (T::type_id == Type::DECIMAL128) {
-        *os << checked_cast<const Decimal128Array&>(array).FormatValue(index);
-      } else {
-        *os << checked_cast<const Decimal256Array&>(array).FormatValue(index);
-      }
+      const auto& decimal_array =
+          checked_cast<const typename TypeTraits<T>::ArrayType&>(array);
+      *os << decimal_array.FormatValue(index);
     };
     return Status::OK();
   }
@@ -915,46 +898,8 @@ class MakeFormatterImpl {
   Formatter impl_;
 };
 
-static Result<Formatter> MakeFormatter(const DataType& type) {
+Result<Formatter> MakeFormatter(const DataType& type) {
   return MakeFormatterImpl{}.Make(type);
-}
-
-Status VisitEditScript(
-    const Array& edits,
-    const std::function<Status(int64_t delete_begin, int64_t delete_end,
-                               int64_t insert_begin, int64_t insert_end)>& visitor) {
-  static const auto edits_type =
-      struct_({field("insert", boolean()), field("run_length", int64())});
-  DCHECK(edits.type()->Equals(*edits_type));
-  DCHECK_GE(edits.length(), 1);
-
-  auto insert = checked_pointer_cast<BooleanArray>(
-      checked_cast<const StructArray&>(edits).field(0));
-  auto run_lengths =
-      checked_pointer_cast<Int64Array>(checked_cast<const StructArray&>(edits).field(1));
-
-  DCHECK(!insert->Value(0));
-
-  auto length = run_lengths->Value(0);
-  int64_t base_begin, base_end, target_begin, target_end;
-  base_begin = base_end = target_begin = target_end = length;
-  for (int64_t i = 1; i < edits.length(); ++i) {
-    if (insert->Value(i)) {
-      ++target_end;
-    } else {
-      ++base_end;
-    }
-    length = run_lengths->Value(i);
-    if (length != 0) {
-      RETURN_NOT_OK(visitor(base_begin, base_end, target_begin, target_end));
-      base_begin = base_end = base_end + length;
-      target_begin = target_end = target_end + length;
-    }
-  }
-  if (length == 0) {
-    return visitor(base_begin, base_end, target_begin, target_end);
-  }
-  return Status::OK();
 }
 
 class UnifiedDiffFormatter {
@@ -1006,6 +951,8 @@ class UnifiedDiffFormatter {
   Formatter formatter_;
 };
 
+}  // namespace
+
 Result<std::function<Status(const Array& edits, const Array& base, const Array& target)>>
 MakeUnifiedDiffFormatter(const DataType& type, std::ostream* os) {
   if (type.id() == Type::NA) {
@@ -1021,6 +968,66 @@ MakeUnifiedDiffFormatter(const DataType& type, std::ostream* os) {
 
   ARROW_ASSIGN_OR_RAISE(auto formatter, MakeFormatter(type));
   return UnifiedDiffFormatter(os, std::move(formatter));
+}
+
+Status VisitEditScript(
+    const Array& edits,
+    const std::function<Status(int64_t delete_begin, int64_t delete_end,
+                               int64_t insert_begin, int64_t insert_end)>& visitor) {
+  static const auto edits_type =
+      struct_({field("insert", boolean()), field("run_length", int64())});
+  DCHECK(edits.type()->Equals(*edits_type));
+  DCHECK_GE(edits.length(), 1);
+
+  auto insert = checked_pointer_cast<BooleanArray>(
+      checked_cast<const StructArray&>(edits).field(0));
+  auto run_lengths =
+      checked_pointer_cast<Int64Array>(checked_cast<const StructArray&>(edits).field(1));
+
+  DCHECK(!insert->Value(0));
+
+  auto length = run_lengths->Value(0);
+  int64_t base_begin, base_end, target_begin, target_end;
+  base_begin = base_end = target_begin = target_end = length;
+  for (int64_t i = 1; i < edits.length(); ++i) {
+    if (insert->Value(i)) {
+      ++target_end;
+    } else {
+      ++base_end;
+    }
+    length = run_lengths->Value(i);
+    if (length != 0) {
+      RETURN_NOT_OK(visitor(base_begin, base_end, target_begin, target_end));
+      base_begin = base_end = base_end + length;
+      target_begin = target_end = target_end + length;
+    }
+  }
+  if (length == 0) {
+    return visitor(base_begin, base_end, target_begin, target_end);
+  }
+  return Status::OK();
+}
+
+Result<std::shared_ptr<StructArray>> Diff(const Array& base, const Array& target,
+                                          MemoryPool* pool) {
+  if (!base.type()->Equals(target.type())) {
+    return Status::TypeError("only taking the diff of like-typed arrays is supported.");
+  }
+
+  if (base.type()->id() == Type::NA) {
+    return NullDiff(base, target, pool);
+  } else if (base.type()->id() == Type::EXTENSION) {
+    auto base_storage = checked_cast<const ExtensionArray&>(base).storage();
+    auto target_storage = checked_cast<const ExtensionArray&>(target).storage();
+    return Diff(*base_storage, *target_storage, pool);
+  } else if (base.type()->id() == Type::DICTIONARY) {
+    return Status::NotImplemented("diffing arrays of type ", *base.type());
+  } else if (base.type()->id() == Type::LIST_VIEW ||
+             base.type()->id() == Type::LARGE_LIST_VIEW) {
+    return Status::NotImplemented("diffing arrays of type ", *base.type());
+  } else {
+    return QuadraticSpaceMyersDiff(base, target, pool).Diff();
+  }
 }
 
 }  // namespace arrow

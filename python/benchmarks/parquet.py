@@ -15,7 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-from pandas.util.testing import rands
 import numpy as np
 
 import pyarrow as pa
@@ -23,6 +22,7 @@ try:
     import pyarrow.parquet as pq
 except ImportError:
     pq = None
+from pyarrow.tests.util import rands
 
 
 class ParquetWriteBinary(object):
@@ -37,7 +37,7 @@ class ParquetWriteBinary(object):
                                   i in range(nuniques)], dtype='O')
         values = unique_values[np.random.randint(0, nuniques, size=length)]
         self.table = pa.table([pa.array(values) for i in range(num_cols)],
-                              names=['f{}'.format(i) for i in range(num_cols)])
+                              names=[f'f{i}' for i in range(num_cols)])
         self.table_df = self.table.to_pandas()
 
     def time_write_binary_table(self):
@@ -72,7 +72,7 @@ def generate_dict_table(num_cols, string_size, nunique, length,
                                  random_order=random_order)
     return pa.table([
         data for i in range(num_cols)
-    ], names=['f{}'.format(i) for i in range(num_cols)])
+    ], names=[f'f{i}' for i in range(num_cols)])
 
 
 class ParquetWriteDictionaries(object):

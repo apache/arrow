@@ -33,7 +33,7 @@ namespace internal {
 
 namespace {
 
-void FillBitsFromBytes(const std::vector<uint8_t>& bytes, uint8_t* bits) {
+void FillBitsFromBytes(util::span<const uint8_t> bytes, uint8_t* bits) {
   for (size_t i = 0; i < bytes.size(); ++i) {
     if (bytes[i] > 0) {
       bit_util::SetBit(bits, i);
@@ -43,7 +43,7 @@ void FillBitsFromBytes(const std::vector<uint8_t>& bytes, uint8_t* bits) {
 
 }  // namespace
 
-Result<std::shared_ptr<Buffer>> BytesToBits(const std::vector<uint8_t>& bytes,
+Result<std::shared_ptr<Buffer>> BytesToBits(util::span<const uint8_t> bytes,
                                             MemoryPool* pool) {
   int64_t bit_length = bit_util::BytesForBits(bytes.size());
 

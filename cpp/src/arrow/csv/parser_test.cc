@@ -17,7 +17,9 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <sstream>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -586,6 +588,28 @@ TEST(BlockParser, QuotesSpecial) {
   }
 }
 
+std::vector<std::string> MismatchingNumColumns(int32_t num_cols, int32_t mismatch,
+                                               int64_t extra_lines = 0) {
+  auto write_line = [](int32_t num_cols, std::string_view prefix, std::ostream* out) {
+    for (int32_t i = 0; i < num_cols; ++i) {
+      *out << prefix << i << ",";
+    }
+    out->seekp(-1, std::ios_base::cur);
+    *out << "\n";
+  };
+
+  std::stringstream csv_data;
+  // Output first line with `num_cols` columns
+  write_line(num_cols, "a", &csv_data);
+  // Output second line with mismatching number of columns
+  write_line(num_cols + mismatch, "b", &csv_data);
+  // Output extra lines with `num_cols` columns each
+  for (int64_t i = 0; i < extra_lines; ++i) {
+    write_line(num_cols, "c", &csv_data);
+  }
+  return {csv_data.str()};
+}
+
 TEST(BlockParser, MismatchingNumColumns) {
   uint32_t out_size;
   {
@@ -620,6 +644,25 @@ TEST(BlockParser, MismatchingNumColumns) {
     Status st = Parse(parser, csv, &out_size);
     EXPECT_RAISES_WITH_MESSAGE_THAT(
         Invalid, testing::HasSubstr("CSV parse error: Expected 2 columns, got 1: a"), st);
+  }
+  // Vary the number of columns and mismatch, to catch buffer overflow issues
+  for (int32_t num_cols : {1, 2, 5, 100}) {
+    ARROW_SCOPED_TRACE("num_cols = ", num_cols);
+    for (int32_t mismatch : {-5, -1, 1, 5, 10, 50, 1024, 32767}) {
+      if (mismatch + num_cols <= 0) {
+        continue;
+      }
+      ARROW_SCOPED_TRACE("mismatch = ", mismatch);
+      // Try to parse CSV data
+      auto csv_data = MismatchingNumColumns(num_cols, mismatch);
+      BlockParser parser(ParseOptions::Defaults(), num_cols, /*first_row=*/1);
+      Status st = Parse(parser, MakeCSVData(csv_data), &out_size);
+      std::stringstream expected_error;
+      expected_error << "Row #2: Expected " << num_cols << " columns, got "
+                     << num_cols + mismatch << ":";
+      EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, testing::HasSubstr(expected_error.str()),
+                                      st);
+    }
   }
 }
 
@@ -723,6 +766,35 @@ TEST(BlockParser, MismatchingNumColumnsHandler) {
     }
 
     ASSERT_NO_FATAL_FAILURE(AssertLastRowEq(parser, {"j", "k"}, {false, false}));
+  }
+
+  // Vary the number of columns and mismatch, to catch buffer overflow issues
+  for (int32_t num_cols : {1, 2, 5, 100}) {
+    ARROW_SCOPED_TRACE("num_cols = ", num_cols);
+    for (int32_t mismatch : {-5, -1, 1, 5, 10, 50, 1024, 32767}) {
+      if (mismatch + num_cols <= 0) {
+        continue;
+      }
+      ARROW_SCOPED_TRACE("mismatch = ", mismatch);
+      // Parse CSV data
+      auto csv_data = MismatchingNumColumns(num_cols, mismatch, /*extra_lines=*/1);
+      ParseOptions opts = ParseOptions::Defaults();
+      CustomHandler handler;
+      opts.invalid_row_handler = handler;
+      BlockParser parser(opts, num_cols, /*first_row=*/1);
+      ASSERT_NO_FATAL_FAILURE(AssertParseOk(parser, MakeCSVData(csv_data)));
+      ASSERT_EQ(2, parser.num_rows());
+      ASSERT_EQ(3, parser.total_num_rows());
+      ASSERT_EQ(1, handler.rows.size());
+      const auto& invalid_row = handler.rows[0];
+      ASSERT_EQ(num_cols, invalid_row.first.expected_columns);
+      ASSERT_EQ(num_cols + mismatch, invalid_row.first.actual_columns);
+      ASSERT_EQ("b0", invalid_row.second.substr(0, 2));
+      std::vector<std::string> last_row;
+      GetLastRow(parser, &last_row);
+      ASSERT_EQ(last_row.front(), "c0");
+      ASSERT_EQ(last_row.back(), "c" + std::to_string(num_cols - 1));
+    }
   }
 }
 

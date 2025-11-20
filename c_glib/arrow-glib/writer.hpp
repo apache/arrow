@@ -25,16 +25,20 @@
 
 #include <arrow-glib/writer.h>
 
+GARROW_AVAILABLE_IN_ALL
 GArrowRecordBatchWriter *
 garrow_record_batch_writer_new_raw(
   std::shared_ptr<arrow::ipc::RecordBatchWriter> *arrow_writer);
+GARROW_AVAILABLE_IN_ALL
 std::shared_ptr<arrow::ipc::RecordBatchWriter>
 garrow_record_batch_writer_get_raw(GArrowRecordBatchWriter *writer);
 
+GARROW_AVAILABLE_IN_ALL
 GArrowRecordBatchStreamWriter *
 garrow_record_batch_stream_writer_new_raw(
   std::shared_ptr<arrow::ipc::RecordBatchWriter> *arrow_writer);
 
+GARROW_AVAILABLE_IN_ALL
 GArrowRecordBatchFileWriter *
 garrow_record_batch_file_writer_new_raw(
   std::shared_ptr<arrow::ipc::RecordBatchWriter> *arrow_writer);

@@ -679,6 +679,49 @@ TEST_F(TestCudaArrowIpc, BasicWriteRead) {
   CompareBatch(*batch, *cpu_batch);
 }
 
+TEST_F(TestCudaArrowIpc, WriteIpcString) {
+  auto values = ArrayFromJSON(utf8(), R"(["foo", null, "quux"])");
+  ASSERT_OK_AND_ASSIGN(auto values_device, values->CopyTo(mm_));
+  auto batch = RecordBatch::Make(schema({field("vals", utf8())}), 3,
+                                 {values_device->data()}, DeviceAllocationType::kCUDA);
+
+  ipc::IpcPayload payload;
+  ASSERT_OK(
+      ipc::GetRecordBatchPayload(*batch, ipc::IpcWriteOptions::Defaults(), &payload));
+
+  ASSERT_EQ(values_device->data()->buffers[0]->address(),
+            payload.body_buffers[0]->address());
+  ASSERT_EQ(values_device->data()->buffers[1]->address(),
+            payload.body_buffers[1]->address());
+}
+
+TEST_F(TestCudaArrowIpc, WriteIpcList) {
+  auto values =
+      ArrayFromJSON(list(utf8()), R"([["foo", null], null, ["quux", "bar", "baz"]])");
+  ASSERT_OK_AND_ASSIGN(auto values_device, values->CopyTo(mm_));
+  auto batch = RecordBatch::Make(schema({field("vals", list(utf8()))}), 3,
+                                 {values_device->data()}, DeviceAllocationType::kCUDA);
+
+  ipc::IpcPayload payload;
+  ASSERT_OK(
+      ipc::GetRecordBatchPayload(*batch, ipc::IpcWriteOptions::Defaults(), &payload));
+
+  ASSERT_EQ(values_device->data()->buffers[0]->address(),
+            payload.body_buffers[0]->address());
+}
+
+TEST_F(TestCudaArrowIpc, WriteIpcSlicedRecord) {
+  std::shared_ptr<RecordBatch> batch;
+  ASSERT_OK(ipc::test::MakeListRecordBatch(&batch));
+
+  ASSERT_OK_AND_ASSIGN(auto batch_device, batch->CopyTo(mm_));
+  auto sliced_batch_device = batch_device->Slice(10);
+
+  ipc::IpcPayload payload;
+  ASSERT_NOT_OK(ipc::GetRecordBatchPayload(*sliced_batch_device,
+                                           ipc::IpcWriteOptions::Defaults(), &payload));
+}
+
 TEST_F(TestCudaArrowIpc, DictionaryWriteRead) {
   std::shared_ptr<RecordBatch> batch;
   ASSERT_OK(ipc::test::MakeDictionary(&batch));

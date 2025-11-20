@@ -19,20 +19,22 @@
 
 set -e
 
-# Pin azurite to 3.29.0 due to https://github.com/apache/arrow/issues/41505
+node_version="$(node --version)"
+echo "Node.js version = ${node_version}"
+
+azurite_version=latest
 case "$(uname)" in
   Darwin)
-    npm install -g azurite@v3.29.0
+    npm install -g azurite@${azurite_version}
     which azurite
     ;;
   MINGW*)
     choco install nodejs.install
-    npm install -g azurite@v3.29.0
+    npm install -g azurite@${azurite_version}
     ;;
   Linux)
-    npm install -g azurite@v3.29.0
+    npm install -g azurite@${azurite_version}
     which azurite
     ;;
 esac
-echo "node version = $(node --version)"
-echo "azurite version = $(azurite --version)"
+echo "Azurite version = $(azurite --version)"

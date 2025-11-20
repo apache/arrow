@@ -23,7 +23,7 @@ from pyarrow import fs
 try:
     import pyarrow.parquet as pq
     from pyarrow.tests.parquet.common import (_read_table, _test_dataframe,
-                                              _range_integers)
+                                              _test_table, _range_integers)
 except ImportError:
     pq = None
 
@@ -314,10 +314,9 @@ def test_parquet_writer_filesystem_s3fs(s3_example_s3fs):
     tm.assert_frame_equal(result, df)
 
 
-@pytest.mark.pandas
+@pytest.mark.numpy
 def test_parquet_writer_filesystem_buffer_raises():
-    df = _test_dataframe(100)
-    table = pa.Table.from_pandas(df, preserve_index=False)
+    table = _test_table(100)
     filesystem = fs.LocalFileSystem()
 
     # Should raise ValueError when filesystem is passed with file-like object
@@ -361,3 +360,187 @@ def test_parquet_writer_append_key_value_metadata(tempdir):
     assert metadata[b'key1'] == b'1'
     assert metadata[b'key2'] == b'2'
     assert metadata[b'key3'] == b'3'
+
+
+def test_parquet_content_defined_chunking(tempdir):
+    table = pa.table({'a': range(100_000)})
+
+    # use PLAIN encoding because we compare the overall size of the row groups
+    # which would vary depending on the encoding making the assertions wrong
+    pq.write_table(table, tempdir / 'unchunked.parquet',
+                   use_dictionary=False,
+                   column_encoding="PLAIN")
+    pq.write_table(table, tempdir / 'chunked-default.parquet',
+                   use_dictionary=False,
+                   column_encoding="PLAIN",
+                   use_content_defined_chunking=True)
+    pq.write_table(table, tempdir / 'chunked-custom.parquet',
+                   use_dictionary=False,
+                   column_encoding="PLAIN",
+                   use_content_defined_chunking={"min_chunk_size": 32_768,
+                                                 "max_chunk_size": 65_536})
+
+    # the data must be the same
+    unchunked = pq.read_table(tempdir / 'unchunked.parquet')
+    chunked_default = pq.read_table(tempdir / 'chunked-default.parquet')
+    chunked_custom = pq.read_table(tempdir / 'chunked-custom.parquet')
+    assert unchunked.equals(chunked_default)
+    assert unchunked.equals(chunked_custom)
+
+    # number of row groups and their sizes are not affected by content defined chunking
+    unchunked_metadata = pq.read_metadata(tempdir / 'unchunked.parquet')
+    chunked_default_metadata = pq.read_metadata(tempdir / 'chunked-default.parquet')
+    chunked_custom_metadata = pq.read_metadata(tempdir / 'chunked-custom.parquet')
+
+    assert unchunked_metadata.num_row_groups == chunked_default_metadata.num_row_groups
+    assert unchunked_metadata.num_row_groups == chunked_custom_metadata.num_row_groups
+
+    for i in range(unchunked_metadata.num_row_groups):
+        rg_unchunked = unchunked_metadata.row_group(i)
+        rg_chunked_default = chunked_default_metadata.row_group(i)
+        rg_chunked_custom = chunked_custom_metadata.row_group(i)
+        assert rg_unchunked.num_rows == rg_chunked_default.num_rows
+        assert rg_unchunked.num_rows == rg_chunked_custom.num_rows
+        # since PageReader is not exposed we cannot inspect the page sizes
+        # so just check that the total byte size is different
+        assert rg_unchunked.total_byte_size < rg_chunked_default.total_byte_size
+        assert rg_unchunked.total_byte_size < rg_chunked_custom.total_byte_size
+        assert rg_chunked_default.total_byte_size < rg_chunked_custom.total_byte_size
+
+
+def test_parquet_content_defined_chunking_parameters(tempdir):
+    table = pa.table({'a': range(100)})
+    path = tempdir / 'chunked-invalid.parquet'
+
+    # it raises OSError, not ideal but this is how parquet exceptions are handled
+    # currently
+    msg = "max_chunk_size must be greater than min_chunk_size"
+    with pytest.raises(Exception, match=msg):
+        cdc_options = {"min_chunk_size": 65_536, "max_chunk_size": 32_768}
+        pq.write_table(table, path, use_content_defined_chunking=cdc_options)
+
+    cases = [
+        (
+            {"min_chunk_size": 64 * 1024, "unknown_option": True},
+            "Unknown options in 'use_content_defined_chunking': {'unknown_option'}"
+        ),
+        (
+            {"min_chunk_size": 64 * 1024},
+            "Missing options in 'use_content_defined_chunking': {'max_chunk_size'}"
+        ),
+        (
+            {"max_chunk_size": 64 * 1024},
+            "Missing options in 'use_content_defined_chunking': {'min_chunk_size'}"
+        )
+    ]
+    for cdc_options, msg in cases:
+        with pytest.raises(ValueError, match=msg):
+            pq.write_table(table, path, use_content_defined_chunking=cdc_options)
+
+    # using the default parametrization
+    pq.write_table(table, path, use_content_defined_chunking=True)
+
+    # using min_chunk_size and max_chunk_size
+    cdc_options = {"min_chunk_size": 32_768, "max_chunk_size": 65_536}
+    pq.write_table(table, path, use_content_defined_chunking=cdc_options)
+
+    # using min_chunk_size, max_chunk_size and norm_level
+    cdc_options = {"min_chunk_size": 32_768, "max_chunk_size": 65_536, "norm_level": 1}
+    pq.write_table(table, path, use_content_defined_chunking=cdc_options)
+
+
+@pytest.mark.parametrize("time_type, time_unit", [
+    (pa.time32, "s"),
+    (pa.time32, "ms"),
+    (pa.time64, "us"),
+    (pa.time64, "ns"),
+])
+@pytest.mark.parametrize("utc_flag_val", [False, True])
+def test_arrow_writer_props_time_adjusted_to_utc(
+    tempdir,
+    utc_flag_val,
+    time_type,
+    time_unit,
+):
+    # GH-47441
+    filename = tempdir / "time_adjusted_to_utc.parquet"
+
+    time_values = [0, 123, 10_000, 86_399]
+
+    table = pa.table({
+        "time_col": pa.array(time_values, type=time_type(time_unit)),
+    })
+
+    schema = pa.schema([
+        ("time_col", time_type(time_unit)),
+    ])
+
+    with pq.ParquetWriter(
+        where=filename,
+        schema=schema,
+        write_time_adjusted_to_utc=utc_flag_val,
+    ) as writer:
+        writer.write_table(table)
+
+    result = pq.read_table(filename, schema=schema)
+
+    result.validate(full=True)
+
+    assert result.equals(table)
+
+
+@pytest.mark.parametrize(
+    "max_rows_per_page",
+    [1, 10, 100, 1_000, None],
+)
+def test_writer_props_max_rows_per_page(tempdir, max_rows_per_page):
+    # GH-48096
+    filename = tempdir / "max_rows_per_page.parquet"
+
+    table = pa.table({
+        "x": pa.array([1, 2, 3, 4, 5, 6, 7], type=pa.int8()),
+        "y": pa.array([11.0, 12.0, 13.0, 14.0, 15.0, 16.0, 17.0], type=pa.float16()),
+    })
+
+    schema = pa.schema([
+        ("x", pa.int8()),
+        ("y", pa.float16()),
+    ])
+
+    with pq.ParquetWriter(
+        where=filename,
+        schema=schema,
+        max_rows_per_page=max_rows_per_page,
+    ) as writer:
+        writer.write_table(table)
+
+    result = pq.read_table(filename, schema=schema)
+
+    result.validate(full=True)
+
+    assert result.equals(table)
+
+
+def test_writer_props_max_rows_per_page_file_size(tempdir):
+    # GH-48096
+    table = pa.table({
+        "x": pa.array(range(1_000_000))
+    })
+
+    local = fs.LocalFileSystem()
+    file_infos = []
+
+    for max_rows in (1_000, 10_000):
+        path = f"{tempdir}/max_rows_per_page_{max_rows}.parquet"
+
+        with pq.ParquetWriter(
+            where=path,
+            schema=table.schema,
+            max_rows_per_page=max_rows,
+        ) as writer:
+            writer.write_table(table)
+
+        file_infos.append(local.get_file_info(path))
+
+    # A smaller maximum rows parameter should produce a larger file
+    assert file_infos[0].size > file_infos[1].size

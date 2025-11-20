@@ -37,6 +37,14 @@ arrow::flight::FlightMessageReader *
 gaflight_message_reader_get_raw(GAFlightMessageReader *reader);
 
 GAFLIGHT_EXTERN
+GAFlightMetadataWriter *
+gaflight_metadata_writer_new_raw(arrow::flight::FlightMetadataWriter *flight_writer);
+
+GAFLIGHT_EXTERN
+arrow::flight::FlightMetadataWriter *
+gaflight_metadata_writer_get_raw(GAFlightMetadataWriter *writer);
+
+GAFLIGHT_EXTERN
 GAFlightServerCallContext *
 gaflight_server_call_context_new_raw(
   const arrow::flight::ServerCallContext *flight_call_context);

@@ -23,6 +23,8 @@
 #include <arrow-glib/type.hpp>
 #include <arrow-glib/error.hpp>
 
+#include <arrow/c/bridge.h>
+
 #include <sstream>
 
 G_BEGIN_DECLS
@@ -402,6 +404,56 @@ garrow_chunked_array_combine(GArrowChunkedArray *chunked_array, GError **error)
   if (garrow::check(error, arrow_combined_array, "[chunked-array][combine]")) {
     return garrow_array_new_raw(&(*arrow_combined_array));
   } else {
+    return NULL;
+  }
+}
+
+/**
+ * garrow_chunked_array_import:
+ * @c_abi_array_stream: (not nullable): A `struct ArrowArrayStream *`.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: (transfer full) (nullable): An imported chunked array on success,
+ *   %NULL on error.
+ *
+ * Since: 21.0.0
+ */
+GArrowChunkedArray *
+garrow_chunked_array_import(gpointer c_abi_array_stream, GError **error)
+{
+  auto arrow_chunked_array_result =
+    arrow::ImportChunkedArray(static_cast<struct ArrowArrayStream *>(c_abi_array_stream));
+  if (garrow::check(error, arrow_chunked_array_result, "[chunked-array][import]")) {
+    return garrow_chunked_array_new_raw(&(*arrow_chunked_array_result));
+  } else {
+    return NULL;
+  }
+}
+
+/**
+ * garrow_chunked_array_export:
+ * @chunked_array: A #GArrowChunkedArray to be exported.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: (transfer full) (nullable): An exported chunked array as
+ *   `struct ArrowArrayStream *` on success, %NULL on error.
+ *   It should be freed with the `ArrowArrayStream::release` callback then
+ *   g_free() when no longer needed.
+ *
+ * Since: 21.0.0
+ */
+gpointer
+garrow_chunked_array_export(GArrowChunkedArray *chunked_array, GError **error)
+{
+  const auto arrow_chunked_array = garrow_chunked_array_get_raw(chunked_array);
+  auto c_abi_array_stream = g_new(struct ArrowArrayStream, 1);
+  auto status =
+    arrow::ExportChunkedArray(arrow_chunked_array,
+                              static_cast<struct ArrowArrayStream *>(c_abi_array_stream));
+  if (garrow::check(error, status, "[chunked-array][export]")) {
+    return c_abi_array_stream;
+  } else {
+    g_free(c_abi_array_stream);
     return NULL;
   }
 }

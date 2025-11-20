@@ -1,3 +1,4 @@
+
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -59,6 +60,7 @@ cdef class ChunkedArray(_PandasConvertible):
 
     def __cinit__(self):
         self.chunked_array = NULL
+        self._init_is_cpu = False
 
     def __init__(self):
         raise TypeError("Do not call ChunkedArray's constructor directly, use "
@@ -69,6 +71,7 @@ cdef class ChunkedArray(_PandasConvertible):
         self.chunked_array = chunked_array.get()
 
     def __reduce__(self):
+        self._assert_cpu()
         return chunked_array, (self.chunks, self.type)
 
     @property
@@ -111,10 +114,10 @@ cdef class ChunkedArray(_PandasConvertible):
 
     def __repr__(self):
         type_format = object.__repr__(self)
-        return '{0}\n{1}'.format(type_format, str(self))
+        return f"{type_format}\n{self}"
 
     def to_string(self, *, int indent=0, int window=5, int container_window=2,
-                  c_bool skip_new_lines=False):
+                  c_bool skip_new_lines=False, int element_size_limit=100):
         """
         Render a "pretty-printed" string representation of the ChunkedArray
 
@@ -135,6 +138,8 @@ cdef class ChunkedArray(_PandasConvertible):
         skip_new_lines : bool
             If the array should be rendered as a single line of text
             or if each element should be on its own line.
+        element_size_limit : int, default 100
+            Maximum number of characters of a single element before it is truncated.
 
         Examples
         --------
@@ -151,6 +156,7 @@ cdef class ChunkedArray(_PandasConvertible):
             options = PrettyPrintOptions(indent, window)
             options.skip_new_lines = skip_new_lines
             options.container_window = container_window
+            options.element_size_limit = element_size_limit
             check_status(
                 PrettyPrint(
                     deref(self.chunked_array),
@@ -198,6 +204,7 @@ cdef class ChunkedArray(_PandasConvertible):
         ArrowInvalid
         """
         if full:
+            self._assert_cpu()
             with nogil:
                 check_status(self.sp_chunked_array.get().ValidateFull())
         else:
@@ -220,6 +227,7 @@ cdef class ChunkedArray(_PandasConvertible):
         >>> n_legs.null_count
         1
         """
+        self._assert_cpu()
         return self.chunked_array.null_count()
 
     @property
@@ -245,6 +253,7 @@ cdef class ChunkedArray(_PandasConvertible):
         >>> n_legs.nbytes
         49
         """
+        self._assert_cpu()
         cdef:
             CResult[int64_t] c_res_buffer
 
@@ -271,6 +280,7 @@ cdef class ChunkedArray(_PandasConvertible):
         >>> n_legs.get_total_buffer_size()
         49
         """
+        self._assert_cpu()
         cdef:
             int64_t total_buffer_size
 
@@ -299,13 +309,14 @@ cdef class ChunkedArray(_PandasConvertible):
         -------
         value : Scalar (index) or ChunkedArray (slice)
         """
-
+        self._assert_cpu()
         if isinstance(key, slice):
             return _normalize_slice(self, key)
 
         return self.getitem(_normalize_index(key, self.chunked_array.length()))
 
     cdef getitem(self, int64_t i):
+        self._assert_cpu()
         return Scalar.wrap(GetResultValue(self.chunked_array.GetScalar(i)))
 
     def is_null(self, *, nan_is_null=False):
@@ -338,6 +349,7 @@ cdef class ChunkedArray(_PandasConvertible):
           ]
         ]
         """
+        self._assert_cpu()
         options = _pc().NullOptions(nan_is_null=nan_is_null)
         return _pc().call_function('is_null', [self], options)
 
@@ -363,6 +375,7 @@ cdef class ChunkedArray(_PandasConvertible):
           ]
         ]
         """
+        self._assert_cpu()
         return _pc().is_nan(self)
 
     def is_valid(self):
@@ -388,6 +401,7 @@ cdef class ChunkedArray(_PandasConvertible):
           ]
         ]
         """
+        self._assert_cpu()
         return _pc().is_valid(self)
 
     def __eq__(self, other):
@@ -430,6 +444,7 @@ cdef class ChunkedArray(_PandasConvertible):
           ]
         ]
         """
+        self._assert_cpu()
         return _pc().fill_null(self, fill_value)
 
     def equals(self, ChunkedArray other):
@@ -458,6 +473,7 @@ cdef class ChunkedArray(_PandasConvertible):
         >>> n_legs.equals(animals)
         False
         """
+        self._assert_cpu()
         if other is None:
             return False
 
@@ -472,6 +488,7 @@ cdef class ChunkedArray(_PandasConvertible):
         return result
 
     def _to_pandas(self, options, types_mapper=None, **kwargs):
+        self._assert_cpu()
         return _array_like_to_pandas(self, options, types_mapper=types_mapper)
 
     def to_numpy(self, zero_copy_only=False):
@@ -495,6 +512,10 @@ cdef class ChunkedArray(_PandasConvertible):
         >>> n_legs.to_numpy()
         array([  2,   2,   4,   4,   5, 100])
         """
+        self._assert_cpu()
+        if np is None:
+            raise ImportError(
+                "Cannot return a numpy.ndarray if NumPy is not present")
         if zero_copy_only:
             raise ValueError(
                 "zero_copy_only must be False for pyarrow.ChunkedArray.to_numpy"
@@ -526,6 +547,7 @@ cdef class ChunkedArray(_PandasConvertible):
         return values
 
     def __array__(self, dtype=None, copy=None):
+        self._assert_cpu()
         if copy is False:
             raise ValueError(
                 "Unable to avoid a copy while creating a numpy array as requested "
@@ -571,6 +593,7 @@ cdef class ChunkedArray(_PandasConvertible):
         >>> n_legs_seconds.type
         DurationType(duration[s])
         """
+        self._assert_cpu()
         return _pc().cast(self, target_type, safe=safe, options=options)
 
     def dictionary_encode(self, null_encoding='mask'):
@@ -633,6 +656,7 @@ cdef class ChunkedArray(_PandasConvertible):
             ]
         ]
         """
+        self._assert_cpu()
         options = _pc().DictionaryEncodeOptions(null_encoding)
         return _pc().call_function('dictionary_encode', [self], options)
 
@@ -697,6 +721,7 @@ cdef class ChunkedArray(_PandasConvertible):
         >>> n_legs.type
         DataType(int64)
         """
+        self._assert_cpu()
         cdef:
             vector[shared_ptr[CChunkedArray]] flattened
             CMemoryPool* pool = maybe_unbox_memory_pool(memory_pool)
@@ -748,6 +773,7 @@ cdef class ChunkedArray(_PandasConvertible):
           100
         ]
         """
+        self._assert_cpu()
         if self.num_chunks == 0:
             return array([], type=self.type)
         else:
@@ -788,6 +814,7 @@ cdef class ChunkedArray(_PandasConvertible):
           100
         ]
         """
+        self._assert_cpu()
         return _pc().call_function('unique', [self])
 
     def value_counts(self):
@@ -834,6 +861,7 @@ cdef class ChunkedArray(_PandasConvertible):
             1
           ]
         """
+        self._assert_cpu()
         return _pc().call_function('value_counts', [self])
 
     def slice(self, offset=0, length=None):
@@ -956,6 +984,7 @@ cdef class ChunkedArray(_PandasConvertible):
           ]
         ]
         """
+        self._assert_cpu()
         return _pc().filter(self, mask, null_selection_behavior)
 
     def index(self, value, start=None, end=None, *, memory_pool=None):
@@ -1003,6 +1032,7 @@ cdef class ChunkedArray(_PandasConvertible):
         >>> n_legs.index(4, start=3)
         <pyarrow.Int64Scalar: 3>
         """
+        self._assert_cpu()
         return _pc().index(self, value, start, end, memory_pool=memory_pool)
 
     def take(self, object indices):
@@ -1049,6 +1079,7 @@ cdef class ChunkedArray(_PandasConvertible):
           ]
         ]
         """
+        self._assert_cpu()
         return _pc().take(self, indices)
 
     def drop_null(self):
@@ -1088,6 +1119,7 @@ cdef class ChunkedArray(_PandasConvertible):
           ]
         ]
         """
+        self._assert_cpu()
         return _pc().drop_null(self)
 
     def sort(self, order="ascending", **kwargs):
@@ -1107,6 +1139,7 @@ cdef class ChunkedArray(_PandasConvertible):
         -------
         result : ChunkedArray
         """
+        self._assert_cpu()
         indices = _pc().sort_indices(
             self,
             options=_pc().SortOptions(sort_keys=[("", order)], **kwargs)
@@ -1206,6 +1239,7 @@ cdef class ChunkedArray(_PandasConvertible):
             ]
         ]
         """
+        self._assert_cpu()
         cdef:
             CMemoryPool* pool = maybe_unbox_memory_pool(memory_pool)
             shared_ptr[CChunkedArray] c_result
@@ -1319,9 +1353,23 @@ cdef class ChunkedArray(_PandasConvertible):
         for i in range(self.num_chunks):
             yield self.chunk(i)
 
-    def to_pylist(self):
+    def to_pylist(self, *, maps_as_pydicts=None):
         """
         Convert to a list of native Python objects.
+
+        Parameters
+        ----------
+        maps_as_pydicts : str, optional, default `None`
+            Valid values are `None`, 'lossy', or 'strict'.
+            The default behavior (`None`), is to convert Arrow Map arrays to
+            Python association lists (list-of-tuples) in the same order as the
+            Arrow Map, as in [(key1, value1), (key2, value2), ...].
+
+            If 'lossy' or 'strict', convert Arrow Map arrays to native Python dicts.
+
+            If 'lossy', whenever duplicate keys are detected, a warning will be printed.
+            The last seen value of a duplicate key will be in the Python dictionary.
+            If 'strict', this instead results in an exception being raised when detected.
 
         Examples
         --------
@@ -1330,9 +1378,10 @@ cdef class ChunkedArray(_PandasConvertible):
         >>> n_legs.to_pylist()
         [2, 2, 4, 4, None, 100]
         """
+        self._assert_cpu()
         result = []
         for i in range(self.num_chunks):
-            result += self.chunk(i).to_pylist()
+            result += self.chunk(i).to_pylist(maps_as_pydicts=maps_as_pydicts)
         return result
 
     def __arrow_c_stream__(self, requested_schema=None):
@@ -1351,6 +1400,7 @@ cdef class ChunkedArray(_PandasConvertible):
         PyCapsule
             A capsule containing a C ArrowArrayStream struct.
         """
+        self._assert_cpu()
         cdef:
             ChunkedArray chunked
             ArrowArrayStream* c_stream = NULL
@@ -1406,6 +1456,20 @@ cdef class ChunkedArray(_PandasConvertible):
         self = ChunkedArray.__new__(ChunkedArray)
         self.init(c_chunked_array)
         return self
+
+    @property
+    def is_cpu(self):
+        """
+        Whether all chunks in the ChunkedArray are CPU-accessible.
+        """
+        if not self._init_is_cpu:
+            self._is_cpu = self.chunked_array.is_cpu()
+            self._init_is_cpu = True
+        return self._is_cpu
+
+    def _assert_cpu(self):
+        if not self.is_cpu:
+            raise NotImplementedError("Implemented only for data on CPU device")
 
 
 def chunked_array(arrays, type=None):
@@ -1508,8 +1572,8 @@ cdef _schema_from_arrays(arrays, names, metadata, shared_ptr[CSchema]* schema):
             schema.reset(new CSchema(c_fields, c_meta))
             return arrays
         else:
-            raise ValueError('Length of names ({}) does not match '
-                             'length of arrays ({})'.format(len(names), K))
+            raise ValueError(f'Length of names ({len(names)}) does not match '
+                             f'length of arrays ({K})')
 
     c_fields.resize(K)
 
@@ -1518,8 +1582,8 @@ cdef _schema_from_arrays(arrays, names, metadata, shared_ptr[CSchema]* schema):
                          'Table or RecordBatch.')
 
     if len(names) != K:
-        raise ValueError('Length of names ({}) does not match '
-                         'length of arrays ({})'.format(len(names), K))
+        raise ValueError(f'Length of names ({len(names)}) does not match '
+                         f'length of arrays ({K})')
 
     converted_arrays = []
     for i in range(K):
@@ -1571,6 +1635,7 @@ cdef class _Tabular(_PandasConvertible):
                         f"one of the `{self.__class__.__name__}.from_*` functions instead.")
 
     def __array__(self, dtype=None, copy=None):
+        self._assert_cpu()
         if copy is False:
             raise ValueError(
                 "Unable to avoid a copy while creating a numpy array as requested "
@@ -1665,11 +1730,10 @@ cdef class _Tabular(_PandasConvertible):
             field_indices = self.schema.get_all_field_indices(i)
 
             if len(field_indices) == 0:
-                raise KeyError("Field \"{}\" does not exist in schema"
-                               .format(i))
+                raise KeyError(f'Field "{i}" does not exist in schema')
             elif len(field_indices) > 1:
-                raise KeyError("Field \"{}\" exists {} times in schema"
-                               .format(i, len(field_indices)))
+                raise KeyError(
+                    f'Field "{i}" exists {len(field_indices)} times in schema')
             else:
                 return field_indices[0]
         elif isinstance(i, int):
@@ -1824,6 +1888,7 @@ cdef class _Tabular(_PandasConvertible):
         n_legs: [[4,100]]
         animals: [["Horse","Centipede"]]
         """
+        self._assert_cpu()
         return _pc().drop_null(self)
 
     def field(self, i):
@@ -2085,6 +2150,7 @@ cdef class _Tabular(_PandasConvertible):
         n_legs: [[5,100,4,2,4,2]]
         animal: [["Brittle stars","Centipede","Dog","Flamingo","Horse","Parrot"]]
         """
+        self._assert_cpu()
         if isinstance(sorting, str):
             sorting = [(sorting, "ascending")]
 
@@ -2130,11 +2196,99 @@ cdef class _Tabular(_PandasConvertible):
         n_legs: [[4,100]]
         animals: [["Horse","Centipede"]]
         """
+        self._assert_cpu()
         return _pc().take(self, indices)
 
-    def to_pydict(self):
+    def filter(self, mask, object null_selection_behavior="drop"):
+        """
+        Select rows from the table or record batch based on a boolean mask.
+
+        The Table can be filtered based on a mask, which will be passed to
+        :func:`pyarrow.compute.filter` to perform the filtering, or it can
+        be filtered through a boolean :class:`.Expression`
+
+        Parameters
+        ----------
+        mask : Array or array-like or .Expression
+            The boolean mask or the :class:`.Expression` to filter the table with.
+        null_selection_behavior : str, default "drop"
+            How nulls in the mask should be handled, does nothing if
+            an :class:`.Expression` is used.
+
+        Returns
+        -------
+        filtered : Table or RecordBatch
+            A tabular object of the same schema, with only the rows selected
+            by applied filtering
+
+        Examples
+        --------
+        Using a Table (works similarly for RecordBatch):
+
+        >>> import pyarrow as pa
+        >>> table = pa.table({'year': [2020, 2022, 2019, 2021],
+        ...                   'n_legs': [2, 4, 5, 100],
+        ...                   'animals': ["Flamingo", "Horse", "Brittle stars", "Centipede"]})
+
+        Define an expression and select rows:
+
+        >>> import pyarrow.compute as pc
+        >>> expr = pc.field("year") <= 2020
+        >>> table.filter(expr)
+        pyarrow.Table
+        year: int64
+        n_legs: int64
+        animals: string
+        ----
+        year: [[2020,2019]]
+        n_legs: [[2,5]]
+        animals: [["Flamingo","Brittle stars"]]
+
+        Define a mask and select rows:
+
+        >>> mask=[True, True, False, None]
+        >>> table.filter(mask)
+        pyarrow.Table
+        year: int64
+        n_legs: int64
+        animals: string
+        ----
+        year: [[2020,2022]]
+        n_legs: [[2,4]]
+        animals: [["Flamingo","Horse"]]
+        >>> table.filter(mask, null_selection_behavior='emit_null')
+        pyarrow.Table
+        year: int64
+        n_legs: int64
+        animals: string
+        ----
+        year: [[2020,2022,null]]
+        n_legs: [[2,4,null]]
+        animals: [["Flamingo","Horse",null]]
+        """
+        self._assert_cpu()
+        if isinstance(mask, _pc().Expression):
+            return _pac()._filter_table(self, mask)
+        else:
+            return _pc().filter(self, mask, null_selection_behavior)
+
+    def to_pydict(self, *, maps_as_pydicts=None):
         """
         Convert the Table or RecordBatch to a dict or OrderedDict.
+
+        Parameters
+        ----------
+        maps_as_pydicts : str, optional, default `None`
+            Valid values are `None`, 'lossy', or 'strict'.
+            The default behavior (`None`), is to convert Arrow Map arrays to
+            Python association lists (list-of-tuples) in the same order as the
+            Arrow Map, as in [(key1, value1), (key2, value2), ...].
+
+            If 'lossy' or 'strict', convert Arrow Map arrays to native Python dicts.
+
+            If 'lossy', whenever duplicate keys are detected, a warning will be printed.
+            The last seen value of a duplicate key will be in the Python dictionary.
+            If 'strict', this instead results in an exception being raised when detected.
 
         Returns
         -------
@@ -2154,13 +2308,27 @@ cdef class _Tabular(_PandasConvertible):
         entries = []
         for i in range(self.num_columns):
             name = self.field(i).name
-            column = self[i].to_pylist()
+            column = self[i].to_pylist(maps_as_pydicts=maps_as_pydicts)
             entries.append((name, column))
         return ordered_dict(entries)
 
-    def to_pylist(self):
+    def to_pylist(self, *, maps_as_pydicts=None):
         """
         Convert the Table or RecordBatch to a list of rows / dictionaries.
+
+        Parameters
+        ----------
+        maps_as_pydicts : str, optional, default `None`
+            Valid values are `None`, 'lossy', or 'strict'.
+            The default behavior (`None`), is to convert Arrow Map arrays to
+            Python association lists (list-of-tuples) in the same order as the
+            Arrow Map, as in [(key1, value1), (key2, value2), ...].
+
+            If 'lossy' or 'strict', convert Arrow Map arrays to native Python dicts.
+
+            If 'lossy', whenever duplicate keys are detected, a warning will be printed.
+            The last seen value of a duplicate key will be in the Python dictionary.
+            If 'strict', this instead results in an exception being raised when detected.
 
         Returns
         -------
@@ -2177,7 +2345,7 @@ cdef class _Tabular(_PandasConvertible):
         >>> table.to_pylist()
         [{'n_legs': 2, 'animals': 'Flamingo'}, {'n_legs': 4, 'animals': 'Horse'}, ...
         """
-        pydict = self.to_pydict()
+        pydict = self.to_pydict(maps_as_pydicts=maps_as_pydicts)
         names = self.schema.names
         pylist = [{column: pydict[column][row] for column in names}
                   for row in range(self.num_rows)]
@@ -2203,15 +2371,13 @@ cdef class _Tabular(_PandasConvertible):
             show_field_metadata=show_metadata,
             show_schema_metadata=show_metadata
         )
-        title = 'pyarrow.{}\n{}'.format(type(self).__name__, schema_as_string)
+        title = f'pyarrow.{type(self).__name__}\n{schema_as_string}'
         pieces = [title]
         if preview_cols:
             pieces.append('----')
             for i in range(min(self.num_columns, preview_cols)):
-                pieces.append('{}: {}'.format(
-                    self.field(i).name,
-                    self.column(i).to_string(indent=0, skip_new_lines=True)
-                ))
+                pieces.append(
+                    f'{self.field(i).name}: {self.column(i).to_string(indent=0, skip_new_lines=True)}')
             if preview_cols < self.num_columns:
                 pieces.append('...')
         return '\n'.join(pieces)
@@ -2271,7 +2437,7 @@ cdef class _Tabular(_PandasConvertible):
         for col in columns:
             idx = self.schema.get_field_index(col)
             if idx == -1:
-                raise KeyError("Column {!r} not found".format(col))
+                raise KeyError(f"Column {col!r} not found")
             indices.append(idx)
 
         indices.sort()
@@ -2326,6 +2492,9 @@ cdef class _Tabular(_PandasConvertible):
         year: [[2021,2022,2019,2021]]
         """
         return self.add_column(self.num_columns, field_, column)
+
+    cdef void _assert_cpu(self) except *:
+        return
 
 
 cdef class RecordBatch(_Tabular):
@@ -2437,6 +2606,7 @@ cdef class RecordBatch(_Tabular):
         return self.batch != NULL
 
     def __reduce__(self):
+        self._assert_cpu()
         return _reconstruct_record_batch, (self.columns, self.schema)
 
     def validate(self, *, full=False):
@@ -2456,6 +2626,7 @@ cdef class RecordBatch(_Tabular):
         ArrowInvalid
         """
         if full:
+            self._assert_cpu()
             with nogil:
                 check_status(self.batch.ValidateFull())
         else:
@@ -2622,6 +2793,7 @@ cdef class RecordBatch(_Tabular):
         >>> batch.nbytes
         116
         """
+        self._assert_cpu()
         cdef:
             CResult[int64_t] c_res_buffer
 
@@ -2651,6 +2823,7 @@ cdef class RecordBatch(_Tabular):
         >>> batch.get_total_buffer_size()
         120
         """
+        self._assert_cpu()
         cdef:
             int64_t total_buffer_size
 
@@ -2717,11 +2890,18 @@ cdef class RecordBatch(_Tabular):
             shared_ptr[CRecordBatch] c_batch
             Field c_field
             Array c_arr
+            CDeviceAllocationType device_type = self.sp_batch.get().device_type()
 
         if isinstance(column, Array):
             c_arr = column
         else:
             c_arr = array(column)
+
+        if device_type != c_arr.sp_array.get().device_type():
+            raise TypeError("The column must be allocated on the same "
+                            "device as the RecordBatch. Got column on "
+                            f"device {c_arr.device_type!r}, but expected "
+                            f"{self.device_type!r}.")
 
         if isinstance(field_, Field):
             c_field = field_
@@ -2810,11 +2990,18 @@ cdef class RecordBatch(_Tabular):
             shared_ptr[CRecordBatch] c_batch
             Field c_field
             Array c_arr
+            CDeviceAllocationType device_type = self.sp_batch.get().device_type()
 
         if isinstance(column, Array):
             c_arr = column
         else:
             c_arr = array(column)
+
+        if device_type != c_arr.sp_array.get().device_type():
+            raise TypeError("The column must be allocated on the same "
+                            "device as the RecordBatch. Got column on "
+                            f"device {c_arr.device_type!r}, but expected "
+                            f"{self.device_type!r}.")
 
         if isinstance(field_, Field):
             c_field = field_
@@ -2877,7 +3064,7 @@ cdef class RecordBatch(_Tabular):
             shared_ptr[CRecordBatch] c_batch
             vector[c_string] c_names
 
-        if isinstance(names, list):
+        if isinstance(names, (list, tuple)):
             for name in names:
                 c_names.push_back(tobytes(name))
         elif isinstance(names, dict):
@@ -2886,7 +3073,7 @@ cdef class RecordBatch(_Tabular):
                 indices = self.schema.get_all_field_indices(name)
 
                 if not indices:
-                    raise KeyError("Column {!r} not found".format(name))
+                    raise KeyError(f"Column {name!r} not found")
 
                 for index in indices:
                     idx_to_new_name[index] = new_name
@@ -2941,6 +3128,7 @@ cdef class RecordBatch(_Tabular):
         n_legs: [2,2,4,4,5,100]
         animals: ["Flamingo","Parrot","Dog","Horse","Brittle stars","Centipede"]
         """
+        self._assert_cpu()
         cdef shared_ptr[CBuffer] buffer
         cdef CIpcWriteOptions options = CIpcWriteOptions.Defaults()
         options.memory_pool = maybe_unbox_memory_pool(memory_pool)
@@ -3007,58 +3195,6 @@ cdef class RecordBatch(_Tabular):
 
         return pyarrow_wrap_batch(result)
 
-    def filter(self, mask, object null_selection_behavior="drop"):
-        """
-        Select rows from the record batch.
-
-        See :func:`pyarrow.compute.filter` for full usage.
-
-        Parameters
-        ----------
-        mask : Array or array-like
-            The boolean mask to filter the record batch with.
-        null_selection_behavior : str, default "drop"
-            How nulls in the mask should be handled.
-
-        Returns
-        -------
-        filtered : RecordBatch
-            A record batch of the same schema, with only the rows selected
-            by the boolean mask.
-
-        Examples
-        --------
-        >>> import pyarrow as pa
-        >>> n_legs = pa.array([2, 2, 4, 4, 5, 100])
-        >>> animals = pa.array(["Flamingo", "Parrot", "Dog", "Horse", "Brittle stars", "Centipede"])
-        >>> batch = pa.RecordBatch.from_arrays([n_legs, animals],
-        ...                                     names=["n_legs", "animals"])
-        >>> batch.to_pandas()
-           n_legs        animals
-        0       2       Flamingo
-        1       2         Parrot
-        2       4            Dog
-        3       4          Horse
-        4       5  Brittle stars
-        5     100      Centipede
-
-        Define a mask and select rows:
-
-        >>> mask=[True, True, False, True, False, None]
-        >>> batch.filter(mask).to_pandas()
-           n_legs   animals
-        0       2  Flamingo
-        1       2    Parrot
-        2       4     Horse
-        >>> batch.filter(mask, null_selection_behavior='emit_null').to_pandas()
-           n_legs   animals
-        0     2.0  Flamingo
-        1     2.0    Parrot
-        2     4.0     Horse
-        3     NaN      None
-        """
-        return _pc().filter(self, mask, null_selection_behavior)
-
     def equals(self, object other, bint check_metadata=False):
         """
         Check if contents of two record batches are equal.
@@ -3094,6 +3230,7 @@ cdef class RecordBatch(_Tabular):
         >>> batch.equals(batch_1, check_metadata=True)
         False
         """
+        self._assert_cpu()
         cdef:
             CRecordBatch* this_batch = self.batch
             shared_ptr[CRecordBatch] other_batch = pyarrow_unwrap_batch(other)
@@ -3211,20 +3348,20 @@ cdef class RecordBatch(_Tabular):
             list newcols = []
 
         if self.schema.names != target_schema.names:
-            raise ValueError("Target schema's field names are not matching "
-                             "the record batch's field names: {!r}, {!r}"
-                             .format(self.schema.names, target_schema.names))
+            raise ValueError(f"Target schema's field names are not matching "
+                             f"the record batch's field names: {self.schema.names!r}, {target_schema.names!r}")
 
         for column, field in zip(self.itercolumns(), target_schema):
             if not field.nullable and column.null_count > 0:
-                raise ValueError("Casting field {!r} with null values to non-nullable"
-                                 .format(field.name))
+                raise ValueError(
+                    f"Casting field {field.name!r} with null values to non-nullable")
             casted = column.cast(field.type, safe=safe, options=options)
             newcols.append(casted)
 
         return RecordBatch.from_arrays(newcols, schema=target_schema)
 
     def _to_pandas(self, options, **kwargs):
+        self._assert_cpu()
         return Table.from_batches([self])._to_pandas(options, **kwargs)
 
     @classmethod
@@ -3413,7 +3550,7 @@ cdef class RecordBatch(_Tabular):
         for arr in converted_arrays:
             if len(arr) != num_rows:
                 raise ValueError('Arrays were not all the same length: '
-                                 '{0} vs {1}'.format(len(arr), num_rows))
+                                 f'{len(arr)} vs {num_rows}')
             c_arrays.push_back(arr.sp_array)
 
         result = pyarrow_wrap_batch(CRecordBatch.Make(c_schema, num_rows,
@@ -3450,6 +3587,8 @@ cdef class RecordBatch(_Tabular):
         """
         cdef:
             shared_ptr[CRecordBatch] c_record_batch
+        if struct_array.sp_array.get().device_type() != CDeviceAllocationType_kCPU:
+            raise NotImplementedError("Implemented only for data on CPU device")
         with nogil:
             c_record_batch = GetResultValue(
                 CRecordBatch.FromStructArray(struct_array.sp_array))
@@ -3459,6 +3598,7 @@ cdef class RecordBatch(_Tabular):
         """
         Convert to a struct array.
         """
+        self._assert_cpu()
         cdef:
             shared_ptr[CRecordBatch] c_record_batch
             shared_ptr[CArray] c_array
@@ -3537,6 +3677,7 @@ cdef class RecordBatch(_Tabular):
                [ 4., 40.],
                [nan, nan]])
         """
+        self._assert_cpu()
         cdef:
             shared_ptr[CRecordBatch] c_record_batch
             shared_ptr[CTensor] c_tensor
@@ -3548,6 +3689,41 @@ cdef class RecordBatch(_Tabular):
                 <CResult[shared_ptr[CTensor]]>deref(c_record_batch).ToTensor(null_to_nan,
                                                                              row_major, pool))
         return pyarrow_wrap_tensor(c_tensor)
+
+    def copy_to(self, destination):
+        """
+        Copy the entire RecordBatch to destination device.
+
+        This copies each column of the record batch to create
+        a new record batch where all underlying buffers for the columns have
+        been copied to the destination MemoryManager.
+
+        Parameters
+        ----------
+        destination : pyarrow.MemoryManager or pyarrow.Device
+            The destination device to copy the array to.
+
+        Returns
+        -------
+        RecordBatch
+        """
+        cdef:
+            shared_ptr[CRecordBatch] c_batch
+            shared_ptr[CMemoryManager] c_memory_manager
+
+        if isinstance(destination, Device):
+            c_memory_manager = (<Device>destination).unwrap().get().default_memory_manager()
+        elif isinstance(destination, MemoryManager):
+            c_memory_manager = (<MemoryManager>destination).unwrap()
+        else:
+            raise TypeError(
+                "Argument 'destination' has incorrect type (expected a "
+                f"pyarrow Device or MemoryManager, got {type(destination)})"
+            )
+
+        with nogil:
+            c_batch = GetResultValue(self.batch.CopyTo(c_memory_manager))
+        return pyarrow_wrap_batch(c_batch)
 
     def _export_to_c(self, out_ptr, out_schema_ptr=0):
         """
@@ -3619,7 +3795,7 @@ cdef class RecordBatch(_Tabular):
         requested_schema : PyCapsule | None
             A PyCapsule containing a C ArrowSchema representation of a requested
             schema. PyArrow will attempt to cast the batch to this schema.
-            If None, the schema will be returned as-is, with a schema matching the
+            If None, the batch will be returned as-is, with a schema matching the
             one returned by :meth:`__arrow_c_schema__()`.
 
         Returns
@@ -3628,6 +3804,7 @@ cdef class RecordBatch(_Tabular):
             A pair of PyCapsules containing a C ArrowSchema and ArrowArray,
             respectively.
         """
+        self._assert_cpu()
         cdef:
             ArrowArray* c_array
             ArrowSchema* c_schema
@@ -3637,9 +3814,7 @@ cdef class RecordBatch(_Tabular):
 
             if target_schema != self.schema:
                 try:
-                    # We don't expose .cast() on RecordBatch, only on Table.
-                    casted_batch = Table.from_batches([self]).cast(
-                        target_schema, safe=True).to_batches()[0]
+                    casted_batch = self.cast(target_schema, safe=True)
                     inner_batch = pyarrow_unwrap_batch(casted_batch)
                 except ArrowInvalid as e:
                     raise ValueError(
@@ -3675,13 +3850,14 @@ cdef class RecordBatch(_Tabular):
         -------
         PyCapsule
         """
+        self._assert_cpu()
         return Table.from_batches([self]).__arrow_c_stream__(requested_schema)
 
     @staticmethod
     def _import_from_c_capsule(schema_capsule, array_capsule):
         """
-        Import RecordBatch from a pair of PyCapsules containing a C ArrowArray
-        and ArrowSchema, respectively.
+        Import RecordBatch from a pair of PyCapsules containing a C ArrowSchema
+        and ArrowArray, respectively.
 
         Parameters
         ----------
@@ -3752,9 +3928,12 @@ cdef class RecordBatch(_Tabular):
         This is a low-level function intended for expert users.
         """
         cdef:
-            void* c_ptr = _as_c_pointer(in_ptr)
+            ArrowDeviceArray* c_device_array = <ArrowDeviceArray*>_as_c_pointer(in_ptr)
             void* c_schema_ptr
             shared_ptr[CRecordBatch] c_batch
+
+        if c_device_array.device_type == ARROW_DEVICE_CUDA:
+            _ensure_cuda_loaded()
 
         c_schema = pyarrow_unwrap_schema(schema)
         if c_schema == nullptr:
@@ -3762,12 +3941,131 @@ cdef class RecordBatch(_Tabular):
             c_schema_ptr = _as_c_pointer(schema, allow_null=True)
             with nogil:
                 c_batch = GetResultValue(ImportDeviceRecordBatch(
-                    <ArrowDeviceArray*> c_ptr, <ArrowSchema*> c_schema_ptr))
+                    c_device_array, <ArrowSchema*> c_schema_ptr))
         else:
             with nogil:
                 c_batch = GetResultValue(ImportDeviceRecordBatch(
-                    <ArrowDeviceArray*> c_ptr, c_schema))
+                    c_device_array, c_schema))
         return pyarrow_wrap_batch(c_batch)
+
+    def __arrow_c_device_array__(self, requested_schema=None, **kwargs):
+        """
+        Get a pair of PyCapsules containing a C ArrowDeviceArray representation
+        of the object.
+
+        Parameters
+        ----------
+        requested_schema : PyCapsule | None
+            A PyCapsule containing a C ArrowSchema representation of a requested
+            schema. PyArrow will attempt to cast the batch to this data type.
+            If None, the batch will be returned as-is, with a type matching the
+            one returned by :meth:`__arrow_c_schema__()`.
+        kwargs
+            Currently no additional keyword arguments are supported, but
+            this method will accept any keyword with a value of ``None``
+            for compatibility with future keywords.
+
+        Returns
+        -------
+        Tuple[PyCapsule, PyCapsule]
+            A pair of PyCapsules containing a C ArrowSchema and ArrowDeviceArray,
+            respectively.
+        """
+        cdef:
+            ArrowDeviceArray* c_array
+            ArrowSchema* c_schema
+            shared_ptr[CRecordBatch] inner_batch
+
+        non_default_kwargs = [
+            name for name, value in kwargs.items() if value is not None
+        ]
+        if non_default_kwargs:
+            raise NotImplementedError(
+                f"Received unsupported keyword argument(s): {non_default_kwargs}"
+            )
+
+        if requested_schema is not None:
+            target_schema = Schema._import_from_c_capsule(requested_schema)
+
+            if target_schema != self.schema:
+                if not self.is_cpu:
+                    raise NotImplementedError(
+                        "Casting to a requested schema is only supported for CPU data"
+                    )
+                try:
+                    casted_batch = self.cast(target_schema, safe=True)
+                    inner_batch = pyarrow_unwrap_batch(casted_batch)
+                except ArrowInvalid as e:
+                    raise ValueError(
+                        f"Could not cast {self.schema} to requested schema {target_schema}: {e}"
+                    )
+            else:
+                inner_batch = self.sp_batch
+        else:
+            inner_batch = self.sp_batch
+
+        schema_capsule = alloc_c_schema(&c_schema)
+        array_capsule = alloc_c_device_array(&c_array)
+
+        with nogil:
+            check_status(ExportDeviceRecordBatch(
+                deref(inner_batch), <shared_ptr[CSyncEvent]>NULL, c_array, c_schema))
+
+        return schema_capsule, array_capsule
+
+    @staticmethod
+    def _import_from_c_device_capsule(schema_capsule, array_capsule):
+        """
+        Import RecordBatch from a pair of PyCapsules containing a
+        C ArrowSchema and ArrowDeviceArray, respectively.
+
+        Parameters
+        ----------
+        schema_capsule : PyCapsule
+            A PyCapsule containing a C ArrowSchema representation of the schema.
+        array_capsule : PyCapsule
+            A PyCapsule containing a C ArrowDeviceArray representation of the array.
+
+        Returns
+        -------
+        pyarrow.RecordBatch
+        """
+        cdef:
+            ArrowSchema* c_schema
+            ArrowDeviceArray* c_array
+            shared_ptr[CRecordBatch] batch
+
+        c_schema = <ArrowSchema*> PyCapsule_GetPointer(schema_capsule, 'arrow_schema')
+        c_array = <ArrowDeviceArray*> PyCapsule_GetPointer(
+            array_capsule, 'arrow_device_array'
+        )
+
+        with nogil:
+            batch = GetResultValue(ImportDeviceRecordBatch(c_array, c_schema))
+
+        return pyarrow_wrap_batch(batch)
+
+    @property
+    def device_type(self):
+        """
+        The device type where the arrays in the RecordBatch reside.
+
+        Returns
+        -------
+        DeviceAllocationType
+        """
+        return _wrap_device_allocation_type(self.sp_batch.get().device_type())
+
+    @property
+    def is_cpu(self):
+        """
+        Whether the RecordBatch's arrays are CPU-accessible.
+        """
+        return self.device_type == DeviceAllocationType.CPU
+
+    cdef void _assert_cpu(self) except *:
+        if self.sp_batch.get().device_type() != CDeviceAllocationType_kCPU:
+            raise NotImplementedError("Implemented only for data on CPU device")
 
 
 def _reconstruct_record_batch(columns, schema):
@@ -3785,10 +4083,11 @@ def table_to_blocks(options, Table table, categories, extension_columns):
         PandasOptions c_options = _convert_pandas_options(options)
 
     if categories is not None:
-        c_options.categorical_columns = {tobytes(cat) for cat in categories}
+        c_options.categorical_columns = make_shared[unordered_set[c_string]](
+            unordered_set[c_string]({tobytes(cat) for cat in categories}))
     if extension_columns is not None:
-        c_options.extension_columns = {tobytes(col)
-                                       for col in extension_columns}
+        c_options.extension_columns = make_shared[unordered_set[c_string]](
+            unordered_set[c_string]({tobytes(col) for col in extension_columns}))
 
     if pandas_api.is_v1():
         # ARROW-3789: Coerce date/timestamp types to datetime64[ns]
@@ -3924,6 +4223,7 @@ cdef class Table(_Tabular):
 
     def __cinit__(self):
         self.table = NULL
+        self._init_is_cpu = False
 
     cdef void init(self, const shared_ptr[CTable]& table):
         self.sp_table = table
@@ -3949,6 +4249,7 @@ cdef class Table(_Tabular):
         ArrowInvalid
         """
         if full:
+            self._assert_cpu()
             with nogil:
                 check_status(self.table.ValidateFull())
         else:
@@ -3958,6 +4259,7 @@ cdef class Table(_Tabular):
     def __reduce__(self):
         # Reduce the columns as ChunkedArrays to avoid serializing schema
         # data twice
+        self._assert_cpu()
         columns = [col for col in self.columns]
         return _reconstruct_table, (columns, self.schema)
 
@@ -4025,78 +4327,6 @@ cdef class Table(_Tabular):
             result = self.table.Slice(offset, length)
 
         return pyarrow_wrap_table(result)
-
-    def filter(self, mask, object null_selection_behavior="drop"):
-        """
-        Select rows from the table.
-
-        The Table can be filtered based on a mask, which will be passed to
-        :func:`pyarrow.compute.filter` to perform the filtering, or it can
-        be filtered through a boolean :class:`.Expression`
-
-        Parameters
-        ----------
-        mask : Array or array-like or .Expression
-            The boolean mask or the :class:`.Expression` to filter the table with.
-        null_selection_behavior : str, default "drop"
-            How nulls in the mask should be handled, does nothing if
-            an :class:`.Expression` is used.
-
-        Returns
-        -------
-        filtered : Table
-            A table of the same schema, with only the rows selected
-            by applied filtering
-
-        Examples
-        --------
-        >>> import pyarrow as pa
-        >>> import pandas as pd
-        >>> df = pd.DataFrame({'year': [2020, 2022, 2019, 2021],
-        ...                    'n_legs': [2, 4, 5, 100],
-        ...                    'animals': ["Flamingo", "Horse", "Brittle stars", "Centipede"]})
-        >>> table = pa.Table.from_pandas(df)
-
-        Define an expression and select rows:
-
-        >>> import pyarrow.compute as pc
-        >>> expr = pc.field("year") <= 2020
-        >>> table.filter(expr)
-        pyarrow.Table
-        year: int64
-        n_legs: int64
-        animals: string
-        ----
-        year: [[2020,2019]]
-        n_legs: [[2,5]]
-        animals: [["Flamingo","Brittle stars"]]
-
-        Define a mask and select rows:
-
-        >>> mask=[True, True, False, None]
-        >>> table.filter(mask)
-        pyarrow.Table
-        year: int64
-        n_legs: int64
-        animals: string
-        ----
-        year: [[2020,2022]]
-        n_legs: [[2,4]]
-        animals: [["Flamingo","Horse"]]
-        >>> table.filter(mask, null_selection_behavior='emit_null')
-        pyarrow.Table
-        year: int64
-        n_legs: int64
-        animals: string
-        ----
-        year: [[2020,2022,null]]
-        n_legs: [[2,4,null]]
-        animals: [["Flamingo","Horse",null]]
-        """
-        if isinstance(mask, _pc().Expression):
-            return _pac()._filter_table(self, mask)
-        else:
-            return _pc().filter(self, mask, null_selection_behavior)
 
     def select(self, object columns):
         """
@@ -4268,6 +4498,7 @@ cdef class Table(_Tabular):
         a.year: [[null,2022]]
         month: [[4,6]]
         """
+        self._assert_cpu()
         cdef:
             shared_ptr[CTable] flattened
             CMemoryPool* pool = maybe_unbox_memory_pool(memory_pool)
@@ -4283,6 +4514,9 @@ cdef class Table(_Tabular):
 
         All the underlying chunks in the ChunkedArray of each column are
         concatenated into zero or one chunk.
+
+        To avoid buffer overflow, binary columns may be combined into
+        multiple chunks. Chunks will have the maximum possible length.
 
         Parameters
         ----------
@@ -4315,6 +4549,7 @@ cdef class Table(_Tabular):
         n_legs: [[2,2,4,4,5,100]]
         animals: [["Flamingo","Parrot","Dog","Horse","Brittle stars","Centipede"]]
         """
+        self._assert_cpu()
         cdef:
             shared_ptr[CTable] combined
             CMemoryPool* pool = maybe_unbox_memory_pool(memory_pool)
@@ -4372,6 +4607,7 @@ cdef class Table(_Tabular):
         ["Flamingo","Parrot","Dog","Horse","Brittle stars","Centipede"]  -- indices:
         [3,4,5]]
         """
+        self._assert_cpu()
         cdef:
             CMemoryPool* pool = maybe_unbox_memory_pool(memory_pool)
             shared_ptr[CTable] c_result
@@ -4417,6 +4653,7 @@ cdef class Table(_Tabular):
         >>> table.equals(table_1, check_metadata=True)
         False
         """
+        self._assert_cpu()
         if other is None:
             return False
 
@@ -4474,20 +4711,20 @@ cdef class Table(_Tabular):
         n_legs: [[2,4,5,100]]
         animals: [["Flamingo","Horse","Brittle stars","Centipede"]]
         """
+        self._assert_cpu()
         cdef:
             ChunkedArray column, casted
             Field field
             list newcols = []
 
         if self.schema.names != target_schema.names:
-            raise ValueError("Target schema's field names are not matching "
-                             "the table's field names: {!r}, {!r}"
-                             .format(self.schema.names, target_schema.names))
+            raise ValueError(f"Target schema's field names are not matching "
+                             f"the table's field names: {self.schema.names!r}, {target_schema.names!r}")
 
         for column, field in zip(self.itercolumns(), target_schema):
             if not field.nullable and column.null_count > 0:
-                raise ValueError("Casting field {!r} with null values to non-nullable"
-                                 .format(field.name))
+                raise ValueError(
+                    f"Casting field {field.name!r} with null values to non-nullable")
             casted = column.cast(field.type, safe=safe, options=options)
             newcols.append(casted)
 
@@ -4725,10 +4962,12 @@ cdef class Table(_Tabular):
         -------
         ChunkedArray
         """
-        return chunked_array([
+        self._assert_cpu()
+        chunks = [
             batch.to_struct_array()
             for batch in self.to_batches(max_chunksize=max_chunksize)
-        ])
+        ]
+        return chunked_array(chunks, type=struct(self.schema))
 
     @staticmethod
     def from_batches(batches, Schema schema=None):
@@ -4934,6 +5173,7 @@ cdef class Table(_Tabular):
 
     def _to_pandas(self, options, categories=None, ignore_metadata=False,
                    types_mapper=None):
+        self._assert_cpu()
         from pyarrow.pandas_compat import table_to_dataframe
         df = table_to_dataframe(
             options, self, categories,
@@ -5055,6 +5295,7 @@ cdef class Table(_Tabular):
         >>> table.nbytes
         72
         """
+        self._assert_cpu()
         cdef:
             CResult[int64_t] c_res_buffer
 
@@ -5084,6 +5325,7 @@ cdef class Table(_Tabular):
         >>> table.get_total_buffer_size()
         76
         """
+        self._assert_cpu()
         cdef:
             int64_t total_buffer_size
 
@@ -5310,7 +5552,7 @@ cdef class Table(_Tabular):
             shared_ptr[CTable] c_table
             vector[c_string] c_names
 
-        if isinstance(names, list):
+        if isinstance(names, (list, tuple)):
             for name in names:
                 c_names.push_back(tobytes(name))
         elif isinstance(names, dict):
@@ -5319,7 +5561,7 @@ cdef class Table(_Tabular):
                 indices = self.schema.get_all_field_indices(name)
 
                 if not indices:
-                    raise KeyError("Column {!r} not found".format(name))
+                    raise KeyError(f"Column {name!r} not found")
 
                 for index in indices:
                     idx_to_new_name[index] = new_name
@@ -5392,11 +5634,12 @@ cdef class Table(_Tabular):
         year: [[2020,2022,2021,2019]]
         n_legs_sum: [[2,6,104,5]]
         """
+        self._assert_cpu()
         return TableGroupBy(self, keys, use_threads=use_threads)
 
     def join(self, right_table, keys, right_keys=None, join_type="left outer",
              left_suffix=None, right_suffix=None, coalesce_keys=True,
-             use_threads=True):
+             use_threads=True, filter_expression=None):
         """
         Perform a join between this table and another one.
 
@@ -5430,6 +5673,8 @@ cdef class Table(_Tabular):
             in the join result.
         use_threads : bool, default True
             Whether to use multithreading or not.
+        filter_expression : pyarrow.compute.Expression
+            Residual filter which is applied to matching row.
 
         Returns
         -------
@@ -5439,6 +5684,7 @@ cdef class Table(_Tabular):
         --------
         >>> import pandas as pd
         >>> import pyarrow as pa
+        >>> import pyarrow.compute as pc
         >>> df1 = pd.DataFrame({'id': [1, 2, 3],
         ...                     'year': [2020, 2022, 2019]})
         >>> df2 = pd.DataFrame({'id': [3, 4],
@@ -5489,7 +5735,7 @@ cdef class Table(_Tabular):
         n_legs: [[5,100]]
         animal: [["Brittle stars","Centipede"]]
 
-        Right anti join
+        Right anti join:
 
         >>> t1.join(t2, 'id', join_type="right anti")
         pyarrow.Table
@@ -5500,14 +5746,30 @@ cdef class Table(_Tabular):
         id: [[4]]
         n_legs: [[100]]
         animal: [["Centipede"]]
+
+        Inner join with intended mismatch filter expression:
+
+        >>> t1.join(t2, 'id', join_type="inner", filter_expression=pc.equal(pc.field("n_legs"), 100))
+        pyarrow.Table
+        id: int64
+        year: int64
+        n_legs: int64
+        animal: string
+        ----
+        id: []
+        year: []
+        n_legs: []
+        animal: []
         """
+        self._assert_cpu()
         if right_keys is None:
             right_keys = keys
         return _pac()._perform_join(
             join_type, self, keys, right_table, right_keys,
             left_suffix=left_suffix, right_suffix=right_suffix,
             use_threads=use_threads, coalesce_keys=coalesce_keys,
-            output_type=Table
+            output_type=Table,
+            filter_expression=filter_expression,
         )
 
     def join_asof(self, right_table, on, by, tolerance, right_on=None, right_by=None):
@@ -5533,7 +5795,8 @@ cdef class Table(_Tabular):
             of the join operation left side.
 
             An inexact match is used on the "on" key, i.e. a row is considered a
-            match if and only if left_on - tolerance <= right_on <= left_on.
+            match if and only if ``right.on - left.on`` is in the range
+            ``[min(0, tolerance), max(0, tolerance)]``.
 
             The input dataset must be sorted by the "on" key. Must be a single
             field of a common type.
@@ -5545,12 +5808,15 @@ cdef class Table(_Tabular):
             only for the matches in these columns.
         tolerance : int
             The tolerance for inexact "on" key matching. A right row is considered
-            a match with the left row ``right.on - left.on <= tolerance``. The
-            ``tolerance`` may be:
+            a match with a left row if ``right.on - left.on`` is in the range
+            ``[min(0, tolerance), max(0, tolerance)]``. ``tolerance`` may be:
 
-            - negative, in which case a past-as-of-join occurs;
-            - or positive, in which case a future-as-of-join occurs;
-            - or zero, in which case an exact-as-of-join occurs.
+            - negative, in which case a past-as-of-join occurs
+              (match iff ``tolerance <= right.on - left.on <= 0``);
+            - or positive, in which case a future-as-of-join occurs
+              (match iff ``0 <= right.on - left.on <= tolerance``);
+            - or zero, in which case an exact-as-of-join occurs
+              (match iff ``right.on == left.on``).
 
             The tolerance is interpreted in the same units as the "on" key.
         right_on : str or list[str], default None
@@ -5588,6 +5854,7 @@ cdef class Table(_Tabular):
         n_legs: [[null,5,null,5,null]]
         animal: [[null,"Brittle stars",null,"Brittle stars",null]]
         """
+        self._assert_cpu()
         if right_on is None:
             right_on = on
         if right_by is None:
@@ -5613,7 +5880,22 @@ cdef class Table(_Tabular):
         -------
         PyCapsule
         """
+        self._assert_cpu()
         return self.to_reader().__arrow_c_stream__(requested_schema)
+
+    @property
+    def is_cpu(self):
+        """
+        Whether all ChunkedArrays are CPU-accessible.
+        """
+        if not self._init_is_cpu:
+            self._is_cpu = all(c.is_cpu for c in self.itercolumns())
+            self._init_is_cpu = True
+        return self._is_cpu
+
+    cdef void _assert_cpu(self) except *:
+        if not self.is_cpu:
+            raise NotImplementedError("Implemented only for data on CPU device")
 
 
 def _reconstruct_table(arrays, schema):
@@ -5633,7 +5915,8 @@ def record_batch(data, names=None, schema=None, metadata=None):
     data : dict, list, pandas.DataFrame, Arrow-compatible table
         A mapping of strings to Arrays or Python lists, a list of Arrays,
         a pandas DataFame, or any tabular object implementing the
-        Arrow PyCapsule Protocol (has an ``__arrow_c_array__`` method).
+        Arrow PyCapsule Protocol (has an ``__arrow_c_array__`` or
+        ``__arrow_c_device_array__`` method).
     names : list, default None
         Column names if list of arrays passed as data. Mutually exclusive with
         'schema' argument.
@@ -5767,6 +6050,18 @@ def record_batch(data, names=None, schema=None, metadata=None):
             raise ValueError(
                 "The 'names' argument is not valid when passing a dictionary")
         return RecordBatch.from_pydict(data, schema=schema, metadata=metadata)
+    elif hasattr(data, "__arrow_c_device_array__"):
+        if schema is not None:
+            requested_schema = schema.__arrow_c_schema__()
+        else:
+            requested_schema = None
+        schema_capsule, array_capsule = data.__arrow_c_device_array__(requested_schema)
+        batch = RecordBatch._import_from_c_device_capsule(schema_capsule, array_capsule)
+        if schema is not None and batch.schema != schema:
+            # __arrow_c_device_array__ coerces schema with best effort, so we might
+            # need to cast it if the producer wasn't able to cast to exact schema.
+            batch = batch.cast(schema)
+        return batch
     elif hasattr(data, "__arrow_c_array__"):
         if schema is not None:
             requested_schema = schema.__arrow_c_schema__()
@@ -5796,8 +6091,8 @@ def table(data, names=None, schema=None, metadata=None, nthreads=None):
     data : dict, list, pandas.DataFrame, Arrow-compatible table
         A mapping of strings to Arrays or Python lists, a list of arrays or
         chunked arrays, a pandas DataFame, or any tabular object implementing
-        the Arrow PyCapsule Protocol (has an ``__arrow_c_array__`` or
-        ``__arrow_c_stream__`` method).
+        the Arrow PyCapsule Protocol (has an ``__arrow_c_array__``,
+        ``__arrow_c_device_array__`` or ``__arrow_c_stream__`` method).
     names : list, default None
         Column names if list of arrays passed as data. Mutually exclusive with
         'schema' argument.
@@ -5937,7 +6232,7 @@ def table(data, names=None, schema=None, metadata=None, nthreads=None):
             # need to cast it if the producer wasn't able to cast to exact schema.
             table = table.cast(schema)
         return table
-    elif hasattr(data, "__arrow_c_array__"):
+    elif hasattr(data, "__arrow_c_array__") or hasattr(data, "__arrow_c_device_array__"):
         if names is not None or metadata is not None:
             raise ValueError(
                 "The 'names' and 'metadata' arguments are not valid when "
@@ -6017,12 +6312,9 @@ def concat_tables(tables, MemoryPool memory_pool=None, str promote_options="none
     for table in tables:
         c_tables.push_back(table.sp_table)
 
-    if promote_options == "permissive":
-        options.field_merge_options = CField.CMergeOptions.Permissive()
-    elif promote_options in {"default", "none"}:
-        options.field_merge_options = CField.CMergeOptions.Defaults()
-    else:
-        raise ValueError(f"Invalid promote options: {promote_options}")
+    options.field_merge_options = _parse_field_merge_options(
+        "default" if promote_options == "none" else promote_options
+    )
 
     with nogil:
         options.unify_schemas = promote_options != "none"
@@ -6030,6 +6322,57 @@ def concat_tables(tables, MemoryPool memory_pool=None, str promote_options="none
             ConcatenateTables(c_tables, options, pool))
 
     return pyarrow_wrap_table(c_result_table)
+
+
+def concat_batches(recordbatches, MemoryPool memory_pool=None):
+    """
+    Concatenate pyarrow.RecordBatch objects.
+
+    All recordbatches must share the same Schema,
+    the operation implies a copy of the data to merge
+    the arrays of the different RecordBatches.
+
+    Parameters
+    ----------
+    recordbatches : iterable of pyarrow.RecordBatch objects
+        Pyarrow record batches to concatenate into a single RecordBatch.
+    memory_pool : MemoryPool, default None
+        For memory allocations, if required, otherwise use default pool.
+
+    Examples
+    --------
+    >>> import pyarrow as pa
+    >>> t1 = pa.record_batch([
+    ...     pa.array([2, 4, 5, 100]),
+    ...     pa.array(["Flamingo", "Horse", "Brittle stars", "Centipede"])
+    ...     ], names=['n_legs', 'animals'])
+    >>> t2 = pa.record_batch([
+    ...     pa.array([2, 4]),
+    ...     pa.array(["Parrot", "Dog"])
+    ...     ], names=['n_legs', 'animals'])
+    >>> pa.concat_batches([t1,t2])
+    pyarrow.RecordBatch
+    n_legs: int64
+    animals: string
+    ----
+    n_legs: [2,4,5,100,2,4]
+    animals: ["Flamingo","Horse","Brittle stars","Centipede","Parrot","Dog"]
+
+    """
+    cdef:
+        vector[shared_ptr[CRecordBatch]] c_recordbatches
+        shared_ptr[CRecordBatch] c_result_recordbatch
+        RecordBatch recordbatch
+        CMemoryPool* pool = maybe_unbox_memory_pool(memory_pool)
+
+    for recordbatch in recordbatches:
+        c_recordbatches.push_back(recordbatch.sp_batch)
+
+    with nogil:
+        c_result_recordbatch = GetResultValue(
+            ConcatenateRecordBatches(c_recordbatches, pool))
+
+    return pyarrow_wrap_batch(c_result_recordbatch)
 
 
 def _from_pydict(cls, mapping, schema, metadata):

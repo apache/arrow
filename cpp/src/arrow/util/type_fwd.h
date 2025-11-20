@@ -67,4 +67,16 @@ class Codec;
 class Uri;
 }  // namespace util
 
+template <typename T>
+struct Enumerated {
+  T value;
+  int index;
+  bool last;
+
+  friend inline bool operator==(const Enumerated<T>& left, const Enumerated<T>& right) {
+    return left.index == right.index && left.last == right.last &&
+           left.value == right.value;
+  }
+};
+
 }  // namespace arrow

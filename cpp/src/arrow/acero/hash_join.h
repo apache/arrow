@@ -37,7 +37,7 @@ namespace acero {
 
 using util::AccumulationQueue;
 
-class HashJoinImpl {
+class ARROW_ACERO_EXPORT HashJoinImpl {
  public:
   using OutputBatchCallback = std::function<Status(int64_t, ExecBatch)>;
   using BuildFinishedCallback = std::function<Status(size_t)>;

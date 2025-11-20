@@ -60,6 +60,8 @@ class ARROW_EXPORT ArrayVisitor {
   virtual Status Visit(const MonthDayNanoIntervalArray& array);
   virtual Status Visit(const MonthIntervalArray& array);
   virtual Status Visit(const DurationArray& array);
+  virtual Status Visit(const Decimal32Array& array);
+  virtual Status Visit(const Decimal64Array& array);
   virtual Status Visit(const Decimal128Array& array);
   virtual Status Visit(const Decimal256Array& array);
   virtual Status Visit(const ListArray& array);
@@ -113,6 +115,8 @@ class ARROW_EXPORT TypeVisitor {
   virtual Status Visit(const MonthIntervalType& type);
   virtual Status Visit(const DayTimeIntervalType& type);
   virtual Status Visit(const DurationType& type);
+  virtual Status Visit(const Decimal32Type& type);
+  virtual Status Visit(const Decimal64Type& type);
   virtual Status Visit(const Decimal128Type& type);
   virtual Status Visit(const Decimal256Type& type);
   virtual Status Visit(const ListType& type);
@@ -166,6 +170,8 @@ class ARROW_EXPORT ScalarVisitor {
   virtual Status Visit(const MonthDayNanoIntervalScalar& type);
   virtual Status Visit(const MonthIntervalScalar& scalar);
   virtual Status Visit(const DurationScalar& scalar);
+  virtual Status Visit(const Decimal32Scalar& scalar);
+  virtual Status Visit(const Decimal64Scalar& scalar);
   virtual Status Visit(const Decimal128Scalar& scalar);
   virtual Status Visit(const Decimal256Scalar& scalar);
   virtual Status Visit(const ListScalar& scalar);

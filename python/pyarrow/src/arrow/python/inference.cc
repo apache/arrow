@@ -395,11 +395,11 @@ class TypeInferrer {
       *keep_going = make_unions_;
     } else if (arrow::py::is_scalar(obj)) {
       RETURN_NOT_OK(VisitArrowScalar(obj, keep_going));
-    } else if (PyArray_CheckAnyScalarExact(obj)) {
+    } else if (has_numpy() && PyArray_CheckAnyScalarExact(obj)) {
       RETURN_NOT_OK(VisitDType(PyArray_DescrFromScalar(obj), keep_going));
     } else if (PySet_Check(obj) || (Py_TYPE(obj) == &PyDictValues_Type)) {
       RETURN_NOT_OK(VisitSet(obj, keep_going));
-    } else if (PyArray_Check(obj)) {
+    } else if (has_numpy() && PyArray_Check(obj)) {
       RETURN_NOT_OK(VisitNdarray(obj, keep_going));
     } else if (PyDict_Check(obj)) {
       RETURN_NOT_OK(VisitDict(obj));

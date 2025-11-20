@@ -24,6 +24,7 @@ from os.path import join as pjoin
 import re
 import shlex
 import sys
+import warnings
 
 if sys.version_info >= (3, 10):
     import sysconfig
@@ -31,8 +32,7 @@ else:
     # Get correct EXT_SUFFIX on Windows (https://bugs.python.org/issue39825)
     from distutils import sysconfig
 
-import pkg_resources
-from setuptools import setup, Extension, Distribution, find_namespace_packages
+from setuptools import setup, Extension, Distribution
 
 from Cython.Distutils import build_ext as _build_ext
 import Cython
@@ -40,9 +40,17 @@ import Cython
 # Check if we're running 64-bit Python
 is_64_bit = sys.maxsize > 2**32
 
-if Cython.__version__ < '0.29.31':
+# We can't use sys.platform in a cross-compiling situation
+# as here it may be set to the host not target platform
+is_emscripten = (
+    sysconfig.get_config_var("SOABI")
+    and sysconfig.get_config_var("SOABI").find("emscripten") != -1
+)
+
+
+if Cython.__version__ < '3.1':
     raise Exception(
-        'Please update your Cython version. Supported Cython >= 0.29.31')
+        'Please update your Cython version. Supported Cython >= 3.1')
 
 setup_dir = os.path.abspath(os.path.dirname(__file__))
 
@@ -76,11 +84,29 @@ def strtobool(val):
         raise ValueError("invalid truth value %r" % (val,))
 
 
+MSG_DEPR_SETUP_BUILD_FLAGS = """
+  !!
+
+        ***********************************************************************
+        The '{}' flag is being passed to setup.py, but this is
+        deprecated.
+
+        If a certain component is available in Arrow C++, it will automatically
+        be enabled for the PyArrow build as well. If you want to force the
+        build of a certain component, you can still use the
+        PYARROW_WITH_$COMPONENT environment variable.
+        ***********************************************************************
+
+  !!
+"""
+
+
 class build_ext(_build_ext):
     _found_names = ()
 
     def build_extensions(self):
-        numpy_incl = pkg_resources.resource_filename('numpy', 'core/include')
+        import numpy
+        numpy_incl = numpy.get_include()
 
         self.extensions = [ext for ext in self.extensions
                            if ext.name != '__dummy__']
@@ -246,13 +272,19 @@ class build_ext(_build_ext):
             ]
 
             def append_cmake_bool(value, varname):
-                cmake_options.append('-D{0}={1}'.format(
-                    varname, 'on' if value else 'off'))
+                cmake_options.append(f'-D{varname}={"on" if value else "off"}')
 
             def append_cmake_component(flag, varname):
-                # only pass this to cmake is the user pass the --with-component
+                # only pass this to cmake if the user pass the --with-component
                 # flag to setup.py build_ext
                 if flag is not None:
+                    flag_name = (
+                        "--with-"
+                        + varname.removeprefix("PYARROW_").lower().replace("_", "-"))
+                    warnings.warn(
+                        MSG_DEPR_SETUP_BUILD_FLAGS.format(flag_name),
+                        UserWarning, stacklevel=2
+                    )
                     append_cmake_bool(flag, varname)
 
             if self.cmake_generator:
@@ -298,8 +330,14 @@ class build_ext(_build_ext):
                     build_tool_args.append(f'-j{parallel}')
 
             # Generate the build files
-            print("-- Running cmake for PyArrow")
-            self.spawn(['cmake'] + extra_cmake_args + cmake_options + [source])
+            if is_emscripten:
+                print("-- Running emcmake cmake for PyArrow on Emscripten")
+                self.spawn(['emcmake', 'cmake'] + extra_cmake_args +
+                           cmake_options + [source])
+            else:
+                print("-- Running cmake for PyArrow")
+                self.spawn(['cmake'] + extra_cmake_args + cmake_options + [source])
+
             print("-- Finished cmake for PyArrow")
 
             print("-- Running cmake --build for PyArrow")
@@ -357,21 +395,7 @@ class BinaryDistribution(Distribution):
         return True
 
 
-if strtobool(os.environ.get('PYARROW_INSTALL_TESTS', '1')):
-    packages = find_namespace_packages(include=['pyarrow*'])
-    exclude_package_data = {}
-else:
-    packages = find_namespace_packages(include=['pyarrow*'],
-                                       exclude=["pyarrow.tests*"])
-    # setuptools adds back importable packages even when excluded.
-    # https://github.com/pypa/setuptools/issues/3260
-    # https://github.com/pypa/setuptools/issues/3340#issuecomment-1219383976
-    exclude_package_data = {"pyarrow": ["tests*"]}
-
-
 setup(
-    packages=packages,
-    exclude_package_data=exclude_package_data,
     distclass=BinaryDistribution,
     # Dummy extension to trigger build_ext
     ext_modules=[Extension('__dummy__', sources=[])],

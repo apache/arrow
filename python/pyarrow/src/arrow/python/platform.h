@@ -29,13 +29,13 @@
 
 // Work around C2528 error
 #ifdef _MSC_VER
-#if _MSC_VER >= 1900
-#undef timezone
-#endif
+#  if _MSC_VER >= 1900
+#    undef timezone
+#  endif
 
 // https://bugs.python.org/issue36020
 // TODO(wjones127): Can remove once we drop support for CPython 3.9
-#ifdef snprintf
-#undef snprintf
-#endif
+#  ifdef snprintf
+#    undef snprintf
+#  endif
 #endif

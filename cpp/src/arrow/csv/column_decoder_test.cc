@@ -175,6 +175,9 @@ class NullColumnDecoderTest : public ColumnDecoderTest {
   }
 
   void TestThreaded() {
+#ifndef ARROW_ENABLE_THREADING
+    GTEST_SKIP() << "Test requires threading support";
+#endif
     constexpr int NITERS = 10;
     auto type = int32();
     MakeDecoder(type);
@@ -257,6 +260,10 @@ class TypedColumnDecoderTest : public ColumnDecoderTest {
   }
 
   void TestThreaded() {
+#ifndef ARROW_ENABLE_THREADING
+    GTEST_SKIP() << "Test requires threading support";
+#endif
+
     constexpr int NITERS = 10;
     auto type = uint32();
     MakeDecoder(type, default_options);
@@ -305,6 +312,10 @@ class InferringColumnDecoderTest : public ColumnDecoderTest {
   }
 
   void TestThreaded() {
+#ifndef ARROW_ENABLE_THREADING
+    GTEST_SKIP() << "Test requires threading support";
+#endif
+
     constexpr int NITERS = 10;
     auto type = float64();
     MakeDecoder(default_options);

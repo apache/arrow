@@ -287,49 +287,11 @@ static std::unique_ptr<FunctionRegistry> CreateBuiltInRegistry() {
   RegisterDictionaryDecode(registry.get());
   RegisterVectorHash(registry.get());
   RegisterVectorSelection(registry.get());
+  RegisterVectorSwizzle(registry.get());
 
   RegisterScalarOptions(registry.get());
   RegisterVectorOptions(registry.get());
   RegisterAggregateOptions(registry.get());
-
-#ifdef ARROW_COMPUTE
-  // Register additional kernels
-
-  // Scalar functions
-  RegisterScalarArithmetic(registry.get());
-  RegisterScalarBoolean(registry.get());
-  RegisterScalarComparison(registry.get());
-  RegisterScalarIfElse(registry.get());
-  RegisterScalarNested(registry.get());
-  RegisterScalarRandom(registry.get());  // Nullary
-  RegisterScalarRoundArithmetic(registry.get());
-  RegisterScalarSetLookup(registry.get());
-  RegisterScalarStringAscii(registry.get());
-  RegisterScalarStringUtf8(registry.get());
-  RegisterScalarTemporalBinary(registry.get());
-  RegisterScalarTemporalUnary(registry.get());
-  RegisterScalarValidity(registry.get());
-
-  // Vector functions
-  RegisterVectorArraySort(registry.get());
-  RegisterVectorCumulativeSum(registry.get());
-  RegisterVectorNested(registry.get());
-  RegisterVectorRank(registry.get());
-  RegisterVectorReplace(registry.get());
-  RegisterVectorSelectK(registry.get());
-  RegisterVectorSort(registry.get());
-  RegisterVectorRunEndEncode(registry.get());
-  RegisterVectorRunEndDecode(registry.get());
-  RegisterVectorPairwise(registry.get());
-
-  // Aggregate functions
-  RegisterHashAggregateBasic(registry.get());
-  RegisterScalarAggregateBasic(registry.get());
-  RegisterScalarAggregateMode(registry.get());
-  RegisterScalarAggregateQuantile(registry.get());
-  RegisterScalarAggregateTDigest(registry.get());
-  RegisterScalarAggregateVariance(registry.get());
-#endif
 
   return registry;
 }

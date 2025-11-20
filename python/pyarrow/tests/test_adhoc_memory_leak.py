@@ -17,7 +17,10 @@
 
 import pytest
 
-import numpy as np
+try:
+    import numpy as np
+except ImportError:
+    np = None
 import pyarrow as pa
 
 import pyarrow.tests.util as test_util

@@ -29,9 +29,9 @@
 #include <signal.h>
 
 #ifndef _WIN32
-#include <pthread.h>
-#include <sys/types.h>
-#include <unistd.h>
+#  include <pthread.h>
+#  include <sys/types.h>
+#  include <unistd.h>
 #endif
 
 #include <gmock/gmock-matchers.h>
@@ -48,11 +48,11 @@
 #include "arrow/util/windows_fixup.h"
 
 #ifdef WIN32
-#define PIPE_WRITE _write
-#define PIPE_READ _read
+#  define PIPE_WRITE _write
+#  define PIPE_READ _read
 #else
-#define PIPE_WRITE write
-#define PIPE_READ read
+#  define PIPE_WRITE write
+#  define PIPE_READ read
 #endif
 
 namespace arrow {
@@ -474,9 +474,9 @@ TEST_F(TestSelfPipe, SendFromSignalAndWait) {
 #if !(defined(_WIN32) || defined(ARROW_VALGRIND) || defined(ADDRESS_SANITIZER) || \
       defined(THREAD_SANITIZER))
 TEST_F(TestSelfPipe, ForkSafety) {
-#ifndef ARROW_ENABLE_THREADING
+#  ifndef ARROW_ENABLE_THREADING
   GTEST_SKIP() << "Test requires threading support";
-#endif
+#  endif
 
   self_pipe_->Send(123456789123456789ULL);
 
@@ -974,7 +974,7 @@ TEST(DeleteFile, Basics) {
 TEST(FileUtils, LongPaths) {
   // ARROW-8477: check using long file paths under Windows (> 260 characters).
   bool created, deleted;
-#ifdef _WIN32
+#  ifdef _WIN32
   const char* kRegKeyName = R"(SYSTEM\CurrentControlSet\Control\FileSystem)";
   const char* kRegValueName = "LongPathsEnabled";
   DWORD value = 0;
@@ -990,7 +990,7 @@ TEST(FileUtils, LongPaths) {
         << " to 1 on the test host.";
     return;
   }
-#endif
+#  endif
 
   const std::string BASE = "xxx-io-util-test-dir-long";
   PlatformFilename base_path, long_path, long_filename;
@@ -1096,7 +1096,7 @@ TEST(CpuInfo, Basic) {
   const auto l2 = ci->CacheSize(CpuInfo::CacheLevel::L2);
   const auto l3 = ci->CacheSize(CpuInfo::CacheLevel::L3);
   ASSERT_TRUE(l1 >= 4 * 1024 && l1 <= 512 * 1024) << "unexpected L1 size: " << l1;
-  ASSERT_TRUE(l2 >= 32 * 1024 && l2 <= 12 * 1024 * 1024) << "unexpected L2 size: " << l2;
+  ASSERT_TRUE(l2 >= 32 * 1024 && l2 <= 64 * 1024 * 1024) << "unexpected L2 size: " << l2;
   ASSERT_TRUE(l3 >= 256 * 1024 && l3 <= 1024 * 1024 * 1024)
       << "unexpected L3 size: " << l3;
   ASSERT_LE(l1, l2) << "L1 cache size " << l1 << " larger than L2 " << l2;
@@ -1120,6 +1120,17 @@ TEST(Memory, TotalMemory) {
   ASSERT_GT(GetTotalMemoryBytes(), 0);
 #else
   ASSERT_EQ(GetTotalMemoryBytes(), 0);
+#endif
+}
+
+TEST(CpuAffinity, NumberOfCores) {
+  auto maybe_affinity_cores = GetNumAffinityCores();
+#ifdef __linux__
+  ASSERT_OK_AND_ASSIGN(auto affinity_cores, maybe_affinity_cores);
+  ASSERT_GE(affinity_cores, 1);
+  ASSERT_LE(affinity_cores, std::thread::hardware_concurrency());
+#else
+  ASSERT_RAISES(NotImplemented, maybe_affinity_cores);
 #endif
 }
 

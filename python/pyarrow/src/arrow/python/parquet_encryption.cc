@@ -30,11 +30,11 @@ PyKmsClient::PyKmsClient(PyObject* handler, PyKmsClientVtable vtable)
 
 PyKmsClient::~PyKmsClient() {}
 
-std::string PyKmsClient::WrapKey(const std::string& key_bytes,
+std::string PyKmsClient::WrapKey(const ::arrow::util::SecureString& key,
                                  const std::string& master_key_identifier) {
   std::string wrapped;
   auto st = SafeCallIntoPython([&]() -> Status {
-    vtable_.wrap_key(handler_.obj(), key_bytes, master_key_identifier, &wrapped);
+    vtable_.wrap_key(handler_.obj(), key, master_key_identifier, &wrapped);
     return CheckPyError();
   });
   if (!st.ok()) {
@@ -43,9 +43,9 @@ std::string PyKmsClient::WrapKey(const std::string& key_bytes,
   return wrapped;
 }
 
-std::string PyKmsClient::UnwrapKey(const std::string& wrapped_key,
-                                   const std::string& master_key_identifier) {
-  std::string unwrapped;
+::arrow::util::SecureString PyKmsClient::UnwrapKey(
+    const std::string& wrapped_key, const std::string& master_key_identifier) {
+  arrow::util::SecureString unwrapped;
   auto st = SafeCallIntoPython([&]() -> Status {
     vtable_.unwrap_key(handler_.obj(), wrapped_key, master_key_identifier, &unwrapped);
     return CheckPyError();
@@ -79,17 +79,32 @@ std::shared_ptr<::parquet::encryption::KmsClient> PyKmsClientFactory::CreateKmsC
 arrow::Result<std::shared_ptr<::parquet::FileEncryptionProperties>>
 PyCryptoFactory::SafeGetFileEncryptionProperties(
     const ::parquet::encryption::KmsConnectionConfig& kms_connection_config,
-    const ::parquet::encryption::EncryptionConfiguration& encryption_config) {
-  PARQUET_CATCH_AND_RETURN(
-      this->GetFileEncryptionProperties(kms_connection_config, encryption_config));
+    const ::parquet::encryption::EncryptionConfiguration& encryption_config,
+    const std::string& parquet_file_path,
+    const std::shared_ptr<::arrow::fs::FileSystem>& filesystem) {
+  PARQUET_CATCH_AND_RETURN(this->GetFileEncryptionProperties(
+      kms_connection_config, encryption_config, parquet_file_path, filesystem));
 }
 
 arrow::Result<std::shared_ptr<::parquet::FileDecryptionProperties>>
 PyCryptoFactory::SafeGetFileDecryptionProperties(
     const ::parquet::encryption::KmsConnectionConfig& kms_connection_config,
-    const ::parquet::encryption::DecryptionConfiguration& decryption_config) {
-  PARQUET_CATCH_AND_RETURN(
-      this->GetFileDecryptionProperties(kms_connection_config, decryption_config));
+    const ::parquet::encryption::DecryptionConfiguration& decryption_config,
+    const std::string& parquet_file_path,
+    const std::shared_ptr<::arrow::fs::FileSystem>& filesystem) {
+  PARQUET_CATCH_AND_RETURN(this->GetFileDecryptionProperties(
+      kms_connection_config, decryption_config, parquet_file_path, filesystem));
+}
+
+arrow::Status PyCryptoFactory::SafeRotateMasterKeys(
+    const ::parquet::encryption::KmsConnectionConfig& kms_connection_config,
+    const std::string& parquet_file_path,
+    const std::shared_ptr<::arrow::fs::FileSystem>& filesystem, bool double_wrapping,
+    double cache_lifetime_seconds) {
+  PARQUET_CATCH_NOT_OK(this->RotateMasterKeys(kms_connection_config, parquet_file_path,
+                                              filesystem, double_wrapping,
+                                              cache_lifetime_seconds));
+  return arrow::Status::OK();
 }
 
 }  // namespace encryption

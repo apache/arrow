@@ -16,3 +16,4 @@
 # under the License.
 
 arrow_install_all_headers("arrow/python")
+add_subdirectory(vendored)

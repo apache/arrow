@@ -18,13 +18,13 @@
 
 set -ex
 
-: ${R_BIN:=R}
+: "${R_BIN:=R}"
 # When revdep runs with > 1 worker the checks for {targets} time out for 
 # some reason. 
-: ${ARROW_REVDEP_WORKERS:=1}
+: "${ARROW_REVDEP_WORKERS:=1}"
 # But we do want to use all cores while building arrow to speed up the 
 # installation so this is used to set MAKEFLAGS
-: ${N_JOBS:=$(nproc)}
+: "${N_JOBS:=$(nproc)}"
 source_dir=${1}/r
 
 # cpp building dependencies
@@ -78,7 +78,7 @@ apt install -y libxml2-dev \
 
 
 # We have to be in source_dir so that cpp source detection works
-pushd $source_dir
+pushd "$source_dir"
 
 printenv
 

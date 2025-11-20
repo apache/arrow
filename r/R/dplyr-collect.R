@@ -15,7 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-
 # The following S3 methods are registered on load if dplyr is present
 
 collect.arrow_dplyr_query <- function(x, as_data_frame = TRUE, ...) {
@@ -57,22 +56,16 @@ compute.arrow_dplyr_query <- function(x, ...) {
 }
 compute.Dataset <- compute.RecordBatchReader <- compute.arrow_dplyr_query
 
-pull.Dataset <- function(.data,
-                         var = -1,
-                         ...,
-                         as_vector = getOption("arrow.pull_as_vector")) {
+pull.Dataset <- function(.data, var = -1, ..., as_vector = getOption("arrow.pull_as_vector")) {
   .data <- as_adq(.data)
   var <- vars_pull(names(.data), !!enquo(var))
   .data$selected_columns <- set_names(.data$selected_columns[var], var)
-  out <- dplyr::compute(.data)[[1]]
+  out <- dplyr::compute(.data)[[var]]
   handle_pull_as_vector(out, as_vector)
 }
 pull.RecordBatchReader <- pull.arrow_dplyr_query <- pull.Dataset
 
-pull.ArrowTabular <- function(x,
-                              var = -1,
-                              ...,
-                              as_vector = getOption("arrow.pull_as_vector")) {
+pull.ArrowTabular <- function(x, var = -1, ..., as_vector = getOption("arrow.pull_as_vector")) {
   out <- x[[vars_pull(names(x), !!enquo(var))]]
   handle_pull_as_vector(out, as_vector)
 }

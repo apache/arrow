@@ -22,15 +22,18 @@
 
 #include <glib-object.h>
 
+#include <arrow-glib/version.h>
+
 G_BEGIN_DECLS
 /*** END file-header ***/
 
 /*** BEGIN file-production ***/
 
-/* enumerations from "@filename@" */
+/* enumerations from "@basename@" */
 /*** END file-production ***/
 
 /*** BEGIN value-header ***/
+GARROW_AVAILABLE_IN_ALL
 GType @enum_name@_get_type(void) G_GNUC_CONST;
 #define @ENUMPREFIX@_TYPE_@ENUMSHORT@ (@enum_name@_get_type())
 /*** END value-header ***/

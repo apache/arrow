@@ -17,7 +17,6 @@
 
 #pragma once
 
-#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include <cstdint>
@@ -29,42 +28,21 @@
 
 #include "arrow/status.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/testing/process.h"
 #include "arrow/testing/util.h"
 
 #include "arrow/flight/client.h"
-#include "arrow/flight/client_auth.h"
 #include "arrow/flight/server.h"
-#include "arrow/flight/server_auth.h"
 #include "arrow/flight/types.h"
 #include "arrow/flight/visibility.h"
-
-namespace boost {
-namespace process {
-
-class child;
-
-}  // namespace process
-}  // namespace boost
 
 namespace arrow {
 namespace flight {
 
 // ----------------------------------------------------------------------
 // Helpers to compare values for equality
-
-inline void AssertEqual(const FlightInfo& expected, const FlightInfo& actual) {
-  ipc::DictionaryMemo expected_memo;
-  ipc::DictionaryMemo actual_memo;
-  ASSERT_OK_AND_ASSIGN(auto ex_schema, expected.GetSchema(&expected_memo));
-  ASSERT_OK_AND_ASSIGN(auto actual_schema, actual.GetSchema(&actual_memo));
-
-  AssertSchemaEqual(*ex_schema, *actual_schema);
-  ASSERT_EQ(expected.total_records(), actual.total_records());
-  ASSERT_EQ(expected.total_bytes(), actual.total_bytes());
-
-  ASSERT_EQ(expected.descriptor(), actual.descriptor());
-  ASSERT_THAT(actual.endpoints(), ::testing::ContainerEq(expected.endpoints()));
-}
+ARROW_FLIGHT_EXPORT
+void AssertEqual(const FlightInfo& expected, const FlightInfo& actual);
 
 // ----------------------------------------------------------------------
 // Fixture to use for running test servers
@@ -78,10 +56,10 @@ class ARROW_FLIGHT_EXPORT TestServer {
   TestServer(const std::string& executable_name, const std::string& unix_sock)
       : executable_name_(executable_name), unix_sock_(unix_sock) {}
 
-  void Start(const std::vector<std::string>& extra_args);
-  void Start() { Start({}); }
+  Status Start(const std::vector<std::string>& extra_args);
+  Status Start() { return Start({}); }
 
-  int Stop();
+  void Stop();
 
   bool IsRunning();
 
@@ -92,12 +70,8 @@ class ARROW_FLIGHT_EXPORT TestServer {
   std::string executable_name_;
   int port_;
   std::string unix_sock_;
-  std::shared_ptr<::boost::process::child> server_process_;
+  std::unique_ptr<util::Process> server_process_;
 };
-
-/// \brief Create a simple Flight server for testing
-ARROW_FLIGHT_EXPORT
-std::unique_ptr<FlightServerBase> ExampleTestServer();
 
 // Helper to initialize a server and matching client with callbacks to
 // populate options.
@@ -157,6 +131,9 @@ ARROW_FLIGHT_EXPORT
 std::shared_ptr<Schema> ExampleIntSchema();
 
 ARROW_FLIGHT_EXPORT
+std::shared_ptr<Schema> ExampleFloatSchema();
+
+ARROW_FLIGHT_EXPORT
 std::shared_ptr<Schema> ExampleStringSchema();
 
 ARROW_FLIGHT_EXPORT
@@ -195,64 +172,11 @@ FlightInfo MakeFlightInfo(const Schema& schema, const FlightDescriptor& descript
                           int64_t total_records, int64_t total_bytes, bool ordered,
                           std::string app_metadata);
 
-// ----------------------------------------------------------------------
-// A pair of authentication handlers that check for a predefined password
-// and set the peer identity to a predefined username.
-
-class ARROW_FLIGHT_EXPORT TestServerAuthHandler : public ServerAuthHandler {
- public:
-  explicit TestServerAuthHandler(const std::string& username,
-                                 const std::string& password);
-  ~TestServerAuthHandler() override;
-  Status Authenticate(const ServerCallContext& context, ServerAuthSender* outgoing,
-                      ServerAuthReader* incoming) override;
-  Status IsValid(const ServerCallContext& context, const std::string& token,
-                 std::string* peer_identity) override;
-
- private:
-  std::string username_;
-  std::string password_;
-};
-
-class ARROW_FLIGHT_EXPORT TestServerBasicAuthHandler : public ServerAuthHandler {
- public:
-  explicit TestServerBasicAuthHandler(const std::string& username,
-                                      const std::string& password);
-  ~TestServerBasicAuthHandler() override;
-  Status Authenticate(const ServerCallContext& context, ServerAuthSender* outgoing,
-                      ServerAuthReader* incoming) override;
-  Status IsValid(const ServerCallContext& context, const std::string& token,
-                 std::string* peer_identity) override;
-
- private:
-  BasicAuth basic_auth_;
-};
-
-class ARROW_FLIGHT_EXPORT TestClientAuthHandler : public ClientAuthHandler {
- public:
-  explicit TestClientAuthHandler(const std::string& username,
-                                 const std::string& password);
-  ~TestClientAuthHandler() override;
-  Status Authenticate(ClientAuthSender* outgoing, ClientAuthReader* incoming) override;
-  Status GetToken(std::string* token) override;
-
- private:
-  std::string username_;
-  std::string password_;
-};
-
-class ARROW_FLIGHT_EXPORT TestClientBasicAuthHandler : public ClientAuthHandler {
- public:
-  explicit TestClientBasicAuthHandler(const std::string& username,
-                                      const std::string& password);
-  ~TestClientBasicAuthHandler() override;
-  Status Authenticate(ClientAuthSender* outgoing, ClientAuthReader* incoming) override;
-  Status GetToken(std::string* token) override;
-
- private:
-  BasicAuth basic_auth_;
-  std::string token_;
-};
+ARROW_FLIGHT_EXPORT
+FlightInfo MakeFlightInfo(const FlightDescriptor& descriptor,
+                          const std::vector<FlightEndpoint>& endpoints,
+                          int64_t total_records, int64_t total_bytes, bool ordered,
+                          std::string app_metadata);
 
 ARROW_FLIGHT_EXPORT
 Status ExampleTlsCertificates(std::vector<CertKeyPair>* out);

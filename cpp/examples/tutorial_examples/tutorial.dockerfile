@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-FROM ubuntu:focal
+FROM ubuntu:24.04
 
 ENV DEBIAN_FRONTEND=noninteractive
 

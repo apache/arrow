@@ -58,7 +58,7 @@ std::shared_ptr<ExecPlan> Plan_Q1(AsyncGenerator<std::optional<ExecBatch>>* sink
   Expression base_price = field_ref("L_EXTENDEDPRICE");
 
   std::shared_ptr<Decimal128Scalar> decimal_1 =
-      std::make_shared<Decimal128Scalar>(Decimal128{0, 100}, decimal(12, 2));
+      std::make_shared<Decimal128Scalar>(Decimal128{0, 100}, decimal128(12, 2));
   Expression discount_multiplier =
       call("subtract", {literal(decimal_1), field_ref("L_DISCOUNT")});
   Expression tax_multiplier = call("add", {literal(decimal_1), field_ref("L_TAX")});
@@ -68,7 +68,7 @@ std::shared_ptr<ExecPlan> Plan_Q1(AsyncGenerator<std::optional<ExecBatch>>* sink
       call("multiply",
            {call("cast",
                  {call("multiply", {field_ref("L_EXTENDEDPRICE"), discount_multiplier})},
-                 compute::CastOptions::Unsafe(decimal(12, 2))),
+                 compute::CastOptions::Unsafe(decimal128(12, 2))),
             tax_multiplier});
   Expression discount = field_ref("L_DISCOUNT");
 

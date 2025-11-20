@@ -38,7 +38,7 @@
 #include "arrow/util/future.h"
 #include "arrow/util/io_util.h"
 #include "arrow/util/iterator.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/thread_pool.h"
 
 namespace arrow {
@@ -68,8 +68,8 @@ Status SetIOThreadPoolCapacity(int threads) {
 FileInterface::~FileInterface() = default;
 
 Future<> FileInterface::CloseAsync() {
-  return DeferNotOk(
-      default_io_context().executor()->Submit([this]() { return Close(); }));
+  return DeferNotOk(default_io_context().executor()->Submit(
+      [self = shared_from_this()]() { return self->Close(); }));
 }
 
 Status FileInterface::Abort() { return Close(); }

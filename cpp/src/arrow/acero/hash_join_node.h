@@ -65,9 +65,9 @@ class ARROW_ACERO_EXPORT HashJoinSchema {
   std::shared_ptr<Schema> MakeOutputSchema(const std::string& left_field_name_suffix,
                                            const std::string& right_field_name_suffix);
 
-  bool LeftPayloadIsEmpty() { return PayloadIsEmpty(0); }
+  bool LeftPayloadIsEmpty() const { return PayloadIsEmpty(0); }
 
-  bool RightPayloadIsEmpty() { return PayloadIsEmpty(1); }
+  bool RightPayloadIsEmpty() const { return PayloadIsEmpty(1); }
 
   static int kMissingField() {
     return SchemaProjectionMaps<HashJoinProjection>::kMissingField;
@@ -88,7 +88,7 @@ class ARROW_ACERO_EXPORT HashJoinSchema {
                                             const SchemaProjectionMap& right_to_filter,
                                             const Expression& filter);
 
-  bool PayloadIsEmpty(int side) {
+  bool PayloadIsEmpty(int side) const {
     assert(side == 0 || side == 1);
     return proj_maps[side].num_cols(HashJoinProjection::PAYLOAD) == 0;
   }

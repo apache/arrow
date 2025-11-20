@@ -42,8 +42,7 @@ old_releases=$(
   svn ls ${release_base_url}/ | \
   grep -E '^arrow-[0-9]' | \
   sort --version-sort --reverse | \
-  tail -n +2 | \
-  tac
+  tail -n +2
 )
 for old_release_version in $old_releases; do
   echo "Remove old release: ${old_release_version}"

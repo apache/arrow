@@ -21,7 +21,8 @@
 #' @format NULL
 #' @rdname Dataset
 #' @export
-DatasetFactory <- R6Class("DatasetFactory",
+DatasetFactory <- R6Class(
+  "DatasetFactory",
   inherit = ArrowObject,
   public = list(
     Finish = function(schema = NULL, unify_schemas = FALSE) {
@@ -37,13 +38,15 @@ DatasetFactory <- R6Class("DatasetFactory",
     }
   )
 )
-DatasetFactory$create <- function(x,
-                                  filesystem = NULL,
-                                  format = c("parquet", "arrow", "ipc", "feather", "csv", "tsv", "text", "json"),
-                                  partitioning = NULL,
-                                  hive_style = NA,
-                                  factory_options = list(),
-                                  ...) {
+DatasetFactory$create <- function(
+  x,
+  filesystem = NULL,
+  format = c("parquet", "arrow", "ipc", "feather", "csv", "tsv", "text", "json"),
+  partitioning = NULL,
+  hive_style = NA,
+  factory_options = list(),
+  ...
+) {
   if (is_list_of(x, "DatasetFactory")) {
     return(dataset___UnionDatasetFactory__Make(x))
   }
@@ -220,15 +223,15 @@ dataset_factory <- DatasetFactory$create
 #' @format NULL
 #' @rdname Dataset
 #' @export
-FileSystemDatasetFactory <- R6Class("FileSystemDatasetFactory",
-  inherit = DatasetFactory
-)
-FileSystemDatasetFactory$create <- function(filesystem,
-                                            selector = NULL,
-                                            paths = NULL,
-                                            format,
-                                            partitioning = NULL,
-                                            factory_options = list()) {
+FileSystemDatasetFactory <- R6Class("FileSystemDatasetFactory", inherit = DatasetFactory)
+FileSystemDatasetFactory$create <- function(
+  filesystem,
+  selector = NULL,
+  paths = NULL,
+  format,
+  partitioning = NULL,
+  factory_options = list()
+) {
   assert_is(filesystem, "FileSystem")
   is.null(selector) || assert_is(selector, "FileSelector")
   is.null(paths) || assert_is(paths, "character")
@@ -282,10 +285,8 @@ fsf_options <- function(factory_options, partitioning) {
   if (!is.null(factory_options$partition_base_dir)) {
     if (
       inherits(partitioning, "HivePartitioning") ||
-        (
-          inherits(partitioning, "PartitioningFactory") &&
-            identical(partitioning$type_name, "hive")
-        )
+        (inherits(partitioning, "PartitioningFactory") &&
+          identical(partitioning$type_name, "hive"))
     ) {
       warning(
         "factory_options$partition_base_dir is not meaningful for Hive partitioning",

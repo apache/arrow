@@ -123,7 +123,7 @@ RVectorType GetVectorType(SEXP x) {
         return POSIXLT;
       }
 
-      if (Rf_inherits(x, "arrow_binary")) {
+      if (Rf_inherits(x, "arrow_binary") || Rf_inherits(x, "blob")) {
         return BINARY;
       }
 
@@ -595,11 +595,13 @@ class RPrimitiveConverter<T, enable_if_t<is_date_type<T>::value>>
     return VisitVector(it, size, append_null, append_value);
   }
 
-  static int FromRDate(const Date32Type*, double from) { return static_cast<int>(from); }
+  static int FromRDate(const Date32Type*, double from) {
+    return static_cast<int>(std::floor(from));
+  }
 
   static int64_t FromRDate(const Date64Type*, double from) {
     constexpr int64_t kMilliSecondsPerDay = 86400000;
-    return static_cast<int64_t>(from * kMilliSecondsPerDay);
+    return static_cast<int64_t>(std::floor(from * kMilliSecondsPerDay));
   }
 
   static int FromPosixct(const Date32Type*, double from) {
@@ -1050,7 +1052,6 @@ class RDictionaryConverter<ValueType, enable_if_has_string_view<ValueType>>
 template <typename T, typename Enable = void>
 struct RConverterTrait;
 
-#if ARROW_VERSION_MAJOR >= 15
 template <typename T>
 struct RConverterTrait<
     T, enable_if_t<!is_nested_type<T>::value && !is_interval_type<T>::value &&
@@ -1062,14 +1063,6 @@ template <typename T>
 struct RConverterTrait<T, enable_if_binary_view_like<T>> {
   // not implemented
 };
-#else
-template <typename T>
-struct RConverterTrait<
-    T, enable_if_t<!is_nested_type<T>::value && !is_interval_type<T>::value &&
-                   !is_extension_type<T>::value>> {
-  using type = RPrimitiveConverter<T>;
-};
-#endif
 
 template <typename T>
 struct RConverterTrait<T, enable_if_list_like<T>> {
@@ -1223,11 +1216,11 @@ bool can_reuse_memory(SEXP x, const std::shared_ptr<arrow::DataType>& type) {
   //       because MakeSimpleArray below will force materialization
   switch (type->id()) {
     case Type::INT32:
-      return TYPEOF(x) == INTSXP && !OBJECT(x);
+      return TYPEOF(x) == INTSXP && !Rf_isObject(x);
     case Type::DOUBLE:
-      return TYPEOF(x) == REALSXP && !OBJECT(x);
+      return TYPEOF(x) == REALSXP && !Rf_isObject(x);
     case Type::INT8:
-      return TYPEOF(x) == RAWSXP && !OBJECT(x);
+      return TYPEOF(x) == RAWSXP && !Rf_isObject(x);
     case Type::INT64:
       return TYPEOF(x) == REALSXP && Rf_inherits(x, "integer64");
     default:
@@ -1421,17 +1414,17 @@ bool vector_from_r_memory(SEXP x, const std::shared_ptr<DataType>& type,
 
   switch (type->id()) {
     case Type::INT32:
-      return TYPEOF(x) == INTSXP && !OBJECT(x) &&
+      return TYPEOF(x) == INTSXP && !Rf_isObject(x) &&
              vector_from_r_memory_impl<cpp11::integers, Int32Type>(x, type, columns, j,
                                                                    tasks);
 
     case Type::DOUBLE:
-      return TYPEOF(x) == REALSXP && !OBJECT(x) &&
+      return TYPEOF(x) == REALSXP && !Rf_isObject(x) &&
              vector_from_r_memory_impl<cpp11::doubles, DoubleType>(x, type, columns, j,
                                                                    tasks);
 
     case Type::UINT8:
-      return TYPEOF(x) == RAWSXP && !OBJECT(x) &&
+      return TYPEOF(x) == RAWSXP && !Rf_isObject(x) &&
              vector_from_r_memory_impl<cpp11::raws, UInt8Type>(x, type, columns, j,
                                                                tasks);
 

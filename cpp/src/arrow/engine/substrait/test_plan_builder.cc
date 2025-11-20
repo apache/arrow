@@ -31,14 +31,20 @@
 #include "arrow/status.h"
 #include "arrow/table.h"
 #include "arrow/type_fwd.h"
+#include "arrow/util/macros.h"
 
-#include "substrait/algebra.pb.h"
+// GH-44954: silence [[deprecated]] declarations in protobuf-generated code
+ARROW_SUPPRESS_DEPRECATION_WARNING
+#include "substrait/algebra.pb.h"  // IWYU pragma: export
+ARROW_UNSUPPRESS_DEPRECATION_WARNING
 
 namespace arrow {
 namespace engine {
 namespace internal {
 
-static const ConversionOptions kPlanBuilderConversionOptions;
+namespace {
+
+const ConversionOptions kPlanBuilderConversionOptions;
 
 Result<std::unique_ptr<substrait::ReadRel>> CreateRead(const Table& table,
                                                        ExtensionSet* ext_set) {
@@ -180,6 +186,8 @@ Result<std::unique_ptr<substrait::Plan>> CreatePlan(std::unique_ptr<substrait::R
   ARROW_RETURN_NOT_OK(AddExtensionSetToPlan(*ext_set, plan.get()));
   return plan;
 }
+
+}  // namespace
 
 Result<std::shared_ptr<Buffer>> CreateScanProjectSubstrait(
     Id function_id, const std::shared_ptr<Table>& input_table,

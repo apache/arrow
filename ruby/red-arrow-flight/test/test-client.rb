@@ -19,6 +19,7 @@ class TestClient < Test::Unit::TestCase
   def setup
     @server = nil
     omit("Unstable on Windows") if Gem.win_platform?
+    omit("Unstable on x86_64 macOS") if /x86_64-darwin/.match?(RUBY_PLATFORM)
     @server = Helper::Server.new
     @server.listen("grpc://127.0.0.1:0")
     @location = "grpc://127.0.0.1:#{@server.port}"
@@ -42,5 +43,36 @@ class TestClient < Test::Unit::TestCase
     reader = client.do_get(generator.page_view_ticket)
     assert_equal(generator.page_view_table,
                  reader.read_all)
+  end
+
+  def test_do_put_with_block
+    client = ArrowFlight::Client.new(@location)
+    generator = Helper::InfoGenerator.new
+    descriptor = generator.page_view_descriptor
+    table = generator.page_view_table
+    client.do_put(descriptor, table.schema) do |reader, writer|
+      writer.write_table(table)
+      writer.done_writing
+      metadata = reader.read
+      assert_equal(["done", table],
+                   [metadata.data.to_s, @server.uploaded_table])
+    end
+  end
+
+  def test_do_put_without_block
+    client = ArrowFlight::Client.new(@location)
+    generator = Helper::InfoGenerator.new
+    descriptor = generator.page_view_descriptor
+    table = generator.page_view_table
+    reader, writer = client.do_put(descriptor, table.schema)
+    begin
+      writer.write_table(table)
+      writer.done_writing
+      metadata = reader.read
+      assert_equal(["done", table],
+                   [metadata.data.to_s, @server.uploaded_table])
+    ensure
+      writer.close
+    end
   end
 end

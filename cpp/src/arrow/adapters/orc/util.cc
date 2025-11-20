@@ -18,6 +18,7 @@
 #include "arrow/adapters/orc/util.h"
 
 #include <cmath>
+#include <sstream>
 #include <string>
 #include <string_view>
 #include <vector>

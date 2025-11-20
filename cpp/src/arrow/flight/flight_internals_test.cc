@@ -79,12 +79,12 @@ void TestRoundtrip(const std::vector<FlightType>& values,
     ASSERT_OK(internal::ToProto(values[i], &pb_value));
 
     if constexpr (std::is_same_v<FlightType, FlightInfo>) {
-      ASSERT_OK_AND_ASSIGN(FlightInfo value, internal::FromProto(pb_value));
-      EXPECT_EQ(values[i], value);
+      FlightInfo::Data info_data;
+      ASSERT_OK(internal::FromProto(pb_value, &info_data));
+      EXPECT_EQ(values[i], FlightInfo{std::move(info_data)});
     } else if constexpr (std::is_same_v<FlightType, SchemaResult>) {
-      std::string data;
-      ASSERT_OK(internal::FromProto(pb_value, &data));
-      SchemaResult value(std::move(data));
+      SchemaResult value;
+      ASSERT_OK(internal::FromProto(pb_value, &value));
       EXPECT_EQ(values[i], value);
     } else {
       FlightType value;
@@ -152,9 +152,11 @@ TEST(FlightTypes, BasicAuth) {
 }
 
 TEST(FlightTypes, Criteria) {
-  std::vector<Criteria> values = {{""}, {"criteria"}};
-  std::vector<std::string> reprs = {"<Criteria expression=''>",
-                                    "<Criteria expression='criteria'>"};
+  std::vector<Criteria> values = {Criteria{""}, Criteria{"criteria"}};
+  std::vector<std::string> reprs = {
+      "<Criteria expression=''>",
+      "<Criteria expression='criteria'>",
+  };
   ASSERT_NO_FATAL_FAILURE(TestRoundtrip<pb::Criteria>(values, reprs));
 }
 
@@ -182,23 +184,20 @@ TEST(FlightTypes, FlightDescriptor) {
 TEST(FlightTypes, FlightEndpoint) {
   ASSERT_OK_AND_ASSIGN(auto location1, Location::ForGrpcTcp("localhost", 1024));
   ASSERT_OK_AND_ASSIGN(auto location2, Location::ForGrpcTls("localhost", 1024));
-  // 2023-06-19 03:14:06.004330100
-  // We must use microsecond resolution here for portability.
-  // std::chrono::system_clock::time_point may not provide nanosecond
-  // resolution on some platforms such as Windows.
+  // 2023-06-19 03:14:06.004339123
   const auto expiration_time_duration =
-      std::chrono::seconds{1687144446} + std::chrono::nanoseconds{4339000};
+      std::chrono::seconds{1687144446} + std::chrono::nanoseconds{4339123};
   Timestamp expiration_time(
       std::chrono::duration_cast<Timestamp::duration>(expiration_time_duration));
   std::vector<FlightEndpoint> values = {
-      {{""}, {}, std::nullopt, {}},
-      {{"foo"}, {}, std::nullopt, {}},
-      {{"bar"}, {}, std::nullopt, {"\xDE\xAD\xBE\xEF"}},
-      {{"foo"}, {}, expiration_time, {}},
-      {{"foo"}, {location1}, std::nullopt, {}},
-      {{"bar"}, {location1}, std::nullopt, {}},
-      {{"foo"}, {location2}, std::nullopt, {}},
-      {{"foo"}, {location1, location2}, std::nullopt, {"\xba\xdd\xca\xfe"}},
+      {Ticket{""}, {}, std::nullopt, {}},
+      {Ticket{"foo"}, {}, std::nullopt, {}},
+      {Ticket{"bar"}, {}, std::nullopt, {"\xDE\xAD\xBE\xEF"}},
+      {Ticket{"foo"}, {}, expiration_time, {}},
+      {Ticket{"foo"}, {location1}, std::nullopt, {}},
+      {Ticket{"bar"}, {location1}, std::nullopt, {}},
+      {Ticket{"foo"}, {location2}, std::nullopt, {}},
+      {Ticket{"foo"}, {location1, location2}, std::nullopt, {"\xba\xdd\xca\xfe"}},
   };
   std::vector<std::string> reprs = {
       "<FlightEndpoint ticket=<Ticket ticket=''> locations=[] "
@@ -208,7 +207,7 @@ TEST(FlightTypes, FlightEndpoint) {
       "<FlightEndpoint ticket=<Ticket ticket='bar'> locations=[] "
       "expiration_time=null app_metadata='DEADBEEF'>",
       "<FlightEndpoint ticket=<Ticket ticket='foo'> locations=[] "
-      "expiration_time=2023-06-19 03:14:06.004339000 app_metadata=''>",
+      "expiration_time=2023-06-19 03:14:06.004339123 app_metadata=''>",
       "<FlightEndpoint ticket=<Ticket ticket='foo'> locations="
       "[grpc+tcp://localhost:1024] expiration_time=null app_metadata=''>",
       "<FlightEndpoint ticket=<Ticket ticket='bar'> locations="
@@ -239,6 +238,7 @@ TEST(FlightTypes, FlightInfo) {
       MakeFlightInfo(schema1, desc1, {endpoint1}, -1, 42, true, ""),
       MakeFlightInfo(schema1, desc2, {endpoint1, endpoint2}, 64, -1, false,
                      "\xDE\xAD\xC0\xDE"),
+      MakeFlightInfo(desc1, {}, -1, -1, false, ""),
   };
   std::vector<std::string> reprs = {
       "<FlightInfo schema=(serialized) descriptor=<FlightDescriptor cmd='foo'> "
@@ -258,6 +258,8 @@ TEST(FlightTypes, FlightInfo) {
       "locations=[grpc+tcp://localhost:1234] expiration_time=null "
       "app_metadata='CAFED00D'>] "
       "total_records=64 total_bytes=-1 ordered=false app_metadata='DEADC0DE'>",
+      "<FlightInfo schema=(empty) descriptor=<FlightDescriptor cmd='foo'> "
+      "endpoints=[] total_records=-1 total_bytes=-1 ordered=false app_metadata=''>",
   };
 
   ASSERT_NO_FATAL_FAILURE(TestRoundtrip<pb::FlightInfo>(values, reprs));
@@ -269,12 +271,9 @@ TEST(FlightTypes, PollInfo) {
   auto desc = FlightDescriptor::Command("foo");
   auto endpoint = FlightEndpoint{Ticket{"foo"}, {}, std::nullopt, ""};
   auto info = MakeFlightInfo(schema, desc, {endpoint}, -1, 42, true, "");
-  // 2023-06-19 03:14:06.004330100
-  // We must use microsecond resolution here for portability.
-  // std::chrono::system_clock::time_point may not provide nanosecond
-  // resolution on some platforms such as Windows.
+  // 2023-06-19 03:14:06.004339123
   const auto expiration_time_duration =
-      std::chrono::seconds{1687144446} + std::chrono::nanoseconds{4339000};
+      std::chrono::seconds{1687144446} + std::chrono::nanoseconds{4339123};
   Timestamp expiration_time(
       std::chrono::duration_cast<Timestamp::duration>(expiration_time_duration));
   std::vector<PollInfo> values = {
@@ -290,7 +289,7 @@ TEST(FlightTypes, PollInfo) {
           "progress=null expiration_time=null>",
       "<PollInfo info=" + info.ToString() +
           " descriptor=<FlightDescriptor cmd='poll'> "
-          "progress=0.1 expiration_time=2023-06-19 03:14:06.004339000>",
+          "progress=0.1 expiration_time=2023-06-19 03:14:06.004339123>",
       "<PollInfo info=null descriptor=null progress=null expiration_time=null>",
   };
 
@@ -299,9 +298,9 @@ TEST(FlightTypes, PollInfo) {
 
 TEST(FlightTypes, Result) {
   std::vector<Result> values = {
-      {Buffer::FromString("")},
-      {Buffer::FromString("foo")},
-      {Buffer::FromString("bar")},
+      Result{Buffer::FromString("")},
+      Result{Buffer::FromString("foo")},
+      Result{Buffer::FromString("bar")},
   };
   std::vector<std::string> reprs = {
       "<Result body=(0 bytes)>",
@@ -333,9 +332,9 @@ TEST(FlightTypes, SchemaResult) {
 
 TEST(FlightTypes, Ticket) {
   std::vector<Ticket> values = {
-      {""},
-      {"foo"},
-      {"bar"},
+      Ticket{""},
+      Ticket{"foo"},
+      Ticket{"bar"},
   };
   std::vector<std::string> reprs = {
       "<Ticket ticket=''>",

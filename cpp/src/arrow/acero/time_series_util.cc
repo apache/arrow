@@ -18,7 +18,7 @@
 #include "arrow/array/data.h"
 
 #include "arrow/acero/time_series_util.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 
 namespace arrow::acero {
 

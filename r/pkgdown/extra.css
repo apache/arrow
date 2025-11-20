@@ -1,6 +1,8 @@
 /* Section text in navbar */
 .navbar-dark, .navbar[data-bs-theme="dark"] {
   --bs-navbar-color: #d9d9d9;
+  --bs-navbar-brand-hover-color: #d9d9d9 !important;
+  --bs-navbar-brand-color: #d9d9d9 !important;
 }
 
 /* Version number in navbar */

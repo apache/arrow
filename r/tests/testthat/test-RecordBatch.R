@@ -30,8 +30,10 @@ test_that("RecordBatch", {
   expect_equal(
     batch$schema,
     schema(
-      int = int32(), dbl = float64(),
-      lgl = boolean(), chr = utf8(),
+      int = int32(),
+      dbl = float64(),
+      lgl = boolean(),
+      chr = utf8(),
       fct = dictionary(int8(), utf8())
     )
   )
@@ -42,7 +44,7 @@ test_that("RecordBatch", {
   expect_equal(batch$column_name(2), "lgl")
   expect_equal(batch$column_name(3), "chr")
   expect_equal(batch$column_name(4), "fct")
-  expect_equal(names(batch), c("int", "dbl", "lgl", "chr", "fct"))
+  expect_named(batch, c("int", "dbl", "lgl", "chr", "fct"))
 
   # input validation
   expect_error(batch$column_name(NA), "'i' cannot be NA")
@@ -497,9 +499,9 @@ test_that("RecordBatch$Equals(check_metadata)", {
 
 test_that("RecordBatch name assignment", {
   rb <- record_batch(x = 1:10, y = 1:10)
-  expect_identical(names(rb), c("x", "y"))
+  expect_named(rb, c("x", "y"))
   names(rb) <- c("a", "b")
-  expect_identical(names(rb), c("a", "b"))
+  expect_named(rb, c("a", "b"))
   expect_error(names(rb) <- "f")
   expect_error(names(rb) <- letters)
   expect_error(names(rb) <- character(0))
@@ -606,15 +608,13 @@ test_that("RecordBatch supports cbind", {
 })
 
 test_that("Handling string data with embedded nuls", {
-  raws <- Array$create(structure(list(
+  raws <- Array$create(blob::as_blob(list(
     as.raw(c(0x70, 0x65, 0x72, 0x73, 0x6f, 0x6e)),
     as.raw(c(0x77, 0x6f, 0x6d, 0x61, 0x6e)),
     as.raw(c(0x6d, 0x61, 0x00, 0x6e)), # <-- there's your nul, 0x00
     as.raw(c(0x63, 0x61, 0x6d, 0x65, 0x72, 0x61)),
     as.raw(c(0x74, 0x76))
-  ),
-  class = c("arrow_binary", "vctrs_vctr", "list")
-  ))
+  )))
   batch_with_nul <- record_batch(a = 1:5, b = raws)
   batch_with_nul$b <- batch_with_nul$b$cast(utf8())
 
@@ -661,37 +661,37 @@ test_that("ARROW-11769/ARROW-13860/ARROW-17085 - grouping preserved in record ba
   )
 
   expect_r6_class(
-    tbl %>%
-      group_by(fct, fct2) %>%
+    tbl |>
+      group_by(fct, fct2) |>
       record_batch(),
     "RecordBatch"
   )
   expect_identical(
-    tbl %>%
-      record_batch() %>%
+    tbl |>
+      record_batch() |>
       group_vars(),
     group_vars(tbl)
   )
   expect_identical(
-    tbl %>%
-      group_by(fct, fct2) %>%
-      record_batch() %>%
+    tbl |>
+      group_by(fct, fct2) |>
+      record_batch() |>
       group_vars(),
     c("fct", "fct2")
   )
   expect_identical(
-    tbl %>%
-      group_by(fct, fct2) %>%
-      record_batch() %>%
-      ungroup() %>%
+    tbl |>
+      group_by(fct, fct2) |>
+      record_batch() |>
+      ungroup() |>
       group_vars(),
     character()
   )
   expect_identical(
-    tbl %>%
-      group_by(fct, fct2) %>%
-      record_batch() %>%
-      select(-int) %>%
+    tbl |>
+      group_by(fct, fct2) |>
+      record_batch() |>
+      select(-int) |>
       group_vars(),
     c("fct", "fct2")
   )
@@ -762,7 +762,6 @@ test_that("RecordBatch to C-interface", {
 })
 
 
-
 test_that("RecordBatchReader to C-interface to arrow_dplyr_query", {
   skip_if_not_available("dataset")
 
@@ -780,7 +779,7 @@ test_that("RecordBatchReader to C-interface to arrow_dplyr_query", {
   # create an arrow_dplyr_query() from the recordbatch reader
   reader_adq <- arrow_dplyr_query(circle)
 
-  tab_from_c_new <- reader_adq %>%
+  tab_from_c_new <- reader_adq |>
     dplyr::compute()
   expect_equal(tab_from_c_new, tab)
 
