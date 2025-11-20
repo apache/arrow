@@ -350,7 +350,8 @@ class RowGroupPageIndexReaderImpl : public RowGroupPageIndexReader {
                                           const char* offset_kind) {
     PARQUET_ASSIGN_OR_THROW(auto buffer, input_->ReadAt(offset, length));
     if (buffer->size() < length) {
-      throw ParquetException("Invalid or truncated ", offset_kind);
+      throw ParquetException("Invalid or truncated ", offset_kind, ": attempted to read ",
+                             length, " bytes but got only ", buffer->size(), " bytes");
     }
     return buffer;
   }
