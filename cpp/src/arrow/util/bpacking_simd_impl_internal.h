@@ -372,15 +372,9 @@ auto swizzle_bytes(const xsimd::batch<uint8_t, Arch>& batch,
   }
 }
 
-template <typename Int, Int... kShifts>
-struct MakeMults {
-  static constexpr auto kShiftsArr = std::array{kShifts...};
-  static constexpr Int get(int i, int n) { return Int{1} << kShiftsArr.at(i); }
-};
-
 template <typename Int, typename Arch, Int... kShifts>
 constexpr auto make_mult(xsimd::batch_constant<Int, Arch, kShifts...>) {
-  return xsimd::make_batch_constant<Int, Arch, MakeMults<Int, kShifts...>>();
+  return xsimd::batch_constant<Int, Arch, static_cast<Int>(1u << kShifts)...>();
 }
 
 template <typename Int, Int kOffset, Int kLength, Int... kVals>
