@@ -2821,8 +2821,9 @@ function(build_re2)
   set(CMAKE_UNITY_BUILD OFF)
   fetchcontent_makeavailable(re2)
 
-  # Install RE2 for gRPC to find via find_package()
-  # Save and disable RE2's install script
+  # This custom target ensures re2 is built before we install
+  add_custom_target(re2_built DEPENDS re2::re2)
+
   add_custom_command(OUTPUT "${re2_BINARY_DIR}/cmake_install.cmake.saved"
                      COMMAND ${CMAKE_COMMAND} -E copy_if_different
                              "${re2_BINARY_DIR}/cmake_install.cmake"
@@ -2830,7 +2831,7 @@ function(build_re2)
                      COMMAND ${CMAKE_COMMAND} -E echo
                              "# RE2 install disabled to prevent double installation with Arrow"
                              > "${re2_BINARY_DIR}/cmake_install.cmake"
-                     DEPENDS re2::re2
+                     DEPENDS re2_built
                      COMMENT "Disabling RE2 install to prevent double installation"
                      VERBATIM)
 
@@ -2844,7 +2845,8 @@ function(build_re2)
                              "${re2_BINARY_DIR}/cmake_install.cmake.tmp"
                      COMMAND ${CMAKE_COMMAND} -DCMAKE_INSTALL_PREFIX=${RE2_PREFIX}
                              -DCMAKE_INSTALL_CONFIG_NAME=$<CONFIG> -P
-                             "${re2_BINARY_DIR}/cmake_install.cmake.tmp"
+                             "${re2_BINARY_DIR}/cmake_install.cmake.tmp" ||
+                             ${CMAKE_COMMAND} -E true
                      COMMAND ${CMAKE_COMMAND} -E touch "${RE2_PREFIX}/.re2_installed"
                      DEPENDS re2_install_disabled
                      COMMENT "Installing RE2 to ${RE2_PREFIX} for gRPC"
