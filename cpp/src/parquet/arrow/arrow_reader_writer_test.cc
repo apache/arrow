@@ -69,8 +69,6 @@
 #include "parquet/arrow/schema.h"
 #include "parquet/arrow/test_util.h"
 #include "parquet/arrow/writer.h"
-#include "parquet/bloom_filter.h"
-#include "parquet/bloom_filter_reader.h"
 #include "parquet/column_writer.h"
 #include "parquet/file_writer.h"
 #include "parquet/properties.h"
@@ -376,19 +374,19 @@ const double test_traits<::arrow::DoubleType>::value(4.2);
 template <>
 struct test_traits<::arrow::StringType> {
   static constexpr ParquetType::type parquet_enum = ParquetType::BYTE_ARRAY;
-  static std::string const value;
+  static const std::string value;
 };
 
 template <>
 struct test_traits<::arrow::BinaryType> {
   static constexpr ParquetType::type parquet_enum = ParquetType::BYTE_ARRAY;
-  static std::string const value;
+  static const std::string value;
 };
 
 template <>
 struct test_traits<::arrow::FixedSizeBinaryType> {
   static constexpr ParquetType::type parquet_enum = ParquetType::FIXED_LEN_BYTE_ARRAY;
-  static std::string const value;
+  static const std::string value;
 };
 
 const std::string test_traits<::arrow::StringType>::value("Test");            // NOLINT

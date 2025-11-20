@@ -47,7 +47,7 @@
 #include "arrow/util/unreachable.h"
 #include "arrow/visit_array_inline.h"
 #include "arrow/visit_data_inline.h"
-#include "parquet/bloom_filter_writer_internal.h"
+#include "parquet/bloom_filter_writer.h"
 #include "parquet/chunker_internal.h"
 #include "parquet/column_page.h"
 #include "parquet/encoding.h"
@@ -159,6 +159,7 @@ inline const T* AddIfNotNull(const T* base, int64_t offset) {
   }
   return nullptr;
 }
+
 }  // namespace
 
 LevelEncoder::LevelEncoder() {}
@@ -1627,7 +1628,7 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
  private:
   using ValueEncoderType = typename EncodingTraits<ParquetType>::Encoder;
   using TypedStats = TypedStatistics<ParquetType>;
-  using TypedBloomFilterWriter = internal::BloomFilterWriterImpl<ParquetType>;
+  using TypedBloomFilterWriter = BloomFilterWriter<ParquetType>;
   std::unique_ptr<Encoder> current_encoder_;
   // Downcasted observers of current_encoder_.
   // The downcast is performed once as opposed to at every use since
@@ -1875,7 +1876,7 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
         chunk_geospatial_statistics_->Update(values, num_values);
       }
     }
-    bloom_filter_writer_->UpdateBloomFilter(values, num_values);
+    bloom_filter_writer_->Update(values, num_values);
   }
 
   /// \brief Write values with spaces and update page statistics accordingly.
@@ -1897,11 +1898,11 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
     if (num_values != num_spaced_values) {
       current_value_encoder_->PutSpaced(values, static_cast<int>(num_spaced_values),
                                         valid_bits, valid_bits_offset);
-      bloom_filter_writer_->UpdateBloomFilterSpaced(values, num_spaced_values, valid_bits,
-                                                    valid_bits_offset);
+      bloom_filter_writer_->UpdateSpaced(values, num_spaced_values, valid_bits,
+                                         valid_bits_offset);
     } else {
       current_value_encoder_->Put(values, static_cast<int>(num_values));
-      bloom_filter_writer_->UpdateBloomFilter(values, num_values);
+      bloom_filter_writer_->Update(values, num_values);
     }
     if (page_statistics_ != nullptr) {
       page_statistics_->UpdateSpaced(values, valid_bits, valid_bits_offset,
@@ -2000,7 +2001,7 @@ Status TypedColumnWriterImpl<ParquetType>::WriteArrowDictionary(
           "Writing dictionary-encoded GEOMETRY or GEOGRAPHY with statistics is not "
           "supported");
     }
-    bloom_filter_writer_->UpdateBloomFilterArray(*referenced_dictionary);
+    bloom_filter_writer_->Update(*referenced_dictionary);
   };
 
   int64_t value_offset = 0;
@@ -2017,7 +2018,7 @@ Status TypedColumnWriterImpl<ParquetType>::WriteArrowDictionary(
                       AddIfNotNull(rep_levels, offset));
     std::shared_ptr<Array> writeable_indices =
         indices->Slice(value_offset, batch_num_spaced_values);
-    if (page_statistics_ || bloom_filter_writer_->HasBloomFilter()) {
+    if (page_statistics_ || bloom_filter_writer_->bloom_filter_enabled()) {
       update_stats(/*num_chunk_levels=*/batch_size, writeable_indices);
     }
     PARQUET_ASSIGN_OR_THROW(
@@ -2486,10 +2487,12 @@ Status TypedColumnWriterImpl<ByteArrayType>::WriteArrowDense(
     }
 
     UpdateUnencodedDataBytes();
+
     if (chunk_geospatial_statistics_ != nullptr) {
       chunk_geospatial_statistics_->Update(*data_slice);
     }
-    bloom_filter_writer_->UpdateBloomFilterArray(*data_slice);
+
+    bloom_filter_writer_->Update(*data_slice);
 
     CommitWriteAndCheckPageLimit(batch_size, batch_num_values, batch_size - non_null,
                                  check_page);
@@ -2706,7 +2709,8 @@ std::shared_ptr<ColumnWriter> ColumnWriter::Make(ColumnChunkMetaDataBuilder* met
       return std::make_shared<TypedColumnWriterImpl<FLBAType>>(
           metadata, std::move(pager), use_dictionary, encoding, properties, bloom_filter);
     default:
-      ParquetException::NYI("column writer not implemented for this Parquet type");
+      ParquetException::NYI("Column writer not implemented for type: " +
+                            TypeToString(descr->physical_type()));
   }
   // Unreachable code, but suppress compiler warning
   return std::shared_ptr<ColumnWriter>(nullptr);

@@ -378,9 +378,11 @@ class PARQUET_EXPORT PageIndexBuilder {
   /// are set.
   ///
   /// \param[out] sink The output stream to write the page index.
-  /// \param[out] location The location of all page index to the start of sink.
+  /// \param[out] column_index_location The location of all column indexes.
+  /// \param[out] offset_index_location The location of all offset indexes.
   virtual void WriteTo(::arrow::io::OutputStream* sink,
-                       PageIndexLocation* location) const = 0;
+                       IndexLocations* column_index_location,
+                       IndexLocations* offset_index_location) const = 0;
 };
 
 }  // namespace parquet

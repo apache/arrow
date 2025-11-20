@@ -26,7 +26,7 @@
 #include "arrow/util/endian.h"
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging_internal.h"
-#include "parquet/bloom_filter_builder_internal.h"
+#include "parquet/bloom_filter_writer.h"
 #include "parquet/column_writer.h"
 #include "parquet/encryption/encryption_internal.h"
 #include "parquet/encryption/internal_file_encryptor.h"
@@ -284,10 +284,10 @@ class RowGroupSerializer : public RowGroupWriter::Contents {
     auto oi_builder = page_index_builder_ && column_properties.page_index_enabled()
                           ? page_index_builder_->GetOffsetIndexBuilder(column_ordinal)
                           : nullptr;
-    BloomFilter* bloom_filter =
-        bloom_filter_builder_ && column_properties.bloom_filter_enabled()
-            ? bloom_filter_builder_->GetOrCreateBloomFilter(column_ordinal)
-            : nullptr;
+    BloomFilter* bloom_filter = nullptr;
+    if (bloom_filter_builder_) {
+      bloom_filter = bloom_filter_builder_->GetOrCreateBloomFilter(column_ordinal);
+    }
     const CodecOptions* codec_options = column_properties.codec_options()
                                             ? column_properties.codec_options().get()
                                             : nullptr;
@@ -339,12 +339,11 @@ class FileSerializer : public ParquetFileWriter::Contents {
       }
       row_group_writer_.reset();
 
-      // In Parquet standard, the Bloom filter data can be stored before the page indexes
-      // after all row groups or stored between row groups. We choose to store it before
-      // the page indexes after all row groups.
-      // Also, Putting all bloom filters together may provide a good chance to coalesce
-      // I/Os of different bloom filters. Especially when only one column has enabled it,
-      // which is the common case.
+      // Per the Parquet spec, Bloom filter data can be stored either:
+      // 1) After all row groups (before page indexes), or
+      // 2) Between individual row groups.
+      // We choose option 1, which allows readers to coalesce I/Os when reading
+      // multiple Bloom filters sequentially.
       WriteBloomFilter();
       WritePageIndex();
 
@@ -473,10 +472,12 @@ class FileSerializer : public ParquetFileWriter::Contents {
     if (page_index_builder_ != nullptr) {
       // Serialize page index after all row groups have been written and report
       // location to the file metadata.
-      PageIndexLocation page_index_location;
+      IndexLocations column_index_location, offset_index_location;
       page_index_builder_->Finish();
-      page_index_builder_->WriteTo(sink_.get(), &page_index_location);
-      metadata_->SetPageIndexLocation(page_index_location);
+      page_index_builder_->WriteTo(sink_.get(), &column_index_location,
+                                   &offset_index_location);
+      metadata_->SetIndexLocations(column_index_location);
+      metadata_->SetIndexLocations(offset_index_location);
     }
   }
 
@@ -487,11 +488,9 @@ class FileSerializer : public ParquetFileWriter::Contents {
       }
       // Serialize bloom filter after all row groups have been written and report
       // location to the file metadata.
-      BloomFilterLocation bloom_filter_location;
+      IndexLocations bloom_filter_location;
       bloom_filter_builder_->WriteTo(sink_.get(), &bloom_filter_location);
-      metadata_->SetBloomFilterLocation(bloom_filter_location);
-      // Release the memory for BloomFilter.
-      bloom_filter_builder_ = nullptr;
+      metadata_->SetIndexLocations(bloom_filter_location);
     }
   }
 

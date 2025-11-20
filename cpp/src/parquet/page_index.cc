@@ -786,20 +786,17 @@ class PageIndexBuilderImpl final : public PageIndexBuilder {
 
   void Finish() override { finished_ = true; }
 
-  void WriteTo(::arrow::io::OutputStream* sink,
-               PageIndexLocation* location) const override {
+  void WriteTo(::arrow::io::OutputStream* sink, IndexLocations* column_index_location,
+               IndexLocations* offset_index_location) const override {
     if (!finished_) {
       throw ParquetException("Cannot call WriteTo() to unfinished PageIndexBuilder.");
     }
 
-    location->column_index_location.clear();
-    location->offset_index_location.clear();
-
     /// Serialize column index ordered by row group ordinal and then column ordinal.
-    SerializeIndex(column_index_builders_, sink, &location->column_index_location);
+    SerializeIndex(column_index_builders_, sink, column_index_location);
 
     /// Serialize offset index ordered by row group ordinal and then column ordinal.
-    SerializeIndex(offset_index_builders_, sink, &location->offset_index_location);
+    SerializeIndex(offset_index_builders_, sink, offset_index_location);
   }
 
  private:
@@ -835,8 +832,12 @@ class PageIndexBuilderImpl final : public PageIndexBuilder {
   template <typename Builder>
   void SerializeIndex(
       const std::vector<std::vector<std::unique_ptr<Builder>>>& page_index_builders,
-      ::arrow::io::OutputStream* sink,
-      std::map<size_t, std::vector<std::optional<IndexLocation>>>* location) const {
+      ::arrow::io::OutputStream* sink, IndexLocations* location) const {
+    location->type = std::is_same_v<Builder, ColumnIndexBuilder>
+                         ? IndexLocations::IndexType::kColumnIndex
+                         : IndexLocations::IndexType::kOffsetIndex;
+    location->locations.clear();
+
     const auto num_columns = static_cast<size_t>(schema_->num_columns());
     constexpr int8_t module_type = std::is_same_v<Builder, ColumnIndexBuilder>
                                        ? encryption::kColumnIndex
@@ -847,8 +848,7 @@ class PageIndexBuilderImpl final : public PageIndexBuilder {
       const auto& row_group_page_index_builders = page_index_builders[row_group];
       DCHECK_EQ(row_group_page_index_builders.size(), num_columns);
 
-      bool has_valid_index = false;
-      std::vector<std::optional<IndexLocation>> locations(num_columns, std::nullopt);
+      std::map<size_t, IndexLocation> column_id_to_location;
 
       /// In the same row group, serialize the same kind of page index column by column.
       for (size_t column = 0; column < num_columns; ++column) {
@@ -872,13 +872,13 @@ class PageIndexBuilderImpl final : public PageIndexBuilder {
           if (len > std::numeric_limits<int32_t>::max()) {
             throw ParquetException("Page index size overflows to INT32_MAX");
           }
-          locations[column] = {pos_before_write, static_cast<int32_t>(len)};
-          has_valid_index = true;
+          column_id_to_location.emplace(
+              column, IndexLocation{pos_before_write, static_cast<int32_t>(len)});
         }
       }
 
-      if (has_valid_index) {
-        location->emplace(row_group, std::move(locations));
+      if (!column_id_to_location.empty()) {
+        location->locations.emplace(row_group, std::move(column_id_to_location));
       }
     }
   }

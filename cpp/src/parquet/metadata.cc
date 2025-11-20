@@ -2009,62 +2009,31 @@ class FileMetaDataBuilder::FileMetaDataBuilderImpl {
     return current_row_group_builder_.get();
   }
 
-  void SetPageIndexLocation(const PageIndexLocation& location) {
-    auto set_index_location = [this](size_t row_group_ordinal,
-                                     const FileIndexLocation& file_index_location,
-                                     bool column_index) {
-      auto& row_group_metadata = this->row_groups_.at(row_group_ordinal);
-      auto iter = file_index_location.find(row_group_ordinal);
-      if (iter != file_index_location.cend()) {
-        const auto& row_group_index_location = iter->second;
-        for (size_t i = 0; i < row_group_index_location.size(); ++i) {
-          if (i >= row_group_metadata.columns.size()) {
-            throw ParquetException("Cannot find metadata for column ordinal ", i);
-          }
-          auto& column_metadata = row_group_metadata.columns.at(i);
-          const auto& index_location = row_group_index_location.at(i);
-          if (index_location.has_value()) {
-            if (column_index) {
-              column_metadata.__set_column_index_offset(index_location->offset);
-              column_metadata.__set_column_index_length(index_location->length);
-            } else {
-              column_metadata.__set_offset_index_offset(index_location->offset);
-              column_metadata.__set_offset_index_length(index_location->length);
-            }
-          }
+  void SetIndexLocations(const IndexLocations& locations) {
+    for (const auto& [row_group_id, column_id_to_location] : locations.locations) {
+      if (row_group_id >= row_groups_.size()) {
+        throw ParquetException("Row group id out of range: ", row_group_id);
+      }
+      auto& row_group_metadata = row_groups_.at(row_group_id);
+      for (const auto& [column_id, location] : column_id_to_location) {
+        if (column_id >= row_group_metadata.columns.size()) {
+          throw ParquetException("Column id out of range: ", column_id);
+        }
+        auto& column_metadata = row_group_metadata.columns.at(column_id);
+        if (locations.type == IndexLocations::IndexType::kColumnIndex) {
+          column_metadata.__set_column_index_offset(location.offset);
+          column_metadata.__set_column_index_length(location.length);
+        } else if (locations.type == IndexLocations::IndexType::kOffsetIndex) {
+          column_metadata.__set_offset_index_offset(location.offset);
+          column_metadata.__set_offset_index_length(location.length);
+        } else if (locations.type == IndexLocations::IndexType::kBloomFilter) {
+          column_metadata.meta_data.__set_bloom_filter_offset(location.offset);
+          column_metadata.meta_data.__set_bloom_filter_length(location.length);
+        } else {
+          throw ParquetException("Invalid index type: ",
+                                 static_cast<int>(locations.type));
         }
       }
-    };
-
-    for (size_t i = 0; i < row_groups_.size(); ++i) {
-      set_index_location(i, location.column_index_location, true);
-      set_index_location(i, location.offset_index_location, false);
-    }
-  }
-
-  // Update location to all bloom filters in the parquet file.
-  void SetBloomFilterLocation(const BloomFilterLocation& location) {
-    auto set_bloom_filter_location =
-        [this](size_t row_group_ordinal,
-               const FileBloomFilterLocation& file_bloom_filter_location) {
-          auto& row_group_metadata = this->row_groups_.at(row_group_ordinal);
-          auto iter = file_bloom_filter_location.find(row_group_ordinal);
-          if (iter != file_bloom_filter_location.cend()) {
-            const auto& row_group_bloom_filter_location = iter->second;
-            for (auto& [column_id, bloom_filter_location] :
-                 row_group_bloom_filter_location) {
-              DCHECK_LT(static_cast<size_t>(column_id),
-                        row_group_metadata.columns.size());
-              auto& column = row_group_metadata.columns[column_id];
-              auto& column_metadata = column.meta_data;
-              column_metadata.__set_bloom_filter_offset(bloom_filter_location.offset);
-              column_metadata.__set_bloom_filter_length(bloom_filter_location.length);
-            }
-          }
-        };
-
-    for (size_t i = 0; i < row_groups_.size(); ++i) {
-      set_bloom_filter_location(i, location.bloom_filter_location);
     }
   }
 
@@ -2182,12 +2151,8 @@ RowGroupMetaDataBuilder* FileMetaDataBuilder::AppendRowGroup() {
   return impl_->AppendRowGroup();
 }
 
-void FileMetaDataBuilder::SetPageIndexLocation(const PageIndexLocation& location) {
-  impl_->SetPageIndexLocation(location);
-}
-
-void FileMetaDataBuilder::SetBloomFilterLocation(const BloomFilterLocation& location) {
-  impl_->SetBloomFilterLocation(location);
+void FileMetaDataBuilder::SetIndexLocations(const IndexLocations& locations) {
+  impl_->SetIndexLocations(locations);
 }
 
 std::unique_ptr<FileMetaData> FileMetaDataBuilder::Finish(

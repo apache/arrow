@@ -168,31 +168,24 @@ static constexpr Compression::type DEFAULT_COMPRESSION_TYPE = Compression::UNCOM
 static constexpr bool DEFAULT_IS_PAGE_INDEX_ENABLED = true;
 static constexpr SizeStatisticsLevel DEFAULT_SIZE_STATISTICS_LEVEL =
     SizeStatisticsLevel::PageAndColumnChunk;
-static constexpr int32_t DEFAULT_BLOOM_FILTER_NDV = 1024 * 1024;
-static constexpr double DEFAULT_BLOOM_FILTER_FPP = 0.05;
 
 struct PARQUET_EXPORT BloomFilterOptions {
-  /// Expected number of distinct values to be inserted into the bloom filter.
-  ///
-  /// Usage of bloom filter is most beneficial for columns with large cardinality,
-  /// so a good heuristic is to set ndv to number of rows. However, it can reduce
-  /// disk size if you know in advance a smaller number of distinct values.
-  /// For very small ndv value it is probably not worth it to use bloom filter anyway.
-  ///
-  /// Increasing this value (without increasing fpp) will result in an increase in
-  /// disk or memory size.
-  int32_t ndv = DEFAULT_BLOOM_FILTER_NDV;
-  /// False-positive probability of the bloom filter.
-  ///
-  /// The bloom filter data structure is a trade-off between disk and memory space
-  /// versus fpp, the smaller the fpp, the more memory and disk space is required,
-  /// thus setting it to a reasonable value e.g. 0.1, 0.05, or 0.001 is recommended.
-  ///
-  /// Setting to very small number diminishes the value of the filter itself,
-  /// as the bitset size is even larger than just storing the whole value.
-  /// User is also expected to set ndv if it can be known in advance in order
-  /// to largely reduce space usage.
-  double fpp = DEFAULT_BLOOM_FILTER_FPP;
+  // Expected number of distinct values (NDV) in the bloom filter.
+  //
+  // Bloom filters are most effective for high-cardinality columns. A good default
+  // is to set ndv equal to the number of rows. Lower values reduce disk usage but
+  // may not be worthwhile for very small NDVs.
+  //
+  // Increasing ndv (without increasing fpp) increases disk and memory usage.
+  int32_t ndv = 1 << 20;
+
+  // False-positive probability (FPP) of the bloom filter.
+  //
+  // Lower FPP values require more disk and memory space. Recommended values are
+  // 0.1, 0.05, or 0.001. Very small values are counterproductive as the bitset
+  // may exceed the size of the actual data. Set ndv appropriately to minimize
+  // space usage.
+  double fpp = 0.05;
 };
 
 class PARQUET_EXPORT ColumnProperties {
@@ -241,13 +234,11 @@ class PARQUET_EXPORT ColumnProperties {
     page_index_enabled_ = page_index_enabled;
   }
 
-  void set_bloom_filter_options(std::optional<BloomFilterOptions> bloom_filter_options) {
-    if (bloom_filter_options) {
-      if (bloom_filter_options->fpp >= 1.0 || bloom_filter_options->fpp <= 0.0) {
-        throw ParquetException(
-            "Bloom filter false-positive probability must fall in (0.0, 1.0), got " +
-            std::to_string(bloom_filter_options->fpp));
-      }
+  void set_bloom_filter_options(const BloomFilterOptions& bloom_filter_options) {
+    if (bloom_filter_options.fpp >= 1.0 || bloom_filter_options.fpp <= 0.0) {
+      throw ParquetException(
+          "Bloom filter false positive probability must be in (0.0, 1.0), got " +
+          std::to_string(bloom_filter_options.fpp));
     }
     bloom_filter_options_ = bloom_filter_options;
   }
@@ -723,28 +714,27 @@ class PARQUET_EXPORT WriterProperties {
       return this->disable_bloom_filter(path->ToDotString());
     }
 
-    /// Enable bloom filter options for the column specified by `path`.
+    /// Enable bloom filter for the column specified by `path`.
     ///
     /// Default disabled.
     ///
-    /// Note: Currently we don't support bloom filter for boolean columns,
-    /// ParquetException will be thrown during write if the column is of boolean type.
-    Builder* enable_bloom_filter_options(BloomFilterOptions bloom_filter_options,
-                                         const std::string& path) {
+    /// \note Bloom filter is not supported for boolean columns. ParquetException will
+    /// be thrown during write if the column is of boolean type.
+    Builder* enable_bloom_filter(BloomFilterOptions bloom_filter_options,
+                                 const std::string& path) {
       bloom_filter_options_[path] = bloom_filter_options;
       return this;
     }
 
-    /// Enable bloom filter options for the column specified by `path`.
+    /// Enable bloom filter for the column specified by `path`.
     ///
     /// Default disabled.
     ///
-    /// Note: Currently we don't support bloom filter for boolean columns,
-    /// ParquetException will be thrown during write if the column is of boolean type.
-    Builder* enable_bloom_filter_options(
-        BloomFilterOptions bloom_filter_options,
-        const std::shared_ptr<schema::ColumnPath>& path) {
-      return this->enable_bloom_filter_options(bloom_filter_options, path->ToDotString());
+    /// \note Bloom filter is not supported for boolean columns. ParquetException will
+    /// be thrown during write if the column is of boolean type.
+    Builder* enable_bloom_filter(BloomFilterOptions bloom_filter_options,
+                                 const std::shared_ptr<schema::ColumnPath>& path) {
+      return this->enable_bloom_filter(bloom_filter_options, path->ToDotString());
     }
 
     /// Allow decimals with 1 <= precision <= 18 to be stored as integers.
@@ -893,10 +883,10 @@ class PARQUET_EXPORT WriterProperties {
     std::unordered_map<std::string, bool> dictionary_enabled_;
     std::unordered_map<std::string, bool> statistics_enabled_;
     std::unordered_map<std::string, bool> page_index_enabled_;
+    std::unordered_map<std::string, BloomFilterOptions> bloom_filter_options_;
+
     bool content_defined_chunking_enabled_;
     CdcOptions content_defined_chunking_options_;
-    std::unordered_map<std::string, std::optional<BloomFilterOptions>>
-        bloom_filter_options_;
   };
 
   inline MemoryPool* memory_pool() const { return pool_; }
@@ -1004,11 +994,9 @@ class PARQUET_EXPORT WriterProperties {
     return false;
   }
 
+  // Return whether bloom filter is enabled for any column.
   bool bloom_filter_enabled() const {
-    // Note: We do not encourage enabling bloom filter for all columns. So
-    // default_column_properties_.bloom_filter_enabled is always false and
-    // cannot be altered by user. Thus we can safely skip checking it here.
-    return std::any_of(column_properties_.begin(), column_properties_.end(),
+    return std::any_of(column_properties_.cbegin(), column_properties_.cend(),
                        [](const auto& p) { return p.second.bloom_filter_enabled(); });
   }
 

@@ -62,8 +62,6 @@ struct ParquetVersion {
   };
 };
 
-struct PageIndexLocation;
-
 class FileMetaData;
 class FileCryptoMetaData;
 class RowGroupMetaData;
@@ -88,12 +86,11 @@ class GeoStatistics;
 struct EncodedGeoStatistics;
 }  // namespace geospatial
 
-class BloomFilter;
-struct BloomFilterLocation;
-struct BloomFilterOptions;
-
 class ColumnIndex;
 class OffsetIndex;
+class BloomFilter;
+struct BloomFilterOptions;
+struct IndexLocations;
 
 namespace arrow {
 
