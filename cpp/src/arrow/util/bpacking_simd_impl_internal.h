@@ -136,16 +136,29 @@ struct MediumKernelPlanSize {
   }
 };
 
-constexpr MediumKernelPlanSize BuildMediumPlanSize(const KernelShape& shape) {
+struct MediumKernelOptions {
+  /// An indicative limit on the number of values unpacked by the kernel.
+  /// This is a heuristic setting: other constraints such as alignment may not always make
+  /// small values feasibles. Must be a power of two.
+  int unpacked_per_kernel_limit = -1;
+};
+
+constexpr MediumKernelPlanSize BuildMediumPlanSize(const KernelShape& shape,
+                                                   const MediumKernelOptions& options) {
   const int shifts_per_swizzle =
       shape.unpacked_byte_size() / shape.packed_max_spread_bytes();
 
   const int vals_per_swizzle = shifts_per_swizzle * shape.unpacked_per_simd();
 
+  // Using `unpacked_per_kernel_limit` to influence the number of swizzles per reads.
+  const auto packed_per_read_for_offset = [&](int bit_offset) -> int {
+    const int best = (shape.simd_bit_size() - bit_offset) / shape.packed_bit_size();
+    const int limit = options.unpacked_per_kernel_limit;
+    return (best > limit) && (limit > 0) ? limit : best;
+  };
+
   const auto swizzles_per_read_for_offset = [&](int bit_offset) -> int {
-    const int vals_per_simd =
-        (shape.simd_bit_size() - bit_offset) / shape.packed_bit_size();
-    return vals_per_simd / vals_per_swizzle;
+    return packed_per_read_for_offset(bit_offset) / vals_per_swizzle;
   };
 
   // If after a whole swizzle reading iteration we fall unaligned, the remaining
@@ -179,12 +192,15 @@ constexpr MediumKernelPlanSize BuildMediumPlanSize(const KernelShape& shape) {
   };
 }
 
-template <typename UnpackedUint, int kPackedBitSize, int kSimdBitSize>
+// TODO(C++20) Non type template parameter for MediumKernelOptions.
+template <typename UnpackedUint, int kPackedBitSize, int kSimdBitSize,
+          int kUnpackedPerKernelLimit>
 struct MediumKernelPlan {
   using Traits = KernelTraits<UnpackedUint, kPackedBitSize, kSimdBitSize>;
   using uint_type = typename Traits::uint_type;
   static constexpr auto kShape = Traits::kShape;
-  static constexpr auto kPlanSize = BuildMediumPlanSize(kShape);
+  static constexpr auto kPlanSize = BuildMediumPlanSize(
+      kShape, {/* .unpacked_per_kernel_limit= */ kUnpackedPerKernelLimit});
 
   using ReadsPerKernel = std::array<int, kPlanSize.reads_per_kernel()>;
 
@@ -208,15 +224,22 @@ struct MediumKernelPlan {
     return unpacked_per_read() * kPlanSize.reads_per_kernel();
   }
 
+  static constexpr int bytes_per_read() {
+    return unpacked_per_read() * kShape.packed_bit_size();
+  }
+
   ReadsPerKernel reads;
   SwizzlesPerKernel swizzles;
   ShitsPerKernel shifts;
   uint_type mask = bit_util::LeastSignificantBitMask<uint_type>(kPackedBitSize);
 };
 
-template <typename UnpackedUint, int kPackedBitSize, int kSimdBitSize>
-constexpr MediumKernelPlan<UnpackedUint, kPackedBitSize, kSimdBitSize> BuildMediumPlan() {
-  using Plan = MediumKernelPlan<UnpackedUint, kPackedBitSize, kSimdBitSize>;
+// TODO(C++20) Non type template parameter for MediumKernelOptions.
+template <typename UnpackedUint, int kPackedBitSize, int kSimdBitSize,
+          int kUnpackedPerKernelLimit>
+constexpr auto BuildMediumPlan() {
+  using Plan = MediumKernelPlan<UnpackedUint, kPackedBitSize, kSimdBitSize,
+                                kUnpackedPerKernelLimit>;
   constexpr auto kShape = Plan::kShape;
   constexpr auto kPlanSize = Plan::kPlanSize;
   static_assert(kShape.is_medium());
@@ -482,10 +505,12 @@ auto right_shift_by_excess(const xsimd::batch<Int, Arch>& batch,
   return batch >> shifts;
 }
 
-template <typename UnpackedUint, int kPackedBitSize, int kSimdBitSize>
+// TODO(C++20) Non type template parameter for MediumKernelOptions.
+template <typename UnpackedUint, int kPackedBitSize, int kSimdBitSize,
+          int kUnpackedPerKernelLimit = 32>
 struct MediumKernel {
-  static constexpr auto kPlan =
-      BuildMediumPlan<UnpackedUint, kPackedBitSize, kSimdBitSize>();
+  static constexpr auto kPlan = BuildMediumPlan<UnpackedUint, kPackedBitSize,
+                                                kSimdBitSize, kUnpackedPerKernelLimit>();
   static constexpr auto kPlanSize = kPlan.kPlanSize;
   static constexpr auto kShape = kPlan.kShape;
   using Traits = typename decltype(kPlan)::Traits;
@@ -531,11 +556,27 @@ struct MediumKernel {
     (unpack_one_shift_impl<kReadIdx, kSwizzleIdx, kShiftIds>(words, out), ...);
   }
 
+  template <typename Uint>
+  static simd_bytes load_bytes_as(const uint8_t* in) {
+    const Uint val = util::SafeLoadAs<Uint>(in);
+    const auto batch = xsimd::batch<Uint, arch_type>(val);
+    return xsimd::bitwise_cast<uint8_t>(batch);
+  }
+
+  static simd_bytes load_bytes(const uint8_t* in) {
+    if constexpr (kPlan.bytes_per_read() > static_cast<int>(sizeof(uint64_t))) {
+      return simd_bytes::load_unaligned(in);
+    } else if constexpr (kPlan.bytes_per_read() > static_cast<int>(sizeof(uint32_t))) {
+      return load_bytes_as<uint64_t>(in);
+    }
+    return load_bytes_as<uint32_t>(in);
+  }
+
   template <int kReadIdx, int... kSwizzleIds>
   static void unpack_one_read_impl(const uint8_t* in, unpacked_type* out,
                                    std::integer_sequence<int, kSwizzleIds...>) {
     using ShiftSeq = std::make_integer_sequence<int, kPlanSize.shifts_per_swizzle()>;
-    const auto bytes = simd_bytes::load_unaligned(in + kPlan.reads.at(kReadIdx));
+    const auto bytes = load_bytes(in + kPlan.reads.at(kReadIdx));
     (unpack_one_swizzle_impl<kReadIdx, kSwizzleIds>(bytes, out, ShiftSeq{}), ...);
   }
 
