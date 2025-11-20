@@ -1923,6 +1923,27 @@ function(build_protobuf)
 
   fetchcontent_makeavailable(protobuf)
 
+  # Ensure protobuf targets don't have PROTOBUF_USE_DLLS defined
+  # This is critical on Windows to avoid DLL import/export issues when linking static protobuf
+  if(TARGET protobuf::libprotobuf)
+    get_target_property(_protobuf_compile_defs protobuf::libprotobuf
+                        INTERFACE_COMPILE_DEFINITIONS)
+    if(_protobuf_compile_defs)
+      list(REMOVE_ITEM _protobuf_compile_defs PROTOBUF_USE_DLLS)
+      set_target_properties(protobuf::libprotobuf PROPERTIES INTERFACE_COMPILE_DEFINITIONS
+                                                             "${_protobuf_compile_defs}")
+    endif()
+  endif()
+  if(TARGET protobuf::libprotoc)
+    get_target_property(_protoc_compile_defs protobuf::libprotoc
+                        INTERFACE_COMPILE_DEFINITIONS)
+    if(_protoc_compile_defs)
+      list(REMOVE_ITEM _protoc_compile_defs PROTOBUF_USE_DLLS)
+      set_target_properties(protobuf::libprotoc PROPERTIES INTERFACE_COMPILE_DEFINITIONS
+                                                           "${_protoc_compile_defs}")
+    endif()
+  endif()
+
   # Get the actual include directory from the protobuf target
   # For FetchContent, this points to the source directory which contains the .proto files
   set(PROTOBUF_INCLUDE_DIR "${protobuf_SOURCE_DIR}/src")
