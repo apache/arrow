@@ -1339,18 +1339,30 @@ Status FileReader::GetRecordBatchReader(const std::vector<int>& row_group_indice
   return Status::OK();
 }
 
-Status FileReader::Make(::arrow::MemoryPool* pool,
-                        std::unique_ptr<ParquetFileReader> reader,
+Status FileReader::Make(MemoryPool* pool, std::unique_ptr<ParquetFileReader> reader,
                         const ArrowReaderProperties& properties,
                         std::unique_ptr<FileReader>* out) {
   *out = std::make_unique<FileReaderImpl>(pool, std::move(reader), properties);
   return static_cast<FileReaderImpl*>(out->get())->Init();
 }
 
-Status FileReader::Make(::arrow::MemoryPool* pool,
-                        std::unique_ptr<ParquetFileReader> reader,
+Result<std::unique_ptr<FileReader>> FileReader::Make(
+    MemoryPool* pool, std::unique_ptr<ParquetFileReader> reader,
+    const ArrowReaderProperties& properties) {
+  auto file_reader =
+      std::make_unique<FileReaderImpl>(pool, std::move(reader), properties);
+  RETURN_NOT_OK(file_reader->Init());
+  return file_reader;
+}
+
+Status FileReader::Make(MemoryPool* pool, std::unique_ptr<ParquetFileReader> reader,
                         std::unique_ptr<FileReader>* out) {
   return Make(pool, std::move(reader), default_arrow_reader_properties(), out);
+}
+
+Result<std::unique_ptr<FileReader>> FileReader::Make(
+    MemoryPool* pool, std::unique_ptr<ParquetFileReader> reader) {
+  return Make(pool, std::move(reader), default_arrow_reader_properties());
 }
 
 FileReaderBuilder::FileReaderBuilder()
