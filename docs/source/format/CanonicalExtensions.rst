@@ -569,7 +569,7 @@ This extension type is intended to be compatible with ANSI SQL's ``TIMESTAMP WIT
 
 .. note::
 
-   It is also *permissible* for the ``offset_minutes`` field to be dictionary-encoded with a preferred (*but not required*) index type of ``int8``, or run-end-encoded with a preferred (*but not required*) runs type of ``int8``.
+   It is also *permissible* for the ``offset_minutes`` field to be dictionary-encoded or run-end-encoded.
 
 .. note::
 
