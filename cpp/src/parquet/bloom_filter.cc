@@ -20,12 +20,14 @@
 #include <memory>
 
 #include "arrow/result.h"
+#include "arrow/util/endian.h"
 #include "arrow/util/logging_internal.h"
 #include "arrow/util/macros.h"
 
 #include "generated/parquet_types.h"
 
 #include "parquet/bloom_filter.h"
+#include "parquet/endian_internal.h"
 #include "parquet/exception.h"
 #include "parquet/thrift_internal.h"
 #include "parquet/xxhasher.h"
@@ -208,8 +210,9 @@ bool BlockSplitBloomFilter::FindHash(uint64_t hash) const {
   for (int i = 0; i < kBitsSetPerBlock; ++i) {
     // Calculate mask for key in the given bitset.
     const uint32_t mask = UINT32_C(0x1) << ((key * SALT[i]) >> 27);
-    if (ARROW_PREDICT_FALSE(0 ==
-                            (bitset32[kBitsSetPerBlock * bucket_index + i] & mask))) {
+    const auto word =
+        ::arrow::bit_util::FromLittleEndian(bitset32[kBitsSetPerBlock * bucket_index + i]);
+    if (ARROW_PREDICT_FALSE((word & mask) == 0)) {
       return false;
     }
   }
@@ -225,7 +228,10 @@ void BlockSplitBloomFilter::InsertHashImpl(uint64_t hash) {
   for (int i = 0; i < kBitsSetPerBlock; i++) {
     // Calculate mask for key in the given bitset.
     const uint32_t mask = UINT32_C(0x1) << ((key * SALT[i]) >> 27);
-    bitset32[bucket_index * kBitsSetPerBlock + i] |= mask;
+    const int word_index = bucket_index * kBitsSetPerBlock + i;
+    auto word = ::arrow::bit_util::FromLittleEndian(bitset32[word_index]);
+    word |= mask;
+    bitset32[word_index] = ::arrow::bit_util::ToLittleEndian(word);
   }
 }
 

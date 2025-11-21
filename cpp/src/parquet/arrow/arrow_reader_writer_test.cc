@@ -1303,7 +1303,7 @@ TEST_F(TestInt96ParquetIO, ReadIntoTimestamp) {
 
   // 2nd January 1970, 11:35min 145738543ns
   Int96 day;
-  day.value[2] = UINT32_C(2440589);
+  day.value[2] = ::parquet::internal::ToLittleEndianValue(UINT32_C(2440589));
   int64_t seconds = (11 * 60 + 35) * 60;
   Int96SetNanoSeconds(
       day, seconds * INT64_C(1000) * INT64_C(1000) * INT64_C(1000) + 145738543);
@@ -1947,12 +1947,12 @@ TEST(TestArrowReadWrite, UseDeprecatedInt96) {
 
   // Ensure enable_deprecated_int96_timestamps as precedence over
   // coerce_timestamps.
-  ASSERT_NO_FATAL_FAILURE(DoSimpleRoundtrip(input, false /* use_threads */,
-                                            input->num_rows(), {}, &result,
-                                            ArrowWriterProperties::Builder()
-                                                .enable_deprecated_int96_timestamps()
-                                                ->coerce_timestamps(TimeUnit::MILLI)
-                                                ->build()));
+  ASSERT_NO_FATAL_FAILURE(DoSimpleRoundtrip(
+      input, false /* use_threads */, input->num_rows(), {}, &result,
+      ArrowWriterProperties::Builder()
+          .enable_deprecated_int96_timestamps()
+          ->coerce_timestamps(TimeUnit::MILLI)
+          ->build()));
 
   ASSERT_NO_FATAL_FAILURE(::arrow::AssertSchemaEqual(*ex_result->schema(),
                                                      *result->schema(),
@@ -4141,7 +4141,11 @@ TEST(TestImpalaConversion, ArrowTimestampToImpalaTimestamp) {
 
   Int96 calculated;
 
-  Int96 expected = {{UINT32_C(632093973), UINT32_C(13871), UINT32_C(2457925)}};
+  // Expected Int96 is Impala layout (lo/hi nanos, days) written in little-endian.
+  Int96 expected = {
+      {::parquet::internal::ToLittleEndianValue(UINT32_C(632093973)),
+       ::parquet::internal::ToLittleEndianValue(UINT32_C(13871)),
+       ::parquet::internal::ToLittleEndianValue(UINT32_C(2457925))}};
   ::parquet::internal::NanosecondsToImpalaTimestamp(nanoseconds, &calculated);
   ASSERT_EQ(expected, calculated);
 }
@@ -4483,7 +4487,9 @@ TEST(TestArrowReaderAdHoc, ReadFloat16Files) {
     ASSERT_TRUE(chunk->IsNull(0));
     for (int32_t i = 0; i < tc.len - 1; ++i) {
       const auto expected = tc.vals[i];
-      const auto actual = Float16::FromBits(chunk->Value(i + 1));
+      // Parquet stores half floats little-endian; normalize bits on BE before comparing.
+      const auto actual =
+          Float16::FromBits(::arrow::bit_util::ToLittleEndian(chunk->Value(i + 1)));
       if (expected.is_nan()) {
         // NaN representations aren't guaranteed to be exact on a binary level
         ASSERT_TRUE(actual.is_nan());
@@ -5895,11 +5901,13 @@ struct ColumnIndexObject {
 };
 
 auto encode_int64 = [](int64_t value) {
-  return std::string(reinterpret_cast<const char*>(&value), sizeof(int64_t));
+  const auto le = ::arrow::bit_util::ToLittleEndian(value);
+  return std::string(reinterpret_cast<const char*>(&le), sizeof(int64_t));
 };
 
 auto encode_double = [](double value) {
-  return std::string(reinterpret_cast<const char*>(&value), sizeof(double));
+  const auto le = ::arrow::bit_util::ToLittleEndian(value);
+  return std::string(reinterpret_cast<const char*>(&le), sizeof(double));
 };
 
 }  // namespace

@@ -112,12 +112,24 @@ class TestPrimitiveReader : public ::testing::Test {
 
     ASSERT_EQ(num_levels_, batch_actual);
     ASSERT_EQ(num_values_, total_values_read);
-    ASSERT_TRUE(vector_equal(values_, vresult));
+    bool values_match = vector_equal(values_, vresult);
+    if (!values_match) {
+      DumpState("values mismatch", vresult, dresult, rresult);
+    }
+    ASSERT_TRUE(values_match);
     if (max_def_level_ > 0) {
-      ASSERT_TRUE(vector_equal(def_levels_, dresult));
+      bool def_levels_match = vector_equal(def_levels_, dresult);
+      if (!def_levels_match) {
+        DumpState("def_levels mismatch", vresult, dresult, rresult);
+      }
+      ASSERT_TRUE(def_levels_match);
     }
     if (max_rep_level_ > 0) {
-      ASSERT_TRUE(vector_equal(rep_levels_, rresult));
+      bool rep_levels_match = vector_equal(rep_levels_, rresult);
+      if (!rep_levels_match) {
+        DumpState("rep_levels mismatch", vresult, dresult, rresult);
+      }
+      ASSERT_TRUE(rep_levels_match);
     }
     // catch improper writes at EOS
     batch_actual =
@@ -135,6 +147,7 @@ class TestPrimitiveReader : public ::testing::Test {
   }
 
   void ExecutePlain(int num_pages, int levels_per_page, const ColumnDescriptor* d) {
+    debug_encoding_ = "PLAIN";
     num_values_ =
         MakePages<Int32Type>(d, num_pages, levels_per_page, def_levels_, rep_levels_,
                              values_, data_buffer_, pages_, Encoding::PLAIN);
@@ -145,6 +158,7 @@ class TestPrimitiveReader : public ::testing::Test {
   }
 
   void ExecuteDict(int num_pages, int levels_per_page, const ColumnDescriptor* d) {
+    debug_encoding_ = "RLE_DICTIONARY";
     num_values_ =
         MakePages<Int32Type>(d, num_pages, levels_per_page, def_levels_, rep_levels_,
                              values_, data_buffer_, pages_, Encoding::RLE_DICTIONARY);
@@ -155,6 +169,40 @@ class TestPrimitiveReader : public ::testing::Test {
   }
 
  protected:
+  template <typename T>
+  void DumpVector(const char* label, const std::vector<T>& values, size_t max_print = 24) {
+    std::cerr << "  " << label << " size=" << values.size() << " first " << max_print
+              << " values:";
+    size_t limit = std::min(values.size(), max_print);
+    for (size_t i = 0; i < limit; ++i) {
+      std::cerr << " " << values[i];
+    }
+    if (values.size() > max_print) {
+      std::cerr << " ...";
+    }
+    std::cerr << std::endl;
+  }
+
+  void DumpState(const char* reason, const std::vector<int32_t>& vresult,
+                 const std::vector<int16_t>& dresult,
+                 const std::vector<int16_t>& rresult) {
+    std::cerr << "[TestPrimitiveReader::CheckResults] " << reason
+              << " encoding=" << debug_encoding_ << " num_pages=" << pages_.size()
+              << " num_levels=" << num_levels_ << " num_values=" << num_values_
+              << " max_def_level=" << max_def_level_
+              << " max_rep_level=" << max_rep_level_ << std::endl;
+    DumpVector("expected values", values_);
+    DumpVector("actual values", vresult);
+    if (max_def_level_ > 0) {
+      DumpVector("expected def_levels", def_levels_);
+      DumpVector("actual def_levels", dresult);
+    }
+    if (max_rep_level_ > 0) {
+      DumpVector("expected rep_levels", rep_levels_);
+      DumpVector("actual rep_levels", rresult);
+    }
+  }
+
   int num_levels_;
   int num_values_;
   int16_t max_def_level_;
@@ -165,6 +213,7 @@ class TestPrimitiveReader : public ::testing::Test {
   std::vector<int16_t> def_levels_;
   std::vector<int16_t> rep_levels_;
   std::vector<uint8_t> data_buffer_;  // For BA and FLBA
+  std::string debug_encoding_;
 };
 
 TEST_F(TestPrimitiveReader, TestInt32FlatRequired) {

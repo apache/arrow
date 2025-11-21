@@ -30,34 +30,20 @@ namespace util {
 namespace bit_util {
 
 inline uint64_t SafeLoadUpTo8Bytes(const uint8_t* bytes, int num_bytes) {
-  // This will not be correct on big-endian architectures.
-#if !ARROW_LITTLE_ENDIAN
-  ARROW_DCHECK(false);
-#endif
   ARROW_DCHECK(num_bytes >= 0 && num_bytes <= 8);
-  if (num_bytes == 8) {
-    return util::SafeLoad(reinterpret_cast<const uint64_t*>(bytes));
-  } else {
-    uint64_t word = 0;
-    for (int i = 0; i < num_bytes; ++i) {
-      word |= static_cast<uint64_t>(bytes[i]) << (8 * i);
-    }
-    return word;
+  // Always interpret `bytes` as little-endian regardless of host endianness.
+  uint64_t word = 0;
+  for (int i = 0; i < num_bytes; ++i) {
+    word |= static_cast<uint64_t>(bytes[i]) << (8 * i);
   }
+  return word;
 }
 
 inline void SafeStoreUpTo8Bytes(uint8_t* bytes, int num_bytes, uint64_t value) {
-  // This will not be correct on big-endian architectures.
-#if !ARROW_LITTLE_ENDIAN
-  ARROW_DCHECK(false);
-#endif
   ARROW_DCHECK(num_bytes >= 0 && num_bytes <= 8);
-  if (num_bytes == 8) {
-    util::SafeStore(reinterpret_cast<uint64_t*>(bytes), value);
-  } else {
-    for (int i = 0; i < num_bytes; ++i) {
-      bytes[i] = static_cast<uint8_t>(value >> (8 * i));
-    }
+  // Always write in little-endian order regardless of host endianness.
+  for (int i = 0; i < num_bytes; ++i) {
+    bytes[i] = static_cast<uint8_t>(value >> (8 * i));
   }
 }
 

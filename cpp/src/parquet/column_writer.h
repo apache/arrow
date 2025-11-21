@@ -23,6 +23,7 @@
 
 #include "arrow/type_fwd.h"
 #include "arrow/util/compression.h"
+#include "parquet/endian_internal.h"
 #include "parquet/exception.h"
 #include "parquet/platform.h"
 #include "parquet/types.h"
@@ -260,13 +261,20 @@ constexpr int64_t kJulianEpochOffsetDays = INT64_C(2440588);
 template <int64_t UnitPerDay, int64_t NanosecondsPerUnit>
 inline void ArrowTimestampToImpalaTimestamp(const int64_t time, Int96* impala_timestamp) {
   int64_t julian_days = (time / UnitPerDay) + kJulianEpochOffsetDays;
-  (*impala_timestamp).value[2] = (uint32_t)julian_days;
+  // Impala/Parquet Int96 stores nanoseconds of day in the first two 32-bit words
+  // (low then high), and Julian days in the most significant word.
+  (*impala_timestamp).value[2] = static_cast<uint32_t>(julian_days);
 
   int64_t last_day_units = time % UnitPerDay;
   auto last_day_nanos = last_day_units * NanosecondsPerUnit;
-  // impala_timestamp will be unaligned every other entry so do memcpy instead
-  // of assign and reinterpret cast to avoid undefined behavior.
-  std::memcpy(impala_timestamp, &last_day_nanos, sizeof(int64_t));
+  // Fill low/high 32-bit words explicitly to avoid endianness surprises.
+  (*impala_timestamp).value[0] =
+      ::parquet::internal::ToLittleEndianValue(static_cast<uint32_t>(last_day_nanos & 0xffffffff));
+  (*impala_timestamp).value[1] = ::parquet::internal::ToLittleEndianValue(
+      static_cast<uint32_t>(static_cast<uint64_t>(last_day_nanos) >> 32));
+  // Days are treated as a 32-bit little-endian word as well to be consistent.
+  (*impala_timestamp).value[2] =
+      ::parquet::internal::ToLittleEndianValue(static_cast<uint32_t>(julian_days));
 }
 
 constexpr int64_t kSecondsInNanos = INT64_C(1000000000);

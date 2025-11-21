@@ -29,6 +29,7 @@
 #include "arrow/util/decimal.h"
 #include "arrow/util/float16.h"
 #include "arrow/util/logging_internal.h"
+#include "parquet/endian_internal.h"
 
 #include <rapidjson/document.h>
 #include <rapidjson/writer.h>
@@ -105,8 +106,8 @@ template <typename T>
 std::enable_if_t<std::is_arithmetic_v<T>, std::string> FormatNumericValue(
     ::std::string_view val) {
   std::stringstream result;
-  T value{};
-  std::memcpy(&value, val.data(), sizeof(T));
+  T value = ::parquet::internal::LoadLittleEndianScalar<T>(
+      reinterpret_cast<const uint8_t*>(val.data()));
   result << value;
   return result.str();
 }
@@ -122,15 +123,15 @@ std::string FormatDecimalValue(Type::type parquet_type, ::std::string_view val,
   std::stringstream result;
   switch (parquet_type) {
     case Type::INT32: {
-      int32_t int_value{};
-      std::memcpy(&int_value, val.data(), sizeof(int32_t));
+      int32_t int_value = ::parquet::internal::LoadLittleEndianScalar<int32_t>(
+          reinterpret_cast<const uint8_t*>(val.data()));
       ::arrow::Decimal128 decimal_value(int_value);
       result << decimal_value.ToString(scale);
       break;
     }
     case Type::INT64: {
-      int64_t long_value{};
-      std::memcpy(&long_value, val.data(), sizeof(int64_t));
+      int64_t long_value = ::parquet::internal::LoadLittleEndianScalar<int64_t>(
+          reinterpret_cast<const uint8_t*>(val.data()));
       ::arrow::Decimal128 decimal_value(long_value);
       result << decimal_value.ToString(scale);
       break;
@@ -208,7 +209,11 @@ std::string FormatStatValue(Type::type parquet_type, ::std::string_view val,
     }
     case Type::INT96: {
       std::array<int32_t, 3> values{};
-      std::memcpy(values.data(), bytes, 3 * sizeof(int32_t));
+      const auto* data = reinterpret_cast<const uint8_t*>(bytes);
+      for (int i = 0; i < 3; ++i) {
+        values[i] = ::parquet::internal::LoadLittleEndianScalar<int32_t>(
+            data + i * sizeof(int32_t));
+      }
       result << values[0] << " " << values[1] << " " << values[2];
       break;
     }

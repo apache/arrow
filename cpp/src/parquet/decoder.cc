@@ -18,6 +18,7 @@
 #include "parquet/encoding.h"
 
 #include <algorithm>
+#include <array>
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
@@ -28,6 +29,13 @@
 #include <type_traits>
 #include <utility>
 #include <vector>
+#if defined(PARQUET_DEBUG_DELTA_BITPACK) || defined(PARQUET_DEBUG_BYTE_STREAM_SPLIT)
+#include <iomanip>
+#include <iostream>
+#endif
+#ifdef PARQUET_DEBUG_DELTA_BITPACK
+#include <sstream>
+#endif
 
 #include "arrow/array.h"
 #include "arrow/array/builder_binary.h"
@@ -49,6 +57,7 @@
 #include "arrow/visit_data_inline.h"
 
 #include "parquet/exception.h"
+#include "parquet/endian_internal.h"
 #include "parquet/platform.h"
 #include "parquet/schema.h"
 #include "parquet/types.h"
@@ -66,6 +75,170 @@ using arrow::util::SafeLoadAs;
 
 namespace parquet {
 namespace {
+
+#ifdef PARQUET_DEBUG_DELTA_BITPACK
+#define DELTA_BP_DEC_LOG(msg) \
+  do { std::cerr << "[DeltaBitPackDecoder] " << msg << std::endl; } while (0)
+#else
+#define DELTA_BP_DEC_LOG(msg) \
+  do { } while (0)
+#endif
+
+#ifdef PARQUET_DEBUG_BYTE_STREAM_SPLIT
+#define BSS_DEC_LOG(msg) \
+  do { std::cerr << "[ByteStreamSplitDecoder] " << msg << std::endl; } while (0)
+#else
+#define BSS_DEC_LOG(msg) \
+  do { } while (0)
+#endif
+
+#ifdef PARQUET_DEBUG_DELTA_BITPACK
+template <typename T>
+struct DeltaBitPackBlockDebugState {
+  void ResetForNewPage() {
+    FinishPage("page_boundary");
+    block_index_ = -1;
+    block_active_ = false;
+  }
+
+  void FinishPage(const char* reason) {
+    FlushCurrentBlock();
+    EmitSummary(reason);
+  }
+
+  void StartBlock(uint32_t values_per_block, uint32_t mini_blocks_per_block,
+                  uint32_t total_value_count) {
+    FlushCurrentBlock();
+    ++block_index_;
+    block_active_ = true;
+    values_in_block_ = 0;
+    batch_count_ = 0;
+    min_delta_ = static_cast<T>(0);
+    values_per_block_ = values_per_block;
+    mini_blocks_per_block_ = mini_blocks_per_block;
+    total_value_count_ = total_value_count;
+    bit_width_hist_.fill(0);
+  }
+
+  void SetMinDelta(T min_delta) { min_delta_ = min_delta; }
+
+  void AddMiniBlock(uint8_t bit_width) {
+    if (!block_active_ || bit_width >= bit_width_hist_.size()) {
+      return;
+    }
+    ++bit_width_hist_[bit_width];
+  }
+
+  void AddBatch(int values) {
+    if (!block_active_) {
+      return;
+    }
+    values_in_block_ += values;
+    ++batch_count_;
+  }
+
+ private:
+  void FlushCurrentBlock() {
+    if (!block_active_) {
+      return;
+    }
+    std::ostringstream ss;
+    ss << "Block " << block_index_ << " values=" << values_in_block_ << "/"
+       << values_per_block_ << " miniblocks=" << mini_blocks_per_block_
+       << " batches=" << batch_count_ << " min_delta=" << min_delta_;
+    ss << " bit_widths=[";
+    bool wrote = false;
+    for (size_t i = 0; i < bit_width_hist_.size(); ++i) {
+      if (bit_width_hist_[i] == 0) {
+        continue;
+      }
+      if (wrote) {
+        ss << ' ';
+      }
+      ss << i << ':' << bit_width_hist_[i];
+      wrote = true;
+    }
+    if (!wrote) {
+      ss << "none";
+    }
+    ss << "]";
+    block_logs_.push_back(ss.str());
+    block_active_ = false;
+  }
+
+  void EmitSummary(const char* reason) {
+    if (block_logs_.empty()) {
+      return;
+    }
+    std::ostringstream ss;
+    ss << "DeltaBitPack page blocks=" << block_logs_.size();
+    if (reason && *reason != '\0') {
+      ss << " reason=" << reason;
+    }
+    DELTA_BP_DEC_LOG(ss.str());
+    constexpr size_t kMaxDetails = 5;
+    size_t details = std::min(block_logs_.size(), kMaxDetails);
+    for (size_t i = 0; i < details; ++i) {
+      DELTA_BP_DEC_LOG("  " << block_logs_[i]);
+    }
+    if (block_logs_.size() > kMaxDetails) {
+      DELTA_BP_DEC_LOG("  ... (" << (block_logs_.size() - kMaxDetails)
+                                 << " more blocks)");
+    }
+    block_logs_.clear();
+  }
+
+  int64_t block_index_ = -1;
+  bool block_active_ = false;
+  uint32_t values_per_block_ = 0;
+  uint32_t mini_blocks_per_block_ = 0;
+  uint32_t total_value_count_ = 0;
+  int64_t values_in_block_ = 0;
+  int64_t batch_count_ = 0;
+  T min_delta_ = static_cast<T>(0);
+  std::array<int64_t, 65> bit_width_hist_{};
+  std::vector<std::string> block_logs_;
+};
+#endif
+
+#ifdef PARQUET_DEBUG_DELTA_BITPACK
+inline void DebugPrintBytes(const uint8_t* data, int len) {
+  std::cerr << " bytes[";
+  for (int i = 0; i < len; ++i) {
+    if (i != 0) {
+      std::cerr << ' ';
+    }
+    std::cerr << std::hex << std::setw(2) << std::setfill('0')
+              << static_cast<int>(data[i]);
+  }
+  std::cerr << std::dec << "]";
+}
+#else
+inline void DebugPrintBytes(const uint8_t*, int) {}
+#endif
+
+inline uint64_t ReadUleb128(const uint8_t** cursor, const uint8_t* end) {
+  uint64_t result = 0;
+  int shift = 0;
+  while (true) {
+    if (ARROW_PREDICT_FALSE(*cursor >= end)) {
+      ParquetException::EofException("InitHeader EOF");
+    }
+    uint8_t byte = **cursor;
+    ++(*cursor);
+    result |= static_cast<uint64_t>(byte & 0x7F) << shift;
+    if ((byte & 0x80) == 0) {
+      break;
+    }
+    shift += 7;
+  }
+  return result;
+}
+
+inline int64_t ReadZigZag(const uint8_t** cursor, const uint8_t* end) {
+  uint64_t zz = ReadUleb128(cursor, end);
+  return static_cast<int64_t>((zz >> 1) ^ (~(zz & 1) + 1));
+}
 
 // A helper class to abstract away differences between EncodingTraits<DType>::Accumulator
 // for ByteArrayType and FLBAType.
@@ -432,7 +605,8 @@ int PlainDecoder<DType>::DecodeArrow(
   VisitNullBitmapInline(
       valid_bits, valid_bits_offset, num_values, null_count,
       [&]() {
-        PARQUET_THROW_NOT_OK(builder->Append(SafeLoadAs<value_type>(data)));
+        auto value = ::parquet::internal::LoadLittleEndianScalar<value_type>(data);
+        PARQUET_THROW_NOT_OK(builder->Append(value));
         data += sizeof(value_type);
       },
       [&]() { PARQUET_THROW_NOT_OK(builder->AppendNull()); });
@@ -466,7 +640,7 @@ static inline int64_t ReadByteArray(const uint8_t* data, int64_t data_size,
   if (ARROW_PREDICT_FALSE(data_size < 4)) {
     ParquetException::EofException();
   }
-  const int32_t len = SafeLoadAs<int32_t>(data);
+  const int32_t len = parquet::internal::LoadLittleEndianScalar<int32_t>(data);
   if (len < 0) {
     throw ParquetException("Invalid BYTE_ARRAY value");
   }
@@ -513,10 +687,24 @@ inline int DecodePlain<FixedLenByteArray>(const uint8_t* data, int64_t data_size
 template <typename DType>
 int PlainDecoder<DType>::Decode(T* buffer, int max_values) {
   max_values = std::min(max_values, this->num_values_);
-  int bytes_consumed =
-      DecodePlain<T>(this->data_, this->len_, max_values, this->type_length_, buffer);
-  this->data_ += bytes_consumed;
-  this->len_ -= bytes_consumed;
+  const int64_t bytes_needed =
+      static_cast<int64_t>(max_values) * static_cast<int64_t>(sizeof(T));
+  if (bytes_needed > this->len_ || bytes_needed < 0) {
+    ParquetException::EofException("PlainDecoder doesn't have enough values in page");
+  }
+
+  if constexpr (parquet::internal::NeedsEndianConversion<T>::value) {
+    const uint8_t* data = this->data_;
+    for (int i = 0; i < max_values; ++i) {
+      buffer[i] = parquet::internal::LoadLittleEndianScalar<T>(
+          data + static_cast<int64_t>(i) * static_cast<int64_t>(sizeof(T)));
+    }
+  } else {
+    memcpy(buffer, this->data_, static_cast<size_t>(bytes_needed));
+  }
+
+  this->data_ += bytes_needed;
+  this->len_ -= bytes_needed;
   this->num_values_ -= max_values;
   return max_values;
 }
@@ -720,6 +908,16 @@ class PlainByteArrayDecoder : public PlainDecoder<ByteArrayType> {
   using Base::DecodeSpaced;
   using Base::PlainDecoder;
 
+  int Decode(ByteArray* buffer, int max_values) override {
+    max_values = std::min(max_values, this->num_values_);
+    const int bytes = DecodePlain<ByteArray>(this->data_, this->len_, max_values,
+                                             /*type_length=*/0, buffer);
+    this->data_ += bytes;
+    this->len_ -= bytes;
+    this->num_values_ -= max_values;
+    return max_values;
+  }
+
   // ----------------------------------------------------------------------
   // Dictionary read paths
 
@@ -761,7 +959,7 @@ class PlainByteArrayDecoder : public PlainDecoder<ByteArrayType> {
                   return Status::Invalid(
                       "Invalid or truncated PLAIN-encoded BYTE_ARRAY data");
                 }
-                auto value_len = SafeLoadAs<int32_t>(data_);
+                auto value_len = parquet::internal::LoadLittleEndianScalar<int32_t>(data_);
                 if (ARROW_PREDICT_FALSE(value_len < 0 || value_len > len_ - 4)) {
                   return Status::Invalid(
                       "Invalid or truncated PLAIN-encoded BYTE_ARRAY data");
@@ -805,7 +1003,7 @@ class PlainByteArrayDecoder : public PlainDecoder<ByteArrayType> {
                 return Status::Invalid(
                     "Invalid or truncated PLAIN-encoded BYTE_ARRAY data");
               }
-              auto value_len = SafeLoadAs<int32_t>(data_);
+              auto value_len = parquet::internal::LoadLittleEndianScalar<int32_t>(data_);
               if (ARROW_PREDICT_FALSE(value_len < 0 || value_len > len_ - 4)) {
                 return Status::Invalid(
                     "Invalid or truncated PLAIN-encoded BYTE_ARRAY data");
@@ -832,6 +1030,17 @@ class PlainFLBADecoder : public PlainDecoder<FLBAType>, public FLBADecoder {
  public:
   using Base = PlainDecoder<FLBAType>;
   using Base::PlainDecoder;
+
+  int Decode(FLBA* buffer, int max_values) override {
+    max_values = std::min(max_values, this->num_values_);
+    const int bytes = DecodePlain<FixedLenByteArray>(this->data_, this->len_,
+                                                     max_values, this->type_length_,
+                                                     reinterpret_cast<FixedLenByteArray*>(buffer));
+    this->data_ += bytes;
+    this->len_ -= bytes;
+    this->num_values_ -= max_values;
+    return max_values;
+  }
 };
 
 // ----------------------------------------------------------------------
@@ -1425,14 +1634,29 @@ class DeltaBitPackDecoder : public TypedDecoderImpl<DType> {
   }
 
   void SetData(int num_values, const uint8_t* data, int len) override {
-    // num_values is equal to page's num_values, including null values in this page
     this->num_values_ = num_values;
-    if (decoder_ == nullptr) {
-      decoder_ = std::make_shared<::arrow::bit_util::BitReader>(data, len);
-    } else {
-      decoder_->Reset(data, len);
+#ifdef PARQUET_DEBUG_DELTA_BITPACK
+    debug_state_.ResetForNewPage();
+#endif
+    const uint8_t* cursor = data;
+    const uint8_t* end = data + len;
+    values_per_block_ = static_cast<uint32_t>(ReadUleb128(&cursor, end));
+    mini_blocks_per_block_ = static_cast<uint32_t>(ReadUleb128(&cursor, end));
+    total_value_count_ = static_cast<uint32_t>(ReadUleb128(&cursor, end));
+    last_value_ = static_cast<T>(ReadZigZag(&cursor, end));
+#ifdef PARQUET_DEBUG_DELTA_BITPACK
+    DebugPrintBytes(data, static_cast<int>(cursor - data));
+#endif
+    const int remaining = static_cast<int>(end - cursor);
+    if (ARROW_PREDICT_FALSE(remaining < 0)) {
+      ParquetException::EofException("InitHeader EOF");
     }
-    InitHeader();
+    if (decoder_ == nullptr) {
+      decoder_ = std::make_shared<::arrow::bit_util::BitReader>(cursor, remaining);
+    } else {
+      decoder_->Reset(cursor, remaining);
+    }
+    PrepareForBlocks();
   }
 
   // Set BitReader which is already initialized by DeltaLengthByteArrayDecoder or
@@ -1491,7 +1715,19 @@ class DeltaBitPackDecoder : public TypedDecoderImpl<DType> {
         !decoder_->GetZigZagVlqInt(&last_value_)) {
       ParquetException::EofException("InitHeader EOF");
     }
+#ifdef PARQUET_DEBUG_DELTA_BITPACK
+    DELTA_BP_DEC_LOG("InitHeader values_per_block=" << values_per_block_
+                                                    << " mini_blocks_per_block="
+                                                    << mini_blocks_per_block_
+                                                    << " total_value_count="
+                                                    << total_value_count_
+                                                    << " last_value=" << last_value_);
+#endif
 
+    PrepareForBlocks();
+  }
+
+  void PrepareForBlocks() {
     if (values_per_block_ == 0) {
       throw ParquetException("cannot have zero value per block");
     }
@@ -1526,9 +1762,16 @@ class DeltaBitPackDecoder : public TypedDecoderImpl<DType> {
 
   void InitBlock() {
     DCHECK_GT(total_values_remaining_, 0) << "InitBlock called at EOF";
+#ifdef PARQUET_DEBUG_DELTA_BITPACK
+    debug_state_.StartBlock(values_per_block_, mini_blocks_per_block_,
+                            total_value_count_);
+#endif
 
     if (!decoder_->GetZigZagVlqInt(&min_delta_))
       ParquetException::EofException("InitBlock EOF");
+#ifdef PARQUET_DEBUG_DELTA_BITPACK
+    debug_state_.SetMinDelta(min_delta_);
+#endif
 
     // read the bitwidth of each miniblock
     uint8_t* bit_width_data = delta_bit_widths_->mutable_data();
@@ -1548,10 +1791,19 @@ class DeltaBitPackDecoder : public TypedDecoderImpl<DType> {
 
   void InitMiniBlock(int bit_width) {
     if (ARROW_PREDICT_FALSE(bit_width > kMaxDeltaBitWidth)) {
-      throw ParquetException("delta bit width larger than integer bit width");
+      std::stringstream ss;
+      ss << "delta bit width larger than integer bit width: bit_width="
+         << bit_width << " max_bit_width=" << kMaxDeltaBitWidth
+         << " mini_block_index=" << mini_block_idx_ << " values_per_block="
+         << values_per_block_ << " mini_blocks_per_block=" << mini_blocks_per_block_
+         << " values_per_mini_block=" << values_per_mini_block_;
+      throw ParquetException(ss.str());
     }
     delta_bit_width_ = bit_width;
     values_remaining_current_mini_block_ = values_per_mini_block_;
+#ifdef PARQUET_DEBUG_DELTA_BITPACK
+    debug_state_.AddMiniBlock(bit_width);
+#endif
   }
 
   int GetInternal(T* buffer, int max_values) {
@@ -1601,11 +1853,29 @@ class DeltaBitPackDecoder : public TypedDecoderImpl<DType> {
           values_decode) {
         ParquetException::EofException();
       }
+#ifdef PARQUET_DEBUG_DELTA_BITPACK
+      debug_state_.AddBatch(values_decode);
+#endif
       for (int j = 0; j < values_decode; ++j) {
         // Addition between min_delta, packed int and last_value should be treated as
         // unsigned addition. Overflow is as expected.
         buffer[i + j] = static_cast<UT>(min_delta_) + static_cast<UT>(buffer[i + j]) +
                         static_cast<UT>(last_value_);
+#ifdef PARQUET_DEBUG_DELTA_BITPACK
+        // Log the first handful of reconstructed values on each page to make sure
+        // min_delta and accumulated deltas look reasonable.
+        constexpr int kValueLogLimit = 64;
+        if (values_decoded_global_ < kValueLogLimit) {
+          DELTA_BP_DEC_LOG("Value[" << values_decoded_global_
+                                    << "] min_delta=" << min_delta_
+                                    << " delta=" << buffer[i + j] - last_value_
+                                    << " last=" << last_value_
+                                    << " result=" << buffer[i + j]
+                                    << " bit_width=" << delta_bit_width_
+                                    << " mini_block=" << mini_block_idx_);
+        }
+        ++values_decoded_global_;
+#endif
         last_value_ = buffer[i + j];
       }
       values_remaining_current_mini_block_ -= values_decode;
@@ -1621,6 +1891,9 @@ class DeltaBitPackDecoder : public TypedDecoderImpl<DType> {
         ParquetException::EofException();
       }
       values_remaining_current_mini_block_ = 0;
+#ifdef PARQUET_DEBUG_DELTA_BITPACK
+      debug_state_.FinishPage("page_complete");
+#endif
     }
     return max_values;
   }
@@ -1631,6 +1904,9 @@ class DeltaBitPackDecoder : public TypedDecoderImpl<DType> {
   uint32_t mini_blocks_per_block_;
   uint32_t values_per_mini_block_;
   uint32_t total_value_count_;
+#ifdef PARQUET_DEBUG_DELTA_BITPACK
+  int64_t values_decoded_global_{0};
+#endif
 
   uint32_t total_values_remaining_;
   // Remaining values in current mini block. If the current block is the last mini block,
@@ -1646,6 +1922,9 @@ class DeltaBitPackDecoder : public TypedDecoderImpl<DType> {
   int delta_bit_width_;
 
   T last_value_;
+#ifdef PARQUET_DEBUG_DELTA_BITPACK
+  DeltaBitPackBlockDebugState<T> debug_state_;
+#endif
 };
 
 // ----------------------------------------------------------------------
@@ -2179,6 +2458,8 @@ class ByteStreamSplitDecoderBase : public TypedDecoderImpl<DType> {
       : Base(descr, Encoding::BYTE_STREAM_SPLIT) {}
 
   void SetData(int num_values, const uint8_t* data, int len) final {
+    BSS_DEC_LOG("SetData len=" << len << " requested_values=" << num_values
+                                << " type_width=" << this->type_length_);
     // Check that the data size is consistent with the number of values
     // The spec requires that the data size is a multiple of the number of values,
     // see: https://github.com/apache/parquet-format/pull/192 .
@@ -2209,6 +2490,8 @@ class ByteStreamSplitDecoderBase : public TypedDecoderImpl<DType> {
   int DecodeArrow(int num_values, int null_count, const uint8_t* valid_bits,
                   int64_t valid_bits_offset,
                   typename EncodingTraits<DType>::Accumulator* builder) override {
+    BSS_DEC_LOG("DecodeArrow num_values=" << num_values << " null_count="
+                                           << null_count);
     const int values_to_decode = num_values - null_count;
     if (ARROW_PREDICT_FALSE(this->num_values_ < values_to_decode)) {
       ParquetException::EofException();
@@ -2239,6 +2522,8 @@ class ByteStreamSplitDecoderBase : public TypedDecoderImpl<DType> {
  protected:
   int DecodeRaw(uint8_t* out_buffer, int max_values) {
     const int values_to_decode = std::min(this->num_values_, max_values);
+    BSS_DEC_LOG("DecodeRaw max_values=" << max_values << " actual="
+                                        << values_to_decode);
     ::arrow::util::internal::ByteStreamSplitDecode(this->data_, this->type_length_,
                                                    values_to_decode, stride_, out_buffer);
     this->data_ += values_to_decode;
@@ -2271,7 +2556,46 @@ class ByteStreamSplitDecoder : public ByteStreamSplitDecoderBase<DType> {
   using Base::Base;
 
   int Decode(T* buffer, int max_values) override {
-    return this->DecodeRaw(reinterpret_cast<uint8_t*>(buffer), max_values);
+    int decoded = this->DecodeRaw(reinterpret_cast<uint8_t*>(buffer), max_values);
+    if constexpr (parquet::internal::NeedsEndianConversion<T>::value) {
+      parquet::internal::ConvertLittleEndianInPlace(buffer, decoded);
+    }
+    return decoded;
+  }
+
+  int DecodeArrow(int num_values, int null_count, const uint8_t* valid_bits,
+                  int64_t valid_bits_offset,
+                  typename EncodingTraits<DType>::Accumulator* builder) override {
+    BSS_DEC_LOG("DecodeArrow num_values=" << num_values << " null_count="
+                                           << null_count);
+    const int values_to_decode = num_values - null_count;
+    if (ARROW_PREDICT_FALSE(this->num_values_ < values_to_decode)) {
+      ParquetException::EofException();
+    }
+
+    PARQUET_THROW_NOT_OK(builder->Reserve(num_values));
+
+    // 1. Decode directly into the FixedSizeBinary data buffer, packed to the right.
+    T* decode_out = builder->GetMutableValue(builder->length() + null_count);
+    const int num_decoded = this->DecodeRaw(reinterpret_cast<uint8_t*>(decode_out),
+                                            values_to_decode);
+    DCHECK_EQ(num_decoded, values_to_decode);
+    if constexpr (parquet::internal::NeedsEndianConversion<T>::value) {
+      parquet::internal::ConvertLittleEndianInPlace(decode_out, num_decoded);
+    }
+
+    if (null_count == 0) {
+      // No expansion required, and no need to append the bitmap
+      builder->UnsafeAdvance(num_values);
+      return values_to_decode;
+    }
+
+    // 2. Expand the decoded values into their final positions.
+    ::arrow::util::internal::SpacedExpandLeftward(
+        reinterpret_cast<uint8_t*>(builder->GetMutableValue(builder->length())),
+        this->type_length_, num_values, null_count, valid_bits, valid_bits_offset);
+    builder->UnsafeAdvance(num_values, valid_bits, valid_bits_offset);
+    return values_to_decode;
   }
 };
 

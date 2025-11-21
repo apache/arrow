@@ -16,6 +16,7 @@
 // under the License.
 
 #include "arrow/util/bpacking_internal.h"
+#include "arrow/util/bit_stream_utils_internal.h"
 
 #include "arrow/util/bpacking64_default_internal.h"
 #include "arrow/util/bpacking_default_internal.h"
@@ -178,6 +179,28 @@ int unpack32(const uint8_t* in, uint32_t* out, int batch_size, int num_bits) {
   return dispatch.func(in, out, batch_size, num_bits);
 #endif
 }
+
+#if !ARROW_LITTLE_ENDIAN
+
+// The generated unpack64_XX routines expect little-endian words. On big-endian
+// s390x fall back to the portable BitReader to preserve correctness.
+int unpack64_scalar(const uint8_t* in, uint64_t* out, int batch_size, int num_bits) {
+  const int64_t total_bits = static_cast<int64_t>(batch_size) * num_bits;
+  bit_util::BitReader reader(in, static_cast<int>(bit_util::BytesForBits(total_bits)));
+  int decoded = 0;
+  for (; decoded < batch_size; ++decoded) {
+    if (!reader.GetValue(num_bits, out + decoded)) {
+      break;
+    }
+  }
+  return decoded;
+}
+
+int unpack64(const uint8_t* in, uint64_t* out, int batch_size, int num_bits) {
+  return unpack64_scalar(in, out, batch_size, num_bits);
+}
+
+#else
 
 int unpack64_scalar(const uint8_t* in, uint64_t* out, int batch_size, int num_bits) {
   batch_size = batch_size / 32 * 32;
@@ -390,6 +413,8 @@ int unpack64(const uint8_t* in, uint64_t* out, int batch_size, int num_bits) {
   // TODO: unpack64_neon, unpack64_avx2 and unpack64_avx512
   return unpack64_scalar(in, out, batch_size, num_bits);
 }
+
+#endif  // !ARROW_LITTLE_ENDIAN
 
 }  // namespace internal
 }  // namespace arrow

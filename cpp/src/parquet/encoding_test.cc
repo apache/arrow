@@ -21,6 +21,7 @@
 #include <cstdint>
 #include <cstring>
 #include <limits>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -120,6 +121,23 @@ TEST(VectorBooleanTest, TestEncodeIntDecode) {
 
 template <typename T>
 void VerifyResults(T* result, T* expected, int num_values) {
+#ifdef PARQUET_DEBUG_DELTA_BITPACK
+  if constexpr (std::is_arithmetic_v<T>) {
+    for (int i = 0; i < num_values; ++i) {
+      if (expected[i] != result[i]) {
+        std::cerr << "[VerifyResults] mismatch i=" << i << " expected=" << expected[i]
+                  << " result=" << result[i];
+        if (i > 0) {
+          std::cerr << " prev_expected=" << expected[i - 1]
+                    << " prev_result=" << result[i - 1];
+        }
+        std::cerr << std::endl;
+        ASSERT_EQ(expected[i], result[i]) << i;
+      }
+    }
+    return;
+  }
+#endif
   for (int i = 0; i < num_values; ++i) {
     ASSERT_EQ(expected[i], result[i]) << i;
   }
@@ -1484,7 +1502,8 @@ class TestByteStreamSplitEncoding : public TestEncodingBase<Type> {
       }
     } else {
       for (int i = 0; i < num_elements; ++i) {
-        ASSERT_EQ(expected_decoded_data[i], decoded_data[i]);
+        auto expected = ::arrow::bit_util::FromLittleEndian(expected_decoded_data[i]);
+        ASSERT_EQ(expected, decoded_data[i]);
       }
     }
     ASSERT_EQ(0, decoder->values_left());
@@ -1499,7 +1518,13 @@ class TestByteStreamSplitEncoding : public TestEncodingBase<Type> {
     std::unique_ptr<TypedEncoder<Type>> encoder = MakeTypedEncoder<Type>(
         Encoding::BYTE_STREAM_SPLIT, /*use_dictionary=*/false, descr);
     int num_elements = static_cast<int>(data.size());
-    encoder->Put(reinterpret_cast<const c_type*>(data.data()), num_elements);
+    std::vector<U> host_values(data.begin(), data.end());
+    if constexpr (!std::is_same_v<c_type, FLBA>) {
+      for (auto& value : host_values) {
+        value = ::arrow::bit_util::FromLittleEndian(value);
+      }
+    }
+    encoder->Put(reinterpret_cast<const c_type*>(host_values.data()), num_elements);
     auto encoded_data = encoder->FlushValues();
     ASSERT_EQ(expected_encoded_data.size(), encoded_data->size());
     const uint8_t* encoded_data_raw = encoded_data->data();

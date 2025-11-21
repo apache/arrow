@@ -22,6 +22,7 @@
 #include "arrow/util/endian.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/ubsan.h"
+#include "parquet/endian_internal.h"
 #include "parquet/exception.h"
 
 namespace parquet::geospatial {
@@ -162,11 +163,19 @@ void WKBGeometryBounder::MergeGeometry(::arrow::util::span<const uint8_t> bytes_
 
 void WKBGeometryBounder::MergeGeometryInternal(WKBBuffer* src, bool record_wkb_type) {
   uint8_t endian = src->ReadUInt8();
-#if defined(ARROW_LITTLE_ENDIAN)
-  bool swap = endian != 0x01;
-#else
-  bool swap = endian != 0x00;
-#endif
+  bool payload_little_endian;
+  if (endian == 0x01) {  // little-endian payload
+    payload_little_endian = true;
+  } else if (endian == 0x00) {  // big-endian payload
+    payload_little_endian = false;
+  } else {
+    throw ParquetException("Invalid WKB endian flag: ", static_cast<int>(endian));
+  }
+  // Swap when the payload endianness differs from the host endianness. Rely on the
+  // Parquet endianness shim so builds that force little-endian IO on s390x don't silently
+  // treat the payload as native.
+  constexpr bool kHostIsLittleEndian = ::parquet::internal::kHostIsLittleEndian;
+  bool swap = payload_little_endian != kHostIsLittleEndian;
 
   uint32_t wkb_geometry_type = src->ReadUInt32(swap);
   auto geometry_type_and_dimensions = ParseGeometryType(wkb_geometry_type);

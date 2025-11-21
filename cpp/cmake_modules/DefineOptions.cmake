@@ -199,6 +199,16 @@ takes precedence over ccache if a storage backend is configured" ON)
                        "AVX512"
                        "MAX")
 
+  if(CMAKE_SYSTEM_PROCESSOR MATCHES "s390x")
+    set(ARROW_ENSURE_S390X_ENDIANNESS_DEFAULT ON)
+  else()
+    set(ARROW_ENSURE_S390X_ENDIANNESS_DEFAULT OFF)
+  endif()
+  define_option(ARROW_ENSURE_S390X_ENDIANNESS
+                "Enable little-endian conversions for Parquet primitive IO on s390x;\
+useful for handling architectural endian mismatches."
+                ${ARROW_ENSURE_S390X_ENDIANNESS_DEFAULT})
+
   define_option(ARROW_ALTIVEC "Build with Altivec if compiler has support" ON)
 
   define_option(ARROW_RPATH_ORIGIN "Build Arrow libraries with RATH set to \$ORIGIN" OFF)
@@ -607,6 +617,21 @@ takes precedence over ccache if a storage backend is configured" ON)
                 OFF
                 DEPENDS
                 ARROW_FILESYSTEM)
+
+  define_option(PARQUET_DEBUG_DELTA_BITPACK
+                "Enable DeltaBitPack encoder/decoder debugging traces"
+                OFF)
+
+  define_option(PARQUET_DEBUG_DELTA_BITPACK_VERBOSE
+                "Emit verbose per-miniblock DeltaBitPack traces;\
+(requires PARQUET_DEBUG_DELTA_BITPACK)"
+                OFF
+                DEPENDS
+                PARQUET_DEBUG_DELTA_BITPACK)
+
+  define_option(PARQUET_DEBUG_BYTE_STREAM_SPLIT
+                "Enable ByteStreamSplit encoder/decoder debugging traces"
+                OFF)
 
   #----------------------------------------------------------------------
   set_option_category("Gandiva")

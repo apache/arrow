@@ -27,6 +27,7 @@
 
 #include "arrow/acero/hash_join_dict.h"
 #include "arrow/acero/task_util.h"
+#include "arrow/compute/api.h"
 #include "arrow/compute/row/encode_internal.h"
 #include "arrow/compute/row/row_encoder_internal.h"
 #include "arrow/util/logging_internal.h"
@@ -306,6 +307,11 @@ class HashJoinBasicImpl : public HashJoinImpl {
 
     size_t num_probed_rows = match.size() + no_match.size();
     if (mask.is_scalar()) {
+      if (mask.scalar()->type->id() != Type::BOOL) {
+        compute::CastOptions cast_opts = compute::CastOptions::Unsafe();
+        ARROW_ASSIGN_OR_RAISE(
+            mask, compute::Cast(mask, boolean(), cast_opts, ctx_->exec_context()));
+      }
       const auto& mask_scalar = mask.scalar_as<BooleanScalar>();
       if (mask_scalar.is_valid && mask_scalar.value) {
         // All rows passed, nothing left to do

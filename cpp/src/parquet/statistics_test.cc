@@ -33,6 +33,7 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/bit_util.h"
+#include "arrow/util/endian.h"
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/config.h"
 #include "arrow/util/float16.h"
@@ -64,6 +65,12 @@ using schema::NodePtr;
 using schema::PrimitiveNode;
 
 namespace test {
+
+template <typename T>
+static std::string EncodeValue(const T& val);
+template <>
+inline std::string EncodeValue<Int96>(const Int96& val);
+static std::string EncodeValue(const FLBA& val, int length = sizeof(uint16_t));
 
 // ----------------------------------------------------------------------
 // Test comparators
@@ -1038,16 +1045,12 @@ void TestStatisticsSortOrder<Int32Type>::SetValues() {
   }
 
   // Write UINT32 min/max values
-  stats_[0]
-      .set_min(std::string(reinterpret_cast<const char*>(&values_[5]), sizeof(c_type)))
-      .set_max(std::string(reinterpret_cast<const char*>(&values_[4]), sizeof(c_type)));
+  stats_[0].set_min(EncodeValue(values_[5])).set_max(EncodeValue(values_[4]));
   stats_[0].is_max_value_exact = true;
   stats_[0].is_min_value_exact = true;
 
   // Write INT32 min/max values
-  stats_[1]
-      .set_min(std::string(reinterpret_cast<const char*>(&values_[0]), sizeof(c_type)))
-      .set_max(std::string(reinterpret_cast<const char*>(&values_[9]), sizeof(c_type)));
+  stats_[1].set_min(EncodeValue(values_[0])).set_max(EncodeValue(values_[9]));
   stats_[1].is_max_value_exact = true;
   stats_[1].is_min_value_exact = true;
 }
@@ -1070,16 +1073,12 @@ void TestStatisticsSortOrder<Int64Type>::SetValues() {
   }
 
   // Write UINT64 min/max values
-  stats_[0]
-      .set_min(std::string(reinterpret_cast<const char*>(&values_[5]), sizeof(c_type)))
-      .set_max(std::string(reinterpret_cast<const char*>(&values_[4]), sizeof(c_type)));
+  stats_[0].set_min(EncodeValue(values_[5])).set_max(EncodeValue(values_[4]));
   stats_[0].is_max_value_exact = true;
   stats_[0].is_min_value_exact = true;
 
   // Write INT64 min/max values
-  stats_[1]
-      .set_min(std::string(reinterpret_cast<const char*>(&values_[0]), sizeof(c_type)))
-      .set_max(std::string(reinterpret_cast<const char*>(&values_[9]), sizeof(c_type)));
+  stats_[1].set_min(EncodeValue(values_[0])).set_max(EncodeValue(values_[9]));
   stats_[1].is_max_value_exact = true;
   stats_[1].is_min_value_exact = true;
 }
@@ -1093,9 +1092,7 @@ void TestStatisticsSortOrder<FloatType>::SetValues() {
   }
 
   // Write Float min/max values
-  stats_[0]
-      .set_min(std::string(reinterpret_cast<const char*>(&values_[0]), sizeof(c_type)))
-      .set_max(std::string(reinterpret_cast<const char*>(&values_[9]), sizeof(c_type)));
+  stats_[0].set_min(EncodeValue(values_[0])).set_max(EncodeValue(values_[9]));
   stats_[0].is_max_value_exact = true;
   stats_[0].is_min_value_exact = true;
 }
@@ -1109,9 +1106,7 @@ void TestStatisticsSortOrder<DoubleType>::SetValues() {
   }
 
   // Write Double min/max values
-  stats_[0]
-      .set_min(std::string(reinterpret_cast<const char*>(&values_[0]), sizeof(c_type)))
-      .set_max(std::string(reinterpret_cast<const char*>(&values_[9]), sizeof(c_type)));
+  stats_[0].set_min(EncodeValue(values_[0])).set_max(EncodeValue(values_[9]));
   stats_[0].is_max_value_exact = true;
   stats_[0].is_min_value_exact = true;
 }
@@ -1283,9 +1278,19 @@ TEST_F(TestStatisticsSortOrderFLBA, UnknownSortOrder) {
 
 template <typename T>
 static std::string EncodeValue(const T& val) {
-  return std::string(reinterpret_cast<const char*>(&val), sizeof(val));
+  const auto le = ::arrow::bit_util::ToLittleEndian(val);
+  return std::string(reinterpret_cast<const char*>(&le), sizeof(le));
 }
-static std::string EncodeValue(const FLBA& val, int length = sizeof(uint16_t)) {
+
+template <>
+inline std::string EncodeValue<Int96>(const Int96& val) {
+  Int96 le = val;
+  for (int i = 0; i < 3; ++i) {
+    le.value[i] = ::arrow::bit_util::ToLittleEndian(le.value[i]);
+  }
+  return std::string(reinterpret_cast<const char*>(&le), sizeof(le));
+}
+static std::string EncodeValue(const FLBA& val, int length) {
   return std::string(reinterpret_cast<const char*>(val.ptr), length);
 }
 

@@ -33,6 +33,7 @@
 #include "parquet/column_page.h"
 #include "parquet/column_reader.h"
 #include "parquet/column_writer.h"
+#include "parquet/endian_internal.h"
 #include "parquet/file_reader.h"
 #include "parquet/file_writer.h"
 #include "parquet/geospatial/statistics.h"
@@ -1116,7 +1117,9 @@ void EncodeLevels(Encoding::type encoding, int16_t max_level, int num_levels,
                  static_cast<int>(bytes.size()));
 
     levels_count = encoder.Encode(num_levels, input_levels);
-    (reinterpret_cast<int32_t*>(bytes.data()))[0] = encoder.len();
+    auto len_le =
+        ::parquet::internal::ToLittleEndianValue(static_cast<int32_t>(encoder.len()));
+    memcpy(bytes.data(), &len_le, sizeof(len_le));
   } else {
     encoder.Init(encoding, max_level, num_levels, bytes.data(),
                  static_cast<int>(bytes.size()));

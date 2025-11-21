@@ -17,6 +17,8 @@
 
 #include "parquet/xxhasher.h"
 
+#include "parquet/endian_internal.h"
+
 #define XXH_INLINE_ALL
 #include "arrow/vendored/xxhash/xxhash.h"
 
@@ -25,7 +27,8 @@ namespace parquet {
 namespace {
 template <typename T>
 uint64_t XxHashHelper(T value, uint32_t seed) {
-  return XXH64(reinterpret_cast<const void*>(&value), sizeof(T), seed);
+  auto le = ::parquet::internal::ToLittleEndianValue(value);
+  return XXH64(reinterpret_cast<const void*>(&le), sizeof(T), seed);
 }
 
 template <typename T>
@@ -58,7 +61,8 @@ uint64_t XxHasher::Hash(const FLBA* value, uint32_t len) const {
 }
 
 uint64_t XxHasher::Hash(const Int96* value) const {
-  return XXH64(reinterpret_cast<const void*>(value->value), sizeof(value->value),
+  auto le = ::parquet::internal::ToLittleEndianValue(*value);
+  return XXH64(reinterpret_cast<const void*>(le.value), sizeof(le.value),
                kParquetBloomXxHashSeed);
 }
 
@@ -85,8 +89,9 @@ void XxHasher::Hashes(const double* values, int num_values, uint64_t* hashes) co
 
 void XxHasher::Hashes(const Int96* values, int num_values, uint64_t* hashes) const {
   for (int i = 0; i < num_values; ++i) {
-    hashes[i] = XXH64(reinterpret_cast<const void*>(values[i].value),
-                      sizeof(values[i].value), kParquetBloomXxHashSeed);
+    auto le = ::parquet::internal::ToLittleEndianValue(values[i]);
+    hashes[i] = XXH64(reinterpret_cast<const void*>(le.value), sizeof(le.value),
+                      kParquetBloomXxHashSeed);
   }
 }
 

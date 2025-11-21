@@ -60,6 +60,7 @@
 #include "parquet/statistics.h"
 #include "parquet/thrift_internal.h"
 #include "parquet/types.h"
+#include "parquet/endian_internal.h"
 
 using arrow::Array;
 using arrow::ArrayData;
@@ -948,7 +949,9 @@ int64_t ColumnWriterImpl::RleEncodeLevels(const void* src_buffer,
   DCHECK_EQ(encoded, num_buffered_values_);
 
   if (include_length_prefix) {
-    reinterpret_cast<int32_t*>(dest_buffer->mutable_data())[0] = level_encoder_.len();
+    auto* prefix_ptr = reinterpret_cast<int32_t*>(dest_buffer->mutable_data());
+    ::arrow::util::SafeStore(prefix_ptr,
+                             ::parquet::internal::ToLittleEndianValue(level_encoder_.len()));
   }
 
   return level_encoder_.len() + prefix_size;
@@ -1600,7 +1603,7 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
   // dictionary passed to DictEncoder<T>::PutDictionary so we can check
   // subsequent array chunks to see either if materialization is required (in
   // which case we call back to the dense write path)
-  std::shared_ptr<::arrow::Array> preserved_dictionary_;
+ std::shared_ptr<::arrow::Array> preserved_dictionary_;
 
   int64_t WriteLevels(int64_t num_levels, const int16_t* def_levels,
                       const int16_t* rep_levels) {
@@ -2525,27 +2528,15 @@ struct SerializeFunctor<
 
   FixedLenByteArray FixDecimalEndianness(const uint8_t* in, int64_t offset) {
     auto out = reinterpret_cast<const uint8_t*>(scratch) + offset;
-    if constexpr (std::is_same_v<ArrowType, ::arrow::Decimal32Type>) {
-      const auto* u32_in = reinterpret_cast<const uint32_t*>(in);
-      auto p = reinterpret_cast<uint32_t*>(scratch);
-      *p++ = ::arrow::bit_util::ToBigEndian(u32_in[0]);
-      scratch = reinterpret_cast<uint8_t*>(p);
-    } else {
-      const auto* u64_in = reinterpret_cast<const uint64_t*>(in);
-      auto p = reinterpret_cast<uint64_t*>(scratch);
-      if constexpr (std::is_same_v<ArrowType, ::arrow::Decimal64Type>) {
-        *p++ = ::arrow::bit_util::ToBigEndian(u64_in[0]);
-      } else if constexpr (std::is_same_v<ArrowType, ::arrow::Decimal128Type>) {
-        *p++ = ::arrow::bit_util::ToBigEndian(u64_in[1]);
-        *p++ = ::arrow::bit_util::ToBigEndian(u64_in[0]);
-      } else if constexpr (std::is_same_v<ArrowType, ::arrow::Decimal256Type>) {
-        *p++ = ::arrow::bit_util::ToBigEndian(u64_in[3]);
-        *p++ = ::arrow::bit_util::ToBigEndian(u64_in[2]);
-        *p++ = ::arrow::bit_util::ToBigEndian(u64_in[1]);
-        *p++ = ::arrow::bit_util::ToBigEndian(u64_in[0]);
+    constexpr int byte_width = ArrowType::kByteWidth;
+    if (parquet::internal::kHostIsLittleEndian) {
+      for (int i = 0; i < byte_width; ++i) {
+        scratch[i] = in[byte_width - 1 - i];
       }
-      scratch = reinterpret_cast<uint8_t*>(p);
+    } else {
+      std::memcpy(scratch, in, byte_width);
     }
+    scratch += byte_width;
     return FixedLenByteArray(out);
   }
 
@@ -2560,25 +2551,93 @@ struct SerializeFunctor<
 // (little-endian) FLBA, whereas in Arrow they're a native `uint16_t`.
 template <>
 struct SerializeFunctor<::parquet::FLBAType, ::arrow::HalfFloatType> {
-  Status Serialize(const ::arrow::HalfFloatArray& array, ArrowWriteContext*, FLBA* out) {
+  Status Serialize(const ::arrow::HalfFloatArray& array, ArrowWriteContext* ctx,
+                   FLBA* out) {
+    const int64_t length = array.length();
+    if (length == 0) {
+      return Status::OK();
+    }
+
+    uint16_t* scratch = nullptr;
+    ARROW_RETURN_NOT_OK(ctx->GetScratchData<uint16_t>(length, &scratch));
+
     const uint16_t* values = array.raw_values();
     if (array.null_count() == 0) {
-      for (int64_t i = 0; i < array.length(); ++i) {
-        out[i] = ToFLBA(&values[i]);
+      for (int64_t i = 0; i < length; ++i) {
+        scratch[i] = ::arrow::bit_util::ToLittleEndian(values[i]);
+        out[i] = ToFLBA(&scratch[i]);
       }
     } else {
-      for (int64_t i = 0; i < array.length(); ++i) {
-        out[i] = array.IsValid(i) ? ToFLBA(&values[i]) : FLBA{};
+      for (int64_t i = 0; i < length; ++i) {
+        if (array.IsValid(i)) {
+          scratch[i] = ::arrow::bit_util::ToLittleEndian(values[i]);
+          out[i] = ToFLBA(&scratch[i]);
+        } else {
+          out[i] = FLBA{};
+        }
       }
     }
     return Status::OK();
   }
 
  private:
-  FLBA ToFLBA(const uint16_t* value_ptr) const {
+  static FLBA ToFLBA(const uint16_t* value_ptr) {
     return FLBA{reinterpret_cast<const uint8_t*>(value_ptr)};
   }
 };
+
+// Specialization of WriteArrowSerialize for Float16 so we can keep both the FLBA
+// structs and the 2-byte payloads in a single scratch buffer. This avoids reusing
+// ArrowWriteContext::data_buffer for multiple allocations (which corrupts the FLBA
+// pointers).
+template <>
+template <>
+Status TypedColumnWriterImpl<FLBAType>::WriteArrowSerialize<::arrow::HalfFloatType>(
+    const int16_t* def_levels, const int16_t* rep_levels, int64_t num_levels,
+    const ::arrow::Array& array, ArrowWriteContext* ctx, bool maybe_parent_nulls) {
+  const auto& half_array = checked_cast<const ::arrow::HalfFloatArray&>(array);
+  const int64_t length = half_array.length();
+  if (length == 0) {
+    return Status::OK();
+  }
+
+  const int64_t flba_bytes = length * static_cast<int64_t>(sizeof(FLBA));
+  const int64_t values_bytes = length * static_cast<int64_t>(sizeof(uint16_t));
+  PARQUET_THROW_NOT_OK(
+      ctx->data_buffer->Resize(flba_bytes + values_bytes, /*shrink_to_fit=*/false));
+
+  auto* out = reinterpret_cast<FLBA*>(ctx->data_buffer->mutable_data());
+  auto* value_bytes = reinterpret_cast<uint8_t*>(ctx->data_buffer->mutable_data() + flba_bytes);
+  const uint16_t* values = half_array.raw_values();
+  if (half_array.null_count() == 0) {
+    for (int64_t i = 0; i < length; ++i) {
+      // Arrow buffers are stored in little-endian order; copy bytes verbatim.
+      memcpy(value_bytes + (i * sizeof(uint16_t)), values + i, sizeof(uint16_t));
+      out[i] = FLBA{value_bytes + (i * static_cast<int64_t>(sizeof(uint16_t)))};
+    }
+  } else {
+    for (int64_t i = 0; i < length; ++i) {
+      if (half_array.IsValid(i)) {
+        memcpy(value_bytes + (i * sizeof(uint16_t)), values + i, sizeof(uint16_t));
+        out[i] = FLBA{value_bytes + (i * static_cast<int64_t>(sizeof(uint16_t)))};
+      } else {
+        out[i] = FLBA{nullptr};
+      }
+    }
+  }
+
+  const bool no_nulls =
+      this->descr()->schema_node()->is_required() || (half_array.null_count() == 0);
+  if (!maybe_parent_nulls && no_nulls) {
+    PARQUET_CATCH_NOT_OK(WriteBatchInternal(num_levels, def_levels, rep_levels, out));
+  } else {
+    PARQUET_CATCH_NOT_OK(WriteBatchSpacedInternal(num_levels, def_levels, rep_levels,
+                                                  half_array.null_bitmap_data(),
+                                                  half_array.offset(), out));
+  }
+
+  return Status::OK();
+}
 
 template <>
 Status TypedColumnWriterImpl<FLBAType>::WriteArrowDense(

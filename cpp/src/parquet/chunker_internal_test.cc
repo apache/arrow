@@ -338,6 +338,17 @@ Result<std::shared_ptr<Buffer>> WriteTableToBuffer(
     int64_t row_group_length = 1024 * 1024, bool enable_dictionary = false,
     ParquetDataPageVersion data_page_version = ParquetDataPageVersion::V1) {
   auto sink = CreateOutputStream();
+  const bool is_half_float =
+      table->schema()->num_fields() > 0 &&
+      table->schema()->field(0)->type()->id() == ::arrow::Type::HALF_FLOAT;
+  if (is_half_float) {
+    std::cerr << "[WriteTableToBuffer] float16 start rows=" << table->num_rows()
+              << " cols=" << table->num_columns()
+              << " enable_dictionary=" << enable_dictionary
+              << " data_page_version=" << static_cast<int>(data_page_version)
+              << " min_chunk=" << min_chunk_size << " max_chunk=" << max_chunk_size
+              << " row_group_length=" << row_group_length << std::endl;
+  }
 
   auto builder = WriterProperties::Builder();
   builder.enable_content_defined_chunking()->content_defined_chunking_options(
@@ -352,10 +363,18 @@ Result<std::shared_ptr<Buffer>> WriteTableToBuffer(
   auto arrow_props = ArrowWriterProperties::Builder().store_schema()->build();
   RETURN_NOT_OK(WriteTable(*table, default_memory_pool(), sink, row_group_length,
                            write_props, arrow_props));
+  if (is_half_float) {
+    std::cerr << "[WriteTableToBuffer] float16 after WriteTable rows=" << table->num_rows()
+              << std::endl;
+  }
   ARROW_ASSIGN_OR_RAISE(auto buffer, sink->Finish());
 
   // validate that the data correctly roundtrips
   ARROW_ASSIGN_OR_RAISE(auto readback, ReadTableFromBuffer(buffer));
+  if (is_half_float) {
+    std::cerr << "[WriteTableToBuffer] float16 readback rows=" << readback->num_rows()
+              << " cols=" << readback->num_columns() << std::endl;
+  }
   RETURN_NOT_OK(readback->ValidateFull());
   ARROW_RETURN_IF(!readback->Equals(*table),
                   Status::Invalid("Readback table not equal to original"));
@@ -1060,6 +1079,12 @@ TEST_P(TestCDCSingleRowGroup, DeleteOnce) {
   ASSERT_FALSE(base->Equals(*modified));
 
   for (bool enable_dictionary : {false, true}) {
+    if (param.dtype->id() == ::arrow::Type::HALF_FLOAT) {
+      std::cerr << "[DeleteOnce] float16 case enable_dictionary=" << enable_dictionary
+                << " nullable=" << param.is_nullable
+                << " data_page_version=" << static_cast<int>(param.data_page_version)
+                << std::endl;
+    }
     ASSERT_OK_AND_ASSIGN(
         auto base_parquet,
         WriteTableToBuffer(base, kMinChunkSize, kMaxChunkSize, kRowGroupLength,
@@ -1068,9 +1093,23 @@ TEST_P(TestCDCSingleRowGroup, DeleteOnce) {
         auto modified_parquet,
         WriteTableToBuffer(modified, kMinChunkSize, kMaxChunkSize, kRowGroupLength,
                            enable_dictionary, param.data_page_version));
+    if (param.dtype->id() == ::arrow::Type::HALF_FLOAT) {
+      std::cerr << "[DeleteOnce] float16 buffers written enable_dictionary="
+                << enable_dictionary << " base_size=" << base_parquet->size()
+                << " modified_size=" << modified_parquet->size() << std::endl;
+    }
 
     auto base_info = GetColumnParquetInfo(base_parquet, /*column_index=*/0);
     auto modified_info = GetColumnParquetInfo(modified_parquet, /*column_index=*/0);
+    if (param.dtype->id() == ::arrow::Type::HALF_FLOAT) {
+      std::cerr << "[DeleteOnce] float16 page counts base=" << base_info.size()
+                << " modified=" << modified_info.size() << std::endl;
+      if (!base_info.empty()) {
+        std::cerr << "[DeleteOnce] float16 base pages=" << base_info.front().page_lengths.size()
+                  << " modified pages=" << modified_info.front().page_lengths.size()
+                  << " has_dict=" << base_info.front().has_dictionary_page << std::endl;
+      }
+    }
 
     // assert that there is only one row group
     ASSERT_EQ(base_info.size(), 1);

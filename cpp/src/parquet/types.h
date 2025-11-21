@@ -26,6 +26,7 @@
 #include <string>
 #include <string_view>
 
+#include "arrow/util/endian.h"
 #include "parquet/platform.h"
 #include "parquet/type_fwd.h"
 #include "parquet/windows_fixup.h"  // for OPTIONAL
@@ -705,7 +706,9 @@ static inline std::string ByteArrayToString(const ByteArray& a) {
 }
 
 static inline void Int96SetNanoSeconds(parquet::Int96& i96, int64_t nanoseconds) {
-  std::memcpy(&i96.value, &nanoseconds, sizeof(nanoseconds));
+  uint64_t le_nanos =
+      ::arrow::bit_util::ToLittleEndian(static_cast<uint64_t>(nanoseconds));
+  std::memcpy(&i96.value, &le_nanos, sizeof(le_nanos));
 }
 
 struct DecodedInt96 {
@@ -717,10 +720,12 @@ static inline DecodedInt96 DecodeInt96Timestamp(const parquet::Int96& i96) {
   // We do the computations in the unsigned domain to avoid unsigned behaviour
   // on overflow.
   DecodedInt96 result;
-  result.days_since_epoch = i96.value[2] - static_cast<uint64_t>(kJulianToUnixEpochDays);
-  result.nanoseconds = 0;
-
-  memcpy(&result.nanoseconds, &i96.value, sizeof(uint64_t));
+  uint32_t le_days = i96.value[2];
+  uint64_t le_nanos;
+  memcpy(&le_nanos, &i96.value, sizeof(uint64_t));
+  result.days_since_epoch = ::arrow::bit_util::FromLittleEndian(le_days) -
+                            static_cast<uint64_t>(kJulianToUnixEpochDays);
+  result.nanoseconds = ::arrow::bit_util::FromLittleEndian(le_nanos);
   return result;
 }
 

@@ -30,12 +30,14 @@
 #include "arrow/type_traits.h"
 #include "arrow/util/bit_run_reader.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/endian.h"
 #include "arrow/util/float16.h"
 #include "arrow/util/logging_internal.h"
 #include "arrow/util/ubsan.h"
 #include "arrow/visit_data_inline.h"
 #include "parquet/encoding.h"
 #include "parquet/exception.h"
+#include "parquet/endian_internal.h"
 #include "parquet/platform.h"
 #include "parquet/schema.h"
 
@@ -145,24 +147,34 @@ struct CompareHelper<Int96Type, is_signed> {
   static T DefaultMin() {
     uint32_t kMsbMax = SafeCopy<uint32_t>(std::numeric_limits<msb_type>::max());
     uint32_t kMax = std::numeric_limits<uint32_t>::max();
-    return {kMax, kMax, kMsbMax};
+    return {::arrow::bit_util::ToLittleEndian(kMax),
+            ::arrow::bit_util::ToLittleEndian(kMax),
+            ::arrow::bit_util::ToLittleEndian(kMsbMax)};
   }
   static T DefaultMax() {
     uint32_t kMsbMin = SafeCopy<uint32_t>(std::numeric_limits<msb_type>::min());
     uint32_t kMin = std::numeric_limits<uint32_t>::min();
-    return {kMin, kMin, kMsbMin};
+    return {::arrow::bit_util::ToLittleEndian(kMin),
+            ::arrow::bit_util::ToLittleEndian(kMin),
+            ::arrow::bit_util::ToLittleEndian(kMsbMin)};
   }
   static T Coalesce(T val, T fallback) { return val; }
 
   static inline bool Compare(int type_length, const T& a, const T& b) {
-    if (a.value[2] != b.value[2]) {
-      // Only the MSB bit is by Signed comparison. For little-endian, this is the
-      // last bit of Int96 type.
-      return SafeCopy<msb_type>(a.value[2]) < SafeCopy<msb_type>(b.value[2]);
-    } else if (a.value[1] != b.value[1]) {
-      return (a.value[1] < b.value[1]);
+    const uint32_t a2 = ::arrow::bit_util::FromLittleEndian(a.value[2]);
+    const uint32_t b2 = ::arrow::bit_util::FromLittleEndian(b.value[2]);
+    if (a2 != b2) {
+      // Only the MSB bit is by Signed comparison.
+      return SafeCopy<msb_type>(a2) < SafeCopy<msb_type>(b2);
     }
-    return (a.value[0] < b.value[0]);
+    const uint32_t a1 = ::arrow::bit_util::FromLittleEndian(a.value[1]);
+    const uint32_t b1 = ::arrow::bit_util::FromLittleEndian(b.value[1]);
+    if (a1 != b1) {
+      return (a1 < b1);
+    }
+    const uint32_t a0 = ::arrow::bit_util::FromLittleEndian(a.value[0]);
+    const uint32_t b0 = ::arrow::bit_util::FromLittleEndian(b.value[0]);
+    return (a0 < b0);
   }
 
   static T Min(int type_length, const T& a, const T& b) {
@@ -925,21 +937,31 @@ void TypedStatisticsImpl<DType>::UpdateSpaced(const T* values, const uint8_t* va
 
 template <typename DType>
 void TypedStatisticsImpl<DType>::PlainEncode(const T& src, std::string* dst) const {
-  auto encoder = MakeTypedEncoder<DType>(Encoding::PLAIN, false, descr_, pool_);
-  encoder->Put(&src, 1);
-  auto buffer = encoder->FlushValues();
-  auto ptr = reinterpret_cast<const char*>(buffer->data());
-  dst->assign(ptr, static_cast<size_t>(buffer->size()));
+  if constexpr (std::is_same_v<DType, ByteArrayType>) {
+    dst->assign(reinterpret_cast<const char*>(src.ptr), src.len);
+  } else if constexpr (std::is_same_v<DType, FLBAType>) {
+    dst->assign(reinterpret_cast<const char*>(src.ptr),
+                static_cast<size_t>(descr_->type_length()));
+  } else {
+    auto le = src;
+    ::parquet::internal::ConvertLittleEndianInPlace(&le, /*n=*/1);
+    dst->assign(reinterpret_cast<const char*>(&le), sizeof(le));
+  }
 }
 
 template <typename DType>
 void TypedStatisticsImpl<DType>::PlainDecode(const std::string& src, T* dst) const {
-  auto decoder = MakeTypedDecoder<DType>(Encoding::PLAIN, descr_);
-  decoder->SetData(1, reinterpret_cast<const uint8_t*>(src.c_str()),
-                   static_cast<int>(src.size()));
-  int decoded_values = decoder->Decode(dst, 1);
-  if (decoded_values != 1) {
-    throw ParquetException("Failed to decode statistic value from plain encoded string");
+  if constexpr (std::is_same_v<DType, ByteArrayType>) {
+    dst->len = static_cast<uint32_t>(src.size());
+    dst->ptr = reinterpret_cast<const uint8_t*>(src.c_str());
+  } else if constexpr (std::is_same_v<DType, FLBAType>) {
+    dst->ptr = reinterpret_cast<const uint8_t*>(src.data());
+  } else {
+    if (src.size() != static_cast<int64_t>(sizeof(T))) {
+      throw ParquetException("Invalid encoded statistic size");
+    }
+    *dst = ::parquet::internal::LoadLittleEndianScalar<T>(
+        reinterpret_cast<const uint8_t*>(src.data()));
   }
 }
 

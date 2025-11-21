@@ -107,8 +107,13 @@ int LevelDecoder::SetData(Encoding::type encoding, int16_t max_level,
       if (data_size < 4) {
         throw ParquetException("Received invalid levels (corrupt data page?)");
       }
-      num_bytes = ::arrow::util::SafeLoadAs<int32_t>(data);
+      num_bytes = ::arrow::bit_util::FromLittleEndian(
+          ::arrow::util::SafeLoadAs<int32_t>(data));
       if (num_bytes < 0 || num_bytes > data_size - 4) {
+        std::cerr << "[LevelDecoder::SetData] invalid RLE length num_bytes=" << num_bytes
+                  << " data_size=" << data_size << " max_level=" << max_level_
+                  << " num_buffered_values=" << num_buffered_values
+                  << " bit_width=" << bit_width_ << std::endl;
         throw ParquetException("Received invalid number of bytes (corrupt data page?)");
       }
       const uint8_t* decoder_data = data + 4;
@@ -127,7 +132,11 @@ int LevelDecoder::SetData(Encoding::type encoding, int16_t max_level,
             "Number of buffered values too large (corrupt data page?)");
       }
       num_bytes = static_cast<int32_t>(bit_util::BytesForBits(num_bits));
-      if (num_bytes < 0 || num_bytes > data_size - 4) {
+      if (num_bytes < 0 || num_bytes > data_size) {
+        std::cerr << "[LevelDecoder::SetData] invalid BIT_PACKED num_bytes=" << num_bytes
+                  << " data_size=" << data_size << " num_bits=" << num_bits
+                  << " max_level=" << max_level_ << " num_buffered_values="
+                  << num_buffered_values << " bit_width=" << bit_width_ << std::endl;
         throw ParquetException("Received invalid number of bytes (corrupt data page?)");
       }
       if (!bit_packed_decoder_) {

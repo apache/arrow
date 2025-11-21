@@ -301,6 +301,24 @@ inline int BitReader::GetBatch(int num_bits, T* v, int batch_size) {
   ARROW_DCHECK(buffer_ != NULL);
   ARROW_DCHECK_LE(num_bits, static_cast<int>(sizeof(T) * 8)) << "num_bits: " << num_bits;
 
+#if !ARROW_LITTLE_ENDIAN
+  // On big-endian hosts, the generated unpack helpers assume little-endian words.
+  // Use the portable bit-by-bit reader for correctness.
+  const int64_t needed_bits = num_bits * static_cast<int64_t>(batch_size);
+  constexpr uint64_t kBitsPerByte = 8;
+  const int64_t remaining_bits =
+      static_cast<int64_t>(max_bytes_ - byte_offset_) * kBitsPerByte - bit_offset_;
+  if (remaining_bits < needed_bits) {
+    batch_size = static_cast<int>(remaining_bits / num_bits);
+  }
+  int i = 0;
+  for (; i < batch_size; ++i) {
+    detail::GetValue_(num_bits, &v[i], max_bytes_, buffer_, &bit_offset_, &byte_offset_,
+                      &buffered_values_);
+  }
+  return i;
+#else
+
   int bit_offset = bit_offset_;
   int byte_offset = byte_offset_;
   uint64_t buffered_values = buffered_values_;
@@ -330,6 +348,14 @@ inline int BitReader::GetBatch(int num_bits, T* v, int batch_size) {
     i += num_unpacked;
     byte_offset += num_unpacked * num_bits / 8;
   } else if (sizeof(T) == 8 && num_bits > 32) {
+#if !ARROW_LITTLE_ENDIAN
+    // The fast unpack64 path assumes native little-endian words. On big-endian hosts
+    // rely on the portable bit-by-bit reader.
+    for (; i < batch_size; ++i) {
+      detail::GetValue_(num_bits, &v[i], max_bytes, buffer, &bit_offset, &byte_offset,
+                        &buffered_values);
+    }
+#else
     // Use unpack64 only if num_bits is larger than 32
     // TODO (ARROW-13677): improve the performance of internal::unpack64
     // and remove the restriction of num_bits
@@ -338,6 +364,7 @@ inline int BitReader::GetBatch(int num_bits, T* v, int batch_size) {
                            batch_size - i, num_bits);
     i += num_unpacked;
     byte_offset += num_unpacked * num_bits / 8;
+#endif
   } else {
     // TODO: revisit this limit if necessary
     ARROW_DCHECK_LE(num_bits, 32);
@@ -378,6 +405,7 @@ inline int BitReader::GetBatch(int num_bits, T* v, int batch_size) {
   buffered_values_ = buffered_values;
 
   return batch_size;
+#endif  // !ARROW_LITTLE_ENDIAN
 }
 
 template <typename T>
@@ -457,6 +485,26 @@ template <typename Int>
 inline bool BitReader::GetVlqInt(Int* v) {
   static_assert(std::is_integral_v<Int>);
 
+#if !ARROW_LITTLE_ENDIAN
+  // On big-endian hosts, read directly from the backing buffer (byte-aligned) to avoid
+  // any assumptions about cached little-endian words.
+  if (bit_offset_ != 0) {
+    // Drop any partial byte and realign
+    byte_offset_ += static_cast<int>(bit_util::BytesForBits(bit_offset_));
+    bit_offset_ = 0;
+  }
+  const int max_size = bytes_left();
+  const uint8_t* data = buffer_ + byte_offset_;
+  const auto bytes_read = bit_util::ParseLeadingLEB128(data, max_size, v);
+  if (ARROW_PREDICT_FALSE(bytes_read == 0)) {
+    return false;
+  }
+  byte_offset_ += static_cast<int>(bytes_read);
+  buffered_values_ =
+      detail::ReadLittleEndianWord(buffer_ + byte_offset_, max_bytes_ - byte_offset_);
+  return true;
+#else
+
   // The data that we will pass to the LEB128 parser
   // In all case, we read a byte-aligned value, skipping remaining bits
   const uint8_t* data = NULLPTR;
@@ -464,16 +512,23 @@ inline bool BitReader::GetVlqInt(Int* v) {
 
   // Number of bytes left in the buffered values, not including the current
   // byte (i.e., there may be an additional fraction of a byte).
+#if ARROW_LITTLE_ENDIAN && !defined(ARROW_ENSURE_S390X_ENDIANNESS)
   const int bytes_left_in_cache =
       sizeof(buffered_values_) - static_cast<int>(bit_util::BytesForBits(bit_offset_));
 
-  // If there are clearly enough bytes left we can try to parse from the cache
+  // If there are clearly enough bytes left we can try to parse from the cache.
+  // On true little-endian hosts the cached word is byte-compatible with the backing
+  // buffer. When we force big-endian behavior on a little-endian build
+  // (ARROW_ENSURE_S390X_ENDIANNESS), that assumption is invalid, so we always fall back
+  // to the slow path there.
   if (bytes_left_in_cache >= kMaxLEB128ByteLenFor<Int>) {
     max_size = bytes_left_in_cache;
     data = reinterpret_cast<const uint8_t*>(&buffered_values_) +
            bit_util::BytesForBits(bit_offset_);
+  } else
+#endif
+  {
     // Otherwise, we try straight from buffer (ignoring few bytes that may be cached)
-  } else {
     max_size = bytes_left();
     data = buffer_ + (max_bytes_ - max_size);
   }
@@ -486,6 +541,7 @@ inline bool BitReader::GetVlqInt(Int* v) {
 
   // Advance for the bytes we have read + the bits we skipped
   return Advance((8 * bytes_read) + (bit_offset_ % 8));
+#endif  // !ARROW_LITTLE_ENDIAN
 }
 
 template <typename Int>

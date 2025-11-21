@@ -21,6 +21,7 @@
 #include "parquet/encryption/internal_file_decryptor.h"
 #include "parquet/encryption/internal_file_encryptor.h"
 #include "parquet/exception.h"
+#include "parquet/endian_internal.h"
 #include "parquet/metadata.h"
 #include "parquet/schema.h"
 #include "parquet/statistics.h"
@@ -30,12 +31,21 @@
 #include "arrow/util/logging_internal.h"
 #include "arrow/util/unreachable.h"
 
+#include <type_traits>
+
 #include <limits>
 #include <numeric>
 
 namespace parquet {
 
 namespace {
+
+template <typename T>
+inline void ConvertFromLittleEndianIfNeeded(T* value) {
+  if constexpr (::parquet::internal::NeedsEndianConversion<T>::value) {
+    *value = ::parquet::internal::ByteSwap<T>::Do(*value);
+  }
+}
 
 template <typename DType>
 void Decode(std::unique_ptr<typename EncodingTraits<DType>::Decoder>& decoder,
