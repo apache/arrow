@@ -25,6 +25,7 @@
 
 #include "generated/parquet_types.h"
 
+#include "arrow/util/endian.h"
 #include "parquet/bloom_filter.h"
 #include "parquet/exception.h"
 #include "parquet/thrift_internal.h"
@@ -203,13 +204,14 @@ bool BlockSplitBloomFilter::FindHash(uint64_t hash) const {
   const uint32_t bucket_index =
       static_cast<uint32_t>(((hash >> 32) * (num_bytes_ / kBytesPerFilterBlock)) >> 32);
   const uint32_t key = static_cast<uint32_t>(hash);
-  const uint32_t* bitset32 = reinterpret_cast<const uint32_t*>(data_->data());
+  const uint32_t* raw_bitset32 = reinterpret_cast<const uint32_t*>(data_->data());
 
   for (int i = 0; i < kBitsSetPerBlock; ++i) {
+    const uint32_t bitset_word = ::arrow::bit_util::FromLittleEndian(
+        raw_bitset32[kBitsSetPerBlock * bucket_index + i]);
     // Calculate mask for key in the given bitset.
     const uint32_t mask = UINT32_C(0x1) << ((key * SALT[i]) >> 27);
-    if (ARROW_PREDICT_FALSE(0 ==
-                            (bitset32[kBitsSetPerBlock * bucket_index + i] & mask))) {
+    if (ARROW_PREDICT_FALSE(0 == (bitset_word & mask))) {
       return false;
     }
   }
@@ -220,12 +222,16 @@ void BlockSplitBloomFilter::InsertHashImpl(uint64_t hash) {
   const uint32_t bucket_index =
       static_cast<uint32_t>(((hash >> 32) * (num_bytes_ / kBytesPerFilterBlock)) >> 32);
   const uint32_t key = static_cast<uint32_t>(hash);
-  uint32_t* bitset32 = reinterpret_cast<uint32_t*>(data_->mutable_data());
+  uint32_t* raw_bitset32 = reinterpret_cast<uint32_t*>(data_->mutable_data());
 
   for (int i = 0; i < kBitsSetPerBlock; i++) {
+    const int word_index = bucket_index * kBitsSetPerBlock + i;
+    uint32_t bitset_word = ::arrow::bit_util::FromLittleEndian(raw_bitset32[word_index]);
+
     // Calculate mask for key in the given bitset.
     const uint32_t mask = UINT32_C(0x1) << ((key * SALT[i]) >> 27);
-    bitset32[bucket_index * kBitsSetPerBlock + i] |= mask;
+    bitset_word |= mask;
+    raw_bitset32[word_index] = ::arrow::bit_util::ToLittleEndian(bitset_word);
   }
 }
 
