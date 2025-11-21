@@ -37,6 +37,5 @@ pushd %SOURCE_DIR%\python
 popd
 
 @REM Run Python tests
-dir C:\hostedtoolcache\windows\Python\3.13.9\x64\Lib\site-packages\pyarrow
 %PYTHON_CMD% -c "import pyarrow" || exit /B 1
 %PYTHON_CMD% -m pytest -r s --pyargs pyarrow || exit /B 1

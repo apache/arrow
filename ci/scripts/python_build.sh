@@ -126,8 +126,8 @@ pushd "${python_build_dir}"
 # - Cannot use build isolation as we want to use specific dependency versions
 #   (e.g. Numpy, Pandas) on some CI jobs.
 
-# The conda compilers package may mess with C{XX}_FLAGS in a way that interferes
-# with the compiler
+# The conda compilers package adds flags for debugging and optimization
+# that are unnecessary in a CI context
 OLD_CFLAGS=$CFLAGS
 OLD_CPPFLAGS=$CPPFLAGS
 OLD_CXXFLAGS=$CXXFLAGS

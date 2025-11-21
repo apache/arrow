@@ -36,19 +36,6 @@ import platform as _platform
 import sys as _sys
 import warnings as _warnings
 
-
-def _append_to_sharedlib_load_path():
-    # https://mesonbuild.com/meson-python/how-to-guides/shared-libraries.html
-    basedir = _os.path.dirname(__file__)
-    if _os.name == 'nt':
-        _os.add_dll_directory(basedir)
-    elif _sys.platform == 'cygwin':
-        _os.environ['PATH'] = _os.pathsep.join((_os.environ['PATH'], basedir))
-
-
-_append_to_sharedlib_load_path()
-
-
 try:
     from ._generated_version import version as __version__
 except ImportError:
@@ -404,9 +391,13 @@ def get_library_dirs():
     linking C or Cython extensions using pyarrow
     """
     package_cwd = _os.path.dirname(__file__)
-    library_dirs = [
-        package_cwd, _os.path.join(_os.path.dirname(package_cwd), "pyarrow.libs")
-    ]
+    library_dirs = [package_cwd]
+
+    # delvewheel creates a top level pyarrow.libs to vendor external shared libraries
+    if _os.name == "nt":
+        library_dirs.append(
+            _os.path.join(_os.path.dirname(package_cwd), "pyarrow.libs")
+        )
 
     def append_library_dir(library_dir):
         if library_dir not in library_dirs:
