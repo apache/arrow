@@ -274,6 +274,7 @@ add_gandiva_test(internals-test
                  hash_utils_test.cc
                  gdv_function_stubs_test.cc
                  interval_holder_test.cc
+                 target_datalayout_test.cc
                  tests/test_util.cc
                  EXTRA_LINK_LIBS
                  re2::re2
