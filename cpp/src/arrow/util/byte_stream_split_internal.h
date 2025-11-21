@@ -330,15 +330,20 @@ inline void DoSplitStreams(const uint8_t* src, int width, int64_t nvalues,
   while (nvalues >= kBlockSize) {
     for (int stream = 0; stream < width; ++stream) {
       uint8_t* dest = dest_streams[stream];
+#if ARROW_LITTLE_ENDIAN
+      const int src_stream = stream;
+#else
+      const int src_stream = width - 1 - stream;
+#endif
       for (int i = 0; i < kBlockSize; i += 8) {
-        uint64_t a = src[stream + i * width];
-        uint64_t b = src[stream + (i + 1) * width];
-        uint64_t c = src[stream + (i + 2) * width];
-        uint64_t d = src[stream + (i + 3) * width];
-        uint64_t e = src[stream + (i + 4) * width];
-        uint64_t f = src[stream + (i + 5) * width];
-        uint64_t g = src[stream + (i + 6) * width];
-        uint64_t h = src[stream + (i + 7) * width];
+        uint64_t a = src[src_stream + i * width];
+        uint64_t b = src[src_stream + (i + 1) * width];
+        uint64_t c = src[src_stream + (i + 2) * width];
+        uint64_t d = src[src_stream + (i + 3) * width];
+        uint64_t e = src[src_stream + (i + 4) * width];
+        uint64_t f = src[src_stream + (i + 5) * width];
+        uint64_t g = src[src_stream + (i + 6) * width];
+        uint64_t h = src[src_stream + (i + 7) * width];
 #if ARROW_LITTLE_ENDIAN
         uint64_t r = a | (b << 8) | (c << 16) | (d << 24) | (e << 32) | (f << 40) |
                      (g << 48) | (h << 56);
@@ -357,8 +362,14 @@ inline void DoSplitStreams(const uint8_t* src, int width, int64_t nvalues,
   // Epilog
   for (int stream = 0; stream < width; ++stream) {
     uint8_t* dest = dest_streams[stream];
+#if ARROW_LITTLE_ENDIAN
+    const int src_stream = stream;
+#else
+    // On big-endian, reverse byte order: stream 0 gets LSB (at highest address)
+    const int src_stream = width - 1 - stream;
+#endif
     for (int64_t i = 0; i < nvalues; ++i) {
-      dest[i] = src[stream + i * width];
+      dest[i] = src[src_stream + i * width];
     }
   }
 }
@@ -376,24 +387,21 @@ inline void DoMergeStreams(const uint8_t** src_streams, int width, int64_t nvalu
       for (int i = 0; i < kBlockSize; i += 8) {
         uint64_t v = arrow::util::SafeLoadAs<uint64_t>(&src[i]);
 #if ARROW_LITTLE_ENDIAN
-        dest[stream + i * width] = static_cast<uint8_t>(v);
-        dest[stream + (i + 1) * width] = static_cast<uint8_t>(v >> 8);
-        dest[stream + (i + 2) * width] = static_cast<uint8_t>(v >> 16);
-        dest[stream + (i + 3) * width] = static_cast<uint8_t>(v >> 24);
-        dest[stream + (i + 4) * width] = static_cast<uint8_t>(v >> 32);
-        dest[stream + (i + 5) * width] = static_cast<uint8_t>(v >> 40);
-        dest[stream + (i + 6) * width] = static_cast<uint8_t>(v >> 48);
-        dest[stream + (i + 7) * width] = static_cast<uint8_t>(v >> 56);
+        const int dest_stream = stream;
 #else
-        dest[stream + i * width] = static_cast<uint8_t>(v >> 56);
-        dest[stream + (i + 1) * width] = static_cast<uint8_t>(v >> 48);
-        dest[stream + (i + 2) * width] = static_cast<uint8_t>(v >> 40);
-        dest[stream + (i + 3) * width] = static_cast<uint8_t>(v >> 32);
-        dest[stream + (i + 4) * width] = static_cast<uint8_t>(v >> 24);
-        dest[stream + (i + 5) * width] = static_cast<uint8_t>(v >> 16);
-        dest[stream + (i + 6) * width] = static_cast<uint8_t>(v >> 8);
-        dest[stream + (i + 7) * width] = static_cast<uint8_t>(v);
+        // Byte-stream-split format stores bytes in little-endian order.
+        // On big-endian, byteswap after loading and write to reversed stream position.
+        v = ::arrow::bit_util::ByteSwap(v);
+        const int dest_stream = width - 1 - stream;
 #endif
+        dest[dest_stream + i * width] = static_cast<uint8_t>(v);
+        dest[dest_stream + (i + 1) * width] = static_cast<uint8_t>(v >> 8);
+        dest[dest_stream + (i + 2) * width] = static_cast<uint8_t>(v >> 16);
+        dest[dest_stream + (i + 3) * width] = static_cast<uint8_t>(v >> 24);
+        dest[dest_stream + (i + 4) * width] = static_cast<uint8_t>(v >> 32);
+        dest[dest_stream + (i + 5) * width] = static_cast<uint8_t>(v >> 40);
+        dest[dest_stream + (i + 6) * width] = static_cast<uint8_t>(v >> 48);
+        dest[dest_stream + (i + 7) * width] = static_cast<uint8_t>(v >> 56);
       }
       src_streams[stream] += kBlockSize;
     }
@@ -404,8 +412,13 @@ inline void DoMergeStreams(const uint8_t** src_streams, int width, int64_t nvalu
   // Epilog
   for (int stream = 0; stream < width; ++stream) {
     const uint8_t* src = src_streams[stream];
+#if ARROW_LITTLE_ENDIAN
+    const int dest_stream = stream;
+#else
+    const int dest_stream = width - 1 - stream;
+#endif
     for (int64_t i = 0; i < nvalues; ++i) {
-      dest[stream + i * width] = src[i];
+      dest[dest_stream + i * width] = src[i];
     }
   }
 }
