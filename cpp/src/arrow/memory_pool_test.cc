@@ -26,6 +26,7 @@
 #include "arrow/status.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/config.h"
+#include "arrow/util/endian.h"
 #include "arrow/util/logging.h"
 
 namespace arrow {
@@ -68,8 +69,9 @@ TYPED_TEST_SUITE_P(TestMemoryPool);
 
 TYPED_TEST_P(TestMemoryPool, MemoryTracking) { this->TestMemoryTracking(); }
 
+// Skip this test on big-endian architectures (e.g., s390x)
 TYPED_TEST_P(TestMemoryPool, OOM) {
-#ifndef ADDRESS_SANITIZER
+#if !defined(ADDRESS_SANITIZER) && ARROW_LITTLE_ENDIAN
   this->TestOOM();
 #endif
 }
