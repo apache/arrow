@@ -162,7 +162,8 @@ class PlainEncoder : public EncoderImpl, virtual public TypedEncoder<DType> {
 
   void UnsafePutByteArray(const void* data, uint32_t length) {
     DCHECK(length == 0 || data != nullptr) << "Value ptr cannot be NULL";
-    sink_.UnsafeAppend(&length, sizeof(uint32_t));
+    uint32_t length_le = ::arrow::bit_util::ToLittleEndian(length);
+    sink_.UnsafeAppend(&length_le, sizeof(uint32_t));
     sink_.UnsafeAppend(data, static_cast<int64_t>(length));
     unencoded_byte_array_data_bytes_ += length;
   }
@@ -201,7 +202,27 @@ class PlainEncoder : public EncoderImpl, virtual public TypedEncoder<DType> {
 template <typename DType>
 void PlainEncoder<DType>::Put(const T* buffer, int num_values) {
   if (num_values > 0) {
+#if ARROW_LITTLE_ENDIAN
     PARQUET_THROW_NOT_OK(sink_.Append(buffer, num_values * sizeof(T)));
+#else
+    // On big-endian systems, we need to byte-swap each value
+    // since Parquet data must be stored in little-endian format.
+    if constexpr (std::is_same_v<T, int32_t> || std::is_same_v<T, uint32_t> ||
+                  std::is_same_v<T, int64_t> || std::is_same_v<T, uint64_t> ||
+                  std::is_same_v<T, float> || std::is_same_v<T, double>) {
+      PARQUET_ASSIGN_OR_THROW(
+          auto temp_buffer,
+          ::arrow::AllocateBuffer(num_values * sizeof(T), this->memory_pool()));
+      T* temp_data = temp_buffer->template mutable_data_as<T>();
+      for (int i = 0; i < num_values; ++i) {
+        temp_data[i] = ::arrow::bit_util::ToLittleEndian(buffer[i]);
+      }
+      PARQUET_THROW_NOT_OK(sink_.Append(temp_data, num_values * sizeof(T)));
+    } else {
+      // For other types (Int96, etc.), just do memcpy
+      PARQUET_THROW_NOT_OK(sink_.Append(buffer, num_values * sizeof(T)));
+    }
+#endif
   }
 }
 
@@ -224,6 +245,7 @@ void DirectPutImpl(const ::arrow::Array& values, ::arrow::BufferBuilder* sink) {
   constexpr auto value_size = sizeof(value_type);
   auto raw_values = checked_cast<const ArrayType&>(values).raw_values();
 
+#if ARROW_LITTLE_ENDIAN
   if (values.null_count() == 0) {
     // no nulls, just dump the data
     PARQUET_THROW_NOT_OK(sink->Append(raw_values, values.length() * value_size));
@@ -237,6 +259,32 @@ void DirectPutImpl(const ::arrow::Array& values, ::arrow::BufferBuilder* sink) {
       }
     }
   }
+#else
+  // On big-endian systems, we need to byte-swap each value
+  // since Parquet data must be stored in little-endian format.
+  if constexpr (std::is_same_v<value_type, int32_t> ||
+                std::is_same_v<value_type, uint32_t> ||
+                std::is_same_v<value_type, int64_t> ||
+                std::is_same_v<value_type, uint64_t> ||
+                std::is_same_v<value_type, float> || std::is_same_v<value_type, double>) {
+    PARQUET_THROW_NOT_OK(
+        sink->Reserve((values.length() - values.null_count()) * value_size));
+    for (int64_t i = 0; i < values.length(); i++) {
+      if (values.IsValid(i)) {
+        auto le_value = ::arrow::bit_util::ToLittleEndian(raw_values[i]);
+        sink->UnsafeAppend(&le_value, value_size);
+      }
+    }
+  } else {
+    PARQUET_THROW_NOT_OK(
+        sink->Reserve((values.length() - values.null_count()) * value_size));
+    for (int64_t i = 0; i < values.length(); i++) {
+      if (values.IsValid(i)) {
+        sink->UnsafeAppend(&raw_values[i], value_size);
+      }
+    }
+  }
+#endif
 }
 
 template <>
@@ -649,9 +697,27 @@ class DictEncoderImpl : public EncoderImpl, virtual public DictEncoder<DType> {
 
 template <typename DType>
 void DictEncoderImpl<DType>::WriteDict(uint8_t* buffer) const {
-  // For primitive types, only a memcpy
+  // For primitive types, copy values with endianness conversion
   DCHECK_EQ(static_cast<size_t>(dict_encoded_size_), sizeof(T) * memo_table_.size());
+#if ARROW_LITTLE_ENDIAN
   memo_table_.CopyValues(0 /* start_pos */, reinterpret_cast<T*>(buffer));
+#else
+  // On big-endian systems, we need to byte-swap each value
+  // since Parquet data must be stored in little-endian format.
+  if constexpr (std::is_same_v<T, int32_t> || std::is_same_v<T, uint32_t> ||
+                std::is_same_v<T, int64_t> || std::is_same_v<T, uint64_t> ||
+                std::is_same_v<T, float> || std::is_same_v<T, double>) {
+    std::vector<T> temp(memo_table_.size());
+    memo_table_.CopyValues(0 /* start_pos */, temp.data());
+    T* out = reinterpret_cast<T*>(buffer);
+    for (size_t i = 0; i < temp.size(); ++i) {
+      out[i] = ::arrow::bit_util::ToLittleEndian(temp[i]);
+    }
+  } else {
+    // For other types (Int96, etc.), just do memcpy
+    memo_table_.CopyValues(0 /* start_pos */, reinterpret_cast<T*>(buffer));
+  }
+#endif
 }
 
 // ByteArray and FLBA already have the dictionary encoded in their data heaps
@@ -659,7 +725,8 @@ template <>
 void DictEncoderImpl<ByteArrayType>::WriteDict(uint8_t* buffer) const {
   memo_table_.VisitValues(0, [&buffer](::std::string_view v) {
     uint32_t len = static_cast<uint32_t>(v.length());
-    memcpy(buffer, &len, sizeof(len));
+    uint32_t len_le = ::arrow::bit_util::ToLittleEndian(len);
+    memcpy(buffer, &len_le, sizeof(len_le));
     buffer += sizeof(len);
     memcpy(buffer, v.data(), len);
     buffer += len;
@@ -924,6 +991,8 @@ class ByteStreamSplitEncoder : public ByteStreamSplitEncoderBase<DType> {
 
   void Put(const T* buffer, int num_values) override {
     if (num_values > 0) {
+      // ByteStreamSplitEncode (DoSplitStreams) handles endianness correctly,
+      // so we can directly append the native byte representation
       PARQUET_THROW_NOT_OK(
           this->sink_.Append(reinterpret_cast<const uint8_t*>(buffer),
                              num_values * static_cast<int64_t>(sizeof(T))));
@@ -964,10 +1033,22 @@ class ByteStreamSplitEncoder<FLBAType> : public ByteStreamSplitEncoderBase<FLBAT
     if (byte_width_ > 0) {
       const int64_t total_bytes = static_cast<int64_t>(num_values) * byte_width_;
       PARQUET_THROW_NOT_OK(sink_.Reserve(total_bytes));
+#if !ARROW_LITTLE_ENDIAN
+      // On big-endian, reverse bytes before encoding to compensate for
+      // DoSplitStreams reversal, ensuring FLBA bytes are preserved as-is
+      std::vector<uint8_t> temp_buffer(byte_width_);
+#endif
       for (int i = 0; i < num_values; ++i) {
         // Write the result to the output stream
         DCHECK(buffer[i].ptr != nullptr) << "Value ptr cannot be NULL";
+#if !ARROW_LITTLE_ENDIAN
+        // Reverse bytes before appending
+        std::reverse_copy(buffer[i].ptr, buffer[i].ptr + byte_width_,
+                          temp_buffer.begin());
+        sink_.UnsafeAppend(temp_buffer.data(), byte_width_);
+#else
         sink_.UnsafeAppend(buffer[i].ptr, byte_width_);
+#endif
       }
     }
     this->num_values_in_buffer_ += num_values;
