@@ -136,8 +136,8 @@ pushd %SOURCE_DIR%\python
 
 @REM by default, CMake installs .lib import libs to lib and .dll libs to bin
 @REM delvewheel requires these to be side-by-side to properly vendor
+@REM https://github.com/adang1345/delvewheel/issues/66
 copy %CMAKE_INSTALL_PREFIX%\lib\*.lib %CMAKE_INSTALL_PREFIX%\bin\
-dir %CMAKE_INSTALL_PREFIX%\bin\
 
 @REM Build PyArrow
 %PYTHON_CMD% -m build --wheel . --no-isolation || exit /B 1

@@ -61,9 +61,6 @@ test = [
     'pandas'
 ]
 
-[tool.meson-python]
-allow-windows-internal-shared-libs=true
-
 [tool.numpydoc_validation]
 checks = [
     "GL10",
