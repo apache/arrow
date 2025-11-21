@@ -19,6 +19,7 @@
 
 #include "arrow/flight/sql/odbc/odbc_impl/spi/connection.h"
 
+#include <optional>
 #include <vector>
 #include "arrow/flight/api.h"
 #include "arrow/flight/sql/api.h"
@@ -28,12 +29,19 @@
 
 namespace arrow::flight::sql::odbc {
 
+/// \brief Case insensitive comparator that takes string_view
+struct CaseInsensitiveComparatorStrView {
+  bool operator()(const std::string_view& s1, const std::string_view& s2) const {
+    return boost::lexicographical_compare(s1, s2, boost::is_iless());
+  }
+};
+
 class FlightSqlSslConfig;
 
 /// \brief Create an instance of the FlightSqlSslConfig class, from the properties passed
 ///        into the map.
 /// \param conn_property_map the map with the Connection properties.
-/// \return                  An instance of the FlightSqlSslConfig.
+/// \return                An instance of the FlightSqlSslConfig.
 std::shared_ptr<FlightSqlSslConfig> LoadFlightSslConfigs(
     const Connection::ConnPropertyMap& conn_property_map);
 
@@ -84,7 +92,7 @@ class FlightSqlConnection : public Connection {
 
   bool SetAttribute(AttributeId attribute, const Attribute& value) override;
 
-  boost::optional<Connection::Attribute> GetAttribute(
+  std::optional<Connection::Attribute> GetAttribute(
       Connection::AttributeId attribute) override;
 
   Info GetInfo(uint16_t info_type) override;
@@ -111,8 +119,7 @@ class FlightSqlConnection : public Connection {
   /// \note Visible for testing
   void SetClosed(bool is_closed);
 
-  boost::optional<int32_t> GetStringColumnLength(
-      const ConnPropertyMap& conn_property_map);
+  std::optional<int32_t> GetStringColumnLength(const ConnPropertyMap& conn_property_map);
 
   bool GetUseWideChar(const ConnPropertyMap& conn_property_map);
 
