@@ -555,13 +555,13 @@ This extension type is intended to be compatible with ANSI SQL's ``TIMESTAMP WIT
 
 * The storage type of the extension is a ``Struct`` with 2 fields, in order:
 
-  * ``timestamp``: a preferably non-nullable ``Timestamp(time_unit, "UTC")``, where ``time_unit`` is any Arrow ``TimeUnit`` (s, ms, us or ns).
+  * ``timestamp``: a non-nullable ``Timestamp(time_unit, "UTC")``, where ``time_unit`` is any Arrow ``TimeUnit`` (s, ms, us or ns).
 
-  * ``offset_minutes``: a preferably non-nullable signed 16-bit integer (``Int16``) representing the offset in minutes from the UTC timezone. Negative offsets represent time zones west of UTC, while positive offsets represent east. Offsets range from -779 (-12:59) to +780 (+13:00).
+  * ``offset_minutes``: a non-nullable signed 16-bit integer (``Int16``) representing the offset in minutes from the UTC timezone. Negative offsets represent time zones west of UTC, while positive offsets represent east. Offsets range from -779 (-12:59) to +780 (+13:00).
 
 * Extension type parameters:
 
-  * ``time_unit``: the time-unit of each of the stored UTC timestamps.
+  This type does not have any parameters.
 
 * Description of the serialization:
 
@@ -570,22 +570,6 @@ This extension type is intended to be compatible with ANSI SQL's ``TIMESTAMP WIT
 .. note::
 
    It is also *permissible* for the ``offset_minutes`` field to be dictionary-encoded or run-end-encoded.
-
-.. note::
-
-   It is also *permissible* for ``timestamp`` and ``offset_minutes`` to be nullable, but not recommended.
-
-   If ``timestamp`` is nullable and a value is found to be null, then the whole ``TimestampWithOffset`` value should be interpreted as null. One way of achieving this is to drop ``timestamp``'s validity buffer (V1) and replace the top-level struct's validity buffer (V2) with the result of ``V1 AND V2``.
-
-   If ``offset_minutes`` is nullable and a value is found to be null, then this value should be interpreted as if the offset value were were zero.
-
-   It is *recommended* that implementations normalize this type's representation by dropping the inner validity buffers and applying the aforementioned transformations, only keeping the top-level struct's validity buffer.
-
-.. note::
-
-   Although not required, it is *recommended* that implementations represent this type as an RFC3339 string when de/serializing to/from JSON, respecting the ``TimeUnit`` precision and time zone offset without loss of information. For example ``2025-01-01T00:00:00Z`` represents January 1st 2025 in UTC with second precision, and ``2025-01-01T00:00:00.000000001-07:00`` represents one nanosecond after January 1st 2025 in UTC-07.
-
-   The rationale behind this recommendation is that many programming languages provide support for parsing RFC3339 out of the box, facilitating consumption of timezone-aware JSON-encoded Arrow arrays without extra boilerplate just for integrating with Arrow.
 
 Community Extension Types
 =========================
