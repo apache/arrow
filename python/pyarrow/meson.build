@@ -25,9 +25,11 @@ pyarrow_srcs = files(
     'src/arrow/python/benchmark.cc',
     'src/arrow/python/common.cc',
     'src/arrow/python/config.cc',
+    'src/arrow/python/csv.cc',
     'src/arrow/python/datetime.cc',
     'src/arrow/python/decimal.cc',
     'src/arrow/python/extension_type.cc',
+    'src/arrow/python/filesystem.cc',
     'src/arrow/python/gdb.cc',
     'src/arrow/python/helpers.cc',
     'src/arrow/python/inference.cc',
@@ -42,15 +44,6 @@ pyarrow_srcs = files(
     'src/arrow/python/udf.cc',
     'src/arrow/python/util.cc',
 )
-
-# TODO: These are required, but the CMake configuration checks for the
-# C++ options to be defined (???)
-# if needs_csv
-pyarrow_srcs += files('src/arrow/python/csv.cc')
-#endif
-# if needs_filesystem
-pyarrow_srcs += files('src/arrow/python/filesystem.cc')
-#endif
 
 subdir('src/arrow/python')
 
@@ -75,7 +68,6 @@ cython_modules = {
     '_json': {},
     '_pyarrow_cpp_tests': {},
 }
-
 
 needs_substrait = get_option('substrait').enabled()
 needs_dataset = get_option('dataset').enabled() or needs_substrait
@@ -194,7 +186,7 @@ needs_parquet_encryption = get_option('parquet_require_encryption').enabled()
 if needs_parquet_encryption and not needs_parquet
     warning(
         '''
-        Building PyArrow with Parquet Encryption is requested, but Parquet 
+        Building PyArrow with Parquet Encryption is requested, but Parquet
         itself is not enabled. Ignoring the Parquet Encryption setting.,
     ''',
     )
@@ -389,9 +381,7 @@ cython_headers = [
 ]
 
 install_data(cython_headers, install_dir: py.get_install_dir() / 'pyarrow')
-
 install_subdir('includes', install_dir: py.get_install_dir() / 'pyarrow')
-
 install_subdir(
     'src/arrow/python',
     install_dir: py.get_install_dir() / 'pyarrow/src/arrow',

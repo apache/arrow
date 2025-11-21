@@ -81,7 +81,7 @@ configure_file(
     configuration: conf_data,
     format: 'cmake@',
     install: true,
-    install_dir: get_option('includedir') / 'arrow' / 'util',
+    install_dir: 'arrow/util',
 )
 
 internal_conf_data = configuration_data()
