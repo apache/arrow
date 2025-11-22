@@ -4,6 +4,7 @@ include ../NOTICE.txt
 
 global-include CMakeLists.txt
 graft pyarrow
+graft pyarrow-stubs
 graft cmake_modules
 
 global-exclude *.so

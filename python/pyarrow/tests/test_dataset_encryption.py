@@ -29,8 +29,8 @@ try:
     import pyarrow.parquet as pq
     import pyarrow.dataset as ds
 except ImportError:
-    pq = None
-    ds = None
+    pq = None  # type: ignore[assignment]
+    ds = None  # type: ignore[assignment]
 
 try:
     from pyarrow.tests.parquet.encryption import InMemoryKmsClient
@@ -79,7 +79,7 @@ def create_encryption_config():
 
 
 def create_decryption_config():
-    return pe.DecryptionConfiguration(cache_lifetime=300)
+    return pe.DecryptionConfiguration(cache_lifetime=timedelta(seconds=300))
 
 
 def create_kms_connection_config():
@@ -105,6 +105,8 @@ def test_dataset_encryption_decryption():
     decryption_config = create_decryption_config()
     kms_connection_config = create_kms_connection_config()
 
+    assert ds is not None
+    assert pe is not None
     crypto_factory = pe.CryptoFactory(kms_factory)
     parquet_encryption_cfg = ds.ParquetEncryptionConfig(
         crypto_factory, kms_connection_config, encryption_config
@@ -177,11 +179,12 @@ def test_large_row_encryption_decryption():
     """Test encryption and decryption of a large number of rows."""
 
     class NoOpKmsClient(pe.KmsClient):
-        def wrap_key(self, key_bytes: bytes, _: str) -> bytes:
+        def wrap_key(self, key_bytes: bytes, _: str) -> bytes:  # type: ignore[override]
             b = base64.b64encode(key_bytes)
             return b
 
-        def unwrap_key(self, wrapped_key: bytes, _: str) -> bytes:
+        def unwrap_key(self, wrapped_key: bytes, _: str  # type: ignore[override]
+                       ) -> bytes:
             b = base64.b64decode(wrapped_key)
             return b
 
@@ -202,10 +205,14 @@ def test_large_row_encryption_decryption():
         plaintext_footer=False,
         data_key_length_bits=128,
     )
+    assert ds is not None
+    assert pe is not None
+    assert pq is not None
     pqe_config = ds.ParquetEncryptionConfig(
         crypto_factory, kms_config, encryption_config
     )
     pqd_config = ds.ParquetDecryptionConfig(
+        # type: ignore[arg-type]
         crypto_factory, kms_config, pe.DecryptionConfiguration()
     )
     scan_options = ds.ParquetFragmentScanOptions(decryption_config=pqd_config)
