@@ -1559,15 +1559,16 @@ void TestByteStreamSplitEncoding<Type>::CheckDecode() {
     // INT32, FLOAT
     const std::vector<uint8_t> data{0x11, 0x22, 0x33, 0x44, 0x55, 0x66,
                                     0x77, 0x88, 0x99, 0xAA, 0xBB, 0xCC};
-    const auto expected_output =
-        ToLittleEndian<uint32_t>({0xAA774411U, 0xBB885522U, 0xCC996633U});
+    // Values are in native byte order after decoding
+    const std::vector<uint32_t> expected_output{0xAA774411U, 0xBB885522U, 0xCC996633U};
     CheckDecode(span{data}, span{expected_output});
   } else {
     // INT64, DOUBLE
     const std::vector<uint8_t> data{0xDE, 0xC0, 0x37, 0x13, 0x11, 0x22, 0x33, 0x44,
                                     0xAA, 0xBB, 0xCC, 0xDD, 0x55, 0x66, 0x77, 0x88};
-    const auto expected_output =
-        ToLittleEndian<uint64_t>({0x7755CCAA331137DEULL, 0x8866DDBB442213C0ULL});
+    // Values are in native byte order after decoding
+    const std::vector<uint64_t> expected_output{0x7755CCAA331137DEULL,
+                                                0x8866DDBB442213C0ULL};
     CheckDecode(span{data}, span{expected_output});
   }
 }
@@ -1596,14 +1597,16 @@ void TestByteStreamSplitEncoding<Type>::CheckEncode() {
     }
   } else if constexpr (sizeof(c_type) == 4) {
     // INT32, FLOAT
-    const auto data = ToLittleEndian<uint32_t>({0xaabbccddUL, 0x11223344UL});
+    // Values should be in native byte order before encoding
+    const std::vector<uint32_t> data{0xaabbccddUL, 0x11223344UL};
     const std::vector<uint8_t> expected_output{0xdd, 0x44, 0xcc, 0x33,
                                                0xbb, 0x22, 0xaa, 0x11};
     CheckEncode(span{data}, span{expected_output});
   } else {
     // INT64, DOUBLE
-    const auto data = ToLittleEndian<uint64_t>(
-        {0x4142434445464748ULL, 0x0102030405060708ULL, 0xb1b2b3b4b5b6b7b8ULL});
+    // Values should be in native byte order before encoding
+    const std::vector<uint64_t> data{0x4142434445464748ULL, 0x0102030405060708ULL,
+                                     0xb1b2b3b4b5b6b7b8ULL};
     const std::vector<uint8_t> expected_output{
         0x48, 0x08, 0xb8, 0x47, 0x07, 0xb7, 0x46, 0x06, 0xb6, 0x45, 0x05, 0xb5,
         0x44, 0x04, 0xb4, 0x43, 0x03, 0xb3, 0x42, 0x02, 0xb2, 0x41, 0x01, 0xb1,

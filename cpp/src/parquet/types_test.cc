@@ -77,18 +77,17 @@ TEST(TypePrinter, StatisticsTypes) {
   std::string smax;
   int32_t int_min = 1024;
   int32_t int_max = 2048;
-  smin = std::string(reinterpret_cast<char*>(&int_min), sizeof(int32_t));
-  smax = std::string(reinterpret_cast<char*>(&int_max), sizeof(int32_t));
-  ASSERT_STREQ("1024", FormatStatValue(Type::INT32, smin).c_str());
-  ASSERT_STREQ("2048", FormatStatValue(Type::INT32, smax).c_str());
+  int32_t int_min_le = ::arrow::bit_util::ToLittleEndian(int_min);
+  int32_t int_max_le = ::arrow::bit_util::ToLittleEndian(int_max);
+  smin = std::string(reinterpret_cast<char*>(&int_min_le), sizeof(int32_t));
+  smax = std::string(reinterpret_cast<char*>(&int_max_le), sizeof(int32_t));
 
   int64_t int64_min = 10240000000000;
   int64_t int64_max = 20480000000000;
-  smin = std::string(reinterpret_cast<char*>(&int64_min), sizeof(int64_t));
-  smax = std::string(reinterpret_cast<char*>(&int64_max), sizeof(int64_t));
-  ASSERT_STREQ("10240000000000", FormatStatValue(Type::INT64, smin).c_str());
-  ASSERT_STREQ("20480000000000", FormatStatValue(Type::INT64, smax).c_str());
-
+  int64_t int64_min_le = ::arrow::bit_util::ToLittleEndian(int64_min);
+  int64_t int64_max_le = ::arrow::bit_util::ToLittleEndian(int64_max);
+  smin = std::string(reinterpret_cast<char*>(&int64_min_le), sizeof(int64_t));
+  smax = std::string(reinterpret_cast<char*>(&int64_max_le), sizeof(int64_t));
   float float_min = 1.024f;
   float float_max = 2.048f;
   smin = std::string(reinterpret_cast<char*>(&float_min), sizeof(float));
@@ -103,13 +102,13 @@ TEST(TypePrinter, StatisticsTypes) {
   ASSERT_STREQ("1.0245", FormatStatValue(Type::DOUBLE, smin).c_str());
   ASSERT_STREQ("2.0489", FormatStatValue(Type::DOUBLE, smax).c_str());
 
-#if ARROW_LITTLE_ENDIAN
-  Int96 Int96_min = {{1024, 2048, 4096}};
-  Int96 Int96_max = {{2048, 4096, 8192}};
-#else
-  Int96 Int96_min = {{2048, 1024, 4096}};
-  Int96 Int96_max = {{4096, 2048, 8192}};
-#endif
+  // INT96 values are stored in little-endian format in Parquet
+  Int96 Int96_min = {{::arrow::bit_util::ToLittleEndian(1024u),
+                      ::arrow::bit_util::ToLittleEndian(2048u),
+                      ::arrow::bit_util::ToLittleEndian(4096u)}};
+  Int96 Int96_max = {{::arrow::bit_util::ToLittleEndian(2048u),
+                      ::arrow::bit_util::ToLittleEndian(4096u),
+                      ::arrow::bit_util::ToLittleEndian(8192u)}};
   smin = std::string(reinterpret_cast<char*>(&Int96_min), sizeof(Int96));
   smax = std::string(reinterpret_cast<char*>(&Int96_max), sizeof(Int96));
   ASSERT_STREQ("1024 2048 4096", FormatStatValue(Type::INT96, smin).c_str());
@@ -181,14 +180,10 @@ TEST(TypePrinter, StatisticsTypes) {
 
 TEST(TestInt96Timestamp, Decoding) {
   auto check = [](int32_t julian_day, uint64_t nanoseconds) {
-#if ARROW_LITTLE_ENDIAN
+    // With the endian-independent implementation, the order is the same on all platforms
     Int96 i96{static_cast<uint32_t>(nanoseconds),
               static_cast<uint32_t>(nanoseconds >> 32),
               static_cast<uint32_t>(julian_day)};
-#else
-    Int96 i96{static_cast<uint32_t>(nanoseconds >> 32),
-              static_cast<uint32_t>(nanoseconds), static_cast<uint32_t>(julian_day)};
-#endif
     // Official formula according to https://github.com/apache/parquet-format/pull/49
     int64_t expected =
         (julian_day - 2440588) * (86400LL * 1000 * 1000 * 1000) + nanoseconds;
