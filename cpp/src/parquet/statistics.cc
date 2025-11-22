@@ -30,6 +30,7 @@
 #include "arrow/type_traits.h"
 #include "arrow/util/bit_run_reader.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/endian.h"
 #include "arrow/util/float16.h"
 #include "arrow/util/logging_internal.h"
 #include "arrow/util/ubsan.h"
@@ -925,15 +926,53 @@ void TypedStatisticsImpl<DType>::UpdateSpaced(const T* values, const uint8_t* va
 
 template <typename DType>
 void TypedStatisticsImpl<DType>::PlainEncode(const T& src, std::string* dst) const {
+#if ARROW_LITTLE_ENDIAN
   auto encoder = MakeTypedEncoder<DType>(Encoding::PLAIN, false, descr_, pool_);
   encoder->Put(&src, 1);
   auto buffer = encoder->FlushValues();
   auto ptr = reinterpret_cast<const char*>(buffer->data());
   dst->assign(ptr, static_cast<size_t>(buffer->size()));
+#else
+  // For fixed-width numeric types, write explicit little-endian bytes per spec
+  if constexpr (std::is_same_v<DType, Int32Type>) {
+    uint32_t u;
+    std::memcpy(&u, &src, sizeof(u));
+    u = ::arrow::bit_util::ToLittleEndian(u);
+    dst->assign(reinterpret_cast<const char*>(&u), sizeof(u));
+    return;
+  } else if constexpr (std::is_same_v<DType, Int64Type>) {
+    uint64_t u;
+    std::memcpy(&u, &src, sizeof(u));
+    u = ::arrow::bit_util::ToLittleEndian(u);
+    dst->assign(reinterpret_cast<const char*>(&u), sizeof(u));
+    return;
+  } else if constexpr (std::is_same_v<DType, FloatType>) {
+    uint32_t u;
+    static_assert(sizeof(u) == sizeof(float), "size");
+    std::memcpy(&u, &src, sizeof(u));
+    u = ::arrow::bit_util::ToLittleEndian(u);
+    dst->assign(reinterpret_cast<const char*>(&u), sizeof(u));
+    return;
+  } else if constexpr (std::is_same_v<DType, DoubleType>) {
+    uint64_t u;
+    static_assert(sizeof(u) == sizeof(double), "size");
+    std::memcpy(&u, &src, sizeof(u));
+    u = ::arrow::bit_util::ToLittleEndian(u);
+    dst->assign(reinterpret_cast<const char*>(&u), sizeof(u));
+    return;
+  }
+  // Fallback: use encoder for other types
+  auto encoder = MakeTypedEncoder<DType>(Encoding::PLAIN, false, descr_, pool_);
+  encoder->Put(&src, 1);
+  auto buffer = encoder->FlushValues();
+  dst->assign(reinterpret_cast<const char*>(buffer->data()),
+              static_cast<size_t>(buffer->size()));
+#endif
 }
 
 template <typename DType>
 void TypedStatisticsImpl<DType>::PlainDecode(const std::string& src, T* dst) const {
+#if ARROW_LITTLE_ENDIAN
   auto decoder = MakeTypedDecoder<DType>(Encoding::PLAIN, descr_);
   decoder->SetData(1, reinterpret_cast<const uint8_t*>(src.c_str()),
                    static_cast<int>(src.size()));
@@ -941,6 +980,40 @@ void TypedStatisticsImpl<DType>::PlainDecode(const std::string& src, T* dst) con
   if (decoded_values != 1) {
     throw ParquetException("Failed to decode statistic value from plain encoded string");
   }
+#else
+  if constexpr (std::is_same_v<DType, Int32Type>) {
+    uint32_t u = 0;
+    std::memcpy(&u, src.data(), std::min(src.size(), sizeof(u)));
+    u = ::arrow::bit_util::FromLittleEndian(u);
+    std::memcpy(dst, &u, sizeof(u));
+    return;
+  } else if constexpr (std::is_same_v<DType, Int64Type>) {
+    uint64_t u = 0;
+    std::memcpy(&u, src.data(), std::min(src.size(), sizeof(u)));
+    u = ::arrow::bit_util::FromLittleEndian(u);
+    std::memcpy(dst, &u, sizeof(u));
+    return;
+  } else if constexpr (std::is_same_v<DType, FloatType>) {
+    uint32_t u = 0;
+    std::memcpy(&u, src.data(), std::min(src.size(), sizeof(u)));
+    u = ::arrow::bit_util::FromLittleEndian(u);
+    std::memcpy(dst, &u, sizeof(u));
+    return;
+  } else if constexpr (std::is_same_v<DType, DoubleType>) {
+    uint64_t u = 0;
+    std::memcpy(&u, src.data(), std::min(src.size(), sizeof(u)));
+    u = ::arrow::bit_util::FromLittleEndian(u);
+    std::memcpy(dst, &u, sizeof(u));
+    return;
+  }
+  auto decoder = MakeTypedDecoder<DType>(Encoding::PLAIN, descr_);
+  decoder->SetData(1, reinterpret_cast<const uint8_t*>(src.c_str()),
+                   static_cast<int>(src.size()));
+  int decoded_values = decoder->Decode(dst, 1);
+  if (decoded_values != 1) {
+    throw ParquetException("Failed to decode statistic value from plain encoded string");
+  }
+#endif
 }
 
 template <>
