@@ -755,7 +755,12 @@ Result<PartitionPathFormat> HivePartitioning::FormatValues(
       // field_index <-> path nesting relation
       segments[i] = name + "=" + hive_options_.null_fallback;
     } else {
-      segments[i] = name + "=" + arrow::util::UriEscape(values[i]->ToString());
+      std::string value_str = values[i]->ToString();
+      if (segment_encoding() == SegmentEncoding::Uri) {
+        segments[i] = name + "=" + arrow::util::UriEscape(value_str);
+      } else {
+        segments[i] = name + "=" + value_str;
+      }
     }
   }
 
