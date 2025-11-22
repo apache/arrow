@@ -761,12 +761,12 @@ TEST(PageIndex, TestPageIndexBuilderWithZeroRowGroup) {
 
   // Verify WriteTo does not write anything.
   auto sink = CreateOutputStream();
-  PageIndexLocation location;
-  builder->WriteTo(sink.get(), &location);
+  IndexLocations column_index_location, offset_index_location;
+  builder->WriteTo(sink.get(), &column_index_location, &offset_index_location);
   PARQUET_ASSIGN_OR_THROW(auto buffer, sink->Finish());
   ASSERT_EQ(0, buffer->size());
-  ASSERT_TRUE(location.column_index_location.empty());
-  ASSERT_TRUE(location.offset_index_location.empty());
+  ASSERT_TRUE(column_index_location.locations.empty());
+  ASSERT_TRUE(offset_index_location.locations.empty());
 }
 
 class PageIndexBuilderTest : public ::testing::Test {
@@ -798,18 +798,20 @@ class PageIndexBuilderTest : public ::testing::Test {
     ASSERT_NO_THROW(builder->Finish());
 
     auto sink = CreateOutputStream();
-    builder->WriteTo(sink.get(), &page_index_location_);
+    builder->WriteTo(sink.get(), &column_index_location_, &offset_index_location_);
     PARQUET_ASSIGN_OR_THROW(buffer_, sink->Finish());
 
     ASSERT_EQ(static_cast<size_t>(num_row_groups),
-              page_index_location_.column_index_location.size());
+              column_index_location_.locations.size());
     ASSERT_EQ(static_cast<size_t>(num_row_groups),
-              page_index_location_.offset_index_location.size());
+              offset_index_location_.locations.size());
     for (int row_group = 0; row_group < num_row_groups; ++row_group) {
-      ASSERT_EQ(static_cast<size_t>(num_columns),
-                page_index_location_.column_index_location[row_group].size());
-      ASSERT_EQ(static_cast<size_t>(num_columns),
-                page_index_location_.offset_index_location[row_group].size());
+      size_t num_column_indexes = column_index_location_.locations.at(row_group).size();
+      size_t num_offset_indexes = offset_index_location_.locations.at(row_group).size();
+      ASSERT_LE(num_column_indexes, static_cast<size_t>(num_columns));
+      ASSERT_GT(num_column_indexes, size_t{0});
+      ASSERT_LE(num_offset_indexes, static_cast<size_t>(num_columns));
+      ASSERT_GT(num_offset_indexes, size_t{0});
     }
   }
 
@@ -839,28 +841,38 @@ class PageIndexBuilderTest : public ::testing::Test {
 
  protected:
   std::unique_ptr<ColumnIndex> ReadColumnIndex(int row_group, int column) {
-    auto location = page_index_location_.column_index_location[row_group][column];
-    if (!location.has_value()) {
+    auto row_group_location = column_index_location_.locations.find(row_group);
+    if (row_group_location == column_index_location_.locations.end()) {
+      return nullptr;
+    }
+    auto column_location = row_group_location->second.find(column);
+    if (column_location == row_group_location->second.end()) {
       return nullptr;
     }
     auto properties = default_reader_properties();
-    return ColumnIndex::Make(*schema_.Column(column), buffer_->data() + location->offset,
-                             static_cast<uint32_t>(location->length), properties);
+    return ColumnIndex::Make(
+        *schema_.Column(column), buffer_->data() + column_location->second.offset,
+        static_cast<uint32_t>(column_location->second.length), properties);
   }
 
   std::unique_ptr<OffsetIndex> ReadOffsetIndex(int row_group, int column) {
-    auto location = page_index_location_.offset_index_location[row_group][column];
-    if (!location.has_value()) {
+    auto row_group_location = offset_index_location_.locations.find(row_group);
+    if (row_group_location == offset_index_location_.locations.end()) {
+      return nullptr;
+    }
+    auto column_location = row_group_location->second.find(column);
+    if (column_location == row_group_location->second.end()) {
       return nullptr;
     }
     auto properties = default_reader_properties();
-    return OffsetIndex::Make(buffer_->data() + location->offset,
-                             static_cast<uint32_t>(location->length), properties);
+    return OffsetIndex::Make(buffer_->data() + column_location->second.offset,
+                             static_cast<uint32_t>(column_location->second.length),
+                             properties);
   }
 
   SchemaDescriptor schema_;
   std::shared_ptr<Buffer> buffer_;
-  PageIndexLocation page_index_location_;
+  IndexLocations column_index_location_, offset_index_location_;
 };
 
 TEST_F(PageIndexBuilderTest, SingleRowGroup) {
