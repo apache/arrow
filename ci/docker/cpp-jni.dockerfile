@@ -21,9 +21,6 @@ FROM ${base}
 ARG arch
 ARG arch_short
 
-SHELL ["/bin/bash", "-i", "-c"]
-ENTRYPOINT ["/bin/bash", "-i", "-c"]
-
 # Install basic dependencies
 RUN dnf install -y \
     autoconf \
@@ -108,4 +105,5 @@ RUN --mount=type=secret,id=github_repository_owner \
 
 ENV ARROW_BUILD_TESTS=ON \
     ARROW_CMAKE_ARGS="-DARROW_BUILD_TESTS=ON" \
-    CMAKE_PRESET=ninja-${CMAKE_BUILD_TYPE}-jni-linux
+    CMAKE_PRESET=ninja-${CMAKE_BUILD_TYPE}-jni-linux \
+    VCPKG_TARGET_TRIPLET=${VCPKG_DEFAULT_TRIPLET}
