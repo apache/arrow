@@ -953,7 +953,8 @@ int64_t ColumnWriterImpl::RleEncodeLevels(const void* src_buffer,
   DCHECK_EQ(encoded, num_buffered_values_);
 
   if (include_length_prefix) {
-    reinterpret_cast<int32_t*>(dest_buffer->mutable_data())[0] = level_encoder_.len();
+    ::arrow::util::SafeStore(dest_buffer->mutable_data(),
+                             ::arrow::bit_util::ToLittleEndian(level_encoder_.len()));
   }
 
   return level_encoder_.len() + prefix_size;
@@ -2578,13 +2579,31 @@ struct SerializeFunctor<
       if constexpr (std::is_same_v<ArrowType, ::arrow::Decimal64Type>) {
         *p++ = ::arrow::bit_util::ToBigEndian(u64_in[0]);
       } else if constexpr (std::is_same_v<ArrowType, ::arrow::Decimal128Type>) {
+#if ARROW_LITTLE_ENDIAN
+        // On little-endian: u64_in[0] = low, u64_in[1] = high
+        // Write high first for big-endian output
         *p++ = ::arrow::bit_util::ToBigEndian(u64_in[1]);
         *p++ = ::arrow::bit_util::ToBigEndian(u64_in[0]);
+#else
+        // On big-endian: u64_in[0] = high, u64_in[1] = low
+        // Write high first for big-endian output
+        *p++ = ::arrow::bit_util::ToBigEndian(u64_in[0]);
+        *p++ = ::arrow::bit_util::ToBigEndian(u64_in[1]);
+#endif
       } else if constexpr (std::is_same_v<ArrowType, ::arrow::Decimal256Type>) {
+#if ARROW_LITTLE_ENDIAN
+        // On little-endian: write words in reverse order (high to low)
         *p++ = ::arrow::bit_util::ToBigEndian(u64_in[3]);
         *p++ = ::arrow::bit_util::ToBigEndian(u64_in[2]);
         *p++ = ::arrow::bit_util::ToBigEndian(u64_in[1]);
         *p++ = ::arrow::bit_util::ToBigEndian(u64_in[0]);
+#else
+        // On big-endian: write words in natural order (high to low)
+        *p++ = ::arrow::bit_util::ToBigEndian(u64_in[0]);
+        *p++ = ::arrow::bit_util::ToBigEndian(u64_in[1]);
+        *p++ = ::arrow::bit_util::ToBigEndian(u64_in[2]);
+        *p++ = ::arrow::bit_util::ToBigEndian(u64_in[3]);
+#endif
       }
       scratch = reinterpret_cast<uint8_t*>(p);
     }
@@ -2600,6 +2619,7 @@ struct SerializeFunctor<
 
 // Requires a custom serializer because Float16s in Parquet are stored as a 2-byte
 // (little-endian) FLBA, whereas in Arrow they're a native `uint16_t`.
+#if ARROW_LITTLE_ENDIAN
 template <>
 struct SerializeFunctor<::parquet::FLBAType, ::arrow::HalfFloatType> {
   Status Serialize(const ::arrow::HalfFloatArray& array, ArrowWriteContext*, FLBA* out) {
@@ -2621,6 +2641,38 @@ struct SerializeFunctor<::parquet::FLBAType, ::arrow::HalfFloatType> {
     return FLBA{reinterpret_cast<const uint8_t*>(value_ptr)};
   }
 };
+#else
+template <>
+struct SerializeFunctor<::parquet::FLBAType, ::arrow::HalfFloatType> {
+  Status Serialize(const ::arrow::HalfFloatArray& array, ArrowWriteContext*, FLBA* out) {
+    const uint16_t* values = array.raw_values();
+    const int64_t length = array.length();
+
+    // Allocate buffer for little-endian converted values
+    converted_values_.resize(length);
+
+    if (array.null_count() == 0) {
+      for (int64_t i = 0; i < length; ++i) {
+        converted_values_[i] = ::arrow::bit_util::ToLittleEndian(values[i]);
+        out[i] = FLBA{reinterpret_cast<const uint8_t*>(&converted_values_[i])};
+      }
+    } else {
+      for (int64_t i = 0; i < length; ++i) {
+        if (array.IsValid(i)) {
+          converted_values_[i] = ::arrow::bit_util::ToLittleEndian(values[i]);
+          out[i] = FLBA{reinterpret_cast<const uint8_t*>(&converted_values_[i])};
+        } else {
+          out[i] = FLBA{};
+        }
+      }
+    }
+    return Status::OK();
+  }
+
+ private:
+  std::vector<uint16_t> converted_values_;
+};
+#endif
 
 template <>
 Status TypedColumnWriterImpl<FLBAType>::WriteArrowDense(
