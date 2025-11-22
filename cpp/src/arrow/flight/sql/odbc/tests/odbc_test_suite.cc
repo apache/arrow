@@ -61,8 +61,7 @@ void ODBCRemoteTestBase::ConnectWithString(std::string connect_str) {
                              kOdbcBufferSize, &out_str_len, SQL_DRIVER_NOPROMPT))
       << GetOdbcErrorMessage(SQL_HANDLE_DBC, conn);
 
-  // GH-47710: TODO Allocate a statement using alloc handle
-  // ASSERT_EQ(SQL_SUCCESS, SQLAllocHandle(SQL_HANDLE_STMT, conn, &stmt));
+  ASSERT_EQ(SQL_SUCCESS, SQLAllocHandle(SQL_HANDLE_STMT, conn, &stmt));
 }
 
 void ODBCRemoteTestBase::Disconnect() {
@@ -182,21 +181,14 @@ void FlightSQLOdbcV2RemoteTestBase::SetUp() {
   connected_ = true;
 }
 
-void FlightSQLOdbcHandleRemoteTestBase::SetUp() {
-  ODBCRemoteTestBase::SetUp();
-  if (skipping_test_) {
-    return;
-  }
+void FlightSQLOdbcEnvConnHandleRemoteTestBase::SetUp() { AllocEnvConnHandles(); }
 
-  this->AllocEnvConnHandles();
-  allocated_ = true;
-}
+void FlightSQLOdbcEnvConnHandleRemoteTestBase::TearDown() {
+  // Free connection handle
+  EXPECT_EQ(SQL_SUCCESS, SQLFreeHandle(SQL_HANDLE_DBC, conn));
 
-void FlightSQLOdbcHandleRemoteTestBase::TearDown() {
-  if (allocated_) {
-    this->FreeEnvConnHandles();
-    allocated_ = false;
-  }
+  // Free environment handle
+  EXPECT_EQ(SQL_SUCCESS, SQLFreeHandle(SQL_HANDLE_ENV, env));
 }
 
 std::string FindTokenInCallHeaders(const CallHeaders& incoming_headers) {
@@ -392,14 +384,19 @@ void FlightSQLOdbcV2MockTestBase::SetUp() {
   connected_ = true;
 }
 
-void FlightSQLOdbcHandleMockTestBase::SetUp() {
+void FlightSQLOdbcEnvConnHandleMockTestBase::SetUp() {
   ODBCMockTestBase::SetUp();
-  this->AllocEnvConnHandles();
+  AllocEnvConnHandles();
 }
 
-void FlightSQLOdbcHandleMockTestBase::TearDown() {
-  this->FreeEnvConnHandles();
-  ODBCMockTestBase::TearDown();
+void FlightSQLOdbcEnvConnHandleMockTestBase::TearDown() {
+  // Free connection handle
+  EXPECT_EQ(SQL_SUCCESS, SQLFreeHandle(SQL_HANDLE_DBC, conn));
+
+  // Free environment handle
+  EXPECT_EQ(SQL_SUCCESS, SQLFreeHandle(SQL_HANDLE_ENV, env));
+
+  ASSERT_OK(server_->Shutdown());
 }
 
 bool CompareConnPropertyMap(Connection::ConnPropertyMap map1,
