@@ -42,11 +42,9 @@ if [ -n "${CONDA_PREFIX}" ] && [ "${ARROW_EMSCRIPTEN:-OFF}" = "OFF" ]; then
     ARROW_CMAKE_ARGS+=" -DCMAKE_RANLIB=${RANLIB}"
   fi
   export ARROW_CMAKE_ARGS
-  ARROW_GANDIVA_PC_CXX_FLAGS=$(echo | ${CXX} -E -Wp,-v -xc++ - 2>&1 | grep '^ ' | awk '{print "-isystem;" substr($1, 1)}' | tr '\n' ';')
-  export ARROW_GANDIVA_PC_CXX_FLAGS
+  export ARROW_GANDIVA_PC_CXX_FLAGS=$(echo | ${CXX} -E -Wp,-v -xc++ - 2>&1 | grep '^ ' | awk '{print "-isystem;" substr($1, 1)}' | tr '\n' ';')
 elif [ -x "$(command -v xcrun)" ]; then
-  ARROW_GANDIVA_PC_CXX_FLAGS="-isysroot;$(xcrun --show-sdk-path)"
-  export ARROW_GANDIVA_PC_CXX_FLAGS
+  export ARROW_GANDIVA_PC_CXX_FLAGS="-isysroot;$(xcrun --show-sdk-path)"
 fi
 
 if [ "${GITHUB_ACTIONS:-false}" = "true" ]; then
@@ -105,7 +103,6 @@ pushd ${build_dir}
 if [ "${ARROW_OFFLINE}" = "ON" ]; then
   ${source_dir}/thirdparty/download_dependencies.sh ${PWD}/thirdparty > \
     enable_offline_build.sh
-  # shellcheck source=/dev/null
   . enable_offline_build.sh
   # We can't use mv because we can't remove /etc/resolv.conf in Docker
   # container.
@@ -158,13 +155,11 @@ if [ "${ARROW_USE_MESON:-OFF}" = "ON" ]; then
 elif [ "${ARROW_EMSCRIPTEN:-OFF}" = "ON" ]; then
   if [ "${UBUNTU}" = "20.04" ]; then
     echo "arrow emscripten build is not supported on Ubuntu 20.04, run with UBUNTU=22.04"
-    exit 1
+    exit -1
   fi
   n_jobs=2 # Emscripten build fails on docker unless this is set really low
-  # shellcheck source=/dev/null
   source ~/emsdk/emsdk_env.sh
-  CMAKE_INSTALL_PREFIX=$(em-config CACHE)/sysroot
-  export CMAKE_INSTALL_PREFIX
+  export CMAKE_INSTALL_PREFIX=$(em-config CACHE)/sysroot
   # conda sets LDFLAGS / CFLAGS etc. which break
   # emcmake so we unset them
   unset LDFLAGS CFLAGS CXXFLAGS CPPFLAGS
@@ -293,7 +288,7 @@ else
     ${source_dir}
 fi
 
-: "${ARROW_BUILD_PARALLEL:=$(( n_jobs + 1))}"
+: ${ARROW_BUILD_PARALLEL:=$[${n_jobs} + 1]}
 if [ "${ARROW_USE_MESON:-OFF}" = "ON" ]; then
   time meson compile -j ${ARROW_BUILD_PARALLEL}
   meson install
