@@ -23,6 +23,7 @@
 #include <sql.h>
 #include <map>
 #include <memory>
+#include <optional>
 #include <vector>
 
 namespace ODBC {
@@ -75,8 +76,11 @@ class ODBCConnection : public ODBCHandle<ODBCConnection> {
 
   inline bool IsOdbc2Connection() const { return is_2x_connection_; }
 
-  /// @return the DSN or empty string if Driver was used.
-  static std::string GetPropertiesFromConnString(
+  /// \return an optional DSN
+  static std::optional<std::string> GetDsnIfExists(const std::string& conn_str);
+
+  /// Read properties from connection string, but does not read values from DSN
+  static void GetPropertiesFromConnString(
       const std::string& conn_str,
       arrow::flight::sql::odbc::Connection::ConnPropertyMap& properties);
 

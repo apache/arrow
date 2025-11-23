@@ -205,17 +205,13 @@ repos:
           ^r/.*\.(R|Rmd)$
   - repo: local
     hooks:
-      - id: styler
+      - id: air-format
         alias: r
-        name: R Format
-        language: r
-        additional_dependencies:
-          - roxygen2
-          - styler
-        entry: |
-          Rscript -e "styler::style_file(commandArgs(TRUE)[1])"
+        name: R Format (Air)
+        language: system
+        entry: air format r --check
         files: >-
-          ^r/.*\.(R|Rmd)$
+            ^r/.*\.R$
   - repo: https://github.com/pre-commit/mirrors-clang-format
     rev: v14.0.6
     hooks:
@@ -345,6 +341,7 @@ repos:
           ?^ci/scripts/release_test\.sh$|
           ?^ci/scripts/ruby_test\.sh$|
           ?^ci/scripts/rust_build\.sh$|
+          ?^ci/scripts/util_download_apache\.sh$|
           ?^ci/scripts/util_enable_core_dumps\.sh$|
           ?^ci/scripts/util_free_space\.sh$|
           ?^ci/scripts/util_log\.sh$|

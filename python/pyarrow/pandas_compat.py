@@ -277,6 +277,15 @@ def construct_metadata(columns_to_convert, df, column_names, index_levels,
 
     attributes = df.attrs if hasattr(df, "attrs") else {}
 
+    try:
+        json.dumps(attributes)
+    except Exception as e:
+        attributes = {}
+        warnings.warn(
+            f"Could not serialize pd.DataFrame.attrs: {e},"
+            f" defaulting to empty attributes.",
+            UserWarning, stacklevel=4)
+
     return {
         b'pandas': json.dumps({
             'index_columns': index_descriptors,

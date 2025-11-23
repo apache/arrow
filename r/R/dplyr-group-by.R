@@ -15,14 +15,15 @@
 # specific language governing permissions and limitations
 # under the License.
 
-
 # The following S3 methods are registered on load if dplyr is present
 
-group_by.arrow_dplyr_query <- function(.data,
-                                       ...,
-                                       .add = FALSE,
-                                       add = NULL,
-                                       .drop = dplyr::group_by_drop_default(.data)) {
+group_by.arrow_dplyr_query <- function(
+  .data,
+  ...,
+  .add = FALSE,
+  add = NULL,
+  .drop = dplyr::group_by_drop_default(.data)
+) {
   if (!missing(add)) {
     .Deprecated(
       msg = paste(

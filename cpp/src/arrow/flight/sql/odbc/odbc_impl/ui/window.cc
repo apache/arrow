@@ -48,7 +48,7 @@ HINSTANCE GetHInstance() {
   return h_instance;
 }
 
-Window::Window(Window* parent, const char* class_name, const char* title)
+Window::Window(Window* parent, const wchar_t* class_name, const wchar_t* title)
     : class_name_(class_name),
       title_(title),
       handle_(NULL),
@@ -91,7 +91,7 @@ void Window::Create(DWORD style, int pos_x, int pos_y, int width, int height, in
 }
 
 std::unique_ptr<Window> Window::CreateTabControl(int id) {
-  std::unique_ptr<Window> child(new Window(this, WC_TABCONTROL, ""));
+  std::unique_ptr<Window> child(new Window(this, WC_TABCONTROL, L""));
 
   // Get the dimensions of the parent window's client area, and
   // create a tab control child window of that size.
@@ -106,7 +106,7 @@ std::unique_ptr<Window> Window::CreateTabControl(int id) {
 
 std::unique_ptr<Window> Window::CreateList(int pos_x, int pos_y, int size_x, int size_y,
                                            int id) {
-  std::unique_ptr<Window> child(new Window(this, WC_LISTVIEW, ""));
+  std::unique_ptr<Window> child(new Window(this, WC_LISTVIEW, L""));
 
   child->Create(
       WS_CHILD | WS_VISIBLE | WS_BORDER | LVS_REPORT | LVS_EDITLABELS | WS_TABSTOP, pos_x,
@@ -116,8 +116,8 @@ std::unique_ptr<Window> Window::CreateList(int pos_x, int pos_y, int size_x, int
 }
 
 std::unique_ptr<Window> Window::CreateGroupBox(int pos_x, int pos_y, int size_x,
-                                               int size_y, const char* title, int id) {
-  std::unique_ptr<Window> child(new Window(this, "Button", title));
+                                               int size_y, const wchar_t* title, int id) {
+  std::unique_ptr<Window> child(new Window(this, L"Button", title));
 
   child->Create(WS_CHILD | WS_VISIBLE | BS_GROUPBOX, pos_x, pos_y, size_x, size_y, id);
 
@@ -125,8 +125,8 @@ std::unique_ptr<Window> Window::CreateGroupBox(int pos_x, int pos_y, int size_x,
 }
 
 std::unique_ptr<Window> Window::CreateLabel(int pos_x, int pos_y, int size_x, int size_y,
-                                            const char* title, int id) {
-  std::unique_ptr<Window> child(new Window(this, "Static", title));
+                                            const wchar_t* title, int id) {
+  std::unique_ptr<Window> child(new Window(this, L"Static", title));
 
   child->Create(WS_CHILD | WS_VISIBLE, pos_x, pos_y, size_x, size_y, id);
 
@@ -134,8 +134,8 @@ std::unique_ptr<Window> Window::CreateLabel(int pos_x, int pos_y, int size_x, in
 }
 
 std::unique_ptr<Window> Window::CreateEdit(int pos_x, int pos_y, int size_x, int size_y,
-                                           const char* title, int id, int style) {
-  std::unique_ptr<Window> child(new Window(this, "Edit", title));
+                                           const wchar_t* title, int id, int style) {
+  std::unique_ptr<Window> child(new Window(this, L"Edit", title));
 
   child->Create(WS_CHILD | WS_VISIBLE | WS_BORDER | ES_AUTOHSCROLL | WS_TABSTOP | style,
                 pos_x, pos_y, size_x, size_y, id);
@@ -144,8 +144,8 @@ std::unique_ptr<Window> Window::CreateEdit(int pos_x, int pos_y, int size_x, int
 }
 
 std::unique_ptr<Window> Window::CreateButton(int pos_x, int pos_y, int size_x, int size_y,
-                                             const char* title, int id, int style) {
-  std::unique_ptr<Window> child(new Window(this, "Button", title));
+                                             const wchar_t* title, int id, int style) {
+  std::unique_ptr<Window> child(new Window(this, L"Button", title));
 
   child->Create(WS_CHILD | WS_VISIBLE | WS_TABSTOP | style, pos_x, pos_y, size_x, size_y,
                 id);
@@ -154,9 +154,9 @@ std::unique_ptr<Window> Window::CreateButton(int pos_x, int pos_y, int size_x, i
 }
 
 std::unique_ptr<Window> Window::CreateCheckBox(int pos_x, int pos_y, int size_x,
-                                               int size_y, const char* title, int id,
+                                               int size_y, const wchar_t* title, int id,
                                                bool state) {
-  std::unique_ptr<Window> child(new Window(this, "Button", title));
+  std::unique_ptr<Window> child(new Window(this, L"Button", title));
 
   child->Create(WS_CHILD | WS_VISIBLE | BS_CHECKBOX | WS_TABSTOP, pos_x, pos_y, size_x,
                 size_y, id);
@@ -167,8 +167,8 @@ std::unique_ptr<Window> Window::CreateCheckBox(int pos_x, int pos_y, int size_x,
 }
 
 std::unique_ptr<Window> Window::CreateComboBox(int pos_x, int pos_y, int size_x,
-                                               int size_y, const char* title, int id) {
-  std::unique_ptr<Window> child(new Window(this, "Combobox", title));
+                                               int size_y, const wchar_t* title, int id) {
+  std::unique_ptr<Window> child(new Window(this, L"Combobox", title));
 
   child->Create(WS_CHILD | WS_VISIBLE | CBS_DROPDOWNLIST | WS_TABSTOP, pos_x, pos_y,
                 size_x, size_y, id);
@@ -199,12 +199,12 @@ bool Window::IsTextEmpty() const {
   return (len <= 0);
 }
 
-void Window::ListAddColumn(const std::string& name, int index, int width) {
+void Window::ListAddColumn(const std::wstring& name, int index, int width) {
   LVCOLUMN lvc;
   lvc.mask = LVCF_FMT | LVCF_WIDTH | LVCF_TEXT | LVCF_SUBITEM;
   lvc.fmt = LVCFMT_LEFT;
   lvc.cx = width;
-  lvc.pszText = const_cast<char*>(name.c_str());
+  lvc.pszText = const_cast<wchar_t*>(name.c_str());
   lvc.iSubItem = index;
 
   if (ListView_InsertColumn(handle_, index, &lvc) == -1) {
@@ -214,10 +214,10 @@ void Window::ListAddColumn(const std::string& name, int index, int width) {
   }
 }
 
-void Window::ListAddItem(const std::vector<std::string>& items) {
+void Window::ListAddItem(const std::vector<std::wstring>& items) {
   LVITEM lvi = {0};
   lvi.mask = LVIF_TEXT;
-  lvi.pszText = const_cast<char*>(items[0].c_str());
+  lvi.pszText = const_cast<wchar_t*>(items[0].c_str());
 
   int ret = ListView_InsertItem(handle_, &lvi);
   if (ret < 0) {
@@ -228,7 +228,7 @@ void Window::ListAddItem(const std::vector<std::string>& items) {
 
   for (size_t i = 1; i < items.size(); ++i) {
     ListView_SetItemText(handle_, ret, static_cast<int>(i),
-                         const_cast<char*>(items[i].c_str()));
+                         const_cast<wchar_t*>(items[i].c_str()));
   }
 }
 
@@ -243,15 +243,15 @@ void Window::ListDeleteSelectedItem() {
   }
 }
 
-std::vector<std::vector<std::string> > Window::ListGetAll() {
+std::vector<std::vector<std::wstring> > Window::ListGetAll() {
 #define BUF_LEN 1024
-  char buf[BUF_LEN];
+  wchar_t buf[BUF_LEN];
 
-  std::vector<std::vector<std::string> > values;
+  std::vector<std::vector<std::wstring> > values;
   const int num_columns = Header_GetItemCount(ListView_GetHeader(handle_));
   const int num_items = ListView_GetItemCount(handle_);
   for (int i = 0; i < num_items; ++i) {
-    std::vector<std::string> row;
+    std::vector<std::wstring> row;
     for (int j = 0; j < num_columns; ++j) {
       ListView_GetItemText(handle_, i, j, buf, BUF_LEN);
       row.emplace_back(buf);
@@ -262,11 +262,11 @@ std::vector<std::vector<std::string> > Window::ListGetAll() {
   return values;
 }
 
-void Window::AddTab(const std::string& name, int index) {
+void Window::AddTab(const std::wstring& name, int index) {
   TCITEM tab_control_item;
   tab_control_item.mask = TCIF_TEXT | TCIF_IMAGE;
   tab_control_item.iImage = -1;
-  tab_control_item.pszText = const_cast<char*>(name.c_str());
+  tab_control_item.pszText = const_cast<wchar_t*>(name.c_str());
   if (TabCtrl_InsertItem(handle_, index, &tab_control_item) == -1) {
     std::stringstream buf;
     buf << "Can not add tab, error code: " << GetLastError();
@@ -274,7 +274,7 @@ void Window::AddTab(const std::string& name, int index) {
   }
 }
 
-void Window::GetText(std::string& text) const {
+void Window::GetText(std::wstring& text) const {
   if (!IsEnabled()) {
     text.clear();
 
@@ -297,7 +297,7 @@ void Window::GetText(std::string& text) const {
   boost::algorithm::trim(text);
 }
 
-void Window::SetText(const std::string& text) const {
+void Window::SetText(const std::wstring& text) const {
   SNDMSG(handle_, WM_SETTEXT, 0, reinterpret_cast<LPARAM>(text.c_str()));
 }
 
@@ -309,7 +309,7 @@ void Window::SetChecked(bool state) {
   Button_SetCheck(handle_, state ? BST_CHECKED : BST_UNCHECKED);
 }
 
-void Window::AddString(const std::string& str) {
+void Window::AddString(const std::wstring& str) {
   SNDMSG(handle_, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(str.c_str()));
 }
 

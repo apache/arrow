@@ -257,18 +257,13 @@ Result<std::shared_ptr<RecordBatch>> RecordBatch::FromStructArray(
     return Status::TypeError("Cannot construct record batch from array of type ",
                              *array->type());
   }
-  if (array->null_count() != 0 || array->offset() != 0) {
-    // If the struct array has a validity map or offset we need to push those into
-    // the child arrays via Flatten since the RecordBatch doesn't have validity/offset
-    const std::shared_ptr<StructArray>& struct_array =
-        internal::checked_pointer_cast<StructArray>(array);
-    ARROW_ASSIGN_OR_RAISE(std::vector<std::shared_ptr<Array>> fields,
-                          struct_array->Flatten(memory_pool));
-    return Make(arrow::schema(array->type()->fields()), array->length(),
-                std::move(fields));
-  }
-  return Make(arrow::schema(array->type()->fields()), array->length(),
-              array->data()->child_data);
+  // Push the struct array's validity map and slicing (if any) into the child arrays
+  // by calling Flatten
+  const std::shared_ptr<StructArray>& struct_array =
+      internal::checked_pointer_cast<StructArray>(array);
+  ARROW_ASSIGN_OR_RAISE(std::vector<std::shared_ptr<Array>> fields,
+                        struct_array->Flatten(memory_pool));
+  return Make(arrow::schema(array->type()->fields()), array->length(), std::move(fields));
 }
 
 namespace {
@@ -541,10 +536,17 @@ Status EnumerateStatistics(const RecordBatch& record_batch, OnStatistics on_stat
     statistics.nth_column = nth_column;
     if (column_statistics->null_count.has_value()) {
       statistics.nth_statistics++;
-      statistics.key = ARROW_STATISTICS_KEY_NULL_COUNT_EXACT;
-      statistics.type = int64();
-      statistics.value = column_statistics->null_count.value();
-      RETURN_NOT_OK(on_statistics(statistics));
+      if (std::holds_alternative<int64_t>(column_statistics->null_count.value())) {
+        statistics.key = ARROW_STATISTICS_KEY_NULL_COUNT_EXACT;
+        statistics.type = int64();
+        statistics.value = std::get<int64_t>(column_statistics->null_count.value());
+        RETURN_NOT_OK(on_statistics(statistics));
+      } else {
+        statistics.key = ARROW_STATISTICS_KEY_NULL_COUNT_APPROXIMATE;
+        statistics.type = float64();
+        statistics.value = std::get<double>(column_statistics->null_count.value());
+        RETURN_NOT_OK(on_statistics(statistics));
+      }
       statistics.start_new_column = false;
     }
 

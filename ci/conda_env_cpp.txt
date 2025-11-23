@@ -22,7 +22,6 @@ azure-storage-blobs-cpp>=12.10.0
 azure-storage-common-cpp>=12.5.0
 azure-storage-files-datalake-cpp>=12.9.0
 benchmark>=1.6.0,!=1.8.4
-boost-cpp>=1.68.0
 brotli
 bzip2
 c-ares
@@ -32,6 +31,7 @@ glog
 gmock>=1.10.0
 google-cloud-cpp>=1.34.0
 gtest>=1.10.0
+libboost-devel
 libgrpc
 libprotobuf
 libutf8proc
@@ -41,7 +41,6 @@ meson
 ninja
 nodejs
 orc<2.1.0
-patch
 pkg-config
 python
 rapidjson

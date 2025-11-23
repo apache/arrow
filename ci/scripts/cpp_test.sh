@@ -105,9 +105,11 @@ fi
 if [ "${ARROW_USE_MESON:-OFF}" = "ON" ]; then
   ARROW_BUILD_EXAMPLES=OFF # TODO: Remove this
   meson test \
+    --max-lines=0 \
     --no-rebuild \
     --print-errorlogs \
     --suite arrow \
+    --timeout-multiplier=10 \
     "$@"
 else
   ctest \
@@ -129,7 +131,9 @@ fi
 # * This doesn't test other CMake packages such as ArrowDataset
 if [ "${ARROW_USE_MESON:-OFF}" = "OFF" ] && \
      [ "${ARROW_EMSCRIPTEN:-OFF}" = "OFF" ] && \
-     [ "${ARROW_USE_ASAN:-OFF}" = "OFF" ]; then
+     [ "${ARROW_USE_ASAN:-OFF}" = "OFF" ] && \
+     [ "${ARROW_USE_TSAN:-OFF}" = "OFF" ] && \
+     [ "${ARROW_CSV:-ON}" = "ON" ]; then
   CMAKE_PREFIX_PATH="${CMAKE_INSTALL_PREFIX:-${ARROW_HOME}}"
   case "$(uname)" in
     MINGW*)
@@ -184,7 +188,7 @@ if [ "${ARROW_FUZZING}" == "ON" ]; then
     if [ "${ARROW_PARQUET}" == "ON" ]; then
       "${binary_output_dir}/parquet-arrow-fuzz" "${ARROW_TEST_DATA}"/parquet/fuzzing/*-testcase-*
     fi
-    # TODO run CSV fuzz regression tests once we have any
+    "${binary_output_dir}/arrow-csv-fuzz" "${ARROW_TEST_DATA}"/csv/fuzzing/*-testcase-*
 fi
 
 popd

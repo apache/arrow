@@ -34,6 +34,7 @@ else()
 endif()
 
 add_subdirectory(odbc_impl)
+add_subdirectory(tests)
 
 arrow_install_all_headers("arrow/flight/sql/odbc")
 
@@ -55,7 +56,7 @@ add_arrow_lib(arrow_flight_sql_odbc
               DEPENDENCIES
               arrow_flight_sql
               DEFINITIONS
-              FMT_HEADER_ONLY
+              UNICODE
               SHARED_LINK_FLAGS
               ${ARROW_VERSION_SCRIPT_FLAGS} # Defined in cpp/arrow/CMakeLists.txt
               SHARED_LINK_LIBS

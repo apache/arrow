@@ -1108,8 +1108,8 @@ boost::optional<bool> AsBool(const std::string& value) {
 }
 
 boost::optional<bool> AsBool(const Connection::ConnPropertyMap& conn_property_map,
-                             const std::string_view& property_name) {
-  auto extracted_property = conn_property_map.find(std::string(property_name));
+                             std::string_view property_name) {
+  auto extracted_property = conn_property_map.find(property_name);
 
   if (extracted_property != conn_property_map.end()) {
     return AsBool(extracted_property->second);
@@ -1120,8 +1120,8 @@ boost::optional<bool> AsBool(const Connection::ConnPropertyMap& conn_property_ma
 
 boost::optional<int32_t> AsInt32(int32_t min_value,
                                  const Connection::ConnPropertyMap& conn_property_map,
-                                 const std::string_view& property_name) {
-  auto extracted_property = conn_property_map.find(std::string(property_name));
+                                 std::string_view property_name) {
+  auto extracted_property = conn_property_map.find(property_name);
 
   if (extracted_property != conn_property_map.end()) {
     const int32_t string_column_length = std::stoi(extracted_property->second);

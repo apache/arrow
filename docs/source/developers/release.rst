@@ -266,6 +266,9 @@ Build source and binaries and submit them
     # Start verifications for binaries and wheels
     dev/release/07-binary-verify.sh <version> <rc-number>
 
+    # Move the Release Candidate GitHub Release from draft to published state
+    dev/release/08-publish-gh-release.sh <version> <rc-number>
+
 Verify the Release
 ------------------
 

@@ -17,6 +17,9 @@
 
 #include "arrow/flight/sql/odbc/odbc_impl/odbc_connection.h"
 
+#include "arrow/result.h"
+#include "arrow/util/utf8.h"
+
 #include "arrow/flight/sql/odbc/odbc_impl/attribute_utils.h"
 #include "arrow/flight/sql/odbc/odbc_impl/exceptions.h"
 #include "arrow/flight/sql/odbc/odbc_impl/odbc_descriptor.h"
@@ -24,6 +27,7 @@
 #include "arrow/flight/sql/odbc/odbc_impl/odbc_statement.h"
 #include "arrow/flight/sql/odbc/odbc_impl/spi/connection.h"
 #include "arrow/flight/sql/odbc/odbc_impl/spi/statement.h"
+#include "arrow/flight/sql/odbc/odbc_impl/util.h"
 
 #include <odbcinst.h>
 #include <sql.h>
@@ -49,55 +53,7 @@ namespace {
 // characters such as semi-colons and equals signs. NOTE: This can be optimized to be
 // built statically.
 const boost::xpressive::sregex CONNECTION_STR_REGEX(
-    boost::xpressive::sregex::compile("([^=;]+)=({.+}|[^=;]+|[^;])"));
-
-// Load properties from the given DSN. The properties loaded do _not_ overwrite existing
-// entries in the properties.
-void loadPropertiesFromDSN(const std::string& dsn,
-                           Connection::ConnPropertyMap& properties) {
-  const size_t BUFFER_SIZE = 1024 * 10;
-  std::vector<char> outputBuffer;
-  outputBuffer.resize(BUFFER_SIZE, '\0');
-  SQLSetConfigMode(ODBC_BOTH_DSN);
-
-  SQLGetPrivateProfileString(dsn.c_str(), NULL, "", &outputBuffer[0], BUFFER_SIZE,
-                             "odbc.ini");
-
-  // The output buffer holds the list of keys in a series of NUL-terminated strings.
-  // The series is terminated with an empty string (eg a NUL-terminator terminating the
-  // last key followed by a NUL terminator after).
-  std::vector<std::string_view> keys;
-  size_t pos = 0;
-  while (pos < BUFFER_SIZE) {
-    std::string key(&outputBuffer[pos]);
-    if (key.empty()) {
-      break;
-    }
-    size_t len = key.size();
-
-    // Skip over Driver or DSN keys.
-    if (!boost::iequals(key, "DSN") && !boost::iequals(key, "Driver")) {
-      keys.emplace_back(std::move(key));
-    }
-    pos += len + 1;
-  }
-
-  for (auto& key : keys) {
-    outputBuffer.clear();
-    outputBuffer.resize(BUFFER_SIZE, '\0');
-
-    std::string key_str = std::string(key);
-    SQLGetPrivateProfileString(dsn.c_str(), key_str.c_str(), "", &outputBuffer[0],
-                               BUFFER_SIZE, "odbc.ini");
-
-    std::string value = std::string(&outputBuffer[0]);
-    auto propIter = properties.find(key);
-    if (propIter == properties.end()) {
-      properties.emplace(std::make_pair(std::move(key), std::move(value)));
-    }
-  }
-}
-
+    boost::xpressive::sregex::compile("([^=;]+)=({.+}|[^;]+|[^;])"));
 }  // namespace
 
 // Public
@@ -728,38 +684,42 @@ void ODBCConnection::DropDescriptor(ODBCDescriptor* desc) {
 
 // Public Static
 // ===================================================================================
-std::string ODBCConnection::GetPropertiesFromConnString(
+std::optional<std::string> ODBCConnection::GetDsnIfExists(const std::string& conn_str) {
+  const int groups[] = {1, 2};  // CONNECTION_STR_REGEX has two groups. key: 1, value: 2
+  boost::xpressive::sregex_token_iterator regex_iter(conn_str.begin(), conn_str.end(),
+                                                     CONNECTION_STR_REGEX, groups),
+      end;
+
+  // First key in connection string should be either dsn or driver
+  auto it = regex_iter;
+  std::string key = *regex_iter;
+  std::string value = *++regex_iter;
+
+  // Strip wrapping curly braces.
+  if (value.size() >= 2 && value[0] == '{' && value[value.size() - 1] == '}') {
+    value = value.substr(1, value.size() - 2);
+  }
+
+  if (boost::iequals(key, "DSN")) {
+    return value;
+  } else if (boost::iequals(key, "Driver")) {
+    return std::nullopt;
+  } else {
+    throw DriverException(
+        "Connection string is faulty. The first key should be DSN or Driver.", "HY000");
+  }
+}
+
+void ODBCConnection::GetPropertiesFromConnString(
     const std::string& conn_str, Connection::ConnPropertyMap& properties) {
   const int groups[] = {1, 2};  // CONNECTION_STR_REGEX has two groups. key: 1, value: 2
   boost::xpressive::sregex_token_iterator regex_iter(conn_str.begin(), conn_str.end(),
                                                      CONNECTION_STR_REGEX, groups),
       end;
 
-  bool is_dsn_first = false;
-  bool is_driver_first = false;
-  std::string dsn;
   for (auto it = regex_iter; end != regex_iter; ++regex_iter) {
     std::string key = *regex_iter;
     std::string value = *++regex_iter;
-
-    // If the DSN shows up before driver key, load settings from the DSN.
-    // Only load values from the DSN once regardless of how many times the DSN
-    // key shows up.
-    if (boost::iequals(key, "DSN")) {
-      if (!is_driver_first) {
-        if (!is_dsn_first) {
-          is_dsn_first = true;
-          loadPropertiesFromDSN(value, properties);
-          dsn.swap(value);
-        }
-      }
-      continue;
-    } else if (boost::iequals(key, "Driver")) {
-      if (!is_dsn_first) {
-        is_driver_first = true;
-      }
-      continue;
-    }
 
     // Strip wrapping curly braces.
     if (value.size() >= 2 && value[0] == '{' && value[value.size() - 1] == '}') {
@@ -770,5 +730,4 @@ std::string ODBCConnection::GetPropertiesFromConnString(
     // including over entries in the DSN.
     properties[key] = std::move(value);
   }
-  return dsn;
 }

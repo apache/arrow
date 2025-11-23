@@ -1984,6 +1984,7 @@ cdef shared_ptr[WriterProperties] _create_writer_properties(
         version=None,
         write_statistics=None,
         data_page_size=None,
+        max_rows_per_page=None,
         compression_level=None,
         use_byte_stream_split=False,
         column_encoding=None,
@@ -2128,6 +2129,9 @@ cdef shared_ptr[WriterProperties] _create_writer_properties(
     # size limits
     if data_page_size is not None:
         props.data_pagesize(data_page_size)
+
+    if max_rows_per_page is not None:
+        props.max_rows_per_page(max_rows_per_page)
 
     if write_batch_size is not None:
         props.write_batch_size(write_batch_size)
@@ -2300,6 +2304,7 @@ cdef class ParquetWriter(_Weakrefable):
                   use_deprecated_int96_timestamps=False,
                   coerce_timestamps=None,
                   data_page_size=None,
+                  max_rows_per_page=None,
                   allow_truncated_timestamps=False,
                   compression_level=None,
                   use_byte_stream_split=False,
@@ -2340,6 +2345,7 @@ cdef class ParquetWriter(_Weakrefable):
             version=version,
             write_statistics=write_statistics,
             data_page_size=data_page_size,
+            max_rows_per_page=max_rows_per_page,
             compression_level=compression_level,
             use_byte_stream_split=use_byte_stream_split,
             column_encoding=column_encoding,

@@ -64,7 +64,7 @@ class CustomWindow : public Window {
    * @param class_name Window class name.
    * @param title Window title.
    */
-  CustomWindow(Window* parent, const char* class_name, const char* title);
+  CustomWindow(Window* parent, const wchar_t* class_name, const wchar_t* title);
 
   /**
    * Destructor.

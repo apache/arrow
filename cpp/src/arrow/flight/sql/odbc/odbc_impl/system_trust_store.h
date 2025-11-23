@@ -17,13 +17,17 @@
 
 #pragma once
 
-#if defined _WIN32 || defined _WIN64
+#if defined _WIN32
 
 #  include <windows.h>
 
 #  include <wincrypt.h>
 
 #  include <bcrypt.h>
+
+// prsht.h needs to be included before cryptuiapi.h to avoid build conflict
+#  include <prsht.h>
+
 #  include <cryptuiapi.h>
 
 #  include <tchar.h>
@@ -37,12 +41,12 @@ namespace arrow::flight::sql::odbc {
 /// https://github.com/apache/drill/blob/master/contrib/native/client/src/clientlib/wincert.ipp.
 class SystemTrustStore {
  private:
-  const char* stores_;
+  const wchar_t* stores_;
   HCERTSTORE h_store_;
   PCCERT_CONTEXT p_context_;
 
  public:
-  explicit SystemTrustStore(const char* store);
+  explicit SystemTrustStore(const wchar_t* store);
 
   ~SystemTrustStore();
 

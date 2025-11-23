@@ -739,11 +739,13 @@ test_that("backreferences (substitutions) in string replacement", {
 
   compare_dplyr_binding(
     .input |>
-      transmute(desc = sub(
-        "(?:https?|ftp)://([^/\r\n]+)(/[^\r\n]*)?",
-        "path `\\2` on server `\\1`",
-        url
-      )) |>
+      transmute(
+        desc = sub(
+          "(?:https?|ftp)://([^/\r\n]+)(/[^\r\n]*)?",
+          "path `\\2` on server `\\1`",
+          url
+        )
+      ) |>
       collect(),
     tibble(url = "https://arrow.apache.org/docs/r/")
   )
@@ -816,30 +818,36 @@ test_that("arrow_find_substring and arrow_find_substring_regex", {
   expect_equal(
     df |>
       Table$create() |>
-      mutate(x = arrow_find_substring(
-        x,
-        options = list(pattern = "b", ignore_case = TRUE)
-      )) |>
+      mutate(
+        x = arrow_find_substring(
+          x,
+          options = list(pattern = "b", ignore_case = TRUE)
+        )
+      ) |>
       collect(),
     tibble(x = c(8, 0))
   )
   expect_equal(
     df |>
       Table$create() |>
-      mutate(x = arrow_find_substring_regex(
-        x,
-        options = list(pattern = "^[fb]")
-      )) |>
+      mutate(
+        x = arrow_find_substring_regex(
+          x,
+          options = list(pattern = "^[fb]")
+        )
+      ) |>
       collect(),
     tibble(x = c(-1, 0))
   )
   expect_equal(
     df |>
       Table$create() |>
-      mutate(x = arrow_find_substring_regex(
-        x,
-        options = list(pattern = "[AEIOU]", ignore_case = TRUE)
-      )) |>
+      mutate(
+        x = arrow_find_substring_regex(
+          x,
+          options = list(pattern = "[AEIOU]", ignore_case = TRUE)
+        )
+      ) |>
       collect(),
     tibble(x = c(1, 1))
   )
@@ -1351,9 +1359,7 @@ test_that("str_count", {
 
   compare_dplyr_binding(
     .input |>
-      mutate(p_count = str_count(cities,
-        pattern = regex("d", ignore_case = TRUE)
-      )) |>
+      mutate(p_count = str_count(cities, pattern = regex("d", ignore_case = TRUE))) |>
       collect(),
     df
   )

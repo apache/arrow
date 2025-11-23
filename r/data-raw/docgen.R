@@ -128,6 +128,17 @@ render_pkg <- function(df, pkg) {
   paste("#'", c(header, bullets), collapse = "\n")
 }
 
+# Load the current development version so we get the latest function mappings
+if (requireNamespace("devtools", quietly = TRUE)) {
+  devtools::load_all()
+} else {
+  warning(
+    "devtools is not installed. Using installed arrow package instead of current working code.\n",
+    "To generate accurate docs, install the current branch version of arrow first via `R CMD INSTALL .` ",
+    "or install devtools before running this script again."
+  )
+}
+
 docs <- arrow:::.cache$docs
 
 # Add some functions

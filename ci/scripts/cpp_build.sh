@@ -64,6 +64,7 @@ if [ "${ARROW_ENABLE_THREADING:-ON}" = "OFF" ]; then
   ARROW_AZURE=OFF
   ARROW_FLIGHT=OFF
   ARROW_FLIGHT_SQL=OFF
+  ARROW_FLIGHT_SQL_ODBC=OFF
   ARROW_GCS=OFF
   ARROW_JEMALLOC=OFF
   ARROW_MIMALLOC=OFF
@@ -145,7 +146,6 @@ if [ "${ARROW_USE_MESON:-OFF}" = "ON" ]; then
     --pkg-config-path="${CONDA_PREFIX}/lib/pkgconfig/" \
     -Dauto_features=enabled \
     -Dfuzzing=disabled \
-    -Dgcs=disabled \
     -Ds3=disabled \
     . \
     ${source_dir}
@@ -212,6 +212,7 @@ else
     -DARROW_FILESYSTEM=${ARROW_FILESYSTEM:-ON} \
     -DARROW_FLIGHT=${ARROW_FLIGHT:-OFF} \
     -DARROW_FLIGHT_SQL=${ARROW_FLIGHT_SQL:-OFF} \
+    -DARROW_FLIGHT_SQL_ODBC=${ARROW_FLIGHT_SQL_ODBC:-OFF} \
     -DARROW_FUZZING=${ARROW_FUZZING:-OFF} \
     -DARROW_GANDIVA_PC_CXX_FLAGS=${ARROW_GANDIVA_PC_CXX_FLAGS:-} \
     -DARROW_GANDIVA=${ARROW_GANDIVA:-OFF} \

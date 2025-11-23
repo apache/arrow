@@ -596,7 +596,7 @@ Libraries and header files for Apache Parquet C++.
 %{_libdir}/cmake/Parquet/
 %{_libdir}/libparquet.a
 %{_libdir}/libparquet.so
-%{_libdir}/pkgconfig/parquet*.pc
+%{_libdir}/pkgconfig/parquet.pc
 
 %package -n %{name}%{so_version}-glib-libs
 Summary:	Runtime libraries for Apache Arrow GLib
@@ -931,6 +931,9 @@ Documentation for Apache Parquet GLib.
 %endif
 
 %changelog
+* Mon Oct 20 2025 Raúl Cumplido <raulcumplido@gmail.com> - 22.0.0-1
+- New upstream release.
+
 * Fri Jul 11 2025 Bryce Mecum <petridish@gmail.com> - 21.0.0-1
 - New upstream release.
 

@@ -29,14 +29,14 @@ on:
       - '.github/workflows/archery.yml'
       - 'dev/archery/**'
       - 'dev/tasks/**'
-      - 'docker-compose.yml'
+      - 'compose.yaml'
   pull_request:
     paths:
       - '.dockerignore'
       - '.github/workflows/archery.yml'
       - 'dev/archery/**'
       - 'dev/tasks/**'
-      - 'docker-compose.yml'
+      - 'compose.yaml'
 
 env:
   ARCHERY_DEBUG: 1

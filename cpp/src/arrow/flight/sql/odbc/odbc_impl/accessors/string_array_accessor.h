@@ -41,7 +41,7 @@ class StringArrayFlightSqlAccessor
 
  private:
   std::vector<uint8_t> buffer_;
-#if defined _WIN32 || defined _WIN64
+#if defined _WIN32
   std::string clocale_str_;
 #endif
   int64_t last_arrow_row_;

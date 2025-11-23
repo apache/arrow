@@ -59,7 +59,7 @@ jobs:
       - name: Install MATLAB
         uses: matlab-actions/setup-matlab@v2
         with:
-          release: R2025a
+          release: R2025b
       - name: Install ccache
         run: sudo apt-get install ccache
       - name: Setup ccache
@@ -94,7 +94,7 @@ jobs:
       matrix:
         include:
           - architecture: AMD64
-            macos-version: "13"
+            macos-version: "15-intel"
           - architecture: ARM64
             macos-version: "14"
     steps:
@@ -107,7 +107,7 @@ jobs:
       - name: Install MATLAB
         uses: matlab-actions/setup-matlab@v2
         with:
-          release: R2025a
+          release: R2025b
       - name: Install ccache
         run: brew install ccache
       - name: Setup ccache
@@ -146,7 +146,7 @@ jobs:
       - name: Install MATLAB
         uses: matlab-actions/setup-matlab@v2
         with:
-          release: R2025a
+          release: R2025b
       - name: Download Timezone Database
         shell: bash
         run: ci/scripts/download_tz_database.sh

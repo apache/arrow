@@ -53,6 +53,7 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/compression.h"
 #include "arrow/util/endian.h"
+#include "arrow/util/fuzz_internal.h"
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging_internal.h"
 #include "arrow/util/parallel.h"
@@ -2618,6 +2619,12 @@ Status ValidateFuzzBatch(const RecordBatch& batch) {
   return st;
 }
 
+IpcReadOptions FuzzingOptions() {
+  IpcReadOptions options;
+  options.memory_pool = ::arrow::internal::fuzzing_memory_pool();
+  return options;
+}
+
 }  // namespace
 
 Status FuzzIpcStream(const uint8_t* data, int64_t size) {
@@ -2625,7 +2632,8 @@ Status FuzzIpcStream(const uint8_t* data, int64_t size) {
   io::BufferReader buffer_reader(buffer);
 
   std::shared_ptr<RecordBatchReader> batch_reader;
-  ARROW_ASSIGN_OR_RAISE(batch_reader, RecordBatchStreamReader::Open(&buffer_reader));
+  ARROW_ASSIGN_OR_RAISE(batch_reader,
+                        RecordBatchStreamReader::Open(&buffer_reader, FuzzingOptions()));
   Status st;
 
   while (true) {
@@ -2645,7 +2653,8 @@ Status FuzzIpcFile(const uint8_t* data, int64_t size) {
   io::BufferReader buffer_reader(buffer);
 
   std::shared_ptr<RecordBatchFileReader> batch_reader;
-  ARROW_ASSIGN_OR_RAISE(batch_reader, RecordBatchFileReader::Open(&buffer_reader));
+  ARROW_ASSIGN_OR_RAISE(batch_reader,
+                        RecordBatchFileReader::Open(&buffer_reader, FuzzingOptions()));
   Status st;
 
   const int n_batches = batch_reader->num_record_batches();

@@ -1118,6 +1118,11 @@ function(build_boost)
     # This is for https://github.com/boostorg/container/issues/305
     string(APPEND CMAKE_C_FLAGS " -Wno-strict-prototypes")
   endif()
+  if(MSVC AND "${CMAKE_SYSTEM_PROCESSOR}" STREQUAL "ARM64")
+    set(BOOST_CONTEXT_IMPLEMENTATION
+        winfib
+        CACHE STRING "" FORCE)
+  endif()
   set(CMAKE_UNITY_BUILD OFF)
 
   fetchcontent_makeavailable(boost)
@@ -1186,10 +1191,9 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang" AND CMAKE_CXX_COMPILER_VERSION VERSION
   # GH-34094 Older versions of Boost use the deprecated std::unary_function in
   # boost/container_hash/hash.hpp and support for that was removed in clang 16
   set(ARROW_BOOST_REQUIRED_VERSION "1.81")
-elseif(ARROW_BUILD_TESTS)
-  set(ARROW_BOOST_REQUIRED_VERSION "1.64")
 else()
-  set(ARROW_BOOST_REQUIRED_VERSION "1.58")
+  # CentOS 7 uses Boost 1.69.
+  set(ARROW_BOOST_REQUIRED_VERSION "1.69")
 endif()
 
 set(Boost_USE_MULTITHREADED ON)
@@ -1197,7 +1201,14 @@ if(MSVC AND ARROW_USE_STATIC_CRT)
   set(Boost_USE_STATIC_RUNTIME ON)
 endif()
 # CMake 3.25.0 has 1.80 and older versions.
+#
+# We can remove this once we require CMake 3.30.0 or later because we
+# enable CMP0167 "The FindBoost module is removed."
+# https://cmake.org/cmake/help/latest/policy/CMP0167.html with CMake
+# 3.30.0 or later.
 set(Boost_ADDITIONAL_VERSIONS
+    "1.89.0"
+    "1.89"
     "1.88.0"
     "1.88"
     "1.87.0"
@@ -1268,8 +1279,8 @@ if(ARROW_USE_BOOST)
     set(Boost_USE_STATIC_LIBS ON)
   endif()
   if(ARROW_BOOST_REQUIRE_LIBRARY)
-    set(ARROW_BOOST_COMPONENTS filesystem system)
-    if(ARROW_FLIGHT_SQL_ODBC AND MSVC)
+    set(ARROW_BOOST_COMPONENTS filesystem)
+    if(ARROW_FLIGHT_SQL_ODBC)
       list(APPEND ARROW_BOOST_COMPONENTS locale)
     endif()
     if(ARROW_ENABLE_THREADING)
@@ -1321,9 +1332,6 @@ if(ARROW_USE_BOOST)
       add_library(arrow::Boost::process INTERFACE IMPORTED)
       if(TARGET Boost::filesystem)
         target_link_libraries(arrow::Boost::process INTERFACE Boost::filesystem)
-      endif()
-      if(TARGET Boost::system)
-        target_link_libraries(arrow::Boost::process INTERFACE Boost::system)
       endif()
       if(TARGET Boost::headers)
         target_link_libraries(arrow::Boost::process INTERFACE Boost::headers)
@@ -2791,37 +2799,66 @@ if(ARROW_WITH_ZSTD)
 endif()
 
 # ----------------------------------------------------------------------
-# RE2 (required for Gandiva)
+# RE2 (required for Gandiva and gRPC)
 
-macro(build_re2)
-  message(STATUS "Building RE2 from source")
-  set(RE2_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/re2_ep-install")
-  set(RE2_STATIC_LIB
-      "${RE2_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}re2${CMAKE_STATIC_LIBRARY_SUFFIX}")
+function(build_re2)
+  list(APPEND CMAKE_MESSAGE_INDENT "RE2: ")
+  message(STATUS "Building RE2 from source using FetchContent")
+  set(RE2_VENDORED
+      TRUE
+      PARENT_SCOPE)
+  set(RE2_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/re2_fc-install")
+  set(RE2_PREFIX
+      "${RE2_PREFIX}"
+      PARENT_SCOPE)
 
-  set(RE2_CMAKE_ARGS ${EP_COMMON_CMAKE_ARGS} "-DCMAKE_INSTALL_PREFIX=${RE2_PREFIX}")
+  fetchcontent_declare(re2
+                       URL ${RE2_SOURCE_URL}
+                       URL_HASH "SHA256=${ARROW_RE2_BUILD_SHA256_CHECKSUM}")
+  prepare_fetchcontent()
 
-  externalproject_add(re2_ep
-                      ${EP_COMMON_OPTIONS}
-                      INSTALL_DIR ${RE2_PREFIX}
-                      URL ${RE2_SOURCE_URL}
-                      URL_HASH "SHA256=${ARROW_RE2_BUILD_SHA256_CHECKSUM}"
-                      CMAKE_ARGS ${RE2_CMAKE_ARGS}
-                      BUILD_BYPRODUCTS "${RE2_STATIC_LIB}")
+  # Unity build causes some build errors
+  set(CMAKE_UNITY_BUILD OFF)
+  fetchcontent_makeavailable(re2)
 
-  file(MAKE_DIRECTORY "${RE2_PREFIX}/include")
-  add_library(re2::re2 STATIC IMPORTED)
-  set_target_properties(re2::re2 PROPERTIES IMPORTED_LOCATION "${RE2_STATIC_LIB}")
-  target_include_directories(re2::re2 BEFORE INTERFACE "${RE2_PREFIX}/include")
+  # This custom target ensures re2 is built before we install
+  add_custom_target(re2_built DEPENDS re2::re2)
 
-  add_dependencies(re2::re2 re2_ep)
-  set(RE2_VENDORED TRUE)
-  # Set values so that FindRE2 finds this too
-  set(RE2_LIB ${RE2_STATIC_LIB})
-  set(RE2_INCLUDE_DIR "${RE2_PREFIX}/include")
+  add_custom_command(OUTPUT "${re2_BINARY_DIR}/cmake_install.cmake.saved"
+                     COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                             "${re2_BINARY_DIR}/cmake_install.cmake"
+                             "${re2_BINARY_DIR}/cmake_install.cmake.saved"
+                     COMMAND ${CMAKE_COMMAND} -E echo
+                             "# RE2 install disabled to prevent double installation with Arrow"
+                             > "${re2_BINARY_DIR}/cmake_install.cmake"
+                     DEPENDS re2_built
+                     COMMENT "Disabling RE2 install to prevent double installation"
+                     VERBATIM)
 
-  list(APPEND ARROW_BUNDLED_STATIC_LIBS re2::re2)
-endmacro()
+  add_custom_target(re2_install_disabled ALL
+                    DEPENDS "${re2_BINARY_DIR}/cmake_install.cmake.saved")
+
+  # Install RE2 to RE2_PREFIX for gRPC to find
+  add_custom_command(OUTPUT "${RE2_PREFIX}/.re2_installed"
+                     COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                             "${re2_BINARY_DIR}/cmake_install.cmake.saved"
+                             "${re2_BINARY_DIR}/cmake_install.cmake.tmp"
+                     COMMAND ${CMAKE_COMMAND} -DCMAKE_INSTALL_PREFIX=${RE2_PREFIX}
+                             -DCMAKE_INSTALL_CONFIG_NAME=$<CONFIG> -P
+                             "${re2_BINARY_DIR}/cmake_install.cmake.tmp" ||
+                             ${CMAKE_COMMAND} -E true
+                     COMMAND ${CMAKE_COMMAND} -E touch "${RE2_PREFIX}/.re2_installed"
+                     DEPENDS re2_install_disabled
+                     COMMENT "Installing RE2 to ${RE2_PREFIX} for gRPC"
+                     VERBATIM)
+
+  add_custom_target(re2_fc DEPENDS "${RE2_PREFIX}/.re2_installed")
+
+  set(ARROW_BUNDLED_STATIC_LIBS
+      ${ARROW_BUNDLED_STATIC_LIBS} re2::re2
+      PARENT_SCOPE)
+  list(POP_BACK CMAKE_MESSAGE_INDENT)
+endfunction()
 
 if(ARROW_WITH_RE2)
   resolve_dependency(re2
@@ -2942,33 +2979,67 @@ if(ARROW_WITH_UTF8PROC)
   resolve_dependency(${utf8proc_resolve_dependency_args})
 endif()
 
-macro(build_cares)
-  message(STATUS "Building c-ares from source")
-  set(CARES_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/cares_ep-install")
-  set(CARES_INCLUDE_DIR "${CARES_PREFIX}/include")
+function(build_cares)
+  list(APPEND CMAKE_MESSAGE_INDENT "c-ares: ")
+  message(STATUS "Building c-ares from source using FetchContent")
+  set(CARES_VENDORED
+      TRUE
+      PARENT_SCOPE)
+  set(CARES_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/cares_fc-install")
+  set(CARES_PREFIX
+      "${CARES_PREFIX}"
+      PARENT_SCOPE)
 
-  # If you set -DCARES_SHARED=ON then the build system names the library
-  # libcares_static.a
-  set(CARES_STATIC_LIB
-      "${CARES_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}cares${CMAKE_STATIC_LIBRARY_SUFFIX}"
-  )
+  fetchcontent_declare(cares
+                       URL ${CARES_SOURCE_URL}
+                       URL_HASH "SHA256=${ARROW_CARES_BUILD_SHA256_CHECKSUM}")
 
-  set(CARES_CMAKE_ARGS "${EP_COMMON_CMAKE_ARGS}" "-DCMAKE_INSTALL_PREFIX=${CARES_PREFIX}"
-                       -DCARES_SHARED=OFF -DCARES_STATIC=ON)
+  prepare_fetchcontent()
 
-  externalproject_add(cares_ep
-                      ${EP_COMMON_OPTIONS}
-                      URL ${CARES_SOURCE_URL}
-                      URL_HASH "SHA256=${ARROW_CARES_BUILD_SHA256_CHECKSUM}"
-                      CMAKE_ARGS ${CARES_CMAKE_ARGS}
-                      BUILD_BYPRODUCTS "${CARES_STATIC_LIB}")
+  set(CARES_SHARED OFF)
+  set(CARES_STATIC ON)
+  set(CARES_INSTALL ON)
+  set(CARES_BUILD_TOOLS OFF)
+  set(CARES_BUILD_TESTS OFF)
+  fetchcontent_makeavailable(cares)
 
-  file(MAKE_DIRECTORY ${CARES_INCLUDE_DIR})
+  # gRPC requires c-ares to be installed to a known location.
+  # We have to do this in two steps to avoid double installation of c-ares
+  # when Arrow is installed.
+  # This custom target ensures c-ares is built before we install
+  add_custom_target(cares_built DEPENDS c-ares::cares)
 
-  add_library(c-ares::cares STATIC IMPORTED)
-  set_target_properties(c-ares::cares PROPERTIES IMPORTED_LOCATION "${CARES_STATIC_LIB}")
-  target_include_directories(c-ares::cares BEFORE INTERFACE "${CARES_INCLUDE_DIR}")
-  add_dependencies(c-ares::cares cares_ep)
+  # Disable c-ares's install script after it's built to prevent double installation
+  add_custom_command(OUTPUT "${cares_BINARY_DIR}/cmake_install.cmake.saved"
+                     COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                             "${cares_BINARY_DIR}/cmake_install.cmake"
+                             "${cares_BINARY_DIR}/cmake_install.cmake.saved"
+                     COMMAND ${CMAKE_COMMAND} -E echo
+                             "# c-ares install disabled to prevent double installation with Arrow"
+                             > "${cares_BINARY_DIR}/cmake_install.cmake"
+                     DEPENDS cares_built
+                     COMMENT "Disabling c-ares install to prevent double installation"
+                     VERBATIM)
+
+  add_custom_target(cares_install_disabled ALL
+                    DEPENDS "${cares_BINARY_DIR}/cmake_install.cmake.saved")
+
+  # Install c-ares to CARES_PREFIX for gRPC to find
+  add_custom_command(OUTPUT "${CARES_PREFIX}/.cares_installed"
+                     COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                             "${cares_BINARY_DIR}/cmake_install.cmake.saved"
+                             "${cares_BINARY_DIR}/cmake_install.cmake.tmp"
+                     COMMAND ${CMAKE_COMMAND} -DCMAKE_INSTALL_PREFIX=${CARES_PREFIX}
+                             -DCMAKE_INSTALL_CONFIG_NAME=$<CONFIG> -P
+                             "${cares_BINARY_DIR}/cmake_install.cmake.tmp" ||
+                             ${CMAKE_COMMAND} -E true
+                     COMMAND ${CMAKE_COMMAND} -E touch "${CARES_PREFIX}/.cares_installed"
+                     DEPENDS cares_install_disabled
+                     COMMENT "Installing c-ares to ${CARES_PREFIX} for gRPC"
+                     VERBATIM)
+
+  # Make cares_fc depend on the install completion marker
+  add_custom_target(cares_fc DEPENDS "${CARES_PREFIX}/.cares_installed")
 
   if(APPLE)
     # libresolv must be linked from c-ares version 1.16.1
@@ -2977,951 +3048,166 @@ macro(build_cares)
                                                    "${LIBRESOLV_LIBRARY}")
   endif()
 
-  set(CARES_VENDORED TRUE)
-
-  list(APPEND ARROW_BUNDLED_STATIC_LIBS c-ares::cares)
-endmacro()
+  set(ARROW_BUNDLED_STATIC_LIBS
+      ${ARROW_BUNDLED_STATIC_LIBS} c-ares::cares
+      PARENT_SCOPE)
+  list(POP_BACK CMAKE_MESSAGE_INDENT)
+endfunction()
 
 # ----------------------------------------------------------------------
 # Dependencies for Arrow Flight RPC
 
-macro(build_absl)
-  message(STATUS "Building Abseil-cpp from source")
-  set(absl_FOUND TRUE)
-  set(absl_VERSION ${ARROW_ABSL_BUILD_VERSION})
-  set(ABSL_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/absl_ep-install")
-  set(ABSL_INCLUDE_DIR "${ABSL_PREFIX}/include")
-  set(ABSL_CMAKE_ARGS "${EP_COMMON_CMAKE_ARGS}" -DABSL_RUN_TESTS=OFF
-                      "-DCMAKE_INSTALL_PREFIX=${ABSL_PREFIX}")
+function(build_absl)
+  list(APPEND CMAKE_MESSAGE_INDENT "ABSL: ")
+  message(STATUS "Building Abseil from source using FetchContent")
+  set(ABSL_VENDORED
+      TRUE
+      PARENT_SCOPE)
+  set(ABSL_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/absl_fc-install")
+  set(ABSL_PREFIX
+      "${ABSL_PREFIX}"
+      PARENT_SCOPE)
+
   if(CMAKE_COMPILER_IS_GNUCC AND CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL 13.0)
-    set(ABSL_CXX_FLAGS "${EP_CXX_FLAGS} -include stdint.h")
-    list(APPEND ABSL_CMAKE_ARGS "-DCMAKE_CXX_FLAGS=${ABSL_CXX_FLAGS}")
+    string(APPEND CMAKE_CXX_FLAGS " -include stdint.h")
   endif()
-  set(ABSL_BUILD_BYPRODUCTS)
-  set(ABSL_LIBRARIES)
 
-  # Abseil produces the following libraries, each is fairly small, but there
-  # are (as you can see), many of them. We need to add the libraries first,
-  # and then describe how they depend on each other. The list can be
-  # refreshed using:
-  #   ls -1 $PREFIX/lib/libabsl_*.a | sed -e 's/.*libabsl_//' -e 's/.a$//'
-  set(_ABSL_LIBS
-      bad_any_cast_impl
-      bad_optional_access
-      bad_variant_access
-      base
-      city
-      civil_time
-      cord
-      cord_internal
-      cordz_functions
-      cordz_handle
-      cordz_info
-      cordz_sample_token
-      debugging_internal
-      demangle_internal
-      examine_stack
-      exponential_biased
-      failure_signal_handler
-      flags
-      flags_commandlineflag
-      flags_commandlineflag_internal
-      flags_config
-      flags_internal
-      flags_marshalling
-      flags_parse
-      flags_private_handle_accessor
-      flags_program_name
-      flags_reflection
-      flags_usage
-      flags_usage_internal
-      graphcycles_internal
-      hash
-      hashtablez_sampler
-      int128
-      leak_check
-      leak_check_disable
-      log_severity
-      low_level_hash
-      malloc_internal
-      periodic_sampler
-      random_distributions
-      random_internal_distribution_test_util
-      random_internal_platform
-      random_internal_pool_urbg
-      random_internal_randen
-      random_internal_randen_hwaes
-      random_internal_randen_hwaes_impl
-      random_internal_randen_slow
-      random_internal_seed_material
-      random_seed_gen_exception
-      random_seed_sequences
-      raw_hash_set
-      raw_logging_internal
-      scoped_set_env
-      spinlock_wait
-      stacktrace
-      status
-      statusor
-      str_format_internal
-      strerror
-      strings
-      strings_internal
-      symbolize
-      synchronization
-      throw_delegate
-      time
-      time_zone
-      wyhash)
-  # Abseil creates a number of header-only targets, which are needed to resolve dependencies.
-  # The list can be refreshed using:
-  #   comm -13 <(ls -l $PREFIX/lib/libabsl_*.a | sed -e 's/.*libabsl_//' -e 's/.a$//' | sort -u) \
-  #            <(ls -1 $PREFIX/lib/pkgconfig/absl_*.pc | sed -e 's/.*absl_//' -e 's/.pc$//' | sort -u)
-  set(_ABSL_INTERFACE_LIBS
-      algorithm
-      algorithm_container
-      any
-      atomic_hook
-      bad_any_cast
-      base_internal
-      bind_front
-      bits
-      btree
-      cleanup
-      cleanup_internal
-      compare
-      compressed_tuple
-      config
-      container_common
-      container_memory
-      cordz_statistics
-      cordz_update_scope
-      cordz_update_tracker
-      core_headers
-      counting_allocator
-      debugging
-      dynamic_annotations
-      endian
-      errno_saver
-      fast_type_id
-      fixed_array
-      flags_path_util
-      flat_hash_map
-      flat_hash_set
-      function_ref
-      hash_function_defaults
-      hash_policy_traits
-      hashtable_debug
-      hashtable_debug_hooks
-      have_sse
-      inlined_vector
-      inlined_vector_internal
-      kernel_timeout_internal
-      layout
-      memory
-      meta
-      node_hash_map
-      node_hash_policy
-      node_hash_set
-      numeric
-      numeric_representation
-      optional
-      pretty_function
-      random_bit_gen_ref
-      random_internal_distribution_caller
-      random_internal_fast_uniform_bits
-      random_internal_fastmath
-      random_internal_generate_real
-      random_internal_iostream_state_saver
-      random_internal_mock_helpers
-      random_internal_nonsecure_base
-      random_internal_pcg_engine
-      random_internal_randen_engine
-      random_internal_salted_seed_seq
-      random_internal_traits
-      random_internal_uniform_helper
-      random_internal_wide_multiply
-      random_random
-      raw_hash_map
-      sample_recorder
-      span
-      str_format
-      type_traits
-      utility
-      variant)
+  fetchcontent_declare(absl
+                       URL ${ABSL_SOURCE_URL}
+                       URL_HASH "SHA256=${ARROW_ABSL_BUILD_SHA256_CHECKSUM}")
 
-  foreach(_ABSL_LIB ${_ABSL_LIBS})
-    set(_ABSL_STATIC_LIBRARY
-        "${ABSL_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}absl_${_ABSL_LIB}${CMAKE_STATIC_LIBRARY_SUFFIX}"
-    )
-    add_library(absl::${_ABSL_LIB} STATIC IMPORTED)
-    set_target_properties(absl::${_ABSL_LIB} PROPERTIES IMPORTED_LOCATION
-                                                        ${_ABSL_STATIC_LIBRARY})
-    target_include_directories(absl::${_ABSL_LIB} BEFORE INTERFACE "${ABSL_INCLUDE_DIR}")
-    list(APPEND ABSL_BUILD_BYPRODUCTS ${_ABSL_STATIC_LIBRARY})
-  endforeach()
-  foreach(_ABSL_LIB ${_ABSL_INTERFACE_LIBS})
-    add_library(absl::${_ABSL_LIB} INTERFACE IMPORTED)
-    target_include_directories(absl::${_ABSL_LIB} BEFORE INTERFACE "${ABSL_INCLUDE_DIR}")
-  endforeach()
+  prepare_fetchcontent()
 
-  # Extracted the dependency information using the Abseil pkg-config files:
-  #   grep Requires $PREFIX/lib/pkgconfig/absl_*.pc | \
-  #   sed -e 's;.*/absl_;set_property(TARGET absl::;' \
-  #       -e 's/.pc:Requires:/ PROPERTY INTERFACE_LINK_LIBRARIES /' \
-  #       -E -e 's/ = 20[0-9]{6},?//g' \
-  #       -e 's/absl_/absl::/g' \
-  #       -e 's/$/)/'  | \
-  #   grep -v 'INTERFACE_LINK_LIBRARIES[ ]*)'
-  set_property(TARGET absl::algorithm PROPERTY INTERFACE_LINK_LIBRARIES absl::config)
-  set_property(TARGET absl::algorithm_container
-               PROPERTY INTERFACE_LINK_LIBRARIES absl::algorithm absl::core_headers
-                        absl::meta)
-  set_property(TARGET absl::any
-               PROPERTY INTERFACE_LINK_LIBRARIES
-                        absl::bad_any_cast
-                        absl::config
-                        absl::core_headers
-                        absl::fast_type_id
-                        absl::type_traits
-                        absl::utility)
-  set_property(TARGET absl::atomic_hook PROPERTY INTERFACE_LINK_LIBRARIES absl::config
-                                                 absl::core_headers)
-  set_property(TARGET absl::bad_any_cast PROPERTY INTERFACE_LINK_LIBRARIES
-                                                  absl::bad_any_cast_impl absl::config)
-  set_property(TARGET absl::bad_any_cast_impl
-               PROPERTY INTERFACE_LINK_LIBRARIES absl::config absl::raw_logging_internal)
-  set_property(TARGET absl::bad_optional_access
-               PROPERTY INTERFACE_LINK_LIBRARIES absl::config absl::raw_logging_internal)
-  set_property(TARGET absl::bad_variant_access
-               PROPERTY INTERFACE_LINK_LIBRARIES absl::config absl::raw_logging_internal)
-  set_property(TARGET absl::base
-               PROPERTY INTERFACE_LINK_LIBRARIES
-                        absl::atomic_hook
-                        absl::base_internal
-                        absl::config
-                        absl::core_headers
-                        absl::dynamic_annotations
-                        absl::log_severity
-                        absl::raw_logging_internal
-                        absl::spinlock_wait
-                        absl::type_traits)
-  set_property(TARGET absl::base_internal PROPERTY INTERFACE_LINK_LIBRARIES absl::config
-                                                   absl::type_traits)
-  set_property(TARGET absl::bind_front
-               PROPERTY INTERFACE_LINK_LIBRARIES absl::base_internal
-                        absl::compressed_tuple)
-  set_property(TARGET absl::bits PROPERTY INTERFACE_LINK_LIBRARIES absl::core_headers)
-  set_property(TARGET absl::btree
-               PROPERTY INTERFACE_LINK_LIBRARIES
-                        absl::container_common
-                        absl::compare
-                        absl::compressed_tuple
-                        absl::container_memory
-                        absl::cord
-                        absl::core_headers
-                        absl::layout
-                        absl::memory
-                        absl::strings
-                        absl::throw_delegate
-                        absl::type_traits
-                        absl::utility)
-  set_property(TARGET absl::city PROPERTY INTERFACE_LINK_LIBRARIES absl::config
-                                          absl::core_headers absl::endian)
-  set_property(TARGET absl::cleanup
-               PROPERTY INTERFACE_LINK_LIBRARIES absl::cleanup_internal absl::config
-                        absl::core_headers)
-  set_property(TARGET absl::cleanup_internal
-               PROPERTY INTERFACE_LINK_LIBRARIES absl::base_internal absl::core_headers
-                        absl::utility)
-  set_property(TARGET absl::compare PROPERTY INTERFACE_LINK_LIBRARIES absl::core_headers
-                                             absl::type_traits)
-  set_property(TARGET absl::compressed_tuple PROPERTY INTERFACE_LINK_LIBRARIES
-                                                      absl::utility)
-  set_property(TARGET absl::container_common PROPERTY INTERFACE_LINK_LIBRARIES
-                                                      absl::type_traits)
-  set_property(TARGET absl::container_memory
-               PROPERTY INTERFACE_LINK_LIBRARIES
-                        absl::config
-                        absl::memory
-                        absl::type_traits
-                        absl::utility)
-  set_property(TARGET absl::cord
-               PROPERTY INTERFACE_LINK_LIBRARIES
-                        absl::base
-                        absl::config
-                        absl::cord_internal
-                        absl::cordz_functions
-                        absl::cordz_info
-                        absl::cordz_update_scope
-                        absl::cordz_update_tracker
-                        absl::core_headers
-                        absl::endian
-                        absl::fixed_array
-                        absl::function_ref
-                        absl::inlined_vector
-                        absl::optional
-                        absl::raw_logging_internal
-                        absl::strings
-                        absl::type_traits)
-  set_property(TARGET absl::cord_internal
-               PROPERTY INTERFACE_LINK_LIBRARIES
-                        absl::base_internal
-                        absl::compressed_tuple
-                        absl::config
-                        absl::core_headers
-                        absl::endian
-                        absl::inlined_vector
-                        absl::layout
-                        absl::raw_logging_internal
-                        absl::strings
-                        absl::throw_delegate
-                        absl::type_traits)
-  set_property(TARGET absl::cordz_functions
-               PROPERTY INTERFACE_LINK_LIBRARIES
-                        absl::config
-                        absl::core_headers
-                        absl::exponential_biased
-                        absl::raw_logging_internal)
-  set_property(TARGET absl::cordz_handle
-               PROPERTY INTERFACE_LINK_LIBRARIES
-                        absl::base
-                        absl::config
-                        absl::raw_logging_internal
-                        absl::synchronization)
-  set_property(TARGET absl::cordz_info
-               PROPERTY INTERFACE_LINK_LIBRARIES
-                        absl::base
-                        absl::config
-                        absl::cord_internal
-                        absl::cordz_functions
-                        absl::cordz_handle
-                        absl::cordz_statistics
-                        absl::cordz_update_tracker
-                        absl::core_headers
-                        absl::inlined_vector
-                        absl::span
-                        absl::raw_logging_internal
-                        absl::stacktrace
-                        absl::synchronization)
-  set_property(TARGET absl::cordz_sample_token
-               PROPERTY INTERFACE_LINK_LIBRARIES absl::config absl::cordz_handle
-                        absl::cordz_info)
-  set_property(TARGET absl::cordz_statistics
-               PROPERTY INTERFACE_LINK_LIBRARIES
-                        absl::config
-                        absl::core_headers
-                        absl::cordz_update_tracker
-                        absl::synchronization)
-  set_property(TARGET absl::cordz_update_scope
-               PROPERTY INTERFACE_LINK_LIBRARIES
-                        absl::config
-                        absl::cord_internal
-                        absl::cordz_info
-                        absl::cordz_update_tracker
-                        absl::core_headers)
-  set_property(TARGET absl::cordz_update_tracker PROPERTY INTERFACE_LINK_LIBRARIES
-                                                          absl::config)
-  set_property(TARGET absl::core_headers PROPERTY INTERFACE_LINK_LIBRARIES absl::config)
-  set_property(TARGET absl::counting_allocator PROPERTY INTERFACE_LINK_LIBRARIES
-                                                        absl::config)
-  set_property(TARGET absl::debugging PROPERTY INTERFACE_LINK_LIBRARIES absl::stacktrace
-                                               absl::leak_check)
-  set_property(TARGET absl::debugging_internal
-               PROPERTY INTERFACE_LINK_LIBRARIES
-                        absl::core_headers
-                        absl::config
-                        absl::dynamic_annotations
-                        absl::errno_saver
-                        absl::raw_logging_internal)
-  set_property(TARGET absl::demangle_internal PROPERTY INTERFACE_LINK_LIBRARIES
-                                                       absl::base absl::core_headers)
-  set_property(TARGET absl::dynamic_annotations PROPERTY INTERFACE_LINK_LIBRARIES
-                                                         absl::config)
-  set_property(TARGET absl::endian PROPERTY INTERFACE_LINK_LIBRARIES absl::base
-                                            absl::config absl::core_headers)
-  set_property(TARGET absl::errno_saver PROPERTY INTERFACE_LINK_LIBRARIES absl::config)
-  set_property(TARGET absl::examine_stack
-               PROPERTY INTERFACE_LINK_LIBRARIES
-                        absl::stacktrace
-                        absl::symbolize
-                        absl::config
-                        absl::core_headers
-                        absl::raw_logging_internal)
-  set_property(TARGET absl::exponential_biased PROPERTY INTERFACE_LINK_LIBRARIES
-                                                        absl::config absl::core_headers)
-  set_property(TARGET absl::failure_signal_handler
-               PROPERTY INTERFACE_LINK_LIBRARIES
-                        absl::examine_stack
-                        absl::stacktrace
-                        absl::base
-                        absl::config
-                        absl::core_headers
-                        absl::errno_saver
-                        absl::raw_logging_internal)
-  set_property(TARGET absl::fast_type_id PROPERTY INTERFACE_LINK_LIBRARIES absl::config)
-  set_property(TARGET absl::fixed_array
-               PROPERTY INTERFACE_LINK_LIBRARIES
-                        absl::compressed_tuple
-                        absl::algorithm
-                        absl::config
-                        absl::core_headers
-                        absl::dynamic_annotations
-                        absl::throw_delegate
-                        absl::memory)
-  set_property(TARGET absl::flags
-               PROPERTY INTERFACE_LINK_LIBRARIES
-                        absl::config
-                        absl::flags_commandlineflag
-                        absl::flags_config
-                        absl::flags_internal
-                        absl::flags_reflection
-                        absl::base
-                        absl::core_headers
-                        absl::strings)
-  set_property(TARGET absl::flags_commandlineflag
-               PROPERTY INTERFACE_LINK_LIBRARIES
-                        absl::config
-                        absl::fast_type_id
-                        absl::flags_commandlineflag_internal
-                        absl::optional
-                        absl::strings)
-  set_property(TARGET absl::flags_commandlineflag_internal
-               PROPERTY INTERFACE_LINK_LIBRARIES absl::config absl::fast_type_id)
-  set_property(TARGET absl::flags_config
-               PROPERTY INTERFACE_LINK_LIBRARIES
-                        absl::config
-                        absl::flags_path_util
-                        absl::flags_program_name
-                        absl::core_headers
-                        absl::strings
-                        absl::synchronization)
-  set_property(TARGET absl::flags_internal
-               PROPERTY INTERFACE_LINK_LIBRARIES
-                        absl::base
-                        absl::config
-                        absl::flags_commandlineflag
-                        absl::flags_commandlineflag_internal
-                        absl::flags_config
-                        absl::flags_marshalling
-                        absl::synchronization
-                        absl::meta
-                        absl::utility)
-  set_property(TARGET absl::flags_marshalling
-               PROPERTY INTERFACE_LINK_LIBRARIES
-                        absl::config
-                        absl::core_headers
-                        absl::log_severity
-                        absl::strings
-                        absl::str_format)
-  set_property(TARGET absl::flags_parse
-               PROPERTY INTERFACE_LINK_LIBRARIES
-                        absl::config
-                        absl::core_headers
-                        absl::flags_config
-                        absl::flags
-                        absl::flags_commandlineflag
-                        absl::flags_commandlineflag_internal
-                        absl::flags_internal
-                        absl::flags_private_handle_accessor
-                        absl::flags_program_name
-                        absl::flags_reflection
-                        absl::flags_usage
-                        absl::strings
-                        absl::synchronization)
-  set_property(TARGET absl::flags_path_util PROPERTY INTERFACE_LINK_LIBRARIES
-                                                     absl::config absl::strings)
-  set_property(TARGET absl::flags_private_handle_accessor
-               PROPERTY INTERFACE_LINK_LIBRARIES
-                        absl::config
-                        absl::flags_commandlineflag
-                        absl::flags_commandlineflag_internal
-                        absl::strings)
-  set_property(TARGET absl::flags_program_name
-               PROPERTY INTERFACE_LINK_LIBRARIES
-                        absl::config
-                        absl::core_headers
-                        absl::flags_path_util
-                        absl::strings
-                        absl::synchronization)
-  set_property(TARGET absl::flags_reflection
-               PROPERTY INTERFACE_LINK_LIBRARIES
-                        absl::config
-                        absl::flags_commandlineflag
-                        absl::flags_private_handle_accessor
-                        absl::flags_config
-                        absl::strings
-                        absl::synchronization
-                        absl::flat_hash_map)
-  set_property(TARGET absl::flags_usage
-               PROPERTY INTERFACE_LINK_LIBRARIES
-                        absl::config
-                        absl::core_headers
-                        absl::flags_usage_internal
-                        absl::strings
-                        absl::synchronization)
-  set_property(TARGET absl::flags_usage_internal
-               PROPERTY INTERFACE_LINK_LIBRARIES
-                        absl::config
-                        absl::flags_config
-                        absl::flags
-                        absl::flags_commandlineflag
-                        absl::flags_internal
-                        absl::flags_path_util
-                        absl::flags_private_handle_accessor
-                        absl::flags_program_name
-                        absl::flags_reflection
-                        absl::flat_hash_map
-                        absl::strings
-                        absl::synchronization)
-  set_property(TARGET absl::flat_hash_map
-               PROPERTY INTERFACE_LINK_LIBRARIES
-                        absl::container_memory
-                        absl::hash_function_defaults
-                        absl::raw_hash_map
-                        absl::algorithm_container
-                        absl::memory)
-  set_property(TARGET absl::flat_hash_set
-               PROPERTY INTERFACE_LINK_LIBRARIES
-                        absl::container_memory
-                        absl::hash_function_defaults
-                        absl::raw_hash_set
-                        absl::algorithm_container
-                        absl::core_headers
-                        absl::memory)
-  set_property(TARGET absl::function_ref
-               PROPERTY INTERFACE_LINK_LIBRARIES absl::base_internal absl::core_headers
-                        absl::meta)
-  set_property(TARGET absl::graphcycles_internal
-               PROPERTY INTERFACE_LINK_LIBRARIES
-                        absl::base
-                        absl::base_internal
-                        absl::config
-                        absl::core_headers
-                        absl::malloc_internal
-                        absl::raw_logging_internal)
-  set_property(TARGET absl::hash
-               PROPERTY INTERFACE_LINK_LIBRARIES
-                        absl::city
-                        absl::config
-                        absl::core_headers
-                        absl::endian
-                        absl::fixed_array
-                        absl::meta
-                        absl::int128
-                        absl::strings
-                        absl::optional
-                        absl::variant
-                        absl::utility
-                        absl::low_level_hash)
-  set_property(TARGET absl::hash_function_defaults
-               PROPERTY INTERFACE_LINK_LIBRARIES
-                        absl::config
-                        absl::cord
-                        absl::hash
-                        absl::strings)
-  set_property(TARGET absl::hash_policy_traits PROPERTY INTERFACE_LINK_LIBRARIES
-                                                        absl::meta)
-  set_property(TARGET absl::hashtable_debug PROPERTY INTERFACE_LINK_LIBRARIES
-                                                     absl::hashtable_debug_hooks)
-  set_property(TARGET absl::hashtable_debug_hooks PROPERTY INTERFACE_LINK_LIBRARIES
-                                                           absl::config)
-  set_property(TARGET absl::hashtablez_sampler
-               PROPERTY INTERFACE_LINK_LIBRARIES
-                        absl::base
-                        absl::exponential_biased
-                        absl::have_sse
-                        absl::sample_recorder
-                        absl::synchronization)
-  set_property(TARGET absl::inlined_vector
-               PROPERTY INTERFACE_LINK_LIBRARIES
-                        absl::algorithm
-                        absl::core_headers
-                        absl::inlined_vector_internal
-                        absl::throw_delegate
-                        absl::memory)
-  set_property(TARGET absl::inlined_vector_internal
-               PROPERTY INTERFACE_LINK_LIBRARIES
-                        absl::compressed_tuple
-                        absl::core_headers
-                        absl::memory
-                        absl::span
-                        absl::type_traits)
-  set_property(TARGET absl::int128 PROPERTY INTERFACE_LINK_LIBRARIES absl::config
-                                            absl::core_headers absl::bits)
-  set_property(TARGET absl::kernel_timeout_internal
-               PROPERTY INTERFACE_LINK_LIBRARIES absl::core_headers
-                        absl::raw_logging_internal absl::time)
-  set_property(TARGET absl::layout
-               PROPERTY INTERFACE_LINK_LIBRARIES
-                        absl::config
-                        absl::core_headers
-                        absl::meta
-                        absl::strings
-                        absl::span
-                        absl::utility)
-  set_property(TARGET absl::leak_check PROPERTY INTERFACE_LINK_LIBRARIES absl::config
-                                                absl::core_headers)
-  set_property(TARGET absl::log_severity PROPERTY INTERFACE_LINK_LIBRARIES
-                                                  absl::core_headers)
-  set_property(TARGET absl::low_level_hash
-               PROPERTY INTERFACE_LINK_LIBRARIES
-                        absl::bits
-                        absl::config
-                        absl::endian
-                        absl::int128)
-  set_property(TARGET absl::malloc_internal
-               PROPERTY INTERFACE_LINK_LIBRARIES
-                        absl::base
-                        absl::base_internal
-                        absl::config
-                        absl::core_headers
-                        absl::dynamic_annotations
-                        absl::raw_logging_internal)
-  set_property(TARGET absl::memory PROPERTY INTERFACE_LINK_LIBRARIES absl::core_headers
-                                            absl::meta)
-  set_property(TARGET absl::meta PROPERTY INTERFACE_LINK_LIBRARIES absl::type_traits)
-  set_property(TARGET absl::node_hash_map
-               PROPERTY INTERFACE_LINK_LIBRARIES
-                        absl::container_memory
-                        absl::hash_function_defaults
-                        absl::node_hash_policy
-                        absl::raw_hash_map
-                        absl::algorithm_container
-                        absl::memory)
-  set_property(TARGET absl::node_hash_policy PROPERTY INTERFACE_LINK_LIBRARIES
-                                                      absl::config)
-  set_property(TARGET absl::node_hash_set
-               PROPERTY INTERFACE_LINK_LIBRARIES
-                        absl::hash_function_defaults
-                        absl::node_hash_policy
-                        absl::raw_hash_set
-                        absl::algorithm_container
-                        absl::memory)
-  set_property(TARGET absl::numeric PROPERTY INTERFACE_LINK_LIBRARIES absl::int128)
-  set_property(TARGET absl::numeric_representation PROPERTY INTERFACE_LINK_LIBRARIES
-                                                            absl::config)
-  set_property(TARGET absl::optional
-               PROPERTY INTERFACE_LINK_LIBRARIES
-                        absl::bad_optional_access
-                        absl::base_internal
-                        absl::config
-                        absl::core_headers
-                        absl::memory
-                        absl::type_traits
-                        absl::utility)
-  set_property(TARGET absl::periodic_sampler
-               PROPERTY INTERFACE_LINK_LIBRARIES absl::core_headers
-                        absl::exponential_biased)
-  set_property(TARGET absl::random_bit_gen_ref
-               PROPERTY INTERFACE_LINK_LIBRARIES
-                        absl::core_headers
-                        absl::random_internal_distribution_caller
-                        absl::random_internal_fast_uniform_bits
-                        absl::type_traits)
-  set_property(TARGET absl::random_distributions
-               PROPERTY INTERFACE_LINK_LIBRARIES
-                        absl::base_internal
-                        absl::config
-                        absl::core_headers
-                        absl::random_internal_generate_real
-                        absl::random_internal_distribution_caller
-                        absl::random_internal_fast_uniform_bits
-                        absl::random_internal_fastmath
-                        absl::random_internal_iostream_state_saver
-                        absl::random_internal_traits
-                        absl::random_internal_uniform_helper
-                        absl::random_internal_wide_multiply
-                        absl::strings
-                        absl::type_traits)
-  set_property(TARGET absl::random_internal_distribution_caller
-               PROPERTY INTERFACE_LINK_LIBRARIES absl::config absl::utility
-                        absl::fast_type_id)
-  set_property(TARGET absl::random_internal_distribution_test_util
-               PROPERTY INTERFACE_LINK_LIBRARIES
-                        absl::config
-                        absl::core_headers
-                        absl::raw_logging_internal
-                        absl::strings
-                        absl::str_format
-                        absl::span)
-  set_property(TARGET absl::random_internal_fast_uniform_bits
-               PROPERTY INTERFACE_LINK_LIBRARIES absl::config)
-  set_property(TARGET absl::random_internal_fastmath PROPERTY INTERFACE_LINK_LIBRARIES
-                                                              absl::bits)
-  set_property(TARGET absl::random_internal_generate_real
-               PROPERTY INTERFACE_LINK_LIBRARIES
-                        absl::bits
-                        absl::random_internal_fastmath
-                        absl::random_internal_traits
-                        absl::type_traits)
-  set_property(TARGET absl::random_internal_iostream_state_saver
-               PROPERTY INTERFACE_LINK_LIBRARIES absl::int128 absl::type_traits)
-  set_property(TARGET absl::random_internal_mock_helpers
-               PROPERTY INTERFACE_LINK_LIBRARIES absl::fast_type_id absl::optional)
-  set_property(TARGET absl::random_internal_nonsecure_base
-               PROPERTY INTERFACE_LINK_LIBRARIES
-                        absl::core_headers
-                        absl::optional
-                        absl::random_internal_pool_urbg
-                        absl::random_internal_salted_seed_seq
-                        absl::random_internal_seed_material
-                        absl::span
-                        absl::type_traits)
-  set_property(TARGET absl::random_internal_pcg_engine
-               PROPERTY INTERFACE_LINK_LIBRARIES
-                        absl::config
-                        absl::int128
-                        absl::random_internal_fastmath
-                        absl::random_internal_iostream_state_saver
-                        absl::type_traits)
-  set_property(TARGET absl::random_internal_platform PROPERTY INTERFACE_LINK_LIBRARIES
-                                                              absl::config)
-  set_property(TARGET absl::random_internal_pool_urbg
-               PROPERTY INTERFACE_LINK_LIBRARIES
-                        absl::base
-                        absl::config
-                        absl::core_headers
-                        absl::endian
-                        absl::random_internal_randen
-                        absl::random_internal_seed_material
-                        absl::random_internal_traits
-                        absl::random_seed_gen_exception
-                        absl::raw_logging_internal
-                        absl::span)
-  set_property(TARGET absl::random_internal_randen
-               PROPERTY INTERFACE_LINK_LIBRARIES absl::random_internal_platform
-                        absl::random_internal_randen_hwaes
-                        absl::random_internal_randen_slow)
-  set_property(TARGET absl::random_internal_randen_engine
-               PROPERTY INTERFACE_LINK_LIBRARIES
-                        absl::endian
-                        absl::random_internal_iostream_state_saver
-                        absl::random_internal_randen
-                        absl::raw_logging_internal
-                        absl::type_traits)
-  set_property(TARGET absl::random_internal_randen_hwaes
-               PROPERTY INTERFACE_LINK_LIBRARIES absl::random_internal_platform
-                        absl::random_internal_randen_hwaes_impl absl::config)
-  set_property(TARGET absl::random_internal_randen_hwaes_impl
-               PROPERTY INTERFACE_LINK_LIBRARIES absl::random_internal_platform
-                        absl::config)
-  set_property(TARGET absl::random_internal_randen_slow
-               PROPERTY INTERFACE_LINK_LIBRARIES absl::random_internal_platform
-                        absl::config)
-  set_property(TARGET absl::random_internal_salted_seed_seq
-               PROPERTY INTERFACE_LINK_LIBRARIES
-                        absl::inlined_vector
-                        absl::optional
-                        absl::span
-                        absl::random_internal_seed_material
-                        absl::type_traits)
-  set_property(TARGET absl::random_internal_seed_material
-               PROPERTY INTERFACE_LINK_LIBRARIES
-                        absl::core_headers
-                        absl::optional
-                        absl::random_internal_fast_uniform_bits
-                        absl::raw_logging_internal
-                        absl::span
-                        absl::strings)
-  set_property(TARGET absl::random_internal_traits PROPERTY INTERFACE_LINK_LIBRARIES
-                                                            absl::config)
-  set_property(TARGET absl::random_internal_uniform_helper
-               PROPERTY INTERFACE_LINK_LIBRARIES absl::config
-                        absl::random_internal_traits absl::type_traits)
-  set_property(TARGET absl::random_internal_wide_multiply
-               PROPERTY INTERFACE_LINK_LIBRARIES absl::bits absl::config absl::int128)
-  set_property(TARGET absl::random_random
-               PROPERTY INTERFACE_LINK_LIBRARIES
-                        absl::random_distributions
-                        absl::random_internal_nonsecure_base
-                        absl::random_internal_pcg_engine
-                        absl::random_internal_pool_urbg
-                        absl::random_internal_randen_engine
-                        absl::random_seed_sequences)
-  set_property(TARGET absl::random_seed_gen_exception PROPERTY INTERFACE_LINK_LIBRARIES
-                                                               absl::config)
-  set_property(TARGET absl::random_seed_sequences
-               PROPERTY INTERFACE_LINK_LIBRARIES
-                        absl::inlined_vector
-                        absl::random_internal_nonsecure_base
-                        absl::random_internal_pool_urbg
-                        absl::random_internal_salted_seed_seq
-                        absl::random_internal_seed_material
-                        absl::random_seed_gen_exception
-                        absl::span)
-  set_property(TARGET absl::raw_hash_map
-               PROPERTY INTERFACE_LINK_LIBRARIES absl::container_memory
-                        absl::raw_hash_set absl::throw_delegate)
-  set_property(TARGET absl::raw_hash_set
-               PROPERTY INTERFACE_LINK_LIBRARIES
-                        absl::bits
-                        absl::compressed_tuple
-                        absl::config
-                        absl::container_common
-                        absl::container_memory
-                        absl::core_headers
-                        absl::endian
-                        absl::hash_policy_traits
-                        absl::hashtable_debug_hooks
-                        absl::have_sse
-                        absl::memory
-                        absl::meta
-                        absl::optional
-                        absl::utility
-                        absl::hashtablez_sampler)
-  set_property(TARGET absl::raw_logging_internal
-               PROPERTY INTERFACE_LINK_LIBRARIES
-                        absl::atomic_hook
-                        absl::config
-                        absl::core_headers
-                        absl::log_severity)
-  set_property(TARGET absl::sample_recorder PROPERTY INTERFACE_LINK_LIBRARIES absl::base
-                                                     absl::synchronization)
-  set_property(TARGET absl::scoped_set_env PROPERTY INTERFACE_LINK_LIBRARIES absl::config
-                                                    absl::raw_logging_internal)
-  set_property(TARGET absl::span
-               PROPERTY INTERFACE_LINK_LIBRARIES
-                        absl::algorithm
-                        absl::core_headers
-                        absl::throw_delegate
-                        absl::type_traits)
-  set_property(TARGET absl::spinlock_wait
-               PROPERTY INTERFACE_LINK_LIBRARIES absl::base_internal absl::core_headers
-                        absl::errno_saver)
-  set_property(TARGET absl::stacktrace
-               PROPERTY INTERFACE_LINK_LIBRARIES absl::debugging_internal absl::config
-                        absl::core_headers)
-  set_property(TARGET absl::status
-               PROPERTY INTERFACE_LINK_LIBRARIES
-                        absl::atomic_hook
-                        absl::config
-                        absl::core_headers
-                        absl::function_ref
-                        absl::raw_logging_internal
-                        absl::inlined_vector
-                        absl::stacktrace
-                        absl::symbolize
-                        absl::strings
-                        absl::cord
-                        absl::str_format
-                        absl::optional)
-  set_property(TARGET absl::statusor
-               PROPERTY INTERFACE_LINK_LIBRARIES
-                        absl::base
-                        absl::status
-                        absl::core_headers
-                        absl::raw_logging_internal
-                        absl::type_traits
-                        absl::strings
-                        absl::utility
-                        absl::variant)
-  set_property(TARGET absl::str_format PROPERTY INTERFACE_LINK_LIBRARIES
-                                                absl::str_format_internal)
-  set_property(TARGET absl::str_format_internal
-               PROPERTY INTERFACE_LINK_LIBRARIES
-                        absl::bits
-                        absl::strings
-                        absl::config
-                        absl::core_headers
-                        absl::numeric_representation
-                        absl::type_traits
-                        absl::int128
-                        absl::span)
-  set_property(TARGET absl::strerror PROPERTY INTERFACE_LINK_LIBRARIES absl::config
-                                              absl::core_headers absl::errno_saver)
-  set_property(TARGET absl::strings
-               PROPERTY INTERFACE_LINK_LIBRARIES
-                        absl::strings_internal
-                        absl::base
-                        absl::bits
-                        absl::config
-                        absl::core_headers
-                        absl::endian
-                        absl::int128
-                        absl::memory
-                        absl::raw_logging_internal
-                        absl::throw_delegate
-                        absl::type_traits)
-  set_property(TARGET absl::strings_internal
-               PROPERTY INTERFACE_LINK_LIBRARIES
-                        absl::config
-                        absl::core_headers
-                        absl::endian
-                        absl::raw_logging_internal
-                        absl::type_traits)
-  set_property(TARGET absl::symbolize
-               PROPERTY INTERFACE_LINK_LIBRARIES
-                        absl::debugging_internal
-                        absl::demangle_internal
-                        absl::base
-                        absl::config
-                        absl::core_headers
-                        absl::dynamic_annotations
-                        absl::malloc_internal
-                        absl::raw_logging_internal
-                        absl::strings)
-  set_property(TARGET absl::synchronization
-               PROPERTY INTERFACE_LINK_LIBRARIES
-                        absl::graphcycles_internal
-                        absl::kernel_timeout_internal
-                        absl::atomic_hook
-                        absl::base
-                        absl::base_internal
-                        absl::config
-                        absl::core_headers
-                        absl::dynamic_annotations
-                        absl::malloc_internal
-                        absl::raw_logging_internal
-                        absl::stacktrace
-                        absl::symbolize
-                        absl::time)
-  set_property(TARGET absl::throw_delegate PROPERTY INTERFACE_LINK_LIBRARIES absl::config
-                                                    absl::raw_logging_internal)
-  set_property(TARGET absl::time
-               PROPERTY INTERFACE_LINK_LIBRARIES
-                        absl::base
-                        absl::civil_time
-                        absl::core_headers
-                        absl::int128
-                        absl::raw_logging_internal
-                        absl::strings
-                        absl::time_zone)
-  set_property(TARGET absl::type_traits PROPERTY INTERFACE_LINK_LIBRARIES absl::config)
-  set_property(TARGET absl::utility PROPERTY INTERFACE_LINK_LIBRARIES absl::base_internal
-                                             absl::config absl::type_traits)
-  set_property(TARGET absl::variant
-               PROPERTY INTERFACE_LINK_LIBRARIES
-                        absl::bad_variant_access
-                        absl::base_internal
-                        absl::config
-                        absl::core_headers
-                        absl::type_traits
-                        absl::utility)
-  set_property(TARGET absl::wyhash PROPERTY INTERFACE_LINK_LIBRARIES absl::config
-                                            absl::endian absl::int128)
+  # We have to enable Abseil install to generate abslConfig.cmake
+  # so gRPC can find Abseil through ExternalProject_Add. Our expectation
+  # is that this will not be necessary once gRPC supports FetchContent.
+  set(ABSL_ENABLE_INSTALL ON)
+  fetchcontent_makeavailable(absl)
+
+  # This custom target is required due to a timing issue between FetchContent
+  # and the install command below, which is necessary for GRPC to find Abseil
+  # due to mixing FetchContent and ExternalProject_Add.
+  # Create a target that depends on ALL Abseil libraries that will be installed.
+  # This ensures they're all built before we try to install.
+  add_custom_target(absl_built
+                    DEPENDS absl::bad_any_cast_impl
+                            absl::bad_optional_access
+                            absl::bad_variant_access
+                            absl::base
+                            absl::city
+                            absl::civil_time
+                            absl::cord
+                            absl::cord_internal
+                            absl::cordz_functions
+                            absl::cordz_handle
+                            absl::cordz_info
+                            absl::cordz_sample_token
+                            absl::debugging_internal
+                            absl::demangle_internal
+                            absl::examine_stack
+                            absl::exponential_biased
+                            absl::failure_signal_handler
+                            absl::flags
+                            absl::flags_commandlineflag
+                            absl::flags_commandlineflag_internal
+                            absl::flags_config
+                            absl::flags_internal
+                            absl::flags_marshalling
+                            absl::flags_parse
+                            absl::flags_private_handle_accessor
+                            absl::flags_program_name
+                            absl::flags_reflection
+                            absl::flags_usage
+                            absl::flags_usage_internal
+                            absl::graphcycles_internal
+                            absl::hash
+                            absl::hashtablez_sampler
+                            absl::int128
+                            absl::leak_check
+                            absl::leak_check_disable
+                            absl::log_severity
+                            absl::low_level_hash
+                            absl::malloc_internal
+                            absl::periodic_sampler
+                            absl::random_distributions
+                            absl::random_internal_distribution_test_util
+                            absl::random_internal_platform
+                            absl::random_internal_pool_urbg
+                            absl::random_internal_randen
+                            absl::random_internal_randen_hwaes
+                            absl::random_internal_randen_hwaes_impl
+                            absl::random_internal_randen_slow
+                            absl::random_internal_seed_material
+                            absl::random_seed_gen_exception
+                            absl::random_seed_sequences
+                            absl::raw_hash_set
+                            absl::raw_logging_internal
+                            absl::scoped_set_env
+                            absl::spinlock_wait
+                            absl::stacktrace
+                            absl::status
+                            absl::statusor
+                            absl::str_format_internal
+                            absl::strerror
+                            absl::strings
+                            absl::strings_internal
+                            absl::symbolize
+                            absl::synchronization
+                            absl::throw_delegate
+                            absl::time
+                            absl::time_zone)
+
+  # gRPC requires Abseil to be installed to a known location.
+  # We have to do this in two steps to avoid double installation of Abseil
+  # when Arrow is installed.
+  # Disable Abseil's install script this target runs after Abseil is built
+  # and replaces its cmake_install.cmake with a no-op so Arrow does not install it
+  # outside of the build tree.
+  add_custom_command(OUTPUT "${absl_BINARY_DIR}/cmake_install.cmake.saved"
+                     COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                             "${absl_BINARY_DIR}/cmake_install.cmake"
+                             "${absl_BINARY_DIR}/cmake_install.cmake.saved"
+                     COMMAND ${CMAKE_COMMAND} -E echo
+                             "# Abseil install disabled to prevent double installation with Arrow"
+                             > "${absl_BINARY_DIR}/cmake_install.cmake"
+                     DEPENDS absl_built
+                     COMMENT "Disabling Abseil's install to prevent double installation"
+                     VERBATIM)
+
+  add_custom_target(absl_install_disabled ALL
+                    DEPENDS "${absl_BINARY_DIR}/cmake_install.cmake.saved")
+
+  # Install Abseil to ABSL_PREFIX for gRPC to find.
+  # Using the saved original cmake_install.cmake.saved install script
+  # for other dependencies to find Abseil.
+  add_custom_command(OUTPUT "${ABSL_PREFIX}/.absl_installed"
+                     COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                             "${absl_BINARY_DIR}/cmake_install.cmake.saved"
+                             "${absl_BINARY_DIR}/cmake_install.cmake.tmp"
+                     COMMAND ${CMAKE_COMMAND} -DCMAKE_INSTALL_PREFIX=${ABSL_PREFIX}
+                             -DCMAKE_INSTALL_CONFIG_NAME=$<CONFIG> -P
+                             "${absl_BINARY_DIR}/cmake_install.cmake.tmp" ||
+                             ${CMAKE_COMMAND} -E true
+                     COMMAND ${CMAKE_COMMAND} -E touch "${ABSL_PREFIX}/.absl_installed"
+                     DEPENDS absl_install_disabled
+                     COMMENT "Installing Abseil to ${ABSL_PREFIX} for gRPC"
+                     VERBATIM)
+
+  # Make absl_fc depend on the install completion marker
+  add_custom_target(absl_fc DEPENDS "${ABSL_PREFIX}/.absl_installed")
 
   if(APPLE)
     # This is due to upstream absl::cctz issue
     # https://github.com/abseil/abseil-cpp/issues/283
     find_library(CoreFoundation CoreFoundation)
-    set_property(TARGET absl::time
+    # When ABSL_ENABLE_INSTALL is ON, the real target is "time" not "absl_time"
+    # Cannot use set_property on alias targets (absl::time is an alias)
+    set_property(TARGET time
                  APPEND
                  PROPERTY INTERFACE_LINK_LIBRARIES ${CoreFoundation})
   endif()
-
-  externalproject_add(absl_ep
-                      ${EP_COMMON_OPTIONS}
-                      URL ${ABSL_SOURCE_URL}
-                      URL_HASH "SHA256=${ARROW_ABSL_BUILD_SHA256_CHECKSUM}"
-                      CMAKE_ARGS ${ABSL_CMAKE_ARGS}
-                      BUILD_BYPRODUCTS ${ABSL_BUILD_BYPRODUCTS})
-
-  # Work around https://gitlab.kitware.com/cmake/cmake/issues/15052
-  file(MAKE_DIRECTORY ${ABSL_INCLUDE_DIR})
-
-  set(ABSL_VENDORED TRUE)
-endmacro()
+  list(POP_BACK CMAKE_MESSAGE_INDENT)
+endfunction()
 
 macro(build_grpc)
   resolve_dependency(c-ares
@@ -3966,10 +3252,10 @@ macro(build_grpc)
   add_custom_target(grpc_dependencies)
 
   if(ABSL_VENDORED)
-    add_dependencies(grpc_dependencies absl_ep)
+    add_dependencies(grpc_dependencies absl_fc)
   endif()
   if(CARES_VENDORED)
-    add_dependencies(grpc_dependencies cares_ep)
+    add_dependencies(grpc_dependencies cares_fc)
   endif()
 
   if(GFLAGS_VENDORED)
@@ -3977,7 +3263,7 @@ macro(build_grpc)
   endif()
 
   if(RE2_VENDORED)
-    add_dependencies(grpc_dependencies re2_ep)
+    add_dependencies(grpc_dependencies re2_fc)
   endif()
 
   add_dependencies(grpc_dependencies ${ARROW_PROTOBUF_LIBPROTOBUF} c-ares::cares
@@ -3988,10 +3274,23 @@ macro(build_grpc)
   get_filename_component(GRPC_PB_ROOT "${GRPC_PROTOBUF_INCLUDE_DIR}" DIRECTORY)
   get_target_property(GRPC_Protobuf_PROTOC_LIBRARY ${ARROW_PROTOBUF_LIBPROTOC}
                       IMPORTED_LOCATION)
-  get_target_property(GRPC_CARES_INCLUDE_DIR c-ares::cares INTERFACE_INCLUDE_DIRECTORIES)
-  get_filename_component(GRPC_CARES_ROOT "${GRPC_CARES_INCLUDE_DIR}" DIRECTORY)
-  get_target_property(GRPC_RE2_INCLUDE_DIR re2::re2 INTERFACE_INCLUDE_DIRECTORIES)
-  get_filename_component(GRPC_RE2_ROOT "${GRPC_RE2_INCLUDE_DIR}" DIRECTORY)
+
+  # For FetchContent c-ares, use the install prefix directly
+  if(CARES_VENDORED)
+    set(GRPC_CARES_ROOT "${CARES_PREFIX}")
+  else()
+    get_target_property(GRPC_CARES_INCLUDE_DIR c-ares::cares
+                        INTERFACE_INCLUDE_DIRECTORIES)
+    get_filename_component(GRPC_CARES_ROOT "${GRPC_CARES_INCLUDE_DIR}" DIRECTORY)
+  endif()
+
+  # For FetchContent RE2, use the install prefix directly
+  if(RE2_VENDORED)
+    set(GRPC_RE2_ROOT "${RE2_PREFIX}")
+  else()
+    get_target_property(GRPC_RE2_INCLUDE_DIR re2::re2 INTERFACE_INCLUDE_DIRECTORIES)
+    get_filename_component(GRPC_RE2_ROOT "${GRPC_RE2_INCLUDE_DIR}" DIRECTORY)
+  endif()
 
   # Put Abseil, etc. first so that local directories are searched
   # before (what are likely) system directories
@@ -4425,7 +3724,7 @@ macro(build_google_cloud_cpp_storage)
   add_custom_target(google_cloud_cpp_dependencies)
 
   if(ABSL_VENDORED)
-    add_dependencies(google_cloud_cpp_dependencies absl_ep)
+    add_dependencies(google_cloud_cpp_dependencies absl_fc)
   endif()
   if(ZLIB_VENDORED)
     add_dependencies(google_cloud_cpp_dependencies zlib_ep)

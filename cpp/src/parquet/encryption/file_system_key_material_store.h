@@ -24,6 +24,7 @@
 #include "arrow/filesystem/filesystem.h"
 
 #include "parquet/encryption/file_key_material_store.h"
+#include "parquet/exception.h"
 
 namespace parquet::encryption {
 
@@ -59,6 +60,9 @@ class PARQUET_EXPORT FileSystemKeyMaterialStore : public FileKeyMaterialStore {
       LoadKeyMaterialMap();
     }
     auto found = key_material_map_.find(key_id_in_file);
+    if (found == key_material_map_.end()) {
+      throw ParquetException("Invalid key id");
+    }
     return found->second;
   }
 
