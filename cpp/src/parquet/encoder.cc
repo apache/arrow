@@ -18,8 +18,11 @@
 #include "parquet/encoding.h"
 
 #include <algorithm>
+#include <cmath>
 #include <cstdint>
 #include <cstdlib>
+#include <iomanip>
+#include <iostream>
 #include <limits>
 #include <memory>
 #include <string>
@@ -47,6 +50,7 @@
 #include "parquet/exception.h"
 #include "parquet/platform.h"
 #include "parquet/schema.h"
+#include "parquet/thirdparty/fsst/fsst.h"
 #include "parquet/types.h"
 
 #ifdef _MSC_VER
@@ -101,7 +105,7 @@ class EncoderImpl : virtual public Encoder {
   MemoryPool* memory_pool() const override { return pool_; }
 
   int64_t ReportUnencodedDataBytes() override {
-    if (descr_->physical_type() != Type::BYTE_ARRAY) {
+    if (descr_ != nullptr && descr_->physical_type() != Type::BYTE_ARRAY) {
       throw ParquetException("ReportUnencodedDataBytes is only supported for BYTE_ARRAY");
     }
     int64_t bytes = unencoded_byte_array_data_bytes_;
@@ -1737,6 +1741,173 @@ std::shared_ptr<Buffer> RleBooleanEncoder::FlushValues() {
   return buffer;
 }
 
+// ----------------------------------------------------------------------
+
+class FsstEncoder : public EncoderImpl, virtual public TypedEncoder<ByteArrayType> {
+ public:
+  explicit FsstEncoder(const ColumnDescriptor* descr, MemoryPool* pool)
+      : EncoderImpl(descr, Encoding::FSST, pool),
+        encoder_(nullptr),
+        unencoded_values_() {}
+
+  ~FsstEncoder() override {
+    if (encoder_) {
+      fsst_destroy(encoder_);
+    }
+  }
+
+  int64_t EstimatedDataEncodedSize() override {
+    const int64_t total_size = pending_unencoded_bytes_;
+    const double scaled =
+        static_cast<double>(total_size) * compression_ratio_hint_;
+    const int64_t estimated_payload =
+        static_cast<int64_t>(std::ceil(scaled));
+    return static_cast<int64_t>(sizeof(fsst_decoder_t)) +
+           std::max<int64_t>(0, estimated_payload);
+  }
+
+  std::shared_ptr<Buffer> FlushValues() override {
+    if (unencoded_values_.empty()) {
+      PARQUET_ASSIGN_OR_THROW(auto buffer, AllocateBuffer(0, pool_));
+      return buffer;
+    }
+
+    BuildSymbolTable();
+
+    const int64_t total_input_size = pending_unencoded_bytes_;
+
+    const int64_t decoder_bytes = static_cast<int64_t>(sizeof(fsst_decoder_t));
+    const int64_t length_prefix_bytes =
+        static_cast<int64_t>(unencoded_values_.size()) * static_cast<int64_t>(sizeof(uint32_t));
+    const int64_t estimated_buffer_size =
+        decoder_bytes + total_input_size * kFsstCompressionExpansion + length_prefix_bytes;
+
+    PARQUET_ASSIGN_OR_THROW(auto output_buffer,
+                            AllocateResizableBuffer(estimated_buffer_size, pool_));
+    uint8_t* out_ptr = output_buffer->mutable_data();
+
+    fsst_decoder_t decoder = fsst_decoder(encoder_);
+    memcpy(out_ptr, &decoder, sizeof(fsst_decoder_t));
+    out_ptr += sizeof(fsst_decoder_t);
+
+    int64_t total_output_size = sizeof(fsst_decoder_t);
+    std::vector<size_t> out_lengths(1);
+    std::vector<unsigned char*> out_ptrs(1);
+
+    for (size_t i = 0; i < unencoded_values_.size(); ++i) {
+      const int64_t remaining_capacity =
+          estimated_buffer_size - total_output_size - sizeof(uint32_t);
+      if (ARROW_PREDICT_FALSE(remaining_capacity <= 0)) {
+        throw ParquetException("FSST compression buffer exhausted");
+      }
+      size_t available = static_cast<size_t>(remaining_capacity);
+      size_t input_length = static_cast<size_t>(unencoded_values_[i].len);
+      const unsigned char* input_ptr = unencoded_values_[i].ptr;
+      size_t num_compressed =
+          fsst_compress(encoder_, 1, &input_length, &input_ptr, available,
+                        out_ptr + sizeof(uint32_t), out_lengths.data(), out_ptrs.data());
+
+      if (num_compressed == 0) {
+        throw ParquetException("FSST compression buffer too small");
+      }
+
+      uint32_t len = static_cast<uint32_t>(out_lengths[0]);
+      memcpy(out_ptr, &len, sizeof(uint32_t));
+      out_ptr += sizeof(uint32_t) + out_lengths[0];
+      total_output_size += sizeof(uint32_t) + out_lengths[0];
+    }
+
+    PARQUET_THROW_NOT_OK(output_buffer->Resize(total_output_size));
+    UpdateCompressionStats(total_input_size, total_output_size);
+    unencoded_values_.clear();
+    pending_unencoded_bytes_ = 0;
+    unencoded_byte_array_data_bytes_ = 0;
+    return output_buffer;
+  }
+
+  using TypedEncoder<ByteArrayType>::Put;
+
+  void Put(const ByteArray* src, int num_values) override {
+    for (int i = 0; i < num_values; ++i) {
+      unencoded_values_.push_back(src[i]);
+      const int64_t length = static_cast<int64_t>(src[i].len);
+      unencoded_byte_array_data_bytes_ += length;
+      pending_unencoded_bytes_ += length;
+    }
+  }
+
+  void Put(const ::arrow::Array& values) override {
+    AssertVarLengthBinary(values);
+
+    PARQUET_THROW_NOT_OK(::arrow::VisitArraySpanInline<::arrow::BinaryType>(
+        *values.data(),
+        [&](::std::string_view view) {
+          if (ARROW_PREDICT_FALSE(view.size() > kMaxByteArraySize)) {
+            return Status::Invalid("Parquet cannot store strings with size 2GB or more");
+          }
+          ByteArray val;
+          val.len = static_cast<uint32_t>(view.size());
+          val.ptr = reinterpret_cast<const uint8_t*>(view.data());
+          unencoded_values_.push_back(val);
+          const int64_t length = static_cast<int64_t>(val.len);
+          unencoded_byte_array_data_bytes_ += length;
+          pending_unencoded_bytes_ += length;
+          return Status::OK();
+        },
+        []() { return Status::OK(); }));
+  }
+
+  void PutSpaced(const ByteArray* src, int num_values, const uint8_t* valid_bits,
+                 int64_t valid_bits_offset) override {
+    if (valid_bits != NULLPTR) {
+      PARQUET_ASSIGN_OR_THROW(auto buffer, ::arrow::AllocateBuffer(num_values * sizeof(ByteArray), pool_));
+      auto buffer_ptr = reinterpret_cast<ByteArray*>(buffer->mutable_data());
+      int num_valid_values = ::arrow::util::internal::SpacedCompress<ByteArray>(
+          src, num_values, valid_bits, valid_bits_offset, buffer_ptr);
+      Put(buffer_ptr, num_valid_values);
+    } else {
+      Put(src, num_values);
+    }
+  }
+
+ private:
+  void BuildSymbolTable() {
+    if (unencoded_values_.empty()) {
+      return;
+    }
+
+    std::vector<size_t> input_lengths;
+    std::vector<const unsigned char*> input_ptrs;
+
+    for (const auto& val : unencoded_values_) {
+      input_lengths.push_back(val.len);
+      input_ptrs.push_back(val.ptr);
+    }
+
+    encoder_ = fsst_create(unencoded_values_.size(), input_lengths.data(),
+                          input_ptrs.data(), 0);
+
+    if (!encoder_) {
+      throw ParquetException("Failed to create FSST encoder");
+    }
+  }
+
+  void UpdateCompressionStats(int64_t input_bytes, int64_t payload_bytes) {
+    const double ratio = static_cast<double>(std::max<int64_t>(0, payload_bytes)) /
+                         static_cast<double>(std::max<int64_t>(int64_t{1}, input_bytes));
+    compression_ratio_hint_ = std::max(kMinimumCompressionRatio, ratio);
+  }
+
+  static constexpr double kDefaultCompressionRatio = 1.0;
+  static constexpr double kMinimumCompressionRatio = 0.01;
+  // Allocate worst-case 4x expansion.
+  static constexpr int64_t kFsstCompressionExpansion = 4;
+  fsst_encoder_t* encoder_;
+  std::vector<ByteArray> unencoded_values_;
+  double compression_ratio_hint_ = kDefaultCompressionRatio;
+  int64_t pending_unencoded_bytes_ = 0;
+};
+
 }  // namespace
 
 // ----------------------------------------------------------------------
@@ -1820,6 +1991,13 @@ std::unique_ptr<Encoder> MakeEncoder(Type::type type_num, Encoding::type encodin
         return std::make_unique<DeltaLengthByteArrayEncoder>(descr, pool);
       default:
         throw ParquetException("DELTA_LENGTH_BYTE_ARRAY only supports BYTE_ARRAY");
+    }
+  } else if (encoding == Encoding::FSST) {
+    switch (type_num) {
+      case Type::BYTE_ARRAY:
+        return std::make_unique<FsstEncoder>(descr, pool);
+      default:
+        throw ParquetException("FSST encoding only supports BYTE_ARRAY");
     }
   } else if (encoding == Encoding::RLE) {
     switch (type_num) {

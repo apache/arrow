@@ -531,8 +531,9 @@ struct Encoding {
     DELTA_BYTE_ARRAY = 7,
     RLE_DICTIONARY = 8,
     BYTE_STREAM_SPLIT = 9,
+    FSST = 10,
     // Should always be last element (except UNKNOWN)
-    UNDEFINED = 10,
+    UNDEFINED = 11,
     UNKNOWN = 999
   };
 };

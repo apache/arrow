@@ -171,6 +171,8 @@ set(PARQUET_SRCS
     encryption/internal_file_encryptor.cc
     exception.cc
     file_reader.cc
+    thirdparty/fsst/libfsst.cpp
+    thirdparty/fsst/fsst_avx512.cpp
     file_writer.cc
     geospatial/statistics.cc
     geospatial/util_internal.cc

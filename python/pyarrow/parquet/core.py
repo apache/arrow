@@ -821,7 +821,7 @@ column_encoding : string or dict, default None
     Can only be used when ``use_dictionary`` is set to False, and
     cannot be used in combination with ``use_byte_stream_split``.
     Currently supported values: {'PLAIN', 'BYTE_STREAM_SPLIT',
-    'DELTA_BINARY_PACKED', 'DELTA_LENGTH_BYTE_ARRAY', 'DELTA_BYTE_ARRAY'}.
+    'DELTA_BINARY_PACKED', 'DELTA_LENGTH_BYTE_ARRAY', 'DELTA_BYTE_ARRAY', 'FSST'}.
     Certain encodings are only compatible with certain data types.
     Please refer to the encodings section of `Reading and writing Parquet
     files <https://arrow.apache.org/docs/cpp/parquet.html#encodings>`_.
