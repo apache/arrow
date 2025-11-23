@@ -1,20 +1,20 @@
 // this software is distributed under the MIT License (http://www.opensource.org/licenses/MIT):
-// 
+//
 // Copyright 2018-2020, CWI, TU Munich, FSU Jena
-// 
-// Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files   
-// (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify,   
-// merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is   
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files
+// (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify,
+// merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
-// 
+//
 // - The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-// 
-// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES 
-// OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE 
-// LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR 
-// IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. 
-//                 
-// You can contact the authors via the FSST source repository : https://github.com/cwida/fsst 
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
+// OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
+// LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
+// IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+//
+// You can contact the authors via the FSST source repository : https://github.com/cwida/fsst
 #include <algorithm>
 #include <cassert>
 #include <cstdint>
@@ -59,7 +59,7 @@ typedef uint64_t u64;
 
 // we represent codes in u16 (not u8). 12 bits code (of which 10 are used), 4 bits length
 #define FSST_LEN_BITS       12
-#define FSST_CODE_BITS      9 
+#define FSST_CODE_BITS      9
 #define FSST_CODE_BASE      256UL /* first 256 codes [0,255] are pseudo codes: escaped bytes */
 #define FSST_CODE_MAX       (1UL<<FSST_CODE_BITS) /* all bits set: indicating a symbol that has not been assigned a code yet */
 #define FSST_CODE_MASK      (FSST_CODE_MAX-1UL)   /* all bits set: indicating a symbol that has not been assigned a code yet */
@@ -115,7 +115,7 @@ struct Symbol {
    u8 first() const { assert( length() >= 1); return 0xFF & load_num(); }
    u16 first2() const { assert( length() >= 2); return 0xFFFF & load_num(); }
 
-#define FSST_HASH_LOG2SIZE 10 
+#define FSST_HASH_LOG2SIZE 10
 #define FSST_HASH_PRIME 2971215073LL
 #define FSST_SHIFT 15
 #define FSST_HASH(w) (((w)*FSST_HASH_PRIME)^(((w)*FSST_HASH_PRIME)>>FSST_SHIFT))
@@ -129,7 +129,7 @@ struct QSymbol{
    bool operator==(const QSymbol& other) const { return symbol.val.num == other.symbol.val.num && symbol.length() == other.symbol.length(); }
 };
 
-// we construct FSST symbol tables using a random sample of about 16KB (1<<14) 
+// we construct FSST symbol tables using a random sample of about 16KB (1<<14)
 #define FSST_SAMPLETARGET (1<<14)
 #define FSST_SAMPLEMAXSZ ((long) 2*FSST_SAMPLETARGET)
 
@@ -138,15 +138,15 @@ struct QSymbol{
 // (1) to encode values we probe (and maintain) three datastructures:
 // - u16 byteCodes[256] array at the position of the next byte  (s.length==1)
 // - u16 shortCodes[65536] array at the position of the next twobyte pattern (s.length==2)
-// - Symbol hashtable[1024] (keyed by the next three bytes, ie for s.length>2), 
-// this search will yield a u16 code, it points into Symbol symbols[]. You always find a hit, because the first 256 codes are 
+// - Symbol hashtable[1024] (keyed by the next three bytes, ie for s.length>2),
+// this search will yield a u16 code, it points into Symbol symbols[]. You always find a hit, because the first 256 codes are
 // pseudo codes representing a single byte these will become escapes)
 //
 // (2) when we finished looking for the best symbol table we call optimize() to reshape it:
 // - it renumbers the codes by length (first symbols of length 2,3,4,5,6,7,8; then 1 (starting from byteLim are symbols of length 1)
-//   length 2 codes for which no longer suffix symbol exists (< suffixLim) come first among the 2-byte codes 
+//   length 2 codes for which no longer suffix symbol exists (< suffixLim) come first among the 2-byte codes
 //   (allows shortcut during compression)
-// - for each two-byte combination, in all unused slots of shortCodes[], it enters the byteCode[] of the symbol corresponding 
+// - for each two-byte combination, in all unused slots of shortCodes[], it enters the byteCode[] of the symbol corresponding
 //   to the first byte (if such a single-byte symbol exists). This allows us to just probe the next two bytes (if there is only one
 //   byte left in the string, there is still a terminator-byte added during compression) in shortCodes[]. That is, byteCodes[]
 //   and its codepath is no longer required. This makes compression faster. The reason we use byteCodes[] during symbolTable construction
@@ -173,9 +173,9 @@ struct SymbolTable {
    u16 byteCodes[256]; // contains code for every 1-byte symbol, otherwise code for pseudo byte (escaped byte)
 
    // 'symbols' is the current symbol  table symbol[code].symbol is the max 8-byte 'symbol' for single-byte 'code'
-   Symbol symbols[FSST_CODE_MAX]; // x in [0,255]: pseudo symbols representing escaped byte x; x in [FSST_CODE_BASE=256,256+nSymbols]: real symbols   
+   Symbol symbols[FSST_CODE_MAX]; // x in [0,255]: pseudo symbols representing escaped byte x; x in [FSST_CODE_BASE=256,256+nSymbols]: real symbols
 
-   // replicate long symbols in hashTab (avoid indirection). 
+   // replicate long symbols in hashTab (avoid indirection).
    Symbol hashTab[hashTabSize]; // used for all symbols of 3 and more bytes
 
    u16 nSymbols;          // amount of symbols in the map (max 255)
@@ -225,8 +225,8 @@ struct SymbolTable {
               u32 idx = symbols[i].hash() & (hashTabSize-1);
               hashTab[idx].val.num = 0;
               hashTab[idx].icl = FSST_ICL_FREE; //marks empty in hashtab
-          }           
-      } 
+          }
+      }
       nSymbols = 0; // no need to clean symbols[] as no symbols are used
    }
    bool hashInsert(Symbol s) {
@@ -256,11 +256,11 @@ struct SymbolTable {
    u16 findLongestSymbol(Symbol s) const {
       size_t idx = s.hash() & (hashTabSize-1);
       if (hashTab[idx].icl <= s.icl && hashTab[idx].load_num() == (s.load_num() & (0xFFFFFFFFFFFFFFFF >> ((u8) hashTab[idx].icl)))) {
-         return (hashTab[idx].icl>>16) & FSST_CODE_MASK; // matched a long symbol 
+         return (hashTab[idx].icl>>16) & FSST_CODE_MASK; // matched a long symbol
       }
       if (s.length() >= 2) {
          u16 code =  shortCodes[s.first2()] & FSST_CODE_MASK;
-         if (code >= FSST_CODE_BASE) return code; 
+         if (code >= FSST_CODE_BASE) return code;
       }
       return byteCodes[s.first()] & FSST_CODE_MASK;
    }
@@ -273,23 +273,23 @@ struct SymbolTable {
    //   consequently we needed more than 8 bits during symbol table contruction, but can simplify the codes to single bytes in finalize()
    //   (this feature is in fact lo longer used, but could still be exploited: symbol construction creates no more than 255 symbols in each pass)
    // - we not only reduce the amount of codes to <255, but also *reorder* the symbols and renumber their codes, for higher compression perf.
-   //   we renumber codes so they are grouped by length, to allow optimized scalar string compression (byteLim and suffixLim optimizations). 
+   //   we renumber codes so they are grouped by length, to allow optimized scalar string compression (byteLim and suffixLim optimizations).
    // - we make the use of byteCode[] no longer necessary by inserting single-byte codes in the free spots of shortCodes[]
    //   Using shortCodes[] only makes compression faster. When creating the symbolTable, however, using shortCodes[] for the single-byte
    //   symbols is slow, as each insert touches 256 positions in it. This optimization was added when optimizing symbolTable construction time.
    //
    // In all, we change the layout and coding, as follows..
    //
-   // before finalize(): 
+   // before finalize():
    // - The real symbols are symbols[256..256+nSymbols>. As we may have nSymbols > 255
    // - The first 256 codes are pseudo symbols (all escaped bytes)
    //
-   // after finalize(): 
-   // - table layout is symbols[0..nSymbols>, with nSymbols < 256. 
-   // - Real codes are [0,nSymbols>. 8-th bit not set. 
+   // after finalize():
+   // - table layout is symbols[0..nSymbols>, with nSymbols < 256.
+   // - Real codes are [0,nSymbols>. 8-th bit not set.
    // - Escapes in shortCodes have the 8th bit set (value: 256+255=511). 255 because the code to be emitted is the escape byte 255
    // - symbols are grouped by length: 2,3,4,5,6,7,8, then 1 (single-byte codes last)
-   // the two-byte codes are split in two sections: 
+   // the two-byte codes are split in two sections:
    // - first section contains codes for symbols for which there is no longer symbol (no suffix). It allows an early-out during compression
    //
    // finally, shortCodes[] is modified to also encode all single-byte symbols (hence byteCodes[] is not required on a critical path anymore).
@@ -298,7 +298,7 @@ struct SymbolTable {
        assert(nSymbols <= 255);
        u8 newCode[256], rsum[8], byteLim = nSymbols - (lenHisto[0] - zeroTerminated);
 
-       // compute running sum of code lengths (starting offsets for each length) 
+       // compute running sum of code lengths (starting offsets for each length)
        rsum[0] = byteLim; // 1-byte codes are highest
        rsum[1] = zeroTerminated;
        for(u32 i=1; i<7; i++)
@@ -308,34 +308,34 @@ struct SymbolTable {
        suffixLim = rsum[1];
        symbols[newCode[0] = 0] = symbols[256]; // keep symbol 0 in place (for zeroTerminated cases only)
 
-       for(u32 i=zeroTerminated, j=rsum[2]; i<nSymbols; i++) {  
+       for(u32 i=zeroTerminated, j=rsum[2]; i<nSymbols; i++) {
           Symbol s1 = symbols[FSST_CODE_BASE+i];
           u32 len = s1.length(), opt = (len == 2)*nSymbols;
           if (opt) {
               u16 first2 = s1.first2();
-              for(u32 k=0; k<opt; k++) {  
+              for(u32 k=0; k<opt; k++) {
                  Symbol s2 = symbols[FSST_CODE_BASE+k];
                  if (k != i && s2.length() > 1 && first2 == s2.first2()) // test if symbol k is a suffix of s
                     opt = 0;
               }
-              newCode[i] = opt?suffixLim++:--j; // symbols without a larger suffix have a code < suffixLim 
-          } else 
+              newCode[i] = opt?suffixLim++:--j; // symbols without a larger suffix have a code < suffixLim
+          } else
               newCode[i] = rsum[len-1]++;
           s1.set_code_len(newCode[i],len);
-          symbols[newCode[i]] = s1; 
+          symbols[newCode[i]] = s1;
        }
-       // renumber the codes in byteCodes[] 
-       for(u32 i=0; i<256; i++) 
+       // renumber the codes in byteCodes[]
+       for(u32 i=0; i<256; i++)
           if ((byteCodes[i] & FSST_CODE_MASK) >= FSST_CODE_BASE)
              byteCodes[i] = newCode[(u8) byteCodes[i]] + (1 << FSST_LEN_BITS);
-          else 
+          else
              byteCodes[i] = 511 + (1 << FSST_LEN_BITS);
-       
-       // renumber the codes in shortCodes[] 
+
+       // renumber the codes in shortCodes[]
        for(u32 i=0; i<65536; i++)
           if ((shortCodes[i] & FSST_CODE_MASK) >= FSST_CODE_BASE)
              shortCodes[i] = newCode[(u8) shortCodes[i]] + (shortCodes[i] & (15 << FSST_LEN_BITS));
-          else 
+          else
              shortCodes[i] = byteCodes[i&0xFF];
 
        // replace the symbols in the hash table
@@ -347,22 +347,22 @@ struct SymbolTable {
 
 #ifdef NONOPT_FSST
 struct Counters {
-   u16 count1[FSST_CODE_MAX];   // array to count frequency of symbols as they occur in the sample 
-   u16 count2[FSST_CODE_MAX][FSST_CODE_MAX]; // array to count subsequent combinations of two symbols in the sample 
+   u16 count1[FSST_CODE_MAX];   // array to count frequency of symbols as they occur in the sample
+   u16 count2[FSST_CODE_MAX][FSST_CODE_MAX]; // array to count subsequent combinations of two symbols in the sample
 
-   void count1Set(u32 pos1, u16 val) { 
+   void count1Set(u32 pos1, u16 val) {
       count1[pos1] = val;
    }
-   void count1Inc(u32 pos1) { 
+   void count1Inc(u32 pos1) {
       count1[pos1]++;
    }
-   void count2Inc(u32 pos1, u32 pos2) {  
+   void count2Inc(u32 pos1, u32 pos2) {
       count2[pos1][pos2]++;
    }
-   u32 count1GetNext(u32 &pos1) { 
+   u32 count1GetNext(u32 &pos1) {
       return count1[pos1];
    }
-   u32 count2GetNext(u32 pos1, u32 &pos2) { 
+   u32 count2GetNext(u32 pos1, u32 &pos2) {
       return count2[pos1][pos2];
    }
    void backup1(u8 *buf) {
@@ -383,16 +383,16 @@ struct Counters {
    u8 count2High[FSST_CODE_MAX][FSST_CODE_MAX/2]; // array to count subsequent combinations of two symbols in the sample (12-bits: 8-bits low, 4-bits high)
    u8 count2Low[FSST_CODE_MAX][FSST_CODE_MAX];    // its value is (count2High*256+count2Low) -- but high is 4-bits (we put two numbers in one, hence /2)
    // 385KB  -- but hot area likely just 10 + 30*4 = 130 cache lines (=8KB)
-   
-   void count1Set(u32 pos1, u16 val) { 
+
+   void count1Set(u32 pos1, u16 val) {
       count1Low[pos1] = val&255;
       count1High[pos1] = val>>8;
    }
-   void count1Inc(u32 pos1) { 
+   void count1Inc(u32 pos1) {
       if (!count1Low[pos1]++) // increment high early (when low==0, not when low==255). This means (high > 0) <=> (cnt > 0)
          count1High[pos1]++; //(0,0)->(1,1)->..->(255,1)->(0,1)->(1,2)->(2,2)->(3,2)..(255,2)->(0,2)->(1,3)->(2,3)...
    }
-   void count2Inc(u32 pos1, u32 pos2) {  
+   void count2Inc(u32 pos1, u32 pos2) {
        if (!count2Low[pos1][pos2]++) // increment high early (when low==0, not when low==255). This means (high > 0) <=> (cnt > 0)
           // inc 4-bits high counter with 1<<0 (1) or 1<<4 (16) -- depending on whether pos2 is even or odd, repectively
           count2High[pos1][(pos2)>>1] += 1 << (((pos2)&1)<<2); // we take our chances with overflow.. (4K maxval, on a 8K sample)
@@ -432,38 +432,41 @@ struct Counters {
       memcpy(count1High, buf, FSST_CODE_MAX);
       memcpy(count1Low, buf+FSST_CODE_MAX, FSST_CODE_MAX);
    }
-}; 
+};
 #endif
 
 
 #define FSST_BUFSZ (3<<19) // 768KB
 
-// an encoder is a symbolmap plus some bufferspace, needed during map construction as well as compression 
+// an encoder is a symbolmap plus some bufferspace, needed during map construction as well as compression
 struct Encoder {
    shared_ptr<SymbolTable> symbolTable; // symbols, plus metadata and data structures for quick compression (shortCode,hashTab, etc)
    union {
       Counters counters;     // for counting symbol occurences during map construction
-      u8 simdbuf[FSST_BUFSZ]; // for compression: SIMD string staging area 768KB = 256KB in + 512KB out (worst case for 256KB in) 
+      u8 simdbuf[FSST_BUFSZ]; // for compression: SIMD string staging area 768KB = 256KB in + 512KB out (worst case for 256KB in)
    };
 };
 
 // job control integer representable in one 64bits SIMD lane: cur/end=input, out=output, pos=which string (2^9=512 per call)
 struct SIMDjob {
-   u64 out:19,pos:9,end:18,cur:18; // cur/end is input offsets (2^18=256KB), out is output offset (2^19=512KB)  
+   u64 out:19,pos:9,end:18,cur:18; // cur/end is input offsets (2^18=256KB), out is output offset (2^19=512KB)
 };
 
-extern bool 
+extern bool
 fsst_hasAVX512(); // runtime check for avx512 capability
 
-extern size_t 
+extern size_t
 fsst_compressAVX512(
-   SymbolTable &symbolTable, 
+   SymbolTable &symbolTable,
    u8* codeBase,    // IN: base address for codes, i.e. compression output (points to simdbuf+256KB)
    u8* symbolBase,  // IN: base address for string bytes, i.e. compression input (points to simdbuf)
    SIMDjob* input,  // IN: input array (size n) with job information: what to encode, where to store it.
    SIMDjob* output, // OUT: output array (size n) with job information: how much got encoded, end output pointer.
    size_t n,         // IN: size of arrays input and output (should be max 512)
    size_t unroll);   // IN: degree of SIMD unrolling
+
+// Symbol manipulation
+Symbol concat(Symbol a, Symbol b);
 
 // C++ fsst-compress function with some more control of how the compression happens (algorithm flavor, simd unroll degree)
 size_t compressImpl(Encoder *encoder, size_t n, size_t lenIn[], u8 *strIn[], size_t size, u8 * output, size_t *lenOut, u8 *strOut[], bool noSuffixOpt, bool avoidBranch, int simd);
