@@ -478,12 +478,28 @@ auto right_shift_by_excess(const xsimd::batch<Int, Arch>& batch,
   constexpr bool kHasAvx2 = std::is_base_of_v<xsimd::avx2, Arch>;
   static_assert(!(kHasSse2 && kHasAvx2), "The hierarchy are different in xsimd");
 
+  constexpr auto IntSize = sizeof(Int);
+
+  // Architecture for which there is no variable right shift but a larger fallback exists.
+  if constexpr (kHasAvx2 && (IntSize == sizeof(uint8_t) || IntSize == sizeof(uint16_t))) {
+    using twice_uint = SizedUint<2 * IntSize>;
+
+    const auto batch2 = xsimd::bitwise_cast<twice_uint>(batch);
+
+    constexpr auto kShifts0 = select_stride<twice_uint, 0>(shifts);
+    constexpr auto kMask0 = bit_util::LeastSignificantBitMask<twice_uint>(8 * IntSize);
+    const auto shifted0 = right_shift_by_excess(batch2 & kMask0, kShifts0);
+
+    constexpr auto kShifts1 = select_stride<twice_uint, 1>(shifts);
+    constexpr auto kMask1 = kMask0 << (8 * IntSize);
+    const auto shifted1 = right_shift_by_excess(batch2, kShifts1) & kMask1;
+
+    return xsimd::bitwise_cast<Int>(shifted0 | shifted1);
+  }
+
   // These conditions are the ones matched in `left_shift`, i.e. the ones where variable
-  // shift right will not be available.
-  if constexpr (  //
-      (kHasSse2 && (sizeof(Int) == sizeof(uint8_t) || sizeof(Int) == sizeof(uint16_t) ||
-                    sizeof(Int) == sizeof(uint32_t))) ||
-      (kHasAvx2 && (sizeof(Int) == sizeof(uint8_t) || sizeof(Int) == sizeof(uint16_t)))) {
+  // shift right will not be available but a left shift (fallback) exists.
+  if constexpr (kHasSse2 && (IntSize != sizeof(uint64_t))) {
     static constexpr auto kShiftsArr = std::array{kShifts...};
     static constexpr Int kMaxRightShift = max_value(kShiftsArr);
 
