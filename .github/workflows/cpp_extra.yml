@@ -121,7 +121,7 @@ jobs:
       DOCKER_VOLUME_PREFIX: ".docker/"
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
           fetch-depth: 0
           submodules: recursive
@@ -203,7 +203,7 @@ jobs:
       REPO: ghcr.io/${{ github.repository }}-dev
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
           fetch-depth: 0
           submodules: recursive
@@ -252,7 +252,7 @@ jobs:
       MACOSX_DEPLOYMENT_TARGET: "14.0"
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
           fetch-depth: 0
           submodules: recursive
