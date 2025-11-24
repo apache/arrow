@@ -643,11 +643,14 @@ else()
   )
 endif()
 
+set(FSST_SOURCE_URL "")
+set(FSST_GIT_REPOSITORY "")
 if(DEFINED ENV{ARROW_FSST_URL})
   set(FSST_SOURCE_URL "$ENV{ARROW_FSST_URL}")
+elseif(DEFINED ENV{ARROW_FSST_GIT_REPOSITORY})
+  set(FSST_GIT_REPOSITORY "$ENV{ARROW_FSST_GIT_REPOSITORY}")
 else()
-  set_urls(FSST_SOURCE_URL
-           "https://github.com/cwida/fsst/archive/${ARROW_FSST_BUILD_VERSION}.tar.gz")
+  set(FSST_GIT_REPOSITORY "https://github.com/cwida/fsst.git")
 endif()
 
 if(DEFINED ENV{ARROW_GBENCHMARK_URL})
@@ -2620,9 +2623,22 @@ endif()
 function(build_fsst)
   message(STATUS "Building FSST from source using FetchContent")
 
-  fetchcontent_declare(fsst
-                       URL ${FSST_SOURCE_URL}
-                       URL_HASH "SHA256=${ARROW_FSST_BUILD_SHA256_CHECKSUM}")
+  if(FSST_SOURCE_URL)
+    fetchcontent_declare(fsst
+                         ${FC_DECLARE_COMMON_OPTIONS}
+                         URL ${FSST_SOURCE_URL}
+                         URL_HASH "SHA256=${ARROW_FSST_BUILD_SHA256_CHECKSUM}")
+  else()
+    if(NOT FSST_GIT_REPOSITORY)
+      message(FATAL_ERROR "FSST_GIT_REPOSITORY is not set and no FSST_SOURCE_URL override was provided.")
+    endif()
+    fetchcontent_declare(fsst
+                         ${FC_DECLARE_COMMON_OPTIONS}
+                         GIT_REPOSITORY ${FSST_GIT_REPOSITORY}
+                         GIT_TAG ${ARROW_FSST_BUILD_VERSION}
+                         GIT_SHALLOW TRUE
+                         GIT_PROGRESS TRUE)
+  endif()
 
   prepare_fetchcontent()
   fetchcontent_getproperties(fsst)
