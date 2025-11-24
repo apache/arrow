@@ -2624,15 +2624,16 @@ function(build_fsst)
                        URL_HASH "SHA256=${ARROW_FSST_BUILD_SHA256_CHECKSUM}")
 
   prepare_fetchcontent()
-  fetchcontent_makeavailable(fsst)
+  fetchcontent_getproperties(fsst)
+  if(NOT fsst_POPULATED)
+    fetchcontent_populate(fsst)
+  endif()
 
-  set(ARROW_FSST_INCLUDE_DIR
-      "${fsst_SOURCE_DIR}"
-      CACHE INTERNAL "FSST include directory")
+  set(ARROW_FSST_INCLUDE_DIR "${fsst_SOURCE_DIR}" PARENT_SCOPE)
   set(ARROW_FSST_SOURCES
       "${fsst_SOURCE_DIR}/libfsst.cpp;${fsst_SOURCE_DIR}/fsst_avx512.cpp"
-      CACHE INTERNAL "FSST source files")
-  set(FSST_VENDORED TRUE CACHE INTERNAL "Whether FSST is built from source")
+      PARENT_SCOPE)
+  set(FSST_VENDORED TRUE PARENT_SCOPE)
 endfunction()
 
 if(ARROW_WITH_FSST)
