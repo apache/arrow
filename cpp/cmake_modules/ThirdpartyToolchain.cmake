@@ -2094,7 +2094,10 @@ if(ARROW_WITH_PROTOBUF)
                      REQUIRED_VERSION
                      ${ARROW_PROTOBUF_REQUIRED_VERSION})
 
-  if(NOT Protobuf_USE_STATIC_LIBS AND MSVC_TOOLCHAIN)
+  # If PROTOBUF_VENDORED we build static protobuf from source via FetchContent
+  if(NOT PROTOBUF_VENDORED
+     AND NOT Protobuf_USE_STATIC_LIBS
+     AND MSVC_TOOLCHAIN)
     add_definitions(-DPROTOBUF_USE_DLLS)
   endif()
 
