@@ -259,31 +259,10 @@ class ARROW_EXPORT CappedMemoryPool : public MemoryPool {
   using MemoryPool::Allocate;
   using MemoryPool::Reallocate;
 
-  Status Allocate(int64_t size, int64_t alignment, uint8_t** out) override {
-    // XXX Another thread may allocate memory between the limit check and
-    // the `Allocate` call. It is possible for the two allocations to be successful
-    // while going above the limit.
-    // Solving this issue would require refactoring the `MemoryPool` implementation
-    // to delegate the limit check to `MemoryPoolStats`.
-    const auto attempted = size + wrapped_->bytes_allocated();
-    if (ARROW_PREDICT_FALSE(attempted > bytes_allocated_limit_)) {
-      return OutOfMemory(attempted);
-    }
-    return wrapped_->Allocate(size, alignment, out);
-  }
-
+  Status Allocate(int64_t size, int64_t alignment, uint8_t** out) override;
   Status Reallocate(int64_t old_size, int64_t new_size, int64_t alignment,
-                    uint8_t** ptr) override {
-    const auto attempted = new_size - old_size + wrapped_->bytes_allocated();
-    if (ARROW_PREDICT_FALSE(attempted > bytes_allocated_limit_)) {
-      return OutOfMemory(attempted);
-    }
-    return wrapped_->Reallocate(old_size, new_size, alignment, ptr);
-  }
-
-  void Free(uint8_t* buffer, int64_t size, int64_t alignment) override {
-    return wrapped_->Free(buffer, size, alignment);
-  }
+                    uint8_t** ptr) override;
+  void Free(uint8_t* buffer, int64_t size, int64_t alignment) override;
 
   void ReleaseUnused() override { wrapped_->ReleaseUnused(); }
 
@@ -302,12 +281,7 @@ class ARROW_EXPORT CappedMemoryPool : public MemoryPool {
   std::string backend_name() const override { return wrapped_->backend_name(); }
 
  private:
-  Status OutOfMemory(int64_t value) {
-    return Status::OutOfMemory(
-        "MemoryPool bytes_allocated cap exceeded: "
-        "limit=",
-        bytes_allocated_limit_, ", attempted=", value);
-  }
+  Status OutOfMemory(int64_t current_allocated, int64_t requested) const;
 
   MemoryPool* wrapped_;
   const int64_t bytes_allocated_limit_;

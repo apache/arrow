@@ -2799,37 +2799,66 @@ if(ARROW_WITH_ZSTD)
 endif()
 
 # ----------------------------------------------------------------------
-# RE2 (required for Gandiva)
+# RE2 (required for Gandiva and gRPC)
 
-macro(build_re2)
-  message(STATUS "Building RE2 from source")
-  set(RE2_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/re2_ep-install")
-  set(RE2_STATIC_LIB
-      "${RE2_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}re2${CMAKE_STATIC_LIBRARY_SUFFIX}")
+function(build_re2)
+  list(APPEND CMAKE_MESSAGE_INDENT "RE2: ")
+  message(STATUS "Building RE2 from source using FetchContent")
+  set(RE2_VENDORED
+      TRUE
+      PARENT_SCOPE)
+  set(RE2_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/re2_fc-install")
+  set(RE2_PREFIX
+      "${RE2_PREFIX}"
+      PARENT_SCOPE)
 
-  set(RE2_CMAKE_ARGS ${EP_COMMON_CMAKE_ARGS} "-DCMAKE_INSTALL_PREFIX=${RE2_PREFIX}")
+  fetchcontent_declare(re2
+                       URL ${RE2_SOURCE_URL}
+                       URL_HASH "SHA256=${ARROW_RE2_BUILD_SHA256_CHECKSUM}")
+  prepare_fetchcontent()
 
-  externalproject_add(re2_ep
-                      ${EP_COMMON_OPTIONS}
-                      INSTALL_DIR ${RE2_PREFIX}
-                      URL ${RE2_SOURCE_URL}
-                      URL_HASH "SHA256=${ARROW_RE2_BUILD_SHA256_CHECKSUM}"
-                      CMAKE_ARGS ${RE2_CMAKE_ARGS}
-                      BUILD_BYPRODUCTS "${RE2_STATIC_LIB}")
+  # Unity build causes some build errors
+  set(CMAKE_UNITY_BUILD OFF)
+  fetchcontent_makeavailable(re2)
 
-  file(MAKE_DIRECTORY "${RE2_PREFIX}/include")
-  add_library(re2::re2 STATIC IMPORTED)
-  set_target_properties(re2::re2 PROPERTIES IMPORTED_LOCATION "${RE2_STATIC_LIB}")
-  target_include_directories(re2::re2 BEFORE INTERFACE "${RE2_PREFIX}/include")
+  # This custom target ensures re2 is built before we install
+  add_custom_target(re2_built DEPENDS re2::re2)
 
-  add_dependencies(re2::re2 re2_ep)
-  set(RE2_VENDORED TRUE)
-  # Set values so that FindRE2 finds this too
-  set(RE2_LIB ${RE2_STATIC_LIB})
-  set(RE2_INCLUDE_DIR "${RE2_PREFIX}/include")
+  add_custom_command(OUTPUT "${re2_BINARY_DIR}/cmake_install.cmake.saved"
+                     COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                             "${re2_BINARY_DIR}/cmake_install.cmake"
+                             "${re2_BINARY_DIR}/cmake_install.cmake.saved"
+                     COMMAND ${CMAKE_COMMAND} -E echo
+                             "# RE2 install disabled to prevent double installation with Arrow"
+                             > "${re2_BINARY_DIR}/cmake_install.cmake"
+                     DEPENDS re2_built
+                     COMMENT "Disabling RE2 install to prevent double installation"
+                     VERBATIM)
 
-  list(APPEND ARROW_BUNDLED_STATIC_LIBS re2::re2)
-endmacro()
+  add_custom_target(re2_install_disabled ALL
+                    DEPENDS "${re2_BINARY_DIR}/cmake_install.cmake.saved")
+
+  # Install RE2 to RE2_PREFIX for gRPC to find
+  add_custom_command(OUTPUT "${RE2_PREFIX}/.re2_installed"
+                     COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                             "${re2_BINARY_DIR}/cmake_install.cmake.saved"
+                             "${re2_BINARY_DIR}/cmake_install.cmake.tmp"
+                     COMMAND ${CMAKE_COMMAND} -DCMAKE_INSTALL_PREFIX=${RE2_PREFIX}
+                             -DCMAKE_INSTALL_CONFIG_NAME=$<CONFIG> -P
+                             "${re2_BINARY_DIR}/cmake_install.cmake.tmp" ||
+                             ${CMAKE_COMMAND} -E true
+                     COMMAND ${CMAKE_COMMAND} -E touch "${RE2_PREFIX}/.re2_installed"
+                     DEPENDS re2_install_disabled
+                     COMMENT "Installing RE2 to ${RE2_PREFIX} for gRPC"
+                     VERBATIM)
+
+  add_custom_target(re2_fc DEPENDS "${RE2_PREFIX}/.re2_installed")
+
+  set(ARROW_BUNDLED_STATIC_LIBS
+      ${ARROW_BUNDLED_STATIC_LIBS} re2::re2
+      PARENT_SCOPE)
+  list(POP_BACK CMAKE_MESSAGE_INDENT)
+endfunction()
 
 if(ARROW_WITH_RE2)
   resolve_dependency(re2
@@ -3234,7 +3263,7 @@ macro(build_grpc)
   endif()
 
   if(RE2_VENDORED)
-    add_dependencies(grpc_dependencies re2_ep)
+    add_dependencies(grpc_dependencies re2_fc)
   endif()
 
   add_dependencies(grpc_dependencies ${ARROW_PROTOBUF_LIBPROTOBUF} c-ares::cares
@@ -3255,8 +3284,13 @@ macro(build_grpc)
     get_filename_component(GRPC_CARES_ROOT "${GRPC_CARES_INCLUDE_DIR}" DIRECTORY)
   endif()
 
-  get_target_property(GRPC_RE2_INCLUDE_DIR re2::re2 INTERFACE_INCLUDE_DIRECTORIES)
-  get_filename_component(GRPC_RE2_ROOT "${GRPC_RE2_INCLUDE_DIR}" DIRECTORY)
+  # For FetchContent RE2, use the install prefix directly
+  if(RE2_VENDORED)
+    set(GRPC_RE2_ROOT "${RE2_PREFIX}")
+  else()
+    get_target_property(GRPC_RE2_INCLUDE_DIR re2::re2 INTERFACE_INCLUDE_DIRECTORIES)
+    get_filename_component(GRPC_RE2_ROOT "${GRPC_RE2_INCLUDE_DIR}" DIRECTORY)
+  endif()
 
   # Put Abseil, etc. first so that local directories are searched
   # before (what are likely) system directories

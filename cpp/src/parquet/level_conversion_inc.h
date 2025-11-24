@@ -299,14 +299,15 @@ int64_t DefLevelsBatchToBitmap(const int16_t* def_levels, const int64_t batch_si
   ARROW_DCHECK_LE(batch_size, kExtractBitsSize);
 
   // Greater than level_info.def_level - 1 implies >= the def_level
-  auto defined_bitmap = static_cast<extract_bitmap_t>(
-      internal::GreaterThanBitmap(def_levels, batch_size, level_info.def_level - 1));
+  auto defined_bitmap = static_cast<extract_bitmap_t>(::arrow::bit_util::FromLittleEndian(
+      internal::GreaterThanBitmap(def_levels, batch_size, level_info.def_level - 1)));
 
   if (has_repeated_parent) {
     // Greater than level_info.repeated_ancestor_def_level - 1 implies >= the
     // repeated_ancestor_def_level
-    auto present_bitmap = static_cast<extract_bitmap_t>(internal::GreaterThanBitmap(
-        def_levels, batch_size, level_info.repeated_ancestor_def_level - 1));
+    auto present_bitmap = static_cast<extract_bitmap_t>(
+        ::arrow::bit_util::FromLittleEndian(internal::GreaterThanBitmap(
+            def_levels, batch_size, level_info.repeated_ancestor_def_level - 1)));
     auto selected_bits = ExtractBits(defined_bitmap, present_bitmap);
     int64_t selected_count = ::arrow::bit_util::PopCount(present_bitmap);
     if (ARROW_PREDICT_FALSE(selected_count > upper_bound_remaining)) {
