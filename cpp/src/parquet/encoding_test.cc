@@ -2886,7 +2886,7 @@ TEST(TestFsstEncoding, HeavyNullsDecodeSpaced) {
   }
   writer.Finish();
 
-  const int null_count = binary.null_count();
+  const int null_count = static_cast<int>(binary.null_count());
   ASSERT_EQ(static_cast<int>(values->length() - null_count),
             decoder->DecodeSpaced(decoded.data(), static_cast<int>(values->length()),
                                   null_count, valid_bits.data(), 0));
