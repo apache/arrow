@@ -1873,11 +1873,6 @@ function(build_protobuf)
   set(PROTOBUF_VENDORED
       TRUE
       PARENT_SCOPE)
-  # When building protobuf from source via FetchContent, we always build it as static
-  # Update ARROW_PROTOBUF_USE_SHARED to reflect this (must be CACHE to be visible to ORC)
-  set(ARROW_PROTOBUF_USE_SHARED
-      OFF
-      CACHE BOOL "" FORCE)
   set(PROTOBUF_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/protobuf_fc-install")
   set(PROTOBUF_PREFIX
       "${PROTOBUF_PREFIX}"
@@ -1886,12 +1881,6 @@ function(build_protobuf)
   set(PROTOBUF_INCLUDE_DIR
       "${PROTOBUF_INCLUDE_DIR}"
       PARENT_SCOPE)
-
-  # Always build protobuf as static library to avoid DLL import/export issues on Windows
-  # Must be set BEFORE fetchcontent_declare and as CACHE FORCE to override the option()
-  set(protobuf_BUILD_SHARED_LIBS
-      OFF
-      CACHE BOOL "Build protobuf shared libs" FORCE)
 
   fetchcontent_declare(protobuf
                        URL ${PROTOBUF_SOURCE_URL}
@@ -1924,27 +1913,6 @@ function(build_protobuf)
 
   fetchcontent_makeavailable(protobuf)
 
-  # Ensure protobuf targets don't have PROTOBUF_USE_DLLS defined
-  # This is critical on Windows to avoid DLL import/export issues when linking static protobuf
-  if(TARGET protobuf::libprotobuf)
-    get_target_property(_protobuf_compile_defs protobuf::libprotobuf
-                        INTERFACE_COMPILE_DEFINITIONS)
-    if(_protobuf_compile_defs)
-      list(REMOVE_ITEM _protobuf_compile_defs PROTOBUF_USE_DLLS)
-      set_target_properties(protobuf::libprotobuf PROPERTIES INTERFACE_COMPILE_DEFINITIONS
-                                                             "${_protobuf_compile_defs}")
-    endif()
-  endif()
-  if(TARGET protobuf::libprotoc)
-    get_target_property(_protoc_compile_defs protobuf::libprotoc
-                        INTERFACE_COMPILE_DEFINITIONS)
-    if(_protoc_compile_defs)
-      list(REMOVE_ITEM _protoc_compile_defs PROTOBUF_USE_DLLS)
-      set_target_properties(protobuf::libprotoc PROPERTIES INTERFACE_COMPILE_DEFINITIONS
-                                                           "${_protoc_compile_defs}")
-    endif()
-  endif()
-
   # Get the actual include directory from the protobuf target
   # For FetchContent, this points to the source directory which contains the .proto files
   set(PROTOBUF_INCLUDE_DIR "${protobuf_SOURCE_DIR}/src")
@@ -1970,7 +1938,6 @@ function(build_protobuf)
   # We have to do this in two steps to avoid double installation of Protobuf
   # when Arrow is installed.
   # This custom target ensures Protobuf is built before we install
-  # TODO: Investigate if libprotobuf-lite is actually needed by Arrow/gRPC
   add_custom_target(protobuf_built
                     DEPENDS protobuf::libprotobuf protobuf::libprotobuf-lite
                             protobuf::libprotoc protobuf::protoc)
@@ -1990,7 +1957,7 @@ function(build_protobuf)
   add_custom_target(protobuf_install_disabled ALL
                     DEPENDS "${protobuf_BINARY_DIR}/cmake_install.cmake.saved")
 
-  # Install Protobuf to PROTOBUF_PREFIX for gRPC to find
+  # Install Protobuf to PROTOBUF_PREFIX for dependendants to find
   add_custom_command(OUTPUT "${PROTOBUF_PREFIX}/.protobuf_installed"
                      COMMAND ${CMAKE_COMMAND} -E copy_if_different
                              "${protobuf_BINARY_DIR}/cmake_install.cmake.saved"
@@ -2007,18 +1974,13 @@ function(build_protobuf)
 
   # Make protobuf_fc depend on the install completion marker
   add_custom_target(protobuf_fc DEPENDS "${PROTOBUF_PREFIX}/.protobuf_installed")
-
-  # For FetchContent, we don't create arrow::protobuf::* aliases because
-  # protobuf::* are themselves aliases and CMake doesn't allow alias-to-alias.
-  # The code in resolve_dependency below will use protobuf::* targets directly.
-
   list(APPEND ARROW_BUNDLED_STATIC_LIBS protobuf::libprotobuf)
 
   if(CMAKE_CROSSCOMPILING)
     # If we are cross compiling, we need to build protoc for the host
     # system also, as it is used when building Arrow
     # We reuse the FetchContent downloaded source but build it with host compiler
-    set(PROTOBUF_HOST_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/protobuf_fc_host-install")
+    set(PROTOBUF_HOST_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/protobuf_ep_host-install")
     set(PROTOBUF_HOST_COMPILER "${PROTOBUF_HOST_PREFIX}/bin/protoc")
 
     set(PROTOBUF_HOST_CMAKE_ARGS
@@ -2041,7 +2003,7 @@ function(build_protobuf)
     set_target_properties(arrow::protobuf::host_protoc
                           PROPERTIES IMPORTED_LOCATION "${PROTOBUF_HOST_COMPILER}")
 
-    add_dependencies(arrow::protobuf::host_protoc protobuf_fc_host)
+    add_dependencies(arrow::protobuf::host_protoc protobuf_ep_host)
   endif()
   list(POP_BACK CMAKE_MESSAGE_INDENT)
 endfunction()
@@ -2208,7 +2170,6 @@ macro(build_substrait)
                                              SKIP_UNITY_BUILD_INCLUSION TRUE)
       list(APPEND SUBSTRAIT_PROTO_GEN_ALL "${SUBSTRAIT_PROTO_GEN}.${EXT}")
     endforeach()
-    # Add protobuf include directory for well-known types when using vendored protobuf
     set(SUBSTRAIT_PROTOC_INCLUDES "-I${SUBSTRAIT_LOCAL_DIR}/proto")
     if(PROTOBUF_VENDORED AND Protobuf_INCLUDE_DIRS)
       list(APPEND SUBSTRAIT_PROTOC_INCLUDES "-I${Protobuf_INCLUDE_DIRS}")
@@ -2232,15 +2193,9 @@ macro(build_substrait)
                                              SKIP_UNITY_BUILD_INCLUSION TRUE)
       list(APPEND SUBSTRAIT_PROTO_GEN_ALL "${ARROW_SUBSTRAIT_PROTO_GEN}.${EXT}")
     endforeach()
-    # Add protobuf include directory for well-known types when using vendored protobuf
-    set(ARROW_SUBSTRAIT_PROTOC_INCLUDES "-I${SUBSTRAIT_LOCAL_DIR}/proto"
-                                        "-I${ARROW_SUBSTRAIT_PROTOS_DIR}")
-    if(PROTOBUF_VENDORED AND Protobuf_INCLUDE_DIRS)
-      list(APPEND ARROW_SUBSTRAIT_PROTOC_INCLUDES "-I${Protobuf_INCLUDE_DIRS}")
-    endif()
     add_custom_command(OUTPUT "${ARROW_SUBSTRAIT_PROTO_GEN}.cc"
                               "${ARROW_SUBSTRAIT_PROTO_GEN}.h"
-                       COMMAND ${ARROW_PROTOBUF_PROTOC} ${ARROW_SUBSTRAIT_PROTOC_INCLUDES}
+                       COMMAND ${ARROW_PROTOBUF_PROTOC} ${SUBSTRAIT_PROTOC_INCLUDES}
                                "--cpp_out=${SUBSTRAIT_CPP_DIR}"
                                "${ARROW_SUBSTRAIT_PROTOS_DIR}/substrait/${ARROW_SUBSTRAIT_PROTO}.proto"
                        DEPENDS ${PROTO_DEPENDS} substrait_ep)
