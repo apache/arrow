@@ -207,7 +207,9 @@ if(DEFINED ARROW_FSST_INCLUDE_DIR)
 endif()
 if(DEFINED ARROW_FSST_SOURCES)
   set_source_files_properties(${ARROW_FSST_SOURCES}
-                              PROPERTIES COMPILE_OPTIONS "-Wno-error=shorten-64-to-32")
+                              PROPERTIES
+                              COMPILE_OPTIONS
+                              "$<$<COMPILE_LANG_AND_ID:CXX,Clang,AppleClang>:-Wno-error=shorten-64-to-32>")
 endif()
 
 if(ARROW_HAVE_RUNTIME_AVX2)
