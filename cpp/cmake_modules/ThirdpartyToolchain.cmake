@@ -2637,6 +2637,9 @@ function(build_fsst)
 endfunction()
 
 if(ARROW_WITH_FSST)
+  if("${fsst_SOURCE}" STREQUAL "")
+    set(fsst_SOURCE "BUNDLED")
+  endif()
   resolve_dependency(fsst IS_RUNTIME_DEPENDENCY FALSE)
 endif()
 
