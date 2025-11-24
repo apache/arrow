@@ -1888,7 +1888,6 @@ function(build_protobuf)
                        SOURCE_SUBDIR cmake)
 
   prepare_fetchcontent()
-  # Configure Protobuf options before FetchContent
 
   # This flag is based on what the user initially requested but if
   # we've fallen back to building protobuf we always build it statically
@@ -1979,7 +1978,6 @@ function(build_protobuf)
   if(CMAKE_CROSSCOMPILING)
     # If we are cross compiling, we need to build protoc for the host
     # system also, as it is used when building Arrow
-    # We reuse the FetchContent downloaded source but build it with host compiler
     set(PROTOBUF_HOST_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/protobuf_ep_host-install")
     set(PROTOBUF_HOST_COMPILER "${PROTOBUF_HOST_PREFIX}/bin/protoc")
 
@@ -1990,8 +1988,8 @@ function(build_protobuf)
         -Dprotobuf_BUILD_TESTS=OFF
         -Dprotobuf_DEBUG_POSTFIX=)
 
-    # Use the already-downloaded FetchContent source directory
-    externalproject_add(protobuf_fc_host
+    # We reuse the FetchContent downloaded source but build it with host compiler
+    externalproject_add(protobuf_ep_host
                         ${EP_COMMON_OPTIONS}
                         CMAKE_ARGS ${PROTOBUF_HOST_CMAKE_ARGS}
                         SOURCE_DIR "${protobuf_SOURCE_DIR}"
