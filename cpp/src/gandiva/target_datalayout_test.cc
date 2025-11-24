@@ -23,14 +23,9 @@
 
 namespace gandiva {
 
-class TestTargetDataLayout : public ::testing::Test {
- protected:
-  void SetUp() override {}
-};
-
 // Test that verifies the target data layout string representation
 // is populated.
-TEST_F(TestTargetDataLayout, VerifyDataLayoutForArchitecture) {
+TEST(TestTargetDataLayout, VerifyDataLayoutForArchitecture) {
   ASSERT_OK_AND_ASSIGN(auto generator, LLVMGenerator::Make(TestConfiguration(), false));
 
   llvm::Module* module = generator->module();
@@ -39,6 +34,6 @@ TEST_F(TestTargetDataLayout, VerifyDataLayoutForArchitecture) {
   const llvm::DataLayout& data_layout = module->getDataLayout();
   std::string data_layout_str = data_layout.getStringRepresentation();
 
-  EXPECT_FALSE(data_layout_str.empty());
+  ASSERT_FALSE(data_layout_str.empty());
 }
 }  // namespace gandiva
