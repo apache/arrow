@@ -73,6 +73,8 @@ set(ARROW_THIRDPARTY_DEPENDENCIES
     ZLIB
     zstd)
 
+set(fsst_SOURCE "BUNDLED" CACHE STRING "Source of fsst dependency")
+
 # For backward compatibility. We use "BOOST_SOURCE" if "Boost_SOURCE"
 # isn't specified and "BOOST_SOURCE" is specified.
 # We renamed "BOOST" dependency name to "Boost" in 3.0.0 because
@@ -2637,7 +2639,9 @@ function(build_fsst)
 endfunction()
 
 if(ARROW_WITH_FSST)
-  set(fsst_SOURCE "BUNDLED" CACHE STRING "Source of fsst dependency" FORCE)
+  if(NOT fsst_SOURCE STREQUAL "BUNDLED")
+    message(FATAL_ERROR "FSST must currently be built from source. Set fsst_SOURCE=BUNDLED.")
+  endif()
   resolve_dependency(fsst IS_RUNTIME_DEPENDENCY FALSE)
 endif()
 
