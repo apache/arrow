@@ -2193,9 +2193,11 @@ macro(build_substrait)
                                              SKIP_UNITY_BUILD_INCLUSION TRUE)
       list(APPEND SUBSTRAIT_PROTO_GEN_ALL "${ARROW_SUBSTRAIT_PROTO_GEN}.${EXT}")
     endforeach()
+    set(ARROW_SUBSTRAIT_PROTOC_INCLUDES ${SUBSTRAIT_PROTOC_INCLUDES}
+                                        "-I${ARROW_SUBSTRAIT_PROTOS_DIR}")
     add_custom_command(OUTPUT "${ARROW_SUBSTRAIT_PROTO_GEN}.cc"
                               "${ARROW_SUBSTRAIT_PROTO_GEN}.h"
-                       COMMAND ${ARROW_PROTOBUF_PROTOC} ${SUBSTRAIT_PROTOC_INCLUDES}
+                       COMMAND ${ARROW_PROTOBUF_PROTOC} ${ARROW_SUBSTRAIT_PROTOC_INCLUDES}
                                "--cpp_out=${SUBSTRAIT_CPP_DIR}"
                                "${ARROW_SUBSTRAIT_PROTOS_DIR}/substrait/${ARROW_SUBSTRAIT_PROTO}.proto"
                        DEPENDS ${PROTO_DEPENDS} substrait_ep)
