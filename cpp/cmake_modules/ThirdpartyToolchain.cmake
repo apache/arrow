@@ -647,8 +647,7 @@ if(DEFINED ENV{ARROW_FSST_URL})
   set(FSST_SOURCE_URL "$ENV{ARROW_FSST_URL}")
 else()
   set_urls(FSST_SOURCE_URL
-           "https://github.com/cwida/fsst/archive/${ARROW_FSST_BUILD_VERSION}.tar.gz"
-           "${THIRDPARTY_MIRROR_URL}/fsst-${ARROW_FSST_BUILD_VERSION}.tar.gz")
+           "https://github.com/cwida/fsst/archive/${ARROW_FSST_BUILD_VERSION}.tar.gz")
 endif()
 
 if(DEFINED ENV{ARROW_GBENCHMARK_URL})
