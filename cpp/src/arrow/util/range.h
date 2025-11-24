@@ -27,15 +27,21 @@
 
 namespace arrow::internal {
 
+/// Create a vector containing the values from start with length elements
+template <typename T>
+std::vector<T> Iota(T start, size_t length) {
+  std::vector<T> result(length);
+  std::iota(result.begin(), result.end(), start);
+  return result;
+}
+
 /// Create a vector containing the values from start up to stop
 template <typename T>
 std::vector<T> Iota(T start, T stop) {
   if (start > stop) {
     return {};
   }
-  std::vector<T> result(static_cast<size_t>(stop - start));
-  std::iota(result.begin(), result.end(), start);
-  return result;
+  return Iota<T>(start, static_cast<size_t>(stop - start));
 }
 
 /// Create a vector containing the values from 0 up to length

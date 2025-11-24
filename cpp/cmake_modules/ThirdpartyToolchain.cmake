@@ -2799,37 +2799,66 @@ if(ARROW_WITH_ZSTD)
 endif()
 
 # ----------------------------------------------------------------------
-# RE2 (required for Gandiva)
+# RE2 (required for Gandiva and gRPC)
 
-macro(build_re2)
-  message(STATUS "Building RE2 from source")
-  set(RE2_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/re2_ep-install")
-  set(RE2_STATIC_LIB
-      "${RE2_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}re2${CMAKE_STATIC_LIBRARY_SUFFIX}")
+function(build_re2)
+  list(APPEND CMAKE_MESSAGE_INDENT "RE2: ")
+  message(STATUS "Building RE2 from source using FetchContent")
+  set(RE2_VENDORED
+      TRUE
+      PARENT_SCOPE)
+  set(RE2_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/re2_fc-install")
+  set(RE2_PREFIX
+      "${RE2_PREFIX}"
+      PARENT_SCOPE)
 
-  set(RE2_CMAKE_ARGS ${EP_COMMON_CMAKE_ARGS} "-DCMAKE_INSTALL_PREFIX=${RE2_PREFIX}")
+  fetchcontent_declare(re2
+                       URL ${RE2_SOURCE_URL}
+                       URL_HASH "SHA256=${ARROW_RE2_BUILD_SHA256_CHECKSUM}")
+  prepare_fetchcontent()
 
-  externalproject_add(re2_ep
-                      ${EP_COMMON_OPTIONS}
-                      INSTALL_DIR ${RE2_PREFIX}
-                      URL ${RE2_SOURCE_URL}
-                      URL_HASH "SHA256=${ARROW_RE2_BUILD_SHA256_CHECKSUM}"
-                      CMAKE_ARGS ${RE2_CMAKE_ARGS}
-                      BUILD_BYPRODUCTS "${RE2_STATIC_LIB}")
+  # Unity build causes some build errors
+  set(CMAKE_UNITY_BUILD OFF)
+  fetchcontent_makeavailable(re2)
 
-  file(MAKE_DIRECTORY "${RE2_PREFIX}/include")
-  add_library(re2::re2 STATIC IMPORTED)
-  set_target_properties(re2::re2 PROPERTIES IMPORTED_LOCATION "${RE2_STATIC_LIB}")
-  target_include_directories(re2::re2 BEFORE INTERFACE "${RE2_PREFIX}/include")
+  # This custom target ensures re2 is built before we install
+  add_custom_target(re2_built DEPENDS re2::re2)
 
-  add_dependencies(re2::re2 re2_ep)
-  set(RE2_VENDORED TRUE)
-  # Set values so that FindRE2 finds this too
-  set(RE2_LIB ${RE2_STATIC_LIB})
-  set(RE2_INCLUDE_DIR "${RE2_PREFIX}/include")
+  add_custom_command(OUTPUT "${re2_BINARY_DIR}/cmake_install.cmake.saved"
+                     COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                             "${re2_BINARY_DIR}/cmake_install.cmake"
+                             "${re2_BINARY_DIR}/cmake_install.cmake.saved"
+                     COMMAND ${CMAKE_COMMAND} -E echo
+                             "# RE2 install disabled to prevent double installation with Arrow"
+                             > "${re2_BINARY_DIR}/cmake_install.cmake"
+                     DEPENDS re2_built
+                     COMMENT "Disabling RE2 install to prevent double installation"
+                     VERBATIM)
 
-  list(APPEND ARROW_BUNDLED_STATIC_LIBS re2::re2)
-endmacro()
+  add_custom_target(re2_install_disabled ALL
+                    DEPENDS "${re2_BINARY_DIR}/cmake_install.cmake.saved")
+
+  # Install RE2 to RE2_PREFIX for gRPC to find
+  add_custom_command(OUTPUT "${RE2_PREFIX}/.re2_installed"
+                     COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                             "${re2_BINARY_DIR}/cmake_install.cmake.saved"
+                             "${re2_BINARY_DIR}/cmake_install.cmake.tmp"
+                     COMMAND ${CMAKE_COMMAND} -DCMAKE_INSTALL_PREFIX=${RE2_PREFIX}
+                             -DCMAKE_INSTALL_CONFIG_NAME=$<CONFIG> -P
+                             "${re2_BINARY_DIR}/cmake_install.cmake.tmp" ||
+                             ${CMAKE_COMMAND} -E true
+                     COMMAND ${CMAKE_COMMAND} -E touch "${RE2_PREFIX}/.re2_installed"
+                     DEPENDS re2_install_disabled
+                     COMMENT "Installing RE2 to ${RE2_PREFIX} for gRPC"
+                     VERBATIM)
+
+  add_custom_target(re2_fc DEPENDS "${RE2_PREFIX}/.re2_installed")
+
+  set(ARROW_BUNDLED_STATIC_LIBS
+      ${ARROW_BUNDLED_STATIC_LIBS} re2::re2
+      PARENT_SCOPE)
+  list(POP_BACK CMAKE_MESSAGE_INDENT)
+endfunction()
 
 if(ARROW_WITH_RE2)
   resolve_dependency(re2
@@ -2950,33 +2979,67 @@ if(ARROW_WITH_UTF8PROC)
   resolve_dependency(${utf8proc_resolve_dependency_args})
 endif()
 
-macro(build_cares)
-  message(STATUS "Building c-ares from source")
-  set(CARES_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/cares_ep-install")
-  set(CARES_INCLUDE_DIR "${CARES_PREFIX}/include")
+function(build_cares)
+  list(APPEND CMAKE_MESSAGE_INDENT "c-ares: ")
+  message(STATUS "Building c-ares from source using FetchContent")
+  set(CARES_VENDORED
+      TRUE
+      PARENT_SCOPE)
+  set(CARES_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/cares_fc-install")
+  set(CARES_PREFIX
+      "${CARES_PREFIX}"
+      PARENT_SCOPE)
 
-  # If you set -DCARES_SHARED=ON then the build system names the library
-  # libcares_static.a
-  set(CARES_STATIC_LIB
-      "${CARES_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}cares${CMAKE_STATIC_LIBRARY_SUFFIX}"
-  )
+  fetchcontent_declare(cares
+                       URL ${CARES_SOURCE_URL}
+                       URL_HASH "SHA256=${ARROW_CARES_BUILD_SHA256_CHECKSUM}")
 
-  set(CARES_CMAKE_ARGS "${EP_COMMON_CMAKE_ARGS}" "-DCMAKE_INSTALL_PREFIX=${CARES_PREFIX}"
-                       -DCARES_SHARED=OFF -DCARES_STATIC=ON)
+  prepare_fetchcontent()
 
-  externalproject_add(cares_ep
-                      ${EP_COMMON_OPTIONS}
-                      URL ${CARES_SOURCE_URL}
-                      URL_HASH "SHA256=${ARROW_CARES_BUILD_SHA256_CHECKSUM}"
-                      CMAKE_ARGS ${CARES_CMAKE_ARGS}
-                      BUILD_BYPRODUCTS "${CARES_STATIC_LIB}")
+  set(CARES_SHARED OFF)
+  set(CARES_STATIC ON)
+  set(CARES_INSTALL ON)
+  set(CARES_BUILD_TOOLS OFF)
+  set(CARES_BUILD_TESTS OFF)
+  fetchcontent_makeavailable(cares)
 
-  file(MAKE_DIRECTORY ${CARES_INCLUDE_DIR})
+  # gRPC requires c-ares to be installed to a known location.
+  # We have to do this in two steps to avoid double installation of c-ares
+  # when Arrow is installed.
+  # This custom target ensures c-ares is built before we install
+  add_custom_target(cares_built DEPENDS c-ares::cares)
 
-  add_library(c-ares::cares STATIC IMPORTED)
-  set_target_properties(c-ares::cares PROPERTIES IMPORTED_LOCATION "${CARES_STATIC_LIB}")
-  target_include_directories(c-ares::cares BEFORE INTERFACE "${CARES_INCLUDE_DIR}")
-  add_dependencies(c-ares::cares cares_ep)
+  # Disable c-ares's install script after it's built to prevent double installation
+  add_custom_command(OUTPUT "${cares_BINARY_DIR}/cmake_install.cmake.saved"
+                     COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                             "${cares_BINARY_DIR}/cmake_install.cmake"
+                             "${cares_BINARY_DIR}/cmake_install.cmake.saved"
+                     COMMAND ${CMAKE_COMMAND} -E echo
+                             "# c-ares install disabled to prevent double installation with Arrow"
+                             > "${cares_BINARY_DIR}/cmake_install.cmake"
+                     DEPENDS cares_built
+                     COMMENT "Disabling c-ares install to prevent double installation"
+                     VERBATIM)
+
+  add_custom_target(cares_install_disabled ALL
+                    DEPENDS "${cares_BINARY_DIR}/cmake_install.cmake.saved")
+
+  # Install c-ares to CARES_PREFIX for gRPC to find
+  add_custom_command(OUTPUT "${CARES_PREFIX}/.cares_installed"
+                     COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                             "${cares_BINARY_DIR}/cmake_install.cmake.saved"
+                             "${cares_BINARY_DIR}/cmake_install.cmake.tmp"
+                     COMMAND ${CMAKE_COMMAND} -DCMAKE_INSTALL_PREFIX=${CARES_PREFIX}
+                             -DCMAKE_INSTALL_CONFIG_NAME=$<CONFIG> -P
+                             "${cares_BINARY_DIR}/cmake_install.cmake.tmp" ||
+                             ${CMAKE_COMMAND} -E true
+                     COMMAND ${CMAKE_COMMAND} -E touch "${CARES_PREFIX}/.cares_installed"
+                     DEPENDS cares_install_disabled
+                     COMMENT "Installing c-ares to ${CARES_PREFIX} for gRPC"
+                     VERBATIM)
+
+  # Make cares_fc depend on the install completion marker
+  add_custom_target(cares_fc DEPENDS "${CARES_PREFIX}/.cares_installed")
 
   if(APPLE)
     # libresolv must be linked from c-ares version 1.16.1
@@ -2985,10 +3048,11 @@ macro(build_cares)
                                                    "${LIBRESOLV_LIBRARY}")
   endif()
 
-  set(CARES_VENDORED TRUE)
-
-  list(APPEND ARROW_BUNDLED_STATIC_LIBS c-ares::cares)
-endmacro()
+  set(ARROW_BUNDLED_STATIC_LIBS
+      ${ARROW_BUNDLED_STATIC_LIBS} c-ares::cares
+      PARENT_SCOPE)
+  list(POP_BACK CMAKE_MESSAGE_INDENT)
+endfunction()
 
 # ----------------------------------------------------------------------
 # Dependencies for Arrow Flight RPC
@@ -3136,7 +3200,9 @@ function(build_absl)
     # This is due to upstream absl::cctz issue
     # https://github.com/abseil/abseil-cpp/issues/283
     find_library(CoreFoundation CoreFoundation)
-    set_property(TARGET absl::time
+    # When ABSL_ENABLE_INSTALL is ON, the real target is "time" not "absl_time"
+    # Cannot use set_property on alias targets (absl::time is an alias)
+    set_property(TARGET time
                  APPEND
                  PROPERTY INTERFACE_LINK_LIBRARIES ${CoreFoundation})
   endif()
@@ -3189,7 +3255,7 @@ macro(build_grpc)
     add_dependencies(grpc_dependencies absl_fc)
   endif()
   if(CARES_VENDORED)
-    add_dependencies(grpc_dependencies cares_ep)
+    add_dependencies(grpc_dependencies cares_fc)
   endif()
 
   if(GFLAGS_VENDORED)
@@ -3197,7 +3263,7 @@ macro(build_grpc)
   endif()
 
   if(RE2_VENDORED)
-    add_dependencies(grpc_dependencies re2_ep)
+    add_dependencies(grpc_dependencies re2_fc)
   endif()
 
   add_dependencies(grpc_dependencies ${ARROW_PROTOBUF_LIBPROTOBUF} c-ares::cares
@@ -3208,10 +3274,23 @@ macro(build_grpc)
   get_filename_component(GRPC_PB_ROOT "${GRPC_PROTOBUF_INCLUDE_DIR}" DIRECTORY)
   get_target_property(GRPC_Protobuf_PROTOC_LIBRARY ${ARROW_PROTOBUF_LIBPROTOC}
                       IMPORTED_LOCATION)
-  get_target_property(GRPC_CARES_INCLUDE_DIR c-ares::cares INTERFACE_INCLUDE_DIRECTORIES)
-  get_filename_component(GRPC_CARES_ROOT "${GRPC_CARES_INCLUDE_DIR}" DIRECTORY)
-  get_target_property(GRPC_RE2_INCLUDE_DIR re2::re2 INTERFACE_INCLUDE_DIRECTORIES)
-  get_filename_component(GRPC_RE2_ROOT "${GRPC_RE2_INCLUDE_DIR}" DIRECTORY)
+
+  # For FetchContent c-ares, use the install prefix directly
+  if(CARES_VENDORED)
+    set(GRPC_CARES_ROOT "${CARES_PREFIX}")
+  else()
+    get_target_property(GRPC_CARES_INCLUDE_DIR c-ares::cares
+                        INTERFACE_INCLUDE_DIRECTORIES)
+    get_filename_component(GRPC_CARES_ROOT "${GRPC_CARES_INCLUDE_DIR}" DIRECTORY)
+  endif()
+
+  # For FetchContent RE2, use the install prefix directly
+  if(RE2_VENDORED)
+    set(GRPC_RE2_ROOT "${RE2_PREFIX}")
+  else()
+    get_target_property(GRPC_RE2_INCLUDE_DIR re2::re2 INTERFACE_INCLUDE_DIRECTORIES)
+    get_filename_component(GRPC_RE2_ROOT "${GRPC_RE2_INCLUDE_DIR}" DIRECTORY)
+  endif()
 
   # Put Abseil, etc. first so that local directories are searched
   # before (what are likely) system directories
