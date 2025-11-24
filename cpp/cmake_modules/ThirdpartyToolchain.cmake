@@ -2637,9 +2637,7 @@ function(build_fsst)
 endfunction()
 
 if(ARROW_WITH_FSST)
-  if("${fsst_SOURCE}" STREQUAL "")
-    set(fsst_SOURCE "BUNDLED")
-  endif()
+  set(fsst_SOURCE "BUNDLED" CACHE STRING "Source of fsst dependency" FORCE)
   resolve_dependency(fsst IS_RUNTIME_DEPENDENCY FALSE)
 endif()
 
