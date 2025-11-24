@@ -49,6 +49,7 @@ set(ARROW_THIRDPARTY_DEPENDENCIES
     Boost
     Brotli
     BZip2
+    fsst
     c-ares
     gflags
     glog
@@ -183,6 +184,8 @@ macro(build_dependency DEPENDENCY_NAME)
     build_brotli()
   elseif("${DEPENDENCY_NAME}" STREQUAL "BZip2")
     build_bzip2()
+  elseif("${DEPENDENCY_NAME}" STREQUAL "fsst")
+    build_fsst()
   elseif("${DEPENDENCY_NAME}" STREQUAL "c-ares")
     build_cares()
   elseif("${DEPENDENCY_NAME}" STREQUAL "gflags")
@@ -382,6 +385,7 @@ endif()
 if(ARROW_PARQUET)
   set(ARROW_WITH_RAPIDJSON ON)
   set(ARROW_WITH_THRIFT ON)
+  set(ARROW_WITH_FSST ON)
 endif()
 
 if(ARROW_WITH_THRIFT)
@@ -635,6 +639,14 @@ else()
   set_urls(CRC32C_SOURCE_URL
            "https://github.com/google/crc32c/archive/${ARROW_CRC32C_BUILD_VERSION}.tar.gz"
   )
+endif()
+
+if(DEFINED ENV{ARROW_FSST_URL})
+  set(FSST_SOURCE_URL "$ENV{ARROW_FSST_URL}")
+else()
+  set_urls(FSST_SOURCE_URL
+           "https://github.com/cwida/fsst/archive/${ARROW_FSST_BUILD_VERSION}.tar.gz"
+           "${THIRDPARTY_MIRROR_URL}/fsst-${ARROW_FSST_BUILD_VERSION}.tar.gz")
 endif()
 
 if(DEFINED ENV{ARROW_GBENCHMARK_URL})
@@ -2602,6 +2614,29 @@ if(ARROW_USE_XSIMD)
     message(STATUS "xsimd found. Headers: ${xsimd_INCLUDE_DIRS}")
     set(ARROW_XSIMD xsimd)
   endif()
+endif()
+
+function(build_fsst)
+  message(STATUS "Building FSST from source using FetchContent")
+
+  fetchcontent_declare(fsst
+                       URL ${FSST_SOURCE_URL}
+                       URL_HASH "SHA256=${ARROW_FSST_BUILD_SHA256_CHECKSUM}")
+
+  prepare_fetchcontent()
+  fetchcontent_makeavailable(fsst)
+
+  set(ARROW_FSST_INCLUDE_DIR
+      "${fsst_SOURCE_DIR}"
+      CACHE INTERNAL "FSST include directory")
+  set(ARROW_FSST_SOURCES
+      "${fsst_SOURCE_DIR}/libfsst.cpp;${fsst_SOURCE_DIR}/fsst_avx512.cpp"
+      CACHE INTERNAL "FSST source files")
+  set(FSST_VENDORED TRUE CACHE INTERNAL "Whether FSST is built from source")
+endfunction()
+
+if(ARROW_WITH_FSST)
+  resolve_dependency(fsst IS_RUNTIME_DEPENDENCY FALSE)
 endif()
 
 macro(build_zlib)

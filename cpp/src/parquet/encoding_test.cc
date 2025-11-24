@@ -53,7 +53,7 @@
 #include "parquet/platform.h"
 #include "parquet/schema.h"
 #include "parquet/test_util.h"
-#include "parquet/thirdparty/fsst/fsst.h"
+#include "fsst.h"
 #include "parquet/types.h"
 
 using arrow::default_memory_pool;
