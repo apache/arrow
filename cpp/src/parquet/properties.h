@@ -286,7 +286,7 @@ struct PARQUET_EXPORT CdcOptions {
 
 class PARQUET_EXPORT WriterProperties {
  public:
-  class Builder {
+  class PARQUET_EXPORT Builder {
    public:
     Builder()
         : pool_(::arrow::default_memory_pool()),
