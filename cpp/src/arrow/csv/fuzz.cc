@@ -42,10 +42,11 @@ Status FuzzCsvReader(const uint8_t* data, int64_t size) {
 
   auto read_options = ReadOptions::Defaults();
   // Make chunking more likely
-  read_options.block_size = 4096;
+  read_options.block_size = 1000;
   auto parse_options = ParseOptions::Defaults();
   auto convert_options = ConvertOptions::Defaults();
   convert_options.auto_dict_encode = true;
+  convert_options.auto_dict_max_cardinality = 50;
 
   auto input_stream =
       std::make_shared<::arrow::io::BufferReader>(std::make_shared<Buffer>(data, size));
