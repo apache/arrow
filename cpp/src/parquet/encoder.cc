@@ -47,10 +47,10 @@
 #include "arrow/util/ubsan.h"
 #include "arrow/visit_data_inline.h"
 
+#include "fsst.h"  // NOLINT(build/include_subdir)
 #include "parquet/exception.h"
 #include "parquet/platform.h"
 #include "parquet/schema.h"
-#include "fsst.h"  // NOLINT(build/include_subdir)
 #include "parquet/types.h"
 
 #ifdef _MSC_VER
@@ -1758,10 +1758,8 @@ class FsstEncoder : public EncoderImpl, virtual public TypedEncoder<ByteArrayTyp
 
   int64_t EstimatedDataEncodedSize() override {
     const int64_t total_size = pending_unencoded_bytes_;
-    const double scaled =
-        static_cast<double>(total_size) * compression_ratio_hint_;
-    const int64_t estimated_payload =
-        static_cast<int64_t>(std::ceil(scaled));
+    const double scaled = static_cast<double>(total_size) * compression_ratio_hint_;
+    const int64_t estimated_payload = static_cast<int64_t>(std::ceil(scaled));
     return static_cast<int64_t>(sizeof(fsst_decoder_t)) +
            std::max<int64_t>(0, estimated_payload);
   }
@@ -1777,12 +1775,11 @@ class FsstEncoder : public EncoderImpl, virtual public TypedEncoder<ByteArrayTyp
     const int64_t total_input_size = pending_unencoded_bytes_;
 
     const int64_t decoder_bytes = static_cast<int64_t>(sizeof(fsst_decoder_t));
-    const int64_t length_prefix_bytes =
-        static_cast<int64_t>(unencoded_values_.size()) *
-        static_cast<int64_t>(sizeof(uint32_t));
-    const int64_t estimated_buffer_size =
-        decoder_bytes + total_input_size * kFsstCompressionExpansion +
-        length_prefix_bytes;
+    const int64_t length_prefix_bytes = static_cast<int64_t>(unencoded_values_.size()) *
+                                        static_cast<int64_t>(sizeof(uint32_t));
+    const int64_t estimated_buffer_size = decoder_bytes +
+                                          total_input_size * kFsstCompressionExpansion +
+                                          length_prefix_bytes;
 
     PARQUET_ASSIGN_OR_THROW(auto output_buffer,
                             AllocateResizableBuffer(estimated_buffer_size, pool_));
@@ -1867,8 +1864,7 @@ class FsstEncoder : public EncoderImpl, virtual public TypedEncoder<ByteArrayTyp
                  int64_t valid_bits_offset) override {
     if (valid_bits != NULLPTR) {
       PARQUET_ASSIGN_OR_THROW(
-          auto buffer,
-          ::arrow::AllocateBuffer(num_values * sizeof(ByteArray), pool_));
+          auto buffer, ::arrow::AllocateBuffer(num_values * sizeof(ByteArray), pool_));
       auto buffer_ptr = reinterpret_cast<ByteArray*>(buffer->mutable_data());
       int num_valid_values = ::arrow::util::internal::SpacedCompress<ByteArray>(
           src, num_values, valid_bits, valid_bits_offset, buffer_ptr);
@@ -1897,8 +1893,8 @@ class FsstEncoder : public EncoderImpl, virtual public TypedEncoder<ByteArrayTyp
       input_ptrs.push_back(val.ptr);
     }
 
-    encoder_ = fsst_create(unencoded_values_.size(), input_lengths.data(),
-                          input_ptrs.data(), 0);
+    encoder_ =
+        fsst_create(unencoded_values_.size(), input_lengths.data(), input_ptrs.data(), 0);
 
     if (!encoder_) {
       throw ParquetException("Failed to create FSST encoder");

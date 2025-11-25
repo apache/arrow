@@ -44,6 +44,7 @@
 #include "arrow/util/endian.h"
 #include "arrow/util/span.h"
 #include "arrow/util/string.h"
+#include "fsst.h"  // NOLINT(build/include_subdir)
 #include "parquet/column_page.h"
 #include "parquet/column_reader.h"
 #include "parquet/encoding.h"
@@ -53,7 +54,6 @@
 #include "parquet/platform.h"
 #include "parquet/schema.h"
 #include "parquet/test_util.h"
-#include "fsst.h"  // NOLINT(build/include_subdir)
 #include "parquet/types.h"
 
 using arrow::default_memory_pool;
@@ -2611,8 +2611,8 @@ TEST(TestFsstEncoding, BasicRoundTrip) {
   constexpr int32_t kMinLength = 4;
   constexpr int32_t kMaxLength = 48;
 
-  auto values = rag.BinaryWithRepeats(kNumValues, kNumUnique, kMinLength, kMaxLength,
-                                      0.0);
+  auto values =
+      rag.BinaryWithRepeats(kNumValues, kNumUnique, kMinLength, kMaxLength, 0.0);
 
   auto encoder = MakeTypedEncoder<ByteArrayType>(Encoding::FSST);
   ASSERT_NO_THROW(encoder->Put(*values));
@@ -2711,13 +2711,13 @@ TEST(TestFsstEncoding, MultiPageRoundTrip) {
                           ->build();
 
   std::unique_ptr<ParquetFileWriter> writer;
-  ASSERT_NO_THROW(writer =
-                      ParquetFileWriter::Open(output_stream, parquet_schema, writer_props));
+  ASSERT_NO_THROW(
+      writer = ParquetFileWriter::Open(output_stream, parquet_schema, writer_props));
   ASSERT_NE(nullptr, writer);
   auto* row_group_writer = writer->AppendRowGroup();
   ASSERT_NE(nullptr, row_group_writer);
-  auto* column_writer = static_cast<TypedColumnWriter<ByteArrayType>*>(
-      row_group_writer->NextColumn());
+  auto* column_writer =
+      static_cast<TypedColumnWriter<ByteArrayType>*>(row_group_writer->NextColumn());
   ASSERT_NE(nullptr, column_writer);
 
   auto write_page = [&](const std::vector<std::string>& source) {
@@ -2760,16 +2760,16 @@ TEST(TestFsstEncoding, MultiPageRoundTrip) {
   ASSERT_NO_THROW(reader = make_reader());
   ASSERT_NE(nullptr, reader);
   auto row_group_reader = reader->RowGroup(0);
-  auto column_reader =
-      std::static_pointer_cast<TypedColumnReader<ByteArrayType>>(row_group_reader->Column(0));
+  auto column_reader = std::static_pointer_cast<TypedColumnReader<ByteArrayType>>(
+      row_group_reader->Column(0));
 
   std::vector<ByteArray> decoded(kTotalValues);
   int64_t values_read = 0;
   while (values_read < kTotalValues) {
     int64_t batch_length = std::min<int64_t>(1024, kTotalValues - values_read);
     int64_t batch_read = 0;
-    column_reader->ReadBatch(batch_length, nullptr, nullptr,
-                             decoded.data() + values_read, &batch_read);
+    column_reader->ReadBatch(batch_length, nullptr, nullptr, decoded.data() + values_read,
+                             &batch_read);
     ASSERT_GT(batch_read, 0);
     values_read += batch_read;
   }

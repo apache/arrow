@@ -50,10 +50,10 @@
 #include "arrow/util/ubsan.h"
 #include "arrow/visit_data_inline.h"
 
+#include "fsst.h"  // NOLINT(build/include_subdir)
 #include "parquet/exception.h"
 #include "parquet/platform.h"
 #include "parquet/schema.h"
-#include "fsst.h"  // NOLINT(build/include_subdir)
 #include "parquet/types.h"
 
 #ifdef _MSC_VER
@@ -2378,8 +2378,7 @@ class FsstDecoder : public DecoderImpl, virtual public TypedDecoder<ByteArrayTyp
   }
 
   int DecodeSpaced(ByteArray* buffer, int num_values, int null_count,
-                   const uint8_t* valid_bits,
-                   int64_t valid_bits_offset) override {
+                   const uint8_t* valid_bits, int64_t valid_bits_offset) override {
     if (null_count == 0) {
       return Decode(buffer, num_values);
     }
@@ -2409,19 +2408,18 @@ class FsstDecoder : public DecoderImpl, virtual public TypedDecoder<ByteArrayTyp
                   int64_t valid_bits_offset,
                   typename EncodingTraits<ByteArrayType>::Accumulator* builder) override {
     int values_decoded = 0;
-    PARQUET_THROW_NOT_OK(
-        DecodeArrowDense(num_values, null_count, valid_bits, valid_bits_offset, builder,
-                         &values_decoded));
+    PARQUET_THROW_NOT_OK(DecodeArrowDense(num_values, null_count, valid_bits,
+                                          valid_bits_offset, builder, &values_decoded));
     return values_decoded;
   }
 
-  int DecodeArrow(int num_values, int null_count, const uint8_t* valid_bits,
-                  int64_t valid_bits_offset,
-                  typename EncodingTraits<ByteArrayType>::DictAccumulator* builder) override {
+  int DecodeArrow(
+      int num_values, int null_count, const uint8_t* valid_bits,
+      int64_t valid_bits_offset,
+      typename EncodingTraits<ByteArrayType>::DictAccumulator* builder) override {
     int values_decoded = 0;
-    PARQUET_THROW_NOT_OK(
-        DecodeArrowDict(num_values, null_count, valid_bits, valid_bits_offset, builder,
-                        &values_decoded));
+    PARQUET_THROW_NOT_OK(DecodeArrowDict(num_values, null_count, valid_bits,
+                                         valid_bits_offset, builder, &values_decoded));
     return values_decoded;
   }
 
@@ -2482,32 +2480,31 @@ class FsstDecoder : public DecoderImpl, virtual public TypedDecoder<ByteArrayTyp
     RETURN_NOT_OK(builder->Reserve(num_values));
 
     int value_index = 0;
-    RETURN_NOT_OK(VisitBitRuns(
-        valid_bits, valid_bits_offset, num_values,
-        [&](int64_t position, int64_t run_length, bool is_valid) {
-          if (is_valid) {
-            for (int64_t i = 0; i < run_length; ++i) {
-              const auto& value = temp_values_[value_index++];
-              RETURN_NOT_OK(builder->Append(value.ptr, static_cast<int32_t>(value.len)));
-            }
-          } else {
-            RETURN_NOT_OK(builder->AppendNulls(run_length));
-          }
-          return Status::OK();
-        }));
+    RETURN_NOT_OK(VisitBitRuns(valid_bits, valid_bits_offset, num_values,
+                               [&](int64_t position, int64_t run_length, bool is_valid) {
+                                 if (is_valid) {
+                                   for (int64_t i = 0; i < run_length; ++i) {
+                                     const auto& value = temp_values_[value_index++];
+                                     RETURN_NOT_OK(builder->Append(
+                                         value.ptr, static_cast<int32_t>(value.len)));
+                                   }
+                                 } else {
+                                   RETURN_NOT_OK(builder->AppendNulls(run_length));
+                                 }
+                                 return Status::OK();
+                               }));
 
     *out_values_decoded = decoded;
     return Status::OK();
   }
 
   uint8_t* EnsureDecodeBuffer(int64_t capacity) {
-    const int64_t min_capacity =
-        std::max<int64_t>(capacity, kInitialDecodeBufferSize);
+    const int64_t min_capacity = std::max<int64_t>(capacity, kInitialDecodeBufferSize);
     const int64_t target = ::arrow::bit_util::NextPower2(min_capacity);
 
     if (!decode_buffer_) {
-      PARQUET_ASSIGN_OR_THROW(
-          decode_buffer_, ::arrow::AllocateResizableBuffer(target, pool_));
+      PARQUET_ASSIGN_OR_THROW(decode_buffer_,
+                              ::arrow::AllocateResizableBuffer(target, pool_));
     } else if (decode_buffer_->size() < target) {
       PARQUET_THROW_NOT_OK(decode_buffer_->Resize(target, false));
     }
@@ -2516,26 +2513,24 @@ class FsstDecoder : public DecoderImpl, virtual public TypedDecoder<ByteArrayTyp
 
   size_t DecompressValue(const uint8_t* compressed_ptr, uint32_t compressed_len,
                          uint8_t** value_ptr) {
-    EnsureDecodeBuffer(decode_buffer_size_ +
-                       OutputUpperBound(compressed_len));
+    EnsureDecodeBuffer(decode_buffer_size_ + OutputUpperBound(compressed_len));
 
     while (true) {
       uint8_t* destination = decode_buffer_->mutable_data() + decode_buffer_size_;
       const size_t available =
           static_cast<size_t>(decode_buffer_->size() - decode_buffer_size_);
 
-      const size_t decompressed =
-          fsst_decompress(&decoder_, compressed_len, compressed_ptr, available,
-                          destination);
+      const size_t decompressed = fsst_decompress(&decoder_, compressed_len,
+                                                  compressed_ptr, available, destination);
 
       if (decompressed > 0 || compressed_len == 0) {
         *value_ptr = destination;
         return decompressed;
       }
 
-      int64_t new_capacity = std::max<int64_t>(
-          decode_buffer_->size() * 2,
-          decode_buffer_size_ + OutputUpperBound(compressed_len));
+      int64_t new_capacity =
+          std::max<int64_t>(decode_buffer_->size() * 2,
+                            decode_buffer_size_ + OutputUpperBound(compressed_len));
       if (new_capacity <= decode_buffer_->size()) {
         throw ParquetException("FSST decompression failed");
       }

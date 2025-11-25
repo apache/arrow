@@ -2628,9 +2628,8 @@ endfunction()
 
 if(ARROW_WITH_FSST)
   if(NOT fsst_SOURCE STREQUAL "BUNDLED")
-    message(
-      FATAL_ERROR
-        "FSST must currently be built from source. Set fsst_SOURCE=BUNDLED.")
+    message(FATAL_ERROR "FSST must currently be built from source. Set fsst_SOURCE=BUNDLED."
+    )
   endif()
   resolve_dependency(fsst IS_RUNTIME_DEPENDENCY FALSE)
 endif()
