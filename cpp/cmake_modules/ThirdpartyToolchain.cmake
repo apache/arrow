@@ -73,7 +73,9 @@ set(ARROW_THIRDPARTY_DEPENDENCIES
     ZLIB
     zstd)
 
-set(fsst_SOURCE "BUNDLED" CACHE STRING "Source of fsst dependency")
+set(fsst_SOURCE
+    "BUNDLED"
+    CACHE STRING "Source of fsst dependency")
 
 # For backward compatibility. We use "BOOST_SOURCE" if "Boost_SOURCE"
 # isn't specified and "BOOST_SOURCE" is specified.
@@ -2613,16 +2615,22 @@ endif()
 function(build_fsst)
   message(STATUS "Configuring vendored FSST sources")
 
-  set(ARROW_FSST_INCLUDE_DIR "${ARROW_SOURCE_DIR}/thirdparty/fsst" PARENT_SCOPE)
+  set(ARROW_FSST_INCLUDE_DIR
+      "${ARROW_SOURCE_DIR}/thirdparty/fsst"
+      PARENT_SCOPE)
   set(ARROW_FSST_SOURCES
       "${ARROW_SOURCE_DIR}/thirdparty/fsst/libfsst.cpp;${ARROW_SOURCE_DIR}/thirdparty/fsst/fsst_avx512.cpp"
       PARENT_SCOPE)
-  set(FSST_VENDORED TRUE PARENT_SCOPE)
+  set(FSST_VENDORED
+      TRUE
+      PARENT_SCOPE)
 endfunction()
 
 if(ARROW_WITH_FSST)
   if(NOT fsst_SOURCE STREQUAL "BUNDLED")
-    message(FATAL_ERROR "FSST must currently be built from source. Set fsst_SOURCE=BUNDLED.")
+    message(
+      FATAL_ERROR
+        "FSST must currently be built from source. Set fsst_SOURCE=BUNDLED.")
   endif()
   resolve_dependency(fsst IS_RUNTIME_DEPENDENCY FALSE)
 endif()

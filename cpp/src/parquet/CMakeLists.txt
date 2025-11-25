@@ -206,13 +206,19 @@ if(DEFINED ARROW_FSST_INCLUDE_DIR)
   list(APPEND PARQUET_TEST_EXTRA_INCLUDES ${ARROW_FSST_INCLUDE_DIR})
 endif()
 if(DEFINED ARROW_FSST_SOURCES)
-  set_property(SOURCE ${ARROW_FSST_SOURCES} APPEND PROPERTY COMPILE_OPTIONS
-               "$<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:AppleClang>>:-Wno-error=shorten-64-to-32;-Wno-shorten-64-to-32>"
-               "$<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:AppleClang>,$<CXX_COMPILER_ID:GNU>>:-Wno-error=missing-declarations;-Wno-missing-declarations>"
-               "$<$<CXX_COMPILER_ID:MSVC>:/wd4244>")
-  set_property(SOURCE ${ARROW_FSST_SOURCES} APPEND PROPERTY COMPILE_OPTIONS
-               "$<$<AND:$<PLATFORM_ID:Windows>,$<NOT:$<CXX_COMPILER_ID:MSVC>>>:-include>"
-               "$<$<AND:$<PLATFORM_ID:Windows>,$<NOT:$<CXX_COMPILER_ID:MSVC>>>:${CMAKE_CURRENT_SOURCE_DIR}/fsst_compat.h>")
+  set_property(
+    SOURCE ${ARROW_FSST_SOURCES}
+    APPEND
+    PROPERTY COMPILE_OPTIONS
+             "$<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:AppleClang>>:-Wno-error=shorten-64-to-32;-Wno-shorten-64-to-32>"
+             "$<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:AppleClang>,$<CXX_COMPILER_ID:GNU>>:-Wno-error=missing-declarations;-Wno-missing-declarations>"
+             "$<$<CXX_COMPILER_ID:MSVC>:/wd4244>")
+  set_property(
+    SOURCE ${ARROW_FSST_SOURCES}
+    APPEND
+    PROPERTY COMPILE_OPTIONS
+             "$<$<AND:$<PLATFORM_ID:Windows>,$<NOT:$<CXX_COMPILER_ID:MSVC>>>:-include>"
+             "$<$<AND:$<PLATFORM_ID:Windows>,$<NOT:$<CXX_COMPILER_ID:MSVC>>>:${CMAKE_CURRENT_SOURCE_DIR}/fsst_compat.h>")
 endif()
 
 if(ARROW_HAVE_RUNTIME_AVX2)
@@ -333,7 +339,8 @@ add_arrow_lib(parquet
 if(PARQUET_PRIVATE_INCLUDE_DIRS)
   foreach(_parquet_target parquet_objlib parquet_shared parquet_static)
     if(TARGET ${_parquet_target})
-      target_include_directories(${_parquet_target} PRIVATE ${PARQUET_PRIVATE_INCLUDE_DIRS})
+      target_include_directories(
+        ${_parquet_target} PRIVATE ${PARQUET_PRIVATE_INCLUDE_DIRS})
     endif()
   endforeach()
 endif()

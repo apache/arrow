@@ -21,6 +21,7 @@
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
+#include <deque>
 #include <iostream>
 #include <limits>
 #include <memory>
@@ -29,7 +30,6 @@
 #include <type_traits>
 #include <utility>
 #include <vector>
-#include <deque>
 
 #include "arrow/array.h"
 #include "arrow/array/builder_binary.h"
