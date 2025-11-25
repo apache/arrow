@@ -327,7 +327,7 @@ if [ -x "$(command -v ldconfig)" ]; then
       SUDO=
     fi
   fi
-  ${SUDO} ldconfig "${ARROW_HOME}"/"${CMAKE_INSTALL_LIBDIR:-lib}"
+  ${SUDO} ldconfig "${ARROW_HOME}/${CMAKE_INSTALL_LIBDIR:-lib}"
 fi
 
 if [ "${ARROW_USE_CCACHE}" == "ON" ]; then
