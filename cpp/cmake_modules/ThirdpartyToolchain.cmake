@@ -3135,10 +3135,7 @@ function(build_absl)
   # Create a target that depends on ALL Abseil libraries that will be installed.
   # This ensures they're all built before we try to install.
   add_custom_target(absl_built
-                    DEPENDS absl::bad_any_cast_impl
-                            absl::bad_optional_access
-                            absl::bad_variant_access
-                            absl::base
+                    DEPENDS absl::base
                             absl::city
                             absl::civil_time
                             absl::cord
@@ -3147,8 +3144,14 @@ function(build_absl)
                             absl::cordz_handle
                             absl::cordz_info
                             absl::cordz_sample_token
+                            absl::crc32c
+                            absl::crc_cord_state
+                            absl::crc_cpu_detect
+                            absl::crc_internal
                             absl::debugging_internal
+                            absl::decode_rust_punycode
                             absl::demangle_internal
+                            absl::demangle_rust
                             absl::examine_stack
                             absl::exponential_biased
                             absl::failure_signal_handler
@@ -3168,16 +3171,27 @@ function(build_absl)
                             absl::hash
                             absl::hashtablez_sampler
                             absl::int128
+                            absl::kernel_timeout_internal
                             absl::leak_check
-                            absl::leak_check_disable
+                            absl::log_globals
+                            absl::log_internal_conditions
+                            absl::log_internal_fnmatch
+                            absl::log_internal_format
+                            absl::log_internal_globals
+                            absl::log_internal_log_sink_set
+                            absl::log_internal_nullguard
+                            absl::log_internal_proto
+                            absl::log_internal_structured_proto
                             absl::log_severity
+                            absl::log_sink
                             absl::low_level_hash
                             absl::malloc_internal
                             absl::periodic_sampler
+                            absl::poison
                             absl::random_distributions
                             absl::random_internal_distribution_test_util
+                            absl::random_internal_entropy_pool
                             absl::random_internal_platform
-                            absl::random_internal_pool_urbg
                             absl::random_internal_randen
                             absl::random_internal_randen_hwaes
                             absl::random_internal_randen_hwaes_impl
@@ -3194,13 +3208,17 @@ function(build_absl)
                             absl::statusor
                             absl::str_format_internal
                             absl::strerror
+                            absl::string_view
                             absl::strings
                             absl::strings_internal
                             absl::symbolize
                             absl::synchronization
                             absl::throw_delegate
                             absl::time
-                            absl::time_zone)
+                            absl::time_zone
+                            absl::tracing_internal
+                            absl::utf8_for_code_point
+                            absl::vlog_config_internal)
 
   # gRPC requires Abseil to be installed to a known location.
   # We have to do this in two steps to avoid double installation of Abseil
@@ -3451,7 +3469,6 @@ macro(build_grpc)
       absl::low_level_hash
       absl::random_distributions
       absl::random_seed_sequences
-      absl::random_internal_pool_urbg
       absl::random_internal_randen
       absl::random_internal_randen_hwaes
       absl::random_internal_randen_hwaes_impl
@@ -3467,7 +3484,6 @@ macro(build_grpc)
       absl::cordz_functions
       absl::exponential_biased
       absl::cordz_handle
-      absl::bad_optional_access
       absl::str_format_internal
       absl::synchronization
       absl::graphcycles_internal
@@ -3485,7 +3501,6 @@ macro(build_grpc)
       absl::int128
       absl::throw_delegate
       absl::time_zone
-      absl::bad_variant_access
       absl::raw_logging_internal
       absl::log_severity)
 
@@ -3898,8 +3913,6 @@ macro(build_google_cloud_cpp_storage)
     # (and then some regexing)
     list(APPEND
          ARROW_BUNDLED_STATIC_LIBS
-         absl::bad_optional_access
-         absl::bad_variant_access
          absl::base
          absl::civil_time
          absl::cord
