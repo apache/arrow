@@ -65,7 +65,7 @@ template <typename ValueType, typename DistributionType>
 struct GeneratorFactory {
   GeneratorFactory(ValueType min, ValueType max) : min_(min), max_(max) {}
 
-  auto operator()(pcg32_fast* rng) const {
+  auto operator()(pcg32* rng) const {
     return [dist = DistributionType(min_, max_), rng]() mutable {
       return static_cast<ValueType>(dist(*rng));
     };
@@ -80,7 +80,7 @@ template <typename DistributionType>
 struct GeneratorFactory<Float16, DistributionType> {
   GeneratorFactory(Float16 min, Float16 max) : min_(min.ToFloat()), max_(max.ToFloat()) {}
 
-  auto operator()(pcg32_fast* rng) const {
+  auto operator()(pcg32* rng) const {
     return [dist = DistributionType(min_, max_), rng]() mutable {
       return Float16(dist(*rng)).bits();
     };
@@ -121,7 +121,7 @@ struct GenerateOptions {
       GenerateTypedDataNoNan(data, n);
       return;
     }
-    pcg32_fast rng(seed_++);
+    pcg32 rng(seed_++);
     auto gen = generator_factory_(&rng);
     ::arrow::random::bernoulli_distribution nan_dist(nan_probability_);
     const PhysicalType nan_value = get_nan();
@@ -130,7 +130,7 @@ struct GenerateOptions {
   }
 
   void GenerateTypedDataNoNan(PhysicalType* data, size_t n) {
-    pcg32_fast rng(seed_++);
+    pcg32 rng(seed_++);
     auto gen = generator_factory_(&rng);
 
     std::generate(data, data + n, [&] { return gen(); });
@@ -138,7 +138,7 @@ struct GenerateOptions {
 
   void GenerateBitmap(uint8_t* buffer, size_t n, int64_t* null_count) {
     int64_t count = 0;
-    pcg32_fast rng(seed_++);
+    pcg32 rng(seed_++);
     ::arrow::random::bernoulli_distribution dist(1.0 - probability_);
 
     for (size_t i = 0; i < n; i++) {
@@ -749,7 +749,7 @@ void ShuffleListViewDataInPlace(SeedType seed, ArrayData* data) {
   auto* offsets = data->GetMutableValues<offset_type>(1);
   auto* sizes = data->GetMutableValues<offset_type>(2);
 
-  pcg32_fast rng(seed);
+  pcg32 rng(seed);
   using UniformDist = std::uniform_int_distribution<int64_t>;
   UniformDist dist;
   for (int64_t i = data->length - 1; i > 0; --i) {
@@ -888,7 +888,7 @@ Result<std::shared_ptr<Array>> RandomListView(RAG& self, const Array& values,
   auto sizes = buffers[1]->mutable_data_as<offset_type>();
 
   // Derive	sizes from offsets taking coverage into account
-  pcg32_fast rng(self.seed());
+  pcg32 rng(self.seed());
   using NormalDist = std::normal_distribution<double>;
   NormalDist size_dist;
   for (int64_t i = 0; i < length; ++i) {
@@ -977,7 +977,7 @@ std::shared_ptr<Array> RandomArrayGenerator::Map(const std::shared_ptr<Array>& k
 std::shared_ptr<Array> RandomArrayGenerator::RunEndEncoded(
     std::shared_ptr<DataType> value_type, int64_t logical_size, double null_probability) {
   Int32Builder run_ends_builder;
-  pcg32_fast rng(seed());
+  pcg32 rng(seed());
 
   DCHECK_LE(logical_size, std::numeric_limits<int32_t>::max());
 
@@ -1447,7 +1447,7 @@ std::shared_ptr<arrow::RecordBatch> GenerateBatch(const FieldVector& fields,
 
 void rand_day_millis(int64_t N, std::vector<DayTimeIntervalType::DayMilliseconds>* out) {
   const int random_seed = 0;
-  arrow::random::pcg32_fast gen(random_seed);
+  arrow::random::pcg32 gen(random_seed);
   std::uniform_int_distribution<int32_t> d(std::numeric_limits<int32_t>::min(),
                                            std::numeric_limits<int32_t>::max());
   out->resize(N, {});
@@ -1462,7 +1462,7 @@ void rand_day_millis(int64_t N, std::vector<DayTimeIntervalType::DayMilliseconds
 void rand_month_day_nanos(int64_t N,
                           std::vector<MonthDayNanoIntervalType::MonthDayNanos>* out) {
   const int random_seed = 0;
-  arrow::random::pcg32_fast gen(random_seed);
+  arrow::random::pcg32 gen(random_seed);
   std::uniform_int_distribution<int64_t> d(std::numeric_limits<int64_t>::min(),
                                            std::numeric_limits<int64_t>::max());
   out->resize(N, {});
