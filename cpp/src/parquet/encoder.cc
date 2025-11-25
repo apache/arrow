@@ -50,7 +50,7 @@
 #include "parquet/exception.h"
 #include "parquet/platform.h"
 #include "parquet/schema.h"
-#include "fsst.h"
+#include "fsst.h"  // NOLINT(build/include_subdir)
 #include "parquet/types.h"
 
 #ifdef _MSC_VER
@@ -1778,9 +1778,11 @@ class FsstEncoder : public EncoderImpl, virtual public TypedEncoder<ByteArrayTyp
 
     const int64_t decoder_bytes = static_cast<int64_t>(sizeof(fsst_decoder_t));
     const int64_t length_prefix_bytes =
-        static_cast<int64_t>(unencoded_values_.size()) * static_cast<int64_t>(sizeof(uint32_t));
+        static_cast<int64_t>(unencoded_values_.size()) *
+        static_cast<int64_t>(sizeof(uint32_t));
     const int64_t estimated_buffer_size =
-        decoder_bytes + total_input_size * kFsstCompressionExpansion + length_prefix_bytes;
+        decoder_bytes + total_input_size * kFsstCompressionExpansion +
+        length_prefix_bytes;
 
     PARQUET_ASSIGN_OR_THROW(auto output_buffer,
                             AllocateResizableBuffer(estimated_buffer_size, pool_));
@@ -1819,6 +1821,10 @@ class FsstEncoder : public EncoderImpl, virtual public TypedEncoder<ByteArrayTyp
 
     PARQUET_THROW_NOT_OK(output_buffer->Resize(total_output_size));
     UpdateCompressionStats(total_input_size, total_output_size);
+    if (encoder_ != nullptr) {
+      fsst_destroy(encoder_);
+      encoder_ = nullptr;
+    }
     unencoded_values_.clear();
     pending_unencoded_bytes_ = 0;
     unencoded_byte_array_data_bytes_ = 0;
@@ -1860,7 +1866,9 @@ class FsstEncoder : public EncoderImpl, virtual public TypedEncoder<ByteArrayTyp
   void PutSpaced(const ByteArray* src, int num_values, const uint8_t* valid_bits,
                  int64_t valid_bits_offset) override {
     if (valid_bits != NULLPTR) {
-      PARQUET_ASSIGN_OR_THROW(auto buffer, ::arrow::AllocateBuffer(num_values * sizeof(ByteArray), pool_));
+      PARQUET_ASSIGN_OR_THROW(
+          auto buffer,
+          ::arrow::AllocateBuffer(num_values * sizeof(ByteArray), pool_));
       auto buffer_ptr = reinterpret_cast<ByteArray*>(buffer->mutable_data());
       int num_valid_values = ::arrow::util::internal::SpacedCompress<ByteArray>(
           src, num_values, valid_bits, valid_bits_offset, buffer_ptr);
@@ -1872,6 +1880,11 @@ class FsstEncoder : public EncoderImpl, virtual public TypedEncoder<ByteArrayTyp
 
  private:
   void BuildSymbolTable() {
+    if (encoder_ != nullptr) {
+      fsst_destroy(encoder_);
+      encoder_ = nullptr;
+    }
+
     if (unencoded_values_.empty()) {
       return;
     }

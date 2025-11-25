@@ -53,7 +53,7 @@
 #include "parquet/exception.h"
 #include "parquet/platform.h"
 #include "parquet/schema.h"
-#include "fsst.h"
+#include "fsst.h"  // NOLINT(build/include_subdir)
 #include "parquet/types.h"
 
 #ifdef _MSC_VER

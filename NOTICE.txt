@@ -21,6 +21,10 @@ This product includes software from the mman-win32 project
  * Copyright https://code.google.com/p/mman-win32/
  * Licensed under the MIT License;
 
+This product includes software from the Fast Static Symbol Table (FSST) project (MIT)
+ * Copyright (c) 2018-2020 CWI, TU Munich, FSU Jena
+ * https://github.com/cwida/fsst
+
 This product includes software from the LevelDB project
  * Copyright (c) 2011 The LevelDB Authors. All rights reserved.
  * Use of this source code is governed by a BSD-style license that can be

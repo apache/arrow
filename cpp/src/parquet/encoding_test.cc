@@ -47,13 +47,13 @@
 #include "parquet/column_page.h"
 #include "parquet/column_reader.h"
 #include "parquet/encoding.h"
+#include "parquet/exception.h"
 #include "parquet/file_reader.h"
 #include "parquet/file_writer.h"
-#include "parquet/exception.h"
 #include "parquet/platform.h"
 #include "parquet/schema.h"
 #include "parquet/test_util.h"
-#include "fsst.h"
+#include "fsst.h"  // NOLINT(build/include_subdir)
 #include "parquet/types.h"
 
 using arrow::default_memory_pool;
