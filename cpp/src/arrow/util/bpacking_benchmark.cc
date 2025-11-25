@@ -96,32 +96,32 @@ void BM_Unpack(benchmark::State& state, bool aligned, UnpackFunc<Int> unpack, bo
   state.SetItemsProcessed(num_values * state.iterations());
 }
 
-constexpr int32_t kMinRange = 64;
-constexpr int32_t kMaxRange = 32768;
+/// Currently, the minimum unpack SIMD kernel size is 32 and the bit packing encoder will
+/// not emit runs larger than 512 (though other implementation might), so we biased the
+/// benchmarks towards a rather small scale.
+static const auto kNumValuesRange = benchmark::CreateRange(32, 512, 2);
 constexpr std::initializer_list<int64_t> kBitWidths8 = {1, 2, 8};
 constexpr std::initializer_list<int64_t> kBitWidths16 = {1, 2, 8, 13};
 constexpr std::initializer_list<int64_t> kBitWidths32 = {1, 2, 8, 20};
 constexpr std::initializer_list<int64_t> kBitWidths64 = {1, 2, 8, 20, 47};
 
 static const std::vector<std::vector<int64_t>> kBitWidthsNumValuesBool = {
-    {0, 1},
-    benchmark::CreateRange(kMinRange, kMaxRange, /*multi=*/32),
-};
+    {0, 1}, kNumValuesRange};
 static const std::vector<std::vector<int64_t>> kBitWidthsNumValues8 = {
     kBitWidths8,
-    benchmark::CreateRange(kMinRange, kMaxRange, /*multi=*/32),
+    kNumValuesRange,
 };
 static const std::vector<std::vector<int64_t>> kBitWidthsNumValues16 = {
     kBitWidths16,
-    benchmark::CreateRange(kMinRange, kMaxRange, /*multi=*/32),
+    kNumValuesRange,
 };
 static const std::vector<std::vector<int64_t>> kBitWidthsNumValues32 = {
     kBitWidths32,
-    benchmark::CreateRange(kMinRange, kMaxRange, /*multi=*/32),
+    kNumValuesRange,
 };
 static const std::vector<std::vector<int64_t>> kBitWidthsNumValues64 = {
     kBitWidths64,
-    benchmark::CreateRange(kMinRange, kMaxRange, /*multi=*/32),
+    kNumValuesRange,
 };
 
 /// Nudge for MSVC template inside BENCHMARK_CAPTURE macro.
