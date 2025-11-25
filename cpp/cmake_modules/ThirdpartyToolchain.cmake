@@ -643,16 +643,6 @@ else()
   )
 endif()
 
-set(FSST_SOURCE_URL "")
-set(FSST_GIT_REPOSITORY "")
-if(DEFINED ENV{ARROW_FSST_URL})
-  set(FSST_SOURCE_URL "$ENV{ARROW_FSST_URL}")
-elseif(DEFINED ENV{ARROW_FSST_GIT_REPOSITORY})
-  set(FSST_GIT_REPOSITORY "$ENV{ARROW_FSST_GIT_REPOSITORY}")
-else()
-  set(FSST_GIT_REPOSITORY "https://github.com/cwida/fsst.git")
-endif()
-
 if(DEFINED ENV{ARROW_GBENCHMARK_URL})
   set(GBENCHMARK_SOURCE_URL "$ENV{ARROW_GBENCHMARK_URL}")
 else()
@@ -2621,34 +2611,11 @@ if(ARROW_USE_XSIMD)
 endif()
 
 function(build_fsst)
-  message(STATUS "Building FSST from source using FetchContent")
+  message(STATUS "Configuring vendored FSST sources")
 
-  if(FSST_SOURCE_URL)
-    fetchcontent_declare(fsst
-                         ${FC_DECLARE_COMMON_OPTIONS}
-                         URL ${FSST_SOURCE_URL}
-                         URL_HASH "SHA256=${ARROW_FSST_BUILD_SHA256_CHECKSUM}")
-  else()
-    if(NOT FSST_GIT_REPOSITORY)
-      message(FATAL_ERROR "FSST_GIT_REPOSITORY is not set and no FSST_SOURCE_URL override was provided.")
-    endif()
-    fetchcontent_declare(fsst
-                         ${FC_DECLARE_COMMON_OPTIONS}
-                         GIT_REPOSITORY ${FSST_GIT_REPOSITORY}
-                         GIT_TAG ${ARROW_FSST_BUILD_VERSION}
-                         GIT_SHALLOW TRUE
-                         GIT_PROGRESS TRUE)
-  endif()
-
-  prepare_fetchcontent()
-  fetchcontent_getproperties(fsst)
-  if(NOT fsst_POPULATED)
-    fetchcontent_populate(fsst)
-  endif()
-
-  set(ARROW_FSST_INCLUDE_DIR "${fsst_SOURCE_DIR}" PARENT_SCOPE)
+  set(ARROW_FSST_INCLUDE_DIR "${ARROW_SOURCE_DIR}/thirdparty/fsst" PARENT_SCOPE)
   set(ARROW_FSST_SOURCES
-      "${fsst_SOURCE_DIR}/libfsst.cpp;${fsst_SOURCE_DIR}/fsst_avx512.cpp"
+      "${ARROW_SOURCE_DIR}/thirdparty/fsst/libfsst.cpp;${ARROW_SOURCE_DIR}/thirdparty/fsst/fsst_avx512.cpp"
       PARENT_SCOPE)
   set(FSST_VENDORED TRUE PARENT_SCOPE)
 endfunction()
