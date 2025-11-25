@@ -1868,7 +1868,7 @@ endif()
 # Protocol Buffers (required for ORC, Flight and Substrait libraries)
 
 function(build_protobuf)
-  list(APPEND CMAKE_MESSAGE_INDENT "PROTOBUF: ")
+  list(APPEND CMAKE_MESSAGE_INDENT "Protobuf: ")
   message(STATUS "Building Protocol Buffers from source using FetchContent")
   set(PROTOBUF_VENDORED
       TRUE
@@ -1912,8 +1912,8 @@ function(build_protobuf)
 
   fetchcontent_makeavailable(protobuf)
 
-  # Get the actual include directory from the protobuf target
-  # For FetchContent, this points to the source directory which contains the .proto files
+  # Get the actual include directory from the Protobuf target.
+  # For FetchContent, this points to the source directory which contains the .proto files.
   set(PROTOBUF_INCLUDE_DIR "${protobuf_SOURCE_DIR}/src")
   # For compatibility of CMake's FindProtobuf.cmake.
   set(Protobuf_INCLUDE_DIRS "${PROTOBUF_INCLUDE_DIR}")
@@ -1926,9 +1926,9 @@ function(build_protobuf)
       "${Protobuf_IMPORT_DIRS}"
       PARENT_SCOPE)
 
-  # For FetchContent builds, protoc and libprotoc are regular targets, not imported
-  # We can't get their locations at configure time, so we set placeholders
-  # The actual locations will be resolved at build time or by the install step
+  # For FetchContent builds, protoc and libprotoc are regular targets, not imported.
+  # We can't get their locations at configure time, so we set placeholders.
+  # The actual locations will be resolved at build time or by the install step.
   set(PROTOBUF_COMPILER "$<TARGET_FILE:protobuf::protoc>")
   set(PROTOC_STATIC_LIB "$<TARGET_FILE:protobuf::libprotoc>")
   set(Protobuf_PROTOC_LIBRARY "${PROTOC_STATIC_LIB}")

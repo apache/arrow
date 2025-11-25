@@ -101,8 +101,8 @@ set(FLIGHT_GENERATED_PROTO_FILES
 set(PROTO_DEPENDS ${FLIGHT_PROTO} ${ARROW_PROTOBUF_LIBPROTOBUF} gRPC::grpc_cpp_plugin)
 
 set(FLIGHT_PROTOC_COMMAND ${ARROW_PROTOBUF_PROTOC} "-I${FLIGHT_PROTO_PATH}")
-# Add protobuf include directory for well-known types (e.g., timestamp.proto)
-# This is needed when using vendored protobuf where protoc doesn't have built-in paths
+# Add protobuf include directory for well-known types (e.g., timestamp.proto).
+# This is needed when using vendored Protobuf where protoc doesn't have built-in paths.
 if(PROTOBUF_VENDORED AND Protobuf_INCLUDE_DIRS)
   list(APPEND FLIGHT_PROTOC_COMMAND "-I${Protobuf_INCLUDE_DIRS}")
 endif()
