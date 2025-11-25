@@ -293,7 +293,7 @@ else
     "${source_dir}"
 fi
 
-: "${ARROW_BUILD_PARALLEL:=$(( n_jobs + 1))}"
+: "${ARROW_BUILD_PARALLEL:=$((n_jobs + 1))}"
 if [ "${ARROW_USE_MESON:-OFF}" = "ON" ]; then
   time meson compile -j "${ARROW_BUILD_PARALLEL}"
   meson install
