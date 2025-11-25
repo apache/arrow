@@ -162,7 +162,7 @@ class BitReader {
 
   /// Advance the stream by a number of bytes, ignoring remaning bits.
   /// Returns true if succeed or false if there are not enough bits left.
-  bool AdvanceBytes(int64_t num_bytes);
+  bool AdvanceBytes(int num_bytes);
 
   /// Reads a vlq encoded int from the stream.  The encoded int must start at
   /// the beginning of a byte. Return false if there were not enough bytes in
@@ -332,7 +332,7 @@ inline bool BitReader::Advance(int64_t num_bits) {
   return true;
 }
 
-inline bool BitReader::AdvanceBytes(int64_t num_bytes) {
+inline bool BitReader::AdvanceBytes(int num_bytes) {
   if (ARROW_PREDICT_FALSE(num_bytes > max_bytes_ - byte_offset_)) {
     return false;
   }
