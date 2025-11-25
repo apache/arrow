@@ -107,8 +107,11 @@ types:
   - name: u64
     structure: {}
   # fp16 literals are encoded as user defined literals with
-  # a google.protobuf.UInt32Value message where the lower 16 bits are
-  # the fp16 value.
+  # a google.protobuf.UInt32Value message where the least significant
+  # 16 bits are the fp16 value encoded with little-endian encoding.
+  #
+  # In other words, the least significant 8 bits of the u32 will contain
+  # the most significant 8 bits of the fp16 value.
   - name: fp16
     structure: {}
   # 64-bit integers are big.  Even though date64 stores ms and not days it
