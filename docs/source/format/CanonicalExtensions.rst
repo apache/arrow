@@ -557,7 +557,7 @@ This extension type is intended to be compatible with ANSI SQL's ``TIMESTAMP WIT
 
   * ``timestamp``: a non-nullable ``Timestamp(time_unit, "UTC")``, where ``time_unit`` is any Arrow ``TimeUnit`` (s, ms, us or ns).
 
-  * ``offset_minutes``: a non-nullable signed 16-bit integer (``Int16``) representing the offset in minutes from the UTC timezone. Negative offsets represent time zones west of UTC, while positive offsets represent east. Offsets range from -779 (-12:59) to +780 (+13:00).
+  * ``offset_minutes``: a non-nullable signed 16-bit integer (``Int16``) representing the offset in minutes from the UTC timezone. Negative offsets represent time zones west of UTC, while positive offsets represent east. Offsets normally range from -779 (-12:59) to +780 (+13:00).
 
 * Extension type parameters:
 
