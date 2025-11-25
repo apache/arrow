@@ -17,6 +17,16 @@
 
 add_custom_target(arrow_flight)
 
+# gRPC headers use deprecated std::iterator (deprecated in C++17, removed in C++20).
+# This causes compilation errors with GCC 15+ when using -Werror.
+# This workaround can be removed once we upgrade to a newer gRPC version that doesn't
+# use std::iterator (likely gRPC 1.60+).
+# Apply to all Flight targets (libraries, tests, executables) in this directory.
+# TODO: Check whether this is global and try a better approach if so.
+if(NOT MSVC)
+  add_compile_options(-Wno-error=deprecated-declarations)
+endif()
+
 arrow_install_all_headers("arrow/flight")
 
 # If libarrow_flight.a is only built, "pkg-config --cflags --libs
