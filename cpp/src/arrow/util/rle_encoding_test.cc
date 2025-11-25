@@ -993,10 +993,23 @@ void CheckRoundTrip(const Array& data, int bit_width, bool spaced, int32_t parts
   const int data_size = static_cast<int>(data.length());
   const int data_values_count =
       static_cast<int>(data.length() - spaced * data.null_count());
+      // Note: because of the way RleEncoder::CheckBufferFull()
+  // is called, we have to reserve an extra "RleEncoder::MinBufferSize"
+  // bytes. These extra bytes won't be used but not reserving them
+  // would cause the encoder to fail.
   const int buffer_size =
-      static_cast<int>(RleBitPackedEncoder::MaxBufferSize(bit_width, data_size));
+      static_cast<int>(
+  ::arrow::util::RleBitPackedEncoder::MaxBufferSize(bit_width, data_values_count) +
+         ::arrow::util::RleBitPackedEncoder::MinBufferSize(bit_width));
+
   ASSERT_GE(parts, 1);
   ASSERT_LE(parts, data_size);
+
+  ARROW_SCOPED_TRACE("bit_width = ", bit_width, ", spaced = ", spaced, ", data_size = ", data_size,
+                     ", buffer_size = ", buffer_size);
+  ARROW_LOG(INFO) << "bit_width = " <<bit_width << ", data_size = " << data_size
+      << ", buffer size = " << buffer_size
+      << ", min buffer size = " << RleBitPackedEncoder::MinBufferSize(bit_width);
 
   const value_type* data_values = static_cast<const ArrayType&>(data).raw_values();
 
@@ -1008,13 +1021,15 @@ void CheckRoundTrip(const Array& data, int bit_width, bool spaced, int32_t parts
     // Depending on `spaced` we treat nulls as regular values.
     if (data.IsValid(i) || !spaced) {
       bool success = encoder.Put(static_cast<uint64_t>(data_values[i]));
-      ASSERT_TRUE(success) << "Encoding failed in pos " << i;
+      ASSERT_TRUE(success) << "Encoding failed in pos " << i << ", current encoder len: " << encoder.len();
       ++encoded_values_size;
     }
   }
   int encoded_byte_size = encoder.Flush();
   ASSERT_EQ(encoded_values_size, data_values_count)
       << "All values input were not encoded successfully by the encoder";
+  // ARROW_LOG(INFO) << "bit_width = " <<bit_width << ", data_size = " << data_size
+  //     << ", buffer size = " << buffer_size << ", encoded_byte_size = " << encoded_byte_size;
 
   // Now we verify batch read
   RleBitPackedDecoder<value_type> decoder(buffer.data(), encoded_byte_size, bit_width);
