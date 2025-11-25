@@ -69,11 +69,8 @@ class ApacheArrowPackageTask < PackageTask
   def download_released_archive
     mirror_base_url = "https://www.apache.org/dyn/closer.lua/arrow"
     mirror_list_url = "#{mirror_base_url}/arrow-#{@version}/#{@archive_name}"
-    open(mirror_list_url) do |response|
-      if /href="(.+?\/#{Regexp.escape(@archive_name)})"/ =~ response.read
-        download($1, ".")
-      end
-    end
+    mirror_download_url = "#{mirror_list_url}?action=download"
+    download(mirror_download_url, @archive_name)
   end
 
   def build_archive
