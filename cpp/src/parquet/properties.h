@@ -286,7 +286,7 @@ struct PARQUET_EXPORT CdcOptions {
 
 class PARQUET_EXPORT WriterProperties {
  public:
-  class Builder {
+  class PARQUET_EXPORT Builder {
    public:
     Builder()
         : pool_(::arrow::default_memory_pool()),
@@ -322,7 +322,9 @@ class PARQUET_EXPORT WriterProperties {
           content_defined_chunking_enabled_(
               properties.content_defined_chunking_enabled()),
           content_defined_chunking_options_(
-              properties.content_defined_chunking_options()) {}
+              properties.content_defined_chunking_options()) {
+      CopyColumnSpecificProperties(properties);
+    }
 
     /// \brief EXPERIMENTAL: Use content-defined page chunking for all columns.
     ///
@@ -784,6 +786,8 @@ class PARQUET_EXPORT WriterProperties {
     }
 
    private:
+    void CopyColumnSpecificProperties(const WriterProperties& properties);
+
     MemoryPool* pool_;
     int64_t dictionary_pagesize_limit_;
     int64_t write_batch_size_;
