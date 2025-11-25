@@ -2852,10 +2852,6 @@ function(build_re2)
   set(RE2_VENDORED
       TRUE
       PARENT_SCOPE)
-  set(RE2_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/re2_fc-install")
-  set(RE2_PREFIX
-      "${RE2_PREFIX}"
-      PARENT_SCOPE)
 
   fetchcontent_declare(re2
                        URL ${RE2_SOURCE_URL}
@@ -2865,39 +2861,6 @@ function(build_re2)
   # Unity build causes some build errors
   set(CMAKE_UNITY_BUILD OFF)
   fetchcontent_makeavailable(re2)
-
-  # This custom target ensures re2 is built before we install
-  add_custom_target(re2_built DEPENDS re2::re2)
-
-  add_custom_command(OUTPUT "${re2_BINARY_DIR}/cmake_install.cmake.saved"
-                     COMMAND ${CMAKE_COMMAND} -E copy_if_different
-                             "${re2_BINARY_DIR}/cmake_install.cmake"
-                             "${re2_BINARY_DIR}/cmake_install.cmake.saved"
-                     COMMAND ${CMAKE_COMMAND} -E echo
-                             "# RE2 install disabled to prevent double installation with Arrow"
-                             > "${re2_BINARY_DIR}/cmake_install.cmake"
-                     DEPENDS re2_built
-                     COMMENT "Disabling RE2 install to prevent double installation"
-                     VERBATIM)
-
-  add_custom_target(re2_install_disabled ALL
-                    DEPENDS "${re2_BINARY_DIR}/cmake_install.cmake.saved")
-
-  # Install RE2 to RE2_PREFIX for gRPC to find
-  add_custom_command(OUTPUT "${RE2_PREFIX}/.re2_installed"
-                     COMMAND ${CMAKE_COMMAND} -E copy_if_different
-                             "${re2_BINARY_DIR}/cmake_install.cmake.saved"
-                             "${re2_BINARY_DIR}/cmake_install.cmake.tmp"
-                     COMMAND ${CMAKE_COMMAND} -DCMAKE_INSTALL_PREFIX=${RE2_PREFIX}
-                             -DCMAKE_INSTALL_CONFIG_NAME=$<CONFIG> -P
-                             "${re2_BINARY_DIR}/cmake_install.cmake.tmp" ||
-                             ${CMAKE_COMMAND} -E true
-                     COMMAND ${CMAKE_COMMAND} -E touch "${RE2_PREFIX}/.re2_installed"
-                     DEPENDS re2_install_disabled
-                     COMMENT "Installing RE2 to ${RE2_PREFIX} for gRPC"
-                     VERBATIM)
-
-  add_custom_target(re2_fc DEPENDS "${RE2_PREFIX}/.re2_installed")
 
   set(ARROW_BUNDLED_STATIC_LIBS
       ${ARROW_BUNDLED_STATIC_LIBS} re2::re2
@@ -3030,10 +2993,6 @@ function(build_cares)
   set(CARES_VENDORED
       TRUE
       PARENT_SCOPE)
-  set(CARES_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/cares_fc-install")
-  set(CARES_PREFIX
-      "${CARES_PREFIX}"
-      PARENT_SCOPE)
 
   fetchcontent_declare(cares
                        URL ${CARES_SOURCE_URL}
@@ -3043,48 +3002,7 @@ function(build_cares)
 
   set(CARES_SHARED OFF)
   set(CARES_STATIC ON)
-  set(CARES_INSTALL ON)
-  set(CARES_BUILD_TOOLS OFF)
-  set(CARES_BUILD_TESTS OFF)
   fetchcontent_makeavailable(cares)
-
-  # gRPC requires c-ares to be installed to a known location.
-  # We have to do this in two steps to avoid double installation of c-ares
-  # when Arrow is installed.
-  # This custom target ensures c-ares is built before we install
-  add_custom_target(cares_built DEPENDS c-ares::cares)
-
-  # Disable c-ares's install script after it's built to prevent double installation
-  add_custom_command(OUTPUT "${cares_BINARY_DIR}/cmake_install.cmake.saved"
-                     COMMAND ${CMAKE_COMMAND} -E copy_if_different
-                             "${cares_BINARY_DIR}/cmake_install.cmake"
-                             "${cares_BINARY_DIR}/cmake_install.cmake.saved"
-                     COMMAND ${CMAKE_COMMAND} -E echo
-                             "# c-ares install disabled to prevent double installation with Arrow"
-                             > "${cares_BINARY_DIR}/cmake_install.cmake"
-                     DEPENDS cares_built
-                     COMMENT "Disabling c-ares install to prevent double installation"
-                     VERBATIM)
-
-  add_custom_target(cares_install_disabled ALL
-                    DEPENDS "${cares_BINARY_DIR}/cmake_install.cmake.saved")
-
-  # Install c-ares to CARES_PREFIX for gRPC to find
-  add_custom_command(OUTPUT "${CARES_PREFIX}/.cares_installed"
-                     COMMAND ${CMAKE_COMMAND} -E copy_if_different
-                             "${cares_BINARY_DIR}/cmake_install.cmake.saved"
-                             "${cares_BINARY_DIR}/cmake_install.cmake.tmp"
-                     COMMAND ${CMAKE_COMMAND} -DCMAKE_INSTALL_PREFIX=${CARES_PREFIX}
-                             -DCMAKE_INSTALL_CONFIG_NAME=$<CONFIG> -P
-                             "${cares_BINARY_DIR}/cmake_install.cmake.tmp" ||
-                             ${CMAKE_COMMAND} -E true
-                     COMMAND ${CMAKE_COMMAND} -E touch "${CARES_PREFIX}/.cares_installed"
-                     DEPENDS cares_install_disabled
-                     COMMENT "Installing c-ares to ${CARES_PREFIX} for gRPC"
-                     VERBATIM)
-
-  # Make cares_fc depend on the install completion marker
-  add_custom_target(cares_fc DEPENDS "${CARES_PREFIX}/.cares_installed")
 
   if(APPLE)
     # libresolv must be linked from c-ares version 1.16.1
@@ -3254,7 +3172,7 @@ function(build_absl)
   list(POP_BACK CMAKE_MESSAGE_INDENT)
 endfunction()
 
-macro(build_grpc)
+function(build_grpc)
   resolve_dependency(c-ares
                      ARROW_CMAKE_PACKAGE_NAME
                      ArrowFlight
@@ -3265,289 +3183,176 @@ macro(build_grpc)
                      PC_PACKAGE_NAMES
                      libcares)
 
-  message(STATUS "Building gRPC from source")
+  list(APPEND CMAKE_MESSAGE_INDENT "GRPC: ")
+  message(STATUS "Building gRPC from source using FetchContent")
+  set(GRPC_VENDORED
+      TRUE
+      PARENT_SCOPE)
 
-  set(GRPC_BUILD_DIR "${CMAKE_CURRENT_BINARY_DIR}/grpc_ep-prefix/src/grpc_ep-build")
-  set(GRPC_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/grpc_ep-install")
-  set(GRPC_HOME "${GRPC_PREFIX}")
-  set(GRPC_INCLUDE_DIR "${GRPC_PREFIX}/include")
+  set(gRPC_ABSL_PROVIDER
+      "none"
+      CACHE STRING "" FORCE)
 
-  set(GRPC_STATIC_LIBRARY_GPR
-      "${GRPC_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}gpr${CMAKE_STATIC_LIBRARY_SUFFIX}"
-  )
-  set(GRPC_STATIC_LIBRARY_GRPC
-      "${GRPC_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}grpc${CMAKE_STATIC_LIBRARY_SUFFIX}"
-  )
-  set(GRPC_STATIC_LIBRARY_GRPCPP
-      "${GRPC_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}grpc++${CMAKE_STATIC_LIBRARY_SUFFIX}"
-  )
-  set(GRPC_STATIC_LIBRARY_ADDRESS_SORTING
-      "${GRPC_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}address_sorting${CMAKE_STATIC_LIBRARY_SUFFIX}"
-  )
-  set(GRPC_STATIC_LIBRARY_GRPCPP_REFLECTION
-      "${GRPC_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}grpc++_reflection${CMAKE_STATIC_LIBRARY_SUFFIX}"
-  )
-  set(GRPC_STATIC_LIBRARY_UPB
-      "${GRPC_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}upb${CMAKE_STATIC_LIBRARY_SUFFIX}"
-  )
-  set(GRPC_CPP_PLUGIN "${GRPC_PREFIX}/bin/grpc_cpp_plugin${CMAKE_EXECUTABLE_SUFFIX}")
+  # Skip Protobuf provider and set required library variables directly.
+  set(gRPC_PROTOBUF_PROVIDER
+      "none"
+      CACHE STRING "" FORCE)
 
-  set(GRPC_CMAKE_PREFIX)
+  set(_gRPC_PROTOBUF_LIBRARIES
+      "protobuf::libprotobuf"
+      CACHE STRING "" FORCE)
 
-  add_custom_target(grpc_dependencies)
+  set(_gRPC_PROTOBUF_PROTOC_LIBRARIES
+      "protobuf::libprotoc"
+      CACHE STRING "" FORCE)
 
-  if(ABSL_VENDORED)
-    add_dependencies(grpc_dependencies absl_fc)
-  endif()
-  if(CARES_VENDORED)
-    add_dependencies(grpc_dependencies cares_fc)
-  endif()
-  if(PROTOBUF_VENDORED)
-    add_dependencies(grpc_dependencies protobuf_fc)
-  endif()
+  set(_gRPC_PROTOBUF_PROTOC
+      "protobuf::protoc"
+      CACHE STRING "" FORCE)
 
-  if(GFLAGS_VENDORED)
-    add_dependencies(grpc_dependencies gflags_ep)
-  endif()
+  set(_gRPC_PROTOBUF_PROTOC_EXECUTABLE
+      "$<TARGET_FILE:protobuf::protoc>"
+      CACHE STRING "" FORCE)
 
-  if(RE2_VENDORED)
-    add_dependencies(grpc_dependencies re2_fc)
-  endif()
+  # Get include directory from protobuf source (not the target property with generator expressions)
+  # gRPC needs this at configure time for add_custom_command, so we can't use generator expressions
+  # protobuf_SOURCE_DIR points to cmake/ subdirectory due to SOURCE_SUBDIR, so go up one level
+  get_filename_component(_protobuf_root_dir "${protobuf_SOURCE_DIR}" DIRECTORY)
+  set(_gRPC_PROTOBUF_WELLKNOWN_INCLUDE_DIR
+      "${_protobuf_root_dir}/src"
+      CACHE STRING "" FORCE)
 
-  add_dependencies(grpc_dependencies ${ARROW_PROTOBUF_LIBPROTOBUF} c-ares::cares
-                   ZLIB::ZLIB)
+  # For c-ares and RE2, we've already built them via FetchContent and targets exist.
+  # Set provider to "none" to skip gRPC's dependency resolution, and set library variables directly.
+  set(gRPC_CARES_PROVIDER
+      "none"
+      CACHE STRING "" FORCE)
+  set(_gRPC_CARES_LIBRARIES
+      "c-ares::cares"
+      CACHE STRING "" FORCE)
 
-  # For FetchContent Protobuf, use the install prefix directly
-  if(PROTOBUF_VENDORED)
-    set(GRPC_PB_ROOT "${PROTOBUF_PREFIX}")
-  else()
-    get_target_property(GRPC_PROTOBUF_INCLUDE_DIR ${ARROW_PROTOBUF_LIBPROTOBUF}
-                        INTERFACE_INCLUDE_DIRECTORIES)
-    get_filename_component(GRPC_PB_ROOT "${GRPC_PROTOBUF_INCLUDE_DIR}" DIRECTORY)
-  endif()
+  set(gRPC_RE2_PROVIDER
+      "none"
+      CACHE STRING "" FORCE)
+  set(_gRPC_RE2_LIBRARIES
+      "re2::re2"
+      CACHE STRING "" FORCE)
 
-  get_target_property(GRPC_Protobuf_PROTOC_LIBRARY ${ARROW_PROTOBUF_LIBPROTOC}
-                      IMPORTED_LOCATION)
+  set(gRPC_SSL_PROVIDER
+      "package"
+      CACHE STRING "" FORCE)
 
-  # For FetchContent c-ares, use the install prefix directly
-  if(CARES_VENDORED)
-    set(GRPC_CARES_ROOT "${CARES_PREFIX}")
-  else()
-    get_target_property(GRPC_CARES_INCLUDE_DIR c-ares::cares
-                        INTERFACE_INCLUDE_DIRECTORIES)
-    get_filename_component(GRPC_CARES_ROOT "${GRPC_CARES_INCLUDE_DIR}" DIRECTORY)
-  endif()
+  set(gRPC_ZLIB_PROVIDER
+      "package"
+      CACHE STRING "" FORCE)
 
-  # For FetchContent RE2, use the install prefix directly
-  if(RE2_VENDORED)
-    set(GRPC_RE2_ROOT "${RE2_PREFIX}")
-  else()
-    get_target_property(GRPC_RE2_INCLUDE_DIR re2::re2 INTERFACE_INCLUDE_DIRECTORIES)
-    get_filename_component(GRPC_RE2_ROOT "${GRPC_RE2_INCLUDE_DIR}" DIRECTORY)
-  endif()
+  set(gRPC_INSTALL
+      OFF
+      CACHE BOOL "" FORCE)
 
-  # Put Abseil, etc. first so that local directories are searched
-  # before (what are likely) system directories
-  set(GRPC_CMAKE_PREFIX "${GRPC_CMAKE_PREFIX};${ABSL_PREFIX}")
-  set(GRPC_CMAKE_PREFIX "${GRPC_CMAKE_PREFIX};${GRPC_PB_ROOT}")
-  set(GRPC_CMAKE_PREFIX "${GRPC_CMAKE_PREFIX};${GRPC_CARES_ROOT}")
-  set(GRPC_CMAKE_PREFIX "${GRPC_CMAKE_PREFIX};${GRPC_RE2_ROOT}")
+  set(gRPC_BUILD_TESTS
+      OFF
+      CACHE BOOL "" FORCE)
 
-  # ZLIB is never vendored
-  set(GRPC_CMAKE_PREFIX "${GRPC_CMAKE_PREFIX};${ZLIB_ROOT}")
+  set(gRPC_BUILD_GRPC_CSHARP_PLUGIN
+      OFF
+      CACHE BOOL "" FORCE)
 
-  if(RAPIDJSON_VENDORED)
-    add_dependencies(grpc_dependencies rapidjson_ep)
-  endif()
+  set(gRPC_BUILD_GRPC_NODE_PLUGIN
+      OFF
+      CACHE BOOL "" FORCE)
 
-  # Yuck, see https://stackoverflow.com/a/45433229/776560
-  string(REPLACE ";" ${EP_LIST_SEPARATOR} GRPC_PREFIX_PATH_ALT_SEP "${GRPC_CMAKE_PREFIX}")
+  set(gRPC_BUILD_GRPC_OBJECTIVE_C_PLUGIN
+      OFF
+      CACHE BOOL "" FORCE)
 
-  set(GRPC_C_FLAGS "${EP_C_FLAGS}")
-  set(GRPC_CXX_FLAGS "${EP_CXX_FLAGS}")
+  set(gRPC_BUILD_GRPC_PHP_PLUGIN
+      OFF
+      CACHE BOOL "" FORCE)
+
+  set(gRPC_BUILD_GRPC_PYTHON_PLUGIN
+      OFF
+      CACHE BOOL "" FORCE)
+
+  set(gRPC_BUILD_GRPC_RUBY_PLUGIN
+      OFF
+      CACHE BOOL "" FORCE)
+
+  set(gRPC_BUILD_CSHARP_EXT
+      OFF
+      CACHE BOOL "" FORCE)
+
+  # Add warning suppression flags for gRPC build
+
   if(NOT MSVC)
-    # Negate warnings that gRPC cannot build under
-    # See https://github.com/grpc/grpc/issues/29417
-    string(APPEND
-           GRPC_C_FLAGS
-           " -Wno-attributes"
-           " -Wno-format-security"
-           " -Wno-unknown-warning-option")
-    string(APPEND
-           GRPC_CXX_FLAGS
-           " -Wno-attributes"
-           " -Wno-format-security"
-           " -Wno-unknown-warning-option")
+    string(APPEND CMAKE_C_FLAGS
+           " -Wno-attributes -Wno-format-security -Wno-unknown-warning-option")
+    string(APPEND CMAKE_CXX_FLAGS
+           " -Wno-attributes -Wno-format-security -Wno-unknown-warning-option")
+  endif()
+  fetchcontent_declare(grpc
+                       URL ${GRPC_SOURCE_URL}
+                       URL_HASH "SHA256=${ARROW_GRPC_BUILD_SHA256_CHECKSUM}")
+
+  prepare_fetchcontent()
+  fetchcontent_makeavailable(grpc)
+
+  # Create namespace aliases for gRPC targets (these are not created automatically with add_subdirectory)
+  # Is there a way to iterate over all those created targets instead of listing them manually?
+  if(NOT TARGET gRPC::address_sorting)
+    add_library(gRPC::address_sorting ALIAS address_sorting)
   endif()
 
-  set(GRPC_CMAKE_ARGS
-      "${EP_COMMON_CMAKE_ARGS}"
-      "-DCMAKE_C_FLAGS=${GRPC_C_FLAGS}"
-      "-DCMAKE_CXX_FLAGS=${GRPC_CXX_FLAGS}"
-      -DCMAKE_INSTALL_PREFIX=${GRPC_PREFIX}
-      -DCMAKE_PREFIX_PATH='${GRPC_PREFIX_PATH_ALT_SEP}'
-      -DOPENSSL_CRYPTO_LIBRARY=${OPENSSL_CRYPTO_LIBRARY}
-      -DOPENSSL_INCLUDE_DIR=${OPENSSL_INCLUDE_DIR}
-      -DOPENSSL_SSL_LIBRARY=${OPENSSL_SSL_LIBRARY}
-      -DgRPC_ABSL_PROVIDER=package
-      -DgRPC_BUILD_CSHARP_EXT=OFF
-      -DgRPC_BUILD_GRPC_CSHARP_PLUGIN=OFF
-      -DgRPC_BUILD_GRPC_NODE_PLUGIN=OFF
-      -DgRPC_BUILD_GRPC_OBJECTIVE_C_PLUGIN=OFF
-      -DgRPC_BUILD_GRPC_PHP_PLUGIN=OFF
-      -DgRPC_BUILD_GRPC_PYTHON_PLUGIN=OFF
-      -DgRPC_BUILD_GRPC_RUBY_PLUGIN=OFF
-      -DgRPC_BUILD_TESTS=OFF
-      -DgRPC_CARES_PROVIDER=package
-      -DgRPC_MSVC_STATIC_RUNTIME=${ARROW_USE_STATIC_CRT}
-      -DgRPC_PROTOBUF_PROVIDER=package
-      -DgRPC_RE2_PROVIDER=package
-      -DgRPC_SSL_PROVIDER=package
-      -DgRPC_ZLIB_PROVIDER=package)
-  if(PROTOBUF_VENDORED)
-    list(APPEND GRPC_CMAKE_ARGS -DgRPC_PROTOBUF_PACKAGE_TYPE=CONFIG)
+  if(NOT TARGET gRPC::gpr)
+    add_library(gRPC::gpr ALIAS gpr)
   endif()
 
-  # XXX the gRPC git checkout is huge and takes a long time
-  # Ideally, we should be able to use the tarballs, but they don't contain
-  # vendored dependencies such as c-ares...
-  externalproject_add(grpc_ep
-                      ${EP_COMMON_OPTIONS}
-                      URL ${GRPC_SOURCE_URL}
-                      URL_HASH "SHA256=${ARROW_GRPC_BUILD_SHA256_CHECKSUM}"
-                      BUILD_BYPRODUCTS ${GRPC_STATIC_LIBRARY_GPR}
-                                       ${GRPC_STATIC_LIBRARY_GRPC}
-                                       ${GRPC_STATIC_LIBRARY_GRPCPP}
-                                       ${GRPC_STATIC_LIBRARY_ADDRESS_SORTING}
-                                       ${GRPC_STATIC_LIBRARY_GRPCPP_REFLECTION}
-                                       ${GRPC_STATIC_LIBRARY_UPB}
-                                       ${GRPC_CPP_PLUGIN}
-                      CMAKE_ARGS ${GRPC_CMAKE_ARGS}
-                      DEPENDS ${grpc_dependencies})
+  if(NOT TARGET gRPC::grpc)
+    add_library(gRPC::grpc ALIAS grpc)
+  endif()
 
-  # Work around https://gitlab.kitware.com/cmake/cmake/issues/15052
-  file(MAKE_DIRECTORY ${GRPC_INCLUDE_DIR})
+  if(NOT TARGET gRPC::grpc++)
+    add_library(gRPC::grpc++ ALIAS grpc++)
+  endif()
 
-  add_library(gRPC::upb STATIC IMPORTED)
-  set_target_properties(gRPC::upb PROPERTIES IMPORTED_LOCATION
-                                             "${GRPC_STATIC_LIBRARY_UPB}")
-  target_include_directories(gRPC::upb BEFORE INTERFACE "${GRPC_INCLUDE_DIR}")
+  if(NOT TARGET gRPC::grpc++_alts)
+    add_library(gRPC::grpc++_alts ALIAS grpc++_alts)
+  endif()
 
-  set(GRPC_GPR_ABSL_LIBRARIES
-      # We need a flattened list of Abseil libraries for the static linking case,
-      # because our method for creating arrow_bundled_dependencies.a doesn't walk
-      # the dependency tree of targets.
-      #
-      # This list should be updated when we change Abseil / gRPC versions. It can
-      # be generated with:
-      # pkg-config --libs --static grpc \
-      #   | tr " " "\n" \
-      #   | grep ^-labsl_ \
-      #   | sed 's/^-labsl_/absl::/'
-      absl::raw_hash_set
-      absl::hashtablez_sampler
-      absl::hash
-      absl::city
-      absl::low_level_hash
-      absl::random_distributions
-      absl::random_seed_sequences
-      absl::random_internal_pool_urbg
-      absl::random_internal_randen
-      absl::random_internal_randen_hwaes
-      absl::random_internal_randen_hwaes_impl
-      absl::random_internal_randen_slow
-      absl::random_internal_platform
-      absl::random_internal_seed_material
-      absl::random_seed_gen_exception
-      absl::statusor
-      absl::status
-      absl::cord
-      absl::cordz_info
-      absl::cord_internal
-      absl::cordz_functions
-      absl::exponential_biased
-      absl::cordz_handle
-      absl::bad_optional_access
-      absl::str_format_internal
-      absl::synchronization
-      absl::graphcycles_internal
-      absl::stacktrace
-      absl::symbolize
-      absl::debugging_internal
-      absl::demangle_internal
-      absl::malloc_internal
-      absl::time
-      absl::civil_time
-      absl::strings
-      absl::strings_internal
-      absl::base
-      absl::spinlock_wait
-      absl::int128
-      absl::throw_delegate
-      absl::time_zone
-      absl::bad_variant_access
-      absl::raw_logging_internal
-      absl::log_severity)
+  if(NOT TARGET gRPC::grpc++_error_details)
+    add_library(gRPC::grpc++_error_details ALIAS grpc++_error_details)
+  endif()
 
-  add_library(gRPC::gpr STATIC IMPORTED)
-  set_target_properties(gRPC::gpr PROPERTIES IMPORTED_LOCATION
-                                             "${GRPC_STATIC_LIBRARY_GPR}")
-  target_link_libraries(gRPC::gpr INTERFACE ${GRPC_GPR_ABSL_LIBRARIES})
-  target_include_directories(gRPC::gpr BEFORE INTERFACE "${GRPC_INCLUDE_DIR}")
+  if(NOT TARGET gRPC::grpc++_reflection)
+    add_library(gRPC::grpc++_reflection ALIAS grpc++_reflection)
+  endif()
 
-  add_library(gRPC::address_sorting STATIC IMPORTED)
-  set_target_properties(gRPC::address_sorting
-                        PROPERTIES IMPORTED_LOCATION
-                                   "${GRPC_STATIC_LIBRARY_ADDRESS_SORTING}")
-  target_include_directories(gRPC::address_sorting BEFORE INTERFACE "${GRPC_INCLUDE_DIR}")
+  if(NOT TARGET gRPC::grpc++_unsecure)
+    add_library(gRPC::grpc++_unsecure ALIAS grpc++_unsecure)
+  endif()
 
-  add_library(gRPC::grpc++_reflection STATIC IMPORTED)
-  set_target_properties(gRPC::grpc++_reflection
-                        PROPERTIES IMPORTED_LOCATION
-                                   "${GRPC_STATIC_LIBRARY_GRPCPP_REFLECTION}")
-  target_include_directories(gRPC::grpc++_reflection BEFORE
-                             INTERFACE "${GRPC_INCLUDE_DIR}")
+  if(NOT TARGET gRPC::grpc_unsecure)
+    add_library(gRPC::grpc_unsecure ALIAS grpc_unsecure)
+  endif()
 
-  add_library(gRPC::grpc STATIC IMPORTED)
-  set_target_properties(gRPC::grpc PROPERTIES IMPORTED_LOCATION
-                                              "${GRPC_STATIC_LIBRARY_GRPC}")
-  target_link_libraries(gRPC::grpc
-                        INTERFACE gRPC::gpr
-                                  gRPC::upb
-                                  gRPC::address_sorting
-                                  re2::re2
-                                  c-ares::cares
-                                  ZLIB::ZLIB
-                                  OpenSSL::SSL
-                                  Threads::Threads)
-  target_include_directories(gRPC::grpc BEFORE INTERFACE "${GRPC_INCLUDE_DIR}")
+  if(NOT TARGET gRPC::grpc_cpp_plugin AND TARGET grpc_cpp_plugin)
+    add_executable(gRPC::grpc_cpp_plugin ALIAS grpc_cpp_plugin)
+  endif()
 
-  add_library(gRPC::grpc++ STATIC IMPORTED)
-  set_target_properties(gRPC::grpc++ PROPERTIES IMPORTED_LOCATION
-                                                "${GRPC_STATIC_LIBRARY_GRPCPP}")
-  target_link_libraries(gRPC::grpc++ INTERFACE gRPC::grpc ${ARROW_PROTOBUF_LIBPROTOBUF})
-  target_include_directories(gRPC::grpc++ BEFORE INTERFACE "${GRPC_INCLUDE_DIR}")
-
-  add_executable(gRPC::grpc_cpp_plugin IMPORTED)
-  set_target_properties(gRPC::grpc_cpp_plugin PROPERTIES IMPORTED_LOCATION
-                                                         ${GRPC_CPP_PLUGIN})
-
-  add_dependencies(grpc_ep grpc_dependencies)
-  add_dependencies(gRPC::grpc++ grpc_ep)
-  add_dependencies(gRPC::grpc_cpp_plugin grpc_ep)
-  set(GRPC_VENDORED TRUE)
+  if(NOT TARGET gRPC::upb)
+    add_library(gRPC::upb ALIAS upb)
+  endif()
 
   # ar -M rejects with the "libgrpc++.a" filename because "+" is a line
   # continuation character in these scripts, so we have to create a copy of the
   # static lib that we will bundle later
-
   set(GRPC_STATIC_LIBRARY_GRPCPP_FOR_AR
       "${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}grpcpp${CMAKE_STATIC_LIBRARY_SUFFIX}"
   )
   add_custom_command(OUTPUT ${GRPC_STATIC_LIBRARY_GRPCPP_FOR_AR}
                      COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:gRPC::grpc++>
                              ${GRPC_STATIC_LIBRARY_GRPCPP_FOR_AR}
-                     DEPENDS grpc_ep)
+                     DEPENDS gRPC::grpc++)
   add_library(gRPC::grpcpp_for_bundling STATIC IMPORTED)
   set_target_properties(gRPC::grpcpp_for_bundling
                         PROPERTIES IMPORTED_LOCATION
@@ -3558,6 +3363,7 @@ macro(build_grpc)
   add_custom_target(grpc_copy_grpc++ ALL DEPENDS "${GRPC_STATIC_LIBRARY_GRPCPP_FOR_AR}")
   add_dependencies(gRPC::grpcpp_for_bundling grpc_copy_grpc++)
 
+  # Add gRPC libraries to bundled static libs.
   list(APPEND
        ARROW_BUNDLED_STATIC_LIBS
        gRPC::address_sorting
@@ -3565,10 +3371,11 @@ macro(build_grpc)
        gRPC::grpc
        gRPC::grpcpp_for_bundling
        gRPC::upb)
-  if(ABSL_VENDORED)
-    list(APPEND ARROW_BUNDLED_STATIC_LIBS ${GRPC_GPR_ABSL_LIBRARIES})
-  endif()
-endmacro()
+  set(ARROW_BUNDLED_STATIC_LIBS
+      "${ARROW_BUNDLED_STATIC_LIBS}"
+      PARENT_SCOPE)
+  list(POP_BACK CMAKE_MESSAGE_INDENT)
+endfunction()
 
 if(ARROW_WITH_GOOGLE_CLOUD_CPP OR ARROW_WITH_GRPC)
   set(ARROW_ABSL_REQUIRED_VERSION 20211102)
