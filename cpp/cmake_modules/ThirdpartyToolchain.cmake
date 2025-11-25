@@ -3042,13 +3042,13 @@ function(build_absl)
   prepare_fetchcontent()
 
   # We have to enable Abseil install to generate abslConfig.cmake
-  # so gRPC can find Abseil through ExternalProject_Add. Our expectation
-  # is that this will not be necessary once gRPC supports FetchContent.
+  # so google-cloud-cpp can find Abseil through ExternalProject_Add. Our expectation
+  # is that this will not be necessary once google-cloud-cpp supports FetchContent.
   set(ABSL_ENABLE_INSTALL ON)
   fetchcontent_makeavailable(absl)
 
   # This custom target is required due to a timing issue between FetchContent
-  # and the install command below, which is necessary for GRPC to find Abseil
+  # and the install command below, which is necessary for google-cloud-cpp to find Abseil
   # due to mixing FetchContent and ExternalProject_Add.
   # Create a target that depends on ALL Abseil libraries that will be installed.
   # This ensures they're all built before we try to install.
@@ -3120,7 +3120,7 @@ function(build_absl)
                             absl::time
                             absl::time_zone)
 
-  # gRPC requires Abseil to be installed to a known location.
+  # google-cloud-cpp requires Abseil to be installed to a known location.
   # We have to do this in two steps to avoid double installation of Abseil
   # when Arrow is installed.
   # Disable Abseil's install script this target runs after Abseil is built
@@ -3140,7 +3140,7 @@ function(build_absl)
   add_custom_target(absl_install_disabled ALL
                     DEPENDS "${absl_BINARY_DIR}/cmake_install.cmake.saved")
 
-  # Install Abseil to ABSL_PREFIX for gRPC to find.
+  # Install Abseil to ABSL_PREFIX for google-cloud-cpp to find.
   # Using the saved original cmake_install.cmake.saved install script
   # for other dependencies to find Abseil.
   add_custom_command(OUTPUT "${ABSL_PREFIX}/.absl_installed"
@@ -3183,20 +3183,11 @@ function(build_grpc)
                      PC_PACKAGE_NAMES
                      libcares)
 
-  list(APPEND CMAKE_MESSAGE_INDENT "GRPC: ")
+  list(APPEND CMAKE_MESSAGE_INDENT "gRPC: ")
   message(STATUS "Building gRPC from source using FetchContent")
   set(GRPC_VENDORED
       TRUE
       PARENT_SCOPE)
-
-  set(gRPC_ABSL_PROVIDER
-      "none"
-      CACHE STRING "" FORCE)
-
-  # Skip Protobuf provider and set required library variables directly.
-  set(gRPC_PROTOBUF_PROVIDER
-      "none"
-      CACHE STRING "" FORCE)
 
   set(_gRPC_PROTOBUF_LIBRARIES
       "protobuf::libprotobuf"
@@ -3282,8 +3273,7 @@ function(build_grpc)
       OFF
       CACHE BOOL "" FORCE)
 
-  # Add warning suppression flags for gRPC build
-
+  # Add warning suppression flags for gRPC build.
   if(NOT MSVC)
     string(APPEND CMAKE_C_FLAGS
            " -Wno-attributes -Wno-format-security -Wno-unknown-warning-option")
@@ -3297,71 +3287,25 @@ function(build_grpc)
   prepare_fetchcontent()
   fetchcontent_makeavailable(grpc)
 
-  # Create namespace aliases for gRPC targets (these are not created automatically with add_subdirectory)
-  # Is there a way to iterate over all those created targets instead of listing them manually?
-  if(NOT TARGET gRPC::address_sorting)
-    add_library(gRPC::address_sorting ALIAS address_sorting)
-  endif()
+  # FetchContent builds gRPC libraries without gRPC:: prefix.
+  # Create gRPC:: alias targets for consistency.
+  set(GRPC_LIBRARY_TARGETS
+      address_sorting
+      gpr
+      grpc
+      grpc++
+      grpc++_reflection
+      upb)
 
-  if(NOT TARGET gRPC::gpr)
-    add_library(gRPC::gpr ALIAS gpr)
-  endif()
+  foreach(target ${GRPC_LIBRARY_TARGETS})
+    if(TARGET ${target} AND NOT TARGET gRPC::${target})
+      add_library(gRPC::${target} ALIAS ${target})
+    endif()
+  endforeach()
 
-  if(NOT TARGET gRPC::grpc)
-    add_library(gRPC::grpc ALIAS grpc)
-  endif()
-
-  if(NOT TARGET gRPC::grpc++)
-    add_library(gRPC::grpc++ ALIAS grpc++)
-  endif()
-
-  if(NOT TARGET gRPC::grpc++_alts)
-    add_library(gRPC::grpc++_alts ALIAS grpc++_alts)
-  endif()
-
-  if(NOT TARGET gRPC::grpc++_error_details)
-    add_library(gRPC::grpc++_error_details ALIAS grpc++_error_details)
-  endif()
-
-  if(NOT TARGET gRPC::grpc++_reflection)
-    add_library(gRPC::grpc++_reflection ALIAS grpc++_reflection)
-  endif()
-
-  if(NOT TARGET gRPC::grpc++_unsecure)
-    add_library(gRPC::grpc++_unsecure ALIAS grpc++_unsecure)
-  endif()
-
-  if(NOT TARGET gRPC::grpc_unsecure)
-    add_library(gRPC::grpc_unsecure ALIAS grpc_unsecure)
-  endif()
-
-  if(NOT TARGET gRPC::grpc_cpp_plugin AND TARGET grpc_cpp_plugin)
+  if(TARGET grpc_cpp_plugin AND NOT TARGET gRPC::grpc_cpp_plugin)
     add_executable(gRPC::grpc_cpp_plugin ALIAS grpc_cpp_plugin)
   endif()
-
-  if(NOT TARGET gRPC::upb)
-    add_library(gRPC::upb ALIAS upb)
-  endif()
-
-  # ar -M rejects with the "libgrpc++.a" filename because "+" is a line
-  # continuation character in these scripts, so we have to create a copy of the
-  # static lib that we will bundle later
-  set(GRPC_STATIC_LIBRARY_GRPCPP_FOR_AR
-      "${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}grpcpp${CMAKE_STATIC_LIBRARY_SUFFIX}"
-  )
-  add_custom_command(OUTPUT ${GRPC_STATIC_LIBRARY_GRPCPP_FOR_AR}
-                     COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:gRPC::grpc++>
-                             ${GRPC_STATIC_LIBRARY_GRPCPP_FOR_AR}
-                     DEPENDS gRPC::grpc++)
-  add_library(gRPC::grpcpp_for_bundling STATIC IMPORTED)
-  set_target_properties(gRPC::grpcpp_for_bundling
-                        PROPERTIES IMPORTED_LOCATION
-                                   "${GRPC_STATIC_LIBRARY_GRPCPP_FOR_AR}")
-
-  set_source_files_properties("${GRPC_STATIC_LIBRARY_GRPCPP_FOR_AR}" PROPERTIES GENERATED
-                                                                                TRUE)
-  add_custom_target(grpc_copy_grpc++ ALL DEPENDS "${GRPC_STATIC_LIBRARY_GRPCPP_FOR_AR}")
-  add_dependencies(gRPC::grpcpp_for_bundling grpc_copy_grpc++)
 
   # Add gRPC libraries to bundled static libs.
   list(APPEND
@@ -3369,7 +3313,8 @@ function(build_grpc)
        gRPC::address_sorting
        gRPC::gpr
        gRPC::grpc
-       gRPC::grpcpp_for_bundling
+       gRPC::grpc++
+       gRPC::grpc++_reflection
        gRPC::upb)
   set(ARROW_BUNDLED_STATIC_LIBS
       "${ARROW_BUNDLED_STATIC_LIBS}"
