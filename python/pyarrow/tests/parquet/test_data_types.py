@@ -604,6 +604,25 @@ def test_uuid_extension_type():
         store_schema=False)
 
 
+def test_read_schema_uuid_extension_type(tmp_path):
+    data = [
+        b'\xe4`\xf9p\x83QGN\xac\x7f\xa4g>K\xa8\xcb',
+        b'\x1et\x14\x95\xee\xd5C\xea\x9b\xd7s\xdc\x91BK\xaf',
+        None,
+    ]
+    table = pa.table([pa.array(data, type=pa.uuid())], names=["ext"])
+
+    file_path = tmp_path / "uuid.parquet"
+    file_path_str = str(file_path)
+    pq.write_table(table, file_path_str, store_schema=False)
+
+    schema_default = pq.read_schema(file_path_str)
+    assert schema_default.field("ext").type == pa.uuid()
+
+    schema_disabled = pq.read_schema(file_path_str, arrow_extensions_enabled=False)
+    assert schema_disabled.field("ext").type == pa.binary(16)
+
+
 def test_undefined_logical_type(parquet_test_datadir):
     test_file = f"{parquet_test_datadir}/unknown-logical-type.parquet"
 
