@@ -751,7 +751,7 @@ struct LargeKernel {
     const auto low_swizzled = swizzle_bytes(bytes, kLowSwizzles);
     const auto low_words = xsimd::bitwise_cast<unpacked_type>(low_swizzled);
     simd_batch low_shifted;
-    if constexpr (kShape.unpacked_byte_size() == 1) {
+    if constexpr (kShape.unpacked_byte_size() == 1 && HasSse2<arch_type>) {
       // The logic of the fallback in right_shift_by_excess does not work for this single
       // byte case case, so we use directly xsimd and its scalar fallback.
       low_shifted = low_words >> kLowRShifts;
