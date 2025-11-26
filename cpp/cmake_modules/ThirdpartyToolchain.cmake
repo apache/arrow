@@ -3222,6 +3222,10 @@ function(build_grpc)
     set(_gRPC_CARES_LIBRARIES
         "c-ares::cares"
         CACHE STRING "" FORCE)
+  else()
+    set(gRPC_CARES_PROVIDER
+        "package"
+        CACHE STRING "" FORCE)
   endif()
 
   if(RE2_VENDORED)
@@ -3230,6 +3234,10 @@ function(build_grpc)
         CACHE STRING "" FORCE)
     set(_gRPC_RE2_LIBRARIES
         "re2::re2"
+        CACHE STRING "" FORCE)
+  else()
+    set(gRPC_RE2_PROVIDER
+        "package"
         CACHE STRING "" FORCE)
   endif()
   set(gRPC_SSL_PROVIDER
