@@ -789,11 +789,27 @@ template <typename UnpackedUint, int kPackedBitSize, int kSimdBitSize,
           typename = void>
 struct Kernel;
 
+template <typename Traits, typename Arch = typename Traits::arch_type>
+constexpr bool MediumShouldUseUint32 =
+    (HasSse2<Arch> || HasSse2<Arch>)&&  //
+    (Traits::kShape.unpacked_byte_size() == sizeof(uint64_t)) &&
+    (Traits::kShape.packed_bit_size() < 32) &&
+    KernelTraits<uint32_t, Traits::kShape.packed_bit_size(),
+                 Traits::kShape.simd_bit_size()>::kShape.is_medium();
+
 template <typename UnpackedUint, int kPackedBitSize, int kSimdBitSize, typename Traits>
 struct Kernel<  //
     UnpackedUint, kPackedBitSize, kSimdBitSize, Traits,
-    std::enable_if_t<Traits::kShape.is_medium()>>
+    std::enable_if_t<Traits::kShape.is_medium() && !MediumShouldUseUint32<Traits>>>
     : MediumKernel<UnpackedUint, kPackedBitSize, kSimdBitSize> {};
+
+template <typename UnpackedUint, int kPackedBitSize, int kSimdBitSize, typename Traits>
+struct Kernel<  //
+    UnpackedUint, kPackedBitSize, kSimdBitSize, Traits,
+    std::enable_if_t<Traits::kShape.is_medium() && MediumShouldUseUint32<Traits>>>
+    : ForwardToKernel<UnpackedUint, kPackedBitSize, kSimdBitSize,
+                      MediumKernel<SizedUint<sizeof(UnpackedUint) / 2>, kPackedBitSize,
+                                   kSimdBitSize>> {};
 
 template <typename UnpackedUint, int kPackedBitSize, int kSimdBitSize, typename Traits>
 struct Kernel<  //
