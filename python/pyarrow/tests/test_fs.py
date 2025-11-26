@@ -1920,7 +1920,7 @@ def test_s3_real_aws():
     with fs.open_input_stream(key) as f:
         md = f.metadata()
         assert 'Content-Type' in md
-        assert md['Last-Modified'] == b'2022-07-12T23:32:00Z'
+        assert md['Last-Modified'] == b'2025-11-26T10:28:55Z'
         # For some reason, the header value is quoted
         # (both with AWS and Minio)
         assert md['ETag'] == b'"4c6a76826a695c6ac61592bc30cda3df-16"'
