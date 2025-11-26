@@ -744,8 +744,9 @@ struct LargeKernel {
   }
 };
 
+/// A Kernel that does not extract anything, leaving all work to the naive implementation.
 template <typename UnpackedUint, int kPackedBitSize, int kSimdBitSize>
-struct OversizedKernel {
+struct NoOpKernel {
   using unpacked_type = UnpackedUint;
 
   static constexpr int kValuesUnpacked = 0;
@@ -753,27 +754,29 @@ struct OversizedKernel {
   static const uint8_t* unpack(const uint8_t* in, unpacked_type* out) { return in; }
 };
 
-template <typename UnpackedUint, int kPackedBitSize, int kSimdBitSize>
-constexpr auto DispatchKernel() {
-  using kTraits = KernelTraits<UnpackedUint, kPackedBitSize, kSimdBitSize>;
-  if constexpr (kTraits::kShape.is_medium()) {
-    return MediumKernel<UnpackedUint, kPackedBitSize, kSimdBitSize>{};
-  } else if constexpr (kTraits::kShape.is_large()) {
-    return LargeKernel<UnpackedUint, kPackedBitSize, kSimdBitSize>{};
-  } else {
-    return OversizedKernel<UnpackedUint, kPackedBitSize, kSimdBitSize>{};
-  }
-}
+/*******************************
+ *  Kernel static dispatching  *
+ *******************************/
+
+template <typename UnpackedUint, int kPackedBitSize, int kSimdBitSize, typename = void>
+struct Kernel;
 
 template <typename UnpackedUint, int kPackedBitSize, int kSimdBitSize>
-using DispatchKernelType =
-    decltype(DispatchKernel<UnpackedUint, kPackedBitSize, kSimdBitSize>());
+struct Kernel<UnpackedUint, kPackedBitSize, kSimdBitSize,
+              std::enable_if_t<KernelTraits<UnpackedUint, kPackedBitSize,
+                                            kSimdBitSize>::kShape.is_medium()>>
+    : MediumKernel<UnpackedUint, kPackedBitSize, kSimdBitSize> {};
 
 template <typename UnpackedUint, int kPackedBitSize, int kSimdBitSize>
-struct Kernel : DispatchKernelType<UnpackedUint, kPackedBitSize, kSimdBitSize> {
-  using Base = DispatchKernelType<UnpackedUint, kPackedBitSize, kSimdBitSize>;
-  using Base::kValuesUnpacked;
-  using Base::unpack;
-};
+struct Kernel<UnpackedUint, kPackedBitSize, kSimdBitSize,
+              std::enable_if_t<KernelTraits<UnpackedUint, kPackedBitSize,
+                                            kSimdBitSize>::kShape.is_large()>>
+    : LargeKernel<UnpackedUint, kPackedBitSize, kSimdBitSize> {};
+
+template <typename UnpackedUint, int kPackedBitSize, int kSimdBitSize>
+struct Kernel<UnpackedUint, kPackedBitSize, kSimdBitSize,
+              std::enable_if_t<KernelTraits<UnpackedUint, kPackedBitSize,
+                                            kSimdBitSize>::kShape.is_oversized()>>
+    : NoOpKernel<UnpackedUint, kPackedBitSize, kSimdBitSize> {};
 
 }  // namespace arrow::internal
