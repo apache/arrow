@@ -82,7 +82,7 @@ void InitDatetime() {
   datetime_api =
       reinterpret_cast<PyDateTime_CAPI*>(PyCapsule_Import(PyDateTime_CAPSULE_NAME, 0));
   if (datetime_api == nullptr) {
-    Py_FatalError("Could not import datetime C API");
+    PyErr_SetString(PyExc_ImportError, "Could not import datetime C API");
   }
 }
 #endif
@@ -276,7 +276,8 @@ static inline Status PyDate_convert_int(int64_t val, const DateUnit unit, int64_
 PyObject* NewMonthDayNanoTupleType() {
   if (MonthDayNanoTupleType.tp_name == nullptr) {
     if (PyStructSequence_InitType2(&MonthDayNanoTupleType, &MonthDayNanoTupleDesc) != 0) {
-      Py_FatalError("Could not initialize MonthDayNanoTuple");
+      PyErr_SetString(PyExc_ImportError, "Could not initialize MonthDayNanoTuple");
+      return NULL;
     }
   }
   Py_INCREF(&MonthDayNanoTupleType);
@@ -607,7 +608,7 @@ struct PyListAssigner {
 
   void operator=(PyObject* obj) {
     if (ARROW_PREDICT_FALSE(PyList_SetItem(list_, current_index_, obj) == -1)) {
-      Py_FatalError("list did not have the correct preallocated size.");
+      PyErr_SetString(PyExc_RuntimeError, "list did not have the correct preallocated size.");
     }
   }
 
@@ -633,6 +634,7 @@ Result<PyObject*> MonthDayNanoIntervalArrayToPyList(
   OwnedRef out_list(PyList_New(array.length()));
   RETURN_IF_PYERROR();
   PyListAssigner out_objects(out_list.obj());
+  RETURN_IF_PYERROR();
   auto& interval_array =
       arrow::internal::checked_cast<const MonthDayNanoIntervalArray&>(array);
   RETURN_NOT_OK(internal::WriteArrayObjects(

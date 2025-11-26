@@ -46,6 +46,9 @@ int import_pyarrow() {
 #else
   internal::InitDatetime();
 #endif
+  if (PyErr_Occurred()) {
+    return -1;
+  }
   return ::import_pyarrow__lib();
 }
 
