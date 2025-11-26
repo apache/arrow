@@ -3189,41 +3189,49 @@ function(build_grpc)
       TRUE
       PARENT_SCOPE)
 
-  set(_gRPC_PROTOBUF_LIBRARIES
-      "protobuf::libprotobuf"
-      CACHE STRING "" FORCE)
+  fetchcontent_declare(grpc
+                       URL ${GRPC_SOURCE_URL}
+                       URL_HASH "SHA256=${ARROW_GRPC_BUILD_SHA256_CHECKSUM}")
 
-  set(_gRPC_PROTOBUF_PROTOC_LIBRARIES
-      "protobuf::libprotoc"
-      CACHE STRING "" FORCE)
+  prepare_fetchcontent()
 
-  set(_gRPC_PROTOBUF_PROTOC_EXECUTABLE
-      "$<TARGET_FILE:protobuf::protoc>"
-      CACHE STRING "" FORCE)
+  if(PROTOBUF_VENDORED)
+    set(_gRPC_PROTOBUF_LIBRARIES
+        "protobuf::libprotobuf"
+        CACHE STRING "" FORCE)
 
-  # Get include directory from protobuf source (not the target property with generator expressions)
-  # gRPC needs this at configure time for add_custom_command, so we can't use generator expressions
-  # protobuf_SOURCE_DIR points to cmake/ subdirectory due to SOURCE_SUBDIR, so go up one level
-  get_filename_component(_protobuf_root_dir "${protobuf_SOURCE_DIR}" DIRECTORY)
-  set(_gRPC_PROTOBUF_WELLKNOWN_INCLUDE_DIR
-      "${_protobuf_root_dir}/src"
-      CACHE STRING "" FORCE)
+    set(_gRPC_PROTOBUF_PROTOC_LIBRARIES
+        "protobuf::libprotoc"
+        CACHE STRING "" FORCE)
 
-  # For c-ares and RE2, we've already built them via FetchContent and targets exist.
-  # Set provider to "none" to skip gRPC's dependency resolution, and set library variables directly.
-  set(gRPC_CARES_PROVIDER
-      "none"
-      CACHE STRING "" FORCE)
-  set(_gRPC_CARES_LIBRARIES
-      "c-ares::cares"
-      CACHE STRING "" FORCE)
+    set(_gRPC_PROTOBUF_PROTOC_EXECUTABLE
+        "$<TARGET_FILE:protobuf::protoc>"
+        CACHE STRING "" FORCE)
 
-  set(gRPC_RE2_PROVIDER
-      "none"
-      CACHE STRING "" FORCE)
-  set(_gRPC_RE2_LIBRARIES
-      "re2::re2"
-      CACHE STRING "" FORCE)
+    # gRPC needs this at configure time for add_custom_command.
+    get_filename_component(_protobuf_root_dir "${protobuf_SOURCE_DIR}" DIRECTORY)
+    set(_gRPC_PROTOBUF_WELLKNOWN_INCLUDE_DIR
+        "${_protobuf_root_dir}/src"
+        CACHE STRING "" FORCE)
+  endif()
+
+  if(CARES_VENDORED)
+    set(gRPC_CARES_PROVIDER
+        "none"
+        CACHE STRING "" FORCE)
+    set(_gRPC_CARES_LIBRARIES
+        "c-ares::cares"
+        CACHE STRING "" FORCE)
+  endif()
+
+  if(RE2_VENDORED)
+    set(gRPC_RE2_PROVIDER
+        "none"
+        CACHE STRING "" FORCE)
+    set(_gRPC_RE2_LIBRARIES
+        "re2::re2"
+        CACHE STRING "" FORCE)
+  endif()
   set(gRPC_SSL_PROVIDER
       "package"
       CACHE STRING "" FORCE)
@@ -3240,11 +3248,7 @@ function(build_grpc)
     string(APPEND CMAKE_CXX_FLAGS
            " -Wno-attributes -Wno-format-security -Wno-unknown-warning-option")
   endif()
-  fetchcontent_declare(grpc
-                       URL ${GRPC_SOURCE_URL}
-                       URL_HASH "SHA256=${ARROW_GRPC_BUILD_SHA256_CHECKSUM}")
 
-  prepare_fetchcontent()
   fetchcontent_makeavailable(grpc)
 
   # FetchContent builds gRPC libraries without gRPC:: prefix.
