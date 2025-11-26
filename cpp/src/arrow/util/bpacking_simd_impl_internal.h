@@ -15,6 +15,15 @@
 // specific language governing permissions and limitations
 // under the License.
 
+/// Simd integer unpacking kernels, that is small functions that efficiently operate over
+/// a fixed input size.
+///
+/// This a generalization of the algorithm from Daniel Lemire and Leonid Boytsov,
+/// Decoding billions of integers per second through vectorization, Software Practice &
+/// Experience 45 (1), 2015.
+/// http://arxiv.org/abs/1209.2137
+/// https://github.com/fast-pack/LittleIntPacker/blob/master/src/horizontalpacking32.c
+
 #pragma once
 
 #include <array>
@@ -31,25 +40,265 @@
 
 namespace arrow::internal {
 
-// https://github.com/fast-pack/LittleIntPacker/blob/master/src/horizontalpacking32.c
-// TODO
-// - _mm_cvtepi8_epi32
-// - no need for while loop (for up to 8 is sufficient)
-// - Shifts per swizzle can be improved when self.packed_max_byte_spread == 1 and the
-//   byte can be reused (when val_bit_width divides packed_max_byte_spread).
-// - Reduce input size on small bit width using a broadcast.
-// - Fix overreading problem
-// - Improve Swizzle by computing which bigger swapable slots are free
+/*********************
+ *  xsimd utilities  *
+ *********************/
 
-template <typename Arr>
-constexpr Arr BuildConstantArray(typename Arr::value_type val) {
-  Arr out = {};
-  for (auto& v : out) {
-    v = val;
+/// Simple constexpr maximum element suited for non empty arrays.
+template <typename T, std::size_t N>
+constexpr T max_value(const std::array<T, N>& arr) {
+  static_assert(N > 0);
+  T out = 0;
+  for (const T& v : arr) {
+    if (v > out) {
+      out = v;
+    }
   }
   return out;
 }
 
+template <const auto& kArr, typename Arch, std::size_t... Is>
+constexpr auto make_batch_constant_impl(std::index_sequence<Is...>) {
+  using Array = std::decay_t<decltype(kArr)>;
+  using value_type = typename Array::value_type;
+
+  return xsimd::batch_constant<value_type, Arch, kArr[Is]...>{};
+}
+
+/// Make a ``xsimd::batch_constant`` from a static constexpr array.
+template <const auto& kArr, typename Arch>
+constexpr auto make_batch_constant() {
+  return make_batch_constant_impl<kArr, Arch>(std::make_index_sequence<kArr.size()>());
+}
+
+template <typename T, std::size_t N>
+struct SwizzleBiLaneGenericPlan {
+  using ByteSwizzle = std::array<T, N>;
+
+  ByteSwizzle self_lane;
+  ByteSwizzle cross_lane;
+};
+
+template <typename T, std::size_t N>
+constexpr SwizzleBiLaneGenericPlan<T, N> BuildSwizzleBiLaneGenericPlan(
+    std::array<T, N> mask) {
+  constexpr T kAsZero = 0x80;  // Most significant bit of the byte must be 1
+  constexpr std::size_t kSize = N;
+  constexpr std::size_t kSizeHalf = kSize / 2;
+
+  SwizzleBiLaneGenericPlan<T, N> plan = {};
+
+  for (std::size_t k = 0; k < kSize; ++k) {
+    const bool is_defined = (0 <= mask[k]) && (mask[k] < kSize);
+    const bool is_first_lane_idx = k < kSizeHalf;
+    const bool is_first_lane_mask = mask[k] < kSizeHalf;
+
+    if (!is_defined) {
+      plan.self_lane[k] = kAsZero;
+      plan.cross_lane[k] = kAsZero;
+    } else {
+      if (is_first_lane_idx == is_first_lane_mask) {
+        plan.self_lane[k] = mask[k] % kSizeHalf;
+        plan.cross_lane[k] = kAsZero;
+      } else {
+        plan.self_lane[k] = kAsZero;
+        plan.cross_lane[k] = mask[k] % kSizeHalf;
+      }
+    }
+  }
+
+  return plan;
+}
+
+template <typename T, typename A, T... Vals>
+constexpr bool isOnlyFromHigh(xsimd::batch_constant<T, A, Vals...>) {
+  return ((Vals >= (sizeof...(Vals) / 2)) && ...);
+}
+
+template <typename T, typename A, T... Vals>
+constexpr bool isOnlyFromLow(xsimd::batch_constant<T, A, Vals...>) {
+  return ((Vals < (sizeof...(Vals) / 2)) && ...);
+}
+
+/// Wrapper around ``xsimd::swizzle`` with optimizations and non implemented sizes.
+/// TODO(xsimd 14.0) Merged and can be replaced with ``xsimd::swizzle``.
+template <typename Arch, uint8_t... kIdx>
+auto swizzle_bytes(const xsimd::batch<uint8_t, Arch>& batch,
+                   xsimd::batch_constant<uint8_t, Arch, kIdx...> mask)
+    -> xsimd::batch<uint8_t, Arch> {
+  if constexpr (std::is_base_of_v<xsimd::avx2, Arch>) {
+    static constexpr auto kPlan = BuildSwizzleBiLaneGenericPlan(std::array{kIdx...});
+    static constexpr auto kSelfSwizzleArr = kPlan.self_lane;
+    constexpr auto kSelfSwizzle = make_batch_constant<kSelfSwizzleArr, Arch>();
+    static constexpr auto kCrossSwizzleArr = kPlan.cross_lane;
+    constexpr auto kCrossSwizzle = make_batch_constant<kCrossSwizzleArr, Arch>();
+
+    struct LaneMask {
+      static constexpr uint8_t get(uint8_t i, uint8_t n) {
+        constexpr auto kMask = std::array{kIdx...};
+        return kMask[i] % (kMask.size() / 2);
+      }
+    };
+
+    constexpr auto kLaneMask = xsimd::make_batch_constant<uint8_t, Arch, LaneMask>();
+    if constexpr (isOnlyFromLow(mask)) {
+      auto broadcast = _mm256_permute2x128_si256(batch, batch, 0x00);  // [low | low]
+      return _mm256_shuffle_epi8(broadcast, kLaneMask.as_batch());
+    }
+    if constexpr (isOnlyFromHigh(mask)) {
+      auto broadcast = _mm256_permute2x128_si256(batch, batch, 0x11);  // [high | high]
+      return _mm256_shuffle_epi8(broadcast, kLaneMask.as_batch());
+    }
+
+    auto self = _mm256_shuffle_epi8(batch, kSelfSwizzle.as_batch());
+    auto swapped = _mm256_permute2x128_si256(batch, batch, 0x01);
+    auto cross = _mm256_shuffle_epi8(swapped, kCrossSwizzle.as_batch());
+    return _mm256_or_si256(self, cross);
+  } else {
+    return xsimd::swizzle(batch, mask);
+  }
+}
+
+template <typename Int, typename Arch, Int... kShifts>
+constexpr auto make_mult(xsimd::batch_constant<Int, Arch, kShifts...>) {
+  return xsimd::batch_constant<Int, Arch, static_cast<Int>(1u << kShifts)...>();
+}
+
+template <typename Int, int kOffset, int kLength, Int... kVals>
+struct SelectStride {
+  static constexpr auto kShiftsArr = std::array{kVals...};
+
+  static constexpr Int get(int i, int n) { return kShiftsArr[kLength * i + kOffset]; }
+};
+
+template <typename ToInt, int kOffset, typename Int, typename Arch, Int... kShifts>
+constexpr auto select_stride(xsimd::batch_constant<Int, Arch, kShifts...>) {
+  return xsimd::make_batch_constant<
+      ToInt, Arch, SelectStride<Int, kOffset, sizeof(ToInt) / sizeof(Int), kShifts...>>();
+}
+
+template <typename Arch>
+constexpr bool HasSse2 = std::is_base_of_v<xsimd::sse2, Arch>;
+
+template <typename Arch>
+constexpr bool HasAvx2 = std::is_base_of_v<xsimd::avx2, Arch>;
+
+/// Wrapper around ``xsimd::bitwise_lshift`` with optimizations for non implemented sizes.
+//
+// We replace the variable left shift by a variable multiply with a power of two.
+//
+// This trick is borrowed from Daniel Lemire and Leonid Boytsov, Decoding billions of
+// integers per second through vectorization, Software Practice & Experience 45 (1), 2015.
+// http://arxiv.org/abs/1209.2137
+//
+/// TODO(xsimd) Tracking in https://github.com/xtensor-stack/xsimd/pull/1220
+template <typename Arch, typename Int, Int... kShifts>
+auto left_shift(const xsimd::batch<Int, Arch>& batch,
+                xsimd::batch_constant<Int, Arch, kShifts...> shifts)
+    -> xsimd::batch<Int, Arch> {
+  constexpr bool kHasSse2 = HasSse2<Arch>;
+  constexpr bool kHasAvx2 = HasAvx2<Arch>;
+  static_assert(!(kHasSse2 && kHasAvx2), "The hierarchy are different in xsimd");
+
+  // TODO(xsimd-14) this can be simplified to
+  // constexpr auto kMults = xsimd::make_batch_constant<Int, 1, Arch>() << shits;
+  constexpr auto kMults = make_mult(shifts);
+
+  constexpr auto IntSize = sizeof(Int);
+
+  // Sizes and architecture for which there is no variable left shift and there is a
+  // multiplication
+  if constexpr (                                                                  //
+      (kHasSse2 && (IntSize == sizeof(uint16_t) || IntSize == sizeof(uint32_t)))  //
+      || (kHasAvx2 && (IntSize == sizeof(uint16_t)))                              //
+  ) {
+    return batch * kMults;
+  }
+
+  // Architecture for which there is no variable left shift on uint8_t but a fallback
+  // exists for uint16_t.
+  if constexpr ((kHasSse2 || kHasAvx2) && (IntSize == sizeof(uint8_t))) {
+    const auto batch16 = xsimd::bitwise_cast<uint16_t>(batch);
+
+    constexpr auto kShifts0 = select_stride<uint16_t, 0>(shifts);
+    const auto shifted0 = left_shift(batch16, kShifts0) & 0x00FF;
+
+    constexpr auto kShifts1 = select_stride<uint16_t, 1>(shifts);
+    const auto shifted1 = left_shift(batch16 & 0xFF00, kShifts1);
+
+    return xsimd::bitwise_cast<Int>(shifted0 | shifted1);
+  }
+
+  return batch << shifts;
+}
+
+/// Fallback for variable shift right.
+///
+/// When we know that the relevant bits will not overflow, we can instead shift left all
+/// values to align them with the one with the largest right shifts followed by a constant
+/// shift on all values.
+/// In doing so, we replace the variable left shift by a variable multiply with a power of
+/// two.
+///
+/// This trick is borrowed from Daniel Lemire and Leonid Boytsov, Decoding billions of
+/// integers per second through vectorization, Software Practice & Experience 45 (1),
+/// 2015. http://arxiv.org/abs/1209.2137
+template <typename Arch, typename Int, Int... kShifts>
+auto right_shift_by_excess(const xsimd::batch<Int, Arch>& batch,
+                           xsimd::batch_constant<Int, Arch, kShifts...> shifts) {
+  constexpr bool kHasSse2 = HasSse2<Arch>;
+  constexpr bool kHasAvx2 = HasAvx2<Arch>;
+  static_assert(!(kHasSse2 && kHasAvx2), "The hierarchy are different in xsimd");
+
+  constexpr auto IntSize = sizeof(Int);
+
+  // Architecture for which there is no variable right shift but a larger fallback exists.
+  /// TODO(xsimd) Tracking for Avx2 in https://github.com/xtensor-stack/xsimd/pull/1220
+  if constexpr (kHasAvx2 && (IntSize == sizeof(uint8_t) || IntSize == sizeof(uint16_t))) {
+    using twice_uint = SizedUint<2 * IntSize>;
+
+    const auto batch2 = xsimd::bitwise_cast<twice_uint>(batch);
+
+    constexpr auto kShifts0 = select_stride<twice_uint, 0>(shifts);
+    constexpr auto kMask0 = bit_util::LeastSignificantBitMask<twice_uint>(8 * IntSize);
+    const auto shifted0 = right_shift_by_excess(batch2 & kMask0, kShifts0);
+
+    constexpr auto kShifts1 = select_stride<twice_uint, 1>(shifts);
+    constexpr auto kMask1 = kMask0 << (8 * IntSize);
+    const auto shifted1 = right_shift_by_excess(batch2, kShifts1) & kMask1;
+
+    return xsimd::bitwise_cast<Int>(shifted0 | shifted1);
+  }
+
+  // These conditions are the ones matched in `left_shift`, i.e. the ones where variable
+  // shift right will not be available but a left shift (fallback) exists.
+  if constexpr (kHasSse2 && (IntSize != sizeof(uint64_t))) {
+    static constexpr auto kShiftsArr = std::array{kShifts...};
+    static constexpr Int kMaxRightShift = max_value(kShiftsArr);
+
+    struct MakeShifts {
+      static constexpr Int get(int i, int n) { return kMaxRightShift - kShiftsArr.at(i); }
+    };
+
+    // TODO(xsimd 14.0) this can be simplified to
+    // constexpr auto kRShifts = xsimd::make_batch_constant<Int, kMaxRightShift, Arch>() -
+    // shifts;
+    constexpr auto kLShifts = xsimd::make_batch_constant<Int, Arch, MakeShifts>();
+
+    const auto lshifted = left_shift(batch, kLShifts);
+    // TODO(xsimd 14.0) this can be simplified to
+    // return xsimd::bitwise_rshift<kMaxRightShift>(lshifted);
+    return xsimd::batch<Int, Arch>(lshifted) >> kMaxRightShift;
+  }
+
+  return batch >> shifts;
+}
+
+/****************************
+ *  Properties of a kernel  *
+ ****************************/
+
+/// \see KernelShape
 constexpr bool PackedIsOversizedForSimd(int simd_bit_size, int unpacked_bit_size,
                                         int packed_bit_size) {
   const int unpacked_per_simd = simd_bit_size / unpacked_bit_size;
@@ -70,6 +319,21 @@ constexpr bool PackedIsOversizedForSimd(int simd_bit_size, int unpacked_bit_size
   return false;
 }
 
+/// Different sizes of a given kernel.
+///
+/// When integers are bit-packed, they spread over multiple bytes.
+/// For instance, integers packed voer three bits quickly spread over two bytes (on the
+/// value `C` below) despite three bits being much smaller than a single byte.
+///
+/// ```
+/// |A|A|A|B|B|B|C|C|  |C|D|D|D|E|E|E|F| ...
+/// ```
+///
+/// When the spread is smaller or equal to the unsigned integer to unpack to, we classify
+/// if as "medium". When it is strictly larger it classifies as "large".
+/// On rare occasions, due to offsets in reading a subsequent batch, we may not even be
+/// able to read as many packed values as we should extract in a batch (mainly unpack 63
+/// bits to uint64_t on 128 bit SIMD). We classify this as "oversized".
 struct KernelShape {
   const int simd_bit_size_;
   const int unpacked_bit_size_;
@@ -98,6 +362,7 @@ struct KernelShape {
   constexpr int packed_max_spread_bytes() const { return packed_max_spread_bytes_; }
 };
 
+/// Packing all useful and derived information about a kernel in a single type.
 template <typename UnpackedUint, int kPackedBitSize, int kSimdBitSize>
 struct KernelTraits {
   static constexpr KernelShape kShape = {
@@ -126,6 +391,10 @@ using KernelTraitsHalf =
 template <typename Traits>
 using KernelTraitsDouble =
     KernelTraitsWithUnpack<Traits, SizedUint<Traits::kShape.unpacked_byte_size() * 2>>;
+
+/******************
+ *  MediumKernel  *
+ ******************/
 
 struct MediumKernelPlanSize {
   int reads_per_kernel_;
@@ -244,6 +513,15 @@ struct MediumKernelPlan {
   uint_type mask = bit_util::LeastSignificantBitMask<uint_type>(kShape.packed_bit_size());
 };
 
+template <typename Arr>
+constexpr Arr BuildConstantArray(typename Arr::value_type val) {
+  Arr out = {};
+  for (auto& v : out) {
+    v = val;
+  }
+  return out;
+}
+
 template <typename KernelTraits, typename KernelOptions>
 constexpr auto BuildMediumPlan() {
   using Plan = MediumKernelPlan<KernelTraits, KernelOptions>;
@@ -287,251 +565,6 @@ constexpr auto BuildMediumPlan() {
   }
 
   return plan;
-}
-
-/// Simple constexpr maximum element suited for non empty arrays.
-template <typename T, std::size_t N>
-constexpr T max_value(const std::array<T, N>& arr) {
-  static_assert(N > 0);
-  T out = 0;
-  for (const T& v : arr) {
-    if (v > out) {
-      out = v;
-    }
-  }
-  return out;
-}
-
-template <const auto& kArr, typename Arch, std::size_t... Is>
-constexpr auto make_batch_constant_impl(std::index_sequence<Is...>) {
-  using Array = std::decay_t<decltype(kArr)>;
-  using value_type = typename Array::value_type;
-
-  return xsimd::batch_constant<value_type, Arch, kArr[Is]...>{};
-}
-
-template <const auto& kArr, typename Arch>
-constexpr auto make_batch_constant() {
-  return make_batch_constant_impl<kArr, Arch>(std::make_index_sequence<kArr.size()>());
-}
-
-template <typename T, std::size_t N>
-struct SwizzleBiLaneGenericPlan {
-  using ByteSwizzle = std::array<T, N>;
-
-  ByteSwizzle self_lane;
-  ByteSwizzle cross_lane;
-};
-
-template <typename T, std::size_t N>
-constexpr SwizzleBiLaneGenericPlan<T, N> BuildSwizzleBiLaneGenericPlan(
-    std::array<T, N> mask) {
-  constexpr T kAsZero = 0x80;  // Most significant bit of the byte must be 1
-  constexpr std::size_t kSize = N;
-  constexpr std::size_t kSizeHalf = kSize / 2;
-
-  SwizzleBiLaneGenericPlan<T, N> plan = {};
-
-  for (std::size_t k = 0; k < kSize; ++k) {
-    const bool is_defined = (0 <= mask[k]) && (mask[k] < kSize);
-    const bool is_first_lane_idx = k < kSizeHalf;
-    const bool is_first_lane_mask = mask[k] < kSizeHalf;
-
-    if (!is_defined) {
-      plan.self_lane[k] = kAsZero;
-      plan.cross_lane[k] = kAsZero;
-    } else {
-      if (is_first_lane_idx == is_first_lane_mask) {
-        plan.self_lane[k] = mask[k] % kSizeHalf;
-        plan.cross_lane[k] = kAsZero;
-      } else {
-        plan.self_lane[k] = kAsZero;
-        plan.cross_lane[k] = mask[k] % kSizeHalf;
-      }
-    }
-  }
-
-  return plan;
-}
-
-template <typename T, typename A, T... Vals>
-constexpr bool isOnlyFromHigh(xsimd::batch_constant<T, A, Vals...>) {
-  return ((Vals >= (sizeof...(Vals) / 2)) && ...);
-}
-
-template <typename T, typename A, T... Vals>
-constexpr bool isOnlyFromLow(xsimd::batch_constant<T, A, Vals...>) {
-  return ((Vals < (sizeof...(Vals) / 2)) && ...);
-}
-
-/// Merged in xsimd 14.0, simply use swizzle
-template <typename Arch, uint8_t... kIdx>
-auto swizzle_bytes(const xsimd::batch<uint8_t, Arch>& batch,
-                   xsimd::batch_constant<uint8_t, Arch, kIdx...> mask)
-    -> xsimd::batch<uint8_t, Arch> {
-  if constexpr (std::is_base_of_v<xsimd::avx2, Arch>) {
-    static constexpr auto kPlan = BuildSwizzleBiLaneGenericPlan(std::array{kIdx...});
-    static constexpr auto kSelfSwizzleArr = kPlan.self_lane;
-    constexpr auto kSelfSwizzle = make_batch_constant<kSelfSwizzleArr, Arch>();
-    static constexpr auto kCrossSwizzleArr = kPlan.cross_lane;
-    constexpr auto kCrossSwizzle = make_batch_constant<kCrossSwizzleArr, Arch>();
-
-    struct LaneMask {
-      static constexpr uint8_t get(uint8_t i, uint8_t n) {
-        constexpr auto kMask = std::array{kIdx...};
-        return kMask[i] % (kMask.size() / 2);
-      }
-    };
-
-    constexpr auto kLaneMask = xsimd::make_batch_constant<uint8_t, Arch, LaneMask>();
-    if constexpr (isOnlyFromLow(mask)) {
-      auto broadcast = _mm256_permute2x128_si256(batch, batch, 0x00);  // [low | low]
-      return _mm256_shuffle_epi8(broadcast, kLaneMask.as_batch());
-    }
-    if constexpr (isOnlyFromHigh(mask)) {
-      auto broadcast = _mm256_permute2x128_si256(batch, batch, 0x11);  // [high | high]
-      return _mm256_shuffle_epi8(broadcast, kLaneMask.as_batch());
-    }
-
-    auto self = _mm256_shuffle_epi8(batch, kSelfSwizzle.as_batch());
-    auto swapped = _mm256_permute2x128_si256(batch, batch, 0x01);
-    auto cross = _mm256_shuffle_epi8(swapped, kCrossSwizzle.as_batch());
-    return _mm256_or_si256(self, cross);
-  } else {
-    return xsimd::swizzle(batch, mask);
-  }
-}
-
-template <typename Int, typename Arch, Int... kShifts>
-constexpr auto make_mult(xsimd::batch_constant<Int, Arch, kShifts...>) {
-  return xsimd::batch_constant<Int, Arch, static_cast<Int>(1u << kShifts)...>();
-}
-
-template <typename Int, int kOffset, int kLength, Int... kVals>
-struct SelectStride {
-  static constexpr auto kShiftsArr = std::array{kVals...};
-
-  static constexpr Int get(int i, int n) { return kShiftsArr[kLength * i + kOffset]; }
-};
-
-template <typename ToInt, int kOffset, typename Int, typename Arch, Int... kShifts>
-constexpr auto select_stride(xsimd::batch_constant<Int, Arch, kShifts...>) {
-  return xsimd::make_batch_constant<
-      ToInt, Arch, SelectStride<Int, kOffset, sizeof(ToInt) / sizeof(Int), kShifts...>>();
-}
-
-template <typename Arch>
-constexpr bool HasSse2 = std::is_base_of_v<xsimd::sse2, Arch>;
-
-template <typename Arch>
-constexpr bool HasAvx2 = std::is_base_of_v<xsimd::avx2, Arch>;
-
-// Fallback for variable shift left.
-//
-// We replace the variable left shift by a variable multiply with a power of two.
-//
-// This trick is borrowed from Daniel Lemire and Leonid Boytsov, Decoding billions of
-// integers per second through vectorization, Software Practice & Experience 45 (1), 2015.
-// http://arxiv.org/abs/1209.2137
-template <typename Arch, typename Int, Int... kShifts>
-auto left_shift(const xsimd::batch<Int, Arch>& batch,
-                xsimd::batch_constant<Int, Arch, kShifts...> shifts)
-    -> xsimd::batch<Int, Arch> {
-  constexpr bool kHasSse2 = HasSse2<Arch>;
-  constexpr bool kHasAvx2 = HasAvx2<Arch>;
-  static_assert(!(kHasSse2 && kHasAvx2), "The hierarchy are different in xsimd");
-
-  // TODO(xsimd-14) this can be simplified to
-  // constexpr auto kMults = xsimd::make_batch_constant<Int, 1, Arch>() << shits;
-  constexpr auto kMults = make_mult(shifts);
-
-  constexpr auto IntSize = sizeof(Int);
-
-  // Sizes and architecture for which there is no variable left shift and there is a
-  // multiplication
-  if constexpr (                                                                  //
-      (kHasSse2 && (IntSize == sizeof(uint16_t) || IntSize == sizeof(uint32_t)))  //
-      || (kHasAvx2 && (IntSize == sizeof(uint16_t)))                              //
-  ) {
-    return batch * kMults;
-  }
-
-  // Architecture for which there is no variable left shift on uint8_t but a fallback
-  // exists for uint16_t.
-  if constexpr ((kHasSse2 || kHasAvx2) && (IntSize == sizeof(uint8_t))) {
-    const auto batch16 = xsimd::bitwise_cast<uint16_t>(batch);
-
-    constexpr auto kShifts0 = select_stride<uint16_t, 0>(shifts);
-    const auto shifted0 = left_shift(batch16, kShifts0) & 0x00FF;
-
-    constexpr auto kShifts1 = select_stride<uint16_t, 1>(shifts);
-    const auto shifted1 = left_shift(batch16 & 0xFF00, kShifts1);
-
-    return xsimd::bitwise_cast<Int>(shifted0 | shifted1);
-  }
-
-  return batch << shifts;
-}
-
-// Fallback for variable shift right.
-//
-// When we know that the relevant bits will not overflow, we can instead shift left all
-// values to align them with the one with the largest right shifts followed by a constant
-// shift on all values.
-// In doing so, we replace the variable left shift by a variable multiply with a power of
-// two.
-//
-// This trick is borrowed from Daniel Lemire and Leonid Boytsov, Decoding billions of
-// integers per second through vectorization, Software Practice & Experience 45 (1), 2015.
-// http://arxiv.org/abs/1209.2137
-template <typename Arch, typename Int, Int... kShifts>
-auto right_shift_by_excess(const xsimd::batch<Int, Arch>& batch,
-                           xsimd::batch_constant<Int, Arch, kShifts...> shifts) {
-  constexpr bool kHasSse2 = HasSse2<Arch>;
-  constexpr bool kHasAvx2 = HasAvx2<Arch>;
-  static_assert(!(kHasSse2 && kHasAvx2), "The hierarchy are different in xsimd");
-
-  constexpr auto IntSize = sizeof(Int);
-
-  // Architecture for which there is no variable right shift but a larger fallback exists.
-  if constexpr (kHasAvx2 && (IntSize == sizeof(uint8_t) || IntSize == sizeof(uint16_t))) {
-    using twice_uint = SizedUint<2 * IntSize>;
-
-    const auto batch2 = xsimd::bitwise_cast<twice_uint>(batch);
-
-    constexpr auto kShifts0 = select_stride<twice_uint, 0>(shifts);
-    constexpr auto kMask0 = bit_util::LeastSignificantBitMask<twice_uint>(8 * IntSize);
-    const auto shifted0 = right_shift_by_excess(batch2 & kMask0, kShifts0);
-
-    constexpr auto kShifts1 = select_stride<twice_uint, 1>(shifts);
-    constexpr auto kMask1 = kMask0 << (8 * IntSize);
-    const auto shifted1 = right_shift_by_excess(batch2, kShifts1) & kMask1;
-
-    return xsimd::bitwise_cast<Int>(shifted0 | shifted1);
-  }
-
-  // These conditions are the ones matched in `left_shift`, i.e. the ones where variable
-  // shift right will not be available but a left shift (fallback) exists.
-  if constexpr (kHasSse2 && (IntSize != sizeof(uint64_t))) {
-    static constexpr auto kShiftsArr = std::array{kShifts...};
-    static constexpr Int kMaxRightShift = max_value(kShiftsArr);
-
-    struct MakeShifts {
-      static constexpr Int get(int i, int n) { return kMaxRightShift - kShiftsArr.at(i); }
-    };
-
-    // TODO(xsimd-14) this can be simplified to
-    // constexpr auto kRShifts = xsimd::make_batch_constant<Int, kMaxRightShift, Arch>() -
-    // shifts;
-    constexpr auto kLShifts = xsimd::make_batch_constant<Int, Arch, MakeShifts>();
-
-    const auto lshifted = left_shift(batch, kLShifts);
-    // TODO(xsimd-14)
-    // return xsimd::bitwise_rshift<kMaxRightShift>(lshifted);
-    return xsimd::batch<Int, Arch>(lshifted) >> kMaxRightShift;
-  }
-
-  return batch >> shifts;
 }
 
 template <typename KernelTraits, typename KernelOptions = MediumKernelOptions<32>>
@@ -619,6 +652,10 @@ struct MediumKernel {
     return in + (kPlan.unpacked_per_kernel() * kShape.packed_bit_size()) / 8;
   }
 };
+
+/*****************
+ *  LargeKernel  *
+ *****************/
 
 template <typename KernelTraits>
 struct LargeKernelPlan {
@@ -752,6 +789,10 @@ struct LargeKernel {
     return in + (kPlan.kUnpackedPerkernel * kShape.packed_bit_size()) / 8;
   }
 };
+
+/*********************
+ *  Utility Kernels  *
+ *********************/
 
 /// A Kernel that does not extract anything, leaving all work to the naive implementation.
 template <typename KernelTraits>
