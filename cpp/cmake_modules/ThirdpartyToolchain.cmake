@@ -3197,10 +3197,6 @@ function(build_grpc)
       "protobuf::libprotoc"
       CACHE STRING "" FORCE)
 
-  set(_gRPC_PROTOBUF_PROTOC
-      "protobuf::protoc"
-      CACHE STRING "" FORCE)
-
   set(_gRPC_PROTOBUF_PROTOC_EXECUTABLE
       "$<TARGET_FILE:protobuf::protoc>"
       CACHE STRING "" FORCE)
@@ -3228,50 +3224,14 @@ function(build_grpc)
   set(_gRPC_RE2_LIBRARIES
       "re2::re2"
       CACHE STRING "" FORCE)
-
   set(gRPC_SSL_PROVIDER
       "package"
       CACHE STRING "" FORCE)
-
   set(gRPC_ZLIB_PROVIDER
       "package"
       CACHE STRING "" FORCE)
-
-  set(gRPC_INSTALL
-      OFF
-      CACHE BOOL "" FORCE)
-
-  set(gRPC_BUILD_TESTS
-      OFF
-      CACHE BOOL "" FORCE)
-
-  set(gRPC_BUILD_GRPC_CSHARP_PLUGIN
-      OFF
-      CACHE BOOL "" FORCE)
-
-  set(gRPC_BUILD_GRPC_NODE_PLUGIN
-      OFF
-      CACHE BOOL "" FORCE)
-
-  set(gRPC_BUILD_GRPC_OBJECTIVE_C_PLUGIN
-      OFF
-      CACHE BOOL "" FORCE)
-
-  set(gRPC_BUILD_GRPC_PHP_PLUGIN
-      OFF
-      CACHE BOOL "" FORCE)
-
-  set(gRPC_BUILD_GRPC_PYTHON_PLUGIN
-      OFF
-      CACHE BOOL "" FORCE)
-
-  set(gRPC_BUILD_GRPC_RUBY_PLUGIN
-      OFF
-      CACHE BOOL "" FORCE)
-
-  set(gRPC_BUILD_CSHARP_EXT
-      OFF
-      CACHE BOOL "" FORCE)
+  set(gRPC_INSTALL OFF)
+  set(gRPC_BUILD_TESTS OFF)
 
   # Add warning suppression flags for gRPC build.
   if(NOT MSVC)
