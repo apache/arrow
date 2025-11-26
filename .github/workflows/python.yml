@@ -288,11 +288,23 @@ jobs:
         env:
           # We can invalidate the current cache by updating this.
           CACHE_VERSION: "2025-09-16.1"
+      - name: Install and setup micromamba
+        shell: cmd
+        env:
+            MAMBA_ROOT_PREFIX: "C:\\micromamba"
+        run: |
+          curl -L -o micromamba.tar.bz2 https://micro.mamba.pm/api/micromamba/win-64/latest
+          tar xf micromamba.tar.bz2
+          mv Library\\bin\\micromamba.exe micromamba.exe
+          ".\micromamba.exe shell init -s cmd -r %MAMBA_ROOT_PREFIX%"
+          "micromamba create -n pyarrow-dev -f .\ci\conda_env_python.txt -y"
       - name: Build Arrow C++ and PyArrow
         shell: cmd
         run: |
-          call "ci\scripts\python_build.bat" %cd% "${{ steps.path-info.outputs.usr-windows-dir }}"
+          micromamba activate pyarrow-dev
+          call "ci\scripts\python_build.bat" %cd% %CONDA_PREFIX%
       - name: Test PyArrow
         shell: cmd
         run: |
+          micromamba activate pyarrow-dev
           call "ci\scripts\python_test.bat" %cd%
