@@ -91,7 +91,7 @@ def resolve_s3_region(bucket):
 
     Examples
     --------
-    >>> fs.resolve_s3_region('voltrondata-labs-datasets')
+    >>> fs.resolve_s3_region('arrow-datasets')
     'us-east-2'
     """
     cdef:

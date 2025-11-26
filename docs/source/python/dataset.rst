@@ -350,7 +350,7 @@ specifying a S3 path:
 
 .. code-block:: python
 
-    dataset = ds.dataset("s3://voltrondata-labs-datasets/nyc-taxi/")
+    dataset = ds.dataset("s3://arrow-datasets/nyc-taxi/")
 
 Typically, you will want to customize the connection parameters, and then
 a file system object can be created and passed to the ``filesystem`` keyword:
@@ -360,7 +360,7 @@ a file system object can be created and passed to the ``filesystem`` keyword:
     from pyarrow import fs
 
     s3  = fs.S3FileSystem(region="us-east-2")
-    dataset = ds.dataset("voltrondata-labs-datasets/nyc-taxi/", filesystem=s3)
+    dataset = ds.dataset("arrow-datasets/nyc-taxi/", filesystem=s3)
 
 The currently available classes are :class:`~pyarrow.fs.S3FileSystem` and
 :class:`~pyarrow.fs.HadoopFileSystem`. See the :ref:`filesystem` docs for more
@@ -381,7 +381,7 @@ useful for testing or benchmarking.
 
     # By default, MinIO will listen for unencrypted HTTP traffic.
     minio = fs.S3FileSystem(scheme="http", endpoint_override="localhost:9000")
-    dataset = ds.dataset("voltrondata-labs-datasets/nyc-taxi/", filesystem=minio)
+    dataset = ds.dataset("arrow-datasets/nyc-taxi/", filesystem=minio)
 
 
 Working with Parquet Datasets
