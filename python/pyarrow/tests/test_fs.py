@@ -1473,7 +1473,7 @@ def test_s3fs_wrong_region():
     if 'NETWORK_CONNECTION' in str(exc.value):
         return
 
-    fs = S3FileSystem(region='us-east-2', anonymous=True)
+    fs = S3FileSystem(region='us-east-1', anonymous=True)
     fs.get_file_info("arrow-datasets")
 
 
