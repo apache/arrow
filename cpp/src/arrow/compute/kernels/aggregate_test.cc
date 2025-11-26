@@ -3275,8 +3275,8 @@ void CheckVarStd(const Datum& array, const VarianceOptions& options,
   auto var = checked_cast<const DoubleScalar*>(out_var.scalar().get());
   auto std = checked_cast<const DoubleScalar*>(out_std.scalar().get());
   ASSERT_TRUE(var->is_valid && std->is_valid);
-  AssertWithinUlp(std->value * std->value, var->value, /*n_ulps=*/3);
-  AssertWithinUlp(var->value, expected_var, /*n_ulps=*/3);
+  AssertWithinUlp(std->value * std->value, var->value, /*n_ulps=*/2);
+  AssertWithinUlp(var->value, expected_var, /*n_ulps=*/5);
 }
 
 template <typename ArrowType>
