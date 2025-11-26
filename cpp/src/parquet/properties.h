@@ -722,7 +722,7 @@ class PARQUET_EXPORT WriterProperties {
     ///
     /// \note Bloom filter is not supported for boolean columns. ParquetException will
     /// be thrown during write if the column is of boolean type.
-    Builder* enable_bloom_filter(BloomFilterOptions bloom_filter_options,
+    Builder* enable_bloom_filter(const BloomFilterOptions& bloom_filter_options,
                                  const std::string& path) {
       bloom_filter_options_[path] = bloom_filter_options;
       return this;
@@ -734,7 +734,7 @@ class PARQUET_EXPORT WriterProperties {
     ///
     /// \note Bloom filter is not supported for boolean columns. ParquetException will
     /// be thrown during write if the column is of boolean type.
-    Builder* enable_bloom_filter(BloomFilterOptions bloom_filter_options,
+    Builder* enable_bloom_filter(const BloomFilterOptions& bloom_filter_options,
                                  const std::shared_ptr<schema::ColumnPath>& path) {
       return this->enable_bloom_filter(bloom_filter_options, path->ToDotString());
     }

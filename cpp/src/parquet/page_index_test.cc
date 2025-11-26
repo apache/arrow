@@ -872,7 +872,8 @@ class PageIndexBuilderTest : public ::testing::Test {
 
   SchemaDescriptor schema_;
   std::shared_ptr<Buffer> buffer_;
-  IndexLocations column_index_location_, offset_index_location_;
+  IndexLocations column_index_location_;
+  IndexLocations offset_index_location_;
 };
 
 TEST_F(PageIndexBuilderTest, SingleRowGroup) {
