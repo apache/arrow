@@ -31,7 +31,6 @@
 #define _SILENCE_CXX17_CODECVT_HEADER_DEPRECATION_WARNING
 
 namespace ODBC {
-
 using arrow::flight::sql::odbc::DriverException;
 using arrow::flight::sql::odbc::GetSqlWCharSize;
 using arrow::flight::sql::odbc::Utf8ToWcs;

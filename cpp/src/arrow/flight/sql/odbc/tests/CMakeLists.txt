@@ -17,7 +17,6 @@
 
 add_custom_target(tests)
 
-find_package(ODBC REQUIRED)
 include_directories(${ODBC_INCLUDE_DIRS})
 
 find_package(SQLite3Alt REQUIRED)
@@ -32,9 +31,19 @@ set(ARROW_FLIGHT_SQL_MOCK_SERVER_SRCS
 
 add_arrow_test(flight_sql_odbc_test
                SOURCES
+               columns_test.cc
+               connection_attr_test.cc
+               connection_info_test.cc
+               errors_test.cc
+               get_functions_test.cc
+               statement_attr_test.cc
+               statement_test.cc
+               tables_test.cc
+               type_info_test.cc
+               # Move connection_test to last to prevent segfault errors
+               connection_test.cc
                odbc_test_suite.cc
                odbc_test_suite.h
-               connection_test.cc
                # Enable Protobuf cleanup after test execution
                # GH-46889: move protobuf_test_util to a more common location
                ../../../../engine/substrait/protobuf_test_util.cc

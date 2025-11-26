@@ -18,11 +18,12 @@
 #pragma once
 
 #include <boost/algorithm/string.hpp>
-#include <boost/optional.hpp>
 #include <boost/variant.hpp>
 #include <functional>
 #include <map>
+#include <optional>
 #include <string>
+#include <variant>
 #include <vector>
 
 #include "arrow/flight/sql/odbc/odbc_impl/diagnostics.h"
@@ -63,8 +64,8 @@ class Connection {
     PACKET_SIZE,         // uint32_t - The Packet Size
   };
 
-  typedef boost::variant<std::string, void*, uint64_t, uint32_t> Attribute;
-  typedef boost::variant<std::string, uint32_t, uint16_t> Info;
+  typedef std::variant<std::string, void*, uint64_t, uint32_t> Attribute;
+  typedef std::variant<std::string, uint32_t, uint16_t> Info;
   typedef PropertyMap ConnPropertyMap;
 
   /// \brief Establish the connection.
@@ -88,7 +89,7 @@ class Connection {
 
   /// \brief Retrieve a connection attribute
   /// \param attribute [in] Attribute to be retrieved.
-  virtual boost::optional<Connection::Attribute> GetAttribute(
+  virtual std::optional<Connection::Attribute> GetAttribute(
       Connection::AttributeId attribute) = 0;
 
   /// \brief Retrieves info from the database (see ODBC's SQLGetInfo).
