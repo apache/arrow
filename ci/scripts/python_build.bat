@@ -198,15 +198,9 @@ pushd %SOURCE_DIR%\python
 @REM Install Python build dependencies
 %PYTHON_CMD% -m pip install --upgrade pip || exit /B 1
 %PYTHON_CMD% -m pip install -r requirements-build.txt || exit /B 1
-%PYTHON_CMD% -m pip install build delvewheel || exit /B 1
-
-@REM by default, CMake installs .lib import libs to lib and .dll libs to bin
-@REM delvewheel requires these to be side-by-side to properly vendor
-@REM https://github.com/adang1345/delvewheel/issues/66
-copy %CMAKE_INSTALL_PREFIX%\lib\*.lib %CMAKE_INSTALL_PREFIX%\bin\
 
 @REM Build PyArrow
-%PYTHON_CMD% -m build --wheel . --no-isolation ^
+%PYTHON_CMD% -m pip install --no-deps --no-build-isolation -vv . ^
     -Csetup-args="-Dbuildtype=%MESON_BUILD_TYPE%" ^
     -Csetup-args="-Dacero=%PYARROW_WITH_ACERO%" ^
     -Csetup-args="-Ddataset=%PYARROW_WITH_DATASET%" ^
@@ -219,7 +213,5 @@ copy %CMAKE_INSTALL_PREFIX%\lib\*.lib %CMAKE_INSTALL_PREFIX%\bin\
     -Csetup-args="-Dparquet_require_encryption=%PYARROW_WITH_PARQUET_ENCRYPTION%" ^
     -Csetup-args="-Dsubstrait=%PYARROW_WITH_SUBSTRAIT%" ^
     -Csetup-args="-Ds3=%PYARROW_WITH_S3%" || exit /B 1
-%PYTHON_CMD% -m delvewheel repair --ignore-existing --no-mangle-all --include-imports dist\* || exit /B 1
-%PYTHON_CMD% -m pip install --no-index --find-links .\wheelhouse\ pyarrow || exit /B 1
 
 popd

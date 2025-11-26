@@ -393,12 +393,6 @@ def get_library_dirs():
     package_cwd = _os.path.dirname(__file__)
     library_dirs = [package_cwd]
 
-    # delvewheel creates a top level pyarrow.libs to vendor external shared libraries
-    if _os.name == "nt":
-        library_dirs.append(
-            _os.path.join(_os.path.dirname(package_cwd), "pyarrow.libs")
-        )
-
     def append_library_dir(library_dir):
         if library_dir not in library_dirs:
             library_dirs.append(library_dir)
