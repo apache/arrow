@@ -148,7 +148,7 @@ test_that("FileSystem$from_uri", {
   skip_if_offline()
   fs_and_path <- FileSystem$from_uri("s3://arrow-datasets")
   expect_r6_class(fs_and_path$fs, "S3FileSystem")
-  expect_identical(fs_and_path$fs$region, "us-east-2")
+  expect_identical(fs_and_path$fs$region, "us-east-1")
 })
 
 test_that("SubTreeFileSystem$create() with URI", {

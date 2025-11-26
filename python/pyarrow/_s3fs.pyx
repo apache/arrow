@@ -92,7 +92,7 @@ def resolve_s3_region(bucket):
     Examples
     --------
     >>> fs.resolve_s3_region('arrow-datasets')
-    'us-east-2'
+    'us-east-1'
     """
     cdef:
         c_string c_bucket
