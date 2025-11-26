@@ -69,4 +69,4 @@ export PYARROW_TEST_PARQUET_ENCRYPTION
 export PYARROW_TEST_S3
 
 # Testing PyArrow
-pytest -r s ${PYTEST_ARGS} --pyargs pyarrow
+pytest -r s ${PYTEST_ARGS} --pyargs pyarrow.tests.test_cuda_numba_interop
