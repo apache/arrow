@@ -110,7 +110,7 @@ jobs:
       UBUNTU: ${{ matrix.ubuntu }}
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
           fetch-depth: 0
           submodules: recursive
@@ -163,7 +163,7 @@ jobs:
     timeout-minutes: 45
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6.0.0
         with:
           fetch-depth: 0
           submodules: recursive
@@ -218,7 +218,7 @@ jobs:
           sysctl -a | grep cpu
           sysctl -a | grep "hw.optional"
       - name: Checkout Arrow
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6.0.0
         with:
           fetch-depth: 0
           submodules: recursive
@@ -344,7 +344,7 @@ jobs:
             /d 1 `
             /f
       - name: Checkout Arrow
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6.0.0
         with:
           fetch-depth: 0
           submodules: recursive
