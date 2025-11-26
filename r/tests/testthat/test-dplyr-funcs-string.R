@@ -952,7 +952,6 @@ test_that("str_like and str_ilike", {
     call_binding("str_like", x, pattern = "f%", ignore_case = TRUE),
     "The `ignore_case` argument of `str_like\\(\\)` is deprecated"
   )
-
 })
 
 test_that("str_pad", {
