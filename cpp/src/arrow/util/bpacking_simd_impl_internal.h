@@ -384,14 +384,6 @@ template <typename Traits, typename Uint>
 using KernelTraitsWithUnpack =
     KernelTraits<Uint, Traits::kShape.packed_bit_size(), Traits::kShape.simd_bit_size()>;
 
-template <typename Traits>
-using KernelTraitsHalf =
-    KernelTraitsWithUnpack<Traits, SizedUint<Traits::kShape.unpacked_byte_size() / 2>>;
-
-template <typename Traits>
-using KernelTraitsDouble =
-    KernelTraitsWithUnpack<Traits, SizedUint<Traits::kShape.unpacked_byte_size() * 2>>;
-
 /******************
  *  MediumKernel  *
  ******************/
@@ -845,12 +837,23 @@ struct KernelDispatch<Traits, std::enable_if_t<Traits::kShape.is_medium() &&
 template <typename Traits>
 struct KernelDispatch<
     Traits, std::enable_if_t<Traits::kShape.is_medium() && MediumShouldUseUint32<Traits>>>
-    : ForwardToKernel<Traits, MediumKernel<KernelTraitsHalf<Traits>>> {};
+    : ForwardToKernel<Traits, MediumKernel<KernelTraitsWithUnpack<Traits, uint32_t>>> {};
 
-// Large kernel
+// Benchmarking show large unpack to uint8_t is underperforming on SSE4.2
+template <typename Traits, typename Arch = typename Traits::arch_type>
+constexpr bool LargeShouldUseUint16 = HasSse2<Arch> &&
+                                      (Traits::kShape.unpacked_byte_size() ==
+                                       sizeof(uint8_t));
+
 template <typename Traits>
-struct KernelDispatch<Traits, std::enable_if_t<Traits::kShape.is_large()>>
+struct KernelDispatch<
+    Traits, std::enable_if_t<Traits::kShape.is_large() && !LargeShouldUseUint16<Traits>>>
     : LargeKernel<Traits> {};
+
+template <typename Traits>
+struct KernelDispatch<
+    Traits, std::enable_if_t<Traits::kShape.is_large() && LargeShouldUseUint16<Traits>>>
+    : ForwardToKernel<Traits, MediumKernel<KernelTraitsWithUnpack<Traits, uint16_t>>> {};
 
 // Oversize kernel is only a few edge cases
 template <typename Traits>
