@@ -826,12 +826,10 @@ struct ForwardToKernel : WorkingKernel {
  *  Kernel static dispatching  *
  *******************************/
 
-/// The public kernel exposed for any size.
-template <typename UnpackedUint, int kPackedBitSize, int kSimdBitSize,
-          typename Traits = KernelTraits<UnpackedUint, kPackedBitSize, kSimdBitSize>,
-          typename = void>
-struct Kernel;
+template <typename Traits, typename = void>
+struct KernelDispatch;
 
+// Benchmarking show unpack to uint64_t is underperforming on SSE4.2 and Avx2
 template <typename Traits, typename Arch = typename Traits::arch_type>
 constexpr bool MediumShouldUseUint32 =
     (HasSse2<Arch> || HasSse2<Arch>)&&  //
@@ -839,34 +837,29 @@ constexpr bool MediumShouldUseUint32 =
     (Traits::kShape.packed_bit_size() < 32) &&
     KernelTraitsWithUnpack<Traits, uint32_t>::kShape.is_medium();
 
-template <typename UnpackedUint, int kPackedBitSize, int kSimdBitSize, typename Traits>
-struct Kernel<  //
-    UnpackedUint, kPackedBitSize, kSimdBitSize, Traits,
-    std::enable_if_t<Traits::kShape.is_medium() && !MediumShouldUseUint32<Traits>>>
+template <typename Traits>
+struct KernelDispatch<Traits, std::enable_if_t<Traits::kShape.is_medium() &&
+                                               !MediumShouldUseUint32<Traits>>>
     : MediumKernel<Traits> {};
 
-template <typename UnpackedUint, int kPackedBitSize, int kSimdBitSize, typename Traits>
-struct Kernel<  //
-    UnpackedUint, kPackedBitSize, kSimdBitSize, Traits,
-    std::enable_if_t<Traits::kShape.is_medium() && MediumShouldUseUint32<Traits>>>
+template <typename Traits>
+struct KernelDispatch<
+    Traits, std::enable_if_t<Traits::kShape.is_medium() && MediumShouldUseUint32<Traits>>>
     : ForwardToKernel<Traits, MediumKernel<KernelTraitsHalf<Traits>>> {};
 
-template <typename UnpackedUint, int kPackedBitSize, int kSimdBitSize, typename Traits>
-struct Kernel<  //
-    UnpackedUint, kPackedBitSize, kSimdBitSize, Traits,
-    std::enable_if_t<Traits::kShape.is_large()>> : LargeKernel<Traits> {};
+// Large kernel
+template <typename Traits>
+struct KernelDispatch<Traits, std::enable_if_t<Traits::kShape.is_large()>>
+    : LargeKernel<Traits> {};
 
-template <typename UnpackedUint, int kPackedBitSize, int kSimdBitSize, typename Traits>
-struct Kernel<  //
-    UnpackedUint, kPackedBitSize, kSimdBitSize, Traits,
-    std::enable_if_t<Traits::kShape.is_oversized() &&
-                     sizeof(UnpackedUint) < sizeof(uint64_t)>>
-    : ForwardToKernel<Traits, MediumKernel<KernelTraitsDouble<Traits>>> {};
+// Oversize kernel is only a few edge cases
+template <typename Traits>
+struct KernelDispatch<Traits, std::enable_if_t<Traits::kShape.is_oversized()>>
+    : NoOpKernel<Traits> {};
 
-template <typename UnpackedUint, int kPackedBitSize, int kSimdBitSize, typename Traits>
-struct Kernel<  //
-    UnpackedUint, kPackedBitSize, kSimdBitSize, Traits,
-    std::enable_if_t<Traits::kShape.is_oversized() &&
-                     sizeof(UnpackedUint) == sizeof(uint64_t)>> : NoOpKernel<Traits> {};
+/// The public kernel exposed for any size.
+template <typename UnpackedUint, int kPackedBitSize, int kSimdBitSize>
+struct Kernel : KernelDispatch<KernelTraits<UnpackedUint, kPackedBitSize, kSimdBitSize>> {
+};
 
 }  // namespace arrow::internal
