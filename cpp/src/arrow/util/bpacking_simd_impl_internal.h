@@ -784,39 +784,37 @@ struct ForwardToKernel : WorkingKernel {
  *******************************/
 
 /// The public kernel exposed for any size.
-template <typename UnpackedUint, int kPackedBitSize, int kSimdBitSize, typename = void>
+template <typename UnpackedUint, int kPackedBitSize, int kSimdBitSize,
+          typename Traits = KernelTraits<UnpackedUint, kPackedBitSize, kSimdBitSize>,
+          typename = void>
 struct Kernel;
 
-template <typename UnpackedUint, int kPackedBitSize, int kSimdBitSize>
+template <typename UnpackedUint, int kPackedBitSize, int kSimdBitSize, typename Traits>
 struct Kernel<  //
-    UnpackedUint, kPackedBitSize, kSimdBitSize,
-    std::enable_if_t<
-        KernelTraits<UnpackedUint, kPackedBitSize, kSimdBitSize>::kShape.is_medium()>>
+    UnpackedUint, kPackedBitSize, kSimdBitSize, Traits,
+    std::enable_if_t<Traits::kShape.is_medium()>>
     : MediumKernel<UnpackedUint, kPackedBitSize, kSimdBitSize> {};
 
-template <typename UnpackedUint, int kPackedBitSize, int kSimdBitSize>
+template <typename UnpackedUint, int kPackedBitSize, int kSimdBitSize, typename Traits>
 struct Kernel<  //
-    UnpackedUint, kPackedBitSize, kSimdBitSize,
-    std::enable_if_t<
-        KernelTraits<UnpackedUint, kPackedBitSize, kSimdBitSize>::kShape.is_large()>>
+    UnpackedUint, kPackedBitSize, kSimdBitSize, Traits,
+    std::enable_if_t<Traits::kShape.is_large()>>
     : LargeKernel<UnpackedUint, kPackedBitSize, kSimdBitSize> {};
 
-template <typename UnpackedUint, int kPackedBitSize, int kSimdBitSize>
+template <typename UnpackedUint, int kPackedBitSize, int kSimdBitSize, typename Traits>
 struct Kernel<  //
-    UnpackedUint, kPackedBitSize, kSimdBitSize,
-    std::enable_if_t<
-        KernelTraits<UnpackedUint, kPackedBitSize, kSimdBitSize>::kShape.is_oversized() &&
-        sizeof(UnpackedUint) < sizeof(uint64_t)>>
+    UnpackedUint, kPackedBitSize, kSimdBitSize, Traits,
+    std::enable_if_t<Traits::kShape.is_oversized() &&
+                     sizeof(UnpackedUint) < sizeof(uint64_t)>>
     : ForwardToKernel<UnpackedUint, kPackedBitSize, kSimdBitSize,
                       MediumKernel<SizedUint<2 * sizeof(UnpackedUint)>, kPackedBitSize,
                                    kSimdBitSize>> {};
 
-template <typename UnpackedUint, int kPackedBitSize, int kSimdBitSize>
+template <typename UnpackedUint, int kPackedBitSize, int kSimdBitSize, typename Traits>
 struct Kernel<  //
-    UnpackedUint, kPackedBitSize, kSimdBitSize,
-    std::enable_if_t<
-        KernelTraits<UnpackedUint, kPackedBitSize, kSimdBitSize>::kShape.is_oversized() &&
-        sizeof(UnpackedUint) == sizeof(uint64_t)>>
+    UnpackedUint, kPackedBitSize, kSimdBitSize, Traits,
+    std::enable_if_t<Traits::kShape.is_oversized() &&
+                     sizeof(UnpackedUint) == sizeof(uint64_t)>>
     : NoOpKernel<UnpackedUint, kPackedBitSize, kSimdBitSize> {};
 
 }  // namespace arrow::internal
