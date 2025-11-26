@@ -3215,31 +3215,21 @@ function(build_grpc)
         CACHE STRING "" FORCE)
   endif()
 
-  if(CARES_VENDORED)
-    set(gRPC_CARES_PROVIDER
-        "none"
-        CACHE STRING "" FORCE)
-    set(_gRPC_CARES_LIBRARIES
-        "c-ares::cares"
-        CACHE STRING "" FORCE)
-  else()
-    set(gRPC_CARES_PROVIDER
-        "package"
-        CACHE STRING "" FORCE)
-  endif()
+  # Use "none" provider for c-ares or re2, either we vendored it or we already found it.
+  set(gRPC_CARES_PROVIDER
+      "none"
+      CACHE STRING "" FORCE)
+  set(_gRPC_CARES_LIBRARIES
+      "c-ares::cares"
+      CACHE STRING "" FORCE)
 
-  if(RE2_VENDORED)
-    set(gRPC_RE2_PROVIDER
-        "none"
-        CACHE STRING "" FORCE)
-    set(_gRPC_RE2_LIBRARIES
-        "re2::re2"
-        CACHE STRING "" FORCE)
-  else()
-    set(gRPC_RE2_PROVIDER
-        "package"
-        CACHE STRING "" FORCE)
-  endif()
+  set(gRPC_RE2_PROVIDER
+      "none"
+      CACHE STRING "" FORCE)
+  set(_gRPC_RE2_LIBRARIES
+      "re2::re2"
+      CACHE STRING "" FORCE)
+
   set(gRPC_SSL_PROVIDER
       "package"
       CACHE STRING "" FORCE)
