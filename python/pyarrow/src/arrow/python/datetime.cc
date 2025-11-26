@@ -608,7 +608,8 @@ struct PyListAssigner {
 
   void operator=(PyObject* obj) {
     if (ARROW_PREDICT_FALSE(PyList_SetItem(list_, current_index_, obj) == -1)) {
-      PyErr_SetString(PyExc_RuntimeError, "list did not have the correct preallocated size.");
+      PyErr_SetString(PyExc_RuntimeError,
+                      "list did not have the correct preallocated size.");
     }
   }
 
