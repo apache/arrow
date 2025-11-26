@@ -2855,7 +2855,8 @@ function(build_re2)
 
   fetchcontent_declare(re2
                        URL ${RE2_SOURCE_URL}
-                       URL_HASH "SHA256=${ARROW_RE2_BUILD_SHA256_CHECKSUM}")
+                       URL_HASH "SHA256=${ARROW_RE2_BUILD_SHA256_CHECKSUM}"
+                       EXCLUDE_FROM_ALL)
   prepare_fetchcontent()
 
   # Unity build causes some build errors
@@ -3236,8 +3237,12 @@ function(build_grpc)
   set(gRPC_ZLIB_PROVIDER
       "package"
       CACHE STRING "" FORCE)
-  set(gRPC_INSTALL OFF)
-  set(gRPC_BUILD_TESTS OFF)
+  set(gRPC_INSTALL
+      OFF
+      CACHE BOOL "" FORCE)
+  set(gRPC_BUILD_TESTS
+      OFF
+      CACHE BOOL "" FORCE)
 
   # Add warning suppression flags for gRPC build.
   if(NOT MSVC)
