@@ -833,23 +833,25 @@ tasks:
 
   ############################## CUDA tests #################################
 
-  test-cuda-cpp-ubuntu-22.04-cuda-11.7.1:
+{% for ubuntu, cuda in [("22.04", "11.7.1"), ("24.04", "13.0.2")] %}
+  test-cuda-cpp-ubuntu-{{ ubuntu }}-cuda-{{ cuda }}:
     ci: github
     template: docker-tests/github.cuda.yml
     params:
       env:
-        CUDA: 11.7.1
-        UBUNTU: 22.04
+        CUDA: {{ cuda }}
+        UBUNTU: {{ ubuntu }}
       image: ubuntu-cuda-cpp
 
-  test-cuda-python-ubuntu-22.04-cuda-11.7.1:
+  test-cuda-python-ubuntu-{{ ubuntu }}-cuda-{{ cuda }}:
     ci: github
     template: docker-tests/github.cuda.yml
     params:
       env:
-        CUDA: 11.7.1
-        UBUNTU: 22.04
+        CUDA: {{ cuda }}
+        UBUNTU: {{ ubuntu }}
       image: ubuntu-cuda-python
+{% endfor %}
 
   ############################## Fuzz tests #################################
 
