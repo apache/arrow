@@ -413,6 +413,12 @@ constexpr auto select_stride(xsimd::batch_constant<Int, Arch, kShifts...>) {
       ToInt, Arch, SelectStride<Int, kOffset, sizeof(ToInt) / sizeof(Int), kShifts...>>();
 }
 
+template <typename Arch>
+constexpr bool HasSse2 = std::is_base_of_v<xsimd::sse2, Arch>;
+
+template <typename Arch>
+constexpr bool HasAvx2 = std::is_base_of_v<xsimd::avx2, Arch>;
+
 // Fallback for variable shift left.
 //
 // We replace the variable left shift by a variable multiply with a power of two.
@@ -424,8 +430,8 @@ template <typename Arch, typename Int, Int... kShifts>
 auto left_shift(const xsimd::batch<Int, Arch>& batch,
                 xsimd::batch_constant<Int, Arch, kShifts...> shifts)
     -> xsimd::batch<Int, Arch> {
-  constexpr bool kHasSse2 = std::is_base_of_v<xsimd::sse2, Arch>;
-  constexpr bool kHasAvx2 = std::is_base_of_v<xsimd::avx2, Arch>;
+  constexpr bool kHasSse2 = HasSse2<Arch>;
+  constexpr bool kHasAvx2 = HasAvx2<Arch>;
   static_assert(!(kHasSse2 && kHasAvx2), "The hierarchy are different in xsimd");
 
   // TODO(xsimd-14) this can be simplified to
@@ -474,8 +480,8 @@ auto left_shift(const xsimd::batch<Int, Arch>& batch,
 template <typename Arch, typename Int, Int... kShifts>
 auto right_shift_by_excess(const xsimd::batch<Int, Arch>& batch,
                            xsimd::batch_constant<Int, Arch, kShifts...> shifts) {
-  constexpr bool kHasSse2 = std::is_base_of_v<xsimd::sse2, Arch>;
-  constexpr bool kHasAvx2 = std::is_base_of_v<xsimd::avx2, Arch>;
+  constexpr bool kHasSse2 = HasSse2<Arch>;
+  constexpr bool kHasAvx2 = HasAvx2<Arch>;
   static_assert(!(kHasSse2 && kHasAvx2), "The hierarchy are different in xsimd");
 
   constexpr auto IntSize = sizeof(Int);
