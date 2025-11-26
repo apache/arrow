@@ -115,6 +115,18 @@ struct KernelTraits {
   using arch_type = typename simd_batch::arch_type;
 };
 
+template <typename Traits, typename Uint>
+using KernelTraitsWithUnpack =
+    KernelTraits<Uint, Traits::kShape.packed_bit_size(), Traits::kShape.simd_bit_size()>;
+
+template <typename Traits>
+using KernelTraitsHalf =
+    KernelTraitsWithUnpack<Traits, SizedUint<Traits::kShape.unpacked_byte_size() / 2>>;
+
+template <typename Traits>
+using KernelTraitsDouble =
+    KernelTraitsWithUnpack<Traits, SizedUint<Traits::kShape.unpacked_byte_size() * 2>>;
+
 struct MediumKernelPlanSize {
   int reads_per_kernel_;
   int swizzles_per_read_;
@@ -136,15 +148,16 @@ struct MediumKernelPlanSize {
   }
 };
 
+template <int kUnpackedPerKernelLimit_>
 struct MediumKernelOptions {
   /// An indicative limit on the number of values unpacked by the kernel.
   /// This is a heuristic setting: other constraints such as alignment may not always make
   /// small values feasibles. Must be a power of two.
-  int unpacked_per_kernel_limit = -1;
+  static constexpr int kUnpackedPerKernelLimit = kUnpackedPerKernelLimit_;
 };
 
-constexpr MediumKernelPlanSize BuildMediumPlanSize(const KernelShape& shape,
-                                                   const MediumKernelOptions& options) {
+template <typename KernelOptions>
+constexpr MediumKernelPlanSize BuildMediumPlanSize(const KernelShape& shape) {
   const int shifts_per_swizzle =
       shape.unpacked_byte_size() / shape.packed_max_spread_bytes();
 
@@ -153,7 +166,7 @@ constexpr MediumKernelPlanSize BuildMediumPlanSize(const KernelShape& shape,
   // Using `unpacked_per_kernel_limit` to influence the number of swizzles per reads.
   const auto packed_per_read_for_offset = [&](int bit_offset) -> int {
     const int best = (shape.simd_bit_size() - bit_offset) / shape.packed_bit_size();
-    const int limit = options.unpacked_per_kernel_limit;
+    const int limit = KernelOptions::kUnpackedPerKernelLimit;
     return (best > limit) && (limit > 0) ? limit : best;
   };
 
@@ -192,15 +205,12 @@ constexpr MediumKernelPlanSize BuildMediumPlanSize(const KernelShape& shape,
   };
 }
 
-// TODO(C++20) Non type template parameter for MediumKernelOptions.
-template <typename UnpackedUint, int kPackedBitSize, int kSimdBitSize,
-          int kUnpackedPerKernelLimit>
+template <typename KernelTraits, typename KernelOptions>
 struct MediumKernelPlan {
-  using Traits = KernelTraits<UnpackedUint, kPackedBitSize, kSimdBitSize>;
+  using Traits = KernelTraits;
   using uint_type = typename Traits::uint_type;
   static constexpr auto kShape = Traits::kShape;
-  static constexpr auto kPlanSize = BuildMediumPlanSize(
-      kShape, {/* .unpacked_per_kernel_limit= */ kUnpackedPerKernelLimit});
+  static constexpr auto kPlanSize = BuildMediumPlanSize<KernelOptions>(kShape);
 
   using ReadsPerKernel = std::array<int, kPlanSize.reads_per_kernel()>;
 
@@ -231,15 +241,12 @@ struct MediumKernelPlan {
   ReadsPerKernel reads;
   SwizzlesPerKernel swizzles;
   ShitsPerKernel shifts;
-  uint_type mask = bit_util::LeastSignificantBitMask<uint_type>(kPackedBitSize);
+  uint_type mask = bit_util::LeastSignificantBitMask<uint_type>(kShape.packed_bit_size());
 };
 
-// TODO(C++20) Non type template parameter for MediumKernelOptions.
-template <typename UnpackedUint, int kPackedBitSize, int kSimdBitSize,
-          int kUnpackedPerKernelLimit>
+template <typename KernelTraits, typename KernelOptions>
 constexpr auto BuildMediumPlan() {
-  using Plan = MediumKernelPlan<UnpackedUint, kPackedBitSize, kSimdBitSize,
-                                kUnpackedPerKernelLimit>;
+  using Plan = MediumKernelPlan<KernelTraits, KernelOptions>;
   constexpr auto kShape = Plan::kShape;
   constexpr auto kPlanSize = Plan::kPlanSize;
   static_assert(kShape.is_medium());
@@ -527,12 +534,9 @@ auto right_shift_by_excess(const xsimd::batch<Int, Arch>& batch,
   return batch >> shifts;
 }
 
-// TODO(C++20) Non type template parameter for MediumKernelOptions.
-template <typename UnpackedUint, int kPackedBitSize, int kSimdBitSize,
-          int kUnpackedPerKernelLimit = 32>
+template <typename KernelTraits, typename KernelOptions = MediumKernelOptions<32>>
 struct MediumKernel {
-  static constexpr auto kPlan = BuildMediumPlan<UnpackedUint, kPackedBitSize,
-                                                kSimdBitSize, kUnpackedPerKernelLimit>();
+  static constexpr auto kPlan = BuildMediumPlan<KernelTraits, KernelOptions>();
   static constexpr auto kPlanSize = kPlan.kPlanSize;
   static constexpr auto kShape = kPlan.kShape;
   using Traits = typename decltype(kPlan)::Traits;
@@ -616,9 +620,9 @@ struct MediumKernel {
   }
 };
 
-template <typename UnpackedUint, int kPackedBitSize, int kSimdBitSize>
+template <typename KernelTraits>
 struct LargeKernelPlan {
-  using Traits = KernelTraits<UnpackedUint, kPackedBitSize, kSimdBitSize>;
+  using Traits = KernelTraits;
   using uint_type = typename Traits::uint_type;
   static constexpr auto kShape = Traits::kShape;
 
@@ -642,9 +646,9 @@ struct LargeKernelPlan {
   uint_type mask;
 };
 
-template <typename UnpackedUint, int kPackedBitSize, int kSimdBitSize>
-constexpr LargeKernelPlan<UnpackedUint, kPackedBitSize, kSimdBitSize> BuildLargePlan() {
-  using Plan = LargeKernelPlan<UnpackedUint, kPackedBitSize, kSimdBitSize>;
+template <typename KernelTraits>
+constexpr LargeKernelPlan<KernelTraits> BuildLargePlan() {
+  using Plan = LargeKernelPlan<KernelTraits>;
   using uint_type = typename Plan::Traits::uint_type;
   constexpr auto kShape = Plan::kShape;
   static_assert(kShape.is_large());
@@ -684,15 +688,14 @@ constexpr LargeKernelPlan<UnpackedUint, kPackedBitSize, kSimdBitSize> BuildLarge
     }
   }
 
-  plan.mask = bit_util::LeastSignificantBitMask<uint_type>(kPackedBitSize);
+  plan.mask = bit_util::LeastSignificantBitMask<uint_type>(kShape.packed_bit_size());
 
   return plan;
 }
 
-template <typename UnpackedUint, int kPackedBitSize, int kSimdBitSize>
+template <typename KernelTraits>
 struct LargeKernel {
-  static constexpr auto kPlan =
-      BuildLargePlan<UnpackedUint, kPackedBitSize, kSimdBitSize>();
+  static constexpr auto kPlan = BuildLargePlan<KernelTraits>();
   static constexpr auto kShape = kPlan.kShape;
   using Traits = typename decltype(kPlan)::Traits;
   using unpacked_type = typename Traits::unpacked_type;
@@ -751,19 +754,18 @@ struct LargeKernel {
 };
 
 /// A Kernel that does not extract anything, leaving all work to the naive implementation.
-template <typename UnpackedUint, int kPackedBitSize, int kSimdBitSize>
+template <typename KernelTraits>
 struct NoOpKernel {
-  using unpacked_type = UnpackedUint;
+  using unpacked_type = typename KernelTraits::unpacked_type;
 
   static constexpr int kValuesUnpacked = 0;
 
   static const uint8_t* unpack(const uint8_t* in, unpacked_type* out) { return in; }
 };
 
-template <typename UnpackedUint, int kPackedBitSize, int kSimdBitSize,
-          typename WorkingKernel>
+template <typename KernelTraits, typename WorkingKernel>
 struct ForwardToKernel : WorkingKernel {
-  using unpacked_type = UnpackedUint;
+  using unpacked_type = typename KernelTraits::unpacked_type;
 
   static constexpr int kValuesUnpacked = WorkingKernel::kValuesUnpacked;
 
@@ -794,43 +796,36 @@ constexpr bool MediumShouldUseUint32 =
     (HasSse2<Arch> || HasSse2<Arch>)&&  //
     (Traits::kShape.unpacked_byte_size() == sizeof(uint64_t)) &&
     (Traits::kShape.packed_bit_size() < 32) &&
-    KernelTraits<uint32_t, Traits::kShape.packed_bit_size(),
-                 Traits::kShape.simd_bit_size()>::kShape.is_medium();
+    KernelTraitsWithUnpack<Traits, uint32_t>::kShape.is_medium();
 
 template <typename UnpackedUint, int kPackedBitSize, int kSimdBitSize, typename Traits>
 struct Kernel<  //
     UnpackedUint, kPackedBitSize, kSimdBitSize, Traits,
     std::enable_if_t<Traits::kShape.is_medium() && !MediumShouldUseUint32<Traits>>>
-    : MediumKernel<UnpackedUint, kPackedBitSize, kSimdBitSize> {};
+    : MediumKernel<Traits> {};
 
 template <typename UnpackedUint, int kPackedBitSize, int kSimdBitSize, typename Traits>
 struct Kernel<  //
     UnpackedUint, kPackedBitSize, kSimdBitSize, Traits,
     std::enable_if_t<Traits::kShape.is_medium() && MediumShouldUseUint32<Traits>>>
-    : ForwardToKernel<UnpackedUint, kPackedBitSize, kSimdBitSize,
-                      MediumKernel<SizedUint<sizeof(UnpackedUint) / 2>, kPackedBitSize,
-                                   kSimdBitSize>> {};
+    : ForwardToKernel<Traits, MediumKernel<KernelTraitsHalf<Traits>>> {};
 
 template <typename UnpackedUint, int kPackedBitSize, int kSimdBitSize, typename Traits>
 struct Kernel<  //
     UnpackedUint, kPackedBitSize, kSimdBitSize, Traits,
-    std::enable_if_t<Traits::kShape.is_large()>>
-    : LargeKernel<UnpackedUint, kPackedBitSize, kSimdBitSize> {};
+    std::enable_if_t<Traits::kShape.is_large()>> : LargeKernel<Traits> {};
 
 template <typename UnpackedUint, int kPackedBitSize, int kSimdBitSize, typename Traits>
 struct Kernel<  //
     UnpackedUint, kPackedBitSize, kSimdBitSize, Traits,
     std::enable_if_t<Traits::kShape.is_oversized() &&
                      sizeof(UnpackedUint) < sizeof(uint64_t)>>
-    : ForwardToKernel<UnpackedUint, kPackedBitSize, kSimdBitSize,
-                      MediumKernel<SizedUint<2 * sizeof(UnpackedUint)>, kPackedBitSize,
-                                   kSimdBitSize>> {};
+    : ForwardToKernel<Traits, MediumKernel<KernelTraitsDouble<Traits>>> {};
 
 template <typename UnpackedUint, int kPackedBitSize, int kSimdBitSize, typename Traits>
 struct Kernel<  //
     UnpackedUint, kPackedBitSize, kSimdBitSize, Traits,
     std::enable_if_t<Traits::kShape.is_oversized() &&
-                     sizeof(UnpackedUint) == sizeof(uint64_t)>>
-    : NoOpKernel<UnpackedUint, kPackedBitSize, kSimdBitSize> {};
+                     sizeof(UnpackedUint) == sizeof(uint64_t)>> : NoOpKernel<Traits> {};
 
 }  // namespace arrow::internal
