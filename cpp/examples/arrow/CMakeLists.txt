@@ -127,15 +127,6 @@ if(ARROW_FLIGHT)
                     "${CMAKE_CURRENT_BINARY_DIR}/helloworld.pb.cc"
                     "${CMAKE_CURRENT_BINARY_DIR}/helloworld.grpc.pb.cc")
 
-  # gRPC headers use deprecated std::iterator (deprecated in C++17, removed in C++20).
-  # This causes compilation errors with GCC 15+ when using -Werror.
-  # This workaround can be removed once we upgrade to a newer gRPC version that doesn't
-  # use std::iterator (likely gRPC 1.60+).
-  # TODO: Can't we pass this to add_arrow_example() to apply it to the target directly?
-  if(NOT MSVC)
-    target_compile_options(flight-grpc-example PRIVATE -Wno-error=deprecated-declarations)
-  endif()
-
   if(ARROW_FLIGHT_SQL)
     if(ARROW_BUILD_SHARED AND ARROW_GRPC_USE_SHARED)
       set(FLIGHT_SQL_EXAMPLES_LINK_LIBS arrow_flight_sql_shared)
@@ -152,13 +143,6 @@ if(ARROW_FLIGHT)
                       gRPC::grpc++
                       ${ARROW_PROTOBUF_LIBPROTOBUF}
                       ${GFLAGS_LIBRARIES})
-
-    # gRPC headers use deprecated std::iterator
-    # TODO: Can't we pass this to add_arrow_example() to apply it to the target directly?
-    if(NOT MSVC)
-      target_compile_options(flight-sql-example
-                             PRIVATE -Wno-error=deprecated-declarations)
-    endif()
   endif()
 endif()
 
