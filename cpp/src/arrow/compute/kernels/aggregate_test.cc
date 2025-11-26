@@ -4152,6 +4152,14 @@ class TestRandomQuantileKernel : public TestPrimitiveQuantileKernel<ArrowType> {
 
   void VerifyTDigest(const std::shared_ptr<ChunkedArray>& chunked,
                      std::vector<double>& quantiles) {
+    // For some reason, TDigest computations with libc++ seem much less accurate.
+    // A possible explanation is that libc++ has less precise implementations
+    // of std::sin and std::asin, used in the TDigest implementation.
+#  ifdef _LIBCPP_VERSION
+    constexpr double kRelativeTolerance = 0.09;
+#  else
+    constexpr double kRelativeTolerance = 0.05;
+#  endif
     TDigestOptions options(quantiles);
     ASSERT_OK_AND_ASSIGN(Datum out, TDigest(chunked, options));
     const auto& out_array = out.make_array();
@@ -4166,7 +4174,7 @@ class TestRandomQuantileKernel : public TestPrimitiveQuantileKernel<ArrowType> {
     const double* approx = out_array->data()->GetValues<double>(1);
     for (size_t i = 0; i < quantiles.size(); ++i) {
       const auto& exact_scalar = checked_pointer_cast<DoubleScalar>(exact[i][0].scalar());
-      const double tolerance = std::fabs(exact_scalar->value) * 0.05;
+      const double tolerance = std::fabs(exact_scalar->value) * kRelativeTolerance;
       EXPECT_NEAR(approx[i], exact_scalar->value, tolerance) << quantiles[i];
     }
   }
