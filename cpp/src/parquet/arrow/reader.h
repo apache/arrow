@@ -115,16 +115,31 @@ class RowGroupReader;
 // arrays
 class PARQUET_EXPORT FileReader {
  public:
-  /// Factory function to create a FileReader from a ParquetFileReader and properties
+  // Factory function to create a FileReader from a ParquetFileReader and properties.
+  // \deprecated Deprecated in 19.0.0. Use arrow::Result version instead.
+  ARROW_DEPRECATED("Deprecated in 19.0.0. Use arrow::Result version instead.")
   static ::arrow::Status Make(::arrow::MemoryPool* pool,
                               std::unique_ptr<ParquetFileReader> reader,
                               const ArrowReaderProperties& properties,
                               std::unique_ptr<FileReader>* out);
 
-  /// Factory function to create a FileReader from a ParquetFileReader
+  // Factory function to create a FileReader from a ParquetFileReader and properties
+  // Returns an arrow::Result containing a unique pointer to the FileReader.
+  static ::arrow::Result<std::unique_ptr<FileReader>> Make(
+      ::arrow::MemoryPool* pool, std::unique_ptr<ParquetFileReader> reader,
+      const ArrowReaderProperties& properties);
+
+  // Factory function to create a FileReader from a ParquetFileReader.
+  // \deprecated Deprecated in 19.0.0. Use arrow::Result version instead.
+  ARROW_DEPRECATED("Deprecated in 19.0.0. Use arrow::Result version instead.")
   static ::arrow::Status Make(::arrow::MemoryPool* pool,
                               std::unique_ptr<ParquetFileReader> reader,
                               std::unique_ptr<FileReader>* out);
+
+  // Factory function to create a FileReader from a ParquetFileReader.
+  // Returns an arrow::Result containing a unique pointer to the FileReader.
+  static ::arrow::Result<std::unique_ptr<FileReader>> Make(
+      ::arrow::MemoryPool* pool, std::unique_ptr<ParquetFileReader> reader);
 
   // Since the distribution of columns amongst a Parquet file's row groups may
   // be uneven (the number of values in each column chunk can be different), we
