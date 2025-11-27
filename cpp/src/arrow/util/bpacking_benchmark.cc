@@ -106,7 +106,9 @@ constexpr std::initializer_list<int64_t> kBitWidths32 = {1, 2, 8, 20};
 constexpr std::initializer_list<int64_t> kBitWidths64 = {1, 2, 8, 20, 47};
 
 static const std::vector<std::vector<int64_t>> kBitWidthsNumValuesBool = {
-    {0, 1}, kNumValuesRange};
+    {0, 1},
+    kNumValuesRange,
+};
 static const std::vector<std::vector<int64_t>> kBitWidthsNumValues8 = {
     kBitWidths8,
     kNumValuesRange,
