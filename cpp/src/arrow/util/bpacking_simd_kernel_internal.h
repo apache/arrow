@@ -466,6 +466,15 @@ constexpr MediumKernelPlanSize BuildMediumPlanSize(const KernelShape& shape) {
   };
 }
 
+constexpr int reduced_bytes_per_read(int bits_per_read, int simd_byte_size) {
+  if (bits_per_read <= static_cast<int>(8 * sizeof(uint32_t))) {
+    return sizeof(uint32_t);
+  } else if (bits_per_read <= static_cast<int>(8 * sizeof(uint64_t))) {
+    return sizeof(uint64_t);
+  }
+  return simd_byte_size;
+}
+
 template <typename KernelTraits, typename KernelOptions>
 struct MediumKernelPlan {
   using Traits = KernelTraits;
@@ -496,8 +505,11 @@ struct MediumKernelPlan {
   }
 
   static constexpr int bytes_per_read() {
-    return unpacked_per_read() * kShape.packed_bit_size();
+    const auto bits_per_read = unpacked_per_read() * kShape.packed_bit_size();
+    return reduced_bytes_per_read(bits_per_read, kShape.simd_byte_size());
   }
+
+  constexpr int total_bytes_read() const { return reads.back() + bytes_per_read(); }
 
   ReadsPerKernel reads;
   SwizzlesPerKernel swizzles;
@@ -559,6 +571,22 @@ constexpr auto BuildMediumPlan() {
   return plan;
 }
 
+template <typename Uint, typename Arch>
+xsimd::batch<uint8_t, Arch> load_bytes_as(const uint8_t* in) {
+  const Uint val = util::SafeLoadAs<Uint>(in);
+  const auto batch = xsimd::batch<Uint, Arch>(val);
+  return xsimd::bitwise_cast<uint8_t>(batch);
+}
+
+template <int kBytes, typename Arch>
+xsimd::batch<uint8_t, Arch> load_bytes(const uint8_t* in) {
+  if constexpr (kBytes <= sizeof(uint64_t)) {
+    return load_bytes_as<SizedUint<kBytes>, Arch>(in);
+  }
+  using simd_bytes = xsimd::batch<uint8_t, Arch>;
+  return simd_bytes::load_unaligned(in);
+}
+
 template <typename KernelTraits, typename KernelOptions = MediumKernelOptions<32>>
 struct MediumKernel {
   static constexpr auto kPlan = BuildMediumPlan<KernelTraits, KernelOptions>();
@@ -572,6 +600,7 @@ struct MediumKernel {
   using arch_type = typename Traits::arch_type;
 
   static constexpr int kValuesUnpacked = kPlan.unpacked_per_kernel();
+  static constexpr int kBytesRead = kPlan.total_bytes_read();
 
   template <int kReadIdx, int kSwizzleIdx, int kShiftIdx>
   static void unpack_one_shift_impl(const simd_batch& words, unpacked_type* out) {
@@ -607,27 +636,12 @@ struct MediumKernel {
     (unpack_one_shift_impl<kReadIdx, kSwizzleIdx, kShiftIds>(words, out), ...);
   }
 
-  template <typename Uint>
-  static simd_bytes load_bytes_as(const uint8_t* in) {
-    const Uint val = util::SafeLoadAs<Uint>(in);
-    const auto batch = xsimd::batch<Uint, arch_type>(val);
-    return xsimd::bitwise_cast<uint8_t>(batch);
-  }
-
-  static simd_bytes load_bytes(const uint8_t* in) {
-    if constexpr (kPlan.bytes_per_read() > static_cast<int>(sizeof(uint64_t))) {
-      return simd_bytes::load_unaligned(in);
-    } else if constexpr (kPlan.bytes_per_read() > static_cast<int>(sizeof(uint32_t))) {
-      return load_bytes_as<uint64_t>(in);
-    }
-    return load_bytes_as<uint32_t>(in);
-  }
-
   template <int kReadIdx, int... kSwizzleIds>
   static void unpack_one_read_impl(const uint8_t* in, unpacked_type* out,
                                    std::integer_sequence<int, kSwizzleIds...>) {
     using ShiftSeq = std::make_integer_sequence<int, kPlanSize.shifts_per_swizzle()>;
-    const auto bytes = load_bytes(in + kPlan.reads.at(kReadIdx));
+    const auto bytes =
+        load_bytes<kPlan.bytes_per_read(), arch_type>(in + kPlan.reads.at(kReadIdx));
     (unpack_one_swizzle_impl<kReadIdx, kSwizzleIds>(bytes, out, ShiftSeq{}), ...);
   }
 
@@ -658,6 +672,7 @@ struct LargeKernelPlan {
   static constexpr int kUnpackedPerkernel = std::lcm(kShape.unpacked_per_simd(), 8);
   static constexpr int kReadsPerKernel = static_cast<int>(bit_util::CeilDiv(
       kUnpackedPerkernel * kShape.packed_bit_size(), kShape.simd_bit_size()));
+  static constexpr int kUnpackedPerRead = kUnpackedPerkernel / kReadsPerKernel;
 
   using ReadsPerKernel = std::array<int, kReadsPerKernel>;
 
@@ -666,6 +681,13 @@ struct LargeKernelPlan {
 
   using Shift = std::array<uint_type, kShape.unpacked_per_simd()>;
   using ShitsPerKernel = std::array<Shift, kReadsPerKernel>;
+
+  static constexpr int bytes_per_read() {
+    const auto bits_per_read = kUnpackedPerRead * kShape.packed_bit_size();
+    return reduced_bytes_per_read(bits_per_read, kShape.simd_byte_size());
+  }
+
+  constexpr int total_bytes_read() const { return reads.back() + bytes_per_read(); }
 
   ReadsPerKernel reads;
   SwizzlesPerKernel low_swizzles;
@@ -733,6 +755,7 @@ struct LargeKernel {
   using arch_type = typename Traits::arch_type;
 
   static constexpr int kValuesUnpacked = kPlan.kUnpackedPerkernel;
+  static constexpr int kBytesRead = kPlan.total_bytes_read();
 
   template <int kReadIdx>
   static void unpack_one_read_impl(const uint8_t* in, unpacked_type* out) {
@@ -746,7 +769,8 @@ struct LargeKernel {
     static constexpr auto kHighLShiftsArr = kPlan.high_lshifts.at(kReadIdx);
     constexpr auto kHighLShifts = make_batch_constant<kHighLShiftsArr, arch_type>();
 
-    const auto bytes = simd_bytes::load_unaligned(in + kPlan.reads.at(kReadIdx));
+    const auto bytes =
+        load_bytes<kPlan.bytes_per_read(), arch_type>(in + kPlan.reads.at(kReadIdx));
 
     const auto low_swizzled = swizzle_bytes(bytes, kLowSwizzles);
     const auto low_words = xsimd::bitwise_cast<unpacked_type>(low_swizzled);
@@ -792,6 +816,7 @@ struct NoOpKernel {
   using unpacked_type = typename KernelTraits::unpacked_type;
 
   static constexpr int kValuesUnpacked = 0;
+  static constexpr int kBytesRead = 0;
 
   static const uint8_t* unpack(const uint8_t* in, unpacked_type* out) { return in; }
 };
