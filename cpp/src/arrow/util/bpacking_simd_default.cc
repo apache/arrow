@@ -24,8 +24,8 @@
 #if defined(UNPACK_PLATFORM)
 
 #  include "arrow/util/bpacking_dispatch_internal.h"
-#  include "arrow/util/bpacking_simd_impl_internal.h"
 #  include "arrow/util/bpacking_simd_internal.h"
+#  include "arrow/util/bpacking_simd_kernel_internal.h"
 
 namespace arrow::internal {
 
