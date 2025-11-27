@@ -17,6 +17,7 @@
 
 #include "arrow/util/bpacking_dispatch_internal.h"
 #include "arrow/util/bpacking_simd_impl_internal.h"
+#include "arrow/util/bpacking_simd_internal.h"
 
 namespace arrow::internal {
 
