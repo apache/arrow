@@ -8,9 +8,9 @@
 
 // Ensure the included flatbuffers.h is the same version as when this file was
 // generated, otherwise it may not be compatible.
-static_assert(FLATBUFFERS_VERSION_MAJOR == 23 &&
-              FLATBUFFERS_VERSION_MINOR == 5 &&
-              FLATBUFFERS_VERSION_REVISION == 26,
+static_assert(FLATBUFFERS_VERSION_MAJOR == 24 &&
+              FLATBUFFERS_VERSION_MINOR == 3 &&
+              FLATBUFFERS_VERSION_REVISION == 6,
              "Non-compatible flatbuffers version included");
 
 namespace parquet {
@@ -28,8 +28,11 @@ struct TimeOptsBuilder;
 struct IntOpts;
 struct IntOptsBuilder;
 
-struct Value;
-struct ValueBuilder;
+struct GeometryType;
+struct GeometryTypeBuilder;
+
+struct GeographyType;
+struct GeographyTypeBuilder;
 
 struct Statistics;
 struct StatisticsBuilder;
@@ -39,9 +42,6 @@ struct SchemaElementBuilder;
 
 struct KV;
 struct KVBuilder;
-
-struct PageEncodingStats;
-struct PageEncodingStatsBuilder;
 
 struct ColumnMetadata;
 struct ColumnMetadataBuilder;
@@ -272,6 +272,45 @@ inline const char *EnumNameTimeUnit(TimeUnit e) {
   return EnumNamesTimeUnit()[index];
 }
 
+enum class EdgeInterpolationAlgorithm : int8_t {
+  SPHERICAL = 0,
+  VINCENTY = 1,
+  THOMAS = 2,
+  ANDOYER = 3,
+  KARNEY = 4,
+  MIN = SPHERICAL,
+  MAX = KARNEY
+};
+
+inline const EdgeInterpolationAlgorithm (&EnumValuesEdgeInterpolationAlgorithm())[5] {
+  static const EdgeInterpolationAlgorithm values[] = {
+    EdgeInterpolationAlgorithm::SPHERICAL,
+    EdgeInterpolationAlgorithm::VINCENTY,
+    EdgeInterpolationAlgorithm::THOMAS,
+    EdgeInterpolationAlgorithm::ANDOYER,
+    EdgeInterpolationAlgorithm::KARNEY
+  };
+  return values;
+}
+
+inline const char * const *EnumNamesEdgeInterpolationAlgorithm() {
+  static const char * const names[6] = {
+    "SPHERICAL",
+    "VINCENTY",
+    "THOMAS",
+    "ANDOYER",
+    "KARNEY",
+    nullptr
+  };
+  return names;
+}
+
+inline const char *EnumNameEdgeInterpolationAlgorithm(EdgeInterpolationAlgorithm e) {
+  if (::flatbuffers::IsOutRange(e, EdgeInterpolationAlgorithm::SPHERICAL, EdgeInterpolationAlgorithm::KARNEY)) return "";
+  const size_t index = static_cast<size_t>(e);
+  return EnumNamesEdgeInterpolationAlgorithm()[index];
+}
+
 enum class LogicalType : uint8_t {
   NONE = 0,
   StringType = 1,
@@ -288,11 +327,14 @@ enum class LogicalType : uint8_t {
   BsonType = 12,
   UUIDType = 13,
   Float16Type = 14,
+  VariantType = 15,
+  GeometryType = 16,
+  GeographyType = 17,
   MIN = NONE,
-  MAX = Float16Type
+  MAX = GeographyType
 };
 
-inline const LogicalType (&EnumValuesLogicalType())[15] {
+inline const LogicalType (&EnumValuesLogicalType())[18] {
   static const LogicalType values[] = {
     LogicalType::NONE,
     LogicalType::StringType,
@@ -308,13 +350,16 @@ inline const LogicalType (&EnumValuesLogicalType())[15] {
     LogicalType::JsonType,
     LogicalType::BsonType,
     LogicalType::UUIDType,
-    LogicalType::Float16Type
+    LogicalType::Float16Type,
+    LogicalType::VariantType,
+    LogicalType::GeometryType,
+    LogicalType::GeographyType
   };
   return values;
 }
 
 inline const char * const *EnumNamesLogicalType() {
-  static const char * const names[16] = {
+  static const char * const names[19] = {
     "NONE",
     "StringType",
     "MapType",
@@ -330,13 +375,16 @@ inline const char * const *EnumNamesLogicalType() {
     "BsonType",
     "UUIDType",
     "Float16Type",
+    "VariantType",
+    "GeometryType",
+    "GeographyType",
     nullptr
   };
   return names;
 }
 
 inline const char *EnumNameLogicalType(LogicalType e) {
-  if (::flatbuffers::IsOutRange(e, LogicalType::NONE, LogicalType::Float16Type)) return "";
+  if (::flatbuffers::IsOutRange(e, LogicalType::NONE, LogicalType::GeographyType)) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesLogicalType()[index];
 }
@@ -605,85 +653,160 @@ inline ::flatbuffers::Offset<IntOpts> CreateIntOpts(
   return builder_.Finish();
 }
 
-struct Value FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
-  typedef ValueBuilder Builder;
+struct GeometryType FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef GeometryTypeBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
-    VT_DATA = 4
+    VT_CRS = 4
   };
-  const ::flatbuffers::Vector<int8_t> *data() const {
-    return GetPointer<const ::flatbuffers::Vector<int8_t> *>(VT_DATA);
+  const ::flatbuffers::String *crs() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_CRS);
   }
   bool Verify(::flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
-           VerifyOffset(verifier, VT_DATA) &&
-           verifier.VerifyVector(data()) &&
+           VerifyOffset(verifier, VT_CRS) &&
+           verifier.VerifyString(crs()) &&
            verifier.EndTable();
   }
 };
 
-struct ValueBuilder {
-  typedef Value Table;
+struct GeometryTypeBuilder {
+  typedef GeometryType Table;
   ::flatbuffers::FlatBufferBuilder &fbb_;
   ::flatbuffers::uoffset_t start_;
-  void add_data(::flatbuffers::Offset<::flatbuffers::Vector<int8_t>> data) {
-    fbb_.AddOffset(Value::VT_DATA, data);
+  void add_crs(::flatbuffers::Offset<::flatbuffers::String> crs) {
+    fbb_.AddOffset(GeometryType::VT_CRS, crs);
   }
-  explicit ValueBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+  explicit GeometryTypeBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  ::flatbuffers::Offset<Value> Finish() {
+  ::flatbuffers::Offset<GeometryType> Finish() {
     const auto end = fbb_.EndTable(start_);
-    auto o = ::flatbuffers::Offset<Value>(end);
+    auto o = ::flatbuffers::Offset<GeometryType>(end);
     return o;
   }
 };
 
-inline ::flatbuffers::Offset<Value> CreateValue(
+inline ::flatbuffers::Offset<GeometryType> CreateGeometryType(
     ::flatbuffers::FlatBufferBuilder &_fbb,
-    ::flatbuffers::Offset<::flatbuffers::Vector<int8_t>> data = 0) {
-  ValueBuilder builder_(_fbb);
-  builder_.add_data(data);
+    ::flatbuffers::Offset<::flatbuffers::String> crs = 0) {
+  GeometryTypeBuilder builder_(_fbb);
+  builder_.add_crs(crs);
   return builder_.Finish();
 }
 
-inline ::flatbuffers::Offset<Value> CreateValueDirect(
+inline ::flatbuffers::Offset<GeometryType> CreateGeometryTypeDirect(
     ::flatbuffers::FlatBufferBuilder &_fbb,
-    const std::vector<int8_t> *data = nullptr) {
-  auto data__ = data ? _fbb.CreateVector<int8_t>(*data) : 0;
-  return parquet::format3::CreateValue(
+    const char *crs = nullptr) {
+  auto crs__ = crs ? _fbb.CreateString(crs) : 0;
+  return parquet::format3::CreateGeometryType(
       _fbb,
-      data__);
+      crs__);
+}
+
+struct GeographyType FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef GeographyTypeBuilder Builder;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_CRS = 4,
+    VT_ALGORITHM = 6
+  };
+  const ::flatbuffers::String *crs() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_CRS);
+  }
+  parquet::format3::EdgeInterpolationAlgorithm algorithm() const {
+    return static_cast<parquet::format3::EdgeInterpolationAlgorithm>(GetField<int8_t>(VT_ALGORITHM, 0));
+  }
+  bool Verify(::flatbuffers::Verifier &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyOffset(verifier, VT_CRS) &&
+           verifier.VerifyString(crs()) &&
+           VerifyField<int8_t>(verifier, VT_ALGORITHM, 1) &&
+           verifier.EndTable();
+  }
+};
+
+struct GeographyTypeBuilder {
+  typedef GeographyType Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_crs(::flatbuffers::Offset<::flatbuffers::String> crs) {
+    fbb_.AddOffset(GeographyType::VT_CRS, crs);
+  }
+  void add_algorithm(parquet::format3::EdgeInterpolationAlgorithm algorithm) {
+    fbb_.AddElement<int8_t>(GeographyType::VT_ALGORITHM, static_cast<int8_t>(algorithm), 0);
+  }
+  explicit GeographyTypeBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<GeographyType> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<GeographyType>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<GeographyType> CreateGeographyType(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    ::flatbuffers::Offset<::flatbuffers::String> crs = 0,
+    parquet::format3::EdgeInterpolationAlgorithm algorithm = parquet::format3::EdgeInterpolationAlgorithm::SPHERICAL) {
+  GeographyTypeBuilder builder_(_fbb);
+  builder_.add_crs(crs);
+  builder_.add_algorithm(algorithm);
+  return builder_.Finish();
+}
+
+inline ::flatbuffers::Offset<GeographyType> CreateGeographyTypeDirect(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    const char *crs = nullptr,
+    parquet::format3::EdgeInterpolationAlgorithm algorithm = parquet::format3::EdgeInterpolationAlgorithm::SPHERICAL) {
+  auto crs__ = crs ? _fbb.CreateString(crs) : 0;
+  return parquet::format3::CreateGeographyType(
+      _fbb,
+      crs__,
+      algorithm);
 }
 
 struct Statistics FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   typedef StatisticsBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_NULL_COUNT = 4,
-    VT_MAX4 = 6,
-    VT_MIN4 = 8,
-    VT_MAX8 = 10,
-    VT_MIN8 = 12,
-    VT_LENS = 14,
-    VT_PREFIX = 16
+    VT_MIN_LO4 = 6,
+    VT_MIN_LO8 = 8,
+    VT_MIN_HI8 = 10,
+    VT_MIN_LEN = 12,
+    VT_MAX_LO4 = 14,
+    VT_MAX_LO8 = 16,
+    VT_MAX_HI8 = 18,
+    VT_MAX_LEN = 20,
+    VT_PREFIX = 22
   };
   ::flatbuffers::Optional<int32_t> null_count() const {
     return GetOptional<int32_t, int32_t>(VT_NULL_COUNT);
   }
-  ::flatbuffers::Optional<uint32_t> max4() const {
-    return GetOptional<uint32_t, uint32_t>(VT_MAX4);
+  uint32_t min_lo4() const {
+    return GetField<uint32_t>(VT_MIN_LO4, 0);
   }
-  ::flatbuffers::Optional<uint32_t> min4() const {
-    return GetOptional<uint32_t, uint32_t>(VT_MIN4);
+  uint64_t min_lo8() const {
+    return GetField<uint64_t>(VT_MIN_LO8, 0);
   }
-  ::flatbuffers::Optional<uint64_t> max8() const {
-    return GetOptional<uint64_t, uint64_t>(VT_MAX8);
+  uint64_t min_hi8() const {
+    return GetField<uint64_t>(VT_MIN_HI8, 0);
   }
-  ::flatbuffers::Optional<uint64_t> min8() const {
-    return GetOptional<uint64_t, uint64_t>(VT_MIN8);
+  ::flatbuffers::Optional<int8_t> min_len() const {
+    return GetOptional<int8_t, int8_t>(VT_MIN_LEN);
   }
-  int8_t lens() const {
-    return GetField<int8_t>(VT_LENS, 0);
+  uint32_t max_lo4() const {
+    return GetField<uint32_t>(VT_MAX_LO4, 0);
+  }
+  uint64_t max_lo8() const {
+    return GetField<uint64_t>(VT_MAX_LO8, 0);
+  }
+  uint64_t max_hi8() const {
+    return GetField<uint64_t>(VT_MAX_HI8, 0);
+  }
+  ::flatbuffers::Optional<int8_t> max_len() const {
+    return GetOptional<int8_t, int8_t>(VT_MAX_LEN);
   }
   const ::flatbuffers::String *prefix() const {
     return GetPointer<const ::flatbuffers::String *>(VT_PREFIX);
@@ -691,11 +814,14 @@ struct Statistics FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   bool Verify(::flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
            VerifyField<int32_t>(verifier, VT_NULL_COUNT, 4) &&
-           VerifyField<uint32_t>(verifier, VT_MAX4, 4) &&
-           VerifyField<uint32_t>(verifier, VT_MIN4, 4) &&
-           VerifyField<uint64_t>(verifier, VT_MAX8, 8) &&
-           VerifyField<uint64_t>(verifier, VT_MIN8, 8) &&
-           VerifyField<int8_t>(verifier, VT_LENS, 1) &&
+           VerifyField<uint32_t>(verifier, VT_MIN_LO4, 4) &&
+           VerifyField<uint64_t>(verifier, VT_MIN_LO8, 8) &&
+           VerifyField<uint64_t>(verifier, VT_MIN_HI8, 8) &&
+           VerifyField<int8_t>(verifier, VT_MIN_LEN, 1) &&
+           VerifyField<uint32_t>(verifier, VT_MAX_LO4, 4) &&
+           VerifyField<uint64_t>(verifier, VT_MAX_LO8, 8) &&
+           VerifyField<uint64_t>(verifier, VT_MAX_HI8, 8) &&
+           VerifyField<int8_t>(verifier, VT_MAX_LEN, 1) &&
            VerifyOffset(verifier, VT_PREFIX) &&
            verifier.VerifyString(prefix()) &&
            verifier.EndTable();
@@ -709,20 +835,29 @@ struct StatisticsBuilder {
   void add_null_count(int32_t null_count) {
     fbb_.AddElement<int32_t>(Statistics::VT_NULL_COUNT, null_count);
   }
-  void add_max4(uint32_t max4) {
-    fbb_.AddElement<uint32_t>(Statistics::VT_MAX4, max4);
+  void add_min_lo4(uint32_t min_lo4) {
+    fbb_.AddElement<uint32_t>(Statistics::VT_MIN_LO4, min_lo4, 0);
   }
-  void add_min4(uint32_t min4) {
-    fbb_.AddElement<uint32_t>(Statistics::VT_MIN4, min4);
+  void add_min_lo8(uint64_t min_lo8) {
+    fbb_.AddElement<uint64_t>(Statistics::VT_MIN_LO8, min_lo8, 0);
   }
-  void add_max8(uint64_t max8) {
-    fbb_.AddElement<uint64_t>(Statistics::VT_MAX8, max8);
+  void add_min_hi8(uint64_t min_hi8) {
+    fbb_.AddElement<uint64_t>(Statistics::VT_MIN_HI8, min_hi8, 0);
   }
-  void add_min8(uint64_t min8) {
-    fbb_.AddElement<uint64_t>(Statistics::VT_MIN8, min8);
+  void add_min_len(int8_t min_len) {
+    fbb_.AddElement<int8_t>(Statistics::VT_MIN_LEN, min_len);
   }
-  void add_lens(int8_t lens) {
-    fbb_.AddElement<int8_t>(Statistics::VT_LENS, lens, 0);
+  void add_max_lo4(uint32_t max_lo4) {
+    fbb_.AddElement<uint32_t>(Statistics::VT_MAX_LO4, max_lo4, 0);
+  }
+  void add_max_lo8(uint64_t max_lo8) {
+    fbb_.AddElement<uint64_t>(Statistics::VT_MAX_LO8, max_lo8, 0);
+  }
+  void add_max_hi8(uint64_t max_hi8) {
+    fbb_.AddElement<uint64_t>(Statistics::VT_MAX_HI8, max_hi8, 0);
+  }
+  void add_max_len(int8_t max_len) {
+    fbb_.AddElement<int8_t>(Statistics::VT_MAX_LEN, max_len);
   }
   void add_prefix(::flatbuffers::Offset<::flatbuffers::String> prefix) {
     fbb_.AddOffset(Statistics::VT_PREFIX, prefix);
@@ -741,41 +876,53 @@ struct StatisticsBuilder {
 inline ::flatbuffers::Offset<Statistics> CreateStatistics(
     ::flatbuffers::FlatBufferBuilder &_fbb,
     ::flatbuffers::Optional<int32_t> null_count = ::flatbuffers::nullopt,
-    ::flatbuffers::Optional<uint32_t> max4 = ::flatbuffers::nullopt,
-    ::flatbuffers::Optional<uint32_t> min4 = ::flatbuffers::nullopt,
-    ::flatbuffers::Optional<uint64_t> max8 = ::flatbuffers::nullopt,
-    ::flatbuffers::Optional<uint64_t> min8 = ::flatbuffers::nullopt,
-    int8_t lens = 0,
+    uint32_t min_lo4 = 0,
+    uint64_t min_lo8 = 0,
+    uint64_t min_hi8 = 0,
+    ::flatbuffers::Optional<int8_t> min_len = ::flatbuffers::nullopt,
+    uint32_t max_lo4 = 0,
+    uint64_t max_lo8 = 0,
+    uint64_t max_hi8 = 0,
+    ::flatbuffers::Optional<int8_t> max_len = ::flatbuffers::nullopt,
     ::flatbuffers::Offset<::flatbuffers::String> prefix = 0) {
   StatisticsBuilder builder_(_fbb);
-  if(min8) { builder_.add_min8(*min8); }
-  if(max8) { builder_.add_max8(*max8); }
+  builder_.add_max_hi8(max_hi8);
+  builder_.add_max_lo8(max_lo8);
+  builder_.add_min_hi8(min_hi8);
+  builder_.add_min_lo8(min_lo8);
   builder_.add_prefix(prefix);
-  if(min4) { builder_.add_min4(*min4); }
-  if(max4) { builder_.add_max4(*max4); }
+  builder_.add_max_lo4(max_lo4);
+  builder_.add_min_lo4(min_lo4);
   if(null_count) { builder_.add_null_count(*null_count); }
-  builder_.add_lens(lens);
+  if(max_len) { builder_.add_max_len(*max_len); }
+  if(min_len) { builder_.add_min_len(*min_len); }
   return builder_.Finish();
 }
 
 inline ::flatbuffers::Offset<Statistics> CreateStatisticsDirect(
     ::flatbuffers::FlatBufferBuilder &_fbb,
     ::flatbuffers::Optional<int32_t> null_count = ::flatbuffers::nullopt,
-    ::flatbuffers::Optional<uint32_t> max4 = ::flatbuffers::nullopt,
-    ::flatbuffers::Optional<uint32_t> min4 = ::flatbuffers::nullopt,
-    ::flatbuffers::Optional<uint64_t> max8 = ::flatbuffers::nullopt,
-    ::flatbuffers::Optional<uint64_t> min8 = ::flatbuffers::nullopt,
-    int8_t lens = 0,
+    uint32_t min_lo4 = 0,
+    uint64_t min_lo8 = 0,
+    uint64_t min_hi8 = 0,
+    ::flatbuffers::Optional<int8_t> min_len = ::flatbuffers::nullopt,
+    uint32_t max_lo4 = 0,
+    uint64_t max_lo8 = 0,
+    uint64_t max_hi8 = 0,
+    ::flatbuffers::Optional<int8_t> max_len = ::flatbuffers::nullopt,
     const char *prefix = nullptr) {
   auto prefix__ = prefix ? _fbb.CreateString(prefix) : 0;
   return parquet::format3::CreateStatistics(
       _fbb,
       null_count,
-      max4,
-      min4,
-      max8,
-      min8,
-      lens,
+      min_lo4,
+      min_lo8,
+      min_hi8,
+      min_len,
+      max_lo4,
+      max_lo8,
+      max_hi8,
+      max_len,
       prefix__);
 }
 
@@ -849,6 +996,15 @@ struct SchemaElement FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   }
   const parquet::format3::Empty *logical_type_as_Float16Type() const {
     return logical_type_type() == parquet::format3::LogicalType::Float16Type ? static_cast<const parquet::format3::Empty *>(logical_type()) : nullptr;
+  }
+  const parquet::format3::Empty *logical_type_as_VariantType() const {
+    return logical_type_type() == parquet::format3::LogicalType::VariantType ? static_cast<const parquet::format3::Empty *>(logical_type()) : nullptr;
+  }
+  const parquet::format3::GeometryType *logical_type_as_GeometryType() const {
+    return logical_type_type() == parquet::format3::LogicalType::GeometryType ? static_cast<const parquet::format3::GeometryType *>(logical_type()) : nullptr;
+  }
+  const parquet::format3::GeographyType *logical_type_as_GeographyType() const {
+    return logical_type_type() == parquet::format3::LogicalType::GeographyType ? static_cast<const parquet::format3::GeographyType *>(logical_type()) : nullptr;
   }
   ::flatbuffers::Optional<int32_t> type_length() const {
     return GetOptional<int32_t, int32_t>(VT_TYPE_LENGTH);
@@ -1055,110 +1211,45 @@ inline ::flatbuffers::Offset<KV> CreateKVDirect(
       val__);
 }
 
-struct PageEncodingStats FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
-  typedef PageEncodingStatsBuilder Builder;
-  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
-    VT_PAGE_TYPE = 4,
-    VT_ENCODING = 6,
-    VT_COUNT = 8
-  };
-  parquet::format3::PageType page_type() const {
-    return static_cast<parquet::format3::PageType>(GetField<int8_t>(VT_PAGE_TYPE, 0));
-  }
-  parquet::format3::Encoding encoding() const {
-    return static_cast<parquet::format3::Encoding>(GetField<int8_t>(VT_ENCODING, 0));
-  }
-  int32_t count() const {
-    return GetField<int32_t>(VT_COUNT, 0);
-  }
-  bool Verify(::flatbuffers::Verifier &verifier) const {
-    return VerifyTableStart(verifier) &&
-           VerifyField<int8_t>(verifier, VT_PAGE_TYPE, 1) &&
-           VerifyField<int8_t>(verifier, VT_ENCODING, 1) &&
-           VerifyField<int32_t>(verifier, VT_COUNT, 4) &&
-           verifier.EndTable();
-  }
-};
-
-struct PageEncodingStatsBuilder {
-  typedef PageEncodingStats Table;
-  ::flatbuffers::FlatBufferBuilder &fbb_;
-  ::flatbuffers::uoffset_t start_;
-  void add_page_type(parquet::format3::PageType page_type) {
-    fbb_.AddElement<int8_t>(PageEncodingStats::VT_PAGE_TYPE, static_cast<int8_t>(page_type), 0);
-  }
-  void add_encoding(parquet::format3::Encoding encoding) {
-    fbb_.AddElement<int8_t>(PageEncodingStats::VT_ENCODING, static_cast<int8_t>(encoding), 0);
-  }
-  void add_count(int32_t count) {
-    fbb_.AddElement<int32_t>(PageEncodingStats::VT_COUNT, count, 0);
-  }
-  explicit PageEncodingStatsBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
-        : fbb_(_fbb) {
-    start_ = fbb_.StartTable();
-  }
-  ::flatbuffers::Offset<PageEncodingStats> Finish() {
-    const auto end = fbb_.EndTable(start_);
-    auto o = ::flatbuffers::Offset<PageEncodingStats>(end);
-    return o;
-  }
-};
-
-inline ::flatbuffers::Offset<PageEncodingStats> CreatePageEncodingStats(
-    ::flatbuffers::FlatBufferBuilder &_fbb,
-    parquet::format3::PageType page_type = parquet::format3::PageType::DATA_PAGE,
-    parquet::format3::Encoding encoding = parquet::format3::Encoding::PLAIN,
-    int32_t count = 0) {
-  PageEncodingStatsBuilder builder_(_fbb);
-  builder_.add_count(count);
-  builder_.add_encoding(encoding);
-  builder_.add_page_type(page_type);
-  return builder_.Finish();
-}
-
 struct ColumnMetadata FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   typedef ColumnMetadataBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
-    VT_TYPE = 4,
-    VT_CODEC = 6,
-    VT_NUM_VALUES = 8,
-    VT_TOTAL_UNCOMPRESSED_SIZE = 10,
-    VT_TOTAL_COMPRESSED_SIZE = 12,
-    VT_KEY_VALUE_METADATA = 14,
-    VT_DATA_PAGE_OFFSET = 16,
-    VT_INDEX_PAGE_OFFSET = 18,
-    VT_DICTIONARY_PAGE_OFFSET = 20,
-    VT_STATISTICS = 22,
-    VT_IS_FULLY_DICT_ENCODED = 24,
-    VT_BLOOM_FILTER_OFFSET = 26,
-    VT_BLOOM_FILTER_LENGTH = 28
+    VT_CODEC = 4,
+    VT_NUM_VALUES = 6,
+    VT_TOTAL_UNCOMPRESSED_SIZE = 8,
+    VT_TOTAL_COMPRESSED_SIZE = 10,
+    VT_KEY_VALUE_METADATA = 12,
+    VT_DATA_PAGE_OFFSET = 14,
+    VT_INDEX_PAGE_OFFSET = 16,
+    VT_DICTIONARY_PAGE_OFFSET = 18,
+    VT_STATISTICS = 20,
+    VT_IS_FULLY_DICT_ENCODED = 22,
+    VT_BLOOM_FILTER_OFFSET = 24,
+    VT_BLOOM_FILTER_LENGTH = 26
   };
-  parquet::format3::Type type() const {
-    return static_cast<parquet::format3::Type>(GetField<int8_t>(VT_TYPE, 0));
-  }
   parquet::format3::CompressionCodec codec() const {
     return static_cast<parquet::format3::CompressionCodec>(GetField<int8_t>(VT_CODEC, 0));
   }
-  int32_t num_values() const {
-    return GetField<int32_t>(VT_NUM_VALUES, 0);
+  ::flatbuffers::Optional<int64_t> num_values() const {
+    return GetOptional<int64_t, int64_t>(VT_NUM_VALUES);
   }
-  int32_t total_uncompressed_size() const {
-    return GetField<int32_t>(VT_TOTAL_UNCOMPRESSED_SIZE, 0);
+  int64_t total_uncompressed_size() const {
+    return GetField<int64_t>(VT_TOTAL_UNCOMPRESSED_SIZE, 0);
   }
-  int32_t total_compressed_size() const {
-    return GetField<int32_t>(VT_TOTAL_COMPRESSED_SIZE, 0);
+  int64_t total_compressed_size() const {
+    return GetField<int64_t>(VT_TOTAL_COMPRESSED_SIZE, 0);
   }
   const ::flatbuffers::Vector<::flatbuffers::Offset<parquet::format3::KV>> *key_value_metadata() const {
     return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<parquet::format3::KV>> *>(VT_KEY_VALUE_METADATA);
   }
-  int32_t data_page_offset() const {
-    return GetField<int32_t>(VT_DATA_PAGE_OFFSET, 0);
+  int64_t data_page_offset() const {
+    return GetField<int64_t>(VT_DATA_PAGE_OFFSET, 0);
   }
-  ::flatbuffers::Optional<int32_t> index_page_offset() const {
-    return GetOptional<int32_t, int32_t>(VT_INDEX_PAGE_OFFSET);
+  ::flatbuffers::Optional<int64_t> index_page_offset() const {
+    return GetOptional<int64_t, int64_t>(VT_INDEX_PAGE_OFFSET);
   }
-  ::flatbuffers::Optional<int32_t> dictionary_page_offset() const {
-    return GetOptional<int32_t, int32_t>(VT_DICTIONARY_PAGE_OFFSET);
+  ::flatbuffers::Optional<int64_t> dictionary_page_offset() const {
+    return GetOptional<int64_t, int64_t>(VT_DICTIONARY_PAGE_OFFSET);
   }
   const parquet::format3::Statistics *statistics() const {
     return GetPointer<const parquet::format3::Statistics *>(VT_STATISTICS);
@@ -1166,29 +1257,28 @@ struct ColumnMetadata FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   bool is_fully_dict_encoded() const {
     return GetField<uint8_t>(VT_IS_FULLY_DICT_ENCODED, 0) != 0;
   }
-  ::flatbuffers::Optional<int32_t> bloom_filter_offset() const {
-    return GetOptional<int32_t, int32_t>(VT_BLOOM_FILTER_OFFSET);
+  ::flatbuffers::Optional<int64_t> bloom_filter_offset() const {
+    return GetOptional<int64_t, int64_t>(VT_BLOOM_FILTER_OFFSET);
   }
   ::flatbuffers::Optional<int32_t> bloom_filter_length() const {
     return GetOptional<int32_t, int32_t>(VT_BLOOM_FILTER_LENGTH);
   }
   bool Verify(::flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
-           VerifyField<int8_t>(verifier, VT_TYPE, 1) &&
            VerifyField<int8_t>(verifier, VT_CODEC, 1) &&
-           VerifyField<int32_t>(verifier, VT_NUM_VALUES, 4) &&
-           VerifyField<int32_t>(verifier, VT_TOTAL_UNCOMPRESSED_SIZE, 4) &&
-           VerifyField<int32_t>(verifier, VT_TOTAL_COMPRESSED_SIZE, 4) &&
+           VerifyField<int64_t>(verifier, VT_NUM_VALUES, 8) &&
+           VerifyField<int64_t>(verifier, VT_TOTAL_UNCOMPRESSED_SIZE, 8) &&
+           VerifyField<int64_t>(verifier, VT_TOTAL_COMPRESSED_SIZE, 8) &&
            VerifyOffset(verifier, VT_KEY_VALUE_METADATA) &&
            verifier.VerifyVector(key_value_metadata()) &&
            verifier.VerifyVectorOfTables(key_value_metadata()) &&
-           VerifyField<int32_t>(verifier, VT_DATA_PAGE_OFFSET, 4) &&
-           VerifyField<int32_t>(verifier, VT_INDEX_PAGE_OFFSET, 4) &&
-           VerifyField<int32_t>(verifier, VT_DICTIONARY_PAGE_OFFSET, 4) &&
+           VerifyField<int64_t>(verifier, VT_DATA_PAGE_OFFSET, 8) &&
+           VerifyField<int64_t>(verifier, VT_INDEX_PAGE_OFFSET, 8) &&
+           VerifyField<int64_t>(verifier, VT_DICTIONARY_PAGE_OFFSET, 8) &&
            VerifyOffset(verifier, VT_STATISTICS) &&
            verifier.VerifyTable(statistics()) &&
            VerifyField<uint8_t>(verifier, VT_IS_FULLY_DICT_ENCODED, 1) &&
-           VerifyField<int32_t>(verifier, VT_BLOOM_FILTER_OFFSET, 4) &&
+           VerifyField<int64_t>(verifier, VT_BLOOM_FILTER_OFFSET, 8) &&
            VerifyField<int32_t>(verifier, VT_BLOOM_FILTER_LENGTH, 4) &&
            verifier.EndTable();
   }
@@ -1198,32 +1288,29 @@ struct ColumnMetadataBuilder {
   typedef ColumnMetadata Table;
   ::flatbuffers::FlatBufferBuilder &fbb_;
   ::flatbuffers::uoffset_t start_;
-  void add_type(parquet::format3::Type type) {
-    fbb_.AddElement<int8_t>(ColumnMetadata::VT_TYPE, static_cast<int8_t>(type), 0);
-  }
   void add_codec(parquet::format3::CompressionCodec codec) {
     fbb_.AddElement<int8_t>(ColumnMetadata::VT_CODEC, static_cast<int8_t>(codec), 0);
   }
-  void add_num_values(int32_t num_values) {
-    fbb_.AddElement<int32_t>(ColumnMetadata::VT_NUM_VALUES, num_values, 0);
+  void add_num_values(int64_t num_values) {
+    fbb_.AddElement<int64_t>(ColumnMetadata::VT_NUM_VALUES, num_values);
   }
-  void add_total_uncompressed_size(int32_t total_uncompressed_size) {
-    fbb_.AddElement<int32_t>(ColumnMetadata::VT_TOTAL_UNCOMPRESSED_SIZE, total_uncompressed_size, 0);
+  void add_total_uncompressed_size(int64_t total_uncompressed_size) {
+    fbb_.AddElement<int64_t>(ColumnMetadata::VT_TOTAL_UNCOMPRESSED_SIZE, total_uncompressed_size, 0);
   }
-  void add_total_compressed_size(int32_t total_compressed_size) {
-    fbb_.AddElement<int32_t>(ColumnMetadata::VT_TOTAL_COMPRESSED_SIZE, total_compressed_size, 0);
+  void add_total_compressed_size(int64_t total_compressed_size) {
+    fbb_.AddElement<int64_t>(ColumnMetadata::VT_TOTAL_COMPRESSED_SIZE, total_compressed_size, 0);
   }
   void add_key_value_metadata(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<parquet::format3::KV>>> key_value_metadata) {
     fbb_.AddOffset(ColumnMetadata::VT_KEY_VALUE_METADATA, key_value_metadata);
   }
-  void add_data_page_offset(int32_t data_page_offset) {
-    fbb_.AddElement<int32_t>(ColumnMetadata::VT_DATA_PAGE_OFFSET, data_page_offset, 0);
+  void add_data_page_offset(int64_t data_page_offset) {
+    fbb_.AddElement<int64_t>(ColumnMetadata::VT_DATA_PAGE_OFFSET, data_page_offset, 0);
   }
-  void add_index_page_offset(int32_t index_page_offset) {
-    fbb_.AddElement<int32_t>(ColumnMetadata::VT_INDEX_PAGE_OFFSET, index_page_offset);
+  void add_index_page_offset(int64_t index_page_offset) {
+    fbb_.AddElement<int64_t>(ColumnMetadata::VT_INDEX_PAGE_OFFSET, index_page_offset);
   }
-  void add_dictionary_page_offset(int32_t dictionary_page_offset) {
-    fbb_.AddElement<int32_t>(ColumnMetadata::VT_DICTIONARY_PAGE_OFFSET, dictionary_page_offset);
+  void add_dictionary_page_offset(int64_t dictionary_page_offset) {
+    fbb_.AddElement<int64_t>(ColumnMetadata::VT_DICTIONARY_PAGE_OFFSET, dictionary_page_offset);
   }
   void add_statistics(::flatbuffers::Offset<parquet::format3::Statistics> statistics) {
     fbb_.AddOffset(ColumnMetadata::VT_STATISTICS, statistics);
@@ -1231,8 +1318,8 @@ struct ColumnMetadataBuilder {
   void add_is_fully_dict_encoded(bool is_fully_dict_encoded) {
     fbb_.AddElement<uint8_t>(ColumnMetadata::VT_IS_FULLY_DICT_ENCODED, static_cast<uint8_t>(is_fully_dict_encoded), 0);
   }
-  void add_bloom_filter_offset(int32_t bloom_filter_offset) {
-    fbb_.AddElement<int32_t>(ColumnMetadata::VT_BLOOM_FILTER_OFFSET, bloom_filter_offset);
+  void add_bloom_filter_offset(int64_t bloom_filter_offset) {
+    fbb_.AddElement<int64_t>(ColumnMetadata::VT_BLOOM_FILTER_OFFSET, bloom_filter_offset);
   }
   void add_bloom_filter_length(int32_t bloom_filter_length) {
     fbb_.AddElement<int32_t>(ColumnMetadata::VT_BLOOM_FILTER_LENGTH, bloom_filter_length);
@@ -1250,55 +1337,51 @@ struct ColumnMetadataBuilder {
 
 inline ::flatbuffers::Offset<ColumnMetadata> CreateColumnMetadata(
     ::flatbuffers::FlatBufferBuilder &_fbb,
-    parquet::format3::Type type = parquet::format3::Type::BOOLEAN,
     parquet::format3::CompressionCodec codec = parquet::format3::CompressionCodec::UNCOMPRESSED,
-    int32_t num_values = 0,
-    int32_t total_uncompressed_size = 0,
-    int32_t total_compressed_size = 0,
+    ::flatbuffers::Optional<int64_t> num_values = ::flatbuffers::nullopt,
+    int64_t total_uncompressed_size = 0,
+    int64_t total_compressed_size = 0,
     ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<parquet::format3::KV>>> key_value_metadata = 0,
-    int32_t data_page_offset = 0,
-    ::flatbuffers::Optional<int32_t> index_page_offset = ::flatbuffers::nullopt,
-    ::flatbuffers::Optional<int32_t> dictionary_page_offset = ::flatbuffers::nullopt,
+    int64_t data_page_offset = 0,
+    ::flatbuffers::Optional<int64_t> index_page_offset = ::flatbuffers::nullopt,
+    ::flatbuffers::Optional<int64_t> dictionary_page_offset = ::flatbuffers::nullopt,
     ::flatbuffers::Offset<parquet::format3::Statistics> statistics = 0,
     bool is_fully_dict_encoded = false,
-    ::flatbuffers::Optional<int32_t> bloom_filter_offset = ::flatbuffers::nullopt,
+    ::flatbuffers::Optional<int64_t> bloom_filter_offset = ::flatbuffers::nullopt,
     ::flatbuffers::Optional<int32_t> bloom_filter_length = ::flatbuffers::nullopt) {
   ColumnMetadataBuilder builder_(_fbb);
-  if(bloom_filter_length) { builder_.add_bloom_filter_length(*bloom_filter_length); }
   if(bloom_filter_offset) { builder_.add_bloom_filter_offset(*bloom_filter_offset); }
-  builder_.add_statistics(statistics);
   if(dictionary_page_offset) { builder_.add_dictionary_page_offset(*dictionary_page_offset); }
   if(index_page_offset) { builder_.add_index_page_offset(*index_page_offset); }
   builder_.add_data_page_offset(data_page_offset);
-  builder_.add_key_value_metadata(key_value_metadata);
   builder_.add_total_compressed_size(total_compressed_size);
   builder_.add_total_uncompressed_size(total_uncompressed_size);
-  builder_.add_num_values(num_values);
+  if(num_values) { builder_.add_num_values(*num_values); }
+  if(bloom_filter_length) { builder_.add_bloom_filter_length(*bloom_filter_length); }
+  builder_.add_statistics(statistics);
+  builder_.add_key_value_metadata(key_value_metadata);
   builder_.add_is_fully_dict_encoded(is_fully_dict_encoded);
   builder_.add_codec(codec);
-  builder_.add_type(type);
   return builder_.Finish();
 }
 
 inline ::flatbuffers::Offset<ColumnMetadata> CreateColumnMetadataDirect(
     ::flatbuffers::FlatBufferBuilder &_fbb,
-    parquet::format3::Type type = parquet::format3::Type::BOOLEAN,
     parquet::format3::CompressionCodec codec = parquet::format3::CompressionCodec::UNCOMPRESSED,
-    int32_t num_values = 0,
-    int32_t total_uncompressed_size = 0,
-    int32_t total_compressed_size = 0,
+    ::flatbuffers::Optional<int64_t> num_values = ::flatbuffers::nullopt,
+    int64_t total_uncompressed_size = 0,
+    int64_t total_compressed_size = 0,
     const std::vector<::flatbuffers::Offset<parquet::format3::KV>> *key_value_metadata = nullptr,
-    int32_t data_page_offset = 0,
-    ::flatbuffers::Optional<int32_t> index_page_offset = ::flatbuffers::nullopt,
-    ::flatbuffers::Optional<int32_t> dictionary_page_offset = ::flatbuffers::nullopt,
+    int64_t data_page_offset = 0,
+    ::flatbuffers::Optional<int64_t> index_page_offset = ::flatbuffers::nullopt,
+    ::flatbuffers::Optional<int64_t> dictionary_page_offset = ::flatbuffers::nullopt,
     ::flatbuffers::Offset<parquet::format3::Statistics> statistics = 0,
     bool is_fully_dict_encoded = false,
-    ::flatbuffers::Optional<int32_t> bloom_filter_offset = ::flatbuffers::nullopt,
+    ::flatbuffers::Optional<int64_t> bloom_filter_offset = ::flatbuffers::nullopt,
     ::flatbuffers::Optional<int32_t> bloom_filter_length = ::flatbuffers::nullopt) {
   auto key_value_metadata__ = key_value_metadata ? _fbb.CreateVector<::flatbuffers::Offset<parquet::format3::KV>>(*key_value_metadata) : 0;
   return parquet::format3::CreateColumnMetadata(
       _fbb,
-      type,
       codec,
       num_values,
       total_uncompressed_size,
@@ -1452,11 +1535,11 @@ struct RowGroup FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   const ::flatbuffers::Vector<::flatbuffers::Offset<parquet::format3::ColumnChunk>> *columns() const {
     return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<parquet::format3::ColumnChunk>> *>(VT_COLUMNS);
   }
-  int32_t total_byte_size() const {
-    return GetField<int32_t>(VT_TOTAL_BYTE_SIZE, 0);
+  int64_t total_byte_size() const {
+    return GetField<int64_t>(VT_TOTAL_BYTE_SIZE, 0);
   }
-  int32_t num_rows() const {
-    return GetField<int32_t>(VT_NUM_ROWS, 0);
+  int64_t num_rows() const {
+    return GetField<int64_t>(VT_NUM_ROWS, 0);
   }
   const ::flatbuffers::Vector<::flatbuffers::Offset<parquet::format3::SortingColumn>> *sorting_columns() const {
     return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<parquet::format3::SortingColumn>> *>(VT_SORTING_COLUMNS);
@@ -1464,8 +1547,8 @@ struct RowGroup FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   int64_t file_offset() const {
     return GetField<int64_t>(VT_FILE_OFFSET, 0);
   }
-  int32_t total_compressed_size() const {
-    return GetField<int32_t>(VT_TOTAL_COMPRESSED_SIZE, 0);
+  int64_t total_compressed_size() const {
+    return GetField<int64_t>(VT_TOTAL_COMPRESSED_SIZE, 0);
   }
   ::flatbuffers::Optional<int16_t> ordinal() const {
     return GetOptional<int16_t, int16_t>(VT_ORDINAL);
@@ -1475,13 +1558,13 @@ struct RowGroup FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            VerifyOffset(verifier, VT_COLUMNS) &&
            verifier.VerifyVector(columns()) &&
            verifier.VerifyVectorOfTables(columns()) &&
-           VerifyField<int32_t>(verifier, VT_TOTAL_BYTE_SIZE, 4) &&
-           VerifyField<int32_t>(verifier, VT_NUM_ROWS, 4) &&
+           VerifyField<int64_t>(verifier, VT_TOTAL_BYTE_SIZE, 8) &&
+           VerifyField<int64_t>(verifier, VT_NUM_ROWS, 8) &&
            VerifyOffset(verifier, VT_SORTING_COLUMNS) &&
            verifier.VerifyVector(sorting_columns()) &&
            verifier.VerifyVectorOfTables(sorting_columns()) &&
            VerifyField<int64_t>(verifier, VT_FILE_OFFSET, 8) &&
-           VerifyField<int32_t>(verifier, VT_TOTAL_COMPRESSED_SIZE, 4) &&
+           VerifyField<int64_t>(verifier, VT_TOTAL_COMPRESSED_SIZE, 8) &&
            VerifyField<int16_t>(verifier, VT_ORDINAL, 2) &&
            verifier.EndTable();
   }
@@ -1494,11 +1577,11 @@ struct RowGroupBuilder {
   void add_columns(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<parquet::format3::ColumnChunk>>> columns) {
     fbb_.AddOffset(RowGroup::VT_COLUMNS, columns);
   }
-  void add_total_byte_size(int32_t total_byte_size) {
-    fbb_.AddElement<int32_t>(RowGroup::VT_TOTAL_BYTE_SIZE, total_byte_size, 0);
+  void add_total_byte_size(int64_t total_byte_size) {
+    fbb_.AddElement<int64_t>(RowGroup::VT_TOTAL_BYTE_SIZE, total_byte_size, 0);
   }
-  void add_num_rows(int32_t num_rows) {
-    fbb_.AddElement<int32_t>(RowGroup::VT_NUM_ROWS, num_rows, 0);
+  void add_num_rows(int64_t num_rows) {
+    fbb_.AddElement<int64_t>(RowGroup::VT_NUM_ROWS, num_rows, 0);
   }
   void add_sorting_columns(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<parquet::format3::SortingColumn>>> sorting_columns) {
     fbb_.AddOffset(RowGroup::VT_SORTING_COLUMNS, sorting_columns);
@@ -1506,8 +1589,8 @@ struct RowGroupBuilder {
   void add_file_offset(int64_t file_offset) {
     fbb_.AddElement<int64_t>(RowGroup::VT_FILE_OFFSET, file_offset, 0);
   }
-  void add_total_compressed_size(int32_t total_compressed_size) {
-    fbb_.AddElement<int32_t>(RowGroup::VT_TOTAL_COMPRESSED_SIZE, total_compressed_size, 0);
+  void add_total_compressed_size(int64_t total_compressed_size) {
+    fbb_.AddElement<int64_t>(RowGroup::VT_TOTAL_COMPRESSED_SIZE, total_compressed_size, 0);
   }
   void add_ordinal(int16_t ordinal) {
     fbb_.AddElement<int16_t>(RowGroup::VT_ORDINAL, ordinal);
@@ -1526,18 +1609,18 @@ struct RowGroupBuilder {
 inline ::flatbuffers::Offset<RowGroup> CreateRowGroup(
     ::flatbuffers::FlatBufferBuilder &_fbb,
     ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<parquet::format3::ColumnChunk>>> columns = 0,
-    int32_t total_byte_size = 0,
-    int32_t num_rows = 0,
+    int64_t total_byte_size = 0,
+    int64_t num_rows = 0,
     ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<parquet::format3::SortingColumn>>> sorting_columns = 0,
     int64_t file_offset = 0,
-    int32_t total_compressed_size = 0,
+    int64_t total_compressed_size = 0,
     ::flatbuffers::Optional<int16_t> ordinal = ::flatbuffers::nullopt) {
   RowGroupBuilder builder_(_fbb);
-  builder_.add_file_offset(file_offset);
   builder_.add_total_compressed_size(total_compressed_size);
-  builder_.add_sorting_columns(sorting_columns);
+  builder_.add_file_offset(file_offset);
   builder_.add_num_rows(num_rows);
   builder_.add_total_byte_size(total_byte_size);
+  builder_.add_sorting_columns(sorting_columns);
   builder_.add_columns(columns);
   if(ordinal) { builder_.add_ordinal(*ordinal); }
   return builder_.Finish();
@@ -1546,11 +1629,11 @@ inline ::flatbuffers::Offset<RowGroup> CreateRowGroup(
 inline ::flatbuffers::Offset<RowGroup> CreateRowGroupDirect(
     ::flatbuffers::FlatBufferBuilder &_fbb,
     const std::vector<::flatbuffers::Offset<parquet::format3::ColumnChunk>> *columns = nullptr,
-    int32_t total_byte_size = 0,
-    int32_t num_rows = 0,
+    int64_t total_byte_size = 0,
+    int64_t num_rows = 0,
     const std::vector<::flatbuffers::Offset<parquet::format3::SortingColumn>> *sorting_columns = nullptr,
     int64_t file_offset = 0,
-    int32_t total_compressed_size = 0,
+    int64_t total_compressed_size = 0,
     ::flatbuffers::Optional<int16_t> ordinal = ::flatbuffers::nullopt) {
   auto columns__ = columns ? _fbb.CreateVector<::flatbuffers::Offset<parquet::format3::ColumnChunk>>(*columns) : 0;
   auto sorting_columns__ = sorting_columns ? _fbb.CreateVector<::flatbuffers::Offset<parquet::format3::SortingColumn>>(*sorting_columns) : 0;
@@ -1744,6 +1827,18 @@ inline bool VerifyLogicalType(::flatbuffers::Verifier &verifier, const void *obj
     }
     case LogicalType::Float16Type: {
       auto ptr = reinterpret_cast<const parquet::format3::Empty *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
+    case LogicalType::VariantType: {
+      auto ptr = reinterpret_cast<const parquet::format3::Empty *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
+    case LogicalType::GeometryType: {
+      auto ptr = reinterpret_cast<const parquet::format3::GeometryType *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
+    case LogicalType::GeographyType: {
+      auto ptr = reinterpret_cast<const parquet::format3::GeographyType *>(obj);
       return verifier.VerifyTable(ptr);
     }
     default: return true;
