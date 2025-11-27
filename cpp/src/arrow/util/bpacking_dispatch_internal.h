@@ -189,17 +189,18 @@ void unpack_width(const uint8_t* in, UnpackedUInt* out, int batch_size, int bit_
     } else {
       using UnpackerForWidth = Unpacker<UnpackedUInt, kPackedBitWidth>;
       constexpr auto kValuesUnpacked = UnpackerForWidth::kValuesUnpacked;
+      constexpr auto kBytesRead = UnpackerForWidth::kBytesRead;
 
       if constexpr (kValuesUnpacked > 0) {
         // Running the optimized kernel for batch extraction
-        const int unpacker_iter_count = batch_size / kValuesUnpacked;
+        const int bytes_to_unpack = (batch_size * kPackedBitWidth) / 8;
+        const int unpacker_iter_count =
+            std::min(batch_size / kValuesUnpacked, bytes_to_unpack / kBytesRead);
         for (int i = 0; i < unpacker_iter_count; ++i) {
           in = UnpackerForWidth::unpack(in, out);
           out += kValuesUnpacked;
         }
         batch_size -= unpacker_iter_count * kValuesUnpacked;
-        ARROW_DCHECK_LT(batch_size, kValuesUnpacked);
-        ARROW_COMPILER_ASSUME(batch_size < kValuesUnpacked);
       }
 
       // Running the epilog for the remaining values that don't fit in a kernel
