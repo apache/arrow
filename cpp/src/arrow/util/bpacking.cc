@@ -33,10 +33,12 @@ struct UnpackDynamicFunction {
   using Implementation = std::pair<DispatchLevel, FunctionType>;
 
   static constexpr auto implementations() {
-    return std::array{
-        // Current SIMD unpack algorithm works terribly on SSE4.2 due to lack of variable
-        // rhsift and poor xsimd fallback.
-        Implementation{DispatchLevel::NONE, &unpack_scalar<Uint>},
+    return std::array {
+#if defined(ARROW_HAVE_SSE4_2)
+      Implementation{DispatchLevel::NONE, &unpack_sse4_2<Uint>},
+#else
+      Implementation{DispatchLevel::NONE, &unpack_scalar<Uint>},
+#endif
 #if defined(ARROW_HAVE_RUNTIME_AVX2)
         Implementation{DispatchLevel::AVX2, &unpack_avx2<Uint>},
 #endif
