@@ -818,9 +818,6 @@ struct ForwardToKernel : WorkingKernel {
  *  Kernel static dispatching  *
  *******************************/
 
-template <typename Traits, typename = void>
-struct KernelDispatch;
-
 // Benchmarking show unpack to uint64_t is underperforming on SSE4.2 and Avx2
 template <typename Traits, typename Arch = typename Traits::arch_type>
 constexpr bool MediumShouldUseUint32 =
@@ -829,36 +826,36 @@ constexpr bool MediumShouldUseUint32 =
     (Traits::kShape.packed_bit_size() < 32) &&
     KernelTraitsWithUnpack<Traits, uint32_t>::kShape.is_medium();
 
-template <typename Traits>
-struct KernelDispatch<Traits, std::enable_if_t<Traits::kShape.is_medium() &&
-                                               !MediumShouldUseUint32<Traits>>>
-    : MediumKernel<Traits> {};
-
-template <typename Traits>
-struct KernelDispatch<
-    Traits, std::enable_if_t<Traits::kShape.is_medium() && MediumShouldUseUint32<Traits>>>
-    : ForwardToKernel<Traits, MediumKernel<KernelTraitsWithUnpack<Traits, uint32_t>>> {};
-
 // Benchmarking show large unpack to uint8_t is underperforming on SSE4.2
 template <typename Traits, typename Arch = typename Traits::arch_type>
 constexpr bool LargeShouldUseUint16 = HasSse2<Arch> &&
                                       (Traits::kShape.unpacked_byte_size() ==
                                        sizeof(uint8_t));
 
+// A ``std::enable_if`` that works on MSVC
 template <typename Traits>
-struct KernelDispatch<
-    Traits, std::enable_if_t<Traits::kShape.is_large() && !LargeShouldUseUint16<Traits>>>
-    : LargeKernel<Traits> {};
+constexpr auto KernelDispatchImpl() {
+  if constexpr (Traits::kShape.is_medium()) {
+    if constexpr (MediumShouldUseUint32<Traits>) {
+      using Kernel32 = MediumKernel<KernelTraitsWithUnpack<Traits, uint32_t>>;
+      return ForwardToKernel<Traits, Kernel32>{};
+    } else {
+      return MediumKernel<Traits>{};
+    }
+  } else if constexpr (Traits::kShape.is_large()) {
+    if constexpr (LargeShouldUseUint16<Traits>) {
+      using Kernel16 = MediumKernel<KernelTraitsWithUnpack<Traits, uint16_t>>;
+      return ForwardToKernel<Traits, Kernel16>{};
+    } else {
+      return LargeKernel<Traits>{};
+    }
+  } else if constexpr (Traits::kShape.is_oversized()) {
+    return NoOpKernel<Traits>{};
+  }
+}
 
 template <typename Traits>
-struct KernelDispatch<
-    Traits, std::enable_if_t<Traits::kShape.is_large() && LargeShouldUseUint16<Traits>>>
-    : ForwardToKernel<Traits, MediumKernel<KernelTraitsWithUnpack<Traits, uint16_t>>> {};
-
-// Oversize kernel is only a few edge cases
-template <typename Traits>
-struct KernelDispatch<Traits, std::enable_if_t<Traits::kShape.is_oversized()>>
-    : NoOpKernel<Traits> {};
+using KernelDispatch = decltype(KernelDispatchImpl<Traits>());
 
 /// The public kernel exposed for any size.
 template <typename UnpackedUint, int kPackedBitSize, int kSimdBitSize>
