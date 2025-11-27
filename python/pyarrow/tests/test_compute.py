@@ -40,7 +40,7 @@ except ImportError:
 
 import pyarrow as pa
 import pyarrow.compute as pc
-from pyarrow.lib import ArrowNotImplementedError
+from pyarrow.lib import ArrowNotImplementedError, ArrowIndexError
 
 try:
     import pyarrow.substrait as pas
@@ -202,7 +202,7 @@ def test_option_class_equality(request):
         pc.WeekOptions(week_starts_monday=True, count_from_zero=False,
                        first_week_is_fully_in_year=False),
         pc.ZeroFillOptions(4, "0"),
-        pc.InversePermutationOptions(-1, output_type=pa.int32()),
+        pc.InversePermutationOptions(output_type=pa.int32()),
     ]
     # Timezone database might not be installed on Windows or Emscripten
     if request.config.pyarrow.is_enabled["timezone_data"]:
@@ -1596,19 +1596,14 @@ def test_inverse_permutation():
     arr = pa.chunked_array([
         arr0, [9, 7, 5, 3, 1], [0], [2, 4, 6], [8], arr0,
     ])
-    result = pc.inverse_permutation(arr)
-    print(result)
     expected = pa.chunked_array([[5, 4, 6, 3, 7, 2, 8, 1, 9, 0]], type=pa.int32())
-    assert result.equals(expected)
+    assert pc.inverse_permutation(arr).equals(expected)
 
-    # `inverse_permutation` kernel currently does not accept options
-    options = pc.InversePermutationOptions(max_index=4, output_type=pa.int64())
-    print(options)
-    with pytest.raises(TypeError, match="an unexpected keyword argument \'options\'"):
-        pc.inverse_permutation(arr, options=options)
+    options = pc.InversePermutationOptions(max_index=9, output_type=pa.int32())
+    assert pc.inverse_permutation(arr, options=options).equals(expected)
+    assert pc.inverse_permutation(arr, max_index=-1).equals(expected)
 
-    # `inverse_permutation` kernel currently won't accept max_index
-    with pytest.raises(TypeError, match="an unexpected keyword argument \'max_index\'"):
+    with pytest.raises(ArrowIndexError, match="Index out of bounds: 9"):
         pc.inverse_permutation(arr, max_index=4)
 
 
@@ -1620,13 +1615,11 @@ def test_scatter():
     result = pc.scatter(values, indices)
     assert result.equals(expected)
 
-    # `scatter` kernel currently does not accept options
-    options = pc.ScatterOptions(max_index=4)
-    with pytest.raises(TypeError, match="unexpected keyword argument \'options\'"):
-        pc.scatter(values, indices, options=options)
+    options = pc.ScatterOptions(max_index=-1)
+    assert pc.scatter(values, indices, options=options).equals(expected)
+    assert pc.scatter(values, indices, max_index=9).equals(expected)
 
-    # `scatter` kernel currently won't accept max_index
-    with pytest.raises(TypeError, match="unexpected keyword argument \'max_index\'"):
+    with pytest.raises(ArrowIndexError, match="Index out of bounds: 9"):
         pc.scatter(values, indices, max_index=4)
 
 
