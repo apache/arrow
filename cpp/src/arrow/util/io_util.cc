@@ -1768,13 +1768,13 @@ Result<std::string> GetEnvVar(const char* name) {
   if (res >= bufsize) {
     return Status::CapacityError("environment variable value too long");
   } else if (res == 0) {
-    return Status::KeyError("environment variable undefined");
+    return Status::KeyError("environment variable '", name, "'undefined");
   }
   return std::string(c_str);
 #else
   char* c_str = getenv(name);
   if (c_str == nullptr) {
-    return Status::KeyError("environment variable undefined");
+    return Status::KeyError("environment variable '", name, "'undefined");
   }
   return std::string(c_str);
 #endif
@@ -1793,7 +1793,7 @@ Result<NativePathString> GetEnvVarNative(const std::string& name) {
   if (res >= bufsize) {
     return Status::CapacityError("environment variable value too long");
   } else if (res == 0) {
-    return Status::KeyError("environment variable undefined");
+    return Status::KeyError("environment variable '", name, "'undefined");
   }
   return NativePathString(w_str);
 }
