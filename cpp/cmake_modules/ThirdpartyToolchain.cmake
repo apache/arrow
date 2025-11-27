@@ -2861,7 +2861,15 @@ function(build_re2)
 
   # Unity build causes some build errors
   set(CMAKE_UNITY_BUILD OFF)
+
+  # Disable install rules for RE2 so it is not installed on our Linux-packages.
+  set(CMAKE_SKIP_INSTALL_RULES ON)
+
   fetchcontent_makeavailable(re2)
+
+  # We have to create an empty cmake_install.cmake so include() doesn't fail but doesn't install anything.
+  file(WRITE "${re2_BINARY_DIR}/cmake_install.cmake"
+       "# RE2 install disabled via CMAKE_SKIP_INSTALL_RULES\n")
 
   set(ARROW_BUNDLED_STATIC_LIBS
       ${ARROW_BUNDLED_STATIC_LIBS} re2::re2
@@ -2997,12 +3005,16 @@ function(build_cares)
 
   fetchcontent_declare(cares
                        URL ${CARES_SOURCE_URL}
-                       URL_HASH "SHA256=${ARROW_CARES_BUILD_SHA256_CHECKSUM}")
+                       URL_HASH "SHA256=${ARROW_CARES_BUILD_SHA256_CHECKSUM}"
+                       EXCLUDE_FROM_ALL)
 
   prepare_fetchcontent()
 
   set(CARES_SHARED OFF)
   set(CARES_STATIC ON)
+  set(CARES_INSTALL
+      OFF
+      CACHE BOOL "" FORCE)
   fetchcontent_makeavailable(cares)
 
   if(APPLE)
@@ -3209,7 +3221,7 @@ function(build_grpc)
         "$<TARGET_FILE:protobuf::protoc>"
         CACHE STRING "" FORCE)
 
-    # gRPC needs this at configure time for add_custom_command.
+    # gRPC needs this at configure time.
     get_filename_component(_protobuf_root_dir "${protobuf_SOURCE_DIR}" DIRECTORY)
     set(_gRPC_PROTOBUF_WELLKNOWN_INCLUDE_DIR
         "${_protobuf_root_dir}/src"
@@ -3252,7 +3264,16 @@ function(build_grpc)
            " -Wno-attributes -Wno-format-security -Wno-unknown-warning-option")
   endif()
 
+  # Disable install rules for gRPC so it is not installed on our Linux-packages.
+  set(CMAKE_SKIP_INSTALL_RULES ON)
+
   fetchcontent_makeavailable(grpc)
+
+  # CMAKE_SKIP_INSTALL_RULES prevents cmake_install.cmake from being created,
+  # but the parent cmake_install.cmake still tries to include() it.
+  # Create an empty one manually so include() doesn't fail.
+  file(WRITE "${grpc_BINARY_DIR}/cmake_install.cmake"
+       "# gRPC install disabled via CMAKE_SKIP_INSTALL_RULES\n")
 
   # FetchContent builds gRPC libraries without gRPC:: prefix.
   # Create gRPC:: alias targets for consistency.
