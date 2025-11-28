@@ -87,3 +87,4 @@ _This step must be done by the current package maintainer._
 - [ ] Wait for CRAN-hosted binaries on the [CRAN package page](https://cran.r-project.org/package=arrow) to reflect the new version.
 - [ ] Post already-prepared content to social media.
   - Use Bryce's [script](https://gist.githubusercontent.com/amoeba/4e26c064d1a0d0227cd8c2260cf0072a/raw/bc0d983152bdde4820de9074d4caee9986624bc5/new_contributors.R) for contributor calculation.
+- [ ] Check C++ updates for this release and create issues for any items which need bindings in R
