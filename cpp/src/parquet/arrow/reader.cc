@@ -1343,8 +1343,7 @@ Status FileReader::Make(::arrow::MemoryPool* pool,
                         std::unique_ptr<ParquetFileReader> reader,
                         const ArrowReaderProperties& properties,
                         std::unique_ptr<FileReader>* out) {
-  ARROW_ASSIGN_OR_RAISE(auto result, Make(pool, std::move(reader), properties));
-  *out = std::move(result);
+  ARROW_ASSIGN_OR_RAISE(*out, Make(pool, std::move(reader), properties));
   return Status::OK();
 }
 
