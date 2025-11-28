@@ -24,8 +24,6 @@
 
 namespace arrow::flight::sql::odbc {
 
-using boost::optional;
-
 class ResultSet;
 
 class ResultSetMetadata;
@@ -69,7 +67,7 @@ class Statement {
   ///
   /// \param attribute Attribute identifier to be retrieved.
   /// \return Value associated with the attribute.
-  virtual optional<Statement::Attribute> GetAttribute(
+  virtual boost::optional<Statement::Attribute> GetAttribute(
       Statement::StatementAttributeId attribute) = 0;
 
   /// \brief Prepares the statement.

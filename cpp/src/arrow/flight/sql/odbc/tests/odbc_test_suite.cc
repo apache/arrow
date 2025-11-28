@@ -490,22 +490,22 @@ std::wstring ConvertToWString(const std::vector<SQLWCHAR>& str_val, SQLSMALLINT 
   } else {
     EXPECT_GT(str_len, 0);
     EXPECT_LE(str_len, static_cast<SQLSMALLINT>(kOdbcBufferSize));
-    attr_str = std::wstring(str_val.begin(),
-                            str_val.begin() + str_len / ODBC::GetSqlWCharSize());
+    attr_str =
+        std::wstring(str_val.begin(), str_val.begin() + str_len / GetSqlWCharSize());
   }
   return attr_str;
 }
 
 void CheckStringColumnW(SQLHSTMT stmt, int col_id, const std::wstring& expected) {
   SQLWCHAR buf[1024];
-  SQLLEN buf_len = sizeof(buf) * ODBC::GetSqlWCharSize();
+  SQLLEN buf_len = sizeof(buf) * GetSqlWCharSize();
 
   ASSERT_EQ(SQL_SUCCESS, SQLGetData(stmt, col_id, SQL_C_WCHAR, buf, buf_len, &buf_len));
 
   EXPECT_GT(buf_len, 0);
 
   // returned buf_len is in bytes so convert to length in characters
-  size_t char_count = static_cast<size_t>(buf_len) / ODBC::GetSqlWCharSize();
+  size_t char_count = static_cast<size_t>(buf_len) / GetSqlWCharSize();
   std::wstring returned(buf, buf + char_count);
 
   EXPECT_EQ(expected, returned);

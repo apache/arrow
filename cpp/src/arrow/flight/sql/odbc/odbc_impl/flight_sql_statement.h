@@ -32,6 +32,7 @@ class FlightSqlStatement : public Statement {
  private:
   Diagnostics diagnostics_;
   std::map<StatementAttributeId, Attribute> attribute_;
+  FlightClientOptions client_options_;
   FlightCallOptions call_options_;
   FlightSqlClient& sql_client_;
   std::shared_ptr<ResultSet> current_result_set_;
@@ -46,7 +47,7 @@ class FlightSqlStatement : public Statement {
 
  public:
   FlightSqlStatement(const Diagnostics& diagnostics, FlightSqlClient& sql_client,
-                     FlightCallOptions call_options,
+                     FlightClientOptions client_options, FlightCallOptions call_options,
                      const MetadataSettings& metadata_settings);
 
   bool SetAttribute(StatementAttributeId attribute, const Attribute& value) override;
