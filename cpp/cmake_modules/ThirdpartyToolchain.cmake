@@ -3005,16 +3005,12 @@ function(build_cares)
 
   fetchcontent_declare(cares
                        URL ${CARES_SOURCE_URL}
-                       URL_HASH "SHA256=${ARROW_CARES_BUILD_SHA256_CHECKSUM}"
-                       EXCLUDE_FROM_ALL)
+                       URL_HASH "SHA256=${ARROW_CARES_BUILD_SHA256_CHECKSUM}")
 
   prepare_fetchcontent()
 
   set(CARES_SHARED OFF)
   set(CARES_STATIC ON)
-  set(CARES_INSTALL
-      OFF
-      CACHE BOOL "" FORCE)
   fetchcontent_makeavailable(cares)
 
   if(APPLE)
