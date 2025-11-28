@@ -81,11 +81,11 @@ zip-safe=false
 include-package-data=true
 
 [tool.setuptools.packages.find]
-include = ["pyarrow"]
+include = ["pyarrow", "pyarrow.*"]
 namespaces = false
 
 [tool.setuptools.package-data]
-pyarrow = ["*.pxd", "*.pyx", "includes/*.pxd"]
+pyarrow = ["*.pxd", "*.pyx", "includes/*.pxd", "py.typed"]
 
 [tool.setuptools_scm]
 root = '..'
@@ -93,3 +93,27 @@ version_file = 'pyarrow/_generated_version.py'
 version_scheme = 'guess-next-dev'
 git_describe_command = 'git describe --dirty --tags --long --match "apache-arrow-[0-9]*.*"'
 fallback_version = '23.0.0a0'
+
+[tool.mypy]
+files = ["pyarrow"]
+exclude = 'pyarrow/interchange/.*|pyarrow/vendored/.*|pyarrow/tests/test_cuda*'
+mypy_path = "$MYPY_CONFIG_FILE_DIR/pyarrow-stubs"
+
+[tool.pyright]
+pythonPlatform = "All"
+pythonVersion = "3.10"
+include = ["pyarrow"]
+exclude = ["pyarrow/vendored", "pyarrow/interchange", "pyarrow/tests/test_cuda*"]
+stubPath = "pyarrow-stubs"
+typeCheckingMode = "basic"
+
+[tool.ty.src]
+include = ["pyarrow"]
+exclude = ["pyarrow/vendored", "pyarrow/interchange", "pyarrow/tests/test_cuda*"]
+
+[tool.ty.environment]
+root = ["pyarrow"]
+
+[tool.ty.rules]
+unresolved-import = "ignore"
+unresolved-attribute = "ignore"
