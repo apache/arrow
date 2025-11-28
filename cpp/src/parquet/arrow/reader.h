@@ -134,6 +134,7 @@ class PARQUET_EXPORT FileReader {
   /// Factory function to create a FileReader from a ParquetFileReader
   static ::arrow::Result<std::unique_ptr<FileReader>> Make(
       ::arrow::MemoryPool* pool, std::unique_ptr<ParquetFileReader> reader);
+
   // Since the distribution of columns amongst a Parquet file's row groups may
   // be uneven (the number of values in each column chunk can be different), we
   // provide a column-oriented read interface. The ColumnReader hides the
