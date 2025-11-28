@@ -4186,8 +4186,7 @@ void TryReadDataFile(const std::string& path,
   auto reader_result = FileReader::Make(pool, ParquetFileReader::OpenFile(path, false));
   if (reader_result.ok()) {
     std::shared_ptr<::arrow::Table> table;
-    auto arrow_reader = result->get();
-    s = arrow_reader->ReadTable(&table);
+    s = (*reader_result)->ReadTable(&table);
   }
 
   ASSERT_EQ(s.code(), expected_code)
