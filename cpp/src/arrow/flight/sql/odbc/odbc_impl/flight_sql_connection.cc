@@ -99,14 +99,9 @@ inline std::string GetCerts() { return ""; }
 
 #endif
 
-// Case insensitive comparator that takes string_view
-struct CaseInsensitiveComparatorStrView {
-  bool operator()(std::string_view s1, std::string_view s2) const {
-    return boost::lexicographical_compare(s1, s2, boost::is_iless());
-  }
-};
-
-const std::set<std::string_view, CaseInsensitiveComparatorStrView> BUILT_IN_PROPERTIES = {
+const std::set<std::string_view, CaseInsensitiveComparator> BUILT_IN_PROPERTIES = {
+    FlightSqlConnection::DRIVER,
+    FlightSqlConnection::DSN,
     FlightSqlConnection::HOST,
     FlightSqlConnection::PORT,
     FlightSqlConnection::USER,
@@ -160,14 +155,14 @@ void FlightSqlConnection::Connect(const ConnPropertyMap& properties,
     auto flight_ssl_configs = LoadFlightSslConfigs(properties);
 
     Location location = BuildLocation(properties, missing_attr, flight_ssl_configs);
-    FlightClientOptions client_options =
+    client_options_ =
         BuildFlightClientOptions(properties, missing_attr, flight_ssl_configs);
 
     const std::shared_ptr<ClientMiddlewareFactory>& cookie_factory = GetCookieFactory();
-    client_options.middleware.push_back(cookie_factory);
+    client_options_.middleware.push_back(cookie_factory);
 
     std::unique_ptr<FlightClient> flight_client;
-    ThrowIfNotOK(FlightClient::Connect(location, client_options).Value(&flight_client));
+    ThrowIfNotOK(FlightClient::Connect(location, client_options_).Value(&flight_client));
     PopulateMetadataSettings(properties);
     PopulateCallOptions(properties);
 
@@ -370,7 +365,7 @@ void FlightSqlConnection::Close() {
 
 std::shared_ptr<Statement> FlightSqlConnection::CreateStatement() {
   return std::shared_ptr<Statement>(new FlightSqlStatement(
-      diagnostics_, *sql_client_, call_options_, metadata_settings_));
+      diagnostics_, *sql_client_, client_options_, call_options_, metadata_settings_));
 }
 
 bool FlightSqlConnection::SetAttribute(Connection::AttributeId attribute,
@@ -416,7 +411,7 @@ FlightSqlConnection::FlightSqlConnection(OdbcVersion odbc_version,
                                          const std::string& driver_version)
     : diagnostics_("Apache Arrow", "Flight SQL", odbc_version),
       odbc_version_(odbc_version),
-      info_(call_options_, sql_client_, driver_version),
+      info_(client_options_, call_options_, sql_client_, driver_version),
       closed_(true) {
   attribute_[CONNECTION_DEAD] = static_cast<uint32_t>(SQL_TRUE);
   attribute_[LOGIN_TIMEOUT] = static_cast<uint32_t>(0);
