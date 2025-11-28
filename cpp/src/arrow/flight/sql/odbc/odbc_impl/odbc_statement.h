@@ -80,6 +80,8 @@ class ODBCStatement : public ODBCHandle<ODBCStatement> {
   bool GetData(SQLSMALLINT record_number, SQLSMALLINT c_type, SQLPOINTER data_ptr,
                SQLLEN buffer_length, SQLLEN* indicator_ptr);
 
+  SQLRETURN GetMoreResults();
+
   /**
    * @brief Closes the cursor. This does _not_ un-prepare the statement or change
    * bindings.
