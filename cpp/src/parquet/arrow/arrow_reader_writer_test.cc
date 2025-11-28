@@ -4182,7 +4182,6 @@ void TryReadDataFile(const std::string& path,
                      const std::string& expected_message = "") {
   auto pool = ::arrow::default_memory_pool();
 
-  std::unique_ptr<FileReader> arrow_reader;
   Status s;
   Result result = FileReader::Make(pool, ParquetFileReader::OpenFile(path, false));
   if (result.ok()) {
