@@ -60,7 +60,7 @@ fi
 if [ "${numba_cuda}" = "master" ]; then
   pip install "numba-cuda[cu${cuda_version}] @ https://github.com/NVIDIA/numba-cuda/archive/main.tar.gz"
 elif [ "${numba_cuda}" = "latest" ]; then
-  pip install numba-cuda[cu${cuda_version}]
+  pip install "numba-cuda[cu${cuda_version}]"
 else
   pip install "numba-cuda[cu${cuda_version}]==${numba_cuda}"
 fi
