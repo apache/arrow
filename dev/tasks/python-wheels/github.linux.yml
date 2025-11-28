@@ -45,9 +45,6 @@ jobs:
       {% if python_version == "3.14" %}
       PYTHON_IMAGE_TAG: "3.14"
       PYTHON_PATCH_VERSION: "3.14.0"
-      {% elif python_version == "3.13" %}
-      PYTHON_IMAGE_TAG: "{{ python_version }}"
-      PYTHON_PATCH_VERSION: "3.13.7"
       {% else %}
       PYTHON_IMAGE_TAG: "{{ python_version }}"
       {% endif %}
