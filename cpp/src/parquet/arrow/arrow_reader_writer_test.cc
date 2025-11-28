@@ -4183,8 +4183,8 @@ void TryReadDataFile(const std::string& path,
   auto pool = ::arrow::default_memory_pool();
 
   Status s;
-  Result result = FileReader::Make(pool, ParquetFileReader::OpenFile(path, false));
-  if (result.ok()) {
+  auto reader_result = FileReader::Make(pool, ParquetFileReader::OpenFile(path, false));
+  if (reader_result.ok()) {
     std::shared_ptr<::arrow::Table> table;
     auto arrow_reader = result->get();
     s = arrow_reader->ReadTable(&table);
