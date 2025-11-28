@@ -720,9 +720,13 @@ endif()
 
 install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/../LICENSE.txt
               ${CMAKE_CURRENT_SOURCE_DIR}/../NOTICE.txt
-              ${CMAKE_CURRENT_SOURCE_DIR}/README.md DESTINATION "${ARROW_DOC_DIR}")
+              ${CMAKE_CURRENT_SOURCE_DIR}/README.md
+        DESTINATION "${ARROW_DOC_DIR}"
+        COMPONENT arrow_doc)
 
-install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/gdb_arrow.py DESTINATION "${ARROW_GDB_DIR}")
+install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/gdb_arrow.py
+        DESTINATION "${ARROW_GDB_DIR}"
+        COMPONENT arrow_gdb)
 
 #
 # Validate and print out Arrow configuration options

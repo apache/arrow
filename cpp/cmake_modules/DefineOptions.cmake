@@ -347,6 +347,12 @@ takes precedence over ccache if a storage backend is configured" ON)
                 ARROW_FLIGHT_SQL
                 ARROW_COMPUTE)
 
+  define_option(ARROW_FLIGHT_SQL_ODBC_INSTALLER
+                "Build the Arrow Flight SQL ODBC installer"
+                OFF
+                DEPENDS
+                ARROW_FLIGHT_SQL_ODBC)
+
   define_option(ARROW_GANDIVA
                 "Build the Gandiva libraries"
                 OFF

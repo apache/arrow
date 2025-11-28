@@ -346,6 +346,7 @@ jobs:
       ARROW_BUILD_TYPE: release
       ARROW_DEPENDENCY_SOURCE: VCPKG
       ARROW_FLIGHT_SQL_ODBC: ON
+      ARROW_FLIGHT_SQL_ODBC_INSTALLER: ON
       ARROW_SIMD_LEVEL: AVX2
       CMAKE_GENERATOR: Ninja
       CMAKE_INSTALL_PREFIX: /usr
@@ -433,7 +434,24 @@ jobs:
       # GH-48269 TODO: Enable Flight & Flight SQL testing in MSVC CI
       # GH-48547 TODO: enable ODBC tests after GH-48270 and GH-48269 are resolved.
 
-      # GH-47787 TODO: Build ODBC installer
+      - name: Install WiX Toolset
+        shell: pwsh
+        run: |
+          Invoke-WebRequest -Uri https://github.com/wixtoolset/wix/releases/download/v6.0.0/wix-cli-x64.msi -OutFile wix-cli-x64.msi
+          Start-Process -FilePath wix-cli-x64.msi -ArgumentList '/quiet', 'Include_freethreaded=1' -Wait
+          echo "C:\Program Files\WiX Toolset v6.0\bin\" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+      - name: Build MSI ODBC installer
+        shell: pwsh
+        run: |
+          # Verify WiX version
+          wix --version
+          cd "${{ github.workspace }}\build\cpp"
+          cpack
+      - name: Upload the artifacts to the job
+        uses: actions/upload-artifact@v6
+        with:
+          name: flight-sql-odbc-msi-installer
+          path: ${{ github.workspace }}\build\cpp\Apache Arrow Flight SQL ODBC-1.0.0-win64.msi
 
   report-extra-cpp:
     if: github.event_name == 'schedule' && always()
