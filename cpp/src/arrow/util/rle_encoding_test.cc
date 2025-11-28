@@ -993,11 +993,15 @@ void CheckRoundTrip(const Array& data, int bit_width, bool spaced, int32_t parts
   const int data_size = static_cast<int>(data.length());
   const int data_values_count =
       static_cast<int>(data.length() - spaced * data.null_count());
-  const int buffer_size =
-      static_cast<int>(RleBitPackedEncoder::MaxBufferSize(bit_width, data_size));
+  const int buffer_size = static_cast<int>(
+      ::arrow::util::RleBitPackedEncoder::MaxBufferSize(bit_width, data_values_count) +
+      ::arrow::util::RleBitPackedEncoder::MinBufferSize(bit_width));
+
   ASSERT_GE(parts, 1);
   ASSERT_LE(parts, data_size);
 
+  ARROW_SCOPED_TRACE("bit_width = ", bit_width, ", spaced = ", spaced,
+                     ", data_size = ", data_size, ", buffer_size = ", buffer_size);
   const value_type* data_values = static_cast<const ArrayType&>(data).raw_values();
 
   // Encode the data into `buffer` using the encoder.
@@ -1008,7 +1012,8 @@ void CheckRoundTrip(const Array& data, int bit_width, bool spaced, int32_t parts
     // Depending on `spaced` we treat nulls as regular values.
     if (data.IsValid(i) || !spaced) {
       bool success = encoder.Put(static_cast<uint64_t>(data_values[i]));
-      ASSERT_TRUE(success) << "Encoding failed in pos " << i;
+      ASSERT_TRUE(success) << "Encoding failed in pos " << i
+                           << ", current encoder len: " << encoder.len();
       ++encoded_values_size;
     }
   }
