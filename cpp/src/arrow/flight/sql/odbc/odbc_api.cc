@@ -219,8 +219,45 @@ SQLRETURN SQLFreeHandle(SQLSMALLINT type, SQLHANDLE handle) {
 SQLRETURN SQLFreeStmt(SQLHSTMT handle, SQLUSMALLINT option) {
   ARROW_LOG(DEBUG) << "SQLFreeStmt called with handle: " << handle
                    << ", option: " << option;
-  // GH-47706 TODO: Implement SQLFreeStmt
-  return SQL_INVALID_HANDLE;
+
+  switch (option) {
+    case SQL_CLOSE: {
+      using ODBC::ODBCStatement;
+
+      return ODBCStatement::ExecuteWithDiagnostics(handle, SQL_ERROR, [=]() {
+        ODBCStatement* statement = reinterpret_cast<ODBCStatement*>(handle);
+
+        // Close cursor with suppressErrors set to true
+        statement->CloseCursor(true);
+
+        return SQL_SUCCESS;
+      });
+    }
+
+    case SQL_DROP: {
+      return SQLFreeHandle(SQL_HANDLE_STMT, handle);
+    }
+
+    case SQL_UNBIND: {
+      // GH-47716 TODO: Add tests for SQLBindCol unbinding
+      using ODBC::ODBCDescriptor;
+      using ODBC::ODBCStatement;
+      return ODBCStatement::ExecuteWithDiagnostics(handle, SQL_ERROR, [=]() {
+        ODBCStatement* statement = reinterpret_cast<ODBCStatement*>(handle);
+        ODBCDescriptor* ard = statement->GetARD();
+        // Unbind columns
+        ard->SetHeaderField(SQL_DESC_COUNT, (void*)0, 0);
+        return SQL_SUCCESS;
+      });
+    }
+
+    // SQLBindParameter is not supported
+    case SQL_RESET_PARAMS: {
+      return SQL_SUCCESS;
+    }
+  }
+
+  return SQL_ERROR;
 }
 
 inline bool IsValidStringFieldArgs(SQLPOINTER diag_info_ptr, SQLSMALLINT buffer_length,
