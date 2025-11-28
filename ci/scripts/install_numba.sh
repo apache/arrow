@@ -19,8 +19,8 @@
 
 set -e
 
-if [ "$#" -ne 1 ] && [ "$#" -ne 2 ]; then
-  echo "Usage: $0 <numba version> [numba-cuda version]"
+if [ "$#" -ne 1 ] && [ "$#" -ne 2 ] && [ "$#" -ne 3 ]; then
+  echo "Usage: $0 <numba version> [numba-cuda version] [CUDA version]"
   exit 1
 fi
 
@@ -33,8 +33,6 @@ if [ -n "${ARROW_PYTHON_VENV:-}" ]; then
   # shellcheck source=/dev/null
   . "${ARROW_PYTHON_VENV}/bin/activate"
 fi
-
-# TODO: GH-47371 (install Python CUDA bindings explicitly)
 
 if [ "${numba}" = "master" ]; then
   pip install https://github.com/numba/numba/archive/main.tar.gz#egg=numba
@@ -50,10 +48,19 @@ fi
 
 numba_cuda=$2
 
-if [ "${numba_cuda}" = "master" ]; then
-  pip install https://github.com/NVIDIA/numba-cuda/archive/main.tar.gz#egg=numba-cuda
-elif [ "${numba_cuda}" = "latest" ]; then
-  pip install numba-cuda
+DEFAULT_CUDA_VERSION="12"
+
+if [ "$#" -eq 3 ]; then
+  # Extract the CUDA major version only
+  cuda_version="${3%%.*}"
 else
-  pip install "numba-cuda==${numba_cuda}"
+  cuda_version="${DEFAULT_CUDA_VERSION}"
+fi
+
+if [ "${numba_cuda}" = "master" ]; then
+  pip install "numba-cuda[cu${cuda_version}] @ https://github.com/NVIDIA/numba-cuda/archive/main.tar.gz"
+elif [ "${numba_cuda}" = "latest" ]; then
+  pip install numba-cuda[cu${cuda_version}]
+else
+  pip install "numba-cuda[cu${cuda_version}]==${numba_cuda}"
 fi
