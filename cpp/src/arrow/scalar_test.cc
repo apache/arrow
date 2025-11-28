@@ -1930,11 +1930,22 @@ class TestUnionScalar : public ::testing::Test {
   }
 
   void TestCast() {
-    // Cast() function doesn't support casting union to string, use Scalar::CastTo()
-    // instead.
-    ASSERT_OK_AND_ASSIGN(auto casted, union_alpha_->CastTo(utf8()));
-    ASSERT_TRUE(casted->Equals(StringScalar(R"(union{string: string = alpha})")))
-        << casted->ToString();
+    std::vector<std::pair<std::shared_ptr<Scalar>, std::string>> test_cases = {
+        {union_alpha_, R"(union{string: string = alpha})"},
+        {union_beta_, R"(union{string: string = beta})"},
+        {union_two_, R"(union{number: uint64 = 2})"},
+        {union_three_, R"(union{number: uint64 = 3})"},
+        {union_other_two_, R"(union{other_number: uint64 = 2})"},
+        {union_string_null_, "null"},
+        {union_number_null_, "null"}};
+
+    for (const auto& out_ty : {utf8(), large_utf8()}) {
+      for (const auto& [scalar, expected] : test_cases) {
+        ASSERT_OK_AND_ASSIGN(auto casted, Cast(scalar, out_ty));
+        ASSERT_EQ(casted.scalar()->ToString(), expected)
+            << "Failed to cast " << scalar->ToString() << " to " << expected;
+      }
+    }
   }
 
  protected:
@@ -1957,41 +1968,85 @@ TYPED_TEST(TestUnionScalar, MakeNullScalar) { this->TestMakeNullScalar(); }
 
 TYPED_TEST(TestUnionScalar, Cast) { this->TestCast(); }
 
-class TestSparseUnionScalar : public TestUnionScalar<SparseUnionType> {};
+class TestSparseUnionScalar : public TestUnionScalar<SparseUnionType> {
+  void SetUp() override {
+    TestUnionScalar::SetUp();
+
+    children = {ArrayFromJSON(utf8(), R"(["alpha", "", "beta", null, "gamma"])"),
+                ArrayFromJSON(uint64(), "[1, 2, 11, 22, null]"),
+                ArrayFromJSON(uint64(), "[100, 101, 102, 103, 104]")};
+
+    type_ids = ArrayFromJSON(int8(), "[3, 42, 3, 3, 42]");
+    arr = std::make_shared<SparseUnionArray>(type_, 5, children,
+                                             type_ids->data()->buffers[1]);
+    ASSERT_OK(arr->ValidateFull());
+  }
+
+ protected:
+  ArrayVector children;
+  std::shared_ptr<Array> type_ids;
+  std::shared_ptr<SparseUnionArray> arr;
+};
 
 TEST_F(TestSparseUnionScalar, GetScalar) {
-  ArrayVector children{ArrayFromJSON(utf8(), R"(["alpha", "", "beta", null, "gamma"])"),
-                       ArrayFromJSON(uint64(), "[1, 2, 11, 22, null]"),
-                       ArrayFromJSON(uint64(), "[100, 101, 102, 103, 104]")};
-
-  auto type_ids = ArrayFromJSON(int8(), "[3, 42, 3, 3, 42]");
-  SparseUnionArray arr(type_, 5, children, type_ids->data()->buffers[1]);
-  ASSERT_OK(arr.ValidateFull());
-
-  CheckGetValidUnionScalar(arr, 0, *union_alpha_, *alpha_);
-  CheckGetValidUnionScalar(arr, 1, *union_two_, *two_);
-  CheckGetValidUnionScalar(arr, 2, *union_beta_, *beta_);
-  CheckGetNullUnionScalar(arr, 3);
-  CheckGetNullUnionScalar(arr, 4);
+  CheckGetValidUnionScalar(*arr, 0, *union_alpha_, *alpha_);
+  CheckGetValidUnionScalar(*arr, 1, *union_two_, *two_);
+  CheckGetValidUnionScalar(*arr, 2, *union_beta_, *beta_);
+  CheckGetNullUnionScalar(*arr, 3);
+  CheckGetNullUnionScalar(*arr, 4);
 }
 
-class TestDenseUnionScalar : public TestUnionScalar<DenseUnionType> {};
+TEST_F(TestSparseUnionScalar, CastToString) {
+  for (const auto& out_ty : {utf8(), large_utf8()}) {
+    auto expected = ArrayFromJSON(out_ty, R"(["union{string: string = alpha}",
+                                              "union{number: uint64 = 2}",
+                                              "union{string: string = beta}",
+                                              null,
+                                              null])");
+    ASSERT_OK_AND_ASSIGN(auto casted, Cast(*arr, out_ty));
+    ASSERT_TRUE(casted->Equals(*expected));
+  }
+}
+
+class TestDenseUnionScalar : public TestUnionScalar<DenseUnionType> {
+  void SetUp() override {
+    TestUnionScalar::SetUp();
+
+    children = {ArrayFromJSON(utf8(), R"(["alpha", "beta", null])"),
+                ArrayFromJSON(uint64(), "[2, 3]"), ArrayFromJSON(uint64(), "[]")};
+
+    type_ids = ArrayFromJSON(int8(), "[3, 42, 3, 3, 42]");
+    offsets = ArrayFromJSON(int32(), "[0, 0, 1, 2, 1]");
+    arr = std::make_shared<DenseUnionArray>(
+        type_, 5, children, type_ids->data()->buffers[1], offsets->data()->buffers[1]);
+    ASSERT_OK(arr->ValidateFull());
+  }
+
+ protected:
+  ArrayVector children;
+  std::shared_ptr<Array> type_ids;
+  std::shared_ptr<Array> offsets;
+  std::shared_ptr<DenseUnionArray> arr;
+};
 
 TEST_F(TestDenseUnionScalar, GetScalar) {
-  ArrayVector children{ArrayFromJSON(utf8(), R"(["alpha", "beta", null])"),
-                       ArrayFromJSON(uint64(), "[2, 3]"), ArrayFromJSON(uint64(), "[]")};
+  CheckGetValidUnionScalar(*arr, 0, *union_alpha_, *alpha_);
+  CheckGetValidUnionScalar(*arr, 1, *union_two_, *two_);
+  CheckGetValidUnionScalar(*arr, 2, *union_beta_, *beta_);
+  CheckGetNullUnionScalar(*arr, 3);
+  CheckGetValidUnionScalar(*arr, 4, *union_three_, *three_);
+}
 
-  auto type_ids = ArrayFromJSON(int8(), "[3, 42, 3, 3, 42]");
-  auto offsets = ArrayFromJSON(int32(), "[0, 0, 1, 2, 1]");
-  DenseUnionArray arr(type_, 5, children, type_ids->data()->buffers[1],
-                      offsets->data()->buffers[1]);
-  ASSERT_OK(arr.ValidateFull());
-
-  CheckGetValidUnionScalar(arr, 0, *union_alpha_, *alpha_);
-  CheckGetValidUnionScalar(arr, 1, *union_two_, *two_);
-  CheckGetValidUnionScalar(arr, 2, *union_beta_, *beta_);
-  CheckGetNullUnionScalar(arr, 3);
-  CheckGetValidUnionScalar(arr, 4, *union_three_, *three_);
+TEST_F(TestDenseUnionScalar, CastToString) {
+  for (const auto& out_ty : {utf8(), large_utf8()}) {
+    auto expected = ArrayFromJSON(out_ty, R"(["union{string: string = alpha}",
+                                              "union{number: uint64 = 2}",
+                                              "union{string: string = beta}",
+                                              null,
+                                              "union{number: uint64 = 3}"])");
+    ASSERT_OK_AND_ASSIGN(auto casted, Cast(*arr, out_ty));
+    ASSERT_TRUE(casted->Equals(*expected));
+  }
 }
 
 template <typename RunEndType>
