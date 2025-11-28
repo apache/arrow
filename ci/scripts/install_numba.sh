@@ -34,6 +34,8 @@ if [ -n "${ARROW_PYTHON_VENV:-}" ]; then
   . "${ARROW_PYTHON_VENV}/bin/activate"
 fi
 
+# TODO: GH-47371 (install Python CUDA bindings explicitly)
+
 if [ "${numba}" = "master" ]; then
   pip install https://github.com/numba/numba/archive/main.tar.gz#egg=numba
 elif [ "${numba}" = "latest" ]; then
