@@ -189,19 +189,21 @@ void unpack_width(const uint8_t* in, UnpackedUInt* out, int batch_size, int bit_
     } else {
       using UnpackerForWidth = Unpacker<UnpackedUInt, kPackedBitWidth>;
       constexpr auto kValuesUnpacked = UnpackerForWidth::kValuesUnpacked;
+      constexpr auto kBytesRead = UnpackerForWidth::kBytesRead;
 
-      // Running the optimized kernel for batch extraction
-      const int unpacker_iter_count = batch_size / kValuesUnpacked;
-      for (int i = 0; i < unpacker_iter_count; ++i) {
-        in = UnpackerForWidth::unpack(in, out);
-        out += kValuesUnpacked;
+      if constexpr (kValuesUnpacked > 0) {
+        const uint8_t* last_in =
+            in + bit_util::CeilDiv(batch_size * kPackedBitWidth, 8) - kBytesRead;
+        // Running the optimized kernel for batch extraction
+        while ((batch_size > kValuesUnpacked) && (in <= last_in)) {
+          in = UnpackerForWidth::unpack(in, out);
+          out += kValuesUnpacked;
+          batch_size -= kValuesUnpacked;
+        }
       }
-      batch_size -= unpacker_iter_count * kValuesUnpacked;
 
       // Running the epilog for the remaining values that don't fit in a kernel
-      ARROW_DCHECK_LT(batch_size, kValuesUnpacked);
       ARROW_DCHECK_GE(batch_size, 0);
-      ARROW_COMPILER_ASSUME(batch_size < kValuesUnpacked);
       ARROW_COMPILER_ASSUME(batch_size >= 0);
       unpack_exact<kPackedBitWidth, false>(in, out, batch_size, /* bit_offset= */ 0);
     }
