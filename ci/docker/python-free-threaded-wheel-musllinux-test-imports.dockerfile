@@ -19,7 +19,6 @@ ARG base
 FROM ${base}
 
 ARG python_version=3.13
-ARG python_patch_version=3.13.7
 
 RUN apk add --no-cache \
     bash \
@@ -38,7 +37,12 @@ RUN apk add --no-cache \
     zlib-dev
 
 # Install Python without GIL
-RUN wget https://github.com/python/cpython/archive/refs/tags/v${python_patch_version}.tar.gz && \
+RUN set -e; \
+    case "${python_version}" in \
+      3.13) python_patch_version="3.13.9";; \
+      3.14) python_patch_version="3.14.0";; \
+    esac && \
+    wget https://github.com/python/cpython/archive/refs/tags/v${python_patch_version}.tar.gz && \
     tar -xzf v${python_patch_version}.tar.gz && \
     rm v${python_patch_version}.tar.gz && \
     cd cpython-${python_patch_version}/ && \
