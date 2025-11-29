@@ -903,7 +903,8 @@ test_that("str_like and str_ilike", {
   # with namespacing
   compare_dplyr_binding(
     .input |>
-      mutate(x = stringr::str_like(x, "baz")) |>
+      mutate(x_like = stringr::str_like(x, "baz")) |>
+      mutate(x_ilike = stringr::str_ilike(x, "foo%")) |>
       collect(),
     df
   )
@@ -911,34 +912,19 @@ test_that("str_like and str_ilike", {
   # Match - entire string
   compare_dplyr_binding(
     .input |>
-      mutate(x = str_like(x, "Foo and bar")) |>
+      mutate(x_like = str_like(x, "foo and bar")) |>
+      mutate(x_ilike = str_ilike(x, "foo and bar")) |>
       collect(),
     df
   )
 
-  # Case sensitivity: str_like is case-sensitive, str_ilike is not
+  # Wildcard
   compare_dplyr_binding(
     .input |>
       mutate(like_lower = str_like(x, "f%")) |>
       mutate(like_upper = str_like(x, "F%")) |>
       mutate(ilike_lower = str_ilike(x, "f%")) |>
       mutate(ilike_upper = str_ilike(x, "F%")) |>
-      collect(),
-    df
-  )
-
-  # str_ilike with namespacing and different patterns
-  compare_dplyr_binding(
-    .input |>
-      mutate(ilike_ns = stringr::str_ilike(x, "foo%")) |>
-      mutate(ilike_full = str_ilike(x, "foo and bar")) |>
-      collect(),
-    df
-  )
-
-  # Wildcards: % and _
-  compare_dplyr_binding(
-    .input |>
       mutate(like_percent = str_like(x, "%baz%")) |>
       mutate(like_underscore = str_like(x, "_a%")) |>
       mutate(ilike_mixed = str_ilike(x, "%BAZ%")) |>
