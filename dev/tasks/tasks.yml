@@ -669,11 +669,12 @@ tasks:
     ci: github
     template: r/github.linux.cran.yml
 
-  test-r-alpine-linux:
+  test-r-alpine-linux-cran:
     ci: github
     template: docker-tests/github.linux.yml
     params:
       image: alpine-linux-r
+      flags: -e NOT_CRAN=false
 
   test-r-macos-as-cran:
     ci: github
