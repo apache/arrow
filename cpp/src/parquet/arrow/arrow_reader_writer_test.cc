@@ -4164,12 +4164,11 @@ void TryReadDataFile(const std::string& path,
                      const std::string& expected_message = "") {
   auto pool = ::arrow::default_memory_pool();
 
-  std::unique_ptr<FileReader> arrow_reader;
-  Status s =
-      FileReader::Make(pool, ParquetFileReader::OpenFile(path, false), &arrow_reader);
-  if (s.ok()) {
+  Status s;
+  auto reader_result = FileReader::Make(pool, ParquetFileReader::OpenFile(path, false));
+  if (reader_result.ok()) {
     std::shared_ptr<::arrow::Table> table;
-    s = arrow_reader->ReadTable(&table);
+    s = (*reader_result)->ReadTable(&table);
   }
 
   ASSERT_EQ(s.code(), expected_code)
