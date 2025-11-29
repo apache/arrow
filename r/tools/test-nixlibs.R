@@ -36,10 +36,10 @@ test_that("identify_binary() based on LIBARROW_BINARY", {
 })
 
 test_that("select_binary() based on system", {
-  # Test unsupported architecture
+  # Test unsupported OS (select_binary returns NULL for non-darwin/non-linux OS)
   expect_output(
-    expect_null(select_binary("linux", arch = "riscv64")),
-    "Building on linux riscv64"
+    expect_null(select_binary("freebsd", arch = "x86_64")),
+    "Building on freebsd x86_64"
   )
 })
 
