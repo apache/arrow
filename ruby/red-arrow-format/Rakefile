@@ -1,0 +1,67 @@
+# -*- ruby -*-
+#
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+require "bundler/gem_helper"
+require "pathname"
+require "tmpdir"
+
+base_dir = Pathname(__dir__)
+
+helper = Bundler::GemHelper.new(base_dir.to_s)
+helper.install
+spec = helper.gemspec
+
+release_task = Rake::Task["release"]
+release_task.prerequisites.replace(["release:rubygem_push"])
+
+task default: :test
+
+desc "Run tests"
+task :test do
+  cd(base_dir.to_s) do
+    ruby("test/run.rb")
+  end
+end
+
+namespace :flatbuffers do
+  desc "Generate FlatBuffers code"
+  task :generate do
+    Dir.mktmpdir do |tmp_dir|
+      format_dir = base_dir.parent.parent + "format"
+      output_dir = base_dir + "lib" + "arrow-format"
+      rm_rf((output_dir + "org").to_s)
+      ["File", "Message"].each do |fb_name|
+        fbs = format_dir + "#{fb_name}.fbs"
+        bfbs = File.join(tmp_dir, "#{fb_name}.bfbs")
+        sh("flatc",
+           "-o", tmp_dir,
+           # This arguments order is important.
+           "--binary",
+           "--schema",
+           "--bfbs-builtins",
+           "--bfbs-comments",
+           fbs.to_s)
+        sh("rbflatc",
+           "--output-dir", output_dir.to_s,
+           "--outer-namespaces", "ArrowFormat",
+           bfbs)
+      end
+    end
+  end
+end

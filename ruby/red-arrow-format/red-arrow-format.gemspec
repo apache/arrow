@@ -17,35 +17,41 @@
 # specific language governing permissions and limitations
 # under the License.
 
-require_relative "lib/arrow-cuda/version"
+require_relative "lib/arrow-format/version"
 
 Gem::Specification.new do |spec|
-  spec.name = "red-arrow-cuda"
+  spec.name = "red-arrow-format"
+
   version_components = [
-    ArrowCUDA::Version::MAJOR.to_s,
-    ArrowCUDA::Version::MINOR.to_s,
-    ArrowCUDA::Version::MICRO.to_s,
-    ArrowCUDA::Version::TAG,
+    ArrowFormat::Version::MAJOR.to_s,
+    ArrowFormat::Version::MINOR.to_s,
+    ArrowFormat::Version::MICRO.to_s,
+    ArrowFormat::Version::TAG,
   ]
   spec.version = version_components.compact.join(".")
   spec.homepage = "https://arrow.apache.org/"
   spec.authors = ["The Apache Software Foundation"]
   spec.email = ["dev@arrow.apache.org"]
 
-  spec.summary = "Red Arrow CUDA is the Ruby bindings of Apache Arrow CUDA"
+  spec.summary = "Red Arrow Format is the pure Ruby Apache Arrow implementation"
   spec.description =
-    "Apache Arrow CUDA is a common in-memory columnar data store on CUDA. " +
-    "It's useful to share and process large data."
+    "Apache Arrow is a common in-memory columnar data store. " +
+    "It's useful to share and process large data efficiently. " +
+    "Red Arrow Format provides only serialize/deserialize features. " +
+    "If you want to process Apache Arrow data efficiently, " +
+    "use Red Arrow instead."
   spec.license = "Apache-2.0"
   spec.files = ["README.md", "Rakefile", "Gemfile", "#{spec.name}.gemspec"]
   spec.files += ["LICENSE.txt", "NOTICE.txt"]
   spec.files += Dir.glob("lib/**/*.rb")
-  spec.test_files += Dir.glob("test/**/*")
-  spec.extensions = ["dependency-check/Rakefile"]
+  spec.files += Dir.glob("doc/text/*")
 
-  spec.add_runtime_dependency("red-arrow", "= #{spec.version}")
+  spec.add_runtime_dependency("red-flatbuffers")
 
-  spec.add_development_dependency("bundler")
-  spec.add_development_dependency("rake")
-  spec.add_development_dependency("test-unit")
+  github_url = "https://github.com/apache/arrow"
+  spec.metadata = {
+    "bug_tracker_uri" => "#{github_url}/issues",
+    "changelog_uri" => "#{github_url}/releases/tag/apache-arrow-#{spec.version}",
+    "source_code_uri" => github_url,
+  }
 end
