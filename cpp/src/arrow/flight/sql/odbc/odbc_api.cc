@@ -942,7 +942,6 @@ SQLRETURN SQLGetInfo(SQLHDBC conn, SQLUSMALLINT info_type, SQLPOINTER info_value
                    << ", string_length_ptr: "
                    << static_cast<const void*>(string_length_ptr);
 
-  // GH-47709 TODO: Update SQLGetInfo implementation and add tests for SQLGetInfo
   using ODBC::ODBCConnection;
 
   return ODBCConnection::ExecuteWithDiagnostics(conn, SQL_ERROR, [=]() {
@@ -955,9 +954,8 @@ SQLRETURN SQLGetInfo(SQLHDBC conn, SQLUSMALLINT info_type, SQLPOINTER info_value
       return static_cast<SQLRETURN>(SQL_ERROR);
     }
 
-    connection->GetInfo(info_type, info_value_ptr, buf_len, string_length_ptr,
-                        is_unicode);
-    return static_cast<SQLRETURN>(SQL_SUCCESS);
+    return connection->GetInfo(info_type, info_value_ptr, buf_len, string_length_ptr,
+                               is_unicode);
   });
 }
 

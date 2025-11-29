@@ -35,6 +35,7 @@ add_arrow_test(flight_sql_odbc_test
                odbc_test_suite.cc
                odbc_test_suite.h
                connection_attr_test.cc
+               connection_info_test.cc
                connection_test.cc
                statement_attr_test.cc
                # Enable Protobuf cleanup after test execution
