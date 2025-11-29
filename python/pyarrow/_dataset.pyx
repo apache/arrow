@@ -412,6 +412,10 @@ cdef class Dataset(_Weakrefable):
         n_legs: [[2,4,4,100]]
         animal: [["Parrot","Dog","Horse","Centipede"]]
         """
+        # Apply column projection from rename_columns() if present
+        if columns is None and 'columns' in self._scan_options:
+            columns = self._scan_options['columns']
+
         return Scanner.from_dataset(
             self,
             columns=columns,
@@ -990,6 +994,56 @@ cdef class Dataset(_Weakrefable):
                                          right_dataset, right_on, right_by,
                                          tolerance, output_type=InMemoryDataset)
 
+    def rename_columns(self, names):
+        """
+        Apply logical column renaming on the Dataset.
+
+        The rename is applied lazily when data is scanned. Column names in the
+        files are not changed; the rename is a logical transformation applied
+        during reads.
+
+        Parameters
+        ----------
+        names : list, tuple, or dict
+            If a list or tuple, the new names for all columns (must match the
+            number of columns). If a dict, maps old column names to new names.
+
+        Returns
+        -------
+        Dataset
+            The existing dataset with column projection applied.
+
+        Examples
+        --------
+        Rename all columns by position:
+
+        >>> dataset.rename_columns(['name', 'age', 'city']).to_table()
+
+        Rename specific columns:
+
+        >>> dataset.rename_columns({'old_name': 'new_name'}).to_table()
+        """
+        import pyarrow.dataset as ds
+
+        schema = self.schema
+
+        if isinstance(names, (list, tuple)):
+            if len(names) != len(schema):
+                raise ValueError(
+                    f"Expected {len(schema)} names, got {len(names)}")
+            name_mapping = {schema.field(i).name: names[i]
+                            for i in range(len(names))}
+        elif isinstance(names, dict):
+            name_mapping = names
+        else:
+            raise TypeError(f"names must be list, tuple, or dict, not {type(names)!r}")
+
+        projection = {new_name: ds.field(old_name)
+                      for old_name, new_name in name_mapping.items()}
+
+        self._scan_options['columns'] = projection
+
+        return self
 
 cdef class InMemoryDataset(Dataset):
     """
