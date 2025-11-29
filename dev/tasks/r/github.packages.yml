@@ -390,7 +390,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y libcurl4-openssl-dev libssl-dev
-      {{ macros.github_setup_local_r_repo(true, false)|indent }}
+      {{ macros.github_setup_local_r_repo_arm64()|indent }}
       - name: Install arrow from our repo
         env:
           ARROW_R_DEV: "TRUE"
