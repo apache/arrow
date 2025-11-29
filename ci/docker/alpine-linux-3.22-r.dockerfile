@@ -39,6 +39,8 @@ RUN apk add \
         musl-locales \
         openssl-dev \
         pkgconfig \
+        python3 \
+        python3-dev \
         zlib-dev && \
     rm -rf /var/cache/apk/* && \
     ln -s /usr/share/zoneinfo/Etc/UTC /etc/localtime && \
