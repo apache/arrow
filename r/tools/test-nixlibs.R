@@ -36,9 +36,10 @@ test_that("identify_binary() based on LIBARROW_BINARY", {
 })
 
 test_that("select_binary() based on system", {
+  # Test unsupported architecture
   expect_output(
-    expect_null(select_binary("linux", arch = "aarch64")), # Not built today
-    "Building on linux aarch64"
+    expect_null(select_binary("linux", arch = "riscv64")),
+    "Building on linux riscv64"
   )
 })
 
@@ -108,6 +109,13 @@ test_that("select_binary() with test program", {
     expect_identical(
       select_binary("linux", "x86_64", "#error Using OpenSSL version 3"),
       "linux-x86_64-openssl-3.0"
+    ),
+    "Found libcurl and OpenSSL >= 3.0.0"
+  )
+  expect_output(
+    expect_identical(
+      select_binary("linux", "arm64", "#error Using OpenSSL version 3"),
+      "linux-arm64-openssl-3.0"
     ),
     "Found libcurl and OpenSSL >= 3.0.0"
   )
