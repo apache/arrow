@@ -29,7 +29,15 @@ RUN (if "%python%"=="3.10" setx PYTHON_VERSION "3.10.11" && setx PYTHON_CMD "py 
     (if "%python%"=="3.13" setx PYTHON_VERSION "3.13.7" && setx PYTHON_CMD "py -3.13") & \
     (if "%python%"=="3.14" setx PYTHON_VERSION "3.14.0" && setx PYTHON_CMD "py -3.14")
 
-RUN choco install -r -y --pre --no-progress python --version=%PYTHON_VERSION%
+# Use python_abi_tag env var to select regular or free-threaded Python
+ARG freethreaded=0
+ENV PYTHON_MODE=${freethreaded}
+RUN if "%PYTHON_MODE%"=="1" ( \
+        pymanager install --version %PYTHON_VERSION% --variant freethreaded \
+    ) else ( \
+        pymanager install --version %PYTHON_VERSION% \
+    )
+
 RUN %PYTHON_CMD% -m pip install -U pip setuptools
 
 COPY python/requirements-wheel-build.txt C:/arrow/python/
