@@ -1404,13 +1404,13 @@ FileReaderBuilder* FileReaderBuilder::properties(
 }
 
 Status FileReaderBuilder::Build(std::unique_ptr<FileReader>* out) {
-  return FileReader::Make(pool_, std::move(raw_reader_), properties_, out);
+  ARROW_ASSIGN_OR_RAISE(*out,
+                        FileReader::Make(pool_, std::move(raw_reader_), properties_));
+  return Status::OK();
 }
 
 Result<std::unique_ptr<FileReader>> FileReaderBuilder::Build() {
-  std::unique_ptr<FileReader> out;
-  RETURN_NOT_OK(FileReader::Make(pool_, std::move(raw_reader_), properties_, &out));
-  return out;
+  return FileReader::Make(pool_, std::move(raw_reader_), properties_);
 }
 
 Result<std::unique_ptr<FileReader>> OpenFile(
@@ -1581,8 +1581,8 @@ Status FuzzReader(const uint8_t* data, int64_t size) {
     pq_file_reader = ParquetFileReader::Open(file, reader_properties, pq_md);
     END_PARQUET_CATCH_EXCEPTIONS
 
-    std::unique_ptr<FileReader> reader;
-    RETURN_NOT_OK(FileReader::Make(pool, std::move(pq_file_reader), properties, &reader));
+    ARROW_ASSIGN_OR_RAISE(auto reader,
+                          FileReader::Make(pool, std::move(pq_file_reader), properties));
     st &= FuzzReadData(std::move(reader));
   }
   return st;
