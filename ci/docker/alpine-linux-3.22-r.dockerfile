@@ -34,6 +34,7 @@ RUN apk add \
         g++ \
         gcc \
         git \
+        linux-headers \
         make \
         musl-locales \
         openssl-dev \
