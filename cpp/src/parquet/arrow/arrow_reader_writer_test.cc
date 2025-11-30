@@ -4187,6 +4187,8 @@ void TryReadDataFile(const std::string& path,
   if (reader_result.ok()) {
     std::shared_ptr<::arrow::Table> table;
     s = (*reader_result)->ReadTable(&table);
+  } else {
+    s = reader_result.status();
   }
 
   ASSERT_EQ(s.code(), expected_code)
