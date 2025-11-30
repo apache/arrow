@@ -799,8 +799,8 @@ static void BM_ReadMultipleRowGroupsGenerator(::benchmark::State& state) {
     auto reader =
         ParquetFileReader::Open(std::make_shared<::arrow::io::BufferReader>(buffer));
     std::unique_ptr<FileReader> unique_reader;
-    EXIT_NOT_OK(FileReader::Make(::arrow::default_memory_pool(), std::move(reader),
-                                 &unique_reader));
+    ASSERT_OK_AND_ASSIGN(unique_reader, FileReader::Make(::arrow::default_memory_pool(),
+                                                         std::move(reader)));
     std::shared_ptr<FileReader> arrow_reader = std::move(unique_reader);
     ASSIGN_OR_ABORT(auto generator,
                     arrow_reader->GetRecordBatchGenerator(arrow_reader, rgs, {0}));
