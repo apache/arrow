@@ -51,6 +51,7 @@ class FlightSqlResultSet : public ResultSet {
   ~FlightSqlResultSet() override;
 
   FlightSqlResultSet(FlightSqlClient& flight_sql_client,
+                     const FlightClientOptions& client_options,
                      const FlightCallOptions& call_options,
                      const std::shared_ptr<FlightInfo>& flight_info,
                      const std::shared_ptr<RecordBatchTransformer>& transformer,

@@ -782,7 +782,7 @@ SQLRETURN SQLSetConnectAttr(SQLHDBC conn, SQLINTEGER attr, SQLPOINTER value_ptr,
 // entries in the properties.
 void LoadPropertiesFromDSN(const std::string& dsn,
                            Connection::ConnPropertyMap& properties) {
-  arrow::flight::sql::odbc::config::Configuration config;
+  config::Configuration config;
   config.LoadDsn(dsn);
   Connection::ConnPropertyMap dsn_properties = config.GetProperties();
   for (auto& [key, value] : dsn_properties) {
@@ -840,7 +840,7 @@ SQLRETURN SQLDriverConnect(SQLHDBC conn, SQLHWND window_handle,
     // Load the DSN window according to driver_completion
     if (driver_completion == SQL_DRIVER_PROMPT) {
       // Load DSN window before first attempt to connect
-      arrow::flight::sql::odbc::config::Configuration config;
+      config::Configuration config;
       if (!DisplayConnectionWindow(window_handle, config, properties)) {
         return static_cast<SQLRETURN>(SQL_NO_DATA);
       }
@@ -853,7 +853,7 @@ SQLRETURN SQLDriverConnect(SQLHDBC conn, SQLHWND window_handle,
         // If first connection fails due to missing attributes, load
         // the DSN window and try to connect again
         if (!missing_properties.empty()) {
-          arrow::flight::sql::odbc::config::Configuration config;
+          config::Configuration config;
           missing_properties.clear();
 
           if (!DisplayConnectionWindow(window_handle, config, properties)) {
@@ -899,7 +899,7 @@ SQLRETURN SQLConnect(SQLHDBC conn, SQLWCHAR* dsn_name, SQLSMALLINT dsn_name_len,
     ODBCConnection* connection = reinterpret_cast<ODBCConnection*>(conn);
     std::string dsn = SqlWcharToString(dsn_name, dsn_name_len);
 
-    Configuration config;
+    config::Configuration config;
     config.LoadDsn(dsn);
 
     if (user_name) {
