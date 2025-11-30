@@ -297,8 +297,9 @@ static void BenchmarkReadTable(::benchmark::State& state, const Table& table,
     auto reader =
         ParquetFileReader::Open(std::make_shared<::arrow::io::BufferReader>(buffer));
     std::unique_ptr<FileReader> arrow_reader;
-    EXIT_NOT_OK(FileReader::Make(::arrow::default_memory_pool(), std::move(reader),
-                                 &arrow_reader));
+    auto reader_result =
+        FileReader::Make(::arrow::default_memory_pool(), std::move(reader));
+    EXIT_NOT_OK(result.status);
 
     std::shared_ptr<Table> table;
     EXIT_NOT_OK(arrow_reader->ReadTable(&table));
@@ -736,8 +737,9 @@ static void BM_ReadIndividualRowGroups(::benchmark::State& state) {
     auto reader =
         ParquetFileReader::Open(std::make_shared<::arrow::io::BufferReader>(buffer));
     std::unique_ptr<FileReader> arrow_reader;
-    EXIT_NOT_OK(FileReader::Make(::arrow::default_memory_pool(), std::move(reader),
-                                 &arrow_reader));
+    auto reader_result =
+        FileReader::Make(::arrow::default_memory_pool(), std::move(reader));
+    EXIT_NOT_OK(reader_result.status());
 
     std::vector<std::shared_ptr<Table>> tables;
     for (int i = 0; i < arrow_reader->num_row_groups(); i++) {
@@ -771,8 +773,10 @@ static void BM_ReadMultipleRowGroups(::benchmark::State& state) {
     auto reader =
         ParquetFileReader::Open(std::make_shared<::arrow::io::BufferReader>(buffer));
     std::unique_ptr<FileReader> arrow_reader;
-    EXIT_NOT_OK(FileReader::Make(::arrow::default_memory_pool(), std::move(reader),
-                                 &arrow_reader));
+    auto reader_result =
+        FileReader::Make(::arrow::default_memory_pool(), std::move(reader));
+    EXIT_NOT_OK(reader_result.status());
+
     std::shared_ptr<Table> table;
     EXIT_NOT_OK(arrow_reader->ReadRowGroups(rgs, &table));
   }
