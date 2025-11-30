@@ -299,7 +299,7 @@ static void BenchmarkReadTable(::benchmark::State& state, const Table& table,
     std::unique_ptr<FileReader> arrow_reader;
     auto reader_result =
         FileReader::Make(::arrow::default_memory_pool(), std::move(reader));
-    EXIT_NOT_OK(result.status());
+    EXIT_NOT_OK(reader_result.status());
 
     std::shared_ptr<Table> table;
     EXIT_NOT_OK(arrow_reader->ReadTable(&table));
