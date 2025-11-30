@@ -1017,12 +1017,12 @@ def test_arithmetic_dunders(int_scalars):
     # GH-32007
     scl1, scl2 = int_scalars
 
-    assert (scl1 + scl2).equals(pc.add(scl1, scl2))
-    assert (scl2 / scl1).equals(pc.divide(scl2, scl1))
-    assert (scl1 * scl2).equals(pc.multiply(scl1, scl2))
-    assert (-scl1).equals(pc.negate(scl1))
-    assert (scl1 ** 2).equals(pc.power(scl1, 2))
-    assert (scl1 - scl2).equals(pc.subtract(scl1, scl2))
+    assert (scl1 + scl2).equals(pc.add_checked(scl1, scl2))
+    assert (scl2 / scl1).equals(pc.divide_checked(scl2, scl1))
+    assert (scl1 * scl2).equals(pc.multiply_checked(scl1, scl2))
+    assert (-scl1).equals(pc.negate_checked(scl1))
+    assert (scl1 ** 2).equals(pc.power_checked(scl1, 2))
+    assert (scl1 - scl2).equals(pc.subtract_checked(scl1, scl2))
 
 
 def test_bitwise_dunders(int_scalars):
@@ -1047,3 +1047,16 @@ def test_math_dunders(float_scalars):
     assert math.trunc(scl1).equals(pc.trunc(scl1))
     assert math.floor(scl1).equals(pc.floor(scl1))
     assert math.ceil(scl1).equals(pc.ceil(scl1))
+
+
+def test_dunders_unmatching_types():
+    # GH-32007
+    error_match = r"Function '\w+' has no kernel matching input types"
+    string_scl = pa.scalar("abc")
+    double_scl = pa.scalar(1.23)
+
+    with pytest.raises(pa.ArrowNotImplementedError, match=error_match):
+        string_scl + double_scl
+        string_scl - double_scl
+        string_scl / double_scl
+        string_scl * double_scl

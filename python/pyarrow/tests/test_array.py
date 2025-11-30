@@ -4375,3 +4375,16 @@ def test_math_dunders(float_arrays):
     assert math.trunc(arr1).equals(pc.trunc(arr1))
     assert math.floor(arr1).equals(pc.floor(arr1))
     assert math.ceil(arr1).equals(pc.ceil(arr1))
+
+
+def test_dunders_unmatching_types():
+    # GH-32007
+    error_match = r"Function '\w+' has no kernel matching input types"
+    string_arr = pa.array(["a", "b", "c"])
+    nested_arr = pa.array([{"x": 1, "y": True}, {"z": 3.4, "x": 4}])
+    double_arr = pa.array([1.0, 2.0, 3.0])
+
+    with pytest.raises(pa.ArrowNotImplementedError, match=error_match):
+        string_arr + nested_arr
+        string_arr - double_arr
+        double_arr * nested_arr
