@@ -188,18 +188,26 @@ void unpack_width(const uint8_t* in, UnpackedUInt* out, int batch_size, int bit_
       return unpack_full(in, out, batch_size);
     } else {
       using UnpackerForWidth = Unpacker<UnpackedUInt, kPackedBitWidth>;
+      // Number of values extracted by one iteration of the kernel
       constexpr auto kValuesUnpacked = UnpackerForWidth::kValuesUnpacked;
+      // Number of bytes read, but not necessarily unpacked, by one iteration of the
+      // kernel. This constant prevent reading past buffer end.
       constexpr auto kBytesRead = UnpackerForWidth::kBytesRead;
 
       if constexpr (kValuesUnpacked > 0) {
-        const uint8_t* last_in =
-            in + bit_util::CeilDiv(batch_size * kPackedBitWidth, 8) - kBytesRead;
+        const uint8_t* in_end = in + bit_util::CeilDiv(batch_size * kPackedBitWidth, 8);
+        const uint8_t* in_last = in_end - kBytesRead;
         // Running the optimized kernel for batch extraction
-        while ((batch_size > kValuesUnpacked) && (in <= last_in)) {
+        while ((batch_size >= kValuesUnpacked) && (in <= in_last)) {
           in = UnpackerForWidth::unpack(in, out);
           out += kValuesUnpacked;
           batch_size -= kValuesUnpacked;
         }
+
+        // Performance check aking sure we ran the kernel loop as much as possible:
+        // Either we ran out because we could not pack enough values, or because we would
+        // overread.
+        ARROW_DCHECK((batch_size < kValuesUnpacked) || (in_end - in) < kBytesRead);
       }
 
       // Running the epilog for the remaining values that don't fit in a kernel
