@@ -22,6 +22,7 @@
 #include <type_traits>
 
 #include "arrow/util/bit_util.h"
+#include "arrow/util/bpacking_internal.h"
 #include "arrow/util/endian.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
@@ -166,13 +167,26 @@ int unpack_exact(const uint8_t* in, Uint* out, int batch_size, int bit_offset) {
 ///                  fixed amount of values (usually constrained by SIMD batch sizes and
 ///                  byte alignment).
 /// @tparam UnpackedUInt The type in which we unpack the values.
+/// @param batch_size The number of values to unpack.
+/// @param max_read_bytes The maximum size of the input byte array that can be read.
+///                       This is used to safely overread.
+///                       Negative value to deduce from batch_size.
 template <int kPackedBitWidth, template <typename, int> typename Unpacker,
           typename UnpackedUInt>
-void unpack_width(const uint8_t* in, UnpackedUInt* out, int batch_size, int bit_offset) {
+void unpack_width(const uint8_t* in, UnpackedUInt* out, int batch_size, int bit_offset,
+                  int max_read_bytes) {
   if constexpr (kPackedBitWidth == 0) {
     // Easy case to handle, simply setting memory to zero.
     return unpack_null(in, out, batch_size);
   } else {
+    // Number of size to read according to batch_size.
+    const int bytes_batch = static_cast<int>(
+        bit_util::BytesForBits(batch_size * kPackedBitWidth + bit_offset));
+    // If specified, max_read_bytes must be greater that the bytes needed to extract the
+    // number of desired values.
+    ARROW_DCHECK(max_read_bytes < 0 || bytes_batch <= max_read_bytes);
+    const uint8_t* in_end = in + (max_read_bytes >= 0 ? max_read_bytes : bytes_batch);
+
     // In case of misalignment, we need to run the prolog until aligned.
     int extracted = unpack_exact<kPackedBitWidth, true>(in, out, batch_size, bit_offset);
     // We either extracted everything or found a alignment
@@ -195,7 +209,6 @@ void unpack_width(const uint8_t* in, UnpackedUInt* out, int batch_size, int bit_
       constexpr auto kBytesRead = UnpackerForWidth::kBytesRead;
 
       if constexpr (kValuesUnpacked > 0) {
-        const uint8_t* in_end = in + bit_util::CeilDiv(batch_size * kPackedBitWidth, 8);
         const uint8_t* in_last = in_end - kBytesRead;
         // Running the optimized kernel for batch extraction
         while ((batch_size >= kValuesUnpacked) && (in <= in_last)) {
@@ -219,276 +232,401 @@ void unpack_width(const uint8_t* in, UnpackedUInt* out, int batch_size, int bit_
 }
 
 template <template <typename, int> typename Unpacker, typename UnpackedUint>
-static void unpack_jump(const uint8_t* in, UnpackedUint* out, int batch_size,
-                        int num_bits, int bit_offset) {
+static void unpack_jump(const uint8_t* in, UnpackedUint* out, const UnpackOptions& opt) {
   if constexpr (std::is_same_v<UnpackedUint, bool>) {
-    switch (num_bits) {
+    switch (opt.bit_width) {
       case 0:
-        return unpack_width<0, Unpacker>(in, out, batch_size, bit_offset);
+        return unpack_width<0, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
+                                         opt.max_read_bytes);
       case 1:
-        return unpack_width<1, Unpacker>(in, out, batch_size, bit_offset);
+        return unpack_width<1, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
+                                         opt.max_read_bytes);
     }
   } else if constexpr (sizeof(UnpackedUint) == 1) {
-    switch (num_bits) {
+    switch (opt.bit_width) {
       case 0:
-        return unpack_width<0, Unpacker>(in, out, batch_size, bit_offset);
+        return unpack_width<0, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
+                                         opt.max_read_bytes);
       case 1:
-        return unpack_width<1, Unpacker>(in, out, batch_size, bit_offset);
+        return unpack_width<1, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
+                                         opt.max_read_bytes);
       case 2:
-        return unpack_width<2, Unpacker>(in, out, batch_size, bit_offset);
+        return unpack_width<2, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
+                                         opt.max_read_bytes);
       case 3:
-        return unpack_width<3, Unpacker>(in, out, batch_size, bit_offset);
+        return unpack_width<3, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
+                                         opt.max_read_bytes);
       case 4:
-        return unpack_width<4, Unpacker>(in, out, batch_size, bit_offset);
+        return unpack_width<4, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
+                                         opt.max_read_bytes);
       case 5:
-        return unpack_width<5, Unpacker>(in, out, batch_size, bit_offset);
+        return unpack_width<5, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
+                                         opt.max_read_bytes);
       case 6:
-        return unpack_width<6, Unpacker>(in, out, batch_size, bit_offset);
+        return unpack_width<6, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
+                                         opt.max_read_bytes);
       case 7:
-        return unpack_width<7, Unpacker>(in, out, batch_size, bit_offset);
+        return unpack_width<7, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
+                                         opt.max_read_bytes);
       case 8:
-        return unpack_width<8, Unpacker>(in, out, batch_size, bit_offset);
+        return unpack_width<8, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
+                                         opt.max_read_bytes);
     }
   } else if constexpr (sizeof(UnpackedUint) == 2) {
-    switch (num_bits) {
+    switch (opt.bit_width) {
       case 0:
-        return unpack_width<0, Unpacker>(in, out, batch_size, bit_offset);
+        return unpack_width<0, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
+                                         opt.max_read_bytes);
       case 1:
-        return unpack_width<1, Unpacker>(in, out, batch_size, bit_offset);
+        return unpack_width<1, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
+                                         opt.max_read_bytes);
       case 2:
-        return unpack_width<2, Unpacker>(in, out, batch_size, bit_offset);
+        return unpack_width<2, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
+                                         opt.max_read_bytes);
       case 3:
-        return unpack_width<3, Unpacker>(in, out, batch_size, bit_offset);
+        return unpack_width<3, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
+                                         opt.max_read_bytes);
       case 4:
-        return unpack_width<4, Unpacker>(in, out, batch_size, bit_offset);
+        return unpack_width<4, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
+                                         opt.max_read_bytes);
       case 5:
-        return unpack_width<5, Unpacker>(in, out, batch_size, bit_offset);
+        return unpack_width<5, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
+                                         opt.max_read_bytes);
       case 6:
-        return unpack_width<6, Unpacker>(in, out, batch_size, bit_offset);
+        return unpack_width<6, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
+                                         opt.max_read_bytes);
       case 7:
-        return unpack_width<7, Unpacker>(in, out, batch_size, bit_offset);
+        return unpack_width<7, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
+                                         opt.max_read_bytes);
       case 8:
-        return unpack_width<8, Unpacker>(in, out, batch_size, bit_offset);
+        return unpack_width<8, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
+                                         opt.max_read_bytes);
       case 9:
-        return unpack_width<9, Unpacker>(in, out, batch_size, bit_offset);
+        return unpack_width<9, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
+                                         opt.max_read_bytes);
       case 10:
-        return unpack_width<10, Unpacker>(in, out, batch_size, bit_offset);
+        return unpack_width<10, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
+                                          opt.max_read_bytes);
       case 11:
-        return unpack_width<11, Unpacker>(in, out, batch_size, bit_offset);
+        return unpack_width<11, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
+                                          opt.max_read_bytes);
       case 12:
-        return unpack_width<12, Unpacker>(in, out, batch_size, bit_offset);
+        return unpack_width<12, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
+                                          opt.max_read_bytes);
       case 13:
-        return unpack_width<13, Unpacker>(in, out, batch_size, bit_offset);
+        return unpack_width<13, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
+                                          opt.max_read_bytes);
       case 14:
-        return unpack_width<14, Unpacker>(in, out, batch_size, bit_offset);
+        return unpack_width<14, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
+                                          opt.max_read_bytes);
       case 15:
-        return unpack_width<15, Unpacker>(in, out, batch_size, bit_offset);
+        return unpack_width<15, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
+                                          opt.max_read_bytes);
       case 16:
-        return unpack_width<16, Unpacker>(in, out, batch_size, bit_offset);
+        return unpack_width<16, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
+                                          opt.max_read_bytes);
     }
   } else if constexpr (sizeof(UnpackedUint) == 4) {
-    switch (num_bits) {
+    switch (opt.bit_width) {
       case 0:
-        return unpack_width<0, Unpacker>(in, out, batch_size, bit_offset);
+        return unpack_width<0, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
+                                         opt.max_read_bytes);
       case 1:
-        return unpack_width<1, Unpacker>(in, out, batch_size, bit_offset);
+        return unpack_width<1, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
+                                         opt.max_read_bytes);
       case 2:
-        return unpack_width<2, Unpacker>(in, out, batch_size, bit_offset);
+        return unpack_width<2, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
+                                         opt.max_read_bytes);
       case 3:
-        return unpack_width<3, Unpacker>(in, out, batch_size, bit_offset);
+        return unpack_width<3, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
+                                         opt.max_read_bytes);
       case 4:
-        return unpack_width<4, Unpacker>(in, out, batch_size, bit_offset);
+        return unpack_width<4, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
+                                         opt.max_read_bytes);
       case 5:
-        return unpack_width<5, Unpacker>(in, out, batch_size, bit_offset);
+        return unpack_width<5, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
+                                         opt.max_read_bytes);
       case 6:
-        return unpack_width<6, Unpacker>(in, out, batch_size, bit_offset);
+        return unpack_width<6, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
+                                         opt.max_read_bytes);
       case 7:
-        return unpack_width<7, Unpacker>(in, out, batch_size, bit_offset);
+        return unpack_width<7, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
+                                         opt.max_read_bytes);
       case 8:
-        return unpack_width<8, Unpacker>(in, out, batch_size, bit_offset);
+        return unpack_width<8, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
+                                         opt.max_read_bytes);
       case 9:
-        return unpack_width<9, Unpacker>(in, out, batch_size, bit_offset);
+        return unpack_width<9, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
+                                         opt.max_read_bytes);
       case 10:
-        return unpack_width<10, Unpacker>(in, out, batch_size, bit_offset);
+        return unpack_width<10, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
+                                          opt.max_read_bytes);
       case 11:
-        return unpack_width<11, Unpacker>(in, out, batch_size, bit_offset);
+        return unpack_width<11, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
+                                          opt.max_read_bytes);
       case 12:
-        return unpack_width<12, Unpacker>(in, out, batch_size, bit_offset);
+        return unpack_width<12, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
+                                          opt.max_read_bytes);
       case 13:
-        return unpack_width<13, Unpacker>(in, out, batch_size, bit_offset);
+        return unpack_width<13, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
+                                          opt.max_read_bytes);
       case 14:
-        return unpack_width<14, Unpacker>(in, out, batch_size, bit_offset);
+        return unpack_width<14, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
+                                          opt.max_read_bytes);
       case 15:
-        return unpack_width<15, Unpacker>(in, out, batch_size, bit_offset);
+        return unpack_width<15, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
+                                          opt.max_read_bytes);
       case 16:
-        return unpack_width<16, Unpacker>(in, out, batch_size, bit_offset);
+        return unpack_width<16, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
+                                          opt.max_read_bytes);
       case 17:
-        return unpack_width<17, Unpacker>(in, out, batch_size, bit_offset);
+        return unpack_width<17, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
+                                          opt.max_read_bytes);
       case 18:
-        return unpack_width<18, Unpacker>(in, out, batch_size, bit_offset);
+        return unpack_width<18, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
+                                          opt.max_read_bytes);
       case 19:
-        return unpack_width<19, Unpacker>(in, out, batch_size, bit_offset);
+        return unpack_width<19, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
+                                          opt.max_read_bytes);
       case 20:
-        return unpack_width<20, Unpacker>(in, out, batch_size, bit_offset);
+        return unpack_width<20, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
+                                          opt.max_read_bytes);
       case 21:
-        return unpack_width<21, Unpacker>(in, out, batch_size, bit_offset);
+        return unpack_width<21, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
+                                          opt.max_read_bytes);
       case 22:
-        return unpack_width<22, Unpacker>(in, out, batch_size, bit_offset);
+        return unpack_width<22, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
+                                          opt.max_read_bytes);
       case 23:
-        return unpack_width<23, Unpacker>(in, out, batch_size, bit_offset);
+        return unpack_width<23, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
+                                          opt.max_read_bytes);
       case 24:
-        return unpack_width<24, Unpacker>(in, out, batch_size, bit_offset);
+        return unpack_width<24, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
+                                          opt.max_read_bytes);
       case 25:
-        return unpack_width<25, Unpacker>(in, out, batch_size, bit_offset);
+        return unpack_width<25, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
+                                          opt.max_read_bytes);
       case 26:
-        return unpack_width<26, Unpacker>(in, out, batch_size, bit_offset);
+        return unpack_width<26, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
+                                          opt.max_read_bytes);
       case 27:
-        return unpack_width<27, Unpacker>(in, out, batch_size, bit_offset);
+        return unpack_width<27, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
+                                          opt.max_read_bytes);
       case 28:
-        return unpack_width<28, Unpacker>(in, out, batch_size, bit_offset);
+        return unpack_width<28, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
+                                          opt.max_read_bytes);
       case 29:
-        return unpack_width<29, Unpacker>(in, out, batch_size, bit_offset);
+        return unpack_width<29, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
+                                          opt.max_read_bytes);
       case 30:
-        return unpack_width<30, Unpacker>(in, out, batch_size, bit_offset);
+        return unpack_width<30, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
+                                          opt.max_read_bytes);
       case 31:
-        return unpack_width<31, Unpacker>(in, out, batch_size, bit_offset);
+        return unpack_width<31, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
+                                          opt.max_read_bytes);
       case 32:
-        return unpack_width<32, Unpacker>(in, out, batch_size, bit_offset);
+        return unpack_width<32, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
+                                          opt.max_read_bytes);
     }
   } else if constexpr (sizeof(UnpackedUint) == 8) {
-    switch (num_bits) {
+    switch (opt.bit_width) {
       case 0:
-        return unpack_width<0, Unpacker>(in, out, batch_size, bit_offset);
+        return unpack_width<0, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
+                                         opt.max_read_bytes);
       case 1:
-        return unpack_width<1, Unpacker>(in, out, batch_size, bit_offset);
+        return unpack_width<1, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
+                                         opt.max_read_bytes);
       case 2:
-        return unpack_width<2, Unpacker>(in, out, batch_size, bit_offset);
+        return unpack_width<2, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
+                                         opt.max_read_bytes);
       case 3:
-        return unpack_width<3, Unpacker>(in, out, batch_size, bit_offset);
+        return unpack_width<3, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
+                                         opt.max_read_bytes);
       case 4:
-        return unpack_width<4, Unpacker>(in, out, batch_size, bit_offset);
+        return unpack_width<4, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
+                                         opt.max_read_bytes);
       case 5:
-        return unpack_width<5, Unpacker>(in, out, batch_size, bit_offset);
+        return unpack_width<5, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
+                                         opt.max_read_bytes);
       case 6:
-        return unpack_width<6, Unpacker>(in, out, batch_size, bit_offset);
+        return unpack_width<6, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
+                                         opt.max_read_bytes);
       case 7:
-        return unpack_width<7, Unpacker>(in, out, batch_size, bit_offset);
+        return unpack_width<7, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
+                                         opt.max_read_bytes);
       case 8:
-        return unpack_width<8, Unpacker>(in, out, batch_size, bit_offset);
+        return unpack_width<8, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
+                                         opt.max_read_bytes);
       case 9:
-        return unpack_width<9, Unpacker>(in, out, batch_size, bit_offset);
+        return unpack_width<9, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
+                                         opt.max_read_bytes);
       case 10:
-        return unpack_width<10, Unpacker>(in, out, batch_size, bit_offset);
+        return unpack_width<10, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
+                                          opt.max_read_bytes);
       case 11:
-        return unpack_width<11, Unpacker>(in, out, batch_size, bit_offset);
+        return unpack_width<11, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
+                                          opt.max_read_bytes);
       case 12:
-        return unpack_width<12, Unpacker>(in, out, batch_size, bit_offset);
+        return unpack_width<12, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
+                                          opt.max_read_bytes);
       case 13:
-        return unpack_width<13, Unpacker>(in, out, batch_size, bit_offset);
+        return unpack_width<13, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
+                                          opt.max_read_bytes);
       case 14:
-        return unpack_width<14, Unpacker>(in, out, batch_size, bit_offset);
+        return unpack_width<14, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
+                                          opt.max_read_bytes);
       case 15:
-        return unpack_width<15, Unpacker>(in, out, batch_size, bit_offset);
+        return unpack_width<15, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
+                                          opt.max_read_bytes);
       case 16:
-        return unpack_width<16, Unpacker>(in, out, batch_size, bit_offset);
+        return unpack_width<16, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
+                                          opt.max_read_bytes);
       case 17:
-        return unpack_width<17, Unpacker>(in, out, batch_size, bit_offset);
+        return unpack_width<17, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
+                                          opt.max_read_bytes);
       case 18:
-        return unpack_width<18, Unpacker>(in, out, batch_size, bit_offset);
+        return unpack_width<18, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
+                                          opt.max_read_bytes);
       case 19:
-        return unpack_width<19, Unpacker>(in, out, batch_size, bit_offset);
+        return unpack_width<19, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
+                                          opt.max_read_bytes);
       case 20:
-        return unpack_width<20, Unpacker>(in, out, batch_size, bit_offset);
+        return unpack_width<20, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
+                                          opt.max_read_bytes);
       case 21:
-        return unpack_width<21, Unpacker>(in, out, batch_size, bit_offset);
+        return unpack_width<21, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
+                                          opt.max_read_bytes);
       case 22:
-        return unpack_width<22, Unpacker>(in, out, batch_size, bit_offset);
+        return unpack_width<22, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
+                                          opt.max_read_bytes);
       case 23:
-        return unpack_width<23, Unpacker>(in, out, batch_size, bit_offset);
+        return unpack_width<23, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
+                                          opt.max_read_bytes);
       case 24:
-        return unpack_width<24, Unpacker>(in, out, batch_size, bit_offset);
+        return unpack_width<24, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
+                                          opt.max_read_bytes);
       case 25:
-        return unpack_width<25, Unpacker>(in, out, batch_size, bit_offset);
+        return unpack_width<25, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
+                                          opt.max_read_bytes);
       case 26:
-        return unpack_width<26, Unpacker>(in, out, batch_size, bit_offset);
+        return unpack_width<26, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
+                                          opt.max_read_bytes);
       case 27:
-        return unpack_width<27, Unpacker>(in, out, batch_size, bit_offset);
+        return unpack_width<27, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
+                                          opt.max_read_bytes);
       case 28:
-        return unpack_width<28, Unpacker>(in, out, batch_size, bit_offset);
+        return unpack_width<28, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
+                                          opt.max_read_bytes);
       case 29:
-        return unpack_width<29, Unpacker>(in, out, batch_size, bit_offset);
+        return unpack_width<29, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
+                                          opt.max_read_bytes);
       case 30:
-        return unpack_width<30, Unpacker>(in, out, batch_size, bit_offset);
+        return unpack_width<30, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
+                                          opt.max_read_bytes);
       case 31:
-        return unpack_width<31, Unpacker>(in, out, batch_size, bit_offset);
+        return unpack_width<31, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
+                                          opt.max_read_bytes);
       case 32:
-        return unpack_width<32, Unpacker>(in, out, batch_size, bit_offset);
+        return unpack_width<32, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
+                                          opt.max_read_bytes);
       case 33:
-        return unpack_width<33, Unpacker>(in, out, batch_size, bit_offset);
+        return unpack_width<33, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
+                                          opt.max_read_bytes);
       case 34:
-        return unpack_width<34, Unpacker>(in, out, batch_size, bit_offset);
+        return unpack_width<34, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
+                                          opt.max_read_bytes);
       case 35:
-        return unpack_width<35, Unpacker>(in, out, batch_size, bit_offset);
+        return unpack_width<35, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
+                                          opt.max_read_bytes);
       case 36:
-        return unpack_width<36, Unpacker>(in, out, batch_size, bit_offset);
+        return unpack_width<36, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
+                                          opt.max_read_bytes);
       case 37:
-        return unpack_width<37, Unpacker>(in, out, batch_size, bit_offset);
+        return unpack_width<37, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
+                                          opt.max_read_bytes);
       case 38:
-        return unpack_width<38, Unpacker>(in, out, batch_size, bit_offset);
+        return unpack_width<38, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
+                                          opt.max_read_bytes);
       case 39:
-        return unpack_width<39, Unpacker>(in, out, batch_size, bit_offset);
+        return unpack_width<39, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
+                                          opt.max_read_bytes);
       case 40:
-        return unpack_width<40, Unpacker>(in, out, batch_size, bit_offset);
+        return unpack_width<40, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
+                                          opt.max_read_bytes);
       case 41:
-        return unpack_width<41, Unpacker>(in, out, batch_size, bit_offset);
+        return unpack_width<41, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
+                                          opt.max_read_bytes);
       case 42:
-        return unpack_width<42, Unpacker>(in, out, batch_size, bit_offset);
+        return unpack_width<42, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
+                                          opt.max_read_bytes);
       case 43:
-        return unpack_width<43, Unpacker>(in, out, batch_size, bit_offset);
+        return unpack_width<43, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
+                                          opt.max_read_bytes);
       case 44:
-        return unpack_width<44, Unpacker>(in, out, batch_size, bit_offset);
+        return unpack_width<44, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
+                                          opt.max_read_bytes);
       case 45:
-        return unpack_width<45, Unpacker>(in, out, batch_size, bit_offset);
+        return unpack_width<45, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
+                                          opt.max_read_bytes);
       case 46:
-        return unpack_width<46, Unpacker>(in, out, batch_size, bit_offset);
+        return unpack_width<46, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
+                                          opt.max_read_bytes);
       case 47:
-        return unpack_width<47, Unpacker>(in, out, batch_size, bit_offset);
+        return unpack_width<47, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
+                                          opt.max_read_bytes);
       case 48:
-        return unpack_width<48, Unpacker>(in, out, batch_size, bit_offset);
+        return unpack_width<48, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
+                                          opt.max_read_bytes);
       case 49:
-        return unpack_width<49, Unpacker>(in, out, batch_size, bit_offset);
+        return unpack_width<49, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
+                                          opt.max_read_bytes);
       case 50:
-        return unpack_width<50, Unpacker>(in, out, batch_size, bit_offset);
+        return unpack_width<50, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
+                                          opt.max_read_bytes);
       case 51:
-        return unpack_width<51, Unpacker>(in, out, batch_size, bit_offset);
+        return unpack_width<51, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
+                                          opt.max_read_bytes);
       case 52:
-        return unpack_width<52, Unpacker>(in, out, batch_size, bit_offset);
+        return unpack_width<52, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
+                                          opt.max_read_bytes);
       case 53:
-        return unpack_width<53, Unpacker>(in, out, batch_size, bit_offset);
+        return unpack_width<53, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
+                                          opt.max_read_bytes);
       case 54:
-        return unpack_width<54, Unpacker>(in, out, batch_size, bit_offset);
+        return unpack_width<54, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
+                                          opt.max_read_bytes);
       case 55:
-        return unpack_width<55, Unpacker>(in, out, batch_size, bit_offset);
+        return unpack_width<55, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
+                                          opt.max_read_bytes);
       case 56:
-        return unpack_width<56, Unpacker>(in, out, batch_size, bit_offset);
+        return unpack_width<56, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
+                                          opt.max_read_bytes);
       case 57:
-        return unpack_width<57, Unpacker>(in, out, batch_size, bit_offset);
+        return unpack_width<57, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
+                                          opt.max_read_bytes);
       case 58:
-        return unpack_width<58, Unpacker>(in, out, batch_size, bit_offset);
+        return unpack_width<58, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
+                                          opt.max_read_bytes);
       case 59:
-        return unpack_width<59, Unpacker>(in, out, batch_size, bit_offset);
+        return unpack_width<59, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
+                                          opt.max_read_bytes);
       case 60:
-        return unpack_width<60, Unpacker>(in, out, batch_size, bit_offset);
+        return unpack_width<60, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
+                                          opt.max_read_bytes);
       case 61:
-        return unpack_width<61, Unpacker>(in, out, batch_size, bit_offset);
+        return unpack_width<61, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
+                                          opt.max_read_bytes);
       case 62:
-        return unpack_width<62, Unpacker>(in, out, batch_size, bit_offset);
+        return unpack_width<62, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
+                                          opt.max_read_bytes);
       case 63:
-        return unpack_width<63, Unpacker>(in, out, batch_size, bit_offset);
+        return unpack_width<63, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
+                                          opt.max_read_bytes);
       case 64:
-        return unpack_width<64, Unpacker>(in, out, batch_size, bit_offset);
+        return unpack_width<64, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
+                                          opt.max_read_bytes);
     }
   }
-  ARROW_DCHECK(false) << "Unsupported num_bits " << num_bits;
+  ARROW_DCHECK(false) << "Unsupported num_bits " << opt.bit_width;
 }
 }  // namespace arrow::internal
