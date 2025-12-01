@@ -18,7 +18,7 @@
 class TestFileReader < Test::Unit::TestCase
   def setup
     Dir.mktmpdir do |tmp_dir|
-      table = Arrow::Table.new(uint8: Arrow::UInt8Array.new([1, 2, 3]))
+      table = Arrow::Table.new(value: build_array)
       @path = File.join(tmp_dir, "data.arrow")
       table.save(@path)
       File.open(@path, "rb") do |input|
@@ -40,10 +40,25 @@ class TestFileReader < Test::Unit::TestCase
     end
   end
 
-  def test_uint8
-    assert_equal([
-                   {"uint8" => [1, 2, 3]},
-                 ],
-                 read)
+  sub_test_case("Int8") do
+    def build_array
+      Arrow::Int8Array.new([-128, nil, 127])
+    end
+
+    def test_read
+      assert_equal([{"value" => [-128, nil, 127]}],
+                   read)
+    end
+  end
+
+  sub_test_case("UInt8") do
+    def build_array
+      Arrow::UInt8Array.new([0, nil, 255])
+    end
+
+    def test_uint8
+      assert_equal([{"value" => [0, nil, 255]}],
+                   read)
+    end
   end
 end

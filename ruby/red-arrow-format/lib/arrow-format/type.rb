@@ -33,14 +33,34 @@ module ArrowFormat
   end
 
   class Int8Type < IntType
+    class << self
+      def singleton
+        @singleton ||= new
+      end
+    end
+
     def initialize
       super("Int8", 8, true)
+    end
+
+    def build_array(size, validity_buffer, values_buffer)
+      Int8Array.new(self, size, validity_buffer, values_buffer)
     end
   end
 
   class UInt8Type < IntType
+    class << self
+      def singleton
+        @singleton ||= new
+      end
+    end
+
     def initialize
       super("UInt8", 8, false)
+    end
+
+    def build_array(size, validity_buffer, values_buffer)
+      UInt8Array.new(self, size, validity_buffer, values_buffer)
     end
   end
 end
