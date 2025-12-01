@@ -100,7 +100,7 @@ jobs:
         with:
           ruby-version: ruby
       - name: Install .NET
-        uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4.3.1
+        uses: actions/setup-dotnet@2016bd2012dba4e32de620c46fe006a3ac9f0602 # v5.0.1
         with:
           dotnet-version: '8.0.x'
       - name: Install Dependencies
