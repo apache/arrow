@@ -132,9 +132,9 @@ module ArrowFormat
           case fb_type.bit_width
           when 8
             if fb_type.signed?
-              type = Int8Type.new
+              type = Int8Type.singleton
             else
-              type = UInt8Type.new
+              type = UInt8Type.singleton
             end
           end
         end
@@ -145,7 +145,8 @@ module ArrowFormat
 
     def read_column(field, n_rows, buffers, body)
       case field.type
-      when UInt8Type
+      when Int8Type,
+           UInt8Type
         validity_buffer = buffers.shift
         if validity_buffer.length.zero?
           validity = nil
@@ -155,7 +156,7 @@ module ArrowFormat
 
         values_buffer = buffers.shift
         values = body.slice(values_buffer.offset, values_buffer.length)
-        UInt8Array.new(n_rows, validity, values)
+        field.type.build_array(n_rows, validity, values)
       end
     end
   end
