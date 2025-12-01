@@ -30,6 +30,12 @@ add_arrow_benchmark(converter_benchmark PREFIX "arrow-csv")
 add_arrow_benchmark(parser_benchmark PREFIX "arrow-csv")
 add_arrow_benchmark(writer_benchmark PREFIX "arrow-csv")
 
+if(ARROW_BUILD_FUZZING_UTILITIES)
+  add_executable(arrow-csv-generate-fuzz-corpus generate_fuzz_corpus.cc)
+  target_link_libraries(arrow-csv-generate-fuzz-corpus ${ARROW_UTIL_LIB}
+                        ${ARROW_TEST_LINK_LIBS})
+endif()
+
 add_arrow_fuzz_target(fuzz PREFIX "arrow-csv")
 
 arrow_install_all_headers("arrow/csv")
