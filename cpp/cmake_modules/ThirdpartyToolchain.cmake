@@ -3196,6 +3196,7 @@ function(build_grpc)
       PARENT_SCOPE)
 
   fetchcontent_declare(grpc
+                       ${FC_DECLARE_COMMON_OPTIONS}
                        URL ${GRPC_SOURCE_URL}
                        URL_HASH "SHA256=${ARROW_GRPC_BUILD_SHA256_CHECKSUM}")
 
@@ -3245,16 +3246,11 @@ function(build_grpc)
            " -Wno-attributes -Wno-format-security -Wno-unknown-warning-option")
   endif()
 
-  # Disable install rules for gRPC so it is not installed on our Linux-packages.
-  set(CMAKE_SKIP_INSTALL_RULES ON)
-
   fetchcontent_makeavailable(grpc)
 
-  # CMAKE_SKIP_INSTALL_RULES prevents cmake_install.cmake from being created,
-  # but the parent cmake_install.cmake still tries to include() it.
-  # Create an empty one manually so include() doesn't fail.
-  file(WRITE "${grpc_BINARY_DIR}/cmake_install.cmake"
-       "# gRPC install disabled via CMAKE_SKIP_INSTALL_RULES\n")
+  if(CMAKE_VERSION VERSION_LESS 3.28)
+    set_property(DIRECTORY ${grpc_SOURCE_DIR} PROPERTY EXCLUDE_FROM_ALL TRUE)
+  endif()
 
   # FetchContent builds gRPC libraries without gRPC:: prefix.
   # Create gRPC:: alias targets for consistency.
