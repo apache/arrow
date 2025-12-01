@@ -3207,23 +3207,15 @@ function(build_grpc)
   prepare_fetchcontent()
 
   if(PROTOBUF_VENDORED)
-    set(_gRPC_PROTOBUF_LIBRARIES
-        "protobuf::libprotobuf"
-        CACHE STRING "" FORCE)
+    set(_gRPC_PROTOBUF_LIBRARIES "protobuf::libprotobuf")
 
-    set(_gRPC_PROTOBUF_PROTOC_LIBRARIES
-        "protobuf::libprotoc"
-        CACHE STRING "" FORCE)
+    set(_gRPC_PROTOBUF_PROTOC_LIBRARIES "protobuf::libprotoc")
 
-    set(_gRPC_PROTOBUF_PROTOC_EXECUTABLE
-        "$<TARGET_FILE:protobuf::protoc>"
-        CACHE STRING "" FORCE)
+    set(_gRPC_PROTOBUF_PROTOC_EXECUTABLE "$<TARGET_FILE:protobuf::protoc>")
 
     # gRPC needs this at configure time.
     get_filename_component(_protobuf_root_dir "${protobuf_SOURCE_DIR}" DIRECTORY)
-    set(_gRPC_PROTOBUF_WELLKNOWN_INCLUDE_DIR
-        "${_protobuf_root_dir}/src"
-        CACHE STRING "" FORCE)
+    set(_gRPC_PROTOBUF_WELLKNOWN_INCLUDE_DIR "${_protobuf_root_dir}/src")
   endif()
 
   # Use "none" provider for c-ares or re2, either we vendored it or we already found it.
@@ -3247,12 +3239,8 @@ function(build_grpc)
   set(gRPC_ZLIB_PROVIDER
       "package"
       CACHE STRING "" FORCE)
-  set(gRPC_INSTALL
-      OFF
-      CACHE BOOL "" FORCE)
-  set(gRPC_BUILD_TESTS
-      OFF
-      CACHE BOOL "" FORCE)
+  set(gRPC_INSTALL OFF)
+  set(gRPC_BUILD_TESTS OFF)
 
   # Add warning suppression flags for gRPC build.
   if(NOT MSVC)
