@@ -2862,7 +2862,16 @@ function(build_re2)
   # Unity build causes some build errors
   set(CMAKE_UNITY_BUILD OFF)
 
+  # Disable install rules for RE2 so it is not installed on centos-7.
+  # This can be removed once we drop centos-7 support (GH-40735).
+  set(CMAKE_SKIP_INSTALL_RULES ON)
+
   fetchcontent_makeavailable(re2)
+
+  # We have to create an empty cmake_install.cmake so include() doesn't fail but doesn't install anything.
+  # This can be removed once we drop centos-7 support (GH-40735).
+  file(WRITE "${re2_BINARY_DIR}/cmake_install.cmake"
+       "# RE2 install disabled via CMAKE_SKIP_INSTALL_RULES\n")
 
   set(ARROW_BUNDLED_STATIC_LIBS
       ${ARROW_BUNDLED_STATIC_LIBS} re2::re2
