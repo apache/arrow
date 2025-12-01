@@ -17,7 +17,6 @@
 
 #include <array>
 
-#include "arrow/util/bpacking_dispatch_internal.h"
 #include "arrow/util/bpacking_internal.h"
 #include "arrow/util/bpacking_scalar_internal.h"
 #include "arrow/util/bpacking_simd_internal.h"
@@ -52,19 +51,19 @@ struct UnpackDynamicFunction {
 }  // namespace
 
 template <typename Uint>
-void unpack(const uint8_t* in, Uint* out, int batch_size, int num_bits, int bit_offset) {
+void unpack(const uint8_t* in, Uint* out, const UnpackOptions& opts) {
 #if defined(ARROW_HAVE_NEON)
-  return unpack_neon(in, out, batch_size, num_bits, bit_offset);
+  return unpack_neon(in, out, opts);
 #else
   static DynamicDispatch<UnpackDynamicFunction<Uint> > dispatch;
-  return dispatch.func(in, out, batch_size, num_bits, bit_offset);
+  return dispatch.func(in, out, opts);
 #endif
 }
 
-template void unpack<bool>(const uint8_t*, bool*, int, int, int);
-template void unpack<uint8_t>(const uint8_t*, uint8_t*, int, int, int);
-template void unpack<uint16_t>(const uint8_t*, uint16_t*, int, int, int);
-template void unpack<uint32_t>(const uint8_t*, uint32_t*, int, int, int);
-template void unpack<uint64_t>(const uint8_t*, uint64_t*, int, int, int);
+template void unpack<bool>(const uint8_t*, bool*, const UnpackOptions&);
+template void unpack<uint8_t>(const uint8_t*, uint8_t*, const UnpackOptions&);
+template void unpack<uint16_t>(const uint8_t*, uint16_t*, const UnpackOptions&);
+template void unpack<uint32_t>(const uint8_t*, uint32_t*, const UnpackOptions&);
+template void unpack<uint64_t>(const uint8_t*, uint64_t*, const UnpackOptions&);
 
 }  // namespace arrow::internal
