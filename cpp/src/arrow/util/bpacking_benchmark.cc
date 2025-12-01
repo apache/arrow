@@ -34,7 +34,7 @@ namespace arrow::internal {
 namespace {
 
 template <typename Int>
-using UnpackFunc = void (*)(const uint8_t*, Int*, int, int, int);
+using UnpackFunc = void (*)(const uint8_t*, Int*, const UnpackOptions&);
 
 /// Get the number of bytes associate with a packing.
 constexpr int32_t GetNumBytes(int32_t num_values, int32_t bit_width) {
@@ -89,8 +89,15 @@ void BM_Unpack(benchmark::State& state, bool aligned, UnpackFunc<Int> unpack, bo
 
   auto unpacked = std::make_unique<Int[]>(num_values);
 
+  const ::arrow::internal::UnpackOptions opts{
+      /* .batch_size= */ num_values,
+      /* .bit_width= */ bit_width,
+      /* .bit_offset= */ 0,
+      /* .max_read_bytes= */ -1,
+  };
+
   for (auto _ : state) {
-    unpack(packed_ptr, unpacked.get(), num_values, bit_width, /* bit_offset = */ 0);
+    unpack(packed_ptr, unpacked.get(), opts);
     benchmark::ClobberMemory();
   }
   state.SetItemsProcessed(num_values * state.iterations());
