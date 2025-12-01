@@ -31,6 +31,7 @@ RUN apk add \
         bash \
         cmake \
         curl-dev \
+        devscripts \
         g++ \
         gcc \
         git \
