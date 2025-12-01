@@ -40,6 +40,9 @@ RUN apk add \
         openssl-dev \
         pkgconfig \
         texlive \
+        texlive-xetex \
+        texmf-dist-fontsextra \
+        texmf-dist-most \
         zlib-dev && \
     rm -rf /var/cache/apk/* && \
     ln -s /usr/share/zoneinfo/Etc/UTC /etc/localtime && \
