@@ -3223,9 +3223,7 @@ function(build_grpc)
   set(gRPC_RE2_PROVIDER "none")
   set(_gRPC_RE2_LIBRARIES "re2::re2")
 
-  set(gRPC_SSL_PROVIDER
-      "package"
-      CACHE STRING "" FORCE)
+  set(gRPC_SSL_PROVIDER "package")
   set(gRPC_ZLIB_PROVIDER "package")
   set(gRPC_INSTALL OFF)
   set(gRPC_BUILD_TESTS OFF)
