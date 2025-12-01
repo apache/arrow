@@ -33,16 +33,15 @@ template <typename UnpackedUint, int kPackedBitSize>
 using Simd128Kernel = Kernel<UnpackedUint, kPackedBitSize, 128>;
 
 template <typename Uint>
-void UNPACK_PLATFORM(const uint8_t* in, Uint* out, int batch_size, int num_bits,
-                     int bit_offset) {
-  return unpack_jump<Simd128Kernel>(in, out, batch_size, num_bits, bit_offset);
+void UNPACK_PLATFORM(const uint8_t* in, Uint* out, const UnpackOptions& opts) {
+  return unpack_jump<Simd128Kernel>(in, out, opts);
 }
 
-template void UNPACK_PLATFORM<bool>(const uint8_t*, bool*, int, int, int);
-template void UNPACK_PLATFORM<uint8_t>(const uint8_t*, uint8_t*, int, int, int);
-template void UNPACK_PLATFORM<uint16_t>(const uint8_t*, uint16_t*, int, int, int);
-template void UNPACK_PLATFORM<uint32_t>(const uint8_t*, uint32_t*, int, int, int);
-template void UNPACK_PLATFORM<uint64_t>(const uint8_t*, uint64_t*, int, int, int);
+template void UNPACK_PLATFORM<bool>(const uint8_t*, bool*, const UnpackOptions&);
+template void UNPACK_PLATFORM<uint8_t>(const uint8_t*, uint8_t*, const UnpackOptions&);
+template void UNPACK_PLATFORM<uint16_t>(const uint8_t*, uint16_t*, const UnpackOptions&);
+template void UNPACK_PLATFORM<uint32_t>(const uint8_t*, uint32_t*, const UnpackOptions&);
+template void UNPACK_PLATFORM<uint64_t>(const uint8_t*, uint64_t*, const UnpackOptions&);
 
 }  // namespace arrow::internal
 
