@@ -29,9 +29,9 @@ RUN apk add \
         R-dev \
         R-doc \
         bash \
+        checkbashisms \
         cmake \
         curl-dev \
-        devscripts \
         g++ \
         gcc \
         git \
