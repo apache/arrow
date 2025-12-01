@@ -2854,22 +2854,15 @@ function(build_re2)
       PARENT_SCOPE)
 
   fetchcontent_declare(re2
+                       ${FC_DECLARE_COMMON_OPTIONS}
                        URL ${RE2_SOURCE_URL}
-                       URL_HASH "SHA256=${ARROW_RE2_BUILD_SHA256_CHECKSUM}"
-                       EXCLUDE_FROM_ALL)
+                       URL_HASH "SHA256=${ARROW_RE2_BUILD_SHA256_CHECKSUM}")
   prepare_fetchcontent()
 
   # Unity build causes some build errors
   set(CMAKE_UNITY_BUILD OFF)
 
-  # Disable install rules for RE2 so it is not installed on our Linux-packages.
-  set(CMAKE_SKIP_INSTALL_RULES ON)
-
   fetchcontent_makeavailable(re2)
-
-  # We have to create an empty cmake_install.cmake so include() doesn't fail but doesn't install anything.
-  file(WRITE "${re2_BINARY_DIR}/cmake_install.cmake"
-       "# RE2 install disabled via CMAKE_SKIP_INSTALL_RULES\n")
 
   set(ARROW_BUNDLED_STATIC_LIBS
       ${ARROW_BUNDLED_STATIC_LIBS} re2::re2
