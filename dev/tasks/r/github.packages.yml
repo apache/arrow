@@ -66,17 +66,16 @@ jobs:
         platform:
           - { runs_on: macos-15-intel, arch: "x86_64" }
           - { runs_on: macos-14, arch: "arm64" }
-        openssl: ['3.0', '1.1']
     env:
-      PKG_ID: r-libarrow-darwin-{{ '${{ matrix.platform.arch }}' }}-openssl-{{ '${{ matrix.openssl }}' }}
-      PKG_FILE: r-libarrow-darwin-{{ '${{ matrix.platform.arch }}' }}-openssl-{{ '${{ matrix.openssl }}' }}-{{ '${{ needs.source.outputs.pkg_version }}' }}.zip
+      PKG_ID: r-libarrow-darwin-{{ '${{ matrix.platform.arch }}' }}-openssl-3.0
+      PKG_FILE: r-libarrow-darwin-{{ '${{ matrix.platform.arch }}' }}-openssl-3.0-{{ '${{ needs.source.outputs.pkg_version }}' }}.zip
     steps:
       {{ macros.github_checkout_arrow(action_v="3")|indent }}
       {{ macros.github_change_r_pkg_version(is_fork, '${{ needs.source.outputs.pkg_version }}')|indent }}
       - name: Install Deps
         run: |
           brew install sccache ninja
-          brew install openssl@{{ '${{ matrix.openssl }}' }}
+          brew install openssl@3.0
       - name: Build libarrow
         shell: bash
         env:
@@ -117,21 +116,9 @@ jobs:
     needs: source
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          - openssl: "3.0"
-            os: ubuntu
-            ubuntu: "22.04"
-          - extra-cmake-flags: >-
-              -DCMAKE_INCLUDE_PATH=/usr/include/openssl11
-              -DCMAKE_LIBRARY_PATH=/usr/lib64/openssl11
-            openssl: "1.1"
-            os: centos
-          - openssl: "1.0"
-            os: centos
     env:
-      PKG_ID: r-libarrow-linux-x86_64-openssl-{{ '${{ matrix.openssl }}' }}
-      PKG_FILE: r-libarrow-linux-x86_64-openssl-{{ '${{ matrix.openssl }}' }}-{{ '${{ needs.source.outputs.pkg_version }}' }}.zip
+      PKG_ID: r-libarrow-linux-x86_64-openssl-3.0
+      PKG_FILE: r-libarrow-linux-x86_64-openssl-3.0-{{ '${{ needs.source.outputs.pkg_version }}' }}.zip
     steps:
       {{ macros.github_checkout_arrow()|indent }}
       {{ macros.github_change_r_pkg_version(is_fork, '${{ needs.source.outputs.pkg_version }}')|indent }}
@@ -139,13 +126,11 @@ jobs:
       - name: Build libarrow
         shell: bash
         env:
-          UBUNTU: {{ '"${{ matrix.ubuntu }}"' }}
+          UBUNTU: "22.04"
         {{ macros.github_set_sccache_envvars()|indent(8) }}
         run: |
           source arrow/ci/scripts/util_enable_core_dumps.sh
-          archery docker run \
-            -e EXTRA_CMAKE_FLAGS="{{ '${{ matrix.extra-cmake-flags }}' }}" \
-            {{ '${{ matrix.os }}' }}-cpp-static
+          archery docker run ubuntu-cpp-static
       - name: Bundle libarrow
         shell: bash
         run: |

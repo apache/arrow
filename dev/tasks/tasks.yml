@@ -283,12 +283,8 @@ tasks:
       custom_version: Unset
     artifacts:
       - r-libarrow-windows-x86_64-{no_rc_r_version}\.zip
-      - r-libarrow-linux-x86_64-openssl-1.0-{no_rc_r_version}\.zip
-      - r-libarrow-linux-x86_64-openssl-1.1-{no_rc_r_version}\.zip
       - r-libarrow-linux-x86_64-openssl-3.0-{no_rc_r_version}\.zip
-      - r-libarrow-darwin-arm64-openssl-1.1-{no_rc_r_version}\.zip
       - r-libarrow-darwin-arm64-openssl-3.0-{no_rc_r_version}\.zip
-      - r-libarrow-darwin-x86_64-openssl-1.1-{no_rc_r_version}\.zip
       - r-libarrow-darwin-x86_64-openssl-3.0-{no_rc_r_version}\.zip
       - r-pkg__bin__windows__contrib__4.5__arrow_{no_rc_r_version}\.zip
       - r-pkg__bin__windows__contrib__4.4__arrow_{no_rc_r_version}\.zip

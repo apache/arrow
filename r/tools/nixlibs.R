@@ -196,12 +196,8 @@ download_binary <- function(lib) {
 #   a binary that is available, to override what this function may discover by
 #   default.
 #   Possible values are:
-#    * "linux-x86_64-openssl-1.0" (OpenSSL 1.0)
-#    * "linux-x86_64-openssl-1.1" (OpenSSL 1.1)
 #    * "linux-x86_64-openssl-3.0" (OpenSSL 3.0)
-#    * "macos-arm64-openssl-1.1" (OpenSSL 1.1)
 #    * "macos-arm64-openssl-3.0" (OpenSSL 3.0)
-#    * "macos-x86_64-openssl-1.1" (OpenSSL 1.1)
 #    * "macos-x86_64-openssl-3.0" (OpenSSL 3.0)
 #    * "windows-x86_64"
 #   These string values, along with `NULL`, are the potential return values of
@@ -341,13 +337,8 @@ get_macos_openssl_dir <- function() {
 
 # (built with newer devtoolset but older glibc (2.17) for broader compatibility, like manylinux2014)
 determine_binary_from_stderr <- function(errs) {
-  if (is.null(attr(errs, "status"))) {
-    # There was no error in compiling: so we found libcurl and OpenSSL >= 1.1,
-    # openssl is < 3.0
-    lg("Found libcurl and OpenSSL >= 1.1")
-    return("openssl-1.1")
-    # Else, check for dealbreakers:
-  } else if (!on_macos && any(grepl("Using libc++", errs, fixed = TRUE))) {
+  # Check for dealbreakers:
+  if (!on_macos && any(grepl("Using libc++", errs, fixed = TRUE))) {
     # Our linux binaries are all built with GNU stdlib so they fail with libc++
     lg("Linux binaries incompatible with libc++")
     return(NULL)
@@ -357,18 +348,14 @@ determine_binary_from_stderr <- function(errs) {
   } else if (header_not_found("openssl/opensslv", errs)) {
     lg("OpenSSL not found")
     return(NULL)
-  } else if (any(grepl("OpenSSL version too old", errs))) {
-    lg("OpenSSL found but version >= 1.0.2 is required for some features")
+  } else if (
+    any(grepl("OpenSSL version too old", errs)) ||
+      any(grepl("Using OpenSSL version 1\\.", errs))
+  ) {
+    lg("OpenSSL found but version >= 3.0.0 is required")
     return(NULL)
-    # Else, determine which other binary will work
-  } else if (any(grepl("Using OpenSSL version 1.0", errs))) {
-    if (on_macos) {
-      lg("OpenSSL 1.0 is not supported on macOS")
-      return(NULL)
-    }
-    lg("Found libcurl and OpenSSL < 1.1")
-    return("openssl-1.0")
-  } else if (any(grepl("Using OpenSSL version 3", errs))) {
+  } else if (any(grepl("Using OpenSSL version 3", errs)) || is.null(attr(errs, "status"))) {
+    # Either explicitly found OpenSSL 3, or no error (assumes OpenSSL 3+)
     lg("Found libcurl and OpenSSL >= 3.0.0")
     return("openssl-3.0")
   }
