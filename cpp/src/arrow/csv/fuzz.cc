@@ -41,11 +41,14 @@ Status FuzzCsvReader(const uint8_t* data, int64_t size) {
   auto io_context = arrow::io::default_io_context();
 
   auto read_options = ReadOptions::Defaults();
-  // Make chunking more likely
+  // Make chunking more likely to exercise chunked reading and optional parallelization.
+  // Most files in the seed corpus are currently in the 4-10 kB range.
   read_options.block_size = 1000;
   auto parse_options = ParseOptions::Defaults();
   auto convert_options = ConvertOptions::Defaults();
   convert_options.auto_dict_encode = true;
+  // This is the default value, but we might want to turn this knob to have a better
+  // mix of dict-encoded and non-dict-encoded columns when reading.
   convert_options.auto_dict_max_cardinality = 50;
 
   auto input_stream =
