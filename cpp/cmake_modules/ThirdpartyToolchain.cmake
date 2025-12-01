@@ -3218,23 +3218,15 @@ function(build_grpc)
   set(gRPC_CARES_PROVIDER
       "none"
       CACHE STRING "" FORCE)
-  set(_gRPC_CARES_LIBRARIES
-      "c-ares::cares"
-      CACHE STRING "" FORCE)
+  set(_gRPC_CARES_LIBRARIES "c-ares::cares")
 
-  set(gRPC_RE2_PROVIDER
-      "none"
-      CACHE STRING "" FORCE)
-  set(_gRPC_RE2_LIBRARIES
-      "re2::re2"
-      CACHE STRING "" FORCE)
+  set(gRPC_RE2_PROVIDER "none")
+  set(_gRPC_RE2_LIBRARIES "re2::re2")
 
   set(gRPC_SSL_PROVIDER
       "package"
       CACHE STRING "" FORCE)
-  set(gRPC_ZLIB_PROVIDER
-      "package"
-      CACHE STRING "" FORCE)
+  set(gRPC_ZLIB_PROVIDER "package")
   set(gRPC_INSTALL OFF)
   set(gRPC_BUILD_TESTS OFF)
 
