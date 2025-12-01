@@ -157,10 +157,12 @@ class BitPackedRun {
   constexpr BitPackedRun() noexcept = default;
 
   constexpr BitPackedRun(const uint8_t* data, rle_size_t values_count,
-                         rle_size_t value_bit_width) noexcept
-      : data_(data), values_count_(values_count) {
+                         rle_size_t value_bit_width, rle_size_t max_read_bytes) noexcept
+      : data_(data), values_count_(values_count), max_read_bytes_(max_read_bytes) {
     ARROW_CHECK_GE(value_bit_width, 0);
     ARROW_CHECK_GE(values_count_, 0);
+    ARROW_CHECK(max_read_bytes < 0 ||
+                bit_util::BytesForBits(value_bit_width * values_count) <= max_read_bytes);
   }
 
   constexpr rle_size_t values_count() const noexcept { return values_count_; }
@@ -174,11 +176,18 @@ class BitPackedRun {
     return static_cast<rle_size_t>(out);
   }
 
+  /// Maximum number of bytes allowed to be read in the buffer.
+  /// This is used for unpacking operations that may need to read more bytes than they
+  /// extract for performance.
+  constexpr rle_size_t raw_data_max_size() const noexcept { return max_read_bytes_; }
+
  private:
   /// The pointer to the beginning of the run
   const uint8_t* data_ = nullptr;
   /// Number of values in this run.
   rle_size_t values_count_ = 0;
+  /// Not the size of the run, but the maximum number of bytes we can read in the buffer.
+  rle_size_t max_read_bytes_ = -1;
 };
 
 /// A parser that emits either a ``BitPackedRun`` or a ``RleRun``.
@@ -337,6 +346,7 @@ class BitPackedRunDecoder {
     data_ = run.raw_data_ptr();
     values_count_ = run.values_count();
     values_read_ = 0;
+    max_read_bytes_ = run.raw_data_max_size();
   }
 
   /// Return the number of values that can be advanced.
@@ -360,21 +370,26 @@ class BitPackedRunDecoder {
   /// left.
   [[nodiscard]] rle_size_t GetBatch(value_type* out, rle_size_t batch_size,
                                     rle_size_t value_bit_width) {
-    const auto steps = std::min(batch_size, remaining());
-    const auto bits_read = values_read_ * value_bit_width;
-    const auto* unread_data = data_ + bits_read / 8;
-    const auto bit_offset = bits_read % 8;
+    const int bits_read = values_read_ * value_bit_width;
+    const int bytes_fully_read = bits_read / 8;
+    const uint8_t* unread_data = data_ + bytes_fully_read;
+
+    const ::arrow::internal::UnpackOptions opts{
+        /* .batch_size= */ std::min(batch_size, remaining()),
+        /* .bit_width= */ value_bit_width,
+        /* .bit_offset= */ bits_read % 8,
+        /* .max_read_bytes= */ max_read_bytes_ - bytes_fully_read,
+    };
 
     if constexpr (std::is_same_v<T, bool>) {
-      ::arrow::internal::unpack(unread_data, out, steps, value_bit_width, bit_offset);
+      ::arrow::internal::unpack(unread_data, out, opts);
 
     } else {
-      ::arrow::internal::unpack(unread_data,
-                                reinterpret_cast<std::make_unsigned_t<value_type>*>(out),
-                                steps, value_bit_width, bit_offset);
+      ::arrow::internal::unpack(
+          unread_data, reinterpret_cast<std::make_unsigned_t<value_type>*>(out), opts);
     }
-    values_read_ += steps;
-    return steps;
+    values_read_ += opts.batch_size;
+    return opts.batch_size;
   }
 
  private:
@@ -384,6 +399,8 @@ class BitPackedRunDecoder {
   rle_size_t values_count_ = 0;
   /// The number of values read by the decoder
   rle_size_t values_read_ = 0;
+  /// Total number of bytes in the buffer that we can over-read.
+  rle_size_t max_read_bytes_ = -1;
 
   static_assert(std::is_integral_v<value_type>,
                 "This class is meant to decode positive integers");
@@ -703,7 +720,8 @@ auto RleBitPackedParser::PeekImpl(Handler&& handler) const
     }
 
     auto control = handler.OnBitPackedRun(
-        BitPackedRun(data_ + header_bytes, values_count, value_bit_width_));
+        BitPackedRun(data_ + header_bytes, values_count, value_bit_width_,
+                     /* .max_read_bytes= */ data_size_ - header_bytes));
 
     return {static_cast<rle_size_t>(bytes_read), control};
   }
