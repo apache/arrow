@@ -70,6 +70,7 @@ struct EncodingTraits<BooleanType> {
   using ArrowType = ::arrow::BooleanType;
   using Accumulator = ::arrow::BooleanBuilder;
   struct DictAccumulator {};
+  struct ReeAccumulator {};
 };
 
 template <>
@@ -80,6 +81,7 @@ struct EncodingTraits<Int32Type> {
   using ArrowType = ::arrow::Int32Type;
   using Accumulator = ::arrow::NumericBuilder<::arrow::Int32Type>;
   using DictAccumulator = ::arrow::Dictionary32Builder<::arrow::Int32Type>;
+  struct ReeAccumulator {};
 };
 
 template <>
@@ -90,6 +92,7 @@ struct EncodingTraits<Int64Type> {
   using ArrowType = ::arrow::Int64Type;
   using Accumulator = ::arrow::NumericBuilder<::arrow::Int64Type>;
   using DictAccumulator = ::arrow::Dictionary32Builder<::arrow::Int64Type>;
+  struct ReeAccumulator {};
 };
 
 template <>
@@ -99,6 +102,7 @@ struct EncodingTraits<Int96Type> {
 
   struct Accumulator {};
   struct DictAccumulator {};
+  struct ReeAccumulator {};
 };
 
 template <>
@@ -109,6 +113,7 @@ struct EncodingTraits<FloatType> {
   using ArrowType = ::arrow::FloatType;
   using Accumulator = ::arrow::NumericBuilder<::arrow::FloatType>;
   using DictAccumulator = ::arrow::Dictionary32Builder<::arrow::FloatType>;
+  struct ReeAccumulator {};
 };
 
 template <>
@@ -119,6 +124,7 @@ struct EncodingTraits<DoubleType> {
   using ArrowType = ::arrow::DoubleType;
   using Accumulator = ::arrow::NumericBuilder<::arrow::DoubleType>;
   using DictAccumulator = ::arrow::Dictionary32Builder<::arrow::DoubleType>;
+  struct ReeAccumulator {};
 };
 
 template <>
@@ -139,6 +145,7 @@ struct EncodingTraits<ByteArrayType> {
     std::vector<std::shared_ptr<::arrow::Array>> chunks;
   };
   using DictAccumulator = ::arrow::Dictionary32Builder<::arrow::BinaryType>;
+  using ReeAccumulator = ::arrow::RunEndEncodedBuilder;
 };
 
 template <>
@@ -149,6 +156,7 @@ struct EncodingTraits<FLBAType> {
   using ArrowType = ::arrow::FixedSizeBinaryType;
   using Accumulator = ::arrow::FixedSizeBinaryBuilder;
   using DictAccumulator = ::arrow::Dictionary32Builder<::arrow::FixedSizeBinaryType>;
+  struct ReeAccumulator {};
 };
 
 class ColumnDescriptor;
@@ -324,12 +332,25 @@ class TypedDecoder : virtual public Decoder {
                           int64_t valid_bits_offset,
                           typename EncodingTraits<DType>::DictAccumulator* builder) = 0;
 
+  virtual int DecodeArrow(
+      int num_values, int null_count, const uint8_t* valid_bits,
+      int64_t valid_bits_offset,
+      typename EncodingTraits<ByteArrayType>::ReeAccumulator* out) = 0;
+
   /// \brief Decode into a DictionaryBuilder ignoring nulls
   ///
   /// \return number of values decoded
   int DecodeArrowNonNull(int num_values,
                          typename EncodingTraits<DType>::DictAccumulator* builder) {
     return DecodeArrow(num_values, 0, /*valid_bits=*/NULLPTR, 0, builder);
+  }
+
+  /// \brief Decode into a RunEndEncodedBuilder ignoring nulls
+  ///
+  /// \return number of values decoded
+  int DecodeArrowNonNull(int num_values,
+                         typename EncodingTraits<ByteArrayType>::ReeAccumulator* out) {
+    return DecodeArrow(num_values, 0, /*valid_bits=*/NULLPTR, 0, out);
   }
 };
 
