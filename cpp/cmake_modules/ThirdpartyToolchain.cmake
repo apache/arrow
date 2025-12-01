@@ -3215,9 +3215,7 @@ function(build_grpc)
   endif()
 
   # Use "none" provider for c-ares or re2, either we vendored it or we already found it.
-  set(gRPC_CARES_PROVIDER
-      "none"
-      CACHE STRING "" FORCE)
+  set(gRPC_CARES_PROVIDER "none")
   set(_gRPC_CARES_LIBRARIES "c-ares::cares")
 
   set(gRPC_RE2_PROVIDER "none")
