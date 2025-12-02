@@ -44,11 +44,11 @@ int import_pyarrow() {
 #ifdef PYPY_VERSION
   PyDateTime_IMPORT;
 #else
-  internal::InitDatetime();
-#endif
-  if (PyErr_Occurred()) {
-    return -1;
+  auto init = internal::InitDatetime();
+  if (init == -1) {
+      return -1;
   }
+#endif
   return ::import_pyarrow__lib();
 }
 

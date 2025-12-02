@@ -77,13 +77,15 @@ static PyStructSequence_Desc MonthDayNanoTupleDesc = {
 #ifndef PYPY_VERSION
 PyDateTime_CAPI* datetime_api = nullptr;
 
-void InitDatetime() {
+int InitDatetime() {
   PyAcquireGIL lock;
   datetime_api =
       reinterpret_cast<PyDateTime_CAPI*>(PyCapsule_Import(PyDateTime_CAPSULE_NAME, 0));
   if (datetime_api == nullptr) {
     PyErr_SetString(PyExc_ImportError, "Could not import datetime C API");
+    return -1;
   }
+  return 0;
 }
 #endif
 
