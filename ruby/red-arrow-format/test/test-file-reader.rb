@@ -56,8 +56,19 @@ class TestFileReader < Test::Unit::TestCase
       Arrow::UInt8Array.new([0, nil, 255])
     end
 
-    def test_uint8
+    def test_read
       assert_equal([{"value" => [0, nil, 255]}],
+                   read)
+    end
+  end
+
+  sub_test_case("Binary") do
+    def build_array
+      Arrow::BinaryArray.new(["Hello".b, nil, "World".b])
+    end
+
+    def test_read
+      assert_equal([{"value" => ["Hello".b, nil, "World".b]}],
                    read)
     end
   end

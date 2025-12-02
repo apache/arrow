@@ -19,11 +19,10 @@ module ArrowFormat
     attr_reader :type
     attr_reader :size
     alias_method :length, :size
-    def initialize(type, size, validity_buffer, values_buffer)
+    def initialize(type, size, validity_buffer)
       @type = type
       @size = size
       @validity_buffer = validity_buffer
-      @values_buffer = values_buffer
     end
 
     def valid?(i)
@@ -55,15 +54,41 @@ module ArrowFormat
     end
   end
 
-  class Int8Array < Array
+  class IntArray < Array
+    def initialize(type, size, validity_buffer, values_buffer)
+      super(type, size, validity_buffer)
+      @values_buffer = values_buffer
+    end
+  end
+
+  class Int8Array < IntArray
     def to_a
       apply_validity(@values_buffer.values(:S8, 0, @size))
     end
   end
 
-  class UInt8Array < Array
+  class UInt8Array < IntArray
     def to_a
       apply_validity(@values_buffer.values(:U8, 0, @size))
+    end
+  end
+
+  class BinaryArray < Array
+    def initialize(type, size, validity_buffer, offsets_buffer, values_buffer)
+      super(type, size, validity_buffer)
+      @offsets_buffer = offsets_buffer
+      @values_buffer = values_buffer
+    end
+
+    def to_a
+      values = @offsets_buffer.
+        each(:s32, 0, @size + 1). # TODO: big endian support
+        each_cons(2).
+        collect do |(_, offset), (_, next_offset)|
+        length = next_offset - offset
+        @values_buffer.get_string(offset, length)
+      end
+      apply_validity(values)
     end
   end
 end

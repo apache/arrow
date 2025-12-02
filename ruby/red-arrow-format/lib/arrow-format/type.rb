@@ -63,4 +63,21 @@ module ArrowFormat
       UInt8Array.new(self, size, validity_buffer, values_buffer)
     end
   end
+
+  class BinaryType < Type
+    class << self
+      def singleton
+        @singleton ||= new
+      end
+    end
+
+    attr_reader :name
+    def initialize
+      super("Binary")
+    end
+
+    def build_array(size, validity_buffer, offsets_buffer, values_buffer)
+      BinaryArray.new(self, size, validity_buffer, offsets_buffer, values_buffer)
+    end
+  end
 end
