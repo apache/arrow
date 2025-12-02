@@ -137,6 +137,8 @@ module ArrowFormat
               type = UInt8Type.singleton
             end
           end
+        when Org::Apache::Arrow::Flatbuf::Binary
+          type = BinaryType.singleton
         end
         Field.new(fb_field.name, type)
       end
@@ -144,19 +146,25 @@ module ArrowFormat
     end
 
     def read_column(field, n_rows, buffers, body)
+      validity_buffer = buffers.shift
+      if validity_buffer.length.zero?
+        validity = nil
+      else
+        validity = body.slice(validity_buffer.offset, validity_buffer.length)
+      end
+
       case field.type
       when Int8Type,
            UInt8Type
-        validity_buffer = buffers.shift
-        if validity_buffer.length.zero?
-          validity = nil
-        else
-          validity = body.slice(validity_buffer.offset, validity_buffer.length)
-        end
-
         values_buffer = buffers.shift
         values = body.slice(values_buffer.offset, values_buffer.length)
         field.type.build_array(n_rows, validity, values)
+      when BinaryType
+        offsets_buffer = buffers.shift
+        values_buffer = buffers.shift
+        offsets = body.slice(offsets_buffer.offset, offsets_buffer.length)
+        values = body.slice(values_buffer.offset, values_buffer.length)
+        field.type.build_array(n_rows, validity, offsets, values)
       end
     end
   end
