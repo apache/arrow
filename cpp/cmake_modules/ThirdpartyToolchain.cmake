@@ -753,7 +753,7 @@ else()
                    ARROW_PROTOBUF_STRIPPED_BUILD_VERSION)
   # strip the leading `v`
   set_urls(PROTOBUF_SOURCE_URL
-           "https://github.com/protocolbuffers/protobuf/releases/download/${ARROW_PROTOBUF_BUILD_VERSION}/protobuf-all-${ARROW_PROTOBUF_STRIPPED_BUILD_VERSION}.tar.gz"
+           "https://github.com/protocolbuffers/protobuf/releases/download/${ARROW_PROTOBUF_BUILD_VERSION}/protobuf-${ARROW_PROTOBUF_STRIPPED_BUILD_VERSION}.tar.gz"
            "${THIRDPARTY_MIRROR_URL}/protobuf-${ARROW_PROTOBUF_BUILD_VERSION}.tar.gz")
 endif()
 
@@ -1884,8 +1884,7 @@ function(build_protobuf)
 
   fetchcontent_declare(protobuf
                        URL ${PROTOBUF_SOURCE_URL}
-                       URL_HASH "SHA256=${ARROW_PROTOBUF_BUILD_SHA256_CHECKSUM}"
-                       SOURCE_SUBDIR cmake)
+                       URL_HASH "SHA256=${ARROW_PROTOBUF_BUILD_SHA256_CHECKSUM}")
 
   prepare_fetchcontent()
 
@@ -3060,26 +3059,29 @@ function(build_absl)
   # Create a target that depends on ALL Abseil libraries that will be installed.
   # This ensures they're all built before we try to install.
   add_custom_target(absl_built
-                    DEPENDS absl::bad_any_cast_impl
-                            absl::bad_optional_access
-                            absl::bad_variant_access
-                            absl::base
+                    DEPENDS absl::base
                             absl::city
                             absl::civil_time
-                            absl::cord
                             absl::cord_internal
+                            absl::cord
                             absl::cordz_functions
                             absl::cordz_handle
                             absl::cordz_info
                             absl::cordz_sample_token
+                            absl::crc_cord_state
+                            absl::crc_cpu_detect
+                            absl::crc_internal
+                            absl::crc32c
                             absl::debugging_internal
+                            absl::decode_rust_punycode
                             absl::demangle_internal
+                            absl::demangle_rust
+                            absl::die_if_null
                             absl::examine_stack
                             absl::exponential_biased
                             absl::failure_signal_handler
-                            absl::flags
-                            absl::flags_commandlineflag
                             absl::flags_commandlineflag_internal
+                            absl::flags_commandlineflag
                             absl::flags_config
                             absl::flags_internal
                             absl::flags_marshalling
@@ -3087,26 +3089,41 @@ function(build_absl)
                             absl::flags_private_handle_accessor
                             absl::flags_program_name
                             absl::flags_reflection
-                            absl::flags_usage
                             absl::flags_usage_internal
+                            absl::flags_usage
                             absl::graphcycles_internal
                             absl::hash
                             absl::hashtablez_sampler
                             absl::int128
+                            absl::kernel_timeout_internal
                             absl::leak_check
-                            absl::leak_check_disable
+                            absl::log_flags
+                            absl::log_globals
+                            absl::log_initialize
+                            absl::log_internal_check_op
+                            absl::log_internal_conditions
+                            absl::log_internal_fnmatch
+                            absl::log_internal_format
+                            absl::log_internal_globals
+                            absl::log_internal_log_sink_set
+                            absl::log_internal_message
+                            absl::log_internal_nullguard
+                            absl::log_internal_proto
+                            absl::log_internal_structured_proto
                             absl::log_severity
+                            absl::log_sink
                             absl::low_level_hash
                             absl::malloc_internal
                             absl::periodic_sampler
+                            absl::poison
                             absl::random_distributions
                             absl::random_internal_distribution_test_util
+                            absl::random_internal_entropy_pool
                             absl::random_internal_platform
-                            absl::random_internal_pool_urbg
-                            absl::random_internal_randen
-                            absl::random_internal_randen_hwaes
                             absl::random_internal_randen_hwaes_impl
+                            absl::random_internal_randen_hwaes
                             absl::random_internal_randen_slow
+                            absl::random_internal_randen
                             absl::random_internal_seed_material
                             absl::random_seed_gen_exception
                             absl::random_seed_sequences
@@ -3119,13 +3136,17 @@ function(build_absl)
                             absl::statusor
                             absl::str_format_internal
                             absl::strerror
-                            absl::strings
+                            absl::string_view
                             absl::strings_internal
+                            absl::strings
                             absl::symbolize
                             absl::synchronization
                             absl::throw_delegate
+                            absl::time_zone
                             absl::time
-                            absl::time_zone)
+                            absl::tracing_internal
+                            absl::utf8_for_code_point
+                            absl::vlog_config_internal)
 
   # google-cloud-cpp requires Abseil to be installed to a known location.
   # We have to do this in two steps to avoid double installation of Abseil
@@ -3226,7 +3247,8 @@ function(build_grpc)
 
   set(gRPC_SSL_PROVIDER "none")
   set(_gRPC_SSL_LIBRARIES "OpenSSL::SSL;OpenSSL::Crypto")
-  set(gRPC_ZLIB_PROVIDER "package")
+  set(gRPC_ZLIB_PROVIDER "none")
+  set(_gRPC_ZLIB_LIBRARIES "ZLIB::ZLIB")
   set(gRPC_INSTALL OFF)
   set(gRPC_BUILD_TESTS OFF)
 
@@ -3251,8 +3273,7 @@ function(build_grpc)
       gpr
       grpc
       grpc++
-      grpc++_reflection
-      upb)
+      grpc++_reflection)
 
   foreach(target ${GRPC_LIBRARY_TARGETS})
     if(TARGET ${target} AND NOT TARGET gRPC::${target})
@@ -3300,8 +3321,7 @@ function(build_grpc)
        gRPC::address_sorting
        gRPC::gpr
        gRPC::grpc
-       gRPC::grpcpp_for_bundling
-       gRPC::upb)
+       gRPC::grpcpp_for_bundling)
   set(ARROW_BUNDLED_STATIC_LIBS
       "${ARROW_BUNDLED_STATIC_LIBS}"
       PARENT_SCOPE)
@@ -3636,8 +3656,6 @@ macro(build_google_cloud_cpp_storage)
     # (and then some regexing)
     list(APPEND
          ARROW_BUNDLED_STATIC_LIBS
-         absl::bad_optional_access
-         absl::bad_variant_access
          absl::base
          absl::civil_time
          absl::cord
